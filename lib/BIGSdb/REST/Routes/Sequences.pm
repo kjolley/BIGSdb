@@ -22,15 +22,23 @@ use warnings;
 use 5.010;
 use JSON;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
-get '/db/:db/sequences'                         => sub { _get_sequences() };
-get '/db/:db/sequences/fields'                  => sub { _get_fields() };
-get '/db/:db/sequences/fields/:field/breakdown' => sub { _get_fields_breakdown() };
+
+sub setup_routes {
+	my $self = setting('self');
+	foreach my $dir ( @{ setting('api_dirs') } ) {
+		get "$dir/db/:db/sequences"                         => sub { _get_sequences() };
+		get "$dir/db/:db/sequences/fields"                  => sub { _get_fields() };
+		get "$dir/db/:db/sequences/fields/:field/breakdown" => sub { _get_fields_breakdown() };
+	}
+	return;
+}
 
 sub _get_sequences {
 	my $self = setting('self');
 	my ($db) = params->{'db'};
 	$self->check_seqdef_database;
-	my $values = { loci => request->uri_for("/db/$db/loci") };
+	my $subdir = setting('subdir');
+	my $values = { loci => request->uri_for("$subdir/db/$db/loci") };
 	my $set_id = $self->get_set_id;
 	my $set_clause =
 	  $set_id
@@ -50,12 +58,13 @@ sub _get_sequences {
 		$values->{'last_updated'} = $last_updated if $last_updated;
 	} else {
 		$set_clause =~ s/^\sAND/ WHERE/x;
+
 		#This is more efficient if we don't need to filter.
 		my ( $count, $last_updated ) =
 		  $self->{'datastore'}->run_query("SELECT SUM(allele_count),MAX(datestamp) FROM locus_stats$set_clause");
 		$values->{'records'}      = int($count);
 		$values->{'last_updated'} = $last_updated if $last_updated;
-		$values->{'fields'}       = request->uri_for("/db/$db/sequences/fields");
+		$values->{'fields'}       = request->uri_for("$subdir/db/$db/sequences/fields");
 	}
 	return $values;
 }
@@ -64,16 +73,17 @@ sub _get_fields {
 	my $self = setting('self');
 	my ($db) = params->{'db'};
 	$self->check_seqdef_database;
+	my $subdir = setting('subdir');
 	return [
 		{
 			name      => 'date_entered',
 			required  => JSON::true,
-			breakdown => request->uri_for("/db/$db/sequences/fields/date_entered/breakdown")
+			breakdown => request->uri_for("$subdir/db/$db/sequences/fields/date_entered/breakdown")
 		},
 		{
 			name      => 'datestamp',
 			required  => JSON::true,
-			breakdown => request->uri_for("/db/$db/sequences/fields/datestamp/breakdown")
+			breakdown => request->uri_for("$subdir/db/$db/sequences/fields/datestamp/breakdown")
 		}
 	];
 }

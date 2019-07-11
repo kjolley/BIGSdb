@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2017, University of Oxford
+#Copyright (c) 2014-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -24,7 +24,13 @@ use Dancer2 appname => 'BIGSdb::REST::Interface';
 use BIGSdb::Utils;
 
 #User routes
-get '/db/:db/users/:user' => sub { _get_user() };
+sub setup_routes {
+	my $self = setting('self');
+	foreach my $dir ( @{ setting('api_dirs') } ) {
+		get "$dir/db/:db/users/:user" => sub { _get_user() };
+	}
+	return;
+}
 
 sub _get_user {
 	my $self    = setting('self');

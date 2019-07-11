@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2018, University of Oxford
+#Copyright (c) 2014-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -25,22 +25,30 @@ use MIME::Base64;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
 #Locus routes
-get '/db/:db/loci'                  => sub { _get_loci() };
-get '/db/:db/loci/:locus'           => sub { _get_locus() };
-post '/db/:db/loci/:locus/sequence' => sub { _query_locus_sequence() };
-post '/db/:db/sequence'             => sub { _query_sequence() };
+sub setup_routes {
+	my $self = setting('self');
+	foreach my $dir ( @{ setting('api_dirs') } ) {
+		get "$dir/db/:db/loci"                  => sub { _get_loci() };
+		get "$dir/db/:db/loci/:locus"           => sub { _get_locus() };
+		post "$dir/db/:db/loci/:locus/sequence" => sub { _query_locus_sequence() };
+		post "$dir/db/:db/sequence"             => sub { _query_sequence() };
+	}
+	return;
+}
 
 sub _get_loci {
 	my $self   = setting('self');
 	my ($db)   = params->{'db'};
-	my $allowed_filters = $self->{'system'}->{'dbtype'} eq 'sequences' ? [qw(alleles_added_after alleles_updated_after)] : [];
+	my $subdir = setting('subdir');
+	my $allowed_filters =
+	  $self->{'system'}->{'dbtype'} eq 'sequences' ? [qw(alleles_added_after alleles_updated_after)] : [];
 	my $set_id = $self->get_set_id;
 	my $set_clause =
 	  $set_id
 	  ? ' WHERE (id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes '
 	  . "WHERE set_id=$set_id)) OR id IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
 	  : '';
-	  my $count_qry = $self->add_filters("SELECT COUNT(*) FROM loci$set_clause",$allowed_filters);
+	my $count_qry   = $self->add_filters( "SELECT COUNT(*) FROM loci$set_clause", $allowed_filters );
 	my $locus_count = $self->{'datastore'}->run_query($count_qry);
 	my $page_values = $self->get_page_values($locus_count);
 	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
@@ -51,13 +59,13 @@ sub _get_loci {
 	my $values = { records => int($locus_count) };
 
 	if (@$loci) {
-		my $path = $self->get_full_path( "/db/$db/loci", $allowed_filters );
+		my $path = $self->get_full_path( "$subdir/db/$db/loci", $allowed_filters );
 		my $paging = $self->get_paging( $path, $pages, $page, $offset );
 		$values->{'paging'} = $paging if %$paging;
 		my @links;
 		foreach my $locus (@$loci) {
 			my $cleaned_locus = $self->clean_locus($locus);
-			push @links, request->uri_for("/db/$db/loci/$cleaned_locus");
+			push @links, request->uri_for("$subdir/db/$db/loci/$cleaned_locus");
 		}
 		$values->{'loci'} = \@links;
 	}
@@ -68,6 +76,7 @@ sub _get_locus {
 	my $self = setting('self');
 	my ( $db, $locus ) = ( params->{'db'}, params->{'locus'} );
 	my $set_id     = $self->get_set_id;
+	my $subdir     = setting('subdir');
 	my $locus_name = $locus;
 	if ($set_id) {
 		$locus_name = $self->{'datastore'}->get_set_locus_real_id( $locus, $set_id );
@@ -116,7 +125,10 @@ sub _get_locus {
 		);
 		if ($is_member) {
 			push @$scheme_member_list,
-			  { scheme => request->uri_for("/db/$db/schemes/$scheme->{'id'}"), description => $scheme->{'name'} };
+			  {
+				scheme      => request->uri_for("$subdir/db/$db/schemes/$scheme->{'id'}"),
+				description => $scheme->{'name'}
+			  };
 		}
 	}
 	if (@$scheme_member_list) {
@@ -124,8 +136,8 @@ sub _get_locus {
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		if ( $self->{'datastore'}->sequences_exist($locus_name) ) {
-			$values->{'alleles'}       = request->uri_for("/db/$db/loci/$locus_name/alleles");
-			$values->{'alleles_fasta'} = request->uri_for("/db/$db/loci/$locus_name/alleles_fasta");
+			$values->{'alleles'}       = request->uri_for("$subdir/db/$db/loci/$locus_name/alleles");
+			$values->{'alleles_fasta'} = request->uri_for("$subdir/db/$db/loci/$locus_name/alleles_fasta");
 		}
 	}
 	return $values;
@@ -140,6 +152,7 @@ sub _query_locus_sequence {
 	$self->check_seqdef_database;
 	$sequence = decode_base64($sequence) if $base64;
 	my $set_id     = $self->get_set_id;
+	my $subdir     = setting('subdir');
 	my $locus_name = $locus;
 
 	if ($set_id) {
@@ -160,7 +173,7 @@ sub _query_locus_sequence {
 		my $matches = $exact_matches->{$locus};
 		foreach my $match (@$matches) {
 			my $filtered = $self->filter_match( $match, { exact => 1 } );
-			$filtered->{'href'} = request->uri_for("/db/$db/loci/$locus/alleles/$match->{'allele'}");
+			$filtered->{'href'} = request->uri_for("$subdir/db/$db/loci/$locus/alleles/$match->{'allele'}");
 			my $field_values =
 			  $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $match->{'allele'} );
 			$filtered->{'linked_data'} = $field_values->{'detailed_values'}
@@ -171,7 +184,7 @@ sub _query_locus_sequence {
 		my $alleles = $exact_matches->{$locus};
 		foreach my $allele_id (@$alleles) {
 			push @exacts,
-			  { allele_id => $allele_id, href => request->uri_for("/db/$db/loci/$locus/alleles/$allele_id") };
+			  { allele_id => $allele_id, href => request->uri_for("$subdir/db/$db/loci/$locus/alleles/$allele_id") };
 		}
 	}
 	my $values = { exact_matches => \@exacts };
@@ -195,6 +208,7 @@ sub _query_sequence {
 	$self->check_seqdef_database;
 	$sequence = decode_base64($sequence) if $base64;
 	my $set_id = $self->get_set_id;
+	my $subdir = setting('subdir');
 
 	if ( !$sequence ) {
 		send_error( 'Required field missing: sequence.', 400 );
@@ -224,7 +238,7 @@ sub _query_sequence {
 				push @$alleles,
 				  {
 					allele_id => $allele_id,
-					href      => request->uri_for("/db/$db/loci/$locus_name/alleles/$allele_id")
+					href      => request->uri_for("$subdir/db/$db/loci/$locus_name/alleles/$allele_id")
 				  };
 			}
 		}
@@ -240,6 +254,7 @@ sub _get_seqdef_definition {
 	my ($locus)    = @_;
 	my $self       = setting('self');
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	my $subdir     = setting('subdir');
 	foreach my $url (qw(description_url url)) {
 		if (
 			   $locus_info->{$url}
@@ -251,7 +266,7 @@ sub _get_seqdef_definition {
 			my $seqdef_locus = $1;
 			if ( $locus_info->{$url} =~ /db=(\w+)/x ) {
 				my $seqdef_config = $1;
-				return "/db/$seqdef_config/loci/$seqdef_locus";
+				return "$subdir/db/$seqdef_config/loci/$seqdef_locus";
 			}
 		}
 	}
@@ -302,14 +317,15 @@ sub _get_description {
 
 sub _get_curators {
 	my ( $values, $locus_name ) = @_;
-	my $self = setting('self');
-	my $db   = params->{'db'};
+	my $self   = setting('self');
+	my $db     = params->{'db'};
+	my $subdir = setting('subdir');
 	my $curators =
 	  $self->{'datastore'}->run_query( 'SELECT curator_id FROM locus_curators WHERE locus=? ORDER BY curator_id',
 		$locus_name, { fetch => 'col_arrayref' } );
 	my @curator_links;
 	foreach my $user_id (@$curators) {
-		push @curator_links, request->uri_for("/db/$db/users/$user_id");
+		push @curator_links, request->uri_for("$subdir/db/$db/users/$user_id");
 	}
 	$values->{'curators'} = \@curator_links if @curator_links;
 	return;

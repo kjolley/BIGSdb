@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017, University of Oxford
+#Copyright (c) 2017-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -24,9 +24,15 @@ use JSON;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
 #Scheme routes
-get '/db/:db/classification_schemes'                           => sub { _get_classification_schemes() };
-get '/db/:db/classification_schemes/:cscheme_id'               => sub { _get_classification_scheme() };
-get '/db/:db/classification_schemes/:cscheme_id/groups/:group' => sub { _get_group() };
+sub setup_routes {
+	my $self = setting('self');
+	foreach my $dir ( @{ setting('api_dirs') } ) {
+		get "$dir/db/:db/classification_schemes"                           => sub { _get_classification_schemes() };
+		get "$dir/db/:db/classification_schemes/:cscheme_id"               => sub { _get_classification_scheme() };
+		get "$dir/db/:db/classification_schemes/:cscheme_id/groups/:group" => sub { _get_group() };
+	}
+	return;
+}
 
 sub _get_classification_schemes {
 	my $self          = setting('self');
@@ -35,8 +41,9 @@ sub _get_classification_schemes {
 	  ->run_query( 'SELECT id FROM classification_schemes ORDER BY id', undef, { fetch => 'col_arrayref' } );
 	my $count     = @$c_scheme_list;
 	my $c_schemes = [];
+	my $subdir    = setting('subdir');
 	foreach my $c_scheme_id (@$c_scheme_list) {
-		push @$c_schemes, request->uri_for("/db/$db/classification_schemes/$c_scheme_id");
+		push @$c_schemes, request->uri_for("$subdir/db/$db/classification_schemes/$c_scheme_id");
 	}
 	my $values = { records => int($count), classification_schemes => $c_schemes };
 	return $values;
@@ -53,9 +60,10 @@ sub _get_classification_scheme {
 	if ( !$c_scheme ) {
 		send_error( "Classification scheme $cscheme_id does not exist.", 404 );
 	}
+	my $subdir = setting('subdir');
 	my $values = {
 		id                  => int($cscheme_id),
-		scheme              => request->uri_for("/db/$db/schemes/$c_scheme->{'scheme_id'}"),
+		scheme              => request->uri_for("$subdir/db/$db/schemes/$c_scheme->{'scheme_id'}"),
 		name                => $c_scheme->{'name'},
 		inclusion_threshold => $c_scheme->{'inclusion_threshold'},
 		relative_threshold  => $c_scheme->{'use_relative_threshold'} ? JSON::true : JSON::false
@@ -77,7 +85,8 @@ sub _get_classification_scheme {
 		my $groups = {};
 		foreach my $group_profile (@$group_profiles) {
 			push @{ $groups->{ $group_profile->{'group_id'} } },
-			  request->uri_for("/db/$db/schemes/$c_scheme->{'scheme_id'}/profiles/$group_profile->{'profile_id'}");
+			  request->uri_for(
+				"$subdir/db/$db/schemes/$c_scheme->{'scheme_id'}/profiles/$group_profile->{'profile_id'}");
 		}
 		$values->{'groups'} = [];
 		foreach my $group ( sort { $a <=> $b } keys %$groups ) {
@@ -96,6 +105,7 @@ sub _get_group {
 	my $params = params;
 	my ( $db, $id, $cs, $group ) = @{$params}{qw(db id cscheme_id group)};
 	$self->check_isolate_database;
+	my $subdir  = setting('subdir');
 	my $cscheme = $self->{'datastore'}
 	  ->run_query( 'SELECT * FROM classification_schemes WHERE id=?', $cs, { fetch => 'row_hashref' } );
 	if ( !$cscheme ) {
@@ -130,9 +140,9 @@ sub _get_group {
 	my $isolate_uris = [];
 
 	foreach my $isolate_id (@$isolate_ids) {
-		push @$isolate_uris, request->uri_for("/db/$db/isolates/$isolate_id");
+		push @$isolate_uris, request->uri_for("$subdir/db/$db/isolates/$isolate_id");
 	}
-	my $path   = $self->get_full_path("/db/$db/classification_schemes/$cs/groups/$group");
+	my $path   = $self->get_full_path("$subdir/db/$db/classification_schemes/$cs/groups/$group");
 	my $paging = $self->get_paging( $path, $pages, $page, $offset );
 	my $values = {
 		records  => $isolate_count,

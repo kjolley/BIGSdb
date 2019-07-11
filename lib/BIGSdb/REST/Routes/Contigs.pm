@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2017, University of Oxford
+#Copyright (c) 2014-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -22,14 +22,22 @@ use warnings;
 use 5.010;
 use JSON;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
-get '/db/:db/isolates/:id/contigs'       => sub { _get_contigs() };
-get '/db/:db/isolates/:id/contigs_fasta' => sub { _get_contigs_fasta() };
-get '/db/:db/contigs/:contig'            => sub { _get_contig() };
+
+sub setup_routes {
+	my $self = setting('self');
+	foreach my $dir ( @{ setting('api_dirs') } ) {
+		get "$dir/db/:db/isolates/:id/contigs"       => sub { _get_contigs() };
+		get "$dir/db/:db/isolates/:id/contigs_fasta" => sub { _get_contigs_fasta() };
+		get "$dir/db/:db/contigs/:contig"            => sub { _get_contig() };
+	}
+	return;
+}
 
 sub _get_contigs {
 	my $self = setting('self');
 	my ( $db, $isolate_id ) = ( params->{'db'}, params->{'id'} );
 	$self->check_isolate_is_valid($isolate_id);
+	my $subdir = setting('subdir');
 	my $contig_count =
 	  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM sequence_bin WHERE isolate_id=?', $isolate_id );
 	my $page_values = $self->get_page_values($contig_count);
@@ -38,12 +46,12 @@ sub _get_contigs {
 	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
 	my $contigs = $self->{'datastore'}->run_query( $qry, $isolate_id, { fetch => 'col_arrayref' } );
 	my $values = { records => int($contig_count) };
-	my $paging = $self->get_paging( "/db/$db/isolates/$isolate_id/contigs", $pages, $page, $offset );
+	my $paging = $self->get_paging( "$subdir/db/$db/isolates/$isolate_id/contigs", $pages, $page, $offset );
 	$values->{'paging'} = $paging if %$paging;
 	my $contig_links = [];
 
 	foreach my $contig_id (@$contigs) {
-		push @$contig_links, request->uri_for("/db/$db/contigs/$contig_id");
+		push @$contig_links, request->uri_for("$subdir/db/$db/contigs/$contig_id");
 	}
 	$values->{'contigs'} = $contig_links;
 	return $values;
@@ -93,18 +101,19 @@ sub _get_contig {
 	if ( !$contig ) {
 		send_error( "Contig id-$contig_id does not exist.", 404 );
 	}
+	my $subdir = setting('subdir');
 	if ( $contig->{'remote_contig'} ) {
 		my $remote =
 		  $self->{'contigManager'}->get_remote_contig( $contig->{'uri'}, { checksum => $contig->{'checksum'} } );
 		$contig->{'sequence'} = $remote->{'sequence'};
 	}
 	my $values = {
-		isolate_id => request->uri_for("/db/$db/isolates/$contig->{'isolate_id'}"),
+		isolate_id => request->uri_for("$subdir/db/$db/isolates/$contig->{'isolate_id'}"),
 		id         => int( $contig->{'id'} ),
 		sequence   => $contig->{'sequence'},
 		length     => length $contig->{'sequence'},
-		sender     => request->uri_for("/db/$db/users/$contig->{'sender'}"),
-		curator    => request->uri_for("/db/$db/users/$contig->{'curator'}")
+		sender     => request->uri_for("$subdir/db/$db/users/$contig->{'sender'}"),
+		curator    => request->uri_for("$subdir/db/$db/users/$contig->{'curator'}")
 	};
 	$values->{'original_designation'} = $contig->{'original_designation'}
 	  if defined $contig->{'original_designation'};
@@ -133,7 +142,7 @@ sub _get_contig {
 			my $locus_name = $self->clean_locus( $tag->{'locus'} );
 			push @$tags,
 			  {
-				locus      => request->uri_for("/db/$db/loci/$tag->{'locus'}"),
+				locus      => request->uri_for("$subdir/db/$db/loci/$tag->{'locus'}"),
 				locus_name => $locus_name,
 				start      => int( $tag->{'start_pos'} ),
 				end        => int( $tag->{'end_pos'} ),

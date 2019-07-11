@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2017, University of Oxford
+#Copyright (c) 2014-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -25,9 +25,15 @@ use constant GENOME_SIZE => 500_000;
 get '/robots.txt' => sub { _get_robots() };
 
 #Resource description routes
-get '/'       => sub { _get_root() };
-get '/db'     => sub { _get_root() };
-get '/db/:db' => sub { _get_db() };
+sub setup_routes {
+	my $self = setting('self');
+	foreach my $dir ( @{setting('api_dirs')} ) {
+		get "$dir"       => sub { _get_root() };
+		get "$dir/db"     => sub { _get_root() };
+		get "$dir/db/:db" => sub { _get_db() };
+	}
+	return;
+}
 
 sub _get_robots {
 	send_file( \"User-agent: *\nDisallow: /\n", content_type => 'text/plain; charset=UTF-8' );
@@ -36,6 +42,7 @@ sub _get_robots {
 
 sub _get_root {
 	my $self            = setting('self');
+	my $subdir = setting('subdir');
 	my $resource_groups = $self->get_resources;
 	my $values          = [];
 	foreach my $resource_group (@$resource_groups) {
@@ -46,7 +53,7 @@ sub _get_root {
 				  {
 					name        => $database->{'dbase_config'},
 					description => $database->{'description'},
-					href        => request->uri_for("/db/$database->{'dbase_config'}")
+					href        => request->uri_for("$subdir/db/$database->{'dbase_config'}")
 				  };
 			}
 			if ($databases) {
@@ -60,6 +67,7 @@ sub _get_root {
 
 sub _get_db {
 	my $self = setting('self');
+	my $subdir = setting('subdir');
 	my $db   = params->{'db'};
 	if ( !$self->{'system'}->{'db'} ) {
 		send_error( "Database '$db' does not exist", 404 );
@@ -67,25 +75,25 @@ sub _get_db {
 	my $set_id  = $self->get_set_id;
 	my $routes  = {};
 	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
-	$routes->{'schemes'} = request->uri_for("/db/$db/schemes") if @$schemes;
+	$routes->{'schemes'} = request->uri_for("$subdir/db/$db/schemes") if @$schemes;
 	my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
-	$routes->{'loci'} = request->uri_for("/db/$db/loci") if @$loci;
-	$routes->{'submissions'} = request->uri_for("/db/$db/submissions")
+	$routes->{'loci'} = request->uri_for("$subdir/db/$db/loci") if @$loci;
+	$routes->{'submissions'} = request->uri_for("$subdir/db/$db/submissions")
 	  if ( $self->{'system'}->{'submissions'} // '' ) eq 'yes';
 
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		$routes->{'isolates'} = request->uri_for("/db/$db/isolates");
-		$routes->{'fields'}   = request->uri_for("/db/$db/fields");
+		$routes->{'isolates'} = request->uri_for("$subdir/db/$db/isolates");
+		$routes->{'fields'}   = request->uri_for("$subdir/db/$db/fields");
 		my $projects = $self->{'datastore'}->run_query('SELECT COUNT(*) FROM projects');
-		$routes->{'projects'} = request->uri_for("/db/$db/projects") if $projects;
+		$routes->{'projects'} = request->uri_for("$subdir/db/$db/projects") if $projects;
 		my $genome_size = BIGSdb::Utils::is_int( params->{'genome_size'} ) ? params->{'genome_size'} : GENOME_SIZE;
 		my $genomes =
 		  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM seqbin_stats WHERE total_length>=?', $genome_size );
 		my $size_param = $genome_size != GENOME_SIZE ? qq(?genome_size=$genome_size) : q();
-		$routes->{'genomes'} = request->uri_for("/db/$db/genomes") . $size_param if $genomes;
+		$routes->{'genomes'} = request->uri_for("$subdir/db/$db/genomes") . $size_param if $genomes;
 		return $routes;
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		$routes->{'sequences'} = request->uri_for("/db/$db/sequences");
+		$routes->{'sequences'} = request->uri_for("$subdir/db/$db/sequences");
 		return $routes;
 	} else {
 		return { title => 'Database configuration is invalid' };

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2018, University of Oxford
+#Copyright (c) 2014-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -25,23 +25,30 @@ use MIME::Base64;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
 #Scheme routes
-get '/db/:db/schemes'                       => sub { _get_schemes() };
-get '/db/:db/schemes/breakdown/:field'      => sub { _get_schemes_breakdown() };
-get '/db/:db/schemes/:scheme'               => sub { _get_scheme() };
-get '/db/:db/schemes/:scheme/loci'          => sub { _get_scheme_loci() };
-get '/db/:db/schemes/:scheme/fields/:field' => sub { _get_scheme_field() };
-post '/db/:db/schemes/:scheme/sequence'     => sub { _query_scheme_sequence() };
+sub setup_routes {
+	my $self = setting('self');
+	foreach my $dir ( @{ setting('api_dirs') } ) {
+		get "$dir/db/:db/schemes"                       => sub { _get_schemes() };
+		get "$dir/db/:db/schemes/breakdown/:field"      => sub { _get_schemes_breakdown() };
+		get "$dir/db/:db/schemes/:scheme"               => sub { _get_scheme() };
+		get "$dir/db/:db/schemes/:scheme/loci"          => sub { _get_scheme_loci() };
+		get "$dir/db/:db/schemes/:scheme/fields/:field" => sub { _get_scheme_field() };
+		post "$dir/db/:db/schemes/:scheme/sequence"     => sub { _query_scheme_sequence() };
+	}
+	return;
+}
 
 sub _get_schemes {
 	my $self        = setting('self');
 	my ($db)        = params->{'db'};
 	my $set_id      = $self->get_set_id;
 	my $schemes     = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+	my $subdir      = setting('subdir');
 	my $values      = { records => int(@$schemes) };
 	my $scheme_list = [];
 	foreach my $scheme (@$schemes) {
 		push @$scheme_list,
-		  { scheme => request->uri_for("/db/$db/schemes/$scheme->{'id'}"), description => $scheme->{'name'} };
+		  { scheme => request->uri_for("$subdir/db/$db/schemes/$scheme->{'id'}"), description => $scheme->{'name'} };
 	}
 	$values->{'schemes'} = $scheme_list;
 	return $values;
@@ -56,22 +63,20 @@ sub _get_schemes_breakdown {
 	if ( !$allowed_fields{$field} ) {
 		send_error( 'Invalid field', 400 );
 	}
-	my $set_id      = $self->get_set_id;
-	
+	my $set_id = $self->get_set_id;
 	my $values = $self->{'datastore'}->run_query(
-		
 		"SELECT p.$field,p.scheme_id,s.name,COUNT(*) AS count FROM profiles p JOIN "
 		  . "schemes s ON p.scheme_id=s.id GROUP BY p.$field,p.scheme_id,s.name",
 		undef,
 		{ fetch => 'all_arrayref', slice => {} }
 	);
-	if ($set_id){
-		my $schemes     = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
-		my %scheme_name = map {$_->{'id'} => $_->{'name'}} @$schemes;
+	if ($set_id) {
+		my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+		my %scheme_name = map { $_->{'id'} => $_->{'name'} } @$schemes;
 		my $filtered_values = [];
-		foreach my $value (@$values){
-			next if !$scheme_name{$value->{'scheme_id'}};
-			$value->{'name'} = $scheme_name{$value->{'scheme_id'}};
+		foreach my $value (@$values) {
+			next if !$scheme_name{ $value->{'scheme_id'} };
+			$value->{'name'} = $scheme_name{ $value->{'scheme_id'} };
 			push @$filtered_values, $value;
 		}
 		return $filtered_values;
@@ -85,17 +90,19 @@ sub _get_scheme {
 	$self->check_scheme($scheme_id);
 	my $values      = {};
 	my $set_id      = $self->get_set_id;
+	my $subdir      = setting('subdir');
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
 	$values->{'id'}                    = int($scheme_id);
 	$values->{'description'}           = $scheme_info->{'name'};
 	$values->{'has_primary_key_field'} = $scheme_info->{'primary_key'} ? JSON::true : JSON::false;
-	$values->{'primary_key_field'} = request->uri_for("/db/$db/schemes/$scheme_id/fields/$scheme_info->{'primary_key'}")
+	$values->{'primary_key_field'} =
+	  request->uri_for("$subdir/db/$db/schemes/$scheme_id/fields/$scheme_info->{'primary_key'}")
 	  if $scheme_info->{'primary_key'};
 	my $scheme_fields      = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $scheme_field_links = [];
 
 	foreach my $field (@$scheme_fields) {
-		push @$scheme_field_links, request->uri_for("/db/$db/schemes/$scheme_id/fields/$field");
+		push @$scheme_field_links, request->uri_for("$subdir/db/$db/schemes/$scheme_id/fields/$field");
 	}
 	if ( $scheme_info->{'primary_key'} && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $allowed_filters = [qw(added_after added_on updated_after updated_on)];
@@ -113,12 +120,12 @@ sub _get_scheme {
 	my $locus_links = [];
 	foreach my $locus (@$loci) {
 		my $cleaned_locus = $self->clean_locus($locus);
-		push @$locus_links, request->uri_for("/db/$db/loci/$cleaned_locus");
+		push @$locus_links, request->uri_for("$subdir/db/$db/loci/$cleaned_locus");
 	}
 	$values->{'loci'} = $locus_links if @$locus_links;
 	if ( $scheme_info->{'primary_key'} && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		$values->{'profiles'}     = request->uri_for("/db/$db/schemes/$scheme_id/profiles");
-		$values->{'profiles_csv'} = request->uri_for("/db/$db/schemes/$scheme_id/profiles_csv");
+		$values->{'profiles'}     = request->uri_for("$subdir/db/$db/schemes/$scheme_id/profiles");
+		$values->{'profiles_csv'} = request->uri_for("$subdir/db/$db/schemes/$scheme_id/profiles_csv");
 
 		#Curators
 		my $curators =
@@ -127,7 +134,7 @@ sub _get_scheme {
 			$scheme_id, { fetch => 'col_arrayref' } );
 		my @curator_links;
 		foreach my $user_id (@$curators) {
-			push @curator_links, request->uri_for("/db/$db/users/$user_id");
+			push @curator_links, request->uri_for("$subdir/db/$db/users/$user_id");
 		}
 		$values->{'curators'} = \@curator_links if @curator_links;
 	}
@@ -140,7 +147,7 @@ sub _get_scheme {
 		foreach my $c_scheme (@$c_scheme_list) {
 			push @$c_schemes,
 			  {
-				href => request->uri_for("/db/$db/classification_schemes/$c_scheme->{'id'}"),
+				href => request->uri_for("$subdir/db/$db/classification_schemes/$c_scheme->{'id'}"),
 				name => $c_scheme->{'name'}
 			  };
 		}
@@ -153,6 +160,7 @@ sub _get_scheme_loci {
 	my $self = setting('self');
 	my ( $db, $scheme_id ) = ( params->{'db'}, params->{'scheme'} );
 	$self->check_scheme($scheme_id);
+	my $subdir = setting('subdir');
 	my $allowed_filters =
 	  $self->{'system'}->{'dbtype'} eq 'sequences' ? [qw(alleles_added_after alleles_updated_after)] : [];
 	my $qry =
@@ -164,7 +172,7 @@ sub _get_scheme_loci {
 
 	foreach my $locus (@$loci) {
 		my $cleaned_locus = $self->clean_locus($locus);
-		push @$locus_links, request->uri_for("/db/$db/loci/$cleaned_locus");
+		push @$locus_links, request->uri_for("$subdir/db/$db/loci/$cleaned_locus");
 	}
 	$values->{'loci'} = $locus_links;
 	return $values;
@@ -202,6 +210,7 @@ sub _query_scheme_sequence {
 		send_error( 'Required field missing: sequence.', 400 );
 	}
 	my $set_id      = $self->get_set_id;
+	my $subdir      = setting('subdir');
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	my $loci        = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $blast_obj   = $self->get_blast_object($loci);
@@ -231,7 +240,7 @@ sub _query_scheme_sequence {
 				push @$alleles,
 				  {
 					allele_id => $allele_id,
-					href      => request->uri_for("/db/$db/loci/$locus_name/alleles/$allele_id")
+					href      => request->uri_for("$subdir/db/$db/loci/$locus_name/alleles/$allele_id")
 				  };
 			}
 		}

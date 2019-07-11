@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2016, University of Oxford
+#Copyright (c) 2015-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -26,14 +26,22 @@ use Dancer2 appname                => 'BIGSdb::REST::Interface';
 use constant REQUEST_TOKEN_EXPIRES => 3600;
 use constant REQUEST_TOKEN_TIMEOUT => 600;
 use constant ACCESS_TOKEN_TIMEOUT  => 600;
-get '/db/:db/oauth/get_request_token' => sub { _get_request_token() };
-get '/db/:db/oauth/get_access_token'  => sub { _get_access_token() };
-get '/db/:db/oauth/get_session_token' => sub { _get_session_token() };
+
+sub setup_routes {
+	my $self = setting('self');
+	foreach my $dir ( @{ setting('api_dirs') } ) {
+		get "$dir/db/:db/oauth/get_request_token" => sub { _get_request_token() };
+		get "$dir/db/:db/oauth/get_access_token"  => sub { _get_access_token() };
+		get "$dir/db/:db/oauth/get_session_token"     => sub { _get_session_token() };
+	}
+	return;
+}
 
 sub _get_request_token {
 	my $self   = setting('self');
 	my $params = params;
 	my $db     = param('db');
+	my $subdir = setting('subdir');
 	if ( !param('oauth_consumer_key') ) {
 		send_error( 'No consumer key submitted', 403 );
 	}
@@ -59,7 +67,7 @@ sub _get_request_token {
 		Net::OAuth->request('request token')->from_hash(
 			$request_params,
 			request_method  => request->method,
-			request_url     => uri_for("/db/$db/oauth/get_request_token"),
+			request_url     => uri_for("$subdir/db/$db/oauth/get_request_token"),
 			consumer_secret => $consumer_secret
 		);
 	};
@@ -110,6 +118,7 @@ sub _get_access_token {
 	my $self   = setting('self');
 	my $params = params;
 	my $db     = param('db');
+	my $subdir = setting('subdir');
 	if ( !param('oauth_consumer_key') ) {
 		send_error( 'No consumer key submitted', 403 );
 	}
@@ -150,7 +159,7 @@ sub _get_access_token {
 		Net::OAuth->request('access token')->from_hash(
 			$request_params,
 			request_method  => request->method,
-			request_url     => uri_for("/db/$db/oauth/get_access_token"),
+			request_url     => uri_for("$subdir/db/$db/oauth/get_access_token"),
 			consumer_secret => $consumer_secret,
 			token_secret    => $request_token->{'secret'},
 		);
@@ -203,6 +212,7 @@ sub _get_session_token {
 	my $self   = setting('self');
 	my $params = params;
 	my $db     = param('db');
+	my $subdir = setting('subdir');
 	if ( !param('oauth_consumer_key') ) {
 		send_error( 'No consumer key submitted', 403 );
 	}
@@ -240,7 +250,7 @@ sub _get_session_token {
 		Net::OAuth->request('protected resource')->from_hash(
 			$request_params,
 			request_method  => request->method,
-			request_url     => uri_for("/db/$db/oauth/get_session_token"),
+			request_url     => uri_for("$subdir/db/$db/oauth/get_session_token"),
 			consumer_secret => $consumer_secret,
 			token_secret    => $access_token->{'secret'},
 		);
