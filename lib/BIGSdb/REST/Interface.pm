@@ -262,7 +262,7 @@ sub _check_kiosk {
 		}
 		my $route = request->request_uri;
 		my @allowed_regex =
-		  ( qr/\/db\/$db\/loci\/\w+\/sequence$/x, qr/\/db\/$db\/sequence$/x, qr/^\/db\/$db\/schemes\/\d+\/sequence$/x );
+		  ( qr/\/db\/$db\/loci\/\w+\/sequence$/x, qr/\/db\/$db\/sequence$/x, qr/\/db\/$db\/schemes\/\d+\/sequence$/x );
 		foreach my $allowed (@allowed_regex) {
 			return if $route =~ $allowed;
 		}
