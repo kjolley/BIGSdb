@@ -47,13 +47,14 @@ sub get_attributes {
 		buttontext  => 'rMLST species id',
 		menutext    => 'Species identification',
 		module      => 'RMLSTSpecies',
-		version     => '1.2.4',
+		version     => '1.2.5',
 		dbtype      => 'isolates',
 		section     => 'info,analysis,postquery',
 		input       => 'query',
 		help        => 'tooltips',
 		system_flag => 'rMLSTSpecies',
 		requires    => 'seqbin',
+		url         => "$self->{'config'}->{'doclink'}/data_analysis/rMLST.html",
 		order       => 40,
 		priority    => 0
 	);
