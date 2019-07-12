@@ -130,7 +130,8 @@ sub _before {
 			last;
 		}
 	}
-	$self->{'instance'} = $request_path =~ /\/db\/([\w\d\-_]+)/x ? $1 : '';
+	my $subdir = setting('subdir');
+	$self->{'instance'} = $request_path =~ /^$subdir\/db\/([\w\d\-_]+)/x ? $1 : '';
 	my $full_path = "$self->{'dbase_config_dir'}/$self->{'instance'}/config.xml";
 	if ( !$self->{'instance'} ) {
 		undef $self->{'system'};
@@ -228,16 +229,17 @@ sub _check_authorization {
 	my $self             = setting('self');
 	my $request_uri      = request->uri();
 	my $authenticated_db = ( $self->{'system'}->{'read_access'} // '' ) ne 'public';
-	my $oauth_route      = "/db/$self->{'instance'}/oauth/";
-	my $submission_route = "/db/$self->{'instance'}/submissions";
+	my $subdir = setting('subdir');
+	my $oauth_route      = "$subdir/db/$self->{'instance'}/oauth/";
+	my $submission_route = "$subdir/db/$self->{'instance'}/submissions";
 	if ( $request_uri =~ /$submission_route/x ) {
 		$self->setup_submission_handler;
 	}
-	if ( ( $authenticated_db && $request_uri !~ /$oauth_route/x ) || $request_uri =~ /$submission_route/x ) {
+	if ( ( $authenticated_db && $request_uri !~ /^$oauth_route/x ) || $request_uri =~ /^$submission_route/x ) {
 		send_error( 'Unauthorized', 401 ) if !$self->_is_authorized;
 	}
 	my $login_requirement = $self->{'datastore'}->get_login_requirement;
-	if ( $login_requirement == OPTIONAL && param('oauth_consumer_key') && $request_uri !~ /$oauth_route/x ) {
+	if ( $login_requirement == OPTIONAL && param('oauth_consumer_key') && $request_uri !~ /^$oauth_route/x ) {
 		$self->_is_authorized;
 	}
 	return;
