@@ -236,6 +236,9 @@ sub _run_blast {
 		}
 		my $path      = $self->_get_cache_dir($cache_name);
 		my $lock_file = "$path/LOCK";
+		my $read_file = "$path/READ_$$";
+		open( my $read_fh, '>', $read_file ) || $self->{'logger'}->error('Cannot write READ file');
+		close $read_fh;
 		if ( -e $lock_file ) {
 
 			#Wait for lock to clear - database is being created by other process.
@@ -252,10 +255,6 @@ sub _run_blast {
 		my $format = $args->{'alignment'} ? 0 : 6;
 		$options->{'num_results'} //= 1_000_000;    #effectively return all results
 		my $fasta_file = "$path/sequences.fas";
-		open( my $fasta_fh, '<', $fasta_file ) || $self->{'logger'}->error("Cannot open $fasta_file for reading");
-
-		#Open shared lock on FASTA file to prevent cache being deleted while being used.
-		flock( $fasta_fh, LOCK_SH ) || $self->{'logger'}->error("Cannot flock $fasta_file");
 		my %params = (
 			-num_threads => $blast_threads,
 			-word_size   => $word_size,
@@ -283,7 +282,7 @@ sub _run_blast {
 			$params{'-evalue'} = 1000;
 		}
 		system( "$self->{'config'}->{'blast+_path'}/$program", %params );
-		close $fasta_fh;
+		unlink $read_file;
 		next if !-e $out_file;
 		if ( $run eq 'DNA' ) {
 			rename( $out_file, "${out_file}.1" );
@@ -739,8 +738,7 @@ sub _delete_cache_if_stale {
 	my $cache_is_stale = -e "$path/stale" || !-s "$path/sequences.fas";
 	my $cache_age      = $self->_get_cache_age($cache_name);
 	if ( $cache_age > $self->{'config'}->{'cache_days'} || $cache_is_stale ) {
-		$self->_delete_cache($cache_name);
-		return 1;
+		return $self->_delete_cache($cache_name);
 	}
 	return;
 }
@@ -753,10 +751,32 @@ sub _get_cache_age {
 	return -M $fasta_file;
 }
 
+sub _get_read_files {
+	my ( $self, $path ) = @_;
+	my @read_files    = glob("$path/READ*");
+	my $returned_list = [];
+	my $age           = 5 * 60;                #5 minutes;
+	foreach my $file (@read_files) {
+		if ( time - ( stat $file )[9] > $age ) {
+			unlink $file;    #Clean out files older than 5 minutes as these may be from crashed processes.
+		} else {
+			push @$returned_list, $file;
+		}
+	}
+	return $returned_list;
+}
+
 sub _delete_cache {
 	my ( $self, $cache_name ) = @_;
 	$self->{'logger'}->info("Deleting cache $cache_name");
-	my $path       = $self->_get_cache_dir($cache_name);
+	my $path = $self->_get_cache_dir($cache_name);
+
+	#Return if BLAST query is currently running.
+	my $read_files = $self->_get_read_files($path);
+	if (@$read_files) {
+		$self->{'logger'}->debug("BLAST query running - cannot delete cache $path.");
+		return;
+	}
 	my $fasta_file = "$path/sequences.fas";
 	my $lock_file  = "$path/LOCK";
 	if ( -e $lock_file ) {
@@ -773,6 +793,7 @@ sub _delete_cache {
 		if (@$err) {
 			$self->{'logger'}->error("Cannot remove cache directory $path");
 		}
+		return 1;
 	} else {
 		$self->{'logger'}->error("Cannot flock $fasta_file: $!");
 	}
