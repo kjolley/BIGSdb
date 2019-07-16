@@ -2314,7 +2314,13 @@ sub get_eav_fields_table_attributes {
 	my @groups = $self->{'system'}->{'eav_groups'} ? ( split /$divider/x, $self->{'system'}->{'eav_groups'} ) : ();
 	my $attributes = [
 		{ name => 'field', type => 'text', required => 1, primary_key => 1, regex => '^[a-zA-Z0-9_\']*$' },
-		{ name => 'value_format', type => 'text', required => 1, optlist => 'integer;float;text;date;boolean' }
+		{
+			name           => 'value_format',
+			type           => 'text',
+			required       => 1,
+			optlist        => 'integer;float;text;date;boolean',
+			no_user_update => 1
+		}
 	];
 	if (@groups) {
 		local $" = q(;);
