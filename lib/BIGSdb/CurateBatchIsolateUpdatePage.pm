@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -661,11 +661,15 @@ sub _prepare_eav_update {
 	my $eav_table = $self->{'datastore'}->get_eav_field_table($field);
 	my $record_exists =
 	  $self->{'datastore'}
-	  ->run_query( "SELECT EXISTS(SELECT * FROM $eav_table WHERE (isolate_id,field)=(?,?))", [ $isolate_id, $field ] )
-	  ;
+	  ->run_query( "SELECT EXISTS(SELECT * FROM $eav_table WHERE (isolate_id,field)=(?,?))", [ $isolate_id, $field ] );
 	if ($record_exists) {
-		$qry = "UPDATE $eav_table SET value=? WHERE (isolate_id,field)=(?,?)";
-		@$args = ( $value, $isolate_id, $field );
+		if ( $value eq q() ) {
+			$qry = "DELETE FROM $eav_table WHERE (isolate_id,field)=(?,?)";
+			@$args = ( $isolate_id, $field );
+		} else {
+			$qry = "UPDATE $eav_table SET value=? WHERE (isolate_id,field)=(?,?)";
+			@$args = ( $value, $isolate_id, $field );
+		}
 	} else {
 		$qry = "INSERT INTO $eav_table (isolate_id,field,value) VALUES (?,?,?)";
 		@$args = ( $isolate_id, $field, $value );
