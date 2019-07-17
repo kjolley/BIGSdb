@@ -52,7 +52,7 @@ sub get_attributes {
 		menutext    => 'Unique combinations',
 		module      => 'Combinations',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/unique_combinations.html",
-		version     => '1.3.1',
+		version     => '1.4.0',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -162,6 +162,7 @@ sub run_job {
 	my $total;
 	my $values   = {};
 	my $progress = 0;
+	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Checking values' } );
 	foreach my $data (@$dataset) {
 		$total++;
 		my $allele_ids = $self->{'datastore'}->get_all_allele_ids( $data->{'id'} );
@@ -174,14 +175,17 @@ sub run_job {
 			if ( $field =~ /^eav_(.*)/x ) {
 				my $eav_field = $1;
 				$values->{ $data->{'id'} }->{$field} =
-				  [ $self->{'datastore'}->get_eav_field_value( $data->{'id'}, $eav_field ) // q(-) ];
+				  $self->{'datastore'}->get_eav_field_value( $data->{'id'}, $eav_field ) // q(-);
 			}
 			if ( $field =~ /^(s_\d+_l_|l_)(.*)/x ) {
 				my $locus = $2;
-				$values->{ $data->{'id'} }->{$field} =
-				  ( defined $allele_ids->{$locus} && $allele_ids->{$locus} ne '' )
-				  ? $allele_ids->{$locus}
-				  : ['-'];
+				if ( defined $allele_ids->{$locus} && $allele_ids->{$locus} ne '' ) {
+					my @alleles = sort @{ $allele_ids->{$locus} };
+					local $" = q(; );
+					$values->{ $data->{'id'} }->{$field} = qq(@alleles);
+				} else {
+					$values->{ $data->{'id'} }->{$field} = q(-);
+				}
 				next;
 			}
 			if ( $field =~ /^s_(\d+)_f_(.*)/x ) {
@@ -193,15 +197,21 @@ sub run_job {
 				foreach my $value (@$scheme_field_values) {
 					$value //= '-';
 				}
-				$values->{ $data->{'id'} }->{$field} = @$scheme_field_values ? $scheme_field_values : ['-'];
+				if (@$scheme_field_values) {
+					my @field_values = sort @{$scheme_field_values};
+					local $" = q(; );
+					$values->{ $data->{'id'} }->{$field} = qq(@field_values);
+				} else {
+					$values->{ $data->{'id'} }->{$field} = q(-);
+				}
 				next;
 			}
 			if ( $field =~ /^c_(.*)/x ) {
 				my $value = $self->{'datastore'}->get_composite_value( $data->{'id'}, $1, $data );
-				$values->{ $data->{'id'} }->{$field} = [$value];
+				$values->{ $data->{'id'} }->{$field} = $value;
 			}
 		}
-		my $new_progress = int( $total / @$ids * 100 );
+		my $new_progress = int( $total / @$ids * 70 );
 
 		#Only update when progress percentage changes when rounded to nearest 1 percent
 		if ( $new_progress > $progress ) {
@@ -211,6 +221,7 @@ sub run_job {
 		}
 		last if $self->{'exit'};
 	}
+	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Counting combinations' } );
 	my $combs = $self->_calculate_combinations( \@fields, $values );
 	$self->_output_results( $job_id, $header, $combs, $total );
 	return;
@@ -218,6 +229,7 @@ sub run_job {
 
 sub _output_results {
 	my ( $self, $job_id, $header, $combs, $total ) = @_;
+	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Creating text file', percent_complete => 80 } );
 	my $filename  = "$job_id.txt";
 	my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
 	open( my $fh, '>', $full_path )
@@ -240,11 +252,7 @@ sub _output_results {
 		$td = $td == 1 ? 2 : 1;
 	}
 	close $fh;
-	my $msg =
-	    q(<p>Number of unique combinations: )
-	  . ( keys %$combs ) . q(</p>)
-	  . q(<p>The percentages may add up to more than 100% if you have selected loci or scheme )
-	  . q(fields with multiple values for an isolate.</p>);
+	my $msg = q(<p>Number of unique combinations: ) . ( keys %$combs ) . q(</p>);
 	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $msg } );
 	$self->{'jobManager'}->update_job_output(
 		$job_id,
@@ -255,6 +263,7 @@ sub _output_results {
 			keep_original => 1                                 #Original needed to generate Excel file
 		}
 	);
+	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Creating Excel file', percent_complete => 90 } );
 	my $excel_file = BIGSdb::Utils::text2excel(
 		$full_path,
 		{
@@ -277,12 +286,12 @@ sub _get_field_value {
 	if ( defined $metaset ) {
 		my $value = $self->{'datastore'}->get_metadata_value( $data->{'id'}, $metaset, $metafield );
 		$value = '-' if $value eq '';
-		return [$value];
+		return $value;
 	} elsif ( $field eq 'aliases' ) {
 		my $aliases = $self->{'datastore'}->get_isolate_aliases( $data->{'id'} );
 		local $" = '; ';
 		my $value = @$aliases ? "@$aliases" : '-';
-		return [$value];
+		return $value;
 	} elsif ( $field =~ /(.*)___(.*)/x ) {
 		my ( $isolate_field, $attribute ) = ( $1, $2 );
 		my $value = $self->{'datastore'}->run_query(
@@ -292,10 +301,10 @@ sub _get_field_value {
 			{ cache => 'Combinations::extended_values' }
 		);
 		$value = '-' if !defined $value || $value eq '';
-		return [$value];
+		return $value;
 	} else {
 		my $value = ( defined $data->{$field} && $data->{$field} ne '' ) ? $data->{$field} : '-';
-		return [$value];
+		return $value;
 	}
 }
 
@@ -350,26 +359,23 @@ sub _calculate_combinations {
 
 sub _append_keys {
 	my ( $self, $keys, $fields_to_check, $current_field, $values ) = @_;
+	my $value = $values->{$current_field};
 	if ( !@$keys ) {
-		foreach my $value ( @{ $values->{$current_field} } ) {
-			push @$keys, $value;
-		}
+		push @$keys, $value;
 	} else {
 		foreach my $i ( 0 .. @$keys - 1 ) {
 			my $existing_value = $keys->[$i];
 			my $j              = 0;
 			my %used;
-			foreach my $value ( @{ $values->{$current_field} } ) {
-				next if $used{$value};
-				if ($j) {
-					my $new_value = "$existing_value\_|_$value";
-					push @$keys, $new_value;
-				} else {
-					$keys->[$i] .= "_|_$value";
-					$j = 1;
-				}
-				$used{$value} = 1;
+			next if $used{$value};
+			if ($j) {
+				my $new_value = "$existing_value\_|_$value";
+				push @$keys, $new_value;
+			} else {
+				$keys->[$i] .= "_|_$value";
+				$j = 1;
 			}
+			$used{$value} = 1;
 		}
 	}
 	return if !@$fields_to_check;
