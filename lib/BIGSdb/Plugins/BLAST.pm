@@ -107,7 +107,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.4.9',
+		version     => '1.4.10',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -299,7 +299,7 @@ sub _run_now {
 			return if $self->{'mod_perl_request'}->connection->aborted;
 		}
 	}
-	open( my $fh_output_table, '>', $out_file_table_full_path )
+	open( my $fh_output_table, '>:encoding(utf8)', $out_file_table_full_path )
 	  or $logger->error("Can't open temp file $out_file_table_full_path for writing");
 	say $fh_output_table $file_buffer;
 	close $fh_output_table;
@@ -419,7 +419,7 @@ sub run_job {
 		return if $self->{'exit'};
 	}
 	if ($some_results) {
-		open( my $fh_output_table, '>', $out_file_table_full_path )
+		open( my $fh_output_table, '>:encoding(utf8)', $out_file_table_full_path )
 		  or $logger->error("Can't open temp file $out_file_table_full_path for writing");
 		say $fh_output_table $file_buffer;
 		close $fh_output_table;
