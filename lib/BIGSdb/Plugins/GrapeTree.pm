@@ -43,7 +43,7 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.3.1',
+		version             => '1.3.2',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -218,6 +218,9 @@ sub run {
 		my $params = $q->Vars;
 		$params->{'set_id'} = $self->get_set_id;
 		$q->delete('list');
+		$q->delete('isolate_paste_list');
+		$q->delete('locus_paste_list');
+		$q->delete('isolate_id');
 		foreach my $field_dataset (qw(itol_dataset include_fields)) {
 			my @dataset = $q->param($field_dataset);
 			$q->delete($field_dataset);
