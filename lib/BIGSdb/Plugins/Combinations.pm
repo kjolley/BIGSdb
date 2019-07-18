@@ -232,7 +232,7 @@ sub _output_results {
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Creating text file', percent_complete => 80 } );
 	my $filename  = "$job_id.txt";
 	my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
-	open( my $fh, '>', $full_path )
+	open( my $fh, '>:encoding(utf8)', $full_path )
 	  or $logger->error("Can't open temp file $filename for writing");
 	foreach my $heading (@$header) {
 		my $cleaned_text = $heading;
