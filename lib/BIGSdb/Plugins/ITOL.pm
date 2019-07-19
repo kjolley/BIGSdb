@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext          => 'iTOL',
 		menutext            => 'iTOL',
 		module              => 'ITOL',
-		version             => '1.3.7',
+		version             => '1.3.8',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -510,7 +510,7 @@ sub _create_itol_dataset {
 	my $filename = "${job_id}_$field";
 	$filename .= qq(_$scheme_id) if $scheme_id;
 	my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
-	open( my $fh, '>', $filename ) || $logger->error("Can't open $filename for writing");
+	open( my $fh, '>:encoding(utf8)', $filename ) || $logger->error("Cannot open $filename for writing");
 	my $dataset_type = {
 		text_label    => 'TEXT',
 		colour_strips => 'COLORSTRIP'
