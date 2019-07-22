@@ -52,7 +52,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.3.22',
+		version     => '2.3.23',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -471,7 +471,7 @@ sub run_job {
 				$seq_db->verbose(2);    #convert warn to exception
 				try {
 					my $str;
-					open( my $fh, '>', \$str ) || $logger->error('Cannot open file handle');
+					open( my $fh, '>:encoding(utf8)', \$str ) || $logger->error('Cannot open file handle');
 
 					#Temporarily suppress messages to STDERR
 					{
@@ -817,7 +817,7 @@ sub _get_text_output {
 sub _output_file_buffer {
 	my ( $self, $job_id, $buffer ) = @_;
 	my $job_file = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
-	open( my $job_fh, '>', $job_file ) || $logger->error("Cannot open $job_file for writing");
+	open( my $job_fh, '>:encoding(utf8)', $job_file ) || $logger->error("Cannot open $job_file for writing");
 	say $job_fh $buffer;
 	close $job_fh;
 	$self->{'jobManager'}
@@ -1296,8 +1296,8 @@ BEGIN distances;
    ;
 MATRIX
 NEXUS
-	open( my $nexus_fh, '>', "$self->{'config'}->{'tmp_dir'}/$job_id.nex" )
-	  || $logger->error("Can't open $job_id.nex for writing");
+	open( my $nexus_fh, '>:encoding(utf8)', "$self->{'config'}->{'tmp_dir'}/$job_id.nex" )
+	  || $logger->error("Cannot open $job_id.nex for writing");
 	print $nexus_fh $header;
 	foreach my $i ( 0 .. @ids - 1 ) {
 		print $nexus_fh $labels{ $ids[$i] };
@@ -1358,7 +1358,7 @@ sub align {
 		my $fasta_file  = "$self->{'config'}->{'secure_tmp_dir'}/${temp}_$escaped_locus.fasta";
 		my $aligned_out = "$self->{'config'}->{'secure_tmp_dir'}/${temp}_$escaped_locus.aligned";
 		my $seq_count   = 0;
-		open( my $fasta_fh, '>', $fasta_file ) || $logger->error("Cannot open $fasta_file for writing");
+		open( my $fasta_fh, '>:encoding(utf8)', $fasta_file ) || $logger->error("Cannot open $fasta_file for writing");
 		my $names        = {};
 		my $ids_to_align = [];
 
