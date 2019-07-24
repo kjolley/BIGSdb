@@ -47,7 +47,7 @@ sub get_attributes {
 		buttontext  => 'rMLST species id',
 		menutext    => 'Species identification',
 		module      => 'RMLSTSpecies',
-		version     => '1.2.5',
+		version     => '1.2.6',
 		dbtype      => 'isolates',
 		section     => 'info,analysis,postquery',
 		input       => 'query',
@@ -102,7 +102,7 @@ sub run {
 		if ( @ids > MAX_ISOLATES ) {
 			my $count  = BIGSdb::Utils::commify( scalar @ids );
 			my $max    = BIGSdb::Utils::commify(MAX_ISOLATES);
-			my $plural = $count == 1 ? q() : q(s);
+			my $plural = @ids == 1 ? q() : q(s);
 			say qq(<div class="box statusbad"><p>You have selected $count record$plural. )
 			  . qq(This analysis is limited to $max records.</p></div>);
 			$self->_print_interface;
