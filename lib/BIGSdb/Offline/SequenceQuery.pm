@@ -198,7 +198,7 @@ sub _batch_query {
 	$buffer .= qq(<div class="scrollable">\n$table</div>);
 	my $output_file = BIGSdb::Utils::get_random();
 	my $full_path   = "$self->{'config'}->{'tmp_dir'}/$output_file.txt";
-	open( my $fh, '>', $full_path ) || $self->{'logger'}->error("Cannot open $full_path for writing");
+	open( my $fh, '>:encoding(utf8)', $full_path ) || $self->{'logger'}->error("Cannot open $full_path for writing");
 	say $fh BIGSdb::Utils::convert_html_table_to_text($table);
 	close $fh;
 	my ( $text, $excel ) = ( TEXT_FILE, EXCEL_FILE );
@@ -318,7 +318,8 @@ sub _get_scheme_exact_results {
 			}
 			my $output_file = BIGSdb::Utils::get_random();
 			my $full_path   = "$self->{'config'}->{'tmp_dir'}/$output_file.txt";
-			open( my $fh, '>', $full_path ) || $self->{'logger'}->error("Cannot open $full_path for writing");
+			open( my $fh, '>:encoding(utf8)', $full_path )
+			  || $self->{'logger'}->error("Cannot open $full_path for writing");
 			say $fh BIGSdb::Utils::convert_html_table_to_text($table);
 			close $fh;
 			my ( $text, $excel ) = ( TEXT_FILE, EXCEL_FILE );
@@ -919,10 +920,12 @@ sub _get_differences_output {
 	my $seq1_infile    = "$self->{'config'}->{'secure_tmp_dir'}/${temp}_file1.txt";
 	my $seq2_infile    = "$self->{'config'}->{'secure_tmp_dir'}/${temp}_file2.txt";
 	my $outfile        = "$self->{'config'}->{'tmp_dir'}/${temp}_outfile.txt";
-	open( my $seq1_fh, '>', $seq2_infile ) || $self->{'logger'}->error("Cannot open $seq2_infile for writing");
+	open( my $seq1_fh, '>:encoding(utf8)', $seq2_infile )
+	  || $self->{'logger'}->error("Cannot open $seq2_infile for writing");
 	say $seq1_fh ">Ref\n$$allele_seq_ref";
 	close $seq1_fh;
-	open( my $seq2_fh, '>', $seq1_infile ) || $self->{'logger'}->error("Cannot open $seq1_infile for writing");
+	open( my $seq2_fh, '>:encoding(utf8)', $seq1_infile )
+	  || $self->{'logger'}->error("Cannot open $seq1_infile for writing");
 	say $seq2_fh ">Query\n$$contig_ref";
 	close $seq2_fh;
 	my $reverse = $match->{'reverse'} ? 1 : 0;
@@ -1038,8 +1041,9 @@ sub get_allele_linked_data {
 
 sub _cleanup_alignment {
 	my ( $self, $infile, $outfile ) = @_;
-	open( my $in_fh,  '<', $infile )  || $self->{'logger'}->error("Cannot open $infile for reading");
-	open( my $out_fh, '>', $outfile ) || $self->{'logger'}->error("Cannot open $outfile for writing");
+	open( my $in_fh, '<:encoding(utf8)', $infile ) || $self->{'logger'}->error("Cannot open $infile for reading");
+	open( my $out_fh, '>:encoding(utf8)', $outfile )
+	  || $self->{'logger'}->error("Cannot open $outfile for writing");
 	while (<$in_fh>) {
 		next if $_ =~ /^\#/x;
 		print $out_fh $_;

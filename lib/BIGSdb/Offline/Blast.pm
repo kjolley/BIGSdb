@@ -147,7 +147,8 @@ sub _get_caches_containing_locus {
   CACHE: foreach my $cache (@$caches) {
 		my $locus_file = "$dir/$cache/loci";
 		next if !-e $locus_file;
-		open( my $fh, '<', $locus_file ) || $self->{'logger'}->error("Cannot open $locus_file for reading");
+		open( my $fh, '<:encoding(utf8)', $locus_file )
+		  || $self->{'logger'}->error("Cannot open $locus_file for reading");
 		while ( my $line = <$fh> ) {
 			chomp $line;
 			if ( $line eq $locus ) {
@@ -213,7 +214,7 @@ sub get_contig {
 
 sub _create_query_file {
 	my ( $self, $in_file, $seq_ref ) = @_;
-	open( my $infile_fh, '>', $in_file ) || $self->{'logger'}->error("Cannot open $in_file for writing");
+	open( my $infile_fh, '>:encoding(utf8)', $in_file ) || $self->{'logger'}->error("Cannot open $in_file for writing");
 	say $infile_fh $$seq_ref;
 	close $infile_fh;
 	return;
@@ -255,7 +256,7 @@ sub _run_blast {
 		my $format = $args->{'alignment'} ? 0 : 6;
 		$options->{'num_results'} //= 1_000_000;    #effectively return all results
 		my $fasta_file = "$path/sequences.fas";
-		my %params = (
+		my %params     = (
 			-num_threads => $blast_threads,
 			-word_size   => $word_size,
 			-db          => $fasta_file,
@@ -265,6 +266,7 @@ sub _run_blast {
 			-$filter     => 'no'
 		);
 		$options->{'num_results'} = $args->{'num_results'} if $args->{'num_results'};
+
 		if ( $args->{'alignment'} ) {
 			$params{'-num_alignments'} = $options->{'num_results'};
 		} else {
@@ -605,7 +607,7 @@ sub _is_match_reversed {
 sub _read_blast_file_into_structure {
 	my ( $self, $blast_file ) = @_;
 	if ( !$self->{'records'} ) {
-		open( my $blast_fh, '<', $blast_file )
+		open( my $blast_fh, '<:encoding(utf8)', $blast_file )
 		  || ( $self->{'logger'}->error("Cannot open BLAST output file $blast_file. $!"), return \$; );
 		$self->{'records'} = [];
 		my @lines = <$blast_fh>;
@@ -621,7 +623,7 @@ sub _read_blast_file_into_structure {
 sub _get_shortest_seq_length {
 	my ( $self, $fasta ) = @_;
 	my $shortest = INF;
-	open( my $fh, '<', $fasta ) || $self->{'logger'}->error("Cannot open $fasta for reading");
+	open( my $fh, '<:encoding(utf8)', $fasta ) || $self->{'logger'}->error("Cannot open $fasta for reading");
 	while ( my $line = <$fh> ) {
 		next if $line =~ /^>/x;
 		chomp $line;
@@ -683,7 +685,7 @@ sub _create_blast_database {
 	make_path($path);      #In case directory has since been deleted.
 	my $fasta_fh;
 
-	if ( !open( $fasta_fh, '>', $fasta_file ) ) {
+	if ( !open( $fasta_fh, '>:encoding(utf8)', $fasta_file ) ) {
 		$self->{'logger'}->error("Cannot open $fasta_file for writing");
 		return;
 	}
@@ -702,7 +704,7 @@ sub _create_blast_database {
 		( -in => $fasta_file, -logfile => '/dev/null', -dbtype => $db_type ) );
 	my $locus_list_file = "$path/loci";
 	my $locus_fh;
-	if ( !open( $locus_fh, '>', $locus_list_file ) ) {
+	if ( !open( $locus_fh, '>:encoding(utf8)', $locus_list_file ) ) {
 		$self->{'logger'}->error("Cannot open $locus_list_file for writing");
 		return;
 	}
@@ -873,7 +875,8 @@ sub _get_cache_loci {
 		return [];
 	}
 	my $loci = [];
-	open( my $fh, '<', $locus_file ) || $self->{'logger'}->error("Cannot open locus file $locus_file");
+	open( my $fh, '<:encoding(utf8)', $locus_file )
+	  || $self->{'logger'}->error("Cannot open locus file $locus_file");
 	while ( my $locus = <$fh> ) {
 		chomp $locus;
 		push @$loci, $locus;

@@ -443,7 +443,7 @@ sub _update_status_file {
 
 sub _write_results_file {
 	my ( $self, $filename, $buffer ) = @_;
-	open( my $fh, '>', $filename ) || $logger->error("Cannot open $filename for writing");
+	open( my $fh, '>:encoding(utf8)', $filename ) || $logger->error("Cannot open $filename for writing");
 	say $fh $buffer;
 	close $fh;
 	return;
