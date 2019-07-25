@@ -52,7 +52,7 @@ sub get_attributes {
 		menutext    => 'Unique combinations',
 		module      => 'Combinations',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/unique_combinations.html",
-		version     => '1.4.0',
+		version     => '1.4.1',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -85,7 +85,7 @@ sub run {
 		$self->_print_interface;
 		return;
 	}
-	my $ids = $self->filter_list_to_ids( [ $q->param('isolate_id') ] );
+	my $ids = $self->filter_list_to_ids( [ $q->multi_param('isolate_id') ] );
 	my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list( { dont_clear => 1 } );
 	push @$ids, @$pasted_cleaned_ids;
 	@$ids = uniq @$ids;

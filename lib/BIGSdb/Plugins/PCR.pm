@@ -45,7 +45,7 @@ sub get_attributes {
 		buttontext  => 'PCR',
 		menutext    => 'In silico PCR',
 		module      => 'PCR',
-		version     => '1.0.2',
+		version     => '1.0.3',
 		dbtype      => 'isolates',
 		section     => 'info,analysis,postquery',
 		input       => 'query',
@@ -120,7 +120,7 @@ sub _print_interface {
 	}
 	say $q->start_form;
 	say q(<div class="scrollable">);
-	if ( BIGSdb::Utils::is_int( $q->param('single_isolate') ) ) {
+	if ( BIGSdb::Utils::is_int( scalar $q->param('single_isolate') ) ) {
 		my $isolate_id = $q->param('single_isolate');
 		my $name       = $self->get_isolate_name_from_id($isolate_id);
 		say q(<fieldset style="float:left"><legend>Selected record</legend>);
@@ -204,7 +204,7 @@ sub _print_interface {
 sub _validate {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
-	my @ids    = $q->param('isolate_id');
+	my @ids    = $q->multi_param('isolate_id');
 	my ( $pasted_cleaned_ids, $invalid_ids ) =
 	  $self->get_ids_from_pasted_list( { dont_clear => 1, has_seqbin => 1 } );
 	push @ids, @$pasted_cleaned_ids;
@@ -225,7 +225,7 @@ sub _validate {
 			push @errors,
 			  'Primer 1 has more than the allowed proportion (' . MAX_WOBBLE_PERCENT . '%) of wobble bases.';
 		}
-		my $mismatch1 = BIGSdb::Utils::is_int( $q->param('mismatch1') ) ? $q->param('mismatch1') : 0;
+		my $mismatch1 = BIGSdb::Utils::is_int( scalar $q->param('mismatch1') ) ? $q->param('mismatch1') : 0;
 		if ( 100 * ( $mismatch1 + $primer1_wobble ) / length($primer1) > MAX_MISMATCH_PERCENT ) {
 			push @errors,
 			    'The mismatch setting for primer 1 is too high. This, combined with the number of wobble bases, '
@@ -247,7 +247,8 @@ sub _validate {
 			push @errors,
 			  'Primer 2 has more than the allowed proportion (' . MAX_WOBBLE_PERCENT . '%) of wobble bases.';
 		}
-		my $mismatch2 = BIGSdb::Utils::is_int( $q->param('mismatch2') ) ? $q->param('mismatch2') : 0;
+		my $mismatch2 =
+		  BIGSdb::Utils::is_int( scalar $q->param('mismatch2') ) ? $q->param('mismatch2') : 0;
 		if ( 100 * ( $mismatch2 + $primer2_wobble ) / length($primer2) > MAX_MISMATCH_PERCENT ) {
 			push @errors,
 			    'The mismatch setting for primer 2 is too high. This, combined with the number of wobble bases, '

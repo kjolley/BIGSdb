@@ -43,7 +43,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.7.4',
+		version     => '1.7.5',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
@@ -195,7 +195,7 @@ sub run {
 		}
 		my $prefix   = BIGSdb::Utils::get_random();
 		my $filename = "$prefix.txt";
-		my $ids      = $self->filter_list_to_ids( [ $q->param('isolate_id') ] );
+		my $ids      = $self->filter_list_to_ids( [ $q->multi_param('isolate_id') ] );
 		my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list( { dont_clear => 1 } );
 		push @$ids, @$pasted_cleaned_ids;
 		@$ids = uniq @$ids;

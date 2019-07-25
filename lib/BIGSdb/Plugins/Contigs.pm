@@ -44,7 +44,7 @@ sub get_attributes {
 		menutext     => 'Contigs',
 		module       => 'Contigs',
 		url          => "$self->{'config'}->{'doclink'}/data_export/contig_export.html",
-		version      => '1.1.7',
+		version      => '1.1.8',
 		dbtype       => 'isolates',
 		section      => 'export,postquery',
 		input        => 'query',
@@ -109,11 +109,11 @@ sub run {
 	say q(<h1>Contig analysis and export</h1>);
 	return if $self->has_set_changed;
 	if ( $q->param('submit') ) {
-		my $ids = $self->filter_list_to_ids( [ $q->param('isolate_id') ] );
+		my $ids = $self->filter_list_to_ids( [ $q->multi_param('isolate_id') ] );
 		my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list( { dont_clear => 1 } );
 		push @$ids, @$pasted_cleaned_ids;
 		@$ids = uniq @$ids;
-		my $filtered_ids = $self->filter_ids_by_project( $ids, $q->param('project_list') );
+		my $filtered_ids = $self->filter_ids_by_project( $ids, scalar $q->param('project_list') );
 		if (@$invalid_ids) {
 			local $" = ', ';
 			$self->print_bad_status(

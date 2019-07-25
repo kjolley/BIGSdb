@@ -1147,7 +1147,7 @@ sub _run_query {
 		#This changed a query against an isolate extended field from 10s -> 43ms!
 		$qry .= " $dir,$self->{'system'}->{'view'}.id,$self->{'system'}->{'view'}.datestamp;";
 	} else {
-		$qry = $self->get_query_from_temp_file( $q->param('query_file') );
+		$qry = $self->get_query_from_temp_file( scalar $q->param('query_file') );
 		if ( $q->param('list_file') && $q->param('attribute') ) {
 			my $attribute_data = $self->_get_list_attribute_data( $q->param('attribute') );
 			$self->{'datastore'}->create_temp_list_table( $attribute_data->{'data_type'}, $q->param('list_file') );
@@ -1746,7 +1746,7 @@ sub _modify_query_by_membership {
 	my ( $qry_ref, $table, $param, $query_field ) = @{$args}{qw(qry_ref table param query_field)};
 	my $q = $self->{'cgi'};
 	return if !$q->param($param);
-	my @list = $q->param($param);
+	my @list = $q->multi_param($param);
 	my $subqry;
 	my $view = $self->{'system'}->{'view'};
 	if ( any { $_ eq 'any' } @list ) {

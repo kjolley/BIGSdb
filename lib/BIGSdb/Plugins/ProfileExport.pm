@@ -38,7 +38,7 @@ sub get_attributes {
 		menutext    => 'Profiles',
 		buttontext  => 'Profiles',
 		module      => 'ProfileExport',
-		version     => '1.1.1',
+		version     => '1.1.2',
 		dbtype      => 'sequences',
 		seqdb_type  => 'schemes',
 		input       => 'query',
@@ -67,7 +67,7 @@ sub run {
 		return;
 	}
 	if ( $q->param('submit') ) {
-		if ( $self->attempted_spam( \( $q->param('list') ) ) ) {
+		if ( $self->attempted_spam( \( scalar $q->param('list') ) ) ) {
 			$self->print_bad_status( { message => q(Invalid data detected in list.), navbar => 1 } );
 		} else {
 			my $params = $q->Vars;

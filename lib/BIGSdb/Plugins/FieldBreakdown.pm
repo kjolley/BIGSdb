@@ -40,7 +40,7 @@ sub get_attributes {
 		buttontext  => 'Fields',
 		menutext    => 'Single field',
 		module      => 'FieldBreakdown',
-		version     => '2.2.2',
+		version     => '2.2.3',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
@@ -282,7 +282,7 @@ sub run {
 	my $q        = $self->{'cgi'};
 	my $id_table = $self->_create_id_table;
 	if ( $q->param('field') ) {
-		$self->_ajax( $q->param('field') );
+		$self->_ajax( scalar $q->param('field') );
 		return;
 	} elsif ( $q->param('export') && $q->param('format') ) {
 		$self->_export( $q->param('export'), $q->param('format') );

@@ -47,7 +47,7 @@ sub get_attributes {
 		buttontext  => 'rMLST species id',
 		menutext    => 'Species identification',
 		module      => 'RMLSTSpecies',
-		version     => '1.2.6',
+		version     => '1.2.7',
 		dbtype      => 'isolates',
 		section     => 'info,analysis,postquery',
 		input       => 'query',
@@ -67,7 +67,7 @@ sub run {
 	say qq(<h1>rMLST species identification - $desc</h1>);
 	my $q = $self->{'cgi'};
 	if ( $q->param('submit') ) {
-		my @ids = $q->param('isolate_id');
+		my @ids = $q->multi_param('isolate_id');
 		my ( $pasted_cleaned_ids, $invalid_ids ) =
 		  $self->get_ids_from_pasted_list( { dont_clear => 1, has_seqbin => 1 } );
 		push @ids, @$pasted_cleaned_ids;
@@ -405,7 +405,7 @@ sub _print_interface {
 	}
 	say $q->start_form;
 	say q(<div class="scrollable">);
-	if ( BIGSdb::Utils::is_int( $q->param('single_isolate') ) ) {
+	if ( BIGSdb::Utils::is_int( scalar $q->param('single_isolate') ) ) {
 		my $isolate_id = $q->param('single_isolate');
 		my $name       = $self->get_isolate_name_from_id($isolate_id);
 		say q(<h2>Selected record</h2>);

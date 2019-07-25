@@ -43,7 +43,7 @@ sub get_attributes {
 		menutext    => 'Sequence bin',
 		module      => 'SeqbinBreakdown',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/seqbin_breakdown.html",
-		version     => '1.4.5',
+		version     => '1.4.6',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -71,12 +71,12 @@ sub run {
 	return if $self->has_set_changed;
 	my $q = $self->{'cgi'};
 	if ( $q->param('submit') ) {
-		my @ids = $q->param('isolate_id');
+		my @ids = $q->multi_param('isolate_id');
 		my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list( { dont_clear => 1 } );
 		push @ids, @$pasted_cleaned_ids;
 		@ids = sort { $a <=> $b } uniq @ids;
 		my $error;
-		my $filtered_ids = $self->filter_ids_by_project( \@ids, $q->param('project_list') );
+		my $filtered_ids = $self->filter_ids_by_project( \@ids, scalar $q->param('project_list') );
 		if ( !@$filtered_ids ) {
 			$error .= q(<p>You must include one or more isolates. Make sure your selected isolates haven't )
 			  . q(been filtered to none by selecting a project.</p>);

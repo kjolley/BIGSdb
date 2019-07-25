@@ -538,7 +538,7 @@ sub _print_plugin_buttons {
 		);
 		if (@$plugin_names) {
 			my $plugin_buffer;
-			$q->param( 'calling_page', $q->param('page') );
+			$q->param( calling_page => scalar $q->param('page') );
 			foreach my $plugin_name (@$plugin_names) {
 				my $att = $self->{'pluginManager'}->get_plugin_attributes($plugin_name);
 				next if $att->{'min'} && $att->{'min'} > 1;

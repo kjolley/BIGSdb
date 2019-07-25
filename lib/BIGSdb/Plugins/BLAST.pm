@@ -107,7 +107,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.4.10',
+		version     => '1.4.11',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -141,7 +141,7 @@ sub run {
 		$self->_print_interface;
 		return;
 	}
-	my @ids = $q->param('isolate_id');
+	my @ids = $q->multi_param('isolate_id');
 	my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list( { dont_clear => 1 } );
 	push @ids, @$pasted_cleaned_ids;
 	@ids = uniq @ids;
@@ -171,7 +171,7 @@ sub run {
 		$self->_print_interface;
 		return;
 	}
-	my @includes = $q->param('includes');
+	my @includes = $q->multi_param('includes');
 	my $seq      = $q->param('sequence');
 	if ( @ids > MAX_INSTANT_RUN || $q->param('tblastx') ) {
 		my $att       = $self->get_attributes;

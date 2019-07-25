@@ -52,7 +52,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.3.23',
+		version     => '2.3.24',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -76,7 +76,7 @@ sub run {
 	say qq(<h1>Genome Comparator - $desc</h1>);
 	my $q = $self->{'cgi'};
 	if ( $q->param('submit') ) {
-		my $ids = $self->filter_list_to_ids( [ $q->param('isolate_id') ] );
+		my $ids = $self->filter_list_to_ids( [ $q->multi_param('isolate_id') ] );
 		my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list( { dont_clear => 1 } );
 		push @$ids, @$pasted_cleaned_ids;
 		@$ids = uniq @$ids;
@@ -87,8 +87,8 @@ sub run {
 			push @errors, qq(The following isolates in your pasted list are invalid: @$invalid_ids.);
 			$continue = 0;
 		}
-		$q->param( upload_filename      => $q->param('ref_upload') );
-		$q->param( user_genome_filename => $q->param('user_upload') );
+		$q->param( upload_filename      => scalar $q->param('ref_upload') );
+		$q->param( user_genome_filename => scalar $q->param('user_upload') );
 		my ( $ref_upload, $user_upload );
 		if ( $q->param('ref_upload') ) {
 			$ref_upload = $self->_upload_ref_file;
@@ -96,7 +96,7 @@ sub run {
 		if ( $q->param('user_upload') ) {
 			$user_upload = $self->_upload_user_file;
 		}
-		my $filtered_ids = $self->filter_ids_by_project( $ids, $q->param('project_list') );
+		my $filtered_ids = $self->filter_ids_by_project( $ids, scalar $q->param('project_list') );
 		if ( !@$filtered_ids && !$q->param('user_upload') ) {
 			push @errors, q(You must include one or more isolates. Make sure your selected isolates )
 			  . q(haven't been filtered to none by selecting a project.);

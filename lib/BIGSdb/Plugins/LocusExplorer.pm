@@ -42,7 +42,7 @@ sub get_attributes {
 		menutext         => 'Locus Explorer',
 		module           => 'LocusExplorer',
 		url              => "$self->{'config'}->{'doclink'}/data_analysis/locus_explorer.html",
-		version          => '1.3.11',
+		version          => '1.3.12',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		input            => 'query',
@@ -109,7 +109,7 @@ sub run {
 	}
 	my $locus = $q->param('locus');
 	$locus =~ s/^cn_//x;
-	my @allele_ids = $q->param('allele_ids');
+	my @allele_ids = $q->multi_param('allele_ids');
 	if ( $q->param('submit') ) {
 		my $total_seq_count =
 		  $self->{'datastore'}

@@ -81,13 +81,7 @@ sub run {
 		$self->_print_interface;
 		return;
 	}
-	my $loci_selected = $self->get_selected_loci;
-	my ( $pasted_cleaned_loci, $invalid_loci ) = $self->get_loci_from_pasted_list;
-	$q->delete('locus');
-	push @$loci_selected, @$pasted_cleaned_loci;
-	@$loci_selected = uniq @$loci_selected;
-	$self->add_scheme_loci($loci_selected);
-	my @ids = $q->param('isolate_id');
+	my @ids = $q->multi_param('isolate_id');
 	my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list( { dont_clear => 1 } );
 	push @ids, @$pasted_cleaned_ids;
 	@ids = uniq @ids;
@@ -565,8 +559,8 @@ sub _breakdown {
 		field1        => $field1,
 		field2        => $field2,
 		field2_values => $field2values,
-		calcpc        => $q->param('calcpc'),
-		display       => $q->param('display')
+		calcpc        => scalar $q->param('calcpc'),
+		display       => scalar $q->param('display')
 	};
 	my ( $html_table, $text_table ) = $self->_generate_tables($args);
 	say $fh $$text_table;

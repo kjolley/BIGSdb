@@ -468,15 +468,15 @@ sub get_selected_fields {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
 	my $fields     = [];
-	my @provenance = $q->param('fields');
+	my @provenance = $q->multi_param('fields');
 	push @$fields, qq(f_$_) foreach @provenance;
 	if ( $q->param('eav_fields') ) {
-		my @eav_fields = $q->param('eav_fields');
+		my @eav_fields = $q->multi_param('eav_fields');
 		foreach my $eav_field (@eav_fields) {
 			push @$fields, "eav_$eav_field";
 		}
 	}
-	my @composite = $q->param('composite_fields');
+	my @composite = $q->multi_param('composite_fields');
 	push @$fields, qq(c_$_) foreach @composite;
 	my $set_id        = $self->get_set_id;
 	my $loci          = $self->{'datastore'}->get_loci( { set_id => $set_id } );
@@ -837,7 +837,7 @@ sub filter_ids_by_project {
 sub get_selected_loci {
 	my ($self) = @_;
 	$self->escape_params;
-	my @loci = $self->{'cgi'}->param('locus');
+	my @loci = $self->{'cgi'}->multi_param('locus');
 	my @loci_selected;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $pattern = LOCUS_PATTERN;
@@ -1125,7 +1125,7 @@ sub print_recommended_scheme_fieldset {
 sub add_recommended_scheme_loci {
 	my ( $self, $loci ) = @_;
 	my $q              = $self->{'cgi'};
-	my @schemes        = $q->param('recommended_schemes');
+	my @schemes        = $q->multi_param('recommended_schemes');
 	my %locus_selected = map { $_ => 1 } @$loci;
 	foreach my $scheme_id (@schemes) {
 		next if !BIGSdb::Utils::is_int($scheme_id);

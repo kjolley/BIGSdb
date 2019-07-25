@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -109,7 +109,7 @@ sub _autofill {
 	my $q           = $self->{'cgi'};
 	my @errors;
 	my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
-	if ( $scheme_field_info->{'type'} eq 'integer' && !BIGSdb::Utils::is_int( $q->param($primary_key) ) ) {
+	if ( $scheme_field_info->{'type'} eq 'integer' && !BIGSdb::Utils::is_int( scalar $q->param($primary_key) ) ) {
 		push @errors, "$primary_key is an integer field.";
 	}
 	my $loci     = $self->{'datastore'}->get_scheme_loci($scheme_id);

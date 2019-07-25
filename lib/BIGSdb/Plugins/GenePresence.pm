@@ -45,7 +45,7 @@ sub get_attributes {
 		menutext    => 'Gene presence',
 		module      => 'GenePresence',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/gene_presence.html",
-		version     => '2.0.6',
+		version     => '2.0.7',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -270,7 +270,7 @@ sub run {
 		return;
 	}
 	if ( $q->param('submit') ) {
-		my $ids = $self->filter_list_to_ids( [ $q->param('isolate_id') ] );
+		my $ids = $self->filter_list_to_ids( [ $q->multi_param('isolate_id') ] );
 		my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list( { dont_clear => 1 } );
 		push @$ids, @$pasted_cleaned_ids;
 		@$ids = uniq @$ids;
@@ -281,7 +281,7 @@ sub run {
 			push @errors, qq(The following isolates in your pasted list are invalid: @$invalid_ids.);
 			$continue = 0;
 		}
-		$q->param( user_genome_filename => $q->param('user_upload') );
+		$q->param( user_genome_filename => scalar $q->param('user_upload') );
 		my $user_upload;
 		if ( $q->param('user_upload') ) {
 			$user_upload = $self->_upload_user_file;

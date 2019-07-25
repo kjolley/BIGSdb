@@ -134,7 +134,8 @@ sub run {
 		  : 'All authors';
 		$author =~ s/'/\\'/gx;
 		push @filters, "authors LIKE E'%$author%'" if $author ne 'All authors';
-		my $year = BIGSdb::Utils::is_int( $q->param('year_list') ) ? $q->param('year_list') : q();
+		my $year =
+		  BIGSdb::Utils::is_int( scalar $q->param('year_list') ) ? $q->param('year_list') : q();
 		push @filters, qq(year=$year) if $year;
 		local $" = q( AND );
 		my $filter_string = @filters ? qq( WHERE @filters) : q();

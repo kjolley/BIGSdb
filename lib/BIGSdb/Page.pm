@@ -862,7 +862,7 @@ sub _print_help_panel {
 	my $q = $self->{'cgi'};
 	say q(<div id="fieldvalueshelp">);
 	if ( $q->param('page') && $q->param('page') eq 'plugin' && defined $self->{'pluginManager'} ) {
-		my $plugin_att = $self->{'pluginManager'}->get_plugin_attributes( $q->param('name') );
+		my $plugin_att = $self->{'pluginManager'}->get_plugin_attributes( scalar $q->param('name') );
 		if ( ref $plugin_att eq 'HASH' ) {
 			if ( $plugin_att->{'url'} && !$self->{'config'}->{'intranet'} ) {
 				say qq(<span class="context_help"><a href="$plugin_att->{'url'}" target="_blank" )
@@ -1276,7 +1276,7 @@ sub get_filter {
 	if ( $options->{'multiple'} ) {
 		$args{'-multiple'} = 'multiple';
 		$args{'-size'} = ( @$values < 4 ) ? @$values : 4;
-		my @selected = $q->param("$name\_list");
+		my @selected = $q->multi_param("${name}_list");
 		$args{'-default'} =
 		  \@selected;    #Not sure why this should be necessary, but only the first selection seems to stick.
 		$args{'-override'} = 1;

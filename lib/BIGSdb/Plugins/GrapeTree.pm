@@ -43,7 +43,7 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.3.2',
+		version             => '1.3.3',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -175,7 +175,7 @@ sub run {
 		@$loci_selected = uniq @$loci_selected;
 		$self->add_scheme_loci($loci_selected);
 		$self->add_recommended_scheme_loci($loci_selected);
-		my @ids = $q->param('isolate_id');
+		my @ids = $q->multi_param('isolate_id');
 		my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list( { dont_clear => 1 } );
 		push @ids, @$pasted_cleaned_ids;
 		@ids = uniq @ids;
@@ -193,7 +193,7 @@ sub run {
 		if ( !@$loci_selected ) {
 			push @errors, q(You must select one or more loci or schemes.);
 		}
-		if ( $self->attempted_spam( \( $q->param('list') ) ) ) {
+		if ( $self->attempted_spam( \( scalar $q->param('list') ) ) ) {
 			push @errors, q(Invalid data detected in list.);
 		}
 		my $max_records         = $self->_get_limit;
@@ -222,7 +222,7 @@ sub run {
 		$q->delete('locus_paste_list');
 		$q->delete('isolate_id');
 		foreach my $field_dataset (qw(itol_dataset include_fields)) {
-			my @dataset = $q->param($field_dataset);
+			my @dataset = $q->multi_param($field_dataset);
 			$q->delete($field_dataset);
 			local $" = '|_|';
 			$params->{$field_dataset} = "@dataset";

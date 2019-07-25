@@ -1232,7 +1232,7 @@ sub _print_plugin_buttons {
 			);
 			if (@$plugin_names) {
 				my $plugin_buffer;
-				$q->param( 'calling_page', $q->param('page') );
+				$q->param( calling_page => scalar $q->param('page') );
 				foreach my $plugin_name (@$plugin_names) {
 					my $att = $self->{'pluginManager'}->get_plugin_attributes($plugin_name);
 					next if $att->{'min'} && $att->{'min'} > $records;
@@ -1957,7 +1957,7 @@ sub get_query_ids {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	return [] if !$q->param('query_file');
-	my $qry  = $self->get_query_from_temp_file( $q->param('query_file') );
+	my $qry  = $self->get_query_from_temp_file( scalar $q->param('query_file') );
 	my $view = $self->{'system'}->{'view'};
 	$qry =~ s/ORDER\ BY.*$//gx;
 	$qry =~ s/SELECT\ \*/SELECT $view.id/x;

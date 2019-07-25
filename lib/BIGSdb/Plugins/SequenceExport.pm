@@ -47,7 +47,7 @@ sub get_attributes {
 		buttontext       => 'Sequences',
 		menutext         => 'Sequences',
 		module           => 'SequenceExport',
-		version          => '1.6.1',
+		version          => '1.6.2',
 		dbtype           => 'isolates,sequences',
 		seqdb_type       => 'schemes',
 		section          => 'export,postquery',
@@ -121,7 +121,7 @@ sub run {
 			my $msg = q(You must select one or more loci);
 			$msg .= q( or schemes) if $self->{'system'}->{'dbtype'} eq 'isolates';
 			$self->print_bad_status( { message => $msg } );
-		} elsif ( $self->attempted_spam( \( $q->param('list') ) ) ) {
+		} elsif ( $self->attempted_spam( \( scalar $q->param('list') ) ) ) {
 			$self->print_bad_status( { message => q(Invalid data detected in list.) } );
 		} else {
 			$self->set_scheme_param;

@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext          => 'iTOL',
 		menutext            => 'iTOL',
 		module              => 'ITOL',
-		version             => '1.3.8',
+		version             => '1.3.9',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -91,7 +91,7 @@ sub run {
 		push @$loci_selected, @$pasted_cleaned_loci;
 		@$loci_selected = uniq @$loci_selected;
 		$self->add_scheme_loci($loci_selected);
-		my @ids = $q->param('isolate_id');
+		my @ids = $q->multi_param('isolate_id');
 		my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list( { dont_clear => 1 } );
 		push @ids, @$pasted_cleaned_ids;
 		@ids = uniq @ids;
@@ -102,7 +102,7 @@ sub run {
 			local $" = ', ';
 			push @errors, qq(The following isolates in your pasted list are invalid: @$invalid_ids.);
 		}
-		$q->param( user_genome_filename => $q->param('user_upload') );
+		$q->param( user_genome_filename => scalar $q->param('user_upload') );
 		my $user_upload;
 		if ( $q->param('user_upload') ) {
 			$user_upload = $self->_upload_user_file;
@@ -117,7 +117,7 @@ sub run {
 		if ( !@$loci_selected ) {
 			push @errors, q(You must select one or more loci or schemes.);
 		}
-		if ( $self->attempted_spam( \( $q->param('list') ) ) ) {
+		if ( $self->attempted_spam( \( scalar $q->param('list') ) ) ) {
 			push @errors, q(Invalid data detected in list.);
 		}
 		my $total_seqs          = @$loci_selected * @ids;
@@ -148,7 +148,7 @@ sub run {
 			$params->{'set_id'} = $self->get_set_id;
 			$q->delete('list');
 			foreach my $field_dataset (qw(itol_dataset include_fields)) {
-				my @dataset = $q->param($field_dataset);
+				my @dataset = $q->multi_param($field_dataset);
 				$q->delete($field_dataset);
 				local $" = '|_|';
 				$params->{$field_dataset} = "@dataset";

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#(c) 2010-2018, University of Oxford
+#(c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -190,7 +190,7 @@ sub _MD5_login {
 	if ( $self->{'vars'}->{'submit'} ) {
 		if ( my $password = $self->_check_password($options) ) {
 			$logger->info("User $self->{'vars'}->{'user'} logged in.");
-			$self->_delete_session( $self->{'cgi'}->param('session') );
+			$self->_delete_session( scalar $self->{'cgi'}->param('session') );
 			return ( $self->{'vars'}->{'user'}, $password );    # return user name and password hash
 		}
 	}

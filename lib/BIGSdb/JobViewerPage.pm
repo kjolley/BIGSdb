@@ -328,7 +328,7 @@ sub print_content {
 	my $q      = $self->{'cgi'};
 	my $id     = $q->param('id');
 	if ( $q->param('ajax') ) {
-		$self->_ajax( $q->param('ajax'), $id );
+		$self->_ajax( scalar $q->param('ajax'), $id );
 		return;
 	}
 	if ( ( $q->param('output') // '' ) eq 'archive' ) {

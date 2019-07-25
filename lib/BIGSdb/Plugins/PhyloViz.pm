@@ -1,4 +1,4 @@
-#PhyloViz.pm - phylogenetic inference and data visualization for sequence 
+#PhyloViz.pm - phylogenetic inference and data visualization for sequence
 #based typing methods for BIGSdb
 #Written by Emmanuel Quevillon
 #Copyright (c) 2016-2019, Institut Pasteur, Paris
@@ -49,17 +49,17 @@ sub get_attributes {
 		menutext         => 'PhyloViz',
 		menu_description => 'Visualization and phylogenetic inference',
 		module           => 'PhyloViz',
-		version             => '1.2.1',
-		dbtype              => 'isolates',
-		section             => 'third_party,postquery',
-		input               => 'query',
-		system_flag         => 'PhyloViz',
-		requires            => 'js_tree',
-		help                => 'tooltips',
-		order               => 36,
-		min                 => 2,
-		max                 => 10000,
-		url                 => "$self->{'config'}->{'doclink'}/data_analysis/phyloviz.html",
+		version          => '1.2.2',
+		dbtype           => 'isolates',
+		section          => 'third_party,postquery',
+		input            => 'query',
+		system_flag      => 'PhyloViz',
+		requires         => 'js_tree',
+		help             => 'tooltips',
+		order            => 36,
+		min              => 2,
+		max              => 10000,
+		url              => "$self->{'config'}->{'doclink'}/data_analysis/phyloviz.html",
 		always_show_in_menu => 1
 	);
 	return \%att;
@@ -188,14 +188,14 @@ sub run {
 			return;
 		}
 		my $domain = PHYLOVIZ_DOMAIN;
-		say
-qq(<p style="margin-top:2em"><a href="$phylo_id" target="_blank" class="launchbutton">Launch PhyloViz</a></p>);
+		say qq(<p style="margin-top:2em"><a href="$phylo_id" target="_blank" class="launchbutton">)
+		  . q(Launch PhyloViz</a></p>);
 		say q(</div>);
 		unlink $profile_file, $auxiliary_file;
 		return;
 	}
 	if ( $q->param('query_file') ) {
-		my $qry_ref = $self->get_query( $q->param('query_file') );
+		my $qry_ref = $self->get_query( scalar $q->param('query_file') );
 		if ($qry_ref) {
 			$isolate_ids = $self->get_ids_from_query($qry_ref);
 		}

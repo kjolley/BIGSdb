@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2018, University of Oxford
+#Copyright (c) 2018-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -60,7 +60,7 @@ sub _get {
 	}
 	my $dbase = $self->{'system'}->{'db'};
 	if ( $q->param('plugin') ) {
-		my $data = $self->{'prefstore'}->get_plugin_attributes( $guid, $dbase, $q->param('plugin') );
+		my $data = $self->{'prefstore'}->get_plugin_attributes( $guid, $dbase, scalar $q->param('plugin') );
 		say encode_json($data);
 		return;
 	}
