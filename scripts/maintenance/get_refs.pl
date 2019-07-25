@@ -25,8 +25,8 @@
 #that can contain reference information.
 #e.g. the getrefs.conf file for an isolate and seqdef database looks like:
 #
-#pubmlst_bigsdb_neisseria_isolates               refs
-#pubmlst_bigsdb_neisseria_seqdef                 profile_refs,sequence_refs,locus_refs
+#pubmlst_bigsdb_neisseria_isolates               refs,scheme_refs
+#pubmlst_bigsdb_neisseria_seqdef                 profile_refs,sequence_refs,locus_refs,scheme_refs
 #
 #
 #Run the script from CRON as bigsdb_getrefs.pl <conf file>
