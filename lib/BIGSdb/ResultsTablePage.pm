@@ -1964,7 +1964,8 @@ sub get_query_ids {
 	$self->create_temp_tables( \$qry );
 
 	if ( $q->param('list_file') && $q->param('datatype') ) {
-		$self->{'datastore'}->create_temp_list_table( $q->param('datatype'), $q->param('list_file') );
+		$self->{'datastore'}->create_temp_list_table( scalar $q->param('datatype'), scalar $q->param('list_file') )
+		  ;
 	}
 	my $ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	return $ids;

@@ -60,11 +60,11 @@ sub print_content {
 		return;
 	}
 	if ( $q->param('page') eq 'usernameRemind' && $q->param('email') ) {
-		$self->_username_reminder( $q->param('email') );
+		$self->_username_reminder( scalar $q->param('email') );
 		return;
 	}
 	if ( $q->param('page') eq 'resetPassword' && $q->param('username') && $q->param('email') ) {
-		$self->_reset_password( $q->param('username'), $q->param('email') );
+		$self->_reset_password( scalar $q->param('username'), scalar $q->param('email') );
 		return;
 	}
 	$self->_print_registration_form;
@@ -329,7 +329,7 @@ sub _register {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	foreach my $param (qw(domain first_name surname email affiliation)) {
-		my $cleaned = $self->clean_value( $q->param($param), { no_escape => 1 } );
+		my $cleaned = $self->clean_value( scalar $q->param($param), { no_escape => 1 } );
 		$q->param( $param => $cleaned );
 		if ( !$q->param($param) ) {
 			$self->print_bad_status( { message => q(Please complete form.) } );

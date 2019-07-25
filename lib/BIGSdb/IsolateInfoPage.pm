@@ -229,9 +229,9 @@ sub _handle_scheme_ajax {
 	my $should_display_items = $self->_should_display_items($isolate_id);
 	if ( !$should_display_items ) {
 		my $param;
-		if ( BIGSdb::Utils::is_int( $q->param('group_id') ) ) {
+		if ( BIGSdb::Utils::is_int( scalar $q->param('group_id') ) ) {
 			$param = q(group_id=) . $q->param('group_id');
-		} elsif ( BIGSdb::Utils::is_int( $q->param('scheme_id') ) ) {
+		} elsif ( BIGSdb::Utils::is_int( scalar $q->param('scheme_id') ) ) {
 			$param = q(scheme_id=) . $q->param('scheme_id');
 		}
 		say q(Too many items to display - )
@@ -239,11 +239,11 @@ sub _handle_scheme_ajax {
 		  . qq(id=$isolate_id&amp;function=scheme_display&amp;$param">display selected schemes separately.</a>);
 		return 1;
 	}
-	if ( BIGSdb::Utils::is_int( $q->param('group_id') ) ) {
-		$self->_print_group_data( $isolate_id, $q->param('group_id') );
+	if ( BIGSdb::Utils::is_int( scalar $q->param('group_id') ) ) {
+		$self->_print_group_data( $isolate_id, scalar $q->param('group_id') );
 		return 1;
-	} elsif ( BIGSdb::Utils::is_int( $q->param('scheme_id') ) ) {
-		$self->_print_scheme_data( $isolate_id, $q->param('scheme_id') );
+	} elsif ( BIGSdb::Utils::is_int( scalar $q->param('scheme_id') ) ) {
+		$self->_print_scheme_data( $isolate_id, scalar $q->param('scheme_id') );
 		return 1;
 	}
 	return;
@@ -279,7 +279,7 @@ sub _should_display_items {
 	my ( $self, $isolate_id ) = @_;
 	my $q     = $self->{'cgi'};
 	my $items = 0;
-	if ( BIGSdb::Utils::is_int( $q->param('group_id') ) ) {
+	if ( BIGSdb::Utils::is_int( scalar $q->param('group_id') ) ) {
 		my $group_id = $q->param('group_id');
 		if ( $group_id == 0 ) {    #Other schemes (not part of a scheme group)
 			my $scheme_ids = $self->{'datastore'}->run_query(
@@ -299,7 +299,7 @@ sub _should_display_items {
 				return if $items > MAX_DISPLAY;
 			}
 		}
-	} elsif ( BIGSdb::Utils::is_int( $q->param('scheme_id') ) ) {
+	} elsif ( BIGSdb::Utils::is_int( scalar $q->param('scheme_id') ) ) {
 		my $scheme_id = $q->param('scheme_id');
 		if ( $scheme_id == -1 ) {    #All schemes/loci
 			my $set_id = $self->get_set_id;
@@ -353,10 +353,10 @@ sub _get_display_items_in_scheme {
 sub _print_separate_scheme_data {
 	my ( $self, $isolate_id ) = @_;
 	my $q = $self->{'cgi'};
-	if ( BIGSdb::Utils::is_int( $q->param('group_id') ) ) {
+	if ( BIGSdb::Utils::is_int( scalar $q->param('group_id') ) ) {
 		say q(<div class="box" id="resultspanel">);
 		say $self->_get_show_aliases_button('block');
-		$self->_print_group_data( $isolate_id, $q->param('group_id') );
+		$self->_print_group_data( $isolate_id, scalar $q->param('group_id') );
 		say q(<div style="clear:both"></div>);
 		say q(</div>);
 	} elsif ( BIGSdb::Utils::is_int( $q->param('scheme_id') ) ) {
@@ -977,9 +977,9 @@ sub _get_phenotypic_fields {
 		$data->{ $_->{'field'} } = $_->{'value'} foreach @$table_values;
 	}
 	return $buffer if !keys %$data;
-	my $field_name = $self->{'system'}->{'eav_fields'} // 'phenotypic fields';
+	my $field_name    = $self->{'system'}->{'eav_fields'} // 'phenotypic fields';
 	my $uc_field_name = ucfirst($field_name);
-	my $icon = $self->{'system'}->{'eav_field_icon'} // 'fa-microscope';
+	my $icon          = $self->{'system'}->{'eav_field_icon'} // 'fa-microscope';
 	$buffer .= qq(<div><span class="info_icon fas fa-2x fa-fw $icon fa-pull-left" )
 	  . qq(style="margin-top:-0.2em"></span><h2 style="display:inline">$uc_field_name</h2>\n);
 	my $hide = keys %$data > MAX_EAV_FIELD_LIST ? 1 : 0;
@@ -1028,7 +1028,7 @@ sub _get_phenotypic_fields {
 				data  => $value
 			  };
 		}
-		if ( @$categories > 1 && $categories->[0] && @$list) {
+		if ( @$categories > 1 && $categories->[0] && @$list ) {
 			$buffer .= $cat ? qq(<h3>$cat</h3>) : q(<h3>Other</h3>);
 		}
 		$buffer .= q(<div class="sparse">);

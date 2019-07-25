@@ -111,7 +111,7 @@ sub _get_fields_and_values {
 			push @query_fields, $att->{'name'};
 			push @query_values, $value;
 			$primary_keys{ $att->{'name'} } = 1 if defined $q->param( $att->{'name'} );
-			if ( $att->{'type'} eq 'int' && !BIGSdb::Utils::is_int( $q->param( $att->{'name'} ) ) ) {
+			if ( $att->{'type'} eq 'int' && !BIGSdb::Utils::is_int( scalar $q->param( $att->{'name'} ) ) ) {
 				$err = qq(Field $att->{'name'} must be an integer.);
 			}
 		}

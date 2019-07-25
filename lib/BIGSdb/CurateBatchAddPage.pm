@@ -100,7 +100,7 @@ sub print_content {
 		$self->_check_data($args);
 	} else {
 		if ( $q->param('submission_id') ) {
-			$self->_set_submission_params( $q->param('submission_id') );
+			$self->_set_submission_params( scalar $q->param('submission_id') );
 		}
 		my $icon = $self->get_form_icon( $table, 'plus' );
 		say $icon;
@@ -116,7 +116,9 @@ sub _print_interface {
 	my $q           = $self->{'cgi'};
 	$q->param( private => 1 ) if $self->{'permissions'}->{'only_private'};
 	if ( $table eq 'isolates' ) {
-		return if $self->_cannot_upload_private_data( $q->param('private'), $q->param('project_id') );
+		return
+		  if $self->_cannot_upload_private_data( scalar $q->param('private'), scalar $q->param('project_id') )
+		  ;
 	}
 	say q(<div class="box" id="queryform"><div class="scrollable"><h2>Instructions</h2>)
 	  . qq(<p>This page allows you to upload $record_name )

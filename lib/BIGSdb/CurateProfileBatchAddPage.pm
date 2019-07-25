@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -90,7 +90,7 @@ sub print_content {
 		$self->_check($scheme_id);
 	} else {
 		if ( $q->param('submission_id') ) {
-			$self->_set_submission_params( $q->param('submission_id') );
+			$self->_set_submission_params( scalar $q->param('submission_id') );
 		}
 		my $icon = $self->get_form_icon( 'profiles', 'plus' );
 		say $icon;
@@ -261,7 +261,8 @@ sub _check {
 						$problems->{$pk} .= $invalid_sender;
 						$problem = 1;
 					}
-				} elsif ( BIGSdb::Utils::is_int( $q->param('sender') ) && $q->param('sender') != -1 ) {
+				} elsif ( BIGSdb::Utils::is_int( scalar $q->param('sender') ) && $q->param('sender') != -1 )
+				{
 					$value = $q->param('sender');
 				} else {
 					$problems->{$pk} .= 'Sender not set.<br />';

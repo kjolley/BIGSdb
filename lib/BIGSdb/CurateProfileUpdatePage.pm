@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -30,7 +30,8 @@ sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<h1>Update profile</h1>);
-	my ( $scheme_id, $profile_id ) = ( $q->param('scheme_id'), $q->param('profile_id') );
+	my ( $scheme_id, $profile_id ) =
+	  ( scalar $q->param('scheme_id'), scalar $q->param('profile_id') );
 	if ( !$scheme_id ) {
 		$self->print_bad_status( { message => q(No scheme_id passed.), navbar => 1 } );
 		return;

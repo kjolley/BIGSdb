@@ -44,7 +44,7 @@ sub print_content {
 	my $q = $self->{'cgi'};
 	say q(<h1>Batch insert sequences</h1>);
 	if ( $q->param('upload_file') ) {
-		$self->_upload( $q->param('upload_file') );
+		$self->_upload( scalar $q->param('upload_file') );
 		return;
 	} elsif ( $q->param('submit') ) {
 		if ( !$self->can_modify_table('sequences') ) {
@@ -152,7 +152,8 @@ sub _print_interface {
 sub _check {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my ( $locus, $sender, $sequence ) = ( $q->param('locus'), $q->param('sender'), $q->param('sequence') );
+	my ( $locus, $sender, $sequence ) =
+	  ( scalar $q->param('locus'), scalar $q->param('sender'), scalar $q->param('sequence') );
 	if (   !$sender
 		|| !BIGSdb::Utils::is_int($sender)
 		|| !$self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM users WHERE id=?)', $sender ) )
@@ -285,14 +286,14 @@ sub _run_helper {
 				always_run        => 1,
 				set_id            => $set_id,
 				script_name       => $self->{'system'}->{'script_name'},
-				locus             => $q->param('locus'),
+				locus             => scalar $q->param('locus'),
 				seq_data          => $seq_data,
 				ignore_existing   => $q->param('ignore_existing') ? 1 : 0,
 				complete_CDS      => $q->param('complete_CDS') ? 1 : 0,
 				ignore_similarity => $q->param('ignore_similarity') ? 1 : 0,
 				username          => $self->{'username'},
-				status            => $q->param('status'),
-				sender            => $q->param('sender')
+				status            => scalar $q->param('status'),
+				sender            => scalar $q->param('sender')
 			},
 			instance => $self->{'instance'},
 			logger   => $logger
@@ -321,8 +322,12 @@ sub _upload {
 	  ->prepare('UPDATE allele_submission_sequences SET (status,assigned_id)=(?,?) WHERE (submission_id,seq_id)=(?,?)');
 	eval {
 		while ( my $seq_object = $seqin->next_seq ) {
-			$sql->execute( $q->param('locus'), $seq_object->id, $seq_object->seq, $q->param('status'), 'now', 'now',
-				$q->param('sender'), $self->get_curator_id );
+			$sql->execute(
+				scalar $q->param('locus'),
+				$seq_object->id, $seq_object->seq, scalar $q->param('status'),
+				'now', 'now', scalar $q->param('sender'),
+				$self->get_curator_id
+			);
 			if ( $allele_submission && $allele_submission->{'locus'} eq $q->param('locus') ) {
 				my $submission_seqs = $allele_submission->{'seqs'};
 				foreach my $seq (@$submission_seqs) {
@@ -352,11 +357,11 @@ sub _upload {
 			detail        => $detail,
 			navbar        => 1,
 			submission_id => $submission_id,
-			more_url => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddFasta"
+			more_url      => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddFasta"
 		}
 	);
 	$self->{'db'}->commit;
-	$self->mark_locus_caches_stale( [ $q->param('locus') ] );
+	$self->mark_locus_caches_stale( [ $q->multi_param('locus') ] );
 	$self->update_blast_caches;
 	return;
 }

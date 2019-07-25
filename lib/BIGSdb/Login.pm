@@ -211,7 +211,7 @@ sub _check_password {
 	}
 	my $stored_hash = $self->get_password_hash( $self->{'vars'}->{'user'}, $options ) // '';
 	if ( !$stored_hash || !$self->{'datastore'}->user_name_exists( $self->{'vars'}->{'user'} ) ) {
-		$self->_delete_session( $self->{'cgi'}->param('session') );
+		$self->_delete_session( scalar $self->{'cgi'}->param('session') );
 		$self->_error_exit( 'Invalid username or password entered.  Please try again.', $options );
 	}
 	$logger->debug("using session ID = $self->{'vars'}->{'session'}");
@@ -240,7 +240,7 @@ sub _check_password {
 		$password_matches = 0;
 	}
 	if ( !$password_matches ) {
-		$self->_delete_session( $self->{'cgi'}->param('session') );
+		$self->_delete_session( scalar $self->{'cgi'}->param('session') );
 		$self->_error_exit( 'Invalid username or password entered.  Please try again.', $options );
 	} else {
 		if ( $stored_hash->{'reset_password'} ) {
@@ -256,7 +256,7 @@ sub _print_login_form {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
 	my $session_id = Digest::MD5::md5_hex( $self->{'ip_addr'} . $self->{'random_number'} . UNIQUE_STRING );
-	if ( !$q->param('session') || !$self->_login_session_exists( $q->param('session') ) ) {
+	if ( !$q->param('session') || !$self->_login_session_exists( scalar $q->param('session') ) ) {
 		$self->_create_session( $session_id, 'login', undef );
 	}
 	say q(<div class="box queryform"><div class="scrollable">);
@@ -279,8 +279,7 @@ sub _print_login_form {
 	}
 	say q(<li><label for="user" class="display">Username: </label>);
 	say $q->textfield( -name => 'user', -id => 'user', -size => 20, -maxlength => 20, -style => 'width:12em' );
-	say q(</li><li>)
-	. q(<label for="password_field" class="display">Password: </label>);
+	say q(</li><li>) . q(<label for="password_field" class="display">Password: </label>);
 	say $q->password_field(
 		-name  => 'password_field',
 		-id    => 'password_field',
@@ -307,8 +306,8 @@ sub _print_login_form {
 sub _get_domain_dropdown {
 	my ( $self, $options ) = @_;
 	$options->{'field_name'} //= 'db';
-	$options->{'field_id'} //= 'db';
- 	my $buffer   = q();
+	$options->{'field_id'}   //= 'db';
+	my $buffer   = q();
 	my $q        = $self->{'cgi'};
 	my $user_dbs = $self->{'config'}->{'site_user_dbs'};
 	my $values   = [];
@@ -322,7 +321,7 @@ sub _get_domain_dropdown {
 			$buffer .= qq(<label for="$options->{'field_id'}">$options->{'label'}</label>) if $options->{'label'};
 			$buffer .= $q->popup_menu(
 				-name     => $options->{'field_name'},
-				-id => $options->{'field_id'},
+				-id       => $options->{'field_id'},
 				-values   => $values,
 				-labels   => $labels,
 				-disabled => 'disabled'
@@ -335,7 +334,7 @@ sub _get_domain_dropdown {
 		unshift @$values, q();
 		$buffer .= $q->popup_menu(
 			-name     => $options->{'field_name'},
-			-id => $options->{'field_id'},
+			-id       => $options->{'field_id'},
 			-values   => $values,
 			-labels   => $labels,
 			-required => 'required'
@@ -361,7 +360,8 @@ sub _print_registration_links {
 
 	if ( $self->{'show_domains'} && $self->{'config'}->{'site_user_dbs'} ) {
 		say q(<span style="white-space:nowrap">);
-		say $self->_get_domain_dropdown( { field_name => 'domain', field_id => 'remind_domain', hide_if_only_one => 1, label => 'Domain: ' } );
+		say $self->_get_domain_dropdown(
+			{ field_name => 'domain', field_id => 'remind_domain', hide_if_only_one => 1, label => 'Domain: ' } );
 		say q(</span>);
 	}
 	say q(<span style="white-space:nowrap"><label for="remind_email">E-mail: </label>);
@@ -374,29 +374,28 @@ sub _print_registration_links {
 	say $q->end_form;
 	say q(<h2>Forgotten password?</h2>);
 	say q(<span class="main_icon fas fa-key fa-2x fa-pull-left"></span>);
+	say q(<p style="margin-left:4em">Reset password by entering your username )
+	  . q(and its registered E-mail address. A temporary )
+	  . q(password which can be used to log in and reset your account will be sent to the registered address )
+	  . q(if it is associated with a valid username.);
+	say $q->start_form;
+	say q(<div class="scrollable" style="margin-left:4em">);
 
-	if (1) {    #TODO Remove
-		say q(<p style="margin-left:4em">Reset password by entering your username )
-		  . q(and its registered E-mail address. A temporary )
-		  . q(password which can be used to log in and reset your account will be sent to the registered address )
-		  . q(if it is associated with a valid username.);
-		say $q->start_form;
-		say q(<div class="scrollable" style="margin-left:4em">);
-		if ( $self->{'show_domains'} && $self->{'config'}->{'site_user_dbs'} ) {
-			say $self->_get_domain_dropdown( { field_name => 'domain', hide_if_only_one => 1, label => 'Domain: ' } );
-		}
-		say q(<span style="white-space:nowrap"><label for="reset_username">Username: </label>);
-		say $q->textfield( -name => 'username', -id => 'reset_username', -required => 'required' );
-		say q(</span>);
-		say q(<span style="white-space:nowrap"><label for="reset_email">E-mail: </label>);
-		say $q->textfield( -name => 'email', -id=>'reset_email',-required => 'required' );
-		say q(</span>);
-		$q->param( page => 'resetPassword' );
-		say $q->hidden('page');
-		say $q->submit( -name => 'submit', -class => 'button', -label => 'Reset password' );
-		say q(</div>);
-		say $q->end_form;
+	if ( $self->{'show_domains'} && $self->{'config'}->{'site_user_dbs'} ) {
+		say $self->_get_domain_dropdown( { field_name => 'domain', hide_if_only_one => 1, label => 'Domain: ' } );
 	}
+	say q(<span style="white-space:nowrap"><label for="reset_username">Username: </label>);
+	say $q->textfield( -name => 'username', -id => 'reset_username', -required => 'required' );
+	say q(</span>);
+	say q(<span style="white-space:nowrap"><label for="reset_email">E-mail: </label>);
+	say $q->textfield( -name => 'email', -id => 'reset_email', -required => 'required' );
+	say q(</span>);
+	$q->param( page => 'resetPassword' );
+	say $q->hidden('page');
+	say $q->submit( -name => 'submit', -class => 'button', -label => 'Reset password' );
+	say q(</div>);
+	say $q->end_form;
+
 	if ( $self->{'config'}->{'site_admin_email'} ) {
 		say q(<p style="margin-left:4em;margin-top:1em">If all else fails, please )
 		  . qq(<a href="mailto:$self->{'config'}->{'site_admin_email'}">)

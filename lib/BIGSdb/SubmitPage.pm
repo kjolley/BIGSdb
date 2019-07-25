@@ -752,11 +752,11 @@ sub _finalize_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 				'UPDATE allele_submissions SET (technology,read_length,coverage,assembly,software)=(?,?,?,?,?) '
 				  . 'WHERE submission_id=? AND submission_id IN (SELECT id FROM submissions WHERE submitter=?)',
 				undef,
-				$q->param('technology'),
-				$q->param('read_length'),
-				$q->param('coverage'),
-				$q->param('assembly'),
-				$q->param('software'),
+				scalar $q->param('technology'),
+				scalar $q->param('read_length'),
+				scalar $q->param('coverage'),
+				scalar $q->param('assembly'),
+				scalar $q->param('software'),
 				$submission_id,
 				$user_info->{'id'}
 			);
@@ -879,7 +879,8 @@ sub _submit_profiles {
 	} elsif ( ( $q->param('submit') && $q->param('data') ) ) {
 		my $scheme_id = $q->param('scheme_id');
 		my $set_id    = $self->get_set_id;
-		$ret = $self->{'submissionHandler'}->check_new_profiles( $scheme_id, $set_id, \$q->param('data') );
+		my $data      = $q->param('data');
+		$ret = $self->{'submissionHandler'}->check_new_profiles( $scheme_id, $set_id, \$data );
 		if ( $ret->{'err'} ) {
 			my $err = $ret->{'err'};
 			local $" = '<br />';
@@ -936,7 +937,8 @@ sub _submit_isolates {
 		return;
 	} elsif ( ( $q->param('submit') && $q->param('data') ) ) {
 		my $set_id = $self->get_set_id;
-		my $ret = $self->{'submissionHandler'}->check_new_isolates( $set_id, \$q->param('data'), $options );
+		my $data = $q->param('data');
+		my $ret = $self->{'submissionHandler'}->check_new_isolates( $set_id, \$data, $options );
 		if ( $ret->{'err'} ) {
 			my $err = $ret->{'err'};
 			local $" = '<br />';
@@ -1212,11 +1214,11 @@ sub _start_allele_submission {
 			undef,
 			$submission_id,
 			$locus,
-			$q->param('technology'),
-			$q->param('read_length'),
-			$q->param('coverage'),
-			$q->param('assembly'),
-			$q->param('software'),
+			scalar $q->param('technology'),
+			scalar $q->param('read_length'),
+			scalar $q->param('coverage'),
+			scalar $q->param('assembly'),
+			scalar $q->param('software'),
 		);
 	};
 	if ($@) {
@@ -1923,14 +1925,15 @@ sub _print_message_fieldset {
 		}
 		eval {
 			$self->{'db'}->do( 'INSERT INTO messages (submission_id,timestamp,user_id,message) VALUES (?,?,?,?)',
-				undef, $submission_id, 'now', $user->{'id'}, $q->param('message') );
+				undef, $submission_id, 'now', $user->{'id'}, scalar $q->param('message') );
 		};
 		if ($@) {
 			$logger->error($@);
 			$self->{'db'}->rollback;
 		} else {
 			$self->{'db'}->commit;
-			$self->{'submissionHandler'}->append_message( $submission_id, $user->{'id'}, $q->param('message') );
+			$self->{'submissionHandler'}->append_message( $submission_id, $user->{'id'}, scalar $q->param('message') )
+			  ;
 			$q->delete('message');
 			$self->{'submissionHandler'}->update_submission_datestamp($submission_id);
 		}
@@ -2097,7 +2100,7 @@ sub _get_submission_files {
 sub _upload_files {
 	my ( $self, $submission_id ) = @_;
 	my $q         = $self->{'cgi'};
-	my @filenames = $q->param('file_upload');
+	my @filenames = $q->multi_param('file_upload');
 	my $i         = 0;
 	my $dir       = $self->{'submissionHandler'}->get_submission_dir($submission_id) . '/supporting_files';
 	if ( !-e $dir ) {

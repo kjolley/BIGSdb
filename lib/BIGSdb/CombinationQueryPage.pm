@@ -64,8 +64,7 @@ sub print_content {
 		my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1 } );
 		if ( !@$schemes ) {
 			$self->print_bad_status(
-				{ message => 'There are no indexed schemes defined in this database.', navbar => 1 } )
-			  ;
+				{ message => 'There are no indexed schemes defined in this database.', navbar => 1 } );
 			return;
 		}
 	}
@@ -92,7 +91,7 @@ sub print_content {
 			$self->_print_query_interface($scheme_id);
 			return;
 		}
-		$self->{'datastore'}->create_temp_combinations_table_from_file( $q->param('temp_table_file') );
+		$self->{'datastore'}->create_temp_combinations_table_from_file( scalar $q->param('temp_table_file') );
 	}
 	if (   defined $q->param('query_file')
 		or defined $q->param('submit') )
@@ -126,7 +125,7 @@ sub _autofill {
 			}
 			catch {
 				if ( $_->isa('BIGSdb::Exception::Database::Configuration') ) {
-				push @errors, 'Error retrieving information from remote database - check configuration.';
+					push @errors, 'Error retrieving information from remote database - check configuration.';
 				} else {
 					$logger->logdie($_);
 				}
@@ -510,7 +509,7 @@ sub _run_query {
 	if ( !defined $q->param('query_file') ) {
 		( $qry, $msg, $errors ) = $self->_generate_query($scheme_id);
 	} else {
-		$qry = $self->get_query_from_temp_file( $q->param('query_file') );
+		$qry = $self->get_query_from_temp_file( scalar $q->param('query_file') );
 	}
 	if (@$errors) {
 		local $" = '<br />';

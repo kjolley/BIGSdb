@@ -365,7 +365,7 @@ sub _registrations {
 sub _register {
 	my ($self)  = @_;
 	my $q       = $self->{'cgi'};
-	my @configs = $q->param('auto_reg');
+	my @configs = $q->multi_param('auto_reg');
 	return if !@configs;
 	my $current_config;
 	eval {
@@ -422,7 +422,7 @@ sub _register {
 sub _request {
 	my ($self)  = @_;
 	my $q       = $self->{'cgi'};
-	my @configs = $q->param('request_reg');
+	my @configs = $q->multi_param('request_reg');
 	return if !@configs;
 	eval {
 		foreach my $config (@configs) {

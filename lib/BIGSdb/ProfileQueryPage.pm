@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -300,7 +300,7 @@ sub _run_query {
 	my $system = $self->{'system'};
 	my ( $qry, $list_file );
 	my $errors = [];
-	my $scheme_id = BIGSdb::Utils::is_int( $q->param('scheme_id') ) ? $q->param('scheme_id') : 0;
+	my $scheme_id = BIGSdb::Utils::is_int( scalar $q->param('scheme_id') ) ? $q->param('scheme_id') : 0;
 	if ( !defined $q->param('query_file') ) {
 		( $qry, $list_file, $errors ) = $self->_generate_query($scheme_id);
 		$q->param( list_file => $list_file );

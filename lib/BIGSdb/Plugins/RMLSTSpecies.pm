@@ -76,13 +76,15 @@ sub run {
 		if (@$invalid_ids) {
 			local $" = ', ';
 			my $error = q(<p>);
-			if (@$invalid_ids <= 10){
-			$error .=
-			    q(The following isolates in your pasted list are invalid - they either do not exist or )
-			  . qq(do not have sequence data available: @$invalid_ids.);
+			if ( @$invalid_ids <= 10 ) {
+				$error .=
+				    q(The following isolates in your pasted list are invalid - they either do not exist or )
+				  . qq(do not have sequence data available: @$invalid_ids.);
 			} else {
-				$error .=  @$invalid_ids . q( isolates are invalid - they either do not exist or )
-				. q(do not have sequence data available.);
+				$error .=
+				    @$invalid_ids
+				  . q( isolates are invalid - they either do not exist or )
+				  . q(do not have sequence data available.);
 			}
 			if (@ids) {
 				$error .= q( These have been removed from the analysis.</p>);
@@ -374,11 +376,11 @@ sub _print_interface {
 		return;
 	}
 	if ( $q->param('single_isolate') ) {
-		if ( !BIGSdb::Utils::is_int( $q->param('single_isolate') ) ) {
+		if ( !BIGSdb::Utils::is_int( scalar $q->param('single_isolate') ) ) {
 			$self->print_bad_status( { message => q(Invalid isolate id passed.), navbar => 1 } );
 			return;
 		}
-		if ( !$self->isolate_exists( $q->param('single_isolate'), { has_seqbin => 1 } ) ) {
+		if ( !$self->isolate_exists( scalar $q->param('single_isolate'), { has_seqbin => 1 } ) ) {
 			$self->print_bad_status(
 				{
 					message => q(Passed isolate id either does not exist or has no sequence bin data.),

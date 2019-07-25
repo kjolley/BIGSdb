@@ -861,7 +861,7 @@ sub _prepare_extra_inserts_for_schemes {
 	my ( $self, $newdata, $extra_inserts ) = @_;
 	my %allowed = map { $_ => 1 } SCHEME_FLAGS;
 	my $q       = $self->{'cgi'};
-	my @flags   = $q->param('flags');
+	my @flags   = $q->multi_param('flags');
 	push @$extra_inserts,
 	  { statement => 'DELETE FROM scheme_flags WHERE scheme_id=?', arguments => [ $newdata->{'id'} ] };
 	foreach my $flag (@flags) {

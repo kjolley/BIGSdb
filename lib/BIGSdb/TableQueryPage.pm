@@ -110,7 +110,7 @@ sub print_content {
 sub get_title {
 	my ($self) = @_;
 	my $desc = $self->get_db_description || 'BIGSdb';
-	my $record = $self->get_record_name( $self->{'cgi'}->param('table') ) || 'record';
+	my $record = $self->get_record_name( scalar $self->{'cgi'}->param('table') ) || 'record';
 	return "Query $record information - $desc";
 }
 
@@ -526,7 +526,7 @@ sub _run_query {
 		local $" = ",$table.";
 		$qry2 .= " $dir,$table.@primary_keys;";
 	} else {
-		$qry2 = $self->get_query_from_temp_file( $q->param('query_file') );
+		$qry2 = $self->get_query_from_temp_file( scalar $q->param('query_file') );
 	}
 	my @hidden_attributes;
 	push @hidden_attributes, 'c0';
@@ -550,7 +550,7 @@ sub _filter_query_by_scheme {
 	my ( $self, $table, $qry_ref ) = @_;
 	my $q = $self->{'cgi'};
 	return if ( $q->param('scheme_id_list') // '' ) eq '';
-	return if !BIGSdb::Utils::is_int( $q->param('scheme_id_list') );
+	return if !BIGSdb::Utils::is_int( scalar $q->param('scheme_id_list') );
 	my %allowed_tables =
 	  map { $_ => 1 } qw (loci scheme_fields schemes scheme_members client_dbase_schemes allele_designations);
 	return if !$allowed_tables{$table};
@@ -1256,7 +1256,7 @@ sub print_additional_headerbar_functions {
 	my $q = $self->{'cgi'};
 	my %allowed = map { $_ => 1 } qw(schemes loci scheme_fields);
 	return if !$allowed{ $q->param('table') };
-	my $record = $self->get_record_name( $q->param('table') );
+	my $record = $self->get_record_name( scalar $q->param('table') );
 	say q(<fieldset><legend>Customize</legend>);
 	say $q->start_form;
 	say $q->submit( -name => 'customize', -label => ucfirst("$record options"), -class => BUTTON_CLASS );

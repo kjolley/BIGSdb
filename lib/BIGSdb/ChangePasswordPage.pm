@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -167,7 +167,7 @@ sub print_content {
 				  : $q->param('user');
 				my $instance_clause = $self->{'instance'} ? qq(?db=$self->{'instance'}) : q();
 				my $back_url = qq($self->{'system'}->{'script_name'}$instance_clause);
-				if ( $self->set_password_hash( $username, $q->param('new_password1') ) ) {
+				if ( $self->set_password_hash( $username, scalar $q->param('new_password1') ) ) {
 					my $message =
 					  $q->param('page') eq 'changePassword'
 					  ? q(Password updated ok.)

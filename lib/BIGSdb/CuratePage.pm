@@ -305,9 +305,10 @@ sub _get_allele_id_field {
 	my ( $table, $name, $newdata, $att, $length, $html5_args ) = @$args{qw(table name newdata att length html5_args)};
 	my $q = $self->{'cgi'};
 	return q() if !( $table eq 'sequences' && $att->{'name'} eq 'allele_id' && $q->param('locus') );
-	my $locus_info = $self->{'datastore'}->get_locus_info( $q->param('locus') );
+	my $locus_info = $self->{'datastore'}->get_locus_info( scalar $q->param('locus') );
 	if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-		my $default = $q->param('allele_id') // $self->{'datastore'}->get_next_allele_id( $q->param('locus') );
+		my $default = $q->param('allele_id')
+		  // $self->{'datastore'}->get_next_allele_id( scalar $q->param('locus') );
 		return $self->textfield(
 			name      => $name,
 			id        => $name,
@@ -560,7 +561,7 @@ sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateS
 	my $q = $self->{'cgi'};
 	my $buffer;
 	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
-		my $list = $self->{'datastore'}->get_allele_flags( $q->param('locus'), $q->param('allele_id') );
+		my $list = $self->{'datastore'}->get_allele_flags( scalar $q->param('locus'), scalar $q->param('allele_id') );
 		$buffer .= qq(<li><label for="flags" class="form" style="width:${width}em">Flags:</label>\n);
 		$buffer .= $q->scrolling_list(
 			-name     => 'flags',
@@ -659,7 +660,7 @@ sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateS
 			$buffer .= qq(<span class="comment"> $desc</span>\n) if $desc;
 			$buffer .= qq(</li>\n);
 		}
-		my $locus_info = $self->{'datastore'}->get_locus_info( $q->param('locus') );
+		my $locus_info = $self->{'datastore'}->get_locus_info( scalar $q->param('locus') );
 		if ( ( !$q->param('locus') || ( ref $locus_info eq 'HASH' && $locus_info->{'data_type'} ne 'peptide' ) )
 			&& $q->param('page') ne 'update' )
 		{
@@ -1040,46 +1041,46 @@ sub check_record {
 				field  => 'attribute',
 				method => sub {
 					$self->_check_isolate_field_extended_attributes( $att, $newdata );
-				  }
+				}
 			},
 			{
 				table  => 'isolate_value_extended_attributes',
 				field  => 'value',
 				method => sub {
 					$self->_check_isolate_field_extended_attribute_value( $att, $newdata );
-				  }
+				}
 			},
 			{
 				table  => 'users',
 				field  => 'status',
 				method => sub {
 					$self->_check_users_status( $att, $newdata, $update );
-				  }
+				}
 			},
 			{
 				table  => 'isolate_value_extended_attributes',
 				field  => 'attribute',
 				method => sub {
 					$self->_check_isolate_field_extended_attribute_name( $att, $newdata );
-				  }
+				}
 			},
 			{
 				table  => 'retired_allele_ids',
 				field  => 'allele_id',
 				method => sub {
 					$self->_check_retired_allele_id( $att, $newdata );
-				  }
+				}
 			},
 			{
-				table => 'classification_group_field_values',
-				field => 'value',
+				table  => 'classification_group_field_values',
+				field  => 'value',
 				method => sub {
 					$self->_check_classification_group_field_value( $att, $newdata );
 				}
 			},
 			{
-				table => 'validation_conditions',
-				field => 'value',
+				table  => 'validation_conditions',
+				field  => 'value',
 				method => sub {
 					$self->_check_validation_conditions_field_value( $att, $newdata );
 				}
@@ -1213,7 +1214,7 @@ sub _check_isolate_field_extended_attributes {
 	if ( $newdata->{ $att->{'name'} } =~ /'/x ) {
 		return 'Attribute contains invalid characters.';
 	}
-	if ($self->{'xmlHandler'}->is_field($newdata->{$att->{'name'}})){
+	if ( $self->{'xmlHandler'}->is_field( $newdata->{ $att->{'name'} } ) ) {
 		return 'A standard field already exists with this name.';
 	}
 	return;
@@ -1256,11 +1257,11 @@ sub _check_classification_group_field_value {
 		return "$att->{'name'} must be an integer.";
 	} elsif ( $format->{'value_regex'} && $newdata->{ $att->{'name'} } !~ /$format->{'value_regex'}/x ) {
 		return "$att->{'name'} value is invalid - it must match the regular expression /$format->{'value_regex'}/.";
-	} 
+	}
 	return;
 }
 
-sub _check_validation_conditions_field_value {   
+sub _check_validation_conditions_field_value {
 	my ( $self, $att, $newdata ) = @_;
 	if ( $newdata->{'value'} eq 'null' ) {
 		if ( $newdata->{'operator'} ne '=' && $newdata->{'operator'} ne 'NOT' ) {
@@ -1276,23 +1277,22 @@ sub _check_validation_conditions_field_value {
 			return qq(Comparison field '$comp_field' is not recognized.);
 		} else {
 			if ( lc( substr( $field_type, 0, 3 ) ) ne lc( substr( $comp_field_type, 0, 3 ) ) ) {
-				return
-				  qq(Comparison field '$comp_field' has a different data type )
+				return qq(Comparison field '$comp_field' has a different data type )
 				  . qq(from '$newdata->{'field'}' so cannot be compared.);
 			}
 		}
 		return;
 	}
-	if (lc($field_type) =~ /^int/x && !BIGSdb::Utils::is_int($newdata->{'value'})){
+	if ( lc($field_type) =~ /^int/x && !BIGSdb::Utils::is_int( $newdata->{'value'} ) ) {
 		return qq('$newdata->{'field'}' is an integer field.);
 	}
-	if (lc($field_type) eq 'date' && !BIGSdb::Utils::is_date($newdata->{'value'})){
+	if ( lc($field_type) eq 'date' && !BIGSdb::Utils::is_date( $newdata->{'value'} ) ) {
 		return qq('$newdata->{'field'}' is a date field.);
 	}
-	if (lc($field_type) eq 'float' && !BIGSdb::Utils::is_float($newdata->{'value'})){
+	if ( lc($field_type) eq 'float' && !BIGSdb::Utils::is_float( $newdata->{'value'} ) ) {
 		return qq('$newdata->{'field'}' is a float field.);
 	}
-	if (lc($field_type) =~ /^bool/x && !BIGSdb::Utils::is_bool($newdata->{'value'})){
+	if ( lc($field_type) =~ /^bool/x && !BIGSdb::Utils::is_bool( $newdata->{'value'} ) ) {
 		return qq('$newdata->{'field'}' is a boolean field.);
 	}
 	return;

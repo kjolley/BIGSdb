@@ -148,7 +148,7 @@ sub initiate {
 			my $params = $temp_q->Vars;
 			foreach my $key ( keys %$params ) {
 				next if any { $key eq $_ } qw (submit);
-				$q->param( $key => $temp_q->param($key) );
+				$q->param( $key => scalar $temp_q->param($key) );
 			}
 		}
 	}
@@ -194,7 +194,7 @@ sub _print_interface {
 	my $query      = $self->get_query_from_temp_file($query_file);
 	my $selected_ids;
 	if ( $q->param('isolate_id') ) {
-		my @ids = $q->param('isolate_id');
+		my @ids = $q->multi_param('isolate_id');
 		$selected_ids = \@ids;
 	} elsif ( defined $query ) {
 		$selected_ids = $self->_get_ids($query);
@@ -205,7 +205,7 @@ sub _print_interface {
 	say q(<div class="scrollable">);
 	$self->print_seqbin_isolate_fieldset(
 		{ selected_ids => $selected_ids, size => 11, isolate_paste_list => 1, only_genomes => 1 } );
-	my @selected_loci = $q->param('locus');
+	my @selected_loci = $q->multi_param('locus');
 	$self->print_isolates_locus_fieldset(
 		{ selected_loci => \@selected_loci, locus_paste_list => 1, size => 11, analysis_pref => 0 } );
 	say q(<fieldset><legend>Schemes</legend>);
@@ -463,7 +463,7 @@ sub _print_parameter_fieldset {
 sub _get_selected_loci {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
-	my @loci   = $q->param('locus');
+	my @loci   = $q->multi_param('locus');
 	my ( $pasted_cleaned_loci, $invalid_loci ) = $self->get_loci_from_pasted_list;
 	push @loci, "l_$_" foreach @$pasted_cleaned_loci;
 	$q->param( locus => @loci );
@@ -477,7 +477,7 @@ sub _scan {
 	my $q = $self->{'cgi'};
 	my $time_limit = ( int( $q->param('limit_time') ) || 5 ) * 60;
 	my $loci       = $self->_get_selected_loci;
-	my @ids        = $q->param('isolate_id');
+	my @ids        = $q->multi_param('isolate_id');
 	my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list;
 	push @ids, @$pasted_cleaned_ids;
 	@ids = uniq sort { $a <=> $b } @ids;
@@ -507,7 +507,10 @@ sub _scan {
 			$self->{'prefstore'}->set_general( $guid, $dbname, "scan_$_", $value );
 		}
 	}
-	my $limit = BIGSdb::Utils::is_int( $q->param('limit_matches') ) ? $q->param('limit_matches') : $LIMIT_MATCHES;
+	my $limit =
+	  BIGSdb::Utils::is_int( scalar $q->param('limit_matches') )
+	  ? $q->param('limit_matches')
+	  : $LIMIT_MATCHES;
 	my $scan_job = $self->{'scan_job'} =~ /^(BIGSdb_[0-9_]+)$/x ? $1 : undef;
 	$self->_save_parameters($scan_job);
 	my $project_id   = $q->param('project_list');
@@ -655,7 +658,7 @@ sub _tag {
 				  "$locus: sequence tagged. Seqbin id: $seqbin_id; $start-$end (sequence bin scan)";
 
 				if ( $q->param("id_$isolate_id\_$locus\_sequence_$id\_flag") ) {
-					my @flags = $q->param("id_$isolate_id\_$locus\_sequence_$id\_flag");
+					my @flags = $q->multi_param("id_$isolate_id\_$locus\_sequence_$id\_flag");
 
 					#Need to find out the autoincrementing id for the just added tag
 					foreach my $flag (@flags) {

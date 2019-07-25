@@ -473,7 +473,7 @@ sub _print_allele_designations {
 	say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $loci, -labels => $labels );
 	say $q->submit( -label => 'Add/update', -class => 'submit' );
 	$q->param( page       => 'alleleUpdate' );
-	$q->param( isolate_id => $q->param('id') );
+	$q->param( isolate_id => scalar $q->param('id') );
 	say $q->hidden($_) foreach qw(db page isolate_id);
 	say $q->end_form;
 	say q(</fieldset></div></div>);

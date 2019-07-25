@@ -478,7 +478,7 @@ sub _modify_query_by_list {
 	my ( $self, $qry ) = @_;
 	my $q = $self->{'cgi'};
 	return $qry if !$q->param('list');
-	my $attribute_data = $self->_get_list_attribute_data( $q->param('attribute') );
+	my $attribute_data = $self->_get_list_attribute_data( scalar $q->param('attribute') );
 	my ( $field, $extended_field, $scheme_id, $field_type, $data_type, $meta_set, $meta_field, $eav_table ) =
 	  @{$attribute_data}{qw (field extended_field scheme_id field_type data_type meta_set meta_field eav_table)};
 	return $qry if !$field;

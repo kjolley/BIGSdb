@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -74,7 +74,7 @@ sub print_content {
 	my $q = $self->{'cgi'};
 	$self->_print_interface;
 	return if !$q->param('field');
-	my ( $field, $field_type, $scheme_id ) = $self->_get_field_and_type( $q->param('field') );
+	my ( $field, $field_type, $scheme_id ) = $self->_get_field_and_type( scalar $q->param('field') );
 	if ( !defined $field_type ) {
 		$self->print_bad_status( { message => q(Invalid field selected.), navbar => 1 } );
 		return;

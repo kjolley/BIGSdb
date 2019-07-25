@@ -141,7 +141,7 @@ sub update_prefs {
 	my $q = $self->{'cgi'};
 	my %allowed_flanking = map { $_ => 1 } FLANKING;
 	if ( $allowed_flanking{ $q->param('flanking') } ) {
-		$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, 'flanking', $q->param('flanking') );
+		$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, 'flanking', scalar $q->param('flanking') );
 	}
 	return;
 }

@@ -419,6 +419,7 @@ sub _check_scheme_group_group_members {    ## no critic (ProhibitUnusedPrivateSu
 	}
 	return;
 }
+
 #Check for sequence length in sequences table, that sequence doesn't already
 #exist and is similar to existing etc. Prepare extra inserts for PubMed/Genbank
 #records and sequence flags.
@@ -437,7 +438,7 @@ sub _check_sequences {    ## no critic (ProhibitUnusedPrivateSubroutines) #Calle
 	$self->_check_sequence_allele_id( $newdata, $problems );
 	$self->_check_sequence_field( $newdata, $problems );
 	$self->_check_sequence_extended_attributes( $newdata, $problems, $extra_inserts );
-	my @flags = $q->param('flags');
+	my @flags = $q->multi_param('flags');
 	foreach my $flag (@flags) {
 		next if none { $flag eq $_ } ALLELE_FLAGS;
 		push @$extra_inserts,
@@ -477,13 +478,14 @@ sub _check_sequences {    ## no critic (ProhibitUnusedPrivateSubroutines) #Calle
 		}
 	}
 	if ( $q->param('submission_id') && $q->param('sequence') ) {
-		push @$extra_inserts,
-		  {
+		push @$extra_inserts, {
 			statement => 'UPDATE allele_submission_sequences SET (status,assigned_id)=(?,?) '
 			  . 'WHERE (submission_id,UPPER(sequence))=(?,?)',
-			arguments =>
-			  [ 'assigned', $newdata->{'allele_id'}, $q->param('submission_id'), uc( $q->param('sequence') ) ]
-		  };
+			arguments => [
+				'assigned',                        $newdata->{'allele_id'},
+				scalar $q->param('submission_id'), uc( scalar $q->param('sequence') )
+			  ]
+		};
 	}
 	return;
 }

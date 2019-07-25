@@ -285,7 +285,7 @@ sub run {
 		$self->_ajax( scalar $q->param('field') );
 		return;
 	} elsif ( $q->param('export') && $q->param('format') ) {
-		$self->_export( $q->param('export'), $q->param('format') );
+		$self->_export( scalar $q->param('export'), scalar $q->param('format') );
 		return;
 	}
 	my ( $fields, $labels ) = $self->_get_fields;

@@ -604,7 +604,7 @@ sub print_provenance_form_elements {
 	}
 	my $aliases;
 	if ( $options->{'update'} ) {
-		$aliases = $self->{'datastore'}->get_isolate_aliases( $q->param('id') );
+		$aliases = $self->{'datastore'}->get_isolate_aliases( scalar $q->param('id') );
 	} else {
 		$aliases = [];
 	}
@@ -622,7 +622,7 @@ sub print_provenance_form_elements {
 	say q(</li>);
 	my $pubmed;
 	if ( $options->{'update'} ) {
-		$pubmed = $self->{'datastore'}->get_isolate_refs( $q->param('id') );
+		$pubmed = $self->{'datastore'}->get_isolate_refs( scalar $q->param('id') );
 	} else {
 		$pubmed = [];
 	}

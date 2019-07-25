@@ -313,9 +313,9 @@ sub _update_notifications {
 	$self->{'jobManager'}->update_notifications(
 		$job_id,
 		{
-			email                => $q->param('email'),
-			title                => $q->param('title'),
-			description          => $q->param('description'),
+			email                => scalar $q->param('email'),
+			title                => scalar $q->param('title'),
+			description          => scalar $q->param('description'),
 			enable_notifications => $q->param('enable_notifications') ? 1 : 0,
 			job_url => $q->url( -full => 1 ) . "?db=$self->{'instance'}&page=job&id=$job_id"
 		}

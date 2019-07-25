@@ -305,10 +305,10 @@ sub create_temp_tables {
 		};
 	}
 	if ( $q->param('list_file') && $q->param('datatype') ) {
-		$self->{'datastore'}->create_temp_list_table( $q->param('datatype'), $q->param('list_file') );
+		$self->{'datastore'}->create_temp_list_table( scalar $q->param('datatype'), scalar $q->param('list_file') );
 	}
 	if ( defined $q->param('temp_table_file') ) {
-		$self->{'datastore'}->create_temp_combinations_table_from_file( $q->param('temp_table_file') );
+		$self->{'datastore'}->create_temp_combinations_table_from_file( scalar $q->param('temp_table_file') );
 	}
 	$self->{'temp_tables_created'} = 1;
 	return $continue;
@@ -328,12 +328,16 @@ sub print_banner {
 sub choose_set {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	if ( $q->param('choose_set') && defined $q->param('sets_list') && BIGSdb::Utils::is_int( $q->param('sets_list') ) )
+	if (   $q->param('choose_set')
+		&& defined $q->param('sets_list')
+		&& BIGSdb::Utils::is_int( scalar $q->param('sets_list') ) )
 	{
 		my $guid = $self->get_guid;
 		if ($guid) {
 			try {
-				$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, 'set_id', $q->param('sets_list') );
+				$self->{'prefstore'}
+				  ->set_general( $guid, $self->{'system'}->{'db'}, 'set_id', scalar $q->param('sets_list') )
+				  ;
 				$self->{'prefs'}->{'set_id'} = $q->param('sets_list');
 			}
 			catch {
@@ -2804,10 +2808,10 @@ sub populate_submission_params {
 	my $q = $self->{'cgi'};
 	return if !$q->param('submission_id') && !$q->param('query_id');
 	return if !$self->{'system'}->{'dbtype'} eq 'sequences';
-	return if !BIGSdb::Utils::is_int( $q->param('index') );
+	return if !BIGSdb::Utils::is_int( scalar $q->param('index') );
 	if ( $q->param('populate_seqs') && $q->param('index') && !$q->param('sequence') ) {
 		my $submission_seq =
-		  $self->_get_allele_submission_sequence( $q->param('submission_id'), $q->param('index') );
+		  $self->_get_allele_submission_sequence( scalar $q->param('submission_id'), scalar $q->param('index') );
 		$q->param( sequence => $submission_seq );
 		if ( $q->param('locus') ) {
 			( my $locus = $q->param('locus') ) =~ s/%27/'/gx;    #Web-escaped locus
@@ -2817,7 +2821,7 @@ sub populate_submission_params {
 	if ( $q->param('populate_profiles') && $q->param('index') ) {
 		if ( $q->param('submission_id') ) {
 			my $submission_profile =
-			  $self->_get_profile_submission_alleles( $q->param('submission_id'), $q->param('index') );
+			  $self->_get_profile_submission_alleles( scalar $q->param('submission_id'), scalar $q->param('index') );
 			foreach my $designation (@$submission_profile) {
 				$q->param( "l_$designation->{'locus'}" => $designation->{'allele_id'} );
 			}
