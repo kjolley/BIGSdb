@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2017, University of Oxford
+#Copyright (c) 2014-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -23,15 +23,23 @@ use 5.010;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
 #Allele designation routes
-get '/db/:db/isolates/:id/allele_designations'                 => sub { _get_allele_designations() };
-get '/db/:db/isolates/:id/allele_designations/:locus'          => sub { _get_allele_designation() };
-get '/db/:db/isolates/:id/allele_ids'                          => sub { _get_allele_ids() };
-get '/db/:db/isolates/:id/schemes/:scheme/allele_ids'          => sub { _get_scheme_allele_ids() };
-get '/db/:db/isolates/:id/schemes/:scheme/allele_designations' => sub { _get_scheme_allele_designations() };
+sub setup_routes {
+	my $self = setting('self');
+	foreach my $dir ( @{ setting('api_dirs') } ) {
+		get "$dir/db/:db/isolates/:id/allele_designations"        => sub { _get_allele_designations() };
+		get "$dir/db/:db/isolates/:id/allele_designations/:locus" => sub { _get_allele_designation() };
+		get "$dir/db/:db/isolates/:id/allele_ids"                 => sub { _get_allele_ids() };
+		get "$dir/db/:db/isolates/:id/schemes/:scheme/allele_ids" => sub { _get_scheme_allele_ids() };
+		get "$dir/db/:db/isolates/:id/schemes/:scheme/allele_designations" =>
+		  sub { _get_scheme_allele_designations() };
+	}
+	return;
+}
 
 sub _get_allele_designations {
 	my $self = setting('self');
 	my ( $db, $isolate_id ) = ( params->{'db'}, params->{'id'} );
+	my $subdir          = setting('subdir');
 	$self->check_isolate_is_valid($isolate_id);
 	my $set_id = $self->get_set_id;
 	my $set_clause =
@@ -48,13 +56,13 @@ sub _get_allele_designations {
 	my $qry = "SELECT DISTINCT locus FROM allele_designations WHERE isolate_id=?$set_clause ORDER BY locus";
 	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
 	my $loci = $self->{'datastore'}->run_query( $qry, $isolate_id, { fetch => 'col_arrayref' } );
-	my $paging = $self->get_paging( "/db/$db/isolates/$isolate_id/allele_designations", $pages, $page, $offset );
+	my $paging = $self->get_paging( "$subdir/db/$db/isolates/$isolate_id/allele_designations", $pages, $page, $offset );
 	$values->{'paging'} = $paging if %$paging;
 	my $designation_links = [];
 
 	foreach my $locus (@$loci) {
 		my $locus_name = $self->clean_locus($locus);
-		push @$designation_links, request->uri_for("/db/$db/isolates/$isolate_id/allele_designations/$locus_name");
+		push @$designation_links, request->uri_for("$subdir/db/$db/isolates/$isolate_id/allele_designations/$locus_name");
 	}
 	$values->{'allele_designations'} = $designation_links;
 	return $values;
@@ -64,6 +72,7 @@ sub _get_allele_designation {
 	my $self = setting('self');
 	my ( $db, $isolate_id, $locus ) = ( params->{'db'}, params->{'id'}, params->{'locus'} );
 	$self->check_isolate_is_valid($isolate_id);
+	my $subdir          = setting('subdir');
 	my $set_id     = $self->get_set_id;
 	my $locus_name = $locus;
 	if ($set_id) {
@@ -85,14 +94,14 @@ sub _get_allele_designation {
 		foreach my $attribute (qw(locus allele_id status method comments sender curator datestamp)) {
 			next if !defined $designation->{$attribute} || $designation->{$attribute} eq '';
 			if ( $attribute eq 'locus' ) {
-				$returned_designation->{'locus'} = request->uri_for("/db/$db/loci/$locus");
+				$returned_designation->{'locus'} = request->uri_for("$subdir/db/$db/loci/$locus");
 			} elsif ( $attribute eq 'allele_id' ) {
 				$returned_designation->{'allele_id'} =
 				  $locus_info->{'allele_id_format'} eq 'integer'
 				  ? int( $designation->{'allele_id'} )
 				  : $designation->{'allele_id'};
 			} elsif ( $attribute eq 'sender' || $attribute eq 'curator' ) {
-				$returned_designation->{$attribute} = request->uri_for("/db/$db/users/$designation->{$attribute}");
+				$returned_designation->{$attribute} = request->uri_for("$subdir/db/$db/users/$designation->{$attribute}");
 			} else {
 				$returned_designation->{$attribute} = $designation->{$attribute};
 			}
@@ -106,6 +115,7 @@ sub _get_allele_ids {
 	my $self = setting('self');
 	my ( $db, $isolate_id ) = ( params->{'db'}, params->{'id'} );
 	$self->check_isolate_is_valid($isolate_id);
+	my $subdir          = setting('subdir');
 	my $set_id = $self->get_set_id;
 	my $set_clause =
 	  $set_id
@@ -121,7 +131,7 @@ sub _get_allele_ids {
 	my $qry = "SELECT DISTINCT locus FROM allele_designations WHERE isolate_id=?$set_clause ORDER BY locus";
 	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
 	my $loci = $self->{'datastore'}->run_query( $qry, $isolate_id, { fetch => 'col_arrayref' } );
-	my $paging = $self->get_paging( "/db/$db/isolates/$isolate_id/allele_ids", $pages, $page, $offset );
+	my $paging = $self->get_paging( "$subdir/db/$db/isolates/$isolate_id/allele_ids", $pages, $page, $offset );
 	$values->{'paging'} = $paging if %$paging;
 	my $designations = [];
 
@@ -194,6 +204,7 @@ sub _get_scheme_allele_designations {
 	$self->check_isolate_is_valid($isolate_id);
 	$self->check_scheme($scheme_id);
 	my $set_id = $self->get_set_id;
+	my $subdir          = setting('subdir');
 	my $allele_designations =
 	  $self->{'datastore'}->get_scheme_allele_designations( $isolate_id, $scheme_id, { set_id => $set_id } );
 	my $values       = { records => int( keys %$allele_designations ) };
@@ -209,14 +220,14 @@ sub _get_scheme_allele_designations {
 			my $value = {};
 			foreach my $field (qw ( locus allele_id sender status method curator date_entered datestamp)) {
 				if ( $field eq 'locus' ) {
-					$value->{'locus'} = request->uri_for("/db/$db/loci/$locus_name");
+					$value->{'locus'} = request->uri_for("$subdir/db/$db/loci/$locus_name");
 				} elsif ( $field eq 'allele_id'
 					&& $locus_info->{'allele_id_format'} eq 'integer'
 					&& BIGSdb::Utils::is_int( $designation->{'allele_id'} ) )
 				{
 					$value->{'allele_id'} = int( $designation->{'allele_id'} );
 				} elsif ( $field eq 'sender' || $field eq 'curator' ) {
-					$value->{$field} = request->uri_for("/db/$db/users/$designation->{$field}");
+					$value->{$field} = request->uri_for("$subdir/db/$db/users/$designation->{$field}");
 				} else {
 					$value->{$field} = $designation->{$field} if defined $designation->{$field};
 				}

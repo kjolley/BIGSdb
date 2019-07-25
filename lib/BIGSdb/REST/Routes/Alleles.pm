@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2017, University of Oxford
+#Copyright (c) 2014-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -23,15 +23,22 @@ use 5.010;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
 #Allele routes
-get '/db/:db/loci/:locus/alleles'            => sub { _get_alleles() };
-get '/db/:db/loci/:locus/alleles/:allele_id' => sub { _get_allele() };
-get '/db/:db/loci/:locus/alleles_fasta'      => sub { _get_alleles_fasta() };
+sub setup_routes {
+	my $self = setting('self');
+	foreach my $dir ( @{ setting('api_dirs') } ) {
+		get "$dir/db/:db/loci/:locus/alleles"            => sub { _get_alleles() };
+		get "$dir/db/:db/loci/:locus/alleles/:allele_id" => sub { _get_allele() };
+		get "$dir/db/:db/loci/:locus/alleles_fasta"      => sub { _get_alleles_fasta() };
+	}
+	return;
+}
 
 sub _get_alleles {
 	my $self = setting('self');
 	$self->check_seqdef_database;
 	my $params = params;
 	my ( $db, $locus ) = @{$params}{qw(db locus)};
+	my $subdir          = setting('subdir');
 	my $allowed_filters = [qw(added_after added_on updated_after updated_on)];
 	my $set_id          = $self->get_set_id;
 	my $locus_name      = $locus;
@@ -53,13 +60,13 @@ sub _get_alleles {
 	my $allele_ids = $self->{'datastore'}->run_query( $qry, $locus, { fetch => 'col_arrayref' } );
 	my $values = { records => int($allele_count) };
 	$values->{'last_updated'} = $last_updated if defined $last_updated;
-	my $path = $self->get_full_path( "/db/$db/loci/$locus_name/alleles", $allowed_filters );
+	my $path = $self->get_full_path( "$subdir/db/$db/loci/$locus_name/alleles", $allowed_filters );
 	my $paging = $self->get_paging( $path, $pages, $page, $offset );
 	$values->{'paging'} = $paging if %$paging;
 	my $allele_links = [];
 
 	foreach my $allele_id (@$allele_ids) {
-		push @$allele_links, request->uri_for("/db/$db/loci/$locus_name/alleles/$allele_id");
+		push @$allele_links, request->uri_for("$subdir/db/$db/loci/$locus_name/alleles/$allele_id");
 	}
 	$values->{'alleles'} = $allele_links;
 	return $values;
@@ -71,6 +78,7 @@ sub _get_allele {
 	my $params = params;
 	my ( $db, $locus, $allele_id ) = @{$params}{qw(db locus allele_id)};
 	my $set_id     = $self->get_set_id;
+	my $subdir     = setting('subdir');
 	my $locus_name = $locus;
 	if ($set_id) {
 		$locus_name = $self->{'datastore'}->get_set_locus_real_id( $locus, $set_id );
@@ -90,11 +98,11 @@ sub _get_allele {
 	my $values = {};
 	foreach my $attribute (qw(locus allele_id sequence status comments date_entered datestamp sender curator)) {
 		if ( $attribute eq 'locus' ) {
-			$values->{$attribute} = request->uri_for("/db/$db/loci/$locus");
+			$values->{$attribute} = request->uri_for("$subdir/db/$db/loci/$locus");
 		} elsif ( $attribute eq 'sender' || $attribute eq 'curator' ) {
 
 			#Don't link to user 0 (setup user)
-			$values->{$attribute} = request->uri_for("/db/$db/users/$allele->{$attribute}")
+			$values->{$attribute} = request->uri_for("$subdir/db/$db/users/$allele->{$attribute}")
 			  if $allele->{$attribute};
 		} else {
 			$values->{$attribute} = $allele->{$attribute}

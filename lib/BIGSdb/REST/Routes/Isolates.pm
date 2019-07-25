@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2018, University of Oxford
+#Copyright (c) 2014-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -26,17 +26,24 @@ use BIGSdb::Utils;
 use constant GENOME_SIZE => 500_000;
 
 #Isolate database routes
-get '/db/:db/isolates'             => sub { _get_isolates() };
-get '/db/:db/genomes'              => sub { _get_genomes() };
-get '/db/:db/isolates/:id'         => sub { _get_isolate() };
-get '/db/:db/isolates/:id/history' => sub { _get_history() };
-post '/db/:db/isolates/search'     => sub { _query_isolates() };
+sub setup_routes {
+	my $self = setting('self');
+	foreach my $dir ( @{ setting('api_dirs') } ) {
+		get "$dir/db/:db/isolates"             => sub { _get_isolates() };
+		get "$dir/db/:db/genomes"              => sub { _get_genomes() };
+		get "$dir/db/:db/isolates/:id"         => sub { _get_isolate() };
+		get "$dir/db/:db/isolates/:id/history" => sub { _get_history() };
+		post "$dir/db/:db/isolates/search"     => sub { _query_isolates() };
+	}
+	return;
+}
 
 sub _get_isolates {
 	my $self = setting('self');
 	$self->check_isolate_database;
 	my $params          = params;
 	my $db              = params->{'db'};
+	my $subdir          = setting('subdir');
 	my $allowed_filters = [qw(added_after added_on updated_after updated_on)];
 	my $qry = $self->add_filters( "SELECT COUNT(*),MAX(date_entered),MAX(datestamp) FROM $self->{'system'}->{'view'}",
 		$allowed_filters );
@@ -50,11 +57,11 @@ sub _get_isolates {
 	my $values = { records => int($isolate_count) };
 	$values->{'last_added'}   = $last_added   if $last_added;
 	$values->{'last_updated'} = $last_updated if $last_updated;
-	my $path = $self->get_full_path( "/db/$db/isolates", $allowed_filters );
+	my $path = $self->get_full_path( "$subdir/db/$db/isolates", $allowed_filters );
 	my $paging = $self->get_paging( $path, $pages, $page, $offset );
 	$values->{'paging'} = $paging if %$paging;
 	my @links;
-	push @links, request->uri_for("/db/$db/isolates/$_") foreach @$ids;
+	push @links, request->uri_for("$subdir/db/$db/isolates/$_") foreach @$ids;
 	$values->{'isolates'} = \@links;
 	return $values;
 }
@@ -64,6 +71,7 @@ sub _get_genomes {
 	$self->check_isolate_database;
 	my $params          = params;
 	my $db              = params->{'db'};
+	my $subdir          = setting('subdir');
 	my $allowed_filters = [qw(added_after updated_after genome_size)];
 	my $genome_size     = BIGSdb::Utils::is_int( params->{'genome_size'} ) ? params->{'genome_size'} : GENOME_SIZE;
 	my $qry             = $self->add_filters(
@@ -85,11 +93,11 @@ sub _get_genomes {
 	my $values = { records => int($isolate_count) };
 	$values->{'last_added'}   = $last_added   if $last_added;
 	$values->{'last_updated'} = $last_updated if $last_updated;
-	my $path = $self->get_full_path( "/db/$db/genomes", $allowed_filters );
+	my $path = $self->get_full_path( "$subdir/db/$db/genomes", $allowed_filters );
 	my $paging = $self->get_paging( $path, $pages, $page, $offset );
 	$values->{'paging'} = $paging if %$paging;
 	my @links;
-	push @links, request->uri_for("/db/$db/isolates/$_") foreach @$ids;
+	push @links, request->uri_for("$subdir/db/$db/isolates/$_") foreach @$ids;
 	$values->{'isolates'} = \@links;
 	return $values;
 }
@@ -98,6 +106,7 @@ sub _get_isolate {
 	my $self   = setting('self');
 	my $params = params;
 	my ( $db, $id ) = @{$params}{qw(db id)};
+	my $subdir = setting('subdir');
 	$self->check_isolate_database;
 	$self->check_isolate_is_valid($id);
 	my $values = {};
@@ -109,7 +118,7 @@ sub _get_isolate {
 
 	foreach my $field (@$field_list) {
 		if ( $field eq 'sender' || $field eq 'curator' ) {
-			$provenance->{$field} = request->uri_for("/db/$db/users/$field_values->{$field}");
+			$provenance->{$field} = request->uri_for("$subdir/db/$db/users/$field_values->{$field}");
 		} else {
 			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 			if ( defined $field_values->{ lc $field } ) {
@@ -127,7 +136,7 @@ sub _get_isolate {
 	my $phenotypic = _get_phenotypic_values($id);
 	$values->{'phenotypic'} = $phenotypic if %$phenotypic;
 	my $has_history = $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM history WHERE isolate_id=?)', $id );
-	$values->{'history'} = request->uri_for("/db/$db/isolates/$id/history") if $has_history;
+	$values->{'history'} = request->uri_for("$subdir/db/$db/isolates/$id/history") if $has_history;
 	my $publications = _get_publications($id);
 	$values->{'publications'} = $publications if @$publications;
 	my $seqbin_stats =
@@ -138,8 +147,8 @@ sub _get_isolate {
 		my $seqbin = {
 			contig_count  => $seqbin_stats->{'contigs'},
 			total_length  => $seqbin_stats->{'total_length'},
-			contigs       => request->uri_for("/db/$db/isolates/$id/contigs"),
-			contigs_fasta => request->uri_for("/db/$db/isolates/$id/contigs_fasta")
+			contigs       => request->uri_for("$subdir/db/$db/isolates/$id/contigs"),
+			contigs_fasta => request->uri_for("$subdir/db/$db/isolates/$id/contigs_fasta")
 		};
 		$values->{'sequence_bin'} = $seqbin;
 	}
@@ -154,20 +163,20 @@ sub _get_isolate {
 	if ($designations) {
 		$values->{'allele_designations'} = {
 			designation_count => int($designations),
-			full_designations => request->uri_for("/db/$db/isolates/$id/allele_designations"),
-			allele_ids        => request->uri_for("/db/$db/isolates/$id/allele_ids")
+			full_designations => request->uri_for("$subdir/db/$db/isolates/$id/allele_designations"),
+			allele_ids        => request->uri_for("$subdir/db/$db/isolates/$id/allele_ids")
 		};
 	}
 	my $scheme_links = _get_scheme_data($id);
 	$values->{'schemes'} = $scheme_links if @$scheme_links;
 	_get_isolate_projects( $values, $id );
 	if ( BIGSdb::Utils::is_int( $field_values->{'new_version'} ) ) {
-		$values->{'new_version'} = request->uri_for("/db/$db/isolates/$field_values->{'new_version'}");
+		$values->{'new_version'} = request->uri_for("$subdir/db/$db/isolates/$field_values->{'new_version'}");
 	}
 	my $old_version =
 	  $self->{'datastore'}->run_query( "SELECT id FROM $self->{'system'}->{'view'} WHERE new_version=?", $id );
 	if ($old_version) {
-		$values->{'old_version'} = request->uri_for("/db/$db/isolates/$old_version");
+		$values->{'old_version'} = request->uri_for("$subdir/db/$db/isolates/$old_version");
 	}
 	return $values;
 }
@@ -193,14 +202,15 @@ sub _get_history {
 	my $self   = setting('self');
 	my $params = params;
 	my ( $db, $id ) = @{$params}{qw(db id)};
-	my $data = $self->{'datastore'}->run_query( 'SELECT * FROM history WHERE isolate_id=? ORDER BY timestamp',
+	my $subdir = setting('subdir');
+	my $data   = $self->{'datastore'}->run_query( 'SELECT * FROM history WHERE isolate_id=? ORDER BY timestamp',
 		$id, { fetch => 'all_arrayref', slice => {} } );
 	my $history = [];
 	foreach my $record (@$data) {
 		my @actions = split /<br\ \/>/x, $record->{'action'};
 		push @$history,
 		  {
-			curator   => request->uri_for("/db/$db/users/$record->{'curator'}"),
+			curator   => request->uri_for("$subdir/db/$db/users/$record->{'curator'}"),
 			actions   => \@actions,
 			timestamp => $record->{'timestamp'}
 		  };
@@ -213,12 +223,14 @@ sub _get_similar {
 	my $self   = setting('self');
 	my $params = params;
 	my ( $db, $id ) = @{$params}{qw(db id)};
+	my $subdir = setting('subdir');
 	my $view   = $self->{'system'}->{'view'};
 	my $values = {};
 	my $classification_schemes =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT id,name FROM classification_schemes WHERE scheme_id=? ORDER BY display_order,name',
 		$scheme_id, { fetch => 'all_arrayref', slice => {} } );
+
 	foreach my $cscheme (@$classification_schemes) {
 		my $cache_table_exists = $self->{'datastore'}->run_query(
 			'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=? OR table_name=?)',
@@ -254,10 +266,10 @@ sub _get_similar {
 					if ( $isolate_count > 1 ) {
 						push @$c_scheme_values,
 						  {
-							group   => int($group_id),
-							records => $isolate_count,
-							isolates =>
-							  request->uri_for("/db/$db/classification_schemes/$cscheme->{'id'}/groups/$group_id")
+							group    => int($group_id),
+							records  => $isolate_count,
+							isolates => request->uri_for(
+								"$subdir/db/$db/classification_schemes/$cscheme->{'id'}/groups/$group_id")
 						  };
 					}
 				}
@@ -265,7 +277,7 @@ sub _get_similar {
 		}
 		if (@$c_scheme_values) {
 			$values->{ $cscheme->{'name'} }->{'href'} =
-			  request->uri_for("/db/$db/classification_schemes/$cscheme->{'id'}");
+			  request->uri_for("$subdir/db/$db/classification_schemes/$cscheme->{'id'}");
 			$values->{ $cscheme->{'name'} }->{'groups'} = $c_scheme_values;
 		}
 	}
@@ -276,6 +288,7 @@ sub _get_scheme_data {
 	my ($isolate_id) = @_;
 	my $self         = setting('self');
 	my $db           = params->{'db'};
+	my $subdir       = setting('subdir');
 	my $set_id       = $self->get_set_id;
 	my $scheme_list = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	my $scheme_links = [];
@@ -287,8 +300,8 @@ sub _get_scheme_data {
 			description           => $scheme->{'name'},
 			loci_designated_count => scalar keys %$allele_designations,
 			full_designations =>
-			  request->uri_for("/db/$db/isolates/$isolate_id/schemes/$scheme->{'id'}/allele_designations"),
-			allele_ids => request->uri_for("/db/$db/isolates/$isolate_id/schemes/$scheme->{'id'}/allele_ids")
+			  request->uri_for("$subdir/db/$db/isolates/$isolate_id/schemes/$scheme->{'id'}/allele_designations"),
+			allele_ids => request->uri_for("$subdir/db/$db/isolates/$isolate_id/schemes/$scheme->{'id'}/allele_ids")
 		};
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme->{'id'}, { set_id => $set_id, get_pk => 1 } );
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $scheme->{'id'} );
@@ -359,6 +372,7 @@ sub _get_isolate_projects {
 	my ( $values, $isolate_id ) = @_;
 	my $self         = setting('self');
 	my $db           = params->{'db'};
+	my $subdir       = setting('subdir');
 	my $project_data = $self->{'datastore'}->run_query(
 		'SELECT id,short_description FROM projects JOIN project_members ON projects.id=project_members.project_id '
 		  . 'WHERE isolate_id=? AND isolate_display ORDER BY id',
@@ -369,7 +383,7 @@ sub _get_isolate_projects {
 	foreach my $project (@$project_data) {
 		push @projects,
 		  {
-			id          => request->uri_for("/db/$db/projects/$project->{'id'}"),
+			id          => request->uri_for("$subdir/db/$db/projects/$project->{'id'}"),
 			description => $project->{'short_description'}
 		  };
 	}
@@ -405,6 +419,7 @@ sub _query_isolates {
 	$self->check_isolate_database;
 	$self->check_post_payload;
 	my $db        = params->{'db'};
+	my $subdir    = setting('subdir');
 	my $count_qry = "SELECT COUNT(*) FROM $self->{'system'}->{'view'}";
 	my $qry       = "SELECT id FROM $self->{'system'}->{'view'}";
 	my $params    = _unflatten_params();
@@ -440,11 +455,11 @@ sub _query_isolates {
 	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
 	my $ids = $self->{'datastore'}->run_query( $qry, \@values, { fetch => 'col_arrayref' } );
 	my $values = { records => int($isolate_count) };
-	my $path   = $self->get_full_path("/db/$db/isolates");
+	my $path   = $self->get_full_path("$subdir/db/$db/isolates");
 	my $paging = $self->get_paging( $path, $pages, $page, $offset );
 	$values->{'paging'} = $paging if %$paging;
 	my @links;
-	push @links, request->uri_for("/db/$db/isolates/$_") foreach @$ids;
+	push @links, request->uri_for("$subdir/db/$db/isolates/$_") foreach @$ids;
 	$values->{'isolates'} = \@links;
 	return $values;
 }

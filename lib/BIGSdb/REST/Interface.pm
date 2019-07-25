@@ -85,6 +85,16 @@ sub _initiate {
 	my ($self) = @_;
 	$self->read_config_file( $self->{'config_dir'} );
 	$self->read_host_mapping_file( $self->{'config_dir'} );
+	$self->{'config'}->{'rest_dir'} //= q();
+	my $divider = q(,);
+	set api_dirs => [ ( split /$divider/x, $self->{'config'}->{'rest_dir'} ), q() ];
+	my @modules = qw(AlleleDesignations Alleles ClassificationSchemes Contigs Fields Isolates Loci OAuth
+	  Profiles Projects Resources Schemes Sequences Submissions Users);
+	my %setups = map { $_ => \&{"BIGSdb::REST::Routes::${_}::setup_routes"} } @modules;
+
+	foreach my $module (@modules) {
+		$setups{$module}->();
+	}
 	$self->{'logger'} = $logger;
 	return;
 }
@@ -114,7 +124,14 @@ sub _before {
 	my $self = setting('self');
 	$self->{'start_time'} = [gettimeofday];
 	my $request_path = request->path();
-	$self->{'instance'} = $request_path =~ /^\/db\/([\w\d\-_]+)/x ? $1 : '';
+	foreach my $dir ( @{ setting('api_dirs') } ) {
+		if ( $request_path =~ /^$dir/x ) {
+			set subdir => $dir;
+			last;
+		}
+	}
+	my $subdir = setting('subdir');
+	$self->{'instance'} = $request_path =~ /^$subdir\/db\/([\w\d\-_]+)/x ? $1 : '';
 	my $full_path = "$self->{'dbase_config_dir'}/$self->{'instance'}/config.xml";
 	if ( !$self->{'instance'} ) {
 		undef $self->{'system'};
@@ -212,12 +229,13 @@ sub _check_authorization {
 	my $self             = setting('self');
 	my $request_uri      = request->uri();
 	my $authenticated_db = ( $self->{'system'}->{'read_access'} // '' ) ne 'public';
-	my $oauth_route      = "/db/$self->{'instance'}/oauth/";
-	my $submission_route = "/db/$self->{'instance'}/submissions";
+	my $subdir = setting('subdir');
+	my $oauth_route      = "$subdir/db/$self->{'instance'}/oauth/";
+	my $submission_route = "$subdir/db/$self->{'instance'}/submissions";
 	if ( $request_uri =~ /$submission_route/x ) {
 		$self->setup_submission_handler;
 	}
-	if ( ( $authenticated_db && $request_uri !~ /^$oauth_route/x ) || $request_uri =~ /$submission_route/x ) {
+	if ( ( $authenticated_db && $request_uri !~ /^$oauth_route/x ) || $request_uri =~ /^$submission_route/x ) {
 		send_error( 'Unauthorized', 401 ) if !$self->_is_authorized;
 	}
 	my $login_requirement = $self->{'datastore'}->get_login_requirement;
@@ -244,11 +262,9 @@ sub _check_kiosk {
 				404
 			);
 		}
-		my $route         = request->request_uri;
-		my @allowed_regex = (
-			qr/^\/db\/$db\/loci\/\w+\/sequence$/x,
-			qr/^\/db\/$db\/sequence$/x, qr/^\/db\/$db\/schemes\/\d+\/sequence$/x
-		);
+		my $route = request->request_uri;
+		my @allowed_regex =
+		  ( qr/\/db\/$db\/loci\/\w+\/sequence$/x, qr/\/db\/$db\/sequence$/x, qr/\/db\/$db\/schemes\/\d+\/sequence$/x );
 		foreach my $allowed (@allowed_regex) {
 			return if $route =~ $allowed;
 		}

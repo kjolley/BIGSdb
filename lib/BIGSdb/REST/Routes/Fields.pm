@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2018, University of Oxford
+#Copyright (c) 2017-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -25,14 +25,21 @@ use Dancer2 appname => 'BIGSdb::REST::Interface';
 use BIGSdb::Utils;
 
 #Isolate database routes
-get '/db/:db/fields'                  => sub { _get_fields() };
-get '/db/:db/fields/:field'           => sub { _get_field() };
-get '/db/:db/fields/:field/breakdown' => sub { _get_breakdown() };
+sub setup_routes {
+	my $self = setting('self');
+	foreach my $dir ( @{ setting('api_dirs') } ) {
+		get "$dir/db/:db/fields"                  => sub { _get_fields() };
+		get "$dir/db/:db/fields/:field"           => sub { _get_field() };
+		get "$dir/db/:db/fields/:field/breakdown" => sub { _get_breakdown() };
+	}
+	return;
+}
 
 sub _get_fields {
 	my $self = setting('self');
 	my $db   = params->{'db'};
 	$self->check_isolate_database;
+	my $subdir = setting('subdir');
 	my $fields = $self->{'xmlHandler'}->get_field_list;
 	my $values = [];
 	foreach my $field (@$fields) {
@@ -42,7 +49,7 @@ sub _get_fields {
 		$thisfield->{'required'} //= 'yes';    #This is the default and may not be specified in config.xml.
 		foreach (qw ( type required length min max regex comments)) {
 			next if !defined $thisfield->{$_};
-			if ( (($_ eq 'min' || $_ eq 'max') && $thisfield->{'type'} =~ /^int/x)|| $_ eq 'length' ) {
+			if ( ( ( $_ eq 'min' || $_ eq 'max' ) && $thisfield->{'type'} =~ /^int/x ) || $_ eq 'length' ) {
 				$value->{$_} = int( $thisfield->{$_} );
 			} elsif ( $_ eq 'required' ) {
 				$value->{$_} = $thisfield->{$_} eq 'yes' ? JSON::true : JSON::false;
@@ -53,8 +60,8 @@ sub _get_fields {
 		if ( ( $thisfield->{'optlist'} // '' ) eq 'yes' ) {
 			$value->{'allowed_values'} = $self->{'xmlHandler'}->get_field_option_list($field);
 		}
-		$value->{'values'}    = request->uri_for("/db/$db/fields/$field");
-		$value->{'breakdown'} = request->uri_for("/db/$db/fields/$field/breakdown");
+		$value->{'values'}    = request->uri_for("$subdir/db/$db/fields/$field");
+		$value->{'breakdown'} = request->uri_for("$subdir/db/$db/fields/$field/breakdown");
 		push @$values, $value;
 		my $ext_att =
 		  $self->{'datastore'}
@@ -64,9 +71,9 @@ sub _get_fields {
 			$att->{'value_format'} = 'int' if $att->{'value_format'} eq 'integer';
 			$value = {
 				name      => $att->{'attribute'},
-				values    => request->uri_for("/db/$db/fields/$att->{'attribute'}"),
+				values    => request->uri_for("$subdir/db/$db/fields/$att->{'attribute'}"),
 				type      => $att->{'value_format'},
-				breakdown => request->uri_for("/db/$db/fields/$att->{'attribute'}/breakdown")
+				breakdown => request->uri_for("$subdir/db/$db/fields/$att->{'attribute'}/breakdown")
 			};
 			$value->{'required'} = JSON::false;
 			$value->{'length'}   = $att->{'length'} if $att->{'length'};
@@ -85,6 +92,7 @@ sub _get_field {
 	my $params = params;
 	$self->check_isolate_database;
 	my ( $db, $field ) = @{$params}{qw(db field)};
+	my $subdir            = setting('subdir');
 	my $is_extended_field = $self->{'datastore'}
 	  ->run_query( 'SELECT EXISTS(SELECT * FROM isolate_field_extended_attributes WHERE attribute=?)', $field );
 	if ($is_extended_field) {
@@ -104,7 +112,7 @@ sub _get_field {
 		records => int($value_count),
 		values  => $set_values
 	};
-	my $paging = $self->get_paging( "/db/$db/fields/$field", $pages, $page, $offset );
+	my $paging = $self->get_paging( "$subdir/db/$db/fields/$field", $pages, $page, $offset );
 	$values->{'paging'} = $paging if %$paging;
 	return $values;
 }
@@ -113,6 +121,7 @@ sub _get_extended_field {
 	my $self   = setting('self');
 	my $params = params;
 	my ( $db, $field ) = @{$params}{qw(db field)};
+	my $subdir = setting('subdir');
 	my $ext_att =
 	  $self->{'datastore'}->run_query( 'SELECT * FROM isolate_field_extended_attributes WHERE attribute=? LIMIT 1',
 		$field, { fetch => 'row_hashref' } );
@@ -138,7 +147,7 @@ sub _get_extended_field {
 		records => int($value_count),
 		values  => $set_values
 	};
-	my $paging = $self->get_paging( "/db/$db/field/$field", $pages, $page, $offset );
+	my $paging = $self->get_paging( "$subdir/db/$db/field/$field", $pages, $page, $offset );
 	$values->{'paging'} = $paging if %$paging;
 	return $values;
 }
@@ -160,7 +169,7 @@ sub _get_breakdown {
 	  "SELECT $field,COUNT(*) AS count FROM $self->{'system'}->{'view'} WHERE $field IS NOT NULL GROUP BY $field";
 
 	#Undocumented call - needed to generate stats of genome submissions
-	if ( $params->{'genomes'} && ($field eq 'date_entered' || $field eq 'datestamp') ) {
+	if ( $params->{'genomes'} && ( $field eq 'date_entered' || $field eq 'datestamp' ) ) {
 
 		#Need to ensure we use minimum date_entered value from sequence bin not the isolate date_entered
 		$qry =

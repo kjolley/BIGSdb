@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2017, University of Oxford
+#Copyright (c) 2014-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -23,9 +23,15 @@ use 5.010;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
 #Profile routes
-get '/db/:db/schemes/:scheme_id/profiles'             => sub { _get_profiles() };
-get '/db/:db/schemes/:scheme_id/profiles_csv'         => sub { _get_profiles_csv() };
-get '/db/:db/schemes/:scheme_id/profiles/:profile_id' => sub { _get_profile() };
+sub setup_routes {
+	my $self = setting('self');
+	foreach my $dir ( @{ setting('api_dirs') } ) {
+		get "$dir/db/:db/schemes/:scheme_id/profiles"             => sub { _get_profiles() };
+		get "$dir/db/:db/schemes/:scheme_id/profiles_csv"         => sub { _get_profiles_csv() };
+		get "$dir/db/:db/schemes/:scheme_id/profiles/:profile_id" => sub { _get_profile() };
+	}
+	return;
+}
 
 sub _get_profiles {
 	my $self = setting('self');
@@ -38,7 +44,8 @@ sub _get_profiles {
 	my $allowed_filters = [qw(added_after added_on updated_after updated_on)];
 	my $set_id          = $self->get_set_id;
 	$self->check_scheme( $scheme_id, { pk => 1 } );
-	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
+	my $subdir           = setting('subdir');
+	my $scheme_info      = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
 	my $scheme_warehouse = "mv_scheme_$scheme_id";
 	my $qry = $self->add_filters( "SELECT COUNT(*),max(datestamp) FROM $scheme_warehouse", $allowed_filters );
 	my ( $profile_count, $last_updated ) = $self->{'datastore'}->run_query($qry);
@@ -56,13 +63,13 @@ sub _get_profiles {
 	my $profiles = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	my $values = { records => int($profile_count) };
 	$values->{'last_updated'} = $last_updated if defined $last_updated;
-	my $path = $self->get_full_path( "/db/$db/schemes/$scheme_id/profiles", $allowed_filters );
+	my $path = $self->get_full_path( "$subdir/db/$db/schemes/$scheme_id/profiles", $allowed_filters );
 	my $paging = $self->get_paging( $path, $pages, $page, $offset );
 	$values->{'paging'} = $paging if %$paging;
 	my $profile_links = [];
 
 	foreach my $profile_id (@$profiles) {
-		push @$profile_links, request->uri_for("/db/$db/schemes/$scheme_id/profiles/$profile_id");
+		push @$profile_links, request->uri_for("$subdir/db/$db/schemes/$scheme_id/profiles/$profile_id");
 	}
 	$values->{'profiles'} = $profile_links;
 	return $values;
@@ -129,6 +136,7 @@ sub _get_profile {
 	$self->check_scheme($scheme_id);
 	my $page        = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
 	my $set_id      = $self->get_set_id;
+	my $subdir      = setting('subdir');
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
 	if ( !$scheme_info->{'primary_key'} ) {
 		send_error( "Scheme $scheme_id does not have a primary key field.", 400 );
@@ -147,7 +155,7 @@ sub _get_profile {
 	foreach my $locus (@$loci) {
 		my $cleaned_locus = $self->clean_locus($locus);
 		my $allele_id     = $profile->{'profile'}->[ $locus_indices->{$locus} ];
-		push @$allele_links, request->uri_for("/db/$db/loci/$cleaned_locus/alleles/$allele_id");
+		push @$allele_links, request->uri_for("$subdir/db/$db/loci/$cleaned_locus/alleles/$allele_id");
 	}
 	$values->{'alleles'} = $allele_links;
 	my $fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
@@ -169,7 +177,8 @@ sub _get_profile {
 		if ( $attribute eq 'sender' || $attribute eq 'curator' ) {
 
 			#Don't link to user 0 (setup user)
-			$values->{$attribute} = request->uri_for("/db/$db/users/$profile_info->{$attribute}")
+			$values->{$attribute} =
+			  request->uri_for("$subdir/db/$db/users/$profile_info->{$attribute}")
 			  if $profile_info->{$attribute};
 		} else {
 			$values->{$attribute} = $profile_info->{$attribute};

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2017, University of Oxford
+#Copyright (c) 2015-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -25,16 +25,23 @@ use Dancer2 appname => 'BIGSdb::REST::Interface';
 use MIME::Base64;
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(SEQ_METHODS :submissions);
-get '/db/:db/submissions'                         => sub { _get_submissions() };
-post '/db/:db/submissions'                        => sub { _create_submission() };
-get '/db/:db/submissions/:submission'             => sub { _get_submission() };
-del '/db/:db/submissions/:submission'             => sub { _delete_submission() };
-get '/db/:db/submissions/:submission/messages'    => sub { _get_messages() };
-post '/db/:db/submissions/:submission/messages'   => sub { _add_message() };
-get '/db/:db/submissions/:submission/files'       => sub { _get_files() };
-post '/db/:db/submissions/:submission/files'      => sub { _upload_file() };
-get '/db/:db/submissions/:submission/files/:file' => sub { _get_file() };
-del '/db/:db/submissions/:submission/files/:file' => sub { _delete_file() };
+
+sub setup_routes {
+	my $self = setting('self');
+	foreach my $dir ( @{ setting('api_dirs') } ) {
+		get "$dir/db/:db/submissions"                         => sub { _get_submissions() };
+		post "$dir/db/:db/submissions"                        => sub { _create_submission() };
+		get "$dir/db/:db/submissions/:submission"             => sub { _get_submission() };
+		del "$dir/db/:db/submissions/:submission"             => sub { _delete_submission() };
+		get "$dir/db/:db/submissions/:submission/messages"    => sub { _get_messages() };
+		post "$dir/db/:db/submissions/:submission/messages"   => sub { _add_message() };
+		get "$dir/db/:db/submissions/:submission/files"       => sub { _get_files() };
+		post "$dir/db/:db/submissions/:submission/files"      => sub { _upload_file() };
+		get "$dir/db/:db/submissions/:submission/files/:file" => sub { _get_file() };
+		del "$dir/db/:db/submissions/:submission/files/:file" => sub { _delete_file() };
+	}
+	return;
+}
 
 sub _check_db_type {
 	my ($type) = @_;
@@ -75,7 +82,8 @@ sub _get_submissions {
 	}
 	my $part_qry   = q(FROM submissions WHERE submitter=?);
 	my $args       = [$user_id];
-	my $paging_uri = "/db/$db/submissions";
+	my $subdir     = setting('subdir');
+	my $paging_uri = "$subdir/db/$db/submissions";
 	if ($type) {
 		$part_qry .= ' AND type=?';
 		push @$args, $type;
@@ -102,7 +110,7 @@ sub _get_submissions {
 	my $submission_links = [];
 
 	foreach my $submission_id (@$submission_ids) {
-		push @$submission_links, request->uri_for("/db/$db/submissions/$submission_id");
+		push @$submission_links, request->uri_for("$subdir/db/$db/submissions/$submission_id");
 	}
 	$values->{'submissions'} = $submission_links;
 	return $values;
@@ -113,12 +121,13 @@ sub _get_submission {
 	my ( $db, $submission_id ) = ( params->{'db'}, params->{'submission'} );
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	send_error( 'Submission does not exist.', 404 ) if !$submission;
+	my $subdir = setting('subdir');
 	my $values = {};
 	foreach my $field (qw (id type date_submitted datestamp status outcome)) {
 		$values->{$field} = $submission->{$field} if defined $submission->{$field};
 	}
 	foreach my $field (qw (submitter curator)) {
-		$values->{$field} = request->uri_for("/db/$db/users/$submission->{$field}")
+		$values->{$field} = request->uri_for("$subdir/db/$db/users/$submission->{$field}")
 		  if defined $submission->{$field};
 	}
 	my %type = (
@@ -137,7 +146,7 @@ sub _get_submission {
 			  $self->{'submissionHandler'}
 			  ->get_profile_submission( $submission->{'id'}, { fields => 'profile_id,status,assigned_id' } );
 			if ($profile_submission) {
-				$values->{'scheme'}   = request->uri_for("/db/$db/schemes/$profile_submission->{'scheme_id'}");
+				$values->{'scheme'}   = request->uri_for("$subdir/db/$db/schemes/$profile_submission->{'scheme_id'}");
 				$values->{'profiles'} = $profile_submission->{'profiles'};
 			}
 		},
@@ -156,7 +165,7 @@ sub _get_submission {
 	my $correspondence = [];
 	if (@$messages) {
 		foreach my $message (@$messages) {
-			$message->{'user'} = request->uri_for("/db/$db/users/$message->{'user_id'}");
+			$message->{'user'} = request->uri_for("$subdir/db/$db/users/$message->{'user_id'}");
 			delete $message->{$_} foreach qw(user_id submission_id);
 			push @$correspondence, $message;
 		}
@@ -235,6 +244,7 @@ sub _create_submission {
 	_check_db_type($type);
 	_check_if_over_limit();
 	_check_updates_disabled();
+	my $subdir    = setting('subdir');
 	my $submitter = $self->get_user_id;
 	my $submission_id =
 	    'BIGSdb_'
@@ -286,12 +296,12 @@ sub _create_submission {
 	if ( $type eq 'genomes' ) {
 		local $" = q(, );
 		return {
-			submission    => request->uri_for("/db/$db/submissions/$submission_id"),
+			submission    => request->uri_for("$subdir/db/$db/submissions/$submission_id"),
 			missing_files => "@$missing_contig_files",
 			message       => 'Please upload missing contig files to complete submission.'
 		};
 	}
-	return { submission => request->uri_for("/db/$db/submissions/$submission_id") };
+	return { submission => request->uri_for("$subdir/db/$db/submissions/$submission_id") };
 }
 
 sub _get_missing_contig_filenames {
@@ -500,6 +510,7 @@ sub _get_messages {
 	my $submission = $self->{'datastore'}->run_query( 'SELECT * FROM submissions WHERE id=?',
 		$submission_id, { fetch => 'row_hashref', cache => 'REST::Submissions::get_submission' } );
 	send_error( 'Submission does not exist.', 404 ) if !$submission;
+	my $subdir   = setting('subdir');
 	my $messages = $self->{'datastore'}->run_query(
 		q(SELECT date_trunc('second',timestamp) AS timestamp,user_id,)
 		  . q(message FROM messages WHERE submission_id=? ORDER BY timestamp),
@@ -510,7 +521,7 @@ sub _get_messages {
 	foreach my $message (@$messages) {
 		push @$values,
 		  {
-			user      => request->uri_for("/db/$db/users/$message->{'user_id'}"),
+			user      => request->uri_for("$subdir/db/$db/users/$message->{'user_id'}"),
 			message   => $message->{'message'},
 			timestamp => $message->{'timestamp'}
 		  };
@@ -575,7 +586,8 @@ sub _get_files {
 	my ( $db, $submission_id ) = @{$params}{qw(db submission)};
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	send_error( 'Submission does not exist.', 404 ) if !$submission;
-	my $dir = $self->{'submissionHandler'}->get_submission_dir($submission_id) . '/supporting_files';
+	my $subdir = setting('subdir');
+	my $dir    = $self->{'submissionHandler'}->get_submission_dir($submission_id) . '/supporting_files';
 	my @files;
 	opendir( my $dh, $dir ) || $self->{'logger'}->error("Directory $dir can't be read.");
 
@@ -586,7 +598,7 @@ sub _get_files {
 	my $values = [];
 	foreach my $file ( sort @files ) {
 		next if $file =~ /^\.\.?/x;
-		push @$values, request->uri_for("/db/$db/submissions/$submission_id/files/$file");
+		push @$values, request->uri_for("$subdir/db/$db/submissions/$submission_id/files/$file");
 	}
 	return $values;
 }
