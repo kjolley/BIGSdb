@@ -48,15 +48,16 @@ sub print_content {
 	}
 	my $field = $q->param('field');
 	if ( $q->param('validate') && $q->param('temp_file') ) {
-		$self->_validate( $field, $q->param('temp_file') );
+		$self->_validate( $field, scalar $q->param('temp_file') );
 		return;
 	}
 	if ( $q->param('upload') && $q->param('temp_file') ) {
-		$self->_upload( $field, $q->param('temp_file') );
+		$self->_upload( $field, scalar $q->param('temp_file') );
 		return;
 	}
 	if ( $q->param('filenames') ) {
-		my $check_data = $self->_check( $field, \$q->param('filenames') );
+		my $filenames = $q->param('filenames');
+		my $check_data = $self->_check( $field, \$filenames );
 		if ( $check_data->{'message'} ) {
 			$self->_print_interface;
 			$self->print_bad_status( { message => $check_data->{'message'} } );
@@ -76,7 +77,7 @@ sub print_content {
 		return;
 	}
 	if ( $field && $q->param('temp_file') ) {
-		$self->_file_upload( $field, $q->param('temp_file') );
+		$self->_file_upload( $field, scalar $q->param('temp_file') );
 		return;
 	}
 	$self->_print_interface;
@@ -711,7 +712,7 @@ sub _print_file_upload_fieldset {
 sub _upload_files {
 	my ( $self, $allowed_files ) = @_;
 	my $q         = $self->{'cgi'};
-	my @filenames = $q->param('file_upload');
+	my @filenames = $q->multi_param('file_upload');
 	my $i         = 0;
 	my $dir       = $self->_get_upload_dir;
 	$self->_mkpath($dir);

@@ -1,5 +1,5 @@
 #Properly handle unicode in web forms
-#See http://en.wikibooks.org/wiki/Perl_Programming/Unicode_UTF-8#Input_-_Web_Forms
+#See https://en.wikibooks.org/wiki/Perl_Programming/Unicode_UTF-8#Input_-_Web_forms
 package BIGSdb::CGI::as_utf8;
 use strict;
 use warnings;

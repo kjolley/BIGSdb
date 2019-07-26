@@ -82,7 +82,7 @@ sub print_content {
 		$q->param( query => $query );
 	}
 	if ( $q->param('checked_file') ) {
-		$self->_upload_data( $locus, $q->param('checked_file') );
+		$self->_upload_data( $locus, scalar $q->param('checked_file') );
 	} elsif ( $q->param('data') || $q->param('query') ) {
 		$self->_check_data($locus);
 	} else {
@@ -221,7 +221,7 @@ sub _run_helper {
 				set_id            => $set_id,
 				script_name       => $self->{'system'}->{'script_name'},
 				locus             => $locus,
-				data              => $q->param('data'),
+				data              => scalar $q->param('data'),
 				ignore_existing   => $q->param('ignore_existing') ? 1 : 0,
 				complete_CDS      => $q->param('complete_CDS') ? 1 : 0,
 				ignore_non_DNA    => $q->param('ignore_non_DNA') ? 1 : 0,
@@ -424,7 +424,7 @@ sub _get_sender {
 	}
 	my $q = $self->{'cgi'};
 	if ( $q->param('sender') ) {
-		return $q->param('sender');
+		return scalar $q->param('sender');
 	}
 	return;
 }
