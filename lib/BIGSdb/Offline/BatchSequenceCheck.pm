@@ -119,6 +119,7 @@ sub run {
 						special_problem => $special_problem
 					}
 				);
+				
 				if ( defined $file_header_pos->{$field} || ( $field eq 'id' ) ) {
 					$checked_record->{$field} = $value if defined $value && $value ne q();
 				}
@@ -640,7 +641,8 @@ sub _report_check {
 		$buffer .= q(<tr><th>Primary key</th><th>Problem(s)</th></tr>);
 		my $td = 1;
 		foreach my $id ( sort keys %$problems ) {
-			$buffer .= qq(<tr class="td$td"><td>$id</td><td style="text-align:left">$problems->{$id}</td></tr>);
+			my $display_id = BIGSdb::Utils::escape_html($id);
+			$buffer .= qq(<tr class="td$td"><td>$display_id</td><td style="text-align:left">$problems->{$id}</td></tr>);
 			$td = $td == 1 ? 2 : 1;    #row stripes
 		}
 		$buffer .= q(</table></div>);

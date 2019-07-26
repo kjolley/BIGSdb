@@ -103,6 +103,7 @@ sub _check {
 		next if !$row;
 		$number++;
 		my ( $id, $filename, @extra_cols ) = split /\t/x, $row;
+		$id = BIGSdb::Utils::escape_html($id);
 		if ( !$filename ) {
 			$invalid->{$number} = { id => $id, problem => 'No filename!' };
 			next;
@@ -585,10 +586,11 @@ sub _file_upload {
 		$already_populated++ if $stats->{'total_length'};
 		push @filenames, $row->{'filename'};
 		my $filename = "$dir/$row->{'filename'}";
+		my $display_filename = BIGSdb::Utils::escape_html($row->{'filename'});
 		$buffer .=
 		  -e $filename
-		  ? qq(<td><a href="/tmp/$self->{'system'}->{'db'}/$self->{'username'}/$row->{'filename'}">$row->{'filename'}</a></td>)
-		  : qq(<td>$row->{'filename'}</td>);
+		  ? qq(<td><a href="/tmp/$self->{'system'}->{'db'}/$self->{'username'}/$row->{'filename'}">$display_filename</a></td>)
+		  : qq(<td>$display_filename</td>);
 		my ( $good, $bad ) = ( GOOD, BAD );
 		if ( -e $filename ) {
 			$buffer .= qq(<td>$good</td>);

@@ -1587,7 +1587,8 @@ sub _print_sequence_table {
 		if ( $locus_info->{'data_type'} eq 'DNA' && $locus_info->{'complete_cds'} ) {
 			$cds = q(<td>) . ( BIGSdb::Utils::is_complete_cds( \$seq->{'sequence'} )->{'cds'} ? GOOD : BAD ) . q(</td>);
 		}
-		say qq(<tr class="td$td"><td>$id</td><td>$length</td>);
+		my $display_id = BIGSdb::Utils::escape_html($id);
+		say qq(<tr class="td$td"><td>$display_id</td><td>$length</td>);
 		say qq(<td class="seq">$sequence</td>$cds);
 		$seq->{'sequence'} =~ s/-//gx;
 		my $assigned = $self->{'datastore'}->run_query(

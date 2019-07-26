@@ -470,13 +470,15 @@ sub check_new_alleles_fasta {
 			}
 		}
 		my $check = $self->_check_sequence_similarity( $locus, \$sequence );
+		my $display_id = BIGSdb::Utils::escape_html($seq_id);
 		if ( !$check->{'similar'} ) {
 			push @info,
-			  qq(Sequence "$seq_id" is dissimilar (or in reverse orientation compared) to other $locus sequences.);
+			  qq(Sequence "$display_id" is dissimilar (or in reverse orientation compared) to other $locus sequences.);
 		} elsif ( $check->{'subsequence_of'} ) {
-			push @info, qq(Sequence is a sub-sequence of allele-$check->{'subsequence_of'}.);
+			push @info, qq(Sequence "$display_id" is a sub-sequence of allele-$check->{'subsequence_of'}.);
 		} elsif ( $check->{'supersequence_of'} ) {
-			push @info, qq(Sequence is a super-sequence of allele $check->{'supersequence_of'}.);
+			push @info,
+			  qq(Sequence "$display_id" is a super-sequence of allele $check->{'supersequence_of'}.);
 		}
 	}
 	close $stringfh_in;
@@ -787,7 +789,6 @@ sub _check_isolate_record {
 			push @error, $failure;
 		}
 	}
-	
 	$self->_check_pubmed_ids( $positions, $values, \@error );
 	$self->_check_aliases( $positions, $values, \@error );
 	my $ret = { isolate => $isolate };
@@ -1758,5 +1759,4 @@ sub cleanup_validation_rules {
 	undef $self->{'validation_rules'};
 	return;
 }
-
 1;

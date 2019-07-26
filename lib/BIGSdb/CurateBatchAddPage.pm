@@ -117,8 +117,7 @@ sub _print_interface {
 	$q->param( private => 1 ) if $self->{'permissions'}->{'only_private'};
 	if ( $table eq 'isolates' ) {
 		return
-		  if $self->_cannot_upload_private_data( scalar $q->param('private'), scalar $q->param('project_id') )
-		  ;
+		  if $self->_cannot_upload_private_data( scalar $q->param('private'), scalar $q->param('project_id') );
 	}
 	say q(<div class="box" id="queryform"><div class="scrollable"><h2>Instructions</h2>)
 	  . qq(<p>This page allows you to upload $record_name )
@@ -677,6 +676,7 @@ sub format_display_value {
 	} else {
 		$buffer = qq(<td><font color="red">$display_value</font></td>);
 		if ($problem) {
+			$problem = BIGSdb::Utils::escape_html($problem);
 			my $problem_text = qq($field $problem<br />);
 			if ( !defined $problems->{$pk_combination} || $problems->{$pk_combination} !~ /$problem_text/x ) {
 				$problems->{$pk_combination} .= $problem_text;
@@ -881,7 +881,8 @@ sub _report_check {
 		say q(<tr><th>Primary key</th><th>Problem(s)</th></tr>);
 		my $td = 1;
 		foreach my $id ( sort keys %$problems ) {
-			say qq(<tr class="td$td"><td>$id</td><td style="text-align:left">$problems->{$id}</td></tr>);
+			my $display_id = BIGSdb::Utils::escape_html($id);
+			say qq(<tr class="td$td"><td>$display_id</td><td style="text-align:left">$problems->{$id}</td></tr>);
 			$td = $td == 1 ? 2 : 1;    #row stripes
 		}
 		say q(</table></div>);

@@ -55,7 +55,8 @@ sub run {
 		$i++;
 		my ( $status, $id, $message ) = $self->_check_sequence( $locus, $data );
 		my $class = $status == SUCCESS ? 'statusgood' : 'statusbad';
-		$buffer.=  qq(<tr class="td$td"><td>$data->{'id'}</td><td>$id</td><td class="$class">$message</td></tr>);
+		my $display_id = BIGSdb::Utils::escape_html($data->{'id'});
+		$buffer.=  qq(<tr class="td$td"><td>$display_id</td><td>$id</td><td class="$class">$message</td></tr>);
 		$td = $td == 1 ? 2 : 1;
 		if ( $status == SUCCESS ) {
 			open( my $fh, '>>', $outfile ) || $logger->error("Cannot open $outfile for writing");
