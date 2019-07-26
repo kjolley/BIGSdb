@@ -234,7 +234,7 @@ sub _update {
 	if ( $q->param('update_id') ) {    #Update existing allele
 		$existing_designation = $self->{'datastore'}->run_query(
 			'SELECT * FROM allele_designations WHERE id=?',
-			$q->param('update_id'),
+			scalar $q->param('update_id'),
 			{ fetch => 'row_hashref' }
 		);
 	} else {                           #Add new allele
@@ -291,7 +291,7 @@ sub _update {
 
 			#Although id is the PK, include isolate_id and locus to prevent somebody from easily modifying CGI params.
 			my $qry = "UPDATE allele_designations SET @values WHERE (id,isolate_id,locus)=(?,?,?)";
-			eval { $self->{'db'}->do( $qry, undef, $q->param('update_id'), $isolate_id, $locus ) };
+			eval { $self->{'db'}->do( $qry, undef, scalar $q->param('update_id'), $isolate_id, $locus ) };
 			if ($@) {
 				$buffer .= q(<div class="statusbad_no_resize"><p>Update failed - transaction cancelled - )
 				  . qq(no records have been touched.</p>\n);

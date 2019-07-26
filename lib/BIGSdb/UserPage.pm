@@ -51,7 +51,7 @@ sub print_content {
 				$self->_select_merge_users;
 				return;
 			} elsif ( $q->param('update_user') ) {
-				$self->_edit_user( $q->param('user') );
+				$self->_edit_user( scalar $q->param('user') );
 				return;
 			}
 		}
@@ -179,7 +179,7 @@ sub _update_user {
 			$data->{$param} = $self->clean_value( $data->{$param}, { no_escape => 1 } );
 		}
 	}
-	my $address = Email::Valid->address( $q->param('email') );
+	my $address = Email::Valid->address( scalar $q->param('email') );
 	my $error;
 	if (@missing) {
 		local $" = q(, );

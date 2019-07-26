@@ -579,14 +579,14 @@ sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateS
 	if ( $q->param('page') eq 'update' && $q->param('locus') ) {
 		my $pubmed_list = $self->{'datastore'}->run_query(
 			'SELECT pubmed_id FROM sequence_refs WHERE (locus,allele_id)=(?,?) ORDER BY pubmed_id',
-			[ $q->param('locus'), $q->param('allele_id') ],
+			[ scalar $q->param('locus'), scalar $q->param('allele_id') ],
 			{ fetch => 'col_arrayref' }
 		);
 		@default_pubmed = @$pubmed_list;
 		foreach my $databank (@databanks) {
 			my $list = $self->{'datastore'}->run_query(
 				'SELECT databank_id FROM accession WHERE (locus,allele_id,databank)=(?,?,?) ORDER BY databank_id',
-				[ $q->param('locus'), $q->param('allele_id'), $databank ],
+				[ scalar $q->param('locus'), scalar $q->param('allele_id'), $databank ],
 				{ fetch => 'col_arrayref' }
 			);
 			$default_databanks->{$databank} = $list;

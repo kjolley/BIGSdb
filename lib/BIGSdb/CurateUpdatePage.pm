@@ -568,7 +568,7 @@ sub _get_allele_flag_inserts {
 		[ $newdata->{'locus'}, $newdata->{'allele_id'} ],
 		{ fetch => 'col_arrayref' }
 	);
-	my @new_flags = $q->param('flags');
+	my @new_flags = $q->multi_param('flags');
 	foreach my $new (@new_flags) {
 		next if none { $new eq $_ } ALLELE_FLAGS;
 		if ( !@$existing_flags || none { $new eq $_ } @$existing_flags ) {

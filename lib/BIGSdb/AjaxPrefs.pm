@@ -78,8 +78,10 @@ sub _get {
 			my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $scheme->{'id'} );
 			foreach my $scheme_field (@$scheme_fields) {
 				push @$fields,
-				  { field => "s_$scheme->{'id'}_$scheme_field",
-					label => "$scheme_field ($scheme->{'name'})" };
+				  {
+					field => "s_$scheme->{'id'}_$scheme_field",
+					label => "$scheme_field ($scheme->{'name'})"
+				  };
 			}
 		}
 		say encode_json($fields);
@@ -106,8 +108,12 @@ sub _update {
 		}
 	}
 	eval {
-		$self->{'prefstore'}
-		  ->set_plugin_attribute( $guid, $dbase, $q->param('plugin'), $q->param('attribute'), $q->param('value') );
+		$self->{'prefstore'}->set_plugin_attribute(
+			$guid, $dbase,
+			scalar $q->param('plugin'),
+			scalar $q->param('attribute'),
+			scalar $q->param('value')
+		);
 	};
 	if ($@) {
 		say encode_json( { error => 1, message => 'Update failed.' } );

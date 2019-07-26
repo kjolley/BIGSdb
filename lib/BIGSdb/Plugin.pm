@@ -247,14 +247,22 @@ sub _update_options {
 				} else {
 					$value = $q->param( $option->{'name'} ) ? 'true' : 'false';
 				}
-				$self->{'prefstore'}->set_plugin_attribute( $guid, $self->{'system'}->{'db'},
-					$q->param('name'), $option->{'name'}, $value );
+				$self->{'prefstore'}->set_plugin_attribute(
+					$guid,
+					$self->{'system'}->{'db'},
+					scalar $q->param('name'),
+					$option->{'name'}, $value
+				);
 			}
 			$self->{'prefstore'}->update_datestamp($guid);
 		} elsif ( $q->param('reset') ) {
 			foreach my $option (@$option_list) {
-				$self->{'prefstore'}
-				  ->delete_plugin_attribute( $guid, $self->{'system'}->{'db'}, $q->param('name'), $option->{'name'} );
+				$self->{'prefstore'}->delete_plugin_attribute(
+					$guid,
+					$self->{'system'}->{'db'},
+					scalar $q->param('name'),
+					$option->{'name'}
+				);
 				my $value;
 				if ( $option->{'optlist'} ) {
 					$value = $option->{'default'};
@@ -507,7 +515,7 @@ sub get_selected_fields {
 		}
 	}
 	if ( $q->param('classification_schemes') ) {
-		my @cschemes = $q->param('classification_schemes');
+		my @cschemes = $q->multi_param('classification_schemes');
 		foreach my $cs (@cschemes) {
 			push @$fields, "cs_$cs";
 		}
@@ -825,6 +833,7 @@ sub filter_list_to_ids {
 sub filter_ids_by_project {
 	my ( $self, $ids, $project_id ) = @_;
 	return $ids if !$project_id;
+	return $ids if !BIGSdb::Utils::is_int($project_id);
 	my $ids_in_project = $self->{'datastore'}->run_query( 'SELECT isolate_id FROM project_members WHERE project_id=?',
 		$project_id, { fetch => 'col_arrayref' } );
 	my @filtered_ids;

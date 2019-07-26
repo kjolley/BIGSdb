@@ -48,7 +48,7 @@ sub print_content {
 		$self->_upload;
 		return;
 	}
-	$self->print_seqbin_warnings( $q->param('isolate_id') );
+	$self->print_seqbin_warnings( scalar $q->param('isolate_id') );
 	if ( $q->param('data') ) {
 		$self->_check_data;
 	} elsif ( $q->param('fasta_upload') ) {

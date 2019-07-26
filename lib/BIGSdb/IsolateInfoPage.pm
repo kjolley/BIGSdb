@@ -359,10 +359,10 @@ sub _print_separate_scheme_data {
 		$self->_print_group_data( $isolate_id, scalar $q->param('group_id') );
 		say q(<div style="clear:both"></div>);
 		say q(</div>);
-	} elsif ( BIGSdb::Utils::is_int( $q->param('scheme_id') ) ) {
+	} elsif ( BIGSdb::Utils::is_int( scalar $q->param('scheme_id') ) ) {
 		say q(<div class="box" id="resultspanel">);
 		say $self->_get_show_aliases_button('block');
-		$self->_print_scheme_data( $isolate_id, $q->param('scheme_id') );
+		$self->_print_scheme_data( $isolate_id, scalar $q->param('scheme_id') );
 		say q(<div style="clear:both"></div>);
 		say q(</div>);
 	} else {

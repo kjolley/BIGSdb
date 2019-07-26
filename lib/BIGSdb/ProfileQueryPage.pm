@@ -34,6 +34,7 @@ sub _ajax_content {
 	return if !BIGSdb::Utils::is_int($row) || $row > MAX_ROWS || $row < 2;
 	if ( $q->param('fields') eq 'scheme_fields' ) {
 		my $scheme_id = $q->param('scheme_id');
+		return if !BIGSdb::Utils::is_int($scheme_id);
 		my ( $primary_key, $select_items, $orderitems, $cleaned ) = $self->_get_select_items($scheme_id);
 		$self->_print_scheme_fields( $row, 0, $scheme_id, $select_items, $cleaned );
 	}
@@ -305,9 +306,9 @@ sub _run_query {
 		( $qry, $list_file, $errors ) = $self->_generate_query($scheme_id);
 		$q->param( list_file => $list_file );
 	} else {
-		$qry = $self->get_query_from_temp_file( $q->param('query_file') );
+		$qry = $self->get_query_from_temp_file( scalar $q->param('query_file') );
 		if ( $q->param('list_file') ) {
-			$self->{'datastore'}->create_temp_list_table( 'text', $q->param('list_file') );
+			$self->{'datastore'}->create_temp_list_table( 'text', scalar $q->param('list_file') );
 		}
 	}
 	my $browse;

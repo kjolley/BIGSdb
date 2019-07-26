@@ -227,7 +227,8 @@ sub _display_record {
 	$buffer .= q(<div id="record"><dl class="data">);
 	my $primary_key;
 	if ( $table eq 'profiles' ) {
-		my $scheme_info = $self->{'datastore'}->get_scheme_info( $q->param('scheme_id'), { get_pk => 1 } );
+		my $scheme_info =
+		  $self->{'datastore'}->get_scheme_info( scalar $q->param('scheme_id'), { get_pk => 1 } );
 		$primary_key = $scheme_info->{'primary_key'};
 	}
 	$self->modify_dataset_if_needed( $table, [$data] );
@@ -320,7 +321,7 @@ sub _delete {
 
 			#cascade deletion of sequence bin records
 			next if $table eq 'sequence_bin' && $table_to_check eq 'allele_sequences';
-			
+
 			#cascade deletion of validation rules
 			next if $table eq 'validation_rules' && $table_to_check eq 'validation_rule_conditions';
 
@@ -507,8 +508,8 @@ sub _get_extra_sequences_fields {
 	my $q      = $self->{'cgi'};
 	my $buffer = '';
 	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
-		my $flags = $self->{'datastore'}->get_allele_flags( $q->param('locus'), $q->param('allele_id') );
-		local $" = '</a> <a class="seqflag_tooltip">';
+		my $flags = $self->{'datastore'}->get_allele_flags( scalar $q->param('locus'), scalar $q->param('allele_id') );
+		local $" = q(</a> <a class="seqflag_tooltip">);
 		if (@$flags) {
 			$buffer .= qq(<dt>flags&nbsp;</dt><dd><a class="seqflag_tooltip">@$flags</a></dd>\n);
 		}
@@ -516,7 +517,7 @@ sub _get_extra_sequences_fields {
 	foreach my $databank (DATABANKS) {
 		my $accessions = $self->{'datastore'}->run_query(
 			'SELECT databank_id FROM accession WHERE (locus,allele_id,databank)=(?,?,?) ORDER BY databank_id',
-			[ $q->param('locus'), $q->param('allele_id'), $databank ],
+			[ scalar $q->param('locus'), scalar $q->param('allele_id'), $databank ],
 			{ fetch => 'col_arrayref' }
 		);
 		foreach my $accession (@$accessions) {
@@ -530,7 +531,7 @@ sub _get_extra_sequences_fields {
 	}
 	my $pubmed_list = $self->{'datastore'}->run_query(
 		'SELECT pubmed_id FROM sequence_refs WHERE (locus,allele_id)=(?,?) ORDER BY pubmed_id',
-		[ $q->param('locus'), $q->param('allele_id') ],
+		[ scalar $q->param('locus'), scalar $q->param('allele_id') ],
 		{ fetch => 'col_arrayref' }
 	);
 	my $citations =
@@ -539,7 +540,7 @@ sub _get_extra_sequences_fields {
 		$buffer .= qq(<dt>reference&nbsp;</dt><dd>$citations->{$pmid}</dd>\n);
 	}
 	my $extended_attributes =
-	  $self->{'datastore'}->get_allele_extended_attributes( $q->param('locus'), $q->param('allele_id') );
+	  $self->{'datastore'}->get_allele_extended_attributes( scalar $q->param('locus'), scalar $q->param('allele_id') );
 	foreach my $ext (@$extended_attributes) {
 		my $cleaned_field = $ext->{'field'};
 		$cleaned_field =~ tr/_/ /;

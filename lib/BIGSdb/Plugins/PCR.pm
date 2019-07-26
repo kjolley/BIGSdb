@@ -72,11 +72,11 @@ sub run {
 		return;
 	}
 	if ( $q->param('single_isolate') ) {
-		if ( !BIGSdb::Utils::is_int( $q->param('single_isolate') ) ) {
+		if ( !BIGSdb::Utils::is_int( scalar $q->param('single_isolate') ) ) {
 			$self->print_bad_status( { message => q(Invalid isolate id passed.), navbar => 1 } );
 			return;
 		}
-		if ( !$self->isolate_exists( $q->param('single_isolate'), { has_seqbin => 1 } ) ) {
+		if ( !$self->isolate_exists( scalar $q->param('single_isolate'), { has_seqbin => 1 } ) ) {
 			$self->print_bad_status(
 				{
 					message => q(Passed isolate id either does not exist or has no sequence bin data.),
