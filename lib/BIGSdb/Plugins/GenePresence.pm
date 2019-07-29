@@ -426,7 +426,7 @@ sub _create_tsv_output {
 	say $fh qq(id\t$self->{'system'}->{'labelfield'}\tlocus\tpresence\tcomplete\tknown allele\tdesignated\ttagged);
 	foreach my $record (@$data) {
 		my $mapped_id = $self->{'name_map'}->{ $record->{'id'} } // $record->{'id'};
-		my $label = $self->_get_label_field( $job_id, $record->{'id'} );
+		my $label = $self->_get_label_field( $record->{'id'} );
 		foreach my $locus (@$loci) {
 			my @output = ( $mapped_id, $label, $locus );
 			push @output, $record->{'loci'}->{$locus}->{$_}
@@ -440,10 +440,9 @@ sub _create_tsv_output {
 }
 
 sub _get_label_field {
-	my ( $self, $job_id, $id ) = @_;
-	my $isolate_table_view = "${job_id}_isolates_view";
+	my ( $self, $id ) = @_;
 	return $self->{'datastore'}
-	  ->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM $isolate_table_view WHERE id=?",
+	  ->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?",
 		$id, { cache => 'GenePresence::get_label_field' } ) // q();
 }
 
