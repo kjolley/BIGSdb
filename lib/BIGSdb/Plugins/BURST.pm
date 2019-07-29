@@ -89,16 +89,26 @@ sub run {
 			}
 		}
 	}
-	if ( $scheme_id && BIGSdb::Utils::is_int($scheme_id) ) {
-		$pk =
-		  $self->{'datastore'}
-		  ->run_query( 'SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key', $scheme_id );
-		if ( !$pk ) {
+	if ($scheme_id) {
+		if ( BIGSdb::Utils::is_int($scheme_id) ) {
+			$pk =
+			  $self->{'datastore'}
+			  ->run_query( 'SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key', $scheme_id );
+			if ( !$pk ) {
+				$self->print_bad_status(
+					{
+						message => q(No primary key field has been set for this scheme. )
+						  . q(Profile concatenation cannot be done until this has been set.),
+						navbar => 1
+					}
+				);
+				return;
+			}
+		} else {
 			$self->print_bad_status(
 				{
-					message => q(No primary key field has been set for this scheme. )
-					  . q(Profile concatenation cannot be done until this has been set.),
-					navbar => 1
+					message => q(Scheme id must be an integer),
+					navbar  => 1
 				}
 			);
 			return;

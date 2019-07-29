@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2018, University of Oxford
+#Copyright (c) 2014-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -55,7 +55,7 @@ sub print_content {
 	say q(<div class="box" id="queryform"><div class="scrollable">);
 	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Select curator(s)</legend>);
-	my @curator_list = $q->param('curators');
+	my @curator_list = $q->multi_param('curators');
 	say $self->popup_menu(
 		-name     => 'curators',
 		-id       => 'curators',
@@ -160,7 +160,7 @@ sub _get_permission_list {
 sub _update {
 	my ($self)        = @_;
 	my $q             = $self->{'cgi'};
-	my @curator_list  = $q->param('curators');
+	my @curator_list  = $q->multi_param('curators');
 	my $curator_count = @curator_list;
 	my $permissions   = {};
 	my %selected = map { $_ => 1 } @curator_list;

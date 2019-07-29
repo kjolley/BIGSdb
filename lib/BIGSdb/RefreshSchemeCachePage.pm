@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2018, University of Oxford
+#Copyright (c) 2015-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -101,7 +101,7 @@ sub _refresh_caches {
 	my $q = $self->{'cgi'};
 	say q(<div class="box" id="resultsheader"><p>);
 	my @selected_schemes;
-	if ( $q->param('scheme') && BIGSdb::Utils::is_int( $q->param('scheme') ) ) {
+	if ( $q->param('scheme') && BIGSdb::Utils::is_int( scalar $q->param('scheme') ) ) {
 		push @selected_schemes, $q->param('scheme');
 	} else {
 		@selected_schemes = @$schemes;

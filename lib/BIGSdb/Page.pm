@@ -336,8 +336,7 @@ sub choose_set {
 		if ($guid) {
 			try {
 				$self->{'prefstore'}
-				  ->set_general( $guid, $self->{'system'}->{'db'}, 'set_id', scalar $q->param('sets_list') )
-				  ;
+				  ->set_general( $guid, $self->{'system'}->{'db'}, 'set_id', scalar $q->param('sets_list') );
 				$self->{'prefs'}->{'set_id'} = $q->param('sets_list');
 			}
 			catch {
@@ -2894,6 +2893,12 @@ sub modify_dataset_if_needed {
 
 sub use_correct_user_database {
 	my ($self) = @_;
+	my $user_dbs = $self->{'config'}->{'site_user_dbs'};
+	my %valid_db = map { $_->{'dbase'} => 1 } @$user_dbs;
+	if ( !$valid_db{ $self->{'system'}->{'db'} } ) {
+		$logger->error("Invalid site user db passed - $self->{'system'}->{'db'}");
+		return;
+	}
 
 	#We may be logged in to a different user database than the one containing
 	#the logged in user details. Make sure the DBI object is set to correct

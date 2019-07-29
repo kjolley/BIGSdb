@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2018, University of Oxford
+#Copyright (c) 2017-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -299,7 +299,7 @@ sub _check {
 		$self->_print_interface;
 		return;
 	}
-	$self->print_seqbin_warnings( $q->param('isolate_id') );
+	$self->print_seqbin_warnings( scalar $q->param('isolate_id') );
 	say q(<div class="box resultspanel">);
 	say q(<h2>Checking contigs</h2>);
 	say q(<p>Downloading isolate record ...);

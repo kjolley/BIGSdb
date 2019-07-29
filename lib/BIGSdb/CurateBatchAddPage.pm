@@ -87,7 +87,7 @@ sub print_content {
 	my $args =
 	  { table => $table, uses_integer_id => $uses_integer_id, has_sender_field => $has_sender_field, locus => $locus };
 	if ( $q->param('datatype') && $q->param('list_file') ) {
-		$self->{'datastore'}->create_temp_list_table( $q->param('datatype'), $q->param('list_file') );
+		$self->{'datastore'}->create_temp_list_table( scalar $q->param('datatype'), scalar $q->param('list_file') );
 	}
 	if ( $q->param('query_file') && !defined $q->param('query') ) {
 		my $query_file = $q->param('query_file');
@@ -387,7 +387,7 @@ sub _check_data {
 	my ( $table, $locus ) = @{$args}{qw (table locus)};
 	my $q = $self->{'cgi'};
 	if ( !$q->param('data') ) {
-		$q->param( 'data', $self->_convert_query( $q->param('table'), $q->param('query') ) );
+		$q->param( 'data', $self->_convert_query( scalar $q->param('table'), scalar $q->param('query') ) );
 	}
 	my @checked_buffer;
 	my $fields = $self->_get_fields_in_order( $table, $locus );

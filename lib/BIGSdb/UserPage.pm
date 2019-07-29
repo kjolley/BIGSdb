@@ -639,7 +639,7 @@ sub _show_modify_users {
 sub _select_merge_users {
 	my ($self)    = @_;
 	my $q         = $self->{'cgi'};
-	my $user_info = $self->{'datastore'}->get_user_info_from_username( $q->param('user') );
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( scalar $q->param('user') );
 	if ( !$user_info ) {
 		$self->print_bad_status( { message => q(No information available for user.) } );
 		return;
@@ -655,7 +655,7 @@ sub _select_merge_users {
 		} else {
 			$account = $q->param('accounts');
 		}
-		$self->_merge( $q->param('user'), $account );
+		$self->_merge( scalar $q->param('user'), $account );
 	}
 	say q(<div class="box" id="queryform">);
 	say q(<h2>Merge user accounts</h2>);
@@ -672,7 +672,7 @@ sub _select_merge_users {
 	  . qq(<dt>E-mail</dt><dd>$user_info->{'email'}</dd>)
 	  . qq(<dt>Affiliation</dt><dd>$user_info->{'affiliation'}</dd>)
 	  . q(</dl>);
-	my $possible_accounts = $self->_get_possible_matching_accounts( $q->param('user') );
+	my $possible_accounts = $self->_get_possible_matching_accounts( scalar $q->param('user') );
 	say q(<div class="scrollable">);
 	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Possible matching accounts</legend>);

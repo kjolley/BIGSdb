@@ -1149,8 +1149,10 @@ sub _run_query {
 	} else {
 		$qry = $self->get_query_from_temp_file( scalar $q->param('query_file') );
 		if ( $q->param('list_file') && $q->param('attribute') ) {
-			my $attribute_data = $self->_get_list_attribute_data( $q->param('attribute') );
-			$self->{'datastore'}->create_temp_list_table( $attribute_data->{'data_type'}, $q->param('list_file') );
+			my $attribute_data = $self->_get_list_attribute_data( scalar $q->param('attribute') );
+			$self->{'datastore'}
+			  ->create_temp_list_table( $attribute_data->{'data_type'}, scalar $q->param('list_file') )
+			  ;
 		}
 	}
 	my $browse;

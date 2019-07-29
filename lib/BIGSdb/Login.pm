@@ -296,6 +296,7 @@ sub _print_login_form {
 	my @params = $q->param;
 	foreach my $param (@params) {
 		next if any { $param eq $_ } qw(password_field user submit);
+		next if $self->{'show_domains'} && $self->{'config'}->{'site_user_dbs'} && $param eq 'db';
 		say $q->hidden($param);
 	}
 	say $q->end_form;
@@ -326,8 +327,9 @@ sub _get_domain_dropdown {
 				-labels   => $labels,
 				-disabled => 'disabled'
 			);
+		} else {
+			$buffer .= $q->hidden( $options->{'field_name'} => $values->[0] );
 		}
-		$buffer .= $q->hidden( $options->{'field_name'} => $values->[0] );
 	} else {
 		$buffer .= qq(<label for="$options->{'field_id'}">$options->{'label'}</label>)
 		  if $options->{'label'};

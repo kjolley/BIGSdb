@@ -72,8 +72,8 @@ sub print_content {
 		say q(</fieldset>);
 	}
 	say q(</div>);
-	if ( $q->param('rebuild') && $q->param('scheme_id') && BIGSdb::Utils::is_int( $q->param('scheme_id') ) ) {
-		$self->_rebuild( $q->param('scheme_id') );
+	if ( $q->param('rebuild') && $q->param('scheme_id') && BIGSdb::Utils::is_int( scalar $q->param('scheme_id') ) ) {
+		$self->_rebuild( scalar $q->param('scheme_id') );
 	}
 	return;
 }

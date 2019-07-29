@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -237,7 +237,8 @@ sub _print_interface {
 		say $q->textfield( -name => 'accession' );
 		say q(</fieldset>);
 	}
-	my %args = defined $q->param('isolate_id') ? ( isolate_id => $q->param('isolate_id') ) : ();
+	my %args =
+	  defined $q->param('isolate_id') ? ( isolate_id => scalar $q->param('isolate_id') ) : ();
 	$self->print_action_fieldset( \%args );
 	say $q->end_form;
 	$self->print_navigation_bar;
@@ -255,7 +256,7 @@ sub _check_data {
 	} elsif (
 		$q->param('isolate_id')
 		&& (
-			!BIGSdb::Utils::is_int( $q->param('isolate_id') )
+			!BIGSdb::Utils::is_int( scalar $q->param('isolate_id') )
 			|| !$self->{'datastore'}->run_query(
 				"SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)",
 				$q->param('isolate_id')
@@ -266,7 +267,7 @@ sub _check_data {
 		$self->print_bad_status( { message => q(Isolate id must be an integer and exist in the isolate table.) } );
 		$continue = 0;
 	} elsif ( !$q->param('sender')
-		|| !BIGSdb::Utils::is_int( $q->param('sender') )
+		|| !BIGSdb::Utils::is_int( scalar $q->param('sender') )
 		|| !$self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM users WHERE id=?)', $q->param('sender') ) )
 	{
 		$self->print_bad_status( { message => q(Sender is required and must exist in the users table.) } );
@@ -333,7 +334,7 @@ sub _check_records_single_isolate {
 	my $checked_buffer = [];
 	my $td             = 1;
 	my $min_size       = 0;
-	if ( $q->param('size_filter') && BIGSdb::Utils::is_int( $q->param('size') ) ) {
+	if ( $q->param('size_filter') && BIGSdb::Utils::is_int( scalar $q->param('size') ) ) {
 		$min_size = $q->param('size');
 	}
 	my $buffer;
@@ -422,7 +423,7 @@ sub _check_records_with_identifiers {
 	my $allow_upload = 0;
 	my $min_size     = 0;
 
-	if ( $q->param('size_filter') && BIGSdb::Utils::is_int( $q->param('size') ) ) {
+	if ( $q->param('size_filter') && BIGSdb::Utils::is_int( scalar $q->param('size') ) ) {
 		$min_size = $q->param('size_filter') && $q->param('size');
 	}
 	my $checked_buffer = [];
@@ -545,7 +546,7 @@ sub _upload {
 	my $sql = $self->{'db'}->prepare($qry);
 	$qry = 'INSERT INTO experiment_sequences (experiment_id,seqbin_id,curator,datestamp) VALUES (?,?,?,?)';
 	my $sql_experiment = $self->{'db'}->prepare($qry);
-	my $experiment     = BIGSdb::Utils::is_int( $q->param('experiment') ) ? $q->param('experiment') : undef;
+	my $experiment     = BIGSdb::Utils::is_int( scalar $q->param('experiment') ) ? $q->param('experiment') : undef;
 	my $curator        = $self->get_curator_id;
 	my $sender         = $q->param('sender');
 	my $seq_attributes = $self->{'datastore'}->run_query( 'SELECT key,type FROM sequence_attributes ORDER BY key',

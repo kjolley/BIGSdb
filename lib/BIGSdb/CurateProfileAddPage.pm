@@ -103,7 +103,7 @@ sub print_content {
 		}
 	}
 	if ( $q->param('submission_id') ) {
-		$self->_set_submission_params( $q->param('submission_id') );
+		$self->_set_submission_params( scalar $q->param('submission_id') );
 	}
 	if ( $q->param('sent') ) {
 		return if $self->_upload( $scheme_id, \%newdata );
@@ -122,7 +122,7 @@ sub _set_submission_params {
 	return if !$profile_submission;
 	my $q = $self->{'cgi'};
 	$q->param( 'field:sender' => $submission->{'submitter'} );
-	return if !BIGSdb::Utils::is_int( $q->param('index') );
+	return if !BIGSdb::Utils::is_int( scalar $q->param('index') );
 	my $profile_index = 1;
 
 	foreach my $profile ( @{ $profile_submission->{'profiles'} } ) {

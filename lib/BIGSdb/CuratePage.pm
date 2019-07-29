@@ -102,7 +102,7 @@ sub create_record_table {
 		my $method = $methods{$table};
 		$buffer .= $self->$method( $newdata, $width, $options );
 	} elsif ( $table eq 'locus_descriptions' ) {
-		$buffer .= $self->_create_extra_fields_for_locus_descriptions( $q->param('locus') // '', $width );
+		$buffer .= $self->_create_extra_fields_for_locus_descriptions( scalar $q->param('locus') // '', $width );
 	}
 	$buffer .= qq(</ul></fieldset>\n);
 	my $page = $q->param('page');
@@ -867,7 +867,7 @@ sub _create_extra_fields_for_loci {    ## no critic (ProhibitUnusedPrivateSubrou
 		  $self->_get_form_fields( $attributes, 'locus_descriptions', $newdata_ref,
 			{ noshow => [qw(locus curator datestamp)] }, $width );
 	}
-	$buffer .= $self->_create_extra_fields_for_locus_descriptions( $q->param('id') // '', $width );
+	$buffer .= $self->_create_extra_fields_for_locus_descriptions( scalar $q->param('id') // '', $width );
 	return $buffer;
 }
 

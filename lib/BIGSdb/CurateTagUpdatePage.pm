@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -74,7 +74,7 @@ sub print_content {
 			arguments => [ $start, $end, $reverse_flag, $complete_flag, $curator_id, 'now', $id ]
 		  };
 		my $existing_flags = $self->{'datastore'}->get_sequence_flags($id);
-		my @new_flags      = $q->param('flags');
+		my @new_flags      = $q->multi_param('flags');
 		foreach my $new_flag (@new_flags) {
 
 			if ( !@$existing_flags || none { $new_flag eq $_ } @$existing_flags ) {
@@ -223,12 +223,13 @@ sub _check_values {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	if ( $q->param('update') || $q->param('submit') ) {
-		if ( !defined $q->param('new_start') || !BIGSdb::Utils::is_int( $q->param('new_start') ) ) {
+		if ( !defined $q->param('new_start') || !BIGSdb::Utils::is_int( scalar $q->param('new_start') ) ) {
 			$self->print_bad_status(
 				{ message => q(The start position must be an integer. Resetting to initial values.) } );
 			$q->param( update => 0 );
 			$q->param( submit => 0 );
-		} elsif ( !defined $q->param('new_end') || !BIGSdb::Utils::is_int( $q->param('new_end') ) ) {
+		} elsif ( !defined $q->param('new_end') || !BIGSdb::Utils::is_int( scalar $q->param('new_end') ) )
+		{
 			$self->print_bad_status(
 				{ message => q(The end position must be an integer. Resetting to initial values.) } );
 			$q->param( update => 0 );

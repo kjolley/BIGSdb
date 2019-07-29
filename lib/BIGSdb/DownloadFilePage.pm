@@ -28,7 +28,7 @@ sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	if ( $q->param('file') ) {
-		$self->_print_file( $q->param('file') );
+		$self->_print_file( scalar $q->param('file') );
 		return;
 	}
 	say q(<h1>Files available for download</h1>);

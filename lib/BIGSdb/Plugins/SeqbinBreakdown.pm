@@ -254,7 +254,7 @@ sub _print_interface {
 	my $selected_ids;
 
 	if ( $q->param('isolate_id') ) {
-		my @ids = $q->param('isolate_id');
+		my @ids = $q->multi_param('isolate_id');
 		$selected_ids = \@ids;
 	} elsif ( defined $query_file ) {
 		$selected_ids = $self->get_ids_from_query($qry_ref);

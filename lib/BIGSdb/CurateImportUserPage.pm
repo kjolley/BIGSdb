@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2016-2018, University of Oxford
+#Copyright (c) 2016-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -139,7 +139,7 @@ sub _import {
 	my ($self)    = @_;
 	my $q         = $self->{'cgi'};
 	my $user_db   = $q->param('user_db');
-	my @users     = $q->param('users');
+	my @users     = $q->multi_param('users');
 	my $remote_db = $self->{'datastore'}->get_user_db($user_db);
 	my $invalid_upload;
 	my $matching_configs =

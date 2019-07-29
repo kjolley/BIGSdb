@@ -97,6 +97,10 @@ sub run {
 
 	if ( $seq_count <= MAX_INSTANT_RUN ) {
 		$options{'count_only'} = 0;
+		if ( !$self->{'datastore'}->is_locus($locus) ) {
+			$self->print_bad_status( { message => q(Invalid locus selected.), navbar => 1 } );
+			return;
+		}
 		my $seqs = $self->_get_seqs( $locus, $ids, \%options );
 		if ( !@$seqs ) {
 			$self->print_bad_status( { message => qq(There are no $locus alleles in your selection.), navbar => 1 } );
@@ -250,7 +254,6 @@ sub _get_seqs {
 					$allele_seq{$allele_id} = $locus->get_allele_sequence($allele_id);
 				}
 				catch {
-
 					#do nothing
 				};
 			}

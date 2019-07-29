@@ -148,8 +148,8 @@ sub _check {
 		push @bad_field_buffer, 'Aliases: duplicate isolate name - aliases are ALTERNATIVE names for the isolate.';
 	}
 	my $validation_failures = $self->{'submissionHandler'}->run_validation_checks($newdata);
-	if (@$validation_failures){
-		push @bad_field_buffer,@$validation_failures;
+	if (@$validation_failures) {
+		push @bad_field_buffer, @$validation_failures;
 	}
 	$self->{'submissionHandler'}->cleanup_validation_rules;
 	foreach my $locus (@$loci) {
@@ -806,7 +806,7 @@ sub _print_default_field {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 		id        => "field_$field",
 		size      => $thisfield->{'length'},
 		maxlength => $thisfield->{'length'},
-		value     => ( $q->param($field) // $newdata->{ lc($field) } // $thisfield->{'default'} ),
+		value => ( scalar $q->param($field) // $newdata->{ lc($field) } // $thisfield->{'default'} ),
 		%$html5_args
 	);
 	return;
@@ -822,13 +822,14 @@ sub print_sparse_field_form_elements {
 	my $width      = $self->_get_field_width( \@fieldnames );
 	my $field_name = ucfirst( $self->{'system'}->{'eav_fields'} // 'phenotypic fields' );
 	say qq(<fieldset style="float:left"><legend>$field_name</legend>);
-	my $categories = $self->{'datastore'}->run_query(
-		'SELECT DISTINCT category FROM eav_fields WHERE NOT no_curate ORDER BY category NULLS LAST',
-		undef, { fetch => 'col_arrayref' }
-	);
+	my $categories =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT DISTINCT category FROM eav_fields WHERE NOT no_curate ORDER BY category NULLS LAST',
+		undef, { fetch => 'col_arrayref' } );
 	say q(<div style="white-space:nowrap">);
 	say q(<p class="comment">These fields are listed and stored separately<br />)
 	  . q(as they may be infrequently populated.</p>);
+
 	foreach my $cat (@$categories) {
 		if ( @$categories > 1 && $categories->[0] ) {
 			say $cat ? qq(<h3>$cat</h3>) : q(<h3>Other</h3>);
@@ -904,6 +905,7 @@ sub _print_allele_designation_form_elements {
 	@$loci = uniq @$loci;
 	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	my $schemes_with_display_order = any { defined $_->{'display_order'} } @$schemes;
+
 	if ( @$loci <= 100 ) {
 		foreach my $scheme (@$schemes) {
 			$locus_buffer .= $self->_print_scheme_form_elements( $scheme->{'id'}, $newdata );

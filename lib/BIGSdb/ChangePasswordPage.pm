@@ -66,7 +66,7 @@ sub _can_continue {
 		return;
 	}
 	if ( !$self->is_admin && $q->param('user') && $self->{'system'}->{'dbtype'} ne 'user' ) {
-		my $subject_info = $self->{'datastore'}->get_user_info_from_username( $q->param('user') );
+		my $subject_info = $self->{'datastore'}->get_user_info_from_username( scalar $q->param('user') );
 		if ( $subject_info && $subject_info->{'status'} eq 'admin' ) {
 			$self->print_bad_status(
 				{
@@ -79,7 +79,7 @@ sub _can_continue {
 		}
 	}
 	if ( $q->param('user') && $q->param('page') eq 'setPassword' ) {
-		my $user_info = $self->{'datastore'}->get_user_info_from_username( $q->param('user') );
+		my $user_info = $self->{'datastore'}->get_user_info_from_username( scalar $q->param('user') );
 		if ( $user_info && $user_info->{'user_db'} && !$self->{'permissions'}->{'set_site_user_passwords'} ) {
 			$self->print_bad_status(
 				{
@@ -285,8 +285,8 @@ sub _print_interface {
 		say q(<li><label for="existing" class="form" style="width:10em">Existing password:</label>);
 		say $q->password_field( -name => 'existing', -id => 'existing' );
 		say q(</li>);
-	} elsif ( $q->param('user') && $self->{'datastore'}->user_name_exists( $q->param('user') ) ) {
-		my $user_info = $self->{'datastore'}->get_user_info_from_username( $q->param('user') );
+	} elsif ( $q->param('user') && $self->{'datastore'}->user_name_exists( scalar $q->param('user') ) ) {
+		my $user_info = $self->{'datastore'}->get_user_info_from_username( scalar $q->param('user') );
 		say q(<li><label class="form" style="width:10em">Name:</label>);
 		say qq(<span><strong>$user_info->{'surname'}, $user_info->{'first_name'} )
 		  . qq(($user_info->{'user_name'})</strong></span></li>);

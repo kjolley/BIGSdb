@@ -67,7 +67,7 @@ sub print_content {
 		return;
 	}
 	if ( $q->param('project_info') ) {
-		$self->_project_info( $q->param('project_info') );
+		$self->_project_info( scalar $q->param('project_info') );
 		return;
 	}
 	$self->_print_user_projects;
@@ -393,7 +393,7 @@ sub _update_user_groups {
 	my $user_group_members = $self->_get_project_user_groups($project_id);
 	my %existing           = map { $_ => 1 } @$user_group_members;
 	my $q                  = $self->{'cgi'};
-	my @new_groups         = $q->param('user_groups');
+	my @new_groups         = $q->multi_param('user_groups');
 	my %new_groups         = map { $_ => 1 } @new_groups;
 	eval {
 		foreach my $new (@new_groups) {
@@ -905,8 +905,8 @@ sub _update_project_details {
 	return if $self->_fails_admin_check($project_id);
 	my $project    = $self->_get_project($project_id);
 	my $q          = $self->{'cgi'};
-	my $short_desc = CGI::escapeHTML( $q->param('short_description') );
-	my $full_desc  = CGI::escapeHTML( $q->param('full_description') );
+	my $short_desc = CGI::escapeHTML( scalar $q->param('short_description') );
+	my $full_desc  = CGI::escapeHTML( scalar $q->param('full_description') );
 	my $name_used =
 	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM projects WHERE short_description=? AND id!=?)',
 		[ $short_desc, $project_id ] );

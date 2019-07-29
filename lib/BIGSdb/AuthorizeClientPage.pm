@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2018, University of Oxford
+#Copyright (c) 2015-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -97,7 +97,6 @@ sub print_content {
 				navbar  => 1
 			}
 		);
-
 		return;
 	}
 	if ( $q->param('authorize') ) {
@@ -137,10 +136,10 @@ sub _authorize_token {
 	eval {
 		$self->{'auth_db'}
 		  ->do( 'UPDATE request_tokens SET (username,dbase,verifier,start_time)=(?,?,?,?) WHERE token=?',
-			undef, $self->{'username'}, $dbase, $verifier, time, $q->param('oauth_token') );
+			undef, $self->{'username'}, $dbase, $verifier, time, scalar $q->param('oauth_token') );
 	};
 	if ($@) {
-		$self->print_bad_status( { message => q(Token could not be authorized.)} );
+		$self->print_bad_status( { message => q(Token could not be authorized.) } );
 		$logger->error($@);
 		$self->{'auth_db'}->rollback;
 	} else {

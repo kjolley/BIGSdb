@@ -658,7 +658,8 @@ sub _filter_query_by_sequence_filters {
 		}
 		if ( $q->param('scheme_id_list') ne '' ) {
 			my $scheme_qry;
-			if ( $q->param('scheme_id_list') eq '0' || !BIGSdb::Utils::is_int( $q->param('scheme_id_list') ) ) {
+			if ( $q->param('scheme_id_list') eq '0' || !BIGSdb::Utils::is_int( scalar $q->param('scheme_id_list') ) )
+			{
 				$scheme_qry = 'allele_sequences.locus NOT IN (SELECT locus FROM scheme_members)';
 			} else {
 				my $scheme_id = $q->param('scheme_id_list');

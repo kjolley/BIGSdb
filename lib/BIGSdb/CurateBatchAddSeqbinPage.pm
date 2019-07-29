@@ -427,7 +427,7 @@ sub _upload {
 			last;
 		}
 		my $min_size = 0;
-		if ( $q->param('size_filter') && BIGSdb::Utils::is_int( $q->param('size') ) ) {
+		if ( $q->param('size_filter') && BIGSdb::Utils::is_int( scalar $q->param('size') ) ) {
 			$min_size = $q->param('size');
 		}
 		eval {

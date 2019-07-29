@@ -1403,8 +1403,7 @@ sub _get_validation_rules {
 	$buffer .= qq(</div>\n);
 	return $buffer
 	  if !$self->{'datastore'}
-	  ->run_query('SELECT EXISTS(SELECT * FROM validation_rules) AND EXISTS(SELECT * FROM validation_conditions)')
-	  ;
+	  ->run_query('SELECT EXISTS(SELECT * FROM validation_rules) AND EXISTS(SELECT * FROM validation_conditions)');
 	$buffer .= q(<div class="curategroup curategroup_isolates grid-item field_admin" )
 	  . qq(style="display:$self->{'optional_field_admin_display'}"><h2>Rule conditions</h2>);
 	$buffer .= $self->_get_icon_group(
@@ -2043,8 +2042,8 @@ sub _print_account_requests_section {
 	  if !( $curator->{'account_request_emails'}
 		&& ( $self->{'permissions'}->{'import_site_users'} || $self->is_admin ) );
 	my $q = $self->{'cgi'};
-	$self->_reject_user if ( $q->param('reject') );
-	$self->_import_user if ( $q->param('import') );
+	$self->_reject_user if $q->param('reject');
+	$self->_import_user if $q->param('import');
 	my $user_dbs = $self->{'datastore'}->get_user_dbs;
 	my @user_details;
 

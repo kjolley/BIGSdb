@@ -882,7 +882,7 @@ sub _check_schemes {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called 
 	my ( $self, $newdata, $problems, $extra_inserts ) = @_;
 	my %allowed = map { $_ => 1 } SCHEME_FLAGS;
 	my $q       = $self->{'cgi'};
-	my @flags   = $q->param('flags');
+	my @flags   = $q->multi_param('flags');
 	foreach my $flag (@flags) {
 		if ( $allowed{$flag} ) {
 			push @$extra_inserts,

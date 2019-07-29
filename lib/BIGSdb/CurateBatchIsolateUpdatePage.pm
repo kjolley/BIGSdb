@@ -50,7 +50,8 @@ sub print_content {
 		$self->_update;
 	} elsif ( $q->param('data') ) {
 		foreach my $param (qw (idfield1 idfield2)) {
-			if ( !$self->{'xmlHandler'}->is_field( $q->param($param) ) && $q->param($param) ne '<none>' ) {
+			if ( !$self->{'xmlHandler'}->is_field( scalar $q->param($param) ) && $q->param($param) ne '<none>' )
+			{
 				$self->print_bad_status(
 					{ message => q(Invalid selection field.), navbar => 1, back_page => 'batchIsolateUpdate' } );
 				return;

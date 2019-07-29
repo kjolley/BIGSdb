@@ -74,7 +74,8 @@ sub print_content {
 		return;
 	}
 	if ( $q->param('datatype') && $q->param('list_file') ) {
-		$self->{'datastore'}->create_temp_list_table( $q->param('datatype'), $q->param('list_file') );
+		$self->{'datastore'}->create_temp_list_table( scalar $q->param('datatype'), scalar $q->param('list_file') )
+		  ;
 	}
 	if ( $q->param('query_file') && !defined $q->param('query') ) {
 		my $query_file = $q->param('query_file');
