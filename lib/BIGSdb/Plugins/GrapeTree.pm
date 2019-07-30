@@ -193,9 +193,6 @@ sub run {
 		if ( !@$loci_selected ) {
 			push @errors, q(You must select one or more loci or schemes.);
 		}
-		if ( $self->attempted_spam( \( scalar $q->param('list') ) ) ) {
-			push @errors, q(Invalid data detected in list.);
-		}
 		my $max_records         = $self->_get_limit;
 		my $commify_max_records = BIGSdb::Utils::commify($max_records);
 		if ( @ids > $max_records ) {

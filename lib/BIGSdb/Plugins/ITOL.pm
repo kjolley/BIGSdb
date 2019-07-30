@@ -117,9 +117,6 @@ sub run {
 		if ( !@$loci_selected ) {
 			push @errors, q(You must select one or more loci or schemes.);
 		}
-		if ( $self->attempted_spam( \( scalar $q->param('list') ) ) ) {
-			push @errors, q(Invalid data detected in list.);
-		}
 		my $total_seqs          = @$loci_selected * @ids;
 		my $max_records         = $self->{'system'}->{ lc("$attr->{'module'}_record_limit") } // MAX_RECORDS;
 		my $max_seqs            = $self->{'system'}->{ lc("$attr->{'module'}_seq_limit") } // MAX_SEQS;
