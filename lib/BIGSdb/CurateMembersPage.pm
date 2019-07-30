@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2012-2018, University of Oxford
+#Copyright (c) 2012-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -187,7 +187,7 @@ sub _perform_action {
 		my $sql_add    = $self->{'db'}->prepare( $qry{$table} );
 		my $curator_id = $self->get_curator_id;
 		eval {
-			foreach my $record ( $q->param('available') ) {
+			foreach my $record ( $q->multi_param('available') ) {
 				next if $record eq '';
 				my %method = (
 					locus_curators => sub {
@@ -214,7 +214,7 @@ sub _perform_action {
 		my $qry        = "DELETE FROM $table WHERE $table_data->{'foreign'}=? AND  $table_data->{'user_field'}=?";
 		my $sql_remove = $self->{'db'}->prepare($qry);
 		eval {
-			foreach my $record ( $q->param('selected') ) {
+			foreach my $record ( $q->multi_param('selected') ) {
 				next if $record eq '';
 				$sql_remove->execute( $record, $user_id );
 			}

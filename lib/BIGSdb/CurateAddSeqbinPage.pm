@@ -259,7 +259,7 @@ sub _check_data {
 			!BIGSdb::Utils::is_int( scalar $q->param('isolate_id') )
 			|| !$self->{'datastore'}->run_query(
 				"SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)",
-				$q->param('isolate_id')
+				scalar $q->param('isolate_id')
 			)
 		)
 	  )
@@ -268,7 +268,8 @@ sub _check_data {
 		$continue = 0;
 	} elsif ( !$q->param('sender')
 		|| !BIGSdb::Utils::is_int( scalar $q->param('sender') )
-		|| !$self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM users WHERE id=?)', $q->param('sender') ) )
+		|| !$self->{'datastore'}
+		->run_query( 'SELECT EXISTS(SELECT * FROM users WHERE id=?)', scalar $q->param('sender') ) )
 	{
 		$self->print_bad_status( { message => q(Sender is required and must exist in the users table.) } );
 		$continue = 0;

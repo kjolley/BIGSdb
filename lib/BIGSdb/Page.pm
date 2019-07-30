@@ -2896,7 +2896,6 @@ sub use_correct_user_database {
 	my $user_dbs = $self->{'config'}->{'site_user_dbs'};
 	my %valid_db = map { $_->{'dbase'} => 1 } @$user_dbs;
 	if ( !$valid_db{ $self->{'system'}->{'db'} } ) {
-		$logger->error("Invalid site user db passed - $self->{'system'}->{'db'}");
 		return;
 	}
 
