@@ -296,7 +296,8 @@ sub _check_data {
 	my $seq_ref;
 	if ($continue) {
 		try {
-			$seq_ref = BIGSdb::Utils::read_fasta( $passed_seq_ref // \$q->param('data'), { keep_comments => 1 } );
+			my $data = $q->param('data');
+			$seq_ref = BIGSdb::Utils::read_fasta( $passed_seq_ref // \$data, { keep_comments => 1 } );
 		}
 		catch {
 			if ( $_->isa('BIGSdb::Exception::Data') ) {
