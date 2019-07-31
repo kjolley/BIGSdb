@@ -8,7 +8,7 @@ my $logger = get_logger('BIGSdb.Page');
 use constant LIST_CONTEXT_WARN => 1;
 
 BEGIN {
-	use CGI 4.04;    #Needed to support CGI::multi_param
+	use CGI 4.08;    #Needed to support CGI::multi_param
 	$CGI::LIST_CONTEXT_WARN = 0;
 	{
 		no warnings 'redefine';
