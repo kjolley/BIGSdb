@@ -28,7 +28,7 @@ BEGIN {
 			my ( $q, $p ) = @_;     # assume object calls always
 			if ( wantarray  ) {
 				my ( $package, $filename, $line ) = caller;
-				if ( $package ne 'CGI' & LIST_CONTEXT_WARN ) {
+				if ( $package ne 'CGI' && LIST_CONTEXT_WARN ) {
 					$logger->logcarp('CGI::param called in list context');
 				}
 			}
