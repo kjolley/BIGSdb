@@ -108,10 +108,12 @@ sub new {
 	$self->read_config_file($config_dir);
 	$self->{'config'}->{'version'} = $VERSION;
 	$self->{'max_upload_size_mb'} = $self->{'config'}->{'max_upload_size'};
+	$ENV{'TMPDIR'} =    ## no critic (RequireLocalizedPunctuationVars)
+	  $self->{'config'}->{'secure_tmp_dir'};
 
 	#Under SSL if upload size > CGI::POST_MAX then call will fail but not return useful message.
-	#The following will stop a ridiculously large upload.
-	$CGI::POST_MAX        = $self->{'config'}->{'max_upload_size'} * 4;
+	#The following will stop a ridiculously large upload (>2GB).
+	$CGI::POST_MAX        = 2 * 1024 * 1024 * 1024;
 	$CGI::DISABLE_UPLOADS = 0;
 	$self->{'cgi'}        = CGI->new;
 	$self->_initiate( $config_dir, $dbase_config_dir );
