@@ -1,4 +1,4 @@
-/*Version: 20190620*/
+/*Version: 20190801*/
 body,form,input,th,td,div {margin-top:0;margin-bottom:0;padding-bottom:0;padding-top:0}
 select{margin:0}
 p {margin:0 0 1em 0;padding:0}
@@ -937,6 +937,7 @@ span.file_icon {color:#66a;text-shadow: 2px 2px 2px #aaa}
 span.success {color:#080;text-shadow: 5px 5px 5px #aaa}
 span.failure {color:#800;text-shadow: 5px 5px 5px #aaa}
 span.warn {color:#f94;text-shadow: 5px 5px 5px #aaa}
+span.form_warning {font-weight:600;color:#c44;background:#ff0}
 button.main {color:#66a}
 button.main:hover {color:#88c}
 button.plugin {color:#a6a}

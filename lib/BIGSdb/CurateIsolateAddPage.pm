@@ -41,7 +41,16 @@ sub get_javascript {
   if (!Modernizr.inputtypes.date){
  	\$(".no_date_picker").css("display","inline");
   }
+  \$("#aliases").on('keyup paste',alias_change);
 });
+function alias_change(){
+	console.log(\$("#aliases").val());
+  	if (\$("#aliases").val().indexOf(";") > -1){
+  		\$("span#alias_warning").html("Put each alias on a separate line - do not use semi-colon to separate."); 		
+  	} else {
+  		\$("span#alias_warning").html("");
+  	}
+}
 END
 	return $buffer;
 }
@@ -619,6 +628,7 @@ sub print_provenance_form_elements {
 		-default => "@$aliases"
 	);
 	say $self->get_tooltip(q(List of alternative names for this isolate. Put each alias on a separate line.));
+	say q(<span id="alias_warning" class="form_warning"></span>);
 	say q(</li>);
 	my $pubmed;
 	if ( $options->{'update'} ) {

@@ -37,7 +37,16 @@ sub get_javascript {
 	if (!Modernizr.inputtypes.date){
  	   \$(".no_date_picker").css("display","inline");
     }
+    \$("#aliases").on('keyup paste',alias_change); 
 });
+function alias_change(){
+	console.log(\$("#aliases").val());
+  	if (\$("#aliases").val().indexOf(";") > -1){
+  		\$("span#alias_warning").html("Put each alias on a separate line - do not use semi-colon to separate."); 		
+  	} else {
+  		\$("span#alias_warning").html("");
+  	}
+}
 END
 	$buffer .= $self->get_tree_javascript;
 	return $buffer;
