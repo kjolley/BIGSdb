@@ -662,7 +662,7 @@ sub _select_merge_users {
 	say
 	  q(<p>Please note that merging of user accounts may fail due to a database timeout if the site user account below )
 	  . q(has multiple (1000+) records already associated with it in a specific database. This is unusual as the site user )
-	  . q(account is normally newly created, but can occur if you are trying to merge multiple user accounts in to one.</p>)
+	  . q(account is normally newly created.</p>)
 	  . q(<p>Database changes will be rolled back if this occurs so the system will always be in a consistent state.</p>);
 	say q(<p><strong>Site user:</strong></p>);
 	say q(<dl class="data">)
@@ -722,7 +722,7 @@ sub _select_merge_users {
 	);
 	say q(</li><li>);
 	say q(<label for="username" class="form">Username:</label>);
-	say $q->textfield( -name => 'username', id => 'username', -default => $q->param('user') );
+	say $q->textfield( -name => 'username', id => 'username', -default => scalar $q->param('user') );
 	say q(</li></ul>);
 	say q(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Merge' } );
@@ -888,8 +888,8 @@ sub _notify_db_admin {
 	  . qq(Surname: $sender->{'surname'}\n)
 	  . qq(Affiliation: $sender->{'affiliation'}\n)
 	  . qq(E-mail: $sender->{'email'}\n\n);
-	$message .= qq(Please log in to the $system->{'description'} )
-	  . q(database curation system to accept or reject this user.);
+	$message .=
+	  qq(Please log in to the $system->{'description'} ) . q(database curation system to accept or reject this user.);
 	my $domain = $self->{'config'}->{'domain'} // DEFAULT_DOMAIN;
 	foreach my $recipient (@$recipients) {
 		next if !$recipient->{'account_request_emails'};
@@ -905,7 +905,7 @@ sub _notify_db_admin {
 				charset  => 'UTF-8',
 			},
 			header_str => [
-				To => $recipient->{'email'},
+				To      => $recipient->{'email'},
 				From    => "no_reply\@$domain",
 				Subject => $subject
 			],
