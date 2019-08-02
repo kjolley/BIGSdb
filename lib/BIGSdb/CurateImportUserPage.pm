@@ -104,7 +104,7 @@ sub _print_interface {
 			-labels   => $labels,
 			-size     => 10,
 			-multiple => 'true',
-			-default  => [ $q->param('user_name') ]
+			-default  => [ scalar $q->param('user_name') ]
 		);
 		say q(</fieldset>);
 		$self->print_action_fieldset( { submit_label => 'Import', no_reset => 1 } );
