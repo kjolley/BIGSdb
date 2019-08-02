@@ -52,7 +52,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.3.24',
+		version     => '2.3.25',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -215,7 +215,7 @@ sub _print_interface {
 		$self->print_bad_status( { message => q(This database view contains no genomes.), navbar => 1 } );
 		return;
 	}
-	$self->_print_banner;
+	$self->print_scheme_selection_banner;
 	$self->print_set_section if $q->param('select_sets');
 	say q(<div class="box" id="queryform"><p>Please select the required isolate ids and loci for comparison - )
 	  . q(use CTRL or SHIFT to make multiple selections in list boxes. In addition to selecting individual loci, )
@@ -248,16 +248,6 @@ sub _print_interface {
 	say $q->hidden($_) foreach qw (page name db);
 	say q(</div>);
 	say $q->end_form;
-	say q(</div>);
-	return;
-}
-
-sub _print_banner {
-	my ($self) = @_;
-	my $banner_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/genome_comparator_banner.html";
-	return if !-e $banner_file;
-	say q(<div class="box" id="pluginbanner">);
-	$self->print_file($banner_file);
 	say q(</div>);
 	return;
 }

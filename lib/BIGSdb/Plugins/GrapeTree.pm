@@ -43,7 +43,7 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.3.3',
+		version             => '1.3.4',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -70,24 +70,14 @@ sub print_info_panel {
 	say q(<div class="box" id="resultspanel">);
 	if ( -e "$ENV{'DOCUMENT_ROOT'}$logo" ) {
 		say q(<div style="float:left">);
-		say qq(<img src="$logo" style="max-width:95%" />);
+		say qq(<img src="$logo" style="width:100px" />);
 		say q(</div>);
 	}
-	say q(<div style="float:left">);
 	say q(<p>This plugin generates a minimum-spanning tree and visualizes within GrapeTree:</p>);
-	say q(<h2>GrapeTree: Visualization of core genomic relationships</h2>);
-	say q(<p>GrapeTree is developed by:</p>);
-	say q(<ul>);
-	say q(<li>Zhemin Zhou (1)</li>);
-	say q(<li>Nabil-Fareed Alikhan (1)</li>);
-	say q(<li>Martin J. Sergeant (1)</li>);
-	say q(<li>Nina Luhmann (1)</li>);
-	say q(<li>C&aacute;tia Vaz (2,5)</li>);
-	say q(<li>Alexandre P. Francisco (2,4)</li>);
-	say q(<li>Jo&atilde;o Andr&eacute; Carri&ccedil;o (3)</li>);
-	say q(<li>Mark Achtman (1)</li>);
-	say q(</ul>);
-	say q(<ol>);
+	say q(<p>GrapeTree is developed by: Zhemin Zhou (1), Nabil-Fareed Alikhan (1), Martin J. Sergeant (1),)
+	.q(Nina Luhmann (1), C&aacute;tia Vaz (2,5), Alexandre P. Francisco (2,4),)
+	. q(Jo&atilde;o Andr&eacute; Carri&ccedil;o (3) and Mark Achtman (1)</p>);
+	say q(<ol style="overflow:hidden">);
 	say q(<li>Warwick Medical School, University of Warwick, UK</li>);
 	say q(<li>Instituto de Engenharia de Sistemas e Computadores: Investiga&ccedil;&atilde;o e Desenvolvimento )
 	  . q((INESC-ID), Lisboa, Portugal</li>);
@@ -100,7 +90,7 @@ sub print_info_panel {
 	say q(<p>Publication: Zhou <i>at al.</i> (2018) GrapeTree: Visualization of core genomic relationships among )
 	  . q(100,000 bacterial pathogens. <a href="https://www.ncbi.nlm.nih.gov/pubmed/30049790"><i>Genome Res</i> )
 	  . q(<b>28:</b>1395-1404</a>.</p>);
-	say q(</div><div style="clear:both"></div></div>);
+	say q(</div>);
 	return;
 }
 
@@ -109,6 +99,7 @@ sub _print_interface {
 	my $set_id = $self->get_set_id;
 	my $q      = $self->{'cgi'};
 	$self->print_info_panel;
+	$self->print_scheme_selection_banner;
 	say q(<div class="box" id="queryform">);
 	say q(<p>This tool will generate minimum spanning trees trees from allelic profiles. )
 	  . q(Please check the loci that you would like to include.  Alternatively select one or more )

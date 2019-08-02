@@ -1178,4 +1178,14 @@ sub upload_file {
 	close $fh;
 	return "${temp}_$suffix$format";
 }
+
+sub print_scheme_selection_banner {
+	my ($self) = @_;
+	my $banner_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/scheme_selection_banner.html";
+	return if !-e $banner_file;
+	say q(<div class="box" id="pluginbanner">);
+	$self->print_file($banner_file);
+	say q(</div>);
+	return;
+}
 1;
