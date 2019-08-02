@@ -243,21 +243,14 @@ sub _print_info_panel {
 	say q(<div class="box" id="resultspanel">);
 	if ( -e "$ENV{'DOCUMENT_ROOT'}$logo" ) {
 		say q(<div style="float:left">);
-		say qq(<img src="$logo" style="max-width:95%" />);
+		say qq(<img src="$logo" style="width:100px;margin-right:2em" />);
 		say q(</div>);
 	}
-	say q(<div style="float:left">);
 	say q(<p>This plugin uploads data for analysis within the PhyloViz online service:</p>);
-	say q(<h2>PHYLOViZ Online: Web-based tool for visualization, phylogenetic inference, analysis and sharing.</h2>);
-	say q(<p>PHYLOViZ Online is developed by:</p>);
-	say q(<ul>);
-	say q(<li>Bruno Gon&ccedil;alves (1)</li>);
-	say q(<li>Jo&atilde;o Andr&eacute; Carri&ccedil;o (1)</li>);
-	say q(<li>Alexandre P. Francisco (2,3)</li>);
-	say q(<li>C&aacute;tia Vaz (2,4)</li>);
-	say q(<li>M&aacute;rio Ramirez (1)</li>);
-	say q(</ul>);
-	say q(<ol>);
+	say q(<p>PHYLOViZ Online is developed by: Bruno Gon&ccedil;alves (1), )
+	. q(Jo&atilde;o Andr&eacute; Carri&ccedil;o (1), Alexandre P. Francisco (2,3), )
+	. q(C&aacute;tia Vaz (2,4) and M&aacute;rio Ramirez (1)</p>);
+	say q(<ol style="overflow:hidden">);
 	say q(<li>Instituto de Microbiologia, Instituto de Medicina Molecular, Faculdade de Medicina, )
 	  . q(Universidade de Lisboa, Lisboa, Portugal</li>);
 	say q(<li>INESC-ID, R. Alves Redol 9, 1000-029 Lisboa, Portugal</li>);
@@ -266,7 +259,7 @@ sub _print_info_panel {
 	  . q(007 Lisboa, Portugal</li>);
 	say q(</ol>);
 	say q(<p>Web site: <a href="https://online.phyloviz.net/">https://online.phyloviz.net/</a></p>);
-	say q(</div><div style="clear:both"></div></div>);
+	say q(</div>);
 	return;
 }
 

@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext          => 'iTOL',
 		menutext            => 'iTOL',
 		module              => 'ITOL',
-		version             => '1.3.9',
+		version             => '1.3.10',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -655,19 +655,12 @@ sub print_info_panel {
 	say q(<div class="box" id="resultspanel">);
 	if ( -e "$ENV{'DOCUMENT_ROOT'}$logo" ) {
 		say q(<div style="float:left">);
-		say qq(<img src="$logo" style="max-width:95%" />);
+		say qq(<img src="$logo" style="width:100px;margin-right:2em" />);
 		say q(</div>);
 	}
-	say q(<div style="float:left">);
 	say q(<p>This plugin uploads data for analysis within the Interactive Tree of Life online service:</p>);
-	say q(<h2>Interactive tree of life (iTOL): an online tool for the display and annotation of )
-	  . q(phylogenetic and other trees</h2>);
-	say q(<p>iTOL is developed by:</p>);
-	say q(<ul>);
-	say q(<li>Ivica Letunic (1)</li>);
-	say q(<li>Peer Bork (2,3,4)</li>);
-	say q(</ul>);
-	say q(<ol>);
+	say q(<p>iTOL is developed by: Ivica Letunic (1) and Peer Bork (2,3,4)</p>);
+	say q(<ol style="overflow:hidden">);
 	say q(<li>Biobyte solutions GmbH, Bothestr 142, 69126 Heidelberg, Germany</li>);
 	say q(<li>European Molecular Biology Laboratory, Meyerhofstrasse 1, 69117 Heidelberg, Germany</li>);
 	say q(<li>Max Delbr&uuml;ck Centre for Molecular Medicine, 13125 Berlin, Germany</li>);
@@ -675,10 +668,10 @@ sub print_info_panel {
 	say q(</ol>);
 	say q(<p>Web site: <a href="https://itol.embl.de/">https://itol.embl.de/</a><br />);
 	say
-	  q(Publication: Letunic &amp; Bork (2016) Interactive tree of life (iTOL) v3: an online tool for the display<br />)
+	  q(Publication: Letunic &amp; Bork (2016) Interactive tree of life (iTOL) v3: an online tool for the display )
 	  . q(and annotation of phylogenetic and other trees. <a href="https://www.ncbi.nlm.nih.gov/pubmed/27095192">)
 	  . q(<i>Nucleic Acids Res</i> <b>44(W1):</b>W242-5</a>.</p>);
-	say q(</div><div style="clear:both"></div></div>);
+	say q(</div>);
 	return;
 }
 1;

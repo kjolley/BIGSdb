@@ -1,6 +1,6 @@
 #Microreact.pm - Phylogenetic tree/data visualization plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2017-2018, University of Oxford
+#Copyright (c) 2017-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext       => 'Microreact',
 		menutext         => 'Microreact',
 		module           => 'Microreact',
-		version          => '1.0.7',
+		version          => '1.0.8',
 		dbtype           => 'isolates',
 		section          => 'third_party,postquery',
 		input            => 'query',
@@ -285,19 +285,9 @@ sub print_info_panel {
 		say q(</div>);
 	}
 	say q(<div style="float:left">);
-	say q(<p>This plugin uploads data for analysis within the Microreact online service:</p>);
-	say q(<h2>Microreact: visualizing and sharing data for genomic epidemiology and phylogeography</h2>);
-	say q(<p>Microreact is developed by:</p>);
-	say q(<ul>);
-	say q(<li>Khalil Abudahab</li>);
-	say q(<li>Richard Goater</li>);
-	say q(<li>Artemij Fedosejev</li>);
-	say q(<li>Jyothish NT</li>);
-	say q(<li>Stephano</li>);
-	say q(</ul>);
-	say q(<p>in the <a href="http://www.imperial.ac.uk/people/d.aanensen">Aanensen Research Group</a> )
-	  . q(at Imperial College London and <a href="http://www.pathogensurveillance.net/">)
-	  . q(The Centre for Genomic Pathogen Surveillance</a>.</p>);
+	say q(<p>This plugin uploads data for analysis within the Microreact online service:</p>)
+	. q(<p>Microreact is developed at the <a href="http://www.pathogensurveillance.net/">)
+	  . q(The Centre for Genomic Pathogen Surveillance</a> by a team led by David Aanensen.</p>);
 	say q(<p>Web site: <a href="https://microreact.org">https://microreact.org</a><br />);
 	say q(Publication: Argim&oacute;n <i>at al.</i> (2016) Microreact: visualizing and sharing data for genomic )
 	  . q(epidemiology and phylogeography. <a href="https://www.ncbi.nlm.nih.gov/pubmed/28348833">)
