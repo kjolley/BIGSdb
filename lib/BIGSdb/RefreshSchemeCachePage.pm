@@ -102,7 +102,7 @@ sub _refresh_caches {
 	say q(<div class="box" id="resultsheader"><p>);
 	my @selected_schemes;
 	if ( $q->param('scheme') && BIGSdb::Utils::is_int( scalar $q->param('scheme') ) ) {
-		push @selected_schemes, $q->param('scheme');
+		push @selected_schemes, scalar $q->param('scheme');
 	} else {
 		@selected_schemes = @$schemes;
 	}

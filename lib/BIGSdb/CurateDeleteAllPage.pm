@@ -33,7 +33,7 @@ sub print_content {
 	my $query      = $self->get_query_from_temp_file($query_file);
 	if ( $q->param('list_file') ) {
 		my $data_type = $q->param('datatype') // 'text';
-		$self->{'datastore'}->create_temp_list_table( $data_type, $q->param('list_file') );
+		$self->{'datastore'}->create_temp_list_table( $data_type, scalar $q->param('list_file') );
 	}
 	my $record_name = $self->{'system'}->{'dbtype'} eq 'isolates'
 	  && $table eq $self->{'system'}->{'view'} ? 'isolate' : $self->get_record_name($table);

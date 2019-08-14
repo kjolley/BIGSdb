@@ -137,8 +137,8 @@ sub print_content {
 				$self->update_history( $isolate_id,
 					"$locus: sequence tag updated. Seqbin id: $seqbin_id; $start-$end" );
 			}
-			$q->param( start_pos => $q->param('new_start') );
-			$q->param( end_pos   => $q->param('new_end') );
+			$q->param( start_pos => scalar $q->param('new_start') );
+			$q->param( end_pos   => scalar $q->param('new_end') );
 			$orig_start = $q->param('new_start');
 			$orig_end   = $q->param('new_end');
 		}

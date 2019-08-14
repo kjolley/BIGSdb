@@ -250,7 +250,7 @@ sub _get_field_table_header {
 	if ( $self->{'cgi'}->param('locus') ) {
 		my $extended_attributes = $self->{'datastore'}->run_query(
 			'SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order',
-			$self->{'cgi'}->param('locus'),
+			scalar $self->{'cgi'}->param('locus'),
 			{ fetch => 'col_arrayref' }
 		);
 		push @headers, @$extended_attributes;

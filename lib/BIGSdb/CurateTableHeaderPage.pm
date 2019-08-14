@@ -124,7 +124,7 @@ sub _get_other_table_headers {
 			shift @$headers;    #don't include 'locus'
 			my $extended_attributes = $self->{'datastore'}->run_query(
 				'SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order',
-				$self->{'cgi'}->param('locus'),
+				scalar $self->{'cgi'}->param('locus'),
 				{ fetch => 'col_arrayref' }
 			);
 			if ( ref $extended_attributes eq 'ARRAY' ) {
