@@ -478,14 +478,15 @@ sub _check_sequences {    ## no critic (ProhibitUnusedPrivateSubroutines) #Calle
 		}
 	}
 	if ( $q->param('submission_id') && $q->param('sequence') ) {
-		push @$extra_inserts, {
+		push @$extra_inserts,
+		  {
 			statement => 'UPDATE allele_submission_sequences SET (status,assigned_id)=(?,?) '
 			  . 'WHERE (submission_id,UPPER(sequence))=(?,?)',
 			arguments => [
 				'assigned',                        $newdata->{'allele_id'},
 				scalar $q->param('submission_id'), uc( scalar $q->param('sequence') )
-			  ]
-		};
+			]
+		  };
 	}
 	return;
 }
@@ -815,15 +816,15 @@ sub _check_loci {          ## no critic (ProhibitUnusedPrivateSubroutines) #Call
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		$newdata->{'locus'} = $newdata->{'id'};
 		my $q = $self->{'cgi'};
-		push @$extra_inserts,
-		  {
+		push @$extra_inserts, {
 			statement => 'INSERT INTO locus_descriptions (locus,full_name,product,description,curator,datestamp) '
 			  . 'VALUES (?,?,?,?,?,?)',
 			arguments => [
-				$newdata->{'locus'},   $q->param('full_name'), $q->param('product'), $q->param('description'),
+				$newdata->{'locus'}, scalar $q->param('full_name'), scalar $q->param('product'),
+				scalar $q->param('description'),
 				$newdata->{'curator'}, 'now'
 			]
-		  };
+		};
 		$self->_check_locus_descriptions( $newdata, $problems, $extra_inserts );
 	}
 	$self->_check_locus_aliases_when_updating_other_table( $newdata->{'id'}, $newdata, $problems, $extra_inserts );

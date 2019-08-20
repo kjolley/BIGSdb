@@ -133,6 +133,7 @@ sub print_content {
 	say $buffer;
 	return;
 }
+
 sub _get_disabled_fields {
 	my ( $self, $table, $data ) = @_;
 	my $fields = ['user_db'];
@@ -639,7 +640,7 @@ sub _prepare_extra_inserts_for_loci {
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT * FROM locus_descriptions WHERE locus=?', $newdata->{'locus'}, { fetch => 'row_hashref' } );
 	my ( $full_name, $product, $description ) =
-	  ( $q->param('full_name'), $q->param('product'), $q->param('description') );
+	  ( scalar $q->param('full_name'), scalar $q->param('product'), scalar $q->param('description') );
 	if ($existing_desc) {
 		if (   $full_name ne ( $existing_desc->{'full_name'} // '' )
 			|| $product ne ( $existing_desc->{'product'} // '' )
