@@ -107,7 +107,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.4.11',
+		version     => '1.4.12',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -478,9 +478,9 @@ sub _append_fasta {
 		$seq_with_flanking =
 		  BIGSdb::Utils::break_line( $seq_ref->{'upstream'} . $seq_ref->{'seq'} . $seq_ref->{'downstream'}, 60 );
 	}
-	open( my $fh_output, '>>', "$self->{'config'}->{'tmp_dir'}/$out_file" )
+	open( my $fh_output, '>>:encoding(utf8)', "$self->{'config'}->{'tmp_dir'}/$out_file" )
 	  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$out_file for writing");
-	open( my $fh_output_flanking, '>>', "$self->{'config'}->{'tmp_dir'}/$out_file_flanking" )
+	open( my $fh_output_flanking, '>>:encoding(utf8)', "$self->{'config'}->{'tmp_dir'}/$out_file_flanking" )
 	  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$out_file_flanking for writing");
 	say $fh_output $fasta_id;
 	say $fh_output_flanking $fasta_id;
