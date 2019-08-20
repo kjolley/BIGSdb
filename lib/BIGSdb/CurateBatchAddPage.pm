@@ -1555,7 +1555,11 @@ sub _upload_data {
 				}
 				catch {
 					if ( $_->isa('BIGSdb::Exception::Data') ) {
-						$upload_err  = 'Invalid FASTA file';
+						if ( $_ =~ 'Not valid DNA' ) {
+							$upload_err = 'Invalid characters';
+						} else {
+							$upload_err = 'Invalid FASTA file';
+						}
 						$failed_file = $data[ $field_order->{'assembly_filename'} ];
 					} else {
 						$logger->logdie($_);
@@ -1666,6 +1670,10 @@ sub report_upload_error {
 	my $detail;
 	if ( $err eq 'Invalid FASTA file' ) {
 		$detail = qq(The contig file '$failed_file' was not in valid FASTA format.);
+	} elsif ( $err eq 'Invalid characters' ) {
+		$detail =
+		    qq(The contig file '$failed_file' contains invalid characters. )
+		  . q(Allowed IUPAC nucleotide codes are GATCUBDHVRYKMSWN.');
 	} elsif ( $err =~ /duplicate/ && $err =~ /unique/ ) {
 		$detail =
 		    q(Data entry would have resulted in records with either duplicate ids or another )
