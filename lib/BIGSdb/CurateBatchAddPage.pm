@@ -648,6 +648,13 @@ sub _isolate_record_further_checks {
 		$advisories->{$pk_combination} .= "$self->{'system'}->{'labelfield'} "
 		  . "'$data->[$args->{'file_header_pos'}->{$self->{'system'}->{'labelfield'}}]' already exists in the database.";
 	}
+
+	#Check if aliases list has commas in it
+	if ( defined $args->{'file_header_pos'}->{'aliases'} && $data->[ $args->{'file_header_pos'}->{'aliases'} ] =~ /,/x )
+	{
+		$advisories->{$pk_combination} .= 'Alias list should be separated by semi-colons (;). '
+		  . 'Commas included in this field will be assumed to be part of an alias name.';
+	}
 	return $buffer;
 }
 

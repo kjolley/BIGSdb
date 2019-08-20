@@ -41,8 +41,8 @@ sub get_javascript {
 });
 function alias_change(){
 	console.log(\$("#aliases").val());
-  	if (\$("#aliases").val().indexOf(";") > -1){
-  		\$("span#alias_warning").html("Put each alias on a separate line - do not use semi-colon to separate."); 		
+  	if (\$("#aliases").val().indexOf(";") > -1 || \$("#aliases").val().indexOf(",") > -1){
+  		\$("span#alias_warning").html("Put each alias on a separate line - do not use semi-colon or comma to separate."); 		
   	} else {
   		\$("span#alias_warning").html("");
   	}
