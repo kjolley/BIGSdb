@@ -560,7 +560,7 @@ sub _get_allele_submissions_for_curation {
 		    qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=submit&amp;submission_id=$submission->{'id'}&amp;curate=1">$submission->{'id'}</a></td>)
 		  . qq(<td>$submission->{'date_submitted'}</td><td>$submission->{'datestamp'}</td><td>$submitter_string</td>)
-		  . qq(<td>$locus</td>);
+		  . qq(<td>$locus</td><td>$allele_submission->{'technology'}</td>);
 		my $seq_count = @{ $allele_submission->{'seqs'} };
 		$buffer .= qq(<td>$seq_count</td>);
 
@@ -580,7 +580,7 @@ sub _get_allele_submissions_for_curation {
 			$return_buffer .= qq(<p>Your account is authorized to handle the following submissions:<p>\n);
 		}
 		$return_buffer .= q(<table class="resultstable"><tr><th>Submission id</th><th>Submitted</th><th>Updated</th>)
-		  . q(<th>Submitter</th><th>Locus</th><th>Sequences</th>);
+		  . q(<th>Submitter</th><th>Locus</th><th>Technology</th><th>Sequences</th>);
 		$return_buffer .= q(<th>Outcome</th>) if $status eq 'closed';
 		$return_buffer .= qq(</tr>\n);
 		$return_buffer .= $buffer;
