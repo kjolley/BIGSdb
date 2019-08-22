@@ -501,7 +501,7 @@ sub _import_dbase_config {
 	return q() if !$self->{'permissions'}->{'import_dbase_configs'};
 	my $q = $self->{'cgi'};
 	if ( $q->param('add') ) {
-		foreach my $config ( scalar $q->param('available') ) {
+		foreach my $config ( $q->multi_param('available') ) {
 			next if $self->_is_config_registered($config);
 			my $reg = $self->_get_autoreg_status($config);
 			eval {
@@ -516,7 +516,7 @@ sub _import_dbase_config {
 			}
 		}
 	} elsif ( $q->param('remove') ) {
-		foreach my $config ( $q->param('registered') ) {
+		foreach my $config ( $q->multi_param('registered') ) {
 			eval { $self->{'db'}->do( 'DELETE FROM registered_resources WHERE dbase_config=?', undef, $config ) };
 			if ($@) {
 				$logger->error($@);
