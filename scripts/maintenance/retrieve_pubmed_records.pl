@@ -28,11 +28,6 @@ use constant {
 	CONFIG_DIR       => '/etc/bigsdb',
 	LIB_DIR          => '/usr/local/lib',
 	DBASE_CONFIG_DIR => '/etc/bigsdb/dbases',
-	HOST             => undef,
-	PORT             => undef,
-	USER             => undef,
-	PASSWORD         => undef,
-	LOCK_DIR         => '/var/run/lock'         #Override in bigsdb.conf
 };
 #######End Local configuration#############################################
 use lib (LIB_DIR);
