@@ -1,4 +1,3 @@
-#!/usr/bin/perl
 #Download and check lengths/checksum remote contigs.
 #
 #Written by Keith Jolley

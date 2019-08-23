@@ -86,10 +86,10 @@ sub initiate {
 		$self->{'system'}->{'db'}     = $self->{'options'}->{'user_database'};
 		$self->{'system'}->{'dbtype'} = 'user';
 	}
-	$self->{'system'}->{'host'}     = $self->{'host'}     // $self->{'system'}->{'host'}     // 'localhost';
-	$self->{'system'}->{'port'}     = $self->{'port'}     // $self->{'system'}->{'port'}     // 5432;
-	$self->{'system'}->{'user'}     = $self->{'user'}     // $self->{'system'}->{'user'}     // 'apache';
-	$self->{'system'}->{'password'} = $self->{'password'} // $self->{'system'}->{'password'} // 'remote';
+	$self->{'system'}->{'host'}     //= $self->{'host'}     // 'localhost';
+	$self->{'system'}->{'port'}     //= $self->{'port'}     // 5432;
+	$self->{'system'}->{'user'}     //= $self->{'user'}     // 'apache';
+	$self->{'system'}->{'password'} //= $self->{'password'} // 'remote';
 	$self->{'system'}->{'locus_superscript_prefix'} ||= 'no';
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$self->{'system'}->{'view'}       ||= 'isolates';
@@ -146,6 +146,9 @@ sub _go {
 	my ($self) = @_;
 	my $load_average;
 	$self->read_config_file( $self->{'config_dir'} );
+
+	#refdb attribute has been renamed ref_db for consistency with other databases (refdb still works)
+	$self->{'config'}->{'ref_db'} //= $self->{'config'}->{'refdb'};
 	if ( !$self->{'options'}->{'always_run'} ) {
 		my $max_load = $self->{'config'}->{'max_load'} || 8;
 		try {
@@ -434,7 +437,6 @@ sub stop_job {
 	my ( $self, $job_id ) = @_;
 	return
 	  if !$self->{'config'}->{'jobs_db'} || !$self->{'options'}->{'mark_job'} || !$self->{'config'}->{'record_scripts'};
-	;
 	$self->{'jobManager'}->update_job_status(
 		$job_id,
 		{

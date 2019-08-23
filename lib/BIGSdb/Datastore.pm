@@ -2040,6 +2040,68 @@ sub _get_ref_db {
 	return $dbr;
 }
 
+sub get_available_refs {
+	my ($self) = @_;
+	my $dbr = $self->_get_ref_db;
+	return [] if !$dbr;
+	return $self->run_query( 'SELECT pmid FROM refs ORDER BY pmid', undef, { fetch => 'col_arrayref', db => $dbr } );
+}
+
+sub get_available_authors {
+	my ($self) = @_;
+	my $dbr = $self->_get_ref_db;
+	return [] if !$dbr;
+	return $self->run_query( 'SELECT surname,initials FROM authors',
+		undef, { fetch => 'all_arrayref', slice => {}, db => $dbr } );
+}
+
+sub add_author {
+	my ( $self, $surname, $initials ) = @_;
+	my $dbr = $self->_get_ref_db;
+	eval { $dbr->do( 'INSERT INTO authors (surname,initials) VALUES (?,?)', undef, $surname, $initials ); };
+	if ($@) {
+		$logger->error($@);
+		$dbr->rollback;
+	} else {
+		$dbr->commit;
+	}
+	return;
+}
+
+sub get_author_id {
+	my ( $self, $surname, $initials ) = @_;
+	my $dbr = $self->_get_ref_db;
+	return $self->run_query(
+		'SELECT id FROM authors WHERE (surname,initials)=(?,?)',
+		[ $surname, $initials ],
+		{ cache => 'get_author_id', db => $dbr }
+	);
+}
+
+sub add_reference {
+	my ( $self, $args ) = @_;
+	my ( $pmid, $year, $journal, $volume, $pages, $title, $abstract, $author_list ) =
+	  @{$args}{qw(pmid year journal volume pages title abstract author_list)};
+	my $dbr = $self->_get_ref_db;
+	eval {
+		$dbr->do( 'INSERT INTO refs (pmid,year,journal,volume,pages,title,abstract) VALUES (?,?,?,?,?,?,?)',
+			undef, $pmid, $year, $journal, $volume, $pages, $title, $abstract )
+		  or say "Failed to insert id: $pmid!";
+		my $pos = 1;
+		foreach my $author_id (@$author_list) {
+			$dbr->do( 'INSERT INTO refauthors (pmid,author,position) VALUES (?,?,?)', undef, $pmid, $author_id, $pos );
+			$pos++;
+		}
+	};
+	if ($@) {
+		$logger->error($@);
+		$dbr->rollback;
+	} else {
+		$dbr->commit;
+	}
+	return;
+}
+
 sub get_citation_hash {
 	my ( $self, $pmids, $options ) = @_;
 	my $citation_ref = {};
@@ -2374,10 +2436,10 @@ sub get_eav_table {
 }
 
 sub get_eav_fieldnames {
-	my ($self, $options) = @_;
+	my ( $self, $options ) = @_;
 	my $no_curate = $options->{'curate'} ? q( WHERE NOT no_curate) : q();
-	return $self->run_query( "SELECT field FROM eav_fields$no_curate ORDER BY field_order,field", undef,
-		{ fetch => 'col_arrayref' } );
+	return $self->run_query( "SELECT field FROM eav_fields$no_curate ORDER BY field_order,field",
+		undef, { fetch => 'col_arrayref' } );
 }
 
 sub get_eav_field {
