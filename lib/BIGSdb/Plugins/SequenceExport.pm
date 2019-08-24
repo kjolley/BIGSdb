@@ -30,6 +30,7 @@ use Bio::Perl;
 use Bio::SeqIO;
 use Bio::AlignIO;
 use BIGSdb::Utils;
+use BIGSdb::Constants qw(:limits);
 use constant DEFAULT_ALIGN_LIMIT => 200;
 use constant DEFAULT_SEQ_LIMIT   => 1_000_000;
 use BIGSdb::Plugin qw(SEQ_SOURCE);
@@ -47,7 +48,7 @@ sub get_attributes {
 		buttontext       => 'Sequences',
 		menutext         => 'Sequences',
 		module           => 'SequenceExport',
-		version          => '1.6.2',
+		version          => '1.6.3',
 		dbtype           => 'isolates,sequences',
 		seqdb_type       => 'schemes',
 		section          => 'export,postquery',
@@ -641,7 +642,13 @@ sub _append_sequences {
 		system("$self->{'config'}->{'mafft_path'} --thread $threads --quiet --preservecase $temp_file > $aligned_file");
 		$output_file = $aligned_file;
 	} elsif ( $params->{'align'} && $params->{'aligner'} eq 'MUSCLE' && -e $temp_file && -s $temp_file ) {
-		system( $self->{'config'}->{'muscle_path'}, -in => $temp_file, -out => $aligned_file, '-quiet' );
+		my $max_mb = $self->{'config'}->{'max_muscle_mb'} // MAX_MUSCLE_MB;
+		system( $self->{'config'}->{'muscle_path'},
+			-in    => $temp_file,
+			-out   => $aligned_file,
+			-maxmb => $max_mb,
+			'-quiet'
+		);
 		$output_file = $aligned_file;
 	} else {
 		$output_file = $temp_file;
