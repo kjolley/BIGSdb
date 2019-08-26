@@ -48,7 +48,7 @@ sub get_attributes {
 		buttontext       => 'Sequences',
 		menutext         => 'Sequences',
 		module           => 'SequenceExport',
-		version          => '1.6.3',
+		version          => '1.6.4',
 		dbtype           => 'isolates,sequences',
 		seqdb_type       => 'schemes',
 		section          => 'export,postquery',
@@ -532,6 +532,9 @@ sub make_isolate_seq_file {
 
 sub _get_included_values {
 	my ( $self, $includes, $isolate_id, $problem_ids ) = @_;
+	if (defined $self->{'cache'}->{'includes'}->{$isolate_id}){
+		return $self->{'cache'}->{'includes'}->{$isolate_id};
+	}
 	my $include_values = [];
 	my $isolate_data   = $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?",
 		$isolate_id, { fetch => 'row_hashref', cache => 'SequenceExport::run_job_isolates::isolate_data' } );
@@ -554,6 +557,7 @@ sub _get_included_values {
 		$problem_ids->{$isolate_id} = 1;
 		BIGSdb::Exception::Database::NoRecord->throw;
 	}
+	$self->{'cache'}->{'includes'}->{$isolate_id}=$include_values;
 	return $include_values;
 }
 
