@@ -25,10 +25,28 @@ use LWP::UserAgent;
 use Bio::Biblio::IO;
 use parent qw(BIGSdb::Offline::Script);
 
-sub run_script {
+#This just initiates the script - we need to do this so that we can determine
+#the database name without extracting PubMed ids.
+sub run_script { }
+
+sub get_dbase_name {
+	my ($self) = @_;
+	return $self->{'system'}->{'db'};
+}
+
+sub run {
 	my ($self) = @_;
 	return if !$self->{'system'}->{'db'};
-	my $new_pmids = $self->_get_new_pmids;
+	my ( $new_pmids, $suspicious ) = $self->_get_new_pmids;
+	if ( @$suspicious && !$self->{'options'}->{'quiet'} && !$self->{'options'}->{'force'} ) {
+		say qq($self->{'system'}->{'db'} suspicious PMIDs:);
+		say q((use --force option to add these));
+		say $_ foreach @$suspicious;
+		print qq(\n);
+	}
+	if ( $self->{'options'}->{'force'} && @$suspicious ) {
+		push @$new_pmids, @$suspicious;
+	}
 	return if !@$new_pmids;
 	my $url = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?'
 	  . 'db=PubMed&report=medline&retmode=xml&tool=BIGSdb&email=keith.jolley@zoo.ox.ac.uk';
@@ -65,8 +83,9 @@ sub run_script {
 		my $pages = $bibref->medline_page;
 		$pages = ' ' if !$pages;
 		my $year;
-
-		if ( $bibref->date =~ /^(\d\d\d\d)/x ) {
+		if (   ( defined $bibref->date && $bibref->date =~ /^(\d\d\d\d)/x )
+			|| ( defined $bibref->medline_date && $bibref->medline_date =~ /(\d\d\d\d)/x ) )
+		{
 			$year = $1;
 		} else {
 			$year = 0;
@@ -120,11 +139,25 @@ sub _get_new_pmids {
 	}
 	@pmids = uniq sort { $a <=> $b } @pmids;
 	my $downloaded_refs = $self->{'datastore'}->get_available_refs;
-	my %downloaded      = map { $_ => 1 } @$downloaded_refs;
-	my $new             = [];
+	my %downloaded = map { $_ => 1 } @$downloaded_refs;
+	my %new;
+	my %suspicious;
+	my $last_id;
 	foreach my $pmid (@pmids) {
-		push @$new, $pmid if !$downloaded{$pmid};
+		next if $downloaded{$pmid};
+		if ( $last_id && $pmid == $last_id + 1 ) {    #Sequential PMIDs are unlikely to be correct
+			$suspicious{$pmid}    = 1;
+			$suspicious{$last_id} = 1;
+			delete $new{$last_id};
+		} elsif ( $pmid < 100_000 ) {                 #Very low PMIDs are unlikely to be correct
+			$suspicious{$pmid} = 1;
+		} else {
+			$new{$pmid} = 1;
+		}
+		$last_id = $pmid;
 	}
-	return $new;
+	my $new_list        = [ sort { $a <=> $b } keys %new ];
+	my $suspicious_list = [ sort { $a <=> $b } keys %suspicious ];
+	return ( $new_list, $suspicious_list );
 }
 1;

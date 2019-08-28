@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20190823
+#Version: 20190828
 use strict;
 use warnings;
 use 5.010;
@@ -50,6 +50,7 @@ my $logger = Log::Log4perl::get_logger('BIGSdb.Script');
 my %opts;
 GetOptions(
 	'd|database=s' => \$opts{'d'},
+	'f|force'      => \$opts{'f'},
 	'h|help'       => \$opts{'h'},
 	'q|quiet'      => \$opts{'q'}
 ) or die("Error in command line arguments\n");
@@ -76,19 +77,20 @@ sub main {
 
 sub retrieve_pubmed_ids {
 	my ($dbase_config) = @_;
+	state %db_checked;
 	my $script = BIGSdb::Offline::RetrievePubMedRecords->new(
 		{
 			config_dir       => CONFIG_DIR,
 			lib_dir          => LIB_DIR,
 			dbase_config_dir => DBASE_CONFIG_DIR,
-			host             => HOST,
-			port             => PORT,
-			user             => USER,
-			password         => PASSWORD,
 			instance         => $dbase_config,
-			options          => { quiet => $opts{'q'}, pause => $opts{'d'} ? 0 : 1 }
+			options          => { quiet => $opts{'q'}, force => $opts{'f'}, pause => $opts{'d'} ? 0 : 1 }
 		}
 	);
+	my $db_name = $script->get_dbase_name;
+	return if $db_checked{$db_name};
+	$script->run;
+	$db_checked{$db_name} = 1;
 	return;
 }
 
@@ -111,6 +113,12 @@ ${bold}-d, --database ${under}DATABASE$norm
     Database configuration name. If not provided, then all databases on the
     system will be checked
     
+${bold}-f, --force$norm
+    By default, any suspicious PubMed ids are not retrieved. This option
+    forces their retrieval. Suspicious ids are any < 10,000 or any that are
+    sequential. Sequential ids are likely to have been entered by mistake using
+    Excel autofill.
+        
 ${bold}-h, --help$norm
     This help page.
 
