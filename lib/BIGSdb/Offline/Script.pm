@@ -91,7 +91,7 @@ sub initiate {
 	$self->{'system'}->{'user'}     //= $self->{'user'}     // 'apache';
 	$self->{'system'}->{'password'} //= $self->{'password'} // 'remote';
 	$self->{'system'}->{'locus_superscript_prefix'} ||= 'no';
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+	if ( ($self->{'system'}->{'dbtype'} // q()) eq 'isolates' ) {
 		$self->{'system'}->{'view'}       ||= 'isolates';
 		$self->{'system'}->{'labelfield'} ||= 'isolate';
 		if ( !$self->{'xmlHandler'}->is_field( $self->{'system'}->{'labelfield'} ) ) {
@@ -102,7 +102,7 @@ sub initiate {
 	}
 	$self->set_system_overrides;
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
-	$self->db_connect;
+	$self->db_connect if $self->{'system'}->{'db'};
 	if ( $self->{'db'} ) {
 		$self->setup_datastore;
 		if ( defined $self->{'options'}->{'v'} ) {

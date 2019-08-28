@@ -19,10 +19,18 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20190304
+#Version: 20190828
 use strict;
 use warnings;
 use 5.010;
+###########Local configuration#############################################
+use constant {
+	CONFIG_DIR => '/etc/bigsdb',
+	LIB_DIR    => '/usr/local/lib',
+};
+#######End Local configuration#############################################
+use lib (LIB_DIR);
+use BIGSdb::Offline::Script;
 use Digest::MD5;
 use Getopt::Long qw(:config no_ignore_case);
 use DBI;
@@ -31,7 +39,17 @@ use Crypt::Eksblowfish::Bcrypt qw(bcrypt_hash en_base64);
 use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
 use POSIX;
-use constant DBASE       => 'bigsdb_auth';
+
+#Direct all library logging calls to screen
+my $log_conf =
+    qq(log4perl.category.BIGSdb.Script        = INFO, Screen\n)
+  . qq(log4perl.category.BIGSdb.Dataconnector = WARN, Screen\n)
+  . qq(log4perl.category.BIGSdb.Datastore     = WARN, Screen\n)
+  . qq(log4perl.appender.Screen               = Log::Log4perl::Appender::Screen\n)
+  . qq(log4perl.appender.Screen.stderr        = 1\n)
+  . qq(log4perl.appender.Screen.layout        = Log::Log4perl::Layout::SimpleLayout\n);
+Log::Log4perl->init( \$log_conf );
+my $logger = Log::Log4perl::get_logger('BIGSdb.Script');
 use constant BCRYPT_COST => 12;
 my %opts;
 GetOptions(
@@ -42,13 +60,12 @@ GetOptions(
 	'p|password=s'     => \$opts{'password'},
 	'r|reset_password' => \$opts{'reset_password'}
 ) or die("Error in command line arguments\n");
-
 if ( $opts{'help'} ) {
 	show_help();
 	exit;
 }
 if ( !$opts{'database'} || !$opts{'name'} || !$opts{'password'} ) {
-	say 'Usage: add_user.pl [-a] --database <dbase> --name <username> --password <password>';
+	say 'Usage: add_user.pl [-a] --database <dbase> --username <username> --password <password>';
 	say 'Use --add option to add a new user.';
 	exit;
 }
@@ -56,15 +73,23 @@ main();
 exit;
 
 sub main {
-	my $db =
-	     DBI->connect( 'DBI:Pg:dbname=' . DBASE, 'postgres', '', { AutoCommit => 0, RaiseError => 1, PrintError => 0 } )
-	  || croak 'could not open database';
+	my $script = BIGSdb::Offline::Script->new(
+		{
+			config_dir => CONFIG_DIR,
+			lib_dir    => LIB_DIR,
+			logger     => $logger
+		}
+	);
+	my $user_dbase = $script->{'config'}->{'auth_db'} // 'bigsdb_auth';
+	$script->initiate_authdb;
+	my $db = $script->{'auth_db'};
 	my $qry;
 	my $password    = Digest::MD5::md5_hex( $opts{'password'} . $opts{'name'} );
 	my $salt        = generate_salt();
 	my $bcrypt_hash = en_base64( bcrypt_hash( { key_nul => 1, cost => BCRYPT_COST, salt => $salt }, $password ) );
 	my @values      = ( $bcrypt_hash, 'bcrypt', BCRYPT_COST, $salt );
 	my $reset       = $opts{'reset_password'} ? 'true' : undef;
+
 	if ( $opts{'add'} ) {
 		$qry = 'INSERT INTO users (password,algorithm,cost,salt,dbase,name,date_entered,datestamp,reset_password) '
 		  . 'VALUES (?,?,?,?,?,?,?,?,?)';
@@ -86,6 +111,7 @@ sub main {
 		$db->rollback;
 	}
 	$db->commit;
+	undef $script;
 	return;
 }
 
