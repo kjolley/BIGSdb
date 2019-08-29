@@ -2095,7 +2095,7 @@ sub _print_account_requests_section {
 sub _reject_user {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my ( $user_name, $user_db ) = ( $q->param('reject'), $q->param('user_db') );
+	my ( $user_name, $user_db ) = ( scalar $q->param('reject'), scalar $q->param('user_db') );
 	return if !$user_name || !BIGSdb::Utils::is_int($user_db);
 	my $db = $self->{'datastore'}->get_user_db($user_db);
 	my $configs = $self->{'datastore'}->get_configs_using_same_database( $db, $self->{'system'}->{'db'} );
