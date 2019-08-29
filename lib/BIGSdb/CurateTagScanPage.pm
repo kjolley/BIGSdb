@@ -148,7 +148,7 @@ sub initiate {
 			my $params = $temp_q->Vars;
 			foreach my $key ( keys %$params ) {
 				next if any { $key eq $_ } qw (submit);
-				$q->param( $key => scalar $temp_q->param($key) );
+				$q->param( $key => $temp_q->multi_param($key) );
 			}
 		}
 	}
