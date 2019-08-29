@@ -501,7 +501,9 @@ sub _check_allele_data {
 		[ $newdata->{'locus'}, $newdata->{'allele_id'} ],
 		{ fetch => 'col_arrayref' }
 	);
-	my @new_pubmeds = split /\r?\n/x, $q->param('pubmed');
+	my $value_string = $q->param('pubmed');
+	$value_string =~ s/[,;]/\n/x;
+	my @new_pubmeds = split /\r?\n/x, $value_string;
 	foreach my $new (@new_pubmeds) {
 		chomp $new;
 		next if $new eq '';
@@ -534,7 +536,9 @@ sub _check_allele_data {
 			[ $newdata->{'locus'}, $newdata->{'allele_id'}, $databank ],
 			{ fetch => 'col_arrayref' }
 		);
-		my @new_accessions = split /\r?\n/x, $q->param("databank_$databank");
+		my $value_string = $q->param("databank_$databank");
+		$value_string =~ s/[,;]/\n/x;
+		my @new_accessions = split /\r?\n/x, $value_string;
 		foreach my $new (@new_accessions) {
 			chomp $new;
 			next if $new eq '';

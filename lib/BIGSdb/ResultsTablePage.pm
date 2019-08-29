@@ -23,7 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::Page);
 use Try::Tiny;
 use List::MoreUtils qw(any);
-use BIGSdb::Constants qw(:interface);
+use BIGSdb::Constants qw(:interface DATABANKS);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -1323,6 +1323,15 @@ sub _get_record_table_info {
 				( my $cleaned = $ext_att->{'field'} ) =~ tr/_/ /;
 				push @headers, $cleaned;
 			}
+			my $databanks =
+			  $self->{'datastore'}
+			  ->run_query( 'SELECT DISTINCT databank FROM accession WHERE locus=? ORDER BY databank',
+				$locus, { fetch => 'col_arrayref' } );
+			push @headers, @$databanks;
+			if ( $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM sequence_refs WHERE locus=?)', $locus ) )
+			{
+				push @headers, 'Publications';
+			}
 			$linked_data = $self->_data_linked_to_locus($locus);
 			push @headers, 'linked data values' if $linked_data;
 		}
@@ -1463,23 +1472,8 @@ sub _print_record_table {
 				}
 			);
 		}
-		if ( $q->param('page') eq 'alleleQuery' && ref $extended_attributes eq 'ARRAY' ) {
-			foreach my $attribute (@$extended_attributes) {
-				my $value = $self->{'datastore'}->run_query(
-					'SELECT value FROM sequence_extended_attributes WHERE (locus,field,allele_id)=(?,?,?)',
-					[ $data->{'locus'}, $attribute->{'field'}, $data->{'allele_id'} ],
-					{ cache => 'ResultsTablePage::print_record_table::alleleQuery_extatt' }
-				);
-				if ( defined $value ) {
-					if ( $attribute->{'url'} ) {
-						( my $url = $attribute->{'url'} ) =~ s/\[\?\]/$value/gx;
-						$value = qq(<a href="$url">$value</a>);
-					}
-					print qq(<td>$value</td>);
-				} else {
-					print q(<td></td>);
-				}
-			}
+		if ( $q->param('page') eq 'alleleQuery' ) {
+			$self->_print_sequences_extended_fields( $headers, $extended_attributes, $data );
 		} elsif ( $table eq 'sequence_bin' ) {
 			$self->_print_seqbin_extended_fields( $extended_attributes, $data->{'id'} );
 		}
@@ -1520,6 +1514,70 @@ sub _print_seqbin_extended_fields {
 	foreach (@$extended_attributes) {
 		my $value = $ext_data{$_} // q();
 		print qq(<td>$value</td>);
+	}
+	return;
+}
+
+sub _print_sequences_extended_fields {
+	my ( $self, $headers, $extended_attributes, $data ) = @_;
+	my %headers = map { $_ => 1 } @$headers;
+	foreach my $attribute (@$extended_attributes) {
+		my $value = $self->{'datastore'}->run_query(
+			'SELECT value FROM sequence_extended_attributes WHERE (locus,field,allele_id)=(?,?,?)',
+			[ $data->{'locus'}, $attribute->{'field'}, $data->{'allele_id'} ],
+			{ cache => 'ResultsTablePage::print_record_table::alleleQuery_extatt' }
+		);
+		if ( defined $value ) {
+			if ( $attribute->{'url'} ) {
+				( my $url = $attribute->{'url'} ) =~ s/\[\?\]/$value/gx;
+				$value = qq(<a href="$url">$value</a>);
+			}
+			print qq(<td>$value</td>);
+		} else {
+			print q(<td></td>);
+		}
+	}
+	foreach my $databank (DATABANKS) {
+		if ( $headers{$databank} ) {
+			my $accessions = $self->{'datastore'}->run_query(
+				'SELECT databank,databank_id FROM accession WHERE (locus,allele_id,databank)=(?,?,?)',
+				[ $data->{'locus'}, $data->{'allele_id'}, $databank ],
+				{ fetch => 'all_arrayref', slice => {} }
+			);
+			my @values;
+			if ( defined $accessions ) {
+				foreach my $accession (@$accessions) {
+					if ( $accession->{'databank'} eq 'ENA' ) {
+						push @values,
+						  qq(<a href="http://www.ebi.ac.uk/ena/data/view/$accession->{'databank_id'}">)
+						  . qq($accession->{'databank_id'}</a>);
+					} elsif ( $accession->{'databank'} eq 'Genbank' ) {
+						push @values,
+						  qq(<a href="https://www.ncbi.nlm.nih.gov/nuccore/$accession->{'databank_id'}">)
+						  . qq($accession->{'databank_id'}</a>);
+					} else {
+						push @values, $accession->{'databank_id'};
+					}
+				}
+			}
+			local $" = '; ';
+			print qq(<td>@values</td>);
+		}
+	}
+	if ( $headers{'Publications'} ) {
+		my $pmids = $self->{'datastore'}->run_query(
+			'SELECT pubmed_id FROM sequence_refs WHERE (locus,allele_id)=(?,?)',
+			[ $data->{'locus'}, $data->{'allele_id'} ],
+			{
+				fetch => 'col_arrayref'
+			}
+		);
+		my @values;
+		foreach my $pmid (@$pmids) {
+			push @values, qq(<a href="https://www.ncbi.nlm.nih.gov/pubmed/$pmid">$pmid</a>);
+		}
+		local $" = '; ';
+		print qq(<td>@values</td>);
 	}
 	return;
 }
@@ -1964,8 +2022,7 @@ sub get_query_ids {
 	$self->create_temp_tables( \$qry );
 
 	if ( $q->param('list_file') && $q->param('datatype') ) {
-		$self->{'datastore'}->create_temp_list_table( scalar $q->param('datatype'), scalar $q->param('list_file') )
-		  ;
+		$self->{'datastore'}->create_temp_list_table( scalar $q->param('datatype'), scalar $q->param('list_file') );
 	}
 	my $ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	return $ids;

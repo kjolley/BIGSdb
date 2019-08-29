@@ -602,6 +602,8 @@ sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateS
 		-style   => 'width:10em',
 		-default => "@default_pubmed"
 	);
+	$buffer.= $self->get_tooltip( q(List of PubMed ids of publications associated with this sequence. )
+		  . q(Put each identifier on a separate line.) );
 	$buffer .= qq(</li>\n);
 	foreach my $databank (@databanks) {
 		$buffer .= qq(<li><label for="databank_$databank" class="form" style="width:${width}em">$databank ids:</label>);
@@ -617,6 +619,8 @@ sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateS
 			-style   => 'width:10em',
 			-default => "@default"
 		);
+			$buffer.= $self->get_tooltip( qq(List of $databank accessions associated with this sequence. )
+		  . q(Put each identifier on a separate line.) );
 		$buffer .= qq(</li>\n);
 	}
 	if ( $q->param('locus') ) {
@@ -753,7 +757,8 @@ sub _create_extra_fields_for_locus_descriptions {
 	local $" = "\n";
 	$buffer .=
 	  $q->textarea( -name => 'aliases', -id => 'aliases', -rows => 2, -cols => 12, -default => "@default_aliases" );
-	$buffer .= "</li>\n";
+	  $buffer.=$self->get_tooltip(q(List of alternative names for this locus. Put each alias on a separate line.));
+	$buffer .= qq(</li>\n);
 	return $buffer if $self->{'system'}->{'dbtype'} eq 'isolates';
 	my @default_pubmed;
 	if ( $q->param('page') eq 'update' && $locus ) {
@@ -765,7 +770,9 @@ sub _create_extra_fields_for_locus_descriptions {
 	$buffer .= qq(<li><label for="pubmed" class="form" style="width:${width}em">PubMed ids:&nbsp;</label>);
 	$buffer .=
 	  $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -default => "@default_pubmed" );
-	$buffer .= "</li>\n";
+	  $buffer.= $self->get_tooltip( q(List of PubMed ids of publications associated with this locus. )
+		  . q(Put each identifier on a separate line.) );
+	$buffer .= qq(</li>\n);
 	my @default_links;
 	if ( $q->param('page') eq 'update' && $locus ) {
 		my $desc_data =
