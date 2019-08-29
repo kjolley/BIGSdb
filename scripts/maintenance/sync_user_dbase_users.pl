@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20190303
+#Version: 20190830
 use strict;
 use warnings;
 use 5.010;
@@ -36,20 +36,14 @@ use constant {
 #######End Local configuration#############################################
 use lib (LIB_DIR);
 use BIGSdb::Offline::Script;
-use BIGSdb::Constants qw(:accounts);
+use BIGSdb::Constants qw(:accounts LOG_TO_SCREEN);
 use List::MoreUtils qw(uniq);
 use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
 binmode( STDOUT, ':encoding(UTF-8)' );
 
 #Direct all library logging calls to screen
-my $log_conf =
-    qq(log4perl.category.BIGSdb.Script        = INFO, Screen\n)
-  . qq(log4perl.category.BIGSdb.Dataconnector = WARN, Screen\n)
-  . qq(log4perl.category.BIGSdb.Datastore     = WARN, Screen\n)
-  . qq(log4perl.appender.Screen               = Log::Log4perl::Appender::Screen\n)
-  . qq(log4perl.appender.Screen.stderr        = 1\n)
-  . qq(log4perl.appender.Screen.layout        = Log::Log4perl::Layout::SimpleLayout\n);
+my $log_conf = LOG_TO_SCREEN;
 Log::Log4perl->init( \$log_conf );
 my $logger = Log::Log4perl::get_logger('BIGSdb.Script');
 my %opts;
@@ -76,8 +70,7 @@ my $script = BIGSdb::Offline::Script->new(
 		options          => \%opts
 	}
 );
-die "Script initialization failed - check logs (authentication problems or server too busy?).\n"
-  if !defined $script->{'db'};
+die "Script initialization failed.\n" if !defined $script->{'db'};
 my $is_user_db =
   $script->{'datastore'}
   ->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', 'registered_users' );

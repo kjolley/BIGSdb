@@ -31,6 +31,7 @@ use constant {
 #######End Local configuration#############################################
 use lib (LIB_DIR);
 use BIGSdb::Offline::Script;
+use BIGSdb::Constants qw(LOG_TO_SCREEN);
 use Digest::MD5;
 use Getopt::Long qw(:config no_ignore_case);
 use DBI;
@@ -41,13 +42,7 @@ use Term::Cap;
 use POSIX;
 
 #Direct all library logging calls to screen
-my $log_conf =
-    qq(log4perl.category.BIGSdb.Script        = INFO, Screen\n)
-  . qq(log4perl.category.BIGSdb.Dataconnector = WARN, Screen\n)
-  . qq(log4perl.category.BIGSdb.Datastore     = WARN, Screen\n)
-  . qq(log4perl.appender.Screen               = Log::Log4perl::Appender::Screen\n)
-  . qq(log4perl.appender.Screen.stderr        = 1\n)
-  . qq(log4perl.appender.Screen.layout        = Log::Log4perl::Layout::SimpleLayout\n);
+my $log_conf = LOG_TO_SCREEN;
 Log::Log4perl->init( \$log_conf );
 my $logger = Log::Log4perl::get_logger('BIGSdb.Script');
 use constant BCRYPT_COST => 12;

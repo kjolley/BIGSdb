@@ -479,4 +479,14 @@ use constant COUNTRIES => {
 	q(Zimbabwe)                                     => { iso3 => q(ZWE), continent => q(Africa) },
 };
 push @EXPORT_OK, qw (COUNTRIES);
+
+#Log4Perl logging to screen
+use constant LOG_TO_SCREEN => 
+	qq(log4perl.category.BIGSdb.Script        = INFO, Screen\n)
+  . qq(log4perl.category.BIGSdb.Dataconnector = WARN, Screen\n)
+  . qq(log4perl.category.BIGSdb.Datastore     = WARN, Screen\n)
+  . qq(log4perl.appender.Screen               = Log::Log4perl::Appender::Screen\n)
+  . qq(log4perl.appender.Screen.stderr        = 1\n)
+  . qq(log4perl.appender.Screen.layout        = Log::Log4perl::Layout::SimpleLayout\n);
+push @EXPORT_OK, qw (LOG_TO_SCREEN);  
 1;

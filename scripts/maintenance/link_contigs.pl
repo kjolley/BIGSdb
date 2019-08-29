@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20190303
+#Version: 20190830
 use strict;
 use warnings;
 use 5.010;
@@ -39,6 +39,7 @@ use BIGSdb::Offline::Script;
 use BIGSdb::Offline::ProcessRemoteContigs;
 use BIGSdb::Exceptions;
 use BIGSdb::Utils;
+use BIGSdb::Constants qw(LOG_TO_SCREEN);
 use Try::Tiny;
 use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
@@ -48,13 +49,7 @@ use List::MoreUtils qw(notall none);
 use Log::Log4perl qw(get_logger);
 
 #Direct all library logging calls to screen
-my $log_conf =
-    qq(log4perl.category.BIGSdb.Script        = INFO, Screen\n)
-  . qq(log4perl.category.BIGSdb.Dataconnector = WARN, Screen\n)
-  . qq(log4perl.category.BIGSdb.Datastore     = WARN, Screen\n)
-  . qq(log4perl.appender.Screen               = Log::Log4perl::Appender::Screen\n)
-  . qq(log4perl.appender.Screen.stderr        = 1\n)
-  . qq(log4perl.appender.Screen.layout        = Log::Log4perl::Layout::SimpleLayout\n);
+my $log_conf = LOG_TO_SCREEN;
 Log::Log4perl->init( \$log_conf );
 my $logger = Log::Log4perl::get_logger('BIGSdb.Script');
 my %opts;
