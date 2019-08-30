@@ -1325,9 +1325,9 @@ sub _get_record_table_info {
 			}
 			my $databanks =
 			  $self->{'datastore'}
-			  ->run_query( 'SELECT DISTINCT databank FROM accession WHERE locus=? ORDER BY databank',
+			  ->run_query( 'SELECT DISTINCT databank FROM accession WHERE locus=?',
 				$locus, { fetch => 'col_arrayref' } );
-			push @headers, @$databanks;
+			push @headers, sort @$databanks;
 			if ( $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM sequence_refs WHERE locus=?)', $locus ) )
 			{
 				push @headers, 'Publications';
@@ -1537,7 +1537,8 @@ sub _print_sequences_extended_fields {
 			print q(<td></td>);
 		}
 	}
-	foreach my $databank (DATABANKS) {
+	my @databanks = DATABANKS;
+	foreach my $databank (sort @databanks) {
 		if ( $headers{$databank} ) {
 			my $accessions = $self->{'datastore'}->run_query(
 				'SELECT databank,databank_id FROM accession WHERE (locus,allele_id,databank)=(?,?,?)',
