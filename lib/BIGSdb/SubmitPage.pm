@@ -2338,6 +2338,7 @@ sub _cancel_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 	$message .= $self->{'submissionHandler'}->get_text_summary( $submission_id, { messages => 1 } );
 
 	foreach my $curator_id (@$curators) {
+		next if !$self->{'submissionHandler'}->can_email_curator($curator_id);
 		$self->{'submissionHandler'}->email(
 			$submission_id,
 			{
@@ -2347,6 +2348,7 @@ sub _cancel_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 				message   => $message,
 			}
 		);
+		$self->{'submissionHandler'}->write_flood_protection_file($curator_id);
 	}
 	$self->{'submissionHandler'}->delete_submission($submission_id);
 	return;

@@ -1619,7 +1619,7 @@ sub notify_curators {
 	my $submission = $self->get_submission($submission_id);
 	my $curators   = $self->_get_curators($submission_id);
 	foreach my $curator_id (@$curators) {
-		next if !$self->_can_email_curator($curator_id);
+		next if !$self->can_email_curator($curator_id);
 		my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 		my $message = qq(This message has been sent to curators/admins of the $desc database with privileges )
 		  . qq(required to curate this submission.\n\n);
@@ -1635,14 +1635,14 @@ sub notify_curators {
 				message   => $message
 			}
 		);
-		$self->_write_flood_protection_file($curator_id);
+		$self->write_flood_protection_file($curator_id);
 	}
 	return;
 }
 
 #Prevent flood of curator E-mails when multiple submissions sent in very short
 #space of time, e.g. via scripted REST calls.
-sub _can_email_curator {
+sub can_email_curator {
 	my ( $self, $curator_id ) = @_;
 	my $filename = "$self->{'config'}->{'secure_tmp_dir'}/BIGSdb_FLOOD_DEFENCE/$self->{'instance'}_$curator_id";
 	return if -e $filename;
@@ -1666,7 +1666,7 @@ sub _delete_expired_flood_protection_files {
 	return;
 }
 
-sub _write_flood_protection_file {
+sub write_flood_protection_file {
 	my ( $self, $curator_id ) = @_;
 	my $dir = "$self->{'config'}->{'secure_tmp_dir'}/BIGSdb_FLOOD_DEFENCE";
 	$self->mkpath($dir);
