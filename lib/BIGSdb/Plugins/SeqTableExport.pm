@@ -1,6 +1,6 @@
 #SeqTableExport.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2014-2018, University of Oxford
+#Copyright (c) 2014-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -22,6 +22,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugin);
+use BIGSdb::Constants qw(:interface DATABANKS);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 
@@ -36,7 +37,7 @@ sub get_attributes {
 		menutext    => 'Export table',
 		buttontext  => 'Table',
 		module      => 'SeqTableExport',
-		version     => '1.0.3',
+		version     => '1.1.0',
 		dbtype      => 'sequences',
 		seqdb_type  => 'sequences',
 		input       => 'query',
@@ -66,17 +67,20 @@ sub run {
 		return;
 	}
 	say q(<div class="box" id="resultspanel"><div class="scrollable">);
-	say q(<h2>Results</h2>);
+	say q(<h2>Export</h2>);
 	my $filename = $self->_create_table( $locus, $list );
 	my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
 	if ( -e $full_path ) {
-		say q(Download: <ul>);
-		say qq(<li><a href="/tmp/$filename">Tab-delimited text</a></li>);
+		say q(<p>);
+		my $text_file_icon = TEXT_FILE;
+		print qq(<li><a href="/tmp/$filename" title="Tab-delimited text">$text_file_icon</a>);
 		my $excel = BIGSdb::Utils::text2excel( $full_path, { max_width => 25 } );
 		if ( -e $excel ) {
+			my $excel_file_icon = EXCEL_FILE;
 			( my $excel_file = $filename ) =~ s/txt/xlsx/;
-			say qq(<li><a href="/tmp/$excel_file">Excel file</a></li>);
+			say qq(<a href="/tmp/$excel_file" title="Excel file">$excel_file_icon</a>);
 		}
+		say q(</p>);
 	} else {
 		say q(<p>Output file not available.</p>);
 	}
@@ -101,15 +105,26 @@ sub _create_table {
 	my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
 	my @header    = @att_header;
 	push @header, @$extended_attributes;
+	my $databanks =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT DISTINCT databank FROM accession WHERE locus=?', $locus, { fetch => 'col_arrayref' } );
+	push @header, sort @$databanks;
+
+	if ( $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM sequence_refs WHERE locus=?)', $locus ) ) {
+		push @header, 'PubMed';
+	}
 	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
 		push @header, 'flags';
 	}
+	my %header = map { $_ => 1 } @header;
 	open( my $fh, '>:encoding(utf8)', $full_path ) || $logger->error("Can't open $full_path for writing");
 	local $" = "\t";
 	say $fh "@header";
 	local $| = 1;
-	say q(<div id="calculating">Calculating);
-	my $i = 0;
+	say q(<div class="hideonload"><p>Please wait - calculating (do not refresh) ...</p>)
+	  . q(<p><span class="wait_icon fas fa-sync-alt fa-spin fa-4x"></span></p></div>);
+	$self->{'mod_perl_request'}->rflush if $ENV{'MOD_PERL'};
+
 	foreach my $allele_id (@$list) {
 		my $data = $self->{'datastore'}->run_query(
 			'SELECT * FROM sequences WHERE (locus,allele_id)=(?,?)',
@@ -130,32 +145,38 @@ sub _create_table {
 		foreach my $ext_attribute (@$extended_attributes) {
 			push @results, $ext_data->{$ext_attribute}->{'value'} // '';
 		}
-		local $" = ', ';
+		local $" = '; ';
+		my @databanks = DATABANKS;
+		foreach my $databank ( sort @databanks ) {
+			if ( $header{$databank} ) {
+				my $accessions = $self->{'datastore'}->run_query(
+					'SELECT databank,databank_id FROM accession WHERE (locus,allele_id,databank)=(?,?,?)',
+					[ $data->{'locus'}, $data->{'allele_id'}, $databank ],
+					{ fetch => 'all_arrayref', slice => {} }
+				);
+				my @values;
+				foreach my $accession (@$accessions) {
+					push @values, $accession->{'databank_id'};
+				}
+				push @results, qq(@values);
+			}
+		}
+		if ( $header{'PubMed'} ) {
+			my $pmids = $self->{'datastore'}->run_query(
+				'SELECT pubmed_id FROM sequence_refs WHERE (locus,allele_id)=(?,?)',
+				[ $data->{'locus'}, $data->{'allele_id'} ],
+				{
+					fetch => 'col_arrayref'
+				}
+			);
+			push @results, qq(@$pmids);
+		}
 		my $flags = $self->{'datastore'}->get_allele_flags( $locus, $allele_id );
 		push @results, "@$flags";
 		local $" = "\t";
 		say $fh "@results";
-		$i++;
-		print '.' if !( $i % 50 );
-		print ' ' if !( $i % 500 );
-
-		if ( $ENV{'MOD_PERL'} ) {
-			$self->{'mod_perl_request'}->rflush;
-			return if $self->{'mod_perl_request'}->connection->aborted;
-		}
 	}
 	close $fh;
-	say q(</div>);
 	return $filename;
-}
-
-sub get_plugin_javascript {
-	my $buffer = << "END";
-\$(function () {
-	\$("#calculating").css('display','none');
-});
-
-END
-	return $buffer;
 }
 1;
