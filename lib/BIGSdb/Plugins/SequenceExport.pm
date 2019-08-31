@@ -37,6 +37,7 @@ use BIGSdb::Plugin qw(SEQ_SOURCE);
 
 sub get_attributes {
 	my ($self) = @_;
+	my $seqdef = ($self->{'system'}->{'dbtype'} // q()) eq 'sequences';
 	my %att = (
 		name             => 'Sequence Export',
 		author           => 'Keith Jolley',
@@ -46,9 +47,9 @@ sub get_attributes {
 		menu_description => 'XMFA / concatenated FASTA formats',
 		category         => 'Export',
 		buttontext       => 'Sequences',
-		menutext         => 'Sequences',
+		menutext         => $seqdef ? 'Profile sequences' : 'Sequences',
 		module           => 'SequenceExport',
-		version          => '1.6.4',
+		version          => '1.6.5',
 		dbtype           => 'isolates,sequences',
 		seqdb_type       => 'schemes',
 		section          => 'export,postquery',
