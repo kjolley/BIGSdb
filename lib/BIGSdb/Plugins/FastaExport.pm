@@ -229,13 +229,15 @@ sub _print_interface {
 	push @$extended, DATABANKS;
 	push @$extended, 'PubMed';
 	push @$extended, 'Flags' if ( $self->{'system'}->{'allele_flags'} // q() ) eq 'yes';
+	my @selected = $q->multi_param('extended');
 	if (@$extended) {
 		say $self->popup_menu(
 			-id       => 'extended',
 			-name     => 'extended',
 			-values   => $extended,
 			-multiple => 'true',
-			-size     => 5
+			-size     => 5,
+			-default => \@selected
 		);
 	}
 	say q(</fieldset>);
