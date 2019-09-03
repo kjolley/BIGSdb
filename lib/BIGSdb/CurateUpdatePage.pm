@@ -358,10 +358,9 @@ sub _check_eav_fields {
 	my ( $self, $newdata ) = @_;
 	my $existing = $self->{'datastore'}
 	  ->run_query( 'SELECT * FROM eav_fields WHERE field=?', $newdata->{'field'}, { fetch => 'row_hashref' } );
-	if ( $newdata->{'value_format'} ne $existing->{'value_format'} ) {
-		$self->print_bad_status( { message => q(You cannot change the data type of a field.), navbar => 1 } );
-		return FAILURE;
-	}
+
+	#Cannot change value format.
+	$newdata->{'value_format'} = $existing->{'value_format'};
 	my $eav_table = {
 		integer => 'eav_int',
 		float   => 'eav_float',
