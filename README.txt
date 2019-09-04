@@ -1,3 +1,5 @@
+v1.23.1: *Improved script to retrive PubMed records from NCBI.
+         *Improved FASTA export plugin. 
 v1.23.0: *Automated password reset for site-wide accounts.
          *Support for grouping sparse fields by different category.
          *Validation rules to constrain field values based on value of other
