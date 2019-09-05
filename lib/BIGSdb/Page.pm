@@ -2666,7 +2666,7 @@ sub print_seqbin_isolate_fieldset {
 					-id          => 'isolate_paste_list',
 					-cols        => 12,
 					-rows        => $options->{'size'} ? ( $options->{'size'} - 1 ) : 7,
-					-placeholder => 'Paste list of isolate ids...'
+					-placeholder => 'Paste list of isolate ids (one per line)...'
 				);
 				say q(</div>);
 			}
@@ -2678,7 +2678,7 @@ sub print_seqbin_isolate_fieldset {
 				-cols        => 12,
 				-rows        => $options->{'size'} ? ( $options->{'size'} - 1 ) : 7,
 				-default     => "@{$options->{'selected_ids'}}",
-				-placeholder => 'Paste list of isolate ids...',
+				-placeholder => 'Paste list of isolate ids (one per line)...',
 				-required    => 'required'
 			);
 			say q(<div style="text-align:center"><input type="button" onclick='listbox_clear("isolate_paste_list")' )
@@ -2762,7 +2762,7 @@ sub print_isolates_locus_fieldset {
 				-id          => 'locus_paste_list',
 				-cols        => 12,
 				-rows        => $options->{'size'} ? ( $options->{'size'} - 1 ) : 7,
-				-placeholder => 'Paste list of locus primary names...'
+				-placeholder => 'Paste list of locus primary names (one per line)...'
 			);
 			say q(</div>);
 		}
