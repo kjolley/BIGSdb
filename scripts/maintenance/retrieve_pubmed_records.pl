@@ -84,7 +84,7 @@ sub retrieve_pubmed_ids {
 		}
 	);
 	my $db_name = $script->get_dbase_name;
-	return if $db_checked{$db_name};
+	return if !$db_name || $db_checked{$db_name};
 	$script->run;
 	$db_checked{$db_name} = 1;
 	return;
