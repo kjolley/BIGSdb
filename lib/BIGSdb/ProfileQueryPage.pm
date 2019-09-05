@@ -710,7 +710,7 @@ sub _print_list_fieldset {
 		-id          => 'list',
 		-rows        => 6,
 		-style       => 'width:100%',
-		-placeholder => 'Enter list of values...'
+		-placeholder => 'Enter list of values (one per line)...'
 	);
 	say q(</fieldset>);
 	return;

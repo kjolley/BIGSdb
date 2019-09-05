@@ -469,7 +469,7 @@ sub _print_list_fieldset_contents {
 		-id          => 'list',
 		-rows        => 6,
 		-style       => 'width:100%',
-		-placeholder => 'Enter list of values...'
+		-placeholder => 'Enter list of values (one per line)...'
 	);
 	return;
 }

@@ -620,17 +620,19 @@ sub print_provenance_form_elements {
 	say qq(<li><label for="aliases" class="form" style="width:${width}em">aliases:&nbsp;</label>);
 	local $" = "\n";
 	say $q->textarea(
-		-name    => 'aliases',
-		-id      => 'aliases',
-		-rows    => 2,
-		-cols    => 12,
-		-style   => 'width:10em',
-		-default => "@$aliases"
+		-name        => 'aliases',
+		-id          => 'aliases',
+		-rows        => 2,
+		-cols        => 12,
+		-style       => 'width:10em',
+		-default     => "@$aliases",
+		-placeholder => 'Enter one per line...'
 	);
 	say $self->get_tooltip(q(List of alternative names for this isolate. Put each alias on a separate line.));
 	say q(<span id="alias_warning" class="form_warning"></span>);
 	say q(</li>);
 	my $pubmed;
+
 	if ( $options->{'update'} ) {
 		$pubmed = $self->{'datastore'}->get_isolate_refs( scalar $q->param('id') );
 	} else {
@@ -638,12 +640,13 @@ sub print_provenance_form_elements {
 	}
 	say qq(<li><label for="pubmed" class="form" style="width:${width}em">PubMed ids:&nbsp;</label>);
 	say $q->textarea(
-		-name    => 'pubmed',
-		-id      => 'pubmed',
-		-rows    => 2,
-		-cols    => 12,
-		-style   => 'width:10em',
-		-default => "@$pubmed"
+		-name        => 'pubmed',
+		-id          => 'pubmed',
+		-rows        => 2,
+		-cols        => 12,
+		-style       => 'width:10em',
+		-default     => "@$pubmed",
+		-placeholder => 'Enter one per line...'
 	);
 	say $self->get_tooltip( q(List of PubMed ids of publications associated with this isolate. )
 		  . q(Put each identifier on a separate line.) );
@@ -816,7 +819,7 @@ sub _print_default_field {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 		id        => "field_$field",
 		size      => $thisfield->{'length'},
 		maxlength => $thisfield->{'length'},
-		value => ( scalar $q->param($field) // $newdata->{ lc($field) } // $thisfield->{'default'} ),
+		value     => ( scalar $q->param($field) // $newdata->{ lc($field) } // $thisfield->{'default'} ),
 		%$html5_args
 	);
 	return;
