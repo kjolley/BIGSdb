@@ -52,7 +52,7 @@ sub get_attributes {
 		menutext    => 'Unique combinations',
 		module      => 'Combinations',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/unique_combinations.html",
-		version     => '1.4.1',
+		version     => '1.4.2',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -303,7 +303,7 @@ sub _get_field_value {
 		$value = '-' if !defined $value || $value eq '';
 		return $value;
 	} else {
-		my $value = ( defined $data->{$field} && $data->{$field} ne '' ) ? $data->{$field} : '-';
+		my $value = ( defined $data->{lc $field} && $data->{lc $field} ne '' ) ? $data->{lc $field} : '-';
 		return $value;
 	}
 }
