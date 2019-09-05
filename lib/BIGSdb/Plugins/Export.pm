@@ -43,7 +43,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.7.5',
+		version     => '1.7.6',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
@@ -211,6 +211,8 @@ sub run {
 			$self->_print_interface;
 			return;
 		}
+		$q->delete('isolate_paste_list');
+		$q->delete('isolate_id');
 		my $set_id = $self->get_set_id;
 		my $params = $q->Vars;
 		$params->{'set_id'} = $set_id if $set_id;
