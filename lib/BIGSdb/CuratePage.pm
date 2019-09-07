@@ -307,8 +307,7 @@ sub _get_allele_id_field {
 	return q() if !( $table eq 'sequences' && $att->{'name'} eq 'allele_id' && $q->param('locus') );
 	my $locus_info = $self->{'datastore'}->get_locus_info( scalar $q->param('locus') );
 	if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-		my $default = $q->param('allele_id')
-		  // $self->{'datastore'}->get_next_allele_id( scalar $q->param('locus') );
+		my $default = $q->param('allele_id') // $self->{'datastore'}->get_next_allele_id( scalar $q->param('locus') );
 		return $self->textfield(
 			name      => $name,
 			id        => $name,
@@ -602,7 +601,7 @@ sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateS
 		-style   => 'width:10em',
 		-default => "@default_pubmed"
 	);
-	$buffer.= $self->get_tooltip( q(List of PubMed ids of publications associated with this sequence. )
+	$buffer .= $self->get_tooltip( q(List of PubMed ids of publications associated with this sequence. )
 		  . q(Put each identifier on a separate line.) );
 	$buffer .= qq(</li>\n);
 	foreach my $databank (@databanks) {
@@ -619,8 +618,8 @@ sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateS
 			-style   => 'width:10em',
 			-default => "@default"
 		);
-			$buffer.= $self->get_tooltip( qq(List of $databank accessions associated with this sequence. )
-		  . q(Put each identifier on a separate line.) );
+		$buffer .= $self->get_tooltip( qq(List of $databank accessions associated with this sequence. )
+			  . q(Put each identifier on a separate line.) );
 		$buffer .= qq(</li>\n);
 	}
 	if ( $q->param('locus') ) {
@@ -757,10 +756,11 @@ sub _create_extra_fields_for_locus_descriptions {
 	local $" = "\n";
 	$buffer .=
 	  $q->textarea( -name => 'aliases', -id => 'aliases', -rows => 2, -cols => 12, -default => "@default_aliases" );
-	  $buffer.=$self->get_tooltip(q(List of alternative names for this locus. Put each alias on a separate line.));
+	$buffer .= $self->get_tooltip(q(List of alternative names for this locus. Put each alias on a separate line.));
 	$buffer .= qq(</li>\n);
 	return $buffer if $self->{'system'}->{'dbtype'} eq 'isolates';
 	my @default_pubmed;
+
 	if ( $q->param('page') eq 'update' && $locus ) {
 		my $pubmed_list =
 		  $self->{'datastore'}->run_query( 'SELECT pubmed_id FROM locus_refs WHERE locus=? ORDER BY pubmed_id',
@@ -770,7 +770,7 @@ sub _create_extra_fields_for_locus_descriptions {
 	$buffer .= qq(<li><label for="pubmed" class="form" style="width:${width}em">PubMed ids:&nbsp;</label>);
 	$buffer .=
 	  $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -default => "@default_pubmed" );
-	  $buffer.= $self->get_tooltip( q(List of PubMed ids of publications associated with this locus. )
+	$buffer .= $self->get_tooltip( q(List of PubMed ids of publications associated with this locus. )
 		  . q(Put each identifier on a separate line.) );
 	$buffer .= qq(</li>\n);
 	my @default_links;
@@ -1018,7 +1018,12 @@ sub check_record {
 			next ATT;
 		}
 		if ( $att->{'optlist'} ) {
-			my %allowed = map { $_ => 1 } split /;/x, $att->{'optlist'};
+			my %allowed;
+			if ( $att->{'optlist'} eq 'isolate_fields' ) {
+				%allowed = map { $_ => 1 } @{ $self->{'xmlHandler'}->get_field_list };
+			} else {
+				%allowed = map { $_ => 1 } split /;/x, $att->{'optlist'};
+			}
 			if ( defined $newdata->{ $att->{'name'} } && !$allowed{ $newdata->{ $att->{'name'} } } ) {
 				push @problems, qq(Invalid value for $att->{'name'}.);
 			}
