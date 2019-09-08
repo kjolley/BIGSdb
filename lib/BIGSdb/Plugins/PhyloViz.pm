@@ -26,10 +26,13 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugin);
-use List::MoreUtils qw(uniq);
+use List::MoreUtils qw(uniq all);
 use BIGSdb::Constants qw(GOOD BAD);
+use BIGSdb::Exceptions;
 use LWP::UserAgent;
 use JSON;
+use Digest::MD5;
+use Try::Tiny;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant WEB_ROOT         => 'http://online.phyloviz.net';
@@ -49,7 +52,7 @@ sub get_attributes {
 		menutext         => 'PhyloViz',
 		menu_description => 'Visualization and phylogenetic inference',
 		module           => 'PhyloViz',
-		version          => '1.2.2',
+		version          => '1.2.3',
 		dbtype           => 'isolates',
 		section          => 'third_party,postquery',
 		input            => 'query',
@@ -160,16 +163,19 @@ sub run {
 		my $uuid           = BIGSdb::Utils::get_random();
 		my $profile_file   = "$self->{'config'}->{'secure_tmp_dir'}/${uuid}_profile_data.txt";
 		my $auxiliary_file = "$self->{'config'}->{'secure_tmp_dir'}/${uuid}_auxiliary_data.txt";
-
-		if (
+		my $error;
+		try {
 			$self->_generate_profile_file(
-				{ file => $profile_file, isolates => $isolate_ids, loci => $selected_loci }
-			)
-		  )
-		{
-			$self->print_bad_status( { message => q(Nothing found in the database for your isolates!) } );
-			return;
+				{ file => $profile_file, isolates => $isolate_ids, loci => $selected_loci } );
 		}
+		catch {
+			if ( $_->isa('BIGSdb::Exception::Data') ) {
+				say q(</div>);
+				$self->print_bad_status( { message => $_ } );
+				$error = 1;
+			}
+		};
+		return if $error;
 		$self->_generate_auxiliary_file(
 			{
 				file            => $auxiliary_file,
@@ -248,8 +254,8 @@ sub _print_info_panel {
 	}
 	say q(<p>This plugin uploads data for analysis within the PhyloViz online service:</p>);
 	say q(<p>PHYLOViZ Online is developed by: Bruno Gon&ccedil;alves (1), )
-	. q(Jo&atilde;o Andr&eacute; Carri&ccedil;o (1), Alexandre P. Francisco (2,3), )
-	. q(C&aacute;tia Vaz (2,4) and M&aacute;rio Ramirez (1)</p>);
+	  . q(Jo&atilde;o Andr&eacute; Carri&ccedil;o (1), Alexandre P. Francisco (2,3), )
+	  . q(C&aacute;tia Vaz (2,4) and M&aacute;rio Ramirez (1)</p>);
 	say q(<ol style="overflow:hidden">);
 	say q(<li>Instituto de Microbiologia, Instituto de Medicina Molecular, Faculdade de Medicina, )
 	  . q(Universidade de Lisboa, Lisboa, Portugal</li>);
@@ -338,27 +344,34 @@ sub _generate_profile_file {
 		$self->{'mod_perl_request'}->rflush;
 		return 1 if $self->{'mod_perl_request'}->connection->aborted;
 	}
-	if (@$isolates) {
-		open( my $fh, '>:encoding(utf8)', $filename )
-		  or $logger->error("Can't open temp file $filename for writing");
-		local $" = qq(\t);
-		say $fh qq(id\t@$loci);
-		foreach my $isolate_id (@$isolates) {
-			my @profile;
-			push @profile, $isolate_id;
-			my $ad = $self->{'datastore'}->get_all_allele_designations($isolate_id);
-			foreach my $locus (@$loci) {
-				my @values = sort keys %{ $ad->{$locus} };
+	my %profile_hash;
+	my $empty_profiles = 0;
+	open( my $fh, '>:encoding(utf8)', $filename )
+	  or $logger->error("Can't open temp file $filename for writing");
+	local $" = qq(\t);
+	say $fh qq(id\t@$loci);
+	foreach my $isolate_id (@$isolates) {
+		my @profile;
+		my $ad = $self->{'datastore'}->get_all_allele_designations($isolate_id);
+		foreach my $locus (@$loci) {
+			my @values = sort keys %{ $ad->{$locus} };
 
-				#Just pick lowest value
-				push @profile, $values[0] // q();
-			}
-			say $fh qq(@profile);
+			#Just pick lowest value
+			push @profile, $values[0] // q();
 		}
-		close $fh;
-	} else {
-		return 1;
+		$profile_hash{ Digest::MD5::md5_hex(qq(@profile)) } = 1;
+		$empty_profiles = 1 if all { $_ eq q(-) } @profile;
+		unshift @profile, $isolate_id;
+		say $fh qq(@profile);
 	}
+	if ( keys %profile_hash == 1 ) {
+		BIGSdb::Exception::Data->throw('All isolates are identical at selected loci. Cannot generate tree.');
+	}
+	if ( ( keys %profile_hash ) - $empty_profiles <= 1 ) {
+		BIGSdb::Exception::Data->throw(
+			'All isolates are either identical or missing at selected loci. Cannot generate tree.');
+	}
+	close $fh;
 	say GOOD . q(</p>);
 	return 0;
 }
