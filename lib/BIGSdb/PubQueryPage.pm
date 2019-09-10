@@ -20,7 +20,6 @@ package BIGSdb::PubQueryPage;
 use strict;
 use warnings;
 use 5.010;
-
 use parent qw(BIGSdb::ResultsTablePage);
 use Try::Tiny;
 use Log::Log4perl qw(get_logger);
@@ -46,8 +45,8 @@ sub print_content {
 	}
 	catch {
 		if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
-		$self->print_bad_status( { message => q(No connection to reference database.), navbar => 1 } );
-		$continue = 0;
+			$self->print_bad_status( { message => q(No connection to reference database.), navbar => 1 } );
+			$continue = 0;
 		} else {
 			$logger->logdie($_);
 		}
@@ -110,10 +109,10 @@ sub print_content {
 	} else {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 		my $primary_key = $scheme_info->{'primary_key'};
-		$qry =
-		    "SELECT * FROM profile_refs LEFT JOIN scheme_$scheme_id on "
-		  . "profile_refs.profile_id=scheme_$scheme_id\.$primary_key WHERE pubmed_id=$pmid "
+		$qry = "SELECT * FROM profile_refs LEFT JOIN mv_scheme_$scheme_id on "
+		  . "profile_refs.profile_id=mv_scheme_${scheme_id}.$primary_key WHERE pubmed_id=$pmid "
 		  . "AND profile_refs.scheme_id=$scheme_id ORDER BY $primary_key";
+		$logger->error($qry);
 	}
 	my $args = { table => $table, query => $qry, hidden_attributes => [qw (curate scheme_id pmid)] };
 	$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
