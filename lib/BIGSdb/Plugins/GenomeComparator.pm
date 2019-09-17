@@ -52,7 +52,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.3.25',
+		version     => '2.3.26',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -541,14 +541,22 @@ sub process_uploaded_genomes {
 		my $u = IO::Uncompress::Unzip->new($filename) or BIGSdb::Exception::Plugin->throw('Cannot open zip file.');
 		my $status;
 		for ( $status = 1 ; $status > 0 ; $status = $u->nextStream ) {
-			my $fasta_file = $u->getHeaderInfo->{'Name'};
-			( my $genome_name = $fasta_file ) =~ s/\.(?:fas|fasta)$//x;
-			my $buff;
-			my $fasta;
-			while ( ( $status = $u->read($buff) ) > 0 ) {
-				$fasta .= $buff;
+			my $stringfh_in;
+			my ( $genome_name, $fasta_file );
+			try {
+				$fasta_file = $u->getHeaderInfo->{'Name'};
+				( $genome_name = $fasta_file ) =~ s/\.(?:fas|fasta)$//x;
+				my $buff;
+				my $fasta;
+				while ( ( $status = $u->read($buff) ) > 0 ) {
+					$fasta .= $buff;
+				}
+				$stringfh_in = IO::String->new($fasta);
 			}
-			my $stringfh_in = IO::String->new($fasta);
+			catch {
+				BIGSdb::Exception::Plugin->throw('There is a problem with the contents of the zip file.')
+				  ;
+			};
 			try {
 				my $seqin = Bio::SeqIO->new( -fh => $stringfh_in, -format => 'fasta' );
 				while ( my $seq_object = $seqin->next_seq ) {
