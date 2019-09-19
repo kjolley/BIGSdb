@@ -543,10 +543,14 @@ sub purge_old_jobs {
 	my $days = $self->{'config'}->{'results_deleted_days'} // RESULTS_DELETED_DAYS;
 	eval {
 		$self->{'db'}
-		  ->do( qq[DELETE FROM jobs where (stop_time IS NOT NULL AND stop_time < now()-interval '$days days') ]
+		  ->do( qq[DELETE FROM jobs WHERE (stop_time IS NOT NULL AND stop_time < now()-interval '$days days') ]
 			  . qq[OR (status LIKE 'rejected%' AND submit_time < now()-interval '$days days') OR ]
 			  . q[(status IN ('failed','cancelled','terminated','finished') ]
 			  . qq[AND stop_time IS NULL AND submit_time <now()-interval '$days days')] );
+
+		#Delete really old 'hung' jobs. Nothing should be running for 45 days.
+		my $old = $days >= 45 ? $days : 45;
+		$self->{'db'}->do(qq(DELETE FROM jobs WHERE submit_time <now()-interval '$old days'));
 	};
 	if ($@) {
 		$logger->logcarp($@);
