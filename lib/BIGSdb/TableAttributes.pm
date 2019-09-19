@@ -200,12 +200,12 @@ sub get_user_group_members_table_attributes {
 sub get_permissions_table_attributes {
 	my ($self) = @_;
 	my @optlist = $self->{'system'}->{'dbtype'} eq 'isolates'
-	  ? qw ( modify_users modify_isolates modify_projects modify_sequences tag_sequences designate_alleles
+	  ? qw ( query_users modify_users modify_isolates modify_projects modify_sequences tag_sequences designate_alleles
 	  modify_usergroups set_user_passwords modify_loci modify_schemes modify_composites modify_field_attributes
 	  modify_value_attributes modify_sparse_fields modify_probes modify_experiments delete_all
 	  import_site_users modify_site_users only_private disable_access)
-	  : qw(modify_users modify_usergroups set_user_passwords modify_loci modify_locus_descriptions modify_schemes
-	  delete_all import_site_users modify_site_users disable_access );
+	  : qw( query_users modify_users modify_usergroups set_user_passwords modify_loci modify_locus_descriptions 
+	  modify_schemes delete_all import_site_users modify_site_users disable_access );
 	local $" = ';';
 	my $attributes = [
 		{

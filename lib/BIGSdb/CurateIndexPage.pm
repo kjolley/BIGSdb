@@ -382,14 +382,17 @@ sub _get_geocoding {
 sub _get_user_fields {
 	my ($self) = @_;
 	my $buffer = q();
-	my $import;
+	my ( $import, $query_only );
 	if ( ( $self->{'permissions'}->{'import_site_users'} || $self->is_admin )
 		&& $self->{'datastore'}->user_dbs_defined )
 	{
 		$import = 1;
 	}
+	if ( $self->{'permissions'}->{'query_users'} ) {
+		$query_only = 1;
+	}
 	my $modify_users = $self->can_modify_table('users');
-	if ( $modify_users || $import ) {
+	if ( $modify_users || $import || $query_only ) {
 		my $import_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=importUser);
 		$buffer .= q(<div class="curategroup curategroup_users grid-item default_show_curator"><h2>Users</h2>);
 		$buffer .= $self->_get_icon_group(
@@ -398,6 +401,7 @@ sub _get_user_fields {
 				add          => $modify_users,
 				batch_add    => $modify_users,
 				query        => $modify_users,
+				query_only   => $query_only && !$modify_users,
 				import       => $import,
 				import_url   => $import_url,
 				import_label => 'Import user account from centralized user database'
@@ -1683,10 +1687,10 @@ sub _get_icon_group {
 	my $check_table = $table;
 	$check_table = 'locus_stats' if ( $table // q() ) eq 'sequences';
 	my $records_exist = $table ? $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM $check_table)") : 1;
-	foreach my $value (qw(add batch_add link query import fasta batch_update scan set action)) {
+	foreach my $value (qw(add batch_add link query query_only import fasta batch_update scan set action)) {
 		$links++ if $options->{$value};
 	}
-	$links-- if $options->{'query'} && !$records_exist && !$options->{'always_show_query'};
+	$links-- if ($options->{'query'} || $options->{'query_only'}) && !$records_exist && !$options->{'always_show_query'};
 	my $pos = 4.8 - BIGSdb::Utils::decimal_place( $links * 2.2 / 2, 1 );
 	my $buffer = q(<span style="position:relative">);
 	if ( $options->{'info'} ) {
@@ -1735,20 +1739,28 @@ sub _get_icon_group {
 		$buffer .= qq(</a></span>\n);
 		$pos += 2.2;
 	}
-	if ( $options->{'query'} && ( $records_exist || $options->{'always_show_query'} ) ) {
+	if ( $records_exist || $options->{'always_show_query'} ) {
 		my $url = $options->{'query_url'}
 		  // qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$table);
-		$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:1em">);
-		$buffer .= qq(<a href="$url$set_string" title="Update/delete" class="curate_icon_link">);
-		$buffer .= q(<span class="curate_icon_highlight curate_icon_query fas fa-search"></span>);
-		$buffer .=
-		    q(<span class="curate_icon_highlight curate_icon_edit fas fa-pencil-alt" )
-		  . qq(style="left:0.8em;bottom:-0.5em;font-size:1.2em"></span>\n);
-		$buffer .=
-		    q(<span class="curate_icon_highlight curate_icon_delete fas fa-times" )
-		  . qq(style="left:0.8em;bottom:-1.5em;font-size:1.2em"></span>\n);
-		$buffer .= qq(</a></span>\n);
-		$pos += 2.2;
+		if ( $options->{'query'} ) {
+			$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:1em">);
+			$buffer .= qq(<a href="$url$set_string" title="Update/delete" class="curate_icon_link">);
+			$buffer .= q(<span class="curate_icon_highlight curate_icon_query fas fa-search"></span>);
+			$buffer .=
+			    q(<span class="curate_icon_highlight curate_icon_edit fas fa-pencil-alt" )
+			  . qq(style="left:0.8em;bottom:-0.5em;font-size:1.2em"></span>\n);
+			$buffer .=
+			    q(<span class="curate_icon_highlight curate_icon_delete fas fa-times" )
+			  . qq(style="left:0.8em;bottom:-1.5em;font-size:1.2em"></span>\n);
+			$buffer .= qq(</a></span>\n);
+			$pos += 2.2;
+		} elsif ( $options->{'query_only'} ) {
+			$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:1em">);
+			$buffer .= qq(<a href="$url$set_string" title="Query" class="curate_icon_link">);
+			$buffer .= q(<span class="curate_icon_highlight curate_icon_query fas fa-search"></span>);
+			$buffer .= qq(</a></span>\n);
+			$pos += 2.2;
+		}
 	}
 	if ( $options->{'import'} ) {
 		my $text = $options->{'import_label'} // 'Import';
