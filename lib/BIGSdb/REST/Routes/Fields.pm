@@ -166,7 +166,8 @@ sub _get_breakdown {
 		send_error( "Field $field does not exist.", 404 );
 	}
 	my $qry =
-	  "SELECT $field,COUNT(*) AS count FROM $self->{'system'}->{'view'} WHERE $field IS NOT NULL GROUP BY $field";
+	    "SELECT $field,COUNT(*) AS count FROM $self->{'system'}->{'view'} WHERE $field IS NOT NULL AND "
+	  . "new_version IS NULL GROUP BY $field";
 
 	#Undocumented call - needed to generate stats of genome submissions
 	if ( $params->{'genomes'} && ( $field eq 'date_entered' || $field eq 'datestamp' ) ) {
@@ -195,7 +196,7 @@ sub _get_extended_field_breakdown {
 	my $value_counts = $self->{'datastore'}->run_query(
 		"SELECT a.value AS $field,COUNT(*) AS count FROM $self->{'system'}->{'view'} v "
 		  . "JOIN isolate_value_extended_attributes a ON v.$ext_att->{'isolate_field'}=a.field_value "
-		  . 'GROUP BY a.value',
+		  . 'WHERE new_version IS NULL GROUP BY a.value',
 		undef,
 		{ fetch => 'all_arrayref', slice => {} }
 	);
