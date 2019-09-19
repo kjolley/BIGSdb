@@ -1690,7 +1690,8 @@ sub _get_icon_group {
 	foreach my $value (qw(add batch_add link query query_only import fasta batch_update scan set action)) {
 		$links++ if $options->{$value};
 	}
-	$links-- if ($options->{'query'} || $options->{'query_only'}) && !$records_exist && !$options->{'always_show_query'};
+	$links--
+	  if ( $options->{'query'} || $options->{'query_only'} ) && !$records_exist && !$options->{'always_show_query'};
 	my $pos = 4.8 - BIGSdb::Utils::decimal_place( $links * 2.2 / 2, 1 );
 	my $buffer = q(<span style="position:relative">);
 	if ( $options->{'info'} ) {
@@ -1740,9 +1741,9 @@ sub _get_icon_group {
 		$pos += 2.2;
 	}
 	if ( $records_exist || $options->{'always_show_query'} ) {
-		my $url = $options->{'query_url'}
-		  // qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$table);
 		if ( $options->{'query'} ) {
+			my $url = $options->{'query_url'}
+			  // qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$table);
 			$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:1em">);
 			$buffer .= qq(<a href="$url$set_string" title="Update/delete" class="curate_icon_link">);
 			$buffer .= q(<span class="curate_icon_highlight curate_icon_query fas fa-search"></span>);
@@ -1755,6 +1756,8 @@ sub _get_icon_group {
 			$buffer .= qq(</a></span>\n);
 			$pos += 2.2;
 		} elsif ( $options->{'query_only'} ) {
+			my $url = $options->{'query_url'}
+			  // qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$table);
 			$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:1em">);
 			$buffer .= qq(<a href="$url$set_string" title="Query" class="curate_icon_link">);
 			$buffer .= q(<span class="curate_icon_highlight curate_icon_query fas fa-search"></span>);

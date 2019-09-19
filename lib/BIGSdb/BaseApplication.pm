@@ -29,7 +29,6 @@ use BIGSdb::PluginManager;
 use BIGSdb::Preferences;
 use BIGSdb::ContigManager;
 use BIGSdb::SubmissionHandler;
-
 use DBI;
 use Carp;
 use Try::Tiny;
@@ -388,13 +387,14 @@ sub initiate_plugins {
 		mod_perl_request => $self->{'mod_perl_request'},
 		jobManager       => $self->{'jobManager'},
 		contigManager    => $self->{'contigManager'},
-		pluginDir        => $self->{'lib_dir'}
+		pluginDir        => $self->{'lib_dir'},
+		curate           => $self->{'curate'}
 	);
 	return;
 }
 
 sub get_load_average {
-	if ( -e '/proc/loadavg' ) {    #Faster to read from /proc/loadavg if available.
+	if ( -e '/proc/loadavg' ) {                            #Faster to read from /proc/loadavg if available.
 		my $loadavg;
 		open( my $fh, '<', '/proc/loadavg' ) or croak 'Cannot open /proc/loadavg';
 		while (<$fh>) {
@@ -403,7 +403,7 @@ sub get_load_average {
 		close $fh;
 		return $loadavg;
 	}
-	my $uptime = `uptime`;         #/proc/loadavg not available on BSD.
+	my $uptime = `uptime`;                                 #/proc/loadavg not available on BSD.
 	if ( $uptime =~ /load\ average:\s+([\d\.]+)/x ) {
 		return $1;
 	}

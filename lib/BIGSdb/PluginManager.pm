@@ -66,7 +66,8 @@ sub initiate {
 				jobManager         => $self->{'jobManager'},
 				mod_perl_request   => $self->{'mod_perl_request'},
 				contigManager      => $self->{'contigManager'},
-				max_upload_size_mb => $self->{'config'}->{'max_upload_size'}
+				max_upload_size_mb => $self->{'config'}->{'max_upload_size'},
+				curate             => $self->{'curate'}
 			);
 			$self->{'plugins'}->{$plugin_name}    = $plugin;
 			$self->{'attributes'}->{$plugin_name} = $plugin->get_attributes;

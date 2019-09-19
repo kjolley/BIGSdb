@@ -2567,6 +2567,7 @@ sub initiate_view {
 	  . 'pm.project_id=mpu.project_id WHERE (mpu.user_id,pm.isolate_id)=(?,v.id))';
 	use constant PUBLICATION_REQUESTED =>
 	  'EXISTS(SELECT 1 FROM private_isolates pi WHERE pi.isolate_id=v.id AND request_publish)';
+	use constant ALL_ISOLATES => 'EXISTS(SELECT 1)';
 	my $user_info = $self->get_user_info_from_username($username);
 
 	if ( !$user_info ) {    #Not logged in
@@ -2576,8 +2577,10 @@ sub initiate_view {
 		my $has_user_project =
 		  $self->run_query( 'SELECT EXISTS(SELECT * FROM merged_project_users WHERE user_id=?)', $user_info->{'id'} );
 		if ($curate) {
-			return if $user_info->{'status'} eq 'admin';    #Admin can see everything.
 			my $method = {
+				admin => sub {
+					@user_terms = (ALL_ISOLATES);
+				},
 				submitter => sub {
 					@user_terms =
 					  ( OWN_SUBMITTED_ISOLATES, OWN_PRIVATE_ISOLATES, PUBLIC_ISOLATES_FROM_SAME_USER_GROUP );
