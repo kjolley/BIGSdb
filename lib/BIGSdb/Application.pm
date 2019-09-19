@@ -136,8 +136,7 @@ sub new {
 			}
 			$self->{'datastore'}->initiate_userdbs;
 			$self->initiate_jobmanager( $config_dir, $dbase_config_dir )
-			  if !$self->{'curate'}
-			  && $job_manager_pages{ $q->param('page') }
+			  if $job_manager_pages{ $q->param('page') }
 			  && $self->{'config'}->{'jobs_db'};
 			my %submission_handler_pages = map { $_ => 1 } PAGES_NEEDING_SUBMISSION_HANDLER;
 			$self->setup_submission_handler if $submission_handler_pages{ $q->param('page') };

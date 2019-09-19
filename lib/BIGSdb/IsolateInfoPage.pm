@@ -514,7 +514,6 @@ sub _get_show_aliases_button {
 
 sub _print_plugin_buttons {
 	my ( $self, $isolate_id ) = @_;
-	return if $self->{'curate'};
 	my $q = $self->{'cgi'};
 	my $plugin_categories = $self->{'pluginManager'}->get_plugin_categories( 'info', $self->{'system'}->{'dbtype'} );
 	return if !@$plugin_categories;

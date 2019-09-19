@@ -644,7 +644,7 @@ sub _print_isolate_table {
 		}
 	}
 	say q(</table></div>);
-	$self->_print_plugin_buttons($records) if !$self->{'curate'};
+	$self->_print_plugin_buttons($records);
 	say q(</div>);
 	$sql->finish if $sql;
 	return;
@@ -1194,9 +1194,7 @@ sub _print_profile_table {
 		$td = $td == 1 ? 2 : 1;
 	}
 	say q(</table></div>);
-	if ( !$self->{'curate'} ) {
-		$self->_print_plugin_buttons($records);
-	}
+	$self->_print_plugin_buttons($records);
 	say q(</div>);
 	$sql->finish if $sql;
 	return;

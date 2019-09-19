@@ -62,6 +62,7 @@ use BIGSdb::CurateTagScanPage;
 use BIGSdb::CurateTagUpdatePage;
 use BIGSdb::CurateUpdatePage;
 use BIGSdb::IDList;
+use BIGSdb::JobViewerPage;
 use BIGSdb::RefreshSchemeCachePage;
 use BIGSdb::Offline::UpdateSchemeCaches;
 use Log::Log4perl qw(get_logger);
@@ -111,11 +112,13 @@ sub print_page {
 		isolateAdd            => 'CurateIsolateAddPage',
 		isolateDelete         => 'CurateIsolateDeletePage',
 		isolateUpdate         => 'CurateIsolateUpdatePage',
+		job                   => 'JobViewerPage',
 		linkToExperiment      => 'CurateLinkToExperimentPage',
 		listQuery             => 'ListQueryPage',
 		memberUpdate          => 'CurateMembersPage',
 		newVersion            => 'CurateNewVersionPage',
 		options               => 'OptionsPage',
+		plugin                => 'Plugin',
 		profileAdd            => 'CurateProfileAddPage',
 		profileBatchAdd       => 'CurateProfileBatchAddPage',
 		profileInfo           => 'ProfileInfoPage',
@@ -150,6 +153,8 @@ sub print_page {
 		db                => $self->{'db'},
 		xmlHandler        => $self->{'xmlHandler'},
 		submissionHandler => $self->{'submissionHandler'},
+		pluginManager     => $self->{'pluginManager'},
+		jobManager        => $self->{'jobManager'},
 		contigManager     => $self->{'contigManager'},
 		dataConnector     => $self->{'dataConnector'},
 		mod_perl_request  => $self->{'mod_perl_request'},
@@ -236,7 +241,4 @@ sub print_page {
 	}
 	return;
 }
-
-#No need to initiate plugins in curator interface.
-sub app_specific_initiation { }
 1;
