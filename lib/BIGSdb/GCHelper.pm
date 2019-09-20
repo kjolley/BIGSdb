@@ -376,8 +376,18 @@ sub _get_allele_designations_from_defined_loci {
 	foreach my $locus (@$loci) {
 		push @$missing_loci, $locus if !defined $designations->{$locus};
 	}
-	my ( $scanned_designations, $scanned_sequences, $scanned_paralogous ) =
-	  $self->_scan_by_loci( $isolate_id, $missing_loci );
+
+	#Only scan genome if <50% of selected loci are designated
+	my $rescan = keys %$designations < ( 0.5 * @$loci ) ? 1 : 0;
+	my ( $scanned_designations, $scanned_sequences, $scanned_paralogous ) = ( {}, {}, {} );
+	if ($rescan) {
+		( $scanned_designations, $scanned_sequences, $scanned_paralogous ) =
+		  $self->_scan_by_loci( $isolate_id, $missing_loci );
+	} else {
+		foreach my $locus (@$missing_loci) {
+			$scanned_designations->{$locus} = 'missing';
+		}
+	}
 
 	#Merge looked up and scanned designations and sequences.
 	%$designations = ( %$designations, %$scanned_designations );

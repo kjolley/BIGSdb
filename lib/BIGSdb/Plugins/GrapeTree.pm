@@ -43,7 +43,7 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.3.4',
+		version             => '1.3.5',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -75,8 +75,8 @@ sub print_info_panel {
 	}
 	say q(<p>This plugin generates a minimum-spanning tree and visualizes within GrapeTree:</p>);
 	say q(<p>GrapeTree is developed by: Zhemin Zhou (1), Nabil-Fareed Alikhan (1), Martin J. Sergeant (1),)
-	.q(Nina Luhmann (1), C&aacute;tia Vaz (2,5), Alexandre P. Francisco (2,4),)
-	. q(Jo&atilde;o Andr&eacute; Carri&ccedil;o (3) and Mark Achtman (1)</p>);
+	  . q(Nina Luhmann (1), C&aacute;tia Vaz (2,5), Alexandre P. Francisco (2,4),)
+	  . q(Jo&atilde;o Andr&eacute; Carri&ccedil;o (3) and Mark Achtman (1)</p>);
 	say q(<ol style="overflow:hidden">);
 	say q(<li>Warwick Medical School, University of Warwick, UK</li>);
 	say q(<li>Instituto de Engenharia de Sistemas e Computadores: Investiga&ccedil;&atilde;o e Desenvolvimento )
@@ -96,8 +96,7 @@ sub print_info_panel {
 
 sub _print_interface {
 	my ( $self, $isolate_ids ) = @_;
-	my $set_id = $self->get_set_id;
-	my $q      = $self->{'cgi'};
+	my $q = $self->{'cgi'};
 	$self->print_info_panel;
 	$self->print_scheme_selection_banner;
 	say q(<div class="box" id="queryform">);
@@ -114,6 +113,17 @@ sub _print_interface {
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
 	$self->print_recommended_scheme_fieldset;
 	$self->print_scheme_fieldset( { fields_or_loci => 0 } );
+	$self->_print_includes_fieldset;
+	$self->print_action_fieldset( { no_reset => 1 } );
+	say $q->hidden($_) foreach qw (db page name);
+	say $q->end_form;
+	say q(</div>);
+	return;
+}
+
+sub _print_includes_fieldset {
+	my ($self) = @_;
+	my $set_id = $self->get_set_id;
 	say q(<fieldset style="float:left"><legend>Include fields</legend>);
 	say q(<p>Select additional fields to include in GrapeTree metadata.</p>);
 	my ( $headings, $labels ) = $self->get_field_selection_list(
@@ -130,7 +140,6 @@ sub _print_interface {
 		}
 	);
 	my $fields = [];
-
 	foreach my $field (@$headings) {
 		next if $field eq 'f_id';
 		next if $field eq "f_$self->{'system'}->{'labelfield'}";
@@ -145,10 +154,6 @@ sub _print_interface {
 		-size     => 6
 	);
 	say q(</fieldset>);
-	$self->print_action_fieldset( { no_reset => 1 } );
-	say $q->hidden($_) foreach qw (db page name);
-	say $q->end_form;
-	say q(</div>);
 	return;
 }
 
@@ -209,6 +214,7 @@ sub run {
 		$q->delete('isolate_paste_list');
 		$q->delete('locus_paste_list');
 		$q->delete('isolate_id');
+
 		foreach my $field_dataset (qw(itol_dataset include_fields)) {
 			my @dataset = $q->multi_param($field_dataset);
 			$q->delete($field_dataset);
