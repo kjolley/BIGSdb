@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext          => 'iTOL',
 		menutext            => 'iTOL',
 		module              => 'ITOL',
-		version             => '1.3.10',
+		version             => '1.3.11',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -327,9 +327,13 @@ sub generate_tree_files {
 	if ( @$ids - @$missing < 2 ) {
 		$message_html = q(<p>There are fewer than 2 valid ids in the list - tree cannot be generated.</p>);
 		return { message_html => $message_html, failed => 1 };
-	}
-	if ( !@$isolates_with_no_sequence ) {
-		$self->align( $job_id, 1, $ids, $scan_data, 1 );
+	} else {
+		my %missing_seq = map { $_ => 1 } @$isolates_with_no_sequence;
+		my $filtered_list = [];
+		foreach my $id (@$ids) {
+			push @$filtered_list, $id if !$missing_seq{$id};
+		}
+		$self->align( $job_id, 1, $filtered_list, $scan_data, 1 );
 	}
 	if ( $self->{'exit'} ) {
 		$self->{'jobManager'}->update_job_status( $job_id, { status => 'terminated' } );
@@ -338,13 +342,18 @@ sub generate_tree_files {
 	}
 	if (@$missing) {
 		local $" = ', ';
-		$message_html = qq(<p>The following ids could not be processed (they do not exist): @$missing.</p>\n);
+		$message_html .= qq(<p>The following ids could not be processed (they do not exist): @$missing.</p>\n);
 	}
 	if (@$isolates_with_no_sequence) {
 		local $" = ', ';
-		$message_html .= q(<p>The following ids had no sequences for all the selected loci. Please remove )
-		  . qq(these from the analysis: @$isolates_with_no_sequence.</p>\n);
-		return { message_html => $message_html, failed => 1 };
+		my $missing_count = @$isolates_with_no_sequence;
+		if ( $missing_count < 10 ) {
+			$message_html .= q(<p>The following ids had no sequences for all the selected loci. They have been )
+			  . qq(removed from the analysis: @$isolates_with_no_sequence.</p>\n);
+		} else {
+			$message_html .= qq(<p>$missing_count ids had no sequences for all the selected loci. They have been )
+			  . q(removed from the analysis.</p>);
+		}
 	}
 	my ( $fasta_file, $newick_file );
 	try {
@@ -369,8 +378,7 @@ sub generate_tree_files {
 				$logger->error("CLUSTALW program at $self->{'config'}->{'clustalw_path'} is not executable.");
 			} else {
 				$logger->debug(
-					"CLUSTALW program has been found at $self->{'config'}->{'clustalw_path'} and is executable.")
-				  ;
+					"CLUSTALW program has been found at $self->{'config'}->{'clustalw_path'} and is executable.");
 			}
 			$failed = 1;
 		}
@@ -394,7 +402,7 @@ sub generate_tree_files {
 
 sub _find_isolates_with_no_seq {
 	my ( $self, $scan_data ) = @_;
-	my @ids = keys %{ $scan_data->{'isolate_data'} };
+	my @ids = sort { $a <=> $b } keys %{ $scan_data->{'isolate_data'} };
 	my @no_seqs;
 	foreach my $id ( sort @ids ) {
 		my @loci        = keys %{ $scan_data->{'isolate_data'}->{$id}->{'sequences'} };
@@ -667,8 +675,7 @@ sub print_info_panel {
 	say q(<li>Department of Bioinformatics, Biocenter, University of W&uuml;rzburg, 97074 W&uuml;rzburg, Germany</li>);
 	say q(</ol>);
 	say q(<p>Web site: <a href="https://itol.embl.de/">https://itol.embl.de/</a><br />);
-	say
-	  q(Publication: Letunic &amp; Bork (2016) Interactive tree of life (iTOL) v3: an online tool for the display )
+	say q(Publication: Letunic &amp; Bork (2016) Interactive tree of life (iTOL) v3: an online tool for the display )
 	  . q(and annotation of phylogenetic and other trees. <a href="https://www.ncbi.nlm.nih.gov/pubmed/27095192">)
 	  . q(<i>Nucleic Acids Res</i> <b>44(W1):</b>W242-5</a>.</p>);
 	say q(</div>);
