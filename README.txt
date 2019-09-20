@@ -1,4 +1,7 @@
-v1.23.2: *Plugins are now available within the curator interface.
+v1.23.2: *GrapeTree and GenomeComparator now only scan records if <50% 
+          selected loci are designated. This prevents unnecessary re-scanning
+          so these jobs run much faster.
+         *Plugins are now available within the curator interface.
 v1.23.1: *Improved script to retrieve PubMed records from NCBI.
          *Improved FASTA export plugin. 
 v1.23.0: *Automated password reset for site-wide accounts.
