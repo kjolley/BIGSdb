@@ -1,3 +1,4 @@
+v1.23.2: *Plugins are now available within the curator interface.
 v1.23.1: *Improved script to retrieve PubMed records from NCBI.
          *Improved FASTA export plugin. 
 v1.23.0: *Automated password reset for site-wide accounts.
