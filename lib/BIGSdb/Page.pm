@@ -250,7 +250,11 @@ sub show_user_projects {
 sub clean_value {
 	my ( $self, $value, $options ) = @_;
 	return if !defined $value;
-	$options = {} if ref $options ne 'HASH';
+	if (ref $value eq 'ARRAY'){
+		s/"/\\"/gx foreach @$value;
+		local $" = q(",");
+		return qq({"@$value"});
+	}
 	$value =~ s/'/\\'/gx if !$options->{'no_escape'};
 	$value =~ s/\r//gx;
 	$value =~ s/[\n\t]/ /gx;
@@ -2599,11 +2603,18 @@ sub popup_menu {
 	my ( $self, %args ) = @_;
 	my ( $name, $id, $values, $labels, $default, $class, $multiple, $size, $style, $required ) =
 	  @args{qw ( -name -id -values -labels -default -class -multiple -size -style -required)};
-	my $q     = $self->{'cgi'};
-	my $value = $q->param($name);
-	$value =~ s/"/&quot;/gx if defined $value;
-	my %default = ref $default eq 'ARRAY' ? map { $_ => 1 } @$default : ();
-	$default{$value} = 1 if defined $value;
+	my $q        = $self->{'cgi'};
+	my @selected = $q->multi_param($name);
+	s/"/&quot;/gx foreach @selected;
+	my %default;
+	if ( ref $default eq 'ARRAY' ) {
+		%default = map { $_ => 1 } @$default;
+	} elsif ( defined $default && $default ne q() ) {
+		$default{$default} = 1;
+	}
+	foreach my $selected (@selected) {
+		$default{$selected} = 1 if $selected ne q();
+	}
 	my $buffer = qq(<select name="$name");
 	$buffer .= qq( class="$class")     if defined $class;
 	$buffer .= qq( id="$id")           if defined $id;

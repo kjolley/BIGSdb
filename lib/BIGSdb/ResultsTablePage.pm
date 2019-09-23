@@ -601,8 +601,6 @@ sub _print_isolate_table {
 		my $id;
 		print qq(<tr class="td$td">);
 		foreach my $thisfieldname (@$field_list) {
-			$data{$thisfieldname} = '' if !defined $data{$thisfieldname};
-			$data{$thisfieldname} =~ tr/\n/ /;
 			if ( $self->{'prefs'}->{'maindisplayfields'}->{$thisfieldname} || $thisfieldname eq 'id' ) {
 				if ( $thisfieldname eq 'id' ) {
 					$id = $data{$thisfieldname};
@@ -614,13 +612,17 @@ sub _print_isolate_table {
 					my $user_info = $self->{'datastore'}->get_user_info( $data{$thisfieldname} );
 					print qq(<td>$user_info->{'first_name'} $user_info->{'surname'}</td>);
 				} else {
+					my $value;
 					if ( $thisfieldname =~ /^meta_[^:]+:/x ) {
 						my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($thisfieldname);
-						my $value = $self->{'datastore'}->get_metadata_value( $id, $metaset, $metafield );
-						print qq(<td>$value</td>);
+						$value = $self->{'datastore'}->get_metadata_value( $id, $metaset, $metafield );
 					} else {
-						print qq(<td>$data{$thisfieldname}</td>);
+						local $" = q(; );
+						$value = ref $data{$thisfieldname} ? qq(@{$data{$thisfieldname}}) : $data{$thisfieldname};
 					}
+					$value //= q();
+					$value =~ tr/\n/ /;
+					print qq(<td>$value</td>);
 				}
 			}
 			$self->_print_isolate_extended_attributes( $id, \%data, $thisfieldname );
@@ -1321,9 +1323,7 @@ sub _get_record_table_info {
 				( my $cleaned = $ext_att->{'field'} ) =~ tr/_/ /;
 				push @headers, $cleaned;
 			}
-			my $databanks =
-			  $self->{'datastore'}
-			  ->run_query( 'SELECT DISTINCT databank FROM accession WHERE locus=?',
+			my $databanks = $self->{'datastore'}->run_query( 'SELECT DISTINCT databank FROM accession WHERE locus=?',
 				$locus, { fetch => 'col_arrayref' } );
 			push @headers, sort @$databanks;
 			if ( $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM sequence_refs WHERE locus=?)', $locus ) )
@@ -1536,7 +1536,7 @@ sub _print_sequences_extended_fields {
 		}
 	}
 	my @databanks = DATABANKS;
-	foreach my $databank (sort @databanks) {
+	foreach my $databank ( sort @databanks ) {
 		if ( $headers{$databank} ) {
 			my $accessions = $self->{'datastore'}->run_query(
 				'SELECT databank,databank_id FROM accession WHERE (locus,allele_id,databank)=(?,?,?)',

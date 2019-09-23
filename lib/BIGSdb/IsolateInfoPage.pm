@@ -526,7 +526,6 @@ sub _print_plugin_buttons {
 		Miscellaneous => 'far fa-file-alt'
 	);
 	my $set_id = $self->get_set_id;
-
 	foreach my $category (@$plugin_categories) {
 		my $cat_buffer;
 		my $plugin_names = $self->{'pluginManager'}->get_appropriate_plugin_names(
@@ -905,30 +904,40 @@ sub _get_provenance_fields {
 		$displayfield .= qq( <span class="metaset">Metadata: $metaset</span>) if !$set_id && defined $metaset;
 		$displayfield =~ tr/_/ /;
 		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-		my $web;
-		my $value = $data->{ lc($field) };
-		$value = BIGSdb::Utils::escape_html($value);
-
-		if ( !defined $value ) {
+		local $" = q(; );
+		if ( !defined $data->{ lc($field) } ) {
 			if ( $composites{$field} ) {
 				my $composites =
 				  $self->_get_composite_field_rows( $isolate_id, $data, $field, \%composite_display_pos );
 				push @$list, @$composites if @$composites;
 			}
 			next;    #Do not print row
-		} elsif ( $thisfield->{'web'} ) {
-			my $url = $thisfield->{'web'};
-			$url =~ s/\[\\*\?\]/$value/x;
-			$url =~ s/\&/\&amp;/gx;
+		}
+		my ( $web, $value );
+		if ( $thisfield->{'web'} ) {
+			my @values = ref $data->{ lc($field) } ? @{ $data->{ lc($field) } } : ( $data->{ lc($field) } );
+			my @links;
 			my $domain;
-			if ( ( lc($url) =~ /http:\/\/(.*?)\/+/x ) ) {
+			if ( ( lc( $thisfield->{'web'} ) =~ /http:\/\/(.*?)\/+/x ) ) {
 				$domain = $1;
 			}
-			$web = qq(<a href="$url">$value</a>);
+			foreach my $value (@values) {
+				my $url = $thisfield->{'web'};
+				$url =~ s/\[\\*\?\]/$value/x;
+				$url =~ s/\&/\&amp;/gx;
+				push @links, qq(<a href="$url">$value</a>);
+			}
+			if (@links) {
+				local $" = q(; );
+				$web = qq(@links);
+			}
 			if ( $domain && $domain ne $q->virtual_host ) {
 				$web .= qq( <span class="link">$domain)
 				  . q(<span class="fa fas fa-external-link-alt" style="margin-left:0.5em"></span></span>);
 			}
+		} else {
+			$value = ref $data->{ lc($field) } ? qq(@{$data->{ lc($field) }}) : $data->{ lc($field) };
+			$value = BIGSdb::Utils::escape_html($value);
 		}
 		my %user_field = map { $_ => 1 } qw(curator sender);
 		if ( $user_field{$field} || ( $thisfield->{'userfield'} // '' ) eq 'yes' ) {

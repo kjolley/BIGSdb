@@ -1151,8 +1151,7 @@ sub _run_query {
 		if ( $q->param('list_file') && $q->param('attribute') ) {
 			my $attribute_data = $self->_get_list_attribute_data( scalar $q->param('attribute') );
 			$self->{'datastore'}
-			  ->create_temp_list_table( $attribute_data->{'data_type'}, scalar $q->param('list_file') )
-			  ;
+			  ->create_temp_list_table( $attribute_data->{'data_type'}, scalar $q->param('list_file') );
 		}
 	}
 	my $browse;
@@ -1288,6 +1287,7 @@ sub _generate_query_for_provenance_fields {
 					text                   => $text,
 					modifier               => $modifier,
 					type                   => $thisfield->{'type'},
+					multiple               => ( $thisfield->{'multiple'} // q() ) eq 'yes' ? 1 : 0,
 					parent_field_type      => $parent_field_type,
 					operator               => $operator,
 					errors                 => $errors_ref
@@ -1437,8 +1437,8 @@ sub _grouped_field_query {
 
 sub _provenance_equals_type_operator {
 	my ( $self, $values ) = @_;
-	my ( $field, $extended_isolate_field, $text, $parent_field_type, $type ) =
-	  @$values{qw(field extended_isolate_field text parent_field_type type)};
+	my ( $field, $extended_isolate_field, $text, $parent_field_type, $type, $multiple ) =
+	  @$values{qw(field extended_isolate_field text parent_field_type type multiple)};
 	my $buffer     = $values->{'modifier'};
 	my $view       = $self->{'system'}->{'view'};
 	my $labelfield = "$view.$self->{'system'}->{'labelfield'}";
@@ -1480,11 +1480,15 @@ sub _provenance_equals_type_operator {
 		} else {
 			my $null_clause = $values->{'not'} ? "OR $field IS NULL" : '';
 			if ( lc($type) eq 'text' ) {
-				$buffer .= (
-					lc($text) eq 'null'
-					? "$field IS $not null"
-					: "(($not UPPER($field) = UPPER(E'$text')) $null_clause)"
-				);
+				if ( lc($text) eq 'null' ) {
+					$buffer .= "$field IS $not null";
+				} else {
+					if ($multiple) {
+						$buffer .= "(($not E'$text' ILIKE ANY($field)) $null_clause)";
+					} else {
+						$buffer .= "(($not UPPER($field) = UPPER(E'$text')) $null_clause)";
+					}
+				}
 			} else {
 				$buffer .= ( lc($text) eq 'null' ? "$field IS $not null" : "($not ($field = E'$text') $null_clause)" );
 			}

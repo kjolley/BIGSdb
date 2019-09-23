@@ -477,8 +477,7 @@ sub check_new_alleles_fasta {
 		} elsif ( $check->{'subsequence_of'} ) {
 			push @info, qq(Sequence "$display_id" is a sub-sequence of allele-$check->{'subsequence_of'}.);
 		} elsif ( $check->{'supersequence_of'} ) {
-			push @info,
-			  qq(Sequence "$display_id" is a super-sequence of allele $check->{'supersequence_of'}.);
+			push @info, qq(Sequence "$display_id" is a super-sequence of allele $check->{'supersequence_of'}.);
 		}
 	}
 	close $stringfh_in;
@@ -1242,8 +1241,17 @@ sub _check_isolate_optlist {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 		$options = $self->{'xmlHandler'}->get_field_option_list($field);
 		$options = [SEQ_METHODS] if $field eq 'sequence_method';
 	}
-	foreach my $option (@$options) {
-		return if $value eq $option;
+	my %allowed = map { $_ => 1 } @$options;
+	if ( ref $value eq 'ARRAY' ) {
+		my $all_ok = 1;
+		foreach my $this_value (@$value) {
+			next if $allowed{$this_value};
+			$all_ok = 0;
+			last;
+		}
+		return if $all_ok;
+	} else {
+		return if $allowed{$value};
 	}
 	if ( ( $thisfield->{'required'} // q() ) eq 'no' ) {
 		return if $value eq q();

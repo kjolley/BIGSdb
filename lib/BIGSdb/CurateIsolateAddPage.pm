@@ -82,7 +82,12 @@ sub print_content {
 	my %newdata;
 	foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list } ) {
 		if ( $q->param($field) ) {
-			$newdata{$field} = $q->param($field);
+			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+			if ( ( $thisfield->{'multiple'} // q() ) eq 'yes' ) {
+				@{ $newdata{$field} } = $q->multi_param($field);
+			} else {
+				$newdata{$field} = $q->param($field);
+			}
 		} else {
 			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 			if ( $thisfield->{'type'} eq 'int'
@@ -133,7 +138,11 @@ sub _check {
 				} elsif ( $field eq 'datestamp' || $field eq 'date_entered' ) {
 					$newdata->{$field} = BIGSdb::Utils::get_datestamp();
 				} else {
-					$newdata->{$field} = $q->param($field);
+					if ( ( $thisfield->{'multiple'} // q() ) eq 'yes' ) {
+						@{ $newdata->{$field} } = $q->multi_param($field);
+					} else {
+						$newdata->{$field} = $q->param($field);
+					}
 				}
 				my $bad_field =
 				  $self->{'submissionHandler'}->is_field_bad( 'isolates', $field, $newdata->{$field}, undef, $set_id );
@@ -143,16 +152,8 @@ sub _check {
 			}
 		}
 	}
-	my $eav_fields = $self->{'datastore'}->get_eav_fields;
-	foreach my $eav_field (@$eav_fields) {
-		my $field_name = $eav_field->{'field'};
-		my $bad_field =
-		  $self->{'submissionHandler'}
-		  ->is_field_bad( 'isolates', $field_name, $newdata->{$field_name}, undef, $set_id );
-		if ($bad_field) {
-			push @bad_field_buffer, qq(Field '$field_name': $bad_field);
-		}
-	}
+	my $bad_eav_field_buffer = $self->_check_eav_fields($newdata);
+	push @bad_field_buffer, @$bad_eav_field_buffer;
 	if ( $self->alias_duplicates_name ) {
 		push @bad_field_buffer, 'Aliases: duplicate isolate name - aliases are ALTERNATIVE names for the isolate.';
 	}
@@ -188,10 +189,10 @@ sub _check {
 		);
 		$insert = 0;
 	}
-	foreach ( keys %$newdata ) {    #Strip any trailing spaces
-		if ( defined $newdata->{$_} ) {
-			$newdata->{$_} =~ s/^\s*//gx;
-			$newdata->{$_} =~ s/\s*$//gx;
+	foreach my $field ( keys %$newdata ) {    #Strip any trailing spaces
+		if ( defined $newdata->{$field} && !ref $newdata->{$field} ) {
+			$newdata->{$field} =~ s/^\s*//gx;
+			$newdata->{$field} =~ s/\s*$//gx;
 		}
 	}
 	if ($insert) {
@@ -211,6 +212,23 @@ sub _check {
 		return $self->_insert($newdata) if $insert;
 	}
 	return;
+}
+
+sub _check_eav_fields {
+	my ( $self, $newdata ) = @_;
+	my $set_id           = $self->get_set_id;
+	my $eav_fields       = $self->{'datastore'}->get_eav_fields;
+	my $bad_field_buffer = [];
+	foreach my $eav_field (@$eav_fields) {
+		my $field_name = $eav_field->{'field'};
+		my $bad_field =
+		  $self->{'submissionHandler'}
+		  ->is_field_bad( 'isolates', $field_name, $newdata->{$field_name}, undef, $set_id );
+		if ($bad_field) {
+			push @$bad_field_buffer, qq(Field '$field_name': $bad_field);
+		}
+	}
+	return $bad_field_buffer;
 }
 
 sub alias_duplicates_name {
@@ -268,13 +286,13 @@ sub _insert {
 	my $inserts      = [];
 	my @placeholders = ('?') x @fields_with_values;
 	local $" = ',';
-	my $qry = "INSERT INTO isolates (@fields_with_values) VALUES (@placeholders)";
-	my @values;
+	my $qry    = "INSERT INTO isolates (@fields_with_values) VALUES (@placeholders)";
+	my $values = [];
 	foreach my $field (@fields_with_values) {
 		my $cleaned = $self->clean_value( $newdata->{$field}, { no_escape => 1 } );
-		push @values, $cleaned;
+		push @$values, $cleaned;
 	}
-	push @$inserts, { statement => $qry, arguments => \@values };
+	push @$inserts, { statement => $qry, arguments => $values };
 	my $metadata_inserts = $self->_prepare_metaset_insert( \%meta_fields, $newdata );
 	push @$inserts, @$metadata_inserts;
 	$self->_prepare_locus_inserts( $inserts, $newdata );
@@ -671,14 +689,16 @@ sub _print_optlist {         ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 	my ( $self, $args ) = @_;
 	my ( $field, $newdata, $thisfield, $html5_args ) = @{$args}{qw(field newdata thisfield html5_args)};
 	if ( $thisfield->{'optlist'} ) {
-		my $q = $self->{'cgi'};
-		my $optlist = $thisfield->{'option_list_values'} // $self->{'xmlHandler'}->get_field_option_list($field);
-		say $q->popup_menu(
-			-name    => $field,
-			-id      => "field_$field",
-			-values  => [ '', @$optlist ],
-			-labels  => { '' => ' ' },
-			-default => ( $newdata->{ lc $field } // $thisfield->{'default'} ),
+		my $q        = $self->{'cgi'};
+		my $optlist  = $thisfield->{'option_list_values'} // $self->{'xmlHandler'}->get_field_option_list($field);
+		my $multiple = ( $thisfield->{'multiple'} // q() ) eq 'yes';
+		say $self->popup_menu(
+			-name   => $field,
+			-id     => "field_$field",
+			-values => $multiple ? $optlist : [ '', @$optlist ],
+			-labels => { '' => ' ' },
+			-default => $newdata->{$field} // $thisfield->{'default'},
+			-multiple => $multiple ? 'true' : 'false',
 			%$html5_args
 		);
 		return 1;
