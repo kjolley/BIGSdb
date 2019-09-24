@@ -40,7 +40,7 @@ sub get_attributes {
 		buttontext  => 'Fields',
 		menutext    => 'Single field',
 		module      => 'FieldBreakdown',
-		version     => '2.2.3',
+		version     => '2.2.4',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
@@ -172,11 +172,10 @@ sub _get_field_values {
 
 sub _show_table {
 	my ( $self, $field ) = @_;
-	my $freqs  = $self->_get_field_values($field);
-	my $count  = @$freqs;
-	my $plural = $count != 1 ? 's' : '';
-	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-	my $display_field = $metafield // $field;
+	my $freqs         = $self->_get_field_values($field);
+	my $count         = @$freqs;
+	my $plural        = $count != 1 ? 's' : '';
+	my $display_field = $field;
 	$display_field =~ s/^s_\d+_//x;
 	$display_field =~ s/^.*\.\.//x;
 	$display_field =~ tr/_/ /;
@@ -202,11 +201,10 @@ sub _show_table {
 
 sub _get_text_table {
 	my ( $self, $field ) = @_;
-	my $freqs  = $self->_get_field_values($field);
-	my $count  = @$freqs;
-	my $plural = $count != 1 ? 's' : '';
-	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-	my $display_field = $metafield // $field;
+	my $freqs         = $self->_get_field_values($field);
+	my $count         = @$freqs;
+	my $plural        = $count != 1 ? 's' : '';
+	my $display_field = $field;
 	$display_field =~ s/^s_\d+_//x;
 	$display_field =~ s/^.*\.\.//x;
 	$display_field =~ tr/_/ /;
@@ -228,9 +226,8 @@ sub _export_text {
 }
 
 sub _export_excel {
-	my ( $self,    $field )     = @_;
-	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-	my $display_field = $metafield // $field;
+	my ( $self, $field ) = @_;
+	my $display_field = $field;
 	$display_field =~ tr/_/ /;
 	$display_field =~ s/^.*\.\.//x;
 	$display_field =~ s/'//x;
@@ -453,12 +450,11 @@ sub _print_line_controls {
 }
 
 sub _get_fields {
-	my ($self)        = @_;
-	my $set_id        = $self->get_set_id;
-	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
-	my $is_curator    = $self->is_curator;
+	my ($self)     = @_;
+	my $set_id     = $self->get_set_id;
+	my $is_curator = $self->is_curator;
 	my $field_list =
-	  $self->{'xmlHandler'}->get_field_list( $metadata_list, { no_curate_only => !$is_curator } );
+	  $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
 	my $eav_field_list = $self->{'datastore'}->get_eav_fieldnames;
 	my $expanded_list  = [];
 	my $labels         = {};
@@ -474,7 +470,6 @@ sub _get_fields {
 			}
 		} else {
 			my $label = $field;
-			$label =~ s/^$_://x foreach @$metadata_list;
 			$label =~ tr/_/ /;
 			$labels->{$field} = $label;
 		}
@@ -621,16 +616,9 @@ sub _ajax {
 
 sub _get_field_freqs {
 	my ( $self, $field, $options ) = @_;
-	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-	my $qry;
-	if ( defined $metaset ) {
-		$qry = "SELECT m.$metafield AS label,COUNT(*) AS value FROM meta_$metaset m RIGHT JOIN "
-		  . "$self->{'system'}->{'view'} v ON m.isolate_id=v.id JOIN id_list i ON v.id=i.value ";
-	} else {
-		$qry = "SELECT $field AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
-		  . 'JOIN id_list i ON v.id=i.value ';
-	}
-	$qry .= 'WHERE ' . ( $metafield // $field ) . ' IS NOT NULL ' if $options->{'no_null'};
+	my $qry = "SELECT $field AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
+	  . 'JOIN id_list i ON v.id=i.value ';
+	$qry .= "WHERE $field IS NOT NULL " if $options->{'no_null'};
 	$qry .= 'GROUP BY label';
 	my $order = $options->{'order'} ? $options->{'order'} : 'value DESC';
 	$qry .= " ORDER BY $order";

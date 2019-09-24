@@ -2117,34 +2117,6 @@ sub get_set_schemes_table_attributes {
 	return $attributes;
 }
 
-sub get_set_metadata_table_attributes {
-	my ($self) = @_;
-	my $metadata = $self->{'xmlHandler'}->get_metadata_list;
-	local $" = ';';
-	my $attributes = [
-		{
-			name           => 'set_id',
-			type           => 'int',
-			required       => 1,
-			primary_key    => 1,
-			foreign_key    => 'sets',
-			labels         => '|$description|',
-			dropdown_query => 1
-		},
-		{
-			name           => 'metadata_id',
-			type           => 'text',
-			required       => 1,
-			primary_key    => 1,
-			optlist        => "@$metadata",
-			dropdown_query => 1
-		},
-		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
-		{ name => 'datestamp', type => 'date', required => 1 }
-	];
-	return $attributes;
-}
-
 sub get_classification_schemes_table_attributes {
 	my ($self) = @_;
 	my $attributes = [

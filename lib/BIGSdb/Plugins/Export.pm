@@ -43,7 +43,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.7.6',
+		version     => '1.7.7',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
@@ -532,7 +532,6 @@ sub _get_header {
 				$cscheme    = $1;
 			}
 			$field =~ s/^(?:s_\d+_l|s_\d+_f|f|l|c|m|cs|eav)_//x;    #strip off prefix for header row
-			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			$field =~ s/^.*___//x;
 			if ($is_locus) {
 				$field =
@@ -553,7 +552,7 @@ sub _get_header {
 				$buffer .= $name;
 			} else {
 				$buffer .= "\t" if !$first;
-				$buffer .= $metafield // $field;
+				$buffer .= $field;
 			}
 			$first = 0;
 		}
@@ -574,19 +573,7 @@ sub _get_id_one_line {
 
 sub _write_field {
 	my ( $self, $fh, $field, $data, $first, $params ) = @_;
-	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-	if ( defined $metaset ) {
-		my $value = $self->{'datastore'}->get_metadata_value( $data->{'id'}, $metaset, $metafield );
-		if ( $params->{'oneline'} ) {
-			print $fh $self->_get_id_one_line( $data, $params );
-			print $fh "$metafield\t";
-			print $fh $value;
-			print $fh "\n";
-		} else {
-			print $fh "\t" if !$first;
-			print $fh $value;
-		}
-	} elsif ( $field eq 'aliases' ) {
+	if ( $field eq 'aliases' ) {
 		my $aliases = $self->{'datastore'}->get_isolate_aliases( $data->{'id'} );
 		local $" = '; ';
 		if ( $params->{'oneline'} ) {

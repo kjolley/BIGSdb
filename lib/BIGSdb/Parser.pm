@@ -42,27 +42,16 @@ sub get_system_hash {
 }
 
 sub get_field_list {
-	my ( $self, $metadata_arrayref, $options ) = @_;
-	$options           = {} if ref $options ne 'HASH';
-	$metadata_arrayref = [] if ref $metadata_arrayref ne 'ARRAY';
+	my ( $self, $options ) = @_;
 	my @fields;
 	foreach my $field ( @{ $self->{'fields'} } ) {
-		if ( $field =~ /^(meta_[^:]+):.+/x ) {
-			foreach my $metadata (@$metadata_arrayref) {
-				push @fields, $field if $metadata eq $1;
-			}
-		} else {
-			next if $options->{'meta_fields_only'};
-			next
-			  if $options->{'no_curate_only'}
-			  && ( $self->{'attributes'}->{$field}->{'curate_only'} // q() ) eq 'yes';
-			push @fields, $field;
-		}
+		next
+		  if $options->{'no_curate_only'}
+		  && ( $self->{'attributes'}->{$field}->{'curate_only'} // q() ) eq 'yes';
+		push @fields, $field;
 	}
 	return \@fields;
 }
-
-
 
 sub get_all_field_attributes {
 	my ($self) = @_;
@@ -73,8 +62,6 @@ sub get_field_attributes {
 	my ( $self, $name ) = @_;
 	return $self->{'attributes'}->{$name} // { type => q(), required => q() };
 }
-
-
 
 sub is_field {
 	my ( $self, $field ) = @_;
@@ -103,8 +90,8 @@ sub new {    ## no critic (RequireArgUnpacking)
 	my $class = shift;
 	my $self  = {@_};
 	bless( $self, $class );
-	$self->{'fields'}        = [];
-	$self->{'system'}        = {};
+	$self->{'fields'} = [];
+	$self->{'system'} = {};
 	return $self;
 }
 
@@ -194,13 +181,4 @@ sub _process_special_values {
 	return;
 }
 
-sub get_metadata_list {
-	my ($self) = @_;
-	my %list;
-	foreach my $field ( @{ $self->{'fields'} } ) {
-		$list{$1} = 1 if $field =~ /^(meta_[^:]+):/x;
-	}
-	my @list = sort keys %list;
-	return \@list;
-}
 1;

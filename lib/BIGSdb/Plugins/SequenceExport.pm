@@ -37,7 +37,7 @@ use BIGSdb::Plugin qw(SEQ_SOURCE);
 
 sub get_attributes {
 	my ($self) = @_;
-	my $seqdef = ($self->{'system'}->{'dbtype'} // q()) eq 'sequences';
+	my $seqdef = ( $self->{'system'}->{'dbtype'} // q() ) eq 'sequences';
 	my %att = (
 		name             => 'Sequence Export',
 		author           => 'Keith Jolley',
@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext       => 'Sequences',
 		menutext         => $seqdef ? 'Profile sequences' : 'Sequences',
 		module           => 'SequenceExport',
-		version          => '1.6.5',
+		version          => '1.6.6',
 		dbtype           => 'isolates,sequences',
 		seqdb_type       => 'schemes',
 		section          => 'export,postquery',
@@ -533,7 +533,7 @@ sub make_isolate_seq_file {
 
 sub _get_included_values {
 	my ( $self, $includes, $isolate_id, $problem_ids ) = @_;
-	if (defined $self->{'cache'}->{'includes'}->{$isolate_id}){
+	if ( defined $self->{'cache'}->{'includes'}->{$isolate_id} ) {
 		return $self->{'cache'}->{'includes'}->{$isolate_id};
 	}
 	my $include_values = [];
@@ -558,7 +558,7 @@ sub _get_included_values {
 		$problem_ids->{$isolate_id} = 1;
 		BIGSdb::Exception::Database::NoRecord->throw;
 	}
-	$self->{'cache'}->{'includes'}->{$isolate_id}=$include_values;
+	$self->{'cache'}->{'includes'}->{$isolate_id} = $include_values;
 	return $include_values;
 }
 
@@ -680,13 +680,8 @@ sub _append_sequences {
 
 sub get_field_value {
 	my ( $self, $isolate_data, $field ) = @_;
-	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 	my $value;
-	if ( defined $metaset ) {
-		$value = $self->{'datastore'}->get_metadata_value( $isolate_data->{'id'}, $metaset, $metafield );
-	} else {
-		$value = $isolate_data->{ lc($field) } // '';
-	}
+	$value = $isolate_data->{ lc($field) } // '';
 	$value =~ tr/ /_/;
 	$value =~ tr/(/_/;
 	$value =~ tr/)/_/;

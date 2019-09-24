@@ -52,7 +52,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.3.26',
+		version     => '2.3.27',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -554,8 +554,7 @@ sub process_uploaded_genomes {
 				$stringfh_in = IO::String->new($fasta);
 			}
 			catch {
-				BIGSdb::Exception::Plugin->throw('There is a problem with the contents of the zip file.')
-				  ;
+				BIGSdb::Exception::Plugin->throw('There is a problem with the contents of the zip file.');
 			};
 			try {
 				my $seqin = Bio::SeqIO->new( -fh => $stringfh_in, -format => 'fasta' );
@@ -1131,12 +1130,7 @@ sub _get_identifier {
 				local $" = q(_);
 				$field_value = qq(@field_values);
 			} else {
-				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-				if ( defined $metaset ) {
-					$field_value = $self->{'datastore'}->get_metadata_value( $id, $metaset, $metafield );
-				} else {
-					$field_value = $include_data->{$field} // q();
-				}
+				$field_value = $include_data->{$field} // q();
 			}
 			$field_value =~ tr/[\(\):, ]/_/;
 			$value .= '|' if !$first || !$options->{'no_id'};

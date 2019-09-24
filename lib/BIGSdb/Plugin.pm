@@ -300,7 +300,6 @@ sub _print_fields {
 	foreach my $field (@$fields) {
 		my $label = $labels->{$field} || $field;
 		$label =~ s/^.*___//x;    #only show extended field.
-		$label =~ s/^meta_[^:]+://x;
 		$label =~ tr/_/ /;
 		my $id = $self->clean_checkbox_id("$prefix\_$field");
 		print q(<li>);
@@ -327,15 +326,13 @@ sub _print_fields {
 sub print_isolate_fields_fieldset {
 	my ( $self, $options ) = @_;
 	my $set_id         = $self->get_set_id;
-	my $metadata_list  = $self->{'datastore'}->get_set_metadata($set_id);
 	my $is_curator     = $self->is_curator;
-	my $fields         = $self->{'xmlHandler'}->get_field_list( $metadata_list, { no_curate_only => !$is_curator } );
+	my $fields         = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
 	my $display_fields = [];
 	my $labels         = {};
 	foreach my $field (@$fields) {
 		push @$display_fields, $field;
 		my $label = $field;
-		$label =~ s/^meta_.+://x;
 		$label =~ tr/_/ /;
 		$labels->{$field} = $label;
 		if ( $field eq $self->{'system'}->{'labelfield'} && !$options->{'no_aliases'} ) {
@@ -692,14 +689,12 @@ sub print_includes_fieldset {
 	my ( @fields, $labels );
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		my $set_id        = $self->get_set_id;
-		my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
 		my $is_curator    = $self->is_curator;
-		my $field_list    = $self->{'xmlHandler'}->get_field_list( $metadata_list, { no_curate_only => !$is_curator } );
+		my $field_list    = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
 		foreach my $field (@$field_list) {
 			next if any { $field eq $_ } qw (id datestamp date_entered curator sender);
-			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			push @fields, $field;
-			( $labels->{$field} = $metafield // $field ) =~ tr/_/ /;
+			( $labels->{$field} = $field ) =~ tr/_/ /;
 		}
 		if ( $options->{'include_scheme_fields'} ) {
 			my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );

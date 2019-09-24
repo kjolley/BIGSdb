@@ -553,7 +553,7 @@ sub _print_isolate_table {
 	my $qry        = $$qryref;
 	my $qry_limit  = $qry;
 	my $is_curator = $self->is_curator;
-	my $fields     = $self->{'xmlHandler'}->get_field_list( undef, { no_curate_only => !$is_curator } );
+	my $fields     = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
 	push @$fields, 'new_version';
 	my $view = $self->{'system'}->{'view'};
 	local $" = ",$view.";
@@ -586,9 +586,8 @@ sub _print_isolate_table {
 	my $field_attributes;
 	$field_attributes->{$_} = $self->{'xmlHandler'}->get_field_attributes($_) foreach (@$fields);
 	$self->{'scheme_loci'}->{0} = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
-	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
 	my $field_list =
-	  $self->{'xmlHandler'}->get_field_list( $metadata_list, { no_curate_only => !$is_curator } );
+	  $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
 	local $| = 1;
 	my %id_used;
 
@@ -612,14 +611,8 @@ sub _print_isolate_table {
 					my $user_info = $self->{'datastore'}->get_user_info( $data{$thisfieldname} );
 					print qq(<td>$user_info->{'first_name'} $user_info->{'surname'}</td>);
 				} else {
-					my $value;
-					if ( $thisfieldname =~ /^meta_[^:]+:/x ) {
-						my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($thisfieldname);
-						$value = $self->{'datastore'}->get_metadata_value( $id, $metaset, $metafield );
-					} else {
-						local $" = q(; );
-						$value = ref $data{$thisfieldname} ? qq(@{$data{$thisfieldname}}) : $data{$thisfieldname};
-					}
+					local $" = q(; );
+					my $value = ref $data{$thisfieldname} ? qq(@{$data{$thisfieldname}}) : $data{$thisfieldname};
 					$value //= q();
 					$value =~ tr/\n/ /;
 					print qq(<td>$value</td>);
@@ -824,11 +817,10 @@ sub _print_isolate_scheme_values {
 
 sub _print_isolate_table_header {
 	my ( $self, $schemes, $limit_qry ) = @_;
-	my $set_id        = $self->get_set_id;
-	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
-	my $is_curator    = $self->is_curator;
+	my $set_id     = $self->get_set_id;
+	my $is_curator = $self->is_curator;
 	my $select_items =
-	  $self->{'xmlHandler'}->get_field_list( $metadata_list, { no_curate_only => !$is_curator } );
+	  $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
 	my $header_buffer = q(<tr>);
 	my $col_count;
 	my $extended = $self->get_extended_attributes;
@@ -837,8 +829,7 @@ sub _print_isolate_table_header {
 
 	foreach my $col ( @$select_items, @$eav_fields ) {
 		if ( $self->{'prefs'}->{'maindisplayfields'}->{$col} || $col eq 'id' ) {
-			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($col);
-			( my $display_col = $metafield // $col ) =~ tr/_/ /;
+			( my $display_col = $col ) =~ tr/_/ /;
 			$header_buffer .= qq(<th>$display_col</th>);
 			$col_count++;
 		}

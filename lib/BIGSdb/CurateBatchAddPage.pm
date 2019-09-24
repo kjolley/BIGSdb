@@ -1471,7 +1471,7 @@ sub _upload_data {
 	my $records = $self->_extract_checked_records;
 	return if !@$records;
 	my $field_order = $self->_get_field_order($records);
-	my ( $fields_to_include, $meta_fields ) = $self->_get_fields_to_include( $table, $locus );
+	my $fields_to_include = $self->_get_fields_to_include( $table, $locus );
 	my @history;
 	my $user_info  = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	my $project_id = $self->_get_private_project_id;
@@ -1525,8 +1525,6 @@ sub _upload_data {
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 				my $isolate_name = $data[ $field_order->{ $self->{'system'}->{'labelfield'} } ];
 				$self->{'submission_message'} .= "Isolate '$isolate_name' uploaded - id: $id.";
-				my $meta_inserts = $self->_prepare_metaset_insert( $meta_fields, $field_order, \@data );
-				push @inserts, @$meta_inserts;
 				my $isolate_extra_inserts = $self->_prepare_isolate_extra_inserts(
 					{
 						id          => $id,
@@ -1976,25 +1974,22 @@ sub _get_field_order {
 
 sub _get_fields_to_include {
 	my ( $self, $table, $locus ) = @_;
-	my ( @fields_to_include, @metafields );
+	my $fields_to_include = [];
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		my $set_id        = $self->get_set_id;
-		my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
-		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+		my $field_list    = $self->{'xmlHandler'}->get_field_list;
 		foreach my $field (@$field_list) {
 			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
 			next if ( $att->{'no_curate'} // '' ) eq 'yes';
-			if ( $field =~ /^meta_.*:/x ) {
-				push @metafields, $field;
-			} else {
-				push @fields_to_include, $field;
-			}
+			
+			push @$fields_to_include, $field;
+			
 		}
 	} else {
 		my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
-		push @fields_to_include, $_->{'name'} foreach @$attributes;
+		push @$fields_to_include, $_->{'name'} foreach @$attributes;
 	}
-	return ( \@fields_to_include, \@metafields );
+	return ( $fields_to_include );
 }
 
 sub _update_scheme_caches {
@@ -2027,33 +2022,6 @@ sub _update_scheme_caches {
 	return;
 }
 
-sub _prepare_metaset_insert {
-	my ( $self, $fields, $fieldorder, $data ) = @_;
-	my %metasets;
-	foreach my $field (@$fields) {
-		next if !defined $fieldorder->{$field};
-		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-		my $value = $data->[ $fieldorder->{$field} ];
-		$metasets{$metaset} = 1 if defined $value;
-	}
-	my @metasets = keys %metasets;
-	my @inserts;
-	my $isolate_id = $data->[ $fieldorder->{'id'} ];
-	foreach my $metaset (@metasets) {
-		my $meta_fields = $self->{'xmlHandler'}->get_field_list( ["meta_$metaset"], { meta_fields_only => 1 } );
-		my @placeholders = ('?') x ( @$meta_fields + 1 );
-		local $" = ',';
-		my $qry    = "INSERT INTO meta_$metaset (isolate_id,@$meta_fields) VALUES (@placeholders)";
-		my @values = ($isolate_id);
-		foreach my $field (@$meta_fields) {
-			push @values, $data->[ $fieldorder->{$field} ];
-		}
-		$qry =~ s/meta_$metaset://gx;    #field names include metaset which isn't used in database table.
-		push @inserts, { statement => $qry, arguments => \@values };
-	}
-	return \@inserts;
-}
-
 sub get_title {
 	my ($self) = @_;
 	my $desc  = $self->{'system'}->{'description'} || 'BIGSdb';
@@ -2068,8 +2036,7 @@ sub _get_fields_in_order {
 	my @fields;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		my $set_id        = $self->get_set_id;
-		my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
-		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+		my $field_list    = $self->{'xmlHandler'}->get_field_list;
 		foreach my $field (@$field_list) {
 			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
 			next if ( $att->{'no_curate'} // '' ) eq 'yes';
@@ -2113,8 +2080,7 @@ sub _get_field_table_header {
 	my @headers;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		my $set_id        = $self->get_set_id;
-		my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
-		my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+		my $field_list    = $self->{'xmlHandler'}->get_field_list;
 		foreach my $field (@$field_list) {
 			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
 			next if ( $att->{'no_curate'} // '' ) eq 'yes';

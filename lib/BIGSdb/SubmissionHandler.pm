@@ -682,11 +682,6 @@ sub _get_isolate_header_positions {
 	if ( $options->{'genomes'} ) {
 		push @$fields, REQUIRED_GENOME_FIELDS;
 	}
-	if ($set_id) {
-		my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
-		my $meta_fields = $self->{'xmlHandler'}->get_field_list( $metadata_list, { meta_fields_only => 1 } );
-		push @$fields, @$meta_fields;
-	}
 	my %do_not_include = map { $_ => 1 } qw(id sender curator date_entered datestamp);
 	foreach my $field (@$fields) {
 		next if $do_not_include{$field};
@@ -744,8 +739,7 @@ sub _check_aliases {
 sub _check_isolate_record {
 	my ( $self, $set_id, $positions, $values, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
-	my $fields = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $fields = $self->{'xmlHandler'}->get_field_list;
 	push @$fields, @{ $self->{'datastore'}->get_eav_fieldnames };
 	push @$fields, REQUIRED_GENOME_FIELDS if $options->{'genomes'};
 	my %do_not_include = map { $_ => 1 } qw(id sender curator date_entered datestamp);
@@ -837,9 +831,6 @@ sub _is_field_bad_isolates {
 	}
 	my $thisfield = $self->{'cache'}->{'field_attributes'}->{$fieldname};
 	$thisfield->{'type'} ||= 'text';
-
-	#Field can't be compulsory if part of a metadata collection. If field is null make sure it's not a required field.
-	$thisfield->{'required'} = 'no' if !$set_id && $fieldname =~ /^meta_/x;
 	$thisfield->{'required'} = 'no' if $self->{'datastore'}->is_eav_field($fieldname);
 	my %optional_fields = map { $_ => 1 } qw(aliases references assembly_filename sequence_method);
 	if ( $value eq '' ) {

@@ -52,7 +52,7 @@ sub get_attributes {
 		menutext    => 'Unique combinations',
 		module      => 'Combinations',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/unique_combinations.html",
-		version     => '1.4.2',
+		version     => '1.4.3',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -143,7 +143,6 @@ sub run_job {
 			$schemes{$1} = 1;
 		}
 		$field =~ s/^(s_\d+_l|s_\d+_f|f|l|c|eav)_//gx;    #strip off prefix for header row
-		$field =~ s/^meta_.+?://x;
 		$field =~ s/^.*___//x;
 		$field =~ tr/_/ / if !$self->{'datastore'}->is_locus($field);
 		push @$header, $field;
@@ -282,12 +281,7 @@ sub _output_results {
 
 sub _get_field_value {
 	my ( $self, $field, $data ) = @_;
-	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-	if ( defined $metaset ) {
-		my $value = $self->{'datastore'}->get_metadata_value( $data->{'id'}, $metaset, $metafield );
-		$value = '-' if $value eq '';
-		return $value;
-	} elsif ( $field eq 'aliases' ) {
+	if ( $field eq 'aliases' ) {
 		my $aliases = $self->{'datastore'}->get_isolate_aliases( $data->{'id'} );
 		local $" = '; ';
 		my $value = @$aliases ? "@$aliases" : '-';

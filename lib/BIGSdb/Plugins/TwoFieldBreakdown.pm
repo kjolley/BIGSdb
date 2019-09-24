@@ -43,7 +43,7 @@ sub get_attributes {
 		buttontext  => 'Two Field',
 		menutext    => 'Two field',
 		module      => 'TwoFieldBreakdown',
-		version     => '1.4.9',
+		version     => '1.4.11',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/two_field_breakdown.html",
@@ -828,10 +828,8 @@ sub _get_value_frequency_hashes {
 			$clean{$field} = $1;
 		}
 		if ( $self->{'xmlHandler'}->is_field( $clean{$field} ) ) {
-			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-			$field_type{$field} = defined $metaset ? 'metafield' : 'field';
-			$metafield =~ tr/_/ / if defined $metafield;
-			$print{$field} = $metafield // $clean{$field};
+			$field_type{$field} = 'field';
+			$print{$field} = $clean{$field};
 		} elsif ( $self->{'datastore'}->is_locus( $clean{$field} ) ) {
 			$field_type{$field} = 'locus';
 			$print{$field}      = $clean{$field};
@@ -909,10 +907,8 @@ sub _get_values {
 				return $self->get_scheme_field_values(
 					{ isolate_id => $isolate_id, scheme_id => $scheme_id->{$field}, field => $clean_fields->{$field} }
 				);
-			},
-			metafield => sub {
-				return [ $self->_get_metafield_value($sub_args) ];
 			}
+
 		};
 		if ( $method->{ $field_type->{$field} } ) {
 			push @values, $method->{ $field_type->{$field} }->();
@@ -962,28 +958,6 @@ sub _get_locus_values {
 		$values = $self->{'datastore'}->get_allele_ids( $isolate_id, $clean_fields->{$field} );
 	}
 	return $values;
-}
-
-sub _get_metafield_value {
-	my ( $self, $args ) = @_;
-	my ( $isolate_id, $field, $clean_fields, $options ) = @{$args}{qw(isolate_id field clean_fields options)};
-	my $value;
-	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname( $clean_fields->{$field} );
-	if ( $options->{'fetchall'} ) {
-		if ( !$self->{'cache'}->{$field} ) {
-			$self->{'cache'}->{$field} = $self->{'datastore'}->run_query(
-				"SELECT isolate_id,$metafield FROM meta_$metaset WHERE isolate_id IN "
-				  . "(SELECT id FROM $self->{'system'}->{'view'})",
-				undef,
-				{ fetch => 'all_hashref', key => 'isolate_id' }
-			);
-		}
-		$value = $self->{'cache'}->{$field}->{$isolate_id}->{$metafield};
-	} else {
-		$value = $self->{'datastore'}->run_query( "SELECT $metafield FROM meta_$metaset WHERE isolate_id=?",
-			$isolate_id, { cache => "TwoFieldBreakdown::get_metafield_value::$field" } );
-	}
-	return $value;
 }
 
 sub _recalculate_for_attributes {

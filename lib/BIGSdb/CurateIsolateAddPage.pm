@@ -116,8 +116,7 @@ sub _check {
 	my $q             = $self->{'cgi'};
 	my $set_id        = $self->get_set_id;
 	my $loci          = $self->{'datastore'}->get_loci( { query_pref => 1, set_id => $set_id } );
-	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
-	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $field_list    = $self->{'xmlHandler'}->get_field_list;
 	my $user_info     = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	@$loci = uniq @$loci;
 	my @bad_field_buffer;
@@ -127,9 +126,6 @@ sub _check {
 		foreach my $field (@$field_list) {
 			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 			my $required_field = !( ( $thisfield->{'required'} // '' ) eq 'no' );
-			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-			$required_field = 0
-			  if !$set_id && defined $metaset;    #Field can't be compulsory if part of a metadata collection.
 			if ( $required_field == $required ) {
 				if ( $field eq 'curator' ) {
 					$newdata->{$field} = $self->get_curator_id;
@@ -147,7 +143,7 @@ sub _check {
 				my $bad_field =
 				  $self->{'submissionHandler'}->is_field_bad( 'isolates', $field, $newdata->{$field}, undef, $set_id );
 				if ($bad_field) {
-					push @bad_field_buffer, q(Field ') . ( $metafield // $field ) . qq(': $bad_field);
+					push @bad_field_buffer, qq(Field '$field': $bad_field);
 				}
 			}
 		}
@@ -245,42 +241,16 @@ sub alias_duplicates_name {
 	return;
 }
 
-sub _prepare_metaset_insert {
-	my ( $self, $meta_fields, $newdata ) = @_;
-	my @metasets = keys %$meta_fields;
-	my @inserts;
-	foreach my $metaset (@metasets) {
-		my @fields = @{ $meta_fields->{$metaset} };
-		my @placeholders = ('?') x ( @fields + 1 );
-		local $" = ',';
-		my $qry    = "INSERT INTO meta_$metaset (isolate_id,@fields) VALUES (@placeholders)";
-		my @values = ( $newdata->{'id'} );
-		foreach my $field (@fields) {
-			my $cleaned = $self->clean_value( $newdata->{"meta_$metaset:$field"}, { no_escape => 1 } );
-			push @values, $cleaned;
-		}
-		push @inserts, { statement => $qry, arguments => \@values };
-	}
-	return \@inserts;
-}
-
 sub _insert {
 	my ( $self, $newdata ) = @_;
 	my $q      = $self->{'cgi'};
 	my $set_id = $self->get_set_id;
 	my @fields_with_values;
-	my %meta_fields;
-	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
-	my $field_list = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $field_list = $self->{'xmlHandler'}->get_field_list;
 	foreach my $field (@$field_list) {
 
 		if ( ( $newdata->{$field} // q() ) ne q() ) {
-			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-			if ( defined $metaset ) {
-				push @{ $meta_fields{$metaset} }, $metafield;
-			} else {
-				push @fields_with_values, $field;
-			}
+			push @fields_with_values, $field;
 		}
 	}
 	my $inserts      = [];
@@ -293,14 +263,11 @@ sub _insert {
 		push @$values, $cleaned;
 	}
 	push @$inserts, { statement => $qry, arguments => $values };
-	my $metadata_inserts = $self->_prepare_metaset_insert( \%meta_fields, $newdata );
-	push @$inserts, @$metadata_inserts;
 	$self->_prepare_locus_inserts( $inserts, $newdata );
 	$self->_prepare_alias_inserts( $inserts, $newdata );
 	return if $self->_prepare_pubmed_inserts( $inserts, $newdata );
 	return if $self->_prepare_sparse_field_inserts( $inserts, $newdata );
 	local $" = ';';
-
 	foreach (@$inserts) {
 		$self->{'db'}->do( $_->{'statement'}, undef, @{ $_->{'arguments'} } );
 	}
@@ -548,13 +515,9 @@ sub print_provenance_form_elements {
 	my $q             = $self->{'cgi'};
 	my $user_info     = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	my $set_id        = $self->get_set_id;
-	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
-	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $field_list    = $self->{'xmlHandler'}->get_field_list;
 	say q(<fieldset style="float:left"><legend>Provenance fields</legend>);
 	say q(<div style="white-space:nowrap">);
-	say q(<p><span class="metaset">Metadata</span><span class="comment">: These fields are )
-	  . q(available in the specified dataset only.</span></p>)
-	  if !$set_id && @$metadata_list;
 	my $width = $self->_get_field_width($field_list);
 	say q(<ul>);
 
@@ -564,9 +527,6 @@ sub print_provenance_form_elements {
 			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 			next if ( $thisfield->{'no_curate'} // '' ) eq 'yes';
 			my $required_field = !( ( $thisfield->{'required'} // '' ) eq 'no' );
-			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-			$required_field = 0
-			  if !$set_id && defined $metaset;    #Field can't be compulsory if part of a metadata collection.
 			if ( $required_field == $required ) {
 				my $html5_args = $self->_get_html5_args(
 					{
@@ -576,7 +536,7 @@ sub print_provenance_form_elements {
 					}
 				);
 				$thisfield->{'length'} = $thisfield->{'length'} // ( $thisfield->{'type'} eq 'int' ? 15 : 50 );
-				( my $cleaned_name = $metafield // $field ) =~ tr/_/ /;
+				( my $cleaned_name = $field ) =~ tr/_/ /;
 				my ( $label, $title ) = $self->get_truncated_label( $cleaned_name, 25 );
 				my $title_attribute = $title ? qq( title="$title") : q();
 				my %no_label_field = map { $_ => 1 } qw (curator date_entered datestamp);
@@ -617,7 +577,6 @@ sub print_provenance_form_elements {
 						last;
 					}
 				}
-				say qq( <span class="metaset">Metadata: $metaset</span>) if !$set_id && defined $metaset;
 				if ( $thisfield->{'comments'} ) {
 					say $self->get_tooltip( $thisfield->{'comments'} );
 				}

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -220,8 +220,7 @@ sub check_format {
 	my $clean_fieldname = $data->{'clean_fieldname'} // $data->{'field'};
 	my $error;
 	if ( lc( $data->{'text'} ) ne 'null' && defined $data->{'type'} ) {
-		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname( $data->{'field'} );
-		my $display_field = ( $metafield // $clean_fieldname );
+		my $display_field = $clean_fieldname;
 		my %checks = (
 			int => sub {
 				if ( !BIGSdb::Utils::is_int( $data->{'text'}, { do_not_check_range => 1 } ) ) {

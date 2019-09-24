@@ -250,7 +250,7 @@ sub show_user_projects {
 sub clean_value {
 	my ( $self, $value, $options ) = @_;
 	return if !defined $value;
-	if (ref $value eq 'ARRAY'){
+	if ( ref $value eq 'ARRAY' ) {
 		s/"/\\"/gx foreach @$value;
 		local $" = q(",");
 		return qq({"@$value"});
@@ -910,28 +910,6 @@ sub _print_menu {
 	return;
 }
 
-sub get_metaset_and_fieldname {
-	my ( $self, $field ) = @_;
-	my ( $metaset, $metafield ) = $field =~ /meta_([^:]+):(.*)/x ? ( $1, $2 ) : ( undef, undef );
-	return ( $metaset, $metafield );
-}
-
-sub add_existing_metadata_to_hashref {
-	my ( $self, $data ) = @_;
-	return if !defined $data->{'id'};
-	my $metadata_list = $self->{'xmlHandler'}->get_metadata_list;
-	foreach my $metadata_set (@$metadata_list) {
-		my $metadata = $self->{'datastore'}->run_query( "SELECT * FROM $metadata_set WHERE isolate_id=?",
-			$data->{'id'}, { fetch => 'all_arrayref', slice => {} } );
-		foreach my $metadata_ref (@$metadata) {
-			foreach my $field ( keys %$metadata_ref ) {
-				$data->{"$metadata_set:$field"} = $metadata_ref->{$field};
-			}
-		}
-	}
-	return;
-}
-
 sub add_existing_eav_data_to_hashref {
 	my ( $self, $data ) = @_;
 	return if !defined $data->{'id'};
@@ -1085,9 +1063,8 @@ sub _get_provenance_fields {
 	my ( $self, $options ) = @_;
 	my @isolate_list;
 	my $set_id        = $self->get_set_id;
-	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => $self->{'curate'} } );
 	my $is_curator    = $self->is_curator;
-	my $fields        = $self->{'xmlHandler'}->get_field_list( $metadata_list, { no_curate_only => !$is_curator } );
+	my $fields        = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
 	my $attributes    = $self->{'xmlHandler'}->get_all_field_attributes;
 	my $extended      = $options->{'extended_attributes'} ? $self->get_extended_attributes : undef;
 	foreach my $field (@$fields) {
@@ -1103,8 +1080,7 @@ sub _get_provenance_fields {
 			}
 		} else {
 			push @isolate_list, "f_$field";
-			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-			( $self->{'cache'}->{'labels'}->{"f_$field"} = $metafield // $field ) =~ tr/_/ /;
+			( $self->{'cache'}->{'labels'}->{"f_$field"} = $field ) =~ tr/_/ /;
 			if ( $options->{'extended_attributes'} ) {
 				my $extatt = $extended->{$field};
 				if ( ref $extatt eq 'ARRAY' ) {
@@ -1744,7 +1720,6 @@ sub get_record_name {
 		sets                              => 'set',
 		set_loci                          => 'set member locus',
 		set_schemes                       => 'set member schemes',
-		set_metadata                      => 'set metadata',
 		set_view                          => 'database view linked to set',
 		history                           => 'update record',
 		profile_history                   => 'profile update record',
@@ -1791,14 +1766,7 @@ sub rewrite_query_ref_order_by {
 		}
 	} elsif ( $$qry_ref =~ /ORDER\ BY\ f_(\S+)/x ) {
 		my $field = $1;
-		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-		if ( defined $metaset ) {
-			my $metafield_join = $self->_create_join_sql_for_metafield($metaset);
-			$$qry_ref =~ s/FROM\ $view/FROM $view $metafield_join/x;
-			$$qry_ref =~ s/ORDER\ BY\ f_$field/ORDER BY ordering\.$metafield/x;
-		} else {
-			$$qry_ref =~ s/ORDER BY f_/ORDER BY $view\./;
-		}
+		$$qry_ref =~ s/ORDER BY f_/ORDER BY $view\./;
 	}
 	return;
 }
@@ -1809,12 +1777,6 @@ sub is_allowed_to_view_isolate {
 	  $self->{'datastore'}->run_query( "SELECT EXISTS (SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)",
 		$isolate_id, { cache => 'is_allowed_to_view_isolate' } );
 	return $allowed;
-}
-
-sub _create_join_sql_for_metafield {
-	my ( $self, $metaset ) = @_;
-	my $qry = " LEFT JOIN meta_$metaset AS ordering ON ordering.isolate_id = $self->{'system'}->{'view'}.id";
-	return $qry;
 }
 
 sub get_update_details_tooltip {
@@ -2250,8 +2212,7 @@ sub _initiate_isolatedb_prefs {
 	my ( $self, $general_prefs, $field_prefs, $scheme_field_prefs ) = @_;
 	my $q                = $self->{'cgi'};
 	my $set_id           = $self->get_set_id;
-	my $metadata_list    = $self->{'datastore'}->get_set_metadata($set_id);
-	my $field_list       = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $field_list       = $self->{'xmlHandler'}->get_field_list;
 	my $eav_field_list   = $self->{'datastore'}->get_eav_fieldnames;
 	my $field_attributes = $self->{'xmlHandler'}->get_all_field_attributes;
 	my $extended         = $self->get_extended_attributes;

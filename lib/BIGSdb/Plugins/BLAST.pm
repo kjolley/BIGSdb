@@ -107,7 +107,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.4.12',
+		version     => '1.4.13',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -214,10 +214,6 @@ sub run {
 sub _get_headers {
 	my ( $self, $includes ) = @_;
 	my %labels;
-	foreach my $field (@$includes) {
-		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-		$labels{$field} = $metafield;
-	}
 	my ( $scheme_fields, $scheme_labels ) =
 	  $self->get_field_selection_list( { scheme_fields => 1, analysis_pref => 1, ignore_prefs => 1 } );
 	$labels{$_} = $scheme_labels->{$_} foreach @$scheme_fields;
@@ -578,29 +574,24 @@ sub _get_include_values {
 		my $include_data = $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?",
 			$isolate_id, { fetch => 'row_hashref', cache => 'BLAST::run_isolates' } );
 		foreach my $field (@$includes) {
-			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			my $value;
-			if ( defined $metaset ) {
-				$value = $self->{'datastore'}->get_metadata_value( $isolate_id, $metaset, $metafield );
+			if ( $field =~ /s_(\d+)_(\w+)/x ) {
+				my ( $scheme_id, $scheme_field ) = ( $1, $2 );
+				my $scheme_field_values =
+				  $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id );
+				no warnings 'numeric';    #might complain about numeric comparison with non-numeric data
+				my @values =
+				  sort {
+					$scheme_field_values->{ lc($scheme_field) }->{$a}
+					  cmp $scheme_field_values->{ lc($scheme_field) }->{$b}
+					  || $a <=> $b
+					  || $a cmp $b
+				  }
+				  keys %{ $scheme_field_values->{ lc($scheme_field) } };
+				local $" = q(,);
+				$value = "@values" // q();
 			} else {
-				if ( $field =~ /s_(\d+)_(\w+)/x ) {
-					my ( $scheme_id, $scheme_field ) = ( $1, $2 );
-					my $scheme_field_values =
-					  $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id );
-					no warnings 'numeric';    #might complain about numeric comparison with non-numeric data
-					my @values =
-					  sort {
-						$scheme_field_values->{ lc($scheme_field) }->{$a}
-						  cmp $scheme_field_values->{ lc($scheme_field) }->{$b}
-						  || $a <=> $b
-						  || $a cmp $b
-					  }
-					  keys %{ $scheme_field_values->{ lc($scheme_field) } };
-					local $" = q(,);
-					$value = "@values" // q();
-				} else {
-					$value = $include_data->{$field} // q();
-				}
+				$value = $include_data->{$field} // q();
 			}
 			push @include_values, $value;
 		}
@@ -634,17 +625,15 @@ sub _print_interface {
 	say q(<fieldset style="float:left"><legend>Include in results table</legend>);
 	my @fields;
 	my $set_id        = $self->get_set_id;
-	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
 	my $is_curator    = $self->is_curator;
-	my $field_list = $self->{'xmlHandler'}->get_field_list( $metadata_list, { no_curate_only => !$is_curator } );
-	my $labels     = {};
+	my $field_list    = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
+	my $labels        = {};
 
 	foreach my $field (@$field_list) {
 		next if $field eq $self->{'system'}->{'labelfield'};
 		next if any { $field eq $_ } qw (id datestamp date_entered curator sender);
-		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 		push @fields, $field;
-		( $labels->{$field} = $metafield // $field ) =~ tr/_/ /;
+		( $labels->{$field} = $field ) =~ tr/_/ /;
 	}
 	my ( $scheme_fields, $scheme_labels ) =
 	  $self->get_field_selection_list( { scheme_fields => 1, analysis_pref => 1 } );

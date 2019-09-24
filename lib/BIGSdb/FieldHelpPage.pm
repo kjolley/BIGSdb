@@ -113,19 +113,14 @@ sub _print_isolate_field {
 		$self->print_bad_status( { message => q(Invalid field selected.), navbar => 1 } );
 		return;
 	}
-	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-	( my $cleaned = $metafield // $field ) =~ tr/_/ /;
+	( my $cleaned = $field ) =~ tr/_/ /;
 	say q(<div class="box" id="resultsheader">);
 	say qq(<h2>Field: $cleaned</h2>);
 	my $attributes = $self->{'xmlHandler'}->get_field_attributes($field);
-	my %type = ( int => 'integer', float => 'floating point number' );
-	my $unique_qry =
-	  defined $metaset
-	  ? "SELECT COUNT(DISTINCT $metafield) FROM meta_$metaset WHERE isolate_id IN "
-	  . "(SELECT id FROM $self->{'system'}->{'view'})"
-	  : "SELECT COUNT(DISTINCT $field) FROM $self->{'system'}->{'view'}";
-	my $unique = $self->{'datastore'}->run_query($unique_qry);
-	my $data_type = $type{ $attributes->{'type'} } || $attributes->{'type'};
+	my %type       = ( int => 'integer', float => 'floating point number' );
+	my $unique_qry = "SELECT COUNT(DISTINCT $field) FROM $self->{'system'}->{'view'}";
+	my $unique     = $self->{'datastore'}->run_query($unique_qry);
+	my $data_type  = $type{ $attributes->{'type'} } || $attributes->{'type'};
 	my $required_text =
 	  !defined $attributes->{'required'} || $attributes->{'required'} ne 'no'
 	  ? q(yes - this is a required field so all records must contain a value.)
@@ -146,11 +141,8 @@ sub _print_isolate_field {
 	say q(</dl>);
 	say q(</div><div class="box" id="resultstable">);
 	say q(<h2>Values</h2>);
-	my $qry =
-	  defined $metaset
-	  ? "SELECT DISTINCT $metafield FROM meta_$metaset WHERE isolate_id IN "
-	  . "(SELECT id FROM $self->{'system'}->{'view'}) AND $metafield IS NOT NULL"
-	  : "SELECT DISTINCT $field FROM $self->{'system'}->{'view'} WHERE $field IS NOT NULL ORDER BY $field ";
+	my $qry = "SELECT DISTINCT $field FROM $self->{'system'}->{'view'} WHERE $field IS NOT NULL ORDER BY $field "
+	  ;
 	my $used_list = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	my $used;
 	$used->{$_} = 1 foreach @$used_list;

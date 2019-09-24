@@ -2349,7 +2349,7 @@ sub get_tables {
 		  loci locus_aliases schemes scheme_members scheme_fields composite_fields composite_field_values
 		  isolate_aliases permissions projects project_members experiments experiment_sequences
 		  isolate_field_extended_attributes isolate_value_extended_attributes scheme_groups scheme_group_scheme_members
-		  scheme_group_group_members pcr pcr_locus probes probe_locus sets set_loci set_schemes set_metadata set_view
+		  scheme_group_group_members pcr pcr_locus probes probe_locus sets set_loci set_schemes set_view
 		  isolates history sequence_attributes classification_schemes classification_group_fields
 		  retired_isolates user_dbases oauth_credentials eav_fields validation_rules validation_conditions
 		  validation_rule_conditions);
@@ -2400,17 +2400,6 @@ sub get_primary_keys {
 		push @keys, $_->{'name'} if $_->{'primary_key'};
 	}
 	return @keys;
-}
-
-sub get_set_metadata {
-	my ( $self, $set_id, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
-	if ($set_id) {
-		return $self->run_query( 'SELECT metadata_id FROM set_metadata WHERE set_id=?',
-			$set_id, { fetch => 'col_arrayref' } );
-	} elsif ( $options->{'curate'} ) {
-		return $self->{'xmlHandler'}->get_metadata_list;
-	}
 }
 
 sub get_eav_fields {
@@ -2481,13 +2470,6 @@ sub get_eav_field_value {
 		[ $isolate_id, $field ],
 		{ cache => "get_eav_field_value::$table" }
 	);
-}
-
-sub get_metadata_value {
-	my ( $self, $isolate_id, $metaset, $metafield ) = @_;
-	my $data = $self->run_query( "SELECT * FROM meta_$metaset WHERE isolate_id=?",
-		$isolate_id, { fetch => 'row_hashref', cache => "get_metadata_value_$metaset" } );
-	return $data->{ lc($metafield) } // '';
 }
 
 sub get_login_requirement {

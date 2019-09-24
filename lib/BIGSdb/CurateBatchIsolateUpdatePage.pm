@@ -50,8 +50,7 @@ sub print_content {
 		$self->_update;
 	} elsif ( $q->param('data') ) {
 		foreach my $param (qw (idfield1 idfield2)) {
-			if ( !$self->{'xmlHandler'}->is_field( scalar $q->param($param) ) && $q->param($param) ne '<none>' )
-			{
+			if ( !$self->{'xmlHandler'}->is_field( scalar $q->param($param) ) && $q->param($param) ne '<none>' ) {
 				$self->print_bad_status(
 					{ message => q(Invalid selection field.), navbar => 1, back_page => 'batchIsolateUpdate' } );
 				return;
@@ -88,8 +87,7 @@ id	field	value
 combination of fields, i.e. only one isolate has the value(s) used.  Usually the database id will be used.</p>
 HTML
 	my $set_id        = $self->get_set_id;
-	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
-	my $fields        = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $fields        = $self->{'xmlHandler'}->get_field_list;
 	say $q->start_form;
 	say $q->hidden($_) foreach qw (db page);
 	say q(<fieldset style="float:left"><legend>Please paste in your data below:</legend>);
@@ -123,49 +121,19 @@ sub _get_id_fields {
 	my ($self)   = @_;
 	my $q        = $self->{'cgi'};
 	my $idfield1 = $q->param('idfield1');
-	my ( $metaset1, $metafield1 ) = $self->get_metaset_and_fieldname($idfield1);
 	my $idfield2 = $q->param('idfield2');
-	my ( $metaset2, $metafield2 ) = $self->get_metaset_and_fieldname($idfield2);
 	return {
-		field1     => $idfield1,
-		metaset1   => $metaset1,
-		metafield1 => $metafield1,
-		field2     => $idfield2,
-		metaset2   => $metaset2,
-		metafield2 => $metafield2
+		field1 => $idfield1,
+		field2 => $idfield2,
 	};
-}
-
-sub _get_match_joined_table {
-	my ($self) = @_;
-	my $id     = $self->_get_id_fields;
-	my $table  = $self->{'system'}->{'view'};
-	$table .= " LEFT JOIN meta_$id->{'metaset1'} ON $self->{'system'}->{'view'}.id = meta_$id->{'metaset1'}.isolate_id"
-	  if defined $id->{'metaset1'};
-	$table .= " LEFT JOIN meta_$id->{'metaset2'} ON $self->{'system'}->{'view'}.id = meta_$id->{'metaset2'}.isolate_id"
-	  if defined $id->{'metaset2'};
-	return $table;
-}
-
-sub _get_field_and_match_joined_table {
-	my ( $self, $field ) = @_;
-	my $table = $self->_get_match_joined_table;
-	my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-	if ( defined $metaset && $table !~ /meta_$metaset\ /x ) {
-		$table .= " LEFT JOIN meta_$metaset ON $self->{'system'}->{'view'}.id=meta_$metaset.isolate_id";
-	}
-	return $table;
 }
 
 sub _get_match_criteria {
 	my ($self) = @_;
 	my $id     = $self->_get_id_fields;
 	my $view   = $self->{'system'}->{'view'};
-	my $match =
-	  ( defined $id->{'metaset1'} ? "meta_$id->{'metaset1'}.$id->{'metafield1'}" : "$view.$id->{'field1'}" ) . '=?';
-	$match .= ' AND '
-	  . ( defined $id->{'metaset2'} ? "meta_$id->{'metaset2'}.$id->{'metafield2'}" : "$view.$id->{'field2'}" ) . '=?'
-	  if $id->{'field2'} ne '<none>';
+	my $match  = "$view.$id->{'field1'}=?";
+	$match .= " AND $view.$id->{'field2'}=?" if $id->{'field2'} ne '<none>';
 	return $match;
 }
 
@@ -215,27 +183,7 @@ sub _check_field_status {
 	my $set_id = $self->get_set_id;
 	my ( $bad_field, $not_allowed_field );
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	if (
-		!(
-			   $self->{'xmlHandler'}->is_field( $field->[$i] )
-			|| $self->{'datastore'}->is_eav_field( $field->[$i] )
-			|| $is_locus
-		)
-	  )
-	{
-		#Check if there is an extended metadata field
-		my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
-		my $meta_fields = $self->{'xmlHandler'}->get_field_list( $metadata_list, { meta_fields_only => 1 } );
-		my $field_is_metafield = 0;
-		foreach my $meta_field (@$meta_fields) {
-			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($meta_field);
-			if ( $metafield eq $field->[$i] ) {
-				$field->[$i] = "meta_$metaset:$metafield";    #Map to real field name if it is renamed in set.
-				$field_is_metafield = 1;
-			}
-		}
-		$bad_field = 1 if !$field_is_metafield;
-	} elsif ( $field->[$i] eq 'sender' && $user_info->{'status'} eq 'submitter' ) {
+	if ( $field->[$i] eq 'sender' && $user_info->{'status'} eq 'submitter' ) {
 		$not_allowed_field = 1;
 	} elsif ( $self->{'datastore'}->is_eav_field( $field->[$i] ) ) {
 		my $eav_field = $self->{'datastore'}->get_eav_field( $field->[$i] );
@@ -270,11 +218,10 @@ sub _check {
 	$buffer .= $self->_get_html_header;
 	my $i = 0;
 	my ( @id, @id2, @field, @value );
-	my $td          = 1;
-	my $match_table = $self->_get_match_joined_table;
-	my $match       = $self->_get_match_criteria;
-	my $qry         = "SELECT COUNT(*) FROM $match_table WHERE $match";
-	my $sql         = $self->{'db'}->prepare($qry);
+	my $td    = 1;
+	my $match = $self->_get_match_criteria;
+	my $qry   = "SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE $match";
+	my $sql   = $self->{'db'}->prepare($qry);
 	$qry =~ s/COUNT\(\*\)/id/x;
 	my $sql_id      = $self->{'db'}->prepare($qry);
 	my $table_rows  = 0;
@@ -353,7 +300,6 @@ sub _check {
 				$action = q(<span class="statusbad">no action</span>);
 			}
 			$display_value =~ s/<blank>/&lt;blank&gt;/x;
-			$display_field =~ s/^meta_.*://x;
 			if ( $id_fields->{'field2'} ne '<none>' ) {
 				$buffer .= qq(<tr class="td$td"><td>$i</td><td>$id[$i]</td><td>$id2[$i]</td><td>$display_field</td>)
 				  . qq(<td>$display_value</td><td>$old_value</td><td>$action</td></tr>\n);
@@ -427,7 +373,6 @@ sub _check_field {
 	my ( $old_value, $action );
 	my $q = $self->{'cgi'};
 	my @args;
-	my $table = $self->_get_field_and_match_joined_table( $field->[$i] );
 	my $qry;
 	my $set_id      = $self->get_set_id;
 	my $will_update = 0;
@@ -438,12 +383,13 @@ sub _check_field {
 		push @args, $field->[$i];
 	} elsif ($is_eav_field) {
 		my $eav_table = $self->{'datastore'}->get_eav_field_table( $field->[$i] );
-		$qry = "SELECT value FROM $eav_table JOIN $table ON $eav_table.isolate_id=$self->{'system'}->{'view'}.id "
+		$qry =
+		    "SELECT value FROM $eav_table JOIN $self->{'system'}->{'view'} ON "
+		  . "$eav_table.isolate_id=$self->{'system'}->{'view'}.id "
 		  . "WHERE field=? AND $match";
 		push @args, $field->[$i];
 	} else {
-		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname( $field->[$i] );
-		$qry = 'SELECT ' . ( $metafield // $field->[$i] ) . " FROM $table WHERE $match";
+		$qry = "SELECT $field->[$i] FROM $self->{'system'}->{'view'} WHERE $match";
 	}
 	push @args, $id->[$i];
 	push @args, $id2->[$i] if $id_fields->{'field2'} ne '<none>';
@@ -525,7 +471,6 @@ sub _update {
 	say qq(Datestamp: $datestamp<br />);
 	my $tablebuffer = q();
 	my $td          = 1;
-	my $match_table = $self->_get_match_joined_table;
 	my $match       = $self->_get_match_criteria;
 	my $view        = $self->{'system'}->{'view'};
 
@@ -541,7 +486,7 @@ sub _update {
 		my $delete_args          = [];
 		my @id_args              = ($id1);
 		push @id_args, $id2 if $id->{'field2'} ne '<none>';
-		my $isolate_id = $self->{'datastore'}->run_query( "SELECT $view.id FROM $match_table WHERE $match", \@id_args );
+		my $isolate_id = $self->{'datastore'}->run_query( "SELECT $view.id FROM $view WHERE $match", \@id_args );
 
 		if ($is_locus) {
 			my $data = $self->_prepare_allele_designation_update( $isolate_id, $field, $value, $deleted_designations );
@@ -550,38 +495,19 @@ sub _update {
 			my $data = $self->_prepare_eav_update( $isolate_id, $field, $value );
 			( $args, $qry, $old_value ) = @{$data}{qw(args qry old_value)};
 		} else {
-			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 			push @$args, ( ( $value // '' ) eq '' ? undef : $value );
-			if ( defined $metaset ) {
-				my $record_exists = $self->{'datastore'}->run_query(
-					"SELECT EXISTS(SELECT * FROM meta_$metaset WHERE isolate_id IN "
-					  . "(SELECT $view.id FROM $match_table WHERE $match))",
-					\@id_args
-				);
-				if ($record_exists) {
-					$qry = "UPDATE meta_$metaset SET $metafield=? WHERE isolate_id=?";
-				} else {
-					$qry = "INSERT INTO meta_$metaset ($metafield, isolate_id) VALUES (?,?)";
-				}
-				push @$args, $isolate_id;
-				$old_value =
-				  $self->{'datastore'}
-				  ->run_query( "SELECT $metafield FROM meta_$metaset WHERE isolate_id=?", $isolate_id );
-			} else {
-				$qry =
-				    "UPDATE isolates SET ($field,datestamp,curator)=(?,?,?) WHERE id IN "
-				  . "(SELECT $view.id FROM $match_table WHERE $match)";
-				push @$args, ( 'now', $curator_id, @id_args );
-				my $id_qry = $qry;
-				$id_qry =~ s/UPDATE\ isolates\ .*?\ WHERE/SELECT id,$field FROM isolates WHERE/x;
-				( $isolate_id, $old_value ) = $self->{'datastore'}->run_query( $id_qry, \@id_args );
-			}
+			$qry =
+			    "UPDATE isolates SET ($field,datestamp,curator)=(?,?,?) WHERE id IN "
+			  . "(SELECT $view.id FROM $view WHERE $match)";
+			push @$args, ( 'now', $curator_id, @id_args );
+			my $id_qry = $qry;
+			$id_qry =~ s/UPDATE\ isolates\ .*?\ WHERE/SELECT id,$field FROM isolates WHERE/x;
+			( $isolate_id, $old_value ) = $self->{'datastore'}->run_query( $id_qry, \@id_args );
 		}
 		$tablebuffer .= qq(<tr class="td$td"><td>$id->{'field1'}='$id1');
 		$tablebuffer .= qq( AND $id->{'field2'}='$id2') if $id->{'field2'} ne '<none>';
 		$value //= q(&lt;blank&gt;);
-		( my $display_field = $field ) =~ s/^meta_.*://x;
-		$tablebuffer .= qq(</td><td>$display_field</td><td>$value</td>);
+		$tablebuffer .= qq(</td><td>$field</td><td>$value</td>);
 		eval {
 			if ($delete_qry) {
 				$self->{'db'}->do( $delete_qry, undef, @$delete_args );
@@ -597,21 +523,20 @@ sub _update {
 			$tablebuffer .= qq(<td class="statusgood">done!</td></tr>\n);
 			$old_value //= '';
 			$value = '' if $value eq '&lt;blank&gt;';
-			( my $display_field = $field ) =~ s/^meta_.*://x;
 			if ($is_locus) {
 				if ( $q->param('designations') eq 'replace' ) {
 					my $plural = @$deleted_designations == 1 ? '' : 's';
 					local $" = ',';
 					$self->update_history( $isolate_id,
-						"$display_field: designation$plural '@$deleted_designations' deleted" )
+						"$field: designation$plural '@$deleted_designations' deleted" )
 					  if @$deleted_designations;
 				}
-				$self->update_history( $isolate_id, "$display_field: new designation '$value'" );
+				$self->update_history( $isolate_id, "$field: new designation '$value'" );
 			} else {
 				if ( $field eq 'id' ) {
 					$isolate_id = $value;
 				}
-				$self->update_history( $isolate_id, "$display_field: '$old_value' -> '$value'" )
+				$self->update_history( $isolate_id, "$field: '$old_value' -> '$value'" )
 				  if $old_value ne $value;
 			}
 		}

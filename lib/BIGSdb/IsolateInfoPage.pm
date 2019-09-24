@@ -843,7 +843,6 @@ sub get_isolate_record {
 		$logger->error("Record $id does not exist");
 		BIGSdb::Exception::Database::NoRecord->throw("Record $id does not exist");
 	}
-	$self->add_existing_metadata_to_hashref($data);
 	$buffer .= q(<div class="scrollable">);
 	if ( $summary_view == LOCUS_SUMMARY ) {
 		$buffer .= $self->_get_tree($id);
@@ -880,9 +879,8 @@ sub _get_provenance_fields {
 	my $list          = [];
 	my $q             = $self->{'cgi'};
 	my $set_id        = $self->get_set_id;
-	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => $self->{'curate'} } );
 	my $is_curator    = $self->is_curator;
-	my $field_list    = $self->{'xmlHandler'}->get_field_list( $metadata_list, { no_curate_only => !$is_curator } );
+	my $field_list    = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
 	my ( %composites, %composite_display_pos );
 	my $composite_data =
 	  $self->{'datastore'}
@@ -899,9 +897,7 @@ sub _get_provenance_fields {
 			undef, { fetch => 'col_arrayref' } );
 	}
 	foreach my $field (@$field_list) {
-		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-		my $displayfield = $metafield // $field;
-		$displayfield .= qq( <span class="metaset">Metadata: $metaset</span>) if !$set_id && defined $metaset;
+		my $displayfield = $field;
 		$displayfield =~ tr/_/ /;
 		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 		local $" = q(; );

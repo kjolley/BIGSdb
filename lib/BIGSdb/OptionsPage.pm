@@ -150,8 +150,7 @@ sub _set_isolate_options {
 	}
 	my $set_id         = $self->get_set_id;
 	my $extended       = $self->get_extended_attributes;
-	my $metadata_list  = $self->{'datastore'}->get_set_metadata($set_id);
-	my $field_list     = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $field_list     = $self->{'xmlHandler'}->get_field_list;
 	my $eav_field_list = $self->{'datastore'}->get_eav_fieldnames;
 	foreach my $field (@$field_list) {
 		next if $field eq 'id';
@@ -388,11 +387,10 @@ sub _print_main_results_field_options {
 	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=)
 	  . q(scheme_fields">scheme field</a> query and then selecting the 'Customize' option.</p>);
 	say q(<div class="scrollable">);
-	my $set_id        = $self->get_set_id;
-	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
-	my $is_curator    = $self->is_curator;
+	my $set_id     = $self->get_set_id;
+	my $is_curator = $self->is_curator;
 	my $field_list =
-	  $self->{'xmlHandler'}->get_field_list( $metadata_list, { no_curate_only => !$is_curator } );
+	  $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
 	my ( @js, @js2, @js3, %composites, %composite_display_pos, %composite_main_display );
 	my $comp_data = $self->{'datastore'}->run_query( 'SELECT id,position_after,main_display FROM composite_fields',
 		undef, { fetch => 'all_arrayref', slice => {} } );
@@ -405,7 +403,6 @@ sub _print_main_results_field_options {
 	say q(<div id="provenance_field_display">);
 	say q(<ul>);
 	foreach my $field (@$field_list) {
-		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 		if ( $field ne 'id' ) {
 			say q(<li>);
 			( my $id = "field_$field" ) =~ tr/:/_/;
@@ -414,7 +411,7 @@ sub _print_main_results_field_options {
 				-id      => $id,
 				-checked => $prefs->{'maindisplayfields'}->{$field},
 				-value   => 'checked',
-				-label   => $metafield // $field
+				-label   => $field
 			);
 			say q(</li>);
 			push @js,  qq(\$("#$id").prop("checked",true));
@@ -541,10 +538,10 @@ sub _print_isolate_query_fields_options {
 	  . q(interface.</p>);
 	say q(<div class="scrollable">);
 	say q(<div id="dropdown_query_filters">);
-	my $set_id        = $self->get_set_id;
-	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
-	my $is_curator    = $self->is_curator;
-	my $field_list  = $self->{'xmlHandler'}->get_field_list( $metadata_list, { no_curate_only => !$is_curator } );
+	my $set_id     = $self->get_set_id;
+	my $is_curator = $self->is_curator;
+	my $field_list =
+	  $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
 	my @checkfields = @$field_list;
 	my %labels;
 
@@ -561,7 +558,6 @@ sub _print_isolate_query_fields_options {
 	say q(<div><ul>);
 	foreach my $field (@checkfields) {
 		next if $field eq 'id';
-		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 		( my $id = "dropfield_$field" ) =~ tr/:/_/;
 		say q(<li>);
 		say $q->checkbox(
@@ -569,7 +565,7 @@ sub _print_isolate_query_fields_options {
 			-id      => $id,
 			-checked => $prefs->{'dropdownfields'}->{$field},
 			-value   => 'checked',
-			-label   => $labels{$field} || ( $metafield // $field )
+			-label   => $labels{$field} || $field
 		);
 		say q(</li>);
 		push @js,  qq(\$("#$id").prop("checked",true));

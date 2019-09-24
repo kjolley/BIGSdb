@@ -34,7 +34,7 @@ sub get_attributes {
 		description => 'Display description of fields defined for the current database',
 		menutext    => 'Description of database fields',
 		module      => 'DatabaseFields',
-		version     => '1.0.6',
+		version     => '1.0.7',
 		section     => 'miscellaneous',
 		order       => 10,
 		dbtype      => 'isolates'
@@ -72,17 +72,13 @@ sub _print_fields {
 	my ($self)        = @_;
 	my $q             = $self->{'cgi'};
 	my $set_id        = $self->get_set_id;
-	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
 	my $is_curator    = $self->is_curator;
-	my $field_list = $self->{'xmlHandler'}->get_field_list( $metadata_list, { no_curate_only => !$is_curator } );
+	my $field_list = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
 	my $td = 1;
 	foreach my $field (@$field_list) {
-		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 		$thisfield->{'comments'} //= '';
-		say qq(<tr class="td$td"><td>)
-		  . ( $metafield // $field )
-		  . qq(</td><td>$thisfield->{'comments'}</td><td>$thisfield->{'type'}</td>);
+		say qq(<tr class="td$td"><td>$field</td><td>$thisfield->{'comments'}</td><td>$thisfield->{'type'}</td>);
 		say q(<td>);
 		$self->_print_allowed_values($field);
 		say q(</td>);

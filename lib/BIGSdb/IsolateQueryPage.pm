@@ -479,8 +479,8 @@ sub _modify_query_by_list {
 	my $q = $self->{'cgi'};
 	return $qry if !$q->param('list');
 	my $attribute_data = $self->_get_list_attribute_data( scalar $q->param('attribute') );
-	my ( $field, $extended_field, $scheme_id, $field_type, $data_type, $meta_set, $meta_field, $eav_table ) =
-	  @{$attribute_data}{qw (field extended_field scheme_id field_type data_type meta_set meta_field eav_table)};
+	my ( $field, $extended_field, $scheme_id, $field_type, $data_type, $eav_table ) =
+	  @{$attribute_data}{qw (field extended_field scheme_id field_type data_type eav_table)};
 	return $qry if !$field;
 	my @list = split /\n/x, $q->param('list');
 	BIGSdb::Utils::remove_trailing_spaces_from_list( \@list );
@@ -508,9 +508,6 @@ sub _modify_query_by_list {
 		phenotypic => "$view.id IN (SELECT isolate_id FROM $eav_table WHERE field=E'$field' AND "
 		  . ( $data_type eq 'text' ? 'UPPER(value)' : 'value' )
 		  . ' IN (SELECT value FROM temp_list))',
-		metafield => "$view.id IN (SELECT isolate_id FROM meta_$meta_set WHERE "
-		  . ( $data_type eq 'text' ? "UPPER($meta_field)" : $meta_field )
-		  . ' IN (SELECT value FROM temp_list))',
 		extended_isolate => "$view.$extended_field IN (SELECT field_value FROM isolate_value_extended_attributes "
 		  . "WHERE isolate_field='$extended_field' AND attribute='$field' AND "
 		  . ( $data_type eq 'text' ? 'UPPER(value)' : 'value' )
@@ -533,7 +530,7 @@ sub _modify_query_by_list {
 sub _get_list_attribute_data {
 	my ( $self, $attribute ) = @_;
 	my $pattern = LOCUS_PATTERN;
-	my ( $field, $extended_field, $scheme_id, $field_type, $data_type, $meta_set, $meta_field, $eav_table );
+	my ( $field, $extended_field, $scheme_id, $field_type, $data_type, $eav_table );
 	if ( $attribute =~ /^s_(\d+)_(\S+)$/x ) {    ## no critic (ProhibitCascadingIfElse)
 		$scheme_id  = $1;
 		$field      = $2;
@@ -549,8 +546,7 @@ sub _get_list_attribute_data {
 		$field =~ s/\'/\\'/gx;
 	} elsif ( $attribute =~ /^f_(\S+)$/x ) {
 		$field = $1;
-		( $meta_set, $meta_field ) = $self->get_metaset_and_fieldname($field);
-		$field_type = defined $meta_set ? 'metafield' : 'provenance';
+		$field_type = 'provenance';
 		$field_type = 'labelfield'
 		  if $field_type eq 'provenance' && $field eq $self->{'system'}->{'labelfield'};
 		return if !$self->{'xmlHandler'}->is_field($field);
@@ -569,16 +565,14 @@ sub _get_list_attribute_data {
 		$data_type      = 'text';
 		$field_type     = 'extended_isolate';
 	}
-	$_ //= q() foreach ( $eav_table, $extended_field, $meta_set, $meta_field );
+	$_ //= q() foreach ( $eav_table, $extended_field );
 	return {
 		field          => $field,
 		eav_table      => $eav_table,
 		extended_field => $extended_field,
 		scheme_id      => $scheme_id,
 		field_type     => $field_type,
-		data_type      => $data_type,
-		meta_set       => $meta_set,
-		meta_field     => $meta_field
+		data_type      => $data_type
 	};
 }
 
@@ -770,8 +764,7 @@ sub _get_field_filters {
 	my $filters       = [];
 	my $extended      = $self->get_extended_attributes;
 	my $set_id        = $self->get_set_id;
-	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
-	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $field_list    = $self->{'xmlHandler'}->get_field_list;
 	foreach my $field (@$field_list) {
 		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 		my $dropdownlist;
@@ -783,7 +776,6 @@ sub _get_field_filters {
 			{
 				push @$filters, $self->get_user_filter($field);
 			} else {
-				my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
 				if ( $thisfield->{'optlist'} ) {
 					$dropdownlist = $self->{'xmlHandler'}->get_field_option_list($field);
 					$dropdownlabels{$_} = $_ foreach (@$dropdownlist);
@@ -793,14 +785,6 @@ sub _get_field_filters {
 						push @$dropdownlist, 'null';
 						$dropdownlabels{'null'} = '[null]';
 					}
-				} elsif ( defined $metaset ) {
-					my $list = $self->{'datastore'}->run_query(
-						"SELECT DISTINCT($metafield) FROM meta_$metaset WHERE isolate_id "
-						  . "IN (SELECT id FROM $self->{'system'}->{'view'})",
-						undef,
-						{ fetch => 'col_arrayref' }
-					);
-					push @$dropdownlist, @$list;
 				} else {
 					my $list = $self->{'datastore'}->run_query(
 						"SELECT DISTINCT($field) FROM $self->{'system'}->{'view'} "
@@ -811,13 +795,12 @@ sub _get_field_filters {
 					push @$dropdownlist, @$list;
 				}
 				my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/x ? 'an' : 'a';
-				my $display_field = $metafield // $field;
+				my $display_field = $field;
 				push @$filters,
 				  $self->get_filter(
 					$field,
 					$dropdownlist,
 					{
-						text => $metafield // undef,
 						labels => \%dropdownlabels,
 						tooltip =>
 						  "$display_field filter - Select $a_or_an $display_field to filter your search to only those "
@@ -1198,7 +1181,7 @@ sub get_hidden_attributes {
 		  "allele_status_value$row", "allele_count_field$row", "allele_count_operator$row",
 		  "allele_count_value$row", "tag_count_field$row", "tag_count_operator$row", "tag_count_value$row";
 	}
-	foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list() } ) {
+	foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list } ) {
 		push @hidden_attributes, "${field}_list";
 		my $extatt = $extended->{$field};
 		if ( ref $extatt eq 'ARRAY' ) {
@@ -1463,35 +1446,19 @@ sub _provenance_equals_type_operator {
 		  . "$view.id $not IN (SELECT isolate_id FROM isolate_aliases WHERE "
 		  . "UPPER(alias) = UPPER(E'$text')))";
 	} else {
-		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-		if ( defined $metaset ) {
-			my $andor = $not ? 'AND' : 'OR';
+		my $null_clause = $values->{'not'} ? "OR $field IS NULL" : '';
+		if ( lc($type) eq 'text' ) {
 			if ( lc($text) eq 'null' ) {
-				$buffer .=
-				    "$view.id $not IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield IS NULL) $andor id "
-				  . "$inv_not IN (SELECT isolate_id FROM meta_$metaset)";
+				$buffer .= "$field IS $not null";
 			} else {
-				$buffer .=
-				  lc($type) eq 'text'
-				  ? "$view.id $not IN (SELECT isolate_id FROM meta_$metaset WHERE UPPER($metafield) = "
-				  . "UPPER(E'$text') )"
-				  : "$view.id $not IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield = E'$text' )";
+				if ($multiple) {
+					$buffer .= "(($not E'$text' ILIKE ANY($field)) $null_clause)";
+				} else {
+					$buffer .= "(($not UPPER($field) = UPPER(E'$text')) $null_clause)";
+				}
 			}
 		} else {
-			my $null_clause = $values->{'not'} ? "OR $field IS NULL" : '';
-			if ( lc($type) eq 'text' ) {
-				if ( lc($text) eq 'null' ) {
-					$buffer .= "$field IS $not null";
-				} else {
-					if ($multiple) {
-						$buffer .= "(($not E'$text' ILIKE ANY($field)) $null_clause)";
-					} else {
-						$buffer .= "(($not UPPER($field) = UPPER(E'$text')) $null_clause)";
-					}
-				}
-			} else {
-				$buffer .= ( lc($text) eq 'null' ? "$field IS $not null" : "($not ($field = E'$text') $null_clause)" );
-			}
+			$buffer .= ( lc($text) eq 'null' ? "$field IS $not null" : "($not ($field = E'$text') $null_clause)" );
 		}
 	}
 	return $buffer;
@@ -1520,19 +1487,11 @@ sub _provenance_like_type_operator {
 		$buffer .= "($not $field ILIKE E'$text' $andor $view.id $not IN "
 		  . "(SELECT isolate_id FROM isolate_aliases WHERE alias ILIKE E'$text'))";
 	} else {
-		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-		if ( defined $metaset ) {
-			$buffer .=
-			  lc($type) eq 'text'
-			  ? "$view.id $not IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield ILIKE E'$text')"
-			  : "$view.id $not IN (SELECT isolate_id FROM meta_$metaset WHERE CAST($metafield AS text) LIKE E'$text')";
+		my $null_clause = $values->{'not'} ? "OR $field IS NULL" : '';
+		if ( $type ne 'text' ) {
+			$buffer .= "($not CAST($field AS text) LIKE E'$text' $null_clause)";
 		} else {
-			my $null_clause = $values->{'not'} ? "OR $field IS NULL" : '';
-			if ( $type ne 'text' ) {
-				$buffer .= "($not CAST($field AS text) LIKE E'$text' $null_clause)";
-			} else {
-				$buffer .= "($not $field ILIKE E'$text' $null_clause)";
-			}
+			$buffer .= "($not $field ILIKE E'$text' $null_clause)";
 		}
 	}
 	return $buffer;
@@ -1560,12 +1519,7 @@ sub _provenance_ltmt_type_operator {
 			push @$errors, "$operator is not a valid operator for comparing null values.";
 			return q();
 		}
-		my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname( $values->{'field'} );
-		if ( defined $metaset ) {
-			$buffer .= "$view.id IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield $operator E'$text')";
-		} else {
-			$buffer .= "$field $operator E'$text'";
-		}
+		$buffer .= "$field $operator E'$text'";
 	}
 	return $buffer;
 }
@@ -1575,8 +1529,7 @@ sub _modify_query_for_filters {
 	my $q             = $self->{'cgi'};
 	my $view          = $self->{'system'}->{'view'};
 	my $set_id        = $self->get_set_id;
-	my $metadata_list = $self->{'datastore'}->get_set_metadata($set_id);
-	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $field_list    = $self->{'xmlHandler'}->get_field_list;
 	foreach my $field (@$field_list) {
 		if ( defined $q->param("$field\_list") && $q->param("$field\_list") ne '' ) {
 			my $value = $q->param("$field\_list");
@@ -1585,21 +1538,11 @@ sub _modify_query_for_filters {
 			} else {
 				$qry = "SELECT * FROM $view WHERE ";
 			}
-			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-			if ( defined $metaset ) {
-				$qry .= (
-					( $value eq '<blank>' || lc($value) eq 'null' )
-					? "($view.id IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield IS NULL) OR $view.id "
-					  . "NOT IN (SELECT isolate_id FROM meta_$metaset))"
-					: "($view.id IN (SELECT isolate_id FROM meta_$metaset WHERE $metafield = E'$value'))"
-				);
-			} else {
-				$qry .= (
-					( $value eq '<blank>' || lc($value) eq 'null' )
-					? "$view.$field is null"
-					: "$view.$field = '$value'"
-				);
-			}
+			$qry .= (
+				( $value eq '<blank>' || lc($value) eq 'null' )
+				? "$view.$field is null"
+				: "$view.$field = '$value'"
+			);
 		}
 		my $extatt = $extended->{$field};
 		if ( ref $extatt eq 'ARRAY' ) {

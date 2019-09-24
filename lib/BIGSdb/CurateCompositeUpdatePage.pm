@@ -374,7 +374,7 @@ sub _edit_field {
 		my $is_isolate_field = 0;
 		my @field_list;
 		my %cleaned;
-		foreach ( @{ $self->{'xmlHandler'}->get_field_list() } ) {
+		foreach ( @{ $self->{'xmlHandler'}->get_field_list } ) {
 			if ( $_ eq $field_value ) {
 				$is_isolate_field = 1;
 			}

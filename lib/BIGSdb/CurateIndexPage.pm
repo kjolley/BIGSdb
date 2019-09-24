@@ -1640,23 +1640,6 @@ sub _get_sets {
 		$buffer .= qq(</div>\n);
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		my $metadata_list = $self->{'xmlHandler'}->get_metadata_list;
-		if (@$metadata_list) {
-			$buffer .= q(<div class="curategroup curategroup_sets grid-item set_admin" )
-			  . qq(style="display:$self->{'optional_set_admin_display'}"><h2>Set metadata</h2>);
-			$buffer .= $self->_get_icon_group(
-				'set_metadata',
-				'object-group',
-				{
-					fa_class  => 'far',
-					add       => 1,
-					batch_add => 1,
-					query     => 1,
-					info      => 'Set metadata - Add metadata collection to sets.'
-				}
-			);
-			$buffer .= qq(</div>\n);
-		}
 		if ( $self->{'system'}->{'views'} ) {
 			$buffer .= q(<div class="curategroup curategroup_sets grid-item set_admin" )
 			  . qq(style="display:$self->{'optional_set_admin_display'}"><h2>Set views</h2>);

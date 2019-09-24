@@ -130,7 +130,7 @@ sub get_attributes {
 		menutext    => 'Codon usage',
 		module      => 'CodonUsage',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/codon_usage.html",
-		version     => '1.2.9',
+		version     => '1.2.10',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -206,8 +206,13 @@ sub run {
 	  . q[of codons can only be achieved for loci for which the correct ORF has been set (if they are not ]
 	  . q[in reading frame 1).  Partial sequnces from the sequence bin will not be analysed. Please check ]
 	  . qq[the loci that you would like to include. Output is limited to $limit records.</p>];
-	my $options =
-	  { default_select => 0, translate => 0, options_heading => 'Sequence retrieval', ignore_seqflags => 1 };
+	my $options = {
+		default_select  => 0,
+		translate       => 0,
+		options_heading => 'Sequence retrieval',
+		ignore_seqflags => 1,
+		no_includes     => 1
+	};
 	my $query_file = $q->param('query_file');
 	my $list = $self->get_id_list( 'id', $query_file );
 	$self->print_sequence_export_form( 'id', $list, undef, $options );
@@ -237,25 +242,20 @@ sub run_job {
 	my $number_by_isolate = "$self->{'config'}->{'tmp_dir'}/${job_id}_number_by_isolate.txt";
 	my $rscu_by_locus     = "$self->{'config'}->{'tmp_dir'}/${job_id}_rscu_by_locus.txt";
 	my $number_by_locus   = "$self->{'config'}->{'tmp_dir'}/${job_id}_number_by_locus.txt";
-	my @includes;
-	if ( $params->{'includes'} ) {
-		my $separator = '\|\|';
-		@includes = split /$separator/x, $params->{'includes'};
-	}
-	my $start         = 1;
-	my $no_output     = 1;
-	my $list          = $self->{'jobManager'}->get_job_isolates($job_id);
-	my $loci          = $self->{'jobManager'}->get_job_loci($job_id);
-	my $selected_loci = $self->order_loci($loci);
-	my $limit         = $self->{'system'}->{'codon_usage_limit'} // DEFAULT_LIMIT;
+	my $start             = 1;
+	my $no_output         = 1;
+	my $list              = $self->{'jobManager'}->get_job_isolates($job_id);
+	my $loci              = $self->{'jobManager'}->get_job_loci($job_id);
+	my $selected_loci     = $self->order_loci($loci);
+	my $limit             = $self->{'system'}->{'codon_usage_limit'} // DEFAULT_LIMIT;
 	if ( @$list > $limit ) {
 		my $message_html =
 		  qq(<p class="statusbad">Please note that output is limited to the first $limit records.</p>\n);
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
 	}
-	my $data = $self->_calculate( $job_id, $selected_loci, $list, \@includes, $params );
-	my ( $bad_ids, $includes_by_id, $locus_codon_count, $locus_aa_count, $total_codon_count, $total_aa_count ) =
-	  @{$data}{qw(bad_ids includes_by_id locus_codon_count locus_aa_count total_codon_count total_aa_count)};
+	my $data = $self->_calculate( $job_id, $selected_loci, $list, $params );
+	my ( $bad_ids, $locus_codon_count, $locus_aa_count, $total_codon_count, $total_aa_count ) =
+	  @{$data}{qw(bad_ids locus_codon_count locus_aa_count total_codon_count total_aa_count)};
 	my $message_html;
 	local $" = "\t";
 	my @codons = $self->_get_codons;
@@ -280,9 +280,8 @@ sub run_job {
 		$count++;
 		next if $bad_ids->{$id};
 		$no_output = 0;
-		$includes_by_id->{$id} ||= '';
-		print $fh_rscu_by_isolate "$id$includes_by_id->{$id}";
-		print $fh_number_by_isolate "$id$includes_by_id->{$id}";
+		print $fh_rscu_by_isolate "$id";
+		print $fh_number_by_isolate "$id";
 		foreach my $codon (@codons) {
 			$total_codon_count->{$id}->{$codon} ||= 0;
 			my $aa = $translate{$codon};
@@ -370,11 +369,10 @@ sub run_job {
 }
 
 sub _calculate {
-	my ( $self, $job_id, $loci, $ids, $includes, $params ) = @_;
+	my ( $self, $job_id, $loci, $ids, $params ) = @_;
 	my $progress = 0;
 	my $limit = $self->{'system'}->{'codon_usage_limit'} // DEFAULT_LIMIT;
 	my %bad_ids;
-	my %includes_by_id;
 	my ( $locus_codon_count, $locus_aa_count, $total_codon_count, $total_aa_count );
 	foreach my $locus_name (@$loci) {
 		my $locus;
@@ -397,7 +395,6 @@ sub _calculate {
 		foreach my $id (@$ids) {
 			last if $count == $limit;
 			$count++;
-			my @include_values;
 			next if $bad_ids{$id};
 			my $id_exists =
 			  $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)",
@@ -405,23 +402,6 @@ sub _calculate {
 			if ( !$id_exists ) {
 				$bad_ids{$id} = 1;
 				next;
-			}
-			if (@$includes) {
-				my $include_data =
-				  $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?",
-					$id, { fetch => 'row_hashref', cache => 'CodonUsage::run_job_includes' } );
-				foreach my $field (@$includes) {
-					my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-					my $value;
-					if ( defined $metaset ) {
-						$value = $self->{'datastore'}->get_metadata_value( $id, $metaset, $metafield );
-					} else {
-						$value = $include_data->{$field} // '';
-					}
-					$value =~ tr/ /_/;
-					push @include_values, $value;
-					$includes_by_id{$id} = "|@include_values";
-				}
 			}
 			my $allele_ids = $self->{'datastore'}->get_allele_ids( $id, $locus_name );
 			my $allele_seq;
@@ -433,7 +413,7 @@ sub _calculate {
 					}
 					catch {
 						#do nothing
-					}; 
+					};
 				}
 			}
 			my $seqbin_seq;
@@ -495,7 +475,6 @@ sub _calculate {
 	}
 	return {
 		bad_ids           => \%bad_ids,
-		includes_by_ids   => \%includes_by_id,
 		locus_codon_count => $locus_codon_count,
 		locus_aa_count    => $locus_aa_count,
 		total_codon_count => $total_codon_count,

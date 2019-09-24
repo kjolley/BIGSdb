@@ -437,7 +437,7 @@ sub _get_optlist_field {
 	return q() if !$att->{'optlist'};
 	my @optlist;
 	if ( $att->{'optlist'} eq 'isolate_fields' ) {
-		@optlist = @{ $self->{'xmlHandler'}->get_field_list() };
+		@optlist = @{ $self->{'xmlHandler'}->get_field_list };
 	} else {
 		@optlist = split /;/x, $att->{'optlist'};
 	}

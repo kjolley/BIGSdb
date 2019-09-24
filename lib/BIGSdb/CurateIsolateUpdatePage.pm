@@ -90,7 +90,6 @@ sub print_content {
 	eval { $sql->execute($isolate_id) };
 	$logger->error($@) if $@;
 	my $data = $sql->fetchrow_hashref;
-	$self->add_existing_metadata_to_hashref($data);
 	$self->add_existing_eav_data_to_hashref($data);
 	if ( !$data->{'id'} ) {
 		my $exists_in_isolates_table =
@@ -125,15 +124,11 @@ sub _check {
 	my $newdata = {};
 	my @bad_field_buffer;
 	my $set_id        = $self->get_set_id;
-	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
-	my $field_list    = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $field_list    = $self->{'xmlHandler'}->get_field_list;
 	foreach my $required ( 1, 0 ) {
 		foreach my $field (@$field_list) {
 			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 			my $required_field = !( ( $thisfield->{'required'} // '' ) eq 'no' );
-			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-			$required_field = 0
-			  if !$set_id && defined $metaset;    #Field can't be compulsory if part of a metadata collection.
 			if ( $required_field == $required ) {
 				if ( $field eq 'curator' ) {
 					$newdata->{$field} = $self->get_curator_id;
@@ -145,7 +140,7 @@ sub _check {
 				my $bad_field =
 				  $self->{'submissionHandler'}->is_field_bad( 'isolates', $field, $newdata->{$field}, undef, $set_id );
 				if ($bad_field) {
-					push @bad_field_buffer, q(Field ') . ( $metafield // $field ) . qq(': $bad_field.);
+					push @bad_field_buffer, qq(Field '$field': $bad_field.);
 				}
 			}
 		}
@@ -164,8 +159,8 @@ sub _check {
 		push @bad_field_buffer, 'Aliases: duplicate isolate name - aliases are ALTERNATIVE names for the isolate.';
 	}
 	my $validation_failures = $self->{'submissionHandler'}->run_validation_checks($newdata);
-	if (@$validation_failures){
-		push @bad_field_buffer,@$validation_failures;
+	if (@$validation_failures) {
+		push @bad_field_buffer, @$validation_failures;
 	}
 	$self->{'submissionHandler'}->cleanup_validation_rules;
 	if (@bad_field_buffer) {
@@ -191,9 +186,7 @@ sub _update {
 	local $" = ',';
 	my $updated_field = [];
 	my $set_id        = $self->get_set_id;
-	my $meta_fields;
-	my $metadata_list = $self->{'datastore'}->get_set_metadata( $set_id, { curate => 1 } );
-	my $field_list = $self->{'xmlHandler'}->get_field_list($metadata_list);
+	my $field_list = $self->{'xmlHandler'}->get_field_list;
 
 	foreach my $field (@$field_list) {
 		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
@@ -204,19 +197,14 @@ sub _update {
 		}
 		if ( ( $data->{ lc($field) } // q() ) ne ( $newdata->{$field} // q() ) ) {
 			my $cleaned = $self->clean_value( $newdata->{$field}, { no_escape => 1 } ) // '';
-			my ( $metaset, $metafield ) = $self->get_metaset_and_fieldname($field);
-			if ( defined $metaset ) {
-				push @{ $meta_fields->{$metaset} }, $metafield;
+			if ( $cleaned ne '' ) {
+				$qry .= "$field=?,";
+				push @values, $cleaned;
 			} else {
-				if ( $cleaned ne '' ) {
-					$qry .= "$field=?,";
-					push @values, $cleaned;
-				} else {
-					$qry .= "$field=null,";
-				}
-				if ( $field ne 'datestamp' && $field ne 'curator' ) {
-					push @$updated_field, "$field: '$data->{lc($field)}' -> '$newdata->{$field}'";
-				}
+				$qry .= "$field=null,";
+			}
+			if ( $field ne 'datestamp' && $field ne 'curator' ) {
+				push @$updated_field, "$field: '$data->{lc($field)}' -> '$newdata->{$field}'";
 			}
 		}
 	}
@@ -225,7 +213,6 @@ sub _update {
 		$qry = "UPDATE isolates SET $qry WHERE id=?";
 		push @values, $data->{'id'};
 	}
-	my $metadata_updates = $self->_prepare_metaset_updates( $meta_fields, $data, $newdata, $updated_field );
 	my $eav_updates = $self->_prepare_eav_updates( $data->{'id'}, $newdata, $updated_field );
 	my $alias_updates = $self->_prepare_alias_updates( $data->{'id'}, $newdata, $updated_field );
 	my ( $pubmed_updates, $error ) = $self->_prepare_pubmed_updates( $data->{'id'}, $newdata, $updated_field );
@@ -234,7 +221,7 @@ sub _update {
 		if (@$updated_field) {
 			eval {
 				$self->{'db'}->do( $qry, undef, @values );
-				foreach my $extra_update ( @$eav_updates, @$alias_updates, @$pubmed_updates, @$metadata_updates ) {
+				foreach my $extra_update ( @$eav_updates, @$alias_updates, @$pubmed_updates ) {
 					$self->{'db'}->do( $extra_update->{'statement'}, undef, @{ $extra_update->{'arguments'} } );
 				}
 			};
@@ -279,46 +266,6 @@ sub _update {
 	}
 	return;
 }
-
-sub _prepare_metaset_updates {
-	my ( $self, $meta_fields, $existing_data, $newdata, $updated_field ) = @_;
-	my @metasets = keys %$meta_fields;
-	my @updates;
-	foreach my $metaset (@metasets) {
-		my $metadata_record_exists =
-		  $self->{'datastore'}
-		  ->run_query( "SELECT EXISTS(SELECT * FROM meta_$metaset WHERE isolate_id=?)", $newdata->{'id'} );
-		my $fields = $meta_fields->{$metaset};
-		local $" = ',';
-		my $qry;
-		my @values;
-		if ($metadata_record_exists) {
-			my @placeholders = ('?') x @$fields;
-			$qry = "UPDATE meta_$metaset SET (@$fields) = (@placeholders)";
-		} else {
-			my @placeholders = ('?') x ( @$fields + 1 );
-			$qry = "INSERT INTO meta_$metaset (isolate_id,@$fields) VALUES (@placeholders)";
-			push @values, $newdata->{'id'};
-		}
-		foreach my $field (@$fields) {
-			my $cleaned = $self->clean_value( $newdata->{"meta_$metaset:$field"}, { no_escape => 1 } );
-			$cleaned = undef if $cleaned eq '';
-			push @values, $cleaned;
-			push @$updated_field,
-			    "$field: '"
-			  . $existing_data->{ lc("meta_$metaset:$field") }
-			  . q(' -> ')
-			  . $newdata->{"meta_$metaset:$field"} . q(');
-		}
-		if ($metadata_record_exists) {
-			$qry .= ' WHERE isolate_id=?';
-			push @values, $newdata->{'id'};
-		}
-		push @updates, { statement => $qry, arguments => \@values };
-	}
-	return \@updates;
-}
-
 sub _prepare_eav_updates {
 	my ( $self, $isolate_id, $newdata, $updated_field ) = @_;
 	my $q          = $self->{'cgi'};
