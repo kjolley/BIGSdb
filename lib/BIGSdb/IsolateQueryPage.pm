@@ -545,7 +545,7 @@ sub _get_list_attribute_data {
 		return if !$self->{'datastore'}->is_locus($field);
 		$field =~ s/\'/\\'/gx;
 	} elsif ( $attribute =~ /^f_(\S+)$/x ) {
-		$field = $1;
+		$field      = $1;
 		$field_type = 'provenance';
 		$field_type = 'labelfield'
 		  if $field_type eq 'provenance' && $field eq $self->{'system'}->{'labelfield'};
@@ -759,12 +759,12 @@ sub _get_private_data_filter {
 }
 
 sub _get_field_filters {
-	my ($self)        = @_;
-	my $prefs         = $self->{'prefs'};
-	my $filters       = [];
-	my $extended      = $self->get_extended_attributes;
-	my $set_id        = $self->get_set_id;
-	my $field_list    = $self->{'xmlHandler'}->get_field_list;
+	my ($self)     = @_;
+	my $prefs      = $self->{'prefs'};
+	my $filters    = [];
+	my $extended   = $self->get_extended_attributes;
+	my $set_id     = $self->get_set_id;
+	my $field_list = $self->{'xmlHandler'}->get_field_list;
 	foreach my $field (@$field_list) {
 		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 		my $dropdownlist;
@@ -1447,18 +1447,20 @@ sub _provenance_equals_type_operator {
 		  . "UPPER(alias) = UPPER(E'$text')))";
 	} else {
 		my $null_clause = $values->{'not'} ? "OR $field IS NULL" : '';
-		if ( lc($type) eq 'text' ) {
-			if ( lc($text) eq 'null' ) {
-				$buffer .= "$field IS $not null";
+		if ( lc($text) eq 'null' ) {
+			$buffer .= "$field IS $not null";
+		} elsif ( lc($type) eq 'text' ) {
+			if ($multiple) {
+				$buffer .= "(($not E'$text' ILIKE ANY($field)) $null_clause)";
 			} else {
-				if ($multiple) {
-					$buffer .= "(($not E'$text' ILIKE ANY($field)) $null_clause)";
-				} else {
-					$buffer .= "(($not UPPER($field) = UPPER(E'$text')) $null_clause)";
-				}
+				$buffer .= "(($not UPPER($field) = UPPER(E'$text')) $null_clause)";
 			}
 		} else {
-			$buffer .= ( lc($text) eq 'null' ? "$field IS $not null" : "($not ($field = E'$text') $null_clause)" );
+			if ($multiple) {
+				$buffer .= "(($not E'$text' = ANY($field)) $null_clause)";
+			} else {
+				$buffer .= "($not ($field = E'$text') $null_clause)";
+			}
 		}
 	}
 	return $buffer;
@@ -1466,8 +1468,8 @@ sub _provenance_equals_type_operator {
 
 sub _provenance_like_type_operator {
 	my ( $self, $values ) = @_;
-	my ( $field, $extended_isolate_field, $parent_field_type, $type ) =
-	  @$values{qw(field extended_isolate_field parent_field_type type)};
+	my ( $field, $extended_isolate_field, $parent_field_type, $type, $multiple ) =
+	  @$values{qw(field extended_isolate_field parent_field_type type multiple)};
 	my $buffer     = $values->{'modifier'};
 	my $view       = $self->{'system'}->{'view'};
 	my $labelfield = "$view.$self->{'system'}->{'labelfield'}";
@@ -1488,10 +1490,23 @@ sub _provenance_like_type_operator {
 		  . "(SELECT isolate_id FROM isolate_aliases WHERE alias ILIKE E'$text'))";
 	} else {
 		my $null_clause = $values->{'not'} ? "OR $field IS NULL" : '';
+		my $rand = 'x' . int( rand(99999999) );
 		if ( $type ne 'text' ) {
-			$buffer .= "($not CAST($field AS text) LIKE E'$text' $null_clause)";
+			if ($multiple) {
+				$buffer .=
+				    "($view.id $not IN (SELECT $view.id FROM $view,unnest($field) "
+				  . "$rand WHERE CAST($rand AS text) ILIKE E'$text') $null_clause)";
+			} else {
+				$buffer .= "($not CAST($field AS text) LIKE E'$text' $null_clause)";
+			}
 		} else {
-			$buffer .= "($not $field ILIKE E'$text' $null_clause)";
+			if ($multiple) {
+				$buffer .=
+				    "($view.id $not IN (SELECT $view.id FROM $view,unnest($field) "
+				  . "$rand WHERE $rand ILIKE E'$text') $null_clause)";
+			} else {
+				$buffer .= "($not $field ILIKE E'$text' $null_clause)";
+			}
 		}
 	}
 	return $buffer;
@@ -1499,8 +1514,8 @@ sub _provenance_like_type_operator {
 
 sub _provenance_ltmt_type_operator {
 	my ( $self, $values ) = @_;
-	my ( $field, $extended_isolate_field, $text, $parent_field_type, $operator, $errors ) =
-	  @$values{qw(field extended_isolate_field text parent_field_type operator errors)};
+	my ( $field, $extended_isolate_field, $text, $parent_field_type, $operator, $errors, $multiple ) =
+	  @$values{qw(field extended_isolate_field text parent_field_type operator errors multiple)};
 	my $buffer     = $values->{'modifier'};
 	my $view       = $self->{'system'}->{'view'};
 	my $labelfield = "$view.$self->{'system'}->{'labelfield'}";
@@ -1519,17 +1534,29 @@ sub _provenance_ltmt_type_operator {
 			push @$errors, "$operator is not a valid operator for comparing null values.";
 			return q();
 		}
-		$buffer .= "$field $operator E'$text'";
+		if ($multiple) {
+
+			#We have to write the query the other way round when using ARRAYs.
+			my %rev_operator = (
+				'>'  => '<',
+				'<'  => '>',
+				'>=' => '<=',
+				'<=' => '>='
+			);
+			$buffer .= "E'$text' $rev_operator{$operator} ANY($field)";
+		} else {
+			$buffer .= "$field $operator E'$text'";
+		}
 	}
 	return $buffer;
 }
 
 sub _modify_query_for_filters {
 	my ( $self, $qry, $extended ) = @_;    #extended: extended attributes hashref
-	my $q             = $self->{'cgi'};
-	my $view          = $self->{'system'}->{'view'};
-	my $set_id        = $self->get_set_id;
-	my $field_list    = $self->{'xmlHandler'}->get_field_list;
+	my $q          = $self->{'cgi'};
+	my $view       = $self->{'system'}->{'view'};
+	my $set_id     = $self->get_set_id;
+	my $field_list = $self->{'xmlHandler'}->get_field_list;
 	foreach my $field (@$field_list) {
 		if ( defined $q->param("$field\_list") && $q->param("$field\_list") ne '' ) {
 			my $value = $q->param("$field\_list");

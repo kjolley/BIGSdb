@@ -1167,11 +1167,14 @@ sub _check_isolate_integer {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 	my $thisfield = $self->{'cache'}->{'field_attributes'}->{$field};
 	$logger->error("$field attributes not cached") if !$thisfield;
 	return if $thisfield->{'type'} !~ /^int/x;
-	if ( !BIGSdb::Utils::is_int($value) ) { return 'must be an integer' }
-	elsif ( defined $thisfield->{'min'} && $value < $thisfield->{'min'} ) {
-		return "must be equal to or larger than $thisfield->{'min'}";
-	} elsif ( defined $thisfield->{'max'} && $value > $thisfield->{'max'} ) {
-		return "must be equal to or smaller than $thisfield->{'max'}";
+	my @values = ref $value ? @$value : ($value);
+	foreach my $this_value (@values) {
+		if ( !BIGSdb::Utils::is_int($this_value) ) { return 'must be an integer' }
+		elsif ( defined $thisfield->{'min'} && $this_value < $thisfield->{'min'} ) {
+			return "must be equal to or larger than $thisfield->{'min'}";
+		} elsif ( defined $thisfield->{'max'} && $this_value > $thisfield->{'max'} ) {
+			return "must be equal to or smaller than $thisfield->{'max'}";
+		}
 	}
 	return;
 }
@@ -1181,14 +1184,17 @@ sub _check_isolate_date {    ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 	my $thisfield = $self->{'cache'}->{'field_attributes'}->{$field};
 	$logger->error("$field attributes not cached") if !$thisfield;
 	return if $thisfield->{'type'} ne 'date';
-	if ( $thisfield->{'type'} eq 'date' && !BIGSdb::Utils::is_date($value) ) {
-		return 'must be a valid date in yyyy-mm-dd format';
-	}
-	if ( $thisfield->{'min'} && $value lt $thisfield->{'min'} ) {
-		return "must be $thisfield->{'min'} or later";
-	}
-	if ( $thisfield->{'max'} && $value gt $thisfield->{'max'} ) {
-		return "must be $thisfield->{'max'} or earlier";
+	my @values = ref $value ? @$value : ($value);
+	foreach my $this_value (@values) {
+		if ( $thisfield->{'type'} eq 'date' && !BIGSdb::Utils::is_date($this_value) ) {
+			return 'must be a valid date in yyyy-mm-dd format';
+		}
+		if ( $thisfield->{'min'} && $this_value lt $thisfield->{'min'} ) {
+			return "must be $thisfield->{'min'} or later";
+		}
+		if ( $thisfield->{'max'} && $this_value gt $thisfield->{'max'} ) {
+			return "must be $thisfield->{'max'} or earlier";
+		}
 	}
 	return;
 }
@@ -1198,12 +1204,15 @@ sub _check_isolate_float {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 	my $thisfield = $self->{'cache'}->{'field_attributes'}->{$field};
 	$logger->error("$field attributes not cached") if !$thisfield;
 	return if $thisfield->{'type'} ne 'float';
-	if ( $thisfield->{'type'} eq 'float' && !BIGSdb::Utils::is_float($value) ) {
-		return 'must be a floating point number';
-	} elsif ( defined $thisfield->{'min'} && $value < $thisfield->{'min'} ) {
-		return "must be equal to or larger than $thisfield->{'min'}";
-	} elsif ( defined $thisfield->{'max'} && $value > $thisfield->{'max'} ) {
-		return "must be equal to or smaller than $thisfield->{'max'}";
+	my @values = ref $value ? @$value : ($value);
+	foreach my $this_value (@values) {
+		if ( $thisfield->{'type'} eq 'float' && !BIGSdb::Utils::is_float($this_value) ) {
+			return 'must be a floating point number';
+		} elsif ( defined $thisfield->{'min'} && $this_value < $thisfield->{'min'} ) {
+			return "must be equal to or larger than $thisfield->{'min'}";
+		} elsif ( defined $thisfield->{'max'} && $this_value > $thisfield->{'max'} ) {
+			return "must be equal to or smaller than $thisfield->{'max'}";
+		}
 	}
 	return;
 }
