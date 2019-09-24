@@ -204,7 +204,7 @@ sub get_permissions_table_attributes {
 	  modify_usergroups set_user_passwords modify_loci modify_schemes modify_composites modify_field_attributes
 	  modify_value_attributes modify_sparse_fields modify_probes modify_experiments delete_all
 	  import_site_users modify_site_users only_private disable_access)
-	  : qw( query_users modify_users modify_usergroups set_user_passwords modify_loci modify_locus_descriptions 
+	  : qw( query_users modify_users modify_usergroups set_user_passwords modify_loci modify_locus_descriptions
 	  modify_schemes delete_all import_site_users modify_site_users disable_access );
 	local $" = ';';
 	my $attributes = [
@@ -1879,6 +1879,8 @@ sub get_isolate_field_extended_attributes_table_attributes {
 	my @select_fields;
 	foreach my $field (@$fields) {
 		next if any { $field eq $_ } qw (id date_entered datestamp sender curator comments);
+		my $field_att = $self->{'xmlHandler'}->get_field_attributes($field);
+		next if ( $field_att->{'multiple'} // q() ) eq 'yes';
 		push @select_fields, $field;
 	}
 	local $" = ';';
@@ -1921,10 +1923,11 @@ sub get_isolate_field_extended_attributes_table_attributes {
 
 sub get_isolate_value_extended_attributes_table_attributes {
 	my ($self) = @_;
-	my $fields = $self->{'xmlHandler'}->get_field_list;
+	my $fields =
+	  $self->run_query( 'SELECT DISTINCT isolate_field FROM isolate_field_extended_attributes ORDER BY isolate_field',
+		undef, { fetch => 'col_arrayref' } );
 	my @select_fields;
 	foreach my $field (@$fields) {
-		next if any { $field eq $_ } qw (id date_entered datestamp sender curator comments);
 		push @select_fields, $field;
 	}
 	my $attributes =
