@@ -583,14 +583,20 @@ sub _print_isolate_table {
 	$self->_print_isolate_table_header( $schemes, $qry_limit );
 	my $td = 1;
 	local $" = '=? AND ';
-	my $field_attributes;
-	$field_attributes->{$_} = $self->{'xmlHandler'}->get_field_attributes($_) foreach (@$fields);
+	my $field_attributes = {};
+	my $optlist          = {};
+
+	foreach my $field (@$fields) {
+		$field_attributes->{$field} = $self->{'xmlHandler'}->get_field_attributes($field);
+		if ( ( $field_attributes->{$field}->{'optlist'} // q() ) eq 'yes' ) {
+			$optlist->{$field} = $self->{'xmlHandler'}->get_field_option_list($field);
+		}
+	}
 	$self->{'scheme_loci'}->{0} = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
 	my $field_list =
 	  $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
 	local $| = 1;
 	my %id_used;
-
 	while ( $limit_sql->fetchrow_arrayref ) {
 
 		#Ordering by scheme field/locus can result in multiple rows per isolate if multiple values defined.
@@ -606,11 +612,15 @@ sub _print_isolate_table {
 					$self->_print_isolate_id_links( $id, \%data );
 				} elsif ( $thisfieldname eq 'sender'
 					|| $thisfieldname eq 'curator'
-					|| ( ( $field_attributes->{'thisfieldname'}->{'userfield'} // '' ) eq 'yes' ) )
+					|| ( ( $field_attributes->{$thisfieldname}->{'userfield'} // '' ) eq 'yes' ) )
 				{
 					my $user_info = $self->{'datastore'}->get_user_info( $data{$thisfieldname} );
 					print qq(<td>$user_info->{'first_name'} $user_info->{'surname'}</td>);
 				} else {
+					if ( $optlist->{$thisfieldname} && ref $data{$thisfieldname} ) {
+						$data{$thisfieldname} =
+						  BIGSdb::Utils::arbitrary_order_list( $optlist->{$thisfieldname}, $data{$thisfieldname} );
+					}
 					local $" = q(; );
 					my $value = ref $data{$thisfieldname} ? qq(@{$data{$thisfieldname}}) : $data{$thisfieldname};
 					$value //= q();
@@ -1768,7 +1778,7 @@ sub _print_publication_table {
 		$buffer .=
 		    qq(<tr class="td$td">)
 		  . qq(<td><a href="https://www.ncbi.nlm.nih.gov/pubmed/$refdata->{'pmid'}">$refdata->{'pmid'}</a></td>)
-		  . qq(<td>$refdata->{'year'}</td><td style=\"text-align:left">);
+		  . qq(<td>$refdata->{'year'}</td><td style="text-align:left">);
 		if ( !$refdata->{'authors'} && !$refdata->{'title'} ) {
 			$buffer .= qq(No details available.</td>\n);
 		} else {

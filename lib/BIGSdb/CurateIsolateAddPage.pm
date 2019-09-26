@@ -113,11 +113,11 @@ sub print_content {
 
 sub _check {
 	my ( $self, $newdata ) = @_;
-	my $q             = $self->{'cgi'};
-	my $set_id        = $self->get_set_id;
-	my $loci          = $self->{'datastore'}->get_loci( { query_pref => 1, set_id => $set_id } );
-	my $field_list    = $self->{'xmlHandler'}->get_field_list;
-	my $user_info     = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $q          = $self->{'cgi'};
+	my $set_id     = $self->get_set_id;
+	my $loci       = $self->{'datastore'}->get_loci( { query_pref => 1, set_id => $set_id } );
+	my $field_list = $self->{'xmlHandler'}->get_field_list;
+	my $user_info  = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	@$loci = uniq @$loci;
 	my @bad_field_buffer;
 	my $insert = 1;
@@ -135,7 +135,7 @@ sub _check {
 					$newdata->{$field} = BIGSdb::Utils::get_datestamp();
 				} else {
 					if ( ( $thisfield->{'multiple'} // q() ) eq 'yes' ) {
-						@{ $newdata->{$field} } = $q->multi_param($field);
+						$newdata->{$field} = scalar $q->multi_param($field) ? [ $q->multi_param($field) ] : q();
 					} else {
 						$newdata->{$field} = $q->param($field);
 					}
@@ -248,7 +248,6 @@ sub _insert {
 	my @fields_with_values;
 	my $field_list = $self->{'xmlHandler'}->get_field_list;
 	foreach my $field (@$field_list) {
-
 		if ( ( $newdata->{$field} // q() ) ne q() ) {
 			push @fields_with_values, $field;
 		}
@@ -512,10 +511,10 @@ sub _get_html5_args {
 sub print_provenance_form_elements {
 	my ( $self, $newdata, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $q             = $self->{'cgi'};
-	my $user_info     = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	my $set_id        = $self->get_set_id;
-	my $field_list    = $self->{'xmlHandler'}->get_field_list;
+	my $q          = $self->{'cgi'};
+	my $user_info  = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $set_id     = $self->get_set_id;
+	my $field_list = $self->{'xmlHandler'}->get_field_list;
 	say q(<fieldset style="float:left"><legend>Provenance fields</legend>);
 	say q(<div style="white-space:nowrap">);
 	my $width = $self->_get_field_width($field_list);
@@ -656,7 +655,7 @@ sub _print_optlist {         ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 			-id     => "field_$field",
 			-values => $multiple ? $optlist : [ '', @$optlist ],
 			-labels => { '' => ' ' },
-			-default => $newdata->{$field} // $thisfield->{'default'},
+			-default => $newdata->{lc $field} // $thisfield->{'default'},
 			-multiple => $multiple ? 'true' : 'false',
 			%$html5_args
 		);

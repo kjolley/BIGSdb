@@ -930,4 +930,10 @@ sub std_dev {
 	$std_dev_sum += ( $_ - $average )**2 for @$values;
 	return $count ? sqrt( $std_dev_sum / $count ) : 0;
 }
+
+sub arbitrary_order_list {
+	my ($arbitrary_order, $list) = @_;
+	my %order = map {$arbitrary_order->[$_] => $_} (0 .. $#$arbitrary_order);
+	return [sort {($order{$a} // -1) <=> ($order{$b} // -1)} @$list];
+}
 1;

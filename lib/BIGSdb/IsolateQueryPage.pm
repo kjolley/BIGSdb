@@ -2605,8 +2605,8 @@ END
 				my %used;
 				foreach my $value (@$options) {
 					next if $used{$value};
-					$value =~ s/"/\\"/gx;
-					$autocomplete_js .= qq(       "$value");
+					(my $display_value = $value) =~ s/"/\\"/gx;
+					$autocomplete_js .= qq(       "$display_value");
 					$autocomplete_js .= ',' if $value ne $options->[-1];
 					$autocomplete_js .= "\n";
 					$used{$value} = 1;

@@ -123,8 +123,8 @@ sub _check {
 	}
 	my $newdata = {};
 	my @bad_field_buffer;
-	my $set_id        = $self->get_set_id;
-	my $field_list    = $self->{'xmlHandler'}->get_field_list;
+	my $set_id     = $self->get_set_id;
+	my $field_list = $self->{'xmlHandler'}->get_field_list;
 	foreach my $required ( 1, 0 ) {
 		foreach my $field (@$field_list) {
 			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
@@ -135,7 +135,11 @@ sub _check {
 				} elsif ( $field eq 'datestamp' ) {
 					$newdata->{$field} = BIGSdb::Utils::get_datestamp();
 				} else {
-					$newdata->{$field} = $q->param($field);
+					if ( ( $thisfield->{'multiple'} // q() ) eq 'yes' ) {
+						$newdata->{$field} = scalar $q->multi_param($field) ? [ $q->multi_param($field) ] : q();
+					} else {
+						$newdata->{$field} = $q->param($field);
+					}
 				}
 				my $bad_field =
 				  $self->{'submissionHandler'}->is_field_bad( 'isolates', $field, $newdata->{$field}, undef, $set_id );
@@ -186,8 +190,7 @@ sub _update {
 	local $" = ',';
 	my $updated_field = [];
 	my $set_id        = $self->get_set_id;
-	my $field_list = $self->{'xmlHandler'}->get_field_list;
-
+	my $field_list    = $self->{'xmlHandler'}->get_field_list;
 	foreach my $field (@$field_list) {
 		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
 		next if ( $att->{'no_curate'} // q() ) eq 'yes';
@@ -195,7 +198,7 @@ sub _update {
 			if    ( ( $data->{ lc($field) } // q() ) eq '1' ) { $data->{ lc($field) } = 'true' }
 			elsif ( ( $data->{ lc($field) } // q() ) eq '0' ) { $data->{ lc($field) } = 'false' }
 		}
-		if ( ( $data->{ lc($field) } // q() ) ne ( $newdata->{$field} // q() ) ) {
+		if ( $self->_field_changed( $field, $data, $newdata ) ) {
 			my $cleaned = $self->clean_value( $newdata->{$field}, { no_escape => 1 } ) // '';
 			if ( $cleaned ne '' ) {
 				$qry .= "$field=?,";
@@ -204,7 +207,10 @@ sub _update {
 				$qry .= "$field=null,";
 			}
 			if ( $field ne 'datestamp' && $field ne 'curator' ) {
-				push @$updated_field, "$field: '$data->{lc($field)}' -> '$newdata->{$field}'";
+				local $" = q(; );
+				my $old = ref $data->{ lc($field) } ? qq(@{$data->{lc($field)}}) : $data->{ lc($field) } // q();
+				my $new = ref $newdata->{$field}    ? qq(@{$newdata->{$field}})  : $newdata->{$field};
+				push @$updated_field, qq($field: '$old' -> '$new');
 			}
 		}
 	}
@@ -266,6 +272,27 @@ sub _update {
 	}
 	return;
 }
+
+sub _field_changed {
+	my ( $self, $field, $old_data, $new_data ) = @_;
+	my $old = $old_data->{ lc($field) } // q();
+	my $new = $new_data->{$field}       // q();
+
+	#Don't need to look up attributes if values are the same.
+	return if $old eq $new;
+
+	#Need to check if field allows multiple values.
+	my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+	if ( ( $att->{'multiple'} // q() ) eq 'yes' ) {
+		local $" = q(; );
+		my @sorted_old = ref $old ? sort @$old : ();
+		my @sorted_new = ref $new ? sort @$new : ();
+		return qq(@sorted_old) ne qq(@sorted_new);
+	} else {
+		return ( $old ne $new );
+	}
+}
+
 sub _prepare_eav_updates {
 	my ( $self, $isolate_id, $newdata, $updated_field ) = @_;
 	my $q          = $self->{'cgi'};

@@ -876,11 +876,11 @@ sub _get_provenance_fields {
 	$buffer .= q(<div><span class="info_icon fas fa-2x fa-fw fa-globe fa-pull-left" style="margin-top:-0.2em"></span>);
 	$buffer .= qq(<h2>Provenance/meta data</h2>\n);
 	$buffer .= q(<div id="provenance">);
-	my $list          = [];
-	my $q             = $self->{'cgi'};
-	my $set_id        = $self->get_set_id;
-	my $is_curator    = $self->is_curator;
-	my $field_list    = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
+	my $list       = [];
+	my $q          = $self->{'cgi'};
+	my $set_id     = $self->get_set_id;
+	my $is_curator = $self->is_curator;
+	my $field_list = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
 	my ( %composites, %composite_display_pos );
 	my $composite_data =
 	  $self->{'datastore'}
@@ -911,27 +911,13 @@ sub _get_provenance_fields {
 		}
 		my ( $web, $value );
 		if ( $thisfield->{'web'} ) {
-			my @values = ref $data->{ lc($field) } ? @{ $data->{ lc($field) } } : ( $data->{ lc($field) } );
-			my @links;
-			my $domain;
-			if ( ( lc( $thisfield->{'web'} ) =~ /http:\/\/(.*?)\/+/x ) ) {
-				$domain = $1;
-			}
-			foreach my $value (@values) {
-				my $url = $thisfield->{'web'};
-				$url =~ s/\[\\*\?\]/$value/x;
-				$url =~ s/\&/\&amp;/gx;
-				push @links, qq(<a href="$url">$value</a>);
-			}
-			if (@links) {
-				local $" = q(; );
-				$web = qq(@links);
-			}
-			if ( $domain && $domain ne $q->virtual_host ) {
-				$web .= qq( <span class="link">$domain)
-				  . q(<span class="fa fas fa-external-link-alt" style="margin-left:0.5em"></span></span>);
-			}
+			$web = $self->_get_web_links($data, $field);
 		} else {
+			if ( ( $thisfield->{'optlist'} // q() ) eq 'yes' && ref $data->{ lc($field) } ) {
+				my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
+				$data->{ lc($field) } =
+				  BIGSdb::Utils::arbitrary_order_list( $optlist, $data->{ lc($field) } );
+			}
 			$value = ref $data->{ lc($field) } ? qq(@{$data->{ lc($field) }}) : $data->{ lc($field) };
 			$value = BIGSdb::Utils::escape_html($value);
 		}
@@ -966,6 +952,34 @@ sub _get_provenance_fields {
 	$buffer .= $self->get_list_block( $list, { columnize => 1 } );
 	$buffer .= q(</div></div>);
 	return $buffer;
+}
+
+sub _get_web_links {
+	my ( $self, $data, $field ) = @_;
+	my $q         = $self->{'cgi'};
+	my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+	my $web;
+	my @values = ref $data->{ lc($field) } ? @{ $data->{ lc($field) } } : ( $data->{ lc($field) } );
+	my @links;
+	my $domain;
+	if ( ( lc( $thisfield->{'web'} ) =~ /http:\/\/(.*?)\/+/x ) ) {
+		$domain = $1;
+	}
+	foreach my $value (@values) {
+		my $url = $thisfield->{'web'};
+		$url =~ s/\[\\*\?\]/$value/x;
+		$url =~ s/\&/\&amp;/gx;
+		push @links, qq(<a href="$url">$value</a>);
+	}
+	if (@links) {
+		local $" = q(; );
+		$web = qq(@links);
+	}
+	if ( $domain && $domain ne $q->virtual_host ) {
+		$web .= qq( <span class="link">$domain)
+		  . q(<span class="fa fas fa-external-link-alt" style="margin-left:0.5em"></span></span>);
+	}
+	return $web;
 }
 
 sub _get_phenotypic_fields {
