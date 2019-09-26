@@ -1240,6 +1240,11 @@ sub _check_isolate_optlist {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 	} else {
 		$options = $self->{'xmlHandler'}->get_field_option_list($field);
 		$options = [SEQ_METHODS] if $field eq 'sequence_method';
+		$self->{'cache'}->{'field_attributes'}->{$field}->{'option_list_values'} = $options;
+	}
+	if ( ( $thisfield->{'multiple'} // q() ) eq 'yes' && !ref $value ) {
+		$value = [ split /;/x, $value ];
+		s/^\s+|\s+$//gx foreach @$value;
 	}
 	my %allowed = map { $_ => 1 } @$options;
 	if ( ref $value eq 'ARRAY' ) {

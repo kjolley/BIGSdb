@@ -1479,130 +1479,132 @@ sub _upload_data {
 	return if $self->_is_not_allowed_to_upload_public_data($table);
 	my %loci;
 	$loci{$locus} = 1 if $locus;
+	my $field_att = $self->{'xmlHandler'}->get_all_field_attributes;
 
 	foreach my $record (@$records) {
 		$record =~ s/\r//gx;
-		if ($record) {
-			my @data = split /\t/x, $record;
-			@data = $self->_process_fields( \@data );
-			my @value_list;
-			my ( @extras, @ref_extras );
-			my $id;
-			my $sender = $self->_get_sender( $field_order, \@data, $user_info->{'status'} );
-			foreach my $field (@$fields_to_include) {
-				$id = $data[ $field_order->{$field} ] if $field eq 'id';
-				push @value_list,
-				  $self->_read_value(
-					{
-						table       => $table,
-						field       => $field,
-						field_order => $field_order,
-						data        => \@data,
-						locus       => $locus,
-						user_status => ( $user_info->{'status'} // undef )
-					}
-				  ) // undef;
-			}
-			$loci{ $data[ $field_order->{'locus'} ] } = 1 if defined $field_order->{'locus'};
-			if ( $table eq 'loci' || $table eq 'isolates' ) {
-				@extras = split /;/x, $data[ $field_order->{'aliases'} ]
-				  if defined $field_order->{'aliases'} && defined $data[ $field_order->{'aliases'} ];
-				@ref_extras = split /;/x, $data[ $field_order->{'references'} ]
-				  if defined $field_order->{'references'} && defined $data[ $field_order->{'references'} ];
-			}
-			my @inserts;
-			my $qry;
-			local $" = ',';
-			my @placeholders = ('?') x @$fields_to_include;
-			$qry = "INSERT INTO $table (@$fields_to_include) VALUES (@placeholders)";
-			push @inserts, { statement => $qry, arguments => \@value_list };
-			if ( $table eq 'allele_designations' ) {
-				push @history, "$data[$field_order->{'isolate_id'}]|$data[$field_order->{'locus'}]: "
-				  . "new designation '$data[$field_order->{'allele_id'}]'";
-			}
-			my $curator = $self->get_curator_id;
-			my ( $upload_err, $failed_file );
-			if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
-				my $isolate_name = $data[ $field_order->{ $self->{'system'}->{'labelfield'} } ];
-				$self->{'submission_message'} .= "Isolate '$isolate_name' uploaded - id: $id.";
-				my $isolate_extra_inserts = $self->_prepare_isolate_extra_inserts(
+		next if !$record;
+		my $data = [ split /\t/x, $record ];
+		@$data = $self->_process_fields($data);
+		my @value_list;
+		my ( @extras, @ref_extras );
+		my $id;
+		my $sender = $self->_get_sender( $field_order, $data, $user_info->{'status'} );
+
+		foreach my $field (@$fields_to_include) {
+			$id = $data->[ $field_order->{$field} ] if $field eq 'id';
+			$self->_process_multivalues( $field_att, $field_order, $field, $data );
+			push @value_list,
+			  $self->_read_value(
+				{
+					table       => $table,
+					field       => $field,
+					field_order => $field_order,
+					data        => $data,
+					locus       => $locus,
+					user_status => ( $user_info->{'status'} // undef )
+				}
+			  ) // undef;
+		}
+		$loci{ $data->[ $field_order->{'locus'} ] } = 1 if defined $field_order->{'locus'};
+		if ( $table eq 'loci' || $table eq 'isolates' ) {
+			@extras = split /;/x, $data->[ $field_order->{'aliases'} ]
+			  if defined $field_order->{'aliases'} && defined $data->[ $field_order->{'aliases'} ];
+			@ref_extras = split /;/x, $data->[ $field_order->{'references'} ]
+			  if defined $field_order->{'references'} && defined $data->[ $field_order->{'references'} ];
+		}
+		my @inserts;
+		my $qry;
+		local $" = ',';
+		my @placeholders = ('?') x @$fields_to_include;
+		$qry = "INSERT INTO $table (@$fields_to_include) VALUES (@placeholders)";
+		push @inserts, { statement => $qry, arguments => \@value_list };
+		if ( $table eq 'allele_designations' ) {
+			push @history, "$data->[$field_order->{'isolate_id'}]|$data->[$field_order->{'locus'}]: "
+			  . "new designation '$data->[$field_order->{'allele_id'}]'";
+		}
+		my $curator = $self->get_curator_id;
+		my ( $upload_err, $failed_file );
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
+			my $isolate_name = $data->[ $field_order->{ $self->{'system'}->{'labelfield'} } ];
+			$self->{'submission_message'} .= "Isolate '$isolate_name' uploaded - id: $id.";
+			my $isolate_extra_inserts = $self->_prepare_isolate_extra_inserts(
+				{
+					id          => $id,
+					sender      => $sender,
+					curator     => $curator,
+					data        => $data,
+					field_order => $field_order,
+					extras      => \@extras,
+					ref_extras  => \@ref_extras,
+					project_id  => $project_id,
+					private     => $private
+				}
+			);
+			push @inserts, @$isolate_extra_inserts;
+			try {
+				my ( $contigs_extra_inserts, $message ) = $self->_prepare_contigs_extra_inserts(
 					{
 						id          => $id,
 						sender      => $sender,
 						curator     => $curator,
-						data        => \@data,
+						data        => $data,
 						field_order => $field_order,
-						extras      => \@extras,
-						ref_extras  => \@ref_extras,
-						project_id  => $project_id,
-						private     => $private
 					}
 				);
-				push @inserts, @$isolate_extra_inserts;
-				try {
-					my ( $contigs_extra_inserts, $message ) = $self->_prepare_contigs_extra_inserts(
-						{
-							id          => $id,
-							sender      => $sender,
-							curator     => $curator,
-							data        => \@data,
-							field_order => $field_order,
-						}
-					);
-					push @inserts, @$contigs_extra_inserts;
-				}
-				catch {
-					if ( $_->isa('BIGSdb::Exception::Data') ) {
-						if ( $_ =~ 'Not valid DNA' ) {
-							$upload_err = 'Invalid characters';
-						} else {
-							$upload_err = 'Invalid FASTA file';
-						}
-						$failed_file = $data[ $field_order->{'assembly_filename'} ];
+				push @inserts, @$contigs_extra_inserts;
+			}
+			catch {
+				if ( $_->isa('BIGSdb::Exception::Data') ) {
+					if ( $_ =~ 'Not valid DNA' ) {
+						$upload_err = 'Invalid characters';
 					} else {
-						$logger->logdie($_);
+						$upload_err = 'Invalid FASTA file';
 					}
-				};
-				$self->{'submission_message'} .= "\n";
-				push @history, "$id|Isolate record added";
-			}
-			my $extra_methods = {
-				loci => sub {
-					return $self->_prepare_loci_extra_inserts(
-						{
-							id          => $id,
-							curator     => $curator,
-							data        => \@data,
-							field_order => $field_order,
-							extras      => \@extras
-						}
-					);
-				},
-				projects => sub {
-					return $self->_prepare_projects_extra_inserts(
-						{
-							id          => $id,
-							curator     => $curator,
-							data        => \@data,
-							field_order => $field_order,
-						}
-					);
+					$failed_file = $data->[ $field_order->{'assembly_filename'} ];
+				} else {
+					$logger->logdie($_);
 				}
 			};
-			if ( $extra_methods->{$table} ) {
-				my $extra_inserts = $extra_methods->{$table}->();
-				push @inserts, @$extra_inserts;
+			$self->{'submission_message'} .= "\n";
+			push @history, "$id|Isolate record added";
+		}
+		my $extra_methods = {
+			loci => sub {
+				return $self->_prepare_loci_extra_inserts(
+					{
+						id          => $id,
+						curator     => $curator,
+						data        => $data,
+						field_order => $field_order,
+						extras      => \@extras
+					}
+				);
+			},
+			projects => sub {
+				return $self->_prepare_projects_extra_inserts(
+					{
+						id          => $id,
+						curator     => $curator,
+						data        => $data,
+						field_order => $field_order,
+					}
+				);
 			}
-			eval {
-				foreach my $insert (@inserts) {
-					$self->{'db'}->do( $insert->{'statement'}, undef, @{ $insert->{'arguments'} } );
-				}
-			};
-			if ( $@ || $upload_err ) {
-				$self->report_upload_error( ( $upload_err // $@ ), $failed_file );
-				$self->{'db'}->rollback;
-				return;
+		};
+		if ( $extra_methods->{$table} ) {
+			my $extra_inserts = $extra_methods->{$table}->();
+			push @inserts, @$extra_inserts;
+		}
+		eval {
+			foreach my $insert (@inserts) {
+				$self->{'db'}->do( $insert->{'statement'}, undef, @{ $insert->{'arguments'} } );
 			}
+		};
+		if ( $@ || $upload_err ) {
+			$self->report_upload_error( ( $upload_err // $@ ), $failed_file );
+			$self->{'db'}->rollback;
+			return;
 		}
 	}
 	$self->{'db'}->commit;
@@ -1613,6 +1615,19 @@ sub _upload_data {
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		$self->_update_scheme_caches if ( $self->{'system'}->{'cache_schemes'} // q() ) eq 'yes';
+	}
+	return;
+}
+
+#Convert from semi-colon separated list in to an arrayref.
+sub _process_multivalues {
+	my ( $self, $field_att, $field_order, $field, $data ) = @_;
+	my $divider = q(;);
+	if ( ( $field_att->{$field}->{'multiple'} // q() ) eq 'yes'
+		&& defined $data->[ $field_order->{$field} ] )
+	{
+		$data->[ $field_order->{$field} ] = [ split /$divider/x, $data->[ $field_order->{$field} ] ];
+		s/^\s+|\s+$//gx foreach @{ $data->[ $field_order->{$field} ] };
 	}
 	return;
 }
@@ -1976,20 +1991,18 @@ sub _get_fields_to_include {
 	my ( $self, $table, $locus ) = @_;
 	my $fields_to_include = [];
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
-		my $set_id        = $self->get_set_id;
-		my $field_list    = $self->{'xmlHandler'}->get_field_list;
+		my $set_id     = $self->get_set_id;
+		my $field_list = $self->{'xmlHandler'}->get_field_list;
 		foreach my $field (@$field_list) {
 			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
 			next if ( $att->{'no_curate'} // '' ) eq 'yes';
-			
 			push @$fields_to_include, $field;
-			
 		}
 	} else {
 		my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 		push @$fields_to_include, $_->{'name'} foreach @$attributes;
 	}
-	return ( $fields_to_include );
+	return ($fields_to_include);
 }
 
 sub _update_scheme_caches {
@@ -2035,8 +2048,8 @@ sub _get_fields_in_order {
 	my ( $self, $table, $locus ) = @_;
 	my @fields;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
-		my $set_id        = $self->get_set_id;
-		my $field_list    = $self->{'xmlHandler'}->get_field_list;
+		my $set_id     = $self->get_set_id;
+		my $field_list = $self->{'xmlHandler'}->get_field_list;
 		foreach my $field (@$field_list) {
 			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
 			next if ( $att->{'no_curate'} // '' ) eq 'yes';
@@ -2079,8 +2092,8 @@ sub _get_field_table_header {
 	my ( $self, $table ) = @_;
 	my @headers;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
-		my $set_id        = $self->get_set_id;
-		my $field_list    = $self->{'xmlHandler'}->get_field_list;
+		my $set_id     = $self->get_set_id;
+		my $field_list = $self->{'xmlHandler'}->get_field_list;
 		foreach my $field (@$field_list) {
 			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
 			next if ( $att->{'no_curate'} // '' ) eq 'yes';
