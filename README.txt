@@ -1,3 +1,5 @@
+v1.23.3: *Add option to GenomeComparator to restore ability to re-scan genomes
+          for missing loci.
 v1.23.2: *GrapeTree and GenomeComparator now only scan records if <50% 
           selected loci are designated. This prevents unnecessary re-scanning
           so these jobs run much faster.

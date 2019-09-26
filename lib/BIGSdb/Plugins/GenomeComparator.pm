@@ -267,6 +267,16 @@ sub _print_parameters_fieldset {
 	say $q->popup_menu( -name => 'word_size', -id => 'word_size', -values => [ 7 .. 30 ], -default => 20 );
 	say $self->get_tooltip( q(BLASTN word size - This is the length of an exact match required to )
 		  . q(initiate an extension. Larger values increase speed at the expense of sensitivity.) );
+	say q(</li><li>);
+	say $q->checkbox(
+		-name  => 'rescan_missing',
+		-id    => 'rescan_missing',
+		-label => 'Rescan undesignated loci',
+	);
+	say $self->get_tooltip(
+		    q(Rescan undesignated - By default, if a genome has >= 50% of the selected loci designated, it will not )
+		  . q(be rescanned. Selecting this option will perform a BLAST query for each genome to attempt to fill in )
+		  . q(any missing annotations. Please note that this will take <b>much longer</b> to run.) );
 	say q(</li></ul></fieldset>);
 	return;
 }
@@ -2022,13 +2032,13 @@ sub _write_excel_parameters {
 	}
 
 	#Parameters/options
-	push @parameters,
-	  (
+	push @parameters, (
 		{ section => 'Parameters' },
 		{ label   => 'Min % identity', value => $params->{'identity'} },
 		{ label   => 'Min % alignment', value => $params->{'alignment'} },
 		{ label   => 'BLASTN word size', value => $params->{'word_size'} },
-	  );
+		{ label   => 'Rescan undesignated', value => $params->{'rescan_missing'} ? 'yes' : 'no' }
+	);
 
 	#Distance matrix
 	my $labels = {
@@ -2593,7 +2603,6 @@ function enable_seqs(){
 		\$("#recommended_scheme_fieldset").hide(500);
 		\$("#locus_fieldset").hide(500);
 		\$("#tblastx").prop("disabled", false);
-		\$("#use_tagged").prop("disabled", true);
 		\$("#exclude_paralogous").prop("disabled", false);
 		\$("#paralogous_options").prop("disabled", false);
 	} else {
@@ -2601,7 +2610,6 @@ function enable_seqs(){
 		\$("#recommended_scheme_fieldset").show(500);
 		\$("#locus_fieldset").show(500);
 		\$("#tblastx").prop("disabled", true);
-		\$("#use_tagged").prop("disabled", false);
 		\$("#exclude_paralogous").prop("disabled", true);
 		\$("#paralogous_options").prop("disabled", true);
 	}
