@@ -289,40 +289,6 @@ sub get_title {
 	return $desc;
 }
 
-sub _print_fields {
-	my ( $self, $args ) = @_;
-	my ( $fields, $prefix, $num_columns, $labels, $default_select ) =
-	  @{$args}{qw(fields prefix num_columns labels default_select)};
-	my $q                 = $self->{'cgi'};
-	my $fields_per_column = BIGSdb::Utils::round_up( @$fields / $num_columns );
-	say q(<div style="float:left;margin-bottom:1em"><ul>);
-	my $i = 0;
-	foreach my $field (@$fields) {
-		my $label = $labels->{$field} || $field;
-		$label =~ s/^.*___//x;    #only show extended field.
-		$label =~ tr/_/ /;
-		my $id = $self->clean_checkbox_id("$prefix\_$field");
-		print q(<li>);
-		print $q->checkbox(
-			-name    => "$prefix\_$field",
-			-id      => $id,
-			-checked => $default_select,
-			-value   => 'checked',
-			-label   => $label
-		);
-		say q(</li>);
-		$i++;
-
-		if ( $i == $fields_per_column && $field ne $fields->[-1] ) {
-			$i = 0;
-			say q(</ul></div><div style="float:left;margin-bottom:1em"><ul>);
-		}
-	}
-	say q(</ul></div>);
-	say q(<div style="clear:both"></div>);
-	return;
-}
-
 sub print_isolate_fields_fieldset {
 	my ( $self, $options ) = @_;
 	my $set_id         = $self->get_set_id;
@@ -935,16 +901,6 @@ sub set_scheme_param {
 	local $" = '||';
 	my $scheme_string = "@selected_schemes";
 	$q->param( 'scheme', $scheme_string );
-	return;
-}
-
-sub _print_all_none_buttons {
-	my ( $self, $js1, $js2, $class ) = @_;
-	if ( ref $js1 && ref $js2 ) {
-		local $" = ',';
-		say qq(<input type="button" value="All" class="$class" onclick='@$js1' />);
-		say qq(<input type="button" value="None" class="$class" onclick='@$js2' />);
-	}
 	return;
 }
 
