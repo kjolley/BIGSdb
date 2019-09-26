@@ -98,7 +98,20 @@ sub print_content {
 				{ eav_field => $self->{'datastore'}->is_eav_field($field) } );
 			$self->_set_isolate_validation( $worksheet, $field, $col );
 			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-			if ( $att->{'comments'} ) {
+			if ( ( $att->{'multiple'} // q() ) eq 'yes' ) {
+				my $comment;
+				if ( $att->{'comments'} ) {
+					$comment = $att->{'comments'};
+					$comment =~ s/\.\s*$//x;
+					$comment .= q(. );
+				}
+				$comment .=
+				  q(This field allows multiple values to be selected. Separate these with a ) . q(semi-colon (;). );
+				if ( ( $att->{'optlist'} // q() ) eq 'yes' ) {
+					$comment .= q( Please see the 'allowed_values' tab for allowed values.);
+				}
+				$worksheet->write_comment( 0, $col, $comment );
+			} elsif ( $att->{'comments'} ) {
 				$worksheet->write_comment( 0, $col, $att->{'comments'} );
 			}
 		}
@@ -106,7 +119,8 @@ sub print_content {
 		if ( $field eq 'aliases' ) {
 			$worksheet->write_comment( 0, $col,
 				"Aliases:\nEnter semi-colon (;) separated list of alternative names for this item." );
-		} elsif ( $field eq 'references' ) {
+		}
+		if ( $field eq 'references' ) {
 			$worksheet->write_comment( 0, $col,
 				"References:\nEnter semi-colon (;) separated list of PubMed ids of papers to associate with this item."
 			);
@@ -135,13 +149,16 @@ sub _set_isolate_validation {
 		|| $field eq 'sequence_method'
 		|| $self->{'datastore'}->is_eav_field($field) )
 	{
-		my $options;
+		my $options = [];
 		if ( $self->{'datastore'}->is_eav_field($field) ) {
 			my $eav_field = $self->{'datastore'}->get_eav_field($field);
 			return if !$eav_field->{'option_list'};
 			@$options = split /\s*;\s*/x, $eav_field->{'option_list'};
 		} else {
-			$options = $self->{'xmlHandler'}->get_field_option_list($field);
+			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+			if ( ( $att->{'multiple'} // q() ) ne 'yes' ) {
+				$options = $self->{'xmlHandler'}->get_field_option_list($field);
+			}
 			$options = [SEQ_METHODS] if $field eq 'sequence_method';
 		}
 		if (@$options) {

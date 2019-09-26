@@ -535,7 +535,7 @@ sub _check_allele_data {
 			[ $newdata->{'locus'}, $newdata->{'allele_id'}, $databank ],
 			{ fetch => 'col_arrayref' }
 		);
-		my $value_string = $q->param("databank_$databank");
+		$value_string = $q->param("databank_$databank");
 		$value_string =~ s/[,;]/\n/x;
 		my @new_accessions = split /\r?\n/x, $value_string;
 		foreach my $new (@new_accessions) {
