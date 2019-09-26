@@ -378,7 +378,7 @@ sub _get_allele_designations_from_defined_loci {
 	}
 
 	#Only scan genome if <50% of selected loci are designated
-	my $rescan = keys %$designations < ( 0.5 * @$loci ) ? 1 : 0;
+	my $rescan = (keys %$designations < ( 0.5 * @$loci ) || $self->{'options'}->{'rescan_missing'}) ? 1 : 0;
 	my ( $scanned_designations, $scanned_sequences, $scanned_paralogous ) = ( {}, {}, {} );
 	if ($rescan) {
 		( $scanned_designations, $scanned_sequences, $scanned_paralogous ) =
