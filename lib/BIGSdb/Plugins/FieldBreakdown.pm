@@ -40,7 +40,7 @@ sub get_attributes {
 		buttontext  => 'Fields',
 		menutext    => 'Single field',
 		module      => 'FieldBreakdown',
-		version     => '2.2.4',
+		version     => '2.2.5',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
@@ -161,7 +161,8 @@ sub _get_field_values {
 	if ( $methods->{$field_type} ) {
 		$methods->{$field_type}->();
 		foreach my $value (@$freqs) {
-			$value->{'label'} = 'No value' if !defined $value->{'label'};
+			$value->{'label'} = 'No value'
+			  if !defined $value->{'label'} || ( ref $value->{'label'} && !@{ $value->{'label'} } );
 		}
 	} else {
 		$logger->error('Invalid field type');
@@ -189,7 +190,10 @@ sub _show_table {
 	$total += $_->{'value'} foreach @$freqs;
 
 	foreach my $record (@$freqs) {
-		say qq(<tr class="td$td"><td>$record->{'label'}</td><td>$record->{'value'}</td>);
+		local $" = q(; );
+		print qq(<tr class="td$td"><td>);
+		print ref $record->{'label'} ? qq(@{$record->{'label'}}) : $record->{'label'};
+		print qq(</td><td>$record->{'value'}</td>);
 		my $percentage = BIGSdb::Utils::decimal_place( ( $record->{'value'} / $total ) * 100, 2 );
 		say qq(<td>$percentage</td></tr>);
 		$td = $td == 1 ? 2 : 1;
@@ -213,8 +217,10 @@ sub _get_text_table {
 	$total += $_->{'value'} foreach @$freqs;
 
 	foreach my $record (@$freqs) {
+		local $" = q(; );
+		my $label = ref $record->{'label'} ? qq(@{$record->{'label'}}) : $record->{'label'};
 		my $percentage = BIGSdb::Utils::decimal_place( ( $record->{'value'} / $total ) * 100, 2 );
-		$buffer .= qq($record->{'label'}\t$record->{'value'}\t$percentage\n);
+		$buffer .= qq($label\t$record->{'value'}\t$percentage\n);
 	}
 	return $buffer;
 }
@@ -510,6 +516,9 @@ sub _get_fields_js {
 		my $type = lc( $field_attributes->{$field}->{'type'} );
 		$type = 'integer' if $type eq 'int';
 		$type = 'text'    if $type =~ /^bool/x;
+		if ($type eq 'date' && ($field_attributes->{$field}->{'multiple'} // q()) eq 'yes'){
+			$type = 'text';
+		}
 		if ( !$allowed_types{$type} ) {
 			$logger->error("Field $field has an unrecognized type: $type");
 			$type = 'text';

@@ -389,7 +389,11 @@ function load_pie(url,field,max_segments) {
 	$("#bar_controls").css("display", "none");
 	$("#line_controls").css("display", "none");
 	$("#map_controls").css("display","none");
+	if (typeof field == 'undefined'){
+		return;		
+	}
 	var title = field.replace(/^.+\.\./, "");
+
 	title = title.replace(/^s_\d+_/,"");
 	var f = d3.format(".1f");
 	d3.json(url).then (function(jsonData) {			
