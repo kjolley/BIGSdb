@@ -506,18 +506,30 @@ sub _get_field_query {
 		if ( $att->{'type'} eq 'float' && !BIGSdb::Utils::is_float( $fields->{$field} ) ) {
 			send_error( "$field is a float field.", 400 );
 		}
+		push @field_names, $field;
 		if ( $att->{'type'} eq 'text' ) {
-			push @field_names, qq(UPPER($field));
-			push @$values,     uc( $fields->{$field} );
+			push @$values, uc( $fields->{$field} );
 		} else {
-			push @field_names, $field;
-			push @$values,     $fields->{$field};
+			push @$values, $fields->{$field};
 		}
 	}
 	my $qry;
+	my $first = 1;
 	if (@field_names) {
-		local $" = q(=? AND );
-		$qry = qq(@field_names=?);
+		foreach my $field (@field_names) {
+			$qry .= ' AND ' if !$first;
+			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+			if ( $att->{'type'} eq 'text' ) {
+				if ( ( $att->{'multiple'} // q() ) eq 'yes' ) {
+					$qry .= qq(? ILIKE ANY($field));
+				} else {
+					$qry .= qq(UPPER($field)=?);
+				}
+			} else {
+				$qry .= qq($field=?);
+			}
+			$first = 0;
+		}
 	}
 	foreach my $ext_field (@extended_fields) {
 		$qry .= q( AND ) if $qry;
@@ -576,13 +588,18 @@ sub _get_scheme_query {
 				if ( $field_info->{'type'} =~ /int/x && !BIGSdb::Utils::is_int( $schemes->{$scheme_id}->{$field} ) ) {
 					send_error( "$field is an integer field.", 400 );
 				}
-				if ( $field_info->{'type'} =~ /bool/x && !BIGSdb::Utils::is_bool( $schemes->{$scheme_id}->{$field} ) ) {
+				if ( $field_info->{'type'} =~ /bool/x
+					&& !BIGSdb::Utils::is_bool( $schemes->{$scheme_id}->{$field} ) )
+				{
 					send_error( "$field is a boolean field.", 400 );
 				}
-				if ( $field_info->{'type'} eq 'date' && !BIGSdb::Utils::is_date( $schemes->{$scheme_id}->{$field} ) ) {
+				if ( $field_info->{'type'} eq 'date'
+					&& !BIGSdb::Utils::is_date( $schemes->{$scheme_id}->{$field} ) )
+				{
 					send_error( "$field is a date field.", 400 );
 				}
-				if ( $field_info->{'type'} eq 'float' && !BIGSdb::Utils::is_float( $schemes->{$scheme_id}->{$field} ) )
+				if ( $field_info->{'type'} eq 'float'
+					&& !BIGSdb::Utils::is_float( $schemes->{$scheme_id}->{$field} ) )
 				{
 					send_error( "$field is a float field.", 400 );
 				}
