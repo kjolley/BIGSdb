@@ -962,6 +962,10 @@ sub _eq_condition_sub {
 		my $value = $values->{ $condition->{'field'} };
 		return if !defined $value || $value eq q();
 		my $cvalue = $self->_get_comp_value( $values, $condition );
+		if ( ref($value) ) {
+			my %values = map { lc($_) => 1 } @$value;
+			return $values{ lc($cvalue) };
+		}
 		if ( $type eq 'text' ) {
 			return lc($value) eq lc($cvalue);
 		} else {
@@ -977,6 +981,12 @@ sub _contains_condition_sub {
 		my $value = $values->{ $condition->{'field'} };
 		return if !defined $value || $value eq q();
 		my $cvalue = $self->_get_comp_value( $values, $condition );
+		if ( ref $value ) {
+			foreach my $this_value (@$value) {
+				return 1 if $this_value =~ /$cvalue/xi;
+			}
+			return;
+		}
 		return $value =~ /$cvalue/xi;
 	};
 }
@@ -988,6 +998,12 @@ sub _starts_with_condition_sub {
 		my $value = $values->{ $condition->{'field'} };
 		return if !defined $value || $value eq q();
 		my $cvalue = $self->_get_comp_value( $values, $condition );
+		if ( ref $value ) {
+			foreach my $this_value (@$value) {
+				return 1 if $this_value =~ /^$cvalue/xi;
+			}
+			return;
+		}
 		return $value =~ /^$cvalue/xi;
 	};
 }
@@ -999,6 +1015,12 @@ sub _ends_with_condition_sub {
 		my $value = $values->{ $condition->{'field'} };
 		return if !defined $value || $value eq q();
 		my $cvalue = $self->_get_comp_value( $values, $condition );
+		if ( ref $value ) {
+			foreach my $this_value (@$value) {
+				return 1 if $this_value =~ /$cvalue$/xi;
+			}
+			return;
+		}
 		return $value =~ /$cvalue$/xi;
 	};
 }
@@ -1011,8 +1033,20 @@ sub _gt_condition_sub {
 		return if !defined $value || $value eq q();
 		my $cvalue = $self->_get_comp_value( $values, $condition );
 		if ( $type eq 'text' ) {
+			if ( ref $value ) {
+				foreach my $this_value (@$value) {
+					return 1 if lc($this_value) gt lc($cvalue);
+				}
+				return;
+			}
 			return lc($value) gt lc($cvalue);
 		} else {
+			if ( ref $value ) {
+				foreach my $this_value (@$value) {
+					return 1 if $this_value > $cvalue;
+				}
+				return;
+			}
 			return $value > $cvalue;
 		}
 	};
@@ -1026,8 +1060,20 @@ sub _ge_condition_sub {
 		return if !defined $value || $value eq q();
 		my $cvalue = $self->_get_comp_value( $values, $condition );
 		if ( $type eq 'text' ) {
+			if ( ref $value ) {
+				foreach my $this_value (@$value) {
+					return 1 if lc($this_value) ge lc($cvalue);
+				}
+				return;
+			}
 			return lc($value) ge lc($cvalue);
 		} else {
+			if ( ref $value ) {
+				foreach my $this_value (@$value) {
+					return 1 if $this_value >= $cvalue;
+				}
+				return;
+			}
 			return $value >= $cvalue;
 		}
 	};
@@ -1041,8 +1087,20 @@ sub _lt_condition_sub {
 		return if !defined $value || $value eq q();
 		my $cvalue = $self->_get_comp_value( $values, $condition );
 		if ( $type eq 'text' || $type eq 'date' ) {
+			if ( ref $value ) {
+				foreach my $this_value (@$value) {
+					return 1 if lc($this_value) lt lc($cvalue);
+				}
+				return;
+			}
 			return lc($value) lt lc($cvalue);
 		} else {
+			if ( ref $value ) {
+				foreach my $this_value (@$value) {
+					return 1 if $this_value < $cvalue;
+				}
+				return;
+			}
 			return $value < $cvalue;
 		}
 	};
@@ -1056,8 +1114,20 @@ sub _le_condition_sub {
 		return if !defined $value || $value eq q();
 		my $cvalue = $self->_get_comp_value( $values, $condition );
 		if ( $type eq 'text' ) {
+			if ( ref $value ) {
+				foreach my $this_value (@$value) {
+					return 1 if lc($this_value) le lc($cvalue);
+				}
+				return;
+			}
 			return lc($value) le lc($cvalue);
 		} else {
+			if ( ref $value ) {
+				foreach my $this_value (@$value) {
+					return 1 if $this_value <= $cvalue;
+				}
+				return;
+			}
 			return $value <= $cvalue;
 		}
 	};
@@ -1070,6 +1140,10 @@ sub _ne_condition_sub {
 		my $value = $values->{ $condition->{'field'} };
 		return if !defined $value || $value eq q();
 		my $cvalue = $self->_get_comp_value( $values, $condition );
+		if ( ref($value) ) {
+			my %values = map { lc($_) => 1 } @$value;
+			return !$values{ lc($cvalue) };
+		}
 		if ( $type eq 'text' ) {
 			return lc($value) ne lc($cvalue);
 		} else {
@@ -1085,6 +1159,12 @@ sub _not_contain_condition_sub {
 		my $value = $values->{ $condition->{'field'} };
 		return if !defined $value || $value eq q();
 		my $cvalue = $self->_get_comp_value( $values, $condition );
+		if ( ref $value ) {
+			foreach my $this_value (@$value) {
+				return 1 if $this_value !~ /$cvalue/xi;
+			}
+			return;
+		}
 		return $value !~ /$cvalue/xi;
 	};
 }
