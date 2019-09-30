@@ -1167,6 +1167,10 @@ sub _check_isolate_integer {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 	my $thisfield = $self->{'cache'}->{'field_attributes'}->{$field};
 	$logger->error("$field attributes not cached") if !$thisfield;
 	return if $thisfield->{'type'} !~ /^int/x;
+	if ( ( $thisfield->{'multiple'} // q() ) eq 'yes' && !ref $value ) {
+		$value = [ split /;/x, $value ];
+		s/^\s+|\s+$//gx foreach @$value;
+	}
 	my @values = ref $value ? @$value : ($value);
 	foreach my $this_value (@values) {
 		if ( !BIGSdb::Utils::is_int($this_value) ) { return 'must be an integer' }
@@ -1184,6 +1188,10 @@ sub _check_isolate_date {    ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 	my $thisfield = $self->{'cache'}->{'field_attributes'}->{$field};
 	$logger->error("$field attributes not cached") if !$thisfield;
 	return if $thisfield->{'type'} ne 'date';
+	if ( ( $thisfield->{'multiple'} // q() ) eq 'yes' && !ref $value ) {
+		$value = [ split /;/x, $value ];
+		s/^\s+|\s+$//gx foreach @$value;
+	}
 	my @values = ref $value ? @$value : ($value);
 	foreach my $this_value (@values) {
 		if ( $thisfield->{'type'} eq 'date' && !BIGSdb::Utils::is_date($this_value) ) {
@@ -1204,6 +1212,10 @@ sub _check_isolate_float {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 	my $thisfield = $self->{'cache'}->{'field_attributes'}->{$field};
 	$logger->error("$field attributes not cached") if !$thisfield;
 	return if $thisfield->{'type'} ne 'float';
+	if ( ( $thisfield->{'multiple'} // q() ) eq 'yes' && !ref $value ) {
+		$value = [ split /;/x, $value ];
+		s/^\s+|\s+$//gx foreach @$value;
+	}
 	my @values = ref $value ? @$value : ($value);
 	foreach my $this_value (@values) {
 		if ( $thisfield->{'type'} eq 'float' && !BIGSdb::Utils::is_float($this_value) ) {
@@ -1249,7 +1261,12 @@ sub _check_isolate_optlist {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 	my %allowed = map { $_ => 1 } @$options;
 	if ( ref $value eq 'ARRAY' ) {
 		my $all_ok = 1;
+		my %already_seen;
 		foreach my $this_value (@$value) {
+			if ( $already_seen{$this_value} ) {
+				return q(duplicate values for this field.);
+			}
+			$already_seen{$this_value} = 1;
 			next if $allowed{$this_value};
 			$all_ok = 0;
 			last;

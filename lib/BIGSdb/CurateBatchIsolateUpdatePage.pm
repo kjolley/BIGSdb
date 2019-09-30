@@ -86,8 +86,8 @@ id	field	value
 <p>Please enter the field(s) that you are selecting isolates on.  Values used must be unique within this field or 
 combination of fields, i.e. only one isolate has the value(s) used.  Usually the database id will be used.</p>
 HTML
-	my $set_id        = $self->get_set_id;
-	my $fields        = $self->{'xmlHandler'}->get_field_list;
+	my $set_id = $self->get_set_id;
+	my $fields = $self->{'xmlHandler'}->get_field_list;
 	say $q->start_form;
 	say $q->hidden($_) foreach qw (db page);
 	say q(<fieldset style="float:left"><legend>Please paste in your data below:</legend>);
@@ -179,17 +179,20 @@ sub _is_locus {
 }
 
 sub _check_field_status {
-	my ( $self, $field, $i, $is_locus ) = @_;
+	my ( $self, $field, $is_locus ) = @_;
 	my $set_id = $self->get_set_id;
 	my ( $bad_field, $not_allowed_field );
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	if ( $field->[$i] eq 'sender' && $user_info->{'status'} eq 'submitter' ) {
+	if ( !( $self->{'xmlHandler'}->is_field($field) || $self->{'datastore'}->is_eav_field($field) || $is_locus ) ) {
+		$bad_field = 1;
+	}
+	if ( $field eq 'sender' && $user_info->{'status'} eq 'submitter' ) {
 		$not_allowed_field = 1;
-	} elsif ( $self->{'datastore'}->is_eav_field( $field->[$i] ) ) {
-		my $eav_field = $self->{'datastore'}->get_eav_field( $field->[$i] );
+	} elsif ( $self->{'datastore'}->is_eav_field($field) ) {
+		my $eav_field = $self->{'datastore'}->get_eav_field($field);
 		$not_allowed_field = 1 if $eav_field->{'no_curate'};
 	} else {
-		my $att = $self->{'xmlHandler'}->get_field_attributes( $field->[$i] );
+		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
 		$not_allowed_field = 1 if ( $att->{'no_curate'} // '' ) eq 'yes';
 	}
 	return ( $bad_field, $not_allowed_field );
@@ -241,9 +244,9 @@ sub _check {
 		$value[$i] =~ s/\s*$//gx if defined $value[$i];
 		my $display_value = $value[$i];
 		my $display_field = $field[$i];
-		my $is_locus      = $self->_is_locus( $field[$i], $i );
+		my $is_locus      = $self->_is_locus( $field[$i] );
 		my $is_eav_field  = $self->{'datastore'}->is_eav_field( $field[$i] );
-		my ( $bad_field, $not_allowed_field ) = $self->_check_field_status( \@field, $i, $is_locus );
+		my ( $bad_field, $not_allowed_field ) = $self->_check_field_status( $field[$i], $is_locus );
 		my ( $old_value, $action );
 
 		if ( $i && defined $value[$i] && $value[$i] ne '' ) {
@@ -366,6 +369,49 @@ sub _display_error {
 	return;
 }
 
+sub _get_old_values {
+	my ( $self, $args ) = @_;
+	my ( $field, $i, $is_locus, $is_eav_field, $match, $id, $id2, $id_fields, $value ) =
+	  @{$args}{qw(field i is_locus is_eav_field match id id2 id_fields value)};
+	my $qry;
+	my $qry_args = [];
+	if ($is_locus) {
+		$qry = "SELECT allele_id FROM allele_designations LEFT JOIN $self->{'system'}->{'view'} ON "
+		  . "$self->{'system'}->{'view'}.id=allele_designations.isolate_id WHERE locus=? AND $match";
+		push @$qry_args, $field->[$i];
+	} elsif ($is_eav_field) {
+		my $eav_table = $self->{'datastore'}->get_eav_field_table( $field->[$i] );
+		$qry =
+		    "SELECT value FROM $eav_table JOIN $self->{'system'}->{'view'} ON "
+		  . "$eav_table.isolate_id=$self->{'system'}->{'view'}.id "
+		  . "WHERE field=? AND $match";
+		push @$qry_args, $field->[$i];
+	} else {
+		$qry = "SELECT $field->[$i] FROM $self->{'system'}->{'view'} WHERE $match";
+		if ( !$self->{'cache'}->{'attributes'}->{ $field->[$i] } ) {
+			my $att = $self->{'xmlHandler'}->get_field_attributes( $field->[$i] );
+			$self->{'cache'}->{'attributes'}->{ $field->[$i] } = $att;
+			if ( ( $att->{'multiple'} // q() ) eq 'yes' && ( $att->{'optlist'} // q() ) eq 'yes' ) {
+				$self->{'cache'}->{'optlist'}->{ $field->[$i] } =
+				  $self->{'xmlHandler'}->get_field_option_list( $field->[$i] );
+			}
+		}
+	}
+	push @$qry_args, $id->[$i];
+	push @$qry_args, $id2->[$i] if $id_fields->{'field2'} ne '<none>';
+	my $old_values = $self->{'datastore'}->run_query( $qry, $qry_args, { fetch => 'col_arrayref' } );
+	if (   ( $self->{'cache'}->{'attributes'}->{ $field->[$i] }->{'multiple'} // q() ) eq 'yes'
+		&& ( $self->{'cache'}->{'attributes'}->{ $field->[$i] }->{'optlist'} // q() ) eq 'yes' )
+	{
+		$old_values =
+		  BIGSdb::Utils::arbitrary_order_list( $self->{'cache'}->{'optlist'}->{ $field->[$i] }, $old_values->[0] );
+	} else {
+		no warnings 'numeric';
+		@$old_values = sort { $a <=> $b || $a cmp $b } @$old_values;
+	}
+	return $old_values;
+}
+
 sub _check_field {
 	my ( $self, $args ) = @_;
 	my ( $field, $i, $is_locus, $is_eav_field, $match, $id, $id2, $id_fields, $value ) =
@@ -376,39 +422,18 @@ sub _check_field {
 	my $qry;
 	my $set_id      = $self->get_set_id;
 	my $will_update = 0;
-
-	if ($is_locus) {
-		$qry = "SELECT allele_id FROM allele_designations LEFT JOIN $self->{'system'}->{'view'} ON "
-		  . "$self->{'system'}->{'view'}.id=allele_designations.isolate_id WHERE locus=? AND $match";
-		push @args, $field->[$i];
-	} elsif ($is_eav_field) {
-		my $eav_table = $self->{'datastore'}->get_eav_field_table( $field->[$i] );
-		$qry =
-		    "SELECT value FROM $eav_table JOIN $self->{'system'}->{'view'} ON "
-		  . "$eav_table.isolate_id=$self->{'system'}->{'view'}.id "
-		  . "WHERE field=? AND $match";
-		push @args, $field->[$i];
-	} else {
-		$qry = "SELECT $field->[$i] FROM $self->{'system'}->{'view'} WHERE $match";
-	}
-	push @args, $id->[$i];
-	push @args, $id2->[$i] if $id_fields->{'field2'} ne '<none>';
-	my $old_values = $self->{'datastore'}->run_query( $qry, \@args, { fetch => 'col_arrayref' } );
-	no warnings 'numeric';
-	@$old_values = sort { $a <=> $b || $a cmp $b } @$old_values;
-	local $" = ',';
+	my $old_values  = $self->_get_old_values($args);
+	local $" = '; ';
 
 	#Replace undef with empty string in list
 	map { $_ //= q() } @$old_values;    ##no critic (ProhibitMutatingListFunctions)
 	$old_value = "@$old_values";
-	if (   !defined $old_value
-		|| $old_value eq ''
-		|| $q->param('overwrite') )
-	{
-		$old_value = q(&lt;blank&gt;)
-		  if !defined $old_value || $old_value eq '';
+	if ( !@$old_values || $q->param('overwrite') ) {
 		my $problem =
 		  $self->{'submissionHandler'}->is_field_bad( 'isolates', $field->[$i], $value->[$i], 'update', $set_id );
+		undef $problem
+		  if ( $self->{'cache'}->{'attributes'}->{ $field->[$i] }->{'required'} // q() ) ne 'yes'
+		  && $value->[$i] eq '<blank>';
 		if ($is_locus) {
 			my $locus_info = $self->{'datastore'}->get_locus_info( $field->[$i] );
 			if ( $locus_info->{'allele_id_format'} eq 'integer'
@@ -420,9 +445,7 @@ sub _check_field {
 		if ($problem) {
 			$action = qq(<span class="statusbad">no action - $problem</span>);
 		} else {
-			if (   ( any { $value->[$i] eq $_ } @$old_values )
-				|| ( $value->[$i] eq '<blank>' && $old_value eq '&lt;blank&gt;' ) )
-			{
+			if ( $self->_are_values_the_same( $field->[$i], $value->[$i], $old_values ) ) {
 				if ($is_locus) {
 					$action = q(<span class="statusbad">no action - designation already set</span>);
 				} else {
@@ -441,10 +464,40 @@ sub _check_field {
 				$will_update = 1;
 			}
 		}
+		$old_value = q(&lt;blank&gt;) if !@$old_values;
 	} else {
 		$action = q(<span class="statusbad">no action - value already in db</span>);
 	}
 	return ( $old_value, $action, $will_update );
+}
+
+sub _are_values_the_same {
+	my ( $self, $field, $new, $old ) = @_;
+	my $att = $self->{'cache'}->{'attributes'}->{$field};
+	if ( ( $att->{'multiple'} // q() ) eq 'yes' ) {
+		$new = [ split /;/x, $new ];
+		s/^\s+|\s+$//gx foreach @$new;
+	} else {
+		$new =~ s/^\s+|\s+$//gx;
+	}
+	my %old = map { $_ => 1 } @$old;
+	if ( ref $new ) {
+		return 1 if $new->[0] eq '<blank>' && !@$old;
+		return 0 if scalar @$new != scalar @$old;
+		foreach my $new_value (@$new) {
+			return 0 if !$old{$new_value};
+		}
+		my %new = map { $_ => 1 } @$new;
+		foreach my $old_value (@$old) {
+			return 0 if !$new{$old_value};
+		}
+		return 1;
+	} else {
+		return 1 if $new eq '<blank>' && !@$old;
+		return 0 if !$old{$new};
+		return 1 if $new eq $old->[0] && @$old == 1;
+	}
+	return;
 }
 
 sub _update {
@@ -495,7 +548,12 @@ sub _update {
 			my $data = $self->_prepare_eav_update( $isolate_id, $field, $value );
 			( $args, $qry, $old_value ) = @{$data}{qw(args qry old_value)};
 		} else {
-			push @$args, ( ( $value // '' ) eq '' ? undef : $value );
+			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+			if ( ( $att->{'multiple'} // q() ) eq 'yes' && defined $value ) {
+				$value = [ split /;/x, $value ];
+				s/^\s+|\s+$//gx foreach @$value;
+			}
+			push @$args, ( ( $value // '' ) eq '' || ( ref $value && !@$value ) ? undef : $value );
 			$qry =
 			    "UPDATE isolates SET ($field,datestamp,curator)=(?,?,?) WHERE id IN "
 			  . "(SELECT $view.id FROM $view WHERE $match)";
@@ -507,6 +565,7 @@ sub _update {
 		$tablebuffer .= qq(<tr class="td$td"><td>$id->{'field1'}='$id1');
 		$tablebuffer .= qq( AND $id->{'field2'}='$id2') if $id->{'field2'} ne '<none>';
 		$value //= q(&lt;blank&gt;);
+		$value = $self->_list_to_string($value);
 		$tablebuffer .= qq(</td><td>$field</td><td>$value</td>);
 		eval {
 			if ($delete_qry) {
@@ -522,13 +581,14 @@ sub _update {
 			$self->{'db'}->commit;
 			$tablebuffer .= qq(<td class="statusgood">done!</td></tr>\n);
 			$old_value //= '';
+			$old_value = $self->_list_to_string($old_value);
+
 			$value = '' if $value eq '&lt;blank&gt;';
 			if ($is_locus) {
 				if ( $q->param('designations') eq 'replace' ) {
 					my $plural = @$deleted_designations == 1 ? '' : 's';
 					local $" = ',';
-					$self->update_history( $isolate_id,
-						"$field: designation$plural '@$deleted_designations' deleted" )
+					$self->update_history( $isolate_id, "$field: designation$plural '@$deleted_designations' deleted" )
 					  if @$deleted_designations;
 				}
 				$self->update_history( $isolate_id, "$field: new designation '$value'" );
@@ -550,6 +610,15 @@ sub _update {
 	}
 	$self->print_navigation_bar( { back_page => 'batchIsolateUpdate' } );
 	return;
+}
+
+sub _list_to_string {
+	my ( $self, $value ) = @_;
+	if ( ref $value ) {
+		local $" = q(; );
+		$value = qq(@$value);
+	}
+	return $value;
 }
 
 sub _prepare_allele_designation_update {
