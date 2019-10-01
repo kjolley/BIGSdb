@@ -1139,4 +1139,34 @@ sub print_scheme_selection_banner {
 	say q(</div>);
 	return;
 }
+
+#Take account of multivalue fields
+#$record is a hashref retrieved from the database
+sub get_field_value {
+	my ( $self, $record, $field, $divider ) = @_;
+	if ( !$self->{'cache'}->{'attributes'}->{$field} ) {
+		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+		if ( ( $att->{'multiple'} // q() ) eq 'yes' && ( $att->{'optlist'} // q() ) eq 'yes' ) {
+			$self->{'cache'}->{'optlist'}->{$field} = $self->{'xmlHandler'}->get_field_option_list($field);
+		}
+		$self->{'cache'}->{'attributes'}->{$field} = $att;
+	}
+	my $field_value;
+	if ( $record->{ lc $field } && $record->{ lc $field } ne q() ) {
+		if ( ref $record->{ lc $field } ) {
+			local $" = $divider // q(; );
+			my $values = $record->{ lc $field };
+			if ( $self->{'cache'}->{'optlist'}->{$field} ) {
+				$values =
+				  BIGSdb::Utils::arbitrary_order_list( $self->{'cache'}->{'optlist'}->{$field}, $values );
+			}
+			$field_value = qq(@$values);
+		} else {
+			$field_value = $record->{ lc $field };
+		}
+	} else {
+		$field_value = q();
+	}
+	return $field_value;
+}
 1;

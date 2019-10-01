@@ -1140,7 +1140,7 @@ sub _get_identifier {
 				local $" = q(_);
 				$field_value = qq(@field_values);
 			} else {
-				$field_value = $self->_get_field_value( $include_data, $field );
+				$field_value = $self->get_field_value( $include_data, $field, ';' );
 			}
 			$field_value =~ tr/[\(\):, ]/_/;
 			$value .= '|' if !$first || !$options->{'no_id'};
@@ -1149,34 +1149,6 @@ sub _get_identifier {
 		}
 	}
 	return $value;
-}
-
-sub _get_field_value {
-	my ( $self, $include_data, $field ) = @_;
-	my $field_value;
-	if ( !$self->{'cache'}->{'attributes'}->{$field} ) {
-		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-		if ( ( $att->{'multiple'} // q() ) eq 'yes' && ( $att->{'optlist'} // q() ) eq 'yes' ) {
-			$self->{'cache'}->{'optlist'}->{$field} = $self->{'xmlHandler'}->get_field_option_list($field);
-		}
-		$self->{'cache'}->{'attributes'}->{$field} = $att;
-	}
-	if ( $include_data->{ lc $field } && $include_data->{ lc $field } ne q() ) {
-		if ( ref $include_data->{ lc $field } ) {
-			local $" = q(;);
-			my $values = $include_data->{ lc $field };
-			if ( $self->{'cache'}->{'optlist'}->{$field} ) {
-				$values =
-				  BIGSdb::Utils::arbitrary_order_list( $self->{'cache'}->{'optlist'}->{$field}, $values );
-			}
-			$field_value = qq(@$values);
-		} else {
-			$field_value = $include_data->{ lc $field };
-		}
-	} else {
-		$field_value = q();
-	}
-	return $field_value;
 }
 
 sub _generate_splits {

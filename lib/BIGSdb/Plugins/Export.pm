@@ -160,7 +160,7 @@ sub _print_classification_scheme_fields {
 	  . q(onclick='listbox_selectall("classification_schemes",false)' value="None" style="margin-top:1em" )
 	  . q(class="smallbutton" /></div>);
 	say q(</fieldset>);
-return;
+	return;
 }
 
 sub _print_molwt_options {
@@ -312,7 +312,6 @@ sub _print_interface {
 	$self->_print_ref_fields;
 	$self->print_isolates_locus_fieldset;
 	$self->print_scheme_fieldset( { fields_or_loci => 1 } );
-	
 	$self->_print_classification_scheme_fields;
 	$self->_print_options;
 	$self->_print_molwt_options;
@@ -601,35 +600,14 @@ sub _write_field {
 			print $fh $value if defined $value;
 		}
 	} else {
-		if ( !$self->{'cache'}->{'attributes'}->{$field} ) {
-			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-			if ( ( $att->{'multiple'} // q() ) eq 'yes' && ( $att->{'optlist'} // q() ) eq 'yes' ) {
-				$self->{'cache'}->{'optlist'}->{$field} = $self->{'xmlHandler'}->get_field_option_list($field);
-			}
-			$self->{'cache'}->{'attributes'}->{$field} = $att;
-		}
-		my $value;
-		if ( defined $data->{ lc $field } && $data->{ lc $field } ne q() ) {
-			if ( ref $data->{ lc $field } ) {
-				local $" = q(; );
-				my $values = $data->{ lc $field };
-				if ( $self->{'cache'}->{'optlist'}->{$field} ) {
-					$values =
-					  BIGSdb::Utils::arbitrary_order_list( $self->{'cache'}->{'optlist'}->{$field}, $values );
-				}
-				$value = qq(@$values);
-			} else {
-				$value = $data->{ lc $field };
-			}
-		} 
-		
+		my $value = $self->get_field_value( $data, $field );
 		if ( $params->{'oneline'} ) {
 			print $fh $self->_get_id_one_line( $data, $params );
 			print $fh "$field\t";
 			print $fh $value if defined $value;
 			print $fh "\n";
 		} else {
-			print $fh "\t" if !$first;
+			print $fh "\t"   if !$first;
 			print $fh $value if defined $value;
 		}
 	}
@@ -871,7 +849,7 @@ sub _get_molwt {
 	if ( $locus_info->{'data_type'} eq 'DNA' ) {
 		my $seq_ref;
 		try {
-			if ($allele ne '0'){
+			if ( $allele ne '0' ) {
 				$seq_ref = $locus->get_allele_sequence($allele);
 			}
 		}

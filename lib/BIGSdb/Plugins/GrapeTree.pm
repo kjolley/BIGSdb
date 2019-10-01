@@ -43,7 +43,7 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.3.5',
+		version             => '1.3.6',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -429,7 +429,8 @@ sub _generate_tsv_file {
 	foreach my $record (@$data) {
 		my @record_values;
 		foreach my $field (@$prov_fields) {
-			push @record_values, $record->{ lc($field) } // q() if $include_fields{"f_$field"};
+			push @record_values, $self->get_field_value( $record, $field )
+			  if $include_fields{"f_$field"};
 			my $extatt = $extended->{$field};
 			if ( ref $extatt eq 'ARRAY' ) {
 				foreach my $extended_attribute (@$extatt) {

@@ -297,29 +297,8 @@ sub _get_field_value {
 		$value = '-' if !defined $value || $value eq '';
 		return $value;
 	} else {
-		if ( !$self->{'cache'}->{'attributes'}->{$field} ) {
-			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-			if ( ( $att->{'multiple'} // q() ) eq 'yes' && ( $att->{'optlist'} // q() ) eq 'yes' ) {
-				$self->{'cache'}->{'optlist'}->{$field} = $self->{'xmlHandler'}->get_field_option_list($field);
-			}
-			$self->{'cache'}->{'attributes'}->{$field} = $att;
-		}
-		my $value;
-		if ( defined $data->{ lc $field } && $data->{ lc $field } ne q() ) {
-			if ( ref $data->{ lc $field } ) {
-				local $" = q(; );
-				my $values = $data->{ lc $field };
-				if ( $self->{'cache'}->{'optlist'}->{$field} ) {
-					$values =
-					  BIGSdb::Utils::arbitrary_order_list( $self->{'cache'}->{'optlist'}->{$field}, $values );
-				}
-				$value = qq(@$values);
-			} else {
-				$value = $data->{ lc $field };
-			}
-		} else {
-			$value = q(-);
-		}
+		my $value = $self->get_field_value( $data, $field );
+		$value = q(-) if $value eq q();
 		return $value;
 	}
 }

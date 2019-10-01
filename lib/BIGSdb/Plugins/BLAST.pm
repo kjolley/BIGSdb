@@ -591,24 +591,7 @@ sub _get_include_values {
 				local $" = q(,);
 				$value = "@values" // q();
 			} else {
-				if ( !$self->{'cache'}->{'attributes'}->{$field} ) {
-					my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-					if ( ( $att->{'multiple'} // q() ) eq 'yes' && ( $att->{'optlist'} // q() ) eq 'yes' ) {
-						$self->{'cache'}->{'optlist'}->{$field} = $self->{'xmlHandler'}->get_field_option_list($field);
-					}
-					$self->{'cache'}->{'attributes'}->{$field} = $att;
-				}
-				if ( ref $include_data->{$field} ) {
-					my $values = $include_data->{$field};
-					if ( $self->{'cache'}->{'optlist'}->{$field} ) {
-						$values =
-						  BIGSdb::Utils::arbitrary_order_list( $self->{'cache'}->{'optlist'}->{$field}, $values );
-					}
-					local $" = q(; );
-					$value = @$values ? qq(@$values) : q();
-				} else {
-					$value = $include_data->{$field} // q();
-				}
+				$value = $self->get_field_value( $include_data, $field );
 			}
 			push @$include_values, $value;
 		}
