@@ -52,7 +52,7 @@ sub get_attributes {
 		menutext         => 'PhyloViz',
 		menu_description => 'Visualization and phylogenetic inference',
 		module           => 'PhyloViz',
-		version          => '1.2.3',
+		version          => '1.2.4',
 		dbtype           => 'isolates',
 		section          => 'third_party,postquery',
 		input            => 'query',
@@ -428,7 +428,8 @@ sub _generate_auxiliary_file {
 	foreach my $isolate_data (@$data) {
 		my @values;
 		foreach my $field (@$fields) {
-			push @values, $isolate_data->{ lc $field };
+			my $value = $self->get_field_value($isolate_data,$field);
+			push @values, $value;
 			if ( $ext_fields->{$field} ) {
 				foreach my $ext_field ( @{ $ext_fields->{$field} } ) {
 					push @values, $extended_values->{$field}->{$ext_field}->{ $isolate_data->{ lc $field } };
