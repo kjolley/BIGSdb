@@ -516,7 +516,7 @@ sub _get_fields_js {
 		my $type = lc( $field_attributes->{$field}->{'type'} );
 		$type = 'integer' if $type eq 'int';
 		$type = 'text'    if $type =~ /^bool/x;
-		if ($type eq 'date' && ($field_attributes->{$field}->{'multiple'} // q()) eq 'yes'){
+		if ( $type eq 'date' && ( $field_attributes->{$field}->{'multiple'} // q() ) eq 'yes' ) {
 			$type = 'text';
 		}
 		if ( !$allowed_types{$type} ) {
@@ -637,6 +637,26 @@ sub _get_field_freqs {
 		foreach my $value (@$values) {
 			$value->{'iso3'} = $countries->{ $value->{'label'} }->{'iso3'} // q(XXX);
 		}
+	}
+	my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+	if ( ( $att->{'multiple'} // q() ) eq 'yes' && ( $att->{'optlist'} // q() ) eq 'yes' ) {
+		my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
+		my %new_values;
+		foreach my $value (@$values) {
+			my $sorted_label = BIGSdb::Utils::arbitrary_order_list( $optlist, $value->{'label'} );
+			local $" = q(; );
+			my $new_label = qq(@$sorted_label);
+			$new_values{$new_label} += $value->{'value'};
+		}
+		my $new_return_list = [];
+		foreach my $label ( sort { $new_values{$b} <=> $new_values{$a} || $a cmp $b } keys %new_values ) {
+			push @$new_return_list,
+			  {
+				label => $label eq q() ? 'No value' : $label,
+				value => $new_values{$label}
+			  };
+		}
+		return $new_return_list;
 	}
 	return $values;
 }
