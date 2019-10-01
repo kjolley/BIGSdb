@@ -43,7 +43,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.7.7',
+		version     => '1.7.8',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
@@ -601,14 +601,36 @@ sub _write_field {
 			print $fh $value if defined $value;
 		}
 	} else {
+		if ( !$self->{'cache'}->{'attributes'}->{$field} ) {
+			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+			if ( ( $att->{'multiple'} // q() ) eq 'yes' && ( $att->{'optlist'} // q() ) eq 'yes' ) {
+				$self->{'cache'}->{'optlist'}->{$field} = $self->{'xmlHandler'}->get_field_option_list($field);
+			}
+			$self->{'cache'}->{'attributes'}->{$field} = $att;
+		}
+		my $value;
+		if ( defined $data->{ lc $field } && $data->{ lc $field } ne q() ) {
+			if ( ref $data->{ lc $field } ) {
+				local $" = q(; );
+				my $values = $data->{ lc $field };
+				if ( $self->{'cache'}->{'optlist'}->{$field} ) {
+					$values =
+					  BIGSdb::Utils::arbitrary_order_list( $self->{'cache'}->{'optlist'}->{$field}, $values );
+				}
+				$value = qq(@$values);
+			} else {
+				$value = $data->{ lc $field };
+			}
+		} 
+		
 		if ( $params->{'oneline'} ) {
 			print $fh $self->_get_id_one_line( $data, $params );
 			print $fh "$field\t";
-			print $fh "$data->{$field}" if defined $data->{$field};
+			print $fh $value if defined $value;
 			print $fh "\n";
 		} else {
 			print $fh "\t" if !$first;
-			print $fh $data->{$field} if defined $data->{$field};
+			print $fh $value if defined $value;
 		}
 	}
 	return;
