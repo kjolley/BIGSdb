@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext       => 'Microreact',
 		menutext         => 'Microreact',
 		module           => 'Microreact',
-		version          => '1.0.8',
+		version          => '1.0.9',
 		dbtype           => 'isolates',
 		section          => 'third_party,postquery',
 		input            => 'query',
@@ -181,12 +181,13 @@ sub _create_tsv_file {
 		}
 		my @record_values;
 		foreach my $field (@$prov_fields) {
-			push @record_values, $record->{$field} // q() if $include_fields{"f_$field"};
+			my $field_value = $self->get_field_value($record,$field);
+			push @record_values, $field_value if $include_fields{"f_$field"};
 			my $extatt = $extended->{$field};
 			if ( ref $extatt eq 'ARRAY' ) {
 				foreach my $extended_attribute (@$extatt) {
 					next if !$include_fields{"e_$field||$extended_attribute"};
-					my $field_value = $field eq 'country' ? $country : $record->{$field};    #use unmapped country value
+					$field_value = $field eq 'country' ? $country : $record->{$field};    #use unmapped country value
 					my $value = $self->{'datastore'}->run_query(
 						'SELECT value FROM isolate_value_extended_attributes WHERE '
 						  . '(isolate_field,attribute,field_value)=(?,?,?)',
