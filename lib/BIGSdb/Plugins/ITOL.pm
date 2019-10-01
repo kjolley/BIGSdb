@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext          => 'iTOL',
 		menutext            => 'iTOL',
 		module              => 'ITOL',
-		version             => '1.3.12',
+		version             => '1.3.13',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -548,6 +548,27 @@ sub _create_itol_dataset {
 	};
 	my $distinct_values =
 	  $self->{'datastore'}->run_query( $distinct_qry->{$type}, undef, { fetch => 'col_arrayref' } );
+	if ( !$self->{'cache'}->{'attributes'}->{$name} ) {
+		my $att = $self->{'xmlHandler'}->get_field_attributes($name);
+		if ( ( $att->{'multiple'} // q() ) eq 'yes' && ( $att->{'optlist'} // q() ) eq 'yes' ) {
+			$self->{'cache'}->{'optlist'}->{$name} = $self->{'xmlHandler'}->get_field_option_list($name);
+		}
+		$self->{'cache'}->{'attributes'}->{$name} = $att;
+	}
+	if ( ( $self->{'cache'}->{'attributes'}->{$name}->{'multiple'} // q() ) eq 'yes' ) {
+		my @new_list;
+		foreach my $value (@$distinct_values) {
+			local $" = q(; );
+			if ( $self->{'cache'}->{'optlist'}->{$name} ) {
+				my $reordered_value =
+				  BIGSdb::Utils::arbitrary_order_list( $self->{'cache'}->{'optlist'}->{$name}, $value );
+				push @new_list, qq(@$reordered_value);
+			} else {
+				push @new_list, qq(@$value);
+			}
+		}
+		@$distinct_values = @new_list;
+	}
 	my $distinct = @$distinct_values;
 	my $i        = 1;
 	my $all_ints = BIGSdb::Utils::all_ints($distinct_values);
@@ -578,6 +599,16 @@ sub _create_itol_dataset {
 			my $data =
 			  $self->{'datastore'}->run_query( $qry->{$type}, $id, { cache => "ITol::itol_dataset::$field" } );
 			next if !defined $data;
+			if ( ( $self->{'cache'}->{'attributes'}->{$name}->{'multiple'} // q() ) eq 'yes' ) {
+				local $" = q(; );
+				if ( $self->{'cache'}->{'optlist'}->{$name} ) {
+					my $reordered_value =
+					  BIGSdb::Utils::arbitrary_order_list( $self->{'cache'}->{'optlist'}->{$name}, $data );
+					$data = qq(@$reordered_value);
+				} else {
+					$data = qq(@$data);
+				}
+			}
 			$identifier =~ s/,/_/gx;
 			my @args = ( $identifier, $data, $value_colour->{$data} );
 			$buffer .= $row_output->{$data_type}->(@args) . qq(\n);
