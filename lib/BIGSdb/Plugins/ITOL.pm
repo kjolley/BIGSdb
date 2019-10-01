@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext          => 'iTOL',
 		menutext            => 'iTOL',
 		module              => 'ITOL',
-		version             => '1.3.11',
+		version             => '1.3.12',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -332,6 +332,11 @@ sub generate_tree_files {
 		my $filtered_list = [];
 		foreach my $id (@$ids) {
 			push @$filtered_list, $id if !$missing_seq{$id};
+		}
+		if ( @$filtered_list < 2 ) {
+			$message_html = q(<p>There are fewer than 2 valid ids containing sequence for the selected loci )
+			  . q(in the list - tree cannot be generated.</p>);
+			return { message_html => $message_html, failed => 1 };
 		}
 		$self->align( $job_id, 1, $filtered_list, $scan_data, 1 );
 	}

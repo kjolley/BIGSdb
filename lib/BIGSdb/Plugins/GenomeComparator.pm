@@ -52,7 +52,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.3.27',
+		version     => '2.3.28',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -2032,13 +2032,14 @@ sub _write_excel_parameters {
 	}
 
 	#Parameters/options
-	push @parameters, (
+	push @parameters,
+	  (
 		{ section => 'Parameters' },
 		{ label   => 'Min % identity', value => $params->{'identity'} },
 		{ label   => 'Min % alignment', value => $params->{'alignment'} },
 		{ label   => 'BLASTN word size', value => $params->{'word_size'} },
 		{ label   => 'Rescan undesignated', value => $params->{'rescan_missing'} ? 'yes' : 'no' }
-	);
+	  );
 
 	#Distance matrix
 	my $labels = {
@@ -2172,6 +2173,11 @@ sub _assemble_data_for_reference_genome {
 		$locus_data->{$locus_name} =
 		  { full_name => $full_name, sequence => $$seq_ref, start => $start, description => $desc };
 		push @$loci, $locus_name;
+	}
+	if ( !@$loci ) {
+		BIGSdb::Exception::Plugin->throw(
+			q(No valid loci found. Make sure your reference contains locus definitions with DNA sequences.) )
+		  ;
 	}
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Scanning isolate record 1' } );
 	my $isolate_list = $self->create_list_file( $job_id, 'isolates', $ids );
