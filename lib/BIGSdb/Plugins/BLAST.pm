@@ -107,7 +107,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.4.13',
+		version     => '1.4.14',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -569,7 +569,7 @@ sub _get_prov_text_cells {
 
 sub _get_include_values {
 	my ( $self, $includes, $isolate_id ) = @_;
-	my @include_values;
+	my $include_values = [];
 	if (@$includes) {
 		my $include_data = $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?",
 			$isolate_id, { fetch => 'row_hashref', cache => 'BLAST::run_isolates' } );
@@ -591,12 +591,29 @@ sub _get_include_values {
 				local $" = q(,);
 				$value = "@values" // q();
 			} else {
-				$value = $include_data->{$field} // q();
+				if ( !$self->{'cache'}->{'attributes'}->{$field} ) {
+					my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+					if ( ( $att->{'multiple'} // q() ) eq 'yes' && ( $att->{'optlist'} // q() ) eq 'yes' ) {
+						$self->{'cache'}->{'optlist'}->{$field} = $self->{'xmlHandler'}->get_field_option_list($field);
+					}
+					$self->{'cache'}->{'attributes'}->{$field} = $att;
+				}
+				if ( ref $include_data->{$field} ) {
+					my $values = $include_data->{$field};
+					if ( $self->{'cache'}->{'optlist'}->{$field} ) {
+						$values =
+						  BIGSdb::Utils::arbitrary_order_list( $self->{'cache'}->{'optlist'}->{$field}, $values );
+					}
+					local $" = q(; );
+					$value = @$values ? qq(@$values) : q();
+				} else {
+					$value = $include_data->{$field} // q();
+				}
 			}
-			push @include_values, $value;
+			push @$include_values, $value;
 		}
 	}
-	return \@include_values;
+	return $include_values;
 }
 
 sub _print_interface {
@@ -624,10 +641,10 @@ sub _print_interface {
 	say q(</fieldset>);
 	say q(<fieldset style="float:left"><legend>Include in results table</legend>);
 	my @fields;
-	my $set_id        = $self->get_set_id;
-	my $is_curator    = $self->is_curator;
-	my $field_list    = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
-	my $labels        = {};
+	my $set_id     = $self->get_set_id;
+	my $is_curator = $self->is_curator;
+	my $field_list = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
+	my $labels     = {};
 
 	foreach my $field (@$field_list) {
 		next if $field eq $self->{'system'}->{'labelfield'};
