@@ -43,7 +43,7 @@ sub get_attributes {
 		buttontext  => 'Two Field',
 		menutext    => 'Two field',
 		module      => 'TwoFieldBreakdown',
-		version     => '1.4.11',
+		version     => '1.4.12',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/two_field_breakdown.html",
@@ -87,7 +87,6 @@ sub run {
 	@ids = uniq @ids;
 	my $continue = 1;
 	my ( @errors, @info );
-
 	if ( !@ids ) {
 		push @errors, q(You must select at least one valid isolate id.);
 	}
@@ -819,6 +818,7 @@ sub _get_value_frequency_hashes {
 	my %field_type;
 	my %clean;
 	my %print;
+	my %multivalue;
 	( $clean{$field1} = $field1 ) =~ s/^[f|l]_//x;
 	( $clean{$field2} = $field2 ) =~ s/^[f|l]_//x;
 	my %scheme_id;
@@ -829,7 +829,10 @@ sub _get_value_frequency_hashes {
 		}
 		if ( $self->{'xmlHandler'}->is_field( $clean{$field} ) ) {
 			$field_type{$field} = 'field';
-			$print{$field} = $clean{$field};
+			$print{$field}      = $clean{$field};
+			if ( $self->_is_field_multivalue( $clean{$field} ) ) {
+				$multivalue{$field} = 1;
+			}
 		} elsif ( $self->{'datastore'}->is_locus( $clean{$field} ) ) {
 			$field_type{$field} = 'locus';
 			$print{$field}      = $clean{$field};
@@ -864,8 +867,26 @@ sub _get_value_frequency_hashes {
 		}
 		foreach my $field1_value ( @{ $values[0] } ) {
 			next if !defined $field1_value;
+			if ( $multivalue{$field1} && ref $field1_value ) {
+				if ( $self->{'cache'}->{'optlist'}->{ $clean{$field1} } ) {
+					$field1_value =
+					  BIGSdb::Utils::arbitrary_order_list( $self->{'cache'}->{'optlist'}->{ $clean{$field1} },
+						$field1_value );
+				}
+				local $" = q(; );
+				$field1_value = qq(@$field1_value);
+			}
 			foreach my $field2_value ( @{ $values[1] } ) {
 				next if !defined $field2_value;
+				if ( $multivalue{$field2} && ref $field2_value ) {
+					if ( $self->{'cache'}->{'optlist'}->{ $clean{$field2} } ) {
+						$field2_value =
+						  BIGSdb::Utils::arbitrary_order_list( $self->{'cache'}->{'optlist'}->{ $clean{$field2} },
+							$field2_value );
+					}
+					local $" = q(; );
+					$field2_value = qq(@$field2_value);
+				}
 				$datahash->{$field1_value}->{$field2_value}++;
 				$grand_total++;
 			}
@@ -881,6 +902,19 @@ sub _get_value_frequency_hashes {
 			printfield2 => $print{$field2}
 		}
 	);
+}
+
+sub _is_field_multivalue {
+	my ( $self, $field ) = @_;
+	my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+	if ( ( $att->{'multiple'} // q() ) eq 'yes' ) {
+		if ( ( $att->{'optlist'} // q() ) eq 'yes' ) {
+			$self->{'cache'}->{'optlist'}->{$field} = $self->{'xmlHandler'}->get_field_option_list($field);
+		}
+		$self->{'cache'}->{'attribures'}->{$field} = $att;
+		return 1;
+	}
+	return;
 }
 
 #If number of records is >=50% of total records, query database and fetch all rows,
@@ -908,7 +942,6 @@ sub _get_values {
 					{ isolate_id => $isolate_id, scheme_id => $scheme_id->{$field}, field => $clean_fields->{$field} }
 				);
 			}
-
 		};
 		if ( $method->{ $field_type->{$field} } ) {
 			push @values, $method->{ $field_type->{$field} }->();
