@@ -650,21 +650,25 @@ sub _print_optlist {         ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 		my $q        = $self->{'cgi'};
 		my $optlist  = $thisfield->{'option_list_values'} // $self->{'xmlHandler'}->get_field_option_list($field);
 		my $multiple = ( $thisfield->{'multiple'} // q() ) eq 'yes';
-		say $self->popup_menu(
+		my %args     = (
 			-name   => $field,
 			-id     => "field_$field",
 			-values => $multiple ? $optlist : [ '', @$optlist ],
 			-labels => { '' => ' ' },
-			-default => $newdata->{lc $field} // $thisfield->{'default'},
-			-multiple => $multiple ? 'true' : 'false',
-			%$html5_args
+			-default => $newdata->{ lc $field } // $thisfield->{'default'},
+			-multiple => $multiple ? 'true' : 'false'
 		);
+		if ( $multiple && @$optlist ) {
+			my $size = @$optlist <= 10 ? @$optlist : 10;
+			$args{'-size'} = $size;
+		}
+		say $self->popup_menu( %args, %$html5_args );
 		return 1;
 	}
 	return;
 }
 
-sub _print_bool {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _print_bool {                      ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $args ) = @_;
 	my ( $field, $newdata, $thisfield ) = @{$args}{qw(field newdata thisfield )};
 	return if $thisfield->{'type'} !~ /^bool/x;
