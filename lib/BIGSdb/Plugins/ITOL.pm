@@ -263,7 +263,7 @@ sub print_extra_form_elements {
 
 sub _get_identifier_list {
 	my ( $self, $fasta_file ) = @_;
-	open( my $fh, '<', $fasta_file ) || $logger->error("Cannot open $fasta_file for reading");
+	open( my $fh, '<:encoding(utf8)', $fasta_file ) || $logger->error("Cannot open $fasta_file for reading");
 	my @ids;
 	while ( my $line = <$fh> ) {
 		if ( $line =~ /^>(\S*)/x ) {
