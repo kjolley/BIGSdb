@@ -1187,10 +1187,14 @@ sub _modify_user_fields_in_remote_user_dbs {
 			push @user_names, $cleaned if $local_users_in_db->{$user_name}->{$user_db_id};
 		}
 	}
+	if ($text eq 'null' && $operator eq '='){
+		$qry = qq(($qry AND user_db IS NULL));
+	}
 	return $qry if !@user_names;
 	local $" = q(',E');
 	$and_or = 'AND NOT' if $operator =~ /NOT/;
 	$qry = qq(($qry $and_or user_name IN (E'@user_names')));
+	
 	return $qry;
 }
 
