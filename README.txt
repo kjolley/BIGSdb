@@ -1,4 +1,7 @@
 v1.23.4: *Support for option list fields with multiple values.
+         *Removal of support for set-specific metadata fields - these were 
+          rarely used, led to complicated and difficult to maintain code, and
+          the same functionality can be achieved using alternative configs.
 v1.23.3: *Add option to GenomeComparator to restore ability to re-scan genomes
           for missing loci.
 v1.23.2: *GrapeTree and GenomeComparator now only scan records if <50% 
