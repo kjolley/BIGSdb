@@ -588,8 +588,18 @@ sub initiate_userdbs {
 	  $self->run_query( 'SELECT * FROM user_dbases ORDER BY id', undef, { fetch => 'all_arrayref', slice => {} } );
 	foreach my $config (@$configs) {
 		try {
-			$self->{'user_dbs'}->{ $config->{'id'} } =
-			  { db => $self->{'dataConnector'}->get_connection($config), name => $config->{'dbase_name'} };
+			$self->{'user_dbs'}->{ $config->{'id'} } = {
+				db => $self->{'dataConnector'}->get_connection(
+					{
+						dbase_name => $config->{'dbase_name'},
+						host => $config->{'dbase_host'} // $self->{'config'}->{'dbhost'} // $self->{'system'}->{'host'},
+						port => $config->{'dbase_port'} // $self->{'config'}->{'dbport'} // $self->{'system'}->{'port'},
+						user => $config->{'dbase_user'} // $self->{'config'}->{'dbuser'} // $self->{'system'}->{'user'},
+						password => $config->{'dbase_password'} // $self->{'config'}->{'dbpassword'}
+						  // $self->{'system'}->{'password'}
+					}
+				)
+			};
 		}
 		catch {
 			if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
@@ -2021,10 +2031,10 @@ sub _get_ref_db {
 	my ($self) = @_;
 	my %att = (
 		dbase_name => $self->{'config'}->{'ref_db'},
-		host       => $self->{'system'}->{'host'},
-		port       => $self->{'system'}->{'port'},
-		user       => $self->{'system'}->{'user'},
-		password   => $self->{'system'}->{'pass'}
+		host       => $self->{'config'}->{'dbhost'} // $self->{'system'}->{'host'},
+		port       => $self->{'config'}->{'dbport'} // $self->{'system'}->{'port'},
+		user       => $self->{'config'}->{'dbuser'} // $self->{'system'}->{'user'},
+		password   => $self->{'config'}->{'dbpassword'} // $self->{'system'}->{'password'},
 	);
 	my $dbr;
 	try {
@@ -2183,10 +2193,10 @@ sub create_temp_ref_table {
 	my ( $self, $list, $qry_ref ) = @_;
 	my %att = (
 		dbase_name => $self->{'config'}->{'ref_db'},
-		host       => $self->{'system'}->{'host'},
-		port       => $self->{'system'}->{'port'},
-		user       => $self->{'system'}->{'user'},
-		password   => $self->{'system'}->{'pass'}
+		host       => $self->{'config'}->{'dbhost'} // $self->{'system'}->{'host'},
+		port       => $self->{'config'}->{'dbport'} // $self->{'system'}->{'port'},
+		user       => $self->{'config'}->{'dbuser'} // $self->{'system'}->{'user'},
+		password   => $self->{'config'}->{'dbpassword'} // $self->{'system'}->{'password'}
 	);
 	my $dbr;
 	my $continue = 1;

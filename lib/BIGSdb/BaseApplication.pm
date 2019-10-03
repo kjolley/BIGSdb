@@ -99,10 +99,10 @@ sub initiate_authdb {
 	my ($self) = @_;
 	my %att = (
 		dbase_name => $self->{'config'}->{'auth_db'},
-		host       => $self->{'system'}->{'host'},
-		port       => $self->{'system'}->{'port'},
-		user       => $self->{'system'}->{'user'},
-		password   => $self->{'system'}->{'password'},
+		host       => $self->{'config'}->{'dbhost'} // $self->{'system'}->{'host'},
+		port       => $self->{'config'}->{'dbport'} // $self->{'system'}->{'port'},
+		user       => $self->{'config'}->{'dbuser'} // $self->{'system'}->{'user'},
+		password   => $self->{'config'}->{'dbpassword'} // $self->{'system'}->{'password'},
 	);
 	try {
 		$self->{'auth_db'} = $self->{'dataConnector'}->get_connection( \%att );
@@ -125,11 +125,11 @@ sub initiate_jobmanager {
 		{
 			config_dir       => $config_dir,
 			dbase_config_dir => $dbase_config_dir,
-			host             => $self->{'system'}->{'host'},
-			port             => $self->{'system'}->{'port'},
-			user             => $self->{'system'}->{'user'},
-			password         => $self->{'system'}->{'password'},
-			system           => $self->{'system'}
+			host             => $self->{'config'}->{'dbhost'} // $self->{'system'}->{'host'},
+			port             => $self->{'config'}->{'dbport'} // $self->{'system'}->{'port'},
+			user             => $self->{'config'}->{'dbuser'} // $self->{'system'}->{'user'},
+			password         => $self->{'config'}->{'dbpassword'} // $self->{'system'}->{'password'},
+			system => $self->{'system'}
 		}
 	);
 	return;
@@ -394,7 +394,7 @@ sub initiate_plugins {
 }
 
 sub get_load_average {
-	if ( -e '/proc/loadavg' ) {                            #Faster to read from /proc/loadavg if available.
+	if ( -e '/proc/loadavg' ) {    #Faster to read from /proc/loadavg if available.
 		my $loadavg;
 		open( my $fh, '<', '/proc/loadavg' ) or croak 'Cannot open /proc/loadavg';
 		while (<$fh>) {
@@ -403,7 +403,7 @@ sub get_load_average {
 		close $fh;
 		return $loadavg;
 	}
-	my $uptime = `uptime`;                                 #/proc/loadavg not available on BSD.
+	my $uptime = `uptime`;         #/proc/loadavg not available on BSD.
 	if ( $uptime =~ /load\ average:\s+([\d\.]+)/x ) {
 		return $1;
 	}

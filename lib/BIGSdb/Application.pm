@@ -282,10 +282,10 @@ sub _setup_prefstore {
 	my ($self) = @_;
 	my %att = (
 		dbase_name => $self->{'config'}->{'prefs_db'},
-		host       => $self->{'system'}->{'host'},
-		port       => $self->{'system'}->{'port'},
-		user       => $self->{'system'}->{'user'},
-		password   => $self->{'system'}->{'password'},
+		host       => $self->{'config'}->{'dbhost'} // $self->{'system'}->{'host'},
+		port       => $self->{'config'}->{'dbport'} // $self->{'system'}->{'port'},
+		user       => $self->{'config'}->{'dbuser'} // $self->{'system'}->{'user'},
+		password   => $self->{'config'}->{'dbpassword'} // $self->{'system'}->{'password'},
 	);
 	my $pref_db;
 	try {

@@ -1062,11 +1062,11 @@ sub _get_loci_list {
 sub _get_provenance_fields {
 	my ( $self, $options ) = @_;
 	my @isolate_list;
-	my $set_id        = $self->get_set_id;
-	my $is_curator    = $self->is_curator;
-	my $fields        = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
-	my $attributes    = $self->{'xmlHandler'}->get_all_field_attributes;
-	my $extended      = $options->{'extended_attributes'} ? $self->get_extended_attributes : undef;
+	my $set_id     = $self->get_set_id;
+	my $is_curator = $self->is_curator;
+	my $fields     = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
+	my $attributes = $self->{'xmlHandler'}->get_all_field_attributes;
+	my $extended   = $options->{'extended_attributes'} ? $self->get_extended_attributes : undef;
 	foreach my $field (@$fields) {
 
 		if (   ( $options->{'sender_attributes'} )
@@ -2876,10 +2876,10 @@ sub use_correct_user_database {
 	#database.
 	my $att = {
 		dbase_name => $self->{'system'}->{'db'},
-		host       => $self->{'system'}->{'host'},
-		port       => $self->{'system'}->{'port'},
-		user       => $self->{'system'}->{'user'},
-		password   => $self->{'system'}->{'password'}
+		host       => $self->{'config'}->{'dbhost'} // $self->{'system'}->{'host'},
+		port       => $self->{'config'}->{'dbport'} // $self->{'system'}->{'port'},
+		user       => $self->{'config'}->{'dbuser'} // $self->{'system'}->{'user'},
+		password   => $self->{'config'}->{'dbpassword'} // $self->{'system'}->{'password'}
 	};
 	try {
 		$self->{'db'} = $self->{'dataConnector'}->get_connection($att);

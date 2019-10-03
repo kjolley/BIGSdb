@@ -32,10 +32,10 @@ sub print_content {
 	my $scheme_id = $q->param('scheme_id') // 0;
 	my %att = (
 		dbase_name => $self->{'config'}->{'ref_db'},
-		host       => $system->{'host'},
-		port       => $system->{'port'},
-		user       => $system->{'user'},
-		password   => $system->{'pass'}
+		host       => $self->{'config'}->{'dbhost'} // $self->{'system'}->{'host'},
+		port       => $self->{'config'}->{'dbport'} // $self->{'system'}->{'port'},
+		user       => $self->{'config'}->{'dbuser'} // $self->{'system'}->{'user'},
+		password   => $self->{'config'}->{'dbpassword'} // $self->{'system'}->{'password'}
 	);
 	say qq(<h1>Publications cited in the $system->{'description'} database</h1>);
 	my $dbr;
@@ -109,7 +109,8 @@ sub print_content {
 	} else {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 		my $primary_key = $scheme_info->{'primary_key'};
-		$qry = "SELECT * FROM profile_refs LEFT JOIN mv_scheme_$scheme_id on "
+		$qry =
+		    "SELECT * FROM profile_refs LEFT JOIN mv_scheme_$scheme_id on "
 		  . "profile_refs.profile_id=mv_scheme_${scheme_id}.$primary_key WHERE pubmed_id=$pmid "
 		  . "AND profile_refs.scheme_id=$scheme_id ORDER BY $primary_key";
 		$logger->error($qry);
