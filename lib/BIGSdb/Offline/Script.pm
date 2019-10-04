@@ -91,7 +91,7 @@ sub initiate {
 	$self->{'system'}->{'user'}     //= $self->{'user'}     // 'apache';
 	$self->{'system'}->{'password'} //= $self->{'password'} // 'remote';
 	$self->{'system'}->{'locus_superscript_prefix'} ||= 'no';
-	if ( ($self->{'system'}->{'dbtype'} // q()) eq 'isolates' ) {
+	if ( ( $self->{'system'}->{'dbtype'} // q() ) eq 'isolates' ) {
 		$self->{'system'}->{'view'}       ||= 'isolates';
 		$self->{'system'}->{'labelfield'} ||= 'isolate';
 		if ( !$self->{'xmlHandler'}->is_field( $self->{'system'}->{'labelfield'} ) ) {
@@ -182,8 +182,8 @@ sub run_script {
 }
 
 sub get_isolates_with_linked_seqs {
-	my ($self) = @_;
-	return $self->get_isolates( { with_seqbin => 1 } );
+	my ( $self, $options ) = @_;
+	return $self->get_isolates( { with_seqbin => 1, size => $options->{'size'} } );
 }
 
 sub get_isolates {
@@ -196,10 +196,12 @@ sub get_isolates {
 	local $" = ',';
 	my $view = $self->{'system'}->{'view'};
 	my $qry  = "SELECT $view.id FROM $view";
-	$qry .= " WHERE EXISTS(SELECT * FROM seqbin_stats WHERE $view.id=seqbin_stats.isolate_id)"
-	  if $options->{'with_seqbin'};
+	if ( $options->{'with_seqbin'} ) {
+		my $with_size = $options->{'size'} ? " AND total_length>=$options->{'size'}" : q();
+		$qry .= " WHERE EXISTS(SELECT * FROM seqbin_stats WHERE $view.id=seqbin_stats.isolate_id$with_size)"
+		  ;
+	}
 	my $where_or_and = $options->{'with_seqbin'} ? 'AND' : 'WHERE';
-
 	if ( $self->{'options'}->{'p'} ) {
 		my @projects = split( ',', $self->{'options'}->{'p'} );
 		die "Invalid project list.\n" if any { !BIGSdb::Utils::is_int($_) } @projects;
