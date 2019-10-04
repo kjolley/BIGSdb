@@ -911,7 +911,7 @@ sub _get_provenance_fields {
 		}
 		my ( $web, $value );
 		if ( $thisfield->{'web'} ) {
-			$web = $self->_get_web_links($data, $field);
+			$web = $self->_get_web_links( $data, $field );
 		} else {
 			if ( ( $thisfield->{'optlist'} // q() ) eq 'yes' && ref $data->{ lc($field) } ) {
 				my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
@@ -925,6 +925,18 @@ sub _get_provenance_fields {
 		if ( $user_field{$field} || ( $thisfield->{'userfield'} // '' ) eq 'yes' ) {
 			push @$list, $self->_get_user_field( $summary_view, $field, $displayfield, $value, $data );
 		} else {
+
+			#https://stackoverflow.com/questions/6038061/regular-expression-to-find-urls-within-a-string
+			## no critic (ProhibitComplexRegexes)
+			if (
+				defined $value &&
+				$value =~ /((http|ftp|https):\/\/([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:\/~+#-]*[\w@?^=%&\/~+#-])?)/x
+			  )
+			{
+				my $url       = $1;
+				my $hyperlink = qq(<a href="$url">$url</a>);
+				$value =~ s/$url/$hyperlink/gx;
+			}
 			push @$list, { title => $displayfield, data => ( $web || $value ) };
 		}
 		if ( $field eq 'curator' ) {
