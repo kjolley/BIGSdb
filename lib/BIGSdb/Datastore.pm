@@ -598,7 +598,8 @@ sub initiate_userdbs {
 						password => $config->{'dbase_password'} // $self->{'config'}->{'dbpassword'}
 						  // $self->{'system'}->{'password'}
 					}
-				)
+				),
+				name => $config->{'dbase_name'}
 			};
 		}
 		catch {

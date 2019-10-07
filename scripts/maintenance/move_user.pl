@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20190830
+#Version: 20191007
 use strict;
 use warnings;
 use 5.010;
@@ -99,6 +99,13 @@ if (
 	exit;
 }
 main();
+undef $script;
+
+sub error_die {
+	my ($text) = @_;
+	undef $script;
+	die "$text\n";
+}
 
 sub main {
 	$script->initiate_authdb;
@@ -154,18 +161,18 @@ sub check_params {
 			last;
 		}
 	}
-	die "\nUser database $opts{'user_database'} does not exist!\n" if !$user_db_exists;
+	error_die ("\nUser database $opts{'user_database'} does not exist!") if !$user_db_exists;
 	my $user_info = $script->{'datastore'}->get_user_info_from_username( $opts{'user_name'} );
-	die "\nUser $opts{'user_name'} does not exist!\n" if !$user_info;
-	die "\nUser $opts{'user_name'} is already in a remote user database!\n" if ( $user_info->{'user_db'} );
+	error_die ("\nUser $opts{'user_name'} does not exist!") if !$user_info;
+	error_die ("\nUser $opts{'user_name'} is already in a remote user database!") if ( $user_info->{'user_db'} );
 	my $user_db_id =
 	  $script->{'datastore'}->run_query( 'SELECT id FROM user_dbases WHERE dbase_name=?', $opts{'user_database'} );
 	my $user_db = $script->{'datastore'}->get_user_db($user_db_id);
 	my $remote_user =
 	  $script->{'datastore'}
 	  ->run_query( 'SELECT EXISTS(SELECT * FROM users WHERE user_name=?)', $opts{'user_name'}, { db => $user_db } );
-	die "\nUser $opts{'user_name'} already exists in remote user database!\n" if $remote_user;
-	die "\nAuthorization database is not available!\n" if !$script->{'auth_db'};
+	error_die ("\nUser $opts{'user_name'} already exists in remote user database!") if $remote_user;
+	error_die ("\nAuthorization database is not available!") if !$script->{'auth_db'};
 	return;
 }
 
