@@ -937,8 +937,8 @@ sub _submit_isolates {
 		return;
 	} elsif ( ( $q->param('submit') && $q->param('data') ) ) {
 		my $set_id = $self->get_set_id;
-		my $data = $q->param('data');
-		my $ret = $self->{'submissionHandler'}->check_new_isolates( $set_id, \$data, $options );
+		my $data   = $q->param('data');
+		my $ret    = $self->{'submissionHandler'}->check_new_isolates( $set_id, \$data, $options );
 		if ( $ret->{'err'} ) {
 			my $err = $ret->{'err'};
 			local $" = '<br />';
@@ -1784,6 +1784,31 @@ sub _print_profile_table {
 	};
 }
 
+sub _get_completed_schemes {
+	my ( $self, $submission_id ) = @_;
+	my $isolate_submission = $self->{'submissionHandler'}->get_isolate_submission($submission_id);
+	my $fields =
+	  $self->{'submissionHandler'}
+	  ->get_populated_fields( $isolate_submission->{'isolates'}, $isolate_submission->{'order'} );
+	my %populated = map { $_ => 1 } @$fields;
+	my $set_id = $self->get_set_id;
+	my $schemes =
+	  $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => 1 } );
+	my $list = [];
+	foreach my $scheme (@$schemes) {
+		my $loci          = $self->{'datastore'}->get_scheme_loci( $scheme->{'id'} );
+		my $all_populated = 1;
+		foreach my $locus (@$loci) {
+			if ( !$populated{$locus} ) {
+				$all_populated = 0;
+				last;
+			}
+		}
+		push @$list, $scheme->{'id'} if $all_populated;
+	}
+	return $list;
+}
+
 sub _print_isolate_table {
 	my ( $self, $submission_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
@@ -1794,6 +1819,20 @@ sub _print_isolate_table {
 	my $fields =
 	  $self->{'submissionHandler'}
 	  ->get_populated_fields( $isolate_submission->{'isolates'}, $isolate_submission->{'order'} );
+	my $schemes       = $self->_get_completed_schemes($submission_id);
+	my $scheme_fields = {};
+
+	foreach my $scheme_id (@$schemes) {
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+		if ( $scheme_info->{'primary_key'} ) {
+			my $field = qq($scheme_info->{'primary_key'} ($scheme_info->{'name'}));
+			push @$fields, $field;
+			$scheme_fields->{$field} = {
+				scheme_id => $scheme_id,
+				field     => $scheme_info->{'primary_key'}
+			};
+		}
+	}
 	say q(<table class="resultstable"><tr>);
 	say qq(<th>$_</th>) foreach @$fields;
 	say q(</tr>);
@@ -1821,6 +1860,18 @@ sub _print_isolate_table {
 					}
 					$filename_already_used{ $isolate->{$field} } = 1;
 				}
+			} elsif ( $scheme_fields->{$field} ) {
+				my $scheme_loci  = $self->{'datastore'}->get_scheme_loci( $scheme_fields->{$field}->{'scheme_id'} );
+				my $designations = {};
+				foreach my $locus (@$scheme_loci) {
+					$designations->{$locus} = [ { allele_id => $isolate->{$locus}, status => 'confirmed' } ];
+				}
+				my $field_values =
+				  $self->{'datastore'}
+				  ->get_scheme_field_values_by_designations( $scheme_fields->{$field}->{'scheme_id'}, $designations );
+				my @pk_field_values =
+				  keys %{ $field_values->{ lc $scheme_fields->{$field}->{'field'} } };
+				push @values, $pk_field_values[0] // q(-);
 			} else {
 				push @values, $isolate->{$field} // q();
 			}
@@ -1933,8 +1984,7 @@ sub _print_message_fieldset {
 			$self->{'db'}->rollback;
 		} else {
 			$self->{'db'}->commit;
-			$self->{'submissionHandler'}->append_message( $submission_id, $user->{'id'}, scalar $q->param('message') )
-			  ;
+			$self->{'submissionHandler'}->append_message( $submission_id, $user->{'id'}, scalar $q->param('message') );
 			$q->delete('message');
 			$self->{'submissionHandler'}->update_submission_datestamp($submission_id);
 		}
