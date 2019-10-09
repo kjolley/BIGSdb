@@ -107,7 +107,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.4.14',
+		version     => '1.4.15',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -807,7 +807,9 @@ sub _blast {
 			( $params{'-reward'}, $params{'-penalty'}, $params{'-gapopen'}, $params{'-gapextend'} ) = split /,/x, $1;
 		}
 	}
-	system( "$self->{'config'}->{'blast+_path'}/$program", %params );
+	my $param_string;
+	$param_string .= " $_ $params{$_}" foreach keys %params;
+	system("$self->{'config'}->{'blast+_path'}/$program$param_string 2>/dev/null");
 	my $matches = $self->_parse_blast( $outfile_url, $hits );
 
 	#clean up
