@@ -528,9 +528,24 @@ sub _run_blast {
 			logger   => $logger
 		}
 	);
-	my $html = $seq_qry_obj->run($$seq_ref);
+	my $html;
+	my $error;
+	try {
+		$html = $seq_qry_obj->run($$seq_ref);
+	}
+	catch {
+		$error = $_;
+	};
+	if ($error) {
+		$self->print_bad_status(
+			{
+				message => q(Query error),
+				detail  => $error,
+			}
+		);
+		return { html => q() };
+	}
 	my $return_obj = { html => $html };
-
 	if ( $q->param('page') eq 'sequenceQuery' ) {
 		$return_obj->{'exact_matches'} = $seq_qry_obj->get_exact_matches;
 		$return_obj->{'linked_data'}   = $seq_qry_obj->get_allele_linked_data;

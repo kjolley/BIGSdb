@@ -109,8 +109,24 @@ sub _batch_query {
 	my ( $self, $seq_ref, $data ) = @_;
 	$self->ensure_seq_has_identifer($seq_ref);
 	my $contig_names = $self->_get_contig_names($seq_ref);
-	my $contigs      = BIGSdb::Utils::read_fasta( $seq_ref, { allow_peptide => 1 } );
-	my @headings     = qw(Contig Match Locus Allele Differences);
+	my $contigs;
+	my $error;
+	try {
+		$contigs = BIGSdb::Utils::read_fasta( $seq_ref, { allow_peptide => 1 } );
+	}
+	catch {
+		$error = $_;
+	};
+	if ($error) {
+		return $self->print_bad_status(
+			{
+				message  => q(Query error),
+				detail   => $error,
+				get_only => 1
+			}
+		);
+	}
+	my @headings = qw(Contig Match Locus Allele Differences);
 	local $" = q(</th><th>);
 	my $table = qq(<table class="resultstable"><tr><th>@headings</th></tr>);
 	my $td    = 1;
