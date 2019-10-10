@@ -43,7 +43,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.7.8',
+		version     => '1.7.9',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
@@ -408,7 +408,8 @@ sub _write_tab_text {
 	eval { $sql->execute };
 	$logger->error($@) if $@;
 	my %data = ();
-	$sql->bind_columns( map { \$data{$_} } @$fields_to_bind );    #quicker binding hash to arrayref than to use hashref
+	$sql->bind_columns( map { \$data{ lc $_ } } @$fields_to_bind )
+	  ;    #quicker binding hash to arrayref than to use hashref
 	my $i = 0;
 	my $j = 0;
 	local $| = 1;
@@ -419,7 +420,7 @@ sub _write_tab_text {
 	while ( $sql->fetchrow_arrayref ) {
 		next
 		  if $id_used{ $data{'id'} }
-		  ;    #Ordering by scheme field/locus can result in multiple rows per isolate if multiple values defined.
+		  ;         #Ordering by scheme field/locus can result in multiple rows per isolate if multiple values defined.
 		$id_used{ $data{'id'} } = 1;
 		if ( !$offline ) {
 			print q(.) if !$i;
