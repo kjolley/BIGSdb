@@ -52,7 +52,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.3.28',
+		version     => '2.3.29',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -2156,6 +2156,8 @@ sub assemble_data_for_defined_loci {
 	delete $params->{'datatype'};    #This interferes with Script::get_selected_loci.
 	my $data = $self->_run_helper($params);
 	$self->_touch_output_files("$job_id*");    #Prevents premature deletion by cleanup scripts
+	unlink $locus_list;
+	unlink $isolate_list;
 	return $data;
 }
 
@@ -2196,6 +2198,7 @@ sub _assemble_data_for_reference_genome {
 	$params->{'user_genomes'} = $user_genomes if $user_genomes;
 	my $data = $self->_run_helper($params);
 	$self->_touch_output_files("$job_id*");    #Prevents premature deletion by cleanup scripts
+	unlink $isolate_list;
 	return $data;
 }
 
