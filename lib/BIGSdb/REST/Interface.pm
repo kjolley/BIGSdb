@@ -123,7 +123,7 @@ sub check_post_payload {
 sub _before {
 	my $self = setting('self');
 	$self->{'start_time'} = [gettimeofday];
-	my $request_path = request->path();
+	my $request_path = request->path;
 	foreach my $dir ( @{ setting('api_dirs') } ) {
 		if ( $request_path =~ /^$dir/x ) {
 			set subdir => $dir;
@@ -227,19 +227,19 @@ sub _get_ip_address {
 
 sub _check_authorization {
 	my $self             = setting('self');
-	my $request_uri      = request->uri();
+	my $request_path      = request->path;
 	my $authenticated_db = ( $self->{'system'}->{'read_access'} // '' ) ne 'public';
 	my $subdir = setting('subdir');
 	my $oauth_route      = "$subdir/db/$self->{'instance'}/oauth/";
 	my $submission_route = "$subdir/db/$self->{'instance'}/submissions";
-	if ( $request_uri =~ /$submission_route/x ) {
+	if ( $request_path =~ /$submission_route/x ) {
 		$self->setup_submission_handler;
 	}
-	if ( ( $authenticated_db && $request_uri !~ /^$oauth_route/x ) || $request_uri =~ /^$submission_route/x ) {
+	if ( ( $authenticated_db && $request_path !~ /^$oauth_route/x ) || $request_path =~ /^$submission_route/x ) {
 		send_error( 'Unauthorized', 401 ) if !$self->_is_authorized;
 	}
 	my $login_requirement = $self->{'datastore'}->get_login_requirement;
-	if ( $login_requirement == OPTIONAL && param('oauth_consumer_key') && $request_uri !~ /^$oauth_route/x ) {
+	if ( $login_requirement == OPTIONAL && param('oauth_consumer_key') && $request_path !~ /^$oauth_route/x ) {
 		$self->_is_authorized;
 	}
 	return;
