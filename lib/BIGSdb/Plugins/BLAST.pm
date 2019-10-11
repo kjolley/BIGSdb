@@ -107,7 +107,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.4.15',
+		version     => '1.4.16',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -727,9 +727,9 @@ sub _blast {
 		$program = 'tblastn';
 	}
 	my $file_prefix    = BIGSdb::Utils::get_random();
-	my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$file_prefix\_file.txt";
-	my $temp_outfile   = "$self->{'config'}->{'secure_tmp_dir'}/$file_prefix\_outfile.txt";
-	my $temp_queryfile = "$self->{'config'}->{'secure_tmp_dir'}/$file_prefix\_query.txt";
+	my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/${file_prefix}_file.txt";
+	my $temp_outfile   = "$self->{'config'}->{'secure_tmp_dir'}/${file_prefix}_outfile.txt";
+	my $temp_queryfile = "$self->{'config'}->{'secure_tmp_dir'}/${file_prefix}_query.txt";
 	my $outfile_url    = "$file_prefix\_outfile.txt";
 
 	#create query FASTA file
@@ -781,7 +781,10 @@ sub _blast {
 		say $fastafile_fh ">$seqbin_id\n$contigs->{$seqbin_id}";
 	}
 	close $fastafile_fh;
-	return [] if -z $temp_fastafile;
+	if ( -z $temp_fastafile ) {
+		$self->_clean_up_temp_files($file_prefix);
+		return [];
+	}
 	my $blastn_word_size = $form_params->{'word_size'} =~ /(\d+)/x ? $1                  : 11;
 	my $hits             = $form_params->{'hits'} =~ /(\d+)/x      ? $1                  : 1;
 	my $word_size        = $program eq 'blastn'                    ? ($blastn_word_size) : 3;
@@ -811,11 +814,15 @@ sub _blast {
 	$param_string .= " $_ $params{$_}" foreach keys %params;
 	system("$self->{'config'}->{'blast+_path'}/$program$param_string 2>/dev/null");
 	my $matches = $self->_parse_blast( $outfile_url, $hits );
+	$self->_clean_up_temp_files($file_prefix);
+	return $matches;
+}
 
-	#clean up
+sub _clean_up_temp_files {
+	my ( $self, $file_prefix ) = @_;
 	my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/*$file_prefix*");
 	foreach (@files) { unlink $1 if /^(.*BIGSdb.*)$/x }
-	return $matches;
+	return;
 }
 
 sub _parse_blast {
