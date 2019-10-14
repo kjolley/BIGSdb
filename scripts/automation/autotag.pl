@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20190202
+#Version: 20191014
 use strict;
 use warnings;
 use 5.010;
@@ -68,6 +68,7 @@ GetOptions(
 	'q|quiet'              => \$opts{'q'},
 	'r|random'             => \$opts{'r'},
 	'reuse_blast'          => \$opts{'reuse_blast'},
+	'type_alleles'         => \$opts{'type_alleles'},
 	'T|already_tagged'     => \$opts{'T'},
 	'v|view=s'             => \$opts{'v'}
 ) or die("Error in command line arguments\n");
@@ -271,6 +272,12 @@ ${bold}-t, --time$norm ${under}MINS$norm
 
 ${bold}--threads$norm ${under}THREADS$norm
     Maximum number of threads to use.
+    
+${bold}--type_alleles$norm
+    Only use alleles with the 'type_allele' flag set to identify locus.
+    Note that this is only used when combined with the --missing (-0) flag.
+    You must have at least one allele defined as a type allele for a locus
+    if you use this option otherwise you will not find any matches!
 
 ${bold}-T, --already_tagged$norm
     Scan even when sequence tagged (no designation).

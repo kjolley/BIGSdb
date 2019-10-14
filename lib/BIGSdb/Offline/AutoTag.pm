@@ -233,7 +233,7 @@ sub _get_params {
 		$params->{'alignment'} = MISSING_ALLELE_ALIGNMENT;
 		$params->{'identity'}  = MISSING_ALLELE_IDENTITY;
 	}
-	$params->{$_} = $self->{'options'}->{$_} foreach qw(exemplar fast);
+	$params->{$_} = $self->{'options'}->{$_} foreach qw(exemplar fast type_alleles);
 	$params->{'partial_matches'} = 100 if $self->{'options'}->{'exemplar'};
 	return $params;
 }
