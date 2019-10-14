@@ -1873,7 +1873,8 @@ sub _modify_query_for_designations {
 		local $" = ' OR ';
 		my $modify = '';
 		if ( ( $q->param('designation_andor') // '' ) eq 'AND' ) {
-			$modify = "GROUP BY $view.id HAVING count($view.id)=" . keys %$queries_by_locus;
+			my $locus_count = keys %$queries_by_locus;
+			$modify = "GROUP BY $view.id HAVING count(DISTINCT($view.id,allele_designations.locus))=$locus_count";
 		}
 		my @allele_queries = values %$queries_by_locus;
 		my $combined_allele_queries =
@@ -2605,7 +2606,7 @@ END
 				my %used;
 				foreach my $value (@$options) {
 					next if $used{$value};
-					(my $display_value = $value) =~ s/"/\\"/gx;
+					( my $display_value = $value ) =~ s/"/\\"/gx;
 					$autocomplete_js .= qq(       "$display_value");
 					$autocomplete_js .= ',' if $value ne $options->[-1];
 					$autocomplete_js .= "\n";
