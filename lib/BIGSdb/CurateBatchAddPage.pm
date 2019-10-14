@@ -1623,7 +1623,8 @@ sub _upload_data {
 sub _process_multivalues {
 	my ( $self, $field_att, $field_order, $field, $data ) = @_;
 	my $divider = q(;);
-	if ( ( $field_att->{$field}->{'multiple'} // q() ) eq 'yes'
+	if (   ( $field_att->{$field}->{'multiple'} // q() ) eq 'yes'
+		&& defined $field_order->{$field}
 		&& defined $data->[ $field_order->{$field} ] )
 	{
 		$data->[ $field_order->{$field} ] = [ split /$divider/x, $data->[ $field_order->{$field} ] ];
