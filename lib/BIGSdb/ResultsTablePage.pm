@@ -162,8 +162,12 @@ sub paged_display {
 		$self->_print_isolate_table( \$qry, $currentpage, $records );
 	} elsif ( $table eq 'profiles' ) {
 		$self->_print_profile_table( \$qry, $currentpage, $records );
-	} elsif ( !$self->{'curate'} && $table eq 'refs' ) {
-		$self->_print_publication_table( \$qry, $currentpage );
+	} elsif ( $table eq 'refs' ) {
+		if ( $q->param('page') eq 'plugin' ) {
+			$self->_print_publication_table( \$qry, $currentpage );
+		} else {
+			$self->_print_record_table( $table, \$qry, $currentpage, $records );
+		}
 	} else {
 		$self->_print_record_table( $table, \$qry, $currentpage, $records );
 	}
