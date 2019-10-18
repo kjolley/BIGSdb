@@ -163,7 +163,7 @@ sub _print_links {
 		foreach my $link (@$links) {
 			$link->{'url'} =~ s/\&/&amp;/gx;
 			my $domain;
-			if ( ( lc( $link->{'url'} ) =~ /http:\/\/(.*?)\/+/x ) ) {
+			if ( ( lc( $link->{'url'} ) =~ /https?:\/\/(.*?)\/+/x ) ) {
 				$domain = $1;
 			}
 			print qq(<li><a href="$link->{'url'}">$link->{'description'}</a>);
