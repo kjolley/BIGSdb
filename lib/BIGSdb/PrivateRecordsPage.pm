@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2018, University of Oxford
+#Copyright (c) 2017-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -80,31 +80,32 @@ sub _print_limits {
 	my $list = [
 		{
 			title => 'Records (total)',
-			data  => $total_private,
+			data  => BIGSdb::Utils::commify($total_private),
 			href  => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . q(page=query&amp;private_records_list=1&amp;include_old=on&amp;submit=1)
 		},
 		{
 			title => 'Records (quota)',
-			data  => $private,
+			data  => BIGSdb::Utils::commify($private),
 			href  => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . q(page=query&amp;private_records_list=2&amp;include_old=on&amp;submit=1)
 		},
-		{ title => 'Quota',          data => $limit },
-		{ title => 'You can upload', data => $available }
+		{ title => 'Quota',          data => BIGSdb::Utils::commify($limit) },
+		{ title => 'You can upload', data => BIGSdb::Utils::commify($available) }
 	];
 	say $self->get_list_block($list);
+
 	if ($available) {
 		say q(<span class="main_icon fas fa-upload fa-3x fa-pull-left"></span>);
 		say q(<h2>Upload</h2>);
 		my $link = $self->_get_upload_link;
-		say qq(<ul class="toplevel"><li><a href="$link">Upload private isolate records</a></li></ul>);
+		say qq(<ul style="margin-left:25px"><li><a href="$link">Upload private isolate records</a></li></ul>);
 	}
 	my $private_isolates = $self->{'datastore'}->get_user_private_isolate_limit($user_id);
 	if ($user_id) {
 		say q(<span class="main_icon fas fa-pencil-alt fa-3x fa-pull-left"></span>);
 		say q(<h2>Curate</h2>);
-		say qq(<ul class="toplevel"><li><a href="$self->{'system'}->{'curate_script'}?db=$self->{'instance'}">)
+		say qq(<ul style="margin-left:25px"><li><a href="$self->{'system'}->{'curate_script'}?db=$self->{'instance'}">)
 		  . q(Update private records</a> <span class="link">Curator's interface</span></li></ul>);
 	}
 	say q(</div>);
