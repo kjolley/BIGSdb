@@ -45,7 +45,7 @@ sub get_attributes {
 		buttontext  => 'PCR',
 		menutext    => 'In silico PCR',
 		module      => 'PCR',
-		version     => '1.0.3',
+		version     => '1.0.4',
 		dbtype      => 'isolates',
 		section     => 'info,analysis,postquery',
 		input       => 'query',
@@ -409,7 +409,7 @@ sub run_job {
 			}
 		}
 		$td = $td == 1 ? 2 : 1;
-		return if $self->{'exit'};
+		last if $self->{'exit'};
 	}
 	$self->_export_summary_tables( $job_id, $summary );
 	unlink $reaction_file;
