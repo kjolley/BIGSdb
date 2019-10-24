@@ -352,7 +352,7 @@ sub _run_query {
 	} else {
 		$qry = $self->get_query_from_temp_file( scalar $q->param('query_file') );
 		if ( $q->param('list_file') ) {
-			$self->{'datastore'}->create_temp_list_table( 'text', $q->param('list_file') );
+			$self->{'datastore'}->create_temp_list_table( 'text', scalar $q->param('list_file') );
 		}
 	}
 	my @hidden_attributes;
