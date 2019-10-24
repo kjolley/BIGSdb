@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext          => 'iTOL',
 		menutext            => 'iTOL',
 		module              => 'ITOL',
-		version             => '1.3.13',
+		version             => '1.3.14',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -150,7 +150,6 @@ sub run {
 				local $" = '|_|';
 				$params->{$field_dataset} = "@dataset";
 			}
-			$params->{'includes'} = $self->{'system'}->{'labelfield'} if $q->param('include_name');
 			$params->{'user_upload'} = $user_upload if $user_upload;
 			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 			my $job_id    = $self->{'jobManager'}->add_job(
@@ -238,7 +237,8 @@ sub print_extra_form_elements {
 		-values   => \@allowed_fields,
 		-labels   => $labels,
 		-size     => 8,
-		-multiple => 'true'
+		-multiple => 'true',
+		-default  => ["f_$self->{'system'}->{'labelfield'}"]
 	);
 	say q(</fieldset>);
 	say q(<fieldset style="float:left"><legend>iTOL data type</legend>);
@@ -248,14 +248,6 @@ sub print_extra_form_elements {
 		-values    => [qw(text_label colour_strips)],
 		-labels    => $labels,
 		-linebreak => 'true'
-	);
-	say q(</fieldset>);
-	say q(<fieldset style="float:left"><legend>Include in identifier</legend>);
-	say $q->checkbox(
-		-name   => 'include_name',
-		-id     => 'include_name',
-		-label  => "$self->{'system'}->{'labelfield'} name",
-		checked => 'checked'
 	);
 	say q(</fieldset>);
 	return;
