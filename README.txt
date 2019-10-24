@@ -1,3 +1,6 @@
+v1.23.5: *Support for only using type alleles when autotagging missing loci.
+         *Fix REST OAuth calls when mounted in domain sub-directory.
+         *Indicate ST in uploaded isolate submissions.
 v1.23.4: *Support for option list fields with multiple values.
          *Removal of support for set-specific metadata fields - these were 
           rarely used, led to complicated and difficult to maintain code, and

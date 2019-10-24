@@ -45,7 +45,7 @@ sub get_attributes {
 		menutext    => 'Gene presence',
 		module      => 'GenePresence',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/gene_presence.html",
-		version     => '2.0.7',
+		version     => '2.0.8',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -370,6 +370,7 @@ sub run_job {
 	$self->{'params'}                         = $params;
 	$self->{'params'}->{'designation_status'} = 1;
 	$self->{'params'}->{'tag_status'}         = 1;
+	$self->{'params'}->{'rescan_missing'}     = 1;
 	my $loci         = $self->{'jobManager'}->get_job_loci($job_id);
 	my $isolate_ids  = $self->{'jobManager'}->get_job_isolates($job_id);
 	my $user_genomes = $self->process_uploaded_genomes( $job_id, $isolate_ids, $params );
