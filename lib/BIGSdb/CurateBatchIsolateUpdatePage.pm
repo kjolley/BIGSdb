@@ -428,7 +428,7 @@ sub _check_field {
 	#Replace undef with empty string in list
 	map { $_ //= q() } @$old_values;    ##no critic (ProhibitMutatingListFunctions)
 	$old_value = "@$old_values";
-	if ( !@$old_values || $q->param('overwrite') ) {
+	if ( @$old_values == 1 && $old_values->[0] eq q() || $q->param('overwrite') ) {
 		my $problem =
 		  $self->{'submissionHandler'}->is_field_bad( 'isolates', $field->[$i], $value->[$i], 'update', $set_id );
 		undef $problem
