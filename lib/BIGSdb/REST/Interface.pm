@@ -191,8 +191,11 @@ sub _before_error {
 sub _setup_db_logger {
 	my $self = setting('self');
 	return if !$self->{'config'}->{'rest_log_to_db'};
-	$self->{'log_db'} = $self->{'dataConnector'}->get_connection( { dbase_name => $self->{'config'}->{'rest_db'} } );
-	my $real_host = $self->{'config'}->{'host_map'}->{ $self->{'system'}->{'host'} } // $self->{'system'}->{'host'};
+	my $real_host = $self->{'config'}->{'host_map'}->{ $self->{'config'}->{'dbhost'} }
+	  // $self->{'config'}->{'dbhost'}
+	  // $self->{'config'}->{'host_map'}->{ $self->{'system'}->{'host'} } // $self->{'system'}->{'host'};
+	$self->{'log_db'} =
+	  $self->{'dataConnector'}->get_connection( { dbase_name => $self->{'config'}->{'rest_db'}, host => $real_host } );
 	$self->{'do_not_drop'} = ["$real_host|$self->{'config'}->{'rest_db'}"];
 	return;
 }
@@ -227,9 +230,9 @@ sub _get_ip_address {
 
 sub _check_authorization {
 	my $self             = setting('self');
-	my $request_path      = request->path;
+	my $request_path     = request->path;
 	my $authenticated_db = ( $self->{'system'}->{'read_access'} // '' ) ne 'public';
-	my $subdir = setting('subdir');
+	my $subdir           = setting('subdir');
 	my $oauth_route      = "$subdir/db/$self->{'instance'}/oauth/";
 	my $submission_route = "$subdir/db/$self->{'instance'}/submissions";
 	if ( $request_path =~ /$submission_route/x ) {
