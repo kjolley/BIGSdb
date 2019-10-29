@@ -133,10 +133,10 @@ sub initiate_job_manager {
 		{
 			config_dir       => $self->{'config_dir'},
 			dbase_config_dir => $self->{'dbase_config_dir'},
-			host             => $self->{'host'} || 'localhost',
-			port             => $self->{'port'} || 5432,
-			user             => $self->{'user'} || 'apache',
-			password         => $self->{'password'} || 'remote'
+			host             => $self->{'config'}->{'dbhost'} // $self->{'host'} // 'localhost',
+			port             => $self->{'config'}->{'dbport'} // $self->{'port'} // 5432,
+			user             => $self->{'config'}->{'dbuser'} // $self->{'user'} // 'apache',
+			password         => $self->{'config'}->{'dbpassword'} // $self->{'password'} // 'remote'
 		}
 	);
 	return;
@@ -198,8 +198,7 @@ sub get_isolates {
 	my $qry  = "SELECT $view.id FROM $view";
 	if ( $options->{'with_seqbin'} ) {
 		my $with_size = $options->{'size'} ? " AND total_length>=$options->{'size'}" : q();
-		$qry .= " WHERE EXISTS(SELECT * FROM seqbin_stats WHERE $view.id=seqbin_stats.isolate_id$with_size)"
-		  ;
+		$qry .= " WHERE EXISTS(SELECT * FROM seqbin_stats WHERE $view.id=seqbin_stats.isolate_id$with_size)";
 	}
 	my $where_or_and = $options->{'with_seqbin'} ? 'AND' : 'WHERE';
 	if ( $self->{'options'}->{'p'} ) {
