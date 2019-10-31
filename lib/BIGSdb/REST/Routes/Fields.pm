@@ -23,6 +23,7 @@ use 5.010;
 use JSON;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 use BIGSdb::Utils;
+use constant GENOME_SIZE => 500_000;
 
 #Isolate database routes
 sub setup_routes {
@@ -165,9 +166,14 @@ sub _get_breakdown {
 	if ( !$self->{'xmlHandler'}->is_field($field) ) {
 		send_error( "Field $field does not exist.", 404 );
 	}
+	my $genome_size = BIGSdb::Utils::is_int( params->{'genome_size'} ) ? params->{'genome_size'} : GENOME_SIZE;
+	my $genome_clause =
+	  $params->{'genomes'}
+	  ? " AND id IN (SELECT isolate_id FROM seqbin_stats WHERE total_length>=$genome_size)"
+	  : q();
 	my $qry =
 	    "SELECT $field,COUNT(*) AS count FROM $self->{'system'}->{'view'} WHERE $field IS NOT NULL AND "
-	  . "new_version IS NULL GROUP BY $field";
+	  . "new_version IS NULL$genome_clause GROUP BY $field";
 
 	#Undocumented call - needed to generate stats of genome submissions
 	if ( $params->{'genomes'} && ( $field eq 'date_entered' || $field eq 'datestamp' ) ) {
@@ -193,10 +199,16 @@ sub _get_extended_field_breakdown {
 	my $ext_att =
 	  $self->{'datastore'}->run_query( 'SELECT * FROM isolate_field_extended_attributes WHERE attribute=? LIMIT 1',
 		$field, { fetch => 'row_hashref' } );
+	my $genome_size =
+	  BIGSdb::Utils::is_int( params->{'genome_size'} ) ? params->{'genome_size'} : GENOME_SIZE;
+	my $genome_clause =
+	  $params->{'genomes'}
+	  ? " AND id IN (SELECT isolate_id FROM seqbin_stats WHERE total_length>=$genome_size)"
+	  : q();
 	my $value_counts = $self->{'datastore'}->run_query(
 		"SELECT a.value AS $field,COUNT(*) AS count FROM $self->{'system'}->{'view'} v "
 		  . "JOIN isolate_value_extended_attributes a ON v.$ext_att->{'isolate_field'}=a.field_value "
-		  . 'WHERE new_version IS NULL GROUP BY a.value',
+		  . "WHERE new_version IS NULL$genome_clause GROUP BY a.value",
 		undef,
 		{ fetch => 'all_arrayref', slice => {} }
 	);
