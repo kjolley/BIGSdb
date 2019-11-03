@@ -33,7 +33,7 @@ sub run_script {
 	  if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
 	$self->initiate_job_manager if $self->{'options'}->{'mark_job'};
 	my $job_id = $self->add_job('UpdateSchemeCaches');
-	eval { $self->{'db'}->do(q(SET lock_timeout = 5000)) };
+	eval { $self->{'db'}->do(q(SET lock_timeout = 30000)) };
 	$self->{'logger'}->error($@) if $@;
 	my $schemes  = [];
 	my $cschemes = [];
