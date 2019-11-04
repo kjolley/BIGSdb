@@ -1120,7 +1120,12 @@ sub create_temp_cscheme_table {
 	#should minimize the time that the table is unavailable.
 	if ( $options->{'cache'} ) {
 		eval { $self->{'db'}->do("DROP TABLE IF EXISTS $rename_table; ALTER TABLE $table RENAME TO $rename_table") };
-		$logger->error($@) if $@;
+		if ($@) {
+			$logger->error($@);
+			$logger->error("Dropping temp table $table.");
+			eval { $self->{'db'}->do("DROP TABLE IF EXISTS $table") };
+			$logger->error($@) if $@;
+		}
 		$self->{'db'}->commit;
 		$table = $rename_table;
 	}
@@ -1171,7 +1176,12 @@ sub create_temp_cscheme_field_values_table {
 	#should minimize the time that the table is unavailable.
 	if ( $options->{'cache'} ) {
 		eval { $self->{'db'}->do("DROP TABLE IF EXISTS $rename_table; ALTER TABLE $table RENAME TO $rename_table") };
-		$logger->error($@) if $@;
+		if ($@) {
+			$logger->error($@);
+			$logger->error("Dropping temp table $table.");
+			eval { $self->{'db'}->do("DROP TABLE IF EXISTS $table") };
+			$logger->error($@) if $@;
+		}
 		$self->{'db'}->commit;
 		$table = $rename_table;
 	}
