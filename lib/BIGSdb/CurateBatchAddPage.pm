@@ -394,11 +394,12 @@ sub _check_data {
 	my %last_id;
 	return if $self->sender_needed($args);
 	my $sender_message = $self->get_sender_message($args);
-	my ( %problems, %advisories );
-	my $table_header = $self->_get_field_table_header($table);
-	my $tablebuffer  = qq(<div class="scrollable"><table class="resultstable"><tr>$table_header</tr>);
-	my @records      = split /\n/x, $q->param('data');
-	my $td           = 1;
+	my $problems       = {};
+	my $advisories     = {};
+	my $table_header   = $self->_get_field_table_header($table);
+	my $tablebuffer    = qq(<div class="scrollable"><table class="resultstable"><tr>$table_header</tr>);
+	my @records        = split /\n/x, $q->param('data');
+	my $td             = 1;
 	my ( $file_header_fields, $file_header_pos ) = $self->get_file_header_data( \@records );
 	my $id           = $self->_get_id($table);
 	my $unique_field = $self->_get_unique_fields($table);
@@ -458,11 +459,12 @@ sub _check_data {
 					file_header_pos => $file_header_pos,
 					data            => \@data,
 					pk_combination  => $pk_combination,
-					problems        => \%problems,
+					problems        => $problems,
 					special_problem => \$special_problem,
 					continue        => \$continue,
 					last_id         => \%last_id,
-					unique_field    => $unique_field
+					unique_field    => $unique_field,
+					advisories      => $advisories,
 				};
 				$self->check_data_duplicates($new_args);
 				$self->_run_table_specific_field_checks( $table, $new_args );
@@ -474,7 +476,7 @@ sub _check_data {
 						table           => $table,
 						field           => $field,
 						value           => $value,
-						problems        => \%problems,
+						problems        => $problems,
 						pk_combination  => $pk_combination,
 						special_problem => $special_problem
 					}
@@ -500,8 +502,8 @@ sub _check_data {
 				primary_keys       => \@primary_keys,
 				pk_combination     => $pk_combination,
 				pk_values          => $pk_values_ref,
-				problems           => \%problems,
-				advisories         => \%advisories,
+				problems           => $problems,
+				advisories         => $advisories,
 				checked_record     => \$checked_record,
 				table              => $table
 			};
@@ -511,11 +513,11 @@ sub _check_data {
 				if (@$validation_failures) {
 					foreach my $failure (@$validation_failures) {
 						$failure =~ s/\.?\s*$/. /x;
-						$problems{$pk_combination} .= $failure;
+						$problems->{$pk_combination} .= $failure;
 					}
 				}
 				$tablebuffer .=
-				  $self->_isolate_record_further_checks( $table, $new_args, \%advisories, $pk_combination );
+				  $self->_isolate_record_further_checks( $table, $new_args, $advisories, $pk_combination );
 			}
 			$header_complete = 1;
 			push @checked_buffer, $header_row if $first_record;
@@ -523,7 +525,7 @@ sub _check_data {
 			$tablebuffer .= qq(</tr>\n);
 
 			#Check for various invalid combinations of fields
-			if ( !$problems{$pk_combination} ) {
+			if ( !$problems->{$pk_combination} ) {
 				my $skip_record = 0;
 				try {
 					$self->_check_data_primary_key($new_args);
@@ -540,36 +542,36 @@ sub _check_data {
 			}
 			my %record_checks = (
 				accession => sub {
-					$self->_check_corresponding_sequence_exists( $pk_values_ref, \%problems, $pk_combination );
-					$self->check_permissions( $locus, $new_args, \%problems, $pk_combination );
+					$self->_check_corresponding_sequence_exists( $pk_values_ref, $problems, $pk_combination );
+					$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
 				},
 				sequence_refs => sub {
-					$self->_check_corresponding_sequence_exists( $pk_values_ref, \%problems, $pk_combination );
-					$self->check_permissions( $locus, $new_args, \%problems, $pk_combination );
+					$self->_check_corresponding_sequence_exists( $pk_values_ref, $problems, $pk_combination );
+					$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
 				},
 				loci => sub {
 					$self->_check_data_loci($new_args);
 				},
 				locus_descriptions => sub {
-					$self->check_permissions( $locus, $new_args, \%problems, $pk_combination );
+					$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
 				},
 				locus_links => sub {
-					$self->check_permissions( $locus, $new_args, \%problems, $pk_combination );
+					$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
 				},
 				retired_allele_ids => sub {
-					$self->check_permissions( $locus, $new_args, \%problems, $pk_combination );
+					$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
 				},
 				projects => sub {
-					$self->_check_projects( $new_args, \%problems, $pk_combination );
+					$self->_check_projects( $new_args, $problems, $pk_combination );
 				},
 				classification_group_field_values => sub {
-					$self->_check_classification_field_values( $new_args, \%problems, $pk_combination );
+					$self->_check_classification_field_values( $new_args, $problems, $pk_combination );
 				},
 				validation_conditions => sub {
-					$self->_check_validation_conditions( $new_args, \%problems, $pk_combination );
+					$self->_check_validation_conditions( $new_args, $problems, $pk_combination );
 				},
 				isolate_field_extended_attributes => sub {
-					$self->_check_isolate_field_extended_attributes( $new_args, \%problems, $pk_combination );
+					$self->_check_isolate_field_extended_attributes( $new_args, $problems, $pk_combination );
 				}
 			);
 			$record_checks{$table}->() if $record_checks{$table};
@@ -594,8 +596,8 @@ sub _check_data {
 		{
 			table          => $table,
 			buffer         => \$tablebuffer,
-			problems       => \%problems,
-			advisories     => \%advisories,
+			problems       => $problems,
+			advisories     => $advisories,
 			checked_buffer => \@checked_buffer,
 			sender_message => \$sender_message
 		}
@@ -1109,7 +1111,7 @@ sub _check_data_scheme_fields {
 
 sub _check_data_refs {
 
-	#special case to check that references are added as list of integers
+	#special case to check that references are valid PubMed ids.
 	my ( $self, $arg_ref ) = @_;
 	my $field          = $arg_ref->{'field'};
 	my $value          = ${ $arg_ref->{'value'} };
@@ -1130,6 +1132,12 @@ sub _check_data_refs {
 					my $problem_text = "References are PubMed ids - $ref is not an integer.<br />";
 					$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
 					${ $arg_ref->{'special_problem'} } = 1;
+				} elsif ( $ref <= 10_000 ) {
+					if ( ( $arg_ref->{'advisories'}->{$pk_combination} // q() ) !~ /References\ may\ be\ invalid/x )
+					{
+						$arg_ref->{'advisories'}->{$pk_combination} .=
+						  'References may be invalid - you are unlikely to have a PubMed id less than 10,000.<br />';
+					}
 				}
 				$used{$ref} = 1;
 			}

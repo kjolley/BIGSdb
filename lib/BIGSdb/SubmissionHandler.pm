@@ -716,6 +716,9 @@ sub _check_pubmed_ids {
 			if ( !BIGSdb::Utils::is_int($pmid) ) {
 				push @$error, 'references: should be a semi-colon separated list of PubMed ids (integers).';
 				last;
+			} elsif ( $pmid < 10_000 ) {
+				push @$error, 'references: PubMed ids are very unlikely to be <10000.';
+				last;
 			}
 		}
 	}
