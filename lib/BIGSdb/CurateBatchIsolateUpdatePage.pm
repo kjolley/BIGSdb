@@ -186,7 +186,10 @@ sub _check_field_status {
 	if ( !( $self->{'xmlHandler'}->is_field($field) || $self->{'datastore'}->is_eav_field($field) || $is_locus ) ) {
 		$bad_field = 1;
 	}
-	if ( $field eq 'sender' && $user_info->{'status'} eq 'submitter' ) {
+	my %not_allowed = map { $_ => 1 } qw(id date_entered datestamp curator);
+	if ( $not_allowed{$field} ) {
+		$not_allowed_field = 1;
+	} elsif ( $field eq 'sender' && $user_info->{'status'} eq 'submitter' ) {
 		$not_allowed_field = 1;
 	} elsif ( $self->{'datastore'}->is_eav_field($field) ) {
 		my $eav_field = $self->{'datastore'}->get_eav_field($field);
@@ -582,7 +585,6 @@ sub _update {
 			$tablebuffer .= qq(<td class="statusgood">done!</td></tr>\n);
 			$old_value //= '';
 			$old_value = $self->_list_to_string($old_value);
-
 			$value = '' if $value eq '&lt;blank&gt;';
 			if ($is_locus) {
 				if ( $q->param('designations') eq 'replace' ) {
