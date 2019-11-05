@@ -43,7 +43,7 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.3.6',
+		version             => '1.3.7',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -114,6 +114,7 @@ sub _print_interface {
 	$self->print_recommended_scheme_fieldset;
 	$self->print_scheme_fieldset( { fields_or_loci => 0 } );
 	$self->_print_includes_fieldset;
+	$self->_print_parameters_fieldset;
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say $q->hidden($_) foreach qw (db page name);
 	say $q->end_form;
@@ -154,6 +155,24 @@ sub _print_includes_fieldset {
 		-size     => 6
 	);
 	say q(</fieldset>);
+	return;
+}
+
+sub _print_parameters_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say q(<fieldset style="float:left;height:12em"><legend>Parameters / options</legend>);
+	say q(<ul><li>);
+	say $q->checkbox(
+		-name  => 'rescan_missing',
+		-id    => 'rescan_missing',
+		-label => 'Rescan undesignated loci',
+	);
+	say $self->get_tooltip(
+		    q(Rescan undesignated - By default, if a genome has >= 50% of the selected loci designated, it will not )
+		  . q(be rescanned. Selecting this option will perform a BLAST query for each genome to attempt to fill in )
+		  . q(any missing annotations. Please note that this will take <b>much longer</b> to run.) );
+	say q(</li></ul></fieldset>);
 	return;
 }
 
