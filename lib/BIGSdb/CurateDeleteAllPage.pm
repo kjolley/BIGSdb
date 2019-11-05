@@ -156,12 +156,12 @@ sub _delete {
 			push @history,             "$isolate_id|$locus: designation '$allele_id' deleted";
 			push @allele_designations, "$isolate_id|$locus";
 		}
-	} elsif ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
+	} elsif ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		( my $id_qry = $delete_qry ) =~ s/DELETE/SELECT id/;
 		$ids_affected = $self->{'datastore'}->run_query( $id_qry, undef, { fetch => 'col_arrayref' } );
 	}
 	eval {
-		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 			$self->_delete_isolate_list($ids_affected);
 		} elsif ( $table eq 'profiles' ) {
 			$self->_delete_profiles($delete_qry);
