@@ -24,6 +24,7 @@ use 5.010;
 use parent qw(BIGSdb::Plugin);
 use BIGSdb::Exceptions;
 use BIGSdb::Constants qw(SEQ_METHODS LOCUS_PATTERN :limits);
+use BIGSdb::GCAligner;
 use BIGSdb::GCForkScan;
 use Bio::AlignIO;
 use Bio::Seq;
@@ -52,7 +53,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.3.29',
+		version     => '2.4.0',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -1339,83 +1340,73 @@ sub _is_isolate_name_selected {
 	return;
 }
 
+sub _get_isolate_names {
+	my ( $self, $ids ) = @_;
+	my $isolate_name_selected = $self->_is_isolate_name_selected;
+	my $names                 = {};
+	foreach my $id (@$ids) {
+		my $name = $self->_get_isolate_name( $id, { name_only => 1, no_name => !$isolate_name_selected } );
+		$name =~ s/[\(\)]//gx;
+		$name =~ tr/[:,. ]/_/;
+		my $identifier = $self->{'name_map'}->{$id} // $id;
+		$names->{$identifier} = $name;
+	}
+	return $names;
+}
+
+sub _get_clean_loci {
+	my ( $self, $loci ) = @_;
+	my $clean = {};
+	foreach my $locus (@$loci) {
+		$clean->{$locus} = {
+			no_common => $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } ),
+			common    => $self->clean_locus( $locus, { text_output => 1 } )
+		};
+	}
+	return $clean;
+}
+
 sub align {
 	my ( $self, $job_id, $by_ref, $ids, $scan_data, $no_output ) = @_;
 	my $params = $self->{'params'};
 	return if !$params->{'align'};
+	my $isolate_names = $self->_get_isolate_names($ids);
+	my $clean_loci = $self->_get_clean_loci( $params->{'align_all'} ? $scan_data->{'loci'} : $scan_data->{'variable'} );
+	$self->{'dataConnector'}->set_forks(1);
+	my $aligner = BIGSdb::GCAligner->new(
+		{
+			config_dir         => $self->{'params'}->{'config_dir'},
+			lib_dir            => $self->{'params'}->{'lib_dir'},
+			dbase_config_dir   => $self->{'params'}->{'dbase_config_dir'},
+			job_id             => $params->{'job_id'},
+			logger             => $logger,
+			config             => $self->{'config'},
+			job_id             => $job_id,
+			by_ref             => $by_ref,
+			ids                => $ids,
+			scan_data          => $scan_data,
+			no_output          => $no_output,
+			threads            => $self->{'threads'},
+			params             => $params,
+			isolate_names      => $isolate_names,
+			clean_loci         => $clean_loci,
+			job_manager_params => {
+				host     => $self->{'jobManager'}->{'host'},
+				port     => $self->{'jobManager'}->{'port'},
+				user     => $self->{'jobManager'}->{'user'},
+				password => $self->{'jobManager'}->{'password'}
+			}
+		}
+	);
+	$aligner->run;
+	$self->{'distances'} = $aligner->get_distances;
+	$self->{'dataConnector'}->set_forks(0);
 	my $align_file       = "$self->{'config'}->{'tmp_dir'}/$job_id.align";
 	my $align_stats_file = "$self->{'config'}->{'tmp_dir'}/$job_id.align_stats";
 	my $xmfa_file        = "$self->{'config'}->{'tmp_dir'}/$job_id.xmfa";
 	my $core_xmfa_file   = "$self->{'config'}->{'tmp_dir'}/${job_id}_core.xmfa";
-	state $xmfa_start = 1;
-	state $xmfa_end   = 1;
-	my $temp                  = BIGSdb::Utils::get_random();
-	my $loci                  = $params->{'align_all'} ? $scan_data->{'loci'} : $scan_data->{'variable'};
-	my $progress_start        = 20;
-	my $progress_total        = 50;
-	my $locus_count           = 0;
-	my $isolate_name_selected = $self->_is_isolate_name_selected;
-
-	foreach my $locus (@$loci) {
-		last if $self->{'exit'};
-		my $progress = int( ( $progress_total * $locus_count ) / @$loci ) + $progress_start;
-		$self->{'jobManager'}
-		  ->update_job_status( $job_id, { percent_complete => $progress, stage => "Aligning locus: $locus" } );
-		$locus_count++;
-		( my $escaped_locus = $locus ) =~ s/[\/\|\']/_/gx;
-		$escaped_locus =~ tr/ /_/;
-		my $fasta_file  = "$self->{'config'}->{'secure_tmp_dir'}/${temp}_$escaped_locus.fasta";
-		my $aligned_out = "$self->{'config'}->{'secure_tmp_dir'}/${temp}_$escaped_locus.aligned";
-		my $seq_count   = 0;
-		open( my $fasta_fh, '>:encoding(utf8)', $fasta_file ) || $logger->error("Cannot open $fasta_file for writing");
-		my $names        = {};
-		my $ids_to_align = [];
-
-		if ( $by_ref && $params->{'include_ref'} ) {
-			push @$ids_to_align, 'ref';
-			$names->{'ref'} = 'ref';
-			say $fasta_fh '>ref';
-			say $fasta_fh $scan_data->{'locus_data'}->{$locus}->{'sequence'};
-		}
-		foreach my $id (@$ids) {
-			push @$ids_to_align, $id;
-			my $name = $self->_get_isolate_name( $id, { name_only => 1, no_name => !$isolate_name_selected } );
-			$name =~ s/[\(\)]//gx;
-			$name =~ tr/[:,. ]/_/;
-			my $identifier = $self->{'name_map'}->{$id} // $id;
-			$names->{$identifier} = $name;
-			my $seq = $scan_data->{'isolate_data'}->{$id}->{'sequences'}->{$locus};
-			if ($seq) {
-				$seq_count++;
-				say $fasta_fh ">$identifier";
-				say $fasta_fh $seq;
-			}
-		}
-		close $fasta_fh;
-		my $core_threshold =
-		  BIGSdb::Utils::is_int( $params->{'core_threshold'} ) ? $params->{'core_threshold'} : 100;
-		my $core_locus = ( $scan_data->{'frequency'}->{$locus} * 100 / @$ids ) >= $core_threshold ? 1 : 0;
-		$self->{'distances'}->{$locus} = $self->_run_alignment(
-			{
-				ids              => $ids_to_align,
-				locus            => $locus,
-				seq_count        => $seq_count,
-				aligned_out      => $aligned_out,
-				fasta_file       => $fasta_file,
-				align_file       => $align_file,
-				core_locus       => $core_locus,
-				align_stats_file => $align_stats_file,
-				xmfa_out         => $xmfa_file,
-				core_xmfa_out    => $core_xmfa_file,
-				xmfa_start_ref   => \$xmfa_start,
-				xmfa_end_ref     => \$xmfa_end,
-				names            => $names,
-				infoalign        => $params->{'align_stats'}
-			}
-		);
-		unlink $fasta_file;
-	}
 	return if $no_output;
+
 	if ( -e $align_file && !-z $align_file ) {
 		$self->{'jobManager'}->update_job_output( $job_id,
 			{ filename => "${job_id}.align", description => '30_Alignments', compress => 1 } );
@@ -1491,125 +1482,6 @@ sub align {
 				$logger->logdie($_);
 			}
 		};
-	}
-	return;
-}
-
-sub _run_alignment {
-	my ( $self, $args ) = @_;
-	my (
-		$ids,        $names,         $locus,    $seq_count,      $aligned_out,
-		$fasta_file, $align_file,    $xmfa_out, $xmfa_start_ref, $xmfa_end_ref,
-		$core_locus, $core_xmfa_out, $infoalign
-	  )
-	  = @{$args}{
-		qw (ids names locus seq_count aligned_out fasta_file align_file xmfa_out
-		  xmfa_start_ref xmfa_end_ref core_locus core_xmfa_out infoalign)
-	  };
-	return if $seq_count <= 1;
-	my $params = $self->{'params'};
-	if ( $params->{'aligner'} eq 'MAFFT' && $self->{'config'}->{'mafft_path'} && -e $fasta_file && -s $fasta_file ) {
-		my $threads =
-		  BIGSdb::Utils::is_int( $self->{'config'}->{'mafft_threads'} ) ? $self->{'config'}->{'mafft_threads'} : 1;
-		system( "$self->{'config'}->{'mafft_path'} --thread $threads --quiet "
-			  . "--preservecase --clustalout $fasta_file > $aligned_out" );
-	} elsif ( $params->{'aligner'} eq 'MUSCLE'
-		&& $self->{'config'}->{'muscle_path'}
-		&& -e $fasta_file
-		&& -s $fasta_file )
-	{
-		my $max_mb = $self->{'config'}->{'max_muscle_mb'} // MAX_MUSCLE_MB;
-		system( $self->{'config'}->{'muscle_path'},
-			-in    => $fasta_file,
-			-out   => $aligned_out,
-			-maxmb => $max_mb,
-			'-quiet', '-clwstrict'
-		);
-	} else {
-		$logger->error('No aligner selected');
-	}
-	my $distance;
-	if ( -e $aligned_out ) {
-		my $align = Bio::AlignIO->new( -format => 'clustalw', -file => $aligned_out )->next_aln;
-		my ( %id_has_seq, $seq_length );
-		my $xmfa_buffer;
-		my $clean_locus = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
-		foreach my $seq ( $align->each_seq ) {
-			$$xmfa_end_ref = $$xmfa_start_ref + $seq->length - 1;
-			my $id = $seq->id;
-			$xmfa_buffer .= ">$names->{$id}:$$xmfa_start_ref-$$xmfa_end_ref + $clean_locus\n";
-			my $sequence = BIGSdb::Utils::break_line( $seq->seq, 60 );
-			$xmfa_buffer .= "$sequence\n";
-			$id_has_seq{$id} = 1;
-			$seq_length = $seq->length if !$seq_length;
-		}
-		my $missing_seq = BIGSdb::Utils::break_line( ( '-' x $seq_length ), 60 );
-		foreach my $id (@$ids) {
-			my $identifier = $self->{'name_map'}->{$id} // $id;
-			next if $id_has_seq{$identifier};
-			$xmfa_buffer .= ">$names->{$identifier}:$$xmfa_start_ref-$$xmfa_end_ref + $clean_locus\n$missing_seq\n";
-		}
-		$xmfa_buffer .= '=';
-		open( my $fh_xmfa, '>>:encoding(utf8)', $xmfa_out )
-		  or $logger->error("Can't open output file $xmfa_out for appending");
-		say $fh_xmfa $xmfa_buffer if $xmfa_buffer;
-		close $fh_xmfa;
-		if ($core_locus) {
-			open( my $fh_core_xmfa, '>>:encoding(utf8)', $core_xmfa_out )
-			  or $logger->error("Can't open output file $core_xmfa_out for appending");
-			say $fh_core_xmfa $xmfa_buffer if $xmfa_buffer;
-			close $fh_core_xmfa;
-		}
-		$$xmfa_start_ref = $$xmfa_end_ref + 1;
-		open( my $align_fh, '>>:encoding(utf8)', $align_file )
-		  || $logger->error("Can't open $align_file for appending");
-		my $heading_locus = $self->clean_locus( $locus, { text_output => 1 } );
-		say $align_fh "$heading_locus";
-		say $align_fh '-' x ( length $heading_locus ) . "\n";
-		close $align_fh;
-		BIGSdb::Utils::append( $aligned_out, $align_file, { blank_after => 1 } );
-		$args->{'alignment'} = $aligned_out;
-		$distance = $self->_run_infoalign($args) if $infoalign;
-		unlink $aligned_out;
-	}
-	return $distance;
-}
-
-sub _run_infoalign {
-
-	#returns mean distance
-	my ( $self, $values ) = @_;
-	if ( -e "$self->{'config'}->{'emboss_path'}/infoalign" ) {
-		my $prefix  = BIGSdb::Utils::get_random();
-		my $outfile = "$self->{'config'}->{'secure_tmp_dir'}/$prefix.infoalign";
-		system(
-			"$self->{'config'}->{'emboss_path'}/infoalign -sequence $values->{'alignment'} -outfile $outfile -nousa "
-			  . '-nosimcount -noweight -nodescription 2> /dev/null' );
-		open( my $fh_stats, '>>', $values->{'align_stats_file'} )
-		  or $logger->error("Can't open output file $values->{'align_stats_file'} for appending");
-		my $heading_locus = $self->clean_locus( $values->{'locus'}, { text_output => 1 } );
-		print $fh_stats "$heading_locus\n";
-		print $fh_stats '-' x ( length $heading_locus ) . "\n\n";
-		close $fh_stats;
-
-		if ( -e $outfile ) {
-			BIGSdb::Utils::append( $outfile, $values->{'align_stats_file'}, { blank_after => 1 } );
-			open( my $fh, '<', $outfile )
-			  or $logger->error("Can't open alignment stats file file $outfile for reading");
-			my $row        = 0;
-			my $total_diff = 0;
-			while (<$fh>) {
-				next if /^\#/x;
-				my @values = split /\s+/x;
-				my $diff   = $values[7];     # % difference from consensus
-				$total_diff += $diff;
-				$row++;
-			}
-			my $mean_distance = $total_diff / ( $row * 100 );
-			close $fh;
-			unlink $outfile;
-			return $mean_distance;
-		}
 	}
 	return;
 }
@@ -2595,6 +2467,7 @@ sub _get_largest_distance {
 	my ( $self, $core_loci, $loci ) = @_;
 	my $largest = 0;
 	foreach my $locus (@$core_loci) {
+		next if !defined $self->{'distances'}->{$locus};
 		$largest = $self->{'distances'}->{$locus} if $self->{'distances'}->{$locus} > $largest;
 	}
 	return $largest;

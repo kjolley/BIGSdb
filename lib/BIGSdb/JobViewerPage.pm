@@ -31,7 +31,7 @@ my $logger = get_logger('BIGSdb.Page');
 sub _ajax {
 	my ( $self, $function, $job_id ) = @_;
 	my $job = $self->{'jobManager'}->get_job($job_id);
-	if ( $function eq 'status' ) {
+	if ( $function eq 'status' && $job ) {
 		my $jobs_in_queue = $self->{'jobManager'}->get_jobs_ahead_in_queue( $job->{'id'} );
 		say encode_json(
 			{
