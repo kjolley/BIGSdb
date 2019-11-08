@@ -352,6 +352,13 @@ sub _print_alignment_fieldset {
 		-onChange => 'enable_seqs()'
 	);
 	say q(</li><li>);
+	say $q->checkbox(
+		-name     => 'align_stats',
+		-id       => 'align_stats',
+		-label    => 'Create alignment stats',
+		-onChange => 'enable_seqs()'
+	);
+	say q(</li><li>);
 	my @aligners;
 
 	foreach my $aligner (qw(mafft muscle)) {
@@ -1403,7 +1410,7 @@ sub align {
 				xmfa_start_ref   => \$xmfa_start,
 				xmfa_end_ref     => \$xmfa_end,
 				names            => $names,
-				infoalign        => $no_output ? 0 : 1
+				infoalign        => $params->{'align_stats'}
 			}
 		);
 		unlink $fasta_file;
@@ -2630,9 +2637,11 @@ function enable_seqs(){
 	}
 	if (\$("#align").prop("checked")){
 		\$("#align_all").prop("disabled", false);
+		\$("#align_stats").prop("disabled", false);
 		\$("#aligner").prop("disabled", false);
 	} else {
 		\$("#align_all").prop("disabled", true);
+		\$("#align_stats").prop("disabled", true);
 		\$("#aligner").prop("disabled", true);
 	}
 
