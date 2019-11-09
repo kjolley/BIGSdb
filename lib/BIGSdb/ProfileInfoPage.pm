@@ -160,6 +160,7 @@ sub _print_client_db_links {
 					designation_operator1 => '=',
 					designation_value1    => $profile_id,
 					order                 => 'id',
+					set_id                => 0,
 					submit                => 1
 				);
 				my @action_params;
@@ -177,7 +178,8 @@ sub _print_client_db_links {
 					-style  => 'display:inline'
 				);
 				$buffer .= $q->hidden($_)
-				  foreach qw (db page designation_field1 designation_operator1 designation_value1 order submit);
+				  foreach qw (db page designation_field1 designation_operator1 designation_value1 order set_id submit)
+				  ;
 				$buffer .= $q->submit( -label => "$count isolate$plural", -class => 'smallbutton' );
 				$buffer .= $q->end_form;
 			}
