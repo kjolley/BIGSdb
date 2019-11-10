@@ -104,8 +104,7 @@ if ( BIGSdb::Utils::is_int( $opts{'threads'} ) && $opts{'threads'} > 1 ) {
 	  ) x 3;
 	die "Script initialization failed - check logs (authentication problems or server too busy?).\n"
 	  if !defined $script->{'db'};
-	my $loci = $script->get_loci_with_ref_db;
-	$script->{'db'}->commit;    #Prevent idle in transaction table locks
+	my $loci  = $script->get_loci_with_ref_db;
 	my $lists = [];
 	my $i     = 0;
 	$opts{'prefix'} = BIGSdb::Utils::get_random();    #Reuse isolate file for each thread.
@@ -118,6 +117,7 @@ if ( BIGSdb::Utils::is_int( $opts{'threads'} ) && $opts{'threads'} > 1 ) {
 	}
 	delete $opts{$_} foreach qw(l L R s);             #Remove options that impact locus list
 	my $uses_remote_contigs = $script->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM oauth_credentials)');
+	$script->{'db'}->commit;                          #Prevent idle in transaction table locks
 	$script->{'logger'}->info("$opts{'d'}:Running Autodefiner (up to $opts{'threads'} threads)");
 	$script->initiate_job_manager;
 	my $job_id = $script->add_job('ScanNew');

@@ -128,6 +128,7 @@ sub get_connection {
 		}
 		if ( BIGSdb::Utils::is_int( $self->{'config'}->{'temp_buffers'} ) ) {
 			$db->do("SET temp_buffers='$self->{'config'}->{'temp_buffers'}MB'");
+			$db->commit;
 		}
 	}
 

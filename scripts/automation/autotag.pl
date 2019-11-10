@@ -102,7 +102,6 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 	  if !defined $script->{'db'};
 	my $isolates = $script->get_isolates_with_linked_seqs;
 	$isolates = $script->filter_and_sort_isolates($isolates);
-	$script->{'db'}->commit;    #Prevent idle in transaction table locks
 	my $lists = [];
 	my $i     = 0;
 	foreach my $id (@$isolates) {
@@ -117,6 +116,7 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 	my $threads             = @$lists;
 	my $plural              = $isolate_count == 1 ? q() : q(s);
 	my $uses_remote_contigs = $script->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM oauth_credentials)');
+	$script->{'db'}->commit;                     #Prevent idle in transaction table locks
 	$script->{'logger'}
 	  ->info("$opts{'d'}:Running Autotagger on $isolate_count isolate$plural ($threads thread$plural)");
 	$script->initiate_job_manager;
@@ -127,7 +127,7 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 
 		#Prevent race condition where threads all try to get new OAuth session token
 		sleep 5 if $uses_remote_contigs;
-		$pm->start and next;    #Forks
+		$pm->start and next;                     #Forks
 		local $" = ',';
 		BIGSdb::Offline::AutoTag->new(
 			{
