@@ -28,6 +28,7 @@ use List::MoreUtils qw(uniq);
 use Log::Log4perl qw(get_logger);
 use Try::Tiny;
 use constant MAX_DISPLAY_TAXA     => 1000;
+use constant MAX_RECORDS          => 10_000;
 use constant MIN_PRIMER_LENGTH    => 13;
 use constant MAX_WOBBLE_PERCENT   => 25;
 use constant MAX_MISMATCH_PERCENT => 25;
@@ -45,7 +46,7 @@ sub get_attributes {
 		buttontext  => 'PCR',
 		menutext    => 'In silico PCR',
 		module      => 'PCR',
-		version     => '1.0.4',
+		version     => '1.0.5',
 		dbtype      => 'isolates',
 		section     => 'info,analysis,postquery',
 		input       => 'query',
@@ -214,6 +215,15 @@ sub _validate {
 
 	if ( !@ids ) {
 		push @errors, 'No valid isolate records with genomes selected.';
+	}
+	my $max_records =
+	  ( BIGSdb::Utils::is_int( $self->{'system'}->{'pcr_limit'} ) )
+	  ? $self->{'system'}->{'pcr_limit'}
+	  : MAX_RECORDS;
+	if ( @ids > $max_records ) {
+		my $nice_max     = BIGSdb::Utils::commify($max_records);
+		my $nice_records = BIGSdb::Utils::commify( scalar @ids );
+		push @errors, "Analysis is limited to $nice_max records - you have selected $nice_records.";
 	}
 	( my $primer1 = $q->param('primer1') ) =~ s/\s//gx;
 	if ( uc($primer1) =~ /[^ACGTURYSWKMBDHVN]/x ) {
