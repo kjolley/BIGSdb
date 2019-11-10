@@ -30,7 +30,7 @@ sub new {
 	my $self = {};
 	foreach my $param (
 		qw(config_dir lib_dir dbase_config_dir logger config job_id ids
-		scan_data no_output params threads isolate_names clean_loci)
+		scan_data no_output params threads isolate_names name_map clean_loci)
 	  )
 	{
 		$self->{$param} = $params->{$param};

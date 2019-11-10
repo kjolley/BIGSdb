@@ -1348,7 +1348,8 @@ sub _get_isolate_names {
 		my $name = $self->_get_isolate_name( $id, { name_only => 1, no_name => !$isolate_name_selected } );
 		$name =~ s/[\(\)]//gx;
 		$name =~ tr/[:,. ]/_/;
-		$names->{$id} = $name;
+		my $identifier = $self->{'name_map'}->{$id} // $id;
+		$names->{$identifier} = $name;
 	}
 	return $names;
 }
@@ -1388,6 +1389,7 @@ sub align {
 			threads            => $self->{'threads'},
 			params             => $params,
 			isolate_names      => $isolate_names,
+			name_map           => $self->{'name_map'},
 			clean_loci         => $clean_loci,
 			job_manager_params => {
 				host     => $self->{'jobManager'}->{'host'},
