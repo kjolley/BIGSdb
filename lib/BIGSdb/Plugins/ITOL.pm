@@ -220,7 +220,9 @@ sub print_extra_form_elements {
 	my %disabled = map { $_ => 1 } qw(f_id f_comments f_date_entered f_datestamp f_sender f_curator);
 	if ( $self->{'system'}->{'noshow'} ) {
 		my @noshow = split /,/x, $self->{'system'}->{'noshow'};
-		$disabled{"f_$_"} = 1 foreach @noshow;
+		foreach my $field (@noshow) {
+			$disabled{"f_$field"} = 1 if $field ne $self->{'system'}->{'labelfield'};
+		}
 	}
 	foreach my $field (@$fields) {
 		next if $disabled{$field};
