@@ -53,7 +53,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.4.0',
+		version     => '2.4.1',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -1348,8 +1348,7 @@ sub _get_isolate_names {
 		my $name = $self->_get_isolate_name( $id, { name_only => 1, no_name => !$isolate_name_selected } );
 		$name =~ s/[\(\)]//gx;
 		$name =~ tr/[:,. ]/_/;
-		my $identifier = $self->{'name_map'}->{$id} // $id;
-		$names->{$identifier} = $name;
+		$names->{$id} = $name;
 	}
 	return $names;
 }
