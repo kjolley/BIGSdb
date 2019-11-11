@@ -113,7 +113,6 @@ sub print_content {
 		    "SELECT * FROM profile_refs LEFT JOIN mv_scheme_$scheme_id on "
 		  . "profile_refs.profile_id=mv_scheme_${scheme_id}.$primary_key WHERE pubmed_id=$pmid "
 		  . "AND profile_refs.scheme_id=$scheme_id ORDER BY $primary_key";
-		$logger->error($qry);
 	}
 	my $args = { table => $table, query => $qry, hidden_attributes => [qw (curate scheme_id pmid)] };
 	$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
