@@ -45,7 +45,7 @@ sub get_attributes {
 		menutext    => 'Gene presence',
 		module      => 'GenePresence',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/gene_presence.html",
-		version     => '2.0.8',
+		version     => '2.0.9',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -149,7 +149,7 @@ sub _pivot_table {
 	say q(</div>);
 	say q(<div id="pivot" style="margin-bottom:1em">);
 	$self->print_loading_message;
-	say q(</div>);
+	say q(</div></div>);
 	$self->_print_pivot_controls;
 	say q(</div>);
 	return;
@@ -423,7 +423,7 @@ sub _create_tsv_output {
 	my $loci      = $self->{'jobManager'}->get_job_loci($job_id);
 	my $filename  = "$job_id.txt";
 	my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
-	open( my $fh, '>', $full_path ) || $logger->error("Cannot open $full_path for writing");
+	open( my $fh, '>:encoding(utf8)', $full_path ) || $logger->error("Cannot open $full_path for writing");
 	say $fh qq(id\t$self->{'system'}->{'labelfield'}\tlocus\tpresence\tcomplete\tknown allele\tdesignated\ttagged);
 	foreach my $record (@$data) {
 		my $mapped_id = $self->{'name_map'}->{ $record->{'id'} } // $record->{'id'};
