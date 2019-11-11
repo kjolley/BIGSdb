@@ -1,4 +1,4 @@
-/*Version: 20191011*/
+/*Version: 20191111*/
 body,form,input,th,td,div {margin-top:0;margin-bottom:0;padding-bottom:0;padding-top:0}
 select{margin:0}
 p {margin:0 0 1em 0;padding:0}
@@ -1113,4 +1113,15 @@ a.slide_trigger {
 .ui-multiselect-filter {float:none}
 .ui-helper-reset {margin-top:0.5em}
 
+.progressLabel {
+    position: absolute;
+    left: 5px;
+    top: 0;
+    color: #333; 
+    width:5em
+}
 
+.ui-progressbar-value {
+	background: #ccc;
+	background-image: linear-gradient(to right, #f0f2f0 0em, #000c40 18em);
+}

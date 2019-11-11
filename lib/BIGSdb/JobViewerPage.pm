@@ -98,11 +98,8 @@ END
 var last_html = '';
 \$(function () {
 	\$("html, body").animate({ scrollTop: \$(document).height()-\$(window).height() });	
-	\$("#progressbar")
-		.progressbar({	value: $percent	})
-		.children('.ui-progressbar-value')
-    	.html($percent + '%')
-    	.css("display", "block");
+	\$("#progressbar").progressbar({value: $percent});
+    \$(".progressLabel").text($percent + '%');
     \$("#sortTable").tablesorter({widgets:['zebra']});
     \$("#email").on('input',function(){
     	\$("#enable_notifications").prop('checked',true);
@@ -154,11 +151,13 @@ function get_status(poll_time){
 				window.location.href = "$reload_url";							
 			}
 			\$("dd#status").html(status);
-			\$("#progressbar")
-				.progressbar({value: json.progress})
-				.children('.ui-progressbar-value')
-  			  	.html(json.progress + '%')
-  			  	.css("display", "block");
+			if (json.progress == -1){
+				\$("#progressbar").progressbar({value: false});
+				\$(".progressLabel").text('');
+			} else {
+				\$("#progressbar").progressbar({value: json.progress});
+				\$(".progressLabel").text(json.progress + '%');
+			} 			
   			\$("#footer_progress").html(json.progress);
   			var stage = json.stage == null ? '': json.stage;
   			\$(".stage").css('display',json.stage == null ? 'none' : 'block');
@@ -237,7 +236,9 @@ sub _print_status {
 	say qq(<dt>Status</dt><dd id="status">$job->{'status'}</dd>);
 	say qq(<dt>Start time</dt><dd>$start_time</dd>) if $start_time;
 	say qq(<dt>Progress</dt><dd id="progress"><noscript>$job->{'percent_complete'}%</noscript>)
-	  . q(<div id="progressbar" style="width:18em;height:1.2em"></div></dd>);
+	  . q(<div id="progressContainer">)
+	  . q(<div id="progressbar" style="width:18em;height:1.2em"></div>)
+	  . q(<div class="progressLabel"></div></div></dd>);
 	my $stage_display = $job->{'stage'} ? 'block' : 'none';
 	$job->{'stage'} //= q();
 	say q(<dt style="display:none" class="stage">Stage</dt>)
