@@ -1,4 +1,4 @@
-/*Version: 20191111*/
+/*Version: 20191112*/
 body,form,input,th,td,div {margin-top:0;margin-bottom:0;padding-bottom:0;padding-top:0}
 select{margin:0}
 p {margin:0 0 1em 0;padding:0}
@@ -1119,6 +1119,10 @@ a.slide_trigger {
     top: 0;
     color: #333; 
     width:5em
+}
+
+#progressbar {
+	border-image: linear-gradient(to right, #eee 0em, #909cd0 18em) 1;
 }
 
 .ui-progressbar-value {
