@@ -902,7 +902,8 @@ sub check_sequence_similarity {
 	  BIGSdb::Utils::is_float( $locus_info->{'id_check_threshold'} )
 	  ? $locus_info->{'id_check_threshold'}
 	  : IDENTITY_THRESHOLD;
-	my $length = length $self->_get_stripped_sequence;
+	my $qry_seq = $self->_get_stripped_sequence;
+	my $length  = length $qry_seq;
 	my ( $similar, $subsequence_of, $supersequence_of ) = ( 0, undef, undef );
 	my $match = $self->get_best_partial_match;
 	my ( $allele_id, $identity, $reversed, $alignment ) = @{$match}{qw(allele identity reverse alignment)};
@@ -916,6 +917,20 @@ sub check_sequence_similarity {
 				$subsequence_of = $allele_id;
 			} elsif ( $length_of_matched_seq == $alignment && $length > $length_of_matched_seq ) {
 				$supersequence_of = $allele_id;
+			}
+		}
+		if ( ( $self->{'system'}->{'exemplars'} // q() ) eq 'yes' ) {
+			if ( !defined $subsequence_of ) {
+				$subsequence_of =
+				  $self->{'datastore'}
+				  ->run_query( q(SELECT allele_id FROM sequences WHERE locus=? AND sequence LIKE ? LIMIT 1),
+					[ $locus, "\%$qry_seq\%" ] )
+				  ;
+			} 
+			if (!$subsequence_of && !defined $supersequence_of){
+				$supersequence_of = $self->{'datastore'}->run_query(
+				q(SELECT allele_id FROM sequences WHERE locus=? AND ? LIKE '%' || sequence || '%' LIMIT 1),
+				[ $locus, $qry_seq ] );
 			}
 		}
 	}

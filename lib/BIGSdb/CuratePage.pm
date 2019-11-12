@@ -1556,7 +1556,8 @@ sub check_sequence_similarity {
 				l             => ($locus),
 				keep_partials => 1,
 				find_similar  => 1,
-				always_run    => 1
+				always_run    => 1,
+				exemplar      => ( $self->{'system'}->{'exemplars'} // q() ) eq 'yes'
 			},
 			instance => $self->{'instance'},
 			logger   => $logger
