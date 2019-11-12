@@ -68,6 +68,7 @@ sub run {
 		foreach my $author (@authors) {
 			my $surname  = $author->lastname;
 			my $initials = $author->initials;
+			next if !defined $surname || !defined $initials;
 			push @author_names, "$surname,$initials";
 			if ( !$known_authors{"$surname|$initials"} ) {
 				$self->{'datastore'}->add_author( $surname, $initials );
