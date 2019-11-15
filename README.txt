@@ -1,3 +1,5 @@
+v1.23.6: *Use multiple threads for alignment stage for Genome Comparator, ITOL,
+          and GrapeTree plugins.
 v1.23.5: *Support for only using type alleles when autotagging missing loci.
          *Fix REST OAuth calls when mounted in domain sub-directory.
          *Indicate ST in uploaded isolate submissions.
