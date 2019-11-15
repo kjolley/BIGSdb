@@ -1975,52 +1975,61 @@ sub _print_message_fieldset {
 			$logger->error('Invalid user.');
 			return;
 		}
-		eval {
-			$self->{'db'}->do( 'INSERT INTO messages (submission_id,timestamp,user_id,message) VALUES (?,?,?,?)',
-				undef, $submission_id, 'now', $user->{'id'}, scalar $q->param('message') );
-		};
-		if ($@) {
-			$logger->error($@);
-			$self->{'db'}->rollback;
-		} else {
-			$self->{'db'}->commit;
-			$self->{'submissionHandler'}->append_message( $submission_id, $user->{'id'}, scalar $q->param('message') );
-			$q->delete('message');
-			$self->{'submissionHandler'}->update_submission_datestamp($submission_id);
-		}
-		if ( $q->param('append_and_send') ) {
-			my $desc    = $self->{'system'}->{'description'} || 'BIGSdb';
-			my $subject = "$desc submission comment added - $submission_id";
-			my $message = $self->{'submissionHandler'}->get_text_summary( $submission_id, { messages => 1 } );
-			if ( $user->{'id'} == $submission->{'submitter'} ) {
+		my $last_message =
+		  $self->{'datastore'}->run_query(
+			'SELECT message FROM messages WHERE (submission_id,user_id)=(?,?) ORDER BY timestamp DESC LIMIT 1',
+			[ $submission_id, $user->{'id'} ] );
+		if ( scalar $q->param('message') ne ( $last_message // q() ) ) {
+			eval {
+				$self->{'db'}->do( 'INSERT INTO messages (submission_id,timestamp,user_id,message) VALUES (?,?,?,?)',
+					undef, $submission_id, 'now', $user->{'id'}, scalar $q->param('message') );
+			};
+			if ($@) {
+				$logger->error($@);
+				$self->{'db'}->rollback;
+			} else {
+				$self->{'db'}->commit;
+				$self->{'submissionHandler'}
+				  ->append_message( $submission_id, $user->{'id'}, scalar $q->param('message') );
+				$q->delete('message');
+				$self->{'submissionHandler'}->update_submission_datestamp($submission_id);
+			}
+			if ( $q->param('append_and_send') ) {
+				my $desc    = $self->{'system'}->{'description'} || 'BIGSdb';
+				my $subject = "$desc submission comment added - $submission_id";
+				my $message = $self->{'submissionHandler'}->get_text_summary( $submission_id, { messages => 1 } );
+				if ( $user->{'id'} == $submission->{'submitter'} ) {
 
-				#Message from submitter
-				my $curators = $self->{'submissionHandler'}->_get_curators($submission_id);
-				foreach my $curator_id (@$curators) {
+					#Message from submitter
+					my $curators = $self->{'submissionHandler'}->_get_curators($submission_id);
+					foreach my $curator_id (@$curators) {
+						$self->{'submissionHandler'}->email(
+							$submission_id,
+							{
+								recipient => $curator_id,
+								sender    => $submission->{'submitter'},
+								subject   => $subject,
+								message   => $message,
+							}
+						);
+					}
+				} else {
+
+					#Message to submitter
 					$self->{'submissionHandler'}->email(
 						$submission_id,
 						{
-							recipient => $curator_id,
-							sender    => $submission->{'submitter'},
+							recipient => $submission->{'submitter'},
+							sender    => $user->{'id'},
 							subject   => $subject,
 							message   => $message,
+							cc_sender => 1
 						}
 					);
 				}
-			} else {
-
-				#Message to submitter
-				$self->{'submissionHandler'}->email(
-					$submission_id,
-					{
-						recipient => $submission->{'submitter'},
-						sender    => $user->{'id'},
-						subject   => $subject,
-						message   => $message,
-						cc_sender => 1
-					}
-				);
 			}
+		} else {
+			$q->delete('message');
 		}
 	}
 	my $buffer;
