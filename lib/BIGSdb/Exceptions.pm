@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#(c) 2018, University of Oxford
+#(c) 2018-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -77,6 +77,9 @@ use Exception::Class (
 	'BIGSdb::Exception::Server::Busy' => {
 		isa         => 'BIGSdb::Exception::Server',
 		description => 'Server is too busy'
+	},
+	'BIGSdb::Exception::Network' => {
+		description => 'Network-related exception'
 	}
 );
 1;

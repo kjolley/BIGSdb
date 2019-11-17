@@ -23,6 +23,7 @@ use 5.010;
 use List::MoreUtils qw(uniq);
 use LWP::UserAgent;
 use Bio::Biblio::IO;
+use BIGSdb::Exceptions;
 use parent qw(BIGSdb::Offline::Script);
 
 #This just initiates the script - we need to do this so that we can determine
@@ -53,6 +54,11 @@ sub run {
 	my $user_agent = LWP::UserAgent->new( agent => 'BIGSdb' );
 	local $" = q(,);
 	my $response = $user_agent->post( $url, content => "id=@$new_pmids" );
+	
+	if (!$response->is_success){
+		my $content = $response->content;
+		BIGSdb::Exception::Network->throw("Connection error: $content");
+	}
 	my $xml = $response->content;
 	return if $xml =~ /\*\*\*\ No\ Documents\ Found\ \*\*\*/x;
 	my $io            = Bio::Biblio::IO->new( -data => $xml, -format => 'pubmedxml' );
