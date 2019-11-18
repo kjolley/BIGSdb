@@ -150,10 +150,13 @@ sub print_content {
 	$self->choose_set;
 	my $submission_id = $q->param('submission_id');
 	if ($submission_id) {
+		if ( $q->param('reopen') ) {
+			$self->_reopen_submission($submission_id);
+		}
 		my %return_after = map { $_ => 1 } qw (tar view curate);
 		foreach my $action (qw (abort finalize close remove tar view curate cancel)) {
 			if ( $q->param($action) ) {
-				my $method = "_$action\_submission";
+				my $method = "_${action}_submission";
 				$self->$method($submission_id);
 				return if $return_after{$action};
 				last;
@@ -2112,6 +2115,17 @@ sub _print_close_submission_fieldset {
 	return;
 }
 
+sub _print_reopen_submission_fieldset {
+	my ( $self, $submission_id ) = @_;
+	my $q = $self->{'cgi'};
+	say $q->start_form;
+	$q->param( reopen => 1 );
+	say $q->hidden($_) foreach qw( db page submission_id reopen curate);
+	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Re-open submission' } );
+	say $q->end_form;
+	return;
+}
+
 sub _print_submission_file_table {
 	my ( $self, $submission_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
@@ -2317,7 +2331,12 @@ sub _curate_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 	$self->_print_file_fieldset($submission_id);
 	$self->_print_message_fieldset($submission_id);
 	$self->_print_archive_fieldset($submission_id);
-	$self->_print_close_submission_fieldset($submission_id) if $curate;
+
+	if ($curate) {
+		$self->_print_close_submission_fieldset($submission_id);
+	} else {
+		$self->_print_reopen_submission_fieldset($submission_id);
+	}
 	say q(<div style="clear:both"></div>);
 	my $page = $self->{'curate'} ? 'index' : 'submit';
 	$self->print_navigation_bar( { no_home => 1, back_page => $page } );
@@ -2410,6 +2429,30 @@ sub _cancel_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 		$self->{'submissionHandler'}->write_flood_protection_file($curator_id);
 	}
 	$self->{'submissionHandler'}->delete_submission($submission_id);
+	return;
+}
+
+sub _reopen_submission {
+	my ( $self, $submission_id ) = @_;
+	return if !$self->_is_submission_valid( $submission_id, { no_message => 1, curate => 1 } );
+	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
+	return if $submission->{'status'} ne 'closed';
+	my $curator_id = $self->get_curator_id;
+	my $message    = 'Submission re-opened.';
+	eval {
+		$self->{'db'}->do( 'UPDATE submissions SET (status,datestamp,curator)=(?,?,?) WHERE id=?',
+			undef, 'pending', 'now', $curator_id, $submission_id );
+		$self->{'submissionHandler'}->update_submission_datestamp($submission_id);
+		$self->{'db'}->do( 'INSERT INTO messages (submission_id,timestamp,user_id,message) VALUES (?,?,?,?)',
+			undef, $submission_id, 'now', $curator_id, $message );
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+		$self->{'submissionHandler'}->append_message( $submission_id, $curator_id, $message );
+	}
 	return;
 }
 
