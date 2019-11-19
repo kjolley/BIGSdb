@@ -247,6 +247,12 @@ function load_map(url,field){
     var colours = theme_colours[theme];
     
 	d3.json(url).then(function(data) {
+		console.log(data);
+		if (field == 'country'){
+			
+			data = merge_terms(data);
+			console.log(data);
+		}
 		var range = get_range(data);
 		var	map = d3.geomap.choropleth()
 			.geofile(geo_file)
@@ -297,6 +303,23 @@ function load_map(url,field){
 	    	set_prefs('projection',projection);
 	    });	
 	});
+}
+
+function merge_terms(data){
+	var iso3_counts = {};
+	for (var i = 0; i < data.length; i++) { 
+		if (typeof iso3_counts[data[i].iso3] == 'undefined'){
+			iso3_counts[data[i].iso3] = data[i].value;
+		} else {
+			iso3_counts[data[i].iso3] += data[i].value;
+		}
+	}
+	var merged = [];
+	var iso3 = Object.keys(iso3_counts);
+	for (var i=0; i < iso3.length; i++){
+		merged.push({iso3: iso3[i], value: iso3_counts[iso3[i]]});
+	}
+	return merged;
 }
 
 var delay = (function() {
