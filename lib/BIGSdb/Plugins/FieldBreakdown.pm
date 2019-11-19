@@ -40,7 +40,7 @@ sub get_attributes {
 		buttontext  => 'Fields',
 		menutext    => 'Single field',
 		module      => 'FieldBreakdown',
-		version     => '2.2.5',
+		version     => '2.2.6',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",

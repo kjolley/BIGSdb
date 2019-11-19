@@ -479,10 +479,20 @@ sub _modify_query_by_list {
 	my $q = $self->{'cgi'};
 	return $qry if !$q->param('list');
 	my $attribute_data = $self->_get_list_attribute_data( scalar $q->param('attribute') );
-	my ( $field, $extended_field, $scheme_id, $field_type, $data_type, $eav_table ) =
-	  @{$attribute_data}{qw (field extended_field scheme_id field_type data_type eav_table)};
+	my ( $field, $extended_field, $scheme_id, $field_type, $data_type, $eav_table, $optlist ) =
+	  @{$attribute_data}{qw (field extended_field scheme_id field_type data_type eav_table optlist)};
 	return $qry if !$field;
 	my @list = split /\n/x, $q->param('list');
+	if ($optlist) {
+		my %used = map { $_ => 1 } @list;
+		foreach my $value (@list) {
+			my $subvalues = $self->_get_sub_values( $value, $optlist );
+			foreach my $subvalue (@$subvalues) {
+				push @list, $subvalue if !$used{$subvalue};
+				$used{$subvalue} = 1;
+			}
+		}
+	}
 	BIGSdb::Utils::remove_trailing_spaces_from_list( \@list );
 	my $list = $self->clean_list( $data_type, \@list );
 	$self->{'datastore'}->create_temp_list_table_from_array( $data_type, $list, { table => 'temp_list' } );
@@ -530,7 +540,7 @@ sub _modify_query_by_list {
 sub _get_list_attribute_data {
 	my ( $self, $attribute ) = @_;
 	my $pattern = LOCUS_PATTERN;
-	my ( $field, $extended_field, $scheme_id, $field_type, $data_type, $eav_table );
+	my ( $field, $extended_field, $scheme_id, $field_type, $data_type, $eav_table, $optlist );
 	if ( $attribute =~ /^s_(\d+)_(\S+)$/x ) {    ## no critic (ProhibitCascadingIfElse)
 		$scheme_id  = $1;
 		$field      = $2;
@@ -552,6 +562,9 @@ sub _get_list_attribute_data {
 		return if !$self->{'xmlHandler'}->is_field($field);
 		my $field_info = $self->{'xmlHandler'}->get_field_attributes($field);
 		$data_type = $field_info->{'type'};
+		if ( ( $field_info->{'optlist'} // q() ) eq 'yes' ) {
+			$optlist = $self->{'xmlHandler'}->get_field_option_list($field);
+		}
 	} elsif ( $attribute =~ /^eav_(\S+)$/x ) {
 		$field      = $1;
 		$field_type = 'phenotypic';
@@ -572,7 +585,8 @@ sub _get_list_attribute_data {
 		extended_field => $extended_field,
 		scheme_id      => $scheme_id,
 		field_type     => $field_type,
-		data_type      => $data_type
+		data_type      => $data_type,
+		optlist        => $optlist
 	};
 }
 
@@ -1214,6 +1228,10 @@ sub _generate_query_for_provenance_fields {
 			$field =~ s/^f_//x;
 			my @groupedfields = $self->get_grouped_fields($field);
 			my $thisfield     = $self->{'xmlHandler'}->get_field_attributes($field);
+			my $optlist;
+			if ( ( $thisfield->{'optlist'} // q() ) eq 'yes' ) {
+				$optlist = $self->{'xmlHandler'}->get_field_option_list($field);
+			}
 			my $extended_isolate_field;
 			my $parent_field_type;
 			if ( $field =~ /^e_(.*)\|\|(.*)/x ) {
@@ -1273,6 +1291,7 @@ sub _generate_query_for_provenance_fields {
 					multiple               => ( $thisfield->{'multiple'} // q() ) eq 'yes' ? 1 : 0,
 					parent_field_type      => $parent_field_type,
 					operator               => $operator,
+					optlist                => $optlist,
 					errors                 => $errors_ref
 				};
 				my %method = (
@@ -1420,8 +1439,8 @@ sub _grouped_field_query {
 
 sub _provenance_equals_type_operator {
 	my ( $self, $values ) = @_;
-	my ( $field, $extended_isolate_field, $text, $parent_field_type, $type, $multiple ) =
-	  @$values{qw(field extended_isolate_field text parent_field_type type multiple)};
+	my ( $field, $extended_isolate_field, $text, $parent_field_type, $type, $multiple, $optlist ) =
+	  @$values{qw(field extended_isolate_field text parent_field_type type multiple optlist)};
 	my $buffer     = $values->{'modifier'};
 	my $view       = $self->{'system'}->{'view'};
 	my $labelfield = "$view.$self->{'system'}->{'labelfield'}";
@@ -1450,10 +1469,18 @@ sub _provenance_equals_type_operator {
 		if ( lc($text) eq 'null' ) {
 			$buffer .= "$field IS $not null";
 		} elsif ( lc($type) eq 'text' ) {
+			my $subvalues = $self->_get_sub_values( $text, $optlist );
 			if ($multiple) {
 				$buffer .= "(($not E'$text' ILIKE ANY($field)) $null_clause)";
 			} else {
-				$buffer .= "(($not UPPER($field) = UPPER(E'$text')) $null_clause)";
+				my $subvalue_clause = q();
+				if ($subvalues) {
+					foreach my $subvalue (@$subvalues) {
+						$subvalue =~ s/'/\\'/gx;
+						$subvalue_clause .= " OR UPPER($field) = UPPER(E'$subvalue')";
+					}
+				}
+				$buffer .= "(($not (UPPER($field) = UPPER(E'$text')$subvalue_clause)) $null_clause)";
 			}
 		} else {
 			if ($multiple) {
@@ -1464,6 +1491,17 @@ sub _provenance_equals_type_operator {
 		}
 	}
 	return $buffer;
+}
+
+sub _get_sub_values {
+	my ( $self, $value, $optlist ) = @_;
+	return if !ref $optlist;
+	return if $value =~ /\[.+\]$/x;
+	my $subvalues;
+	foreach my $option (@$optlist) {
+		push @$subvalues, $option if $option =~ /^$value\ \[.+\]$/ix;
+	}
+	return $subvalues;
 }
 
 sub _provenance_like_type_operator {

@@ -77,8 +77,7 @@ sub print_content {
 		say q(<p>This is set as a compulsory field with an additional option 'Unknown'. Add any additional values )
 		  . q(as options in the same way. Setting the sort option to 'no' will add these options to the end of the )
 		  . q(list - set it to 'yes' to sort your additonal options in with the standard country codes.</p>);
-		say q(<p>Make sure that you also have a 'country' field defined in the isolates table in the database.</p>)
-		  ;
+		say q(<p>Make sure that you also have a 'country' field defined in the isolates table in the database.</p>);
 		say q(<div style="clear:both">);
 		return;
 	}
@@ -173,7 +172,8 @@ sub _setup_continent {
 sub _refresh_continents {
 	my ($self) = @_;
 	my $country_continents = $self->{'datastore'}->run_query(
-'SELECT field_value AS country,value AS continent FROM isolate_value_extended_attributes WHERE (attribute,isolate_field)=(?,?)',
+		'SELECT field_value AS country,value AS continent FROM isolate_value_extended_attributes '
+		  . 'WHERE (attribute,isolate_field)=(?,?)',
 		[ 'continent', 'country' ],
 		{ fetch => 'all_arrayref', slice => {} }
 	);

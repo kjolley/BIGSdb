@@ -142,7 +142,7 @@ sub _add_special_optlist_values {
 
 sub _dictionary_sort {
 	my ( $self, $values ) = @_;
-	my $collator = Unicode::Collate->new;
+	my $collator = Unicode::Collate->new( variable => 'non-ignorable' );
 	my $sort_key = {};
 	for my $value (@$values) {
 		$sort_key->{$value} = $collator->getSortKey($value);
@@ -180,5 +180,4 @@ sub _process_special_values {
 	}
 	return;
 }
-
 1;
