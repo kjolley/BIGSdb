@@ -247,11 +247,8 @@ function load_map(url,field){
     var colours = theme_colours[theme];
     
 	d3.json(url).then(function(data) {
-		console.log(data);
-		if (field == 'country'){
-			
+		if (field == 'country'){		
 			data = merge_terms(data);
-			console.log(data);
 		}
 		var range = get_range(data);
 		var	map = d3.geomap.choropleth()

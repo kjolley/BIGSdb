@@ -159,7 +159,7 @@ sub _get_javascript_paths {
 	my ($self) = @_;
 	my $page_js = $self->get_javascript;
 	$page_js .= $self->_get_cookie_js;
-	my $date = '20180608';
+	my $date = '20191120';
 	my @javascript;
 	if ( $self->{'jQuery'} ) {
 		my @language = ( language => 'Javascript' );
