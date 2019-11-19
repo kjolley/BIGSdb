@@ -157,8 +157,8 @@ function get_status(poll_time){
 			} else {
 				\$("#progressbar").progressbar({value: json.progress});
 				\$(".progressLabel").text(json.progress + '%');
-			} 			
-  			\$("#footer_progress").html(json.progress);
+				\$("#footer_progress").html(json.progress);
+			} 			 			
   			var stage = json.stage == null ? '': json.stage;
   			\$(".stage").css('display',json.stage == null ? 'none' : 'block');
  			\$("dd#stage").html(stage);
@@ -172,7 +172,7 @@ function get_status(poll_time){
 		        	get_status(poll_time);
 		        }, poll_time);	
 			}
-			if (json.status == 'started'){
+			if (json.status == 'started' && json.progress != -1){
 				\$("#footer_values").css('display','block');
 			} 
 			if (json.status != 'submitted'){
