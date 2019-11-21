@@ -390,7 +390,7 @@ sub print_content {
 		say q(<div class="box statusbad"><p>No isolate id provided.</p></div>);
 		return;
 	} elsif ( !BIGSdb::Utils::is_int($isolate_id) ) {
-		say qq(<h1>Isolate information: id-$isolate_id</h1>);
+		say q(<h1>Isolate information</h1>);
 		$self->print_bad_status( { message => q(Isolate id must be an integer.), navbar => 1 } );
 		return;
 	}
