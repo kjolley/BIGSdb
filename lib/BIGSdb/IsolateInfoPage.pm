@@ -780,7 +780,7 @@ sub _print_action_panel {
 		  if $action eq 'tagScan'
 		  && ( !$seqbin_exists
 			|| ( !$self->can_modify_table('allele_designations') && !$self->can_modify_table('allele_sequences') ) );
-		next if $action eq 'addSeqbin' && !$self->can_modify_table('sequences');
+		next if $action eq 'addSeqbin' && !$self->can_modify_table('sequence_bin');
 		next if $action eq 'publish'   && !$private;
 		say qq(<fieldset style="float:left"><legend>$titles{$action}</legend>);
 		say $q->start_form;
