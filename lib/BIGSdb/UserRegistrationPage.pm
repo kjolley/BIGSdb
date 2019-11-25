@@ -120,7 +120,9 @@ sub _username_reminder {
 		}
 	}
 	if ( $self->{'config'}->{'site_admin_email'} ) {
-		$message .= qq(\nPlease contact $self->{'config'}->{'site_admin_email'} if you need to reset your password.\n);
+		$message .= qq(\nPlease use the password reset link on the registration page if you need to. If all else )
+		  . qq(fails then please contact $self->{'config'}->{'site_admin_email'}.\n)
+		  ;
 	}
 	$message .= qq(\n);
 	my $registrations = $self->{'datastore'}->run_query(
