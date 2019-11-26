@@ -464,6 +464,17 @@ sub _query_isolates {
 	return $values;
 }
 
+sub _get_sub_values {
+	my ( $value, $optlist ) = @_;
+	return if !ref $optlist;
+	return if $value =~ /\[.+\]$/x;
+	my $subvalues;
+	foreach my $option (@$optlist) {
+		push @$subvalues, $option if $option =~ /^$value\ \[.+\]$/ix;
+	}
+	return $subvalues;
+}
+
 sub _get_field_query {
 	my ($fields) = @_;
 	$fields //= {};
@@ -523,7 +534,12 @@ sub _get_field_query {
 				if ( ( $att->{'multiple'} // q() ) eq 'yes' ) {
 					$qry .= qq(? ILIKE ANY($field));
 				} else {
+					$qry .= q[(];
 					$qry .= qq(UPPER($field)=?);
+					my ( $sub_query, $subvalues ) = _modify_for_subvalues( $field, $fields->{$field} );
+					$qry .= $sub_query;
+					push @$values, @$subvalues;
+					$qry .= q[)];
 				}
 			} else {
 				$qry .= qq($field=?);
@@ -538,6 +554,25 @@ sub _get_field_query {
 		  . q[(SELECT field_value FROM isolate_value_extended_attributes WHERE ]
 		  . q[(isolate_field,attribute,UPPER(value))=(?,?,UPPER(?))))];
 		push @$values, $extended_primary_field{$ext_field}, $ext_field, $extended_value{$ext_field};
+	}
+	return ( $qry, $values );
+}
+
+sub _modify_for_subvalues {
+	my ( $field, $value ) = @_;
+	my $self   = setting('self');
+	my $att    = $self->{'xmlHandler'}->get_field_attributes($field);
+	my $qry    = q();
+	my $values = [];
+	if ( ( $att->{'optlist'} // q() ) eq 'yes' ) {
+		my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
+		my $sub_values = _get_sub_values( $value, $optlist );
+		if ( ref $sub_values ) {
+			foreach my $subvalue (@$sub_values) {
+				$qry .= qq( OR UPPER($field)=?);
+				push @$values, uc($subvalue);
+			}
+		}
 	}
 	return ( $qry, $values );
 }
