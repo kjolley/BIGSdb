@@ -383,17 +383,22 @@ sub _check_records_single_isolate {
 		$mean = int $total / $num if $num;
 		my $n_stats = BIGSdb::Utils::get_N_stats( $total, \@lengths );
 		say q(<fieldset style="float:left"><legend>Summary</legend>);
-		say qq(<ul><li>Number of contigs: $num</li>);
-		say qq(<li>Minimum length: $min</li>);
-		say qq(<li>Maximum length: $max</li>);
-		say qq(<li>Total length: $total</li>);
-		say qq(<li>Mean length: $mean</li>);
-		say qq(<li>N50 contig number: $n_stats->{'N50'}</li>);
-		say qq(<li>N50 contig length (L50): $n_stats->{'L50'}</li>);
-		say qq(<li>N90 contig number: $n_stats->{'N90'}</li>);
-		say qq(<li>N90 contig length (L50): $n_stats->{'L90'}</li>);
-		say qq(<li>N95 contig number: $n_stats->{'N95'}</li>);
-		say qq(<li>N95 contig length (L50): $n_stats->{'L95'}</li></ul>);
+		say $self->get_list_block(
+			[
+				{ title => 'Number of contigs',       data => BIGSdb::Utils::commify($num) },
+				{ title => 'Minimum length',          data => BIGSdb::Utils::commify($min) },
+				{ title => 'Maximum length',          data => BIGSdb::Utils::commify($max) },
+				{ title => 'Total length',            data => BIGSdb::Utils::commify($total) },
+				{ title => 'Mean length',             data => BIGSdb::Utils::commify($mean) },
+				{ title => 'N50 contig number',       data => BIGSdb::Utils::commify( $n_stats->{'N50'} ) },
+				{ title => 'N50 contig length (L50)', data => BIGSdb::Utils::commify( $n_stats->{'L50'} ) },
+				{ title => 'N90 contig number',       data => BIGSdb::Utils::commify( $n_stats->{'N90'} ) },
+				{ title => 'N90 contig length (L50)', data => BIGSdb::Utils::commify( $n_stats->{'L90'} ) },
+				{ title => 'N95 contig number',       data => BIGSdb::Utils::commify( $n_stats->{'N95'} ) },
+				{ title => 'N95 contig length (L50)', data => BIGSdb::Utils::commify( $n_stats->{'L95'} ) },
+			],
+			{ width => 15 }
+		);
 		say q(</fieldset>);
 		say $q->start_form;
 		$self->print_action_fieldset( { no_reset => 1, submit_label => 'Upload' } );

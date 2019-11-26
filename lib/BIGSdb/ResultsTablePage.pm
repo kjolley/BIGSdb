@@ -784,8 +784,11 @@ sub _print_isolate_seqbin_values {
 	my ( $self, $id ) = @_;
 	if ( $self->{'prefs'}->{'display_seqbin_main'} || $self->{'prefs'}->{'display_contig_count'} ) {
 		my $stats = $self->_get_seqbin_stats($id);
-		print qq(<td>$stats->{'total_length'}</td>) if $self->{'prefs'}->{'display_seqbin_main'};
-		print qq(<td>$stats->{'contigs'}</td>)      if $self->{'prefs'}->{'display_contig_count'};
+		if ( $self->{'prefs'}->{'display_seqbin_main'} ) {
+			my $nice_length = BIGSdb::Utils::commify( $stats->{'total_length'} );
+			print qq(<td>$nice_length</td>) if $self->{'prefs'}->{'display_seqbin_main'};
+		}
+		print qq(<td>$stats->{'contigs'}</td>) if $self->{'prefs'}->{'display_contig_count'};
 	}
 	return;
 }
