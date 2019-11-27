@@ -41,21 +41,21 @@ use constant MICROREACT_URL => 'https://microreact.org/api/project/';
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name             => 'Microreact',
-		author           => 'Keith Jolley',
-		affiliation      => 'University of Oxford, UK',
-		email            => 'keith.jolley@zoo.ox.ac.uk',
-		description      => 'Open data visualization and sharing for genomic epidemiology',
-		menu_description => 'Open data visualization and sharing for genomic epidemiology',
-		category         => 'Third party',
-		buttontext       => 'Microreact',
-		menutext         => 'Microreact',
-		module           => 'Microreact',
-		version          => '1.0.9',
-		dbtype           => 'isolates',
-		section          => 'third_party,postquery',
-		input            => 'query',
-		help             => 'tooltips',
+		name                => 'Microreact',
+		author              => 'Keith Jolley',
+		affiliation         => 'University of Oxford, UK',
+		email               => 'keith.jolley@zoo.ox.ac.uk',
+		description         => 'Open data visualization and sharing for genomic epidemiology',
+		menu_description    => 'Open data visualization and sharing for genomic epidemiology',
+		category            => 'Third party',
+		buttontext          => 'Microreact',
+		menutext            => 'Microreact',
+		module              => 'Microreact',
+		version             => '1.0.10',
+		dbtype              => 'isolates',
+		section             => 'third_party,postquery',
+		input               => 'query',
+		help                => 'tooltips',
 		requires            => 'aligner,offline_jobs,js_tree,clustalw,field_country_optlist,field_year_int',
 		order               => 40,
 		min                 => 2,
@@ -181,7 +181,7 @@ sub _create_tsv_file {
 		}
 		my @record_values;
 		foreach my $field (@$prov_fields) {
-			my $field_value = $self->get_field_value($record,$field);
+			my $field_value = $self->get_field_value( $record, $field );
 			push @record_values, $field_value if $include_fields{"f_$field"};
 			my $extatt = $extended->{$field};
 			if ( ref $extatt eq 'ARRAY' ) {
@@ -287,7 +287,7 @@ sub print_info_panel {
 	}
 	say q(<div style="float:left">);
 	say q(<p>This plugin uploads data for analysis within the Microreact online service:</p>)
-	. q(<p>Microreact is developed at the <a href="http://www.pathogensurveillance.net/">)
+	  . q(<p>Microreact is developed at the <a href="http://www.pathogensurveillance.net/">)
 	  . q(The Centre for Genomic Pathogen Surveillance</a> by a team led by David Aanensen.</p>);
 	say q(<p>Web site: <a href="https://microreact.org">https://microreact.org</a><br />);
 	say q(Publication: Argim&oacute;n <i>at al.</i> (2016) Microreact: visualizing and sharing data for genomic )
@@ -432,11 +432,15 @@ sub _get_allowed_countries {
 sub _get_mapped_countries {
 	my ($self) = @_;
 	my $mapped = {
-		'The Gambia'      => 'Gambia',
-		'The Netherlands' => 'Netherlands',
-		'UK'              => 'United Kingdom',
-		'USA'             => 'United States',
-		'Unknown'         => ''
+		'The Gambia'            => 'Gambia',
+		'The Netherlands'       => 'Netherlands',
+		'UK'                    => 'United Kingdom',
+		'UK [England]'          => 'United Kingdom',
+		'UK [Northern Ireland]' => 'United Kingdom',
+		'UK [Scotland]'         => 'United Kingdom',
+		'UK [Wales]'            => 'United Kingdom',
+		'USA'                   => 'United States',
+		'Unknown'               => ''
 	};
 	return $mapped;
 }
