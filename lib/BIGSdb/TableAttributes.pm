@@ -391,7 +391,21 @@ sub get_loci_table_attributes {
 				comments    => 'Do NOT set to true unless you define probe sequences linked to this locus.',
 				tooltip     => 'probe filter - Set to true to specify that sequences used for tagging are filtered '
 				  . 'to only include regions within a specified distance of a hybdridization probe.'
-			},
+			}
+		  );
+		if ( $self->{'config'}->{'blat_path'} ) {
+			push @$attributes,
+			  (
+				{
+					name        => 'introns',
+					type        => 'bool',
+					hide_public => 1,
+					comments    => 'Set to true if locus can contain introns.'
+				}
+			  );
+		}
+		push @$attributes,
+		  (
 			{
 				name     => 'dbase_name',
 				type     => 'text',

@@ -64,13 +64,15 @@ sub _check_helpers {
 		clustalw           => $self->{'config'}->{'clustalw_path'},
 		ipcress            => $self->{'config'}->{'ipcress_path'},
 		mogrify            => $self->{'config'}->{'mogrify_path'},
-		GrapeTree          => $self->{'config'}->{'grapetree_path'} . '/grapetree.py'
+		GrapeTree          => $self->{'config'}->{'grapetree_path'} . '/grapetree.py',
+		blat               => $self->{'config'}->{'blat_path'}
 	);
 	my $td = 1;
 	say q(<div class="box resultstable">);
 	say q(<h2>Helper applications</h2>);
 	say q(<div class="scrollable"><table class="resultstable"><tr><th>Program</th>)
 	  . q(<th>Path</th><th>Installed</th><th>Executable</th></tr>);
+
 	foreach my $program ( sort { $a cmp $b } keys %helpers ) {
 		say qq(<tr class="td$td"><td>$program</td><td>$helpers{$program}</td><td>)
 		  . ( -e ( $helpers{$program} ) ? GOOD : BAD )
@@ -201,8 +203,7 @@ sub _check_scheme_databases {
 			}
 			print q(</td><td>);
 			if ( !$scheme_info->{'primary_key'} ) {
-				$logger->error("No primary key field set for scheme#$scheme_id ($scheme_info->{'name'}).")
-				  ;
+				$logger->error("No primary key field set for scheme#$scheme_id ($scheme_info->{'name'}).");
 				print BAD;
 				next;
 			}
