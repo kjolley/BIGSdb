@@ -401,7 +401,6 @@ sub _register {
 		}
 	};
 	if ($@) {
-		$logger->error($@);
 		$self->{'db'}->rollback;
 		my $msg = q();
 		if ( $@ =~ /users_user_name_key/x ) {
@@ -410,6 +409,8 @@ sub _register {
 				$msg .= qq( Please contact the <a href="mailto:$self->{'config'}->{'site_admin_email'}">)
 				  . q(site admin</a> for advice.);
 			}
+		} else {
+			$logger->error($@);
 		}
 		$self->print_bad_status( { message => q(User registration failed.), detail => $msg } );
 	} else {
