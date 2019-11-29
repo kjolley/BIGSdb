@@ -152,6 +152,7 @@ use constant SEQ_FLAGS => (
 	'frameshift',
 	'indel',
 	'internal stop codon',
+	'introns',
 	'no start codon',
 	'no stop codon',
 	'phase variable: off',

@@ -301,7 +301,7 @@ sub _get_shortest_seq_length {
 
 sub _always_lookup_partials {
 	my ( $self, $params ) = @_;
-	if ( $params->{'exemplar'} || $params->{'type_alleles'} ) {
+	if ( $params->{'exemplar'} || $params->{'type_alleles'} || $self->{'introns_found'} ) {
 		return 1;
 	}
 	return;
@@ -966,15 +966,30 @@ sub extract_seq_from_match {
 		$logger->logcarp( Dumper $match);
 		$match->{'predicted_start'} =~ s/\*//x;
 	}
-	my $seq_ref = $self->{'contigManager'}->get_contig_fragment(
-		{
-			seqbin_id => $match->{'seqbin_id'},
-			start     => $match->{'predicted_start'},
-			end       => $match->{'predicted_end'},
-			reverse   => $match->{'reverse'}
+	my $seq;
+	if ( $match->{'exons'} ) {
+		foreach my $exon ( $match->{'reverse'} ? reverse @{ $match->{'exons'} } : @{ $match->{'exons'} } ) {
+			my $seq_ref = $self->{'contigManager'}->get_contig_fragment(
+				{
+					seqbin_id => $match->{'seqbin_id'},
+					reverse   => $match->{'reverse'},
+					start     => $exon->{'start'},
+					end       => $exon->{'end'}
+				}
+			);
+			$seq .= $seq_ref->{'seq'};
 		}
-	);
-	my $seq = $seq_ref->{'seq'};
+	} else {
+		my $seq_ref = $self->{'contigManager'}->get_contig_fragment(
+			{
+				seqbin_id => $match->{'seqbin_id'},
+				start     => $match->{'predicted_start'},
+				end       => $match->{'predicted_end'},
+				reverse   => $match->{'reverse'}
+			}
+		);
+		$seq = $seq_ref->{'seq'};
+	}
 	$seq = uc($seq);
 	return $seq;
 }
@@ -1041,12 +1056,15 @@ sub _get_row {
 	  ? qq(<td class="incomplete">$match->{'predicted_start'}</td><td class="incomplete">)
 	  : qq(<td>$match->{'predicted_start'}</td><td>);
 	$match->{'reverse'} //= 0;
+	my $intron_arg = $self->_get_intron_arg($match);
+	my $url =
+	    qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=extractedSequence&amp;)
+	  . qq(seqbin_id=$match->{'seqbin_id'}&amp;start=$hunter->{'predicted_start'}&amp;)
+	  . qq(end=$hunter->{'predicted_end'}&amp;reverse=$match->{'reverse'}&amp;translate=$translate&amp;)
+	  . qq(orf=$orf$intron_arg);
 	$buffer .=
 	    qq($match->{'predicted_end'} <a target="_blank" class="extract_tooltip" )
-	  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=extractedSequence&amp;)
-	  . qq(seqbin_id=$match->{'seqbin_id'}&amp;start=$hunter->{'predicted_start'}&amp;)
-	  . qq(end=$hunter->{'predicted_end'}&amp;reverse=$match->{'reverse'}&amp;translate=$translate&amp;orf=$orf" )
-	  . q(style="white-space:nowrap">)
+	  . qq(href="$url" style="white-space:nowrap">)
 	  . qq(extract <span class="fas fa-arrow-circle-right"></span></a>$hunter->{'complete_tooltip'}</td>);
 	my $arrow = $self->_get_dir_arrow( $match->{'reverse'} );
 	$buffer .= qq(<td>$arrow</td><td>);
@@ -1090,11 +1108,8 @@ sub _get_row {
 		push @$js4, qq(\$("#id_${isolate_id}_${cleaned_locus}_sequence_$id").prop("checked",false));
 		$new_designation = 1;
 		$buffer .= q(</td><td>);
-		my ($default_flags);
-		if ($exact) {
-			$default_flags = $self->{'datastore'}->get_locus($locus)->get_flags( $match->{'allele'} );
-		}
-		if ( ref $default_flags eq 'ARRAY' && @$default_flags > 1 ) {
+		my $default_flags = $self->_get_match_flags( $locus, $match, $exact );
+		if ( @$default_flags > 1 ) {
 			$buffer .= $q->popup_menu(
 				-name     => "id_${isolate_id}_${locus}_sequence_${id}_flag",
 				-id       => "id_${isolate_id}_${cleaned_locus}_sequence_${id}_flag",
@@ -1115,10 +1130,7 @@ sub _get_row {
 		  $q->checkbox( -name => "id_${isolate_id}_${locus}_sequence_$id", -label => '', disabled => 'disabled' );
 		$seq_disabled = 1;
 		$buffer .= q(</td><td>);
-		my $flags = $self->{'datastore'}->get_sequence_flags( $existing_allele_sequence->{'id'} );
-		foreach my $flag (@$flags) {
-			$buffer .= qq( <a class="seqflag_tooltip">$flag</a>);
-		}
+		$buffer .= $self->_get_sequence_flags( $existing_allele_sequence->{'id'} );
 	}
 	if ($exact) {
 		$buffer .= $q->hidden( "id_${isolate_id}_${locus}_allele_id_$id", $match->{'allele'} );
@@ -1129,9 +1141,46 @@ sub _get_row {
 		$buffer .= $q->hidden( "id_${isolate_id}_${locus}_reverse_$id"   => $match->{'reverse'} );
 		$buffer .= $q->hidden( "id_${isolate_id}_${locus}_complete_$id"  => 1 ) if !$hunter->{'off_end'};
 		$buffer .= $q->hidden( "id_${isolate_id}_${locus}_seqbin_id_$id" => $match->{'seqbin_id'} );
+		$intron_arg = $self->_get_intron_arg( $match, { hidden => 1 } );
+		if ($intron_arg) {
+			$buffer .= $q->hidden( "id_${isolate_id}_${locus}_introns_$id" => $intron_arg );
+		}
 	}
 	$buffer .= q(</td></tr>);
 	return ( $buffer, $hunter->{'off_end'}, $new_designation );
+}
+
+sub _get_match_flags {
+	my ( $self, $locus, $match, $exact ) = @_;
+	my $flags = [];
+	if ($exact) {
+		$flags = $self->{'datastore'}->get_locus($locus)->get_flags( $match->{'allele'} );
+	}
+	if ( $match->{'exons'} ) {
+		push @$flags, 'introns';
+	}
+	return $flags;
+}
+
+sub _get_sequence_flags {
+	my ( $self, $allele_seq ) = @_;
+	my $buffer = q();
+	my $flags  = $self->{'datastore'}->get_sequence_flags($allele_seq);
+	foreach my $flag (@$flags) {
+		$buffer .= qq( <a class="seqflag_tooltip">$flag</a>);
+	}
+	return $buffer;
+}
+
+sub _get_intron_arg {
+	my ( $self, $match, $options ) = @_;
+	return q() if !$match->{'introns'};
+	my @args;
+	foreach my $intron ( @{ $match->{'introns'} } ) {
+		push @args, qq($intron->{'start'}-$intron->{'end'});
+	}
+	local $" = q(,);
+	return $options->{'hidden'} ? qq(@args) : qq(&introns=@args);
 }
 
 sub _get_dir_arrow {
@@ -1175,18 +1224,22 @@ sub _hunt_for_start_and_stop_codons {
 			$predicted_start =~ s/\*//x;
 			$predicted_end = $match->{'predicted_end'};
 			$predicted_end =~ s/\*//x;
-			my $seq_ref = $self->{'contigManager'}->get_contig_fragment(
-				{
-					seqbin_id => $match->{'seqbin_id'},
-					start     => $predicted_start,
-					end       => $predicted_end,
-					flanking  => 0
-				}
-			);
-			my $seq = $seq_ref->{'seq'};
 
+			#			my $seq_ref = $self->{'contigManager'}->get_contig_fragment(
+			#				{
+			#					seqbin_id => $match->{'seqbin_id'},
+			#					start     => $predicted_start,
+			#					end       => $predicted_end,
+			#					flanking  => 0
+			#				}
+			#			);
+			#			my $seq = $seq_ref->{'seq'};
+			my $seq = $self->extract_seq_from_match($match);
+
+			#			$logger->error($seq);
 			if ($seq) {
-				$seq = BIGSdb::Utils::reverse_complement($seq) if $match->{'reverse'};
+
+				#				$seq = BIGSdb::Utils::reverse_complement($seq) if $match->{'reverse'};
 				$off_end = 1 if $seq =~ /^N/x || $seq =~ /N$/x;    #Incomplete if Ns are end (scaffolding)
 				$first_codon_is_start = 1 if $start_codons{ substr( $seq, 0, 3 ) };
 				$last_codon_is_stop = 1 if $stop_codons{ substr( $seq, -3 ) };
@@ -1477,17 +1530,7 @@ sub _parse_blast_partial {
 		} else {
 			$allele_id = $record->[1];
 		}
-		if ( !$lengths->{$locus}->{$allele_id} ) {
-			if ( $allele_id eq 'ref' ) {
-				$lengths->{$locus}->{$allele_id} =
-				  $self->{'datastore'}->run_query( 'SELECT length(reference_sequence) FROM loci WHERE id=?',
-					$locus, { cache => 'Scan::parse_blast_partial' } );
-			} else {
-				my $seq_ref = $self->{'datastore'}->get_locus($locus)->get_allele_sequence($allele_id);
-				next if !$$seq_ref;
-				$lengths->{$locus}->{$allele_id} = length($$seq_ref);
-			}
-		}
+		$self->_cache_match_allele_length( $lengths, $locus, $allele_id );
 		next if !defined $lengths->{$locus}->{$allele_id};
 		my $length = $lengths->{$locus}->{$allele_id};
 		if ( $params->{'tblastx'} ) {
@@ -1544,9 +1587,124 @@ sub _parse_blast_partial {
 		while ( @{ $matches->{$locus} } > $partial_matches ) {
 			pop @{ $matches->{$locus} };
 		}
+		if ( $self->{'config'}->{'blat_path'} ) {
+			foreach my $match ( @{ $matches->{$locus} } ) {
+				$self->_check_introns( $locus, $match );
+			}
+		}
 	}
 	undef $self->{'records'} if !$options->{'keep_data'};
+
+	#	use Data::Dumper;
+	#	$logger->error( Dumper $matches);
 	return $matches;
+}
+
+sub _cache_match_allele_length {
+	my ( $self, $lengths, $locus, $allele_id ) = @_;
+	return if $lengths->{$locus}->{$allele_id};
+	if ( $allele_id eq 'ref' ) {
+		$lengths->{$locus}->{$allele_id} =
+		  $self->{'datastore'}->run_query( 'SELECT length(reference_sequence) FROM loci WHERE id=?',
+			$locus, { cache => 'Scan::parse_blast_partial' } );
+	} else {
+		my $seq_ref = $self->{'datastore'}->get_locus($locus)->get_allele_sequence($allele_id);
+		return if !$$seq_ref;
+		$lengths->{$locus}->{$allele_id} = length($$seq_ref);
+	}
+	return;
+}
+
+sub _check_introns {
+	my ( $self, $locus, $match ) = @_;
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	return if !$locus_info->{'introns'};
+	my $contig = $self->{'contigManager'}->get_contig( $match->{'seqbin_id'} );
+	my $allele = $self->{'datastore'}->get_locus($locus)->get_allele_sequence( $match->{'allele'} );
+	return if !ref $contig || !ref $allele;
+	my $prefix      = BIGSdb::Utils::get_random();
+	my $query_file  = "$self->{'config'}->{'secure_tmp_dir'}/${prefix}_query.fas";
+	my $contig_file = "$self->{'config'}->{'secure_tmp_dir'}/${prefix}_contig.fas";
+	my $out_file    = "$self->{'config'}->{'secure_tmp_dir'}/${prefix}.psl";
+	open( my $fh, '>:encoding(utf8)', $query_file ) || $logger->error("Cannot open $query_file for writing");
+	say $fh '>query';
+	say $fh $$allele;
+	close $fh;
+	open( $fh, '>:encoding(utf8)', $contig_file ) || $logger->error("Cannot open $contig_file for writing");
+	say $fh qq(>$match->{'seqbin_id'});
+	say $fh $$contig;
+	close $fh;
+	system( $self->{'config'}->{'blat_path'}, $contig_file, $query_file, '-noHead', $out_file );
+
+	if ( -e $out_file ) {
+		open( $fh, '<:encoding(utf8)', $out_file ) || $logger->error("Cannot open $out_file for reading");
+		my $line = <$fh>;
+		close $fh;
+		if ($line) {
+			my $exons         = [];
+			my @values        = split /\t/x, $line;
+			my $end_of_match  = $values[16];
+			my @starts        = split /,/x, $values[20];
+			my @block_lengths = split /,/x, $values[18];
+			if (@starts) {
+				foreach my $i ( 0 .. @starts - 1 ) {
+					next if !BIGSdb::Utils::is_int( $starts[$i] );    #List has trailing comma
+					my $start = $starts[$i] + 1;
+					my $end   = $start + $block_lengths[$i] - 1;
+					push @$exons, { start => $start, end => $end };
+				}
+				my $merged_exons = $self->_remove_short_introns( $exons, 20 );
+				$match->{'predicted_start'} = $exons->[0]->{'start'};
+				$match->{'predicted_end'}   = $exons->[-1]->{'end'};
+				$match->{'exons'}           = $merged_exons;
+				$self->{'introns_found'}    = 1;
+				my $introns = [];
+				foreach my $i ( 0 .. @$exons - 1 ) {
+					last if !defined $exons->[ $i + 1 ];
+					push @$introns,
+					  {
+						start => $exons->[$i]->{'end'} + 1,
+						end   => $exons->[ $i + 1 ]->{'start'} - 1
+					  };
+				}
+				$match->{'introns'} = $introns;
+				########################################################################
+				#Test spliced sequence
+				my $seq;
+				foreach my $exon ( $match->{'reverse'} ? reverse @$merged_exons : @$merged_exons ) {
+					$seq .= $self->extract_seq_from_match(
+						{
+							seqbin_id       => $match->{'seqbin_id'},
+							reverse         => $match->{'reverse'},
+							predicted_start => $exon->{'start'},
+							predicted_end   => $exon->{'end'}
+						}
+					);
+				}
+				$logger->error( Dumper $match);
+				$logger->error($seq);
+				########################################################################
+			}
+		}
+	}
+	return $match;
+}
+
+sub _remove_short_introns {
+	my ( $self, $exons, $min_length ) = @_;
+	my $merged = [];
+	foreach my $exon (@$exons) {
+		if ( !@$merged ) {
+			push @$merged, $exon;
+			next;
+		}
+		if ( $exon->{'start'} < $merged->[-1]->{'end'} + $min_length ) {
+			$merged->[-1]->{'end'} = $exon->{'end'};
+		} else {
+			push @$merged, $exon;
+		}
+	}
+	return $merged;
 }
 
 sub _is_match_outside_pcr_amplicon {
