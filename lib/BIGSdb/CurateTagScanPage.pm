@@ -188,8 +188,7 @@ sub _print_interface {
 		$general_prefs = $self->{'prefstore'}->get_all_general_prefs( $guid, $self->{'system'}->{'db'} );
 	}
 	if ( $q->param('datatype') && $q->param('list_file') ) {
-		$self->{'datastore'}->create_temp_list_table( scalar $q->param('datatype'), scalar $q->param('list_file') )
-		  ;
+		$self->{'datastore'}->create_temp_list_table( scalar $q->param('datatype'), scalar $q->param('list_file') );
 	}
 	my $query_file = $q->param('query_file');
 	my $query      = $self->get_query_from_temp_file($query_file);
@@ -672,6 +671,17 @@ sub _tag {
 						  };
 					}
 				}
+				$self->_add_intron_updates(
+					{
+						isolate_id => $isolate_id,
+						locus      => $locus,
+						id         => $id,
+						seqbin_id  => $seqbin_id,
+						start      => $start,
+						end        => $end,
+						updates    => \@updates
+					}
+				);
 			}
 		}
 	}
@@ -736,6 +746,30 @@ sub _tag {
 				  . qq(parameters=$scan_job)
 			}
 		);
+	}
+	return;
+}
+
+sub _add_intron_updates {
+	my ( $self, $args ) = @_;
+	my ( $isolate_id, $locus, $id, $seqbin_id, $start, $end, $updates ) =
+	  @{$args}{qw(isolate_id locus id seqbin_id start end updates)};
+	my $q = $self->{'cgi'};
+	my $introns = $q->param("id_${isolate_id}_${locus}_introns_$id") // q();
+	return if !$introns;
+	my @introns = split /,/x, $introns;
+	foreach my $intron (@introns) {
+		if ( $intron =~ /^(\d+)\-(\d+)$/x ) {
+			my $intron_start = $1;
+			my $intron_end   = $2;
+			next if $intron_start > $intron_end;
+			push @$updates,
+			  {
+				statement => 'INSERT INTO introns (id,start_pos,end_pos) SELECT allele_sequences.id,?,? '
+				  . 'FROM allele_sequences WHERE (seqbin_id,locus,start_pos,end_pos)=(?,?,?,?)',
+				arguments => [ $intron_start, $intron_end, $seqbin_id, $locus, $start, $end ]
+			  };
+		}
 	}
 	return;
 }

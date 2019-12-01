@@ -186,33 +186,30 @@ sub print_content {
 	my $flanking = $self->{'prefs'}->{'flanking'} // 100;
 	my $length = abs( $end - $start + 1 );
 	say q(<p class="seq" style="text-align:left">);
-	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	my $translate  = $locus_info->{'coding_sequence'} || $locus_info->{'data_type'} eq 'peptide';
-	my $orf        = $locus_info->{'orf'} || 1;
-	my $display    = $self->format_seqbin_sequence(
+	my $locus_info   = $self->{'datastore'}->get_locus_info($locus);
+	my $translate    = $locus_info->{'coding_sequence'} || $locus_info->{'data_type'} eq 'peptide';
+	my $orf          = $locus_info->{'orf'} || 1;
+	my $seq_features = $self->get_seq_features(
 		{
 			seqbin_id => $seqbin_id,
 			reverse   => $reverse,
 			start     => $start,
 			end       => $end,
-			translate => $translate,
-			orf       => $orf,
-			flanking  => $flanking
+			flanking  => $flanking,
 		}
 	);
-	say $display->{'seq'};
+	say $self->format_sequence_features($seq_features);
 	say q(</p>);
-
 	if ($translate) {
-		my @stops = @{ $display->{'internal_stop'} };
-		if (@stops) {
+		my $stops = $self->find_internal_stops( $seq_features, $orf );
+		if (@$stops) {
 			local $" = ', ';
-			my $plural = @stops == 1 ? '' : 's';
+			my $plural = @$stops == 1 ? '' : 's';
 			print qq(<span class="highlight">Internal stop codon$plural at position$plural: )
-			  . qq(@stops (numbering includes upstream flanking sequence).</span>);
+			  . qq(@$stops (numbering includes upstream flanking sequence).</span>);
 		}
 		say q(<pre class="sixpack">);
-		say $display->{'sixpack'};
+		say $self->get_sixpack_display($seq_features);
 		say q(</pre>);
 	}
 	say q(</div>);
@@ -228,8 +225,7 @@ sub _check_values {
 				{ message => q(The start position must be an integer. Resetting to initial values.) } );
 			$q->param( update => 0 );
 			$q->param( submit => 0 );
-		} elsif ( !defined $q->param('new_end') || !BIGSdb::Utils::is_int( scalar $q->param('new_end') ) )
-		{
+		} elsif ( !defined $q->param('new_end') || !BIGSdb::Utils::is_int( scalar $q->param('new_end') ) ) {
 			$self->print_bad_status(
 				{ message => q(The end position must be an integer. Resetting to initial values.) } );
 			$q->param( update => 0 );

@@ -92,6 +92,10 @@ sub print_content {
 
 	foreach my $allele_sequence (@$data) {
 		my ( $id, $seqbin_id, $start_pos, $end_pos, $reverse, $complete, $method, $seqlength ) = @$allele_sequence;
+		my $introns =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT start_pos AS start,end_pos AS end FROM introns WHERE id=? ORDER BY start_pos',
+			$id, { fetch => 'all_arrayref', slice => {} } );
 		my $update_buffer = '';
 		if ( $self->{'curate'} ) {
 			$update_buffer =
@@ -121,6 +125,7 @@ sub print_content {
 				start     => $start_pos,
 				end       => $end_pos,
 				flanking  => $flanking,
+				introns   => $introns
 			}
 		);
 		$buffer .= $self->get_option_fieldset;
@@ -130,6 +135,10 @@ sub print_content {
 		$buffer .= $self->format_sequence_features($seq_features);
 		$buffer .= q(</div>);
 
+		if (@$introns) {
+			$buffer .= q(<p style="margin-top:1em">Key: <span class="flanking">Flanking</span>; )
+			  . q(<span class="exon">Exon</span>; <span class="intron">Intron</span></p>);
+		}
 		if ($translate) {
 			$buffer .= qq(<h2>Translation</h2>\n);
 			my $stops = $self->find_internal_stops( $seq_features, $orf );
@@ -140,7 +149,7 @@ sub print_content {
 				  . q((numbering includes upstream flanking sequence).</span>);
 			}
 			$buffer .= q(<pre class="sixpack">);
-			$buffer .= $self->_get_sixpack_display($seq_features);
+			$buffer .= $self->get_sixpack_display($seq_features);
 			$buffer .= q(</pre>);
 		}
 	}
