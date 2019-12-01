@@ -138,10 +138,11 @@ sub chop_seq {
 }
 
 sub split_line {
-	my $string = shift;
+	my ($string, $offset) = @_;
 	return if !defined $string;
+	$offset //= 0;
 	my $seq;
-	my $pos = 1;
+	my $pos = 1 + $offset;
 	for ( my $i = 0 ; $i < length($string) ; $i++ ) {
 		$seq .= substr $string, $i, 1;
 		if ( $pos == 10 ) {

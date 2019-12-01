@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -114,34 +114,34 @@ sub print_content {
 		$buffer .= q(</div>);
 		my $translate = ( $locus_info->{'coding_sequence'} || $locus_info->{'data_type'} eq 'peptide' ) ? 1 : 0;
 		my $orf = $locus_info->{'orf'} || 1;
-		my $display = $self->format_seqbin_sequence(
+		my $seq_features = $self->get_seq_features(
 			{
 				seqbin_id => $seqbin_id,
 				reverse   => $reverse,
 				start     => $start_pos,
 				end       => $end_pos,
-				translate => $translate,
-				orf       => $orf,
-				flanking  => $flanking
+				flanking  => $flanking,
 			}
 		);
 		$buffer .= $self->get_option_fieldset;
 		$buffer .= q(<div style="clear:both"></div>);
 		$buffer .= qq(<h2>Sequence</h2>\n);
-		$buffer .= qq(<div class="seq">$display->{'seq'}</div>\n);
+		$buffer .= q(<div class="seq">);
+		$buffer .= $self->format_sequence_features($seq_features);
+		$buffer .= q(</div>);
 
 		if ($translate) {
 			$buffer .= qq(<h2>Translation</h2>\n);
-			my @stops = @{ $display->{'internal_stop'} };
-			if (@stops) {
-				my $plural = @stops == 1 ? '' : 's';
+			my $stops = $self->find_internal_stops( $seq_features, $orf );
+			if (@$stops) {
 				local $" = ', ';
-				$buffer .= qq[<span class="highlight">Internal stop codon$plural at position$plural: @stops ]
-				  . qq[(numbering includes upstream flanking sequence).</span>\n];
+				my $plural = @$stops == 1 ? q() : q(s);
+				$buffer .= qq(<span class="highlight">Internal stop codon$plural at position$plural: @$stops )
+				  . q((numbering includes upstream flanking sequence).</span>);
 			}
-			$buffer .= qq(<pre class="sixpack">\n);
-			$buffer .= $display->{'sixpack'};
-			$buffer .= qq(</pre>\n);
+			$buffer .= q(<pre class="sixpack">);
+			$buffer .= $self->_get_sixpack_display($seq_features);
+			$buffer .= q(</pre>);
 		}
 	}
 	if ($buffer) {

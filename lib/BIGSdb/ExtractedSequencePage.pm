@@ -36,6 +36,7 @@ sub print_content {
 	my $translate    = $q->param('translate');
 	my $orf          = $q->param('orf');
 	my $no_highlight = $q->param('no_highlight');
+	my ( $introns, $intron_length ) = $self->_get_introns;
 	$self->update_prefs if $q->param('reload');
 
 	if ( !BIGSdb::Utils::is_int($seqbin_id) ) {
@@ -61,20 +62,9 @@ sub print_content {
 		return;
 	}
 	say qq(<h1>Extracted sequence: Seqbin id#:$seqbin_id ($start-$end)</h1>);
-	my $length   = abs( $end - $start + 1 );
-	my $method   = $self->{'datastore'}->run_query( 'SELECT method FROM sequence_bin WHERE id=?', $seqbin_id );
-	my $flanking = $q->param('flanking') // $self->{'prefs'}->{'flanking'};
-	my $display  = $self->format_seqbin_sequence(
-		{
-			seqbin_id => $seqbin_id,
-			reverse   => $reverse,
-			start     => $start,
-			end       => $end,
-			translate => $translate,
-			orf       => $orf,
-			flanking  => $flanking
-		}
-	);
+	my $length      = abs( $end - $start + 1 );
+	my $method      = $self->{'datastore'}->run_query( 'SELECT method FROM sequence_bin WHERE id=?', $seqbin_id );
+	my $flanking    = $q->param('flanking') // $self->{'prefs'}->{'flanking'};
 	my $orientation = $reverse ? '&larr;' : '&rarr;';
 	say q(<div class="box" id="resultspanel"><div style="float:left">);
 	say q(<h2>Sequence position</h2>);
@@ -84,33 +74,178 @@ sub print_content {
 	say qq(<dt>start</dt><dd>$start</dd>);
 	say qq(<dt>end</dt><dd>$end</dd>);
 	say qq(<dt>length</dt><dd>$length</dd>);
+
+	if ($intron_length) {
+		my $exon_length = $length - $intron_length;
+		say qq(<dt>exon length</dt><dd>$exon_length</dd>);
+	}
 	say qq(<dt>orientation</dt><dd><span style="font-size:2em">$orientation</span></dd>);
 	say q(</dl>);
 	say q(</div>);
 	say $self->get_option_fieldset;
 	say q(<div style="clear:both"></div>);
+	my $seq_features = $self->get_seq_features(
+		{
+			seqbin_id => $seqbin_id,
+			reverse   => $reverse,
+			start     => $start,
+			end       => $end,
+			flanking  => $flanking,
+			introns   => $introns
+		}
+	);
 	say q(<h2>Sequence</h2>);
 	say q(<div class="seq" style="padding-left:5em">);
-	say $display->{'seq'};
+	say $self->format_sequence_features($seq_features);
 	say q(</div>);
 
+	if (@$introns) {
+		say q(<p style="padding-left:5em;margin-top:1em">Key: <span class="flanking">Flanking</span>; )
+		  . q(<span class="exon">Exon</span>; <span class="intron">Intron</span></p>);
+	}
 	if ($translate) {
 		say q(<h2>Translation</h2>);
-		my @stops = @{ $display->{'internal_stop'} };
-		if ( @stops && !$no_highlight ) {
+		my $stops = $self->find_internal_stops($seq_features);
+		if (@$stops) {
 			local $" = ', ';
-			my $plural = @stops == 1 ? q() : q(s);
-			say qq(<span class="highlight">Internal stop codon$plural at position$plural: @stops )
+			my $plural = @$stops == 1 ? q() : q(s);
+			say qq(<span class="highlight">Internal stop codon$plural at position$plural: @$stops )
 			  . q((numbering includes upstream flanking sequence).</span>);
 		}
-		say q(<div class="scrollable">);
-		say q(<pre class="sixpack">);
-		say $display->{'sixpack'};
-		say q(</pre>);
-		say q(</div>);
+		say q(<div class="scrollable"><pre class="sixpack">);
+		say $self->get_sixpack_display($seq_features);
+		say q(</pre></div>);
 	}
-	say q(</div>);
 	return;
+}
+
+sub _get_introns {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	return [] if !$q->param('introns');
+	my @ranges       = split /,/x, $q->param('introns');
+	my $introns      = [];
+	my $total_length = 0;
+	foreach my $range (@ranges) {
+		if ( $range =~ /^(\d+)\-(\d+)$/x ) {
+			my $length = abs( $2 - $1 );
+			push @$introns, { start => $1, end => $2, length => $length };
+			$total_length += $length + 1;
+		}
+	}
+	return ( $introns, $total_length );
+}
+
+sub get_seq_features {
+	my ( $self, $args ) = @_;
+	my ( $seqbin_id, $reverse, $start, $end, $flanking, $introns ) =
+	  @{$args}{qw(seqbin_id reverse start end flanking introns)};
+	$introns //= [];
+	my $contig          = $self->{'contigManager'}->get_contig($seqbin_id);
+	my $contig_length   = length $$contig;
+	my $features        = [];
+	my $up_flank_length = $start - $flanking < 0 ? $start - 1 : $flanking;
+	if ($up_flank_length) {
+		my $up_flank_seq = substr( $$contig, $start - 1 - $up_flank_length, $up_flank_length );
+		push @$features, { feature => 'flanking', sequence => $up_flank_seq };
+	}
+	if (@$introns) {
+		my $start_pos = $start - 1;
+		foreach my $intron (@$introns) {
+			my $exon_seq = substr( $$contig, $start_pos, ( $intron->{'start'} - $start_pos - 1 ) );
+			push @$features, { feature => 'exon', sequence => $exon_seq };
+			my $intron_seq = substr( $$contig, $intron->{'start'} - 1, ( $intron->{'end'} - $intron->{'start'} + 1 ) );
+			push @$features, { feature => 'intron', sequence => $intron_seq };
+			$start_pos = $intron->{'end'};
+		}
+		my $exon_seq = substr( $$contig, $start_pos, ( $end - $start_pos ) );
+		push @$features, { feature => 'exon', sequence => $exon_seq };
+	} else {
+		my $main_seq = substr( $$contig, $start - 1, ( $end - $start + 1 ) );
+		push @$features, { feature => 'allele_seq', sequence => $main_seq };
+	}
+	my $down_flank_length = $contig_length - $end > $flanking ? $flanking : $contig_length - $end;
+	if ($down_flank_length) {
+		my $down_flank_seq = substr( $$contig, $end, $down_flank_length );
+		push @$features, { feature => 'flanking', sequence => $down_flank_seq };
+	}
+	return $features if !$reverse;
+
+	#Reverse-complement features
+	my $reverse_features = [];
+	foreach my $feature ( reverse @$features ) {
+		my $seq = BIGSdb::Utils::reverse_complement( $feature->{'sequence'} );
+		push @$reverse_features, { feature => $feature->{'feature'}, sequence => $seq };
+	}
+	return $reverse_features;
+}
+
+sub format_sequence_features {
+	my ( $self, $features ) = @_;
+	my $buffer        = q();
+	my $offset        = 0;
+	my $length_so_far = 0;
+	foreach my $feature (@$features) {
+		my $seq = BIGSdb::Utils::split_line( $feature->{'sequence'}, $offset );
+		$buffer .= qq(<span class="$feature->{'feature'}">$seq</span>);
+		$length_so_far += length( $feature->{'sequence'} );
+		$offset = $length_so_far % 10;
+	}
+	return $buffer;
+}
+
+sub find_internal_stops {
+	my ( $self, $features, $orf ) = @_;
+	$orf //= 1;
+	my %stop_codon = map { $_ => 1 } qw(TAA TAG TGA);
+	my $exon_seq   = $self->_get_exons_seqs($features);
+	my $mapped_pos = $self->_get_mapped_positions($features);
+	my $stops      = [];
+	for ( my $i = 0 + $orf - 1 ; $i < length $exon_seq ; $i += 3 ) {
+		my $codon = substr( $exon_seq, $i, 3 );
+		if ( $stop_codon{$codon} && $i < length($exon_seq) - 3 ) {
+			push @$stops, $mapped_pos->{ $i + 1 };
+		}
+	}
+	return $stops;
+}
+
+sub _get_exons_seqs {
+	my ( $self, $features ) = @_;
+	my $seq;
+	foreach my $feature (@$features) {
+		if ( $feature->{'feature'} eq 'allele_seq' || $feature->{'feature'} eq 'exon' ) {
+			$seq .= $feature->{'sequence'};
+		}
+	}
+	return $seq;
+}
+
+sub _get_feature_seqs {
+	my ( $self, $features ) = @_;
+	my $seq;
+	foreach my $feature (@$features) {
+		$seq .= $feature->{'sequence'};
+	}
+	return $seq;
+}
+
+sub _get_mapped_positions {
+	my ( $self, $features ) = @_;
+	my $mapped = {};
+	my $total_pos;
+	my $mapped_pos;
+	foreach my $feature (@$features) {
+		my @nucs = split //, $feature->{'sequence'};
+		foreach my $nuc (@nucs) {
+			$total_pos++;
+			if ( $feature->{'feature'} eq 'allele_seq' || $feature->{'feature'} eq 'exon' ) {
+				$mapped_pos++;
+				$mapped->{$mapped_pos} = $total_pos;
+			}
+		}
+	}
+	return $mapped;
 }
 
 sub get_option_fieldset {
@@ -128,7 +263,7 @@ sub get_option_fieldset {
 		-class => BUTTON_CLASS,
 		-style => 'float:right;margin-top:0.5em'
 	);
-	$buffer .= $q->hidden($_) foreach qw(db page seqbin_id start end reverse translate orf id locus set_id);
+	$buffer .= $q->hidden($_) foreach qw(db page seqbin_id start end reverse translate orf introns id locus set_id);
 	$buffer .= $q->end_form;
 	$buffer .= q(</fieldset>);
 	return $buffer;
@@ -148,6 +283,7 @@ sub update_prefs {
 
 sub format_seqbin_sequence {
 	my ( $self, $args ) = @_;
+	$logger->error('ExtractSequencePage::format_seqbin_sequence is deprecated.');
 	my $seq_ref = $self->{'contigManager'}->get_contig_fragment($args);
 	my $length  = abs( $args->{'end'} - $args->{'start'} + 1 );
 	return $self->format_sequence(
@@ -156,7 +292,8 @@ sub format_seqbin_sequence {
 			translate => $args->{'translate'},
 			reverse   => $args->{'reverse'},
 			length    => $length,
-			orf       => $args->{'orf'}
+			orf       => $args->{'orf'},
+			introns   => $args->{'introns'}
 		}
 	);
 }
@@ -203,6 +340,7 @@ sub _get_subseqs_and_offsets {
 
 sub format_sequence {
 	my ( $self, $seq_ref, $options ) = @_;
+	$logger->error('ExtractSequencePage::format_sequence is deprecated.');
 	$options = {} if ref $options ne 'HASH';
 	my $sixpack;
 	my @internal_stop_codons;
@@ -210,6 +348,7 @@ sub format_sequence {
 	my $seq_data = $self->_get_subseqs_and_offsets( $seq_ref, $options );
 	my ( $length, $downstream1, $downstream2, $seq1, $seq2, $downstream_offset, $highlight_start, $highlight_end ) =
 	  @{$seq_data}{qw(length downstream1 downstream2 seq1 seq2 downstream_offset highlight_start highlight_end)};
+
 	if (   $options->{'translate'}
 		&& $self->{'config'}->{'emboss_path'}
 		&& -e "$self->{'config'}->{'emboss_path'}/sixpack" )
@@ -299,6 +438,98 @@ sub format_sequence {
 	  . ( BIGSdb::Utils::split_line($downstream2) // q() )
 	  . q(</span>);
 	return { seq => $seq_display, sixpack => $sixpack, internal_stop => \@internal_stop_codons };
+}
+
+sub get_sixpack_display {
+	my ( $self, $seq_features, $orf ) = @_;
+	$orf //= 1;
+	my $buffer = q();
+	return $buffer if !$self->{'config'}->{'emboss_path'} || !-e "$self->{'config'}->{'emboss_path'}/sixpack";
+	my $temp       = BIGSdb::Utils::get_random();
+	my $seq_infile = "$self->{'config'}->{'secure_tmp_dir'}/${temp}_infile.txt";
+	my $outfile    = "$self->{'config'}->{'secure_tmp_dir'}/${temp}_sixpack.txt";
+	my $outseq     = "$self->{'config'}->{'secure_tmp_dir'}/${temp}_outseq.txt";
+	my $seq        = $self->_get_feature_seqs($seq_features);
+	open( my $fh, '>', $seq_infile ) || $logger->("Cannot open $seq_infile for writing");
+	say $fh q(>seq);
+	say $fh $seq;
+	close $fh;
+	my @highlights;
+	my $mapped         = $self->_get_mapped_positions($seq_features);
+	my $pos            = 0;
+	my %start_codon    = map { $_ => 1 } qw(ATG GTG TTG);
+	my %stop_codon     = map { $_ => 1 } qw(TAA TAG TGA);
+	my $exon_count     = $self->_get_exon_count($seq_features);
+	my $exon_number    = 0;
+	my $exon_length    = 0;
+	my $feature_number = 0;
+	my $stop_highlight = q();
+
+	foreach my $feature (@$seq_features) {
+		$feature_number++;
+		if ( $feature->{'feature'} ne 'allele_seq' && $feature->{'feature'} ne 'exon' ) {
+			$pos += length( $feature->{'sequence'} );
+			next;
+		}
+		my $start_offset = 0;
+		$exon_number++;
+		$exon_length += length( $feature->{'sequence'} );
+		if ( $exon_number == 1 && $start_codon{ substr( $feature->{'sequence'}, 0 + $orf - 1, 3 ) } ) {
+			push @highlights, ( $mapped->{1} + $orf - 1 ) . q(-) . ( $mapped->{1} + $orf + 1 ) . q( startcodon);
+			$start_offset = 3;
+		}
+		my $end_offset = 0;
+		if (   $exon_number == $exon_count
+			&& $exon_length % 3 == 0
+			&& $stop_codon{ substr( $feature->{'sequence'}, -3 + $orf - 1 ) } )
+		{
+			$stop_highlight =
+			    ( $mapped->{ $exon_length - 2 + $orf - 1 } ) . q(-)
+			  . ( $mapped->{ $exon_length - 2 + $orf + 1 } )
+			  . q( stopcodon);
+			$end_offset = 3;
+		}
+
+		#Coding sequence between start and end codons
+		my $end = $pos + length( $feature->{'sequence'} );
+		push @highlights, ( $pos + $start_offset + 1 ) . q(-) . ( $end - $end_offset ) . q( coding);
+		$pos += length( $feature->{'sequence'} );
+	}
+	push @highlights, $stop_highlight if $stop_highlight;
+	local $" = q( );
+	my $highlight;
+	if (@highlights) {
+		$highlight = qq(-highlight "@highlights");
+	}
+	if ( $highlight =~ /(\-highlight.*)/x ) {
+		$highlight = $1;
+	}
+	system( "$self->{'config'}->{'emboss_path'}/sixpack -sequence $seq_infile -outfile $outfile -outseq $outseq "
+		  . "-width $self->{'prefs'}->{'alignwidth'} -noreverse -noname -html $highlight 2>/dev/null" );
+	open( my $sixpack_fh, '<', $outfile ) || $logger->error("Cannot open $outfile for reading");
+	while ( my $line = <$sixpack_fh> ) {
+		last if $line =~ /^\#\#\#\#\#\#\#\#/x;
+		$line =~ s/<H3><\/H3>//x;
+		$line =~ s/<PRE>//x;
+		$line =~ s/<font\ color=(\w+?)>/<span class="$1">/gx;
+		$line =~ s/<\/font>/<\/span>/gx;
+		$line =~ s/\*/<span class="stopcodon">*<\/span>/gx;
+		$buffer .= $line;
+	}
+	close $sixpack_fh;
+	unlink $seq_infile, $outfile, $outseq;
+	return $buffer;
+}
+
+sub _get_exon_count {
+	my ( $self, $seq_features ) = @_;
+	my $exons = 0;
+	foreach my $feature (@$seq_features) {
+		if ( $feature->{'feature'} eq 'allele_seq' || $feature->{'feature'} eq 'exon' ) {
+			$exons++;
+		}
+	}
+	return $exons;
 }
 
 sub get_title {

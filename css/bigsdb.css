@@ -186,6 +186,8 @@ a.update:hover {background:#d0f5d0}
 
 .seq {font-family:Courier New,monospace}
 .flanking {color:#aaa}
+.intron {color:#d88}
+.exon {color:#228}
 .coding {background:#ccf}
 .startcodon {background:#cfc}
 .stopcodon {background:#fcc}

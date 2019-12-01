@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2013-2018, University of Oxford
+#Copyright (c) 2013-2019, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -87,23 +87,25 @@ sub print_content {
 	say $q->hidden($_) foreach qw(db page sequence);
 	say $q->end_form;
 	say q(</fieldset></div>);
-	my $formatted_seq = $self->format_sequence( { seq => $seq }, { translate => 1, orf => $orf } );
+	my $seq_feature = [ { feature => 'allele_seq', sequence => $seq } ];
 	say q(<div class="box" id="sequence"><div class="scrollable">);
 	say q(<h2>Sequence</h2>);
 	say q(<ul><li>Length: ) . ( length $seq ) . q( bp</li></ul>);
-	say qq(<div class="seq">$formatted_seq->{'seq'}</div>);
+	say q(<div class="seq">);
+	say $self->format_sequence_features($seq_feature);
+	say q(</div>);
 	say q(<h2>Translation</h2>);
-	my @stops = @{ $formatted_seq->{'internal_stop'} };
+	my $stops = $self->find_internal_stops( $seq_feature, $orf );
 
-	if (@stops) {
+	if (@$stops) {
 		local $" = ', ';
-		my $plural = @stops == 1 ? '' : 's';
-		say qq(<span class="highlight">Internal stop codon$plural in ORF-$orf at position$plural: @stops.</span>);
+		my $plural = @$stops == 1 ? '' : 's';
+		say qq(<span class="highlight">Internal stop codon$plural in ORF-$orf at position$plural: @$stops.</span>);
 	} else {
 		say qq(<span class=\"statusgood\">No internal stop codons in ORF-$orf</span>);
 	}
 	say q(<pre class="sixpack">);
-	say $formatted_seq->{'sixpack'};
+	say $self->get_sixpack_display( $seq_feature, $orf );
 	say q(</pre>);
 	say q(</div></div>);
 	return;

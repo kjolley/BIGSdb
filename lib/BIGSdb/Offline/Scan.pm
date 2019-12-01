@@ -1156,7 +1156,7 @@ sub _get_match_flags {
 	if ($exact) {
 		$flags = $self->{'datastore'}->get_locus($locus)->get_flags( $match->{'allele'} );
 	}
-	if ( $match->{'exons'} ) {
+	if ( $match->{'introns'} && @{$match->{'introns'}} ) {
 		push @$flags, 'introns';
 	}
 	return $flags;
@@ -1174,7 +1174,7 @@ sub _get_sequence_flags {
 
 sub _get_intron_arg {
 	my ( $self, $match, $options ) = @_;
-	return q() if !$match->{'introns'};
+	return q() if !$match->{'introns'} || !@{$match->{'introns'}};
 	my @args;
 	foreach my $intron ( @{ $match->{'introns'} } ) {
 		push @args, qq($intron->{'start'}-$intron->{'end'});
@@ -1659,12 +1659,12 @@ sub _check_introns {
 				$match->{'exons'}           = $merged_exons;
 				$self->{'introns_found'}    = 1;
 				my $introns = [];
-				foreach my $i ( 0 .. @$exons - 1 ) {
-					last if !defined $exons->[ $i + 1 ];
+				foreach my $i ( 0 .. @$merged_exons - 1 ) {
+					last if !defined $merged_exons->[ $i + 1 ];
 					push @$introns,
 					  {
-						start => $exons->[$i]->{'end'} + 1,
-						end   => $exons->[ $i + 1 ]->{'start'} - 1
+						start => $merged_exons->[$i]->{'end'} + 1,
+						end   => $merged_exons->[ $i + 1 ]->{'start'} - 1
 					  };
 				}
 				$match->{'introns'} = $introns;
