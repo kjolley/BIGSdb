@@ -1156,7 +1156,7 @@ sub _get_match_flags {
 	if ($exact) {
 		$flags = $self->{'datastore'}->get_locus($locus)->get_flags( $match->{'allele'} );
 	}
-	if ( $match->{'introns'} && @{$match->{'introns'}} ) {
+	if ( $match->{'introns'} && @{ $match->{'introns'} } ) {
 		push @$flags, 'introns';
 	}
 	return $flags;
@@ -1174,7 +1174,7 @@ sub _get_sequence_flags {
 
 sub _get_intron_arg {
 	my ( $self, $match, $options ) = @_;
-	return q() if !$match->{'introns'} || !@{$match->{'introns'}};
+	return q() if !$match->{'introns'} || !@{ $match->{'introns'} };
 	my @args;
 	foreach my $intron ( @{ $match->{'introns'} } ) {
 		push @args, qq($intron->{'start'}-$intron->{'end'});
@@ -1589,7 +1589,7 @@ sub _parse_blast_partial {
 		}
 		if ( $self->{'config'}->{'blat_path'} ) {
 			foreach my $match ( @{ $matches->{$locus} } ) {
-				$self->_check_introns( $locus, $match );
+				$self->_check_introns( $params, $locus, $match );
 			}
 		}
 	}
@@ -1616,7 +1616,7 @@ sub _cache_match_allele_length {
 }
 
 sub _check_introns {
-	my ( $self, $locus, $match ) = @_;
+	my ( $self, $params, $locus, $match ) = @_;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	return if !$locus_info->{'introns'};
 	my $contig = $self->{'contigManager'}->get_contig( $match->{'seqbin_id'} );
@@ -1634,8 +1634,12 @@ sub _check_introns {
 	say $fh qq(>$match->{'seqbin_id'});
 	say $fh $$contig;
 	close $fh;
-	system( $self->{'config'}->{'blat_path'}, $contig_file, $query_file, '-noHead', $out_file );
+	my @args = ( $contig_file, $query_file, '-noHead', );
 
+	if ( $params->{'tblastx'} ) {
+		push @args, '-t=dnax', '-q=dnax';
+	}
+	system( $self->{'config'}->{'blat_path'}, @args, $out_file );
 	if ( -e $out_file ) {
 		open( $fh, '<:encoding(utf8)', $out_file ) || $logger->error("Cannot open $out_file for reading");
 		my $line = <$fh>;
@@ -1668,6 +1672,8 @@ sub _check_introns {
 					  };
 				}
 				$match->{'introns'} = $introns;
+
+				#TODO Remove this
 				########################################################################
 				#Test spliced sequence
 				my $seq;
@@ -1681,8 +1687,9 @@ sub _check_introns {
 						}
 					);
 				}
-				$logger->error( Dumper $match);
-				$logger->error($seq);
+
+				#				$logger->error( Dumper $match);
+				#				$logger->error($seq);
 				########################################################################
 			}
 		}

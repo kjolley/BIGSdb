@@ -102,6 +102,10 @@ sub print_content {
 	if (@$introns) {
 		say q(<p style="padding-left:5em;margin-top:1em">Key: <span class="flanking">Flanking</span>; )
 		  . q(<span class="exon">Exon</span>; <span class="intron">Intron</span></p>);
+		say q(<h2>Spliced sequence (exons only)</h2>);
+		say q(<div class="seq" style="padding-left:5em">);
+		say $self->format_sequence_features( $seq_features, { spliced => 1 } );
+		say q(</div>);
 	}
 	if ($translate) {
 		say q(<h2>Translation</h2>);
@@ -181,11 +185,12 @@ sub get_seq_features {
 }
 
 sub format_sequence_features {
-	my ( $self, $features ) = @_;
+	my ( $self, $features, $options ) = @_;
 	my $buffer        = q();
 	my $offset        = 0;
 	my $length_so_far = 0;
 	foreach my $feature (@$features) {
+		next if $feature->{'feature'} ne 'exon' && $options->{'spliced'};
 		my $seq = BIGSdb::Utils::split_line( $feature->{'sequence'}, $offset );
 		$buffer .= qq(<span class="$feature->{'feature'}">$seq</span>);
 		$length_so_far += length( $feature->{'sequence'} );
@@ -297,7 +302,6 @@ sub update_prefs {
 #		}
 #	);
 #}
-
 #sub _get_subseqs_and_offsets {
 #	my ( $self, $seq_ref, $options ) = @_;
 #	$seq_ref->{'downstream'} //= q();
@@ -337,7 +341,6 @@ sub update_prefs {
 #		highlight_end     => $highlight_end
 #	};
 #}
-
 #sub format_sequence {
 #	my ( $self, $seq_ref, $options ) = @_;
 #	$logger->error('ExtractSequencePage::format_sequence is deprecated.');
@@ -439,7 +442,6 @@ sub update_prefs {
 #	  . q(</span>);
 #	return { seq => $seq_display, sixpack => $sixpack, internal_stop => \@internal_stop_codons };
 #}
-
 sub get_sixpack_display {
 	my ( $self, $seq_features, $orf ) = @_;
 	$orf //= 1;
