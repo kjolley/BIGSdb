@@ -963,7 +963,8 @@ sub _check_if_new {
 sub extract_seq_from_match {
 	my ( $self, $match ) = @_;
 	if ( $match->{'predicted_start'} =~ /\*/x ) {    #Error appearing in log - need to track down what's causing this
-		$logger->logcarp( Dumper $match);
+
+		#		$logger->logcarp( Dumper $match);
 		$match->{'predicted_start'} =~ s/\*//x;
 	}
 	my $seq;
@@ -1594,9 +1595,6 @@ sub _parse_blast_partial {
 		}
 	}
 	undef $self->{'records'} if !$options->{'keep_data'};
-
-	#	use Data::Dumper;
-	#	$logger->error( Dumper $matches);
 	return $matches;
 }
 
@@ -1634,25 +1632,27 @@ sub _check_introns {
 	say $fh qq(>$match->{'seqbin_id'});
 	say $fh $$contig;
 	close $fh;
-	my @args = ( $contig_file, $query_file, '-noHead', );
 
-	if ( $params->{'tblastx'} ) {
-		push @args, '-t=dnax', '-q=dnax';
-	}
-	system( $self->{'config'}->{'blat_path'}, @args, $out_file );
-	if ( -e $out_file ) {
-		open( $fh, '<:encoding(utf8)', $out_file ) || $logger->error("Cannot open $out_file for reading");
-		my $line = <$fh>;
-		close $fh;
-		if ($line) {
-			my $exons         = [];
-			my @values        = split /\t/x, $line;
-			my $end_of_match  = $values[16];
-			my @starts        = split /,/x, $values[20];
-			my @block_lengths = split /,/x, $values[18];
-			if (@starts) {
+	#Run BLAT with a range of tileSize values (8 - 11). Stop if we find a match.
+  TILE_SIZE: foreach my $tile_size ( reverse 6 .. 11 ) {
+		my @args = ( $contig_file, $query_file, '-noHead', "-tileSize=$tile_size" );
+		if ( $params->{'tblastx'} ) {
+			push @args, '-t=dnax', '-q=dnax';
+		}
+		system( $self->{'config'}->{'blat_path'}, @args, $out_file );
+		if ( -e $out_file ) {
+			open( $fh, '<:encoding(utf8)', $out_file ) || $logger->error("Cannot open $out_file for reading");
+			my $line = <$fh>;
+			close $fh;
+			if ($line) {
+				my $exons        = [];
+				my @values       = split /\t/x, $line;
+				my $end_of_match = $values[16];
+				my @starts       = split /,/x, $values[20];
+				pop @starts if !BIGSdb::Utils::is_int( $starts[-1] );    #List has trailing comma
+				my @block_lengths = split /,/x, $values[18];
+				next TILE_SIZE if @starts <= 1;
 				foreach my $i ( 0 .. @starts - 1 ) {
-					next if !BIGSdb::Utils::is_int( $starts[$i] );    #List has trailing comma
 					my $start = $starts[$i] + 1;
 					my $end   = $start + $block_lengths[$i] - 1;
 					push @$exons, { start => $start, end => $end };
@@ -1672,28 +1672,11 @@ sub _check_introns {
 					  };
 				}
 				$match->{'introns'} = $introns;
-
-				#TODO Remove this
-				########################################################################
-				#Test spliced sequence
-				my $seq;
-				foreach my $exon ( $match->{'reverse'} ? reverse @$merged_exons : @$merged_exons ) {
-					$seq .= $self->extract_seq_from_match(
-						{
-							seqbin_id       => $match->{'seqbin_id'},
-							reverse         => $match->{'reverse'},
-							predicted_start => $exon->{'start'},
-							predicted_end   => $exon->{'end'}
-						}
-					);
-				}
-
-				#				$logger->error( Dumper $match);
-				#				$logger->error($seq);
-				########################################################################
+				last TILE_SIZE;
 			}
 		}
 	}
+	unlink $query_file, $contig_file, $out_file;
 	return $match;
 }
 
