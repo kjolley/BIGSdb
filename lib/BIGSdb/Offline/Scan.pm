@@ -1634,45 +1634,48 @@ sub _check_introns {
 	close $fh;
 
 	#Run BLAT with a range of tileSize values (8 - 11). Stop if we find a match.
-  TILE_SIZE: foreach my $tile_size ( reverse 6 .. 11 ) {
-		my @args = ( $contig_file, $query_file, '-noHead', "-tileSize=$tile_size" );
-		if ( $params->{'tblastx'} ) {
-			push @args, '-t=dnax', '-q=dnax';
-		}
-		system("$self->{'config'}->{'blat_path'} @args $out_file >/dev/null");
-		if ( -e $out_file ) {
-			open( $fh, '<:encoding(utf8)', $out_file ) || $logger->error("Cannot open $out_file for reading");
-			my $line = <$fh>;
-			close $fh;
-			if ($line) {
-				my $exons        = [];
-				my @values       = split /\t/x, $line;
-				my $end_of_match = $values[16];
-				my @starts       = split /,/x, $values[20];
-				pop @starts if !BIGSdb::Utils::is_int( $starts[-1] );    #List has trailing comma
-				my @block_lengths = split /,/x, $values[18];
-				next TILE_SIZE if @starts <= 1;
-				foreach my $i ( 0 .. @starts - 1 ) {
-					my $start = $starts[$i] + 1;
-					my $end   = $start + $block_lengths[$i] - 1;
-					push @$exons, { start => $start, end => $end };
+  FINE: foreach my $fine ( 0 .. 1 ) {
+	  TILE_SIZE: foreach my $tile_size ( reverse 6 .. 11 ) {
+			my @args = ( $contig_file, $query_file, '-noHead', "-tileSize=$tile_size" );
+			push @args, '-fine' if $fine;
+			if ( $params->{'tblastx'} ) {
+				push @args, '-t=dnax', '-q=dnax';
+			}
+			system("$self->{'config'}->{'blat_path'} @args $out_file >/dev/null");
+			if ( -e $out_file ) {
+				open( $fh, '<:encoding(utf8)', $out_file ) || $logger->error("Cannot open $out_file for reading");
+				my $line = <$fh>;
+				close $fh;
+				if ($line) {
+					my $exons        = [];
+					my @values       = split /\t/x, $line;
+					my $end_of_match = $values[16];
+					my @starts       = split /,/x, $values[20];
+					pop @starts if !BIGSdb::Utils::is_int( $starts[-1] );    #List has trailing comma
+					my @block_lengths = split /,/x, $values[18];
+					next TILE_SIZE if @starts <= 1;
+					foreach my $i ( 0 .. @starts - 1 ) {
+						my $start = $starts[$i] + 1;
+						my $end   = $start + $block_lengths[$i] - 1;
+						push @$exons, { start => $start, end => $end };
+					}
+					my $merged_exons = $self->_remove_short_introns( $exons, 20 );
+					$match->{'predicted_start'} = $exons->[0]->{'start'};
+					$match->{'predicted_end'}   = $exons->[-1]->{'end'};
+					$match->{'exons'}           = $merged_exons;
+					$self->{'introns_found'}    = 1;
+					my $introns = [];
+					foreach my $i ( 0 .. @$merged_exons - 1 ) {
+						last if !defined $merged_exons->[ $i + 1 ];
+						push @$introns,
+						  {
+							start => $merged_exons->[$i]->{'end'} + 1,
+							end   => $merged_exons->[ $i + 1 ]->{'start'} - 1
+						  };
+					}
+					$match->{'introns'} = $introns;
+					last FINE;
 				}
-				my $merged_exons = $self->_remove_short_introns( $exons, 20 );
-				$match->{'predicted_start'} = $exons->[0]->{'start'};
-				$match->{'predicted_end'}   = $exons->[-1]->{'end'};
-				$match->{'exons'}           = $merged_exons;
-				$self->{'introns_found'}    = 1;
-				my $introns = [];
-				foreach my $i ( 0 .. @$merged_exons - 1 ) {
-					last if !defined $merged_exons->[ $i + 1 ];
-					push @$introns,
-					  {
-						start => $merged_exons->[$i]->{'end'} + 1,
-						end   => $merged_exons->[ $i + 1 ]->{'start'} - 1
-					  };
-				}
-				$match->{'introns'} = $introns;
-				last TILE_SIZE;
 			}
 		}
 	}
