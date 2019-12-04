@@ -1639,7 +1639,7 @@ sub _check_introns {
 		if ( $params->{'tblastx'} ) {
 			push @args, '-t=dnax', '-q=dnax';
 		}
-		system( $self->{'config'}->{'blat_path'}, @args, $out_file );
+		system( "$self->{'config'}->{'blat_path'} @args $out_file >/dev/null" );
 		if ( -e $out_file ) {
 			open( $fh, '<:encoding(utf8)', $out_file ) || $logger->error("Cannot open $out_file for reading");
 			my $line = <$fh>;
