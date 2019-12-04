@@ -261,7 +261,8 @@ sub _handle_match {
 						allele_id  => $match->{'allele'},
 						start_pos  => $match->{'start'},
 						end_pos    => $match->{'end'},
-						reverse    => $match->{'reverse'}
+						reverse    => $match->{'reverse'},
+						introns    => $match->{'introns'}
 					}
 				);
 			}
@@ -393,6 +394,11 @@ sub _tag_sequence {
 		  $self->{'db'}->prepare( 'INSERT INTO sequence_flags (id,flag,datestamp,curator) SELECT allele_sequences.id,'
 			  . '?,?,? FROM allele_sequences WHERE (seqbin_id,locus,start_pos,end_pos)=(?,?,?,?)' );
 	}
+	if ( !$self->{'sql'}->{'tag_intron'} ) {
+		$self->{'sql'}->{'tag_intron'} =
+		  $self->{'db'}->prepare( 'INSERT INTO introns (id,start_pos,end_pos) SELECT allele_sequences.id,'
+			  . '?,? FROM allele_sequences WHERE (seqbin_id,locus,start_pos,end_pos)=(?,?,?,?)' );
+	}
 	eval {
 		$self->{'sql'}->{'tag_sequence'}->execute(
 			$values->{'seqbin_id'},
@@ -401,12 +407,21 @@ sub _tag_sequence {
 			'true', TAG_USER, 'now'
 		);
 		my $flags = $self->{'datastore'}->get_locus( $values->{'locus'} )->get_flags( $values->{'allele_id'} );
+		push @$flags, 'introns' if $values->{'introns'};
 		foreach my $flag (@$flags) {
 			$self->{'sql'}->{'tag_flag'}->execute(
 				$flag, 'now', TAG_USER, $values->{'seqbin_id'},
 				$values->{'locus'}, $values->{'start_pos'},
 				$values->{'end_pos'}
 			);
+		}
+		if ( $values->{'introns'} ) {
+			foreach my $intron ( @{ $values->{'introns'} } ) {
+				$self->{'sql'}->{'tag_intron'}->execute(
+					$intron->{'start'}, $intron->{'end'},       $values->{'seqbin_id'},
+					$values->{'locus'}, $values->{'start_pos'}, $values->{'end_pos'}
+				);
+			}
 		}
 	};
 	if ($@) {

@@ -1110,13 +1110,14 @@ sub _get_row {
 		$new_designation = 1;
 		$buffer .= q(</td><td>);
 		my $default_flags = $self->_get_match_flags( $locus, $match, $exact );
+		$logger->error(@$default_flags);
 		if ( @$default_flags > 1 ) {
-			$buffer .= $q->popup_menu(
+			$buffer .= $self->popup_menu(
 				-name     => "id_${isolate_id}_${locus}_sequence_${id}_flag",
 				-id       => "id_${isolate_id}_${cleaned_locus}_sequence_${id}_flag",
 				-values   => [SEQ_FLAGS],
 				-default  => $default_flags,
-				-multiple => 'multiple',
+				-multiple => 'true',
 			);
 		} else {
 			$buffer .= $q->popup_menu(
