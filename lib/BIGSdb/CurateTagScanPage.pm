@@ -656,32 +656,17 @@ sub _tag {
 				  ( $labels->{$isolate_id} || $isolate_id ) . ": $display_locus:  Seqbin id: $seqbin_id; $start-$end";
 				push @{ $history->{$isolate_id} },
 				  "$locus: sequence tagged. Seqbin id: $seqbin_id; $start-$end (sequence bin scan)";
-
-				if ( $q->param("id_$isolate_id\_$locus\_sequence_$id\_flag") ) {
-					my @flags = $q->multi_param("id_$isolate_id\_$locus\_sequence_$id\_flag");
-
-					#Need to find out the autoincrementing id for the just added tag
-					foreach my $flag (@flags) {
-						push @updates,
-						  {
-							statement =>
-							  'INSERT INTO sequence_flags (id,flag,datestamp,curator) SELECT allele_sequences.id,'
-							  . '?,?,? FROM allele_sequences WHERE (seqbin_id,locus,start_pos,end_pos)=(?,?,?,?)',
-							arguments => [ $flag, 'now', $curator_id, $seqbin_id, $locus, $start, $end ]
-						  };
-					}
-				}
-				$self->_add_intron_updates(
-					{
-						isolate_id => $isolate_id,
-						locus      => $locus,
-						id         => $id,
-						seqbin_id  => $seqbin_id,
-						start      => $start,
-						end        => $end,
-						updates    => \@updates
-					}
-				);
+				my $args = {
+					isolate_id => $isolate_id,
+					locus      => $locus,
+					id         => $id,
+					seqbin_id  => $seqbin_id,
+					start      => $start,
+					end        => $end,
+					updates    => \@updates
+				};
+				$self->_add_flag_updates($args);
+				$self->_add_intron_updates($args);
 			}
 		}
 	}
@@ -746,6 +731,27 @@ sub _tag {
 				  . qq(parameters=$scan_job)
 			}
 		);
+	}
+	return;
+}
+
+sub _add_flag_updates {
+	my ( $self, $args ) = @_;
+	my ( $isolate_id, $locus, $id, $seqbin_id, $start, $end, $updates ) =
+	  @{$args}{qw(isolate_id locus id seqbin_id start end updates)};
+	my $q     = $self->{'cgi'};
+	my @flags = $q->multi_param("id_${isolate_id}_${locus}_sequence_${id}_flag");
+	return if !@flags;
+	my $curator_id = $self->get_curator_id;
+
+	#Need to find out the autoincrementing id for the just added tag
+	foreach my $flag (@flags) {
+		push @$updates,
+		  {
+			statement => 'INSERT INTO sequence_flags (id,flag,datestamp,curator) SELECT allele_sequences.id,'
+			  . '?,?,? FROM allele_sequences WHERE (seqbin_id,locus,start_pos,end_pos)=(?,?,?,?)',
+			arguments => [ $flag, 'now', $curator_id, $seqbin_id, $locus, $start, $end ]
+		  };
 	}
 	return;
 }
