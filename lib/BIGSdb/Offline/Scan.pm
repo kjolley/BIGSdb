@@ -1110,8 +1110,7 @@ sub _get_row {
 		$new_designation = 1;
 		$buffer .= q(</td><td>);
 		my $default_flags = $self->_get_match_flags( $locus, $match, $exact );
-		$logger->error(@$default_flags);
-		if ( @$default_flags > 1 ) {
+		if (@$default_flags) {
 			$buffer .= $self->popup_menu(
 				-name     => "id_${isolate_id}_${locus}_sequence_${id}_flag",
 				-id       => "id_${isolate_id}_${cleaned_locus}_sequence_${id}_flag",
@@ -1640,7 +1639,7 @@ sub _check_introns {
 		if ( $params->{'tblastx'} ) {
 			push @args, '-t=dnax', '-q=dnax';
 		}
-		system( "$self->{'config'}->{'blat_path'} @args $out_file >/dev/null" );
+		system("$self->{'config'}->{'blat_path'} @args $out_file >/dev/null");
 		if ( -e $out_file ) {
 			open( $fh, '<:encoding(utf8)', $out_file ) || $logger->error("Cannot open $out_file for reading");
 			my $line = <$fh>;
