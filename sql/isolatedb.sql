@@ -616,6 +616,7 @@ reference_sequence text,
 pcr_filter bool,
 probe_filter bool,
 match_longest bool,
+introns bool,
 dbase_name text,
 dbase_host text,
 dbase_port int,
@@ -806,6 +807,18 @@ ON UPDATE CASCADE
 );
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON sequence_flags TO apache;
+
+CREATE TABLE introns (
+id bigint NOT NULL,
+start_pos bigint NOT NULL,
+end_pos bigint NOT NULL,
+PRIMARY KEY (id,start_pos),
+CONSTRAINT i_fkeys FOREIGN KEY(id) REFERENCES allele_sequences
+ON DELETE CASCADE
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON introns TO apache;
 
 CREATE TABLE allele_designations (
 id bigserial NOT NULL,
