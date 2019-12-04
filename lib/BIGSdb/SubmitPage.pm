@@ -354,17 +354,17 @@ sub _print_new_submission_links {
 		if ( $self->{'system'}->{'isolate_database'} && ( $self->{'system'}->{'isolate_submissions'} // q() ) eq 'yes' )
 		{
 			say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'system'}->{'isolate_database'}&amp;)
-			  . q(page=submit&amp;isolates=1">isolates</a> (without associated assembly files) )
+			  . q(page=submit&amp;isolates=1">isolates</a> (without assembly files) )
 			  . q(<span class="link">Link to isolate database</span></li>);
 			say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'system'}->{'isolate_database'}&amp;)
-			  . q(page=submit&amp;genomes=1">genomes</a> (isolate records with associated assembly files) )
+			  . q(page=submit&amp;genomes=1">genomes</a> (isolate records with assembly files) )
 			  . q(<span class="link">Link to isolate database</span></li>);
 		}
 	} else {    #Isolate database
 		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
-		  . q(isolates=1">isolates</a> (without associated assembly files)</li>)
+		  . q(isolates=1">isolates</a> (without assembly files)</li>)
 		  . qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
-		  . q(genomes=1">genomes</a> (isolate records with associated assembly files)</li>);
+		  . q(genomes=1">genomes</a> (isolate records with assembly files)</li>);
 	}
 	say q(</ul>);
 	return;
@@ -957,7 +957,7 @@ sub _submit_isolates {
 	my $set_clause = $set_id ? qq(&amp;set_id=$set_id) : q();
 	say q(<div class="box" id="queryform"><div class="scrollable">);
 	say q(<h2>Submit new isolates);
-	say q( with associated genome assemblies) if $options->{'genomes'};
+	say q( with genome assemblies) if $options->{'genomes'};
 	say q(</h2>);
 	say q(<p>Paste in your isolates for addition to the database using the template available below.</p>);
 	say q(<ul><li>Enter aliases (alternative names) for your isolates as a semi-colon (;) separated list.</li>);
@@ -1475,7 +1475,7 @@ sub _presubmit_isolates {
 	$self->_print_abort_form($submission_id);
 	say qq(<h2>Submission: $submission_id</h2>);
 	$options->{'download_link'} = 1;
-	$self->_print_file_upload_fieldset( $submission_id, $options );
+	$self->_print_file_upload_fieldset( $submission_id, $options ) if $options->{'genomes'};
 	$self->_print_isolate_table_fieldset( $submission_id, $options );
 	$self->_print_message_fieldset($submission_id);
 	say $q->start_form;
