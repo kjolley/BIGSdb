@@ -1225,22 +1225,8 @@ sub _hunt_for_start_and_stop_codons {
 			$predicted_start =~ s/\*//x;
 			$predicted_end = $match->{'predicted_end'};
 			$predicted_end =~ s/\*//x;
-
-			#			my $seq_ref = $self->{'contigManager'}->get_contig_fragment(
-			#				{
-			#					seqbin_id => $match->{'seqbin_id'},
-			#					start     => $predicted_start,
-			#					end       => $predicted_end,
-			#					flanking  => 0
-			#				}
-			#			);
-			#			my $seq = $seq_ref->{'seq'};
 			my $seq = $self->extract_seq_from_match($match);
-
-			#			$logger->error($seq);
 			if ($seq) {
-
-				#				$seq = BIGSdb::Utils::reverse_complement($seq) if $match->{'reverse'};
 				$off_end = 1 if $seq =~ /^N/x || $seq =~ /N$/x;    #Incomplete if Ns are end (scaffolding)
 				$first_codon_is_start = 1 if $start_codons{ substr( $seq, 0, 3 ) };
 				$last_codon_is_stop = 1 if $stop_codons{ substr( $seq, -3 ) };

@@ -1,3 +1,5 @@
+v1.24.0: *Support for loci containing introns. You will need to install BLAT
+          and set its path in bigsdb.conf to enable this.
 v1.23.6: *Use multiple threads for alignment stage for Genome Comparator, ITOL,
           and GrapeTree plugins.
          *Option for a curator to re-open a closed submission.

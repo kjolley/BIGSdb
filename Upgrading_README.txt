@@ -29,6 +29,7 @@ Version 1.20: Change of seqdef and isolate database structures.
 Version 1.21: Change of seqdef and isolate database structures.
 Version 1.22: Change of isolate and rest_db database structure.
 Version 1.23: Change of isolate database structure.
+Version 1.24: Change of isolate database structure.
 
 Details can be found below.
 
@@ -432,3 +433,11 @@ There are changes to the isolate database. These are to support sparse field
 grouping and field validation rules.
 
 Please run isolatedb_v1.23.sql against isolate databases.
+
+Version 1.24
+------------
+There are changes to the isolate database. These are to support loci with
+introns - needed if working with eukaryote genes. BLAT needs to be installed
+to enable the use of introns and its path set in bigsdb.conf.
+
+Please run isolatedb_v1.24.sql against isolate databases.
