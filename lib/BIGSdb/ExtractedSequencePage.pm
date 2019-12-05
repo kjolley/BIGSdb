@@ -36,7 +36,7 @@ sub print_content {
 	my $translate    = $q->param('translate');
 	my $orf          = $q->param('orf');
 	my $no_highlight = $q->param('no_highlight');
-	my ( $introns, $intron_length ) = $self->_get_introns;
+	my ( $introns, $intron_length ) = $self->get_introns;
 	$self->update_prefs if $q->param('reload');
 
 	if ( !BIGSdb::Utils::is_int($seqbin_id) ) {
@@ -123,7 +123,7 @@ sub print_content {
 	return;
 }
 
-sub _get_introns {
+sub get_introns {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	return [] if !$q->param('introns');

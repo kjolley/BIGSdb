@@ -179,7 +179,7 @@ sub print_content {
 	say $q->submit( -name => 'update', -label => 'Update display', -class => BUTTON_CLASS );
 	say q(</fieldset>);
 	$self->print_action_fieldset( { id => $id } );
-	say $q->hidden($_) foreach qw(db page id seqbin_id locus start_pos end_pos reverse);
+	say $q->hidden($_) foreach qw(db page id seqbin_id locus start_pos end_pos reverse introns);
 	say $q->end_form;
 	say q(</div></div>);
 	say q(<div class="box" id="sequence">);
@@ -189,6 +189,7 @@ sub print_content {
 	my $locus_info   = $self->{'datastore'}->get_locus_info($locus);
 	my $translate    = $locus_info->{'coding_sequence'} || $locus_info->{'data_type'} eq 'peptide';
 	my $orf          = $locus_info->{'orf'} || 1;
+	my ( $introns, $intron_length ) = $self->get_introns;
 	my $seq_features = $self->get_seq_features(
 		{
 			seqbin_id => $seqbin_id,
@@ -196,6 +197,7 @@ sub print_content {
 			start     => $start,
 			end       => $end,
 			flanking  => $flanking,
+			introns => $introns
 		}
 	);
 	say $self->format_sequence_features($seq_features);

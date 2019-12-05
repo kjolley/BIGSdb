@@ -98,9 +98,18 @@ sub print_content {
 			$id, { fetch => 'all_arrayref', slice => {} } );
 		my $update_buffer = '';
 		if ( $self->{'curate'} ) {
+			my $intron_clause = q();
+			if (@$introns) {
+				my @introns;
+				foreach my $intron (@$introns) {
+					push @introns, qq($intron->{'start'}-$intron->{'end'});
+				}
+				local $" = q(,);
+				$intron_clause = qq(&introns=@introns);
+			}
 			$update_buffer =
 			    qq( <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagUpdate&amp;id=)
-			  . qq($id" class="smallbutton">Update</a>\n);
+			  . qq($id$intron_clause" class="smallbutton">Update</a>\n);
 		}
 		$buffer .= q(<div style="float:left">);
 		$buffer .= qq(<h2>Contig position$update_buffer</h2>\n);

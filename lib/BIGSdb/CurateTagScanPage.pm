@@ -746,6 +746,7 @@ sub _add_flag_updates {
 
 	#Need to find out the autoincrementing id for the just added tag
 	foreach my $flag (@flags) {
+		next if $flag eq q();
 		push @$updates,
 		  {
 			statement => 'INSERT INTO sequence_flags (id,flag,datestamp,curator) SELECT allele_sequences.id,'
