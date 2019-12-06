@@ -198,7 +198,11 @@ sub _update {
 			if    ( ( $data->{ lc($field) } // q() ) eq '1' ) { $data->{ lc($field) } = 'true' }
 			elsif ( ( $data->{ lc($field) } // q() ) eq '0' ) { $data->{ lc($field) } = 'false' }
 		}
+		my $multiple = ( $att->{'multiple'} // q() ) eq 'yes';
 		if ( $self->_field_changed( $field, $data, $newdata ) ) {
+			if ($multiple) {
+				$self->_prepare_multiple_value_update( $data->{'id'}, $field, $newdata, $data, $updated_field );
+			}
 			my $cleaned = $self->clean_value( $newdata->{$field}, { no_escape => 1 } ) // '';
 			if ( $cleaned ne '' ) {
 				$qry .= "$field=?,";
@@ -206,10 +210,10 @@ sub _update {
 			} else {
 				$qry .= "$field=null,";
 			}
-			if ( $field ne 'datestamp' && $field ne 'curator' ) {
+			if ( $field ne 'datestamp' && $field ne 'curator' && !$multiple ) {
 				local $" = q(; );
 				my $old = ref $data->{ lc($field) } ? qq(@{$data->{lc($field)}}) : $data->{ lc($field) } // q();
-				my $new = ref $newdata->{$field}    ? qq(@{$newdata->{$field}})  : $newdata->{$field};
+				my $new = ref $newdata->{$field} ? qq(@{$newdata->{$field}}) : $newdata->{$field};
 				push @$updated_field, qq($field: '$old' -> '$new');
 			}
 		}
@@ -335,6 +339,30 @@ sub _prepare_eav_updates {
 		}
 	}
 	return $eav_update;
+}
+
+sub _prepare_multiple_value_update {
+	my ( $self, $isolate_id, $field, $newdata, $data, $updated_field ) = @_;
+	my $field_update    = [];
+	my $existing_values = $data->{ lc $field };
+	my $q               = $self->{'cgi'};
+	my @new_values      = split /\r?\n/x, $q->param($field);
+	@new_values = uniq(@new_values);
+	foreach my $new_value (@new_values) {
+		next if $new_value eq q();
+		if ( !@$existing_values || none { $new_value eq $_ } @$existing_values ) {
+			$new_value = $self->clean_value( $new_value, { no_escape => 1 } );
+			push @$updated_field, "$field new value: '$new_value'";
+		}
+	}
+	foreach my $existing (@$existing_values) {
+		if ( !@new_values || none { $existing eq $_ } @new_values ) {
+			push @$updated_field, "$field deleted value: '$existing'";
+		}
+	}
+	my $new = $self->clean_value( \@new_values );
+	$newdata->{$field} = $new;
+	return;
 }
 
 sub _prepare_alias_updates {

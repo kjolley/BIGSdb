@@ -937,7 +937,7 @@ sub _get_provenance_fields {
 				my $hyperlink = qq(<a href="$url">$url</a>);
 				$value =~ s/$url/$hyperlink/gx;
 			}
-			push @$list, { title => $displayfield, data => ( $web || $value ) };
+			push @$list, { title => $displayfield, data => ( $web // $value ) } if $web || $value ne q();
 		}
 		if ( $field eq 'curator' ) {
 			my $history = $self->_get_history_field($isolate_id);
