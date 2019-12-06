@@ -403,11 +403,17 @@ sub _get_old_values {
 	push @$qry_args, $id->[$i];
 	push @$qry_args, $id2->[$i] if $id_fields->{'field2'} ne '<none>';
 	my $old_values = $self->{'datastore'}->run_query( $qry, $qry_args, { fetch => 'col_arrayref' } );
-	if (   ( $self->{'cache'}->{'attributes'}->{ $field->[$i] }->{'multiple'} // q() ) eq 'yes'
-		&& ( $self->{'cache'}->{'attributes'}->{ $field->[$i] }->{'optlist'} // q() ) eq 'yes' )
-	{
-		$old_values =
-		  BIGSdb::Utils::arbitrary_order_list( $self->{'cache'}->{'optlist'}->{ $field->[$i] }, $old_values->[0] );
+	if ( ( $self->{'cache'}->{'attributes'}->{ $field->[$i] }->{'multiple'} // q() ) eq 'yes' ) {
+		if ( ( $self->{'cache'}->{'attributes'}->{ $field->[$i] }->{'optlist'} // q() ) eq 'yes' ) {
+			$old_values =
+			  BIGSdb::Utils::arbitrary_order_list( $self->{'cache'}->{'optlist'}->{ $field->[$i] }, $old_values->[0] );
+		} else {
+			return [] if !defined $old_values->[0];
+			@$old_values =
+			  $self->{'cache'}->{'attributes'}->{ $field->[$i] }->{'type'} eq 'text'
+			  ? sort { $a cmp $b } @{ $old_values->[0] }
+			  : sort { $a <=> $b } @{ $old_values->[0] };
+		}
 	} else {
 		no warnings 'numeric';
 		@$old_values = sort { $a <=> $b || $a cmp $b } @$old_values;
@@ -430,8 +436,8 @@ sub _check_field {
 
 	#Replace undef with empty string in list
 	map { $_ //= q() } @$old_values;    ##no critic (ProhibitMutatingListFunctions)
-	$old_value = "@$old_values";
-	if ( @$old_values == 1 && $old_values->[0] eq q() || $q->param('overwrite') ) {
+	$old_value = qq(@$old_values);
+	if ( !@$old_values || @$old_values == 1 && $old_values->[0] eq q() || $q->param('overwrite') ) {
 		my $problem =
 		  $self->{'submissionHandler'}->is_field_bad( 'isolates', $field->[$i], $value->[$i], 'update', $set_id );
 		undef $problem
