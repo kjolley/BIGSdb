@@ -1133,8 +1133,7 @@ sub _check_data_refs {
 					$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
 					${ $arg_ref->{'special_problem'} } = 1;
 				} elsif ( $ref <= 10_000 ) {
-					if ( ( $arg_ref->{'advisories'}->{$pk_combination} // q() ) !~ /References\ may\ be\ invalid/x )
-					{
+					if ( ( $arg_ref->{'advisories'}->{$pk_combination} // q() ) !~ /References\ may\ be\ invalid/x ) {
 						$arg_ref->{'advisories'}->{$pk_combination} .=
 						  'References may be invalid - you are unlikely to have a PubMed id less than 10,000.<br />';
 					}
