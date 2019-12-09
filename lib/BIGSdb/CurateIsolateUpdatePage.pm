@@ -129,23 +129,26 @@ sub _check {
 		foreach my $field (@$field_list) {
 			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 			my $required_field = !( ( $thisfield->{'required'} // '' ) eq 'no' );
-			if ( $required_field == $required ) {
-				if ( $field eq 'curator' ) {
-					$newdata->{$field} = $self->get_curator_id;
-				} elsif ( $field eq 'datestamp' ) {
-					$newdata->{$field} = BIGSdb::Utils::get_datestamp();
-				} else {
-					if ( ( $thisfield->{'multiple'} // q() ) eq 'yes' ) {
+			next if $required_field != $required;
+			if ( $field eq 'curator' ) {
+				$newdata->{$field} = $self->get_curator_id;
+			} elsif ( $field eq 'datestamp' ) {
+				$newdata->{$field} = BIGSdb::Utils::get_datestamp();
+			} else {
+				if ( ( $thisfield->{'multiple'} // q() ) eq 'yes' ) {
+					if ( ( $thisfield->{'optlist'} // q() ) eq 'yes' ) {
 						$newdata->{$field} = scalar $q->multi_param($field) ? [ $q->multi_param($field) ] : q();
 					} else {
-						$newdata->{$field} = $q->param($field);
+						$newdata->{$field} = [ split /\r+\n/x, scalar $q->param($field) ];
 					}
+				} else {
+					$newdata->{$field} = $q->param($field);
 				}
-				my $bad_field =
-				  $self->{'submissionHandler'}->is_field_bad( 'isolates', $field, $newdata->{$field}, undef, $set_id );
-				if ($bad_field) {
-					push @bad_field_buffer, qq(Field '$field': $bad_field.);
-				}
+			}
+			my $bad_field =
+			  $self->{'submissionHandler'}->is_field_bad( 'isolates', $field, $newdata->{$field}, undef, $set_id );
+			if ($bad_field) {
+				push @bad_field_buffer, qq(Field '$field': $bad_field.);
 			}
 		}
 	}
@@ -344,9 +347,15 @@ sub _prepare_eav_updates {
 sub _prepare_multiple_value_update {
 	my ( $self, $isolate_id, $field, $newdata, $data, $updated_field ) = @_;
 	my $field_update    = [];
-	my $existing_values = $data->{ lc $field };
+	my $existing_values = $data->{ lc $field } // [];
 	my $q               = $self->{'cgi'};
-	my @new_values      = split /\r?\n/x, $q->param($field);
+	my $att             = $self->{'xmlHandler'}->get_field_attributes($field);
+	my @new_values;
+	if ( ( $att->{'optlist'} // q() ) eq 'yes' ) {
+		@new_values = $q->multi_param($field);
+	} else {
+		@new_values = split /\r?\n/x, $q->param($field);
+	}
 	@new_values = uniq(@new_values);
 	foreach my $new_value (@new_values) {
 		next if $new_value eq q();
@@ -360,7 +369,7 @@ sub _prepare_multiple_value_update {
 			push @$updated_field, "$field deleted value: '$existing'";
 		}
 	}
-	my $new = $self->clean_value( \@new_values );
+	my $new = @new_values ? $self->clean_value( \@new_values ) : undef;
 	$newdata->{$field} = $new;
 	return;
 }
