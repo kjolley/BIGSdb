@@ -1199,9 +1199,16 @@ sub _check_isolate_regex {     ## no critic (ProhibitUnusedPrivateSubroutines) #
 	my $thisfield = $self->{'cache'}->{'field_attributes'}->{$field};
 	$logger->error("$field attributes not cached") if !$thisfield;
 	return if !$thisfield->{'regex'};
-	if ( $value !~ /^$thisfield->{'regex'}$/x ) {
-		if ( !( $thisfield->{'required'} eq 'no' && $value eq q() ) ) {
-			return 'does not conform to the required formatting.';
+	if ( ( $thisfield->{'multiple'} // q() ) eq 'yes' && !ref $value ) {
+		$value = [ split /;/x, $value ];
+		s/^\s+|\s+$//gx foreach @$value;
+	}
+	my @values = ref $value ? @$value : ($value);
+	foreach my $this_value (@values) {
+		if ( $this_value !~ /^$thisfield->{'regex'}$/x ) {
+			if ( !( $thisfield->{'required'} eq 'no' && $value eq q() ) ) {
+				return 'does not conform to the required formatting.';
+			}
 		}
 	}
 	return;
@@ -1372,8 +1379,15 @@ sub _check_isolate_length {    ## no critic (ProhibitUnusedPrivateSubroutines) #
 
 	#Ignore max length if we have a list of allowed values.
 	return if ( $thisfield->{'optlist'} // q() ) eq 'yes';
-	if ( $thisfield->{'length'} && length($value) > $thisfield->{'length'} ) {
-		return "field is too long (maximum length $thisfield->{'length'})";
+	if ( ( $thisfield->{'multiple'} // q() ) eq 'yes' && !ref $value ) {
+		$value = [ split /;/x, $value ];
+		s/^\s+|\s+$//gx foreach @$value;
+	}
+	my @values = ref $value ? @$value : ($value);
+	foreach my $this_value (@values) {
+		if ( $thisfield->{'length'} && length($this_value) > $thisfield->{'length'} ) {
+			return "field is too long (maximum length $thisfield->{'length'})";
+		}
 	}
 	return;
 }

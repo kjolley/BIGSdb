@@ -48,6 +48,9 @@ sub get_field_list {
 		next
 		  if $options->{'no_curate_only'}
 		  && ( $self->{'attributes'}->{$field}->{'curate_only'} // q() ) eq 'yes';
+		next
+		  if $options->{'multivalue_only'}
+		  && ( $self->{'attributes'}->{$field}->{'multiple'} // q() ) ne 'yes';
 		push @fields, $field;
 	}
 	return \@fields;

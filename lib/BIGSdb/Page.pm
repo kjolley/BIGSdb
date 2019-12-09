@@ -251,9 +251,15 @@ sub clean_value {
 	my ( $self, $value, $options ) = @_;
 	return if !defined $value;
 	if ( ref $value eq 'ARRAY' ) {
-		s/"/\\"/gx foreach @$value;
+		my @list;
+		foreach my $value (@$value) {
+			$value =~ s/"/\\"/gx;
+			$value =~ s/^\s+|\s+$//x;
+			next if $value eq q();
+			push @list, $value;
+		}
 		local $" = q(",");
-		return qq({"@$value"});
+		return qq({"@list"});
 	}
 	$value =~ s/'/\\'/gx if !$options->{'no_escape'};
 	$value =~ s/\r//gx;
@@ -2922,7 +2928,7 @@ sub get_tooltip {
 	my ( $self, $text, $options ) = @_;
 	my $style = $options->{'style'} ? qq( style="$options->{'style'}") : q();
 	my $id    = $options->{'id'}    ? qq( id="$options->{'id'}")       : q();
-	return qq(<a class="tooltip"$id style="margin-left:0.2em" title="$text">)
+	return qq(<a class="tooltip"$id style="margin-left:0.2em;vertical-align:top" title="$text">)
 	  . qq(<span class="fas fa-info-circle"$style></span></a>);
 }
 

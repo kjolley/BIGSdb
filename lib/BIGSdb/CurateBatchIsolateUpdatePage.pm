@@ -110,6 +110,18 @@ HTML
 		-linebreak => 'true'
 	);
 	say q(</fieldset>);
+	my $multi_fields = $self->{'xmlHandler'}->get_field_list( { multivalue_only => 1 } );
+
+	if (@$multi_fields) {
+		say q(<fieldset style="float:left"><legend>Multi-value fields</legend>);
+		say $q->radio_group(
+			-name      => 'multi_value',
+			-values    => [qw(add replace)],
+			-labels    => { add => 'Add additional value', replace => 'Replace existing values' },
+			-linebreak => 'true'
+		);
+		say q(</fieldset>);
+	}
 	$self->print_action_fieldset;
 	say $q->end_form;
 	$self->print_navigation_bar;
@@ -347,7 +359,7 @@ sub _display_update_form {
 		$q->param( idfield2 => $id_fields->{'field2'} );
 		$q->param( update   => 1 );
 		$q->param( file     => "$prefix.txt" );
-		say $q->hidden($_) foreach qw (db page idfield1 idfield2 update file designations);
+		say $q->hidden($_) foreach qw (db page idfield1 idfield2 update file designations multi_value);
 		$self->print_action_fieldset( { no_reset => 1, submit_label => 'Upload' } );
 		say $q->end_form;
 	}
@@ -403,11 +415,17 @@ sub _get_old_values {
 	push @$qry_args, $id->[$i];
 	push @$qry_args, $id2->[$i] if $id_fields->{'field2'} ne '<none>';
 	my $old_values = $self->{'datastore'}->run_query( $qry, $qry_args, { fetch => 'col_arrayref' } );
-	if (   ( $self->{'cache'}->{'attributes'}->{ $field->[$i] }->{'multiple'} // q() ) eq 'yes'
-		&& ( $self->{'cache'}->{'attributes'}->{ $field->[$i] }->{'optlist'} // q() ) eq 'yes' )
-	{
-		$old_values =
-		  BIGSdb::Utils::arbitrary_order_list( $self->{'cache'}->{'optlist'}->{ $field->[$i] }, $old_values->[0] );
+	if ( ( $self->{'cache'}->{'attributes'}->{ $field->[$i] }->{'multiple'} // q() ) eq 'yes' ) {
+		if ( ( $self->{'cache'}->{'attributes'}->{ $field->[$i] }->{'optlist'} // q() ) eq 'yes' ) {
+			$old_values =
+			  BIGSdb::Utils::arbitrary_order_list( $self->{'cache'}->{'optlist'}->{ $field->[$i] }, $old_values->[0] );
+		} else {
+			return [] if !defined $old_values->[0];
+			@$old_values =
+			  $self->{'cache'}->{'attributes'}->{ $field->[$i] }->{'type'} eq 'text'
+			  ? sort { $a cmp $b } @{ $old_values->[0] }
+			  : sort { $a <=> $b } @{ $old_values->[0] };
+		}
 	} else {
 		no warnings 'numeric';
 		@$old_values = sort { $a <=> $b || $a cmp $b } @$old_values;
@@ -426,12 +444,14 @@ sub _check_field {
 	my $set_id      = $self->get_set_id;
 	my $will_update = 0;
 	my $old_values  = $self->_get_old_values($args);
+	my %multivalue_fields =
+	  map { $_ => 1 } @{ $self->{'xmlHandler'}->get_field_list( { multivalue_only => 1 } ) };
 	local $" = '; ';
 
 	#Replace undef with empty string in list
 	map { $_ //= q() } @$old_values;    ##no critic (ProhibitMutatingListFunctions)
-	$old_value = "@$old_values";
-	if ( @$old_values == 1 && $old_values->[0] eq q() || $q->param('overwrite') ) {
+	$old_value = qq(@$old_values);
+	if ( !@$old_values || @$old_values == 1 && $old_values->[0] eq q() || $q->param('overwrite') ) {
 		my $problem =
 		  $self->{'submissionHandler'}->is_field_bad( 'isolates', $field->[$i], $value->[$i], 'update', $set_id );
 		undef $problem
@@ -460,6 +480,12 @@ sub _check_field {
 						$action = q(<span class="statusgood">add new designation</span>);
 					} else {
 						$action = q(<span class="statusgood">replace designation(s)</span>);
+					}
+				} elsif ( $multivalue_fields{ $field->[$i] } ) {
+					if ( $q->param('multi_value') eq 'add' ) {
+						$action = q(<span class="statusgood">add new value</span>);
+					} else {
+						$action = q(<span class="statusgood">replace value(s)</span>);
 					}
 				} else {
 					$action = q(<span class="statusgood">update field with new value</span>);
@@ -529,6 +555,8 @@ sub _update {
 	my $td          = 1;
 	my $match       = $self->_get_match_criteria;
 	my $view        = $self->{'system'}->{'view'};
+	my %multivalue_fields =
+	  map { $_ => 1 } @{ $self->{'xmlHandler'}->get_field_list( { multivalue_only => 1 } ) };
 
 	foreach my $record (@records) {
 		my ( $id1, $id2, $field, $value ) = @$record;
@@ -552,14 +580,21 @@ sub _update {
 			( $args, $qry, $old_value ) = @{$data}{qw(args qry old_value)};
 		} else {
 			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-			if ( ( $att->{'multiple'} // q() ) eq 'yes' && defined $value ) {
+			if ( ( $att->{'multiple'} // q() ) eq 'yes' && defined $value && scalar $q->param('multi_value') ne 'add' )
+			{
 				$value = [ split /;/x, $value ];
 				s/^\s+|\s+$//gx foreach @$value;
 			}
 			push @$args, ( ( $value // '' ) eq '' || ( ref $value && !@$value ) ? undef : $value );
-			$qry =
-			    "UPDATE isolates SET ($field,datestamp,curator)=(?,?,?) WHERE id IN "
-			  . "(SELECT $view.id FROM $view WHERE $match)";
+			if ( $multivalue_fields{$field} && scalar $q->param('multi_value') eq 'add' ) {
+				$qry =
+				    "UPDATE isolates SET ($field,datestamp,curator)=(ARRAY_APPEND($field,?),?,?) WHERE id IN "
+				  . "(SELECT $view.id FROM $view WHERE $match)";
+			} else {
+				$qry =
+				    "UPDATE isolates SET ($field,datestamp,curator)=(?,?,?) WHERE id IN "
+				  . "(SELECT $view.id FROM $view WHERE $match)";
+			}
 			push @$args, ( 'now', $curator_id, @id_args );
 			my $id_qry = $qry;
 			$id_qry =~ s/UPDATE\ isolates\ .*?\ WHERE/SELECT id,$field FROM isolates WHERE/x;
@@ -598,8 +633,13 @@ sub _update {
 				if ( $field eq 'id' ) {
 					$isolate_id = $value;
 				}
-				$self->update_history( $isolate_id, "$field: '$old_value' -> '$value'" )
-				  if $old_value ne $value;
+				if ( $old_value ne $value ) {
+					if ( $multivalue_fields{$field} && scalar $q->param('multi_value') eq 'add' ) {
+						$self->update_history( $isolate_id, "$field value added: '$value'" );
+					} else {
+						$self->update_history( $isolate_id, "$field: '$old_value' -> '$value'" );
+					}
+				}
 			}
 		}
 		$td = $td == 1 ? 2 : 1;

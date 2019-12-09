@@ -43,7 +43,7 @@ sub get_attributes {
 		buttontext  => 'Two Field',
 		menutext    => 'Two field',
 		module      => 'TwoFieldBreakdown',
-		version     => '1.4.12',
+		version     => '1.4.13',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/two_field_breakdown.html",
@@ -872,6 +872,11 @@ sub _get_value_frequency_hashes {
 					$field1_value =
 					  BIGSdb::Utils::arbitrary_order_list( $self->{'cache'}->{'optlist'}->{ $clean{$field1} },
 						$field1_value );
+				} else {
+					@$field1_value =
+					  $self->{'cache'}->{'attributes'}->{ $clean{$field1} }->{'type'} eq 'text'
+					  ? sort { $a cmp $b } @$field1_value
+					  : sort { $a <=> $b } @$field1_value;
 				}
 				local $" = q(; );
 				$field1_value = qq(@$field1_value);
@@ -883,6 +888,11 @@ sub _get_value_frequency_hashes {
 						$field2_value =
 						  BIGSdb::Utils::arbitrary_order_list( $self->{'cache'}->{'optlist'}->{ $clean{$field2} },
 							$field2_value );
+					} else {
+						@$field2_value =
+						  $self->{'cache'}->{'attributes'}->{ $clean{$field2} }->{'type'} eq 'text'
+						  ? sort { $a cmp $b } @$field2_value
+						  : sort { $a <=> $b } @$field2_value;
 					}
 					local $" = q(; );
 					$field2_value = qq(@$field2_value);
@@ -911,7 +921,7 @@ sub _is_field_multivalue {
 		if ( ( $att->{'optlist'} // q() ) eq 'yes' ) {
 			$self->{'cache'}->{'optlist'}->{$field} = $self->{'xmlHandler'}->get_field_option_list($field);
 		}
-		$self->{'cache'}->{'attribures'}->{$field} = $att;
+		$self->{'cache'}->{'attributes'}->{$field} = $att;
 		return 1;
 	}
 	return;

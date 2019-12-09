@@ -654,9 +654,9 @@ sub print_includes_fieldset {
 	my $q = $self->{'cgi'};
 	my ( @fields, $labels );
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		my $set_id        = $self->get_set_id;
-		my $is_curator    = $self->is_curator;
-		my $field_list    = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
+		my $set_id     = $self->get_set_id;
+		my $is_curator = $self->is_curator;
+		my $field_list = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
 		foreach my $field (@$field_list) {
 			next if any { $field eq $_ } qw (id datestamp date_entered curator sender);
 			push @fields, $field;
@@ -1159,6 +1159,11 @@ sub get_field_value {
 			if ( $self->{'cache'}->{'optlist'}->{$field} ) {
 				$values =
 				  BIGSdb::Utils::arbitrary_order_list( $self->{'cache'}->{'optlist'}->{$field}, $values );
+			} else {
+				@$values =
+				  $self->{'cache'}->{'attributes'}->{$field}->{'type'} eq 'text'
+				  ? sort { $a cmp $b } @$values
+				  : sort { $a <=> $b } @$values;
 			}
 			$field_value = qq(@$values);
 		} else {

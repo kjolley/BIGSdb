@@ -913,10 +913,17 @@ sub _get_provenance_fields {
 		if ( $thisfield->{'web'} ) {
 			$web = $self->_get_web_links( $data, $field );
 		} else {
-			if ( ( $thisfield->{'optlist'} // q() ) eq 'yes' && ref $data->{ lc($field) } ) {
-				my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
-				$data->{ lc($field) } =
-				  BIGSdb::Utils::arbitrary_order_list( $optlist, $data->{ lc($field) } );
+			if ( ref $data->{ lc($field) } ) {
+				if ( ( $thisfield->{'optlist'} // q() ) eq 'yes' ) {
+					my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
+					$data->{ lc($field) } =
+					  BIGSdb::Utils::arbitrary_order_list( $optlist, $data->{ lc($field) } );
+				} else {
+					@{ $data->{ lc($field) } } =
+					  $thisfield->{'type'} eq 'text'
+					  ? sort { $a cmp $b } @{ $data->{ lc($field) } }
+					  : sort { $a <=> $b } @{ $data->{ lc($field) } };
+				}
 			}
 			$value = ref $data->{ lc($field) } ? qq(@{$data->{ lc($field) }}) : $data->{ lc($field) };
 			$value = BIGSdb::Utils::escape_html($value);
@@ -928,16 +935,15 @@ sub _get_provenance_fields {
 
 			#https://stackoverflow.com/questions/6038061/regular-expression-to-find-urls-within-a-string
 			## no critic (ProhibitComplexRegexes)
-			if (
-				defined $value &&
-				$value =~ /((http|ftp|https):\/\/([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:\/~+#-]*[\w@?^=%&\/~+#-])?)/x
-			  )
+			if ( defined $value
+				&& $value =~
+				/((http|ftp|https):\/\/([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:\/~+#-]*[\w@?^=%&\/~+#-])?)/x )
 			{
 				my $url       = $1;
 				my $hyperlink = qq(<a href="$url">$url</a>);
 				$value =~ s/$url/$hyperlink/gx;
 			}
-			push @$list, { title => $displayfield, data => ( $web || $value ) };
+			push @$list, { title => $displayfield, data => ( $web // $value ) } if $web || $value ne q();
 		}
 		if ( $field eq 'curator' ) {
 			my $history = $self->_get_history_field($isolate_id);

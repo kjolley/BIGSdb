@@ -44,7 +44,6 @@ sub get_javascript {
   \$("#aliases").on('keyup paste',alias_change);
 });
 function alias_change(){
-	console.log(\$("#aliases").val());
   	if (\$("#aliases").val().indexOf(";") > -1 || \$("#aliases").val().indexOf(",") > -1){
   		\$("span#alias_warning").html("Put each alias on a separate line - do not use semi-colon or comma to separate."); 		
   	} else {
@@ -126,25 +125,30 @@ sub _check {
 		foreach my $field (@$field_list) {
 			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 			my $required_field = !( ( $thisfield->{'required'} // '' ) eq 'no' );
-			if ( $required_field == $required ) {
-				if ( $field eq 'curator' ) {
-					$newdata->{$field} = $self->get_curator_id;
-				} elsif ( $field eq 'sender' && $user_info->{'status'} eq 'submitter' ) {
-					$newdata->{$field} = $self->get_curator_id;
-				} elsif ( $field eq 'datestamp' || $field eq 'date_entered' ) {
-					$newdata->{$field} = BIGSdb::Utils::get_datestamp();
-				} else {
-					if ( ( $thisfield->{'multiple'} // q() ) eq 'yes' ) {
+			next if $required_field != $required;
+			if ( $field eq 'curator' ) {
+				$newdata->{$field} = $self->get_curator_id;
+			} elsif ( $field eq 'sender' && $user_info->{'status'} eq 'submitter' ) {
+				$newdata->{$field} = $self->get_curator_id;
+			} elsif ( $field eq 'datestamp' || $field eq 'date_entered' ) {
+				$newdata->{$field} = BIGSdb::Utils::get_datestamp();
+			} else {
+				if ( ( $thisfield->{'multiple'} // q() ) eq 'yes' ) {
+					if ( ( $thisfield->{'optlist'} // q() ) eq 'yes' ) {
 						$newdata->{$field} = scalar $q->multi_param($field) ? [ $q->multi_param($field) ] : q();
 					} else {
-						$newdata->{$field} = $q->param($field);
+						my @new_values = split /\r?\n/x, $q->param($field);
+						@new_values = uniq(@new_values);
+						$newdata->{$field} = \@new_values;
 					}
+				} else {
+					$newdata->{$field} = $q->param($field);
 				}
-				my $bad_field =
-				  $self->{'submissionHandler'}->is_field_bad( 'isolates', $field, $newdata->{$field}, undef, $set_id );
-				if ($bad_field) {
-					push @bad_field_buffer, qq(Field '$field': $bad_field);
-				}
+			}
+			my $bad_field =
+			  $self->{'submissionHandler'}->is_field_bad( 'isolates', $field, $newdata->{$field}, undef, $set_id );
+			if ($bad_field) {
+				push @bad_field_buffer, qq(Field '$field': $bad_field);
 			}
 		}
 	}
@@ -656,19 +660,25 @@ sub _print_optlist {         ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 			-values => $multiple ? $optlist : [ '', @$optlist ],
 			-labels => { '' => ' ' },
 			-default => $newdata->{ lc $field } // $thisfield->{'default'},
-			-multiple => $multiple ? 'true' : 'false'
+			-multiple => $multiple ? 'true' : 'false',
+			-style => $multiple ? q(border:1px solid #008) : q()
 		);
 		if ( $multiple && @$optlist ) {
 			my $size = @$optlist <= 10 ? @$optlist : 10;
 			$args{'-size'} = $size;
 		}
+		say q(<div style="display:inline-block">);
 		say $self->popup_menu( %args, %$html5_args );
+		if ($multiple) {
+			say q(<br /><span class="comment" style="color:#008">) . q(Supports multiple values</span>);
+			say q(</div>);
+		}
 		return 1;
 	}
 	return;
 }
 
-sub _print_bool {                      ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _print_bool {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $args ) = @_;
 	my ( $field, $newdata, $thisfield ) = @{$args}{qw(field newdata thisfield )};
 	return if $thisfield->{'type'} !~ /^bool/x;
@@ -776,19 +786,35 @@ sub _print_long_text_field {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 	my ( $self, $args ) = @_;
 	my ( $field, $newdata, $thisfield, $html5_args ) =
 	  @{$args}{qw(field newdata thisfield html5_args)};
-	if ( ( $thisfield->{'length'} // 0 ) > 60 ) {
-		my $q = $self->{'cgi'};
-		say $q->textarea(
-			-name    => $field,
-			-id      => "field_$field",
-			-rows    => 3,
-			-cols    => 40,
-			-default => ( $newdata->{ lc($field) } // $thisfield->{'default'} ),
-			%$html5_args
-		);
-		return 1;
+	my $multiple = ( $thisfield->{'multiple'} // q() ) eq 'yes';
+	return if ( $thisfield->{'length'} // 0 ) <= 60 && !$multiple;
+	if ($multiple) {
+		my $values = $newdata->{ lc($field) } // [];
+		@$values =
+		  $thisfield->{'type'} eq 'text'
+		  ? sort { $a cmp $b } @$values
+		  : sort { $a <=> $b } @$values;
+		local $" = qq(\n);
+		$newdata->{ lc($field) } = qq(@$values);
 	}
-	return;
+	my $q = $self->{'cgi'};
+	say q(<div style="display:inline-block">);
+	say $q->textarea(
+		-name => $field,
+		-id   => "field_$field",
+		-rows => 3,
+		-cols => $thisfield->{'length'} < 60 ? $thisfield->{'length'} : 60,
+		-default => ( $newdata->{ lc($field) } // $thisfield->{'default'} ),
+		-placeholder => $multiple ? q(Enter one per line...) : q(),
+		-style       => $multiple ? q(border:1px solid #008) : q(),
+		%$html5_args
+	);
+	if ($multiple) {
+		say q(<br /><span class="comment" style="color:#008">)
+		  . q(Supports multiple values - enter each one on separate line</span>);
+	}
+	say q(</div>);
+	return 1;
 }
 
 sub _print_default_field {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table

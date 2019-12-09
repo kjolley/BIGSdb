@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext          => 'iTOL',
 		menutext            => 'iTOL',
 		module              => 'ITOL',
-		version             => '1.3.14',
+		version             => '1.3.15',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -558,7 +558,11 @@ sub _create_itol_dataset {
 				  BIGSdb::Utils::arbitrary_order_list( $self->{'cache'}->{'optlist'}->{$name}, $value );
 				push @new_list, qq(@$reordered_value);
 			} else {
-				push @new_list, qq(@$value);
+				my @reordered_value =
+				  $self->{'cache'}->{'attributes'}->{$name}->{'type'} ne 'text'
+				  ? sort { $a <=> $b } @$value
+				  : sort { $a cmp $b } @$value;
+				push @new_list, qq(@reordered_value);
 			}
 		}
 		@$distinct_values = @new_list;
@@ -600,7 +604,11 @@ sub _create_itol_dataset {
 					  BIGSdb::Utils::arbitrary_order_list( $self->{'cache'}->{'optlist'}->{$name}, $data );
 					$data = qq(@$reordered_value);
 				} else {
-					$data = qq(@$data);
+					my @reordered_value =
+					  $self->{'cache'}->{'attributes'}->{$name}->{'type'} ne 'text'
+					  ? sort { $a <=> $b } @$data
+					  : sort { $a cmp $b } @$data;
+					$data = qq(@reordered_value);
 				}
 			}
 			$identifier =~ s/,/_/gx;

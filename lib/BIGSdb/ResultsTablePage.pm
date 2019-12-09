@@ -624,6 +624,13 @@ sub _print_isolate_table {
 					if ( $optlist->{$thisfieldname} && ref $data{$thisfieldname} ) {
 						$data{$thisfieldname} =
 						  BIGSdb::Utils::arbitrary_order_list( $optlist->{$thisfieldname}, $data{$thisfieldname} );
+					} elsif ( ( $field_attributes->{$thisfieldname}->{'multiple'} // q() ) eq 'yes'
+						&& ref $data{$thisfieldname} )
+					{
+						@{ $data{$thisfieldname} } =
+						  $field_attributes->{$thisfieldname}->{'type'} eq 'text'
+						  ? sort { $a cmp $b } @{ $data{$thisfieldname} }
+						  : sort { $a <=> $b } @{ $data{$thisfieldname} };
 					}
 					local $" = q(; );
 					my $value = ref $data{$thisfieldname} ? qq(@{$data{$thisfieldname}}) : $data{$thisfieldname};
