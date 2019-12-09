@@ -40,7 +40,7 @@ sub get_attributes {
 		buttontext  => 'Fields',
 		menutext    => 'Single field',
 		module      => 'FieldBreakdown',
-		version     => '2.2.6',
+		version     => '2.2.7',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
@@ -639,14 +639,26 @@ sub _get_field_freqs {
 		}
 	}
 	my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-	if ( ( $att->{'multiple'} // q() ) eq 'yes' && ( $att->{'optlist'} // q() ) eq 'yes' ) {
-		my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
+	if ( ( $att->{'multiple'} // q() ) eq 'yes' ) {
 		my %new_values;
-		foreach my $value (@$values) {
-			my $sorted_label = BIGSdb::Utils::arbitrary_order_list( $optlist, $value->{'label'} );
-			local $" = q(; );
-			my $new_label = qq(@$sorted_label);
-			$new_values{$new_label} += $value->{'value'};
+		if ( ( $att->{'optlist'} // q() ) eq 'yes' ) {
+			my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
+			foreach my $value (@$values) {
+				my $sorted_label = BIGSdb::Utils::arbitrary_order_list( $optlist, $value->{'label'} );
+				local $" = q(; );
+				my $new_label = qq(@$sorted_label);
+				$new_values{$new_label} += $value->{'value'};
+			}
+		} else {
+			foreach my $value (@$values) {
+				my @sorted_label =
+				  $att->{'type'} ne 'text'
+				  ? sort { $a <=> $b } @{$value->{'label'}}
+				  : sort { $a cmp $b } @{$value->{'label'}};
+				  local $" = q(; );
+				my $new_label = qq(@sorted_label);
+				$new_values{$new_label} += $value->{'value'};
+			}
 		}
 		my $new_return_list = [];
 		foreach my $label ( sort { $new_values{$b} <=> $new_values{$a} || $a cmp $b } keys %new_values ) {
