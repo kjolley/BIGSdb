@@ -134,10 +134,10 @@ sub _check {
 				$newdata->{$field} = BIGSdb::Utils::get_datestamp();
 			} else {
 				if ( ( $thisfield->{'multiple'} // q() ) eq 'yes' ) {
-					if (($thisfield->{'optlist'} // q()) eq 'yes'){
+					if ( ( $thisfield->{'optlist'} // q() ) eq 'yes' ) {
 						$newdata->{$field} = scalar $q->multi_param($field) ? [ $q->multi_param($field) ] : q();
 					} else {
-						my @new_values      = split /\r?\n/x, $q->param($field);
+						my @new_values = split /\r?\n/x, $q->param($field);
 						@new_values = uniq(@new_values);
 						$newdata->{$field} = \@new_values;
 					}
@@ -660,13 +660,19 @@ sub _print_optlist {         ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 			-values => $multiple ? $optlist : [ '', @$optlist ],
 			-labels => { '' => ' ' },
 			-default => $newdata->{ lc $field } // $thisfield->{'default'},
-			-multiple => $multiple ? 'true' : 'false'
+			-multiple => $multiple ? 'true' : 'false',
+			-style => $multiple ? q(border:1px solid #008) : q()
 		);
 		if ( $multiple && @$optlist ) {
 			my $size = @$optlist <= 10 ? @$optlist : 10;
 			$args{'-size'} = $size;
 		}
+		say q(<div style="display:inline-block">);
 		say $self->popup_menu( %args, %$html5_args );
+		if ($multiple) {
+			say q(<br /><span class="comment" style="color:#008">) . q(Supports multiple values</span>);
+			say q(</div>);
+		}
 		return 1;
 	}
 	return;
