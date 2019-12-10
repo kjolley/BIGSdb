@@ -144,6 +144,7 @@ use constant SEQ_STATUS => (
 	'unchecked'
 );
 use constant SEQ_FLAGS => (
+	'alternative start codon',
 	'ambiguous read',
 	'apparent misassembly',
 	'atypical',
@@ -160,6 +161,7 @@ use constant SEQ_FLAGS => (
 	'upstream fusion'
 );
 use constant ALLELE_FLAGS => (
+	'alternative start codon',
 	'atypical',
 	'contains IS element',
 	'downstream fusion',
@@ -466,22 +468,22 @@ use constant COUNTRIES => {
 	q(UK [England])                                 => { iso3 => q(GBR), continent => q(Europe) },
 	q(UK [Northern Ireland])                        => { iso3 => q(GBR), continent => q(Europe) },
 	q(UK [Scotland])                                => { iso3 => q(GBR), continent => q(Europe) },
-	q(UK [Wales])                => { iso3 => q(GBR), continent => q(Europe) },
-	q(Ukraine)                   => { iso3 => q(UKR), continent => q(Europe) },
-	q(United Arab Emirates)      => { iso3 => q(ARE), continent => q(Asia) },
-	q(Uruguay)                   => { iso3 => q(URY), continent => q(South America) },
-	q(US Minor Outlying Islands) => { iso3 => q(UMI), continent => q(Oceania) },
-	q(US Virgin Islands)         => { iso3 => q(VIR), continent => q(North America) },
-	q(USA)                       => { iso3 => q(USA), continent => q(North America) },
-	q(Uzbekistan)                => { iso3 => q(UZB), continent => q(Asia) },
-	q(Vanuatu)                   => { iso3 => q(VUT), continent => q(Oceania) },
-	q(Venezuela)                 => { iso3 => q(VEN), continent => q(South America) },
-	q(Vietnam)                   => { iso3 => q(VNM), continent => q(Asia) },
-	q(Wallis and Futuna Islands) => { iso3 => q(WLF), continent => q(Oceania) },
-	q(Western Sahara)            => { iso3 => q(ESH), continent => q(Africa) },
-	q(Yemen)                     => { iso3 => q(YEM), continent => q(Asia) },
-	q(Zambia)                    => { iso3 => q(ZMB), continent => q(Africa) },
-	q(Zimbabwe)                  => { iso3 => q(ZWE), continent => q(Africa) },
+	q(UK [Wales])                                   => { iso3 => q(GBR), continent => q(Europe) },
+	q(Ukraine)                                      => { iso3 => q(UKR), continent => q(Europe) },
+	q(United Arab Emirates)                         => { iso3 => q(ARE), continent => q(Asia) },
+	q(Uruguay)                                      => { iso3 => q(URY), continent => q(South America) },
+	q(US Minor Outlying Islands)                    => { iso3 => q(UMI), continent => q(Oceania) },
+	q(US Virgin Islands)                            => { iso3 => q(VIR), continent => q(North America) },
+	q(USA)                                          => { iso3 => q(USA), continent => q(North America) },
+	q(Uzbekistan)                                   => { iso3 => q(UZB), continent => q(Asia) },
+	q(Vanuatu)                                      => { iso3 => q(VUT), continent => q(Oceania) },
+	q(Venezuela)                                    => { iso3 => q(VEN), continent => q(South America) },
+	q(Vietnam)                                      => { iso3 => q(VNM), continent => q(Asia) },
+	q(Wallis and Futuna Islands)                    => { iso3 => q(WLF), continent => q(Oceania) },
+	q(Western Sahara)                               => { iso3 => q(ESH), continent => q(Africa) },
+	q(Yemen)                                        => { iso3 => q(YEM), continent => q(Asia) },
+	q(Zambia)                                       => { iso3 => q(ZMB), continent => q(Africa) },
+	q(Zimbabwe)                                     => { iso3 => q(ZWE), continent => q(Africa) },
 };
 push @EXPORT_OK, qw (COUNTRIES);
 
