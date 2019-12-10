@@ -34,7 +34,7 @@ sub get_attributes {
 		description => 'Display description of fields defined for the current database',
 		menutext    => 'Description of database fields',
 		module      => 'DatabaseFields',
-		version     => '1.0.7',
+		version     => '1.0.8',
 		section     => 'miscellaneous',
 		order       => 10,
 		dbtype      => 'isolates'
@@ -62,33 +62,49 @@ sub run {
 	  . q(name=DatabaseFields">Reset default order</a>.</p>);
 	say q(<table class="tablesorter" id="sortTable"><thead>);
 	say q(<tr><th>field name</th><th>comments</th><th>data type</th><th class="{sorter: false}">)
-	  . q(allowed values</th><th>required</th></tr></thead><tbody>);
+	  . q(allowed values</th><th>required</th><th>maximum length (characters)</th></tr></thead><tbody>);
 	$self->_print_fields;
 	say q(</tbody></table></div></div>);
 	return;
 }
 
 sub _print_fields {
-	my ($self)        = @_;
-	my $q             = $self->{'cgi'};
-	my $set_id        = $self->get_set_id;
-	my $is_curator    = $self->is_curator;
+	my ($self)     = @_;
+	my $q          = $self->{'cgi'};
+	my $set_id     = $self->get_set_id;
+	my $is_curator = $self->is_curator;
 	my $field_list = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
 	my $td = 1;
 	foreach my $field (@$field_list) {
 		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+		$thisfield->{'type'} = 'integer' if $thisfield->{'type'} =~ /^int/x;
 		$thisfield->{'comments'} //= '';
-		say qq(<tr class="td$td"><td>$field</td><td>$thisfield->{'comments'}</td><td>$thisfield->{'type'}</td>);
+		say qq(<tr class="td$td"><td>$field</td><td>$thisfield->{'comments'}</td>);
+		my $multiple = ( $thisfield->{'multiple'} // q() ) eq 'yes' ? q( (multiple)) : q();
+		say qq(<td>$thisfield->{'type'}$multiple</td>);
 		say q(<td>);
 		$self->_print_allowed_values($field);
 		say q(</td>);
+
 		if ( ( $thisfield->{'required'} // '' ) eq 'no' ) {
 			say q(<td>no</td>);
 		} else {
 			say q(<td>yes</td>);
 		}
+		my $length = $thisfield->{'length'} // q(-);
+		$length = q(-) if ( $thisfield->{'optlist'} // q() ) eq 'yes';
+		say qq(<td>$length</td>);
 		say q(</tr>);
 		$td = $td == 1 ? 2 : 1;
+		if ( $field eq $self->{'system'}->{'labelfield'} ) {
+			say qq(<tr class="td$td"><td>aliases</td><td>alternative names for $self->{'system'}->{'labelfield'}</td>)
+			  . q(<td>text (multiple)</td><td>-</td><td>no</td><td>-</td></tr>);
+			$td = $td == 1 ? 2 : 1;
+			say qq(<tr class="td$td"><td>references</td>)
+			  . q(<td>PubMed ids that link to publications that describe or include record</td>)
+			  . q(<td>integer (multiple)</td><td>-</td><td>no</td><td>-</td></tr>);
+			$td = $td == 1 ? 2 : 1;
+		}
 	}
 	return;
 }
