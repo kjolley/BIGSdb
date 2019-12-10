@@ -23,7 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::CuratePage);
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(:interface);
-use List::MoreUtils qw(any);
+use List::MoreUtils qw(any uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -468,7 +468,9 @@ sub _check_field {
 		if ($problem) {
 			$action = qq(<span class="statusbad">no action - $problem</span>);
 		} else {
-			if ( $self->_are_values_the_same( $field->[$i], $value->[$i], $old_values ) ) {
+			if ($value->[$i] eq '<blank>' && $multivalue_fields{ $field->[$i] } && $q->param('multi_value') eq 'add'){
+				$action = q(<span class="statusbad">no action - cannot add a null value (set to replace existing values instead)</span>)
+			} elsif ( $self->_are_values_the_same( $field->[$i], $value->[$i], $old_values ) ) {
 				if ($is_locus) {
 					$action = q(<span class="statusbad">no action - designation already set</span>);
 				} else {
@@ -502,25 +504,33 @@ sub _check_field {
 
 sub _are_values_the_same {
 	my ( $self, $field, $new, $old ) = @_;
+	my $q   = $self->{'cgi'};
 	my $att = $self->{'cache'}->{'attributes'}->{$field};
 	if ( ( $att->{'multiple'} // q() ) eq 'yes' ) {
 		$new = [ split /;/x, $new ];
 		s/^\s+|\s+$//gx foreach @$new;
+		@$new = uniq @$new;
 	} else {
 		$new =~ s/^\s+|\s+$//gx;
 	}
 	my %old = map { $_ => 1 } @$old;
 	if ( ref $new ) {
 		return 1 if $new->[0] eq '<blank>' && !@$old;
-		return 0 if scalar @$new != scalar @$old;
-		foreach my $new_value (@$new) {
-			return 0 if !$old{$new_value};
+		if ( $q->param('multi_value') eq 'add' ) {
+			foreach my $new_value (@$new) {
+				return 1 if $old{$new_value};
+			}
+		} else {
+			return 0 if scalar @$new != scalar @$old;
+			foreach my $new_value (@$new) {
+				return 0 if !$old{$new_value};
+			}
+			my %new = map { $_ => 1 } @$new;
+			foreach my $old_value (@$old) {
+				return 0 if !$new{$old_value};
+			}
+			return 1;
 		}
-		my %new = map { $_ => 1 } @$new;
-		foreach my $old_value (@$old) {
-			return 0 if !$new{$old_value};
-		}
-		return 1;
 	} else {
 		return 1 if $new eq '<blank>' && !@$old;
 		return 0 if !$old{$new};
@@ -584,8 +594,9 @@ sub _update {
 			{
 				$value = [ split /;/x, $value ];
 				s/^\s+|\s+$//gx foreach @$value;
+				@$value = uniq @$value;
 			}
-			push @$args, ( ( $value // '' ) eq '' || ( ref $value && !@$value ) ? undef : $value );
+			push @$args, ( ( $value // q() ) eq q() || ( ref $value && !@$value ) ? undef : $value );
 			if ( $multivalue_fields{$field} && scalar $q->param('multi_value') eq 'add' ) {
 				$qry =
 				    "UPDATE isolates SET ($field,datestamp,curator)=(ARRAY_APPEND($field,?),?,?) WHERE id IN "
