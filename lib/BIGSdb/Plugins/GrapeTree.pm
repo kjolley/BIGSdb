@@ -74,8 +74,8 @@ sub print_info_panel {
 		say q(</div>);
 	}
 	say q(<p>This plugin generates a minimum-spanning tree and visualizes within GrapeTree:</p>);
-	say q(<p>GrapeTree is developed by: Zhemin Zhou (1), Nabil-Fareed Alikhan (1), Martin J. Sergeant (1),)
-	  . q(Nina Luhmann (1), C&aacute;tia Vaz (2,5), Alexandre P. Francisco (2,4),)
+	say q(<p>GrapeTree is developed by: Zhemin Zhou (1), Nabil-Fareed Alikhan (1), Martin J. Sergeant (1), )
+	  . q(Nina Luhmann (1), C&aacute;tia Vaz (2,5), Alexandre P. Francisco (2,4), )
 	  . q(Jo&atilde;o Andr&eacute; Carri&ccedil;o (3) and Mark Achtman (1)</p>);
 	say q(<ol style="overflow:hidden">);
 	say q(<li>Warwick Medical School, University of Warwick, UK</li>);
