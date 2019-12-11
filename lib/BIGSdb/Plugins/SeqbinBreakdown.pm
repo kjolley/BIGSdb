@@ -43,7 +43,7 @@ sub get_attributes {
 		menutext    => 'Sequence bin',
 		module      => 'SeqbinBreakdown',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/seqbin_breakdown.html",
-		version     => '1.4.6',
+		version     => '1.4.7',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -192,7 +192,7 @@ sub run_job {
 			{ message_html => 'There are no records with contigs matching your criteria.' } );
 	} else {
 		my $job_file = "$self->{'config'}->{'tmp_dir'}/$job_id\.txt";
-		open( my $job_fh, '>', $job_file ) || $logger->error("Can't open $job_file for writing");
+		open( my $job_fh, '>:encoding(utf8)', $job_file ) || $logger->error("Cannot open $job_file for writing");
 		say $job_fh $self->_get_text_table_header(
 			{ gc => $params->{'gc'}, contig_analysis => $params->{'contig_analysis'} } );
 		print $job_fh $text_buffer;
@@ -313,7 +313,7 @@ sub _print_table {
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
 	say qq(<p>Loci selected: $locus_count</p>);
 	my $text_file = "$self->{'config'}->{'tmp_dir'}/$temp.txt";
-	open( my $fh, '>', $text_file ) or $logger->error("Can't open temp file $text_file for writing");
+	open( my $fh, '>:encoding(utf8)', $text_file ) or $logger->error("Cannot open temp file $text_file for writing");
 
 	foreach my $id (@$ids) {
 		my $contig_info = $self->_get_isolate_contig_data( $id, $loci, $statements, $arguments, $params );
