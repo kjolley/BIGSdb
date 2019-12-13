@@ -317,7 +317,8 @@ sub _print_scheme_table {
 		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM locus_curators LEFT JOIN scheme_members ON '
 			  . 'locus_curators.locus=scheme_members.locus WHERE scheme_id IS NULL AND '
 			  . '(hide_public IS NULL OR NOT hide_public))' );
-		$scheme_info->{'name'} = 'Other loci';
+		my $schemes_exists = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM scheme_members)');
+		$scheme_info->{'name'} = $schemes_exists ? 'Other loci' : 'Loci';
 	}
 	return if !@$loci;
 	$scheme_info->{'name'} =~ s/\&/\&amp;/gx;
