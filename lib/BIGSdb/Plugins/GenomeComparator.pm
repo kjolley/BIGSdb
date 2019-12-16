@@ -53,7 +53,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.4.1',
+		version     => '2.4.2',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -226,7 +226,7 @@ sub _print_interface {
 	say $q->start_form;
 	say q(<div class="scrollable">);
 	$self->print_seqbin_isolate_fieldset(
-		{ use_all => $use_all, selected_ids => $selected_ids, isolate_paste_list => 1 } );
+		{ use_all => $use_all, selected_ids => $selected_ids, isolate_paste_list => 1, allow_empty_list => 1 } );
 	$self->print_user_genome_upload_fieldset;
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
 	$self->print_includes_fieldset(

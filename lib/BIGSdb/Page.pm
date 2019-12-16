@@ -2619,7 +2619,9 @@ sub print_seqbin_isolate_fieldset {
 				-size     => $options->{'size'} // 8,
 				-multiple => 'true',
 				-default  => $options->{'selected_ids'},
-				-required => $options->{'isolate_paste_list'} ? undef : 'required'
+				-required => ( $options->{'isolate_paste_list'} || $options->{'allow_empty_list'} )
+				? undef
+				: 'required'
 			);
 			my $list_button = q();
 			if ( $options->{'isolate_paste_list'} ) {
@@ -2650,15 +2652,16 @@ sub print_seqbin_isolate_fieldset {
 			}
 		} else {
 			local $" = qq(\n);
-			say $q->textarea(
+			my %args = (
 				-name        => 'isolate_paste_list',
 				-id          => 'isolate_paste_list',
 				-cols        => 12,
 				-rows        => $options->{'size'} ? ( $options->{'size'} - 1 ) : 7,
 				-default     => "@{$options->{'selected_ids'}}",
 				-placeholder => 'Paste list of isolate ids (one per line)...',
-				-required    => 'required'
 			);
+			$args{'-required'} = 'required' if !$options->{'allow_empty_list'};
+			say $q->textarea(%args);
 			say q(<div style="text-align:center"><input type="button" onclick='listbox_clear("isolate_paste_list")' )
 			  . q(value="Clear" style="margin-top:1em" class="smallbutton" />);
 			if ( $options->{'only_genomes'} ) {
