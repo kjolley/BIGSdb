@@ -952,8 +952,14 @@ sub _null_condition_sub {
 		my ($values) = @_;
 		my $value = $values->{ $condition->{'field'} } //= q();
 		if ( $condition->{'operator'} eq '=' ) {
+			if ( ref $value ) {
+				return @$value > 0 ? 0 : 1;
+			}
 			return $value ne q() ? 0 : 1;
 		} elsif ( $condition->{'operator'} eq 'NOT' ) {
+			if ( ref $value ) {
+				return @$value > 0 ? 1 : 0;
+			}
 			return $value ne q() ? 1 : 0;
 		}
 	};
