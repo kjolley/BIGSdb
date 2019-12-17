@@ -802,6 +802,7 @@ sub _check_invalid_fieldname {
 		( my $cleaned_field = $field ) =~ s/[^A-z].*$//x;
 		push @$errors, qq($cleaned_field is not a valid field name.);
 		$logger->error("Attempt to modify fieldname: $field (table: $table)");
+		return 1;
 	}
 	return;
 }
@@ -817,7 +818,7 @@ sub _generate_query {
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		next if !defined $q->param("t$i") || $q->param("t$i") eq q();
 		my $field = $q->param("s$i");
-		$self->_check_invalid_fieldname( $table, $field, $errors );
+		next if $self->_check_invalid_fieldname( $table, $field, $errors );
 		my $operator = $q->param("y$i") // '=';
 		my $text = $q->param("t$i");
 		$text = $self->_modify_locus_in_sets( $field, $text );
