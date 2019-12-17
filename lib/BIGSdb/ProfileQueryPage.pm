@@ -431,7 +431,7 @@ sub _generate_query_from_main_form {
 
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		next if !defined $q->param("t$i") || $q->param("t$i") eq q();
-		my $field = $q->param("s$i");
+		my $field = $q->param("s$i") // q();
 		my $type = $self->_get_data_type( $scheme_id, $field );
 		if ( !defined $type && !$recognized_fields{$field} ) {
 
