@@ -480,6 +480,7 @@ sub _get_field_query {
 	$fields //= {};
 	my $self = setting('self');
 	my @field_names;
+	my @eav_fields;
 	my @extended_fields;
 	my %extended_primary_field;
 	my %extended_value;
@@ -501,50 +502,62 @@ sub _get_field_query {
 			$extended_value{$field}         = $fields->{$field};
 			next;
 		}
-		if ( !$self->{'xmlHandler'}->is_field($field) ) {
+		my $type;
+		if ( $self->{'xmlHandler'}->is_field($field) ) {
+			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+			$type = $att->{'type'};
+			push @field_names, $field;
+		} elsif ( $self->{'datastore'}->is_eav_field($field) ) {
+			my $eav_field = $self->{'datastore'}->get_eav_field($field);
+			$type = $eav_field->{'value_format'};
+			push @eav_fields, $field;
+		} else {
 			send_error( "$field is not a valid field.", 400 );
 		}
-		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-		if ( $att->{'type'} =~ /int/x && !BIGSdb::Utils::is_int( $fields->{$field} ) ) {
+		if ( $type =~ /int/x && !BIGSdb::Utils::is_int( $fields->{$field} ) ) {
 			send_error( "$field is an integer field.", 400 );
 		}
-		if ( $att->{'type'} =~ /bool/x && !BIGSdb::Utils::is_bool( $fields->{$field} ) ) {
+		if ( $type =~ /bool/x && !BIGSdb::Utils::is_bool( $fields->{$field} ) ) {
 			send_error( "$field is a boolean field.", 400 );
 		}
-		if ( $att->{'type'} eq 'date' && !BIGSdb::Utils::is_date( $fields->{$field} ) ) {
+		if ( $type eq 'date' && !BIGSdb::Utils::is_date( $fields->{$field} ) ) {
 			send_error( "$field is a date field.", 400 );
 		}
-		if ( $att->{'type'} eq 'float' && !BIGSdb::Utils::is_float( $fields->{$field} ) ) {
+		if ( $type eq 'float' && !BIGSdb::Utils::is_float( $fields->{$field} ) ) {
 			send_error( "$field is a float field.", 400 );
-		}
-		push @field_names, $field;
-		if ( $att->{'type'} eq 'text' ) {
-			push @$values, uc( $fields->{$field} );
-		} else {
-			push @$values, $fields->{$field};
 		}
 	}
 	my $qry;
-	my $first = 1;
-	if (@field_names) {
-		foreach my $field (@field_names) {
-			$qry .= ' AND ' if !$first;
-			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-			if ( $att->{'type'} eq 'text' ) {
-				if ( ( $att->{'multiple'} // q() ) eq 'yes' ) {
-					$qry .= qq(? ILIKE ANY($field));
-				} else {
-					$qry .= q[(];
-					$qry .= qq(UPPER($field)=?);
-					my ( $sub_query, $subvalues ) = _modify_for_subvalues( $field, $fields->{$field} );
-					$qry .= $sub_query;
-					push @$values, @$subvalues;
-					$qry .= q[)];
-				}
+	foreach my $field (@field_names) {
+		$qry .= ' AND ' if $qry;
+		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+		if ( $att->{'type'} eq 'text' ) {
+			if ( ( $att->{'multiple'} // q() ) eq 'yes' ) {
+				$qry .= qq(? ILIKE ANY($field));
 			} else {
-				$qry .= qq($field=?);
+				$qry .= q[(];
+				$qry .= qq(UPPER($field)=?);
+				my ( $sub_query, $subvalues ) = _modify_for_subvalues( $field, $fields->{$field} );
+				$qry .= $sub_query;
+				push @$values, @$subvalues;
+				$qry .= q[)];
 			}
-			$first = 0;
+			push @$values, uc( $fields->{$field} );
+		} else {
+			$qry .= qq($field=?);
+			push @$values, $fields->{$field};
+		}
+	}
+	foreach my $field (@eav_fields) {
+		$qry .= ' AND ' if $qry;
+		my $eav_field = $self->{'datastore'}->get_eav_field($field);
+		my $table     = $self->{'datastore'}->get_eav_field_table($field);
+		if ( $eav_field->{'value_format'} eq 'text' ) {
+			$qry .= qq[(id IN (SELECT isolate_id FROM $table WHERE (field,UPPER(value))=(?,?)))];
+			push @$values, $field, uc( $fields->{$field} );
+		} else {
+			$qry .= qq[(id IN (SELECT isolate_id FROM $table WHERE (field,value)=(?,?)))];
+			push @$values, $field, $fields->{$field};
 		}
 	}
 	foreach my $ext_field (@extended_fields) {
