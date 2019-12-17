@@ -817,7 +817,7 @@ sub _generate_query {
 	my $set_id      = $self->get_set_id;
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		next if !defined $q->param("t$i") || $q->param("t$i") eq q();
-		my $field = $q->param("s$i");
+		my $field = $q->param("s$i") // q();
 		next if $self->_check_invalid_fieldname( $table, $field, $errors );
 		my $operator = $q->param("y$i") // '=';
 		my $text = $q->param("t$i");
