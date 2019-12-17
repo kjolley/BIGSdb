@@ -40,7 +40,7 @@ sub get_attributes {
 		buttontext  => 'Fields',
 		menutext    => 'Single field',
 		module      => 'FieldBreakdown',
-		version     => '2.2.7',
+		version     => '2.2.8',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
@@ -127,7 +127,7 @@ sub _get_field_type {
 
 sub _get_field_values {
 	my ( $self, $field ) = @_;
-	my $field_type = $self->_get_field_type($field);
+	my $field_type = $self->_get_field_type($field) // q();
 	my $freqs      = [];
 	my $methods    = {
 		field => sub {
@@ -166,7 +166,7 @@ sub _get_field_values {
 		}
 	} else {
 		$logger->error('Invalid field type');
-		return;
+		return $freqs;
 	}
 	return $freqs;
 }
@@ -651,6 +651,7 @@ sub _get_field_freqs {
 			}
 		} else {
 			foreach my $value (@$values) {
+				next if !defined $value->{'label'};
 				my @sorted_label =
 				  $att->{'type'} ne 'text'
 				  ? sort { $a <=> $b } @{$value->{'label'}}
