@@ -98,12 +98,10 @@ sub blast_multiple_loci {
 		next DATATYPE if !@locus_list;
 		my $program = $self->_get_program( $data_type, $params );
 		my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/${locus_prefix}_fastafile_$data_type.txt";
-		$self->_create_fasta_index(
-			\@locus_list, $temp_fastafile,
-			{ exemplar => $params->{'exemplar'}, type_alleles => $params->{'type_alleles'}, multiple_loci => 1 }
-		);
+		$self->_create_fasta_index( \@locus_list, $temp_fastafile,
+			{ exemplar => $params->{'exemplar'}, type_alleles => $params->{'type_alleles'}, multiple_loci => 1 } );
 		return if !-e $temp_fastafile || -z $temp_fastafile;
-		$self->{'db'}->commit;                #prevent idle in transaction table locks
+		$self->{'db'}->commit;    #prevent idle in transaction table locks
 		my $word_size = $self->_get_word_size( $program, undef, $params );
 		my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
 		my $filter = $program eq 'blastn' ? 'dust' : 'seg';
@@ -1029,7 +1027,16 @@ sub _get_row {
 	my $original_start     = $match->{'predicted_start'};
 	my $original_end       = $match->{'predicted_end'};
 	my $buffer             = q();
-	my $hunter = $self->_hunt_for_start_and_stop_codons( $hunt_for_start_end, $match, $original_start, $original_end );
+	my $hunter             = $self->_hunt_for_start_and_stop_codons(
+		{
+			hunt_for_start_end => $hunt_for_start_end,
+			locus              => $locus,
+			match              => $match,
+			original_start     => $original_start,
+			original_end       => $original_end,
+			exact_ref          => \$exact
+		}
+	);
 	my $cleaned_locus = $self->clean_locus($locus);
 	my $locus_info    = $self->{'datastore'}->get_locus_info($locus);
 	my $translate     = ( $locus_info->{'coding_sequence'} || $locus_info->{'data_type'} eq 'peptide' ) ? 1 : 0;
@@ -1050,7 +1057,7 @@ sub _get_row {
 		$buffer .= q(<td>100.00</td>)
 		  . qq(<td colspan="3">Initial partial BLAST match to allele $match->{'partial_match_allele'}</td>);
 	} else {
-		my $identity = BIGSdb::Utils::decimal_place($match->{'identity'},2);
+		my $identity = BIGSdb::Utils::decimal_place( $match->{'identity'}, 2 );
 		$buffer .= qq(<td>$identity</td><td>$match->{'alignment'}</td>)
 		  . qq(<td>$match->{'length'}</td><td>$match->{'e-value'}</td>);
 	}
@@ -1194,7 +1201,9 @@ sub _get_dir_arrow {
 }
 
 sub _hunt_for_start_and_stop_codons {
-	my ( $self, $hunt_for_start_end, $match, $original_start, $original_end ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $hunt_for_start_end, $locus, $match, $original_start, $original_end, $exact_ref ) =
+	  @{$args}{qw(hunt_for_start_end locus match original_start original_end exact_ref)};
 	my ( $off_end, $predicted_start, $predicted_end, $complete_gene );
 	my $complete_tooltip = q();
 	my $seqbin_length    = $self->{'datastore'}->run_query(
@@ -1237,6 +1246,18 @@ sub _hunt_for_start_and_stop_codons {
 				if ($complete_gene) {
 					$complete_tooltip = q(<a class="cds" title="CDS - this is a complete coding sequence )
 					  . q(including start and terminating stop codons with no internal stop codons.">CDS</a>);
+					my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+					my $allele_id =
+					    $locus_info->{'dbase_name'}
+					  ? $self->{'datastore'}->get_locus($locus)->get_allele_id_from_sequence( \$seq )
+					  : undef;
+					if ( defined $allele_id ) {
+						$match->{'allele'}    = $allele_id;
+						$match->{'identity'}  = 100;
+						$match->{'alignment'} = length $seq;
+						$match->{'length'}    = length $seq;
+						$$exact_ref           = 1;
+					}
 					last RUN;
 				}
 			}
