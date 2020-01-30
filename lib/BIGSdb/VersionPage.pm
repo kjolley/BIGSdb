@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -52,7 +52,7 @@ sub print_about_bigsdb {
 <span class="main_icon far fa-copyright fa-3x fa-pull-left"></span>
 <ul style="margin-left:2em">
 <li>Written by Keith Jolley</li>
-<li>Copyright &copy; University of Oxford, 2010-2019.</li>
+<li>Copyright &copy; University of Oxford, 2010-2020.</li>
 <li><a href="http://www.biomedcentral.com/1471-2105/11/595">
 Jolley &amp; Maiden <i>BMC Bioinformatics</i> 2010, <b>11:</b>595</a></li>
 </ul>
