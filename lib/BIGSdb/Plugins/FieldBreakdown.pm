@@ -1,6 +1,6 @@
 #FieldBreakdown.pm - FieldBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2018-2019, University of Oxford
+#Copyright (c) 2018-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -40,7 +40,7 @@ sub get_attributes {
 		buttontext  => 'Fields',
 		menutext    => 'Single field',
 		module      => 'FieldBreakdown',
-		version     => '2.2.8',
+		version     => '2.2.9',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
@@ -679,8 +679,8 @@ sub _get_eav_field_freqs {
 	my $eav_table = $self->{'datastore'}->get_eav_field_table($field);
 	my $qry       = "SELECT e.value AS label,COUNT(*) AS value FROM $eav_table e RIGHT JOIN id_list i ON "
 	  . 'e.isolate_id=i.value AND e.field=?';
-	$qry .= 'WHERE value IS NOT NULL ' if $options->{'no_null'};
-	$qry .= 'GROUP BY label';
+	$qry .= ' WHERE e.value IS NOT NULL' if $options->{'no_null'};
+	$qry .= ' GROUP BY label';
 	my $order = $options->{'order'} ? $options->{'order'} : 'value DESC';
 	$qry .= " ORDER BY $order";
 	my $values = $self->{'datastore'}->run_query( $qry, $field, { fetch => 'all_arrayref', slice => {} } );
