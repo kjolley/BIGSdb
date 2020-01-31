@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -139,7 +139,7 @@ sub _check {
 					} else {
 						my @new_values = split /\r?\n/x, $q->param($field);
 						@new_values = uniq(@new_values);
-						$newdata->{$field} = \@new_values;
+						$newdata->{$field} = @new_values ? \@new_values : undef;
 					}
 				} else {
 					$newdata->{$field} = $q->param($field);
