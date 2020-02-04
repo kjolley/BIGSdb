@@ -94,19 +94,39 @@ sub _print_limits {
 		{ title => 'You can upload', data => BIGSdb::Utils::commify($available) }
 	];
 	say $self->get_list_block($list);
+	my $projects = $self->{'datastore'}->run_query(
+		'SELECT p.id,p.short_description,p.full_description,p.no_quota FROM projects p JOIN merged_project_users m ON '
+		  . 'p.id=m.project_id WHERE m.user_id=? AND m.modify ORDER BY UPPER(short_description)',
+		$user_id,
+		{ fetch => 'all_arrayref', slice => {} }
+	);
 
 	if ($available) {
 		say q(<span class="main_icon fas fa-upload fa-3x fa-pull-left"></span>);
 		say q(<h2>Upload</h2>);
 		my $link = $self->_get_upload_link;
-		say qq(<ul style="margin-left:25px"><li><a href="$link">Upload private isolate records</a></li></ul>);
+		say
+		  qq(<ul style="margin-left:25px;list-style:none"><li><a href="$link">Upload private isolate records</a></li>);
+		if (@$projects) {
+			say q(<li><p class="note"><span class="note">Note: </span>)
+			  . q(This link will upload private data using your quota. Use the project upload links below )
+			  . q(to upload to a specific private project.</p></li>);
+		}
+		say q(</ul>);
 	}
 	my $private_isolates = $self->{'datastore'}->get_user_private_isolate_limit($user_id);
 	if ($user_id) {
 		say q(<span class="main_icon fas fa-pencil-alt fa-3x fa-pull-left"></span>);
 		say q(<h2>Curate</h2>);
-		say qq(<ul style="margin-left:25px"><li><a href="$self->{'system'}->{'curate_script'}?db=$self->{'instance'}">)
-		  . q(Update private records</a> <span class="link">Curator's interface</span></li></ul>);
+		say q(<ul style="margin-left:25px;list-style:none">)
+		  . qq(<li><a href="$self->{'system'}->{'curate_script'}?db=$self->{'instance'}">)
+		  . q(Update private records</a> <span class="link">Curator's interface</span>);
+		say q(<p class="note"><span class="note">Note: </span>)
+		  . q(This link takes you to the standard curator's interface. If you upload here, then your )
+		  . q(data will <strong>not be private</strong>. )
+		  . q(Either use the 'Upload' link above to upload private records to your quota (if you have any available), )
+		  . q(or use the upload link on the individual projects listed below to upload to those projects.</p>);
+		say q(</li></ul>);
 	}
 	say q(</div>);
 	return;

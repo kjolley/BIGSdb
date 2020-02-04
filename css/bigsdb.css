@@ -1,4 +1,4 @@
-/*Version: 20191202*/
+/*Version: 20200204*/
 body,form,input,th,td,div {margin-top:0;margin-bottom:0;padding-bottom:0;padding-top:0}
 select{margin:0}
 p {margin:0 0 1em 0;padding:0}
@@ -197,6 +197,15 @@ a.update:hover {background:#d0f5d0}
 .comment {font-size: 0.9em}
 .warning {background:#fcc}
 .incomplete {background:#fb6}
+p.note {
+	margin-top:0.5em;
+	display:inline-block;
+	padding:0.2em;
+	background:#edd;
+	box-shadow: 1px 1px 1px #666;
+	border-radius:3px;
+}
+span.note {font-weight:600;color:#e00}
 
 .button,.smallbutton, .fieldvaluebutton {
 	background:#f0f0f0;
