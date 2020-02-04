@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -962,11 +962,11 @@ sub _check_if_new {
 
 sub extract_seq_from_match {
 	my ( $self, $match ) = @_;
-	if ( $match->{'predicted_start'} =~ /\*/x ) {    #Error appearing in log - need to track down what's causing this
-
-		#		$logger->logcarp( Dumper $match);
-		$match->{'predicted_start'} =~ s/\*//x;
-	}
+#	if ( $match->{'predicted_start'} =~ /\*/x ) {    #Error appearing in log - need to track down what's causing this
+#
+#		#		$logger->logcarp( Dumper $match);
+#		$match->{'predicted_start'} =~ s/\*//x;
+#	}
 	my $seq;
 	if ( $match->{'exons'} ) {
 		foreach my $exon ( $match->{'reverse'} ? reverse @{ $match->{'exons'} } : @{ $match->{'exons'} } ) {

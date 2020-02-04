@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2018, University of Oxford
+#Copyright (c) 2017-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -385,14 +385,22 @@ sub _get_local_contig_fragment {
 	my $flanking = $args->{'flanking'};
 	my $length   = abs( $args->{'end'} - $args->{'start'} + 1 );
 	my $seqbin   = $self->{'seqbin_table'} // 'sequence_bin';
-	if ( $args->{'start'} =~ /\*/x ) {    #Error appearing in log - need to track down what's causing this
-		$logger->logcarp( Dumper $args);
-		$args->{'start'} =~ s/\*//x;
+	my $start    = $args->{'start'};
+	my $end      = $args->{'end'};
+
+	#Error appearing in log - need to track down what's causing this
+	if ( $start =~ /\*/x ) {
+#		$logger->logcarp( Dumper $args);
+		$start =~ s/\*//x;
+	}
+	if ( $end =~ /\*/x ) {
+#		$logger->logcarp( Dumper $args);
+		$end =~ s/\*//x;
 	}
 	my $qry =
-	    "SELECT substring(sequence FROM $args->{'start'} FOR $length) AS seq,substring(sequence "
-	  . "FROM ($args->{'start'}-$flanking) FOR $flanking) AS upstream,substring(sequence FROM "
-	  . "($args->{'end'}+1) FOR $flanking) AS downstream FROM $seqbin WHERE id=?";
+	    "SELECT substring(sequence FROM $start FOR $length) AS seq,substring(sequence "
+	  . "FROM ($start-$flanking) FOR $flanking) AS upstream,substring(sequence FROM "
+	  . "($end+1) FOR $flanking) AS downstream FROM $seqbin WHERE id=?";
 	return $self->{'datastore'}->run_query( $qry, $args->{'seqbin_id'}, { fetch => 'row_hashref' } );
 }
 
