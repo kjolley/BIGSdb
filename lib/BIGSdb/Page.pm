@@ -2034,7 +2034,7 @@ sub can_modify_table {
 			eav_fields                        => $self->{'permissions'}->{'modify_sparse_fields'}
 		);
 		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_isolates'}
-		  foreach qw(isolates retired_isolates isolate_aliases refs);
+		  foreach qw(isolates isolate_aliases refs);
 		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_experiments'}
 		  foreach qw(experiments experiment_sequences);
 		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_composites'}

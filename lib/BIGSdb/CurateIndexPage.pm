@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -695,19 +695,22 @@ sub _get_isolate_fields {
 		);
 		$buffer .= qq(</div>\n);
 	}
-	$buffer .= q(<div class="curategroup curategroup_isolates grid-item default_hide_curator" )
-	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Retired isolates</h2>);
-	$buffer .= $self->_get_icon_group(
-		'retired_isolates',
-		'trash-alt',
-		{
-			add       => 1,
-			batch_add => 1,
-			query     => 1,
-			info      => 'Retired isolates - Isolate ids defined here will not be reused.'
-		}
-	);
-	$buffer .= qq(</div>\n);
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	if ( $user_info->{'status'} eq 'curator' || $user_info->{'status'} eq 'admin' ) {
+		$buffer .= q(<div class="curategroup curategroup_isolates grid-item default_hide_curator" )
+		  . qq(style="display:$self->{'optional_curator_display'}"><h2>Retired isolates</h2>);
+		$buffer .= $self->_get_icon_group(
+			'retired_isolates',
+			'trash-alt',
+			{
+				add       => 1,
+				batch_add => 1,
+				query     => 1,
+				info      => 'Retired isolates - Isolate ids defined here will not be reused.'
+			}
+		);
+		$buffer .= qq(</div>\n);
+	}
 	return $buffer;
 }
 
