@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -159,7 +159,16 @@ sub get_user_groups_table_attributes {
 				required => 1,
 				default  => 'false',
 				tooltip  => 'co_curate - Setting to true allows members with a status of submitter '
-				  . 'to curate data of other members of the usergroup.'
+				  . 'to curate public data of other members of the usergroup.'
+			},
+			{
+				name     => 'co_curate_private',
+				type     => 'bool',
+				required => 1,
+				default  => 'false',
+				tooltip  => 'co_curate_private - Setting to true allows members with a status of submitter '
+				  . 'to curate private data of other members of the usergroup that they can access because '
+				  . 'it belongs to a shared user project.'
 			}
 		  );
 	}

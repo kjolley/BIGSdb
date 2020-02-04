@@ -2564,6 +2564,11 @@ sub initiate_view {
 	  . 'WHERE ug.co_curate AND ugm.user_id=v.sender AND EXISTS(SELECT 1 FROM user_group_members '
 	  . 'WHERE (user_group,user_id)=(ug.id,?))) AND NOT EXISTS(SELECT 1 FROM private_isolates '
 	  . 'WHERE isolate_id=v.id))';
+	use constant PRIVATE_ISOLATES_FROM_SAME_USER_GROUP =>    #(where co_curate_private option set)
+	  '(EXISTS(SELECT 1 FROM user_group_members ugm JOIN user_groups ug ON ugm.user_group=ug.id '
+	  . 'WHERE ug.co_curate_private AND ugm.user_id=v.sender AND EXISTS(SELECT 1 FROM user_group_members '
+	  . 'WHERE (user_group,user_id)=(ug.id,?))) AND EXISTS(SELECT 1 FROM private_isolates '
+	  . 'WHERE isolate_id=v.id))';
 	use constant PUBLIC_ISOLATES => 'NOT EXISTS(SELECT 1 FROM private_isolates WHERE isolate_id=v.id)';
 	use constant ISOLATES_FROM_USER_PROJECT =>
 	  'EXISTS(SELECT 1 FROM project_members pm JOIN merged_project_users mpu ON '
@@ -2585,8 +2590,11 @@ sub initiate_view {
 					@user_terms = (ALL_ISOLATES);
 				},
 				submitter => sub {
-					@user_terms =
-					  ( OWN_SUBMITTED_ISOLATES, OWN_PRIVATE_ISOLATES, PUBLIC_ISOLATES_FROM_SAME_USER_GROUP );
+					@user_terms = (
+						OWN_SUBMITTED_ISOLATES, OWN_PRIVATE_ISOLATES,
+						PUBLIC_ISOLATES_FROM_SAME_USER_GROUP,
+						PRIVATE_ISOLATES_FROM_SAME_USER_GROUP
+					);
 				},
 				curator => sub {
 					@user_terms = ( PUBLIC_ISOLATES, OWN_PRIVATE_ISOLATES, PUBLICATION_REQUESTED );

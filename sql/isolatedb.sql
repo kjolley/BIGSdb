@@ -44,6 +44,7 @@ id integer NOT NULL UNIQUE,
 description text NOT NULL UNIQUE,
 datestamp date NOT NULL,
 co_curate boolean NOT NULL,
+co_curate_private boolean NOT NULL,
 curator int NOT NULL,
 PRIMARY KEY (id),
 CONSTRAINT ug_curator FOREIGN KEY (curator) REFERENCES users
