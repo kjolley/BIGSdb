@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -816,15 +816,16 @@ sub _check_loci {          ## no critic (ProhibitUnusedPrivateSubroutines) #Call
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		$newdata->{'locus'} = $newdata->{'id'};
 		my $q = $self->{'cgi'};
-		push @$extra_inserts, {
+		push @$extra_inserts,
+		  {
 			statement => 'INSERT INTO locus_descriptions (locus,full_name,product,description,curator,datestamp) '
 			  . 'VALUES (?,?,?,?,?,?)',
 			arguments => [
-				$newdata->{'locus'}, scalar $q->param('full_name'), scalar $q->param('product'),
-				scalar $q->param('description'),
-				$newdata->{'curator'}, 'now'
+				$newdata->{'locus'},         scalar $q->param('full_name'),
+				scalar $q->param('product'), scalar $q->param('description'),
+				$newdata->{'curator'},       'now'
 			]
-		};
+		  };
 		$self->_check_locus_descriptions( $newdata, $problems, $extra_inserts );
 	}
 	$self->_check_locus_aliases_when_updating_other_table( $newdata->{'id'}, $newdata, $problems, $extra_inserts );
@@ -1005,19 +1006,17 @@ sub _next_id_isolates {
 	my $start_id_clause = $start_id > 1 ? " AND id >= $start_id" : '';
 	my $qry = "SELECT id FROM isolates WHERE id>0 $start_id_clause UNION SELECT isolate_id AS id "
 	  . 'FROM retired_isolates ORDER BY id';
-	my $test     = $start_id - 1 // 0;
-	my $id       = 0;
-	my $isolates = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
-	return $start_id if !@$isolates;
+	my $test = $start_id - 1 // 0;
+	my $used_isolates = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
+	return $start_id if !@$used_isolates;
+	my %used = map { $_ => 1 } @$used_isolates;
 
-	foreach my $isolate_id (@$isolates) {
+	foreach my $isolate_id (@$used_isolates) {
 		$test++;
-		$id = $isolate_id;
-		if ( $test != $id ) {
-			return $test;
-		}
+		return $test if !$used{$test};
 	}
-	return $id + 1;
+	$test++;
+	return $test;
 }
 
 sub id_exists {
