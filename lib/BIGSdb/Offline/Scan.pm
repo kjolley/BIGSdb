@@ -962,11 +962,12 @@ sub _check_if_new {
 
 sub extract_seq_from_match {
 	my ( $self, $match ) = @_;
-#	if ( $match->{'predicted_start'} =~ /\*/x ) {    #Error appearing in log - need to track down what's causing this
-#
-#		#		$logger->logcarp( Dumper $match);
-#		$match->{'predicted_start'} =~ s/\*//x;
-#	}
+
+	#	if ( $match->{'predicted_start'} =~ /\*/x ) {    #Error appearing in log - need to track down what's causing this
+	#
+	#		#		$logger->logcarp( Dumper $match);
+	#		$match->{'predicted_start'} =~ s/\*//x;
+	#	}
 	my $seq;
 	if ( $match->{'exons'} ) {
 		foreach my $exon ( $match->{'reverse'} ? reverse @{ $match->{'exons'} } : @{ $match->{'exons'} } ) {
@@ -1270,11 +1271,13 @@ sub _hunt_for_start_and_stop_codons {
 		$predicted_start            = $original_start;
 		if ( $match->{'predicted_start'} < 1 ) {
 			$match->{'predicted_start'} = '1*';
-			$off_end = 1;
+			$predicted_start            = 1;
+			$off_end                    = 1;
 		}
 		if ( $match->{'predicted_end'} > $seqbin_length ) {
 			$match->{'predicted_end'} = "${seqbin_length}*";
-			$off_end = 1;
+			$predicted_end            = ${seqbin_length};
+			$off_end                  = 1;
 		}
 	}
 	return {
