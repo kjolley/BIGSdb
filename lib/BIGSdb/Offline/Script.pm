@@ -151,6 +151,7 @@ sub _go {
 	$self->{'config'}->{'ref_db'} //= $self->{'config'}->{'refdb'};
 	if ( !$self->{'options'}->{'always_run'} ) {
 		my $max_load = $self->{'config'}->{'max_load'} || 8;
+		my $max_load_webscan = $self->{'config'}->{'max_load_webscan'} || $self->{'config'}->{'max_load'} || 6;
 		try {
 			$load_average = $self->get_load_average;
 		}
@@ -162,6 +163,10 @@ sub _go {
 				$self->{'logger'}->logdie($_);
 			}
 		};
+		if ( $load_average > $max_load_webscan && $self->{'options'}->{'throw_webscan_busy_exception'}) {
+			BIGSdb::Exception::Server::Busy->throw("Exception: Load average = $load_average");
+			return;
+		}
 		if ( $load_average > $max_load ) {
 			$self->{'logger'}->info("Load average = $load_average. Threshold is set at $max_load. Aborting.");
 			if ( $self->{'options'}->{'throw_busy_exception'} ) {

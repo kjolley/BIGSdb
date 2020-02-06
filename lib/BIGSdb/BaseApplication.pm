@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#(c) 2010-2019, University of Oxford
+#(c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -129,7 +129,7 @@ sub initiate_jobmanager {
 			port             => $self->{'config'}->{'dbport'} // $self->{'system'}->{'port'},
 			user             => $self->{'config'}->{'dbuser'} // $self->{'system'}->{'user'},
 			password         => $self->{'config'}->{'dbpassword'} // $self->{'system'}->{'password'},
-			system => $self->{'system'}
+			system           => $self->{'system'}
 		}
 	);
 	return;
@@ -148,7 +148,9 @@ sub read_config_file {
 
 	#Check integer values
 	foreach my $param (
-		qw(max_load blast_threads bcrypt_cost mafft_threads results_deleted_days cache_days submissions_deleted_days))
+		qw(max_load max_load_webscan blast_threads bcrypt_cost mafft_threads results_deleted_days
+		cache_days submissions_deleted_days)
+	  )
 	{
 		if ( defined $self->{'config'}->{$param} && !BIGSdb::Utils::is_int( $self->{'config'}->{$param} ) ) {
 			$logger->error("Parameter $param in bigsdb.conf should be an integer - default value used.");

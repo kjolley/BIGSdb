@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -531,15 +531,15 @@ sub _scan {
 			open STDOUT, '>', '/dev/null' || $logger->error("Can't detach STDOUT: $!");
 			open STDERR, '>&STDOUT' || $logger->error("Can't detach STDERR: $!");
 			my $options = {
-				labels               => $labels,
-				limit                => $limit,
-				time_limit           => $time_limit,
-				loci                 => $loci,
-				project_id           => $project_id,
-				scan_job             => $scan_job,
-				script_name          => $self->{'system'}->{'script_name'},
-				curator_name         => $curator_name,
-				throw_busy_exception => 1
+				labels                       => $labels,
+				limit                        => $limit,
+				time_limit                   => $time_limit,
+				loci                         => $loci,
+				project_id                   => $project_id,
+				scan_job                     => $scan_job,
+				script_name                  => $self->{'system'}->{'script_name'},
+				curator_name                 => $curator_name,
+				throw_webscan_busy_exception => 1
 			};
 			my $params = $q->Vars;
 			$params->{'ip_address'} = $ENV{'REMOTE_ADDR'};
