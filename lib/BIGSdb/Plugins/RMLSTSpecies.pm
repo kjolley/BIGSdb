@@ -1,6 +1,6 @@
 #RMLSTSpecies.pm - rMLST species identification plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2018-2019, University of Oxford
+#Copyright (c) 2018-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -33,7 +33,7 @@ my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_ISOLATES       => 1000;
 use constant INITIAL_BUSY_DELAY => 60;
 use constant MAX_DELAY          => 600;
-use constant URL                => 'http://rest.pubmlst.org/db/pubmlst_rmlst_seqdef_kiosk/schemes/1/sequence';
+use constant URL                => 'https://rest.pubmlst.org/db/pubmlst_rmlst_seqdef_kiosk/schemes/1/sequence';
 
 sub get_attributes {
 	my ($self) = @_;
@@ -47,7 +47,7 @@ sub get_attributes {
 		buttontext  => 'rMLST species id',
 		menutext    => 'Species identification',
 		module      => 'RMLSTSpecies',
-		version     => '1.2.7',
+		version     => '1.2.8',
 		dbtype      => 'isolates',
 		section     => 'info,analysis,postquery',
 		input       => 'query',
@@ -208,7 +208,7 @@ sub _format_row_html {
 		if ( !$allele_predictions ) {
 			my $message;
 			if ( $response_code == 413 ) {
-				$message = q(Genome size is too large for analysis);
+				$message = q(Genome size is too large or contains too many contigs for analysis);
 			} else {
 				$logger->error("No matching alleles - response code was $response_code");
 				$message = q(No exact matching alleles linked to genome found);
