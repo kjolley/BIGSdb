@@ -23,6 +23,7 @@ use 5.010;
 use JSON;
 use MIME::Base64;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
+use constant MAX_QUERY_SEQ => 5000;
 
 #Scheme routes
 sub setup_routes {
@@ -208,6 +209,11 @@ sub _query_scheme_sequence {
 
 	if ( !$sequence ) {
 		send_error( 'Required field missing: sequence.', 400 );
+	}
+	my $num_sequences = ($sequence =~ tr/>//);
+	if ($num_sequences > MAX_QUERY_SEQ){
+		my $max = MAX_QUERY_SEQ;
+		send_error( "Query contains too many sequences - limit is $max.", 413 );
 	}
 	my $set_id      = $self->get_set_id;
 	my $subdir      = setting('subdir');
