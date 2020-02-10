@@ -1596,18 +1596,28 @@ sub _modify_query_for_filters {
 	my $set_id     = $self->get_set_id;
 	my $field_list = $self->{'xmlHandler'}->get_field_list;
 	foreach my $field (@$field_list) {
-		if ( defined $q->param("$field\_list") && $q->param("$field\_list") ne '' ) {
-			my $value = $q->param("$field\_list");
+		if ( defined $q->param("${field}_list") && $q->param("${field}_list") ne '' ) {
+			my $value = $q->param("${field}_list");
 			if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
-				$qry .= ' AND ';
+				$qry .= ' AND (';
 			} else {
-				$qry = "SELECT * FROM $view WHERE ";
+				$qry = "SELECT * FROM $view WHERE (";
 			}
+			$value =~ s/'/\\'/x;
 			$qry .= (
 				( $value eq '<blank>' || lc($value) eq 'null' )
 				? "$view.$field is null"
-				: "$view.$field = '$value'"
+				: "$view.$field = E'$value'"
 			);
+			my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
+			my $subvalues = $self->_get_sub_values( $value, $optlist );
+			if ($subvalues) {
+				foreach my $subvalue (@$subvalues) {
+					$subvalue =~ s/'/\\'/x;
+					$qry .= " OR $view.$field = E'$subvalue'";
+				}
+			}
+			$qry .= ')';
 		}
 		my $extatt = $extended->{$field};
 		if ( ref $extatt eq 'ARRAY' ) {
