@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2019, University of Oxford
+#Copyright (c) 2017-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -487,6 +487,7 @@ sub _scan_by_loci {
 
 sub _sort_allele_list {
 	my ( $self, $locus, $allele_ids ) = @_;
+	return $allele_ids if @$allele_ids < 2;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
 		@$allele_ids = sort { $a <=> $b } @$allele_ids;
