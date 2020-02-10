@@ -1,6 +1,6 @@
 #SequenceComparison.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -38,7 +38,7 @@ sub get_attributes {
 		menutext         => 'Sequence comparison',
 		module           => 'SequenceComparison',
 		url              => "$self->{'config'}->{'doclink'}/data_query.html#sequence-comparison",
-		version          => '1.0.8',
+		version          => '1.0.9',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		section          => 'analysis',
@@ -148,7 +148,12 @@ sub run {
 			my $base2 = substr( $$seq2_ref, $i, 1 );
 			if ( $base1 ne $base2 ) {
 				my $pos = $i + 1;
-				push @results, qq($pos: <span class="$base1">$base1</span> &rarr; <span class="$base2">$base2</span>);
+				if ( $locus_info->{'data_type'} eq 'peptide' ) {
+					push @results, qq($pos: <span>$base1</span> &rarr; <span>$base2</span>);
+				} else {
+					push @results,
+					  qq($pos: <span class="$base1">$base1</span> &rarr; <span class="$base2">$base2</span>);
+				}
 			}
 		}
 		my $numdiffs = scalar @results;
