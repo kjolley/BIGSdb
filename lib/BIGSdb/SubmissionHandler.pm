@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2019, University of Oxford
+#Copyright (c) 2015-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -1839,6 +1839,7 @@ sub _get_allele_submission_summary {    ## no critic (ProhibitUnusedPrivateSubro
 	my $return_buffer = q();
 	$return_buffer .= $self->_get_text_heading( 'Data summary', { blank_line_before => 1 } );
 	$return_buffer .= "Locus: $allele_submission->{'locus'}\n";
+	$return_buffer .= "Technology: $allele_submission->{'technology'}\n";
 	$return_buffer .= 'Sequence count: ' . scalar @{ $allele_submission->{'seqs'} } . "\n";
 	my $buffer = q();
 
