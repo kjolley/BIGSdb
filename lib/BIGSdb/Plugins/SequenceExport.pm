@@ -1,6 +1,6 @@
 #SequenceExport.pm - Export concatenated sequences/XMFA file plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext       => 'Sequences',
 		menutext         => $seqdef ? 'Profile sequences' : 'Sequences',
 		module           => 'SequenceExport',
-		version          => '1.6.6',
+		version          => '1.6.7',
 		dbtype           => 'isolates,sequences',
 		seqdb_type       => 'schemes',
 		section          => 'export,postquery',
@@ -599,7 +599,7 @@ sub _output {
 		$message_html .=
 		  "<p>No output generated.  Please ensure that your sequences have been defined for these isolates.</p>\n";
 	} else {
-		my $align_qualifier = ( $params->{'align'} || $params->{'translate'} ) ? '(aligned)' : '(not aligned)';
+		my $align_qualifier = $params->{'align'} ? '(aligned)' : '(not aligned)';
 		$self->{'jobManager'}->update_job_output(
 			$job_id,
 			{
