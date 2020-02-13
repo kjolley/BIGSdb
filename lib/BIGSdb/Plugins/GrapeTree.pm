@@ -1,6 +1,6 @@
 #GrapeTree.pm - MST visualization plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2017-2019, University of Oxford
+#Copyright (c) 2017-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -43,7 +43,7 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.3.7',
+		version             => '1.4.0',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -63,6 +63,14 @@ sub _get_limit {
 	my $limit = $self->{'system'}->{'grapetree_limit'} // $self->{'config'}->{'grapetree_limit'} // MAX_RECORDS;
 	return $limit;
 }
+
+sub _get_classification_schemes {
+	my ($self) = @_;
+	return $self->{'datastore'}->run_query( 'SELECT id,name FROM classification_schemes ORDER BY display_order,id',
+		undef, { fetch => 'all_arrayref', slice => {} } );
+}
+
+
 
 sub print_info_panel {
 	my ($self) = @_;
@@ -129,15 +137,16 @@ sub _print_includes_fieldset {
 	say q(<p>Select additional fields to include in GrapeTree metadata.</p>);
 	my ( $headings, $labels ) = $self->get_field_selection_list(
 		{
-			isolate_fields      => 1,
-			extended_attributes => 1,
-			loci                => 0,
-			query_pref          => 0,
-			analysis_pref       => 1,
-			scheme_fields       => 1,
-			sort_labels         => 1,
-			eav_fields          => 1,
-			set_id              => $set_id
+			isolate_fields        => 1,
+			extended_attributes   => 1,
+			loci                  => 0,
+			query_pref            => 0,
+			analysis_pref         => 1,
+			scheme_fields         => 1,
+			sort_labels           => 1,
+			eav_fields            => 1,
+			classification_groups => 1,
+			set_id                => $set_id
 		}
 	);
 	my $fields = [];
@@ -413,9 +422,10 @@ sub _generate_tsv_file {
 	my %include_fields = map { $_ => 1 } @include_fields;
 	$include_fields{'f_id'}                                = 1;
 	$include_fields{"f_$self->{'system'}->{'labelfield'}"} = 1;
-	my $extended    = $self->get_extended_attributes;
-	my $prov_fields = $self->{'xmlHandler'}->get_field_list;
-	my $eav_fields  = $self->{'datastore'}->get_eav_fieldnames;
+	my $extended               = $self->get_extended_attributes;
+	my $prov_fields            = $self->{'xmlHandler'}->get_field_list;
+	my $eav_fields             = $self->{'datastore'}->get_eav_fieldnames;
+	my $classification_schemes = $self->_get_classification_schemes;
 	my @header_fields;
 
 	foreach my $field (@$prov_fields) {
@@ -441,6 +451,11 @@ sub _generate_tsv_file {
 			my $scheme_info = $self->{'datastore'}->get_scheme_info( $1, { set_id => $params->{'set_id'} } );
 			( my $field = "$2 ($scheme_info->{'name'})" ) =~ tr/_/ /;
 			push @header_fields, $field;
+		}
+	}
+	foreach my $cs (@$classification_schemes) {
+		if ( $include_fields{"cg_$cs->{'id'}_group"} ) {
+			push @header_fields, $cs->{'name'};
 		}
 	}
 	local $" = qq(\t);
@@ -478,6 +493,12 @@ sub _generate_tsv_file {
 				my @display_values = sort keys %{ $field_values->{ lc($field) } };
 				local $" = q(; );
 				push @record_values, qq(@display_values) // q();
+			}
+		}
+		foreach my $cs (@$classification_schemes) {
+			if ( $include_fields{"cg_$cs->{'id'}_group"} ) {
+				my $value = $self->get_cscheme_value( $record->{'id'}, $cs->{'id'} );
+				push @record_values, $value;
 			}
 		}
 		say $fh "@record_values";

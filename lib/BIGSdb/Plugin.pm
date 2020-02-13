@@ -979,6 +979,50 @@ sub get_scheme_field_values {
 	return $values;
 }
 
+sub get_cscheme_value {
+	my ( $self, $isolate_id, $cscheme_id ) = @_;
+	if ( !$self->{'cache'}->{'cscheme_cache_table_exists'}->{$cscheme_id} ) {
+		my $scheme_id =
+		  $self->{'datastore'}->run_query( 'SELECT scheme_id FROM classification_schemes WHERE id=?', $cscheme_id );
+		$self->{'cache'}->{'cscheme_scheme_info'}->{$cscheme_id}->{'scheme_id'} = $scheme_id;
+		$self->{'cache'}->{'cscheme_cache_table_exists'}->{$cscheme_id} =
+		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
+			["temp_isolates_scheme_fields_$scheme_id"] );
+	}
+	my $value = q();
+	if ( $self->{'cache'}->{'cscheme_cache_table_exists'}->{$cscheme_id} ) {
+		if ( !$self->{'cache'}->{'cscheme_scheme_info'}->{$cscheme_id}->{'pk'} ) {
+			my $scheme_id    = $self->{'cache'}->{'cscheme_scheme_info'}->{$cscheme_id}->{'scheme_id'};
+			my $scheme_info  = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+			my $scheme_table = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+			$self->{'cache'}->{'cscheme_scheme_info'}->{$cscheme_id}->{'table'} =
+			  $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+			$self->{'cache'}->{'cscheme_scheme_info'}->{$cscheme_id}->{'pk'} = $scheme_info->{'primary_key'};
+		}
+		my $scheme_id    = $self->{'cache'}->{'cscheme_scheme_info'}->{$cscheme_id}->{'scheme_id'};
+		my $scheme_table = $self->{'cache'}->{'cscheme_scheme_info'}->{$cscheme_id}->{'table'};
+		my $pk           = $self->{'cache'}->{'cscheme_scheme_info'}->{$cscheme_id}->{'pk'};
+		my $pk_values    = $self->{'datastore'}->run_query( "SELECT $pk FROM $scheme_table WHERE id=?",
+			$isolate_id, { fetch => 'col_arrayref', cache => "Plugin::cscheme::$scheme_id" } );
+		if (@$pk_values) {
+			my $cscheme_table = $self->{'datastore'}->create_temp_cscheme_table($cscheme_id);
+			my $view          = $self->{'system'}->{'view'};
+
+			#You may get multiple groups if you have a mixed sample
+			my @groups = ();
+			foreach my $pk_value (@$pk_values) {
+				my $groups = $self->{'datastore'}->run_query( "SELECT group_id FROM $cscheme_table WHERE profile_id=?",
+					$pk_value, { fetch => 'col_arrayref', cache => "Plugin::cscheme::get_group::$cscheme_table" } );
+				push @groups, @$groups;
+			}
+			@groups = uniq sort @groups;
+			local $" = q(;);
+			$value = qq(@groups);
+		}
+	}
+	return $value;
+}
+
 sub attempted_spam {
 	my ( $self, $str ) = @_;
 	return if !$str || !ref $str;

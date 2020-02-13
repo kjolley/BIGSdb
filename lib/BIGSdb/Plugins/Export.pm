@@ -1,6 +1,6 @@
 #Export.pm - Export plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -43,7 +43,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.7.9',
+		version     => '1.7.10',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
@@ -420,7 +420,7 @@ sub _write_tab_text {
 	while ( $sql->fetchrow_arrayref ) {
 		next
 		  if $id_used{ $data{'id'} }
-		  ;         #Ordering by scheme field/locus can result in multiple rows per isolate if multiple values defined.
+		  ;    #Ordering by scheme field/locus can result in multiple rows per isolate if multiple values defined.
 		$id_used{ $data{'id'} } = 1;
 		if ( !$offline ) {
 			print q(.) if !$i;
@@ -760,50 +760,11 @@ sub _write_composite {
 
 sub _write_classification_scheme {
 	my ( $self, $fh, $cscheme, $data, $first, $params ) = @_;
-	if ( !$self->{'cache'}->{'cscheme_cache_table_exists'}->{$cscheme} ) {
-		my $scheme_id =
-		  $self->{'datastore'}->run_query( 'SELECT scheme_id FROM classification_schemes WHERE id=?', $cscheme );
-		$self->{'cache'}->{'cscheme_scheme_info'}->{$cscheme}->{'scheme_id'} = $scheme_id;
-		$self->{'cache'}->{'cscheme_cache_table_exists'}->{$cscheme} =
-		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
-			["temp_isolates_scheme_fields_$scheme_id"] );
-	}
 	if ( !$self->{'cache'}->{'cscheme_name'}->{$cscheme} ) {
 		$self->{'cache'}->{'cscheme_name'}->{$cscheme} =
 		  $self->{'datastore'}->run_query( 'SELECT name FROM classification_schemes WHERE id=?', $cscheme );
 	}
-	my $value;
-	if ( $self->{'cache'}->{'cscheme_cache_table_exists'}->{$cscheme} ) {
-		if ( !$self->{'cache'}->{'cscheme_scheme_info'}->{$cscheme}->{'pk'} ) {
-			my $scheme_id    = $self->{'cache'}->{'cscheme_scheme_info'}->{$cscheme}->{'scheme_id'};
-			my $scheme_info  = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-			my $scheme_table = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
-			$self->{'cache'}->{'cscheme_scheme_info'}->{$cscheme}->{'table'} =
-			  $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
-			$self->{'cache'}->{'cscheme_scheme_info'}->{$cscheme}->{'pk'} = $scheme_info->{'primary_key'};
-		}
-		my $scheme_id    = $self->{'cache'}->{'cscheme_scheme_info'}->{$cscheme}->{'scheme_id'};
-		my $scheme_table = $self->{'cache'}->{'cscheme_scheme_info'}->{$cscheme}->{'table'};
-		my $pk           = $self->{'cache'}->{'cscheme_scheme_info'}->{$cscheme}->{'pk'};
-		my $pk_values    = $self->{'datastore'}->run_query( "SELECT $pk FROM $scheme_table WHERE id=?",
-			$data->{'id'}, { fetch => 'col_arrayref', cache => "Export::write_cscheme::$scheme_id" } );
-		if (@$pk_values) {
-			my $cscheme_table = $self->{'datastore'}->create_temp_cscheme_table($cscheme);
-			my $view          = $self->{'system'}->{'view'};
-
-			#You may get multiple groups if you have a mixed sample
-			my @groups = ();
-			foreach my $pk_value (@$pk_values) {
-				my $groups = $self->{'datastore'}->run_query( "SELECT group_id FROM $cscheme_table WHERE profile_id=?",
-					$pk_value,
-					{ fetch => 'col_arrayref', cache => "Export::write_cscheme::get_group::$cscheme_table" } );
-				push @groups, @$groups;
-			}
-			@groups = uniq sort @groups;
-			local $" = q(;);
-			$value = qq(@groups);
-		}
-	}
+	my $value = $self->get_cscheme_value( $data->{'id'}, $cscheme );
 	if ( $params->{'oneline'} ) {
 		if ( $self->{'cache'}->{'cscheme_cache_table_exists'}->{$cscheme} ) {
 			print $fh $self->_get_id_one_line( $data, $params );
