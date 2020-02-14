@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -174,16 +174,7 @@ sub _print_contig_table_header {
 	my $att_headings = @cleaned_attributes ? qq(<th>@cleaned_attributes</th>) : q();
 	say q(<tr><th>Sequence</th><th>Sequencing method</th>)
 	  . qq(<th>Original designation</th><th>Length</th><th>Comments</th>$att_headings<th>Locus</th>)
-	  . q(<th>Start</th><th>End</th><th>Direction</th><th>EMBL format</th><th>Artemis);
-	say $self->get_tooltip(
-		q(Artemis - This will launch Artemis using Java WebStart. )
-		  . q(The contig annotations should open within Artemis but this may depend on your operating system )
-		  . q(and version of Java.  If the annotations do not open within Artemis, download the EMBL file )
-		  . q(locally and load manually in to Artemis.),
-		{ style => 'color:white' }
-	);
-	say q(</th>);
-
+	  . q(<th>Start</th><th>End</th><th>Direction</th><th>EMBL format</th>);
 	if ( $self->{'curate'} && ( $self->{'permissions'}->{'modify_loci'} || $self->is_admin ) ) {
 		say q(<th>Renumber);
 		say $self->get_tooltip(
@@ -262,11 +253,6 @@ sub _print_contig_table {
 					say $q->hidden($_) foreach qw (page db seqbin_id);
 					say $q->submit( -name => 'EMBL', -class => 'smallbutton' );
 					say $q->end_form;
-					say qq(</td><td rowspan="$allele_count" style="vertical-align:top">);
-					my $jnlp = $self->_make_artemis_jnlp( $data->{'id'} );
-					say $q->start_form( -method => 'get', -action => "/tmp/$jnlp" );
-					say $q->submit( -name => 'Artemis', -class => 'smallbutton' );
-					say $q->end_form;
 					say q(</td>);
 
 					if ( $self->{'curate'} && ( $self->{'permissions'}->{'modify_loci'} || $self->is_admin ) ) {
@@ -305,74 +291,6 @@ sub _print_contig_table {
 	}
 	say q(</table></div></div>);
 	return;
-}
-
-sub _make_artemis_jnlp {
-	my ( $self, $seqbin_id ) = @_;
-	my $temp          = BIGSdb::Utils::get_random();
-	my $jnlp_filename = "${temp}_$seqbin_id.jnlp";
-
-	# if access is not public or access is via curation interface then
-	# EMBL files will need to be created and placed in a public location
-	# for Artemis to be able to load them.  Public access databases can
-	# create the EMBL file on demand, which is quicker and prevents cluttering
-	# the temporary directory.
-	my $url;
-	my $ssl = $self->{'cgi'}->https;
-	my $prefix = $ssl ? 'https://' : 'http://';
-	if ( $self->{'system'}->{'read_access'} ne 'public' || $self->{'curate'} ) {
-		my $embl_filename = "$temp\_$seqbin_id.embl";
-		my $full_path     = "$self->{'config'}->{'tmp_dir'}/$embl_filename";
-		open( my $fh_embl, '>', $full_path ) || $logger->error("Can't open $full_path for writing");
-		my %page_attributes = (
-			system        => $self->{'system'},
-			cgi           => $self->{'cgi'},
-			instance      => $self->{'instance'},
-			datastore     => $self->{'datastore'},
-			db            => $self->{'db'},
-			contigManager => $self->{'contigManager'}
-		);
-		my $seqbin_to_embl = BIGSdb::SeqbinToEMBL->new(%page_attributes);
-		print $fh_embl $seqbin_to_embl->write_embl( [$seqbin_id], { get_buffer => 1 } );
-		close $fh_embl;
-		$url = $prefix . $self->{'cgi'}->virtual_host . qq(/tmp/$embl_filename);
-	} else {
-		$url =
-		    $prefix
-		  . $self->{'cgi'}->virtual_host
-		  . qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=embl&amp;seqbin_id=$seqbin_id);
-	}
-	open( my $fh, '>', "$self->{'config'}->{'tmp_dir'}/$jnlp_filename" )
-	  || $logger->error("Can't open $self->{'config'}->{'tmp_dir'}/$jnlp_filename for writing.");
-	print $fh <<"JNLP";
-<?xml version="1.0" encoding="UTF-8"?>
-<jnlp spec="1.0+" codebase="http://www.genedb.org/artemis/">
- <information>
-   <title>Artemis</title>
-   <vendor>Sanger Institute</vendor> 
-   <homepage href="http://www.sanger.ac.uk/resources/software/artemis/"/>
-   <description>Artemis</description>
-   <description kind="short">DNA sequence viewer and annotation tool.</description>
-   <offline-allowed/>
- </information>
- <security>
-   <all-permissions/>
- </security>
- <resources>
-   <j2se version="1.5+" initial-heap-size="32m" max-heap-size="400m"/>
-   <jar href="sartemis.jar"/>
-   <property name="com.apple.mrj.application.apple.menu.about.name" value="Artemis" />
-   <property name="artemis.environment" value="UNIX" />
-   <property name="j2ssh" value="" />
-   <property name="apple.laf.useScreenMenuBar" value="true" />
- </resources>
- <application-desc main-class="uk.ac.sanger.artemis.components.ArtemisMain">
-   <argument>$url</argument>
- </application-desc>
-</jnlp>
-JNLP
-	close $fh;
-	return $jnlp_filename;
 }
 
 sub get_title {
