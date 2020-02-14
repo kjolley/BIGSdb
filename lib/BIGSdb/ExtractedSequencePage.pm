@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -120,6 +120,7 @@ sub print_content {
 		say $self->get_sixpack_display($seq_features);
 		say q(</pre></div>);
 	}
+	say q(</div>);
 	return;
 }
 
