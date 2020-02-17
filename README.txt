@@ -1,3 +1,5 @@
+v1.25.0: *Option to allow user group members to co-curate private shared data.
+         *Separate load limits for web scans and offline jobs.
 v1.24.1: *Support for non-optlist multivalue fields.
 v1.24.0: *Support for loci containing introns. You will need to install BLAT
           and set its path in bigsdb.conf to enable this.

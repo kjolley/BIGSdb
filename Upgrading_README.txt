@@ -30,6 +30,7 @@ Version 1.21: Change of seqdef and isolate database structures.
 Version 1.22: Change of isolate and rest_db database structure.
 Version 1.23: Change of isolate database structure.
 Version 1.24: Change of isolate database structure.
+Version 1.25: Change of isolate database structure.
 
 Details can be found below.
 
@@ -441,3 +442,11 @@ introns - needed if working with eukaryote genes. BLAT needs to be installed
 to enable the use of introns and its path set in bigsdb.conf.
 
 Please run isolatedb_v1.24.sql against isolate databases.
+
+Version 1.25
+------------
+There are changes to the isolate database. These are needed to allow permission
+to be given for members of a user group to be able to curate shared private
+data submitted by another member of the user group.
+
+Please run isolatedb_v1.25.sql against isolate databases.
