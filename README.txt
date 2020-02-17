@@ -4,7 +4,7 @@ v1.24.1: *Support for non-optlist multivalue fields.
 v1.24.0: *Support for loci containing introns. You will need to install BLAT
           and set its path in bigsdb.conf to enable this.
 v1.23.6: *Use multiple threads for alignment stage for Genome Comparator, ITOL,
-          and GrapeTree plugins.
+          and Microreact plugins.
          *Option for a curator to re-open a closed submission.
 v1.23.5: *Support for only using type alleles when autotagging missing loci.
          *Fix REST OAuth calls when mounted in domain sub-directory.
