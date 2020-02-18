@@ -601,9 +601,11 @@ sub skip_for_locus_view {
 }
 
 sub run_script {
-	my ($self)  = @_;
-	my $params  = $self->{'params'};
-	my $options = $self->{'options'};
+	my ($self) = @_;
+	return $self
+	  if $self->{'options'}->{'query_only'};    #Return script object to allow access to methods
+	my $params       = $self->{'params'};
+	my $options      = $self->{'options'};
 	my @isolate_list = split( "\0", $params->{'isolate_id'} );
 	BIGSdb::Exception::Data->throw('Invalid isolate_ids passed') if !@isolate_list;
 	my $filtered_list = $self->_filter_ids_by_project( \@isolate_list, $options->{'project_id'} );
