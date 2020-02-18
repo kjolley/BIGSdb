@@ -1,6 +1,6 @@
 #PCR.pm - In silico PCR plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2019, University of Oxford
+#Copyright (c) 2019-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -27,6 +27,7 @@ use BIGSdb::Constants qw(:interface);
 use List::MoreUtils qw(uniq);
 use Log::Log4perl qw(get_logger);
 use Try::Tiny;
+use Scalar::Util qw(weaken);
 use constant MAX_DISPLAY_TAXA     => 1000;
 use constant MAX_RECORDS          => 10_000;
 use constant MIN_PRIMER_LENGTH    => 13;
@@ -46,7 +47,7 @@ sub get_attributes {
 		buttontext  => 'PCR',
 		menutext    => 'In silico PCR',
 		module      => 'PCR',
-		version     => '1.0.5',
+		version     => '1.0.6',
 		dbtype      => 'isolates',
 		section     => 'info,analysis,postquery',
 		input       => 'query',
@@ -373,6 +374,7 @@ sub run_job {
 		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $progress } );
 		system( "$self->{'config'}->{'ipcress_path'} --input $reaction_file --sequence $fasta_file "
 			  . "--mismatch $max_mismatch --pretty false > $results_file 2> /dev/null" );
+		unlink $fasta_file;
 		my $results     = $self->_parse_results( $results_file, $params );
 		my $num_results = @$results;
 		my $label       = $self->get_isolate_name_from_id($id);
@@ -415,15 +417,16 @@ sub run_job {
 					  . qq($product->{'start'}-$product->{'end'}|$product->{'description'}),
 					seq => $seqs->{'seq'}
 				  };
+				weaken($seqs);
 				$j++;
 			}
 		}
+		weaken($results);
 		$td = $td == 1 ? 2 : 1;
 		last if $self->{'exit'};
 	}
 	$self->_export_summary_tables( $job_id, $summary );
 	unlink $reaction_file;
-	unlink $fasta_file;
 	unlink $results_file;
 	if ( $params->{'export'} ) {
 		$self->_export_fasta( $job_id, $export_seqs );
@@ -605,6 +608,7 @@ sub _make_fasta_file {
 		say $fh $contigs->{$contig_id};
 	}
 	close $fh;
+	weaken $contigs;
 	return;
 }
 1;
