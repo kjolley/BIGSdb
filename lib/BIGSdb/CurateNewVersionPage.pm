@@ -221,6 +221,7 @@ sub _create_new_version {
 	my $refs     = $self->{'datastore'}->get_isolate_refs($existing_id);
 	my $projects = $self->{'datastore'}->run_query( 'SELECT project_id FROM project_members WHERE isolate_id=?',
 		$existing_id, { fetch => 'col_arrayref' } );
+	my $eav_fields = $self->{'datastore'}->get_eav_fieldnames;
 	eval {
 		$self->{'db'}->do( $insert, undef, @values );
 		$self->{'db'}->do( 'INSERT INTO isolate_aliases (isolate_id,alias,curator,datestamp) VALUES (?,?,?,?)',
@@ -238,6 +239,14 @@ sub _create_new_version {
 		if ($is_private) {
 			$self->{'db'}->do( 'INSERT INTO private_isolates (isolate_id,user_id,datestamp) VALUES (?,?,?)',
 				undef, $new_id, $curator_id, 'now' );
+		}
+		foreach my $field (@$eav_fields) {
+			my $value = $self->{'datastore'}->get_eav_field_value( $existing_id, $field );
+			next if !defined $value;
+			my $eav_table = $self->{'datastore'}->get_eav_field_table($field);
+			$self->{'db'}->do( "INSERT INTO $eav_table (isolate_id,field,value) VALUES (?,?,?)", undef, $new_id, $field,
+				$value )
+			  ;
 		}
 	};
 	if ($@) {
