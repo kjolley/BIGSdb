@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2018, University of Oxford
+#Copyright (c) 2014-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -197,15 +197,26 @@ sub _create_new_version {
 	my $field_values = $self->{'datastore'}->get_isolate_field_values($existing_id);
 	my (@values);
 	my $curator_id = $self->get_curator_id;
+	my @used_fields;
+	my $att = $self->{'xmlHandler'}->get_all_field_attributes;
+	my %always_required = map { $_ => 1 } qw(id date_entered datestamp sender curator);
+
 	foreach my $field (@$fields) {
 		$field_values->{$field} = $new_id if $field eq 'id';
 		$field_values->{$field} = BIGSdb::Utils::get_datestamp() if $field eq 'date_entered' || $field eq 'datestamp';
 		$field_values->{$field} = $curator_id if $field eq 'curator';
-		push @values, $field_values->{ lc($field) };
+		if (   ( $att->{$field}->{'new_version'} // q() ) eq 'no'
+			&& ( $att->{'field'}->{'required'} // q() ) ne 'yes'
+			&& !$always_required{$field} )
+		{
+			next;
+		}
+		push @used_fields, $field;
+		push @values,      $field_values->{ lc($field) };
 	}
 	my @placeholders = ('?') x @values;
 	local $" = ',';
-	my $insert   = "INSERT INTO isolates (@$fields) VALUES (@placeholders)";
+	my $insert   = "INSERT INTO isolates (@used_fields) VALUES (@placeholders)";
 	my $aliases  = $self->{'datastore'}->get_isolate_aliases($existing_id);
 	my $refs     = $self->{'datastore'}->get_isolate_refs($existing_id);
 	my $projects = $self->{'datastore'}->run_query( 'SELECT project_id FROM project_members WHERE isolate_id=?',
