@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2019, University of Oxford
+#Copyright (c) 2015-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -103,6 +103,19 @@ use constant FASTA_FLANKING_FILE => q(<span class="fa-stack fa-2x export">)
   . q(<span class="fas fa-dna fa-stack-1x" style="font-size:0.5em;padding-top:0.2em;color:#848"></span>)
   . q(<span class="fas fa-plus fa-stack-1x" style="font-size:0.6em;padding-left:0.9em;)
   . q(margin-top:-0.8em;color:#fff"></span></span>);
+use constant LABELLED_FASTA_FILE => q(<span class="fa-stack fa-2x export">)
+  . q(<span class="fas fa-square fa-stack-2x export_fasta"></span>)
+  . q(<span class="fas fa-file fa-stack-1x fa-inverse" style="margin-top:-0.2em"></span>)
+  . q(<span class="fas fa-dna fa-stack-1x" style="font-size:0.5em;margin-top:-0.2em;color:#848"></span>)
+  . q(<span class="fas fa-stack-text fa-stack-1x" style="font-size:0.4em;padding-left:0.1em;)
+  . q(margin-top:1.5em">FASTA</span></span>);
+use constant EMBL_FILE => q(<span class="fa-stack fa-2x export">)
+  . q(<span class="fas fa-square fa-stack-2x export_fasta"></span>)
+  . q(<span class="fas fa-file fa-stack-1x fa-inverse" style="margin-top:-0.2em"></span>)
+  . q(<span class="fas fa-dna fa-stack-1x" style="font-size:0.5em;margin-top:-0.2em;color:#848"></span>)
+  . q(<span class="fas fa-stack-text fa-stack-1x" style="font-size:0.4em;padding-left:0.1em;)
+  . q(margin-top:1.5em">EMBL</span></span>);
+
 use constant MISC_FILE => q(<span class="fa-stack fa-2x export">)
   . q(<span class="fas fa-square fa-stack-2x export_misc"></span>)
   . q(<span class="fas fa-file fa-stack-1x fa-inverse"></span></span>);
@@ -125,7 +138,7 @@ use constant MAX_ROWS => 20;
 @values = qw(BUTTON_CLASS RESET_BUTTON_CLASS FACE_STYLE SHOW HIDE SAVE SAVING UP DOWN LEFT RIGHT
   EDIT DELETE ADD COMPARE UPLOAD QUERY USERS GOOD BAD TRUE FALSE BAN DOWNLOAD BACK QUERY_MORE EDIT_MORE
   UPLOAD_CONTIGS LINK_CONTIGS MORE HOME RELOAD KEY EYE_SHOW EYE_HIDE CURATE EXPORT_TABLE EXCEL_FILE TEXT_FILE
-  FASTA_FILE FASTA_FLANKING_FILE MISC_FILE ARCHIVE_FILE IMAGE_FILE ALIGN_FILE CODE_FILE FLANKING MAX_ROWS);
+  FASTA_FILE FASTA_FLANKING_FILE LABELLED_FASTA_FILE EMBL_FILE MISC_FILE ARCHIVE_FILE IMAGE_FILE ALIGN_FILE CODE_FILE FLANKING MAX_ROWS);
 push @EXPORT_OK, @values;
 $EXPORT_TAGS{'interface'} = [@values];
 

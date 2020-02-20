@@ -22,6 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::IsolateInfoPage);
 use BIGSdb::SeqbinToEMBL;
+use BIGSdb::Constants qw(:interface);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use POSIX qw(ceil);
@@ -104,10 +105,12 @@ sub _print_stats {
 		my $commify = BIGSdb::Utils::commify( $seqbin_stats->{'total_length'} );
 		say qq(<dt>Length</dt><dd>$commify</dd></dl>);
 	}
-	say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . qq(page=downloadSeqbin&amp;isolate_id=$isolate_id">Download sequences (FASTA format)</a></li>);
-	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=embl&amp;)
-	  . qq(isolate_id=$isolate_id">Download sequences with annotations (EMBL format)</a></li></ul>);
+	my ($fasta,$embl) = (LABELLED_FASTA_FILE,EMBL_FILE);
+	print qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . qq(page=downloadSeqbin&amp;isolate_id=$isolate_id" title="FASTA format">$fasta</a>);
+	print qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=embl&amp;)
+	  . qq(isolate_id=$isolate_id" title="EMBL format">$embl</a>);
+	  say q(</p>);
 	say q(</div>);
 	if ( $seqbin_stats->{'contigs'} > 1 ) {
 		say q(<div style="float:left;padding-left:2em">);
