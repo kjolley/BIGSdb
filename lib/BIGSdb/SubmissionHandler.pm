@@ -563,6 +563,7 @@ sub check_new_profiles {
 				$values[$i] //= '';
 				$values[$i] =~ s/^\s*//x;
 				$values[$i] =~ s/\s*$//x;
+				$values[$i] =~ s/"//gx;
 				next if !$field_by_pos{$i} || $field_by_pos{$i} eq 'id';
 				if ( $values[$i] eq q(N) && !$scheme_info->{'allow_missing_loci'} ) {
 					push @err, "$row_id: Arbitrary values (N) are not allowed for locus $field_by_pos{$i}.";
