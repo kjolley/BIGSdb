@@ -2061,7 +2061,7 @@ sub can_modify_table {
 		}
 
 		#Profile refs and retired profiles
-		my %general_profile_tables = map { $_ => 1 } qw(profile_refs retired_profiles);
+		my %general_profile_tables = map { $_ => 1 } qw(profile_refs);
 		if ( $general_profile_tables{$table} ) {
 			return $self->{'datastore'}
 			  ->run_query( 'SELECT EXISTS(SELECT * FROM scheme_curators WHERE curator_id=?)', $self->get_curator_id );
