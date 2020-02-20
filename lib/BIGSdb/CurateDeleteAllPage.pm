@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -249,7 +249,7 @@ sub _delete_isolate_list {
 			$self->{'db'}->do( 'UPDATE isolates SET new_version=NULL WHERE id=?', undef, $old_version );
 		}
 		$self->{'db'}->do( 'DELETE FROM isolates WHERE id=?', undef, $isolate_id );
-		if ( $q->param('retire') ) {
+		if ( $q->param('retire') || $self->_retire_only ) {
 			$self->{'db'}->do( 'INSERT INTO retired_isolates (isolate_id,curator,datestamp) VALUES (?,?,?)',
 				undef, $isolate_id, $curator_id, 'now' );
 		}
@@ -261,7 +261,7 @@ sub _delete_profiles {
 	my ( $self, $delete_qry ) = @_;
 	my $q          = $self->{'cgi'};
 	my $curator_id = $self->get_curator_id;
-	if ( $q->param('retire') ) {
+	if ( $q->param('retire') || $self->_retire_only ) {
 		my $qry = $delete_qry;
 		$qry =~ s/DELETE/SELECT\ scheme_id,profile_id/x;
 		my $to_retire = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
@@ -285,7 +285,7 @@ sub _delete_alleles {
 	my ( $self, $delete_qry ) = @_;
 	my $q          = $self->{'cgi'};
 	my $curator_id = $self->get_curator_id;
-	if ( $q->param('retire') ) {
+	if ( $q->param('retire') || $self->_retire_only ) {
 		my $qry = $delete_qry;
 		$qry =~ s/DELETE/SELECT\ locus,allele_id/x;
 		my $to_retire = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
@@ -400,20 +400,33 @@ sub _print_interface {
 	  . q(Please confirm that this is your intention.</p>);
 
 	if ( $retire{$table} ) {
-		say q(<p>The identifiers will not be re-assigned if you 'delete and retire'.</p>);
+		say $self->_retire_only
+		  ? q(<p>The identifiers will not be re-assigned.</p>)
+		  : q(<p>The identifiers will not be re-assigned if you 'delete and retire'.</p>);
 	}
 	say q(</fieldset>);
 	say $q->start_form;
 	if ( $retire{$table} ) {
-		$self->print_action_fieldset(
-			{
-				legend        => 'Confirm action',
-				submit_label  => 'Delete',
-				submit2       => 'retire',
-				submit2_label => 'Delete and retire',
-				no_reset      => 1
-			}
-		);
+		if ( $self->_retire_only ) {
+			$self->print_action_fieldset(
+				{
+					legend       => 'Confirm action',
+					no_reset     => 1,
+					submit       => 'retire',
+					submit_label => 'Delete and Retire'
+				}
+			);
+		} else {
+			$self->print_action_fieldset(
+				{
+					legend        => 'Confirm action',
+					submit_label  => 'Delete',
+					submit2       => 'retire',
+					submit2_label => 'Delete and retire',
+					no_reset      => 1
+				}
+			);
+		}
 	} else {
 		$self->print_action_fieldset( { legend => 'Confirm action', submit_label => 'Delete', no_reset => 1 } );
 	}
@@ -422,6 +435,12 @@ sub _print_interface {
 	say $q->end_form;
 	say q(</div>);
 	return;
+}
+
+sub _retire_only {
+	my ($self) = @_;
+	return ( !defined $self->{'system'}->{'delete_retire_only'} && $self->{'config'}->{'delete_retire_only'} )
+	  || ( $self->{'system'}->{'delete_retire_only'} // q() ) eq 'yes';
 }
 
 sub get_title {

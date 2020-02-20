@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -91,24 +91,41 @@ sub print_content {
 	$buffer .= $q->start_form;
 	$q->param( page => 'isolateDelete' );    #need to set as this may have changed if there is a seqbin display button
 	$buffer .= $q->hidden($_) foreach qw (page db id);
-	$buffer .= $self->print_action_fieldset(
-		{
-			get_only      => 1,
-			no_reset      => 1,
-			submit_label  => 'Delete',
-			submit2       => 'delete_and_retire',
-			submit2_label => 'Delete and Retire'
-		}
-	);
+
+	if ( $self->_retire_only ) {
+		$buffer .= $self->print_action_fieldset(
+			{
+				get_only     => 1,
+				no_reset     => 1,
+				submit       => 'delete_and_retire',
+				submit_label => 'Delete and Retire'
+			}
+		);
+	} else {
+		$buffer .= $self->print_action_fieldset(
+			{
+				get_only      => 1,
+				no_reset      => 1,
+				submit_label  => 'Delete',
+				submit2       => 'delete_and_retire',
+				submit2_label => 'Delete and Retire'
+			}
+		);
+	}
 	$buffer .= $q->end_form;
 	$buffer .= "</div>\n";
-
 	if ( $q->param('submit') || $q->param('delete_and_retire') ) {
 		$self->_delete( $data->{'id'}, { retire => $q->param('delete_and_retire') ? 1 : 0 } );
 		return;
 	}
 	print $buffer;
 	return;
+}
+
+sub _retire_only {
+	my ($self) = @_;
+	return ( !defined $self->{'system'}->{'delete_retire_only'} && $self->{'config'}->{'delete_retire_only'} )
+	  || ( $self->{'system'}->{'delete_retire_only'} // q() ) eq 'yes';
 }
 
 sub _delete {
@@ -130,7 +147,7 @@ sub _delete {
 		push @actions, { statement => 'UPDATE isolates SET new_version=NULL WHERE id=?', arguments => [$old_version] };
 	}
 	push @actions, { statement => 'DELETE FROM isolates WHERE id=?', arguments => [$isolate_id] };
-	if ( $options->{'retire'} ) {
+	if ( $options->{'retire'} || $self->_retire_only ) {
 		my $curator_id = $self->get_curator_id;
 		push @actions,
 		  {

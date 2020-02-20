@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -97,6 +97,12 @@ sub _show_modification_warning {
 		  . q(This does not affect allele designations, but any profiles will have to be reloaded.</p></div>);
 	}
 	return;
+}
+
+sub _retire_only {
+	my ($self) = @_;
+	return ( !defined $self->{'system'}->{'delete_retire_only'} && $self->{'config'}->{'delete_retire_only'} )
+	  || ( $self->{'system'}->{'delete_retire_only'} // q() ) eq 'yes';
 }
 
 sub _get_fields_and_values {
@@ -263,15 +269,25 @@ sub _display_record {
 		$buffer .= qq(</ul></fieldset></div>\n);
 	}
 	if ( $retire_table{$table} ) {
-		$buffer .= $self->print_action_fieldset(
-			{
-				submit_label  => 'Delete',
-				submit2       => 'delete_and_retire',
-				submit2_label => 'Delete and Retire',
-				no_reset      => 1,
-				get_only      => 1
-			}
-		);
+		if ( $self->_retire_only ) {
+			$buffer .= $self->print_action_fieldset(
+				{
+					submit_label => 'Delete and Retire',
+					no_reset     => 1,
+					get_only     => 1
+				}
+			);
+		} else {
+			$buffer .= $self->print_action_fieldset(
+				{
+					submit_label  => 'Delete',
+					submit2       => 'delete_and_retire',
+					submit2_label => 'Delete and Retire',
+					no_reset      => 1,
+					get_only      => 1
+				}
+			);
+		}
 	} else {
 		$buffer .= $self->print_action_fieldset( { submit_label => 'Delete', no_reset => 1, get_only => 1 } );
 	}
@@ -279,7 +295,7 @@ sub _display_record {
 	$buffer .= $q->end_form;
 	if ( $q->param('sent') ) {
 		$self->_delete( $table, $data, $query_fields, $query_values,
-			{ retire => $q->param('delete_and_retire') ? 1 : 0 } );
+			{ retire => ($q->param('delete_and_retire') || $self->_retire_only) ? 1 : 0 } );
 		return if $q->param('submit') || $q->param('delete_and_retire');
 	}
 	say $buffer;
