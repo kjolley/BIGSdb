@@ -59,7 +59,7 @@ sub get_attributes {
 		url              => "$self->{'config'}->{'doclink'}/data_analysis/itol.html",
 		order            => 35,
 		min              => 2,
-		max => $self->{'config'}->{'itol_record_limit'} // $self->{'system'}->{'itol_record_limit'} // MAX_RECORDS,
+		max => $self->{'system'}->{'itol_record_limit'} // $self->{'config'}->{'itol_record_limit'} // MAX_RECORDS,
 		always_show_in_menu => 1
 	);
 	return \%att;

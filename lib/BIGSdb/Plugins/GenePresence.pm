@@ -1,6 +1,6 @@
 #GenePresence.pm - Gene presence/absence plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -45,7 +45,7 @@ sub get_attributes {
 		menutext    => 'Gene presence',
 		module      => 'GenePresence',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/gene_presence.html",
-		version     => '2.0.9',
+		version     => '2.0.10',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -74,7 +74,10 @@ sub _print_interface {
 	say q(<div class="box" id="queryform"><p>Please select the required isolate ids and loci for comparison - )
 	  . q(use CTRL or SHIFT to make multiple selections in list boxes. In addition to selecting individual loci, )
 	  . q(you can choose to include all loci defined in schemes by selecting the appropriate scheme description.</p>);
-	my $max = BIGSdb::Utils::commify(MAX_RECORDS);
+	my $max_records = $self->{'system'}->{'genepresence_record_limit'}
+	  // $self->{'config'}->{'genepresence_record_limit'} // MAX_RECORDS;
+	$max_records = MAX_RECORDS if !BIGSdb::Utils::is_int($max_records);
+	my $max = BIGSdb::Utils::commify($max_records);
 	say qq(<p>Interactive analysis is limited to $max data points (isolates x loci). )
 	  . q(If you select more than this then output will be restricted to static tables.);
 	say $q->start_form;
@@ -286,9 +289,13 @@ sub run {
 		if ( $q->param('user_upload') ) {
 			$user_upload = $self->_upload_user_file;
 		}
-		if ( @$ids > MAX_TAXA ) {
+		my $max_taxa = $self->{'system'}->{'genepresence_taxa_limit'}
+		  // $self->{'config'}->{'genepresence_taxa_limit'}
+		  // MAX_TAXA;
+		$max_taxa = MAX_TAXA if !BIGSdb::Utils::is_int($max_taxa);
+		if ( @$ids > $max_taxa ) {
 			my $selected = BIGSdb::Utils::commify( scalar @$ids );
-			my $limit    = BIGSdb::Utils::commify(MAX_TAXA);
+			my $limit    = BIGSdb::Utils::commify($max_taxa);
 			$self->print_bad_status(
 				{ message => qq(Analysis is restricted to $limit isolates. You have selected $selected.) } );
 			$continue = 0;
@@ -397,8 +404,12 @@ sub run_job {
 	$self->_create_presence_output( $job_id, $data );
 	my $message;
 	my $record_count = @$isolate_ids * @$loci;
-	if ( $record_count > MAX_RECORDS ) {
-		my $nice_max = BIGSdb::Utils::commify(MAX_RECORDS);
+	my $max_records  = $self->{'system'}->{'genepresence_record_limit'}
+	  // $self->{'config'}->{'genepresence_record_limit'} // MAX_RECORDS;
+	$max_records = MAX_RECORDS if !BIGSdb::Utils::is_int($max_records);
+
+	if ( $record_count > $max_records ) {
+		my $nice_max = BIGSdb::Utils::commify($max_records);
 		my $selected = BIGSdb::Utils::commify($record_count);
 		$message =
 		    qq(Interactive analysis is limited to $nice_max records (isolates x loci). )
