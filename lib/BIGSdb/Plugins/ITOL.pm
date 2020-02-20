@@ -1,6 +1,6 @@
 #ITol.pm - Phylogenetic tree plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2016-2019, University of Oxford
+#Copyright (c) 2016-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -39,27 +39,27 @@ use constant ITOL_TREE_URL   => 'https://itol.embl.de/tree';
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name                => 'iTOL',
-		author              => 'Keith Jolley',
-		affiliation         => 'University of Oxford, UK',
-		email               => 'keith.jolley@zoo.ox.ac.uk',
-		description         => 'Phylogenetic trees with data overlays',
-		menu_description    => 'Phylogenetic trees with data overlays',
-		category            => 'Third party',
-		buttontext          => 'iTOL',
-		menutext            => 'iTOL',
-		module              => 'ITOL',
-		version             => '1.3.15',
-		dbtype              => 'isolates',
-		section             => 'third_party,postquery',
-		input               => 'query',
-		help                => 'tooltips',
-		requires            => 'aligner,offline_jobs,js_tree,clustalw',
-		supports            => 'user_genomes',
-		url                 => "$self->{'config'}->{'doclink'}/data_analysis/itol.html",
-		order               => 35,
-		min                 => 2,
-		max                 => $self->{'system'}->{'itol_record_limit'} // MAX_RECORDS,
+		name             => 'iTOL',
+		author           => 'Keith Jolley',
+		affiliation      => 'University of Oxford, UK',
+		email            => 'keith.jolley@zoo.ox.ac.uk',
+		description      => 'Phylogenetic trees with data overlays',
+		menu_description => 'Phylogenetic trees with data overlays',
+		category         => 'Third party',
+		buttontext       => 'iTOL',
+		menutext         => 'iTOL',
+		module           => 'ITOL',
+		version          => '1.3.16',
+		dbtype           => 'isolates',
+		section          => 'third_party,postquery',
+		input            => 'query',
+		help             => 'tooltips',
+		requires         => 'aligner,offline_jobs,js_tree,clustalw',
+		supports         => 'user_genomes',
+		url              => "$self->{'config'}->{'doclink'}/data_analysis/itol.html",
+		order            => 35,
+		min              => 2,
+		max => $self->{'config'}->{'itol_record_limit'} // $self->{'system'}->{'itol_record_limit'} // MAX_RECORDS,
 		always_show_in_menu => 1
 	);
 	return \%att;
@@ -117,9 +117,11 @@ sub run {
 		if ( !@$loci_selected ) {
 			push @errors, q(You must select one or more loci or schemes.);
 		}
-		my $total_seqs          = @$loci_selected * @ids;
-		my $max_records         = $self->{'system'}->{ lc("$attr->{'module'}_record_limit") } // MAX_RECORDS;
-		my $max_seqs            = $self->{'system'}->{ lc("$attr->{'module'}_seq_limit") } // MAX_SEQS;
+		my $total_seqs  = @$loci_selected * @ids;
+		my $max_records = $self->{'system'}->{ lc("$attr->{'module'}_record_limit") }
+		  // $self->{'config'}->{ lc("$attr->{'module'}_record_limit") } // MAX_RECORDS;
+		my $max_seqs = $self->{'system'}->{ lc("$attr->{'module'}_seq_limit") }
+		  // $self->{'config'}->{ lc("$attr->{'module'}_seq_limit") } // MAX_SEQS;
 		my $commify_max_records = BIGSdb::Utils::commify($max_records);
 		my $commify_max_seqs    = BIGSdb::Utils::commify($max_seqs);
 		my $commify_total_seqs  = BIGSdb::Utils::commify($total_seqs);
@@ -171,8 +173,10 @@ sub run {
 	$self->print_info_panel;
 	$self->_print_interface(
 		{
-			max_records => $self->{'system'}->{ lc("$attr->{'module'}_record_limit") },
-			max_seqs    => $self->{'system'}->{ lc("$attr->{'module'}_seq_limit") }
+			max_records => $self->{'system'}->{ lc("$attr->{'module'}_record_limit") }
+			  // $self->{'config'}->{ lc("$attr->{'module'}_record_limit") },
+			max_seqs => $self->{'system'}->{ lc("$attr->{'module'}_seq_limit") }
+			  // $self->{'config'}->{ lc("$attr->{'module'}_seq_limit") }
 		}
 	);
 	return;
