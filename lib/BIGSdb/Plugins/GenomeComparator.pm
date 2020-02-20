@@ -1,6 +1,6 @@
 #GenomeComparator.pm - Genome comparison plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -53,7 +53,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.4.2',
+		version     => '2.4.3',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -113,7 +113,6 @@ sub run {
 			  qq(Genome Comparator analysis is limited to $nice_max isolates. You have selected $selected.);
 			$continue = 0;
 		}
-		$logger->error($max_genomes);
 		my $loci_selected = $self->get_selected_loci;
 		my ( $pasted_cleaned_loci, $invalid_loci ) = $self->get_loci_from_pasted_list( { dont_clear => 1 } );
 		$q->delete('locus');
