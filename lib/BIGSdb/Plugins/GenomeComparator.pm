@@ -103,17 +103,17 @@ sub run {
 			  . q(haven't been filtered to none by selecting a project.);
 			$continue = 0;
 		}
-		my $max_genomes =
-		  ( BIGSdb::Utils::is_int( $self->{'system'}->{'genome_comparator_limit'} ) )
-		  ? $self->{'system'}->{'genome_comparator_limit'}
-		  : MAX_GENOMES;
+		my $max_genomes = $self->{'system'}->{'genome_comparator_limit'}
+		  // $self->{'config'}->{'genome_comparator_limit'} // MAX_GENOMES;
+		$max_genomes = MAX_GENOMES if !BIGSdb::Utils::is_int($max_genomes);
 		if ( @$filtered_ids > $max_genomes ) {
 			my $nice_max = BIGSdb::Utils::commify($max_genomes);
 			my $selected = BIGSdb::Utils::commify( scalar @$filtered_ids );
 			push @errors,
-			  qq(Genome Comparator analysis is limited to $nice_max isolates. ) . qq(You have selected $selected.);
+			  qq(Genome Comparator analysis is limited to $nice_max isolates. You have selected $selected.);
 			$continue = 0;
 		}
+		$logger->error($max_genomes);
 		my $loci_selected = $self->get_selected_loci;
 		my ( $pasted_cleaned_loci, $invalid_loci ) = $self->get_loci_from_pasted_list( { dont_clear => 1 } );
 		$q->delete('locus');
