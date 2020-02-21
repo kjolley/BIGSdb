@@ -29,7 +29,12 @@ my $logger = get_logger('BIGSdb.Page');
 
 sub initiate {
 	my ($self) = @_;
-	$self->{'type'} = 'embl';
+	my $q = $self->{'cgi'};
+	if ((scalar $q->param('format') // q()) eq 'genbank'){
+		$self->{'type'} = 'genbank'
+	} else {
+		$self->{'type'} = 'embl';
+	}
 	return;
 }
 
@@ -50,12 +55,14 @@ sub print_content {
 		say 'Invalid isolate or sequence bin id.';
 		return;
 	}
-	$self->_write_embl($seqbin_ids);
+	my $options;
+	$options->{'format'} = $q->param('format') // 'embl';
+	$self->_write_embl($seqbin_ids,$options);
 	return;
 }
 
 sub _write_embl {
-	my ( $self, $seqbin_ids ) = @_;
+	my ( $self, $seqbin_ids, $options ) = @_;
 	foreach my $seqbin_id (@$seqbin_ids) {
 		my $seq_ref = $self->{'contigManager'}->get_contig($seqbin_id);
 		my $seq = $self->{'datastore'}->run_query(
@@ -125,7 +132,9 @@ sub _write_embl {
 		close $stringfh_in;
 		my $str;
 		open( my $stringfh_out, '>:encoding(utf8)', \$str ) or $logger->error("Could not open string for writing: $!");
-		my $seq_out = Bio::SeqIO->new( -fh => $stringfh_out, -format => 'embl' );
+		my %allowed_format = map {$_ => 1} qw(genbank embl);
+		my $format = $allowed_format{$options->{'format'}} ? $options->{'format'} : 'embl';
+		my $seq_out = Bio::SeqIO->new( -fh => $stringfh_out, -format => $format );
 		$seq_out->verbose(-1);    #Otherwise apache error log can fill rapidly on old version of BioPerl.
 		$seq_out->write_seq($seq_object);
 		close $stringfh_out;

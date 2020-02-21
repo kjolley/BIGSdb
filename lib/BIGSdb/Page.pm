@@ -462,6 +462,7 @@ sub print_page_content {
 	if ( $self->{'type'} ne 'xhtml' ) {
 		my %mime_type = (
 			embl      => 'chemical/x-embl-dl-nucleotide',
+			genbank   => 'chemical/seq-na-genbank',
 			gff3      => 'application/x-gff',
 			tar       => 'application/x-tar',
 			xlsx      => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -475,8 +476,9 @@ sub print_page_content {
 			docx      => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 		);
 		my %attachment = (
-			embl => 'sequence' . ( $q->param('seqbin_id') // $q->param('isolate_id') // q() ) . '.embl',
-			gff3 => 'sequence' . ( $q->param('seqbin_id') // $q->param('isolate_id') // q() ) . '.gff3'
+			embl    => 'sequence' . ( $q->param('seqbin_id') // $q->param('isolate_id') // q() ) . '.embl',
+			gff3    => 'sequence' . ( $q->param('seqbin_id') // $q->param('isolate_id') // q() ) . '.gff3',
+			genbank => 'sequence' . ( $q->param('seqbin_id') // $q->param('isolate_id') // q() ) . '.gbk',
 		);
 		$header_options{'-type'} = $mime_type{ $self->{'type'} } // 'text/plain';
 		$header_options{'-attachment'} = $attachment{ $self->{'type'} } // $self->{'attachment'} // undef;
