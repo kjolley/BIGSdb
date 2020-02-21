@@ -22,6 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::IsolateInfoPage);
 use BIGSdb::SeqbinToEMBL;
+use BIGSdb::SeqbinToGFF3;
 use BIGSdb::Constants qw(:interface);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -105,11 +106,13 @@ sub _print_stats {
 		my $commify = BIGSdb::Utils::commify( $seqbin_stats->{'total_length'} );
 		say qq(<dt>Length</dt><dd>$commify</dd></dl>);
 	}
-	my ($fasta,$embl) = (LABELLED_FASTA_FILE,EMBL_FILE);
+	my ($fasta,$embl,$gff3) = (LABELLED_FASTA_FILE,EMBL_FILE,GFF3_FILE);
 	print qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . qq(page=downloadSeqbin&amp;isolate_id=$isolate_id" title="FASTA format">$fasta</a>);
 	print qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=embl&amp;)
 	  . qq(isolate_id=$isolate_id" title="EMBL format">$embl</a>);
+	  print qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=gff&amp;)
+	  . qq(isolate_id=$isolate_id" title="GFF3 format">$gff3</a>);
 	  say q(</p>);
 	say q(</div>);
 	if ( $seqbin_stats->{'contigs'} > 1 ) {
@@ -242,11 +245,13 @@ sub _print_contig_table {
 				$data->{'id'},
 				{ fetch => 'all_arrayref', slice => {}, cache => 'SeqbinPage::print_content::allele_sequences' } );
 			foreach my $allele_seq (@$allele_seqs) {
-				print "<tr class=\"td$td\">" if !$first;
+				print qq(<tr class="td$td">) if !$first;
 				my $cleaned_locus = $self->clean_locus( $allele_seq->{'locus'} );
+				my $start = $allele_seq->{'start_pos'} < 1 ? 1 : $allele_seq->{'start_pos'};
+				my $end = $allele_seq->{'end_pos'} > $data->{'length'} ? $data->{'length'} : $allele_seq->{'end_pos'};
 				say qq(<td>$cleaned_locus )
 				  . ( $allele_seq->{'complete'} ? '' : '*' )
-				  . qq(</td><td>$allele_seq->{'start_pos'}</td><td>$allele_seq->{'end_pos'}</td>);
+				  . qq(</td><td>$start</td><td>$end</td>);
 				say q(<td style="font-size:2em">) . ( $allele_seq->{'reverse'} ? q(&larr;) : q(&rarr;) ) . q(</td>);
 				if ($first) {
 					say qq(<td rowspan="$allele_count" style="vertical-align:top">);

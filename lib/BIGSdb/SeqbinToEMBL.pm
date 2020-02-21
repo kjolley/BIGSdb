@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -34,30 +34,30 @@ sub initiate {
 }
 
 sub print_content {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	my $isolate_id;
+	my ($self)     = @_;
+	my $q          = $self->{'cgi'};
 	my $seqbin_ids = [];
-	if ( ( $q->param('seqbin_id') // '' ) =~ /^(\d+)$/x ) {
-		push @$seqbin_ids, $1;
-	} elsif ( ( $q->param('isolate_id') // '' ) =~ /^(\d+)$/x ) {
-		$isolate_id = $1;
-		$seqbin_ids =
-		  $self->{'datastore'}
-		  ->run_query( 'SELECT id FROM sequence_bin WHERE isolate_id=?', $isolate_id, { fetch => 'col_arrayref' } );
-	} else {
-		print "Invalid isolate or sequence bin id.\n";
+	if ( BIGSdb::Utils::is_int( scalar $q->param('seqbin_id') ) ) {
+		push @$seqbin_ids, $q->param('seqbin_id');
+	} elsif ( BIGSdb::Utils::is_int( scalar $q->param('isolate_id') ) ) {
+		$seqbin_ids = $self->{'datastore'}->run_query(
+			'SELECT id FROM sequence_bin WHERE isolate_id=? ORDER BY id',
+			scalar $q->param('isolate_id'),
+			{ fetch => 'col_arrayref' }
+		);
+	}
+	if ( !@$seqbin_ids ) {
+		say 'Invalid isolate or sequence bin id.';
 		return;
 	}
-	$self->write_embl($seqbin_ids);
+	$self->_write_embl($seqbin_ids);
 	return;
 }
 
-sub write_embl {
-	my ( $self, $seqbin_ids, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
-	my $buffer;
+sub _write_embl {
+	my ( $self, $seqbin_ids ) = @_;
 	foreach my $seqbin_id (@$seqbin_ids) {
+		my $seq_ref = $self->{'contigManager'}->get_contig($seqbin_id);
 		my $seq = $self->{'datastore'}->run_query(
 			'SELECT s.sequence,s.comments,r.uri FROM sequence_bin s LEFT JOIN remote_contigs r '
 			  . 'ON s.id=r.seqbin_id WHERE s.id=?',
@@ -102,8 +102,9 @@ sub write_embl {
 			elsif ( $locus_info->{'orf'} == 3 || $locus_info->{'orf'} == 6 ) { $frame = 2 }
 			else                                                             { $frame = 0 }
 			$allele_sequence->{'start_pos'} = 1 if $allele_sequence->{'start_pos'} < 1;
+			$allele_sequence->{'end_pos'} = $seq_length if $allele_sequence->{'end_pos'} > $seq_length;
 			my ( $product, $desc );
-			if ( $locus_info->{'dbase_name'} && ( $locus_info->{'description_url'} // '' ) =~ /bigsdb/ ) {
+			if ( $locus_info->{'dbase_name'} ) {
 				my $locus_desc = $self->{'datastore'}->get_locus( $allele_sequence->{'locus'} )->get_description;
 				$product = $locus_desc->{'product'};
 				$desc    = $locus_desc->{'full_name'};
@@ -111,11 +112,9 @@ sub write_embl {
 				$desc .= $locus_desc->{'description'} // '';
 			}
 			$allele_sequence->{'locus'} = $self->clean_locus( $allele_sequence->{'locus'}, { text_output => 1 } );
-			my $end = $allele_sequence->{'end_pos'};
-			$end = $seq_length if $end > $seq_length;
 			my $feature = Bio::SeqFeature::Generic->new(
 				-start       => $allele_sequence->{'start_pos'},
-				-end         => $end,
+				-end         => $allele_sequence->{'end_pos'},
 				-primary_tag => 'CDS',
 				-strand      => ( $allele_sequence->{'reverse'} ? -1 : 1 ),
 				-frame       => $frame,
@@ -130,13 +129,8 @@ sub write_embl {
 		$seq_out->verbose(-1);    #Otherwise apache error log can fill rapidly on old version of BioPerl.
 		$seq_out->write_seq($seq_object);
 		close $stringfh_out;
-
-		if ( $options->{'get_buffer'} ) {
-			$buffer .= $str;
-		} else {
-			print $str;
-		}
+		print $str;
 	}
-	return $options->{'get_buffer'} ? $buffer : undef;
+	return;
 }
 1;

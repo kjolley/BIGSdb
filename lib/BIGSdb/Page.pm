@@ -462,6 +462,7 @@ sub print_page_content {
 	if ( $self->{'type'} ne 'xhtml' ) {
 		my %mime_type = (
 			embl      => 'chemical/x-embl-dl-nucleotide',
+			gff3      => 'application/x-gff',
 			tar       => 'application/x-tar',
 			xlsx      => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 			no_header => 'text/html',
@@ -473,8 +474,10 @@ sub print_page_content {
 			pdf       => 'application/pdf',
 			docx      => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 		);
-		my %attachment =
-		  ( embl => 'sequence' . ( $q->param('seqbin_id') // $q->param('isolate_id') // q() ) . '.embl', );
+		my %attachment = (
+			embl => 'sequence' . ( $q->param('seqbin_id') // $q->param('isolate_id') // q() ) . '.embl',
+			gff3 => 'sequence' . ( $q->param('seqbin_id') // $q->param('isolate_id') // q() ) . '.gff3'
+		);
 		$header_options{'-type'} = $mime_type{ $self->{'type'} } // 'text/plain';
 		$header_options{'-attachment'} = $attachment{ $self->{'type'} } // $self->{'attachment'} // undef;
 		my %utf8_types = map { $_ => 1 } qw(no_header text json);
@@ -564,7 +567,7 @@ sub _get_meta_data {
 sub get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20200204';
+	my $version = '20200221';
 	my @filenames;
 	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
 	push @filenames, q(c3.css)                                                if $self->{'c3'};

@@ -1,4 +1,4 @@
-/*Version: 20200204*/
+/*Version: 20200221*/
 body,form,input,th,td,div {margin-top:0;margin-bottom:0;padding-bottom:0;padding-top:0}
 select{margin:0}
 p {margin:0 0 1em 0;padding:0}
@@ -918,6 +918,10 @@ span.export_misc {
 }
 span.export_fasta {
 	color:#848;
+	text-shadow: 3px 3px 3px #999
+}
+span.export_gff {
+	color:#d60;
 	text-shadow: 3px 3px 3px #999
 }
 span.export_archive {

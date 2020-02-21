@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -67,7 +67,7 @@ sub print_content {
 		my ( $id, $orig, $seq ) = @$contig;
 		$seq = $remote_contig_seqs->{ $remote_contig_records->{$id}->{'uri'} } if !$seq;
 		print ">$id";
-		print "|$orig" if $orig;
+		print " $orig" if $orig;
 		print "\n";
 		my $seq_ref = BIGSdb::Utils::break_line( \$seq, 60 );
 		say $$seq_ref;
