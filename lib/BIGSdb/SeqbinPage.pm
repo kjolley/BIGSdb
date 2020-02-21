@@ -106,17 +106,18 @@ sub _print_stats {
 		my $commify = BIGSdb::Utils::commify( $seqbin_stats->{'total_length'} );
 		say qq(<dt>Length</dt><dd>$commify</dd></dl>);
 	}
-	my ($fasta,$embl,$gbk,$gff3) = (LABELLED_FASTA_FILE,EMBL_FILE,GBK_FILE,GFF3_FILE);
+	my ( $fasta, $embl, $gbk, $gff3 ) = ( LABELLED_FASTA_FILE, EMBL_FILE, GBK_FILE, GFF3_FILE );
 	print qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . qq(page=downloadSeqbin&amp;isolate_id=$isolate_id" title="FASTA format">$fasta</a>);
 	print qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=embl&amp;)
 	  . qq(isolate_id=$isolate_id" title="EMBL format">$embl</a>);
-	  print qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=embl&amp;)
+	print qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=embl&amp;)
 	  . qq(isolate_id=$isolate_id&amp;format=genbank" title="Genbank format">$gbk</a>);
-	  print qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=gff&amp;)
+	print qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=gff&amp;)
 	  . qq(isolate_id=$isolate_id" title="GFF3 format">$gff3</a>);
-	  say q(</p>);
+	say q(</p>);
 	say q(</div>);
+
 	if ( $seqbin_stats->{'contigs'} > 1 ) {
 		say q(<div style="float:left;padding-left:2em">);
 		say q(<h2>Contig size distribution</h2>);
@@ -182,7 +183,7 @@ sub _print_contig_table_header {
 	my $att_headings = @cleaned_attributes ? qq(<th>@cleaned_attributes</th>) : q();
 	say q(<tr><th>Sequence</th><th>Sequencing method</th>)
 	  . qq(<th>Original designation</th><th>Length</th><th>Comments</th>$att_headings<th>Locus</th>)
-	  . q(<th>Start</th><th>End</th><th>Direction</th><th>EMBL format</th>);
+	  . q(<th>Start</th><th>End</th><th>Direction</th><th>Annotation</th>);
 	if ( $self->{'curate'} && ( $self->{'permissions'}->{'modify_loci'} || $self->is_admin ) ) {
 		say q(<th>Renumber);
 		say $self->get_tooltip(
@@ -256,15 +257,11 @@ sub _print_contig_table {
 				  . qq(</td><td>$start</td><td>$end</td>);
 				say q(<td style="font-size:2em">) . ( $allele_seq->{'reverse'} ? q(&larr;) : q(&rarr;) ) . q(</td>);
 				if ($first) {
+					my $url = "$self->{'script_name'}?db=$self->{'instance'}&amp;page=embl&amp;seqbin_id=$data->{'id'}";
 					say qq(<td rowspan="$allele_count" style="vertical-align:top">);
-					say $q->start_form;
-					$q->param( page      => 'embl' );
-					$q->param( seqbin_id => $data->{'id'} );
-					say $q->hidden($_) foreach qw (page db seqbin_id);
-					say $q->submit( -name => 'EMBL', -class => 'smallbutton' );
-					say $q->end_form;
-					say q(</td>);
-
+					say qq(<span class="annotation_link"><a href="$url">EMBL</span></a>);
+					say qq(<span class="annotation_link"><a href="$url&amp;format=genbank">GBK</span></a></td>)
+					  ;
 					if ( $self->{'curate'} && ( $self->{'permissions'}->{'modify_loci'} || $self->is_admin ) ) {
 						say qq(<td rowspan="$allele_count" style="vertical-align:top">);
 						say $q->start_form;
@@ -289,7 +286,7 @@ sub _print_contig_table {
 				$att_values->{$att}->{'value'} //= q();
 				say qq(<td>$att_values->{$att}->{'value'}</td>);
 			}
-			say q(<td></td><td></td><td></td><td></td><td></td><td></td>);
+			say q(<td></td><td></td><td></td><td></td><td></td>);
 			say q(<td></td>) if $self->{'curate'};
 			say q(</tr>);
 		}

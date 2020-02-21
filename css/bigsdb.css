@@ -943,6 +943,18 @@ span.export_code {
 span.export:hover .fa-square {
 	text-shadow: 3px 3px 3px #444
 }
+span.annotation_link {display:inline-block;margin-top:0.5em;margin-right:0.3em}
+span.annotation_link a {
+	padding:0.2em;
+	color:white;
+	font-weight:600;
+	background:#848;
+	box-shadow: 3px 3px 3px #999
+}
+span.annotation_link a:hover {
+	background:#a6a;
+	text-decoration:none
+}
 
 span.browse {color:#080}
 a.chart_icon{text-decoration:none}

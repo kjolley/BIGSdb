@@ -43,7 +43,7 @@ sub print_content {
 	my $q          = $self->{'cgi'};
 	my $seqbin_ids = [];
 	if ( BIGSdb::Utils::is_int( scalar $q->param('seqbin_id') ) ) {
-		push @$seqbin_ids, $q->param('seqbin_id');
+		push @$seqbin_ids, scalar $q->param('seqbin_id');
 	} elsif ( BIGSdb::Utils::is_int( scalar $q->param('isolate_id') ) ) {
 		$seqbin_ids = $self->{'datastore'}->run_query(
 			'SELECT id FROM sequence_bin WHERE isolate_id=? ORDER BY id',
