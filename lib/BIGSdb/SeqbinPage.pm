@@ -31,6 +31,11 @@ use POSIX qw(ceil);
 
 sub initiate {
 	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if ( $q->param('ajax') ) {
+		$self->{'type'} = 'no_header';
+		return;
+	}
 	$self->{$_} = 1 foreach qw (tooltips jQuery c3);
 	$self->{'prefix'} = BIGSdb::Utils::get_random();
 	return;
@@ -41,9 +46,62 @@ sub get_help_url {
 	return "$self->{'config'}->{'doclink'}/data_records.html#sequence-bin-records";
 }
 
-sub print_content {
+sub _ajax {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
+	my $isolate_id = $q->param('isolate_id');
+	return if !BIGSdb::Utils::is_int($isolate_id);
+	my $seqbin_stats = $self->{'datastore'}->get_seqbin_stats( $isolate_id, { general => 1, lengths => 1 } );
+	if ( scalar $q->param('ajax') eq 'contig_size' ) {
+		my $std_dev = BIGSdb::Utils::std_dev( $seqbin_stats->{'mean_length'}, $seqbin_stats->{'lengths'} );
+
+		#Scott's choice [Scott DW (1979). On optimal and data-based histograms. Biometrika 66(3):605–610]
+		my $bins = ceil( ( 3.5 * $std_dev ) / $seqbin_stats->{'contigs'}**0.33 );
+		$bins = 1 if !$bins;
+		my $width = ( $seqbin_stats->{'max_length'} - $seqbin_stats->{'min_length'} ) / $bins;
+
+		#round width to nearest 500
+		$width = int( $width - ( $width % 500 ) ) || 500;
+		my ( $histogram, $min, $max ) = BIGSdb::Utils::histogram( $width, $seqbin_stats->{'lengths'} );
+		my ( @labels, @values );
+		foreach my $i ( $min .. $max ) {
+			push @labels, $i * $width;
+			push @values, $histogram->{$i};
+		}
+		my $size_dis = [];
+		foreach my $i ( $min .. $max ) {
+			push @$size_dis,
+			  {
+				label => $i == 0 ? q(0-) . $width : ( $i * $width + 1 ) . q(-) . ( ( $i + 1 ) * $width ),
+				value => $histogram->{$i}
+			  };
+		}
+		say encode_json($size_dis);
+	} elsif ( scalar $q->param('ajax') eq 'cumulative' ) {
+		my $total_length = 0;
+		my $contig       = 0;
+		my $cumulative   = [];
+		foreach my $length ( @{ $seqbin_stats->{'lengths'} } ) {
+			$contig++;
+			$total_length += $length;
+			push @$cumulative,
+			  {
+				contig     => $contig,
+				cumulative => $total_length
+			  };
+		}
+		say encode_json($cumulative);
+	}
+	return;
+}
+
+sub print_content {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if ( $q->param('ajax') ) {
+		$self->_ajax;
+		return;
+	}
 	my $isolate_id = $q->param('isolate_id');
 	if ( !defined $isolate_id ) {
 		$self->print_bad_status( { message => q(Isolate id not specified.), navbar => 1 } );
@@ -121,64 +179,20 @@ sub _print_stats {
 	say q(</div>);
 
 	if ( $seqbin_stats->{'contigs'} > 1 ) {
-		my $std_dev = BIGSdb::Utils::std_dev( $seqbin_stats->{'mean_length'}, $seqbin_stats->{'lengths'} );
-
-		#Scott's choice [Scott DW (1979). On optimal and data-based histograms. Biometrika 66(3):605–610]
-		my $bins = ceil( ( 3.5 * $std_dev ) / $seqbin_stats->{'contigs'}**0.33 );
-		$bins = 1 if !$bins;
-		my $width = ( $seqbin_stats->{'max_length'} - $seqbin_stats->{'min_length'} ) / $bins;
-
-		#round width to nearest 500
-		$width = int( $width - ( $width % 500 ) ) || 500;
-		my ( $histogram, $min, $max ) = BIGSdb::Utils::histogram( $width, $seqbin_stats->{'lengths'} );
-		my ( @labels, @values );
-		foreach my $i ( $min .. $max ) {
-			push @labels, $i * $width;
-			push @values, $histogram->{$i};
-		}
-		my $size_dis = [];
-		foreach my $i ( $min .. $max ) {
-			push @$size_dis,
-			  {
-				label => $i == 0 ? q(0-) . $width : ( $i * $width + 1 ) . q(-) . ( ( $i + 1 ) * $width ),
-				value => $histogram->{$i}
-			  };
-		}
-		$self->_make_data_file( 'contig_size', $size_dis );
 		say q(<div id="contig_size" class="embed_c3_chart"></div>);
-		my $total_length = 0;
-		my $contig       = 0;
-		my $cumulative   = [];
-		foreach my $length ( @{ $seqbin_stats->{'lengths'} } ) {
-			$contig++;
-			$total_length += $length;
-			push @$cumulative,
-			  {
-				contig     => $contig,
-				cumulative => $total_length
-			  };
-		}
-		$self->_make_data_file( 'cumulative', $cumulative );
 		say q(<div id="cumulative" class="embed_c3_chart"></div>);
 	}
 	say q(<div style="clear:both"></div></div>);
 	return;
 }
 
-sub _make_data_file {
-	my ( $self, $name, $data ) = @_;
-	my $filename = "$self->{'config'}->{'tmp_dir'}/$self->{'prefix'}_$name.json";
-	open( my $fh, '>', $filename ) || $logger->error("Cannot open $filename for writing");
-	say $fh encode_json($data);
-	close $fh;
-	return;
-}
-
 sub get_javascript {
-	my ($self)               = @_;
-	my $cumulative_json_url  = "/tmp/$self->{'prefix'}_cumulative.json";
-	my $contig_size_json_url = "/tmp/$self->{'prefix'}_contig_size.json";
-	my $buffer               = << "END";
+	my ($self)     = @_;
+	my $q          = $self->{'cgi'};
+	my $isolate_id = $q->param('isolate_id');
+	return if !BIGSdb::Utils::is_int($isolate_id);
+	my $url    = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=seqbin&isolate_id=$isolate_id";
+	my $buffer = << "END";
 \$(function () {
 	var chart = [];
 	\$(".embed_c3_chart").click(function() {
@@ -192,7 +206,7 @@ sub get_javascript {
 		chart[this.id].resize();
 	});
 	
-	d3.json("$contig_size_json_url").then (function(jsonData) {
+	d3.json("$url" + "&ajax=contig_size").then (function(jsonData) {
 		chart['contig_size'] = contig_size = c3.generate({
 			bindto: '#contig_size',
 			title: {
@@ -232,7 +246,7 @@ sub get_javascript {
 			}
 		});
 	});
-	d3.json("$cumulative_json_url").then (function(jsonData) {
+	d3.json("$url" + "&ajax=cumulative").then (function(jsonData) {
 		chart['cumulative'] = c3.generate({
 			bindto: '#cumulative',
 			title: {
