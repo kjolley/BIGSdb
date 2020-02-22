@@ -257,11 +257,11 @@ sub _print_contig_table {
 				  . qq(</td><td>$start</td><td>$end</td>);
 				say q(<td style="font-size:2em">) . ( $allele_seq->{'reverse'} ? q(&larr;) : q(&rarr;) ) . q(</td>);
 				if ($first) {
-					my $url = "$self->{'script_name'}?db=$self->{'instance'}&amp;page=embl&amp;seqbin_id=$data->{'id'}";
+					my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
+					  . "page=embl&amp;seqbin_id=$data->{'id'}";
 					say qq(<td rowspan="$allele_count" style="vertical-align:top">);
 					say qq(<span class="annotation_link"><a href="$url">EMBL</span></a>);
-					say qq(<span class="annotation_link"><a href="$url&amp;format=genbank">GBK</span></a></td>)
-					  ;
+					say qq(<span class="annotation_link"><a href="$url&amp;format=genbank">GBK</span></a></td>);
 					if ( $self->{'curate'} && ( $self->{'permissions'}->{'modify_loci'} || $self->is_admin ) ) {
 						say qq(<td rowspan="$allele_count" style="vertical-align:top">);
 						say $q->start_form;
