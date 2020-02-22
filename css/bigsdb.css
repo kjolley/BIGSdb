@@ -1,4 +1,4 @@
-/*Version: 20200221*/
+/*Version: 20200222*/
 body,form,input,th,td,div {margin-top:0;margin-bottom:0;padding-bottom:0;padding-top:0}
 select{margin:0}
 p {margin:0 0 1em 0;padding:0}
@@ -344,6 +344,14 @@ div.content {
 	margin:5px 0 1px 0;
 	border:1px solid #999;
 	padding:10px 5px
+}
+
+div.embed_c3_chart {
+	float:left;
+	background:white;
+	box-shadow: 3px 3px 3px #aaa;
+	margin-left:1em;
+	margin-top:1em
 }
 
 div.reset { background:#d5d5e0;}

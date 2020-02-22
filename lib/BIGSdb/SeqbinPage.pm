@@ -24,13 +24,15 @@ use parent qw(BIGSdb::IsolateInfoPage);
 use BIGSdb::SeqbinToEMBL;
 use BIGSdb::SeqbinToGFF3;
 use BIGSdb::Constants qw(:interface);
+use JSON;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use POSIX qw(ceil);
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (tooltips jQuery jQuery.slimbox jQuery.jstree);
+	$self->{$_} = 1 foreach qw (tooltips jQuery c3);
+	$self->{'prefix'} = BIGSdb::Utils::get_random();
 	return;
 }
 
@@ -119,15 +121,6 @@ sub _print_stats {
 	say q(</div>);
 
 	if ( $seqbin_stats->{'contigs'} > 1 ) {
-		say q(<div style="float:left;padding-left:2em">);
-		say q(<h2>Contig size distribution</h2>);
-		my $temp = BIGSdb::Utils::get_random();
-		open( my $fh_output, '>', "$self->{'config'}->{'tmp_dir'}/$temp.txt" )
-		  or $logger->error("Can't open temp file $self->{'config'}->{'tmp_dir'}/$temp.txt for writing");
-		foreach my $length ( @{ $seqbin_stats->{'lengths'} } ) {
-			say $fh_output $length;
-		}
-		close $fh_output;
 		my $std_dev = BIGSdb::Utils::std_dev( $seqbin_stats->{'mean_length'}, $seqbin_stats->{'lengths'} );
 
 		#Scott's choice [Scott DW (1979). On optimal and data-based histograms. Biometrika 66(3):605–610]
@@ -143,36 +136,145 @@ sub _print_stats {
 			push @labels, $i * $width;
 			push @values, $histogram->{$i};
 		}
-		if ( $self->{'config'}->{'chartdirector'} ) {
-			my %prefs = ( 'offset_label' => 1, 'x-title' => 'Contig size (bp)', 'y-title' => 'Frequency' );
-			BIGSdb::Charts::barchart( \@labels, \@values, "$self->{'config'}->{'tmp_dir'}/${temp}_large_histogram.png",
-				'large', \%prefs, { no_transparent => 1 } );
-			say qq(<a href="/tmp/${temp}_large_histogram.png" data-rel="lightbox-1" class="lightbox" )
-			  . qq(title="Contig size distribution"><img src="/tmp/$temp\_large_histogram.png" alt="Contig size distribution" )
-			  . q(style="width:200px;border:1px dashed black" /></a><br />Click to enlarge);
+		my $size_dis = [];
+		foreach my $i ( $min .. $max ) {
+			push @$size_dis,
+			  {
+				label => $i == 0 ? q(0-) . $width : ( $i * $width + 1 ) . q(-) . ( ( $i + 1 ) * $width ),
+				value => $histogram->{$i}
+			  };
 		}
-		say qq(<ul><li><a href="/tmp/$temp.txt">Download lengths</a></li></ul></div>);
-		if ( $self->{'config'}->{'chartdirector'} ) {
-			say q(<div style="float:left;padding-left:2em">);
-			say q(<h2>Cumulative contig length</h2>);
-			my ( @contig_labels, @cumulative );
-			push @contig_labels, $_ foreach ( 1 .. $seqbin_stats->{'contigs'} );
-			my $total_length = 0;
-			foreach my $length ( @{ $seqbin_stats->{'lengths'} } ) {
-				$total_length += $length;
-				push @cumulative, $total_length;
-			}
-			my %prefs = ( offset_label => 1, 'x-title' => 'Contig number', 'y-title' => 'Cumulative length' );
-			BIGSdb::Charts::linechart( \@contig_labels, \@cumulative,
-				"$self->{'config'}->{'tmp_dir'}/${temp}_cumulative_length.png",
-				'large', \%prefs, { no_transparent => 1 } );
-			say qq(<a href="/tmp/${temp}_cumulative_length.png" data-rel="lightbox-1" class="lightbox" )
-			  . qq(title="Cumulative contig length"><img src="/tmp/${temp}_cumulative_length.png" )
-			  . q(alt="Cumulative contig length" style="width:200px;border:1px dashed black" /></a></div>);
+		$self->_make_data_file( 'contig_size', $size_dis );
+		say q(<div id="contig_size" class="embed_c3_chart"></div>);
+		my $total_length = 0;
+		my $contig       = 0;
+		my $cumulative   = [];
+		foreach my $length ( @{ $seqbin_stats->{'lengths'} } ) {
+			$contig++;
+			$total_length += $length;
+			push @$cumulative,
+			  {
+				contig     => $contig,
+				cumulative => $total_length
+			  };
 		}
+		$self->_make_data_file( 'cumulative', $cumulative );
+		say q(<div id="cumulative" class="embed_c3_chart"></div>);
 	}
 	say q(<div style="clear:both"></div></div>);
 	return;
+}
+
+sub _make_data_file {
+	my ( $self, $name, $data ) = @_;
+	my $filename = "$self->{'config'}->{'tmp_dir'}/$self->{'prefix'}_$name.json";
+	open( my $fh, '>', $filename ) || $logger->error("Cannot open $filename for writing");
+	say $fh encode_json($data);
+	close $fh;
+	return;
+}
+
+sub get_javascript {
+	my ($self)               = @_;
+	my $cumulative_json_url  = "/tmp/$self->{'prefix'}_cumulative.json";
+	my $contig_size_json_url = "/tmp/$self->{'prefix'}_contig_size.json";
+	my $buffer               = << "END";
+\$(function () {
+	var chart = [];
+	\$(".embed_c3_chart").click(function() {
+		if (jQuery.data(this,'expand')){
+			\$(this).css({width:'400px','height':'250px'});    
+			jQuery.data(this,'expand',0);
+		} else {
+  			\$(this).css({width:'800px','height':'500px'});    		
+    		jQuery.data(this,'expand',1);
+		}
+		chart[this.id].resize();
+	});
+	
+	d3.json("$contig_size_json_url").then (function(jsonData) {
+		chart['contig_size'] = contig_size = c3.generate({
+			bindto: '#contig_size',
+			title: {
+				text: 'Contig size distribution'
+			},
+			data: {
+				json: jsonData,
+				keys: {
+					x: 'label',
+					value: ['value']
+				},
+				type: 'bar'
+			},	
+			bar: {
+				width: {
+					ratio: 0.6
+				}
+			},
+			axis: {
+				x: {
+					label: {
+						text: 'Size range (bp)',
+						position: 'outer-center'
+					},
+					type: 'category',
+					tick: {
+						count: 2,
+						multiline:false
+					}
+				}
+			},
+			legend: {
+				show: false
+			},
+			padding: {
+				right: 40
+			}
+		});
+	});
+	d3.json("$cumulative_json_url").then (function(jsonData) {
+		chart['cumulative'] = c3.generate({
+			bindto: '#cumulative',
+			title: {
+				text: 'Cumulative contig length'
+			},
+			data: {
+				json: jsonData,
+				keys: {
+					x: 'contig',
+					value: ['cumulative']
+				}
+			},	
+			axis: {
+				x: {
+					label: {
+						text: 'Contig',
+						position: 'outer-center'
+					},
+					type: 'category',
+					tick: {
+						count: 2,
+						multiline:false
+					}
+				}
+			},
+			legend: {
+				show: false
+			},
+			padding: {
+				right: 20
+			},
+			tooltip: {
+				format: {
+					title: function (x, index) { return 'Contig ' + (x+1); }
+				}
+			}
+		});
+	});
+	\$(".embed_c3_chart").css({width:'400px','max-width':'95%',height:'250px'});
+});
+END
+	return $buffer;
 }
 
 sub _print_contig_table_header {

@@ -499,7 +499,7 @@ sub print_page_content {
 			$http_equiv .= qq(<meta http-equiv="refresh" content="$self->{'refresh'}$refresh_page" />);
 		}
 		my $tooltip_display = $self->{'prefs'}->{'tooltips'} ? 'inline' : 'none';
-		my $stylesheets = $self->get_stylesheets;
+		my $stylesheets = $self->_get_stylesheets;
 		my @styles;
 		push @styles, { -src => $_, -media => 'Screen' } foreach @$stylesheets;
 		my @args = (
@@ -566,10 +566,10 @@ sub _get_meta_data {
 	return ( $meta_content, $shortcut_icon );
 }
 
-sub get_stylesheets {
+sub _get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20200221';
+	my $version = '20200222';
 	my @filenames;
 	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
 	push @filenames, q(c3.css)                                                if $self->{'c3'};
