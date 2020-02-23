@@ -34,6 +34,7 @@ sub initiate {
 	my $q = $self->{'cgi'};
 	if ( $q->param('ajax') ) {
 		$self->{'type'} = 'no_header';
+		$self->{'noCache'} = 1;
 		return;
 	}
 	$self->{$_} = 1 foreach qw (tooltips jQuery c3);
