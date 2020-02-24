@@ -1,6 +1,6 @@
 #SeqbinBreakdown.pm - SeqbinBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -43,7 +43,7 @@ sub get_attributes {
 		menutext    => 'Sequence bin',
 		module      => 'SeqbinBreakdown',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/seqbin_breakdown.html",
-		version     => '1.4.7',
+		version     => '1.4.8',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -336,7 +336,8 @@ sub _print_table {
 	if ($header_displayed) {
 		say q(</tbody></table>);
 		my ( $text_icon, $excel_icon ) = ( TEXT_FILE, EXCEL_FILE );
-		print qq(<p><li><a href="/tmp/$temp.txt" title="Download in tab-delimited text format">$text_icon</a>);
+		print q(<p style="margin-top:0.5em">)
+		  . qq(<a href="/tmp/$temp.txt" title="Download in tab-delimited text format">$text_icon</a>);
 		my $excel_file =
 		  BIGSdb::Utils::text2excel( $text_file,
 			{ worksheet => 'sequence bin stats', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
