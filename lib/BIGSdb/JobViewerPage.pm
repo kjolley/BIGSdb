@@ -68,7 +68,7 @@ sub initiate {
 		$self->{'noCache'}    = 1;
 		return;
 	} else {
-		$self->{$_} = 1 foreach qw(jQuery jQuery.slimbox packery noCache);
+		$self->{$_} = 1 foreach qw(jQuery jQuery.slimbox jQuery.tablesort packery noCache);
 	}
 	return if !defined $id;
 	my $job = $self->{'jobManager'}->get_job($id);
