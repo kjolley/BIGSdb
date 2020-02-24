@@ -195,7 +195,7 @@ sub run_job {
 	} else {
 		my @types = qw(contigs sum);
 		push @types, qw(mean lengths) if $params->{'contig_analysis'};
-		my $chart_buffer = qq(<h2>Charts</h2>\n);
+		my $chart_buffer = qq(<h3>Charts</h3>\n);
 		$chart_buffer .= qq(<p>Click charts to enlarge</p>\n);
 		$chart_buffer .= qq(<div>\n);
 		$chart_buffer .= $self->_get_charts( $data, $params );
@@ -555,7 +555,7 @@ chart['$type'] = c3.generate({
 		show: false
 	},
 	padding: {
-		right: 40
+		right: 50
 	}
 });	
 JS
