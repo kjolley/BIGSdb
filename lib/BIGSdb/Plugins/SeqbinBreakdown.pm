@@ -24,6 +24,7 @@ use 5.010;
 use parent qw(BIGSdb::Plugin BIGSdb::SeqbinPage);
 use Log::Log4perl qw(get_logger);
 use POSIX qw(ceil);
+use JSON;
 my $logger = get_logger('BIGSdb.Plugins');
 use BIGSdb::Constants qw(SEQ_METHODS :interface);
 use List::MoreUtils qw(any uniq);
@@ -43,7 +44,7 @@ sub get_attributes {
 		menutext    => 'Sequence bin',
 		module      => 'SeqbinBreakdown',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/seqbin_breakdown.html",
-		version     => '1.4.8',
+		version     => '1.5.0',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -55,7 +56,7 @@ sub get_attributes {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.jstree' => 1, 'jQuery.slimbox' => 1, 'jQuery.tablesort' => 1 };
+	return { 'jQuery.jstree' => 1, 'jQuery.tablesort' => 1, c3 => 1 };
 }
 
 sub set_pref_requirements {
@@ -154,6 +155,7 @@ sub run_job {
 			{ message_html => 'HTML output disabled as more than ' . MAX_HTML_OUTPUT . ' records selected.' } );
 	}
 	my $locus_count = @$loci;
+	my $html_message;
 	foreach my $id (@$isolate_ids) {
 		my $contig_info = $self->_get_isolate_contig_data( $id, $loci, $statements, $arguments, $params );
 		$row++;
@@ -163,7 +165,7 @@ sub run_job {
 		$text_buffer .= $self->_get_text_table_row( $id, $contig_info, $params ) . "\n";
 		$td = $td == 1 ? 2 : 1;
 		$self->_update_totals( $data, $contig_info );
-		my $html_message =
+		$html_message =
 		    qq(<p>Loci selected: $locus_count</p>)
 		  . q(<div class="scrollable">)
 		  . $self->_get_html_table_header($params)
@@ -191,6 +193,19 @@ sub run_job {
 		$self->{'jobManager'}->update_job_status( $job_id,
 			{ message_html => 'There are no records with contigs matching your criteria.' } );
 	} else {
+		my @types = qw(contigs sum);
+		push @types, qw(mean lengths) if $params->{'contig_analysis'};
+		my $chart_buffer = qq(<h2>Charts</h2>\n);
+		$chart_buffer .= qq(<p>Click charts to enlarge</p>\n);
+		$chart_buffer .= qq(<div>\n);
+		$chart_buffer .= $self->_get_charts( $data, $params );
+		$chart_buffer .= q(<div style="clear:both"></div></div>);
+		if ($disabled_html) {
+			$self->{'jobManager'}->update_job_status( $job_id, { message_html => $chart_buffer } );
+		} else {
+			$html_message .= $chart_buffer;
+			$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_message } );
+		}
 		my $job_file = "$self->{'config'}->{'tmp_dir'}/$job_id\.txt";
 		open( my $job_fh, '>:encoding(utf8)', $job_file ) || $logger->error("Cannot open $job_file for writing");
 		say $job_fh $self->_get_text_table_header(
@@ -202,35 +217,10 @@ sub run_job {
 		my $excel_file =
 		  BIGSdb::Utils::text2excel( $job_file,
 			{ worksheet => 'sequence bin stats', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
+
 		if ( -e $excel_file ) {
 			$self->{'jobManager'}->update_job_output( $job_id,
 				{ filename => "$job_id.xlsx", description => '02_Output in Excel format' } );
-		}
-		my $file_order = 10;
-		my @types      = qw(contigs sum);
-		push @types, qw(mean lengths) if $params->{'contig_analysis'};
-		foreach my $type (@types) {
-			my $prefix = BIGSdb::Utils::get_random();
-			my $chart_data = $self->_make_chart( $data, $prefix, $type );
-			if ( $chart_data->{'file_name'} ) {
-				my $full_filename = "$self->{'config'}->{'tmp_dir'}/$chart_data->{'file_name'}";
-				if ( -e $full_filename ) {
-					$self->{'jobManager'}->update_job_output(
-						$job_id,
-						{
-							filename    => $chart_data->{'file_name'},
-							description => "$file_order\_$chart_data->{'title'}"
-						}
-					);
-				}
-			}
-			$file_order++;
-			if ( $chart_data->{'lengths_file'} ) {
-				my $lengths_full_path = "$self->{'config'}->{'tmp_dir'}/$chart_data->{'lengths_file'}";
-				$self->{'jobManager'}->update_job_output( $job_id,
-					{ filename => $chart_data->{'lengths_file'}, description => "$file_order\_Download lengths" } )
-				  if -e $lengths_full_path && !-z $lengths_full_path;
-			}
 		}
 	}
 	return;
@@ -349,7 +339,10 @@ sub _print_table {
 		say q(<p>There are no records with contigs matching your criteria.</p>);
 	}
 	say q(</div></div>);
-	$self->_print_charts( $data, $temp, $params ) if $self->{'config'}->{'chartdirector'} && $header_displayed;
+	say q(<div class="box" id="resultsfooter">);
+	say q(<p>Click charts to enlarge</p>);
+	say $self->_get_charts( $data, $params ) if $header_displayed;
+	say q(<div style="clear:both"></div></div>);
 	return;
 }
 
@@ -484,6 +477,124 @@ sub _get_isolate_contig_data {
 	return $data;
 }
 
+sub _get_rounded_width {
+	my ( $self, $width ) = @_;
+	$width //= 0;
+	return 5     if $width < 50;
+	return 10    if $width < 100;
+	return 50    if $width < 500;
+	return 100   if $width < 1000;
+	return 500   if $width < 5000;
+	return 1000  if $width < 10000;
+	return 50000 if $width < 500000;
+	return 100000;
+}
+sub _get_c3_chart {
+	my ( $self, $data, $type, $params ) = @_;
+	my %title = (
+		contigs => 'Number of contigs',
+		sum     => 'Total length',
+		mean    => 'Mean contig length',
+		lengths => 'Contig lengths'
+	);
+	my $stats      = BIGSdb::Utils::stats( $data->{$type} );
+	my $chart_data = {};
+	return if !$stats->{'count'};
+	my $bins =
+	  ceil( ( 3.5 * $stats->{'std'} ) / $stats->{'count'}**0.33 )
+	  ;    #Scott's choice [Scott DW (1979). On optimal and data-based histograms. Biometrika 66(3):605–610]
+	$bins = 70 if $bins > 70;
+	$bins = 1  if !$bins;
+	my $width            = $stats->{'max'} / $bins;
+	my $round_to_nearest = $self->_get_rounded_width($width);
+	$width = int( $width - ( $width % $round_to_nearest ) ) || $round_to_nearest;
+	my ( $histogram, $min, $max ) = BIGSdb::Utils::histogram( $width, $data->{$type} );
+	my $histogram_data = [];
+
+	foreach my $i ( $min .. $max ) {
+		push @$histogram_data,
+		  {
+			label => $i == 0 ? q(0-) . $width : ( $i * $width + 1 ) . q(-) . ( ( $i + 1 ) * $width ),
+			value => $histogram->{$i}
+		  };
+	}
+	my $json   = encode_json($histogram_data);
+	my $buffer = << "JS";
+chart['$type'] = c3.generate({
+	bindto: '#$type',
+	title: {
+		text: '$title{$type}'
+	},
+	data: {
+		json: $json,
+		keys: {
+			x: 'label',
+			value: ['value']
+		},
+			type: 'bar'
+		},	
+	bar: {
+		width: {
+			ratio: 0.6
+		}
+	},
+	axis: {
+		x: {
+			label: {
+				text: '$title{$type}',
+				position: 'outer-center'
+			},
+			type: 'category',
+			tick: {
+				count: 2,
+				multiline:false
+			}
+		}
+	},
+	legend: {
+		show: false
+	},
+	padding: {
+		right: 40
+	}
+});	
+JS
+	return $buffer;
+}
+
+sub _get_charts {
+	my ( $self, $data, $params ) = @_;
+	my @types = qw(contigs sum);
+	push @types, qw(mean lengths) if $params->{'contig_analysis'};
+	my $buffer = <<"JS";
+<script>
+var chart = [];
+\$(function () {
+	\$(".embed_c3_chart").click(function() {
+		if (jQuery.data(this,'expand')){
+			\$(this).css({width:'300px','height':'200px'});    
+			jQuery.data(this,'expand',0);
+		} else {
+  			\$(this).css({width:'600px','height':'400px'});    		
+    		jQuery.data(this,'expand',1);
+		}
+		chart[this.id].resize();
+	});
+});
+</script>
+JS
+	foreach my $type (@types) {
+		$buffer .= qq(<div id="$type" class="embed_c3_chart"></div>\n);
+		$buffer .= qq(<script>\n);
+		$buffer .= qq[\$(function () {\n];
+		$buffer .= $self->_get_c3_chart( $data, $type, $params );
+		$buffer .= qq[});\n];
+		$buffer .= qq(\$(".embed_c3_chart").css({width:'300px','max-width':'95%',height:'200px'})\n);
+		$buffer .= qq(</script>\n);
+	}
+	return $buffer;
+}
+
 sub _get_query_statements {
 	my ( $self, $args ) = @_;
 	my ( $method, $experiment, $contig_analysis ) = @{$args}{qw (seq_method_list experiment_list contig_analysis)};
@@ -525,93 +636,5 @@ sub _get_query_statements {
 		$statements->{'contig_info'} = q[SELECT contigs,total_length AS sum FROM seqbin_stats WHERE isolate_id=?];
 	}
 	return ( $statements, $arguments );
-}
-
-sub _get_rounded_width {
-	my ( $self, $width );
-	$width //= 0;
-	return 5   if $width < 50;
-	return 10  if $width < 100;
-	return 50  if $width < 500;
-	return 100 if $width < 1000;
-	return 500 if $width < 5000;
-	return 1000;
-}
-
-sub _make_chart {
-	my ( $self, $data, $prefix, $type, $params ) = @_;
-	my %title = (
-		contigs => 'Number of contigs',
-		sum     => 'Total length',
-		mean    => 'Mean contig length',
-		lengths => 'Contig lengths'
-	);
-	my $stats      = BIGSdb::Utils::stats( $data->{$type} );
-	my $chart_data = {};
-	if ( $stats->{'count'} ) {
-		my $bins =
-		  ceil( ( 3.5 * $stats->{'std'} ) / $stats->{'count'}**0.33 )
-		  ;    #Scott's choice [Scott DW (1979). On optimal and data-based histograms. Biometrika 66(3):605–610]
-		$bins = 100 if $bins > 100;
-		$bins = 1   if !$bins;
-		my $width            = ( $stats->{'max'} - $stats->{'min'} ) / $bins;
-		my $round_to_nearest = $self->_get_rounded_width($width);
-		$width = int( $width - ( $width % $round_to_nearest ) ) || $round_to_nearest;
-		my ( $histogram, $min, $max ) = BIGSdb::Utils::histogram( $width, $data->{$type} );
-		my ( @labels, @values );
-
-		foreach my $i ( $min .. $max ) {
-			push @labels, $i * $width;
-			push @values, $histogram->{$i};
-		}
-		my %prefs = ( offset_label => 1, 'x-title' => $title{$type}, 'y-title' => 'Frequency' );
-		$chart_data->{'file_name'} = "$prefix\_histogram_$type.png";
-		my $full_filename = "$self->{'config'}->{'tmp_dir'}/$chart_data->{'file_name'}";
-		$chart_data->{'title'} = $title{$type};
-		BIGSdb::Charts::barchart( \@labels, \@values, $full_filename, 'large', \%prefs, { no_transparent => 1 } );
-		$chart_data->{'mean'} =
-		    BIGSdb::Utils::decimal_place( $stats->{'mean'}, 1 )
-		  . '; &sigma;: '
-		  . BIGSdb::Utils::decimal_place( $stats->{'std'}, 1 );
-		if ( $type eq 'lengths' ) {
-			my $filename  = "${prefix}_lengths.txt";
-			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
-			if ( open( my $fh, '>', $full_path ) ) {
-				foreach my $length ( sort { $a <=> $b } @{ $data->{'lengths'} } ) {
-					say $fh $length;
-				}
-				close $fh;
-				$chart_data->{'lengths_file'} = $filename;
-			} else {
-				$logger->error("Can't open $full_path for writing");
-			}
-		}
-	}
-	return $chart_data;
-}
-
-sub _print_charts {
-	my ( $self, $data, $prefix, $params ) = @_;
-	say q(<div class="box" id="resultsfooter">);
-	say q(<p>Click on the following charts to enlarge</p>);
-	my @types = qw(contigs sum);
-	push @types, qw(mean lengths) if $params->{'contig_analysis'};
-	foreach my $type (@types) {
-		my $chart_data = $self->_make_chart( $data, $prefix, $type, $params );
-		say q(<div style="float:left;padding-right:1em">);
-		say qq(<h2>$chart_data->{'title'}</h2>);
-		say qq(Overall mean: $chart_data->{'mean'}<br />);
-		say qq(<a href="/tmp/$prefix\_histogram_$type.png" data-rel="lightbox-1" class="lightbox" )
-		  . qq(title="$chart_data->{'title'}"><img src="/tmp/$prefix\_histogram_$type.png" alt="$type histogram" )
-		  . q(style="width:200px; border:1px dashed black" /></a>);
-		if ( $chart_data->{'lengths_file'} ) {
-			my $lengths_full_path = "$self->{'config'}->{'tmp_dir'}/$chart_data->{'lengths_file'}";
-			say qq(<p><a href="/tmp/$chart_data->{'lengths_file'}">Download lengths</a></p>)
-			  if -e $lengths_full_path && !-z $lengths_full_path;
-		}
-		say q(</div>);
-	}
-	say q(<div style="clear:both"></div></div>);
-	return;
 }
 1;

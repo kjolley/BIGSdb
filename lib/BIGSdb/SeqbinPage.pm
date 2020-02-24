@@ -208,7 +208,7 @@ sub get_javascript {
 	});
 	
 	d3.json("$url" + "&ajax=contig_size").then (function(jsonData) {
-		chart['contig_size'] = contig_size = c3.generate({
+		chart['contig_size'] = c3.generate({
 			bindto: '#contig_size',
 			title: {
 				text: 'Contig size distribution'

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2019, University of Oxford
+#Copyright (c) 2011-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -68,10 +68,15 @@ sub initiate {
 		$self->{'noCache'}    = 1;
 		return;
 	} else {
-		$self->{$_} = 1 foreach qw(jQuery jQuery.slimbox jQuery.tablesort packery noCache);
+		$self->{$_} = 1 foreach qw(jQuery jQuery.slimbox packery noCache);
 	}
 	return if !defined $id;
 	my $job = $self->{'jobManager'}->get_job($id);
+	if ( defined $job->{'module'} && $self->{'pluginManager'}->is_plugin( $job->{'module'} ) ) {
+		my $plugin = $self->{'pluginManager'}->get_plugin( $job->{'module'} );
+		my $reqs   = $plugin->get_initiation_values;
+		$self->{$_} = $reqs->{$_} foreach keys %$reqs;
+	}
 	return if !$job->{'status'};
 	return if any { $job->{'status'} =~ /^$_/x } qw (finished failed terminated cancelled rejected);
 	return;
