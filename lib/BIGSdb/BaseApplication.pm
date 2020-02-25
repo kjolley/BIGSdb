@@ -175,11 +175,6 @@ sub read_config_file {
 		if ($@) {
 			$logger->error(q(Chartdirector not installed! - Either install or set 'chartdirector=0' in bigsdb.conf));
 			$self->{'config'}->{'chartdirector'} = 0;
-		} else {
-			eval 'use BIGSdb::Charts';    ## no critic (ProhibitStringyEval)
-			if ($@) {
-				$logger->error('Charts.pm not installed!');
-			}
 		}
 	}
 	$self->{'config'}->{'aligner'} = 1 if $self->{'config'}->{'muscle_path'} || $self->{'config'}->{'mafft_path'};
