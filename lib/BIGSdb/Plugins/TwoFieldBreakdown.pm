@@ -1,6 +1,6 @@
 #FieldBreakdown.pm - TwoFieldBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -27,8 +27,9 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Try::Tiny;
 use List::MoreUtils qw(uniq any);
+use JSON;
 use BIGSdb::Constants qw(:interface);
-use constant MAX_INSTANT_RUN => 10000;
+use constant MAX_INSTANT_RUN => 5000;
 use constant MAX_TABLE       => 2000;
 
 sub get_attributes {
@@ -43,7 +44,7 @@ sub get_attributes {
 		buttontext  => 'Two Field',
 		menutext    => 'Two field',
 		module      => 'TwoFieldBreakdown',
-		version     => '1.4.13',
+		version     => '1.5.0',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/two_field_breakdown.html",
@@ -55,15 +56,7 @@ sub get_attributes {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.slimbox' => 1, 'jQuery.tablesort' => 1 };
-}
-
-sub get_option_list {
-	my @list = (
-		{ name => 'threeD',      description => 'Enable 3D effect',           default => 0 },
-		{ name => 'transparent', description => 'Enable transparent palette', default => 0 },
-	);
-	return \@list;
+	return { 'jQuery.slimbox' => 1, 'jQuery.tablesort' => 1, c3 => 1 };
 }
 
 sub get_hidden_attributes {
@@ -126,36 +119,15 @@ sub run {
 		}
 	}
 	return if ( $q->param('function') // '' ) ne 'breakdown';
-	my $guid = $self->get_guid;
-	my %options;
-	foreach my $att (qw (threeD transparent)) {
-		try {
-			$options{$att} =
-			  $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'TwoFieldBreakdown', $att );
-			$options{$att} = $options{$att} eq 'true' ? 1 : 0;
-		}
-		catch {
-			if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
-				$options{$att} = 0;
-			} elsif ( $_->isa('BIGSdb::Exception::Prefstore::NoGUID') ) {
-
-				#Ignore
-			} else {
-				$logger->logdie($_);
-			}
-		};
-	}
 	if ( @ids > MAX_INSTANT_RUN && $self->{'config'}->{'jobs_db'} ) {
 		my $att       = $self->get_attributes;
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 		my $params    = $q->Vars;
 		delete $params->{$_} foreach qw(field1 field2);
-		$params->{'field1'}      = $field1;
-		$params->{'field2'}      = $field2;
-		$params->{'attribute1'}  = $attribute1;
-		$params->{'attribute2'}  = $attribute2;
-		$params->{'threeD'}      = $options{'threeD'};
-		$params->{'transparent'} = $options{'transparent'};
+		$params->{'field1'}     = $field1;
+		$params->{'field2'}     = $field2;
+		$params->{'attribute1'} = $attribute1;
+		$params->{'attribute2'} = $attribute2;
 		my $job_id = $self->{'jobManager'}->add_job(
 			{
 				dbase_config => $self->{'instance'},
@@ -173,13 +145,11 @@ sub run {
 	}
 	$self->_breakdown(
 		{
-			id_list     => \@ids,
-			field1      => $field1,
-			field2      => $field2,
-			attribute1  => $attribute1,
-			attribute2  => $attribute2,
-			threeD      => $options{'threeD'},
-			transparent => $options{'transparent'}
+			id_list    => \@ids,
+			field1     => $field1,
+			field2     => $field2,
+			attribute1 => $attribute1,
+			attribute2 => $attribute2,
 		}
 	);
 	return;
@@ -276,12 +246,9 @@ sub run_job {
 		display       => $params->{'display'}
 	};
 	my ( $html_table, $text_table ) = $self->_generate_tables($args);
-	$html_buffer .= $$html_table;
+	$html_buffer .= $$html_table if !$disable_html_table;
 	say $fh $$text_table;
 	close $fh;
-	$self->{'jobManager'}
-	  ->update_job_status( $job_id, { message_html => qq(<div class="scrollable">$html_buffer</div>) } )
-	  if !$disable_html_table;
 	$self->{'jobManager'}
 	  ->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Tab-delimited text' } );
 	my $excel =
@@ -290,16 +257,31 @@ sub run_job {
 	$self->{'jobManager'}
 	  ->update_job_output( $job_id, { filename => "$job_id.xlsx", description => '02_Excel format' } )
 	  if -e $excel;
-	$args->{'no_print'} = 1;
-	$args->{$_} = $params->{$_} foreach qw(threeD transparent);
-	my $charts = $self->_print_charts($args);
-	my $i      = 3;
 
-	foreach my $chart (@$charts) {
-		$self->{'jobManager'}->update_job_output( $job_id,
-			{ filename => $chart->{'filename'}, description => "0${i}_$chart->{'title'}" } );
-		$i++;
+	if ( keys %$data > 30 || @$field2values > 30 ) {
+		$self->{'jobManager'}
+		  ->update_job_status( $job_id, { message_html => qq(<div class="scrollable">$html_buffer</div>) } );
+		return;
 	}
+	my $charts       = $self->_get_c3_charts($args);
+	my $chart_buffer = q(<h3>Charts</h3>);
+	$chart_buffer .= q(<p>Click to enlarge</p>);
+	$chart_buffer .= q(<div id="values" class="embed_c3_chart"></div>);
+	$chart_buffer .= q(<div id="percentages" class="embed_c3_chart"></div>);
+	$chart_buffer .= q(<div style="clear:both;padding-bottom:1em"></div>);
+	my $c3_js = $self->_get_c3_js;
+	$chart_buffer .= << "HTML";
+<script>
+\$(function () {
+$c3_js
+$charts	
+});
+\$(".embed_c3_chart").css({width:'300px','max-width':'95%',height:'200px'})
+</script>
+HTML
+	$html_buffer = qq(<div class="scrollable">$html_buffer</div>) if $html_buffer;
+	$html_buffer .= $chart_buffer;
+	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
 	return;
 }
 
@@ -439,8 +421,8 @@ sub _print_controls {
 
 sub _breakdown {
 	my ( $self, $args ) = @_;
-	my ( $id_list, $field1, $field2, $attribute1, $attribute2, $threeD, $transparent ) =
-	  @{$args}{qw(id_list field1 field2 attribute1 attribute2 threeD transparent)};
+	my ( $id_list, $field1, $field2, $attribute1, $attribute2 ) =
+	  @{$args}{qw(id_list field1 field2 attribute1 attribute2)};
 	my $q = $self->{'cgi'};
 	my $freq_hashes;
 	try {
@@ -505,15 +487,7 @@ sub _breakdown {
 	} else {
 		$display = 'values only';
 	}
-	if ( $q->param('togglepc') ) {
-		if ( $q->param('togglepc') eq 'By row' ) {
-			$q->param( calcpc => 'row' );
-		} elsif ( $q->param('togglepc') eq 'By column' ) {
-			$q->param( calcpc => 'column' );
-		} elsif ( $q->param('togglepc') eq 'By dataset' ) {
-			$q->param( calcpc => 'dataset' );
-		}
-	}
+	$self->_set_toggles;
 	if ( $q->param('calcpc') ) {
 		$calcpc = $q->param('calcpc');
 	} else {
@@ -564,16 +538,73 @@ sub _breakdown {
 	my ( $html_table, $text_table ) = $self->_generate_tables($args);
 	say $fh $$text_table;
 	close $fh;
-	say qq(<div class="scrollable" style="clear:both">$$html_table</div></div>) if !$disable_html_table;
+	say qq(<div class="scrollable" style="clear:both">$$html_table</div>) if !$disable_html_table;
+	my ( $text_file, $excel_file ) = ( TEXT_FILE, EXCEL_FILE );
 	my $excel =
 	  BIGSdb::Utils::text2excel( $out_file,
 		{ worksheet => 'Breakdown', tmp_dir => $self->{'config'}->{'secure_tmp_dir'}, no_header => 1 } );
-	say qq(<div class="box" id="resultsfooter"><p>Download: <a href="/tmp/$temp1.txt">Tab-delimited text</a>);
-	say qq( | <a href="/tmp/$temp1.xlsx">Excel format</a>) if $excel;
-	say q(</p></div>);
-	$args->{'threeD'}      = $threeD;
-	$args->{'transparent'} = $transparent;
-	$self->_print_charts($args);
+	say q(<div class="box" id="resultsfooter">) if $disable_html_table;
+	print qq(<p style="margin-top:1em"><a href="/tmp/$temp1.txt" title="Tab-delimited text">$text_file</a>);
+	say qq(<a href="/tmp/$temp1.xlsx" title="Excel format">$excel_file</a>) if $excel;
+	say q(</p>);
+	say q(</div>);
+	return if keys %$data > 30 || @$field2values > 30;
+	my $charts = $self->_get_c3_charts($args);
+	say q(<div class="box" id="chart"><h2>Charts</h2>);
+	say q(<p>Click to enlarge</p>);
+	say q(<div id="values" class="embed_c3_chart"></div>);
+	say q(<div id="percentages" class="embed_c3_chart"></div>);
+	say q(<div style="clear:both;padding-bottom:1em"></div>);
+	say q(</div>);
+	my $c3_js = $self->_get_c3_js;
+	say << "HTML";
+<script>
+\$(function () {
+$c3_js
+$charts	
+});
+\$(".embed_c3_chart").css({width:'300px','max-width':'95%',height:'200px'})
+</script>
+HTML
+	return;
+}
+
+sub _get_c3_js {
+	my ($self) = @_;
+	my $js = <<"JS";
+var chart = [];
+\$(function () {
+	\$(".embed_c3_chart").click(function() {
+		if (jQuery.data(this,'expand')){
+			\$(this).css({width:'300px','height':'200px'});    
+			jQuery.data(this,'expand',0);
+			chart[this.id].internal.config.axis_x_tick_culling = true;
+		} else {
+  			\$(this).css({width:'600px','height':'400px'});    		
+    		jQuery.data(this,'expand',1);
+    		if (\$(this).width() > 450){
+	    		chart[this.id].internal.config.axis_x_tick_culling = false;
+    		}
+		}
+		chart[this.id].resize();
+	});
+});
+JS
+	return $js;
+}
+
+sub _set_toggles {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if ( $q->param('togglepc') ) {
+		if ( $q->param('togglepc') eq 'By row' ) {
+			$q->param( calcpc => 'row' );
+		} elsif ( $q->param('togglepc') eq 'By column' ) {
+			$q->param( calcpc => 'column' );
+		} elsif ( $q->param('togglepc') eq 'By dataset' ) {
+			$q->param( calcpc => 'dataset' );
+		}
+	}
 	return;
 }
 
@@ -713,103 +744,82 @@ sub _generate_tables {
 	return ( \$html_buffer, \$text_buffer );
 }
 
-sub _print_charts {
+sub _get_c3_charts {
 	my ( $self, $args ) = @_;
-	my (
-		$prefix,      $data,        $field1_total, $field2_values, $field1, $field2,
-		$text_field1, $text_field2, $no_print,     $threeD,        $transparent
-	  )
-	  = @{$args}
-	  {qw(prefix data field1_total field2_values field1 field2 text_field1 text_field2 no_print threeD transparent)};
-	my $filename_info = [];
-	if ( $self->{'config'}->{'chartdirector'} && keys %$data < 31 && @$field2_values < 31 ) {
-		if ( !$no_print ) {
-			say q(<div class="box" id="chart"><h2>Charts</h2>);
-			say q(<p>Click to enlarge.</p>);
+	my ( $data, $field1_total, $field2_values, $field1, $field2, $text_field1, $text_field2, ) =
+	  @{$args}{qw(data field1_total field2_values field1 field2 text_field1 text_field2)};
+	my $data_structure = [];
+	foreach my $field2_value (@$field2_values) {
+		my $column = { 'x-axis' => $field2_value };
+		foreach my $field1_value ( keys %$data ) {
+			$column->{$field1_value} = $data->{$field1_value}->{$field2_value} // 0;
 		}
-		for my $i ( 0 .. 1 ) {
-			my $chart = XYChart->new( 1000, 500 );
-			$chart->setPlotArea( 100, 40, 580, 300 );
-			$chart->setBackground(0x00FFFFFF);
-			$chart->addLegend( 700, 10 );
-			$chart->xAxis()->setLabels($field2_values)->setFontAngle(60);
-			my $layer;
-			if ( !$i ) {
-				no warnings 'once';
-				$layer = $chart->addBarLayer2( $perlchartdir::Stack, 0 );
-			} else {
-				no warnings 'once';
-				$layer = $chart->addBarLayer2( $perlchartdir::Percentage, 0 );
-			}
-			$layer->set3D if $threeD;
-			{
-				no warnings 'once';
-				$chart->setColors($perlchartdir::transparentPalette) if $transparent;
-			}
-			for my $field1value ( sort { $field1_total->{$b} <=> $field1_total->{$a} || $a cmp $b } keys %$data ) {
-				next if $field1value eq 'No value';
-				my @dataset;
-				foreach my $field2value (@$field2_values) {
-					if ( !$data->{$field1value}->{$field2value} ) {
-						push @dataset, 0;
-					} else {
-						push @dataset, $data->{$field1value}->{$field2value};
-					}
-				}
-				$layer->addDataSet( \@dataset, -1, $field1value );
-			}
-
-			#Put unassigned or no value at end
-			my @specials = ( 'Unassigned', 'No value', 'unspecified' );
-			foreach my $specialvalue (@specials) {
-				next if !$data->{$specialvalue};
-				my @dataset;
-				foreach my $field2value (@$field2_values) {
-					if ( !$data->{$specialvalue}->{$field2value} ) {
-						push @dataset, 0;
-					} else {
-						push @dataset, $data->{$specialvalue}->{$field2value};
-					}
-				}
-				$layer->addDataSet( \@dataset, -1, $specialvalue );
-			}
-			if ( !$i ) {
-				$chart->addTitle( 'Values', 'arial.ttf', 14 );
-				my $filename = "${prefix}_${field1}_$field2.png";
-				if ( $filename =~ /(BIGSdb.*\.png)/x ) {
-					$filename = $1;    #untaint
-				}
-				$chart->makeChart("$self->{'config'}->{'tmp_dir'}/$filename");
-				if ( !$no_print ) {
-					say q(<fieldset><legend>Values</legend>);
-					say qq(<a href="/tmp/$filename" data-rel="lightbox-1" class="lightbox" )
-					  . qq(title="$text_field1 vs $text_field2"><img src="/tmp/$filename" )
-					  . qq(alt="$text_field1 vs $text_field2" style="width:200px;border:1px dashed black" />)
-					  . q(</a></fieldset>);
-				}
-				push @$filename_info, { filename => $filename, title => "$text_field1 vs $text_field2 (values)" };
-			} else {
-				$chart->addTitle( 'Percentages', 'arial.ttf', 14 );
-				my $filename = "${prefix}_${field1}_${field2}_pc.png";
-				if ( $filename =~ /(BIGSdb.*\.png)/x ) {
-					$filename = $1;    #untaint
-				}
-				$chart->makeChart("$self->{'config'}->{'tmp_dir'}/$filename");
-				if ( !$no_print ) {
-					say q(<fieldset><legend>Percentages</legend>);
-					say qq(<a href="/tmp/$filename" data-rel="lightbox-1" class="lightbox" )
-					  . qq(title="$text_field1 vs $text_field2 percentage chart"><img src="/tmp/$filename" )
-					  . qq(alt="$text_field1 vs $text_field2 percentage chart" )
-					  . q(style="width:200px;border:1px dashed black" /></a></fieldset>);
-				}
-				push @$filename_info, { filename => $filename, title => "$text_field1 vs $text_field2 (percentages)" };
-			}
-		}
-		say q(</div>) if !$no_print;
+		push @$data_structure, $column;
 	}
-	return $filename_info;
-}
+	my @field1_values = sort keys %$data;
+	my $json          = encode_json($data_structure);
+	local $" = q(",");
+	my @charts = (
+		{ name => 'values',      title => 'Values',      normalize => 'false' },
+		{ name => 'percentages', title => 'Percentages', normalize => 'true' }
+	);
+	my $buffer;
+	foreach my $chart (@charts) {
+		$buffer .= << "JS";
+chart['$chart->{'name'}'] = c3.generate({
+		bindto: '#$chart->{'name'}',
+		title: {
+			text: '$chart->{'title'}'
+		},
+		data: {
+			x: 'x-axis',
+			json: $json,
+			keys: {
+				x: 'x-axis',
+				value: ["@field1_values"]
+			},
+			groups: [
+				["@field1_values"]
+			],
+			type: 'bar',
+			stack : {
+				normalize: $chart->{'normalize'}
+			}
+		},
+		axis: {
+			x: {
+				type: 'category',
+				tick: {
+					multiline:false,
+					rotate:-45,
+					culling:true
+				}
+			}
+		},
+		bar: {
+			width: {
+				ratio: 0.8
+			}
+		},
+		legend: {
+			show: false,
+			position:'right'
+		},
+		tooltip: {
+			format: {
+				value: function (value, ratio, id){
+					if (value){
+						return value;
+					}
+				}
+			}
+		}
 
+	});	
+JS
+	}
+	return $buffer;
+}
 sub _get_value_frequency_hashes {
 	my ( $self, $field1, $field2, $id_list ) = @_;
 	my $total_isolates = $self->{'datastore'}->run_query("SELECT COUNT(id) FROM $self->{'system'}->{'view'}");

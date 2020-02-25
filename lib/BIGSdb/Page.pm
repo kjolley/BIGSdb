@@ -159,7 +159,7 @@ sub _get_javascript_paths {
 	my ($self) = @_;
 	my $page_js = $self->get_javascript;
 	$page_js .= $self->_get_cookie_js;
-	my $date = '20191120';
+	my $date = '20200225';
 	my @javascript;
 	if ( $self->{'jQuery'} ) {
 		my @language = ( language => 'Javascript' );
@@ -569,7 +569,7 @@ sub _get_meta_data {
 sub _get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20200222';
+	my $version = '20200225';
 	my @filenames;
 	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
 	push @filenames, q(c3.css)                                                if $self->{'c3'};
