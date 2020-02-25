@@ -2487,7 +2487,7 @@ sub _core_mean_distance {
 	say $fh $file_buffer;
 	close $fh;
 	my $chart_js = q();
-	if ( @$chart_data && $self->{'config'}->{'chartdirector'} ) {
+	if (@$chart_data) {
 		$chart_js = $self->_get_c3_chart(
 			$chart_data,
 			{
