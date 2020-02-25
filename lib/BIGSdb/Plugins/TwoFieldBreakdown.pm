@@ -588,6 +588,14 @@ var chart = [];
 		chart[this.id].resize();
 	});
 });
+function get_palette(n){
+	var step = 1/(n-0.9);
+	var palette = [];
+	for (var i=0; i<1; i+=step){
+		palette.push(d3.interpolateSpectral(i));
+	}
+	return palette;
+}
 JS
 	return $js;
 }
@@ -763,6 +771,7 @@ sub _get_c3_charts {
 		{ name => 'percentages', title => 'Percentages', normalize => 'true' }
 	);
 	my $buffer;
+	my $colours = keys %$data ;
 	foreach my $chart (@charts) {
 		$buffer .= << "JS";
 chart['$chart->{'name'}'] = c3.generate({
@@ -785,6 +794,9 @@ chart['$chart->{'name'}'] = c3.generate({
 				normalize: $chart->{'normalize'}
 			}
 		},
+		color: {
+        	pattern: get_palette($colours) 
+    	},
 		axis: {
 			x: {
 				type: 'category',
