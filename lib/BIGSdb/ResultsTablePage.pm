@@ -2005,7 +2005,9 @@ sub publish {
 
 		if ($request_only) {
 			$qry =
-			  "UPDATE private_isolates SET request_publish=TRUE WHERE isolate_id IN (SELECT value FROM $temp_table)";
+			    q(UPDATE private_isolates SET request_publish=TRUE,datestamp='now')
+			  . qq(WHERE isolate_id IN (SELECT value FROM $temp_table))
+			  ;
 			$message = "Publication requested for $count record$plural.";
 		} else {
 			$qry     = "DELETE FROM private_isolates WHERE isolate_id IN (SELECT value FROM $temp_table)";

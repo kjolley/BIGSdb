@@ -161,6 +161,7 @@ sub get_permissions {
 
 	#Site permissions
 	my $user_info = $self->get_user_info_from_username($user_name);
+	return {} if ($user_info->{'status'} // q()) eq 'user';
 	if ( $user_info->{'user_db'} ) {
 		my $user_db          = $self->get_user_db( $user_info->{'user_db'} );
 		my $site_permissions = $self->run_query(
