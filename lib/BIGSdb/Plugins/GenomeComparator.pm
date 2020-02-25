@@ -32,6 +32,7 @@ use Bio::SeqIO;
 use IO::Uncompress::Unzip qw(unzip $UnzipError);
 use IO::String;
 use Excel::Writer::XLSX;
+use JSON;
 use Digest::MD5;
 use List::MoreUtils qw(uniq);
 use Try::Tiny;
@@ -53,7 +54,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.4.3',
+		version     => '2.5.0',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -68,7 +69,7 @@ sub get_attributes {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.jstree' => 1 };
+	return { 'jQuery.jstree' => 1, c3 => 1 };
 }
 
 sub run {
@@ -109,8 +110,7 @@ sub run {
 		if ( @$filtered_ids > $max_genomes ) {
 			my $nice_max = BIGSdb::Utils::commify($max_genomes);
 			my $selected = BIGSdb::Utils::commify( scalar @$filtered_ids );
-			push @errors,
-			  qq(Genome Comparator analysis is limited to $nice_max isolates. You have selected $selected.);
+			push @errors, qq(Genome Comparator analysis is limited to $nice_max isolates. You have selected $selected.);
 			$continue = 0;
 		}
 		my $loci_selected = $self->get_selected_loci;
@@ -670,12 +670,14 @@ sub _analyse_by_loci {
 	my $html_buffer = qq(<h3>Analysis against defined loci</h3>\n);
 	if ( !$self->{'exit'} ) {
 		$self->align( $job_id, 1, $ids, $scan_data );
-		my $core_buffers = $self->_core_analysis( $scan_data, { ids => $ids, job_id => $job_id, by_reference => 0 } );
 		my $table_cells = @$ids * @{ $scan_data->{'loci'} };
 		if ( $table_cells <= MAX_DISPLAY_CELLS ) {
 			$html_buffer .= $self->_get_html_output( 0, $ids, $scan_data );
-			$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
 		}
+		my ( $core_buffers, $core_html ) =
+		  $self->_core_analysis( $scan_data, { ids => $ids, job_id => $job_id, by_reference => 0 } );
+		$html_buffer .= $core_html;
+		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
 		my $dismat = $self->_generate_splits( $job_id, $scan_data );
 		$self->_generate_excel_file(
 			{
@@ -749,12 +751,14 @@ sub _analyse_by_reference {
 		{ job_id => $job_id, ids => $ids, user_genomes => $user_genomes, cds => \@cds } );
 	if ( !$self->{'exit'} ) {
 		$self->align( $job_id, 1, $ids, $scan_data );
-		my $core_buffers = $self->_core_analysis( $scan_data, { ids => $ids, job_id => $job_id, by_reference => 1 } );
+		my ( $core_buffers, $core_html ) =
+		  $self->_core_analysis( $scan_data, { ids => $ids, job_id => $job_id, by_reference => 1 } );
 		my $table_cells = @$ids * @{ $scan_data->{'loci'} };
 		if ( $table_cells <= MAX_DISPLAY_CELLS ) {
 			$html_buffer .= $self->_get_html_output( 1, $ids, $scan_data );
-			$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
 		}
+		$html_buffer .= $core_html;
+		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
 		$file_buffer .= $self->_get_text_output( 1, $ids, $scan_data );
 		$self->_output_file_buffer( $job_id, $file_buffer );
 		my $dismat = $self->_generate_splits( $job_id, $scan_data );
@@ -2345,14 +2349,17 @@ sub _core_analysis {
 	say $fh $core_loci_buffer;
 	$excel_buffers->{'core_loci'} = $core_loci_buffer;
 	my $presence_buffer = "Present in % of isolates\tNumber of loci\tPercentage (%) of loci\n";
-	my ( @labels, @values );
+	my $chart_data      = [];
 	for ( my $upper_range = 5 ; $upper_range <= 100 ; $upper_range += 5 ) {
 		my $label      = ( $upper_range - 5 ) . " - <$upper_range";
 		my $value      = $range{$upper_range} // 0;
 		my $percentage = BIGSdb::Utils::decimal_place( $value * 100 / $locus_count, 1 );
 		$presence_buffer .= "$label\t$value\t$percentage\n";
-		push @labels, $label;
-		push @values, $value;
+		push @$chart_data,
+		  {
+			label => $label,
+			value => $value
+		  };
 	}
 	$range{'all_isolates'} //= 0;
 	my $percentage = BIGSdb::Utils::decimal_place( $range{'all_isolates'} * 100 / $locus_count, 1 );
@@ -2360,33 +2367,64 @@ sub _core_analysis {
 	say $fh $presence_buffer;
 	close $fh;
 	$excel_buffers->{'presence'} = $presence_buffer;
-	push @labels, 100;
-	push @values, $range{'all_isolates'};
-	$excel_buffers->{'mean_distance'} = $self->_core_mean_distance( $args, $out_file, \@core_loci, $loci )
-	  if $params->{'calc_distances'};
+	push @$chart_data,
+	  {
+		label => 100,
+		value => $range{'all_isolates'}
+	  };
+	my $core_mean_js  = q();
+	my $core_mean_div = q();
 
+	if ( $params->{'calc_distances'} ) {
+		( $excel_buffers->{'mean_distance'}, $core_mean_js ) =
+		  $self->_core_mean_distance( $args, $out_file, \@core_loci, $loci );
+		if ($core_mean_js) {
+			$core_mean_div =
+			  q(<div id="core_mean" class="embed_c3_chart" style="width:300px;max-width:95%;height:200px"></div>);
+		}
+	}
 	if ( -e $out_file ) {
 		$self->{'jobManager'}->update_job_output( $args->{'job_id'},
 			{ filename => "$args->{'job_id'}\_core.txt", description => '40_Locus presence frequency (text)' } );
 	}
-	if ( $self->{'config'}->{'chartdirector'} ) {
-		my $image_file = "$self->{'config'}->{'tmp_dir'}/$args->{'job_id'}\_core.png";
-		BIGSdb::Charts::barchart(
-			\@labels, \@values, $image_file, 'large',
-			{ 'x-title'      => 'Present in % of isolates', 'y-title' => 'Number of loci' },
-			{ no_transparent => 1 }
-		);
-		if ( -e $image_file ) {
-			$self->{'jobManager'}->update_job_output(
-				$args->{'job_id'},
-				{
-					filename    => "$args->{'job_id'}\_core.png",
-					description => '41_Locus presence frequency chart (PNG format)'
-				}
-			);
+	my $chart_js = $self->_get_c3_chart(
+		$chart_data,
+		{
+			name     => 'locus_presence',
+			title    => 'Locus presence frequency',
+			'x-axis' => 'Present in % of isolates',
+			'y-axis' => 'Number of isolates'
 		}
-	}
-	return $excel_buffers;
+	);
+	my $chart_html = <<"JS";
+<script>
+var chart = [];
+\$(function () {
+	\$(".embed_c3_chart").click(function() {
+		if (jQuery.data(this,'expand')){
+			\$(this).css({width:'300px','height':'200px'});    
+			jQuery.data(this,'expand',0);
+			chart[this.id].internal.config.axis_x_tick_culling = true;
+		} else {
+  			\$(this).css({width:'600px','height':'400px'});    		
+    		jQuery.data(this,'expand',1);
+    		if (\$(this).width() > 450){
+	    		chart[this.id].internal.config.axis_x_tick_culling = false;
+    		}
+ 		}
+		chart[this.id].resize();
+	});
+	$chart_js
+	$core_mean_js
+});
+</script>
+<h3>Charts</h3>
+<p>Click to enlarge.</p>
+<div id="locus_presence" class="embed_c3_chart" style="width:300px;max-width:95%;height:200px"></div>
+$core_mean_div
+<div style="clear:both"></div>
+JS
+	return ( $excel_buffers, $chart_html );
 }
 
 sub _core_mean_distance {
@@ -2394,15 +2432,15 @@ sub _core_mean_distance {
 	return if !@$core_loci;
 	my $file_buffer;
 	my $largest_distance = $self->_get_largest_distance( $core_loci, $loci );
-	my ( @labels, @values );
+	my $chart_data = [];
 	if ( !$largest_distance ) {
 		$file_buffer .= "All loci are identical.\n";
 	} else {
 		my $increment;
 
-		#Aim to have <50 points
+		#Aim to have <25 points
 		foreach (qw(0.0001 0.0002 0.0005 0.001 0.002 0.005 0.01 0.02)) {
-			if ( ( $largest_distance / $_ ) <= 50 ) {
+			if ( ( $largest_distance / $_ ) <= 25 ) {
 				$increment = $_;
 				last;
 			}
@@ -2422,15 +2460,21 @@ sub _core_mean_distance {
 		  . ( $upper_range{0} // 0 ) . "\t"
 		  . BIGSdb::Utils::decimal_place( ( ( $upper_range{0} // 0 ) * 100 / @$core_loci ), 1 ) . "\n";
 		my $range = 0;
-		push @labels, 0;
-		push @values, $upper_range{0} // 0;
+		push @$chart_data,
+		  {
+			label => 0,
+			value => $upper_range{0} // 0
+		  };
 		while ( $range <= $largest_distance ) {
 			$range += $increment;
 			$range = ( int( ( $range * 10000.0 ) + 0.5 ) / 10000.0 );    #Set float precision
 			my $label = '>' . ( $range - $increment ) . " - $range";
 			my $value = $upper_range{$range} // 0;
-			push @labels, $label;
-			push @values, $value;
+			push @$chart_data,
+			  {
+				label => $label,
+				value => $value
+			  };
 			$file_buffer .=
 			  "$label\t$value\t"
 			  . BIGSdb::Utils::decimal_place( ( ( $upper_range{$range} // 0 ) * 100 / @$core_loci ), 1 ) . "\n";
@@ -2442,25 +2486,73 @@ sub _core_mean_distance {
 	say $fh "\nMean distances of core loci\n---------------------------\n";
 	say $fh $file_buffer;
 	close $fh;
-	if ( @labels && $self->{'config'}->{'chartdirector'} ) {
-		my $image_file = "$self->{'config'}->{'tmp_dir'}/$args->{'job_id'}\_core2.png";
-		BIGSdb::Charts::barchart(
-			\@labels, \@values, $image_file, 'large',
-			{ 'x-title'      => 'Overall mean distance', 'y-title' => 'Number of loci' },
-			{ no_transparent => 1 }
+	my $chart_js = q();
+	if ( @$chart_data && $self->{'config'}->{'chartdirector'} ) {
+		$chart_js = $self->_get_c3_chart(
+			$chart_data,
+			{
+				name     => 'core_mean',
+				title    => 'Overall mean distance from consensus',
+				'x-axis' => 'Overall mean distance',
+				'y-axis' => 'Number of loci'
+			}
 		);
-		if ( -e $image_file ) {
-			$self->{'jobManager'}->update_job_output(
-				$args->{'job_id'},
-				{
-					filename    => "$args->{'job_id'}\_core2.png",
-					description => '42_Overall mean distance (from consensus sequence) '
-					  . 'of core genome alleles (PNG format)'
-				}
-			);
-		}
 	}
-	return $file_buffer;
+	return ( $file_buffer, $chart_js );
+}
+
+sub _get_c3_chart {
+	my ( $self, $data, $att ) = @_;
+	my $json   = encode_json($data);
+	my $buffer = << "JS";
+chart['$att->{'name'}'] = c3.generate({
+		bindto: '#$att->{'name'}',
+		title: {
+			text: '$att->{'title'}'
+		},
+		data: {
+			json: $json,
+			keys: {
+				x: 'label',
+				value: ['value']
+			},
+			type: 'bar'
+		},	
+		bar: {
+			width: {
+				ratio: 0.8
+			}
+		},
+		axis: {
+			x: {
+				label: {
+					text: '$att->{'x-axis'}',
+					position: 'outer-center'
+				},
+				type: 'category',
+				tick: {
+					multiline:false,
+					rotate:-45,
+					culling:true
+				},
+				height:75
+			},
+			y: {
+				label: {
+					text: '$att->{'y-axis'}',
+					position: 'outer-middle'
+				}
+			}
+		},
+		legend: {
+			show: false
+		},
+		padding: {
+			right: 50
+		}
+	});	
+JS
+	return $buffer;
 }
 
 sub _get_largest_distance {
@@ -2483,8 +2575,6 @@ sub _touch_output_files {
 sub get_plugin_javascript {
 	my ($self) = @_;
 	my $buffer = << "END";
-
-
 function enable_seqs(){
 	if (\$("#accession").val() || \$("#ref_upload").val() || \$("#annotation").val()){
 		\$("#scheme_fieldset").hide(500);
@@ -2504,6 +2594,7 @@ function enable_seqs(){
 	if (\$("#calc_distances").prop("checked")){
 		\$("#align").prop("checked", true);
 		\$("#align_all").prop("checked", true);
+		\$("#align_stats").prop("checked", true);
 		\$("#include_ref").prop("checked", false);
 	} else {
 		\$("#align").prop("disabled", false);

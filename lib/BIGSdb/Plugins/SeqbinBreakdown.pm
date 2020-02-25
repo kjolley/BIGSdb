@@ -490,7 +490,7 @@ sub _get_rounded_width {
 	return 100000;
 }
 sub _get_c3_chart {
-	my ( $self, $data, $type, $params ) = @_;
+	my ( $self, $data, $type ) = @_;
 	my %title = (
 		contigs => 'Number of contigs',
 		sum     => 'Total length',
@@ -587,7 +587,7 @@ JS
 		$buffer .= qq(<div id="$type" class="embed_c3_chart"></div>\n);
 		$buffer .= qq(<script>\n);
 		$buffer .= qq[\$(function () {\n];
-		$buffer .= $self->_get_c3_chart( $data, $type, $params );
+		$buffer .= $self->_get_c3_chart( $data, $type );
 		$buffer .= qq[});\n];
 		$buffer .= qq(\$(".embed_c3_chart").css({width:'300px','max-width':'95%',height:'200px'})\n);
 		$buffer .= qq(</script>\n);
