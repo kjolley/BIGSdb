@@ -342,7 +342,7 @@ sub _print_table {
 	say q(<div class="box" id="resultsfooter">);
 	say q(<p>Click charts to enlarge</p>);
 	say $self->_get_charts( $data, $params ) if $header_displayed;
-	say q(<div style="clear:both"></div></div>);
+	say q(<div style="clear:both;padding-bottom:1em"></div></div>);
 	return;
 }
 
