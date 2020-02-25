@@ -49,7 +49,6 @@ sub get_attributes {
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/two_field_breakdown.html",
 		input       => 'query',
-		requires    => 'chartdirector',
 		order       => 12
 	);
 	return \%att;

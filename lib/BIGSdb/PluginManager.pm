@@ -244,7 +244,6 @@ sub _is_isolate_count_ok {
 sub _has_required_item {
 	my ( $self, $required_attr ) = @_;
 	my %requires = (
-		chartdirector          => 'chartdirector',
 		ref_db                 => 'ref_?db',
 		emboss_path            => 'emboss',
 		muscle_path            => 'muscle',

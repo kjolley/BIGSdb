@@ -170,13 +170,6 @@ sub read_config_file {
 		$self->{'config'}->{$param} = 0 if $self->{'config'}->{$param} eq 'no';
 	}
 	$self->{'config'}->{'cache_days'} //= 7;
-	if ( $self->{'config'}->{'chartdirector'} ) {
-		eval 'use perlchartdir';    ## no critic (ProhibitStringyEval)
-		if ($@) {
-			$logger->error(q(Chartdirector not installed! - Either install or set 'chartdirector=0' in bigsdb.conf));
-			$self->{'config'}->{'chartdirector'} = 0;
-		}
-	}
 	$self->{'config'}->{'aligner'} = 1 if $self->{'config'}->{'muscle_path'} || $self->{'config'}->{'mafft_path'};
 	$self->{'config'}->{'doclink'}         //= 'http://bigsdb.readthedocs.io/en/latest';
 	$self->{'config'}->{'max_upload_size'} //= 32;

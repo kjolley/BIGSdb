@@ -179,8 +179,6 @@ sub _print_plugins {
 sub _reason_plugin_disabled {
 	my ( $self, $attr ) = @_;
 	if ( $attr->{'requires'} ) {
-		return 'Chartdirector not installed.'
-		  if !$self->{'config'}->{'chartdirector'} && $attr->{'requires'} =~ /chartdirector/;
 		return 'Reference database not configured.'
 		  if !$self->{'config'}->{'ref_db'}
 		  && $attr->{'requires'} =~ /ref_?db/x;
