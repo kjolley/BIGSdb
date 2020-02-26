@@ -1,3 +1,11 @@
+v1.25.1: *ChartDirector is no longer used - all static chart images have been 
+          replaced with D3 dynamic charts.
+         *Annotations can now be downloaded from sequence bin page as Genbank
+          or GFF3 files.
+         *Global limits for plugins can now be set in bigsdb.conf.
+         *Deletion without retirement can now be disabled to ensure that
+          identifiers are not re-used.
+         *Memory leak fixed in PCR plugin.
 v1.25.0: *Option to allow user group members to co-curate private shared data.
          *Separate load limits for web scans and offline jobs.
 v1.24.1: *Support for non-optlist multivalue fields.
