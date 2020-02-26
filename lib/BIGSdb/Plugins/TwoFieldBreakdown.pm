@@ -256,8 +256,7 @@ sub run_job {
 	$self->{'jobManager'}
 	  ->update_job_output( $job_id, { filename => "$job_id.xlsx", description => '02_Excel format' } )
 	  if -e $excel;
-
-	if ( keys %$data > 30 || @$field2values > 30 ) {
+	if ( !$self->_should_we_chart( [ keys %$data ], $field2values ) ) {
 		$self->{'jobManager'}
 		  ->update_job_status( $job_id, { message_html => qq(<div class="scrollable">$html_buffer</div>) } );
 		return;
@@ -547,7 +546,11 @@ sub _breakdown {
 	say qq(<a href="/tmp/$temp1.xlsx" title="Excel format">$excel_file</a>) if $excel;
 	say q(</p>);
 	say q(</div>);
-	return if keys %$data > 30 || @$field2values > 30;
+	return if !$self->_should_we_chart( [ keys %$data ], $field2values );
+
+	foreach my $value ( keys %$data, @$field2values ) {
+		return if length($value) > 30;
+	}
 	my $charts = $self->_get_c3_charts($args);
 	say q(<div class="box" id="chart"><h2>Charts</h2>);
 	say q(<p>Click to enlarge</p>);
@@ -566,6 +569,18 @@ $charts
 </script>
 HTML
 	return;
+}
+
+#Long values or too many values cannot be charted well.
+#Better just not to generate a chart in this case.
+sub _should_we_chart {
+	my ( $self, $list1, $list2 ) = @_;
+	return if @$list1 > 30;
+	return if @$list2 > 30;
+	foreach my $value ( @$list1, @$list2 ) {
+		return if length($value) > 30;
+	}
+	return 1;
 }
 
 sub _get_c3_js {
@@ -771,7 +786,7 @@ sub _get_c3_charts {
 		{ name => 'percentages', title => 'Percentages', normalize => 'true' }
 	);
 	my $buffer;
-	my $colours = keys %$data ;
+	my $colours = keys %$data;
 	foreach my $chart (@charts) {
 		$buffer .= << "JS";
 chart['$chart->{'name'}'] = c3.generate({
@@ -790,7 +805,7 @@ chart['$chart->{'name'}'] = c3.generate({
 				["@field1_values"]
 			],
 			type: 'bar',
-			stack : {
+			stack: {
 				normalize: $chart->{'normalize'}
 			}
 		},
@@ -831,6 +846,7 @@ JS
 	}
 	return $buffer;
 }
+
 sub _get_value_frequency_hashes {
 	my ( $self, $field1, $field2, $id_list ) = @_;
 	my $total_isolates = $self->{'datastore'}->run_query("SELECT COUNT(id) FROM $self->{'system'}->{'view'}");
