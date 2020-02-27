@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -24,6 +24,7 @@ use parent qw(BIGSdb::QueryPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use List::MoreUtils qw(any none);
+use JSON;
 use BIGSdb::Constants qw(:interface :limits SEQ_FLAGS LOCUS_PATTERN OPERATORS);
 use constant WARN_IF_TAKES_LONGER_THAN_X_SECONDS => 5;
 
@@ -133,6 +134,9 @@ sub print_content {
 	}
 	if ( $q->param('add_to_project') ) {
 		$self->add_to_project;
+	}
+	if ( $q->param('add_bookmark') ) {
+		$self->add_bookmark;
 	}
 	if ( $q->param('publish') ) {
 		$self->confirm_publication;
@@ -2786,7 +2790,7 @@ sub initiate {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	$self->SUPER::initiate;
-	$self->{$_} = 1 foreach qw(noCache addProjects);
+	$self->{$_} = 1 foreach qw(noCache addProjects addBookmarks);
 	if ( !$self->{'cgi'}->param('save_options') ) {
 		my $guid = $self->get_guid;
 		return if !$guid;
@@ -2802,6 +2806,36 @@ sub initiate {
 		my $value = $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'provenance_fieldset' );
 		$self->{'prefs'}->{'provenance_fieldset'} = ( $value // '' ) eq 'off' ? 0 : 1;
 	}
+	if ( BIGSdb::Utils::is_int( scalar $q->param('bookmark') ) ) {
+		$self->_initiate_bookmark( scalar $q->param('bookmark') );
+	}
+	return;
+}
+
+sub _initiate_bookmark {
+	my ( $self, $bookmark_id ) = @_;
+	my $bookmark = $self->{'datastore'}
+	  ->run_query( 'SELECT * FROM bookmarks WHERE id=?', $bookmark_id, { fetch => 'row_hashref' } );
+	
+	return if !$bookmark;
+	if (!$bookmark->{'public'}){
+		
+		return if !$self->{'username'};
+		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+		return if !$user_info;
+		return if $bookmark->{'user_id'} != $user_info->{'id'};
+	}
+	my $q      = $self->{'cgi'};
+	my $params = decode_json( $bookmark->{'params'} );
+	foreach my $param ( keys %$params ) {
+		$q->param( $param => $params->{$param} );
+	}
+
+	my $show_sets = ( $self->{'system'}->{'sets'} // q() ) eq 'yes' && !defined $self->{'system'}->{'set_id'} ? 1 : 0;
+	if ($show_sets) {
+		$q->param( set_id => $bookmark->{'set_id'} );
+	}
+	$q->param( submit => 1 );
 	return;
 }
 1;

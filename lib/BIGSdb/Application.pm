@@ -32,6 +32,7 @@ use BIGSdb::AlleleQueryPage;
 use BIGSdb::AlleleSequencePage;
 use BIGSdb::AuthorizeClientPage;
 use BIGSdb::BatchProfileQueryPage;
+use BIGSdb::BookmarksPage;
 use BIGSdb::ChangePasswordPage;
 use BIGSdb::CGI::as_utf8;
 use BIGSdb::CombinationQueryPage;
@@ -79,7 +80,8 @@ my $logger = get_logger('BIGSdb.Application_Initiate');
 use List::MoreUtils qw(any);
 use Config::Tiny;
 use Try::Tiny;
-use constant PAGES_NEEDING_AUTHENTICATION     => qw(authorizeClient changePassword userProjects submit login logout);
+use constant PAGES_NEEDING_AUTHENTICATION => qw(authorizeClient changePassword userProjects bookmarks
+  submit login logout);
 use constant PAGES_NEEDING_JOB_MANAGER        => qw(plugin job jobs index login logout options ajaxJobs);
 use constant PAGES_NEEDING_SUBMISSION_HANDLER => qw(submit batchAddFasta profileAdd profileBatchAdd batchAdd
   batchAddSequences batchIsolateUpdate isolateAdd isolateUpdate index logout);
@@ -381,6 +383,7 @@ sub print_page {
 		authorizeClient    => 'AuthorizeClientPage',
 		batchProfiles      => 'BatchProfileQueryPage',
 		batchSequenceQuery => 'SequenceQueryPage',
+		bookmarks          => 'BookmarksPage',
 		browse             => $query_page,
 		changePassword     => 'ChangePasswordPage',
 		cookies            => 'CookiesPage',
@@ -452,6 +455,7 @@ sub print_page {
 	);
 	my $continue = 1;
 	my $auth_cookies_ref;
+
 	if ( $self->{'error'} ) {
 		$page_attributes{'error'}              = $self->{'error'};
 		$page_attributes{'max_upload_size_mb'} = $self->{'max_upload_size_mb'};

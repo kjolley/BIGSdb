@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -23,6 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::Page);
 use Try::Tiny;
 use List::MoreUtils qw(any);
+use JSON;
 use BIGSdb::Constants qw(:interface DATABANKS);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -211,6 +212,7 @@ sub _print_results_header {
 		$self->_print_curate_headerbar_functions( $table, $passed_qry_file ) if $self->{'curate'};
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 			$self->_print_project_add_function;
+			$self->_print_add_bookmark_function;
 			$self->_print_publish_function;
 		}
 		$self->print_additional_headerbar_functions($passed_qry_file);
@@ -338,7 +340,8 @@ sub _print_project_add_function {
 	my $q = $self->{'cgi'};
 	return if $q->param('page') eq 'tableQuery';
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	my $projects  = $self->{'datastore'}->run_query(
+	return if !$user_info;
+	my $projects = $self->{'datastore'}->run_query(
 		'SELECT p.id,p.short_description FROM project_users AS pu JOIN projects '
 		  . 'AS p ON p.id=pu.project_id WHERE user_id=? AND admin ORDER BY UPPER(short_description)',
 		$user_info->{'id'},
@@ -368,6 +371,53 @@ sub _print_project_add_function {
 	return;
 }
 
+sub _print_add_bookmark_function {
+	my ($self) = @_;
+	return if !$self->{'username'};
+	return if !$self->{'addBookmarks'};
+	my $q         = $self->{'cgi'};
+	return if $q->param('bookmark');
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	return if !$user_info;
+	say q(<fieldset><legend>Bookmark query</legend>);
+	if ($self->{'bookmark_added'} ){
+		my $name = $self->{'bookmark_added'};
+		say qq(Bookmark added: $name);
+		say q(</fieldset>);
+		return;
+	}
+	my $hidden_attributes = $self->get_hidden_attributes;
+	$q->delete('bookmark');
+	say $q->start_form;
+	say $q->hidden($_) foreach qw (db query_file temp_table_file table page);
+	my $datestamp = BIGSdb::Utils::get_datestamp();
+	my $existing_names = $self->{'datastore'}->run_query('SELECT name FROM bookmarks WHERE user_id=?',$user_info->{'id'},{fetch=>'col_arrayref'});
+	my %existing = map{$_ => 1}@$existing_names;
+	my $suggested_name;
+	my $i = 1;
+	do {
+		$suggested_name = "$datestamp:$i";
+		$i++;
+	} while $existing{$suggested_name};
+
+	#Using print instead of say prevents blank line if attribute not set.
+	print $q->hidden($_) foreach @$hidden_attributes;
+	say $q->textfield(
+		-id          => 'bookmark',
+		-name        => 'bookmark',
+		-placeholder => 'Enter bookmark name...',
+		-required    => 'required',
+		-maxlength   => 100,
+		-default => $suggested_name
+	);
+	say $q->submit( -name => 'add_bookmark', -label => 'Add bookmark', -class => BUTTON_CLASS );
+	say qq(<span class="flash_message" style="margin-left:2em">$self->{'bookmark_add_message'}</span>)
+	  if $self->{'bookmark_add_message'};
+	say $q->end_form;
+	say q(</fieldset>);
+	return;
+}
+
 sub _print_publish_function {
 	my ($self) = @_;
 	return if !$self->{'username'};
@@ -375,6 +425,7 @@ sub _print_publish_function {
 	return if $q->param('page') eq 'tableQuery';
 	return if $q->param('page') eq 'plugin';
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	return if !$user_info;
 	if ( $self->{'curate'} && $user_info->{'status'} ne 'submitter' ) {
 		my $matched = $self->_get_query_private_records;
 		return if !@$matched && !$q->param('publish');
@@ -1890,6 +1941,56 @@ sub _initiate_urls_for_loci {
 	return;
 }
 
+sub add_bookmark {
+	my ($self) = @_;
+	return if $self->{'system'}->{'dbtype'} ne 'isolates';
+	my $q         = $self->{'cgi'};
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	return if !$user_info;
+	my $name = BIGSdb::Utils::escape_html(scalar $q->param('bookmark'));
+	if ($name) {
+		my $exists =
+		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM bookmarks WHERE (name,user_id)=(?,?))',
+			[ $name, $user_info->{'id'} ] );
+		if ($exists) {
+			$self->{'bookmark_add_message'} = 'Bookmark with this name exists.';
+			return;
+		}
+	} else {
+		$self->{'bookmark_add_message'} = 'Enter a name for the bookmark.';
+		return;
+	}
+	my $params = { %{ $q->Vars } };    #Don't nobble original contents
+	delete $params->{$_} foreach (qw(add_bookmark records currentpage lastpage table query_file bookmark db page));
+	foreach my $param ( keys %$params ) {
+		delete $params->{$param} if $params->{$param} eq q();
+	}
+	my $set_id = $self->get_set_id;
+	if (($self->{'system'}->{'sets'} // q()) eq 'yes'){
+		$set_id //= 0;
+	}
+	my $json   = encode_json($params);
+	eval {
+		$self->{'db'}->do(
+			'INSERT INTO bookmarks (name,dbase_config,set_id,page,params,user_id,date_entered,last_accessed,public) '
+			  . 'VALUES (?,?,?,?,?,?,?,?,?)',
+			undef, $name, $self->{'instance'}, $set_id, scalar $q->param('page'), $json,
+			$user_info->{'id'},
+			'now','now','false'
+		);
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+		$self->{'bookmark_add_message'} = 'Failed to create bookmark.';
+	} else {
+		$self->{'db'}->commit;
+		$self->{'bookmark_added'} = $name;
+		$q->delete('bookmark');
+	}
+	return;
+}
+
 sub add_to_project {
 	my ($self) = @_;
 	return if $self->{'system'}->{'dbtype'} ne 'isolates';
@@ -2006,8 +2107,7 @@ sub publish {
 		if ($request_only) {
 			$qry =
 			    q(UPDATE private_isolates SET request_publish=TRUE,datestamp='now')
-			  . qq(WHERE isolate_id IN (SELECT value FROM $temp_table))
-			  ;
+			  . qq(WHERE isolate_id IN (SELECT value FROM $temp_table));
 			$message = "Publication requested for $count record$plural.";
 		} else {
 			$qry     = "DELETE FROM private_isolates WHERE isolate_id IN (SELECT value FROM $temp_table)";

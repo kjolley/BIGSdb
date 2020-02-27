@@ -154,6 +154,15 @@ sub _print_query_section {
 		if (@$loci) {
 			say qq(<li><a href="${url_root}page=profiles">Search by combinations of loci (profiles)</a></li>);
 		}
+		if ($self->{'username'}){
+			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+			my $bookmarks = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM bookmarks WHERE user_id=?)',$user_info->{'id'});
+			if ($bookmarks){
+				say qq(<li><a href="${url_root}page=bookmarks">Bookmarked queries</a></li>)
+			}
+		}
+		
+		
 	} elsif ( $system->{'dbtype'} eq 'sequences' ) {
 		say qq(<li><a href="${url_root}page=sequenceQuery">Sequence query</a> - )
 		  . q(query an allele sequence or genome.</li>);

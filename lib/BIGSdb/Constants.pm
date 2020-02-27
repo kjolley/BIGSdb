@@ -72,6 +72,8 @@ use constant TRUE           => q(<span class="far fa-lg fa-check-square"></span>
 use constant FALSE          => q(<span class="far fa-lg fa-square"></span>);
 use constant BAN            => q(<span class="fas fa-ban" style="color:#a44"></span>);
 use constant DOWNLOAD       => q(<span class="fas fa-download" style="color:#44a"></span>);
+use constant LOCK           => q(<span class="fas fa-lock" style="color:#a44"></span>);
+use constant UNLOCK         => q(<span class="fas fa-lock-open" style="color:#4a4"></span>);
 use constant BACK           => q(<span class="nav_icon fas fa-2x fa-arrow-circle-left"></span>);
 use constant QUERY_MORE     => q(<span class="nav_icon fas fa-2x fa-search"></span>);
 use constant EDIT_MORE      => q(<span class="nav_icon fas fa-2x fa-pencil-alt"></span>);
@@ -148,8 +150,8 @@ use constant MAX_ROWS => 20;
 @values = qw(BUTTON_CLASS RESET_BUTTON_CLASS FACE_STYLE SHOW HIDE SAVE SAVING UP DOWN LEFT RIGHT
   EDIT DELETE ADD COMPARE UPLOAD QUERY USERS GOOD BAD TRUE FALSE BAN DOWNLOAD BACK QUERY_MORE EDIT_MORE
   UPLOAD_CONTIGS LINK_CONTIGS MORE HOME RELOAD KEY EYE_SHOW EYE_HIDE CURATE EXPORT_TABLE EXCEL_FILE TEXT_FILE
-  FASTA_FILE FASTA_FLANKING_FILE LABELLED_FASTA_FILE EMBL_FILE GBK_FILE GFF3_FILE MISC_FILE ARCHIVE_FILE IMAGE_FILE 
-  ALIGN_FILE CODE_FILE FLANKING MAX_ROWS);
+  FASTA_FILE FASTA_FLANKING_FILE LABELLED_FASTA_FILE EMBL_FILE GBK_FILE GFF3_FILE MISC_FILE ARCHIVE_FILE IMAGE_FILE
+  ALIGN_FILE CODE_FILE FLANKING MAX_ROWS LOCK UNLOCK);
 push @EXPORT_OK, @values;
 $EXPORT_TAGS{'interface'} = [@values];
 

@@ -312,29 +312,38 @@ input.pagebar:hover {border:1px solid #f00; background:#fff}
 
 .td1 {background:#efefff; vertical-align:top}
 .td2 {background:#efefef; vertical-align:top}
+
+
+.tablesorter-default .header,
+.tablesorter-default .tablesorter-header {
+	background-image: url(data:image/gif;base64,R0lGODlhFQAJAIAAAP///////yH5BAEAAAEALAAAAAAVAAkAAAIXjI+AywnaYnhUMoqt3gZXPmVg94yJVQAAOw==);
+	background-position: center right;
+	background-repeat: no-repeat;
+	cursor: pointer;
+	white-space: normal;
+	padding: 4px 20px 4px 4px;
+}
+.tablesorter-default thead .headerSortUp,
+.tablesorter-default thead .tablesorter-headerSortUp,
+.tablesorter-default thead .tablesorter-headerAsc {
+	background-image: url(data:image/gif;base64,R0lGODlhFQAEAIAAAP///////yH5BAEAAAEALAAAAAAVAAQAAAINjI8Bya2wnINUMopZAQA7);
+	border-bottom: #f00 2px solid;
+}
+.tablesorter-default thead .headerSortDown,
+.tablesorter-default thead .tablesorter-headerSortDown,
+.tablesorter-default thead .tablesorter-headerDesc {
+	background-image: url(data:image/gif;base64,R0lGODlhFQAEAIAAAP///////yH5BAEAAAEALAAAAAAVAAQAAAINjB+gC+jP2ptn0WskLQA7);
+	border-bottom: #f00 2px solid;
+}
+.tablesorter-default thead .sorter-false {
+	background-image: none;
+	cursor: default;
+	padding: 4px;
+}
+
 table.tablesorter {text-align:center}
 table.tablesorter tr.even td {background:#efefff;text-align:center}
 table.tablesorter tr.odd td {background:#efefef;text-align:center}
-table.tablesorter th.header { 
-	background-image: url(/javascript/tablesorter/bg.gif);/* fallback */
-	background-image: url(/javascript/tablesorter/bg.gif),linear-gradient(#559,#449);
-	background-repeat: no-repeat; 
-	padding:0px;
-	margin:0px;
-    padding-right: 20px;
-    background-position: center right; 
-    cursor: pointer; 
- } 
-table.tablesorter th.headerSortUp { 
-    background-image: url(/javascript/tablesorter/asc.gif); 
-    background-image: url(/javascript/tablesorter/asc.gif),linear-gradient(#339,#229);
-    background-color: #339; 
-}
-table.tablesorter th.headerSortDown { 
-    background-image: url(/javascript/tablesorter/desc.gif); 
-    background-image: url(/javascript/tablesorter/desc.gif),linear-gradient(#339,#229);
-    background-color: #339; 
-} 
 
 div.content {
 	background:#fcfcf9;
