@@ -181,6 +181,7 @@ sub _print_interface {
 	$self->_print_display_fieldset;
 	$self->print_action_fieldset;
 	$self->_print_modify_search_fieldset;
+	$self->_print_bookmark_fieldset;
 	say q(</div>);
 	say $q->end_form;
 	say q(</div></div>);
@@ -597,6 +598,15 @@ sub _get_list_attribute_data {
 sub _print_filters_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
+
+	#Enable filters if used in bookmark.
+	if ( defined $self->{'temp_prefs'}->{'dropdownfields'} ) {
+		foreach my $key ( keys %{ $self->{'temp_prefs'}->{'dropdownfields'} } ) {
+			if ( $self->{'temp_prefs'}->{'dropdownfields'}->{$key} ) {
+				$self->{'prefs'}->{'dropdownfields'}->{$key} = 1;
+			}
+		}
+	}
 	my @filters;
 	my $field_filters = $self->_get_field_filters;
 	push @filters, @$field_filters if @$field_filters;
@@ -672,6 +682,34 @@ sub _print_modify_search_fieldset {
 	  . qq(page=query&amp;save_options=1" style="display:none">$save</a> <span id="saving"></span><br />);
 	say q(</div>);
 	say q(<a class="trigger" id="panel_trigger" href="" style="display:none">Modify<br />form<br />options</a>);
+	return;
+}
+
+sub _print_bookmark_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	return if !$self->{'username'};
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	return if !$user_info;
+	my $bookmarks =
+	  $self->{'datastore'}->run_query( 'SELECT id,name,dbase_config FROM bookmarks WHERE user_id=? ORDER BY name',
+		$user_info->{'id'}, { fetch => 'all_arrayref', slice => {} } );
+	return if !@$bookmarks;
+	say q(<div id="bookmark_panel" style="display:none">);
+	say q(<a class="bookmark_trigger" id="close_bookmark" href="#"><span class="fas fa-lg fa-times"></span></a>);
+	say q(<h2>Bookmarks</h2>);
+	say q(<div><div style="max-height:12em;overflow-y:auto;padding-right:2em"><ul style="margin-left:-1em">);
+
+	foreach my $bookmark (@$bookmarks) {
+		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$bookmark->{'dbase_config'}&amp;)
+		  . qq(page=query&amp;bookmark=$bookmark->{'id'}">$bookmark->{'name'}</a></li>);
+	}
+	say q(</ul></div>);
+	say qq(<p style="margin-top:1em"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . q(page=bookmarks">Manage bookmarks</a></p>);
+	say q(</div></div>);
+	say q(<a class="bookmark_trigger" id="bookmark_trigger" href="" style="display:none">)
+	  . q(<span class="far fa-lg fa-bookmark"></span></a>);
 	return;
 }
 
@@ -2612,6 +2650,13 @@ $panel_js
         setTooltips();
         initiate_autocomplete();
 	});
+	
+	\$(".bookmark_trigger").click(function(){		
+		\$("#bookmark_panel").toggle("slide",{direction:"right"},"fast");
+		\$("#bookmark_trigger").show().animate({backgroundColor: "#848"},100).animate({backgroundColor: "#d9d"},100);		
+		return false;
+	});
+	\$("#bookmark_trigger").show().animate({backgroundColor: "#d9d"},500);
  });
  
 function setTooltips() {
@@ -2814,12 +2859,10 @@ sub initiate {
 
 sub _initiate_bookmark {
 	my ( $self, $bookmark_id ) = @_;
-	my $bookmark = $self->{'datastore'}
-	  ->run_query( 'SELECT * FROM bookmarks WHERE id=?', $bookmark_id, { fetch => 'row_hashref' } );
-	
+	my $bookmark =
+	  $self->{'datastore'}->run_query( 'SELECT * FROM bookmarks WHERE id=?', $bookmark_id, { fetch => 'row_hashref' } );
 	return if !$bookmark;
-	if (!$bookmark->{'public'}){
-		
+	if ( !$bookmark->{'public'} ) {
 		return if !$self->{'username'};
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 		return if !$user_info;
@@ -2829,8 +2872,10 @@ sub _initiate_bookmark {
 	my $params = decode_json( $bookmark->{'params'} );
 	foreach my $param ( keys %$params ) {
 		$q->param( $param => $params->{$param} );
+		if ( $param =~ /(.+)_list$/x ) {
+			$self->{'temp_prefs'}->{'dropdownfields'}->{$1} = 1;
+		}
 	}
-
 	my $show_sets = ( $self->{'system'}->{'sets'} // q() ) eq 'yes' && !defined $self->{'system'}->{'set_id'} ? 1 : 0;
 	if ($show_sets) {
 		$q->param( set_id => $bookmark->{'set_id'} );

@@ -376,7 +376,7 @@ sub _print_add_bookmark_function {
 	return if !$self->{'username'};
 	return if !$self->{'addBookmarks'};
 	my $q         = $self->{'cgi'};
-	return if $q->param('bookmark');
+	return if $q->param('bookmark') && !$self->{'bookmark_add_message'};
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	return if !$user_info;
 	say q(<fieldset><legend>Bookmark query</legend>);
@@ -387,7 +387,7 @@ sub _print_add_bookmark_function {
 		return;
 	}
 	my $hidden_attributes = $self->get_hidden_attributes;
-	$q->delete('bookmark');
+	$q->delete('bookmark') if !$self->{'bookmark_add_message'};
 	say $q->start_form;
 	say $q->hidden($_) foreach qw (db query_file temp_table_file table page);
 	my $datestamp = BIGSdb::Utils::get_datestamp();
@@ -408,7 +408,7 @@ sub _print_add_bookmark_function {
 		-placeholder => 'Enter bookmark name...',
 		-required    => 'required',
 		-maxlength   => 100,
-		-default => $suggested_name
+		-default => $q->param('bookmark') // $suggested_name
 	);
 	say $q->submit( -name => 'add_bookmark', -label => 'Add bookmark', -class => BUTTON_CLASS );
 	say qq(<span class="flash_message" style="margin-left:2em">$self->{'bookmark_add_message'}</span>)

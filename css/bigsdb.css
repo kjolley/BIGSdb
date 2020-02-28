@@ -383,7 +383,7 @@ div.menu a.logo:hover {background:transparent}
 
 div.panel {
 	position: absolute;
-	top: 7em;
+	top: 6em;
 	right: 0;
 	display: none;
 	padding: 1em 3em 1em 1em;
@@ -401,7 +401,7 @@ div.panel li {padding-bottom: 0.5em}
 a#panel_trigger{
 	position: absolute;
 	text-decoration: none;
-	top: 7em; right: 0;
+	top: 6em; right: 0;
 	color:#fff;
 	background: #448;
 	padding: 0.5em;
@@ -412,6 +412,40 @@ a#panel_trigger{
 }
 
 a#close_trigger {
+ 	color:black;
+ 	font-weight:600;
+ 	text-decoration:none;
+}
+
+div#bookmark_panel {
+	position: absolute;
+	top: 3em;
+	right: 0;
+	display: none;
+	padding: 1em 2em 1em 1em;
+	border:1px solid #999;
+	border-right:0;
+	border-bottom-left-radius:10px;
+	border-top-left-radius:10px;
+	background: #e0d5e0;
+	box-shadow: 3px 3px 3px #aaa;
+	z-index:9
+}
+
+a#bookmark_trigger{
+	position: absolute;
+	text-decoration: none;
+	top:3em; right: 0;
+	color:#fff;
+	background: #848;
+	padding: 0.5em;
+	border-bottom-left-radius:10px;
+	border-top-left-radius:10px;
+	display: block;
+	box-shadow: 3px 3px 3px #aaa;
+}
+
+a#close_bookmark {
  	color:black;
  	font-weight:600;
  	text-decoration:none;
