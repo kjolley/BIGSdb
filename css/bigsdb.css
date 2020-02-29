@@ -1,4 +1,4 @@
-/*Version: 20200222*/
+/*Version: 20200229*/
 body,form,input,th,td,div {margin-top:0;margin-bottom:0;padding-bottom:0;padding-top:0}
 select{margin:0}
 p {margin:0 0 1em 0;padding:0}
@@ -383,7 +383,7 @@ div.menu a.logo:hover {background:transparent}
 
 div.panel {
 	position: absolute;
-	top: 6em;
+	top: 8em;
 	right: 0;
 	display: none;
 	padding: 1em 3em 1em 1em;
@@ -400,8 +400,10 @@ div.panel li {padding-bottom: 0.5em}
 
 a#panel_trigger{
 	position: absolute;
+	width:1.5em;
+	text-align:center;
 	text-decoration: none;
-	top: 6em; right: 0;
+	top: 8em; right: 0;
 	color:#fff;
 	background: #448;
 	padding: 0.5em;
@@ -419,7 +421,7 @@ a#close_trigger {
 
 div#bookmark_panel {
 	position: absolute;
-	top: 3em;
+	top: 5em;
 	right: 0;
 	display: none;
 	padding: 1em 2em 1em 1em;
@@ -434,8 +436,10 @@ div#bookmark_panel {
 
 a#bookmark_trigger{
 	position: absolute;
+	width:1.5em;
+	text-align:center;
 	text-decoration: none;
-	top:3em; right: 0;
+	top:5em; right: 0;
 	color:#fff;
 	background: #848;
 	padding: 0.5em;

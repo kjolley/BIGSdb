@@ -76,10 +76,12 @@ sub print_content {
 	say q(<tbody>);
 	my ( $query, $delete, $public, $private ) = ( QUERY, DELETE, UNLOCK, LOCK );
 	foreach my $bookmark (@$bookmarks) {
+		#The hidden span in the name field seems to be necessary due to a bug in the tablesorter
+		#when values look like dates.
 		print qq(<tr class="td$td">)
 		  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=bookmarks&amp;delete=$bookmark->{'id'}">$delete</td>)
-		  . qq(<td>$bookmark->{'name'}</td><td>$bookmark->{'dbase_config'}</td>);
+		  . qq(page=bookmarks&amp;delete=$bookmark->{'id'}">$delete</a></td>)
+		  . qq(<td><span style="display:none">x</span>$bookmark->{'name'}</td><td>$bookmark->{'dbase_config'}</td>);
 		if ($show_sets) {
 			my $set_name;
 			if ( defined $bookmark->{'set_id'} ) {
@@ -94,7 +96,7 @@ sub print_content {
 		  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=bookmarks&amp;)
 		  . qq(share=$bookmark->{'id'}">$share</td><td><a href="$self->{'system'}->{'script_name'}?)
 		  . qq(db=$bookmark->{'dbase_config'}&amp;page=$bookmark->{'page'}&amp;)
-		  . qq(bookmark=$bookmark->{'id'}">$query</td></tr>);
+		  . qq(bookmark=$bookmark->{'id'}">$query</a></td></tr>);
 	}
 	say q(</tbody></table>);
 	say q(</div>);

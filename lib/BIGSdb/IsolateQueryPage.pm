@@ -681,7 +681,8 @@ sub _print_modify_search_fieldset {
 	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . qq(page=query&amp;save_options=1" style="display:none">$save</a> <span id="saving"></span><br />);
 	say q(</div>);
-	say q(<a class="trigger" id="panel_trigger" href="" style="display:none">Modify<br />form<br />options</a>);
+	say q(<a class="trigger" id="panel_trigger" href="" title="Modify form options" style="display:none">)
+	. q(<span class="fas fa-lg fa-wrench"></span></a>);
 	return;
 }
 
@@ -708,7 +709,7 @@ sub _print_bookmark_fieldset {
 	say qq(<p style="margin-top:1em"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . q(page=bookmarks">Manage bookmarks</a></p>);
 	say q(</div></div>);
-	say q(<a class="bookmark_trigger" id="bookmark_trigger" href="" style="display:none">)
+	say q(<a class="bookmark_trigger" id="bookmark_trigger" href="" style="display:none" title="Bookmarks">)
 	  . q(<span class="far fa-lg fa-bookmark"></span></a>);
 	return;
 }
