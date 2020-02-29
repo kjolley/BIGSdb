@@ -392,6 +392,7 @@ div.panel {
 	border-bottom-left-radius:10px;
 	border-top-left-radius:10px;
 	background: #d5d5e0;
+	background-image: linear-gradient(#d5d5e0, #f0f0f0 5em);
 	box-shadow: 3px 3px 3px #aaa;
 	z-index:9
 }
@@ -430,6 +431,7 @@ div#bookmark_panel {
 	border-bottom-left-radius:10px;
 	border-top-left-radius:10px;
 	background: #e0d5e0;
+	background-image: linear-gradient(#e0d5e0, #f0f0f0 5em);
 	box-shadow: 3px 3px 3px #aaa;
 	z-index:9
 }
