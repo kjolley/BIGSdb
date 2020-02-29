@@ -1368,10 +1368,8 @@ sub get_isolate_publication_filter {
 	if ( $self->{'config'}->{'ref_db'} ) {
 		my $view = $self->{'system'}->{'view'};
 		my $pmid = $self->{'datastore'}->run_query(
-			"SELECT DISTINCT(pubmed_id) FROM refs RIGHT JOIN $view ON "
-			  . "refs.isolate_id=$view.id WHERE pubmed_id IS NOT NULL",
-			undef,
-			{ fetch => 'col_arrayref' }
+			"SELECT DISTINCT(pubmed_id) FROM refs JOIN $view ON refs.isolate_id=$view.id ",
+			undef, { fetch => 'col_arrayref' }
 		);
 		my $buffer;
 		if (@$pmid) {
