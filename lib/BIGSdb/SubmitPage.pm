@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2019, University of Oxford
+#Copyright (c) 2015-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -960,8 +960,9 @@ sub _submit_isolates {
 	say q( with genome assemblies) if $options->{'genomes'};
 	say q(</h2>);
 	say q(<p>Paste in your isolates for addition to the database using the template available below.</p>);
-	say q(<ul><li>Enter aliases (alternative names) for your isolates as a semi-colon (;) separated list.</li>);
-	say q(<li>Enter references for your isolates as a semi-colon (;) separated list of PubMed ids.</li>);
+	say q(<ul><li>Optionally enter aliases (alternative names) for your isolates as a semi-colon)
+	  . q( (;)-separated list.</li>);
+	say q(<li>Optionally enter references for your isolates as a semi-colon (;)-separated list of PubMed ids.</li>);
 	say q(<li>You can also upload additional allele fields along with the other isolate data - simply create a )
 	  . q(new column with the locus name. );
 	say q(By default, loci are not included with genome submissions since these can be extracted )
