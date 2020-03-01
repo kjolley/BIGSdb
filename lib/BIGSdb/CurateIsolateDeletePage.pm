@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::IsolateInfoPage BIGSdb::CuratePage);
+use JSON;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -155,6 +156,29 @@ sub _delete {
 			arguments => [ $isolate_id, $curator_id, 'now' ]
 		  };
 	}
+	if ( $self->{'config'}->{'admin_log'} ) {
+		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+		my $record_data =
+		  $self->{'datastore'}->run_query('SELECT * FROM isolates WHERE id=?',
+			$isolate_id, { fetch => 'row_hashref' } );
+		my $record = {
+			id                                => $isolate_id,
+			$self->{'system'}->{'labelfield'} => $record_data->{$self->{'system'}->{'labelfield'}}
+		};
+		my $fields = $self->{'xmlHandler'}->get_field_list;
+		my $atts = $self->{'xmlHandler'}->get_all_field_attributes;
+		foreach my $field (@$fields) {
+			if (($atts->{$field}->{'log_delete'} // q()) eq 'yes'){
+				$record->{$field} = $record_data->{$field};
+			}
+		}
+		push @actions,
+		  {
+			statement => q(INSERT INTO log (timestamp,user_id,user_name,"table",record,action) VALUES (?,?,?,?,?,?)),
+			arguments =>
+			  [ 'now', $user_info->{'id'}, $user_info->{'user_name'}, 'isolates', encode_json($record), 'delete' ]
+		  };
+	}
 	eval {
 		foreach my $action (@actions) {
 			$self->{'db'}->do( $action->{'statement'}, undef, @{ $action->{'arguments'} } );
@@ -163,7 +187,7 @@ sub _delete {
 	if ($@) {
 		$self->print_bad_status(
 			{ message => 'Delete failed - transaction cancelled - no records have been touched.' } );
-		$logger->error("Delete failed: $_ $@");
+		$logger->error("Delete failed: $@");
 		$self->{'db'}->rollback;
 		return;
 	}
