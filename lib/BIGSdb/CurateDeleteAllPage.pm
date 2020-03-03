@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CuratePage);
+use JSON;
 use Log::Log4perl qw(get_logger);
 use Try::Tiny;
 my $logger = get_logger('BIGSdb.Page');
@@ -232,7 +233,18 @@ sub _delete {
 sub _delete_isolate_list {
 	my ( $self, $ids ) = @_;
 	my $q          = $self->{'cgi'};
-	my $curator_id = $self->get_curator_id;
+	my $user_info  = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $log_fields = [ 'id', $self->{'system'}->{'labelfield'} ];
+	if ( $self->{'config'}->{'admin_log'} ) {
+		my $fields = $self->{'xmlHandler'}->get_field_list;
+		my $atts   = $self->{'xmlHandler'}->get_all_field_attributes;
+		foreach my $field (@$fields) {
+			next if $field eq 'id' || $field eq $self->{'system'}->{'labelfield'};
+			if ( ( $atts->{$field}->{'log_delete'} // q() ) eq 'yes' ) {
+				push @$log_fields, $field;
+			}
+		}
+	}
 	foreach my $isolate_id (@$ids) {
 		my $old_version =
 		  $self->{'datastore'}->run_query( "SELECT id FROM $self->{'system'}->{'view'} WHERE new_version=?",
@@ -248,10 +260,24 @@ sub _delete_isolate_list {
 		} elsif ($old_version) {
 			$self->{'db'}->do( 'UPDATE isolates SET new_version=NULL WHERE id=?', undef, $old_version );
 		}
+		if ( $self->{'config'}->{'admin_log'} ) {
+			local $" = q(,);
+			my $record_data = $self->{'datastore'}->run_query( "SELECT @$log_fields FROM isolates WHERE id=?",
+				$isolate_id, { fetch => 'row_hashref', cache => 'CurateDeleteAll::get_isolate' } );
+			my $record = {};
+			foreach my $field (@$log_fields) {
+				$record->{$field} = $record_data->{ lc $field } if defined $record_data->{ lc $field };
+			}
+			$self->{'db'}->do(
+				q(INSERT INTO log (timestamp,user_id,user_name,"table",record,action) VALUES (?,?,?,?,?,?)),
+				undef, 'now', $user_info->{'id'}, $user_info->{'user_name'},
+				'isolates', encode_json($record), 'delete'
+			);
+		}
 		$self->{'db'}->do( 'DELETE FROM isolates WHERE id=?', undef, $isolate_id );
 		if ( $q->param('retire') || $self->_retire_only ) {
 			$self->{'db'}->do( 'INSERT INTO retired_isolates (isolate_id,curator,datestamp) VALUES (?,?,?)',
-				undef, $isolate_id, $curator_id, 'now' );
+				undef, $isolate_id, $user_info->{'id'}, 'now' );
 		}
 	}
 	return;

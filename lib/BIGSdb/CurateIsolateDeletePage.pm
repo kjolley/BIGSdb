@@ -169,7 +169,7 @@ sub _delete {
 		my $atts = $self->{'xmlHandler'}->get_all_field_attributes;
 		foreach my $field (@$fields) {
 			if (($atts->{$field}->{'log_delete'} // q()) eq 'yes'){
-				$record->{$field} = $record_data->{$field};
+				$record->{$field} = $record_data->{lc $field} if defined $record_data->{lc $field};
 			}
 		}
 		push @actions,
