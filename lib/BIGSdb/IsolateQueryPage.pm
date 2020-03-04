@@ -1493,12 +1493,12 @@ sub _provenance_equals_type_operator {
 		$buffer .=
 		  $parent_field_type eq 'int'
 		  ? "CAST($view.$extended_isolate_field AS text) "
-		  : "$view.$extended_isolate_field ";
+		  : "UPPER($view.$extended_isolate_field) ";
 		if ( lc($text) eq 'null' ) {
-			$buffer .= "$inv_not IN (SELECT field_value FROM isolate_value_extended_attributes "
+			$buffer .= "$inv_not IN (SELECT UPPER(field_value) FROM isolate_value_extended_attributes "
 			  . "WHERE isolate_field='$extended_isolate_field' AND attribute='$field')";
 		} else {
-			$buffer .= "$not IN (SELECT field_value FROM isolate_value_extended_attributes WHERE isolate_field="
+			$buffer .= "$not IN (SELECT UPPER(field_value) FROM isolate_value_extended_attributes WHERE isolate_field="
 			  . "'$extended_isolate_field' AND attribute='$field' AND UPPER(value) = UPPER(E'$text'))";
 		}
 	} elsif ( $field eq $labelfield ) {
