@@ -484,8 +484,8 @@ sub _modify_query_by_list {
 	my $q = $self->{'cgi'};
 	return $qry if !$q->param('list');
 	my $attribute_data = $self->_get_list_attribute_data( scalar $q->param('attribute') );
-	my ( $field, $extended_field, $scheme_id, $field_type, $data_type, $eav_table, $optlist ) =
-	  @{$attribute_data}{qw (field extended_field scheme_id field_type data_type eav_table optlist)};
+	my ( $field, $extended_field, $scheme_id, $field_type, $data_type, $eav_table, $optlist, $multiple ) =
+	  @{$attribute_data}{qw (field extended_field scheme_id field_type data_type eav_table optlist multiple)};
 	return $qry if !$field;
 	my @list = split /\n/x, $q->param('list');
 	if ($optlist) {
@@ -514,12 +514,16 @@ sub _modify_query_by_list {
 	if ( $field_type eq 'scheme_field' ) {
 		$isolate_scheme_field_view = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 	}
+	$field_type = 'provenance_multiple' if $field_type eq 'provenance' && $multiple;
 	my %sql = (
 		labelfield => ( $data_type eq 'text' ? "UPPER($view.$field) " : "$view.$field " )
 		  . "IN (SELECT value FROM temp_list) OR $view.id IN (SELECT isolate_id FROM isolate_aliases "
 		  . 'WHERE UPPER(alias) IN (SELECT value FROM temp_list))',
 		provenance => ( $data_type eq 'text' ? "UPPER($view.$field)" : "$view.$field" )
 		  . ' IN (SELECT value FROM temp_list)',
+		provenance_multiple => $data_type eq 'text'
+		? "UPPER($view.$field\::text)::text[] && ARRAY(SELECT value FROM temp_list)"
+		: "$view.$field && ARRAY(SELECT value FROM temp_list)",
 		phenotypic => "$view.id IN (SELECT isolate_id FROM $eav_table WHERE field=E'$field' AND "
 		  . ( $data_type eq 'text' ? 'UPPER(value)' : 'value' )
 		  . ' IN (SELECT value FROM temp_list))',
@@ -545,7 +549,7 @@ sub _modify_query_by_list {
 sub _get_list_attribute_data {
 	my ( $self, $attribute ) = @_;
 	my $pattern = LOCUS_PATTERN;
-	my ( $field, $extended_field, $scheme_id, $field_type, $data_type, $eav_table, $optlist );
+	my ( $field, $extended_field, $scheme_id, $field_type, $data_type, $eav_table, $optlist, $multiple );
 	if ( $attribute =~ /^s_(\d+)_(\S+)$/x ) {    ## no critic (ProhibitCascadingIfElse)
 		$scheme_id  = $1;
 		$field      = $2;
@@ -570,6 +574,9 @@ sub _get_list_attribute_data {
 		if ( ( $field_info->{'optlist'} // q() ) eq 'yes' ) {
 			$optlist = $self->{'xmlHandler'}->get_field_option_list($field);
 		}
+		if ( ( $field_info->{'multiple'} // q() ) eq 'yes' ) {
+			$multiple = 1;
+		}
 	} elsif ( $attribute =~ /^eav_(\S+)$/x ) {
 		$field      = $1;
 		$field_type = 'phenotypic';
@@ -591,7 +598,8 @@ sub _get_list_attribute_data {
 		scheme_id      => $scheme_id,
 		field_type     => $field_type,
 		data_type      => $data_type,
-		optlist        => $optlist
+		optlist        => $optlist,
+		multiple       => $multiple
 	};
 }
 
@@ -682,7 +690,7 @@ sub _print_modify_search_fieldset {
 	  . qq(page=query&amp;save_options=1" style="display:none">$save</a> <span id="saving"></span><br />);
 	say q(</div>);
 	say q(<a class="trigger" id="panel_trigger" href="" title="Modify form options" style="display:none">)
-	. q(<span class="fas fa-lg fa-wrench"></span></a>);
+	  . q(<span class="fas fa-lg fa-wrench"></span></a>);
 	return;
 }
 
