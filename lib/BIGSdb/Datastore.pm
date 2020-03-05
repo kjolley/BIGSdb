@@ -161,7 +161,7 @@ sub get_permissions {
 
 	#Site permissions
 	my $user_info = $self->get_user_info_from_username($user_name);
-	return {} if ($user_info->{'status'} // q()) eq 'user';
+	return {} if ( $user_info->{'status'} // q() ) eq 'user';
 	if ( $user_info->{'user_db'} ) {
 		my $user_db          = $self->get_user_db( $user_info->{'user_db'} );
 		my $site_permissions = $self->run_query(
@@ -359,14 +359,10 @@ sub get_scheme_field_values_by_designations {
 	foreach my $data (@$field_data) {
 		my $status = 'confirmed';
 	  LOCUS: foreach my $locus (@$loci) {
-			next if !defined $data->{ lc $locus } || $data->{ lc $locus } eq 'N';
-			my $locus_status;
+			next if !defined $designations->{$locus};
 		  DESIGNATION: foreach my $designation ( @{ $designations->{$locus} } ) {
-				next DESIGNATION if $designation->{'allele_id'} ne $data->{ lc $locus };
-				if ( $designation->{'status'} eq 'confirmed' ) {
-					$locus_status = 'confirmed';
-					next LOCUS;
-				}
+				next LOCUS if $designation->{'allele_id'} eq 'N' || $designation->{'allele_id'} eq '0';
+				next LOCUS if $designation->{'status'} eq 'confirmed';
 			}
 			$status = 'provisional';    #Locus is provisional
 			last LOCUS;
