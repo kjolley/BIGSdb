@@ -31,6 +31,7 @@ Version 1.22: Change of isolate and rest_db database structure.
 Version 1.23: Change of isolate database structure.
 Version 1.24: Change of isolate database structure.
 Version 1.25: Change of isolate database structure.
+Version 1.26: Change of isolate database structure.
 
 Details can be found below.
 
@@ -450,3 +451,10 @@ to be given for members of a user group to be able to curate shared private
 data submitted by another member of the user group.
 
 Please run isolatedb_v1.25.sql against isolate databases.
+
+Version 1.26
+------------
+There are changes to the isolate database. These are needed to facilitate
+bookmarking of isolate queries and for logging of record deletion.
+
+Please run isolatedb_v1.26.sql against isolate databases.
