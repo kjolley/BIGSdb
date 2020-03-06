@@ -150,6 +150,11 @@ sub _toggle_share {
 	return;
 }
 
+sub get_help_url {
+	my ($self) = @_;
+	return "$self->{'config'}->{'doclink'}/data_query.html#bookmarking-an-isolate-query";
+}
+
 sub get_javascript {
 	return <<"JS";
 \$(document).ready(function() 
