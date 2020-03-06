@@ -139,7 +139,7 @@ sub read_config_file {
 	my ( $self, $config_dir ) = @_;
 	my $config = Config::Tiny->read("$config_dir/bigsdb.conf");
 	if ( !defined $config ) {
-		$logger->fatal('bigsdb.conf file is not accessible.');
+		$logger->fatal("Unable to read\\parse bigsdb.conf file. Reason: ". Config::Tiny->errstr);
 		$config = Config::Tiny->new();
 	}
 	foreach my $param ( keys %{ $config->{_} } ) {
