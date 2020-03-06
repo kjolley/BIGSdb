@@ -1,3 +1,5 @@
+v1.26.0: *Bookmark isolate queries.
+         *Optionally log isolate deletion to a log table.
 v1.25.1: *ChartDirector is no longer used - all static chart images have been 
           replaced with D3 dynamic charts.
          *Annotations can now be downloaded from sequence bin page as Genbank
