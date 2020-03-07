@@ -40,7 +40,8 @@ sub _ajax_content {
 			allele_status       => sub { $self->_print_allele_status_fieldset_contents },
 			tag_count           => sub { $self->_print_tag_count_fieldset_contents },
 			tags                => sub { $self->_print_tags_fieldset_contents },
-			list                => sub { $self->_print_list_fieldset_contents }
+			list                => sub { $self->_print_list_fieldset_contents },
+			filters             => sub { $self->_print_filters_fieldset_contents }
 		);
 		$method{ $q->param('fieldset') }->() if $method{ $q->param('fieldset') };
 		return;
@@ -605,6 +606,16 @@ sub _get_list_attribute_data {
 
 sub _print_filters_fieldset {
 	my ($self) = @_;
+	say q(<fieldset id="filters_fieldset" style="float:left;display:none"><legend>Filters</legend>);
+	say q(<div>);
+	$self->_print_filters_fieldset_contents;
+	say q(</div>);
+	say q(</fieldset>);
+	return;
+}
+
+sub _print_filters_fieldset_contents {
+	my ($self) = @_;
 	my $q = $self->{'cgi'};
 
 	#Enable filters if used in bookmark.
@@ -631,10 +642,9 @@ sub _print_filters_fieldset {
 	my $private_data_filter = $self->_get_private_data_filter;
 	push @filters, $private_data_filter if $private_data_filter;
 	push @filters, $self->get_old_version_filter;
-	say q(<fieldset id="filters_fieldset" style="float:left;display:none"><legend>Filters</legend>);
 	say q(<div><ul>);
 	say qq(<li><span style="white-space:nowrap">$_</span></li>) foreach @filters;
-	say q(</ul></div></fieldset>);
+	say q(</ul>);
 	$self->{'filters_fieldset_exists'} = 1;
 	return;
 }
@@ -2625,7 +2635,7 @@ sub get_javascript {
 		tag_count           => 'tag_count',
 		tags                => 'tags'
 	);
-	foreach my $fieldset (qw(phenotypic allele_designations allele_count allele_status tag_count tags)) {
+	foreach my $fieldset ( keys %fields ) {
 		if ( !$self->_highest_entered_fields( $fields{$fieldset} ) ) {
 			$ajax_load .=
 			    qq(if (\$('fieldset#${fieldset}_fieldset').length){\n)
