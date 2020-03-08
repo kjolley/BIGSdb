@@ -1,4 +1,4 @@
-/*Version: 20200229*/
+/*Version: 20200308*/
 body,form,input,th,td,div {margin-top:0;margin-bottom:0;padding-bottom:0;padding-top:0}
 select{margin:0}
 p {margin:0 0 1em 0;padding:0}
@@ -224,7 +224,7 @@ span.note {font-weight:600;color:#e00}
 	box-shadow: 1px 1px 1px #666;
 }
 
-.button {padding:0.1em 0.5em;margin:5px}
+.button {padding:0.1em 0.5em;margin:5px;cursor:pointer}
 .smallbutton {font-size:0.9em}
 .legendbutton {margin:-17px 5px 10px 0;float:right}
 

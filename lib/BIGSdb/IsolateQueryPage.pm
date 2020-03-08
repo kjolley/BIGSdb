@@ -32,6 +32,10 @@ sub _ajax_content {
 	my ($self) = @_;
 	my $system = $self->{'system'};
 	my $q      = $self->{'cgi'};
+	if ( $q->param('add_filter') ) {
+		$self->_set_filter_pref;
+		return;
+	}
 	if ( $q->param('fieldset') ) {
 		my %method = (
 			phenotypic          => sub { $self->_print_phenotypic_fieldset_contents },
@@ -86,6 +90,43 @@ sub _ajax_content {
 		}
 	);
 	$method{ $q->param('fields') }->() if $method{ $q->param('fields') };
+	return;
+}
+
+sub _set_filter_pref {
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $filter = $q->param('add_filter');
+	return if !$filter;
+	my $guid = $self->get_guid;
+	return if !$guid;
+	my $field_list = $self->{'xmlHandler'}->get_field_list;
+	my $extended   = $self->get_extended_attributes;
+	foreach my $field (@$field_list) {
+
+		if ( $filter eq "dropfield_$field" ) {
+			$self->{'prefs'}->{'dropdownfields'}->{$field} = 1;
+			$self->{'prefstore'}->set_field( $guid, $self->{'system'}->{'db'}, $field, 'dropdown', 'true' );
+		}
+		my $extatt = $extended->{$field} // [];
+		foreach my $extended_attribute (@$extatt) {
+			if ( $filter eq "dropfield_e_${field}___$extended_attribute" ) {
+				$self->{'prefs'}->{'dropdownfields'}->{"${field}..$extended_attribute"} = 1;
+				$self->{'prefstore'}
+				  ->set_field( $guid, $self->{'system'}->{'db'}, "${field}..$extended_attribute", 'dropdown', 'true' );
+			}
+		}
+	}
+	my $schemes =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT id,query_status FROM schemes', undef, { fetch => 'all_arrayref', slice => {} } );
+	foreach my $scheme (@$schemes) {
+		my $field = "scheme_$scheme->{'id'}_profile_status";
+		if ( $filter eq $field ) {
+			$self->{'prefs'}->{'dropdownfields'}->{$field} = 1;
+			$self->{'prefstore'}->set_field( $guid, $self->{'system'}->{'db'}, $field, 'dropdown', 'true' );
+		}
+	}
 	return;
 }
 
@@ -614,9 +655,47 @@ sub _print_filters_fieldset {
 	return;
 }
 
+sub _get_inactive_filters {
+	my ($self)     = @_;
+	my $set_id     = $self->get_set_id;
+	my $is_curator = $self->is_curator;
+	my $field_list = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
+	my $list       = [];
+	my $labels     = {};
+	my $extended   = $self->get_extended_attributes;
+	foreach my $field (@$field_list) {
+		next if $field eq 'id';
+		if ( !$self->{'prefs'}->{'dropdownfields'}->{$field} ) {
+			( my $id = "dropfield_$field" ) =~ tr/:/_/;
+			push @$list, $id;
+			$labels->{$id} = $field;
+		}
+		my $extatt = $extended->{$field} // [];
+		foreach my $extended_attribute (@$extatt) {
+			next if $self->{'prefs'}->{'dropdownfields'}->{"$field\..$extended_attribute"};
+			push @$list, "dropfield_e_${field}___$extended_attribute";
+			$labels->{"dropfield_e_${field}___$extended_attribute"} = $extended_attribute;
+		}
+	}
+	my %labels;
+	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+	foreach my $scheme (@$schemes) {
+		my $field = "scheme_$scheme->{'id'}\_profile_status";
+		next if $self->{'prefs'}->{'dropdownfields'}->{$field};
+		push @$list, $field;
+		$labels->{$field} = "$scheme->{'name'} profile completion";
+	}
+	return ( $list, $labels );
+}
+
 sub _print_filters_fieldset_contents {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
+	my @filters;
+	my $buffer = $self->get_isolate_publication_filter( { any => 1, multiple => 1 } );
+	push @filters, $buffer if $buffer;
+	$buffer = $self->get_project_filter( { any => 1, multiple => 1 } );
+	push @filters, $buffer if $buffer;
 
 	#Enable filters if used in bookmark.
 	if ( defined $self->{'temp_prefs'}->{'dropdownfields'} ) {
@@ -626,15 +705,8 @@ sub _print_filters_fieldset_contents {
 			}
 		}
 	}
-	my @filters;
 	my $field_filters = $self->_get_field_filters;
 	push @filters, @$field_filters if @$field_filters;
-	if ( $self->{'prefs'}->{'dropdownfields'}->{'Publications'} ) {
-		my $buffer = $self->get_isolate_publication_filter( { any => 1, multiple => 1 } );
-		push @filters, $buffer if $buffer;
-	}
-	my $buffer = $self->get_project_filter( { any => 1, multiple => 1 } );
-	push @filters, $buffer if $buffer;
 	my $profile_filters = $self->_get_profile_filters;
 	push @filters, @$profile_filters;
 	my $seqbin_filter = $self->_get_seqbin_filter;
@@ -642,10 +714,41 @@ sub _print_filters_fieldset_contents {
 	my $private_data_filter = $self->_get_private_data_filter;
 	push @filters, $private_data_filter if $private_data_filter;
 	push @filters, $self->get_old_version_filter;
-	say q(<div><ul>);
+	say q(<ul>);
 	say qq(<li><span style="white-space:nowrap">$_</span></li>) foreach @filters;
 	say q(</ul>);
-	$self->{'filters_fieldset_exists'} = 1;
+	my ( $list, $labels ) = $self->_get_inactive_filters;
+	unshift @$list, q();
+	say q(<span style="white-space:nowrap">);
+	say q(Add filter:);
+	say $self->popup_menu(
+		-name   => 'new_filter',
+		-id     => 'new_filter',
+		-values => $list,
+		-labels => $labels,
+		-style  => 'max-width:25em'
+	);
+	say q( <a id="add_filter" class="button">+</a>);
+	say q(</span>);
+	say << "JS";
+<script>
+\$(function () {
+	\$("#add_filter").on('click',function(){
+		var filter = \$("#new_filter").val();
+		if (filter == ""){
+			return;
+		}
+		\$.ajax({
+			url: "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query&no_header=1&add_filter=" 
+			 + filter,
+			success: function(response){
+				refresh_filters();
+			}
+		})		
+	});
+});	
+</script>
+JS
 	return;
 }
 
@@ -688,12 +791,10 @@ sub _print_modify_search_fieldset {
 	  || $q->param('list') ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_list">$list_fieldset_display</a>);
 	say q(Attribute values list</li>);
-	if ( $self->{'filters_fieldset_exists'} ) {
-		my $filters_fieldset_display = $self->{'prefs'}->{'filters_fieldset'}
-		  || $self->filters_selected ? HIDE : SHOW;
-		say qq(<li><a href="" class="button" id="show_filters">$filters_fieldset_display</a>);
-		say q(Filters</li>);
-	}
+	my $filters_fieldset_display = $self->{'prefs'}->{'filters_fieldset'}
+	  || $self->filters_selected ? HIDE : SHOW;
+	say qq(<li><a href="" class="button" id="show_filters">$filters_fieldset_display</a>);
+	say q(Filters</li>);
 	say q(</ul>);
 	my $save = SAVE;
 	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
@@ -898,13 +999,14 @@ sub _get_field_filters {
 					my $a_or_an = substr( $extended_attribute, 0, 1 ) =~ /[aeiouAEIOU]/x ? 'an' : 'a';
 					push @$filters,
 					  $self->get_filter(
-						"$field\..$extended_attribute",
+						"${field}___$extended_attribute",
 						$values,
 						{
 							text => $extended_attribute,
 							tooltip =>
 							  "$extended_attribute filter - Select $a_or_an $extended_attribute to filter your "
-							  . "search to only those isolates that match the selected $field."
+							  . "search to only those isolates that match the selected $field.",
+							capitalize_first => 1
 						}
 					  );
 				}
@@ -1683,10 +1785,10 @@ sub _modify_query_for_filters {
 		my $extatt = $extended->{$field};
 		if ( ref $extatt eq 'ARRAY' ) {
 			foreach my $extended_attribute (@$extatt) {
-				if ( defined $q->param("$field\..$extended_attribute\_list")
-					&& $q->param("$field\..$extended_attribute\_list") ne '' )
+				if ( defined $q->param("${field}___${extended_attribute}_list")
+					&& $q->param("${field}___${extended_attribute}_list") ne '' )
 				{
-					my $value = $q->param("$field\..$extended_attribute\_list");
+					my $value = $q->param("${field}___${extended_attribute}_list");
 					$value =~ s/'/\\'/gx;
 					if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
 						$qry .= " AND ($field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE "
@@ -2708,6 +2810,23 @@ function loadContent(url) {
 	} else if (fields == 'tags'){
 		add_rows(url,fields,'tag',row,'locus_tags_heading','add_tags');
 	}
+}
+
+function refresh_filters(){
+	var list_values = [];
+	var url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query&no_header=1&fieldset=filters";
+	\$("fieldset#filters_fieldset select[id\$='_list']").each(function (index){
+		list_values[\$(this).attr('id')] =  \$(this).val();
+	});
+	\$("fieldset#filters_fieldset div")
+	.load(url, function(){
+			
+		reloadTooltips();
+		for (key in list_values){
+			\$("#" + key).val(list_values[key]);				
+		}
+		\$('.multiselect').multiselect().multiselectfilter();
+	});
 }
 END
 	my $fields = $self->{'xmlHandler'}->get_field_list;

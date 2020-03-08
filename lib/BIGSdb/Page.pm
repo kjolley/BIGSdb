@@ -159,7 +159,7 @@ sub _get_javascript_paths {
 	my ($self) = @_;
 	my $page_js = $self->get_javascript;
 	$page_js .= $self->_get_cookie_js;
-	my $date = '20200228';
+	my $date = '20200308';
 	my @javascript;
 	if ( $self->{'jQuery'} ) {
 		my @language = ( language => 'Javascript' );
@@ -569,7 +569,7 @@ sub _get_meta_data {
 sub _get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20200229';
+	my $version = '20200308';
 	my @filenames;
 	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
 	push @filenames, q(c3.css)                                                if $self->{'c3'};
@@ -1367,10 +1367,10 @@ sub get_isolate_publication_filter {
 	$options = {} if ref $options ne 'HASH';
 	if ( $self->{'config'}->{'ref_db'} ) {
 		my $view = $self->{'system'}->{'view'};
-		my $pmid = $self->{'datastore'}->run_query(
-			"SELECT DISTINCT(pubmed_id) FROM refs JOIN $view ON refs.isolate_id=$view.id ",
-			undef, { fetch => 'col_arrayref' }
-		);
+		my $pmid =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT DISTINCT(pubmed_id) FROM refs JOIN $view ON refs.isolate_id=$view.id ",
+			undef, { fetch => 'col_arrayref' } );
 		my $buffer;
 		if (@$pmid) {
 			my $labels = $self->{'datastore'}->get_citation_hash($pmid);
@@ -1489,7 +1489,8 @@ sub get_truncated_label {
 		$title =~ tr/\"//;
 		$label = substr( $label, 0, $length - 5 ) . $ellipsis;
 	}
-	if ( $options->{'capitalize_first'} && $label =~ /^[a-z]+\s+/x ) {    #only if first word is all lower case
+	if ( $options->{'capitalize_first'} && ( $label =~ /^[a-z]+\s+/x || $label =~ /^[a-z]+\:\s$/x ) )
+	{    #only if first word is all lower case
 		$label = ucfirst $label;
 		$title = ucfirst $title if $title;
 	}
@@ -2309,7 +2310,6 @@ sub _set_isolatedb_options {
 	foreach my $field (@$composites) {
 		$self->{'prefs'}->{'maindisplayfields'}->{$field} = $params->{"field_$field"} ? 1 : 0;
 	}
-	$self->{'prefs'}->{'dropdownfields'}->{'Publications'} = $params->{'dropfield_Publications'} ? 1 : 0;
 	my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
 	foreach my $scheme_id (@$schemes) {
 		my $field = "scheme_${scheme_id}_profile_status";
@@ -2359,7 +2359,7 @@ sub _initiate_isolatedb_query_field_prefs {
 		my $extatt = $extended->{$field};
 		if ( ref $extatt eq 'ARRAY' ) {
 			foreach my $extended_attribute (@$extatt) {
-				if ( defined $field_prefs->{$field}->{'dropdown'} ) {
+				if ( defined $field_prefs->{"${field}..$extended_attribute"}->{'dropdown'} ) {
 					$self->{'prefs'}->{'dropdownfields'}->{"${field}..$extended_attribute"} =
 					  $field_prefs->{"${field}..$extended_attribute"}->{'dropdown'};
 				} else {
@@ -2367,12 +2367,6 @@ sub _initiate_isolatedb_query_field_prefs {
 				}
 			}
 		}
-	}
-	if ( defined $field_prefs->{'Publications'}->{'dropdown'} ) {
-		$self->{'prefs'}->{'dropdownfields'}->{'Publications'} = $field_prefs->{'Publications'}->{'dropdown'};
-	} else {
-		$self->{'prefs'}->{'dropdownfields'}->{'Publications'} =
-		  ( $self->{'system'}->{'no_publication_filter'} // '' ) eq 'yes' ? 0 : 1;
 	}
 	return;
 }

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -201,9 +201,6 @@ sub _set_isolate_options {
 			$prefstore->set_field( $guid, $dbname, $field, 'dropdown',
 				$prefs->{'dropdownfields'}->{$field} ? 'true' : 'false' );
 		}
-	}
-	if ( !$prefs->{'dropdownfields'}->{'Publications'} ) {
-		$prefstore->set_field( $guid, $dbname, 'Publications', 'dropdown', 'false' );
 	}
 	return;
 }
@@ -544,15 +541,12 @@ sub _print_isolate_query_fields_options {
 	  $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
 	my @checkfields = @$field_list;
 	my %labels;
+	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
-		foreach my $scheme (@$schemes) {
-			my $field = "scheme_$scheme->{'id'}\_profile_status";
-			push @checkfields, $field;
-			$labels{$field} = "$scheme->{'name'} profile completion";
-		}
-		push @checkfields, 'Publications';
+	foreach my $scheme (@$schemes) {
+		my $field = "scheme_$scheme->{'id'}\_profile_status";
+		push @checkfields, $field;
+		$labels{$field} = "$scheme->{'name'} profile completion";
 	}
 	my ( @js, @js2, @js3 );
 	say q(<div><ul>);
@@ -575,9 +569,6 @@ sub _print_isolate_query_fields_options {
 		if ( $field =~ /^scheme_(\d+)_profile_status/x ) {
 			my $scheme_info = $self->{'datastore'}->get_scheme_info($1);
 			$value = $scheme_info->{'query_status'} ? 'true' : 'false';
-		} elsif ( $field eq 'Publications' ) {
-			$value =
-			  ( $self->{'system'}->{'no_publication_filter'} // '' ) eq 'yes' ? 'false' : 'true';
 		} else {
 			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 			$value = ( ( $thisfield->{'dropdown'} // '' ) eq 'yes' ) ? 'true' : 'false';
