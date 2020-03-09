@@ -1257,16 +1257,23 @@ sub get_filter {
 	$options = {} if ref $options ne 'HASH';
 	my $class = $options->{'class'} || 'filter';
 	( my $text = $options->{'text'} || $name ) =~ tr/_/ /;
+	my $length = $options->{'remove_id'} ? 23 : 25;
 	my ( $label, $title ) =
-	  $self->get_truncated_label( "$text: ", undef, { capitalize_first => $options->{'capitalize_first'} } );
+	  $self->get_truncated_label( "$text: ", $length, { capitalize_first => $options->{'capitalize_first'} } );
 	my $title_attribute = $title ? qq(title="$title") : q();
 	( my $id = "$name\_list" ) =~ tr/:/_/;
+
+	if ( $options->{'remove_id'} ) {
+		my $delete = DELETE;
+		$label =
+		  qq(<a id="$options->{'remove_id'}" class="remove_filter" style="cursor:pointer" title="Remove filter">)
+		  . qq($delete</a> $label);
+	}
 	my $buffer = qq(<label for="$id" class="$class" $title_attribute>$label</label>\n);
 	unshift @$values, '' if !$options->{'noblank'};
 	$options->{'labels'}->{''} = '&nbsp;';    #Required for HTML5 validation.
 	my %args =
 	  ( -name => "$name\_list", -id => $id, -values => $values, -labels => $options->{'labels'}, -class => $class );
-
 	if ( $options->{'multiple'} ) {
 		$args{'-multiple'} = 'multiple';
 		$args{'-size'} = ( @$values < 4 ) ? @$values : 4;

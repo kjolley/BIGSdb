@@ -33,7 +33,11 @@ sub _ajax_content {
 	my $system = $self->{'system'};
 	my $q      = $self->{'cgi'};
 	if ( $q->param('add_filter') ) {
-		$self->_set_filter_pref;
+		$self->_set_filter_pref( scalar $q->param('add_filter'), 'add' );
+		return;
+	}
+	if ( $q->param('remove_filter') ) {
+		$self->_set_filter_pref( scalar $q->param('remove_filter'), 'remove' );
 		return;
 	}
 	if ( $q->param('fieldset') ) {
@@ -94,26 +98,31 @@ sub _ajax_content {
 }
 
 sub _set_filter_pref {
-	my ($self) = @_;
-	my $q      = $self->{'cgi'};
-	my $filter = $q->param('add_filter');
+	my ( $self, $filter, $action ) = @_;
+	my $q = $self->{'cgi'};
 	return if !$filter;
+	return if !$action;
 	my $guid = $self->get_guid;
 	return if !$guid;
 	my $field_list = $self->{'xmlHandler'}->get_field_list;
 	my $extended   = $self->get_extended_attributes;
 	foreach my $field (@$field_list) {
 
-		if ( $filter eq "dropfield_$field" ) {
-			$self->{'prefs'}->{'dropdownfields'}->{$field} = 1;
-			$self->{'prefstore'}->set_field( $guid, $self->{'system'}->{'db'}, $field, 'dropdown', 'true' );
+		if ( $filter eq $field ) {
+			$self->{'prefs'}->{'dropdownfields'}->{$field} = $action eq 'add' ? 1 : 0;
+			$self->{'prefstore'}
+			  ->set_field( $guid, $self->{'system'}->{'db'}, $field, 'dropdown', $action eq 'add' ? 'true' : 'false' );
 		}
 		my $extatt = $extended->{$field} // [];
 		foreach my $extended_attribute (@$extatt) {
-			if ( $filter eq "dropfield_e_${field}___$extended_attribute" ) {
-				$self->{'prefs'}->{'dropdownfields'}->{"${field}..$extended_attribute"} = 1;
-				$self->{'prefstore'}
-				  ->set_field( $guid, $self->{'system'}->{'db'}, "${field}..$extended_attribute", 'dropdown', 'true' );
+			if ( $filter eq "e_${field}___$extended_attribute" ) {
+				$self->{'prefs'}->{'dropdownfields'}->{"${field}..$extended_attribute"} = $action eq 'add' ? 1 : 0;
+				$self->{'prefstore'}->set_field(
+					$guid,
+					$self->{'system'}->{'db'},
+					"${field}..$extended_attribute",
+					'dropdown', $action eq 'add' ? 'true' : 'false'
+				);
 			}
 		}
 	}
@@ -123,8 +132,25 @@ sub _set_filter_pref {
 	foreach my $scheme (@$schemes) {
 		my $field = "scheme_$scheme->{'id'}_profile_status";
 		if ( $filter eq $field ) {
-			$self->{'prefs'}->{'dropdownfields'}->{$field} = 1;
-			$self->{'prefstore'}->set_field( $guid, $self->{'system'}->{'db'}, $field, 'dropdown', 'true' );
+			$self->{'prefs'}->{'dropdownfields'}->{$field} = $action eq 'add' ? 1 : 0;
+			$self->{'prefstore'}
+			  ->set_field( $guid, $self->{'system'}->{'db'}, $field, 'dropdown', $action eq 'add' ? 'true' : 'false' );
+		}
+		my $fields = $self->{'datastore'}->get_scheme_fields( $scheme->{'id'} );
+		foreach my $scheme_field (@$fields) {
+			next if $filter ne "scheme_$scheme->{'id'}_$scheme_field";
+			$self->{'prefs'}->{'dropdown_scheme_fields'}->{ $scheme->{'id'} }->{$scheme_field} =
+			  $action eq 'add' ? 1 : 0;
+			$self->{'prefstore'}->set_scheme_field(
+				{
+					guid      => $guid,
+					dbase     => $self->{'system'}->{'db'},
+					scheme_id => $scheme->{'id'},
+					field     => $scheme_field,
+					action    => 'dropdown',
+					value     => $action eq 'add' ? 'true' : 'false'
+				}
+			);
 		}
 	}
 	return;
@@ -666,24 +692,31 @@ sub _get_inactive_filters {
 	foreach my $field (@$field_list) {
 		next if $field eq 'id';
 		if ( !$self->{'prefs'}->{'dropdownfields'}->{$field} ) {
-			( my $id = "dropfield_$field" ) =~ tr/:/_/;
+			( my $id = $field ) =~ tr/:/_/;
 			push @$list, $id;
 			$labels->{$id} = $field;
 		}
 		my $extatt = $extended->{$field} // [];
 		foreach my $extended_attribute (@$extatt) {
 			next if $self->{'prefs'}->{'dropdownfields'}->{"$field\..$extended_attribute"};
-			push @$list, "dropfield_e_${field}___$extended_attribute";
-			$labels->{"dropfield_e_${field}___$extended_attribute"} = $extended_attribute;
+			push @$list, "e_${field}___$extended_attribute";
+			$labels->{"e_${field}___$extended_attribute"} = $extended_attribute;
 		}
 	}
 	my %labels;
 	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => 1 } );
 	foreach my $scheme (@$schemes) {
 		my $field = "scheme_$scheme->{'id'}\_profile_status";
-		next if $self->{'prefs'}->{'dropdownfields'}->{$field};
-		push @$list, $field;
-		$labels->{$field} = "$scheme->{'name'} profile completion";
+		if ( !$self->{'prefs'}->{'dropdownfields'}->{$field} ) {
+			push @$list, $field;
+			$labels->{$field} = "$scheme->{'name'} profile completion";
+		}
+		my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $scheme->{'id'} );
+		foreach my $field (@$scheme_fields) {
+			next if $self->{'prefs'}->{'dropdown_scheme_fields'}->{ $scheme->{'id'} }->{$field};
+			push @$list, "scheme_$scheme->{'id'}_$field";
+			$labels->{"scheme_$scheme->{'id'}_$field"} = "$field ($scheme->{'name'})";
+		}
 	}
 	return ( $list, $labels );
 }
@@ -740,6 +773,20 @@ sub _print_filters_fieldset_contents {
 		}
 		\$.ajax({
 			url: "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query&no_header=1&add_filter=" 
+			 + filter,
+			success: function(response){
+				refresh_filters();
+			}
+		})		
+	});
+	\$(".remove_filter").on('click',function(){
+		var filter = \$(this).attr('id').replace(/^remove_/,'');
+		console.log(filter);
+		if (filter == ""){
+			return;
+		}
+		\$.ajax({
+			url: "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query&no_header=1&remove_filter=" 
 			 + filter,
 			success: function(response){
 				refresh_filters();
@@ -839,7 +886,7 @@ sub _get_profile_filters {
 	my @filters;
 	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => 1 } );
 	foreach my $scheme (@$schemes) {
-		my $field = "scheme_$scheme->{'id'}\_profile_status";
+		my $field = "scheme_$scheme->{'id'}_profile_status";
 		if ( $self->{'prefs'}->{'dropdownfields'}->{$field} ) {
 			push @filters,
 			  $self->get_filter(
@@ -849,7 +896,8 @@ sub _get_profile_filters {
 					text    => "$scheme->{'name'} profiles",
 					tooltip => "$scheme->{'name'} profile completion filter - Select whether the isolates should "
 					  . 'have complete, partial, or unstarted profiles.',
-					capitalize_first => 1
+					capitalize_first => 1,
+					remove_id        => "remove_scheme_$scheme->{'id'}_profile_status"
 				}
 			  );
 		}
@@ -865,14 +913,15 @@ sub _get_profile_filters {
 					my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/x ? 'an' : 'a';
 					push @filters,
 					  $self->get_filter(
-						"scheme\_$scheme->{'id'}\_$field",
+						"scheme_$scheme->{'id'}_$field",
 						$values,
 						{
 							text => "$field ($scheme->{'name'})",
 							tooltip =>
 							  "$field ($scheme->{'name'}) filter - Select $a_or_an $field to filter your search "
 							  . "to only those isolates that match the selected $field.",
-							capitalize_first => 1
+							capitalize_first => 1,
+							remove_id        => "remove_scheme_$scheme->{'id'}_$field"
 						}
 					  );
 				}
@@ -989,7 +1038,8 @@ sub _get_field_filters {
 						tooltip =>
 						  "$display_field filter - Select $a_or_an $display_field to filter your search to only those "
 						  . "isolates that match the selected $display_field.",
-						capitalize_first => 1
+						capitalize_first => 1,
+						remove_id        => "remove_$field"
 					}
 				  ) if @$dropdownlist;
 			}
@@ -1014,7 +1064,8 @@ sub _get_field_filters {
 							tooltip =>
 							  "$extended_attribute filter - Select $a_or_an $extended_attribute to filter your "
 							  . "search to only those isolates that match the selected $field.",
-							capitalize_first => 1
+							capitalize_first => 1,
+							remove_id        => "remove_${field}___$extended_attribute"
 						}
 					  );
 				}
