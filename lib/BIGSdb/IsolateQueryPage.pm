@@ -678,7 +678,7 @@ sub _get_inactive_filters {
 		}
 	}
 	my %labels;
-	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => 1 } );
 	foreach my $scheme (@$schemes) {
 		my $field = "scheme_$scheme->{'id'}\_profile_status";
 		next if $self->{'prefs'}->{'dropdownfields'}->{$field};
@@ -837,7 +837,7 @@ sub _get_profile_filters {
 	my ($self) = @_;
 	my $set_id = $self->get_set_id;
 	my @filters;
-	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => 1 } );
 	foreach my $scheme (@$schemes) {
 		my $field = "scheme_$scheme->{'id'}\_profile_status";
 		if ( $self->{'prefs'}->{'dropdownfields'}->{$field} ) {

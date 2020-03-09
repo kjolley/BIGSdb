@@ -541,7 +541,7 @@ sub _print_isolate_query_fields_options {
 	  $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
 	my @checkfields = @$field_list;
 	my %labels;
-	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => 1 } );
 
 	foreach my $scheme (@$schemes) {
 		my $field = "scheme_$scheme->{'id'}\_profile_status";
