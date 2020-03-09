@@ -751,9 +751,9 @@ sub _print_filters_fieldset_contents {
 	say qq(<li><span style="white-space:nowrap">$_</span></li>) foreach @filters;
 	say q(</ul>);
 	my ( $list, $labels ) = $self->_get_inactive_filters;
-	unshift @$list, q();
 
 	if (@$list) {
+		unshift @$list, q();
 		say q(<span style="white-space:nowrap">);
 		say q(Add filter:);
 		say $self->popup_menu(
@@ -1001,7 +1001,9 @@ sub _get_field_filters {
 				|| $field eq 'curator'
 				|| ( ( $thisfield->{'userfield'} // q() ) eq 'yes' ) )
 			{
-				push @$filters, $self->get_user_filter($field);
+				push @$filters,
+				  $self->get_user_filter( $field, { capitalize_first => 1, remove_id => "remove_$field" } )
+				  ;
 			} else {
 				if ( ( $thisfield->{'optlist'} // q() ) eq 'yes' ) {
 					$dropdownlist = $self->{'xmlHandler'}->get_field_option_list($field);

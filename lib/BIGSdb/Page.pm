@@ -1266,7 +1266,7 @@ sub get_filter {
 	if ( $options->{'remove_id'} ) {
 		my $delete = DELETE;
 		$label =
-		  qq(<a id="$options->{'remove_id'}" class="remove_filter" style="cursor:pointer" title="Remove filter">)
+		    qq(<a id="$options->{'remove_id'}" class="remove_filter" style="cursor:pointer" title="Remove filter">)
 		  . qq($delete</a> $label);
 	}
 	my $buffer = qq(<label for="$id" class="$class" $title_attribute>$label</label>\n);
@@ -1294,7 +1294,8 @@ sub get_filter {
 }
 
 sub get_user_filter {
-	my ( $self, $field ) = @_;
+	my ( $self, $field, $args ) = @_;
+	$args = {} if ref $args ne 'HASH';
 	my $options = $field =~ /^curator/x ? { curators => 1 } : {};
 	my ( $users, $labels ) = $self->{'datastore'}->get_users($options);
 	my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/x ? 'an' : 'a';
@@ -1303,7 +1304,8 @@ sub get_user_filter {
 		{
 			labels  => $labels,
 			tooltip => qq($field filter - Select $a_or_an $field to filter your search to only )
-			  . qq(those records that match the selected $field.)
+			  . qq(those records that match the selected $field.),
+			%$args
 		}
 	);
 }
