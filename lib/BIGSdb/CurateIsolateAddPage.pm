@@ -790,6 +790,7 @@ sub _print_long_text_field {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 	return if ( $thisfield->{'length'} // 0 ) <= 60 && !$multiple;
 	if ($multiple) {
 		my $values = $newdata->{ lc($field) } // [];
+		$values = [] if !ref $values;
 		@$values =
 		  $thisfield->{'type'} eq 'text'
 		  ? sort { $a cmp $b } @$values

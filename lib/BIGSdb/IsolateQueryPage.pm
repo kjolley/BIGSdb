@@ -942,17 +942,17 @@ sub _get_field_filters {
 	my $set_id     = $self->get_set_id;
 	my $field_list = $self->{'xmlHandler'}->get_field_list;
 	foreach my $field (@$field_list) {
-		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-		my $dropdownlist;
+		my $thisfield    = $self->{'xmlHandler'}->get_field_attributes($field);
+		my $dropdownlist = [];
 		my %dropdownlabels;
 		if ( $prefs->{'dropdownfields'}->{$field} ) {
 			if (   $field eq 'sender'
 				|| $field eq 'curator'
-				|| ( $thisfield->{'userfield'} && $thisfield->{'userfield'} eq 'yes' ) )
+				|| ( ( $thisfield->{'userfield'} // q() ) eq 'yes' ) )
 			{
 				push @$filters, $self->get_user_filter($field);
 			} else {
-				if ( $thisfield->{'optlist'} ) {
+				if ( ( $thisfield->{'optlist'} // q() ) eq 'yes' ) {
 					$dropdownlist = $self->{'xmlHandler'}->get_field_option_list($field);
 					$dropdownlabels{$_} = $_ foreach (@$dropdownlist);
 					if (   $thisfield->{'required'}
@@ -961,6 +961,14 @@ sub _get_field_filters {
 						push @$dropdownlist, 'null';
 						$dropdownlabels{'null'} = '[null]';
 					}
+				} elsif ( ( $thisfield->{'multiple'} // q() ) eq 'yes' ) {
+					my $list = $self->{'datastore'}->run_query(
+						"SELECT DISTINCT(UNNEST($field)) AS $field FROM $self->{'system'}->{'view'} "
+						  . "WHERE $field IS NOT NULL ORDER BY $field",
+						undef,
+						{ fetch => 'col_arrayref' }
+					);
+					push @$dropdownlist, @$list;
 				} else {
 					my $list = $self->{'datastore'}->run_query(
 						"SELECT DISTINCT($field) FROM $self->{'system'}->{'view'} "
@@ -1758,7 +1766,9 @@ sub _modify_query_for_filters {
 	my $view       = $self->{'system'}->{'view'};
 	my $set_id     = $self->get_set_id;
 	my $field_list = $self->{'xmlHandler'}->get_field_list;
+	my $att        = $self->{'xmlHandler'}->get_all_field_attributes;
 	foreach my $field (@$field_list) {
+		my $multiple = ( $att->{$field}->{'multiple'} // q() ) eq 'yes';
 		if ( defined $q->param("${field}_list") && $q->param("${field}_list") ne '' ) {
 			my $value = $q->param("${field}_list");
 			if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
@@ -1767,17 +1777,23 @@ sub _modify_query_for_filters {
 				$qry = "SELECT * FROM $view WHERE (";
 			}
 			$value =~ s/'/\\'/x;
-			$qry .= (
-				( $value eq '<blank>' || lc($value) eq 'null' )
-				? "$view.$field is null"
-				: "$view.$field = E'$value'"
-			);
-			my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
-			my $subvalues = $self->_get_sub_values( $value, $optlist );
-			if ($subvalues) {
-				foreach my $subvalue (@$subvalues) {
-					$subvalue =~ s/'/\\'/x;
-					$qry .= " OR $view.$field = E'$subvalue'";
+			if ( $value eq '<blank>' || lc($value) eq 'null' ) {
+				$qry .= "$view.$field is null";
+			} else {
+				$qry .=
+				  $multiple
+				  ? "E'$value' = ANY($view.$field)"
+				  : "UPPER($view.$field) = UPPER(E'$value')";
+				my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
+				my $subvalues = $self->_get_sub_values( $value, $optlist );
+				if ($subvalues) {
+					foreach my $subvalue (@$subvalues) {
+						$subvalue =~ s/'/\\'/x;
+						$qry .=
+						  $multiple
+						  ? " OR E'$subvalue' = ANY($view.$field)"
+						  : " OR UPPER($view.$field) = UPPER(E'$subvalue')";
+					}
 				}
 			}
 			$qry .= ')';
