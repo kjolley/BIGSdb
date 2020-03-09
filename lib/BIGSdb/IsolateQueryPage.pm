@@ -115,7 +115,7 @@ sub _set_filter_pref {
 		}
 		my $extatt = $extended->{$field} // [];
 		foreach my $extended_attribute (@$extatt) {
-			if ( $filter eq "e_${field}___$extended_attribute" ) {
+			if ( $filter eq "${field}___$extended_attribute" ) {
 				$self->{'prefs'}->{'dropdownfields'}->{"${field}..$extended_attribute"} = $action eq 'add' ? 1 : 0;
 				$self->{'prefstore'}->set_field(
 					$guid,
@@ -699,8 +699,8 @@ sub _get_inactive_filters {
 		my $extatt = $extended->{$field} // [];
 		foreach my $extended_attribute (@$extatt) {
 			next if $self->{'prefs'}->{'dropdownfields'}->{"$field\..$extended_attribute"};
-			push @$list, "e_${field}___$extended_attribute";
-			$labels->{"e_${field}___$extended_attribute"} = $extended_attribute;
+			push @$list, "${field}___$extended_attribute";
+			$labels->{"${field}___$extended_attribute"} = $extended_attribute;
 		}
 	}
 	my %labels;
@@ -752,17 +752,20 @@ sub _print_filters_fieldset_contents {
 	say q(</ul>);
 	my ( $list, $labels ) = $self->_get_inactive_filters;
 	unshift @$list, q();
-	say q(<span style="white-space:nowrap">);
-	say q(Add filter:);
-	say $self->popup_menu(
-		-name   => 'new_filter',
-		-id     => 'new_filter',
-		-values => $list,
-		-labels => $labels,
-		-style  => 'max-width:25em'
-	);
-	say q( <a id="add_filter" class="button">+</a>);
-	say q(</span>);
+
+	if (@$list) {
+		say q(<span style="white-space:nowrap">);
+		say q(Add filter:);
+		say $self->popup_menu(
+			-name   => 'new_filter',
+			-id     => 'new_filter',
+			-values => $list,
+			-labels => $labels,
+			-style  => 'max-width:25em'
+		);
+		say q( <a id="add_filter" class="button">+</a>);
+		say q(</span>);
+	}
 	say << "JS";
 <script>
 \$(function () {
@@ -781,7 +784,6 @@ sub _print_filters_fieldset_contents {
 	});
 	\$(".remove_filter").on('click',function(){
 		var filter = \$(this).attr('id').replace(/^remove_/,'');
-		console.log(filter);
 		if (filter == ""){
 			return;
 		}
