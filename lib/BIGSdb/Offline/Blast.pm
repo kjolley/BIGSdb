@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2019, University of Oxford
+#Copyright (c) 2017-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -572,20 +572,17 @@ sub _predict_allele_ends {
 		if ( $match->{'reverse'} ) {
 			if ( $record->[8] < $record->[9] ) {
 				$match->{'predicted_start'} = $match->{'start'} - $length + $record->[9];
-				$match->{'predicted_end'}   = $match->{'end'} + $record->[8] - 1;
 			} else {
 				$match->{'predicted_start'} = $match->{'start'} - $length + $record->[8];
-				$match->{'predicted_end'}   = $match->{'end'} + $record->[9] - 1;
 			}
 		} else {
 			if ( $record->[8] < $record->[9] ) {
 				$match->{'predicted_start'} = $match->{'start'} - $record->[8] + 1;
-				$match->{'predicted_end'}   = $match->{'end'} + $length - $record->[9];
 			} else {
 				$match->{'predicted_start'} = $match->{'start'} - $record->[9] + 1;
-				$match->{'predicted_end'}   = $match->{'end'} + $length - $record->[8];
 			}
 		}
+		$match->{'predicted_end'} = $match->{'predicted_start'} + $length - 1;
 	} else {
 		$match->{'predicted_start'} = $match->{'start'};
 		$match->{'predicted_end'}   = $match->{'end'};
@@ -924,13 +921,13 @@ sub check_sequence_similarity {
 				$subsequence_of =
 				  $self->{'datastore'}
 				  ->run_query( q(SELECT allele_id FROM sequences WHERE locus=? AND sequence LIKE ? LIMIT 1),
-					[ $locus, "\%$qry_seq\%" ] )
-				  ;
-			} 
-			if (!$subsequence_of && !defined $supersequence_of){
-				$supersequence_of = $self->{'datastore'}->run_query(
-				q(SELECT allele_id FROM sequences WHERE locus=? AND ? LIKE '%' || sequence || '%' LIMIT 1),
-				[ $locus, $qry_seq ] );
+					[ $locus, "\%$qry_seq\%" ] );
+			}
+			if ( !$subsequence_of && !defined $supersequence_of ) {
+				$supersequence_of =
+				  $self->{'datastore'}->run_query(
+					q(SELECT allele_id FROM sequences WHERE locus=? AND ? LIKE '%' || sequence || '%' LIMIT 1),
+					[ $locus, $qry_seq ] );
 			}
 		}
 	}
