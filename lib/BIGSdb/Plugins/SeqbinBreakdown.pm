@@ -44,7 +44,7 @@ sub get_attributes {
 		menutext    => 'Sequence bin',
 		module      => 'SeqbinBreakdown',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/seqbin_breakdown.html",
-		version     => '1.5.0',
+		version     => '1.5.1',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -96,6 +96,7 @@ sub run {
 			$error .= qq(<p>The following loci in your pasted list are invalid: @$invalid_loci.</p>\n);
 		}
 		$self->add_scheme_loci($loci_selected);
+		$self->add_recommended_scheme_loci($loci_selected);
 		if ($error) {
 			say qq(<div class="box statusbad">$error</div>);
 			$self->_print_interface;
@@ -269,6 +270,7 @@ sub _print_interface {
 	say $q->start_form;
 	$self->print_seqbin_isolate_fieldset( { selected_ids => $selected_ids, isolate_paste_list => 1 } );
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
+	$self->print_recommended_scheme_fieldset;
 	$self->print_scheme_fieldset;
 	$self->_print_options_fieldset;
 	$self->print_sequence_filter_fieldset;
@@ -489,6 +491,7 @@ sub _get_rounded_width {
 	return 50000 if $width < 500000;
 	return 100000;
 }
+
 sub _get_c3_chart {
 	my ( $self, $data, $type ) = @_;
 	my %title = (
