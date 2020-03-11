@@ -54,7 +54,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.5.0',
+		version     => '2.5.1',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -669,7 +669,14 @@ sub _analyse_by_loci {
 		{ job_id => $job_id, ids => $ids, user_genomes => $user_genomes, loci => $loci } );
 	my $html_buffer = qq(<h3>Analysis against defined loci</h3>\n);
 	if ( !$self->{'exit'} ) {
-		$self->align( $job_id, 1, $ids, $scan_data );
+		$self->align(
+			{
+				job_id    => $job_id,
+				by_ref    => 1,
+				ids       => $ids,
+				scan_data => $scan_data
+			}
+		);
 		my $table_cells = @$ids * @{ $scan_data->{'loci'} };
 		if ( $table_cells <= MAX_DISPLAY_CELLS ) {
 			$html_buffer .= $self->_get_html_output( 0, $ids, $scan_data );
@@ -750,7 +757,14 @@ sub _analyse_by_reference {
 	my $scan_data = $self->_assemble_data_for_reference_genome(
 		{ job_id => $job_id, ids => $ids, user_genomes => $user_genomes, cds => \@cds } );
 	if ( !$self->{'exit'} ) {
-		$self->align( $job_id, 1, $ids, $scan_data );
+		$self->align(
+			{
+				job_id    => $job_id,
+				by_ref    => 1,
+				ids       => $ids,
+				scan_data => $scan_data
+			}
+		);
 		my ( $core_buffers, $core_html ) =
 		  $self->_core_analysis( $scan_data, { ids => $ids, job_id => $job_id, by_reference => 1 } );
 		my $table_cells = @$ids * @{ $scan_data->{'loci'} };
@@ -1370,7 +1384,9 @@ sub _get_clean_loci {
 }
 
 sub align {
-	my ( $self, $job_id, $by_ref, $ids, $scan_data, $no_output ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $job_id, $by_ref, $ids, $scan_data, $no_output, $no_paralogous ) =
+	  @{$args}{qw(job_id by_ref ids scan_data no_output no_paralogous)};
 	my $params = $self->{'params'};
 	return if !$params->{'align'};
 	my $isolate_names = $self->_get_isolate_names($ids);
@@ -1389,6 +1405,7 @@ sub align {
 			ids                => $ids,
 			scan_data          => $scan_data,
 			no_output          => $no_output,
+			no_paralogous      => $no_paralogous,
 			threads            => $self->{'threads'},
 			params             => $params,
 			isolate_names      => $isolate_names,

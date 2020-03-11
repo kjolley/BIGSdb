@@ -30,7 +30,7 @@ sub new {
 	my $self = {};
 	foreach my $param (
 		qw(config_dir lib_dir dbase_config_dir logger config job_id ids
-		scan_data no_output params threads isolate_names name_map clean_loci)
+		scan_data no_output no_paralogous params threads isolate_names name_map clean_loci)
 	  )
 	{
 		$self->{$param} = $params->{$param};
@@ -63,6 +63,20 @@ sub run {
 	my $temp                   = BIGSdb::Utils::get_random();
 	my $ids                    = $self->{'ids'};
 	my $loci                   = $self->{'params'}->{'align_all'} ? $scan_data->{'loci'} : $scan_data->{'variable'};
+	my $filtered_loci          = [];
+	if ( $self->{'no_paralogous'} ) {
+		my %paralogous = map { $_ => 1 } keys %{ $scan_data->{'paralogous'} };
+		foreach my $locus (@$loci) {
+			next if $paralogous{$locus};
+			push @$filtered_loci, $locus;
+		}
+	} else {
+		$filtered_loci = $loci;
+	}
+	if ( !@$filtered_loci ) {
+		$self->{'logger'}->error('No loci left after filtering. This should not happen.');
+		return;
+	}
 	my @locus_queue;
 	my %finished;
 	my $locus_details = {};
@@ -73,35 +87,37 @@ sub run {
 			#If this locus is the first in the queue then process it and any sequential
 			#loci that are available.
 			my $current_locus_index = $ret_data->{'locus_index'};
-			$locus_details->{ $loci->[$current_locus_index] } = $ret_data;
+			$locus_details->{ $filtered_loci->[$current_locus_index] } = $ret_data;
 			$finished{$current_locus_index} = 1;
 			return if $current_locus_index > $locus_queue[0];
 			while ( @locus_queue && $finished{ $locus_queue[0] } ) {
 				$locus_count++;
-				my $percent_complete = $start_progress + int( ( $locus_count * $progress_for_alignment ) / @$loci );
+				my $percent_complete =
+				  $start_progress + int( ( $locus_count * $progress_for_alignment ) / @$filtered_loci );
 				my $processed = shift @locus_queue;
 				if ( $finished{$processed} ) {
-					$self->{'distances'}->{ $loci->[$processed] } = $self->_process_alignment(
-						$ids, $loci->[$processed],
-						$locus_details->{ $loci->[$processed] }->{'aligned_file'},
-						$locus_details->{ $loci->[$processed] }->{'core_locus'},
+					$self->{'distances'}->{ $filtered_loci->[$processed] } = $self->_process_alignment(
+						$ids,
+						$filtered_loci->[$processed],
+						$locus_details->{ $filtered_loci->[$processed] }->{'aligned_file'},
+						$locus_details->{ $filtered_loci->[$processed] }->{'core_locus'},
 						$self->{'params'}->{'align_stats'}
 					);
 				}
 				my $job_manager = $self->_get_job_manager;
 				my $stage =
-				  $ret_data->{'locus_index'} < @$loci - 1
-				  ? q(Aligning ) . $loci->[ $current_locus_index + 1 ]
+				  $ret_data->{'locus_index'} < @$filtered_loci - 1
+				  ? q(Aligning ) . $filtered_loci->[ $current_locus_index + 1 ]
 				  : q();
 				$job_manager->update_job_status( $job_id, { percent_complete => $percent_complete, stage => $stage } );
 			}
 		}
 	);
-	foreach my $i ( 0 .. @$loci - 1 ) {
+	foreach my $i ( 0 .. @$filtered_loci - 1 ) {
 		last if $self->_is_job_cancelled($job_id);
 		push @locus_queue, $i;
 		$pm->start and next;
-		my ( $aligned_file, $core_locus ) = $self->_run_alignment( $params, $temp, $loci->[$i] );
+		my ( $aligned_file, $core_locus ) = $self->_run_alignment( $params, $temp, $filtered_loci->[$i] );
 		$pm->finish( 0, { locus_index => $i, aligned_file => $aligned_file, core_locus => $core_locus } );
 	}
 	$pm->wait_all_children;

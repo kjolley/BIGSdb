@@ -324,11 +324,17 @@ sub generate_tree_files {
 		return { message_html => $message_html, failed => 1 };
 	}
 	my $isolates_with_no_sequence = $self->_find_isolates_with_no_seq($scan_data);
+	my $paralogous                = [];
 	if ( @$ids - @$missing < 2 ) {
 		$message_html = q(<p>There are fewer than 2 valid ids in the list - tree cannot be generated.</p>);
 		return { message_html => $message_html, failed => 1 };
 	} else {
 		my %missing_seq = map { $_ => 1 } @$isolates_with_no_sequence;
+		@$paralogous = sort keys %{ $scan_data->{'paralogous'} };
+		if ( @$paralogous == @$loci ) {
+			$message_html = q(<p>All loci are paralogous in at least one isolate - tree cannot be generated.</p>);
+			return { message_html => $message_html, failed => 1 };
+		}
 		my $filtered_list = [];
 		foreach my $id (@$ids) {
 			push @$filtered_list, $id if !$missing_seq{$id};
@@ -338,7 +344,16 @@ sub generate_tree_files {
 			  . q(in the list - tree cannot be generated.</p>);
 			return { message_html => $message_html, failed => 1 };
 		}
-		$self->align( $job_id, 1, $filtered_list, $scan_data, 1 );
+		$self->align(
+			{
+				job_id        => $job_id,
+				by_ref        => 1,
+				ids           => $filtered_list,
+				scan_data     => $scan_data,
+				no_output     => 1,
+				no_paralogous => 1
+			}
+		);
 	}
 	if ( $self->{'exit'} ) {
 		$self->{'jobManager'}->update_job_status( $job_id, { status => 'terminated' } );
@@ -348,6 +363,20 @@ sub generate_tree_files {
 	if (@$missing) {
 		local $" = ', ';
 		$message_html .= qq(<p>The following ids could not be processed (they do not exist): @$missing.</p>\n);
+	}
+	if (@$paralogous) {
+		local $" = ', ';
+		if ( @$paralogous < 10 ) {
+			$message_html .=
+			    q(<p>The following loci are paralogous, resulting in multiple hits within at least one )
+			  . qq(isolate: @$paralogous. These have been removed from the analysis. See Excel output for )
+			  . qq(details.</p>\n);
+		} else {
+			my $num = @$paralogous;
+			$message_html .= qq(<p>$num loci were paralogous, resulting in multiple hits within at least one )
+			  . qq(isolate. These have been removed from the analysis. See Excel output for details.</p>\n);
+		}
+		$self->_generate_paralogous_report( $job_id, $scan_data );
 	}
 	if (@$isolates_with_no_sequence) {
 		local $" = ', ';
@@ -405,14 +434,57 @@ sub generate_tree_files {
 	};
 }
 
+sub _generate_paralogous_report {
+	my ( $self, $job_id, $scan_data ) = @_;
+	my @loci = sort keys %{ $scan_data->{'paralogous'} };
+	local $" = qq(\t);
+	my $text_file = "$self->{'config'}->{'tmp_dir'}/${job_id}_paralogous.txt";
+	open( my $fh, '>', $text_file ) || $logger->error("Cannot open $text_file for writing");
+	say $fh qq(id\t$self->{'system'}->{'labelfield'}\t@loci);
+	foreach my $isolate_id ( sort { $a <=> $b } keys %{ $scan_data->{'isolate_data'} } ) {
+		my $paralogous = $scan_data->{'isolate_data'}->{$isolate_id}->{'paralogous'};
+		next if !@$paralogous;
+		my %paralogous = map { $_ => 1 } @$paralogous;
+		my $name = $self->get_isolate_name_from_id($isolate_id);
+		print $fh qq($isolate_id\t$name);
+		foreach my $locus (@loci) {
+			print $fh qq(\t);
+			print $fh $paralogous{$locus} ? q(x) : q();
+		}
+		print $fh qq(\n);
+	}
+	close $fh;
+	if ( -e $text_file ) {
+		my $excel =
+		  BIGSdb::Utils::text2excel( $text_file,
+			{ worksheet => 'Paralogous', tmp_dir => $self->{'config'}->{'secure_tmp_dir'} } );
+		my $excel_file = "$self->{'config'}->{'tmp_dir'}/${job_id}_paralogous.xlsx";
+		if ( -e $excel_file ) {
+			$self->{'jobManager'}->update_job_output(
+				$job_id,
+				{
+					filename    => "${job_id}_paralogous.xlsx",
+					description => '40_Paralogous loci (Excel format)',
+					compress    => 1
+				}
+			);
+		}
+		unlink $text_file;
+	}
+	return;
+}
+
 sub _find_isolates_with_no_seq {
 	my ( $self, $scan_data ) = @_;
-	my @ids = sort { $a <=> $b } keys %{ $scan_data->{'isolate_data'} };
+	my @ids        = sort { $a <=> $b } keys %{ $scan_data->{'isolate_data'} };
+	my @paralogous = sort keys %{ $scan_data->{'paralogous'} };
+	my %paralogous = map { $_ => 1 } @paralogous;
 	my @no_seqs;
 	foreach my $id ( sort @ids ) {
 		my @loci        = keys %{ $scan_data->{'isolate_data'}->{$id}->{'sequences'} };
 		my $all_missing = 1;
 		foreach my $locus (@loci) {
+			next if $paralogous{$locus};
 			if ( $scan_data->{'isolate_data'}->{$id}->{'sequences'}->{$locus} ) {
 				$all_missing = 0;
 			}
