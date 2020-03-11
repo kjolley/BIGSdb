@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext       => 'iTOL',
 		menutext         => 'iTOL',
 		module           => 'ITOL',
-		version          => '1.3.16',
+		version          => '1.4.0',
 		dbtype           => 'isolates',
 		section          => 'third_party,postquery',
 		input            => 'query',
@@ -91,6 +91,7 @@ sub run {
 		push @$loci_selected, @$pasted_cleaned_loci;
 		@$loci_selected = uniq @$loci_selected;
 		$self->add_scheme_loci($loci_selected);
+		$self->add_recommended_scheme_loci($loci_selected);
 		my @ids = $q->multi_param('isolate_id');
 		my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list( { dont_clear => 1 } );
 		push @ids, @$pasted_cleaned_ids;
@@ -206,6 +207,7 @@ sub _print_interface {
 	#Subclassed plugins may not yet support uploaded genomes.
 	$self->print_user_genome_upload_fieldset if ( $atts->{'supports'} // q() ) =~ /user_genomes/x;
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
+	$self->print_recommended_scheme_fieldset;
 	$self->print_scheme_fieldset;
 	$self->print_extra_form_elements;
 	$self->print_action_fieldset( { no_reset => 1 } );
@@ -351,8 +353,8 @@ sub generate_tree_files {
 		local $" = ', ';
 		my $missing_count = @$isolates_with_no_sequence;
 		if ( $missing_count < 10 ) {
-			$message_html .= q(<p>The following ids had no sequences for all the selected loci. They have been )
-			  . qq(removed from the analysis: @$isolates_with_no_sequence.</p>\n);
+			$message_html .= q(<p>The following ids had no sequences for all the selected loci: )
+			  . qq(@$isolates_with_no_sequence.</p><p>They have been removed from the analysis.</p>\n);
 		} else {
 			$message_html .= qq(<p>$missing_count ids had no sequences for all the selected loci. They have been )
 			  . q(removed from the analysis.</p>);
