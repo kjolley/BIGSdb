@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -22,6 +22,10 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::CuratePage);
 use BIGSdb::Constants qw(GOOD BAD);
+use constant {
+	PG_MAJOR => 9,
+	PG_MINOR => 5
+};
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -34,6 +38,7 @@ sub print_content {
 		$self->print_bad_status( { message => q(You do not have permission to view this page.), navbar => 1 } );
 		return;
 	}
+	$self->_check_postgres;
 	$self->_check_helpers;
 	local $| = 1;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
@@ -44,6 +49,28 @@ sub print_content {
 	} else {
 		$self->_check_client_databases;
 	}
+	return;
+}
+
+sub _check_postgres {
+	my ($self) = @_;
+	say q(<div class="box resultstable">);
+	say q(<h2>PostgreSQL</h2>);
+	my $version = $self->{'datastore'}->run_query('SHOW server_version');
+	my $status  = q();
+	if ( $version =~ /^(\d+)\.(\d+)\.?\d*\s/x ) {
+		my ( $major, $minor ) = ( $1, $2 );
+		$version = "$major.$minor";
+		if ( $major > PG_MAJOR ) {
+			$status = GOOD;
+		} elsif ( $major == PG_MAJOR && $minor >= PG_MINOR ) {
+			$status = GOOD;
+		} else {
+			$status = BAD;
+		}
+	}
+	my $required = PG_MAJOR . '.' . PG_MINOR;
+	say qq(<p>BIGSdb requires Pg $required or higher. You are running version $version. $status);
 	return;
 }
 
@@ -68,11 +95,9 @@ sub _check_helpers {
 		blat               => $self->{'config'}->{'blat_path'}
 	);
 	my $td = 1;
-	say q(<div class="box resultstable">);
 	say q(<h2>Helper applications</h2>);
 	say q(<div class="scrollable"><table class="resultstable"><tr><th>Program</th>)
 	  . q(<th>Path</th><th>Installed</th><th>Executable</th></tr>);
-
 	foreach my $program ( sort { $a cmp $b } keys %helpers ) {
 		say qq(<tr class="td$td"><td>$program</td><td>$helpers{$program}</td><td>)
 		  . ( -e ( $helpers{$program} ) ? GOOD : BAD )
