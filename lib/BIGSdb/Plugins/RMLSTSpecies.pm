@@ -30,10 +30,11 @@ use MIME::Base64;
 use LWP::UserAgent;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use constant MAX_ISOLATES       => 1000;
-use constant INITIAL_BUSY_DELAY => 60;
-use constant MAX_DELAY          => 600;
-use constant URL                => 'https://rest.pubmlst.org/db/pubmlst_rmlst_seqdef_kiosk/schemes/1/sequence';
+use constant MAX_ISOLATES         => 1000;
+use constant INITIAL_BUSY_DELAY   => 60;
+use constant MAX_DELAY            => 600;
+use constant ATTEMPTS_BEFORE_FAIL => 50;
+use constant URL                  => 'https://rest.pubmlst.org/db/pubmlst_rmlst_seqdef_kiosk/schemes/1/sequence';
 
 sub get_attributes {
 	my ($self) = @_;
@@ -47,7 +48,7 @@ sub get_attributes {
 		buttontext  => 'rMLST species id',
 		menutext    => 'Species identification',
 		module      => 'RMLSTSpecies',
-		version     => '1.2.8',
+		version     => '1.2.9',
 		dbtype      => 'isolates',
 		section     => 'info,analysis,postquery',
 		input       => 'query',
@@ -308,6 +309,7 @@ sub _perform_rest_query {
 	my $isolate_name = $self->get_isolate_name_from_id($isolate_id);
 	my $values       = [ $isolate_id, $isolate_name ];
 	my %server_error = map { $_ => 1 } ( 500, 502, 503, 504 );
+	my $attempts     = 0;
 	do {
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Scanning isolate $i" } );
 		$unavailable = 0;
@@ -322,6 +324,11 @@ sub _perform_rest_query {
 			$unavailable = 1;
 			$self->{'jobManager'}->update_job_status( $job_id,
 				{ stage => "rMLST server is unavailable or too busy at the moment - retrying in $delay seconds", } );
+			$attempts++;
+			if ( $attempts > ATTEMPTS_BEFORE_FAIL ) {
+				BIGSdb::Exception::Plugin->throw(
+					"Calls to REST interface have failed $attempts times. Giving up - please try again later.");
+			}
 			sleep $delay;
 			$delay += 10 if $delay < MAX_DELAY;
 		}
