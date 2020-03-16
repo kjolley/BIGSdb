@@ -195,6 +195,7 @@ sub _get_javascript_paths {
 			'filesaver'           => [qw(FileSaver.min.js)],
 			'modernizr'           => [qw(modernizr-custom.js)],
 			'geomap'              => [qw(d3.v5.min.js d3.geomap.min.js d3-geo-projection.min.js topojson.min.js)],
+			'igv' => [qw(igv.min.js)]
 		);
 		if ( $self->{'pluginJS'} ) {
 			$js{'pluginJS'} = ["Plugins/$self->{'pluginJS'}"];

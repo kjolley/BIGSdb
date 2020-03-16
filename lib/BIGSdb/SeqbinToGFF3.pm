@@ -53,6 +53,8 @@ sub print_content {
 
 sub _write_gff3 {
 	my ( $self, $seqbin_ids ) = @_;
+	my $q   = $self->{'cgi'};
+	my $igv = $q->param('igv');
 	my %lengths;
 	foreach my $seqbin_id (@$seqbin_ids) {
 		my $seq_ref = $self->{'contigManager'}->get_contig($seqbin_id);
@@ -85,7 +87,7 @@ sub _write_gff3 {
 			if ( $tag->{'start_pos'} < 1 ) {
 				$tag->{'start_pos'} = 1;
 			}
-			if ($tag->{'end_pos'} > $lengths{$seqbin_id}){
+			if ( $tag->{'end_pos'} > $lengths{$seqbin_id} ) {
 				$tag->{'end_pos'} = $lengths{$seqbin_id};
 			}
 			my $locus_info = $self->{'datastore'}->get_locus_info( $tag->{'locus'} );
@@ -96,19 +98,23 @@ sub _write_gff3 {
 			if    ( $locus_info->{'orf'} == 2 || $locus_info->{'orf'} == 5 ) { $phase = 1 }
 			elsif ( $locus_info->{'orf'} == 3 || $locus_info->{'orf'} == 6 ) { $phase = 2 }
 			else                                                             { $phase = 0 }
-			my $strand   = $tag->{'reverse'}  ? '-' : '+';
-			my $complete = $tag->{'complete'} ? 1   : 0;
-			my $att = qq(locus_tag=$tag->{'locus'});
+			my $strand   = $tag->{'reverse'}  ? '-'                       : '+';
+			my $complete = $tag->{'complete'} ? 1                         : 0;
+			my $att      = $igv               ? qq(locus=$tag->{'locus'}) : qq(locus_tag=$tag->{'locus'});
 			$att .= q(;incomplete=1) if !$complete;
+
 			if ( $locus_info->{'dbase_name'} ) {
 				my $locus_desc = $self->{'datastore'}->get_locus( $tag->{'locus'} )->get_description;
-				if ($locus_desc->{'product'}){
+				if ( $locus_desc->{'product'} ) {
 					$locus_desc->{'product'} =~ tr/[;|=]/_/;
-					$att.=qq(;product=$locus_desc->{'product'}) if $locus_desc->{'product'};
+					$att .= qq(;product=$locus_desc->{'product'}) if $locus_desc->{'product'};
 				}
 			}
 			$att =~ s/\r?\n//x;
-			say qq($seqbin_id\t$self->{'system'}->{'description'}\tgene\t$tag->{'start_pos'}\t)
+
+			#IGV.js only recognizes some types (CDS and . are ok).
+			my $type = $locus_info->{'complete_cds'} ? 'CDS' : '.';
+			say qq($seqbin_id\t$self->{'system'}->{'description'}\t$type\t$tag->{'start_pos'}\t)
 			  . qq($tag->{'end_pos'}\t.\t$strand\t$phase\t$att);
 		}
 	}

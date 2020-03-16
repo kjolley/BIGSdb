@@ -37,7 +37,7 @@ sub initiate {
 		$self->{'noCache'} = 1;
 		return;
 	}
-	$self->{$_} = 1 foreach qw (tooltips jQuery c3);
+	$self->{$_} = 1 foreach qw (tooltips jQuery c3 igv);
 	$self->{'prefix'} = BIGSdb::Utils::get_random();
 	return;
 }
@@ -184,6 +184,7 @@ sub _print_stats {
 		say q(<div id="cumulative" class="embed_c3_chart"></div>);
 	}
 	say q(<div style="clear:both"></div></div>);
+	say q(<div id="igv" class="box"></div>);
 	return;
 }
 
@@ -287,7 +288,26 @@ sub get_javascript {
 		});
 	});
 	\$(".embed_c3_chart").css({width:'400px','max-width':'95%',height:'250px'});
-});
+	var igvDiv = \$("#igv");
+	var options = {
+  		reference: {
+  			fastaURL: "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=downloadSeqbin&isolate_id=$isolate_id",
+  			indexed: false,
+  			showAllChromosomes: true,
+  			tracks: [{
+  				name:"loci",
+  				type:"annotation",
+  				url:"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=gff&isolate_id=$isolate_id&igv=1",
+  				format:"gff3",
+  				indexed:false,
+  				color:"#48f",
+  				removable:false,
+  				searchable:true
+  			}]
+  		}
+	};
+	igv.createBrowser(igvDiv, options);
+  });
 END
 	return $buffer;
 }
