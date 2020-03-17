@@ -176,7 +176,7 @@ sub _get_javascript_paths {
 		}
 		my $features = {
 			'jQuery.tablesort' =>
-			  { src => [qw(jquery.tablesorter.js jquery.metadata.js)], defer => 1, version => '20200308' },
+			  { src => [qw(jquery.tablesorter.js)], defer => 1, version => '20200308' },
 			'jQuery.jstree'       => { src => [qw(jquery.jstree.js)],       defer => 1, version => '20200308' },
 			'jQuery.coolfieldset' => { src => [qw(jquery.coolfieldset.js)], defer => 1, version => '20200308' },
 			'jQuery.slimbox'      => { src => [qw(jquery.slimbox2.js)],     defer => 1, version => '20200308' },
