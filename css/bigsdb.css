@@ -1,4 +1,4 @@
-/*Version: 20200308*/
+/*Version: 20200317*/
 body,form,input,th,td,div {margin-top:0;margin-bottom:0;padding-bottom:0;padding-top:0}
 select{margin:0}
 p {margin:0 0 1em 0;padding:0}
@@ -344,6 +344,7 @@ input.pagebar:hover {border:1px solid #f00; background:#fff}
 table.tablesorter {text-align:center}
 table.tablesorter tr.even td {background:#efefff;text-align:center}
 table.tablesorter tr.odd td {background:#efefef;text-align:center}
+table.tablesorter tr.total td {background:green;color:white}
 
 div.content {
 	background:#fcfcf9;

@@ -175,8 +175,8 @@ sub _get_javascript_paths {
 			push @$js, { src => '/javascript/cookieconsent.min.js', defer => 1 };
 		}
 		my $features = {
-			'jQuery.tablesort' =>
-			  { src => [qw(jquery.tablesorter.js)], defer => 1, version => '20200308' },
+			'jQuery.tablesort' => { src => [qw(jquery.tablesorter.js)], defer => 1, version => '20200308' }
+			,
 			'jQuery.jstree'       => { src => [qw(jquery.jstree.js)],       defer => 1, version => '20200308' },
 			'jQuery.coolfieldset' => { src => [qw(jquery.coolfieldset.js)], defer => 1, version => '20200308' },
 			'jQuery.slimbox'      => { src => [qw(jquery.slimbox2.js)],     defer => 1, version => '20200308' },
@@ -558,7 +558,7 @@ sub _start_html {
 		say qq(<meta name="key" content="$meta->{$key}" />);
 	}
 	foreach my $css (@$style) {
-		say qq(<link rel="stylesheet" type="text/css" href="$css" media="Screen" />);
+		say qq(<link rel="stylesheet" type="text/css" href="$css" />);
 	}
 	say q(<style>);
 	say qq(  .tooltip{display:$tooltip_display});
@@ -610,7 +610,7 @@ sub _get_meta_data {
 sub _get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20200308';
+	my $version = '20200317';
 	my @filenames;
 	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
 	push @filenames, q(c3.css)                                                if $self->{'c3'};
