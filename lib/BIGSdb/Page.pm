@@ -159,64 +159,75 @@ sub _get_javascript_paths {
 	my ($self) = @_;
 	my $page_js = $self->get_javascript;
 	$page_js .= $self->_get_cookie_js;
-	my $date = '20200308';
-	my @javascript;
+	my $js = [];
 	if ( $self->{'jQuery'} ) {
-		my @language = ( language => 'Javascript' );
 		if ( $self->{'config'}->{'no_cdn'} || $self->{'config'}->{'intranet'} ) {
-			push @javascript, ( { src => "/javascript/jquery.min.js?v=$date",    @language } );
-			push @javascript, ( { src => "/javascript/jquery-ui.min.js?v=$date", @language } );
+			push @$js, { src => '/javascript/jquery.min.js',    version => '20200308' };
+			push @$js, { src => '/javascript/jquery-ui.min.js', version => '20200308' };
 		} else {
 
 			#Load jQuery library from Google CDN
-			push @javascript,
-			  ( { src => 'https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js', @language } );
-			push @javascript,
-			  ( { src => 'https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js', @language } );
+			push @$js, { src => 'https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js' };
+			push @$js, { src => 'https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js' };
 		}
-		push @javascript, ( { src => "/javascript/bigsdb.js?v=$date", @language } );
+		push @$js, { src => '/javascript/bigsdb.js', version => '20200308' };
 		if ( !$self->{'config'}->{'no_cookie_consent'} && !$self->{'curate'} && $self->{'instance'} ) {
-			push @javascript, ( { src => '/javascript/cookieconsent.min.js', @language } );
+			push @$js, { src => '/javascript/cookieconsent.min.js', defer => 1 };
 		}
-		my %js = (
-			'jQuery.tablesort'    => [qw(jquery.tablesorter.js jquery.metadata.js)],
-			'jQuery.jstree'       => [qw(jquery.jstree.js)],
-			'jQuery.coolfieldset' => [qw(jquery.coolfieldset.js)],
-			'jQuery.slimbox'      => [qw(jquery.slimbox2.js)],
-			'jQuery.columnizer'   => [qw(jquery.columnizer.js)],
-			'jQuery.multiselect'  => [qw(jquery.multiselect.min.js jquery.multiselect.filter.min.js)],
-			'CryptoJS.MD5'        => [qw(md5.js)],
-			'packery'             => [qw(packery.js)],
-			'dropzone'            => [qw(dropzone.js)],
-			'c3'                  => [qw(d3.v5.min.js c3.min.js jquery.ui.touch-punch.min.js)],
-			'pivot'               => [qw(pivot.min.js export_renderers.min.js jquery.ui.touch-punch.min.js)],
-			'papaparse'           => [qw(papaparse.min.js)],
-			'heatmap'             => [qw(heatmap.min.js)],
-			'filesaver'           => [qw(FileSaver.min.js)],
-			'modernizr'           => [qw(modernizr-custom.js)],
-			'geomap'              => [qw(d3.v5.min.js d3.geomap.min.js d3-geo-projection.min.js topojson.min.js)],
-			'igv' => [qw(igv.min.js)]
-		);
+		my $features = {
+			'jQuery.tablesort' =>
+			  { src => [qw(jquery.tablesorter.js jquery.metadata.js)], defer => 1, version => '20200308' },
+			'jQuery.jstree'       => { src => [qw(jquery.jstree.js)],       defer => 1, version => '20200308' },
+			'jQuery.coolfieldset' => { src => [qw(jquery.coolfieldset.js)], defer => 1, version => '20200308' },
+			'jQuery.slimbox'      => { src => [qw(jquery.slimbox2.js)],     defer => 1, version => '20200308' },
+			'jQuery.columnizer'   => { src => [qw(jquery.columnizer.js)],   defer => 1, version => '20200308' },
+			'jQuery.multiselect'  => {
+				src     => [qw(jquery.multiselect.min.js jquery.multiselect.filter.min.js)],
+				defer   => 1,
+				version => '2020308'
+			},
+			'CryptoJS.MD5' => { src => [qw(md5.js)],      defer => 1, version => '20200308' },
+			'packery'      => { src => [qw(packery.js)],  defer => 1, version => '20200308' },
+			'dropzone'     => { src => [qw(dropzone.js)], defer => 1, version => '20200308' },
+			'c3' =>
+			  { src => [qw(d3.v5.min.js c3.min.js jquery.ui.touch-punch.min.js)], defer => 1, version => '20200308' },
+			'pivot' => {
+				src     => [qw(pivot.min.js export_renderers.min.js jquery.ui.touch-punch.min.js)],
+				defer   => 1,
+				version => '20200308'
+			},
+			'papaparse' => { src => [qw(papaparse.min.js)],    defer => 1, version => '20200308' },
+			'heatmap'   => { src => [qw(heatmap.min.js)],      defer => 1, version => '20200308' },
+			'filesaver' => { src => [qw(FileSaver.min.js)],    defer => 1, version => '20200308' },
+			'modernizr' => { src => [qw(modernizr-custom.js)], defer => 1, version => '20200308' },
+			'geomap'    => {
+				src     => [qw(d3.v5.min.js d3.geomap.min.js d3-geo-projection.min.js topojson.min.js)],
+				defer   => 1,
+				version => '20200308'
+			},
+			'igv' => { src => [qw(igv.min.js)], defer => 1, version => '20200308' }
+		};
 		if ( $self->{'pluginJS'} ) {
-			$js{'pluginJS'} = ["Plugins/$self->{'pluginJS'}"];
+			$features->{'pluginJS'} = { src => ["Plugins/$self->{'pluginJS'}"], defer => 1, version => '20200308' };
 		}
 		my %used;
-		foreach my $feature ( keys %js ) {
+		foreach my $feature ( keys %$features ) {
 			next if !$self->{$feature};
-			my $libs = $js{$feature};
+			my $libs = $features->{$feature}->{'src'};
 			foreach my $lib (@$libs) {
 				next if $used{$lib};
 				if ( -e "$ENV{'DOCUMENT_ROOT'}/javascript/$lib" ) {
-					push @javascript, ( { src => "/javascript/$lib?v=$date", @language } );
+					my $version = $features->{$feature}->{'version'} ? "?v=$features->{$feature}->{'version'}" : q();
+					push @$js, { src => "/javascript/$lib$version", defer => $features->{$feature}->{'defer'} };
 				} else {
 					$logger->error("/javascript/$lib file not installed.");
 				}
 				$used{$lib} = 1;
 			}
 		}
-		push @javascript, { code => $page_js, @language } if $page_js;
+		push @$js, { code => $page_js } if $page_js;
 	}
-	return \@javascript;
+	return $js;
 }
 
 sub get_guid {
@@ -494,32 +505,17 @@ sub print_page_content {
 		my $title      = $self->get_title;
 		my $javascript = $self->_get_javascript_paths;
 		my ( $meta_content, $shortcut_icon ) = $self->_get_meta_data;
-		my $http_equiv = q(<meta name="viewport" content="width=device-width" />);
-		if ( $self->{'refresh'} ) {
-			my $refresh_page = $self->{'refresh_page'} ? qq(; URL=$self->{'refresh_page'}) : q();
-			$http_equiv .= qq(<meta http-equiv="refresh" content="$self->{'refresh'}$refresh_page" />);
-		}
-		my $tooltip_display = $self->{'prefs'}->{'tooltips'} ? 'inline' : 'none';
 		my $stylesheets = $self->_get_stylesheets;
-		my @styles;
-		push @styles, { -src => $_, -media => 'Screen' } foreach @$stylesheets;
-		my @args = (
-			-title    => $title,
-			-meta     => $meta_content,
-			-style    => [ @styles, { -code => ".tooltip{display:$tooltip_display}" } ],
-			-script   => $javascript,
-			-encoding => 'utf-8'
+		$self->_start_html(
+			{
+				title         => $title,
+				meta          => $meta_content,
+				style         => $stylesheets,
+				script        => $javascript,
+				shortcut_icon => $shortcut_icon
+			}
 		);
-		if (%$shortcut_icon) {
-			push @args, ( -head => [ CGI->Link($shortcut_icon), $http_equiv ] );
-		} else {
-			push @args, ( -head => $http_equiv );
-		}
-		my $head = $q->start_html(@args);
-		my $dtd  = '<!DOCTYPE html>';
-		$head =~ s/<!DOCTYPE.*?>/$dtd/sx;    #CGI.pm doesn't support HTML5 DOCTYPE
-		$head =~ s/<html[^>]*>/<html>/x;
-		say $head;
+
 		if ( $self->{'system'}->{'db'} && $self->{'instance'} ) {
 			$self->_print_header;
 			$self->_print_login_details;
@@ -534,8 +530,52 @@ sub print_page_content {
 			$self->_print_site_footer;
 		}
 		$self->_debug if $q->param('debug') && $self->{'config'}->{'debug'};
-		print $q->end_html;
+		say q(</body>);
+		say q(</html>);
 	}
+	return;
+}
+
+sub _start_html {
+	my ( $self, $args ) = @_;
+	my ( $title, $meta, $style, $script, $shortcut_icon ) = @{$args}{qw(title meta style script shortcut_icon)};
+	my $tooltip_display = $self->{'prefs'}->{'tooltips'} ? 'inline' : 'none';
+	say q(<!DOCTYPE html>);
+	say q(<html>);
+	say q(<head>);
+	say qq(<title>$title</title>) if $title;
+	say q(<meta name="viewport" content="width=device-width" />);
+	say q(<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />);
+
+	if ( $shortcut_icon->{'href'} ) {
+		say qq(<link href="$shortcut_icon->{'href'}" rel="$shortcut_icon->{'rel'}" type="$shortcut_icon->{'type'}" />);
+	}
+	if ( $self->{'refresh'} ) {
+		my $refresh_page = $self->{'refresh_page'} ? qq(; URL=$self->{'refresh_page'}) : q();
+		say qq(<meta http-equiv="refresh" content="$self->{'refresh'}$refresh_page" />);
+	}
+	foreach my $key ( keys %$meta ) {
+		say qq(<meta name="key" content="$meta->{$key}" />);
+	}
+	foreach my $css (@$style) {
+		say qq(<link rel="stylesheet" type="text/css" href="$css" media="Screen" />);
+	}
+	say q(<style>);
+	say qq(  .tooltip{display:$tooltip_display});
+	say q(</style>);
+	foreach my $js (@$script) {
+		if ( $js->{'src'} ) {
+			my $version = $js->{'version'} ? "?v=$js->{'version'}" : q();
+			my $defer = $js->{'defer'} ? ' defer' : q();
+			say qq(<script src="$js->{'src'}$version"$defer></script>);
+		} elsif ( $js->{'code'} ) {
+			say q(<script>);
+			say $js->{'code'};
+			say q(</script>);
+		}
+	}
+	say q(</head>);
+	say q(<body>);
 	return;
 }
 
@@ -556,9 +596,9 @@ sub _get_meta_data {
 				my $HREF = qr/href="([^"]+)"\s+/x;
 				my $TYPE = qr/type="([^"]+)"/x;
 				if ( $line =~ /<link\s+ $REL $HREF $TYPE\s*\/?>/x ) {
-					$shortcut_icon->{'-rel'}  = 'shortcut icon';
-					$shortcut_icon->{'-href'} = $1;
-					$shortcut_icon->{'-type'} = $2;
+					$shortcut_icon->{'rel'}  = 'shortcut icon';
+					$shortcut_icon->{'href'} = $1;
+					$shortcut_icon->{'type'} = $2;
 				}
 			}
 			close $fh;
