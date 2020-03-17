@@ -44,7 +44,7 @@ sub get_attributes {
 		buttontext  => 'Two Field',
 		menutext    => 'Two field',
 		module      => 'TwoFieldBreakdown',
-		version     => '1.5.0',
+		version     => '1.5.1',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/two_field_breakdown.html",
@@ -256,9 +256,12 @@ sub run_job {
 	$self->{'jobManager'}
 	  ->update_job_output( $job_id, { filename => "$job_id.xlsx", description => '02_Excel format' } )
 	  if -e $excel;
+
 	if ( !$self->_should_we_chart( [ keys %$data ], $field2values ) ) {
-		$self->{'jobManager'}
-		  ->update_job_status( $job_id, { message_html => qq(<div class="scrollable">$html_buffer</div>) } );
+		if ($html_buffer) {
+			$self->{'jobManager'}
+			  ->update_job_status( $job_id, { message_html => qq(<div class="scrollable">$html_buffer</div>) } );
+		}
 		return;
 	}
 	my $charts       = $self->_get_c3_charts($args);
