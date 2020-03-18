@@ -54,7 +54,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.5.1',
+		version     => '2.6.0',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -393,9 +393,22 @@ sub _print_distance_matrix_fieldset {
 	);
 	say q(</li><li style="border-top:1px dashed #999;padding-top:0.2em">);
 	say $q->checkbox(
-		-name    => 'exclude_paralogous',
-		-id      => 'exclude_paralogous',
-		-label   => 'Exclude paralogous loci',
+		-name  => 'exclude_missing_pairwise',
+		-id    => 'exclude_missing_pairwise',
+		-label => 'Exclude pairwise missing loci',
+	);
+	say q(</li><li>);
+	say $q->checkbox(
+		-name    => 'exclude_paralogous_all',
+		-id      => 'exclude_paralogous_all',
+		-label   => 'Exclude loci paralogous in all',
+		-checked => 'checked'
+	);
+	say q(</li><li>);
+	say $q->checkbox(
+		-name    => 'exclude_paralogous_pairwise',
+		-id      => 'exclude_paralogous_pairwise',
+		-label   => 'Exclude pairwise paralogous loci',
 		-checked => 'checked'
 	);
 	say q(</li></ul></fieldset>);
@@ -1182,9 +1195,9 @@ sub _generate_splits {
 	  ->update_job_status( $job_id, { percent_complete => 80, stage => 'Generating distance matrix' } );
 	my $dismat  = $self->_generate_distance_matrix($data);
 	my $options = {
-		truncated          => $self->{'params'}->{'truncated'},
-		exclude_paralogous => $self->{'params'}->{'exclude_paralogous'},
-		by_reference       => $data->{'by_ref'}
+		truncated              => $self->{'params'}->{'truncated'},
+		exclude_paralogous_all => $self->{'params'}->{'exclude_paralogous_all'},
+		by_reference           => $data->{'by_ref'}
 	};
 	my $nexus_file = $self->_make_nexus_file( $job_id, $dismat, $options );
 	$self->{'jobManager'}->update_job_output(
@@ -1230,7 +1243,7 @@ sub _generate_distance_matrix {
 	my $ignore_loci  = [];
 	push @$ignore_loci, @{ $data->{'incomplete_in_some'} }
 	  if ( $self->{'params'}->{'truncated'} // '' ) eq 'exclude';
-	push @$ignore_loci, @{ $data->{'paralogous_in_all'} } if $self->{'params'}->{'exclude_paralogous'};
+	push @$ignore_loci, @{ $data->{'paralogous_in_all'} } if $self->{'params'}->{'exclude_paralogous_all'};
 	my %ignore_loci = map { $_ => 1 } @$ignore_loci;
 	if ( $data->{'by_ref'} ) {
 
@@ -1244,8 +1257,19 @@ sub _generate_distance_matrix {
 			$dismat->{ $ids[$i] }->{ $ids[$j] } = 0;
 			foreach my $locus ( @{ $data->{'loci'} } ) {
 				next if $ignore_loci{$locus};
+				if ( $self->{'params'}->{'exclude_paralogous_pairwise'} ) {
+					my %pairwise_ignore = map { $_ => 1 } (
+						@{ $data->{'isolate_data'}->{ $ids[$i] }->{'paralogous'} },
+						@{ $data->{'isolate_data'}->{ $ids[$j] }->{'paralogous'} }
+					);
+					next if $pairwise_ignore{$locus};
+				}
 				my $i_value = $isolate_data->{ $ids[$i] }->{'designations'}->{$locus};
 				my $j_value = $isolate_data->{ $ids[$j] }->{'designations'}->{$locus};
+				if ( $self->{'params'}->{'exclude_missing_pairwise'} ) {
+					next if $i_value eq 'missing';
+					next if $j_value eq 'missing';
+				}
 				if ( $self->_is_different( $i_value, $j_value ) ) {
 					$dismat->{ $ids[$i] }->{ $ids[$j] }++;
 				}
@@ -1299,7 +1323,9 @@ sub _make_nexus_file {
 	my $paralogous = '';
 	if ( $options->{'by_reference'} ) {
 		$paralogous =
-		  '[Paralogous loci ' . ( $options->{'exclude_paralogous'} ? 'excluded from' : 'included in' ) . ' analysis]';
+		    '[Paralogous loci '
+		  . ( $options->{'exclude_paralogous_all'} ? 'excluded from' : 'included in' )
+		  . ' analysis]';
 	}
 	my $header = <<"NEXUS";
 #NEXUS
@@ -1952,7 +1978,18 @@ sub _write_excel_parameters {
 		{ section => 'Distance matrix calculation' },
 		{ label   => 'Incomplete loci', value => lc( $labels->{ $params->{'truncated'} } ) }
 	  );
-	push @parameters, { label => 'Exclude paralogous loci', value => $params->{'exclude_paralogous'} ? 'yes' : 'no' };
+	push @parameters,
+	  (
+		{ label => 'Exclude loci paralogous in all', value => $params->{'exclude_paralogous_all'} ? 'yes' : 'no' },
+		{
+			label => 'Exclude pairwise paralogous loci',
+			value => $params->{'exclude_paralogous_pairwise'} ? 'yes' : 'no'
+		},
+		{
+			label => 'Exclude pairwise missing loci',
+			value => $params->{'exclude_missing_pairwise'} ? 'yes' : 'no'
+		}
+	  );
 
 	#Alignments
 	push @parameters,
@@ -2598,15 +2635,11 @@ function enable_seqs(){
 		\$("#recommended_scheme_fieldset").hide(500);
 		\$("#locus_fieldset").hide(500);
 		\$("#tblastx").prop("disabled", false);
-		\$("#exclude_paralogous").prop("disabled", false);
-		\$("#paralogous_options").prop("disabled", false);
 	} else {
 		\$("#scheme_fieldset").show(500);
 		\$("#recommended_scheme_fieldset").show(500);
 		\$("#locus_fieldset").show(500);
 		\$("#tblastx").prop("disabled", true);
-		\$("#exclude_paralogous").prop("disabled", true);
-		\$("#paralogous_options").prop("disabled", true);
 	}
 	if (\$("#calc_distances").prop("checked")){
 		\$("#align").prop("checked", true);
