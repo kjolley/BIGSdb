@@ -1,3 +1,6 @@
+v1.26.1: *Dynamically load and remove field filters directly from query page.
+         *Automatically exclude paralogous loci in iTOL trees.
+         *IGV genome viewer embedded in sequence bin page. 
 v1.26.0: *Bookmark isolate queries.
          *Optionally log isolate deletion to a log table.
 v1.25.1: *ChartDirector is no longer used - all static chart images have been 
