@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -1842,6 +1842,8 @@ sub _prepare_contigs_extra_inserts {
 	$self->{'submission_message'} .= " Contig file '$data->[$field_order->{'assembly_filename'}]' ($size) uploaded.";
 
 	foreach my $contig_name ( keys %$seq_ref ) {
+		next if length $seq_ref->{$contig_name} < MIN_CONTIG_LENGTH;
+		next if BIGSdb::Utils::is_homopolymer( $seq_ref, $contig_name );
 		push @inserts,
 		  {
 			statement => 'INSERT INTO sequence_bin (isolate_id,sequence,method,original_designation,'

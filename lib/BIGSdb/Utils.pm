@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -936,5 +936,15 @@ sub arbitrary_order_list {
 	my ($arbitrary_order, $list) = @_;
 	my %order = map {$arbitrary_order->[$_] => $_} (0 .. $#$arbitrary_order);
 	return [sort {($order{$a} // -1) <=> ($order{$b} // -1)} @$list];
+}
+
+sub is_homopolymer {
+	my ( $seq_ref, $seq_id ) = @_;
+	my $seq = $seq_ref->{$seq_id};
+	return if length $seq < 2;
+	for my $i ( 1 .. ( length $seq ) - 1 ) {
+		return if uc( substr( $seq, $i - 1, 1 ) ) ne uc( substr( $seq, $i, 1 ) );
+	}
+	return 1;
 }
 1;

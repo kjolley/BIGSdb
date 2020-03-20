@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2018-2019, University of Oxford
+#Copyright (c) 2018-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -25,7 +25,7 @@ use parent qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 use Try::Tiny;
 use File::Path qw(make_path remove_tree);
-use BIGSdb::Constants qw(:interface SEQ_METHODS);
+use BIGSdb::Constants qw(:interface :limits SEQ_METHODS);
 my $logger = get_logger('BIGSdb.Page');
 use constant LIMIT => 100;
 
@@ -284,10 +284,30 @@ sub _validate {
 		}
 		say q(</li></ul></fieldset><fieldset style="float:left"><legend>Options</legend>);
 		say q(<ul><li>);
-		say $q->checkbox( -name => 'size_filter', -label => q(Don't insert sequences shorter than ) );
-		say $q->popup_menu( -name => 'size', -values => [qw(25 50 100 200 300 400 500 1000)], -default => 250 );
-		say q( bps.</li>);
-		say q(</ul></fieldset>);
+		say $q->checkbox(
+			-name    => 'size_filter',
+			-label   => q(Don't insert sequences shorter than ),
+			-checked => 'checked'
+		);
+		say $q->popup_menu(
+			-name    => 'size',
+			-values  => [qw(25 50 100 200 300 400 500 1000)],
+			-default => MIN_CONTIG_LENGTH
+		);
+		say q( bps.);
+		say $self->get_tooltip( q(Contig size - There is little point to uploading very short contigs. )
+			  . q(They are too short to contain most loci, will simply clutter the database unnecessarily )
+			  . q(and slow down BLAST queries.) );
+		say q(</li><li>);
+		say $q->checkbox(
+			-name    => 'remove_homopolymers',
+			-label   => q(Don't insert sequences containing only homopolymers.),
+			-checked => 'checked'
+		);
+		say $self->get_tooltip( q(Homopolymers - These are sequences such as 'NNNNNNNNNNNNN' or 'GGGGGGGGGGGGG' )
+			  . q(that seem to be produced by some assemblers. There is no benefit to including these in the database.)
+		);
+		say q(</li></ul></fieldset>);
 		$self->print_action_fieldset( { submit_label => 'Upload validated contigs', no_reset => 1 } );
 		$q->param( upload => 1 );
 		say $q->hidden($_) foreach qw(db page field temp_file upload);
@@ -433,6 +453,7 @@ sub _upload {
 		eval {
 			foreach my $seq_id ( keys %$seq_ref ) {
 				next if length $seq_ref->{$seq_id} < $min_size;
+				next if $q->param('remove_homopolymers') && BIGSdb::Utils::is_homopolymer( $seq_ref, $seq_id );
 				my ( $designation, $comments );
 				if ( $seq_id =~ /(\S*)\s+(.*)/x ) {
 					( $designation, $comments ) = ( $1, $2 );
@@ -585,8 +606,8 @@ sub _file_upload {
 		}
 		$already_populated++ if $stats->{'total_length'};
 		push @filenames, $row->{'filename'};
-		my $filename = "$dir/$row->{'filename'}";
-		my $display_filename = BIGSdb::Utils::escape_html($row->{'filename'});
+		my $filename         = "$dir/$row->{'filename'}";
+		my $display_filename = BIGSdb::Utils::escape_html( $row->{'filename'} );
 		$buffer .=
 		  -e $filename
 		  ? qq(<td><a href="/tmp/$self->{'system'}->{'db'}/$self->{'username'}/$row->{'filename'}">$display_filename</a></td>)
@@ -878,8 +899,8 @@ sub initiate {
 
 sub get_javascript {
 	my ($self) = @_;
-	my $q      = $self->{'cgi'};
-	my $field  = $q->param('field') // 'id';
+	my $q = $self->{'cgi'};
+	my $field = $q->param('field') // 'id';
 	my $max = $self->{'config'}->{'max_upload_size'} / ( 1024 * 1024 );
 	my $max_files = LIMIT * 2;    #Allow more in case some wrong files are selected
 	my $buffer    = << "END";
