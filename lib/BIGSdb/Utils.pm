@@ -941,6 +941,7 @@ sub arbitrary_order_list {
 sub is_homopolymer {
 	my ( $seq_ref, $seq_id ) = @_;
 	my $seq = $seq_ref->{$seq_id};
+	return if !$seq;
 	return if length $seq < 2;
 	for my $i ( 1 .. ( length $seq ) - 1 ) {
 		return if uc( substr( $seq, $i - 1, 1 ) ) ne uc( substr( $seq, $i, 1 ) );

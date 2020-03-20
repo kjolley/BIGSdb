@@ -33,7 +33,7 @@ sub initiate {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	if ( $q->param('ajax') ) {
-		$self->{'type'} = 'no_header';
+		$self->{'type'}    = 'no_header';
 		$self->{'noCache'} = 1;
 		return;
 	}
@@ -174,11 +174,14 @@ sub _print_stats {
 	  . qq(isolate_id=$isolate_id" title="EMBL format">$embl</a>);
 	print qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=embl&amp;)
 	  . qq(isolate_id=$isolate_id&amp;format=genbank" title="Genbank format">$gbk</a>);
-	print qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=gff&amp;)
-	  . qq(isolate_id=$isolate_id" title="GFF3 format">$gff3</a>);
+	my $tags = $self->{'datastore'}
+	  ->run_query( 'SELECT EXISTS(SELECT * FROM allele_sequences WHERE isolate_id=?)', $isolate_id );
+	if ($tags) {
+		print qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=gff&amp;)
+		  . qq(isolate_id=$isolate_id" title="GFF3 format">$gff3</a>);
+	}
 	say q(</p>);
 	say q(</div>);
-
 	if ( $seqbin_stats->{'contigs'} > 1 ) {
 		say q(<div id="contig_size" class="embed_c3_chart"></div>);
 		say q(<div id="cumulative" class="embed_c3_chart"></div>);
