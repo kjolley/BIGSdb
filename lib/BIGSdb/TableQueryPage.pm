@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -658,8 +658,7 @@ sub _filter_query_by_sequence_filters {
 		}
 		if ( $q->param('scheme_id_list') ne '' ) {
 			my $scheme_qry;
-			if ( $q->param('scheme_id_list') eq '0' || !BIGSdb::Utils::is_int( scalar $q->param('scheme_id_list') ) )
-			{
+			if ( $q->param('scheme_id_list') eq '0' || !BIGSdb::Utils::is_int( scalar $q->param('scheme_id_list') ) ) {
 				$scheme_qry = 'allele_sequences.locus NOT IN (SELECT locus FROM scheme_members)';
 			} else {
 				my $scheme_id = $q->param('scheme_id_list');
@@ -1188,14 +1187,13 @@ sub _modify_user_fields_in_remote_user_dbs {
 			push @user_names, $cleaned if $local_users_in_db->{$user_name}->{$user_db_id};
 		}
 	}
-	if ($text eq 'null' && $operator eq '='){
+	if ( $text eq 'null' && $operator eq '=' ) {
 		$qry = qq(($qry AND user_db IS NULL));
 	}
 	return $qry if !@user_names;
 	local $" = q(',E');
 	$and_or = 'AND NOT' if $operator =~ /NOT/;
 	$qry = qq(($qry $and_or user_name IN (E'@user_names')));
-	
 	return $qry;
 }
 
@@ -1259,10 +1257,12 @@ sub _modify_schemes_for_sets {
 sub print_additional_headerbar_functions {
 	my ( $self, $filename ) = @_;
 	return if $self->{'curate'};
-	my $q = $self->{'cgi'};
+	my $q       = $self->{'cgi'};
+	my $table   = $q->param('table');
 	my %allowed = map { $_ => 1 } qw(schemes loci scheme_fields);
-	return if !$allowed{ $q->param('table') };
-	my $record = $self->get_record_name( scalar $q->param('table') );
+	return if !$allowed{$table};
+	return if $table eq 'loci' && ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
+	my $record = $self->get_record_name($table);
 	say q(<fieldset><legend>Customize</legend>);
 	say $q->start_form;
 	say $q->submit( -name => 'customize', -label => ucfirst("$record options"), -class => BUTTON_CLASS );
