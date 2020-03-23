@@ -852,7 +852,8 @@ sub _analyse_blast_results {
 						new_alleles    => $new_alleles,
 						locus          => $locus,
 						seq_filename   => $seq_filename,
-						fasta_filename => $fasta_filename
+						fasta_filename => $fasta_filename,
+						isolate_id     => $isolate_id
 					}
 				);
 			}
@@ -936,8 +937,8 @@ sub _scan_loci_together {
 
 sub _check_if_new {
 	my ( $self, $args ) = @_;
-	my ( $match, $new_seqs_found, $new_alleles, $locus, $seq_filename, $fasta_filename ) =
-	  @{$args}{qw(match new_seqs_found new_alleles locus seq_filename fasta_filename)};
+	my ( $match, $new_seqs_found, $new_alleles, $locus, $seq_filename, $fasta_filename, $isolate_id ) =
+	  @{$args}{qw(match new_seqs_found new_alleles locus seq_filename fasta_filename isolate_id)};
 	my $seq        = $self->extract_seq_from_match($match);
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	if ( $locus_info->{'data_type'} eq 'peptide' ) {
@@ -955,7 +956,9 @@ sub _check_if_new {
 		close $seqs_fh;
 		open( $seqs_fh, '>>', $fasta_filename )
 		  or $logger->error("Can't open $seq_filename for appending");
-		say $seqs_fh qq(>${locus}_seqbin_$match->{'seqbin_id'}_$match->{'start'}-$match->{'end'});
+		say $seqs_fh
+		  qq(>${locus}_seqbin_$match->{'seqbin_id'}_$match->{'start'}-$match->{'end'}_isolate_id_$isolate_id)
+		  ;
 		say $seqs_fh qq($seq);
 		close $seqs_fh;
 	}
