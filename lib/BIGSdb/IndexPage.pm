@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,7 +20,7 @@ package BIGSdb::IndexPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Page);
+use parent qw(BIGSdb::StatusPage);
 use BIGSdb::Constants qw(:interface);
 use BIGSdb::Utils;
 use Log::Log4perl qw(get_logger);
@@ -131,7 +131,7 @@ sub _print_main_section {
 	$self->_print_options_section;
 	$self->_print_submissions_section;
 	$self->_print_private_data_section;
-	$self->_print_general_info_section($scheme_data);
+	$self->_print_general_info_section;
 	say q(</div></div></div>);
 	return;
 }
@@ -154,15 +154,14 @@ sub _print_query_section {
 		if (@$loci) {
 			say qq(<li><a href="${url_root}page=profiles">Search by combinations of loci (profiles)</a></li>);
 		}
-		if ($self->{'username'}){
+		if ( $self->{'username'} ) {
 			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-			my $bookmarks = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM bookmarks WHERE user_id=?)',$user_info->{'id'});
-			if ($bookmarks){
-				say qq(<li><a href="${url_root}page=bookmarks">Bookmarked queries</a></li>)
+			my $bookmarks = $self->{'datastore'}
+			  ->run_query( 'SELECT EXISTS(SELECT * FROM bookmarks WHERE user_id=?)', $user_info->{'id'} );
+			if ($bookmarks) {
+				say qq(<li><a href="${url_root}page=bookmarks">Bookmarked queries</a></li>);
 			}
 		}
-		
-		
 	} elsif ( $system->{'dbtype'} eq 'sequences' ) {
 		say qq(<li><a href="${url_root}page=sequenceQuery">Sequence query</a> - )
 		  . q(query an allele sequence or genome.</li>);
@@ -426,58 +425,17 @@ sub _get_pending_submission_count {
 }
 
 sub _print_general_info_section {
-	my ( $self, $scheme_data ) = @_;
+	my ($self) = @_;
 	say q(<div style="float:left; margin-right:1em" class="grid-item">);
 	say q(<span class="main_icon fas fa-info-circle fa-3x fa-pull-left"></span>);
 	say q(<h2>General information</h2><ul class="toplevel">);
-	my $cache_string = $self->get_cache_string;
-	my $max_date;
-	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		my $allele_count = BIGSdb::Utils::commify( $self->_get_allele_count );
-		my $tables       = [qw (locus_stats profiles profile_refs accession)];
-		$max_date = $self->_get_max_date($tables);
-		say qq(<li>Number of sequences: $allele_count</li>);
-		if ( @$scheme_data == 1 ) {
-			foreach (@$scheme_data) {
-				my $profile_count =
-				  $self->{'datastore'}
-				  ->run_query( 'SELECT COUNT(*) FROM profiles WHERE scheme_id=?', $scheme_data->[0]->{'id'} );
-				my $commified = BIGSdb::Utils::commify($profile_count);
-				say qq(<li>Number of profiles ($scheme_data->[0]->{'name'}): $commified</li>);
-			}
-		} elsif ( @$scheme_data > 1 ) {
-			say q(<li>Number of profiles: <a id="toggle1" class="showhide">Show</a>);
-			say q(<a id="toggle2" class="hideshow">Hide</a><div class="hideshow"><ul>);
-			foreach (@$scheme_data) {
-				my $profile_count =
-				  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM profiles WHERE scheme_id=?', $_->{'id'} );
-				my $commified = BIGSdb::Utils::commify($profile_count);
-				$_->{'name'} =~ s/\&/\&amp;/gx;
-				say qq(<li>$_->{'name'}: $commified</li>);
-			}
-			say q(</ul></div></li>);
-		}
-	} else {
-		my $isolate_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}");
-		my @tables        = qw (isolates isolate_aliases allele_designations allele_sequences refs);
-		$max_date = $self->_get_max_date( \@tables );
-		my $commified = BIGSdb::Utils::commify($isolate_count);
-		say qq(<li>Isolates: $commified</li>);
-	}
-	say qq(<li>Last updated: $max_date</li>) if $max_date;
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . q(page=fieldValues">Defined field values</a></li>);
-	}
-	my $history_table = $self->{'system'}->{'dbtype'} eq 'isolates' ? 'history' : 'profile_history';
-	my $history_exists = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM $history_table)");
-	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;)
-	  . qq(table=$history_table&amp;order=timestamp&amp;direction=descending&amp;submit=1$cache_string">)
-	  . ( $self->{'system'}->{'dbtype'} eq 'sequences' ? 'Profile u' : 'U' )
-	  . q(pdate history</a></li>)
-	  if $history_exists;
 	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=version">)
 	  . q(About BIGSdb</a></li>);
+	my $cache_string = $self->get_cache_string;
+	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=status$cache_string">)
+	  . q(Database status</a></li>);
+	my $max_date = $self->get_last_update;
+	say qq(<li>Last updated: $max_date</li>) if $max_date;
 	say q(</ul></div>);
 	return;
 }
@@ -540,28 +498,9 @@ sub _print_plugin_section {
 	return;
 }
 
-sub _get_max_date {
-	my ( $self, $tables ) = @_;
-	local $" = ' UNION SELECT MAX(datestamp) FROM ';
-	my $qry      = "SELECT MAX(max_datestamp) FROM (SELECT MAX(datestamp) AS max_datestamp FROM @$tables) AS v";
-	my $max_date = $self->{'datastore'}->run_query($qry);
-	return $max_date;
-}
-
 sub get_title {
 	my ($self) = @_;
 	my $desc = $self->get_db_description || 'BIGSdb';
 	return $desc;
-}
-
-sub _get_allele_count {
-	my ($self) = @_;
-	my $set_id = $self->get_set_id;
-	my $set_clause =
-	  $set_id
-	  ? ' WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE '
-	  . "set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id)"
-	  : q();
-	return $self->{'datastore'}->run_query("SELECT SUM(allele_count) FROM locus_stats$set_clause") // 0;
 }
 1;

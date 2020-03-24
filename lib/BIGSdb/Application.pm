@@ -68,6 +68,7 @@ use BIGSdb::SchemeInfoPage;
 use BIGSdb::SeqbinPage;
 use BIGSdb::SequenceQueryPage;
 use BIGSdb::SequenceTranslatePage;
+use BIGSdb::StatusPage;
 use BIGSdb::SubmitPage;
 use BIGSdb::TableQueryPage;
 use BIGSdb::UserPage;
@@ -421,6 +422,7 @@ sub print_page {
 		seqbin             => 'SeqbinPage',
 		sequenceQuery      => 'SequenceQueryPage',
 		sequenceTranslate  => 'SequenceTranslatePage',
+		status             => 'StatusPage',
 		submit             => 'SubmitPage',
 		tableHeader        => 'CurateTableHeaderPage',
 		tableQuery         => 'TableQueryPage',
@@ -455,7 +457,6 @@ sub print_page {
 	);
 	my $continue = 1;
 	my $auth_cookies_ref;
-
 	if ( $self->{'error'} ) {
 		$page_attributes{'error'}              = $self->{'error'};
 		$page_attributes{'max_upload_size_mb'} = $self->{'max_upload_size_mb'};
