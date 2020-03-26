@@ -37,7 +37,7 @@ sub initiate {
 		$self->{'noCache'} = 1;
 		return;
 	}
-	$self->{$_} = 1 foreach qw (tooltips jQuery c3 igv);
+	$self->{$_} = 1 foreach qw (tooltips packery jQuery c3 igv);
 	$self->{'prefix'} = BIGSdb::Utils::get_random();
 	return;
 }
@@ -139,8 +139,10 @@ sub print_content {
 sub _print_stats {
 	my ( $self, $isolate_id, $seqbin_stats ) = @_;
 	say q(<div class="box" id="resultsheader">);
-	say q(<div style="float:left">);
+	say q(<div class="grid" style="margin-bottom:0.5em">);
+	say q(<div style="float:left" class="grid-item">);
 	say q(<h2>Contig summary statistics</h2>);
+	
 	say qq(<dl class="data"><dt>Contigs</dt><dd>$seqbin_stats->{'contigs'}</dd>);
 	if ( $seqbin_stats->{'contigs'} > 1 ) {
 		my $n_stats = BIGSdb::Utils::get_N_stats( $seqbin_stats->{'total_length'}, $seqbin_stats->{'lengths'} );
@@ -183,10 +185,16 @@ sub _print_stats {
 	say q(</p>);
 	say q(</div>);
 	if ( $seqbin_stats->{'contigs'} > 1 ) {
+		say q(<div class="grid-item" style="max-width:100%">);
 		say q(<div id="contig_size" class="embed_c3_chart"></div>);
+		say q(</div>);
+		say q(<div class="grid-item" style="max-width:100%">);
 		say q(<div id="cumulative" class="embed_c3_chart"></div>);
+		say q(</div>);
 	}
+	say q(</div>);
 	say q(<div style="clear:both"></div></div>);
+
 	say q(<div id="igv" class="box"></div>);
 	return;
 }
@@ -199,6 +207,15 @@ sub get_javascript {
 	my $url    = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=seqbin&isolate_id=$isolate_id";
 	my $buffer = << "END";
 \$(function () {
+	var \$grid = \$(".grid").packery({
+    	itemSelector:'.grid-item',
+  		gutter:5
+    });        
+    \$(window).resize(function() {
+    	delay(function(){
+      		\$grid.packery();
+    	}, 1000);
+ 	});
 	var chart = [];
 	\$(".embed_c3_chart").click(function() {
 		if (jQuery.data(this,'expand')){
@@ -208,7 +225,13 @@ sub get_javascript {
   			\$(this).css({width:'800px','height':'500px'});    		
     		jQuery.data(this,'expand',1);
 		}
-		chart[this.id].resize();
+		var chart_id=this.id;
+		//For browsers that don't support ResizeObserver.
+		delay(function(){
+      		chart[chart_id].resize();
+			\$grid.packery();
+  	 	}, 500);
+		
 	});
 	
 	d3.json("$url" + "&ajax=contig_size").then (function(jsonData) {
@@ -248,9 +271,13 @@ sub get_javascript {
 			},
 			padding: {
 				right: 40
+			},
+			oninit: function(){
+				\$grid.packery();
 			}
 		});
 	});
+	
 	d3.json("$url" + "&ajax=cumulative").then (function(jsonData) {
 		chart['cumulative'] = c3.generate({
 			bindto: '#cumulative',
@@ -287,10 +314,28 @@ sub get_javascript {
 				format: {
 					title: function (x, index) { return 'Contig ' + (x+1); }
 				}
+			},
+			oninit: function(){
+				\$grid.packery();
 			}
 		});
 	});
 	\$(".embed_c3_chart").css({width:'400px','max-width':'95%',height:'250px'});
+	var resizeObserver = new ResizeObserver( entries => { 
+		for (let entry of entries) {
+			if (typeof chart[entry.target.id] != 'undefined'){
+				chart[entry.target.id].resize();
+			}
+		}
+    	\$grid.packery();
+	}); 
+	if (\$('#contig_size').length){
+		resizeObserver.observe( document.querySelector('#contig_size') ); 
+	}
+	if (\$('#cumulative').length){
+		resizeObserver.observe( document.querySelector('#cumulative') ); 
+	}
+	
 	var igvDiv = \$("#igv");
 	var options = {
   		reference: {
@@ -310,7 +355,15 @@ sub get_javascript {
   		}
 	};
 	igv.createBrowser(igvDiv, options);
+
   });
+var delay = (function(){
+  var timer = 0;
+  return function(callback, ms){
+    clearTimeout (timer);
+    timer = setTimeout(callback, ms);
+  };
+})();
 END
 	return $buffer;
 }

@@ -1,4 +1,4 @@
-/*Version: 20200317*/
+/*Version: 20200326*/
 body,form,input,th,td,div {margin-top:0;margin-bottom:0;padding-bottom:0;padding-top:0}
 select{margin:0}
 p {margin:0 0 1em 0;padding:0}
@@ -361,7 +361,8 @@ div.embed_c3_chart {
 	background:white;
 	box-shadow: 3px 3px 3px #aaa;
 	margin-left:1em;
-	margin-top:1em
+	margin-top:1em;
+	transition:width 0.5s
 }
 
 div.reset { background:#d5d5e0;}
