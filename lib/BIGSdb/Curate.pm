@@ -22,6 +22,7 @@ use warnings;
 use parent qw(BIGSdb::Application);
 use BIGSdb::AjaxMenu;
 use BIGSdb::AjaxPrefs;
+use BIGSdb::BookmarksPage;
 use BIGSdb::ConfigCheckPage;
 use BIGSdb::ConfigRepairPage;
 use BIGSdb::CurateAddPage;
@@ -90,6 +91,7 @@ sub print_page {
 		batchProfileUpdate    => 'CurateBatchProfileUpdatePage',
 		batchAddSeqbin        => 'CurateBatchAddSeqbinPage',
 		batchAddSequences     => 'CurateBatchAddSequencesPage',
+		bookmarks             => 'BookmarksPage',
 		browse                => $query_page,
 		changePassword        => 'ChangePasswordPage',
 		compositeQuery        => 'CurateCompositeQueryPage',
