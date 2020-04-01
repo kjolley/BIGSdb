@@ -186,10 +186,10 @@ sub _print_stats {
 	say q(</div>);
 	if ( $seqbin_stats->{'contigs'} > 1 ) {
 		say q(<div class="grid-item" style="max-width:100%">);
-		say q(<div id="contig_size" class="embed_c3_chart"></div>);
+		say q(<div id="contig_size" class="embed_c3_chart smooth_enlarge"></div>);
 		say q(</div>);
 		say q(<div class="grid-item" style="max-width:100%">);
-		say q(<div id="cumulative" class="embed_c3_chart"></div>);
+		say q(<div id="cumulative" class="embed_c3_chart smooth_enlarge"></div>);
 		say q(</div>);
 	}
 	say q(</div>);
