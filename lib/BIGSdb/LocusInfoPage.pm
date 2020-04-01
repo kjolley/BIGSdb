@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,7 +20,8 @@ package BIGSdb::LocusInfoPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Page);
+use parent qw(BIGSdb::StatusPage);
+use JSON;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -34,8 +35,12 @@ sub get_title {
 
 sub print_content {
 	my ($self) = @_;
-	my $q      = $self->{'cgi'};
-	my $locus  = $q->param('locus');
+	my $q = $self->{'cgi'};
+	if ( $q->param('ajax') ) {
+		$self->_ajax;
+		return;
+	}
+	my $locus = $q->param('locus');
 	if ( !defined $locus ) {
 		say q(<h1>Locus information</h1>);
 		$self->print_bad_status( { message => q(No locus selected.), navbar => 1 } );
@@ -61,8 +66,25 @@ sub print_content {
 	$self->_print_refs($locus_info);
 	$self->_print_links($locus_info);
 	$self->_print_curators($locus_info);
+	$self->_print_alleles($locus_info);
 	$self->_print_schemes($locus_info);
 	say q(</div>);
+	return;
+}
+
+sub _ajax {
+	my ($self) = @_;
+	return if ( $self->{'system'}->{'dbtype'} // q() ) ne 'sequences';
+	my $q     = $self->{'cgi'};
+	my $locus = $q->param('locus');
+	return if !$locus;
+	my $data = $self->{'datastore'}->run_query(
+		'SELECT date_entered AS label,COUNT(*) AS value FROM sequences WHERE locus=? '
+		  . 'GROUP BY date_entered ORDER BY date_entered',
+		$locus,
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	say encode_json($data);
 	return;
 }
 
@@ -102,23 +124,18 @@ sub _print_description {
 		my $cds = $locus_info->{'coding_sequence'} ? 'yes' : 'no';
 		say qq(<dt>Coding sequence</dt><dd>$cds</dd>);
 	}
-	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		my $allele_count =
-		  $self->{'datastore'}
-		  ->run_query( q(SELECT COUNT(*) FROM sequences WHERE locus=? AND allele_id NOT IN ('N','0')),
-			$locus_info->{'id'} );
-		if ($allele_count) {
-			my $seq_type = $locus_info->{'data_type'} eq 'DNA' ? 'Alleles' : 'Variants';
-			say qq(<dt>$seq_type</dt><dd><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=alleleQuery&amp;locus=$locus_info->{'id'}&amp;submit=1">$allele_count</a></dd>);
-		}
-	}
 	say q(</dl>);
 	if ( $desc->{'description'} ) {
 		$desc->{'description'} =~ s/\n/<br \/>/gx;
 		say qq(<p>$desc->{'description'}</p>);
 	}
 	return;
+}
+
+sub _get_allele_count {
+	my ( $self, $locus ) = @_;
+	return $self->{'datastore'}
+	  ->run_query( q(SELECT COUNT(*) FROM sequences WHERE locus=? AND allele_id NOT IN ('N','0')), $locus );
 }
 
 sub _print_aliases {
@@ -200,6 +217,32 @@ sub _print_curators {
 	return;
 }
 
+sub _print_alleles {
+	my ( $self, $locus_info ) = @_;
+	return if $self->{'system'}->{'dbtype'} ne 'sequences';
+	my $count = $self->_get_allele_count( $locus_info->{'id'} );
+	return if !$count;
+	say q(<h2>Alleles</h2>);
+	my $seq_type = $locus_info->{'data_type'} eq 'DNA' ? 'Alleles' : 'Variants';
+	say $self->get_list_block(
+		[
+			{
+				title => $seq_type,
+				data  => $count,
+				href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
+				  . "page=alleleQuery&amp;locus=$locus_info->{'id'}&amp;submit=1"
+			}
+		],
+		{ width => 5 }
+	);
+	say q(<div id="waiting"><span class="wait_icon fas fa-sync-alt fa-spin fa-2x"></span></div>);
+	say q(<div id="date_entered_container" class="embed_c3_chart" style="float:none">);
+	say q(<div id="date_entered_chart"></div>);
+	say q(<div id="date_entered_control"></div>);
+	say q(</div>);
+	return;
+}
+
 sub _print_schemes {
 	my ( $self, $locus_info ) = @_;
 	my $set_id = $self->get_set_id;
@@ -233,6 +276,24 @@ sub _print_scheme_list {    #TODO Display scheme list in hierarchical tree.
 		  . qq(scheme_id=$scheme_id">$scheme_info->{'name'}</a></li>);
 	}
 	say q(</ul>);
+	return;
+}
+
+sub initiate {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if ( $q->param('ajax') ) {
+		$self->{'type'}    = 'json';
+		$self->{'noCache'} = 1;
+		return;
+	}
+	$self->{$_} = 1 foreach qw (jQuery c3);
+	my $locus = $q->param('locus');
+	return if !$locus;
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	return if !$locus_info;
+	$self->{'ajax_url'} =
+	  "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=locusInfo&locus=$locus&ajax=1";
 	return;
 }
 1;

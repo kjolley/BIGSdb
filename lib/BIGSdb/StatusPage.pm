@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use JSON;
 use 5.010;
-use parent qw(BIGSdb::Page);
+use parent qw(BIGSdb::TreeViewPage);
 
 sub get_title {
 	my ($self) = @_;
@@ -84,36 +84,6 @@ sub _seqdef_db {
 	my $cache_string = $self->get_cache_string;
 	$self->_sequences;
 	$self->_schemes;
-	say q(<h2>Overview</h2>);
-	say q(<ul>);
-	my $scheme_data = $self->get_scheme_data( { with_pk => 1 } );
-	if ( @$scheme_data == 1 ) {
-		foreach (@$scheme_data) {
-			my $profile_count =
-			  $self->{'datastore'}
-			  ->run_query( 'SELECT COUNT(*) FROM profiles WHERE scheme_id=?', $scheme_data->[0]->{'id'} );
-			my $commified = BIGSdb::Utils::commify($profile_count);
-			say qq(<li>Profiles ($scheme_data->[0]->{'name'}): $commified</li>);
-		}
-	} elsif ( @$scheme_data > 1 ) {
-		say q(<li>Profiles: <a id="toggle1" class="showhide">Show</a>);
-		say q(<a id="toggle2" class="hideshow">Hide</a><div class="hideshow"><ul>);
-		foreach (@$scheme_data) {
-			my $profile_count =
-			  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM profiles WHERE scheme_id=?', $_->{'id'} );
-			my $commified = BIGSdb::Utils::commify($profile_count);
-			$_->{'name'} =~ s/\&/\&amp;/gx;
-			say qq(<li>$_->{'name'}: $commified</li>);
-		}
-		say q(</ul></div></li>);
-	}
-	my $history_exists = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM profile_history)');
-	if ($history_exists) {
-		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;)
-		  . qq(table=profile_history&amp;order=timestamp&amp;direction=descending&amp;submit=1$cache_string">)
-		  . q(Profile update history</a></li>);
-	}
-	say q(</ul>);
 	return;
 }
 
@@ -138,8 +108,14 @@ sub _sequences {
 
 sub _schemes {
 	my ($self) = @_;
-	
-	
+	my $set_id = $self->get_set_id;
+	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+	return if !@$schemes;
+	say q(<h2>Schemes</h2>);
+	say q(<p>Schemes are collections of loci. They may be indexed, in which case they have a primary key )
+	  . q(field that identifies unique combinations of alleles.</p>);
+	say $self->get_tree( undef, { schemes_only => 1 } );
+	return;
 }
 
 sub _isolates {
@@ -158,6 +134,14 @@ sub _isolates {
 	say q(<div id="date_entered_chart"></div>);
 	say q(<div id="date_entered_control"></div>);
 	say q(</div>);
+	my $history_exists = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM isolates)');
+
+	if ($history_exists) {
+		my $cache_string = $self->get_cache_string;
+		say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;)
+		  . qq(table=history&amp;order=timestamp&amp;direction=descending&amp;submit=1$cache_string">)
+		  . q(Update history</a></li></ul>);
+	}
 	return;
 }
 
@@ -165,17 +149,11 @@ sub _isolate_db {
 	my ($self) = @_;
 	my $cache_string = $self->get_cache_string;
 	$self->_isolates;
+	$self->_schemes;
 	say q(<h2>Overview</h2>);
 	say q(<ul>);
 	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . q(page=fieldValues">Defined field values</a></li>);
-	my $history_exists = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM isolates)');
-
-	if ($history_exists) {
-		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;)
-		  . qq(table=history&amp;order=timestamp&amp;direction=descending&amp;submit=1$cache_string">)
-		  . q(Update history</a></li>);
-	}
 	say q(</ul>);
 	return;
 }
@@ -230,7 +208,7 @@ sub set_pref_requirements {
 
 sub get_javascript {
 	my ($self) = @_;
-	my $url    = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=status&ajax=1";
+	my $url    = $self->{'ajax_url'} // "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=status&ajax=1";
 	my $js     = << "JS";
 var values;
 var fields;

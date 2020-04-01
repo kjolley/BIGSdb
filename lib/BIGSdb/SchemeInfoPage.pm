@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2016-2018, University of Oxford
+#Copyright (c) 2016-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,8 +20,9 @@ package BIGSdb::SchemeInfoPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Page);
+use parent qw(BIGSdb::StatusPage);
 use BIGSdb::Utils;
+use JSON;
 
 sub get_title {
 	my ($self)    = @_;
@@ -35,8 +36,12 @@ sub get_title {
 }
 
 sub print_content {
-	my ($self)    = @_;
-	my $q         = $self->{'cgi'};
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if ( $q->param('ajax') ) {
+		$self->_ajax;
+		return;
+	}
 	my $scheme_id = $q->param('scheme_id');
 	my $desc      = $self->get_db_description;
 	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
@@ -56,10 +61,27 @@ sub print_content {
 	say qq(<p>$scheme_info->{'description'}</p>) if $scheme_info->{'description'};
 	$self->_print_citations($scheme_id);
 	$self->_print_scheme_curators($scheme_id);
+	$self->_print_fields($scheme_id);
 	$self->_print_loci($scheme_id);
 	$self->_print_profiles($scheme_id);
 	$self->_print_links($scheme_id);
 	say q(</div>);
+	return;
+}
+
+sub _ajax {
+	my ($self) = @_;
+	return if ( $self->{'system'}->{'dbtype'} // q() ) ne 'sequences';
+	my $q         = $self->{'cgi'};
+	my $scheme_id = $q->param('scheme_id');
+	return if !BIGSdb::Utils::is_int($scheme_id);
+	my $data = $self->{'datastore'}->run_query(
+		'SELECT date_entered AS label,COUNT(*) AS value FROM profiles WHERE scheme_id=? '
+		  . 'GROUP BY date_entered ORDER BY date_entered',
+		$scheme_id,
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	say encode_json($data);
 	return;
 }
 
@@ -100,6 +122,35 @@ sub _print_scheme_curators {
 	return;
 }
 
+sub _print_fields {
+	my ( $self, $scheme_id ) = @_;
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $pk = $scheme_info->{'primary_key'};
+	return if !defined $pk;
+	say q(<h2>Fields</h2>);
+	say q(<p>The primary key field indexes unique combinations of alleles at the member loci.</p>);
+	say q(<ul>);
+	my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $pk );
+	print qq(<li>$pk <span class="pk" style="margin-left:1em">Primary key</span>);
+
+	if ( $field_info->{'description'} ) {
+		say qq(<ul><li>$field_info->{'description'}</li></ul>);
+	}
+	say q(</li>);
+	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+	foreach my $field (@$scheme_fields) {
+		next if $field eq $pk;
+		print qq(<li>$field);
+		$field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+		if ( $field_info->{'description'} ) {
+			say qq(<ul><li>$field_info->{'description'}</li></ul>);
+		}
+		say q(</li>);
+	}
+	say q(</ul>);
+	return;
+}
+
 sub _print_loci {
 	my ( $self, $scheme_id ) = @_;
 	my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
@@ -133,6 +184,21 @@ sub _print_profiles {
 	my $nice_count = BIGSdb::Utils::commify($count);
 	say qq(<p>This scheme has <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . qq(page=query&amp;scheme_id=$scheme_id&amp;submit=1">$nice_count profile$plural</a> defined.</p>);
+	return if !$count;
+	say q(<div id="waiting"><span class="wait_icon fas fa-sync-alt fa-spin fa-2x"></span></div>);
+	say q(<div id="date_entered_container" class="embed_c3_chart" style="float:none">);
+	say q(<div id="date_entered_chart"></div>);
+	say q(<div id="date_entered_control"></div>);
+	say q(</div>);
+	my $history_exists =
+	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM profile_history WHERE scheme_id=?)', $scheme_id );
+
+	if ($history_exists) {
+		my $cache_string = $self->get_cache_string;
+		say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;)
+		  . qq(table=profile_history&amp;scheme_id_list=$scheme_id&amp;order=timestamp&amp;direction=descending&amp;)
+		  . qq(submit=1$cache_string">Profile update history</a></li></ul>);
+	}
 	return;
 }
 
@@ -158,6 +224,30 @@ sub _print_links {
 		}
 		say q(</ul>);
 	}
+	return;
+}
+
+sub initiate {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if ( $q->param('ajax') ) {
+		$self->{'type'}    = 'json';
+		$self->{'noCache'} = 1;
+		return;
+	}
+	$self->{$_} = 1 foreach qw (jQuery c3);
+	my $scheme_id = $q->param('scheme_id');
+	return if !BIGSdb::Utils::is_int($scheme_id);
+	$self->{'ajax_url'} =
+	  "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=schemeInfo&scheme_id=$scheme_id&ajax=1"
+	  ;
+	return;
+}
+
+sub set_pref_requirements {
+	my ($self) = @_;
+	$self->{'pref_requirements'} =
+	  { general => 0, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
 	return;
 }
 1;

@@ -1,4 +1,4 @@
-/*Version: 20200326*/
+/*Version: 20200401*/
 body,form,input,th,td,div {margin-top:0;margin-bottom:0;padding-bottom:0;padding-top:0}
 select{margin:0}
 p {margin:0 0 1em 0;padding:0}
@@ -1013,6 +1013,13 @@ span.annotation_link a {
 span.annotation_link a:hover {
 	background:#a6a;
 	text-decoration:none
+}
+span.pk {
+	font-size:0.8em;
+	padding:0.2em;
+	color:white;
+	background:#a2bd98;
+	box-shadow: 1px 1px 1px #999
 }
 
 span.browse {color:#080}
