@@ -188,7 +188,7 @@ sub _get_javascript_paths {
 			},
 			'CryptoJS.MD5' => { src => [qw(md5.js)],      defer => 1, version => '20200308' },
 			'packery'      => { src => [qw(packery.js)],  defer => 1, version => '20200308' },
-			'dropzone'     => { src => [qw(dropzone.js)], defer => 1, version => '20200308' },
+			'dropzone'     => { src => [qw(dropzone.js)], defer => 0, version => '20200308' },
 			'c3' =>
 			  { src => [qw(d3.v5.min.js c3.min.js jquery.ui.touch-punch.min.js)], defer => 1, version => '20200308' },
 			'pivot' => {
