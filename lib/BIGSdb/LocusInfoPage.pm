@@ -228,7 +228,7 @@ sub _print_alleles {
 		[
 			{
 				title => $seq_type,
-				data  => $count,
+				data  => BIGSdb::Utils::commify($count),
 				href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
 				  . "page=alleleQuery&amp;locus=$locus_info->{'id'}&amp;submit=1"
 			}
