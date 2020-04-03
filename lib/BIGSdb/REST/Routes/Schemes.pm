@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2019, University of Oxford
+#Copyright (c) 2014-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -22,7 +22,7 @@ use warnings;
 use 5.010;
 use JSON;
 use MIME::Base64;
-use Dancer2 appname => 'BIGSdb::REST::Interface';
+use Dancer2 appname        => 'BIGSdb::REST::Interface';
 use constant MAX_QUERY_SEQ => 5000;
 
 #Scheme routes
@@ -40,12 +40,12 @@ sub setup_routes {
 }
 
 sub _get_schemes {
-	my $self        = setting('self');
-	my ($db)        = params->{'db'};
-	my $set_id      = $self->get_set_id;
-	my $schemes     = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
-	my $subdir      = setting('subdir');
-	my $values      = { records => int(@$schemes) };
+	my $self = setting('self');
+	my ( $db, $with_pk ) = ( params->{'db'}, params->{'with_pk'} );
+	my $set_id  = $self->get_set_id;
+	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => $with_pk } );
+	my $subdir  = setting('subdir');
+	my $values  = { records => int(@$schemes) };
 	my $scheme_list = [];
 	foreach my $scheme (@$schemes) {
 		push @$scheme_list,
@@ -210,8 +210,8 @@ sub _query_scheme_sequence {
 	if ( !$sequence ) {
 		send_error( 'Required field missing: sequence.', 400 );
 	}
-	my $num_sequences = ($sequence =~ tr/>//);
-	if ($num_sequences > MAX_QUERY_SEQ){
+	my $num_sequences = ( $sequence =~ tr/>// );
+	if ( $num_sequences > MAX_QUERY_SEQ ) {
 		my $max = MAX_QUERY_SEQ;
 		send_error( "Query contains too many sequences - limit is $max.", 413 );
 	}
