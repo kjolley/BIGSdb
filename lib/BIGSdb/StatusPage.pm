@@ -20,6 +20,8 @@ package BIGSdb::StatusPage;
 use strict;
 use warnings;
 use JSON;
+use Log::Log4perl qw(get_logger);
+my $logger = get_logger('BIGSdb.Page');
 use 5.010;
 use parent qw(BIGSdb::TreeViewPage);
 
@@ -84,6 +86,7 @@ sub _seqdef_db {
 	my $cache_string = $self->get_cache_string;
 	$self->_sequences;
 	$self->_schemes;
+	$self->_loci;
 	return;
 }
 
@@ -115,6 +118,37 @@ sub _schemes {
 	say q(<p>Schemes are collections of loci. They may be indexed, in which case they have a primary key )
 	  . q(field that identifies unique combinations of alleles.</p>);
 	say $self->get_tree( undef, { schemes_only => 1 } );
+	return;
+}
+
+sub _loci {
+	my ($self) = @_;
+	my $set_id = $self->get_set_id;
+	my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
+	say q(<h2>Loci</h2>);
+	if ( !@$loci ) {
+		say q(<p>No loci have been defined.</p>);
+		return;
+	}
+	my $plural = @$loci == 1 ? q(us) : q(i);
+	my $locus_count = @$loci;
+	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;)
+	  . qq(table=loci&amp;submit=1">$locus_count loc$plural</a> defined.</p>);
+	return;
+}
+
+sub _fields {
+	my ($self) = @_;
+	say q(<h2>Fields</h2>);
+	say q(<ul>);
+	my $plugins = $self->{'pluginManager'}->get_installed_plugins;
+	if ( $plugins->{'DatabaseFields'} ) {
+		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;)
+		  . q(name=DatabaseFields">Field description</a></li>);
+	}
+	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . q(page=fieldValues">Defined field values</a></li>);
+	say q(</ul>);
 	return;
 }
 
@@ -150,11 +184,8 @@ sub _isolate_db {
 	my $cache_string = $self->get_cache_string;
 	$self->_isolates;
 	$self->_schemes;
-	say q(<h2>Overview</h2>);
-	say q(<ul>);
-	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . q(page=fieldValues">Defined field values</a></li>);
-	say q(</ul>);
+	$self->_loci;
+	$self->_fields;
 	return;
 }
 
@@ -208,8 +239,8 @@ sub set_pref_requirements {
 
 sub get_javascript {
 	my ($self) = @_;
-	my $url    = $self->{'ajax_url'} // "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=status&ajax=1";
-	my $js     = << "JS";
+	my $url = $self->{'ajax_url'} // "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=status&ajax=1";
+	my $js = << "JS";
 var values;
 var fields;
 var date_chart;
