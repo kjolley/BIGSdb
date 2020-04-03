@@ -288,6 +288,12 @@ var date_chart;
                 		fit: true 		
            			},
 					height: 100
+				},
+				y: {
+					min: 0,
+					padding: {
+						bottom: 5
+					}
 				}
 			},
 			legend: {
