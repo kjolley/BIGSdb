@@ -423,12 +423,11 @@ sub _print_output {
 			$text .= qq( ($size_in_MB MB));
 		}
 		$include_in_tar++ if $size < ( 10 * 1024 * 1024 );    #10MB
-		if ( $output->{$description} =~ /\.png$/x ) {
-			my $title = $link_text . ( $comments ? qq( - $comments) : q() );
+		if ( $output->{$description} =~ /\.png$/x || $output->{$description} =~ /\.svg$/x) {
 			$text .=
 			    q(<div style="margin-top:1em;text-align:center">)
 			  . qq(<a href="/tmp/$output->{$description}" data-rel="lightbox-1" class="lightbox" )
-			  . qq(title="$title"><img src="/tmp/$output->{$description}" alt="" )
+			  . qq(title="$link_text"><img src="/tmp/$output->{$description}" alt="" )
 			  . q(style="max-width:200px;border:1px dashed black" /></a><p>(click to enlarge)</p></div>);
 		}
 		$text .= q(</div></div>);

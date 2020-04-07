@@ -54,7 +54,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.6.0',
+		version     => '2.6.1',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -1211,16 +1211,8 @@ sub _generate_splits {
 	);
 	return $dismat if ( keys %{ $data->{'isolate_data'} } ) > MAX_SPLITS_TAXA;
 	$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => 90, stage => 'Generating NeighborNet' } );
-	my $splits_img = "$job_id.png";
-	$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file",
-		"$self->{'config'}->{'tmp_dir'}/$splits_img", 'PNG' );
-
-	if ( -e "$self->{'config'}->{'tmp_dir'}/$splits_img" ) {
-		$self->{'jobManager'}->update_job_output( $job_id,
-			{ filename => $splits_img, description => '25_Splits graph (Neighbour-net; PNG format)' } );
-	}
 	$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => 95 } );
-	$splits_img = "$job_id.svg";
+	my $splits_img = "$job_id.svg";
 	$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file",
 		"$self->{'config'}->{'tmp_dir'}/$splits_img", 'SVG' );
 	if ( -e "$self->{'config'}->{'tmp_dir'}/$splits_img" ) {
@@ -1228,8 +1220,7 @@ sub _generate_splits {
 			$job_id,
 			{
 				filename    => $splits_img,
-				description => '26_Splits graph (Neighbour-net; SVG format)|This can be edited in '
-				  . '<a href="http://inkscape.org">Inkscape</a> or other vector graphics editors'
+				description => '26_Splits graph (Neighbour-net; SVG format)'
 			}
 		);
 	}
