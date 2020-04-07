@@ -1,6 +1,6 @@
 #DatabaseFields.pm - Database field description plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -24,6 +24,7 @@ use 5.010;
 use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
+use constant HIDE_VALUES      => 8;
 
 sub get_attributes {
 	my %att = (
@@ -34,7 +35,7 @@ sub get_attributes {
 		description => 'Display description of fields defined for the current database',
 		menutext    => 'Description of database fields',
 		module      => 'DatabaseFields',
-		version     => '1.0.8',
+		version     => '1.1.0',
 		section     => 'miscellaneous',
 		order       => 10,
 		dbtype      => 'isolates'
@@ -114,9 +115,16 @@ sub _print_allowed_values {
 	my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 	if ( $thisfield->{'optlist'} ) {
 		my $option_list = $self->{'xmlHandler'}->get_field_option_list($field);
+		my $hide = @$option_list > HIDE_VALUES;
+		my $class = $hide ? q(expandable_retracted) : q();
+		say qq(<div id="$field" style="overflow:hidden" class="$class">);
 		foreach my $option (@$option_list) {
 			$option = BIGSdb::Utils::escape_html($option);
 			say qq($option<br />);
+		}
+		say qq(</div>\n);
+		if ($hide) {
+			say qq(<div class="expand_link" id="expand_$field"><span class="fas fa-chevron-down"></span></div>);
 		}
 		return;
 	}
@@ -138,5 +146,27 @@ sub _print_allowed_values {
 	}
 	print q(-);
 	return;
+}
+
+sub get_plugin_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+\$(function () {
+	\$('.expand_link').on('click', function(){	
+		var field = this.id.replace('expand_','');
+	  	if (\$('#' + field).hasClass('expandable_expanded')) {
+	  	\$('#' + field).switchClass('expandable_expanded','expandable_retracted',1000, "easeInOutQuad", function(){
+	  		\$('#expand_' + field).html('<span class="fas fa-chevron-down"></span>');
+	  	});	    
+	  } else {
+	  	\$('#' + field).switchClass('expandable_retracted','expandable_expanded',1000, "easeInOutQuad", function(){
+	  		\$('#expand_' + field).html('<span class="fas fa-chevron-up"></span>');
+	  	});	    
+	  }
+	});	
+});
+
+END
+	return $buffer;
 }
 1;
