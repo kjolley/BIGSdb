@@ -70,7 +70,7 @@ sub get_javascript {
 		$js .= <<"JS";
 \$(document).ready(function() 
     { 
-        \$("#sortTable").tablesorter({widgets:['zebra']});       
+        \$(".tablesorter").tablesorter({widgets:['zebra']});       
     } 
 ); 	
 JS

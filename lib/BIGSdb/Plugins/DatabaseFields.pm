@@ -24,7 +24,7 @@ use 5.010;
 use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use constant HIDE_VALUES      => 8;
+use constant HIDE_VALUES => 8;
 
 sub get_attributes {
 	my %att = (
@@ -58,24 +58,33 @@ sub run {
 	my ($self) = @_;
 	say q(<h1>Description of database fields</h1>);
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
+	my $eav_fields = $self->{'datastore'}->get_eav_fieldnames;
+	if (@$eav_fields) {
+		say q(<span class="info_icon fas fa-2x fa-fw fa-globe fa-pull-left" style="margin-top:0.2em"></span>);
+		say q(<h2>Provenace/meta data</h2>);
+	}
 	say q(<p>Order columns by clicking their headings. )
 	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;)
 	  . q(name=DatabaseFields">Reset default order</a>.</p>);
-	say q(<table class="tablesorter" id="sortTable"><thead>);
-	say q(<tr><th>field name</th><th>comments</th><th>data type</th><th class="{sorter: false}">)
-	  . q(allowed values</th><th>required</th><th>maximum length (characters)</th></tr></thead><tbody>);
-	$self->_print_fields;
-	say q(</tbody></table></div></div>);
+	$self->_provenance_print_fields;
+	if (@$eav_fields) {
+		$self->_print_eav_fields;
+	}
+	say q(</div></div>);
 	return;
 }
 
-sub _print_fields {
+sub _provenance_print_fields {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
 	my $set_id     = $self->get_set_id;
 	my $is_curator = $self->is_curator;
 	my $field_list = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
 	my $td = 1;
+	say q(<table class="tablesorter" style="margin-bottom:1em"><thead>);
+	say q(<tr><th>field name</th><th>comments</th><th>data type</th><th class="{sorter: false}">)
+	  . q(allowed values</th><th>required</th><th>maximum length (characters)</th></tr></thead><tbody>);
+
 	foreach my $field (@$field_list) {
 		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 		$thisfield->{'type'} = 'integer' if $thisfield->{'type'} =~ /^int/x;
@@ -107,6 +116,59 @@ sub _print_fields {
 			$td = $td == 1 ? 2 : 1;
 		}
 	}
+	say q(</tbody></table>);
+	return;
+}
+
+sub _print_eav_fields {
+	my ($self) = @_;
+	my $field_name    = $self->{'system'}->{'eav_fields'} // 'phenotypic fields';
+	my $uc_field_name = ucfirst($field_name);
+	my $icon          = $self->{'system'}->{'eav_field_icon'} // 'fa-microscope';
+	say qq(<span class="info_icon fas fa-2x fa-fw $icon fa-pull-left" style="margin-top:-0.2em"> )
+	  . qq(</span><h2 style="display:inline">$uc_field_name</h2>);
+	my $eav_fields = $self->{'datastore'}->get_eav_fields;
+	my $td         = 1;
+	say q(<table class="tablesorter" style="margin-top:1em"><thead>);
+	say q(<tr><th>field name</th><th>comments</th><th>data type</th><th class="{sorter: false}">)
+	  . q(allowed values</th><th>required</th><th>maximum length (characters)</th></tr></thead><tbody>);
+
+	foreach my $field (@$eav_fields) {
+		$field->{'description'} //= q(-);
+		say qq(<tr class="td$td"><td>$field->{'field'}</td><td>$field->{'description'}</td>);
+		say qq(<td>$field->{'value_format'}</td>);
+		if ( $field->{'option_list'} ) {
+			my @values = split /;/x, $field->{'option_list'};
+			my $hide   = @values > HIDE_VALUES;
+			my $class  = $hide ? q(expandable_retracted) : q();
+			say qq(<td><div id="$field->{'field'}" style="overflow:hidden" class="$class">);
+			foreach my $option (@values) {
+				$option = BIGSdb::Utils::escape_html($option);
+				say qq($option<br />);
+			}
+			say qq(</div>\n);
+			if ($hide) {
+				say
+qq(<div class="expand_link" id="expand_$field->{'field'}"><span class="fas fa-chevron-down"></span></div>);
+			}
+			say q(</td>);
+		} else {
+			say q(<td>);
+			if ( defined $field->{'min_value'} || defined $field->{'max_value'} ) {
+				print qq(min: $field->{'min_value'}) if defined $field->{'min_value'};
+				print q(; )                          if defined $field->{'min_value'} && defined $field->{'max_value'};
+				say qq(max: $field->{'max_value'})   if defined $field->{'max_value'};
+			} else {
+				say q(-);
+			}
+			say q(</td>);
+		}
+		say q(<td>no</td>);
+		my $length = $field->{'length'} ? $field->{'length'} : '-';
+		say qq(<td>$length</td></tr>);
+		$td = $td == 1 ? 2 : 1;
+	}
+	say q(</tbody></table>);
 	return;
 }
 
@@ -115,8 +177,8 @@ sub _print_allowed_values {
 	my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 	if ( $thisfield->{'optlist'} ) {
 		my $option_list = $self->{'xmlHandler'}->get_field_option_list($field);
-		my $hide = @$option_list > HIDE_VALUES;
-		my $class = $hide ? q(expandable_retracted) : q();
+		my $hide        = @$option_list > HIDE_VALUES;
+		my $class       = $hide ? q(expandable_retracted) : q();
 		say qq(<div id="$field" style="overflow:hidden" class="$class">);
 		foreach my $option (@$option_list) {
 			$option = BIGSdb::Utils::escape_html($option);
