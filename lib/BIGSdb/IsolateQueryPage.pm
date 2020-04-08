@@ -1002,8 +1002,7 @@ sub _get_field_filters {
 				|| ( ( $thisfield->{'userfield'} // q() ) eq 'yes' ) )
 			{
 				push @$filters,
-				  $self->get_user_filter( $field, { capitalize_first => 1, remove_id => "remove_$field" } )
-				  ;
+				  $self->get_user_filter( $field, { capitalize_first => 1, remove_id => "remove_$field" } );
 			} else {
 				if ( ( $thisfield->{'optlist'} // q() ) eq 'yes' ) {
 					$dropdownlist = $self->{'xmlHandler'}->get_field_option_list($field);
@@ -1836,9 +1835,9 @@ sub _modify_query_for_filters {
 				$qry .= "$view.$field is null";
 			} else {
 				$qry .=
-				  $multiple
-				  ? "E'$value' = ANY($view.$field)"
-				  : "UPPER($view.$field) = UPPER(E'$value')";
+				    $multiple                          ? "E'$value' = ANY($view.$field)"
+				  : $att->{$field}->{'type'} eq 'text' ? "UPPER($view.$field) = UPPER(E'$value')"
+				  :                                      "$view.$field = E'$value'";
 				my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
 				my $subvalues = $self->_get_sub_values( $value, $optlist );
 				if ($subvalues) {
