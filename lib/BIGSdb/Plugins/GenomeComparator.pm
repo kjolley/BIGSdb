@@ -54,7 +54,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.6.1',
+		version     => '2.6.2',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -1215,6 +1215,7 @@ sub _generate_splits {
 	my $splits_img = "$job_id.svg";
 	$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file",
 		"$self->{'config'}->{'tmp_dir'}/$splits_img", 'SVG' );
+
 	if ( -e "$self->{'config'}->{'tmp_dir'}/$splits_img" ) {
 		$self->{'jobManager'}->update_job_output(
 			$job_id,
@@ -2417,7 +2418,7 @@ sub _core_analysis {
 		label => 100,
 		value => $range{'all_isolates'}
 	  };
-	my $core_mean_js  = q();
+	my $core_mean_js;
 	my $core_mean_div = q();
 
 	if ( $params->{'calc_distances'} ) {
@@ -2428,6 +2429,7 @@ sub _core_analysis {
 			  q(<div id="core_mean" class="embed_c3_chart" style="width:300px;max-width:95%;height:200px"></div>);
 		}
 	}
+	$core_mean_js //= q();
 	if ( -e $out_file ) {
 		$self->{'jobManager'}->update_job_output( $args->{'job_id'},
 			{ filename => "$args->{'job_id'}\_core.txt", description => '40_Locus presence frequency (text)' } );
