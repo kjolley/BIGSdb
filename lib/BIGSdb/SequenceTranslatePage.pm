@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2013-2019, University of Oxford
+#Copyright (c) 2013-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -102,7 +102,7 @@ sub print_content {
 		my $plural = @$stops == 1 ? '' : 's';
 		say qq(<span class="highlight">Internal stop codon$plural in ORF-$orf at position$plural: @$stops.</span>);
 	} else {
-		say qq(<span class=\"statusgood\">No internal stop codons in ORF-$orf</span>);
+		say qq(<span class="statusgood">No internal stop codons in ORF-$orf</span>);
 	}
 	say q(<pre class="sixpack">);
 	say $self->get_sixpack_display( $seq_feature, $orf );

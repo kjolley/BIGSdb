@@ -321,14 +321,14 @@ sub get_sixpack_display {
 		my $start_offset = 0;
 		$exon_number++;
 		$exon_length += length( $feature->{'sequence'} );
-		if ( $exon_number == 1 && $start_codon{ substr( $feature->{'sequence'}, 0 + $orf - 1, 3 ) } ) {
+		if ( $exon_number == 1 && $start_codon{ uc substr( $feature->{'sequence'}, 0 + $orf - 1, 3 ) } ) {
 			push @highlights, ( $mapped->{1} + $orf - 1 ) . q(-) . ( $mapped->{1} + $orf + 1 ) . q( startcodon);
 			$start_offset = 3;
 		}
 		my $end_offset = 0;
 		if (   $exon_number == $exon_count
 			&& $exon_length % 3 == 0
-			&& $stop_codon{ substr( $feature->{'sequence'}, -3 + $orf - 1 ) } )
+			&& $stop_codon{ uc substr( $feature->{'sequence'}, -3 + $orf - 1 ) } )
 		{
 			$stop_highlight =
 			    ( $mapped->{ $exon_length - 2 + $orf - 1 } ) . q(-)
