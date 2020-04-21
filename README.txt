@@ -1,3 +1,7 @@
+v1.26.2: *New database status page, moving summaries from index page. Includes
+          D3 charts of submissions for isolates, alleles and profiles.
+         *Preview plugin output SVG files in job viewer page.
+         *Improvements to field description plugin.
 v1.26.1: *Dynamically load and remove field filters directly from query page.
          *Automatically exclude paralogous loci in iTOL trees.
          *IGV genome viewer embedded in sequence bin page. 
