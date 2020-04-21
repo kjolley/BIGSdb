@@ -43,7 +43,7 @@ sub get_attributes {
 		buttontext  => 'Dataset',
 		menutext    => 'Export dataset',
 		module      => 'Export',
-		version     => '1.7.10',
+		version     => '1.7.11',
 		dbtype      => 'isolates',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
@@ -567,6 +567,7 @@ sub _get_header {
 sub _get_id_one_line {
 	my ( $self, $data, $params ) = @_;
 	my $buffer = "$data->{'id'}\t";
+	$data->{$self->{'system'}->{'labelfield'}} //= q();
 	$buffer .= "$data->{$self->{'system'}->{'labelfield'}}\t" if $params->{'labelfield'};
 	return $buffer;
 }
