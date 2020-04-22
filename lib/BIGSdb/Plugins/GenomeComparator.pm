@@ -54,7 +54,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.6.2',
+		version     => '2.6.3',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -284,16 +284,17 @@ sub _print_parameters_fieldset {
 sub _print_reference_genome_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say q(<fieldset style="float:left; height:12em"><legend>Reference genome</legend>);
+	say q(<fieldset style="float:left; height:12em"><legend>Annotated reference genome</legend>);
 	say q(Enter accession number:<br />);
 	say $q->textfield( -name => 'accession', -id => 'accession', -size => 10, -maxlength => 20 );
-	say $self->get_tooltip(q(Reference genome - Use of a reference genome will override any locus or scheme settings.));
+	say $self->get_tooltip(
+		q(Reference genome - Use of an annotated reference genome will override any locus or scheme settings.));
 	say q(<br />);
 	my $set_id = $self->get_set_id;
 	my $set_annotation =
-	  ( $set_id && $self->{'system'}->{"set_$set_id\_annotation"} )
-	  ? $self->{'system'}->{"set_$set_id\_annotation"}
-	  : '';
+	  ( $set_id && $self->{'system'}->{"set_${set_id}_annotation"} )
+	  ? $self->{'system'}->{"set_${set_id}_annotation"}
+	  : q();
 
 	if ( $self->{'system'}->{'annotation'} || $set_annotation ) {
 		my @annotations = $self->{'system'}->{'annotation'} ? split /;/x, $self->{'system'}->{'annotation'} : ();
@@ -323,8 +324,9 @@ sub _print_reference_genome_fieldset {
 	}
 	say q(or upload Genbank/EMBL/FASTA file:<br />);
 	say $q->filefield( -name => 'ref_upload', -id => 'ref_upload', -onChange => 'enable_seqs()' );
-	say $self->get_tooltip( q(Reference upload - File format is recognised by the extension in the )
-		  . q(name.  Make sure your file has a standard extension, e.g. .gb, .embl, .fas.) );
+	say $self->get_tooltip( q(Annotated reference upload - File format is recognised by the extension in the )
+		  . q(name. Make sure your file has a standard extension, e.g. .gb, .embl, .fas.</p><p>EMBL and Genbank files )
+		  . q(must contain locus annotations. Each sequence in a FASTA file is treated as a separate locus.) );
 	say q(</fieldset>);
 	return;
 }
