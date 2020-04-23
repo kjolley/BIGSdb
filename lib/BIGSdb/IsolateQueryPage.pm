@@ -1044,7 +1044,7 @@ sub _get_field_filters {
 						  "$display_field filter - Select $a_or_an $display_field to filter your search to only those "
 						  . "isolates that match the selected $display_field.",
 						capitalize_first => 1,
-						remove_id        => "remove_$field",
+						remove_id        => "remove_$field"
 					}
 				  ) if @$dropdownlist;
 			}
