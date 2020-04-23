@@ -993,9 +993,9 @@ sub _get_field_filters {
 	my $set_id     = $self->get_set_id;
 	my $field_list = $self->{'xmlHandler'}->get_field_list;
 	foreach my $field (@$field_list) {
-		my $thisfield    = $self->{'xmlHandler'}->get_field_attributes($field);
-		my $dropdownlist = [];
-		my %dropdownlabels;
+		my $thisfield      = $self->{'xmlHandler'}->get_field_attributes($field);
+		my $dropdownlist   = [];
+		my $dropdownlabels = { null => '[null]' };
 		if ( $prefs->{'dropdownfields'}->{$field} ) {
 			if (   $field eq 'sender'
 				|| $field eq 'curator'
@@ -1006,12 +1006,8 @@ sub _get_field_filters {
 			} else {
 				if ( ( $thisfield->{'optlist'} // q() ) eq 'yes' ) {
 					$dropdownlist = $self->{'xmlHandler'}->get_field_option_list($field);
-					$dropdownlabels{$_} = $_ foreach (@$dropdownlist);
-					if (   $thisfield->{'required'}
-						&& $thisfield->{'required'} eq 'no' )
-					{
+					if ( ( $thisfield->{'required'} // q() ) eq 'no' ) {
 						push @$dropdownlist, 'null';
-						$dropdownlabels{'null'} = '[null]';
 					}
 				} elsif ( ( $thisfield->{'multiple'} // q() ) eq 'yes' ) {
 					my $list = $self->{'datastore'}->run_query(
@@ -1021,6 +1017,9 @@ sub _get_field_filters {
 						{ fetch => 'col_arrayref' }
 					);
 					push @$dropdownlist, @$list;
+					if ( ( $thisfield->{'required'} // q() ) eq 'no' ) {
+						push @$dropdownlist, 'null';
+					}
 				} else {
 					my $list = $self->{'datastore'}->run_query(
 						"SELECT DISTINCT($field) FROM $self->{'system'}->{'view'} "
@@ -1029,6 +1028,9 @@ sub _get_field_filters {
 						{ fetch => 'col_arrayref' }
 					);
 					push @$dropdownlist, @$list;
+					if ( ( $thisfield->{'required'} // q() ) eq 'no' ) {
+						push @$dropdownlist, 'null';
+					}
 				}
 				my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/x ? 'an' : 'a';
 				my $display_field = $field;
@@ -1037,12 +1039,12 @@ sub _get_field_filters {
 					$field,
 					$dropdownlist,
 					{
-						labels => \%dropdownlabels,
+						labels => $dropdownlabels,
 						tooltip =>
 						  "$display_field filter - Select $a_or_an $display_field to filter your search to only those "
 						  . "isolates that match the selected $display_field.",
 						capitalize_first => 1,
-						remove_id        => "remove_$field"
+						remove_id        => "remove_$field",
 					}
 				  ) if @$dropdownlist;
 			}
@@ -1057,13 +1059,15 @@ sub _get_field_filters {
 						[ $field, $extended_attribute ],
 						{ fetch => 'col_arrayref' }
 					);
+					push @$values, 'null';
 					my $a_or_an = substr( $extended_attribute, 0, 1 ) =~ /[aeiouAEIOU]/x ? 'an' : 'a';
 					push @$filters,
 					  $self->get_filter(
 						"${field}___$extended_attribute",
 						$values,
 						{
-							text => $extended_attribute,
+							labels => $dropdownlabels,
+							text   => $extended_attribute,
 							tooltip =>
 							  "$extended_attribute filter - Select $a_or_an $extended_attribute to filter your "
 							  . "search to only those isolates that match the selected $field.",
@@ -1831,7 +1835,7 @@ sub _modify_query_for_filters {
 				$qry = "SELECT * FROM $view WHERE (";
 			}
 			$value =~ s/'/\\'/x;
-			if ( $value eq '<blank>' || lc($value) eq 'null' ) {
+			if ( lc($value) eq 'null' ) {
 				$qry .= "$view.$field is null";
 			} else {
 				$qry .=
@@ -1861,11 +1865,16 @@ sub _modify_query_for_filters {
 					my $value = $q->param("${field}___${extended_attribute}_list");
 					$value =~ s/'/\\'/gx;
 					if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
-						$qry .= " AND ($field IN (SELECT field_value FROM isolate_value_extended_attributes WHERE "
-						  . "isolate_field='$field' AND attribute='$extended_attribute' AND value='$value'))";
+						$qry .= ' AND ';
 					} else {
-						$qry =
-						    "SELECT * FROM $view WHERE ($field IN (SELECT field_value FROM "
+						$qry = "SELECT * FROM $view WHERE ";
+					}
+					if ( $value eq 'null' ) {
+						$qry .= "$field NOT IN (SELECT field_value FROM isolate_value_extended_attributes "
+						  . "WHERE isolate_field='$field' AND attribute='$extended_attribute')";
+					} else {
+						$qry .=
+						    "(UPPER($field) IN (SELECT UPPER(field_value) FROM "
 						  . "isolate_value_extended_attributes WHERE isolate_field='$field' AND "
 						  . "attribute='$extended_attribute' AND value='$value'))";
 					}
@@ -1874,7 +1883,8 @@ sub _modify_query_for_filters {
 		}
 	}
 	$self->_modify_query_by_membership(
-		{ qry_ref => \$qry, table => 'refs', param => 'publication_list', query_field => 'pubmed_id' } );
+		{ qry_ref => \$qry, table => 'refs', param => 'publication_list', query_field => 'pubmed_id' }
+	);
 	$self->_modify_query_by_membership(
 		{ qry_ref => \$qry, table => 'project_members', param => 'project_list', query_field => 'project_id' } );
 	if ( $q->param('linked_sequences_list') ) {
@@ -1883,7 +1893,7 @@ sub _modify_query_for_filters {
 		if ( $q->param('linked_sequences_list') eq 'No sequence data' ) {
 			$not = ' NOT ';
 		} elsif ( $q->param('linked_sequences_list') =~ />=\ ([\d\.]+)\ Mbp/x ) {
-			my $size = $1 * 1000000;    #Mbp
+			my $size = $1 * 1000000;       #Mbp
 			$size_clause = " AND seqbin_stats.total_length >= $size";
 		}
 		if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
