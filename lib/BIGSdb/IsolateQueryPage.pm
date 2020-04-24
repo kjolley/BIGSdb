@@ -27,6 +27,7 @@ use List::MoreUtils qw(any none);
 use JSON;
 use BIGSdb::Constants qw(:interface :limits SEQ_FLAGS LOCUS_PATTERN OPERATORS);
 use constant WARN_IF_TAKES_LONGER_THAN_X_SECONDS => 5;
+use constant MAX_LOCI_DROPDOWN                   => 500;
 
 sub _ajax_content {
 	my ($self) = @_;
@@ -1170,13 +1171,26 @@ sub _print_allele_status_fields {
 	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
 	my $q = $self->{'cgi'};
 	say q(<span style="white-space:nowrap">);
-	say $self->popup_menu(
-		-name   => "allele_status_field$row",
-		-id     => "allele_status_field$row",
-		-values => $locus_list,
-		-labels => $locus_labels,
-		-class  => 'fieldlist'
-	);
+	if ( @$locus_list > MAX_LOCI_DROPDOWN ) {
+		say $self->datalist(
+			name            => "allele_status_field$row",
+			id              => "allele_status_field$row",
+			values          => $locus_list,
+			labels          => $locus_labels,
+			class           => 'fieldlist',
+			invalid_value   => 'l_INVALID',
+			datalist_name   => 'allele_status_list',
+			datalist_exists => $row == 1 ? 0 : 1
+		);
+	} else {
+		say $self->popup_menu(
+			-name   => "allele_status_field$row",
+			-id     => "allele_status_field$row",
+			-values => $locus_list,
+			-labels => $locus_labels,
+			-class  => 'fieldlist'
+		);
+	}
 	print ' is ';
 	my $values = [ '', 'provisional', 'confirmed' ];
 	my %labels = ( '' => ' ' );    #Required for HTML5 validation.
@@ -1186,7 +1200,6 @@ sub _print_allele_status_fields {
 		-values => $values,
 		-labels => \%labels
 	);
-
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_allele_status" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
@@ -1205,13 +1218,26 @@ sub _print_allele_count_fields {
 	my $q = $self->{'cgi'};
 	say q(<span style="white-space:nowrap">);
 	say q(Count of );
-	say $self->popup_menu(
-		-name   => "allele_count_field$row",
-		-id     => "allele_count_field$row",
-		-values => $locus_list,
-		-labels => $locus_labels,
-		-class  => 'fieldlist'
-	);
+	if ( @$locus_list > MAX_LOCI_DROPDOWN ) {
+		say $self->datalist(
+			name            => "allele_count_field$row",
+			id              => "allele_count_field$row",
+			values          => $locus_list,
+			labels          => $locus_labels,
+			class           => 'fieldlist',
+			invalid_value   => 'l_INVALID',
+			datalist_name   => 'allele_count_list',
+			datalist_exists => $row == 1 ? 0 : 1
+		);
+	} else {
+		say $self->popup_menu(
+			-name   => "allele_count_field$row",
+			-id     => "allele_count_field$row",
+			-values => $locus_list,
+			-labels => $locus_labels,
+			-class  => 'fieldlist'
+		);
+	}
 	my $values = [ '>', '<', '=' ];
 	say $q->popup_menu( -name => "allele_count_operator$row", -id => "allele_count_operator$row", -values => $values );
 	my %args = (
@@ -1224,7 +1250,6 @@ sub _print_allele_count_fields {
 	);
 	$args{'-value'} = $q->param("allele_count_value$row") if defined $q->param("allele_count_value$row");
 	say $self->textfield(%args);
-
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_allele_count" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
@@ -1239,16 +1264,31 @@ sub _print_allele_count_fields {
 sub _print_loci_fields {
 	my ( $self, $row, $max_rows, $locus_list, $locus_labels ) = @_;
 	unshift @$locus_list, '';
-	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
+	if ( @$locus_list <= MAX_LOCI_DROPDOWN ) {
+		$locus_labels->{''} = ' ';    #Required for HTML5 validation.
+	}
 	my $q = $self->{'cgi'};
 	say q(<span style="white-space:nowrap">);
-	say $self->popup_menu(
-		-name   => "designation_field$row",
-		-id     => "designation_field$row",
-		-values => $locus_list,
-		-labels => $locus_labels,
-		-class  => 'fieldlist'
-	);
+	if ( @$locus_list > MAX_LOCI_DROPDOWN ) {
+		say $self->datalist(
+			name            => "designation_field$row",
+			id              => "designation_field$row",
+			values          => $locus_list,
+			labels          => $locus_labels,
+			class           => 'fieldlist',
+			invalid_value   => 'l_INVALID',
+			datalist_name   => 'designation_field_list',
+			datalist_exists => $row == 1 ? 0 : 1
+		);
+	} else {
+		say $self->popup_menu(
+			-name   => "designation_field$row",
+			-id     => "designation_field$row",
+			-values => $locus_list,
+			-labels => $locus_labels,
+			-class  => 'fieldlist'
+		);
+	}
 	say $q->popup_menu(
 		-name   => "designation_operator$row",
 		-id     => "designation_operator$row",
@@ -1260,7 +1300,6 @@ sub _print_loci_fields {
 		-class       => 'value_entry',
 		-placeholder => 'Enter value...'
 	);
-
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_loci" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
@@ -1277,6 +1316,18 @@ sub _print_locus_tag_fields {
 	unshift @$locus_list, '';
 	my $q = $self->{'cgi'};
 	say q(<span style="white-space:nowrap">);
+	if ( @$locus_list > MAX_LOCI_DROPDOWN ) {
+		say $self->datalist(
+			name            => "tag_field$row",
+			id              => "tag_field$row",
+			values          => $locus_list,
+			labels          => $locus_labels,
+			class           => 'fieldlist',
+			invalid_value   => 'l_INVALID',
+			datalist_name   => 'tag_list',
+			datalist_exists => $row == 1 ? 0 : 1
+		);
+	} else {
 	say $self->popup_menu(
 		-name   => "tag_field$row",
 		-id     => "tag_field$row",
@@ -1284,6 +1335,7 @@ sub _print_locus_tag_fields {
 		-labels => $locus_labels,
 		-class  => 'fieldlist'
 	);
+	}
 	print ' is ';
 	my @values = qw(untagged tagged complete incomplete);
 	push @values, "flagged: $_" foreach ( 'any', 'none', SEQ_FLAGS );
@@ -1308,13 +1360,26 @@ sub _print_tag_count_fields {
 	my $q = $self->{'cgi'};
 	say q(<span style="white-space:nowrap">);
 	say q(Count of );
-	say $self->popup_menu(
-		-name   => "tag_count_field$row",
-		-id     => "tag_count_field$row",
-		-values => $locus_list,
-		-labels => $locus_labels,
-		-class  => 'fieldlist'
-	);
+	if ( @$locus_list > MAX_LOCI_DROPDOWN ) {
+		say $self->datalist(
+			name            => "tag_count_field$row",
+			id              => "tag_count_field$row",
+			values          => $locus_list,
+			labels          => $locus_labels,
+			class           => 'fieldlist',
+			invalid_value   => 'l_INVALID',
+			datalist_name   => 'tag_count_list',
+			datalist_exists => $row == 1 ? 0 : 1
+		);
+	} else {
+		say $self->popup_menu(
+			-name   => "tag_count_field$row",
+			-id     => "tag_count_field$row",
+			-values => $locus_list,
+			-labels => $locus_labels,
+			-class  => 'fieldlist'
+		);
+	}
 	my $values = [ '>', '<', '=' ];
 	say $q->popup_menu( -name => "tag_count_operator$row", -id => "tag_count_operator$row", -values => $values );
 	my %args = (
@@ -1327,7 +1392,6 @@ sub _print_tag_count_fields {
 	);
 	$args{'-value'} = $q->param("tag_count_value$row") if defined $q->param("tag_count_value$row");
 	say $self->textfield(%args);
-
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_tag_count" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
@@ -1883,8 +1947,7 @@ sub _modify_query_for_filters {
 		}
 	}
 	$self->_modify_query_by_membership(
-		{ qry_ref => \$qry, table => 'refs', param => 'publication_list', query_field => 'pubmed_id' }
-	);
+		{ qry_ref => \$qry, table => 'refs', param => 'publication_list', query_field => 'pubmed_id' } );
 	$self->_modify_query_by_membership(
 		{ qry_ref => \$qry, table => 'project_members', param => 'project_list', query_field => 'project_id' } );
 	if ( $q->param('linked_sequences_list') ) {
@@ -1893,7 +1956,7 @@ sub _modify_query_for_filters {
 		if ( $q->param('linked_sequences_list') eq 'No sequence data' ) {
 			$not = ' NOT ';
 		} elsif ( $q->param('linked_sequences_list') =~ />=\ ([\d\.]+)\ Mbp/x ) {
-			my $size = $1 * 1000000;       #Mbp
+			my $size = $1 * 1000000;    #Mbp
 			$size_clause = " AND seqbin_stats.total_length >= $size";
 		}
 		if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
@@ -2850,7 +2913,9 @@ $panel_js
 	\$(document).ajaxComplete(function() {
         setTooltips();
         initiate_autocomplete();
+        \$('.ajax_script').each(function (index, element) { eval(element.innerHTML); })
 	});
+	\$('.ajax_script').each(function (index, element) { eval(element.innerHTML); })
 	
 	\$(".bookmark_trigger").click(function(){		
 		\$("#bookmark_panel").toggle("slide",{direction:"right"},"fast");

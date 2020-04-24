@@ -175,8 +175,7 @@ sub _get_javascript_paths {
 			push @$js, { src => '/javascript/cookieconsent.min.js', defer => 1 };
 		}
 		my $features = {
-			'jQuery.tablesort' => { src => [qw(jquery.tablesorter.js)], defer => 1, version => '20200308' }
-			,
+			'jQuery.tablesort'    => { src => [qw(jquery.tablesorter.js)],  defer => 1, version => '20200308' },
 			'jQuery.jstree'       => { src => [qw(jquery.jstree.js)],       defer => 1, version => '20200308' },
 			'jQuery.coolfieldset' => { src => [qw(jquery.coolfieldset.js)], defer => 1, version => '20200308' },
 			'jQuery.slimbox'      => { src => [qw(jquery.slimbox2.js)],     defer => 1, version => '20200308' },
@@ -2646,6 +2645,82 @@ sub popup_menu {
 		$buffer .= qq(<option value="$_"$select>$labels->{$_}</option>\n);
 	}
 	$buffer .= qq(</select>\n);
+	return $buffer;
+}
+
+sub datalist {
+	my ( $self, %args ) = @_;
+	my ( $name, $id, $values, $labels, $class, $size, $style, $invalid_value, $datalist_name, $datalist_exists ) =
+	  @args{qw ( name id values labels class size style invalid_value datalist_name datalist_exists)};
+	$id //= $name;
+	my $q          = $self->{'cgi'};
+	my $real_value = $q->param($name);
+	$real_value =~ s/"/\\"/gx;
+	my $invalid = $invalid_value ? qq(\$("#$name").val('$invalid_value');) : q();
+	$datalist_name //= "${name}_list";
+	my $label_value = $q->param("${name}_label");
+	$label_value =~ s/"/\\"/gx;
+	my $buffer = qq(<input type="text" name="${name}_label" id="${name}_label" value="$label_value" autocomplete="off");
+	$buffer .= qq( class="$class") if $class;
+	$buffer .= qq( style="$style") if $style;
+	$buffer .= qq( size="$size")   if $size;
+	$buffer .= qq( list="$datalist_name" >\n);
+
+	if ( !$datalist_exists ) {
+		$buffer .= qq(<datalist id="$datalist_name">\n);
+		foreach my $value (@$values) {
+			my $label = $labels->{$value} // $value;
+			$value =~ s/"/\\"/gx;
+			$label =~ s/"/\\"/gx;
+			$buffer .= qq( <option data-value="$value">$label</option>\n);
+		}
+		$buffer .= qq(</datalist>\n);
+	}
+	$buffer .= qq(<input type="hidden" name="$name" id="$id">\n);
+	$buffer .= << "JS";
+<script class="ajax_script">
+var ${id}_options = \$('#$datalist_name' + ' option');
+var input_value = \$("#${id}_label").val();
+if (input_value == ''){
+	var real_value = "$real_value";
+	for(var i = 0; i < ${id}_options.length; i++) {
+		var option = ${name}_options[i];
+		if (real_value == option.getAttribute('data-value')){
+			\$("#${id}_label").val(option.innerText);
+			break;
+		}
+	}
+} else {
+	for(var i = 0; i < ${name}_options.length; i++) {
+		var option = ${name}_options[i];
+		if (input_value == option.innerText){
+			\$("#$id").val(option.getAttribute('data-value'));
+			break;
+		}	
+	}
+}
+\$("#${id}_label").off("change").change(function(){
+	var input_value = \$('#${name}_label').val();
+	if (input_value == ''){
+		\$("#$id").val('');
+		return;
+	}
+	for(var i = 0; i < ${id}_options.length; i++) {
+        var option = ${id}_options[i];
+        if (option.innerText === input_value) {
+            \$("#$id").val(option.getAttribute('data-value'));
+            return;
+        } else if (option.innerText.toUpperCase() == input_value.toUpperCase()){
+        	\$("#$id").val(option.getAttribute('data-value'));
+        	\$('#${name}_label').val(option.innerText);
+        	return;
+        }
+    }
+    $invalid
+});
+
+</script>
+JS
 	return $buffer;
 }
 
