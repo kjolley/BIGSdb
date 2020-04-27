@@ -734,6 +734,7 @@ sub _scan_locus_by_locus {
 	my $td          = 1;
 	my $new_alleles = {};
 	foreach my $isolate_id (@$isolates) {
+		my %locus_used;
 		last if $self->_reached_limit( $isolate_id, $start_time, $match, $options );
 		next if !$self->is_allowed_to_view_isolate($isolate_id);
 		my $pattern = LOCUS_PATTERN;
@@ -746,6 +747,8 @@ sub _scan_locus_by_locus {
 			last if $self->_reached_limit( $isolate_id, $start_time, $match, $options );
 			next if $self->_skip_because_existing( $isolate_id, $locus, $params );
 			next if $self->skip_for_locus_view( $isolate_id, $locus, $params );
+			next if $locus_used{$locus};
+			$locus_used{$locus} = 1;
 			my ( $exact_matches, $partial_matches ) =
 			  $self->blast( $params, $locus, $isolate_id, $file_prefix, $locus_prefix );
 			my $analysis_args = {
@@ -892,6 +895,7 @@ sub _scan_loci_together {
 	my $td          = 1;
 	my $new_alleles = {};
 	foreach my $isolate_id (@$isolates) {
+		my %locus_used;
 		last if $self->_reached_limit( $isolate_id, $start_time, $match, $options );
 		next if !$self->is_allowed_to_view_isolate($isolate_id);
 		my $pattern      = LOCUS_PATTERN;
@@ -906,6 +910,8 @@ sub _scan_loci_together {
 			last if $self->_reached_limit( $isolate_id, $start_time, $match, $options );
 			next if $self->_skip_because_existing( $isolate_id, $locus, $params );
 			next if $self->skip_for_locus_view( $isolate_id, $locus, $params );
+			next if $locus_used{$locus};
+			$locus_used{$locus} = 1;
 			push @$loci_to_scan, $locus;
 		}
 		next if !@$loci_to_scan;
@@ -957,8 +963,7 @@ sub _check_if_new {
 		open( $seqs_fh, '>>', $fasta_filename )
 		  or $logger->error("Can't open $seq_filename for appending");
 		say $seqs_fh
-		  qq(>${locus}_seqbin_$match->{'seqbin_id'}_$match->{'start'}-$match->{'end'}_isolate_id_$isolate_id)
-		  ;
+		  qq(>${locus}_seqbin_$match->{'seqbin_id'}_$match->{'start'}-$match->{'end'}_isolate_id_$isolate_id);
 		say $seqs_fh qq($seq);
 		close $seqs_fh;
 	}
