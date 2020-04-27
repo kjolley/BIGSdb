@@ -284,7 +284,7 @@ sub _print_provenance_fields_fieldset {
 sub _print_phenotypic_fields_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	return if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM allele_sequences)');
+	return if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM eav_fields)');
 	say q(<fieldset id="phenotypic_fieldset" style="float:left;display:none">);
 	my $field_name = ucfirst( $self->{'system'}->{'eav_fields'} // 'phenotypic fields' );
 	say qq(<legend>$field_name</legend><div>);
@@ -1328,13 +1328,13 @@ sub _print_locus_tag_fields {
 			datalist_exists => $row == 1 ? 0 : 1
 		);
 	} else {
-	say $self->popup_menu(
-		-name   => "tag_field$row",
-		-id     => "tag_field$row",
-		-values => $locus_list,
-		-labels => $locus_labels,
-		-class  => 'fieldlist'
-	);
+		say $self->popup_menu(
+			-name   => "tag_field$row",
+			-id     => "tag_field$row",
+			-values => $locus_list,
+			-labels => $locus_labels,
+			-class  => 'fieldlist'
+		);
 	}
 	print ' is ';
 	my @values = qw(untagged tagged complete incomplete);
@@ -1342,7 +1342,6 @@ sub _print_locus_tag_fields {
 	unshift @values, '';
 	my %labels = ( '' => ' ' );    #Required for HTML5 validation.
 	say $q->popup_menu( -name => "tag_value$row", -id => "tag_value$row", values => \@values, -labels => \%labels );
-
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_tags" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
