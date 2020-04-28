@@ -2653,12 +2653,12 @@ sub datalist {
 	my ( $name, $id, $values, $labels, $class, $size, $style, $invalid_value, $datalist_name, $datalist_exists ) =
 	  @args{qw ( name id values labels class size style invalid_value datalist_name datalist_exists)};
 	$id //= $name;
-	my $q          = $self->{'cgi'};
-	my $real_value = $q->param($name);
+	my $q = $self->{'cgi'};
+	my $real_value = $q->param($name) // q();
 	$real_value =~ s/"/\\"/gx;
 	my $invalid = $invalid_value ? qq(\$("#$name").val('$invalid_value');) : q();
 	$datalist_name //= "${name}_list";
-	my $label_value = $q->param("${name}_label");
+	my $label_value = $q->param("${name}_label") // q();
 	$label_value =~ s/"/\\"/gx;
 	my $buffer = qq(<input type="text" name="${name}_label" id="${name}_label" value="$label_value" autocomplete="off");
 	$buffer .= qq( class="$class") if $class;
