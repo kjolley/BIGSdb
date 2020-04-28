@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2016-2019, University of Oxford
+#Copyright (c) 2016-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -121,8 +121,7 @@ sub _username_reminder {
 	}
 	if ( $self->{'config'}->{'site_admin_email'} ) {
 		$message .= qq(\nPlease use the password reset link on the registration page if you need to. If all else )
-		  . qq(fails then please contact $self->{'config'}->{'site_admin_email'}.\n)
-		  ;
+		  . qq(fails then please contact $self->{'config'}->{'site_admin_email'}.\n);
 	}
 	$message .= qq(\n);
 	my $registrations = $self->{'datastore'}->run_query(
@@ -193,6 +192,22 @@ sub _reset_password {
 				back_url => $self->{'system'}->{'script_name'}
 			}
 		);
+		return;
+	}
+
+	#Attempts have been made to use the password reset for spamming with the username set to
+	#the spam message. Don't send E-mail if username is longer than allowed or if it contains
+	#slashes as used in web addresses.
+	if ( length $username > 20 || $username =~ /\//x ) {
+		$self->print_bad_status(
+			{
+				message  => q(The passed user name is not valid),
+				navbar   => 1,
+				no_home  => 1,
+				back_url => $self->{'system'}->{'script_name'}
+			}
+		);
+		$logger->error("Invalid username '$username' passed.");
 		return;
 	}
 	my $user_domain = $self->_get_user_domain;
