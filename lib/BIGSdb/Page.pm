@@ -2707,10 +2707,7 @@ if (input_value == ''){
 	}
 	for(var i = 0; i < ${id}_options.length; i++) {
         var option = ${id}_options[i];
-        if (option.innerText === input_value) {
-            \$("#$id").val(option.getAttribute('data-value'));
-            return;
-        } else if (option.innerText.toUpperCase() == input_value.toUpperCase()){
+		if (option.innerText.toUpperCase() === input_value.toUpperCase()){
         	\$("#$id").val(option.getAttribute('data-value'));
         	\$('#${name}_label').val(option.innerText);
         	return;
