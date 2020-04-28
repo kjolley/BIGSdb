@@ -2664,7 +2664,7 @@ sub datalist {
 	$buffer .= qq( class="$class") if $class;
 	$buffer .= qq( style="$style") if $style;
 	$buffer .= qq( size="$size")   if $size;
-	$buffer .= qq( list="$datalist_name" >\n);
+	$buffer .= qq( list="$datalist_name">\n);
 
 	if ( !$datalist_exists ) {
 		$buffer .= qq(<datalist id="$datalist_name">\n);
@@ -2705,14 +2705,24 @@ if (input_value == ''){
 		\$("#$id").val('');
 		return;
 	}
-	for(var i = 0; i < ${id}_options.length; i++) {
+	//Start with exact case-insensitive matches
+	for(var i = 0, len = ${id}_options.length; i < len; i++) {
         var option = ${id}_options[i];
 		if (option.innerText.toUpperCase() === input_value.toUpperCase()){
         	\$("#$id").val(option.getAttribute('data-value'));
         	\$('#${name}_label').val(option.innerText);
         	return;
         }
-    }
+    }  
+    //Then any matches that start with entered term
+	for(var i = 0, len = ${id}_options.length; i < len; i++) {
+        var option = ${id}_options[i];
+		if (option.innerText.toUpperCase().startsWith(input_value.toUpperCase())){
+        	\$("#$id").val(option.getAttribute('data-value'));
+        	\$('#${name}_label').val(option.innerText);
+        	return;
+        }
+    }    
     $invalid
 });
 
