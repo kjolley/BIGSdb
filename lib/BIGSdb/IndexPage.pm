@@ -196,7 +196,9 @@ sub _print_projects_section {
 	my $cache_string = $self->get_cache_string;
 	my $url_root     = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}$cache_string&amp;";
 	my @list;
-	my $listed_projects = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM projects WHERE list)');
+	my $listed_projects =
+	  $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM projects WHERE list AND NOT private)')
+	  ;
 	if ($listed_projects) {
 		push @list, qq(<a href="${url_root}page=projects">Main public projects</a>);
 	}
