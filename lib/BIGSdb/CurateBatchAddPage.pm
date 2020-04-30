@@ -125,9 +125,10 @@ sub _print_interface {
 	say q(<ul><li>Field header names must be included and fields can be in any order. Optional fields can be )
 	  . q(omitted if you wish.</li>);
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
-		say q[<li>Enter aliases (alternative names) for your isolates as a semi-colon (;) separated list.</li>];
-		say q[<li>Enter references for your isolates as a semi-colon (;) separated list of PubMed ids (non-integer ]
-		  . q[ids will be ignored).</li>];
+		say q[<li>Optionally enter aliases (alternative names) for your isolates as a semi-colon (;) ]
+		  . q[separated list.</li>];
+		say q[<li>Optionally enter references for your isolates as a semi-colon (;) separated list of ]
+		  . q[PubMed ids (non-integer ids will be ignored).</li>];
 		my $eav_fields = $self->{'datastore'}->get_eav_fields;
 		if ( @$eav_fields && @$eav_fields > MAX_EAV_FIELD_LIST ) {
 			my $field_name = $self->{'system'}->{'eav_fields'} // 'phenotypic fields';
@@ -153,9 +154,14 @@ sub _print_interface {
 	  . qq(page=tableHeader&amp;table=$table$order_clause" title="Tab-delimited text header">$text</a>)
 	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;table=$table)
 	  . qq($order_clause" title="Excel format">$excel</a></p>);
+	my $plugins = $self->{'pluginManager'}->get_installed_plugins;
+	if ( $plugins->{'DatabaseFields'} ) {
+		say qq(<p>Check the <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;)
+		  . q(name=DatabaseFields" target="_blank">description of database fields</a> for help with filling in )
+		  . q(the template.</p>);
+	}
 	say q(<h2>Upload</h2>);
 	say $q->start_form;
-
 	if ( $arg_ref->{'has_sender_field'} ) {
 		$self->print_interface_sender_field;
 	}
