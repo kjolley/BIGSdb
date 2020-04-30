@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2019, University of Oxford
+#Copyright (c) 2017-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -439,7 +439,7 @@ sub _print_user_form {
 	my $q = $self->{'cgi'};
 	my $add_user_message;
 	if ( $q->param('remove_user') ) {
-		$self->_remove_user( $project_id, $q->param('remove_user') );
+		$self->_remove_user( $project_id, scalar $q->param('remove_user') );
 	}
 	if ( $q->param('update_users') ) {
 		$self->_update_users($project_id);
