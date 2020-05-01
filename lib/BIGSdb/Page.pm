@@ -772,7 +772,7 @@ sub print_action_fieldset {
 	$buffer .= $options->{'text'} if $options->{'text'};
 	my $url    = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page);
 	my @fields = qw (isolate_id id scheme_id table name ruleset locus
-	  profile_id simple set_id modify project_id edit);
+	  profile_id simple set_id modify project_id edit private user_header);
 
 	if ( $options->{'table'} ) {
 		my $pk_fields = $self->{'datastore'}->get_table_pks( $options->{'table'} );

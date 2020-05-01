@@ -115,7 +115,9 @@ sub _print_interface {
 	my $record_name = $self->get_record_name($table);
 	my $q           = $self->{'cgi'};
 	$q->param( private => 1 ) if $self->{'permissions'}->{'only_private'};
+	my $options = {};
 	if ( $table eq 'isolates' ) {
+		$options->{$_} = scalar $q->param($_) foreach qw(private user_header project_id);
 		return
 		  if $self->_cannot_upload_private_data( scalar $q->param('private'), scalar $q->param('project_id') );
 	}
@@ -170,7 +172,7 @@ sub _print_interface {
 	say $q->textarea( -name => 'data', -rows => 20, -columns => 80 );
 	say q(</fieldset>);
 	say $q->hidden($_) foreach qw (page db table locus submission_id private project_id user_header);
-	$self->print_action_fieldset( { table => $table } );
+	$self->print_action_fieldset( { table => $table, %$options } );
 	say $q->end_form;
 	my $script = $q->param('user_header') ? $self->{'system'}->{'query_script'} : $self->{'system'}->{'script_name'};
 	$self->print_navigation_bar( { script => $script } );
