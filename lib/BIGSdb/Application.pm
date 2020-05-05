@@ -220,6 +220,7 @@ sub _initiate {
 		return;
 	}
 	$self->{'system'} = $self->{'xmlHandler'}->get_system_hash;
+	$self->{'system'}->{'instance'} = $self->{'instance'};
 	$self->_check_kiosk_page;
 	$self->set_system_overrides;
 	if ( !defined $self->{'system'}->{'dbtype'}

@@ -2324,7 +2324,7 @@ sub run_query {
 #helper functions in BIGSdb::TableAttributes.
 sub get_table_field_attributes {
 	my ( $self, $table ) = @_;
-	my $function = "BIGSdb::TableAttributes::get_$table\_table_attributes";
+	my $function = "BIGSdb::TableAttributes::get_${table}_table_attributes";
 	my $attributes;
 	eval { $attributes = $self->$function() };
 	$logger->logcarp($@) if $@;

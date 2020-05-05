@@ -1974,6 +1974,7 @@ sub get_isolate_value_extended_attributes_table_attributes {
 }
 
 sub get_projects_table_attributes {
+	my ($self) = @_;
 	my $attributes = [
 		{ name => 'id', type => 'int', required => 1, primary_key => 1 },
 		{
@@ -2044,6 +2045,15 @@ sub get_projects_table_attributes {
 			  . q(accidentally add more than intended.),
 			required => 1,
 			default  => 'false'
+		},
+		{
+			name    => 'curate_config',
+			type    => 'text',
+			tooltip => q(curate_config - Force uploads directly to this project to use the specified database )
+			  . qq(configuration, e.g. '$self->{'system'}->{'instance'}'. Different configurations may override )
+			  . q(field attributes, for example requiring a field to be required whereas the field in an isolate )
+			  . q(not belonging to this project may be optional. Normally this should be left blank.),
+			required => 0,
 		},
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 }

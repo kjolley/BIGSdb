@@ -225,7 +225,8 @@ sub _cannot_upload_private_data {
 			$self->print_bad_status( { message => q(Invalid project id selected.), navbar => 1 } );
 			return 1;
 		}
-		$project = $self->{'datastore'}->run_query( 'SELECT short_description,no_quota FROM projects WHERE id=?',
+		$project =
+		  $self->{'datastore'}->run_query( 'SELECT short_description,no_quota,curate_config FROM projects WHERE id=?',
 			$project_id, { fetch => 'row_hashref' } );
 		if ( !$project ) {
 			$self->print_bad_status( { message => q(Invalid project id selected.), navbar => 1 } );
@@ -247,6 +248,17 @@ sub _cannot_upload_private_data {
 		}
 		if ( !$project->{'no_quota'} && !$limit ) {
 			$self->print_bad_status( { message => q(Your account cannot upload private data.), navbar => 1 } );
+			return 1;
+		}
+		if ( $project->{'curate_config'} && $project->{'curate_config'} ne $self->{'instance'} ) {
+			$self->print_bad_status(
+				{
+					message => q(You cannot upload to this project using the current database configuration )
+					  . qq("$self->{'instance'}". You must use the "$project->{'curate_config'}" configuration.)
+					,
+					navbar => 1
+				}
+			);
 			return 1;
 		}
 	} elsif ( !$limit ) {

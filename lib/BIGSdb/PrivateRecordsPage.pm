@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2019, University of Oxford
+#Copyright (c) 2017-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -133,8 +133,8 @@ sub _print_limits {
 }
 
 sub _get_upload_link {
-	my ($self) = @_;
-	my $instance = $self->{'system'}->{'curate_config'} // $self->{'instance'};
+	my ( $self, $options ) = @_;
+	my $instance = $options->{'instance'} // $self->{'system'}->{'curate_config'} // $self->{'instance'};
 	return "$self->{'system'}->{'curate_script'}?db=$instance&amp;page=batchAdd&amp;"
 	  . 'table=isolates&amp;private=1&amp;user_header=1';
 }
@@ -142,8 +142,9 @@ sub _get_upload_link {
 sub _print_projects {
 	my ( $self, $user_id ) = @_;
 	my $projects = $self->{'datastore'}->run_query(
-		'SELECT p.id,p.short_description,p.full_description,p.no_quota FROM projects p JOIN merged_project_users m ON '
-		  . 'p.id=m.project_id WHERE m.user_id=? AND m.modify ORDER BY UPPER(short_description)',
+		'SELECT p.id,p.short_description,p.full_description,p.no_quota,p.curate_config FROM projects p '
+		  . 'JOIN merged_project_users m ON p.id=m.project_id WHERE m.user_id=? AND m.modify ORDER BY '
+		  . 'UPPER(short_description)',
 		$user_id,
 		{ fetch => 'all_arrayref', slice => {} }
 	);
@@ -161,8 +162,7 @@ sub _print_projects {
 	}
 	say q(<div class="scrollable"><table class="resultstable"><tr><th>Project</th><th>Description</th><th>Users</th>)
 	  . q(<th>Isolates</th><th>Quota free</th><th>Browse</th><th>Upload</th></tr>);
-	my $td               = 1;
-	my $upload_link_root = $self->_get_upload_link;
+	my $td = 1;
 	foreach my $project (@$projects) {
 		$project->{'full_description'} //= q();
 		my $users = $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM merged_project_users WHERE project_id=?',
@@ -182,9 +182,13 @@ sub _print_projects {
 		  . q(</span></a></td>)
 		  : q(<td></td>);
 		my $can_upload = $project->{'no_quota'} || $available > 0;
-		my ( $BAN, $UPLOAD ) = ( BAN, UPLOAD );
+		my ( $BAN, $UPLOAD, $UPLOAD_CHANGE_CONFIG ) = ( BAN, UPLOAD, UPLOAD_CHANGE_CONFIG );
+		my $switch_config = $project->{'curate_config'} && $project->{'curate_config'} ne $self->{'instance'};
+		my $upload_icon = $switch_config ? UPLOAD_CHANGE_CONFIG : UPLOAD;
+		my $upload_link_root = $self->_get_upload_link( { instance => $project->{'curate_config'} } );
+		my $comment = $switch_config ? q(<br />[switch config]) : q();
 		say $can_upload
-		  ? qq(<td><a href="$upload_link_root&amp;project_id=$project->{'id'}" class="action">$UPLOAD</a></td>)
+		  ? qq(<td><a href="$upload_link_root&amp;project_id=$project->{'id'}" class="action">$upload_icon</a>$comment</td>)
 		  : qq(<td>$BAN</td>);
 		say q(</tr>);
 		$td = $td == 1 ? 2 : 1;
