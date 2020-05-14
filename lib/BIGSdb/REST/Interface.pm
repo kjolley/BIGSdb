@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2019, University of Oxford
+#Copyright (c) 2014-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -191,8 +191,7 @@ sub _before_error {
 sub _setup_db_logger {
 	my $self = setting('self');
 	return if !$self->{'config'}->{'rest_log_to_db'};
-	my $real_host = $self->{'config'}->{'host_map'}->{ $self->{'config'}->{'dbhost'} }
-	  // $self->{'config'}->{'dbhost'}
+	my $real_host = $self->{'config'}->{'host_map'}->{ $self->{'config'}->{'dbhost'} } // $self->{'config'}->{'dbhost'}
 	  // $self->{'config'}->{'host_map'}->{ $self->{'system'}->{'host'} } // $self->{'system'}->{'host'};
 	$self->{'log_db'} =
 	  $self->{'dataConnector'}->get_connection( { dbase_name => $self->{'config'}->{'rest_db'}, host => $real_host } );
@@ -521,20 +520,35 @@ sub get_paging {
 	my $paging = {};
 	return $paging if param('return_all') || !$pages || $self->{'using_page_headers'};
 	my $first_separator = $route =~ /\?/x ? '&' : '?';
+	my $args            = request->query_parameters;
+	my $arg_string      = q();
+	my %ignore          = map { $_ => 1 } qw(page page_size);
+	foreach my $key ( sort keys %$args ) {
+		next if $ignore{$key};
+		$arg_string .= qq(&$key=$args->{$key});
+	}
 	if ( $page > 1 ) {
-		$paging->{'first'} = request->uri_base . "$route${first_separator}page=1&page_size=$self->{'page_size'}";
+		$paging->{'first'} =
+		  request->uri_base . "$route${first_separator}page=1&page_size=$self->{'page_size'}$arg_string";
 		$paging->{'previous'} =
-		  request->uri_base . "$route${first_separator}page=" . ( $page - 1 ) . "&page_size=$self->{'page_size'}";
+		    request->uri_base
+		  . "$route${first_separator}page="
+		  . ( $page - 1 )
+		  . "&page_size=$self->{'page_size'}$arg_string";
 	}
 	if ( $page < $pages ) {
 		$paging->{'next'} =
-		  request->uri_base . "$route${first_separator}page=" . ( $page + 1 ) . "&page_size=$self->{'page_size'}";
+		    request->uri_base
+		  . "$route${first_separator}page="
+		  . ( $page + 1 )
+		  . "&page_size=$self->{'page_size'}$arg_string";
 	}
 	if ( $page != $pages ) {
-		$paging->{'last'} = request->uri_base . "$route${first_separator}page=$pages&page_size=$self->{'page_size'}";
+		$paging->{'last'} =
+		  request->uri_base . "$route${first_separator}page=$pages&page_size=$self->{'page_size'}$arg_string";
 	}
 	if (%$paging) {
-		$paging->{'return_all'} = request->uri_base . "$route${first_separator}return_all=1";
+		$paging->{'return_all'} = request->uri_base . "$route${first_separator}return_all=1$arg_string";
 	}
 	return $paging;
 }
@@ -738,5 +752,15 @@ sub filter_match {
 	$filtered{'orientation'} = $match->{'reverse'} ? 'reverse' : 'forward';
 	$filtered{'contig'}      = $match->{'query'} if $match->{'query'} ne 'Query';
 	return \%filtered;
+}
+
+sub remove_null_values {
+	my ( $self, $records ) = @_;
+	foreach my $record (@$records) {
+		foreach my $field ( keys %$record ) {
+			delete $record->{$field} if !defined $record->{$field};
+		}
+	}
+	return;
 }
 1;
