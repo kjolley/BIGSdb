@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -1058,6 +1058,8 @@ sub _get_phenotypic_fields {
 					data  => $field->{'html_message'}
 				  };
 			}
+			$value =~ s/;/;<br \/>/gx;
+			$value =~ s/PMID:(\d+)/PMID:<a href="https:\/\/pubmed.ncbi.nlm.nih.gov\/$1">$1<\/a>/gx;
 			push @$list,
 			  {
 				title => $cleaned,
