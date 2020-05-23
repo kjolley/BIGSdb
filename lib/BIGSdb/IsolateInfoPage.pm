@@ -118,7 +118,7 @@ sub get_javascript {
 		return false;
 	});
 	\$("#provenance").columnize({width:450});
-	\$(".sparse").columnize({width:450,doneFunc:function(){enable_slide_triggers();}});
+	\$(".sparse").columnize({width:450,lastNeverTallest: true,doneFunc:function(){enable_slide_triggers();}});
 	\$("#seqbin").columnize({width:300,lastNeverTallest: true});  
 	\$(".smallbutton").css('display', 'inline');
 	if (!(\$("span").hasClass('aliases'))){
@@ -1023,7 +1023,7 @@ sub _get_phenotypic_fields {
 	my $categories =
 	  $self->{'datastore'}->run_query( 'SELECT DISTINCT category FROM eav_fields ORDER BY category NULLS LAST',
 		undef, { fetch => 'col_arrayref' } );
-	$buffer .= qq(<div id="sparse" style="overflow:hidden" class="$class">);
+	$buffer .= qq(<div id="sparse" style="overflow:hidden;margin-top:1em" class="$class">);
 
 	foreach my $cat (@$categories) {
 		my $list = [];
