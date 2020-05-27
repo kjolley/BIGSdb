@@ -375,12 +375,13 @@ sub _print_add_bookmark_function {
 	my ($self) = @_;
 	return if !$self->{'username'};
 	return if !$self->{'addBookmarks'};
-	my $q         = $self->{'cgi'};
+	my $q = $self->{'cgi'};
 	return if $q->param('bookmark') && !$self->{'bookmark_add_message'};
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	return if !$user_info;
 	say q(<fieldset><legend>Bookmark query</legend>);
-	if ($self->{'bookmark_added'} ){
+
+	if ( $self->{'bookmark_added'} ) {
 		my $name = $self->{'bookmark_added'};
 		say qq(Bookmark added: $name);
 		say q(</fieldset>);
@@ -390,9 +391,10 @@ sub _print_add_bookmark_function {
 	$q->delete('bookmark') if !$self->{'bookmark_add_message'};
 	say $q->start_form;
 	say $q->hidden($_) foreach qw (db query_file temp_table_file table page);
-	my $datestamp = BIGSdb::Utils::get_datestamp();
-	my $existing_names = $self->{'datastore'}->run_query('SELECT name FROM bookmarks WHERE user_id=?',$user_info->{'id'},{fetch=>'col_arrayref'});
-	my %existing = map{$_ => 1}@$existing_names;
+	my $datestamp      = BIGSdb::Utils::get_datestamp();
+	my $existing_names = $self->{'datastore'}
+	  ->run_query( 'SELECT name FROM bookmarks WHERE user_id=?', $user_info->{'id'}, { fetch => 'col_arrayref' } );
+	my %existing = map { $_ => 1 } @$existing_names;
 	my $suggested_name;
 	my $i = 1;
 	do {
@@ -408,7 +410,7 @@ sub _print_add_bookmark_function {
 		-placeholder => 'Enter bookmark name...',
 		-required    => 'required',
 		-maxlength   => 100,
-		-default => $q->param('bookmark') // $suggested_name
+		-default     => $q->param('bookmark') // $suggested_name
 	);
 	say $q->submit( -name => 'add_bookmark', -label => 'Add bookmark', -class => BUTTON_CLASS );
 	say qq(<span class="flash_message" style="margin-left:2em">$self->{'bookmark_add_message'}</span>)
@@ -1712,9 +1714,46 @@ sub _print_record_field {
 				$value =~ s/</&lt;/gx;
 			}
 		}
-		print $field eq 'action' ? qq(<td style="text-align:left">$value</td>) : qq(<td>$value</td>);
+		if ( $field eq 'action' ) {
+			print qq(<td style="text-align:left">$value</td>);
+		} else {
+			if ( length( $data->{ lc($field) } ) > 500 ) {
+				$self->{'cache'}->{'div_id'}++;
+				my $div = qq($self->{'cache'}->{'div_id'}_$field);
+				say q(<td>);
+				say qq(<div id="$div" style="overflow:hidden" class="expandable_retracted">);
+				say $value;
+				say q(</div>);
+				say qq(<div class="expand_link" id="expand_$div"><span class="fas fa-chevron-down"></span></div>);
+				say q(</td>);
+			} else {
+				print qq(<td>$value</td>);
+			}
+		}
 	}
 	return;
+}
+
+sub get_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+\$(function () {
+	\$('.expand_link').on('click', function(){	
+		var field = this.id.replace('expand_','');
+	  	if (\$('#' + field).hasClass('expandable_expanded')) {
+	  	\$('#' + field).switchClass('expandable_expanded','expandable_retracted',1000, "easeInOutQuad", function(){
+	  		\$('#expand_' + field).html('<span class="fas fa-chevron-down"></span>');
+	  	});	    
+	  } else {
+	  	\$('#' + field).switchClass('expandable_retracted','expandable_expanded',1000, "easeInOutQuad", function(){
+	  		\$('#expand_' + field).html('<span class="fas fa-chevron-up"></span>');
+	  	});	    
+	  }
+	});	
+});
+
+END
+	return $buffer;
 }
 
 sub _print_bool_field {
@@ -1947,7 +1986,7 @@ sub add_bookmark {
 	my $q         = $self->{'cgi'};
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	return if !$user_info;
-	my $name = BIGSdb::Utils::escape_html(scalar $q->param('bookmark'));
+	my $name = BIGSdb::Utils::escape_html( scalar $q->param('bookmark') );
 	if ($name) {
 		my $exists =
 		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM bookmarks WHERE (name,user_id)=(?,?))',
@@ -1966,17 +2005,24 @@ sub add_bookmark {
 		delete $params->{$param} if $params->{$param} eq q();
 	}
 	my $set_id = $self->get_set_id;
-	if (($self->{'system'}->{'sets'} // q()) eq 'yes'){
+	if ( ( $self->{'system'}->{'sets'} // q() ) eq 'yes' ) {
 		$set_id //= 0;
 	}
-	my $json   = encode_json($params);
+	my $json = encode_json($params);
 	eval {
 		$self->{'db'}->do(
 			'INSERT INTO bookmarks (name,dbase_config,set_id,page,params,user_id,date_entered,last_accessed,public) '
 			  . 'VALUES (?,?,?,?,?,?,?,?,?)',
-			undef, $name, $self->{'instance'}, $set_id, scalar $q->param('page'), $json,
+			undef,
+			$name,
+			$self->{'instance'},
+			$set_id,
+			scalar $q->param('page'),
+			$json,
 			$user_info->{'id'},
-			'now','now','false'
+			'now',
+			'now',
+			'false'
 		);
 	};
 	if ($@) {
