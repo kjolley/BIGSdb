@@ -450,6 +450,9 @@ sub _get_dropdown_filter {
 
 sub _get_user_table_values {
 	my ( $self, $field ) = @_;
+	my $user_names = $self->{'datastore'}
+	  ->run_query( 'SELECT user_name FROM users WHERE id>0', undef, { fetch => 'col_arrayref' } );
+	my %user = map{$_ => 1}@$user_names;
 	my $values =
 	  $self->{'datastore'}
 	  ->run_query( "SELECT $field FROM users WHERE $field IS NOT NULL AND id>0", undef, { fetch => 'col_arrayref' } );
@@ -460,9 +463,12 @@ sub _get_user_table_values {
 		my $user_db = $self->{'datastore'}->get_user_db($user_db_id);
 		my $remote_values =
 		  $self->{'datastore'}
-		  ->run_query( "SELECT $field FROM users", undef, { db => $user_db, fetch => 'col_arrayref' } );
+		  ->run_query( "SELECT user_name,$field FROM users", undef, { db => $user_db, fetch => 'all_arrayref',slice=>{} } );
 		next if !@$remote_values;
-		push @$values, @$remote_values;
+		foreach my $remote(@$remote_values){
+			next if !$user{$remote->{'user_name'}};
+			push @$values, $remote->{$field};
+		}
 	}
 	@$values = sort { uc($a) cmp uc($b) } uniq @$values;
 	return $values;
