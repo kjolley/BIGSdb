@@ -70,31 +70,19 @@ sub get_javascript {
 		}
 	});
 
-	\$('#expand_references').on('click', function(){	  
-	  if (\$('#references').hasClass('expandable_expanded')) {
-	  	\$('#references').switchClass('expandable_expanded','expandable_retracted',1000, "easeInOutQuad", function(){
-	  		\$('#expand_references').html('<span class="fas fa-chevron-down"></span>');
+	\$('.expand_link').on('click', function(){	
+		var field = this.id.replace('expand_','');
+	  	if (\$('#' + field).hasClass('expandable_expanded')) {
+	  	\$('#' + field).switchClass('expandable_expanded','expandable_retracted',1000, "easeInOutQuad", function(){
+	  		\$('#expand_' + field).html('<span class="fas fa-chevron-down"></span>');
 	  	});	    
 	  } else {
-	  	\$('#references').switchClass('expandable_retracted','expandable_expanded',1000, "easeInOutQuad", function(){
-	  		\$('#expand_references').html('<span class="fas fa-chevron-up"></span>');
+	  	\$('#' + field).switchClass('expandable_retracted','expandable_expanded',1000, "easeInOutQuad", function(){
+	  		\$('#expand_' + field).html('<span class="fas fa-chevron-up"></span>');
 	  	});	    
 	  }
-	});
+	});	
 	
-	\$('#expand_sparse').on('click', function(){	  
-	  if (\$('#sparse').hasClass('expandable_expanded')) {
-	  	\$('#sparse').switchClass('expandable_expanded','expandable_retracted',1000, "easeInOutQuad", function(){
-	  		\$('#expand_sparse').html('<span class="fas fa-chevron-down"></span>');
-	  	});
-	    
-	  } else {
-	  	\$('#sparse').switchClass('expandable_retracted','expandable_expanded',1000, "easeInOutQuad", function(){
-	  		\$('#expand_sparse').html('<span class="fas fa-chevron-up"></span>');
-	  	});
-	    
-	  }
-	});
 	\$( "#show_aliases" ).click(function() {
 		if (\$("span#show_aliases_text").css('display') == 'none'){
 			\$("span#show_aliases_text").css('display', 'inline');
