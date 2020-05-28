@@ -26,10 +26,11 @@ use Log::Log4perl qw(get_logger);
 use Try::Tiny;
 use List::MoreUtils qw(none uniq);
 my $logger = get_logger('BIGSdb.Page');
-use constant ISOLATE_SUMMARY => 1;
-use constant LOCUS_SUMMARY   => 2;
-use constant MAX_DISPLAY     => 1000;
-use constant HIDE_PMIDS      => 4;
+use constant ISOLATE_SUMMARY     => 1;
+use constant LOCUS_SUMMARY       => 2;
+use constant MAX_DISPLAY         => 1000;
+use constant HIDE_PMIDS          => 4;
+use constant HIDE_PROJECT_LENGTH => 50;
 
 sub set_pref_requirements {
 	my ($self) = @_;
@@ -1722,17 +1723,26 @@ sub _print_projects {
 		push @$projects, @$private_projects;
 	}
 	if (@$projects) {
-		say q(<div class="box" id="projects"><div class="scrollable">);
+		say q(<div class="box" id="projects">);
 		say q(<span class="info_icon fas fa-2x fa-fw fa-list-alt fa-pull-left" style="margin-top:0.3em"></span>);
 		say q(<h2>Projects</h2>);
+		my $hide = @$projects > 1;
+		my $class = $hide ? q(expandable_retracted) : q();
+		say qq(<div id="project_list" style="overflow:hidden" class="$class">);
 		my $plural = @$projects == 1 ? '' : 's';
 		say qq(<p>This isolate is a member of the following project$plural:</p>);
 		say q(<dl class="projects">);
+
 		foreach my $project (@$projects) {
 			say qq(<dt>$project->{'short_description'}</dt>);
 			say qq(<dd>$project->{'full_description'}</dd>);
 		}
-		say q(</dl></div></div>);
+		say q(</dl>);
+		say q(</div>);
+		if ($hide) {
+			say q(<div class="expand_link" id="expand_project_list"><span class="fas fa-chevron-down"></span></div>);
+		}
+		say q(</div>);
 	}
 	return;
 }
