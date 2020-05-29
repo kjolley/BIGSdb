@@ -124,8 +124,8 @@ sub _print_eav_fields {
 	my ($self) = @_;
 	my $field_name    = $self->{'system'}->{'eav_fields'} // 'secondary metadata';
 	my $uc_field_name = ucfirst($field_name);
-	my $icon          = $self->{'system'}->{'eav_field_icon'} // 'fa-microscope';
-	say qq(<span class="info_icon fas fa-2x fa-fw $icon fa-pull-left" style="margin-top:-0.2em"> )
+	my $icon          = $self->{'system'}->{'eav_field_icon'} // 'fas fa-microscope';
+	say qq(<span class="info_icon fa-2x fa-fw $icon fa-pull-left" style="margin-top:-0.2em"> )
 	  . qq(</span><h2 style="display:inline">$uc_field_name</h2>);
 	my $eav_fields = $self->{'datastore'}->get_eav_fields;
 	my $td         = 1;
