@@ -838,7 +838,7 @@ sub get_isolate_record {
 	} else {
 		$buffer .= $self->_get_provenance_fields( $id, $data, $summary_view );
 		if ( !$summary_view ) {
-			$buffer .= $self->_get_phenotypic_fields($id);
+			$buffer .= $self->_get_secondary_metadata_fields($id);
 			$buffer .= $self->_get_version_links($id);
 			$buffer .= $self->_get_ref_links($id);
 			$buffer .= $self->_get_seqbin_link($id);
@@ -863,7 +863,7 @@ sub _get_provenance_fields {
 		  . qq($request_string</span></p>);
 	}
 	$buffer .= q(<div><span class="info_icon fas fa-2x fa-fw fa-globe fa-pull-left" style="margin-top:-0.2em"></span>);
-	$buffer .= qq(<h2>Provenance/meta data</h2>\n);
+	$buffer .= qq(<h2>Provenance/primary metadata</h2>\n);
 	$buffer .= q(<div id="provenance">);
 	my $list       = [];
 	my $q          = $self->{'cgi'};
@@ -989,7 +989,20 @@ sub _get_web_links {
 	return $web;
 }
 
-sub _get_phenotypic_fields {
+sub _get_eav_group_icon {
+	my ( $self, $group ) = @_;
+	return if !$group;
+	my $divider = q(,);
+	my @group_values =
+	  $self->{'system'}->{'eav_groups'} ? ( split /$divider/x, $self->{'system'}->{'eav_groups'} ) : ();
+	foreach my $value ( sort @group_values ) {
+		my ( $name, $icon ) = split /\|/x, $value;
+		return $icon if $name eq $group;
+	}
+	return;
+}
+
+sub _get_secondary_metadata_fields {
 	my ( $self, $isolate_id ) = @_;
 	my $buffer = q();
 	my @slide_panel;
@@ -1002,7 +1015,7 @@ sub _get_phenotypic_fields {
 		$data->{ $_->{'field'} } = $_->{'value'} foreach @$table_values;
 	}
 	return $buffer if !keys %$data;
-	my $field_name    = $self->{'system'}->{'eav_fields'} // 'phenotypic fields';
+	my $field_name    = $self->{'system'}->{'eav_fields'} // 'secondary metadata';
 	my $uc_field_name = ucfirst($field_name);
 	my $icon          = $self->{'system'}->{'eav_field_icon'} // 'fa-microscope';
 	$buffer .= qq(<div><span class="info_icon fas fa-2x fa-fw $icon fa-pull-left" )
@@ -1055,8 +1068,17 @@ sub _get_phenotypic_fields {
 				data  => $value
 			  };
 		}
-		if ( @$categories > 1 && $categories->[0] && @$list ) {
-			$buffer .= $cat ? qq(<h3>$cat</h3>) : q(<h3>Other</h3>);
+		if ( @$categories && $categories->[0] && @$list ) {
+			my $group_icon = $self->_get_eav_group_icon($cat);
+			$buffer .= q(<div style="margin-top:0.5em;padding-left:1.5em">);
+			if ($group_icon) {
+				
+				$buffer.=qq(<span class="subinfo_icon fa-lg fa-fw $group_icon fa-pull-left" )
+				. qq(style="margin-right:0.5em"></span><h3 style="display:inline">$cat</h3>);
+			} else {
+				$buffer .= $cat ? qq(<h3>$cat</h3>) : q(<h3>Other</h3>);
+			}
+			$buffer.=q(</div>);
 		}
 		$buffer .= q(<div class="sparse">);
 		$buffer .= $self->get_list_block( $list, { columnize => 1 } );

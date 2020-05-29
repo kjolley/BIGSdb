@@ -2319,7 +2319,12 @@ sub get_set_view_table_attributes {
 sub get_eav_fields_table_attributes {
 	my ($self) = @_;
 	my $divider = q(,);
-	my @groups = $self->{'system'}->{'eav_groups'} ? ( split /$divider/x, $self->{'system'}->{'eav_groups'} ) : ();
+	my @group_values = $self->{'system'}->{'eav_groups'} ? ( split /$divider/x, $self->{'system'}->{'eav_groups'} ) : ();
+	my @groups;
+	foreach my $value (sort @group_values){
+		my ($name,$icon) = split/\|/x,$value;
+		push @groups,$name;
+	}
 	my $attributes = [
 		{ name => 'field', type => 'text', required => 1, primary_key => 1, regex => '^[a-zA-Z0-9_\']*$' },
 		{

@@ -286,7 +286,7 @@ sub _print_phenotypic_fields_fieldset {
 	my $q = $self->{'cgi'};
 	return if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM eav_fields)');
 	say q(<fieldset id="phenotypic_fieldset" style="float:left;display:none">);
-	my $field_name = ucfirst( $self->{'system'}->{'eav_fields'} // 'phenotypic fields' );
+	my $field_name = ucfirst( $self->{'system'}->{'eav_fields'} // 'secondary metadata' );
 	say qq(<legend>$field_name</legend><div>);
 	if ( $self->_highest_entered_fields('phenotypic') ) {
 		$self->_print_phenotypic_fieldset_contents;
@@ -815,7 +815,7 @@ sub _print_modify_search_fieldset {
 
 	if ( $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM eav_fields)') ) {
 		my $phenotypic_fieldset_display = $self->_should_display_fieldset('phenotypic') ? HIDE : SHOW;
-		my $field_name = ucfirst( $self->{'system'}->{'eav_fields'} // 'phenotypic fields' );
+		my $field_name = ucfirst( $self->{'system'}->{'eav_fields'} // 'secondary metadata' );
 		say qq(<li><a href="" class="button" id="show_phenotypic">$phenotypic_fieldset_display</a>);
 		say qq($field_name</li>);
 	}

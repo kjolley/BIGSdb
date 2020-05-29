@@ -842,7 +842,7 @@ sub print_sparse_field_form_elements {
 	return if !@$fields;
 	my @fieldnames = map { $_->{'field'} } @$fields;
 	my $width      = $self->_get_field_width( \@fieldnames );
-	my $field_name = ucfirst( $self->{'system'}->{'eav_fields'} // 'phenotypic fields' );
+	my $field_name = ucfirst( $self->{'system'}->{'eav_fields'} // 'secondary metadata' );
 	say qq(<fieldset style="float:left"><legend>$field_name</legend>);
 	my $categories =
 	  $self->{'datastore'}

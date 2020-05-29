@@ -339,7 +339,7 @@ sub print_eav_fields_fieldset {
 	return if !@$eav_fields;
 	my $labels = {};
 	( $labels->{$_} = $_ ) =~ tr/_/ / foreach @$eav_fields;
-	my $legend = $self->{'system'}->{'eav_fields'} // 'Phenotypic fields';
+	my $legend = $self->{'system'}->{'eav_fields'} // 'Secondary metadata';
 	say qq(<fieldset style="float:left"><legend>$legend</legend>);
 	say $self->popup_menu(
 		-name     => 'eav_fields',

@@ -1,4 +1,4 @@
-/*Version: 20200401*/
+/*Version: 20200529*/
 body,form,input,th,td,div {margin-top:0;margin-bottom:0;padding-bottom:0;padding-top:0}
 select{margin:0}
 p {margin:0 0 1em 0;padding:0}
@@ -937,6 +937,7 @@ span.wait_icon {
 span.main_icon {color:#66a;text-shadow: 3px 3px 3px #999}
 span.curate_icon {color:#aaa;text-shadow: 3px 3px 3px #999}
 span.info_icon {color:#477;text-shadow: 2px 2px 2px #999}
+span.subinfo_icon {color:#66a;text-shadow: 2px 2px 2px #999}
 span.info_plugin_icon {color:#66a;text-shadow: 2px 2px 2px #999}
 span.nav_icon {color:#66a;text-shadow: 2px 2px 2px #aaa}
 span.nav_icon:hover {color:#88c}

@@ -133,7 +133,7 @@ sub _print_interface {
 		  . q[PubMed ids (non-integer ids will be ignored).</li>];
 		my $eav_fields = $self->{'datastore'}->get_eav_fields;
 		if ( @$eav_fields && @$eav_fields > MAX_EAV_FIELD_LIST ) {
-			my $field_name = $self->{'system'}->{'eav_fields'} // 'phenotypic fields';
+			my $field_name = $self->{'system'}->{'eav_fields'} // 'secondary metadata';
 			say qq[<li>You can add new columns for $field_name - there are too many to include by default ]
 			  . qq[(see the '$field_name' tab in the Excel template for allowed field names).];
 		}
