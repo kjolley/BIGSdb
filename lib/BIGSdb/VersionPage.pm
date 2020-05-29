@@ -81,8 +81,8 @@ https://github.com/kjolley/BIGSdb</a>.
 <li>The home page for this software is  
 <a href="https://pubmlst.org/software/database/bigsdb/">
 https://pubmlst.org/software/database/bigsdb/</a>.</li>
-<li>Full documentation can be found at <a href="http://bigsdb.readthedocs.io/">
-http://bigsdb.readthedocs.io/</a>.</li></ul>
+<li>Full documentation can be found at <a href="https://bigsdb.readthedocs.io/">
+https://bigsdb.readthedocs.io/</a>.</li></ul>
 HTML
 	if ( $self->{'config'}->{'jobs_db'} || ( $self->{'config'}->{'rest_db'} && $self->{'config'}->{'rest_log_to_db'} ) )
 	{
