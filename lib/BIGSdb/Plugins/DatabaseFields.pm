@@ -61,7 +61,7 @@ sub run {
 	my $eav_fields = $self->{'datastore'}->get_eav_fieldnames;
 	if (@$eav_fields) {
 		say q(<span class="info_icon fas fa-2x fa-fw fa-globe fa-pull-left" style="margin-top:0.2em"></span>);
-		say q(<h2>Provenace/primary metadata</h2>);
+		say q(<h2>Provenance/primary metadata</h2>);
 	}
 	say q(<p>Order columns by clicking their headings. )
 	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;)
