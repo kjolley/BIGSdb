@@ -988,20 +988,6 @@ sub _get_web_links {
 	}
 	return $web;
 }
-
-sub _get_eav_group_icon {
-	my ( $self, $group ) = @_;
-	return if !$group;
-	my $divider = q(,);
-	my @group_values =
-	  $self->{'system'}->{'eav_groups'} ? ( split /$divider/x, $self->{'system'}->{'eav_groups'} ) : ();
-	foreach my $value ( sort @group_values ) {
-		my ( $name, $icon ) = split /\|/x, $value;
-		return $icon if $name eq $group;
-	}
-	return;
-}
-
 sub _get_secondary_metadata_fields {
 	my ( $self, $isolate_id ) = @_;
 	my $buffer = q();
@@ -1069,16 +1055,15 @@ sub _get_secondary_metadata_fields {
 			  };
 		}
 		if ( @$categories && $categories->[0] && @$list ) {
-			my $group_icon = $self->_get_eav_group_icon($cat);
+			my $group_icon = $self->get_eav_group_icon($cat);
 			$buffer .= q(<div style="margin-top:0.5em;padding-left:1.5em">);
 			if ($group_icon) {
-				
-				$buffer.=qq(<span class="subinfo_icon fa-lg fa-fw $group_icon fa-pull-left" )
-				. qq(style="margin-right:0.5em"></span><h3 style="display:inline">$cat</h3>);
+				$buffer .= qq(<span class="subinfo_icon fa-lg fa-fw $group_icon fa-pull-left" )
+				  . qq(style="margin-right:0.5em"></span><h3 style="display:inline">$cat</h3>);
 			} else {
 				$buffer .= $cat ? qq(<h3>$cat</h3>) : q(<h3>Other</h3>);
 			}
-			$buffer.=q(</div>);
+			$buffer .= q(</div>);
 		}
 		$buffer .= q(<div class="sparse">);
 		$buffer .= $self->get_list_block( $list, { columnize => 1 } );

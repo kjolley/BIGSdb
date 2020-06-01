@@ -35,7 +35,7 @@ sub get_attributes {
 		description => 'Display description of fields defined for the current database',
 		menutext    => 'Description of database fields',
 		module      => 'DatabaseFields',
-		version     => '1.1.1',
+		version     => '1.1.2',
 		section     => 'miscellaneous',
 		order       => 10,
 		dbtype      => 'isolates'
@@ -125,50 +125,71 @@ sub _print_eav_fields {
 	my $field_name    = $self->{'system'}->{'eav_fields'} // 'secondary metadata';
 	my $uc_field_name = ucfirst($field_name);
 	my $icon          = $self->{'system'}->{'eav_field_icon'} // 'fas fa-microscope';
+	my $categories =
+	  $self->{'datastore'}->run_query( 'SELECT DISTINCT category FROM eav_fields ORDER BY category NULLS LAST',
+		undef, { fetch => 'col_arrayref' } );
 	say qq(<span class="info_icon fa-2x fa-fw $icon fa-pull-left" style="margin-top:-0.2em"> )
 	  . qq(</span><h2 style="display:inline">$uc_field_name</h2>);
 	my $eav_fields = $self->{'datastore'}->get_eav_fields;
-	my $td         = 1;
-	say q(<table class="tablesorter" style="margin-top:1em"><thead>);
-	say q(<tr><th>field name</th><th>comments</th><th>data type</th><th class="{sorter: false}">)
-	  . q(allowed values</th><th>required</th><th>maximum length (characters)</th></tr></thead><tbody>);
+	foreach my $cat (@$categories) {
 
-	foreach my $field (@$eav_fields) {
-		$field->{'description'} //= q(-);
-		say qq(<tr class="td$td"><td>$field->{'field'}</td><td>$field->{'description'}</td>);
-		say qq(<td>$field->{'value_format'}</td>);
-		if ( $field->{'option_list'} ) {
-			my @values = split /;/x, $field->{'option_list'};
-			my $hide   = @values > HIDE_VALUES;
-			my $class  = $hide ? q(expandable_retracted) : q();
-			say qq(<td><div id="$field->{'field'}" style="overflow:hidden" class="$class">);
-			foreach my $option (@values) {
-				$option = BIGSdb::Utils::escape_html($option);
-				say qq($option<br />);
-			}
-			say qq(</div>\n);
-			if ($hide) {
-				say
-qq(<div class="expand_link" id="expand_$field->{'field'}"><span class="fas fa-chevron-down"></span></div>);
-			}
-			say q(</td>);
-		} else {
-			say q(<td>);
-			if ( defined $field->{'min_value'} || defined $field->{'max_value'} ) {
-				print qq(min: $field->{'min_value'}) if defined $field->{'min_value'};
-				print q(; )                          if defined $field->{'min_value'} && defined $field->{'max_value'};
-				say qq(max: $field->{'max_value'})   if defined $field->{'max_value'};
+		if ( @$categories && $categories->[0] ) {
+			my $group_icon = $self->get_eav_group_icon($cat);
+			say q(<div style="margin-top:1.5em;padding-left:0.5em">);
+			if ($group_icon) {
+				say qq(<span class="subinfo_icon fa-lg fa-fw $group_icon fa-pull-left" )
+				  . qq(style="margin-right:0.5em"></span><h3 style="display:inline">$cat</h3>);
 			} else {
-				say q(-);
+				say $cat ? qq(<h3>$cat</h3>) : q(<h3>Other</h3>);
 			}
-			say q(</td>);
+			say q(</div>);
 		}
-		say q(<td>no</td>);
-		my $length = $field->{'length'} ? $field->{'length'} : '-';
-		say qq(<td>$length</td></tr>);
-		$td = $td == 1 ? 2 : 1;
+		my $td = 1;
+		say q(<table class="tablesorter" style="margin-top:1em"><thead>);
+		say q(<tr><th>field name</th><th>comments</th><th>data type</th><th class="{sorter: false}">)
+		  . q(allowed values</th><th>required</th><th>maximum length (characters)</th></tr></thead><tbody>);
+		foreach my $field (@$eav_fields) {
+			if ( $field->{'category'} ) {
+				next if !$cat || $cat ne $field->{'category'};
+			} else {
+				next if $cat;
+			}
+			$field->{'description'} //= q(-);
+			say qq(<tr class="td$td"><td>$field->{'field'}</td><td>$field->{'description'}</td>);
+			say qq(<td>$field->{'value_format'}</td>);
+			if ( $field->{'option_list'} ) {
+				my @values = split /;/x, $field->{'option_list'};
+				my $hide   = @values > HIDE_VALUES;
+				my $class  = $hide ? q(expandable_retracted) : q();
+				say qq(<td><div id="$field->{'field'}" style="overflow:hidden" class="$class">);
+				foreach my $option (@values) {
+					$option = BIGSdb::Utils::escape_html($option);
+					say qq($option<br />);
+				}
+				say qq(</div>\n);
+				if ($hide) {
+					say qq(<div class="expand_link" id="expand_$field->{'field'}">)
+					  . q(<span class="fas fa-chevron-down"></span></div>);
+				}
+				say q(</td>);
+			} else {
+				say q(<td>);
+				if ( defined $field->{'min_value'} || defined $field->{'max_value'} ) {
+					print qq(min: $field->{'min_value'}) if defined $field->{'min_value'};
+					print q(; ) if defined $field->{'min_value'} && defined $field->{'max_value'};
+					say qq(max: $field->{'max_value'}) if defined $field->{'max_value'};
+				} else {
+					say q(-);
+				}
+				say q(</td>);
+			}
+			say q(<td>no</td>);
+			my $length = $field->{'length'} ? $field->{'length'} : '-';
+			say qq(<td>$length</td></tr>);
+			$td = $td == 1 ? 2 : 1;
+		}
+		say q(</tbody></table>);
 	}
-	say q(</tbody></table>);
 	return;
 }
 
