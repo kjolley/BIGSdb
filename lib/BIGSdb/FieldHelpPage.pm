@@ -44,7 +44,7 @@ sub get_javascript {
 \$(document).ready(function() 
     { 
         \$("#sortTable").tablesorter({widgets:['zebra']}); 
-        \$("#valueList").columnize({width:200});
+        \$("#valueList").columnize({width:200,lastNeverTallest:true});
     } 
 ); 	
 JS
@@ -53,7 +53,7 @@ JS
 sub _get_field_and_type {
 	my ( $self, $param_value ) = @_;
 	return if !defined $param_value;
-	if ( $param_value =~ /^([f|l])_(.*)$/x ) {
+	if ( $param_value =~ /^(f|l|eav)_(.*)$/x ) {
 		return ( $2, $1 );
 	}
 	if ( $param_value =~ /^la_(.*)\|\|(.+)$/x ) {
@@ -80,9 +80,10 @@ sub print_content {
 		return;
 	}
 	my %methods = (
-		f  => sub { $self->_print_isolate_field($field) },
-		l  => sub { $self->_print_locus($field) },
-		sf => sub { $self->_print_scheme_field( $scheme_id, $field ) }
+		f   => sub { $self->_print_isolate_field($field) },
+		l   => sub { $self->_print_locus($field) },
+		sf  => sub { $self->_print_scheme_field( $scheme_id, $field ) },
+		eav => sub { $self->_print_eav_field($field) },
 	);
 	$methods{$field_type}->() if $methods{$field_type};
 	return;
@@ -95,9 +96,16 @@ sub _print_interface {
 	say q(<p>This page will display all values defined in the database for a selected field.</p>);
 	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Select field</legend>);
-	my ( $values, $labels ) =
-	  $self->get_field_selection_list(
-		{ isolate_fields => 1, loci => 1, locus_limit => MAX_LOCUS_ORDER_BY, scheme_fields => 1 } );
+	my ( $values, $labels ) = $self->get_field_selection_list(
+		{
+			isolate_fields => 1,
+			eav_fields     => 1,
+			loci           => 1,
+			locus_limit    => MAX_LOCUS_ORDER_BY,
+			scheme_fields  => 1,
+			sort_labels    => 1
+		}
+	);
 	say $self->popup_menu( -name => 'field', -values => $values, -labels => $labels );
 	say q(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1 } );
@@ -202,6 +210,59 @@ sub _print_isolate_field {
 	return;
 }
 
+sub _print_eav_field {
+	my ( $self, $field ) = @_;
+	if ( !$self->{'datastore'}->is_eav_field($field) ) {
+		$self->print_bad_status( { message => q(Invalid field selected.), navbar => 1 } );
+		return;
+	}
+	( my $cleaned = $field ) =~ tr/_/ /;
+	say q(<div class="box" id="resultsheader">);
+	say qq(<h2>Field: $cleaned</h2>);
+	my $attributes = $self->{'datastore'}->get_eav_field($field);
+	my %type       = ( float => 'floating point number' );
+	my $table      = $self->{'datastore'}->get_eav_field_table($field);
+	my $unique_qry =
+	    "SELECT COUNT(DISTINCT value) FROM $table t JOIN $self->{'system'}->{'view'} v "
+	  . 'ON t.isolate_id=v.id WHERE field=?';
+	my $unique = $self->{'datastore'}->run_query( $unique_qry, $field );
+	my $data_type = $type{ $attributes->{'value_format'} } || $attributes->{'value_format'};
+	say q(<dl class="data">);
+	say qq(<dt>Data type</dt><dd>$data_type</dd>);
+	say q(<dt>Required</dt><dd>no</dd>);
+	say qq(<dt>Unique values</dt><dd>$unique</dd>);
+
+	if ( $attributes->{'description'} ) {
+		say qq(<dt>Comments</dt><dd>$attributes->{'description'}</dd>);
+	}
+	if ( $attributes->{'value_regex'} ) {
+		say q(<dt>Regular expression</dt><dd>Values are constrained to the following )
+		  . q(<a href="http://en.wikipedia.org/wiki/Regex">regular expression</a>: )
+		  . qq(/$attributes->{'value_regex'}/<dd>);
+	}
+	say q(</dl>);
+	say q(</div><div class="box" id="resultstable">);
+	say q(<h2>Values</h2>);
+	my $qry = "SELECT DISTINCT value FROM $table t JOIN $self->{'system'}->{'view'} v "
+	  . 'ON t.isolate_id=v.id WHERE field=? ORDER BY value';
+	my $used_list = $self->{'datastore'}->run_query( $qry, $field, { fetch => 'col_arrayref' } );
+	my %used = map { $_ => 1 } @$used_list;
+	if ( defined $attributes->{'option_list'} ) {
+		say q[<p>The field has a constrained list of allowable values (values present in ]
+		  . q[the database are <span class="highlightvalue">highlighted</span>):</p>];
+		my @options = split /;/x, $attributes->{'option_list'};
+		$self->_print_list( \@options, \%used );
+	} else {
+		if (@$used_list) {
+			say q(<p>The following values are present in the database:</p>);
+			$self->_print_list($used_list);
+		} else {
+			say q(<p>The database currently contains no values.</p>);
+		}
+	}
+	return;
+}
+
 sub _print_list {
 	my ( $self, $list, $used ) = @_;
 	say q(<div class="scrollable">);
@@ -210,8 +271,8 @@ sub _print_list {
 	foreach my $value (@$list) {
 		my $escaped_value = BIGSdb::Utils::escape_html($value);
 		say $used->{$value}
-		  ? qq(<li><span class="highlightvalue">$escaped_value</span></li>)
-		  : qq(<li>$escaped_value</li>);
+		  ? qq(<li class="dontsplit"><span class="highlightvalue">$escaped_value</span></li>)
+		  : qq(<li class="dontsplit">$escaped_value</li>);
 	}
 	say q(</ul></div>);
 	say q(</div>) if @$list < 2000;
