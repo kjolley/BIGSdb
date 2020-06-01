@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -117,10 +117,13 @@ sub _print_isolate_field {
 	say q(<div class="box" id="resultsheader">);
 	say qq(<h2>Field: $cleaned</h2>);
 	my $attributes = $self->{'xmlHandler'}->get_field_attributes($field);
-	my %type       = ( int => 'integer', float => 'floating point number' );
-	my $unique_qry = "SELECT COUNT(DISTINCT $field) FROM $self->{'system'}->{'view'}";
-	my $unique     = $self->{'datastore'}->run_query($unique_qry);
-	my $data_type  = $type{ $attributes->{'type'} } || $attributes->{'type'};
+	my %type = ( int => 'integer', float => 'floating point number' );
+	my $unique_qry =
+	  ( $attributes->{'multiple'} // q() ) eq 'yes'
+	  ? "SELECT COUNT(DISTINCT values) FROM $self->{'system'}->{'view'} v,unnest(v.$field) values"
+	  : "SELECT COUNT(DISTINCT $field) FROM $self->{'system'}->{'view'}";
+	my $unique = $self->{'datastore'}->run_query($unique_qry);
+	my $data_type = $type{ $attributes->{'type'} } || $attributes->{'type'};
 	my $required_text =
 	  !defined $attributes->{'required'} || $attributes->{'required'} ne 'no'
 	  ? q(yes - this is a required field so all records must contain a value.)
@@ -141,8 +144,10 @@ sub _print_isolate_field {
 	say q(</dl>);
 	say q(</div><div class="box" id="resultstable">);
 	say q(<h2>Values</h2>);
-	my $qry = "SELECT DISTINCT $field FROM $self->{'system'}->{'view'} WHERE $field IS NOT NULL ORDER BY $field "
-	  ;
+	my $qry =
+	  ( $attributes->{'multiple'} // q() ) eq 'yes'
+	  ? "SELECT DISTINCT values FROM $self->{'system'}->{'view'} v,unnest(v.$field) values ORDER BY values"
+	  : "SELECT DISTINCT $field FROM $self->{'system'}->{'view'} WHERE $field IS NOT NULL ORDER BY $field ";
 	my $used_list = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	my $used;
 	$used->{$_} = 1 foreach @$used_list;
