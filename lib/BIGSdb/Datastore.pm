@@ -104,11 +104,12 @@ sub get_user_string {
 	$options = {} if ref $options ne 'HASH';
 	my $info = $self->get_user_info($id);
 	return 'Undefined user' if !$info;
-	my $user = '';
+	my $user = q();
+	$info->{'email'} //= q();
 	my $use_email =
 	  ( $options->{'email'} && $info->{'email'} =~ /@/x )
 	  ? 1
-	  : 0;    #Not intended to be foolproof check of valid Email but will differentiate 'N/A', ' ', etc.
+	  : 0;             #Not intended to be foolproof check of valid Email but will differentiate 'N/A', ' ', etc.
 	$user .= qq(<a href="mailto:$info->{'email'}">) if $use_email && !$options->{'text_email'};
 	$user .= qq($info->{'first_name'} )             if $info->{'first_name'};
 	$user .= $info->{'surname'}                     if $info->{'surname'};
