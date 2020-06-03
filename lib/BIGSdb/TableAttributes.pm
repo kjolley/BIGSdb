@@ -20,7 +20,7 @@ package BIGSdb::TableAttributes;
 use strict;
 use warnings;
 use List::MoreUtils qw(any);
-use BIGSdb::Constants qw(SEQ_METHODS SEQ_STATUS SEQ_FLAGS DATABANKS IDENTITY_THRESHOLD OPERATORS);
+use BIGSdb::Constants qw(SEQ_METHODS SEQ_STATUS SEQ_FLAGS LOCUS_TYPES DATABANKS IDENTITY_THRESHOLD OPERATORS);
 
 #Attributes
 #hide => 1: Do not display in results table and do not return field values in query
@@ -263,7 +263,9 @@ sub get_profile_history_table_attributes {
 
 sub get_loci_table_attributes {
 	my ($self) = @_;
-	my $attributes = [
+	local $" = q(;);
+	my @locus_types = LOCUS_TYPES;
+	my $attributes  = [
 		{ name => 'id', type => 'text', length => 50, required => 1, unique => 1, primary_key => 1 },
 		{
 			name        => 'formatted_name',
@@ -283,7 +285,9 @@ sub get_loci_table_attributes {
 			hide_public => 1,
 			tooltip     => 'formatted common name - Common name with HTML formatting.'
 		},
-		{ name => 'data_type', type => 'text', required => 1, optlist => 'DNA;peptide', default => 'DNA' },
+		{ name => 'data_type', type => 'text', required => 1, optlist => 'DNA;peptide', default => 'DNA' }
+		,
+		{ name => 'locus_type', type => 'text', required => 0, optlist => "@locus_types" },
 		{
 			name     => 'allele_id_format',
 			type     => 'text',
@@ -2319,11 +2323,12 @@ sub get_set_view_table_attributes {
 sub get_eav_fields_table_attributes {
 	my ($self) = @_;
 	my $divider = q(,);
-	my @group_values = $self->{'system'}->{'eav_groups'} ? ( split /$divider/x, $self->{'system'}->{'eav_groups'} ) : ();
+	my @group_values =
+	  $self->{'system'}->{'eav_groups'} ? ( split /$divider/x, $self->{'system'}->{'eav_groups'} ) : ();
 	my @groups;
-	foreach my $value (sort @group_values){
-		my ($name,$icon) = split/\|/x,$value;
-		push @groups,$name;
+	foreach my $value ( sort @group_values ) {
+		my ( $name, $icon ) = split /\|/x, $value;
+		push @groups, $name;
 	}
 	my $attributes = [
 		{ name => 'field', type => 'text', required => 1, primary_key => 1, regex => '^[a-zA-Z0-9_\']*$' },

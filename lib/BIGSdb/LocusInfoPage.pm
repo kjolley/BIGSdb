@@ -105,6 +105,7 @@ sub _print_description {
 	say qq(<dt>Full name</dt><dd>$desc->{'full_name'}</dd>) if $desc->{'full_name'};
 	say qq(<dt>Product</dt><dd>$desc->{'product'}</dd>)     if $desc->{'product'};
 	say qq(<dt>Data type</dt><dd>$locus_info->{'data_type'}</dd>);
+	say qq(<dt>Locus type</dt><dd>$locus_info->{'locus_type'}</dd>) if $locus_info->{'locus_type'};
 	if ( $locus_info->{'length_varies'} ) {
 		print q(<dt>Variable length</dt><dd>);
 		if ( $locus_info->{'min_length'} || $locus_info->{'max_length'} ) {

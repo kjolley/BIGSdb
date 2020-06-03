@@ -203,10 +203,19 @@ use constant ALLELE_FLAGS => (
 	'truncated',
 	'upstream fusion'
 );
+use constant LOCUS_TYPES => (
+	'complete CDS',
+	'partial CDS',
+	'intergenic region',
+	'promoter region',
+	'pseudogene',
+	'complete protein',
+	'partial protein'
+);
 use constant DIPLOID            => qw(A C G T R Y W S M K);
 use constant HAPLOID            => qw(A C G T);
 use constant IDENTITY_THRESHOLD => 70;
-push @EXPORT_OK, qw(SEQ_STATUS SEQ_FLAGS ALLELE_FLAGS DIPLOID HAPLOID IDENTITY_THRESHOLD);
+push @EXPORT_OK, qw(SEQ_STATUS SEQ_FLAGS ALLELE_FLAGS LOCUS_TYPES DIPLOID HAPLOID IDENTITY_THRESHOLD);
 
 #Databanks
 use constant DATABANKS => qw(ENA Genbank);

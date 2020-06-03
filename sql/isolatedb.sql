@@ -602,6 +602,7 @@ GRANT SELECT,UPDATE,INSERT,DELETE ON refs TO apache;
 CREATE TABLE loci (
 id text NOT NULL UNIQUE,
 data_type text NOT NULL,
+locus_type text,
 allele_id_format text NOT NULL,
 allele_id_regex text,
 formatted_name text,
