@@ -1442,7 +1442,7 @@ sub update_history {
 		$self->{'sql'}->{'CuratePage::update_history_time'}->execute( 'now', $curator_id, $isolate_id );
 	};
 	if ($@) {
-		$logger->error("Can't update history for isolate $isolate_id '$action' $@");
+		$logger->error("Cannot update history for isolate $isolate_id '$action' $@");
 		$self->{'db'}->rollback;
 	} else {
 		$self->{'db'}->commit;

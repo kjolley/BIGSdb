@@ -213,11 +213,13 @@ sub _check_field_status {
 	return ( $bad_field, $not_allowed_field );
 }
 
-sub _get_html_header {
+sub _get_table_header {
 	my ($self) = @_;
 	my $id_fields = $self->_get_id_fields;
 	my $extraheader = $id_fields->{'field2'} ne '<none>' ? "<th>$id_fields->{'field2'}</th>" : '';
-	return qq(<table class="resultstable"><tr><th>Transaction</th><th>$id_fields->{'field1'}</th>$extraheader)
+	return
+	    q(<table class="resultstable" style="margin-bottom:1em">)
+	  . qq(<tr><th>Transaction</th><th>$id_fields->{'field1'}</th>$extraheader)
 	  . qq(<th>Field</th><th>New value</th><th>Value(s) currently in database</th><th>Action</th></tr>\n);
 }
 
@@ -227,23 +229,18 @@ sub _check {
 	my $data   = $q->param('data');
 	my @rows = split /\n/x, $data;
 	return if $self->_failed_basic_checks( \@rows );
-	my $buffer    = qq(<div class="box" id="resultstable">\n);
 	my $id_fields = $self->_get_id_fields;
-	$buffer .=
-	    q(<p>The following changes will be made to the database.  Please check that this is what )
-	  . q(you intend and then press 'Upload'.  If you do not wish to make these changes, press your )
-	  . qq(browser's back button.</p>\n);
-	$buffer .= $self->_get_html_header;
-	my $i = 0;
+	my $i         = 0;
 	my ( @id, @id2, @field, @value );
 	my $td    = 1;
 	my $match = $self->_get_match_criteria;
 	my $qry   = "SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE $match";
 	my $sql   = $self->{'db'}->prepare($qry);
 	$qry =~ s/COUNT\(\*\)/id/x;
-	my $sql_id      = $self->{'db'}->prepare($qry);
-	my $table_rows  = 0;
-	my $update_rows = [];
+	my $sql_id       = $self->{'db'}->prepare($qry);
+	my $table_rows   = 0;
+	my $update_rows  = [];
+	my $table_buffer = q();
 
 	foreach my $row (@rows) {
 		my @cols = split /\t/x, $row;
@@ -319,10 +316,11 @@ sub _check {
 			}
 			$display_value =~ s/<blank>/&lt;blank&gt;/x;
 			if ( $id_fields->{'field2'} ne '<none>' ) {
-				$buffer .= qq(<tr class="td$td"><td>$i</td><td>$id[$i]</td><td>$id2[$i]</td><td>$display_field</td>)
+				$table_buffer .=
+				    qq(<tr class="td$td"><td>$i</td><td>$id[$i]</td><td>$id2[$i]</td><td>$display_field</td>)
 				  . qq(<td>$display_value</td><td>$old_value</td><td>$action</td></tr>\n);
 			} else {
-				$buffer .=
+				$table_buffer .=
 				    qq(<tr class="td$td"><td>$i</td><td>$id[$i]</td><td>$display_field</td><td>$display_value</td>)
 				  . qq(<td>$old_value</td><td>$action</td></tr>);
 			}
@@ -331,9 +329,23 @@ sub _check {
 		}
 		$i++;
 	}
-	$buffer .= q(</table>);
 	if ($table_rows) {
-		say $buffer;
+		if ( !@$update_rows ) {
+			$self->print_bad_status(
+				{
+					message => q(No valid changes to be made.),
+				}
+			);
+		}
+		say qq(<div class="box" id="resultstable">\n);
+		if (@$update_rows) {
+			say q(<p>The following changes will be made to the database.  Please check that this is what )
+			  . q(you intend and then press 'Update'.  If you do not wish to make these changes, press your )
+			  . q(browser's back button.</p>);
+		}
+		say $self->_get_table_header;
+		say $table_buffer;
+		say q(</table>);
 		$self->_display_update_form( $update_rows, $id_fields );
 		say q(</div>);
 	} else {
@@ -360,7 +372,7 @@ sub _display_update_form {
 		$q->param( update   => 1 );
 		$q->param( file     => "$prefix.txt" );
 		say $q->hidden($_) foreach qw (db page idfield1 idfield2 update file designations multi_value);
-		$self->print_action_fieldset( { no_reset => 1, submit_label => 'Upload' } );
+		$self->print_action_fieldset( { no_reset => 1, submit_label => 'Update' } );
 		say $q->end_form;
 	}
 	$self->print_navigation_bar( { back_page => 'batchIsolateUpdate' } );
@@ -468,8 +480,10 @@ sub _check_field {
 		if ($problem) {
 			$action = qq(<span class="statusbad">no action - $problem</span>);
 		} else {
-			if ($value->[$i] eq '<blank>' && $multivalue_fields{ $field->[$i] } && $q->param('multi_value') eq 'add'){
-				$action = q(<span class="statusbad">no action - cannot add a null value (set to replace existing values instead)</span>)
+			if ( $value->[$i] eq '<blank>' && $multivalue_fields{ $field->[$i] } && $q->param('multi_value') eq 'add' )
+			{
+				$action =
+q(<span class="statusbad">no action - cannot add a null value (set to replace existing values instead)</span>);
 			} elsif ( $self->_are_values_the_same( $field->[$i], $value->[$i], $old_values ) ) {
 				if ($is_locus) {
 					$action = q(<span class="statusbad">no action - designation already set</span>);
@@ -553,20 +567,18 @@ sub _update {
 		push @records, \@record;
 	}
 	close $fh;
-	say q(<div class="box" id="resultsheader">);
-	say q(<h2>Updating database ...</h2>);
 	my $nochange     = 1;
 	my $curator_id   = $self->get_curator_id;
-	my $curator_name = $self->get_curator_name;
-	say qq(User: $curator_name<br />);
-	my $datestamp = BIGSdb::Utils::get_datestamp();
-	say qq(Datestamp: $datestamp<br />);
-	my $tablebuffer = q();
-	my $td          = 1;
-	my $match       = $self->_get_match_criteria;
-	my $view        = $self->{'system'}->{'view'};
+	my $tablebuffer  = q();
+	my $td           = 1;
+	my $match        = $self->_get_match_criteria;
+	my $view         = $self->{'system'}->{'view'};
 	my %multivalue_fields =
 	  map { $_ => 1 } @{ $self->{'xmlHandler'}->get_field_list( { multivalue_only => 1 } ) };
+	my $error;
+	my ( $good, $bad ) = ( GOOD, BAD );
+	my $validation_failures = {};
+	my @history;
 
 	foreach my $record (@records) {
 		my ( $id1, $id2, $field, $value ) = @$record;
@@ -624,45 +636,119 @@ sub _update {
 		};
 		if ($@) {
 			$logger->error($@) if $@ !~ /duplicate/;    #Designation submitted twice in update - ignore if so
-			$tablebuffer .= qq(<td class="statusbad">can't update!</td></tr>\n);
-			$self->{'db'}->rollback;
+			$tablebuffer .= qq(<td class="statusbad">$bad</td><td></td></tr>\n);
+			$error = 1;
 		} else {
-			$self->{'db'}->commit;
-			$tablebuffer .= qq(<td class="statusgood">done!</td></tr>\n);
-			$old_value //= '';
-			$old_value = $self->_list_to_string($old_value);
-			$value = '' if $value eq '&lt;blank&gt;';
-			if ($is_locus) {
-				if ( $q->param('designations') eq 'replace' ) {
-					my $plural = @$deleted_designations == 1 ? '' : 's';
-					local $" = ',';
-					$self->update_history( $isolate_id, "$field: designation$plural '@$deleted_designations' deleted" )
-					  if @$deleted_designations;
+			my $failures = $self->_run_validation_checks($isolate_id);
+			if ( @$failures && @$failures > keys %{ $validation_failures->{$isolate_id} } ) {
+				my @this_failure;
+
+				#Only show new validation failure
+				foreach my $failure (@$failures) {
+					if ( !$validation_failures->{$isolate_id}->{$failure} ) {
+						push @this_failure, $failure;
+						$validation_failures->{$isolate_id}->{$failure} = 1;
+					}
 				}
-				$self->update_history( $isolate_id, "$field: new designation '$value'" );
+				local $" = q(<br />);
+				$tablebuffer .=
+				    qq(<td>$bad</td><td class="statusbad" style="text-align:left">)
+				  . qq(Failed validation - cannot update: @this_failure</td></tr>\n);
+				$error = 1;
 			} else {
-				if ( $field eq 'id' ) {
-					$isolate_id = $value;
-				}
-				if ( $old_value ne $value ) {
-					if ( $multivalue_fields{$field} && scalar $q->param('multi_value') eq 'add' ) {
-						$self->update_history( $isolate_id, "$field value added: '$value'" );
-					} else {
-						$self->update_history( $isolate_id, "$field: '$old_value' -> '$value'" );
+				$tablebuffer .= qq(<td class="statusgood">$good</td><td></td></tr>\n);
+				$old_value //= '';
+				$old_value = $self->_list_to_string($old_value);
+				$value = '' if $value eq '&lt;blank&gt;';
+				if ($is_locus) {
+					if ( $q->param('designations') eq 'replace' ) {
+						my $plural = @$deleted_designations == 1 ? '' : 's';
+						local $" = ',';
+						push @history,{
+							isolate_id => $isolate_id,
+							action => "$field: designation$plural '@$deleted_designations' deleted"
+						} if @$deleted_designations;
+					}
+					push @history, {
+						isolate_id => $isolate_id,
+							action => "$field: new designation '$value'"
+					};
+				} else {
+					if ( $field eq 'id' ) {
+						$isolate_id = $value;
+					}
+					if ( $old_value ne $value ) {
+						if ( $multivalue_fields{$field} && scalar $q->param('multi_value') eq 'add' ) {
+							push @history, {
+								isolate_id => $isolate_id,
+								action => "$field value added: '$value'"
+							};
+						} else {
+							push @history, {
+								isolate_id => $isolate_id,
+								action => "$field: '$old_value' -> '$value'"
+							};
+						}
 					}
 				}
 			}
 		}
 		$td = $td == 1 ? 2 : 1;
 	}
+	$self->{'submissionHandler'}->cleanup_validation_rules;
 	if ($nochange) {
-		say q(<p>No changes to be made.</p>);
+		$self->print_bad_status(
+			{
+				message => q(No changes to be made.),
+				detail  => q(No changes have been made!),
+			}
+		);
 	} else {
-		say q(<table class="resultstable"><tr><th>Condition</th><th>Field</th>)
-		  . qq(<th>New value</th><th>Status</th></tr>$tablebuffer</table>);
+		if ($error) {
+			$self->print_bad_status(
+				{
+					message => q(Database changes rolled back due to errors.),
+					detail  => q(No changes have been made!),
+				}
+			);
+			$self->{'db'}->rollback;
+		} else {
+			$self->print_good_status(
+				{
+					message => q(Database updated.)
+				}
+			);
+			$self->{'db'}->commit;
+			foreach my $update (@history){
+				$self->update_history( $update->{'isolate_id'}, $update->{'action'});
+			}
+		}
+		say q(<div class="box" id="resultstable">);
+		say q(<h2>Updates</h2>);
+		say q(<table class="resultstable" style="margin-bottom:1em"><tr><th>Condition</th><th>Field</th>)
+		  . qq(<th>New value</th><th>Status</th><th>Comments</th></tr>$tablebuffer</table>);
+		$self->print_navigation_bar( { back_page => 'batchIsolateUpdate' } );
+		say q(</div>);
 	}
-	$self->print_navigation_bar( { back_page => 'batchIsolateUpdate' } );
 	return;
+}
+
+sub _run_validation_checks {
+	my ( $self, $isolate_id ) = @_;
+	my $fields     = $self->{'xmlHandler'}->get_field_list;
+	my $eav_fields = $self->{'datastore'}->get_eav_fieldnames;
+	my $new_data   = {};
+	my $prov_data =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id, { fetch => 'row_hashref' } );
+	foreach my $field (@$fields) {
+		$new_data->{$field} = $prov_data->{ lc($field) };
+	}
+	foreach my $field (@$eav_fields) {
+		$new_data->{$field} = $self->{'datastore'}->get_eav_field_value( $isolate_id, $field );
+	}
+	my $validation_failures = $self->{'submissionHandler'}->run_validation_checks($new_data);
+	return $validation_failures;
 }
 
 sub _list_to_string {
