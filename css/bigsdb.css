@@ -1,4 +1,4 @@
-/*Version: 20200529*/
+/*Version: 20200608*/
 body,form,input,th,td,div {margin-top:0;margin-bottom:0;padding-bottom:0;padding-top:0}
 select{margin:0}
 p {margin:0 0 1em 0;padding:0}
@@ -738,6 +738,8 @@ div.expand_link span {
 	text-shadow: 3px 3px 3px #999;
 	cursor:pointer
 }
+
+div.igv-navbar {overflow-x:hidden}
 
 div.flags {line-height:2em;margin-bottom:0.5em}
 div.flags a {text-decoration:none}

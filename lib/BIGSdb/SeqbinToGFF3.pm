@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Page);
+use BIGSdb::Constants qw(LOCUS_TYPES);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -71,13 +72,26 @@ sub _write_gff3 {
 		$lengths{$seqbin_id} = length $seq->{'sequence'};
 	}
 	say q(##gff-version 3);
+	my %valid_type;
+	my @locus_types = ( 'miscellaneous', LOCUS_TYPES );
+	foreach my $type (@locus_types) {
+		$type =~ s/\s/_/gx;
+		$valid_type{$type} = 1;
+	}
+	my $type_clause   = q();
+	my $selected_type = $q->param('type') // q();
+	if ( $valid_type{$selected_type} ) {
+		( my $type = $selected_type ) =~ s/_/ /gx;
+		$type_clause = $type eq 'miscellaneous' ? q( AND locus_type IS NULL) : qq( AND locus_type='$type');
+	}
 	my $set_id = $self->get_set_id;
 	my $set_clause =
 	  $set_id
 	  ? 'AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes '
 	  . "WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
 	  : '';
-	my $qry = "SELECT * FROM allele_sequences WHERE seqbin_id=? $set_clause ORDER BY start_pos";
+	my $qry = 'SELECT * FROM allele_sequences s JOIN loci l ON s.locus=l.id WHERE seqbin_id=? '
+	  . "$set_clause$type_clause ORDER BY start_pos";
 	foreach my $seqbin_id (@$seqbin_ids) {
 		say qq(##sequence-region $seqbin_id 1 $lengths{$seqbin_id});
 		my $allele_sequences =

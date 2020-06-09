@@ -23,7 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::IsolateInfoPage);
 use BIGSdb::SeqbinToEMBL;
 use BIGSdb::SeqbinToGFF3;
-use BIGSdb::Constants qw(:interface);
+use BIGSdb::Constants qw(:interface LOCUS_TYPES);
 use JSON;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -142,7 +142,6 @@ sub _print_stats {
 	say q(<div class="grid" style="margin-bottom:0.5em">);
 	say q(<div style="float:left" class="grid-item">);
 	say q(<h2>Contig summary statistics</h2>);
-	
 	say qq(<dl class="data"><dt>Contigs</dt><dd>$seqbin_stats->{'contigs'}</dd>);
 	if ( $seqbin_stats->{'contigs'} > 1 ) {
 		my $n_stats = BIGSdb::Utils::get_N_stats( $seqbin_stats->{'total_length'}, $seqbin_stats->{'lengths'} );
@@ -194,9 +193,51 @@ sub _print_stats {
 	}
 	say q(</div>);
 	say q(<div style="clear:both"></div></div>);
-
 	say q(<div id="igv" class="box"></div>);
 	return;
+}
+
+sub _get_tracks_js {
+	my ( $self, $isolate_id ) = @_;
+	my $locus_types =
+	  $self->{'datastore'}->run_query(
+		'SELECT DISTINCT locus_type FROM loci l JOIN allele_sequences a ON l.id=a.locus WHERE a.isolate_id=?',
+		$isolate_id, { fetch => 'col_arrayref' } );
+	my @palette = ( '#7570b3', '#1b9e77', '#d95f02', '#e7298a', '#66a61e', '#e6ab02', '#a6761d', '#666666' );
+	my @types = ( LOCUS_TYPES, 'miscellaneous', );
+	my %locus_colours;
+	my $no_types_defined = @$locus_types == 1 && !defined $locus_types->[0];
+	if ($no_types_defined) {
+		%locus_colours = ( loci => $palette[0] );
+	} else {
+		for my $i ( 0 .. @types - 1 ) {
+			$locus_colours{ $types[$i] } = $palette[$i];
+		}
+	}
+	my $tracks = [];
+	my @tracks;
+	foreach my $type (@$locus_types) {
+		$type //= $no_types_defined ? 'loci' : 'miscellaneous';
+		( my $type_arg = $type ) =~ s/\s/_/gx;
+		my $type_clause = $type eq 'loci' ? q() : qq(&type=$type_arg);
+		push @tracks, << "TRACKS";
+{
+                name:"$type",
+                type:"annotation", 
+                url:"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=gff&isolate_id=$isolate_id&igv=1$type_clause",
+                format:"gff3",
+                indexed:false,
+                color:"$locus_colours{$type}",
+                removable:false,
+                searchable:true
+             }
+TRACKS
+	}
+	my $buffer = q(tracks: [);
+	local $" = q(             ,);
+	$buffer .= qq(@tracks);
+	$buffer .= q(            ]);
+	return $buffer;
 }
 
 sub get_javascript {
@@ -204,7 +245,9 @@ sub get_javascript {
 	my $q          = $self->{'cgi'};
 	my $isolate_id = $q->param('isolate_id');
 	return if !BIGSdb::Utils::is_int($isolate_id);
+	$self->_get_tracks_js($isolate_id);
 	my $url    = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=seqbin&isolate_id=$isolate_id";
+	my $tracks = $self->_get_tracks_js($isolate_id);
 	my $buffer = << "END";
 \$(function () {
 	var \$grid = \$(".grid").packery({
@@ -342,16 +385,7 @@ sub get_javascript {
   			fastaURL: "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=downloadSeqbin&isolate_id=$isolate_id",
   			indexed: false,
   			showAllChromosomes: true,
-  			tracks: [{
-  				name:"loci",
-  				type:"annotation",
-  				url:"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=gff&isolate_id=$isolate_id&igv=1",
-  				format:"gff3",
-  				indexed:false,
-  				color:"#48f",
-  				removable:false,
-  				searchable:true
-  			}]
+  			$tracks
   		}
 	};
 	igv.createBrowser(igvDiv, options);
