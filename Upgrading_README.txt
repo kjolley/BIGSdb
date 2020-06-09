@@ -32,6 +32,7 @@ Version 1.23: Change of isolate database structure.
 Version 1.24: Change of isolate database structure.
 Version 1.25: Change of isolate database structure.
 Version 1.26: Change of isolate database structure.
+Version 1.27: Change of seqdef and isolate database structures.
 
 Details can be found below.
 
@@ -458,3 +459,11 @@ There are changes to the isolate database. These are needed to facilitate
 bookmarking of isolate queries and for logging of record deletion.
 
 Please run isolatedb_v1.26.sql against isolate databases.
+
+Version 1.27
+------------
+There are changes to the sequence definition and isolate databases. These 
+support categorising loci into different types.
+
+Please run the seqdefdb_v1.27.sql script against sequence definition databases
+and isolatedb_v1.27.sql against isolate databases.

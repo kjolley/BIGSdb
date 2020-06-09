@@ -1,3 +1,7 @@
+v1.27.0: *Support for different locus categories - these show on different 
+          tracks on IGV genome viewer.
+         *Improved formatting of large field values.
+         *Improved handling of sparse field categories.
 v1.26.2: *New database status page, moving summaries from index page. Includes
           D3 charts of submissions for isolates, alleles and profiles.
          *Preview plugin output SVG files in job viewer page.
