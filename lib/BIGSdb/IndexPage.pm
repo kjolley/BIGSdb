@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::StatusPage);
-use BIGSdb::Constants qw(:interface);
+use BIGSdb::Constants qw(:interface :design :login_requirements);
 use BIGSdb::Utils;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -36,7 +36,7 @@ sub set_pref_requirements {
 sub initiate {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	$self->{$_} = 1 foreach qw(jQuery packery cookieconsent noCache);
+	$self->{$_} = 1 foreach qw(jQuery cookieconsent noCache);
 	$self->choose_set;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $set_id = $self->get_set_id;
@@ -51,14 +51,214 @@ sub print_content {
 	my $script_name = $self->{'system'}->{'script_name'};
 	my $q           = $self->{'cgi'};
 	my $desc        = $self->get_db_description;
+	my $max_width = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
+	my $index_panel_max_width = $max_width - 300;
+	say q(<div class="flex_container">);
+	say qq(<div style="max-width:${max_width}px">);
 	say qq(<h1>$desc database</h1>);
 	$self->print_banner;
-	$self->_print_jobs;
+
 	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
 		$self->print_set_section;
 	}
+	say q(</div>);
+	say q(</div>);
+	say q(<div class="flex_container">);
+	say qq(<div id="main_container" class="flex_container" style="max-width:${max_width}px">);
+	say qq(<div class="index_panel" style="max-width:${index_panel_max_width}px">);
 	$self->_print_main_section;
-	$self->_print_plugin_section;
+	say q(</div>);
+	say q(<div class="menu_panel">);
+	$self->_print_main_menu;
+	say q(</div>);
+	say q(</div>);
+	say q(</div>);
+	return;
+}
+
+sub _print_main_menu {
+	my ($self) = @_;
+	$self->_print_login_menu_item;
+	$self->_print_submissions_menu_item;
+	$self->_print_private_data_menu_item;
+	$self->_print_projects_menu_item;
+	$self->_print_downloads_menu_item;
+	$self->_print_plugin_menu_items;
+	$self->_print_options_menu_item;
+	$self->_print_info_menu_item;
+	$self->_print_related_database_menu_item;
+	return;
+}
+
+sub _print_plugin_menu_items {
+	my ($self)       = @_;
+	my $cache_string = $self->get_cache_string;
+	my $url_root     = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}$cache_string&amp;";
+	$self->_print_plugin_menu_item(
+		{
+			sections => [qw(export)],
+			label    => 'EXPORT',
+			icon     => 'fas fa-external-link-alt',
+			href     => "${url_root}page=pluginSummary&amp;category=export"
+		}
+	);
+	$self->_print_plugin_menu_item(
+		{
+			sections => [qw(breakdown analysis third_party)],
+			label    => 'ANALYSIS',
+			icon     => 'fas fa-chart-line',
+			href     => "${url_root}page=pluginSummary&amp;category=analysis"
+		}
+	);
+	return;
+}
+
+sub _print_downloads_menu_item {
+	my ($self) = @_;
+	return if $self->{'system'}->{'dbtype'} ne 'sequences';
+	my $cache_string = $self->get_cache_string;
+	my $url_root     = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}$cache_string&amp;";
+	$self->_print_menu_item(
+		{
+			icon  => 'fas fa-download',
+			label => 'DOWNLOADS',
+			href  => "${url_root}page=downloads"
+		}
+	);
+	return;
+}
+
+sub _print_login_menu_item {
+	my ($self) = @_;
+	my $login_requirement = $self->{'datastore'}->get_login_requirement;
+	return if $login_requirement == NOT_ALLOWED && !$self->{'needs_authentication'};
+	my $user_info       = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $q               = $self->{'cgi'};
+	my $page            = $q->param('page');
+	my $instance_clause = $self->{'instance'} ? qq(db=$self->{'instance'}&amp;) : q();
+	if ( !$user_info && !$self->{'username'} && $login_requirement == OPTIONAL && $page ne 'login' ) {
+		$self->_print_menu_item(
+			{
+				icon  => 'fas fa-sign-in-alt',
+				label => 'LOG IN',
+				href  => "$self->{'system'}->{'script_name'}?${instance_clause}page=login",
+				class => 'menu_item_login'
+			}
+		);
+	}
+	if ( ( $self->{'system'}->{'authentication'} // q() ) eq 'builtin' && $self->{'username'} ) {
+		$self->_print_menu_item(
+			{
+				icon  => 'fas fa-sign-out-alt',
+				label => 'LOG OUT',
+				href  => "$self->{'system'}->{'script_name'}?${instance_clause}page=logout",
+				class => 'menu_item_login',
+				links => [
+					{
+						href => "$self->{'system'}->{'script_name'}?${instance_clause}page=changePassword",
+						text => 'Change password'
+					}
+				]
+			}
+		);
+	}
+	return;
+}
+
+sub _print_plugin_menu_item {
+	my ( $self, $args ) = @_;
+	my ( $label, $icon, $href, $list_number ) = @{$args}{qw (label icon href list_number)};
+	$list_number //= 3;
+	my $cache_string = $self->get_cache_string;
+	my $url_root     = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}$cache_string&amp;";
+	my $set_id       = $self->get_set_id;
+	local $" = q(|);
+	my $sections = qq(@{$args->{'sections'}});
+	my $plugins  = $self->{'pluginManager'}
+	  ->get_appropriate_plugin_names( $sections, $self->{'system'}->{'dbtype'}, undef, { set_id => $set_id } );
+
+	if ( @$plugins <= $list_number ) {
+		my $links = [];
+		my $scheme_data = $self->get_scheme_data( { with_pk => 1 } );
+		foreach my $plugin (@$plugins) {
+			my $att      = $self->{'pluginManager'}->get_plugin_attributes($plugin);
+			my $menuitem = $att->{'menutext'};
+			my $scheme_arg =
+			  (      $self->{'system'}->{'dbtype'} eq 'sequences'
+				  && $att->{'seqdb_type'} eq 'schemes'
+				  && @$scheme_data == 1 )
+			  ? qq(&amp;scheme_id=$scheme_data->[0]->{'id'})
+			  : q();
+			push @$links,
+			  {
+				href => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				  . qq(page=plugin&amp;name=$att->{'module'}$scheme_arg$cache_string),
+				text => $menuitem
+			  };
+		}
+		$self->_print_menu_item(
+			{
+				icon  => $icon,
+				label => $label,
+				links => $links,
+				href  => $href
+			}
+		);
+	} elsif (@$plugins) {
+		$self->_print_menu_item(
+			{
+				icon  => $icon,
+				label => $label,
+				href  => $href
+			}
+		);
+	}
+	return;
+}
+
+sub _print_menu_item {
+	my ( $self, $values ) = @_;
+	my ( $links, $icon, $added_class, $href, $label ) = @{$values}{qw(links icon class href label )};
+	( my $id = $label ) =~ s/\s/_/gx;
+	if ( !$links ) {
+		my $class = 'menu_item';
+		$class .= qq( $added_class) if $added_class;
+		say qq(<a href="$href">);
+		say qq(<div class="$class">);
+		if ($icon) {
+			say qq(<span class="$icon fa-fw fa-pull-left"></span>);
+		}
+		say $label;
+		say q(</div></a>);
+	} else {
+		my $class = $added_class ? qq( $added_class) : q();
+		say q(<div class="multi_menu_item">);
+		if ($href) {
+			say qq(<a href="$href">);
+		}
+		say qq(<div class="multi_menu_link$class">);
+		if ($icon) {
+			say qq(<span class="$icon fa-fw fa-pull-left"></span>);
+		}
+		say $label;
+		say q(</div>);
+		if ($href) {
+			say q(</a>);
+		}
+		say qq(<div id="${id}_trigger" class="multi_menu_trigger$class">);
+		say q(<span class="fas fa-plus"></span>);
+		say q(</div>);
+		say q(</div>);
+		$class .= q(_panel) if $class;
+		say qq(<div id="${id}_panel" class="multi_menu_panel$class">);
+		say q(<ul>);
+
+		foreach my $link (@$links) {
+			say qq(<li><a href="$link->{'href'}">$link->{'text'}</a></li>);
+		}
+		say q(</ul>);
+		say q(</div>);
+	}
 	return;
 }
 
@@ -97,160 +297,131 @@ sub _print_jobs {
 sub get_javascript {
 	my ($self) = @_;
 	return <<"JS";
-\$(document).ready(function() 
-    { 
-    	var \$grid = \$(".grid").packery({
-        	itemSelector: '.grid-item',
-  			gutter: 10,
-        });        
-        \$(window).resize(function() {
-    		delay(function(){
-      			\$grid.packery();
-    		}, 1000);
- 		});
-    }  
-    	
-); 
-var delay = (function(){
-  var timer = 0;
-  return function(callback, ms){
-    clearTimeout (timer);
-    timer = setTimeout(callback, ms);
-  };
-})();
+\$(document).ready(function()   { 
+	\$('.multi_menu_trigger').on('click', function(){
+		var trigger_id = this.id;	
+		var panel_id = trigger_id.replace('_trigger','_panel');
+	  	if (\$("#" + panel_id).css('display') == 'none') {
+	  		\$("#" + panel_id).slideDown();
+	  		\$("#" + trigger_id).html('<span class="fas fa-minus"></span>');
+	    } else {
+	  	    \$("#" + panel_id).slideUp();
+	  	    \$("#" + trigger_id).html('<span class="fas fa-plus"></span>');
+	    }  
+	});	
+}); 
+
+
 JS
 }
 
 sub _print_main_section {
 	my ($self) = @_;
-	say q(<div class="box" id="index"><div class="scrollable"><div class="grid">);
-	my $scheme_data = $self->get_scheme_data( { with_pk => 1 } );
-	$self->_print_query_section($scheme_data);
-	$self->_print_projects_section;
-	$self->_print_download_section($scheme_data);
-	$self->_print_options_section;
-	$self->_print_submissions_section;
-	$self->_print_private_data_section;
-	$self->_print_general_info_section;
-	say q(</div></div></div>);
-	return;
-}
-
-sub _print_query_section {
-	my ( $self, $scheme_data ) = @_;
-	my $system   = $self->{'system'};
-	my $instance = $self->{'instance'};
 
 	#Append to URLs to ensure unique caching.
 	my $cache_string = $self->get_cache_string;
 	my $set_id       = $self->get_set_id;
-	say q(<div style="float:left;margin-right:1em" class="grid-item">);
-	say q(<span class="main_icon fas fa-search fa-3x fa-pull-left"></span>);
-	say q(<h2>Query database</h2><ul class="toplevel">);
-	my $url_root = "$self->{'system'}->{'script_name'}?db=$instance$cache_string&amp;";
-	if ( $system->{'dbtype'} eq 'isolates' ) {
-		say qq(<li><a href="${url_root}page=query">Search or browse database</a></li>);
+	my $url_root     = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}$cache_string&amp;";
+	say q(<h2 style="text-align:center">Query database</h2>);
+	say q(<div class="flex_container">);
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		$self->_print_large_button_link(
+			{
+				title => 'Search database',
+				href  => "${url_root}page=query",
+				text  => 'Browse, search by any criteria, or enter list of attributes.'
+			}
+		);
 		my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id, do_not_order => 1 } );
 		if (@$loci) {
-			say qq(<li><a href="${url_root}page=profiles">Search by combinations of loci (profiles)</a></li>);
+			$self->_print_large_button_link(
+				{
+					title => 'Search by combinations of loci',
+					href  => "${url_root}page=profiles",
+					text  => 'This can include partial matches to find related isolates.'
+				}
+			);
 		}
 		if ( $self->{'username'} ) {
 			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 			my $bookmarks = $self->{'datastore'}
 			  ->run_query( 'SELECT EXISTS(SELECT * FROM bookmarks WHERE user_id=?)', $user_info->{'id'} );
 			if ($bookmarks) {
-				say qq(<li><a href="${url_root}page=bookmarks">Bookmarked queries</a></li>);
+				$self->_print_large_button_link(
+					{
+						title => 'Bookmarks',
+						href  => "${url_root}page=bookmarks",
+						text  => 'Retrieve dataset from bookmarked queries.'
+					}
+				);
 			}
 		}
-	} elsif ( $system->{'dbtype'} eq 'sequences' ) {
-		say qq(<li><a href="${url_root}page=sequenceQuery">Sequence query</a> - )
-		  . q(query an allele sequence or genome.</li>);
-		say qq(<li><a href="${url_root}page=batchSequenceQuery">Batch sequence query</a> - )
-		  . q(query multiple sequences in FASTA format.</li>);
-		say qq(<li><a href="${url_root}page=tableQuery&amp;table=sequences">Sequence attribute search</a> - )
-		  . q(find alleles by matching criteria (all loci together)</li>);
-		say qq(<li><a href="${url_root}page=alleleQuery&amp;table=sequences">Locus-specific sequence attribute )
-		  . q(search</a> - select, analyse and download specific alleles.</li>);
+	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		$self->_print_large_button_link(
+			{
+				title => 'Sequence query',
+				href  => "${url_root}page=sequenceQuery",
+				text  => 'Query a single sequence or whole genome assembly to identify allelic matches.'
+			}
+		);
+		$self->_print_large_button_link(
+			{
+				title => 'Batch sequence query',
+				href  => "${url_root}page=batchSequenceQuery",
+				text  => 'Query multiple independent sequences in FASTA format to identify allelic matches.'
+			}
+		);
+		$self->_print_large_button_link(
+			{
+				title => 'Sequence attribute search',
+				href  => "${url_root}page=sequences",
+				text  => 'Find alleles by matching criteria (all loci together)'
+			}
+		);
+		$self->_print_large_button_link(
+			{
+				title => 'Locus-specific sequence attribute search',
+				href  => "${url_root}page=alleleQuery",
+				text  => 'Select, analyse and download specific alleles from a single locus.'
+			}
+		);
+		my $scheme_data = $self->get_scheme_data( { with_pk => 1 } );
 		if (@$scheme_data) {
 			my $scheme_arg = @$scheme_data == 1 ? "&amp;scheme_id=$scheme_data->[0]->{'id'}" : '';
 			my $scheme_desc = @$scheme_data == 1 ? $scheme_data->[0]->{'name'} : '';
-			say qq(<li><a href="${url_root}page=query$scheme_arg">Search, browse or enter list of )
-			  . qq($scheme_desc profiles</a></li>);
-			say qq(<li><a href="${url_root}page=profiles$scheme_arg">Search by combinations of $scheme_desc )
-			  . q(alleles</a> - including partial matching.</li>);
-			say qq(<li><a href="${url_root}page=batchProfiles$scheme_arg">Batch profile query</a> - )
-			  . qq(lookup $scheme_desc profiles copied from a spreadsheet.</li>);
+			$self->_print_large_button_link(
+				{
+					title => 'Allelic profile query',
+					href  => "${url_root}page=query$scheme_arg",
+					text  => "Search, browse or enter list of $scheme_desc profiles"
+				}
+			);
+			$self->_print_large_button_link(
+				{
+					title => "Search by combinations of $scheme_desc alleles",
+					href  => "${url_root}page=profiles$scheme_arg",
+					text  => 'This can include partial matches to find related profiles.'
+				}
+			);
+			$self->_print_large_button_link(
+				{
+					title => 'Batch profile query',
+					href  => "${url_root}page=batchProfiles$scheme_arg",
+					text  => "Lookup $scheme_desc multiple allelic profiles together."
+				}
+			);
 		}
 	}
-	if ( $self->{'config'}->{'jobs_db'} ) {
-		my $query_html_file = "$self->{'system'}->{'dbase_config_dir'}/$self->{'instance'}/contents/job_query.html";
-		$self->print_file($query_html_file) if -e $query_html_file;
-	}
-	say q(</ul></div>);
+	say q(</div>);
 	return;
 }
 
-sub _print_projects_section {
-	my ($self) = @_;
-	return if $self->{'system'}->{'dbtype'} ne 'isolates';
-	my $cache_string = $self->get_cache_string;
-	my $url_root     = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}$cache_string&amp;";
-	my @list;
-	my $listed_projects =
-	  $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM projects WHERE list AND NOT private)')
-	  ;
-	if ($listed_projects) {
-		push @list, qq(<a href="${url_root}page=projects">Main public projects</a>);
-	}
-	if ( $self->show_user_projects ) {
-		push @list, qq(<a href="${url_root}page=userProjects">Your projects</a>);
-	}
-	return if !@list;
-	say q(<div style="float:left;margin-right:1em" class="grid-item">);
-	say q(<span class="main_icon far fa-list-alt fa-3x fa-pull-left"></span>);
-	say q(<h2>Projects</h2><ul class="toplevel">);
-	local $" = qq(</li>\n<li>);
-	say qq(<li>@list</li>);
-	say q(</ul></div>);
-	return;
-}
-
-sub _print_private_data_section {
-	my ($self) = @_;
-	return if $self->{'system'}->{'dbtype'} ne 'isolates';
-	return if !$self->{'username'};
-	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	return if !$user_info;
-	return if $user_info->{'status'} eq 'user' || !$self->can_modify_table('isolates');
-	my $limit                         = $self->{'datastore'}->get_user_private_isolate_limit( $user_info->{'id'} );
-	my $is_member_of_no_quota_project = $self->{'datastore'}->run_query(
-		'SELECT EXISTS(SELECT * FROM merged_project_users m JOIN projects p '
-		  . 'ON m.project_id=p.id WHERE user_id=? AND modify)',
-		$user_info->{'id'}
-	);
-	return if !$limit && !$is_member_of_no_quota_project;
-	my $total_private = $self->{'datastore'}->run_query(
-		'SELECT COUNT(*) FROM private_isolates pi WHERE user_id=? AND EXISTS(SELECT 1 '
-		  . "FROM $self->{'system'}->{'view'} v WHERE v.id=pi.isolate_id)",
-		$user_info->{'id'}
-	);
-	my $cache_string = $self->get_cache_string;
-	say q(<div style="float:left;margin-right:1em" class="grid-item">);
-
-	if ($total_private) {
-		my $label = $self->_get_label($total_private);
-		say q(<span class="main_icon fas fa-lock fa-3x fa-pull-left"></span>);
-		say q(<span class="fa-stack fa-pull-left" style="margin-left:-2.2em">);
-		say q(<span class="main_icon fas fa-circle fa-stack-2x" style="color:#484"></span>);
-		say qq(<span class="fa fa-stack-1x fa-stack-text">$label</span>);
-		say q(</span>);
-	} else {
-		say q(<span class="main_icon fas fa-lock fa-3x fa-pull-left"></span>);
-	}
-	say q(<h2>Private data</h2><ul class="toplevel">);
-	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}$cache_string&amp;)
-	  . q(page=privateRecords">Upload/manage records</a></li>);
-	say q(</ul></div>);
+sub _print_large_button_link {
+	my ( $self, $values ) = @_;
+	say q(<div class="link_box">);
+	say qq(<h3><a href="$values->{'href'}">$values->{'title'}</a></h3>);
+	say $values->{'text'};
+	say q(</div>);
 	return;
 }
 
@@ -309,26 +480,38 @@ sub _print_download_section {
 	return;
 }
 
-sub _print_options_section {
-	my ($self) = @_;
+sub _print_options_menu_item {
+	my ($self)       = @_;
 	my $cache_string = $self->get_cache_string;
-	say q(<div style="float:left; margin-right:1em" class="grid-item">);
-	say q(<span class="main_icon fas fa-cogs fa-3x fa-pull-left"></span>);
-	say q(<h2>Option settings</h2>);
-	say q(<ul class="toplevel">);
-	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=options$cache_string">)
-	  . q(Set general options</a>);
-	say q( - including isolate table field handling.) if $self->{'system'}->{'dbtype'} eq 'isolates';
-	say q(</li>);
+	my $links        = [
+		{
+			href => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=options$cache_string",
+			text => 'General options'
+		}
+	];
 	my $url_root = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;);
-
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		say q(<li>Set display and query options for )
-		  . qq(<a href="${url_root}table=loci$cache_string">locus</a>, )
-		  . qq(<a href="${url_root}table=schemes$cache_string">schemes</a> or )
-		  . qq(<a href="${url_root}table=scheme_fields$cache_string">scheme fields</a>.</li>);
+		push @$links,
+		  {
+			href => "${url_root}table=loci$cache_string",
+			text => 'Locus display'
+		  };
+		push @$links,
+		  {
+			href => "${url_root}table=schemes$cache_string",
+			text => 'Scheme display'
+		  };
+		push @$links,
+		  {
+			href => "${url_root}table=scheme_fields$cache_string",
+			text => 'Scheme field display'
+		  };
 	} else {
-		say qq(<li><a href="${url_root}table=schemes$cache_string">Scheme options</a></li>);
+		push @$links,
+		  {
+			href => "${url_root}table=schemes$cache_string",
+			text => 'Scheme options'
+		  };
 	}
 	if ( $self->{'system'}->{'authentication'} eq 'builtin' && $self->{'auth_db'} && $self->{'username'} ) {
 		my $user_db_name = $self->{'datastore'}->run_query(
@@ -343,15 +526,25 @@ sub _print_options_section {
 			{ db => $self->{'auth_db'} }
 		);
 		if ($clients_authorized) {
-			say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . q(page=authorizeClient&amp;modify=1">View/modify client software permissions</a></li>);
+			push @$links,
+			  {
+				href =>
+				  "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=authorizeClient&amp;modify=1",
+				text => 'View/modify client software permissions'
+			  };
 		}
 	}
-	say q(</ul></div>);
+	$self->_print_menu_item(
+		{
+			icon  => 'fas fa-cog',
+			label => 'CUSTOMISE',
+			links => $links,
+		}
+	);
 	return;
 }
 
-sub _print_submissions_section {
+sub _print_submissions_menu_item {
 	my ($self) = @_;
 	return
 	  if $self->{'config'}->{'disable_updates'}
@@ -361,25 +554,174 @@ sub _print_submissions_section {
 		$logger->error('Submission directory is not configured in bigsdb.conf.');
 		return;
 	}
-	my $pending_submissions = $self->_get_pending_submission_count;
-	say q(<div style="float:left; margin-right:1em" class="grid-item">);
-	if ($pending_submissions) {
-		say q(<span class="main_icon fas fa-upload fa-3x fa-pull-left"></span>);
-		$pending_submissions = '99+' if $pending_submissions > 99;
-		say q(<span class="fa-stack fa-pull-left" style="margin-left:-2.2em">);
-		say q(<span class="main_icon fas fa-circle fa-stack-2x" style="color:#d44"></span>);
-		say qq(<span class="fa fa-stack-1x fa-stack-text">$pending_submissions</span>);
-		say q(</span>);
-	} else {
-		say q(<span class="main_icon fas fa-upload fa-3x fa-pull-left"></span>);
-	}
-	say q(<h2>Submissions</h2><ul class="toplevel">);
 	my $set_id = $self->get_set_id // 0;
 	my $set_string =
 	  ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ? qq(&amp;choose_set=1&amp;sets_list=$set_id) : q();
-	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit$set_string">)
-	  . q(Manage submissions</a></li>);
-	say q(</ul></div>);
+	my $pending_submissions = $self->_get_pending_submission_count;
+	my $number_icon         = q();
+	if ($pending_submissions) {
+		$pending_submissions = '99+' if $pending_submissions > 99;
+		$number_icon .= q(<span class="fa-stack" style="font-size:0.7em;margin:-0.5em 0 -0.2em 0.5em">);
+		$number_icon .= q(<span class="fas fa-circle fa-stack-2x" style="color:#d44"></span>);
+		$number_icon .= qq(<span class="fa fa-stack-1x fa-stack-text">$pending_submissions</span>);
+		$number_icon .= q(</span>);
+	}
+	$self->_print_menu_item(
+		{
+			icon  => 'fas fa-upload',
+			label => "SUBMISSIONS $number_icon",
+			href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit$set_string"
+		}
+	);
+	return;
+}
+
+sub _print_projects_menu_item {
+	my ($self) = @_;
+	return if $self->{'system'}->{'dbtype'} ne 'isolates';
+	my $cache_string = $self->get_cache_string;
+	my $url_root     = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}$cache_string&amp;";
+	my $listed_projects =
+	  $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM projects WHERE list AND NOT private)');
+	my $links = [];
+	if ($listed_projects) {
+		push @$links,
+		  {
+			href => "${url_root}page=projects",
+			text => 'Public projects'
+		  };
+	}
+	if ( $self->show_user_projects ) {
+		push @$links,
+		  {
+			href => "${url_root}page=userProjects",
+			text => 'Your projects'
+		  };
+	}
+	return if !@$links;
+	if ( @$links == 1 ) {
+		$self->_print_menu_item(
+			{
+				icon  => 'fas fa-list-alt',
+				label => uc( $links->[0]->{'text'} ),
+				href  => $links->[0]->{'href'}
+			}
+		);
+	} else {
+		$self->_print_menu_item(
+			{
+				icon  => 'fas fa-list-alt',
+				label => 'PROJECTS',
+				links => $links
+			}
+		);
+	}
+	return;
+}
+
+sub _print_private_data_menu_item {
+	my ($self) = @_;
+	return if $self->{'system'}->{'dbtype'} ne 'isolates';
+	return if !$self->{'username'};
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	return if !$user_info;
+	return if $user_info->{'status'} eq 'user' || !$self->can_modify_table('isolates');
+	my $limit                         = $self->{'datastore'}->get_user_private_isolate_limit( $user_info->{'id'} );
+	my $is_member_of_no_quota_project = $self->{'datastore'}->run_query(
+		'SELECT EXISTS(SELECT * FROM merged_project_users m JOIN projects p '
+		  . 'ON m.project_id=p.id WHERE user_id=? AND modify)',
+		$user_info->{'id'}
+	);
+	return if !$limit && !$is_member_of_no_quota_project;
+	my $total_private = $self->{'datastore'}->run_query(
+		'SELECT COUNT(*) FROM private_isolates pi WHERE user_id=? AND EXISTS(SELECT 1 '
+		  . "FROM $self->{'system'}->{'view'} v WHERE v.id=pi.isolate_id)",
+		$user_info->{'id'}
+	);
+	my $cache_string = $self->get_cache_string;
+	my $number_icon  = q();
+
+	if ($total_private) {
+		my $label = $self->_get_label($total_private);
+		$number_icon .= q(<span class="fa-stack" style="font-size:0.7em;margin:-0.5em 0 -0.2em 0.5em">);
+		$number_icon .= q(<span class="fas fa-circle fa-stack-2x" style="color:#484"></span>);
+		$number_icon .= qq(<span class="fa fa-stack-1x fa-stack-text">$label</span>);
+	}
+	$self->_print_menu_item(
+		{
+			icon  => 'fas fa-lock',
+			label => "PRIVATE DATA $number_icon",
+			href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}$cache_string&amp;page=privateRecords"
+		}
+	);
+	return;
+}
+
+sub _print_info_menu_item {
+	my ($self)       = @_;
+	my $cache_string = $self->get_cache_string;
+	my $links        = [
+		{
+			href => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=version",
+			text => 'About BIGSdb'
+		},
+		{
+			href => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=status$cache_string",
+			text => 'Database status'
+		}
+	];
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		my $plugins = $self->{'pluginManager'}->get_installed_plugins;
+		if ( $plugins->{'DatabaseFields'} ) {
+			push @$links,
+			  {
+				href =>
+				  "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=DatabaseFields",
+				text => 'Description of database fields'
+			  };
+		}
+	}
+	$self->_print_menu_item(
+		{
+			icon  => 'fas fa-info-circle',
+			label => 'INFORMATION',
+			links => $links
+		}
+	);
+	return;
+}
+
+sub _print_related_database_menu_item {
+	my ($self) = @_;
+	return if !$self->{'system'}->{'related_databases'};
+	my @dbases = split /;/x, $self->{'system'}->{'related_databases'};
+	return if !@dbases;
+	my $links = [];
+	foreach my $dbase (@dbases) {
+		my ( $config, $name ) = split /\|/x, $dbase;
+		push @$links,
+		  {
+			href => "$self->{'system'}->{'script_name'}?db=$config",
+			text => $name
+		  };
+	}
+	if ( @$links > 1 ) {
+		$self->_print_menu_item(
+			{
+				icon  => 'fas fa-database',
+				label => 'DATABASES',
+				links => $links
+			}
+		);
+	} else {
+		$self->_print_menu_item(
+			{
+				icon  => 'fas fa-database',
+				label => uc( $links->[0]->{'text'} ),
+				href  => $links->[0]->{'href'}
+			}
+		);
+	}
 	return;
 }
 
@@ -424,22 +766,6 @@ sub _get_pending_submission_count {
 		}
 		return $count;
 	}
-}
-
-sub _print_general_info_section {
-	my ($self) = @_;
-	say q(<div style="float:left; margin-right:1em" class="grid-item">);
-	say q(<span class="main_icon fas fa-info-circle fa-3x fa-pull-left"></span>);
-	say q(<h2>General information</h2><ul class="toplevel">);
-	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=version">)
-	  . q(About BIGSdb</a></li>);
-	my $cache_string = $self->get_cache_string;
-	say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=status$cache_string">)
-	  . q(Database status</a></li>);
-	my $max_date = $self->get_last_update;
-	say qq(<li>Last updated: $max_date</li>) if $max_date;
-	say q(</ul></div>);
-	return;
 }
 
 sub _print_plugin_section {

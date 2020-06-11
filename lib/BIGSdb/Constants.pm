@@ -26,6 +26,12 @@ our %EXPORT_TAGS;
 use constant DEFAULT_DOMAIN => 'pubmlst.org';
 push @EXPORT_OK, qw(DEFAULT_DOMAIN);
 
+#Design
+use constant PAGE_MAX_WIDTH => 1400;
+my @values = qw(PAGE_MAX_WIDTH);
+push @EXPORT_OK, @values;
+$EXPORT_TAGS{'design'} = [@values];
+
 #Limits
 use constant MAX_SPLITS_TAXA           => 150;
 use constant MAX_MUSCLE_MB             => 4 * 1024;    #4GB
@@ -34,7 +40,7 @@ use constant MAX_EAV_FIELD_LIST        => 100;
 use constant MAX_LOCUS_ORDER_BY        => 2000;
 use constant MAX_LOCI_NON_CACHE_SCHEME => 30;
 use constant MIN_CONTIG_LENGTH         => 100;
-my @values = qw(MAX_SPLITS_TAXA MAX_MUSCLE_MB MAX_ISOLATES_DROPDOWN MAX_EAV_FIELD_LIST
+@values = qw(MAX_SPLITS_TAXA MAX_MUSCLE_MB MAX_ISOLATES_DROPDOWN MAX_EAV_FIELD_LIST
   MAX_LOCUS_ORDER_BY MAX_LOCI_NON_CACHE_SCHEME MIN_CONTIG_LENGTH);
 push @EXPORT_OK, @values;
 $EXPORT_TAGS{'limits'} = [@values];

@@ -530,7 +530,7 @@ sub print_page_content {
 
 		if ( $self->{'system'}->{'db'} && $self->{'instance'} ) {
 			$self->_print_header;
-			$self->_print_login_details;
+#			$self->_print_login_details;
 			$self->_print_menu;
 			$self->_print_help_panel;
 			$self->print_content;
