@@ -65,7 +65,7 @@ sub print_content {
 	if ( $self->{'error'} eq 'unknown' ) {
 		my $function = $self->{'cgi'}->param('page');
 		say q(<span class="warning_icon far fa-thumbs-down fa-5x fa-pull-left"></span><h2>Oops ...</h2>)
-		  . qq(<p>Unknown function '$function' requested - either an incorrect link brought you )
+		  . q(<p>Unknown function requested - either an incorrect link brought you )
 		  . q(here or this functionality has not been implemented yet!</p>);
 		$logger->info(qq(Unknown function '$function' specified in URL));
 	} elsif ( $error{ $self->{'error'} } ) {

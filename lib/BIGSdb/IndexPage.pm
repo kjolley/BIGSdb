@@ -53,8 +53,11 @@ sub print_content {
 	my $desc        = $self->get_db_description;
 	my $max_width = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
 	my $index_panel_max_width = $max_width - 300;
-	say q(<div class="flex_container">);
-	say qq(<div style="max-width:${max_width}px">);
+	my $title_max_width = $max_width - 15;
+	say q(<div class="flex_container" style="flex-direction:column;align-items:center">);
+	say q(<div>);
+	say qq(<div style="width:95vw;max-width:${title_max_width}px"></div>);
+	say qq(<div id="title_container" style="max-width:${title_max_width}px">);
 	say qq(<h1>$desc database</h1>);
 	$self->print_banner;
 
@@ -62,14 +65,13 @@ sub print_content {
 		$self->print_set_section;
 	}
 	say q(</div>);
-	say q(</div>);
-	say q(<div class="flex_container">);
 	say qq(<div id="main_container" class="flex_container" style="max-width:${max_width}px">);
 	say qq(<div class="index_panel" style="max-width:${index_panel_max_width}px">);
 	$self->_print_main_section;
 	say q(</div>);
 	say q(<div class="menu_panel">);
 	$self->_print_main_menu;
+	say q(</div>);
 	say q(</div>);
 	say q(</div>);
 	say q(</div>);
@@ -323,7 +325,7 @@ sub _print_main_section {
 	my $set_id       = $self->get_set_id;
 	my $url_root     = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}$cache_string&amp;";
 	say q(<h2 style="text-align:center">Query database</h2>);
-	say q(<div class="flex_container">);
+	say qq(<div class="flex_container index_panel_$self->{'system'}->{'dbtype'}">);
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$self->_print_large_button_link(
 			{
