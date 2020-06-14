@@ -1,10 +1,31 @@
 /*Version: 20200608*/
+@font-face {
+    font-family: 'tinosregular';
+    src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
+         url('/webfonts/tinos-regular-webfont.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+}
+@font-face {
+    font-family: 'pt_sansregular';
+    src: url('/webfonts/pts55f-webfont.woff2') format('woff2'),
+         url('/webfonts/pts55f-webfont.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+}
+@font-face {
+    font-family: 'pt_sansbold';
+    src: url('/webfonts/pts75f-webfont.woff2') format('woff2'),
+         url('/webfonts/pts75f-webfont.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+}
 body,form,input,th,td,div {margin-top:0;margin-bottom:0;padding-bottom:0;padding-top:0}
 select{margin:0}
 p {margin:0 0 1em 0;padding:0}
 
 body {
-	font:1em/120% Arial,Helvetica,sans-serif;
+	font:1em/120% pt_sansregular,sans-serif;
 	background:#fffeff;
 	color:#000;
 	margin-left:3px;
@@ -12,20 +33,24 @@ body {
 }
 
 h1 {
-	font-family:"Palatino Linotype", "Book Antiqua", Palatino, serif;
+	font-family:tinosregular,serif;
+	font-weight:400;
+	font-size:2.3em;
 	color:#1f3856;
 	line-height: 110%;
 }
 
 h2 {
-	font-family:"Palatino Linotype", "Book Antiqua", Palatino, serif;
+	font-family:tinosregular,serif;
+	font-weight:400;
+	font-size:1.6em;
 	color:#1f3856;
 }
 h2 a {text-decoration:none;border-bottom:1px #606060 dotted}
 h2 a:hover {text-decoration:none;border-bottom:1px black solid}
 
 h3 {
-	font: 600 1.15em Arial,Helvetica,sans-serif;
+	font: 400 1.15em pt_sansbold,sans-serif;
 	color: #8080a0;
 } 
 h4,h5,h6 {font: 1em Arial,Helvetica,sans-serif}
@@ -379,12 +404,15 @@ div.index_panel_isolates a.link_box {
 	min-width:75%;
 }
 @media only screen and (max-width:1040px){
-div.index_panel_sequences a.link_box {
-	min-width:75%;
-}
+	div.index_panel_sequences a.link_box {
+		min-width:75%;
+	}
 }
 
 div.menu_panel {
+	font-family:pt_sansbold,sans-serif;	
+	font-weight:400;
+	
 	margin:0.4em;
 	width:250px;
 	flex-direction:column;
@@ -397,11 +425,11 @@ div.menu_panel a:hover {
 
 div.menu_item {
 	cursor:pointer;
+	font-size:1.2em;
+	letter-spacing:1.2px;
 	background:#d0e1f4;
 	color:#2779a8;
-	padding:0.8em;
-	font-size:1.2em;
-	font-weight:600;
+	padding:0.8em;	
 	border-radius:10px;
 	margin-bottom:0.8em;
 }
@@ -409,6 +437,7 @@ div.menu_item {
 div.multi_menu_item {
 	display:flex;
 	font-size:1.2em;
+	letter-spacing:1.2px;
 	margin-bottom:0.8em;
 }
 
@@ -420,7 +449,6 @@ div.multi_menu_link {
 	background:#d0e1f4;
 	color:#2779a8;
 	padding:0.8em;
-	font-weight:600;
 	margin-right:5px;
 	border-radius:10px 0 0 10px;
 	flex:1
@@ -455,6 +483,7 @@ a div.menu_item_jobs:hover,div.menu_item_jobs:hover {
 }
 
 div.multi_menu_panel {
+	font-family:pt_sansregular,sans-serif;
 	display:none;
 	margin-top:-10px;
 	background:#e7f2fe;
@@ -487,20 +516,20 @@ a.link_box {
 	padding:0.5em;
 	background:#fffeff;
 	color:#455870;
+	min-width:270px;
 	width:270px;
 	height:150px;
 	border-radius:10px;
 	margin:0.5em;
 	padding:0 1em;
-	text-decoration:none
+	text-decoration:none;
 }
 a.link_box h3 {
 	color:#455870;
-	text-decoration:underline
+	text-decoration:underline;
+	text-underline-offset:2px;
 }
-a.link_box h3:hover {
-	color:#8b5292
-}
+
 a.link_box:hover {
 	background:#eee3ef;
 }
