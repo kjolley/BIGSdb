@@ -378,6 +378,11 @@ div.index_panel_isolates  {
 div.index_panel_isolates a.link_box {
 	min-width:75%;
 }
+@media only screen and (max-width:1040px){
+div.index_panel_sequences a.link_box {
+	min-width:75%;
+}
+}
 
 div.menu_panel {
 	margin:0.4em;
@@ -448,7 +453,6 @@ div.menu_item_jobs {
 a div.menu_item_jobs:hover,div.menu_item_jobs:hover {
 	background:#f1aa3e;
 }
-
 
 div.multi_menu_panel {
 	display:none;
