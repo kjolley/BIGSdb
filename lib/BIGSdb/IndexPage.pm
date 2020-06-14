@@ -50,7 +50,7 @@ sub print_content {
 	my ($self)      = @_;
 	my $script_name = $self->{'system'}->{'script_name'};
 	my $q           = $self->{'cgi'};
-	my $desc        = $self->get_db_description;
+	my $desc = $self->get_db_description( { formatted => 1 } );
 	my $max_width             = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
 	my $index_panel_max_width = $max_width - 300;
 	my $title_max_width       = $max_width - 15;
@@ -290,6 +290,7 @@ sub _print_jobs_menu_item {
 		}
 	);
 }
+
 sub get_javascript {
 	my ($self) = @_;
 	return <<"JS";

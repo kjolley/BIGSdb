@@ -530,7 +530,8 @@ sub print_page_content {
 
 		if ( $self->{'system'}->{'db'} && $self->{'instance'} ) {
 			$self->_print_header;
-#			$self->_print_login_details;
+
+			#			$self->_print_login_details;
 			$self->_print_menu;
 			$self->_print_help_panel;
 			$self->print_content;
@@ -1664,8 +1665,17 @@ sub extract_scheme_desc {
 }
 
 sub get_db_description {
-	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'};
+	my ( $self, $options ) = @_;
+	my $desc;
+
+	#Simple conversion of markdown (bold and italics) to HTML.
+	if ( $options->{'formatted'} ) {
+		$desc = $self->{'system'}->{'formatted_description'} // $self->{'system'}->{'description'};
+		$desc =~ s/\*\*(.*?)\*\*/<strong>$1\<\/strong>/gx;
+		$desc =~ s/\*(.*?)\*/<em>$1\<\/em>/gx;
+	} else {
+		$desc = $self->{'system'}->{'description'};
+	}
 	return $desc if $self->{'system'}->{'sets'} && $self->{'system'}->{'set_id'};
 	my $set_id = $self->get_set_id;
 	if ($set_id) {

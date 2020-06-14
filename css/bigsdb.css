@@ -54,6 +54,11 @@ h3 {
 	color: #8080a0;
 } 
 h4,h5,h6 {font: 1em Arial,Helvetica,sans-serif}
+
+@media only screen and (max-width:800px){
+	h1 {font-size:2em}
+	h2 {font-size:1.4em}
+}
 ul {list-style:disc}
 ul.toplevel {margin-left:8px}
 div.listpanel {padding:1em 1em 0 2em}
@@ -527,7 +532,7 @@ a.link_box {
 a.link_box h3 {
 	color:#455870;
 	text-decoration:underline;
-	text-underline-offset:2px;
+	text-underline-offset:0.1em;
 }
 
 a.link_box:hover {
