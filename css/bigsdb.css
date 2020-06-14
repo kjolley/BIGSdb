@@ -375,7 +375,7 @@ div.index_panel_isolates  {
 	flex-direction:column;
 	align-items:center;
 }
-div.index_panel_isolates div.link_box {
+div.index_panel_isolates a.link_box {
 	min-width:75%;
 }
 
@@ -434,12 +434,19 @@ div.menu_item:hover, a div.multi_menu_link:hover, div.multi_menu_trigger:hover{
 	color:#fffeff;
 }
 div.menu_item_login {
-	background:#ede4f1;
-	color:#885595;
+	background:#eee3ef;
+	color:#8b5292;
 }
 a div.menu_item_login:hover,div.menu_item_login:hover {
-	background:#885595;
-	color:#ffffff;
+	background:#8b5292;
+	color:#fffeff;
+}
+div.menu_item_jobs {
+	background:#f9ddaa;
+	color:#455870;
+}
+a div.menu_item_jobs:hover,div.menu_item_jobs:hover {
+	background:#f1aa3e;
 }
 
 
@@ -471,22 +478,29 @@ div.menu_item_login_panel a {
 	color:#885595;
 }
 
-div.link_box {
+a.link_box {
+	display:block;
 	padding:0.5em;
 	background:#fffeff;
+	color:#455870;
 	width:270px;
 	height:150px;
 	border-radius:10px;
 	margin:0.5em;
 	padding:0 1em;
+	text-decoration:none
 }
-div.link_box h3 a{
-	color:#2779a8
+a.link_box h3 {
+	color:#455870;
+	text-decoration:underline
 }
-div.link_box h3 a:hover {
-	text-decoration:none;
+a.link_box h3:hover {
 	color:#8b5292
 }
+a.link_box:hover {
+	background:#eee3ef;
+}
+
 
 
 div.embed_c3_chart {
@@ -697,7 +711,7 @@ div#alleles table {border-spacing:1px}
 div.scrollable {overflow-x:auto;padding-top:0.2em}
 div#resultstable p.comment {font-size:0.95em}
 div#abstract {background:#d5d5e0}
-div#banner {background:#d5d5d5;padding:10px 10px 1px 10px;color:#006}
+div#banner {background:#e2e5e9;padding:10px 10px 1px 10px;color:#006}
 div#pluginbanner {background:#dde;padding:10px 10px 1px 10px;color:#006}
 div#plugins {background-image: linear-gradient(#d8d8e0, #e0e0e8)}
 div#message {background:#e0d5d5}

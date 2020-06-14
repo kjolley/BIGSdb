@@ -51,9 +51,9 @@ sub print_content {
 	my $script_name = $self->{'system'}->{'script_name'};
 	my $q           = $self->{'cgi'};
 	my $desc        = $self->get_db_description;
-	my $max_width = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
+	my $max_width             = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
 	my $index_panel_max_width = $max_width - 300;
-	my $title_max_width = $max_width - 15;
+	my $title_max_width       = $max_width - 15;
 	say q(<div class="flex_container" style="flex-direction:column;align-items:center">);
 	say q(<div>);
 	say qq(<div style="width:95vw;max-width:${title_max_width}px"></div>);
@@ -89,6 +89,7 @@ sub _print_main_menu {
 	$self->_print_options_menu_item;
 	$self->_print_info_menu_item;
 	$self->_print_related_database_menu_item;
+	$self->_print_jobs_menu_item;
 	return;
 }
 
@@ -264,38 +265,31 @@ sub _print_menu_item {
 	return;
 }
 
-sub _print_jobs {
+sub _print_jobs_menu_item {
 	my ($self) = @_;
 	return if !$self->{'system'}->{'read_access'} eq 'public' || !$self->{'config'}->{'jobs_db'};
 	return if !defined $self->{'username'};
 	my $days = $self->{'config'}->{'results_deleted_days'} // 7;
 	my $jobs = $self->{'jobManager'}->get_user_jobs( $self->{'instance'}, $self->{'username'}, $days );
 	return if !@$jobs;
-	my %status_counts;
-	$status_counts{ $_->{'status'} }++ foreach @$jobs;
-	my $days_plural = $days == 1  ? '' : 's';
-	my $jobs_plural = @$jobs == 1 ? '' : 's';
-	say q(<div class="box" id="jobs">);
-	say q(<span class="job_icon fas fa-briefcase fa-3x fa-pull-left"></span>);
-	say q(<h2>Jobs</h2>);
-	say q(<p>You have submitted or run )
-	  . @$jobs
-	  . qq( offline job$jobs_plural in the past )
-	  . ( $days_plural ? $days : '' )
-	  . qq( day$days_plural. )
-	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=jobs">Show jobs</a></p>);
-	my %replace = ( started => 'running', submitted => 'queued' );
-	my @breakdown;
-
-	foreach my $status (qw (started submitted finished failed cancelled terminated)) {
-		push @breakdown, ( $replace{$status} // $status ) . ": $status_counts{$status}" if $status_counts{$status};
+	my $job_count   = @$jobs;
+	my $number_icon = q();
+	if ($job_count) {
+		$job_count = '99+' if $job_count > 99;
+		$number_icon .= q(<span class="fa-stack" style="font-size:0.7em;margin:-0.5em 0 -0.2em 0.5em">);
+		$number_icon .= q(<span class="fas fa-circle fa-stack-2x" style="color:#d44"></span>);
+		$number_icon .= qq(<span class="fa fa-stack-1x fa-stack-text">$job_count</span>);
+		$number_icon .= q(</span>);
 	}
-	local $" = '; ';
-	say qq(<p>@breakdown</p>);
-	say q(</div>);
-	return;
+	$self->_print_menu_item(
+		{
+			icon  => 'fas fa-briefcase',
+			label => "JOBS $number_icon",
+			href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=jobs",
+			class => 'menu_item_jobs'
+		}
+	);
 }
-
 sub get_javascript {
 	my ($self) = @_;
 	return <<"JS";
@@ -420,10 +414,10 @@ sub _print_main_section {
 
 sub _print_large_button_link {
 	my ( $self, $values ) = @_;
-	say q(<div class="link_box">);
-	say qq(<h3><a href="$values->{'href'}">$values->{'title'}</a></h3>);
+	say qq(<a class="link_box" href="$values->{'href'}">);
+	say qq(<h3>$values->{'title'}</h3>);
 	say $values->{'text'};
-	say q(</div>);
+	say q(</a>);
 	return;
 }
 
