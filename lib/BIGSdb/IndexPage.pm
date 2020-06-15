@@ -431,7 +431,7 @@ sub _print_main_section {
 				{
 					title => 'Batch profile query',
 					href  => "${url_root}page=batchProfiles$scheme_arg",
-					text  => "Lookup $scheme_desc multiple allelic profiles together."
+					text  => "Lookup multiple $scheme_desc allelic profiles together."
 				}
 			);
 		}

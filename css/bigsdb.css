@@ -538,8 +538,9 @@ a.link_box h3 {
 a.link_box:hover {
 	background:#eee3ef;
 }
-
-
+a.link_box:hover h3{
+	color:#8b5292
+}
 
 div.embed_c3_chart {
 	float:left;
