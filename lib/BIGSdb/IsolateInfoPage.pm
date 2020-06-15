@@ -969,7 +969,7 @@ sub _get_web_links {
 	my @values = ref $data->{ lc($field) } ? @{ $data->{ lc($field) } } : ( $data->{ lc($field) } );
 	my @links;
 	my $domain;
-	if ( ( lc( $thisfield->{'web'} ) =~ /http:\/\/(.*?)\/+/x ) ) {
+	if ( ( lc( $thisfield->{'web'} ) =~ /https?:\/\/(.*?)\/+/x ) ) {
 		$domain = $1;
 	}
 	foreach my $value (@values) {
