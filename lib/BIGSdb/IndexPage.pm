@@ -206,7 +206,7 @@ sub _print_plugin_menu_item {
 	my $sections = qq(@{$args->{'sections'}});
 	my $plugins  = $self->{'pluginManager'}
 	  ->get_appropriate_plugin_names( $sections, $self->{'system'}->{'dbtype'}, undef, { set_id => $set_id } );
-
+	return if !@$plugins;
 	if ( @$plugins <= $list_number ) {
 		my $links = [];
 		my $scheme_data = $self->get_scheme_data( { with_pk => 1 } );

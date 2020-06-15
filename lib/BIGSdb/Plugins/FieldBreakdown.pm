@@ -31,21 +31,25 @@ sub get_attributes {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my %att    = (
-		name        => 'Field Breakdown',
-		author      => 'Keith Jolley',
-		affiliation => 'University of Oxford, UK',
-		email       => 'keith.jolley@zoo.ox.ac.uk',
-		description => 'Breakdown of query results by field',
-		category    => 'Breakdown',
-		buttontext  => 'Fields',
-		menutext    => 'Single field',
-		module      => 'FieldBreakdown',
-		version     => '2.2.9',
-		dbtype      => 'isolates',
-		section     => 'breakdown,postquery',
-		url         => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
-		input       => 'query',
-		order       => 10
+		name             => 'Field Breakdown',
+		author           => 'Keith Jolley',
+		affiliation      => 'University of Oxford, UK',
+		email            => 'keith.jolley@zoo.ox.ac.uk',
+		description      => 'Breakdown of query results by field',
+		full_description => 'The field breakdown plugin displays the frequency of each value for fields, '
+		  . 'alleles and schemes. Output is in the form of dynamic charts, maps, and tables. Data can be '
+		  . 'exported as an Excel file, SVG image, or FASTA file.',
+		category   => 'Breakdown',
+		buttontext => 'Fields',
+		menutext   => 'Single field breakdown',
+		module     => 'FieldBreakdown',
+		version    => '2.2.10',
+		dbtype     => 'isolates',
+		section    => 'breakdown,postquery',
+		url        => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
+		input      => 'query',
+		order      => 10,
+		image      => "$self->{'config'}->{'doclink'}/_images/field_breakdown4.png"
 	);
 	return \%att;
 }
@@ -654,9 +658,9 @@ sub _get_field_freqs {
 				next if !defined $value->{'label'};
 				my @sorted_label =
 				  $att->{'type'} ne 'text'
-				  ? sort { $a <=> $b } @{$value->{'label'}}
-				  : sort { $a cmp $b } @{$value->{'label'}};
-				  local $" = q(; );
+				  ? sort { $a <=> $b } @{ $value->{'label'} }
+				  : sort { $a cmp $b } @{ $value->{'label'} };
+				local $" = q(; );
 				my $new_label = qq(@sorted_label);
 				$new_values{$new_label} += $value->{'value'};
 			}

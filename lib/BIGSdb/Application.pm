@@ -56,6 +56,7 @@ use BIGSdb::JobViewerPage;
 use BIGSdb::LocusInfoPage;
 use BIGSdb::Login;
 use BIGSdb::OptionsPage;
+use BIGSdb::PluginSummaryPage;
 use BIGSdb::PrivateRecordsPage;
 use BIGSdb::ProfileInfoPage;
 use BIGSdb::ProfileQueryPage;
@@ -409,6 +410,7 @@ sub print_page {
 		listQuery          => $query_page,
 		locusInfo          => 'LocusInfoPage',
 		options            => 'OptionsPage',
+		pluginSummary      => 'PluginSummaryPage',
 		pubquery           => 'PubQueryPage',
 		query              => $query_page,
 		resetPassword      => 'UserRegistrationPage',

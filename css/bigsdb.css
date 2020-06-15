@@ -541,6 +541,11 @@ a.link_box:hover {
 a.link_box:hover h3{
 	color:#8b5292
 }
+img.plugin_image {
+	width:500px;
+	max-width:100%;
+	margin-bottom:1em
+}
 
 div.embed_c3_chart {
 	float:left;
@@ -743,7 +748,7 @@ div#warning {background:#e0a0a0;color:#000000}
 div#resultsheader, div.resultsheader {background:#d5e0d5;padding:5px}
 div#resultsfooter, div.resultsfooter {background:#d5e0d5;padding:5px}
 div#resultstable, div.resultstable {background:#e0e0e0}
-div#resultspanel, div.resultspanel {background-image: linear-gradient(#f8f8f8,#f0f0f0)}
+div#resultspanel, div.resultspanel {background:#eceef1}
 div#resultspanel li,p,dd {position:relative;z-index:3}
 div#alleles {background:#e0e0f0}
 div#alleles table {border-spacing:1px}

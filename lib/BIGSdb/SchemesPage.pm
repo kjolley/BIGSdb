@@ -40,6 +40,7 @@ sub print_content {
 	say q(<div class="box" id="resultstable">);
 	say q(<p>Schemes are collections of loci. They may be indexed, in which case they have a primary key )
 	  . q(field that identifies unique combinations of alleles. The following schemes are indexed.</p>);
+	say q(<div class="scrollable">);
 	say q(<table class="resultstable">);
 	say q(<tr><th>Name</th><th>Download</th><th>Profiles</th><th>Description</th>)
 	  . q(<th>Curator(s)</th><th>Last updated</th></tr>);
@@ -49,9 +50,10 @@ sub print_content {
 		my $profile_count = BIGSdb::Utils::commify(
 			$self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM profiles WHERE scheme_id=?', $scheme->{'id'} ) );
 		my $desc = $scheme_info->{'description'} // q();
-		my $curators = $self->_get_curator_string($scheme->{'id'});
-		my $updated =$self->{'datastore'}->run_query('SELECT MAX(datestamp) FROM profiles WHERE scheme_id=?',$scheme->{'id'});
-		$updated//=q();
+		my $curators = $self->_get_curator_string( $scheme->{'id'} );
+		my $updated =
+		  $self->{'datastore'}->run_query( 'SELECT MAX(datestamp) FROM profiles WHERE scheme_id=?', $scheme->{'id'} );
+		$updated //= q();
 		say qq(<tr class="td$td"><td>$scheme_info->{'name'}</td>)
 		  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadProfiles&amp;)
 		  . qq(scheme_id=$scheme->{'id'}"><span class="file_icon fas fa-download"></span></a></td>)
@@ -59,7 +61,7 @@ sub print_content {
 		$td = $td == 1 ? 2 : 1;
 	}
 	say q(</table>);
-	say q(</div>);
+	say q(</div></div>);
 	return;
 }
 
@@ -79,7 +81,7 @@ sub _get_curator_string {
 			push @curator_strings, $user_string;
 		}
 	}
-	local $"=q(, );
+	local $" = q(, );
 	return qq(@curator_strings);
 }
 
