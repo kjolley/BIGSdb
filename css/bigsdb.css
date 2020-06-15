@@ -925,7 +925,7 @@ div.igv-navbar {overflow-x:hidden}
 div.flags {line-height:2em;margin-bottom:0.5em}
 div.flags a {text-decoration:none}
 
-table.resultstable {text-align:center;padding:0.1em}
+table.resultstable {text-align:center;padding:0.1em;margin-bottom:1em}
 table.resultstable td,th {padding:0 0.2em}
 table.ajaxtable {border:1px dashed black}
 table.ajaxtable th {background:#eee;color:black}

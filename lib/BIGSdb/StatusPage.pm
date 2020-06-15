@@ -28,7 +28,7 @@ use parent qw(BIGSdb::TreeViewPage);
 sub get_title {
 	my ($self) = @_;
 	my $desc = $self->get_db_description || 'BIGSdb';
-	return "Database status: $desc";
+	return "Database status - $desc";
 }
 
 sub print_content {
@@ -38,9 +38,8 @@ sub print_content {
 		$self->_ajax;
 		return;
 	}
-	my $desc = $self->get_db_description || 'BIGSdb';
 	my $cache_string = $self->get_cache_string;
-	say qq(<h1>Database status: $desc</h1>);
+	say q(<h1>Database status:</h1>);
 	say q(<div class="box" id="resultspanel">);
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		$self->_seqdef_db;

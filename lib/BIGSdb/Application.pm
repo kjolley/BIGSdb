@@ -65,6 +65,7 @@ use BIGSdb::QueryPage;
 use BIGSdb::RecordInfoPage;
 use BIGSdb::RestMonitorPage;
 use BIGSdb::SchemeInfoPage;
+use BIGSdb::SchemesPage;
 use BIGSdb::SeqbinPage;
 use BIGSdb::SequenceQueryPage;
 use BIGSdb::SequenceTranslatePage;
@@ -420,6 +421,7 @@ sub print_page {
 		registration       => 'UserRegistrationPage',
 		restMonitor        => 'RestMonitorPage',
 		schemeInfo         => 'SchemeInfoPage',
+		schemes            => 'SchemesPage',
 		seqbin             => 'SeqbinPage',
 		sequenceQuery      => 'SequenceQueryPage',
 		sequenceTranslate  => 'SequenceTranslatePage',

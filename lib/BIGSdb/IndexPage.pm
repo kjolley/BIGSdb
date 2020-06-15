@@ -38,11 +38,11 @@ sub initiate {
 	my $q = $self->{'cgi'};
 	$self->{$_} = 1 foreach qw(jQuery cookieconsent noCache);
 	$self->choose_set;
-	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		my $set_id = $self->get_set_id;
-		my $scheme_data = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
-		$self->{'tooltips'} = 1 if @$scheme_data > 1;
-	}
+#	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+#		my $set_id = $self->get_set_id;
+#		my $scheme_data = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
+#		$self->{'tooltips'} = 1 if @$scheme_data > 1;
+#	}
 	return;
 }
 
@@ -121,11 +121,38 @@ sub _print_downloads_menu_item {
 	return if $self->{'system'}->{'dbtype'} ne 'sequences';
 	my $cache_string = $self->get_cache_string;
 	my $url_root     = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}$cache_string&amp;";
+	my $links        = [];
+	if ( !( ( $self->{'system'}->{'disable_seq_downloads'} // q() ) eq 'yes' )
+		|| $self->is_admin )
+	{
+		my $group_count = $self->{'datastore'}->run_query('SELECT COUNT(*) FROM scheme_groups');
+		my $tree_clause = $group_count ? q(&amp;tree=1) : q();
+		$links = [
+			{
+				href => "${url_root}page=downloadAlleles$tree_clause",
+				text => 'Allele definitions'
+			}
+		];
+	}
+	my $set_id = $self->get_set_id;
+	my $scheme_data = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
+	if ( @$scheme_data == 1 ) {
+		push @$links,{
+			href=>"${url_root}page=downloadProfiles&amp;scheme_id=$scheme_data->[0]->{'id'}",
+			text=>"$scheme_data->[0]->{'name'} profiles"
+		};
+	} elsif (@$scheme_data > 1){
+		push @$links,{
+			href=>"${url_root}page=schemes",
+			text=>'Allelic profiles'
+		};
+	}
+	return if !@$links;
 	$self->_print_menu_item(
 		{
 			icon  => 'fas fa-download',
 			label => 'DOWNLOADS',
-			href  => "${url_root}page=downloads"
+			links => $links
 		}
 	);
 	return;
@@ -371,7 +398,7 @@ sub _print_main_section {
 		$self->_print_large_button_link(
 			{
 				title => 'Sequence attribute search',
-				href  => "${url_root}page=sequences",
+				href  => "${url_root}page=tableQuery&amp;table=sequences",
 				text  => 'Find alleles by matching criteria (all loci together)'
 			}
 		);
