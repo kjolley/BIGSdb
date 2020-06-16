@@ -988,6 +988,7 @@ sub _get_web_links {
 	}
 	return $web;
 }
+
 sub _get_secondary_metadata_fields {
 	my ( $self, $isolate_id ) = @_;
 	my $buffer = q();
@@ -1098,7 +1099,8 @@ sub _get_field_extended_attributes {
 	my %attributes = map { $_->{'attribute'} => $_->{'value'} } @$attribute_list;
 	if ( keys %attributes ) {
 		my $rows = keys %attributes || 1;
-		foreach my $attribute ( sort { $order{$a} <=> $order{$b} } keys(%attributes) ) {
+		foreach my $attribute ( sort { ( $order{$a} // 0 ) <=> ( $order{$b} // 0 ) } keys(%attributes) )
+		{
 			my $url =
 			  $self->{'datastore'}
 			  ->run_query( 'SELECT url FROM isolate_field_extended_attributes WHERE (isolate_field,attribute)=(?,?)',
