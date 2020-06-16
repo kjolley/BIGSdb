@@ -375,8 +375,11 @@ table.tablesorter tr.total td {background:green;color:white}
 div.content {
 	position:relative;
 	min-width:120px;
-	margin:0
-	padding:0 5px 10px 5px
+	margin:0;
+	padding:0
+}
+div.main_content {
+	padding:0 1em 1em 1em;
 }
 
 div.flex_container {
@@ -747,7 +750,7 @@ div.curategroup_schemes {background-image: linear-gradient(#fff,#cbe)}
 div.curategroup_sets {background-image: linear-gradient(#fff,#bce)}
 div.curategroup_geocoding {background-image: linear-gradient(#fff,#cce)}
 
-div.queryform, div#queryform {background-image: linear-gradient(#e0e0e0, #e8e8e8);z-index:0}
+div.queryform, div#queryform {background:#e8e8e8;z-index:0}
 div#queryform li,p,dd {position:relative;z-index:3}
 div#queryform table {border-collapse:collapse;border-spacing:0}
 div#queryform table.queryform {border-collapse:separate;border-spacing:1px}
@@ -861,14 +864,14 @@ div#logindetails {
 	z-index:4;
 }
 
-div#fieldvalueshelp {
+div#help_panel {
 	background:#ecece9;
-	padding: 0 0.5em;
+	padding: 0.2em 0.5em;
 	float:right;
-	font-size:0.7em;
+	font-size:0.8em;
 	position:absolute;
-	top:3px;
-	right:27px;
+	top:35px;
+	right:0;
 	z-index:3;	
 }
 

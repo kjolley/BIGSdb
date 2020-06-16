@@ -42,6 +42,8 @@ sub initiate {
 		my $value = $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'aq_allele_fieldset' );
 		$self->{'prefs'}->{'aq_allele_fieldset'} = ( $value // '' ) eq 'off' ? 0 : 1;
 	}
+	$self->{$_} = 1 foreach (qw (tooltips jQuery jQuery.coolfieldset jQuery.multiselect));
+	$self->set_level1_breadcrumbs;
 	return;
 }
 
@@ -129,8 +131,8 @@ sub print_content {
 	if ( !$self->{'datastore'}->is_locus($locus) ) {
 		$cleaned_locus = q();
 	}
-	my $desc = $self->get_db_description;
-	say qq(<h1>Query $cleaned_locus sequences - $desc database</h1>);
+	$cleaned_locus = qq( - $cleaned_locus) if $cleaned_locus;
+	say qq(<h1>Sequence attribute search$cleaned_locus</h1>);
 	my $qry;
 	if (   !defined $q->param('currentpage')
 		|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
@@ -768,7 +770,6 @@ sub _highest_entered_fields {
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Allele query - $desc";
+	return 'Sequence attribute search (locus-specific)';
 }
 1;

@@ -87,7 +87,12 @@ sub _get_curator_string {
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->get_db_description || 'BIGSdb';
-	return qq(Scheme profiles - $desc);
+	return q(Download scheme profiles);
+}
+
+sub initiate {
+	my ($self) = @_;
+	$self->set_level1_breadcrumbs;
+	return;
 }
 1;

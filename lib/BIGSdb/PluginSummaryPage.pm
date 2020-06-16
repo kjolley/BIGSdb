@@ -126,7 +126,12 @@ sub _get_sub_cats {
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->get_db_description || 'BIGSdb';
-	return qq(Plugin summary - $desc);
+	return q(Plugin summary);
+}
+
+sub initiate {
+	my ($self) = @_;
+	$self->set_level1_breadcrumbs;
+	return;
 }
 1;

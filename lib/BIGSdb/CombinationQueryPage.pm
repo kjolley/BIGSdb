@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -30,13 +30,13 @@ sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (tooltips jQuery addProjects);
 	$self->{'noCache'} = 1 if ( $self->{'system'}->{'sets'} // '' ) eq 'yes';
+	$self->set_level1_breadcrumbs;
 	return;
 }
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Search database by combinations of scheme loci - $desc";
+	return 'Search by locus combinations';
 }
 
 sub get_help_url {
@@ -59,7 +59,8 @@ sub print_content {
 			$self->publish;
 		}
 	}
-	say qq(<h1>Search $desc database by combinations of loci</h1>);
+	my $title = $self->get_title;
+	say qq(<h1>$title</h1>);
 	if ( ( $self->{'system'}->{'dbtype'} // q() ) eq 'sequences' ) {
 		my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1 } );
 		if ( !@$schemes ) {
@@ -79,7 +80,7 @@ sub print_content {
 		$self->print_scheme_section( { with_pk => $with_pk, all_loci => $all_loci } );
 		$scheme_id = $q->param('scheme_id');                    #Will be set by scheme section method
 		$scheme_id = 0 if !BIGSdb::Utils::is_int($scheme_id);
-		$self->_print_query_interface($scheme_id);
+		$self->_print_interface($scheme_id);
 	}
 	if ( defined $q->param('temp_table_file') ) {
 		my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/" . $q->param('temp_table_file');
@@ -88,7 +89,7 @@ sub print_content {
 			$self->print_bad_status( { message => q(Temporary file does not exist. Please repeat query.) } );
 			$scheme_id = $q->param('scheme_id');                    #Will be set by scheme section method
 			$scheme_id = 0 if !BIGSdb::Utils::is_int($scheme_id);
-			$self->_print_query_interface($scheme_id);
+			$self->_print_interface($scheme_id);
 			return;
 		}
 		$self->{'datastore'}->create_temp_combinations_table_from_file( scalar $q->param('temp_table_file') );
@@ -152,7 +153,7 @@ sub _get_col_width {
 	}
 }
 
-sub _print_query_interface {
+sub _print_interface {
 	my ( $self, $scheme_id ) = @_;
 	my $q = $self->{'cgi'};
 	say q(<div class="box" id="queryform">);

@@ -65,8 +65,7 @@ sub get_help_url {
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return $self->{'curate'} ? "Profile query/update - $desc" : "Search/browse database - $desc";
+	return $self->{'curate'} ? q(Query or update profiles) : q(Search or browse profiles);
 }
 
 sub print_content {
@@ -76,10 +75,8 @@ sub print_content {
 	my $scheme_info;
 	if    ( $q->param('no_header') )    { $self->_ajax_content; return }
 	elsif ( $q->param('save_options') ) { $self->_save_options; return }
-	my $desc = $self->get_db_description;
-	say $self->{'curate'}
-	  ? qq(<h1>Query/update profiles - $desc</h1>)
-	  : qq(<h1>Search or browse profiles - $desc</h1>);
+	my $title = $self->get_title;
+	say qq(<h1>$title</h1>);
 	my $qry;
 	my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1 } );
 
@@ -112,6 +109,7 @@ sub initiate {
 		my $value = $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'scheme_fieldset' );
 		$self->{'prefs'}->{'scheme_fieldset'} = ( $value // '' ) eq 'off' ? 0 : 1;
 	}
+	$self->set_level1_breadcrumbs;
 	return;
 }
 

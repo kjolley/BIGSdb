@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2019, University of Oxford
+#Copyright (c) 2015-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -28,6 +28,7 @@ use constant REQUEST_TOKEN_EXPIRES => 3600;
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (jQuery noCache);
+	$self->set_level1_breadcrumbs;
 	return;
 }
 
@@ -248,7 +249,6 @@ sub _modify_authorization {
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Authorize third-party client - $desc";
+	return 'Authorize third-party client';
 }
 1;

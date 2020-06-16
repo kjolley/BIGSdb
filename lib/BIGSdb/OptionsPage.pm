@@ -27,7 +27,8 @@ use BIGSdb::Constants qw(:interface);
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw(jQuery jQuery.columnizer noCache );
+	$self->{$_} = 1 foreach qw(jQuery jQuery.columnizer noCache);
+	$self->set_level1_breadcrumbs;
 	return;
 }
 
@@ -102,8 +103,7 @@ sub print_content {
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Options - $desc";
+	return 'General options';
 }
 
 sub set_options {

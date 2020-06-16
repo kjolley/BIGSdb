@@ -40,7 +40,7 @@ sub print_content {
 
 sub get_title {
 	my ($self) = @_;
-	return "BIGSdb Version $self->{'config'}->{'version'}";
+	return 'About BIGSdb';
 }
 
 sub print_about_bigsdb {
@@ -227,6 +227,12 @@ sub _print_software_versions {
 	}
 	say q(</ul>);
 	say q(</div>);
+	return;
+}
+
+sub initiate {
+	my ($self) = @_;
+	$self->set_level1_breadcrumbs;
 	return;
 }
 1;

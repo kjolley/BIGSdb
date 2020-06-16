@@ -28,8 +28,7 @@ my $logger = get_logger('BIGSdb.Page');
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Batch profile query - $desc";
+	return 'Batch profile query';
 }
 
 sub initiate {
@@ -39,6 +38,7 @@ sub initiate {
 	} else {
 		$self->{'jQuery'} = 1;
 	}
+	$self->set_level1_breadcrumbs;
 	return;
 }
 
@@ -50,8 +50,9 @@ sub get_help_url {
 sub print_content {
 	my ($self) = @_;
 	my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1 } );
+	my $title = $self->get_title;
+	say qq(<h1>$title</h1>);
 	if ( !@$schemes ) {
-		say q(<h1>Batch profile query</h1>);
 		$self->print_bad_status( { message => 'There are no indexed schemes defined in this database.', navbar => 1 } );
 		return;
 	}
@@ -64,10 +65,8 @@ sub print_content {
 		return;
 	}
 	my $scheme_id = $q->param('scheme_id');
-	my $desc      = $self->get_db_description;
 	if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
-		say qq(<h1>Batch profile query - $desc</h1>);
-		$self->print_bad_status(
+			$self->print_bad_status(
 			{
 				message => q(This function is only available for sequence definition databases.),
 				navbar  => 1
@@ -75,7 +74,6 @@ sub print_content {
 		);
 		return;
 	}
-	say qq(<h1>Batch profile query - $desc</h1>);
 	if ( $q->param('profiles') ) {
 		$self->_run_query($scheme_id);
 		return;

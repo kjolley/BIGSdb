@@ -32,7 +32,7 @@ sub initiate {
 		$self->{'type'} = 'no_header';
 		return;
 	}
-	$self->{$_} = 1 foreach (qw (tooltips jQuery jQuery.coolfieldset jQuery.multiselect));
+	$self->set_level1_breadcrumbs;
 	return;
 }
 
@@ -88,8 +88,8 @@ sub print_content {
 	}
 	my $cleaned = $table;
 	$cleaned =~ tr/_/ /;
-	my $desc = $self->get_db_description;
-	say qq(<h1>Query $cleaned for $desc database</h1>);
+	my $title = $self->get_title;
+	say qq(<h1>$title</h1>);
 	my $qry;
 	if (   !defined $q->param('currentpage')
 		|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
@@ -109,9 +109,15 @@ sub print_content {
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->get_db_description || 'BIGSdb';
-	my $record = $self->get_record_name( scalar $self->{'cgi'}->param('table') ) || 'record';
-	return "Query $record information - $desc";
+	my $table = $self->{'cgi'}->param('table');
+	my %title = (
+		sequences => 'Sequence attribute search'
+	);
+	if ($title{$table}){
+		return $title{$table};
+	}
+	my $record = $self->get_record_name( $table ) || 'record';
+	return "Query $record information";
 }
 
 sub get_javascript {

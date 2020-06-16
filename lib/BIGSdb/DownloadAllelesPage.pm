@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -41,6 +41,7 @@ sub initiate {
 	}
 	$self->{$_} = 1 foreach qw (jQuery jQuery.jstree);
 	$self->{'noCache'} = 1 if ( $self->{'system'}->{'sets'} // '' ) eq 'yes';
+	$self->set_level1_breadcrumbs;
 	return;
 }
 
@@ -361,8 +362,7 @@ sub _print_scheme_table {
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Download allele sequences - $desc";
+	return 'Download alleles';
 }
 
 sub _print_sequences {

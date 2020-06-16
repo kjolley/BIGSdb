@@ -534,12 +534,16 @@ sub print_page_content {
 			#			$self->_print_login_details;
 			$self->_print_breadcrumbs;
 			$self->_print_help_panel;
+			say q(<div class="main_content">);
 			$self->print_content;
+			say q(</div>);
 			$self->_print_footer;
 		} else {
 			$self->_print_site_header;
 			$self->_print_login_details;
+			say q(<div class="main_content">);
 			$self->print_content;
+			say q(</div>);
 			$self->_print_site_footer;
 		}
 		$self->_debug if $q->param('debug') && $self->{'config'}->{'debug'};
@@ -932,12 +936,12 @@ sub get_help_url {
 sub _print_help_panel {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say q(<div id="fieldvalueshelp">);
+	my $buffer;
 	if ( $q->param('page') && $q->param('page') eq 'plugin' && defined $self->{'pluginManager'} ) {
 		my $plugin_att = $self->{'pluginManager'}->get_plugin_attributes( scalar $q->param('name') );
 		if ( ref $plugin_att eq 'HASH' ) {
 			if ( $plugin_att->{'url'} && !$self->{'config'}->{'intranet'} ) {
-				say qq(<span class="context_help"><a href="$plugin_att->{'url'}" target="_blank" )
+				$buffer .= qq(<span class="context_help"><a href="$plugin_att->{'url'}" target="_blank" )
 				  . q(title="Open help in new window">Help <span class="fas fa-external-link-alt"></span></a></span>);
 			}
 			if ( ( $plugin_att->{'help'} // '' ) =~ /tooltips/ ) {
@@ -947,26 +951,28 @@ sub _print_help_panel {
 	} else {
 		my $url = $self->get_help_url;
 		if ( $url && !$self->{'config'}->{'intranet'} ) {
-			say qq(<span class="context_help"><a href="$url" target="_blank" title="Open help in new window" >Help )
+			$buffer .=
+			    qq(<span class="context_help"><a href="$url" target="_blank" title="Open help in new window" >Help )
 			  . q(<span class="fas fa-external-link-alt"></span></a></span>);
 		}
 	}
 	if ( $self->{'tooltips'} ) {
-		say q(<span id="toggle" style="display:none">Toggle: </span><a id="toggle_tooltips" )
+		$buffer .= q(<span id="toggle" style="display:none">Toggle: </span><a id="toggle_tooltips" )
 		  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=options&amp;)
 		  . q(toggle_tooltips=1" title="Toggle tooltips" style="display:none;margin-right:1em">)
 		  . q(<span class="fas fa-info-circle fa-lg"></span></a>);
 	}
-	say q(</div>);
+	if ($buffer) {
+		say q(<div id="help_panel">);
+		say $buffer;
+		say q(</div>);
+	}
 	return;
 }
 
 sub _print_breadcrumbs {
 	my ($self) = @_;
 	return if $self->{'system'}->{'kiosk'};
-
-	#Don't show on log in or log out pages
-	return if ( $self->{'system'}->{'read_access'} ne 'public' || $self->{'curate'} ) && !$self->{'username'};
 	return if !$self->{'system'}->{'db'};
 	my @potential_breadcrumb_files = (
 		"$self->{'dbase_config_dir'}/$self->{'instance'}/breadcrumbs.conf",
@@ -3296,5 +3302,24 @@ sub is_curator {
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	return if !$user_info || ( $user_info->{'status'} ne 'curator' && $user_info->{'status'} ne 'admin' );
 	return 1;
+}
+
+sub set_level1_breadcrumbs {
+	my ($self) = @_;
+	my $page_name = $self->get_title;
+	$self->{'breadcrumbs'} = [
+		{
+			label => $self->{'system'}->{'webroot_label'} // 'Organism',
+			href => $self->{'system'}->{'webroot'}
+		},
+		{
+			label => $self->{'system'}->{'description'},
+			href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}"
+		},
+		{
+			label => $page_name
+		}
+	];
+	return;
 }
 1;

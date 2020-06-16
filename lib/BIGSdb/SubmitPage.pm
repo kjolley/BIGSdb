@@ -136,13 +136,16 @@ sub initiate {
 		return;
 	}
 	$self->{$_} = 1 foreach qw (jQuery jQuery.jstree noCache tooltips dropzone);
+	$self->set_level1_breadcrumbs;
 	return;
 }
 
 sub print_content {
 	my ($self) = @_;
+	my $title = $self->get_title;
+	say qq(<h1>$title</h1>);
 	if ( ( $self->{'system'}->{'submissions'} // '' ) ne 'yes' || !$self->{'config'}->{'submission_dir'} ) {
-		say q(<h1>Manage submissions</h1>);
+		
 		$self->print_bad_status( { message => q(The submission system is not enabled.), navbar => 1 } );
 		return;
 	}
@@ -163,7 +166,6 @@ sub print_content {
 			}
 		}
 	}
-	say q(<h1>Manage submissions</h1>);
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	if ( !$user_info ) {
 		$self->print_bad_status(
@@ -2531,7 +2533,6 @@ sub set_pref_requirements {
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return " Manage submissions - $desc ";
+	return 'Submissions';
 }
 1;

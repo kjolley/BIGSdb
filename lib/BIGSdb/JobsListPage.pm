@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2019, University of Oxford
+#Copyright (c) 2014-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -29,6 +29,7 @@ sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw(jQuery jQuery.tablesort noCache);
 	$self->{'refresh'} = 60;
+	$self->set_level1_breadcrumbs;
 	return;
 }
 
@@ -126,7 +127,6 @@ sub _get_job_size_stats {
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return qq(Offline job list - $desc);
+	return q(Offline job list);
 }
 1;

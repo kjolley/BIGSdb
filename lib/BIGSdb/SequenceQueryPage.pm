@@ -579,20 +579,7 @@ sub _get_selected_loci {
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (tooltips jQuery);
-	my $page_name = $self->get_title;
-	$self->{'breadcrumbs'} = [
-		{
-			label => $self->{'system'}->{'webroot_label'} // 'Organism',
-			href => $self->{'system'}->{'webroot'}
-		},
-		{
-			label => $self->{'system'}->{'description'},
-			href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}"
-		},
-		{
-			label => $page_name
-		}
-	];
+	$self->set_level1_breadcrumbs;
 	return;
 }
 1;
