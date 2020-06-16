@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -35,10 +35,9 @@ use constant RUN_OFFLINE_LENGTH => 10_000;
 sub get_title {
 	my ($self) = @_;
 	return $self->{'system'}->{'kiosk_title'} if $self->{'system'}->{'kiosk_title'};
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 	return $self->{'cgi'}->param('page') eq 'sequenceQuery'
-	  ? qq(Sequence query - $desc)
-	  : qq(Batch sequence query - $desc);
+	  ? q(Sequence query)
+	  : q(Batch sequence query);
 }
 
 sub _get_text {
@@ -128,18 +127,8 @@ sub _print_interface {
 	$locus =~ s/%27/'/gx if $locus;    #Web-escaped locus
 	$q->param( locus => $locus );
 	my $page   = $q->param('page');
-	my $desc   = $self->get_db_description;
 	my $set_id = $self->get_set_id;
-	if ( $locus && $q->param('simple') ) {
-
-		if ( $q->param('locus') =~ /^SCHEME_(\d+)$/x ) {
-			my $scheme_info = $self->{'datastore'}->get_scheme_info($1);
-			$desc = $scheme_info->{'name'};
-		} else {
-			$desc = $q->param('locus');
-		}
-	}
-	my $title = $self->get_title;
+	my $title  = $self->get_title;
 	say qq(<h1>$title</h1>);
 	say q(<div class="box" id="queryform">);
 	my $text = $self->_get_text;
@@ -590,6 +579,20 @@ sub _get_selected_loci {
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (tooltips jQuery);
+	my $page_name = $self->get_title;
+	$self->{'breadcrumbs'} = [
+		{
+			label => $self->{'system'}->{'webroot_label'} // 'Organism',
+			href => $self->{'system'}->{'webroot'}
+		},
+		{
+			label => $self->{'system'}->{'description'},
+			href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}"
+		},
+		{
+			label => $page_name
+		}
+	];
 	return;
 }
 1;

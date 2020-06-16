@@ -375,8 +375,8 @@ table.tablesorter tr.total td {background:green;color:white}
 div.content {
 	position:relative;
 	min-width:120px;
-	margin:5px 0 1px 0;
-	padding:10px 5px
+	margin:0
+	padding:0 5px 10px 5px
 }
 
 div.flex_container {
@@ -540,6 +540,29 @@ a.link_box:hover {
 }
 a.link_box:hover h3{
 	color:#8b5292
+}
+div.breadcrumb_container {
+	display:flex;
+	justify-content:center;
+	background:#e7f2fe
+}
+div.breadcrumbs {
+	justify-content:flex-start;
+	padding:0.5em 0.2em;
+	color:#1f3856;
+	white-space:nowrap;
+	overflow-x:hidden;
+	text-overflow:ellipsis;
+}
+div.breadcrumbs a {
+	color:#2779a8
+}
+div.breadcrumbs a:hover {
+	text-decoration:none;
+	color:#8b5292
+}
+span.breadcrumb_divider {
+	margin:0 0.5em;font-weight:600
 }
 img.plugin_image {
 	width:500px;

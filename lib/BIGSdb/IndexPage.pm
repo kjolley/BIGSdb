@@ -38,11 +38,14 @@ sub initiate {
 	my $q = $self->{'cgi'};
 	$self->{$_} = 1 foreach qw(jQuery cookieconsent noCache);
 	$self->choose_set;
-#	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-#		my $set_id = $self->get_set_id;
-#		my $scheme_data = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
-#		$self->{'tooltips'} = 1 if @$scheme_data > 1;
-#	}
+	$self->{'breadcrumbs'} = [
+		{
+			label => $self->{'system'}->{'webroot_label'} // 'Organism',
+			href => $self->{'system'}->{'webroot'}
+		},{
+			label => $self->{'system'}->{'description'}
+		}
+	];
 	return;
 }
 
@@ -137,15 +140,17 @@ sub _print_downloads_menu_item {
 	my $set_id = $self->get_set_id;
 	my $scheme_data = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
 	if ( @$scheme_data == 1 ) {
-		push @$links,{
-			href=>"${url_root}page=downloadProfiles&amp;scheme_id=$scheme_data->[0]->{'id'}",
-			text=>"$scheme_data->[0]->{'name'} profiles"
-		};
-	} elsif (@$scheme_data > 1){
-		push @$links,{
-			href=>"${url_root}page=schemes",
-			text=>'Allelic profiles'
-		};
+		push @$links,
+		  {
+			href => "${url_root}page=downloadProfiles&amp;scheme_id=$scheme_data->[0]->{'id'}",
+			text => "$scheme_data->[0]->{'name'} profiles"
+		  };
+	} elsif ( @$scheme_data > 1 ) {
+		push @$links,
+		  {
+			href => "${url_root}page=schemes",
+			text => 'Allelic profiles'
+		  };
 	}
 	return if !@$links;
 	$self->_print_menu_item(
@@ -207,6 +212,7 @@ sub _print_plugin_menu_item {
 	my $plugins  = $self->{'pluginManager'}
 	  ->get_appropriate_plugin_names( $sections, $self->{'system'}->{'dbtype'}, undef, { set_id => $set_id } );
 	return if !@$plugins;
+
 	if ( @$plugins <= $list_number ) {
 		my $links = [];
 		my $scheme_data = $self->get_scheme_data( { with_pk => 1 } );

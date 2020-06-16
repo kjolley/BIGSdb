@@ -26,7 +26,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use List::MoreUtils qw(uniq none);
 use JSON;
-use BIGSdb::Constants qw(:interface :limits :scheme_flags :login_requirements SEQ_METHODS);
+use BIGSdb::Constants qw(:interface :limits :scheme_flags :login_requirements :design SEQ_METHODS);
 use autouse 'Data::Dumper' => qw(Dumper);
 
 sub new {    ## no critic (RequireArgUnpacking)
@@ -532,7 +532,8 @@ sub print_page_content {
 			$self->_print_header;
 
 			#			$self->_print_login_details;
-			$self->_print_menu;
+			#$self->_print_menu;
+			$self->_print_breadcrumbs;
 			$self->_print_help_panel;
 			$self->print_content;
 			$self->_print_footer;
@@ -972,6 +973,53 @@ sub _print_menu {
 	say q(<a style="cursor:pointer"><span class="fas fa-bars"></span></a>);
 	say q(</div>);
 	say q(<div id="menupanel"></div>);
+	return;
+}
+
+sub _print_breadcrumbs {
+	my ($self) = @_;
+	return if $self->{'system'}->{'kiosk'};
+
+	#Don't show on log in or log out pages
+	return if ( $self->{'system'}->{'read_access'} ne 'public' || $self->{'curate'} ) && !$self->{'username'};
+	return if !$self->{'system'}->{'db'};
+	my @potential_breadcrumb_files = (
+		"$self->{'dbase_config_dir'}/$self->{'instance'}/breadcrumbs.conf",
+		"$ENV{'DOCUMENT_ROOT'}$self->{'system'}->{'webroot'}/breadcrumbs.conf",
+		"$ENV{'DOCUMENT_ROOT'}/breadcrumbs.conf",
+		"$self->{'config_dir'}/breadcrumbs.conf"
+	);
+	my @breadcrumbs;
+	foreach my $file (@potential_breadcrumb_files) {
+		if ( -e $file ) {
+			open( my $fh, '<:encoding(utf8)', $file ) || $logger->error("Cannot open $file for reading");
+			while ( my $line = <$fh> ) {
+				if ( $line =~ /^(.+)\|(.+)$/x ) {
+					my ( $text, $url ) = ( $1, $2 );
+					push @breadcrumbs, qq(<a href="$url">$text</a>);
+				}
+			}
+			close $fh;
+			last;
+		}
+	}
+	if ( $self->{'breadcrumbs'} ) {
+		foreach my $crumb ( @{ $self->{'breadcrumbs'} } ) {
+			my $breadcrumb;
+			$breadcrumb = qq(<a href="$crumb->{'href'}">) if $crumb->{'href'};
+			$breadcrumb .= $crumb->{'label'};
+			$breadcrumb .= q(</a>) if $crumb->{'href'};
+			push @breadcrumbs, $breadcrumb;
+		}
+	}
+	my $max_width = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
+	my $breadcrumbs_max_width = $max_width - 15;
+	return if !@breadcrumbs;
+	say q(<div class="breadcrumb_container">);
+	say qq(<div class="breadcrumbs" style="width:100vw;max-width:${breadcrumbs_max_width}px">);
+	local $" = q(<span class="breadcrumb_divider">&gt;</span>);
+	say qq(@breadcrumbs);
+	say q(</div></div>);
 	return;
 }
 
