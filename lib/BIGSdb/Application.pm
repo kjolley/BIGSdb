@@ -24,7 +24,6 @@ use version; our $VERSION = version->declare('v1.27.0');
 use Apache2::Connection;
 use parent qw(BIGSdb::BaseApplication);
 use BIGSdb::AjaxJobs;
-use BIGSdb::AjaxMenu;
 use BIGSdb::AjaxPrefs;
 use BIGSdb::AjaxRest;
 use BIGSdb::AlleleInfoPage;
@@ -378,7 +377,6 @@ sub print_page {
 	my $query_page = ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ? 'IsolateQueryPage' : 'ProfileQueryPage';
 	my %classes = (
 		ajaxJobs           => 'AjaxJobs',
-		ajaxMenu           => 'AjaxMenu',
 		ajaxPrefs          => 'AjaxPrefs',
 		ajaxRest           => 'AjaxRest',
 		alleleInfo         => 'AlleleInfoPage',

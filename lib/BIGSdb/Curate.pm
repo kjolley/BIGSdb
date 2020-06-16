@@ -20,7 +20,6 @@ package BIGSdb::Curate;
 use strict;
 use warnings;
 use parent qw(BIGSdb::Application);
-use BIGSdb::AjaxMenu;
 use BIGSdb::AjaxPrefs;
 use BIGSdb::BookmarksPage;
 use BIGSdb::ConfigCheckPage;
@@ -75,7 +74,6 @@ sub print_page {
 	my $query_page =
 	  ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ? 'IsolateQueryPage' : 'ProfileQueryPage' );
 	my %classes = (
-		ajaxMenu              => 'AjaxMenu',
 		ajaxPrefs             => 'AjaxPrefs',
 		add                   => 'CurateAddPage',
 		addSeqbin             => 'CurateAddSeqbinPage',

@@ -73,7 +73,7 @@ sub print_content {
 	$self->_print_main_section;
 	say q(</div>);
 	say q(<div class="menu_panel">);
-	$self->_print_main_menu;
+	$self->_print_menu;
 	say q(</div>);
 	say q(</div>);
 	say q(</div>);
@@ -81,7 +81,7 @@ sub print_content {
 	return;
 }
 
-sub _print_main_menu {
+sub _print_menu {
 	my ($self) = @_;
 	$self->_print_login_menu_item;
 	$self->_print_submissions_menu_item;

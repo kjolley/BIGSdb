@@ -1,4 +1,4 @@
-
+//Version 20200616
 
 $(function () {
 	$('div.content a:not(.lightbox)').tooltip({ 
@@ -39,18 +39,6 @@ $(function () {
 			$(this).prop('title', $(this).text());
 			$(this).tooltip();
 			$(this).css('cursor', 'pointer');
-		}
-	});
-	
-	$('div#menubutton a').click(function(){
-		if ($('div#menupanel').is(":visible")){
-			$('div#menupanel').hide();
-		} else {
-			$('div#menupanel').show();
-			var script_path = $(location).attr('href');
-			script_path = script_path.split('?')[0];
-			var url=script_path + '?db=' + $.urlParam('db') + '&page=ajaxMenu';
-			$('div#menupanel').html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...').load(url);
 		}
 	});
 });

@@ -532,7 +532,6 @@ sub print_page_content {
 			$self->_print_header;
 
 			#			$self->_print_login_details;
-			#$self->_print_menu;
 			$self->_print_breadcrumbs;
 			$self->_print_help_panel;
 			$self->print_content;
@@ -959,20 +958,6 @@ sub _print_help_panel {
 		  . q(<span class="fas fa-info-circle fa-lg"></span></a>);
 	}
 	say q(</div>);
-	return;
-}
-
-sub _print_menu {
-	my ($self) = @_;
-	return if $self->{'system'}->{'kiosk'};
-
-	#Don't show on log in or log out pages
-	return if ( $self->{'system'}->{'read_access'} ne 'public' || $self->{'curate'} ) && !$self->{'username'};
-	return if !$self->{'system'}->{'db'};
-	say q(<div id="menubutton">);
-	say q(<a style="cursor:pointer"><span class="fas fa-bars"></span></a>);
-	say q(</div>);
-	say q(<div id="menupanel"></div>);
 	return;
 }
 
