@@ -2113,7 +2113,7 @@ sub _modify_query_for_eav_fields {
 		( my $field = $q->param("phenotypic_field$i") ) =~ s/^eav_//x;
 		my $field_info = $self->{'datastore'}->get_eav_field($field);
 		if ( !$field_info ) {
-			push @$errors, 'Invalid phenotypic field name selected.';
+			push @$errors, 'Invalid secondary metadata field name selected.';
 			next;
 		}
 		my $eav_table = $self->{'datastore'}->get_eav_table( $field_info->{'value_format'} );

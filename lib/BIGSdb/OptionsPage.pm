@@ -488,7 +488,7 @@ sub _print_main_results_sparse_field_options {
 	my $prefs      = $self->{'prefs'};
 	my $eav_fields = $self->{'datastore'}->get_eav_fields;
 	return if !@$eav_fields;
-	say q(<h2>Main results table - phenotypic field selection</h2>);
+	say q(<h2>Main results table - secondary metadata selection</h2>);
 	say q(<div><p>Select the isolate fields that you wish to be displayed in the main results table )
 	  . q(following a query.</p>);
 	my ( @js, @js2 );
