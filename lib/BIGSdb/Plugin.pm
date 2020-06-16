@@ -1058,7 +1058,7 @@ sub get_export_buttons {
 	my ( $self, $options ) = @_;
 	my $buffer = ();
 	my $div_display = $options->{'hide_div'} ? 'none' : 'block';
-	$buffer .= qq(<div id="export" style="display:$div_display">\n);
+	$buffer .= qq(<div id="export" style="display:$div_display;margin-top:1em">\n);
 	my %hide = $options->{'hide'} ? map { $_ => 1 } @{ $options->{'hide'} } : ();
 	if ( $options->{'table'} ) {
 		my $display = $hide{'table'} ? 'none' : 'inline';

@@ -690,7 +690,7 @@ a.pc10:hover,a.pc20:hover,a.pc30:hover,a.pc40:hover,a.pc50:hover,a.pc60:hover,a.
 .pc100 {background-color:#000000;color:white}
 
 div.box {
-	padding:10px;
+	padding:1.5em;
 	margin-bottom: 0.5em;
 }
 div.navigation {
