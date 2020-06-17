@@ -28,13 +28,13 @@ my $logger = get_logger('BIGSdb.Page');
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Bookmarks - $desc";
+	return 'Bookmarks';
 }
 
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw(jQuery jQuery.tablesort noCache);
+	$self->set_level1_breadcrumbs;
 	return;
 }
 
@@ -76,6 +76,7 @@ sub print_content {
 	say q(<tbody>);
 	my ( $query, $delete, $public, $private ) = ( QUERY, DELETE, UNLOCK, LOCK );
 	foreach my $bookmark (@$bookmarks) {
+
 		#The hidden span in the name field seems to be necessary due to a bug in the tablesorter
 		#when values look like dates.
 		print qq(<tr class="td$td">)
@@ -100,7 +101,6 @@ sub print_content {
 	}
 	say q(</tbody></table>);
 	say q(</div>);
-	$self->print_navigation_bar;
 	say q(</div>);
 	return;
 }

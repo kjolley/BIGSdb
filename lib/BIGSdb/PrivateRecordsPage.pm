@@ -27,8 +27,7 @@ my $logger = get_logger('BIGSdb.Page');
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Private records - $desc";
+	return 'Private records';
 }
 
 sub print_content {
@@ -201,6 +200,7 @@ sub _print_projects {
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw(jQuery noCache);
+	$self->set_level1_breadcrumbs;
 	return;
 }
 

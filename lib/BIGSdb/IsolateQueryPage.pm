@@ -184,8 +184,7 @@ sub _save_options {
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return $self->{'curate'} ? "Isolate query/update - $desc" : "Search/browse database - $desc";
+	return $self->{'curate'} ? 'Query or update isolates' : 'Search or browse database';
 }
 
 sub print_content {
@@ -214,8 +213,8 @@ sub print_content {
 	if ( $q->param('confirm_publish') ) {
 		$self->publish;
 	}
-	my $desc = $self->get_db_description;
-	say $self->{'curate'} ? q(<h1>Isolate query/update</h1>) : qq(<h1>Search or browse $desc database</h1>);
+	my $title = $self->get_title;
+	say qq(<h1>$title</h1>);
 	my $qry;
 	if ( !defined $q->param('currentpage') || $q->param('First') ) {
 		say q(<noscript><div class="box statusbad"><p>This interface requires that you enable Javascript )
@@ -3136,6 +3135,7 @@ sub initiate {
 	if ( BIGSdb::Utils::is_int( scalar $q->param('bookmark') ) ) {
 		$self->_initiate_bookmark( scalar $q->param('bookmark') );
 	}
+	$self->set_level1_breadcrumbs;
 	return;
 }
 

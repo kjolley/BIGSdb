@@ -52,6 +52,7 @@ sub initiate {
 		return;
 	}
 	$self->{$_} = 1 foreach qw(jQuery tooltips jQuery.jstree jQuery.columnizer);
+	$self->set_level1_breadcrumbs;
 	return;
 }
 
@@ -1486,16 +1487,8 @@ sub _get_locus_value {
 sub get_title {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
-	my $isolate_id = $q->param('id');
 	return q() if $q->param('no_header');
-	return q(Invalid isolate id) if !BIGSdb::Utils::is_int($isolate_id);
-	my $name  = $self->get_name($isolate_id);
-	my $title = qq(Isolate information: id-$isolate_id);
-	local $" = q( );
-	$title .= qq( ($name)) if $name;
-	$title .= q( - );
-	$title .= $self->{'system'}->{'description'};
-	return $title;
+	return 'Isolate information';
 }
 
 sub _get_history {

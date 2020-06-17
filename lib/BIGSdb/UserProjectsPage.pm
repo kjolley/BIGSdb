@@ -29,8 +29,7 @@ my $logger = get_logger('BIGSdb.User');
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->get_db_description || 'BIGSdb';
-	return "User projects - $desc";
+	return 'User projects';
 }
 
 sub _user_projects_enabled {
@@ -77,6 +76,7 @@ sub print_content {
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (jQuery jQuery.multiselect modernizr noCache);
+	$self->set_level1_breadcrumbs;
 	return;
 }
 
@@ -765,7 +765,6 @@ sub _print_user_projects {
 		say q(<h2>Existing projects</h2>);
 		say q(<p>You do not own or are a member of any projects.</p>);
 	}
-	$self->print_navigation_bar;
 	say q(</div>);
 	return;
 }

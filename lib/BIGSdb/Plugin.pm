@@ -1218,4 +1218,27 @@ sub get_field_value {
 	}
 	return $field_value;
 }
+
+sub get_breadcrumbs {
+	my ($self) = @_;
+	my $att = $self->get_attributes;
+	my $breadcrumbs = [
+		{
+			label => $self->{'system'}->{'webroot_label'} // 'Organism',
+			href => $self->{'system'}->{'webroot'}
+		},
+		{
+			label => $self->{'system'}->{'description'},
+			href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}"
+		},
+		{
+			label => 'Plugins',
+			href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=pluginSummary"
+		},
+		{
+			label => $att->{'menutext'}
+		}
+	];
+	return $breadcrumbs;
+}
 1;

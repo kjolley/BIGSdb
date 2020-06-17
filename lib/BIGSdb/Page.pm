@@ -407,6 +407,7 @@ sub _initiate_plugin {
 			$self->{$_} = 1 foreach qw(jQuery);
 		}
 		my $init_values = $plugin->get_initiation_values;
+		$self->{'breadcrumbs'} = $plugin->get_breadcrumbs;
 		foreach my $key ( keys %$init_values ) {
 			$self->{$key} = $init_values->{$key};
 		}
@@ -957,7 +958,8 @@ sub _print_help_panel {
 		}
 	}
 	if ( $self->{'tooltips'} ) {
-		$buffer .= q(<span id="toggle" style="display:none">Toggle: </span><a id="toggle_tooltips" )
+		$buffer .=
+		    q(<span id="toggle" style="display:none">Toggle: </span><a id="toggle_tooltips" )
 		  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=options&amp;)
 		  . q(toggle_tooltips=1" title="Toggle tooltips" style="display:none;margin-right:1em">)
 		  . q(<span class="fas fa-info-circle fa-lg"></span></a>);

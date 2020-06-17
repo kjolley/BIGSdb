@@ -90,8 +90,7 @@ sub print_content {
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return $self->{'system'}->{'dbtype'} eq 'user' ? 'Log in' : "Log in - $desc";
+	return 'Log in';
 }
 
 sub initiate {
@@ -112,6 +111,7 @@ sub initiate {
 	# This is psuedo-random, but only controls the sessionID value, which
 	# is also hashed with the ip address and your UNIQUE_STRING
 	$self->{'random_number'} = int( rand(4294967296) );
+	$self->set_level1_breadcrumbs;
 	return;
 }
 
