@@ -26,7 +26,7 @@ my $logger = get_logger('BIGSdb.Page');
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw(jQuery jQuery.tablesort);
+	$self->{$_} = 1 foreach qw(jQuery jQuery.tablesort allowExpand);
 	$self->set_level1_breadcrumbs;
 	return;
 }

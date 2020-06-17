@@ -534,8 +534,7 @@ sub print_page_content {
 		if ( $self->{'system'}->{'db'} && $self->{'instance'} ) {
 			$self->_print_header;
 			$self->_print_breadcrumbs;
-			$self->_print_help_panel;
-			$self->_print_expand_trigger;
+			$self->_print_button_panel;
 			say q(<div class="main_container">);
 			say qq(<div class="main_content" style="max-width:${main_max_width}px">);
 			say qq(<script>var max_width=${main_max_width}</script>);
@@ -938,7 +937,29 @@ sub get_help_url {
 	#Override in subclass.
 }
 
-sub _print_help_panel {
+sub _print_button_panel {
+	my ($self) = @_;
+	say q(<div class="button_panel">);
+	$self->_print_tooltip_toggle;
+	$self->_print_help_button;
+	$self->_print_expand_trigger;
+	$self->print_panel_buttons;
+	say q(</div>);
+	return;
+}
+
+sub _print_tooltip_toggle {
+	my ($self) = @_;
+	if ( $self->{'tooltips'} ) {
+		say q(<a id="toggle_tooltips" class="trigger_button" style="display:none" )
+		  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=options&amp;)
+		  . q(toggle_tooltips=1" title="Toggle tooltips">)
+		  . q(<span class="fas fa-lg fa-info-circle "></span></a>);
+	}
+	return;
+}
+
+sub _print_help_button {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	my $buffer;
@@ -946,8 +967,8 @@ sub _print_help_panel {
 		my $plugin_att = $self->{'pluginManager'}->get_plugin_attributes( scalar $q->param('name') );
 		if ( ref $plugin_att eq 'HASH' ) {
 			if ( $plugin_att->{'url'} && !$self->{'config'}->{'intranet'} ) {
-				$buffer .= qq(<span class="context_help"><a href="$plugin_att->{'url'}" target="_blank" )
-				  . q(title="Open help in new window">Help <span class="fas fa-external-link-alt"></span></a></span>);
+				$buffer .= qq(<a id="help_link" class="trigger_button" href="$plugin_att->{'url'}" target="_blank" )
+				  . q(title="Open help in new window"><span class="fas fa-external-link-alt"></span></a>);
 			}
 			if ( ( $plugin_att->{'help'} // '' ) =~ /tooltips/ ) {
 				$self->{'tooltips'} = 1;
@@ -957,21 +978,12 @@ sub _print_help_panel {
 		my $url = $self->get_help_url;
 		if ( $url && !$self->{'config'}->{'intranet'} ) {
 			$buffer .=
-			    qq(<span class="context_help"><a href="$url" target="_blank" title="Open help in new window" >Help )
-			  . q(<span class="fas fa-external-link-alt"></span></a></span>);
+			    qq(<a id="help_link" class="trigger_button" href="$url" target="_blank" title="Open help in new window">)
+			  . q(<span class="fas fa-external-link-alt"></span></a>);
 		}
 	}
-	if ( $self->{'tooltips'} ) {
-		$buffer .=
-		    q(<span id="toggle" style="display:none">Toggle: </span><a id="toggle_tooltips" )
-		  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=options&amp;)
-		  . q(toggle_tooltips=1" title="Toggle tooltips" style="display:none;margin-right:1em">)
-		  . q(<span class="fas fa-info-circle fa-lg"></span></a>);
-	}
 	if ($buffer) {
-		say q(<div id="help_panel">);
 		say $buffer;
-		say q(</div>);
 	}
 	return;
 }
@@ -979,11 +991,14 @@ sub _print_help_panel {
 sub _print_expand_trigger {
 	my ($self) = @_;
 	return if !$self->{'allowExpand'};
-	say q(<a id="expand_trigger" style="display:none">)
+	say q(<a id="expand_trigger" class="trigger_button" style="display:none">)
 	  . q(<span id="expand" class="fas fa-lg fa-expand" title="Expand width"></span>)
 	  . q(<span id="contract" class="fas fa-lg fa-compress" style="display:none" title="Compress width"></span></a>);
 	return;
 }
+
+#Override in subclasses.
+sub print_panel_buttons { }
 
 sub _print_breadcrumbs {
 	my ($self) = @_;

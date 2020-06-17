@@ -281,6 +281,12 @@ sub _print_interface {
 	return;
 }
 
+sub print_panel_buttons {
+	say q(<a class="trigger_button" id="panel_trigger" style="display:none" title="Modify form options">)
+	  . q(<span class="fas fa-lg fa-wrench"></span></a>);
+	  return;
+}
+
 sub _print_list_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
@@ -329,8 +335,7 @@ sub _print_modify_search_fieldset {
 	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . qq(page=alleleQuery&amp;save_options=1" style="display:none">$save</a> <span id="saving"></span><br />);
 	say q(</div>);
-	say q(<a class="trigger" id="panel_trigger" style="display:none" title="Modify form options">)
-	  . q(<span class="fas fa-lg fa-wrench"></span></a>);
+
 	return;
 }
 

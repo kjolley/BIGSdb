@@ -256,6 +256,14 @@ sub _print_interface {
 	return;
 }
 
+sub print_panel_buttons {
+	say q(<a class="trigger_button" id="panel_trigger" title="Modify form options" style="display:none">)
+	  . q(<span class="fas fa-lg fa-wrench"></span></a>);
+		say q(<a class="trigger_button" id="bookmark_trigger" style="display:none" title="Bookmarks">)
+	  . q(<span class="far fa-lg fa-bookmark"></span></a>);
+	return;
+}
+
 sub _print_provenance_fields_fieldset {
 	my ($self)  = @_;
 	my $q       = $self->{'cgi'};
@@ -804,8 +812,8 @@ JS
 sub _print_modify_search_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say q(<div  id="modify_panel" class="panel">);
-	say q(<a class="trigger" id="close_trigger" href="#"><span class="fas fa-lg fa-times"></span></a>);
+	say q(<div id="modify_panel" class="panel">);
+	say q(<a class="close_trigger" id="close_trigger"><span class="fas fa-lg fa-times"></span></a>);
 	say q(<h2>Modify form parameters</h2>);
 	say q(<p>Click to add or remove additional query terms:</p><ul>);
 	my $provenance_fieldset_display = $self->_should_display_fieldset('provenance') ? HIDE : SHOW;
@@ -849,8 +857,6 @@ sub _print_modify_search_fieldset {
 	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . qq(page=query&amp;save_options=1" style="display:none">$save</a> <span id="saving"></span><br />);
 	say q(</div>);
-	say q(<a class="trigger" id="panel_trigger" title="Modify form options" style="display:none">)
-	  . q(<span class="fas fa-lg fa-wrench"></span></a>);
 	return;
 }
 
@@ -865,7 +871,7 @@ sub _print_bookmark_fieldset {
 		$user_info->{'id'}, { fetch => 'all_arrayref', slice => {} } );
 	return if !@$bookmarks;
 	say q(<div id="bookmark_panel" style="display:none">);
-	say q(<a class="bookmark_trigger" id="close_bookmark" href="#"><span class="fas fa-lg fa-times"></span></a>);
+	say q(<a class="close_trigger" id="close_bookmark"><span class="fas fa-lg fa-times"></span></a>);
 	say q(<h2>Bookmarks</h2>);
 	say q(<div><div style="max-height:12em;overflow-y:auto;padding-right:2em"><ul style="margin-left:-1em">);
 
@@ -877,8 +883,6 @@ sub _print_bookmark_fieldset {
 	say qq(<p style="margin-top:1em"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . q(page=bookmarks">Manage bookmarks</a></p>);
 	say q(</div></div>);
-	say q(<a class="bookmark_trigger" id="bookmark_trigger" href="" style="display:none" title="Bookmarks">)
-	  . q(<span class="far fa-lg fa-bookmark"></span></a>);
 	return;
 }
 
@@ -2915,7 +2919,7 @@ $panel_js
 	});
 	\$('.ajax_script').each(function (index, element) { eval(element.innerHTML); })
 	
-	\$("#bookmark_trigger").click(function(){		
+	\$("#bookmark_trigger,#close_bookmark").click(function(){		
 		\$("#bookmark_panel").toggle("slide",{direction:"right"},"fast");
 		\$("#bookmark_trigger").show().animate({backgroundColor: "#848"},100).animate({backgroundColor: "#d9d"},100);		
 		return false;

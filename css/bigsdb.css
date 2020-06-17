@@ -124,7 +124,7 @@ a.sequence_tooltip,a.sequence_tooltip_incomplete,a.extract_tooltip,a.info_toolti
 	text-decoration:none;	
 }
 
-a#toggle_tooltips,a.tooltip {
+a.tooltip {
 	cursor:pointer;
 	text-decoration:none;
 	color:#66f;
@@ -630,36 +630,47 @@ div.panel {
 
 div.panel li {padding-bottom: 0.5em}
 
-a#expand_trigger{
-	position: absolute;
+a.trigger_button {
+	position:absolute;
+	right:0;
 	width:1.5em;
-	cursor:pointer;
-	text-align:center;
-	text-decoration: none;
-	top: 5.5em; right: 0;
 	color:#fff;
-	background: #488;
-	padding: 0.5em;
+	text-align:center;
+	text-decoration:none;
 	border-bottom-left-radius:10px;
 	border-top-left-radius:10px;
-	display: block;
-	box-shadow: 3px 3px 3px #aaa;
+	display:block;
+	padding:0.5em;
+	box-shadow:3px 3px 3px #aaa;
+	cursor:pointer;
+}
+a.close_trigger {
+	cursor:pointer;
+}
+
+a#help_link {
+	top:2.5em;
+	background: #488;
+}
+
+a#toggle_tooltips{
+	top:5em;
+	background: #488;
+}
+
+a#expand_trigger{
+	top: 7.5em;
+	background: #488;
 }
 
 a#panel_trigger{
-	position: absolute;
-	width:1.5em;
-	cursor:pointer;
-	text-align:center;
-	text-decoration: none;
-	top: 8em; right: 0;
-	color:#fff;
+	top: 10em;
 	background: #448;
-	padding: 0.5em;
-	border-bottom-left-radius:10px;
-	border-top-left-radius:10px;
-	display: block;
-	box-shadow: 3px 3px 3px #aaa;
+}
+
+a#bookmark_trigger{
+	top:12.5em;
+	background: #848;
 }
 
 a#close_trigger {
@@ -682,22 +693,6 @@ div#bookmark_panel {
 	background-image: linear-gradient(#e0d5e0, #f0f0f0 5em);
 	box-shadow: 3px 3px 3px #aaa;
 	z-index:9
-}
-
-a#bookmark_trigger{
-	position: absolute;
-	width:1.5em;
-	cursor:pointer;
-	text-align:center;
-	text-decoration: none;
-	top:10.5em; right: 0;
-	color:#fff;
-	background: #848;
-	padding: 0.5em;
-	border-bottom-left-radius:10px;
-	border-top-left-radius:10px;
-	display: block;
-	box-shadow: 3px 3px 3px #aaa;
 }
 
 a#close_bookmark {
@@ -891,17 +886,6 @@ div#logindetails {
 	z-index:4;
 }
 
-div#help_panel {
-	background:#ecece9;
-	padding: 0.2em 0.5em;
-	float:right;
-	font-size:0.8em;
-	position:absolute;
-	top:35px;
-	right:0;
-	z-index:3;	
-}
-
 div.floatmenu {
 	float:right;
 	position:absolute;
@@ -997,7 +981,6 @@ span.text { color: black }
 span.locus { color: green }
 span.scheme { color: red}
 span.aliases {font-size: 0.9em}
-span.context_help a {background:#66f; color:white; margin-right:2em; padding: 0 0.5em; text-decoration:none}
 span.flag {
 	font-size:1.2em;
 	font-weight:600;

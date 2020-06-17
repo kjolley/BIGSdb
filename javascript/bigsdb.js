@@ -41,7 +41,7 @@ $(function () {
 			$('span#contract').hide();
 		}
 	});
-	$("a#expand_trigger").show().animate({backgroundColor: "#9cc"},500);
+	
 	
 	//Tooltips
 	reloadTooltips();
@@ -72,7 +72,7 @@ $.urlParam = function(name){
 
 function show_expand_trigger() {
 	if ($(window).width() > max_width){
-		$('a#expand_trigger').show();
+		$("a#expand_trigger").show().animate({backgroundColor: "#9cc"},500);
 	} else {
 		$('a#expand_trigger').hide();
 	}
