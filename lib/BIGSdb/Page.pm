@@ -528,23 +528,27 @@ sub print_page_content {
 				shortcut_icon => $shortcut_icon
 			}
 		);
+		my $max_width = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
+		my $main_max_width = $max_width - 15;
 
 		if ( $self->{'system'}->{'db'} && $self->{'instance'} ) {
 			$self->_print_header;
-
-			#			$self->_print_login_details;
 			$self->_print_breadcrumbs;
 			$self->_print_help_panel;
-			say q(<div class="main_content">);
+			$self->_print_expand_trigger;
+			say q(<div class="main_container">);
+			say qq(<div class="main_content" style="max-width:${main_max_width}px">);
+			say qq(<script>var max_width=${main_max_width}</script>);
 			$self->print_content;
-			say q(</div>);
+			say q(</div></div>);
 			$self->_print_footer;
 		} else {
 			$self->_print_site_header;
 			$self->_print_login_details;
-			say q(<div class="main_content">);
+			say q(<div class="main_container">);
+			say qq(<div class="main_content" style="max-width:${main_max_width}px">);
 			$self->print_content;
-			say q(</div>);
+			say q(</div></div>);
 			$self->_print_site_footer;
 		}
 		$self->_debug if $q->param('debug') && $self->{'config'}->{'debug'};
@@ -969,6 +973,15 @@ sub _print_help_panel {
 		say $buffer;
 		say q(</div>);
 	}
+	return;
+}
+
+sub _print_expand_trigger {
+	my ($self) = @_;
+	return if !$self->{'allowExpand'};
+	say q(<a id="expand_trigger" style="display:none">)
+	  . q(<span id="expand" class="fas fa-lg fa-expand" title="Expand width"></span>)
+	  . q(<span id="contract" class="fas fa-lg fa-compress" style="display:none" title="Compress width"></span></a>);
 	return;
 }
 

@@ -308,7 +308,7 @@ sub _print_filters_fieldset {
 sub _print_modify_search_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say q(<div class="panel">);
+	say q(<div id="modify_panel" class="panel">);
 	say q(<a class="trigger" id="close_trigger" href="#"><span class="fas fa-lg fa-times"></span></a>);
 	say q(<h2>Modify form parameters</h2>);
 	say q(<p style="white-space:nowrap">Click to add or remove additional query terms:</p><ul>);
@@ -329,7 +329,7 @@ sub _print_modify_search_fieldset {
 	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . qq(page=alleleQuery&amp;save_options=1" style="display:none">$save</a> <span id="saving"></span><br />);
 	say q(</div>);
-	say q(<a class="trigger" id="panel_trigger" href="" style="display:none" title="Modify form options">)
+	say q(<a class="trigger" id="panel_trigger" style="display:none" title="Modify form options">)
 	  . q(<span class="fas fa-lg fa-wrench"></span></a>);
 	return;
 }

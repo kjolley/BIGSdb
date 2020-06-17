@@ -804,7 +804,7 @@ JS
 sub _print_modify_search_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say q(<div class="panel">);
+	say q(<div  id="modify_panel" class="panel">);
 	say q(<a class="trigger" id="close_trigger" href="#"><span class="fas fa-lg fa-times"></span></a>);
 	say q(<h2>Modify form parameters</h2>);
 	say q(<p>Click to add or remove additional query terms:</p><ul>);
@@ -849,7 +849,7 @@ sub _print_modify_search_fieldset {
 	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . qq(page=query&amp;save_options=1" style="display:none">$save</a> <span id="saving"></span><br />);
 	say q(</div>);
-	say q(<a class="trigger" id="panel_trigger" href="" title="Modify form options" style="display:none">)
+	say q(<a class="trigger" id="panel_trigger" title="Modify form options" style="display:none">)
 	  . q(<span class="fas fa-lg fa-wrench"></span></a>);
 	return;
 }
@@ -2915,7 +2915,7 @@ $panel_js
 	});
 	\$('.ajax_script').each(function (index, element) { eval(element.innerHTML); })
 	
-	\$(".bookmark_trigger").click(function(){		
+	\$("#bookmark_trigger").click(function(){		
 		\$("#bookmark_panel").toggle("slide",{direction:"right"},"fast");
 		\$("#bookmark_trigger").show().animate({backgroundColor: "#848"},100).animate({backgroundColor: "#d9d"},100);		
 		return false;

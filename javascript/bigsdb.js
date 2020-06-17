@@ -1,4 +1,4 @@
-//Version 20200616
+//Version 20200617
 
 $(function () {
 	$('div.content a:not(.lightbox)').tooltip({ 
@@ -29,6 +29,19 @@ $(function () {
 	  		});
 	   	});
 	});
+	show_expand_trigger();
+	$('a#expand_trigger').click(function(event){
+		if ($('span#expand').is(":visible")){
+			$('div.main_content').css({"max-width":"calc(100vw - 40px)"});
+			$('span#expand').hide();
+			$('span#contract').show();
+		} else {
+			$('div.main_content').css({"max-width":max_width + 'px'});
+			$('span#expand').show();
+			$('span#contract').hide();
+		}
+	});
+	$("a#expand_trigger").show().animate({backgroundColor: "#9cc"},500);
 	
 	//Tooltips
 	reloadTooltips();
@@ -41,6 +54,10 @@ $(function () {
 			$(this).css('cursor', 'pointer');
 		}
 	});
+	$(window).resize(function() {
+		show_expand_trigger();
+	});
+	
 });
 
 $.urlParam = function(name){
@@ -51,6 +68,14 @@ $.urlParam = function(name){
     else{
        return results[1] || 0;
     }
+}
+
+function show_expand_trigger() {
+	if ($(window).width() > max_width){
+		$('a#expand_trigger').show();
+	} else {
+		$('a#expand_trigger').hide();
+	}
 }
 
 function reloadTooltips() {

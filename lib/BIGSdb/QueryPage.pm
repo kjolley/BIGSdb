@@ -33,7 +33,7 @@ sub initiate {
 		$self->{'type'} = 'no_header';
 		return;
 	}
-	$self->{$_} = 1 foreach qw (tooltips jQuery jQuery.multiselect);
+	$self->{$_} = 1 foreach qw (tooltips jQuery jQuery.multiselect allowExpand);
 	return;
 }
 
@@ -80,8 +80,8 @@ sub get_javascript_panel {
 	}
 	my $buffer = <<"END";
 	$button_toggle_js
-	\$(".trigger").click(function(){		
-		\$(".panel").toggle("slide",{direction:"right"},"fast");
+	\$("#panel_trigger").click(function(){		
+		\$("#modify_panel").toggle("slide",{direction:"right"},"fast");
 		\$("#panel_trigger").show().animate({backgroundColor: "#448"},100).animate({backgroundColor: "#99d"},100);		
 		return false;
 	});

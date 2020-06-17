@@ -378,8 +378,17 @@ div.content {
 	margin:0;
 	padding:0
 }
+div.main_container {
+	display:flex;
+	flex-direction:column;
+	align-items:center;
+	padding:0;
+}
 div.main_content {
-	padding:0 1em 1em 1em;
+	width:calc(100vw - 20px - (100vw - 100%))
+}
+@media only screen and (max-width:800px){
+	div.main_content {width:calc(100vw - 10px - (100vw - 100%))}
 }
 
 div.flex_container {
@@ -621,9 +630,26 @@ div.panel {
 
 div.panel li {padding-bottom: 0.5em}
 
+a#expand_trigger{
+	position: absolute;
+	width:1.5em;
+	cursor:pointer;
+	text-align:center;
+	text-decoration: none;
+	top: 5.5em; right: 0;
+	color:#fff;
+	background: #488;
+	padding: 0.5em;
+	border-bottom-left-radius:10px;
+	border-top-left-radius:10px;
+	display: block;
+	box-shadow: 3px 3px 3px #aaa;
+}
+
 a#panel_trigger{
 	position: absolute;
 	width:1.5em;
+	cursor:pointer;
 	text-align:center;
 	text-decoration: none;
 	top: 8em; right: 0;
@@ -644,7 +670,7 @@ a#close_trigger {
 
 div#bookmark_panel {
 	position: absolute;
-	top: 5em;
+	top: 10.5em;
 	right: 0;
 	display: none;
 	padding: 1em 2em 1em 1em;
@@ -661,6 +687,7 @@ div#bookmark_panel {
 a#bookmark_trigger{
 	position: absolute;
 	width:1.5em;
+	cursor:pointer;
 	text-align:center;
 	text-decoration: none;
 	top:10.5em; right: 0;

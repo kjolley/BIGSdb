@@ -28,7 +28,7 @@ use BIGSdb::Constants qw(LOCUS_PATTERN);
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (tooltips jQuery addProjects);
+	$self->{$_} = 1 foreach qw (tooltips jQuery addProjects allowExpand);
 	$self->{'noCache'} = 1 if ( $self->{'system'}->{'sets'} // '' ) eq 'yes';
 	$self->set_level1_breadcrumbs;
 	return;
