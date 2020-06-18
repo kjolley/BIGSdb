@@ -297,7 +297,7 @@ sub run {
 	}
 	my ( $fields, $labels ) = $self->_get_fields;
 	say q(<h1>Field breakdown of dataset</h1>);
-	say q(<div class="box" id="resultspanel">);
+	say q(<div class="box" id="resultspanel" style="position:relative">);
 	my $record_count = BIGSdb::Utils::commify( $self->_get_id_count );
 	say qq(<p><b>Isolate records:</b> $record_count</p>);
 	say q(<fieldset><legend>Field selection</legend><ul>);
@@ -339,7 +339,7 @@ sub _print_map_controls {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<fieldset id="map_controls" class="c3_controls" )
-	  . q(style="position:absolute;top:7em;right:1em;display:none"><legend>Controls</legend>);
+	  . q(style="position:absolute;top:1em;right:1em;display:none"><legend>Controls</legend>);
 	say q(<ul>);
 	$self->_print_chart_types;
 	say q(<style>.theme.fa-square {text-shadow: 2px 2px 2px #999;font-size:1.8em;margin-right:0.2em;cursor:pointer})
@@ -403,7 +403,7 @@ sub _print_pie_controls {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<fieldset id="pie_controls" class="c3_controls" )
-	  . q(style="position:absolute;top:7em;right:1em;display:none"><legend>Controls</legend>);
+	  . q(style="position:absolute;top:1em;right:1em;display:none"><legend>Controls</legend>);
 	say q(<ul>);
 	say q(<li><label for="segments">Max segments:</label>);
 	say q(<div id="segments" style="display:inline-block;width:8em;margin-left:0.5em"></div>);
@@ -435,7 +435,7 @@ sub _print_bar_controls {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<fieldset id="bar_controls" class="c3_controls" )
-	  . q(style="position:absolute;top:7em;right:1em;display:none"><legend>Controls</legend>);
+	  . q(style="position:absolute;top:1em;right:1em;display:none"><legend>Controls</legend>);
 	say q(<ul>);
 	say q(<li><label for="orientation">Orientation:</label>);
 	say $q->radio_group( -name => 'orientation', -values => [qw(horizontal vertical)], -default => 'horizontal' );
@@ -450,7 +450,7 @@ sub _print_line_controls {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<fieldset id="line_controls" class="c3_controls" )
-	  . q(style="position:absolute;top:7em;right:1em;display:none"><legend>Controls</legend>);
+	  . q(style="position:absolute;top:1em;right:1em;display:none"><legend>Controls</legend>);
 	say q(<ul>);
 	say q(<li><label for="height">Height:</label>);
 	say q(<div id="line_height" style="display:inline-block;width:8em;margin-left:0.5em"></div></li>);
