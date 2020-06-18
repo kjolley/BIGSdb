@@ -33,7 +33,6 @@ our @EXPORT_OK = qw(SEQ_SOURCE);
 #Override the following methods in subclass
 sub get_initiation_values { return {} }
 sub get_attributes        { return {} }
-sub get_option_list { return [] }
 sub print_extra_form_elements { }
 sub get_hidden_attributes     { return [] }
 sub get_plugin_javascript     { return q() }
@@ -171,110 +170,9 @@ sub print_content {
 		);
 		return;
 	}
-	my $option_list = $plugin->get_option_list;
-	if ( @$option_list && $q->param('format') eq 'html' ) {
-		if ( $q->param('update_options') ) {
-			$self->_update_options($option_list);
-		}
-		if ( !$self->{'cookies_disabled'} ) {
-			say $q->start_form;
-			$q->param( update_options => 1 );
-			say $q->hidden($_) foreach @{ $plugin->get_hidden_attributes() };
-			say $q->hidden($_)
-			  foreach qw(page db name query_file temp_table_file update_options isolate_id isolate_paste_list);
-			say q(<div id="hidefromnonJS" class="hiddenbydefault">);
-			say q(<div class="floatmenu"><a id="toggle1" class="showhide">Show options</a>);
-			say q(<a id="toggle2" class="hideshow">Hide options</a></div>);
-			say q(<div class="hideshow">);
-			say q(<div id="pluginoptions" style="z-index:999"><h2>Options</h2><ul>);
-			my $guid = $self->get_guid;
-
-			foreach my $arg (@$option_list) {
-				say q(<li>);
-				my $default;
-				try {
-					$default =
-					  $self->{'prefstore'}
-					  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, $plugin_name, $arg->{'name'} );
-					if ( $default eq 'true' || $default eq 'false' ) {
-						$default = $default eq 'true' ? 1 : 0;
-					}
-				}
-				catch {
-					if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
-						$default = $arg->{'default'};
-					} elsif ( $_->isa('BIGSdb::Exception::Prefstore::NoGUID') ) {
-
-						#Ignore
-					} else {
-						$logger->logdie($_);
-					}
-				};
-				if ( $arg->{'optlist'} ) {
-					print $arg->{'description'} . ': ';
-					my @values = split /;/x, $arg->{'optlist'};
-					say $q->popup_menu( -name => $arg->{'name'}, -values => [@values], -default => $default );
-				} else {
-					say $q->checkbox( -name => $arg->{'name'}, -label => $arg->{'description'}, selected => $default );
-				}
-				say q(</li>);
-			}
-			say q(</ul><fieldset><legend>Action</legend>);
-			say $q->submit( -name => 'reset', -label => 'Reset to defaults', -class => RESET_BUTTON_CLASS );
-			say $q->submit( -name => 'set',   -label => 'Set options',       -class => BUTTON_CLASS );
-			say q(</fieldset></div></div></div>);
-			say $q->end_form;
-		} else {
-			say q(<div class="floatmenu">Options disabled (allow cookies to enable)</div>);
-		}
-	}
 	$plugin->initiate_prefs;
 	$plugin->initiate_view( $self->{'username'} );
 	$plugin->run;
-	return;
-}
-
-sub _update_options {
-	my ( $self, $option_list ) = @_;
-	my $q    = $self->{'cgi'};
-	my $guid = $self->get_guid;
-	if ($guid) {
-		if ( $q->param('set') ) {
-			foreach my $option (@$option_list) {
-				my $value;
-				if ( $option->{'optlist'} ) {
-					$value = $q->param( $option->{'name'} );
-				} else {
-					$value = $q->param( $option->{'name'} ) ? 'true' : 'false';
-				}
-				$self->{'prefstore'}->set_plugin_attribute(
-					$guid,
-					$self->{'system'}->{'db'},
-					scalar $q->param('name'),
-					$option->{'name'}, $value
-				);
-			}
-			$self->{'prefstore'}->update_datestamp($guid);
-		} elsif ( $q->param('reset') ) {
-			foreach my $option (@$option_list) {
-				$self->{'prefstore'}->delete_plugin_attribute(
-					$guid,
-					$self->{'system'}->{'db'},
-					scalar $q->param('name'),
-					$option->{'name'}
-				);
-				my $value;
-				if ( $option->{'optlist'} ) {
-					$value = $option->{'default'};
-				} else {
-					$value = $option->{'default'} ? 'on' : 'off';
-				}
-				$q->param( $option->{'name'}, $value );
-			}
-		}
-	} else {
-		$self->{'cookies_disabled'} = 1;
-	}
 	return;
 }
 
@@ -1220,8 +1118,8 @@ sub get_field_value {
 }
 
 sub get_breadcrumbs {
-	my ($self) = @_;
-	my $att = $self->get_attributes;
+	my ($self)      = @_;
+	my $att         = $self->get_attributes;
 	my $breadcrumbs = [
 		{
 			label => $self->{'system'}->{'webroot_label'} // 'Organism',
