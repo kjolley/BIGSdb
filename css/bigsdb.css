@@ -579,7 +579,9 @@ span.breadcrumb_divider {
 img.plugin_image {
 	width:500px;
 	max-width:100%;
-	margin-bottom:1em
+	margin-bottom:1em;
+	border:1px solid #ccc;
+	box-shadow: 3px 3px 3px #aaa;
 }
 
 div.embed_c3_chart {
@@ -798,8 +800,8 @@ div#statusbad, div.statusbad {background:#e0d5d5;color:#800000}
 div.statusbad_no_resize {background:#e0d5d5;color:#800000}
 div.statusgood_no_resize {background:#d5e0d5;color:#008000}
 div#warning {background:#e0a0a0;color:#000000}
-div#resultsheader, div.resultsheader {background:#d5e0d5;padding:5px}
-div#resultsfooter, div.resultsfooter {background:#d5e0d5;padding:5px}
+div#resultsheader, div.resultsheader {background:#d5e0d5;padding:1em}
+div#resultsfooter, div.resultsfooter {background:#d5e0d5;padding:1em}
 div#resultstable, div.resultstable {background:#e0e0e0}
 div#resultspanel, div.resultspanel {background:#eceef1}
 div#resultspanel li,p,dd {position:relative;z-index:3}
@@ -810,7 +812,6 @@ div#resultstable p.comment {font-size:0.95em}
 div#abstract {background:#d5d5e0}
 div#banner {background:#e2e5e9;padding:10px 10px 1px 10px;color:#006}
 div#pluginbanner {background:#dde;padding:10px 10px 1px 10px;color:#006}
-div#plugins {background-image: linear-gradient(#d8d8e0, #e0e0e8)}
 div#message {background:#e0d5d5}
 div.file_output {
 	padding:10px;

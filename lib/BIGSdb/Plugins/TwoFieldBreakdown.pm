@@ -35,21 +35,25 @@ use constant MAX_TABLE       => 2000;
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name        => 'Two Field Breakdown',
-		author      => 'Keith Jolley',
-		affiliation => 'University of Oxford, UK',
-		email       => 'keith.jolley@zoo.ox.ac.uk',
-		description => 'Two field breakdown',
-		category    => 'Breakdown',
-		buttontext  => 'Two Field',
-		menutext    => 'Two field',
-		module      => 'TwoFieldBreakdown',
-		version     => '1.5.1',
-		dbtype      => 'isolates',
-		section     => 'breakdown,postquery',
-		url         => "$self->{'config'}->{'doclink'}/data_analysis/two_field_breakdown.html",
-		input       => 'query',
-		order       => 12
+		name             => 'Two Field Breakdown',
+		author           => 'Keith Jolley',
+		affiliation      => 'University of Oxford, UK',
+		email            => 'keith.jolley@zoo.ox.ac.uk',
+		description      => 'Breakdown of one field against another',
+		full_description => 'The two field breakdown plugin generates a table breaking down the frequencies of one '
+		  . 'field against another. This is analagous to a spreadsheet pivot table. Any primary metadata field, locus, '
+		  . 'or scheme field can be used and the output can be exported as an Excel spreadsheet.',
+		category   => 'Breakdown',
+		buttontext => 'Two Field',
+		menutext   => 'Two field breakdown',
+		module     => 'TwoFieldBreakdown',
+		version    => '1.5.2',
+		dbtype     => 'isolates',
+		section    => 'breakdown,postquery',
+		url        => "$self->{'config'}->{'doclink'}/data_analysis/two_field_breakdown.html",
+		input      => 'query',
+		order      => 12,
+		image      => '/images/plugins/TwoFieldBreakdown/screenshot.png'
 	);
 	return \%att;
 }

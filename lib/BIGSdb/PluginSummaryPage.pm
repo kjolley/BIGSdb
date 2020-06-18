@@ -70,8 +70,8 @@ sub print_content {
 		foreach my $plugin_name (@$plugin_names) {
 			my $plugin = $self->{'pluginManager'}->get_plugin_attributes($plugin_name);
 			say qq(<a name="$plugin_name"></a><h3>$plugin->{'menutext'}</h3>);
-			say qq(<p>Summary: $plugin->{'description'}</p>)      if $plugin->{'description'};
-			say qq(<p>$plugin->{'full_description'}</p>) if $plugin->{'full_description'};
+			say qq(<p>Summary: $plugin->{'description'}</p>) if $plugin->{'description'};
+			say qq(<p>$plugin->{'full_description'}</p>)     if $plugin->{'full_description'};
 			if ( $plugin->{'url'} ) {
 				my $external_link = q();
 				if ( ( lc( $plugin->{'url'} ) =~ /https?:\/\/(.*?)\/+/x ) ) {
@@ -82,11 +82,12 @@ sub print_content {
 				}
 				say qq(<p><a href="$plugin->{'url'}" target="_blank">Documentation</a>$external_link</p>);
 			}
-			say qq(<p style="margin:2em 0"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=plugin&amp;name=$plugin_name" class="launchbutton">Launch plugin</a></p>);
 			if ( $plugin->{'image'} ) {
 				say qq(<img class="plugin_image" src="$plugin->{'image'}" title="$plugin->{'menutext'}" />);
 			}
+			say qq(<p style="margin:2em 0"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=plugin&amp;name=$plugin_name" class="launchbutton" style="white-space:nowrap">)
+			  . qq(Launch '$plugin->{'menutext'}'</a></p>);
 		}
 	}
 	say q(</div>);

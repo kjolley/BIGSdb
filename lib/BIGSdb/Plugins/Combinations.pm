@@ -42,23 +42,27 @@ sub get_initiation_values {
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name        => 'Unique Combinations',
-		author      => 'Keith Jolley',
-		affiliation => 'University of Oxford, UK',
-		email       => 'keith.jolley@zoo.ox.ac.uk',
-		description => 'Determine frequencies of unique field combinations',
-		category    => 'Breakdown',
-		buttontext  => 'Combinations',
-		menutext    => 'Unique combinations',
-		module      => 'Combinations',
-		url         => "$self->{'config'}->{'doclink'}/data_analysis/unique_combinations.html",
-		version     => '1.4.4',
-		dbtype      => 'isolates',
-		section     => 'breakdown,postquery',
-		input       => 'query',
-		help        => 'tooltips',
-		requires    => 'js_tree,offline_jobs',
-		order       => 15
+		name             => 'Unique Combinations',
+		author           => 'Keith Jolley',
+		affiliation      => 'University of Oxford, UK',
+		email            => 'keith.jolley@zoo.ox.ac.uk',
+		description      => 'Determine frequencies of unique field combinations',
+		full_description => 'The Unique Combinations plugin calculates the frequencies of unique file combinations '
+		  . 'within an isolate dataset. Primary metadata fields, allele designations and scheme fields can be '
+		  . 'combined. Results are returned in an Excel spreadsheet.',
+		category   => 'Breakdown',
+		buttontext => 'Combinations',
+		menutext   => 'Unique combinations',
+		module     => 'Combinations',
+		url        => "$self->{'config'}->{'doclink'}/data_analysis/unique_combinations.html",
+		version    => '1.4.5',
+		dbtype     => 'isolates',
+		section    => 'breakdown,postquery',
+		input      => 'query',
+		help       => 'tooltips',
+		requires   => 'js_tree,offline_jobs',
+		order      => 15,
+		image      => '/images/plugins/Combinations/screenshot.png'
 	);
 	return \%att;
 }

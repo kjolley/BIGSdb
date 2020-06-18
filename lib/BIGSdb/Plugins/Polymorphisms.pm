@@ -1,6 +1,6 @@
 #Polymorphisms.pm - Plugin for BIGSdb (requires LocusExplorer plugin)
 #Written by Keith Jolley
-#Copyright (c) 2011-2019, University of Oxford
+#Copyright (c) 2011-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -34,23 +34,27 @@ use constant MAX_SEQUENCES   => 2000;
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name        => 'Polymorphisms',
-		author      => 'Keith Jolley',
-		affiliation => 'University of Oxford, UK',
-		email       => 'keith.jolley@zoo.ox.ac.uk',
-		description => 'Tool for analysing polymorphic sites for particular locus in an isolate dataset',
-		category    => 'Breakdown',
-		menutext    => 'Polymorphic sites',
-		module      => 'Polymorphisms',
-		version     => '1.1.10',
-		dbtype      => 'isolates',
-		url         => "$self->{'config'}->{'doclink'}/data_analysis/polymorphisms.html",
-		section     => 'breakdown,postquery',
-		requires    => 'aligner,offline_jobs',
-		input       => 'query',
-		help        => 'tooltips',
-		order       => 16,
-		max         => MAX_SEQUENCES
+		name             => 'Polymorphisms',
+		author           => 'Keith Jolley',
+		affiliation      => 'University of Oxford, UK',
+		email            => 'keith.jolley@zoo.ox.ac.uk',
+		description      => 'Tool for analysing polymorphic sites for particular locus in an isolate dataset',
+		full_description => 'This plugin generates a schematic of the selected locus showing all the polymorphic '
+		  . 'sites present in the selected dataset. These are also shown in a tabular form with precise frequencies '
+		  . 'for each nucleotide at every position.',
+		category => 'Breakdown',
+		menutext => 'Polymorphic sites',
+		module   => 'Polymorphisms',
+		version  => '1.1.11',
+		dbtype   => 'isolates',
+		url      => "$self->{'config'}->{'doclink'}/data_analysis/polymorphisms.html",
+		section  => 'breakdown,postquery',
+		requires => 'aligner,offline_jobs',
+		input    => 'query',
+		help     => 'tooltips',
+		order    => 16,
+		image    => '/images/plugins/Polymorphisms/screenshot.png',
+		max      => MAX_SEQUENCES
 	);
 	return \%att;
 }

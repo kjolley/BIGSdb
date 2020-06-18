@@ -1,6 +1,6 @@
 #PublicationBreakdown.pm - PublicationBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -29,22 +29,26 @@ my $logger = get_logger('BIGSdb.Plugins');
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name        => 'Publication Breakdown',
-		author      => 'Keith Jolley',
-		affiliation => 'University of Oxford, UK',
-		email       => 'keith.jolley@zoo.ox.ac.uk',
-		description => 'Breakdown of query results by publication',
-		category    => 'Breakdown',
-		buttontext  => 'Publications',
-		menutext    => 'Publications',
-		module      => 'PublicationBreakdown',
-		version     => '1.1.9',
-		dbtype      => 'isolates',
-		section     => 'breakdown,postquery',
-		url         => "$self->{'config'}->{'doclink'}/data_query.html#retrieving-isolates-by-linked-publication",
-		input       => 'query',
-		requires    => 'ref_db',
-		order       => 30,
+		name             => 'Publication Breakdown',
+		author           => 'Keith Jolley',
+		affiliation      => 'University of Oxford, UK',
+		email            => 'keith.jolley@zoo.ox.ac.uk',
+		description      => 'Breakdown of query results by publication',
+		full_description => 'This plugin shows all publications linked to isolates in a query dataset or '
+		  . 'within the whole database. The results can be filtered by author or year. The output includes '
+		  . 'full citation details and a link to display all isolates linked to any listed publication.',
+		category   => 'Breakdown',
+		buttontext => 'Publications',
+		menutext   => 'Publications',
+		module     => 'PublicationBreakdown',
+		version    => '1.1.10',
+		dbtype     => 'isolates',
+		section    => 'breakdown,postquery',
+		url        => "$self->{'config'}->{'doclink'}/data_query.html#retrieving-isolates-by-linked-publication",
+		input      => 'query',
+		requires   => 'ref_db',
+		order      => 30,
+		image => '/images/plugins/Publications/screenshot.png'
 	);
 	return \%att;
 }

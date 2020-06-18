@@ -381,13 +381,12 @@ sub print_content {
 		return;
 	} elsif ( !BIGSdb::Utils::is_int($isolate_id) ) {
 		say q(<h1>Isolate information</h1>);
-		$self->print_bad_status( { message => q(Isolate id must be an integer.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Isolate id must be an integer.) } );
 		return;
 	}
 	if ( $self->{'system'}->{'dbtype'} ne 'isolates' ) {
 		say q(<h1>Isolate information</h1>);
-		$self->print_bad_status(
-			{ message => q(This function can only be called for isolate databases.), navbar => 1 } );
+		$self->print_bad_status( { message => q(This function can only be called for isolate databases.) } );
 		return;
 	}
 	my $data =
@@ -395,14 +394,13 @@ sub print_content {
 	  ->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $isolate_id, { fetch => 'row_hashref' } );
 	if ( !$data ) {
 		say qq(<h1>Isolate information: id-$isolate_id</h1>);
-		$self->print_bad_status( { message => q(The database contains no record of this isolate.), navbar => 1 } );
+		$self->print_bad_status( { message => q(The database contains no record of this isolate.) } );
 		return;
 	} elsif ( !$self->is_allowed_to_view_isolate($isolate_id) ) {
 		say q(<h1>Isolate information</h1>);
 		$self->print_bad_status(
 			{
 				message => q(Your user account does not have permission to view this record.),
-				navbar  => 1
 			}
 		);
 		return;
@@ -1100,8 +1098,7 @@ sub _get_field_extended_attributes {
 	my %attributes = map { $_->{'attribute'} => $_->{'value'} } @$attribute_list;
 	if ( keys %attributes ) {
 		my $rows = keys %attributes || 1;
-		foreach my $attribute ( sort { ( $order{$a} // 0 ) <=> ( $order{$b} // 0 ) } keys(%attributes) )
-		{
+		foreach my $attribute ( sort { ( $order{$a} // 0 ) <=> ( $order{$b} // 0 ) } keys(%attributes) ) {
 			my $url =
 			  $self->{'datastore'}
 			  ->run_query( 'SELECT url FROM isolate_field_extended_attributes WHERE (isolate_field,attribute)=(?,?)',
@@ -1485,8 +1482,8 @@ sub _get_locus_value {
 }
 
 sub get_title {
-	my ($self)     = @_;
-	my $q          = $self->{'cgi'};
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
 	return q() if $q->param('no_header');
 	return 'Isolate information';
 }

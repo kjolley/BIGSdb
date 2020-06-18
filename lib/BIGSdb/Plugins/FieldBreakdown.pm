@@ -41,7 +41,7 @@ sub get_attributes {
 		  . 'exported as an Excel file, SVG image, or FASTA file.',
 		category   => 'Breakdown',
 		buttontext => 'Fields',
-		menutext   => 'Single field breakdown',
+		menutext   => 'Field breakdown',
 		module     => 'FieldBreakdown',
 		version    => '2.2.10',
 		dbtype     => 'isolates',
@@ -49,7 +49,7 @@ sub get_attributes {
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
 		input      => 'query',
 		order      => 10,
-		image      => "$self->{'config'}->{'doclink'}/_images/field_breakdown4.png"
+		image      => "/images/plugins/FieldBreakdown/screenshot.png"
 	);
 	return \%att;
 }

@@ -83,7 +83,8 @@ sub get_tree_javascript {
 });
 
 function loadContent(url) {
-	\$("#scheme_table").html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...').load(url,tooltip);
+	\$("#scheme_table").html('<div style="margin-top:1em">'
+	+ '<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...</div>').load(url,tooltip);
 }
 
 tooltip = function(e){

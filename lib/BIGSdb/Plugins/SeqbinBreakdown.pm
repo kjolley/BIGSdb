@@ -34,23 +34,28 @@ use constant MAX_HTML_OUTPUT => 2000;
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name        => 'Sequence Bin Breakdown',
-		author      => 'Keith Jolley',
-		affiliation => 'University of Oxford, UK',
-		email       => 'keith.jolley@zoo.ox.ac.uk',
-		description => 'Breakdown of sequence bin contig properties',
+		name             => 'Sequence Bin Breakdown',
+		author           => 'Keith Jolley',
+		affiliation      => 'University of Oxford, UK',
+		email            => 'keith.jolley@zoo.ox.ac.uk',
+		description      => 'Breakdown of sequence bin contig properties',
+		full_description => 'The sequence bin breakdown plugin calculates statistics based on the number and length '
+		  . 'of contigs in the sequence bin as well as the number of loci tagged for each isolate record. Using this '
+		  . 'latter metric against a cgMLST scheme can be a good indicator of genome quality. Values for number of '
+		  . 'contigs, total sequence length, mean contig length and contig length distribution are charted.',
 		category    => 'Breakdown',
 		buttontext  => 'Sequence bin',
-		menutext    => 'Sequence bin',
+		menutext    => 'Sequence bin breakdown',
 		module      => 'SeqbinBreakdown',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/seqbin_breakdown.html",
-		version     => '1.5.1',
+		version     => '1.5.2',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
 		order       => 80,
 		requires    => 'offline_jobs,js_tree,seqbin',
-		system_flag => 'SeqbinBreakdown'
+		system_flag => 'SeqbinBreakdown',
+		image       => '/images/plugins/SeqbinBreakdown/screenshot.png'
 	);
 	return \%att;
 }
