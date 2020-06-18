@@ -257,10 +257,14 @@ sub _print_interface {
 }
 
 sub print_panel_buttons {
+	my ($self) = @_;
 	say q(<a class="trigger_button" id="panel_trigger" title="Modify form options" style="display:none">)
 	  . q(<span class="fas fa-lg fa-wrench"></span></a>);
+	my $bookmarks = $self->_get_bookmarks;
+	if (@$bookmarks) {
 		say q(<a class="trigger_button" id="bookmark_trigger" style="display:none" title="Bookmarks">)
-	  . q(<span class="far fa-lg fa-bookmark"></span></a>);
+		  . q(<span class="far fa-lg fa-bookmark"></span></a>);
+	}
 	return;
 }
 
@@ -860,21 +864,25 @@ sub _print_modify_search_fieldset {
 	return;
 }
 
-sub _print_bookmark_fieldset {
+sub _get_bookmarks {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	return if !$self->{'username'};
+	return [] if !$self->{'username'};
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	return if !$user_info;
+	return [] if !$user_info;
 	my $bookmarks =
 	  $self->{'datastore'}->run_query( 'SELECT id,name,dbase_config FROM bookmarks WHERE user_id=? ORDER BY name',
 		$user_info->{'id'}, { fetch => 'all_arrayref', slice => {} } );
+}
+
+sub _print_bookmark_fieldset {
+	my ($self) = @_;
+	my $bookmarks = $self->_get_bookmarks;
 	return if !@$bookmarks;
 	say q(<div id="bookmark_panel" style="display:none">);
 	say q(<a class="close_trigger" id="close_bookmark"><span class="fas fa-lg fa-times"></span></a>);
 	say q(<h2>Bookmarks</h2>);
 	say q(<div><div style="max-height:12em;overflow-y:auto;padding-right:2em"><ul style="margin-left:-1em">);
-
 	foreach my $bookmark (@$bookmarks) {
 		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$bookmark->{'dbase_config'}&amp;)
 		  . qq(page=query&amp;bookmark=$bookmark->{'id'}">$bookmark->{'name'}</a></li>);
@@ -2921,10 +2929,10 @@ $panel_js
 	
 	\$("#bookmark_trigger,#close_bookmark").click(function(){		
 		\$("#bookmark_panel").toggle("slide",{direction:"right"},"fast");
-		\$("#bookmark_trigger").show().animate({backgroundColor: "#848"},100).animate({backgroundColor: "#d9d"},100);		
+		\$("#bookmark_trigger").show();		
 		return false;
 	});
-	\$("#bookmark_trigger").show().animate({backgroundColor: "#d9d"},500);
+	\$("#bookmark_trigger").show();
  });
  
 function setTooltips() {

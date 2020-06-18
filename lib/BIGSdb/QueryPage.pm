@@ -82,10 +82,10 @@ sub get_javascript_panel {
 	$button_toggle_js
 	\$("#panel_trigger,#close_trigger").click(function(){		
 		\$("#modify_panel").toggle("slide",{direction:"right"},"fast");
-		\$("#panel_trigger").show().animate({backgroundColor: "#448"},100).animate({backgroundColor: "#99d"},100);		
+		\$("#panel_trigger").show();		
 		return false;
 	});
-	\$("#panel_trigger").show().animate({backgroundColor: "#99d"},500);
+	\$("#panel_trigger").show();
 	\$("a#save_options").click(function(event){		
 		event.preventDefault();
 		$button_text_js

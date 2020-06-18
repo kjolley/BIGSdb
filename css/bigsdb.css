@@ -614,7 +614,7 @@ div.menu a.logo:hover {background:transparent}
 
 div.panel {
 	position: absolute;
-	top: 8em;
+	top: 5em;
 	right: 0;
 	display: none;
 	padding: 1em 3em 1em 1em;
@@ -630,17 +630,24 @@ div.panel {
 
 div.panel li {padding-bottom: 0.5em}
 
-a.trigger_button {
+div.button_panel {
+	display:flex;
 	position:absolute;
-	right:0;
+	right:0.5em;
+}
+@media (max-width: 600px){
+	div.button_panel {display:none}
+}
+
+a.trigger_button {
 	width:1.5em;
 	color:#fff;
 	text-align:center;
 	text-decoration:none;
-	border-bottom-left-radius:10px;
-	border-top-left-radius:10px;
+	border-radius:0 0 5px 5px;
 	display:block;
-	padding:0.5em;
+	padding:0.25em 0.5em;
+	margin-left:0.75em;
 	box-shadow:3px 3px 3px #aaa;
 	cursor:pointer;
 }
@@ -649,28 +656,26 @@ a.close_trigger {
 }
 
 a#help_link {
-	top:2.5em;
-	background: #488;
+	background:#a7aaf3;
 }
 
-a#toggle_tooltips{
-	top:5em;
-	background: #488;
+a.tooltips_enabled {
+	background:#79b8f4;
+}
+a.tooltips_disabled {
+	background:#ccc;
 }
 
 a#expand_trigger{
-	top: 7.5em;
-	background: #488;
+	background:#d8d8c0;
 }
 
 a#panel_trigger{
-	top: 10em;
-	background: #448;
+	background:#8093f1;
 }
 
 a#bookmark_trigger{
-	top:12.5em;
-	background: #848;
+	background:#d59bf2;
 }
 
 a#close_trigger {
@@ -681,7 +686,7 @@ a#close_trigger {
 
 div#bookmark_panel {
 	position: absolute;
-	top: 10.5em;
+	top: 5em;
 	right: 0;
 	display: none;
 	padding: 1em 2em 1em 1em;

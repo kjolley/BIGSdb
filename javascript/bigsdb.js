@@ -21,6 +21,15 @@ $(function () {
 	$('a#toggle_tooltips,span#toggle').show();
 	$('a#toggle_tooltips').click(function(event){		
 		event.preventDefault();
+		if ($('a#toggle_tooltips').hasClass('tooltips_enabled')){
+			$('a#toggle_tooltips').removeClass('tooltips_enabled');
+			$('a#toggle_tooltips').addClass('tooltips_disabled');
+			$('a#toggle_tooltips').prop('title','Enable tooltips');
+		} else {
+			$('a#toggle_tooltips').removeClass('tooltips_disabled');
+			$('a#toggle_tooltips').addClass('tooltips_enabled');
+			$('a#toggle_tooltips').prop('title','Disable tooltips');
+		}
 		$('.tooltip').toggle();
 	  	$(this).attr('href', function(){  		
 	  		$.ajax({
@@ -29,6 +38,7 @@ $(function () {
 	  		});
 	   	});
 	});
+
 	show_expand_trigger();
 	$('a#expand_trigger').click(function(event){
 		if ($('span#expand').is(":visible")){
@@ -45,6 +55,8 @@ $(function () {
 	
 	//Tooltips
 	reloadTooltips();
+	$('a#toggle_tooltips').prop('title',$('a#toggle_tooltips')
+			.hasClass('tooltips_enabled') ? 'Disable tooltips' : 'Enable tooltips');
 	
 	//Add tooltip to truncated definition list titles
 	$('dt').each(function(){
@@ -71,8 +83,8 @@ $.urlParam = function(name){
 }
 
 function show_expand_trigger() {
-	if ($(window).width() > max_width){
-		$("a#expand_trigger").show().animate({backgroundColor: "#9cc"},500);
+	if ($(window).width() > max_width + 100){
+		$("a#expand_trigger").show();
 	} else {
 		$('a#expand_trigger').hide();
 	}
