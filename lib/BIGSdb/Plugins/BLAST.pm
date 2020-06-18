@@ -1,6 +1,6 @@
 #BLAST.pm - BLAST plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -98,16 +98,20 @@ sub set_pref_requirements {
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name        => 'BLAST',
-		author      => 'Keith Jolley',
-		affiliation => 'University of Oxford, UK',
-		email       => 'keith.jolley@zoo.ox.ac.uk',
-		description => 'BLAST a query sequence against selected isolate data',
+		name             => 'BLAST',
+		author           => 'Keith Jolley',
+		affiliation      => 'University of Oxford, UK',
+		email            => 'keith.jolley@zoo.ox.ac.uk',
+		description      => 'BLAST a query sequence against selected isolate data',
+		full_description => 'The BLAST plugin enables you to BLAST a sequence against any of the genomes in the '
+		  . 'database, displaying a table of matches which can be downloaded in Excel format. In addition, the '
+		  . 'matched sequence regions are made available for download in FASTA format, either with or without '
+		  . 'surrounding flanking sequence.',
 		category    => 'Analysis',
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.4.16',
+		version     => '1.4.17',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -116,6 +120,7 @@ sub get_attributes {
 		system_flag => 'BLAST',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/blast.html",
 		requires    => 'offline_jobs,seqbin',
+		image       => '/images/plugins/BLAST/screenshot.png'
 	);
 	return \%att;
 }

@@ -45,16 +45,22 @@ use constant MAX_REF_LOCI      => 10000;
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name        => 'Genome Comparator',
-		author      => 'Keith Jolley',
-		affiliation => 'University of Oxford, UK',
-		email       => 'keith.jolley@zoo.ox.ac.uk',
-		description => 'Compare genomes at defined loci or against loci defined in a reference genome',
+		name             => 'Genome Comparator',
+		author           => 'Keith Jolley',
+		affiliation      => 'University of Oxford, UK',
+		email            => 'keith.jolley@zoo.ox.ac.uk',
+		description      => 'Compare genomes at defined loci or against loci defined in a reference genome',
+		full_description => 'Genome Comparator is used to compare whole genome data of isolates within the database '
+		  . 'using either the database defined loci or the coding sequences of an annotated genome as the comparator. '
+		  . 'Output is equivalent to a whole genome MLST profile, a distance matrix calculated based on allelic '
+		  . 'differences and a NeighborNet graph generated from this distance matrix. The analysis facilitates the '
+		  . 'determination of precisely which loci vary among isolates. Additionally, user-uploaded genomes that '
+		  . 'are not contained in the database can be analysed alongside genomes that are.',
 		category    => 'Analysis',
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.6.3',
+		version     => '2.6.4',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -63,6 +69,7 @@ sub get_attributes {
 		input       => 'query',
 		help        => 'tooltips',
 		system_flag => 'GenomeComparator',
+		image       => '/images/plugins/GenomeComparator/screenshot.png',
 		priority    => 0
 	);
 	return \%att;

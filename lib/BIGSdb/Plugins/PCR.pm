@@ -38,25 +38,32 @@ my $logger = get_logger('BIGSdb.Plugins');
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name        => 'PCR',
-		author      => 'Keith Jolley',
-		affiliation => 'University of Oxford, UK',
-		email       => 'keith.jolley@zoo.ox.ac.uk',
-		description => '<i>In silico</i> PCR tool for designing and testing primers',
+		name             => 'PCR',
+		author           => 'Keith Jolley',
+		affiliation      => 'University of Oxford, UK',
+		email            => 'keith.jolley@zoo.ox.ac.uk',
+		description      => '<i>In silico</i> PCR tool for designing and testing primers',
+		full_description => 'The <i>in silico</i> PCR tool can be used to simulate PCR reactions run against genomes '
+		  . 'stored in the database. This is useful for designing and testing primers. The plugin uses the exonerate '
+		  . 'ipcress program to perform its simulation. Primers can contain wobble bases and the number of allowed '
+		  . 'mismatches for each primer can be set independently. The output is a table of predicted products, showing '
+		  . 'the number of products and their positions within a contig. It is also possible to export the predicted '
+		  . 'product sequence.',
 		category    => 'Analysis',
 		buttontext  => 'PCR',
 		menutext    => 'In silico PCR',
 		module      => 'PCR',
-		version     => '1.0.6',
+		version     => '1.0.7',
 		dbtype      => 'isolates',
 		section     => 'info,analysis,postquery',
 		input       => 'query',
 		help        => 'tooltips',
 		system_flag => 'PCR',
 		requires    => 'seqbin,ipcress',
-		url         => "$self->{'config'}->{'doclink'}/data_analysis/pcr.html",
+		url         => "$self->{'config'}->{'doclink'}/data_analysis/in_silico_pcr.html",
 		order       => 45,
-		priority    => 0
+		priority    => 0,
+		image       => '/images/plugins/PCR/screenshot.png'
 	);
 	return \%att;
 }

@@ -35,23 +35,29 @@ use constant HEATMAP_MAX_HEIGHT => 10_000;
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name        => 'Gene Presence',
-		author      => 'Keith Jolley',
-		affiliation => 'University of Oxford, UK',
-		email       => 'keith.jolley@zoo.ox.ac.uk',
-		description => 'Analyse presence/absence of loci for dataset generated from query results',
-		category    => 'Analysis',
-		buttontext  => 'Gene Presence',
-		menutext    => 'Gene presence',
-		module      => 'GenePresence',
-		url         => "$self->{'config'}->{'doclink'}/data_analysis/gene_presence.html",
-		version     => '2.0.10',
-		dbtype      => 'isolates',
-		section     => 'analysis,postquery',
-		input       => 'query',
-		requires    => 'offline_jobs',
-		help        => 'tooltips',
-		order       => 16
+		name             => 'Gene Presence',
+		author           => 'Keith Jolley',
+		affiliation      => 'University of Oxford, UK',
+		email            => 'keith.jolley@zoo.ox.ac.uk',
+		description      => 'Analyse presence/absence of loci for dataset generated from query results',
+		full_description => 'The Gene Presence analysis tool will determine whether loci are present or absent, '
+		  . 'incomplete, have alleles designated, or sequence regions tagged for selected isolates and loci. If a '
+		  . 'genome is present and a locus designation not set in the database, then the presence and completion '
+		  . 'status are determined by scanning the genomes. The results can be displayed as interactive pivot tables '
+		  . 'or a heatmap. The analysis is limited to 500,000 data points (locus x isolates).',
+		category   => 'Analysis',
+		buttontext => 'Gene Presence',
+		menutext   => 'Gene presence',
+		module     => 'GenePresence',
+		url        => "$self->{'config'}->{'doclink'}/data_analysis/gene_presence.html",
+		version    => '2.0.11',
+		dbtype     => 'isolates',
+		section    => 'analysis,postquery',
+		input      => 'query',
+		requires   => 'offline_jobs',
+		help       => 'tooltips',
+		order      => 16,
+		image      => '/images/plugins/GenePresence/screenshot.png'
 	);
 	return \%att;
 }
@@ -191,7 +197,7 @@ sub _heatmap {
 		return;
 	}
 	my $size = $self->_get_heatmap_size($job_id);
-	say q(<div class="box" id="resultspanel">);
+	say q(<div class="box" id="resultspanel" style="position:relative">);
 	say q(<div id="heatmap_instructions" style="display:none"><h2>Heatmap</h2>);
 	say q(</div><div class="scrollable">);
 	say q(<div id="waiting">);
@@ -213,7 +219,7 @@ sub _print_heatmap_controls {
 	my $q      = $self->{'cgi'};
 	my $job_id = $q->param('heatmap');
 	my $params = $self->{'jobManager'}->get_job_params($job_id);
-	say q(<div id="controls" style="position:absolute;top:6em;right:1em">);
+	say q(<div id="controls" style="position:absolute;top:1em;right:1em">);
 	say q(<fieldset style="float:left"><legend>Change analysis</legend>);
 	say q(<p style="text-align:center;margin-top:0.5em">)
 	  . qq(<a href="$params->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;)
@@ -289,8 +295,7 @@ sub run {
 		if ( $q->param('user_upload') ) {
 			$user_upload = $self->_upload_user_file;
 		}
-		my $max_taxa = $self->{'system'}->{'genepresence_taxa_limit'}
-		  // $self->{'config'}->{'genepresence_taxa_limit'}
+		my $max_taxa = $self->{'system'}->{'genepresence_taxa_limit'} // $self->{'config'}->{'genepresence_taxa_limit'}
 		  // MAX_TAXA;
 		$max_taxa = MAX_TAXA if !BIGSdb::Utils::is_int($max_taxa);
 		if ( @$ids > $max_taxa ) {
@@ -625,8 +630,8 @@ var blur = $size->{'blur'};
 	        var wrapper = document.querySelector('#wrapper');
 			var tooltip = document.querySelector('#tooltip');
 			function updateTooltip(pageX, pageY, x, y, value) {
-				var x_offset = (pageX > (\$(window).width() / 2)) ? -150 : 10
-				var transl = 'translate(' + (pageX + x_offset) + 'px, ' + (pageY - 25) + 'px)';
+				var x_offset = (x > (\$(window).width() / 2)) ? -150 : 50;
+				var transl = 'translate(' + (x + x_offset) + 'px, ' + (y + 125) + 'px)';
 				tooltip.style.webkitTransform = transl;
 				tooltip.innerHTML = value;
 			}

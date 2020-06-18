@@ -39,16 +39,20 @@ use constant URL                  => 'https://rest.pubmlst.org/db/pubmlst_rmlst_
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name        => 'rMLST species identity',
-		author      => 'Keith Jolley',
-		affiliation => 'University of Oxford, UK',
-		email       => 'keith.jolley@zoo.ox.ac.uk',
-		description => 'Query genomes against rMLST species identifier',
+		name             => 'rMLST species identity',
+		author           => 'Keith Jolley',
+		affiliation      => 'University of Oxford, UK',
+		email            => 'keith.jolley@zoo.ox.ac.uk',
+		description      => 'Use rMLST to identify species from bacterial genome assemblies',
+		full_description => 'The species identification tool extracts ribosomal MLST alleles from genomes and '
+		  . 'determines the species based on the count of alleles that are uniquely found within a single species '
+		  . '(or higher taxonomic rank if alleles unique to a species are not found). This is done by making a query '
+		  . 'via the PubMLST RESTful API to the rMLST typing database.',
 		category    => 'Analysis',
 		buttontext  => 'rMLST species id',
 		menutext    => 'Species identification',
 		module      => 'RMLSTSpecies',
-		version     => '1.2.9',
+		version     => '1.2.10',
 		dbtype      => 'isolates',
 		section     => 'info,analysis,postquery',
 		input       => 'query',
@@ -57,7 +61,8 @@ sub get_attributes {
 		requires    => 'seqbin',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/rMLST.html",
 		order       => 40,
-		priority    => 0
+		priority    => 0,
+		image       => '/images/plugins/RMLSTSpecies/screenshot.png'
 	);
 	return \%att;
 }

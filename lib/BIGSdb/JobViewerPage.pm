@@ -68,8 +68,10 @@ sub initiate {
 		$self->{'noCache'}    = 1;
 		return;
 	} else {
-		$self->{$_} = 1 foreach qw(jQuery jQuery.slimbox jQuery.tablesort packery noCache);
+		$self->{$_} = 1 foreach qw(jQuery jQuery.slimbox jQuery.tablesort packery noCache allowExpand);
 	}
+	$self->set_level1_breadcrumbs;
+	
 	return if !defined $id;
 	my $job = $self->{'jobManager'}->get_job($id);
 	if ( defined $job->{'module'} && $self->{'pluginManager'}->is_plugin( $job->{'module'} ) ) {
@@ -478,8 +480,7 @@ sub _can_user_cancel_job {
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Job status viewer - $desc";
+	return 'Job status viewer';
 }
 
 sub _tar_archive {

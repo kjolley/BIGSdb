@@ -120,24 +120,28 @@ my %translate = (
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name        => 'Codon Usage',
-		author      => 'Keith Jolley',
-		affiliation => 'University of Oxford, UK',
-		email       => 'keith.jolley@zoo.ox.ac.uk',
-		description => 'Determine codon usage for specified loci for an isolate database query',
+		name             => 'Codon Usage',
+		author           => 'Keith Jolley',
+		affiliation      => 'University of Oxford, UK',
+		email            => 'keith.jolley@zoo.ox.ac.uk',
+		description      => 'Determine codon usage for specified loci for an isolate database query',
+		full_description => 'The codon usage plugin calculates the absolute and relative synonymous codon usage by '
+		  . 'isolate and by locus for any dataset or the whole database. Specific loci or the loci that are members '
+		  . 'of a particular scheme can be chosen for analysis.',
 		category    => 'Analysis',
 		buttontext  => 'Codons',
 		menutext    => 'Codon usage',
 		module      => 'CodonUsage',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/codon_usage.html",
-		version     => '1.2.10',
+		version     => '1.2.11',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
 		help        => 'tooltips',
 		requires    => 'offline_jobs,js_tree',
 		system_flag => 'CodonUsage',
-		order       => 13
+		order       => 13,
+		image       => '/images/plugins/CodonUsage/screenshot.png'
 	);
 	return \%att;
 }

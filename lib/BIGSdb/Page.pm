@@ -952,7 +952,7 @@ sub _print_tooltip_toggle {
 	my ($self) = @_;
 	if ( $self->{'tooltips'} ) {
 		my $enabled = $self->{'prefs'}->{'tooltips'} ? 'tooltips_enabled' : 'tooltips_disabled';
-		my $title = $self->{'prefs'}->{'tooltips'} ? 'Disable tooltips' : 'Enable tooltips';
+		my $title   = $self->{'prefs'}->{'tooltips'} ? 'Disable tooltips' : 'Enable tooltips';
 		say qq(<a id="toggle_tooltips" class="trigger_button $enabled" style="display:none" )
 		  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=options&amp;)
 		  . q(toggle_tooltips=1">)
@@ -969,8 +969,10 @@ sub _print_help_button {
 		my $plugin_att = $self->{'pluginManager'}->get_plugin_attributes( scalar $q->param('name') );
 		if ( ref $plugin_att eq 'HASH' ) {
 			if ( $plugin_att->{'url'} && !$self->{'config'}->{'intranet'} ) {
-				$buffer .= qq(<a id="help_link" class="trigger_button" href="$plugin_att->{'url'}" target="_blank" )
-				  . q(title="Open help in new window"><span class="fas fa-lg fa-question-circle"></span></a>);
+				$buffer .=
+				    qq(<a id="help_link" class="trigger_button" href="$plugin_att->{'url'}" target="_blank" )
+				  . q(title="Open context-sensitive help in new window">)
+				  . q(<span class="fas fa-lg fa-question-circle"></span></a>);
 			}
 			if ( ( $plugin_att->{'help'} // '' ) =~ /tooltips/ ) {
 				$self->{'tooltips'} = 1;
