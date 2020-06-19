@@ -1,6 +1,6 @@
-#FastaExport.pm - Plugin for BIGSdb
+#ProfileExport.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2018-2019, University of Oxford
+#Copyright (c) 2018-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -38,14 +38,15 @@ sub get_attributes {
 		menutext    => 'Profiles',
 		buttontext  => 'Profiles',
 		module      => 'ProfileExport',
-		version     => '1.1.2',
+		version     => '1.1.3',
 		dbtype      => 'sequences',
 		seqdb_type  => 'schemes',
 		input       => 'query',
 		section     => 'export,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_export/profile_export.html",
 		requires    => 'offline_jobs',
-		order       => 15
+		order       => 15,
+		image       => '/images/plugins/ProfileExport/screenshot.png'
 	);
 	return \%att;
 }

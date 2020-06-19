@@ -30,22 +30,22 @@ use constant DIVIDER => q( );
 
 sub get_attributes {
 	my %att = (
-		name             => 'FASTA Export',
-		author           => 'Keith Jolley',
-		affiliation      => 'University of Oxford, UK',
-		email            => 'keith.jolley@zoo.ox.ac.uk',
-		description      => 'Export FASTA file of sequences following an allele attribute query',
-		menu_description => 'FASTA format',
-		category         => 'Export',
-		menutext         => 'Locus sequences',
-		buttontext       => 'FASTA',
-		module           => 'FastaExport',
-		version          => '2.0.0',
-		dbtype           => 'sequences',
-		seqdb_type       => 'sequences',
-		input            => 'query',
-		section          => 'export,postquery',
-		order            => 10
+		name        => 'FASTA Export',
+		author      => 'Keith Jolley',
+		affiliation => 'University of Oxford, UK',
+		email       => 'keith.jolley@zoo.ox.ac.uk',
+		description => 'Export FASTA file of sequences following an allele attribute query',
+		category    => 'Export',
+		menutext    => 'Locus sequences',
+		buttontext  => 'FASTA',
+		module      => 'FastaExport',
+		version     => '2.0.1',
+		dbtype      => 'sequences',
+		seqdb_type  => 'sequences',
+		input       => 'query',
+		section     => 'export,postquery',
+		order       => 10,
+		image       => '/images/plugins/FastaExport/screenshot.png'
 	);
 	return \%att;
 }
@@ -237,7 +237,7 @@ sub _print_interface {
 			-values   => $extended,
 			-multiple => 'true',
 			-size     => 5,
-			-default => \@selected
+			-default  => \@selected
 		);
 	}
 	say q(</fieldset>);

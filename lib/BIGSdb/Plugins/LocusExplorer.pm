@@ -1,6 +1,6 @@
 #LocusExplorer.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -37,18 +37,20 @@ sub get_attributes {
 		affiliation      => 'University of Oxford, UK',
 		email            => 'keith.jolley@zoo.ox.ac.uk',
 		description      => 'Tool for analysing allele sequences stored for particular locus',
-		menu_description => 'tool for analysing allele sequences stored for particular locus.',
-		category         => 'Analysis',
-		menutext         => 'Locus Explorer',
-		module           => 'LocusExplorer',
-		url              => "$self->{'config'}->{'doclink'}/data_analysis/locus_explorer.html",
-		version          => '1.3.12',
-		dbtype           => 'sequences',
-		seqdb_type       => 'sequences',
-		input            => 'query',
-		section          => 'postquery,analysis',
-		requires         => 'aligner,offline_jobs',
-		order            => 15
+		full_description => 'This plugin generates a schematic showing the polymorphic sites within a locus, '
+		  . 'calculate the GC content, codon usage, and generate aligned translated sequences for selected alleles.',
+		category   => 'Analysis',
+		menutext   => 'Locus Explorer',
+		module     => 'LocusExplorer',
+		url        => "$self->{'config'}->{'doclink'}/data_analysis/locus_explorer.html",
+		version    => '1.3.13',
+		dbtype     => 'sequences',
+		seqdb_type => 'sequences',
+		input      => 'query',
+		section    => 'postquery,analysis',
+		requires   => 'aligner,offline_jobs',
+		image      => '/images/plugins/LocusExplorer/screenshot.png',
+		order      => 15
 	);
 	return \%att;
 }
@@ -98,10 +100,10 @@ sub run {
 	my $query_file = $q->param('query_file');
 	my $list_file  = $q->param('list_file');
 	my $list       = $self->get_allele_id_list( $query_file, $list_file );
-	my $desc       = $self->get_db_description;
+	say q(<h1>Locus Explorer</h1>);
+
 	if ( !@$display_loci ) {
-		say qq(<h1>Locus Explorer - $desc</h1>);
-		$self->print_bad_status( { message => q(No loci have been defined for this database.), navbar => 1 } );
+		$self->print_bad_status( { message => q(No loci have been defined for this database.) } );
 		return;
 	}
 	if ( !$q->param('locus') ) {
@@ -116,15 +118,13 @@ sub run {
 		  ->run_query( q(SELECT EXISTS(SELECT * FROM sequences WHERE locus=? AND allele_id NOT IN ('0','N'))), $locus );
 		my $continue = 1;
 		if ( !$self->{'datastore'}->is_locus($locus) ) {
-			say qq(<h1>Locus Explorer - $desc</h1>);
-			$self->print_bad_status( { message => q(Invalid locus.), navbar => 1 } );
+			$self->print_bad_status( { message => q(Invalid locus.) } );
 			$continue = 0;
 		} elsif ( !$total_seq_count ) {
-			$self->print_bad_status( { message => q(No sequences defined for this locus.), navbar => 1 } );
+			$self->print_bad_status( { message => q(No sequences defined for this locus.) } );
 			$continue = 0;
 		} elsif ( !@allele_ids ) {
-			say qq(<h1>Locus Explorer - $desc</h1>);
-			$self->print_bad_status( { message => q(No sequences selected.), navbar => 1 } );
+			$self->print_bad_status( { message => q(No sequences selected.) } );
 			$continue = 0;
 		}
 		if ( !$continue ) {
@@ -149,7 +149,6 @@ sub run {
 			}
 		}
 	}
-	say qq(<h1>Locus Explorer - $desc</h1>);
 	$self->_print_interface( $locus, $display_loci, $cleaned, $list );
 	return;
 }
@@ -471,7 +470,6 @@ sub get_snp_schematic {
 	  . q(page - change this if the display goes off the page.</p>)
 	  . qq(<p>$seq_count $allele_or_variant$plural included in analysis. )
 	  . qq($ps polymorphic site$pluralps found.</p><p><b>Key: </b>);
-
 	foreach my $low (qw (0 10 20 30 40 50 60 70 80 90)) {
 		my $high = $low + 10;
 		$buffer .= q( | )  if $low;

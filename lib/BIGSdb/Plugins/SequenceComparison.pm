@@ -33,26 +33,26 @@ sub get_attributes {
 		affiliation      => 'University of Oxford, UK',
 		email            => 'keith.jolley@zoo.ox.ac.uk',
 		description      => 'Display a comparison between two sequences',
-		menu_description => 'display a comparison between two sequences.',
+		full_description => 'This shows the nucleotide/amino acid differences between two selected alleles/variants.',
 		category         => 'Analysis',
 		menutext         => 'Sequence comparison',
 		module           => 'SequenceComparison',
 		url              => "$self->{'config'}->{'doclink'}/data_query.html#sequence-comparison",
-		version          => '1.0.9',
+		version          => '1.0.10',
 		dbtype           => 'sequences',
 		seqdb_type       => 'sequences',
 		section          => 'analysis',
 		requires         => 'emboss',
-		order            => 11
+		order            => 11,
+		image            => '/images/plugins/SequenceComparison/screenshot.png'
 	);
 	return \%att;
 }
 
 sub run {
 	my ($self) = @_;
-	my $q      = $self->{'cgi'};
-	my $desc   = $self->get_db_description;
-	say qq(<h1>Allele sequence comparison - $desc</h1>);
+	my $q = $self->{'cgi'};
+	say q(<h1>Allele sequence comparison</h1>);
 	my $set_id = $self->get_set_id;
 	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
 	if ( !@$display_loci ) {

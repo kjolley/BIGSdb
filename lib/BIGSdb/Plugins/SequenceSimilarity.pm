@@ -1,7 +1,7 @@
 #SequenceSimilarity.pm - Plugin for BIGSdb
 #This requires the SequenceComparison plugin
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -35,17 +35,20 @@ sub get_attributes {
 		affiliation      => 'University of Oxford, UK',
 		email            => 'keith.jolley@zoo.ox.ac.uk',
 		description      => 'Find sequences most similar to selected allele',
-		menu_description => 'find sequences most similar to selected allele.',
-		category         => 'Analysis',
-		menutext         => 'Sequence similarity',
-		module           => 'SequenceSimilarity',
-		url              => "$self->{'config'}->{'doclink'}/data_query.html#sequence-similarity",
-		version          => '1.1.2',
-		dbtype           => 'sequences',
-		seqdb_type       => 'sequences',
-		section          => 'analysis',
-		requires         => '',
-		order            => 10
+		full_description => 'This plugin will return a list of the most similar alleles to a selected allele, along '
+		  . 'with values for percentage identity, number of mismatches, and number of gaps. Clicking on the link for '
+		  . 'each returned match will lead to a sequence comparison page, identifying the exact nucleotide/amino acid '
+		  . 'differences between the query and most similar sequences.',
+		category   => 'Analysis',
+		menutext   => 'Sequence similarity',
+		module     => 'SequenceSimilarity',
+		url        => "$self->{'config'}->{'doclink'}/data_query.html#sequence-similarity",
+		version    => '1.1.3',
+		dbtype     => 'sequences',
+		seqdb_type => 'sequences',
+		section    => 'analysis',
+		order      => 10,
+		image      => '/images/plugins/SequenceSimilarity/screenshot.png'
 	);
 	return \%att;
 }
@@ -56,8 +59,7 @@ sub run {
 	my $locus = $q->param('locus') || '';
 	$locus =~ s/^cn_//x;
 	my $allele = $q->param('allele');
-	my $desc   = $self->get_db_description;
-	say qq(<h1>Find most similar alleles - $desc</h1>);
+	say q(<h1>Find most similar alleles</h1>);
 	my $set_id = $self->get_set_id;
 	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
 
