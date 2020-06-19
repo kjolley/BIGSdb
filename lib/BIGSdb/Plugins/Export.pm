@@ -34,23 +34,27 @@ use constant MAX_DEFAULT_DATA_POINTS => 25_000_000;
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name        => 'Export',
-		author      => 'Keith Jolley',
-		affiliation => 'University of Oxford, UK',
-		email       => 'keith.jolley@zoo.ox.ac.uk',
-		description => 'Export dataset generated from query results',
-		category    => 'Export',
-		buttontext  => 'Dataset',
-		menutext    => 'Export dataset',
-		module      => 'Export',
-		version     => '1.7.11',
-		dbtype      => 'isolates',
-		section     => 'export,postquery',
-		url         => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
-		input       => 'query',
-		requires    => 'ref_db,js_tree',
-		help        => 'tooltips',
-		order       => 15
+		name             => 'Export',
+		author           => 'Keith Jolley',
+		affiliation      => 'University of Oxford, UK',
+		email            => 'keith.jolley@zoo.ox.ac.uk',
+		description      => 'Export dataset generated from query results',
+		full_description => 'The Export plugin creates a download file of any primary metadata, secondary metadata, '
+		  . 'allele designations, scheme designations, or publications for isolates within a selected dataset or '
+		  . 'for the whole database. The output file is in Excel format.',
+		category   => 'Export',
+		buttontext => 'Dataset',
+		menutext   => 'Export dataset',
+		module     => 'Export',
+		version    => '1.7.12',
+		dbtype     => 'isolates',
+		section    => 'export,postquery',
+		url        => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
+		input      => 'query',
+		requires   => 'ref_db,js_tree',
+		help       => 'tooltips',
+		image      => '/images/plugins/Export/screenshot.png',
+		order      => 15
 	);
 	return \%att;
 }
@@ -567,7 +571,7 @@ sub _get_header {
 sub _get_id_one_line {
 	my ( $self, $data, $params ) = @_;
 	my $buffer = "$data->{'id'}\t";
-	$data->{$self->{'system'}->{'labelfield'}} //= q();
+	$data->{ $self->{'system'}->{'labelfield'} } //= q();
 	$buffer .= "$data->{$self->{'system'}->{'labelfield'}}\t" if $params->{'labelfield'};
 	return $buffer;
 }

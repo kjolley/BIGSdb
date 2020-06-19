@@ -33,17 +33,23 @@ use constant MAX_RECORDS => 10_000;
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name                => 'GrapeTree',
-		author              => 'Keith Jolley',
-		affiliation         => 'University of Oxford, UK',
-		email               => 'keith.jolley@zoo.ox.ac.uk',
-		description         => 'Visualization of genomic relationships',
-		menu_description    => 'Visualization of genomic relationships',
+		name             => 'GrapeTree',
+		author           => 'Keith Jolley',
+		affiliation      => 'University of Oxford, UK',
+		email            => 'keith.jolley@zoo.ox.ac.uk',
+		description      => 'Visualization of genomic relationships',
+		full_description => 'GrapeTree is a tool for generating and visualising minimum spanning trees '
+		  . '(<a href="https://www.ncbi.nlm.nih.gov/pubmed/30049790">Zhou <i>at al.</i> 2018 <i>Genome Res</i> '
+		  . '28:1395-1404</a>). It has been developed to handle large datasets (in the region of 1000s of '
+		  . 'genomes) and works with 1000s of loci as used in cgMLST. It uses an improved minimum spanning algorithm '
+		  . 'that is better able to handle missing data than alternative algorithms and is able to produce publication '
+		  . 'quality outputs. Datasets can include metadata which allows nodes in the resultant tree to be coloured '
+		  . 'interactively.',
 		category            => 'Third party',
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.4.0',
+		version             => '1.4.1',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -53,7 +59,8 @@ sub get_attributes {
 		order               => 20,
 		min                 => 2,
 		max                 => $self->_get_limit,
-		always_show_in_menu => 1
+		always_show_in_menu => 1,
+		image               => '/images/plugins/GrapeTree/screenshot.png'
 	);
 	return \%att;
 }
@@ -69,8 +76,6 @@ sub _get_classification_schemes {
 	return $self->{'datastore'}->run_query( 'SELECT id,name FROM classification_schemes ORDER BY display_order,id',
 		undef, { fetch => 'all_arrayref', slice => {} } );
 }
-
-
 
 sub print_info_panel {
 	my ($self) = @_;

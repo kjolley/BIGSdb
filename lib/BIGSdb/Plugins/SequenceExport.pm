@@ -44,20 +44,23 @@ sub get_attributes {
 		affiliation      => 'University of Oxford, UK',
 		email            => 'keith.jolley@zoo.ox.ac.uk',
 		description      => 'Export concatenated allele sequences in XMFA and FASTA formats',
-		menu_description => 'XMFA / concatenated FASTA formats',
-		category         => 'Export',
-		buttontext       => 'Sequences',
-		menutext         => $seqdef ? 'Profile sequences' : 'Sequences',
-		module           => 'SequenceExport',
-		version          => '1.6.7',
-		dbtype           => 'isolates,sequences',
-		seqdb_type       => 'schemes',
-		section          => 'export,postquery',
-		url              => "$self->{'config'}->{'doclink'}/data_export/sequence_export.html",
-		input            => 'query',
-		help             => 'tooltips',
-		requires         => 'aligner,offline_jobs,js_tree',
-		order            => 22,
+		full_description => 'This plugin creates concatenated XMFA and FASTA files of selected loci for a particular '
+		  . 'dataset. These sequences can optionally be aligned, using either MAFFT or MUSCLE, facilitating quick '
+		  . 'analysis of the outputs in third-party phylogenetic analysis packages.',
+		category   => 'Export',
+		buttontext => 'Sequences',
+		menutext   => $seqdef ? 'Profile sequences' : 'Sequences',
+		module     => 'SequenceExport',
+		version    => '1.6.8',
+		dbtype     => 'isolates,sequences',
+		seqdb_type => 'schemes',
+		section    => 'export,postquery',
+		url        => "$self->{'config'}->{'doclink'}/data_export/sequence_export.html",
+		input      => 'query',
+		help       => 'tooltips',
+		requires   => 'aligner,offline_jobs,js_tree',
+		image      => '/images/plugins/SequenceExport/screenshot.png',
+		order      => 22,
 	);
 	return \%att;
 }
@@ -152,7 +155,6 @@ sub run {
 					{
 						message => qq(Output is limited to a total of $commified_max sequences )
 						  . qq((records x loci). You have selected $commified_total.),
-						navbar => 1
 					}
 				);
 				return;
@@ -163,7 +165,6 @@ sub run {
 					{
 						message => qq(Aligned output is limited to a total of $limit )
 						  . qq(records. You have selected $record_count.),
-						navbar => 1
 					}
 				);
 				return;

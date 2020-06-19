@@ -46,24 +46,28 @@ sub get_attributes {
 		author           => 'Emmanuel Quevillon',
 		affiliation      => 'Institut Pasteur, Paris',
 		email            => 'tuco@pasteur.fr',
-		description      => 'Creates phylogenetic inference and data visualization for sequence based typing methods',
+		description      => 'Creates phylogenetic inference and data visualization for sequence-based typing methods',
 		category         => 'Third party',
 		buttontext       => 'PhyloViz',
 		menutext         => 'PhyloViz',
-		menu_description => 'Visualization and phylogenetic inference',
-		module           => 'PhyloViz',
-		version          => '1.2.4',
-		dbtype           => 'isolates',
-		section          => 'third_party,postquery',
-		input            => 'query',
-		system_flag      => 'PhyloViz',
-		requires         => 'js_tree',
-		help             => 'tooltips',
-		order            => 36,
-		min              => 2,
-		max              => 10000,
-		url              => "$self->{'config'}->{'doclink'}/data_analysis/phyloviz.html",
-		always_show_in_menu => 1
+		full_description => 'PhyloViz Online is a tool for generating and visualising minimum-spanning trees based on '
+		  . 'allelic profiles. This plugin generates datasets that are then uploaded to '
+		  . '<a href="https://online.phyloviz.net/">PhyloViz Online</a> for visualisation. Datasets can include '
+		  . 'metadata which allows nodes in the resultant tree to be coloured interactively.',
+		module              => 'PhyloViz',
+		version             => '1.2.5',
+		dbtype              => 'isolates',
+		section             => 'third_party,postquery',
+		input               => 'query',
+		system_flag         => 'PhyloViz',
+		requires            => 'js_tree',
+		help                => 'tooltips',
+		order               => 36,
+		min                 => 2,
+		max                 => 10000,
+		url                 => "$self->{'config'}->{'doclink'}/data_analysis/phyloviz.html",
+		always_show_in_menu => 1,
+		image               => '/images/plugins/PhyloViz/screenshot.png'
 	);
 	return \%att;
 }
@@ -428,7 +432,7 @@ sub _generate_auxiliary_file {
 	foreach my $isolate_data (@$data) {
 		my @values;
 		foreach my $field (@$fields) {
-			my $value = $self->get_field_value($isolate_data,$field);
+			my $value = $self->get_field_value( $isolate_data, $field );
 			push @values, $value;
 			if ( $ext_fields->{$field} ) {
 				foreach my $ext_field ( @{ $ext_fields->{$field} } ) {

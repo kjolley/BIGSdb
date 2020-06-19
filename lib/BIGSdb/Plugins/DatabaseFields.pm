@@ -28,17 +28,21 @@ use constant HIDE_VALUES => 8;
 
 sub get_attributes {
 	my %att = (
-		name        => 'Database Fields',
-		author      => 'Keith Jolley',
-		affiliation => 'University of Oxford, UK',
-		email       => 'keith.jolley@zoo.ox.ac.uk',
-		description => 'Display description of fields defined for the current database',
-		menutext    => 'Description of database fields',
-		module      => 'DatabaseFields',
-		version     => '1.1.2',
-		section     => 'miscellaneous',
-		order       => 10,
-		dbtype      => 'isolates'
+		name             => 'Database Fields',
+		author           => 'Keith Jolley',
+		affiliation      => 'University of Oxford, UK',
+		email            => 'keith.jolley@zoo.ox.ac.uk',
+		description      => 'Display description of fields defined for the current database',
+		full_description => 'This plugin fully describes primary and secondary metadata fields defined in the '
+		  . 'database. The data type (integer, float, text, or date), lists of allowed values or ranges, whether '
+		  . 'the field is compulsory or optional and the maximum length of values is displayed.',
+		menutext => 'Description of database fields',
+		module   => 'DatabaseFields',
+		version  => '1.1.3',
+		section  => 'miscellaneous',
+		order    => 10,
+		dbtype   => 'isolates',
+		image    => '/images/plugins/FieldDescription/screenshot.png'
 	);
 	return \%att;
 }

@@ -320,17 +320,22 @@ input.updatebutton:hover {border:1px solid #669}
   background-image: linear-gradient(to bottom, #3498db, #2980b9);
   border-radius: 12px;
   font-family: Arial;
-  color: #ffffff;
-  font-size: 20px;
-  padding: 10px 20px 10px 20px;
-  text-decoration: none;
+  color: #fff;
+  font-size:1.2em;
+  padding: 0.5em 1em;
+  text-decoration:none;
+  white-space:nowrap;
+}
+
+@media only screen and (max-width:360px){
+	.launchbutton {font-size:1.1em}
 }
 
 .launchbutton:hover {
   background: #3cb0fd;
   background-image: linear-gradient(to bottom, #3cb0fd, #3498db);
   text-decoration: none;
-  color: #ffffff;
+  color:#fff;
 }
 
 a.resetbutton:hover, input.resetbutton:hover, input.submitbutton:hover {background: #fff;color: #212121}

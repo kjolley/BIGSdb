@@ -44,23 +44,29 @@ sub get_attributes {
 		affiliation      => 'University of Oxford, UK',
 		email            => 'keith.jolley@zoo.ox.ac.uk',
 		description      => 'Phylogenetic trees with data overlays',
-		menu_description => 'Phylogenetic trees with data overlays',
-		category         => 'Third party',
-		buttontext       => 'iTOL',
-		menutext         => 'iTOL',
-		module           => 'ITOL',
-		version          => '1.4.0',
-		dbtype           => 'isolates',
-		section          => 'third_party,postquery',
-		input            => 'query',
-		help             => 'tooltips',
-		requires         => 'aligner,offline_jobs,js_tree,clustalw',
-		supports         => 'user_genomes',
-		url              => "$self->{'config'}->{'doclink'}/data_analysis/itol.html",
-		order            => 35,
-		min              => 2,
+		full_description => 'The ITOL plugin allows you to generate and visualise phylogenetic trees calculated from '
+		  . 'concatenated sequence alignments of selected loci (or the loci belonging to a particular scheme). '
+		  . 'Currently, only Neighbour-joining trees are supported. Datasets can include metadata which allows nodes '
+		  . 'in the resultant tree to be coloured. Datasets are uploaded to the <a href="https://itol.embl.de/">'
+		  . 'Interactive Tree of Life website</a> (<a href="https://www.ncbi.nlm.nih.gov/pubmed/27095192">'
+		  . 'Letunic &amp; Bork 2016 <i>Nucleic Acids Res</i> 44(W1):W242-5</a>) for visualisation.',
+		category   => 'Third party',
+		buttontext => 'iTOL',
+		menutext   => 'iTOL',
+		module     => 'ITOL',
+		version    => '1.4.1',
+		dbtype     => 'isolates',
+		section    => 'third_party,postquery',
+		input      => 'query',
+		help       => 'tooltips',
+		requires   => 'aligner,offline_jobs,js_tree,clustalw',
+		supports   => 'user_genomes',
+		url        => "$self->{'config'}->{'doclink'}/data_analysis/itol.html",
+		order      => 35,
+		min        => 2,
 		max => $self->{'system'}->{'itol_record_limit'} // $self->{'config'}->{'itol_record_limit'} // MAX_RECORDS,
-		always_show_in_menu => 1
+		always_show_in_menu => 1,
+		image               => '/images/plugins/ITOL/screenshot.png'
 	);
 	return \%att;
 }

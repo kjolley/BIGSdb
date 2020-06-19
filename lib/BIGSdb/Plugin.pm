@@ -589,7 +589,7 @@ sub print_includes_fieldset {
 			-id       => 'includes',
 			-values   => \@fields,
 			-labels   => $labels,
-			-size     => 10,
+			-size     => 9,
 			-default  => $options->{'preselect'},
 			-multiple => 'true'
 		);

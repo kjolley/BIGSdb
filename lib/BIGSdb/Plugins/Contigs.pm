@@ -1,6 +1,6 @@
 #Contigs.pm - Contig export and analysis plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2013-2019, University of Oxford
+#Copyright (c) 2013-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -34,17 +34,21 @@ use BIGSdb::Constants qw(:interface SEQ_METHODS);
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name         => 'Contig export',
-		author       => 'Keith Jolley',
-		affiliation  => 'University of Oxford, UK',
-		email        => 'keith.jolley@zoo.ox.ac.uk',
-		description  => 'Analyse and export contigs selected from query results',
+		name             => 'Contig export',
+		author           => 'Keith Jolley',
+		affiliation      => 'University of Oxford, UK',
+		email            => 'keith.jolley@zoo.ox.ac.uk',
+		description      => 'Analyse and export contigs selected from query results',
+		full_description => 'This plugin enables the contigs associated with each isolate in a dataset to be '
+		  . 'downloaded in FASTA format. They can also be downloaded in batch mode as a TAR file. The contigs included '
+		  . 'in the download can be filtered based on the percentage of the sequence that has been tagged with a '
+		  . 'locus so that poorly annotated regions can be analysed specifically.',
 		category     => 'Export',
 		buttontext   => 'Contigs',
 		menutext     => 'Contigs',
 		module       => 'Contigs',
 		url          => "$self->{'config'}->{'doclink'}/data_export/contig_export.html",
-		version      => '1.1.8',
+		version      => '1.1.9',
 		dbtype       => 'isolates',
 		section      => 'export,postquery',
 		input        => 'query',
@@ -52,7 +56,8 @@ sub get_attributes {
 		order        => 20,
 		system_flag  => 'ContigExport',
 		tar_filename => 'contigs.tar',
-		requires     => 'seqbin'
+		requires     => 'seqbin',
+		image        => '/images/plugins/Contigs/screenshot.png'
 	);
 	return \%att;
 }

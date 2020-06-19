@@ -46,24 +46,31 @@ sub get_attributes {
 		affiliation      => 'University of Oxford, UK',
 		email            => 'keith.jolley@zoo.ox.ac.uk',
 		description      => 'Open data visualization and sharing for genomic epidemiology',
-		menu_description => 'Open data visualization and sharing for genomic epidemiology',
-		category         => 'Third party',
-		buttontext       => 'Microreact',
-		menutext         => 'Microreact',
-		module           => 'Microreact',
-		version          => '1.0.10',
-		dbtype           => 'isolates',
-		section          => 'third_party,postquery',
-		input            => 'query',
-		help             => 'tooltips',
-		requires         => 'aligner,offline_jobs,js_tree,clustalw,field_country_optlist,field_year_int',
-		order            => 40,
-		min              => 2,
-		max => $self->{'system'}->{'microreact_record_limit'} // $self->{'config'}->{'microreact_record_limit'}
+		full_description => 'Microreact is a tool for visualising genomic epidemiology and phylogeography '
+		  . '(<a href="https://pubmed.ncbi.nlm.nih.gov/28348833/">Argim&oacute;n <i>et al</i> 2016 <i>Microb Genom</i> '
+		  . '2:e000093</a>). Individual nodes on a displayed tree are linked to nodes on a geographical map and/or '
+		  . 'timeline, making any spatial and temporal relationships between isolates apparent. The Microreact plugin '
+		  . 'generates Neighbour-joining trees from concatenated sequences for any selection of loci or schemes '
+		  . 'and uploads these, together with country and year field values, to the '
+		  . '<a href="https://microreact.org/">Microreact website</a> for display.',
+		category   => 'Third party',
+		buttontext => 'Microreact',
+		menutext   => 'Microreact',
+		module     => 'Microreact',
+		version    => '1.0.11',
+		dbtype     => 'isolates',
+		section    => 'third_party,postquery',
+		input      => 'query',
+		help       => 'tooltips',
+		requires   => 'aligner,offline_jobs,js_tree,clustalw,field_country_optlist,field_year_int',
+		order      => 40,
+		min        => 2,
+		max        => $self->{'system'}->{'microreact_record_limit'} // $self->{'config'}->{'microreact_record_limit'}
 		  // MAX_RECORDS,
 		url                 => "$self->{'config'}->{'doclink'}/data_analysis/microreact.html",
 		system_flag         => 'Microreact',
-		always_show_in_menu => 1
+		always_show_in_menu => 1,
+		image               => '/images/plugins/Microreact/screenshot.png'
 	);
 	return \%att;
 }
