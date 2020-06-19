@@ -36,9 +36,13 @@ sub get_attributes {
 	my ($self) = @_;
 	my %att = (
 		name             => 'Gene Presence',
-		author           => 'Keith Jolley',
-		affiliation      => 'University of Oxford, UK',
-		email            => 'keith.jolley@zoo.ox.ac.uk',
+		authors => [
+			{
+				name        => 'Keith Jolley',
+				affiliation => 'University of Oxford, UK',
+				email       => 'keith.jolley@zoo.ox.ac.uk',
+			}
+		],
 		description      => 'Analyse presence/absence of loci for dataset generated from query results',
 		full_description => 'The Gene Presence analysis tool will determine whether loci are present or absent, '
 		  . 'incomplete, have alleles designated, or sequence regions tagged for selected isolates and loci. If a '

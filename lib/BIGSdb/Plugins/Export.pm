@@ -35,9 +35,13 @@ sub get_attributes {
 	my ($self) = @_;
 	my %att = (
 		name             => 'Export',
-		author           => 'Keith Jolley',
-		affiliation      => 'University of Oxford, UK',
-		email            => 'keith.jolley@zoo.ox.ac.uk',
+		authors => [
+			{
+				name        => 'Keith Jolley',
+				affiliation => 'University of Oxford, UK',
+				email       => 'keith.jolley@zoo.ox.ac.uk',
+			}
+		],
 		description      => 'Export dataset generated from query results',
 		full_description => 'The Export plugin creates a download file of any primary metadata, secondary metadata, '
 		  . 'allele designations, scheme designations, or publications for isolates within a selected dataset or '

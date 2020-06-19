@@ -36,9 +36,13 @@ sub get_attributes {
 	my ($self) = @_;
 	my %att = (
 		name             => 'Two Field Breakdown',
-		author           => 'Keith Jolley',
-		affiliation      => 'University of Oxford, UK',
-		email            => 'keith.jolley@zoo.ox.ac.uk',
+		authors => [
+			{
+				name        => 'Keith Jolley',
+				affiliation => 'University of Oxford, UK',
+				email       => 'keith.jolley@zoo.ox.ac.uk',
+			}
+		],
 		description      => 'Breakdown of one field against another',
 		full_description => 'The two field breakdown plugin generates a table breaking down the frequencies of one '
 		  . 'field against another. This is analagous to a spreadsheet pivot table. Any primary metadata field, locus, '

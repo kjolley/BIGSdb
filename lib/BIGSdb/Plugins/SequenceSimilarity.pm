@@ -31,9 +31,13 @@ sub get_attributes {
 	my ($self) = @_;
 	my %att = (
 		name             => 'Sequence Similarity',
-		author           => 'Keith Jolley',
-		affiliation      => 'University of Oxford, UK',
-		email            => 'keith.jolley@zoo.ox.ac.uk',
+		authors => [
+			{
+				name        => 'Keith Jolley',
+				affiliation => 'University of Oxford, UK',
+				email       => 'keith.jolley@zoo.ox.ac.uk',
+			}
+		],
 		description      => 'Find sequences most similar to selected allele',
 		full_description => 'This plugin will return a list of the most similar alleles to a selected allele, along '
 		  . 'with values for percentage identity, number of mismatches, and number of gaps. Clicking on the link for '

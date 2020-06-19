@@ -144,11 +144,20 @@ sub _print_plugins {
 		} elsif ( defined $attr->{'max'} ) {
 			$comments .= "Limited to queries with fewer than $attr->{'max'} results.";
 		}
-		my $author = defined $attr->{'email'}
-		  && $attr->{'email'} ne '' ? qq(<a href="mailto:$attr->{'email'}">$attr->{'author'}</a>) : $attr->{'author'};
-		$author .= " ($attr->{'affiliation'})" if $attr->{'affiliation'};
-		my $name = defined $attr->{'url'} ? "<a href=\"$attr->{'url'}\">$attr->{'name'}</a>" : $attr->{'name'};
-		my $row_buffer = qq(<td>$name</td><td>$author</td><td>$attr->{'description'}</td><td>$attr->{'version'}</td>);
+		my @authors;
+		local $" = q(; <br />);
+		if ( $attr->{'authors'} ) {
+			foreach my $author_obj ( @{ $attr->{'authors'} } ) {
+				my $author =
+				  ( $author_obj->{'email'} // q() ) ne q()
+				  ? qq(<a href="mailto:$author_obj->{'email'}">$author_obj->{'name'}</a>)
+				  : $author_obj->{'name'};
+				$author .= " ($author_obj->{'affiliation'})" if $author_obj->{'affiliation'};
+				push @authors, $author;
+			}
+		}
+		my $name = defined $attr->{'url'} ? qq{<a href="$attr->{'url'}">$attr->{'name'}</a>} : $attr->{'name'};
+		my $row_buffer = qq(<td>$name</td><td>@authors</td><td>$attr->{'description'}</td><td>$attr->{'version'}</td>);
 		if ( $disabled_reason{$plugin} ) {
 			$disabled_buffer .= qq(<tr class="td$dtd">$row_buffer<td>$disabled_reason{$plugin}</td></tr>);
 			$dtd = $dtd == 1 ? 2 : 1;
@@ -159,18 +168,25 @@ sub _print_plugins {
 	}
 	if ( $enabled_buffer || $disabled_buffer ) {
 		say q(<div class="scrollable">);
-		say q(<table class="resultstable">);
 		if ($enabled_buffer) {
-			say q(<tr><th colspan="5">Enabled plugins</th></tr>);
+			say q(<h3>Enabled plugins</h3>);
+			say q(<table class="resultstable" style="text-align:left">);
 			say q(<tr><th>Name</th><th>Author</th><th>Description</th><th>Version</th><th>Comments</th></tr>);
 			say $enabled_buffer;
+			say q(</table>);
 		}
+		say q(</div>);
+		
 		if ($disabled_buffer) {
-			say q(<tr><th colspan="5">Disabled plugins</th></tr>);
+			say q(<h3>Disabled plugins</h3>);
+			say q(<div class="scrollable">);
+			say q(<table class="resultstable" style="text-align:left">);
 			say q(<tr><th>Name</th><th>Author</th><th>Description</th><th>Version</th><th>Disabled because</th></tr>);
 			say $disabled_buffer;
+			say q(</table>);
+			say q(</div>);
 		}
-		say q(</table></div>);
+		
 	}
 	say q(</div>);
 	return;

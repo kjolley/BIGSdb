@@ -35,9 +35,13 @@ sub get_attributes {
 	my ($self) = @_;
 	my %att = (
 		name             => 'Contig export',
-		author           => 'Keith Jolley',
-		affiliation      => 'University of Oxford, UK',
-		email            => 'keith.jolley@zoo.ox.ac.uk',
+		authors => [
+			{
+				name        => 'Keith Jolley',
+				affiliation => 'University of Oxford, UK',
+				email       => 'keith.jolley@zoo.ox.ac.uk',
+			}
+		],
 		description      => 'Analyse and export contigs selected from query results',
 		full_description => 'This plugin enables the contigs associated with each isolate in a dataset to be '
 		  . 'downloaded in FASTA format. They can also be downloaded in batch mode as a TAR file. The contigs included '

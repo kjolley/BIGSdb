@@ -35,9 +35,13 @@ sub get_attributes {
 	my ($self) = @_;
 	my %att = (
 		name             => 'Sequence Bin Breakdown',
-		author           => 'Keith Jolley',
-		affiliation      => 'University of Oxford, UK',
-		email            => 'keith.jolley@zoo.ox.ac.uk',
+		authors => [
+			{
+				name        => 'Keith Jolley',
+				affiliation => 'University of Oxford, UK',
+				email       => 'keith.jolley@zoo.ox.ac.uk',
+			}
+		],
 		description      => 'Breakdown of sequence bin contig properties',
 		full_description => 'The sequence bin breakdown plugin calculates statistics based on the number and length '
 		  . 'of contigs in the sequence bin as well as the number of loci tagged for each isolate record. Using this '

@@ -33,9 +33,13 @@ sub get_attributes {
 	my ($self) = @_;
 	my %att = (
 		name             => 'Locus Explorer',
-		author           => 'Keith Jolley',
-		affiliation      => 'University of Oxford, UK',
-		email            => 'keith.jolley@zoo.ox.ac.uk',
+		authors => [
+			{
+				name        => 'Keith Jolley',
+				affiliation => 'University of Oxford, UK',
+				email       => 'keith.jolley@zoo.ox.ac.uk',
+			}
+		],
 		description      => 'Tool for analysing allele sequences stored for particular locus',
 		full_description => 'This plugin generates a schematic showing the polymorphic sites within a locus, '
 		  . 'calculate the GC content, codon usage, and generate aligned translated sequences for selected alleles.',

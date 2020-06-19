@@ -31,9 +31,13 @@ use constant DIVIDER => q( );
 sub get_attributes {
 	my %att = (
 		name        => 'FASTA Export',
-		author      => 'Keith Jolley',
-		affiliation => 'University of Oxford, UK',
-		email       => 'keith.jolley@zoo.ox.ac.uk',
+		authors => [
+			{
+				name        => 'Keith Jolley',
+				affiliation => 'University of Oxford, UK',
+				email       => 'keith.jolley@zoo.ox.ac.uk',
+			}
+		],
 		description => 'Export FASTA file of sequences following an allele attribute query',
 		category    => 'Export',
 		menutext    => 'Locus sequences',

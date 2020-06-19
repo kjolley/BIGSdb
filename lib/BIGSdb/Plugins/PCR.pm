@@ -39,9 +39,13 @@ sub get_attributes {
 	my ($self) = @_;
 	my %att = (
 		name             => 'PCR',
-		author           => 'Keith Jolley',
-		affiliation      => 'University of Oxford, UK',
-		email            => 'keith.jolley@zoo.ox.ac.uk',
+		authors => [
+			{
+				name        => 'Keith Jolley',
+				affiliation => 'University of Oxford, UK',
+				email       => 'keith.jolley@zoo.ox.ac.uk',
+			}
+		],
 		description      => '<i>In silico</i> PCR tool for designing and testing primers',
 		full_description => 'The <i>in silico</i> PCR tool can be used to simulate PCR reactions run against genomes '
 		  . 'stored in the database. This is useful for designing and testing primers. The plugin uses the exonerate '

@@ -29,9 +29,13 @@ my $logger = get_logger('BIGSdb.Plugins');
 sub get_attributes {
 	my %att = (
 		name        => 'Sequence Table Export',
-		author      => 'Keith Jolley',
-		affiliation => 'University of Oxford, UK',
-		email       => 'keith.jolley@zoo.ox.ac.uk',
+		authors => [
+			{
+				name        => 'Keith Jolley',
+				affiliation => 'University of Oxford, UK',
+				email       => 'keith.jolley@zoo.ox.ac.uk',
+			}
+		],
 		description => 'Export table of sequences and attributes following an allele attribute query',
 		category    => 'Export',
 		menutext    => 'Export table',

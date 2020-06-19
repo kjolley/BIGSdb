@@ -40,9 +40,13 @@ sub get_attributes {
 	my ($self) = @_;
 	my %att = (
 		name             => 'rMLST species identity',
-		author           => 'Keith Jolley',
-		affiliation      => 'University of Oxford, UK',
-		email            => 'keith.jolley@zoo.ox.ac.uk',
+		authors => [
+			{
+				name        => 'Keith Jolley',
+				affiliation => 'University of Oxford, UK',
+				email       => 'keith.jolley@zoo.ox.ac.uk',
+			}
+		],
 		description      => 'Use rMLST to identify species from bacterial genome assemblies',
 		full_description => 'The species identification tool extracts ribosomal MLST alleles from genomes and '
 		  . 'determines the species based on the count of alleles that are uniquely found within a single species '

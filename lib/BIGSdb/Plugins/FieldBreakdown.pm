@@ -32,9 +32,13 @@ sub get_attributes {
 	my $q      = $self->{'cgi'};
 	my %att    = (
 		name             => 'Field Breakdown',
-		author           => 'Keith Jolley',
-		affiliation      => 'University of Oxford, UK',
-		email            => 'keith.jolley@zoo.ox.ac.uk',
+		authors => [
+			{
+				name        => 'Keith Jolley',
+				affiliation => 'University of Oxford, UK',
+				email       => 'keith.jolley@zoo.ox.ac.uk',
+			}
+		],
 		description      => 'Breakdown of query results by field',
 		full_description => 'The field breakdown plugin displays the frequency of each value for fields, '
 		  . 'alleles and schemes. Output is in the form of dynamic charts, maps, and tables. Data can be '
@@ -49,7 +53,7 @@ sub get_attributes {
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
 		input      => 'query',
 		order      => 10,
-		image      => "/images/plugins/FieldBreakdown/screenshot.png"
+		image      => '/images/plugins/FieldBreakdown/screenshot.png'
 	);
 	return \%att;
 }

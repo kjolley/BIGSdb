@@ -46,9 +46,13 @@ sub get_attributes {
 	my ($self) = @_;
 	my %att = (
 		name             => 'Genome Comparator',
-		author           => 'Keith Jolley',
-		affiliation      => 'University of Oxford, UK',
-		email            => 'keith.jolley@zoo.ox.ac.uk',
+		authors => [
+			{
+				name        => 'Keith Jolley',
+				affiliation => 'University of Oxford, UK',
+				email       => 'keith.jolley@zoo.ox.ac.uk',
+			}
+		],
 		description      => 'Compare genomes at defined loci or against loci defined in a reference genome',
 		full_description => 'Genome Comparator is used to compare whole genome data of isolates within the database '
 		  . 'using either the database defined loci or the coding sequences of an annotated genome as the comparator. '

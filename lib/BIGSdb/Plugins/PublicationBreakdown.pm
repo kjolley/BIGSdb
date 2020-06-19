@@ -30,9 +30,13 @@ sub get_attributes {
 	my ($self) = @_;
 	my %att = (
 		name             => 'Publication Breakdown',
-		author           => 'Keith Jolley',
-		affiliation      => 'University of Oxford, UK',
-		email            => 'keith.jolley@zoo.ox.ac.uk',
+		authors => [
+			{
+				name        => 'Keith Jolley',
+				affiliation => 'University of Oxford, UK',
+				email       => 'keith.jolley@zoo.ox.ac.uk',
+			}
+		],
 		description      => 'Breakdown of query results by publication',
 		full_description => 'This plugin shows all publications linked to isolates in a query dataset or '
 		  . 'within the whole database. The results can be filtered by author or year. The output includes '

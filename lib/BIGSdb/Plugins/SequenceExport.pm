@@ -40,9 +40,13 @@ sub get_attributes {
 	my $seqdef = ( $self->{'system'}->{'dbtype'} // q() ) eq 'sequences';
 	my %att = (
 		name             => 'Sequence Export',
-		author           => 'Keith Jolley',
-		affiliation      => 'University of Oxford, UK',
-		email            => 'keith.jolley@zoo.ox.ac.uk',
+		authors => [
+			{
+				name        => 'Keith Jolley',
+				affiliation => 'University of Oxford, UK',
+				email       => 'keith.jolley@zoo.ox.ac.uk',
+			}
+		],
 		description      => 'Export concatenated allele sequences in XMFA and FASTA formats',
 		full_description => 'This plugin creates concatenated XMFA and FASTA files of selected loci for a particular '
 		  . 'dataset. These sequences can optionally be aligned, using either MAFFT or MUSCLE, facilitating quick '

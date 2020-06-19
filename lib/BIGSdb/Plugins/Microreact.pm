@@ -42,9 +42,13 @@ sub get_attributes {
 	my ($self) = @_;
 	my %att = (
 		name             => 'Microreact',
-		author           => 'Keith Jolley',
-		affiliation      => 'University of Oxford, UK',
-		email            => 'keith.jolley@zoo.ox.ac.uk',
+		authors => [
+			{
+				name        => 'Keith Jolley',
+				affiliation => 'University of Oxford, UK',
+				email       => 'keith.jolley@zoo.ox.ac.uk',
+			}
+		],
 		description      => 'Open data visualization and sharing for genomic epidemiology',
 		full_description => 'Microreact is a tool for visualising genomic epidemiology and phylogeography '
 		  . '(<a href="https://pubmed.ncbi.nlm.nih.gov/28348833/">Argim&oacute;n <i>et al</i> 2016 <i>Microb Genom</i> '

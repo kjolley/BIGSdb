@@ -35,9 +35,13 @@ sub get_attributes {
 	my ($self) = @_;
 	my %att = (
 		name             => 'Polymorphisms',
-		author           => 'Keith Jolley',
-		affiliation      => 'University of Oxford, UK',
-		email            => 'keith.jolley@zoo.ox.ac.uk',
+		authors => [
+			{
+				name        => 'Keith Jolley',
+				affiliation => 'University of Oxford, UK',
+				email       => 'keith.jolley@zoo.ox.ac.uk',
+			}
+		],
 		description      => 'Tool for analysing polymorphic sites for particular locus in an isolate dataset',
 		full_description => 'This plugin generates a schematic of the selected locus showing all the polymorphic '
 		  . 'sites present in the selected dataset. These are also shown in a tabular form with precise frequencies '

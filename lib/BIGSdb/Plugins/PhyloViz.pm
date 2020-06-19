@@ -42,10 +42,19 @@ use constant COMPARISON_LIMIT => 800_000_000;
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name             => 'PhyloViz',
-		author           => 'Emmanuel Quevillon',
-		affiliation      => 'Institut Pasteur, Paris',
-		email            => 'tuco@pasteur.fr',
+		name    => 'PhyloViz',
+		authors => [
+			{
+				name        => 'Emmanuel Quevillon',
+				affiliation => 'Institut Pasteur, Paris',
+				email       => 'tuco@pasteur.fr'
+			},
+			{
+				name        => 'Keith Jolley',
+				affiliation => 'University of Oxford, UK',
+				email       => 'keith.jolley@zoo.ox.ac.uk'
+			}
+		],
 		description      => 'Creates phylogenetic inference and data visualization for sequence-based typing methods',
 		category         => 'Third party',
 		buttontext       => 'PhyloViz',

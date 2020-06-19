@@ -33,9 +33,13 @@ sub get_attributes {
 	my ($self) = @_;
 	my %att = (
 		name             => 'Rule Query',
-		author           => 'Keith Jolley',
-		affiliation      => 'University of Oxford, UK',
-		email            => 'keith.jolley@zoo.ox.ac.uk',
+		authors => [
+			{
+				name        => 'Keith Jolley',
+				affiliation => 'University of Oxford, UK',
+				email       => 'keith.jolley@zoo.ox.ac.uk',
+			}
+		],
 		description      => 'Rule-based sequence scanning and reporting',
 		menu_description => 'Rule-based reporting.',
 		category         => 'Analysis',

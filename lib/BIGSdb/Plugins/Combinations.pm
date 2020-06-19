@@ -43,9 +43,13 @@ sub get_attributes {
 	my ($self) = @_;
 	my %att = (
 		name             => 'Unique Combinations',
-		author           => 'Keith Jolley',
-		affiliation      => 'University of Oxford, UK',
-		email            => 'keith.jolley@zoo.ox.ac.uk',
+		authors => [
+			{
+				name        => 'Keith Jolley',
+				affiliation => 'University of Oxford, UK',
+				email       => 'keith.jolley@zoo.ox.ac.uk',
+			}
+		],
 		description      => 'Determine frequencies of unique field combinations',
 		full_description => 'The Unique Combinations plugin calculates the frequencies of unique file combinations '
 		  . 'within an isolate dataset. Primary metadata fields, allele designations and scheme fields can be '

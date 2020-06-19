@@ -30,9 +30,13 @@ sub get_attributes {
 	my ($self) = @_;
 	my %att = (
 		name        => 'Profile Export',
-		author      => 'Keith Jolley',
-		affiliation => 'University of Oxford, UK',
-		email       => 'keith.jolley@zoo.ox.ac.uk',
+		authors => [
+			{
+				name        => 'Keith Jolley',
+				affiliation => 'University of Oxford, UK',
+				email       => 'keith.jolley@zoo.ox.ac.uk',
+			}
+		],
 		description => 'Export file of allelic profile definitions following a scheme query',
 		category    => 'Export',
 		menutext    => 'Profiles',

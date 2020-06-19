@@ -121,9 +121,13 @@ sub get_attributes {
 	my ($self) = @_;
 	my %att = (
 		name             => 'Codon Usage',
-		author           => 'Keith Jolley',
-		affiliation      => 'University of Oxford, UK',
-		email            => 'keith.jolley@zoo.ox.ac.uk',
+		authors => [
+			{
+				name        => 'Keith Jolley',
+				affiliation => 'University of Oxford, UK',
+				email       => 'keith.jolley@zoo.ox.ac.uk',
+			}
+		],
 		description      => 'Determine codon usage for specified loci for an isolate database query',
 		full_description => 'The codon usage plugin calculates the absolute and relative synonymous codon usage by '
 		  . 'isolate and by locus for any dataset or the whole database. Specific loci or the loci that are members '

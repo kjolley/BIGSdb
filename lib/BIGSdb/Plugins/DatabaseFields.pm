@@ -29,9 +29,13 @@ use constant HIDE_VALUES => 8;
 sub get_attributes {
 	my %att = (
 		name             => 'Database Fields',
-		author           => 'Keith Jolley',
-		affiliation      => 'University of Oxford, UK',
-		email            => 'keith.jolley@zoo.ox.ac.uk',
+		authors => [
+			{
+				name        => 'Keith Jolley',
+				affiliation => 'University of Oxford, UK',
+				email       => 'keith.jolley@zoo.ox.ac.uk',
+			}
+		],
 		description      => 'Display description of fields defined for the current database',
 		full_description => 'This plugin fully describes primary and secondary metadata fields defined in the '
 		  . 'database. The data type (integer, float, text, or date), lists of allowed values or ranges, whether '

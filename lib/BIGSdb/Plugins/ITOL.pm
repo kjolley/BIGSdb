@@ -40,9 +40,13 @@ sub get_attributes {
 	my ($self) = @_;
 	my %att = (
 		name             => 'iTOL',
-		author           => 'Keith Jolley',
-		affiliation      => 'University of Oxford, UK',
-		email            => 'keith.jolley@zoo.ox.ac.uk',
+		authors => [
+			{
+				name        => 'Keith Jolley',
+				affiliation => 'University of Oxford, UK',
+				email       => 'keith.jolley@zoo.ox.ac.uk',
+			}
+		],
 		description      => 'Phylogenetic trees with data overlays',
 		full_description => 'The ITOL plugin allows you to generate and visualise phylogenetic trees calculated from '
 		  . 'concatenated sequence alignments of selected loci (or the loci belonging to a particular scheme). '

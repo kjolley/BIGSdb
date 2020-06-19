@@ -29,9 +29,13 @@ sub get_attributes {
 	my ($self) = @_;
 	my %att = (
 		name             => 'Sequence Comparison',
-		author           => 'Keith Jolley',
-		affiliation      => 'University of Oxford, UK',
-		email            => 'keith.jolley@zoo.ox.ac.uk',
+		authors => [
+			{
+				name        => 'Keith Jolley',
+				affiliation => 'University of Oxford, UK',
+				email       => 'keith.jolley@zoo.ox.ac.uk',
+			}
+		],
 		description      => 'Display a comparison between two sequences',
 		full_description => 'This shows the nucleotide/amino acid differences between two selected alleles/variants.',
 		category         => 'Analysis',

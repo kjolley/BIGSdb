@@ -98,10 +98,14 @@ sub set_pref_requirements {
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name             => 'BLAST',
-		author           => 'Keith Jolley',
-		affiliation      => 'University of Oxford, UK',
-		email            => 'keith.jolley@zoo.ox.ac.uk',
+		name    => 'BLAST',
+		authors => [
+			{
+				name        => 'Keith Jolley',
+				affiliation => 'University of Oxford, UK',
+				email       => 'keith.jolley@zoo.ox.ac.uk',
+			}
+		],
 		description      => 'BLAST a query sequence against selected isolate data',
 		full_description => 'The BLAST plugin enables you to BLAST a sequence against any of the genomes in the '
 		  . 'database, displaying a table of matches which can be downloaded in Excel format. In addition, the '

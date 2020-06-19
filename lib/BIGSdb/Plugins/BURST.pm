@@ -41,10 +41,14 @@ sub set_pref_requirements {
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name        => 'BURST',
-		author      => 'Keith Jolley',
-		affiliation => 'University of Oxford, UK',
-		email       => 'keith.jolley@zoo.ox.ac.uk',
+		name    => 'BURST',
+		authors => [
+			{
+				name        => 'Keith Jolley',
+				affiliation => 'University of Oxford, UK',
+				email       => 'keith.jolley@zoo.ox.ac.uk',
+			}
+		],
 		description => 'Perform BURST cluster analysis on query results query results',
 		category    => 'Analysis',
 		buttontext  => 'BURST',

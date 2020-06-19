@@ -34,9 +34,13 @@ sub get_attributes {
 	my ($self) = @_;
 	my %att = (
 		name             => 'GrapeTree',
-		author           => 'Keith Jolley',
-		affiliation      => 'University of Oxford, UK',
-		email            => 'keith.jolley@zoo.ox.ac.uk',
+		authors => [
+			{
+				name        => 'Keith Jolley',
+				affiliation => 'University of Oxford, UK',
+				email       => 'keith.jolley@zoo.ox.ac.uk',
+			}
+		],
 		description      => 'Visualization of genomic relationships',
 		full_description => 'GrapeTree is a tool for generating and visualising minimum spanning trees '
 		  . '(<a href="https://www.ncbi.nlm.nih.gov/pubmed/30049790">Zhou <i>at al.</i> 2018 <i>Genome Res</i> '
