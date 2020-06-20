@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -28,9 +28,7 @@ use constant MIN_PASSWORD_LENGTH => 8;
 use BIGSdb::Login qw(BCRYPT_COST UNIQUE_STRING);
 
 sub get_title {
-	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return $self->{'cgi'}->param('page') eq 'changePassword' ? "Change password - $desc" : "Set user password - $desc";
+	return 'Change password';
 }
 
 sub initiate {

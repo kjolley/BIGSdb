@@ -91,7 +91,7 @@ function show_expand_trigger() {
 }
 
 function reloadTooltips() {
-	var title = $("a[title]" ).not('.lightbox');
+	var title = $("a[title],span[title]" ).not('.lightbox');
 	$.each(title, function(index, value) {
 		var value = $(this).attr('title');
 		value = value.replace(/^([^<h3>].+?) - /,"<h3>$1</h3>");

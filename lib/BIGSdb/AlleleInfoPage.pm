@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -229,8 +229,7 @@ sub _print_client_database_data {
 				);
 				local $" = ' ';
 				$buffer .= $q->hidden($_)
-				  foreach qw (db page designation_field1 designation_operator1 designation_value1 order set_id submit)
-				  ;
+				  foreach qw (db page designation_field1 designation_operator1 designation_value1 order set_id submit);
 				$buffer .= $q->submit( -label => "$isolate_count isolate$plural", -class => 'smallbutton' );
 				$buffer .= $q->end_form;
 			}
@@ -261,18 +260,22 @@ sub _get_flags {
 }
 
 sub get_title {
-	my ($self) = @_;
+	my ( $self, $options ) = @_;
+	return 'Allele information' if $options->{'breadcrumb'};
 	my $locus = $self->{'cgi'}->param('locus') // q();
 	$locus =~ s/%27/'/gx;    #Web-escaped locus
 	my $allele_id = $self->{'cgi'}->param('allele_id');
 	return 'Invalid locus' if !$self->{'datastore'}->is_locus($locus);
 	$locus =~ tr/_/ /;
-	return 'Allele information' . ( defined $allele_id ? " - $locus: $allele_id" : '' );
+	my $title = 'Allele information' . ( defined $allele_id ? " - $locus: $allele_id" : '' );
+	$title .= qq( - $self->{'system'}->{'description'});
+	return $title;
 }
 
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw(jQuery jQuery.columnizer);
+	$self->set_level1_breadcrumbs;
 	return;
 }
 

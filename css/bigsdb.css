@@ -646,8 +646,7 @@ div.button_panel {
 	div.button_panel {display:none}
 }
 
-a.trigger_button {
-	width:1.5em;
+div#login_details,a.trigger_button {
 	color:#fff;
 	text-align:center;
 	text-decoration:none;
@@ -660,6 +659,14 @@ a.trigger_button {
 }
 a.close_trigger {
 	cursor:pointer;
+}
+
+div#login_details {
+	background:#7ca2d0;
+	
+}
+div#login_details a {
+	color:#fff
 }
 
 a#help_link {
@@ -886,6 +893,7 @@ div#curatetools {background: #e5e5f0}
 
 div#pluginoptions ul {list-style-type:none; margin-left:-2em}
 
+/*
 div#logindetails {
 	background:#ecece9;
 	padding: 0 0.5em;
@@ -896,6 +904,7 @@ div#logindetails {
 	left:5px;
 	z-index:4;
 }
+*/
 
 div.floatmenu {
 	float:right;

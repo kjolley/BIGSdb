@@ -1482,10 +1482,18 @@ sub _get_locus_value {
 }
 
 sub get_title {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my ( $self, $options ) = @_;
+	return 'Isolate information' if $options->{'breadcrumb'};
+	my $q          = $self->{'cgi'};
+	my $isolate_id = $q->param('id');
 	return q() if $q->param('no_header');
-	return 'Isolate information';
+	return q(Invalid isolate id) if !BIGSdb::Utils::is_int($isolate_id);
+	my $name  = $self->get_name($isolate_id);
+	my $title = qq(Isolate information: id-$isolate_id);
+	local $" = q( );
+	$title .= qq( ($name)) if $name;
+	$title .= qq( - $self->{'system'}->{'description'});
+	return $title;
 }
 
 sub _get_history {
@@ -1496,7 +1504,7 @@ sub _get_history {
 	  $self->{'datastore'}->run_query(
 		"SELECT timestamp,action,curator FROM history where isolate_id=? ORDER BY timestamp desc$limit_clause",
 		$isolate_id, { fetch => 'all_arrayref', slice => {} } );
-	if ($limit) {    #need to count total
+	if ($limit) {                                           #need to count total
 		$count = $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM history WHERE isolate_id=?', $isolate_id );
 	} else {
 		$count = @$history;

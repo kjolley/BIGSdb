@@ -534,6 +534,8 @@ sub print_page_content {
 		if ( $self->{'system'}->{'db'} && $self->{'instance'} ) {
 			$self->_print_header;
 			$self->_print_breadcrumbs;
+
+			#			$self->_print_login_details;
 			$self->_print_button_panel;
 			say q(<div class="main_container">);
 			say qq(<div class="main_content" style="max-width:${main_max_width}px">);
@@ -543,7 +545,8 @@ sub print_page_content {
 			$self->_print_footer;
 		} else {
 			$self->_print_site_header;
-			$self->_print_login_details;
+
+			#			$self->_print_login_details;
 			say q(<div class="main_container">);
 			say qq(<div class="main_content" style="max-width:${main_max_width}px">);
 			$self->print_content;
@@ -888,35 +891,29 @@ sub _print_login_details {
 	return if !$self->{'datastore'};
 	my $login_requirement = $self->{'datastore'}->get_login_requirement;
 	return if $login_requirement == NOT_ALLOWED && !$self->{'needs_authentication'};
-	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	my $q         = $self->{'cgi'};
-	my $page      = $q->param('page');
-	say q(<div id="logindetails">);
+	my $user_info       = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $q               = $self->{'cgi'};
+	my $page            = $q->param('page');
 	my $instance_clause = $self->{'instance'} ? qq(db=$self->{'instance'}&amp;) : q();
+	if ($user_info) {
 
-	if ( !$user_info ) {
-		if ( !$self->{'username'} ) {
-			if ( $login_requirement == OPTIONAL && $page ne 'login' ) {
-				say qq(<a href="$self->{'system'}->{'script_name'}?${instance_clause}page=login">)
-				  . q(<span class="fas fa-sign-in-alt" style="margin-right:0.3em"></span>Log in</a>);
-			} else {
-				say q(<i>Not logged in.</i>);
-			}
+		if ( $user_info->{'user_db'} ) {
+			say q(<div id="login_details">);
+			say qq(<a href="$self->{'system'}->{'script_name'}"><span class="fas fa-lg fa-user-circle" )
+			  . qq(title="Logged in: $user_info->{'first_name'} $user_info->{'surname'} ($self->{'username'}) - )
+			  . q(Click to modify profile."></span></a>);
+			say q(</div>);
 		} else {
-			say q(<i>Logged in: <b>Unregistered user.</b></i>);
+			say q(<div id="login_details">);
+			say q(<span class="fas fa-lg fa-user-circle" )
+			  . qq(title="Logged in: $user_info->{'first_name'} $user_info->{'surname'} ($self->{'username'})"></span>);
+			say q(</div>);
 		}
-	} else {
-		say qq(<i>Logged in: <b>$user_info->{'first_name'} $user_info->{'surname'} ($self->{'username'}).</b></i>);
+	} elsif ( $self->{'username'} ) {
+		say q(<div id="login_details">);
+		say q(<span class="fas fa-lg fa-user-circle" title="Logged in: Unregistered user"></span>);
+		say q(</div>);
 	}
-	if ( ( $self->{'system'}->{'authentication'} // q() ) eq 'builtin' ) {
-		if ( $self->{'username'} ) {
-			say qq( <a href="$self->{'system'}->{'script_name'}?${instance_clause}page=logout">)
-			  . q(<span class="fas fa-sign-out-alt"></span>Log out</a> | );
-			say qq( <a href="$self->{'system'}->{'script_name'}?${instance_clause}page=changePassword">)
-			  . q(Change password</a>);
-		}
-	}
-	say q(</div>);
 	return;
 }
 
@@ -940,8 +937,9 @@ sub get_help_url {
 sub _print_button_panel {
 	my ($self) = @_;
 	say q(<div class="button_panel">);
-	$self->_print_tooltip_toggle;
+	$self->_print_login_details;
 	$self->_print_help_button;
+	$self->_print_tooltip_toggle;
 	$self->_print_expand_trigger;
 	$self->print_panel_buttons;
 	say q(</div>);
@@ -964,15 +962,13 @@ sub _print_tooltip_toggle {
 sub _print_help_button {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my $buffer;
 	if ( $q->param('page') && $q->param('page') eq 'plugin' && defined $self->{'pluginManager'} ) {
 		my $plugin_att = $self->{'pluginManager'}->get_plugin_attributes( scalar $q->param('name') );
 		if ( ref $plugin_att eq 'HASH' ) {
 			if ( $plugin_att->{'url'} && !$self->{'config'}->{'intranet'} ) {
-				$buffer .=
-				    qq(<a id="help_link" class="trigger_button" href="$plugin_att->{'url'}" target="_blank" )
+				say qq(<a id="help_link" class="trigger_button" href="$plugin_att->{'url'}" target="_blank" )
 				  . q(title="Open context-sensitive help in new window">)
-				  . q(<span class="fas fa-lg fa-question-circle"></span></a>);
+				  . q(Help<span style="margin-left:0.5em" class="fas fa-lg fa-external-link-alt"></span></a>);
 			}
 			if ( ( $plugin_att->{'help'} // '' ) =~ /tooltips/ ) {
 				$self->{'tooltips'} = 1;
@@ -981,13 +977,10 @@ sub _print_help_button {
 	} else {
 		my $url = $self->get_help_url;
 		if ( $url && !$self->{'config'}->{'intranet'} ) {
-			$buffer .=
+			say
 			  qq(<a id="help_link" class="trigger_button" href="$url" target="_blank" title="Open help in new window">)
-			  . q(<span class="fas fa-lg fa-question-circle"></span></a>);
+			  . q(Help<span style="margin-left:0.5em" class="fas fa-lg fa-external-link-alt"></span></a>);
 		}
-	}
-	if ($buffer) {
-		say $buffer;
 	}
 	return;
 }
@@ -3340,7 +3333,7 @@ sub is_curator {
 
 sub set_level1_breadcrumbs {
 	my ($self) = @_;
-	my $page_name = $self->get_title;
+	my $page_name = $self->get_title( { breadcrumb => 1 } );
 	$self->{'breadcrumbs'} = [
 		{
 			label => $self->{'system'}->{'webroot_label'} // 'Organism',

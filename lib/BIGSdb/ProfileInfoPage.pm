@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -178,8 +178,7 @@ sub _print_client_db_links {
 					-style  => 'display:inline'
 				);
 				$buffer .= $q->hidden($_)
-				  foreach qw (db page designation_field1 designation_operator1 designation_value1 order set_id submit)
-				  ;
+				  foreach qw (db page designation_field1 designation_operator1 designation_value1 order set_id submit);
 				$buffer .= $q->submit( -label => "$count isolate$plural", -class => 'smallbutton' );
 				$buffer .= $q->end_form;
 			}
@@ -471,11 +470,13 @@ END
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (tooltips jQuery);
+	$self->set_level1_breadcrumbs;
 	return;
 }
 
 sub get_title {
-	my ($self)     = @_;
+	my ( $self, $options ) = @_;
+	return 'Profile information' if $options->{'breadcrumb'};
 	my $q          = $self->{'cgi'};
 	my $scheme_id  = $q->param('scheme_id');
 	my $profile_id = $q->param('profile_id');
@@ -486,7 +487,7 @@ sub get_title {
 	}
 	my $title = q(Profile information);
 	$title .= qq(: $scheme_info->{'primary_key'}-$profile_id) if $scheme_info->{'primary_key'} && defined $profile_id;
-	$title .= qq( ($scheme_info->{'name'}))                   if $scheme_info->{'name'};
+	$title .= qq( ($scheme_info->{'name'})) if $scheme_info->{'name'};
 	$title .= qq( - $self->{'system'}->{'description'});
 	return $title;
 }
