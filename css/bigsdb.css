@@ -621,7 +621,7 @@ div.menu a.logo:hover {background:transparent}
 
 div.panel {
 	position: absolute;
-	top: 5em;
+	top: 0;
 	right: 0;
 	display: none;
 	padding: 1em 3em 1em 1em;
@@ -698,7 +698,7 @@ a#close_trigger {
 
 div#bookmark_panel {
 	position: absolute;
-	top: 5em;
+	top: 0;
 	right: 0;
 	display: none;
 	padding: 1em 2em 1em 1em;
