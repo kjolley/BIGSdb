@@ -641,7 +641,7 @@ sub _get_stylesheets {
 	if ( !$self->{'config'}->{'no_cookie_consent'} && !$self->{'curate'} && $self->{'instance'} ) {
 		push @filenames, q(cookieconsent.min.css);
 	}
-	push @filenames, qw(jquery-ui.min.css fontawesome-all.css bigsdb.css);
+	push @filenames, qw(jquery-ui.min.css fontawesome-all.css bigsdb.min.css);
 	my @paths;
 	foreach my $filename (@filenames) {
 		my $stylesheet;
