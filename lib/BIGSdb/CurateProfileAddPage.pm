@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -29,9 +29,7 @@ my $logger = get_logger('BIGSdb.Page');
 use constant SUCCESS => 1;
 
 sub get_title {
-	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Add new profile - $desc";
+	return 'Add new profile';
 }
 
 sub get_help_url {
@@ -45,26 +43,25 @@ sub print_content {
 	my $set_id    = $self->get_set_id;
 	if ( !$self->{'datastore'}->scheme_exists($scheme_id) ) {
 		say q(<h1>Add new profile</h1>);
-		$self->print_bad_status( { message => q(Invalid scheme passed.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Invalid scheme passed.) } );
 		return;
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$self->print_bad_status(
 			{
 				message => q(You can only add profiles to a sequence/profile database - )
-				  . q(this is an isolate database.),
-				navbar => 1
+				  . q(this is an isolate database.)
 			}
 		);
 		return;
 	}
 	if ( !$self->can_modify_table('profiles') ) {
-		$self->print_bad_status( { message => q(Your user account is not allowed to add new profiles.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Your user account is not allowed to add new profiles.) } );
 		return;
 	}
 	if ($set_id) {
 		if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
-			$self->print_bad_status( { message => q(The selected scheme is inaccessible.), navbar => 1 } );
+			$self->print_bad_status( { message => q(The selected scheme is inaccessible.) } );
 			return;
 		}
 	}
@@ -76,8 +73,7 @@ sub print_content {
 		$self->print_bad_status(
 			{
 				message => q(This scheme doesn't have a primary key field defined. Profiles )
-				  . q(cannot be entered until this has been done.),
-				navbar => 1
+				  . q(cannot be entered until this has been done.)
 			}
 		);
 		return;
@@ -85,8 +81,7 @@ sub print_content {
 		$self->print_bad_status(
 			{
 				message => q(This scheme doesn't have any loci belonging to it. Profiles cannot )
-				  . q(be entered until there is at least one locus defined.),
-				navbar => 1
+				  . q(be entered until there is at least one locus defined.)
 			}
 		);
 		return;
@@ -108,8 +103,6 @@ sub print_content {
 	if ( $q->param('sent') ) {
 		return if $self->_upload( $scheme_id, \%newdata );
 	}
-	my $icon = $self->get_form_icon( 'profiles', 'plus' );
-	say $icon;
 	$self->_print_interface( $scheme_id, \%newdata );
 	return;
 }
@@ -212,8 +205,7 @@ sub _upload {
 		$self->print_bad_status(
 			{
 				message => q(There are problems with your record submission. Please address the following:),
-				detail  => qq(@$bad_field_buffer),
-				navbar  => 1
+				detail  => qq(@$bad_field_buffer)
 			}
 		);
 		$insert = 0;
@@ -224,7 +216,7 @@ sub _upload {
 		my %designations = map { $_ => $newdata->{"locus:$_"} } @$loci;
 		my $ret =
 		  $self->{'datastore'}->check_new_profile( $scheme_id, \%designations, $newdata->{"field:$primary_key"} );
-		$self->print_bad_status( { message => $ret->{'msg'}, navbar => 1 } ) if $ret->{'msg'};
+		$self->print_bad_status( { message => $ret->{'msg'} } ) if $ret->{'msg'};
 		$insert = 0 if $ret->{'exists'} || $ret->{'err'};
 	}
 	if ($insert) {
@@ -235,8 +227,7 @@ sub _upload {
 			$self->print_bad_status(
 				{
 					message => qq($primary_key-$newdata->{"field:$primary_key"} has already been )
-					  . qq(defined - please choose a different $primary_key.),
-					navbar => 1
+					  . qq(defined - please choose a different $primary_key.)
 				}
 			);
 			$insert = 0;
@@ -245,7 +236,7 @@ sub _upload {
 		  $self->{'datastore'}
 		  ->run_query( 'SELECT EXISTS(SELECT * FROM users WHERE id=?)', $newdata->{'field:sender'} );
 		if ( !$sender_exists ) {
-			$self->print_bad_status( { message => q(Invalid sender set.), navbar => 1 } );
+			$self->print_bad_status( { message => q(Invalid sender set.) } );
 			$insert = 0;
 		}
 		if ($insert) {
@@ -318,7 +309,7 @@ sub _upload {
 				my $submission_id = $q->param('submission_id');
 				if ($submission_id) {
 					my $url =
-					  qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
+					    qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
 					  . qq(submission_id=$submission_id&amp;curate=1);
 					$detail = qq(Don't forget to <a href="$url">close the submission</a>!);
 				}
@@ -354,6 +345,8 @@ sub _print_interface {
 	  : q[];
 	say q(<div class="box" id="queryform">);
 	say q(<div class="scrollable">);
+	my $icon = $self->get_form_icon( 'profiles', 'plus' );
+	say $icon;
 	say qq(<p>Please fill in the fields below - required fields are marked with an exclamation mark (!).$msg</p>);
 	say q(<fieldset class="form" style="float:left"><legend>Record</legend>);
 	my $loci         = $self->{'datastore'}->get_scheme_loci($scheme_id);

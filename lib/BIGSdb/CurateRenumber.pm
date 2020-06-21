@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -27,6 +27,7 @@ my $logger = get_logger('BIGSdb.Page');
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (jQuery jQuery.tablesort);
+	$self->set_level1_breadcrumbs;
 	return;
 }
 
@@ -44,8 +45,7 @@ JS
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return qq(Renumber locus genome positions - $desc);
+	return q(Renumber locus genome positions);
 }
 
 sub print_content {
@@ -54,8 +54,7 @@ sub print_content {
 	if ( !( $self->{'permissions'}->{'modify_loci'} || $self->is_admin ) ) {
 		$self->print_bad_status(
 			{
-				message => q(Your user account does not have permission to modify loci.),
-				navbar  => 1
+				message => q(Your user account does not have permission to modify loci.)
 			}
 		);
 		return;
@@ -63,7 +62,7 @@ sub print_content {
 	say q(<h1>Renumber locus genome positions based on tagged sequences</h1>);
 	my $seqbin_id = $q->param('seqbin_id');
 	if ( !$seqbin_id || !BIGSdb::Utils::is_int($seqbin_id) ) {
-		$self->print_bad_status( { message => q(Invalid sequence bin id.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Invalid sequence bin id.) } );
 		return;
 	}
 	if ( $q->param('renumber') ) {

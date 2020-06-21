@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -29,7 +29,8 @@ use BIGSdb::Constants qw(SEQ_FLAGS ALLELE_FLAGS DATABANKS SCHEME_FLAGS);
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (jQuery jQuery.multiselect noCache );
+	$self->{$_} = 1 foreach qw (jQuery jQuery.multiselect noCache);
+	$self->set_level1_breadcrumbs;
 	return;
 }
 sub get_title     { return q(Curator's interface - BIGSdb) }
@@ -79,6 +80,7 @@ sub create_record_table {
 	}
 	$buffer .= $q->hidden( sent => 1 );
 	$buffer .= q(<div class="box" id="queryform">) if !$options->{'nodiv'};
+	$buffer .= $options->{'icon'} if $options->{'icon'};
 	$buffer .= qq(<p>Please fill in the fields below - required fields are marked with an exclamation mark (!).</p>\n);
 	$buffer .= q(<div class="scrollable" style="white-space:nowrap">) if !$options->{'nodiv'};
 	$buffer .= q(<fieldset class="form" style="float:left"><legend>Record</legend><ul>);

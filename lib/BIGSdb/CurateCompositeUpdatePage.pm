@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -28,9 +28,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
 sub get_title {
-	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return qq(Update composite field - $desc);
+	return q(Update composite field);
 }
 
 sub print_content {
@@ -39,14 +37,12 @@ sub print_content {
 	my $id     = $q->param('id');
 	say qq(<h1>Update composite field - $id</h1>);
 	if ( !$self->can_modify_table('composite_fields') ) {
-		$self->print_bad_status(
-			{ message => q(Your user account is not allowed to update composite fields.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Your user account is not allowed to update composite fields.) } );
 		return;
 	}
 	my $exists = $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM composite_fields WHERE id=?)', $id );
 	if ( !$exists ) {
-		$self->print_bad_status( { message => qq(Composite field '$id' has not been defined.), navbar => 1 } )
-		  ;
+		$self->print_bad_status( { message => qq(Composite field '$id' has not been defined.) } );
 		return;
 	}
 	say q(<div class="box" id="resultstable">);

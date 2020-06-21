@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2019, University of Oxford
+#Copyright (c) 2014-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -37,8 +37,7 @@ sub print_content {
 	if ( !$self->can_modify_table('permissions') ) {
 		$self->print_bad_status(
 			{
-				message => q(Your account has insufficient privileges to modify curator permissions.),
-				navbar  => 1
+				message => q(Your account has insufficient privileges to modify curator permissions.)
 			}
 		);
 		return;
@@ -46,7 +45,7 @@ sub print_content {
 	my ( $curators, $labels ) = $self->{'datastore'}->get_users( { curators => 1 } );
 	my %submitter_allowed = map { $_ => 1 } SUBMITTER_ALLOWED_PERMISSIONS;
 	if ( !@$curators ) {
-		$self->print_bad_status( { message => q(There are no curator defined for this database.), navbar => 1 } );
+		$self->print_bad_status( { message => q(There are no curator defined for this database.) } );
 		return;
 	}
 	if ( $q->param('update') ) {
@@ -98,8 +97,8 @@ sub print_content {
 			$permissions->{$user_id} = $self->{'datastore'}->get_permissions( $user_info->{$user_id}->{'user_name'} );
 		}
 		say q(</tr>);
-		my $td            = 1;
-		my %prohibit      = map { $_ => 1 } qw(disable_access only_private);
+		my $td = 1;
+		my %prohibit = map { $_ => 1 } qw(disable_access only_private);
 		foreach my $permission (@$permission_list) {
 			( my $cleaned_permission = $permission ) =~ tr/_/ /;
 			say $prohibit{$permission} ? q(<tr class="warning">) : qq(<tr class="td$td">);
@@ -200,15 +199,15 @@ sub _update {
 		if ($@) {
 			$logger->error($@);
 			$self->{'db'}->rollback;
-			$self->print_bad_status( { message => q(Update failed.), navbar => 1 } );
+			$self->print_bad_status( { message => q(Update failed.) } );
 		} else {
 			$self->{'db'}->commit;
 			my $total = @additions + @deletions;
 			my $plural = $total == 1 ? q() : q(s);
-			$self->print_good_status( { message => qq($total update$plural made.), navbar => 1 } );
+			$self->print_good_status( { message => qq($total update$plural made.) } );
 		}
 	} else {
-		$self->print_bad_status( { message => q(No changes made.), navbar => 1 } );
+		$self->print_bad_status( { message => q(No changes made.) } );
 	}
 	return;
 }
@@ -240,8 +239,6 @@ JS
 }
 
 sub get_title {
-	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return qq(Set curator permissions - $desc);
+	return q(Set curator permissions);
 }
 1;

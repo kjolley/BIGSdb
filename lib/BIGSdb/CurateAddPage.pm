@@ -31,7 +31,8 @@ use constant SUCCESS => 1;
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (tooltips jQuery jQuery.multiselect modernizr noCache);
+	$self->{$_} = 1 foreach qw (jQuery jQuery.multiselect modernizr noCache);
+	$self->set_level1_breadcrumbs;
 	return;
 }
 
@@ -66,7 +67,7 @@ sub _table_exists {
 	my ( $self, $table ) = @_;
 	if ( !$self->{'datastore'}->is_table($table) ) {
 		say q(<h1>Add new record</h1>);
-		$self->print_bad_status( { message => qq(Table $table does not exist!), navbar => 1 } );
+		$self->print_bad_status( { message => qq(Table $table does not exist!) } );
 		return;
 	}
 	return 1;
@@ -87,15 +88,13 @@ sub print_content {
 			my $locus       = $q->param('locus');
 			$self->print_bad_status(
 				{
-					message => qq(Your user account is not allowed to add $locus ${record_type}s to the database.),
-					navbar  => 1
+					message => qq(Your user account is not allowed to add $locus ${record_type}s to the database.)
 				}
 			);
 		} else {
 			$self->print_bad_status(
 				{
-					message => qq(Your user account is not allowed to add records to the $table table.),
-					navbar  => 1
+					message => qq(Your user account is not allowed to add records to the $table table.)
 				}
 			);
 		}
@@ -109,8 +108,7 @@ sub print_content {
 		{
 			$self->print_bad_status(
 				{
-					message => qq(Your user account is not allowed to add ${record_name}s for this locus.),
-					navbar  => 1
+					message => qq(Your user account is not allowed to add ${record_name}s for this locus.)
 				}
 			);
 			return;
@@ -122,17 +120,16 @@ sub print_content {
 		sequence_bin        => 'Add contigs using the batch add page.'
 	);
 	if ( $bad_table{$table} ) {
-		$self->print_bad_status( { message => $bad_table{$table}, navbar => 1 } );
+		$self->print_bad_status( { message => $bad_table{$table} } );
 		return;
 	}
 	$self->_warn_about_scheme_modification($table);
-	my $icon     = $self->get_form_icon( $table, 'plus' );
-	my $buffer   = $icon;
+	my $icon = $self->get_form_icon( $table, 'plus' );
 	my $new_data = $self->_populate_newdata($table);
 	if ( $table eq 'loci' && $q->param('Copy') ) {
 		$self->_copy_locus_config($new_data);
 	}
-	$buffer .= $self->create_record_table( $table, $new_data );
+	my $buffer = $self->create_record_table( $table, $new_data, { icon => $icon } );
 	$new_data->{'datestamp'} = $new_data->{'date_entered'} = BIGSdb::Utils::get_datestamp();
 	$new_data->{'curator'} = $self->get_curator_id;
 	my $retval;
@@ -238,7 +235,7 @@ sub _insert {
 	}
 	if (@problems) {
 		local $" = qq(<br />\n);
-		$self->print_bad_status( { message => qq(@problems), navbar => 1 } );
+		$self->print_bad_status( { message => qq(@problems) } );
 	} else {
 		my ( @table_fields, @placeholders, @values );
 		foreach my $att (@$attributes) {
@@ -949,10 +946,9 @@ END
 
 sub get_title {
 	my ($self) = @_;
-	my $desc  = $self->{'system'}->{'description'} || 'BIGSdb';
-	my $table = $self->{'cgi'}->param('table');
-	my $type  = $self->get_record_name($table);
-	return $type ? "Add new $type - $desc" : "Add new record - $desc";
+	my $table  = $self->{'cgi'}->param('table');
+	my $type   = $self->get_record_name($table);
+	return $type ? "Add new $type" : 'Add new record';
 }
 
 sub next_id {

@@ -35,13 +35,13 @@ sub print_content {
 	say q(<h1>Batch upload sequence assemblies to multiple isolate records</h1>);
 	if ( $self->{'system'}->{'dbtype'} ne 'isolates' ) {
 		$self->print_bad_status(
-			{ message => q(This function can only be called for an isolate database.), navbar => 1 } );
+			{ message => q(This function can only be called for an isolate database.) } );
 		return;
 	} elsif ( !$self->can_modify_table('sequence_bin') ) {
 		$self->print_bad_status(
 			{
-				message => q(Your user account is not allowed to upload sequences to the database.),
-				navbar  => 1
+				message => q(Your user account is not allowed to upload sequences to the database.)
+				
 			}
 		);
 		return;
@@ -573,7 +573,7 @@ sub _file_upload {
 		$self->_upload_files($allowed_files);
 	}
 	my $icon = $self->get_form_icon( 'sequence_bin', 'plus' );
-	my $buffer = qq($icon<div class="box resultstable"><div class="scrollable">);
+	my $buffer = qq(<div class="box resultstable"><div class="scrollable">$icon);
 	$buffer .= q(<p>Please upload the assembly contig files for each isolate record.<p>);
 	$buffer .= $q->start_form;
 	$buffer .= q(<table class="resultstable">);
@@ -848,9 +848,10 @@ sub _parse_validated_temp_file {
 sub _print_interface {
 	my ($self) = @_;
 	my $icon = $self->get_form_icon( 'sequence_bin', 'plus' );
-	say $icon;
+	
 	my $q = $self->{'cgi'};
 	say q(<div class="box queryform"><div class="scrollable">);
+	say $icon;
 	say q(<p>This function allows you to upload assembly contig files for multiple records together.</p>);
 	say q(<p>The first step in the upload process is to state which assembly contig FASTA file should be linked to )
 	  . q(each isolate record. You can use any provenance metadata field that uniquely identifies an isolate.</p>);
@@ -887,13 +888,13 @@ sub _print_interface {
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Batch add new sequences - $desc";
+	return 'Batch add new sequences';
 }
 
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (tooltips jQuery dropzone noCache);
+	$self->set_level1_breadcrumbs;
 	return;
 }
 

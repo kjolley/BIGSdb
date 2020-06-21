@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -26,9 +26,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
 sub get_title {
-	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return qq(Update or delete composite field - $desc);
+	return q(Update or delete composite field);
 }
 
 sub print_content {
@@ -45,7 +43,7 @@ sub _create_query_table {
 		my $plural = $field_count > 1 ? q(s) : q();
 		say qq(<div class="box" id="resultsheader">$field_count composite field$plural defined.</div>);
 	} else {
-		$self->print_bad_status( { message => q(No composite fields have been defined.), navbar => 1 } );
+		$self->print_bad_status( { message => q(No composite fields have been defined.) } );
 		return;
 	}
 	say q(<div class="box" id="resultstable">);

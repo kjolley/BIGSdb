@@ -710,4 +710,9 @@ sub _set_submission_params {
 	$q->param( data => $buffer );
 	return;
 }
+
+sub get_help_url {
+	my ($self) = @_;
+	return "$self->{'config'}->{'doclink'}/curator_guide.html#adding-new-scheme-profile-definitions";
+}
 1;

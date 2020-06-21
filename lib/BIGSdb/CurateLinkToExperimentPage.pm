@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -31,17 +31,16 @@ sub print_content {
 	my $query      = $self->get_query_from_temp_file($query_file);
 	say q(<h1>Link sequences to experiment</h1>);
 	if ( !$query ) {
-		$self->print_bad_status( { message => q(No selection query passed!), navbar => 1 } );
+		$self->print_bad_status( { message => q(No selection query passed!) } );
 		return;
 	} elsif ( $query !~ /SELECT\ \*\ FROM\ sequence_bin/x ) {
 		$logger->error("Query:$query");
-		$self->print_bad_status( { message => q(Invalid query passed!), navbar => 1 } );
+		$self->print_bad_status( { message => q(Invalid query passed!) } );
 		return;
 	} elsif ( !$self->can_modify_table('sequence_bin') ) {
 		$self->print_bad_status(
 			{
-				message => q(Your user account is not allowed to link sequences to experiments.),
-				navbar  => 1
+				message => q(Your user account is not allowed to link sequences to experiments.)
 			}
 		);
 		return;
@@ -51,10 +50,10 @@ sub print_content {
 	if ( $q->param('submit') ) {
 		my $experiment = $q->param('experiment');
 		if ( !$experiment ) {
-			$self->print_bad_status( { message => q(No experiment selected.), navbar => 1 } );
+			$self->print_bad_status( { message => q(No experiment selected.) } );
 			return;
 		} elsif ( !BIGSdb::Utils::is_int($experiment) ) {
-			$self->print_bad_status( { message => q(Invalid experiment selected.), navbar => 1 } );
+			$self->print_bad_status( { message => q(Invalid experiment selected.) } );
 			return;
 		}
 		my $qry = 'INSERT INTO experiment_sequences (experiment_id,seqbin_id,curator,datestamp) VALUES (?,?,?,?)';
@@ -77,8 +76,7 @@ sub print_content {
 			$self->print_bad_status(
 				{
 					message => q(Error encountered linking experiments. )
-					  . q(There should be more details of this error in the server log.),
-					navbar => 1
+					  . q(There should be more details of this error in the server log.)
 				}
 			);
 			$self->{'db'}->rollback;
@@ -86,8 +84,7 @@ sub print_content {
 			$self->{'db'}->commit;
 			$self->print_good_status(
 				{
-					message => q(Sequences linked.),
-					navbar  => 1
+					message => q(Sequences linked.)
 				}
 			);
 		}
@@ -118,8 +115,6 @@ sub print_content {
 }
 
 sub get_title {
-	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return qq(Link sequences to experiment - $desc);
+	return q(Link sequences to experiment);
 }
 1;

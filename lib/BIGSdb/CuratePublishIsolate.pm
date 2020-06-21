@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2018, University of Oxford
+#Copyright (c) 2017-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -31,14 +31,13 @@ sub print_content {
 	say q(<h1>Publish isolate record</h1>);
 	my $isolate_id = $q->param('isolate_id');
 	if ( !BIGSdb::Utils::is_int($isolate_id) || !$self->isolate_exists($isolate_id) ) {
-		$self->print_bad_status( { message => q(Invalid isolate id passed.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Invalid isolate id passed.) } );
 		return;
 	}
 	if ( !$self->can_modify_table('isolates') ) {
 		$self->print_bad_status(
 			{
-				message => q(Your account doesn't have permission to modify isolate records.),
-				navbar  => 1
+				message => q(Your account doesn't have permission to modify isolate records.)
 			}
 		);
 		return;
@@ -144,19 +143,11 @@ sub _print_interface {
 		say $q->hidden($_) foreach qw(db page isolate_id);
 		say $q->end_form;
 	}
-	$self->print_navigation_bar;
 	say q(</div>);
 	return;
 }
 
 sub get_title {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	my $isolate_id = $q->param('isolate_id');
-	if ( BIGSdb::Utils::is_int($isolate_id) ) {
-		return "Publish id-$isolate_id - $desc";
-	}
-	return "Publish isolate - $desc";
+	return 'Publish isolate';
 }
 1;

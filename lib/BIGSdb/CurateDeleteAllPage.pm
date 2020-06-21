@@ -40,8 +40,7 @@ sub print_content {
 	  && $table eq $self->{'system'}->{'view'} ? 'isolate' : $self->get_record_name($table);
 	say qq(<h1>Delete multiple $record_name records</h1>);
 	if ( !$self->can_delete_all ) {
-		$self->print_bad_status(
-			{ message => q(Your user account is not allowed to delete all records.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Your user account is not allowed to delete all records.) } );
 		return;
 	}
 	if ( $table eq 'profiles' && $query =~ /SELECT\ \*\ FROM\ m?v?_?scheme_(\d+)/x ) {
@@ -56,16 +55,16 @@ sub print_content {
 		}
 	}
 	if ( !$self->{'datastore'}->is_table($table) ) {
-		$self->print_bad_status( { message => qq(Table $table does not exist!), navbar => 1 } );
+		$self->print_bad_status( { message => qq(Table $table does not exist!) } );
 		return;
 	}
 	if ( !$query ) {
-		$self->print_bad_status( { message => q(No selection query passed!), navbar => 1 } );
+		$self->print_bad_status( { message => q(No selection query passed!) } );
 		return;
 	}
 	if ( $query !~ /SELECT\ \*\ FROM\ $table/x ) {
 		$logger->error("Table: $table; Query:$query");
-		$self->print_bad_status( { message => q(Invalid query passed!), navbar => 1 } );
+		$self->print_bad_status( { message => q(Invalid query passed!) } );
 		return;
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'} ) {
@@ -74,8 +73,7 @@ sub print_content {
 	if ( !$self->can_modify_table($table) ) {
 		$self->print_bad_status(
 			{
-				message => qq(Your user account is not allowed to delete records from the $table table.),
-				navbar  => 1
+				message => qq(Your user account is not allowed to delete records from the $table table.)
 			}
 		);
 		return;
@@ -86,8 +84,7 @@ sub print_content {
 	{
 		$self->print_bad_status(
 			{
-				message => qq(Only administrators can batch delete from the $table table.),
-				navbar  => 1
+				message => qq(Only administrators can batch delete from the $table table.)
 			}
 		);
 		return;
@@ -104,8 +101,7 @@ sub print_content {
 						$self->print_bad_status(
 							{
 								message => q(Cannot copy data into temporary table - please )
-								  . q(check scheme configuration (more details will be in the log file).),
-								navbar => 1
+								  . q(check scheme configuration (more details will be in the log file).)
 							}
 						);
 						$logger->error('Cannot copy data to temporary table.');
@@ -188,9 +184,8 @@ sub _delete {
 		}
 		$self->print_bad_status(
 			{
-				message => q(Delete failed - transaction cancelled - ) . q(no records have been touched.),
-				detail  => $detail,
-				navbar  => 1
+				message => q(Delete failed - transaction cancelled - no records have been touched.),
+				detail  => $detail
 			}
 		);
 		$self->{'db'}->rollback;
@@ -221,7 +216,7 @@ sub _delete {
 				$self->{'db'}->rollback;
 			}
 		}
-		$self->print_good_status( { message => 'Records deleted.', navbar => 1 } );
+		$self->print_good_status( { message => 'Records deleted.' } );
 	}
 	if ( $table eq 'sequences' ) {
 		$self->mark_locus_caches_stale($loci);
@@ -471,10 +466,9 @@ sub _retire_only {
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 	my $table = $self->{'cgi'}->param('table');
 	$table = 'isolates' if $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq $self->{'system'}->{'view'};
 	my $type = $self->get_record_name($table);
-	return "Delete multiple $type records - $desc";
+	return "Delete multiple $type records";
 }
 1;

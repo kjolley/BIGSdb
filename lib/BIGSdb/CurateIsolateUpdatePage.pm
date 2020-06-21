@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -60,6 +60,7 @@ sub initiate {
 		return;
 	}
 	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree jQuery.columnizer modernizr jQuery.multiselect tooltips);
+	$self->set_level1_breadcrumbs;
 	return;
 }
 
@@ -71,18 +72,17 @@ sub print_content {
 	my $qry        = "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?";
 	my $sql        = $self->{'db'}->prepare($qry);
 	if ( !$isolate_id ) {
-		$self->print_bad_status( { message => q(No id passed.), navbar => 1 } );
+		$self->print_bad_status( { message => q(No id passed.) } );
 		return;
 	} elsif ( !BIGSdb::Utils::is_int($isolate_id) ) {
-		$self->print_bad_status( { message => q(Invalid id passed.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Invalid id passed.) } );
 		return;
 	} elsif ( !$self->can_modify_table('isolates')
 		&& !$self->can_modify_table('allele_designations') )
 	{
 		$self->print_bad_status(
 			{
-				message => q(Your user account is not allowed to update isolate records.),
-				navbar  => 1
+				message => q(Your user account is not allowed to update isolate records.)
 			}
 		);
 		return;
@@ -96,9 +96,9 @@ sub print_content {
 		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM isolates WHERE id=?)', $q->param('id') );
 		if ($exists_in_isolates_table) {
 			$self->print_bad_status(
-				{ message => qq(Isolate id-$isolate_id is not accessible from your account.), navbar => 1 } );
+				{ message => qq(Isolate id-$isolate_id is not accessible from your account.) } );
 		} else {
-			$self->print_bad_status( { message => qq(No record with id-$isolate_id exists.), navbar => 1 } );
+			$self->print_bad_status( { message => qq(No record with id-$isolate_id exists.)} );
 		}
 		return;
 	}
@@ -115,8 +115,7 @@ sub _check {
 	if ( !$self->can_modify_table('isolates') ) {
 		$self->print_bad_status(
 			{
-				message => q(Your user account is not allowed to update isolate fields.),
-				navbar  => 1
+				message => q(Your user account is not allowed to update isolate fields.)
 			}
 		);
 		return;
@@ -271,8 +270,7 @@ sub _update {
 		} else {
 			$self->print_bad_status(
 				{
-					message => q(No field changes have been made.),
-					navbar  => 1
+					message => q(No field changes have been made.)
 				}
 			);
 		}
@@ -501,8 +499,11 @@ sub _print_allele_designations {
 }
 
 sub get_title {
+	return 'Update isolate';
+}
+
+sub get_help_url {
 	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Update isolate - $desc";
+	return "$self->{'config'}->{'doclink'}/curator_guide.html#updating-and-deleting-single-isolate-records";
 }
 1;

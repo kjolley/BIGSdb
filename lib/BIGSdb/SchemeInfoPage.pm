@@ -25,7 +25,8 @@ use BIGSdb::Utils;
 use JSON;
 
 sub get_title {
-	my ($self)    = @_;
+	my ( $self, $options ) = @_;
+	return 'Scheme information' if $options->{'breadcrumb'};
 	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id');
 	my $desc      = $self->get_db_description;
@@ -236,11 +237,11 @@ sub initiate {
 		return;
 	}
 	$self->{$_} = 1 foreach qw (jQuery c3);
+	$self->set_level1_breadcrumbs;
 	my $scheme_id = $q->param('scheme_id');
 	return if !BIGSdb::Utils::is_int($scheme_id);
 	$self->{'ajax_url'} =
-	  "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=schemeInfo&scheme_id=$scheme_id&ajax=1"
-	  ;
+	  "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=schemeInfo&scheme_id=$scheme_id&ajax=1";
 	return;
 }
 

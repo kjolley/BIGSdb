@@ -152,6 +152,7 @@ sub initiate {
 			}
 		}
 	}
+	$self->set_level1_breadcrumbs;
 	return;
 }
 
@@ -169,14 +170,14 @@ sub _print_interface {
 	my $q = $self->{'cgi'};
 	my ( $ids, $labels ) = $self->get_isolates_with_seqbin;
 	if ( !@$ids ) {
-		$self->print_bad_status( { message => q(This database view contains no genomes.), navbar => 1 } );
+		$self->print_bad_status( { message => q(This database view contains no genomes.) } );
 		return;
 	} elsif ( !$self->can_modify_table('allele_sequences') ) {
-		$self->print_bad_status( { message => q(Your user account is not allowed to tag sequences.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Your user account is not allowed to tag sequences.) } );
 		return;
 	}
-	say $self->get_form_icon( 'allele_sequences', 'scan' );
 	say q(<div class="box" id="queryform">);
+	say $self->get_form_icon( 'allele_sequences', 'scan' );
 	say q(<p style="margin-right:10%">Please select the required isolate ids and loci for sequence scanning - )
 	  . q(use Ctrl or Shift to make multiple selections. In addition to selecting individual loci, you can choose )
 	  . q(to include all loci defined in schemes by selecting the appropriate scheme description. By default, loci )
@@ -285,8 +286,9 @@ sub _print_interface {
 sub _print_parameter_fieldset {
 	my ( $self, $general_prefs ) = @_;
 	my $q = $self->{'cgi'};
-	say q(<fieldset><legend>Parameters</legend>)
-	  . q(<input type="button" class="smallbutton legendbutton" value="Defaults" onclick="use_defaults()" />)
+	say q(<fieldset style="position:relative"><legend>Parameters</legend>)
+	  . q(<input type="button" class="smallbutton" style="position:absolute;right:6em" )
+	  . q(value="Defaults" onclick="use_defaults()" />)
 	  . q(<ul><li><label for="identity" class="parameter">Min % identity:</label>);
 	say $q->popup_menu(
 		-name    => 'identity',
@@ -787,7 +789,7 @@ sub _show_results {
 	my $scan_job = $q->param('scan');
 	$scan_job = $scan_job =~ /^(BIGSdb_[0-9_]+)$/x ? $1 : undef;
 	if ( !defined $scan_job ) {
-		$self->print_bad_status( { message => q(Invalid job id passed.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Invalid job id passed.) } );
 		return;
 	}
 	my $filename = "$self->{'config'}->{'secure_tmp_dir'}/$scan_job\_table.html";
@@ -796,13 +798,12 @@ sub _show_results {
 		$self->print_bad_status(
 			{
 				message => q(The server is currently too busy to run your scan. )
-				  . q(Please wait a few minutes and then try again.),
-				navbar => 1
+				  . q(Please wait a few minutes and then try again.)
 			}
 		);
 		return;
 	} elsif ( !$status->{'start_time'} ) {
-		$self->print_bad_status( { message => q(The requested job does not exist.), navbar => 1 } );
+		$self->print_bad_status( { message => q(The requested job does not exist.) } );
 		return;
 	}
 	say q(<div class="box" id="resultstable">);
@@ -926,9 +927,7 @@ sub print_content {
 }
 
 sub get_title {
-	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Sequence tag scan - $desc";
+	return 'Sequence tag scan';
 }
 
 sub _add_scheme_loci {

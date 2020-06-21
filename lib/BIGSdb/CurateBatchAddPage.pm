@@ -38,7 +38,7 @@ sub print_content {
 	$cleaned_table =~ tr/_/ /;
 	if ( !$self->{'datastore'}->is_table($table) ) {
 		say q(<h1>Batch insert records</h1>);
-		$self->print_bad_status( { message => qq(Table $table does not exist!), navbar => 1 } );
+		$self->print_bad_status( { message => qq(Table $table does not exist!) } );
 		return;
 	}
 	say qq(<h1>Batch insert $cleaned_table</h1>);
@@ -46,7 +46,6 @@ sub print_content {
 		$self->print_bad_status(
 			{
 				message => qq(Your user account is not allowed to add records to the $table table.),
-				navbar  => 1
 			}
 		);
 		return;
@@ -57,7 +56,7 @@ sub print_content {
 		sequences        => 'You cannot use this interface to add new sequence definitions.'
 	);
 	if ( $table_message{$table} ) {
-		$self->print_bad_status( { message => $table_message{$table}, navbar => 1 } );
+		$self->print_bad_status( { message => $table_message{$table} } );
 		return;
 	}
 	my %modify_warning = map { $_ => 1 } qw (scheme_fields scheme_members);
@@ -102,8 +101,6 @@ sub print_content {
 		if ( $q->param('submission_id') ) {
 			$self->_set_submission_params( scalar $q->param('submission_id') );
 		}
-		my $icon = $self->get_form_icon( $table, 'plus' );
-		say $icon;
 		$self->_print_interface($args);
 	}
 	return;
@@ -121,7 +118,10 @@ sub _print_interface {
 		return
 		  if $self->_cannot_upload_private_data( scalar $q->param('private'), scalar $q->param('project_id') );
 	}
-	say q(<div class="box" id="queryform"><div class="scrollable"><h2>Instructions</h2>)
+	say q(<div class="box" id="queryform"><div class="scrollable">);
+	my $icon = $self->get_form_icon( $table, 'plus' );
+	say $icon;
+	say q(<h2>Instructions</h2>)
 	  . qq(<p>This page allows you to upload $record_name )
 	  . q(data as tab-delimited text or copied from a spreadsheet.</p>);
 	say q(<ul><li>Field header names must be included and fields can be in any order. Optional fields can be )
@@ -175,7 +175,6 @@ sub _print_interface {
 	$self->print_action_fieldset( { table => $table, %$options } );
 	say $q->end_form;
 	my $script = $q->param('user_header') ? $self->{'system'}->{'query_script'} : $self->{'system'}->{'script_name'};
-	$self->print_navigation_bar( { script => $script } );
 	say q(</div></div>);
 	return;
 }
@@ -222,14 +221,14 @@ sub _cannot_upload_private_data {
 	my $project;
 	if ($project_id) {
 		if ( !BIGSdb::Utils::is_int($project_id) ) {
-			$self->print_bad_status( { message => q(Invalid project id selected.), navbar => 1 } );
+			$self->print_bad_status( { message => q(Invalid project id selected.) } );
 			return 1;
 		}
 		$project =
 		  $self->{'datastore'}->run_query( 'SELECT short_description,no_quota,curate_config FROM projects WHERE id=?',
 			$project_id, { fetch => 'row_hashref' } );
 		if ( !$project ) {
-			$self->print_bad_status( { message => q(Invalid project id selected.), navbar => 1 } );
+			$self->print_bad_status( { message => q(Invalid project id selected.) } );
 			return 1;
 		}
 		my $is_project_user =
@@ -241,13 +240,12 @@ sub _cannot_upload_private_data {
 				{
 					message => q(Your account has insufficient privileges to upload to the )
 					  . qq($project->{'short_description'} project.),
-					navbar => 1
 				}
 			);
 			return 1;
 		}
 		if ( !$project->{'no_quota'} && !$limit ) {
-			$self->print_bad_status( { message => q(Your account cannot upload private data.), navbar => 1 } );
+			$self->print_bad_status( { message => q(Your account cannot upload private data.) } );
 			return 1;
 		}
 		if ( $project->{'curate_config'} && $project->{'curate_config'} ne $self->{'instance'} ) {
@@ -255,14 +253,12 @@ sub _cannot_upload_private_data {
 				{
 					message => q(You cannot upload to this project using the current database configuration )
 					  . qq("$self->{'instance'}". You must use the "$project->{'curate_config'}" configuration.)
-					,
-					navbar => 1
 				}
 			);
 			return 1;
 		}
 	} elsif ( !$limit ) {
-		$self->print_bad_status( { message => q(Your account cannot upload private data.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Your account cannot upload private data.) } );
 		return 1;
 	}
 	if ( !$options->{'no_message'} ) {
@@ -337,8 +333,7 @@ sub sender_needed {
 		if ( !BIGSdb::Utils::is_int($sender) ) {
 			$self->print_bad_status(
 				{
-					message => q(Please go back and select the sender for this submission.),
-					navbar  => 1
+					message => q(Please go back and select the sender for this submission.)
 				}
 			);
 			return 1;
@@ -604,8 +599,7 @@ sub _check_data {
 	if ( !$record_count ) {
 		$self->print_bad_status(
 			{
-				message => q(No valid data entered. Make sure you've included the header line.),
-				navbar  => 1
+				message => q(No valid data entered. Make sure you've included the header line.)
 			}
 		);
 		return;
@@ -642,8 +636,7 @@ sub _is_over_quota {
 		$self->print_bad_status(
 			{
 				message => qq(Your available quota for private data is $available record$av_plural. )
-				  . qq(You are attempting to upload $record_count record$up_plural.),
-				navbar => 1
+				  . qq(You are attempting to upload $record_count record$up_plural.)
 			}
 		);
 		return 1;
@@ -1728,8 +1721,7 @@ sub report_upload_error {
 	$self->print_bad_status(
 		{
 			message => q(Database update failed - transaction cancelled - no records have been touched.),
-			detail  => $detail,
-			navbar  => 1
+			detail  => $detail
 		}
 	);
 	return;
@@ -1936,10 +1928,9 @@ sub _extract_checked_records {
 	if ( !-e $tmp_file ) {
 		$self->print_bad_status(
 			{
-				message => q(The temp file containing the checked data does not exist.</p>)
+				    message => q(The temp file containing the checked data does not exist.</p>)
 				  . q(<p>Upload cannot proceed.  Make sure that you haven't used the back button and are attempting to )
-				  . q(re-upload already submitted data.  Please report this if the problem persists.),
-				navbar => 1
+				  . q(re-upload already submitted data.  Please report this if the problem persists.)
 			}
 		);
 		$logger->error("Checked buffer file $tmp_file does not exist.");
@@ -2067,10 +2058,9 @@ sub _update_scheme_caches {
 
 sub get_title {
 	my ($self) = @_;
-	my $desc  = $self->{'system'}->{'description'} || 'BIGSdb';
 	my $table = $self->{'cgi'}->param('table');
-	my $type  = $self->get_record_name($table) || '';
-	return "Batch add new $type records - $desc";
+	my $type = $self->get_record_name($table) || '';
+	return "Batch add $type records";
 }
 
 #Return list of fields in order

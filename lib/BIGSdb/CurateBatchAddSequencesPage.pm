@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -35,8 +35,7 @@ sub get_help_url {
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Batch add new allele sequence records - $desc";
+	return 'Batch add new allele sequence records';
 }
 
 sub print_content {
@@ -47,8 +46,7 @@ sub print_content {
 		say q(<h1>Batch insert sequences</h1>);
 		$self->print_bad_status(
 			{
-				message => q(This method can only be called on a sequence definition database.),
-				navbar  => 1
+				message => q(This method can only be called on a sequence definition database.)
 			}
 		);
 		return;
@@ -56,7 +54,7 @@ sub print_content {
 	if ($locus) {
 		if ( !$self->{'datastore'}->is_locus($locus) ) {
 			say q(<h1>Batch insert sequences</h1>);
-			$self->print_bad_status( { message => qq(Locus $locus does not exist!), navbar => 1 } );
+			$self->print_bad_status( { message => qq(Locus $locus does not exist!) } );
 			return;
 		}
 		my $cleaned_locus = $self->clean_locus($locus);
@@ -67,15 +65,13 @@ sub print_content {
 	if ( !$self->can_modify_table('sequences') ) {
 		$self->print_bad_status(
 			{
-				message => q(Your user account is not allowed to add records to the sequences table.),
-				navbar  => 1
+				message => q(Your user account is not allowed to add records to the sequences table.)
 			}
 		);
 		return;
 	}
 	if ( $q->param('datatype') && $q->param('list_file') ) {
-		$self->{'datastore'}->create_temp_list_table( scalar $q->param('datatype'), scalar $q->param('list_file') )
-		  ;
+		$self->{'datastore'}->create_temp_list_table( scalar $q->param('datatype'), scalar $q->param('list_file') );
 	}
 	if ( $q->param('query_file') && !defined $q->param('query') ) {
 		my $query_file = $q->param('query_file');
@@ -87,8 +83,6 @@ sub print_content {
 	} elsif ( $q->param('data') || $q->param('query') ) {
 		$self->_check_data($locus);
 	} else {
-		my $icon = $self->get_form_icon( 'sequences', 'plus' );
-		say $icon;
 		$self->_print_interface($locus);
 	}
 	return;
@@ -97,7 +91,10 @@ sub print_content {
 sub _print_interface {
 	my ( $self, $locus ) = @_;
 	my $q = $self->{'cgi'};
-	say q(<div class="box" id="queryform"><div class="scrollable"><h2>Instructions</h2>)
+	say q(<div class="box" id="queryform"><div class="scrollable">);
+	my $icon = $self->get_form_icon( 'sequences', 'plus' );
+	say $icon;
+	say q(<h2>Instructions</h2>)
 	  . q(<p>This page allows you to upload allele sequence )
 	  . q(data as tab-delimited text or copied from a spreadsheet.</p>);
 	say q(<ul><li>Field header names must be included and fields can be in any order. Optional fields can be )
@@ -134,7 +131,6 @@ sub _print_interface {
 	say $q->hidden($_) foreach qw (page db table locus);
 	$self->print_action_fieldset( { table => 'sequences' } );
 	say $q->end_form;
-	$self->print_navigation_bar;
 	say q(</div></div>);
 	return;
 }
@@ -343,8 +339,7 @@ sub _upload_data {
 		if ( $_->isa('BIGSdb::Exception::File::CannotOpen') ) {
 			$self->print_bad_status(
 				{
-					message => q(Could not find validated sequences to upload),
-					navbar  => 1
+					message => q(Could not find validated sequences to upload)
 				}
 			);
 			$continue = 0;

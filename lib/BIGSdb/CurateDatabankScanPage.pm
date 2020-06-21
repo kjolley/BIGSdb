@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -34,8 +34,7 @@ sub print_content {
 	if ( !$self->can_modify_table('loci') ) {
 		$self->print_bad_status(
 			{
-				message => q(Your user account is not allowed to add records to the loci table.),
-				navbar  => 1
+				message => q(Your user account is not allowed to add records to the loci table.)
 			}
 		);
 		return;
@@ -90,7 +89,7 @@ sub _print_results {
 		$logger->debug($err);
 	};
 	if ( !$seq_obj ) {
-		$self->print_bad_status( { message => q(No data returned.), navbar => 1 } );
+		$self->print_bad_status( { message => q(No data returned.) } );
 		return;
 	}
 	my $prefix      = BIGSdb::Utils::get_random();
@@ -228,8 +227,6 @@ END
 }
 
 sub get_title {
-	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return qq(Scan EMBL/Genbank record - $desc);
+	return q(Scan EMBL/Genbank record);
 }
 1;

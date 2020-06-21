@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -28,6 +28,7 @@ my $logger = get_logger('BIGSdb.Page');
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (jQuery tooltips noCache);
+	$self->set_level1_breadcrumbs;
 	return;
 }
 
@@ -48,20 +49,19 @@ sub print_content {
 	say qq(<h1>Customize $record display</h1>);
 
 	if ( !$q->cookie('guid') ) {
-		say
-		  q(<div class="box" id="statusbad"><span class="warning_icon far fa-thumbs-down fa-5x fa-pull-left"></span>)
+		say q(<div class="box" id="statusbad"><span class="warning_icon far fa-thumbs-down fa-5x fa-pull-left"></span>)
 		  . q(<h2>Unable to proceed</h2><p>In order to store options, a cookie needs to be saved )
 		  . q(on your computer. Cookies appear to be disabled, however. )
 		  . q(Please enable them in your browser settings to proceed.</p></div>);
 		return;
 	}
 	if ( !$filename ) {
-		$self->print_bad_status( { message => qq(No $record data passed.), navbar => 1 } );
+		$self->print_bad_status( { message => qq(No $record data passed.) } );
 		return;
 	}
 	my %valid_table = map { $_ => 1 } qw (loci scheme_fields schemes);
 	if ( !$table || !$valid_table{$table} ) {
-		$self->print_bad_status( { message => q(Selected table is not valid for customization.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Selected table is not valid for customization.) } );
 		return;
 	}
 	my $file = "$self->{'config'}->{'secure_tmp_dir'}/$filename";
@@ -72,7 +72,7 @@ sub print_content {
 			close $fh;
 		}
 	} else {
-		$self->print_bad_status( { message => q(Cannot open query.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Cannot open query.) } );
 		$logger->error("Cannot open query file $file");
 	}
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
@@ -94,7 +94,7 @@ sub print_content {
 	}
 	my $results = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 	if ( !@$results ) {
-		$self->print_bad_status( { message => q(No matches found!), navbar => 1 } );
+		$self->print_bad_status( { message => q(No matches found!) } );
 		return;
 	}
 	print $q->start_form;
@@ -186,7 +186,7 @@ sub _process_loci {
 			$prefstore->set_locus( $guid, $self->{'system'}->{'db'}, $data->{'id'}, $field, $value );
 			print qq(<td>$value <span class="highlight">*</span></td>);
 			$$updated_ref = 1;
-		} elsif ( $q->param("$field\_default") && $q->param("id_$data->{'id'}") ) {
+		} elsif ( $q->param("${field}_default") && $q->param("id_$data->{'id'}") ) {
 			my $locus_info = $self->{'datastore'}->get_locus_info( $data->{'id'} );
 			my $value      = $locus_info->{$field};
 			if ( $field eq 'main_display' or $field eq 'query_field' or $field eq 'analysis' ) {
@@ -208,7 +208,7 @@ sub _process_loci {
 				or $field eq 'analysis' )
 			{
 				$value =
-				  $self->{'prefs'}->{"$field\_loci"}->{ $data->{'id'} }
+				  $self->{'prefs'}->{"${field}_loci"}->{ $data->{'id'} }
 				  ? 'true'
 				  : 'false';
 				my $locus_info = $self->{'datastore'}->get_locus_info( $data->{'id'} );
@@ -370,8 +370,7 @@ sub _get_tooltip {
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 	my $record = $self->get_record_name( scalar $self->{'cgi'}->param('table') );
-	return "Customize $record display - $desc";
+	return "Customize $record display";
 }
 1;

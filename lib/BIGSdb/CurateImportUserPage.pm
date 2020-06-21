@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2016-2019, University of Oxford
+#Copyright (c) 2016-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -30,12 +30,11 @@ sub print_content {
 	my $q = $self->{'cgi'};
 	say q(<h1>Import user from remote users database</h1>);
 	if ( !$self->{'datastore'}->user_dbs_defined ) {
-		$self->print_bad_status( { message => q(No user databases are defined.), navbar => 1 } );
+		$self->print_bad_status( { message => q(No user databases are defined.) } );
 		return;
 	}
 	if ( !( $self->{'permissions'}->{'import_site_users'} || $self->is_admin ) ) {
-		$self->print_bad_status(
-			{ message => q(Your account does not have permission to import users.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Your account does not have permission to import users.) } );
 		return;
 	}
 	my $default_db =
@@ -46,7 +45,7 @@ sub print_content {
 	}
 	my $user_db = $q->param('user_db');
 	if ( !BIGSdb::Utils::is_int($user_db) || !$self->{'datastore'}->user_db_defined($user_db) ) {
-		$self->print_bad_status( { message => q(Invalid user database submitted.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Invalid user database submitted.) } );
 		return;
 	}
 	if ( $q->param('submit') && $q->param('users') ) {
@@ -58,7 +57,6 @@ sub print_content {
 
 sub _print_interface {
 	my ( $self, $user_db ) = @_;
-	say $self->get_form_icon( 'users', 'import' );
 	my $dbs = $self->{'datastore'}->run_query( 'SELECT * FROM user_dbases ORDER BY list_order,name',
 		undef, { fetch => 'all_arrayref', slice => {} } );
 	my $possible_users = $self->_get_possible_users($user_db);
@@ -90,7 +88,7 @@ sub _print_interface {
 	my $user_names = [];
 	foreach my $user (@$possible_users) {
 		push @$user_names, $user->{'user_name'};
-		my ($truncated_affiliation) = $self->get_truncated_label($user->{'affiliation'},80);
+		my ($truncated_affiliation) = $self->get_truncated_label( $user->{'affiliation'}, 80 );
 		$labels->{ $user->{'user_name'} } =
 		    qq($user->{'surname'}, $user->{'first_name'} ($user->{'user_name'}) - )
 		  . qq($truncated_affiliation ($user->{'email'}));
@@ -104,7 +102,7 @@ sub _print_interface {
 			-labels   => $labels,
 			-size     => 10,
 			-multiple => 'true',
-			-default  => [ scalar $q->param('user_name') ]
+			-default  => [ scalar $q->param('user_name') ],
 		);
 		say q(</fieldset>);
 		$self->print_action_fieldset( { submit_label => 'Import', no_reset => 1 } );
@@ -173,13 +171,13 @@ sub _import {
 		$logger->error($@);
 		$self->{'db'}->rollback;
 		$remote_db->rollback;
-		$self->print_bad_status( { message => q(User upload failed.), navbar => 1 } );
+		$self->print_bad_status( { message => q(User upload failed.) } );
 	} else {
 		$self->{'db'}->commit;
 		$remote_db->commit;
 		local $" = q(, );
 		my $plural = @users == 1 ? q() : q(s);
-		$self->print_good_status( { message => qq(User$plural @users successfully imported.), navbar => 1 } );
+		$self->print_good_status( { message => qq(User$plural @users successfully imported.) } );
 		my $user_db_object = $self->{'datastore'}->get_user_db($user_db);
 	}
 	return;
@@ -191,8 +189,7 @@ sub _check_valid_import {
 		$user_name, { cache => 'CurateImportUserPage::check_valid_import::local' } );
 	if ($exists_in_local) {
 		$logger->error("User '$user_name' already exists in the local database.");
-		$self->print_bad_status(
-			{ message => qq(User '$user_name' already exists in the local database.), navbar => 1 } );
+		$self->print_bad_status( { message => qq(User '$user_name' already exists in the local database.) } );
 		return;
 	}
 	my $remote_db        = $self->{'datastore'}->get_user_db($user_db);
@@ -205,8 +202,7 @@ sub _check_valid_import {
 		$logger->error("User '$user_name' does not exist in the remote user database.");
 		$self->print_bad_status(
 			{
-				message => qq(User '$user_name' does not exist in the remote user database.),
-				navbar  => 1
+				message => qq(User '$user_name' does not exist in the remote user database.)
 			}
 		);
 		return;
@@ -215,8 +211,6 @@ sub _check_valid_import {
 }
 
 sub get_title {
-	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Import user - $desc";
+	return 'Import user';
 }
 1;

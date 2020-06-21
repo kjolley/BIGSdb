@@ -60,8 +60,7 @@ sub print_content {
 	if ( !$self->can_modify_table('isolates') ) {
 		$self->print_bad_status(
 			{
-				message => q(our user account is not allowed to add records ) . q(to the isolates table.),
-				navbar  => 1
+				message => q(our user account is not allowed to add records ) . q(to the isolates table.)
 			}
 		);
 		return;
@@ -69,10 +68,9 @@ sub print_content {
 	if ( $self->{'permissions'}->{'only_private'} ) {
 		$self->print_bad_status(
 			{
-				message => q(Your user account is not allowed to add records )
+				    message => q(Your user account is not allowed to add records )
 				  . q(to the isolates table using this interface. You can only upload private data using )
-				  . q(the batch upload page.),
-				navbar => 1
+				  . q(the batch upload page.)
 			}
 		);
 		return;
@@ -985,8 +983,13 @@ sub _print_scheme_form_elements {
 }
 
 sub get_title {
+	return 'Add new isolate';
+}
+
+sub initiate {
 	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Add new isolate - $desc";
+	$self->{$_} = 1 foreach qw (tooltips jQuery jQuery.multiselect modernizr noCache);
+	$self->set_level1_breadcrumbs;
+	return;
 }
 1;

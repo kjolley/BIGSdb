@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -32,15 +32,14 @@ sub print_content {
 	my $q      = $self->{'cgi'};
 	my $id     = $q->param('id');
 	say q(<h1>Update sequence tag</h1>);
-	say $self->get_form_icon( 'allele_sequences', 'edit' );
 	if ( !BIGSdb::Utils::is_int($id) ) {
-		$self->print_bad_status( { message => q(Tag id must be an integer.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Tag id must be an integer.) } );
 		return;
 	}
 	my $existing_tag =
 	  $self->{'datastore'}->run_query( 'SELECT * FROM allele_sequences WHERE id=?', $id, { fetch => 'row_hashref' } );
 	if ( !$existing_tag ) {
-		$self->print_bad_status( { message => q(Tag does not exist.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Tag does not exist.) } );
 		return;
 	}
 	my ( $seqbin_id, $locus, $orig_start, $orig_end ) = @{$existing_tag}{qw(seqbin_id locus start_pos end_pos)};
@@ -106,15 +105,14 @@ sub print_content {
 				$self->print_bad_status(
 					{
 						message => q(Update failed - a tag already exists for this )
-						  . qq(locus between postions $start and $end on sequence seqbin#$seqbin_id),
-						navbar => 1
+						  . qq(locus between postions $start and $end on sequence seqbin#$seqbin_id)
 					}
 				);
 			} else {
 				$self->print_bad_status(
 					{
-						message => q(Update failed - transaction cancelled - ) . q(no records have been touched.),
-						navbar  => 1
+						message => q(Update failed - transaction cancelled - )
+						  . q(no records have been touched.)
 					}
 				);
 				$logger->error($error);
@@ -144,6 +142,7 @@ sub print_content {
 		}
 	}
 	say q(<div class="box" id="queryform"><div class="scrollable">);
+	say $self->get_form_icon( 'allele_sequences', 'edit' );
 	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Tag</legend>);
 	say qq(<dl class="data"><dt>seqbin id</dt><dd>$seqbin_id</dd>);
@@ -186,9 +185,9 @@ sub print_content {
 	my $flanking = $self->{'prefs'}->{'flanking'} // 100;
 	my $length = abs( $end - $start + 1 );
 	say q(<p class="seq" style="text-align:left">);
-	my $locus_info   = $self->{'datastore'}->get_locus_info($locus);
-	my $translate    = $locus_info->{'coding_sequence'} || $locus_info->{'data_type'} eq 'peptide';
-	my $orf          = $locus_info->{'orf'} || 1;
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	my $translate  = $locus_info->{'coding_sequence'} || $locus_info->{'data_type'} eq 'peptide';
+	my $orf        = $locus_info->{'orf'} || 1;
 	my ( $introns, $intron_length ) = $self->get_introns;
 	my $seq_features = $self->get_seq_features(
 		{
@@ -197,11 +196,12 @@ sub print_content {
 			start     => $start,
 			end       => $end,
 			flanking  => $flanking,
-			introns => $introns
+			introns   => $introns
 		}
 	);
 	say $self->format_sequence_features($seq_features);
 	say q(</p>);
+
 	if ($translate) {
 		my $stops = $self->find_internal_stops( $seq_features, $orf );
 		if (@$stops) {
@@ -243,8 +243,6 @@ sub _check_values {
 }
 
 sub get_title {
-	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return qq(Sequence tag update - $desc);
+	return q(Sequence tag update);
 }
 1;

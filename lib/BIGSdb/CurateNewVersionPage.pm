@@ -29,6 +29,7 @@ use constant ERROR => 1;
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (jQuery noCache jQuery.columnizer);
+	$self->set_level1_breadcrumbs;
 	return;
 }
 
@@ -41,34 +42,31 @@ sub print_content {
 		$self->print_bad_status(
 			{
 				message => q(New record versions cannot be created when a filtered )
-				  . q(isolate view is used. Any new version could be potentially inaccessible.),
-				navbar => 1
+				  . q(isolate view is used. Any new version could be potentially inaccessible.)
 			}
 		);
 		return;
 	}
 	if ( !BIGSdb::Utils::is_int($existing_id) ) {
-		$self->print_bad_status( { message => q(Invalid isolate id passed.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Invalid isolate id passed.) } );
 		return;
 	}
 	if ( !$self->can_modify_table('isolates') ) {
 		$self->print_bad_status(
 			{
-				message => q(Your user account is not allowed to create isolate records.),
-				navbar  => 1
+				message => q(Your user account is not allowed to create isolate records.)
 			}
 		);
 		return;
 	}
 	if ( !$self->isolate_exists($existing_id) ) {
-		$self->print_bad_status( { message => q(Selected isolate does not exist.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Selected isolate does not exist.) } );
 		return;
 	}
 	if ( !$self->is_allowed_to_view_isolate($existing_id) ) {
 		$self->print_bad_status(
 			{
-				message => q(Your user account is not allowed to access this isolate record.),
-				navbar  => 1
+				message => q(Your user account is not allowed to access this isolate record.)
 			}
 		);
 		return;
@@ -78,18 +76,16 @@ sub print_content {
 		if ( $self->isolate_exists($new_version) ) {
 			$self->print_bad_status(
 				{
-					message => q(This isolate already has a newer version defined. See )
+					    message => q(This isolate already has a newer version defined. See )
 					  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;)
-					  . qq(id=$new_version">isolate id-$new_version</a>.),
-					navbar => 1
+					  . qq(id=$new_version">isolate id-$new_version</a>.)
 				}
 			);
 		} else {
 			$self->print_bad_status(
 				{
 					message => q(This isolate already has a newer version defined. )
-					  . q(It is not, however, accessible from the current database view.),
-					navbar => 1
+					  . q(It is not, however, accessible from the current database view.)
 				}
 			);
 		}
@@ -171,9 +167,7 @@ sub _print_interface {
 }
 
 sub get_title {
-	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Create new isolate record version - $desc";
+	return 'Create new isolate record version';
 }
 
 sub _create_new_version {
@@ -244,9 +238,8 @@ sub _create_new_version {
 			my $value = $self->{'datastore'}->get_eav_field_value( $existing_id, $field );
 			next if !defined $value;
 			my $eav_table = $self->{'datastore'}->get_eav_field_table($field);
-			$self->{'db'}->do( "INSERT INTO $eav_table (isolate_id,field,value) VALUES (?,?,?)", undef, $new_id, $field,
-				$value )
-			  ;
+			$self->{'db'}
+			  ->do( "INSERT INTO $eav_table (isolate_id,field,value) VALUES (?,?,?)", undef, $new_id, $field, $value );
 		}
 	};
 	if ($@) {

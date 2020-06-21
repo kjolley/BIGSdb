@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2013-2018, University of Oxford
+#Copyright (c) 2013-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -37,37 +37,36 @@ sub print_content {
 		$self->print_bad_status(
 			{
 				message => q(You can only update profiles in a sequence/profile database - )
-				  . q(this is an isolate database.),
-				navbar => 1
+				  . q(this is an isolate database.)
 			}
 		);
 		return;
 	}
 	if ( !$scheme_id ) {
 		say q(<h1>Batch profile update</h1>);
-		$self->print_bad_status( { message => q(No scheme_id passed.), navbar => 1 } );
+		$self->print_bad_status( { message => q(No scheme_id passed.) } );
 		return;
 	}
 	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
 		say q(<h1>Batch profile update</h1>);
-		$self->print_bad_status( { message => q(Scheme_id must be an integer.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Scheme_id must be an integer.) } );
 		return;
 	}
 	if ( !$self->can_modify_table('profiles') ) {
 		say q(<h1>Batch profile update</h1>);
-		$self->print_bad_status( { message => q(Your user account is not allowed to update profiles.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Your user account is not allowed to update profiles.) } );
 		return;
 	}
 	if ($set_id) {
 		if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
-			$self->print_bad_status( { message => q(The selected scheme is inaccessible.), navbar => 1 } );
+			$self->print_bad_status( { message => q(The selected scheme is inaccessible.) } );
 			return;
 		}
 	}
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
 	say qq(<h1>Batch profile update ($scheme_info->{'name'})</h1>);
 	if ( !defined $scheme_info->{'primary_key'} ) {
-		$self->print_bad_status( { message => q(The selected scheme has no primary key.), navbar => 1 } );
+		$self->print_bad_status( { message => q(The selected scheme has no primary key.) } );
 		return;
 	}
 	if ( $q->param('update') ) {
@@ -217,10 +216,9 @@ sub _check {
 		say $q->hidden($_) foreach qw (db page update file scheme_id);
 		$self->print_action_fieldset( { submit_label => 'Update', no_reset => 1 } );
 		say $q->end_form;
-		$self->print_navigation_bar;
 		say q(</div></div>);
 	} else {
-		$self->print_bad_status( { message => q(No valid values to update.), navbar => 1 } );
+		$self->print_bad_status( { message => q(No valid values to update.) } );
 		return;
 	}
 	return;
@@ -256,7 +254,6 @@ sub _print_interface {
 	say q(</li></ul></fieldset>);
 	$self->print_action_fieldset( { scheme_id => $scheme_id } );
 	say $q->end_form;
-	$self->print_navigation_bar;
 	say q(</div>);
 	return;
 }
@@ -368,7 +365,7 @@ sub _check_existing_profile {
 	my $ret = $self->{'datastore'}->check_new_profile( $scheme_info->{'id'}, \%designations, $pk );
 	if ( $ret->{'exists'} ) {
 		$$problem = qq(would result in duplicate profile. $ret->{'msg'});
-	} elsif ($ret->{'err'}){
+	} elsif ( $ret->{'err'} ) {
 		$$problem = $ret->{'msg'};
 	}
 	return;
@@ -572,7 +569,6 @@ sub _update {
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Batch Profile Update - $desc";
+	return 'Batch profile update';
 }
 1;

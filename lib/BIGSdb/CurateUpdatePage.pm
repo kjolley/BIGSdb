@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -31,6 +31,7 @@ use constant FAILURE => 2;
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (tooltips jQuery jQuery.multiselect noCache);
+	$self->set_level1_breadcrumbs;
 	return;
 }
 
@@ -39,16 +40,15 @@ sub _pre_check_failed {
 	my ( $self, $table ) = @_;
 	my $q = $self->{'cgi'};
 	if ( !$self->{'datastore'}->is_table($table) ) {
-		$self->print_bad_status( { message => qq(Table $table does not exist!), navbar => 1 } );
+		$self->print_bad_status( { message => qq(Table $table does not exist!) } );
 		return 1;
 	}
 	if ( !$self->can_modify_table($table) ) {
-		$self->print_bad_status(
-			{ message => q(Your user account is not allowed to update this record.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Your user account is not allowed to update this record.) } );
 		return 1;
 	}
 	if ( $table eq 'allele_sequences' ) {
-		$self->print_bad_status( { message => q(Sequence tags cannot be updated using this function.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Sequence tags cannot be updated using this function.) } );
 		return 1;
 	}
 	if ( $table eq 'scheme_fields' && $self->{'system'}->{'dbtype'} eq 'sequences' && !$q->param('sent') ) {
@@ -84,15 +84,14 @@ sub print_content {
 		}
 	}
 	if ( !@query_values ) {
-		$self->print_bad_status( { message => q(No identifying attributes sent.), navbar => 1 } );
+		$self->print_bad_status( { message => q(No identifying attributes sent.) } );
 		return;
 	}
 	local $" = q( AND );
 	my $record_count =
 	  $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM $table WHERE @query_terms", \@query_values );
 	if ( $record_count != 1 ) {
-		$self->print_bad_status(
-			{ message => q(The search terms did not uniquely identify a single record.), navbar => 1 } );
+		$self->print_bad_status( { message => q(The search terms did not uniquely identify a single record.) } );
 		return;
 	}
 	my $data =
@@ -113,8 +112,8 @@ sub print_content {
 	local $" = q( );
 	my $disabled_fields = $self->_get_disabled_fields( $table, $data );
 	my $icon = $self->get_form_icon( $table, 'edit' );
-	$buffer .= $icon;
-	$buffer .= $self->create_record_table( $table, $data, { update => 1, disabled => $disabled_fields } );
+	$buffer .=
+	  $self->create_record_table( $table, $data, { update => 1, disabled => $disabled_fields, icon => $icon } );
 	my %newdata;
 
 	foreach (@$attributes) {
@@ -191,7 +190,7 @@ sub _upload {
 
 	if (@problems) {
 		local $" = qq(<br />\n);
-		$self->print_bad_status( { message => qq(@problems), navbar => 1 } );
+		$self->print_bad_status( { message => qq(@problems) } );
 	} else {
 		my %methods = (
 			users => sub {
@@ -275,8 +274,7 @@ sub _upload {
 				$self->print_bad_status(
 					{
 						message => q(Update failed - transaction cancelled - no records have been touched.),
-						detail  => $detail,
-						navbar  => 1
+						detail  => $detail
 					}
 				);
 				$self->{'db'}->rollback;
@@ -328,10 +326,9 @@ sub _check_users {
 	{
 		$self->print_bad_status(
 			{
-				message => q(It is not a good idea to remove admin status from )
+				    message => q(It is not a good idea to remove admin status from )
 				  . q(yourself as you will lock yourself out!  If you really wish to do this, you will need )
-				  . q(to do it from another admin account.),
-				navbar => 1
+				  . q(to do it from another admin account.)
 			}
 		);
 		return FAILURE;
@@ -348,7 +345,7 @@ sub _check_scheme_fields {
 		my $primary_key = $scheme_info->{'primary_key'};
 		if ( $primary_key && $primary_key ne $newdata->{'field'} ) {
 			$self->print_bad_status(
-				{ message => qq(This scheme already has a primary key field set ($primary_key).), navbar => 1 } );
+				{ message => qq(This scheme already has a primary key field set ($primary_key).) } );
 			return FAILURE;
 		}
 	}
@@ -375,8 +372,7 @@ sub _check_eav_fields {
 		if ($bad_length) {
 			$self->print_bad_status(
 				{
-					message => q(There is already data defined with a length longer than you have selected.),
-					navbar  => 1
+					message => q(There is already data defined with a length longer than you have selected.)
 				}
 			);
 			return FAILURE;
@@ -392,8 +388,7 @@ sub _check_eav_fields {
 			$self->print_bad_status(
 				{
 					message =>
-					  q(There is already data defined with a value smaller than the minimum you have selected.),
-					navbar => 1
+					  q(There is already data defined with a value smaller than the minimum you have selected.)
 				}
 			);
 			return FAILURE;
@@ -408,8 +403,7 @@ sub _check_eav_fields {
 			$self->print_bad_status(
 				{
 					message =>
-					  q(There is already data defined with a value greater than the maximum you have selected.),
-					navbar => 1
+					  q(There is already data defined with a value greater than the maximum you have selected.)
 				}
 			);
 			return FAILURE;
@@ -437,18 +431,16 @@ sub _check_loci {
 		if ($non_int) {
 			$self->print_bad_status(
 				{
-					message => q(The sequence table already contains data with )
+					    message => q(The sequence table already contains data with )
 					  . q(non-integer allele ids. You will need to remove these before you can change the )
-					  . q(allele_id_format to 'integer'.),
-					navbar => 1
+					  . q(allele_id_format to 'integer'.)
 				}
 			);
 			return FAILURE;
 
 			#special case to ensure that a locus length is set if it is not marked as variable length
 		} elsif ( $newdata->{'length_varies'} ne 'true' && !$newdata->{'length'} ) {
-			$self->print_bad_status(
-				{ message => q(Locus set as non variable length but no length is set.), navbar => 1 } );
+			$self->print_bad_status( { message => q(Locus set as non variable length but no length is set.) } );
 			return FAILURE;
 		}
 	}
@@ -471,11 +463,10 @@ sub _check_allele_data {
 		if ( $required && $newdata->{$field} eq '' ) {
 			push @missing_field, $field;
 		} elsif ( $format eq 'integer' && $newdata->{$field} ne '' && !BIGSdb::Utils::is_int( $newdata->{$field} ) ) {
-			$self->print_bad_status( { message => qq($field must be an integer.), navbar => 1 } );
+			$self->print_bad_status( { message => qq($field must be an integer.) } );
 			return FAILURE;
 		} elsif ( $newdata->{$field} ne '' && $regex && $newdata->{$field} !~ /$regex/x ) {
-			$self->print_bad_status(
-				{ message => qq(Field '$field' does not conform to specified format.), navbar => 1 } );
+			$self->print_bad_status( { message => qq(Field '$field' does not conform to specified format.) } );
 			return FAILURE;
 		} else {
 			$self->_get_allele_extended_attribute_inserts( $newdata, $field, $extra_inserts );
@@ -486,8 +477,7 @@ sub _check_allele_data {
 		$self->print_bad_status(
 			{
 				message => q(Please fill in all extended attribute fields. )
-				  . qq( The following extended attribute fields are missing: @missing_field.),
-				navbar => 1
+				  . qq( The following extended attribute fields are missing: @missing_field.)
 			}
 		);
 		return FAILURE;
@@ -508,7 +498,7 @@ sub _check_allele_data {
 		next if $new eq '';
 		if ( !@$existing_pubmeds || none { $new eq $_ } @$existing_pubmeds ) {
 			if ( !BIGSdb::Utils::is_int($new) ) {
-				$self->print_bad_status( { message => q(PubMed ids must be integers.), navbar => 1 } );
+				$self->print_bad_status( { message => q(PubMed ids must be integers.) } );
 				return FAILURE;
 			}
 			push @$extra_inserts,
@@ -721,7 +711,7 @@ sub _check_locus_descriptions {
 		next if $new eq '';
 		if ( !@$existing_pubmeds || none { $new eq $_ } @$existing_pubmeds ) {
 			if ( !BIGSdb::Utils::is_int($new) ) {
-				$self->print_bad_status( { message => q(PubMed ids must be integers.), navbar => 1 } );
+				$self->print_bad_status( { message => q(PubMed ids must be integers.) } );
 				return FAILURE;
 			}
 			push @$extra_inserts,
@@ -774,8 +764,7 @@ sub _check_locus_descriptions {
 			if ( $new !~ /^(.+?)\|(.+)\|(.+)$/x ) {
 				$self->print_bad_status(
 					{
-						message => q(Links must have an associated description separated from the URL by a '|'.),
-						navbar  => 1
+						message => q(Links must have an associated description separated from the URL by a '|'.)
 					}
 				);
 				return FAILURE;
@@ -887,8 +876,7 @@ sub _prepare_extra_inserts_for_schemes {
 			if ( !BIGSdb::Utils::is_int($new) ) {
 				$self->print_bad_status(
 					{
-						message => q(PubMed ids must be integers.),
-						navbar  => 1
+						message => q(PubMed ids must be integers.)
 					}
 				);
 				return FAILURE;
@@ -943,8 +931,8 @@ sub _prepare_extra_inserts_for_schemes {
 			if ( $new !~ /^(.+?)\|(.+)\|(.+)$/x ) {
 				$self->print_bad_status(
 					{
-						message => q(Links must have an associated description separated from the URL by a '|'.),
-						navbar  => 1
+						message =>
+						  q(Links must have an associated description separated from the URL by a '|'.)
 					}
 				);
 				return FAILURE;
@@ -1022,9 +1010,8 @@ sub _prepare_extra_inserts_for_seqbin {
 
 sub get_title {
 	my ($self) = @_;
-	my $desc  = $self->{'system'}->{'description'} || 'BIGSdb';
 	my $table = $self->{'cgi'}->param('table');
-	my $type  = $self->get_record_name($table) // 'record';
-	return qq(Update $type - $desc);
+	my $type = $self->get_record_name($table) // 'record';
+	return qq(Update $type);
 }
 1;

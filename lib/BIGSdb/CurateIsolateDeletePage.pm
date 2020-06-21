@@ -28,6 +28,7 @@ my $logger = get_logger('BIGSdb.Page');
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw(jQuery jQuery.columnizer);
+	$self->set_level1_breadcrumbs;
 	return;
 }
 
@@ -38,18 +39,17 @@ sub print_content {
 	my $buffer;
 	say q(<h1>Delete isolate</h1>);
 	if ( !$id ) {
-		$self->print_bad_status( { message => q(No id passed.), navbar => 1 } );
+		$self->print_bad_status( { message => q(No id passed.) } );
 		return;
 	} elsif ( !BIGSdb::Utils::is_int($id) ) {
-		$self->print_bad_status( { message => q(Isolate id must be an integer.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Isolate id must be an integer.) } );
 		return;
 	}
 	my $data = $self->{'datastore'}->get_isolate_field_values($id);
 	if ( !$data ) {
 		$self->print_bad_status(
 			{
-				message => qq(No record with id-$id exists or your account is not allowed to delete it.),
-				navbar  => 1
+				message => qq(No record with id-$id exists or your account is not allowed to delete it.)
 			}
 		);
 		return;
@@ -57,15 +57,15 @@ sub print_content {
 	if ( !$self->can_modify_table('isolates') ) {
 		$self->print_bad_status(
 			{
-				message => q(Your user account is not allowed to delete records in the isolates table.),
-				navbar  => 1
+				message =>
+				  q(Your user account is not allowed to delete records in the isolates table.)
 			}
 		);
 		return;
 	}
 	my $icon = $self->get_form_icon( 'isolates', 'trash' );
-	$buffer .= $icon;
 	$buffer .= qq(<div class="box" id="resultspanel">\n);
+	$buffer .= $icon;
 	$buffer .= q(<p>You have chosen to delete the following record. Select 'Delete and Retire' )
 	  . q(to prevent the isolate id being reused.</p>);
 	$buffer .= $q->start_form;
@@ -159,17 +159,17 @@ sub _delete {
 	if ( $self->{'config'}->{'admin_log'} ) {
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 		my $record_data =
-		  $self->{'datastore'}->run_query('SELECT * FROM isolates WHERE id=?',
-			$isolate_id, { fetch => 'row_hashref' } );
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT * FROM isolates WHERE id=?', $isolate_id, { fetch => 'row_hashref' } );
 		my $record = {
 			id                                => $isolate_id,
-			$self->{'system'}->{'labelfield'} => $record_data->{$self->{'system'}->{'labelfield'}}
+			$self->{'system'}->{'labelfield'} => $record_data->{ $self->{'system'}->{'labelfield'} }
 		};
 		my $fields = $self->{'xmlHandler'}->get_field_list;
-		my $atts = $self->{'xmlHandler'}->get_all_field_attributes;
+		my $atts   = $self->{'xmlHandler'}->get_all_field_attributes;
 		foreach my $field (@$fields) {
-			if (($atts->{$field}->{'log_delete'} // q()) eq 'yes'){
-				$record->{$field} = $record_data->{lc $field} if defined $record_data->{lc $field};
+			if ( ( $atts->{$field}->{'log_delete'} // q() ) eq 'yes' ) {
+				$record->{$field} = $record_data->{ lc $field } if defined $record_data->{ lc $field };
 			}
 		}
 		push @actions,
@@ -202,8 +202,6 @@ sub _delete {
 }
 
 sub get_title {
-	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return qq(Delete isolate - $desc);
+	return q(Delete isolate);
 }
 1;

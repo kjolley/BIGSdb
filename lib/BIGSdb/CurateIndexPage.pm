@@ -87,6 +87,15 @@ sub initiate {
 		$self->{"optional_${method}_display"} =
 		  $self->{'prefs'}->{"${method}_methods"} ? 'inline' : 'none';
 	}
+	$self->{'breadcrumbs'} = [
+		{
+			label => $self->{'system'}->{'webroot_label'} // 'Organism',
+			href => $self->{'system'}->{'webroot'}
+		},
+		{
+			label => $self->{'system'}->{'description'}
+		}
+	];
 	return;
 }
 

@@ -26,7 +26,8 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
 sub get_title {
-	my ($self) = @_;
+	my ( $self, $options ) = @_;
+	return 'Locus information' if $options->{'breadcrumb'};
 	my $locus = $self->{'cgi'}->param('locus');
 	return q(Invalid locus) if !$self->{'datastore'}->is_locus($locus);
 	$locus =~ tr/_/ /;
@@ -289,6 +290,7 @@ sub initiate {
 		return;
 	}
 	$self->{$_} = 1 foreach qw (jQuery c3);
+	$self->set_level1_breadcrumbs;
 	my $locus = $q->param('locus');
 	return if !$locus;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);

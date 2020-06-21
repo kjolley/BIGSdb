@@ -252,7 +252,6 @@ span.note {font-weight:600;color:#e00}
 
 .button {padding:0.1em 0.5em;margin:5px;cursor:pointer}
 .smallbutton {font-size:0.9em}
-.legendbutton {margin:-17px 5px 10px 0;float:right}
 
 input.pagebar {
 	background:#efefff;
@@ -791,7 +790,7 @@ div.curategroup_schemes {background-image: linear-gradient(#fff,#cbe)}
 div.curategroup_sets {background-image: linear-gradient(#fff,#bce)}
 div.curategroup_geocoding {background-image: linear-gradient(#fff,#cce)}
 
-div.queryform, div#queryform {background:#e8e8e8;z-index:0}
+div.queryform, div#queryform {position:relative;background:#e8e8e8;z-index:0}
 div#queryform li,p,dd {position:relative;z-index:3}
 div#queryform table {border-collapse:collapse;border-spacing:0}
 div#queryform table.queryform {border-collapse:separate;border-spacing:1px}
@@ -814,8 +813,8 @@ div.statusgood_no_resize {background:#d5e0d5;color:#008000}
 div#warning {background:#e0a0a0;color:#000000}
 div#resultsheader, div.resultsheader {background:#d5e0d5;padding:1em}
 div#resultsfooter, div.resultsfooter {background:#d5e0d5;padding:1em}
-div#resultstable, div.resultstable {background:#e0e0e0}
-div#resultspanel, div.resultspanel {background:#eceef1}
+div#resultstable, div.resultstable {position:relative;background:#e0e0e0}
+div#resultspanel, div.resultspanel {position:relative;background:#eceef1}
 div#resultspanel li,p,dd {position:relative;z-index:3}
 div#alleles {background:#e0e0f0}
 div#alleles table {border-spacing:1px}
@@ -875,43 +874,27 @@ div#menupanel {
 }
 div#menupanel ul.menu {margin-left:12px}
 
-div#pluginoptions, div#curatetools {
-	background:#ddd;
+div#curatetools {
+	background: #e5e5f0;
 	float:right;
 	position:absolute;
-	top:4.5em;
+	top:8em;
 	right:5px;
 	z-index:9;
 	padding:10px;
-	font-size:0.8em;
+	font-size:1em;
 	margin-bottom: 0.5em;
 	border: 1px solid #999;
 	border-radius: 10px;
 	box-shadow: 3px 3px 3px #dfdfdf;
 }
-div#curatetools {background: #e5e5f0}
-
-div#pluginoptions ul {list-style-type:none; margin-left:-2em}
-
-/*
-div#logindetails {
-	background:#ecece9;
-	padding: 0 0.5em;
-	float:left;
-	font-size:0.7em;
-	position:absolute;
-	top:3px;
-	left:5px;
-	z-index:4;
-}
-*/
 
 div.floatmenu {
 	float:right;
 	position:absolute;
-	top:2.5em;
+	top:5em;
 	right:10px;
-	font-size:0.8em;
+	font-size:1.2em;
 	border:1px solid #d0d0d0;	
 	background:#c0c0c0;
 	color:white;
@@ -1094,6 +1077,11 @@ div.scheme_tree {
  } 
  .data dt:after {content:":"} 
  .data dd {margin: 0 0 0 13em;padding: 0 0 0.3em 0;word-break: break-word}
+ 
+@media (max-width:400px){
+	.data dt {float:none;clear:both;width:initial;text-align:initial}
+	.data dd {margin:initial}
+}
  
  dl.profile {
 	margin:0;
@@ -1295,7 +1283,7 @@ button.plugin:hover {color:#c8c}
 .form_icon > .fa-stack > .fa-users {font-size:1.7em}
 
 
-@media (max-width: 600px){
+@media (max-width: 1024px){
 	.form_icon {display:none}
 }
 

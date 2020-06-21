@@ -40,8 +40,7 @@ sub print_content {
 		$self->print_bad_status(
 			{
 				message => q(Your user account is not allowed to update either )
-				  . q(isolate records or allele designations.),
-				navbar => 1
+				  . q(isolate records or allele designations.)
 			}
 		);
 		return;
@@ -124,7 +123,6 @@ HTML
 	}
 	$self->print_action_fieldset;
 	say $q->end_form;
-	$self->print_navigation_bar;
 	say q(</div>);
 	return;
 }
@@ -349,7 +347,7 @@ sub _check {
 		$self->_display_update_form( $update_rows, $id_fields );
 		say q(</div>);
 	} else {
-		$self->print_bad_status( { message => q(No valid values to update.), navbar => 1 } );
+		$self->print_bad_status( { message => q(No valid values to update.) } );
 		return;
 	}
 	return;
@@ -567,12 +565,12 @@ sub _update {
 		push @records, \@record;
 	}
 	close $fh;
-	my $nochange     = 1;
-	my $curator_id   = $self->get_curator_id;
-	my $tablebuffer  = q();
-	my $td           = 1;
-	my $match        = $self->_get_match_criteria;
-	my $view         = $self->{'system'}->{'view'};
+	my $nochange    = 1;
+	my $curator_id  = $self->get_curator_id;
+	my $tablebuffer = q();
+	my $td          = 1;
+	my $match       = $self->_get_match_criteria;
+	my $view        = $self->{'system'}->{'view'};
 	my %multivalue_fields =
 	  map { $_ => 1 } @{ $self->{'xmlHandler'}->get_field_list( { multivalue_only => 1 } ) };
 	my $error;
@@ -664,30 +662,35 @@ sub _update {
 					if ( $q->param('designations') eq 'replace' ) {
 						my $plural = @$deleted_designations == 1 ? '' : 's';
 						local $" = ',';
-						push @history,{
+						push @history,
+						  {
 							isolate_id => $isolate_id,
-							action => "$field: designation$plural '@$deleted_designations' deleted"
-						} if @$deleted_designations;
+							action     => "$field: designation$plural '@$deleted_designations' deleted"
+						  }
+						  if @$deleted_designations;
 					}
-					push @history, {
+					push @history,
+					  {
 						isolate_id => $isolate_id,
-							action => "$field: new designation '$value'"
-					};
+						action     => "$field: new designation '$value'"
+					  };
 				} else {
 					if ( $field eq 'id' ) {
 						$isolate_id = $value;
 					}
 					if ( $old_value ne $value ) {
 						if ( $multivalue_fields{$field} && scalar $q->param('multi_value') eq 'add' ) {
-							push @history, {
+							push @history,
+							  {
 								isolate_id => $isolate_id,
-								action => "$field value added: '$value'"
-							};
+								action     => "$field value added: '$value'"
+							  };
 						} else {
-							push @history, {
+							push @history,
+							  {
 								isolate_id => $isolate_id,
-								action => "$field: '$old_value' -> '$value'"
-							};
+								action     => "$field: '$old_value' -> '$value'"
+							  };
 						}
 					}
 				}
@@ -719,8 +722,8 @@ sub _update {
 				}
 			);
 			$self->{'db'}->commit;
-			foreach my $update (@history){
-				$self->update_history( $update->{'isolate_id'}, $update->{'action'});
+			foreach my $update (@history) {
+				$self->update_history( $update->{'isolate_id'}, $update->{'action'} );
 			}
 		}
 		say q(<div class="box" id="resultstable">);
@@ -816,7 +819,6 @@ sub _prepare_eav_update {
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Batch Isolate Update - $desc";
+	return 'Batch Isolate Update';
 }
 1;

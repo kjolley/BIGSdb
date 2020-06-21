@@ -33,18 +33,18 @@ sub print_content {
 	my $record_name = $self->get_record_name($table) // q();
 	say qq(<h1>Delete $record_name</h1>);
 	if ( !$self->{'datastore'}->is_table($table) ) {
-		$self->print_bad_status( { message => qq(Table $table does not exist!), navbar => 1 } );
+		$self->print_bad_status( { message => qq(Table $table does not exist!) } );
 		return;
 	}
 	if ( $table eq 'profiles' ) {
 		my $scheme_id = $q->param('scheme_id');
 		if ( !BIGSdb::Utils::is_int($scheme_id) ) {
-			$self->print_bad_status( { message => q(Invalid scheme id.), navbar => 1 } );
+			$self->print_bad_status( { message => q(Invalid scheme id.) } );
 			return;
 		}
 		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 		if ( !$scheme_info ) {
-			$self->print_bad_status( { message => q(Scheme does not exist.), navbar => 1 } );
+			$self->print_bad_status( { message => q(Scheme does not exist.) } );
 			return;
 		}
 	}
@@ -53,15 +53,13 @@ sub print_content {
 			my $locus = $q->param('locus');
 			$self->print_bad_status(
 				{
-					message => qq(Your user account is not allowed to delete $locus sequences from the database.),
-					navbar  => 1
+					message => qq(Your user account is not allowed to delete $locus sequences from the database.)
 				}
 			);
 		} else {
 			$self->print_bad_status(
 				{
-					message => qq(Your user account is not allowed to delete records from the $table table.),
-					navbar  => 1
+					message => qq(Your user account is not allowed to delete records from the $table table.)
 				}
 			);
 		}
@@ -74,8 +72,7 @@ sub print_content {
 			my $display_table = $table eq 'sequence_refs' ? 'references' : 'accession numbers';
 			$self->print_bad_status(
 				{
-					message => qq(Your user account is not allowed to delete $display_table for this locus.),
-					navbar  => 1
+					message => qq(Your user account is not allowed to delete $display_table for this locus.)
 				}
 			);
 			return;
@@ -197,12 +194,10 @@ sub _display_record {
 	my ( $self, $table ) = @_;
 	my $q = $self->{'cgi'};
 	$self->_show_modification_warning($table);
-	my $icon       = $self->get_form_icon( $table, 'trash' );
-	my $buffer     = $icon;
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my ( $query_fields, $query_values, $err ) = $self->_get_fields_and_values($table);
 	if ($err) {
-		$self->print_bad_status( { message => $err, navbar => 1 } );
+		$self->print_bad_status( { message => $err } );
 		return;
 	}
 	local $" = q(,);
@@ -210,14 +205,17 @@ sub _display_record {
 	my $qry          = qq(SELECT * FROM $table WHERE (@$query_fields)=(@placeholders));
 	my $data         = $self->{'datastore'}->run_query( $qry, $query_values, { fetch => 'row_hashref' } );
 	if ( !$data ) {
-		$self->print_bad_status( { message => q(Selected record does not exist.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Selected record does not exist.) } );
 		return;
 	}
-	$buffer .= $q->start_form;
+	my $buffer = $q->start_form;
 	$buffer .= q(<div class="box" id="resultspanel">);
 	$buffer .= q(<div class="scrollable">);
+	my $icon = $self->get_form_icon( $table, 'trash' );
+	$buffer .= $icon;
 	my %retire_table = map { $_ => 1 } qw(sequences profiles);
 	$buffer .= q(<p>You have chosen to delete the following record.);
+
 	if ( $retire_table{$table} ) {
 		$buffer .= q( Select 'Delete and Retire' to prevent the identifier being reused.);
 	}
@@ -295,7 +293,7 @@ sub _display_record {
 	$buffer .= $q->end_form;
 	if ( $q->param('sent') ) {
 		$self->_delete( $table, $data, $query_fields, $query_values,
-			{ retire => ($q->param('delete_and_retire') || $self->_retire_only) ? 1 : 0 } );
+			{ retire => ( $q->param('delete_and_retire') || $self->_retire_only ) ? 1 : 0 } );
 		return if $q->param('submit') || $q->param('delete_and_retire');
 	}
 	say $buffer;
@@ -378,7 +376,7 @@ sub _delete {
 		$proceed = 0;
 	}
 	if ( !$proceed ) {
-		$self->print_bad_status( { message => $nogo_buffer, navbar => 1 } );
+		$self->print_bad_status( { message => $nogo_buffer } );
 		return;
 	}
 	if ( ( $q->param('submit') || $q->param('delete_and_retire') ) && $proceed ) {
@@ -616,10 +614,9 @@ sub _get_profile_fields {
 
 sub get_title {
 	my ($self) = @_;
-	my $desc  = $self->{'system'}->{'description'} || 'BIGSdb';
 	my $table = $self->{'cgi'}->param('table');
-	my $type  = $self->get_record_name($table) || 'record';
-	return "Delete $type - $desc";
+	my $type = $self->get_record_name($table) || 'record';
+	return "Delete $type";
 }
 
 sub _get_tables_which_reference_table {

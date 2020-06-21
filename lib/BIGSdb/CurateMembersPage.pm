@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2012-2019, University of Oxford
+#Copyright (c) 2012-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -27,10 +27,9 @@ my $logger = get_logger('BIGSdb.Page');
 
 sub get_title {
 	my ($self) = @_;
-	my $desc  = $self->{'system'}->{'description'} || 'BIGSdb';
 	my $table = $self->{'cgi'}->param('table');
-	my $type  = $self->get_record_name($table) // 'record';
-	return qq(Batch update ${type}s - $desc);
+	my $type = $self->get_record_name($table) // 'record';
+	return qq(Batch update ${type}s);
 }
 
 sub print_content {
@@ -40,11 +39,11 @@ sub print_content {
 	my %valid_table = map { $_ => 1 } qw (user_group_members locus_curators scheme_curators);
 	if ( !$self->{'datastore'}->is_table($table) ) {
 		say q(<h1>Batch update</h1>);
-		$self->print_bad_status( { message => qq(Table $table does not exist!), navbar => 1 } );
+		$self->print_bad_status( { message => qq(Table $table does not exist!) } );
 		return;
 	} elsif ( !$valid_table{$table} ) {
 		say q(<h1>Batch update</h1>);
-		$self->print_bad_status( { message => q(Invalid table selected!), navbar => 1 } );
+		$self->print_bad_status( { message => q(Invalid table selected!) } );
 		return;
 	}
 	my $type = $self->get_record_name($table) // 'record';
@@ -52,8 +51,7 @@ sub print_content {
 	if ( !$self->can_modify_table($table) ) {
 		$self->print_bad_status(
 			{
-				message => q(Your user account does not have permission to modify this table.),
-				navbar  => 1
+				message => q(Your user account does not have permission to modify this table.)
 			}
 		);
 		return;
@@ -71,7 +69,7 @@ sub _print_interface {
 		$self->_perform_action($table);
 		my $user_info = $self->{'datastore'}->get_user_info($user_id);
 		if ( !$user_info ) {
-			$self->print_bad_status( { message => q(Invalid user selected.), navbar => 1 } );
+			$self->print_bad_status( { message => q(Invalid user selected.) } );
 			return;
 		}
 		say q(<div class="box" id="queryform">);
@@ -161,7 +159,6 @@ sub _print_interface {
 		say $q->end_form;
 		say q(</fieldset>);
 		say q(<div>);
-		$self->print_navigation_bar;
 		say q(</div>);
 	} else {
 		say q(<div class="box" id="queryform">);
@@ -199,7 +196,7 @@ sub _perform_action {
 					},
 					user_group_members => sub {
 						$sql_add->execute( $record, $user_id, $curator_id, 'now' );
-					  }
+					}
 				);
 				$method{$table}->();
 			}

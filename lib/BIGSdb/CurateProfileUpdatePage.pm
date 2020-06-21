@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -33,25 +33,25 @@ sub print_content {
 	my ( $scheme_id, $profile_id ) =
 	  ( scalar $q->param('scheme_id'), scalar $q->param('profile_id') );
 	if ( !$scheme_id ) {
-		$self->print_bad_status( { message => q(No scheme_id passed.), navbar => 1 } );
+		$self->print_bad_status( { message => q(No scheme_id passed.) } );
 		return;
 	}
 	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
-		$self->print_bad_status( { message => q(Scheme_id must be an integer.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Scheme_id must be an integer.) } );
 		return;
 	}
 	if ( !$profile_id ) {
-		$self->print_bad_status( { message => q(No profile_id passed.), navbar => 1 } );
+		$self->print_bad_status( { message => q(No profile_id passed.) } );
 		return;
 	}
 	if ( !$self->can_modify_table('profiles') ) {
-		$self->print_bad_status( { message => q(Your user account is not allowed to modify profiles.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Your user account is not allowed to modify profiles.) } );
 		return;
 	}
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	my $primary_key = $scheme_info->{'primary_key'};
 	if ( !$primary_key ) {
-		$self->print_bad_status( { message => q(This scheme doesn't have a primary key field defined.), navbar => 1 } );
+		$self->print_bad_status( { message => q(This scheme doesn't have a primary key field defined.) } );
 		return;
 	}
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
@@ -59,8 +59,7 @@ sub print_content {
 		$self->print_bad_status(
 			{
 				message => q(This scheme doesn't have any loci belonging to it.  )
-				  . q(Profiles can not be entered until there is at least one locus defined.),
-				navbar => 1
+				  . q(Profiles can not be entered until there is at least one locus defined.)
 			}
 		);
 		return;
@@ -74,8 +73,7 @@ sub print_content {
 		$self->print_bad_status(
 			{
 				message => qq(No profile from scheme $scheme_id )
-				  . qq(($scheme_info->{'name'}) with the selected id exists.),
-				navbar => 1
+				  . qq(($scheme_info->{'name'}) with the selected id exists.)
 			}
 		);
 		return;
@@ -232,7 +230,7 @@ sub _update {
 		);
 		return;
 	} elsif ( !%$locus_changed && !%$field_changed && !@$extra_inserts ) {
-		$self->print_bad_status( { message => q(No fields were changed.), navbar => 1 } );
+		$self->print_bad_status( { message => q(No fields were changed.) } );
 		return;
 	}
 	my $locus_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
@@ -324,8 +322,7 @@ sub _update {
 	$self->{'db'}->commit;
 	$self->print_good_status(
 		{
-			message => 'Profile updated.',
-			navbar  => 1
+			message => 'Profile updated.'
 		}
 	);
 	local $" = q(<br />);
@@ -342,9 +339,7 @@ sub _handle_failure {
 }
 
 sub get_title {
-	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return qq(Update profile - $desc);
+	return q(Update profile);
 }
 
 sub _print_interface {
@@ -354,8 +349,9 @@ sub _print_interface {
 	my $q           = $self->{'cgi'};
 	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 	my $icon        = $self->get_form_icon( 'profiles', 'edit' );
-	say qq($icon<div class="box" id="queryform">);
+	say q(<div class="box" id="queryform">);
 	say q(<div class="scrollable" style="white-space:nowrap">);
+	say $icon;
 	my ( $users, $usernames ) = $self->{'datastore'}->get_users;
 	$usernames->{''} = ' ';    #Required for HTML5 validation.
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
@@ -451,5 +447,10 @@ sub _print_interface {
 	say $q->end_form;
 	say q(</div></div>);
 	return;
+}
+
+sub get_help_url {
+	my ($self) = @_;
+	return "$self->{'config'}->{'doclink'}/curator_guide.html#updating-and-deleting-scheme-profile-definitions";
 }
 1;

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2012-2018, University of Oxford
+#Copyright (c) 2012-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -32,12 +32,12 @@ sub print_content {
 	say q(<h1>Batch set allele flags</h1>);
 	my $query_file = $q->param('query_file');
 	if ( !$query_file ) {
-		$self->print_bad_status( { message => q(No query file passed.), navbar => 1 } );
+		$self->print_bad_status( { message => q(No query file passed.) } );
 		return;
 	}
 	my $qry = $self->get_query_from_temp_file($query_file);
 	if ( !$qry ) {
-		$self->print_bad_status( { message => q(No query passed.), navbar => 1 } );
+		$self->print_bad_status( { message => q(No query passed.) } );
 		return;
 	}
 	if ( $q->param('list_file') ) {
@@ -51,8 +51,7 @@ sub print_content {
 			if ( !$self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $curator_id ) ) {
 				$self->print_bad_status(
 					{
-						message => qq(Your user account isn't allowed to modify $locus sequences.),
-						navbar  => 1
+						message => qq(Your user account isn't allowed to modify $locus sequences.)
 					}
 				);
 				return;
@@ -69,8 +68,7 @@ sub print_content {
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return qq(Batch set allele flags - $desc);
+	return q(Batch set allele flags);
 }
 
 sub _print_interface {
@@ -113,7 +111,7 @@ sub _update {
 		$logger->error($@);
 		$self->{'db'}->rollback;
 	} else {
-		$self->print_good_status( { message => 'Flags updated.', navbar => 1 } );
+		$self->print_good_status( { message => 'Flags updated.' } );
 		$self->{'db'}->commit;
 	}
 	return;

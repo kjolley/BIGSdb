@@ -27,19 +27,24 @@ use Bio::DB::GenBank;
 use Try::Tiny;
 use BIGSdb::Constants qw(SEQ_METHODS :interface :limits);
 
+sub initiate {
+	my ($self) = @_;
+	$self->{$_} = 1 foreach qw (tooltips jQuery jQuery.multiselect modernizr noCache);
+	$self->set_level1_breadcrumbs;
+	return;
+}
+
 sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<h1>Upload sequences</h1>);
 	if ( $self->{'system'}->{'dbtype'} ne 'isolates' ) {
-		$self->print_bad_status(
-			{ message => q(This function can only be called for an isolate database.), navbar => 1 } );
+		$self->print_bad_status( { message => q(This function can only be called for an isolate database.) } );
 		return;
 	} elsif ( !$self->can_modify_table('sequence_bin') ) {
 		$self->print_bad_status(
 			{
-				message => q(Your user account is not allowed to upload sequences to the database.),
-				navbar  => 1
+				message => q(Your user account is not allowed to upload sequences to the database.)
 			}
 		);
 		return;
@@ -81,8 +86,6 @@ sub print_content {
 			}
 		};
 	} else {
-		my $icon = $self->get_form_icon( 'sequence_bin', 'plus' );
-		say $icon;
 		$self->_print_interface;
 	}
 	return;
@@ -115,6 +118,8 @@ sub _print_interface {
 	my ( $self, $options ) = @_;
 	my $q = $self->{'cgi'};
 	say q(<div class="box" id="queryform"><div class="scrollable">);
+	my $icon = $self->get_form_icon( 'sequence_bin', 'plus' );
+	say $icon;
 	say q(<p>This page allows you to upload sequence data for a specified isolate record in FASTA format.</p>);
 	say q(<p><em>Please note that you can reach this page for a specific isolate by )
 	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query">querying isolates</a> )
@@ -268,7 +273,6 @@ sub _print_interface {
 	  defined $q->param('isolate_id') ? ( isolate_id => scalar $q->param('isolate_id') ) : ();
 	$self->print_action_fieldset( \%args );
 	say $q->end_form;
-	$self->print_navigation_bar;
 	say q(</div></div>);
 	return;
 }
@@ -434,7 +438,7 @@ sub _check_records {
 		say $q->hidden( $_->{'key'} ) foreach (@$seq_attributes);
 		say $q->end_form;
 	} else {
-		$self->print_bad_status( { message => q(No valid sequences to upload.), navbar => 1 } );
+		$self->print_bad_status( { message => q(No valid sequences to upload.) } );
 	}
 	say q(</div>);
 	return;
@@ -600,7 +604,6 @@ sub _upload_accession {
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Add new sequences - $desc";
+	return 'Add new sequences';
 }
 1;

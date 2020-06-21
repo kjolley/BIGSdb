@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2019, University of Oxford
+#Copyright (c) 2017-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -29,6 +29,13 @@ use JSON;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
+sub initiate {
+	my ($self) = @_;
+	$self->{$_} = 1 foreach qw (jQuery jQuery.multiselect modernizr noCache);
+	$self->set_level1_breadcrumbs;
+	return;
+}
+
 sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
@@ -52,7 +59,7 @@ sub _process {
 	my $q          = $self->{'cgi'};
 	my $isolate_id = $q->param('isolate_id');
 	if ( !BIGSdb::Utils::is_int($isolate_id) || !$self->isolate_exists($isolate_id) ) {
-		$self->print_bad_status( { message => q(Isolate does not exist.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Isolate does not exist.) } );
 		$self->_print_interface;
 		return;
 	}
@@ -177,7 +184,7 @@ sub _upload {
 	my $q            = $self->{'cgi'};
 	my $contigs_list = $q->param('contigs_list');
 	if ( !$contigs_list ) {
-		$self->print_bad_status( { message => q(No contigs list passed.), navbar => 1 } );
+		$self->print_bad_status( { message => q(No contigs list passed.) } );
 		return;
 	}
 	my $data;
@@ -189,15 +196,15 @@ sub _upload {
 		}
 		catch {
 			if ( $_->isa('BIGSdb::Exception::Authentication') ) {
-				$self->print_bad_status( { message => q(OAuth authentication failed.), navbar => 1 } );
+				$self->print_bad_status( { message => q(OAuth authentication failed.) } );
 				$error = 1;
 			}
 			if ( $_->isa('BIGSdb::Exception::File') ) {
-				$self->print_bad_status( { message => q(URI is inaccessible.), navbar => 1 } );
+				$self->print_bad_status( { message => q(URI is inaccessible.) } );
 				$error = 1;
 			}
 			if ( $_->isa('BIGSdb::Exception::Data') ) {
-				$self->print_bad_status( { message => q(Contigs list is not valid JSON.), navbar => 1 } );
+				$self->print_bad_status( { message => q(Contigs list is not valid JSON.) } );
 				$error = 1;
 			}
 		};
@@ -209,12 +216,12 @@ sub _upload {
 	} until ( $error || $all_records );
 	my $contigs = $data->{'contigs'};
 	if ( ref $contigs ne 'ARRAY' || !@$contigs ) {
-		$self->print_bad_status( { message => q(No contigs found.), navbar => 1 } );
+		$self->print_bad_status( { message => q(No contigs found.) } );
 		return;
 	}
 	my $isolate_id = $q->param('isolate_id');
 	if ( !BIGSdb::Utils::is_int($isolate_id) || !$self->isolate_exists($isolate_id) ) {
-		$self->print_bad_status( { message => q(You do not have permission to modify this isolate.), navbar => 1 } );
+		$self->print_bad_status( { message => q(You do not have permission to modify this isolate.) } );
 		$self->_print_interface;
 		return;
 	}
@@ -233,7 +240,7 @@ sub _upload {
 	};
 	if ($@) {
 		$logger->error($@);
-		$self->print_bad_status( { message => q(Contig upload failed.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Contig upload failed.) } );
 		$self->{'db'}->rollback;
 		return;
 	}
@@ -295,7 +302,7 @@ sub _check {
 	}
 	$error = 'Please enter URI for isolate record.' if !$isolate_uri;
 	if ($error) {
-		$self->print_bad_status( { message => $error, navbar => 1 } );
+		$self->print_bad_status( { message => $error } );
 		$self->_print_interface;
 		return;
 	}
@@ -387,14 +394,12 @@ sub _print_interface {
 	$q->param( check => 1 );
 	say $q->hidden($_) foreach qw(db page check);
 	say $q->end_form;
-	$self->print_navigation_bar;
 	say q(</div></div>);
 	return;
 }
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Add remote contigs - $desc";
+	return 'Add remote contigs';
 }
 1;
