@@ -534,19 +534,16 @@ sub print_page_content {
 		if ( $self->{'system'}->{'db'} && $self->{'instance'} ) {
 			$self->_print_header;
 			$self->_print_breadcrumbs;
-
-			#			$self->_print_login_details;
-			$self->_print_button_panel;
+			
 			say q(<div class="main_container">);
 			say qq(<div class="main_content" style="max-width:${main_max_width}px">);
+			$self->_print_button_panel;
 			say qq(<script>var max_width=${main_max_width}</script>);
 			$self->print_content;
 			say q(</div></div>);
 			$self->_print_footer;
 		} else {
 			$self->_print_site_header;
-
-			#			$self->_print_login_details;
 			say q(<div class="main_container">);
 			say qq(<div class="main_content" style="max-width:${main_max_width}px">);
 			$self->print_content;
@@ -634,7 +631,7 @@ sub _get_meta_data {
 sub _get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20200608';
+	my $version = '20200621';
 	my @filenames;
 	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
 	push @filenames, q(c3.css)                                                if $self->{'c3'};

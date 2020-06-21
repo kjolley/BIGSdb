@@ -1,4 +1,4 @@
-/*Version: 20200608*/
+/*Version: 20200621*/
 @font-face {
     font-family: 'tinosregular';
     src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -389,6 +389,7 @@ div.main_container {
 	padding:0;
 }
 div.main_content {
+	position:relative;
 	width:calc(100vw - 20px - (100vw - 100%))
 }
 @media only screen and (max-width:800px){
@@ -625,9 +626,7 @@ div.panel {
 	display: none;
 	padding: 1em 3em 1em 1em;
 	border:1px solid #999;
-	border-right:0;
-	border-bottom-left-radius:10px;
-	border-top-left-radius:10px;
+	border-radius:10px;
 	background: #d5d5e0;
 	background-image: linear-gradient(#d5d5e0, #f0f0f0 5em);
 	box-shadow: 3px 3px 3px #aaa;
@@ -704,9 +703,7 @@ div#bookmark_panel {
 	display: none;
 	padding: 1em 2em 1em 1em;
 	border:1px solid #999;
-	border-right:0;
-	border-bottom-left-radius:10px;
-	border-top-left-radius:10px;
+	border-radius:10px;
 	background: #e0d5e0;
 	background-image: linear-gradient(#e0d5e0, #f0f0f0 5em);
 	box-shadow: 3px 3px 3px #aaa;
@@ -813,7 +810,7 @@ div.statusgood_no_resize {background:#d5e0d5;color:#008000}
 div#warning {background:#e0a0a0;color:#000000}
 div#resultsheader, div.resultsheader {background:#d5e0d5;padding:1em}
 div#resultsfooter, div.resultsfooter {background:#d5e0d5;padding:1em}
-div#resultstable, div.resultstable {position:relative;background:#e0e0e0}
+div#resultstable, div.resultstable {position:relative;background:#e0e0e0;z-index:-1}
 div#resultspanel, div.resultspanel {position:relative;background:#eceef1}
 div#resultspanel li,p,dd {position:relative;z-index:3}
 div#alleles {background:#e0e0f0}
