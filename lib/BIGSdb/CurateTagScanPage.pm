@@ -287,7 +287,7 @@ sub _print_parameter_fieldset {
 	my ( $self, $general_prefs ) = @_;
 	my $q = $self->{'cgi'};
 	say q(<fieldset style="position:relative"><legend>Parameters</legend>)
-	  . q(<input type="button" class="smallbutton" style="position:absolute;right:6em" )
+	  . q(<input type="button" class="smallbutton" style="position:absolute;right:6em;z-index:1" )
 	  . q(value="Defaults" onclick="use_defaults()" />)
 	  . q(<ul><li><label for="identity" class="parameter">Min % identity:</label>);
 	say $q->popup_menu(
