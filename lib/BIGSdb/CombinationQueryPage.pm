@@ -255,11 +255,7 @@ sub _print_profile_table_fieldset {
 	my $q           = $self->{'cgi'};
 	say q(<fieldset id="profile_fieldset" style="float:left"><legend>Please enter your )
 	  . q(allelic profile below. Blank loci will be ignored.</legend>);
-	say q(<table class="queryform">);
-	my $i = 0;
-	my ( $header_row, $form_row );
 	my $all_integers = 1;
-
 	foreach my $locus (@$loci) {
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		if ( $locus_info->{'allele_id_format'} ne 'integer' ) {
@@ -267,7 +263,6 @@ sub _print_profile_table_fieldset {
 			last;
 		}
 	}
-	my $max_per_row = $self->_get_col_width( $primary_key, $all_integers );
 	my @display_loci;
 	my (%label);
 	foreach my $locus (@$loci) {
@@ -284,24 +279,16 @@ sub _print_profile_table_fieldset {
 			}
 		}
 	}
+	my $class = $all_integers ? 'int_entry' : 'allele_entry';
 	foreach my $locus (@display_loci) {
-		if ( $i == $max_per_row ) {
-			say qq(<tr>$header_row</tr>);
-			say qq(<tr>$form_row</tr>);
-			undef $header_row;
-			undef $form_row;
-			$i = 0;
-		}
-		my $class = $all_integers ? 'int_entry' : 'allele_entry';
-		$header_row .= qq(<th class="$class">$label{$locus}</th>);
-		$form_row   .= q(<td>);
-		$form_row   .= $q->textfield( -name => $locus, -class => $class, -style => 'text-align:center' );
-		$form_row   .= q(</td>);
-		$i++;
+		say q(<dl class="profile" style="float:left">);
+		say qq(<dt>$label{$locus}</dt>);
+		say q(<dd style="min-height:initial">);
+		say $q->textfield( -name => $locus, -class => $class, -style => 'text-align:center' );
+		say q(</dd>);
+		say q(</dl>);
 	}
-	say qq(<tr>$header_row</tr>);
-	say qq(<tr>$form_row</tr>);
-	say q(</table></fieldset>);
+	say q(</fieldset>);
 	return;
 }
 

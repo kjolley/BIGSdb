@@ -1097,7 +1097,7 @@ div.scheme_tree {
 	
 .profile dd {
 	min-height:1.7em;
-	padding: 0 0.2em;
+	padding: 0;
 	margin:0;
 	background:white;
 }
