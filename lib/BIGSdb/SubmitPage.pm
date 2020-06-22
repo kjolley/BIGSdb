@@ -2362,7 +2362,7 @@ sub _curate_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 	}
 	say q(<div style="clear:both"></div>);
 	my $page = $self->{'curate'} ? 'index' : 'submit';
-	say q(</div><div>);
+	say q(</div></div>);
 	return;
 }
 
