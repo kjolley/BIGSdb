@@ -1,4 +1,4 @@
-/*Version: 20200621*/
+/*Version: 20200622*/
 @font-face {
     font-family: 'tinosregular';
     src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -390,10 +390,11 @@ div.main_container {
 }
 div.main_content {
 	position:relative;
-	width:calc(100vw - 20px - (100vw - 100%));
+/*	width:calc(100vw - 20px - (100vw - 100%));*/
+	width:calc(100vw - 40px)
 }
-@media only screen and (max-width:800px){
-	div.main_content {width:calc(100vw - 10px - (100vw - 100%))}
+@media only screen and (max-width:640px){
+	div.main_content {width:calc(100vw - 20px)}
 }
 
 div.flex_container {
