@@ -42,7 +42,8 @@ sub initiate {
 		{
 			label => $self->{'system'}->{'webroot_label'} // 'Organism',
 			href => $self->{'system'}->{'webroot'}
-		},{
+		},
+		{
 			label => $self->{'system'}->{'description'}
 		}
 	];
@@ -189,6 +190,10 @@ sub _print_login_menu_item {
 				href  => "$self->{'system'}->{'script_name'}?${instance_clause}page=logout",
 				class => 'menu_item_login',
 				links => [
+					{
+						href => "$self->{'system'}->{'script_name'}",
+						text => 'Modify profile'
+					},
 					{
 						href => "$self->{'system'}->{'script_name'}?${instance_clause}page=changePassword",
 						text => 'Change password'

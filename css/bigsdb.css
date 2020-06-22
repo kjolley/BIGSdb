@@ -659,6 +659,10 @@ a.close_trigger {
 	cursor:pointer;
 }
 
+a#curator_link {
+	background:#ff8080
+}
+
 div#login_details {
 	background:#7ca2d0;
 	

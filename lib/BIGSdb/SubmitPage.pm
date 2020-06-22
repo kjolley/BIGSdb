@@ -138,8 +138,7 @@ sub initiate {
 	$self->{$_} = 1 foreach qw (jQuery jQuery.jstree noCache tooltips dropzone);
 	if ( $q->param('curate') ) {
 		$self->set_level2_breadcrumbs('Curate submission');
-	} elsif ( $q->param('alleles') || $q->param('profiles') || $q->param('isolate') || $q->param('genomes') )
-	{
+	} elsif ( $q->param('alleles') || $q->param('profiles') || $q->param('isolate') || $q->param('genomes') ) {
 		$self->set_level2_breadcrumbs('New submission');
 	} else {
 		$self->set_level1_breadcrumbs;
@@ -151,7 +150,7 @@ sub print_content {
 	my ($self) = @_;
 	if ( ( $self->{'system'}->{'submissions'} // '' ) ne 'yes' || !$self->{'config'}->{'submission_dir'} ) {
 		say q(<h1>Manage submissions</h1>);
-		$self->print_bad_status( { message => q(The submission system is not enabled.), navbar => 1 } );
+		$self->print_bad_status( { message => q(The submission system is not enabled.) } );
 		return;
 	}
 	my $q = $self->{'cgi'};
@@ -174,8 +173,7 @@ sub print_content {
 	say q(<h1>Manage submissions</h1>);
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	if ( !$user_info ) {
-		$self->print_bad_status(
-			{ message => q(You are not a recognized user. Submissions are disabled.), navbar => 1 } );
+		$self->print_bad_status( { message => q(You are not a recognized user. Submissions are disabled.) } );
 		return;
 	}
 	foreach my $type (qw (alleles profiles isolates genomes)) {
@@ -276,8 +274,7 @@ sub _handle_alleles {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called
 	if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
 		$self->print_bad_status(
 			{
-				message => q(You cannot submit new allele sequences for definition in an isolate database.),
-				navbar  => 1
+				message => q(You cannot submit new allele sequences for definition in an isolate database.)
 			}
 		);
 		return;
@@ -295,8 +292,7 @@ sub _handle_profiles {    ## no critic (ProhibitUnusedPrivateSubroutines) #Calle
 	if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
 		$self->print_bad_status(
 			{
-				message => q(You cannot submit new profiles for definition in an isolate database.),
-				navbar  => 1
+				message => q(You cannot submit new profiles for definition in an isolate database.)
 			}
 		);
 		return;
@@ -311,8 +307,7 @@ sub _handle_isolates {    ## no critic (ProhibitUnusedPrivateSubroutines) #Calle
 	if ( $self->{'system'}->{'dbtype'} ne 'isolates' ) {
 		$self->print_bad_status(
 			{
-				message => q(You cannot submit new isolates to a sequence definition database.),
-				navbar  => 1
+				message => q(You cannot submit new isolates to a sequence definition database.)
 			}
 		);
 		return;
@@ -327,8 +322,7 @@ sub _handle_genomes {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called
 	if ( $self->{'system'}->{'dbtype'} ne 'isolates' ) {
 		$self->print_bad_status(
 			{
-				message => q(You cannot submit new genomes to a sequence definition database.),
-				navbar  => 1
+				message => q(You cannot submit new genomes to a sequence definition database.)
 			}
 		);
 		return;
@@ -906,13 +900,13 @@ sub _submit_profiles {
 	}
 	my $scheme_id = $q->param('scheme_id');
 	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
-		$self->print_bad_status( { message => q(Scheme id must be an integer.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Scheme id must be an integer.) } );
 		return;
 	}
 	my $set_id = $self->get_set_id;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1, set_id => $set_id } );
 	if ( !$scheme_info || !$scheme_info->{'primary_key'} ) {
-		$self->print_bad_status( { message => q(Invalid scheme passed.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Invalid scheme passed.) } );
 		return;
 	}
 	say q(<div class="box" id="queryform"><div class="scrollable">);
@@ -2272,12 +2266,12 @@ sub _is_submission_valid {
 	my ( $self, $submission_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	if ( !$submission_id ) {
-		$self->print_bad_status( { message => q(No submission id passed.), navbar => 1 } ) if !$options->{'no_message'};
+		$self->print_bad_status( { message => q(No submission id passed.) } ) if !$options->{'no_message'};
 		return;
 	}
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	if ( !$submission ) {
-		$self->print_bad_status( { message => qq(Submission '$submission_id' does not exist.), navbar => 1 } )
+		$self->print_bad_status( { message => qq(Submission '$submission_id' does not exist.) } )
 		  if !$options->{'no_message'};
 		return;
 	}
@@ -2286,8 +2280,7 @@ sub _is_submission_valid {
 		if ( !$user_info || ( $user_info->{'status'} ne 'admin' && $user_info->{'status'} ne 'curator' ) ) {
 			$self->print_bad_status(
 				{
-					message => q(Your account does not have the required permissions to curate this submission.),
-					navbar  => 1
+					message => q(Your account does not have the required permissions to curate this submission.)
 				}
 			) if !$options->{'no_message'};
 			return;
@@ -2301,8 +2294,7 @@ sub _is_submission_valid {
 				$self->print_bad_status(
 					{
 						message => q(Your account does not have the required )
-						  . qq(permissions to curate new $allele_submission->{'locus'} sequences.),
-						navbar => 1
+						  . qq(permissions to curate new $allele_submission->{'locus'} sequences.)
 					}
 				) if !$options->{'no_message'};
 				return;
@@ -2370,7 +2362,6 @@ sub _curate_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 	}
 	say q(<div style="clear:both"></div>);
 	my $page = $self->{'curate'} ? 'index' : 'submit';
-	$self->print_navigation_bar( { no_home => 1, back_page => $page } );
 	say q(</div><div>);
 	return;
 }

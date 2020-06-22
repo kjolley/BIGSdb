@@ -534,7 +534,6 @@ sub print_page_content {
 		if ( $self->{'system'}->{'db'} && $self->{'instance'} ) {
 			$self->_print_header;
 			$self->_print_breadcrumbs;
-			
 			say q(<div class="main_container">);
 			say qq(<div class="main_content" style="max-width:${main_max_width}px">);
 			$self->_print_button_panel;
@@ -892,19 +891,47 @@ sub _print_login_details {
 	my $q               = $self->{'cgi'};
 	my $page            = $q->param('page');
 	my $instance_clause = $self->{'instance'} ? qq(db=$self->{'instance'}&amp;) : q();
+	my %curator         = map { $_ => 1 } qw(admin curator submitter);
 	if ($user_info) {
 
-		if ( $user_info->{'user_db'} ) {
-			say q(<div id="login_details">);
-			say qq(<a href="$self->{'system'}->{'script_name'}"><span class="fas fa-lg fa-user-circle" )
-			  . qq(title="Logged in: $user_info->{'first_name'} $user_info->{'surname'} ($self->{'username'}) - )
-			  . q(Click to modify profile."></span></a>);
-			say q(</div>);
+		if ( $self->{'curate'} ) {
+			if ( $self->{'config'}->{'query_script'} ) {
+				say q(<div id="login_details">);
+				say qq(<a href="$self->{'config'}->{'query_script'}?db=$self->{'instance'}">)
+				  . q(<span class="fas fa-lg fa-user" )
+				  . qq(title="Logged in: $user_info->{'first_name'} $user_info->{'surname'} ($self->{'username'}) - )
+				  . q(Click to access public interface"></span></a>);
+				say q(</div>);
+			} else {
+				$logger->error('query_script attribute is not set in bigsdb.conf');
+				say q(<div id="login_details">);
+				say q(<span class="fas fa-lg fa-user" )
+				  . qq(title="Logged in: $user_info->{'first_name'} $user_info->{'surname'} ($self->{'username'})">)
+				  . q(</span>);
+				say q(</div>);
+			}
 		} else {
-			say q(<div id="login_details">);
-			say q(<span class="fas fa-lg fa-user-circle" )
-			  . qq(title="Logged in: $user_info->{'first_name'} $user_info->{'surname'} ($self->{'username'})"></span>);
-			say q(</div>);
+			if ( $curator{ $user_info->{'status'} } ) {
+				if ( $self->{'config'}->{'curate_script'} ) {
+					say q(<a id="curator_link" )
+					  . qq(class="trigger_button" href="$self->{'config'}->{'curate_script'}?db=$self->{'instance'}"  )
+					  . qq(title="Logged in: $user_info->{'first_name'} $user_info->{'surname'} ($self->{'username'}) )
+					  . q( - Click to access curator interface"><span class="fas fa-lg fa-user-tie"></span></a>);
+				} else {
+					$logger->error('curate_script attribute is not set in bigsdb.conf');
+					say q(<div id="login_details">);
+					say q(<span class="fas fa-lg fa-user" )
+					  . qq(title="Logged in: $user_info->{'first_name'} $user_info->{'surname'} ($self->{'username'})">)
+					  . q(</span>);
+					say q(</div>);
+				}
+			} else {
+				say q(<div id="login_details">);
+				say qq(<a href="$self->{'system'}->{'script_name'}"><span class="fas fa-lg fa-user" )
+				  . qq(title="Logged in: $user_info->{'first_name'} $user_info->{'surname'} ($self->{'username'})">)
+				  . q(</span></a>);
+				say q(</div>);
+			}
 		}
 	} elsif ( $self->{'username'} ) {
 		say q(<div id="login_details">);
