@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#(c) 2010-2019, University of Oxford
+#(c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -76,7 +76,8 @@ sub set_pref_requirements {
 sub print_content {
 	my ($self) = @_;
 	print q(<h1>Log in);
-	print qq( - $self->{'system'}->{'description'} database)
+	my $desc = $self->get_db_description( { formatted => 1 } );
+	print qq( - $desc)
 	  if $self->{'system'}->{'description'} && $self->{'system'}->{'dbtype'} ne 'user';
 	print q(</h1>);
 	$self->print_banner;
