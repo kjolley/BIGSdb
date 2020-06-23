@@ -551,7 +551,8 @@ sub _print_submissions_menu_item {
 	my $number_icon         = q();
 	if ($pending_submissions) {
 		$pending_submissions = '99+' if $pending_submissions > 99;
-		$number_icon .= q(<span class="fa-stack" style="font-size:0.7em;margin:-0.5em 0 -0.2em 0.5em">);
+		$number_icon .=
+		  q(<span class="fa-stack" style="font-size:0.7em;letter-spacing:normal;) . q(margin:-0.5em 0 -0.2em 0.5em">);
 		$number_icon .= q(<span class="fas fa-circle fa-stack-2x" style="color:#d44"></span>);
 		$number_icon .= qq(<span class="fa fa-stack-1x fa-stack-text">$pending_submissions</span>);
 		$number_icon .= q(</span>);
@@ -633,7 +634,8 @@ sub _print_private_data_menu_item {
 
 	if ($total_private) {
 		my $label = $self->_get_label($total_private);
-		$number_icon .= q(<span class="fa-stack" style="font-size:0.7em;margin:-0.5em 0 -0.2em 0.5em">);
+		$number_icon .= q(<span class="fa-stack" style="font-size:0.7em;letter-spacing:normal;)
+		  . q(margin:-0.5em 0 -0.2em 0.5em">);
 		$number_icon .= q(<span class="fas fa-circle fa-stack-2x" style="color:#484"></span>);
 		$number_icon .= qq(<span class="fa fa-stack-1x fa-stack-text">$label</span>);
 	}
