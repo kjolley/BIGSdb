@@ -1814,7 +1814,7 @@ sub print_content {
 	my $instance    = $self->{'instance'};
 	my $system      = $self->{'system'};
 	return if $self->_ajax_call;
-	my $desc = $self->get_db_description;
+	my $desc = $self->get_db_description( { formatted => 1 } );
 	say qq(<h1>Database curator's interface - $desc</h1>);
 	$self->_print_set_section;
 	my $buffer = $self->_get_standard_links;
