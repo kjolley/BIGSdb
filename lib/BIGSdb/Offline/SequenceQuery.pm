@@ -1027,7 +1027,7 @@ sub _get_differences_output {
 		$buffer .= q(<p>An alignment between your query and the returned reference sequence is shown rather )
 		  . q(than a simple list of differences because there are gaps in the alignment.</p>);
 		$buffer .= q(<div class="scrollable">);
-		$buffer .= q(<pre style="font-size:1.2em">);
+		$buffer .= q(<pre class="alignment">);
 		$buffer .= $self->print_file( $outfile, { get_only => 1, ignore_hashlines => 1 } );
 		$buffer .= q(</pre></div>);
 		my @files = glob("$self->{'config'}->{'secure_tmp_dir'}/$temp*");
@@ -1045,7 +1045,7 @@ sub get_alignment {
 		$buffer .= qq(<p><a href="/tmp/${outfile_prefix}_cleaned.txt" id="alignment_link" data-rel="ajax">)
 		  . qq(Show alignment</a></p>\n);
 		$buffer .= q(<div class="scrollable">);
-		$buffer .= qq(<pre style="font-size:1.2em"><span id="alignment"></span></pre></div>\n);
+		$buffer .= qq(<pre class="alignment"><span id="alignment"></span></pre></div>\n);
 	}
 	return $buffer;
 }

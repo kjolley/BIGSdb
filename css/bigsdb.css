@@ -1,4 +1,4 @@
-/*Version: 20200622*/
+/*Version: 20200623*/
 @font-face {
     font-family: 'tinosregular';
     src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -995,7 +995,13 @@ p.outcome_detail {font-size:1em}
 .flash_message {color:purple}
 
 .hiddenbydefault {display:none}
-pre.sixpack {font-size:1.3em}
+@media only screen and (max-width:1050px){
+	pre.alignment,pre.sixpack {font-size:0.9em}
+}
+@media only screen and (max-width:950px){
+	pre.alignment,pre.sixpack {font-size:0.8em}
+}
+
 
 fieldset {
 	display:inline;
