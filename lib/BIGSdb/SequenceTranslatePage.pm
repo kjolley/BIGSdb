@@ -27,9 +27,7 @@ my $logger = get_logger('BIGSdb.Page');
 use constant MAX_SEQ_LENGTH => 10000;
 
 sub get_title {
-	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Sequence translation - $desc";
+	return 'Sequence translation';
 }
 
 sub print_content {
@@ -120,5 +118,12 @@ sub _strip_headers {
 		$seq .= $line;
 	}
 	return $seq;
+}
+
+sub initiate {
+	my ($self) = @_;
+	$self->{$_} = 1 foreach qw (jQuery);
+	$self->set_level1_breadcrumbs;
+	return;
 }
 1;

@@ -327,6 +327,7 @@ sub _print_jobs_menu_item {
 			class => 'menu_item_jobs'
 		}
 	);
+	return;
 }
 
 sub get_javascript {
@@ -467,52 +468,6 @@ sub _get_label {
 	my $label = int( $number / 1000 );
 	$label = 9 if $label > 9;
 	return qq(<span style="font-size:0.8em">${label}K+</span>);
-}
-
-sub _print_download_section {
-	my ( $self, $scheme_data ) = @_;
-	return if $self->{'system'}->{'dbtype'} ne 'sequences';
-	my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($scheme_data);
-	my $q                   = $self->{'cgi'};
-	my $seq_download_buffer = '';
-	my $scheme_buffer       = '';
-	my $group_count         = $self->{'datastore'}->run_query('SELECT COUNT(*) FROM scheme_groups');
-	if ( !( $self->{'system'}->{'disable_seq_downloads'} && $self->{'system'}->{'disable_seq_downloads'} eq 'yes' )
-		|| $self->is_admin )
-	{
-		$seq_download_buffer =
-		    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadAlleles)
-		  . ( $group_count ? '&amp;tree=1' : '' )
-		  . qq(">Allele sequences</a></li>\n);
-	}
-	my $first = 1;
-	my $i     = 0;
-	if ( @$scheme_data > 1 ) {
-		$scheme_buffer .= q(<li style="white-space:nowrap">);
-		$scheme_buffer .= $q->start_form;
-		$scheme_buffer .= $q->popup_menu( -name => 'scheme_id', -values => $scheme_ids_ref, -labels => $desc_ref );
-		$scheme_buffer .= $q->hidden('db');
-		my $download = DOWNLOAD;
-		$scheme_buffer .= q( <button type="submit" name="page" value="downloadProfiles" )
-		  . qq(class="smallbutton">$download Profiles</button>\n);
-		$scheme_buffer .= $q->end_form;
-		$scheme_buffer .= q(</li>);
-	} elsif ( @$scheme_data == 1 ) {
-		$scheme_buffer .=
-		    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=downloadProfiles&amp;scheme_id=$scheme_data->[0]->{'id'}">)
-		  . qq($scheme_data->[0]->{'name'} profiles</a></li>);
-	}
-	if ( $seq_download_buffer || $scheme_buffer ) {
-		say q(<div style="float:left; margin-right:1em" class="grid-item">);
-		say q(<span class="main_icon fas fa-download fa-3x fa-pull-left"></span>);
-		say q(<h2>Downloads</h2>);
-		say q(<ul class="toplevel">);
-		say $seq_download_buffer;
-		say $scheme_buffer;
-		say q(</ul></div>);
-	}
-	return;
 }
 
 sub _print_options_menu_item {
@@ -801,64 +756,6 @@ sub _get_pending_submission_count {
 		}
 		return $count;
 	}
-}
-
-sub _print_plugin_section {
-	my ($self) = @_;
-	my $scheme_data = $self->get_scheme_data( { with_pk => 1 } );
-	my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($scheme_data);
-	my $q            = $self->{'cgi'};
-	my $set_id       = $self->get_set_id;
-	my $cache_string = $self->get_cache_string;
-	my @sections     = qw(breakdown export analysis third_party miscellaneous);
-	my %names        = (
-		breakdown     => 'Breakdown',
-		export        => 'Export',
-		analysis      => 'Analysis',
-		third_party   => 'Third party tools',
-		miscellaneous => 'Miscellaneous'
-	);
-	local $" = q(|);
-	my $plugins = $self->{'pluginManager'}
-	  ->get_appropriate_plugin_names( "@sections", $self->{'system'}->{'dbtype'}, undef, { set_id => $set_id } );
-
-	if (@$plugins) {
-		say q(<div class="box" id="plugins"><div class="scrollable"><div class="grid">);
-		my %icon = (
-			breakdown     => 'fas fa-chart-pie',
-			export        => 'far fa-save',
-			analysis      => 'fas fa-chart-line',
-			third_party   => 'fas fa-external-link-alt',
-			miscellaneous => 'far fa-file-alt'
-		);
-		foreach my $section (@sections) {
-			$q->param( 'page', 'index' );
-			$plugins =
-			  $self->{'pluginManager'}
-			  ->get_appropriate_plugin_names( $section, $self->{'system'}->{'dbtype'}, undef, { set_id => $set_id } );
-			next if !@$plugins;
-			say q(<div style="float:left; margin-right:1em" class="grid-item">);
-			say qq(<span class="plugin_icon $icon{$section} fa-3x fa-pull-left"></span>);
-			say qq(<h2 style="margin-right:1em">$names{$section}</h2><ul class="toplevel">);
-			foreach my $plugin (@$plugins) {
-				my $att      = $self->{'pluginManager'}->get_plugin_attributes($plugin);
-				my $menuitem = $att->{'menutext'};
-				my $scheme_arg =
-				  (      $self->{'system'}->{'dbtype'} eq 'sequences'
-					  && $att->{'seqdb_type'} eq 'schemes'
-					  && @$scheme_data == 1 )
-				  ? qq(&amp;scheme_id=$scheme_data->[0]->{'id'})
-				  : q();
-				say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-				  . qq(page=plugin&amp;name=$att->{'module'}$scheme_arg$cache_string">$menuitem</a>);
-				say qq( - $att->{'menu_description'}) if $att->{'menu_description'};
-				say q(</li>);
-			}
-			say q(</ul></div>);
-		}
-		say q(</div></div></div>);
-	}
-	return;
 }
 
 sub get_title {
