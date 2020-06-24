@@ -629,6 +629,10 @@ div.index_panel_isolates a.link_box {
 	min-width: 75%;
 }
 
+div.curate_index_panel {
+	flex: 10;
+}
+
 div.menu_panel {
 	font-family: pt_sansbold, sans-serif;
 	font-weight: 400;
@@ -890,6 +894,10 @@ a#expand_trigger {
 	background: #d8d8c0;
 }
 
+a#related_db_trigger {
+	background: #ad7fa8;
+}
+
 a#panel_trigger {
 	background: #8093f1;
 }
@@ -904,7 +912,7 @@ a#close_trigger {
 	text-decoration: none;
 }
 
-div#bookmark_panel {
+div#bookmark_panel,#related_db_panel {
 	position: absolute;
 	top: 0;
 	right: 0;
@@ -917,7 +925,7 @@ div#bookmark_panel {
 	box-shadow: 3px 3px 3px #aaa;
 }
 
-a#close_bookmark {
+a#close_bookmark,a#close_related_db {
 	color: black;
 	font-weight: 600;
 	text-decoration: none;
@@ -1180,6 +1188,7 @@ div#sequence {
 }
 
 div#curator {
+	position:relative;
 	background: #e7e7e7
 }
 

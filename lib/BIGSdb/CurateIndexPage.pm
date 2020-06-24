@@ -100,7 +100,17 @@ sub initiate {
 }
 
 sub get_javascript {
-	my ($self) = @_;
+	my ($self)     = @_;
+	my $links      = $self->get_related_databases;
+	my $db_trigger = q();
+	if ( @$links > 1 ) {
+		$db_trigger = << "END";
++\$("#related_db_trigger,#close_related_db").click(function(){		
+		\$("#related_db_panel").toggle("slide",{direction:"right"},"fast");
+		return false;
+	});	
+END
+	}
 	my $buffer = << "END";
 \$(function () {
 	\$( "#show_closed" ).click(function() {
@@ -181,6 +191,7 @@ sub get_javascript {
      			});
     	}, 1000);
  	});
+	$db_trigger
 });
 
 function bind_toggle (cat){
@@ -1850,6 +1861,7 @@ sub print_content {
 		say $buffer;
 		say q(</div>);
 		say q(<div style="clear:both"></div>);
+		$self->_print_related_database_panel;
 		say q(</div>);
 
 		if ( $toggle_status->{'always_show_hidden'} ) {
@@ -1884,6 +1896,36 @@ sub print_content {
 				  . q(database administrator to set your appropriate permissions.)
 			}
 		);
+	}
+	return;
+}
+
+sub _print_related_database_panel {
+	my ($self) = @_;
+	my $links = $self->get_related_databases;
+	return if @$links < 2;
+	say q(<div id="related_db_panel" style="display:none">);
+	say q(<a class="close_trigger" id="close_related_db"><span class="fas fa-lg fa-times"></span></a>);
+	say q(<h2>Related databases</h2>);
+	say q(<div><div style="max-height:12em;overflow-y:auto;padding-right:2em"><ul style="margin-left:-1em">);
+	foreach my $link (@$links) {
+		say qq(<li><a href="$link->{'href'}">$link->{'text'}</a></li>);
+	}
+	say q(</ul></div>);
+	say q(</div></div>);
+	return;
+}
+
+sub print_panel_buttons {
+	my ($self) = @_;
+	my $links = $self->get_related_databases;
+	return if !@$links;
+	if ( @$links > 1 ) {
+		say q(<a id="related_db_trigger" class="trigger_button">)
+		  . q(<span id="related_db" class="fas fa-lg fa-database" title="Related databases"></span></a>);
+	} else {
+		say qq(<a id="related_db_trigger" class="trigger_button" href="$links->[0]->{'href'}">)
+		  . qq(<span id="related_db" class="fas fa-lg fa-database" title="$links->[0]->{'text'} database"></span></a>);
 	}
 	return;
 }

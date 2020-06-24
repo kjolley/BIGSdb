@@ -634,8 +634,8 @@ sub _print_private_data_menu_item {
 
 	if ($total_private) {
 		my $label = $self->_get_label($total_private);
-		$number_icon .= q(<span class="fa-stack" style="font-size:0.7em;letter-spacing:normal;)
-		  . q(margin:-0.5em 0 -0.2em 0.5em">);
+		$number_icon .=
+		  q(<span class="fa-stack" style="font-size:0.7em;letter-spacing:normal;) . q(margin:-0.5em 0 -0.2em 0.5em">);
 		$number_icon .= q(<span class="fas fa-circle fa-stack-2x" style="color:#484"></span>);
 		$number_icon .= qq(<span class="fa fa-stack-1x fa-stack-text">$label</span>);
 	}
@@ -685,18 +685,8 @@ sub _print_info_menu_item {
 
 sub _print_related_database_menu_item {
 	my ($self) = @_;
-	return if !$self->{'system'}->{'related_databases'};
-	my @dbases = split /;/x, $self->{'system'}->{'related_databases'};
-	return if !@dbases;
-	my $links = [];
-	foreach my $dbase (@dbases) {
-		my ( $config, $name ) = split /\|/x, $dbase;
-		push @$links,
-		  {
-			href => "$self->{'system'}->{'script_name'}?db=$config",
-			text => $name
-		  };
-	}
+	my $links = $self->get_related_databases;
+	return if !@$links;
 	if ( @$links > 1 ) {
 		$self->_print_menu_item(
 			{
@@ -715,6 +705,23 @@ sub _print_related_database_menu_item {
 		);
 	}
 	return;
+}
+
+sub get_related_databases {
+	my ($self) = @_;
+	return [] if !$self->{'system'}->{'related_databases'};
+	my @dbases = split /;/x, $self->{'system'}->{'related_databases'};
+	return [] if !@dbases;
+	my $links = [];
+	foreach my $dbase (@dbases) {
+		my ( $config, $name ) = split /\|/x, $dbase;
+		push @$links,
+		  {
+			href => "$self->{'system'}->{'script_name'}?db=$config",
+			text => $name
+		  };
+	}
+	return $links;
 }
 
 sub _get_pending_submission_count {
