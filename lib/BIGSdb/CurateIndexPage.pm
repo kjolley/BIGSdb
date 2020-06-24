@@ -172,11 +172,13 @@ sub get_javascript {
 	}
 	var \$grid = \$(".grid").packery({
        	itemSelector: '.grid-item',
-  		gutter: 5,
+  		gutter: 10,
     });        
     \$(window).resize(function() {
     	delay(function(){
-     			\$grid.packery();
+     			\$grid.packery({
+     				gutter:10
+     			});
     	}, 1000);
  	});
 });

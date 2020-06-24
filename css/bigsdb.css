@@ -1082,8 +1082,10 @@ div.curategroup {
 }
 
 div.curategroup h2 {
-	font-size: 1.2em;
-	margin: 0
+	font-family: pt_sansbold, sans-serif;
+	font-size: 1.15em;
+	color: #8080a0;
+	margin: 0 0 0.5em 0
 }
 
 div.curategroup_users {
