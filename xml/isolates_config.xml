@@ -4,7 +4,6 @@
  db="DATABASE_NAME"
  dbtype="isolates"
  webroot=""
- curator_home="/private"
  indexpage=""
  view="isolates"
  maindisplay_aliases="yes"
