@@ -1,10 +1,11 @@
-/*Version: 20200623*/
+/*Version: 20200628*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
 		url('/webfonts/tinos-regular-webfont.woff') format('woff');
 	font-weight: normal;
 	font-style: normal;
+	font-display: swap;
 }
 
 @font-face {
@@ -13,6 +14,7 @@
 		url('/webfonts/pts55f-webfont.woff') format('woff');
 	font-weight: normal;
 	font-style: normal;
+	font-display: swap;
 }
 
 @font-face {
@@ -21,6 +23,7 @@
 		url('/webfonts/pts75f-webfont.woff') format('woff');
 	font-weight: normal;
 	font-style: normal;
+	font-display: swap;
 }
 
 body, form, input, th, td, div {
@@ -912,7 +915,7 @@ a#close_trigger {
 	text-decoration: none;
 }
 
-div#bookmark_panel,#related_db_panel {
+div#bookmark_panel, #related_db_panel {
 	position: absolute;
 	top: 0;
 	right: 0;
@@ -925,7 +928,7 @@ div#bookmark_panel,#related_db_panel {
 	box-shadow: 3px 3px 3px #aaa;
 }
 
-a#close_bookmark,a#close_related_db {
+a#close_bookmark, a#close_related_db {
 	color: black;
 	font-weight: 600;
 	text-decoration: none;
@@ -1188,7 +1191,7 @@ div#sequence {
 }
 
 div#curator {
-	position:relative;
+	position: relative;
 	background: #e7e7e7
 }
 

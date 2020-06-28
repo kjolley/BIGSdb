@@ -79,7 +79,7 @@ https://github.com/kjolley/BIGSdb</a>.
 <span class="main_icon fas fa-book fa-3x fa-pull-left"></span>
 <ul style="margin-left:2em">
 <li>The home page for this software is  
-<a href="https://pubmlst.org/software/database/bigsdb/">
+<a href="https://pubmlst.org/software/database/bigsdb/" style="overflow-wrap:break-word">
 https://pubmlst.org/software/database/bigsdb/</a>.</li>
 <li>Full documentation can be found at <a href="https://bigsdb.readthedocs.io/">
 https://bigsdb.readthedocs.io/</a>.</li></ul>
