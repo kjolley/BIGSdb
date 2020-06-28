@@ -161,16 +161,9 @@ sub _get_javascript_paths {
 	$page_js .= $self->_get_cookie_js;
 	my $js = [];
 	if ( $self->{'jQuery'} ) {
-		if ( $self->{'config'}->{'no_cdn'} || $self->{'config'}->{'intranet'} ) {
-			push @$js, { src => '/javascript/jquery.min.js', version => '20200308' };
-			push @$js, { src => '/javascript/jquery-ui.min.js', defer => 1, version => '20200308' };
-		} else {
-
-			#Load jQuery library from Google CDN
-			push @$js, { src => 'https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js' };
-			push @$js, { src => 'https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js' };
-		}
-		push @$js, { src => '/javascript/bigsdb.js', defer => 1, version => '20200628' };
+		push @$js, { src => '/javascript/jquery.min.js',    version => '3.3.1' };
+		push @$js, { src => '/javascript/jquery-ui.min.js', defer   => 1, version => '1.12.1' };
+		push @$js, { src => '/javascript/bigsdb.js',        defer   => 1, version => '20200628' };
 		if ( !$self->{'config'}->{'no_cookie_consent'} && !$self->{'curate'} && $self->{'instance'} ) {
 			push @$js, { src => '/javascript/cookieconsent.min.js', defer => 1 };
 		}
