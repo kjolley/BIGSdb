@@ -225,7 +225,7 @@ sub _print_general_options {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $prefs  = $self->{'prefs'};
-	say q(<h2>General options</h2><div class="options">);
+	say q(<h2>General options</h2><div class="options"><div class="scrollable">);
 	say q(<ul id="general">);
 	say q(<li><span style="white-space:nowrap"><label for="displayrecs">Display </label>);
 	say $q->popup_menu(
@@ -278,7 +278,7 @@ sub _print_general_options {
 	);
 	say q(</li></ul>);
 	say $q->submit( -name => 'set', -label => 'Set options', -class => BUTTON_CLASS );
-	say q(</div>);
+	say q(</div></div>);
 	return;
 }
 
