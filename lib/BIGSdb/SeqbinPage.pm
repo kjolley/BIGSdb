@@ -39,6 +39,26 @@ sub initiate {
 	}
 	$self->{$_} = 1 foreach qw (tooltips packery jQuery c3 igv);
 	$self->{'prefix'} = BIGSdb::Utils::get_random();
+	my $page_name = $self->get_title( { breadcrumb => 1 } );
+	my $isolate_id = $q->param('isolate_id');
+	return if !BIGSdb::Utils::is_int($isolate_id);
+	$self->{'breadcrumbs'} = [
+		{
+			label => $self->{'system'}->{'webroot_label'} // 'Organism',
+			href => $self->{'system'}->{'webroot'}
+		},
+		{
+			label => $self->{'system'}->{'description'},
+			href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}"
+		},
+		{
+			label => 'Isolate info',
+			href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;id=$isolate_id"
+		},
+		{
+			label => 'Sequence bin'
+		}
+	];
 	return;
 }
 
