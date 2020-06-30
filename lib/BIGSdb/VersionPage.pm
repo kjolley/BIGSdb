@@ -50,7 +50,7 @@ sub print_about_bigsdb {
 <div class="box resultspanel">
 <h2>BIGSdb Version $version</h2>
 <span class="main_icon far fa-copyright fa-3x fa-pull-left"></span>
-<ul style="margin-left:2em">
+<ul style="margin-left:3em">
 <li>Written by Keith Jolley</li>
 <li>Copyright &copy; University of Oxford, 2010-2020.</li>
 <li><a href="http://www.biomedcentral.com/1471-2105/11/595">
@@ -71,13 +71,13 @@ GNU General Public License for more details.</p>
 can be found at <a href="http://www.gnu.org/licenses/gpl.html">
 http://www.gnu.org/licenses/gpl.html</a>.</p>
 <span class="main_icon fab fa-github fa-3x fa-pull-left"></span>
-<ul style="margin-left:2em;padding-top:1em"><li>
+<ul style="margin-left:3em;padding-top:1em"><li>
 Source code can be downloaded from <a href="https://github.com/kjolley/BIGSdb">
 https://github.com/kjolley/BIGSdb</a>.
 </li></ul>
 <h2>Documentation</h2>
 <span class="main_icon fas fa-book fa-3x fa-pull-left"></span>
-<ul style="margin-left:2em">
+<ul style="margin-left:3em">
 <li>The home page for this software is  
 <a href="https://pubmlst.org/software/database/bigsdb/" style="overflow-wrap:break-word">
 https://pubmlst.org/software/database/bigsdb/</a>.</li>
@@ -99,14 +99,14 @@ HTML
 			$links++;
 		}
 		my $margin = $links == 1 ? 2 : 1;
-		say qq(<ul style="margin-left:2em;margin-top:${margin}em">);
+		say qq(<ul style="margin-left:3em;margin-top:${margin}em">);
 		say $buffer;
 		say q(</ul>);
 	}
 	if ( !$self->{'config'}->{'no_cookie_consent'} && $self->{'instance'} ) {
 		say q(<h2>Cookies</h2>);
 		say q(<span class="main_icon fas fa-cookie-bite fa-3x fa-pull-left"></span>);
-		say q(<ul style="margin-left:2em;margin-top:1.5em">);
+		say q(<ul style="margin-left:3em;margin-top:1.5em">);
 		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=cookies">)
 		  . q(Cookie policy</a></li>);
 		say q(</ul>);
