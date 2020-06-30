@@ -75,7 +75,7 @@ http://www.gnu.org/licenses/gpl.html</a>.</p>
 Source code can be downloaded from <a href="https://github.com/kjolley/BIGSdb">
 https://github.com/kjolley/BIGSdb</a>.
 </li></ul>
-<h2>Documentation</h2>
+<h2 style="margin-top:1.5em">Documentation</h2>
 <span class="main_icon fas fa-book fa-3x fa-pull-left"></span>
 <ul style="margin-left:3em">
 <li>The home page for this software is  
@@ -86,7 +86,7 @@ https://bigsdb.readthedocs.io/</a>.</li></ul>
 HTML
 	if ( $self->{'config'}->{'jobs_db'} || ( $self->{'config'}->{'rest_db'} && $self->{'config'}->{'rest_log_to_db'} ) )
 	{
-		say q(<h2>Server status</h2>);
+		say q(<h2 style="margin-top:1.5em">Server status</h2>);
 		say q(<span class="main_icon fas fa-tachometer-alt fa-3x fa-pull-left"></span>);
 		my $buffer;
 		my $links = 0;
@@ -104,7 +104,7 @@ HTML
 		say q(</ul>);
 	}
 	if ( !$self->{'config'}->{'no_cookie_consent'} && $self->{'instance'} ) {
-		say q(<h2>Cookies</h2>);
+		say q(<h2 style="margin-top:1.5em">Cookies</h2>);
 		say q(<span class="main_icon fas fa-cookie-bite fa-3x fa-pull-left"></span>);
 		say q(<ul style="margin-left:3em;margin-top:1.5em">);
 		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=cookies">)
