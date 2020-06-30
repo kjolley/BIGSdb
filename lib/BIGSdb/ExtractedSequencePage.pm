@@ -380,12 +380,20 @@ sub _get_exon_count {
 }
 
 sub get_title {
-	my ($self)    = @_;
-	my $q         = $self->{'cgi'};
+	my ( $self, $options ) = @_;
+	my $q = $self->{'cgi'};
+	return q(Extracted sequence) if $options->{'breadcrumb'};
 	my $seqbin_id = $q->param('seqbin_id');
 	my $start     = $q->param('start');
 	my $end       = $q->param('end');
-	my $title     = qq(Extracted sequence: Seqbin id#:$seqbin_id ($start-$end) - $self->{'system'}->{'description'});
+	my $title = qq(Extracted sequence: Seqbin id#:$seqbin_id ($start-$end) - $self->{'system'}->{'description'});
 	return $title;
+}
+
+sub initiate {
+	my ($self) = @_;
+	$self->{'jQuery'} = 1;
+	$self->set_level1_breadcrumbs;
+	return;
 }
 1;
