@@ -29,6 +29,7 @@ use BIGSdb::Constants qw(LOCUS_PATTERN :limits);
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw(jQuery jQuery.tablesort jQuery.columnizer);
+	$self->set_level1_breadcrumbs;
 	return;
 }
 
@@ -376,21 +377,6 @@ sub _print_locus {
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	my $field = $self->{'cgi'}->param('field') // '';
-	my $pattern = LOCUS_PATTERN;
-	if ( $field =~ /$pattern/x ) {
-		$field = $self->clean_locus($1);
-	} elsif ( $field =~ /s_(\d+)_(.*)$/x ) {
-		my $scheme_id    = $1;
-		my $scheme_field = $2;
-		my $set_id       = $self->get_set_id;
-		my $scheme_info  = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-		$field = "$scheme_field ($scheme_info->{'name'})";
-	} else {
-		$field =~ s/^f_//x;
-	}
-	$field =~ tr/_/ /;
-	return qq(Field values for '$field' - $desc);
+	return q(Field values);
 }
 1;
