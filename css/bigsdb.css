@@ -1,4 +1,4 @@
-/*Version: 20200628*/
+/*Version: 20200703*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -2088,7 +2088,8 @@ a.slide_trigger {
 	border: 1px solid #ccc;
 	box-shadow: 3px 3px 3px #dfdfdf;
 	overflow-y: auto;
-	cursor: pointer
+	cursor: pointer;
+	z-index: 9
 }
 
 .feint {
