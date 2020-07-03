@@ -517,7 +517,7 @@ sub print_provenance_form_elements {
 	my $user_info  = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	my $set_id     = $self->get_set_id;
 	my $field_list = $self->{'xmlHandler'}->get_field_list;
-	say q(<fieldset style="float:left"><legend>Provenance fields</legend>);
+	say q(<fieldset style="float:left"><legend>Primary metadata</legend>);
 	say q(<div style="white-space:nowrap">);
 	my $width = $self->_get_field_width($field_list);
 	say q(<ul>);
@@ -941,7 +941,7 @@ sub _print_allele_designation_form_elements {
 		  . "after entering isolate provenance data.</p>\n";
 	}
 	if (@$loci) {
-		say q(<div id="scheme_loci_add" style="overflow:auto">);
+		say q(<div id="scheme_loci_add">);
 		say qq(<fieldset style="float:left"><legend>Allele&nbsp;designations</legend>\n$locus_buffer</fieldset>);
 		say q(</div>);
 	}
@@ -965,7 +965,7 @@ sub _print_scheme_form_elements {
 	foreach my $locus (@$loci) {
 		my $cleaned_name = $self->clean_locus($locus);
 		$buffer .= q(<dl class="profile">);
-		$buffer .= qq(<dt>$cleaned_name</dt><dd>);
+		$buffer .= qq(<dt>$cleaned_name</dt><dd style="min-height:initial">);
 		if ( $self->{'locus_displayed'}->{$locus} ) {
 			$buffer .= $q->textfield( -name => 'disabled_locus', -size => 10, -default => '-', -disabled );
 		} else {

@@ -445,7 +445,7 @@ sub _print_interface {
 	my $q = $self->{'cgi'};
 	say q(<div>);
 	if ( $self->can_modify_table('isolates') ) {
-		say q(<div class="box queryform" id="isolate_update" style="float:left;margin-right:0.5em">);
+		say q(<div class="box queryform" id="isolate_update">);
 		say q(<div class="scrollable">);
 		say $q->start_form;
 		$q->param( 'sent', 1 );
@@ -464,7 +464,7 @@ sub _print_interface {
 sub _print_allele_designations {
 	my ( $self, $data ) = @_;
 	my $q = $self->{'cgi'};
-	say q(<div class="box" id="alleles" style="float:left"><div class="scrollable">);
+	say q(<div class="box" id="alleles"><div class="scrollable">);
 	say q(<fieldset style="float:left"><legend>Loci</legend>);
 	my $isolate_record = BIGSdb::IsolateInfoPage->new(
 		(
