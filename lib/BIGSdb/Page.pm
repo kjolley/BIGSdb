@@ -1017,7 +1017,6 @@ sub print_panel_buttons { }
 
 sub _print_breadcrumbs {
 	my ($self) = @_;
-	return if $self->{'system'}->{'kiosk'};
 	return if !$self->{'system'}->{'db'};
 	my @potential_breadcrumb_files = (
 		"$self->{'dbase_config_dir'}/$self->{'instance'}/breadcrumbs.conf",
