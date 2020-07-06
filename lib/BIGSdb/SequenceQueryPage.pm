@@ -579,8 +579,12 @@ sub _get_selected_loci {
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (jQuery);
-	$self->{'tooltips'} = 1 if !$self->{'system'}->{'kiosk'};
-	$self->set_level1_breadcrumbs;
+	if ($self->{'system'}->{'kiosk'}){
+		$self->set_level0_breadcrumbs;
+	} else {
+		$self->{'tooltips'} = 1;
+		$self->set_level1_breadcrumbs;
+	}
 	return;
 }
 1;

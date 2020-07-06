@@ -3348,6 +3348,21 @@ sub is_curator {
 	return 1;
 }
 
+sub set_level0_breadcrumbs {
+	my ($self) = @_;
+	my $page_name = $self->get_title( { breadcrumb => 1 } );
+	$self->{'breadcrumbs'} = [
+		{
+			label => $self->{'system'}->{'webroot_label'} // 'Organism',
+			href => $self->{'system'}->{'webroot'}
+		},
+		{
+			label => $page_name
+		}
+	];
+	return;
+}
+
 sub set_level1_breadcrumbs {
 	my ($self) = @_;
 	my $page_name = $self->get_title( { breadcrumb => 1 } );
