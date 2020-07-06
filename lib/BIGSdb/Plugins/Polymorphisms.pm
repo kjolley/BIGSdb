@@ -150,7 +150,8 @@ sub run {
 				module       => 'Polymorphisms',
 				parameters   => $params,
 				username     => $self->{'username'},
-				email        => $user_info->{'email'}
+				email        => $user_info->{'email'},
+				isolates     => $ids
 			}
 		);
 		say $self->get_job_redirect($job_id);
@@ -172,39 +173,15 @@ sub run {
 
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
-	my $query_file = $params->{'query_file'};
-	my $list_file  = $params->{'list_file'};
-
-	#Make sure query file is accessible to job host (the web server and job host may not be the same machine)
-	#These machines should share the tmp_dir but not the secure_tmp_dir, so copy this from the tmp_dir.
-	if ( $query_file && !-e "$self->{'config'}->{'secure_tmp_dir'}/$query_file" ) {
-		if ( $query_file =~ /^(BIGSdb[\d_]*\.txt)$/x ) {
-			$query_file = $1;    #untaint
-		}
-		copy( "$self->{'config'}->{'tmp_dir'}/$query_file", "$self->{'config'}->{'secure_tmp_dir'}/$query_file" )
-		  || $logger->error("Can't copy $query_file");
-	}
-	if ( $list_file && !-e "$self->{'config'}->{'secure_tmp_dir'}/$list_file" ) {
-		if ( $list_file =~ /^(BIGSdb[\d_]*\.list)$/x ) {
-			$list_file = $1;     #untaint
-		}
-		copy( "$self->{'config'}->{'tmp_dir'}/$list_file", "$self->{'config'}->{'secure_tmp_dir'}/$list_file" )
-		  || $logger->error("Can't copy $list_file");
-	}
-	if ( $params->{'datatype'} && $params->{'list_file'} ) {
-		$self->{'datastore'}->create_temp_list_table( $params->{'datatype'}, $params->{'list_file'} );
-	}
 	my $locus = $params->{'locus'};
 	$locus =~ s/^cn_//x;
 	$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => -1 } );    #indeterminate length of time
-	my $qry_ref = $self->get_query($query_file);
-	my $ids     = $self->get_ids_from_query($qry_ref);
+	my $isolate_ids = $self->{'jobManager'}->get_job_isolates($job_id);
 	my %options;
 	$options{'from_bin'}            = $params->{'chooseseq'} eq 'seqbin' ? 1 : 0;
 	$options{'unique'}              = $params->{'unique'};
 	$options{'exclude_incompletes'} = $params->{'exclude_incompletes'};
-	my $seqs = $self->_get_seqs( $locus, $ids, \%options );
-
+	my $seqs = $self->_get_seqs( $locus, $isolate_ids, \%options );
 	if ( !@$seqs ) {
 		$self->{'jobManager'}
 		  ->update_job_status( $job_id, { message_html => '<p>No sequences retrieved for analysis.</p>' } );
