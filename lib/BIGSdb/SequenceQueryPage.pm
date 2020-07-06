@@ -543,10 +543,10 @@ sub _run_blast {
 }
 
 sub _get_selected_loci {
-	my ($self)    = @_;
-	my $q         = $self->{'cgi'};
-	my $selection = $q->param('locus');
-	my $set_id    = $self->get_set_id;
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my $selection = $self->{'system'}->{'kiosk_locus'} // $q->param('locus');
+	my $set_id = $self->get_set_id;
 	if ( $selection eq '0' ) {
 		$self->{'select_type'} = 'all';
 		return $self->{'datastore'}->get_loci( { set_id => $set_id } );
