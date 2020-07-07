@@ -186,11 +186,12 @@ sub get_partial_matches {
 }
 
 sub get_best_partial_match {
-	my ($self)          = @_;
+	my ( $self, $locus ) = @_;
 	my $partial_matches = $self->{'partial_matches'};
 	my $best_match      = {};
 	my $bitscore        = 0;
-	foreach my $locus ( keys %$partial_matches ) {
+	foreach my $locus ( $locus ? ($locus) : keys %$partial_matches ) {
+		next if !defined $partial_matches->{$locus};
 		foreach my $match ( @{ $partial_matches->{$locus} } ) {
 			if ( $match->{'bitscore'} > $bitscore ) {
 				$best_match            = $match;
