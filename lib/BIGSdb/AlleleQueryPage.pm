@@ -621,8 +621,9 @@ sub _ext_equals {         ## no critic (ProhibitUnusedPrivateSubroutines) #Calle
 	my ( $qry_ref, $std_clause_ref, $this_field, $text, $modifier, $field, $locus ) =
 	  @{$args}{qw(qry_ref std_clause_ref this_field text modifier field locus)};
 	if ( lc($text) eq 'null' ) {
+		( my $cleaned = $locus ) =~ s/'/\\'/gx;
 		$$qry_ref .= "$modifier (allele_id NOT IN (select allele_id FROM sequence_extended_attributes "
-		  . "WHERE locus=E'$locus' AND field='$field'))";
+		  . "WHERE locus=E'$cleaned' AND field='$field'))";
 	} else {
 		$$qry_ref .= $$std_clause_ref;
 		$$qry_ref .=
