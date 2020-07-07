@@ -401,7 +401,7 @@ sub _blast_fork {
 					$results->{'debug'} = 1 if $q->param('debug');
 					my $results_json = encode_json($results);
 					$self->_write_results_file( $results_json_file, $results_json );
-					if ( -e $self->{'system'}->{'web_hook_seq_query'} ) {
+					if ( -x $self->{'system'}->{'web_hook_seq_query'} ) {
 						my $script_out = `$self->{'system'}->{'web_hook_seq_query'} $results_json_file`;
 						$self->_write_results_file( $results_file, $script_out );
 					} else {
@@ -548,7 +548,16 @@ sub _run_blast {
 	my $return_obj = { html => $html };
 	if ( $q->param('page') eq 'sequenceQuery' ) {
 		$return_obj->{'exact_matches'} = $seq_qry_obj->get_exact_matches;
-		$return_obj->{'linked_data'}   = $seq_qry_obj->get_allele_linked_data;
+		if ( ( $self->{'system'}->{'kiosk_partial_matches'} // q() ) eq 'yes' ) {
+			my $partial_matches = {};
+			foreach my $locus (@$loci) {
+				next if $return_obj->{'exact_matches'}->{$locus} && @{ $return_obj->{'exact_matches'}->{$locus} };
+				my $best = $seq_qry_obj->get_best_partial_match($locus);
+				$partial_matches->{$locus} = $best if $best;
+			}
+			$return_obj->{'partial_matches'} = $partial_matches if %$partial_matches;
+		}
+		$return_obj->{'linked_data'} = $seq_qry_obj->get_allele_linked_data;
 	}
 	return $return_obj;
 }
