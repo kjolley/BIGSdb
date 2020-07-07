@@ -258,12 +258,18 @@ sub _print_interface {
 
 sub print_panel_buttons {
 	my ($self) = @_;
-	say q(<a class="trigger_button" id="panel_trigger" title="Modify form options" style="display:none">)
-	  . q(<span class="fas fa-lg fa-wrench"></span></a>);
-	my $bookmarks = $self->_get_bookmarks;
-	if (@$bookmarks) {
-		say q(<a class="trigger_button" id="bookmark_trigger" style="display:none" title="Bookmarks">)
-		  . q(<span class="far fa-lg fa-bookmark"></span></a>);
+	my $q = $self->{'cgi'};
+	if (   !defined $q->param('currentpage')
+		|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
+		|| $q->param('First') )
+	{
+		say q(<a class="trigger_button" id="panel_trigger" title="Modify form options" style="display:none">)
+		  . q(<span class="fas fa-lg fa-wrench"></span></a>);
+		my $bookmarks = $self->_get_bookmarks;
+		if (@$bookmarks) {
+			say q(<a class="trigger_button" id="bookmark_trigger" style="display:none" title="Bookmarks">)
+			  . q(<span class="far fa-lg fa-bookmark"></span></a>);
+		}
 	}
 	return;
 }

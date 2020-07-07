@@ -157,8 +157,15 @@ sub _print_interface {
 }
 
 sub print_panel_buttons {
-	say q(<a class="trigger_button" id="panel_trigger" style="display:none" title="Modify form options">)
-	  . q(<span class="fas fa-lg fa-wrench"></span></a>);
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if (   !defined $q->param('currentpage')
+		|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
+		|| $q->param('First') )
+	{
+		say q(<a class="trigger_button" id="panel_trigger" style="display:none" title="Modify form options">)
+		  . q(<span class="fas fa-lg fa-wrench"></span></a>);
+	}
 	return;
 }
 
