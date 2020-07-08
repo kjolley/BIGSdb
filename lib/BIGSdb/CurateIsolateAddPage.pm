@@ -669,14 +669,14 @@ sub _print_optlist {         ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 		say $self->popup_menu( %args, %$html5_args );
 		if ($multiple) {
 			say q(<br /><span class="comment" style="color:#008">) . q(Supports multiple values</span>);
-			say q(</div>);
 		}
+		say q(</div>);
 		return 1;
 	}
 	return;
 }
 
-sub _print_bool {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _print_bool {         ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $args ) = @_;
 	my ( $field, $newdata, $thisfield ) = @{$args}{qw(field newdata thisfield )};
 	return if $thisfield->{'type'} !~ /^bool/x;

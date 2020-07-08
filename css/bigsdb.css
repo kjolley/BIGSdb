@@ -1,4 +1,4 @@
-/*Version: 20200703*/
+/*Version: 20200708*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -83,6 +83,11 @@ h3 {
 
 h4, h5, h6 {
 	font: 1em Arial, Helvetica, sans-serif
+}
+
+textarea {
+	font-family: Monaco, monospace;
+	font-size: 1em
 }
 
 ul {
