@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -63,6 +63,9 @@ sub _get_text {
 
 sub get_help_url {
 	my ($self) = @_;
+	if ($self->{'system'}->{'kiosk'}){
+		return $self->{'system'}->{'kiosk_help'} // undef;
+	}
 	my $q = $self->{'cgi'};
 	return if $q->param('page') eq 'batchSequenceQuery';
 	return "$self->{'config'}->{'doclink'}/data_query.html#querying-sequences-to-determine-allele-identity";
