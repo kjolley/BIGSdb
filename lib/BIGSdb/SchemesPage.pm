@@ -54,7 +54,8 @@ sub print_content {
 		my $updated =
 		  $self->{'datastore'}->run_query( 'SELECT MAX(datestamp) FROM profiles WHERE scheme_id=?', $scheme->{'id'} );
 		$updated //= q();
-		say qq(<tr class="td$td"><td>$scheme_info->{'name'}</td>)
+		say qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=schemeInfo&scheme_id=$scheme->{'id'}">$scheme_info->{'name'}</a></td>)
 		  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadProfiles&amp;)
 		  . qq(scheme_id=$scheme->{'id'}"><span class="file_icon fas fa-download"></span></a></td>)
 		  . qq(<td>$profile_count</td><td>$desc</td><td>$curators</td><td>$updated</td></tr>);
