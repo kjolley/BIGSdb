@@ -656,10 +656,10 @@ sub _get_classification_group_data {
 		  . q(<h2>Similar isolates (determined by classification schemes)</h2>)
 		  . q(<p>Experimental schemes are subject to change and are not a stable part of the nomenclature.</p>)
 		  . q(<div class="scrollable">)
-		  . q(<div class="resultstable" style="float:left"><table class="resultstable"><tr>)
+		  . q(<table class="resultstable"><tr>)
 		  . q(<th>Classification scheme</th><th>Underlying scheme</th><th>Clustering method</th>)
 		  . qq(<th>Mismatch threshold</th><th>Status</th><th>Group</th>$fields_header</tr>)
-		  . qq($buffer</table></div></div></div>);
+		  . qq($buffer</table></div></div>);
 	}
 	return $buffer;
 }
@@ -1504,7 +1504,7 @@ sub _get_history {
 	  $self->{'datastore'}->run_query(
 		"SELECT timestamp,action,curator FROM history where isolate_id=? ORDER BY timestamp desc$limit_clause",
 		$isolate_id, { fetch => 'all_arrayref', slice => {} } );
-	if ($limit) {                                           #need to count total
+	if ($limit) {    #need to count total
 		$count = $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM history WHERE isolate_id=?', $isolate_id );
 	} else {
 		$count = @$history;
@@ -1634,6 +1634,7 @@ sub get_refs {
 			$buffer .=
 			  q(<div class="expand_link" id="expand_references"><span class="fas fa-chevron-down"></span></div>);
 		}
+		$buffer .= q(</div>);
 	}
 	return $buffer;
 }
