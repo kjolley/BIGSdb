@@ -1,6 +1,6 @@
 #BLAST.pm - BLAST plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -25,6 +25,7 @@ use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use List::MoreUtils qw(any uniq);
+use Memory::Usage;                   #TODO Remove
 use constant MAX_INSTANT_RUN  => 10;
 use constant MAX_DISPLAY_TAXA => 1000;
 use constant MAX_TAXA         => 10_000;
@@ -107,7 +108,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.4.16',
+		version     => '1.4.17',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -172,7 +173,6 @@ sub run {
 		return;
 	}
 	my @includes = $q->multi_param('includes');
-	my $seq      = $q->param('sequence');
 	if ( @ids > MAX_INSTANT_RUN || $q->param('tblastx') ) {
 		my $att       = $self->get_attributes;
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
@@ -202,7 +202,6 @@ sub run {
 			prefix         => $prefix,
 			ids            => \@ids,
 			includes       => \@includes,
-			seq_ref        => \$seq,
 			show_no_match  => ( $q->param('show_no_match') // 0 ),
 			flanking       => ( $q->param('flanking') // $self->{'prefs'}->{'flanking'} ),
 			include_seqbin => ( $q->param('include_seqbin') // 0 )
@@ -232,8 +231,8 @@ sub _get_headers {
 
 sub _run_now {
 	my ( $self, $args ) = @_;
-	my ( $prefix, $ids, $includes, $seq_ref, $show_no_match, $flanking, $include_seqbin ) =
-	  @{$args}{qw(prefix ids includes seq_ref show_no_match flanking include_seqbin)};
+	my ( $prefix, $ids, $includes, $show_no_match, $flanking, $include_seqbin ) =
+	  @{$args}{qw(prefix ids includes show_no_match flanking include_seqbin)};
 	my ( $html_header, $text_header ) = $self->_get_headers($includes);
 	my $out_file                 = "$prefix.fas";
 	my $out_file_flanking        = "$prefix\_flanking.fas";
@@ -247,7 +246,7 @@ sub _run_now {
 	say q(<div class="box" id="resultstable">);
 
 	foreach my $id (@$ids) {
-		my $matches = $self->_blast( $id, $seq_ref, $params );
+		my $matches = $self->_blast( $id, $params );
 		next if !$show_no_match && ( ref $matches ne 'ARRAY' || !@$matches );
 		print $html_header if $first;
 		my $include_values = $self->_get_include_values( \@$includes, $id );
@@ -339,8 +338,8 @@ sub run_job {
 	my $out_file_flanking        = "${job_id}_flanking.fas";
 	my $out_file_table           = "${job_id}_table.txt";
 	my $out_file_table_full_path = "$self->{'config'}->{'tmp_dir'}/$out_file_table";
-	my $html_buffer;
-	my $file_buffer  = $text_header;
+	my $html_buffer_file         = "$self->{'config'}->{'secure_tmp_dir'}/$out_file_table";
+	$self->_append_file( $out_file_table_full_path, $text_header );
 	my $first        = 1;
 	my $some_results = 0;
 	my $td           = 1;
@@ -356,32 +355,40 @@ sub run_job {
 	foreach my $id (@$ids) {
 		$progress++;
 		my $complete = int( 100 * $progress / @$ids );
-		my $matches = $self->_blast( $id, \$params->{'sequence'}, $params );
+		my $matches = $self->_blast( $id, $params );
 		if ( !$params->{'show_no_match'} && ( ref $matches ne 'ARRAY' || !@$matches ) ) {
-			$self->{'jobManager'}
-			  ->update_job_status( $job_id, { percent_complete => $complete, stage => "Checked id: $id" } );
+			if ( $progress % 10 == 0 || $progress == @$ids ) {
+				$self->{'jobManager'}
+				  ->update_job_status( $job_id, { percent_complete => $complete, stage => "Checked id: $id" } );
+			}
 			next;
 		}
-		$html_buffer .= $html_header if $first;
+		if ( @$ids <= MAX_DISPLAY_TAXA ) {
+			$self->_append_file( $html_buffer_file, $html_header ) if $first;
+		}
 		my $include_values = $self->_get_include_values( \@includes, $id );
 		$some_results = 1;
 		my $rows        = @$matches;
 		my $first_match = 1;
 		foreach my $match (@$matches) {
-			$html_buffer .= $self->_get_prov_html_cells(
-				{
-					isolate_id     => $id,
-					td             => $td,
-					include_values => $include_values,
-					is_match       => 1,
-					rows           => $rows,
-					first_match    => $first_match
-				}
-			);
-			$file_buffer .= $self->_get_prov_text_cells( { isolate_id => $id, include_values => $include_values } );
-			$html_buffer .= $self->_get_match_attribute_html_cells( $match, $flanking );
-			$file_buffer .= $self->_get_match_attribute_text_cells( $match, $flanking );
-			$file_buffer .= qq(\n);
+			if ( @$ids <= MAX_DISPLAY_TAXA ) {
+				my $html_buffer = $self->_get_prov_html_cells(
+					{
+						isolate_id     => $id,
+						td             => $td,
+						include_values => $include_values,
+						is_match       => 1,
+						rows           => $rows,
+						first_match    => $first_match
+					}
+				);
+				$html_buffer .= $self->_get_match_attribute_html_cells( $match, $flanking );
+				$self->_append_file( $html_buffer_file, $html_buffer );
+			}
+			my $buffer = $self->_get_prov_text_cells( { isolate_id => $id, include_values => $include_values } );
+			$buffer .= $self->_get_match_attribute_text_cells( $match, $flanking );
+			$buffer .= qq(\n);
+			$self->_append_file( $out_file_table_full_path, $buffer );
 			$self->_append_fasta(
 				{
 					isolate_id        => $id,
@@ -396,29 +403,33 @@ sub run_job {
 			$first_match = 0;
 		}
 		if ( !@$matches ) {
-			$html_buffer .=
-			  $self->_get_prov_html_cells( { isolate_id => $id, td => $td, include_values => $include_values } );
-			$html_buffer .= q(<td>0</td><td colspan="9" /></tr>);
-			$file_buffer .= $self->_get_prov_text_cells( { isolate_id => $id, include_values => $include_values } );
-			$file_buffer .= qq(\t0\n);
+			if ( @$ids <= MAX_DISPLAY_TAXA ) {
+				my $html_buffer =
+				  $self->_get_prov_html_cells( { isolate_id => $id, td => $td, include_values => $include_values } );
+				$html_buffer .= q(<td>0</td><td colspan="9" /></tr>);
+				$self->_append_file( $html_buffer_file, $html_buffer );
+			}
+			my $buffer = $self->_get_prov_text_cells( { isolate_id => $id, include_values => $include_values } );
+			$buffer .= qq(\t0\n);
+			$self->_append_file( $out_file_table_full_path, $buffer );
 		}
-		my $message = "$html_buffer</table>";
 		if ( @$ids <= MAX_DISPLAY_TAXA ) {
+			my $html_buffer_ref = BIGSdb::Utils::slurp($html_buffer_file);
+			my $message         = "$$html_buffer_ref</table>";
 			$self->{'jobManager'}->update_job_status( $job_id,
 				{ percent_complete => $complete, message_html => $message, stage => "Checked id: $id" } );
 		} else {
-			$self->{'jobManager'}
-			  ->update_job_status( $job_id, { percent_complete => $complete, stage => "Checked id: $id" } );
+			if ( $progress % 10 == 0 || $progress == @$ids ) {
+				$self->{'jobManager'}
+				  ->update_job_status( $job_id, { percent_complete => $complete, stage => "Checked id: $id" } );
+			}
 		}
 		$td = $td == 1 ? 2 : 1;
 		$first = 0;
 		return if $self->{'exit'};
 	}
+	unlink $html_buffer_file;
 	if ($some_results) {
-		open( my $fh_output_table, '>:encoding(utf8)', $out_file_table_full_path )
-		  or $logger->error("Can't open temp file $out_file_table_full_path for writing");
-		say $fh_output_table $file_buffer;
-		close $fh_output_table;
 		$self->{'jobManager'}->update_job_output( $job_id, { filename => $out_file, description => '01_FASTA' } );
 		$self->{'jobManager'}
 		  ->update_job_output( $job_id, { filename => $out_file_flanking, description => '02_FASTA with flanking' } );
@@ -443,6 +454,15 @@ sub run_job {
 		$self->{'jobManager'}
 		  ->update_job_status( $job_id, { percent_complete => 100, message_html => '<p>No matches found.</p>' } );
 	}
+	return;
+}
+
+sub _append_file {
+	my ( $self, $filename, $file_buffer ) = @_;
+	open( my $fh, '>>:encoding(utf8)', $filename )
+	  or $logger->error("Cannot open temp file $filename for writing");
+	print $fh $file_buffer;
+	close $fh;
 	return;
 }
 
@@ -560,7 +580,7 @@ sub _get_prov_html_cells {
 
 sub _get_prov_text_cells {
 	my ( $self,       $args )           = @_;
-	my ( $isolate_id, $include_values ) = @{$args}{qw(isolate_id include_values  )};
+	my ( $isolate_id, $include_values ) = @{$args}{qw(isolate_id include_values)};
 	my $label  = $self->_get_isolate_label($isolate_id);
 	my $buffer = qq($isolate_id\t$label);
 	$buffer .= qq(\t$_) foreach @$include_values;
@@ -716,11 +736,16 @@ sub _print_interface {
 }
 
 sub _blast {
-	my ( $self, $isolate_id, $seq_ref, $form_params ) = @_;
-	$$seq_ref =~ s/>.+\n//gx;    #Remove BLAST identifier lines if present
-	my $seq_type = BIGSdb::Utils::sequence_type($$seq_ref);
-	$$seq_ref =~ s/\s//gx;
+	my ( $self, $isolate_id, $form_params ) = @_;
+	my $mu = Memory::Usage->new();
+	$mu->record('Start BLAST');
+	my $seq = $form_params->{'sequence'};
+	$seq =~ s/>.+\n//gx;    #Remove BLAST identifier lines if present
+	my $seq_type = BIGSdb::Utils::sequence_type($seq);
+	$seq =~ s/\s//gx;
 	my $program;
+	$mu->record('After seqtype');
+
 	if ( $seq_type eq 'DNA' ) {
 		$program = $form_params->{'tblastx'} ? 'tblastx' : 'blastn';
 	} else {
@@ -730,20 +755,21 @@ sub _blast {
 	my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/${file_prefix}_file.txt";
 	my $temp_outfile   = "$self->{'config'}->{'secure_tmp_dir'}/${file_prefix}_outfile.txt";
 	my $temp_queryfile = "$self->{'config'}->{'secure_tmp_dir'}/${file_prefix}_query.txt";
-	my $outfile_url    = "$file_prefix\_outfile.txt";
+	my $outfile_url    = "${file_prefix}_outfile.txt";
 
 	#create query FASTA file
 	open( my $queryfile_fh, '>', $temp_queryfile )
-	  or $logger->error("Can't open temp file $temp_queryfile for writing");
-	print $queryfile_fh ">query\n$$seq_ref\n";
+	  or $logger->error("Cannot open temp file $temp_queryfile for writing");
+	say $queryfile_fh ">query\n$seq";
 	close $queryfile_fh;
+	$mu->record('After query file');
 
 	#create isolate FASTA database
 	my $qry =
 	    'SELECT DISTINCT s.id FROM sequence_bin s LEFT JOIN experiment_sequences e ON '
 	  . 's.id=e.seqbin_id LEFT JOIN project_members p ON s.isolate_id = p.isolate_id '
 	  . 'WHERE s.isolate_id=?';
-	my @criteria = ($isolate_id);
+	my $criteria = [$isolate_id];
 	my $method   = $form_params->{'seq_method_list'};
 	if ($method) {
 		if ( !any { $_ eq $method } SEQ_METHODS ) {
@@ -751,7 +777,7 @@ sub _blast {
 			return [];
 		}
 		$qry .= ' AND method=?';
-		push @criteria, $method;
+		push @$criteria, $method;
 	}
 	my $project = $form_params->{'project_list'};
 	if ($project) {
@@ -760,7 +786,7 @@ sub _blast {
 			return [];
 		}
 		$qry .= ' AND project_id=?';
-		push @criteria, $project;
+		push @$criteria, $project;
 	}
 	my $experiment = $form_params->{'experiment_list'};
 	if ($experiment) {
@@ -769,18 +795,23 @@ sub _blast {
 			return [];
 		}
 		$qry .= ' AND experiment_id=?';
-		push @criteria, $experiment;
+		push @$criteria, $experiment;
 	}
+	$mu->record('Before seqbin query');
 	my $seqbin_ids =
-	  $self->{'datastore'}->run_query( $qry, \@criteria, { fetch => 'col_arrayref', cache => 'BLAST::blast' } );
+	  $self->{'datastore'}->run_query( $qry, $criteria, { fetch => 'col_arrayref', cache => 'BLAST::blast' } );
+	$mu->record('After seqbin query');
 	my $contigs = $self->{'contigManager'}->get_contigs_by_list($seqbin_ids);
+	$mu->record('After getting contigs');
 	$self->{'db'}->commit;    #Prevent idle in transaction table lock.
 	open( my $fastafile_fh, '>', $temp_fastafile )
-	  or $logger->error("Can't open temp file $temp_fastafile for writing");
+	  or $logger->error("Cannot open temp file $temp_fastafile for writing");
+
 	foreach my $seqbin_id (@$seqbin_ids) {
 		say $fastafile_fh ">$seqbin_id\n$contigs->{$seqbin_id}";
 	}
 	close $fastafile_fh;
+	$mu->record('After FASTA file');
 	if ( -z $temp_fastafile ) {
 		$self->_clean_up_temp_files($file_prefix);
 		return [];
@@ -813,8 +844,11 @@ sub _blast {
 	my $param_string;
 	$param_string .= " $_ $params{$_}" foreach keys %params;
 	system("$self->{'config'}->{'blast+_path'}/$program$param_string 2>/dev/null");
+	$mu->record('After BLAST run');
 	my $matches = $self->_parse_blast( $outfile_url, $hits );
+	$mu->record('After parsing matches');
 	$self->_clean_up_temp_files($file_prefix);
+	$mu->dump();
 	return $matches;
 }
 
@@ -832,19 +866,19 @@ sub _parse_blast {
 		$logger->error("BLAST file $full_path does not exist.");
 		return [];
 	}
-	my @matches;
+	my $matches = [];
 	my $rows;
 	open( my $blast_fh, '<', $full_path )
 	  || ( $logger->error("Cannot open BLAST output file $full_path. $!") );
 	while ( my $line = <$blast_fh> ) {
 		next if !$line || $line =~ /^\#/x;
 		my $match = $self->_extract_match_from_blast_result_line($line);
-		push @matches, $match;
+		push @$matches, $match;
 		$rows++;
 		last if $rows == $hits;
 	}
 	close $blast_fh;
-	return \@matches;
+	return $matches;
 }
 
 sub _extract_match_from_blast_result_line {
