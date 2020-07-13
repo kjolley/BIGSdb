@@ -25,7 +25,7 @@ use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use List::MoreUtils qw(any uniq);
-use Memory::Usage;                   #TODO Remove
+use Memory::Usage;    #TODO Remove
 use constant MAX_INSTANT_RUN  => 10;
 use constant MAX_DISPLAY_TAXA => 1000;
 use constant MAX_TAXA         => 10_000;
@@ -196,9 +196,13 @@ sub run {
 		return;
 	}
 	$self->_print_interface;
-	my $prefix = BIGSdb::Utils::get_random();
+	my $prefix     = BIGSdb::Utils::get_random();
+	my $job_id     = BIGSdb::Utils::get_random();
+	my $params     = $q->Vars;
+	my $query_file = $self->_create_query_file( $params, $job_id );
 	$self->_run_now(
 		{
+			query_file     => $query_file,
 			prefix         => $prefix,
 			ids            => \@ids,
 			includes       => \@includes,
@@ -207,6 +211,7 @@ sub run {
 			include_seqbin => ( $q->param('include_seqbin') // 0 )
 		}
 	);
+	unlink $query_file;
 	return;
 }
 
@@ -231,8 +236,8 @@ sub _get_headers {
 
 sub _run_now {
 	my ( $self, $args ) = @_;
-	my ( $prefix, $ids, $includes, $show_no_match, $flanking, $include_seqbin ) =
-	  @{$args}{qw(prefix ids includes show_no_match flanking include_seqbin)};
+	my ( $prefix, $query_file, $ids, $includes, $show_no_match, $flanking, $include_seqbin ) =
+	  @{$args}{qw(prefix query_file ids includes show_no_match flanking include_seqbin)};
 	my ( $html_header, $text_header ) = $self->_get_headers($includes);
 	my $out_file                 = "$prefix.fas";
 	my $out_file_flanking        = "$prefix\_flanking.fas";
@@ -246,7 +251,7 @@ sub _run_now {
 	say q(<div class="box" id="resultstable">);
 
 	foreach my $id (@$ids) {
-		my $matches = $self->_blast( $id, $params );
+		my $matches = $self->_blast( $query_file, $prefix, $id, $params );
 		next if !$show_no_match && ( ref $matches ne 'ARRAY' || !@$matches );
 		print $html_header if $first;
 		my $include_values = $self->_get_include_values( \@$includes, $id );
@@ -334,6 +339,7 @@ sub run_job {
 	$self->{'system'}->{'script_name'} = $params->{'script_name'};
 	my @includes = split /\|\|/x, ( $params->{'includes'} // q() );
 	my ( $html_header, $text_header ) = $self->_get_headers( \@includes );
+	my $query_file               = $self->_create_query_file( $params, $job_id );
 	my $out_file                 = "$job_id.fas";
 	my $out_file_flanking        = "${job_id}_flanking.fas";
 	my $out_file_table           = "${job_id}_table.txt";
@@ -352,10 +358,11 @@ sub run_job {
 		$self->{'jobManager'}->update_job_status( $job_id,
 			{ message_html => "<p>Dynamically updated output disabled as >$max_display_taxa taxa selected.</p>" } );
 	}
+	my $prefix = BIGSdb::Utils::get_random();
 	foreach my $id (@$ids) {
 		$progress++;
 		my $complete = int( 100 * $progress / @$ids );
-		my $matches = $self->_blast( $id, $params );
+		my $matches = $self->_blast( $query_file, $prefix, $id, $params );
 		if ( !$params->{'show_no_match'} && ( ref $matches ne 'ARRAY' || !@$matches ) ) {
 			if ( $progress % 10 == 0 || $progress == @$ids ) {
 				$self->{'jobManager'}
@@ -429,6 +436,7 @@ sub run_job {
 		return if $self->{'exit'};
 	}
 	unlink $html_buffer_file;
+	unlink $query_file;
 	if ($some_results) {
 		$self->{'jobManager'}->update_job_output( $job_id, { filename => $out_file, description => '01_FASTA' } );
 		$self->{'jobManager'}
@@ -735,8 +743,19 @@ sub _print_interface {
 	return;
 }
 
+sub _create_query_file {
+	my ( $self, $params, $file_prefix ) = @_;
+	my $temp_queryfile = "$self->{'config'}->{'secure_tmp_dir'}/${file_prefix}_query.txt";
+	my $seq            = $params->{'sequence'};
+	open( my $queryfile_fh, '>', $temp_queryfile )
+	  or $logger->error("Cannot open temp file $temp_queryfile for writing");
+	say $queryfile_fh ">query\n$seq";
+	close $queryfile_fh;
+	return $temp_queryfile;
+}
+
 sub _blast {
-	my ( $self, $isolate_id, $form_params ) = @_;
+	my ( $self, $query_file, $file_prefix, $isolate_id, $form_params ) = @_;
 	my $mu = Memory::Usage->new();
 	$mu->record('Start BLAST');
 	my $seq = $form_params->{'sequence'};
@@ -751,19 +770,9 @@ sub _blast {
 	} else {
 		$program = 'tblastn';
 	}
-	my $file_prefix    = BIGSdb::Utils::get_random();
 	my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/${file_prefix}_file.txt";
 	my $temp_outfile   = "$self->{'config'}->{'secure_tmp_dir'}/${file_prefix}_outfile.txt";
-	my $temp_queryfile = "$self->{'config'}->{'secure_tmp_dir'}/${file_prefix}_query.txt";
 	my $outfile_url    = "${file_prefix}_outfile.txt";
-
-	#create query FASTA file
-	open( my $queryfile_fh, '>', $temp_queryfile )
-	  or $logger->error("Cannot open temp file $temp_queryfile for writing");
-	say $queryfile_fh ">query\n$seq";
-	close $queryfile_fh;
-	$mu->record('After query file');
-
 	#create isolate FASTA database
 	my $qry =
 	    'SELECT DISTINCT s.id FROM sequence_bin s LEFT JOIN experiment_sequences e ON '
@@ -828,7 +837,7 @@ sub _blast {
 		-max_target_seqs => $hits,
 		-word_size       => $word_size,
 		-db              => $temp_fastafile,
-		-query           => $temp_queryfile,
+		-query           => $query_file,
 		-out             => $temp_outfile,
 		-outfmt          => 6,
 		-$filter         => 'no'
