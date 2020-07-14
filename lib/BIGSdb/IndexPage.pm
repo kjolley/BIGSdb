@@ -358,9 +358,9 @@ sub _print_main_section {
 	my $cache_string = $self->get_cache_string;
 	my $set_id       = $self->get_set_id;
 	my $url_root     = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}$cache_string&amp;";
-	say q(<h2 style="text-align:center">Query database</h2>);
-	say qq(<div class="flex_container index_panel_$self->{'system'}->{'dbtype'}">);
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		say q(<h2 style="text-align:center">Query database</h2>);
+		say qq(<div class="flex_container index_panel_$self->{'system'}->{'dbtype'}">);
 		$self->_print_large_button_link(
 			{
 				title => 'Search database',
@@ -392,7 +392,10 @@ sub _print_main_section {
 				);
 			}
 		}
+		say q(</div>);
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		say q(<h2 style="text-align:center">Query a sequence</h2>);
+		say qq(<div class="flex_container index_panel_$self->{'system'}->{'dbtype'}">);
 		$self->_print_large_button_link(
 			{
 				title => 'Sequence query',
@@ -407,6 +410,9 @@ sub _print_main_section {
 				text  => 'Query multiple independent sequences in FASTA format to identify allelic matches.'
 			}
 		);
+		say q(</div>);
+		say q(<h2 style="text-align:center">Find alleles</h2>);
+		say qq(<div class="flex_container index_panel_$self->{'system'}->{'dbtype'}">);
 		$self->_print_large_button_link(
 			{
 				title => 'Sequence attribute search',
@@ -421,10 +427,13 @@ sub _print_main_section {
 				text  => 'Select, analyse and download specific alleles from a single locus.'
 			}
 		);
+		say q(</div>);
 		my $scheme_data = $self->get_scheme_data( { with_pk => 1 } );
 		if (@$scheme_data) {
 			my $scheme_arg = @$scheme_data == 1 ? "&amp;scheme_id=$scheme_data->[0]->{'id'}" : '';
 			my $scheme_desc = @$scheme_data == 1 ? $scheme_data->[0]->{'name'} : '';
+			say q(<h2 style="text-align:center">Search for allelic profiles</h2>);
+			say qq(<div class="flex_container index_panel_$self->{'system'}->{'dbtype'}">);
 			$self->_print_large_button_link(
 				{
 					title => 'Allelic profile query',
@@ -446,9 +455,9 @@ sub _print_main_section {
 					text  => "Lookup multiple $scheme_desc allelic profiles together."
 				}
 			);
+			say q(</div>);
 		}
 	}
-	say q(</div>);
 	return;
 }
 
