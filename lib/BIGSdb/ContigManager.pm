@@ -443,13 +443,14 @@ sub get_contig_length {
 
 sub get_contigs_by_list {
 	my ( $self, $seqbin_ids ) = @_;
-	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $seqbin_ids );
+	my $temp_table = 'temp_seqbin_list';
+	$self->{'datastore'}->create_temp_list_table_from_array( 'int', $seqbin_ids, {table=>$temp_table} );
 	my $seqbin = $self->{'seqbin_table'} // 'sequence_bin';
 	my $data = $self->{'datastore'}->run_query(
 		"SELECT s.id,s.remote_contig,r.uri,r.checksum,s.sequence FROM $seqbin s LEFT JOIN "
 		  . "remote_contigs r ON s.id=r.seqbin_id JOIN $temp_table t ON s.id=t.value",
 		undef,
-		{ fetch => 'all_arrayref', slice => {} }
+		{ fetch => 'all_arrayref', slice => {}, cache => 'ContigManager::get_contigs_by_list' }
 	);
 	my $return_contigs = {};
 	my $uris           = [];
