@@ -25,10 +25,9 @@ use parent qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use List::MoreUtils qw(any uniq);
-use Memory::Usage;    #TODO Remove
 use constant MAX_INSTANT_RUN  => 10;
 use constant MAX_DISPLAY_TAXA => 1000;
-use constant MAX_TAXA         => 10_000;
+use constant MAX_TAXA         => 50_000;
 use constant MAX_QUERY_LENGTH => 100_000;
 use BIGSdb::Constants qw(:interface SEQ_METHODS FLANKING);
 {
@@ -108,7 +107,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.4.17',
+		version     => '1.5.0',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -158,11 +157,12 @@ sub run {
 		$self->_print_interface;
 		return;
 	}
-	if ( @ids > MAX_TAXA ) {
-		my $selected = BIGSdb::Utils::commify( scalar @ids );
-		my $limit    = BIGSdb::Utils::commify(MAX_TAXA);
+	my $max_taxa = $self->_get_limit;
+	if ( @ids > $max_taxa ) {
+		my $selected   = BIGSdb::Utils::commify( scalar @ids );
+		my $nice_limit = BIGSdb::Utils::commify($max_taxa);
 		$self->print_bad_status(
-			{ message => qq(Analysis is restricted to $limit isolates. You have selected $selected.) } );
+			{ message => qq(Analysis is restricted to $nice_limit isolates. You have selected $selected.) } );
 		$self->_print_interface;
 		return;
 	}
@@ -627,6 +627,12 @@ sub _get_include_values {
 	return $include_values;
 }
 
+sub _get_limit {
+	my ($self) = @_;
+	my $limit = $self->{'system'}->{'blast_limit'} // $self->{'config'}->{'blast_limit'} // MAX_TAXA;
+	return $limit;
+}
+
 sub _print_interface {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
@@ -644,6 +650,8 @@ sub _print_interface {
 	say q(<div class="box" id="queryform">);
 	say q(<p>Please select the required isolate ids to BLAST against (use CTRL or SHIFT to make multiple selections) )
 	  . q(and paste in your query sequence.  Nucleotide or peptide sequences can be queried.</p>);
+	my $limit = BIGSdb::Utils::commify( $self->_get_limit );
+	say qq(<p>Analysis is limited to $limit records.</p>);
 	say $q->start_form;
 	say q(<div class="scrollable">);
 	$self->print_seqbin_isolate_fieldset( { selected_ids => $selected_ids, isolate_paste_list => 1 } );
@@ -756,15 +764,11 @@ sub _create_query_file {
 
 sub _blast {
 	my ( $self, $query_file, $file_prefix, $isolate_id, $form_params ) = @_;
-	my $mu = Memory::Usage->new();
-	$mu->record('Start BLAST');
 	my $seq = $form_params->{'sequence'};
 	$seq =~ s/>.+\n//gx;    #Remove BLAST identifier lines if present
-	my $seq_type = BIGSdb::Utils::sequence_type($seq);
+	my $seq_type = BIGSdb::Utils::sequence_type( \$seq );
 	$seq =~ s/\s//gx;
 	my $program;
-	$mu->record('After seqtype');
-
 	if ( $seq_type eq 'DNA' ) {
 		$program = $form_params->{'tblastx'} ? 'tblastx' : 'blastn';
 	} else {
@@ -773,54 +777,7 @@ sub _blast {
 	my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/${file_prefix}_file.txt";
 	my $temp_outfile   = "$self->{'config'}->{'secure_tmp_dir'}/${file_prefix}_outfile.txt";
 	my $outfile_url    = "${file_prefix}_outfile.txt";
-	#create isolate FASTA database
-	my $qry =
-	    'SELECT DISTINCT s.id FROM sequence_bin s LEFT JOIN experiment_sequences e ON '
-	  . 's.id=e.seqbin_id LEFT JOIN project_members p ON s.isolate_id = p.isolate_id '
-	  . 'WHERE s.isolate_id=?';
-	my $criteria = [$isolate_id];
-	my $method   = $form_params->{'seq_method_list'};
-	if ($method) {
-		if ( !any { $_ eq $method } SEQ_METHODS ) {
-			$logger->error("Invalid method $method");
-			return [];
-		}
-		$qry .= ' AND method=?';
-		push @$criteria, $method;
-	}
-	my $project = $form_params->{'project_list'};
-	if ($project) {
-		if ( !BIGSdb::Utils::is_int($project) ) {
-			$logger->error("Invalid project $project");
-			return [];
-		}
-		$qry .= ' AND project_id=?';
-		push @$criteria, $project;
-	}
-	my $experiment = $form_params->{'experiment_list'};
-	if ($experiment) {
-		if ( !BIGSdb::Utils::is_int($experiment) ) {
-			$logger->error("Invalid experiment $experiment");
-			return [];
-		}
-		$qry .= ' AND experiment_id=?';
-		push @$criteria, $experiment;
-	}
-	$mu->record('Before seqbin query');
-	my $seqbin_ids =
-	  $self->{'datastore'}->run_query( $qry, $criteria, { fetch => 'col_arrayref', cache => 'BLAST::blast' } );
-	$mu->record('After seqbin query');
-	my $contigs = $self->{'contigManager'}->get_contigs_by_list($seqbin_ids);
-	$mu->record('After getting contigs');
-	$self->{'db'}->commit;    #Prevent idle in transaction table lock.
-	open( my $fastafile_fh, '>', $temp_fastafile )
-	  or $logger->error("Cannot open temp file $temp_fastafile for writing");
-
-	foreach my $seqbin_id (@$seqbin_ids) {
-		say $fastafile_fh ">$seqbin_id\n$contigs->{$seqbin_id}";
-	}
-	close $fastafile_fh;
-	$mu->record('After FASTA file');
+	$self->_create_isolate_fasta( $temp_fastafile, $isolate_id, $form_params );
 	if ( -z $temp_fastafile ) {
 		$self->_clean_up_temp_files($file_prefix);
 		return [];
@@ -853,12 +810,57 @@ sub _blast {
 	my $param_string;
 	$param_string .= " $_ $params{$_}" foreach keys %params;
 	system("$self->{'config'}->{'blast+_path'}/$program$param_string 2>/dev/null");
-	$mu->record('After BLAST run');
 	my $matches = $self->_parse_blast( $outfile_url, $hits );
-	$mu->record('After parsing matches');
 	$self->_clean_up_temp_files($file_prefix);
-	$mu->dump();
 	return $matches;
+}
+
+sub _create_isolate_fasta {
+	my ( $self, $temp_fastafile, $isolate_id, $form_params ) = @_;
+	my $qry =
+	    'SELECT DISTINCT s.id FROM sequence_bin s LEFT JOIN experiment_sequences e ON '
+	  . 's.id=e.seqbin_id LEFT JOIN project_members p ON s.isolate_id = p.isolate_id '
+	  . 'WHERE s.isolate_id=?';
+	my $criteria = [$isolate_id];
+	my $method   = $form_params->{'seq_method_list'};
+	if ($method) {
+		if ( !any { $_ eq $method } SEQ_METHODS ) {
+			$logger->error("Invalid method $method");
+			return [];
+		}
+		$qry .= ' AND method=?';
+		push @$criteria, $method;
+	}
+	my $project = $form_params->{'project_list'};
+	if ($project) {
+		if ( !BIGSdb::Utils::is_int($project) ) {
+			$logger->error("Invalid project $project");
+			return [];
+		}
+		$qry .= ' AND project_id=?';
+		push @$criteria, $project;
+	}
+	my $experiment = $form_params->{'experiment_list'};
+	if ($experiment) {
+		if ( !BIGSdb::Utils::is_int($experiment) ) {
+			$logger->error("Invalid experiment $experiment");
+			return [];
+		}
+		$qry .= ' AND experiment_id=?';
+		push @$criteria, $experiment;
+	}
+	my $seqbin_ids =
+	  $self->{'datastore'}->run_query( $qry, $criteria, { fetch => 'col_arrayref', cache => 'BLAST::blast' } );
+	my $contigs = $self->{'contigManager'}->get_contigs_by_list($seqbin_ids);
+	$self->{'db'}->commit;    #Prevent idle in transaction table lock.
+	open( my $fastafile_fh, '>', $temp_fastafile )
+	  or $logger->error("Cannot open temp file $temp_fastafile for writing");
+	foreach my $seqbin_id (@$seqbin_ids) {
+		say $fastafile_fh ">$seqbin_id\n$contigs->{$seqbin_id}";
+	}
+	close $fastafile_fh;
+	undef %$contigs;
+	return;
 }
 
 sub _clean_up_temp_files {
