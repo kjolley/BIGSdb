@@ -90,7 +90,7 @@ function initiate() {
     		return(this.href.replace(/(.*)/, "javascript:loadContent\('\$1\'\)"));
     	});
   	});
-	
+
 	\$('.expand_link').off('click').on('click', function(){	
 		var field = this.id.replace('expand_','');
 	  	if (\$('#' + field).hasClass('expandable_expanded')) {
