@@ -77,12 +77,13 @@ h2 a:hover {
 }
 
 h3 {
-	font: 400 1.15em pt_sansbold, sans-serif;
-	color: #8080a0;
+	font: 400 1.3em tinosregular, serif;
+	color: #585874;
 }
 
 h4, h5, h6 {
-	font: 1em Arial, Helvetica, sans-serif
+	font: 400 1.2em tinosregular, serif;
+	color: #585858;
 }
 
 textarea {
@@ -768,6 +769,7 @@ a.link_box {
 }
 
 a.link_box h3 {
+	font: 400 1.15em pt_sansbold, sans-serif;
 	color: #455870;
 	text-decoration: underline;
 	text-underline-offset: 0.1em;
