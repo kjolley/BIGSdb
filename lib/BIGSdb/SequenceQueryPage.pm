@@ -91,17 +91,20 @@ function initiate() {
     		return(this.href.replace(/(.*)/, "javascript:loadContent\('\$1\'\)"));
     	});
   	});
-	\$('#expand_matches').off('click').on('click', function(){	  
-	  if (\$('#matches').hasClass('expandable_expanded')) {
-	  	\$('#matches').switchClass('expandable_expanded','expandable_retracted_large',0, null, function(){
-	  		\$('#expand_matches').html('<span class="fas fa-chevron-down"></span>');  		
+  	
+	\$('.expand_link').off('click').on('click', function(){	
+		var field = this.id.replace('expand_','');
+	  	if (\$('#' + field).hasClass('expandable_expanded')) {
+	  	\$('#' + field).switchClass('expandable_expanded','expandable_retracted_large',0, null, function(){
+	  		\$('#expand_' + field).html('<span class="fas fa-chevron-down"></span>');
 	  	});	    
 	  } else {
-	  	\$('#matches').switchClass('expandable_retracted_large','expandable_expanded',1000, "easeInOutQuad", function(){
-	  		\$('#expand_matches').html('<span class="fas fa-chevron-up"></span>');  		
+	  	\$('#' + field).switchClass('expandable_retracted_large','expandable_expanded',1000, "easeInOutQuad", function(){
+	  		\$('#expand_' + field).html('<span class="fas fa-chevron-up"></span>');
 	  	});	    
 	  }
-	});
+	});	
+	
 	\$("div#results a.tooltip").each(function( index ) {
 		var value = \$(this).attr('title');
 		value = value.replace(/^([^<h3>].+?) - /,"<h3>\$1</h3>");
