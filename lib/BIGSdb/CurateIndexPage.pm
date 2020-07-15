@@ -1852,7 +1852,7 @@ sub print_content {
 			  . qq(style="display:$off" title="Showing common functions"></span>);
 			say q(<span id="all_curator_methods_on" class="toggle_icon fas fa-toggle-on fa-2x" )
 			  . qq(style="display:$on" title="Showing all authorized functions"></span>);
-			say q(Show all</a>);
+			say q(<span style="vertical-align:0.4em">Show all</a></a>);
 			say q(</div>);
 		}
 		say q(<span class="main_icon fas fa-user-tie fa-3x fa-pull-left"></span>);
@@ -1960,7 +1960,7 @@ sub _print_admin_toggles {
 		  . qq(style="display:$off" title="Not showing $expanded admin functions"></span>)
 		  . qq(<span id="${category}_admin_methods_on" class="toggle_icon fas fa-toggle-on fa-2x" )
 		  . qq(style="display:$on" title="Showing $expanded admin and configuration functions"></span> )
-		  . qq($label{$category}</a></li>);
+		  . qq(<span style="vertical-align:0.4em">$label{$category}</span></a></li>);
 		$all_on = 0 if !$self->{'prefs'}->{"${category}_admin_methods"};
 	}
 	if ( $count > 1 || ( $count == 1 && $$buffer =~ /default_show_admin/x ) ) {
@@ -1975,7 +1975,7 @@ sub _print_admin_toggles {
 		  . qq(style="display:$off" title="Not showing all admin functions"></span>)
 		  . q(<span id="all_admin_methods_on" class="toggle_icon fas fa-toggle-on fa-2x" )
 		  . qq(style="display:$on" title="Showing all admin and configuration functions"></span> )
-		  . q(Show all</a></li>);
+		  . q(<span style="vertical-align:0.4em">Show all</span></a></li>);
 	}
 	say q(</ul>);
 	say q(</div>);
