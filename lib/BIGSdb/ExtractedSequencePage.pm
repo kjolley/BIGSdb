@@ -23,7 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::Page);
 use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
-use BIGSdb::Constants qw(BUTTON_CLASS FLANKING);
+use BIGSdb::Constants qw(FLANKING);
 my $logger = get_logger('BIGSdb.Page');
 
 sub print_content {
@@ -266,7 +266,7 @@ sub get_option_fieldset {
 	$buffer .= $q->submit(
 		-name  => 'reload',
 		-label => 'Reload',
-		-class => BUTTON_CLASS,
+		-class => 'small_submit',
 		-style => 'float:right;margin-top:0.5em'
 	);
 	$buffer .= $q->hidden($_) foreach qw(db page seqbin_id start end reverse translate orf introns id locus set_id);
@@ -386,7 +386,7 @@ sub get_title {
 	my $seqbin_id = $q->param('seqbin_id');
 	my $start     = $q->param('start');
 	my $end       = $q->param('end');
-	my $title = qq(Extracted sequence: Seqbin id#:$seqbin_id ($start-$end) - $self->{'system'}->{'description'});
+	my $title     = qq(Extracted sequence: Seqbin id#:$seqbin_id ($start-$end) - $self->{'system'}->{'description'});
 	return $title;
 }
 

@@ -198,7 +198,7 @@ sub _print_position_form {
 		-default => $field_info->[1] ? 'true' : 'false'
 	);
 	say q(</li></ul>);
-	say $q->submit( -name => 'update', -label => 'Update', -class => BUTTON_CLASS );
+	say $q->submit( -name => 'update', -label => 'Update', -class => 'submit', -style => 'margin-top:0.5em' );
 	say $q->hidden($_) foreach qw (db page id);
 	say $q->end_form;
 	say q(</fieldset>);
@@ -479,7 +479,7 @@ sub _edit_field {
 		$buffer .= q(</li>);
 	}
 	$buffer .= q(</ul>);
-	$buffer .= $q->submit( -name => 'update_field', -label => 'Update', -class => BUTTON_CLASS );
+	$buffer .= $q->submit( -name => 'update_field', -label => 'Update', -class => 'submit' );
 	$buffer .= $q->hidden($_) foreach qw (db page id);
 	$buffer .= $q->hidden( field_order => $field_order );
 	$buffer .= $q->end_form;

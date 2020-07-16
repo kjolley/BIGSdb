@@ -839,7 +839,7 @@ sub _submit_alleles {
 		say q(<div id="tree" class="scheme_tree" style="float:left;max-height:initial">);
 		say $self->get_tree( undef, { no_link_out => 1, select_schemes => 1 } );
 		say q(</div>);
-		say $q->submit( -name => 'filter', -id => 'filter', -label => 'Filter', -class => 'submit' );
+		say $q->submit( -name => 'filter', -id => 'filter', -label => 'Filter', -class => 'small_submit' );
 		say q(</fieldset>);
 		my @selected_schemes;
 		foreach my $scheme_id ( @$schemes, 0 ) {
@@ -1092,7 +1092,7 @@ sub _print_profile_table_fieldset {
 
 	if ( $options->{'curate'} && !$status->{'all_assigned_or_rejected'} ) {
 		say $q->start_form( -action => $self->{'system'}->{'curate_script'} );
-		say $q->submit( -name => 'Batch curate', -class => BUTTON_CLASS );
+		say $q->submit( -name => 'Batch curate', -class => 'submit' );
 		my $page = $q->param('page');
 		$q->param( page            => 'profileBatchAdd' );
 		$q->param( scheme_id       => $scheme_id );
@@ -1136,7 +1136,7 @@ sub _print_isolate_table_fieldset {
 
 	if ( $options->{'curate'} && !$submission->{'outcome'} && !$self->{'contigs_missing'} ) {
 		say $q->start_form( -action => $self->{'system'}->{'curate_script'} );
-		say $q->submit( -name => 'Batch curate', -class => BUTTON_CLASS );
+		say $q->submit( -name => 'Batch curate', -class => 'submit' );
 		my $page = $q->param('page');
 		$q->param( page   => 'batchAdd' );
 		$q->param( table  => 'isolates' );
@@ -1376,7 +1376,7 @@ sub _print_file_upload_fieldset {
 	say $q->start_form( -id => 'file_upload_form' );
 	say q(<div class="fallback">);
 	print $q->filefield( -name => 'file_upload', -id => 'file_upload', -multiple );
-	say $q->submit( -name => 'Upload files', -class => BUTTON_CLASS );
+	say $q->submit( -name => 'Upload files', -class => 'small_submit' );
 	say q(</div>);
 	say q(<div class="dz-message">Drop files here or click to upload.</div>);
 	$q->param( no_check => 1 );
@@ -1391,7 +1391,7 @@ sub _print_file_upload_fieldset {
 		$q->param( delete => 1 );
 		say $q->hidden($_)
 		  foreach qw(db page alleles profiles isolates genomes locus submission_id delete no_check view);
-		say $q->submit( -label => 'Delete selected files', -class => BUTTON_CLASS );
+		say $q->submit( -label => 'Delete selected files', -class => 'small_submit' );
 		say $q->end_form;
 	}
 	say q(</fieldset>);
@@ -1922,7 +1922,7 @@ sub _print_sequence_table_fieldset {
 
 	if ( $options->{'curate'} && !$status->{'all_assigned_or_rejected'} && !$has_extended_attributes ) {
 		say $q->start_form( -action => $self->{'system'}->{'curate_script'} );
-		say $q->submit( -name => 'Batch curate', -class => BUTTON_CLASS, -style => 'float:left' );
+		say $q->submit( -name => 'Batch curate', -class => 'submit', -style => 'float:left;margin-right:0.5em' );
 		my $page = $q->param('page');
 		$q->param( page         => 'batchAddFasta' );
 		$q->param( locus        => $locus );
@@ -1933,7 +1933,7 @@ sub _print_sequence_table_fieldset {
 		say $q->hidden($_) foreach qw( db page submission_id locus sender status sequence complete_CDS );
 		say $q->end_form;
 		say $q->start_form( -action => $self->{'system'}->{'query_script'}, -target => '_blank' );
-		say $q->submit( -name => 'Batch query', -class => BUTTON_CLASS, -style => 'float:left' );
+		say $q->submit( -name => 'Batch query', -class => 'submit', -style => 'float:left' );
 		$q->param( page => 'batchSequenceQuery' );
 		say $q->hidden($_) foreach qw( db page submission_id locus sequence );
 		say $q->hidden( submit => 1 );
@@ -1953,8 +1953,8 @@ sub _print_update_button {
 	if ( $options->{'mark_all'} ) {
 		say q(<span style="margin-right:1em">)
 		  . q(Mark all: <input type="button" onclick='status_markall("pending")' )
-		  . q(value="Pending" class="smallbutton" /><input type="button" )
-		  . q(onclick='status_markall("rejected")' value="Rejected" class="smallbutton" />)
+		  . q(value="Pending" class="small_reset" /><input type="button" )
+		  . q(onclick='status_markall("rejected")' value="Rejected" class="small_reset" />)
 		  . q(</span>);
 	}
 	if ( $options->{'record_status'} ) {
@@ -1965,7 +1965,7 @@ sub _print_update_button {
 			values => [qw(pending accepted rejected)]
 		);
 	}
-	say $q->submit( -name => 'update', -label => 'Update', -class => BUTTON_CLASS );
+	say $q->submit( -name => 'update', -label => 'Update', -class => 'small_submit' );
 	say q(</div>);
 	return;
 }
@@ -2059,9 +2059,14 @@ sub _print_message_fieldset {
 		$buffer .= q(<div>);
 		$buffer .= $q->textarea( -name => 'message', -id => 'message', -style => 'width:100%' );
 		$buffer .= q(</div><div style="float:right">Message: );
-		$buffer .= $q->submit( -name => 'append_only', -label => 'Append', -class => BUTTON_CLASS );
+		$buffer .= $q->submit(
+			-name  => 'append_only',
+			-label => 'Append',
+			-class => 'small_submit',
+			-style => 'margin-right:0.5em'
+		);
 		if ( $submission->{'status'} ne 'started' ) {
-			$buffer .= $q->submit( -name => 'append_and_send', -label => 'Send now', -class => BUTTON_CLASS );
+			$buffer .= $q->submit( -name => 'append_and_send', -label => 'Send now', -class => 'small_submit' );
 		}
 		$buffer .= q(</div>);
 		$buffer .= $q->hidden($_)

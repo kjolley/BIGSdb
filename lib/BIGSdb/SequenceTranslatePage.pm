@@ -22,7 +22,6 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::ExtractedSequencePage);
 use Log::Log4perl qw(get_logger);
-use BIGSdb::Constants qw(:interface);
 my $logger = get_logger('BIGSdb.Page');
 use constant MAX_SEQ_LENGTH => 10000;
 
@@ -77,10 +76,10 @@ sub print_content {
 	say $q->popup_menu( -name => 'orf', -id => 'orf', -values => [qw(1 2 3)], -default => $orf );
 	say q(</li></ul>);
 	say q(<span style="float:left">);
-	say $q->submit( -label => 'Reverse', -name => 'reverse', -class => BUTTON_CLASS );
+	say $q->submit( -label => 'Reverse', -name => 'reverse', -class => 'small_submit' );
 	say q(</span>);
 	say q(<span style="float:right">);
-	say $q->submit( -label => 'Update', -class => BUTTON_CLASS );
+	say $q->submit( -label => 'Update', -class => 'small_submit' );
 	say q(</span>);
 	say $q->hidden($_) foreach qw(db page sequence);
 	say $q->end_form;

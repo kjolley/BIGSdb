@@ -79,7 +79,7 @@ sub _print_interface {
 			-labels  => $labels,
 			-default => $q->param('user_db')
 		);
-		say $q->submit( -name => 'select_db', -label => 'Select', class => BUTTON_CLASS );
+		say $q->submit( -name => 'select_db', -label => 'Select', -class => 'small_button' );
 		say $q->hidden($_) foreach qw(db page);
 		say $q->end_form;
 		say q(</fieldset><div style="clear:both"></div>);

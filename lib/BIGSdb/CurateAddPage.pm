@@ -761,9 +761,8 @@ sub _check_users {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by
 			);
 			$msg .= q(</div><p>);
 			if ( !@$problems ) {
-				my $class = RESET_BUTTON_CLASS;
 				$msg .=
-				    qq( <a class="$class ui-button-text-only" href="$self->{'system'}->{'script_name'}?)
+				  qq( <a class="reset" href="$self->{'system'}->{'script_name'}?)
 				  . qq(db=$self->{'instance'}&amp;page=importUser&amp;user_db=$newdata->{'user_db'}&amp;)
 				  . qq(user_name=$newdata->{'user_name'}"><span class="ui-button-text">Import user</span></a>);
 			}

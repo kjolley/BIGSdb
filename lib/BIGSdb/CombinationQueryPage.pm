@@ -185,7 +185,7 @@ sub _print_interface {
 		my $first = 1;
 		say qq(<li><label for="$primary_key" class="display">$primary_key: </label>);
 		say $q->textfield( -name => $primary_key, -id => $primary_key, -class => 'allele_entry' );
-		say $q->submit( -name => 'Autofill', -class => 'submit' ) if $first;
+		say $q->submit( -name => 'Autofill', -class => 'small_submit' ) if $first;
 		$first = 0;
 		say q(</li>);
 		say q(</ul></fieldset>);
@@ -235,7 +235,7 @@ sub _print_interface {
 	say q(</span></li><li>);
 	say $self->get_number_records_control;
 	say q(</li></ul></fieldset></div>);
-	$self->print_action_fieldset( { scheme_id => $scheme_id } );
+	$self->print_action_fieldset( { submit_label => 'Search', scheme_id => $scheme_id } );
 	say $q->hidden($_) foreach qw (db page scheme_id);
 	say $q->hidden( sent => 1 );
 	say $q->end_form;

@@ -51,8 +51,6 @@ use constant SEQ_METHODS =>
 push @EXPORT_OK, qw(SEQ_METHODS);
 
 #Interface
-use constant BUTTON_CLASS       => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all';
-use constant RESET_BUTTON_CLASS => 'resetbutton ui-button ui-widget ui-state-default ui-corner-all';
 use constant FACE_STYLE         => (
 	good  => q(class="far fa-lg fa-smile" style="color:green"),
 	mixed => q(class="far fa-lg fa-meh" style="color:blue"),
@@ -155,7 +153,7 @@ use constant CODE_FILE => q(<span class="fa-stack fa-2x export">)
   . q(<span class="fas fa-file-code fa-stack-1x fa-inverse"></span></span>);
 use constant FLANKING => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
 use constant MAX_ROWS => 20;
-@values = qw(BUTTON_CLASS RESET_BUTTON_CLASS FACE_STYLE SHOW HIDE SAVE SAVING UP DOWN LEFT RIGHT
+@values = qw(FACE_STYLE SHOW HIDE SAVE SAVING UP DOWN LEFT RIGHT
   EDIT DELETE ADD COMPARE UPLOAD UPLOAD_CHANGE_CONFIG QUERY USERS GOOD BAD TRUE FALSE BAN DOWNLOAD
   BACK QUERY_MORE EDIT_MORE UPLOAD_CONTIGS LINK_CONTIGS MORE HOME RELOAD KEY EYE_SHOW EYE_HIDE
   CURATE EXPORT_TABLE EXCEL_FILE TEXT_FILE FASTA_FILE FASTA_FLANKING_FILE LABELLED_FASTA_FILE

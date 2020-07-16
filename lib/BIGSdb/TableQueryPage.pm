@@ -111,13 +111,11 @@ sub print_content {
 sub get_title {
 	my ($self) = @_;
 	my $table = $self->{'cgi'}->param('table');
-	my %title = (
-		sequences => 'Sequence attribute search'
-	);
-	if ($title{$table}){
+	my %title = ( sequences => 'Sequence attribute search' );
+	if ( $title{$table} ) {
 		return $title{$table};
 	}
-	my $record = $self->get_record_name( $table ) || 'record';
+	my $record = $self->get_record_name($table) || 'record';
 	return "Query $record information";
 }
 
@@ -207,7 +205,7 @@ sub _print_table_fields {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		print qq(<a id="add_table_fields" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=tableQuery&amp;fields=table_fields&amp;table=$table&amp;row=$next_row&amp;no_header=1" )
-		  . q(data-rel="ajax" class="button">+</a>);
+		  . q(data-rel="ajax" class="add_button"><span class="fa fas fa-plus"></span></a>);
 		say $self->get_tooltip( '', { id => 'field_tooltip' } );
 	}
 	say q(</span>);
@@ -457,9 +455,9 @@ sub _get_dropdown_filter {
 
 sub _get_user_table_values {
 	my ( $self, $field ) = @_;
-	my $user_names = $self->{'datastore'}
-	  ->run_query( 'SELECT user_name FROM users WHERE id>0', undef, { fetch => 'col_arrayref' } );
-	my %user = map{$_ => 1}@$user_names;
+	my $user_names =
+	  $self->{'datastore'}->run_query( 'SELECT user_name FROM users WHERE id>0', undef, { fetch => 'col_arrayref' } );
+	my %user = map { $_ => 1 } @$user_names;
 	my $values =
 	  $self->{'datastore'}
 	  ->run_query( "SELECT $field FROM users WHERE $field IS NOT NULL AND id>0", undef, { fetch => 'col_arrayref' } );
@@ -467,13 +465,12 @@ sub _get_user_table_values {
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT DISTINCT user_db FROM users WHERE user_db IS NOT NULL', undef, { fetch => 'col_arrayref' } );
 	foreach my $user_db_id (@$user_dbs) {
-		my $user_db = $self->{'datastore'}->get_user_db($user_db_id);
-		my $remote_values =
-		  $self->{'datastore'}
-		  ->run_query( "SELECT user_name,$field FROM users", undef, { db => $user_db, fetch => 'all_arrayref',slice=>{} } );
+		my $user_db       = $self->{'datastore'}->get_user_db($user_db_id);
+		my $remote_values = $self->{'datastore'}->run_query( "SELECT user_name,$field FROM users",
+			undef, { db => $user_db, fetch => 'all_arrayref', slice => {} } );
 		next if !@$remote_values;
-		foreach my $remote(@$remote_values){
-			next if !$user{$remote->{'user_name'}};
+		foreach my $remote (@$remote_values) {
+			next if !$user{ $remote->{'user_name'} };
 			push @$values, $remote->{$field};
 		}
 	}
@@ -1278,7 +1275,8 @@ sub print_additional_headerbar_functions {
 	my $record = $self->get_record_name($table);
 	say q(<fieldset><legend>Customize</legend>);
 	say $q->start_form;
-	say $q->submit( -name => 'customize', -label => ucfirst("$record options"), -class => BUTTON_CLASS );
+	say $q->submit( -name => 'customize', -label => ucfirst("$record options"), -class => 'small_submit' )
+	  ;
 	$q->param( page     => 'customize' );
 	$q->param( filename => $filename );
 	say $q->hidden($_) foreach qw (db filename table page);

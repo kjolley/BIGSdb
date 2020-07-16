@@ -247,7 +247,7 @@ sub _print_interface {
 	$self->_print_list_fieldset;
 	$self->_print_filters_fieldset;
 	$self->_print_display_fieldset;
-	$self->print_action_fieldset;
+	$self->print_action_fieldset( { submit_label => 'Search' } );
 	$self->_print_modify_search_fieldset;
 	$self->_print_bookmark_fieldset;
 	say q(</div>);
@@ -781,7 +781,7 @@ sub _print_filters_fieldset_contents {
 			-labels => $labels,
 			-style  => 'max-width:25em'
 		);
-		say q( <a id="add_filter" class="button">+</a>);
+		say q( <a id="add_filter" class="small_submit">Add</a>);
 		say q(</span>);
 	}
 	say << "JS";
@@ -879,6 +879,7 @@ sub _get_bookmarks {
 	my $bookmarks =
 	  $self->{'datastore'}->run_query( 'SELECT id,name,dbase_config FROM bookmarks WHERE user_id=? ORDER BY name',
 		$user_info->{'id'}, { fetch => 'all_arrayref', slice => {} } );
+	return $bookmarks;
 }
 
 sub _print_bookmark_fieldset {
@@ -1121,7 +1122,7 @@ sub _print_provenance_fields {
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_fields" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
-		  . qq(fields=provenance&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>);
+		  . qq(fields=provenance&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="add_button"><span class="fa fas fa-plus"></span></a>);
 		say $self->get_tooltip( '', { id => 'prov_tooltip' } );
 	}
 	say q(</span>);
@@ -1150,7 +1151,8 @@ sub _print_phenotypic_fields {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_phenotypic_fields" href="$self->{'system'}->{'script_name'}?)
 		  . qq(db=$self->{'instance'}&amp;page=query&amp;)
-		  . qq(fields=phenotypic&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>);
+		  . qq(fields=phenotypic&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="add_button">)
+		  . q(<span class="fa fas fa-plus"></span></a>);
 		say $self->get_tooltip( '', { id => 'phenotypic_tooltip' } );
 	}
 	say q(</span>);
@@ -1221,7 +1223,7 @@ sub _print_allele_status_fields {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_allele_status" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=query&amp;fields=allele_status&amp;row=$next_row&amp;no_header=1" data-rel="ajax" )
-		  . q(class="button">+</a>);
+		  . q(class="add_button"><span class="fa fas fa-plus"></span></a>);
 		say $self->get_tooltip( '', { id => 'allele_status_tooltip' } );
 	}
 	say q(</span>);
@@ -1271,7 +1273,7 @@ sub _print_allele_count_fields {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_allele_count" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=query&amp;fields=allele_count&amp;row=$next_row&amp;no_header=1" data-rel="ajax" )
-		  . q(class="button">+</a>);
+		  . q(class="add_button"><span class="fa fas fa-plus"></span></a>);
 		say $self->get_tooltip( '', { id => 'allele_count_tooltip' } );
 	}
 	say q(</span>);
@@ -1320,7 +1322,8 @@ sub _print_loci_fields {
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_loci" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=query&amp;fields=loci&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>);
+		  . qq(page=query&amp;fields=loci&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="add_button">)
+		  . q(<span class="fa fas fa-plus"></span></a>);
 		say $self->get_tooltip( '', { id => 'loci_tooltip' } );
 	}
 	say q(</span>);
@@ -1362,7 +1365,8 @@ sub _print_locus_tag_fields {
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_tags" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=query&amp;fields=tags&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="button">+</a>);
+		  . qq(page=query&amp;fields=tags&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="add_button">)
+		  . q(<span class="fa fas fa-plus"></span></a>);
 		say $self->get_tooltip( '', { id => 'tag_tooltip' } );
 	}
 	say q(</span>);
@@ -1412,7 +1416,7 @@ sub _print_tag_count_fields {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_tag_count" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=query&amp;fields=tag_count&amp;row=$next_row&amp;no_header=1" data-rel="ajax" )
-		  . q(class="button">+</a>);
+		  . q(class="add_button"><span class="fa fas fa-plus"></span></a>);
 		say $self->get_tooltip( '', { id => 'tag_count_tooltip' } );
 	}
 	say q(</span>);

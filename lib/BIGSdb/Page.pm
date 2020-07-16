@@ -704,7 +704,7 @@ sub print_set_section {
 		-labels  => \%labels,
 		-default => $set_id
 	);
-	say $q->submit( -name => 'choose_set', -label => 'Choose', -class => 'smallbutton' );
+	say $q->submit( -name => 'choose_set', -label => 'Choose', -class => 'small_submit' );
 	say $q->hidden($_) foreach qw (db page name set_id select_sets);
 	say $q->end_form;
 	say q(</div></div></div>);
@@ -767,7 +767,7 @@ sub print_scheme_section {
 	my $default = $q->param('scheme_id');
 	say $q->start_form;
 	say $q->popup_menu( -name => 'scheme_id', -values => \@ids, -labels => \%desc, -default => $default );
-	say $q->submit( -class => 'submit', -name => 'Select' );
+	say $q->submit( -class => 'small_submit', -name => 'Select' );
 	say $q->hidden($_) foreach qw(db page name);
 	say $q->end_form;
 	say q(</div></div>);
@@ -779,6 +779,7 @@ sub print_action_fieldset {
 	my $q = $self->{'cgi'};
 	$options = {} if ref $options ne 'HASH';
 	my $page         = $options->{'page'}         // $q->param('page');
+	my $submit_name  = $options->{'submit_name'}  // 'submit';
 	my $submit_label = $options->{'submit_label'} // 'Submit';
 	my $reset_label  = $options->{'reset_label'}  // 'Reset';
 	my $legend       = $options->{'legend'}       // 'Action';
@@ -798,18 +799,16 @@ sub print_action_fieldset {
 
 	#use jquery-ui button classes to ensure consistent formatting of reset link and submit button across browsers
 	if ( !$options->{'no_reset'} ) {
-		my $class = RESET_BUTTON_CLASS;
-		$buffer .= qq(<a href="$url" class="$class ui-button-text-only">)
-		  . qq(<span class="ui-button-text">$reset_label</span></a>\n);
+		$buffer .= qq(<a href="$url" class="reset"><span class="ui-button-text">$reset_label</span></a>\n);
 	}
 	local $" = q( );
-	$buffer .= $q->submit( -name => 'submit', -label => $submit_label, -class => BUTTON_CLASS );
+	$buffer .= $q->submit( -name => $submit_name, -label => $submit_label, -class => 'submit' );
 	if ( $options->{'submit2'} ) {
 		$options->{'submit2_label'} //= $options->{'submit2'};
 		$buffer .= $q->submit(
 			-name  => $options->{'submit2'},
 			-label => $options->{'submit2_label'},
-			-class => BUTTON_CLASS,
+			-class => 'submit',
 			-style => 'margin-left:0.2em'
 		);
 	}

@@ -95,7 +95,7 @@ sub print_content {
 	say q(<h2>Reset</h2>);
 	say q(<p>Click the reset button to remove all user settings for this database - )
 	  . q(this includes locus and scheme field preferences.</p>);
-	say $q->submit( -name => 'reset', -label => 'Reset all to defaults', -class => RESET_BUTTON_CLASS );
+	say $q->submit( -name => 'reset', -label => 'Reset all to defaults', -class => 'reset' );
 	say q(</div>);
 	say $q->end_form;
 	return;
@@ -277,7 +277,7 @@ sub _print_general_options {
 		-label   => 'Enable tooltips (beginner\'s mode).'
 	);
 	say q(</li></ul>);
-	say $q->submit( -name => 'set', -label => 'Set options', -class => BUTTON_CLASS );
+	say $q->submit( -name => 'set', -label => 'Set options', -class => 'submit' );
 	say q(</div></div>);
 	return;
 }
@@ -327,7 +327,7 @@ sub _print_main_results_options {
 		say q(</li>);
 	}
 	say q(</ul>);
-	say $q->submit( -name => 'set', -label => 'Set options', -class => BUTTON_CLASS );
+	say $q->submit( -name => 'set', -label => 'Set options', -class => 'submit' );
 	say q(</div>);
 	return;
 }
@@ -365,7 +365,7 @@ sub _print_isolate_record_options {
 		  . 'definition database (shown in sequence detail tooltip).'
 	);
 	say q(</li></ul>);
-	say $q->submit( -name => 'set', -label => 'Set options', -class => BUTTON_CLASS );
+	say $q->submit( -name => 'set', -label => 'Set options', -class => 'submit' );
 	say q(</div>);
 	return;
 }
@@ -473,11 +473,10 @@ sub _print_main_results_field_options {
 	say q(</ul></div></div>);
 	say q(<div style="clear:both;padding-bottom:0.5em">);
 	local $" = ';';
-	my $all_none_class = RESET_BUTTON_CLASS;
-	say qq(<input type="button" value="All" onclick='@js' class="batch $all_none_class" style="display:none" />);
-	say qq(<input type="button" value="None" onclick='@js2' class="batch $all_none_class" style="display:none" />);
-	say qq(<input type="button" value="Default" onclick='@js3' class="batch $all_none_class" style="display:none" />);
-	say $q->submit( -name => 'set', -label => 'Set options', -class => BUTTON_CLASS );
+	say qq(<input type="button" value="All" onclick='@js' class="batch reset" style="display:none" />);
+	say qq(<input type="button" value="None" onclick='@js2' class="batch reset" style="display:none" />);
+	say qq(<input type="button" value="Default" onclick='@js3' class="batch reset" style="display:none" />);
+	say $q->submit( -name => 'set', -label => 'Set options', -class => 'submit' );
 	say q(</div></div>);
 	return;
 }
@@ -517,10 +516,9 @@ sub _print_main_results_sparse_field_options {
 	say q(</div></div>);
 	say q(<div style="clear:both;padding-bottom:0.5em">);
 	local $" = ';';
-	my $all_none_class = RESET_BUTTON_CLASS;
-	say qq(<input type="button" value="All" onclick='@js' class="batch $all_none_class" style="display:none" />);
-	say qq(<input type="button" value="None" onclick='@js2' class="batch $all_none_class" style="display:none" />);
-	say $q->submit( -name => 'set', -label => 'Set options', -class => BUTTON_CLASS );
+	say qq(<input type="button" value="All" onclick='@js' class="batch reset" style="display:none" />);
+	say qq(<input type="button" value="None" onclick='@js2' class="batch reset" style="display:none" />);
+	say $q->submit( -name => 'set', -label => 'Set options', -class => 'submit' );
 	say q(</div></div>);
 	return;
 }
@@ -593,11 +591,11 @@ sub _print_isolate_query_fields_options {
 	say q(</ul></div>);
 	say q(</div><div style="clear:both;padding-bottom:0.5em">);
 	local $" = ';';
-	my $all_none_class = RESET_BUTTON_CLASS;
-	say qq(<input type="button" value="All" onclick='@js' class="batch $all_none_class" style="display:none" />);
-	say qq(<input type="button" value="None" onclick='@js2' class="batch $all_none_class" style="display:none" />);
-	say qq(<input type="button" value="Default" onclick='@js3' class="batch $all_none_class" style="display:none" />);
-	say $q->submit( -name => 'set', -label => 'Set options', -class => BUTTON_CLASS );
+	say qq(<input type="button" value="All" onclick='@js' class="batch reset" style="display:none" />);
+	say qq(<input type="button" value="None" onclick='@js2' class="batch reset" style="display:none" />);
+	say qq(<input type="button" value="Default" onclick='@js3' class="batch reset" style="display:none" />)
+	  ;
+	say $q->submit( -name => 'set', -label => 'Set options', -class => 'submit' );
 	say q(</div></div></div>);
 	return;
 }

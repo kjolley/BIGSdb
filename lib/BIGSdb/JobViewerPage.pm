@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Page);
-use BIGSdb::Constants qw(:interface BUTTON_CLASS RESET_BUTTON_CLASS);
+use BIGSdb::Constants qw(:interface);
 use List::MoreUtils qw(any);
 use Time::Duration;
 use JSON;
@@ -71,7 +71,6 @@ sub initiate {
 		$self->{$_} = 1 foreach qw(jQuery jQuery.slimbox jQuery.tablesort packery noCache allowExpand);
 	}
 	$self->set_level1_breadcrumbs;
-	
 	return if !defined $id;
 	my $job = $self->{'jobManager'}->get_job($id);
 	if ( defined $job->{'module'} && $self->{'pluginManager'}->is_plugin( $job->{'module'} ) ) {
@@ -306,7 +305,7 @@ sub _print_notification_form {
 		-checked => $params->{'enable_notifications'}
 	);
 	say q(<strong style="margin-right:1em">) . ( $params->{'enable_notifications'} ? 'ON' : 'OFF' ) . q(</strong>);
-	say $q->submit( -name => 'Update', -class => BUTTON_CLASS );
+	say $q->submit( -name => 'Update', -class => 'small_submit' );
 	say q(</dd>);
 	say q(</dl>);
 	say $q->hidden($_) foreach qw(db page id);
@@ -425,7 +424,7 @@ sub _print_output {
 			$text .= qq( ($size_in_MB MB));
 		}
 		$include_in_tar++ if $size < ( 10 * 1024 * 1024 );    #10MB
-		if ( $output->{$description} =~ /\.png$/x || $output->{$description} =~ /\.svg$/x) {
+		if ( $output->{$description} =~ /\.png$/x || $output->{$description} =~ /\.svg$/x ) {
 			$text .=
 			    q(<div style="margin-top:1em;text-align:center">)
 			  . qq(<a href="/tmp/$output->{$description}" data-rel="lightbox-1" class="lightbox" )
@@ -461,9 +460,8 @@ sub _print_output {
 sub _print_cancel_button {
 	my ( $self, $job ) = @_;
 	return if !$self->_can_user_cancel_job($job);
-	my $button_class = RESET_BUTTON_CLASS;
 	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;)
-	  . qq(id=$job->{'id'}&amp;cancel=1" class="$button_class ui-button-text-only ">)
+	  . qq(id=$job->{'id'}&amp;cancel=1" class="reset">)
 	  . q(<span class="ui-button-text">Cancel job!</span></a></p>);
 	return;
 }

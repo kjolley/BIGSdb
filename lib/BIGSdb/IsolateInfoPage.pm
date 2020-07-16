@@ -775,12 +775,12 @@ sub _print_action_panel {
 		$q->param( page => $action );
 		say $q->hidden($_) foreach qw (db page id isolate_id);
 		say q(<div style="text-align:center">);
-		say $q->submit( -name => $labels{$action}, -class => BUTTON_CLASS );
+		say $q->submit( -name => $labels{$action}, -class => 'submit' );
 		say q(</div>);
 		say $q->end_form;
 		say q(</fieldset>);
 	}
-	$q->param( page => $page );    #Reset
+	$q->param( page => $page );                                             #Reset
 	say q(</div></div>);
 	return;
 }

@@ -35,7 +35,8 @@ body, form, input, th, td, div {
 
 select {
 	margin: 0;
-	font-size: 1em
+	font-size: 1em;
+	border:1px solid #ccc;
 }
 
 p {
@@ -155,7 +156,8 @@ select.fieldlist {
 }
 
 input {
-	font-size: 1em
+	font-size: 1em;
+	border: 1px solid #ccc
 }
 
 sub, sup {
@@ -435,38 +437,88 @@ input.plugin_button:hover {
 	box-shadow: 1px 1px 1px #696;
 }
 
-input.submit {
-	background: #eee;
-	margin: 2px;
-	padding: 0 5px 0 5px;
-	color: #333;
-	border: 1px solid;
-	border-top-color: #696;
-	border-left-color: #696;
-	border-right-color: #363;
-	border-bottom-color: #363;
+a.submit, input.submit {
+	cursor: pointer;
+	padding: 10px 20px;
+	border: 0;
+	background: #2F9FDB;
+	border-radius: 4px;
+	font-family: 'pt_sansbold';
+	font-size: 20px;
+	line-height: 130%;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: #FFFFFF;
+	background: #2F9FDB;
+}
+
+a.small_submit, input.small_submit {
 	border-radius: 3px;
+	font-family: 'pt_sansbold';
+	border: 0;
+	cursor: pointer;
+	padding: 1px 10px;
+	background: #2F9FDB;
+	color: #FFFFFF;
+	cursor: pointer;
 }
 
-input.submit:hover {
+a.submit:hover, a.small_submit:hover, input.submit:hover, input.small_submit:hover {
+	background: #8D5196;
+	text-decoration: none
+}
+
+a.reset, input.reset {
+	padding: 8px 20px;
+	border: 2px solid #2F9FDB;
+	background: #FFFFFF;
+	border-radius: 4px;
+	font-family: 'pt_sansbold';
+	font-size: 20px;
+	line-height: 130%;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: #2F9FDB;
+}
+
+input.small_reset {
+	border-radius: 3px;
 	background: #fff;
-	color: black;
-	border-top-color: #9b9;
-	border-left-color: #9b9;
-	border-right-color: #696;
-	border-bottom-color: #696
+	font-family: 'pt_sansbold';
+	border: 0;
+	cursor: pointer;
+	padding: 0 10px;
+	color: #2F9FDB;
+	border: 1px solid #2F9FDB;
+	font-family: 'pt_sansbold';
 }
 
-a.resetbutton, input.resetbutton {
-	border: 1px solid #bbe;
-	color: #333;
-	background: #eee;
-	box-shadow: 1px 1px 1px #aaa;
+a.reset:hover, input.reset:hover {
+	text-decoration: none;
+	color: #8D5196;
+	border: 2px solid #8D5196
 }
 
-a.resetbutton:hover, input.resetbutton:hover {
-	border: 1px solid #669;
-	box-shadow: 1px 1px 1px #669;
+input.small_reset:hover {
+	text-decoration: none;
+	color: #8D5196;
+	border: 1px solid #8D5196
+}
+
+a.add_button {
+	background: #fff;
+	border:1px solid #888;
+	border-radius: 3px;
+	color: #888;
+	padding: 0 0.5em;
+	font-size:1em
+}
+
+a.add_button:hover {
+	text-decoration: none;
+	color: #fff;
+	background:#888;
+
 }
 
 a.smallbutton {
@@ -475,18 +527,6 @@ a.smallbutton {
 
 button.smallbutton {
 	padding: 0.2em 0.5em
-}
-
-input.submitbutton {
-	border: 1px solid #ada;
-	color: #333;
-	background: #eee;
-	box-shadow: 1px 1px 1px #aaa;
-}
-
-input.submitbutton:hover {
-	border: 1px solid #696;
-	box-shadow: 1px 1px 1px #696;
 }
 
 input.updatebutton {
@@ -516,11 +556,6 @@ input.updatebutton:hover {
 	background-image: linear-gradient(to bottom, #3cb0fd, #3498db);
 	text-decoration: none;
 	color: #fff;
-}
-
-a.resetbutton:hover, input.resetbutton:hover, input.submitbutton:hover {
-	background: #fff;
-	color: #212121
 }
 
 input.pagebar:hover {
@@ -658,7 +693,7 @@ div.menu_panel a:hover {
 div.menu_item {
 	cursor: pointer;
 	font-size: 1.2em;
-	letter-spacing: 1.2px;
+	letter-spacing: 0.06em;
 	background: #d0e1f4;
 	color: #2779a8;
 	padding: 0.8em;
@@ -669,7 +704,7 @@ div.menu_item {
 div.multi_menu_item {
 	display: flex;
 	font-size: 1.2em;
-	letter-spacing: 1.2px;
+	letter-spacing: 0.06em;
 	margin-bottom: 0.8em;
 }
 
@@ -1527,7 +1562,7 @@ fieldset {
 	display: inline;
 	vertical-align: top;
 	border: 0;
-	border-top: 1px solid #aaa;
+	border-top: 2px solid #ccc
 }
 
 div#accordion ul {
@@ -1579,6 +1614,8 @@ fieldset label.display {
 }
 
 legend {
+	font-size: 1.1em;
+	padding-bottom: 0.3em;
 	margin-left: 1em;
 	color: navy
 }
@@ -1958,7 +1995,7 @@ button.plugin:hover {
 	display: inline;
 	position: absolute;
 	right: 0;
-	margin: 0.5em 1em
+	margin: 0.5em 1em;
 }
 
 .form_icon_main {
@@ -2262,15 +2299,18 @@ a.slide_trigger {
 }
 
 /* Responsive design */
+@media only screen and (max-width:1450px) {
+	.form_icon {
+		display: none
+	}
+}
+
 @media only screen and (max-width:1040px) {
 	div.index_panel_sequences a.link_box {
 		min-width: 75%;
 	}
 	pre.alignment, pre.sixpack {
 		font-size: 0.9em
-	}
-	.form_icon {
-		display: none
 	}
 }
 

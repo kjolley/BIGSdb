@@ -35,7 +35,7 @@ use constant MAX_TABLE       => 2000;
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name             => 'Two Field Breakdown',
+		name    => 'Two Field Breakdown',
 		authors => [
 			{
 				name        => 'Keith Jolley',
@@ -390,7 +390,7 @@ sub _print_controls {
 	say $q->submit(
 		-name  => 'reverse',
 		-value => 'Reverse',
-		-class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all'
+		-class => 'small_submit'
 	);
 	say q(</fieldset>);
 	say $q->end_form;
@@ -405,7 +405,7 @@ sub _print_controls {
 	say $q->submit(
 		-name  => 'toggledisplay',
 		-label => $display_toggle{ $q->param('display') },
-		-class => BUTTON_CLASS
+		-class => 'small_submit'
 	);
 	say q(</fieldset>);
 	say $q->end_form;
@@ -420,7 +420,7 @@ sub _print_controls {
 		say $q->submit(
 			-name  => 'togglepc',
 			-label => ( 'By ' . $pc_toggle{ $q->param('calcpc') } ),
-			-class => BUTTON_CLASS,
+			-class => 'small_submit',
 		);
 		say q(</span></fieldset>);
 		say $q->end_form;

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2016-2019, University of Oxford
+#Copyright (c) 2016-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -108,10 +108,8 @@ sub _show_registration_details {
 	  . qq(<dt>Last name</dt><dd>$user_info->{'surname'}</dd>)
 	  . qq(<dt>E-mail address</dt><dd>$user_info->{'email'}</dd>)
 	  . qq(<dt>Affiliation/institute</dt><dd>$user_info->{'affiliation'}</dd></dl>);
-	my $edit  = EDIT;
-	my $class = RESET_BUTTON_CLASS;
-	say qq(<p><a href="$self->{'system'}->{'script_name'}?edit=1" class="$class ui-button-text-only">)
-	  . qq(<span class="ui-button-text">$edit Edit details</span></a></p>);
+	say qq(<p><a href="$self->{'system'}->{'script_name'}?edit=1" class="submit">)
+	  . q(<span><span class="fas fa-pencil-alt"></span> Edit details</span></a></p>);
 	say q(</div></div>);
 	return;
 }
@@ -300,8 +298,8 @@ sub _registrations {
 			-style    => 'min-width:10em; min-height:10em',
 			-labels   => $labels
 		);
-		$buffer .= q(<div style='text-align:right'>);
-		$buffer .= $q->submit( -name => 'register', -label => 'Register', -class => BUTTON_CLASS );
+		$buffer .= q(<div style='text-align:right;margin-top:0.5em'>);
+		$buffer .= $q->submit( -name => 'register', -label => 'Register', -class => 'submit' );
 		$buffer .= q(</div>);
 		$buffer .= $q->end_form;
 		$buffer .= q(</fieldset>);
@@ -321,6 +319,7 @@ sub _registrations {
 		  q(<strong><em>Check respective web sites for licencing ) . q(and access conditions.</em></strong><br />);
 		$buffer .= q(Select from list and click 'Request' button.</p>);
 		$buffer .= $q->start_form;
+		$buffer .= q(<div style="float:left">);
 		$buffer .= $self->popup_menu(
 			-name     => 'request_reg',
 			-id       => 'request_reg',
@@ -330,8 +329,10 @@ sub _registrations {
 			-labels   => $labels
 		);
 		$buffer .= q(<div style='text-align:right'>);
-		$buffer .= $q->submit( -name => 'request', -label => 'Request', -class => BUTTON_CLASS );
-		$buffer .= q(</div>);
+		$buffer .=
+		  $q->submit( -name => 'request', -label => 'Request', -class => 'submit', -style => 'margin-top:0.5em' )
+		  ;
+		$buffer .= q(</div></div>);
 		$buffer .= $q->end_form;
 		$buffer .= q(</fieldset>);
 	}

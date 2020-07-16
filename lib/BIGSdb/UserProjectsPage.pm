@@ -92,15 +92,12 @@ sub _delete_project {
 		if ( $q->param('confirm') ) {
 			$self->_actually_delete_project($project_id);
 		} else {
-			my $plural       = $isolates > 1 ? q(s) : q();
-			my $button_class = RESET_BUTTON_CLASS;
-			my $delete       = DELETE;
+			my $plural = $isolates > 1 ? q(s) : q();
 			say qq(<div class="box" id="restricted"><p>This project contains $isolates isolate$plural. Please )
 			  . q(confirm that you wish to remove the project (the isolates in the project will not be deleted).</p>)
 			  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . qq(page=userProjects&amp;delete=1&amp;project_id=$project_id&amp;confirm=1" )
-			  . qq(class="$button_class ui-button-text-only"><span class="ui-button-text">)
-			  . qq($delete Delete project</span></a></p></div>);
+			  . q(class="submit"><span class="fas fa-times"></span> Delete project</a></p></div>);
 		}
 	} else {
 		$self->_actually_delete_project($project_id);

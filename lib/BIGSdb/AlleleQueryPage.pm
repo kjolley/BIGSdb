@@ -216,7 +216,7 @@ sub _print_table_fields {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_table_fields" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=alleleQuery&amp;locus=$locus&amp;row=$next_row&amp;no_header=1" data-rel="ajax" )
-		  . q(class="button">+</a>);
+		  . q(class="add_button"><span class="fa fas fa-plus"></span></a>);
 		say $self->get_tooltip( q(Search values - Empty field values can be searched using the term 'null'. )
 			  . q(<h3>Number of fields</h3>Add more fields by clicking the '+' button.) );
 	}

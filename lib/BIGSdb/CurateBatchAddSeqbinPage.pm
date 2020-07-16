@@ -34,14 +34,12 @@ sub print_content {
 	my $q = $self->{'cgi'};
 	say q(<h1>Batch upload sequence assemblies to multiple isolate records</h1>);
 	if ( $self->{'system'}->{'dbtype'} ne 'isolates' ) {
-		$self->print_bad_status(
-			{ message => q(This function can only be called for an isolate database.) } );
+		$self->print_bad_status( { message => q(This function can only be called for an isolate database.) } );
 		return;
 	} elsif ( !$self->can_modify_table('sequence_bin') ) {
 		$self->print_bad_status(
 			{
 				message => q(Your user account is not allowed to upload sequences to the database.)
-				
 			}
 		);
 		return;
@@ -723,7 +721,7 @@ sub _print_file_upload_fieldset {
 	say $q->start_form( -id => 'file_upload_form' );
 	say q(<div class="fallback">);
 	print $q->filefield( -name => 'file_upload', -id => 'file_upload', -multiple );
-	say $q->submit( -name => 'Upload files', -class => BUTTON_CLASS );
+	say $q->submit( -name => 'Upload files', -class => 'small_submit' );
 	say q(</div>);
 	say q(<div class="dz-message">Drop files here or click to upload.</div>);
 	say $q->hidden($_) foreach qw(db page field temp_file);
@@ -848,7 +846,6 @@ sub _parse_validated_temp_file {
 sub _print_interface {
 	my ($self) = @_;
 	my $icon = $self->get_form_icon( 'sequence_bin', 'plus' );
-	
 	my $q = $self->{'cgi'};
 	say q(<div class="box queryform"><div class="scrollable">);
 	say $icon;

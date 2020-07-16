@@ -211,9 +211,9 @@ sub _print_results_header {
 		say q(</p>);
 		$self->_print_curate_headerbar_functions( $table, $passed_qry_file ) if $self->{'curate'};
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+			$self->_print_publish_function;
 			$self->_print_project_add_function;
 			$self->_print_add_bookmark_function;
-			$self->_print_publish_function;
 		}
 		$self->print_additional_headerbar_functions($passed_qry_file);
 	} else {
@@ -359,7 +359,7 @@ sub _print_project_add_function {
 	my $hidden_attributes = $self->get_hidden_attributes;
 	say $q->start_form;
 	say $q->popup_menu( -id => 'project', -name => 'project', -values => $project_ids, -labels => $labels );
-	say $q->submit( -name => 'add_to_project', -label => 'Add these records', -class => BUTTON_CLASS );
+	say $q->submit( -name => 'add_to_project', -label => 'Add these records', -class => 'small_submit' );
 	say qq(<span class="flash_message" style="margin-left:2em">$self->{'project_add_message'}</span>)
 	  if $self->{'project_add_message'};
 	say $q->hidden($_) foreach qw (db query_file temp_table_file table page);
@@ -412,7 +412,7 @@ sub _print_add_bookmark_function {
 		-maxlength   => 100,
 		-default     => $q->param('bookmark') // $suggested_name
 	);
-	say $q->submit( -name => 'add_bookmark', -label => 'Add bookmark', -class => BUTTON_CLASS );
+	say $q->submit( -name => 'add_bookmark', -label => 'Add bookmark', -class => 'small_submit' );
 	say qq(<span class="flash_message" style="margin-left:2em">$self->{'bookmark_add_message'}</span>)
 	  if $self->{'bookmark_add_message'};
 	say $q->end_form;
@@ -440,7 +440,7 @@ sub _print_publish_function {
 	  || !$self->can_modify_table('isolates') ? 'Request publication' : 'Publish';
 	my $hidden_attributes = $self->get_hidden_attributes;
 	say $q->start_form;
-	say $q->submit( -name => 'publish', -label => $label, -class => BUTTON_CLASS );
+	say $q->submit( -name => 'publish', -label => $label, -class => 'small_submit' );
 	say qq(<span class="flash_message" style="margin-left:2em">$self->{'publish_message'}</span>)
 	  if $self->{'publish_message'};
 	say $q->hidden($_) foreach qw (db query_file list_file datatype table page);
@@ -487,7 +487,7 @@ sub _print_delete_all_function {
 			say q(</li></ul>);
 		}
 	}
-	say $q->submit( -name => 'Delete ALL', -class => BUTTON_CLASS );
+	say $q->submit( -name => 'Delete ALL', -class => 'small_submit' );
 	say $q->end_form;
 	say q(</fieldset>);
 	return;
@@ -502,7 +502,7 @@ sub _print_link_seq_to_experiment_function {
 		say $q->start_form;
 		$q->param( page => 'linkToExperiment' );
 		say $q->hidden($_) foreach qw (db page query_file list_file datatype);
-		say $q->submit( -name => 'Link to experiment', -class => BUTTON_CLASS );
+		say $q->submit( -name => 'Link to experiment', -class => 'small_submit' );
 		say $q->end_form;
 		say q(</fieldset>);
 	}
@@ -527,7 +527,7 @@ sub _print_export_configuration_function {
 		say $q->start_form;
 		$q->param( page => 'exportConfig' );
 		say $q->hidden($_) foreach qw (db page table query_file list_file datatype);
-		say $q->submit( -name => 'Export configuration/data', -class => BUTTON_CLASS );
+		say $q->submit( -name => 'Export configuration/data', -class => 'small_submit' );
 		say $q->end_form;
 		say q(</fieldset>);
 	}
@@ -541,7 +541,7 @@ sub _print_tag_scanning_function {
 	say $q->start_form;
 	$q->param( page => 'tagScan' );
 	say $q->hidden($_) foreach qw (db page table query_file list_file datatype);
-	say $q->submit( -name => 'Scan', -class => BUTTON_CLASS );
+	say $q->submit( -name => 'Scan', -class => 'small_submit' );
 	say $q->end_form;
 	say q(</fieldset>);
 	return;
@@ -567,7 +567,7 @@ sub _print_modify_project_members_function {
 		$q->param( table => 'project_members' );
 		say $q->hidden($_) foreach qw (db page table query_file list_file datatype);
 		say $q->popup_menu( -name => 'project', -values => \@projects, -labels => \%labels );
-		say $q->submit( -name => 'Link', -class => BUTTON_CLASS );
+		say $q->submit( -name => 'Link', -class => 'small_submit' );
 		say $q->end_form;
 		say q(</fieldset>);
 	}
@@ -581,7 +581,7 @@ sub _print_set_sequence_flags_function {
 	say $q->start_form;
 	$q->param( page => 'setAlleleFlags' );
 	say $q->hidden($_) foreach qw (db page query_file list_file datatype);
-	say $q->submit( -name => 'Batch set', -class => BUTTON_CLASS );
+	say $q->submit( -name => 'Batch set', -class => 'small_submit' );
 	say $q->end_form;
 	say q(</fieldset>);
 	return;

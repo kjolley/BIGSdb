@@ -248,7 +248,7 @@ sub _print_user_form {
 	  if $q->param('table') =~ /_curators$/x;
 	say $q->start_form;
 	say $self->get_filter( 'users', \@users, { class => 'display', labels => \%usernames } );
-	say $q->submit( -name => 'Select', -class => BUTTON_CLASS );
+	say $q->submit( -name => 'Select', -class => 'small_submit' );
 	say $q->hidden($_) foreach qw(db page table);
 	say $q->end_form;
 	say q(</fieldset>);

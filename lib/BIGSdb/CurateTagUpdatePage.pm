@@ -24,7 +24,7 @@ use parent qw(BIGSdb::CuratePage BIGSdb::ExtractedSequencePage);
 use BIGSdb::Utils;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
-use BIGSdb::Constants qw(SEQ_FLAGS BUTTON_CLASS);
+use BIGSdb::Constants qw(SEQ_FLAGS);
 use List::MoreUtils qw(none);
 
 sub print_content {
@@ -175,7 +175,7 @@ sub print_content {
 	  . q(while clicking with the mouse.</p>);
 	say q(</fieldset>);
 	say q(<fieldset style="float:left"><legend>Display</legend>);
-	say $q->submit( -name => 'update', -label => 'Update display', -class => BUTTON_CLASS );
+	say $q->submit( -name => 'update', -label => 'Update display', -class => 'submit' );
 	say q(</fieldset>);
 	$self->print_action_fieldset( { id => $id } );
 	say $q->hidden($_) foreach qw(db page id seqbin_id locus start_pos end_pos reverse introns);

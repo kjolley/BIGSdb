@@ -418,9 +418,7 @@ sub _register {
 	say qq(<p>Please note that your account may be removed if you do not log in for $self->{'inactive_time'} days. )
 	  . q(This does not apply to accounts that have submitted data linked to them within the database.</p>);
 	say q(<p>Once you log in you will be able to register for specific resources on the site.</p>);
-	my $class = RESET_BUTTON_CLASS;
-	say qq(<p><a href="$self->{'system'}->{'script_name'}" class="$class ui-button-text-only">)
-	  . q(<span class="ui-button-text">Log in</span></a></p>);
+	say qq(<p><a href="$self->{'system'}->{'script_name'}" class="submit">Log in</a></p>);
 	say q(</div>);
 	$logger->info("User $data->{'user_name'} ($data->{'first_name'} $data->{'surname'}) has registered for the site.");
 	return;

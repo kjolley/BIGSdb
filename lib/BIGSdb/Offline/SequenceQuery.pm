@@ -371,7 +371,7 @@ sub _translate_button {
 	$q->param( page     => 'sequenceTranslate' );
 	$q->param( sequence => $seq );
 	$buffer .= $q->hidden($_) foreach (qw (db page sequence));
-	$buffer .= $q->submit( -label => 'Translate query', -class => BUTTON_CLASS );
+	$buffer .= $q->submit( -label => 'Translate query', -class => 'submit' );
 	$buffer .= $q->end_form;
 	return $buffer;
 }

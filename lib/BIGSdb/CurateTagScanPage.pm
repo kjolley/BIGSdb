@@ -846,13 +846,14 @@ sub _show_results {
 			say $q->hidden($_) foreach qw(isolate_id_list loci);
 		}
 		say $q->hidden($_) foreach qw(db page scan);
-		say q(<fieldset style="float:left"><legend>Action</legend>);
-		say $q->submit(
-			-name  => 'tag',
-			-label => 'Tag alleles/sequences',
-			-class => 'submitbutton ui-button ui-widget ui-state-default ui-corner-all'
+		$self->print_action_fieldset(
+			{
+				no_reset     => 1,
+				submit_name  => 'tag',
+				submit_label => 'Tag alleles/sequences'
+			}
 		);
-		say q(</fieldset><div style="clear:both"></div>);
+		say q(<div style="clear:both"></div>);
 	}
 	say $q->end_form;
 	if ( $status->{'new_seqs_found'} ) {
@@ -892,9 +893,8 @@ sub _show_results {
 	say q(</p>);
 	if ( !$status->{'stop_time'} ) {
 		say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan&amp;)
-		  . qq(scan=$self->{'scan_job'}&amp;results=1&amp;stop=1" )
-		  . q(class="resetbutton ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only ">)
-		  . q(<span class="ui-button-text">Stop job!</span></a> Clicking this will request that the job )
+		  . qq(scan=$self->{'scan_job'}&amp;results=1&amp;stop=1" class="reset">Stop job!</a></p>)
+		  . q(<p>Clicking this will request that the job )
 		  . q(finishes allowing new designations to be made.  Please allow a few seconds for it to stop.</p>);
 	}
 	if ( $self->{'refresh'} ) {
