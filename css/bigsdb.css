@@ -880,6 +880,12 @@ div.reset {
 	background: #d5d5e0;
 }
 
+div.pagebar {
+	white-space: nowrap;
+	overflow-x: auto;
+	scrollbar-color: transparent transparent;
+}
+
 div.panel {
 	position: absolute;
 	top: 0;
@@ -1314,7 +1320,7 @@ div#resultsfooter, div.resultsfooter {
 }
 
 div#resultstable, div.resultstable {
- 	position: relative;
+	position: relative;
 	background: #e0e0e0
 }
 

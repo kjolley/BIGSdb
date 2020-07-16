@@ -234,15 +234,17 @@ sub _get_pagebar {
 	my ( $table, $currentpage, $totalpages, $message, $hidden_attributes ) =
 	  @{$args}{qw(table currentpage totalpages message hidden_attributes)};
 	my $q      = $self->{'cgi'};
-	my $buffer = $q->start_form;
-	$q->param( table => $table );
-	$buffer .= $q->hidden($_)
-	  foreach qw (query_file currentpage page db displayrecs order table direction sent records set_id);
-	$buffer .= $q->hidden( message => $message ) if $message;
-
-	#Make sure hidden_attributes don't duplicate the above
-	$buffer .= $q->hidden($_) foreach @$hidden_attributes;
+	my $buffer = q();
 	if ( $currentpage > 1 || $currentpage < $totalpages ) {
+		$buffer .= q(<div class="pagebar">);
+		$buffer .= $q->start_form;
+		$q->param( table => $table );
+		$buffer .= $q->hidden($_)
+		  foreach qw (query_file currentpage page db displayrecs order table direction sent records set_id);
+		$buffer .= $q->hidden( message => $message ) if $message;
+
+		#Make sure hidden_attributes don't duplicate the above
+		$buffer .= $q->hidden($_) foreach @$hidden_attributes;
 		my ( $first_link, $previous_link, $next_link, $last_link ) = ( FIRST, PREVIOUS, NEXT, LAST );
 		my $disabled = $currentpage > 1 ? q() : q( disabled);
 		$buffer .= qq(<button type="submit" value="First" name="First" class="pagebar"$disabled>$first_link</button>\n);
@@ -281,6 +283,7 @@ sub _get_pagebar {
 		$buffer .= $q->hidden('lastpage');
 		$buffer .= qq(<button type="submit" value="Last" name="Last" class="pagebar"$disabled>$last_link</button>\n);
 		$buffer .= $q->end_form;
+		$buffer .= q(</div>);
 	}
 	return \$buffer;
 }
@@ -1887,7 +1890,8 @@ sub _print_publication_table {
 		if ( defined $q->param('calling_page') && $q->param('calling_page') ne 'browse' && !$q->param('all_records') ) {
 			$buffer .= qq(<td>$refdata->{'isolates'}</td>);
 		}
-		$buffer .= q(<td>) . $self->get_link_button_to_ref( $refdata->{'pmid'}, { class => 'small_submit' } ) . qq(</td>\n);
+		$buffer .=
+		  q(<td>) . $self->get_link_button_to_ref( $refdata->{'pmid'}, { class => 'small_submit' } ) . qq(</td>\n);
 		$buffer .= qq(</tr>\n);
 		$td = $td == 1 ? 2 : 1;
 	}
