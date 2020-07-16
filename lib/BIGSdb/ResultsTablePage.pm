@@ -626,7 +626,7 @@ sub _print_isolate_table {
 	$limit_sql->bind_columns( map { \$data{$_} } @$fields );    #quicker binding hash to arrayref than to use hashref
 	my $set_id = $self->get_set_id;
 	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
-	say q(<div class="box" id="resultstable"><div class="scrollable"><table class="resultstable">);
+	say q(<div class="box" id="large_resultstable"><div class="scrollable"><table class="resultstable">);
 	$self->_print_isolate_table_header( $schemes, $qry_limit );
 	my $td = 1;
 	local $" = '=? AND ';
@@ -1193,7 +1193,7 @@ sub _print_profile_table {
 		);
 		return;
 	}
-	say q(<div class="box" id="resultstable"><div class="scrollable"><table class="resultstable"><tr>);
+	say q(<div class="box" id="large_resultstable"><div class="scrollable"><table class="resultstable"><tr>);
 	say q(<th>Delete</th><th>Update</th>) if $self->{'curate'};
 	print qq(<th>$primary_key);
 	my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
@@ -1465,7 +1465,7 @@ sub _print_record_table {
 	return if !@$dataset;
 	$self->modify_dataset_if_needed( $table, $dataset );
 	local $" = q(</th><th>);
-	say q(<div class="box" id="resultstable"><div class="scrollable"><table class="resultstable">);
+	say q(<div class="box" id="large_resultstable"><div class="scrollable"><table class="resultstable">);
 	say q(<tr>);
 
 	if ( $self->{'curate'} ) {

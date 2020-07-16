@@ -1314,6 +1314,11 @@ div#resultsfooter, div.resultsfooter {
 }
 
 div#resultstable, div.resultstable {
+ 	position: relative;
+	background: #e0e0e0
+}
+
+div#large_resultstable, div.large_resultstable {
 	position: relative;
 	padding: 0;
 	background: #fffeff;
