@@ -2851,6 +2851,7 @@ sub print_seqbin_isolate_fieldset {
 				-values   => $ids,
 				-labels   => $labels,
 				-size     => $options->{'size'} // 8,
+				-style    => 'min-width:12em',
 				-multiple => 'true',
 				-default  => $options->{'selected_ids'},
 				-required => ( $options->{'isolate_paste_list'} || $options->{'allow_empty_list'} )
@@ -2864,14 +2865,14 @@ sub print_seqbin_isolate_fieldset {
 				$list_button =
 				    q(<input type="button" id="isolate_list_show_button" )
 				  . q(onclick='isolate_list_show()' value="Paste list" )
-				  . qq(style="margin-top:1em; display:$show_button_display" class="smallbutton" />)
+				  . qq(style="margin:1em 0 0 0.2em; display:$show_button_display" class="small_submit" />)
 				  . q(<input type="button" id="isolate_list_hide_button" onclick='isolate_list_hide()' value="Hide list" )
-				  . qq(style="margin-top:1em; display:$hide_button_display" class="smallbutton" />);
+				  . qq(style="margin:1em 0 0 0.2em; display:$hide_button_display" class="small_submit" />);
 			}
 			say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("isolate_id",true)' )
-			  . q(value="All" style="margin-top:1em" class="smallbutton" />)
+			  . q(value="All" style="margin-top:1em" class="small_submit" />)
 			  . q(<input type="button" onclick='listbox_selectall("isolate_id",false)' value="None" )
-			  . qq(style="margin-top:1em" class="smallbutton" />$list_button</div></div>);
+			  . qq(style="margin:1em 0 0 0.2em" class="small_submit" />$list_button</div></div>);
 			if ( $options->{'isolate_paste_list'} ) {
 				my $display = $q->param('isolate_paste_list') ? 'block' : 'none';
 				say qq(<div id="isolate_paste_list_div" style="float:left; display:$display">);
@@ -2897,13 +2898,13 @@ sub print_seqbin_isolate_fieldset {
 			$args{'-required'} = 'required' if !$options->{'allow_empty_list'};
 			say $q->textarea(%args);
 			say q(<div style="text-align:center"><input type="button" onclick='listbox_clear("isolate_paste_list")' )
-			  . q(value="Clear" style="margin-top:1em" class="smallbutton" />);
+			  . q(value="Clear" style="margin-top:1em" class="small_submit" />);
 			if ( $options->{'only_genomes'} ) {
 				say q(<input type="button" onclick='listbox_listgenomes("isolate_paste_list")' value="List all" )
-				  . q(style="margin-top:1em" class="smallbutton" /></div></div>);
+				  . q(style="margin-top:1em" class="small_submit" /></div></div>);
 			} else {
 				say q(<input type="button" onclick='listbox_listall("isolate_paste_list")' value="List all" )
-				  . q(style="margin-top:1em" class="smallbutton" /></div></div>);
+				  . q(style="margin-top:1em" class="small_submit" /></div></div>);
 			}
 		}
 	} else {
@@ -2961,13 +2962,13 @@ sub print_isolates_locus_fieldset {
 			my $hide_button_display = $q->param('locus_paste_list') ? 'display' : 'none';
 			$list_button =
 			    q(<input type="button" id="locus_list_show_button" onclick='locus_list_show()' value="Paste list" )
-			  . qq(style="margin-top:1em; display:$show_button_display" class="smallbutton" />)
+			  . qq(style="margin:1em 0 0 0.2em;display:$show_button_display" class="small_submit" />)
 			  . q(<input type="button" id="locus_list_hide_button" onclick='locus_list_hide()' value="Hide list" )
-			  . qq(style="margin-top:1em; display:$hide_button_display" class="smallbutton" />);
+			  . qq(style="margin:1em 0 0 0.2em;display:$hide_button_display" class="small_submit" />);
 		}
 		say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("locus",true)' )
-		  . q(value="All" style="margin-top:1em" class="smallbutton" /><input type="button" )
-		  . q(onclick='listbox_selectall("locus",false)' value="None" style="margin-top:1em" class="smallbutton" />)
+		  . q(value="All" style="margin-top:1em" class="small_submit" /><input type="button" )
+		  . q(onclick='listbox_selectall("locus",false)' value="None" style="margin:1em 0 0 0.2em" class="small_submit" />)
 		  . qq($list_button</div></div>);
 		if ( $options->{'locus_paste_list'} ) {
 			my $display = $q->param('locus_paste_list') ? 'block' : 'none';

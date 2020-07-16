@@ -224,8 +224,8 @@ sub print_isolate_fields_fieldset {
 		-default  => $options->{'default'}
 	);
 	say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("fields",true)' )
-	  . q(value="All" style="margin-top:1em" class="smallbutton" /><input type="button" )
-	  . q(onclick='listbox_selectall("fields",false)' value="None" style="margin-top:1em" class="smallbutton" />)
+	  . q(value="All" style="margin-top:1em" class="small_submit" /><input type="button" )
+	  . q(onclick='listbox_selectall("fields",false)' value="None" style="margin:1em 0 0 0.2em" class="small_submit" />)
 	  . q(</div>);
 	say q(</fieldset>);
 	return;
@@ -248,9 +248,9 @@ sub print_eav_fields_fieldset {
 		-size     => $options->{'size'} // 8,
 	);
 	say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("eav_fields",true)' )
-	  . q(value="All" style="margin-top:1em" class="smallbutton" /><input type="button" )
-	  . q(onclick='listbox_selectall("eav_fields",false)' value="None" style="margin-top:1em" class="smallbutton" />)
-	  . q(</div>);
+	  . q(value="All" style="margin-top:1em" class="small_submit" /><input type="button" )
+	  . q(onclick='listbox_selectall("eav_fields",false)' value="None" style="margin:1em 0 0 0.2em" )
+	  . q(class="small_submit" /></div>);
 	say q(</fieldset>);
 	return;
 }
@@ -1019,7 +1019,7 @@ sub print_recommended_scheme_fieldset {
 		-multiple => 'true'
 	);
 	say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("recommended_schemes",false)' )
-	  . q(value="Clear" style="margin-top:1em" class="smallbutton" /></div>);
+	  . q(value="Clear" style="margin-top:1em" class="small_submit" /></div>);
 	say q(</fieldset>);
 	return;
 }

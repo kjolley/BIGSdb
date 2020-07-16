@@ -164,9 +164,9 @@ sub _print_classification_scheme_fields {
 	);
 	say
 	  q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("classification_schemes",true)' )
-	  . q(value="All" style="margin-top:1em" class="smallbutton" /><input type="button" )
-	  . q(onclick='listbox_selectall("classification_schemes",false)' value="None" style="margin-top:1em" )
-	  . q(class="smallbutton" /></div>);
+	  . q(value="All" style="margin-top:1em" class="small_submit" /><input type="button" )
+	  . q(onclick='listbox_selectall("classification_schemes",false)' value="None" style="margin:1em 0 0 0.2em" )
+	  . q(class="small_submit" /></div>);
 	say q(</fieldset>);
 	return;
 }

@@ -1887,12 +1887,12 @@ sub _print_publication_table {
 		if ( defined $q->param('calling_page') && $q->param('calling_page') ne 'browse' && !$q->param('all_records') ) {
 			$buffer .= qq(<td>$refdata->{'isolates'}</td>);
 		}
-		$buffer .= q(<td>) . $self->get_link_button_to_ref( $refdata->{'pmid'}, { class => 'submit' } ) . qq(</td>\n);
+		$buffer .= q(<td>) . $self->get_link_button_to_ref( $refdata->{'pmid'}, { class => 'small_submit' } ) . qq(</td>\n);
 		$buffer .= qq(</tr>\n);
 		$td = $td == 1 ? 2 : 1;
 	}
 	if ($buffer) {
-		say q(<div class="box" id="resultstable">);
+		say q(<div class="box" id="large_resultstable">);
 		say q(<div class="scrollable">);
 		say q(<table class="resultstable"><thead>);
 		say q(<tr><th>PubMed id</th><th>Year</th><th>Citation</th><th>Title</th>);
