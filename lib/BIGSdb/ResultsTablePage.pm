@@ -178,6 +178,7 @@ sub paged_display {
 	{
 		say qq(<div class="box" id="resultsfooter">$$bar_buffer_ref</div>);
 	}
+	$self->_print_plugin_buttons($records);
 	return;
 }
 
@@ -242,54 +243,43 @@ sub _get_pagebar {
 	#Make sure hidden_attributes don't duplicate the above
 	$buffer .= $q->hidden($_) foreach @$hidden_attributes;
 	if ( $currentpage > 1 || $currentpage < $totalpages ) {
-		$buffer .= q(<table><tr><td>Page:</td>);
-		if ( $currentpage > 1 ) {
-			$buffer .= q(<td>);
-			$buffer .= $q->submit( -name => 'First', -class => 'pagebar' );
-			$buffer .= q(</td><td>);
-			$buffer .= $q->submit( -name => $currentpage == 2 ? 'First' : '<', -label => ' < ', -class => 'pagebar' );
-			$buffer .= q(</td>);
-		}
+		my ( $first_link, $previous_link, $next_link, $last_link ) = ( FIRST, PREVIOUS, NEXT, LAST );
+		my $disabled = $currentpage > 1 ? q() : q( disabled);
+		$buffer .= qq(<button type="submit" value="First" name="First" class="pagebar"$disabled>$first_link</button>\n);
+		$buffer .= qq(<button type="submit" value="<" name="<" style="margin-right:1.5em" class="pagebar"$disabled>)
+		  . qq($previous_link</button>\n);
 		if ( $currentpage > 1 || $currentpage < $totalpages ) {
 			my ( $first, $last );
-			if   ( $currentpage < 9 ) { $first = 1 }
-			else                      { $first = $currentpage - 8 }
-			if ( $totalpages > ( $currentpage + 8 ) ) {
-				$last = $currentpage + 8;
+			if   ( $currentpage < 6 ) { $first = 1 }
+			else                      { $first = $currentpage - 5 }
+			if ( $totalpages > ( $currentpage + 5 ) ) {
+				$last = $currentpage + 5;
 			} else {
 				$last = $totalpages;
 			}
-			$buffer .= q(<td>);
 			for ( my $i = $first ; $i < $last + 1 ; $i++ ) {   #don't use range operator as $last may not be an integer.
 				if ( $i == $currentpage ) {
-					$buffer .= qq(</td><th class="pagebar_selected">$i</th><td>);
+					$buffer .= q(<button type="submit" class="pagebar page_number pagebar_selected" )
+					  . qq(disabled>$i</button>\n);
 				} else {
-					$buffer .= $q->submit(
-						-name => $i == 1 ? 'First' : 'pagejump',
-						-value => $i,
-						-label => $i,
-						-class => 'pagebar'
-					);
+					my $name = $i == 1 ? 'First' : 'pagejump';
+					$buffer .=
+					  qq(<button type="submit" value="$i" name="$name" class="pagebar page_number">$i</button>\n);
 				}
 			}
-			$buffer .= q(</td>);
 		}
-		if ( $currentpage < $totalpages ) {
-			$buffer .= q(<td>);
-			$buffer .= $q->submit( -name => '>', -label => '>', -class => 'pagebar' );
-			$buffer .= q(</td><td>);
-			my $lastpage;
-			if ( BIGSdb::Utils::is_int($totalpages) ) {
-				$lastpage = $totalpages;
-			} else {
-				$lastpage = int $totalpages + 1;
-			}
-			$q->param( lastpage => $lastpage );
-			$buffer .= $q->hidden('lastpage');
-			$buffer .= $q->submit( -name => 'Last', -class => 'pagebar' );
-			$buffer .= q(</td>);
+		$disabled = $currentpage < $totalpages ? q() : q( disabled);
+		$buffer .= qq(<button type="submit" value=">" name=">" style="margin-left:1.5em" class="pagebar"$disabled>)
+		  . qq($next_link</button>\n);
+		my $lastpage;
+		if ( BIGSdb::Utils::is_int($totalpages) ) {
+			$lastpage = $totalpages;
+		} else {
+			$lastpage = int $totalpages + 1;
 		}
-		$buffer .= qq(</tr></table>\n);
+		$q->param( lastpage => $lastpage );
+		$buffer .= $q->hidden('lastpage');
+		$buffer .= qq(<button type="submit" value="Last" name="Last" class="pagebar"$disabled>$last_link</button>\n);
 		$buffer .= $q->end_form;
 	}
 	return \$buffer;
@@ -713,7 +703,6 @@ sub _print_isolate_table {
 		}
 	}
 	say q(</table></div>);
-	$self->_print_plugin_buttons($records);
 	say q(</div>);
 	$sql->finish if $sql;
 	return;
@@ -1264,7 +1253,6 @@ sub _print_profile_table {
 		$td = $td == 1 ? 2 : 1;
 	}
 	say q(</table></div>);
-	$self->_print_plugin_buttons($records);
 	say q(</div>);
 	$sql->finish if $sql;
 	return;
@@ -1280,61 +1268,63 @@ sub _print_plugin_buttons {
 	my $plugin_categories =
 	  $self->{'pluginManager'}
 	  ->get_plugin_categories( 'postquery', $self->{'system'}->{'dbtype'}, { seqdb_type => $seqdb_type } );
-	if (@$plugin_categories) {
-		my %icon = (
-			Breakdown     => 'fas fa-chart-pie',
-			Export        => 'far fa-save',
-			Analysis      => 'fas fa-chart-line',
-			'Third party' => 'fas fa-external-link-alt',
-			Miscellaneous => 'far fa-file-alt'
-		);
-		say q(<h2>Analysis tools:</h2>);
-		my $set_id = $self->get_set_id;
-		foreach my $category (@$plugin_categories) {
-			my $cat_buffer;
-			my $plugin_names = $self->{'pluginManager'}->get_appropriate_plugin_names(
-				'postquery',
-				$self->{'system'}->{'dbtype'},
-				$category || 'none',
-				{ set_id => $set_id, seqdb_type => $seqdb_type }
-			);
-			if (@$plugin_names) {
-				my $plugin_buffer;
-				$q->param( calling_page => scalar $q->param('page') );
-				foreach my $plugin_name (@$plugin_names) {
-					my $att = $self->{'pluginManager'}->get_plugin_attributes($plugin_name);
-					next if $att->{'min'} && $att->{'min'} > $records;
-					next if $att->{'max'} && $att->{'max'} < $records;
-					$plugin_buffer .= $q->start_form( -style => 'float:left;margin-right:0.2em;margin-bottom:0.3em' );
-					$q->param( page   => 'plugin' );
-					$q->param( name   => $att->{'module'} );
-					$q->param( set_id => $set_id );
-					$plugin_buffer .= $q->hidden($_)
-					  foreach qw (db page name calling_page scheme_id locus set_id list_file datatype);
+	return if !@$plugin_categories;
+	say q(<div class="box" id="plugins">);
+	my %icon = (
+		Breakdown     => 'fas fa-chart-pie',
+		Export        => 'far fa-save',
+		Analysis      => 'fas fa-chart-line',
+		'Third party' => 'fas fa-external-link-alt',
+		Miscellaneous => 'far fa-file-alt'
+	);
+	say q(<h2>Analysis tools</h2>);
+	my $set_id = $self->get_set_id;
 
-					if ( ( $att->{'input'} // '' ) eq 'query' ) {
-						$plugin_buffer .= $q->hidden('query_file');
-						$plugin_buffer .= $q->hidden('temp_table_file');
-					}
-					$plugin_buffer .=
-					  $q->submit( -label => ( $att->{'buttontext'} || $att->{'menutext'} ), -class => 'plugin_button' );
-					$plugin_buffer .= $q->end_form;
+	foreach my $category (@$plugin_categories) {
+		my $cat_buffer;
+		my $plugin_names = $self->{'pluginManager'}->get_appropriate_plugin_names(
+			'postquery',
+			$self->{'system'}->{'dbtype'},
+			$category || 'none',
+			{ set_id => $set_id, seqdb_type => $seqdb_type }
+		);
+		if (@$plugin_names) {
+			my $plugin_buffer;
+			$q->param( calling_page => scalar $q->param('page') );
+			foreach my $plugin_name (@$plugin_names) {
+				my $att = $self->{'pluginManager'}->get_plugin_attributes($plugin_name);
+				next if $att->{'min'} && $att->{'min'} > $records;
+				next if $att->{'max'} && $att->{'max'} < $records;
+				$plugin_buffer .= $q->start_form( -style => 'float:left;margin-right:0.2em;margin-bottom:0.3em' );
+				$q->param( page   => 'plugin' );
+				$q->param( name   => $att->{'module'} );
+				$q->param( set_id => $set_id );
+				$plugin_buffer .= $q->hidden($_)
+				  foreach qw (db page name calling_page scheme_id locus set_id list_file datatype);
+
+				if ( ( $att->{'input'} // '' ) eq 'query' ) {
+					$plugin_buffer .= $q->hidden('query_file');
+					$plugin_buffer .= $q->hidden('temp_table_file');
 				}
-				if ($plugin_buffer) {
-					$category = 'Miscellaneous' if !$category;
-					$cat_buffer .=
-					    q(<div><span style="float:left;text-align:right;width:8em;)
-					  . q(white-space:nowrap;margin-right:0.5em">)
-					  . qq(<span class="fa-fw fa-lg $icon{$category} main_icon" style="margin-right:0.2em">)
-					  . qq(</span>$category:</span>)
-					  . q(<div style="margin-left:8.5em;margin-bottom:0.2em">);
-					$cat_buffer .= $plugin_buffer;
-					$cat_buffer .= q(</div></div>);
-				}
+				$plugin_buffer .=
+				  $q->submit( -label => ( $att->{'buttontext'} || $att->{'menutext'} ), -class => 'plugin_button' );
+				$plugin_buffer .= $q->end_form;
 			}
-			say qq($cat_buffer<div style="clear:both"></div>) if $cat_buffer;
+			if ($plugin_buffer) {
+				$category = 'Miscellaneous' if !$category;
+				$cat_buffer .=
+				    q(<div><span style="float:left;text-align:right;width:8em;)
+				  . q(white-space:nowrap;margin-right:0.5em">)
+				  . qq(<span class="fa-fw fa-lg $icon{$category} plugin_icon" style="margin-right:0.2em">)
+				  . qq(</span>$category:</span>)
+				  . q(<div style="margin-left:8.5em;margin-bottom:0.2em">);
+				$cat_buffer .= $plugin_buffer;
+				$cat_buffer .= q(</div></div>);
+			}
 		}
+		say qq($cat_buffer<div style="clear:both"></div>) if $cat_buffer;
 	}
+	say q(</div>);
 	return;
 }
 
@@ -1564,7 +1554,6 @@ sub _print_record_table {
 		say q(<p class="comment">* Default values are displayed for this field. )
 		  . q(These may be overridden by user preference.</p>);
 	}
-	$self->_print_plugin_buttons( $qryref, $records ) if !$self->{'curate'};
 	say q(</div>);
 	return;
 }

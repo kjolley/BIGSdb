@@ -51,7 +51,7 @@ use constant SEQ_METHODS =>
 push @EXPORT_OK, qw(SEQ_METHODS);
 
 #Interface
-use constant FACE_STYLE         => (
+use constant FACE_STYLE => (
 	good  => q(class="far fa-lg fa-smile" style="color:green"),
 	mixed => q(class="far fa-lg fa-meh" style="color:blue"),
 	bad   => q(class="far fa-lg fa-frown" style="color:red")
@@ -151,6 +151,18 @@ use constant ALIGN_FILE => q(<span class="fa-stack fa-2x export">)
 use constant CODE_FILE => q(<span class="fa-stack fa-2x export">)
   . q(<span class="fas fa-square fa-stack-2x export_code"></span>)
   . q(<span class="fas fa-file-code fa-stack-1x fa-inverse"></span></span>);
+use constant FIRST => q(<span class="fa-stack">)
+  . q(<span class="far fa-circle fa-stack-2x"></span>)
+  . q(<span class="fas fa-angle-double-left fa-stack-1x"></span></span>);
+use constant PREVIOUS => q(<span class="fa-stack ">)
+  . q(<span class="far fa-circle fa-stack-2x"></span>)
+  . q(<span class="fas fa-angle-left fa-stack-1x"></span></span>);
+use constant NEXT => q(<span class="fa-stack">)
+  . q(<span class="far fa-circle fa-stack-2x"></span>)
+  . q(<span class="fas fa-angle-right fa-stack-1x"></span></span>);
+use constant LAST => q(<span class="fa-stack">)
+  . q(<span class="far fa-circle fa-stack-2x"></span>)
+  . q(<span class="fas fa-angle-double-right fa-stack-1x"></span></span>);
 use constant FLANKING => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
 use constant MAX_ROWS => 20;
 @values = qw(FACE_STYLE SHOW HIDE SAVE SAVING UP DOWN LEFT RIGHT
@@ -158,7 +170,7 @@ use constant MAX_ROWS => 20;
   BACK QUERY_MORE EDIT_MORE UPLOAD_CONTIGS LINK_CONTIGS MORE HOME RELOAD KEY EYE_SHOW EYE_HIDE
   CURATE EXPORT_TABLE EXCEL_FILE TEXT_FILE FASTA_FILE FASTA_FLANKING_FILE LABELLED_FASTA_FILE
   EMBL_FILE GBK_FILE GFF3_FILE MISC_FILE ARCHIVE_FILE IMAGE_FILE ALIGN_FILE CODE_FILE FLANKING
-  MAX_ROWS LOCK UNLOCK);
+  MAX_ROWS LOCK UNLOCK FIRST PREVIOUS NEXT LAST);
 push @EXPORT_OK, @values;
 $EXPORT_TAGS{'interface'} = [@values];
 
