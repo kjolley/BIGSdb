@@ -1087,12 +1087,13 @@ sub _print_profile_table_fieldset {
 	$self->_print_update_button( { mark_all => 1 } ) if $options->{'curate'} && !$status->{'all_assigned'};
 	say $q->hidden($_) foreach qw(db page submission_id curate);
 	say $q->end_form;
-	local $" = ',';
+	local $" = q(,);
 	my $pending_profiles_string = "@{$status->{'pending_profiles'}}";
+	local $" = q( );
 
 	if ( $options->{'curate'} && !$status->{'all_assigned_or_rejected'} ) {
 		say $q->start_form( -action => $self->{'system'}->{'curate_script'} );
-		say $q->submit( -name => 'Batch curate', -class => 'submit' );
+		say $q->submit( -name => 'Batch curate', -class => 'submit', -style => 'margin-top:0.5em' );
 		my $page = $q->param('page');
 		$q->param( page            => 'profileBatchAdd' );
 		$q->param( scheme_id       => $scheme_id );
@@ -1132,11 +1133,10 @@ sub _print_isolate_table_fieldset {
 	$self->_print_update_button( { record_status => 1 } ) if $options->{'curate'};
 	say $q->hidden($_) foreach qw(db page submission_id curate);
 	say $q->end_form;
-	local $" = ',';
 
 	if ( $options->{'curate'} && !$submission->{'outcome'} && !$self->{'contigs_missing'} ) {
 		say $q->start_form( -action => $self->{'system'}->{'curate_script'} );
-		say $q->submit( -name => 'Batch curate', -class => 'submit' );
+		say $q->submit( -name => 'Batch curate', -class => 'submit', -style => 'margin-top:0.5em' );
 		my $page = $q->param('page');
 		$q->param( page   => 'batchAdd' );
 		$q->param( table  => 'isolates' );
@@ -1922,7 +1922,7 @@ sub _print_sequence_table_fieldset {
 
 	if ( $options->{'curate'} && !$status->{'all_assigned_or_rejected'} && !$has_extended_attributes ) {
 		say $q->start_form( -action => $self->{'system'}->{'curate_script'} );
-		say $q->submit( -name => 'Batch curate', -class => 'submit', -style => 'float:left;margin-right:0.5em' );
+		say $q->submit( -name => 'Batch curate', -class => 'submit', -style => 'float:left;margin:0.5em 0.5em 0 0' );
 		my $page = $q->param('page');
 		$q->param( page         => 'batchAddFasta' );
 		$q->param( locus        => $locus );
@@ -1933,7 +1933,8 @@ sub _print_sequence_table_fieldset {
 		say $q->hidden($_) foreach qw( db page submission_id locus sender status sequence complete_CDS );
 		say $q->end_form;
 		say $q->start_form( -action => $self->{'system'}->{'query_script'}, -target => '_blank' );
-		say $q->submit( -name => 'Batch query', -class => 'submit', -style => 'float:left' );
+		say $q->submit( -name => 'Batch query', -class => 'submit', -style => 'float:left;margin-top:0.5em' )
+		  ;
 		$q->param( page => 'batchSequenceQuery' );
 		say $q->hidden($_) foreach qw( db page submission_id locus sequence );
 		say $q->hidden( submit => 1 );
