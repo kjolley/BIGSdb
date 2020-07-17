@@ -1330,6 +1330,11 @@ div#large_resultstable, div.large_resultstable {
 	background: #fffeff;
 }
 
+div#large_resultstable table, div.large_resultstable table {
+	border: 2px solid #ccc;	
+	padding:0
+}
+
 div#resultspanel, div.resultspanel {
 	position: relative;
 	background: #eceef1

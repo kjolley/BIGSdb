@@ -909,7 +909,7 @@ sub _report_check {
 		}
 		say q(</table></div>);
 	} else {
-		say qq(<div class="box" id="resultsheader"><h2>Import status</h2>$$sender_message);
+		say qq(<div class="box" id="resultspanel"><h2>Import status</h2>$$sender_message);
 		if (%$advisories) {
 			say q(<p>Data can be uploaded but please note the following advisories:</p>);
 			say q(<table class="resultstable">);
@@ -2204,6 +2204,13 @@ sub _set_submission_params {
 			$q->param( data => $$data_ref );
 		}
 	}
+	return;
+}
+
+sub initiate {
+	my ($self) = @_;
+	$self->{$_} = 1 foreach qw (jQuery noCache allowExpand);
+	$self->set_level1_breadcrumbs;
 	return;
 }
 1;
