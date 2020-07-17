@@ -1331,8 +1331,8 @@ div#large_resultstable, div.large_resultstable {
 }
 
 div#large_resultstable table, div.large_resultstable table {
-	border: 2px solid #ccc;	
-	padding:0
+	border: 2px solid #ccc;
+	padding: 0
 }
 
 div#resultspanel, div.resultspanel {
@@ -1342,6 +1342,14 @@ div#resultspanel, div.resultspanel {
 
 div#resultspanel li, p, dd {
 	position: relative
+}
+
+div#resultspanel, div.resultspanel table td, th {
+	border: 1px solid #ddd
+}
+
+div#resultspanel, div.resultspanel table {
+	border-collapse: collapse
 }
 
 div#alleles {
