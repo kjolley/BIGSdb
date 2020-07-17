@@ -1310,7 +1310,7 @@ div#warning {
 }
 
 div#resultsheader, div.resultsheader {
-	background:#d5e0d5;
+	background: #d5e0d5;
 	padding: 1em
 }
 
@@ -1320,6 +1320,11 @@ div.largetable_resultsheader {
 }
 
 div#resultsfooter, div.resultsfooter {
+	background: #d5e0d5;
+	padding: 1em
+}
+
+div.largetable_resultsfooter {
 	background: #fffeff;
 	padding: 1em
 }

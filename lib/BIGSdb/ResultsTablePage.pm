@@ -176,7 +176,7 @@ sub paged_display {
 		&& $self->{'prefs'}->{'pagebar'} =~ /bottom/
 		&& ( $currentpage > 1 || $currentpage < $totalpages ) )
 	{
-		say qq(<div class="box" id="resultsfooter">$$bar_buffer_ref</div>);
+		say qq(<div class="box largetable_resultsfooter">$$bar_buffer_ref</div>);
 	}
 	$self->_print_plugin_buttons($records);
 	return;
