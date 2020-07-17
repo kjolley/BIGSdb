@@ -1348,11 +1348,13 @@ div.resultspanel li, p, dd {
 	position: relative
 }
 
-div#resultspanel table td, th {
+div#resultspanel table.resultstable th, div#resultspanel table.resultstable td
+	{
 	border: 1px solid #ddd
 }
 
-div.resultspanel table td, th {
+div.resultspanel table.resultstable th, div#resultspanel table.resultstable td
+	{
 	border: 1px solid #ddd
 }
 
