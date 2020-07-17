@@ -1344,11 +1344,23 @@ div#resultspanel li, p, dd {
 	position: relative
 }
 
-div#resultspanel, div.resultspanel table td, th {
+div.resultspanel li, p, dd {
+	position: relative
+}
+
+div#resultspanel table td, th {
 	border: 1px solid #ddd
 }
 
-div#resultspanel, div.resultspanel table {
+div.resultspanel table td, th {
+	border: 1px solid #ddd
+}
+
+div#resultspanel table {
+	border-collapse: collapse
+}
+
+div.resultspanel table {
 	border-collapse: collapse
 }
 

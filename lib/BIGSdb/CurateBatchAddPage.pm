@@ -262,7 +262,7 @@ sub _cannot_upload_private_data {
 		return 1;
 	}
 	if ( !$options->{'no_message'} ) {
-		say q(<div class="box" id="resultspanel">);
+		say q(<div class="box resultspanel">);
 		say q(<span class="main_icon fas fa-lock fa-3x fa-pull-left"></span>);
 		say q(<h2>Private data upload</h2>);
 		if ($project) {
