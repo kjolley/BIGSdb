@@ -186,7 +186,7 @@ sub _print_results_header {
 	my ( $self, $args ) = @_;
 	my ( $table, $browse, $records, $message, $currentpage, $totalpages, $passed_qry_file, $bar_buffer_ref ) =
 	  @{$args}{qw(table browse records message currentpage totalpages passed_qry_file bar_buffer_ref)};
-	say q(<div class="box" id="resultsheader">);
+	say q(<div class="box" id="largetable_resultsheader">);
 	if ($browse) {
 		say q(<p>Browsing all records.</p>);
 	}

@@ -1310,6 +1310,11 @@ div#warning {
 }
 
 div#resultsheader, div.resultsheader {
+	background:#d5e0d5;
+	padding: 1em
+}
+
+div.largetable_resultsheader {
 	background: #fffeff;
 	padding: 1em
 }
