@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -34,7 +34,7 @@ sub print_content {
 	my $set_id    = $self->get_set_id;
 	if ( !$self->{'datastore'}->scheme_exists($scheme_id) ) {
 		say q(<h1>Batch insert profiles</h1>);
-		$self->print_bad_status( { message => q(Invalid scheme passed.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Invalid scheme passed.) } );
 		return;
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
@@ -42,21 +42,20 @@ sub print_content {
 		$self->print_bad_status(
 			{
 				message => q(You can only add profiles to a sequence/profile database - )
-				  . q(this is an isolate database.),
-				navbar => 1
+				  . q(this is an isolate database.)
 			}
 		);
 		return;
 	}
 	if ( !$self->can_modify_table('profiles') ) {
 		say q(<h1>Batch insert profiles</h1>);
-		$self->print_bad_status( { message => q(Your user account is not allowed to add new profiles.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Your user account is not allowed to add new profiles.) } );
 		return;
 	}
 	if ($set_id) {
 		if ( !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id ) ) {
 			say q(<h1>Batch insert profiles</h1>);
-			$self->print_bad_status( { message => q(The selected scheme is inaccessible.), navbar => 1 } );
+			$self->print_bad_status( { message => q(The selected scheme is inaccessible.) } );
 			return;
 		}
 	}
@@ -69,8 +68,7 @@ sub print_content {
 		$self->print_bad_status(
 			{
 				message => q(This scheme doesn't have a primary key field defined.  )
-				  . q(Profiles cannot be entered until this has been done.),
-				navbar => 1
+				  . q(Profiles cannot be entered until this has been done.)
 			}
 		);
 		return;
@@ -78,8 +76,7 @@ sub print_content {
 		$self->print_bad_status(
 			{
 				message => q(This scheme doesn't have any loci belonging to it.  )
-				  . q(Profiles cannot be entered until there is at least one locus defined.),
-				navbar => 1
+				  . q(Profiles cannot be entered until there is at least one locus defined.)
 			}
 		);
 		return;
@@ -261,8 +258,7 @@ sub _check {
 						$problems->{$pk} .= $invalid_sender;
 						$problem = 1;
 					}
-				} elsif ( BIGSdb::Utils::is_int( scalar $q->param('sender') ) && $q->param('sender') != -1 )
-				{
+				} elsif ( BIGSdb::Utils::is_int( scalar $q->param('sender') ) && $q->param('sender') != -1 ) {
 					$value = $q->param('sender');
 				} else {
 					$problems->{$pk} .= 'Sender not set.<br />';
@@ -672,7 +668,6 @@ sub _print_interface {
 	say q(</fieldset>);
 	$self->print_action_fieldset( { scheme_id => $scheme_id } );
 	say $q->end_form;
-	$self->print_navigation_bar;
 	say q(</div>);
 	return;
 }
