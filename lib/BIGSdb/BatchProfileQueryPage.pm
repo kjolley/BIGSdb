@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -66,7 +66,7 @@ sub print_content {
 	}
 	my $scheme_id = $q->param('scheme_id');
 	if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
-			$self->print_bad_status(
+		$self->print_bad_status(
 			{
 				message => q(This function is only available for sequence definition databases.),
 				navbar  => 1
@@ -95,9 +95,11 @@ sub print_content {
 	  . qq[<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchProfiles&amp;]
 	  . qq[function=examples&amp;scheme_id=$scheme_id">example data</a>. Non-numerical characters will be ]
 	  . q[stripped out of the query.</p>];
+	say q(<div class="scrollable">);
 	say q(<fieldset style="float:left"><legend>Paste in profiles</legend>);
-	say $q->textarea( -name => 'profiles', -rows => 10, -columns => 80, -override => 1 );
+	say $q->textarea( -name => 'profiles', -rows => 10, -columns => 80, -override => 1, style => 'overflow-x:auto' );
 	say q(</fieldset>);
+	say q(</div>);
 	$self->print_action_fieldset( { scheme_id => $scheme_id } );
 	say $q->end_form;
 	say q(</div>);
