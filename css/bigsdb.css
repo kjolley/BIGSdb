@@ -2391,6 +2391,18 @@ a.slide_trigger {
 	div#isolate_update {
 		width: 95%
 	}
+	button.page_number {
+		display: none
+	}
+	button.pagebar_selected {
+		display: inline
+	}
+	button.pagebar_adjacent {
+		display: inline
+	}
+	button.pagebar_adjacentplus1 {
+		display: inline
+	}
 }
 
 @media only screen and (max-width:600px) {
@@ -2409,10 +2421,16 @@ a.slide_trigger {
 	.data dd {
 		margin: initial
 	}
+	button.pagebar_adjacentplus1 {
+		display: none
+	}
 }
 
 @media only screen and (max-width:360px) {
 	.launchbutton {
 		font-size: 1.1em
+	}
+	button.pagebar_adjacent {
+		display: none
 	}
 }

@@ -260,13 +260,17 @@ sub _get_pagebar {
 				$last = $totalpages;
 			}
 			for ( my $i = $first ; $i < $last + 1 ; $i++ ) {   #don't use range operator as $last may not be an integer.
+				my $adjacent = ( $i == $currentpage - 1 || $i == $currentpage + 1 ) ? q( pagebar_adjacent) : q();
+				my $adjacent_plus1 =
+				  ( $i == $currentpage - 2 || $i == $currentpage + 2 ) ? q( pagebar_adjacentplus1) : q();
 				if ( $i == $currentpage ) {
 					$buffer .= q(<button type="submit" class="pagebar page_number pagebar_selected" )
 					  . qq(disabled>$i</button>\n);
 				} else {
 					my $name = $i == 1 ? 'First' : 'pagejump';
 					$buffer .=
-					  qq(<button type="submit" value="$i" name="$name" class="pagebar page_number">$i</button>\n);
+					    qq(<button type="submit" value="$i" name="$name" )
+					  . qq(class="pagebar page_number$adjacent$adjacent_plus1">$i</button>\n);
 				}
 			}
 		}
