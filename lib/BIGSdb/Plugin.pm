@@ -615,8 +615,9 @@ sub print_scheme_locus_fieldset {
 			-multiple => 'true'
 		);
 		say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("locus",true)' )
-		  . q(value="All" style="margin-top:1em" class="smallbutton" /><input type="button" )
-		  . q(onclick='listbox_selectall("locus",false)' value="None" style="margin-top:1em" class="smallbutton" /></div>);
+		  . q(value="All" style="margin-top:1em" class="small_submit" /><input type="button" )
+		  . q(onclick='listbox_selectall("locus",false)' value="None" style="margin:1em 0 0 0.2em" )
+		  . q(class="small_submit" /></div>);
 	} else {
 		say q(No loci available<br />for analysis);
 	}

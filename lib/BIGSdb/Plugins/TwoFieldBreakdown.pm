@@ -515,7 +515,7 @@ sub _breakdown {
 	  ? $self->clean_locus( $print_field2, { text_output => 1 } )
 	  : $print_field2;
 	if ( !$disable_html_table ) {
-		say q(<div class="box" id="resultstable">);
+		say q(<div class="box resultstable">);
 		say qq(<h2>Breakdown of $html_field1 by $html_field2:</h2>);
 		say qq(<p>Selected options: Display $display. );
 		say qq(Calculate percentages by $calcpc.) if $display ne 'values only';
@@ -683,7 +683,8 @@ sub _generate_tables {
 	my ( $text_buffer, $html_buffer );
 	$html_buffer .= q(<table class="tablesorter" id="sortTable"><thead>);
 	my $field2_cols = $field2_count + 1;
-	$html_buffer .= qq(<tr><td></td><td colspan="$field2_cols" class="header">$html_field2</td></tr>);
+	$html_buffer .= qq(<tr><td class="sorter-false"></td>)
+	  . qq(<th colspan="$field2_cols" class="header">$html_field2</th></tr>);
 	local $" = q(</th><th class="{sorter:'digit'}">);
 	$html_buffer .= qq(<tr><th>$html_field1</th><th class="{sorter:'digit'}">@$field2values</th>)
 	  . q(<th class="{sorter:'digit'}">Total</th></tr></thead><tbody>);

@@ -34,7 +34,7 @@ use constant MAX_HTML_OUTPUT => 2000;
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name             => 'Sequence Bin Breakdown',
+		name    => 'Sequence Bin Breakdown',
 		authors => [
 			{
 				name        => 'Keith Jolley',
@@ -65,7 +65,7 @@ sub get_attributes {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.jstree' => 1, 'jQuery.tablesort' => 1, c3 => 1 };
+	return { 'jQuery.jstree' => 1, 'jQuery.tablesort' => 1, c3 => 1, tooltips => 1 };
 }
 
 sub set_pref_requirements {

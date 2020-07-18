@@ -228,7 +228,7 @@ sub _print_heatmap_controls {
 	say q(<p style="text-align:center;margin-top:0.5em">)
 	  . qq(<a href="$params->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;)
 	  . qq(name=GenePresence&amp;results=$job_id" target="_blank" )
-	  . q(class="button">Pivot Table</a><p>);
+	  . q(class="small_submit">Pivot Table</a><p>);
 	say q(</fieldset>);
 	say q(<fieldset style="float:left"><legend>Controls</legend>);
 	say q(<ul><li style="margin-top:0.5em"><label for="attribute">Attribute:</label>);
@@ -262,7 +262,7 @@ sub _print_pivot_controls {
 	say q(<p style="text-align:center;margin-top:0.5em">)
 	  . qq(<a href="$params->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;)
 	  . qq(name=GenePresence&amp;heatmap=$job_id" target="_blank" )
-	  . q(class="button">Heatmap</a><p>);
+	  . q(class="small_submit">Heatmap</a><p>);
 	say q(</fieldset>);
 	say q(</div>);
 	say q(<div style="clear:both"></div>);

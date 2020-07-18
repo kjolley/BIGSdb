@@ -37,6 +37,7 @@ select {
 	margin: 0;
 	font-size: 1em;
 	border: 1px solid #ccc;
+	background: #fff
 }
 
 p {
@@ -213,7 +214,8 @@ a.sequence_tooltip, a.sequence_tooltip_incomplete, a.extract_tooltip, a.info_too
 a.tooltip {
 	cursor: pointer;
 	text-decoration: none;
-	color: #66f;
+	color: #002147;
+	font-size:0.6em
 }
 
 a.update_tooltip, a.sequence_tooltip, a.sequence_tooltip_incomplete {
@@ -1547,7 +1549,7 @@ table.resultstable {
 	padding: 0.1em;
 }
 
-table.resultstable td, th {
+table.resultstable td, table.resultstable th {
 	padding: 0 0.2em
 }
 

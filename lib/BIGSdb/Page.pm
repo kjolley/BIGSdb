@@ -3166,8 +3166,10 @@ sub get_tooltip {
 	my ( $self, $text, $options ) = @_;
 	my $style = $options->{'style'} ? qq( style="$options->{'style'}") : q();
 	my $id    = $options->{'id'}    ? qq( id="$options->{'id'}")       : q();
-	return qq(<a class="tooltip"$id style="margin-left:0.2em;vertical-align:top" title="$text">)
-	  . qq(<span class="fas fa-info-circle"$style></span></a>);
+	my $tooltip_icon = TOOLTIP;
+	return
+	  qq(<a class="tooltip"$id style="margin-left:0.5em;vertical-align:top" title="$text">$tooltip_icon</a>)
+	  ;
 }
 
 sub print_navigation_bar {

@@ -65,7 +65,7 @@ sub set_pref_requirements {
 sub run {
 	my ($self) = @_;
 	say q(<h1>Description of database fields</h1>);
-	say q(<div class="box" id="resultstable"><div class="scrollable">);
+	say q(<div class="box" id="large_resultstable"><div class="scrollable">);
 	my $eav_fields = $self->{'datastore'}->get_eav_fieldnames;
 	if (@$eav_fields) {
 		say q(<span class="info_icon fas fa-2x fa-fw fa-globe fa-pull-left" style="margin-top:0.2em"></span>);

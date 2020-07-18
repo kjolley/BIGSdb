@@ -334,7 +334,7 @@ sub _get_seqs {
 sub _snp {
 	my ( $self, $locus, $allele_ids ) = @_;
 	my $q = $self->{'cgi'};
-	print "<h1>Polymorphic site analysis</h1>\n";
+	say '<h2>Polymorphic site analysis</h2>';
 	my $locus_info    = $self->{'datastore'}->get_locus_info($locus);
 	my $seq_count     = $self->_get_seqs( $locus, $allele_ids, { count_only => 1 } );
 	my $max_sequences = MAX_SEQUENCES;

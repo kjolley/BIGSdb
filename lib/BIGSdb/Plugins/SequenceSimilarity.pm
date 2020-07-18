@@ -120,7 +120,7 @@ sub run {
 	$blast_obj->blast( $seq_ref, { num_results => $num_results + 1 } );
 	my $partial_matches = $blast_obj->get_partial_matches( { details => 1 } );
 	my $matches = ref $partial_matches->{$locus} eq 'ARRAY' ? $partial_matches->{$locus} : [];
-	say q(<div class="box" id="resultsheader">);
+	say q(<div class="box resultstable">);
 	say qq(<h2>$cleanlocus-$allele</h2>);
 
 	if ( @$matches > 1 ) {

@@ -460,7 +460,8 @@ sub _print_output {
 sub _print_cancel_button {
 	my ( $self, $job ) = @_;
 	return if !$self->_can_user_cancel_job($job);
-	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;)
+	say
+	  qq(<p style="margin:1.5em 0"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;)
 	  . qq(id=$job->{'id'}&amp;cancel=1" class="reset">)
 	  . q(<span class="ui-button-text">Cancel job!</span></a></p>);
 	return;
@@ -470,7 +471,7 @@ sub _can_user_cancel_job {
 	my ( $self, $job ) = @_;
 	if ( $job->{'email'} ) {
 		return 1 if $self->{'username'} && $self->{'username'} eq $job->{'username'};
-	} elsif ( $job->{'ip_address'} ) {    #public database, no logins.  Allow if IP address matches.
+	} elsif ( $job->{'ip_address'} ) {                      #public database, no logins.  Allow if IP address matches.
 		return 1 if $ENV{'REMOTE_ADDR'} && $job->{'ip_address'} eq $ENV{'REMOTE_ADDR'};
 	}
 	return;
