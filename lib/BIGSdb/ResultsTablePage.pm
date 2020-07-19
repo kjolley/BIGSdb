@@ -186,7 +186,7 @@ sub _print_results_header {
 	my ( $self, $args ) = @_;
 	my ( $table, $browse, $records, $message, $currentpage, $totalpages, $passed_qry_file, $bar_buffer_ref ) =
 	  @{$args}{qw(table browse records message currentpage totalpages passed_qry_file bar_buffer_ref)};
-	  my $class= $records ? 'largetable_resultsheader' : 'resultsheader';
+	my $class = $records ? 'largetable_resultsheader' : 'resultsheader';
 	say qq(<div class="box" id="$class">);
 	if ($browse) {
 		say q(<p>Browsing all records.</p>);
@@ -1269,9 +1269,8 @@ sub _print_profile_table {
 sub _print_plugin_buttons {
 	my ( $self, $records ) = @_;
 	my $q = $self->{'cgi'};
-	return if $q->param('page') eq 'customize';
-	my %no_show = map { $_ => 1 } qw(sequences history profile_history oauth_credentials);
-	return if $q->param('page') eq 'tableQuery' && $no_show{ $q->param('table') };
+	my %no_show = map { $_ => 1 } qw(customize tableQuery);
+	return if $no_show{ $q->param('page') };
 	my $seqdb_type = $q->param('page') eq 'alleleQuery' ? 'sequences' : 'schemes';
 	my $plugin_categories =
 	  $self->{'pluginManager'}
