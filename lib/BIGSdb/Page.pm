@@ -1783,7 +1783,8 @@ sub get_link_button_to_ref {
 	$q->param( pmid   => $ref );
 	$q->param( page   => 'pubquery' );
 	$buffer .= $q->hidden($_) foreach qw(db page curate pmid set_id);
-	$buffer .= $q->submit( -value => "$count isolate$plural", -class => $options->{'class'} // 'smallbutton' );
+	$buffer .= $q->submit( -value => "$count isolate$plural", -class => $options->{'class'} // 'small_submit' )
+	  ;
 	$buffer .= $q->end_form;
 	$q->param( page => 'info' );
 	return $buffer;
@@ -3167,9 +3168,7 @@ sub get_tooltip {
 	my $style = $options->{'style'} ? qq( style="$options->{'style'}") : q();
 	my $id    = $options->{'id'}    ? qq( id="$options->{'id'}")       : q();
 	my $tooltip_icon = TOOLTIP;
-	return
-	  qq(<a class="tooltip"$id style="margin-left:0.5em;vertical-align:top" title="$text">$tooltip_icon</a>)
-	  ;
+	return qq(<a class="tooltip"$id style="margin-left:0.5em;vertical-align:top" title="$text">$tooltip_icon</a>);
 }
 
 sub print_navigation_bar {
@@ -3316,6 +3315,9 @@ sub get_list_block {
 	$_ //= q() foreach ( $dt_width_clause, $dd_left_margin_clause, $id_clause );
 	my $buffer = qq(<dl class="data"$id_clause>\n);
 	foreach my $item (@$list) {
+		if ( $options->{'nowrap'} ) {
+			$item->{'data'} = qq(<span style="white-space:nowrap">$item->{'data'}</span>);
+		}
 		my $class = $item->{'class'};
 		$buffer .= q(<span class="dontsplit">) if $options->{'columnize'};
 		$buffer .= qq(<dt$dt_width_clause>$item->{'title'}</dt>);

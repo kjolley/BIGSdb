@@ -1269,7 +1269,7 @@ sub _print_plugin_buttons {
 	my ( $self, $records ) = @_;
 	my $q = $self->{'cgi'};
 	return if $q->param('page') eq 'customize';
-	my %no_show = map { $_ => 1 } qw(sequences history profile_history);
+	my %no_show = map { $_ => 1 } qw(sequences history profile_history oauth_credentials);
 	return if $q->param('page') eq 'tableQuery' && $no_show{ $q->param('table') };
 	my $seqdb_type = $q->param('page') eq 'alleleQuery' ? 'sequences' : 'schemes';
 	my $plugin_categories =

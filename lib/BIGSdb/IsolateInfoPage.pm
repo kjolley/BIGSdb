@@ -110,7 +110,6 @@ sub get_javascript {
 	\$("#provenance").columnize({width:450});
 	\$(".sparse").columnize({width:450,lastNeverTallest: true,doneFunc:function(){enable_slide_triggers();}});
 	\$("#seqbin").columnize({width:300,lastNeverTallest: true});  
-	\$(".smallbutton").css('display', 'inline');
 	if (!(\$("span").hasClass('aliases'))){
 		\$("span#aliases_button").css('display', 'none');
 	}
@@ -438,9 +437,10 @@ sub print_content {
 		say $self->get_isolate_record($isolate_id);
 		my $tree_button =
 		    q( <span id="tree_button" style="margin-left:1em;display:none">)
-		  . q(<a id="show_tree" class="button" style="cursor:pointer">)
-		  . q(<span id="show_tree_text" style="display:none"><span class="fa fas fa-eye"></span> show</span>)
-		  . q(<span id="hide_tree_text" style="display:inline"><span class="fa fas fa-eye-slash"></span> hide</span> tree</a></span>);
+		  . q(<a id="show_tree" class="small_submit" style="cursor:pointer">)
+		  . q(<span id="show_tree_text" style="display:none"><span class="fa fas fa-eye"></span> Show</span>)
+		  . q(<span id="hide_tree_text" style="display:inline">)
+		  . q(<span class="fa fas fa-eye-slash"></span> Hide</span> tree</a></span>);
 		my $aliases_button = $self->_get_show_aliases_button;
 		my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
 		if ( @$loci && $self->_should_show_schemes($isolate_id) ) {
@@ -780,7 +780,7 @@ sub _print_action_panel {
 		say $q->end_form;
 		say q(</fieldset>);
 	}
-	$q->param( page => $page );                                             #Reset
+	$q->param( page => $page );    #Reset
 	say q(</div></div>);
 	return;
 }
@@ -1697,15 +1697,14 @@ sub _get_seqbin_link {
 			$isolate_id );
 		$plural = $tagged == 1 ? 'us' : 'i';
 		push @$list, { title => 'loci tagged', data => BIGSdb::Utils::commify($tagged) };
-		push @$list,
-		  {
-			title => 'detailed breakdown',
-			data  => qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=seqbin&amp;isolate_id=$isolate_id">Display</a>)
-		  };
 		my $columnize = $seqbin_stats->{'contigs'} > 1 ? 1 : 0;
-		$buffer .= $self->get_list_block( $list, { columnize => $columnize } );
-		$buffer .= q(</div></div>);
+		$buffer .= $self->get_list_block( $list, { columnize => $columnize, nowrap => 1 } );
+		$buffer .= q(</div>);
+		$buffer .=
+		    q(<p style="margin-left:3em"><a class="small_submit" )
+		  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=seqbin&amp;isolate_id=$isolate_id">Show sequence bin</a></p>);
+		$buffer .= q(</div>);
 	}
 	return $buffer;
 }
