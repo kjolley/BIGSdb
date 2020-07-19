@@ -158,7 +158,7 @@ sub print_content {
 
 sub _print_stats {
 	my ( $self, $isolate_id, $seqbin_stats ) = @_;
-	say q(<div class="box" id="resultsheader">);
+	say q(<div class="box resultspanel">);
 	say q(<div class="grid" style="margin-bottom:0.5em">);
 	say q(<div style="float:left" class="grid-item">);
 	say q(<h2>Contig summary statistics</h2>);
@@ -515,7 +515,8 @@ sub _print_contig_table {
 						$q->param( page      => 'renumber' );
 						$q->param( seqbin_id => $data->{'id'} );
 						say $q->hidden($_) foreach qw (page db seqbin_id);
-						say $q->submit( -name => 'Renumber', -class => 'smallbutton' );
+						say $q->submit( -name => 'Renumber', -class => 'small_submit', -style => 'margin-top:0.3em' )
+						  ;
 						say $q->end_form;
 						say q(</td>);
 					}

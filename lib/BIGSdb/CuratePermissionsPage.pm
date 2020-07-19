@@ -65,9 +65,10 @@ sub print_content {
 		-size     => 8
 	);
 	say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("curators",true)' )
-	  . q(value="All" style="margin-top:1em" class="smallbutton" /><input type="button" )
+	  . q(value="All" style="margin-top:1em" class="small_submit" />);
+	say q(<input type="button" )
 	  . q(onclick='listbox_selectall("curators",false)' value="None" style="margin-top:1em" )
-	  . q(class="smallbutton" /></div>);
+	  . q(class="small_submit" /></div>);
 	say q(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Select' } );
 	say $q->hidden($_) foreach qw(db page);

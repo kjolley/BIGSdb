@@ -764,7 +764,7 @@ sub _check_users {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by
 				$msg .=
 				  qq( <a class="reset" href="$self->{'system'}->{'script_name'}?)
 				  . qq(db=$self->{'instance'}&amp;page=importUser&amp;user_db=$newdata->{'user_db'}&amp;)
-				  . qq(user_name=$newdata->{'user_name'}"><span class="ui-button-text">Import user</span></a>);
+				  . qq(user_name=$newdata->{'user_name'}"><span>Import user</span></a>);
 			}
 			push @$problems, $msg;
 		} else {

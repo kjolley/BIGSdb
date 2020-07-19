@@ -175,7 +175,7 @@ sub print_content {
 	  . q(while clicking with the mouse.</p>);
 	say q(</fieldset>);
 	say q(<fieldset style="float:left"><legend>Display</legend>);
-	say $q->submit( -name => 'update', -label => 'Update display', -class => 'submit' );
+	say $q->submit( -name => 'update', -label => 'Update display', -class => 'small_submit' );
 	say q(</fieldset>);
 	$self->print_action_fieldset( { id => $id } );
 	say $q->hidden($_) foreach qw(db page id seqbin_id locus start_pos end_pos reverse introns);

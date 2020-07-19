@@ -109,10 +109,10 @@ sub print_content {
 			}
 			$update_buffer =
 			    qq( <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagUpdate&amp;id=)
-			  . qq($id$intron_clause" class="smallbutton">Update</a>\n);
+			  . qq($id$intron_clause" class="small_submit">Update</a>\n);
 		}
 		$buffer .= q(<div style="float:left">);
-		$buffer .= qq(<h2>Contig position$update_buffer</h2>\n);
+		$buffer .= qq(<h2>Contig position</h2>$update_buffer\n);
 		my $list = [
 			{ title => 'sequence bin id', data => $seqbin_id },
 			{ title => 'contig length',   data => $seqlength },

@@ -108,7 +108,7 @@ sub _show_registration_details {
 	  . qq(<dt>Last name</dt><dd>$user_info->{'surname'}</dd>)
 	  . qq(<dt>E-mail address</dt><dd>$user_info->{'email'}</dd>)
 	  . qq(<dt>Affiliation/institute</dt><dd>$user_info->{'affiliation'}</dd></dl>);
-	say qq(<p><a href="$self->{'system'}->{'script_name'}?edit=1" class="submit">)
+	say qq(<p><a href="$self->{'system'}->{'script_name'}?edit=1" class="small_submit" style="margin-left:3em">)
 	  . q(<span><span class="fas fa-pencil-alt"></span> Edit details</span></a></p>);
 	say q(</div></div>);
 	return;
@@ -330,8 +330,7 @@ sub _registrations {
 		);
 		$buffer .= q(<div style='text-align:right'>);
 		$buffer .=
-		  $q->submit( -name => 'request', -label => 'Request', -class => 'submit', -style => 'margin-top:0.5em' )
-		  ;
+		  $q->submit( -name => 'request', -label => 'Request', -class => 'submit', -style => 'margin-top:0.5em' );
 		$buffer .= q(</div></div>);
 		$buffer .= $q->end_form;
 		$buffer .= q(</fieldset>);
@@ -575,13 +574,13 @@ sub _import_dbase_config {
 	$buffer .= q(</td></tr>);
 	$buffer .=
 	    q(<tr><td style="text-align:center"><input type="button" onclick='listbox_selectall("available",true)' )
-	  . q(value="All" style="margin-top:1em" class="smallbutton" />);
+	  . qq(value="All" style="margin-top:1em" class="small_submit" />\n);
 	$buffer .= q(<input type="button" onclick='listbox_selectall("available",false)' value="None" )
-	  . q(style="margin-top:1em" class="smallbutton" /></td><td></td>);
+	  . q(style="margin-top:1em" class="small_submit" /></td><td></td>);
 	$buffer .= q(<td style="text-align:center"><input type="button" onclick='listbox_selectall("registered",true)' )
-	  . q(value="All" style="margin-top:1em" class="smallbutton" />);
+	  . qq(value="All" style="margin-top:1em" class="small_submit" />\n);
 	$buffer .= q(<input type="button" onclick='listbox_selectall("registered",false)' value="None" )
-	  . q(style="margin-top:1em" class="smallbutton" />);
+	  . q(style="margin-top:1em" class="small_submit" />);
 	$buffer .= q(</td></tr></table>);
 	$buffer .= $q->end_form;
 	$buffer .= q(</div>);
@@ -613,9 +612,9 @@ sub _show_merge_user_accounts {
 	$buffer .= $q->start_form;
 	$buffer .= q(<fieldset style="float:left"><legend>Select site account</legend>);
 	$buffer .= $self->popup_menu( -name => 'user', -id => 'user', -values => $usernames, -labels => $labels );
+	$buffer .= $q->submit( -label => 'Select user', -class => 'small_submit' );
 	$buffer .= q(</fieldset>);
 	$buffer .= $q->hidden( merge_user => 1 );
-	$buffer .= $self->print_action_fieldset( { get_only => 1, no_reset => 1, submit_label => 'Select user' } );
 	$buffer .= q(<div style="clear:both"></div>);
 	$buffer .= $q->end_form;
 	return $buffer;
@@ -628,12 +627,11 @@ sub _show_modify_users {
 	my $buffer = q(<h2>Update user details</h2>);
 	my $q      = $self->{'cgi'};
 	$buffer .= $q->start_form;
-	$buffer .= q(<fieldset style="float:left"><legend>Select site account</legend>);
+	$buffer .= q(<fieldset><legend>Select site account</legend>);
 	$buffer .= $self->popup_menu( -name => 'user', -id => 'user', -values => $usernames, -labels => $labels );
+	$buffer .= $q->submit( -label => 'Update user', -class => 'small_submit' );
 	$buffer .= q(</fieldset>);
 	$buffer .= $q->hidden( update_user => 1 );
-	$buffer .= $self->print_action_fieldset( { get_only => 1, no_reset => 1, submit_label => 'Update user' } );
-	$buffer .= q(<div style="clear:both"></div>);
 	$buffer .= $q->end_form;
 	return $buffer;
 }

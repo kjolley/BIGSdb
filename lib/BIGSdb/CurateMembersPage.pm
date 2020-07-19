@@ -136,17 +136,17 @@ sub _print_interface {
 		);
 		say q(</td></tr>);
 		say q(<tr><td style="text-align:center"><input type="button" onclick='listbox_selectall("available",true)' )
-		  . q(value="All" style="margin-top:1em" class="smallbutton" />);
+		  . q(value="All" style="margin-top:1em" class="small_submit" />);
 		say q(<input type="button" onclick='listbox_selectall("available",false)' value="None" )
-		  . q(style="margin-top:1em" class="smallbutton" /></td><td></td>);
+		  . q(style="margin-top:1em" class="small_submit" /></td><td></td>);
 		say q(<td style="text-align:center"><input type="button" onclick='listbox_selectall("selected",true)' )
-		  . q(value="All" style="margin-top:1em" class="smallbutton" />);
+		  . q(value="All" style="margin-top:1em" class="small_submit" />);
 		say q(<input type="button" onclick='listbox_selectall("selected",false)' value="None" )
-		  . q(style="margin-top:1em" class="smallbutton" />);
+		  . q(style="margin-top:1em" class="small_submit" />);
 		say q(</td></tr>);
 
 		if ( $table eq 'locus_curators' ) {
-			say q(<tr><td colspan="3">);
+			say q(<tr><td colspan="3" style="padding-top:0.5em">);
 			say $q->checkbox(
 				-name    => 'hide_public',
 				-label   => 'Hide curator name from public view',

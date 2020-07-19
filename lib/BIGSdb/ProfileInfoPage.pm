@@ -179,7 +179,7 @@ sub _print_client_db_links {
 				);
 				$buffer .= $q->hidden($_)
 				  foreach qw (db page designation_field1 designation_operator1 designation_value1 order set_id submit);
-				$buffer .= $q->submit( -label => "$count isolate$plural", -class => 'smallbutton' );
+				$buffer .= $q->submit( -label => "$count isolate$plural", -class => 'small_submit' );
 				$buffer .= $q->end_form;
 			}
 			$buffer .= qq(</dd>\n);
@@ -508,7 +508,7 @@ sub get_link_button_to_ref {
 	$q->param( page   => 'pubquery' );
 	$buffer .= $q->hidden($_) foreach qw (db pmid page curate scheme_id);
 	my $plural = $count == 1 ? '' : 's';
-	$buffer .= $q->submit( -value => "$count profile$plural", -class => 'smallbutton' );
+	$buffer .= $q->submit( -value => "$count profile$plural", -class => 'small_submit' );
 	$buffer .= $q->end_form;
 	return $buffer;
 }

@@ -215,7 +215,11 @@ a.tooltip {
 	cursor: pointer;
 	text-decoration: none;
 	color: #002147;
-	font-size:0.6em
+	font-size: 0.6em
+}
+
+th a.tooltip {
+	color: #fff
 }
 
 a.update_tooltip, a.sequence_tooltip, a.sequence_tooltip_incomplete {
@@ -402,10 +406,6 @@ span.note {
 	cursor: pointer
 }
 
-.smallbutton {
-	font-size: 0.9em
-}
-
 button.pagebar {
 	font-size: 1.2em;
 	border: 0;
@@ -530,10 +530,6 @@ a.add_button:hover {
 	text-decoration: none;
 	color: #fff;
 	background: #888;
-}
-
-a.smallbutton {
-	padding: 0 0.5em
 }
 
 button.smallbutton {
@@ -1388,7 +1384,7 @@ div#alleles table {
 
 div.scrollable {
 	overflow-x: auto;
-	padding-top: 0.2em
+	overflow-y: hidden;
 }
 
 div#resultstable p.comment {

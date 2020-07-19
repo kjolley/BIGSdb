@@ -32,7 +32,7 @@ use constant STYLESHEET      => 'https://pubmlst.org/css/bigsdb.css';
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name             => 'Locus Explorer',
+		name    => 'Locus Explorer',
 		authors => [
 			{
 				name        => 'Keith Jolley',
@@ -238,9 +238,9 @@ sub _print_interface {
 		-default  => $list_ref
 	);
 	say q(<input type="button" onclick='listbox_selectall("allele_ids",true)' value="All" style="margin-top:1em" )
-	  . q(class="smallbutton" />);
+	  . q(class="small_submit" />);
 	say q(<input type="button" onclick='listbox_selectall("allele_ids",false)' value="None" style="margin-top:1em" )
-	  . q(class="smallbutton" />);
+	  . q(class="small_submit" />);
 	say q(</fieldset>);
 	say q(<fieldset style="float:left"><legend>Select analysis</legend>);
 	my $aligner_available = ( $self->{'config'}->{'muscle_path'} || $self->{'config'}->{'mafft_path'} ) ? 1 : 0;

@@ -621,7 +621,7 @@ sub _file_upload {
 		$td = $td == 1 ? 2 : 1;
 	}
 	$buffer .= q(<tr><td>);
-	$buffer .= $q->submit( -name => 'Remove', -class => 'smallbutton' );
+	$buffer .= $q->submit( -name => 'Remove', -class => 'small_submit' );
 	$buffer .= q(</td><td colspan="6"></td></tr>);
 	$buffer .= q(</table>);
 	$q->param( temp_file => $temp_file );

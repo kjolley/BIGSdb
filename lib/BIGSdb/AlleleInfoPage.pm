@@ -165,7 +165,7 @@ sub print_content {
 			$q->param( submit    => 1 );
 			my $profile_buffer = $q->start_form;
 			$profile_buffer .= $q->hidden($_) foreach qw (db page scheme_id s1 y1 t1 order submit);
-			$profile_buffer .= $q->submit( -label => "$profiles profile$plural", -class => 'smallbutton' );
+			$profile_buffer .= $q->submit( -label => "$profiles profile$plural", -class => 'small_submit' );
 			$profile_buffer .= $q->end_form;
 			push @$profiles_list, { title => $scheme_info->{'name'}, data => $profile_buffer };
 		}
@@ -230,7 +230,8 @@ sub _print_client_database_data {
 				local $" = ' ';
 				$buffer .= $q->hidden($_)
 				  foreach qw (db page designation_field1 designation_operator1 designation_value1 order set_id submit);
-				$buffer .= $q->submit( -label => "$isolate_count isolate$plural", -class => 'smallbutton' );
+				$buffer .=
+				  $q->submit( -label => "$isolate_count isolate$plural", -class => 'small_submit' );
 				$buffer .= $q->end_form;
 			}
 			$buffer .= q(</dd>);
