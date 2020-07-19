@@ -775,7 +775,7 @@ sub _print_action_panel {
 		$q->param( page => $action );
 		say $q->hidden($_) foreach qw (db page id isolate_id);
 		say q(<div style="text-align:center">);
-		say $q->submit( -name => $labels{$action}, -class => 'submit' );
+		say $q->submit( -name => $labels{$action}, -class => 'small_submit' );
 		say q(</div>);
 		say $q->end_form;
 		say q(</fieldset>);

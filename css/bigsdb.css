@@ -1216,7 +1216,8 @@ div.curategroup_geocoding {
 
 div.queryform, div#queryform {
 	position: relative;
-	background: #e8e8e8
+	background: #e8e8e8;
+	padding-right: 4em
 }
 
 div#queryform li, p, dd {
@@ -1428,7 +1429,7 @@ div#curatetools {
 	background: #e5e5f0;
 	float: right;
 	position: absolute;
-	top: 8em;
+	top: 6em;
 	right: 5px;
 	padding: 10px;
 	font-size: 1em;
@@ -1441,7 +1442,7 @@ div#curatetools {
 div.floatmenu {
 	float: right;
 	position: absolute;
-	top: 5em;
+	top: 3.5em;
 	right: 10px;
 	font-size: 1.2em;
 	border: 1px solid #d0d0d0;
@@ -2360,6 +2361,9 @@ a.slide_trigger {
 @media only screen and (max-width:1450px) {
 	.form_icon {
 		display: none
+	}
+	div.queryform, div#queryform {
+		padding-right: 0
 	}
 }
 

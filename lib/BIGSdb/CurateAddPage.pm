@@ -31,7 +31,7 @@ use constant SUCCESS => 1;
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (jQuery jQuery.multiselect modernizr noCache);
+	$self->{$_} = 1 foreach qw (jQuery jQuery.multiselect modernizr noCache tooltips);
 	$self->set_level1_breadcrumbs;
 	return;
 }
@@ -1039,7 +1039,7 @@ sub _print_copy_locus_record_form {
 	print $q->start_form;
 	print 'Copy configuration from ';
 	print $q->popup_menu( -name => 'locus', -values => $locus_list, -labels => $locus_labels );
-	print $q->submit( -name => 'Copy', -class => 'submit' );
+	print $q->submit( -name => 'Copy', -class => 'small_submit' );
 	print $q->hidden($_) foreach qw(db page table);
 	print $q->end_form;
 	say q(<p class="comment">All parameters will be copied except id, common name, reference sequence, )
