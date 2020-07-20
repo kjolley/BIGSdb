@@ -441,7 +441,7 @@ sub _print_publish_function {
 	say $q->submit( -name => 'publish', -label => $label, -class => 'small_submit' );
 	say qq(<span class="flash_message" style="margin-left:2em">$self->{'publish_message'}</span>)
 	  if $self->{'publish_message'};
-	say $q->hidden($_) foreach qw (db query_file list_file datatype table page);
+	say $q->hidden($_) foreach qw (db query_file datatype table page);
 	say $q->hidden($_) foreach @$hidden_attributes;
 	say $q->end_form;
 	say q(</fieldset>);
@@ -2115,7 +2115,7 @@ sub confirm_publication {
 	say $q->start_form;
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Confirm' } );
 	say $q->hidden( confirm_publish => 1 );
-	say $q->hidden($_) foreach qw(db page query_file list_file);
+	say $q->hidden($_) foreach qw(db page query_file list_file datatype);
 	say $q->end_form;
 	my $query_file = $q->param('query_file');
 	$self->print_navigation_bar(
