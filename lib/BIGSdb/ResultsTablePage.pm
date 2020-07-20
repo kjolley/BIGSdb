@@ -335,6 +335,7 @@ sub _print_project_add_function {
 	my ($self) = @_;
 	return if !$self->{'username'};
 	return if !$self->{'addProjects'};
+	return if $self->{'curate'};
 	my $q = $self->{'cgi'};
 	return if $q->param('page') eq 'tableQuery';
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
