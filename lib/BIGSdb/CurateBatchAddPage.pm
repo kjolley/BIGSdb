@@ -421,8 +421,7 @@ sub _check_data {
 	my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
 	my ( %locus_format, %locus_regex, $header_row, $header_complete, $record_count );
 	my $first_record = 1;
-
-	foreach my $record (@records) {
+  RECORD: foreach my $record (@records) {
 		$record =~ s/\r//gx;
 		next if $record =~ /^\s*$/x;
 		my $checked_record;
@@ -450,7 +449,7 @@ sub _check_data {
 			);
 			my $rowbuffer;
 			my $continue = 1;
-			foreach my $field (@$fields) {
+		  FIELD: foreach my $field (@$fields) {
 
 				#Prepare checked header
 				if ( !$header_complete && ( defined $file_header_pos->{$field} || $field eq 'id' ) ) {
@@ -505,8 +504,8 @@ sub _check_data {
 				undef $header_row if $first_record;
 				next;
 			}
-			$tablebuffer .= qq(<tr class="td$td">$rowbuffer);
-			my $new_args = {
+			my $row_buffer = qq(<tr class="td$td">$rowbuffer);
+			my $new_args   = {
 				file_header_fields => $file_header_fields,
 				header_row         => \$header_row,
 				first_record       => $first_record,
@@ -531,13 +530,12 @@ sub _check_data {
 						$problems->{$pk_combination} .= $failure;
 					}
 				}
-				$tablebuffer .=
-				  $self->_isolate_record_further_checks( $table, $new_args, $advisories, $pk_combination );
+				$row_buffer .= $self->_isolate_record_further_checks( $table, $new_args, $advisories, $pk_combination );
 			}
 			$header_complete = 1;
 			push @checked_buffer, $header_row if $first_record;
 			$first_record = 0;
-			$tablebuffer .= qq(</tr>\n);
+			$row_buffer .= qq(</tr>\n);
 
 			#Check for various invalid combinations of fields
 			if ( !$problems->{$pk_combination} ) {
@@ -552,9 +550,10 @@ sub _check_data {
 						$continue = 0;
 					}
 				};
-				last if !$continue;
-				next if $skip_record;
+				last FIELD  if !$continue;
+				next RECORD if $skip_record;
 			}
+			$tablebuffer .= $row_buffer;
 			my %record_checks = (
 				accession => sub {
 					$self->_check_corresponding_sequence_exists( $pk_values_ref, $problems, $pk_combination );
@@ -591,8 +590,10 @@ sub _check_data {
 			);
 			$record_checks{$table}->() if $record_checks{$table};
 		}
-		$td = $td == 1 ? 2 : 1;    #row stripes
-		$checked_record =~ s/\t$//x if defined $checked_record;
+		if ( defined $checked_record ) {
+			$td = $td == 1 ? 2 : 1;    #row stripes
+			$checked_record =~ s/\t$//x;
+		}
 		push @checked_buffer, $checked_record;
 	}
 	$tablebuffer .= q(</table></div>);
