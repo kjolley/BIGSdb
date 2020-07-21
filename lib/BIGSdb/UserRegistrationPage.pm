@@ -32,7 +32,7 @@ my $logger = get_logger('BIGSdb.User');
 
 sub print_content {
 	my ($self) = @_;
-	say q(<h1>Account registration</h1>);
+	say q(<div class="login_container">);
 	if ( $self->{'config'}->{'disable_updates'} ) {
 		$self->print_bad_status(
 			{
@@ -40,10 +40,12 @@ sub print_content {
 				detail  => $self->{'config'}->{'disable_update_message'}
 			}
 		);
+		say q(</div>);
 		return;
 	}
 	if ( !$self->{'config'}->{'auto_registration'} ) {
 		$self->print_bad_status( { message => q(This site does not allow automated registrations.) } );
+		say q(</div>);
 		return;
 	}
 	if ( $self->{'system'}->{'dbtype'} ne 'user' ) {
@@ -52,22 +54,27 @@ sub print_content {
 				message => q(Account registrations cannot be performed when accessing a database.),
 			}
 		);
+		say q(</div>);
 		return;
 	}
 	my $q = $self->{'cgi'};
 	if ( $q->param('register') ) {
 		$self->_register;
+		say q(</div>);
 		return;
 	}
 	if ( $q->param('page') eq 'usernameRemind' && $q->param('email') ) {
 		$self->_username_reminder( scalar $q->param('email') );
+		say q(</div>);
 		return;
 	}
 	if ( $q->param('page') eq 'resetPassword' && $q->param('username') && $q->param('email') ) {
 		$self->_reset_password( scalar $q->param('username'), scalar $q->param('email') );
+		say q(</div>);
 		return;
 	}
 	$self->_print_registration_form;
+	say q(</div>);
 	return;
 }
 
@@ -273,9 +280,8 @@ sub _reset_password {
 sub _print_registration_form {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say q(<div class="box queryform">);
-	say q(<span class="main_icon far fa-address-card fa-3x fa-pull-left"></span>);
-	say q(<h2>Register</h2>);
+	say q(<div class="registration_box">);
+	say q(<h1>Register</h1>);
 	say q(<p>If you don't already have a site account, you can register below. Please ensure that you enter a valid )
 	  . q(E-mail address as account validation details will be sent to this.</p>);
 	say q(<p>Please note that user names:</p><ul>);
@@ -336,7 +342,7 @@ sub _print_registration_form {
 	say q(</fieldset>);
 	$q->param( register => 1 );
 	say $q->hidden($_) foreach qw(page register);
-	$self->print_action_fieldset( { no_reset => 1 } );
+	say $q->submit( -name => 'submit', -label => 'Log in', -class => 'submit', -style => 'margin-top:1em' );
 	say $q->end_form;
 	say q(</div>);
 	return;
@@ -570,7 +576,7 @@ END
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw(jQuery noCache);
+	$self->{$_} = 1 foreach qw(jQuery noCache login);
 	$self->{'validate_time'} =
 	  BIGSdb::Utils::is_int( $self->{'config'}->{'new_account_validation_timeout_mins'} )
 	  ? $self->{'config'}->{'new_account_validation_timeout_mins'}

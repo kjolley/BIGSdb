@@ -96,8 +96,12 @@ sub _can_continue {
 sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say $q->param('page') eq 'changePassword' ? '<h1>Change password</h1>' : '<h1>Set user password</h1>';
-	return if !$self->_can_continue;
+	say q(<div class="login_container">);
+	
+	if (!$self->_can_continue){
+		say q(</div>);
+		return;
+	}
 	if ( $q->param('sent') && $q->param('existing_password') ) {
 		my $further_checks = 1;
 		if ( $q->param('page') eq 'changePassword' || $self->{'system'}->{'password_update_required'} ) {
@@ -188,6 +192,7 @@ sub print_content {
 		}
 	}
 	$self->_print_interface;
+	say q(</div>);
 	return;
 }
 
@@ -257,11 +262,13 @@ sub _set_validated_status {
 
 sub _print_interface {
 	my ($self) = @_;
-	say q(<div class="box" id="queryform">);
+	my $q = $self->{'cgi'};
+	say q(<div class="password_box">);
+	say $q->param('page') eq 'changePassword' ? '<h1>Change password</h1>' : '<h1>Set user password</h1>';
 	if ( $self->{'system'}->{'password_update_required'} ) {
 		say q(<p>You are required to update your password.</p>);
 	}
-	my $q = $self->{'cgi'};
+	
 	say q(<p>Please enter your existing and new passwords.</p>) if $q->param('page') eq 'changePassword';
 	say q(<p>Passwords must be at least ) . MIN_PASSWORD_LENGTH . q( characters long.</p>);
 	say q(<noscript><p class="highlight">Please note that Javascript must be enabled in order to login. )
@@ -276,7 +283,7 @@ sub _print_interface {
 		  . q[new_password2.value=CryptoJS.MD5(new_password2.value+username);]
 		  . q[username_as_password.value=CryptoJS.MD5(username+username);]
 		  . q[return true] );
-	say q(<fieldset style="float:left"><legend>Passwords</legend>);
+	say q(<fieldset style="border-top:0">);
 	say q(<ul>);
 
 	if ( $q->param('page') eq 'changePassword' || $self->{'system'}->{'password_update_required'} ) {
@@ -315,7 +322,7 @@ sub _print_interface {
 	say q(<li><label for="new2" class="form" style="width:10em">Retype password:</label>);
 	say $q->password_field( -name => 'new2', -id => 'new2' );
 	say q(</li></ul></fieldset>);
-	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Set password' } );
+	say $q->submit( -name => 'submit', -label => 'Set password', -class => 'submit', -style => 'margin-top:1em' );
 	$q->param( $_ => '' ) foreach qw (existing_password new_password1 new_password2 new_length username_as_password);
 	$q->param( user => $self->{'username'} )
 	  if $q->param('page') eq 'changePassword' || $self->{'system'}->{'password_update_required'};

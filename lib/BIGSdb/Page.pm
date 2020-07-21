@@ -329,10 +329,11 @@ sub create_temp_tables {
 }
 
 sub print_banner {
-	my ($self) = @_;
+	my ($self,$options) = @_;
 	my $bannerfile = "$self->{'dbase_config_dir'}/$self->{'instance'}/banner.html";
+	my $class = $options->{'class'} // 'banner';
 	if ( -e $bannerfile ) {
-		say q(<div class="box" id="banner">);
+		say qq(<div class="box $class">);
 		$self->print_file($bannerfile);
 		say q(</div>);
 	}
@@ -521,14 +522,16 @@ sub print_page_content {
 				shortcut_icon => $shortcut_icon
 			}
 		);
-		my $max_width = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
-		my $main_max_width = $max_width - 15;
+		my $max_width               = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
+		my $main_max_width          = $max_width - 15;
+		my $main_container_class = $self->{'login'} ? q( main_container_login) : q();
+		my $main_content_class  = $self->{'login'} ? q( main_content_login) : q();
 
 		if ( $self->{'system'}->{'db'} && $self->{'instance'} ) {
 			$self->_print_header;
 			$self->_print_breadcrumbs;
-			say q(<div class="main_container">);
-			say qq(<div class="main_content" style="max-width:${main_max_width}px">);
+			say qq(<div class="main_container$main_container_class">);
+			say qq(<div class="main_content$main_content_class" style="max-width:${main_max_width}px">);
 			$self->_print_button_panel;
 			say qq(<script>var max_width=${main_max_width}</script>);
 			$self->print_content;
@@ -536,8 +539,8 @@ sub print_page_content {
 			$self->_print_footer;
 		} else {
 			$self->_print_site_header;
-			say q(<div class="main_container">);
-			say qq(<div class="main_content" style="max-width:${main_max_width}px">);
+			say qq(<div class="main_container$main_container_class">);
+			say qq(<div class="main_content $main_content_class" style="max-width:${main_max_width}px">);
 			$self->print_content;
 			say q(</div></div>);
 			$self->_print_site_footer;
@@ -1783,8 +1786,7 @@ sub get_link_button_to_ref {
 	$q->param( pmid   => $ref );
 	$q->param( page   => 'pubquery' );
 	$buffer .= $q->hidden($_) foreach qw(db page curate pmid set_id);
-	$buffer .= $q->submit( -value => "$count isolate$plural", -class => $options->{'class'} // 'small_submit' )
-	  ;
+	$buffer .= $q->submit( -value => "$count isolate$plural", -class => $options->{'class'} // 'small_submit' );
 	$buffer .= $q->end_form;
 	$q->param( page => 'info' );
 	return $buffer;
@@ -3262,7 +3264,7 @@ sub print_bad_status {
 sub print_good_status {
 	my ( $self, $options ) = @_;
 	$options->{'message'} //= 'Success!';
-	say q(<div class="box resultsheader" style="min-height:5em");
+	say q(<div class="box resultsheader" style="min-height:5em">);
 	say q(<p><span class="success fas fa-check fa-5x fa-pull-left"></span></p>);
 	say qq(<p class="outcome_message">$options->{'message'}</p>);
 	if ( $options->{'detail'} ) {
