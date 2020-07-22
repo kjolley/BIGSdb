@@ -68,6 +68,15 @@ sub initiate {
 	$self->{$_} = 1 foreach qw(jQuery noCache);
 	return if !$self->{'config'}->{'site_user_dbs'};
 	$self->use_correct_user_database;
+	$self->{'breadcrumbs'} = [
+		{
+			label => 'Home',
+			href  => '/'
+		},
+		{
+			label => 'Account'
+		}
+	];
 	return;
 }
 
@@ -889,7 +898,7 @@ sub _notify_db_admin {
 	  . qq(Affiliation: $sender->{'affiliation'}\n)
 	  . qq(E-mail: $sender->{'email'}\n\n);
 	$message .=
-	  qq(Please log in to the $system->{'description'} ) . q(database curation system to accept or reject this user.);
+	  qq(Please log in to the $system->{'description'} database curation system to accept or reject this user.);
 	my $domain = $self->{'config'}->{'domain'} // DEFAULT_DOMAIN;
 	foreach my $recipient (@$recipients) {
 		next if !$recipient->{'account_request_emails'};

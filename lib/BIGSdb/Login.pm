@@ -109,7 +109,16 @@ sub initiate {
 	# This is psuedo-random, but only controls the sessionID value, which
 	# is also hashed with the ip address and your UNIQUE_STRING
 	$self->{'random_number'} = int( rand(4294967296) );
-	$self->set_level1_breadcrumbs;
+	if ( $self->{'instance'} ) {
+		$self->set_level1_breadcrumbs;
+	} else {
+		$self->{'breadcrumbs'} = [
+			{ label => 'Home', href => '/' },
+			{
+				label => 'Log in'
+			}
+		];
+	}
 	return;
 }
 

@@ -591,6 +591,15 @@ sub initiate {
 		$self->{'system'}->{'db'} = $q->param('domain');
 		$self->use_correct_user_database;
 	}
+	$self->{'breadcrumbs'} = [
+		{
+			label => 'Home',
+			href  => '/'
+		},
+		{
+			label => 'Registration'
+		}
+	];
 	return;
 }
 1;

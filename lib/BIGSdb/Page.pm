@@ -329,7 +329,7 @@ sub create_temp_tables {
 }
 
 sub print_banner {
-	my ($self,$options) = @_;
+	my ( $self, $options ) = @_;
 	my $bannerfile = "$self->{'dbase_config_dir'}/$self->{'instance'}/banner.html";
 	my $class = $options->{'class'} // 'banner';
 	if ( -e $bannerfile ) {
@@ -522,10 +522,10 @@ sub print_page_content {
 				shortcut_icon => $shortcut_icon
 			}
 		);
-		my $max_width               = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
-		my $main_max_width          = $max_width - 15;
+		my $max_width            = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
+		my $main_max_width       = $max_width - 15;
 		my $main_container_class = $self->{'login'} ? q( main_container_login) : q();
-		my $main_content_class  = $self->{'login'} ? q( main_content_login) : q();
+		my $main_content_class   = $self->{'login'} ? q( main_content_login) : q();
 
 		if ( $self->{'system'}->{'db'} && $self->{'instance'} ) {
 			$self->_print_header;
@@ -539,6 +539,7 @@ sub print_page_content {
 			$self->_print_footer;
 		} else {
 			$self->_print_site_header;
+			$self->_print_breadcrumbs;
 			say qq(<div class="main_container$main_container_class">);
 			say qq(<div class="main_content $main_content_class" style="max-width:${main_max_width}px">);
 			$self->print_content;
@@ -1020,24 +1021,29 @@ sub print_panel_buttons { }
 sub _print_breadcrumbs {
 	my ($self) = @_;
 	return if !$self->{'system'}->{'db'};
-	my @potential_breadcrumb_files = (
-		"$self->{'dbase_config_dir'}/$self->{'instance'}/breadcrumbs.conf",
-		"$ENV{'DOCUMENT_ROOT'}$self->{'system'}->{'webroot'}/breadcrumbs.conf",
-		"$ENV{'DOCUMENT_ROOT'}/breadcrumbs.conf",
-		"$self->{'config_dir'}/breadcrumbs.conf"
-	);
+	my $q = $self->{'cgi'};
+	my $page = $q->param('page') // q();
 	my @breadcrumbs;
-	foreach my $file (@potential_breadcrumb_files) {
-		if ( -e $file ) {
-			open( my $fh, '<:encoding(utf8)', $file ) || $logger->error("Cannot open $file for reading");
-			while ( my $line = <$fh> ) {
-				if ( $line =~ /^(.+)\|(.+)$/x ) {
-					my ( $text, $url ) = ( $1, $2 );
-					push @breadcrumbs, qq(<a href="$url">$text</a>);
+	my %root_pages = map { $_ => 1 } qw(registration user);
+	if ( !$root_pages{$page} ) {
+		my @potential_breadcrumb_files = (
+			"$self->{'dbase_config_dir'}/$self->{'instance'}/breadcrumbs.conf",
+			"$ENV{'DOCUMENT_ROOT'}$self->{'system'}->{'webroot'}/breadcrumbs.conf",
+			"$ENV{'DOCUMENT_ROOT'}/breadcrumbs.conf",
+			"$self->{'config_dir'}/breadcrumbs.conf"
+		);
+		foreach my $file (@potential_breadcrumb_files) {
+			if ( -e $file ) {
+				open( my $fh, '<:encoding(utf8)', $file ) || $logger->error("Cannot open $file for reading");
+				while ( my $line = <$fh> ) {
+					if ( $line =~ /^(.+)\|(.+)$/x ) {
+						my ( $text, $url ) = ( $1, $2 );
+						push @breadcrumbs, qq(<a href="$url">$text</a>);
+					}
 				}
+				close $fh;
+				last;
 			}
-			close $fh;
-			last;
 		}
 	}
 	if ( $self->{'breadcrumbs'} ) {
@@ -3372,19 +3378,23 @@ sub set_level0_breadcrumbs {
 sub set_level1_breadcrumbs {
 	my ($self) = @_;
 	my $page_name = $self->get_title( { breadcrumb => 1 } );
-	$self->{'breadcrumbs'} = [
-		{
+	my $breadcrumbs = [];
+	if ( defined $self->{'system'}->{'webroot'} ) {
+		push @$breadcrumbs,
+		  {
 			label => $self->{'system'}->{'webroot_label'} // 'Organism',
 			href => $self->{'system'}->{'webroot'}
-		},
-		{
-			label => $self->{'system'}->{'description'},
-			href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}"
-		},
-		{
-			label => $page_name
-		}
-	];
+		  };
+	}
+	if ( $self->{'instance'} ) {
+	push @$breadcrumbs,
+	  {
+		label => $self->{'system'}->{'description'},
+		href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}"
+	  };
+	}
+	push @$breadcrumbs, { label => $page_name };
+	$self->{'breadcrumbs'} = $breadcrumbs;
 	return;
 }
 1;
