@@ -90,7 +90,8 @@ h4, h5, h6 {
 
 textarea {
 	font-family: Monaco, monospace;
-	font-size: 1em
+	font-size: 1em;
+	border: 1px solid #ccc
 }
 
 ul {
