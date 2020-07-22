@@ -819,4 +819,15 @@ sub get_title {
 	my ($self) = @_;
 	return 'Batch Isolate Update';
 }
+
+sub initiate {
+	my ($self) = @_;
+	$self->{$_} = 1 foreach qw (jQuery jQuery.multiselect noCache);
+	my $q = $self->{'cgi'};
+	if ( $q->param('update') || $q->param('data') ) {
+		$self->{'processing'} = 1;
+	}
+	$self->set_level1_breadcrumbs;
+	return;
+}
 1;

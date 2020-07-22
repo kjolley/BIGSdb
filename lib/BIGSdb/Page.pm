@@ -3387,13 +3387,24 @@ sub set_level1_breadcrumbs {
 		  };
 	}
 	if ( $self->{'instance'} ) {
-	push @$breadcrumbs,
-	  {
-		label => $self->{'system'}->{'description'},
-		href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}"
-	  };
+		push @$breadcrumbs,
+		  {
+			label => $self->{'system'}->{'description'},
+			href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}"
+		  };
 	}
-	push @$breadcrumbs, { label => $page_name };
+	if ( $self->{'processing'} ) {
+		my $q = $self->{'cgi'};
+		my $page = $q->param('page');
+		push @$breadcrumbs,
+		  {
+			label => $page_name,
+			href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page"
+		  };
+		push @$breadcrumbs, { label => 'Processing' };
+	} else {
+		push @$breadcrumbs, { label => $page_name };
+	}
 	$self->{'breadcrumbs'} = $breadcrumbs;
 	return;
 }
