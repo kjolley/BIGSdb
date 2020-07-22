@@ -158,7 +158,7 @@ sub _print_interface_locus_selection {
 			unshift @values, '';
 			$labels{''} = 'Select ...';
 			say $q->popup_menu( -name => 'locus', -values => \@values, -labels => \%labels );
-			say $q->submit( -name => 'Reload', -class => 'submit' );
+			say $q->submit( -name => 'Reload', -class => 'small_submit' );
 			say $q->end_form;
 		} else {
 			my $first = 1;
