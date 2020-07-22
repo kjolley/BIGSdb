@@ -74,8 +74,8 @@ use constant QUERY                => q(<span class="fas fa-search" style="color:
 use constant USERS                => q(<span class="fas fa-users" style="color:#a4a"></span>);
 use constant GOOD                 => q(<span class="statusgood fas fa-check"></span>);
 use constant BAD                  => q(<span class="statusbad fas fa-times"></span>);
-use constant TRUE                 => q(<span class="far fa-lg fa-check-square"></span>);
-use constant FALSE                => q(<span class="far fa-lg fa-square"></span>);
+use constant TRUE                 => q(<span class="far fa-lg fa-check-square" style="font-size:0.95em"></span>);
+use constant FALSE                => q(<span class="far fa-lg fa-square" style="font-size:0.95em"></span>);
 use constant BAN                  => q(<span class="fas fa-ban" style="color:#a44"></span>);
 use constant DOWNLOAD             => q(<span class="fas fa-download" style="color:#44a"></span>);
 use constant LOCK                 => q(<span class="fas fa-lock" style="color:#a44"></span>);
