@@ -1352,7 +1352,7 @@ div.largetable_resultsheader {
 }
 
 div.login_container div.resultsheader {
-	background: #fff	
+	background: #fff
 }
 
 div#resultsfooter, div.resultsfooter {
@@ -1409,6 +1409,15 @@ div#resultspanel table {
 }
 
 div.resultspanel table {
+	border-collapse: collapse
+}
+
+div#account_requests table.resultstable th, div#account_requests table.resultstable td
+	{
+	border: 1px solid #ddd
+}
+
+div#account_requests table {
 	border-collapse: collapse
 }
 
