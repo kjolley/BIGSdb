@@ -373,7 +373,6 @@ sub _display_update_form {
 		$self->print_action_fieldset( { no_reset => 1, submit_label => 'Update' } );
 		say $q->end_form;
 	}
-	$self->print_navigation_bar( { back_page => 'batchIsolateUpdate' } );
 	return;
 }
 
@@ -730,7 +729,6 @@ sub _update {
 		say q(<h2>Updates</h2>);
 		say q(<table class="resultstable" style="margin-bottom:1em"><tr><th>Condition</th><th>Field</th>)
 		  . qq(<th>New value</th><th>Status</th><th>Comments</th></tr>$tablebuffer</table>);
-		$self->print_navigation_bar( { back_page => 'batchIsolateUpdate' } );
 		say q(</div>);
 	}
 	return;
