@@ -1416,9 +1416,15 @@ sub get_filter {
 	}
 	my $buffer = qq(<label for="$id" class="$class" $title_attribute>$label</label>\n);
 	unshift @$values, '' if !$options->{'noblank'};
-	$options->{'labels'}->{''} = '&nbsp;';    #Required for HTML5 validation.
-	my %args =
-	  ( -name => "$name\_list", -id => $id, -values => $values, -labels => $options->{'labels'}, -class => $class );
+	$options->{'labels'}->{''} = '&nbsp;';             #Required for HTML5 validation.
+	my %args = (
+		-name   => "$name\_list",
+		-id     => $id,
+		-values => $values,
+		-labels => $options->{'labels'},
+		-class  => $class,
+		-style  => 'max-width:20em'
+	);
 	if ( $options->{'multiple'} ) {
 		$args{'-multiple'} = 'multiple';
 		$args{'-size'} = ( @$values < 4 ) ? @$values : 4;
