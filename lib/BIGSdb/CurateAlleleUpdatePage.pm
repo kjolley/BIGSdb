@@ -130,8 +130,14 @@ sub print_content {
 	my $set_id = $self->get_set_id;
 	my ( $loci, $labels ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
 	say q(<label for="locus">Locus: </label>);
-	say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $loci, -labels => $labels );
-	say $q->submit( -label => 'Add/update', -class => 'button' );
+	say $q->popup_menu(
+		-name   => 'locus',
+		-id     => 'locus',
+		-values => $loci,
+		-labels => $labels,
+		-style  => 'max-width:15em'
+	);
+	say $q->submit( -label => 'Add/update', -class => 'small_submit' );
 	$q->param( update_id => $data->{'update_id'} );
 
 	if ( !defined $q->param('isolate_id') && defined $q->param('allele_designations_isolate_id') ) {
