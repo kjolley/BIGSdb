@@ -310,29 +310,14 @@ sub _validate {
 		$q->param( upload => 1 );
 		say $q->hidden($_) foreach qw(db page field temp_file upload);
 		say $q->end_form;
-		$self->print_navigation_bar(
-			{
-				reload_url  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin",
-				reload_text => 'Restart'
-			}
-		);
 	}
 	say q(</div></div>);
 	if ($failure) {
 		my $plural = $failure == 1 ? q() : q(s);
-		my %navbar;
-		if ( !$success ) {
-			%navbar = (
-				navbar      => 1,
-				reload_url  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin",
-				reload_text => 'Restart'
-			);
-		}
 		$self->print_bad_status(
 			{
 				message => "$failure record$plural failed validation.",
 				detail  => 'These cannot be uploaded.',
-				%navbar
 			}
 		);
 	}
@@ -384,10 +369,7 @@ sub _upload {
 				message => 'Please do not refresh!',
 				detail  => 'Your contigs are already uploading. Check the database to see if '
 				  . 'they have finished uploading. If you click Restart below and they have not '
-				  . 'finished uploading, the process will be terminated.',
-				navbar      => 1,
-				reload_url  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin",
-				reload_text => 'Restart'
+				  . 'finished uploading, the process will be terminated.'
 			}
 		);
 		return;
@@ -409,10 +391,7 @@ sub _upload {
 	if ( !$sender ) {
 		$self->print_bad_status(
 			{
-				message     => 'No sender selected.',
-				navbar      => 1,
-				reload_url  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin",
-				reload_text => 'Restart'
+				message => 'No sender selected.'
 			}
 		);
 	}
@@ -480,11 +459,8 @@ sub _upload {
 	if ( !$added ) {
 		$self->print_bad_status(
 			{
-				message     => 'Please do not refresh!',
-				detail      => 'Your contigs have either already uploaded or are doing so.',
-				navbar      => 1,
-				reload_url  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin",
-				reload_text => 'Restart'
+				message => 'Please do not refresh!',
+				detail  => 'Your contigs have either already uploaded or are doing so.'
 			}
 		);
 		$self->{'db'}->rollback;
@@ -494,10 +470,7 @@ sub _upload {
 		local $" = ', ';
 		$self->print_bad_status(
 			{
-				message     => 'Failed! - transaction cancelled - no records have been touched.',
-				navbar      => 1,
-				reload_url  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin",
-				reload_text => 'Restart'
+				message => 'Failed! - transaction cancelled - no records have been touched.'
 			}
 		);
 		$self->{'db'}->rollback;
@@ -507,10 +480,7 @@ sub _upload {
 	my $plural = $added == 1 ? q(y) : q(ies);
 	$self->print_good_status(
 		{
-			message     => qq($added sequence assembl$plural uploaded.),
-			navbar      => 1,
-			reload_url  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin",
-			reload_text => 'Restart'
+			message => qq($added sequence assembl$plural uploaded.)
 		}
 	);
 	$self->_remove_dir($dir);
@@ -558,10 +528,7 @@ sub _file_upload {
 	if ( !@$validated ) {
 		$self->print_bad_status(
 			{
-				message     => 'No records selected.',
-				navbar      => 1,
-				reload_url  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin",
-				reload_text => 'Restart'
+				message => 'No records selected.'
 			}
 		);
 		return;
@@ -660,12 +627,6 @@ sub _file_upload {
 	local $" = q(|);
 	say qq(<span id="filenames" style="display:none">@filenames</span>);
 	say q(<div style="clear:both"></div>);
-	$self->print_navigation_bar(
-		{
-			back     => 1,
-			back_url => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin"
-		}
-	);
 	say q(</div></div>);
 	return;
 }
@@ -891,6 +852,10 @@ sub get_title {
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (tooltips jQuery dropzone noCache);
+	my $q = $self->{'cgi'};
+	if ( $q->param('validate') || $q->param('upload') || $q->param('filenames') || $q->param('temp_file') ) {
+		$self->{'processing'} = 1;
+	}
 	$self->set_level1_breadcrumbs;
 	return;
 }

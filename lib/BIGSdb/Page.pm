@@ -2216,7 +2216,7 @@ sub can_modify_table {
 		if ( $isolate_permissions{$table} ) {
 			return $isolate_permissions{$table};
 		}
-	} else {                                               #Sequence definition database only tables
+	} else {    #Sequence definition database only tables
 
 		#Locus descriptions/links. Checks for specific loci are in next section
 		my %desc_tables = map { $_ => 1 } qw (locus_descriptions locus_links);
@@ -2856,6 +2856,8 @@ sub print_seqbin_isolate_fieldset {
 	my ( $ids, $labels ) = $self->get_isolates_with_seqbin($options);
 	say q(<fieldset style="float:left"><legend>Isolates</legend>);
 	if (@$ids) {
+		my $size = $options->{'size'} // 8;
+		my $list_box_size = $size - 0.2;
 		say q(<div style="float:left">);
 		if ( @$ids <= MAX_ISOLATES_DROPDOWN || !$options->{'isolate_paste_list'} ) {
 			say $self->popup_menu(
@@ -2863,8 +2865,7 @@ sub print_seqbin_isolate_fieldset {
 				-id       => 'isolate_id',
 				-values   => $ids,
 				-labels   => $labels,
-				-size     => $options->{'size'} // 8,
-				-style    => 'min-width:12em',
+				-style    => "min-width:12em;height:${size}em",
 				-multiple => 'true',
 				-default  => $options->{'selected_ids'},
 				-required => ( $options->{'isolate_paste_list'} || $options->{'allow_empty_list'} )
@@ -2892,7 +2893,7 @@ sub print_seqbin_isolate_fieldset {
 				say $q->textarea(
 					-name        => 'isolate_paste_list',
 					-id          => 'isolate_paste_list',
-					-cols        => 12,
+					-style       => "height:${list_box_size}em",
 					-rows        => $options->{'size'} ? ( $options->{'size'} - 1 ) : 7,
 					-placeholder => 'Paste list of isolate ids (one per line)...'
 				);
@@ -2903,8 +2904,7 @@ sub print_seqbin_isolate_fieldset {
 			my %args = (
 				-name        => 'isolate_paste_list',
 				-id          => 'isolate_paste_list',
-				-cols        => 12,
-				-rows        => $options->{'size'} ? ( $options->{'size'} - 1 ) : 7,
+				-style       => "height:${list_box_size}em",
 				-default     => "@{$options->{'selected_ids'}}",
 				-placeholder => 'Paste list of isolate ids (one per line)...',
 			);
@@ -2960,15 +2960,31 @@ sub print_isolates_locus_fieldset {
 		{ loci => 1, analysis_pref => $analysis_pref, query_pref => 0, sort_labels => 1 } );
 	if (@$locus_list) {
 		say q(<div style="float:left">);
+		my $size = $options->{'size'} // 8;
+		my $list_box_size = $size - 0.2;
 		say $self->popup_menu(
 			-name     => 'locus',
 			-id       => 'locus',
 			-values   => $locus_list,
 			-labels   => $locus_labels,
-			-size     => $options->{'size'} // 8,
+			-style    => "height:${size}em",
 			-multiple => 'true',
 			-default  => $options->{'selected_loci'}
 		);
+		say q(</div>);
+		if ( $options->{'locus_paste_list'} ) {
+			my $display = $q->param('locus_paste_list') ? 'block' : 'none';
+			say qq(<div id="locus_paste_list_div" style="float:left; display:$display">);
+			say $q->textarea(
+				-name        => 'locus_paste_list',
+				-id          => 'locus_paste_list',
+				-style       => "height:${list_box_size}em",
+				-rows        => $options->{'size'} ? ( $options->{'size'} - 1 ) : 7,
+				-placeholder => 'Paste list of locus primary names (one per line)...'
+			);
+			say q(</div>);
+		}
+		say q(<div style="clear:both"></div>);
 		my $list_button = q();
 		if ( $options->{'locus_paste_list'} ) {
 			my $show_button_display = $q->param('locus_paste_list') ? 'none'    : 'display';
@@ -2982,19 +2998,7 @@ sub print_isolates_locus_fieldset {
 		say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("locus",true)' )
 		  . q(value="All" style="margin-top:1em" class="small_submit" /><input type="button" )
 		  . q(onclick='listbox_selectall("locus",false)' value="None" style="margin:1em 0 0 0.2em" class="small_submit" />)
-		  . qq($list_button</div></div>);
-		if ( $options->{'locus_paste_list'} ) {
-			my $display = $q->param('locus_paste_list') ? 'block' : 'none';
-			say qq(<div id="locus_paste_list_div" style="float:left; display:$display">);
-			say $q->textarea(
-				-name        => 'locus_paste_list',
-				-id          => 'locus_paste_list',
-				-cols        => 12,
-				-rows        => $options->{'size'} ? ( $options->{'size'} - 1 ) : 7,
-				-placeholder => 'Paste list of locus primary names (one per line)...'
-			);
-			say q(</div>);
-		}
+		  . qq($list_button</div>);
 	} else {
 		say q(No loci available<br />for analysis);
 	}
@@ -3398,12 +3402,14 @@ sub set_level1_breadcrumbs {
 		  };
 	}
 	if ( $self->{'processing'} ) {
-		my $q    = $self->{'cgi'};
-		my $page = $q->param('page');
+		my $q            = $self->{'cgi'};
+		my $page         = $q->param('page');
+		my $table        = $q->param('table');
+		my $table_clause = $table ? qq(&amp;table=$table) : q();
 		push @$breadcrumbs,
 		  {
 			label => $page_name,
-			href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page"
+			href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page$table_clause"
 		  };
 	} else {
 		push @$breadcrumbs, { label => $page_name };

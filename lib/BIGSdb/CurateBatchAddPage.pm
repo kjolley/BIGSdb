@@ -2211,6 +2211,10 @@ sub _set_submission_params {
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (jQuery noCache allowExpand);
+	my $q = $self->{'cgi'};
+	if ( $q->param('query') || $q->param('data') || $q->param('checked_buffer') ) {
+		$self->{'processing'} = 1;
+	}
 	$self->set_level1_breadcrumbs;
 	return;
 }

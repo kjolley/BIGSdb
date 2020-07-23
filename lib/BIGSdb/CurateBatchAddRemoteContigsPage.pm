@@ -32,6 +32,10 @@ my $logger = get_logger('BIGSdb.Page');
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (jQuery jQuery.multiselect modernizr noCache);
+		my $q = $self->{'cgi'};
+	if ( $q->param('check') || $q->param('process') || $q->param('upload') ) {
+		$self->{'processing'} = 1;
+	}
 	$self->set_level1_breadcrumbs;
 	return;
 }
@@ -74,9 +78,7 @@ sub _process {
 	  . q(<noscript><div class="box statusbad"><p>Please enable Javascript in your browser</p></div></noscript>);
 	say q(<h2 id="title">Processing contigs</h2>);
 	say q(<div id="results"></div>);
-	say q(<div id="nav" style="display:none">);
-	$self->print_navigation_bar( { back_page => 'batchAddRemoteContigs' } );
-	say q(</div></div>);
+	say q(</div>);
 	my $prefix      = BIGSdb::Utils::get_random();
 	my $output_file = "$self->{'config'}->{'tmp_dir'}/$prefix.txt";
 	$self->_run_forked_contig_processor( $results_prefix, $isolate_id );
@@ -172,7 +174,6 @@ function getResults(poll_time) {
 function finishProcessing(){
 	\$("h2#title").text('Processed contigs');
 	\$("div#wait").html('');
-	\$("div#nav").css('display','block');
 }
 //]]></script>
 END
@@ -279,7 +280,6 @@ sub _upload {
 		say $q->hidden($_) foreach qw(db page contigs_list isolate_id process);
 		say $q->end_form;
 	}
-	$self->print_navigation_bar( { back_page => 'batchAddRemoteContigs' } );
 	say q(</div>);
 	return;
 }
@@ -328,9 +328,7 @@ sub _check {
 			$error = 1;
 		}
 	};
-	if ($error) {
-		$self->print_navigation_bar( { back_page => 'batchAddRemoteContigs' } );
-	} else {
+	if (!$error) {
 		say q(done.</p>);
 		if ($@) {
 			say q(<p class="statusbad">Isolate record is not valid.</p></div>);
@@ -338,7 +336,6 @@ sub _check {
 		}
 		if ( ref $isolate_data ne 'HASH' || !$isolate_data->{'sequence_bin'} ) {
 			say q(<p class="statusbad">No contigs found.</p>);
-			$self->print_navigation_bar( { back_page => 'batchAddRemoteContigs' } );
 		} else {
 			my $contig_count = $isolate_data->{'sequence_bin'}->{'contig_count'};
 			my $length       = BIGSdb::Utils::commify( $isolate_data->{'sequence_bin'}->{'total_length'} );

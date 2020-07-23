@@ -204,6 +204,7 @@ sub _print_interface {
 	}
 	say $q->start_form;
 	say q(<div class="scrollable">);
+	say q(<div class="flex_container" style="justify-content:left">);
 	$self->print_seqbin_isolate_fieldset(
 		{ selected_ids => $selected_ids, size => 11, isolate_paste_list => 1, only_genomes => 1 } );
 	my @selected_loci = $q->multi_param('locus');
@@ -211,7 +212,7 @@ sub _print_interface {
 		{ selected_loci => \@selected_loci, locus_paste_list => 1, size => 11, analysis_pref => 0 } );
 	say q(<fieldset><legend>Schemes</legend>);
 	say q(<noscript><p class="highlight">Enable Javascript to select schemes.</p></noscript>);
-	say q(<div id="tree" class="tree" style="height:180px; width:20em">);
+	say q(<div id="tree" class="tree" style="height:220px; width:20em">);
 	say $self->get_tree( undef, { no_link_out => 1, select_schemes => 1 } );
 	say q(</div></fieldset>);
 	$self->_print_parameter_fieldset($general_prefs);
@@ -277,6 +278,7 @@ sub _print_interface {
 	say q(</ul></fieldset>);
 	say q(</div>);
 	$self->print_action_fieldset( { submit_label => 'Scan' } );
+	say q(</div>);
 	say $q->hidden($_) foreach qw (page db);
 	say $q->end_form;
 	say q(</div>);
