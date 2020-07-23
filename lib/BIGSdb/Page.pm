@@ -3196,9 +3196,8 @@ sub get_tooltip {
 sub print_navigation_bar {
 	my ( $self, $options ) = @_;
 	my $script = $options->{'script'} // $self->{'system'}->{'script_name'};
-	my ( $back, $home, $key, $show, $hide, $more, $query_more, $upload_contigs, $link_contigs, $reload, $edit, $curate )
-	  = ( BACK, HOME, KEY, EYE_SHOW, EYE_HIDE, MORE, QUERY_MORE, UPLOAD_CONTIGS, LINK_CONTIGS, RELOAD, EDIT_MORE,
-		CURATE );
+	my ( $back, $home, $key, $more, $query_more, $upload_contigs, $link_contigs, $reload, $edit, $curate ) =
+	  ( BACK, HOME, KEY, MORE, QUERY_MORE, UPLOAD_CONTIGS, LINK_CONTIGS, RELOAD, EDIT_MORE, CURATE );
 	my $buffer = q();
 	if ( $options->{'submission_id'} ) {
 		$buffer .=
@@ -3223,11 +3222,11 @@ sub print_navigation_bar {
 	}
 	if ( $options->{'closed_submissions'} ) {
 		$buffer .=
-		    q(<a id="show_closed" style="cursor:pointer;margin-right:1em">)
-		  . q(<span id="show_closed_text" title="Show closed submissions" )
-		  . qq(style="display:inline">$show</span>)
-		  . q(<span id="hide_closed_text" title="Hide closed submissions" )
-		  . qq(style="display:none">$hide</span></a>);
+		    q(<a id="show_closed" style="cursor:pointer;margin-right:1em" class="small_submit">)
+		  . q(<span id="show_closed_text" style="display:inline">)
+		  . q(<span class="fas fa fa-eye"></span> Show closed submissions</span>)
+		  . q(<span id="hide_closed_text" style="display:none">)
+		  . q(<span class="fas fa fa-eye-slash"></span> Hide closed submissions</span></a>);
 	}
 	if ( $options->{'more_url'} ) {
 		$options->{'more_text'} //= 'Add another';

@@ -188,13 +188,11 @@ sub print_content {
 	$self->_delete_old_submissions;
 	my $closed_buffer =
 	  $self->print_submissions_for_curation( { status => 'closed', show_outcome => 1, get_only => 1 } );
-	my $show_curator_link = $user_info->{'status'} eq 'user' ? 0 : 1;
 	if ( !$self->_print_started_submissions ) {    #Returns true if submissions in process
 		say q(<div class="box" id="resultspanel"><div class="scrollable">);
 		$self->_print_new_submission_links;
 		if ( !$submissions_to_show ) {
-			$self->print_navigation_bar(
-				{ closed_submissions => $closed_buffer ? 1 : 0, curator_interface => $show_curator_link,no_home=>1 } );
+			$self->print_navigation_bar( { closed_submissions => $closed_buffer ? 1 : 0, no_home => 1 } );
 		}
 		say q(</div></div>);
 	}
@@ -203,10 +201,8 @@ sub print_content {
 		$self->_print_pending_submissions;
 		$self->print_submissions_for_curation;
 		$self->_print_closed_submissions;
-		say q(<p style="margin-top:1em">);
-		$self->print_navigation_bar(
-			{ closed_submissions => $closed_buffer ? 1 : 0, curator_interface => $show_curator_link,no_home=>1 } );
-		say q(</p></div></div>);
+		$self->print_navigation_bar( { closed_submissions => $closed_buffer ? 1 : 0, no_home => 1 } );
+		say q(</div></div>);
 	}
 	if ($closed_buffer) {
 		say q(<div class="box resultstable" id="closed" style="display:none"><div class="scrollable">);
@@ -1933,8 +1929,7 @@ sub _print_sequence_table_fieldset {
 		say $q->hidden($_) foreach qw( db page submission_id locus sender status sequence complete_CDS );
 		say $q->end_form;
 		say $q->start_form( -action => $self->{'system'}->{'query_script'}, -target => '_blank' );
-		say $q->submit( -name => 'Batch query', -class => 'submit', -style => 'float:left;margin-top:0.5em' )
-		  ;
+		say $q->submit( -name => 'Batch query', -class => 'submit', -style => 'float:left;margin-top:0.5em' );
 		$q->param( page => 'batchSequenceQuery' );
 		say $q->hidden($_) foreach qw( db page submission_id locus sequence );
 		say $q->hidden( submit => 1 );

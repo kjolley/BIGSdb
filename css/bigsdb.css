@@ -1164,13 +1164,7 @@ div.box {
 
 div.navigation {
 	float: left;
-	margin-top: 0.5em;
-	border: 1px solid #aaa;
-	padding: 0.2em 0 0.4em 1em;
-	background: #ddd;
-	border-radius: 5px;
-	box-shadow: 1px 1px 1px #aaa;
-	border: 1px solid #aaa;
+	margin-top: 1em
 }
 
 div.curategroup {
