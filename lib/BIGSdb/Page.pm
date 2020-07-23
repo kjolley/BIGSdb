@@ -3394,14 +3394,13 @@ sub set_level1_breadcrumbs {
 		  };
 	}
 	if ( $self->{'processing'} ) {
-		my $q = $self->{'cgi'};
+		my $q    = $self->{'cgi'};
 		my $page = $q->param('page');
 		push @$breadcrumbs,
 		  {
 			label => $page_name,
 			href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=$page"
 		  };
-		push @$breadcrumbs, { label => 'Processing' };
 	} else {
 		push @$breadcrumbs, { label => $page_name };
 	}
