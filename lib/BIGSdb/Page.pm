@@ -2202,6 +2202,9 @@ sub can_modify_table {
 		);
 		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_isolates'}
 		  foreach qw(isolates isolate_aliases refs);
+		my $user_info = $self->{'datastore'}->get_user_info( $self->get_curator_id );
+		$isolate_permissions{'retired_isolates'} = $self->{'permissions'}->{'modify_isolates'}
+		  if $user_info->{'status'} eq 'curator';
 		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_experiments'}
 		  foreach qw(experiments experiment_sequences);
 		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_composites'}
@@ -2209,10 +2212,11 @@ sub can_modify_table {
 		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_projects'} foreach qw(projects project_members);
 		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_probes'}
 		  foreach qw(pcr pcr_locus probes probe_locus);
+
 		if ( $isolate_permissions{$table} ) {
 			return $isolate_permissions{$table};
 		}
-	} else {    #Sequence definition database only tables
+	} else {                                               #Sequence definition database only tables
 
 		#Locus descriptions/links. Checks for specific loci are in next section
 		my %desc_tables = map { $_ => 1 } qw (locus_descriptions locus_links);
