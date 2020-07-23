@@ -1416,7 +1416,7 @@ sub get_filter {
 	}
 	my $buffer = qq(<label for="$id" class="$class" $title_attribute>$label</label>\n);
 	unshift @$values, '' if !$options->{'noblank'};
-	$options->{'labels'}->{''} = '&nbsp;';             #Required for HTML5 validation.
+	$options->{'labels'}->{''} = '&nbsp;';    #Required for HTML5 validation.
 	my %args = (
 		-name   => "$name\_list",
 		-id     => $id,
@@ -3199,7 +3199,7 @@ sub print_navigation_bar {
 	my ( $back, $home, $key, $show, $hide, $more, $query_more, $upload_contigs, $link_contigs, $reload, $edit, $curate )
 	  = ( BACK, HOME, KEY, EYE_SHOW, EYE_HIDE, MORE, QUERY_MORE, UPLOAD_CONTIGS, LINK_CONTIGS, RELOAD, EDIT_MORE,
 		CURATE );
-	my $buffer = q(<div class="navigation">);
+	my $buffer = q();
 	if ( $options->{'submission_id'} ) {
 		$buffer .=
 		    qq(<a href="$script?db=$self->{'instance'}&amp;page=submit&amp;)
@@ -3257,7 +3257,9 @@ sub print_navigation_bar {
 	if ( $options->{'update_url'} ) {
 		$buffer .= qq(<a href="$options->{'update_url'}" title="Update record" style="margin-right:1em">$edit</a>);
 	}
-	$buffer .= q(</div><div style="clear:both"></div>);
+	if ($buffer) {
+		$buffer = qq(<div class="navigation">$buffer</div><div style="clear:both"></div>);
+	}
 	return $buffer if $options->{'get_only'};
 	say $buffer;
 	return;

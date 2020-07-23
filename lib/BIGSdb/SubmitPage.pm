@@ -194,7 +194,7 @@ sub print_content {
 		$self->_print_new_submission_links;
 		if ( !$submissions_to_show ) {
 			$self->print_navigation_bar(
-				{ closed_submissions => $closed_buffer ? 1 : 0, curator_interface => $show_curator_link } );
+				{ closed_submissions => $closed_buffer ? 1 : 0, curator_interface => $show_curator_link,no_home=>1 } );
 		}
 		say q(</div></div>);
 	}
@@ -205,7 +205,7 @@ sub print_content {
 		$self->_print_closed_submissions;
 		say q(<p style="margin-top:1em">);
 		$self->print_navigation_bar(
-			{ closed_submissions => $closed_buffer ? 1 : 0, curator_interface => $show_curator_link } );
+			{ closed_submissions => $closed_buffer ? 1 : 0, curator_interface => $show_curator_link,no_home=>1 } );
 		say q(</p></div></div>);
 	}
 	if ($closed_buffer) {
