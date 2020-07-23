@@ -97,8 +97,7 @@ sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<div class="login_container">);
-	
-	if (!$self->_can_continue){
+	if ( !$self->_can_continue ) {
 		say q(</div>);
 		return;
 	}
@@ -174,8 +173,8 @@ sub print_content {
 					  $q->param('page') eq 'changePassword'
 					  ? q(Password updated ok.)
 					  : qq(Password set for user '$username'.);
-					$self->print_good_status(
-						{ message => $message, navbar => 1, no_home => 1, back_url => $back_url } );
+					$self->print_good_status( { message => $message, navbar => 1, back_url => $back_url } )
+					  ;
 					$self->_set_validated_status;
 				} else {
 					$self->print_bad_status(
@@ -268,7 +267,6 @@ sub _print_interface {
 	if ( $self->{'system'}->{'password_update_required'} ) {
 		say q(<p>You are required to update your password.</p>);
 	}
-	
 	say q(<p>Please enter your existing and new passwords.</p>) if $q->param('page') eq 'changePassword';
 	say q(<p>Passwords must be at least ) . MIN_PASSWORD_LENGTH . q( characters long.</p>);
 	say q(<noscript><p class="highlight">Please note that Javascript must be enabled in order to login. )
@@ -285,7 +283,6 @@ sub _print_interface {
 		  . q[return true] );
 	say q(<fieldset style="border-top:0">);
 	say q(<ul>);
-
 	if ( $q->param('page') eq 'changePassword' || $self->{'system'}->{'password_update_required'} ) {
 		say q(<li><label for="existing" class="form" style="width:10em">Existing password:</label>);
 		say $q->password_field( -name => 'existing', -id => 'existing' );

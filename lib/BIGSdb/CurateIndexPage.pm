@@ -2038,7 +2038,7 @@ sub _get_closed_submission_section {
 	  $self->print_submissions_for_curation( { status => 'closed', show_outcome => 1, get_only => 1 } );
 	my $buffer = q();
 	if ($closed_buffer) {
-		$buffer .= $self->print_navigation_bar( { no_home => 1, closed_submissions => 1, get_only => 1 } );
+		$buffer .= $self->print_navigation_bar( { closed_submissions => 1, get_only => 1 } );
 		$buffer .=
 		  q(<div id="closed" style="display:none"><h2>Closed submissions for which you had curator rights</h2>);
 		my $days = $self->get_submission_days;

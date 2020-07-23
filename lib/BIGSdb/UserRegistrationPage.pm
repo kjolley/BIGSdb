@@ -86,7 +86,6 @@ sub _username_reminder {
 			{
 				message  => q(The passed E-mail address is not valid),
 				navbar   => 1,
-				no_home  => 1,
 				back_url => $self->{'system'}->{'script_name'}
 			}
 		);
@@ -103,7 +102,6 @@ sub _username_reminder {
 			message => qq(A user name reminder has been sent to $email_address if )
 			  . q(it has a user name associated with it.),
 			navbar   => 1,
-			no_home  => 1,
 			back_url => qq($self->{'system'}->{'script_name'})
 		}
 	);
@@ -195,7 +193,6 @@ sub _reset_password {
 			{
 				message  => q(The passed E-mail address is not valid),
 				navbar   => 1,
-				no_home  => 1,
 				back_url => $self->{'system'}->{'script_name'}
 			}
 		);
@@ -210,7 +207,6 @@ sub _reset_password {
 			{
 				message  => q(The passed user name is not valid),
 				navbar   => 1,
-				no_home  => 1,
 				back_url => $self->{'system'}->{'script_name'}
 			}
 		);
@@ -223,7 +219,6 @@ sub _reset_password {
 			message => qq(A temporary password has been sent to $email_address for $username (domain: $user_domain) )
 			  . q(if an account with these details exists.),
 			navbar   => 1,
-			no_home  => 1,
 			back_url => qq($self->{'system'}->{'script_name'})
 		}
 	);
@@ -452,7 +447,6 @@ sub _bad_email {
 				  . q(for a reminder of your user name to be sent to this address.),
 				detail   => $detail,
 				navbar   => 1,
-				no_home  => 1,
 				back_url => $self->{'system'}->{'script_name'}
 			}
 		);

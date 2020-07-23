@@ -192,7 +192,7 @@ sub print_content {
 		say q(<div class="box" id="resultspanel"><div class="scrollable">);
 		$self->_print_new_submission_links;
 		if ( !$submissions_to_show ) {
-			$self->print_navigation_bar( { closed_submissions => $closed_buffer ? 1 : 0, no_home => 1 } );
+			$self->print_navigation_bar( { closed_submissions => $closed_buffer ? 1 : 0 } );
 		}
 		say q(</div></div>);
 	}
@@ -201,7 +201,7 @@ sub print_content {
 		$self->_print_pending_submissions;
 		$self->print_submissions_for_curation;
 		$self->_print_closed_submissions;
-		$self->print_navigation_bar( { closed_submissions => $closed_buffer ? 1 : 0, no_home => 1 } );
+		$self->print_navigation_bar( { closed_submissions => $closed_buffer ? 1 : 0 } );
 		say q(</div></div>);
 	}
 	if ($closed_buffer) {

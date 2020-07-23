@@ -163,7 +163,7 @@ sub _edit_user {
 	$q->param( update => 1 );
 	say $q->hidden($_) foreach qw(edit update user update_user);
 	say $q->end_form;
-	$self->print_navigation_bar( { no_home => 1, back_url => qq($self->{'system'}->{'script_name'}) } );
+	$self->print_navigation_bar( { back_url => qq($self->{'system'}->{'script_name'}) } );
 	say q(</div></div>);
 	return;
 }
@@ -739,7 +739,7 @@ sub _select_merge_users {
 	say $q->hidden($_) foreach qw(merge merge_user user);
 	say $q->end_form;
 	say q(</div>);
-	$self->print_navigation_bar( { no_home => 1, back_url => qq($self->{'system'}->{'script_name'}) } );
+	$self->print_navigation_bar( { back_url => qq($self->{'system'}->{'script_name'}) } );
 	say q(</div>);
 	return;
 }

@@ -217,7 +217,6 @@ sub _edit_members {
 	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query">query</a>.</p>);
 	$self->print_navigation_bar(
 		{
-			no_home  => 1,
 			back_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=userProjects)
 		}
 	);
@@ -318,7 +317,6 @@ sub _modify_users {
 	$self->_print_user_form($project_id);
 	$self->print_navigation_bar(
 		{
-			no_home  => 1,
 			back_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=userProjects)
 		}
 	);
@@ -888,7 +886,6 @@ sub _project_info {
 	}
 	$self->print_navigation_bar(
 		{
-			no_home  => 1,
 			back_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=userProjects)
 		}
 	);

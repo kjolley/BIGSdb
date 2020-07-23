@@ -3209,10 +3209,6 @@ sub print_navigation_bar {
 		my $url  = $options->{'back_url'}  // "$script?db=$self->{'instance'}&amp;page=$page";
 		$buffer .= qq(<a href="$url" title="Back" style="margin-right:1em">$back</a>);
 	}
-	if ( !$options->{'no_home'} ) {
-		$buffer .=
-		  qq(<a href="$script?db=$self->{'instance'}" title="Contents page" style="margin-right:1em">$home</a>);
-	}
 	if ( $options->{'curator_interface'} && $self->{'config'}->{'curate_script'} ) {
 		$buffer .= qq(<a href="$self->{'config'}->{'curate_script'}?db=$self->{'instance'}" )
 		  . qq(title="Curators' interface" style="margin-right:1em">$curate</a>);
