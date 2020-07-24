@@ -1,4 +1,4 @@
-/*Version: 20200708*/
+/*Version: 20200724*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -1164,7 +1164,7 @@ div.box {
 
 div.navigation {
 	float: left;
-	margin-top: 1em
+	margin: 1em 0
 }
 
 div.curategroup {
