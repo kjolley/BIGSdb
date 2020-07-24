@@ -134,7 +134,7 @@ sub _print_downloads_menu_item {
 		$links = [
 			{
 				href => "${url_root}page=downloadAlleles$tree_clause",
-				text => 'Allele definitions'
+				text => 'Allele sequences'
 			}
 		];
 	}
