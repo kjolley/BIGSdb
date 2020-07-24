@@ -1324,11 +1324,8 @@ sub _start_isolate_submission {
 sub _print_abort_form {
 	my ( $self, $submission_id ) = @_;
 	my $q = $self->{'cgi'};
-	say q(<div style="float:left">);
-	say q(<span class="warning_icon fas fa-exclamation-triangle fa-4x fa-pull-left"></span>);
-	say q(</div>);
 	say $q->start_form;
-	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Abort submission!' } );
+	say $q->submit( -name => 'submit', -label => 'Abort submission', -class => 'small_submit' );
 	$q->param( confirm       => 1 );
 	$q->param( abort         => 1 );
 	$q->param( submission_id => $submission_id );
