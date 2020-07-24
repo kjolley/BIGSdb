@@ -908,13 +908,14 @@ sub _submit_profiles {
 	say q(<div class="box" id="queryform"><div class="scrollable">);
 	say qq(<h2>Submit new $scheme_info->{'name'} profiles</h2>);
 	say q(<p>Paste in your profiles for assignment using the template available below.</p>);
-	say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;)
-	  . qq(table=profiles&amp;scheme_id=$scheme_id&amp;no_fields=1&amp;id_field=1">Download tab-delimited )
-	  . q(header for your spreadsheet</a> - use 'Paste Special <span class="fas fa-arrow-circle-right"></span> Text' )
-	  . q(to paste the data.</li>);
-	say qq[<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;]
-	  . qq[table=profiles&amp;scheme_id=$scheme_id&amp;no_fields=1&amp;id_field=1">Download submission template ]
-	  . q[(xlsx format)</a></li></ul>];
+	say q(<h2>Templates</h2>);
+	my ( $text, $excel ) = ( TEXT_FILE, EXCEL_FILE );
+	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;)
+	  . qq(table=profiles&amp;scheme_id=$scheme_id&amp;no_fields=1&amp;id_field=1" title="Download tab-delimited )
+	  . qq(header for your spreadsheet">$text</a>)
+	  . qq[<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;]
+	  . qq[table=profiles&amp;scheme_id=$scheme_id&amp;no_fields=1&amp;id_field=1" title="Download submission template ]
+	  . qq[(xlsx format)">$excel</a></p>];
 	say $q->start_form;
 	say q[<fieldset style="float:left"><legend>Please paste in tab-delimited text <b>(include a field header line)</b>]
 	  . q(</legend>);
@@ -979,13 +980,13 @@ sub _submit_isolates {
 	}
 	say q(</ul>);
 	my $contig_file_clause = $options->{'genomes'} ? '&amp;addCols=assembly_filename,sequence_method&noLoci=1' : q();
-	say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;)
-	  . qq(table=isolates&amp;order=scheme$set_clause$contig_file_clause">Download tab-delimited )
-	  . q(header for your spreadsheet</a> - use 'Paste Special <span class="fas fa-arrow-circle-right"></span> Text' )
-	  . q(to paste the data.</li>);
-	say qq[<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;]
-	  . qq[table=isolates&amp;order=scheme$set_clause$contig_file_clause">Download submission template ]
-	  . q[(xlsx format)</a></li></ul>];
+	my ( $text, $excel ) = ( TEXT_FILE, EXCEL_FILE );
+	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;)
+	  . qq(table=isolates&amp;order=scheme$set_clause$contig_file_clause" title="Download tab-delimited )
+	  . qq(header for your spreadsheet">$text</a>)
+	  . qq[<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;]
+	  . qq[table=isolates&amp;order=scheme$set_clause$contig_file_clause" title="Download submission template ]
+	  . qq[(xlsx format)">$excel</a></p>];
 	say $q->start_form;
 	say q[<fieldset style="float:left"><legend>Please paste in tab-delimited text <b>(include a field header line)</b>]
 	  . q(</legend>);
@@ -2053,7 +2054,8 @@ sub _print_message_fieldset {
 	if ( !$options->{'no_add'} ) {
 		$buffer .= $q->start_form;
 		$buffer .= q(<div>);
-		$buffer .= $q->textarea( -name => 'message', -id => 'message', -style => 'width:100%' );
+		$buffer .=
+		  $q->textarea( -name => 'message', -id => 'message', -style => 'width:100%;min-width:20em;height:6em' );
 		$buffer .= q(</div><div style="float:right">Message: );
 		$buffer .= $q->submit(
 			-name  => 'append_only',
