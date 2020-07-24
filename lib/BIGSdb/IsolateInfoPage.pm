@@ -493,7 +493,7 @@ sub _get_show_aliases_button {
 	my $hide_aliases = $self->{'prefs'}->{'locus_alias'} ? 'inline' : 'none';
 	return
 	    qq(<span id="aliases_button" style="margin-left:1em;display:$display">)
-	  . q(<a id="show_aliases" class="button" style="cursor:pointer">)
+	  . q(<a id="show_aliases" class="small_submit" style="cursor:pointer">)
 	  . qq(<span id="show_aliases_text" style="display:$show_aliases"><span class="fa fas fa-eye"></span> )
 	  . qq(show</span><span id="hide_aliases_text" style="display:$hide_aliases">)
 	  . q(<span class="fa fas fa-eye-slash"></span> hide</span> )

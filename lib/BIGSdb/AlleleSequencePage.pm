@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -27,6 +27,7 @@ my $logger = get_logger('BIGSdb.Page');
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw(jQuery jQuery.columnizer);
+	$self->set_level1_breadcrumbs;
 	return;
 }
 
@@ -178,7 +179,8 @@ sub print_content {
 }
 
 sub get_title {
-	my ($self)     = @_;
+	my ( $self, $options ) = @_;
+	return 'Allele sequence' if $options->{'breadcrumb'};
 	my $isolate_id = $self->{'cgi'}->param('id');
 	my $locus      = $self->{'cgi'}->param('locus');
 	return 'Invalid isolate id' if !BIGSdb::Utils::is_int($isolate_id);
