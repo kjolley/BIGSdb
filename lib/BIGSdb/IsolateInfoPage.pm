@@ -343,13 +343,13 @@ sub _print_separate_scheme_data {
 	my ( $self, $isolate_id ) = @_;
 	my $q = $self->{'cgi'};
 	if ( BIGSdb::Utils::is_int( scalar $q->param('group_id') ) ) {
-		say q(<div class="box" id="resultspanel">);
+		say q(<div class="box resultspanel large_scheme">);
 		say $self->_get_show_aliases_button('block');
 		$self->_print_group_data( $isolate_id, scalar $q->param('group_id') );
 		say q(<div style="clear:both"></div>);
 		say q(</div>);
 	} elsif ( BIGSdb::Utils::is_int( scalar $q->param('scheme_id') ) ) {
-		say q(<div class="box" id="resultspanel">);
+		say q(<div class="box resultspanel large_scheme">);
 		say $self->_get_show_aliases_button('block');
 		$self->_print_scheme_data( $isolate_id, scalar $q->param('scheme_id') );
 		say q(<div style="clear:both"></div>);
@@ -1391,22 +1391,21 @@ sub _get_locus_value {
 	my ( $self, $args ) = @_;
 	my ( $isolate_id, $locus, $designations, $summary_view ) =
 	  @{$args}{qw(isolate_id locus designations summary_view)};
-	my $cleaned       = $self->clean_locus($locus);
+	my $cleaned    = $self->clean_locus($locus);
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	if ( $locus_info->{'description_url'} ) {
+		$locus_info->{'description_url'} =~ s/\&/\&amp;/gx;
+		$cleaned = qq(<a href="$locus_info->{'description_url'}">$cleaned</a>);
+	}
 	my $buffer        = qq(<dl class="profile"><dt>$cleaned);
-	my $locus_info    = $self->{'datastore'}->get_locus_info($locus);
 	my $locus_aliases = $self->{'datastore'}->get_locus_aliases($locus);
 	local $" = ';&nbsp;';
 	my $alias_display = $self->{'prefs'}->{'locus_alias'} ? 'inline' : 'none';
 	$buffer .= qq(&nbsp;<span class="aliases" style="display:$alias_display">(@$locus_aliases)</span>)
 	  if @$locus_aliases;
-
-	if ( $locus_info->{'description_url'} ) {
-		$locus_info->{'description_url'} =~ s/\&/\&amp;/gx;
-		$buffer .= qq(&nbsp;<a href="$locus_info->{'description_url'}" class="info_tooltip">)
-		  . q(<span class="fas fa-info-circle"></span></a>);
-	}
 	$buffer .= q(</dt><dd>);
 	my $first = 1;
+
 	foreach my $designation (@$designations) {
 		$buffer .= q(, ) if !$first;
 		my $status;
