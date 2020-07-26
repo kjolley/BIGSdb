@@ -148,7 +148,8 @@ sub _print_interface {
 	$self->_print_list_fieldset($scheme_id);
 	$self->_print_filter_fieldset($scheme_id);
 	$self->_print_order_fieldset($scheme_id);
-	$self->print_action_fieldset( { page => 'query', scheme_id => $scheme_id } );
+	$self->print_action_fieldset( { page => 'query', scheme_id => $scheme_id, submit_label => 'Search' } )
+	  ;
 	$self->_print_modify_search_fieldset;
 	say q(</div>);
 	say $q->end_form;

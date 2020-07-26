@@ -328,7 +328,7 @@ sub _print_interface {
 		say qq(<li><span style="white-space:nowrap">$_</span></li>) foreach @filters;
 		say q(</ul></div></fieldset>);
 	}
-	$self->print_action_fieldset( { page => 'tableQuery', table => $table } );
+	$self->print_action_fieldset( { page => 'tableQuery', table => $table, submit_label => 'Search' } );
 	say $q->end_form;
 	say q(</div></div>);
 	return;
@@ -1275,8 +1275,7 @@ sub print_additional_headerbar_functions {
 	my $record = $self->get_record_name($table);
 	say q(<fieldset><legend>Customize</legend>);
 	say $q->start_form;
-	say $q->submit( -name => 'customize', -label => ucfirst("$record options"), -class => 'small_submit' )
-	  ;
+	say $q->submit( -name => 'customize', -label => ucfirst("$record options"), -class => 'small_submit' );
 	$q->param( page     => 'customize' );
 	$q->param( filename => $filename );
 	say $q->hidden($_) foreach qw (db filename table page);

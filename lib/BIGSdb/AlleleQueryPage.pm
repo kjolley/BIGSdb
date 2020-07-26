@@ -274,7 +274,7 @@ sub _print_interface {
 	say q(</span></li><li>);
 	say $self->get_number_records_control;
 	say q(</li></ul></fieldset>);
-	$self->print_action_fieldset( { locus => $locus } );
+	$self->print_action_fieldset( { locus => $locus, submit_label => 'Search' } );
 	$self->_print_modify_search_fieldset;
 	say $q->end_form;
 	say q(</div></div>);
