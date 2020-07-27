@@ -50,12 +50,6 @@ sub get_help_url {
 sub print_content {
 	my ($self) = @_;
 	my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1 } );
-	my $title = $self->get_title;
-	say qq(<h1>$title</h1>);
-	if ( !@$schemes ) {
-		$self->print_bad_status( { message => 'There are no indexed schemes defined in this database.', navbar => 1 } );
-		return;
-	}
 	my $q = $self->{'cgi'};
 	if ( ( $q->param('function') // q() ) eq 'examples' ) {
 		$self->_print_examples;
@@ -64,12 +58,17 @@ sub print_content {
 		$self->_print_col_order;
 		return;
 	}
+	my $title = $self->get_title;
+	say qq(<h1>$title</h1>);
+	if ( !@$schemes ) {
+		$self->print_bad_status( { message => 'There are no indexed schemes defined in this database.' } );
+		return;
+	}
 	my $scheme_id = $q->param('scheme_id');
 	if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
 		$self->print_bad_status(
 			{
-				message => q(This function is only available for sequence definition databases.),
-				navbar  => 1
+				message => q(This function is only available for sequence definition databases.)
 			}
 		);
 		return;
