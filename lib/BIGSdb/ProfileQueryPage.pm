@@ -148,8 +148,7 @@ sub _print_interface {
 	$self->_print_list_fieldset($scheme_id);
 	$self->_print_filter_fieldset($scheme_id);
 	$self->_print_order_fieldset($scheme_id);
-	$self->print_action_fieldset( { page => 'query', scheme_id => $scheme_id, submit_label => 'Search' } )
-	  ;
+	$self->print_action_fieldset( { page => 'query', scheme_id => $scheme_id, submit_label => 'Search' } );
 	$self->_print_modify_search_fieldset;
 	say q(</div>);
 	say $q->end_form;
@@ -773,7 +772,8 @@ sub _print_modify_search_fieldset {
 	say q(<div id="modify_panel" class="panel">);
 	say q(<a class="trigger" id="close_trigger" href="#"><span class="fas fa-lg fa-times"></span></a>);
 	say q(<h2>Modify form parameters</h2>);
-	say q(<p style="white-space:nowrap">Click to add or remove additional query terms:</p><ul>);
+	say q(<p style="white-space:nowrap">Click to add or remove additional query terms:</p>)
+	  . q(<ul style="list-style:none;margin-left:-2em">);
 	my $scheme_fieldset_display = $self->{'prefs'}->{'scheme_fieldset'}
 	  || $self->_highest_entered_fields ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_scheme">$scheme_fieldset_display</a>);

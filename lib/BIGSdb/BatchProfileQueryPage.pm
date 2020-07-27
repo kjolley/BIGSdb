@@ -221,7 +221,7 @@ sub _run_query {
 	my ( $text_icon, $excel_icon ) = ( TEXT_FILE, EXCEL_FILE );
 
 	if ( -e $full_path ) {
-		say qq(<p style="margin-top:1em"><a href="/tmp/$out_file" title="Download in tab-delimited text format">)
+		print qq(<p style="margin-top:1em"><a href="/tmp/$out_file" title="Download in tab-delimited text format">)
 		  . qq($text_icon</a>);
 		my $excel = BIGSdb::Utils::text2excel($full_path);
 		if ( -e $excel ) {

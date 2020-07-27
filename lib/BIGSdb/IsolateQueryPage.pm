@@ -825,7 +825,7 @@ sub _print_modify_search_fieldset {
 	say q(<div id="modify_panel" class="panel">);
 	say q(<a class="close_trigger" id="close_trigger"><span class="fas fa-lg fa-times"></span></a>);
 	say q(<h2>Modify form parameters</h2>);
-	say q(<p>Click to add or remove additional query terms:</p><ul>);
+	say q(<p>Click to add or remove additional query terms:</p><ul style="list-style:none;margin-left:-2em">);
 	my $provenance_fieldset_display = $self->_should_display_fieldset('provenance') ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_provenance">$provenance_fieldset_display</a>);
 	say q(Provenance fields</li>);
