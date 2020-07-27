@@ -38,6 +38,10 @@ sub initiate {
 	} else {
 		$self->{'jQuery'} = 1;
 	}
+	my $q = $self->{'cgi'};
+	if ( $q->param('profiles') ) {
+		$self->{'processing'} = 1;
+	}
 	$self->set_level1_breadcrumbs;
 	return;
 }
@@ -225,7 +229,6 @@ sub _run_query {
 		}
 		say q(</p>);
 	}
-	$self->print_navigation_bar( { back_page => 'batchProfiles' } );
 	say q(</div></div>);
 	return;
 }
