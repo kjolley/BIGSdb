@@ -59,7 +59,7 @@ sub get_javascript_panel {
 		scheme              => q[$('[id^="value"]').val('')],
 		allele_designations => q[$('[id^="designation"]').val('')],
 		allele_count        => q[$('[id^="allele_count"]').val('')],
-		allele_status       => q[$('[id^="allele_sequence"]').val('')],
+		allele_status       => q[$('[id^="allele_status"]').val('')],
 		tags                => q[$('[id^="tag"]').val('')],
 		tag_count           => q[$('[id^="tag_count"]').val('')],
 	);
