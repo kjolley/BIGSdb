@@ -97,7 +97,8 @@ sub _delete_project {
 			  . q(confirm that you wish to remove the project (the isolates in the project will not be deleted).</p>)
 			  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . qq(page=userProjects&amp;delete=1&amp;project_id=$project_id&amp;confirm=1" )
-			  . q(class="submit"><span class="fas fa-times"></span> Delete project</a></p></div>);
+			  . q(class="small_submit"><span class="fas fa-times"></span> Delete project</a></p></div>)
+			  ;
 		}
 	} else {
 		$self->_actually_delete_project($project_id);
@@ -365,7 +366,8 @@ sub _print_user_group_form {
 		say q(</table>);
 		say q(</fieldset>);
 	}
-	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Update user groups' } );
+	say q(<div style="clear:both"></div>);
+	say $q->submit( -name => 'Submit', -label => 'Update user groups', -class => 'small_submit' );
 	$q->param( update_user_groups => 1 );
 	say $q->hidden($_) foreach qw(db page modify_users project_id update_user_groups);
 	say $q->end_form;
@@ -498,19 +500,21 @@ sub _print_user_form {
 		$td = $td == 1 ? 2 : 1;
 	}
 	say q(</table></div></fieldset>);
-	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Update users' } );
+	say q(<div style="clear:both"></div>);
+	say $q->submit( -name => 'Submit', -label => 'Update users', -class => 'small_submit' );
 	$q->param( update_users => 1 );
 	say $q->hidden($_) foreach qw(db page modify_users project_id update_users);
 	say $q->end_form;
 	say q(<div style="clear:both"></div>);
 	say $q->start_form;
-	say q(<fieldset style="float:left"><legend>Add user</legend>);
+	say q(<fieldset style="float:left;margin-top:1em"><legend>Add user</legend>);
 	say q(<label for="add_user">Enter username:</label>);
 	say $q->textfield( -name => 'add_user' );
 	say q(<p class="comment">You need to know the username of any user you wish to add.</p>);
 	say qq(<p class="flash_message">$add_user_message</p>) if $add_user_message;
 	say q(</fieldset>);
-	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Add user' } );
+	say q(<div style="clear:both"></div>);
+	say $q->submit( -name => 'Submit', -label => 'Add user', -class => 'small_submit' );
 	$q->param( add_user => 1 );
 	say $q->hidden($_) foreach qw(db page modify_users project_id add_user);
 	say $q->end_form;
