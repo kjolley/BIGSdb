@@ -627,9 +627,10 @@ sub _print_interface {
 	  . q(and paste in your query sequence.  Nucleotide or peptide sequences can be queried.</p>);
 	say $q->start_form;
 	say q(<div class="scrollable">);
-	$self->print_seqbin_isolate_fieldset( { selected_ids => $selected_ids, isolate_paste_list => 1 } );
+	$self->print_seqbin_isolate_fieldset(
+		{ selected_ids => $selected_ids, isolate_paste_list => 1, only_genomes => 1 } );
 	say q(<fieldset style="float:left"><legend>Paste sequence</legend>);
-	say $q->textarea( -name => 'sequence', -rows => 8, -cols => 70 );
+	say $q->textarea( -name => 'sequence', -rows => 9, -cols => 70 );
 	say q(</fieldset>);
 	say q(<fieldset style="float:left"><legend>Include in results table</legend>);
 	my @fields;
