@@ -51,7 +51,7 @@ sub print_content {
 	my ($self) = @_;
 	say q(<h1>User projects</h1>);
 	if ( !$self->_user_projects_enabled ) {
-		$self->print_bad_status( { message => q(User projects are not enabled in this database.), navbar => 1 } );
+		$self->print_bad_status( { message => q(User projects are not enabled in this database.) } );
 		return;
 	}
 	my $q = $self->{'cgi'};
@@ -120,12 +120,12 @@ sub _actually_delete_project {
 sub _fails_project_check {
 	my ( $self, $project_id ) = @_;
 	if ( !BIGSdb::Utils::is_int($project_id) ) {
-		$self->print_bad_status( { message => q(No valid project id passed.), navbar => 1 } );
+		$self->print_bad_status( { message => q(No valid project id passed.) } );
 		return 1;
 	}
 	my $project = $self->_get_project($project_id);
 	if ( !$project ) {
-		$self->print_bad_status( { message => q(Project does not exist.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Project does not exist.) } );
 		return 1;
 	}
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
@@ -134,7 +134,7 @@ sub _fails_project_check {
 	  ->run_query( 'SELECT EXISTS(SELECT * FROM merged_project_users WHERE (project_id,user_id)=(?,?))',
 		[ $project_id, $user_info->{'id'} ] );
 	if ( !$is_project_user ) {
-		$self->print_bad_status( { message => q(Your account is not registered to view this project.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Your account is not registered to view this project.) } );
 		return 1;
 	}
 	return;
@@ -143,7 +143,7 @@ sub _fails_project_check {
 sub _fails_admin_check {
 	my ( $self, $project_id ) = @_;
 	if ( !$self->_is_project_admin($project_id) ) {
-		$self->print_bad_status( { message => q(You are not an admin for this project.), navbar => 1 } );
+		$self->print_bad_status( { message => q(You are not an admin for this project.) } );
 		return 1;
 	}
 	return;
@@ -215,11 +215,6 @@ sub _edit_members {
 	say q(</div>);
 	say q(<p>You can also add isolate records to this project from the results of a )
 	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query">query</a>.</p>);
-	$self->print_navigation_bar(
-		{
-			back_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=userProjects)
-		}
-	);
 	say q(</div>);
 	return;
 }
@@ -315,11 +310,6 @@ sub _modify_users {
 		$self->_print_user_group_form( $project_id, $user_groups );
 	}
 	$self->_print_user_form($project_id);
-	$self->print_navigation_bar(
-		{
-			back_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=userProjects)
-		}
-	);
 	say q(</div>);
 	return;
 }
@@ -884,11 +874,6 @@ sub _project_info {
 	if ( !$self->_is_project_admin($project_id) ) {
 		say q(<p>Please contact a project admin if you wish to be removed from the project.</p>);
 	}
-	$self->print_navigation_bar(
-		{
-			back_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=userProjects)
-		}
-	);
 	say q(</div>);
 	return;
 }
