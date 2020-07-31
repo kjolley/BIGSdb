@@ -45,7 +45,7 @@ use constant MAX_REF_LOCI      => 10000;
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name             => 'Genome Comparator',
+		name    => 'Genome Comparator',
 		authors => [
 			{
 				name        => 'Keith Jolley',
@@ -234,7 +234,7 @@ sub _print_interface {
 	  . q(Alternatively, you can enter the accession number for an annotated reference genome and compare using )
 	  . q(the loci defined in that.</p>);
 	say $q->start_form;
-	say q(<div class="scrollable">);
+	say q(<div class="scrollable"><div class="flex_container" style="justify-content:left">);
 	$self->print_seqbin_isolate_fieldset(
 		{ use_all => $use_all, selected_ids => $selected_ids, isolate_paste_list => 1, allow_empty_list => 1 } );
 	$self->print_user_genome_upload_fieldset;
@@ -257,7 +257,7 @@ sub _print_interface {
 	$self->print_sequence_filter_fieldset;
 	$self->print_action_fieldset( { name => 'GenomeComparator' } );
 	say $q->hidden($_) foreach qw (page name db);
-	say q(</div>);
+	say q(</div></div>);
 	say $q->end_form;
 	say q(</div>);
 	return;
