@@ -211,6 +211,7 @@ sub _print_interface {
 	say qq(<p>Analysis is limited to $commify_max_records records or $commify_max_seqs sequences (records x loci).</p>);
 	my $list = $self->get_id_list( 'id', $query_file );
 	say $q->start_form;
+	say q(<div class="flex_container" style="justify-content:left">);
 	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $list, isolate_paste_list => 1 } );
 	my $atts = $self->get_attributes;
 
@@ -222,6 +223,7 @@ sub _print_interface {
 	$self->print_extra_form_elements;
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say $q->hidden($_) foreach qw (page name db);
+	say q(</div>);
 	say $q->end_form;
 	say q(</div>);
 	return;

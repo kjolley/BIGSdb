@@ -126,6 +126,7 @@ sub _print_interface {
 	say $q->start_form;
 	my $query_file = $q->param('query_file');
 	my $list = $self->get_id_list( 'id', $query_file );
+	say q(<div class="flex_container" style="justify-content:left">);
 	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $list, isolate_paste_list => 1 } );
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
 	$self->print_recommended_scheme_fieldset;
@@ -134,6 +135,7 @@ sub _print_interface {
 	$self->_print_parameters_fieldset;
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say $q->hidden($_) foreach qw (db page name);
+	say q(</div>);
 	say $q->end_form;
 	say q(</div>);
 	return;
