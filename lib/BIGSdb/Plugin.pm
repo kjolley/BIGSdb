@@ -425,9 +425,11 @@ sub print_sequence_export_form {
 	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
 	say $q->start_form;
+	say q(<div class="flex_container" style="justify-content:left">);
 	$self->print_id_fieldset( { fieldname => $pk, list => $list } );
 	my ( $locus_list, $locus_labels ) =
 	  $self->get_field_selection_list( { loci => 1, analysis_pref => 1, query_pref => 0, sort_labels => 1 } );
+
 	if ( !$options->{'no_includes'} ) {
 		$self->print_includes_fieldset(
 			{
@@ -524,6 +526,7 @@ sub print_sequence_export_form {
 	my $set_id = $self->get_set_id;
 	$q->param( set_id => $set_id );
 	say $q->hidden($_) foreach qw (db page name query_file scheme_id set_id list_file datatype);
+	say q(</div>);
 	say $q->end_form;
 	return;
 }
