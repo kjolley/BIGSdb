@@ -242,7 +242,7 @@ sub _print_interface {
 	my $query_file = $q->param('query_file');
 	my $qry_ref    = $self->get_query($query_file);
 	if ( ref $qry_ref ne 'SCALAR' ) {
-		$self->print_bad_status( { message => q(Error retrieving query.), navbar => 1 } );
+		$self->print_bad_status( { message => q(Error retrieving query.) } );
 		return;
 	}
 	my $qry = $$qry_ref;
@@ -266,8 +266,7 @@ sub _print_interface {
 	if ( !$seqbin_exists ) {
 		$self->print_bad_status(
 			{
-				message => q(There are no available sequences stored for any of the selected isolates.),
-				navbar  => 1
+				message => q(There are no available sequences stored for any of the selected isolates.)
 			}
 		);
 		return;
@@ -277,6 +276,7 @@ sub _print_interface {
 	  . q(selections.  Select loci/schemes to use for calculating percentage of alleles designated or tagged.</p>);
 	say q(<div class="scrollable">);
 	say $q->start_form;
+	say q(<div class="flex_container" style="justify-content:left">);
 	$self->print_seqbin_isolate_fieldset( { selected_ids => $selected_ids, isolate_paste_list => 1 } );
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
 	$self->print_recommended_scheme_fieldset;
@@ -285,6 +285,7 @@ sub _print_interface {
 	$self->print_sequence_filter_fieldset;
 	$self->print_action_fieldset( { name => 'SeqbinBreakdown' } );
 	say $q->hidden($_) foreach qw (page name db set_id);
+	say q(</div>);
 	say $q->end_form;
 	say q(</div></div>);
 	return;
