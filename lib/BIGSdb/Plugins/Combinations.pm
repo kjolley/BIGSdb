@@ -1,6 +1,6 @@
 #Combinations.pm - Unique combinations plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -42,7 +42,7 @@ sub get_initiation_values {
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name             => 'Unique Combinations',
+		name    => 'Unique Combinations',
 		authors => [
 			{
 				name        => 'Keith Jolley',
@@ -332,6 +332,7 @@ sub _print_interface {
 	}
 	my $set_id = $self->get_set_id;
 	say $q->start_form;
+	say q(<div class="flex_container" style="justify-content:left">);
 	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $selected_ids, isolate_paste_list => 1 } );
 	$self->print_isolate_fields_fieldset( { extended_attributes => 1 } );
 	$self->print_eav_fields_fieldset;
@@ -342,6 +343,7 @@ sub _print_interface {
 	say q(<div style="clear:both"></div>);
 	$q->param( set_id => $set_id );
 	say $q->hidden($_) foreach qw (db page name set_id);
+	say q(</div>);
 	say $q->end_form;
 	say q(</div></div>);
 	return;
