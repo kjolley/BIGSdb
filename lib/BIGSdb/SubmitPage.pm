@@ -847,19 +847,19 @@ sub _submit_alleles {
 	} else {
 		( $loci, $labels ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id, submissions => 1 } );
 	}
-	say q(<fieldset style="float:left"><legend>Select locus</legend>);
+	say q(<fieldset style="float:left;"><legend>Select locus</legend>);
 	say $q->popup_menu(
 		-name     => 'locus',
 		-id       => 'locus',
 		-values   => $loci,
 		-labels   => $labels,
-		-size     => 9,
+		-size     => 8,
 		-required => 'required'
 	);
 	say q(</fieldset>);
 	$self->_print_sequence_details_fieldset($submission_id);
 	say q(<fieldset style="float:left"><legend>FASTA or single sequence</legend>);
-	say $q->textarea( -name => 'fasta', -cols => 30, -rows => 5, -id => 'fasta', -required => 'required' );
+	say $q->textarea( -name => 'fasta', -cols => 60, -rows => 8, -id => 'fasta', -required => 'required' );
 	say q(</fieldset>);
 	say $q->hidden($_) foreach qw(db page alleles);
 	$self->print_action_fieldset( { no_reset => 1 } );
@@ -1002,7 +1002,7 @@ sub _submit_isolates {
 sub _print_sequence_details_fieldset {
 	my ( $self, $submission_id ) = @_;
 	my $q = $self->{'cgi'};
-	say q(<fieldset style="float:left"><legend>Sequence details</legend>);
+	say q(<fieldset style="float:left;min-height:12em"><legend>Sequence details</legend>);
 	say q(<ul><li><label for="technology" class="parameter">technology:!</label>);
 	my $allele_submission =
 	  $submission_id ? $self->{'submissionHandler'}->get_allele_submission($submission_id) : undef;
