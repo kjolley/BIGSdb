@@ -34,7 +34,7 @@ sub initiate {
 
 sub get_help_url {
 	my ($self) = @_;
-	return "$self->{'config'}->{'doclink'}/data_query.html#user-configurable-options";
+	return "$self->{'config'}->{'doclink'}/data_query/0100_options.html";
 }
 
 sub _toggle_option {

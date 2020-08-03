@@ -67,7 +67,7 @@ sub get_help_url {
 	}
 	my $q = $self->{'cgi'};
 	return if $q->param('page') eq 'batchSequenceQuery';
-	return "$self->{'config'}->{'doclink'}/data_query.html#querying-sequences-to-determine-allele-identity";
+	return "$self->{'config'}->{'doclink'}/data_query/0010_determine_allele_identity.html";
 }
 
 sub get_javascript {

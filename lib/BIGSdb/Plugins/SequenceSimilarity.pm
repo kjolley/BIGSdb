@@ -30,7 +30,7 @@ my $logger = get_logger('BIGSdb.Plugins');
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name             => 'Sequence Similarity',
+		name    => 'Sequence Similarity',
 		authors => [
 			{
 				name        => 'Keith Jolley',
@@ -43,10 +43,12 @@ sub get_attributes {
 		  . 'with values for percentage identity, number of mismatches, and number of gaps. Clicking on the link for '
 		  . 'each returned match will lead to a sequence comparison page, identifying the exact nucleotide/amino acid '
 		  . 'differences between the query and most similar sequences.',
-		category   => 'Analysis',
-		menutext   => 'Sequence similarity',
-		module     => 'SequenceSimilarity',
-		url        => "$self->{'config'}->{'doclink'}/data_query.html#sequence-similarity",
+		category => 'Analysis',
+		menutext => 'Sequence similarity',
+		module   => 'SequenceSimilarity',
+		url =>
+		  "$self->{'config'}->{'doclink'}/data_query/0050_investigating_allele_differences.html#sequence-similarity"
+		,
 		version    => '1.1.3',
 		dbtype     => 'sequences',
 		seqdb_type => 'sequences',

@@ -162,7 +162,7 @@ sub get_help_url {
 	if ( $self->{'curate'} ) {
 		return "$self->{'config'}->{'doclink'}/curator_guide.html#updating-and-deleting-single-isolate-records";
 	} else {
-		return "$self->{'config'}->{'doclink'}/data_query.html#querying-isolate-data";
+		return "$self->{'config'}->{'doclink'}/data_query/0070_querying_isolate_data.html";
 	}
 }
 

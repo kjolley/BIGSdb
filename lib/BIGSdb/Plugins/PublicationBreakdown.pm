@@ -48,7 +48,7 @@ sub get_attributes {
 		version    => '1.1.10',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
-		url        => "$self->{'config'}->{'doclink'}/data_query.html#retrieving-isolates-by-linked-publication",
+		url        => "$self->{'config'}->{'doclink'}/data_query/0090_linked_publications.html",
 		input      => 'query',
 		requires   => 'ref_db',
 		order      => 30,

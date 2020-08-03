@@ -58,7 +58,8 @@ sub get_help_url {
 	if ( $self->{'curate'} ) {
 		return "$self->{'config'}->{'doclink'}/curator_guide.html#updating-and-deleting-scheme-profile-definitions";
 	} else {
-		return "$self->{'config'}->{'doclink'}/data_query.html#querying-scheme-profile-definitions";
+		return "$self->{'config'}->{'doclink'}/data_query/0030_search_scheme_profiles.html"
+		  . '#querying-scheme-profile-definitions';
 	}
 	return;
 }

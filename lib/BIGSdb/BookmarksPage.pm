@@ -152,7 +152,7 @@ sub _toggle_share {
 
 sub get_help_url {
 	my ($self) = @_;
-	return "$self->{'config'}->{'doclink'}/data_query.html#bookmarking-an-isolate-query";
+	return "$self->{'config'}->{'doclink'}/data_query/0080_bookmarking_isolate_query.html";
 }
 
 sub get_javascript {

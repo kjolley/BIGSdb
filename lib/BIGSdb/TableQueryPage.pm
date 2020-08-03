@@ -49,10 +49,11 @@ sub get_help_url {
 		}
 	} else {
 		if ( $table eq 'sequences' ) {
-			return "$self->{'config'}->{'doclink'}/data_query.html#searching-for-specific-allele-definitions";
+			return "$self->{'config'}->{'doclink'}/data_query/0020_search_sequence_attributes.html";
 		}
 		if ( $table eq 'loci' || $table eq 'schemes' || $table eq 'scheme_fields' ) {
-			return "$self->{'config'}->{'doclink'}/data_query.html#modifying-locus-and-scheme-display-options";
+			return "$self->{'config'}->{'doclink'}/data_query/0100_options.html"
+			  . '#modifying-locus-and-scheme-display-options';
 		}
 	}
 	return;

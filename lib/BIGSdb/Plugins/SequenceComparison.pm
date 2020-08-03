@@ -28,7 +28,7 @@ my $logger = get_logger('BIGSdb.Plugins');
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name             => 'Sequence Comparison',
+		name    => 'Sequence Comparison',
 		authors => [
 			{
 				name        => 'Keith Jolley',
@@ -41,14 +41,16 @@ sub get_attributes {
 		category         => 'Analysis',
 		menutext         => 'Sequence comparison',
 		module           => 'SequenceComparison',
-		url              => "$self->{'config'}->{'doclink'}/data_query.html#sequence-comparison",
-		version          => '1.0.10',
-		dbtype           => 'sequences',
-		seqdb_type       => 'sequences',
-		section          => 'analysis',
-		requires         => 'emboss',
-		order            => 11,
-		image            => '/images/plugins/SequenceComparison/screenshot.png'
+		url =>
+		  "$self->{'config'}->{'doclink'}/data_query/0050_investigating_allele_differences.html#sequence-comparison"
+		,
+		version    => '1.0.10',
+		dbtype     => 'sequences',
+		seqdb_type => 'sequences',
+		section    => 'analysis',
+		requires   => 'emboss',
+		order      => 11,
+		image      => '/images/plugins/SequenceComparison/screenshot.png'
 	);
 	return \%att;
 }

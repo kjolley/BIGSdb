@@ -34,7 +34,7 @@ sub initiate {
 
 sub get_help_url {
 	my ($self) = @_;
-	return "$self->{'config'}->{'doclink'}/data_query.html#modifying-locus-and-scheme-display-options";
+	return "$self->{'config'}->{'doclink'}/data_query/0100_options.html#modifying-locus-and-scheme-display-options";
 }
 
 sub print_content {

@@ -48,7 +48,7 @@ sub initiate {
 
 sub get_help_url {
 	my ($self) = @_;
-	return "$self->{'config'}->{'doclink'}/data_query.html#batch-profile-queries";
+	return "$self->{'config'}->{'doclink'}/data_query/0040_search_allelic_profiles.html#batch-profile-queries";
 }
 
 sub print_content {

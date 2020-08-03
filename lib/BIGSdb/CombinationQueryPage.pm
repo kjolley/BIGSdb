@@ -41,7 +41,10 @@ sub get_title {
 
 sub get_help_url {
 	my ($self) = @_;
-	return "$self->{'config'}->{'doclink'}/data_query.html#querying-by-allelic-profile";
+	return $self->{'system'}->{'dbtype'} eq 'sequences'
+	  ? "$self->{'config'}->{'doclink'}/data_query/0040_search_allelic_profiles.html"
+	  : "$self->{'config'}->{'doclink'}/data_query/0070_querying_isolate_data.html#querying-by-allelic-profile"
+	  ;
 }
 
 sub print_content {
