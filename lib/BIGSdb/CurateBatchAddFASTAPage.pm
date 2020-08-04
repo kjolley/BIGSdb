@@ -36,7 +36,9 @@ my $logger = get_logger('BIGSdb.Page');
 
 sub get_help_url {
 	my ($self) = @_;
-	return "$self->{'config'}->{'doclink'}/curator_guide.html#upload-using-a-fasta-file";
+	return
+	  "$self->{'config'}->{'doclink'}/curator_guide/0020_adding_new_alleles.html#upload-using-a-fasta-file"
+	  ;
 }
 
 sub print_content {

@@ -451,6 +451,6 @@ sub _print_interface {
 
 sub get_help_url {
 	my ($self) = @_;
-	return "$self->{'config'}->{'doclink'}/curator_guide.html#updating-and-deleting-scheme-profile-definitions";
+	return "$self->{'config'}->{'doclink'}/curator_guide/0070_updating_and_deleting_profiles.html";
 }
 1;

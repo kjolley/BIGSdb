@@ -95,10 +95,9 @@ sub print_content {
 		my $exists_in_isolates_table =
 		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM isolates WHERE id=?)', $q->param('id') );
 		if ($exists_in_isolates_table) {
-			$self->print_bad_status(
-				{ message => qq(Isolate id-$isolate_id is not accessible from your account.) } );
+			$self->print_bad_status( { message => qq(Isolate id-$isolate_id is not accessible from your account.) } );
 		} else {
-			$self->print_bad_status( { message => qq(No record with id-$isolate_id exists.)} );
+			$self->print_bad_status( { message => qq(No record with id-$isolate_id exists.) } );
 		}
 		return;
 	}
@@ -504,6 +503,6 @@ sub get_title {
 
 sub get_help_url {
 	my ($self) = @_;
-	return "$self->{'config'}->{'doclink'}/curator_guide.html#updating-and-deleting-single-isolate-records";
+	return "$self->{'config'}->{'doclink'}/curator_guide/0100_updating_and_deleting_isolates.html";
 }
 1;

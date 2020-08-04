@@ -34,7 +34,7 @@ sub get_title {
 
 sub get_help_url {
 	my ($self) = @_;
-	return "$self->{'config'}->{'doclink'}/curator_guide.html#adding-new-scheme-profile-definitions";
+	return "$self->{'config'}->{'doclink'}/curator_guide/0060_adding_new_profiles.html";
 }
 
 sub print_content {

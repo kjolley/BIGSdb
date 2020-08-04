@@ -30,7 +30,7 @@ use constant SUCCESS => 1;
 
 sub get_help_url {
 	my ($self) = @_;
-	return "$self->{'config'}->{'doclink'}/curator_guide.html#adding-isolate-records";
+	return "$self->{'config'}->{'doclink'}/curator_guide/0090_adding_isolates.html#adding-isolate-records";
 }
 
 sub get_javascript {
@@ -676,7 +676,7 @@ sub _print_optlist {         ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 	return;
 }
 
-sub _print_bool {         ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _print_bool {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $args ) = @_;
 	my ( $field, $newdata, $thisfield ) = @{$args}{qw(field newdata thisfield )};
 	return if $thisfield->{'type'} !~ /^bool/x;

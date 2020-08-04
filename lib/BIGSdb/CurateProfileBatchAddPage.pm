@@ -98,7 +98,6 @@ sub print_content {
 
 sub get_title {
 	my $self        = shift;
-	my $desc        = $self->{'system'}->{'description'} || 'BIGSdb';
 	my $table       = $self->{'cgi'}->param('table');
 	my $scheme_id   = $self->{'cgi'}->param('scheme_id');
 	my $scheme_desc = '';
@@ -107,7 +106,7 @@ sub get_title {
 		$scheme_desc = $scheme_info->{'name'} || '';
 	}
 	my $type = $self->get_record_name($table);
-	return "Batch add new $scheme_desc profiles - $desc";
+	return "Batch add new $scheme_desc profiles";
 }
 
 sub _is_pk_used {
@@ -708,6 +707,8 @@ sub _set_submission_params {
 
 sub get_help_url {
 	my ($self) = @_;
-	return "$self->{'config'}->{'doclink'}/curator_guide.html#adding-new-scheme-profile-definitions";
+	return
+	  "$self->{'config'}->{'doclink'}/curator_guide/0060_adding_new_profiles.html#batch-profile-upload"
+	  ;
 }
 1;

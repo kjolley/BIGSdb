@@ -45,7 +45,7 @@ sub get_help_url {
 	if ( $self->{'curate'} ) {
 		if ( $table eq 'sequences' ) {
 			return
-			  "$self->{'config'}->{'doclink'}/curator_guide.html#updating-and-deleting-allele-sequence-definitions";
+			  "$self->{'config'}->{'doclink'}/curator_guide/0030_updating_and_deleting_alleles.html";
 		}
 	} else {
 		if ( $table eq 'sequences' ) {

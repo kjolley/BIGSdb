@@ -82,7 +82,7 @@ END
 
 sub get_help_url {
 	my ($self) = @_;
-	return "$self->{'config'}->{'doclink'}/curator_guide.html#automated-web-based-sequence-tagging";
+	return "$self->{'config'}->{'doclink'}/curator_guide/0180_web_based_scanning.html";
 }
 
 sub _get_refresh_time {

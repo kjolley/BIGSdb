@@ -56,7 +56,8 @@ sub _save_options {
 sub get_help_url {
 	my ($self) = @_;
 	if ( $self->{'curate'} ) {
-		return "$self->{'config'}->{'doclink'}/curator_guide.html#updating-and-deleting-scheme-profile-definitions";
+		return
+		  "$self->{'config'}->{'doclink'}/curator_guide/0070_updating_and_deleting_profiles.html";
 	} else {
 		return "$self->{'config'}->{'doclink'}/data_query/0030_search_scheme_profiles.html"
 		  . '#querying-scheme-profile-definitions';

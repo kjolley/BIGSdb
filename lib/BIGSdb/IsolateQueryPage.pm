@@ -160,7 +160,7 @@ sub _set_filter_pref {
 sub get_help_url {
 	my ($self) = @_;
 	if ( $self->{'curate'} ) {
-		return "$self->{'config'}->{'doclink'}/curator_guide.html#updating-and-deleting-single-isolate-records";
+		return "$self->{'config'}->{'doclink'}/curator_guide/0100_updating_and_deleting_isolates.html";
 	} else {
 		return "$self->{'config'}->{'doclink'}/data_query/0070_querying_isolate_data.html";
 	}

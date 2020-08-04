@@ -42,9 +42,10 @@ sub get_help_url {
 	my $table  = $q->param('table');
 	return if !defined $table;
 	if ( $table eq 'users' ) {
-		return "$self->{'config'}->{'doclink'}/curator_guide.html#adding-new-sender-details";
+		return "$self->{'config'}->{'doclink'}/curator_guide/0010_adding_new_users.html#adding-new-sender-details";
 	} elsif ( $table eq 'sequences' ) {
-		return "$self->{'config'}->{'doclink'}/curator_guide.html#adding-new-allele-sequence-definitions";
+		return "$self->{'config'}->{'doclink'}/curator_guide/"
+		  . '0020_adding_new_alleles.html#adding-new-allele-sequence-definitions';
 	}
 	return;
 }
@@ -762,7 +763,7 @@ sub _check_users {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by
 			$msg .= q(</div><p>);
 			if ( !@$problems ) {
 				$msg .=
-				  qq( <a class="reset" href="$self->{'system'}->{'script_name'}?)
+				    qq( <a class="reset" href="$self->{'system'}->{'script_name'}?)
 				  . qq(db=$self->{'instance'}&amp;page=importUser&amp;user_db=$newdata->{'user_db'}&amp;)
 				  . qq(user_name=$newdata->{'user_name'}"><span>Import user</span></a>);
 			}
