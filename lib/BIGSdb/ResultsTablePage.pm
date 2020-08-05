@@ -477,9 +477,10 @@ sub _print_delete_all_function {
 	say q(<fieldset><legend>Delete</legend>);
 	print $q->start_form;
 	$q->param( page => 'deleteAll' );
+	$q->param( table => $table ) if !$q->param('table');
 	print $q->hidden($_) foreach qw (db page table query_file scheme_id list_file datatype);
-	if ( $table eq 'allele_designations' ) {
 
+	if ( $table eq 'allele_designations' ) {
 		if ( $self->can_modify_table('allele_sequences') ) {
 			say q(<ul><li>);
 			say $q->checkbox( -name => 'delete_tags', -label => 'Delete corresponding sequence tags' );
