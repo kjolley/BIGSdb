@@ -1616,7 +1616,7 @@ sub _print_sequences_extended_fields {
 				foreach my $accession (@$accessions) {
 					if ( $accession->{'databank'} eq 'ENA' ) {
 						push @values,
-						  qq(<a href="http://www.ebi.ac.uk/ena/data/view/$accession->{'databank_id'}">)
+						  qq(<a href="https://www.ebi.ac.uk/ena/browser/view/$accession->{'databank_id'}">)
 						  . qq($accession->{'databank_id'}</a>);
 					} elsif ( $accession->{'databank'} eq 'Genbank' ) {
 						push @values,

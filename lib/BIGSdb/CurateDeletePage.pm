@@ -540,7 +540,7 @@ sub _get_extra_sequences_fields {
 			if ( $databank eq 'Genbank' ) {
 				$accession = qq(<a href="https://www.ncbi.nlm.nih.gov/nuccore/$accession">$accession</a>);
 			} elsif ( $databank eq 'ENA' ) {
-				$accession = qq(<a href="http://www.ebi.ac.uk/ena/data/view/$accession">$accession</a>);
+				$accession = qq(<a href="https://www.ebi.ac.uk/ena/browser/view/$accession">$accession</a>);
 			}
 			$buffer .= qq(<dt>$databank&nbsp;</dt><dd>$accession</dd>\n);
 		}
