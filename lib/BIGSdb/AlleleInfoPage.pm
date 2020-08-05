@@ -306,7 +306,7 @@ sub _print_accessions {
 			if ( $accession->{'databank'} eq 'Genbank' ) {
 				$href = qq(https://www.ncbi.nlm.nih.gov/nuccore/$accession->{'databank_id'});
 			} elsif ( $accession->{'databank'} eq 'ENA' ) {
-				$href = qq(http://www.ebi.ac.uk/ena/data/view/$accession->{'databank_id'});
+				$href = qq(https://www.ebi.ac.uk/ena/browser/view/$accession->{'databank_id'});
 			}
 			push @$accessions,
 			  { title => $accession->{'databank'}, data => $accession->{'databank_id'}, href => $href };
