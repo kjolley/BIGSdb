@@ -124,7 +124,9 @@ sub run {
 		foreach my $match (@$matches) {
 			next if $match->{'allele'} eq $allele;
 			my $length = length $$seq_ref;
-			say qq(<tr class="td$td"><td>$cleanlocus: $match->{'allele'}</td><td>$match->{'identity'}</td>)
+			say qq(<tr class="td$td"><td><a href="$self->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=alleleInfo&amp;locus=$locus&amp;allele_id=$match->{'allele'}">)
+			  . qq($cleanlocus: $match->{'allele'}</a></td><td>$match->{'identity'}</td>)
 			  . qq(<td>$match->{'mismatches'}</td><td>$match->{'gaps'}</td><td>$match->{'alignment'}/$length)
 			  . q(</td><td>);
 			say $q->start_form;
