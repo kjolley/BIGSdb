@@ -97,8 +97,7 @@ sub _delete_project {
 			  . q(confirm that you wish to remove the project (the isolates in the project will not be deleted).</p>)
 			  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . qq(page=userProjects&amp;delete=1&amp;project_id=$project_id&amp;confirm=1" )
-			  . q(class="small_submit"><span class="fas fa-times"></span> Delete project</a></p></div>)
-			  ;
+			  . q(class="small_submit"><span class="fas fa-times"></span> Delete project</a></p></div>);
 		}
 	} else {
 		$self->_actually_delete_project($project_id);
@@ -625,6 +624,7 @@ sub _add_user {
 	} else {
 		$self->{'db'}->commit;
 	}
+	$q->delete('add_user');
 	return;
 }
 
