@@ -160,12 +160,13 @@ sub _get_javascript_paths {
 	my $page_js = $self->get_javascript;
 	$page_js .= $self->_get_cookie_js;
 	my $js = [];
+	my $relative_js_path = $self->{'config'}->{'relative_js_dir'} // '/javascript';
 	if ( $self->{'jQuery'} ) {
-		push @$js, { src => '/javascript/jquery.min.js',    version => '3.3.1' };
-		push @$js, { src => '/javascript/jquery-ui.min.js', defer   => 1, version => '1.12.1' };
-		push @$js, { src => '/javascript/bigsdb.js',        defer   => 1, version => '20200628' };
+		push @$js, { src => "$relative_js_path/jquery.min.js",    version => '3.3.1' };
+		push @$js, { src => "$relative_js_path/jquery-ui.min.js", defer   => 1, version => '1.12.1' };
+		push @$js, { src => "$relative_js_path/bigsdb.js",        defer   => 1, version => '20200628' };
 		if ( !$self->{'config'}->{'no_cookie_consent'} && !$self->{'curate'} && $self->{'instance'} ) {
-			push @$js, { src => '/javascript/cookieconsent.min.js', defer => 1 };
+			push @$js, { src => "$relative_js_path/cookieconsent.min.js", defer => 1 };
 		}
 		my $features = {
 			'jQuery.tablesort'    => { src => [qw(jquery.tablesorter.js)],  defer => 1, version => '20200308' },
@@ -208,8 +209,14 @@ sub _get_javascript_paths {
 			my $libs = $features->{$feature}->{'src'};
 			foreach my $lib (@$libs) {
 				next if $used{$lib};
-				if ( -e "$ENV{'DOCUMENT_ROOT'}/javascript/$lib" ) {
-					my $version = $features->{$feature}->{'version'} ? "?v=$features->{$feature}->{'version'}" : q();
+				my $version = $features->{$feature}->{'version'} ? "?v=$features->{$feature}->{'version'}" : q();
+				if ( $self->{'config'}->{'relative_js_dir'} ) {
+					push @$js,
+					  {
+						src   => "$self->{'config'}->{'relative_js_dir'}/$lib$version",
+						defer => $features->{$feature}->{'defer'}
+					  };
+				} elsif ( -e "$ENV{'DOCUMENT_ROOT'}/javascript/$lib" ) {
 					push @$js, { src => "/javascript/$lib$version", defer => $features->{$feature}->{'defer'} };
 				} else {
 					$logger->error("/javascript/$lib file not installed.");
