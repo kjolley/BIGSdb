@@ -642,19 +642,23 @@ sub _get_stylesheets {
 	foreach my $filename (@filenames) {
 		my $stylesheet;
 		my $vfilename = "$filename?v=$version";
-		if ( !$system->{'db'} ) {
-			$stylesheet = -e "$ENV{'DOCUMENT_ROOT'}/css/$filename" ? "/css/$vfilename" : "/$vfilename";
+		if ( $self->{'config'}->{'relative_css_dir'} ) {
+			$stylesheet = "$self->{'config'}->{'relative_css_dir'}/$vfilename";
 		} else {
-			my @css_paths = ( "$system->{'webroot'}/$system->{'db'}", $system->{'webroot'}, '/css', '' );
-			my $found = 0;
-			foreach my $path (@css_paths) {
-				if ( -e "$ENV{'DOCUMENT_ROOT'}$path/$filename" ) {
-					$stylesheet = "$path/$vfilename";
-					$found      = 1;
-					last;
+			if ( !$system->{'db'} ) {
+				$stylesheet = -e "$ENV{'DOCUMENT_ROOT'}/css/$filename" ? "/css/$vfilename" : "/$vfilename";
+			} else {
+				my @css_paths = ( "$system->{'webroot'}/$system->{'db'}", $system->{'webroot'}, '/css', '' );
+				my $found = 0;
+				foreach my $path (@css_paths) {
+					if ( -e "$ENV{'DOCUMENT_ROOT'}$path/$filename" ) {
+						$stylesheet = "$path/$vfilename";
+						$found      = 1;
+						last;
+					}
 				}
+				$logger->error("Stylesheet $filename not found!") if !$found;
 			}
-			$logger->error("Stylesheet $filename not found!") if !$found;
 		}
 		push @paths, $stylesheet;
 	}
