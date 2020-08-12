@@ -167,22 +167,18 @@ sub print_content {
 				  ? $self->{'username'}
 				  : $q->param('user');
 				my $instance_clause = $self->{'instance'} ? qq(?db=$self->{'instance'}) : q();
-				my $back_url = qq($self->{'system'}->{'script_name'}$instance_clause);
 				if ( $self->set_password_hash( $username, scalar $q->param('new_password1') ) ) {
 					my $message =
 					  $q->param('page') eq 'changePassword'
 					  ? q(Password updated ok.)
 					  : qq(Password set for user '$username'.);
-					$self->print_good_status( { message => $message, navbar => 1, back_url => $back_url } )
-					  ;
+					$self->print_good_status( { message => $message } );
 					$self->_set_validated_status;
 				} else {
 					$self->print_bad_status(
 						{
-							message  => q(Password not updated. Please check with the system administrator.),
-							navbar   => 1,
-							no_home  => 1,
-							back_url => $back_url
+							message =>
+							  q(Password not updated. Please check with the system administrator.)
 						}
 					);
 				}
