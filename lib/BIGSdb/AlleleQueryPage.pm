@@ -50,8 +50,7 @@ sub initiate {
 sub get_help_url {
 	my ($self) = @_;
 	return "$self->{'config'}->{'doclink'}/data_query/0020_search_sequence_attributes.html"
-	  . '#locus-specific-sequence-attribute-search'
-	  ;
+	  . '#locus-specific-sequence-attribute-search';
 }
 
 sub get_javascript {
@@ -138,7 +137,8 @@ sub print_content {
 	my $qry;
 	if (   !defined $q->param('currentpage')
 		|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
-		|| $q->param('First') )
+		|| $q->param('First')
+		|| ( ( $q->param('currentpage') // 0 ) == 2 && $q->param('<') ) )
 	{
 		say q(<noscript>);
 		$self->print_bad_status(

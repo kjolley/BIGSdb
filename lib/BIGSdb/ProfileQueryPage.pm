@@ -56,8 +56,7 @@ sub _save_options {
 sub get_help_url {
 	my ($self) = @_;
 	if ( $self->{'curate'} ) {
-		return
-		  "$self->{'config'}->{'doclink'}/curator_guide/0070_updating_and_deleting_profiles.html";
+		return "$self->{'config'}->{'doclink'}/curator_guide/0070_updating_and_deleting_profiles.html";
 	} else {
 		return "$self->{'config'}->{'doclink'}/data_query/0030_search_scheme_profiles.html"
 		  . '#querying-scheme-profile-definitions';
@@ -86,7 +85,10 @@ sub print_content {
 		$self->print_bad_status( { message => 'There are no indexed schemes defined in this database.', navbar => 1 } );
 		return;
 	}
-	if ( !defined $q->param('currentpage') || $q->param('First') ) {
+	if (   !defined $q->param('currentpage')
+		|| $q->param('First')
+		|| ( ( $q->param('currentpage') // 0 ) == 2 && $q->param('<') ) )
+	{
 		say q(<noscript><div class="box statusbad"><p>This interface requires )
 		  . q(that you enable Javascript in your browser.</p></div></noscript>);
 		return if $self->_print_interface;    #Returns 1 if scheme is invalid

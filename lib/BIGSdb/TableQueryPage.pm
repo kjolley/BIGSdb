@@ -44,8 +44,7 @@ sub get_help_url {
 	return if !defined $table;
 	if ( $self->{'curate'} ) {
 		if ( $table eq 'sequences' ) {
-			return
-			  "$self->{'config'}->{'doclink'}/curator_guide/0030_updating_and_deleting_alleles.html";
+			return "$self->{'config'}->{'doclink'}/curator_guide/0030_updating_and_deleting_alleles.html";
 		}
 	} else {
 		if ( $table eq 'sequences' ) {
@@ -95,7 +94,8 @@ sub print_content {
 	my $qry;
 	if (   !defined $q->param('currentpage')
 		|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
-		|| $q->param('First') )
+		|| $q->param('First')
+		|| ( ( $q->param('currentpage') // 0 ) == 2 && $q->param('<') ) )
 	{
 		say q(<noscript>);
 		$self->print_bad_status(
