@@ -157,7 +157,7 @@ sub _print_interface {
 	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;table=$table)
 	  . qq($order_clause" title="Excel format">$excel</a></p>);
 	my $plugins = $self->{'pluginManager'}->get_installed_plugins;
-	if ( $plugins->{'DatabaseFields'} ) {
+	if ( $plugins->{'DatabaseFields'} && $table eq 'isolates' ) {
 		say qq(<p>Check the <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;)
 		  . q(name=DatabaseFields" target="_blank">description of database fields</a> for help with filling in )
 		  . q(the template.</p>);
