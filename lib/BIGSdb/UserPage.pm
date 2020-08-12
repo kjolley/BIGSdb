@@ -68,15 +68,23 @@ sub initiate {
 	$self->{$_} = 1 foreach qw(jQuery noCache);
 	return if !$self->{'config'}->{'site_user_dbs'};
 	$self->use_correct_user_database;
+	my $q = $self->{'cgi'};
 	$self->{'breadcrumbs'} = [
 		{
 			label => 'Home',
 			href  => '/'
-		},
-		{
-			label => 'Account'
 		}
 	];
+	if ( $q->param('user') || $q->param('update_user') || $q->param('edit') ) {
+		push @{ $self->{'breadcrumbs'} },
+		  {
+			label => 'Account',
+			href  => $self->{'system'}->{'script_name'}
+		  };
+	} else {
+		push @{ $self->{'breadcrumbs'} },
+		  { label => 'Account', };
+	}
 	return;
 }
 
@@ -163,7 +171,6 @@ sub _edit_user {
 	$q->param( update => 1 );
 	say $q->hidden($_) foreach qw(edit update user update_user);
 	say $q->end_form;
-	$self->print_navigation_bar( { back_url => qq($self->{'system'}->{'script_name'}) } );
 	say q(</div></div>);
 	return;
 }
@@ -739,7 +746,6 @@ sub _select_merge_users {
 	say $q->hidden($_) foreach qw(merge merge_user user);
 	say $q->end_form;
 	say q(</div>);
-	$self->print_navigation_bar( { back_url => qq($self->{'system'}->{'script_name'}) } );
 	say q(</div>);
 	return;
 }
