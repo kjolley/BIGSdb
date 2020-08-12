@@ -216,7 +216,10 @@ sub print_content {
 	my $title = $self->get_title;
 	say qq(<h1>$title</h1>);
 	my $qry;
-	if ( !defined $q->param('currentpage') || $q->param('First') ) {
+	if (   !defined $q->param('currentpage')
+		|| $q->param('First')
+		|| ( ( $q->param('currentpage') // 0 ) == 2 && $q->param('<') ) )
+	{
 		say q(<noscript><div class="box statusbad"><p>This interface requires that you enable Javascript )
 		  . q(in your browser.</p></div></noscript>);
 		$self->_print_interface;
