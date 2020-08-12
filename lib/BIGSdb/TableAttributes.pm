@@ -890,7 +890,7 @@ sub get_client_dbases_table_attributes {
 	my $attributes = [
 		{ name => 'id',          type => 'int',  required => 1, primary_key => 1 },
 		{ name => 'name',        type => 'text', required => 1, length      => 30 },
-		{ name => 'description', type => 'text', required => 1, length      => 256 },
+		{ name => 'description', type => 'text', required => 1, length      => 500 },
 		{
 			name     => 'dbase_name',
 			type     => 'text',
