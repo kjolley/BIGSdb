@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2019, University of Oxford
+#Copyright (c) 2014-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -42,6 +42,7 @@ sub _get_alleles {
 	my $allowed_filters = [qw(added_after added_on updated_after updated_on)];
 	my $set_id          = $self->get_set_id;
 	my $locus_name      = $locus;
+	my $set_name        = $locus;
 	if ($set_id) {
 		$locus_name = $self->{'datastore'}->get_set_locus_real_id( $locus, $set_id );
 	}
@@ -57,7 +58,7 @@ sub _get_alleles {
 		$allowed_filters );
 	$qry .= q( ORDER BY ) . ( $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS int)' : 'allele_id' );
 	$qry .= qq( LIMIT $self->{'page_size'} OFFSET $offset) if !param('return_all');
-	my $allele_ids = $self->{'datastore'}->run_query( $qry, $locus, { fetch => 'col_arrayref' } );
+	my $allele_ids = $self->{'datastore'}->run_query( $qry, $locus_name, { fetch => 'col_arrayref' } );
 	my $values = { records => int($allele_count) };
 	$values->{'last_updated'} = $last_updated if defined $last_updated;
 	my $path = $self->get_full_path( "$subdir/db/$db/loci/$locus_name/alleles", $allowed_filters );
@@ -66,7 +67,7 @@ sub _get_alleles {
 	my $allele_links = [];
 
 	foreach my $allele_id (@$allele_ids) {
-		push @$allele_links, request->uri_for("$subdir/db/$db/loci/$locus_name/alleles/$allele_id");
+		push @$allele_links, request->uri_for("$subdir/db/$db/loci/$set_name/alleles/$allele_id");
 	}
 	$values->{'alleles'} = $allele_links;
 	return $values;
@@ -135,6 +136,7 @@ sub _get_alleles_fasta {
 	my $allowed_filters = [qw(added_after added_on updated_after updated_on)];
 	my $set_id          = $self->get_set_id;
 	my $locus_name      = $locus;
+	my $set_name        = $locus;
 	if ($set_id) {
 		$locus_name = $self->{'datastore'}->get_set_locus_real_id( $locus, $set_id );
 	}
@@ -146,7 +148,7 @@ sub _get_alleles_fasta {
 	  $self->add_filters( q(SELECT allele_id,sequence FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N')),
 		$allowed_filters );
 	$qry .= q( ORDER BY ) . ( $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS int)' : 'allele_id' );
-	my $alleles = $self->{'datastore'}->run_query( $qry, $locus, { fetch => 'all_arrayref', slice => {} } );
+	my $alleles = $self->{'datastore'}->run_query( $qry, $locus_name, { fetch => 'all_arrayref', slice => {} } );
 	if ( !@$alleles ) {
 		send_error( "No alleles for locus $locus are defined.", 404 );
 	}
