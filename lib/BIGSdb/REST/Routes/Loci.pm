@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2019, University of Oxford
+#Copyright (c) 2014-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -78,6 +78,7 @@ sub _get_locus {
 	my $set_id     = $self->get_set_id;
 	my $subdir     = setting('subdir');
 	my $locus_name = $locus;
+	my $set_name = $locus_name;
 	if ($set_id) {
 		$locus_name = $self->{'datastore'}->get_set_locus_real_id( $locus, $set_id );
 	}
@@ -88,7 +89,7 @@ sub _get_locus {
 	my $values = {};
 	my %boolean_field = map { $_ => 1 } qw(length_varies coding_sequence);
 	foreach my $field (
-		qw(id data_type allele_id_format allele_id_regex common_name length length_varies min_length max_length
+		qw(data_type allele_id_format allele_id_regex common_name length length_varies min_length max_length
 		coding_sequence genome_position orf reference_sequence)
 	  )
 	{
@@ -98,7 +99,7 @@ sub _get_locus {
 			$values->{$field} = $locus_info->{$field} if defined $locus_info->{$field};
 		}
 	}
-
+	$values->{'id'} = $set_name;
 	#Aliases
 	my $aliases = $self->{'datastore'}->run_query( 'SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias',
 		$locus_name, { fetch => 'col_arrayref' } );
@@ -136,8 +137,8 @@ sub _get_locus {
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		if ( $self->{'datastore'}->sequences_exist($locus_name) ) {
-			$values->{'alleles'}       = request->uri_for("$subdir/db/$db/loci/$locus_name/alleles");
-			$values->{'alleles_fasta'} = request->uri_for("$subdir/db/$db/loci/$locus_name/alleles_fasta");
+			$values->{'alleles'}       = request->uri_for("$subdir/db/$db/loci/$set_name/alleles");
+			$values->{'alleles_fasta'} = request->uri_for("$subdir/db/$db/loci/$set_name/alleles_fasta");
 		}
 	}
 	return $values;
