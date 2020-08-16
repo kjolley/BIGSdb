@@ -669,6 +669,10 @@ sub _get_stylesheets {
 		}
 		push @paths, $stylesheet;
 	}
+	if ( $self->{'config'}->{'stylesheets'} ) {
+		my @css = split /,/x,$self->{'config'}->{'stylesheets'};
+		push @paths, @css;
+	}
 	if ( $self->{'jQuery.jstree'} ) {
 		push @paths, "/javascript/themes/default/style.min.css?v=$version";
 	}
