@@ -27,7 +27,7 @@ use constant DEFAULT_DOMAIN => 'pubmlst.org';
 push @EXPORT_OK, qw(DEFAULT_DOMAIN);
 
 #Design
-use constant PAGE_MAX_WIDTH => 1400;
+use constant PAGE_MAX_WIDTH => 1600;
 my @values = qw(PAGE_MAX_WIDTH);
 push @EXPORT_OK, @values;
 $EXPORT_TAGS{'design'} = [@values];
