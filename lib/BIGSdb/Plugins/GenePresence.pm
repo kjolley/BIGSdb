@@ -109,7 +109,7 @@ sub _print_interface {
 sub _print_parameters_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say q(<fieldset style="float:left;height:12em"><legend>Parameters / options</legend>);
+	say q(<fieldset style="float:left"><legend>Parameters / options</legend>);
 	say q(<ul><li><label for ="identity" class="parameter">Min % identity:</label>);
 	say $q->popup_menu( -name => 'identity', -id => 'identity', -values => [ 30 .. 100 ], -default => 70 );
 	say $self->get_tooltip(q(Minimum % identity - Match required for partial matching.));
