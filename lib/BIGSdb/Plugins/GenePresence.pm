@@ -91,17 +91,16 @@ sub _print_interface {
 	say qq(<p>Interactive analysis is limited to $max data points (isolates x loci). )
 	  . q(If you select more than this then output will be restricted to static tables.);
 	say $q->start_form;
-	say q(<div class="scrollable">);
+	say q(<div class="scrollable"><div class="flex_container" style="justify-content:left">);
 	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $selected_ids, isolate_paste_list => 1 } );
 	$self->print_user_genome_upload_fieldset;
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
 	$self->print_recommended_scheme_fieldset;
 	$self->print_scheme_fieldset;
 	$self->_print_parameters_fieldset;
-	say q(<div style="clear:both"></div>);
 	$self->print_action_fieldset;
 	say $q->hidden($_) foreach qw (page name db);
-	say q(</div>);
+	say q(</div></div>);
 	say $q->end_form;
 	say q(</div>);
 	return;
