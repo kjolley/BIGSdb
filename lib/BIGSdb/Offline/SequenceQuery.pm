@@ -80,7 +80,7 @@ sub _single_query {
 			$return_buffer .= q(</div>);
 			$return_buffer .= q(<div class="box" id="resultstable">);
 			$return_buffer .= $buffer;
-			$return_buffer .= q(<div>);
+			$return_buffer .= q(</div>);
 		}
 	} else {
 		my $best_match = $self->_get_best_partial_match($seq_ref);
@@ -420,6 +420,7 @@ sub _get_locus_matches {
 			$buffer .= $allele_info->{'comments'} ? qq(<td>$allele_info->{'comments'}</td>) : q(<td></td>);
 		}
 		$buffer .= qq(</tr>\n);
+		$self->{logger}->error($buffer);
 		$$td_ref = $$td_ref == 1 ? 2 : 1;
 		$locus_count++;
 	}
