@@ -66,13 +66,13 @@ sub print_content {
 		  . q(as options in the same way. Setting the sort option to 'no' will add these options to the end of the )
 		  . q(list - set it to 'yes' to sort your additonal options in with the standard country codes.</p>);
 		say q(<p>Make sure that you also have a 'country' field defined in the isolates table in the database.</p>);
-		say q(<div style="clear:both">);
+		say q(</div>);
 		return;
 	}
-	say q(<div style="clear:both">);
 	if ( $q->param('continent') ) {
 		$self->_setup_continent;
 	}
+	say q(<div style="clear:both"></div>);
 	say q(<h2>Extended attribute for continent</h2>);
 	say q(<p>Extended attributes allow you to define additional properties for provenance metadata fields that can be )
 	  . q(searched and displayed independently. A good example of this is linking country to continent.</p>);
@@ -81,9 +81,10 @@ sub print_content {
 		  . q(A standard field called 'continent' already exists. An extended attribute, linked to country, with the )
 		  . q(same name cannot be created. You need to remove or rename the existing continent field to set up a )
 		  . q(continent extended attribute.</p>);
-		say q(<div style="clear:both">);
+		say q(</div>);
 		return;
 	}
+	say q(<div style="clear:both"></div>);
 	if (
 		$self->{'datastore'}->run_query(
 			'SELECT EXISTS(SELECT * FROM isolate_field_extended_attributes WHERE (attribute,isolate_field)=(?,?))',
@@ -96,11 +97,11 @@ sub print_content {
 	} else {
 		say q(<p style="margin-top:2em;margin-bottom:2em">)
 		  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=geocoding&amp;continent=1" )
-		  . q(class="launchbutton">Set up continent attribute</a> );
-		say q(<div style="clear:both">);
+		  . q(class="launchbutton">Set up continent attribute</a></p> );
+		say q(</div>);
 		return;
 	}
-	say q(<div style="clear:both">);
+	say q(<div style="clear:both"></div>);
 	$self->_refresh_continents;
 	say q(<h2>Linked continent information</h2>);
 	my $countries_with_continent = $self->{'datastore'}->run_query(
