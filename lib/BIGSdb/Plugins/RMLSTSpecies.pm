@@ -73,8 +73,7 @@ sub get_attributes {
 
 sub run {
 	my ($self) = @_;
-	my $desc = $self->get_db_description;
-	say qq(<h1>rMLST species identification - $desc</h1>);
+	say qq(<h1>rMLST species identification</h1>);
 	my $q = $self->{'cgi'};
 	if ( $q->param('submit') ) {
 		my @ids = $q->multi_param('isolate_id');
