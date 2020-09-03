@@ -530,6 +530,7 @@ sub get_paging {
 	my %ignore          = map { $_ => 1 } qw(page page_size);
 	foreach my $key ( sort keys %$args ) {
 		next if $ignore{$key};
+		next if $key =~ /^oauth/x;
 		$arg_string .= qq(&$key=$args->{$key});
 	}
 	if ( $page > 1 ) {
