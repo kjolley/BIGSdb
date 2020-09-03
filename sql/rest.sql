@@ -8,6 +8,7 @@ CREATE TABLE groups (
 CREATE TABLE resources (
 	dbase_config text NOT NULL,
 	description text NOT NULL,
+	hide boolean NOT NULL DEFAULT FALSE,
 	PRIMARY KEY (dbase_config)
 );
 

@@ -493,12 +493,17 @@ sub get_resources {
 	my ($self) = @_;
 	my $groups = $self->{'datastore'}->run_query( 'SELECT * FROM groups ORDER BY name',
 		undef, { fetch => 'all_arrayref', slice => {}, cache => 'REST::Interface::get_resources::groups' } );
-	my $resources = [];
+	my $resources       = [];
+	my $show_all        = params->{'show_all'} ? 1 : 0;
+	my $show_all_clause = $show_all ? q() : q( AND hide = FALSE);
 	foreach my $group (@$groups) {
-		my $group_resources =
-		  $self->{'datastore'}
-		  ->run_query( 'SELECT dbase_config FROM group_resources WHERE group_name=? ORDER BY dbase_config',
-			$group->{'name'}, { fetch => 'col_arrayref', cache => 'REST::Interface::get_resources::resources' } );
+		my $group_resources = $self->{'datastore'}->run_query(
+			'SELECT g.dbase_config FROM group_resources g JOIN resources r ON '
+			  . "g.dbase_config=r.dbase_config WHERE group_name=?$show_all_clause ORDER BY dbase_config",
+			$group->{'name'},
+			{ fetch => 'col_arrayref',
+				cache => "REST::Interface::get_resources::resources::$show_all" }
+		);
 		my @databases;
 		foreach my $dbase_config (@$group_resources) {
 			my $desc = $self->{'datastore'}->run_query( 'SELECT description FROM resources WHERE dbase_config=?',
