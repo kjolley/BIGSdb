@@ -955,33 +955,10 @@ sub _add_scheme_loci {
 	return;
 }
 
-sub _create_temp_tables {
-	my ( $self, $qry_ref ) = @_;
-	my $qry        = $$qry_ref;
-	my $scheme_ids = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
-	my $continue   = 1;
-	try {
-		foreach my $scheme_id (@$scheme_ids) {
-			if ( $qry =~ /temp_isolates_scheme_fields_$scheme_id\s/x || $qry =~ /ORDER\ BY\ s_$scheme_id\_/x ) {
-				$self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
-			}
-		}
-	}
-	catch {
-		if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
-			$logger->error('Cannot connect to remote database.');
-			$continue = 0;
-		} else {
-			$logger->logdie($_);
-		}
-	};
-	return $continue;
-}
-
 sub _get_ids {
 	my ( $self, $qry ) = @_;
 	$qry =~ s/ORDER\ BY.*$//gx;
-	return if !$self->_create_temp_tables( \$qry );
+	return if !$self->create_temp_tables( \$qry );
 	$qry =~ s/SELECT\ \*/SELECT id/x;
 	my $ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	@$ids = sort { $a <=> $b } @$ids;
