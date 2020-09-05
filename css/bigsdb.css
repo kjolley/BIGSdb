@@ -2515,12 +2515,6 @@ a.slide_trigger {
 	}
 }
 
-@media only screen and (max-width:579px) {
-	a.link_box {
-		height:120px
-	}
-}
-
 @media only screen and (max-width:360px) {
 	.launchbutton {
 		font-size: 1.1em
