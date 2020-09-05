@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2019, University of Oxford
+#Copyright (c) 2019-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -51,7 +51,7 @@ sub print_content {
 	say q(<div id="summary">);
 	say q(<div id="running" class="dashboard_number"></div>);
 	say q(<div id="queued" class="dashboard_number"></div>);
-	say q(<div id="day" class="dashboard_number optional"></div>);
+	say q(<div id="day" class="dashboard_number"></div>);
 	if ( ( $self->{'config'}->{'results_deleted_days'} // 0 ) >= 7 ) {
 		say q(<div id="week" class="dashboard_number optional"></div>);
 	}
@@ -103,17 +103,31 @@ var max_queued_colour_warn = $max_queued_colour_warn;
 	load_chart("$url&minutes=" + mins);
 	refresh_summary("$url&summary=1");
 	
-	showhide_optional_dashboard_numbers();
+	resize_dashboard_numbers();
 	\$(window).resize(function() {
-		showhide_optional_dashboard_numbers();
+		resize_dashboard_numbers();
 	});
 });
 
-function showhide_optional_dashboard_numbers(){
-	if (\$(window).width() < 600){
-		\$(".optional").hide();
+function resize_dashboard_numbers(){
+	if (\$(window).width() < 330){
+		\$("div#summary").css({"font-size":"0.5em"});
+		\$("div.dashboard_number").css({"min-width":"50px"});
+	} 
+	else if (\$(window).width() < 450){
+		\$("div#summary").css({"font-size":"0.6em"});
+		\$("div.dashboard_number").css({"min-width":"60px"});
+	}
+ 	else if (\$(window).width() < 550){
+		\$("div#summary").css({"font-size":"0.7em"});
+		\$("div.dashboard_number").css({"min-width":"80px"});
+	}
+	else if (\$(window).width() < 660){
+		\$("div#summary").css({"font-size":"0.8em"});
+		\$("div.dashboard_number").css({"min-width":"100px"});
 	} else {
-		\$(".optional").show();
+		\$("div#summary").css({"font-size":"1em"});
+		\$("div.dashboard_number").css({"min-width":"140px"});
 	}
 }
 

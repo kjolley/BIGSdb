@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2019, University of Oxford
+#Copyright (c) 2019-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -60,7 +60,8 @@ sub print_content {
 	say q(<div id="summary">);
 	say q(<div id="hits" class="dashboard_number" style="margin-right:1em"></div>);
 	say q(<div id="rate" class="dashboard_number" style="margin-right:1em"></div>);
-	say q(<div id="response" class="dashboard_number"></div>);
+	say q(<div id="response" class="dashboard_number optional"></div>);
+	say q(</div>);
 	say q(<div style="clear:both"></div>);
 	say q(<div id="c3_chart" style="height:250px">);
 	$self->print_loading_message( { top_margin => 0 } );
@@ -105,7 +106,7 @@ sub print_content {
 		}
 	);
 	say q(</span>);
-	say q(</div></div></div>);
+	say q(</div></div>);
 	return;
 }
 
@@ -148,9 +149,39 @@ var max_avg_response_warn = $max_avg_response_warn;
 		interval = \$("#interval").val();
 		url = "$url" + "&minutes="+mins + "&interval=" + interval;
 		load_chart(url);
-	});		
-
+	});	
+	resize_dashboard_numbers();
+	\$(window).resize(function() {
+		resize_dashboard_numbers();
+	});	
 });
+
+function resize_dashboard_numbers(){
+	if (\$(window).width() < 365){
+		\$("div.optional").hide();
+	} else {
+		\$("div.optional").show();
+	}
+	if (\$(window).width() < 450){
+		\$("div#summary").css({"font-size":"0.6em"});
+		\$("div#period_select").css({"font-size":"0.8em"});
+		\$("div.dashboard_number").css({"min-width":"60px","padding":"0"});
+	}
+ 	else if (\$(window).width() < 550){
+		\$("div#summary").css({"font-size":"0.7em"});
+		\$("div#period_select").css({"font-size":"1em"});
+		\$("div.dashboard_number").css({"min-width":"80px","padding":"0"});
+	}
+	else if (\$(window).width() < 660){
+		\$("div#summary").css({"font-size":"0.8em"});
+		\$("div#period_select").css({"font-size":"1em"});
+		\$("div.dashboard_number").css({"min-width":"100px"});
+	} else {
+		\$("div#summary").css({"font-size":"1em"});
+		\$("div#period_select").css({"font-size":"1em"});
+		\$("div.dashboard_number").css({"min-width":"140px"});
+	}
+}
 
 function get_colour_function (max) {
 	return d3.scaleLinear()
