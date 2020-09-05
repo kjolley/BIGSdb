@@ -394,8 +394,10 @@ sub _print_main_section {
 		}
 		say q(</div>);
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		say q(<div class="flex_container" style="flex-direction:row">);
+		
+		say qq(<div class="flex_container index_panel_sequences">);
 		say q(<h2 style="text-align:center">Query a sequence</h2>);
-		say qq(<div class="flex_container index_panel_$self->{'system'}->{'dbtype'}">);
 		$self->_print_large_button_link(
 			{
 				title => 'Sequence query',
@@ -411,8 +413,9 @@ sub _print_main_section {
 			}
 		);
 		say q(</div>);
+		
+		say qq(<div class="flex_container index_panel_sequences">);
 		say q(<h2 style="text-align:center">Find alleles</h2>);
-		say qq(<div class="flex_container index_panel_$self->{'system'}->{'dbtype'}">);
 		$self->_print_large_button_link(
 			{
 				title => 'Sequence attribute search',
@@ -432,8 +435,9 @@ sub _print_main_section {
 		if (@$scheme_data) {
 			my $scheme_arg = @$scheme_data == 1 ? "&amp;scheme_id=$scheme_data->[0]->{'id'}" : '';
 			my $scheme_desc = @$scheme_data == 1 ? $scheme_data->[0]->{'name'} : '';
+			say qq(<div class="flex_container index_panel_sequences">);
 			say q(<h2 style="text-align:center">Search for allelic profiles</h2>);
-			say qq(<div class="flex_container index_panel_$self->{'system'}->{'dbtype'}">);
+			
 			$self->_print_large_button_link(
 				{
 					title => 'Allelic profile query',
@@ -457,6 +461,7 @@ sub _print_main_section {
 			);
 			say q(</div>);
 		}
+		say q(</div>);
 	}
 	return;
 }

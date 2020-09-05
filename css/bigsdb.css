@@ -703,6 +703,11 @@ div.index_panel {
 	flex: 10;
 }
 
+div.index_panel_sequences {
+	flex-direction: column;
+	justify-content: flex-start;
+}
+
 div.index_panel_isolates {
 	flex-direction: column;
 	align-items: center;
@@ -833,8 +838,8 @@ a.link_box {
 	padding: 0.5em;
 	background: #fffeff;
 	color: #455870;
-	min-width: 270px;
-	width: 270px;
+	min-width: 220px;
+	width: 220px;
 	height: 150px;
 	border-radius: 10px;
 	margin: 0.5em;
@@ -2422,10 +2427,31 @@ a.slide_trigger {
 	}
 }
 
-@media only screen and (max-width:1040px) {
+@media only screen and (min-width:1450px) {
+
 	div.index_panel_sequences a.link_box {
-		min-width: 75%;
+		width:270px;
 	}
+}
+
+@media only screen and (max-width:1250px) {
+	div.index_panel_sequences {
+		flex-direction: row;
+		justify-content: center;
+	}
+	div.index_panel_sequences a.link_box {
+		width: 75%;
+	}
+	div.index_panel_sequences h2 {
+		max-width:100%;
+		padding:0 2em;
+	}
+	a.link_box {
+		height:120px
+	}
+}
+
+@media only screen and (max-width:1040px) {
 	pre.alignment, pre.sixpack {
 		font-size: 0.9em
 	}
@@ -2460,6 +2486,9 @@ a.slide_trigger {
 	button.pagebar_adjacentplus1 {
 		display: inline
 	}
+	a.link_box {
+		height:150px
+	}
 }
 
 @media only screen and (max-width:600px) {
@@ -2483,6 +2512,12 @@ a.slide_trigger {
 	}
 	div.login_container {
 		margin: 10px 10px 0 10px
+	}
+}
+
+@media only screen and (max-width:579px) {
+	a.link_box {
+		height:120px
 	}
 }
 
