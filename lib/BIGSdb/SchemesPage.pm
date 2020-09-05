@@ -93,6 +93,7 @@ sub get_title {
 
 sub initiate {
 	my ($self) = @_;
+	$self->{'jQuery'} = 1;
 	$self->set_level1_breadcrumbs;
 	return;
 }
