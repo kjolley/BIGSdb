@@ -364,8 +364,6 @@ sub _check_client_databases {
 }
 
 sub get_title {
-	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Configuration check - $desc";
+	return 'Configuration check';
 }
 1;
