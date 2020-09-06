@@ -360,7 +360,7 @@ sub _print_main_section {
 	my $url_root     = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}$cache_string&amp;";
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		say q(<h2 style="text-align:center">Query database</h2>);
-		say qq(<div class="flex_container index_panel_$self->{'system'}->{'dbtype'}">);
+		say q(<div class="flex_container index_panel_isolates">);
 		$self->_print_large_button_link(
 			{
 				title => 'Search database',
@@ -396,36 +396,36 @@ sub _print_main_section {
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		say q(<div class="flex_container" style="flex-direction:row">);
 		
-		say qq(<div class="flex_container index_panel_sequences">);
+		say q(<div class="flex_container index_panel_sequences">);
 		say q(<h2 style="text-align:center">Query a sequence</h2>);
 		$self->_print_large_button_link(
 			{
-				title => 'Sequence query',
+				title => 'Single sequence',
 				href  => "${url_root}page=sequenceQuery",
 				text  => 'Query a single sequence or whole genome assembly to identify allelic matches.'
 			}
 		);
 		$self->_print_large_button_link(
 			{
-				title => 'Batch sequence query',
+				title => 'Batch sequences',
 				href  => "${url_root}page=batchSequenceQuery",
 				text  => 'Query multiple independent sequences in FASTA format to identify allelic matches.'
 			}
 		);
 		say q(</div>);
 		
-		say qq(<div class="flex_container index_panel_sequences">);
+		say q(<div class="flex_container index_panel_sequences">);
 		say q(<h2 style="text-align:center">Find alleles</h2>);
 		$self->_print_large_button_link(
 			{
-				title => 'Sequence attribute search',
+				title => 'By specific criteria',
 				href  => "${url_root}page=tableQuery&amp;table=sequences",
 				text  => 'Find alleles by matching criteria (all loci together)'
 			}
 		);
 		$self->_print_large_button_link(
 			{
-				title => 'Locus-specific sequence attribute search',
+				title => 'By locus',
 				href  => "${url_root}page=alleleQuery",
 				text  => 'Select, analyse and download specific alleles from a single locus.'
 			}
@@ -435,28 +435,28 @@ sub _print_main_section {
 		if (@$scheme_data) {
 			my $scheme_arg = @$scheme_data == 1 ? "&amp;scheme_id=$scheme_data->[0]->{'id'}" : '';
 			my $scheme_desc = @$scheme_data == 1 ? $scheme_data->[0]->{'name'} : '';
-			say qq(<div class="flex_container index_panel_sequences">);
+			say q(<div class="flex_container index_panel_sequences">);
 			say q(<h2 style="text-align:center">Search for allelic profiles</h2>);
 			
 			$self->_print_large_button_link(
 				{
-					title => 'Allelic profile query',
+					title => 'By specific criteria',
 					href  => "${url_root}page=query$scheme_arg",
 					text  => "Search, browse or enter list of $scheme_desc profiles"
 				}
 			);
 			$self->_print_large_button_link(
 				{
-					title => "Search by combinations of $scheme_desc alleles",
+					title => "By $scheme_desc allelic profile",
 					href  => "${url_root}page=profiles$scheme_arg",
 					text  => 'This can include partial matches to find related profiles.'
 				}
 			);
 			$self->_print_large_button_link(
 				{
-					title => 'Batch profile query',
+					title => 'In a batch',
 					href  => "${url_root}page=batchProfiles$scheme_arg",
-					text  => "Lookup multiple $scheme_desc allelic profiles together."
+					text  => "Look up multiple $scheme_desc allelic profiles together."
 				}
 			);
 			say q(</div>);
