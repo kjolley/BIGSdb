@@ -44,7 +44,7 @@ sub initiate {
 			href => $self->{'system'}->{'webroot'}
 		},
 		{
-			label => $self->{'system'}->{'description'}
+			label => $self->{'system'}->{'formatted_description'} // $self->{'system'}->{'description'}
 		}
 	];
 	return;
@@ -782,7 +782,10 @@ sub _get_pending_submission_count {
 }
 
 sub get_title {
-	my ($self) = @_;
+	my ($self,$options) = @_;
+	if ($options->{'breadcrumb'}){
+		return $self->get_db_description({formatted=>1});
+	}
 	my $desc = $self->get_db_description || 'BIGSdb';
 	return $desc;
 }

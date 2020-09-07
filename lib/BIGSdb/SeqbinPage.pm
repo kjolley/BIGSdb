@@ -48,8 +48,9 @@ sub initiate {
 			href => $self->{'system'}->{'webroot'}
 		},
 		{
-			label => $self->{'system'}->{'description'},
-			href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}"
+			label => $self->{'system'}->{'formatted_description'}
+			  // $self->{'system'}->{'description'},
+			href => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}"
 		},
 		{
 			label => 'Isolate info',
@@ -515,8 +516,7 @@ sub _print_contig_table {
 						$q->param( page      => 'renumber' );
 						$q->param( seqbin_id => $data->{'id'} );
 						say $q->hidden($_) foreach qw (page db seqbin_id);
-						say $q->submit( -name => 'Renumber', -class => 'small_submit', -style => 'margin-top:0.3em' )
-						  ;
+						say $q->submit( -name => 'Renumber', -class => 'small_submit', -style => 'margin-top:0.3em' );
 						say $q->end_form;
 						say q(</td>);
 					}

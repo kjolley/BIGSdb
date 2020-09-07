@@ -2315,8 +2315,9 @@ sub set_level2_breadcrumbs {
 			href => $self->{'system'}->{'webroot'}
 		},
 		{
-			label => $self->{'system'}->{'description'},
-			href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}"
+			label => $self->{'system'}->{'formatted_description'}
+			  // $self->{'system'}->{'description'},
+			href => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}"
 		},
 		{
 			label => 'Submissions',

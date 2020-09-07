@@ -93,7 +93,8 @@ sub initiate {
 			href => $self->{'system'}->{'webroot'}
 		},
 		{
-			label => $self->{'system'}->{'description'}
+			label => $self->{'system'}->{'formatted_description'}
+			  // $self->{'system'}->{'description'}
 		}
 	];
 	return;
