@@ -3418,11 +3418,11 @@ sub set_level1_breadcrumbs {
 		  };
 	}
 	if ( $self->{'instance'} ) {
-		push @$breadcrumbs,
-		  {
-			label => $self->{'system'}->{'description'},
-			href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}"
-		  };
+		push @$breadcrumbs, {
+			label => $self->{'system'}->{'formatted_description'}
+			  // $self->{'system'}->{'description'},
+			href => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}"
+		};
 	}
 	if ( $self->{'processing'} ) {
 		my $q            = $self->{'cgi'};
