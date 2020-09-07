@@ -670,7 +670,7 @@ sub _get_stylesheets {
 		push @paths, $stylesheet;
 	}
 	if ( $self->{'config'}->{'stylesheets'} ) {
-		my @css = split /,/x,$self->{'config'}->{'stylesheets'};
+		my @css = split /,/x, $self->{'config'}->{'stylesheets'};
 		push @paths, @css;
 	}
 	if ( $self->{'jQuery.jstree'} ) {
@@ -1065,7 +1065,12 @@ sub _print_breadcrumbs {
 		foreach my $crumb ( @{ $self->{'breadcrumbs'} } ) {
 			my $breadcrumb;
 			$breadcrumb = qq(<a href="$crumb->{'href'}">) if $crumb->{'href'};
-			$breadcrumb .= $crumb->{'label'};
+
+			#Simple conversion of markdown (bold and italics) to HTML.
+			my $label = $crumb->{'label'};
+			$label =~ s/\*\*(.*?)\*\*/<strong>$1\<\/strong>/gx;
+			$label =~ s/\*(.*?)\*/<em>$1\<\/em>/gx;
+			$breadcrumb .= $label;
 			$breadcrumb .= q(</a>) if $crumb->{'href'};
 			push @breadcrumbs, $breadcrumb;
 		}
