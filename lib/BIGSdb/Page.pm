@@ -518,15 +518,14 @@ sub print_page_content {
 		print $q->header(%header_options);
 		my $title      = $self->get_title;
 		my $javascript = $self->_get_javascript_paths;
-		my ( $meta_content, $shortcut_icon ) = $self->_get_meta_data;
+		my $meta_content = $self->_get_meta_data;
 		my $stylesheets = $self->_get_stylesheets;
 		$self->_start_html(
 			{
 				title         => $title,
 				meta          => $meta_content,
 				style         => $stylesheets,
-				script        => $javascript,
-				shortcut_icon => $shortcut_icon
+				script        => $javascript
 			}
 		);
 		my $max_width            = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
@@ -571,15 +570,12 @@ sub _start_html {
 	say q(<meta name="viewport" content="width=device-width" />);
 	say q(<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />);
 
-	if ( $shortcut_icon->{'href'} ) {
-		say qq(<link href="$shortcut_icon->{'href'}" rel="$shortcut_icon->{'rel'}" type="$shortcut_icon->{'type'}" />);
-	}
 	if ( $self->{'refresh'} ) {
 		my $refresh_page = $self->{'refresh_page'} ? qq(; URL=$self->{'refresh_page'}) : q();
 		say qq(<meta http-equiv="refresh" content="$self->{'refresh'}$refresh_page" />);
 	}
-	foreach my $key ( keys %$meta ) {
-		say qq(<meta name="key" content="$meta->{$key}" />);
+	if ($meta){
+		say $meta;
 	}
 	foreach my $css (@$style) {
 		say qq(<link rel="stylesheet" type="text/css" href="$css" />);
@@ -603,32 +599,21 @@ sub _start_html {
 	return;
 }
 
-#META tag inclusion code written by Andreas Tille.
 sub _get_meta_data {
 	my ($self) = @_;
 	$self->{'instance'} //= q();
-	my $meta_file     = "$self->{'dbase_config_dir'}/$self->{'instance'}/meta.html";
-	my $meta_content  = {};
-	my $shortcut_icon = {};
-	if ( -e $meta_file ) {
-		if ( open( my $fh, '<', $meta_file ) ) {
-			while ( my $line = <$fh> ) {
-				if ( $line =~ /<meta\s+name="([^"]+)"\s+content="([^"]+)"\s*\/?>/x ) {
-					$meta_content->{$1} = $2;
-				}
-				my $REL  = qr/rel="shortcut\ icon"\s+/x;
-				my $HREF = qr/href="([^"]+)"\s+/x;
-				my $TYPE = qr/type="([^"]+)"/x;
-				if ( $line =~ /<link\s+ $REL $HREF $TYPE\s*\/?>/x ) {
-					$shortcut_icon->{'rel'}  = 'shortcut icon';
-					$shortcut_icon->{'href'} = $1;
-					$shortcut_icon->{'type'} = $2;
-				}
-			}
-			close $fh;
-		}
+	my @potential_meta_files = (
+		"$self->{'dbase_config_dir'}/$self->{'instance'}/meta.html",
+		"$ENV{'DOCUMENT_ROOT'}/meta.html",
+		"$self->{'config_dir'}/meta.html"
+	);
+	my $content = q();
+	foreach my $file (@potential_meta_files){
+		next if !-e $file;
+		my $content_ref =  BIGSdb::Utils::slurp($file);
+		return $$content_ref;
 	}
-	return ( $meta_content, $shortcut_icon );
+	return $content;
 }
 
 sub _get_stylesheets {
@@ -3418,11 +3403,11 @@ sub set_level1_breadcrumbs {
 		  };
 	}
 	if ( $self->{'instance'} ) {
-		push @$breadcrumbs, {
-			label => $self->{'system'}->{'formatted_description'}
-			  // $self->{'system'}->{'description'},
+		push @$breadcrumbs,
+		  {
+			label => $self->{'system'}->{'formatted_description'} // $self->{'system'}->{'description'},
 			href => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}"
-		};
+		  };
 	}
 	if ( $self->{'processing'} ) {
 		my $q            = $self->{'cgi'};
