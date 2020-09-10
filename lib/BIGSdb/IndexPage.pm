@@ -721,23 +721,6 @@ sub _print_related_database_menu_item {
 	return;
 }
 
-sub get_related_databases {
-	my ($self) = @_;
-	return [] if !$self->{'system'}->{'related_databases'};
-	my @dbases = split /;/x, $self->{'system'}->{'related_databases'};
-	return [] if !@dbases;
-	my $links = [];
-	foreach my $dbase (@dbases) {
-		my ( $config, $name ) = split /\|/x, $dbase;
-		push @$links,
-		  {
-			href => "$self->{'system'}->{'script_name'}?db=$config",
-			text => $name
-		  };
-	}
-	return $links;
-}
-
 sub _get_pending_submission_count {
 	my ($self) = @_;
 	return 0 if !$self->{'username'};

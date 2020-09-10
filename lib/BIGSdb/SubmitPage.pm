@@ -60,6 +60,16 @@ sub get_javascript {
 			last;
 		}
 	}
+	my $links      = $self->get_related_databases;
+	my $db_trigger = q();
+	if ( @$links > 1 ) {
+		$db_trigger = << "END";
++\$("#related_db_trigger,#close_related_db").click(function(){		
+		\$("#related_db_panel").toggle("slide",{direction:"right"},"fast");
+		return false;
+	});	
+END
+	}
 	my $buffer = << "END";
 \$(function () {
 	\$("fieldset#scheme_fieldset").css("display","block");
@@ -102,6 +112,7 @@ sub get_javascript {
     	}
 	});
 	\$("form#file_upload_form").addClass("dropzone");
+	$db_trigger
 });
 
 function status_markall(status){
@@ -151,6 +162,9 @@ sub print_content {
 	if ( ( $self->{'system'}->{'submissions'} // '' ) ne 'yes' || !$self->{'config'}->{'submission_dir'} ) {
 		say q(<h1>Manage submissions</h1>);
 		$self->print_bad_status( { message => q(The submission system is not enabled.) } );
+			say q(<div style="position:relative;margin-top:-8em">);
+			$self->print_related_database_panel;
+			say q(</div>);
 		return;
 	}
 	my $q = $self->{'cgi'};
@@ -174,6 +188,9 @@ sub print_content {
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	if ( !$user_info ) {
 		$self->print_bad_status( { message => q(You are not a recognized user. Submissions are disabled.) } );
+			say q(<div style="position:relative;margin-top:-8em">);
+			$self->print_related_database_panel;
+			say q(</div>);
 		return;
 	}
 	foreach my $type (qw (alleles profiles isolates genomes)) {
@@ -194,7 +211,9 @@ sub print_content {
 		if ( !$submissions_to_show ) {
 			$self->print_navigation_bar( { closed_submissions => $closed_buffer ? 1 : 0 } );
 		}
-		say q(</div></div>);
+		say q(</div>);
+			$self->print_related_database_panel;
+		say q(</div>);
 	}
 	if ($submissions_to_show) {
 		say q(<div class="box resultstable"><div class="scrollable">);
@@ -2315,8 +2334,7 @@ sub set_level2_breadcrumbs {
 			href => $self->{'system'}->{'webroot'}
 		},
 		{
-			label => $self->{'system'}->{'formatted_description'}
-			  // $self->{'system'}->{'description'},
+			label => $self->{'system'}->{'formatted_description'} // $self->{'system'}->{'description'},
 			href => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}"
 		},
 		{
@@ -2554,5 +2572,11 @@ sub set_pref_requirements {
 sub get_title {
 	my ($self) = @_;
 	return 'Submissions';
+}
+
+sub print_panel_buttons {
+	my ($self) = @_;
+	$self->print_related_dbases_button;
+	return;
 }
 1;
