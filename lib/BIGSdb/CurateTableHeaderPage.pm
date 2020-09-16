@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -40,8 +40,8 @@ sub print_content {
 		return;
 	}
 	my $q         = $self->{'cgi'};
-	my $no_fields = $q->param('no_fields') ? 1 : 0;     #For profile submissions
-	my $id_field  = $q->param('id_field') ? 1 : 0;      #Ditto
+	my $no_fields = $q->param('no_fields') ? 1 : 0;    #For profile submissions
+	my $id_field  = $q->param('id_field') ? 1 : 0;     #Ditto
 	my $headers = $self->get_headers( $table, { no_fields => $no_fields, id_field => $id_field } );
 	if ( $table eq 'isolates' && $q->param('addCols') ) {
 		my @cols = split /,/x, $q->param('addCols');
@@ -53,14 +53,14 @@ sub print_content {
 }
 
 sub _get_isolate_table_headers {
-	my ($self)  = @_;
-	my $headers = [];
-	my $set_id  = $self->get_set_id;
-	my $is_curator    = $self->is_curator;
-	my $field_list    = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
+	my ($self)     = @_;
+	my $headers    = [];
+	my $set_id     = $self->get_set_id;
+	my $is_curator = $self->is_curator;
+	my $field_list = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
 	foreach my $field (@$field_list) {
 		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-		next if ( $att->{'no_curate'} // '' ) eq 'yes';
+		next if ( $att->{'no_curate'}      // '' ) eq 'yes';
 		next if ( $att->{'no_submissions'} // '' ) eq 'yes';
 		push @$headers, $field if none { $field eq $_ } qw (id curator sender date_entered datestamp);
 		if ( $field eq $self->{'system'}->{'labelfield'} ) {
@@ -157,12 +157,20 @@ sub get_isolate_loci {
 	my $q = $self->{'cgi'};
 	return [] if $q->param('noLoci');
 	my $order = $q->param('order') // 'alphabetical';
-	my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id, analysis_pref => ( $order eq 'scheme' ? 1 : 0 ) } );
-	my $loci_with_flag =
-	  $self->{'datastore'}
-	  ->run_query( 'SELECT id FROM loci WHERE submission_template', undef, { fetch => 'col_arrayref' } );
-	my %include = map { $_ => 1 } @$loci_with_flag;
+	my $loci;
+	my %include;
 
+	if ( BIGSdb::Utils::is_int( scalar $q->param('scheme') ) ) {
+		$loci = $self->{'datastore'}->get_scheme_loci( scalar $q->param('scheme') );
+		%include = map { $_ => 1 } @$loci;
+	} else {
+		$loci =
+		  $self->{'datastore'}->get_loci( { set_id => $set_id, analysis_pref => ( $order eq 'scheme' ? 1 : 0 ) } );
+		my $loci_with_flag =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT id FROM loci WHERE submission_template', undef, { fetch => 'col_arrayref' } );
+		%include = map { $_ => 1 } @$loci_with_flag;
+	}
 	foreach my $locus (@$loci) {
 		next if !$include{$locus};
 		my $cleaned_name = $self->clean_locus( $locus, { no_common_name => 1, text_output => 1 } );
