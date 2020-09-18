@@ -29,7 +29,7 @@ my $logger = get_logger('BIGSdb.Plugins');
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name        => 'Profile Export',
+		name    => 'Profile Export',
 		authors => [
 			{
 				name        => 'Keith Jolley',
@@ -42,7 +42,7 @@ sub get_attributes {
 		menutext    => 'Profiles',
 		buttontext  => 'Profiles',
 		module      => 'ProfileExport',
-		version     => '1.1.3',
+		version     => '1.2.0',
 		dbtype      => 'sequences',
 		seqdb_type  => 'schemes',
 		input       => 'query',
@@ -88,6 +88,7 @@ sub run {
 				my $id_list = $self->{'datastore'}->run_query( $qry, $scheme_id, { fetch => 'col_arrayref' } );
 				@list = @$id_list;
 			}
+			delete $params->{'list'};
 			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 			my $job_id    = $self->{'jobManager'}->add_job(
 				{
@@ -117,15 +118,27 @@ sub _print_interface {
 	say q(<div class="box" id="queryform">);
 	say q(<p>This script will export allelic profiles in tab-delimited text and Excel formats.</p>);
 	my $list = $self->get_id_list( $pk, $query_file );
-	$self->print_sequence_export_form(
-		$pk, $list,
-		$scheme_id,
-		{
-			no_includes   => 1,
-			no_locus_list => 1,
-			no_options    => 1
-		}
-	);
+	say $q->start_form;
+	say q(<div class="flex_container" style="justify-content:left">);
+	$self->print_id_fieldset( { fieldname => $pk, list => $list } );
+	my ( $locus_list, $locus_labels ) =
+	  $self->get_field_selection_list( { loci => 1, analysis_pref => 1, query_pref => 0, sort_labels => 1 } );
+	say q(<fieldset><legend>Provenance</legend>);
+	say q(<ul><li>);
+	say $q->checkbox( -name => 'include_sender', label => 'Include sender details' );
+	say q(</li><li>);
+	say $q->checkbox( -name => 'include_curator', label => 'Include curator details' );
+	say q(</li><li>);
+	say $q->checkbox( -name => 'include_datestamps', label => 'Include datestamps' );
+	say q(<li></ul>);
+	say q(</field>);
+	$self->print_action_fieldset( { no_reset => 1 } );
+	say q(<div style="clear:both"></div>);
+	my $set_id = $self->get_set_id;
+	$q->param( set_id => $set_id );
+	say $q->hidden($_) foreach qw (db page name query_file scheme_id set_id list_file datatype);
+	say q(</div>);
+	say $q->end_form;
 	say q(</div>);
 	return;
 }
@@ -180,6 +193,15 @@ sub run_job {
 	foreach my $cg_scheme (@$cg_schemes) {
 		push @header, $cg_scheme->{'name'};
 	}
+	if ( $params->{'include_sender'} ) {
+		push @header, qw(sender sender_affiliation);
+	}
+	if ( $params->{'include_curator'} ) {
+		push @header, qw(curator curator_affiliation);
+	}
+	if ( $params->{'include_datestamps'} ) {
+		push @header, qw(date_entered datestamp);
+	}
 	local $" = qq(\t);
 	my $buffer        = qq(@header\n);
 	my $indices       = $self->{'datastore'}->get_scheme_locus_indices($scheme_id);
@@ -206,6 +228,25 @@ sub run_job {
 			my $group_id = $c_groups->{ $cg_schemes->{'id'} }->{$pk_value} // q();
 			$buffer .= qq(\t$group_id);
 		}
+		if ( $params->{'include_sender'} ) {
+			my $sender = $self->{'datastore'}->get_user_info( $data->{'sender'} );
+			my $name   = $sender->{'first_name'};
+			$name .= q( ) if $name;
+			$name .= $sender->{'surname'} // q();
+			$buffer .= qq(\t$name);
+			$buffer .= $sender->{'affiliation'} ? qq(\t$sender->{'affiliation'}) : qq(\t);
+		}
+		if ( $params->{'include_curator'} ) {
+			my $curator = $self->{'datastore'}->get_user_info( $data->{'curator'} );
+			my $name    = $curator->{'first_name'};
+			$name .= q( ) if $name;
+			$name .= $curator->{'surname'} // q();
+			$buffer .= qq(\t$name);
+			$buffer .= $curator->{'affiliation'} ? qq(\t$curator->{'affiliation'}) : qq(\t);
+		}
+		if ( $params->{'include_datestamps'} ) {
+			$buffer .= qq(\t$data->{'date_entered'}\t$data->{'datestamp'});
+		}
 		$buffer .= qq(\n);
 		if ( $self->{'exit'} ) {
 			$self->{'jobManager'}->update_job_status( $job_id, { status => 'terminated' } );
@@ -218,7 +259,8 @@ sub run_job {
 		}
 	}
 	$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $progress_max } );
-	open( my $fh, '>', $filename ) or $logger->error("Cannot open output file $filename for writing");
+	open( my $fh, '>:encoding(utf8)', $filename )
+	  or $logger->error("Cannot open output file $filename for writing");
 	say $fh $buffer;
 	close $fh;
 	if (@problem_ids) {
