@@ -1948,6 +1948,22 @@ span.warning_icon {
 	text-shadow: 3px 3px 3px #999
 }
 
+span.submission_indicator {
+	color: #d44
+}
+
+div.menu_item:hover span.submission_indicator {
+	color: #a00
+}
+
+span.job_indicator {
+	color: #d44
+}
+
+div.menu_item:hover span.job_indicator {
+	color: #a00
+}
+
 span.wait_message {
 	color: #66a;
 	line-height: 1.2em;
@@ -2428,9 +2444,8 @@ a.slide_trigger {
 }
 
 @media only screen and (min-width:1450px) {
-
 	div.index_panel_sequences a.link_box {
-		width:270px;
+		width: 270px;
 	}
 }
 
@@ -2443,11 +2458,11 @@ a.slide_trigger {
 		width: 75%;
 	}
 	div.index_panel_sequences h2 {
-		max-width:100%;
-		padding:0 2em;
+		max-width: 100%;
+		padding: 0 2em;
 	}
 	a.link_box {
-		height:120px
+		height: 120px
 	}
 }
 
@@ -2487,7 +2502,7 @@ a.slide_trigger {
 		display: inline
 	}
 	a.link_box {
-		height:150px
+		height: 150px
 	}
 }
 
