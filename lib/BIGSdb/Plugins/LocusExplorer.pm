@@ -27,7 +27,7 @@ my $logger = get_logger('BIGSdb.Plugins');
 use Bio::SeqIO;
 use constant MAX_INSTANT_RUN => 100;
 use constant MAX_SEQUENCES   => 2000;
-use constant STYLESHEET      => 'https://pubmlst.org/css/bigsdb.css';
+use constant STYLESHEET      => 'https://pubmlst.org/css/bigsdb.min.css';
 
 sub get_attributes {
 	my ($self) = @_;
@@ -47,7 +47,7 @@ sub get_attributes {
 		menutext   => 'Locus Explorer',
 		module     => 'LocusExplorer',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/locus_explorer.html",
-		version    => '1.3.13',
+		version    => '1.3.14',
 		dbtype     => 'sequences',
 		seqdb_type => 'sequences',
 		input      => 'query',
