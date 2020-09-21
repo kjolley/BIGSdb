@@ -68,7 +68,6 @@ sub print_content {
 	say q(</div>);
 	say q(<div id="period_select" style="display:none"><label for="period">Period:</label>);
 	my $labels = {
-		30   => '30 minutes',
 		60   => '1 hour',
 		120  => '2 hours',
 		360  => '6 hours',
@@ -82,7 +81,7 @@ sub print_content {
 	say $q->popup_menu(
 		{
 			id      => 'period',
-			values  => [ 30, 60, 120, 360, 720, 1440, 2880, 4320, 5760, 7200 ],
+			values  => [ 60, 120, 360, 720, 1440, 2880, 4320, 5760, 7200 ],
 			labels  => $labels,
 			default => 360,
 			style   => 'margin-right:1em;margin-bottom:0.5em'
