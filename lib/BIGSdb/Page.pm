@@ -548,6 +548,7 @@ sub print_page_content {
 			$self->_print_breadcrumbs;
 			say qq(<div class="main_container$main_container_class">);
 			say qq(<div class="main_content $main_content_class" style="max-width:${main_max_width}px">);
+			say qq(<script>var max_width=${main_max_width}</script>);
 			$self->print_content;
 			say q(</div></div>);
 			$self->_print_site_footer;
