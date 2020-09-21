@@ -140,7 +140,11 @@ var max_avg_response_warn = $max_avg_response_warn;
 	\$("#period").off("change").on("change",function(){
 		clearInterval(summary_interval);
 		mins = \$("#period").val();
-		url = "$url" + "&minutes="+mins;
+		interval = \$("#interval").val();
+		if (typeof interval == 'undefined'){
+			mins = 2;
+		}
+		url = "$url" + "&minutes="+mins+"&interval=" + interval;
 		refresh_summary(url + "&summary=1");	
 		load_chart(url);	
 		summary_interval = setInterval(function(){refresh_summary(url + "&summary=1")}, 30000);
