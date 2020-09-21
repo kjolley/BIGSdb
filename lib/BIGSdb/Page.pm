@@ -516,16 +516,16 @@ sub print_page_content {
 		binmode STDOUT, ':encoding(utf8)';
 		$header_options{'-status'} = $self->{'status'} if $self->{'status'};
 		print $q->header(%header_options);
-		my $title      = $self->get_title;
-		my $javascript = $self->_get_javascript_paths;
+		my $title        = $self->get_title;
+		my $javascript   = $self->_get_javascript_paths;
 		my $meta_content = $self->_get_meta_data;
-		my $stylesheets = $self->_get_stylesheets;
+		my $stylesheets  = $self->_get_stylesheets;
 		$self->_start_html(
 			{
-				title         => $title,
-				meta          => $meta_content,
-				style         => $stylesheets,
-				script        => $javascript
+				title  => $title,
+				meta   => $meta_content,
+				style  => $stylesheets,
+				script => $javascript
 			}
 		);
 		my $max_width            = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
@@ -574,7 +574,7 @@ sub _start_html {
 		my $refresh_page = $self->{'refresh_page'} ? qq(; URL=$self->{'refresh_page'}) : q();
 		say qq(<meta http-equiv="refresh" content="$self->{'refresh'}$refresh_page" />);
 	}
-	if ($meta){
+	if ($meta) {
 		say $meta;
 	}
 	foreach my $css (@$style) {
@@ -608,9 +608,9 @@ sub _get_meta_data {
 		"$self->{'config_dir'}/meta.html"
 	);
 	my $content = q();
-	foreach my $file (@potential_meta_files){
+	foreach my $file (@potential_meta_files) {
 		next if !-e $file;
-		my $content_ref =  BIGSdb::Utils::slurp($file);
+		my $content_ref = BIGSdb::Utils::slurp($file);
 		return $$content_ref;
 	}
 	return $content;
@@ -3379,15 +3379,15 @@ sub is_curator {
 sub set_level0_breadcrumbs {
 	my ($self) = @_;
 	my $page_name = $self->get_title( { breadcrumb => 1 } );
-	$self->{'breadcrumbs'} = [
-		{
+	$self->{'breadcrumbs'} = [];
+	if ( $self->{'system'}->{'webroot'} ) {
+		push @{ $self->{'breadcrumbs'} },
+		  {
 			label => $self->{'system'}->{'webroot_label'} // 'Organism',
 			href => $self->{'system'}->{'webroot'}
-		},
-		{
-			label => $page_name
-		}
-	];
+		  };
+	}
+	push @{ $self->{'breadcrumbs'} }, { label => $page_name };
 	return;
 }
 
