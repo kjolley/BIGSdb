@@ -3395,7 +3395,7 @@ sub set_level1_breadcrumbs {
 	my ($self) = @_;
 	my $page_name = $self->get_title( { breadcrumb => 1 } );
 	my $breadcrumbs = [];
-	if ( defined $self->{'system'}->{'webroot'} ) {
+	if ( $self->{'system'}->{'webroot'} ) {
 		push @$breadcrumbs,
 		  {
 			label => $self->{'system'}->{'webroot_label'} // 'Organism',
