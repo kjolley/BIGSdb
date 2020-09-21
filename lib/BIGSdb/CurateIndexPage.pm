@@ -87,16 +87,16 @@ sub initiate {
 		$self->{"optional_${method}_display"} =
 		  $self->{'prefs'}->{"${method}_methods"} ? 'inline' : 'none';
 	}
-	$self->{'breadcrumbs'} = [
-		{
+	$self->{'breadcrumbs'} = [];
+	if ( $self->{'system'}->{'webroot'} ) {
+		push @{ $self->{'breadcrumbs'} },
+		  {
 			label => $self->{'system'}->{'webroot_label'} // 'Organism',
 			href => $self->{'system'}->{'webroot'}
-		},
-		{
-			label => $self->{'system'}->{'formatted_description'}
-			  // $self->{'system'}->{'description'}
-		}
-	];
+		  };
+	}
+	push @{ $self->{'breadcrumbs'} },
+	  { label => $self->{'system'}->{'formatted_description'} // $self->{'system'}->{'description'} };
 	return;
 }
 
