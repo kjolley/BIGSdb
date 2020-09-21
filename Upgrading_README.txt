@@ -33,6 +33,7 @@ Version 1.24: Change of isolate database structure.
 Version 1.25: Change of isolate database structure.
 Version 1.26: Change of isolate database structure.
 Version 1.27: Change of seqdef and isolate database structures.
+Version 1.28: Change of REST database structure.
 
 Details can be found below.
 
@@ -467,3 +468,9 @@ support categorising loci into different types.
 
 Please run the seqdefdb_v1.27.sql script against sequence definition databases
 and isolatedb_v1.27.sql against isolate databases.
+
+Version 1.28
+------------
+There is a change to the REST database structure.
+
+Please run the rest_v1.28 sql script against the REST database (bigsdb_rest).

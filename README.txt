@@ -1,3 +1,4 @@
+v1.28.0: *New interface.
 v1.27.1: *Improved kiosk mode support.
          *Fixed memory leak in BLAST plugin.
 v1.27.0: *Support for different locus categories - these show on different 
