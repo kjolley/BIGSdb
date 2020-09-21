@@ -255,6 +255,7 @@ sub _initiate {
 	$self->{'page'} = $q->param('page');
 	$self->{'system'}->{'read_access'} //= 'public';    #everyone can view by default
 	$self->set_dbconnection_params;
+	$self->{'system'}->{'webroot'} //= q();
 	$self->{'system'}->{'privacy'} //= 'yes';
 	$self->{'system'}->{'privacy'} = $self->{'system'}->{'privacy'} eq 'no' ? 0 : 1;
 	$self->{'system'}->{'locus_superscript_prefix'} //= 'no';
