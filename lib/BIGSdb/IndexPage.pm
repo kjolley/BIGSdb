@@ -38,15 +38,16 @@ sub initiate {
 	my $q = $self->{'cgi'};
 	$self->{$_} = 1 foreach qw(jQuery cookieconsent noCache);
 	$self->choose_set;
-	$self->{'breadcrumbs'} = [
-		{
+	$self->{'breadcrumbs'} = [];
+	if ( $self->{'system'}->{'webroot'} ) {
+		push @{ $self->{'breadcrumbs'} },
+		  {
 			label => $self->{'system'}->{'webroot_label'} // 'Organism',
 			href => $self->{'system'}->{'webroot'}
-		},
-		{
-			label => $self->{'system'}->{'formatted_description'} // $self->{'system'}->{'description'}
-		}
-	];
+		  };
+	}
+	push @{ $self->{'breadcrumbs'} },
+	  { label => $self->{'system'}->{'formatted_description'} // $self->{'system'}->{'description'} };
 	return;
 }
 
@@ -395,7 +396,6 @@ sub _print_main_section {
 		say q(</div>);
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		say q(<div class="flex_container" style="flex-direction:row">);
-		
 		say q(<div class="flex_container index_panel_sequences">);
 		say q(<h2 style="text-align:center">Query a sequence</h2>);
 		$self->_print_large_button_link(
@@ -413,7 +413,6 @@ sub _print_main_section {
 			}
 		);
 		say q(</div>);
-		
 		say q(<div class="flex_container index_panel_sequences">);
 		say q(<h2 style="text-align:center">Find alleles</h2>);
 		$self->_print_large_button_link(
@@ -432,12 +431,12 @@ sub _print_main_section {
 		);
 		say q(</div>);
 		my $scheme_data = $self->get_scheme_data( { with_pk => 1 } );
+
 		if (@$scheme_data) {
 			my $scheme_arg = @$scheme_data == 1 ? "&amp;scheme_id=$scheme_data->[0]->{'id'}" : '';
 			my $scheme_desc = @$scheme_data == 1 ? $scheme_data->[0]->{'name'} : '';
 			say q(<div class="flex_container index_panel_sequences">);
 			say q(<h2 style="text-align:center">Search for allelic profiles</h2>);
-			
 			$self->_print_large_button_link(
 				{
 					title => 'By specific criteria',
@@ -765,9 +764,9 @@ sub _get_pending_submission_count {
 }
 
 sub get_title {
-	my ($self,$options) = @_;
-	if ($options->{'breadcrumb'}){
-		return $self->get_db_description({formatted=>1});
+	my ( $self, $options ) = @_;
+	if ( $options->{'breadcrumb'} ) {
+		return $self->get_db_description( { formatted => 1 } );
 	}
 	my $desc = $self->get_db_description || 'BIGSdb';
 	return $desc;
