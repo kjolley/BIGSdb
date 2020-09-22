@@ -57,11 +57,13 @@ sub _get_user {
 }
 
 sub _get_curators {
-	my $self     = setting('self');
-	my $subdir   = setting('subdir');
-	my $db       = params->{'db'};
-	my $curators = $self->{'datastore'}
-	  ->run_query( 'SELECT id FROM users WHERE status=? ORDER BY id', 'curator', { fetch => 'col_arrayref' } );
+	my $self   = setting('self');
+	my $subdir = setting('subdir');
+	my $db     = params->{'db'};
+	my $curators =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT id FROM users WHERE status=? AND id>0 ORDER BY id', 'curator', { fetch => 'col_arrayref' } )
+	  ;
 	my $values = [];
 	foreach my $curator_id (@$curators) {
 		push @$values, request->uri_for("$subdir/db/$db/users/$curator_id");
