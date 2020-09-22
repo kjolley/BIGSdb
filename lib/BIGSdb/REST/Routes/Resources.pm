@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2019, University of Oxford
+#Copyright (c) 2014-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -27,8 +27,8 @@ get '/robots.txt' => sub { _get_robots() };
 #Resource description routes
 sub setup_routes {
 	my $self = setting('self');
-	foreach my $dir ( @{setting('api_dirs')} ) {
-		get "$dir"       => sub { _get_root() };
+	foreach my $dir ( @{ setting('api_dirs') } ) {
+		get "$dir"        => sub { _get_root() };
 		get "$dir/db"     => sub { _get_root() };
 		get "$dir/db/:db" => sub { _get_db() };
 	}
@@ -42,7 +42,7 @@ sub _get_robots {
 
 sub _get_root {
 	my $self            = setting('self');
-	my $subdir = setting('subdir');
+	my $subdir          = setting('subdir');
 	my $resource_groups = $self->get_resources;
 	my $values          = [];
 	foreach my $resource_group (@$resource_groups) {
@@ -66,9 +66,9 @@ sub _get_root {
 }
 
 sub _get_db {
-	my $self = setting('self');
+	my $self   = setting('self');
 	my $subdir = setting('subdir');
-	my $db   = params->{'db'};
+	my $db     = params->{'db'};
 	if ( !$self->{'system'}->{'db'} ) {
 		send_error( "Database '$db' does not exist", 404 );
 	}
@@ -77,7 +77,8 @@ sub _get_db {
 	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	$routes->{'schemes'} = request->uri_for("$subdir/db/$db/schemes") if @$schemes;
 	my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
-	$routes->{'loci'} = request->uri_for("$subdir/db/$db/loci") if @$loci;
+	$routes->{'loci'}        = request->uri_for("$subdir/db/$db/loci") if @$loci;
+	$routes->{'curators'}    = request->uri_for("$subdir/db/$db/curators");
 	$routes->{'submissions'} = request->uri_for("$subdir/db/$db/submissions")
 	  if ( $self->{'system'}->{'submissions'} // '' ) eq 'yes';
 
