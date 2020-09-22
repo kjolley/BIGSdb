@@ -64,6 +64,7 @@ use BIGSdb::CurateTagUpdatePage;
 use BIGSdb::CurateUpdatePage;
 use BIGSdb::IDList;
 use BIGSdb::JobViewerPage;
+use BIGSdb::PluginSummaryPage;
 use BIGSdb::RefreshSchemeCachePage;
 use BIGSdb::Offline::UpdateSchemeCaches;
 use Log::Log4perl qw(get_logger);
@@ -122,6 +123,7 @@ sub print_page {
 		newVersion            => 'CurateNewVersionPage',
 		options               => 'OptionsPage',
 		plugin                => 'Plugin',
+		pluginSummary         => 'PluginSummaryPage',
 		profileAdd            => 'CurateProfileAddPage',
 		profileBatchAdd       => 'CurateProfileBatchAddPage',
 		profileInfo           => 'ProfileInfoPage',
