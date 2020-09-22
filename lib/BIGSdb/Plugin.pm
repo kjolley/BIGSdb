@@ -1124,11 +1124,16 @@ sub get_field_value {
 sub get_breadcrumbs {
 	my ($self)      = @_;
 	my $att         = $self->get_attributes;
-	my $breadcrumbs = [
-		{
+	my $breadcrumbs = [];
+	if ( $self->{'system'}->{'webroot'} ) {
+		push @$breadcrumbs,
+		  {
 			label => $self->{'system'}->{'webroot_label'} // 'Organism',
 			href => $self->{'system'}->{'webroot'}
-		},
+		  };
+	}
+	push @$breadcrumbs,
+	  (
 		{
 			label => $self->{'system'}->{'description'},
 			href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}"
@@ -1140,7 +1145,7 @@ sub get_breadcrumbs {
 		{
 			label => $att->{'menutext'}
 		}
-	];
+	  );
 	return $breadcrumbs;
 }
 1;
