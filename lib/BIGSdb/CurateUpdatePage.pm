@@ -495,6 +495,7 @@ sub _check_allele_data {
 	my @new_pubmeds = split /\r?\n/x, $value_string;
 	foreach my $new (@new_pubmeds) {
 		chomp $new;
+		$new =~ s/^\s+|\s+$//gx;
 		next if $new eq '';
 		if ( !@$existing_pubmeds || none { $new eq $_ } @$existing_pubmeds ) {
 			if ( !BIGSdb::Utils::is_int($new) ) {
@@ -530,6 +531,7 @@ sub _check_allele_data {
 		my @new_accessions = split /\r?\n/x, $value_string;
 		foreach my $new (@new_accessions) {
 			chomp $new;
+			$new =~ s/^\s+|\s+$//gx;
 			next if $new eq '';
 			if ( !@$existing_accessions || none { $new eq $_ } @$existing_accessions ) {
 				push @$extra_inserts,
