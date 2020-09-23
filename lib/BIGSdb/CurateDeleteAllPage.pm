@@ -79,12 +79,13 @@ sub print_content {
 		return;
 	}
 	if (   $self->{'system'}->{'dbtype'} eq 'sequences'
+		&& ( $table eq 'sequences' || $table eq 'sequence_refs' )
 		&& !$self->is_admin
-		&& ( $table eq 'sequences' || $table eq 'sequence_refs' ) )
+		&& $self->_contains_unpermitted_loci($query) )
 	{
 		$self->print_bad_status(
 			{
-				message => qq(Only administrators can batch delete from the $table table.)
+				message => q(Deletion contains some alleles for loci that you are not a curator of.)
 			}
 		);
 		return;
@@ -116,6 +117,18 @@ sub print_content {
 		$self->_delete( $table, $query );
 	} else {
 		$self->_print_interface( $table, $query_file );
+	}
+	return;
+}
+
+sub _contains_unpermitted_loci {
+	my ( $self, $query ) = @_;
+	$query =~ s/SELECT\ \*/SELECT DISTINCT(locus)/x;
+	$query =~ s/ORDER\ BY.*$//x;
+	my $loci = $self->{'datastore'}->run_query( $query, undef, { fetch => 'col_arrayref' } );
+	my $curator_id = $self->get_curator_id;
+	foreach my $locus (@$loci) {
+		return 1 if !$self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $curator_id );
 	}
 	return;
 }
