@@ -548,11 +548,15 @@ sub _print_tag_scanning_function {
 }
 
 sub _print_modify_project_members_function {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	my $project_data =
-	  $self->{'datastore'}->run_query( 'SELECT id,short_description FROM projects ORDER BY short_description',
-		undef, { fetch => 'all_arrayref', slice => {} } );
+	my ($self)       = @_;
+	my $q            = $self->{'cgi'};
+	my $user_info    = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $project_data = $self->{'datastore'}->run_query(
+		'SELECT id,short_description FROM projects WHERE NOT private '
+		  . 'OR id IN (SELECT project_id FROM merged_project_users WHERE user_id=?) '
+		  . 'ORDER BY short_description',
+		$user_info->{'id'}, { fetch => 'all_arrayref', slice => {} }
+	);
 	my ( @projects, %labels );
 	foreach my $project (@$project_data) {
 		push @projects, $project->{'id'};
