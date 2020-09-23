@@ -224,10 +224,11 @@ sub _update {
 	my $q          = $self->{'cgi'};
 	my $newdata    = {};
 	my $attributes = $self->{'datastore'}->get_table_field_attributes('allele_designations');
-	foreach (@$attributes) {
-		my $param = "allele_designations\_$_->{'name'}";
+	foreach my $att (@$attributes) {
+		my $param = "allele_designations_$att->{'name'}";
 		if ( defined $q->param($param) && $q->param($param) ne '' ) {
-			$newdata->{ $_->{'name'} } = $q->param($param);
+			( my $value = $q->param($param) ) =~ s/^\s+|\s+$//gx;
+			$newdata->{ $att->{'name'} } = $value;
 		}
 	}
 	$newdata->{'datestamp'} = BIGSdb::Utils::get_datestamp();
@@ -238,13 +239,13 @@ sub _update {
 
 	#TODO Use placeholders for all SQL values.
 	my $existing_designation;
-	if ( $q->param('update_id') ) {    #Update existing allele
+	if ( $q->param('update_id') ) {                                  #Update existing allele
 		$existing_designation = $self->{'datastore'}->run_query(
 			'SELECT * FROM allele_designations WHERE id=?',
 			scalar $q->param('update_id'),
 			{ fetch => 'row_hashref' }
 		);
-	} else {                           #Add new allele
+	} else {                                                         #Add new allele
 		$existing_designation = $self->{'datastore'}->run_query(
 			'SELECT * FROM allele_designations WHERE (isolate_id,locus,allele_id)=(?,?,?)',
 			[ $isolate_id, $locus, $newdata->{'allele_id'} ],
