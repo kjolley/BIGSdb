@@ -31,7 +31,7 @@ sub get_attributes {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my %att    = (
-		name             => 'Field Breakdown',
+		name    => 'Field Breakdown',
 		authors => [
 			{
 				name        => 'Keith Jolley',
@@ -47,7 +47,7 @@ sub get_attributes {
 		buttontext => 'Fields',
 		menutext   => 'Field breakdown',
 		module     => 'FieldBreakdown',
-		version    => '2.2.10',
+		version    => '2.2.11',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
@@ -248,11 +248,12 @@ sub _export_excel {
 	my $text_table = $self->_get_text_table($field);
 	my $temp_file  = $self->make_temp_file($text_table);
 	my $full_path  = "$self->{'config'}->{'secure_tmp_dir'}/$temp_file";
+	my $name = substr( $display_field, 0, 30 );    #Excel tab names cannot be >31 characters.
 	BIGSdb::Utils::text2excel(
 		$full_path,
 		{
 			stdout    => 1,
-			worksheet => "$display_field breakdown",
+			worksheet => $name,
 			tmp_dir   => $self->{'config'}->{'secure_tmp_dir'}
 		}
 	);
