@@ -93,10 +93,13 @@ sub _single_query {
 			$return_buffer .= q(<div class="box" id="resultspanel" style="padding-top:1em">);
 			my $contig_ref = $self->get_contig( $best_match->{'query'} );
 			$return_buffer .= $self->_get_partial_match_alignment( $seq_ref, $best_match, $contig_ref, $qry_type );
-			$return_buffer .= q(<p style="margin-top:1em">);
-			$return_buffer .= $self->_make_match_download_seq_file($best_match);
-			$return_buffer .= $self->_start_submission($best_match);
-			$return_buffer .= q(</p>);
+
+			if ( !$self->_is_match_size_unlikely($best_match) ) {
+				$return_buffer .= q(<p style="margin-top:1em">);
+				$return_buffer .= $self->_make_match_download_seq_file($best_match);
+				$return_buffer .= $self->_start_submission($best_match);
+				$return_buffer .= q(</p>);
+			}
 			$return_buffer .= q(</div>);
 		} else {
 			$return_buffer .= q(<div class="box" id="statusbad">);
@@ -107,6 +110,16 @@ sub _single_query {
 		}
 	}
 	return $return_buffer;
+}
+
+sub _is_match_size_unlikely {
+	my ( $self, $match ) = @_;
+	my $locus_stats =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT * FROM locus_stats WHERE locus=?', $match->{'locus'}, { fetch => 'row_hashref' } );
+	return 1 if length $match->{'sequence'} > $locus_stats->{'max_length'};
+	return 1 if length $match->{'sequence'} < $locus_stats->{'min_length'};
+	return;
 }
 
 sub _make_match_download_seq_file {
