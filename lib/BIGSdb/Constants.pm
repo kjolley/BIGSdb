@@ -151,6 +151,9 @@ use constant ALIGN_FILE => q(<span class="fa-stack fa-2x export">)
 use constant CODE_FILE => q(<span class="fa-stack fa-2x export">)
   . q(<span class="fas fa-square fa-stack-2x export_code"></span>)
   . q(<span class="fas fa-file-code fa-stack-1x fa-inverse"></span></span>);
+use constant UPLOAD_BUTTON => q(<span class="fa-stack fa-2x">)
+  . q(<span class="fas fa-square fa-stack-2x upload"></span>)
+  . q(<span class="fas fa-upload fa-stack-1x fa-inverse"></span></span>);
 use constant FIRST => q(<span class="fa-stack">)
   . q(<span class="far fa-circle fa-stack-2x"></span>)
   . q(<span class="fas fa-angle-double-left fa-stack-1x"></span></span>);
@@ -173,7 +176,7 @@ use constant MAX_ROWS => 20;
   BACK QUERY_MORE EDIT_MORE UPLOAD_CONTIGS LINK_CONTIGS MORE HOME RELOAD KEY EYE_SHOW EYE_HIDE
   CURATE EXPORT_TABLE EXCEL_FILE TEXT_FILE FASTA_FILE FASTA_FLANKING_FILE LABELLED_FASTA_FILE
   EMBL_FILE GBK_FILE GFF3_FILE MISC_FILE ARCHIVE_FILE IMAGE_FILE ALIGN_FILE CODE_FILE FLANKING
-  MAX_ROWS LOCK UNLOCK FIRST PREVIOUS NEXT LAST TOOLTIP);
+  UPLOAD_BUTTON MAX_ROWS LOCK UNLOCK FIRST PREVIOUS NEXT LAST TOOLTIP);
 push @EXPORT_OK, @values;
 $EXPORT_TAGS{'interface'} = [@values];
 

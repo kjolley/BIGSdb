@@ -1,4 +1,4 @@
-/*Version: 20200907*/
+/*Version: 20200924*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -2035,6 +2035,11 @@ span.export_code {
 
 span.export:hover .fa-square {
 	text-shadow: 3px 3px 3px #444
+}
+
+span.upload {
+	color: #47f;
+	text-shadow: 3px 3px 3px #999
 }
 
 span.annotation_link {

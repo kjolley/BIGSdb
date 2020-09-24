@@ -93,7 +93,10 @@ sub _single_query {
 			$return_buffer .= q(<div class="box" id="resultspanel" style="padding-top:1em">);
 			my $contig_ref = $self->get_contig( $best_match->{'query'} );
 			$return_buffer .= $self->_get_partial_match_alignment( $seq_ref, $best_match, $contig_ref, $qry_type );
+			$return_buffer .= q(<p style="margin-top:1em">);
 			$return_buffer .= $self->_make_match_download_seq_file($best_match);
+			$return_buffer .= $self->_start_submission($best_match);
+			$return_buffer .= q(</p>);
 			$return_buffer .= q(</div>);
 		} else {
 			$return_buffer .= q(<div class="box" id="statusbad">);
@@ -119,10 +122,26 @@ sub _make_match_download_seq_file {
 
 	if ( -e $full_path ) {
 		my $fasta = FASTA_FILE;
-		$buffer .= qq(<p style="margin-top:1em"><a href="/tmp/$filename" target="_blank" )
-		  . qq(title="Export extracted sequence in FASTA format">$fasta</a></p>);
+		$buffer .= qq(<a href="/tmp/$filename" target="_blank" )
+		  . qq(title="Export extracted sequence in FASTA format">$fasta</a>);
 	}
 	return $buffer;
+}
+
+sub _start_submission {
+	my ( $self, $match, $fasta_file ) = @_;
+	return q() if ($self->{'system'}->{'submissions'} // q()) ne 'yes';
+	my $locus_info = $self->{'datastore'}->get_locus_info($match->{'locus'});
+	return q() if $locus_info->{'no_submissions'};
+	return q() if $locus_info->{'min_length'} && $locus_info->{'min_length'} > length $match->{'sequence'};
+	return q() if $locus_info->{'max_length'} && $locus_info->{'max_length'} < length $match->{'sequence'};
+	return q() if !$locus_info->{'length_varies'} && $locus_info->{'length'} != length $match->{'sequence'};
+	my $upload = UPLOAD_BUTTON;
+	my $seq_file = $self->make_temp_file($match->{'sequence'});
+	return qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;alleles=1&amp;)
+	 . qq(locus=$match->{'locus'}&amp;sequence_file=$seq_file" target="_blank" )
+	 . qq(title="Start submission for new allele assignment">$upload</a>);
+	
 }
 
 sub _batch_query {
@@ -353,8 +372,7 @@ sub _get_scheme_exact_results {
 				  q(<div class="expand_link" id="expand_matches"><span class="fas fa-chevron-down"></span></div>);
 			}
 			$buffer .= q(<p style="margin-top:1em">Only exact matches are shown above. If a locus does not have an )
-			  . q(exact match, try querying specifically against that locus to find the closest match.</p>)
-			  ;
+			  . q(exact match, try querying specifically against that locus to find the closest match.</p>);
 			my $output_file = BIGSdb::Utils::get_random();
 			my $full_path   = "$self->{'config'}->{'tmp_dir'}/$output_file.txt";
 			open( my $fh, '>:encoding(utf8)', $full_path )

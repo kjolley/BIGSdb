@@ -162,9 +162,9 @@ sub print_content {
 	if ( ( $self->{'system'}->{'submissions'} // '' ) ne 'yes' || !$self->{'config'}->{'submission_dir'} ) {
 		say q(<h1>Manage submissions</h1>);
 		$self->print_bad_status( { message => q(The submission system is not enabled.) } );
-			say q(<div style="position:relative;margin-top:-8em">);
-			$self->print_related_database_panel;
-			say q(</div>);
+		say q(<div style="position:relative;margin-top:-8em">);
+		$self->print_related_database_panel;
+		say q(</div>);
 		return;
 	}
 	my $q = $self->{'cgi'};
@@ -188,9 +188,9 @@ sub print_content {
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	if ( !$user_info ) {
 		$self->print_bad_status( { message => q(You are not a recognized user. Submissions are disabled.) } );
-			say q(<div style="position:relative;margin-top:-8em">);
-			$self->print_related_database_panel;
-			say q(</div>);
+		say q(<div style="position:relative;margin-top:-8em">);
+		$self->print_related_database_panel;
+		say q(</div>);
 		return;
 	}
 	foreach my $type (qw (alleles profiles isolates genomes)) {
@@ -212,7 +212,7 @@ sub print_content {
 			$self->print_navigation_bar( { closed_submissions => $closed_buffer ? 1 : 0 } );
 		}
 		say q(</div>);
-			$self->print_related_database_panel;
+		$self->print_related_database_panel;
 		say q(</div>);
 	}
 	if ($submissions_to_show) {
@@ -878,6 +878,15 @@ sub _submit_alleles {
 	say q(</fieldset>);
 	$self->_print_sequence_details_fieldset($submission_id);
 	say q(<fieldset style="float:left"><legend>FASTA or single sequence</legend>);
+	if ( $q->param('sequence_file') ) {
+		my $filename = $q->param('sequence_file');
+		$filename =~ s/[\.\/]//gx;    #Prevent directory traversal
+		my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$filename";
+		if ( -e $full_path ) {
+			my $seq_ref = BIGSdb::Utils::slurp($full_path);
+			$q->param( fasta => $$seq_ref );
+		}
+	}
 	say $q->textarea( -name => 'fasta', -cols => 60, -rows => 8, -id => 'fasta', -required => 'required' );
 	say q(</fieldset>);
 	say $q->hidden($_) foreach qw(db page alleles);

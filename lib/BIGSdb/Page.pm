@@ -620,7 +620,7 @@ sub _get_meta_data {
 sub _get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20200918';
+	my $version = '20200924';
 	my @filenames;
 	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
 	push @filenames, q(c3.css)                                                if $self->{'c3'};
@@ -2136,7 +2136,7 @@ sub make_temp_file {
 	my ( $self, @list ) = @_;
 	my ( $filename, $full_file_path );
 	do {
-		$filename       = BIGSdb::Utils::get_random() . '.txt';
+		$filename       = BIGSdb::Utils::get_random();
 		$full_file_path = "$self->{'config'}->{'secure_tmp_dir'}/$filename";
 	} while ( -e $full_file_path );
 	open( my $fh, '>:encoding(utf8)', $full_file_path ) || $logger->error("Can't open $full_file_path for writing");
