@@ -117,7 +117,11 @@ sub _make_match_download_seq_file {
 	open( my $fh, '>', $full_path ) || $self->{'logger'}->error("Cannot open $full_path for writing");
 	say $fh qq(>match start:$match->{'predicted_start'} end:$match->{'predicted_end'} direction:$direction);
 	say $fh $match->{'sequence'};
+	
 	close $fh;
+	
+	use Data::Dumper;
+	$self->{logger}->error(Dumper $match);
 	my $buffer = q();
 
 	if ( -e $full_path ) {

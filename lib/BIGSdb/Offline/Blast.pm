@@ -583,7 +583,11 @@ sub _predict_allele_ends {
 				$match->{'predicted_start'} = $match->{'start'} - $record->[9] + 1;
 			}
 		}
-		$match->{'predicted_end'} = $match->{'predicted_start'} + $length - 1;
+		if ($match->{'alignment'} > $length && $match->{'gaps'} > 0){
+			$match->{'predicted_end'} = $match->{'predicted_start'} + $match->{'alignment'} - 1
+		} else {
+			$match->{'predicted_end'} = $match->{'predicted_start'} + $length - 1;
+		}
 	} else {
 		$match->{'predicted_start'} = $match->{'start'};
 		$match->{'predicted_end'}   = $match->{'end'};
