@@ -117,11 +117,7 @@ sub _make_match_download_seq_file {
 	open( my $fh, '>', $full_path ) || $self->{'logger'}->error("Cannot open $full_path for writing");
 	say $fh qq(>match start:$match->{'predicted_start'} end:$match->{'predicted_end'} direction:$direction);
 	say $fh $match->{'sequence'};
-	
 	close $fh;
-	
-	use Data::Dumper;
-	$self->{logger}->error(Dumper $match);
 	my $buffer = q();
 
 	if ( -e $full_path ) {
@@ -134,18 +130,18 @@ sub _make_match_download_seq_file {
 
 sub _start_submission {
 	my ( $self, $match, $fasta_file ) = @_;
-	return q() if ($self->{'system'}->{'submissions'} // q()) ne 'yes';
-	my $locus_info = $self->{'datastore'}->get_locus_info($match->{'locus'});
+	return q() if ( $self->{'system'}->{'submissions'} // q() ) ne 'yes';
+	my $locus_info = $self->{'datastore'}->get_locus_info( $match->{'locus'} );
 	return q() if $locus_info->{'no_submissions'};
 	return q() if $locus_info->{'min_length'} && $locus_info->{'min_length'} > length $match->{'sequence'};
 	return q() if $locus_info->{'max_length'} && $locus_info->{'max_length'} < length $match->{'sequence'};
 	return q() if !$locus_info->{'length_varies'} && $locus_info->{'length'} != length $match->{'sequence'};
-	my $upload = UPLOAD_BUTTON;
-	my $seq_file = $self->make_temp_file($match->{'sequence'});
-	return qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;alleles=1&amp;)
-	 . qq(locus=$match->{'locus'}&amp;sequence_file=$seq_file" target="_blank" )
-	 . qq(title="Start submission for new allele assignment">$upload</a>);
-	
+	my $upload   = UPLOAD_BUTTON;
+	my $seq_file = $self->make_temp_file( $match->{'sequence'} );
+	return
+	    qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;alleles=1&amp;)
+	  . qq(locus=$match->{'locus'}&amp;sequence_file=$seq_file" target="_blank" )
+	  . qq(title="Start submission for new allele assignment">$upload</a>);
 }
 
 sub _batch_query {
