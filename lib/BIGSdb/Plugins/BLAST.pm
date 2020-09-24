@@ -313,7 +313,7 @@ sub _run_now {
 		my ( $fasta, $fasta_flanking, $text, $excel_file ) = ( FASTA_FILE, FASTA_FLANKING_FILE, TEXT_FILE, EXCEL_FILE );
 		say q(<p style="margin-top:1em"> );
 		if ( -e "$self->{'config'}->{'tmp_dir'}/$out_file" ) {
-			say qq(<a href="/tmp/$out_file" target="_blank" title="Export sequences in FASTA file">$fasta</a>);
+			say qq(<a href="/tmp/$out_file" target="_blank" title="Export sequences in FASTA format">$fasta</a>);
 		}
 		if ( -e "$self->{'config'}->{'tmp_dir'}/$out_file_flanking" ) {
 			say qq(<a href="/tmp/$out_file_flanking" target="_blank" )

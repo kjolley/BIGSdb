@@ -93,6 +93,7 @@ sub _single_query {
 			$return_buffer .= q(<div class="box" id="resultspanel" style="padding-top:1em">);
 			my $contig_ref = $self->get_contig( $best_match->{'query'} );
 			$return_buffer .= $self->_get_partial_match_alignment( $seq_ref, $best_match, $contig_ref, $qry_type );
+			$return_buffer .= $self->_make_match_download_seq_file($best_match);
 			$return_buffer .= q(</div>);
 		} else {
 			$return_buffer .= q(<div class="box" id="statusbad">);
@@ -103,6 +104,25 @@ sub _single_query {
 		}
 	}
 	return $return_buffer;
+}
+
+sub _make_match_download_seq_file {
+	my ( $self, $match ) = @_;
+	my $filename  = BIGSdb::Utils::get_random() . q(.fas);
+	my $full_path = qq($self->{'config'}->{'tmp_dir'}/$filename);
+	my $direction = $match->{'reverse'} ? 'reverse' : 'forward';
+	open( my $fh, '>', $full_path ) || $self->{'logger'}->error("Cannot open $full_path for writing");
+	say $fh qq(>match start:$match->{'predicted_start'} end:$match->{'predicted_end'} direction:$direction);
+	say $fh $match->{'sequence'};
+	close $fh;
+	my $buffer = q();
+
+	if ( -e $full_path ) {
+		my $fasta = FASTA_FILE;
+		$buffer .= qq(<p style="margin-top:1em"><a href="/tmp/$filename" target="_blank" )
+		  . qq(title="Export extracted sequence in FASTA format">$fasta</a></p>);
+	}
+	return $buffer;
 }
 
 sub _batch_query {
@@ -332,6 +352,9 @@ sub _get_scheme_exact_results {
 				$buffer .=
 				  q(<div class="expand_link" id="expand_matches"><span class="fas fa-chevron-down"></span></div>);
 			}
+			$buffer .= q(<p style="margin-top:1em">Only exact matches are shown above. If a locus does not have an )
+			  . q(exact match, try querying specifically against that locus to find the closest match.</p>)
+			  ;
 			my $output_file = BIGSdb::Utils::get_random();
 			my $full_path   = "$self->{'config'}->{'tmp_dir'}/$output_file.txt";
 			open( my $fh, '>:encoding(utf8)', $full_path )
