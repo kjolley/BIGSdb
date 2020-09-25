@@ -318,8 +318,12 @@ a.update:hover {
 	border: 1px solid #aaa
 }
 
+pre {
+	font-family: "Lucida Console", Monaco, monospace;
+}
+
 .seq {
-	font-family: "Lucida Console", Monaco, monospace
+	font-family: "Lucida Console", Monaco, monospace;
 }
 
 .flanking {
@@ -2473,11 +2477,14 @@ a.slide_trigger {
 	a.link_box {
 		height: 120px
 	}
+	.seq, pre.alignment, pre.sixpack {
+		font-size: 0.9em
+	}
 }
 
 @media only screen and (max-width:1040px) {
-	pre.alignment, pre.sixpack {
-		font-size: 0.9em
+	.seq, pre.alignment, pre.sixpack {
+		font-size: 0.8em
 	}
 }
 
