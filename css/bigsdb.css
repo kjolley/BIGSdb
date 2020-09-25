@@ -1,4 +1,4 @@
-/*Version: 20200924*/
+/*Version: 20200925*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -1271,10 +1271,6 @@ div#queryform table.queryform td {
 	padding: 0
 }
 
-div#plugins {
-	
-}
-
 div#chart {
 	background: #e0e0e0
 }
@@ -1308,7 +1304,7 @@ div#schemes {
 	background: #e0e0d5
 }
 
-div#projects, div#jobs {
+div#projects {
 	background: #f0f0e5
 }
 
@@ -1962,6 +1958,14 @@ span.job_indicator {
 
 div.menu_item:hover span.job_indicator {
 	color: #a00
+}
+
+span.private_data_indicator {
+	color: #484
+}
+
+div.menu_item:hover span.private_data_indicator {
+	color: #040
 }
 
 span.wait_message {
