@@ -34,7 +34,7 @@ sub initiate {
 sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
+	my $desc = $self->get_db_description( { formatted => 1 } );
 	say "<h1>Main projects defined in the $desc database</h1>";
 	my $projects = $self->{'datastore'}->run_query(
 		'SELECT * FROM projects WHERE list AND id IN (SELECT project_id FROM project_members WHERE isolate_id IN '
