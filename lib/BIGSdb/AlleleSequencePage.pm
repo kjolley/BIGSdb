@@ -141,7 +141,7 @@ sub print_content {
 		$buffer .= $self->get_option_fieldset;
 		$buffer .= q(<div style="clear:both"></div>);
 		$buffer .= qq(<h2>Sequence</h2>\n);
-		$buffer .= q(<div class="seq">);
+		$buffer .= q(<div class="resize_seq">);
 		$buffer .= $self->format_sequence_features($seq_features);
 		$buffer .= q(</div>);
 

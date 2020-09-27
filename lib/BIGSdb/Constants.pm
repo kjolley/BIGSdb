@@ -46,8 +46,13 @@ push @EXPORT_OK, @values;
 $EXPORT_TAGS{'limits'} = [@values];
 
 #Methods
-use constant SEQ_METHODS =>
-  ( '454', 'Illumina', 'Ion Torrent', 'PacBio', 'Oxford Nanopore', 'Sanger', 'Solexa', 'SOLiD', 'other' );
+use constant SEQ_METHODS => (
+	'454', 'Illumina',
+	'Illumina + ONT hybrid',
+	'Illumina + PacBio hybrid',
+	'Ion Torrent', 'Oxford Nanopore',
+	'PacBio', 'Sanger', 'Solexa', 'SOLiD', 'other'
+);
 push @EXPORT_OK, qw(SEQ_METHODS);
 
 #Interface
@@ -166,7 +171,7 @@ use constant NEXT => q(<span class="fa-stack">)
 use constant LAST => q(<span class="fa-stack">)
   . q(<span class="far fa-circle fa-stack-2x"></span>)
   . q(<span class="fas fa-angle-double-right fa-stack-1x"></span></span>);
- use constant TOOLTIP => q(<span class="fa-stack">)
+use constant TOOLTIP => q(<span class="fa-stack">)
   . q(<span class="far fa-circle fa-stack-2x"></span>)
   . q(<span class="fas fa-info fa-stack-1x"></span></span>);
 use constant FLANKING => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
