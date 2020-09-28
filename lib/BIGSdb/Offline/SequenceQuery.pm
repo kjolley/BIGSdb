@@ -975,7 +975,7 @@ sub _get_partial_match_alignment {
 		  . ( $qry_type eq 'DNA' ? 'peptide' : 'DNA' )
 		  . q( sequences.  There were no exact matches, but the BLAST results are shown below )
 		  . q((a maximum of five alignments are displayed).</p>)
-		  . q(<pre style="font-size:1.4em; padding: 1em; border:1px black dashed">);
+		  . q(<pre style="padding:1em; border:1px black dashed">);
 		$buffer .= $self->print_file( $align_file, { ignore_hashlines => 1, get_only => 1 } );
 		$buffer .= q(</pre>);
 		unlink $align_file;

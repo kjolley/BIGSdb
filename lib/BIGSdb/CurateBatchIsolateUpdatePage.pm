@@ -74,7 +74,7 @@ secondary selection field is used (so that together the combination of primary a
 this should be entered in the second column.</li>
 <li>The next column should contain the field/locus name and then the 
 final column should contain the value to be entered, e.g.<br />
-<pre style="font-size:1.2em">
+<pre>
 id	field	value
 2	country	USA
 2	abcZ	5

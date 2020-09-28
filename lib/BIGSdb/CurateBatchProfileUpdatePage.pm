@@ -236,7 +236,7 @@ sub _print_interface {
 	  . qq(<li>The first column should be the primary key ($scheme_info->{'primary_key'}).</li>)
 	  . q(<li>The next column should contain the field/locus name and then the final column should )
 	  . q(contain the value to be entered, e.g.<br />);
-	say qq(<pre style="font-size:1.2em">\n)
+	say qq(<pre>\n)
 	  . qq(ST  field   value\n)
 	  . qq(5   abcZ    7\n)
 	  . qq(5   adk     3\n)

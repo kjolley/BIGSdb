@@ -44,7 +44,7 @@ sub get_attributes {
 		url =>
 		  "$self->{'config'}->{'doclink'}/data_query/0050_investigating_allele_differences.html#sequence-comparison"
 		,
-		version    => '1.0.10',
+		version    => '1.0.11',
 		dbtype     => 'sequences',
 		seqdb_type => 'sequences',
 		section    => 'analysis',
@@ -176,7 +176,7 @@ sub run {
 	}
 	if ( length $$seq1_ref != length $$seq2_ref ) {
 		say q(<div class="scrollable">);
-		say q(<pre style="font-size:1.2em">);
+		say q(<pre>);
 		$self->print_file( $outfile, { ignore_hashlines => 1 } );
 		say q(</pre>);
 		say q(</div>);
@@ -194,7 +194,7 @@ sub get_alignment {
 		$self->_cleanup_alignment( $outfile, $cleaned_file );
 		$buffer .= qq(<p><a href="/tmp/${outfile_prefix}_cleaned.txt" id="alignment_link" data-rel="ajax">)
 		  . qq(Show alignment</a></p>\n);
-		$buffer .= qq(<pre style="font-size:1.2em"><span id="alignment"></span></pre>\n);
+		$buffer .= qq(<pre><span id="alignment"></span></pre>\n);
 	}
 	return $buffer;
 }

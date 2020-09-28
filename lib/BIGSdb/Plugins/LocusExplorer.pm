@@ -47,7 +47,7 @@ sub get_attributes {
 		menutext   => 'Locus Explorer',
 		module     => 'LocusExplorer',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/locus_explorer.html",
-		version    => '1.3.14',
+		version    => '1.3.15',
 		dbtype     => 'sequences',
 		seqdb_type => 'sequences',
 		input      => 'query',
@@ -721,7 +721,7 @@ sub _translate {
 		say q(<p>The width of the alignment can be varied by going to the options page.</p>) if $allele_count > 1;
 		say qq(<p>$allele_count allele$plural included in analysis.</p>);
 		my $final_file = $self->_run_translate( $locus, $allele_ids );
-		say q(<pre style="font-size:1.2em">);
+		say q(<pre>);
 		$self->print_file($final_file);
 		say q(</pre></div></div>);
 		unlink $final_file;
