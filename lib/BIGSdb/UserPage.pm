@@ -82,8 +82,7 @@ sub initiate {
 			href  => $self->{'system'}->{'script_name'}
 		  };
 	} else {
-		push @{ $self->{'breadcrumbs'} },
-		  { label => 'Account', };
+		push @{ $self->{'breadcrumbs'} }, { label => 'Account', };
 	}
 	return;
 }
@@ -268,8 +267,8 @@ sub _registrations {
 	$buffer .= q(<h2>Registrations</h2>);
 	$buffer .=
 	    q(<p>Use this page to register your account with specific databases. )
-	  . q(<strong><em>You should only do this if you want to submit data to a specific database )
-	  . q(or access a password-protected resource.</em></strong></p>);
+	  . q(<strong><em>You only need to do this if you want to submit data to a specific database, )
+	  . q(access a password-protected resource, or create a user project.</em></strong></p>);
 	my $registered_configs =
 	  $self->{'datastore'}->run_query( 'SELECT dbase_config FROM registered_users WHERE user_name=?',
 		$self->{'username'}, { fetch => 'col_arrayref' } );
