@@ -120,11 +120,14 @@ sub _print_limits {
 		say q(<ul style="margin-left:25px;list-style:none">)
 		  . qq(<li><a href="$self->{'system'}->{'curate_script'}?db=$self->{'instance'}">)
 		  . q(Update private records</a> <span class="link">Curator's interface</span>);
-		say q(<p class="note"><span class="note">Note: </span>)
-		  . q(This link takes you to the standard curator's interface. If you upload here, then your )
-		  . q(data will <strong>not be private</strong>. )
-		  . q(Either use the 'Upload' link above to upload private records to your quota (if you have any available), )
-		  . q(or use the upload link on the individual projects listed below to upload to those projects.</p>);
+		if ( !$self->{'permissions'}->{'only_private'} ) {
+			say q(<p class="note"><span class="note">Note: </span>)
+			  . q(This link takes you to the standard curator's interface. If you upload here, then your )
+			  . q(data will <strong>not be private</strong>. )
+			  . q(Either use the 'Upload' link above to upload private records to your quota )
+			  . q((if you have any available), or use the upload link on any individual projects listed below )
+			  . q(to upload to those projects.</p>);
+		}
 		say q(</li></ul>);
 	}
 	say q(</div>);
