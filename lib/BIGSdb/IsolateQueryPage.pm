@@ -987,7 +987,8 @@ sub _get_private_data_filter {
 	  ? $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM private_isolates)')
 	  : $self->{'datastore'}
 	  ->run_query( 'SELECT EXISTS(SELECT * FROM private_isolates WHERE user_id=?)', $user_info->{'id'} );
-	return if !$private;
+	my $q = $self->{'cgi'};
+	return if !$private && !$q->param('private_records_list');
 	my $labels = {
 		1 => 'my private records only',
 		2 => 'private records (in quota)',
