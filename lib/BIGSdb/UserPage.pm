@@ -124,8 +124,10 @@ sub _show_registration_details {
 	  . qq(<dt>Last name</dt><dd>$user_info->{'surname'}</dd>)
 	  . qq(<dt>E-mail address</dt><dd>$user_info->{'email'}</dd>)
 	  . qq(<dt>Affiliation/institute</dt><dd>$user_info->{'affiliation'}</dd></dl>);
-	say qq(<p><a href="$self->{'system'}->{'script_name'}?edit=1" class="small_submit" style="margin-left:3em">)
-	  . q(<span><span class="fas fa-pencil-alt"></span> Edit details</span></a></p>);
+	say qq(<div class="registration_buttons"><a href="$self->{'system'}->{'script_name'}?edit=1" class="small_submit">)
+	  . q(<span><span class="fas fa-pencil-alt"></span> Edit details</span></a>)
+	  . qq(<a class="small_reset" style="margin-left:1em" href="$self->{'system'}->{'script_name'}?page=logout"><span>)
+	  . q(<span class="fas fa-sign-out-alt"></span> Log out</span></a></div>);
 	say q(</div></div>);
 	return;
 }

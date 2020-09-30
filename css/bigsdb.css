@@ -498,11 +498,10 @@ a.reset, input.reset {
 	color: #2F9FDB;
 }
 
-input.small_reset {
+a.small_reset, input.small_reset {
 	border-radius: 3px;
 	background: #fff;
 	font-family: 'pt_sansbold';
-	border: 0;
 	cursor: pointer;
 	padding: 0 10px;
 	color: #2F9FDB;
@@ -516,7 +515,7 @@ a.reset:hover, input.reset:hover {
 	border: 2px solid #8D5196
 }
 
-input.small_reset:hover {
+a.small_reset:hover, input.small_reset:hover {
 	text-decoration: none;
 	color: #8D5196;
 	border: 1px solid #8D5196
@@ -959,6 +958,12 @@ div#login_details, a.trigger_button {
 	margin-left: 0.75em;
 	box-shadow: 3px 3px 3px #aaa;
 	cursor: pointer;
+}
+
+div.registration_buttons {
+	display: flex;
+	justify-content: space-between;
+	margin: 0 3em
 }
 
 a.close_trigger {
@@ -2544,6 +2549,9 @@ a.slide_trigger {
 	}
 	div.login_container {
 		margin: 10px 10px 0 10px
+	}
+	div.registration_buttons {
+		margin:0
 	}
 }
 
