@@ -1,4 +1,4 @@
-/*Version: 20200927*/
+/*Version: 20200930*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -1590,6 +1590,7 @@ div.flags a {
 table.resultstable {
 	text-align: center;
 	padding: 0.1em;
+	margin-bottom: 1em
 }
 
 table.resultstable td, table.resultstable th {
