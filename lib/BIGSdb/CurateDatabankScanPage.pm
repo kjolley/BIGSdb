@@ -149,7 +149,7 @@ sub _print_results {
 	say q(<h2>Coding sequences</h2>);
 	say q(<table class="resultstable"><tr><th>Locus</th><th>Aliases</th><th>Product</th><th>Length</th></tr>);
 	open( my $fh, '>', $table_file ) || $logger->error("Cannot open $table_file for writing");
-	say $fh qq(id\tdata_type\tallele_id_format\tdescription\tlength\tlength_varies\tcoding_sequence\t)
+	say $fh qq(id\taliases\tdata_type\tallele_id_format\tdescription\tlength\tlength_varies\tcoding_sequence\t)
 	  . qq(main_display\tisolate_display\tquery_field\tanalysis\treference_sequence);
 	open( my $fh_allele, '>', $allele_file ) || $logger->error("Cannot open $allele_file for writing");
 	say $fh_allele qq(locus\tallele_id\tsequence\tstatus);
@@ -190,7 +190,8 @@ sub _print_results {
 		my %type_lookup = ( dna => 'DNA', rna => 'RNA', protein => 'peptide' );
 		try {
 			my $sequence = $cds->seq->seq;
-			say $fh qq($locus\t$type_lookup{$att{'type'}}\tinteger\t$tags{'product'}\t$length\tTRUE\tTRUE\t)
+			local $" = q(;);
+			say $fh qq($locus\t@aliases\t$type_lookup{$att{'type'}}\tinteger\t$tags{'product'}\t$length\tTRUE\tTRUE\t)
 			  . qq(FALSE\tallele only\tTRUE\tTRUE\t$sequence);
 			say $fh_allele qq($locus\t1\t$sequence\tunchecked);
 		}
