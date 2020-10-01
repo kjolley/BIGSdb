@@ -26,6 +26,13 @@ use Log::Log4perl qw(get_logger);
 use Try::Tiny;
 my $logger = get_logger('BIGSdb.Page');
 
+sub initiate {
+	my ($self) = @_;
+	$self->{$_} = 1 foreach qw (tooltips jQuery noCache);
+	$self->set_level1_breadcrumbs;
+	return;
+}
+
 sub print_content {
 	my ($self)    = @_;
 	my $q         = $self->{'cgi'};
