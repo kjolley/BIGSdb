@@ -39,7 +39,7 @@ sub initiate {
 		$self->{'noCache'} = 1;
 		return;
 	}
-	$self->{$_} = 1 foreach qw (jQuery jQuery.jstree);
+	$self->{$_} = 1 foreach qw (jQuery jQuery.jstree allowExpand);
 	$self->{'noCache'} = 1 if ( $self->{'system'}->{'sets'} // '' ) eq 'yes';
 	$self->set_level1_breadcrumbs;
 	return;
