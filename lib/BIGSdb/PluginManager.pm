@@ -253,7 +253,9 @@ sub _has_required_item {
 		grapetree_path         => 'GrapeTree',
 		MSTree_holder_rel_path => 'GrapeTree',
 		ipcress_path           => 'ipcress',
-		jobs_db                => 'offline_jobs'
+		jobs_db                => 'offline_jobs',
+		itol_api_key           => 'itol_api_key',
+		itol_project_name      => 'itol_project_name'
 	);
 	return 1 if !$required_attr;
 	foreach my $config_param ( keys %requires ) {

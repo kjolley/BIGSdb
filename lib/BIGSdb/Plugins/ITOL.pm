@@ -39,7 +39,7 @@ use constant ITOL_TREE_URL   => 'https://itol.embl.de/tree';
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name             => 'iTOL',
+		name    => 'iTOL',
 		authors => [
 			{
 				name        => 'Keith Jolley',
@@ -58,12 +58,12 @@ sub get_attributes {
 		buttontext => 'iTOL',
 		menutext   => 'iTOL',
 		module     => 'ITOL',
-		version    => '1.4.1',
+		version    => '1.5.0',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
 		help       => 'tooltips',
-		requires   => 'aligner,offline_jobs,js_tree,clustalw',
+		requires   => 'aligner,offline_jobs,js_tree,clustalw,itol_api_key,itol_project_name',
 		supports   => 'user_genomes',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/itol.html",
 		order      => 35,
@@ -539,7 +539,11 @@ sub _itol_upload {
 	my $response = $uploader->post(
 		ITOL_UPLOAD_URL,
 		Content_Type => 'form-data',
-		Content      => [ zipFile => ["$job_id.zip"] ]
+		Content      => [
+			zipFile     => ["$job_id.zip"],
+			APIkey      => "$self->{'config'}->{'itol_api_key'}",
+			projectName => "$self->{'config'}->{'itol_project_name'}"
+		  ]
 	);
 	if ( $response->is_success ) {
 		if ( !$response->content ) {
