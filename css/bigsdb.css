@@ -1827,6 +1827,8 @@ div.large_scheme dl.profile dt, div.large_scheme dl.profile dd {
 }
 
 h3.scheme {
+	font-family: pt_sansregular, sans-serif;
+	font-size: 1.2em;
 	clear: both;
 	margin-bottom: 0.2em;
 	text-align: center;
@@ -1841,6 +1843,8 @@ h3.scheme a {
 }
 
 h3.group {
+	font-family: pt_sansregular, sans-serif;
+	font-size: 1.2em;
 	clear: both;
 	margin-bottom: -0.8em;
 	text-align: center;
@@ -2551,7 +2555,7 @@ a.slide_trigger {
 		margin: 10px 10px 0 10px
 	}
 	div.registration_buttons {
-		margin:0
+		margin: 0
 	}
 }
 
