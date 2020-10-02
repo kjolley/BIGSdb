@@ -535,15 +535,17 @@ sub _itol_upload {
 		$logger->error("Cannot write $job_id.zip");
 	}
 	unlink @files_to_delete;
+	my $desc     = $self->get_db_description;
 	my $uploader = LWP::UserAgent->new( agent => 'BIGSdb' );
 	my $response = $uploader->post(
 		ITOL_UPLOAD_URL,
 		Content_Type => 'form-data',
 		Content      => [
-			zipFile     => ["$job_id.zip"],
-			APIkey      => "$self->{'config'}->{'itol_api_key'}",
-			projectName => "$self->{'config'}->{'itol_project_name'}"
-		  ]
+			zipFile         => ["$job_id.zip"],
+			APIkey          => "$self->{'config'}->{'itol_api_key'}",
+			projectName     => "$self->{'config'}->{'itol_project_name'}",
+			treeDescription => $desc
+		]
 	);
 	if ( $response->is_success ) {
 		if ( !$response->content ) {
