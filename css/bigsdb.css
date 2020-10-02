@@ -1,4 +1,4 @@
-/*Version: 20200930*/
+/*Version: 20201002*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -1817,7 +1817,7 @@ div.large_scheme dl.profile dt, div.large_scheme dl.profile dd {
 	padding: 0.1em;
 	font-weight: bold;
 	text-align: center;
-	border-radius: 30px
+	border-radius: 4px
 }
 
 .projects dd {
@@ -1832,7 +1832,7 @@ h3.scheme {
 	text-align: center;
 	background: #404080;
 	color: white;
-	border-radius: 30px;
+	border-radius: 4px;
 	padding: 0 0.2em;
 }
 
@@ -1846,7 +1846,7 @@ h3.group {
 	text-align: center;
 	background: #BFFFBF;
 	color: black;
-	border-radius: 30px;
+	border-radius: 4px;
 	padding: 0 0.2em;
 }
 
