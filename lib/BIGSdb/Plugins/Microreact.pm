@@ -41,7 +41,7 @@ use constant MICROREACT_URL => 'https://microreact.org/api/project/';
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name             => 'Microreact',
+		name    => 'Microreact',
 		authors => [
 			{
 				name        => 'Keith Jolley',
@@ -61,7 +61,7 @@ sub get_attributes {
 		buttontext => 'Microreact',
 		menutext   => 'Microreact',
 		module     => 'Microreact',
-		version    => '1.0.11',
+		version    => '1.0.12',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
@@ -69,7 +69,7 @@ sub get_attributes {
 		requires   => 'aligner,offline_jobs,js_tree,clustalw,field_country_optlist,field_year_int',
 		order      => 40,
 		min        => 2,
-		max        => $self->{'system'}->{'microreact_record_limit'} // $self->{'config'}->{'microreact_record_limit'}
+		max => $self->{'system'}->{'microreact_record_limit'} // $self->{'config'}->{'microreact_record_limit'}
 		  // MAX_RECORDS,
 		url                 => "$self->{'config'}->{'doclink'}/data_analysis/microreact.html",
 		system_flag         => 'Microreact',
@@ -182,6 +182,7 @@ sub _create_tsv_file {
 	foreach my $record (@$data) {
 		$record->{ $self->{'system'}->{'labelfield'} } =~ s/[\(\)]//gx;
 		$record->{ $self->{'system'}->{'labelfield'} } =~ tr/[:,. ]/_/;
+		$record->{'country'} //= q();
 		my $country = $record->{'country'};
 		if ( !$allowed->{ $record->{'country'} } ) {
 			if ( defined $mapped->{ $record->{'country'} } ) {
