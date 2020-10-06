@@ -82,7 +82,7 @@ sub initiate {
 			href  => $self->{'system'}->{'script_name'}
 		  };
 	} else {
-		push @{ $self->{'breadcrumbs'} }, { label => 'Account', };
+		push @{ $self->{'breadcrumbs'} }, { label => 'Account' };
 	}
 	return;
 }

@@ -1025,7 +1025,7 @@ sub _print_breadcrumbs {
 	my $q = $self->{'cgi'};
 	my $page = $q->param('page') // q();
 	my @breadcrumbs;
-	my %root_pages = map { $_ => 1 } qw(registration user);
+	my %root_pages = map { $_ => 1 } qw(registration user usernameRemind resetPassword);
 	if ( !$root_pages{$page} ) {
 		my @potential_breadcrumb_files = (
 			"$self->{'dbase_config_dir'}/$self->{'instance'}/breadcrumbs.conf",
