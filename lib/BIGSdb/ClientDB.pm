@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -50,9 +50,10 @@ sub count_isolates_with_allele {
 	if ( !$self->{'sql'}->{'isolate_allele_count'} ) {
 		my $view = $self->{'dbase_view'} // 'isolates';
 		$self->{'sql'}->{'isolate_allele_count'} =
-		  $self->{'db'}->prepare(
-			    "SELECT COUNT(*) FROM allele_designations RIGHT JOIN $view ON $view.id=allele_designations.isolate_id "
-			  . "WHERE (locus,allele_id)=(?,?) AND status!='ignore' AND $view.new_version IS NULL" );
+		  $self->{'db'}
+		  ->prepare( "SELECT COUNT(*) FROM allele_designations ad RIGHT JOIN $view ON $view.id=ad.isolate_id "
+			  . "WHERE (locus,allele_id)=(?,?) AND status!='ignore' AND $view.new_version IS NULL AND "
+			  . 'isolate_id NOT IN (SELECT isolate_id FROM private_isolates)' );
 	}
 	eval { $self->{'sql'}->{'isolate_allele_count'}->execute( $locus, $allele_id ) };
 	$logger->error($@) if $@;
@@ -84,7 +85,8 @@ sub count_matching_profile_by_pk {
 	my $view = $self->{'dbase_view'} // 'isolates';
 	my $sql =
 	  $self->{'db'}
-	  ->prepare("SELECT COUNT(*) FROM $table t JOIN $view v ON t.id=v.id WHERE $pk=? AND v.new_version IS NULL");
+	  ->prepare( "SELECT COUNT(*) FROM $table t JOIN $view v ON t.id=v.id WHERE $pk=? AND v.new_version "
+		  . 'IS NULL AND t.id NOT IN (SELECT isolate_id FROM private_isolates)' );
 	eval { $sql->execute($profile_id) };
 	if ($@) {
 		BIGSdb::Exception::Database::Configuration->throw($@);
@@ -118,7 +120,8 @@ sub count_matching_profiles {
 	my $qry =
 	    'SELECT COUNT(distinct isolate_id) FROM allele_designations WHERE isolate_id IN '
 	  . "(SELECT isolate_id FROM allele_designations RIGHT JOIN $view ON $view.id=allele_designations.isolate_id "
-	  . "WHERE ($temp) AND $view.new_version IS NULL GROUP BY isolate_id HAVING COUNT(isolate_id)=$locus_count)";
+	  . "WHERE ($temp) AND $view.new_version IS NULL GROUP BY isolate_id HAVING COUNT(isolate_id)=$locus_count AND "
+	  . 'isolate_id NOT IN (SELECT isolate_id FROM private_isolates))';
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute(@args) };
 	if ($@) {
