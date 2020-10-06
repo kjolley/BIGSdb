@@ -80,6 +80,7 @@ sub print_content {
 
 sub _username_reminder {
 	my ( $self, $email_address ) = @_;
+	$email_address =~ s/^\s+|\s+$//gx;
 	my $address = Email::Valid->address($email_address);
 	if ( !$address ) {
 		$self->print_bad_status(
@@ -187,6 +188,8 @@ sub _get_user_domain {
 
 sub _reset_password {
 	my ( $self, $username, $email_address ) = @_;
+	$username =~ s/^\s+|\s+$//gx;
+	$email_address =~ s/^\s+|\s+$//gx;
 	my $address = Email::Valid->address($email_address);
 	if ( !$address ) {
 		$self->print_bad_status(
