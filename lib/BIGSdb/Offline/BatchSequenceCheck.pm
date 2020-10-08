@@ -45,7 +45,7 @@ sub run {
 	my %last_id;
 	my $problems     = {};
 	my $table_header = $self->_get_field_table_header;
-	my $table_buffer = qq(<div class="scrollable"><table class="resultstable"><tr>$table_header</tr>);
+	my $table_buffer = qq(<div class="scrollable"><table class="tablesorter"><thead><tr>$table_header</tr></thead><tbody>);
 	my @records      = split /\n/x, $self->{'options'}->{'data'};
 	my $td           = 1;
 	my ( $file_header_fields, $file_header_pos ) = $self->get_file_header_data( \@records );
@@ -136,7 +136,7 @@ sub run {
 		$td = $td == 1 ? 2 : 1;    #row stripes
 		push @$checked_buffer, $checked_record;
 	}
-	$table_buffer .= q(</table></div>);
+	$table_buffer .= q(</tbody></table></div>);
 	my $html = $self->_report_check(
 		$data_file,
 		{

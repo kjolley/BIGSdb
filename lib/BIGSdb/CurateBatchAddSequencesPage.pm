@@ -30,9 +30,7 @@ my $logger = get_logger('BIGSdb.Page');
 
 sub get_help_url {
 	my ($self) = @_;
-	return
-	  "$self->{'config'}->{'doclink'}/curator_guide/0020_adding_new_alleles.html#batch-adding-multiple-alleles"
-	  ;
+	return "$self->{'config'}->{'doclink'}/curator_guide/0020_adding_new_alleles.html#batch-adding-multiple-alleles";
 }
 
 sub get_title {
@@ -294,6 +292,7 @@ function getResults(poll_time) {
 			if (data.status == 'complete'){	
 				\$.getJSON("$results_file", function(data){
 					\$("div#results").html(data.html);
+					\$(".tablesorter").tablesorter({widgets:['zebra']});
 				});		
 			} else if (data.status == 'running'){
 				\$("div#progress").html('<p style="font-size:5em;color:#888;margin-left:1.5em;margin-top:1em">' 
@@ -514,5 +513,12 @@ sub _get_nav_data {
 		$more_url .= qq(&amp;locus=$locus);
 	}
 	return { submission_id => $submission_id, more_url => $more_url };
+}
+
+sub initiate {
+	my ($self) = @_;
+	$self->{$_} = 1 foreach qw (jQuery jQuery.tablesort noCache);
+	$self->set_level1_breadcrumbs;
+	return;
 }
 1;
