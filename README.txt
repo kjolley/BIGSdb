@@ -1,3 +1,7 @@
+v1.28.1: *Update ITOL plugin to support API key needed due to the change in
+          subscription model at https://itol.embl.de/.
+         *Extract new allele sequence if found during query with option to
+          start a new submission for assignment.
 v1.28.0: *New interface.
 v1.27.1: *Improved kiosk mode support.
          *Fixed memory leak in BLAST plugin.
