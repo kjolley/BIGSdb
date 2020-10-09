@@ -13,7 +13,7 @@ ON UPDATE CASCADE
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON registered_curators TO apache;
 
-CREATE TABLE submission_digest (
+CREATE TABLE submission_digests (
 user_name text NOT NULL,
 timestamp timestamp NOT NULL,
 dbase_description text NOT NULL,
@@ -26,7 +26,7 @@ ON DELETE CASCADE
 ON UPDATE CASCADE
 );
 
-GRANT SELECT,UPDATE,INSERT,DELETE ON registered_curators TO apache;
+GRANT SELECT,UPDATE,INSERT,DELETE ON submission_digests TO apache;
 
 ALTER TABLE users ADD submission_digests boolean;
 ALTER TABLE users ADD absent_until date;
