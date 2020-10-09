@@ -192,6 +192,7 @@ sub _update_user {
 				$data->{$param} =~ s/,(\S)/, $1/gx;
 			}
 			$data->{$param} = $self->clean_value( $data->{$param}, { no_escape => 1 } );
+			$data->{$param} = BIGSdb::Utils::escape_html( $data->{$param} );
 		}
 	}
 	my $address = Email::Valid->address( scalar $q->param('email') );

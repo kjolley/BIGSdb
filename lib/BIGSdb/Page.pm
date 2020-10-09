@@ -911,10 +911,12 @@ sub _print_login_details {
 			my $curate_config = $self->{'system'}->{'curate_config'} // $self->{'instance'};
 			if ( $curator{ $user_info->{'status'} } ) {
 				if ( $self->{'config'}->{'curate_script'} ) {
+					my $title = qq(Logged in: $user_info->{'first_name'} $user_info->{'surname'} ($self->{'username'}) )
+					  . q( - Click to access curator interface);
+					$title =~ s/&lt;\s*script|script\s*&gt;//gx;
 					say q(<a id="curator_link" )
 					  . qq(class="trigger_button" href="$self->{'config'}->{'curate_script'}?db=$curate_config" )
-					  . qq(title="Logged in: $user_info->{'first_name'} $user_info->{'surname'} ($self->{'username'}) )
-					  . q( - Click to access curator interface"><span class="fas fa-lg fa-user-tie"></span></a>);
+					  . qq(title="$title"><span class="fas fa-lg fa-user-tie"></span></a>);
 				} else {
 					$logger->error('curate_script attribute is not set in bigsdb.conf');
 					say q(<div id="login_details">);

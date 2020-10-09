@@ -371,6 +371,7 @@ sub _register {
 			$data->{$param} =~ s/,(\S)/, $1/gx;
 		}
 		$data->{$param} = $self->clean_value( $data->{$param}, { no_escape => 1 } );
+		$data->{$param} = BIGSdb::Utils::escape_html( $data->{$param} );
 	}
 	$self->format_data( 'users', $data );
 	$data->{'password'} = $self->_create_password;
