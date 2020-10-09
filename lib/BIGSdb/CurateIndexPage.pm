@@ -1988,15 +1988,17 @@ sub _print_submission_section {
 	say q(<div class="box" id="submissions"><div class="scrollable">);
 	say q(<span class="main_icon fas fa-upload fa-3x fa-pull-left"></span>);
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	my $on_or_off =
-	  $user_info->{'submission_emails'}
-	  ? 'ON'
-	  : 'OFF';
-	say qq(<div style="float:right"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . q(page=index&amp;toggle_notifications=1" id="toggle_notifications" class="no_link">)
-	  . q(<span class="main_icon fas fa-envelope fa-lg fa-pull-left">)
-	  . qq(</span>Notifications: <span id="notify_text" style="font-weight:600">$on_or_off</span></a></div>);
 
+	if ( !$user_info->{'user_db'} ) {
+		my $on_or_off =
+		  $user_info->{'submission_emails'}
+		  ? 'ON'
+		  : 'OFF';
+		say qq(<div style="float:right"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . q(page=index&amp;toggle_notifications=1" id="toggle_notifications" class="no_link">)
+		  . q(<span class="main_icon fas fa-envelope fa-lg fa-pull-left">)
+		  . qq(</span>Notifications: <span id="notify_text" style="font-weight:600">$on_or_off</span></a></div>);
+	}
 	if ($buffer) {
 		say $buffer;
 	} else {
