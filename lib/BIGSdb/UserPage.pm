@@ -101,6 +101,7 @@ sub _site_account {
 		return;
 	}
 	$self->_show_registration_details;
+	$self->_show_submission_options;
 	if ( $self->{'curate'} ) {
 		$self->_show_admin_roles;
 	} else {
@@ -111,7 +112,7 @@ sub _site_account {
 
 sub _show_registration_details {
 	my ($self) = @_;
-	say q(<div class="box" id="resultspanel"><div class="scrollable">);
+	say q(<div class="box resultspanel"><div class="scrollable">);
 	say q(<span class="main_icon far fa-address-card fa-3x fa-pull-left"></span>);
 	say q(<h2>User details</h2>);
 	say q(<p>You are registered with the following details. Please ensure that these are correct and use )
@@ -129,6 +130,61 @@ sub _show_registration_details {
 	  . qq(<a class="small_reset" style="margin-left:1em" href="$self->{'system'}->{'script_name'}?page=logout"><span>)
 	  . q(<span class="fas fa-sign-out-alt"></span> Log out</span></a></div>);
 	say q(</div></div>);
+	return;
+}
+
+sub _show_submission_options {
+	my ($self) = @_;
+	return if !$self->_is_curator( $self->{'username'} );
+	my $q = $self->{'cgi'};
+	$self->_update_submission_options;
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	say q(<div class="box queryform"><div class="scrollable">);
+	say q(<span class="main_icon far fa-envelope fa-3x fa-pull-left"></span>);
+	say q(<h2>Submission notifications</h2>);
+	say q(<p>You are a curator for at least one of the databases on the system. If you receive automated )
+	  . q(submission messages, you may wish to modify how you receive these<!-- or mark yourself absent for a )
+	  . q(period of time so that messages are suspended-->.</p>);
+	say q(<h3>How do you wish to receive notifications?</h3>);
+	say $q->start_form;
+	say $q->radio_group(
+		-name   => 'submission_digest',
+		-values => [ 0, 1 ],
+		-labels => {
+			0 => 'notification of every submission',
+			1 => 'daily digest summarising submissions'
+		},
+		-default   => $user_info->{'submission_digests'},
+		-linebreak => 'true'
+	);
+	say $q->submit(
+		-name  => 'submission_options',
+		-label => 'Update',
+		-class => 'small_submit',
+		-style => 'margin-top:1em'
+	);
+	say $q->end_form;
+	say q(</div></div>);
+	return;
+}
+
+sub _update_submission_options {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	return if !$q->param('submission_options');
+	eval {
+		$self->{'db'}->do(
+			'UPDATE users SET submission_digests=? WHERE user_name=?',
+			undef, scalar $q->param('submission_digest'),
+			$self->{'username'}
+		);
+	};
+	if ($@){
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
 	return;
 }
 
@@ -281,16 +337,13 @@ sub _registrations {
 	$buffer .= q(<p>Your account is registered for:</p>);
 
 	if (@$registered_configs) {
-		$buffer .= $q->scrolling_list(
-			-name     => 'registered',
-			-id       => 'registered',
-			-values   => $registered_configs,
-			-multiple => 'true',
-			-disabled => 'disabled',
-			-style    => 'min-width:10em; min-height:9.5em',
-			-labels   => $labels,
-			-size     => 9
-		);
+		$buffer .= q(<div class="registered_configs">);
+		$buffer .= q(<ul>);
+		foreach my $config (@$registered_configs) {
+			$buffer .= qq(<li>$labels->{$config}</li>);
+		}
+		$buffer .= q(</ul>);
+		$buffer .= q(</div>);
 	} else {
 		$buffer .= q(<p>Nothing</p>);
 	}
@@ -506,6 +559,12 @@ sub _is_config_registered {
 	my ( $self, $config ) = @_;
 	return $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM registered_resources WHERE dbase_config=?)',
 		$config, { cache => 'UserPage::resource_registered' } );
+}
+
+sub _is_curator {
+	my ( $self, $username ) = @_;
+	return $self->{'datastore'}
+	  ->run_query( 'SELECT EXISTS(SELECT * FROM registered_curators WHERE user_name=?)', $username );
 }
 
 sub _get_autoreg_status {

@@ -684,6 +684,18 @@ div.registration_box {
 	padding: 0 0.5em 1em 1em;
 }
 
+div.registered_configs {
+	background:#f6f6f6;
+	display:inline-block;
+	max-height:15em;
+	overflow-y:auto;
+	overflow-x:hidden
+}
+
+div.registered_configs li {
+	white-space:nowrap
+}
+
 div.flex_container {
 	display: flex;
 	justify-content: center;
