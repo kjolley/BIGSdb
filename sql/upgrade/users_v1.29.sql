@@ -29,4 +29,5 @@ ON UPDATE CASCADE
 GRANT SELECT,UPDATE,INSERT,DELETE ON submission_digests TO apache;
 
 ALTER TABLE users ADD submission_digests boolean;
+ALTER TABLE users ADD submission_email_cc boolean;
 ALTER TABLE users ADD absent_until date;

@@ -1610,6 +1610,21 @@ sub _user_exists {
 	return;
 }
 
+sub remove_submission_from_digest {
+	my ( $self, $curator_id, $submission_id ) = @_;
+	my $user_info = $self->{'datastore'}->get_user_info($curator_id);
+	return if !$user_info->{'user_db'};
+	my $user_db = $self->{'datastore'}->get_user_db( $user_info->{'user_db'} );
+	eval { $user_db->do( 'DELETE FROM submission_digests WHERE submission_id=?', undef, $submission_id ); };
+	if ($@) {
+		$self->{'logger'}->error($@);
+		$user_db->rollback;
+	} else {
+		$user_db->commit;
+	}
+	return;
+}
+
 sub email {
 	my ( $self, $submission_id, $params ) = @_;
 	my $submission = $self->get_submission($submission_id);
@@ -1770,6 +1785,13 @@ sub _get_curators {
 	return \@filtered_curators;
 }
 
+sub curator_wants_digests {
+	my ( $self, $curator_id ) = @_;
+	my $curator_username = $self->{'datastore'}->run_query( 'SELECT user_name FROM users WHERE id=?', $curator_id );
+	my $curator_info = $self->{'datastore'}->get_user_info_from_username($curator_username);
+	return $curator_info->{'submission_digests'} && $curator_info->{'user_db'};
+}
+
 sub notify_curators {
 	my ( $self, $submission_id ) = @_;
 	return if !$self->{'config'}->{'smtp_server'};
@@ -1777,20 +1799,24 @@ sub notify_curators {
 	my $curators   = $self->_get_curators($submission_id);
 	foreach my $curator_id (@$curators) {
 		next if !$self->can_email_curator($curator_id);
-
-		#Check if curator has enabled submission digests and doesn't want to be emailed on every submission.
-		my $curator_username = $self->{'datastore'}->run_query( 'SELECT user_name FROM users WHERE id=?', $curator_id );
-		my $curator_info = $self->{'datastore'}->get_user_info_from_username($curator_username);
-		if ( $curator_info->{'submission_digests'} && $curator_info->{'user_db'} ) {
-			my $message        = $self->_get_digest_summary( $submission_id, { messages => 1 } );
+		if ( $self->curator_wants_digests($curator_id) ) {
+			my $message = $self->_get_digest_summary( $submission_id, { messages => 1 } );
 			my $submitter_name = $self->{'datastore'}->get_user_string( $submission->{'submitter'} );
-			my $user_db        = $self->{'datastore'}->get_user_db( $curator_info->{'user_db'} );
+			my $curator_username =
+			  $self->{'datastore'}->run_query( 'SELECT user_name FROM users WHERE id=?', $curator_id );
+			my $curator_info = $self->{'datastore'}->get_user_info_from_username($curator_username);
+			my $user_db      = $self->{'datastore'}->get_user_db( $curator_info->{'user_db'} );
 			eval {
 				$user_db->do(
 					'INSERT INTO submission_digests (user_name,timestamp,dbase_description,submission_id,'
 					  . 'submitter,summary) VALUES (?,?,?,?,?,?)',
-					undef,           $curator_username, 'now', $self->{'system'}->{'description'}, $submission_id,
-					$submitter_name, $message
+					undef,
+					$curator_username,
+					'now',
+					$self->{'system'}->{'description'},
+					$submission_id,
+					$submitter_name,
+					$message
 				);
 			};
 			if ($@) {

@@ -147,6 +147,7 @@ sub _show_submission_options {
 	  . q(period of time so that messages are suspended-->.</p>);
 	say q(<h3>How do you wish to receive notifications?</h3>);
 	say $q->start_form;
+	say q(<div>);
 	say $q->radio_group(
 		-name   => 'submission_digest',
 		-values => [ 0, 1 ],
@@ -157,6 +158,13 @@ sub _show_submission_options {
 		-default   => $user_info->{'submission_digests'},
 		-linebreak => 'true'
 	);
+	say q(<h3>Submission responses</h3>);
+	say $q->checkbox(
+		-name    => 'response_cc',
+		-label   => 'Receive copy of E-mail to submitter when closing submission',
+		-checked => $user_info->{'submission_email_cc'}
+	);
+	say q(</div>);
 	say $q->submit(
 		-name  => 'submission_options',
 		-label => 'Update',
@@ -174,12 +182,12 @@ sub _update_submission_options {
 	return if !$q->param('submission_options');
 	eval {
 		$self->{'db'}->do(
-			'UPDATE users SET submission_digests=? WHERE user_name=?',
-			undef, scalar $q->param('submission_digest'),
+			'UPDATE users SET (submission_digests,submission_email_cc)=(?,?) WHERE user_name=?',
+			undef, scalar $q->param('submission_digest'), $q->param('response_cc') ? 1 : 0,
 			$self->{'username'}
 		);
 	};
-	if ($@){
+	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
 	} else {

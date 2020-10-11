@@ -94,7 +94,7 @@ sub get_user_info {
 		my $remote_user = $self->get_remote_user_info( $user_info->{'user_name'}, $user_info->{'user_db'} );
 		if ( $remote_user->{'user_name'} ) {
 			$user_info->{$_} = $remote_user->{$_}
-			  foreach qw(first_name surname email affiliation submission_digests absent_until);
+			  foreach qw(first_name surname email affiliation submission_digests submission_email_cc absent_until);
 		}
 	}
 	return $user_info;
@@ -128,9 +128,8 @@ sub get_remote_user_info {
 	my ( $self, $user_name, $user_db_id ) = @_;
 	my $user_db = $self->get_user_db($user_db_id);
 	return $self->run_query(
-		    'SELECT user_name,first_name,surname,email,affiliation,submission_digests,absent_until '
-		  . 'FROM users WHERE user_name=?'
-		,
+		'SELECT user_name,first_name,surname,email,affiliation,submission_digests,submission_email_cc,absent_until '
+		  . 'FROM users WHERE user_name=?',
 		$user_name, { db => $user_db, fetch => 'row_hashref', cache => "get_remote_user_info:$user_db_id" }
 	);
 }
@@ -144,7 +143,7 @@ sub get_user_info_from_username {
 		my $remote_user = $self->get_remote_user_info( $user_name, $user_info->{'user_db'} );
 		if ( $remote_user->{'user_name'} ) {
 			$user_info->{$_} = $remote_user->{$_}
-			  foreach qw(first_name surname email affiliation submission_digests absent_until);
+			  foreach qw(first_name surname email affiliation submission_digests submission_email_cc absent_until);
 		}
 	}
 	return $user_info;
