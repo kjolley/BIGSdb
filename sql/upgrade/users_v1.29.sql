@@ -28,6 +28,18 @@ ON UPDATE CASCADE
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON submission_digests TO apache;
 
-ALTER TABLE users ADD submission_digests boolean;
-ALTER TABLE users ADD submission_email_cc boolean;
-ALTER TABLE users ADD absent_until date;
+CREATE TABLE curator_prefs (
+user_name text NOT NULL unique,
+submission_digests boolean NOT NULL,
+digest_interval int,
+last_digest timestamp,
+submission_email_cc boolean NOT NULL,
+absent_until date,
+PRIMARY KEY (user_name),
+CONSTRAINT sd_user_name FOREIGN KEY (user_name) REFERENCES users
+ON DELETE CASCADE
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON curator_prefs TO apache;
+

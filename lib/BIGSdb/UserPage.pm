@@ -30,6 +30,14 @@ use Email::Valid;
 use BIGSdb::Parser;
 use BIGSdb::Login;
 use BIGSdb::Constants qw(:interface DEFAULT_DOMAIN);
+use constant SUBMISSION_INTERVAL => {
+	60   => '1 hour',
+	120  => '2 hours',
+	180  => '3 hours',
+	360  => '6 hours',
+	720  => '12 hours',
+	1440 => '24 hours',
+};
 my $logger = get_logger('BIGSdb.User');
 
 sub print_content {
@@ -138,7 +146,10 @@ sub _show_submission_options {
 	return if !$self->_is_curator( $self->{'username'} );
 	my $q = $self->{'cgi'};
 	$self->_update_submission_options;
-	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $prefs =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT * FROM curator_prefs WHERE user_name=?', $self->{'username'}, { fetch => 'row_hashref' } )
+	  ;
 	say q(<div class="box queryform"><div class="scrollable">);
 	say q(<span class="main_icon far fa-envelope fa-3x fa-pull-left"></span>);
 	say q(<h2>Submission notifications</h2>);
@@ -150,19 +161,31 @@ sub _show_submission_options {
 	say q(<div>);
 	say $q->radio_group(
 		-name   => 'submission_digest',
+		-id => 'submission_digest',
 		-values => [ 0, 1 ],
 		-labels => {
-			0 => 'notification of every submission',
-			1 => 'daily digest summarising submissions'
+			0 => 'immediate notification of every submission',
+			1 => 'periodic digest summarising submissions since last digest'
 		},
-		-default   => $user_info->{'submission_digests'},
+		-default   => $prefs->{'submission_digests'},
 		-linebreak => 'true'
 	);
+	say q(<p style="margin-top:1em">Minimum digest interval: );
+	my $intervals = SUBMISSION_INTERVAL;
+	say $self->popup_menu(
+		-id => 'digest_interval',
+		-name     => 'digest_interval',
+		-values   => [ sort { $a <=> $b } keys %$intervals ],
+		-labels   => $intervals,
+		-default  => $prefs->{'digest_interval'} // 1440,
+		-disabled => $prefs->{'submission_digests'} ? 'false' : 'true'
+	);
+	say q(</p>);
 	say q(<h3>Submission responses</h3>);
 	say $q->checkbox(
 		-name    => 'response_cc',
 		-label   => 'Receive copy of E-mail to submitter when closing submission',
-		-checked => $user_info->{'submission_email_cc'}
+		-checked => $prefs->{'submission_email_cc'}
 	);
 	say q(</div>);
 	say $q->submit(
@@ -182,9 +205,16 @@ sub _update_submission_options {
 	return if !$q->param('submission_options');
 	eval {
 		$self->{'db'}->do(
-			'UPDATE users SET (submission_digests,submission_email_cc)=(?,?) WHERE user_name=?',
-			undef, scalar $q->param('submission_digest'), $q->param('response_cc') ? 1 : 0,
-			$self->{'username'}
+			q[INSERT INTO curator_prefs (user_name,submission_digests,digest_interval,submission_email_cc,]
+			  . q[absent_until) VALUES (?,?,?,?,?) ON CONFLICT(user_name) DO UPDATE SET (submission_digests,]
+			  . q[digest_interval,submission_email_cc,absent_until)=(EXCLUDED.submission_digests,]
+			  . q[EXCLUDED.digest_interval,EXCLUDED.submission_email_cc,EXCLUDED.absent_until)],
+			undef,
+			scalar $self->{'username'},
+			scalar $q->param('submission_digest') ? 1 : 0,
+			scalar $q->param('digest_interval'),
+			scalar $q->param('response_cc') ? 1 : 0,
+			scalar $q->param('absent_until')
 		);
 	};
 	if ($@) {
@@ -1007,6 +1037,15 @@ sub _notify_db_admin {
 sub get_javascript {
 	my ($self) = @_;
 	my $buffer = << "END";
+\$(function () {
+	\$('input[type=radio][id=submission_digest]').change(function() {
+	    if (this.value == '1') {
+	        \$("#digest_interval").prop("disabled", false);
+	    } else {
+	    	\$("#digest_interval").prop("disabled", true);
+	    }
+	});
+});
 function listbox_selectall(listID, isSelect) {
 	\$("#" + listID + " option").prop("selected",isSelect);
 }
