@@ -77,11 +77,13 @@ main();
 undef $script;
 
 sub main {
+	clear_old_absent_until_dates();
 	my $curators = get_curators();
 	foreach my $curator (@$curators) {
 		my $user_info = $script->{'datastore'}->get_user_info_from_username($curator);
 		my $prefs     = $script->{'datastore'}
 		  ->run_query( 'SELECT * FROM curator_prefs WHERE user_name=?', $curator, { fetch => 'row_hashref' } );
+		next if $prefs->{'absent_until'};
 		if ( $prefs->{'last_digest'} ) {
 			my $digest_due = $script->{'datastore'}->run_query(
 				"SELECT last_digest < now()-interval '$prefs->{'digest_interval'} minutes' "
@@ -93,11 +95,22 @@ sub main {
 		my $digest = create_digest($curator);
 		if ( !$opts{'quiet'} ) {
 			say "Sending digest to $user_info->{'email'}";
-			say $digest;
+			say $digest->{'content'};
 			say qq(=============================\n\n);
 		}
-		email_digest( $curator, $digest->{'content'} );
+		email_digest( $curator, $digest );
 		update_last_digest_time($curator);
+	}
+	return;
+}
+
+sub clear_old_absent_until_dates {
+	eval { $script->{'db'}->do('UPDATE curator_prefs SET absent_until=NULL WHERE absent_until <= now()'); };
+	if ($@) {
+		$logger->error($@);
+		$script->{'db'}->rollback;
+	} else {
+		$script->{'db'}->commit;
 	}
 	return;
 }
@@ -134,8 +147,7 @@ sub create_digest {
 		  . qq(Please log in to the curator's interface to handle these submissions.\n);
 	}
 	my $account_url = ACCOUNT_URL;
-	$buffer .=
-	  qq(You can update the frequency of digests from the account settings page ($account_url)\n);
+	$buffer .= qq(You can update the frequency of digests from the account settings page ($account_url)\n);
 	foreach my $submission (@$digest_data) {
 		if ( $submission->{'dbase_description'} ne $current_db ) {
 			$current_db = $submission->{'dbase_description'};

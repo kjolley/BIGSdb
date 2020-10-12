@@ -182,6 +182,8 @@ sub _show_submission_options {
 			-disabled => $prefs->{'submission_digests'} ? 'false' : 'true'
 		);
 		say q(</p>);
+	} else {
+		say $q->hidden( digest_interval => 1440 );
 	}
 	say q(<h3>Submission responses</h3>);
 	say $q->checkbox(
@@ -189,6 +191,18 @@ sub _show_submission_options {
 		-label   => 'Receive copy of E-mail to submitter when closing submission',
 		-checked => $prefs->{'submission_email_cc'}
 	);
+	say q(<h3>Suspend notifications</h3>);
+	say q(<p>If you are going to be away and unable to process submissions, you can suspend notifications for )
+	  . q(a specified period of time. Set a date below to suspend - clear field to resume notifications.</p>);
+	my $datestamp = BIGSdb::Utils::get_datestamp;
+	say q(<p>Resume on: );
+	say $self->textfield(
+		name    => 'absent_until',
+		type    => 'date',
+		min     => $datestamp,
+		value => $prefs->{'absent_until'}
+	);
+	say q(</p>);
 	say q(</div>);
 	say $q->submit(
 		-name  => 'submission_options',
@@ -216,7 +230,7 @@ sub _update_submission_options {
 			scalar $q->param('submission_digest') ? 1 : 0,
 			scalar $q->param('digest_interval'),
 			scalar $q->param('response_cc') ? 1 : 0,
-			scalar $q->param('absent_until')
+			scalar $q->param('absent_until') || undef
 		);
 	};
 	if ($@) {

@@ -1798,7 +1798,9 @@ sub notify_curators {
 	my $submission = $self->get_submission($submission_id);
 	my $curators   = $self->_get_curators($submission_id);
 	foreach my $curator_id (@$curators) {
+		$logger->error('Check to see if I can E-mail');
 		next if !$self->can_email_curator($curator_id);
+		$logger->error('Emailing curator');
 		if ( $self->curator_wants_digests($curator_id) ) {
 			my $message = $self->_get_digest_summary( $submission_id, { messages => 1 } );
 			my $submitter_name = $self->{'datastore'}->get_user_string( $submission->{'submitter'} );
@@ -1851,6 +1853,21 @@ sub notify_curators {
 #space of time, e.g. via scripted REST calls.
 sub can_email_curator {
 	my ( $self, $curator_id ) = @_;
+	my $user_info = $self->{'datastore'}->get_user_info($curator_id);
+	my $user_db   = $self->{'datastore'}->get_user_db( $user_info->{'user_db'} );
+	eval { $user_db->do('UPDATE curator_prefs SET absent_until=null WHERE absent_until <= now()'); };
+	if ($@) {
+		$logger->error($@);
+		$user_db->rollback;
+	} else {
+		$user_db->commit;
+	}
+	return
+	  if $self->{'datastore'}->run_query(
+		'SELECT EXISTS(SELECT * FROM curator_prefs WHERE user_name=? AND absent_until > now())',
+		$user_info->{'user_name'},
+		{ db => $user_db }
+	  );
 	my $filename = "$self->{'config'}->{'secure_tmp_dir'}/BIGSdb_FLOOD_DEFENCE/$self->{'instance'}_$curator_id";
 	return if -e $filename;
 	return 1;
@@ -1972,7 +1989,7 @@ sub _get_isolate_submission_summary {    ## no critic (ProhibitUnusedPrivateSubr
 	return $return_buffer;
 }
 
-sub _get_genome_submission_summary {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _get_genome_submission_summary {     ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $submission_id, $options ) = @_;
 	my $isolate_submission = $self->get_isolate_submission($submission_id);
 	my $isolate_count      = @{ $isolate_submission->{'isolates'} };
