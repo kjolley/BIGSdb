@@ -31,7 +31,7 @@ GRANT SELECT,UPDATE,INSERT,DELETE ON submission_digests TO apache;
 CREATE TABLE curator_prefs (
 user_name text NOT NULL unique,
 submission_digests boolean NOT NULL,
-digest_interval int,
+digest_interval int NOT NULL DEFAULT 1440,
 last_digest timestamp,
 submission_email_cc boolean NOT NULL,
 absent_until date,

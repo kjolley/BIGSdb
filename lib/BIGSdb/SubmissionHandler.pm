@@ -1680,7 +1680,7 @@ sub _get_digest_summary {
 		alleles  => '_get_allele_submission_summary',
 		profiles => '_get_profile_submission_summary',
 		isolates => '_get_isolate_submission_summary',
-		genomes  => '_get_isolate_submission_summary'
+		genomes  => '_get_genome_submission_summary'
 	);
 	my $msg = q();
 	if ( $methods{ $submission->{'type'} } ) {
@@ -1912,7 +1912,7 @@ sub _get_allele_submission_summary {    ## no critic (ProhibitUnusedPrivateSubro
 	my $seq_count = scalar @{ $allele_submission->{'seqs'} };
 	if ( $options->{'single_line'} ) {
 		return qq(Locus: $allele_submission->{'locus'}; Technology: $allele_submission->{'technology'}; )
-		  . qq(Sequence count: $seq_count);
+		  . qq(Sequences: $seq_count);
 	}
 	my $return_buffer = q();
 	$return_buffer .= $self->_get_text_heading( 'Data summary', { blank_line_before => 1 } );
@@ -1965,7 +1965,19 @@ sub _get_isolate_submission_summary {    ## no critic (ProhibitUnusedPrivateSubr
 	my $isolate_submission = $self->get_isolate_submission($submission_id);
 	my $isolate_count      = @{ $isolate_submission->{'isolates'} };
 	if ( $options->{'single_line'} ) {
-		return qq(Isolate count: $isolate_count);
+		return qq(Isolates: $isolate_count);
+	}
+	my $return_buffer = $self->_get_text_heading( 'Data summary', { blank_line_before => 1 } );
+	$return_buffer .= "Isolate count: $isolate_count\n";
+	return $return_buffer;
+}
+
+sub _get_genome_submission_summary {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $submission_id, $options ) = @_;
+	my $isolate_submission = $self->get_isolate_submission($submission_id);
+	my $isolate_count      = @{ $isolate_submission->{'isolates'} };
+	if ( $options->{'single_line'} ) {
+		return qq(Genomes: $isolate_count);
 	}
 	my $return_buffer = $self->_get_text_heading( 'Data summary', { blank_line_before => 1 } );
 	$return_buffer .= "Isolate count: $isolate_count\n";
