@@ -725,7 +725,7 @@ sub _print_allele_warnings {
 	my @info = @$warnings;
 	local $" = q(<br />);
 	my $plural = @info == 1 ? '' : 's';
-	say qq(<div class="box" id="statuswarn"><h2>Warning$plural:</h2><p>@info</p><p>Warnings do not prevent submission )
+	say qq(<div class="box statuswarn"><h2>Warning$plural:</h2><p>@info</p><p>Warnings do not prevent submission )
 	  . q(but may result in the submission being rejected depending on curation criteria.</p></div>);
 	return;
 }

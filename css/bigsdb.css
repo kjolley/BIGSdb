@@ -1,4 +1,4 @@
-/*Version: 20201002*/
+/*Version: 20201012*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -1334,8 +1334,8 @@ div#restricted {
 }
 
 div#statuswarn, div.statuswarn {
-	background: #e0e0d5;
-	color: #404000
+	background: #e0d5d5;
+	color: #800000
 }
 
 div#statusbad, div.statusbad {
