@@ -148,39 +148,41 @@ sub _show_submission_options {
 	$self->_update_submission_options;
 	my $prefs =
 	  $self->{'datastore'}
-	  ->run_query( 'SELECT * FROM curator_prefs WHERE user_name=?', $self->{'username'}, { fetch => 'row_hashref' } )
-	  ;
+	  ->run_query( 'SELECT * FROM curator_prefs WHERE user_name=?', $self->{'username'}, { fetch => 'row_hashref' } );
 	say q(<div class="box queryform"><div class="scrollable">);
 	say q(<span class="main_icon far fa-envelope fa-3x fa-pull-left"></span>);
 	say q(<h2>Submission notifications</h2>);
-	say q(<p>You are a curator for at least one of the databases on the system. If you receive automated )
-	  . q(submission messages, you may wish to modify how you receive these<!-- or mark yourself absent for a )
-	  . q(period of time so that messages are suspended-->.</p>);
-	say q(<h3>How do you wish to receive notifications?</h3>);
+	say q(<p>You are a curator for at least one of the databases on the system. If you receive automated submission )
+	  . q(messages, you may wish to modify how you receive these or mark yourself absent for a period of time so that )
+	  . q(messages are suspended.</p>);
 	say $q->start_form;
 	say q(<div>);
-	say $q->radio_group(
-		-name   => 'submission_digest',
-		-id => 'submission_digest',
-		-values => [ 0, 1 ],
-		-labels => {
-			0 => 'immediate notification of every submission',
-			1 => 'periodic digest summarising submissions since last digest'
-		},
-		-default   => $prefs->{'submission_digests'},
-		-linebreak => 'true'
-	);
-	say q(<p style="margin-top:1em">Minimum digest interval: );
-	my $intervals = SUBMISSION_INTERVAL;
-	say $self->popup_menu(
-		-id => 'digest_interval',
-		-name     => 'digest_interval',
-		-values   => [ sort { $a <=> $b } keys %$intervals ],
-		-labels   => $intervals,
-		-default  => $prefs->{'digest_interval'} // 1440,
-		-disabled => $prefs->{'submission_digests'} ? 'false' : 'true'
-	);
-	say q(</p>);
+
+	if ( $self->{'config'}->{'submission_digests'} ) {
+		say q(<h3>How do you wish to receive notifications?</h3>);
+		say $q->radio_group(
+			-name   => 'submission_digest',
+			-id     => 'submission_digest',
+			-values => [ 0, 1 ],
+			-labels => {
+				0 => 'immediate notification of every submission',
+				1 => 'periodic digest summarising submissions since last digest'
+			},
+			-default   => $prefs->{'submission_digests'},
+			-linebreak => 'true'
+		);
+		say q(<p style="margin-top:1em">Minimum digest interval: );
+		my $intervals = SUBMISSION_INTERVAL;
+		say $self->popup_menu(
+			-id       => 'digest_interval',
+			-name     => 'digest_interval',
+			-values   => [ sort { $a <=> $b } keys %$intervals ],
+			-labels   => $intervals,
+			-default  => $prefs->{'digest_interval'} // 1440,
+			-disabled => $prefs->{'submission_digests'} ? 'false' : 'true'
+		);
+		say q(</p>);
+	}
 	say q(<h3>Submission responses</h3>);
 	say $q->checkbox(
 		-name    => 'response_cc',
