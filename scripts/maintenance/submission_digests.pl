@@ -95,7 +95,7 @@ sub main {
 			say $digest;
 			say qq(=============================\n\n);
 		}
-		email_digest( $curator, $digest );
+		email_digest( $curator, $digest->{'content'} );
 		update_last_digest_time($curator);
 	}
 	return;
@@ -139,14 +139,14 @@ sub create_digest {
 		}
 		$buffer .= qq(Sender: $submission->{'submitter'} - $submission->{'summary'}\n);
 	}
-	return $buffer;
+	my $title = @$digest_data == 1 ? "New submission ($domain)" : "New submissions ($domain)";
+	return {title => $title, content => $buffer};
 }
 
 sub email_digest {
-	my ( $curator, $message ) = @_;
+	my ( $curator, $digest ) = @_;
 	my $domain    = DOMAIN;
 	my $user_info = $script->{'datastore'}->get_user_info_from_username($curator);
-	my $subject   = "New submissions ($domain)";
 	my $transport =
 	  Email::Sender::Transport::SMTP->new( { host => SMTP_SERVER // 'localhost', port => SMTP_PORT // 25 } );
 	my $email = Email::MIME->create(
@@ -157,9 +157,9 @@ sub email_digest {
 		header_str => [
 			To      => $user_info->{'email'},
 			From    => SENDER,
-			Subject => $subject
+			Subject => $digest->{'title'}
 		],
-		body_str => $message
+		body_str => $digest->{'content'}
 	);
 	try_to_sendmail( $email, { transport => $transport } )
 	  || say "Cannot send E-mail to $user_info->{'email'}";
