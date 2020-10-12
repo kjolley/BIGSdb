@@ -30,6 +30,14 @@ use Email::Valid;
 use BIGSdb::Parser;
 use BIGSdb::Login;
 use BIGSdb::Constants qw(:interface DEFAULT_DOMAIN);
+use constant SUBMISSION_INTERVAL => {
+	60   => '1 hour',
+	120  => '2 hours',
+	180  => '3 hours',
+	360  => '6 hours',
+	720  => '12 hours',
+	1440 => '24 hours',
+};
 my $logger = get_logger('BIGSdb.User');
 
 sub print_content {
@@ -101,6 +109,7 @@ sub _site_account {
 		return;
 	}
 	$self->_show_registration_details;
+	$self->_show_submission_options;
 	if ( $self->{'curate'} ) {
 		$self->_show_admin_roles;
 	} else {
@@ -111,7 +120,7 @@ sub _site_account {
 
 sub _show_registration_details {
 	my ($self) = @_;
-	say q(<div class="box" id="resultspanel"><div class="scrollable">);
+	say q(<div class="box resultspanel"><div class="scrollable">);
 	say q(<span class="main_icon far fa-address-card fa-3x fa-pull-left"></span>);
 	say q(<h2>User details</h2>);
 	say q(<p>You are registered with the following details. Please ensure that these are correct and use )
@@ -129,6 +138,91 @@ sub _show_registration_details {
 	  . qq(<a class="small_reset" style="margin-left:1em" href="$self->{'system'}->{'script_name'}?page=logout"><span>)
 	  . q(<span class="fas fa-sign-out-alt"></span> Log out</span></a></div>);
 	say q(</div></div>);
+	return;
+}
+
+sub _show_submission_options {
+	my ($self) = @_;
+	return if !$self->_is_curator( $self->{'username'} );
+	my $q = $self->{'cgi'};
+	$self->_update_submission_options;
+	my $prefs =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT * FROM curator_prefs WHERE user_name=?', $self->{'username'}, { fetch => 'row_hashref' } )
+	  ;
+	say q(<div class="box queryform"><div class="scrollable">);
+	say q(<span class="main_icon far fa-envelope fa-3x fa-pull-left"></span>);
+	say q(<h2>Submission notifications</h2>);
+	say q(<p>You are a curator for at least one of the databases on the system. If you receive automated )
+	  . q(submission messages, you may wish to modify how you receive these<!-- or mark yourself absent for a )
+	  . q(period of time so that messages are suspended-->.</p>);
+	say q(<h3>How do you wish to receive notifications?</h3>);
+	say $q->start_form;
+	say q(<div>);
+	say $q->radio_group(
+		-name   => 'submission_digest',
+		-id => 'submission_digest',
+		-values => [ 0, 1 ],
+		-labels => {
+			0 => 'immediate notification of every submission',
+			1 => 'periodic digest summarising submissions since last digest'
+		},
+		-default   => $prefs->{'submission_digests'},
+		-linebreak => 'true'
+	);
+	say q(<p style="margin-top:1em">Minimum digest interval: );
+	my $intervals = SUBMISSION_INTERVAL;
+	say $self->popup_menu(
+		-id => 'digest_interval',
+		-name     => 'digest_interval',
+		-values   => [ sort { $a <=> $b } keys %$intervals ],
+		-labels   => $intervals,
+		-default  => $prefs->{'digest_interval'} // 1440,
+		-disabled => $prefs->{'submission_digests'} ? 'false' : 'true'
+	);
+	say q(</p>);
+	say q(<h3>Submission responses</h3>);
+	say $q->checkbox(
+		-name    => 'response_cc',
+		-label   => 'Receive copy of E-mail to submitter when closing submission',
+		-checked => $prefs->{'submission_email_cc'}
+	);
+	say q(</div>);
+	say $q->submit(
+		-name  => 'submission_options',
+		-label => 'Update',
+		-class => 'small_submit',
+		-style => 'margin-top:1em'
+	);
+	say $q->end_form;
+	say q(</div></div>);
+	return;
+}
+
+sub _update_submission_options {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	return if !$q->param('submission_options');
+	eval {
+		$self->{'db'}->do(
+			q[INSERT INTO curator_prefs (user_name,submission_digests,digest_interval,submission_email_cc,]
+			  . q[absent_until) VALUES (?,?,?,?,?) ON CONFLICT(user_name) DO UPDATE SET (submission_digests,]
+			  . q[digest_interval,submission_email_cc,absent_until)=(EXCLUDED.submission_digests,]
+			  . q[EXCLUDED.digest_interval,EXCLUDED.submission_email_cc,EXCLUDED.absent_until)],
+			undef,
+			scalar $self->{'username'},
+			scalar $q->param('submission_digest') ? 1 : 0,
+			scalar $q->param('digest_interval'),
+			scalar $q->param('response_cc') ? 1 : 0,
+			scalar $q->param('absent_until')
+		);
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
 	return;
 }
 
@@ -282,16 +376,13 @@ sub _registrations {
 	$buffer .= q(<p>Your account is registered for:</p>);
 
 	if (@$registered_configs) {
-		$buffer .= $q->scrolling_list(
-			-name     => 'registered',
-			-id       => 'registered',
-			-values   => $registered_configs,
-			-multiple => 'true',
-			-disabled => 'disabled',
-			-style    => 'min-width:10em; min-height:9.5em',
-			-labels   => $labels,
-			-size     => 9
-		);
+		$buffer .= q(<div class="registered_configs">);
+		$buffer .= q(<ul>);
+		foreach my $config (@$registered_configs) {
+			$buffer .= qq(<li>$labels->{$config}</li>);
+		}
+		$buffer .= q(</ul>);
+		$buffer .= q(</div>);
 	} else {
 		$buffer .= q(<p>Nothing</p>);
 	}
@@ -507,6 +598,12 @@ sub _is_config_registered {
 	my ( $self, $config ) = @_;
 	return $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM registered_resources WHERE dbase_config=?)',
 		$config, { cache => 'UserPage::resource_registered' } );
+}
+
+sub _is_curator {
+	my ( $self, $username ) = @_;
+	return $self->{'datastore'}
+	  ->run_query( 'SELECT EXISTS(SELECT * FROM registered_curators WHERE user_name=?)', $username );
 }
 
 sub _get_autoreg_status {
@@ -941,6 +1038,15 @@ sub _notify_db_admin {
 sub get_javascript {
 	my ($self) = @_;
 	my $buffer = << "END";
+\$(function () {
+	\$('input[type=radio][id=submission_digest]').change(function() {
+	    if (this.value == '1') {
+	        \$("#digest_interval").prop("disabled", false);
+	    } else {
+	    	\$("#digest_interval").prop("disabled", true);
+	    }
+	});
+});
 function listbox_selectall(listID, isSelect) {
 	\$("#" + listID + " option").prop("selected",isSelect);
 }

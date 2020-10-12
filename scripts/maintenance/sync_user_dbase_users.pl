@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Synchronize user database users with details from client databases
 #Written by Keith Jolley
-#Copyright (c) 2016-2019, University of Oxford
+#Copyright (c) 2016-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20190830
+#Version: 20201009
 use strict;
 use warnings;
 use 5.010;
@@ -85,6 +85,8 @@ sub main {
 	update_available_resources();
 	add_registered_users();
 	remove_unregistered_users();
+	add_registered_curators();
+	remove_unregistered_curators();
 	set_auto_registration();
 	remove_deleted_users();
 	check_invalid_users();
@@ -148,7 +150,7 @@ sub update_available_resources {
 				$script->{'db'}->do( 'UPDATE available_resources SET description=? WHERE dbase_config=?',
 					undef, $system->{'description'}, $config );
 			};
-			if (@$) {
+			if ($@) {
 				$script->{'logger'}->error($@);
 				$script->{'db'}->rollback;
 			} else {
@@ -208,6 +210,13 @@ sub get_registered_users {
 	my ($config) = @_;
 	return $script->{'datastore'}
 	  ->run_query( 'SELECT user_name FROM registered_users WHERE dbase_config=? ORDER BY user_name',
+		$config, { fetch => 'col_arrayref' } );
+}
+
+sub get_registered_curators {
+	my ($config) = @_;
+	return $script->{'datastore'}
+	  ->run_query( 'SELECT user_name FROM registered_curators WHERE dbase_config=? ORDER BY user_name',
 		$config, { fetch => 'col_arrayref' } );
 }
 
@@ -296,7 +305,7 @@ sub add_available_resource {
 		$script->{'db'}->do( 'INSERT INTO available_resources (dbase_config,dbase_name,description) VALUES (?,?,?)',
 			undef, $config, $system->{'db'}, $system->{'description'} );
 	};
-	if (@$) {
+	if ($@) {
 		$script->{'logger'}->error($@);
 		$script->{'db'}->rollback;
 	} else {
@@ -311,7 +320,7 @@ sub remove_resource {
 		$script->{'db'}->do( 'DELETE FROM available_resources WHERE dbase_config=?',  undef, $config );
 		$script->{'db'}->do( 'DELETE FROM registered_resources WHERE dbase_config=?', undef, $config );
 	};
-	if (@$) {
+	if ($@) {
 		$script->{'logger'}->error($@);
 		$script->{'db'}->rollback;
 	} else {
@@ -342,16 +351,60 @@ sub add_registered_users {
 		}
 		drop_connection($system);
 	}
-	if ( @list && !$opts{'quiet'} ) {
+	if (@list) {
 		local $" = qq(\t\n);
-		say heading('Registering usernames');
+		say heading('Registering usernames') if !$opts{'quiet'};
 		foreach my $reg (@list) {
-			say qq($reg->{'config'}: $reg->{'user_name'});
+			say qq($reg->{'config'}: $reg->{'user_name'}) if !$opts{'quiet'};
 			eval {
 				$script->{'db'}->do( 'INSERT INTO registered_users (dbase_config,user_name,datestamp) VALUES (?,?,?)',
 					undef, $reg->{'config'}, $reg->{'user_name'}, 'now' );
 			};
-			if (@$) {
+			if ($@) {
+				$script->{'logger'}->error($@);
+				$script->{'db'}->rollback;
+			} else {
+				$script->{'db'}->commit;
+			}
+		}
+	}
+	return;
+}
+
+sub add_registered_curators {
+	my $registered_configs = get_registered_configs();
+	my @list;
+	foreach my $config (@$registered_configs) {
+		my $system = read_config_xml($config);
+		my $db     = get_db($system);
+		my $user_db_id =
+		  $script->{'datastore'}
+		  ->run_query( 'SELECT id FROM user_dbases WHERE dbase_name=?', $script->{'system'}->{'db'}, { db => $db } );
+		if ( defined $user_db_id ) {
+			my $user_names = $script->{'datastore'}->run_query(
+				q(SELECT user_name FROM users WHERE user_db=? AND user_name NOT LIKE 'REMOVED_USER%' )
+				  . q(AND status IN ('curator','admin') ORDER BY surname),
+				$user_db_id,
+				{ fetch => 'col_arrayref', db => $db }
+			);
+			foreach my $user_name (@$user_names) {
+				next if is_user_registered_as_curator_for_resource( $config, $user_name );
+				push @list, { config => $config, user_name => $user_name };
+			}
+		}
+		drop_connection($system);
+	}
+	if (@list) {
+		local $" = qq(\t\n);
+		say heading('Registering curators') if !$opts{'quiet'};
+		foreach my $reg (@list) {
+			say qq($reg->{'config'}: $reg->{'user_name'}) if !$opts{'quiet'};
+			eval {
+				$script->{'db'}
+				  ->do( 'INSERT INTO registered_curators (dbase_config,user_name,datestamp) VALUES (?,?,?)',
+					undef, $reg->{'config'}, $reg->{'user_name'}, 'now' );
+			};
+			if ($@) {
 				$script->{'logger'}->error($@);
 				$script->{'db'}->rollback;
 			} else {
@@ -384,16 +437,59 @@ sub remove_unregistered_users {
 		}
 		drop_connection($system);
 	}
-	if ( @list && !$opts{'quiet'} ) {
+	if (@list) {
 		local $" = qq(\t\n);
-		say heading('Removing unregistered usernames');
+		say heading('Removing unregistered usernames') if !$opts{'quiet'};
 		foreach my $reg (@list) {
-			say qq($reg->{'config'}: $reg->{'user_name'});
+			say qq($reg->{'config'}: $reg->{'user_name'}) if !$opts{'quiet'};
 			eval {
 				$script->{'db'}->do( 'DELETE FROM registered_users WHERE (dbase_config,user_name)=(?,?)',
 					undef, $reg->{'config'}, $reg->{'user_name'} );
 			};
-			if (@$) {
+			if ($@) {
+				$script->{'logger'}->error($@);
+				$script->{'db'}->rollback;
+			} else {
+				$script->{'db'}->commit;
+			}
+		}
+	}
+	return;
+}
+
+sub remove_unregistered_curators {
+	my $registered_configs = get_registered_configs();
+	my @list;
+	foreach my $config (@$registered_configs) {
+		my $system = read_config_xml($config);
+		my $db     = get_db($system);
+		my $user_db_id =
+		  $script->{'datastore'}
+		  ->run_query( 'SELECT id FROM user_dbases WHERE dbase_name=?', $script->{'system'}->{'db'}, { db => $db } );
+		if ( defined $user_db_id ) {
+			my $client_db_user_names =
+			  $script->{'datastore'}->run_query(
+				q(SELECT user_name FROM users WHERE user_db=? AND status IN ('admin','curator') ORDER BY surname),
+				$user_db_id, { fetch => 'col_arrayref', db => $db } );
+			my %client_user_names = map { $_ => 1 } @$client_db_user_names;
+			my $registered_curators = get_registered_curators($config);
+			foreach my $registered_curator (@$registered_curators) {
+				next if $client_user_names{$registered_curator};
+				push @list, { config => $config, user_name => $registered_curator };
+			}
+		}
+		drop_connection($system);
+	}
+	if (@list) {
+		local $" = qq(\t\n);
+		say heading('Removing unregistered curators') if !$opts{'quiet'};
+		foreach my $reg (@list) {
+			say qq($reg->{'config'}: $reg->{'user_name'}) if !$opts{'quiet'};
+			eval {
+				$script->{'db'}->do( 'DELETE FROM registered_curators WHERE (dbase_config,user_name)=(?,?)',
+					undef, $reg->{'config'}, $reg->{'user_name'} );
+			};
+			if ($@) {
 				$script->{'logger'}->error($@);
 				$script->{'db'}->rollback;
 			} else {
@@ -410,6 +506,15 @@ sub is_user_registered_for_resource {
 		'SELECT EXISTS(SELECT * FROM registered_users WHERE (dbase_config,user_name)=(?,?))',
 		[ $dbase_config, $user_name ],
 		{ cache => 'is_user_registered_for_resource' }
+	);
+}
+
+sub is_user_registered_as_curator_for_resource {
+	my ( $dbase_config, $user_name ) = @_;
+	return $script->{'datastore'}->run_query(
+		'SELECT EXISTS(SELECT * FROM registered_curators WHERE (dbase_config,user_name)=(?,?))',
+		[ $dbase_config, $user_name ],
+		{ cache => 'is_user_registered_as_curator_for_resource' }
 	);
 }
 
@@ -433,16 +538,16 @@ sub set_auto_registration {
 		}
 		drop_connection($system);
 	}
-	if ( @list && !$opts{'quiet'} ) {
+	if (@list) {
 		local $" = qq(\t\n);
-		say heading('Updating auto-registration status');
+		say heading('Updating auto-registration status') if !$opts{'quiet'};
 		foreach my $item (@list) {
-			say qq($item->{'config'}: $item->{'auto_reg'});
+			say qq($item->{'config'}: $item->{'auto_reg'}) if !$opts{'quiet'};
 			eval {
 				$script->{'db'}->do( 'UPDATE available_resources SET auto_registration=? WHERE dbase_config=?',
 					undef, $item->{'auto_reg'}, $item->{'config'} );
 			};
-			if (@$) {
+			if ($@) {
 				$script->{'logger'}->error($@);
 				$script->{'db'}->rollback;
 			} else {

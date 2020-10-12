@@ -2433,6 +2433,8 @@ sub _close_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Call
 	}
 	$submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	if ( $submission->{'email'} ) {
+		my $curator_info = $self->{'datastore'}->get_user_info($curator_id);
+		$self->{'submissionHandler'}->remove_submission_from_digest( $curator_id, $submission_id );
 		my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 		$self->{'submissionHandler'}->email(
 			$submission_id,
@@ -2441,7 +2443,7 @@ sub _close_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Call
 				sender    => $curator_id,
 				subject   => "$desc submission closed - $submission_id",
 				message   => $self->{'submissionHandler'}->get_text_summary( $submission_id, { messages => 1 } ),
-				cc_sender => 1
+				cc_sender => $curator_info->{'submission_email_cc'}
 			}
 		);
 	}
@@ -2467,6 +2469,9 @@ sub _cancel_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 	$message .= $self->{'submissionHandler'}->get_text_summary( $submission_id, { messages => 1 } );
 
 	foreach my $curator_id (@$curators) {
+		$self->{'submissionHandler'}->remove_submission_from_digest( $curator_id, $submission_id );
+		my $user_info = $self->{'datastore'}->get_user_info($curator_id);
+		next if $user_info->{'submission_digests'};
 		next if !$self->{'submissionHandler'}->can_email_curator($curator_id);
 		$self->{'submissionHandler'}->email(
 			$submission_id,

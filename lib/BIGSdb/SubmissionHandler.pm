@@ -1610,6 +1610,21 @@ sub _user_exists {
 	return;
 }
 
+sub remove_submission_from_digest {
+	my ( $self, $curator_id, $submission_id ) = @_;
+	my $user_info = $self->{'datastore'}->get_user_info($curator_id);
+	return if !$user_info->{'user_db'};
+	my $user_db = $self->{'datastore'}->get_user_db( $user_info->{'user_db'} );
+	eval { $user_db->do( 'DELETE FROM submission_digests WHERE submission_id=?', undef, $submission_id ); };
+	if ($@) {
+		$self->{'logger'}->error($@);
+		$user_db->rollback;
+	} else {
+		$user_db->commit;
+	}
+	return;
+}
+
 sub email {
 	my ( $self, $submission_id, $params ) = @_;
 	my $submission = $self->get_submission($submission_id);
@@ -1656,6 +1671,24 @@ sub email {
 	};
 	$logger->error($@) if $@;
 	return;
+}
+
+sub _get_digest_summary {
+	my ( $self, $submission_id, $options ) = @_;
+	my $submission = $self->get_submission($submission_id);
+	my %methods    = (
+		alleles  => '_get_allele_submission_summary',
+		profiles => '_get_profile_submission_summary',
+		isolates => '_get_isolate_submission_summary',
+		genomes  => '_get_genome_submission_summary'
+	);
+	my $msg = q();
+	if ( $methods{ $submission->{'type'} } ) {
+		my $method = $methods{ $submission->{'type'} };
+		my $summary = $self->$method( $submission_id, { single_line => 1 } );
+		$msg = $summary if $summary;
+	}
+	return $msg;
 }
 
 sub get_text_summary {
@@ -1752,6 +1785,13 @@ sub _get_curators {
 	return \@filtered_curators;
 }
 
+sub curator_wants_digests {
+	my ( $self, $curator_id ) = @_;
+	my $curator_username = $self->{'datastore'}->run_query( 'SELECT user_name FROM users WHERE id=?', $curator_id );
+	my $curator_info = $self->{'datastore'}->get_user_info_from_username($curator_username);
+	return $curator_info->{'submission_digests'} && $curator_info->{'user_db'};
+}
+
 sub notify_curators {
 	my ( $self, $submission_id ) = @_;
 	return if !$self->{'config'}->{'smtp_server'};
@@ -1759,6 +1799,34 @@ sub notify_curators {
 	my $curators   = $self->_get_curators($submission_id);
 	foreach my $curator_id (@$curators) {
 		next if !$self->can_email_curator($curator_id);
+		if ( $self->curator_wants_digests($curator_id) ) {
+			my $message = $self->_get_digest_summary( $submission_id, { messages => 1 } );
+			my $submitter_name = $self->{'datastore'}->get_user_string( $submission->{'submitter'} );
+			my $curator_username =
+			  $self->{'datastore'}->run_query( 'SELECT user_name FROM users WHERE id=?', $curator_id );
+			my $curator_info = $self->{'datastore'}->get_user_info_from_username($curator_username);
+			my $user_db      = $self->{'datastore'}->get_user_db( $curator_info->{'user_db'} );
+			eval {
+				$user_db->do(
+					'INSERT INTO submission_digests (user_name,timestamp,dbase_description,submission_id,'
+					  . 'submitter,summary) VALUES (?,?,?,?,?,?)',
+					undef,
+					$curator_username,
+					'now',
+					$self->{'system'}->{'description'},
+					$submission_id,
+					$submitter_name,
+					$message
+				);
+			};
+			if ($@) {
+				$logger->error($@);
+				$user_db->rollback;
+			} else {
+				$user_db->commit;
+			}
+			next;
+		}
 		my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 		my $message = qq(This message has been sent to curators/admins of the $desc database with privileges )
 		  . qq(required to curate this submission.\n\n);
@@ -1838,16 +1906,20 @@ sub _translate_outcome {
 }
 
 sub _get_allele_submission_summary {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $submission_id ) = @_;
+	my ( $self, $submission_id, $options ) = @_;
 	my $allele_submission = $self->get_allele_submission($submission_id);
 	return if !$allele_submission;
+	my $seq_count = scalar @{ $allele_submission->{'seqs'} };
+	if ( $options->{'single_line'} ) {
+		return qq(Locus: $allele_submission->{'locus'}; Technology: $allele_submission->{'technology'}; )
+		  . qq(Sequences: $seq_count);
+	}
 	my $return_buffer = q();
 	$return_buffer .= $self->_get_text_heading( 'Data summary', { blank_line_before => 1 } );
 	$return_buffer .= "Locus: $allele_submission->{'locus'}\n";
 	$return_buffer .= "Technology: $allele_submission->{'technology'}\n";
-	$return_buffer .= 'Sequence count: ' . scalar @{ $allele_submission->{'seqs'} } . "\n";
+	$return_buffer .= "Sequence count: $seq_count\n";
 	my $buffer = q();
-
 	foreach my $seq ( @{ $allele_submission->{'seqs'} } ) {
 		next if $seq->{'status'} eq 'pending';
 		$buffer .= "$seq->{'seq_id'}: $seq->{'status'}";
@@ -1862,16 +1934,19 @@ sub _get_allele_submission_summary {    ## no critic (ProhibitUnusedPrivateSubro
 }
 
 sub _get_profile_submission_summary {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $submission_id ) = @_;
+	my ( $self, $submission_id, $options ) = @_;
 	my $profile_submission = $self->get_profile_submission($submission_id);
 	return if !$profile_submission;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $profile_submission->{'scheme_id'}, { get_pk => 1 } );
+	my $profile_count = @{ $profile_submission->{'profiles'} };
+	if ( $options->{'single_line'} ) {
+		return qq(Scheme: $scheme_info->{'name'}; Profiles:$profile_count);
+	}
 	my $return_buffer = q();
 	$return_buffer .= $self->_get_text_heading( 'Data summary', { blank_line_before => 1 } );
 	$return_buffer .= "Scheme: $scheme_info->{'name'}\n";
-	$return_buffer .= 'Profile count: ' . scalar @{ $profile_submission->{'profiles'} } . "\n";
+	$return_buffer .= "Profile count: $profile_count\n";
 	my $buffer = q();
-
 	foreach my $profile ( @{ $profile_submission->{'profiles'} } ) {
 		next if $profile->{'status'} eq 'pending';
 		$buffer .= "$profile->{'profile_id'}: $profile->{'status'}";
@@ -1886,10 +1961,26 @@ sub _get_profile_submission_summary {    ## no critic (ProhibitUnusedPrivateSubr
 }
 
 sub _get_isolate_submission_summary {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $submission_id ) = @_;
+	my ( $self, $submission_id, $options ) = @_;
 	my $isolate_submission = $self->get_isolate_submission($submission_id);
+	my $isolate_count      = @{ $isolate_submission->{'isolates'} };
+	if ( $options->{'single_line'} ) {
+		return qq(Isolates: $isolate_count);
+	}
 	my $return_buffer = $self->_get_text_heading( 'Data summary', { blank_line_before => 1 } );
-	$return_buffer .= 'Isolate count: ' . scalar @{ $isolate_submission->{'isolates'} } . "\n";
+	$return_buffer .= "Isolate count: $isolate_count\n";
+	return $return_buffer;
+}
+
+sub _get_genome_submission_summary {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $submission_id, $options ) = @_;
+	my $isolate_submission = $self->get_isolate_submission($submission_id);
+	my $isolate_count      = @{ $isolate_submission->{'isolates'} };
+	if ( $options->{'single_line'} ) {
+		return qq(Genomes: $isolate_count);
+	}
+	my $return_buffer = $self->_get_text_heading( 'Data summary', { blank_line_before => 1 } );
+	$return_buffer .= "Isolate count: $isolate_count\n";
 	return $return_buffer;
 }
 

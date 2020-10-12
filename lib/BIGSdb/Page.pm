@@ -2746,8 +2746,8 @@ sub popup_menu {
 
 	#Faster than CGI::popup_menu when listing thousands of values as it doesn't need to escape all values
 	my ( $self, %args ) = @_;
-	my ( $name, $id, $values, $labels, $default, $class, $multiple, $size, $style, $required ) =
-	  @args{qw ( -name -id -values -labels -default -class -multiple -size -style -required)};
+	my ( $name, $id, $values, $labels, $default, $class, $multiple, $size, $style, $required, $disabled ) =
+	  @args{qw ( -name -id -values -labels -default -class -multiple -size -style -required -disabled)};
 	my $q        = $self->{'cgi'};
 	my @selected = $q->multi_param($name);
 	s/"/&quot;/gx foreach @selected;
@@ -2767,6 +2767,7 @@ sub popup_menu {
 	$buffer .= qq( style="$style")     if defined $style;
 	$buffer .= q( required="required") if defined $required;
 	$buffer .= q( multiple="multiple") if ( $multiple // '' ) eq 'true';
+	$buffer .= q( disabled="disabled") if ( $disabled // '' ) eq 'true';
 	$buffer .= qq(>\n);
 
 	foreach (@$values) {
