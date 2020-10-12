@@ -32,7 +32,8 @@ use constant {
 	USER_DATABASE    => 'pubmlst_bigsdb_users',
 	SMTP_SERVER      => 'localhost',
 	SMTP_PORT        => 25,
-	SENDER           => 'no_reply@pubmlst.org'
+	SENDER           => 'no_reply@pubmlst.org',
+	ACCOUNT_URL      => 'https://pubmlst.org/bigsdb'
 };
 #######End Local configuration#############################################
 use lib (LIB_DIR);
@@ -132,6 +133,9 @@ sub create_digest {
 		$buffer = qq(The following submissions have been received by $domain since your last submission digest.\n\n)
 		  . qq(Please log in to the curator's interface to handle these submissions.\n);
 	}
+	my $account_url = ACCOUNT_URL;
+	$buffer .=
+	  qq(You can update the frequency of digests from the account settings page ($account_url)\n);
 	foreach my $submission (@$digest_data) {
 		if ( $submission->{'dbase_description'} ne $current_db ) {
 			$current_db = $submission->{'dbase_description'};
@@ -140,7 +144,7 @@ sub create_digest {
 		$buffer .= qq(Sender: $submission->{'submitter'} - $submission->{'summary'}\n);
 	}
 	my $title = @$digest_data == 1 ? "New submission ($domain)" : "New submissions ($domain)";
-	return {title => $title, content => $buffer};
+	return { title => $title, content => $buffer };
 }
 
 sub email_digest {

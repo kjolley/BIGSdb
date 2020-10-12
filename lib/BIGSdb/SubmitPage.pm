@@ -22,7 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::TreeViewPage BIGSdb::CurateProfileAddPage);
 use Log::Log4perl qw(get_logger);
-my $logger = get_logger('BIGSdb.Page');
+my $logger = get_logger('BIGSdb.Submissions');
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(SEQ_METHODS :submissions :interface);
 use List::MoreUtils qw(none);
@@ -765,6 +765,7 @@ sub _finalize_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 	my $q          = $self->{'cgi'};
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	return if !$submission || $submission->{'status'} ne 'started';
+	$logger->info("$self->{'instance'}: New $submission->{'type'} submission");
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	eval {
 		if ( $submission->{'type'} eq 'alleles' ) {
@@ -2467,6 +2468,7 @@ sub _cancel_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 	my $subject  = "CANCELLED $submission->{'type'} submission ($desc) - $submission_id";
 	my $message  = "This submission has been CANCELLED by the submitter.\n\n";
 	$message .= $self->{'submissionHandler'}->get_text_summary( $submission_id, { messages => 1 } );
+	$logger->info("$self->{'instance'}: Submission cancelled.");
 
 	foreach my $curator_id (@$curators) {
 		$self->{'submissionHandler'}->remove_submission_from_digest( $curator_id, $submission_id );
