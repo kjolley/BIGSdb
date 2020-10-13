@@ -27,6 +27,8 @@ use Email::Sender::Transport::SMTP;
 use Email::Sender::Simple qw(try_to_sendmail);
 use Email::MIME;
 use Email::Valid;
+use Time::Piece;
+use Time::Seconds;
 use BIGSdb::Parser;
 use BIGSdb::Login;
 use BIGSdb::Constants qw(:interface DEFAULT_DOMAIN);
@@ -182,8 +184,6 @@ sub _show_submission_options {
 			-disabled => $prefs->{'submission_digests'} ? 'false' : 'true'
 		);
 		say q(</p>);
-	} else {
-		say $q->hidden( digest_interval => 1440 );
 	}
 	say q(<h3>Submission responses</h3>);
 	say $q->checkbox(
@@ -193,13 +193,16 @@ sub _show_submission_options {
 	);
 	say q(<h3>Suspend notifications</h3>);
 	say q(<p>If you are going to be away and unable to process submissions, you can suspend notifications for )
-	  . q(a specified period of time. Set a date below to suspend - clear field to resume notifications.</p>);
+	  . q(a specified period of time of up to 3 months. Set a date below to suspend - clear field to resume )
+	  . q(notifications.</p>);
 	my $datestamp = BIGSdb::Utils::get_datestamp;
 	say q(<p>Resume on: );
+	my $max_date = $self->_max_suspend_date;
 	say $self->textfield(
-		name    => 'absent_until',
-		type    => 'date',
-		min     => $datestamp,
+		name  => 'absent_until',
+		type  => 'date',
+		min   => $datestamp,
+		max   => $max_date,
 		value => $prefs->{'absent_until'}
 	);
 	say q(</p>);
@@ -215,10 +218,19 @@ sub _show_submission_options {
 	return;
 }
 
+sub _max_suspend_date {
+	my $max_date = localtime() + 3 * ONE_MONTH;
+	return $max_date->ymd;
+}
+
 sub _update_submission_options {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	return if !$q->param('submission_options');
+	my $max_suspend_date = $self->_max_suspend_date;
+	if ( $q->param('absent_until') && $q->param('absent_until') > $max_suspend_date ) {
+		$q->param( absent_until => $max_suspend_date );
+	}
 	eval {
 		$self->{'db'}->do(
 			q[INSERT INTO curator_prefs (user_name,submission_digests,digest_interval,submission_email_cc,]
@@ -228,7 +240,7 @@ sub _update_submission_options {
 			undef,
 			scalar $self->{'username'},
 			scalar $q->param('submission_digest') ? 1 : 0,
-			scalar $q->param('digest_interval'),
+			scalar $q->param('digest_interval') // 1440,
 			scalar $q->param('response_cc') ? 1 : 0,
 			scalar $q->param('absent_until') || undef
 		);
