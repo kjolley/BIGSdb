@@ -1798,9 +1798,7 @@ sub notify_curators {
 	my $submission = $self->get_submission($submission_id);
 	my $curators   = $self->_get_curators($submission_id);
 	foreach my $curator_id (@$curators) {
-		$logger->error('Check to see if I can E-mail');
 		next if !$self->can_email_curator($curator_id);
-		$logger->error('Emailing curator');
 		if ( $self->curator_wants_digests($curator_id) ) {
 			my $message = $self->_get_digest_summary( $submission_id, { messages => 1 } );
 			my $submitter_name = $self->{'datastore'}->get_user_string( $submission->{'submitter'} );
