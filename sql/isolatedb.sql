@@ -318,7 +318,9 @@ ON DELETE NO ACTION
 ON UPDATE CASCADE
 );
 
-CREATE INDEX i_isolate_id on sequence_bin (isolate_id);
+CREATE INDEX i_sb_isolate_id on sequence_bin (isolate_id);
+CREATE INDEX i_sb_sender ON sequence_bin(sender);
+CREATE INDEX i_sb_curator ON sequence_bin(curator);
 GRANT SELECT,UPDATE,INSERT,DELETE ON sequence_bin TO apache;
 GRANT USAGE,SELECT ON SEQUENCE sequence_bin_id_seq TO apache;
 --Allow apache user to disable triggers on sequence_bin.
@@ -766,6 +768,7 @@ ON UPDATE CASCADE
 CREATE INDEX i_as1 ON allele_sequences (locus);
 CREATE INDEX i_as2 ON allele_sequences (datestamp);
 CREATE INDEX i_as3 ON allele_sequences (isolate_id);
+CREATE INDEX i_as_curator ON allele_sequences(curator);
 
 -- Set isolate_id in allele_sequences table when adding or updating allele_sequences.
 CREATE OR REPLACE FUNCTION set_allele_sequences_isolate_id_field() RETURNS TRIGGER AS $set_allele_sequences_isolate_id_field$
@@ -856,6 +859,8 @@ ON UPDATE CASCADE
 CREATE INDEX i_ad3 ON allele_designations (locus,allele_id);
 CREATE INDEX i_ad4 ON allele_designations (datestamp);
 CREATE INDEX i_ad5 ON allele_designations (UPPER(locus));
+CREATE INDEX i_ad_sender ON allele_designations(sender);
+CREATE INDEX i_ad_curator ON allele_designations(curator);
 GRANT USAGE, SELECT ON SEQUENCE allele_designations_id_seq TO apache;
 GRANT SELECT,UPDATE,INSERT,DELETE ON allele_designations TO apache;
 
