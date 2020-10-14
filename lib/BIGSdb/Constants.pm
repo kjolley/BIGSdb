@@ -156,8 +156,8 @@ use constant ALIGN_FILE => q(<span class="fa-stack fa-2x export">)
 use constant CODE_FILE => q(<span class="fa-stack fa-2x export">)
   . q(<span class="fas fa-square fa-stack-2x export_code"></span>)
   . q(<span class="fas fa-file-code fa-stack-1x fa-inverse"></span></span>);
-use constant UPLOAD_BUTTON => q(<span class="fa-stack fa-2x">)
-  . q(<span class="fas fa-square fa-stack-2x upload"></span>)
+use constant UPLOAD_BUTTON => q(<span class="fa-stack fa-2x upload">)
+  . q(<span class="fas fa-square fa-stack-2x upload_button"></span>)
   . q(<span class="fas fa-upload fa-stack-1x fa-inverse"></span></span>);
 use constant FIRST => q(<span class="fa-stack">)
   . q(<span class="far fa-circle fa-stack-2x"></span>)

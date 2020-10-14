@@ -1,4 +1,4 @@
-/*Version: 20201012*/
+/*Version: 20201014*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -685,15 +685,15 @@ div.registration_box {
 }
 
 div.registered_configs {
-	background:#f6f6f6;
-	display:inline-block;
-	max-height:15em;
-	overflow-y:auto;
-	overflow-x:hidden
+	background: #f6f6f6;
+	display: inline-block;
+	max-height: 15em;
+	overflow-y: auto;
+	overflow-x: hidden
 }
 
 div.registered_configs li {
-	white-space:nowrap
+	white-space: nowrap
 }
 
 div.flex_container {
@@ -2063,11 +2063,11 @@ span.export_code {
 	text-shadow: 3px 3px 3px #999
 }
 
-span.export:hover .fa-square {
+span.export:hover .fa-square, span.upload:hover .fa-square {
 	text-shadow: 3px 3px 3px #444
 }
 
-span.upload {
+span.upload_button {
 	color: #47f;
 	text-shadow: 3px 3px 3px #999
 }
