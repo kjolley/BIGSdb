@@ -147,7 +147,7 @@ sub create_digest {
 		  . qq(Please log in to the curator's interface to handle these submissions.\n);
 	}
 	my $account_url = ACCOUNT_URL;
-	$buffer .= qq(You can update the frequency of digests from the account settings page ($account_url)\n);
+	$buffer .= qq(You can update the frequency of digests from the account settings page ($account_url).\n);
 	foreach my $submission (@$digest_data) {
 		if ( $submission->{'dbase_description'} ne $current_db ) {
 			$current_db = $submission->{'dbase_description'};

@@ -1830,6 +1830,17 @@ sub notify_curators {
 		my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 		my $message = qq(This message has been sent to curators/admins of the $desc database with privileges )
 		  . qq(required to curate this submission.\n\n);
+		my $user_info = $self->{'datastore'}->get_user_info($curator_id);
+		if (   $user_info->{'user_db'}
+			&& $self->{'config'}->{'submission_digests'}
+			&& $self->{'config'}->{'registration_address'} )
+		{
+			$message .=
+			    q(If you are receiving too many of these messages, please note that you can choose to receive )
+			  . q(summary digests instead. You can update the frequency of digests or suspend them for a period )
+			  . qq(of time from the account settings page ($self->{'config'}->{'registration_address'}).\n\n)
+			  ;
+		}
 		$message .= qq(Please log in to the curator's interface to handle this submission.\n\n);
 		$message .= $self->get_text_summary( $submission_id, { messages => 1 } );
 		my $subject = "New $submission->{'type'} submission ($desc) - $submission_id";
