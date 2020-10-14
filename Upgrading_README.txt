@@ -34,6 +34,7 @@ Version 1.25: Change of isolate database structure.
 Version 1.26: Change of isolate database structure.
 Version 1.27: Change of seqdef and isolate database structures.
 Version 1.28: Change of REST database structure.
+Version 1.29: Change of user and isolate database structures.
 
 Details can be found below.
 
@@ -474,3 +475,13 @@ Version 1.28
 There is a change to the REST database structure.
 
 Please run the rest_v1.28 sql script against the REST database (bigsdb_rest).
+
+Version 1.29
+------------
+There are changes to the site users database to support optional submission
+notification digests and to mark holiday absence. Additionally, there are new
+indexes defined for the isolate database to improve the efficiency of deleting
+users.
+
+Please run the isolatedb_v1.29.sql script against isolate databases and the
+users_v1.29.sql script against the site-wide users database (if used).

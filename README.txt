@@ -1,3 +1,5 @@
+v1.29.0: *New options for curators to modify how submission notifications are
+          received - digest mode and ability to mark holiday absence.
 v1.28.1: *Update ITOL plugin to support API key needed due to the change in
           subscription model at https://itol.embl.de/.
          *Extract new allele sequence if found during query with option to
