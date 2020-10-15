@@ -475,7 +475,7 @@ sub _upload {
 			$logger->logdie($_);
 		}
 	};
-	if ( $tmp_file =~ /^(.*\/BIGSdb_[0-9_]+\.txt)$/x ) {
+	if ( $tmp_file =~ /^(.*\/BIGSdb_[0-9_]+)$/x ) {
 		$logger->info("Deleting temp file $tmp_file");
 		unlink $1;
 	} else {

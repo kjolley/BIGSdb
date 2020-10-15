@@ -1943,7 +1943,7 @@ sub _extract_checked_records {
 	} else {
 		$logger->error("Can't open $tmp_file for reading.");
 	}
-	if ( $tmp_file =~ /^(.*\/BIGSdb_[0-9_]+\.txt)$/x ) {
+	if ( $tmp_file =~ /^(.*\/BIGSdb_[0-9_]+)$/x ) {
 		$logger->info("Deleting temp file $tmp_file.");
 		unlink $1;
 	} else {
