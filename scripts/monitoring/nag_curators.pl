@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Send E-mail reminders to curators about pending submissions
 #Written by Keith Jolley
-#Copyright (c) 2016-2019, University of Oxford
+#Copyright (c) 2016-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20190303
+#Version: 20201016
 use strict;
 use warnings;
 use Carp;
@@ -71,6 +71,7 @@ sub main {
 		foreach my $curator (@$curators) {
 			$curator->{'email'} = lc( $curator->{'email'} );
 			next if $curator->{'email'} !~ /@/x;
+			next if $curator->{'absent_until'};
 			$name_by_email->{ $curator->{'email'} } = "$curator->{'first_name'} $curator->{'surname'}"
 			  if !$name_by_email->{ $curator->{'email'} };
 
@@ -306,7 +307,7 @@ sub get_curators {
 			my $remote_db =
 			  $db->selectrow_hashref( 'SELECT * FROM user_dbases WHERE id=?', undef, $curator->{'user_db'} );
 			my $remote_user = get_remote_user( $remote_db, $curator->{'user_name'} );
-			foreach my $att (qw(surname first_name email)) {
+			foreach my $att (qw(surname first_name email absent_until)) {
 				$curator->{$att} = $remote_user->{$att};
 			}
 		}
@@ -323,9 +324,13 @@ sub get_remote_user {
 		host => $remote_db->{'dbase_host'} // 'localhost',
 		port => $remote_db->{'dbase_port'} // 5432
 	};
-	my $db = db_connect($att);
+	my $db        = db_connect($att);
 	my $user_info = $db->selectrow_hashref( 'SELECT * FROM users WHERE user_name=?', undef, $user_name );
+	my $prefs     = $db->selectrow_hashref( 'SELECT * FROM curator_prefs WHERE user_name=?', undef, $user_name );
 	$db->disconnect;
+	foreach my $key ( keys %$prefs ) {
+		$user_info->{$key} = $prefs->{$key};
+	}
 	return $user_info;
 }
 
