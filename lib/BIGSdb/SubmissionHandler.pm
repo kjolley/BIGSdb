@@ -1798,7 +1798,6 @@ sub notify_curators {
 	my $submission = $self->get_submission($submission_id);
 	my $curators   = $self->_get_curators($submission_id);
 	foreach my $curator_id (@$curators) {
-		next if !$self->can_email_curator($curator_id);
 		if ( $self->curator_wants_digests($curator_id) ) {
 			my $message = $self->_get_digest_summary( $submission_id, { messages => 1 } );
 			my $submitter_name = $self->{'datastore'}->get_user_string( $submission->{'submitter'} );
@@ -1827,6 +1826,7 @@ sub notify_curators {
 			}
 			next;
 		}
+		next if !$self->can_email_curator($curator_id);
 		my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 		my $message = qq(This message has been sent to curators/admins of the $desc database with privileges )
 		  . qq(required to curate this submission.\n\n);
@@ -1838,8 +1838,7 @@ sub notify_curators {
 			$message .=
 			    q(If you are receiving too many of these messages, please note that you can choose to receive )
 			  . q(summary digests instead. You can update the frequency of digests or suspend them for a period )
-			  . qq(of time from the account settings page ($self->{'config'}->{'registration_address'}).\n\n)
-			  ;
+			  . qq(of time from the account settings page ($self->{'config'}->{'registration_address'}).\n\n);
 		}
 		$message .= qq(Please log in to the curator's interface to handle this submission.\n\n);
 		$message .= $self->get_text_summary( $submission_id, { messages => 1 } );
