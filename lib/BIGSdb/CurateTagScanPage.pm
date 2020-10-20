@@ -864,8 +864,8 @@ sub _show_results {
 		say q(<p>Sequences in tabular text or FASTA format can be used to facilitate rapid upload of )
 		  . q(new sequences to a sequence definition database for allele assignment.</p>);
 		say qq(<p><a href="/tmp/${scan_job}_unique_sequences.txt" title="Tab-delimited text format" )
-		  . qq(target="_blank">$text_file</a>);
-		say qq(<a href="/tmp/${scan_job}_unique_sequences.fasta" title="FASTA format" )
+		  . qq(target="_blank">$text_file</a>)
+		  . qq(<a href="/tmp/${scan_job}_unique_sequences.fasta" title="FASTA format" )
 		  . qq(target="_blank">$fasta_file</a>);
 		say q(</p>);
 	}
