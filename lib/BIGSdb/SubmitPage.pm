@@ -598,6 +598,9 @@ sub _get_allele_submissions_for_curation {
 		} else {
 			$return_buffer .= qq(<h2>New allele sequence submissions waiting for curation</h2>\n);
 			$return_buffer .= qq(<p>Your account is authorized to handle the following submissions:<p>\n);
+			my $allele_curate_message = "$self->{'dbase_config_dir'}/$self->{'instance'}/allele_curate.html";
+			$return_buffer .= $self->print_file( $allele_curate_message, { get_only => 1 } )
+			  if -e $allele_curate_message;
 		}
 		$return_buffer .= q(<table class="resultstable"><tr><th>Submission id</th><th>Submitted</th><th>Updated</th>)
 		  . q(<th>Submitter</th><th>Locus</th><th>Technology</th><th>Sequences</th>);
@@ -651,6 +654,9 @@ sub _get_profile_submissions_for_curation {
 		} else {
 			$return_buffer .= qq(<h2>New allelic profile submissions waiting for curation</h2>\n);
 			$return_buffer .= qq(<p>Your account is authorized to handle the following submissions:<p>\n);
+			my $profile_curate_message = "$self->{'dbase_config_dir'}/$self->{'instance'}/profile_curate.html";
+			$return_buffer .= $self->print_file( $profile_curate_message, { get_only => 1 } )
+			  if -e $profile_curate_message;
 		}
 		$return_buffer .= q(<table class="resultstable"><tr><th>Submission id</th><th>Submitted</th><th>Updated</th>)
 		  . q(<th>Submitter</th><th>Scheme</th><th>Profiles</th>);
@@ -694,6 +700,9 @@ sub _get_isolate_submissions_for_curation {
 		} else {
 			$return_buffer .= qq(<h2>New isolate submissions waiting for curation</h2>\n);
 			$return_buffer .= qq(<p>Your account is authorized to handle the following submissions:<p>\n);
+			my $isolate_curate_message = "$self->{'dbase_config_dir'}/$self->{'instance'}/isolate_curate.html";
+			$return_buffer .= $self->print_file( $isolate_curate_message, { get_only => 1 } )
+			  if -e $isolate_curate_message;
 		}
 		$return_buffer .= q(<table class="resultstable"><tr><th>Submission id</th><th>Submitted</th><th>Updated</th>)
 		  . q(<th>Submitter</th><th>Isolates</th>);
