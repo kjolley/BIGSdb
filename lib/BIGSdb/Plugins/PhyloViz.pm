@@ -64,7 +64,7 @@ sub get_attributes {
 		  . '<a href="https://online.phyloviz.net/">PhyloViz Online</a> for visualisation. Datasets can include '
 		  . 'metadata which allows nodes in the resultant tree to be coloured interactively.',
 		module              => 'PhyloViz',
-		version             => '1.2.5',
+		version             => '1.2.6',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -88,8 +88,7 @@ sub get_initiation_values {
 sub run {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
-	my $desc   = $self->get_db_description;
-	say qq(<h1>PhyloViz: phylogenetic tree vizualisation - $desc</h1>);
+	say q(<h1>PhyloViz: phylogenetic tree vizualisation</h1>);
 	my $isolate_ids = [];
 	if ( $q->param('submit') ) {
 		my @list = split /[\r\n]+/x, $q->param('list');

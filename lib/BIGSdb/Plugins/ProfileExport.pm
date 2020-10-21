@@ -59,8 +59,7 @@ sub run {
 	my ($self)    = @_;
 	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id');
-	my $desc      = $self->get_db_description;
-	say "<h1>Export allelic profiles - $desc</h1>";
+	say q(<h1>Export allelic profiles</h1>);
 	return if $self->has_set_changed;
 	return if defined $scheme_id && $self->is_scheme_invalid( $scheme_id, { with_pk => 1 } );
 	if ( !$q->param('submit') ) {

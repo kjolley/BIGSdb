@@ -55,7 +55,7 @@ sub get_attributes {
 		buttontext => 'Sequences',
 		menutext   => $seqdef ? 'Profile sequences' : 'Sequences',
 		module     => 'SequenceExport',
-		version    => '1.6.8',
+		version    => '1.6.9',
 		dbtype     => 'isolates,sequences',
 		seqdb_type => 'schemes',
 		section    => 'export,postquery',
@@ -86,10 +86,9 @@ sub run {
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
 	my $scheme_id  = $q->param('scheme_id');
-	my $desc       = $self->get_db_description;
 	my $max_seqs = $self->{'system'}->{'seq_export_limit'} // DEFAULT_SEQ_LIMIT;
 	my $commified_max = BIGSdb::Utils::commify($max_seqs);
-	say qq(<h1>Export allele sequences in XMFA/concatenated FASTA formats - $desc</h1>);
+	say q(<h1>Export allele sequences in XMFA/concatenated FASTA formats</h1>);
 	return if $self->has_set_changed;
 	my $allow_alignment = 1;
 

@@ -54,7 +54,7 @@ sub get_attributes {
 		menutext   => 'Gene presence',
 		module     => 'GenePresence',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/gene_presence.html",
-		version    => '2.0.11',
+		version    => '2.0.12',
 		dbtype     => 'isolates',
 		section    => 'analysis,postquery',
 		input      => 'query',
@@ -270,8 +270,7 @@ sub _print_pivot_controls {
 
 sub run {
 	my ($self) = @_;
-	my $desc = $self->get_db_description;
-	say qq(<h1>Gene Presence - $desc</h1>);
+	say q(<h1>Gene Presence</h1>);
 	my $q = $self->{'cgi'};
 	if ( $q->param('results') ) {
 		$self->_pivot_table;

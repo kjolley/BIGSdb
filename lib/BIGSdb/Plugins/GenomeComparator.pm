@@ -64,7 +64,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.6.4',
+		version     => '2.6.5',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -85,8 +85,7 @@ sub get_initiation_values {
 
 sub run {
 	my ($self) = @_;
-	my $desc = $self->get_db_description;
-	say qq(<h1>Genome Comparator - $desc</h1>);
+	say q(<h1>Genome Comparator</h1>);
 	my $q = $self->{'cgi'};
 	if ( $q->param('submit') ) {
 		my $ids = $self->filter_list_to_ids( [ $q->multi_param('isolate_id') ] );

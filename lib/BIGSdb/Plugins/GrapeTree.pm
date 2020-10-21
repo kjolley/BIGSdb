@@ -53,7 +53,7 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.4.1',
+		version             => '1.4.2',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -199,8 +199,7 @@ sub _print_parameters_fieldset {
 sub run {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
-	my $desc   = $self->get_db_description;
-	say qq(<h1>GrapeTree: Visualization of genomic relationships - $desc</h1>);
+	say q(<h1>GrapeTree: Visualization of genomic relationships</h1>);
 	my $isolate_ids = [];
 	if ( $q->param('submit') ) {
 		my $loci_selected = $self->get_selected_loci;
