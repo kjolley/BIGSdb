@@ -849,6 +849,9 @@ sub _is_field_bad_isolates {
 			return 'is a required field and cannot be left blank.';
 		}
 	}
+	if (($thisfield->{'required'} // q()) eq 'expected' && $value eq 'null'){
+		return;
+	}
 	my @insert_checks = qw(date_entered id_exists);
 	foreach my $insert_check (@insert_checks) {
 		next if !( ( $flag // q() ) eq 'insert' );
