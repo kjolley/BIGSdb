@@ -38,6 +38,7 @@ sub get_javascript {
  	   \$(".no_date_picker").css("display","inline");
     }
     \$("#aliases").on('keyup paste',alias_change); 
+    \$(".allow_null").on('change',allow_null_change);
 });
 function alias_change(){
 	console.log(\$("#aliases").val());
@@ -46,6 +47,10 @@ function alias_change(){
   	} else {
   		\$("span#alias_warning").html("");
   	}
+}
+function allow_null_change(){
+	var field = \$(this).attr('id').replace('allow_null_','');
+	\$("#field_" + field).prop("disabled",\$(this).prop('checked'));
 }
 END
 	$buffer .= $self->get_tree_javascript;
@@ -121,45 +126,9 @@ sub _check {
 	}
 	my $newdata = {};
 	my @bad_field_buffer;
-	my $set_id     = $self->get_set_id;
-	my $field_list = $self->{'xmlHandler'}->get_field_list;
-	foreach my $required ( 1, 0 ) {
-		foreach my $field (@$field_list) {
-			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-			my $required_field = !( ( $thisfield->{'required'} // '' ) eq 'no' );
-			next if $required_field != $required;
-			if ( $field eq 'curator' ) {
-				$newdata->{$field} = $self->get_curator_id;
-			} elsif ( $field eq 'datestamp' ) {
-				$newdata->{$field} = BIGSdb::Utils::get_datestamp();
-			} else {
-				if ( ( $thisfield->{'multiple'} // q() ) eq 'yes' ) {
-					if ( ( $thisfield->{'optlist'} // q() ) eq 'yes' ) {
-						$newdata->{$field} = scalar $q->multi_param($field) ? [ $q->multi_param($field) ] : q();
-					} else {
-						$newdata->{$field} = [ split /\r+\n/x, scalar $q->param($field) ];
-					}
-				} else {
-					$newdata->{$field} = $q->param($field);
-				}
-			}
-			my $bad_field =
-			  $self->{'submissionHandler'}->is_field_bad( 'isolates', $field, $newdata->{$field}, undef, $set_id );
-			if ($bad_field) {
-				push @bad_field_buffer, qq(Field '$field': $bad_field.);
-			}
-		}
-	}
-	my $eav_fields = $self->{'datastore'}->get_eav_fields;
-	foreach my $eav_field (@$eav_fields) {
-		my $field = $eav_field->{'field'};
-		$newdata->{$field} = $q->param($field);
-		my $bad_field =
-		  $self->{'submissionHandler'}->is_field_bad( 'isolates', $field, $newdata->{$field}, undef, $set_id );
-		if ($bad_field) {
-			push @bad_field_buffer, qq(Field '$field': $bad_field.);
-		}
-	}
+	my $bad_provenance_field_buffer = $self->check_provenance_fields( $newdata, { update => 1 } );
+	my $bad_eav_field_buffer = $self->check_eav_fields($newdata);
+	push @bad_field_buffer, @$bad_provenance_field_buffer, @$bad_eav_field_buffer;
 	if ( $self->alias_duplicates_name ) {
 		push @bad_field_buffer, 'Aliases: duplicate isolate name - aliases are ALTERNATIVE names for the isolate.';
 	}
@@ -215,6 +184,8 @@ sub _update {
 				local $" = q(; );
 				my $old = ref $data->{ lc($field) } ? qq(@{$data->{lc($field)}}) : $data->{ lc($field) } // q();
 				my $new = ref $newdata->{$field} ? qq(@{$newdata->{$field}}) : $newdata->{$field};
+				$old //= q();
+				$new //= q();
 				push @$updated_field, qq($field: '$old' -> '$new');
 			}
 		}
@@ -351,7 +322,7 @@ sub _prepare_multiple_value_update {
 	if ( ( $att->{'optlist'} // q() ) eq 'yes' ) {
 		@new_values = $q->multi_param($field);
 	} else {
-		@new_values = split /\r?\n/x, $q->param($field);
+		@new_values = split /\r?\n/x, $q->param($field)//q();
 	}
 	@new_values = uniq(@new_values);
 	foreach my $new_value (@new_values) {

@@ -99,13 +99,6 @@ sub print_content {
 			}
 		}
 	}
-	my $eav_fields = $self->{'datastore'}->get_eav_fields;
-	foreach my $eav_field (@$eav_fields) {
-		my $field = $eav_field->{'field'};
-		if ( $q->param($field) ) {
-			$newdata{$field} = $q->param($field);
-		}
-	}
 	if ( $q->param('sent') ) {
 		return if ( $self->_check( \%newdata ) // 0 ) == SUCCESS;
 	}
@@ -121,8 +114,8 @@ sub _check {
 	@$loci = uniq @$loci;
 	my @bad_field_buffer;
 	my $insert                      = 1;
-	my $bad_provenance_field_buffer = $self->_check_provenance_fields($newdata);
-	my $bad_eav_field_buffer        = $self->_check_eav_fields($newdata);
+	my $bad_provenance_field_buffer = $self->check_provenance_fields($newdata);
+	my $bad_eav_field_buffer        = $self->check_eav_fields($newdata);
 	push @bad_field_buffer, @$bad_provenance_field_buffer, @$bad_eav_field_buffer;
 
 	if ( $self->alias_duplicates_name ) {
@@ -185,8 +178,8 @@ sub _check {
 	return;
 }
 
-sub _check_provenance_fields {
-	my ( $self, $newdata ) = @_;
+sub check_provenance_fields {
+	my ( $self, $newdata, $options ) = @_;
 	my $q                = $self->{'cgi'};
 	my $set_id           = $self->get_set_id;
 	my $field_list       = $self->{'xmlHandler'}->get_field_list;
@@ -194,23 +187,30 @@ sub _check_provenance_fields {
 	my $bad_field_buffer = [];
 	foreach my $field (@$field_list) {
 		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+		my $value_expected = ( $thisfield->{'required'} // q() ) eq 'expected';
 		if ( $field eq 'curator' ) {
 			$newdata->{$field} = $self->get_curator_id;
-		} elsif ( $field eq 'sender' && $user_info->{'status'} eq 'submitter' ) {
+		} elsif ( $field eq 'sender' && $user_info->{'status'} eq 'submitter' && !$options->{'update'} ) {
 			$newdata->{$field} = $self->get_curator_id;
-		} elsif ( $field eq 'datestamp' || $field eq 'date_entered' ) {
+		} elsif ( ( $options->{'update'} && $field eq 'datestamp' )
+			|| ( !$options->{'update'} && ( $field eq 'datestamp' || $field eq 'date_entered' ) ) )
+		{
 			$newdata->{$field} = BIGSdb::Utils::get_datestamp();
 		} else {
 			if ( ( $thisfield->{'multiple'} // q() ) eq 'yes' ) {
 				if ( ( $thisfield->{'optlist'} // q() ) eq 'yes' ) {
 					$newdata->{$field} = scalar $q->multi_param($field) ? [ $q->multi_param($field) ] : q();
 				} else {
-					my @new_values = split /\r?\n/x, $q->param($field);
+					my @new_values = split /\r?\n/x, $q->param($field) // q();
 					@new_values = uniq(@new_values);
-					$newdata->{$field} = @new_values ? \@new_values : undef;
+					if (@new_values) {
+						$newdata->{$field} = \@new_values;
+					} else {
+						$newdata->{$field} = $value_expected ? 'null' : undef;
+					}
 				}
 			} else {
-				if ( ( $thisfield->{'required'} // q() ) eq 'expected' && $q->param($field) eq q() ) {
+				if ( $value_expected && ( $q->param($field) // q() ) eq q() ) {
 					$newdata->{$field} = 'null';
 				} else {
 					$newdata->{$field} = $q->param($field);
@@ -222,7 +222,7 @@ sub _check_provenance_fields {
 
 		#We may have set a value of 'null' for expected fields with no values in order to pass submission checks.
 		#It should now be set back to undefined for upload to the database.
-		if ( ($newdata->{$field}//q()) eq 'null' ) {
+		if ( ( $newdata->{$field} // q() ) eq 'null' ) {
 			undef $newdata->{$field};
 		}
 		if ($bad_field) {
@@ -232,13 +232,17 @@ sub _check_provenance_fields {
 	return $bad_field_buffer;
 }
 
-sub _check_eav_fields {
+sub check_eav_fields {
 	my ( $self, $newdata ) = @_;
+	my $q                = $self->{'cgi'};
 	my $set_id           = $self->get_set_id;
 	my $eav_fields       = $self->{'datastore'}->get_eav_fields;
 	my $bad_field_buffer = [];
 	foreach my $eav_field (@$eav_fields) {
 		my $field_name = $eav_field->{'field'};
+		if ( $q->param($field_name) ) {
+			$newdata->{$field_name} = $q->param($field_name);
+		}
 		my $bad_field =
 		  $self->{'submissionHandler'}
 		  ->is_field_bad( 'isolates', $field_name, $newdata->{$field_name}, undef, $set_id );
@@ -556,7 +560,14 @@ sub print_provenance_form_elements {
 						thisfield      => $thisfield
 					}
 				);
-				$html5_args->{'disabled'} = 1 if $q->param("allow_null_$field");
+				if (
+					( $thisfield->{'required'} // q() ) eq 'expected'
+					&& ( $q->param("allow_null_$field")
+						|| ( $options->{'update'} && !defined $newdata->{$field} && !defined $q->param($field) ) )
+				  )
+				{
+					$html5_args->{'disabled'} = 1;
+				}
 				$thisfield->{'length'} = $thisfield->{'length'} // ( $thisfield->{'type'} eq 'int' ? 15 : 50 );
 				( my $cleaned_name = $field ) =~ tr/_/ /;
 				my ( $label, $title ) = $self->get_truncated_label( $cleaned_name, 25 );
@@ -603,12 +614,15 @@ sub print_provenance_form_elements {
 					say $self->get_tooltip( $thisfield->{'comments'} );
 				}
 				if ( ( $thisfield->{'required'} // '' ) eq 'expected' ) {
-					say $q->checkbox(
+					my %args = (
 						-name  => "allow_null_$field",
 						-id    => "allow_null_$field",
 						-label => 'Value unknown',
 						-class => 'allow_null'
 					);
+					$args{'-checked'} = 'checked'
+					  if $options->{'update'} && ( $newdata->{$field} // q() ) eq q();
+					say $q->checkbox(%args);
 				}
 				my %special_date_field = map { $_ => 1 } qw(datestamp date_entered);
 				if ( !$special_date_field{$field} && lc( $thisfield->{'type'} ) eq 'date' ) {
