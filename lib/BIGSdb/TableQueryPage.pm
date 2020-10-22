@@ -532,12 +532,30 @@ sub _run_query {
 		elsif ( $table eq 'history' )         { $default_order = 'timestamp' }
 		elsif ( $table eq 'profile_history' ) { $default_order = 'timestamp' }
 		else                                  { $default_order = 'id' }
-		$qry2 .= $q->param('order') || $default_order;
+		my $order = $q->param('order') || $default_order;
+		$qry2 .= $order;
 		$qry2 =~ s/sequences.sequence_length/length(sequences.sequence)/gx if $table eq 'sequences';
 		my $dir = ( $q->param('direction') // '' ) eq 'descending' ? 'desc' : 'asc';
 		my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
 		local $" = ",$table.";
-		$qry2 .= " $dir,$table.@primary_keys;";
+		$qry2 .= " $dir";
+
+		foreach my $pk (@primary_keys) {
+			next if $pk eq $order;
+			if ( $pk eq 'allele_id' ) {
+
+				#allele_id field is a text field because some loci can have text identifers.
+				#sort by integers first, then alphabetically.
+				my $field = "${table}.allele_id";
+				$qry2 .=
+				    qq(,COALESCE(SUBSTRING($field FROM '^(\\d+)')::INTEGER, 99999999),)
+				  . qq(SUBSTRING($field FROM '^\\d* *(.*?)(\\d+)?\$'),)
+				  . qq(COALESCE(SUBSTRING($field FROM '(\\d+)\$')::INTEGER, 0),$field);
+			} else {
+				$qry2 .= ",${table}.$pk";
+			}
+		}
+		$qry2 .= ';';
 	} else {
 		$qry2 = $self->get_query_from_temp_file( scalar $q->param('query_file') );
 	}
