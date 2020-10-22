@@ -32,25 +32,10 @@ sub get_title {
 	return 'User projects';
 }
 
-sub _user_projects_enabled {
-	my ($self) = @_;
-	if (
-		(
-			( ( $self->{'system'}->{'public_login'} // q() ) ne 'no' )
-			|| $self->{'system'}->{'read_access'} ne 'public'
-		)
-		&& ( $self->{'system'}->{'user_projects'} // q() ) eq 'yes'
-	  )
-	{
-		return 1;
-	}
-	return;
-}
-
 sub print_content {
 	my ($self) = @_;
 	say q(<h1>User projects</h1>);
-	if ( !$self->_user_projects_enabled ) {
+	if ( !$self->show_user_projects ) {
 		$self->print_bad_status( { message => q(User projects are not enabled in this database.) } );
 		return;
 	}
