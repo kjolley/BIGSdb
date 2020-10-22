@@ -663,7 +663,8 @@ sub _add_new_project {
 		$self->{'db'}
 		  ->do( 'INSERT INTO project_users (project_id,user_id,admin,modify,curator,datestamp) VALUES (?,?,?,?,?,?)',
 			undef, $id, $user_info->{'id'}, 'true', 'true', $user_info->{'id'}, 'now' );
-		$logger->info("User $user_info->{'first_name'} $user_info->{'surname'} has created project '$short_desc'");
+		$logger->info( "$self->{'instance'}:User $user_info->{'first_name'} $user_info->{'surname'} "
+			  . "has created project '$short_desc'" );
 	};
 	if ($@) {
 		$logger->error($@);
