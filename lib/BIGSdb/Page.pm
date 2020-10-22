@@ -245,15 +245,15 @@ sub get_guid {
 
 sub show_user_projects {
 	my ($self) = @_;
-	if (
-		(
-			( ( $self->{'system'}->{'public_login'} // q() ) ne 'no' )
-			|| $self->{'system'}->{'read_access'} ne 'public'
-		)
-		&& ( $self->{'system'}->{'user_projects'} // q() ) eq 'yes'
-	  )
+	if ( ( ( $self->{'system'}->{'public_login'} // q() ) ne 'no' )
+		|| $self->{'system'}->{'read_access'} ne 'public' )
 	{
-		return 1;
+		if ( ( $self->{'system'}->{'user_projects'} // q() ) eq 'yes' ) {
+			return 1;
+		}
+		if ( $self->{'config'}->{'user_projects'} && ( $self->{'system'}->{'user_projects'} // q() ) ne 'no' ) {
+			return 1;
+		}
 	}
 	return;
 }
@@ -911,7 +911,8 @@ sub _print_login_details {
 			my $curate_config = $self->{'system'}->{'curate_config'} // $self->{'instance'};
 			if ( $curator{ $user_info->{'status'} } ) {
 				if ( $self->{'config'}->{'curate_script'} ) {
-					my $title = qq(Logged in: $user_info->{'first_name'} $user_info->{'surname'} ($self->{'username'}) )
+					my $title =
+					    qq(Logged in: $user_info->{'first_name'} $user_info->{'surname'} ($self->{'username'}) )
 					  . q( - Click to access curator interface);
 					$title =~ s/&lt;\s*script|script\s*&gt;//gx;
 					say q(<a id="curator_link" )
@@ -1233,8 +1234,11 @@ sub _get_provenance_fields {
 	my $extended   = $options->{'extended_attributes'} ? $self->get_extended_attributes : undef;
 	foreach my $field (@$fields) {
 
-		if (   ( $options->{'sender_attributes'} )
-			&& ( $field eq 'sender' || $field eq 'curator' || ( $attributes->{$field}->{'userfield'} // '' ) eq 'yes' )
+		if (
+			( $options->{'sender_attributes'} )
+			&& (   $field eq 'sender'
+				|| $field eq 'curator'
+				|| ( $attributes->{$field}->{'userfield'} // '' ) eq 'yes' )
 		  )
 		{
 			foreach my $user_attribute (qw (id surname first_name affiliation)) {
@@ -2446,7 +2450,8 @@ sub _initiate_seqdefdb_prefs {
 			$self->{'prefs'}->{'disable_schemes'}->{ $scheme->{'id'} } =
 			  $scheme_values->{ $scheme->{'id'} }->{'disable'} ? 1 : 0;
 		} else {
-			$self->{'prefs'}->{'disable_schemes'}->{ $scheme->{'id'} } = $scheme_info->{ $scheme->{'id'} }->{'disable'};
+			$self->{'prefs'}->{'disable_schemes'}->{ $scheme->{'id'} } =
+			  $scheme_info->{ $scheme->{'id'} }->{'disable'};
 		}
 	}
 	return;
@@ -2535,7 +2540,8 @@ sub _initiate_isolatedb_query_field_prefs {
 			$self->{'prefs'}->{'dropdownfields'}->{$field} = $field_prefs->{$field}->{'dropdown'};
 		} else {
 			$field_attributes->{$field}->{'dropdown'} ||= 'no';
-			$self->{'prefs'}->{'dropdownfields'}->{$field} = $field_attributes->{$field}->{'dropdown'} eq 'yes' ? 1 : 0;
+			$self->{'prefs'}->{'dropdownfields'}->{$field} =
+			  $field_attributes->{$field}->{'dropdown'} eq 'yes' ? 1 : 0;
 		}
 		my $extatt = $extended->{$field};
 		if ( ref $extatt eq 'ARRAY' ) {
@@ -2643,7 +2649,8 @@ sub _initiate_isolatedb_scheme_prefs {
 	foreach my $scheme_id (@$scheme_ids) {
 		foreach my $action (qw(isolate_display main_display query_field query_status analysis)) {
 			if ( defined $scheme_values->{$scheme_id}->{$action} ) {
-				$self->{'prefs'}->{"$action\_schemes"}->{$scheme_id} = $scheme_values->{$scheme_id}->{$action} ? 1 : 0;
+				$self->{'prefs'}->{"$action\_schemes"}->{$scheme_id} =
+				  $scheme_values->{$scheme_id}->{$action} ? 1 : 0;
 			} else {
 				$self->{'prefs'}->{"$action\_schemes"}->{$scheme_id} = $scheme_info->{$scheme_id}->{$action};
 			}
