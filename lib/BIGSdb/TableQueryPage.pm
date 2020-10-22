@@ -307,7 +307,7 @@ sub _print_interface {
 		loci                => sub { return $self->get_scheme_filter },
 		allele_designations => sub { return $self->get_scheme_filter },
 		schemes             => sub { return $self->get_scheme_filter },
-		sequences           => sub { return $self->_get_sequence_filter },
+		sequences           => sub { return $self->_get_sequence_filters },
 		sequence_bin        => sub { return $self->_get_sequence_bin_filter },
 		locus_descriptions  => sub { return $self->_get_locus_description_filter },
 		allele_sequences    => sub { return $self->_get_allele_sequences_filters }
@@ -335,13 +335,15 @@ sub _print_interface {
 	return;
 }
 
-sub _get_sequence_filter {
+sub _get_sequence_filters {
 	my ($self) = @_;
+	my $filters = [];
 	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
 		my @flag_values = ( 'any flag', 'no flag', ALLELE_FLAGS );
-		return $self->get_filter( 'allele_flag', \@flag_values );
+		push @$filters, $self->get_filter( 'allele_flag', \@flag_values );
 	}
-	return;
+	push @$filters, $self->get_scheme_filter;
+	return $filters;
 }
 
 sub _get_sequence_bin_filter {
@@ -563,7 +565,7 @@ sub _filter_query_by_scheme {
 	return if ( $q->param('scheme_id_list') // '' ) eq '';
 	return if !BIGSdb::Utils::is_int( scalar $q->param('scheme_id_list') );
 	my %allowed_tables =
-	  map { $_ => 1 } qw (loci scheme_fields schemes scheme_members client_dbase_schemes allele_designations);
+	  map { $_ => 1 } qw (loci scheme_fields schemes scheme_members client_dbase_schemes allele_designations sequences);
 	return if !$allowed_tables{$table};
 	my $sub_qry;
 
@@ -573,6 +575,7 @@ sub _filter_query_by_scheme {
 	my %set_id_and_field = (
 		loci                => sub { ( $identifier, $field ) = ( 'id',    'locus' ) },
 		allele_designations => sub { ( $identifier, $field ) = ( 'locus', 'locus' ) },
+		sequences           => sub { ( $identifier, $field ) = ( 'locus', 'locus' ) },
 		schemes             => sub { ( $identifier, $field ) = ( 'id',    'scheme_id' ) }
 	);
 	if ( $set_id_and_field{$table} ) {
