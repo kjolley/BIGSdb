@@ -983,6 +983,7 @@ sub _submit_isolates {
 			my $err = $ret->{'err'};
 			local $" = '<br />';
 			my $plural = @$err == 1 ? '' : 's';
+			s/'null'/<em>null<\/em>/gx foreach @$err;
 			$self->print_bad_status( { message => qq(Error$plural:), detail => qq(@$err) } );
 		} else {
 			$self->_presubmit_isolates(

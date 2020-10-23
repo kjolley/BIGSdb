@@ -762,7 +762,7 @@ sub _check_isolate_record {
 		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
 		$att->{'required'} = 'yes' if ( any { $field eq $_ } REQUIRED_GENOME_FIELDS ) && $options->{'genomes'};
 		$att->{'required'} = 'no' if $self->{'datastore'}->is_eav_field($field);
-		if (  !( ( $att->{'required'} // '' ) eq 'no' )
+		if (  !( ( $att->{'required'} // 'yes' ) ne 'yes' )
 			&& ( !defined $values->[ $positions->{$field} ] || $values->[ $positions->{$field} ] eq '' ) )
 		{
 			push @missing, $field;
@@ -841,15 +841,18 @@ sub _is_field_bad_isolates {
 	my $thisfield = $self->{'cache'}->{'field_attributes'}->{$fieldname};
 	$thisfield->{'type'} ||= 'text';
 	$thisfield->{'required'} = 'no' if $self->{'datastore'}->is_eav_field($fieldname);
+	$thisfield->{'required'} //= 'yes';
 	my %optional_fields = map { $_ => 1 } qw(aliases references assembly_filename sequence_method);
 	if ( $value eq '' ) {
-		if ( $optional_fields{$fieldname} || ( ( $thisfield->{'required'} // '' ) eq 'no' ) ) {
+		if ( $optional_fields{$fieldname} || (  $thisfield->{'required'}  eq 'no' ) ) {
 			return;
+		} elsif ($thisfield->{'required'} eq 'expected'){
+			return q(is an expected field and cannot be left blank. Enter 'null' if value is unknown.);
 		} else {
 			return 'is a required field and cannot be left blank.';
 		}
 	}
-	if (($thisfield->{'required'} // q()) eq 'expected' && $value eq 'null'){
+	if ($thisfield->{'required'} eq 'expected' && $value eq 'null'){
 		return;
 	}
 	my @insert_checks = qw(date_entered id_exists);

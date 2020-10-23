@@ -905,6 +905,7 @@ sub _report_check {
 		my $td = 1;
 		foreach my $id ( sort keys %$problems ) {
 			my $display_id = BIGSdb::Utils::escape_html($id);
+			$problems->{$id} =~ s/'null'/<em>null<\/em>/gx;
 			say qq(<tr class="td$td"><td>$display_id</td><td style="text-align:left">$problems->{$id}</td></tr>);
 			$td = $td == 1 ? 2 : 1;    #row stripes
 		}
@@ -2164,6 +2165,7 @@ sub _process_fields {
 		$value =~ s/\s+$//x;
 		$value =~ s/\r//gx;
 		$value =~ s/\n/ /gx;
+		$value =~ s/^null$//gx;
 		if ( $value eq q() ) {
 			push @return_data, undef;
 		} else {
