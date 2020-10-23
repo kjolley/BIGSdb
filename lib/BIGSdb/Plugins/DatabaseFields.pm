@@ -28,7 +28,7 @@ use constant HIDE_VALUES => 8;
 
 sub get_attributes {
 	my %att = (
-		name             => 'Database Fields',
+		name    => 'Database Fields',
 		authors => [
 			{
 				name        => 'Keith Jolley',
@@ -42,7 +42,7 @@ sub get_attributes {
 		  . 'the field is compulsory or optional and the maximum length of values is displayed.',
 		menutext => 'Description of database fields',
 		module   => 'DatabaseFields',
-		version  => '1.1.3',
+		version  => '1.1.4',
 		section  => 'miscellaneous',
 		order    => 10,
 		dbtype   => 'isolates',
@@ -103,12 +103,9 @@ sub _provenance_print_fields {
 		say q(<td>);
 		$self->_print_allowed_values($field);
 		say q(</td>);
-
-		if ( ( $thisfield->{'required'} // '' ) eq 'no' ) {
-			say q(<td>no</td>);
-		} else {
-			say q(<td>yes</td>);
-		}
+		my %required_allowed = map { $_ => 1 } qw(yes no expected);
+		my $required = $required_allowed{ $thisfield->{'required'} } ? $thisfield->{'required'} : 'yes';
+		say qq(<td>$required</td>);
 		my $length = $thisfield->{'length'} // q(-);
 		$length = q(-) if ( $thisfield->{'optlist'} // q() ) eq 'yes';
 		say qq(<td>$length</td>);
