@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -81,7 +81,7 @@ id	field	value
 </pre>
 </li>
 <li> The columns should be separated by tabs. Any other columns will be ignored.</li>
-<li> If you wish to blank a field, enter '&lt;blank&gt;' as the value.</li></ul>
+<li> If you wish to remove a field value, enter <em>&lt;blank&gt;</em> or <em>null</em> as the value.</li></ul>
 <p>Please enter the field(s) that you are selecting isolates on.  Values used must be unique within this field or 
 combination of fields, i.e. only one isolate has the value(s) used.  Usually the database id will be used.</p>
 HTML
@@ -465,7 +465,7 @@ sub _check_field {
 		  $self->{'submissionHandler'}->is_field_bad( 'isolates', $field->[$i], $value->[$i], 'update', $set_id );
 		undef $problem
 		  if ( $self->{'cache'}->{'attributes'}->{ $field->[$i] }->{'required'} // q() ) ne 'yes'
-		  && $value->[$i] eq '<blank>';
+		  && ( $value->[$i] eq '<blank>' || $value->[$i] eq 'null' );
 		if ($is_locus) {
 			my $locus_info = $self->{'datastore'}->get_locus_info( $field->[$i] );
 			if ( $locus_info->{'allele_id_format'} eq 'integer'
@@ -477,7 +477,9 @@ sub _check_field {
 		if ($problem) {
 			$action = qq(<span class="statusbad">no action - $problem</span>);
 		} else {
-			if ( $value->[$i] eq '<blank>' && $multivalue_fields{ $field->[$i] } && $q->param('multi_value') eq 'add' )
+			if (   ( $value->[$i] eq '<blank>' || $value->[$i] eq 'null' )
+				&& $multivalue_fields{ $field->[$i] }
+				&& $q->param('multi_value') eq 'add' )
 			{
 				$action =
 q(<span class="statusbad">no action - cannot add a null value (set to replace existing values instead)</span>);
@@ -526,7 +528,7 @@ sub _are_values_the_same {
 	}
 	my %old = map { $_ => 1 } @$old;
 	if ( ref $new ) {
-		return 1 if $new->[0] eq '<blank>' && !@$old;
+		return 1 if ( $new->[0] eq '<blank>' || $new->[0] eq 'null' ) && !@$old;
 		if ( $q->param('multi_value') eq 'add' ) {
 			foreach my $new_value (@$new) {
 				return 1 if $old{$new_value};
@@ -543,7 +545,7 @@ sub _are_values_the_same {
 			return 1;
 		}
 	} else {
-		return 1 if $new eq '<blank>' && !@$old;
+		return 1 if ( $new eq '<blank>' || $new eq 'null' ) && !@$old;
 		return 0 if !$old{$new};
 		return 1 if $new eq $old->[0] && @$old == 1;
 	}
