@@ -321,6 +321,7 @@ sub _check_oauth_credentials {
 		say q(</td></tr>);
 		$td = $td == 1 ? 2 : 1;
 	}
+	say q(</table>);
 	say q(</div>);
 	return;
 }
