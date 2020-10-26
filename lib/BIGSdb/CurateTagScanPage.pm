@@ -102,6 +102,7 @@ sub _get_refresh_time {
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (tooltips jQuery jQuery.jstree noCache);
+	$self->set_level1_breadcrumbs;
 	my $q = $self->{'cgi'};
 	if ( $q->param('submit') ) {
 		my $loci = $self->_get_selected_loci;
@@ -152,7 +153,6 @@ sub initiate {
 			}
 		}
 	}
-	$self->set_level1_breadcrumbs;
 	return;
 }
 
