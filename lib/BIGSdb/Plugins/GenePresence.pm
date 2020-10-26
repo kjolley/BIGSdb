@@ -54,7 +54,7 @@ sub get_attributes {
 		menutext   => 'Gene presence',
 		module     => 'GenePresence',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/gene_presence.html",
-		version    => '2.0.12',
+		version    => '2.0.13',
 		dbtype     => 'isolates',
 		section    => 'analysis,postquery',
 		input      => 'query',
@@ -206,7 +206,7 @@ sub _heatmap {
 	say q(<div id="waiting">);
 	$self->print_loading_message;
 	say q(</div>);
-	say q(<div id="wrapper" style="float:left;margin-top:2em">);
+	say q(<div id="wrapper" style="position:relative;margin:2em 0">);
 	say qq(<div id="heatmap" style="width:$size->{'width'}px;height:$size->{'height'}px"></div>);
 	say q(<div id="tooltip" style="position:absolute; left:0; top:0; background:rgba(0,0,0,.8); )
 	  . q(color:white; font-size:14px; padding:5px; line-height:18px; display:none"></div>);
@@ -632,8 +632,9 @@ var blur = $size->{'blur'};
 	        var wrapper = document.querySelector('#wrapper');
 			var tooltip = document.querySelector('#tooltip');
 			function updateTooltip(pageX, pageY, x, y, value) {
-				var x_offset = (x > (\$(window).width() / 2)) ? -150 : 50;
-				var transl = 'translate(' + (x + x_offset) + 'px, ' + (y + 125) + 'px)';
+				console.log("pageX:" + pageX + "; pageY:" + pageY + "; x:" + x + "; y:" + y);
+				var x_offset = (pageX > (\$(window).width() / 2)) ? -200 : 50;
+				var transl = 'translate(' + (x + x_offset) + 'px, ' + (y + 5) + 'px)';
 				tooltip.style.webkitTransform = transl;
 				tooltip.innerHTML = value;
 			}
@@ -644,7 +645,7 @@ var blur = $size->{'blur'};
 					var value = heatmap_data.tooltips[x][y];
 					if (typeof value != 'undefined'){				
 						tooltip.style.display = 'block';
-						updateTooltip(ev.pageX,ev.pageY,ev.layerX,ev.layerY,value);
+						updateTooltip(ev.pageX,ev.pageY,ev.layerX,ev.layerY,value);					
 					}
 				}
 			}
