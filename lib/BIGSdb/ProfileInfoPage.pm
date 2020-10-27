@@ -238,7 +238,7 @@ sub _print_classification_groups {
 		$buffer .=
 		    qq(<tr class="td$td"><td>$cscheme->{'name'}$tooltip</td><td>Single-linkage</td>)
 		  . qq(<td>$cscheme->{'inclusion_threshold'}</td><td>$cscheme->{'status'}</td>)
-		  . qq(<td>$cgroup</a></td>);
+		  . qq(<td>$cgroup</td>);
 
 		if ($fields_defined) {
 			$buffer .= q(<td>);
