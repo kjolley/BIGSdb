@@ -285,7 +285,7 @@ sub _print_classification_groups {
 		  . q(<h2>Similar profiles (determined by classification schemes)</h2>)
 		  . q(<p>Experimental schemes are subject to change and are not a stable part of the nomenclature.</p>)
 		  . q(<div class="scrollable">)
-		  . q(<div class="resultstable" style="float:left"><table class="resultstable"><tr>)
+		  . q(<div class="resultstable" style="float:left"><table class="resultstable" style="margin:0"><tr>)
 		  . q(<th>Classification scheme</th><th>Clustering method</th>)
 		  . q(<th>Mismatch threshold</th><th>Status</th><th>Group</th>);
 		say q(<th>Fields</th>) if $fields_defined;
