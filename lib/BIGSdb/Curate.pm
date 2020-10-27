@@ -117,7 +117,7 @@ sub print_page {
 		isolateAdd            => 'CurateIsolateAddPage',
 		isolateDelete         => 'CurateIsolateDeletePage',
 		isolateUpdate         => 'CurateIsolateUpdatePage',
-		locusInfo             => 'locusInfoPage',
+		locusInfo             => 'LocusInfoPage',
 		job                   => 'JobViewerPage',
 		linkToExperiment      => 'CurateLinkToExperimentPage',
 		listQuery             => 'ListQueryPage',
