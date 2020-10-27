@@ -297,7 +297,7 @@ sub _check_classification_scheme_databases {
 			my $classification_data = say q(</td></tr>);
 			$td = $td == 1 ? 2 : 1;
 		}
-		say q(</table></div></div>);
+		say q(</table></div>);
 	} else {
 		say q(<p>No schemes with databases defined.</p>);
 	}
