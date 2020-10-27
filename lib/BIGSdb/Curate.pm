@@ -63,6 +63,7 @@ use BIGSdb::CurateTagScanPage;
 use BIGSdb::CurateTagUpdatePage;
 use BIGSdb::CurateUpdatePage;
 use BIGSdb::IDList;
+use BIGSdb::LocusInfoPage;
 use BIGSdb::JobViewerPage;
 use BIGSdb::PluginSummaryPage;
 use BIGSdb::RefreshSchemeCachePage;
@@ -116,6 +117,7 @@ sub print_page {
 		isolateAdd            => 'CurateIsolateAddPage',
 		isolateDelete         => 'CurateIsolateDeletePage',
 		isolateUpdate         => 'CurateIsolateUpdatePage',
+		locusInfo             => 'locusInfoPage',
 		job                   => 'JobViewerPage',
 		linkToExperiment      => 'CurateLinkToExperimentPage',
 		listQuery             => 'ListQueryPage',
