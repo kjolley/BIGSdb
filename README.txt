@@ -1,3 +1,9 @@
+v1.29.1: *Isolate fields can be either required, optional and now 'expected'.
+          Expected fields require a submitter to explicitly state if there is
+          no value available by entering 'null'. For use when you want 
+          a submitter to always include a value for a field but it is not
+          always possible.
+         *Fix for tooltip positioning in GenePresence heatmap.
 v1.29.0: *New options for curators to modify how submission notifications are
           received - digest mode and ability to mark holiday absence.
 v1.28.1: *Update ITOL plugin to support API key needed due to the change in
