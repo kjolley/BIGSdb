@@ -2244,7 +2244,7 @@ sub create_temp_ref_table {
 	if ($qry_ref) {
 		my $isolate_qry = $$qry_ref;
 		$isolate_qry =~ s/\*/id/x;
-		$count_qry = "SELECT COUNT(*) FROM refs WHERE isolate_id IN ($isolate_qry) AND refs.pubmed_id=?";
+		$count_qry = "SELECT COUNT(*) FROM refs WHERE refs.pubmed_id=? AND isolate_id IN ($isolate_qry)";
 	} else {
 		$count_qry = 'SELECT COUNT(*) FROM refs WHERE refs.pubmed_id=?';
 	}

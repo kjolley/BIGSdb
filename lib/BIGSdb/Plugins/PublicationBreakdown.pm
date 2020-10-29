@@ -45,7 +45,7 @@ sub get_attributes {
 		buttontext => 'Publications',
 		menutext   => 'Publications',
 		module     => 'PublicationBreakdown',
-		version    => '1.1.10',
+		version    => '1.1.11',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_query/0090_linked_publications.html",
@@ -159,7 +159,7 @@ sub run {
 		#Make sure the following SQL ends with a ;
 		#Paging will break otherwise!
 		my $refquery          = "SELECT * FROM temp_refs$filter_string ORDER BY $order $dir;";
-		my @hidden_attributes = qw (name all_records author_list year_list list_file temp_table_file datatype);
+		my @hidden_attributes = qw (name all_records author_list year_list list_file temp_table_file datatype calling_page);
 		$self->paged_display(
 			{
 				table             => 'refs',

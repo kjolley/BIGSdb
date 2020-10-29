@@ -1278,6 +1278,7 @@ sub _print_plugin_buttons {
 	my %no_show = map { $_ => 1 } qw(customize tableQuery);
 	return if $no_show{ $q->param('page') };
 	my $seqdb_type = $q->param('page') eq 'alleleQuery' ? 'sequences' : 'schemes';
+	return if !$self->{'pluginManager'};
 	my $plugin_categories =
 	  $self->{'pluginManager'}
 	  ->get_plugin_categories( 'postquery', $self->{'system'}->{'dbtype'}, { seqdb_type => $seqdb_type } );
