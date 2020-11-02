@@ -307,6 +307,7 @@ sub _print_interface {
 		loci                => sub { return $self->get_scheme_filter },
 		allele_designations => sub { return $self->get_scheme_filter },
 		schemes             => sub { return $self->get_scheme_filter },
+		isolate_aliases     => sub { return $self->get_project_filter },
 		sequences           => sub { return $self->_get_sequence_filters },
 		sequence_bin        => sub { return $self->_get_sequence_bin_filter },
 		locus_descriptions  => sub { return $self->_get_locus_description_filter },
@@ -513,6 +514,7 @@ sub _run_query {
 		$self->_modify_loci_for_sets( $table, \$qry );
 		$self->_modify_schemes_for_sets( $table, \$qry );
 		$self->_filter_query_by_scheme( $table, \$qry );
+		$self->_filter_query_by_project( $table, \$qry );
 		$self->_filter_query_by_experiment( $table, \$qry );
 		$self->_filter_query_by_common_name( $table, \$qry );
 		$self->_filter_query_by_sequence_filters( $table, \$qry );
@@ -608,6 +610,22 @@ sub _filter_query_by_scheme {
 	} else {
 		$sub_qry = "$identifier IN (SELECT $field FROM scheme_members WHERE scheme_id = $scheme_id)";
 	}
+	if ($$qry_ref) {
+		$$qry_ref .= " AND ($sub_qry)";
+	} else {
+		$$qry_ref = "($sub_qry)";
+	}
+	return;
+}
+
+sub _filter_query_by_project {
+	my ( $self, $table, $qry_ref ) = @_;
+	my $q = $self->{'cgi'};
+	return if ( $q->param('project_list') // q() ) eq q();
+	return if $table ne 'isolate_aliases';
+	my $project_id = $q->param('project_list');
+	return if !BIGSdb::Utils::is_int($project_id);
+	my $sub_qry = "$table.isolate_id IN (SELECT isolate_id FROM project_members WHERE project_id=$project_id)";
 	if ($$qry_ref) {
 		$$qry_ref .= " AND ($sub_qry)";
 	} else {
