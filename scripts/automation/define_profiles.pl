@@ -2,7 +2,7 @@
 #Define scheme profiles found in isolate database.
 #Designed for uploading cgMLST profiles to the seqdef database.
 #Written by Keith Jolley
-#Copyright (c) 2016-2019, University of Oxford
+#Copyright (c) 2016-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20190830
+#Version: 20201104
 use strict;
 use warnings;
 use 5.010;
@@ -71,6 +71,7 @@ GetOptions(
 	'projects=s'           => \$opts{'p'},
 	'quiet'                => \$opts{'quiet'},
 	'scheme=i'             => \$opts{'scheme_id'},
+	'view=s'               => \$opts{'v'}
 ) or die("Error in command line arguments\n");
 if ( $opts{'help'} ) {
 	show_help();
@@ -451,7 +452,7 @@ sub filtered_out_by_view {
 
 sub get_lock_file {
 	my $hash      = Digest::MD5::md5_hex("$0||$opts{'database'}||$opts{'scheme_id'}");
-	my $lock_dir = $script->{'config'}->{'lock_dir'} // LOCK_DIR;
+	my $lock_dir  = $script->{'config'}->{'lock_dir'} // LOCK_DIR;
 	my $lock_file = "$lock_dir/BIGSdb_define_profiles_$hash";
 	return $lock_file;
 }
@@ -552,6 +553,9 @@ ${bold}--quiet$norm
  
 ${bold}--scheme$norm ${under}SCHEME_ID$norm
     Scheme id number.
+    
+${bold}--view$norm ${under}VIEW$norm
+    Limit isolates searched to specified view.
          
 HELP
 	return;
