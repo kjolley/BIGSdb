@@ -2104,19 +2104,20 @@ sub _print_account_requests_section {
 	say q(<p>Users will automatically be notified when you accept these requests.</p>);
 	say q(<div class="scrollable">);
 	say q(<table class="resultstable">);
-	say q(<tr><th>Accept</th><th>Reject</th><th>First name</th><th>Surname</th>)
-	  . q(<th>Affiliation</th><th>E-mail</th><th>Date requested</th></tr>);
+	say q(<tr><th>Reject</th><th>First name</th><th>Surname</th>)
+	  . q(<th>Affiliation</th><th>E-mail</th><th>Date requested</th><th>Accept</th></tr>);
 	my $td = 1;
 	my ( $good, $bad ) = ( GOOD, BAD );
 
 	foreach my $user (@user_details) {
-		say qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(import=$user->{'user_name'}&amp;user_db=$user->{'user_db'}">$good</a></td>)
+		say qq(<tr class="td$td">)
 		  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(reject=$user->{'user_name'}&amp;user_db=$user->{'user_db'}">$bad</a></td>)
 		  . qq(<td>$user->{'first_name'}</td><td>$user->{'surname'}</td>)
 		  . qq(<td>$user->{'affiliation'}</td><td><a href="mailto:$user->{'email'}">$user->{'email'}</a></td>)
-		  . qq(<td>$user->{'request_date'}</td></tr>);
+		  . qq(<td>$user->{'request_date'}</td>)
+		  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(import=$user->{'user_name'}&amp;user_db=$user->{'user_db'}">$good</a></td></tr>);
 		$td = $td == 1 ? 2 : 1;
 	}
 	say q(</table>);
