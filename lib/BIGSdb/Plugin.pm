@@ -1132,11 +1132,11 @@ sub get_breadcrumbs {
 			href => $self->{'system'}->{'webroot'}
 		  };
 	}
-	push @$breadcrumbs,
-	  (
+	push @$breadcrumbs, (
 		{
-			label => $self->{'system'}->{'description'},
-			href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}"
+			label => $self->{'system'}->{'formatted_description'}
+			  // $self->{'system'}->{'description'},
+			href => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}"
 		},
 		{
 			label => 'Plugins',
@@ -1145,7 +1145,7 @@ sub get_breadcrumbs {
 		{
 			label => $att->{'menutext'}
 		}
-	  );
+	);
 	return $breadcrumbs;
 }
 1;
