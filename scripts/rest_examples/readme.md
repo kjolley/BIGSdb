@@ -85,7 +85,7 @@ Available scripts
    sequence. First create the session:
    
    ```
-   ./rest_auth.py --method POST --route 'submissions' --arguments 'type=alleles&locus=glp&assembly=de novo&technology=Staden&software=Staden' --sequence_file sequences.fas
+   ./rest_auth.py --method POST --route 'submissions' --arguments 'type=alleles&locus=glp&assembly=de novo&technology=Sanger&software=Staden' --sequence_file sequences.fas
    ```
    
    Provided the submission is successful, a JSON response will include a URL 
