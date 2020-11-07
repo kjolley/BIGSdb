@@ -450,8 +450,14 @@ sub _parse_blast_partial {
 				$match->{'alignment'}  = $params->{'tblastx'} ? ( $record->[3] * 3 ) : $record->[3];
 				$match->{'reverse'}    = 1 if $self->_is_match_reversed($record);
 				$self->_identify_match_ends( $match, $record );
+				my $match_copy = {%$match};
 				$self->_predict_allele_ends( $length, $match, $record );
 				push @$locus_match, $match;
+
+				if ( $match->{'alignment'} > $length && $match->{'gaps'} > 0 ) {
+					$self->_predict_allele_ends( $length, $match_copy, $record, 1 );
+					push @$locus_match, $match_copy;
+				}
 			}
 		}
 		$partial_matches->{$locus} = $locus_match if @$locus_match;
@@ -568,7 +574,7 @@ sub _identify_match_ends {
 }
 
 sub _predict_allele_ends {
-	my ( $self, $length, $match, $record ) = @_;
+	my ( $self, $length, $match, $record, $check_gaps ) = @_;
 	if ( $length != $match->{'alignment'} ) {
 		if ( $match->{'reverse'} ) {
 			if ( $record->[8] < $record->[9] ) {
@@ -583,8 +589,8 @@ sub _predict_allele_ends {
 				$match->{'predicted_start'} = $match->{'start'} - $record->[9] + 1;
 			}
 		}
-		if ($match->{'alignment'} > $length && $match->{'gaps'} > 0){
-			$match->{'predicted_end'} = $match->{'predicted_start'} + $match->{'alignment'} - 1
+		if ($check_gaps) {
+			$match->{'predicted_end'} = $match->{'predicted_start'} + $match->{'alignment'} - 1;
 		} else {
 			$match->{'predicted_end'} = $match->{'predicted_start'} + $length - 1;
 		}
