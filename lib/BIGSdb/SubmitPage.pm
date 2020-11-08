@@ -2443,9 +2443,9 @@ sub _close_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Call
 		$self->{'db'}->commit;
 	}
 	$submission = $self->{'submissionHandler'}->get_submission($submission_id);
+	my $curator_info = $self->{'datastore'}->get_user_info($curator_id);
+	$self->{'submissionHandler'}->remove_submission_from_digest( $curator_id, $submission_id );
 	if ( $submission->{'email'} ) {
-		my $curator_info = $self->{'datastore'}->get_user_info($curator_id);
-		$self->{'submissionHandler'}->remove_submission_from_digest( $curator_id, $submission_id );
 		my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 		$self->{'submissionHandler'}->email(
 			$submission_id,
