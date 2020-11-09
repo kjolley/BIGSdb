@@ -345,7 +345,6 @@ sub _print_separate_scheme_data {
 	if ( BIGSdb::Utils::is_int( scalar $q->param('group_id') ) ) {
 		say q(<div class="box resultspanel large_scheme">);
 		say $self->_get_show_aliases_button('block');
-		
 		$self->_print_group_data( $isolate_id, scalar $q->param('group_id') );
 		say q(<div style="clear:both"></div>);
 		say q(</div>);
@@ -419,60 +418,47 @@ sub print_content {
 		return;
 	}
 	say qq(<h1>Full information on $identifier</h1>);
-	if ( $self->{'cgi'}->param('history') ) {
-		say q(<div class="box" id="resultstable">);
-		say q(<h2>Update history</h2>);
-		say $self->_get_update_history($isolate_id);
-		my $set_clause = $set_id ? qq(&amp;set_id=$set_id) : q();
-		$self->print_navigation_bar(
-			{
-				back_url => qq($self->{'system'}->{'script_name'}?page=info&amp;db=$self->{'instance'})
-				  . qq($set_clause&amp;id=$isolate_id)
-			}
-		);
-		say q(</div>);
-	} else {
-		$self->_print_action_panel($isolate_id) if $self->{'curate'};
-		$self->_print_projects($isolate_id);
-		say q(<div class="box" id="resultspanel">);
-		say $self->get_isolate_record($isolate_id);
-		my $tree_button =
-		    q( <span id="tree_button" style="margin-left:1em;display:none">)
-		  . q(<a id="show_tree" class="small_submit" style="cursor:pointer">)
-		  . q(<span id="show_tree_text" style="display:none"><span class="fa fas fa-eye"></span> Show</span>)
-		  . q(<span id="hide_tree_text" style="display:inline">)
-		  . q(<span class="fa fas fa-eye-slash"></span> Hide</span> tree</a></span>);
-		my $aliases_button = $self->_get_show_aliases_button;
-		my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
-		if ( @$loci && $self->_should_show_schemes($isolate_id) ) {
-			say $self->_get_classification_group_data($isolate_id);
-			say q(<div><span class="info_icon fas fa-2x fa-fw fa-table fa-pull-left" style="margin-top:0.3em"></span>);
-			say qq(<h2 style="display:inline-block">Schemes and loci</h2>$tree_button$aliases_button<div>);
-			if ( @$scheme_data < 3 && @$loci <= 100 ) {
-				my $schemes =
-				  $self->{'datastore'}
-				  ->run_query( 'SELECT id FROM schemes ORDER BY display_order,id', undef, { fetch => 'col_arrayref' } );
-				my $values_present;
-				foreach ( @$schemes, 0 ) {
-					next if $_ && !$self->{'prefs'}->{'isolate_display_schemes'}->{$_};
-					my $buffer = $self->_get_scheme( $_, $isolate_id, $self->{'curate'} );
-					if ($buffer) {
-						say $buffer;
-						say q(<div style="clear:both"></div>);
-						$values_present = 1;
-					}
+	$self->_print_action_panel($isolate_id) if $self->{'curate'};
+	$self->_print_projects($isolate_id);
+	say q(<div class="box" id="resultspanel">);
+	say $self->get_isolate_record($isolate_id);
+	my $tree_button =
+	    q( <span id="tree_button" style="margin-left:1em;display:none">)
+	  . q(<a id="show_tree" class="small_submit" style="cursor:pointer">)
+	  . q(<span id="show_tree_text" style="display:none"><span class="fa fas fa-eye"></span> Show</span>)
+	  . q(<span id="hide_tree_text" style="display:inline">)
+	  . q(<span class="fa fas fa-eye-slash"></span> Hide</span> tree</a></span>);
+	my $aliases_button = $self->_get_show_aliases_button;
+	my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
+
+	if ( @$loci && $self->_should_show_schemes($isolate_id) ) {
+		say $self->_get_classification_group_data($isolate_id);
+		say q(<div><span class="info_icon fas fa-2x fa-fw fa-table fa-pull-left" style="margin-top:0.3em"></span>);
+		say qq(<h2 style="display:inline-block">Schemes and loci</h2>$tree_button$aliases_button<div>);
+		if ( @$scheme_data < 3 && @$loci <= 100 ) {
+			my $schemes =
+			  $self->{'datastore'}
+			  ->run_query( 'SELECT id FROM schemes ORDER BY display_order,id', undef, { fetch => 'col_arrayref' } );
+			my $values_present;
+			foreach ( @$schemes, 0 ) {
+				next if $_ && !$self->{'prefs'}->{'isolate_display_schemes'}->{$_};
+				my $buffer = $self->_get_scheme( $_, $isolate_id, $self->{'curate'} );
+				if ($buffer) {
+					say $buffer;
+					say q(<div style="clear:both"></div>);
+					$values_present = 1;
 				}
-				if ( !$values_present ) {
-					say q(<p>No alleles designated.</p>);
-				}
-			} else {
-				say $self->_get_tree($isolate_id);
 			}
-			say q(</div></div>);
+			if ( !$values_present ) {
+				say q(<p>No alleles designated.</p>);
+			}
+		} else {
+			say $self->_get_tree($isolate_id);
 		}
-		$self->_print_plugin_buttons($isolate_id);
-		say q(</div>);
+		say q(</div></div>);
 	}
+	$self->_print_plugin_buttons($isolate_id);
+	say q(</div>);
 	return;
 }
 
@@ -785,31 +771,6 @@ sub _print_action_panel {
 	say q(</div></div>);
 	return;
 }
-
-sub _get_update_history {
-	my ( $self,    $isolate_id )  = @_;
-	my ( $history, $num_changes ) = $self->_get_history($isolate_id);
-	my $buffer = q();
-	if ($num_changes) {
-		$buffer .= qq(<table class="resultstable"><tr><th>Timestamp</th><th>Curator</th><th>Action</th></tr>\n);
-		my $td = 1;
-		foreach (@$history) {
-			my $curator_info = $self->{'datastore'}->get_user_info( $_->{'curator'} );
-			my $time         = $_->{'timestamp'};
-			$time =~ s/:\d\d\.\d+//x;
-			my $action = $_->{'action'};
-			$action =~ s/->/\&rarr;/gx;
-			$buffer .=
-			    qq(<tr class="td$td"><td style="vertical-align:top">$time</td>)
-			  . qq(<td style="vertical-align:top">$curator_info->{'first_name'} $curator_info->{'surname'}</td>)
-			  . qq(<td style="text-align:left">$action</td></tr>\n);
-			$td = $td == 1 ? 2 : 1;
-		}
-		$buffer .= qq(</table>\n);
-	}
-	return $buffer;
-}
-
 sub get_isolate_summary {
 	my ( $self, $id ) = @_;
 	return $self->get_isolate_record( $id, ISOLATE_SUMMARY );
@@ -1176,11 +1137,12 @@ sub _get_history_field {
 		$title .= q(more ...);
 	}
 	my $data       = qq(<a title="$title" class="update_tooltip">$num_changes update$plural</a>);
-	my $refer_page = $q->param('page');
 	my $set_id     = $self->get_set_id;
 	my $set_clause = $set_id ? qq(&amp;set_id=$set_id) : q();
-	$data .= qq( <a href="$self->{'system'}->{'script_name'}?page=info&amp;db=$self->{'instance'}&amp;)
-	  . qq(id=$isolate_id&amp;history=1&amp;refer=$refer_page$set_clause">show details</a>\n);
+	$data .=
+	    qq( <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . qq(page=tableQuery&amp;table=history&amp;s1=isolate_id&amp;t1=$isolate_id$set_clause&amp;)
+	  . qq(order=timestamp&amp;direction=descending">show details</a>\n);
 	return { title => 'update history', data => $data };
 }
 
