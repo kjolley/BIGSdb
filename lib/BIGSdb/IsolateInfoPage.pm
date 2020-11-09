@@ -89,9 +89,15 @@ sub get_javascript {
 		if (\$("span#show_aliases_text").css('display') == 'none'){
 			\$("span#show_aliases_text").css('display', 'inline');
 			\$("span#hide_aliases_text").css('display', 'none');
+			if (\$(window).width() >= 600){			
+				\$(".data dt").css({"float":"left","clear":"left","width":"12em","text-align":"right"});
+				\$(".data dd").css({"margin":"0 0 0 13em"});
+			}
 		} else {
 			\$("span#show_aliases_text").css('display', 'none');
 			\$("span#hide_aliases_text").css('display', 'inline');
+			\$(".data dt").css({"float":"none","clear":"both","width":"initial","text-align":"initial"});
+			\$(".data dd").css({"margin":"initial"});			
 		}
 		\$( "span.aliases" ).toggle();
 		return false;
@@ -133,7 +139,7 @@ END
 }
 
 sub _get_child_group_scheme_tables {
-	my ( $self, $group_id, $isolate_id, $level ) = @_;
+	my ( $self, $group_id, $isolate_id, $level,$options ) = @_;
 	$self->{'level'}     //= 1;
 	$self->{'open_divs'} //= 0;
 	my $child_groups = $self->{'datastore'}->run_query(
@@ -153,7 +159,8 @@ sub _get_child_group_scheme_tables {
 				$self->{'open_divs'}--;
 			}
 		}
-		$parent_buffer .= qq(<div style="float:left;padding-right:0.5em">\n)
+		my $style = $options->{'no_render'} ? q() : q( style="float:left;padding-right:0.5em");
+		$parent_buffer .= qq(<div$style>\n)
 		  . qq(<h3 class="group group$parent_level">$parent_group_info->{'name'}</h3>\n);
 		$self->{'open_divs'}++;
 	}
@@ -168,8 +175,8 @@ sub _get_child_group_scheme_tables {
 					$group_buffer .= qq(</div>\n);
 					$self->{'open_divs'}--;
 				}
-				my $buffer = $self->_get_child_group_scheme_tables( $child_group, $isolate_id, ++$new_level );
-				$buffer .= $self->_get_group_scheme_tables( $child_group, $isolate_id );
+				my $buffer = $self->_get_child_group_scheme_tables( $child_group, $isolate_id, ++$new_level,$options );
+				$buffer .= $self->_get_group_scheme_tables( $child_group, $isolate_id,$options );
 				$self->{'level'} = $level;
 				$group_buffer .= $parent_buffer if $parent_buffer;
 				undef $parent_buffer;
@@ -179,7 +186,7 @@ sub _get_child_group_scheme_tables {
 			}
 		}
 	} else {
-		my $buffer = $self->_get_group_scheme_tables( $group_id, $isolate_id );
+		my $buffer = $self->_get_group_scheme_tables( $group_id, $isolate_id,$options );
 		$group_buffer .= $parent_buffer if $parent_buffer;
 		$group_buffer .= $buffer;
 	}
@@ -187,7 +194,7 @@ sub _get_child_group_scheme_tables {
 }
 
 sub _get_group_scheme_tables {
-	my ( $self, $group_id, $isolate_id ) = @_;
+	my ( $self, $group_id, $isolate_id,$options ) = @_;
 	my $set_id = $self->get_set_id;
 	my $scheme_data = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($scheme_data);
@@ -203,7 +210,7 @@ sub _get_group_scheme_tables {
 			next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$scheme_id};
 			next if none { $scheme_id eq $_ } @$scheme_ids_ref;
 			if ( !$self->{'scheme_shown'}->{$scheme_id} ) {
-				$buffer .= $self->_get_scheme( $scheme_id, $isolate_id, $self->{'curate'} );
+				$buffer .= $self->_get_scheme( $scheme_id, $isolate_id, $self->{'curate'},$options );
 				$self->{'scheme_shown'}->{$scheme_id} = 1;
 			}
 		}
@@ -239,27 +246,27 @@ sub _handle_scheme_ajax {
 }
 
 sub _print_group_data {
-	my ( $self, $isolate_id, $group_id ) = @_;
+	my ( $self, $isolate_id, $group_id, $options ) = @_;
 	$self->{'groups_with_data'} =
 	  $self->get_tree( $isolate_id, { isolate_display => $self->{'curate'} ? 0 : 1, get_groups => 1 } );
 	if ( $group_id == 0 ) {    #Other schemes (not part of a scheme group)
-		$self->_print_other_schemes($isolate_id);
+		$self->_print_other_schemes($isolate_id,$options);
 	} else {                   #Scheme group
-		say $self->_get_child_group_scheme_tables( $group_id, $isolate_id, 1 );
-		say $self->_get_group_scheme_tables( $group_id, $isolate_id );
+		say $self->_get_child_group_scheme_tables( $group_id, $isolate_id, 1,$options );
+		say $self->_get_group_scheme_tables( $group_id, $isolate_id,$options );
 		$self->_close_divs;
 	}
 	return;
 }
 
 sub _print_scheme_data {
-	my ( $self, $isolate_id, $scheme_id ) = @_;
+	my ( $self, $isolate_id, $scheme_id, $options ) = @_;
 	if ( $scheme_id == -1 ) {    #All schemes/loci
 		$self->{'groups_with_data'} =
 		  $self->get_tree( $isolate_id, { isolate_display => $self->{'curate'} ? 0 : 1, get_groups => 1 } );
-		$self->_print_all_loci($isolate_id);
+		$self->_print_all_loci($isolate_id,$options);
 	} else {
-		say $self->_get_scheme( $scheme_id, $isolate_id, $self->{'curate'} );
+		say $self->_get_scheme( $scheme_id, $isolate_id, $self->{'curate'}, $options );
 	}
 	return;
 }
@@ -345,13 +352,13 @@ sub _print_separate_scheme_data {
 	if ( BIGSdb::Utils::is_int( scalar $q->param('group_id') ) ) {
 		say q(<div class="box resultspanel large_scheme">);
 		say $self->_get_show_aliases_button('block');
-		$self->_print_group_data( $isolate_id, scalar $q->param('group_id') );
+		$self->_print_group_data( $isolate_id, scalar $q->param('group_id'),{no_render=>1} );
 		say q(<div style="clear:both"></div>);
 		say q(</div>);
 	} elsif ( BIGSdb::Utils::is_int( scalar $q->param('scheme_id') ) ) {
 		say q(<div class="box resultspanel large_scheme">);
 		say $self->_get_show_aliases_button('block');
-		$self->_print_scheme_data( $isolate_id, scalar $q->param('scheme_id') );
+		$self->_print_scheme_data( $isolate_id, scalar $q->param('scheme_id') ,{no_render=>1});
 		say q(<div style="clear:both"></div>);
 		say q(</div>);
 	} else {
@@ -670,7 +677,7 @@ sub get_classification_group_fields {
 }
 
 sub _print_other_schemes {
-	my ( $self, $isolate_id ) = @_;
+	my ( $self, $isolate_id ,$options) = @_;
 	my $scheme_ids = $self->{'datastore'}->run_query(
 		'SELECT id FROM schemes WHERE id NOT IN (SELECT scheme_id FROM '
 		  . 'scheme_group_scheme_members) ORDER BY display_order,description',
@@ -680,13 +687,13 @@ sub _print_other_schemes {
 	foreach my $scheme_id (@$scheme_ids) {
 		next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$scheme_id};
 		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
-		say $self->_get_scheme( $scheme_id, $isolate_id, $self->{'curate'} );
+		say $self->_get_scheme( $scheme_id, $isolate_id, $self->{'curate'} ,$options);
 	}
 	return;
 }
 
 sub _print_all_loci {
-	my ( $self, $isolate_id ) = @_;
+	my ( $self, $isolate_id,$options ) = @_;
 	my $groups_with_no_parents = $self->{'datastore'}->run_query(
 		'SELECT id FROM scheme_groups WHERE id NOT IN (SELECT group_id '
 		  . 'FROM scheme_group_group_members) ORDER BY display_order,name',
@@ -695,13 +702,14 @@ sub _print_all_loci {
 	);
 	if ( keys %{ $self->{'groups_with_data'} } ) {
 		foreach my $group_id (@$groups_with_no_parents) {
-			say $self->_get_child_group_scheme_tables( $group_id, $isolate_id, 1 );
-			say $self->_get_group_scheme_tables( $group_id, $isolate_id );
+			say $self->_get_child_group_scheme_tables( $group_id, $isolate_id, 1,$options );
+			say $self->_get_group_scheme_tables( $group_id, $isolate_id,$options );
 			$self->_close_divs;
 		}
 		if ( $self->{'groups_with_data'}->{0} ) {    #Schemes not in groups
-			say q(<div style="float:left;padding-right:0.5em"><h3 class="group group0">Other schemes</h3>);
-			$self->_print_other_schemes($isolate_id);
+			my $style=$options->{'no_render'} ? q() : q( style="float:left;padding-right:0.5em");
+			say qq(<div$style><h3 class="group group0">Other schemes</h3>);
+			$self->_print_other_schemes($isolate_id,$options);
 			say q(</div>);
 		}
 	} else {
@@ -713,9 +721,11 @@ sub _print_all_loci {
 			say $self->_get_scheme( $_, $isolate_id, $self->{'curate'} );
 		}
 	}
-	my $no_scheme_data = $self->_get_scheme( 0, $isolate_id, $self->{'curate'} );
+	my $no_scheme_data = $self->_get_scheme( 0, $isolate_id, $self->{'curate'},$options );
 	if ($no_scheme_data) {    #Loci not in schemes
-		say q(<div style="float:left;padding-right:0.5em"><h3 class="group group0">&nbsp;</h3>);
+		my $style = $options->{'no_render'} ? q() : q( style="float:left;padding-right:0.5em");
+		say qq(<div$style>);
+		say q(<h3 class="group group0">&nbsp;</h3>);
 		say $no_scheme_data;
 		say q(</div>);
 	}
@@ -1262,7 +1272,7 @@ sub _get_scheme_field_values {
 }
 
 sub _get_scheme {
-	my ( $self, $scheme_id, $isolate_id, $summary_view ) = @_;
+	my ( $self, $scheme_id, $isolate_id, $summary_view, $options ) = @_;
 	my $q = $self->{'cgi'};
 	my ( $locus_display_count, $scheme_fields_count ) = ( 0, 0 );
 	my ( $loci, $scheme_fields, $scheme_info );
@@ -1291,20 +1301,23 @@ sub _get_scheme {
 		}
 	}
 	return q() if !( $locus_display_count + $scheme_fields_count );
-	$buffer .= qq(<div style="float:left;padding-right:0.5em">\n);
-	$buffer .= qq(<h3 class="scheme"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	my $style = $options->{'no_render'} ? q(): q(  style="float:left;padding-right:0.5em");
+	$buffer .= qq(<div$style>\n);
+	my $class = $options->{'no_render'} ? q() : q( class="scheme");
+	$buffer .= qq(<h3$class><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . qq(page=schemeInfo&amp;scheme_id=$scheme_id">$scheme_info->{'name'}</a></h3>\n);
-	my @args = (
+	my $args = 
 		{
 			loci                => $loci,
 			summary_view        => $summary_view,
 			scheme_id           => $scheme_id,
 			scheme_fields_count => $scheme_fields_count,
-			isolate_id          => $isolate_id
+			isolate_id          => $isolate_id,
+			no_render => $options->{'no_render'} ? 1 :0
 		}
-	);
+	;
 	$buffer .= $self->get_scheme_flags( $scheme_id, { link => 1 } );
-	$buffer .= $self->_get_scheme_values(@args);
+	$buffer .= $self->_get_scheme_values($args);
 	$buffer .= qq(</div>\n);
 	return $buffer;
 }
@@ -1320,17 +1333,21 @@ sub _get_scheme_values {
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	local $| = 1;
 	my $buffer;
+	$buffer.=q(<dl class="data">) if $args->{'no_render'};
 	foreach my $locus (@$loci) {
 		my $designations = $allele_designations->{$locus};
 		next if $self->{'prefs'}->{'isolate_display_loci'}->{$locus} eq 'hide';
+		
 		$buffer .= $self->_get_locus_value(
 			{
 				isolate_id   => $isolate_id,
 				locus        => $locus,
 				designations => $designations,
-				summary_view => $summary_view
+				summary_view => $summary_view,
+				no_render => $args->{'no_render'} ? 1:0
 			}
 		);
+		
 	}
 	my $field_values =
 	  $scheme_fields_count ? $self->_get_scheme_field_values( $scheme_id, $allele_designations ) : undef;
@@ -1342,42 +1359,51 @@ sub _get_scheme_values {
 			$cleaned .=
 			  $self->get_tooltip( qq($field - $scheme_field_info->{'description'}), { style => 'color:white' } );
 		}
-		$buffer .= qq(<dl class="profile"><dt>$cleaned</dt><dd>);
 		local $" = ', ';
-		$buffer .= qq(@{$field_values->{$field}}) // q(-);
-		$buffer .= q(</dd></dl>);
+		my $values = qq(@{$field_values->{$field}}) // q(-);
+		if ($args->{'no_render'}){
+			$buffer .= qq(<dt>$cleaned</dt><dd>$values</dd>);
+		} else {
+		$buffer .= qq(<dl class="profile"><dt>$cleaned</dt><dd>$values</dd></dl>);
+
+		}
 	}
+	$buffer.=q(</dl>) if $args->{'no_render'};
 	return $buffer;
 }
 
 sub _get_locus_value {
 	my ( $self, $args ) = @_;
-	my ( $isolate_id, $locus, $designations, $summary_view ) =
-	  @{$args}{qw(isolate_id locus designations summary_view)};
+	my ( $isolate_id, $locus, $designations, $summary_view, $no_render ) =
+	  @{$args}{qw(isolate_id locus designations summary_view no_render)};
 	my $cleaned    = $self->clean_locus($locus);
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	if ( $locus_info->{'description_url'} ) {
 		$locus_info->{'description_url'} =~ s/\&/\&amp;/gx;
 		$cleaned = qq(<a href="$locus_info->{'description_url'}">$cleaned</a>);
 	}
-	my $buffer        = qq(<dl class="profile"><dt>$cleaned);
 	my $locus_aliases = $self->{'datastore'}->get_locus_aliases($locus);
 	local $" = ';&nbsp;';
 	my $alias_display = $self->{'prefs'}->{'locus_alias'} ? 'inline' : 'none';
-	$buffer .= qq(&nbsp;<span class="aliases" style="display:$alias_display">(@$locus_aliases)</span>)
+	my $display_title = $cleaned;
+#	my $buffer        = qq(<dl class="profile"><dt>$cleaned);
+	$display_title .= qq(&nbsp;<span class="aliases" style="display:$alias_display">(@$locus_aliases)</span>)
 	  if @$locus_aliases;
-	$buffer .= q(</dt><dd>);
+#	$buffer .= qq(&nbsp;<span class="aliases" style="display:$alias_display">(@$locus_aliases)</span>)
+#	  if @$locus_aliases;
+#	$buffer .= q(</dt><dd>);
+	my $display_value = q();
 	my $first = 1;
 
 	foreach my $designation (@$designations) {
-		$buffer .= q(, ) if !$first;
+		$display_value .= q(, ) if !$first;
 		my $status;
 		if ( $designation->{'status'} eq 'provisional' ) {
 			$status = 'provisional';
 		} elsif ( $designation->{'status'} eq 'ignore' ) {
 			$status = 'ignore';
 		}
-		$buffer .= qq(<span class="$status">) if $status;
+		$display_value .= qq(<span class="$status">) if $status;
 		my $url = '';
 		my @anchor_att;
 		my $update_tooltip = '';
@@ -1393,24 +1419,28 @@ sub _get_locus_value {
 		}
 		if (@anchor_att) {
 			local $" = q( );
-			$buffer .= qq(<a @anchor_att>$designation->{'allele_id'}</a>);
+			$display_value .= qq(<a @anchor_att>$designation->{'allele_id'}</a>);
 		} else {
-			$buffer .= $designation->{'allele_id'};
+			$display_value .= $designation->{'allele_id'};
 		}
-		$buffer .= q(</span>) if $status;
+		$display_value .= q(</span>) if $status;
 		$first = 0;
 	}
-	$buffer .=
+	$display_value .=
 	  $self->get_seq_detail_tooltips( $isolate_id, $locus,
 		{ get_all => 1, allele_flags => $self->{'prefs'}->{'allele_flags'} } )
 	  if $self->{'prefs'}->{'sequence_details'};
 	my $action = @$designations ? EDIT : ADD;
-	$buffer .=
+	$display_value .=
 	    qq( <a href="$self->{'system'}->{'script_name'}?page=alleleUpdate&amp;db=$self->{'instance'}&amp;)
 	  . qq(isolate_id=$isolate_id&amp;locus=$locus" class="action">$action</a>)
 	  if $self->{'curate'};
-	$buffer .= q(&nbsp;) if !@$designations;
-	$buffer .= q(</dd>);
+	$display_value .= q(&nbsp;) if !@$designations;
+	my $buffer = $no_render?
+	qq(<dt>$display_title</dt><dd>$display_value</dd>):
+	qq(<dl class="profile"><dt>$display_title</dt><dd>$display_value</dd></dl>);
+#	$buffer .= q(</dd>);
+
 
 	#Display sequence if locus option set and we're not in a summary view
 	if ( $self->{'prefs'}->{'isolate_display_loci'}->{$locus} eq 'sequence' && @$designations && !$summary_view ) {
@@ -1436,10 +1466,10 @@ sub _get_locus_value {
 					$sequence = $_;
 				}
 			};
-			$buffer .= qq(<dd class="seq" style="text-align:left">$seq_name$sequence</dd>\n) if defined $sequence;
+#			$buffer .= qq(<dd class="seq" style="text-align:left">$seq_name$sequence</dd>\n) if defined $sequence;
 		}
 	}
-	$buffer .= q(</dl>);
+#	$buffer .= q(</dl>);
 	return $buffer;
 }
 
