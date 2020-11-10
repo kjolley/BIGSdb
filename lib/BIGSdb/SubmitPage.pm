@@ -2075,17 +2075,46 @@ sub _print_message_fieldset {
 	my $qry = q(SELECT date_trunc('second',timestamp) AS timestamp,user_id,message FROM messages )
 	  . q(WHERE submission_id=? ORDER BY timestamp asc);
 	my $messages = $self->{'datastore'}->run_query( $qry, $submission_id, { fetch => 'all_arrayref', slice => {} } );
+	my $can_delete_last_message = $self->_can_delete_last_message($submission_id);
 	if (@$messages) {
-		$buffer .= q(<table class="resultstable"><tr><th>Timestamp</th><th>User</th><th>Message</th></tr>);
-		my $td = 1;
-		foreach my $message (@$messages) {
-			my $user_string = $self->{'datastore'}->get_user_string( $message->{'user_id'} );
-			( my $message_text = $message->{'message'} ) =~ s/\r?\n/<br \/>/gx;
-			$buffer .= qq(<tr class="td$td"><td>$message->{'timestamp'}</td><td>$user_string</td>)
-			  . qq(<td style="text-align:left">$message_text</td></tr>);
-			$td = $td == 1 ? 2 : 1;
+	  EXIT_IF: {
+			if ( $can_delete_last_message && $q->param('delete_message') ) {
+				my $last_message = $messages->[-1];
+				$self->_delete_message(
+					$submission_id,
+					substr( $last_message->{'timestamp'}, 0, 19 ),
+					$last_message->{'user_id'}
+				);
+				$messages =
+				  $self->{'datastore'}->run_query( $qry, $submission_id, { fetch => 'all_arrayref', slice => {} } );
+				last EXIT_IF if !@$messages;
+				$can_delete_last_message = $self->_can_delete_last_message($submission_id);
+			}
+			$buffer .= q(<table class="resultstable"><tr>);
+			$buffer .= q(<th>Delete</th>) if $can_delete_last_message;
+			$buffer .= q(<th>Timestamp</th><th>User</th><th>Message</th></tr>);
+			my $td     = 1;
+			my $delete = DELETE;
+			my $count  = 0;
+			foreach my $message (@$messages) {
+				$count++;
+				my $user_string = $self->{'datastore'}->get_user_string( $message->{'user_id'} );
+				( my $message_text = $message->{'message'} ) =~ s/\r?\n/<br \/>/gx;
+				$buffer .= qq(<tr class="td$td">);
+				if ($can_delete_last_message) {
+					my $view = $q->param('curate') ? 'curate' : 'view';
+					$buffer .=
+					  $count == @$messages
+					  ? qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+					  . qq(page=submit&amp;submission_id=$submission_id&amp;delete_message=1&amp;$view=1">$delete</a></td>)
+					  : q(<td></td>);
+				}
+				$buffer .= qq(<td>$message->{'timestamp'}</td><td>$user_string</td>)
+				  . qq(<td style="text-align:left">$message_text</td></tr>);
+				$td = $td == 1 ? 2 : 1;
+			}
+			$buffer .= q(</table>);
 		}
-		$buffer .= q(</table>);
 	}
 	if ( !$options->{'no_add'} ) {
 		$buffer .= $q->start_form;
@@ -2108,6 +2137,38 @@ sub _print_message_fieldset {
 		$buffer .= $q->end_form;
 	}
 	say qq(<fieldset style="float:left"><legend>Messages</legend>$buffer</fieldset>) if $buffer;
+	return;
+}
+
+sub _can_delete_last_message {
+	my ( $self, $submission_id ) = @_;
+	my $qry =
+	  q(SELECT timestamp,user_id,message FROM messages WHERE submission_id=? ORDER BY timestamp asc);
+	my $messages = $self->{'datastore'}->run_query( $qry, $submission_id, { fetch => 'all_arrayref', slice => {} } );
+	my $last_message = $messages->[-1];
+	my $datestamp    = BIGSdb::Utils::get_datestamp();
+	my $user         = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $can_delete_last_message =
+	     $last_message
+	  && $last_message->{'user_id'} == $user->{'id'}
+	  && substr( $last_message->{'timestamp'}, 0, 10 ) eq $datestamp ? 1 : 0;
+	return $can_delete_last_message;
+}
+
+sub _delete_message {
+	my ( $self, $submission_id, $timestamp, $user_id ) = @_;
+	eval {
+		$self->{'db'}->do(
+'DELETE FROM messages WHERE (submission_id,substring(CAST(timestamp AS text) from 1 for 19),user_id)=(?,?,?)',
+			undef, $submission_id, $timestamp, $user_id
+		);
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
 	return;
 }
 
