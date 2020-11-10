@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20190621
+#Version: 20201110
 use strict;
 use warnings;
 use 5.010;
@@ -180,6 +180,7 @@ sub close_submission {
 		die "$@\n";
 	}
 	$script->{'db'}->commit;
+	$script->{'submissionHandler'}->remove_submission_from_digest( DEFINER_USER, $submission_id );
 	if ( $submission->{'email'} ) {
 		my $desc = $script->{'system'}->{'description'} || 'BIGSdb';
 		$script->{'submissionHandler'}->email(
