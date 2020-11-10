@@ -2524,9 +2524,9 @@ sub _initiate_isolatedb_general_prefs {
 	}
 
 	#Locus aliases - default off
-	my $default_locus_aliases = ( $self->{'system'}->{'locus_aliases'} // '' ) eq 'yes' ? 1 : 0;
-	$general_prefs->{'locus_alias'} //= 'off';
-	$self->{'prefs'}->{'locus_alias'} = $general_prefs->{'locus_alias'} eq 'on' ? 1 : $default_locus_aliases;
+	my $default_locus_aliases = ( $self->{'system'}->{'locus_aliases'} // '' ) eq 'yes' ? 'on' : 'off';
+	$general_prefs->{'locus_alias'} //= $default_locus_aliases //'off';
+	$self->{'prefs'}->{'locus_alias'} = $general_prefs->{'locus_alias'} eq 'on' ? 1 : 0;
 	return;
 }
 
