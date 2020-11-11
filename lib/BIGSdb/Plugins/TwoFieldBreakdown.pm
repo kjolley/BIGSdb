@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext => 'Two Field',
 		menutext   => 'Two field breakdown',
 		module     => 'TwoFieldBreakdown',
-		version    => '1.5.2',
+		version    => '1.6.0',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/two_field_breakdown.html",
@@ -311,6 +311,7 @@ sub _print_interface {
 	my ( $headings, $labels ) = $self->get_field_selection_list(
 		{
 			isolate_fields      => 1,
+			eav_fields          => 1,
 			extended_attributes => 1,
 			loci                => 1,
 			query_pref          => 0,
@@ -683,8 +684,8 @@ sub _generate_tables {
 	my ( $text_buffer, $html_buffer );
 	$html_buffer .= q(<table class="tablesorter" id="sortTable"><thead>);
 	my $field2_cols = $field2_count + 1;
-	$html_buffer .= qq(<tr><td class="sorter-false"></td>)
-	  . qq(<th colspan="$field2_cols" class="header">$html_field2</th></tr>);
+	$html_buffer .=
+	  q(<tr><td class="sorter-false"></td>) . qq(<th colspan="$field2_cols" class="header">$html_field2</th></tr>);
 	local $" = q(</th><th class="{sorter:'digit'}">);
 	$html_buffer .= qq(<tr><th>$html_field1</th><th class="{sorter:'digit'}">@$field2values</th>)
 	  . q(<th class="{sorter:'digit'}">Total</th></tr></thead><tbody>);
@@ -873,7 +874,7 @@ sub _get_value_frequency_hashes {
 	my %scheme_id;
 
 	foreach my $field ( $field1, $field2 ) {
-		if ( $field =~ /^la_(.+)\|\|/x || $field =~ /^cn_(.+)/x ) {
+		if ( $field =~ /^la_(.+)\|\|/x || $field =~ /^cn_(.+)/x || $field =~ /^eav_(.+)/x ) {
 			$clean{$field} = $1;
 		}
 		if ( $self->{'xmlHandler'}->is_field( $clean{$field} ) ) {
@@ -882,6 +883,9 @@ sub _get_value_frequency_hashes {
 			if ( $self->_is_field_multivalue( $clean{$field} ) ) {
 				$multivalue{$field} = 1;
 			}
+		} elsif ( $self->{'datastore'}->is_eav_field( $clean{$field} ) ) {
+			$field_type{$field} = 'eav_field';
+			$print{$field}      = $clean{$field};
 		} elsif ( $self->{'datastore'}->is_locus( $clean{$field} ) ) {
 			$field_type{$field} = 'locus';
 			$print{$field}      = $clean{$field};
@@ -994,8 +998,9 @@ sub _get_values {
 			options      => $options
 		};
 		my $method = {
-			field => sub { return [ $self->_get_field_value($sub_args) ] },
-			locus => sub { return $self->_get_locus_values($sub_args) },
+			field     => sub { return [ $self->_get_field_value($sub_args) ] },
+			eav_field => sub { return [ $self->_get_eav_field_value($sub_args) ] },
+			locus        => sub { return $self->_get_locus_values($sub_args) },
 			scheme_field => sub {
 				return $self->get_scheme_field_values(
 					{ isolate_id => $isolate_id, scheme_id => $scheme_id->{$field}, field => $clean_fields->{$field} }
@@ -1026,6 +1031,30 @@ sub _get_field_value {
 		$value =
 		  $self->{'datastore'}->run_query( "SELECT $clean_fields->{$field} FROM $self->{'system'}->{'view'} WHERE id=?",
 			$isolate_id, { cache => "TwoFieldBreakdown::get_field_value::$field" } );
+	}
+	return $value;
+}
+
+sub _get_eav_field_value {
+	my ( $self, $args ) = @_;
+	my ( $isolate_id, $field, $clean_fields, $options ) = @{$args}{qw(isolate_id field clean_fields options)};
+	my $value;
+	my $eav_table = $self->{'datastore'}->get_eav_field_table( $clean_fields->{$field} );
+	if ( $options->{'fetchall'} ) {
+		if ( !$self->{'cache'}->{$field} ) {
+			$self->{'cache'}->{$field} = $self->{'datastore'}->run_query(
+				"SELECT isolate_id,value FROM $eav_table WHERE field=?",
+				$clean_fields->{$field},
+				{ fetch => 'all_hashref', key => 'id' }
+			);
+		}
+		$value = $self->{'cache'}->{$field}->{$isolate_id}->{ lc( $clean_fields->{$field} ) };
+	} else {
+		$value = $self->{'datastore'}->run_query(
+			"SELECT value FROM $eav_table WHERE (isolate_id,field)=(?,?)",
+			[ $isolate_id, $clean_fields->{$field} ],
+			{ cache => "TwoFieldBreakdown::get_field_value::$field" }
+		);
 	}
 	return $value;
 }
