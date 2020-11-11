@@ -685,7 +685,8 @@ sub _generate_tables {
 	$html_buffer .= q(<table class="tablesorter" id="sortTable"><thead>);
 	my $field2_cols = $field2_count + 1;
 	$html_buffer .=
-	  q(<tr><td class="sorter-false"></td>) . qq(<th colspan="$field2_cols" class="header">$html_field2</th></tr>);
+	  qq(<tr><td class="sorter-false"></td><th colspan="$field2_cols" class="header">$html_field2</th></tr>)
+	  ;
 	local $" = q(</th><th class="{sorter:'digit'}">);
 	$html_buffer .= qq(<tr><th>$html_field1</th><th class="{sorter:'digit'}">@$field2values</th>)
 	  . q(<th class="{sorter:'digit'}">Total</th></tr></thead><tbody>);
