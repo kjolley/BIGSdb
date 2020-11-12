@@ -1,0 +1,81 @@
+#Written by Keith Jolley
+#Copyright (c) 2020, University of Oxford
+#E-mail: keith.jolley@zoo.ox.ac.uk
+#
+#This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
+#
+#BIGSdb is free software: you can redistribute it and/or modify
+#it under the terms of the GNU General Public License as published by
+#the Free Software Foundation, either version 3 of the License, or
+#(at your option) any later version.
+#
+#BIGSdb is distributed in the hope that it will be useful,
+#but WITHOUT ANY WARRANTY; without even the implied warranty of
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#GNU General Public License for more details.
+#
+#You should have received a copy of the GNU General Public License
+#along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
+package BIGSdb::Offline::SpeciesIDFork;
+use strict;
+use warnings;
+use 5.010;
+use Parallel::ForkManager;
+use BIGSdb::Offline::SpeciesID;
+use constant MAX_THREADS => 8;
+
+sub new {
+	my ( $class, $params ) = @_;
+	my $self = {};
+	$self->{'config_dir'}       = $params->{'config_dir'};
+	$self->{'lib_dir'}          = $params->{'lib_dir'};
+	$self->{'dbase_config_dir'} = $params->{'dbase_config_dir'};
+	$self->{'logger'}           = $params->{'logger'};
+	$self->{'config'}           = $params->{'config'};
+	$self->{'instance'} = $params->{'instance'};
+	bless( $self, $class );
+	return $self;
+}
+
+sub run {
+	my ( $self, $ids ) = @_;
+	my $threads =
+	  BIGSdb::Utils::is_int( $self->{'config'}->{'species_id_threads'} )
+	  ? $self->{'config'}->{'species_id_threads'}
+	  : MAX_THREADS;
+	my $pm      = Parallel::ForkManager->new($threads);
+	my $results = {};
+	$pm->run_on_finish(
+		sub {
+			my ( $pid, $exit_code, $ident, $exit_signal, $core_dump, $ret_data ) = @_;
+			$results->{ $ret_data->{'values'}->{'isolate_id'} } = $ret_data;
+		}
+	);
+	foreach my $isolate_id (@$ids) {
+
+		# Forks and returns the pid for the child:
+		my $pid = $pm->start and next;
+		my $id_obj = BIGSdb::Offline::SpeciesID->new(
+			{
+				config_dir       => $self->{'config_dir'},
+				lib_dir          => $self->{'lib_dir'},
+				dbase_config_dir => $self->{'dbase_config_dir'},
+				host             => $self->{'system'}->{'host'},
+				port             => $self->{'system'}->{'port'},
+				user             => $self->{'system'}->{'user'},
+				password         => $self->{'system'}->{'password'},
+				options          => {
+					always_run           => 0,
+					throw_busy_exception => 1,
+				},
+				instance => $self->{'instance'},
+				logger   => $self->{'logger'}
+			}
+		);
+		my $result = $id_obj->run($isolate_id);
+		$pm->finish( 0, $result );    # Terminates the child process
+	}
+	$pm->wait_all_children;
+	return $results;
+}
+1;

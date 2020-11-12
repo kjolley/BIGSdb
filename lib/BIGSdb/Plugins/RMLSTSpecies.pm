@@ -23,8 +23,11 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugin);
 use BIGSdb::Constants qw(:interface);
+use BIGSdb::Offline::SpeciesIDFork;
+use BIGSdb::Exceptions;
 use List::Util qw(max);
 use List::MoreUtils qw(uniq);
+use Try::Tiny;
 use JSON;
 use MIME::Base64;
 use LWP::UserAgent;
@@ -35,11 +38,12 @@ use constant INITIAL_BUSY_DELAY   => 60;
 use constant MAX_DELAY            => 600;
 use constant ATTEMPTS_BEFORE_FAIL => 50;
 use constant URL                  => 'https://rest.pubmlst.org/db/pubmlst_rmlst_seqdef_kiosk/schemes/1/sequence';
+use constant MAX_THREADS          => 8;
 
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name             => 'rMLST species identity',
+		name    => 'rMLST species identity',
 		authors => [
 			{
 				name        => 'Keith Jolley',
@@ -56,7 +60,7 @@ sub get_attributes {
 		buttontext  => 'rMLST species id',
 		menutext    => 'Species identification',
 		module      => 'RMLSTSpecies',
-		version     => '1.2.10',
+		version     => '2.0.0',
 		dbtype      => 'isolates',
 		section     => 'info,analysis,postquery',
 		input       => 'query',
@@ -73,7 +77,7 @@ sub get_attributes {
 
 sub run {
 	my ($self) = @_;
-	say qq(<h1>rMLST species identification</h1>);
+	say q(<h1>rMLST species identification</h1>);
 	my $q = $self->{'cgi'};
 	if ( $q->param('submit') ) {
 		my @ids = $q->multi_param('isolate_id');
@@ -166,22 +170,39 @@ sub run_job {
 	my $td = 1;
 	my $row_buffer;
 	my $report = {};
+	my $threads =
+	  BIGSdb::Utils::is_int( $self->{'config'}->{'species_id_threads'} )
+	  ? $self->{'config'}->{'species_id_threads'}
+	  : MAX_THREADS;
+	my $total = @$isolate_ids;
 
-	foreach my $isolate_id (@$isolate_ids) {
-		$progress = int( $i / @$isolate_ids * 100 );
-		$i++;
+	while (@$isolate_ids) {
+		my $tranche = [];
+		my $first = $i+1;
+		for ( 1 .. $threads ) {
+			if (@$isolate_ids) {
+				push @$tranche, shift @$isolate_ids;
+				$progress = int( $i / $total * 100 );
+				$i++;
+			}
+		}
+		my $last = $i;
+		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Scanning isolates $first-$last" } );
+		my $dataset = $self->_perform_rest_query( $job_id, $i, $tranche );
 		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $progress } );
-		my $isolate_name = $self->get_isolate_name_from_id($isolate_id);
-		my ( $data, $values, $response_code ) = $self->_perform_rest_query( $job_id, $i, $isolate_id );
-		$report->{$isolate_id} = {
-			$self->{'system'}->{'labelfield'} => $isolate_name,
-			analysis                          => $data
-		};
-		$row_buffer .= $self->_format_row_html( $params,
-			{ td => $td, values => $values, response_code => $response_code, row_no => $i } );
-		my $message_html = qq($html\n$table_header\n$row_buffer\n</table></div>);
-		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
-		$td = $td == 1 ? 2 : 1;
+		
+		foreach my $result (@$dataset) {
+			my ( $data, $values, $response_code ) = @{$result}{qw(data values response_code)};
+			$report->{ $values->[0] } = {
+				$self->{'system'}->{'labelfield'} => $values->[1],
+				analysis                          => $data
+			};
+			$row_buffer .= $self->_format_row_html( $params,
+				{ td => $td, values => $values, response_code => $response_code, row_no => $i } );
+			my $message_html = qq($html\n$table_header\n$row_buffer\n</table></div>);
+			$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
+			$td = $td == 1 ? 2 : 1;
+		}
 		last if $self->{'exit'};
 	}
 	if ($report) {
@@ -269,104 +290,46 @@ sub _format_row_html {
 }
 
 sub _perform_rest_query {
-	my ( $self, $job_id, $i, $isolate_id ) = @_;
-	my $qry = 'SELECT id,sequence FROM sequence_bin WHERE isolate_id=? AND NOT remote_contig';
-	my $contigs =
-	  $self->{'datastore'}
-	  ->run_query( $qry, $isolate_id, { fetch => 'all_arrayref', cache => 'RMLSTSpecies::blast_create_fasta::local' } );
-	my $fasta;
-	foreach my $contig (@$contigs) {
-		$fasta .= qq(>$contig->[0]\n$contig->[1]\n);
-	}
-	my $remote_qry = 'SELECT s.id,r.uri,r.length,r.checksum FROM sequence_bin s LEFT JOIN remote_contigs r ON '
-	  . 's.id=r.seqbin_id WHERE s.isolate_id=? AND remote_contig';
-	my $remote_contigs =
-	  $self->{'datastore'}->run_query( $remote_qry, $isolate_id,
-		{ fetch => 'all_arrayref', slice => {}, cache => 'RMLSTSpecies::blast_create_fasta::remote' } );
-	my $remote_uris = [];
-	foreach my $contig_link (@$remote_contigs) {
-		push @$remote_uris, $contig_link->{'uri'};
-	}
-	my $remote_data;
-	eval { $remote_data = $self->{'contigManager'}->get_remote_contigs_by_list($remote_uris); };
-	if ($@) {
-		$logger->error($@);
-	} else {
-		foreach my $contig_link (@$remote_contigs) {
-			$fasta .= qq(>$contig_link->{'id'}\n$remote_data->{$contig_link->{'uri'}}\n);
-			if ( !$contig_link->{'length'} ) {
-				$self->{'contigManager'}->update_remote_contig_length( $contig_link->{'uri'},
-					length( $remote_data->{ $contig_link->{'uri'} } ) );
-			} elsif ( $contig_link->{'length'} != length( $remote_data->{ $contig_link->{'uri'} } ) ) {
-				$logger->error("$contig_link->{'uri'} length has changed!");
+	my ( $self, $job_id, $i, $isolate_ids ) = @_;
+	my $results;
+	my $id_obj;
+	my $error;
+	try {
+		$id_obj = BIGSdb::Offline::SpeciesIDFork->new(
+			{
+				config_dir       => $self->{'config_dir'},
+				lib_dir          => $self->{'lib_dir'},
+				dbase_config_dir => $self->{'dbase_config_dir'},
+				host             => $self->{'system'}->{'host'},
+				port             => $self->{'system'}->{'port'},
+				user             => $self->{'system'}->{'user'},
+				password         => $self->{'system'}->{'password'},
+				options          => {
+					always_run           => 0,
+					throw_busy_exception => 1,
+				},
+				instance => $self->{'instance'},
+				logger   => $logger
 			}
-
-			#We won't set checksum because we're not extracting all metadata here
-		}
-	}
-	my $agent = LWP::UserAgent->new( agent => 'BIGSdb' );
-	my $payload = encode_json(
-		{
-			base64   => JSON::true(),
-			details  => JSON::true(),
-			sequence => encode_base64($fasta)
-		}
-	);
-	my ( $response, $unavailable );
-	my $delay        = INITIAL_BUSY_DELAY;
-	my $isolate_name = $self->get_isolate_name_from_id($isolate_id);
-	my $values       = [ $isolate_id, $isolate_name ];
-	my %server_error = map { $_ => 1 } ( 500, 502, 503, 504 );
-	my $attempts     = 0;
-	do {
-		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Scanning isolate $i" } );
-		$unavailable = 0;
-		$response    = $agent->post(
-			URL,
-			Content_Type => 'application/json; charset=UTF-8',
-			Content      => $payload
 		);
-		if ( $server_error{ $response->code } ) {
-			my $code = $response->code;
-			$logger->error("Error $code received from rMLST REST API.");
-			$unavailable = 1;
-			$self->{'jobManager'}->update_job_status( $job_id,
-				{ stage => "rMLST server is unavailable or too busy at the moment - retrying in $delay seconds", } );
-			$attempts++;
-			if ( $attempts > ATTEMPTS_BEFORE_FAIL ) {
-				BIGSdb::Exception::Plugin->throw(
-					"Calls to REST interface have failed $attempts times. Giving up - please try again later.");
-			}
-			sleep $delay;
-			$delay += 10 if $delay < MAX_DELAY;
-		}
-	} while ($unavailable);
-	my $data     = {};
-	my $rank     = [];
-	my $taxon    = [];
-	my $taxonomy = [];
-	my $support  = [];
-	my ( $json_link, $rST, $species );
-	if ( $response->is_success ) {
-		$data = decode_json( $response->content );
-		if ( $data->{'taxon_prediction'} ) {
-			foreach my $prediction ( @{ $data->{'taxon_prediction'} } ) {
-				push @$rank,     $prediction->{'rank'};
-				push @$taxon,    $prediction->{'taxon'};
-				push @$taxonomy, $prediction->{'taxonomy'};
-				push @$support,  $prediction->{'support'};
-			}
-		}
-		if ( $data->{'fields'} ) {
-			$rST = $data->{'fields'}->{'rST'};
-			$species = $data->{'fields'}->{'species'} // q();
-		}
-		$json_link = $self->_write_row_json_file( $job_id, $i, $response );
-	} else {
-		$logger->error( $response->as_string );
+		$results = $id_obj->run($isolate_ids);
 	}
-	push @$values, ( $rank, $taxon, $taxonomy, $support, $json_link, $rST, $species );
-	return ( $data, $values, $response->code );
+	catch {
+		$error = $_;
+		$logger->error($error);
+	};
+	BIGSdb::Exception::Plugin->throw($error) if $error;
+	my $dataset = [];
+	foreach my $id ( sort { $a <=> $b } keys %$results ) {
+		my $record_result = $results->{$id};
+		my ( $data, $result, $response ) = @{$record_result}{qw{data values response}};
+		my $json_link = $self->_write_row_json_file( $job_id, $i, $response );
+		my $values = [ @{$result}{qw{isolate_id isolate_name rank taxon taxonomy support}} ];
+		push @$values, $json_link;
+		push @$values, @{$result}{qw{rST species}};
+		push @$dataset, { data => $data, values => $values, response_code => $response->code };
+	}
+	return $dataset;
 }
 
 sub _write_row_json_file {
