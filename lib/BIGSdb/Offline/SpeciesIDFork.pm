@@ -22,7 +22,7 @@ use warnings;
 use 5.010;
 use Parallel::ForkManager;
 use BIGSdb::Offline::SpeciesID;
-use constant MAX_THREADS => 8;
+use constant MAX_THREADS => 4;
 
 sub new {
 	my ( $class, $params ) = @_;
@@ -32,17 +32,16 @@ sub new {
 	$self->{'dbase_config_dir'} = $params->{'dbase_config_dir'};
 	$self->{'logger'}           = $params->{'logger'};
 	$self->{'config'}           = $params->{'config'};
-	$self->{'instance'} = $params->{'instance'};
+	$self->{'instance'}         = $params->{'instance'};
+	$self->{'job_id'}           = $params->{'options'}->{'job_id'};
+	$self->{'threads'}          = $params->{'options'}->{'threads'};
 	bless( $self, $class );
 	return $self;
 }
 
 sub run {
 	my ( $self, $ids ) = @_;
-	my $threads =
-	  BIGSdb::Utils::is_int( $self->{'config'}->{'species_id_threads'} )
-	  ? $self->{'config'}->{'species_id_threads'}
-	  : MAX_THREADS;
+	my $threads = $self->{'threads'} // MAX_THREADS;
 	my $pm      = Parallel::ForkManager->new($threads);
 	my $results = {};
 	$pm->run_on_finish(
@@ -65,8 +64,9 @@ sub run {
 				user             => $self->{'system'}->{'user'},
 				password         => $self->{'system'}->{'password'},
 				options          => {
-					always_run           => 0,
-					throw_busy_exception => 1,
+					always_run           => 1,
+					throw_busy_exception => 0,
+					job_id               => $self->{'job_id'}
 				},
 				instance => $self->{'instance'},
 				logger   => $self->{'logger'}

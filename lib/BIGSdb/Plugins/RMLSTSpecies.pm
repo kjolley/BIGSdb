@@ -29,16 +29,10 @@ use List::Util qw(max);
 use List::MoreUtils qw(uniq);
 use Try::Tiny;
 use JSON;
-use MIME::Base64;
-use LWP::UserAgent;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use constant MAX_ISOLATES         => 1000;
-use constant INITIAL_BUSY_DELAY   => 60;
-use constant MAX_DELAY            => 600;
-use constant ATTEMPTS_BEFORE_FAIL => 50;
-use constant URL                  => 'https://rest.pubmlst.org/db/pubmlst_rmlst_seqdef_kiosk/schemes/1/sequence';
-use constant MAX_THREADS          => 8;
+use constant MAX_ISOLATES => 1000;
+use constant MAX_THREADS  => 4;
 
 sub get_attributes {
 	my ($self) = @_;
@@ -169,28 +163,25 @@ sub run_job {
 	  . qq(<th>rST</th><th>Species</th></tr>\n);
 	my $td = 1;
 	my $row_buffer;
-	my $report = {};
-	my $threads =
-	  BIGSdb::Utils::is_int( $self->{'config'}->{'species_id_threads'} )
-	  ? $self->{'config'}->{'species_id_threads'}
-	  : MAX_THREADS;
-	my $total = @$isolate_ids;
+	my $report  = {};
+	my $threads = $self->_get_threads;
+	my $total   = @$isolate_ids;
 
 	while (@$isolate_ids) {
 		my $tranche = [];
-		my $first = $i+1;
+		my $first   = $i + 1;
 		for ( 1 .. $threads ) {
 			if (@$isolate_ids) {
 				push @$tranche, shift @$isolate_ids;
-				$progress = int( $i / $total * 100 );
 				$i++;
+				$progress = int( $i / $total * 100 );
 			}
 		}
 		my $last = $i;
-		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Scanning isolates $first-$last" } );
+		my $message = ( $first == $last ) ? "Scanning isolate $first" : "Scanning isolates $first-$last";
+		$self->{'jobManager'}->update_job_status( $job_id, { stage => $message } );
 		my $dataset = $self->_perform_rest_query( $job_id, $i, $tranche );
 		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $progress } );
-		
 		foreach my $result (@$dataset) {
 			my ( $data, $values, $response_code ) = @{$result}{qw(data values response_code)};
 			$report->{ $values->[0] } = {
@@ -289,11 +280,19 @@ sub _format_row_html {
 	return $buffer;
 }
 
+sub _get_threads {
+	my ($self) = @_;
+	return BIGSdb::Utils::is_int( $self->{'config'}->{'species_id_threads'} )
+	  ? $self->{'config'}->{'species_id_threads'}
+	  : MAX_THREADS;
+}
+
 sub _perform_rest_query {
 	my ( $self, $job_id, $i, $isolate_ids ) = @_;
 	my $results;
 	my $id_obj;
 	my $error;
+	my $threads = $self->_get_threads;
 	try {
 		$id_obj = BIGSdb::Offline::SpeciesIDFork->new(
 			{
@@ -305,8 +304,10 @@ sub _perform_rest_query {
 				user             => $self->{'system'}->{'user'},
 				password         => $self->{'system'}->{'password'},
 				options          => {
-					always_run           => 0,
-					throw_busy_exception => 1,
+					always_run           => 1,
+					throw_busy_exception => 0,
+					job_id               => $job_id,
+					threads              => $threads
 				},
 				instance => $self->{'instance'},
 				logger   => $logger
