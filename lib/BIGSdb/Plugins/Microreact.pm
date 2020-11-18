@@ -34,6 +34,7 @@ use Email::Valid;
 use JSON;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
+use utf8;
 use constant MAX_RECORDS    => 2000;
 use constant MAX_SEQS       => 100_000;
 use constant MICROREACT_URL => 'https://microreact.org/api/project/';
@@ -61,7 +62,7 @@ sub get_attributes {
 		buttontext => 'Microreact',
 		menutext   => 'Microreact',
 		module     => 'Microreact',
-		version    => '1.0.12',
+		version    => '1.0.13',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
@@ -69,7 +70,7 @@ sub get_attributes {
 		requires   => 'aligner,offline_jobs,js_tree,clustalw,field_country_optlist,field_year_int',
 		order      => 40,
 		min        => 2,
-		max => $self->{'system'}->{'microreact_record_limit'} // $self->{'config'}->{'microreact_record_limit'}
+		max        => $self->{'system'}->{'microreact_record_limit'} // $self->{'config'}->{'microreact_record_limit'}
 		  // MAX_RECORDS,
 		url                 => "$self->{'config'}->{'doclink'}/data_analysis/microreact.html",
 		system_flag         => 'Microreact',
@@ -436,7 +437,7 @@ sub _get_allowed_countries {
 		q(Vietnam),                                      q(Wallis and Futuna),
 		q(Western Sahara),                               q(Yemen),
 		q(Zambia),                                       q(Zimbabwe),
-		q(United Arab Emirates),
+		q(United Arab Emirates)
 	];
 	my %allowed = map { $_ => 1 } @$list;
 	return \%allowed;
@@ -445,6 +446,7 @@ sub _get_allowed_countries {
 sub _get_mapped_countries {
 	my ($self) = @_;
 	my $mapped = {
+		'Ivory Coast'           => q(Côte d'Ivoire),
 		'The Gambia'            => 'Gambia',
 		'The Netherlands'       => 'Netherlands',
 		'UK'                    => 'United Kingdom',
