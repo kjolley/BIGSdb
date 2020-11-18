@@ -62,6 +62,7 @@ sub _get_sequences {
 		#This is more efficient if we don't need to filter.
 		my ( $count, $last_updated ) =
 		  $self->{'datastore'}->run_query("SELECT SUM(allele_count),MAX(datestamp) FROM locus_stats$set_clause");
+		$count //= 0;
 		$values->{'records'}      = int($count);
 		$values->{'last_updated'} = $last_updated if $last_updated;
 		$values->{'fields'}       = request->uri_for("$subdir/db/$db/sequences/fields");
