@@ -44,13 +44,17 @@ sub _get_isolates {
 	my $params          = params;
 	my $db              = params->{'db'};
 	my $subdir          = setting('subdir');
-	my $allowed_filters = [qw(added_after added_on updated_after updated_on)];
-	my $qry = $self->add_filters( "SELECT COUNT(*),MAX(date_entered),MAX(datestamp) FROM $self->{'system'}->{'view'}",
-		$allowed_filters );
+	my $allowed_filters = [qw(added_after added_on updated_after updated_on include_old_versions)];
+	my $old_versions    = params->{'include_old_versions'} ? q() : q( WHERE new_version IS NULL);
+	my $qry             = $self->add_filters(
+		"SELECT COUNT(*),MAX(date_entered),MAX(datestamp) FROM $self->{'system'}->{'view'}$old_versions"
+		,
+		$allowed_filters
+	);
 	my ( $isolate_count, $last_added, $last_updated ) = $self->{'datastore'}->run_query($qry);
 	my $page_values = $self->get_page_values($isolate_count);
 	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
-	$qry = $self->add_filters( "SELECT id FROM $self->{'system'}->{'view'}", $allowed_filters );
+	$qry = $self->add_filters( "SELECT id FROM $self->{'system'}->{'view'}$old_versions", $allowed_filters );
 	$qry .= ' ORDER BY id';
 	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
 	my $ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
@@ -72,11 +76,12 @@ sub _get_genomes {
 	my $params          = params;
 	my $db              = params->{'db'};
 	my $subdir          = setting('subdir');
-	my $allowed_filters = [qw(added_after updated_after genome_size)];
+	my $allowed_filters = [qw(added_after updated_after genome_size include_old_versions)];
 	my $genome_size     = BIGSdb::Utils::is_int( params->{'genome_size'} ) ? params->{'genome_size'} : GENOME_SIZE;
+	my $old_versions    = params->{'include_old_versions'} ? q() : q( AND v.new_version IS NULL);
 	my $qry             = $self->add_filters(
 		"SELECT COUNT(*),MAX(date_entered),MAX(datestamp) FROM $self->{'system'}->{'view'} v JOIN seqbin_stats s "
-		  . "ON v.id=s.isolate_id WHERE s.total_length>=$genome_size",
+		  . "ON v.id=s.isolate_id WHERE s.total_length>=$genome_size$old_versions",
 		$allowed_filters
 	);
 	my ( $isolate_count, $last_added, $last_updated ) = $self->{'datastore'}->run_query($qry);
@@ -84,7 +89,7 @@ sub _get_genomes {
 	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
 	$qry = $self->add_filters(
 		"SELECT id FROM $self->{'system'}->{'view'} v JOIN seqbin_stats s "
-		  . "ON v.id=s.isolate_id WHERE s.total_length>=$genome_size",
+		  . "ON v.id=s.isolate_id WHERE s.total_length>=$genome_size$old_versions",
 		$allowed_filters
 	);
 	$qry .= ' ORDER BY id';
