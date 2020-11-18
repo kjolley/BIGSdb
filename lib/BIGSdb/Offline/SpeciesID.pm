@@ -81,6 +81,7 @@ sub run {
 		$isolate_id, { cache => 'SpeciesID::get_isolate_name_from_id' } );
 	my %server_error = map { $_ => 1 } ( 500, 502, 503, 504 );
 	my $attempts = 0;
+	$self->{'dataConnector'}->drop_all_connections;    #No need to keep these open while we wait for REST response.
 	do {
 		$unavailable = 0;
 		$response    = $agent->post(
@@ -93,6 +94,7 @@ sub run {
 			$self->{'logger'}->error("Error $code received from rMLST REST API.");
 			$self->{'jobManager'}->update_job_status( $self->{'options'}->{'job_id'},
 				{ stage => "rMLST server is unavailable or too busy at the moment - retrying in $delay seconds" } );
+			$self->{'dataConnector'}->drop_all_connections;
 			$unavailable = 1;
 			$attempts++;
 			if ( $attempts > ATTEMPTS_BEFORE_FAIL ) {

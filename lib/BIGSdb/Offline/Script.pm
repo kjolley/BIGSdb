@@ -119,6 +119,14 @@ sub initiate {
 	return;
 }
 
+sub reconnect {
+	my ($self) = @_;
+	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
+	$self->db_connect;
+	$self->{'datastore'}->change_db($self->{'db'});
+	return;
+}
+
 sub db_disconnect {
 	my ($self) = @_;
 	undef $self->{'datastore'};

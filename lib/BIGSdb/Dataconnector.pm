@@ -80,6 +80,7 @@ sub drop_connection {
 		  and $logger->info("pid:$$ disconnected from database $attributes->{'dbase_name'}");
 	}
 	delete $self->{'db'}->{"$host|$attributes->{'dbase_name'}"};
+	$logger->debug('Total connections: ' . scalar keys %{$self->{'db'}});
 	return;
 }
 
@@ -97,6 +98,7 @@ sub drop_all_connections {
 		};
 		delete $self->{'db'}->{$db};
 	}
+	$logger->debug('Total connections: ' . scalar keys %{$self->{'db'}});
 	return;
 }
 
@@ -125,6 +127,7 @@ sub get_connection {
 			$logger->info("pid:$$ connected to database $attributes->{'dbase_name'} ($host)");
 			$logger->debug(
 				"dbase: $attributes->{'dbase_name'}; host: $host; port: $port: user: $user; password: ********");
+			$logger->debug('Total connections: ' . scalar keys %{$self->{'db'}});
 		}
 		if ( BIGSdb::Utils::is_int( $self->{'config'}->{'temp_buffers'} ) ) {
 			$db->do("SET temp_buffers='$self->{'config'}->{'temp_buffers'}MB'");

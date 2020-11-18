@@ -284,7 +284,11 @@ sub _run_blast {
 		if ( $shortest_seq <= 20 ) {
 			$params{'-evalue'} = 1000;
 		}
+			$self->{'dataConnector'}
+	  ->drop_all_connections;    #Don't keep connections open while waiting for BLAST.
+		
 		system( "$self->{'config'}->{'blast+_path'}/$program", %params );
+		$self->reconnect;
 		unlink $read_file;
 		next if !-e $out_file;
 		if ( $run eq 'DNA' ) {

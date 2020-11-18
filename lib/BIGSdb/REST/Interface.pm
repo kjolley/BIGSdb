@@ -199,6 +199,15 @@ sub _setup_db_logger {
 	return;
 }
 
+sub reconnect {
+	my $self = setting('self');
+	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
+	$self->db_connect;
+	$self->{'datastore'}->change_db($self->{'db'});
+	_setup_db_logger();
+	return;
+}
+
 sub _log_call {
 	my $self = setting('self');
 	return if !$self->{'config'}->{'rest_log_to_db'};

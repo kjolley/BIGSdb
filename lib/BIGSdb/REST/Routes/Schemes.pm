@@ -42,10 +42,10 @@ sub setup_routes {
 sub _get_schemes {
 	my $self = setting('self');
 	my ( $db, $with_pk ) = ( params->{'db'}, params->{'with_pk'} );
-	my $set_id  = $self->get_set_id;
-	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => $with_pk } );
-	my $subdir  = setting('subdir');
-	my $values  = { records => int(@$schemes) };
+	my $set_id      = $self->get_set_id;
+	my $schemes     = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => $with_pk } );
+	my $subdir      = setting('subdir');
+	my $values      = { records => int(@$schemes) };
 	my $scheme_list = [];
 	foreach my $scheme (@$schemes) {
 		push @$scheme_list,
@@ -219,11 +219,14 @@ sub _query_scheme_sequence {
 	my $subdir      = setting('subdir');
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	my $loci        = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my $blast_obj   = $self->get_blast_object($loci);
+	$self->{'dataConnector'}
+	  ->drop_all_connections;    #Don't keep connections open while waiting for BLAST.
+	my $blast_obj = $self->get_blast_object($loci);
 	$blast_obj->blast( \$sequence );
 	my $matches      = $blast_obj->get_exact_matches( { details => $details } );
 	my $exacts       = {};
 	my $designations = {};
+	$self->reconnect;
 
 	foreach my $locus ( keys %$matches ) {
 		my $locus_name = $locus;
