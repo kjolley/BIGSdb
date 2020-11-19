@@ -152,7 +152,8 @@ sub run_job {
 	my $html         = $job->{'message_html'} // q();
 	my $i            = 0;
 	my $progress     = 0;
-	my $table_header = $self->_get_javascript;
+	my $scan_genome  = ( $params->{'scan'} // 'scan' ) eq 'scan' ? 1 : 0;
+	my $table_header = $self->_get_javascript($scan_genome);
 	my $colspan      = 5;
 	$table_header .=
 	    q(<div class="scrollable"><table class="resultstable"><tr><th rowspan="2">id</th>)
@@ -180,7 +181,7 @@ sub run_job {
 		my $last = $i;
 		my $message = ( $first == $last ) ? "Scanning isolate $first" : "Scanning isolates $first-$last";
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => $message } );
-		my $dataset = $self->_perform_rest_query( $job_id, $tranche );
+		my $dataset = $self->_perform_rest_query( $job_id, $tranche, $scan_genome );
 		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $progress } );
 		foreach my $result (@$dataset) {
 			my ( $data, $values, $response_code ) = @{$result}{qw(data values response_code)};
@@ -266,7 +267,8 @@ sub _format_row_html {
 						  . qq(db=$self->{'instance'}&amp;)
 						  . qq(page=plugin&amp;name=RMLSTSpecies&amp;filename=$filename&amp;no_header=1">$show</a>);
 						$buffer .=
-						  qq(<a id="id_${isolate_id}_hide" class="row_hide" style="display:none;cursor:pointer">$hide</a>);
+						    qq(<a id="id_${isolate_id}_hide" class="row_hide" )
+						  . qq(style="display:none;cursor:pointer">$hide</a>);
 					}
 				} else {
 					$buffer .= $values->[$col] // q();
@@ -288,7 +290,7 @@ sub _get_threads {
 }
 
 sub _perform_rest_query {
-	my ( $self, $job_id, $isolate_ids ) = @_;
+	my ( $self, $job_id, $isolate_ids, $scan_genome ) = @_;
 	my $results;
 	my $id_obj;
 	my $error;
@@ -307,7 +309,8 @@ sub _perform_rest_query {
 					always_run           => 1,
 					throw_busy_exception => 0,
 					job_id               => $job_id,
-					threads              => $threads
+					threads              => $threads,
+					scan_genome          => $scan_genome
 				},
 				instance => $self->{'instance'},
 				logger   => $logger
@@ -398,12 +401,37 @@ sub _print_interface {
 		$self->print_seqbin_isolate_fieldset(
 			{ selected_ids => $selected_ids, isolate_paste_list => 1, only_genomes => 1 } );
 	}
+	$self->_print_options_fieldset;
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say $q->hidden($_) foreach qw (page name db);
 	say q(</div>);
 	say $q->end_form;
 	say q(</div>);
 	return;
+}
+
+sub _print_options_fieldset {
+	my ($self) = @_;
+	return if !$self->_rmlst_scheme_exists;
+	my $q = $self->{'cgi'};
+	say q(<fieldset style="float:left"><legend>Options</legend>);
+	say q(<p>Scan genome or use allele<br />designations already stored</p>);
+	say $q->radio_group(
+		-name      => 'scan',
+		-values    => [ 'scan', 'use_alleles' ],
+		-labels    => { scan => 'Scan genomes', use_alleles => 'Use stored allele designations' },
+		-linebreak => 'true',
+		-default   => 'use_alleles'
+	);
+	say q(</fieldset>);
+	return;
+}
+
+sub _rmlst_scheme_exists {
+	my ($self) = @_;
+	return $self->{'datastore'}->run_query(
+		'SELECT EXISTS(SELECT * FROM schemes WHERE name=? AND dbase_name IS NOT NULL and dbase_id IS NOT NULL)',
+		'Ribosomal MLST' );
 }
 
 sub _get_colour {
@@ -420,9 +448,10 @@ sub _get_colour {
 }
 
 sub _get_javascript {
-	my ($self) = @_;
+	my ( $self, $scan_genome ) = @_;
 	my $buffer = << "END";
 <script type="text/Javascript">
+var scan_genome = $scan_genome;
 \$(function () {
 	\$(".ajax_link").click(function(event){	
 		event.preventDefault();
@@ -491,17 +520,22 @@ function format_data(data){
 	var plural = loci_matched == 1 ? "us" : "i";
 	var table = '<p style="text-align:left"><b>' + loci_matched + ' loc' + plural 
 	  + ' matched (rMLST uses 53 in total)</b></p>\\n'
-	  + '<table class="ajaxtable" style="width:100%"><tr><th>Locus</th><th>Allele</th><th>Length</th><th>Contig</th>'
-	  + '<th>Start position</th><th>End position</th><th style="text-align:left">Linked data values</th></tr>\\n';
+	  + '<table class="ajaxtable" style="width:100%"><tr><th>Locus</th><th>Allele</th><th>Length</th>';
+	  if (scan_genome){
+		  table +='<th>Contig</th><th>Start position</th><th>End position</th>'
+	  }
+	  table +='<th style="text-align:left">Linked data values</th></tr>\\n';
 	var td = 1 ;
 	\$.each(loci, function( locus_index, locus ) {
 		\$.each(data['exact_matches'][locus], function(match_index, match){
 			table += '<tr class="td' + td + '"><td>' + locus + '</td>';
 			table += '<td>' + match['allele_id'] + '</td>';
 			table += '<td>' + match['length'] + '</td>';
-			table += '<td>' + match['contig'] + '</td>';
-			table += '<td>' + match['start'] + '</td>';
-			table += '<td>' + match['end'] + '</td>';
+			if (scan_genome){
+				table += '<td>' + match['contig'] + '</td>';
+				table += '<td>' + match['start'] + '</td>';
+				table += '<td>' + match['end'] + '</td>';
+			}
 			if (match.hasOwnProperty('linked_data')){
 				var list = '<b>species:</b> ';
 				var first = 1;

@@ -35,6 +35,7 @@ sub new {
 	$self->{'instance'}         = $params->{'instance'};
 	$self->{'job_id'}           = $params->{'options'}->{'job_id'};
 	$self->{'threads'}          = $params->{'options'}->{'threads'};
+	$self->{'scan_genome'}      = $params->{'options'}->{'scan_genome'};
 	bless( $self, $class );
 	return $self;
 }
@@ -66,7 +67,8 @@ sub run {
 				options          => {
 					always_run           => 1,
 					throw_busy_exception => 0,
-					job_id               => $self->{'job_id'}
+					job_id               => $self->{'job_id'},
+					scan_genome          => $self->{'scan_genome'}
 				},
 				instance => $self->{'instance'},
 				logger   => $self->{'logger'}
