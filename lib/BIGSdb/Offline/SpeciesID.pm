@@ -29,9 +29,8 @@ use constant INITIAL_BUSY_DELAY   => 60;
 use constant ATTEMPTS_BEFORE_FAIL => 50;
 use constant MAX_DELAY            => 600;
 
-#use constant URL => 'https://rest.pubmlst.org/db/pubmlst_rmlst_seqdef_kiosk/schemes/1/sequence';
-use constant SEQUENCE_URL     => 'http://localhost/api/db/pubmlst_rmlst_seqdef_kiosk/schemes/1/sequence';
-use constant DESIGNATIONS_URL => 'http://localhost/api/db/pubmlst_rmlst_seqdef_kiosk/schemes/1/designations';
+use constant SEQUENCE_URL => 'https://rest.pubmlst.org/db/pubmlst_rmlst_seqdef_kiosk/schemes/1/sequence';
+use constant DESIGNATIONS_URL => 'https://rest.pubmlst.org/db/pubmlst_rmlst_seqdef_kiosk/schemes/1/designations';
 
 sub run {
 	my ( $self, $isolate_id ) = @_;
