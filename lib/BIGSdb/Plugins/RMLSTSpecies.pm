@@ -189,7 +189,7 @@ sub run_job {
 				analysis                          => $data
 			};
 			$row_buffer .= $self->_format_row_html( $params,
-				{ td => $td, values => $values, response_code => $response_code, isolate_id => $values->[1] } );
+				{ td => $td, values => $values, response_code => $response_code, isolate_id => $values->[0] } );
 			my $message_html = qq($html\n$table_header\n$row_buffer\n</table></div>);
 			$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
 			$td = $td == 1 ? 2 : 1;
