@@ -180,7 +180,7 @@ sub run_job {
 		my $last = $i;
 		my $message = ( $first == $last ) ? "Scanning isolate $first" : "Scanning isolates $first-$last";
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => $message } );
-		my $dataset = $self->_perform_rest_query( $job_id, $i, $tranche );
+		my $dataset = $self->_perform_rest_query( $job_id, $tranche );
 		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $progress } );
 		foreach my $result (@$dataset) {
 			my ( $data, $values, $response_code ) = @{$result}{qw(data values response_code)};
@@ -189,7 +189,7 @@ sub run_job {
 				analysis                          => $data
 			};
 			$row_buffer .= $self->_format_row_html( $params,
-				{ td => $td, values => $values, response_code => $response_code, row_no => $i } );
+				{ td => $td, values => $values, response_code => $response_code, isolate_id => $values->[1] } );
 			my $message_html = qq($html\n$table_header\n$row_buffer\n</table></div>);
 			$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
 			$td = $td == 1 ? 2 : 1;
@@ -211,7 +211,7 @@ sub run_job {
 
 sub _format_row_html {
 	my ( $self, $params, $args ) = @_;
-	my ( $td, $values, $response_code, $row_no ) = @{$args}{qw(td values response_code row_no)};
+	my ( $td, $values, $response_code, $isolate_id ) = @{$args}{qw(td values response_code isolate_id)};
 	my $allele_predictions = ref $values->[2] eq 'ARRAY' ? @{ $values->[2] } : 0;
 	my $rows = max( $allele_predictions, 1 );
 	my %italicised = map { $_ => 1 } ( 3, 4, 8 );
@@ -262,11 +262,11 @@ sub _format_row_html {
 					if ( !$no_matches ) {
 						my $filename = $values->[$col];
 						$buffer .=
-						    qq(<a class="ajax_link" id="row_$row_no" href="$params->{'script_name'}?)
+						    qq(<a class="ajax_link" id="id_$isolate_id" href="$params->{'script_name'}?)
 						  . qq(db=$self->{'instance'}&amp;)
 						  . qq(page=plugin&amp;name=RMLSTSpecies&amp;filename=$filename&amp;no_header=1">$show</a>);
 						$buffer .=
-						  qq(<a id="row_${row_no}_hide" class="row_hide" style="display:none;cursor:pointer">$hide</a>);
+						  qq(<a id="id_${isolate_id}_hide" class="row_hide" style="display:none;cursor:pointer">$hide</a>);
 					}
 				} else {
 					$buffer .= $values->[$col] // q();
@@ -288,7 +288,7 @@ sub _get_threads {
 }
 
 sub _perform_rest_query {
-	my ( $self, $job_id, $i, $isolate_ids ) = @_;
+	my ( $self, $job_id, $isolate_ids ) = @_;
 	my $results;
 	my $id_obj;
 	my $error;
@@ -324,7 +324,7 @@ sub _perform_rest_query {
 	foreach my $id ( sort { $a <=> $b } keys %$results ) {
 		my $record_result = $results->{$id};
 		my ( $data, $result, $response ) = @{$record_result}{qw{data values response}};
-		my $json_link = $self->_write_row_json_file( $job_id, $i, $response );
+		my $json_link = $self->_write_row_json_file( $job_id, $id, $response );
 		my $values = [ @{$result}{qw{isolate_id isolate_name rank taxon taxonomy support}} ];
 		push @$values, $json_link;
 		push @$values, @{$result}{qw{rST species}};
@@ -334,8 +334,8 @@ sub _perform_rest_query {
 }
 
 sub _write_row_json_file {
-	my ( $self, $job_id, $row, $response ) = @_;
-	my $filename  = "${job_id}_$row.json";
+	my ( $self, $job_id, $isolate_id, $response ) = @_;
+	my $filename  = "${job_id}_$isolate_id.json";
 	my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
 	open( my $fh, '>', $full_path ) || $logger->error("Cannot open $full_path for writing");
 	say $fh $response->content;

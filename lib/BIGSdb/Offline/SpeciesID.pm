@@ -34,7 +34,7 @@ sub run {
 	my $qry = 'SELECT id,sequence FROM sequence_bin WHERE isolate_id=? AND NOT remote_contig';
 	my $contigs =
 	  $self->{'datastore'}
-	  ->run_query( $qry, $isolate_id, { fetch => 'all_arrayref', cache => 'RMLSTSpecies::blast_create_fasta::local' } );
+	  ->run_query( $qry, $isolate_id, { fetch => 'all_arrayref', cache => 'SpeciesID::blast_create_fasta::local' } );
 	my $fasta;
 	foreach my $contig (@$contigs) {
 		$fasta .= qq(>$contig->[0]\n$contig->[1]\n);
@@ -43,7 +43,7 @@ sub run {
 	  . 's.id=r.seqbin_id WHERE s.isolate_id=? AND remote_contig';
 	my $remote_contigs =
 	  $self->{'datastore'}->run_query( $remote_qry, $isolate_id,
-		{ fetch => 'all_arrayref', slice => {}, cache => 'RMLSTSpecies::blast_create_fasta::remote' } );
+		{ fetch => 'all_arrayref', slice => {}, cache => 'SpeciesID::blast_create_fasta::remote' } );
 	my $remote_uris = [];
 	foreach my $contig_link (@$remote_contigs) {
 		push @$remote_uris, $contig_link->{'uri'};
