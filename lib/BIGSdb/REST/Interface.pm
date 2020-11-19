@@ -203,7 +203,7 @@ sub reconnect {
 	my $self = setting('self');
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
 	$self->db_connect;
-	$self->{'datastore'}->change_db($self->{'db'});
+	$self->{'datastore'}->change_db( $self->{'db'} );
 	_setup_db_logger();
 	return;
 }
@@ -264,8 +264,12 @@ sub _check_kiosk {
 	}
 	my $db = params->{'db'};
 	if ( $self->{'system'}->{'rest_kiosk'} eq 'sequenceQuery' ) {
-		my @allowed_routes = ( "POST /db/$db/loci/{locus}/sequence", "POST /db/$db/sequence",
-			"POST /db/$db/schemes/{scheme_id}/sequence" );
+		my @allowed_routes = (
+			"POST /db/$db/loci/{locus}/sequence",
+			"POST /db/$db/sequence",
+			"POST /db/$db/schemes/{scheme_id}/sequence",
+			"POST /db/$db/schemes/{scheme_id}/designations"
+		);
 		local $" = q(, );
 		if ( request->method ne 'POST' ) {
 			send_error(
@@ -273,9 +277,11 @@ sub _check_kiosk {
 				404
 			);
 		}
-		my $route = request->request_uri;
-		my @allowed_regex =
-		  ( qr/\/db\/$db\/loci\/\w+\/sequence$/x, qr/\/db\/$db\/sequence$/x, qr/\/db\/$db\/schemes\/\d+\/sequence$/x );
+		my $route         = request->request_uri;
+		my @allowed_regex = (
+			qr/\/db\/$db\/loci\/\w+\/sequence$/x,    qr/\/db\/$db\/sequence$/x,
+			qr/\/db\/$db\/schemes\/\d+\/sequence$/x, qr/\/db\/$db\/schemes\/\d+\/designations$/x
+		);
 		foreach my $allowed (@allowed_regex) {
 			return if $route =~ $allowed;
 		}
@@ -510,8 +516,10 @@ sub get_resources {
 			'SELECT g.dbase_config FROM group_resources g JOIN resources r ON '
 			  . "g.dbase_config=r.dbase_config WHERE group_name=?$show_all_clause ORDER BY dbase_config",
 			$group->{'name'},
-			{ fetch => 'col_arrayref',
-				cache => "REST::Interface::get_resources::resources::$show_all" }
+			{
+				fetch => 'col_arrayref',
+				cache => "REST::Interface::get_resources::resources::$show_all"
+			}
 		);
 		my @databases;
 		foreach my $dbase_config (@$group_resources) {

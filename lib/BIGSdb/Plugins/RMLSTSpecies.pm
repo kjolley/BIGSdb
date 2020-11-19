@@ -429,9 +429,16 @@ sub _print_options_fieldset {
 
 sub _rmlst_scheme_exists {
 	my ($self) = @_;
-	return $self->{'datastore'}->run_query(
-		'SELECT EXISTS(SELECT * FROM schemes WHERE name=? AND dbase_name IS NOT NULL and dbase_id IS NOT NULL)',
-		'Ribosomal MLST' );
+	my $scheme_id = $self->{'datastore'}->run_query(
+		'SELECT id FROM schemes WHERE name=? AND dbase_name IS NOT NULL and dbase_id IS NOT NULL',
+		'Ribosomal MLST'
+	);
+	return if !defined $scheme_id;
+	my $loci = $self->{'datastore'}->get_scheme_loci( $scheme_id, { profile_name => 1 } );
+	foreach my $locus (@$loci) {
+		return if $locus !~ /^BACT0000\d{2}$/x;
+	}
+	return 1;
 }
 
 sub _get_colour {
@@ -520,18 +527,18 @@ function format_data(data){
 	var plural = loci_matched == 1 ? "us" : "i";
 	var table = '<p style="text-align:left"><b>' + loci_matched + ' loc' + plural 
 	  + ' matched (rMLST uses 53 in total)</b></p>\\n'
-	  + '<table class="ajaxtable" style="width:100%"><tr><th>Locus</th><th>Allele</th><th>Length</th>';
+	  + '<table class="ajaxtable" style="width:100%"><tr><th>Locus</th><th>Allele</th>';
 	  if (scan_genome){
-		  table +='<th>Contig</th><th>Start position</th><th>End position</th>'
+		  table +='<th>Length</th><th>Contig</th><th>Start position</th><th>End position</th>'
 	  }
 	  table +='<th style="text-align:left">Linked data values</th></tr>\\n';
 	var td = 1 ;
 	\$.each(loci, function( locus_index, locus ) {
 		\$.each(data['exact_matches'][locus], function(match_index, match){
 			table += '<tr class="td' + td + '"><td>' + locus + '</td>';
-			table += '<td>' + match['allele_id'] + '</td>';
-			table += '<td>' + match['length'] + '</td>';
+			table += '<td>' + match['allele_id'] + '</td>';			
 			if (scan_genome){
+				table += '<td>' + match['length'] + '</td>';
 				table += '<td>' + match['contig'] + '</td>';
 				table += '<td>' + match['start'] + '</td>';
 				table += '<td>' + match['end'] + '</td>';

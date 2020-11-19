@@ -35,6 +35,7 @@ sub setup_routes {
 		get "$dir/db/:db/schemes/:scheme/loci"          => sub { _get_scheme_loci() };
 		get "$dir/db/:db/schemes/:scheme/fields/:field" => sub { _get_scheme_field() };
 		post "$dir/db/:db/schemes/:scheme/sequence"     => sub { _query_scheme_sequence() };
+		post "$dir/db/:db/schemes/:scheme/designations" => sub { _query_scheme_designations() };
 	}
 	return;
 }
@@ -215,19 +216,22 @@ sub _query_scheme_sequence {
 		my $max = MAX_QUERY_SEQ;
 		send_error( "Query contains too many sequences - limit is $max.", 413 );
 	}
-	my $set_id      = $self->get_set_id;
-	my $subdir      = setting('subdir');
-	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-	my $loci        = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	$self->{'dataConnector'}
-	  ->drop_all_connections;    #Don't keep connections open while waiting for BLAST.
+	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	$self->{'dataConnector'}->drop_all_connections;    #Don't keep connections open while waiting for BLAST.
 	my $blast_obj = $self->get_blast_object($loci);
 	$blast_obj->blast( \$sequence );
-	my $matches      = $blast_obj->get_exact_matches( { details => $details } );
+	my $matches = $blast_obj->get_exact_matches( { details => $details } );
+	$self->reconnect;
+	return _process_matches( $db, $scheme_id, $matches, $details );
+}
+
+sub _process_matches {
+	my ( $db, $scheme_id, $matches, $details, $options ) = @_;
+	my $self         = setting('self');
+	my $set_id       = $self->get_set_id;
+	my $subdir       = setting('subdir');
 	my $exacts       = {};
 	my $designations = {};
-	$self->reconnect;
-
 	foreach my $locus ( keys %$matches ) {
 		my $locus_name = $locus;
 		if ($set_id) {
@@ -237,7 +241,10 @@ sub _query_scheme_sequence {
 		my $locus_matches = $matches->{$locus};
 		if ($details) {
 			foreach my $match (@$locus_matches) {
-				my $filtered = $self->filter_match( $match, { exact => 1 } );
+				my $filtered =
+				    $options->{'designations_only'}
+				  ? { allele_id => $match->{'allele'} }
+				  : $self->filter_match( $match, { exact => 1 } );
 				my $field_values =
 				  $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $match->{'allele'} );
 				$filtered->{'linked_data'} = $field_values->{'detailed_values'}
@@ -269,6 +276,21 @@ sub _query_scheme_sequence {
 		}
 	}
 	return $values;
+}
+
+sub _query_scheme_designations {
+	my $self   = setting('self');
+	my $params = params;
+	my ( $db, $scheme_id, $designations ) =
+	  @{$params}{qw(db scheme designations )};
+	$self->check_post_payload;
+	$self->check_load_average;
+	$self->check_seqdef_database;
+	$self->check_scheme($scheme_id);
+	if ( !$designations ) {
+		send_error( 'Required field missing: designations.', 400 );
+	}
+	return _process_matches( $db, $scheme_id, $designations, 1,{designations_only=>1} );
 }
 
 sub _run_seq_query_script {

@@ -28,23 +28,36 @@ use BIGSdb::Exceptions;
 use constant INITIAL_BUSY_DELAY   => 60;
 use constant ATTEMPTS_BEFORE_FAIL => 50;
 use constant MAX_DELAY            => 600;
-use constant URL => 'https://rest.pubmlst.org/db/pubmlst_rmlst_seqdef_kiosk/schemes/1/sequence';
+
+#use constant URL => 'https://rest.pubmlst.org/db/pubmlst_rmlst_seqdef_kiosk/schemes/1/sequence';
+use constant SEQUENCE_URL     => 'http://localhost/api/db/pubmlst_rmlst_seqdef_kiosk/schemes/1/sequence';
+use constant DESIGNATIONS_URL => 'http://localhost/api/db/pubmlst_rmlst_seqdef_kiosk/schemes/1/designations';
 
 sub run {
 	my ( $self, $isolate_id ) = @_;
 	$self->initiate_job_manager;
-	my $fasta_ref =
-	    $self->{'options'}->{'scan_genome'}
-	  ? $self->_get_genome_fasta($isolate_id)
-	  : $self->_get_rmlst_fasta($isolate_id);
 	my $agent = LWP::UserAgent->new( agent => 'BIGSdb' );
-	my $payload = encode_json(
-		{
-			base64   => JSON::true(),
-			details  => JSON::true(),
-			sequence => encode_base64($$fasta_ref)
-		}
-	);
+	my $payload;
+	my $url;
+	if ( $self->{'options'}->{'scan_genome'} ) {
+		my $fasta_ref = $self->_get_genome_fasta($isolate_id);
+		$payload = encode_json(
+			{
+				base64   => JSON::true(),
+				details  => JSON::true(),
+				sequence => encode_base64($$fasta_ref)
+			}
+		);
+		$url = SEQUENCE_URL;
+	} else {
+		my $designations = $self->_get_rmlst_designations($isolate_id);
+		$payload = encode_json(
+			{
+				designations => $designations
+			}
+		);
+		$url = DESIGNATIONS_URL;
+	}
 	my ( $response, $unavailable );
 	my $delay = INITIAL_BUSY_DELAY;
 	my $isolate_name =
@@ -57,7 +70,7 @@ sub run {
 	do {
 		$unavailable = 0;
 		$response    = $agent->post(
-			URL,
+			$url,
 			Content_Type => 'application/json; charset=UTF-8',
 			Content      => $payload
 		);
@@ -113,6 +126,23 @@ sub run {
 	return { data => $data, values => $values, response => $response };
 }
 
+sub _get_rmlst_designations {
+	my ( $self, $isolate_id ) = @_;
+	my $scheme_id = $self->{'datastore'}->run_query( 'SELECT id FROM schemes WHERE name=?', 'Ribosomal MLST' );
+	BIGSdb::Exception::Database::Configuration->throw('Ribosomal MLST scheme does not exist') if !defined $scheme_id;
+	my $designations = $self->{'datastore'}->run_query(
+		q(SELECT locus,allele_id FROM allele_designations WHERE isolate_id=? AND )
+		  . q(locus IN (SELECT locus FROM scheme_members WHERE scheme_id=?) ),
+		[ $isolate_id, $scheme_id ],
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	my $values = {};
+	foreach my $designation (@$designations) {
+		push @{ $values->{ $designation->{'locus'} } }, { allele => $designation->{'allele_id'} };
+	}
+	return $values;
+}
+
 sub _get_genome_fasta {
 	my ( $self, $isolate_id ) = @_;
 	my $qry = 'SELECT id,sequence FROM sequence_bin WHERE isolate_id=? AND NOT remote_contig';
@@ -152,30 +182,5 @@ sub _get_genome_fasta {
 	return \$fasta;
 }
 
-sub _get_rmlst_fasta {
-	my ( $self, $isolate_id ) = @_;
-	my $scheme_id = $self->{'datastore'}->run_query( 'SELECT id FROM schemes WHERE name=?', 'Ribosomal MLST' );
-	BIGSdb::Exception::Database::Configuration->throw('Ribosomal MLST scheme does not exist') if !defined $scheme_id;
-	my $designations = $self->{'datastore'}->run_query(
-		q(SELECT locus,allele_id FROM allele_designations WHERE isolate_id=? AND )
-		  . q(locus IN (SELECT locus FROM scheme_members WHERE scheme_id=?) ),
-		[ $isolate_id, $scheme_id ],
-		{ fetch => 'all_arrayref', slice => {} }
-	);
-	my $fasta = q();
-	my %loci;
-	foreach my $designation (@$designations) {
-		$fasta .= qq(>$designation->{'locus'}_$designation->{'allele_id'}\n);
-		if ( !defined $loci{ $designation->{'locus'} } ) {
-			$loci{ $designation->{'locus'} } = $self->{'datastore'}->get_locus( $designation->{'locus'} );
-		}
-		my $seq_ref = $loci{ $designation->{'locus'} }->get_allele_sequence( $designation->{'allele_id'} );
-		if ( ref $seq_ref && $$seq_ref ) {
-			$fasta .= qq($$seq_ref\n);
-		} else {
-			$fasta .= qq(---\n);
-		}
-	}
-	return \$fasta;
-}
+
 1;
