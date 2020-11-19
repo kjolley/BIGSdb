@@ -280,13 +280,11 @@ sub _run_blast {
 		}
 
 		#Very short sequences won't be matched unless we increase the expect value significantly
-		my $shortest_seq = $self->_get_shortest_seq_length($fasta_file);
+		my $shortest_seq = $self->_get_shortest_seq_length($loci_by_type);
 		if ( $shortest_seq <= 20 ) {
 			$params{'-evalue'} = 1000;
 		}
-			$self->{'dataConnector'}
-	  ->drop_all_connections;    #Don't keep connections open while waiting for BLAST.
-		
+		$self->{'dataConnector'}->drop_all_connections;    #Don't keep connections open while waiting for BLAST.
 		system( "$self->{'config'}->{'blast+_path'}/$program", %params );
 		$self->reconnect;
 		unlink $read_file;
@@ -633,16 +631,12 @@ sub _read_blast_file_into_structure {
 }
 
 sub _get_shortest_seq_length {
-	my ( $self, $fasta ) = @_;
+	my ( $self, $loci ) = @_;
 	my $shortest = INF;
-	open( my $fh, '<:encoding(utf8)', $fasta ) || $self->{'logger'}->error("Cannot open $fasta for reading");
-	while ( my $line = <$fh> ) {
-		next if $line =~ /^>/x;
-		chomp $line;
-		my $length = length $line;
-		$shortest = $length if $length < $shortest;
+	foreach my $locus (@$loci) {
+		my $min_length = $self->{'datastore'}->run_query( 'SELECT min_length FROM locus_stats WHERE locus=?', $locus );
+		$shortest = $min_length if $min_length < $shortest;
 	}
-	close $fh;
 	return $shortest;
 }
 
