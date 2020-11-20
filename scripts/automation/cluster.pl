@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Script to cluster cgMLST profiles using classification groups
 #Written by Keith Jolley
-#Copyright (c) 2016-2019, University of Oxford
+#Copyright (c) 2016-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20190830
+#Version: 20201120
 use strict;
 use warnings;
 use 5.010;
@@ -89,12 +89,11 @@ if ( $opts{'reset'} ) {
 	reset_scheme();
 	exit;
 }
-$script->initiate_job_manager if $script->{'config'}->{'jobs_db'};
 $script->{'options'}->{'mark_job'} = 1;
-my $job_id = $script->add_job('Cluster');
+my $job_id = $script->add_job( 'Cluster', { temp_init => 1 } );
 main();
 remove_lock_file();
-$script->stop_job($job_id);
+$script->stop_job( $job_id, { temp_init => 1 } );
 undef $script;
 
 sub perform_sanity_checks {
@@ -280,7 +279,7 @@ sub add_profile_to_group {
 
 sub get_lock_file {
 	my $hash      = Digest::MD5::md5_hex("$0||$opts{'database'}||$opts{'cscheme_id'}");
-	my $lock_dir = $script->{'config'}->{'lock_dir'} // LOCK_DIR;
+	my $lock_dir  = $script->{'config'}->{'lock_dir'} // LOCK_DIR;
 	my $lock_file = "$lock_dir/BIGSdb_cluster_$hash";
 	return $lock_file;
 }

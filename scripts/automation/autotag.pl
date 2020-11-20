@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Automatically tag scan genomes for exactly matching alleles
 #Written by Keith Jolley
-#Copyright (c) 2011-2019, University of Oxford
+#Copyright (c) 2011-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20191014
+#Version: 20201120
 use strict;
 use warnings;
 use 5.010;
@@ -119,8 +119,7 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 	$script->{'db'}->commit;                     #Prevent idle in transaction table locks
 	$script->{'logger'}
 	  ->info("$opts{'d'}:Running Autotagger on $isolate_count isolate$plural ($threads thread$plural)");
-	$script->initiate_job_manager;
-	my $job_id = $script->add_job('AutoTag');
+	my $job_id = $script->add_job('AutoTag', { temp_init => 1 });
 	my $pm     = Parallel::ForkManager->new( $opts{'threads'} );
 
 	foreach my $list (@$lists) {
@@ -146,7 +145,7 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 	}
 	$pm->wait_all_children;
 	$script->{'logger'}->info("$opts{'d'}:All Autotagger threads finished");
-	$script->stop_job($job_id);
+	$script->stop_job($job_id, { temp_init => 1 });
 	exit;
 }
 

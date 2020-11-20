@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Find and mark exemplar alleles for use by tagging functions
 #Written by Keith Jolley
-#Copyright (c) 2016-2019, University of Oxford
+#Copyright (c) 2016-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20190830
+#Version: 20201120
 use strict;
 use warnings;
 use 5.010;
@@ -85,11 +85,10 @@ my $script = BIGSdb::Offline::Script->new(
 );
 die "This script can only be run against a seqdef database.\n"
   if ( $script->{'system'}->{'dbtype'} // '' ) ne 'sequences';
-$script->initiate_job_manager if $script->{'config'}->{'jobs_db'};
 $script->{'options'}->{'mark_job'} = 1;
-my $job_id = $script->add_job('FindExemplars');
+my $job_id = $script->add_job( 'FindExemplars', { temp_init => 1 } );
 main();
-$script->stop_job($job_id);
+$script->stop_job( $job_id, { temp_init => 1 } );
 undef $script;
 
 sub main {

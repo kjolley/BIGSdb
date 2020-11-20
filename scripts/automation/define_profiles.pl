@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20201104
+#Version: 20201120
 use strict;
 use warnings;
 use 5.010;
@@ -101,12 +101,11 @@ die "This script can only be run against an isolate database.\n"
 perform_sanity_checks();
 get_existing_alleles();
 local $| = 1;
-$script->initiate_job_manager if $script->{'config'}->{'jobs_db'};
 $script->{'options'}->{'mark_job'} = 1;
-my $job_id = $script->add_job('DefineProfiles');
+my $job_id = $script->add_job('DefineProfiles', { temp_init => 1 });
 main();
 remove_lock_file();
-$script->stop_job($job_id);
+$script->stop_job($job_id, { temp_init => 1 });
 undef $script;
 
 sub main {

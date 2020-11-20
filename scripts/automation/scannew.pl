@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Scan genomes for new alleles
 #Written by Keith Jolley
-#Copyright (c) 2013-2019, University of Oxford
+#Copyright (c) 2013-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20190202
+#Version: 20201120
 use strict;
 use warnings;
 use 5.010;
@@ -119,8 +119,7 @@ if ( BIGSdb::Utils::is_int( $opts{'threads'} ) && $opts{'threads'} > 1 ) {
 	my $uses_remote_contigs = $script->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM oauth_credentials)');
 	$script->{'db'}->commit;                          #Prevent idle in transaction table locks
 	$script->{'logger'}->info("$opts{'d'}:Running Autodefiner (up to $opts{'threads'} threads)");
-	$script->initiate_job_manager;
-	my $job_id = $script->add_job('ScanNew');
+	my $job_id = $script->add_job('ScanNew', { temp_init => 1 });
 	print_header();
 	my $pm = Parallel::ForkManager->new( $opts{'threads'} );
 
@@ -148,7 +147,7 @@ if ( BIGSdb::Utils::is_int( $opts{'threads'} ) && $opts{'threads'} > 1 ) {
 	$pm->wait_all_children;
 	$script->delete_temp_files("$script->{'config'}->{'secure_tmp_dir'}/*$opts{'prefix'}*");
 	$script->{'logger'}->info("$opts{'d'}:All Autodefiner threads finished");
-	$script->stop_job($job_id);
+	$script->stop_job($job_id, { temp_init => 1 });
 	exit;
 }
 
