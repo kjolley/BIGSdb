@@ -255,7 +255,7 @@ sub _format_row_html {
 					  . qq(<div style="display:block-inline;margin-top:0.2em;background-color:\#$colour;)
 					  . qq(border:1px solid #ccc;height:0.8em;width:$values->[$col]->[$row]%"></div>);
 				} else {
-					$buffer .= $values->[$col]->[$row];
+					$buffer .= $values->[$col]->[$row] // q();
 				}
 				$buffer .= q(</i>) if $italicised{$col};
 				$buffer .= q(</td>);
