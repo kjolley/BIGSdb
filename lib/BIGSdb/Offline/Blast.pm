@@ -635,6 +635,7 @@ sub _get_shortest_seq_length {
 	my $shortest = INF;
 	foreach my $locus (@$loci) {
 		my $min_length = $self->{'datastore'}->run_query( 'SELECT min_length FROM locus_stats WHERE locus=?', $locus );
+		next if !defined $min_length;
 		$shortest = $min_length if $min_length < $shortest;
 	}
 	return $shortest;

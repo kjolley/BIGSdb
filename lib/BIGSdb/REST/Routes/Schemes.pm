@@ -242,7 +242,7 @@ sub _process_matches {
 		if ($details) {
 			foreach my $match (@$locus_matches) {
 				my $filtered =
-				    $options->{'designations_only'}
+				  $options->{'designations_only'}
 				  ? { allele_id => $match->{'allele'} }
 				  : $self->filter_match( $match, { exact => 1 } );
 				my $field_values =
@@ -290,7 +290,7 @@ sub _query_scheme_designations {
 	if ( !$designations ) {
 		send_error( 'Required field missing: designations.', 400 );
 	}
-	return _process_matches( $db, $scheme_id, $designations, 1,{designations_only=>1} );
+	return _process_matches( $db, $scheme_id, $designations, 1, { designations_only => 1 } );
 }
 
 sub _run_seq_query_script {
