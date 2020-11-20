@@ -91,7 +91,7 @@ my $script = BIGSdb::Offline::Script->new(
 		port             => PORT,
 		user             => USER,
 		password         => PASSWORD,
-		options          => \%opts,
+		options          => { no_user_db_needed => 1, %opts },
 		instance         => $opts{'database'},
 		logger           => $logger
 	}
@@ -102,10 +102,10 @@ perform_sanity_checks();
 get_existing_alleles();
 local $| = 1;
 $script->{'options'}->{'mark_job'} = 1;
-my $job_id = $script->add_job('DefineProfiles', { temp_init => 1 });
+my $job_id = $script->add_job( 'DefineProfiles', { temp_init => 1 } );
 main();
 remove_lock_file();
-$script->stop_job($job_id, { temp_init => 1 });
+$script->stop_job( $job_id, { temp_init => 1 } );
 undef $script;
 
 sub main {

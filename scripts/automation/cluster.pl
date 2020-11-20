@@ -77,7 +77,7 @@ my $script = BIGSdb::Offline::Script->new(
 		port             => PORT,
 		user             => USER,
 		password         => PASSWORD,
-		options          => \%opts,
+		options          => { no_user_db_needed => 1, %opts },
 		instance         => $opts{'database'},
 		logger           => $logger
 	}

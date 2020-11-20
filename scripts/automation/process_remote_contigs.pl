@@ -2,7 +2,7 @@
 #Download, check length and create checksum contigs stored as URIs
 #in a remote BIGSdb database
 #Written by Keith Jolley
-#Copyright (c) 2017-2019, University of Oxford
+#Copyright (c) 2017-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20190830
+#Version: 20201120
 use strict;
 use warnings;
 use 5.010;
@@ -80,7 +80,8 @@ sub main {
 			user             => USER,
 			password         => PASSWORD,
 			options          => {
-				always_run => 1,
+				no_user_db_needed => 1,
+				always_run        => 1,
 				%opts
 			},
 			instance => $opts{'d'},
