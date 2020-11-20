@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2019, University of Oxford
+#Copyright (c) 2011-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -113,7 +113,8 @@ sub initiate {
 			die "Invalid view selected.\n" if !$view_exists;
 			$self->{'system'}->{'view'} = $self->{'options'}->{'v'};
 		}
-		$self->{'datastore'}->initiate_userdbs if $self->{'instance'};
+		$self->{'datastore'}->initiate_userdbs
+		  if $self->{'instance'} && !$self->{'options'}->{'no_user_db_needed'};
 		$self->setup_remote_contig_manager;
 	}
 	return;

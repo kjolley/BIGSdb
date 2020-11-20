@@ -95,7 +95,7 @@ if ( BIGSdb::Utils::is_int( $opts{'threads'} ) && $opts{'threads'} > 1 ) {
 			port             => PORT,
 			user             => USER,
 			password         => PASSWORD,
-			options          => { mark_job => 1, query_only => 1, %opts },
+			options          => { mark_job => 1, query_only => 1, no_user_db_needed => 1, %opts },
 			instance         => $opts{'d'},
 		}
 	);
@@ -119,7 +119,7 @@ if ( BIGSdb::Utils::is_int( $opts{'threads'} ) && $opts{'threads'} > 1 ) {
 	my $uses_remote_contigs = $script->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM oauth_credentials)');
 	$script->{'db'}->commit;                          #Prevent idle in transaction table locks
 	$script->{'logger'}->info("$opts{'d'}:Running Autodefiner (up to $opts{'threads'} threads)");
-	my $job_id = $script->add_job('ScanNew', { temp_init => 1 });
+	my $job_id = $script->add_job( 'ScanNew', { temp_init => 1 } );
 	print_header();
 	my $pm = Parallel::ForkManager->new( $opts{'threads'} );
 
@@ -138,7 +138,7 @@ if ( BIGSdb::Utils::is_int( $opts{'threads'} ) && $opts{'threads'} > 1 ) {
 				port             => PORT,
 				user             => USER,
 				password         => PASSWORD,
-				options          => { l => "@$list", %opts },
+				options          => { l => "@$list", no_user_db_needed => 1, %opts },
 				instance         => $opts{'d'},
 			}
 		);
@@ -147,7 +147,7 @@ if ( BIGSdb::Utils::is_int( $opts{'threads'} ) && $opts{'threads'} > 1 ) {
 	$pm->wait_all_children;
 	$script->delete_temp_files("$script->{'config'}->{'secure_tmp_dir'}/*$opts{'prefix'}*");
 	$script->{'logger'}->info("$opts{'d'}:All Autodefiner threads finished");
-	$script->stop_job($job_id, { temp_init => 1 });
+	$script->stop_job( $job_id, { temp_init => 1 } );
 	exit;
 }
 
@@ -162,7 +162,7 @@ my $script = BIGSdb::Offline::ScanNew->new(
 		port             => PORT,
 		user             => USER,
 		password         => PASSWORD,
-		options          => { mark_job => 1, %opts },
+		options          => { mark_job => 1, no_user_db_needed => 1, %opts },
 		instance         => $opts{'d'},
 	}
 );

@@ -91,7 +91,7 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 			port             => PORT,
 			user             => USER,
 			password         => PASSWORD,
-			options          => { mark_job => 1, query_only => 1, %opts },
+			options          => { mark_job => 1, query_only => 1, no_user_db_needed => 1, %opts },
 			instance         => $opts{'d'},
 		}
 	);
@@ -119,8 +119,8 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 	$script->{'db'}->commit;                     #Prevent idle in transaction table locks
 	$script->{'logger'}
 	  ->info("$opts{'d'}:Running Autotagger on $isolate_count isolate$plural ($threads thread$plural)");
-	my $job_id = $script->add_job('AutoTag', { temp_init => 1 });
-	my $pm     = Parallel::ForkManager->new( $opts{'threads'} );
+	my $job_id = $script->add_job( 'AutoTag', { temp_init => 1 } );
+	my $pm = Parallel::ForkManager->new( $opts{'threads'} );
 
 	foreach my $list (@$lists) {
 
@@ -137,7 +137,7 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 				port             => PORT,
 				user             => USER,
 				password         => PASSWORD,
-				options          => { i => "@$list", %opts },
+				options          => { i => "@$list", no_user_db_needed => 1, %opts },
 				instance         => $opts{'d'},
 			}
 		);
@@ -145,7 +145,7 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 	}
 	$pm->wait_all_children;
 	$script->{'logger'}->info("$opts{'d'}:All Autotagger threads finished");
-	$script->stop_job($job_id, { temp_init => 1 });
+	$script->stop_job( $job_id, { temp_init => 1 } );
 	exit;
 }
 
@@ -159,7 +159,7 @@ BIGSdb::Offline::AutoTag->new(
 		port             => PORT,
 		user             => USER,
 		password         => PASSWORD,
-		options          => { mark_job => 1, %opts },
+		options          => { mark_job => 1, no_user_db_needed => 1, %opts },
 		instance         => $opts{'d'},
 	}
 );
