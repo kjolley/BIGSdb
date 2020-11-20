@@ -616,9 +616,8 @@ sub run_script {
 	my $show_key;
 	my $new_seqs_found;
 	my %isolates_to_tag;
-	my $locus_prefix = BIGSdb::Utils::get_random();
-	my $file_prefix  = BIGSdb::Utils::get_random();
-	$self->initiate_job_manager if $self->{'config'}->{'record_scans'};
+	my $locus_prefix   = BIGSdb::Utils::get_random();
+	my $file_prefix    = BIGSdb::Utils::get_random();
 	my $job_id         = $self->_add_job;
 	my $start_time     = time;
 	my $seq_filename   = $self->{'config'}->{'tmp_dir'} . "/$options->{'scan_job'}\_unique_sequences.txt";
@@ -687,6 +686,7 @@ sub _add_job {
 	  if !$self->{'config'}->{'jobs_db'}
 	  || !$self->{'config'}->{'record_scans'};
 	my $job_id;
+	$self->initiate_job_manager;
 	try {
 		$job_id = $self->{'jobManager'}->add_job(
 			{
@@ -704,6 +704,7 @@ sub _add_job {
 	catch {
 		$logger->error($_);
 	};
+	undef $self->{'jobManager'};
 	return $job_id;
 }
 
@@ -712,6 +713,7 @@ sub _stop_job {
 	return
 	  if !$self->{'config'}->{'jobs_db'}
 	  || !$self->{'config'}->{'record_scans'};
+	$self->initiate_job_manager;
 	$self->{'jobManager'}->update_job_status(
 		$job_id,
 		{
@@ -721,6 +723,7 @@ sub _stop_job {
 			pid              => undef
 		}
 	);
+	undef $self->{'jobManager'};
 	return;
 }
 

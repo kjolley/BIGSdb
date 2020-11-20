@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2019, University of Oxford
+#Copyright (c) 2011-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -54,8 +54,7 @@ sub run_script {
 	}
 	my $loci = $self->get_loci_with_ref_db;
 	die "No valid loci selected.\n" if !@$loci;
-	$self->initiate_job_manager if $self->{'options'}->{'mark_job'};
-	my $job_id = $self->add_job('AutoTag');
+	my $job_id = $self->add_job( 'AutoTag', { temp_init => 1 } );
 	$self->{'start_time'} = time;
 	$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Autotagger start");
 	if ( $params->{'fast'} ) {
@@ -67,7 +66,7 @@ sub run_script {
 	my $duration      = $stop - $self->{'start_time'};
 	my $nice_duration = BIGSdb::Utils::get_nice_duration($duration);
 	$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Autotagger stop ($nice_duration)");
-	$self->stop_job($job_id);
+	$self->stop_job( $job_id, { temp_init => 1 } );
 	return;
 }
 

@@ -123,7 +123,7 @@ sub reconnect {
 	my ($self) = @_;
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
 	$self->db_connect;
-	$self->{'datastore'}->change_db($self->{'db'});
+	$self->{'datastore'}->change_db( $self->{'db'} );
 	return;
 }
 
@@ -171,7 +171,7 @@ sub _go {
 				$self->{'logger'}->logdie($_);
 			}
 		};
-		if ( $load_average > $max_load_webscan && $self->{'options'}->{'throw_webscan_busy_exception'}) {
+		if ( $load_average > $max_load_webscan && $self->{'options'}->{'throw_webscan_busy_exception'} ) {
 			BIGSdb::Exception::Server::Busy->throw("Exception: Load average = $load_average");
 			return;
 		}
@@ -427,11 +427,12 @@ sub delete_temp_files {
 }
 
 sub add_job {
-	my ( $self, $module ) = @_;
+	my ( $self, $module, $options ) = @_;
 	return
 	     if !$self->{'config'}->{'jobs_db'}
 	  || !$self->{'options'}->{'mark_job'}
 	  || !$self->{'config'}->{'record_scripts'};
+	$self->initiate_job_manager if $options->{'temp_init'};
 	( my $hostname = `hostname -s` ) =~ s/\s.*$//x;
 	my $job_id = $self->{'jobManager'}->add_job(
 		{
@@ -444,13 +445,15 @@ sub add_job {
 			no_progress  => 1
 		}
 	);
+	undef $self->{'jobManager'} if $options->{'temp_init'};
 	return $job_id;
 }
 
 sub stop_job {
-	my ( $self, $job_id ) = @_;
+	my ( $self, $job_id, $options ) = @_;
 	return
 	  if !$self->{'config'}->{'jobs_db'} || !$self->{'options'}->{'mark_job'} || !$self->{'config'}->{'record_scripts'};
+	$self->initiate_job_manager if $options->{'temp_init'};
 	$self->{'jobManager'}->update_job_status(
 		$job_id,
 		{
@@ -460,6 +463,7 @@ sub stop_job {
 			pid              => undef
 		}
 	);
+	undef $self->{'jobManager'} if $options->{'temp_init'};
 	return;
 }
 1;

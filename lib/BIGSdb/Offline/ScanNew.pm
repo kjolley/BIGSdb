@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2019, University of Oxford
+#Copyright (c) 2014-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -48,8 +48,7 @@ sub run_script {
 	my $isolate_list  = $self->filter_and_sort_isolates($isolates);
 	my $isolate_count = @$isolate_list;
 	my $plural        = $isolate_count == 1 ? '' : 's';
-	$self->initiate_job_manager if $self->{'options'}->{'mark_job'};
-	my $job_id = $self->add_job('ScanNew');
+	my $job_id        = $self->add_job( 'ScanNew', { temp_init => 1 } );
 	$self->{'start_time'} = time;
 	$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Autodefiner start ($isolate_count genome$plural)");
 
@@ -62,7 +61,7 @@ sub run_script {
 	my $duration      = $stop - $self->{'start_time'};
 	my $nice_duration = BIGSdb::Utils::get_nice_duration($duration);
 	$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Autodefiner stop ($nice_duration)");
-	$self->stop_job($job_id);
+	$self->stop_job( $job_id, { temp_init => 1 } );
 	return;
 }
 
@@ -389,5 +388,4 @@ sub _can_define_alleles {
 	}
 	return $can_define;
 }
-
 1;
