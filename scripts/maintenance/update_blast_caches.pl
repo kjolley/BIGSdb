@@ -55,10 +55,9 @@ if ( $opts{'help'} ) {
 	show_help();
 	exit;
 }
-my $script_logging = $opts{'quiet'} ? 'WARN' : 'INFO';
-
 #Direct all library logging calls to screen
 my $log_conf = LOG_TO_SCREEN;
+$log_conf =~ s/INFO/WARN/gx if $opts{'quiet'};
 Log::Log4perl->init( \$log_conf );
 my $logger = Log::Log4perl::get_logger('BIGSdb.Script');
 if ( !$opts{'d'} ) {
