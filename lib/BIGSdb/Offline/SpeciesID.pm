@@ -137,6 +137,7 @@ sub _get_rmlst_designations {
 	);
 	my $values = {};
 	foreach my $designation (@$designations) {
+		next if !$designation->{'allele_id'};
 		push @{ $values->{ $designation->{'locus'} } }, { allele => $designation->{'allele_id'} };
 	}
 	return $values;
