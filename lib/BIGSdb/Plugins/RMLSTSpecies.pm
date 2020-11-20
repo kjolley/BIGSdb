@@ -74,12 +74,18 @@ sub run {
 	say q(<h1>rMLST species identification</h1>);
 	my $q = $self->{'cgi'};
 	if ( $q->param('submit') ) {
+		my $guid = $self->get_guid;
+		eval {
+			$self->{'prefstore'}->set_plugin_attribute( $guid, $self->{'system'}->{'db'},
+				'RMLSTSpecies', 'scan', scalar $q->param('scan') );
+		};
 		my @ids = $q->multi_param('isolate_id');
 		my ( $pasted_cleaned_ids, $invalid_ids ) =
 		  $self->get_ids_from_pasted_list( { dont_clear => 1, has_seqbin => 1 } );
 		push @ids, @$pasted_cleaned_ids;
 		@ids = uniq @ids;
 		my $message_html;
+
 		if (@$invalid_ids) {
 			local $" = ', ';
 			my $error = q(<p>);
@@ -413,6 +419,12 @@ sub _print_interface {
 sub _print_options_fieldset {
 	my ($self) = @_;
 	return if !$self->_rmlst_scheme_exists;
+	my $default_scan;
+	my $guid = $self->get_guid;
+	eval {
+		$default_scan =
+		  $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'RMLSTSpecies', 'scan' );
+	};
 	my $q = $self->{'cgi'};
 	say q(<fieldset style="float:left"><legend>Options</legend>);
 	say q(<p>Scan genome or use allele<br />designations already stored</p>);
@@ -421,7 +433,7 @@ sub _print_options_fieldset {
 		-values    => [ 'scan', 'use_alleles' ],
 		-labels    => { scan => 'Scan genomes', use_alleles => 'Use stored allele designations' },
 		-linebreak => 'true',
-		-default   => 'use_alleles'
+		-default => $default_scan // 'use_alleles'
 	);
 	say q(</fieldset>);
 	return;
@@ -429,10 +441,10 @@ sub _print_options_fieldset {
 
 sub _rmlst_scheme_exists {
 	my ($self) = @_;
-	my $scheme_id = $self->{'datastore'}->run_query(
-		'SELECT id FROM schemes WHERE name=? AND dbase_name IS NOT NULL and dbase_id IS NOT NULL',
-		'Ribosomal MLST'
-	);
+	my $scheme_id =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT id FROM schemes WHERE name=? AND dbase_name IS NOT NULL and dbase_id IS NOT NULL',
+		'Ribosomal MLST' );
 	return if !defined $scheme_id;
 	my $loci = $self->{'datastore'}->get_scheme_loci( $scheme_id, { profile_name => 1 } );
 	foreach my $locus (@$loci) {
