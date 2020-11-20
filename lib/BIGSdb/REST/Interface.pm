@@ -48,8 +48,9 @@ use BIGSdb::REST::Routes::Schemes;
 use BIGSdb::REST::Routes::Sequences;
 use BIGSdb::REST::Routes::Submissions;
 use BIGSdb::REST::Routes::Users;
-use constant SESSION_EXPIRES => 3600 * 12;
-use constant PAGE_SIZE       => 100;
+use constant SESSION_EXPIRES         => 3600 * 12;
+use constant PAGE_SIZE               => 100;
+use constant IDLE_DROP_CONNECTION_MS => 2000;
 hook before       => sub { _before() };
 hook after        => sub { _after() };
 hook before_error => sub { _before_error() };
@@ -73,6 +74,7 @@ sub new {
 	$self->{'port'}              = $options->{'port'};
 	$self->{'user'}              = $options->{'user'};
 	$self->{'password'}          = $options->{'password'};
+	$self->{'last_access'}       = [gettimeofday];
 	bless( $self, $class );
 	$self->_initiate;
 	set behind_proxy => $self->{'config'}->{'rest_behind_proxy'} ? 1 : 0;
@@ -122,7 +124,9 @@ sub check_post_payload {
 #Read database configs and connect before entering route.
 sub _before {
 	my $self = setting('self');
-	$self->{'start_time'} = [gettimeofday];
+	$self->{'start_time'}              = [gettimeofday];
+	$self->{'time_since_last_call_ms'} = int( 1000 * tv_interval( $self->{'last_access'} ) );
+	$self->{'last_access'}             = [gettimeofday];
 	my $request_path = request->path;
 	foreach my $dir ( @{ setting('api_dirs') } ) {
 		if ( $request_path =~ /^$dir/x ) {
@@ -325,14 +329,15 @@ sub get_page_values {
 	};
 }
 
-#Drop the connection because we may have hundreds of databases on the system.
-#Keeping them all open will exhaust resources. This could be made optional
-#for systems with only a few databases.
 sub _after {
 	my $self = setting('self');
 	$self->_log_call;
 	undef $self->{'username'};
-	$self->{'dataConnector'}->drop_all_connections( $self->{'do_not_drop'} );
+	if ( $self->{'time_since_last_call_ms'} > IDLE_DROP_CONNECTION_MS ) {
+		$self->{'dataConnector'}->drop_all_connections;
+	} else {
+		$self->{'dataConnector'}->drop_all_connections( $self->{'do_not_drop'} );
+	}
 	return;
 }
 
