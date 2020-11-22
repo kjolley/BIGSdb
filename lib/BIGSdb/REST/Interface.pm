@@ -225,6 +225,7 @@ sub _log_call {
 	};
 	if ($@) {
 		$self->{'logger'}->error($@);
+		$self->{'logger'}->error( 'Route: ' . request->method . ' ' . request->path );
 		$self->{'log_db'}->rollback;
 	} else {
 		$self->{'log_db'}->commit;
