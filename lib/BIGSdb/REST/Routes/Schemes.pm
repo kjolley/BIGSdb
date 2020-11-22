@@ -232,6 +232,7 @@ sub _process_matches {
 	my $subdir       = setting('subdir');
 	my $exacts       = {};
 	my $designations = {};
+	return {} if ref $matches ne 'HASH';
 	foreach my $locus ( keys %$matches ) {
 		my $locus_name = $locus;
 		if ($set_id) {
