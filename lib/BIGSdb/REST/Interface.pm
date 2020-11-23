@@ -97,7 +97,10 @@ sub _initiate {
 	foreach my $module (@modules) {
 		$setups{$module}->();
 	}
-	$self->{'logger'} = $logger;
+	any qr/.*/x => sub {
+		$self->_setup_db_logger;
+		send_error( 'Not found', 404 );
+	};
 	return;
 }
 
