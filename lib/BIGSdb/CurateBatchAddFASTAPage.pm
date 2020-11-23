@@ -36,9 +36,7 @@ my $logger = get_logger('BIGSdb.Page');
 
 sub get_help_url {
 	my ($self) = @_;
-	return
-	  "$self->{'config'}->{'doclink'}/curator_guide/0020_adding_new_alleles.html#upload-using-a-fasta-file"
-	  ;
+	return "$self->{'config'}->{'doclink'}/curator_guide/0020_adding_new_alleles.html#upload-using-a-fasta-file";
 }
 
 sub print_content {
@@ -137,6 +135,8 @@ sub _print_interface {
 	);
 	say q(</li><li>);
 	say $q->checkbox( -name => 'ignore_similarity', -label => 'Override sequence similarity check' );
+	say q(</li><li>);
+	say $q->checkbox( -name => 'ignore_length', -label => 'Override sequence length check' );
 	say q(</li><li>);
 	say $q->checkbox(
 		-name    => 'use_next_id',
@@ -293,6 +293,7 @@ sub _run_helper {
 				ignore_existing   => $q->param('ignore_existing') ? 1 : 0,
 				complete_CDS      => $q->param('complete_CDS') ? 1 : 0,
 				ignore_similarity => $q->param('ignore_similarity') ? 1 : 0,
+				ignore_length     => $q->param('ignore_length') ? 1 : 0,
 				username          => $self->{'username'},
 				status            => scalar $q->param('status'),
 				sender            => scalar $q->param('sender')

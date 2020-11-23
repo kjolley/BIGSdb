@@ -196,6 +196,8 @@ sub _print_interface_sequence_switches {
 	);
 	say q(</li><li>);
 	say $q->checkbox( -name => 'ignore_similarity', -label => 'Override sequence similarity check' );
+	say q(</li><li>);
+	say $q->checkbox( -name => 'ignore_length', -label => 'Override sequence length check' );
 	say q(</li></ul>);
 	return;
 }
@@ -223,6 +225,7 @@ sub _run_helper {
 				complete_CDS      => $q->param('complete_CDS') ? 1 : 0,
 				ignore_non_DNA    => $q->param('ignore_non_DNA') ? 1 : 0,
 				ignore_similarity => $q->param('ignore_similarity') ? 1 : 0,
+				ignore_length     => $q->param('ignore_length') ? 1 : 0,
 				username          => $self->{'username'}
 			},
 			instance => $self->{'instance'},
@@ -502,11 +505,12 @@ sub _get_nav_data {
 	my $ignore_non_DNA    = $q->param('ignore_non_DNA') ? 'on' : 'off';
 	my $complete_CDS      = $q->param('complete_CDS') ? 'on' : 'off';
 	my $ignore_similarity = $q->param('ignore_similarity') ? 'on' : 'off';
+	my $ignore_length     = $q->param('ignore_length') ? 'on' : 'off';
 	$more_url =
 	    qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSequences&amp;)
 	  . qq(sender=$sender&amp;ignore_existing=$ignore_existing&amp;)
 	  . qq(ignore_non_DNA=$ignore_non_DNA&amp;complete_CDS=$complete_CDS&amp;)
-	  . qq(ignore_similarity=$ignore_similarity);
+	  . qq(ignore_similarity=$ignore_similarity&amp;ignore_length=$ignore_length);
 
 	if ( $q->param('locus') ) {
 		my $locus = $q->param('locus');

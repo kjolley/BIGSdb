@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2019, University of Oxford
+#Copyright (c) 2019-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -32,17 +32,17 @@ sub run {
 	my $locus    = $self->{'options'}->{'locus'};
 	my $seq_data = $self->{'options'}->{'seq_data'};
 	$self->{'system'}->{'script_name'} = $self->{'options'}->{'script_name'};
-		my $status_file = qq($self->{'config'}->{'tmp_dir'}/${prefix}_status.json);
+	my $status_file = qq($self->{'config'}->{'tmp_dir'}/${prefix}_status.json);
 	my $html_file   = qq($prefix.html);
 	my $full_path   = qq($self->{'config'}->{'tmp_dir'}/$html_file);
 	$self->_update_status_file( $status_file, 'running', 0 );
-	my $q = $self->{'cgi'};
-	my $buffer= q(<div class="box" id="resultstable">);
-	$buffer.= q(<h2>Sequence check</h2>);
-	$buffer.=  q(<div class="scrollable">);
+	my $q      = $self->{'cgi'};
+	my $buffer = q(<div class="box" id="resultstable">);
+	$buffer .= q(<h2>Sequence check</h2>);
+	$buffer .= q(<div class="scrollable">);
 	my $clean_locus = $self->clean_locus($locus);
-	$buffer.=  qq(<p><b>Locus: </b>$clean_locus</p>);
-	$buffer.=  q(<table class="resultstable" style="float:left;margin-right:1em">)
+	$buffer .= qq(<p><b>Locus: </b>$clean_locus</p>);
+	$buffer .= q(<table class="resultstable" style="float:left;margin-right:1em">)
 	  . q(<tr><th>Original designation</th><th>Allele id</th><th>Status</th></tr>);
 	my $td      = 1;
 	my $outfile = "$self->{'config'}->{'secure_tmp_dir'}/$prefix.fas";
@@ -55,32 +55,33 @@ sub run {
 		$i++;
 		my ( $status, $id, $message ) = $self->_check_sequence( $locus, $data );
 		my $class = $status == SUCCESS ? 'statusgood' : 'statusbad';
-		my $display_id = BIGSdb::Utils::escape_html($data->{'id'});
-		$buffer.=  qq(<tr class="td$td"><td>$display_id</td><td>$id</td><td class="$class">$message</td></tr>);
+		my $display_id = BIGSdb::Utils::escape_html( $data->{'id'} );
+		$buffer .= qq(<tr class="td$td"><td>$display_id</td><td>$id</td><td class="$class">$message</td></tr>);
 		$td = $td == 1 ? 2 : 1;
+
 		if ( $status == SUCCESS ) {
 			open( my $fh, '>>', $outfile ) || $logger->error("Cannot open $outfile for writing");
 			say $fh ">$id";
 			say $fh $data->{'seq'};
 			close $fh;
 		}
-
 	}
 	$self->_update_status_file( $status_file, 'complete', 100 );
-	$buffer.=  q(</table>);
+	$buffer .= q(</table>);
 	if ( -e $outfile && !-z $outfile ) {
-		$buffer.=  $q->start_form;
-		$buffer.= $self->print_action_fieldset( { submit_label => 'Upload valid sequences', no_reset => 1,get_only=>1 } );
-		$buffer.=  $q->hidden($_) foreach qw(db page locus status sender submission_id);
-		$buffer.=  $q->hidden( 'upload_file', $outfile );
-		$buffer.=  $q->end_form;
+		$buffer .= $q->start_form;
+		$buffer .=
+		  $self->print_action_fieldset( { submit_label => 'Upload valid sequences', no_reset => 1, get_only => 1 } );
+		$buffer .= $q->hidden($_) foreach qw(db page locus status sender submission_id);
+		$buffer .= $q->hidden( 'upload_file', $outfile );
+		$buffer .= $q->end_form;
 	} else {
-		$buffer.=  q(<fieldset style="float:left"><legend>Sequence upload</legend>);
-		$buffer.=  q(<p class="statusbad">No valid sequences to upload.</p>);
-		$buffer.=  q(</fieldset>);
+		$buffer .= q(<fieldset style="float:left"><legend>Sequence upload</legend>);
+		$buffer .= q(<p class="statusbad">No valid sequences to upload.</p>);
+		$buffer .= q(</fieldset>);
 	}
-	$buffer.=  q(</div></div>);
-	open (my $fh, '>:encoding(utf8)', $full_path) || $logger->error("Cannot open $html_file for writing");
+	$buffer .= q(</div></div>);
+	open( my $fh, '>:encoding(utf8)', $full_path ) || $logger->error("Cannot open $html_file for writing");
 	say $fh $buffer;
 	close $fh;
 	return SUCCESS;
@@ -181,14 +182,21 @@ sub _check_sequence_field {
 	  $self->{'locus_info'}->{'data_type'} && $self->{'locus_info'}->{'data_type'} eq 'DNA' ? 'bp' : 'residues';
 	if (   !$self->{'locus_info'}->{'length_varies'}
 		&& defined $self->{'locus_info'}->{'length'}
-		&& $self->{'locus_info'}->{'length'} != $length )
+		&& $self->{'locus_info'}->{'length'} != $length
+		&& !$self->{'options'}->{'ignore_length'} )
 	{
 		return "Sequence is $length $units long but this locus is set as a standard "
 		  . "length of $self->{'locus_info'}->{'length'} $units.";
-	} elsif ( $self->{'locus_info'}->{'min_length'} && $length < $self->{'locus_info'}->{'min_length'} ) {
+	} elsif ( $self->{'locus_info'}->{'min_length'}
+		&& $length < $self->{'locus_info'}->{'min_length'}
+		&& !$self->{'options'}->{'ignore_length'} )
+	{
 		return "Sequence is $length $units long but this locus is set with a minimum "
 		  . "length of $self->{'locus_info'}->{'min_length'} $units.";
-	} elsif ( $self->{'locus_info'}->{'max_length'} && $length > $self->{'locus_info'}->{'max_length'} ) {
+	} elsif ( $self->{'locus_info'}->{'max_length'}
+		&& $length > $self->{'locus_info'}->{'max_length'}
+		&& !$self->{'options'}->{'ignore_length'} )
+	{
 		return "Sequence is $length $units long but this locus is set with a maximum "
 		  . "length of $self->{'locus_info'}->{'max_length'} $units.";
 	}

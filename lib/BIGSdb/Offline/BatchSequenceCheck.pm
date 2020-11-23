@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2019, University of Oxford
+#Copyright (c) 2019-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -45,9 +45,10 @@ sub run {
 	my %last_id;
 	my $problems     = {};
 	my $table_header = $self->_get_field_table_header;
-	my $table_buffer = qq(<div class="scrollable"><table class="tablesorter"><thead><tr>$table_header</tr></thead><tbody>);
-	my @records      = split /\n/x, $self->{'options'}->{'data'};
-	my $td           = 1;
+	my $table_buffer =
+	  qq(<div class="scrollable"><table class="tablesorter"><thead><tr>$table_header</tr></thead><tbody>);
+	my @records = split /\n/x, $self->{'options'}->{'data'};
+	my $td = 1;
 	my ( $file_header_fields, $file_header_pos ) = $self->get_file_header_data( \@records );
 	my $primary_keys = [qw(locus allele_id)];
 	my $record_count;
@@ -119,7 +120,6 @@ sub run {
 						special_problem => $special_problem
 					}
 				);
-				
 				if ( defined $file_header_pos->{$field} || ( $field eq 'id' ) ) {
 					$checked_record->{$field} = $value if defined $value && $value ne q();
 				}
@@ -380,7 +380,8 @@ sub _check_sequence_length {
 	}
 	if (   !$locus_info->{'length_varies'}
 		&& defined $locus_info->{'length'}
-		&& $locus_info->{'length'} != $length )
+		&& $locus_info->{'length'} != $length
+		&& !$self->{'options'}->{'ignore_length'} )
 	{
 		my $problem_text =
 		    "Sequence is $length $units long but this locus is set as a standard length of "
@@ -390,11 +391,17 @@ sub _check_sequence_length {
 		${ $args->{'special_problem'} } = 1;
 		return $buffer;
 	}
-	if ( $locus_info->{'min_length'} && $length < $locus_info->{'min_length'} ) {
+	if (   $locus_info->{'min_length'}
+		&& $length < $locus_info->{'min_length'}
+		&& !$self->{'options'}->{'ignore_length'} )
+	{
 		my $problem_text = "Sequence is $length $units long but this locus is set with a minimum length of "
 		  . "$locus_info->{'min_length'} $units.<br />";
 		$buffer .= $problem_text;
-	} elsif ( $locus_info->{'max_length'} && $length > $locus_info->{'max_length'} ) {
+	} elsif ( $locus_info->{'max_length'}
+		&& $length > $locus_info->{'max_length'}
+		&& !$self->{'options'}->{'ignore_length'} )
+	{
 		my $problem_text = "Sequence is $length $units long but this locus is set with a maximum length of "
 		  . "$locus_info->{'max_length'} $units.<br />";
 		$buffer .= $problem_text;
@@ -419,7 +426,7 @@ sub _check_sequence_length {
 			[ $locus, ${ $args->{'value'} } ],
 			{ cache => 'CurateBatchAddPage::sequence_exists' }
 		);
-		if (defined $existing_allele) {
+		if ( defined $existing_allele ) {
 			if ( $self->{'options'}->{'complete_CDS'} || $self->{'options'}->{'ignore_existing'} ) {
 				${ $args->{'continue'} } = 0;
 			} else {
@@ -651,7 +658,7 @@ sub _report_check {
 		$buffer .= q(<p>No obvious problems identified so far.</p>);
 		$buffer .= $q->start_form;
 		$buffer .= $q->hidden($_) foreach qw (page table db sender locus ignore_existing ignore_non_DNA
-		  complete_CDS ignore_similarity);
+		  complete_CDS ignore_similarity ignore_length);
 		$buffer .= $q->hidden( checked_file => $results_file );
 		$buffer .= $self->print_action_fieldset(
 			{ submit_label => 'Import data', no_reset => 1, get_only => 1, page => 'batchAddSequences' } );
