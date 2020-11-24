@@ -146,7 +146,6 @@ sub _before {
 		undef $self->{'system'};
 		$self->{'system'}->{'db'} = $self->{'config'}->{'rest_db'};
 	} elsif ( !-e $full_path ) {
-		$self->_setup_db_logger;
 		send_error( "Database $self->{'instance'} has not been defined", 404 );
 	} else {
 		$self->{'xmlHandler'} = BIGSdb::Parser->new;
@@ -163,10 +162,7 @@ sub _before {
 	$ENV{'PATH'} = '/bin:/usr/bin';    ## no critic (RequireLocalizedPunctuationVars) #so we don't foul taint check
 	delete @ENV{qw(IFS CDPATH ENV BASH_ENV)};    # Make %ENV safer
 	$self->{'system'}->{'read_access'} ||= 'public';                          #everyone can view by default
-	$self->{'system'}->{'host'}        ||= $self->{'host'} || 'localhost';
-	$self->{'system'}->{'port'}        ||= $self->{'port'} || 5432;
-	$self->{'system'}->{'user'}        ||= $self->{'user'} || 'apache';
-	$self->{'system'}->{'password'}    ||= $self->{'password'} || 'remote';
+	$self->_set_db_params;
 
 	if ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ) {
 		$self->{'system'}->{'view'}       ||= 'isolates';
@@ -189,6 +185,15 @@ sub _before {
 	_check_authorization();
 	$self->_initiate_view;
 	$self->_set_page_options;
+	return;
+}
+
+sub _set_db_params {
+	my $self = setting('self');
+		$self->{'system'}->{'host'}        ||= $self->{'host'} || 'localhost';
+	$self->{'system'}->{'port'}        ||= $self->{'port'} || 5432;
+	$self->{'system'}->{'user'}        ||= $self->{'user'} || 'apache';
+	$self->{'system'}->{'password'}    ||= $self->{'password'} || 'remote';
 	return;
 }
 
@@ -342,6 +347,7 @@ sub _after {
 	undef $self->{'username'};
 	if ( $self->{'time_since_last_call_ms'} > IDLE_DROP_CONNECTION_MS ) {
 		$self->{'dataConnector'}->drop_all_connections;
+		undef $self->{'log_db'};
 	} else {
 		$self->{'dataConnector'}->drop_all_connections( $self->{'do_not_drop'} );
 	}
