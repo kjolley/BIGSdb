@@ -139,6 +139,7 @@ sub _before {
 		}
 	}
 	my $subdir = setting('subdir');
+	$request_path =~ s/\s//gx;
 	$self->{'instance'} = $request_path =~ /^$subdir\/db\/([\w\d\-_]+)/x ? $1 : '';
 	my $full_path = "$self->{'dbase_config_dir'}/$self->{'instance'}/config.xml";
 	if ( !$self->{'instance'} ) {
