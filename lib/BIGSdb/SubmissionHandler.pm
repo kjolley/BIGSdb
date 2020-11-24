@@ -844,15 +844,15 @@ sub _is_field_bad_isolates {
 	$thisfield->{'required'} //= 'yes';
 	my %optional_fields = map { $_ => 1 } qw(aliases references assembly_filename sequence_method);
 	if ( $value eq '' ) {
-		if ( $optional_fields{$fieldname} || (  $thisfield->{'required'}  eq 'no' ) ) {
+		if ( $optional_fields{$fieldname} || ( $thisfield->{'required'} eq 'no' ) ) {
 			return;
-		} elsif ($thisfield->{'required'} eq 'expected'){
+		} elsif ( $thisfield->{'required'} eq 'expected' ) {
 			return q(is an expected field and cannot be left blank. Enter 'null' if value is unknown.);
 		} else {
 			return 'is a required field and cannot be left blank.';
 		}
 	}
-	if ($thisfield->{'required'} eq 'expected' && $value eq 'null'){
+	if ( $thisfield->{'required'} eq 'expected' && $value eq 'null' ) {
 		return;
 	}
 	my @insert_checks = qw(date_entered id_exists);
@@ -862,7 +862,7 @@ sub _is_field_bad_isolates {
 		my $message = $self->$method( $fieldname, $value );
 		return $message if $message;
 	}
-	my @checks = qw(sender regex datestamp integer date float boolean optlist length);
+	my @checks = qw(sender regex datestamp integer date float boolean optlist length optional);
 	foreach my $check (@checks) {
 		my $method = "_check_isolate_$check";
 		my $message = $self->$method( $fieldname, $value );
@@ -1404,6 +1404,25 @@ sub _check_isolate_length {    ## no critic (ProhibitUnusedPrivateSubroutines) #
 	foreach my $this_value (@values) {
 		if ( $thisfield->{'length'} && length($this_value) > $thisfield->{'length'} ) {
 			return "field is too long (maximum length $thisfield->{'length'})";
+		}
+	}
+	return;
+}
+
+#Check if a null term is used on an optional field
+sub _check_isolate_optional {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $field, $value ) = @_;
+	my $thisfield = $self->{'cache'}->{'field_attributes'}->{$field};
+	return if ( $thisfield->{'required'} // q() ) ne 'no';
+	my %null_terms = map { lc($_) => 1 } NULL_TERMS;
+	if ( ( $thisfield->{'multiple'} // q() ) eq 'yes' && !ref $value ) {
+		$value = [ split /;/x, $value ];
+		s/^\s+|\s+$//gx foreach @$value;
+	}
+	my @values = ref $value ? @$value : ($value);
+	foreach my $this_value (@values) {
+		if ( $null_terms{ lc($this_value) } ) {
+			return "field is optional - leave blank rather than using a value like '$this_value'.";
 		}
 	}
 	return;
