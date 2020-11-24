@@ -146,6 +146,7 @@ sub _before {
 		undef $self->{'system'};
 		$self->{'system'}->{'db'} = $self->{'config'}->{'rest_db'};
 	} elsif ( !-e $full_path ) {
+		$self->_setup_db_logger;
 		send_error( "Database $self->{'instance'} has not been defined", 404 );
 	} else {
 		$self->{'xmlHandler'} = BIGSdb::Parser->new;
