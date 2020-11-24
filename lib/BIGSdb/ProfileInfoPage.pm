@@ -99,7 +99,66 @@ sub print_content {
 		$self->_print_classification_groups( $scheme_id, $profile_id );
 		say q(</div>);
 	}
+	$self->_print_plugin_buttons( $scheme_id, $profile_id );
 	say q(</div>);
+	return;
+}
+
+sub _print_plugin_buttons {
+	my ( $self, $scheme_id, $profile_id ) = @_;
+	my $q = $self->{'cgi'};
+	my $plugin_categories = $self->{'pluginManager'}->get_plugin_categories( 'info', $self->{'system'}->{'dbtype'} );
+	return if !@$plugin_categories;
+	my $buffer;
+	my %icon = (
+		Breakdown     => 'fas fa-chart-pie',
+		Export        => 'far fa-save',
+		Analysis      => 'fas fa-chart-line',
+		'Third party' => 'fas fa-external-link-alt',
+		Miscellaneous => 'far fa-file-alt'
+	);
+	my $set_id = $self->get_set_id;
+	foreach my $category (@$plugin_categories) {
+		my $cat_buffer;
+		my $plugin_names = $self->{'pluginManager'}
+		  ->get_appropriate_plugin_names( 'profile_info', $self->{'system'}->{'dbtype'}, $category || 'none' );
+		if (@$plugin_names) {
+			my $plugin_buffer;
+			$q->param( calling_page => scalar $q->param('page') );
+			foreach my $plugin_name (@$plugin_names) {
+				my $att = $self->{'pluginManager'}->get_plugin_attributes($plugin_name);
+				next if $att->{'min'} && $att->{'min'} > 1;
+				$plugin_buffer .= $q->start_form( -style => 'float:left;margin-right:0.2em;margin-bottom:0.3em' );
+				$q->param( page           => 'plugin' );
+				$q->param( name           => $att->{'module'} );
+				$q->param( set_id         => $set_id );
+				$q->param( list => $profile_id );
+				$plugin_buffer .= $q->hidden($_)
+				  foreach qw (db page name calling_page set_id scheme_id list);
+				$plugin_buffer .=
+				  $q->submit( -label => ( $att->{'buttontext'} || $att->{'menutext'} ), -class => 'plugin_button' );
+				$plugin_buffer .= $q->end_form;
+			}
+			if ($plugin_buffer) {
+				$category = 'Miscellaneous' if !$category;
+				$cat_buffer .=
+				    q(<div><span style="float:left;text-align:right;width:8em;)
+				  . q(white-space:nowrap;margin-right:0.5em">)
+				  . qq(<span class="fa-fw fa-lg $icon{$category} info_plugin_icon" style="margin-right:0.2em">)
+				  . qq(</span>$category:</span>)
+				  . q(<div style="margin-left:8.5em;margin-bottom:0.2em">);
+				$cat_buffer .= $plugin_buffer;
+				$cat_buffer .= q(</div></div>);
+			}
+		}
+		$buffer .= qq($cat_buffer<div style="clear:both"></div>) if $cat_buffer;
+	}
+	if ($buffer) {
+		say q(<div><span class="info_icon fas fa-2x fa-fw fa-chart-bar fa-pull-left" style="margin-top:-0.2em"></span>);
+		say q(<h2>Tools</h2>);
+		say $buffer;
+		say q(</div>);
+	}
 	return;
 }
 
@@ -165,7 +224,7 @@ sub _print_client_db_links {
 				);
 				my @action_params;
 				foreach my $param ( keys %params ) {
-					$q->param( $param, $params{$param} );
+					$q->param( $param => $params{$param} );
 					push @action_params, "$param=$params{$param}";
 				}
 				local $" = '&';
@@ -181,6 +240,9 @@ sub _print_client_db_links {
 				  foreach qw (db page designation_field1 designation_operator1 designation_value1 order set_id submit);
 				$buffer .= $q->submit( -label => "$count isolate$plural", -class => 'small_submit' );
 				$buffer .= $q->end_form;
+
+				#Restore db param
+				$q->param( db => $self->{'instance'} );
 			}
 			$buffer .= qq(</dd>\n);
 		}
@@ -487,7 +549,7 @@ sub get_title {
 	}
 	my $title = q(Profile information);
 	$title .= qq(: $scheme_info->{'primary_key'}-$profile_id) if $scheme_info->{'primary_key'} && defined $profile_id;
-	$title .= qq( ($scheme_info->{'name'})) if $scheme_info->{'name'};
+	$title .= qq( ($scheme_info->{'name'}))                   if $scheme_info->{'name'};
 	$title .= qq( - $self->{'system'}->{'description'});
 	return $title;
 }
