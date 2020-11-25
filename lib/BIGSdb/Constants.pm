@@ -264,7 +264,7 @@ use constant REQUIRED_GENOME_FIELDS   => qw(assembly_filename sequence_method);
 use constant DAILY_REST_LIMIT         => 50;
 use constant TOTAL_PENDING_LIMIT      => 20;
 use constant DAILY_PENDING_LIMIT      => 15;
-use constant NULL_TERMS               => ( 'none', 'N/A', 'NA', '-', '.', 'not applicable' );
+use constant NULL_TERMS => ( 'none', 'N/A', 'NA', '-', '.', 'not applicable', 'no value' );
 @values = qw (SUBMISSIONS_DELETED_DAYS COVERAGE READ_LENGTH ASSEMBLY REQUIRES_READ_LENGTH
   REQUIRES_COVERAGE REQUIRED_GENOME_FIELDS DAILY_REST_LIMIT TOTAL_PENDING_LIMIT DAILY_PENDING_LIMIT NULL_TERMS);
 push @EXPORT_OK, @values;
