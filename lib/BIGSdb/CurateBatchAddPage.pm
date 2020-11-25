@@ -1162,14 +1162,16 @@ sub _check_data_refs {
 
 sub _check_data_aliases {
 
-	#special case to check that isolate aliases don't duplicate isolate name when batch uploaded isolates
+	#special case to check that isolate aliases don't duplicate isolate name or consist of null terms
+	#when batch uploaded isolates
 	my ( $self, $arg_ref ) = @_;
 	my $field          = $arg_ref->{'field'};
 	my $value          = ${ $arg_ref->{'value'} };
 	my $pk_combination = $arg_ref->{'pk_combination'};
 	if ( $field eq 'aliases' ) {
 		my $isolate_name = $arg_ref->{'data'}->[ $arg_ref->{'file_header_pos'}->{ $self->{'system'}->{'labelfield'} } ];
-		if ( defined $value && defined $isolate_name ) {
+		my %null_terms = map { lc($_) => 1 } NULL_TERMS;
+		if ( defined $value ) {
 			$value =~ s/\s//gx;
 			my @aliases = split /;/x, $value;
 			my %used;
@@ -1177,19 +1179,29 @@ sub _check_data_aliases {
 				$alias =~ s/\s+$//x;
 				$alias =~ s/^\s+//x;
 				next if $alias eq '';
-				if ( $used{$alias} ) {
-					my $problem_text = 'Duplicate alias used.<br />';
+				if ( defined $isolate_name ) {
+					if ( $used{$alias} ) {
+						my $problem_text = 'Duplicate alias used.<br />';
+						$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
+						${ $arg_ref->{'special_problem'} } = 1;
+						last;
+					}
+					if ( $alias eq $isolate_name ) {
+						my $problem_text = 'Aliases are ALTERNATIVE names for the isolate name.<br />';
+						$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
+						${ $arg_ref->{'special_problem'} } = 1;
+						last;
+					}
+					$used{$alias} = 1;
+				}
+				if ( $null_terms{ lc($alias) } ) {
+					my $problem_text =
+					  "Aliases are optional - leave blank rather than using a value like '$alias'.<br />"
+					  ;
 					$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
 					${ $arg_ref->{'special_problem'} } = 1;
 					last;
 				}
-				if ( $alias eq $isolate_name ) {
-					my $problem_text = 'Aliases are ALTERNATIVE names for the isolate name.<br />';
-					$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
-					${ $arg_ref->{'special_problem'} } = 1;
-					last;
-				}
-				$used{$alias} = 1;
 			}
 		}
 	}
@@ -1198,7 +1210,8 @@ sub _check_data_aliases {
 
 sub _check_data_isolate_aliases {
 
-	#special case to check that isolate aliases don't duplicate isolate name when batch uploading isolate aliases
+	#special case to check that isolate aliases don't duplicate isolate name or consist of null values
+	#when batch uploading isolate aliases
 	my ( $self, $arg_ref ) = @_;
 	my $field          = $arg_ref->{'field'};
 	my $value          = ${ $arg_ref->{'value'} };
@@ -1211,6 +1224,12 @@ sub _check_data_isolate_aliases {
 		return if !defined $isolate_name;
 		if ( $value eq $isolate_name ) {
 			my $problem_text = 'Alias duplicates isolate name.<br />';
+			$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
+			${ $arg_ref->{'special_problem'} } = 1;
+		}
+		my %null_terms = map { lc($_) => 1 } NULL_TERMS;
+		if ( $null_terms{ lc($value) } ) {
+			my $problem_text = 'Alias contains an invalid term.<br />';
 			$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
 			${ $arg_ref->{'special_problem'} } = 1;
 		}

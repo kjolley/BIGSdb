@@ -22,7 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::CurateAddPage);
 use BIGSdb::Utils;
-use BIGSdb::Constants qw(:interface);
+use BIGSdb::Constants qw(:interface :submissions);
 use List::MoreUtils qw(any uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -120,6 +120,11 @@ sub _check {
 
 	if ( $self->alias_duplicates_name ) {
 		push @bad_field_buffer, 'Aliases: duplicate isolate name - aliases are ALTERNATIVE names for the isolate.';
+	}
+	if ( $self->alias_null_term ) {
+		push @bad_field_buffer,
+		  'Aliases: this is an optional field - leave blank rather than using a term to indicate no value.'
+		  ;
 	}
 	my $validation_failures = $self->{'submissionHandler'}->run_validation_checks($newdata);
 	if (@$validation_failures) {
@@ -263,6 +268,21 @@ sub alias_duplicates_name {
 		$alias =~ s/^\s+//x;
 		next if $alias eq q();
 		return 1 if $alias eq $isolate_name;
+	}
+	return;
+}
+
+sub alias_null_term {
+	my ($self)       = @_;
+	my $q            = $self->{'cgi'};
+	my $isolate_name = $q->param( $self->{'system'}->{'labelfield'} );
+	my @aliases = split /\r?\n/x, $q->param('aliases');
+	my %null_terms = map { lc($_) => 1 } NULL_TERMS;
+	foreach my $alias (@aliases) {
+		$alias =~ s/\s+$//x;
+		$alias =~ s/^\s+//x;
+		next if $alias eq q();
+		return 1 if $null_terms{ lc($alias) };
 	}
 	return;
 }

@@ -735,10 +735,17 @@ sub _check_aliases {
 	my ( $self, $positions, $values, $error ) = @_;
 	if ( defined $positions->{'aliases'} && $values->[ $positions->{'aliases'} ] ) {
 		my @aliases = split /;/x, $values->[ $positions->{'aliases'} ];
+		my %null_terms = map { lc($_) => 1 } NULL_TERMS;
 		foreach my $alias (@aliases) {
+			$logger->error($alias);
 			if ( $alias eq $values->[ $positions->{ $self->{'system'}->{'labelfield'} } ] ) {
 				push @$error, 'aliases: should be ALTERNATIVE names for the isolate.';
 				last;
+			}
+			if ( $null_terms{ lc($alias) } ) {
+				push @$error,
+				  "aliases - this is an optional field - leave blank rather than using a value like '$alias'."
+				  ;
 			}
 		}
 	}
