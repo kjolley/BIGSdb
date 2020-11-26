@@ -1,3 +1,4 @@
+v1.29.2: *Multi-threaded SpeciesID plugin - this is now much faster.
 v1.29.1: *Isolate fields can be either required, optional and now 'expected'.
           Expected fields require a submitter to explicitly state if there is
           no value available by entering 'null'. For use when you want 
