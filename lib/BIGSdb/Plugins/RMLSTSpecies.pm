@@ -23,7 +23,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugin);
 use BIGSdb::Constants qw(:interface);
-use BIGSdb::Offline::SpeciesIDFork;
+use BIGSdb::Plugins::Helpers::SpeciesIDFork;
 use BIGSdb::Exceptions;
 use List::Util qw(max);
 use List::MoreUtils qw(uniq);
@@ -54,7 +54,7 @@ sub get_attributes {
 		buttontext  => 'rMLST species id',
 		menutext    => 'Species identification',
 		module      => 'RMLSTSpecies',
-		version     => '2.0.0',
+		version     => '2.0.1',
 		dbtype      => 'isolates',
 		section     => 'info,analysis,postquery',
 		input       => 'query',
@@ -302,7 +302,7 @@ sub _perform_rest_query {
 	my $error;
 	my $threads = $self->_get_threads;
 	try {
-		$id_obj = BIGSdb::Offline::SpeciesIDFork->new(
+		$id_obj = BIGSdb::Plugins::Helpers::SpeciesIDFork->new(
 			{
 				config_dir       => $self->{'config_dir'},
 				lib_dir          => $self->{'lib_dir'},

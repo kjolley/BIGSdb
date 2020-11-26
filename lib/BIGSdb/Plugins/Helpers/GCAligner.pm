@@ -16,8 +16,8 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
-package BIGSdb::GCAligner;
-use BIGSdb::GCHelper;
+package BIGSdb::Plugins::Helpers::GCAligner;
+use BIGSdb::Plugins::Helpers::GCHelper;
 use BIGSdb::Constants qw(:limits);
 use Parallel::ForkManager;
 use Log::Log4perl qw(get_logger :nowarn);

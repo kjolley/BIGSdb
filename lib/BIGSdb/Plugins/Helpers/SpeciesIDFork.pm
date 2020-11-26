@@ -16,12 +16,12 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
-package BIGSdb::Offline::SpeciesIDFork;
+package BIGSdb::Plugins::Helpers::SpeciesIDFork;
 use strict;
 use warnings;
 use 5.010;
 use Parallel::ForkManager;
-use BIGSdb::Offline::SpeciesID;
+use BIGSdb::Plugins::Helpers::SpeciesID;
 use constant MAX_THREADS => 4;
 
 sub new {
@@ -55,7 +55,7 @@ sub run {
 
 		# Forks and returns the pid for the child:
 		my $pid = $pm->start and next;
-		my $id_obj = BIGSdb::Offline::SpeciesID->new(
+		my $id_obj = BIGSdb::Plugins::Helpers::SpeciesID->new(
 			{
 				config_dir       => $self->{'config_dir'},
 				lib_dir          => $self->{'lib_dir'},

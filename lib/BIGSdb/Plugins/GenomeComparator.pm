@@ -24,8 +24,8 @@ use 5.010;
 use parent qw(BIGSdb::Plugin);
 use BIGSdb::Exceptions;
 use BIGSdb::Constants qw(SEQ_METHODS LOCUS_PATTERN :limits);
-use BIGSdb::GCAligner;
-use BIGSdb::GCForkScan;
+use BIGSdb::Plugins::Helpers::GCAligner;
+use BIGSdb::Plugins::Helpers::GCForkScan;
 use Bio::AlignIO;
 use Bio::Seq;
 use Bio::SeqIO;
@@ -64,7 +64,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.6.5',
+		version     => '2.6.6',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -1422,7 +1422,7 @@ sub align {
 	my $isolate_names = $self->_get_isolate_names($ids);
 	my $clean_loci = $self->_get_clean_loci( $params->{'align_all'} ? $scan_data->{'loci'} : $scan_data->{'variable'} );
 	$self->{'dataConnector'}->set_forks(1);
-	my $aligner = BIGSdb::GCAligner->new(
+	my $aligner = BIGSdb::Plugins::Helpers::GCAligner->new(
 		{
 			config_dir         => $self->{'params'}->{'config_dir'},
 			lib_dir            => $self->{'params'}->{'lib_dir'},
@@ -2146,7 +2146,7 @@ sub _assemble_data_for_reference_genome {
 sub _run_helper {
 	my ( $self, $params ) = @_;
 	$self->{'dataConnector'}->set_forks(1);
-	my $scanner = BIGSdb::GCForkScan->new(
+	my $scanner = BIGSdb::Plugins::Helpers::GCForkScan->new(
 		{
 			config_dir         => $self->{'params'}->{'config_dir'},
 			lib_dir            => $self->{'params'}->{'lib_dir'},

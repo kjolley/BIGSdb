@@ -16,9 +16,9 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
-package BIGSdb::GCForkScan;
+package BIGSdb::Plugins::Helpers::GCForkScan;
 use Parallel::ForkManager;
-use BIGSdb::GCHelper;
+use BIGSdb::Plugins::Helpers::GCHelper;
 use Log::Log4perl qw(get_logger :nowarn);
 use strict;
 use warnings;
@@ -54,7 +54,7 @@ sub run {
 	my $by_ref = $params->{'reference_file'} ? 1 : 0;
 	if ( $params->{'threads'} && $params->{'threads'} > 1 ) {
 		my $script;
-		$script = BIGSdb::GCHelper->new(    #Create script object to use methods to determine isolate list
+		$script = BIGSdb::Plugins::Helpers::GCHelper->new(    #Create script object to use methods to determine isolate list
 			{
 				config_dir       => $self->{'config_dir'},
 				lib_dir          => $self->{'lib_dir'},
@@ -101,7 +101,7 @@ sub run {
 		foreach my $isolate_id (@$isolates) {
 			last if $self->_is_job_cancelled( $params->{'job_id'} );
 			$pm->start and next;
-			my $helper = BIGSdb::GCHelper->new(
+			my $helper = BIGSdb::Plugins::Helpers::GCHelper->new(
 				{
 					config_dir       => $self->{'config_dir'},
 					lib_dir          => $self->{'lib_dir'},
@@ -124,7 +124,7 @@ sub run {
 	}
 
 	#Run non-threaded job
-	my $helper = BIGSdb::GCHelper->new(
+	my $helper = BIGSdb::Plugins::Helpers::GCHelper->new(
 		{
 			config_dir       => $self->{'config_dir'},
 			lib_dir          => $self->{'lib_dir'},
