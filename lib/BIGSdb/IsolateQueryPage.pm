@@ -47,6 +47,7 @@ sub _ajax_content {
 			allele_designations => sub { $self->_print_designations_fieldset_contents },
 			allele_count        => sub { $self->_print_allele_count_fieldset_contents },
 			allele_status       => sub { $self->_print_allele_status_fieldset_contents },
+			seqbin              => sub { $self->_print_seqbin_fieldset_contents },
 			tag_count           => sub { $self->_print_tag_count_fieldset_contents },
 			tags                => sub { $self->_print_tags_fieldset_contents },
 			list                => sub { $self->_print_list_fieldset_contents },
@@ -82,6 +83,9 @@ sub _ajax_content {
 			my ( $locus_list, $locus_labels ) =
 			  $self->get_field_selection_list( { loci => 1, scheme_fields => 0, sort_labels => 1 } );
 			$self->_print_allele_status_fields( $row, 0, $locus_list, $locus_labels );
+		},
+		seqbin => sub {
+			$self->_print_seqbin_fields( $row, 0 );
 		},
 		tag_count => sub {
 			my ( $locus_list, $locus_labels ) =
@@ -173,7 +177,7 @@ sub _save_options {
 	return if !$guid;
 	foreach my $attribute (
 		qw (provenance phenotypic allele_designations allele_count allele_status
-		tag_count tags list filters)
+		seqbin tag_count tags list filters)
 	  )
 	{
 		my $value = $q->param($attribute) ? 'on' : 'off';
@@ -245,6 +249,7 @@ sub _print_interface {
 	$self->_print_designations_fieldset;
 	$self->_print_allele_count_fieldset;
 	$self->_print_allele_status_fieldset;
+	$self->_print_seqbin_fieldset;
 	$self->_print_tag_count_fieldset;
 	$self->_print_tags_fieldset;
 	$self->_print_list_fieldset;
@@ -481,6 +486,38 @@ sub _print_tag_count_fieldset_contents {
 	} else {
 		say q(<p>No loci defined for query.</p>);
 	}
+	return;
+}
+
+sub _print_seqbin_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	return if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM seqbin_stats)');
+	say q(<fieldset id="seqbin_fieldset" style="float:left;display:none">);
+	say q(<legend>Sequence bin</legend><div>);
+	if ( $self->_highest_entered_fields('seqbin') ) {
+		$self->_print_seqbin_fieldset_contents;
+	}
+	say q(</div></fieldset>);
+	$self->{'seqbin_fieldset_exists'} = 1;
+	return;
+}
+
+sub _print_seqbin_fieldset_contents {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my $seqbin_fields = $self->_highest_entered_fields('seqbin') || 1;
+	my $seqbin_heading = $seqbin_fields == 1 ? 'none' : 'inline';
+	say qq(<span id="seqbin_field_heading" style="display:$seqbin_heading">)
+	  . q(<label for="seqbin_andor">Combine with: </label>);
+	say $q->popup_menu( -name => 'seqbin_andor', -id => 'seqbin_andor', -values => [qw (AND OR)] );
+	say q(</span><ul id="seqbin">);
+	for ( 1 .. $seqbin_fields ) {
+		say q(<li>);
+		$self->_print_seqbin_fields( $_, $seqbin_fields );
+		say q(</li>);
+	}
+	say q(</ul>);
 	return;
 }
 
@@ -849,6 +886,11 @@ sub _print_modify_search_fieldset {
 	say qq(<li><a href="" class="button" id="show_allele_status">$allele_status_fieldset_display</a>);
 	say q(Allele designation status</li>);
 
+	if ( $self->{'seqbin_fieldset_exists'} ) {
+		my $seqbin_fieldset_display = $self->_should_display_fieldset('seqbin') ? HIDE : SHOW;
+		say qq(<li><a href="" class="button" id="show_seqbin">$seqbin_fieldset_display</a>);
+		say q(Sequence bin</li>);
+	}
 	if ( $self->{'tags_fieldset_exists'} ) {
 		my $tag_count_fieldset_display = $self->_should_display_fieldset('tag_count') ? HIDE : SHOW;
 		say qq(<li><a href="" class="button" id="show_tag_count">$tag_count_fieldset_display</a>);
@@ -1137,6 +1179,7 @@ sub _print_phenotypic_fields {
 	my ( $self, $row, $max_rows, $select_items, $labels ) = @_;
 	my $q = $self->{'cgi'};
 	say q(<span style="white-space:nowrap">);
+	unshift @$select_items, q();
 	say $q->popup_menu(
 		-name   => "phenotypic_field$row",
 		-id     => "phenotypic_field$row",
@@ -1427,6 +1470,41 @@ sub _print_tag_count_fields {
 	return;
 }
 
+sub _print_seqbin_fields {
+	my ( $self, $row, $max_rows ) = @_;
+	my $q = $self->{'cgi'};
+	say q(<span style="white-space:nowrap">);
+	say $self->popup_menu(
+		-name   => "seqbin_field$row",
+		-id     => "seqbin_field$row",
+		-values => [ q(), qw(size contigs) ],
+		-labels => { size => 'total length (Mbp)', contigs => 'number of contigs' },
+		-class  => 'fieldlist'
+	);
+	my $values = [ '>', '>=', '<', '<=', '=' ];
+	say $q->popup_menu( -name => "seqbin_operator$row", -id => "seqbin_operator$row", -values => $values );
+	my %args = (
+		-name        => "seqbin_value$row",
+		-id          => "seqbin_value$row",
+		-class       => 'int_entry',
+		-type        => 'number',
+		-min         => 0,
+		-placeholder => 'Enter...',
+	);
+	$args{'-value'} = $q->param("seqbin_value$row") if defined $q->param("seqbin_value$row");
+	say $self->textfield(%args);
+
+	if ( $row == 1 ) {
+		my $next_row = $max_rows ? $max_rows + 1 : 2;
+		say qq(<a id="add_seqbin" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=query&amp;fields=seqbin&amp;row=$next_row&amp;no_header=1" data-rel="ajax" )
+		  . q(class="add_button"><span class="fa fas fa-plus"></span></a>);
+		say $self->get_tooltip( '', { id => 'seqbin_tooltip' } );
+	}
+	say q(</span>);
+	return;
+}
+
 sub _run_query {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
@@ -1444,6 +1522,7 @@ sub _run_query {
 		$qry = $self->_modify_query_for_tags( $qry, $errors );
 		$qry = $self->_modify_query_for_tag_counts( $qry, $errors );
 		$qry = $self->_modify_query_for_designation_status( $qry, $errors );
+		$qry = $self->_modify_query_for_seqbin( $qry, $errors );
 		$qry .= ' ORDER BY ';
 
 		if ( defined $q->param('order')
@@ -1503,14 +1582,16 @@ sub get_hidden_attributes {
 	my ($self) = @_;
 	my $extended = $self->get_extended_attributes;
 	my @hidden_attributes;
-	push @hidden_attributes, qw (prov_andor phenotypic_andor designation_andor tag_andor status_andor);
+	push @hidden_attributes,
+	  qw (prov_andor phenotypic_andor designation_andor tag_andor status_andor seqbin_andor);
 	for my $row ( 1 .. MAX_ROWS ) {
 		push @hidden_attributes, "prov_field$row", "prov_value$row", "prov_operator$row", "phenotypic_field$row",
 		  "phenotypic_value$row", "phenotypic_operator$row", "designation_field$row",
 		  "designation_operator$row", "designation_value$row", "tag_field$row", "tag_value$row",
 		  "allele_status_field$row",
 		  "allele_status_value$row", "allele_count_field$row", "allele_count_operator$row",
-		  "allele_count_value$row", "tag_count_field$row", "tag_count_operator$row", "tag_count_value$row";
+		  "allele_count_value$row",  "tag_count_field$row",    "tag_count_operator$row", "tag_count_value$row",
+		  "seqbin_field$row",        "seqbin_operator$row",    "seqbin_value$row";
 	}
 	foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list } ) {
 		push @hidden_attributes, "${field}_list";
@@ -2859,6 +2940,55 @@ sub _modify_query_for_designation_status {
 	return $qry;
 }
 
+sub _modify_query_for_seqbin {
+	my ( $self, $qry, $errors_ref ) = @_;
+	my $q    = $self->{'cgi'};
+	my $view = $self->{'system'}->{'view'};
+	my @seqbin_queries;
+	my %valid_operators = map { $_ => 1 } ( '<', '<=', '>', '>=', '=' );
+	my %valid_fields = map { $_ => 1 } qw(size contigs);
+	my %labels = ( size => 'total length', contigs => 'number of contigs' );
+	foreach my $i ( 1 .. MAX_ROWS ) {
+		my $field    = $q->param("seqbin_field$i")    // q();
+		my $value    = $q->param("seqbin_value$i")    // q();
+		my $operator = $q->param("seqbin_operator$i") // q(=);
+		next if $field eq q() || $value eq q();
+		if ( !$valid_operators{$operator} ) {
+			push @$errors_ref, 'Invalid operator selected.';
+			next;
+		}
+		if ( !$valid_fields{$field} ) {
+			push @$errors_ref, 'Invalid field selected.';
+			next;
+		}
+		if ( !BIGSdb::Utils::is_int($value) ) {
+			push @$errors_ref, "$labels{$field} must be an integer.";
+			next;
+		}
+		if ( $value < 0 ) {
+			push @$errors_ref, "$labels{$field} must be >= 0.";
+			next;
+		}
+		my %db_field = ( size => 'total_length', contigs => 'contigs' );
+		$value *= 1_000_000 if $field eq 'size';
+		my $seqbin_qry = "$view.id IN (SELECT isolate_id FROM seqbin_stats WHERE $db_field{$field} $operator $value)";
+		if ( $operator eq '<' || $operator eq '<=' || ( $operator eq '=' && $value == 0 ) ) {
+			$seqbin_qry .= " OR $view.id NOT IN (SELECT isolate_id FROM seqbin_stats)";
+		}
+		push @seqbin_queries, $seqbin_qry;
+	}
+	if (@seqbin_queries) {
+		my $andor = ( $q->param('seqbin_andor') // '' ) eq 'AND' ? ' AND ' : ' OR ';
+		local $" = $andor;
+		if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
+			$qry .= " AND (@seqbin_queries)";
+		} else {
+			$qry = "SELECT * FROM $view WHERE (@seqbin_queries)";
+		}
+	}
+	return $qry;
+}
+
 sub _should_display_fieldset {
 	my ( $self, $fieldset ) = @_;
 	my %fields = (
@@ -2867,6 +2997,7 @@ sub _should_display_fieldset {
 		allele_designations => 'loci',
 		allele_count        => 'allele_count',
 		allele_status       => 'allele_status',
+		seqbin              => 'seqbin',
 		tag_count           => 'tag_count',
 		tags                => 'tags'
 	);
@@ -2877,22 +3008,25 @@ sub _should_display_fieldset {
 	return;
 }
 
-sub get_javascript {
+sub _get_fieldset_display {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	my $phenotypic_fieldset_display = $self->_should_display_fieldset('phenotypic') ? 'inline' : 'none';
-	my $allele_designations_fieldset_display =
-	  $self->_should_display_fieldset('allele_designations') ? 'inline' : 'none';
-	my $allele_count_fieldset_display  = $self->_should_display_fieldset('allele_count')  ? 'inline' : 'none';
-	my $allele_status_fieldset_display = $self->_should_display_fieldset('allele_status') ? 'inline' : 'none';
-	my $tag_count_fieldset_display     = $self->_should_display_fieldset('tag_count')     ? 'inline' : 'none';
-	my $tags_fieldset_display          = $self->_should_display_fieldset('tags')          ? 'inline' : 'none';
-	my $filters_fieldset_display       = $self->{'prefs'}->{'filters_fieldset'}
-	  || $self->filters_selected ? 'inline' : 'none';
+	my $fieldset_display;
+	foreach my $term (qw(phenotypic allele_designations seqbin allele_count allele_status tag_count tags)) {
+		$fieldset_display->{$term} = $self->_should_display_fieldset($term) ? 'inline' : 'none';
+	}
+	return $fieldset_display;
+}
+
+sub get_javascript {
+	my ($self)           = @_;
+	my $q                = $self->{'cgi'};
+	my $fieldset_display = $self->_get_fieldset_display;
+	$fieldset_display->{'filters'} =
+	  $self->{'prefs'}->{'filters_fieldset'} || $self->filters_selected ? 'inline' : 'none';
 	my $buffer   = $self->SUPER::get_javascript;
 	my $panel_js = $self->get_javascript_panel(
 		qw(provenance phenotypic allele_designations allele_count allele_status
-		  tag_count tags list filters)
+		  seqbin tag_count tags list filters)
 	);
 	my $ajax_load = q(var script_path = $(location).attr('href');script_path = script_path.split('?')[0];)
 	  . q(var fieldset_url=script_path + '?db=' + $.urlParam('db') + '&page=query&no_header=1';);
@@ -2901,6 +3035,7 @@ sub get_javascript {
 		allele_designations => 'loci',
 		allele_count        => 'allele_count',
 		allele_status       => 'allele_status',
+		seqbin              => 'seqbin',
 		tag_count           => 'tag_count',
 		tags                => 'tags'
 	);
@@ -2923,13 +3058,14 @@ sub get_javascript {
 	$buffer .= << "END";
 \$(function () {
   	\$('#query_modifier').css({display:"block"});
-  	\$('#phenotypic_fieldset').css({display:"$phenotypic_fieldset_display"});
-   	\$('#allele_designations_fieldset').css({display:"$allele_designations_fieldset_display"});
-   	\$('#allele_count_fieldset').css({display:"$allele_count_fieldset_display"});
-   	\$('#allele_status_fieldset').css({display:"$allele_status_fieldset_display"});
-   	\$('#tag_count_fieldset').css({display:"$tag_count_fieldset_display"});
-   	\$('#tags_fieldset').css({display:"$tags_fieldset_display"});
-   	\$('#filters_fieldset').css({display:"$filters_fieldset_display"});
+  	\$('#phenotypic_fieldset').css({display:"$fieldset_display->{'phenotypic'}"});
+   	\$('#allele_designations_fieldset').css({display:"$fieldset_display->{'allele_designations'}"});
+  	\$('#allele_count_fieldset').css({display:"$fieldset_display->{'allele_count'}"});
+   	\$('#allele_status_fieldset').css({display:"$fieldset_display->{'allele_status'}"});
+   	\$('#seqbin_fieldset').css({display:"$fieldset_display->{'seqbin'}"});
+   	\$('#tag_count_fieldset').css({display:"$fieldset_display->{'tag_count'}"});
+   	\$('#tags_fieldset').css({display:"$fieldset_display->{'tags'}"});
+   	\$('#filters_fieldset').css({display:"$fieldset_display->{'filters'}"});
  	setTooltips();
  	\$('.multiselect').multiselect().multiselectfilter();
 $panel_js
@@ -2955,13 +3091,15 @@ function setTooltips() {
   	    + "fields by clicking the '+' button."
   		+ "</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, "
   		+ "'OR' to match ANY of these terms.</p>" });
-  	\$('#tag_tooltip,#tag_count_tooltip,#allele_count_tooltip,#allele_status_tooltip').tooltip({ content: "<h3>Number of "
-  		+ "fields</h3><p>Add more fields by clicking the '+' button.</p>" });	
+  	\$('#tag_tooltip,#tag_count_tooltip,#allele_count_tooltip,#allele_status_tooltip,#seqbin_tooltip').tooltip({ 
+  		content: "<h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p>"
+  		+ "</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, "
+  		+ "'OR' to match ANY of these terms.</p>"  });	
 }
  
 function loadContent(url) {
 	var row = parseInt(url.match(/row=(\\d+)/)[1]);
-	var fields = url.match(/fields=([provenance|phenotypic|loci|allele_count|allele_status|table_fields|tag_count|tags]+)/)[1];
+	var fields = url.match(/fields=([provenance|phenotypic|loci|allele_count|allele_status|seqbin|table_fields|tag_count|tags]+)/)[1];
 	if (fields == 'provenance'){			
 		add_rows(url,fields,'fields',row,'prov_field_heading','add_fields');
 	} else if (fields == 'phenotypic'){
@@ -2971,7 +3109,9 @@ function loadContent(url) {
 	} else if (fields == 'allele_count'){
 		add_rows(url,fields,'allele_count',row,'allele_count_field_heading','add_allele_count');	
 	} else if (fields == 'allele_status'){
-		add_rows(url,fields,'allele_status',row,'allele_status_field_heading','add_allele_status');		
+		add_rows(url,fields,'allele_status',row,'allele_status_field_heading','add_allele_status');	
+	} else if (fields == 'seqbin'){
+		add_rows(url,fields,'seqbin',row,'seqbin_field_heading','add_seqbin');				
 	} else if (fields == 'table_fields'){
 		add_rows(url,fields,'table_field',row,'table_field_heading','add_table_fields');
 	} else if (fields == 'tag_count'){
@@ -3125,6 +3265,7 @@ sub _highest_entered_fields {
 		loci          => 'designation_value',
 		allele_count  => 'allele_count_value',
 		allele_status => 'allele_status_value',
+		seqbin        => 'seqbin_value',
 		tag_count     => 'tag_count_value',
 		tags          => 'tag_value'
 	);
@@ -3148,7 +3289,7 @@ sub initiate {
 		return if !$guid;
 		foreach my $attribute (
 			qw (phenotypic allele_designations allele_count allele_status
-			tag_count tags list filters)
+			seqbin tag_count tags list filters)
 		  )
 		{
 			my $value =

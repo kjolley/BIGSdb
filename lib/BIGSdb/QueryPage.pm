@@ -50,18 +50,18 @@ sub get_javascript_panel {
 	my $button_toggle_js;
 	my $new_url    = 'this.href';
 	my %clear_form = (
-		list    => q[$("#list").val('')],
-		filters => qq[\$('.multiselect').multiselect("uncheckAll")\n]
-		  . q[          $('[id$="_list"]').val('')],
-		provenance          => q[$('[id^="prov_value"]').val('')],
-		phenotypic          => q[$('[id^="phenotypic_value"]').val('')],
-		allele              => q[$('[id^="value"]').val('')],
-		scheme              => q[$('[id^="value"]').val('')],
+		list       => q[$("#list").val('')],
+		filters    => qq[\$('.multiselect').multiselect("uncheckAll")\n] . q[          $('[id$="_list"]').val('')],
+		provenance => q[$('[id^="prov_value"]').val('')],
+		phenotypic => q[$('[id^="phenotypic_value"]').val('')],
+		allele     => q[$('[id^="value"]').val('')],
+		scheme     => q[$('[id^="value"]').val('')],
 		allele_designations => q[$('[id^="designation"]').val('')],
 		allele_count        => q[$('[id^="allele_count"]').val('')],
 		allele_status       => q[$('[id^="allele_status"]').val('')],
 		tags                => q[$('[id^="tag"]').val('')],
 		tag_count           => q[$('[id^="tag_count"]').val('')],
+		seqbin              => q[$('[id^="seqbin"]').val('')],
 	);
 	my ( $show, $hide, $save, $saving ) = ( SHOW, HIDE, SAVE, SAVING );
 	foreach my $fieldset (@fieldsets) {
@@ -221,7 +221,7 @@ sub check_format {
 	my $error;
 	if ( lc( $data->{'text'} ) ne 'null' && defined $data->{'type'} ) {
 		my $display_field = $clean_fieldname;
-		my %checks = (
+		my %checks        = (
 			int => sub {
 				if ( !BIGSdb::Utils::is_int( $data->{'text'}, { do_not_check_range => 1 } ) ) {
 					$error = qq($display_field is an integer field.);
