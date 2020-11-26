@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2019, University of Oxford
+#Copyright (c) 2014-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -35,7 +35,7 @@ sub setup_routes {
 
 sub _get_profiles {
 	my $self = setting('self');
-	if ( request->accept =~ /(tsv|csv)/x ) {
+	if ( ( request->accept // q() ) =~ /(tsv|csv)/x ) {
 		_get_profiles_csv();
 	}
 	$self->check_seqdef_database;
@@ -177,8 +177,7 @@ sub _get_profile {
 		if ( $attribute eq 'sender' || $attribute eq 'curator' ) {
 
 			#Don't link to user 0 (setup user)
-			$values->{$attribute} =
-			  request->uri_for("$subdir/db/$db/users/$profile_info->{$attribute}")
+			$values->{$attribute} = request->uri_for("$subdir/db/$db/users/$profile_info->{$attribute}")
 			  if $profile_info->{$attribute};
 		} else {
 			$values->{$attribute} = $profile_info->{$attribute};
