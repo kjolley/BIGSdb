@@ -1489,6 +1489,7 @@ sub _print_seqbin_fields {
 		-class       => 'int_entry',
 		-type        => 'number',
 		-min         => 0,
+		-step        => 'any',
 		-placeholder => 'Enter...',
 	);
 	$args{'-value'} = $q->param("seqbin_value$row") if defined $q->param("seqbin_value$row");
@@ -1582,8 +1583,7 @@ sub get_hidden_attributes {
 	my ($self) = @_;
 	my $extended = $self->get_extended_attributes;
 	my @hidden_attributes;
-	push @hidden_attributes,
-	  qw (prov_andor phenotypic_andor designation_andor tag_andor status_andor seqbin_andor);
+	push @hidden_attributes, qw (prov_andor phenotypic_andor designation_andor tag_andor status_andor seqbin_andor);
 	for my $row ( 1 .. MAX_ROWS ) {
 		push @hidden_attributes, "prov_field$row", "prov_value$row", "prov_operator$row", "phenotypic_field$row",
 		  "phenotypic_value$row", "phenotypic_operator$row", "designation_field$row",
@@ -2951,7 +2951,7 @@ sub _modify_query_for_seqbin {
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		my $field    = $q->param("seqbin_field$i")    // q();
 		my $value    = $q->param("seqbin_value$i")    // q();
-		my $operator = $q->param("seqbin_operator$i") // q(=);
+		my $operator = $q->param("seqbin_operator$i") // q(>);
 		next if $field eq q() || $value eq q();
 		if ( !$valid_operators{$operator} ) {
 			push @$errors_ref, 'Invalid operator selected.';
@@ -2961,8 +2961,8 @@ sub _modify_query_for_seqbin {
 			push @$errors_ref, 'Invalid field selected.';
 			next;
 		}
-		if ( !BIGSdb::Utils::is_int($value) ) {
-			push @$errors_ref, "$labels{$field} must be an integer.";
+		if ( !BIGSdb::Utils::is_float($value) ) {
+			push @$errors_ref, "$labels{$field} must be a number.";
 			next;
 		}
 		if ( $value < 0 ) {
