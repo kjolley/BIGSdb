@@ -40,8 +40,9 @@ use constant MAX_EAV_FIELD_LIST        => 100;
 use constant MAX_LOCUS_ORDER_BY        => 2000;
 use constant MAX_LOCI_NON_CACHE_SCHEME => 30;
 use constant MIN_CONTIG_LENGTH         => 100;
+use constant MIN_GENOME_SIZE           => 500_000;
 @values = qw(MAX_SPLITS_TAXA MAX_MUSCLE_MB MAX_ISOLATES_DROPDOWN MAX_EAV_FIELD_LIST
-  MAX_LOCUS_ORDER_BY MAX_LOCI_NON_CACHE_SCHEME MIN_CONTIG_LENGTH);
+  MAX_LOCUS_ORDER_BY MAX_LOCI_NON_CACHE_SCHEME MIN_CONTIG_LENGTH MIN_GENOME_SIZE);
 push @EXPORT_OK, @values;
 $EXPORT_TAGS{'limits'} = [@values];
 
@@ -264,7 +265,7 @@ use constant REQUIRED_GENOME_FIELDS   => qw(assembly_filename sequence_method);
 use constant DAILY_REST_LIMIT         => 50;
 use constant TOTAL_PENDING_LIMIT      => 20;
 use constant DAILY_PENDING_LIMIT      => 15;
-use constant NULL_TERMS => ( 'none', 'N/A', 'NA', '-', '.', 'not applicable', 'no value' );
+use constant NULL_TERMS               => ( 'none', 'N/A', 'NA', '-', '.', 'not applicable', 'no value' );
 @values = qw (SUBMISSIONS_DELETED_DAYS COVERAGE READ_LENGTH ASSEMBLY REQUIRES_READ_LENGTH
   REQUIRES_COVERAGE REQUIRED_GENOME_FIELDS DAILY_REST_LIMIT TOTAL_PENDING_LIMIT DAILY_PENDING_LIMIT NULL_TERMS);
 push @EXPORT_OK, @values;

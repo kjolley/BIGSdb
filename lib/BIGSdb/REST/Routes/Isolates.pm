@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2019, University of Oxford
+#Copyright (c) 2014-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -23,7 +23,7 @@ use 5.010;
 use JSON;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 use BIGSdb::Utils;
-use constant GENOME_SIZE => 500_000;
+use BIGSdb::Constants qw(MIN_GENOME_SIZE);
 
 #Isolate database routes
 sub setup_routes {
@@ -77,7 +77,7 @@ sub _get_genomes {
 	my $db              = params->{'db'};
 	my $subdir          = setting('subdir');
 	my $allowed_filters = [qw(added_after updated_after genome_size include_old_versions)];
-	my $genome_size     = BIGSdb::Utils::is_int( params->{'genome_size'} ) ? params->{'genome_size'} : GENOME_SIZE;
+	my $genome_size     = BIGSdb::Utils::is_int( params->{'genome_size'} ) ? params->{'genome_size'} : MIN_GENOME_SIZE;
 	my $old_versions    = params->{'include_old_versions'} ? q() : q( AND v.new_version IS NULL);
 	my $qry             = $self->add_filters(
 		"SELECT COUNT(*),MAX(date_entered),MAX(datestamp) FROM $self->{'system'}->{'view'} v JOIN seqbin_stats s "

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2019, University of Oxford
+#Copyright (c) 2017-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -23,7 +23,7 @@ use 5.010;
 use JSON;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 use BIGSdb::Utils;
-use constant GENOME_SIZE => 500_000;
+use BIGSdb::Constants qw(MIN_GENOME_SIZE);
 
 #Isolate database routes
 sub setup_routes {
@@ -166,7 +166,7 @@ sub _get_breakdown {
 	if ( !$self->{'xmlHandler'}->is_field($field) ) {
 		send_error( "Field $field does not exist.", 404 );
 	}
-	my $genome_size = BIGSdb::Utils::is_int( params->{'genome_size'} ) ? params->{'genome_size'} : GENOME_SIZE;
+	my $genome_size = BIGSdb::Utils::is_int( params->{'genome_size'} ) ? params->{'genome_size'} : MIN_GENOME_SIZE;
 	my $genome_clause =
 	  $params->{'genomes'}
 	  ? " AND id IN (SELECT isolate_id FROM seqbin_stats WHERE total_length>=$genome_size)"
@@ -200,7 +200,7 @@ sub _get_extended_field_breakdown {
 	  $self->{'datastore'}->run_query( 'SELECT * FROM isolate_field_extended_attributes WHERE attribute=? LIMIT 1',
 		$field, { fetch => 'row_hashref' } );
 	my $genome_size =
-	  BIGSdb::Utils::is_int( params->{'genome_size'} ) ? params->{'genome_size'} : GENOME_SIZE;
+	  BIGSdb::Utils::is_int( params->{'genome_size'} ) ? params->{'genome_size'} : MIN_GENOME_SIZE;
 	my $genome_clause =
 	  $params->{'genomes'}
 	  ? " AND id IN (SELECT isolate_id FROM seqbin_stats WHERE total_length>=$genome_size)"

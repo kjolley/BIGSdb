@@ -25,7 +25,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use List::MoreUtils qw(any none);
 use JSON;
-use BIGSdb::Constants qw(:interface :limits SEQ_FLAGS LOCUS_PATTERN OPERATORS);
+use BIGSdb::Constants qw(:interface :limits SEQ_FLAGS LOCUS_PATTERN OPERATORS MIN_GENOME_SIZE);
 use constant WARN_IF_TAKES_LONGER_THAN_X_SECONDS => 5;
 use constant MAX_LOCI_DROPDOWN                   => 200;
 
@@ -3303,6 +3303,15 @@ sub initiate {
 		$self->_initiate_bookmark( scalar $q->param('bookmark') );
 	}
 	$self->set_level1_breadcrumbs;
+	if ( $q->param('genomes') ) {
+		$q->param( seqbin_field1    => 'size' );
+		$q->param( seqbin_operator1 => '>=' );
+		my $min_genome_size =
+		  ( $self->{'system'}->{'min_genome_size'} // $self->{'config'}->{'min_genome_size'} // MIN_GENOME_SIZE ) /
+		  1_000_000;
+		$q->param( seqbin_value1 => $min_genome_size );
+		$q->param( submit        => 1 );
+	}
 	return;
 }
 
