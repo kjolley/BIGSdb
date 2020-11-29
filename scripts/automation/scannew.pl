@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20201120
+#Version: 20201129
 use strict;
 use warnings;
 use 5.010;
@@ -117,7 +117,7 @@ if ( BIGSdb::Utils::is_int( $opts{'threads'} ) && $opts{'threads'} > 1 ) {
 	}
 	delete $opts{$_} foreach qw(l L R s);             #Remove options that impact locus list
 	my $uses_remote_contigs = $script->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM oauth_credentials)');
-	$script->{'db'}->commit;                          #Prevent idle in transaction table locks
+	$script->{'dataConnector'}->drop_all_connections;                          
 	$script->{'logger'}->info("$opts{'d'}:Running Autodefiner (up to $opts{'threads'} threads)");
 	my $job_id = $script->add_job( 'ScanNew', { temp_init => 1 } );
 	print_header();

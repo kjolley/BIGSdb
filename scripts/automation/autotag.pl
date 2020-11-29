@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20201120
+#Version: 20201129
 use strict;
 use warnings;
 use 5.010;
@@ -116,7 +116,7 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 	my $threads             = @$lists;
 	my $plural              = $isolate_count == 1 ? q() : q(s);
 	my $uses_remote_contigs = $script->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM oauth_credentials)');
-	$script->{'db'}->commit;                     #Prevent idle in transaction table locks
+	$script->{'dataConnector'}->drop_all_connections;
 	$script->{'logger'}
 	  ->info("$opts{'d'}:Running Autotagger on $isolate_count isolate$plural ($threads thread$plural)");
 	my $job_id = $script->add_job( 'AutoTag', { temp_init => 1 } );
@@ -126,7 +126,7 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 
 		#Prevent race condition where threads all try to get new OAuth session token
 		sleep 5 if $uses_remote_contigs;
-		$pm->start and next;                     #Forks
+		$pm->start and next;                             #Forks
 		local $" = ',';
 		BIGSdb::Offline::AutoTag->new(
 			{
