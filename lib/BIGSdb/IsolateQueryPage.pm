@@ -2971,10 +2971,11 @@ sub _modify_query_for_seqbin {
 		}
 		my %db_field = ( size => 'total_length', contigs => 'contigs' );
 		$value *= 1_000_000 if $field eq 'size';
-		my $seqbin_qry = "$view.id IN (SELECT isolate_id FROM seqbin_stats WHERE $db_field{$field} $operator $value)";
+		my $seqbin_qry = "($view.id IN (SELECT isolate_id FROM seqbin_stats WHERE $db_field{$field} $operator $value)";
 		if ( $operator eq '<' || $operator eq '<=' || ( $operator eq '=' && $value == 0 ) ) {
 			$seqbin_qry .= " OR $view.id NOT IN (SELECT isolate_id FROM seqbin_stats)";
 		}
+		$seqbin_qry .= ')';
 		push @seqbin_queries, $seqbin_qry;
 	}
 	if (@seqbin_queries) {
