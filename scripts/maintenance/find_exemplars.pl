@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20201128
+#Version: 20201129
 use strict;
 use warnings;
 use 5.010;
@@ -52,6 +52,7 @@ GetOptions(
 	'help'           => \$opts{'h'},
 	'loci=s'         => \$opts{'l'},
 	'locus_regex=s'  => \$opts{'R'},
+	'quiet'          => \$opts{'quiet'},
 	'schemes=s'      => \$opts{'s'},
 	'update'         => \$opts{'update'},
 	'variation=f'    => \$opts{'variation'}
@@ -135,7 +136,7 @@ sub main {
 		foreach my $length ( sort { $a <=> $b } keys %exemplars ) {
 			foreach my $allele ( @{ $exemplars{$length} } ) {
 				my ( $allele_id, $seq ) = @$allele;
-				say "Locus: $locus; Length: $length; Allele: $allele_id";
+				say "Locus: $locus; Length: $length; Allele: $allele_id" if !$opts{'quiet'};
 				if ( $opts{'update'} ) {
 					eval {
 						$script->{'db'}->do( 'UPDATE sequences SET exemplar=TRUE WHERE (locus,allele_id)=(?,?)',
@@ -195,6 +196,9 @@ ${bold}--loci$norm ${under}LIST$norm
   
 ${bold}--locus_regex$norm ${under}REGEX$norm
     Regex for locus names.
+    
+${bold}--quiet$norm
+    Only show error messages.
     
 ${bold}--schemes$norm ${under}LIST$norm
     Comma-separated list of scheme loci to scan.
