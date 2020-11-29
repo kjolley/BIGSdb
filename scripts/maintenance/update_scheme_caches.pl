@@ -19,15 +19,15 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20190202
+#Version: 20201129
 use strict;
 use warnings;
 use 5.010;
 ###########Local configuration################################
-use constant { 
-	CONFIG_DIR => '/etc/bigsdb', 
-	LIB_DIR => '/usr/local/lib', 
-	DBASE_CONFIG_DIR => '/etc/bigsdb/dbases' 
+use constant {
+	CONFIG_DIR       => '/etc/bigsdb',
+	LIB_DIR          => '/usr/local/lib',
+	DBASE_CONFIG_DIR => '/etc/bigsdb/dbases'
 };
 #######End Local configuration################################
 use lib (LIB_DIR);
@@ -61,7 +61,7 @@ BIGSdb::Offline::UpdateSchemeCaches->new(
 		config_dir       => CONFIG_DIR,
 		lib_dir          => LIB_DIR,
 		dbase_config_dir => DBASE_CONFIG_DIR,
-		options          => { mark_job => 1, %opts },
+		options          => { mark_job => 1, no_user_db_needed => 1, %opts },
 		instance         => $opts{'d'},
 	}
 );
