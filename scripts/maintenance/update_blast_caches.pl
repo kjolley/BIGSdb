@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Update cached BLAST databases for a seqdef database
 #Written by Keith Jolley
-#Copyright (c) 2015-2019, University of Oxford
+#Copyright (c) 2015-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20190830
+#Version: 20201129
 use strict;
 use warnings;
 use 5.010;
@@ -55,6 +55,7 @@ if ( $opts{'help'} ) {
 	show_help();
 	exit;
 }
+
 #Direct all library logging calls to screen
 my $log_conf = LOG_TO_SCREEN;
 $log_conf =~ s/INFO/WARN/gx if $opts{'quiet'};
@@ -71,7 +72,7 @@ try {
 			config_dir       => CONFIG_DIR,
 			lib_dir          => LIB_DIR,
 			dbase_config_dir => DBASE_CONFIG_DIR,
-			options          => { throw_busy_exception => 1, %opts },
+			options          => { throw_busy_exception => 1, no_user_db_needed => 1, %opts },
 			instance         => $opts{'d'},
 			logger           => $logger
 		}
