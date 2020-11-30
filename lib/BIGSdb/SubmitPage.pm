@@ -2030,7 +2030,6 @@ sub _print_message_fieldset {
 				$self->{'db'}->commit;
 				$self->{'submissionHandler'}
 				  ->append_message( $submission_id, $user->{'id'}, scalar $q->param('message') );
-				$q->delete('message');
 				$self->{'submissionHandler'}->update_submission_datestamp($submission_id);
 			}
 			if ( $q->param('append_and_send') ) {
@@ -2040,18 +2039,8 @@ sub _print_message_fieldset {
 				if ( $user->{'id'} == $submission->{'submitter'} ) {
 
 					#Message from submitter
-					my $curators = $self->{'submissionHandler'}->_get_curators($submission_id);
-					foreach my $curator_id (@$curators) {
-						$self->{'submissionHandler'}->email(
-							$submission_id,
-							{
-								recipient => $curator_id,
-								sender    => $submission->{'submitter'},
-								subject   => $subject,
-								message   => $message,
-							}
-						);
-					}
+					$self->_send_message_from_submitter( $submission_id, $subject, $message,
+						scalar $q->param('message') );
 				} else {
 
 					#Message to submitter
@@ -2067,9 +2056,8 @@ sub _print_message_fieldset {
 					);
 				}
 			}
-		} else {
-			$q->delete('message');
 		}
+		$q->delete('message');
 	}
 	my $buffer;
 	my $qry = q(SELECT date_trunc('second',timestamp) AS timestamp,user_id,message FROM messages )
@@ -2140,10 +2128,55 @@ sub _print_message_fieldset {
 	return;
 }
 
+sub _send_message_from_submitter {
+	my ( $self, $submission_id, $subject, $message, $summary ) = @_;
+	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
+	my $curators   = $self->{'submissionHandler'}->_get_curators($submission_id);
+	foreach my $curator_id (@$curators) {
+		my $curator_info = $self->{'datastore'}->get_user_info($curator_id);
+		if ( $curator_info->{'submission_digests'} ) {
+			my $user_db = $self->{'datastore'}->get_user_db( $curator_info->{'user_db'} );
+			next if !defined $user_db;
+			my $curator_username =
+			  $self->{'datastore'}->run_query( 'SELECT user_name FROM users WHERE id=?', $curator_id );
+			my $submitter_name = $self->{'datastore'}->get_user_string( $submission->{'submitter'} );
+			eval {
+				$user_db->do(
+					'INSERT INTO submission_digests (user_name,timestamp,dbase_description,submission_id,'
+					  . 'submitter,summary) VALUES (?,?,?,?,?,?)',
+					undef,
+					$curator_username,
+					'now',
+					$self->{'system'}->{'description'},
+					$submission_id,
+					$submitter_name,
+					"Comment added: $summary"
+				);
+			};
+			if ($@) {
+				$logger->error($@);
+				$user_db->rollback;
+			} else {
+				$user_db->commit;
+			}
+		} else {
+			$self->{'submissionHandler'}->email(
+				$submission_id,
+				{
+					recipient => $curator_id,
+					sender    => $submission->{'submitter'},
+					subject   => $subject,
+					message   => $message,
+				}
+			);
+		}
+	}
+	return;
+}
+
 sub _can_delete_last_message {
 	my ( $self, $submission_id ) = @_;
-	my $qry =
-	  q(SELECT timestamp,user_id,message FROM messages WHERE submission_id=? ORDER BY timestamp asc);
+	my $qry = q(SELECT timestamp,user_id,message FROM messages WHERE submission_id=? ORDER BY timestamp asc);
 	my $messages = $self->{'datastore'}->run_query( $qry, $submission_id, { fetch => 'all_arrayref', slice => {} } );
 	my $last_message = $messages->[-1];
 	my $datestamp    = BIGSdb::Utils::get_datestamp();
@@ -2159,7 +2192,8 @@ sub _delete_message {
 	my ( $self, $submission_id, $timestamp, $user_id ) = @_;
 	eval {
 		$self->{'db'}->do(
-'DELETE FROM messages WHERE (submission_id,substring(CAST(timestamp AS text) from 1 for 19),user_id)=(?,?,?)',
+			'DELETE FROM messages WHERE (submission_id,substring(CAST(timestamp AS text) '
+			  . 'from 1 for 19),user_id)=(?,?,?)',
 			undef, $submission_id, $timestamp, $user_id
 		);
 	};
@@ -2168,6 +2202,29 @@ sub _delete_message {
 		$self->{'db'}->rollback;
 	} else {
 		$self->{'db'}->commit;
+	}
+	my $curators = $self->{'submissionHandler'}->_get_curators($submission_id);
+	my %user_db_sent;
+	foreach my $curator_id (@$curators) {
+		my $curator_info = $self->{'datastore'}->get_user_info($curator_id);
+		next if !$curator_info->{'submission_digests'};
+		next if $user_db_sent{$curator_info->{'user_db'}};
+		my $user_db = $self->{'datastore'}->get_user_db( $curator_info->{'user_db'} );
+		next if !defined $user_db;
+		eval {
+			$user_db->do(
+				'DELETE FROM submission_digests WHERE (submission_id,substring(CAST(timestamp AS text) '
+				  . 'from 1 for 19))=(?,?)',
+				undef, $submission_id, $timestamp
+			);
+		};
+		if ($@) {
+			$logger->error($@);
+			$user_db->rollback;
+		} else {
+			$user_db->commit;
+		}
+		$user_db_sent{$curator_info->{'user_db'}} = 1;
 	}
 	return;
 }
