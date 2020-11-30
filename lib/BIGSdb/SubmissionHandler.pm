@@ -737,7 +737,6 @@ sub _check_aliases {
 		my @aliases = split /;/x, $values->[ $positions->{'aliases'} ];
 		my %null_terms = map { lc($_) => 1 } NULL_TERMS;
 		foreach my $alias (@aliases) {
-			$logger->error($alias);
 			if ( $alias eq $values->[ $positions->{ $self->{'system'}->{'labelfield'} } ] ) {
 				push @$error, 'aliases: should be ALTERNATIVE names for the isolate.';
 				last;
