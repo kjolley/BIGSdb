@@ -1578,7 +1578,7 @@ sub get_hidden_attributes {
 			}
 		}
 	}
-	push @hidden_attributes, qw(publication_list project_list linked_sequences_list private_records_list
+	push @hidden_attributes, qw(publication_list project_list private_records_list
 	  include_old list list_file attribute datatype);
 	my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
 	foreach my $scheme_id (@$schemes) {
