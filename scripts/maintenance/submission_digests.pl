@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20201012
+#Version: 20201130
 use strict;
 use warnings;
 use 5.010;
@@ -131,12 +131,13 @@ sub update_last_digest_time {
 }
 
 sub create_digest {
-	my ($curator) = @_;
-	my $domain = DOMAIN;
-	my $digest_data =
-	  $script->{'datastore'}
-	  ->run_query( 'SELECT * FROM submission_digests WHERE user_name=? ORDER BY dbase_description,timestamp,submitter',
-		$curator, { fetch => 'all_arrayref', slice => {} } );
+	my ($curator)   = @_;
+	my $domain      = DOMAIN;
+	my $digest_data = $script->{'datastore'}->run_query(
+		'SELECT * FROM submission_digests WHERE user_name=? ORDER BY dbase_description,submission_id,timestamp,submitter'
+		,
+		$curator, { fetch => 'all_arrayref', slice => {} }
+	);
 	my $current_db = q();
 	my $buffer;
 	if ( @$digest_data == 1 ) {
