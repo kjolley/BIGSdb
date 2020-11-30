@@ -40,7 +40,7 @@ use constant MAX_EAV_FIELD_LIST        => 100;
 use constant MAX_LOCUS_ORDER_BY        => 2000;
 use constant MAX_LOCI_NON_CACHE_SCHEME => 30;
 use constant MIN_CONTIG_LENGTH         => 100;
-use constant MIN_GENOME_SIZE           => 500_000;
+use constant MIN_GENOME_SIZE           => 1_000_000;
 @values = qw(MAX_SPLITS_TAXA MAX_MUSCLE_MB MAX_ISOLATES_DROPDOWN MAX_EAV_FIELD_LIST
   MAX_LOCUS_ORDER_BY MAX_LOCI_NON_CACHE_SCHEME MIN_CONTIG_LENGTH MIN_GENOME_SIZE);
 push @EXPORT_OK, @values;
