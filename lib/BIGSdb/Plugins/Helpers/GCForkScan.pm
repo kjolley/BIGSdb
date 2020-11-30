@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2019, University of Oxford
+#Copyright (c) 2017-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -54,17 +54,18 @@ sub run {
 	my $by_ref = $params->{'reference_file'} ? 1 : 0;
 	if ( $params->{'threads'} && $params->{'threads'} > 1 ) {
 		my $script;
-		$script = BIGSdb::Plugins::Helpers::GCHelper->new(    #Create script object to use methods to determine isolate list
+		$script =
+		  BIGSdb::Plugins::Helpers::GCHelper->new(    #Create script object to use methods to determine isolate list
 			{
 				config_dir       => $self->{'config_dir'},
 				lib_dir          => $self->{'lib_dir'},
 				dbase_config_dir => $self->{'dbase_config_dir'},
 				logger           => $self->{'logger'},
-				options          => { query_only => 1, always_run => 1, %$params },
+				options          => { query_only => 1, always_run => 1, no_user_db_needed => 1, %$params },
 				instance         => $params->{'database'},
 				params           => $params->{'user_params'}
 			}
-		);
+		  );
 		my $isolates = $script->get_isolates;
 		undef $script;
 		my $data     = {};
@@ -107,10 +108,10 @@ sub run {
 					lib_dir          => $self->{'lib_dir'},
 					dbase_config_dir => $self->{'dbase_config_dir'},
 					logger           => $self->{'logger'},
-					options          => { i => $isolate_id, always_run => 1, fast => 1, %$params },
-					instance         => $params->{'database'},
-					params           => $params->{'user_params'},
-					locus_data       => $params->{'locus_data'}
+					options    => { i => $isolate_id, always_run => 1, fast => 1, no_user_db_needed => 1, %$params },
+					instance   => $params->{'database'},
+					params     => $params->{'user_params'},
+					locus_data => $params->{'locus_data'}
 				}
 			);
 			my $isolate_data   = $helper->get_results;
@@ -130,7 +131,7 @@ sub run {
 			lib_dir          => $self->{'lib_dir'},
 			dbase_config_dir => $self->{'dbase_config_dir'},
 			logger           => $self->{'logger'},
-			options          => { always_run => 1, fast => 1, global_new => 1, %$params },
+			options          => { always_run => 1, fast => 1, global_new => 1, no_user_db_needed => 1, %$params },
 			instance         => $params->{'database'},
 			user_params      => $params->{'user_params'},
 			locus_data       => $params->{'locus_data'}
