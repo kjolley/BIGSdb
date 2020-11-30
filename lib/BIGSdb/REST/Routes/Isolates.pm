@@ -47,10 +47,8 @@ sub _get_isolates {
 	my $allowed_filters = [qw(added_after added_on updated_after updated_on include_old_versions)];
 	my $old_versions    = params->{'include_old_versions'} ? q() : q( WHERE new_version IS NULL);
 	my $qry             = $self->add_filters(
-		"SELECT COUNT(*),MAX(date_entered),MAX(datestamp) FROM $self->{'system'}->{'view'}$old_versions"
-		,
-		$allowed_filters
-	);
+		"SELECT COUNT(*),MAX(date_entered),MAX(datestamp) FROM $self->{'system'}->{'view'}$old_versions",
+		$allowed_filters );
 	my ( $isolate_count, $last_added, $last_updated ) = $self->{'datastore'}->run_query($qry);
 	my $page_values = $self->get_page_values($isolate_count);
 	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
@@ -77,9 +75,13 @@ sub _get_genomes {
 	my $db              = params->{'db'};
 	my $subdir          = setting('subdir');
 	my $allowed_filters = [qw(added_after updated_after genome_size include_old_versions)];
-	my $genome_size     = BIGSdb::Utils::is_int( params->{'genome_size'} ) ? params->{'genome_size'} : MIN_GENOME_SIZE;
-	my $old_versions    = params->{'include_old_versions'} ? q() : q( AND v.new_version IS NULL);
-	my $qry             = $self->add_filters(
+	my $genome_size =
+	  BIGSdb::Utils::is_int( params->{'genome_size'} )
+	  ? params->{'genome_size'}
+	  : $self->{'system'}->{'min_genome_size'} // $self->{'config'}->{'min_genome_size'}
+	  // MIN_GENOME_SIZE;
+	my $old_versions = params->{'include_old_versions'} ? q() : q( AND v.new_version IS NULL);
+	my $qry = $self->add_filters(
 		"SELECT COUNT(*),MAX(date_entered),MAX(datestamp) FROM $self->{'system'}->{'view'} v JOIN seqbin_stats s "
 		  . "ON v.id=s.isolate_id WHERE s.total_length>=$genome_size$old_versions",
 		$allowed_filters
