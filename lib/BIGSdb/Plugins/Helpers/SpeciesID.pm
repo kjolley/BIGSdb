@@ -28,13 +28,11 @@ use BIGSdb::Exceptions;
 use constant INITIAL_BUSY_DELAY   => 60;
 use constant ATTEMPTS_BEFORE_FAIL => 50;
 use constant MAX_DELAY            => 600;
-
-use constant SEQUENCE_URL => 'https://rest.pubmlst.org/db/pubmlst_rmlst_seqdef_kiosk/schemes/1/sequence';
-use constant DESIGNATIONS_URL => 'https://rest.pubmlst.org/db/pubmlst_rmlst_seqdef_kiosk/schemes/1/designations';
+use constant SEQUENCE_URL         => 'https://rest.pubmlst.org/db/pubmlst_rmlst_seqdef_kiosk/schemes/1/sequence';
+use constant DESIGNATIONS_URL     => 'https://rest.pubmlst.org/db/pubmlst_rmlst_seqdef_kiosk/schemes/1/designations';
 
 sub run {
 	my ( $self, $isolate_id ) = @_;
-	$self->initiate_job_manager;
 	my $agent = LWP::UserAgent->new( agent => 'BIGSdb' );
 	my $payload;
 	my $url;
@@ -76,9 +74,9 @@ sub run {
 		if ( $server_error{ $response->code } ) {
 			my $code = $response->code;
 			$self->{'logger'}->error("Error $code received from rMLST REST API.");
+			$self->initiate_job_manager if !$self->{'jobManager'};
 			$self->{'jobManager'}->update_job_status( $self->{'options'}->{'job_id'},
 				{ stage => "rMLST server is unavailable or too busy at the moment - retrying in $delay seconds" } );
-			$self->{'dataConnector'}->drop_all_connections;
 			$unavailable = 1;
 			$attempts++;
 			if ( $attempts > ATTEMPTS_BEFORE_FAIL ) {
@@ -181,6 +179,4 @@ sub _get_genome_fasta {
 	}
 	return \$fasta;
 }
-
-
 1;
