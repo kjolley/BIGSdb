@@ -52,7 +52,7 @@ sub get_attributes {
 		menutext    => 'Sequence bin breakdown',
 		module      => 'SeqbinBreakdown',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/seqbin_breakdown.html",
-		version     => '1.5.2',
+		version     => '1.5.3',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -166,6 +166,7 @@ sub run_job {
 	}
 	my $locus_count = @$loci;
 	my $html_message;
+	$params->{'loci_selected'} = @$loci ? 1 : 0;
 	foreach my $id (@$isolate_ids) {
 		my $contig_info = $self->_get_isolate_contig_data( $id, $loci, $statements, $arguments, $params );
 		$row++;
@@ -316,6 +317,7 @@ sub _print_table {
 	say qq(<p>Loci selected: $locus_count</p>);
 	my $text_file = "$self->{'config'}->{'tmp_dir'}/$temp.txt";
 	open( my $fh, '>:encoding(utf8)', $text_file ) or $logger->error("Cannot open temp file $text_file for writing");
+	$params->{'loci_selected'} = @$loci ? 1 : 0;
 
 	foreach my $id (@$ids) {
 		my $contig_info = $self->_get_isolate_contig_data( $id, $loci, $statements, $arguments, $params );
@@ -383,8 +385,12 @@ sub _get_html_table_header {
 		  . q(<th>N90 contig number</th><th>N90 contig length (L90)</th><th>N95 contig number</th>)
 		  . q(<th>N95 contig length (L95)</th>);
 	}
-	$buffer .= qq($gc<th>Alleles designated</th><th>% Alleles designated</th>)
-	  . q(<th>Loci tagged</th><th>% Loci tagged</th><th>Sequence bin</th></tr></thead><tbody>);
+	$buffer .= $gc;
+	if ( $options->{'loci_selected'} ) {
+		$buffer .=
+		  q(<th>Alleles designated</th><th>% Alleles designated</th>) . q(<th>Loci tagged</th><th>% Loci tagged</th>);
+	}
+	$buffer .= q(<th>Sequence bin</th></tr></thead><tbody>);
 	return $buffer;
 }
 
@@ -406,9 +412,10 @@ sub _get_html_table_row {
 		  . qq(<td>$n_stats->{'L90'}</td><td>$n_stats->{'N95'}</td><td>$n_stats->{'L95'}</td>);
 	}
 	$buffer .= qq(<td>$gc</td>) if $options->{'gc'};
-	$buffer .=
-	    qq(<td>$allele_designations</td><td>$percent_alleles</td><td>$tagged</td><td>$percent_tagged</td><td>)
-	  . qq(<a href="$self->{'system'}->{'script_name'}?page=seqbin&amp;db=$self->{'instance'}&amp;)
+	if ( $options->{'loci_selected'} ) {
+		$buffer .= qq(<td>$allele_designations</td><td>$percent_alleles</td><td>$tagged</td><td>$percent_tagged</td>);
+	}
+	$buffer .= qq(<td><a href="$self->{'system'}->{'script_name'}?page=seqbin&amp;db=$self->{'instance'}&amp;)
 	  . qq(isolate_id=$isolate_id" class="extract_tooltip" target="_blank">Display &rarr;</a></td></tr>);
 	return $buffer;
 }
@@ -425,7 +432,10 @@ sub _get_text_table_header {
 		  . qq(N50 contig length (L50)\tN90 contig number\tN90 contig length (L90)\tN95 contig number\t)
 		  . q(N95 contig length (L95));
 	}
-	$header .= qq(\t${gc}Alleles designated\t%Alleles designated\tLoci tagged\t%Loci tagged);
+	$header .= qq(\t${gc});
+	if ( $options->{'loci_selected'} ) {
+		$header .= qq(Alleles designated\t%Alleles designated\tLoci tagged\t%Loci tagged);
+	}
 	return $header;
 }
 
@@ -446,7 +456,9 @@ sub _get_text_table_row {
 		  . qq($n_stats->{'N95'}\t$n_stats->{'L95'});
 	}
 	$buffer .= qq(\t$gc) if $options->{'gc'};
-	$buffer .= qq(\t$allele_designations\t$percent_alleles\t$tagged\t$percent_tagged);
+	if ( $options->{'loci_selected'} ) {
+		$buffer .= qq(\t$allele_designations\t$percent_alleles\t$tagged\t$percent_tagged);
+	}
 	return $buffer;
 }
 
