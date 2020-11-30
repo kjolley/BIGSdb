@@ -800,8 +800,6 @@ sub _print_filters_fieldset_contents {
 	push @filters, @$field_filters if @$field_filters;
 	my $profile_filters = $self->_get_profile_filters;
 	push @filters, @$profile_filters;
-	my $seqbin_filter = $self->_get_seqbin_filter;
-	push @filters, $seqbin_filter if $seqbin_filter;
 	my $private_data_filter = $self->_get_private_data_filter;
 	push @filters, $private_data_filter if $private_data_filter;
 	push @filters, $self->get_old_version_filter;
@@ -995,28 +993,6 @@ sub _get_profile_filters {
 		}
 	}
 	return \@filters;
-}
-
-sub _get_seqbin_filter {
-	my ($self) = @_;
-	my $linked_seqs = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM sequence_bin)');
-	if ($linked_seqs) {
-		my @values = ( 'Any sequence data', 'No sequence data' );
-		if ( $self->{'system'}->{'seqbin_size_threshold'} ) {
-			foreach my $value ( split /,/x, $self->{'system'}->{'seqbin_size_threshold'} ) {
-				push @values, "Sequence bin size >= $value Mbp";
-			}
-		}
-		return $self->get_filter(
-			'linked_sequences',
-			\@values,
-			{
-				text    => 'Sequence bin',
-				tooltip => 'sequence bin filter - Filter by whether the isolate record has sequence data attached.'
-			}
-		);
-	}
-	return;
 }
 
 sub _get_private_data_filter {
@@ -2055,23 +2031,6 @@ sub _modify_query_for_filters {
 		{ qry_ref => \$qry, table => 'refs', param => 'publication_list', query_field => 'pubmed_id' } );
 	$self->_modify_query_by_membership(
 		{ qry_ref => \$qry, table => 'project_members', param => 'project_list', query_field => 'project_id' } );
-	if ( $q->param('linked_sequences_list') ) {
-		my $not         = '';
-		my $size_clause = '';
-		if ( $q->param('linked_sequences_list') eq 'No sequence data' ) {
-			$not = ' NOT ';
-		} elsif ( $q->param('linked_sequences_list') =~ />=\ ([\d\.]+)\ Mbp/x ) {
-			my $size = $1 * 1000000;    #Mbp
-			$size_clause = " AND seqbin_stats.total_length >= $size";
-		}
-		if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
-			$qry .= " AND (${not}EXISTS (SELECT 1 FROM seqbin_stats WHERE "
-			  . "seqbin_stats.isolate_id = $view.id$size_clause))";
-		} else {
-			$qry = "SELECT * FROM $view WHERE (${not}EXISTS (SELECT 1 FROM seqbin_stats WHERE "
-			  . "seqbin_stats.isolate_id=$view.id$size_clause))";
-		}
-	}
 	$self->_modify_query_by_profile_status( \$qry );
 	$self->_modify_query_by_private_status( \$qry );
 	if ( !$q->param('include_old') ) {
