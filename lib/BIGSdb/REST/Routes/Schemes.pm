@@ -125,6 +125,21 @@ sub _get_scheme {
 		push @$locus_links, request->uri_for("$subdir/db/$db/loci/$cleaned_locus");
 	}
 	$values->{'loci'} = $locus_links if @$locus_links;
+	my $flags = $self->{'datastore'}
+	  ->run_query( 'SELECT flag FROM scheme_flags WHERE scheme_id=?', $scheme_id, { fetch => 'col_arrayref' } );
+	$values->{'flags'} = $flags if @$flags;
+	my $pubmed_ids =
+	  $self->{'datastore'}->run_query( 'SELECT pubmed_id FROM scheme_refs WHERE scheme_id=? ORDER BY pubmed_id',
+		$scheme_id, { fetch => 'col_arrayref' } );
+	my $publications = [];
+	foreach my $pubmed_id (@$pubmed_ids) {
+		push @$publications,
+		  {
+			pubmed_id     => int($pubmed_id),
+			citation_link => "https://www.ncbi.nlm.nih.gov/pubmed/$pubmed_id"
+		  };
+	}
+	$values->{'publications'} = $publications if @$publications;
 	if ( $scheme_info->{'primary_key'} && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		$values->{'profiles'}     = request->uri_for("$subdir/db/$db/schemes/$scheme_id/profiles");
 		$values->{'profiles_csv'} = request->uri_for("$subdir/db/$db/schemes/$scheme_id/profiles_csv");
