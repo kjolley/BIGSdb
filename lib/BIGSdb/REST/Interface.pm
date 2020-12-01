@@ -161,9 +161,8 @@ sub _before {
 	$self->set_system_overrides;
 	$ENV{'PATH'} = '/bin:/usr/bin';    ## no critic (RequireLocalizedPunctuationVars) #so we don't foul taint check
 	delete @ENV{qw(IFS CDPATH ENV BASH_ENV)};    # Make %ENV safer
-	$self->{'system'}->{'read_access'} ||= 'public';                          #everyone can view by default
+	$self->{'system'}->{'read_access'} ||= 'public';    #everyone can view by default
 	$self->_set_db_params;
-
 	if ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ) {
 		$self->{'system'}->{'view'}       ||= 'isolates';
 		$self->{'system'}->{'labelfield'} ||= 'isolate';
@@ -190,10 +189,10 @@ sub _before {
 
 sub _set_db_params {
 	my $self = setting('self');
-		$self->{'system'}->{'host'}        ||= $self->{'host'} || 'localhost';
-	$self->{'system'}->{'port'}        ||= $self->{'port'} || 5432;
-	$self->{'system'}->{'user'}        ||= $self->{'user'} || 'apache';
-	$self->{'system'}->{'password'}    ||= $self->{'password'} || 'remote';
+	$self->{'system'}->{'host'}     ||= $self->{'host'}     || 'localhost';
+	$self->{'system'}->{'port'}     ||= $self->{'port'}     || 5432;
+	$self->{'system'}->{'user'}     ||= $self->{'user'}     || 'apache';
+	$self->{'system'}->{'password'} ||= $self->{'password'} || 'remote';
 	return;
 }
 
@@ -279,6 +278,10 @@ sub _check_kiosk {
 		send_error( 'No routes available for this database configuration', 404 );
 	}
 	my $db = params->{'db'};
+	if ( !defined $db ) {
+		my $request_path = request->path;
+		$logger->error("db not defined: Request: $request_path");
+	}
 	if ( $self->{'system'}->{'rest_kiosk'} eq 'sequenceQuery' ) {
 		my @allowed_routes = (
 			"POST /db/$db/loci/{locus}/sequence",
