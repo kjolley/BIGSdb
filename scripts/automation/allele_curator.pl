@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20201120
+#Version: 20201201
 use strict;
 use warnings;
 use 5.010;
@@ -72,7 +72,7 @@ my $script = BIGSdb::Offline::Script->new(
 		port             => PORT,
 		user             => USER,
 		password         => PASSWORD,
-		options          => { no_user_db_needed => 1, %opts },
+		options          => { %opts },
 		instance         => $opts{'d'},
 	}
 );
