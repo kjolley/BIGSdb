@@ -77,13 +77,13 @@ sub get_javascript {
 	\$('.expand_link').on('click', function(){	
 		var field = this.id.replace('expand_','');
 	  	if (\$('#' + field).hasClass('expandable_expanded')) {
-	  	\$('#' + field).switchClass('expandable_expanded','expandable_retracted',1000, "easeInOutQuad", function(){
-	  		\$('#expand_' + field).html('<span class="fas fa-chevron-down"></span>');
-	  	});	    
-	  } else {
-	  	\$('#' + field).switchClass('expandable_retracted','expandable_expanded',1000, "easeInOutQuad", function(){
-	  		\$('#expand_' + field).html('<span class="fas fa-chevron-up"></span>');
-	  	});	    
+		  	\$('#' + field).switchClass('expandable_expanded','expandable_retracted',1000, "easeInOutQuad", function(){
+		  		\$('#expand_' + field).html('<span class="fas fa-chevron-down"></span>');
+		  	});	    
+	    } else {
+		  	\$('#' + field).switchClass('expandable_retracted','expandable_expanded',1000, "easeInOutQuad", function(){
+		  		\$('#expand_' + field).html('<span class="fas fa-chevron-up"></span>');
+		  	});	    
 	  }
 	});	
 	
@@ -353,15 +353,19 @@ sub _print_separate_scheme_data {
 	my $q = $self->{'cgi'};
 	if ( BIGSdb::Utils::is_int( scalar $q->param('group_id') ) ) {
 		say q(<div class="box resultspanel large_scheme">);
+		say q(<div id="profile" style="overflow:hidden;min-height:30em" class="expandable_retracted">);
 		say $self->_get_show_aliases_button( 'block', { show_aliases => 0 } );
 		$self->_print_group_data( $isolate_id, scalar $q->param('group_id'), { show_aliases => 0, no_render => 1 } );
-		say q(<div style="clear:both"></div>);
+		say q(</div>);
+		say q(<div class="expand_link" id="expand_profile"><span class="fas fa-chevron-down"></span></div>);
 		say q(</div>);
 	} elsif ( BIGSdb::Utils::is_int( scalar $q->param('scheme_id') ) ) {
 		say q(<div class="box resultspanel large_scheme">);
+		say q(<div id="profile" style="overflow:hidden;min-height:30em" class="expandable_retracted">);
 		say $self->_get_show_aliases_button( 'block', { show_aliases => 0, show_aliases => 0 } );
 		$self->_print_scheme_data( $isolate_id, scalar $q->param('scheme_id'), { show_aliases => 0, no_render => 1 } );
-		say q(<div style="clear:both"></div>);
+		say q(</div>);
+		say q(<div class="expand_link" id="expand_profile"><span class="fas fa-chevron-down"></span></div>);
 		say q(</div>);
 	} else {
 		$self->print_bad_status(
