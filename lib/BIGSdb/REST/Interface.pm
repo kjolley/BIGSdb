@@ -132,6 +132,8 @@ sub _before {
 	$self->{'time_since_last_call_ms'} = int( 1000 * tv_interval( $self->{'last_access'} ) );
 	$self->{'last_access'}             = [gettimeofday];
 	my $request_path = request->path;
+	$self->{'request_path'} = $request_path;
+	$self->{'request_method'} = request->method;
 	foreach my $dir ( @{ setting('api_dirs') } ) {
 		if ( $request_path =~ /^$dir/x ) {
 			set subdir => $dir;
@@ -225,17 +227,17 @@ sub reconnect {
 sub _log_call {
 	my $self = setting('self');
 	return if !$self->{'config'}->{'rest_log_to_db'};
-	return if request->path eq '/favicon.ico';
+	return if $self->{'request_path'} eq '/favicon.ico';
 	return if !$self->{'log_db'};
 	my $ip_address = _get_ip_address();
 	eval {
 		$self->{'log_db'}->do( 'INSERT INTO log (timestamp,ip_address,method,route,duration) VALUES (?,?,?,?,?)',
-			undef, 'now', $ip_address, request->method, request->path,
+			undef, 'now', $ip_address, $self->{'request_method'}, $self->{'request_path'},
 			int( 1000 * tv_interval( $self->{'start_time'} ) ) );
 	};
 	if ($@) {
 		$self->{'logger'}->error($@);
-		$self->{'logger'}->error( 'Route: ' . request->method . ' ' . request->path );
+		$self->{'logger'}->error( 'Route: ' . $self->{'request_method'} . ' ' . $self->{'request_path'} );
 		$self->{'log_db'}->rollback;
 	} else {
 		$self->{'log_db'}->commit;
