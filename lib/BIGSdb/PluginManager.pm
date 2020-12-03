@@ -150,7 +150,10 @@ sub _filter_schemes {
 	my $filtered = [];
 	my $attr = $self->{'attributes'}->{$plugin};
 	foreach my $scheme (@$scheme_data) {
-		next if !defined $attr->{'max_scheme_loci'} && !defined $attr->{'min_scheme_loci'};
+		if (!defined $attr->{'max_scheme_loci'} && !defined $attr->{'min_scheme_loci'}){
+			push @$filtered, $scheme;
+			next;
+		}
 		my $locus_count =
 		  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM scheme_members WHERE scheme_id=?', $scheme->{'id'} );
 		next if defined $attr->{'max_scheme_loci'} && $locus_count > $attr->{'max_scheme_loci'};
