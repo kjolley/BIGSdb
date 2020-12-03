@@ -412,7 +412,9 @@ sub print_id_fieldset {
 	say qq(<fieldset style="float:left"><legend>Select $options->{'fieldname'}s</legend>);
 	local $" = "\n";
 	say q(<p style="padding-right:2em">Paste in list of ids to include, start a new<br />)
-	  . q(line for each. Leave blank to include all ids.</p>);
+	  . q(line for each.);
+	say q( Leave blank to include all ids.) if !$options->{'no_leave_blank'};
+	say q(</p>);
 	@$list = uniq @$list;
 	say $q->textarea( -name => 'list', -rows => 5, -cols => 25, -default => "@$list" );
 	say q(</fieldset>);
@@ -859,6 +861,7 @@ sub escape_params {
 sub get_scheme_field_values {
 	my ( $self, $args ) = @_;
 	my ( $isolate_id, $scheme_id, $field, ) = @{$args}{qw(isolate_id scheme_id field )};
+	return if !BIGSdb::Utils::is_int($isolate_id);
 	if ( !$self->{'scheme_field_table'}->{$scheme_id} ) {
 		try {
 			$self->{'scheme_field_table'}->{$scheme_id} =
@@ -1132,10 +1135,10 @@ sub get_breadcrumbs {
 			href => $self->{'system'}->{'webroot'}
 		  };
 	}
-	push @$breadcrumbs, (
+	push @$breadcrumbs,
+	  (
 		{
-			label => $self->{'system'}->{'formatted_description'}
-			  // $self->{'system'}->{'description'},
+			label => $self->{'system'}->{'formatted_description'} // $self->{'system'}->{'description'},
 			href => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}"
 		},
 		{
@@ -1145,7 +1148,7 @@ sub get_breadcrumbs {
 		{
 			label => $att->{'menutext'}
 		}
-	);
+	  );
 	return $breadcrumbs;
 }
 1;

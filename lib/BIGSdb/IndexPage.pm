@@ -209,17 +209,17 @@ sub _print_login_menu_item {
 sub _print_plugin_menu_item {
 	my ( $self, $args ) = @_;
 	my ( $label, $icon, $href, $list_number ) = @{$args}{qw (label icon href list_number)};
-	$list_number //= 3;
+	$list_number //= 5;
 	my $cache_string = $self->get_cache_string;
 	my $url_root     = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}$cache_string&amp;";
 	my $set_id       = $self->get_set_id;
 	local $" = q(,);
-#	my $sections = qq(@{$args->{'sections'}});
 	my $plugins  = $self->{'pluginManager'}
 	  ->get_appropriate_plugin_names( $args->{'sections'}, $self->{'system'}->{'dbtype'}, undef, { set_id => $set_id } );
 	return if !@$plugins;
 
 	if ( @$plugins <= $list_number ) {
+		
 		my $links = [];
 		my $scheme_data = $self->get_scheme_data( { with_pk => 1 } );
 		foreach my $plugin (@$plugins) {

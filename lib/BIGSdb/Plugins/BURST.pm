@@ -1,6 +1,6 @@
 #BURST.pm - BURST plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2020, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -49,22 +49,28 @@ sub get_attributes {
 				email       => 'keith.jolley@zoo.ox.ac.uk',
 			}
 		],
-		description => 'Perform BURST cluster analysis on query results query results',
-		category    => 'Analysis',
-		buttontext  => 'BURST',
-		menutext    => 'BURST',
-		module      => 'BURST',
-		version     => '1.1.9',
-		dbtype      => 'isolates,sequences',
-		seqdb_type  => 'schemes',
-		section     => 'postquery',
-		order       => 12,
-		system_flag => 'BURST',
-		input       => 'query',
-		requires    => 'mogrify,pk_scheme',
-		url         => "$self->{'config'}->{'doclink'}/data_analysis/burst.html",
-		min         => 2,
-		max         => 1000
+		description      => 'Perform BURST cluster analysis on query results query results',
+		full_description => 'BURST is an algorithm used to group MLST-type data based on a count of the number '
+		  . 'of profiles that match each other at specified numbers of loci. The analysis is available for both '
+		  . 'sequence definition database and isolate database schemes that have primary key fields set. Analysis '
+		  . 'is limited to 1000 or fewer records.',
+		category            => 'Analysis',
+		buttontext          => 'BURST',
+		menutext            => 'BURST',
+		module              => 'BURST',
+		version             => '1.2.0',
+		dbtype              => 'isolates,sequences',
+		seqdb_type          => 'schemes',
+		section             => 'postquery,analysis',
+		order               => 12,
+		system_flag         => 'BURST',
+		input               => 'query',
+		requires            => 'mogrify,pk_scheme',
+		url                 => "$self->{'config'}->{'doclink'}/data_analysis/burst.html",
+		image               => '/images/plugins/BURST/screenshot.png',
+		min                 => 2,
+		max                 => 1000,
+		always_show_in_menu => 1
 	);
 	return \%att;
 }
@@ -75,14 +81,9 @@ sub run {
 	my $query_file = $q->param('query_file');
 	my $scheme_id  = $q->param('scheme_id');
 	say q(<h1>BURST analysis</h1>);
-	my $list;
 	my $pk;
-	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-
-		if ( !$scheme_id ) {
-			$self->print_bad_status( { message => q(No scheme id passed.), navbar => 1 } );
-			return;
-		} elsif ( !BIGSdb::Utils::is_int($scheme_id) ) {
+	if ( $self->{'system'}->{'dbtype'} eq 'sequences' && defined $scheme_id ) {
+		if ( !BIGSdb::Utils::is_int($scheme_id) ) {
 			$self->print_bad_status( { message => q(Scheme id must be an integer.), navbar => 1 } );
 			return;
 		} else {
@@ -118,19 +119,19 @@ sub run {
 			return;
 		}
 	}
-	if ($query_file) {
-		my $qry_ref = $self->get_query($query_file);
-		return if ref $qry_ref ne 'SCALAR';
-		my $view = $self->{'system'}->{'view'};
-		return if !$self->create_temp_tables($qry_ref);
-		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-			$self->rewrite_query_ref_order_by($qry_ref);
-		}
-		$list = $self->{'datastore'}->run_query( $$qry_ref, undef, { fetch => 'col_arrayref' } );
-	} else {
-		$self->print_bad_status( { message => q(No query has been passed.), navbar => 1 } );
-	}
+	my $list = $self->get_id_list( $pk, $query_file );
 	if ( $q->param('submit') ) {
+		my $att = $self->get_attributes;
+		if ( @$list > $att->{'max'} ) {
+			my $submitted = BIGSdb::Utils::commify( scalar @$list );
+			$self->print_bad_status(
+				{
+					message => qq(Analysis is limited to $att->{'max'} records. You have submitted $submitted.),
+					navbar  => 1
+				}
+			);
+			return;
+		}
 		$self->_run_burst( $scheme_id, $pk, $list );
 		return;
 	}
@@ -150,36 +151,30 @@ sub run {
 	say $q->start_form;
 	say $q->hidden($_) foreach qw (db page name query_file list_file temp_table_file datatype);
 	my $locus_count;
+	$self->print_id_fieldset( { fieldname => $pk, list => $list, no_leave_blank => 1 } );
 	say q(<fieldset style="float:left"><legend>Options</legend>);
+	my $set_id = $self->get_set_id;
+	my $scheme_data = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => 1 } );
 
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		my $set_id = $self->get_set_id;
-		my $scheme_data = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => 1 } );
-		if ( !@$scheme_data ) {
-			say $q->end_form;
-			say q(<p class="statusbad">No schemes available.</p></div>);
-			return;
-		}
-		my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($scheme_data);
-		if ( @$scheme_ids_ref > 1 ) {
-			say q(<p>Select scheme: );
-			say $q->popup_menu( -name => 'scheme_id', -values => $scheme_ids_ref, -labels => $desc_ref );
-			say q(</p>);
-		} else {
-			say qq(<p>Scheme: $desc_ref->{$scheme_ids_ref->[0]}</p>);
-			$q->param( 'scheme_id', $scheme_ids_ref->[0] );
-			say $q->hidden('scheme_id');
-		}
-		$locus_count =
-		  $self->{'datastore'}
-		  ->run_query( 'SELECT COUNT(*) FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM '
-			  . 'scheme_fields WHERE primary_key) GROUP BY scheme_id ORDER BY COUNT(*) desc LIMIT 1' );
+	if ( !@$scheme_data ) {
+		say $q->end_form;
+		say q(<p class="statusbad">No schemes available.</p></div>);
+		return;
+	}
+	my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($scheme_data);
+	if ( @$scheme_ids_ref > 1 ) {
+		say q(<p>Select scheme: );
+		say $q->popup_menu( -name => 'scheme_id', -values => $scheme_ids_ref, -labels => $desc_ref );
+		say q(</p>);
 	} else {
-		$locus_count =
-		  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM scheme_members WHERE scheme_id=?', $scheme_id );
-		$q->param( scheme_id => $scheme_id );
+		say qq(<p>Scheme: $desc_ref->{$scheme_ids_ref->[0]}</p>);
+		$q->param( 'scheme_id', $scheme_ids_ref->[0] );
 		say $q->hidden('scheme_id');
 	}
+	$locus_count =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT COUNT(*) FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM '
+		  . 'scheme_fields WHERE primary_key) GROUP BY scheme_id ORDER BY COUNT(*) desc LIMIT 1' );
 	say q(<p>Group definition: profiles match at );
 	my @values;
 	for my $i ( 1 .. $locus_count - 1 ) {
@@ -246,6 +241,7 @@ sub _get_profile_array {
 			my ( $pk_value, $profile_ref ) =
 			  $self->{'datastore'}->run_query( "SELECT $pk,profile FROM mv_scheme_$scheme_id WHERE $pk=?",
 				$st, { cache => 'BURST::get_profile_array' } );
+			next if !ref $profile_ref;
 			my @profile = ( $pk_value, @$profile_ref );
 			my $j = 0;
 			if ( $st_frequency{ $profile[0] } ) {
