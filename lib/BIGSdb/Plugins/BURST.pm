@@ -66,6 +66,8 @@ sub get_attributes {
 		system_flag         => 'BURST',
 		input               => 'query',
 		requires            => 'mogrify,pk_scheme',
+		min_scheme_loci     => 2,
+		max_scheme_loci     => 100,
 		url                 => "$self->{'config'}->{'doclink'}/data_analysis/burst.html",
 		image               => '/images/plugins/BURST/screenshot.png',
 		min                 => 2,
@@ -153,15 +155,18 @@ sub run {
 	my $locus_count;
 	$self->print_id_fieldset( { fieldname => $pk, list => $list, no_leave_blank => 1 } );
 	say q(<fieldset style="float:left"><legend>Options</legend>);
-	my $set_id = $self->get_set_id;
-	my $scheme_data = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => 1 } );
+	my $set_id           = $self->get_set_id;
+	my $scheme_data      = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => 1 } );
+	my $filtered_schemes = $self->_filter_schemes($scheme_data);
 
-	if ( !@$scheme_data ) {
+	if ( !@$filtered_schemes ) {
+		say q(<p class="statusbad">No schemes available.</p></fieldset>);
+		say q(<div style="clear:both"></div>);
 		say $q->end_form;
-		say q(<p class="statusbad">No schemes available.</p></div>);
+		say q(</div>);
 		return;
 	}
-	my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($scheme_data);
+	my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($filtered_schemes);
 	if ( @$scheme_ids_ref > 1 ) {
 		say q(<p>Select scheme: );
 		say $q->popup_menu( -name => 'scheme_id', -values => $scheme_ids_ref, -labels => $desc_ref );
@@ -195,6 +200,20 @@ sub run {
 	say $q->end_form;
 	say q(</div>);
 	return;
+}
+
+sub _filter_schemes {
+	my ( $self, $scheme_data ) = @_;
+	my $filtered = [];
+	my $att      = $self->get_attributes;
+	foreach my $scheme (@$scheme_data) {
+		my $locus_count =
+		  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM scheme_members WHERE scheme_id=?', $scheme->{'id'} );
+		next if $locus_count > $att->{'max_scheme_loci'};
+		next if $locus_count < $att->{'min_scheme_loci'};
+		push @$filtered, $scheme;
+	}
+	return $filtered;
 }
 
 sub _run_burst {

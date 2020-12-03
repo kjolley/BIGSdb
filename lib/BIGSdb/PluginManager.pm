@@ -145,6 +145,21 @@ sub _section_matches_plugin {
 	return;
 }
 
+sub _filter_schemes {
+	my ( $self, $scheme_data, $plugin ) = @_;
+	my $filtered = [];
+	my $attr = $self->{'attributes'}->{$plugin};
+	foreach my $scheme (@$scheme_data) {
+		next if !defined $attr->{'max_scheme_loci'} && !defined $attr->{'min_scheme_loci'};
+		my $locus_count =
+		  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM scheme_members WHERE scheme_id=?', $scheme->{'id'} );
+		next if defined $attr->{'max_scheme_loci'} && $locus_count > $attr->{'max_scheme_loci'};
+		next if defined $attr->{'min_scheme_loci'} && $locus_count < $attr->{'min_scheme_loci'};
+		push @$filtered, $scheme;
+	}
+	return $filtered;
+}
+
 sub get_appropriate_plugin_names {
 	my ( $self, $sections, $dbtype, $category, $options ) = @_;
 	my $q = $self->{'cgi'};
@@ -163,10 +178,13 @@ sub get_appropriate_plugin_names {
 		next if !$self->_has_required_genome( $attr->{'requires'}, $options );
 
 		#must be a scheme with primary key and loci defined
-		next if !@$pk_scheme_list && ( $attr->{'requires'} // q() ) =~ /pk_scheme/;
+		my $filtered_scheme_list = $self->_filter_schemes($pk_scheme_list,$plugin);
+		if (( $attr->{'requires'} // q() ) =~ /pk_scheme/){
+			next if !@$filtered_scheme_list ;
+		}
 		next
 		  if $self->{'system'}->{'dbtype'} eq 'sequences'
-		  && !@$pk_scheme_list
+		  && !@$filtered_scheme_list
 		  && ( $attr->{'seqdb_type'} // q() ) eq 'schemes';
 		if ( $attr->{'system_flag'} ) {
 			next if ( $self->{'system'}->{ $attr->{'system_flag'} } // q() ) eq 'no';
