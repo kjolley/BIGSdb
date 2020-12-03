@@ -82,6 +82,7 @@ sub run {
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
 	my $scheme_id  = $q->param('scheme_id');
+	my $attr = $self->get_attributes;
 	say q(<h1>BURST analysis</h1>);
 	my $pk;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' && defined $scheme_id ) {
@@ -179,7 +180,8 @@ sub run {
 	$locus_count =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT COUNT(*) FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM '
-		  . 'scheme_fields WHERE primary_key) GROUP BY scheme_id ORDER BY COUNT(*) desc LIMIT 1' );
+		  . "scheme_fields WHERE primary_key) GROUP BY scheme_id HAVING COUNT(*) <= $attr->{'max_scheme_loci'} "
+		  . 'ORDER BY COUNT(*) desc LIMIT 1' );
 	say q(<p>Group definition: profiles match at );
 	my @values;
 	for my $i ( 1 .. $locus_count - 1 ) {
