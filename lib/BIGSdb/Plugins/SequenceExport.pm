@@ -58,7 +58,7 @@ sub get_attributes {
 		version    => '1.6.10',
 		dbtype     => 'isolates,sequences',
 		seqdb_type => 'schemes',
-		section    => 'profile_info,export,postquery',
+		section    => 'isolate_info,profile_info,export,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_export/sequence_export.html",
 		input      => 'query',
 		help       => 'tooltips',
@@ -214,6 +214,9 @@ sub run {
 		  . q(generate the output file.</p>);
 	}
 	my $list = $self->get_id_list( $pk, $query_file );
+	if ( !@$list && BIGSdb::Utils::is_int( scalar $q->param('single_isolate') ) ) {
+		$list = [ scalar $q->param('single_isolate') ];
+	}
 	$self->print_sequence_export_form(
 		$pk, $list,
 		$scheme_id,

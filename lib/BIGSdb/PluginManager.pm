@@ -124,11 +124,33 @@ sub get_plugin_categories {
 	return \@categories;
 }
 
+sub _valid_section {
+	my ( $self, $sections ) = @_;
+	my %allowed_sections =
+	  map { $_ => 1 } qw (isolate_info profile_info info postquery breakdown analysis third_party export miscellaneous);
+	foreach my $section (@$sections) {
+		return 1 if $allowed_sections{$section};
+	}
+	return;
+}
+
+sub _section_matches_plugin {
+	my ( $self, $sections, $plugin_sections ) = @_;
+	my @plugin_sections = split /,/x, $plugin_sections;
+	foreach my $plugin_section (@plugin_sections) {
+		foreach my $section (@$sections) {
+			return 1 if $plugin_section eq $section;
+		}
+	}
+	return;
+}
+
 sub get_appropriate_plugin_names {
-	my ( $self, $section, $dbtype, $category, $options ) = @_;
+	my ( $self, $sections, $dbtype, $category, $options ) = @_;
 	my $q = $self->{'cgi'};
-	return if none { $section =~ /$_/x } qw (info postquery breakdown analysis third_party export miscellaneous);
-	my @plugins;
+	$sections = ref $sections ? $sections : [$sections];
+	return if !$self->_valid_section($sections);
+	my $plugins = [];
 	my $pk_scheme_list = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $options->{'set_id'} } );
 	foreach my $plugin (
 		sort { $self->{'attributes'}->{$a}->{'order'} <=> $self->{'attributes'}->{$b}->{'order'} }
@@ -154,15 +176,14 @@ sub get_appropriate_plugin_names {
 		}
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 			if ( !$self->_is_isolate_count_ok($attr) ) {
-				if ( $section eq 'postquery' ) {
+				if ( $sections->[0] eq 'postquery' ) {
 					next;
 				} else {
 					next if !$attr->{'always_show_in_menu'};
 				}
 			}
 		}
-		my $plugin_section = $attr->{'section'};
-		next if $plugin_section !~ /$section/x;
+		next if !$self->_section_matches_plugin( $sections, $attr->{'section'} );
 		next if $attr->{'dbtype'} !~ /$dbtype/x;
 		next
 		  if $dbtype eq 'sequences'
@@ -173,10 +194,10 @@ sub get_appropriate_plugin_names {
 			|| $possible_index_page{ $q->param('page') }
 			|| $self->_is_matching_category( $category, $attr->{'category'} ) )
 		{
-			push @plugins, $plugin;
+			push @$plugins, $plugin;
 		}
 	}
-	return \@plugins;
+	return $plugins;
 }
 
 #Check if isolate database contains fields with appropriate characteristics

@@ -517,7 +517,7 @@ sub _print_plugin_buttons {
 	foreach my $category (@$plugin_categories) {
 		my $cat_buffer;
 		my $plugin_names = $self->{'pluginManager'}->get_appropriate_plugin_names(
-			'info',
+			'isolate_info',
 			$self->{'system'}->{'dbtype'},
 			$category || 'none',
 			{ single_isolate => $isolate_id }
