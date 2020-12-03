@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20201129
+#Version: 20201203
 use strict;
 use warnings;
 use 5.010;
@@ -68,6 +68,7 @@ GetOptions(
 	'c|coding_sequences'   => \$opts{'c'},
 	'h|help'               => \$opts{'h'},
 	'n|new_only'           => \$opts{'n'},
+	'new_max_alleles=i'    => \$opts{'new_max_alleles'},
 	'o|order'              => \$opts{'o'},
 	'r|random'             => \$opts{'r'},
 	'reuse_blast'          => \$opts{'reuse_blast'},
@@ -253,6 +254,11 @@ ${bold}-m, --min_size$norm ${under}SIZE$norm
            
 ${bold}-n, --new_only$norm
     New (previously untagged) isolates only.
+    
+${bold}--new_max_alleles$norm ${under}ALLELES$norm
+    Set the maximum number of alleles that can be designated or sequences
+    tagged before an isolate is not considered new when using the --new_only
+    option.
 
 ${bold}-o, --order$norm
     Order so that isolates last tagged the longest time ago get scanned first
