@@ -2208,7 +2208,7 @@ sub _delete_message {
 	foreach my $curator_id (@$curators) {
 		my $curator_info = $self->{'datastore'}->get_user_info($curator_id);
 		next if !$curator_info->{'submission_digests'};
-		next if $user_db_sent{$curator_info->{'user_db'}};
+		next if $user_db_sent{ $curator_info->{'user_db'} };
 		my $user_db = $self->{'datastore'}->get_user_db( $curator_info->{'user_db'} );
 		next if !defined $user_db;
 		eval {
@@ -2224,7 +2224,7 @@ sub _delete_message {
 		} else {
 			$user_db->commit;
 		}
-		$user_db_sent{$curator_info->{'user_db'}} = 1;
+		$user_db_sent{ $curator_info->{'user_db'} } = 1;
 	}
 	return;
 }
@@ -2571,7 +2571,8 @@ sub _close_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Call
 				recipient => $submission->{'submitter'},
 				sender    => $curator_id,
 				subject   => "$desc submission closed - $submission_id",
-				message   => $self->{'submissionHandler'}->get_text_summary( $submission_id, { messages => 1 } ),
+				message   => $self->{'submissionHandler'}
+				  ->get_text_summary( $submission_id, { messages => 1, correspondence_first => 1 } ),
 				cc_sender => $curator_info->{'submission_email_cc'}
 			}
 		);

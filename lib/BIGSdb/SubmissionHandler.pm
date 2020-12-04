@@ -743,8 +743,7 @@ sub _check_aliases {
 			}
 			if ( $null_terms{ lc($alias) } ) {
 				push @$error,
-				  "aliases - this is an optional field - leave blank rather than using a value like '$alias'."
-				  ;
+				  "aliases - this is an optional field - leave blank rather than using a value like '$alias'.";
 			}
 		}
 	}
@@ -1748,6 +1747,24 @@ sub get_text_summary {
 		$msg .= "Curator: $curator_string\n";
 	}
 	$msg .= "Outcome: $outcome\n" if $outcome;
+	my $correspondence = q();
+	if ( $options->{'messages'} ) {
+		my $qry = q(SELECT date_trunc('second',timestamp) AS timestamp,user_id,message FROM messages )
+		  . q(WHERE submission_id=? ORDER BY timestamp asc);
+		my $messages =
+		  $self->{'datastore'}->run_query( $qry, $submission_id, { fetch => 'all_arrayref', slice => {} } );
+		if (@$messages) {
+			$correspondence .= $self->_get_text_heading( 'Correspondence', { blank_line_before => 1 } );
+			foreach my $message (@$messages) {
+				my $user_string = $self->{'datastore'}->get_user_string( $message->{'user_id'} );
+				$correspondence .= "$user_string ($message->{'timestamp'}):\n";
+				$correspondence .= "$message->{'message'}\n";
+			}
+		}
+	}
+	if ( $options->{'messages'} && $options->{'correspondence_first'} ) {
+		$msg .= $correspondence;
+	}
 	my %methods = (
 		alleles  => '_get_allele_submission_summary',
 		profiles => '_get_profile_submission_summary',
@@ -1759,19 +1776,8 @@ sub get_text_summary {
 		my $summary = $self->$method($submission_id);
 		$msg .= $summary if $summary;
 	}
-	if ( $options->{'messages'} ) {
-		my $qry = q(SELECT date_trunc('second',timestamp) AS timestamp,user_id,message FROM messages )
-		  . q(WHERE submission_id=? ORDER BY timestamp asc);
-		my $messages =
-		  $self->{'datastore'}->run_query( $qry, $submission_id, { fetch => 'all_arrayref', slice => {} } );
-		if (@$messages) {
-			$msg .= $self->_get_text_heading( 'Correspondence', { blank_line_before => 1 } );
-			foreach my $message (@$messages) {
-				my $user_string = $self->{'datastore'}->get_user_string( $message->{'user_id'} );
-				$msg .= "$user_string ($message->{'timestamp'}):\n";
-				$msg .= "$message->{'message'}\n\n";
-			}
-		}
+	if ( $options->{'messages'} && !$options->{'correspondence_first'} ) {
+		$msg .= $correspondence;
 	}
 	return $msg;
 }
