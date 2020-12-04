@@ -136,8 +136,7 @@ sub _print_limits {
 
 sub _get_upload_link {
 	my ( $self, $options ) = @_;
-	my $instance = $options->{'instance'} // $self->{'system'}->{'curate_config'} // $self->{'instance'};
-	return "$self->{'system'}->{'curate_script'}?db=$instance&amp;page=batchAdd&amp;"
+	return "$self->{'system'}->{'curate_script'}?db=$self->{'instance'}&amp;page=batchAdd&amp;"
 	  . 'table=isolates&amp;private=1&amp;user_header=1';
 }
 
