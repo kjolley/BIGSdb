@@ -1761,9 +1761,9 @@ sub get_text_summary {
 				$correspondence .= "$message->{'message'}\n";
 			}
 		}
-	}
-	if ( $options->{'messages'} && $options->{'correspondence_first'} ) {
-		$msg .= $correspondence;
+		if ( $options->{'correspondence_first'} ) {
+			$msg .= $correspondence;
+		}
 	}
 	my %methods = (
 		alleles  => '_get_allele_submission_summary',
