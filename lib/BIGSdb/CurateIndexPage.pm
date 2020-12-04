@@ -2029,19 +2029,118 @@ sub _get_closed_submission_section {
 	return $buffer;
 }
 
+sub _reject_publication {
+	my ($self) = @_;
+	return if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
+	return q() if !$self->can_modify_table('isolates');
+	my $q       = $self->{'cgi'};
+	my $user_id = $q->param('reject_publication');
+	return if !BIGSdb::Utils::is_int($user_id);
+	my $to_publish = $self->{'datastore'}
+	  ->run_query( 'SELECT COUNT(*) FROM private_isolates WHERE request_publish AND user_id=?', $user_id );
+	return if !$to_publish;
+	eval { $self->{'db'}->do( 'UPDATE private_isolates SET request_publish=FALSE WHERE user_id=?', undef, $user_id ); };
+
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+		my $curator_id = $self->get_curator_id;
+		my $curator_string =
+		  $self->{'datastore'}->get_user_string( $curator_id, { email => 1, text_email => 1, affiliation => 1 } );
+		my $plural = $to_publish == 1 ? q() : q(s);
+		my $db_description = $self->get_db_description;
+		$self->_send_email(
+			$user_id,
+			"Private isolate publication request rejected ($db_description)",
+			"Your recent request to publish $to_publish private isolate$plural has been rejected by $curator_string. "
+			  . 'Please contact them if you wish to query this.'
+		);
+	}
+	return;
+}
+
+sub _accept_publication {
+	my ($self) = @_;
+	return if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
+	return q() if !$self->can_modify_table('isolates');
+	my $q       = $self->{'cgi'};
+	my $user_id = $q->param('accept_publication');
+	return if !BIGSdb::Utils::is_int($user_id);
+	my $to_publish = $self->{'datastore'}
+	  ->run_query( 'SELECT COUNT(*) FROM private_isolates WHERE request_publish AND user_id=?', $user_id );
+	return if !$to_publish;
+	eval { $self->{'db'}->do( 'DELETE FROM private_isolates WHERE request_publish AND user_id=?', undef, $user_id ); };
+
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+		my $curator_id = $self->get_curator_id;
+		my $curator_string =
+		  $self->{'datastore'}->get_user_string( $curator_id, { email => 1, text_email => 1, affiliation => 1 } );
+		my $plural = $to_publish == 1 ? q() : q(s);
+		my $db_description = $self->get_db_description;
+		$self->_send_email(
+			$user_id,
+			"Private isolate publication request accepted ($db_description)",
+			"Your recent request to publish $to_publish private isolate$plural has been accepted by $curator_string. "
+			  . 'These isolates are now public.'
+		);
+	}
+	return;
+}
+
+sub _send_email {
+	my ( $self, $user_id, $subject, $message ) = @_;
+	my $user_info = $self->{'datastore'}->get_user_info($user_id);
+	my $address   = Email::Valid->address( $user_info->{'email'} );
+	my $domain    = $self->{'config'}->{'domain'} // DEFAULT_DOMAIN;
+	return if !$address;
+	my $transport = Email::Sender::Transport::SMTP->new(
+		{
+			host => $self->{'config'}->{'smtp_server'} // 'localhost',
+			port => $self->{'config'}->{'smtp_port'}   // 25,
+		}
+	);
+	my $email = Email::MIME->create(
+		header_str => [
+			To      => $address,
+			From    => "no_reply\@$domain",
+			Subject => $subject
+		],
+		attributes => {
+			encoding => 'quoted-printable',
+			charset  => 'UTF-8',
+		},
+		body_str => $message
+	);
+	eval { try_to_sendmail( $email, { transport => $transport } )
+		  || $logger->error("Cannot send E-mail to $address"); };
+	$logger->error($@) if $@;
+	return;
+}
+
 sub _get_publication_requests {
 	my ($self) = @_;
 	return if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
 	return q() if !$self->can_modify_table('isolates');
+	my $q = $self->{'cgi'};
+	$self->_reject_publication if $q->param('reject_publication');
+	$self->_accept_publication if $q->param('accept_publication');
 	my $requests =
 	  $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM private_isolates WHERE request_publish)');
 	return q() if !$requests;
 	my $buffer    = q(<h2>Publication requests</h2>);
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+
 	if ( $user_info->{'status'} ne 'submitter' ) {
 		$buffer .=
-		    q(<p>There are user requests to publish some private data. Please click the 'Browse' links in the table )
-		  . q(below to see these records and to choose whether to publish them.</p>);
+		    q(<p>There are user requests to publish some private data. Please click the 'Display' links in the table )
+		  . q(below to see these records and to choose whether to publish them. The user will be notified automatically )
+		  . q(if you accept or deny the request.</p>);
 	}
 	my $users = $self->{'datastore'}->run_query(
 		"SELECT DISTINCT(i.sender) FROM $self->{'system'}->{'view'} i JOIN private_isolates p ON i.id=p.isolate_id "
@@ -2049,7 +2148,8 @@ sub _get_publication_requests {
 		undef,
 		{ fetch => 'col_arrayref' }
 	);
-	$buffer .= q(<table class="resultstable"><tr><th>Sender</th><th>Isolates</th><th>Display</th></tr>);
+	$buffer .= q(<table class="resultstable"><tr><th>Deny request</th><th>Sender</th><th>Isolates</th>)
+	  . q(<th>Display</th><th>Accept request</tr>);
 	my $td = 1;
 	foreach my $user_id (@$users) {
 		my $user_string = $self->{'datastore'}->get_user_string( $user_id, { email => 1 } );
@@ -2060,8 +2160,13 @@ sub _get_publication_requests {
 		);
 		my $link = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;"
 		  . "prov_field1=f_sender%20%28id%29&amp;prov_value1=$user_id&amp;private_records_list=4&amp;submit=1";
-		$buffer .= qq(<tr class="td$td"><td>$user_string</td><td>$isolate_count</td><td>)
-		  . qq(<a href="$link"><span class="fas fa-binoculars action browse"></span></a></td></tr>);
+		$buffer .=
+		    qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(reject_publication=$user_id"><span class="statusbad fas fa-times action"></span></a></td>)
+		  . qq(<td>$user_string</td><td>$isolate_count</td>)
+		  . qq(<td><a href="$link"><span class="fas fa-binoculars action browse"></span></a></td>)
+		  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(accept_publication=$user_id"><span class="statusgood fas fa-check action"></span></a></td></tr>);
 		$td = $td == 1 ? 2 : 1;
 	}
 	$buffer .= q(</table>);
