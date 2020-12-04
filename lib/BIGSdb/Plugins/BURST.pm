@@ -82,10 +82,11 @@ sub run {
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
 	my $scheme_id  = $q->param('scheme_id');
-	my $attr = $self->get_attributes;
+	my $attr       = $self->get_attributes;
 	say q(<h1>BURST analysis</h1>);
 	my $pk;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' && defined $scheme_id ) {
+
 		if ( !BIGSdb::Utils::is_int($scheme_id) ) {
 			$self->print_bad_status( { message => q(Scheme id must be an integer.), navbar => 1 } );
 			return;
@@ -96,8 +97,6 @@ sub run {
 				return;
 			}
 		}
-	}
-	if ($scheme_id) {
 		if ( BIGSdb::Utils::is_int($scheme_id) ) {
 			$pk =
 			  $self->{'datastore'}
@@ -121,6 +120,8 @@ sub run {
 			);
 			return;
 		}
+	} else {
+		$pk = 'id';
 	}
 	my $list = $self->get_id_list( $pk, $query_file );
 	if ( $q->param('submit') ) {
