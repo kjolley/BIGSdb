@@ -543,7 +543,6 @@ sub _scan {
 				scan_job                     => $scan_job,
 				script_name                  => $self->{'system'}->{'script_name'},
 				curator_name                 => $curator_name,
-				no_user_db_needed            => 1,
 				throw_webscan_busy_exception => 1
 			};
 			my $params = $q->Vars;
