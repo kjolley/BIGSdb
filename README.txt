@@ -1,3 +1,6 @@
+v1.29.3: *Include sequence bin size and contig number in isolate queries.
+         *Improved database connection handling.
+         *Option to deny publication of private data.
 v1.29.2: *Multi-threaded SpeciesID plugin - this is now much faster.
 v1.29.1: *Isolate fields can be either required, optional and now 'expected'.
           Expected fields require a submitter to explicitly state if there is
