@@ -1755,10 +1755,13 @@ sub get_text_summary {
 		  $self->{'datastore'}->run_query( $qry, $submission_id, { fetch => 'all_arrayref', slice => {} } );
 		if (@$messages) {
 			$correspondence .= $self->_get_text_heading( 'Correspondence', { blank_line_before => 1 } );
+			my $message_count = 0;
 			foreach my $message (@$messages) {
+				$message_count++;
 				my $user_string = $self->{'datastore'}->get_user_string( $message->{'user_id'} );
 				$correspondence .= "$user_string ($message->{'timestamp'}):\n";
 				$correspondence .= "$message->{'message'}\n";
+				$correspondence .= "\n" if $message_count != @$messages;
 			}
 		}
 		if ( $options->{'correspondence_first'} ) {
