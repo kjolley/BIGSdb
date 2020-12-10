@@ -25,6 +25,9 @@ use parent qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 use Try::Tiny;
 use File::Path qw(make_path remove_tree);
+use File::Type;
+use IO::Uncompress::Gunzip qw(gunzip $GunzipError);
+use IO::Uncompress::Unzip qw(unzip $UnzipError);
 use BIGSdb::Constants qw(:interface :limits SEQ_METHODS);
 my $logger = get_logger('BIGSdb.Page');
 use constant LIMIT => 100;
@@ -200,8 +203,7 @@ sub _validate {
 		my $seq_ref;
 		my ( $good, $bad ) = ( GOOD, BAD );
 		try {
-			my $fasta_ref = BIGSdb::Utils::slurp($filename);
-			$seq_ref = BIGSdb::Utils::read_fasta( $fasta_ref, { keep_comments => 1 } );
+			$seq_ref = $self->_get_seqref_from_fasta($filename);
 			say qq(<td><span class="statusbad">$good</td>);
 			$success++;
 		}
@@ -413,8 +415,7 @@ sub _upload {
 		my $filename = "$dir/$row->{'filename'}";
 		my $failed_validation;
 		try {
-			my $fasta_ref = BIGSdb::Utils::slurp($filename);
-			$seq_ref = BIGSdb::Utils::read_fasta( $fasta_ref, { keep_comments => 1 } );
+			$seq_ref = $self->_get_seqref_from_fasta($filename);
 		}
 		catch {
 			$failed_validation = 1;
@@ -485,6 +486,28 @@ sub _upload {
 	);
 	$self->_remove_dir($dir);
 	return;
+}
+
+sub _get_seqref_from_fasta {
+	my ( $self, $filename ) = @_;
+	my $seq_ref;
+	my $fasta_ref = BIGSdb::Utils::slurp($filename);
+	my $ft        = File::Type->new;
+	my $file_type = $ft->checktype_contents($$fasta_ref);
+	my $uncompressed;
+	my $method = {
+		'application/x-gzip' =>
+		  sub { gunzip $fasta_ref => \$uncompressed or $logger->error("gunzip failed: $GunzipError"); },
+		'application/zip' => sub { unzip $fasta_ref => \$uncompressed or $logger->error("unzip failed: $UnzipError"); }
+	};
+
+	if ( $method->{$file_type} ) {
+		$method->{$file_type}->();
+		$seq_ref = BIGSdb::Utils::read_fasta( \$uncompressed, { keep_comments => 1 } );
+	} else {
+		$seq_ref = BIGSdb::Utils::read_fasta( $fasta_ref, { keep_comments => 1 } );
+	}
+	return $seq_ref;
 }
 
 sub _print_problems {
@@ -825,7 +848,8 @@ sub _print_interface {
 	say q(<p>Paste in tab-delimited text, e.g. copied from a spreadsheet, consisting of two columns. The first column )
 	  . q(should be the value for the isolate identifier field (specified above), and the second should be the )
 	  . q(filename that you are going to upload. You need to ensure that you use the full filename, including any )
-	  . q(suffix such as .fas or .fasta, which may be hidden by your operating system.</p>);
+	  . q(suffix such as .fas or .fasta, which may be hidden by your operating system. FASTA files may be either )
+	  . q(uncompressed (.fas, .fasta) or gzip/zip compressed (.fas.gz, .fas.zip).</p>);
 	say $q->textarea(
 		-id          => 'filenames',
 		-name        => 'filenames',
