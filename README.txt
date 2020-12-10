@@ -1,3 +1,5 @@
+v1.29.4: *Support for upload of compressed sequences - please note the new
+          Perl module dependency: File::Type.
 v1.29.3: *Include sequence bin size and contig number in isolate queries.
          *Improved database connection handling.
          *Option to deny publication of private data.

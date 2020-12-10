@@ -25,6 +25,9 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use Bio::DB::GenBank;
 use Try::Tiny;
+use File::Type;
+use IO::Uncompress::Gunzip qw(gunzip $GunzipError);
+use IO::Uncompress::Unzip qw(unzip $UnzipError);
 use BIGSdb::Constants qw(SEQ_METHODS :interface :limits);
 
 sub initiate {
@@ -261,7 +264,9 @@ sub _print_interface {
 	}
 	say q(</ul></fieldset>);
 	say qq(<fieldset style="float:left">\n<legend>Alternatively upload FASTA file</legend>);
-	say q(Select FASTA file:<br />);
+	say q(Select FASTA file: );
+	say $self->get_tooltip( q(FASTA files - FASTA files can be either uncompressed (.fas, .fasta) or )
+		  . q(gzip/zip compressed (.fas.gz, .fas.zip). ) );
 	say q(<div class="fasta_upload">);
 	say $q->filefield(
 		-name     => 'fasta_upload',
@@ -577,16 +582,27 @@ sub _upload {
 sub _upload_fasta_file {
 	my ($self)   = @_;
 	my $temp     = BIGSdb::Utils::get_random();
-	my $filename = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_upload.fas";
+	my $filename = "$self->{'config'}->{'secure_tmp_dir'}/${temp}_upload.fas";
 	my $buffer;
-	open( my $fh, '>', $filename ) || $logger->error("Could not open $filename for writing.");
 	my $fh2 = $self->{'cgi'}->upload('fasta_upload');
 	binmode $fh2;
-	binmode $fh;
 	read( $fh2, $buffer, $self->{'config'}->{'max_upload_size'} );
+	my $ft        = File::Type->new;
+	my $file_type = $ft->checktype_contents($buffer);
+	my $method    = {
+		'application/x-gzip' => sub { gunzip \$buffer => $filename or $logger->error("gunzip failed: $GunzipError"); },
+		'application/zip'    => sub { unzip \$buffer  => $filename or $logger->error("unzip failed: $UnzipError"); }
+	};
+
+	if ( $method->{$file_type} ) {
+		$method->{$file_type}->();
+		return "${temp}_upload.fas";
+	}
+	open( my $fh, '>', $filename ) || $logger->error("Cannot open $filename for writing.");
+	binmode $fh;
 	print $fh $buffer;
 	close $fh;
-	return "$temp\_upload.fas";
+	return "${temp}_upload.fas";
 }
 
 sub _upload_accession {
