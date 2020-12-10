@@ -73,7 +73,7 @@ sub _set_field_overrides {
 	my ($self) = @_;
 	return if !$self->{'instance'};
 	my $override_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/field.overrides";
-	my %allowed_att = map { $_ => 1 } qw(required maindisplay);
+	my %allowed_att = map { $_ => 1 } qw(required maindisplay curate_only);
 	if ( -e $override_file ) {
 		my $config = Config::Tiny->new();
 		$config = Config::Tiny->read($override_file);
