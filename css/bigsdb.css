@@ -1,4 +1,4 @@
-/*Version: 20201014*/
+/*Version: 20201209*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -548,6 +548,38 @@ input.updatebutton {
 
 input.updatebutton:hover {
 	border: 1px solid #669
+}
+
+div.fasta_upload {
+	position: relative;
+	margin-top: 0.5em;
+}
+
+div.fakefile {
+	position: absolute;
+	top: 0px;
+	left: 0px;
+	z-index: 1;
+}
+
+div.fakefile input {
+	width: 15em;
+	height: 3em;
+	padding: 0 0.5em;
+	border: 3px dashed #e8e8e8;
+	border-radius: 10px;
+}
+
+input#fasta_upload {
+	height: 3em;
+	position: relative;
+	text-align: right;
+	-moz-opacity: 0;
+	filter: alpha(opacity : 0);
+	opacity: 0;
+	z-index: 2;
+	height: 3em;
+	cursor: pointer
 }
 
 .launchbutton {

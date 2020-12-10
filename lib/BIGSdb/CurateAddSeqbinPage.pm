@@ -262,8 +262,16 @@ sub _print_interface {
 	say q(</ul></fieldset>);
 	say qq(<fieldset style="float:left">\n<legend>Alternatively upload FASTA file</legend>);
 	say q(Select FASTA file:<br />);
-	say $q->filefield( -name => 'fasta_upload', -id => 'fasta_upload' );
+	say q(<div class="fasta_upload">);
+	say $q->filefield(
+		-name     => 'fasta_upload',
+		-id       => 'fasta_upload',
+		-onchange => '$("input#fakefile").val(this.files[0].name)'
+	);
+	say q(<div class="fakefile"><input id='fakefile' placeholder="Click to select or drag and drop..." /></div>);
+	say q(</div>);
 	say q(</fieldset>);
+
 	if ( !$self->{'config'}->{'intranet'} ) {
 		say q(<fieldset style="float:left"><legend>or enter Genbank accession</legend>);
 		say $q->textfield( -name => 'accession' );

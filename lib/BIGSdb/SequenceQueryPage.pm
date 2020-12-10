@@ -62,7 +62,7 @@ sub _get_text {
 
 sub get_help_url {
 	my ($self) = @_;
-	if ($self->{'system'}->{'kiosk'}){
+	if ( $self->{'system'}->{'kiosk'} ) {
 		return $self->{'system'}->{'kiosk_help'} // undef;
 	}
 	my $q = $self->{'cgi'};
@@ -191,7 +191,14 @@ sub _print_interface {
 	if ( !$q->param('no_upload') ) {
 		say q(<fieldset style="float:left"><legend>Alternatively upload FASTA file</legend>);
 		say q(Select FASTA file:<br />);
-		say $q->filefield( -name => 'fasta_upload', -id => 'fasta_upload' );
+		say q(<div class="fasta_upload">);
+		say $q->filefield(
+			-name     => 'fasta_upload',
+			-id       => 'fasta_upload',
+			-onchange => '$("input#fakefile").val(this.files[0].name)'
+		);
+		say q(<div class="fakefile"><input id='fakefile' placeholder="Click to select or drag and drop..." /></div>);
+		say q(</div>);
 		say q(</fieldset>);
 	}
 	if ( $page eq 'sequenceQuery' && !$self->{'config'}->{'intranet'} && !$q->param('no_genbank') ) {
@@ -272,7 +279,7 @@ sub print_content {
 sub _upload_fasta_file {
 	my ($self)   = @_;
 	my $temp     = BIGSdb::Utils::get_random();
-	my $filename = "$self->{'config'}->{'secure_tmp_dir'}/$temp\_upload.fas";
+	my $filename = "$self->{'config'}->{'secure_tmp_dir'}/${temp}_upload.fas";
 	my $buffer;
 	open( my $fh, '>', $filename ) || $logger->error("Cannot open $filename for writing.");
 	my $fh2 = $self->{'cgi'}->upload('fasta_upload');
@@ -594,7 +601,7 @@ sub _get_selected_loci {
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (jQuery);
-	if ($self->{'system'}->{'kiosk'}){
+	if ( $self->{'system'}->{'kiosk'} ) {
 		$self->set_level0_breadcrumbs;
 	} else {
 		$self->{'tooltips'} = 1;
