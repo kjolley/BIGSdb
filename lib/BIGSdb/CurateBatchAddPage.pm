@@ -26,6 +26,9 @@ use parent qw(BIGSdb::CurateAddPage);
 use Log::Log4perl qw(get_logger);
 use BIGSdb::Constants qw(:submissions :interface :limits);
 use BIGSdb::Utils;
+use File::Type;
+use IO::Uncompress::Gunzip qw(gunzip $GunzipError);
+use IO::Uncompress::Unzip qw(unzip $UnzipError);
 use Try::Tiny;
 my $logger = get_logger('BIGSdb.Page');
 
@@ -1196,8 +1199,7 @@ sub _check_data_aliases {
 				}
 				if ( $null_terms{ lc($alias) } ) {
 					my $problem_text =
-					  "Aliases are optional - leave blank rather than using a value like '$alias'.<br />"
-					  ;
+					  "Aliases are optional - leave blank rather than using a value like '$alias'.<br />";
 					$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
 					${ $arg_ref->{'special_problem'} } = 1;
 					last;
@@ -1868,12 +1870,32 @@ sub _prepare_contigs_extra_inserts {
 	my $dir      = $self->{'submissionHandler'}->get_submission_dir($submission_id) . '/supporting_files';
 	my $filename = "$dir/" . $data->[ $field_order->{'assembly_filename'} ];
 	return [] if !-e $filename;
-	my $fasta   = BIGSdb::Utils::slurp($filename);
-	my $seq_ref = BIGSdb::Utils::read_fasta($fasta);
-	my @inserts;
-	my $size = BIGSdb::Utils::get_nice_size( -s $filename );
-	$self->{'submission_message'} .= " Contig file '$data->[$field_order->{'assembly_filename'}]' ($size) uploaded.";
+	my $seq_ref;
+	my $fasta_ref = BIGSdb::Utils::slurp($filename);
+	my $ft        = File::Type->new;
+	my $file_type = $ft->checktype_contents($$fasta_ref);
+	my $uncompressed;
+	my $size;
+	my $file_was_compressed = q();
+	my $method              = {
+		'application/x-gzip' =>
+		  sub { gunzip $fasta_ref => \$uncompressed or $logger->error("gunzip failed: $GunzipError"); },
+		'application/zip' => sub { unzip $fasta_ref => \$uncompressed or $logger->error("unzip failed: $UnzipError"); }
+	};
 
+	if ( $method->{$file_type} ) {
+		$method->{$file_type}->();
+		$seq_ref             = BIGSdb::Utils::read_fasta( \$uncompressed, { keep_comments => 1 } );
+		$size                = BIGSdb::Utils::get_nice_size( length $uncompressed );
+		$file_was_compressed = ' uncompressed';
+	} else {
+		$seq_ref = BIGSdb::Utils::read_fasta( $fasta_ref, { keep_comments => 1 } );
+		$size = BIGSdb::Utils::get_nice_size( -s $filename );
+	}
+	my @inserts;
+	$self->{'submission_message'} .=
+	  " Contig file '$data->[$field_order->{'assembly_filename'}]' ($size$file_was_compressed) uploaded."
+	  ;
 	foreach my $contig_name ( keys %$seq_ref ) {
 		next if length $seq_ref->{$contig_name} < MIN_CONTIG_LENGTH;
 		next if BIGSdb::Utils::is_homopolymer( $seq_ref, $contig_name );

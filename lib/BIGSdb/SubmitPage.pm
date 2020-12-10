@@ -1011,7 +1011,8 @@ sub _submit_isolates {
 	if ( $options->{'genomes'} ) {
 		my $limit = LIMIT;
 		say q(<li>Enter the name of the assembly contig FASTA file in the assembly_filename field and upload )
-		  . qq(this file as supporting data. <strong>Upload is limited to $limit files.</strong></li>);
+		  . q(this file as supporting data. FASTA files can be either uncompressed (.fas, .fasta) or )
+		  . qq(gzip/zip compressed (.fas.gz, .fas.zip). <strong>Upload is limited to $limit files.</strong></li>);
 		my @methods = SEQ_METHODS;
 		local $" = q(, );
 		say q(<li>Enter the name of the sequence method used in the sequence_method field )
