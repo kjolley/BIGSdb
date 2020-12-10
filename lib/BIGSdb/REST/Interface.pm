@@ -132,9 +132,10 @@ sub _before {
 	$self->{'time_since_last_call_ms'} = int( 1000 * tv_interval( $self->{'last_access'} ) );
 	$self->{'last_access'}             = [gettimeofday];
 	my $request_path = request->path;
-	$self->{'request_path'} = $request_path;
+	$self->{'request_path'}   = $request_path;
 	$self->{'request_method'} = request->method;
 	foreach my $dir ( @{ setting('api_dirs') } ) {
+
 		if ( $request_path =~ /^$dir/x ) {
 			set subdir => $dir;
 			last;
@@ -231,9 +232,15 @@ sub _log_call {
 	return if !$self->{'log_db'};
 	my $ip_address = _get_ip_address();
 	eval {
-		$self->{'log_db'}->do( 'INSERT INTO log (timestamp,ip_address,method,route,duration) VALUES (?,?,?,?,?)',
-			undef, 'now', $ip_address, $self->{'request_method'}, $self->{'request_path'},
-			int( 1000 * tv_interval( $self->{'start_time'} ) ) );
+		$self->{'log_db'}->do(
+			'INSERT INTO log (timestamp,ip_address,method,route,duration) VALUES (?,?,?,?,?)',
+			undef,
+			'now',
+			$ip_address,
+			$self->{'request_method'},
+			$self->{'request_path'},
+			int( 1000 * tv_interval( $self->{'start_time'} ) )
+		);
 	};
 	if ($@) {
 		$self->{'logger'}->error($@);
@@ -696,6 +703,14 @@ sub get_user_id {
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	send_error( 'Unrecognized user.', 401 ) if !$user_info;
 	return $user_info->{'id'};
+}
+
+sub is_curator {
+	my ($self) = @_;
+	return if !$self->{'username'};
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	return 1 if $user_info->{'status'} eq 'curator' || $user_info->{'status'} eq 'admin';
+	return;
 }
 
 sub add_filters {

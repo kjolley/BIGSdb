@@ -78,8 +78,7 @@ sub _get_genomes {
 	my $genome_size =
 	  BIGSdb::Utils::is_int( params->{'genome_size'} )
 	  ? params->{'genome_size'}
-	  : $self->{'system'}->{'min_genome_size'} // $self->{'config'}->{'min_genome_size'}
-	  // MIN_GENOME_SIZE;
+	  : $self->{'system'}->{'min_genome_size'} // $self->{'config'}->{'min_genome_size'} // MIN_GENOME_SIZE;
 	my $old_versions = params->{'include_old_versions'} ? q() : q( AND v.new_version IS NULL);
 	my $qry = $self->add_filters(
 		"SELECT COUNT(*),MAX(date_entered),MAX(datestamp) FROM $self->{'system'}->{'view'} v JOIN seqbin_stats s "
@@ -120,7 +119,8 @@ sub _get_isolate {
 	my $field_values =
 	  $self->{'datastore'}
 	  ->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $id, { fetch => 'row_hashref' } );
-	my $field_list = $self->{'xmlHandler'}->get_field_list;
+	my $field_list =
+	  $self->{'xmlHandler'}->get_field_list( { no_curate_only => $self->is_curator ? 0 : 1 } );
 	my $provenance = {};
 
 	foreach my $field (@$field_list) {
