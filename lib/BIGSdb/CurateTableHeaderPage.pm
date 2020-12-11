@@ -57,11 +57,13 @@ sub _get_isolate_table_headers {
 	my $headers    = [];
 	my $set_id     = $self->get_set_id;
 	my $is_curator = $self->is_curator;
-	my $field_list = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
+	my $field_list = $self->{'xmlHandler'}->get_field_list;
 	foreach my $field (@$field_list) {
 		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-		next if ( $att->{'no_curate'}      // '' ) eq 'yes';
-		next if ( $att->{'no_submissions'} // '' ) eq 'yes';
+		$att->{$_} //= q() foreach qw(curate_only allow_submissions no_curate no_submissions);
+		next if $att->{'curate_only'} eq 'yes' && !$is_curator && $att->{'allow_submissions'} ne 'yes';
+		next if $att->{'no_curate'} eq 'yes';
+		next if $att->{'no_submissions'} eq 'yes';
 		push @$headers, $field if none { $field eq $_ } qw (id curator sender date_entered datestamp);
 		if ( $field eq $self->{'system'}->{'labelfield'} ) {
 			push @$headers, qw(aliases references);
