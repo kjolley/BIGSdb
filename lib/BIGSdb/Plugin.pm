@@ -717,7 +717,7 @@ sub get_selected_loci {
 		my $pattern = LOCUS_PATTERN;
 		foreach my $locus (@loci) {
 			my $locus_name = $locus =~ /$pattern/x ? $1 : undef;
-			push @loci_selected, "$locus_name" if defined $locus_name;
+			push @loci_selected, $locus_name if defined $locus_name;
 		}
 	} else {
 		@loci_selected = @loci;
