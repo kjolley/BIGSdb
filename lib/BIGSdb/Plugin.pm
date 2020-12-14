@@ -411,8 +411,7 @@ sub print_id_fieldset {
 	my $q = $self->{'cgi'};
 	say qq(<fieldset style="float:left"><legend>Select $options->{'fieldname'}s</legend>);
 	local $" = "\n";
-	say q(<p style="padding-right:2em">Paste in list of ids to include, start a new<br />)
-	  . q(line for each.);
+	say q(<p style="padding-right:2em">Paste in list of ids to include, start a new<br />) . q(line for each.);
 	say q( Leave blank to include all ids.) if !$options->{'no_leave_blank'};
 	say q(</p>);
 	@$list = uniq @$list;
@@ -1001,27 +1000,24 @@ sub get_export_buttons {
 sub print_recommended_scheme_fieldset {
 	my ($self) = @_;
 	return if !$self->{'system'}->{'recommended_schemes'};
-	my @schemes = split /,/x, $self->{'system'}->{'recommended_schemes'};
-	my $buffer;
-	foreach my $scheme_id (@schemes) {
-		if ( !BIGSdb::Utils::is_int($scheme_id) ) {
-			$logger->error( 'genome_comparator_favourite_schemes attribute in config.xml contains '
-				  . 'non-integer scheme_id. This should be a comma-separated list of scheme ids.' );
-			return;
-		}
+	my $schemes =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT id FROM schemes WHERE recommended ORDER BY name', undef, { fetch => 'col_arrayref' } )
+	  ;
+	return if !@$schemes;
+	my $set_id = $self->get_set_id;
+	my $labels = {};
+	foreach my $scheme_id (@$schemes){
+		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id,{set_id=>$set_id});
+		$labels->{$scheme_id} = $scheme_info->{'name'};
 	}
-	return if !@schemes;
-	my $scheme_labels =
-	  $self->{'datastore'}->run_query( 'SELECT id,name FROM schemes', undef, { fetch => 'all_arrayref', slice => {} } );
-	my %labels = map { $_->{'id'} => $_->{'name'} } @$scheme_labels;
-	my $q = $self->{'cgi'};
 	say q(<fieldset id="recommended_scheme_fieldset" style="float:left"><legend>Recommended schemes</legend>);
 	say q(<p>Select one or more schemes<br />below or use the full schemes list.</p>);
 	say $self->popup_menu(
 		-name     => 'recommended_schemes',
 		-id       => 'recommended_schemes',
-		-values   => [@schemes],
-		-labels   => \%labels,
+		-values   => $schemes,
+		-labels   => $labels,
 		-size     => 5,
 		-multiple => 'true'
 	);
