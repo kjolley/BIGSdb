@@ -285,8 +285,7 @@ sub get_loci_table_attributes {
 			hide_public => 1,
 			tooltip     => 'formatted common name - Common name with HTML formatting.'
 		},
-		{ name => 'data_type', type => 'text', required => 1, optlist => 'DNA;peptide', default => 'DNA' }
-		,
+		{ name => 'data_type',  type => 'text', required => 1, optlist => 'DNA;peptide', default => 'DNA' },
 		{ name => 'locus_type', type => 'text', required => 0, optlist => "@locus_types" },
 		{
 			name     => 'allele_id_format',
@@ -1209,8 +1208,7 @@ sub get_schemes_table_attributes {
 		{ name => 'description', type => 'text', hide => 1, length => 1000 }
 	];
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		push @$attributes,
-		  (
+		push @$attributes, (
 			{
 				name        => 'dbase_name',
 				type        => 'text',
@@ -1294,8 +1292,26 @@ sub get_schemes_table_attributes {
 				default  => 'true',
 				tooltip  => 'analysis - Sets whether to include this scheme in analysis functions '
 				  . '(can be overridden by user preference).'
+			},
+			{
+				name     => 'recommended',
+				type     => 'bool',
+				required => 1,
+				default  => 'false',
+				tooltip  => 'recommended - Sets whether this scheme appears in lists of recommended schemes '
+				  . 'in plugins. This should generally only be set for main schemes used for typing, e.g. MLST '
+				  . 'cgMLST etc.'
+			},
+			{
+				name     => 'quality_metric',
+				type     => 'bool',
+				required => 1,
+				default  => 'false',
+				tooltip  => 'quality_metric - Sets whether this scheme should be used for assessing annotation '
+				  . 'quality. To be useful, it should be expected that a well-annotated genome should have '
+				  . 'designations defined for all loci in the scheme.'
 			}
-		  );
+		);
 		if ( $self->{'system'}->{'views'} ) {
 			my @views = split /,/x, $self->{'system'}->{'views'};
 			local $" = q(;);
