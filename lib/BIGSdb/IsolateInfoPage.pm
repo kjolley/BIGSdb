@@ -1674,7 +1674,9 @@ sub _get_seqbin_link {
 				  };
 			}
 		} else {
-			push @$list, { title => 'length', data => "$seqbin_stats->{'total_length'} bp" };
+			push @$list,
+			  { title => 'length',
+				data => BIGSdb::Utils::commify( $seqbin_stats->{'total_length'} ) . ' bp' };
 		}
 		my $set_id = $self->get_set_id;
 		my $set_clause =
