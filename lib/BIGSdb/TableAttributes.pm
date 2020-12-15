@@ -1310,6 +1310,22 @@ sub get_schemes_table_attributes {
 				tooltip  => 'quality_metric - Sets whether this scheme should be used for assessing annotation '
 				  . 'quality. To be useful, it should be expected that a well-annotated genome should have '
 				  . 'designations defined for all loci in the scheme.'
+			},
+			{
+				name     => 'quality_metric_good_threshold',
+				type     => 'int',
+				required => 0,
+				tooltip  => 'quality_metric_good_thresold - Sets the threshold of number of loci in the scheme that '
+				  . 'must have alleles designated for the annotation to be considered good. If left blank or is '
+				  . 'greater than the number of loci in the scheme then this number will be used.'
+			},
+			{
+				name     => 'quality_metric_bad_threshold',
+				type     => 'int',
+				required => 0,
+				tooltip  => 'quality_metric_bad_threshold - Sets the threshold of number of loci in the scheme that '
+				  . 'must have alleles designated below which the annotation is to be considered bad. If left blank '
+				  . 'then 0 will be used.'
 			}
 		);
 		if ( $self->{'system'}->{'views'} ) {

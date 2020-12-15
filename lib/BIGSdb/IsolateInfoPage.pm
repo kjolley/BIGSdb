@@ -820,6 +820,7 @@ sub get_isolate_record {
 			$buffer .= $self->_get_version_links($id);
 			$buffer .= $self->_get_ref_links($id);
 			$buffer .= $self->_get_seqbin_link($id);
+			$buffer .= $self->_get_annotation_metrics($id);
 		}
 	}
 	$buffer .= qq(</div>\n);
@@ -1674,7 +1675,11 @@ sub _get_seqbin_link {
 				  };
 			}
 		} else {
-			push @$list, { title => 'length', data => "$seqbin_stats->{'total_length'} bp" };
+			push @$list,
+			  {
+				title => 'length',
+				data  => BIGSdb::Utils::commify( $seqbin_stats->{'total_length'} ) . ' bp'
+			  };
 		}
 		my $set_id = $self->get_set_id;
 		my $set_clause =
@@ -1698,6 +1703,113 @@ sub _get_seqbin_link {
 		$buffer .= q(</div>);
 	}
 	return $buffer;
+}
+
+sub _get_annotation_metrics {
+	my ( $self, $isolate_id ) = @_;
+	my $schemes = $self->{'datastore'}->run_query(
+		'SELECT id,COUNT(*) AS loci FROM schemes s JOIN scheme_members m ON s.id=m.scheme_id '
+		  . 'WHERE quality_metric GROUP BY id ORDER BY loci ASC',
+		undef,
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	my $set_id = $self->get_set_id;
+	my $values = [];
+	foreach my $scheme (@$schemes) {
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme->{'id'}, { set_id => $set_id } );
+		if ( $scheme_info->{'view'} ) {
+			next if !$self->{'datastore'}->is_isolate_in_view( $scheme_info->{'view'}, $isolate_id );
+		}
+		my $loci_designated = $self->{'datastore'}->run_query(
+			'SELECT COUNT(DISTINCT(d.locus)) FROM allele_designations d JOIN scheme_members m ON '
+			  . 'd.locus=m.locus WHERE (d.isolate_id,m.scheme_id)=(?,?)',
+			[ $isolate_id, $scheme->{'id'} ],
+			{ cache => 'IsolateInfo::annotation:metrics' }
+		);
+		my $data = {
+			id => $scheme_info->{'id'},
+			name          => $scheme_info->{'name'},
+			loci          => $scheme->{'loci'},
+			designated    => $loci_designated,
+			min_threshold => $scheme_info->{'quality_metric_bad_threshold'},
+			max_threshold => $scheme_info->{'quality_metric_good_threshold'}
+		};
+		push @$values, $data;
+	}
+	return if !@$values;
+	my $buffer = qq(<div id="annotation_metrics">\n);
+	$buffer .= qq(<span class="info_icon fas fa-2x fa-fw fa-award fa-pull-left" style="margin-top:-0.2em"></span>\n);
+	$buffer .= qq(<h2>Annotation quality metrics</h2>\n);
+	$buffer .= qq(<div class="scrollable"><table class="resultstable">\n);
+	$buffer .= q(<tr><th rowspan="2">Scheme</th><th rowspan="2">Scheme loci</th><th rowspan="2">Designated loci</th>)
+	  . q(<th colspan="2">Annotation</th></tr>);
+	$buffer .= qq(<tr><th style="min-width:5em">Score</th><th>Quality</th></tr>\n);
+	my $td = 1;
+	my $scheme_count;
+
+	foreach my $scheme (@$values) {
+		next if !$scheme->{'loci'};
+		next if !$scheme->{'designated'};
+		my $percent = int( 100 * $scheme->{'designated'} / $scheme->{'loci'} );
+		my $max_threshold = $scheme->{'max_threshold'} // $scheme->{'loci'};
+		$max_threshold = $scheme->{'loci'} if $max_threshold > $scheme->{'loci'};
+		my $min_threshold = $scheme->{'min_threshold'} // 0;
+		$min_threshold = 0 if $min_threshold < 0;
+		if ($max_threshold < $min_threshold){
+			$logger->error("Scheme $scheme->{'id'} ($scheme->{'name'}) has max_threshold < min_threshold");
+			$min_threshold = 0;
+			$max_threshold= $scheme->{'loci'};
+		}
+		$buffer .= qq(<tr class="td$td"><td>$scheme->{'name'}</td><td>$scheme->{'loci'}</td>)
+		  . qq(<td>$scheme->{'designated'}</td>);
+		my $min    = 100 * $min_threshold / $scheme->{'loci'};
+		my $max    = 100 * $max_threshold / $scheme->{'loci'};
+		my $middle = ( $min + $max ) / 2;
+		my $colour = $self->_get_colour( $percent, { min => $min, max => $max, middle => $middle } );
+		$buffer .=
+		    q(<td><span style="position:absolute;font-size:0.8em;margin-left:-0.5em">)
+		  . qq($percent</span>)
+		  . qq(<div style="display:block-inline;margin-top:0.2em;background-color:\#$colour;)
+		  . qq(border:1px solid #ccc;height:0.8em;width:$percent%"></div></td>);
+		my $quality;
+
+		if ( $scheme->{'designated'} >= $max_threshold ) {
+			$quality = GOOD;
+		} elsif ( $scheme->{'designated'} < $min_threshold ) {
+			$quality = BAD;
+		} else {
+			$quality = MEH;
+		}
+		$buffer .= qq(<td>$quality</td>);
+		$buffer .= qq(</tr>\n);
+		$td = $td == 1 ? 2 : 1;
+		$scheme_count++;
+		
+	}
+	return q() if !$scheme_count;
+	$buffer .= qq(</table></div>\n);
+	$buffer .= qq(</div>\n);
+	return $buffer;
+}
+
+sub _get_colour {
+	my ( $self, $num, $options ) = @_;
+	my $min    = $options->{'min'}    // 0;
+	my $max    = $options->{'max'}    // 100;
+	my $middle = $options->{'middle'} // 50;
+	if ( $min > $max ) {
+		$logger->error('Error in params - requirement is min < middle < max');
+		$logger->error("Min: $min; Middle: $middle; Max: $max");
+		return q(000000);
+	}
+	my $scale = $middle == $min ? 255 : 255 / ( $middle - $min );
+	return q(FF0000) if $num <= $min;    # lower boundry
+	return q(00FF00) if $num >= $max;    # upper boundary
+	if ( $num < $middle ) {
+		return sprintf q(FF%02X00) => int( ( $num - $min ) * $scale );
+	} else {
+		return sprintf q(%02XFF00) => 255 - int( ( $num - $middle ) * $scale );
+	}
 }
 
 sub _print_projects {
