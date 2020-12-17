@@ -31,14 +31,17 @@ sub run_script {
 	die "No connection to database (check logs).\n" if !defined $self->{'db'};
 	die "This script can only be run against an isolate database.\n"
 	  if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
-	my $job_id = $self->add_job('UpdateSchemeCaches', { temp_init => 1 });
+	my $job_id = $self->add_job( 'UpdateSchemeCaches', { temp_init => 1 } );
 	eval { $self->{'db'}->do(q(SET lock_timeout = 30000)) };
 	$self->{'logger'}->error($@) if $@;
-	my $schemes  = [];
-	my $cschemes = [];
+	my $schemes       = [];
+	my $scheme_status = [];
+	my $cschemes      = [];
 
 	if ( $self->{'options'}->{'schemes'} ) {
-		@$schemes = split /,/x, $self->{'options'}->{'schemes'};
+		my $divider = q(,);
+		@$schemes = split /$divider/x, $self->{'options'}->{'schemes'};
+		$scheme_status = $schemes;
 		foreach my $scheme_id (@$schemes) {
 			if ( !BIGSdb::Utils::is_int($scheme_id) ) {
 				die "Scheme id must be an integer - $scheme_id is not.\n";
@@ -53,6 +56,12 @@ sub run_script {
 		  $self->{'datastore'}
 		  ->run_query( 'SELECT id FROM schemes WHERE dbase_name IS NOT NULL AND dbase_id IS NOT NULL ORDER BY id',
 			undef, { fetch => 'col_arrayref' } );
+		$scheme_status = $self->{'datastore'}->run_query(
+			'SELECT id FROM schemes WHERE quality_metric OR '
+			  . '(dbase_name IS NOT NULL AND dbase_id IS NOT NULL) ORDER BY id',
+			undef,
+			{ fetch => 'col_arrayref' }
+		);
 		$cschemes =
 		  $self->{'datastore'}
 		  ->run_query( 'SELECT id FROM classification_schemes', undef, { fetch => 'col_arrayref' } );
@@ -64,10 +73,11 @@ sub run_script {
 			my $limit = DAILY_REPLACE_LIMIT;
 			$self->{'logger'}->error( "Daily replace limit is $limit. $count records were modified today. "
 				  . 'Scheme renewal cancelled. Run full refresh if necessary.' );
-			$self->stop_job($job_id, { temp_init => 1 });
+			$self->stop_job( $job_id, { temp_init => 1 } );
 			return;
 		}
 	}
+	my %used_for_metrics = map { $_ => 1 } @$scheme_status;
 	foreach my $scheme_id (@$schemes) {
 		$scheme_id =~ s/\s//gx;
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
@@ -76,14 +86,23 @@ sub run_script {
 			next;
 		}
 		if ( !defined $scheme_info->{'primary_key'} ) {
-			if ( !$self->{'options'}->{'q'} ) {
+			if ( !$self->{'options'}->{'q'} && !$used_for_metrics{$scheme_id} ) {
 				say "Scheme $scheme_id ($scheme_info->{'name'}) does not have a primary key - skipping.";
 			}
 			next;
 		}
-		say "Updating scheme $scheme_id cache ($scheme_info->{'name'}) - method: $method"
+		say "Updating scheme $scheme_id field cache ($scheme_info->{'name'}) - method: $method"
 		  if !$self->{'options'}->{'q'};
 		$self->{'datastore'}->create_temp_isolate_scheme_fields_view( $scheme_id, { cache => 1, method => $method } );
+	}
+	foreach my $scheme_id (@$scheme_status) {
+		$scheme_id =~ s/\s//gx;
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+		if ( !$scheme_info ) {
+			next;
+		}
+		say "Updating scheme $scheme_id completion status cache ($scheme_info->{'name'}) - method: $method"
+		  if !$self->{'options'}->{'q'};
 		$self->{'datastore'}->create_temp_scheme_status_table( $scheme_id, { cache => 1, method => $method } );
 	}
 	foreach my $cscheme_id (@$cschemes) {
@@ -92,7 +111,7 @@ sub run_script {
 	}
 	eval { $self->{'db'}->do('SET lock_timeout = 0') };
 	$self->{'logger'}->error($@) if $@;
-	$self->stop_job($job_id, { temp_init => 1 });
+	$self->stop_job( $job_id, { temp_init => 1 } );
 	return;
 }
 1;
