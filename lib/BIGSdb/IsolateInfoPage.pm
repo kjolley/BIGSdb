@@ -1743,7 +1743,7 @@ sub _get_annotation_metrics {
 	$buffer .= qq(<div class="scrollable"><table class="resultstable">\n);
 	$buffer .= q(<tr><th rowspan="2">Scheme</th><th rowspan="2">Scheme loci</th><th rowspan="2">Designated loci</th>)
 	  . q(<th colspan="2">Annotation</th></tr>);
-	$buffer .= qq(<tr><th style="min-width:5em">Score</th><th>Quality</th></tr>\n);
+	$buffer .= qq(<tr><th style="min-width:5em">Score</th><th>Status</th></tr>\n);
 	my $td = 1;
 	my $scheme_count;
 
