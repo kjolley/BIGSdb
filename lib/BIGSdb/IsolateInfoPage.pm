@@ -1772,7 +1772,7 @@ sub _get_annotation_metrics {
 		  . qq(<div style="display:block-inline;margin-top:0.2em;background-color:\#$colour;)
 		  . qq(border:1px solid #ccc;height:0.8em;width:$percent%"></div></td>);
 		my $quality;
-
+$min_threshold = $scheme->{'min_threshold'} // $max_threshold;
 		if ( $scheme->{'designated'} >= $max_threshold ) {
 			$quality = GOOD;
 		} elsif ( $scheme->{'designated'} < $min_threshold ) {
@@ -1802,7 +1802,10 @@ sub _get_colour {
 		$logger->error("Min: $min; Middle: $middle; Max: $max");
 		return q(000000);
 	}
-	my $scale = $middle == $min ? 255 : 255 / ( $middle - $min );
+	if ($min==$middle){
+		return q(FF0000);
+	}
+	my $scale =  255 / ( $middle - $min );
 	return q(FF0000) if $num <= $min;    # lower boundry
 	return q(00FF00) if $num >= $max;    # upper boundary
 	if ( $num < $middle ) {

@@ -1515,7 +1515,7 @@ sub _print_annotation_status_fields {
 		-labels => $labels,
 		-class  => 'fieldlist'
 	);
-	my $values = [q(), qw(good bad intermediate)];
+	my $values = [ q(), qw(good bad intermediate) ];
 	say $q->popup_menu(
 		-name   => "annotation_status_value$row",
 		-id     => "annotation_status_value$row",
@@ -1586,6 +1586,7 @@ sub _run_query {
 		$qry = $self->_modify_query_for_tag_counts( $qry, $errors );
 		$qry = $self->_modify_query_for_designation_status( $qry, $errors );
 		$qry = $self->_modify_query_for_seqbin( $qry, $errors );
+		$qry = $self->_modify_query_for_annotation_status( $qry, $errors );
 		$qry .= ' ORDER BY ';
 
 		if ( defined $q->param('order')
@@ -3033,6 +3034,64 @@ sub _modify_query_for_seqbin {
 			$qry .= " AND (@seqbin_queries)";
 		} else {
 			$qry = "SELECT * FROM $view WHERE (@seqbin_queries)";
+		}
+	}
+	return $qry;
+}
+
+sub _modify_query_for_annotation_status {
+	my ( $self, $qry, $errors_ref ) = @_;
+	my $q    = $self->{'cgi'};
+	my $view = $self->{'system'}->{'view'};
+	my @status_queries;
+	my $valid_schemes = $self->{'datastore'}
+	  ->run_query( 'SELECT id FROM schemes WHERE quality_metric', undef, { fetch => 'col_arrayref' } );
+	my %valid_values = map { $_ => 1 } (qw(good bad intermediate));
+	my %valid_fields = map { $_ => 1 } @$valid_schemes;
+	foreach my $i ( 1 .. MAX_ROWS ) {
+		my $scheme_id = $q->param("annotation_status_field$i") // q();
+		my $value     = $q->param("annotation_status_value$i") // q();
+		next if $scheme_id eq q() || $value eq q();
+		if ( !$valid_values{$value} ) {
+			push @$errors_ref, 'Invalid value selected.';
+			next;
+		}
+		if ( !$valid_fields{$scheme_id} ) {
+			push @$errors_ref, 'Invalid scheme selected.';
+			next;
+		}
+		my $table       = $self->{'datastore'}->create_temp_scheme_status_table($scheme_id);
+		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+		my $scheme_locus_count =
+		  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM scheme_members WHERE scheme_id=?', $scheme_id );
+		my $status_qry = "($view.id IN (";
+		if ( $value eq 'good' ) {
+			my $threshold = $scheme_info->{'quality_metric_good_threshold'} // $scheme_locus_count;
+			$status_qry .= "(SELECT id FROM $table WHERE locus_count>=$threshold)";
+		} elsif ( $value eq 'bad' ) {
+			my $threshold = $scheme_info->{'quality_metric_bad_threshold'}
+			  // $scheme_info->{'quality_metric_good_threshold'} // $scheme_locus_count;
+			$status_qry .= "(SELECT id FROM $table WHERE locus_count<$threshold)";
+		} else {
+			my $upper_threshold = $scheme_info->{'quality_metric_good_threshold'} // $scheme_locus_count;
+			my $lower_threshold = $scheme_info->{'quality_metric_bad_threshold'}
+			  // $scheme_info->{'quality_metric_good_threshold'} // $scheme_locus_count;
+			$status_qry.="(SELECT id FROM $table WHERE locus_count<$upper_threshold AND locus_count>=$lower_threshold)";
+		}
+		$status_qry .= ')';
+		if ( $scheme_info->{'view'} ) {
+			$status_qry .= " AND $view.id IN (SELECT id FROM $scheme_info->{'view'})";
+		}
+		$status_qry .= ')';
+		push @status_queries, $status_qry;
+	}
+	if (@status_queries) {
+		my $andor = ( $q->param('annotation_status_andor') // '' ) eq 'AND' ? ' AND ' : ' OR ';
+		local $" = $andor;
+		if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
+			$qry .= " AND (@status_queries)";
+		} else {
+			$qry = "SELECT * FROM $view WHERE (@status_queries)";
 		}
 	}
 	return $qry;
