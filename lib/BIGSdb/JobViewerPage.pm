@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2020, University of Oxford
+#Copyright (c) 2011-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -496,11 +496,17 @@ sub _tar_archive {
 		}
 		if (@filenames) {
 			local $" = ' ';
+
+			#The output of system calls will not be sent to the browser when running under mod_perl.
+			#This is also the case when running under Plack::App::CGIBin.
+			#We can run commands using backticks to circumvent this issue.
+			#https://github.com/kjolley/BIGSdb/issues/748
 			my $command = "cd $self->{'config'}->{'tmp_dir'} && tar -cf - @filenames";
-			if ( $ENV{'MOD_PERL'} ) {
-				print `$command`;    # http://modperlbook.org/html/6-4-8-Output-from-System-Calls.html
+			my $tar     = `$command`;
+			if ( length $tar ) {
+				print $tar;
 			} else {
-				system $command || $logger->error("Can't create tar: $?");
+				$logger->error('Cannot create tar output.');
 			}
 		}
 	}
