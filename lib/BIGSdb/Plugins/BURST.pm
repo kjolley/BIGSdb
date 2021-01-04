@@ -124,6 +124,10 @@ sub run {
 		$pk = 'id';
 	}
 	my $list = $self->get_id_list( $pk, $query_file );
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+		$pk = $scheme_info->{'primary_key'};
+	}
 	if ( $q->param('submit') ) {
 		my $att = $self->get_attributes;
 		if ( @$list > $att->{'max'} ) {
