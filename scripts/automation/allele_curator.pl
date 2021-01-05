@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Automatically curate the 'easy' allele submissions
 #Written by Keith Jolley
-#Copyright (c) 2016-2020, University of Oxford
+#Copyright (c) 2016-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20201201
+#Version: 20210105
 use strict;
 use warnings;
 use 5.010;
@@ -72,7 +72,7 @@ my $script = BIGSdb::Offline::Script->new(
 		port             => PORT,
 		user             => USER,
 		password         => PASSWORD,
-		options          => { %opts },
+		options          => {%opts},
 		instance         => $opts{'d'},
 	}
 );
@@ -180,7 +180,7 @@ sub close_submission {
 		die "$@\n";
 	}
 	$script->{'db'}->commit;
-	$script->{'submissionHandler'}->remove_submission_from_digest( DEFINER_USER, $submission_id );
+	$script->{'submissionHandler'}->remove_submission_from_digest($submission_id);
 	if ( $submission->{'email'} ) {
 		my $desc = $script->{'system'}->{'description'} || 'BIGSdb';
 		$script->{'submissionHandler'}->email(
