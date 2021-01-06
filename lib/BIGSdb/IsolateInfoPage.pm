@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -641,9 +641,7 @@ sub _get_classification_group_data {
 			    qq(<tr class="td$td"><td>$cscheme->{'name'}$tooltip</td><td>$scheme_info->{'name'}</td>)
 			  . qq(<td>Single-linkage</td><td>$cscheme->{'inclusion_threshold'}</td><td>$cscheme->{'status'}</td><td>)
 			  . qq($cg_buffer</td>);
-			if ($cgf_buffer) {
-				$buffer .= qq(<td>$cgf_buffer</td>);
-			}
+			$buffer .= $cgf_buffer ? qq(<td>$cgf_buffer</td>) : q(<td></td>);
 			$buffer .= q(</tr>);
 			$td = $td == 1 ? 2 : 1;
 		}

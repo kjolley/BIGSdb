@@ -1,6 +1,6 @@
 #RMLSTSpecies.pm - rMLST species identification plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2018-2020, University of Oxford
+#Copyright (c) 2018-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -54,7 +54,7 @@ sub get_attributes {
 		buttontext  => 'rMLST species id',
 		menutext    => 'Species identification',
 		module      => 'RMLSTSpecies',
-		version     => '2.0.2',
+		version     => '2.0.3',
 		dbtype      => 'isolates',
 		section     => 'isolate_info,analysis,postquery',
 		input       => 'query',
@@ -74,18 +74,19 @@ sub run {
 	say q(<h1>rMLST species identification</h1>);
 	my $q = $self->{'cgi'};
 	if ( $q->param('submit') ) {
-		my $guid = $self->get_guid;
-		eval {
-			$self->{'prefstore'}->set_plugin_attribute( $guid, $self->{'system'}->{'db'},
-				'RMLSTSpecies', 'scan', scalar $q->param('scan') );
-		};
+		if ( $self->_rmlst_scheme_exists ) {
+			my $guid = $self->get_guid;
+			eval {
+				$self->{'prefstore'}->set_plugin_attribute( $guid, $self->{'system'}->{'db'},
+					'RMLSTSpecies', 'scan', scalar $q->param('scan') );
+			};
+		}
 		my @ids = $q->multi_param('isolate_id');
 		my ( $pasted_cleaned_ids, $invalid_ids ) =
 		  $self->get_ids_from_pasted_list( { dont_clear => 1, has_seqbin => 1 } );
 		push @ids, @$pasted_cleaned_ids;
 		@ids = uniq @ids;
 		my $message_html;
-
 		if (@$invalid_ids) {
 			local $" = ', ';
 			my $error = q(<p>);

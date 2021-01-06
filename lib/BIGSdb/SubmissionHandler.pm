@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2020, University of Oxford
+#Copyright (c) 2015-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -1642,16 +1642,20 @@ sub _user_exists {
 }
 
 sub remove_submission_from_digest {
-	my ( $self, $curator_id, $submission_id ) = @_;
-	my $user_info = $self->{'datastore'}->get_user_info($curator_id);
-	return if !$user_info->{'user_db'};
-	my $user_db = $self->{'datastore'}->get_user_db( $user_info->{'user_db'} );
-	eval { $user_db->do( 'DELETE FROM submission_digests WHERE submission_id=?', undef, $submission_id ); };
-	if ($@) {
-		$self->{'logger'}->error($@);
-		$user_db->rollback;
-	} else {
-		$user_db->commit;
+	my ( $self, $submission_id ) = @_;
+	my $user_dbs =
+	  $self->{'datastore'}->run_query( 'SELECT DISTINCT(user_db) FROM users WHERE user_db IS NOT NULL', undef,
+		{ fetch => 'col_arrayref' } )
+	  ;
+	foreach my $user_db_id (@$user_dbs) {
+		my $user_db = $self->{'datastore'}->get_user_db($user_db_id);
+		eval { $user_db->do( 'DELETE FROM submission_digests WHERE submission_id=?', undef, $submission_id ); };
+		if ($@) {
+			$self->{'logger'}->error($@);
+			$user_db->rollback;
+		} else {
+			$user_db->commit;
+		}
 	}
 	return;
 }

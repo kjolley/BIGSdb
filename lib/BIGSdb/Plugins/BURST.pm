@@ -136,6 +136,10 @@ sub run {
 			);
 			return;
 		}
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+			$pk = $scheme_info->{'primary_key'};
+		}
 		$self->_run_burst( $scheme_id, $pk, $list );
 		return;
 	}

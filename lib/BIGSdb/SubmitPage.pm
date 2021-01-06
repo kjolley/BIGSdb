@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2020, University of Oxford
+#Copyright (c) 2015-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -2563,7 +2563,7 @@ sub _close_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Call
 	}
 	$submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	my $curator_info = $self->{'datastore'}->get_user_info($curator_id);
-	$self->{'submissionHandler'}->remove_submission_from_digest( $curator_id, $submission_id );
+	$self->{'submissionHandler'}->remove_submission_from_digest( $submission_id );
 	if ( $submission->{'email'} ) {
 		my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 		$self->{'submissionHandler'}->email(
@@ -2599,9 +2599,9 @@ sub _cancel_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 	my $message  = "This submission has been CANCELLED by the submitter.\n\n";
 	$message .= $self->{'submissionHandler'}->get_text_summary( $submission_id, { messages => 1 } );
 	$logger->info("$self->{'instance'}: Submission cancelled.");
-
+	$self->{'submissionHandler'}->remove_submission_from_digest( $submission_id );
 	foreach my $curator_id (@$curators) {
-		$self->{'submissionHandler'}->remove_submission_from_digest( $curator_id, $submission_id );
+		
 		my $user_info = $self->{'datastore'}->get_user_info($curator_id);
 		next if $user_info->{'submission_digests'};
 		next if !$self->{'submissionHandler'}->can_email_curator($curator_id);
