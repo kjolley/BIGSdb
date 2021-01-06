@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -285,8 +285,7 @@ sub get_loci_table_attributes {
 			hide_public => 1,
 			tooltip     => 'formatted common name - Common name with HTML formatting.'
 		},
-		{ name => 'data_type', type => 'text', required => 1, optlist => 'DNA;peptide', default => 'DNA' }
-		,
+		{ name => 'data_type',  type => 'text', required => 1, optlist => 'DNA;peptide', default => 'DNA' },
 		{ name => 'locus_type', type => 'text', required => 0, optlist => "@locus_types" },
 		{
 			name     => 'allele_id_format',
@@ -2239,7 +2238,7 @@ sub get_classification_group_fields_table_attributes {
 			labels         => '|$name|',
 			dropdown_query => 1
 		},
-		{ name => 'field', type => 'text', required => 1, primary_key => 1, regex => '^[a-zA-Z][\w_]*$' },
+		{ name => 'field', type => 'text', required => 1, primary_key => 1 },
 		{ name => 'type',  type => 'text', required => 1, optlist     => 'text;integer' }
 	];
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
