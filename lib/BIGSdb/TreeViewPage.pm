@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2020, University of Oxford
+#Copyright (c) 2011-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -103,11 +103,16 @@ END
 
 sub _get_schemes_not_in_groups {
 	my ( $self, $options ) = @_;
-	my $set_id     = $self->get_set_id;
-	my $set_clause = $set_id ? qq( AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)) : q();
-	my $schemes    = $self->{'datastore'}->run_query(
+	my $set_id = $self->get_set_id;
+	my $set_clause = $set_id ? "AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)" : q();
+	my $no_submission_clause =
+	  $options->{'filter_no_submissions'}
+	  ? ' AND id IN (SELECT scheme_id FROM scheme_members sm JOIN loci l ON '
+	  . 'sm.locus=l.id WHERE NOT l.no_submissions OR l.no_submissions IS NULL)'
+	  : '';
+	my $schemes = $self->{'datastore'}->run_query(
 		'SELECT id,name FROM schemes WHERE id NOT IN (SELECT scheme_id FROM '
-		  . "scheme_group_scheme_members) $set_clause ORDER BY display_order,name",
+		  . "scheme_group_scheme_members) $set_clause$no_submission_clause ORDER BY display_order,name",
 		undef,
 		{ fetch => 'all_arrayref', slice => {} }
 	);
@@ -135,6 +140,7 @@ sub get_tree {
 	);
 	my $set_id = $self->get_set_id;
 	my $buffer;
+
 	foreach my $group (@$groups_with_no_parent) {
 		my $group_info          = $self->{'datastore'}->get_scheme_group_info($group);
 		my $group_scheme_buffer = $self->_get_group_schemes( $group, $isolate_id, $options );
@@ -259,16 +265,20 @@ sub _get_group_schemes {
 	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
 	my $buffer;
-	my $set_id     = $self->get_set_id;
+	my $set_id = $self->get_set_id;
 	my $set_clause = $set_id ? " AND scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)" : '';
-	my $schemes    = $self->{'datastore'}->run_query(
-		'SELECT scheme_id FROM scheme_group_scheme_members LEFT JOIN schemes ON schemes.id=scheme_id '
-		  . "WHERE group_id=? $set_clause ORDER BY display_order,name",
+	my $no_submission_clause =
+	  $options->{'filter_no_submissions'}
+	  ? ' AND scheme_id IN (SELECT scheme_id FROM scheme_members sm JOIN loci l ON '
+	  . 'sm.locus=l.id WHERE NOT l.no_submissions OR l.no_submissions IS NULL)'
+	  : '';
+	my $schemes = $self->{'datastore'}->run_query(
+		'SELECT scheme_id FROM scheme_group_scheme_members m LEFT JOIN schemes s ON s.id=m.scheme_id '
+		  . "WHERE m.group_id=? $set_clause$no_submission_clause ORDER BY display_order,name",
 		$group_id,
 		{ fetch => 'col_arrayref' }
 	);
 	if (@$schemes) {
-
 		foreach my $scheme_id (@$schemes) {
 			next if $options->{'isolate_display'} && !$self->{'prefs'}->{'isolate_display_schemes'}->{$scheme_id};
 			next if $options->{'analysis_pref'}   && !$self->{'prefs'}->{'analysis_schemes'}->{$scheme_id};

@@ -862,7 +862,7 @@ sub _submit_alleles {
 	if ( @$schemes > 1 ) {
 		say q(<fieldset id="scheme_fieldset" style="float:left;display:none"><legend>Filter loci by scheme</legend>);
 		say q(<div id="tree" class="scheme_tree" style="float:left;max-height:initial">);
-		say $self->get_tree( undef, { no_link_out => 1, select_schemes => 1 } );
+		say $self->get_tree( undef, { no_link_out => 1, select_schemes => 1, filter_no_submissions => 1 } );
 		say q(</div>);
 		say $q->submit( -name => 'filter', -id => 'filter', -label => 'Filter', -class => 'small_submit' );
 		say q(</fieldset>);
