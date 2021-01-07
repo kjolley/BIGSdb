@@ -2563,7 +2563,7 @@ sub _close_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Call
 	}
 	$submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	my $curator_info = $self->{'datastore'}->get_user_info($curator_id);
-	$self->{'submissionHandler'}->remove_submission_from_digest( $submission_id );
+	$self->{'submissionHandler'}->remove_submission_from_digest($submission_id);
 	if ( $submission->{'email'} ) {
 		my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
 		$self->{'submissionHandler'}->email(
@@ -2599,9 +2599,9 @@ sub _cancel_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 	my $message  = "This submission has been CANCELLED by the submitter.\n\n";
 	$message .= $self->{'submissionHandler'}->get_text_summary( $submission_id, { messages => 1 } );
 	$logger->info("$self->{'instance'}: Submission cancelled.");
-	$self->{'submissionHandler'}->remove_submission_from_digest( $submission_id );
+	$self->{'submissionHandler'}->remove_submission_from_digest($submission_id);
+
 	foreach my $curator_id (@$curators) {
-		
 		my $user_info = $self->{'datastore'}->get_user_info($curator_id);
 		next if $user_info->{'submission_digests'};
 		next if !$self->{'submissionHandler'}->can_email_curator($curator_id);
@@ -2666,10 +2666,16 @@ sub _tar_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called
 	local $" = ' ';
 	my $command = "cd $submission_dir && tar -cf - *";
 
-	if ( $ENV{'MOD_PERL'} ) {
-		print `$command`;    # http://modperlbook.org/html/6-4-8-Output-from-System-Calls.html
+	#The output of system calls will not be sent to the browser when running under mod_perl.
+	#This is also the case when running under Plack::App::CGIBin.
+	#We can run commands using backticks to circumvent this issue.
+	#https://github.com/kjolley/BIGSdb/issues/748
+	#https://github.com/kjolley/BIGSdb/issues/751
+	my $tar = `$command`;
+	if ( length $tar ) {
+		print $tar;
 	} else {
-		system $command || $logger->error("Can't create tar: $?");
+		$logger->error('Cannot create tar output.');
 	}
 	return;
 }
