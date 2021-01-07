@@ -1,3 +1,4 @@
+v1.29.5: *Minor bug fixes.
 v1.29.4: *Support for upload of compressed sequences - please note the new
           Perl module dependency: File::Type.
 v1.29.3: *Include sequence bin size and contig number in isolate queries.
