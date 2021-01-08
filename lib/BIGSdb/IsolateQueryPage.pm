@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -3071,12 +3071,22 @@ sub _modify_query_for_annotation_status {
 		} elsif ( $value eq 'bad' ) {
 			my $threshold = $scheme_info->{'quality_metric_bad_threshold'}
 			  // $scheme_info->{'quality_metric_good_threshold'} // $scheme_locus_count;
-			$status_qry .= "(SELECT id FROM $table WHERE locus_count<$threshold)";
+			if ( $threshold == 1 && $scheme_locus_count == 1 ) {
+				my $min_genome_size =
+				   $self->{'system'}->{'min_genome_size'} // $self->{'config'}->{'min_genome_size'}
+					  // MIN_GENOME_SIZE ;
+				$status_qry .= "(SELECT isolate_id FROM seqbin_stats ss LEFT JOIN $table ON "
+				  . "ss.isolate_id=$table.id WHERE ss.total_length>=$min_genome_size AND locus_count IS NULL)";
+			} else {
+				next if $threshold == 0;
+				$status_qry .= "(SELECT id FROM $table WHERE locus_count<$threshold)";
+			}
 		} else {
 			my $upper_threshold = $scheme_info->{'quality_metric_good_threshold'} // $scheme_locus_count;
 			my $lower_threshold = $scheme_info->{'quality_metric_bad_threshold'}
 			  // $scheme_info->{'quality_metric_good_threshold'} // $scheme_locus_count;
-			$status_qry.="(SELECT id FROM $table WHERE locus_count<$upper_threshold AND locus_count>=$lower_threshold)";
+			$status_qry .=
+			  "(SELECT id FROM $table WHERE locus_count<$upper_threshold AND locus_count>=$lower_threshold)";
 		}
 		$status_qry .= ')';
 		if ( $scheme_info->{'view'} ) {

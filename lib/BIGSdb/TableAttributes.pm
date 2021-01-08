@@ -1309,7 +1309,8 @@ sub get_schemes_table_attributes {
 				default  => 'false',
 				tooltip  => 'quality_metric - Sets whether this scheme should be used for assessing annotation '
 				  . 'quality. To be useful, it should be expected that a well-annotated genome should have '
-				  . 'designations defined for all loci in the scheme.'
+				  . 'designations either defined for all loci in the scheme or for at least as many loci '
+				  . 'as set in the quality_metric_good_threshold value.'
 			},
 			{
 				name     => 'quality_metric_good_threshold',

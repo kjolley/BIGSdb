@@ -1725,7 +1725,7 @@ sub _get_annotation_metrics {
 			{ cache => 'IsolateInfo::annotation:metrics' }
 		);
 		my $data = {
-			id => $scheme_info->{'id'},
+			id            => $scheme_info->{'id'},
 			name          => $scheme_info->{'name'},
 			loci          => $scheme->{'loci'},
 			designated    => $loci_designated,
@@ -1747,16 +1747,16 @@ sub _get_annotation_metrics {
 
 	foreach my $scheme (@$values) {
 		next if !$scheme->{'loci'};
-		next if !$scheme->{'designated'};
+		next if !$scheme->{'designated'} && $scheme->{'loci'} > 1;
 		my $percent = int( 100 * $scheme->{'designated'} / $scheme->{'loci'} );
 		my $max_threshold = $scheme->{'max_threshold'} // $scheme->{'loci'};
 		$max_threshold = $scheme->{'loci'} if $max_threshold > $scheme->{'loci'};
 		my $min_threshold = $scheme->{'min_threshold'} // 0;
 		$min_threshold = 0 if $min_threshold < 0;
-		if ($max_threshold < $min_threshold){
+		if ( $max_threshold < $min_threshold ) {
 			$logger->error("Scheme $scheme->{'id'} ($scheme->{'name'}) has max_threshold < min_threshold");
 			$min_threshold = 0;
-			$max_threshold= $scheme->{'loci'};
+			$max_threshold = $scheme->{'loci'};
 		}
 		$buffer .= qq(<tr class="td$td"><td>$scheme->{'name'}</td><td>$scheme->{'loci'}</td>)
 		  . qq(<td>$scheme->{'designated'}</td>);
@@ -1770,7 +1770,8 @@ sub _get_annotation_metrics {
 		  . qq(<div style="display:block-inline;margin-top:0.2em;background-color:\#$colour;)
 		  . qq(border:1px solid #ccc;height:0.8em;width:$percent%"></div></td>);
 		my $quality;
-$min_threshold = $scheme->{'min_threshold'} // $max_threshold;
+		$min_threshold = $scheme->{'min_threshold'} // $max_threshold;
+
 		if ( $scheme->{'designated'} >= $max_threshold ) {
 			$quality = GOOD;
 		} elsif ( $scheme->{'designated'} < $min_threshold ) {
@@ -1782,7 +1783,6 @@ $min_threshold = $scheme->{'min_threshold'} // $max_threshold;
 		$buffer .= qq(</tr>\n);
 		$td = $td == 1 ? 2 : 1;
 		$scheme_count++;
-		
 	}
 	return q() if !$scheme_count;
 	$buffer .= qq(</table></div>\n);
@@ -1800,12 +1800,12 @@ sub _get_colour {
 		$logger->error("Min: $min; Middle: $middle; Max: $max");
 		return q(000000);
 	}
-	if ($min==$middle){
-		return q(FF0000);
+	if ( $min == $middle ) {
+		return $min == 0 ? q(FF0000) : q(00FF00);
 	}
-	my $scale =  255 / ( $middle - $min );
-	return q(FF0000) if $num <= $min;    # lower boundry
-	return q(00FF00) if $num >= $max;    # upper boundary
+	my $scale = 255 / ( $middle - $min );
+	return q(FF0000) if $num <= $min;                # lower boundry
+	return q(00FF00) if $num >= $max;                # upper boundary
 	if ( $num < $middle ) {
 		return sprintf q(FF%02X00) => int( ( $num - $min ) * $scale );
 	} else {
