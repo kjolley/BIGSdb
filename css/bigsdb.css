@@ -1,4 +1,4 @@
-/*Version: 20201209*/
+/*Version: 20201215*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -1085,6 +1085,10 @@ a#close_bookmark, a#close_related_db {
 
 .statusbad {
 	color: red
+}
+
+.statusmeh {
+	color: blue
 }
 
 td.partialmatch {

@@ -56,12 +56,13 @@ sub get_javascript_panel {
 		phenotypic => q[$('[id^="phenotypic_value"]').val('')],
 		allele     => q[$('[id^="value"]').val('')],
 		scheme     => q[$('[id^="value"]').val('')],
-		allele_designations => q[$('[id^="designation"]').val('')],
+		allele_designations => q[$('[id^="designation_field"]').val(''),$('[id^="designation_operator"]').val(''),$('[id^="designation_value"]').val('')],
 		allele_count        => q[$('[id^="allele_count"]').val('')],
 		allele_status       => q[$('[id^="allele_status"]').val('')],
 		tags                => q[$('[id^="tag"]').val('')],
 		tag_count           => q[$('[id^="tag_count"]').val('')],
-		seqbin              => q[$('[id^="seqbin"]').val('')],
+		seqbin              => q[$('[id^="seqbin_value"]').val('');$('[id^="seqbin_field"]').val('')],
+		annotation_status   => q[$('[id^="annotation_status_value"]').val('');$('[id^="annotation_status_field"]').val('')]
 	);
 	my ( $show, $hide, $save, $saving ) = ( SHOW, HIDE, SAVE, SAVING );
 	foreach my $fieldset (@fieldsets) {

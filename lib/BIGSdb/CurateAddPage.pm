@@ -907,6 +907,12 @@ sub _check_schemes {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called 
 			  };
 		}
 	}
+	if (   defined $q->param('quality_metric_good')
+		&& defined $q->param('quality_metric_bad')
+		&& $q->param('quality_metric_good') <= $q->param('quality_metric_bad') )
+	{
+		push @$problems, 'quality_metric_good must be larger than quality_metric_bad.';
+	}
 	my @new_links = split /\r?\n/x, $q->param('links');
 	my $i = 1;
 	foreach my $new (@new_links) {
@@ -918,8 +924,8 @@ sub _check_schemes {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called 
 			my ( $url, $desc ) = ( $1, $2 );
 			push @$extra_inserts,
 			  {
-				statement =>
-'INSERT INTO scheme_links (scheme_id,url,description,link_order,curator,datestamp) VALUES (?,?,?,?,?,?)',
+				statement => 'INSERT INTO scheme_links (scheme_id,url,description,link_order,curator,datestamp) '
+				  . 'VALUES (?,?,?,?,?,?)',
 				arguments => [ $newdata->{'id'}, $url, $desc, $i, $newdata->{'curator'}, 'now' ]
 			  };
 		}

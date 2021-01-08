@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -47,6 +47,7 @@ sub _ajax_content {
 			allele_designations => sub { $self->_print_designations_fieldset_contents },
 			allele_count        => sub { $self->_print_allele_count_fieldset_contents },
 			allele_status       => sub { $self->_print_allele_status_fieldset_contents },
+			annotation_status   => sub { $self->_print_annotation_status_fieldset_contents },
 			seqbin              => sub { $self->_print_seqbin_fieldset_contents },
 			tag_count           => sub { $self->_print_tag_count_fieldset_contents },
 			tags                => sub { $self->_print_tags_fieldset_contents },
@@ -83,6 +84,9 @@ sub _ajax_content {
 			my ( $locus_list, $locus_labels ) =
 			  $self->get_field_selection_list( { loci => 1, scheme_fields => 0, sort_labels => 1 } );
 			$self->_print_allele_status_fields( $row, 0, $locus_list, $locus_labels );
+		},
+		annotation_status => sub {
+			$self->_print_annotation_status_fields( $row, 0 );
 		},
 		seqbin => sub {
 			$self->_print_seqbin_fields( $row, 0 );
@@ -176,7 +180,7 @@ sub _save_options {
 	my $guid   = $self->get_guid;
 	return if !$guid;
 	foreach my $attribute (
-		qw (provenance phenotypic allele_designations allele_count allele_status
+		qw (provenance phenotypic allele_designations allele_count allele_status annotation_status
 		seqbin tag_count tags list filters)
 	  )
 	{
@@ -249,6 +253,7 @@ sub _print_interface {
 	$self->_print_designations_fieldset;
 	$self->_print_allele_count_fieldset;
 	$self->_print_allele_status_fieldset;
+	$self->_print_annotation_status_fieldset;
 	$self->_print_seqbin_fieldset;
 	$self->_print_tag_count_fieldset;
 	$self->_print_tags_fieldset;
@@ -486,6 +491,42 @@ sub _print_tag_count_fieldset_contents {
 	} else {
 		say q(<p>No loci defined for query.</p>);
 	}
+	return;
+}
+
+sub _print_annotation_status_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	return if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM schemes WHERE quality_metric)');
+	say q(<fieldset id="annotation_status_fieldset" style="float:left;display:none">);
+	say q(<legend>Annotation status</legend><div>);
+	if ( $self->_highest_entered_fields('annotation_status') ) {
+		$self->_print_annotation_status_fieldset_contents;
+	}
+	say q(</div></fieldset>);
+	$self->{'annotation_status_fieldset_exists'} = 1;
+	return;
+}
+
+sub _print_annotation_status_fieldset_contents {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my $annotation_status_fields = $self->_highest_entered_fields('annotation_status') || 1;
+	my $annotation_status_heading = $annotation_status_fields == 1 ? 'none' : 'inline';
+	say qq(<span id="annotation_status_field_heading" style="display:$annotation_status_heading">)
+	  . q(<label for="annotation_status_andor">Combine with: </label>);
+	say $q->popup_menu(
+		-name   => 'annotation_status_andor',
+		-id     => 'annotation_status_andor',
+		-values => [qw (AND OR)]
+	);
+	say q(</span><ul id="annotation_status">);
+	for ( 1 .. $annotation_status_fields ) {
+		say q(<li>);
+		$self->_print_annotation_status_fields( $_, $annotation_status_fields );
+		say q(</li>);
+	}
+	say q(</ul>);
 	return;
 }
 
@@ -884,6 +925,11 @@ sub _print_modify_search_fieldset {
 	say qq(<li><a href="" class="button" id="show_allele_status">$allele_status_fieldset_display</a>);
 	say q(Allele designation status</li>);
 
+	if ( $self->{'annotation_status_fieldset_exists'} ) {
+		my $annotation_status_fieldset_display = $self->_should_display_fieldset('annotation_status') ? HIDE : SHOW;
+		say qq(<li><a href="" class="button" id="show_annotation_status">$annotation_status_fieldset_display</a>);
+		say q(Annotation status</li>);
+	}
 	if ( $self->{'seqbin_fieldset_exists'} ) {
 		my $seqbin_fieldset_display = $self->_should_display_fieldset('seqbin') ? HIDE : SHOW;
 		say qq(<li><a href="" class="button" id="show_seqbin">$seqbin_fieldset_display</a>);
@@ -1446,6 +1492,46 @@ sub _print_tag_count_fields {
 	return;
 }
 
+sub _print_annotation_status_fields {
+	my ( $self, $row, $max_rows ) = @_;
+	my $q              = $self->{'cgi'};
+	my $metric_schemes = $self->{'datastore'}
+	  ->run_query( 'SELECT id FROM schemes WHERE quality_metric', undef, { fetch => 'col_arrayref' } );
+	my %metric_schemes = map { $_ => 1 } @$metric_schemes;
+	my $scheme_ids     = [];
+	my $labels         = {};
+	my $set_id         = $self->get_set_id;
+	my $schemes        = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+	foreach my $scheme (@$schemes) {
+		next if !$metric_schemes{ $scheme->{'id'} };
+		push @$scheme_ids, $scheme->{'id'};
+		$labels->{ $scheme->{'id'} } = $scheme->{'name'};
+	}
+	say q(<span style="white-space:nowrap">);
+	say $self->popup_menu(
+		-name   => "annotation_status_field$row",
+		-id     => "annotation_status_field$row",
+		-values => [ q(), @$scheme_ids ],
+		-labels => $labels,
+		-class  => 'fieldlist'
+	);
+	my $values = [ q(), qw(good bad intermediate) ];
+	say $q->popup_menu(
+		-name   => "annotation_status_value$row",
+		-id     => "annotation_status_value$row",
+		-values => $values
+	);
+	if ( $row == 1 ) {
+		my $next_row = $max_rows ? $max_rows + 1 : 2;
+		say qq(<a id="add_annotation_status" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=query&amp;fields=annotation_status&amp;row=$next_row&amp;no_header=1" data-rel="ajax" )
+		  . q(class="add_button"><span class="fa fas fa-plus"></span></a>);
+		say $self->get_tooltip( '', { id => 'annotation_status_tooltip' } );
+	}
+	say q(</span>);
+	return;
+}
+
 sub _print_seqbin_fields {
 	my ( $self, $row, $max_rows ) = @_;
 	my $q = $self->{'cgi'};
@@ -1500,6 +1586,7 @@ sub _run_query {
 		$qry = $self->_modify_query_for_tag_counts( $qry, $errors );
 		$qry = $self->_modify_query_for_designation_status( $qry, $errors );
 		$qry = $self->_modify_query_for_seqbin( $qry, $errors );
+		$qry = $self->_modify_query_for_annotation_status( $qry, $errors );
 		$qry .= ' ORDER BY ';
 
 		if ( defined $q->param('order')
@@ -1559,15 +1646,17 @@ sub get_hidden_attributes {
 	my ($self) = @_;
 	my $extended = $self->get_extended_attributes;
 	my @hidden_attributes;
-	push @hidden_attributes, qw (prov_andor phenotypic_andor designation_andor tag_andor status_andor seqbin_andor);
+	push @hidden_attributes,
+	  qw (prov_andor phenotypic_andor designation_andor tag_andor status_andor annotation_status_andor seqbin_andor);
 	for my $row ( 1 .. MAX_ROWS ) {
 		push @hidden_attributes, "prov_field$row", "prov_value$row", "prov_operator$row", "phenotypic_field$row",
 		  "phenotypic_value$row", "phenotypic_operator$row", "designation_field$row",
 		  "designation_operator$row", "designation_value$row", "tag_field$row", "tag_value$row",
 		  "allele_status_field$row",
 		  "allele_status_value$row", "allele_count_field$row", "allele_count_operator$row",
-		  "allele_count_value$row",  "tag_count_field$row",    "tag_count_operator$row", "tag_count_value$row",
-		  "seqbin_field$row",        "seqbin_operator$row",    "seqbin_value$row";
+		  "allele_count_value$row", "tag_count_field$row", "tag_count_operator$row", "tag_count_value$row",
+		  "annotation_status_field$row", "annotation_status_value$row",
+		  "seqbin_field$row", "seqbin_operator$row", "seqbin_value$row";
 	}
 	foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list } ) {
 		push @hidden_attributes, "${field}_list";
@@ -1829,7 +1918,8 @@ sub _provenance_equals_type_operator {
 			$buffer .= "$inv_not IN (SELECT UPPER(field_value) FROM isolate_value_extended_attributes "
 			  . "WHERE isolate_field='$extended_isolate_field' AND attribute='$field')";
 		} else {
-			$buffer .= "$not IN (SELECT UPPER(field_value) FROM isolate_value_extended_attributes WHERE isolate_field="
+			$buffer .=
+			    "$not IN (SELECT UPPER(field_value) FROM isolate_value_extended_attributes WHERE isolate_field="
 			  . "'$extended_isolate_field' AND attribute='$field' AND UPPER(value) = UPPER(E'$text'))";
 		}
 	} elsif ( $field eq $labelfield ) {
@@ -2949,6 +3039,74 @@ sub _modify_query_for_seqbin {
 	return $qry;
 }
 
+sub _modify_query_for_annotation_status {
+	my ( $self, $qry, $errors_ref ) = @_;
+	my $q    = $self->{'cgi'};
+	my $view = $self->{'system'}->{'view'};
+	my @status_queries;
+	my $valid_schemes = $self->{'datastore'}
+	  ->run_query( 'SELECT id FROM schemes WHERE quality_metric', undef, { fetch => 'col_arrayref' } );
+	my %valid_values = map { $_ => 1 } (qw(good bad intermediate));
+	my %valid_fields = map { $_ => 1 } @$valid_schemes;
+	foreach my $i ( 1 .. MAX_ROWS ) {
+		my $scheme_id = $q->param("annotation_status_field$i") // q();
+		my $value     = $q->param("annotation_status_value$i") // q();
+		next if $scheme_id eq q() || $value eq q();
+		if ( !$valid_values{$value} ) {
+			push @$errors_ref, 'Invalid value selected.';
+			next;
+		}
+		if ( !$valid_fields{$scheme_id} ) {
+			push @$errors_ref, 'Invalid scheme selected.';
+			next;
+		}
+		my $table       = $self->{'datastore'}->create_temp_scheme_status_table($scheme_id);
+		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+		my $scheme_locus_count =
+		  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM scheme_members WHERE scheme_id=?', $scheme_id );
+		my $status_qry = "($view.id IN (";
+		if ( $value eq 'good' ) {
+			my $threshold = $scheme_info->{'quality_metric_good_threshold'} // $scheme_locus_count;
+			$status_qry .= "(SELECT id FROM $table WHERE locus_count>=$threshold)";
+		} elsif ( $value eq 'bad' ) {
+			my $threshold = $scheme_info->{'quality_metric_bad_threshold'}
+			  // $scheme_info->{'quality_metric_good_threshold'} // $scheme_locus_count;
+			if ( $threshold == 1 && $scheme_locus_count == 1 ) {
+				my $min_genome_size =
+				   $self->{'system'}->{'min_genome_size'} // $self->{'config'}->{'min_genome_size'}
+					  // MIN_GENOME_SIZE ;
+				$status_qry .= "(SELECT isolate_id FROM seqbin_stats ss LEFT JOIN $table ON "
+				  . "ss.isolate_id=$table.id WHERE ss.total_length>=$min_genome_size AND locus_count IS NULL)";
+			} else {
+				next if $threshold == 0;
+				$status_qry .= "(SELECT id FROM $table WHERE locus_count<$threshold)";
+			}
+		} else {
+			my $upper_threshold = $scheme_info->{'quality_metric_good_threshold'} // $scheme_locus_count;
+			my $lower_threshold = $scheme_info->{'quality_metric_bad_threshold'}
+			  // $scheme_info->{'quality_metric_good_threshold'} // $scheme_locus_count;
+			$status_qry .=
+			  "(SELECT id FROM $table WHERE locus_count<$upper_threshold AND locus_count>=$lower_threshold)";
+		}
+		$status_qry .= ')';
+		if ( $scheme_info->{'view'} ) {
+			$status_qry .= " AND $view.id IN (SELECT id FROM $scheme_info->{'view'})";
+		}
+		$status_qry .= ')';
+		push @status_queries, $status_qry;
+	}
+	if (@status_queries) {
+		my $andor = ( $q->param('annotation_status_andor') // '' ) eq 'AND' ? ' AND ' : ' OR ';
+		local $" = $andor;
+		if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
+			$qry .= " AND (@status_queries)";
+		} else {
+			$qry = "SELECT * FROM $view WHERE (@status_queries)";
+		}
+	}
+	return $qry;
+}
+
 sub _should_display_fieldset {
 	my ( $self, $fieldset ) = @_;
 	my %fields = (
@@ -2959,7 +3117,8 @@ sub _should_display_fieldset {
 		allele_status       => 'allele_status',
 		seqbin              => 'seqbin',
 		tag_count           => 'tag_count',
-		tags                => 'tags'
+		tags                => 'tags',
+		annotation_status   => 'annotation_status'
 	);
 	return if !$fields{$fieldset};
 	if ( $self->{'prefs'}->{"${fieldset}_fieldset"} || $self->_highest_entered_fields( $fields{$fieldset} ) ) {
@@ -2971,7 +3130,11 @@ sub _should_display_fieldset {
 sub _get_fieldset_display {
 	my ($self) = @_;
 	my $fieldset_display;
-	foreach my $term (qw(phenotypic allele_designations seqbin allele_count allele_status tag_count tags)) {
+	foreach my $term (
+		qw(phenotypic allele_designations annotation_status seqbin
+		allele_count allele_status tag_count tags)
+	  )
+	{
 		$fieldset_display->{$term} = $self->_should_display_fieldset($term) ? 'inline' : 'none';
 	}
 	return $fieldset_display;
@@ -2986,7 +3149,7 @@ sub get_javascript {
 	my $buffer   = $self->SUPER::get_javascript;
 	my $panel_js = $self->get_javascript_panel(
 		qw(provenance phenotypic allele_designations allele_count allele_status
-		  seqbin tag_count tags list filters)
+		  annotation_status seqbin tag_count tags list filters)
 	);
 	my $ajax_load = q(var script_path = $(location).attr('href');script_path = script_path.split('?')[0];)
 	  . q(var fieldset_url=script_path + '?db=' + $.urlParam('db') + '&page=query&no_header=1';);
@@ -2995,6 +3158,7 @@ sub get_javascript {
 		allele_designations => 'loci',
 		allele_count        => 'allele_count',
 		allele_status       => 'allele_status',
+		annotation_status   => 'annotation_status',
 		seqbin              => 'seqbin',
 		tag_count           => 'tag_count',
 		tags                => 'tags'
@@ -3022,6 +3186,7 @@ sub get_javascript {
    	\$('#allele_designations_fieldset').css({display:"$fieldset_display->{'allele_designations'}"});
   	\$('#allele_count_fieldset').css({display:"$fieldset_display->{'allele_count'}"});
    	\$('#allele_status_fieldset').css({display:"$fieldset_display->{'allele_status'}"});
+   	\$('#annotation_status_fieldset').css({display:"$fieldset_display->{'annotation_status'}"});
    	\$('#seqbin_fieldset').css({display:"$fieldset_display->{'seqbin'}"});
    	\$('#tag_count_fieldset').css({display:"$fieldset_display->{'tag_count'}"});
    	\$('#tags_fieldset').css({display:"$fieldset_display->{'tags'}"});
@@ -3051,7 +3216,7 @@ function setTooltips() {
   	    + "fields by clicking the '+' button."
   		+ "</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, "
   		+ "'OR' to match ANY of these terms.</p>" });
-  	\$('#tag_tooltip,#tag_count_tooltip,#allele_count_tooltip,#allele_status_tooltip,#seqbin_tooltip').tooltip({ 
+  	\$('#tag_tooltip,#tag_count_tooltip,#allele_count_tooltip,#allele_status_tooltip,#annotation_status_tooltip,#seqbin_tooltip').tooltip({ 
   		content: "<h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p>"
   		+ "</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, "
   		+ "'OR' to match ANY of these terms.</p>"  });	
@@ -3059,7 +3224,7 @@ function setTooltips() {
  
 function loadContent(url) {
 	var row = parseInt(url.match(/row=(\\d+)/)[1]);
-	var fields = url.match(/fields=([provenance|phenotypic|loci|allele_count|allele_status|seqbin|table_fields|tag_count|tags]+)/)[1];
+	var fields = url.match(/fields=([provenance|phenotypic|loci|allele_count|allele_status|annotation_status|seqbin|table_fields|tag_count|tags]+)/)[1];
 	if (fields == 'provenance'){			
 		add_rows(url,fields,'fields',row,'prov_field_heading','add_fields');
 	} else if (fields == 'phenotypic'){
@@ -3069,7 +3234,9 @@ function loadContent(url) {
 	} else if (fields == 'allele_count'){
 		add_rows(url,fields,'allele_count',row,'allele_count_field_heading','add_allele_count');	
 	} else if (fields == 'allele_status'){
-		add_rows(url,fields,'allele_status',row,'allele_status_field_heading','add_allele_status');	
+		add_rows(url,fields,'allele_status',row,'allele_status_field_heading','add_allele_status');
+	} else if (fields == 'annotation_status'){
+		add_rows(url,fields,'annotation_status',row,'annotation_status_field_heading','add_annotation_status');				
 	} else if (fields == 'seqbin'){
 		add_rows(url,fields,'seqbin',row,'seqbin_field_heading','add_seqbin');				
 	} else if (fields == 'table_fields'){
@@ -3220,14 +3387,15 @@ sub _get_select_items {
 sub _highest_entered_fields {
 	my ( $self, $type ) = @_;
 	my %param_name = (
-		provenance    => 'prov_value',
-		phenotypic    => 'phenotypic_value',
-		loci          => 'designation_value',
-		allele_count  => 'allele_count_value',
-		allele_status => 'allele_status_value',
-		seqbin        => 'seqbin_value',
-		tag_count     => 'tag_count_value',
-		tags          => 'tag_value'
+		provenance        => 'prov_value',
+		phenotypic        => 'phenotypic_value',
+		loci              => 'designation_value',
+		allele_count      => 'allele_count_value',
+		allele_status     => 'allele_status_value',
+		annotation_status => 'annotation_status_value',
+		seqbin            => 'seqbin_value',
+		tag_count         => 'tag_count_value',
+		tags              => 'tag_value'
 	);
 	my $q = $self->{'cgi'};
 	my $highest;
@@ -3248,7 +3416,7 @@ sub initiate {
 		my $guid = $self->get_guid;
 		return if !$guid;
 		foreach my $attribute (
-			qw (phenotypic allele_designations allele_count allele_status
+			qw (phenotypic allele_designations allele_count allele_status annotation_status
 			seqbin tag_count tags list filters)
 		  )
 		{
@@ -3256,7 +3424,8 @@ sub initiate {
 			  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, "${attribute}_fieldset" );
 			$self->{'prefs'}->{"${attribute}_fieldset"} = ( $value // '' ) eq 'on' ? 1 : 0;
 		}
-		my $value = $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'provenance_fieldset' );
+		my $value =
+		  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'provenance_fieldset' );
 		$self->{'prefs'}->{'provenance_fieldset'} = ( $value // '' ) eq 'off' ? 0 : 1;
 	}
 	if ( BIGSdb::Utils::is_int( scalar $q->param('bookmark') ) ) {
@@ -3294,7 +3463,8 @@ sub _initiate_bookmark {
 			$self->{'temp_prefs'}->{'dropdownfields'}->{$1} = 1;
 		}
 	}
-	my $show_sets = ( $self->{'system'}->{'sets'} // q() ) eq 'yes' && !defined $self->{'system'}->{'set_id'} ? 1 : 0;
+	my $show_sets =
+	  ( $self->{'system'}->{'sets'} // q() ) eq 'yes' && !defined $self->{'system'}->{'set_id'} ? 1 : 0;
 	if ($show_sets) {
 		$q->param( set_id => $bookmark->{'set_id'} );
 	}

@@ -80,6 +80,7 @@ use constant QUERY                => q(<span class="fas fa-search" style="color:
 use constant USERS                => q(<span class="fas fa-users" style="color:#a4a"></span>);
 use constant GOOD                 => q(<span class="statusgood fas fa-check"></span>);
 use constant BAD                  => q(<span class="statusbad fas fa-times"></span>);
+use constant MEH                  => q(<span class="statusmeh fas fa-minus"></span>);
 use constant TRUE                 => q(<span class="far fa-lg fa-check-square" style="font-size:0.95em"></span>);
 use constant FALSE                => q(<span class="far fa-lg fa-square" style="font-size:0.95em"></span>);
 use constant BAN                  => q(<span class="fas fa-ban" style="color:#a44"></span>);
@@ -178,7 +179,7 @@ use constant TOOLTIP => q(<span class="fa-stack">)
 use constant FLANKING => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
 use constant MAX_ROWS => 20;
 @values = qw(FACE_STYLE SHOW HIDE SAVE SAVING UP DOWN LEFT RIGHT
-  EDIT DELETE ADD COMPARE UPLOAD UPLOAD_CHANGE_CONFIG QUERY USERS GOOD BAD TRUE FALSE BAN DOWNLOAD
+  EDIT DELETE ADD COMPARE UPLOAD UPLOAD_CHANGE_CONFIG QUERY USERS GOOD BAD MEH TRUE FALSE BAN DOWNLOAD
   BACK QUERY_MORE EDIT_MORE UPLOAD_CONTIGS LINK_CONTIGS MORE HOME RELOAD KEY EYE_SHOW EYE_HIDE
   CURATE EXPORT_TABLE EXCEL_FILE TEXT_FILE FASTA_FILE FASTA_FLANKING_FILE LABELLED_FASTA_FILE
   EMBL_FILE GBK_FILE GFF3_FILE MISC_FILE ARCHIVE_FILE IMAGE_FILE ALIGN_FILE CODE_FILE FLANKING
