@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -592,6 +592,7 @@ sub _update {
 		my @id_args              = ($id1);
 		push @id_args, $id2 if $id->{'field2'} ne '<none>';
 		my $isolate_id = $self->{'datastore'}->run_query( "SELECT $view.id FROM $view WHERE $match", \@id_args );
+		my $no_history;
 
 		if ($is_locus) {
 			my $data = $self->_prepare_allele_designation_update( $isolate_id, $field, $value, $deleted_designations );
@@ -601,6 +602,7 @@ sub _update {
 			( $args, $qry, $old_value ) = @{$data}{qw(args qry old_value)};
 		} else {
 			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+			$no_history = 1 if ( $att->{'curate_only'} // q() ) eq 'yes';
 			if ( ( $att->{'multiple'} // q() ) eq 'yes' && defined $value && scalar $q->param('multi_value') ne 'add' )
 			{
 				$value = [ split /;/x, $value ];
@@ -679,7 +681,7 @@ sub _update {
 					if ( $field eq 'id' ) {
 						$isolate_id = $value;
 					}
-					if ( $old_value ne $value ) {
+					if ( $old_value ne $value && !$no_history ) {
 						if ( $multivalue_fields{$field} && scalar $q->param('multi_value') eq 'add' ) {
 							push @history,
 							  {

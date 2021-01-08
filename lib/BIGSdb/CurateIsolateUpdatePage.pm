@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -134,8 +134,7 @@ sub _check {
 	}
 	if ( $self->alias_null_term ) {
 		push @bad_field_buffer,
-		  'Aliases: this is an optional field - leave blank rather than using a term to indicate no value.'
-		  ;
+		  'Aliases: this is an optional field - leave blank rather than using a term to indicate no value.';
 	}
 	my $validation_failures = $self->{'submissionHandler'}->run_validation_checks($newdata);
 	if (@$validation_failures) {
@@ -164,8 +163,10 @@ sub _update {
 	my @values;
 	local $" = ',';
 	my $updated_field = [];
-	my $set_id        = $self->get_set_id;
-	my $field_list    = $self->{'xmlHandler'}->get_field_list;
+	my $fields_updated;
+	my $set_id     = $self->get_set_id;
+	my $field_list = $self->{'xmlHandler'}->get_field_list;
+
 	foreach my $field (@$field_list) {
 		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
 		next if ( $att->{'no_curate'} // q() ) eq 'yes';
@@ -191,8 +192,9 @@ sub _update {
 				my $new = ref $newdata->{$field} ? qq(@{$newdata->{$field}}) : $newdata->{$field};
 				$old //= q();
 				$new //= q();
-				push @$updated_field, qq($field: '$old' -> '$new');
+				push @$updated_field, qq($field: '$old' -> '$new') if ( $att->{'curate_only'} // q() ) ne 'yes';
 			}
+			$fields_updated = 1;
 		}
 	}
 	$qry =~ s/,$//x;
@@ -205,7 +207,7 @@ sub _update {
 	my ( $pubmed_updates, $error ) = $self->_prepare_pubmed_updates( $data->{'id'}, $newdata, $updated_field );
 	return if $error;
 	if ($update) {
-		if (@$updated_field) {
+		if ($fields_updated) {
 			eval {
 				$self->{'db'}->do( $qry, undef, @values );
 				foreach my $extra_update ( @$eav_updates, @$alias_updates, @$pubmed_updates ) {
@@ -327,7 +329,7 @@ sub _prepare_multiple_value_update {
 	if ( ( $att->{'optlist'} // q() ) eq 'yes' ) {
 		@new_values = $q->multi_param($field);
 	} else {
-		@new_values = split /\r?\n/x, $q->param($field)//q();
+		@new_values = split /\r?\n/x, $q->param($field) // q();
 	}
 	@new_values = uniq(@new_values);
 	foreach my $new_value (@new_values) {
