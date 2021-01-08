@@ -1715,6 +1715,12 @@ sub _get_annotation_metrics {
 		undef,
 		{ fetch => 'all_arrayref', slice => {} }
 	);
+	my $min_genome_size =
+	  $self->{'system'}->{'min_genome_size'} // $self->{'config'}->{'min_genome_size'} // MIN_GENOME_SIZE;
+	my $has_genome =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT EXISTS(SELECT * FROM seqbin_stats WHERE isolate_id=? AND total_length>=?)',
+		[ $isolate_id, $min_genome_size ] );
 	my $set_id = $self->get_set_id;
 	my $values = [];
 	foreach my $scheme (@$schemes) {
@@ -1752,6 +1758,7 @@ sub _get_annotation_metrics {
 	foreach my $scheme (@$values) {
 		next if !$scheme->{'loci'};
 		next if !$scheme->{'designated'} && $scheme->{'loci'} > 1;
+		next if !$scheme->{'designated'} && !$has_genome;
 		my $percent = int( 100 * $scheme->{'designated'} / $scheme->{'loci'} );
 		my $max_threshold = $scheme->{'max_threshold'} // $scheme->{'loci'};
 		$max_threshold = $scheme->{'loci'} if $max_threshold > $scheme->{'loci'};
@@ -1808,8 +1815,8 @@ sub _get_colour {
 		return $min == 0 ? q(FF0000) : q(00FF00);
 	}
 	my $scale = 255 / ( $middle - $min );
-	return q(FF0000) if $num <= $min;                # lower boundry
-	return q(00FF00) if $num >= $max;                # upper boundary
+	return q(FF0000) if $num <= $min;    # lower boundry
+	return q(00FF00) if $num >= $max;    # upper boundary
 	if ( $num < $middle ) {
 		return sprintf q(FF%02X00) => int( ( $num - $min ) * $scale );
 	} else {
