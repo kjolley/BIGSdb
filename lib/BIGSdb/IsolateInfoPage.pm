@@ -572,6 +572,11 @@ sub _close_divs {
 	return;
 }
 
+sub _are_cgfields_defined {
+	my ($self) = @_;
+	return $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM classification_group_fields)');
+}
+
 sub _get_classification_group_data {
 	my ( $self, $isolate_id ) = @_;
 	my $view   = $self->{'system'}->{'view'};
@@ -579,8 +584,8 @@ sub _get_classification_group_data {
 	my $classification_schemes =
 	  $self->{'datastore'}->run_query( 'SELECT * FROM classification_schemes ORDER BY display_order,name',
 		undef, { fetch => 'all_arrayref', slice => {} } );
-	my $td = 1;
-	my $cg_fields_defined;
+	my $td                = 1;
+	my $cg_fields_defined = $self->_are_cgfields_defined;
 	foreach my $cscheme (@$classification_schemes) {
 		my ( $cg_buffer, $cgf_buffer );
 		my $scheme_id = $cscheme->{'scheme_id'};
@@ -616,10 +621,7 @@ sub _get_classification_group_data {
 					);
 					if ( $isolate_count > 1 ) {
 						my $cg_fields = $self->get_classification_group_fields( $cscheme->{'id'}, $group_id );
-						if ($cg_fields) {
-							$cg_fields_defined = 1;
-							$cgf_buffer .= qq($cg_fields<br />);
-						}
+						$cgf_buffer .= qq($cg_fields<br />) if $cg_fields;
 						my $url =
 						    qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
 						  . qq(designation_field1=cg_$cscheme->{'id'}_group&amp;designation_value1=$group_id&amp;)
@@ -641,7 +643,9 @@ sub _get_classification_group_data {
 			    qq(<tr class="td$td"><td>$cscheme->{'name'}$tooltip</td><td>$scheme_info->{'name'}</td>)
 			  . qq(<td>Single-linkage</td><td>$cscheme->{'inclusion_threshold'}</td><td>$cscheme->{'status'}</td><td>)
 			  . qq($cg_buffer</td>);
-			$buffer .= $cgf_buffer ? qq(<td>$cgf_buffer</td>) : q(<td></td>);
+			if ($cg_fields_defined) {
+				$buffer .= $cgf_buffer ? qq(<td>$cgf_buffer</td>) : q(<td></td>);
+			}
 			$buffer .= q(</tr>);
 			$td = $td == 1 ? 2 : 1;
 		}
