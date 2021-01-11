@@ -54,7 +54,7 @@ sub get_attributes {
 		buttontext  => 'rMLST species id',
 		menutext    => 'Species identification',
 		module      => 'RMLSTSpecies',
-		version     => '2.0.3',
+		version     => '2.0.4',
 		dbtype      => 'isolates',
 		section     => 'isolate_info,analysis,postquery',
 		input       => 'query',
@@ -246,7 +246,7 @@ sub _format_row_html {
 			$buffer .= qq(<td colspan="4" style="text-align:left">$message</td>);
 		} else {
 			foreach my $col ( 2 .. 5 ) {
-				$buffer .= $left_align{$col} ? q(<td style="text-align:left">) : q(<td>);
+				$buffer .= $left_align{$col} ? q(<td style="position:relative;text-align:left">) : q(<td>);
 				$buffer .= q(<i>) if $italicised{$col};
 				if ( $col == 5 ) {
 					my $colour = $self->_get_colour( $values->[$col]->[$row] );
