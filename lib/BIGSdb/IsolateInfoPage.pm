@@ -1764,6 +1764,7 @@ sub _get_annotation_metrics {
 		$max_threshold = $scheme->{'loci'} if $max_threshold > $scheme->{'loci'};
 		my $min_threshold = $scheme->{'min_threshold'} // 0;
 		$min_threshold = 0 if $min_threshold < 0;
+
 		if ( $max_threshold < $min_threshold ) {
 			$logger->error("Scheme $scheme->{'id'} ($scheme->{'name'}) has max_threshold < min_threshold");
 			$min_threshold = 0;
@@ -1775,9 +1776,8 @@ sub _get_annotation_metrics {
 		my $max    = 100 * $max_threshold / $scheme->{'loci'};
 		my $middle = ( $min + $max ) / 2;
 		my $colour = $self->_get_colour( $percent, { min => $min, max => $max, middle => $middle } );
-		$buffer .=
-		    q(<td><span style="position:absolute;font-size:0.8em;margin-left:-0.5em">)
-		  . qq($percent</span>)
+		$buffer .= q(<td style="position:relative"><span )
+		  . qq(style="position:absolute;font-size:0.8em;margin-left:-0.5em">$percent</span>)
 		  . qq(<div style="display:block-inline;margin-top:0.2em;background-color:\#$colour;)
 		  . qq(border:1px solid #ccc;height:0.8em;width:$percent%"></div></td>);
 		my $quality;
