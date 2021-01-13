@@ -999,7 +999,6 @@ sub get_export_buttons {
 
 sub print_recommended_scheme_fieldset {
 	my ($self) = @_;
-	return if !$self->{'system'}->{'recommended_schemes'};
 	my $schemes =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT id FROM schemes WHERE recommended ORDER BY name', undef, { fetch => 'col_arrayref' } )
