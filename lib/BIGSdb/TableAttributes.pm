@@ -1326,7 +1326,7 @@ sub get_schemes_table_attributes {
 				required => 0,
 				tooltip  => 'quality_metric_bad_threshold - Sets the threshold of number of loci in the scheme that '
 				  . 'must have alleles designated below which the annotation is to be considered bad. If left blank '
-				  . 'then 0 will be used.'
+				  . 'then the quality_metric_good threshold will be used.'
 			}
 		);
 		if ( $self->{'system'}->{'views'} ) {
