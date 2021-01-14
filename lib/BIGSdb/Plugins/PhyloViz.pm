@@ -1,7 +1,7 @@
 #PhyloViz.pm - phylogenetic inference and data visualization for sequence
 #based typing methods for BIGSdb
 #Written by Emmanuel Quevillon
-#Copyright (c) 2016-2019, Institut Pasteur, Paris
+#Copyright (c) 2016-2021, Institut Pasteur, Paris
 #E-mail: tuco@pasteur.fr
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -35,7 +35,7 @@ use Digest::MD5;
 use Try::Tiny;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use constant WEB_ROOT         => 'http://online.phyloviz.net';
+use constant WEB_ROOT         => 'https://online.phyloviz.net';
 use constant PHYLOVIZ_DOMAIN  => 'online.phyloviz.net';
 use constant COMPARISON_LIMIT => 800_000_000;
 
@@ -64,7 +64,7 @@ sub get_attributes {
 		  . '<a href="https://online.phyloviz.net/">PhyloViz Online</a> for visualisation. Datasets can include '
 		  . 'metadata which allows nodes in the resultant tree to be coloured interactively.',
 		module              => 'PhyloViz',
-		version             => '1.2.6',
+		version             => '1.2.7',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
