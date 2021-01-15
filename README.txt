@@ -1,3 +1,5 @@
+v1.30.0: *Annotation quality metrics. Use the number of allele designations
+          defined for a scheme as an indication of annotation quality.
 v1.29.5: *Minor bug fixes.
 v1.29.4: *Support for upload of compressed sequences - please note the new
           Perl module dependency: File::Type.
