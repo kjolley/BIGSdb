@@ -868,7 +868,7 @@ CREATE TABLE schemes (
 id int NOT NULL UNIQUE,
 name text NOT NULL,
 description text,
-allow_missing_loci boolean,
+allow_missing_loci boolean NOT NULL DEFAULT FALSE,
 dbase_name text,
 dbase_host text,
 dbase_port int,
