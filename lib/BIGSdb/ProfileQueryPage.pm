@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -238,7 +238,13 @@ sub _print_order_fieldset {
 	say q(<fieldset id="display_fieldset" style="float:left"><legend>Display/sort options</legend>);
 	say q(<ul><li><span style="white-space:nowrap"><label for="order" class="display">Order by: </label>);
 	my ( $primary_key, $selectitems, $orderitems, $cleaned ) = $self->_get_select_items($scheme_id);
-	say $q->popup_menu( -name => 'order', -id => 'order', -values => $orderitems, -labels => $cleaned );
+	say $q->popup_menu(
+		-name   => 'order',
+		-id     => 'order',
+		-values => $orderitems,
+		-labels => $cleaned,
+		-class  => 'fieldlist'
+	);
 	say $q->popup_menu( -name => 'direction', -values => [qw(ascending descending)], -default => 'ascending' );
 	say q(</span></li><li>);
 	say $self->get_number_records_control;

@@ -330,11 +330,17 @@ sub _print_display_fieldset {
 	my $q      = $self->{'cgi'};
 	my $prefs  = $self->{'prefs'};
 	say q(<fieldset id="display_fieldset" style="float:left"><legend>Display/sort options</legend>);
-	my ( $order_list, $labels ) =
-	  $self->get_field_selection_list(
-		{ isolate_fields => 1, loci => 1, scheme_fields => 1, locus_limit => MAX_LOCUS_ORDER_BY } );
+	my ( $order_list, $labels ) = $self->get_field_selection_list(
+		{ isolate_fields => 1, loci => 1, scheme_fields => 1, locus_limit => MAX_LOCUS_ORDER_BY }
+	);
 	say q(<ul><li><span style="white-space:nowrap"><label for="order" class="display">Order by: </label>);
-	say $self->popup_menu( -name => 'order', -id => 'order', -values => $order_list, -labels => $labels );
+	say $self->popup_menu(
+		-name   => 'order',
+		-id     => 'order',
+		-values => $order_list,
+		-labels => $labels,
+		-class  => 'fieldlist'
+	);
 	say $q->popup_menu( -name => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
 	say q(</span></li><li>);
 	say $self->get_number_records_control;
@@ -3073,8 +3079,7 @@ sub _modify_query_for_annotation_status {
 			  // $scheme_info->{'quality_metric_good_threshold'} // $scheme_locus_count;
 			if ( $threshold == 1 && $scheme_locus_count == 1 ) {
 				my $min_genome_size =
-				   $self->{'system'}->{'min_genome_size'} // $self->{'config'}->{'min_genome_size'}
-					  // MIN_GENOME_SIZE ;
+				  $self->{'system'}->{'min_genome_size'} // $self->{'config'}->{'min_genome_size'} // MIN_GENOME_SIZE;
 				$status_qry .= "(SELECT isolate_id FROM seqbin_stats ss LEFT JOIN $table ON "
 				  . "ss.isolate_id=$table.id WHERE ss.total_length>=$min_genome_size AND locus_count IS NULL)";
 			} else {

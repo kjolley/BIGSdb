@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -43,8 +43,7 @@ sub get_help_url {
 	my ($self) = @_;
 	return $self->{'system'}->{'dbtype'} eq 'sequences'
 	  ? "$self->{'config'}->{'doclink'}/data_query/0040_search_allelic_profiles.html"
-	  : "$self->{'config'}->{'doclink'}/data_query/0070_querying_isolate_data.html#querying-by-allelic-profile"
-	  ;
+	  : "$self->{'config'}->{'doclink'}/data_query/0070_querying_isolate_data.html#querying-by-allelic-profile";
 }
 
 sub print_content {
@@ -233,7 +232,13 @@ sub _print_interface {
 			$dropdown_labels->{"f_$locus"} = $self->clean_locus( $locus, { text_output => 1 } );
 		}
 	}
-	say $q->popup_menu( -name => 'order', -id => 'order', -values => $order_by, -labels => $dropdown_labels );
+	say $q->popup_menu(
+		-name   => 'order',
+		-id     => 'order',
+		-values => $order_by,
+		-labels => $dropdown_labels,
+		-class  => 'fieldlist'
+	);
 	say $q->popup_menu( -name => 'direction', -values => [ 'ascending', 'descending' ], -default => 'ascending' );
 	say q(</span></li><li>);
 	say $self->get_number_records_control;
