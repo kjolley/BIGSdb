@@ -22,7 +22,7 @@
 package BIGSdb::Utils;
 use strict;
 use warnings;
-use POSIX qw(ceil);
+use POSIX qw(ceil strftime);
 use BIGSdb::Exceptions;
 use List::MoreUtils qw(any none);
 use Bio::SeqIO;
@@ -864,6 +864,10 @@ sub get_datestamp {
 	my $mon  = $date[4] + 1;
 	my $day  = $date[3];
 	return sprintf( '%d-%02d-%02d', $year, $mon, $day );
+}
+
+sub get_timestamp {
+	return strftime( '%Y%m%d%H%M%S', localtime );
 }
 
 sub get_pg_array {

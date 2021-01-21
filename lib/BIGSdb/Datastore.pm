@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -1096,7 +1096,8 @@ sub create_temp_cscheme_table {
 	if ( $options->{'cache'} ) {
 		$table_type   = 'TABLE';
 		$rename_table = $table;
-		$table        = $table . '_' . int( rand(99999) );
+		my $timestamp = BIGSdb::Utils::get_timestamp();
+		$table        = "${table}_$timestamp";
 	}
 	my $cscheme_info   = $self->get_classification_scheme_info($cscheme_id);
 	my $cscheme        = $self->get_classification_scheme($cscheme_id);
@@ -1152,7 +1153,8 @@ sub create_temp_cscheme_field_values_table {
 	if ( $options->{'cache'} ) {
 		$table_type   = 'TABLE';
 		$rename_table = $table;
-		$table        = $table . '_' . int( rand(99999) );
+		my $timestamp = BIGSdb::Utils::get_timestamp();
+		$table        = "${table}_$timestamp";
 	}
 	my $cscheme_info = $self->get_classification_scheme_info($cscheme_id);
 	my $cscheme      = $self->get_classification_scheme($cscheme_id);
@@ -1218,7 +1220,8 @@ sub create_temp_scheme_table {
 	if ( $options->{'cache'} ) {
 		$table_type   = 'TABLE';
 		$rename_table = $table;
-		$table        = $table . '_' . int( rand(99999) );
+		my $timestamp = BIGSdb::Utils::get_timestamp();
+		$table        = "${table}_$timestamp";
 	}
 	my $create = "CREATE $table_type $table (";
 	my @table_fields;
