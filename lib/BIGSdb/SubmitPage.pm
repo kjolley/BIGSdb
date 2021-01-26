@@ -955,8 +955,8 @@ sub _submit_profiles {
 	  . qq[table=profiles&amp;scheme_id=$scheme_id&amp;no_fields=1&amp;id_field=1" title="Download submission template ]
 	  . qq[(xlsx format)">$excel</a></p>];
 	say $q->start_form;
-	say q[<fieldset style="float:left"><legend>Please paste in tab-delimited text <b>(include a field header line)</b>]
-	  . q(</legend>);
+	say q(<fieldset style="float:left"><legend>Please paste in tab-delimited text <b>)
+	  . q((include a field header as the first line)</b></legend>);
 	say $q->textarea( -name => 'data', -rows => 20, -columns => 80, -required => 'required' );
 	say q(</fieldset>);
 	say $q->hidden($_) foreach qw(db page profiles scheme_id);
@@ -1028,8 +1028,8 @@ sub _submit_isolates {
 	  . qq[table=isolates&amp;order=scheme$set_clause$contig_file_clause" title="Download submission template ]
 	  . qq[(xlsx format)">$excel</a></p>];
 	say $q->start_form;
-	say q[<fieldset style="float:left"><legend>Please paste in tab-delimited text <b>(include a field header line)</b>]
-	  . q(</legend>);
+	say q(<fieldset style="float:left"><legend>Please paste in tab-delimited text <b>)
+	  . q((include a field header as the first line)</b></legend>);
 	say $q->textarea( -name => 'data', -rows => 20, -columns => 80, -required => 'required' );
 	say q(</fieldset>);
 	say $q->hidden($_) foreach qw(db page isolates genomes);

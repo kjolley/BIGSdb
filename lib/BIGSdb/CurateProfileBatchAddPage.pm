@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -645,7 +645,7 @@ sub _print_interface {
 	my ( $users, $user_names ) = $self->{'datastore'}->get_users( { blank_message => 'Select sender ...' } );
 	$user_names->{-1} = 'Override with sender field';
 	say q[<fieldset style="float:left"><legend>Please paste in tab-delimited text ]
-	  . q[(<strong>include a field header line</strong>)</legend>];
+	  . q[(<strong>include a field header as the first line</strong>)</legend>];
 	say $q->hidden($_) foreach qw (page db scheme_id submission_id);
 	say $q->textarea( -name => 'data', -rows => 20, -columns => 80, -required => 'required' );
 	say q(</fieldset>);

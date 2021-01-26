@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -171,7 +171,7 @@ sub _print_interface {
 		$self->print_interface_sender_field;
 	}
 	say q(<fieldset style="float:left"><legend>Paste in tab-delimited text )
-	  . q((<strong>include a field header line</strong>).</legend>);
+	  . q((<strong>include a field header as the first line</strong>).</legend>);
 	say $q->textarea( -name => 'data', -rows => 20, -columns => 80 );
 	say q(</fieldset>);
 	say $q->hidden($_) foreach qw (page db table locus submission_id private project_id user_header);
