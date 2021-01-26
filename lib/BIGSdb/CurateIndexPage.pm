@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -2217,12 +2217,12 @@ sub _print_account_requests_section {
 	foreach my $user (@user_details) {
 		say qq(<tr class="td$td">)
 		  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(reject=$user->{'user_name'}&amp;user_db=$user->{'user_db'}">$bad</a></td>)
+		  . qq(reject=$user->{'user_name'}&amp;user_db=$user->{'user_db'}" class="action">$bad</a></td>)
 		  . qq(<td>$user->{'first_name'}</td><td>$user->{'surname'}</td>)
 		  . qq(<td>$user->{'affiliation'}</td><td><a href="mailto:$user->{'email'}">$user->{'email'}</a></td>)
 		  . qq(<td>$user->{'request_date'}</td>)
 		  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(import=$user->{'user_name'}&amp;user_db=$user->{'user_db'}">$good</a></td></tr>);
+		  . qq(import=$user->{'user_name'}&amp;user_db=$user->{'user_db'}" class="action">$good</a></td></tr>);
 		$td = $td == 1 ? 2 : 1;
 	}
 	say q(</table>);
