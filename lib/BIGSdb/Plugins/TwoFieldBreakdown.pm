@@ -1,6 +1,6 @@
 #FieldBreakdown.pm - TwoFieldBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext => 'Two Field',
 		menutext   => 'Two field breakdown',
 		module     => 'TwoFieldBreakdown',
-		version    => '1.6.0',
+		version    => '1.6.1',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/two_field_breakdown.html",
@@ -1046,7 +1046,7 @@ sub _get_eav_field_value {
 			$self->{'cache'}->{$field} = $self->{'datastore'}->run_query(
 				"SELECT isolate_id,value FROM $eav_table WHERE field=?",
 				$clean_fields->{$field},
-				{ fetch => 'all_hashref', key => 'id' }
+				{ fetch => 'all_hashref', key => 'isolate_id' }
 			);
 		}
 		$value = $self->{'cache'}->{$field}->{$isolate_id}->{ lc( $clean_fields->{$field} ) };
