@@ -357,7 +357,7 @@ sub _print_new_submission_links {
 		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
 		  . q(alleles=1">alleles</a></li>);
 
-		#Don't allow profile submissions by default - theycan be extracted from those records.
+		#Don't allow profile submissions by default - they can be extracted from those records.
 		#This ensures that every new profile has accompanying isolate data.
 		if ( ( $self->{'system'}->{'profile_submissions'} // '' ) eq 'yes' ) {
 			my $set_id = $self->get_set_id;
@@ -379,9 +379,11 @@ sub _print_new_submission_links {
 		}
 	} else {    #Isolate database
 		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
-		  . q(isolates=1">isolates</a> (without assembly files)</li>)
-		  . qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
-		  . q(genomes=1">genomes</a> (isolate records with assembly files)</li>);
+		  . q(isolates=1">isolates</a> (without assembly files)</li>);
+		if ( ( $self->{'system'}->{'genome_submissions'} // '' ) ne 'no' ) {
+			say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
+			  . q(genomes=1">genomes</a> (isolate records with assembly files)</li>);
+		}
 	}
 	say q(</ul>);
 	return;
