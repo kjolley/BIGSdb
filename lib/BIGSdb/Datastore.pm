@@ -90,11 +90,15 @@ sub get_user_info {
 	my $user_info =
 	  $self->run_query( 'SELECT id,user_name,first_name,surname,affiliation,email,status,user_db FROM users WHERE id=?',
 		$id, { fetch => 'row_hashref', cache => 'get_user_info' } );
-	if ( $user_info && $user_info->{'user_name'} && $user_info->{'user_db'} ) {
-		my $remote_user = $self->get_remote_user_info( $user_info->{'user_name'}, $user_info->{'user_db'} );
-		if ( $remote_user->{'user_name'} ) {
-			$user_info->{$_} = $remote_user->{$_}
-			  foreach qw(first_name surname email affiliation submission_digests submission_email_cc absent_until);
+	if ( $user_info && $user_info->{'user_name'} ) {
+		if ( $user_info->{'user_db'} ) {
+			my $remote_user = $self->get_remote_user_info( $user_info->{'user_name'}, $user_info->{'user_db'} );
+			if ( $remote_user->{'user_name'} ) {
+				$user_info->{$_} = $remote_user->{$_}
+				  foreach qw(first_name surname email affiliation submission_digests submission_email_cc absent_until);
+			}
+		} else {
+			$user_info->{'submission_email_cc'} = $self->{'config'}->{'submission_email_cc'};
 		}
 	}
 	return $user_info;
@@ -1097,7 +1101,7 @@ sub create_temp_cscheme_table {
 		$table_type   = 'TABLE';
 		$rename_table = $table;
 		my $timestamp = BIGSdb::Utils::get_timestamp();
-		$table        = "${table}_$timestamp";
+		$table = "${table}_$timestamp";
 	}
 	my $cscheme_info   = $self->get_classification_scheme_info($cscheme_id);
 	my $cscheme        = $self->get_classification_scheme($cscheme_id);
@@ -1154,7 +1158,7 @@ sub create_temp_cscheme_field_values_table {
 		$table_type   = 'TABLE';
 		$rename_table = $table;
 		my $timestamp = BIGSdb::Utils::get_timestamp();
-		$table        = "${table}_$timestamp";
+		$table = "${table}_$timestamp";
 	}
 	my $cscheme_info = $self->get_classification_scheme_info($cscheme_id);
 	my $cscheme      = $self->get_classification_scheme($cscheme_id);
@@ -1221,7 +1225,7 @@ sub create_temp_scheme_table {
 		$table_type   = 'TABLE';
 		$rename_table = $table;
 		my $timestamp = BIGSdb::Utils::get_timestamp();
-		$table        = "${table}_$timestamp";
+		$table = "${table}_$timestamp";
 	}
 	my $create = "CREATE $table_type $table (";
 	my @table_fields;
