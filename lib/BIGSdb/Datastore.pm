@@ -1137,11 +1137,36 @@ sub create_temp_cscheme_table {
 			$logger->error("Dropping temp table $table.");
 			eval { $self->{'db'}->do("DROP TABLE IF EXISTS $table") };
 			$logger->error($@) if $@;
+		} else {
+
+			#Drop any old temp tables for this scheme that may have persisted due to a lock timeout.
+			$self->_delete_temp_tables("temp_cscheme_${cscheme_id}_");
 		}
 		$self->{'db'}->commit;
 		$table = $rename_table;
 	}
 	return $table;
+}
+
+sub _delete_temp_tables {
+	my ( $self, $prefix ) = @_;
+	my $tables =
+	  $self->run_query( 'SELECT table_name FROM information_schema.tables where table_name LIKE ?',
+		"$prefix%", { fetch => 'col_arrayref' } );
+	eval {
+		foreach my $table (@$tables) {
+			next if $table !~ /^$prefix\d+$/x;
+			$logger->error("Dropping old temp table $table");
+			$self->{'db'}->do("DROP TABLE $table");
+		}
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+	return;
 }
 
 sub create_temp_cscheme_field_values_table {
@@ -1194,6 +1219,9 @@ sub create_temp_cscheme_field_values_table {
 			$logger->error("Dropping temp table $table.");
 			eval { $self->{'db'}->do("DROP TABLE IF EXISTS $table") };
 			$logger->error($@) if $@;
+		} else {
+				#Drop any old temp tables for this scheme that may have persisted due to a lock timeout.
+			$self->_delete_temp_tables("temp_cscheme_${cscheme_id}_field_values_");
 		}
 		$self->{'db'}->commit;
 		$table = $rename_table;
