@@ -1156,7 +1156,6 @@ sub _delete_temp_tables {
 	eval {
 		foreach my $table (@$tables) {
 			next if $table !~ /^$prefix\d+$/x;
-			$logger->error("Dropping old temp table $table");
 			$self->{'db'}->do("DROP TABLE $table");
 		}
 	};
