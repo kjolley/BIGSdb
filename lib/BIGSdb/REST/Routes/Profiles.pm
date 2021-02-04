@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2020, University of Oxford
+#Copyright (c) 2014-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -121,7 +121,9 @@ sub _get_profiles_csv {
 		foreach my $definition (@$data) {
 			my $pk      = shift @$definition;
 			my $profile = shift @$definition;
-			$buffer .= qq($pk\t@$profile[@order]\t@$definition\n);
+			$buffer .= qq($pk\t@$profile[@order]);
+			$buffer.=qq(\t@$definition) if @$scheme_fields > 1;
+			$buffer.=qq(\n);
 		}
 	}
 	send_file( \$buffer, content_type => 'text/plain; charset=UTF-8' );
