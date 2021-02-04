@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2020, University of Oxford
+#Copyright (c) 2014-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -317,6 +317,9 @@ sub _run_seq_query_script {
 	my $results_prefix    = BIGSdb::Utils::get_random();
 	my $results_json_file = "$self->{'config'}->{'secure_tmp_dir'}/${results_prefix}.json";
 	if ( -x $self->{'system'}->{'rest_hook_seq_query'} ) {
+
+		#Don't keep connections open while waiting for external script.
+		$self->{'dataConnector'}->drop_all_connections( $self->{'do_not_drop'} );
 		my $results_json = encode_json($values);
 		_write_results_file( $results_json_file, $results_json );
 		my $script_out = `$self->{'system'}->{'rest_hook_seq_query'} $results_json_file`;
