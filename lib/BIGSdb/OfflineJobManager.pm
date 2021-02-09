@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2019, University of Oxford
+#Copyright (c) 2011-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -23,6 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::BaseApplication);
 use BIGSdb::Exceptions;
 use Try::Tiny;
+use Config::Tiny;
 use Digest::MD5;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Job');
@@ -53,6 +54,7 @@ sub _initiate {
 	my ( $self, $config_dir ) = @_;
 	$self->read_config_file($config_dir);
 	$self->read_host_mapping_file($config_dir);
+	$self->_read_job_limits_file($config_dir);
 	return;
 }
 
@@ -462,10 +464,39 @@ sub get_jobs_ahead_in_queue {
 	return $self->_run_query( $qry, $job_id );
 }
 
+sub _read_job_limits_file {
+	my ( $self, $config_dir ) = @_;
+	my $file = "$config_dir/job_limits.conf";
+	return if !-e $file;
+	my $config = Config::Tiny->read($file);
+	if ( !defined $config ) {
+		$logger->fatal( 'Unable to read or parse job_limits.conf file. Reason: ' . Config::Tiny->errstr );
+		$config = Config::Tiny->new();
+	}
+	foreach my $param ( keys %{ $config->{_} } ) {
+		$self->{'limits'}->{$param} = $config->{_}->{$param};
+	}
+	return;
+}
+
 sub get_next_job_id {
 	my ($self) = @_;
-	return $self->_run_query(
-		q(SELECT id FROM jobs WHERE status='submitted' ORDER BY priority asc,submit_time asc LIMIT 1));
+	my $running = $self->_run_query( 'SELECT module,COUNT(*) AS count FROM jobs WHERE status=? GROUP BY module',
+		'started', { fetch => 'all_arrayref', slice => {} } );
+	my %running = map { $_->{'module'} => $_->{'count'} } @$running;
+	my $jobs = $self->_run_query( 'SELECT id,module FROM jobs WHERE status=? ORDER BY priority asc,submit_time asc',
+		'submitted', { fetch => 'all_arrayref', slice => {} } );
+	foreach my $job (@$jobs) {
+		if ( defined $self->{'limits'}->{ $job->{'module'} }
+			&& BIGSdb::Utils::is_int( $self->{'limits'}->{ $job->{'module'} } ) )
+		{
+			next
+			  if defined $running{ $job->{'module'} }
+			  && $running{ $job->{'module'} } >= $self->{'limits'}->{ $job->{'module'} };
+		}
+		return $job->{'id'};
+	}
+	return;
 }
 
 #Cutdown version of Datastore::run_query as Datastore not initialized.
