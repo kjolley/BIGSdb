@@ -1652,10 +1652,6 @@ sub _get_seqbin_link {
 		push @$list, { title => 'contigs', data => $commify{'contigs'} };
 
 		if ( $seqbin_stats->{'contigs'} > 1 ) {
-			my $lengths =
-			  $self->{'datastore'}->run_query(
-				'SELECT length(sequence) FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) DESC',
-				$isolate_id, { fetch => 'col_arrayref' } );
 			my $n_stats = BIGSdb::Utils::get_N_stats( $seqbin_stats->{'total_length'}, $seqbin_stats->{'lengths'} );
 			push @$list, { title => 'total length', data => "$commify{'total_length'} bp" };
 			push @$list, { title => 'max length',   data => "$commify{'max_length'} bp" };
