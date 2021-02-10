@@ -1,3 +1,4 @@
+v1.30.1: *Option to limit number of running jobs for particular plugins.
 v1.30.0: *Annotation quality metrics. Use the number of allele designations
           defined for a scheme as an indication of annotation quality.
 v1.29.5: *Minor bug fixes.
