@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -427,17 +427,17 @@ sub _check_records {
 		say q(<fieldset style="float:left"><legend>Summary</legend>);
 		say $self->get_list_block(
 			[
-				{ title => 'Number of contigs',       data => BIGSdb::Utils::commify($num) },
-				{ title => 'Minimum length',          data => BIGSdb::Utils::commify($min) },
-				{ title => 'Maximum length',          data => BIGSdb::Utils::commify($max) },
-				{ title => 'Total length',            data => BIGSdb::Utils::commify($total) },
-				{ title => 'Mean length',             data => BIGSdb::Utils::commify($mean) },
-				{ title => 'N50 contig number',       data => BIGSdb::Utils::commify( $n_stats->{'N50'} ) },
-				{ title => 'N50 contig length (L50)', data => BIGSdb::Utils::commify( $n_stats->{'L50'} ) },
-				{ title => 'N90 contig number',       data => BIGSdb::Utils::commify( $n_stats->{'N90'} ) },
-				{ title => 'N90 contig length (L50)', data => BIGSdb::Utils::commify( $n_stats->{'L90'} ) },
-				{ title => 'N95 contig number',       data => BIGSdb::Utils::commify( $n_stats->{'N95'} ) },
-				{ title => 'N95 contig length (L50)', data => BIGSdb::Utils::commify( $n_stats->{'L95'} ) },
+				{ title => 'Number of contigs', data => BIGSdb::Utils::commify($num) },
+				{ title => 'Minimum length',    data => BIGSdb::Utils::commify($min) },
+				{ title => 'Maximum length',    data => BIGSdb::Utils::commify($max) },
+				{ title => 'Total length',      data => BIGSdb::Utils::commify($total) },
+				{ title => 'Mean length',       data => BIGSdb::Utils::commify($mean) },
+				{ title => 'N50',               data => BIGSdb::Utils::commify( $n_stats->{'N50'} ) },
+				{ title => 'L50',               data => BIGSdb::Utils::commify( $n_stats->{'L50'} ) },
+				{ title => 'N90',               data => BIGSdb::Utils::commify( $n_stats->{'N90'} ) },
+				{ title => 'L50',               data => BIGSdb::Utils::commify( $n_stats->{'L90'} ) },
+				{ title => 'N95',               data => BIGSdb::Utils::commify( $n_stats->{'N95'} ) },
+				{ title => 'L95',               data => BIGSdb::Utils::commify( $n_stats->{'L95'} ) },
 			],
 			{ width => 15 }
 		);

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -166,14 +166,6 @@ sub _print_stats {
 	say qq(<dl class="data"><dt>Contigs</dt><dd>$seqbin_stats->{'contigs'}</dd>);
 	if ( $seqbin_stats->{'contigs'} > 1 ) {
 		my $n_stats = BIGSdb::Utils::get_N_stats( $seqbin_stats->{'total_length'}, $seqbin_stats->{'lengths'} );
-		my %stats_labels = (
-			N50 => 'N50 contig number',
-			L50 => 'N50 length (L50)',
-			N90 => 'N90 contig number',
-			L90 => 'N90 length (L90)',
-			N95 => 'N95 contig number',
-			L95 => 'N95 length (L95)',
-		);
 		my %commify = map { $_ => BIGSdb::Utils::commify( $seqbin_stats->{$_} ) }
 		  qw(total_length min_length max_length mean_length);
 		say qq(<dt>Total length</dt><dd>$commify{'total_length'}</dd>);
@@ -182,7 +174,7 @@ sub _print_stats {
 		say qq(<dt>Mean length</dt><dd>$commify{'mean_length'}</dd>);
 		foreach my $stat (qw(N50 L50 N90 L90 N95 L95)) {
 			my $commify = BIGSdb::Utils::commify( $n_stats->{$stat} );
-			say qq(<dt>$stats_labels{$stat}</dt><dd>$commify</dd>);
+			say qq(<dt>$stat</dt><dd>$commify</dd>);
 		}
 		say q(</dl>);
 	} else {
