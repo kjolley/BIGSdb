@@ -1406,9 +1406,7 @@ sub _print_file_upload_fieldset {
 		say q(<p>Please upload any supporting files required for curation.  Ensure that these are named unambiguously )
 		  . q(or add an explanatory note so that they can be linked to the appropriate submission item. );
 	}
-	say qq(Individual filesize is limited to $nice_file_size. You can upload up to $nice_file_size in one go )
-	  . q((the upload may fail if you try to do more than this - just try again with fewer files at a time if it does), )
-	  . q(although you can upload multiple times so that the total size of the submission can be larger.</p>);
+	say qq(Individual filesize is limited to $nice_file_size.</p>);
 	say $q->start_form( -id => 'file_upload_form' );
 	say q(<div class="fallback">);
 	print $q->filefield( -name => 'file_upload', -id => 'file_upload', -multiple );
