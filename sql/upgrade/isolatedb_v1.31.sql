@@ -107,3 +107,4 @@ CREATE OR REPLACE FUNCTION maint_seqbin_stats() RETURNS TRIGGER AS $maint_seqbin
 	END;
 $maint_seqbin_stats$ LANGUAGE plpgsql;	
 
+SELECT update_n50_all();
