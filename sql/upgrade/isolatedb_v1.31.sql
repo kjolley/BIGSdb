@@ -28,7 +28,7 @@ CREATE OR REPLACE FUNCTION update_n50(_isolate_id int) RETURNS VOID AS $update_n
 	   			END IF;
 	   		END LOOP;
 	   		UPDATE seqbin_stats SET (n50,l50) = (_n50,_l50) WHERE isolate_id=_isolate_id;
-	   		RAISE NOTICE 'id-%: N50: %; L50: %', _isolate_id,_n50,_l50;
+--	   		RAISE NOTICE 'id-%: N50: %; L50: %', _isolate_id,_n50,_l50;
 	   	END IF;
 	END; 
 $update_n50$ LANGUAGE plpgsql;
