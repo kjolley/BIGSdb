@@ -397,7 +397,7 @@ sub _upload_data {
 				}
 			};
 			if ( $@ || $upload_err ) {
-				$self->report_upload_error( ( $upload_err // $@ ), $failed_file );
+				$self->_report_upload_error( ( $upload_err // $@ ), $failed_file );
 				$self->{'db'}->rollback;
 				return;
 			}
@@ -412,6 +412,34 @@ sub _upload_data {
 	my @loci = keys %loci;
 	$self->mark_locus_caches_stale( \@loci );
 	$self->update_blast_caches;
+	return;
+}
+
+sub _report_upload_error {
+	my ( $self, $err, $failed_file ) = @_;
+	my $detail;
+	if ( $err eq 'Invalid FASTA file' ) {
+		$detail = qq(The contig file '$failed_file' was not in valid FASTA format.);
+	} elsif ( $err eq 'Invalid characters' ) {
+		$detail =
+		    qq(The contig file '$failed_file' contains invalid characters. )
+		  . q(Allowed IUPAC nucleotide codes are GATCUBDHVRYKMSWN.');
+	} elsif ( $err =~ /duplicate/ && $err =~ /unique/ ) {
+		$detail =
+		    q(Data entry would have resulted in records with either duplicate ids or another )
+		  . q(unique field with duplicate values. This can result from pressing the upload button twice )
+		  . q(or another curator adding data at the same time. Try pressing the browser back button twice )
+		  . q(and then re-submit the records.);
+	} else {
+		$detail = q(An error has occurred - more details will be available in the server log.);
+		$logger->error($err);
+	}
+	$self->print_bad_status(
+		{
+			message => q(Database update failed - transaction cancelled - no records have been touched.),
+			detail  => $detail
+		}
+	);
 	return;
 }
 

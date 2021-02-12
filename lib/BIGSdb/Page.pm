@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -2525,7 +2525,7 @@ sub _initiate_isolatedb_general_prefs {
 
 	#Locus aliases - default off
 	my $default_locus_aliases = ( $self->{'system'}->{'locus_aliases'} // '' ) eq 'yes' ? 'on' : 'off';
-	$general_prefs->{'locus_alias'} //= $default_locus_aliases //'off';
+	$general_prefs->{'locus_alias'} //= $default_locus_aliases // 'off';
 	$self->{'prefs'}->{'locus_alias'} = $general_prefs->{'locus_alias'} eq 'on' ? 1 : 0;
 	return;
 }
@@ -3297,17 +3297,19 @@ sub print_bad_status {
 sub print_good_status {
 	my ( $self, $options ) = @_;
 	$options->{'message'} //= 'Success!';
-	say q(<div class="box resultsheader" style="min-height:5em">);
-	say q(<p><span class="success fas fa-check fa-5x fa-pull-left"></span></p>);
-	say qq(<p class="outcome_message">$options->{'message'}</p>);
+	my $buffer = q();
+	$buffer .= q(<div class="box resultsheader" style="min-height:5em">);
+	$buffer .= q(<p><span class="success fas fa-check fa-5x fa-pull-left"></span></p>);
+	$buffer .= qq(<p class="outcome_message">$options->{'message'}</p>);
 	if ( $options->{'detail'} ) {
-		say qq(<p class="outcome_detail">$options->{'detail'}</p>);
+		$buffer .= qq(<p class="outcome_detail">$options->{'detail'}</p>);
 	}
 	if ( $options->{'navbar'} ) {
-		$self->print_navigation_bar($options);
+		$buffer .= $self->print_navigation_bar( { get_only => 1, %$options } );
 	}
-	say q(</div>);
-	return;
+	$buffer .= q(</div>);
+	say $buffer if !$options->{'get_only'};
+	return $buffer;
 }
 
 sub print_loading_message {

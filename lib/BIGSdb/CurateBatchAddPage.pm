@@ -1518,6 +1518,9 @@ sub _upload_data {
 	my $private           = $self->_is_private_record;
 	return if $self->_is_not_allowed_to_upload_public_data($table);
 	my $submission_id = $q->param('submission_id');
+	my $prefix        = BIGSdb::Utils::get_random();
+	my $status_file   = "$prefix.json";
+	my $success_html  = $self->_report_successful_upload( $table, $project_id );
 
 	#Use double fork to prevent zombie processes on apache2-mpm-worker
 	defined( my $kid = fork ) or $self->{'logger'}->error('cannot fork');
@@ -1553,7 +1556,9 @@ sub _upload_data {
 						private           => $private,
 						curator_id        => $self->get_curator_id,
 						sender_id         => scalar $q->param('sender'),
-						submission_id     => $submission_id
+						submission_id     => $submission_id,
+						status_file       => $status_file,
+						success_html      => $success_html
 					}
 				}
 			);
@@ -1561,10 +1566,79 @@ sub _upload_data {
 			CORE::exit(0);
 		}
 	}
-
-	#TODO Load status page that will refresh using AJAX calls.
-	$self->_report_successful_upload( $table, $project_id );
+	$self->_load_status_page($status_file);
 	return;
+}
+
+sub _load_status_page {
+	my ( $self, $status_file ) = @_;
+	say q(<div id="results"><div class="box" id="resultspanel">)
+	  . q(<div><span class="wait_icon fas fa-sync-alt fa-spin fa-4x" style="margin-right:0.5em"></span>)
+	  . q(<span class="wait_message">Uploading - Please wait.</span></div>)
+	  . q(<div id="progress"></div></div>)
+	  . q(<noscript><div class="box statusbad"><p>Please enable Javascript in your browser</p></div></noscript></div>);
+	my $prefix = BIGSdb::Utils::get_random();
+	say $self->_get_polling_javascript($status_file);
+	return;
+}
+
+sub _get_polling_javascript {
+	my ( $self, $status_file ) = @_;
+	my $file_path     = "/tmp/$status_file";
+	my $max_poll_time = 5_000;
+	my $error         = $self->print_bad_status(
+		{
+			message  => 'Could not find results file',
+			detail   => 'Please try re-uploading sequences.',
+			get_only => 1
+		}
+	);
+	my $buffer = << "END";
+<script>//<![CDATA[
+
+var error_seen = 0;
+\$(function () {	
+	getResults(500);
+});
+
+function getResults(poll_time) {	
+	\$.ajax({
+		url: "$file_path",
+		dataType: 'json',
+		cache: false,
+		success: function(data){
+			if (data.status == 'finished'){	
+				\$("div#results").html(data.html);
+			} else if (data.status == 'uploading'){
+				\$("div#progress").html('<p style="font-size:5em;color:#888;margin-left:1.5em;margin-top:1em">' 
+				+ data.progress + '%</p>');
+				// Wait and poll again - increase poll time by 0.5s each time.
+				poll_time += 500;
+				if (poll_time > $max_poll_time){
+					poll_time = $max_poll_time;
+				}
+				setTimeout(function() { 
+           	        getResults(poll_time); 
+                }, poll_time);
+ 			} else {
+				\$("div#results").html();
+			}
+		},
+		error: function (){
+			if (error_seen > 10){
+				\$("div#results").html('$error');
+				return;
+			}
+			error_seen++;
+			setTimeout(function() { 
+            	getResults(poll_time); 
+            }, poll_time);           
+		}
+	});
+}
+//]]></script>
+END
+	return $buffer;
 }
 
 sub _report_successful_upload {
@@ -1597,7 +1671,7 @@ sub _report_successful_upload {
 		  . qq(submission_id=$submission_id&amp;curate=1);
 		$detail = qq(Don't forget to <a href="$url">close the submission</a>!);
 	}
-	$self->print_good_status(
+	return $self->print_good_status(
 		{
 			message => q(Database updated.),
 			detail  => $detail,
@@ -1608,37 +1682,9 @@ sub _report_successful_upload {
 			more_url           => $nav_data->{'more_url'} // $more_url,
 			back_url           => $back_url,
 			upload_contigs_url => $upload_contigs_url,
+			get_only           => 1
 		}
 	);
-	return;
-}
-
-sub report_upload_error {
-	my ( $self, $err, $failed_file ) = @_;
-	my $detail;
-	if ( $err eq 'Invalid FASTA file' ) {
-		$detail = qq(The contig file '$failed_file' was not in valid FASTA format.);
-	} elsif ( $err eq 'Invalid characters' ) {
-		$detail =
-		    qq(The contig file '$failed_file' contains invalid characters. )
-		  . q(Allowed IUPAC nucleotide codes are GATCUBDHVRYKMSWN.');
-	} elsif ( $err =~ /duplicate/ && $err =~ /unique/ ) {
-		$detail =
-		    q(Data entry would have resulted in records with either duplicate ids or another )
-		  . q(unique field with duplicate values. This can result from pressing the upload button twice )
-		  . q(or another curator adding data at the same time. Try pressing the browser back button twice )
-		  . q(and then re-submit the records.);
-	} else {
-		$detail = q(An error has occurred - more details will be available in the server log.);
-		$logger->error($err);
-	}
-	$self->print_bad_status(
-		{
-			message => q(Database update failed - transaction cancelled - no records have been touched.),
-			detail  => $detail
-		}
-	);
-	return;
 }
 
 sub _get_nav_data {

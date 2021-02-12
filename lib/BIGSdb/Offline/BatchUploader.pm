@@ -25,15 +25,18 @@ use BIGSdb::Constants qw(:limits);
 use IO::Uncompress::Gunzip qw(gunzip $GunzipError);
 use IO::Uncompress::Unzip qw(unzip $UnzipError);
 use Try::Tiny;
+use JSON;
 
 sub upload {
 	my ($self) = @_;
 	my (
-		$records,    $username, $field_order, $fields_to_include, $table, $locus,
-		$project_id, $private,  $curator_id,  $sender_id,         $submission_id
+		$records,       $username,    $field_order, $fields_to_include, $table,
+		$locus,         $project_id,  $private,     $curator_id,        $sender_id,
+		$submission_id, $status_file, $success_html
 	  )
 	  = @{ $self->{'params'} }{
-		qw(records username field_order fields_to_include table locus project_id private curator_id sender_id submission_id)
+		qw(records username field_order fields_to_include table locus project_id private curator_id sender_id
+		  submission_id status_file success_html)
 	  };
 	$self->{'curator_id'} = $curator_id;
 	$self->{'sender_id'}  = $sender_id;
@@ -41,8 +44,18 @@ sub upload {
 	my $field_att = $self->{'xmlHandler'}->get_all_field_attributes;
 	my %loci;
 	$loci{$locus} = 1 if $locus;
+	my $status_filepath = qq($self->{'config'}->{'tmp_dir'}/$status_file);
+	my $i               = 0;
 
 	foreach my $record (@$records) {
+		$self->_update_status(
+			$status_file,
+			{
+				status   => 'uploading',
+				progress => int( $i * 100 / @$records )
+			}
+		);
+		$i++;
 		$record =~ s/\r//gx;
 		next if !$record;
 		my $data = [ split /\t/x, $record ];
@@ -81,13 +94,13 @@ sub upload {
 		$qry = "INSERT INTO $table (@$fields_to_include) VALUES (@placeholders)";
 		push @inserts, { statement => $qry, arguments => \@value_list };
 		if ( $table eq 'allele_designations' ) {
-
 			my $action = "$data->[$field_order->{'isolate_id'}]|$data->[$field_order->{'locus'}]: "
 			  . "new designation '$data->[$field_order->{'allele_id'}]'";
-			push @inserts,{
+			push @inserts,
+			  {
 				statement => 'INSERT INTO history (isolate_id,timestamp,action,curator) VALUES (?,?,?,?)',
-				arguments => [$id, 'now', $action, $self->{'curator_id'}]
-			};
+				arguments => [ $id, 'now', $action, $self->{'curator_id'} ]
+			  };
 		}
 		my ( $upload_err, $failed_file );
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
@@ -133,12 +146,11 @@ sub upload {
 				}
 			};
 			$self->{'submission_message'} .= "\n";
-			push @inserts,{
+			push @inserts,
+			  {
 				statement => 'INSERT INTO history (isolate_id,timestamp,action,curator) VALUES (?,?,?,?)',
-				arguments => [$id, 'now', 'Isolate record added', $self->{'curator_id'}]
-			};
-
-
+				arguments => [ $id, 'now', 'Isolate record added', $self->{'curator_id'} ]
+			  };
 		}
 		my $extra_methods = {
 			loci => sub {
@@ -171,14 +183,28 @@ sub upload {
 			foreach my $insert (@inserts) {
 				$self->{'db'}->do( $insert->{'statement'}, undef, @{ $insert->{'arguments'} } );
 			}
-
 		};
 		if ( $@ || $upload_err ) {
-			$self->report_upload_error( ( $upload_err // $@ ), $failed_file );
+			my $html = $self->_get_error_message( ( $upload_err // $@ ), $failed_file );
+			$self->_update_status(
+				$status_file,
+				{
+					status => 'finished',
+					html   => $html
+				}
+			);
 			$self->{'db'}->rollback;
 			return;
 		}
 	}
+	$self->_update_status(
+		$status_file,
+		{
+			status   => 'finished',
+			progress => 100,
+			html     => $success_html
+		}
+	);
 	if ($submission_id) {
 		$self->_update_submission_database($submission_id);
 	}
@@ -186,6 +212,45 @@ sub upload {
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		$self->_update_scheme_caches if ( $self->{'system'}->{'cache_schemes'} // q() ) eq 'yes';
 	}
+	return;
+}
+
+sub _get_error_message {
+	my ( $self, $error, $failed_file ) = @_;
+	my $detail;
+	if ( $error eq 'Invalid FASTA file' ) {
+		$detail = qq(The contig file '$failed_file' was not in valid FASTA format.);
+	} elsif ( $error eq 'Invalid characters' ) {
+		$detail =
+		    qq(The contig file '$failed_file' contains invalid characters. )
+		  . q(Allowed IUPAC nucleotide codes are GATCUBDHVRYKMSWN.');
+	} elsif ( $error =~ /duplicate/ && $error =~ /unique/ ) {
+		$detail =
+		    q(Data entry would have resulted in records with either duplicate ids or another )
+		  . q(unique field with duplicate values. This can result from pressing the upload button twice )
+		  . q(or another curator adding data at the same time. Try pressing the browser back button twice )
+		  . q(and then re-submit the records.);
+	} else {
+		$detail = q(An error has occurred - more details will be available in the server log.);
+		$self->{'logger'}->error($error);
+	}
+	my $buffer = q();
+	$buffer .= q(<div class="box statusbad" style="min-height:5em">);
+	$buffer .= q(<p><span class="failure fas fa-times fa-5x fa-pull-left"></span></p>);
+	$buffer .= q(<p class="outcome_message">Database update failed - transaction cancelled - )
+	  . q(no records have been touched.</p>);
+	$buffer .= qq(<p class="outcome_detail">$detail</p>);
+	$buffer .= q(</div>);
+	return $buffer;
+}
+
+sub _update_status {
+	my ( $self, $status_file, $values ) = @_;
+	my $file_path = qq($self->{'config'}->{'tmp_dir'}/$status_file);
+	open my $fh, '>', $file_path || $self->{'logger'}->error("Cannot open $file_path for writing.");
+	my $json = encode_json($values);
+	say $fh $json;
+	close $fh;
 	return;
 }
 
@@ -437,34 +502,17 @@ sub _prepare_projects_extra_inserts {
 	return \@inserts;
 }
 
-#TODO No need to fork now as this module is run in a different process
 sub _update_scheme_caches {
 	my ($self) = @_;
-
-	#Use double fork to prevent zombie processes on apache2-mpm-worker
-	defined( my $kid = fork ) or $self->{'logger'}->error('cannot fork');
-	if ($kid) {
-		waitpid( $kid, 0 );
-	} else {
-		defined( my $grandkid = fork ) or $self->{'logger'}->error('Kid cannot fork');
-		if ($grandkid) {
-			CORE::exit(0);
-		} else {
-			open STDIN,  '<', '/dev/null' || $self->{'logger'}->error("Can't detach STDIN: $!");
-			open STDOUT, '>', '/dev/null' || $self->{'logger'}->error("Can't detach STDOUT: $!");
-			open STDERR, '>&STDOUT' || $self->{'logger'}->error("Can't detach STDERR: $!");
-			BIGSdb::Offline::UpdateSchemeCaches->new(
-				{
-					config_dir       => $self->{'config_dir'},
-					lib_dir          => $self->{'lib_dir'},
-					dbase_config_dir => $self->{'dbase_config_dir'},
-					instance         => $self->{'system'}->{'curate_config'} // $self->{'instance'},
-					options          => { method => 'daily' }
-				}
-			);
-			CORE::exit(0);
+	BIGSdb::Offline::UpdateSchemeCaches->new(
+		{
+			config_dir       => $self->{'config_dir'},
+			lib_dir          => $self->{'lib_dir'},
+			dbase_config_dir => $self->{'dbase_config_dir'},
+			instance         => $self->{'system'}->{'curate_config'} // $self->{'instance'},
+			options          => { method => 'daily' }
 		}
-	}
+	);
 	return;
 }
 
