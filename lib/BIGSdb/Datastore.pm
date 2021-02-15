@@ -1150,8 +1150,7 @@ sub create_temp_cscheme_table {
 
 sub _delete_temp_tables {
 	my ( $self, $prefix ) = @_;
-	my $tables =
-	  $self->run_query( 'SELECT table_name FROM information_schema.tables where table_name LIKE ?',
+	my $tables = $self->run_query( 'SELECT table_name FROM information_schema.tables where table_name LIKE ?',
 		"$prefix%", { fetch => 'col_arrayref' } );
 	eval {
 		foreach my $table (@$tables) {
@@ -1219,7 +1218,8 @@ sub create_temp_cscheme_field_values_table {
 			eval { $self->{'db'}->do("DROP TABLE IF EXISTS $table") };
 			$logger->error($@) if $@;
 		} else {
-				#Drop any old temp tables for this scheme that may have persisted due to a lock timeout.
+
+			#Drop any old temp tables for this scheme that may have persisted due to a lock timeout.
 			$self->_delete_temp_tables("temp_cscheme_${cscheme_id}_field_values_");
 		}
 		$self->{'db'}->commit;
@@ -2674,11 +2674,13 @@ sub get_seqbin_stats {
 	$options = { general => 1 } if ref $options ne 'HASH';
 	my $results = {};
 	if ( $options->{'general'} ) {
-		my ( $seqbin_count, $total_length ) =
-		  $self->run_query( 'SELECT contigs,total_length FROM seqbin_stats WHERE isolate_id=?',
+		my ( $seqbin_count, $total_length, $n50, $l50 ) =
+		  $self->run_query( 'SELECT contigs,total_length,n50,l50 FROM seqbin_stats WHERE isolate_id=?',
 			$isolate_id, { cache => 'Datastore::get_seqbin_stats::general' } );
 		$results->{'contigs'}      = $seqbin_count // 0;
 		$results->{'total_length'} = $total_length // 0;
+		$results->{'n50'}          = $n50          // 0;
+		$results->{'l50'}          = $l50          // 0;
 	}
 	if ( $options->{'lengths'} ) {
 		my $lengths = $self->run_query(

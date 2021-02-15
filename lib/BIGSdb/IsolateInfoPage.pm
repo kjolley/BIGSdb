@@ -1653,6 +1653,10 @@ sub _get_seqbin_link {
 
 		if ( $seqbin_stats->{'contigs'} > 1 ) {
 			my $n_stats = BIGSdb::Utils::get_N_stats( $seqbin_stats->{'total_length'}, $seqbin_stats->{'lengths'} );
+			if ( $seqbin_stats->{'n50'} != $n_stats->{'N50'} ) {
+				$logger->error( "$self->{'instance'} id-$isolate_id: N50 discrepancy with stored value. This should "
+					  . 'not happen - has the seqbin_stats table been modified?' );
+			}
 			push @$list, { title => 'total length', data => "$commify{'total_length'} bp" };
 			push @$list, { title => 'max length',   data => "$commify{'max_length'} bp" };
 			push @$list, { title => 'mean length',  data => "$commify{'mean_length'} bp" };
@@ -1764,7 +1768,8 @@ sub _get_annotation_metrics {
 		my $max    = 100 * $max_threshold / $scheme->{'loci'};
 		my $middle = ( $min + $max ) / 2;
 		my $colour = $self->_get_colour( $percent, { min => $min, max => $max, middle => $middle } );
-		$buffer .= q(<td style="position:relative"><span )
+		$buffer .=
+		    q(<td style="position:relative"><span )
 		  . qq(style="position:absolute;font-size:0.8em;margin-left:-0.5em">$percent</span>)
 		  . qq(<div style="display:block-inline;margin-top:0.2em;background-color:\#$colour;)
 		  . qq(border:1px solid #ccc;height:0.8em;width:$percent%"></div></td>);
