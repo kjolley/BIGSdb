@@ -857,10 +857,13 @@ sub _submit_alleles {
 	my $set_id = $self->get_set_id;
 	my ( $loci, $labels );
 	say $q->start_form;
-	my $schemes =
-	  $self->{'datastore'}
-	  ->run_query( 'SELECT id FROM schemes ORDER BY display_order,description', undef, { fetch => 'col_arrayref' } );
-
+	my $schemes = $self->{'datastore'}->run_query(
+		    'SELECT id FROM schemes WHERE id IN (SELECT sm.scheme_id FROM scheme_members sm '
+		  . 'JOIN loci l ON sm.locus=l.id WHERE (no_submissions = FALSE OR no_submissions IS NULL)) '
+		  . 'ORDER BY display_order,description',
+		undef,
+		{ fetch => 'col_arrayref' }
+	);
 	if ( @$schemes > 1 ) {
 		say q(<fieldset id="scheme_fieldset" style="float:left;display:none"><legend>Filter loci by scheme</legend>);
 		say q(<div id="tree" class="scheme_tree" style="float:left;max-height:initial">);
