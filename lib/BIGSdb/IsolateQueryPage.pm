@@ -1545,7 +1545,7 @@ sub _print_seqbin_fields {
 	say $self->popup_menu(
 		-name   => "seqbin_field$row",
 		-id     => "seqbin_field$row",
-		-values => [ q(), qw(size contigs) ],
+		-values => [ q(), qw(size contigs N50 L50) ],
 		-labels => { size => 'total length (Mbp)', contigs => 'number of contigs' },
 		-class  => 'fieldlist'
 	);
@@ -3001,7 +3001,7 @@ sub _modify_query_for_seqbin {
 	my $view = $self->{'system'}->{'view'};
 	my @seqbin_queries;
 	my %valid_operators = map { $_ => 1 } ( '<', '<=', '>', '>=', '=' );
-	my %valid_fields = map { $_ => 1 } qw(size contigs);
+	my %valid_fields = map { $_ => 1 } qw(size contigs N50 L50);
 	my %labels = ( size => 'total length', contigs => 'number of contigs' );
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		my $field    = $q->param("seqbin_field$i")    // q();
@@ -3013,7 +3013,7 @@ sub _modify_query_for_seqbin {
 			next;
 		}
 		if ( !$valid_fields{$field} ) {
-			push @$errors_ref, 'Invalid field selected.';
+			push @$errors_ref, 'Invalid sequence bin field selected.';
 			next;
 		}
 		if ( !BIGSdb::Utils::is_float($value) ) {
@@ -3025,6 +3025,7 @@ sub _modify_query_for_seqbin {
 			next;
 		}
 		my %db_field = ( size => 'total_length', contigs => 'contigs' );
+		$db_field{$field} //= $field;
 		$value *= 1_000_000 if $field eq 'size';
 		my $seqbin_qry = "($view.id IN (SELECT isolate_id FROM seqbin_stats WHERE $db_field{$field} $operator $value)";
 		if ( $operator eq '<' || $operator eq '<=' || ( $operator eq '=' && $value == 0 ) ) {

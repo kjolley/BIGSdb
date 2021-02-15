@@ -108,3 +108,7 @@ CREATE OR REPLACE FUNCTION maint_seqbin_stats() RETURNS TRIGGER AS $maint_seqbin
 $maint_seqbin_stats$ LANGUAGE plpgsql;	
 
 SELECT update_n50_all();
+CREATE INDEX ON seqbin_stats(contigs);
+CREATE INDEX ON seqbin_stats(total_length);
+CREATE INDEX ON seqbin_stats(n50);
+CREATE INDEX ON seqbin_stats(l50);
