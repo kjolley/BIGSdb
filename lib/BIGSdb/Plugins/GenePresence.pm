@@ -1,6 +1,6 @@
 #GenePresence.pm - Gene presence/absence plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -29,7 +29,7 @@ use constant MAX_RECORDS        => 500_000;
 use constant MAX_TAXA           => 10_000;
 use constant HEATMAP_MIN_WIDTH  => 600;
 use constant HEATMAP_MIN_HEIGHT => 200;
-use constant HEATMAP_MAX_WIDTH  => 10_000;
+use constant HEATMAP_MAX_WIDTH  => 50_000;
 use constant HEATMAP_MAX_HEIGHT => 10_000;
 
 sub get_attributes {
@@ -54,7 +54,7 @@ sub get_attributes {
 		menutext   => 'Gene presence',
 		module     => 'GenePresence',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/gene_presence.html",
-		version    => '2.0.13',
+		version    => '2.0.14',
 		dbtype     => 'isolates',
 		section    => 'analysis,postquery',
 		input      => 'query',
