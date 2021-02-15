@@ -780,16 +780,16 @@ sub get_N_stats {
 		$running_total -= $length;
 		$count++;
 		if ( !defined $stats->{'L50'} && $running_total <= $n50_target ) {
-			$stats->{'L50'} = $length;
-			$stats->{'N50'} = $count;
+			$stats->{'N50'} = $length;
+			$stats->{'L50'} = $count;
 		}
 		if ( !defined $stats->{'L90'} && $running_total <= $n90_target ) {
-			$stats->{'L90'} = $length;
-			$stats->{'N90'} = $count;
+			$stats->{'N90'} = $length;
+			$stats->{'L90'} = $count;
 		}
 		if ( !defined $stats->{'L95'} && $running_total <= $n95_target ) {
-			$stats->{'L95'} = $length;
-			$stats->{'N95'} = $count;
+			$stats->{'N95'} = $length;
+			$stats->{'L95'} = $count;
 		}
 	}
 	return $stats;

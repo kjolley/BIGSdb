@@ -1,6 +1,6 @@
 #SeqbinBreakdown.pm - SeqbinBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -52,7 +52,7 @@ sub get_attributes {
 		menutext    => 'Sequence bin breakdown',
 		module      => 'SeqbinBreakdown',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/seqbin_breakdown.html",
-		version     => '1.5.3',
+		version     => '1.5.4',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -380,10 +380,8 @@ sub _get_html_table_header {
 	  . qq(<tr><th>Isolate id</th><th>$labelfield</th><th>Contigs</th><th>Total length</th>);
 	if ( $options->{'contig_analysis'} ) {
 		$buffer .=
-		    q(<th>Min</th>)
-		  . q(<th>Max</th><th>Mean</th><th>&sigma;</th><th>N50 contig number</th><th>N50 contig length (L50)</th>)
-		  . q(<th>N90 contig number</th><th>N90 contig length (L90)</th><th>N95 contig number</th>)
-		  . q(<th>N95 contig length (L95)</th>);
+		    q(<th>Min</th><th>Max</th><th>Mean</th><th>&sigma;</th><th>N50</th><th>L50</th>)
+		  . q(<th>N90</th><th>L90</th><th>N95</th><th>L95</th>);
 	}
 	$buffer .= $gc;
 	if ( $options->{'loci_selected'} ) {
@@ -427,10 +425,7 @@ sub _get_text_table_header {
 	my $gc         = $options->{'gc'} ? "%GC\t" : '';
 	my $header     = qq(Isolate id\t$labelfield\tContigs\tTotal length);
 	if ( $options->{'contig_analysis'} ) {
-		$header .=
-		    qq(\tMin\tMax\tMean\tStdDev\tN50 contig number\t)
-		  . qq(N50 contig length (L50)\tN90 contig number\tN90 contig length (L90)\tN95 contig number\t)
-		  . q(N95 contig length (L95));
+		$header .= qq(\tMin\tMax\tMean\tStdDev\tN50\tL50\tN90\tL90\tN95\tL95);
 	}
 	$header .= qq(\t${gc});
 	if ( $options->{'loci_selected'} ) {

@@ -1652,27 +1652,15 @@ sub _get_seqbin_link {
 		push @$list, { title => 'contigs', data => $commify{'contigs'} };
 
 		if ( $seqbin_stats->{'contigs'} > 1 ) {
-			my $lengths =
-			  $self->{'datastore'}->run_query(
-				'SELECT length(sequence) FROM sequence_bin WHERE isolate_id=? ORDER BY length(sequence) DESC',
-				$isolate_id, { fetch => 'col_arrayref' } );
 			my $n_stats = BIGSdb::Utils::get_N_stats( $seqbin_stats->{'total_length'}, $seqbin_stats->{'lengths'} );
 			push @$list, { title => 'total length', data => "$commify{'total_length'} bp" };
 			push @$list, { title => 'max length',   data => "$commify{'max_length'} bp" };
 			push @$list, { title => 'mean length',  data => "$commify{'mean_length'} bp" };
-			my %stats_labels = (
-				N50 => 'N50 contig number',
-				L50 => 'N50 length (L50)',
-				N90 => 'N90 contig number',
-				L90 => 'N90 length (L90)',
-				N95 => 'N95 contig number',
-				L95 => 'N95 length (L95)',
-			);
 			foreach my $stat (qw(N50 L50 N90 L90 N95 L95)) {
 				my $value = BIGSdb::Utils::commify( $n_stats->{$stat} );
 				push @$list,
 				  {
-					title => $stats_labels{$stat},
+					title => $stat,
 					data  => BIGSdb::Utils::commify( $n_stats->{$stat} )
 				  };
 			}

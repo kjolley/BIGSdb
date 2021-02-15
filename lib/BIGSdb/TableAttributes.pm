@@ -1208,7 +1208,8 @@ sub get_schemes_table_attributes {
 		{ name => 'description', type => 'text', hide => 1, length => 1000 }
 	];
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		push @$attributes, (
+		push @$attributes,
+		  (
 			{
 				name        => 'dbase_name',
 				type        => 'text',
@@ -1328,7 +1329,7 @@ sub get_schemes_table_attributes {
 				  . 'must have alleles designated below which the annotation is to be considered bad. If left blank '
 				  . 'then the quality_metric_good threshold will be used.'
 			}
-		);
+		  );
 		if ( $self->{'system'}->{'views'} ) {
 			my @views = split /,/x, $self->{'system'}->{'views'};
 			local $" = q(;);
@@ -1343,8 +1344,7 @@ sub get_schemes_table_attributes {
 			  );
 		}
 	}
-	push @$attributes,
-	  (
+	push @$attributes, (
 		{
 			name        => 'display_order',
 			type        => 'int',
@@ -1355,10 +1355,11 @@ sub get_schemes_table_attributes {
 			name        => 'allow_missing_loci',
 			type        => 'bool',
 			hide_public => 1,
+			required    => $self->{'system'}->{'dbtype'} eq 'isolates' ? 1 : 0,
 			comments    => q(This is only relevant to schemes with primary key fields, e.g. MLST.),
-			tooltip     => q(allow_missing_loci - Allow profiles to contain '0' (locus missing) or 'N' (any allele).)
+			tooltip => q(allow_missing_loci - Allow profiles to contain '0' (locus missing) or 'N' (any allele).)
 		}
-	  );
+	);
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		push @$attributes,
 		  (
