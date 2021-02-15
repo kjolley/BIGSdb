@@ -328,13 +328,19 @@ ALTER TABLE sequence_bin OWNER TO apache;
 
 CREATE TABLE seqbin_stats (
 isolate_id int NOT NULL,
-contigs int NOT NULL,
-total_length int NOT NULL,
+contigs integer NOT NULL,
+total_length integer NOT NULL,
+n50 integer,
+l50 integer,
 PRIMARY KEY (isolate_id),
 CONSTRAINT ss_isolate_id FOREIGN KEY (isolate_id) REFERENCES isolates
 ON DELETE CASCADE
 ON UPDATE CASCADE
 );
+CREATE INDEX ON seqbin_stats(contigs);
+CREATE INDEX ON seqbin_stats(total_length);
+CREATE INDEX ON seqbin_stats(n50);
+CREATE INDEX ON seqbin_stats(l50);
 
 GRANT SELECT,INSERT,UPDATE,DELETE ON seqbin_stats TO apache;
 
@@ -428,6 +434,64 @@ $check_remote_contigs$ LANGUAGE plpgsql;
 CREATE TRIGGER check_remote_contigs AFTER INSERT OR DELETE OR UPDATE ON remote_contigs
 	FOR EACH ROW
 	EXECUTE PROCEDURE check_remote_contigs();
+	
+CREATE OR REPLACE FUNCTION update_n50(_isolate_id int) RETURNS VOID AS $update_n50$
+	DECLARE 
+		_lengths integer ARRAY;
+		_total integer;
+		_n integer;
+		_l integer;
+		_n50 integer;
+		_l50 integer;
+	BEGIN
+		_lengths := ARRAY(
+			SELECT GREATEST(r.length,length(s.sequence)) length FROM sequence_bin s LEFT JOIN remote_contigs r ON s.id=r.seqbin_id WHERE s.isolate_id=_isolate_id ORDER BY length desc
+		);
+		_n := 0;
+		_l := 0;
+		SELECT total_length FROM seqbin_stats WHERE isolate_id=_isolate_id INTO _total;
+		IF cardinality(_lengths) > 0 THEN
+			FOR i IN 1 .. array_upper(_lengths, 1)
+	   		LOOP
+	   			_n := _n + _lengths[i];
+	   			_l := _l + 1;
+	   			IF _n >= _total*0.5 THEN
+	   				_n50 := _lengths[i];
+	   				_l50 := _l;
+	   				EXIT;
+	   			END IF;
+	   		END LOOP;
+	   		UPDATE seqbin_stats SET (n50,l50) = (_n50,_l50) WHERE isolate_id=_isolate_id;
+--	   		RAISE NOTICE 'id-%: N50: %; L50: %', _isolate_id,_n50,_l50;
+	   	END IF;
+	END; 
+$update_n50$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION update_n50_all() RETURNS VOID AS $update_n50_all$
+	DECLARE
+		_ids integer ARRAY;
+	BEGIN
+		_ids := ARRAY(SELECT isolate_id FROM seqbin_stats ORDER BY isolate_id);
+		IF cardinality(_ids) > 0 THEN
+			FOR i IN 1 .. array_upper(_ids, 1)
+			LOOP
+				PERFORM update_n50(_ids[i]);
+			END LOOP;
+		END IF;
+	END; 
+$update_n50_all$ LANGUAGE plpgsql;	
+
+CREATE OR REPLACE FUNCTION refresh_seqbin_stats() RETURNS VOID AS $refresh_seqbin_stats$
+	BEGIN
+		RAISE NOTICE 'Updating contig counts and total lengths...';
+		DELETE FROM seqbin_stats;
+		INSERT INTO seqbin_stats (isolate_id,contigs,total_length) 
+			SELECT s.isolate_id,COUNT(s.id),SUM(length(s.sequence)) + SUM(COALESCE(r.length,0)) 
+			FROM sequence_bin s LEFT JOIN remote_contigs r ON s.id=r.seqbin_id GROUP BY 
+			s.isolate_id ORDER BY s.isolate_id;
+		PERFORM update_n50_all();
+	END;
+$refresh_seqbin_stats$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION maint_seqbin_stats() RETURNS TRIGGER AS $maint_seqbin_stats$
 	DECLARE
@@ -471,6 +535,7 @@ CREATE OR REPLACE FUNCTION maint_seqbin_stats() RETURNS TRIGGER AS $maint_seqbin
 				VALUES (delta_isolate_id,delta_contigs,delta_total_length);
 			EXIT insert_update;
 		END LOOP insert_update;
+		PERFORM update_n50(delta_isolate_id);
 	
 		RETURN NULL;
 	END;
