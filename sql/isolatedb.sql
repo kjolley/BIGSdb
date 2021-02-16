@@ -564,38 +564,6 @@ ON UPDATE CASCADE
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON oauth_credentials TO apache;
 
-CREATE TABLE experiments (
-id integer NOT NULL,
-description text NOT NULL UNIQUE,
-curator integer NOT NULL,
-datestamp date NOT NULL,
-PRIMARY KEY (id),
-CONSTRAINT e_curator FOREIGN KEY (curator) REFERENCES users
-ON DELETE NO ACTION
-ON UPDATE CASCADE
-);
-
-GRANT SELECT,UPDATE,INSERT,DELETE ON experiments TO apache;
-
-CREATE TABLE experiment_sequences (
-experiment_id integer NOT NULL,
-seqbin_id integer NOT NULL,
-curator integer NOT NULL,
-datestamp date NOT NULL,
-PRIMARY KEY (experiment_id,seqbin_id),
-CONSTRAINT es_experiment FOREIGN KEY (experiment_id) REFERENCES experiments
-ON DELETE CASCADE
-ON UPDATE CASCADE,
-CONSTRAINT es_seqbin FOREIGN KEY (seqbin_id) REFERENCES sequence_bin
-ON DELETE CASCADE
-ON UPDATE CASCADE,
-CONSTRAINT es_curator FOREIGN KEY (curator) REFERENCES users
-ON DELETE NO ACTION
-ON UPDATE CASCADE
-);
-
-GRANT SELECT,UPDATE,INSERT,DELETE ON experiment_sequences TO apache;
-
 CREATE TABLE accession (
 seqbin_id integer NOT NULL,
 databank text NOT NULL,

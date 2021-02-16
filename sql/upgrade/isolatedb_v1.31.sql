@@ -112,3 +112,7 @@ CREATE INDEX ON seqbin_stats(contigs);
 CREATE INDEX ON seqbin_stats(total_length);
 CREATE INDEX ON seqbin_stats(n50);
 CREATE INDEX ON seqbin_stats(l50);
+
+DROP TABLE experiment_sequences;
+DROP TABLE experiments;
+

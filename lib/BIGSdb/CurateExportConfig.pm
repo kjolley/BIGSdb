@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2019, University of Oxford
+#Copyright (c) 2011-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -56,7 +56,7 @@ sub print_content {
 	$self->_print_table_data( $table, $qry );
 	if (
 		any { $table eq $_ }
-		qw (user_groups projects experiments pcr probes schemes scheme_groups client_dbases validation_rules)
+		qw (user_groups projects pcr probes schemes scheme_groups client_dbases validation_rules)
 	  )
 	{
 		my $parent_query = $qry;
@@ -67,11 +67,6 @@ sub print_content {
 				$qry = 'SELECT * FROM project_members WHERE project_id IN '
 				  . "($parent_query) ORDER BY project_id,isolate_id";
 				$self->_print_table_data( 'project_members', $qry );
-			},
-			experiments => sub {
-				$qry = 'SELECT * FROM experiment_sequences WHERE experiment_id IN '
-				  . "($parent_query) ORDER BY experiment_id,seqbin_id";
-				$self->_print_table_data( 'experiment_sequences', $qry );
 			},
 			pcr => sub {
 				$qry = "SELECT * FROM pcr_locus WHERE pcr_id IN ($parent_query) ORDER BY pcr_id,locus";

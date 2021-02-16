@@ -211,7 +211,7 @@ sub get_permissions_table_attributes {
 	my @optlist = $self->{'system'}->{'dbtype'} eq 'isolates'
 	  ? qw ( query_users modify_users modify_isolates modify_projects modify_sequences tag_sequences designate_alleles
 	  modify_usergroups set_user_passwords modify_loci modify_schemes modify_composites modify_field_attributes
-	  modify_value_attributes modify_sparse_fields modify_probes modify_experiments delete_all
+	  modify_value_attributes modify_sparse_fields modify_probes delete_all
 	  import_site_users modify_site_users only_private disable_access)
 	  : qw( query_users modify_users modify_usergroups set_user_passwords modify_loci modify_locus_descriptions
 	  modify_schemes delete_all import_site_users modify_site_users disable_access );
@@ -976,34 +976,6 @@ sub get_client_dbase_loci_fields_table_attributes {
 	return $attributes;
 }
 
-sub get_experiments_table_attributes {
-	my $attributes = [
-		{ name => 'id',          type => 'int',  length   => 10, required       => 1,  primary_key => 1 },
-		{ name => 'description', type => 'text', required => 1,  length         => 48, unique      => 1 },
-		{ name => 'curator',     type => 'int',  required => 1,  dropdown_query => 1 },
-		{ name => 'datestamp',   type => 'date', required => 1 }
-	];
-	return $attributes;
-}
-
-sub get_experiment_sequences_table_attributes {
-	my $attributes = [
-		{
-			name           => 'experiment_id',
-			type           => 'int',
-			required       => 1,
-			primary_key    => 1,
-			foreign_key    => 'experiments',
-			labels         => '|$id|) |$description|',
-			dropdown_query => 1
-		},
-		{ name => 'seqbin_id', type => 'int',  required => 1, primary_key    => 1, foreign_key => 'sequence_bin' },
-		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
-		{ name => 'datestamp', type => 'date', required => 1 }
-	];
-	return $attributes;
-}
-
 sub get_client_dbase_loci_table_attributes {
 	my $attributes = [
 		{
@@ -1344,7 +1316,8 @@ sub get_schemes_table_attributes {
 			  );
 		}
 	}
-	push @$attributes, (
+	push @$attributes,
+	  (
 		{
 			name        => 'display_order',
 			type        => 'int',
@@ -1357,9 +1330,9 @@ sub get_schemes_table_attributes {
 			hide_public => 1,
 			required    => $self->{'system'}->{'dbtype'} eq 'isolates' ? 1 : 0,
 			comments    => q(This is only relevant to schemes with primary key fields, e.g. MLST.),
-			tooltip => q(allow_missing_loci - Allow profiles to contain '0' (locus missing) or 'N' (any allele).)
+			tooltip     => q(allow_missing_loci - Allow profiles to contain '0' (locus missing) or 'N' (any allele).)
 		}
-	);
+	  );
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		push @$attributes,
 		  (

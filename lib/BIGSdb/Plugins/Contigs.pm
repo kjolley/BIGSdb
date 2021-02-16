@@ -1,6 +1,6 @@
 #Contigs.pm - Contig export and analysis plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2013-2020, University of Oxford
+#Copyright (c) 2013-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -52,7 +52,7 @@ sub get_attributes {
 		menutext     => 'Contigs',
 		module       => 'Contigs',
 		url          => "$self->{'config'}->{'doclink'}/data_export/contig_export.html",
-		version      => '1.1.9',
+		version      => '1.1.10',
 		dbtype       => 'isolates',
 		section      => 'export,postquery',
 		input        => 'query',
@@ -197,7 +197,6 @@ sub _run_analysis {
 		push @attributes, qq(pc_untagged=$pc_untagged);
 		push @attributes, q(min_length=) . ( $q->param('min_length_list') // 0 );
 		push @attributes, q(seq_method=) . $q->param('seq_method_list') if $q->param('seq_method_list');
-		push @attributes, q(experiment=) . $q->param('experiment_list') if $q->param('experiment_list');
 		push @attributes, q(header=) . $q->param('header_list') // 1;
 		local $" = q(&amp;);
 		say $results->{'pc_untagged'}
@@ -259,15 +258,6 @@ sub _calculate {
 		}
 		$qry .= ' AND method=?';
 		push @criteria, $method;
-	}
-	my $experiment = $q->param('experiment_list') // $q->param('experiment');
-	if ($experiment) {
-		if ( !BIGSdb::Utils::is_int($experiment) ) {
-			$logger->error("Invalid experiment $experiment");
-			return;
-		}
-		$qry .= ' AND id IN (SELECT seqbin_id FROM experiment_sequences WHERE experiment_id=?)';
-		push @criteria, $experiment;
 	}
 	$qry .= ' ORDER BY id';
 	my $dataset = $self->{'datastore'}->run_query( $qry, \@criteria, { fetch => 'all_arrayref' } );

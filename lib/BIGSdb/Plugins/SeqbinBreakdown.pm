@@ -52,7 +52,7 @@ sub get_attributes {
 		menutext    => 'Sequence bin breakdown',
 		module      => 'SeqbinBreakdown',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/seqbin_breakdown.html",
-		version     => '1.5.4',
+		version     => '1.5.5',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -616,8 +616,8 @@ JS
 }
 
 sub _get_query_statements {
-	my ( $self, $args ) = @_;
-	my ( $method, $experiment, $contig_analysis ) = @{$args}{qw (seq_method_list experiment_list contig_analysis)};
+	my ( $self,   $args )            = @_;
+	my ( $method, $contig_analysis ) = @{$args}{qw (seq_method_list contig_analysis)};
 	my $exclusion_clause = '';
 	my $arguments        = [];
 	my $use_seqbin_table;
@@ -630,28 +630,19 @@ sub _get_query_statements {
 		push @$arguments, $method;
 		$use_seqbin_table = 1;
 	}
-	if ($experiment) {
-		if ( !BIGSdb::Utils::is_int($experiment) ) {
-			$logger->error("Invalid experiment $experiment");
-			return;
-		}
-		$exclusion_clause .= ' AND experiment_id=?';
-		push @$arguments, $experiment;
-		$use_seqbin_table = 1;
-	}
 	my $statements = {
-		contig_lengths => q[SELECT length(sequence) FROM sequence_bin LEFT JOIN experiment_sequences ]
-		  . qq[ON sequence_bin.id=seqbin_id WHERE isolate_id=?$exclusion_clause ORDER BY length(sequence) DESC],
+		contig_lengths => qq[SELECT length(sequence) FROM sequence_bin WHERE isolate_id=?$exclusion_clause ]
+		  . q[ORDER BY length(sequence) DESC],
 		gc => q[select SUM(CAST(length(regexp_replace(sequence,'[^GCgc]+','','g')) AS float))/]
-		  . q[GREATEST(SUM(length(sequence)),1) AS gc FROM sequence_bin LEFT JOIN experiment_sequences ON ]
-		  . qq[sequence_bin.id=seqbin_id WHERE isolate_id=?$exclusion_clause GROUP BY isolate_id ]
+		  . qq[GREATEST(SUM(length(sequence)),1) AS gc FROM sequence_bin WHERE isolate_id=?$exclusion_clause ]
+		  . q[GROUP BY isolate_id ]
 	};
 	if ( $contig_analysis || $use_seqbin_table ) {
 		$statements->{'contig_info'} =
 		    q[SELECT COUNT(sequence) AS contigs, SUM(length(sequence)) AS sum,MIN(length(sequence)) ]
 		  . q[AS min,MAX(length(sequence)) AS max, CEIL(AVG(length(sequence))) AS mean, ]
-		  . q[CEIL(STDDEV_SAMP(length(sequence))) AS stddev FROM sequence_bin LEFT JOIN ]
-		  . qq[experiment_sequences ON sequence_bin.id=seqbin_id WHERE isolate_id=?$exclusion_clause];
+		  . q[CEIL(STDDEV_SAMP(length(sequence))) AS stddev FROM sequence_bin WHERE ]
+		  . qq[isolate_id=?$exclusion_clause];
 	} else {
 		$statements->{'contig_info'} = q[SELECT contigs,total_length AS sum FROM seqbin_stats WHERE isolate_id=?];
 	}

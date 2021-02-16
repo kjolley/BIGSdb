@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -809,29 +809,6 @@ sub _create_extra_fields_for_seqbin {    ## no critic (ProhibitUnusedPrivateSubr
 				-disabled => 1
 			);
 		}
-	} else {
-		my $experiments =
-		  $self->{'datastore'}->run_query( 'SELECT id,description FROM experiments ORDER BY description',
-			undef, { fetch => 'all_arrayref', slice => {} } );
-		my @ids = (0);
-		my %desc;
-		$desc{0} = ' ';
-		foreach my $experiment (@$experiments) {
-			push @ids, $experiment->{'id'};
-			$desc{ $experiment->{'id'} } = $experiment->{'description'};
-		}
-		if ( @ids > 1 ) {
-			$buffer .=
-			  qq(<li><label for="experiment" class="form" style="width:${width}em">link to experiment:&nbsp;</label>\n);
-			$buffer .= $q->popup_menu(
-				-name    => 'experiment',
-				-id      => 'experiment',
-				-values  => \@ids,
-				-default => $newdata_ref->{'experiment'},
-				-labels  => \%desc
-			);
-			$buffer .= "</li>\n";
-		}
 	}
 	my $seq_attributes =
 	  $self->{'datastore'}->run_query( 'SELECT key,type,description FROM sequence_attributes ORDER BY key',
@@ -1518,7 +1495,6 @@ sub get_form_icon {
 		users              => 'fa-user',
 		user_groups        => 'fa-users',
 		user_group_members => 'fa-users',
-		experiments        => 'fa-flask',
 		sequences          => 'fa-dna',
 		sequence_bin       => 'fa-dna',
 		allele_sequences   => ( $highlight eq 'scan' ? 'fa-dna' : 'fa-tag' )

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -842,15 +842,6 @@ sub _check_sequence_bin {    ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 	$newdata->{'sequence'} =~ s/[\W]//gx;
 	push @$problems, 'Sequence data invalid.' if !length $newdata->{'sequence'};
 	my $q = $self->{'cgi'};
-	if ( $q->param('experiment') ) {
-		my $experiment = $q->param('experiment');
-		push @$extra_inserts,
-		  {
-			statement =>
-			  'INSERT INTO experiment_sequences (experiment_id,seqbin_id,curator,datestamp) VALUES (?,?,?,?)',
-			arguments => [ $experiment, $newdata->{'id'}, $newdata->{'curator'}, 'now' ]
-		  };
-	}
 	my $seq_attributes = $self->{'datastore'}->run_query( 'SELECT key,type FROM sequence_attributes ORDER BY key',
 		undef, { fetch => 'all_arrayref', slice => {} } );
 	foreach my $attribute (@$seq_attributes) {

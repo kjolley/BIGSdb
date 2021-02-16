@@ -339,7 +339,6 @@ sub _get_isolate_links {
 	$buffer .= $self->_get_allele_designations;
 	$buffer .= $self->_get_sequence_bin;
 	$buffer .= $self->_get_allele_sequences;
-	$buffer .= $self->_get_experiments;
 	return $buffer;
 }
 
@@ -879,42 +878,6 @@ sub _get_allele_sequences {
 			scan_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan),
 			info     => 'Sequence tags - Scan genomes to identify locus regions, '
 			  . 'then tag these positions and allele designations.'
-		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
-}
-
-sub _get_experiments {
-	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->can_modify_table('experiments');
-	$buffer .= q(<div class="curategroup curategroup_experiments grid-item default_hide_curator" )
-	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Experiments</h2>);
-	$buffer .= $self->_get_icon_group(
-		'experiments',
-		'flask',
-		{
-			add       => 1,
-			batch_add => 1,
-			query     => 1,
-			info      => 'Experiments - Set up experiments to group contigs in the sequence bin.'
-		}
-	);
-	$buffer .= qq(</div>\n);
-	my $experiments = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM experiments)');
-	return $buffer if !$experiments;
-	$buffer .= q(<div class="curategroup curategroup_experiments grid-item default_hide_curator" )
-	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Experiment contigs</h2>);
-	$buffer .= $self->_get_icon_group(
-		'experiment_sequences',
-		'object-group',
-		{
-			fa_class  => 'far',
-			add       => 1,
-			batch_add => 1,
-			query     => 1,
-			info      => 'Experiment contigs - Group contigs by experiment.'
 		}
 	);
 	$buffer .= qq(</div>\n);

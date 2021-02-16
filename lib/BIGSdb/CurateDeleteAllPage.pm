@@ -139,7 +139,6 @@ sub _delete {
 	my $q          = $self->{'cgi'};
 	$delete_qry =~ s/ORDER\ BY.*//x;
 	my %subs = (
-		sequence_bin     => sub { $self->_sub_sequence_bin( \$delete_qry ) },
 		allele_sequences => sub { $self->_sub_allele_sequences( \$delete_qry ) }
 	);
 	if ( $subs{$table} ) {
@@ -347,15 +346,6 @@ sub _refresh_db_views {
 			$self->remove_profile_data($_);
 		}
 		return;
-	}
-	return;
-}
-
-sub _sub_sequence_bin {
-	my ( $self, $qry ) = @_;
-	if ( $$qry =~ /JOIN experiment_sequences/ ) {
-		$$qry = "DELETE FROM sequence_bin WHERE id IN ($$qry)";
-		$$qry =~ s/SELECT\ \*/SELECT id/x;
 	}
 	return;
 }

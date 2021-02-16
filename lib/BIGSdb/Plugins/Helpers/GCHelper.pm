@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2020, University of Oxford
+#Copyright (c) 2017-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -289,8 +289,7 @@ sub _create_isolate_FASTA_db {
 sub _create_isolate_FASTA {
 	my ( $self, $isolate_id, $prefix ) = @_;
 	my $seqbin = $self->{'seqbin_table'} // 'sequence_bin';
-	my $qry = "SELECT DISTINCT id FROM $seqbin s LEFT JOIN experiment_sequences e ON "
-	  . 's.id=e.seqbin_id WHERE s.isolate_id=?';
+	my $qry = "SELECT DISTINCT id FROM $seqbin s WHERE s.isolate_id=?";
 	my @criteria = ($isolate_id);
 	my $method   = $self->{'params'}->{'seq_method_list'};
 	if ($method) {
@@ -301,15 +300,6 @@ sub _create_isolate_FASTA {
 		}
 		$qry .= ' AND method=?';
 		push @criteria, $method;
-	}
-	my $experiment = $self->{'params'}->{'experiment_list'};
-	if ($experiment) {
-		if ( !BIGSdb::Utils::is_int($experiment) ) {
-			$self->{'logger'}->error("Invalid experiment $experiment");
-			return;
-		}
-		$qry .= ' AND experiment_id=?';
-		push @criteria, $experiment;
 	}
 	my $seqbin_ids =
 	  $self->{'datastore'}

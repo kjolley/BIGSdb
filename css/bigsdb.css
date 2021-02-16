@@ -1,4 +1,4 @@
-/*Version: 20201215*/
+/*Version: 20210216*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -1270,10 +1270,6 @@ div.curategroup_projects {
 
 div.curategroup_designations {
 	background-image: linear-gradient(#fff, #edd)
-}
-
-div.curategroup_experiments {
-	background-image: linear-gradient(#fff, #dee)
 }
 
 div.curategroup_permissions {

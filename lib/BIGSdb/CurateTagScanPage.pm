@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -272,8 +272,6 @@ sub _print_interface {
 	my $buffer = $self->get_sequence_method_filter( { class => 'parameter' } );
 	say qq(<li>$buffer</li>) if $buffer;
 	$buffer = $self->get_project_filter( { class => 'parameter' } );
-	say qq(<li>$buffer</li>) if $buffer;
-	$buffer = $self->get_experiment_filter( { class => 'parameter' } );
 	say qq(<li>$buffer</li>) if $buffer;
 	say q(</ul></fieldset>);
 	say q(</div>);

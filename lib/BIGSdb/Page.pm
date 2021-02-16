@@ -620,7 +620,7 @@ sub _get_meta_data {
 sub _get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20201215';
+	my $version = '20210216';
 	my @filenames;
 	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
 	push @filenames, q(c3.css)                                                if $self->{'c3'};
@@ -1607,34 +1607,6 @@ sub get_project_filter {
 	return '';
 }
 
-sub get_experiment_filter {
-	my ( $self, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
-	my $experiment_list =
-	  $self->{'datastore'}->run_query( 'SELECT id,description FROM experiments ORDER BY description',
-		undef, { fetch => 'all_arrayref', slice => {} } );
-	my @experiments;
-	my %labels;
-	foreach my $experiment (@$experiment_list) {
-		push @experiments, $experiment->{'id'};
-		$labels{ $experiment->{'id'} } = $experiment->{'description'};
-	}
-	if (@experiments) {
-		my $class = $options->{'class'} || 'filter';
-		return $self->get_filter(
-			'experiment',
-			\@experiments,
-			{
-				'labels'  => \%labels,
-				'text'    => 'Experiment',
-				'tooltip' => 'experiments filter - Only include sequences that have been linked '
-				  . 'to the specified experiment.',
-				'class' => $class
-			}
-		);
-	}
-}
-
 sub get_sequence_method_filter {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
@@ -1895,8 +1867,6 @@ sub get_record_name {
 		profile_refs                      => 'Pubmed link',
 		scheme_curators                   => 'scheme curator access record',
 		locus_curators                    => 'locus curator access record',
-		experiments                       => 'experiment',
-		experiment_sequences              => 'experiment sequence link',
 		isolate_field_extended_attributes => 'isolate field extended attribute',
 		isolate_value_extended_attributes => 'isolate field extended attribute value',
 		locus_descriptions                => 'locus description',
@@ -2223,8 +2193,6 @@ sub can_modify_table {
 		my $user_info = $self->{'datastore'}->get_user_info( $self->get_curator_id );
 		$isolate_permissions{'retired_isolates'} = $self->{'permissions'}->{'modify_isolates'}
 		  if $user_info->{'status'} eq 'curator';
-		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_experiments'}
-		  foreach qw(experiments experiment_sequences);
 		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_composites'}
 		  foreach qw(composite_fields composite_field_values);
 		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_projects'} foreach qw(projects project_members);

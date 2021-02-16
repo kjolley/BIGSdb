@@ -1,6 +1,6 @@
 #BLAST.pm - BLAST plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -115,7 +115,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.5.0',
+		version     => '1.5.1',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -714,8 +714,6 @@ sub _print_interface {
 	say qq(<li>$buffer</li>) if $buffer;
 	$buffer = $self->get_project_filter( { 'class' => 'parameter' } );
 	say qq(<li>$buffer</li>) if $buffer;
-	$buffer = $self->get_experiment_filter( { 'class' => 'parameter' } );
-	say qq(<li>$buffer</li>) if $buffer;
 	say q(</ul></fieldset>);
 	$self->print_action_fieldset( { name => 'BLAST' } );
 	say $q->hidden($_) foreach qw (db page name);
@@ -750,8 +748,7 @@ sub _blast {
 
 	#create isolate FASTA database
 	my $qry =
-	    'SELECT DISTINCT s.id FROM sequence_bin s LEFT JOIN experiment_sequences e ON '
-	  . 's.id=e.seqbin_id LEFT JOIN project_members p ON s.isolate_id = p.isolate_id '
+	  'SELECT DISTINCT s.id FROM sequence_bin s LEFT JOIN project_members p ON s.isolate_id = p.isolate_id '
 	  . 'WHERE s.isolate_id=?';
 	my @criteria = ($isolate_id);
 	my $method   = $form_params->{'seq_method_list'};
@@ -771,15 +768,6 @@ sub _blast {
 		}
 		$qry .= ' AND project_id=?';
 		push @criteria, $project;
-	}
-	my $experiment = $form_params->{'experiment_list'};
-	if ($experiment) {
-		if ( !BIGSdb::Utils::is_int($experiment) ) {
-			$logger->error("Invalid experiment $experiment");
-			return [];
-		}
-		$qry .= ' AND experiment_id=?';
-		push @criteria, $experiment;
 	}
 	my $seqbin_ids =
 	  $self->{'datastore'}->run_query( $qry, \@criteria, { fetch => 'col_arrayref', cache => 'BLAST::blast' } );

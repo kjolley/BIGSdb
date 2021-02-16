@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -155,10 +155,6 @@ sub _get_select_items {
 	}
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my ( @select_items, @order_by );
-	if ( $table eq 'experiment_sequences' ) {
-		push @select_items, 'isolate_id';
-		push @select_items, $self->{'system'}->{'labelfield'};
-	}
 	my %labels;
 	foreach my $att (@$attributes) {
 		next if $att->{'hide_query'};
@@ -309,7 +305,6 @@ sub _print_interface {
 		schemes             => sub { return $self->get_scheme_filter },
 		isolate_aliases     => sub { return $self->get_project_filter },
 		sequences           => sub { return $self->_get_sequence_filters },
-		sequence_bin        => sub { return $self->_get_sequence_bin_filter },
 		locus_descriptions  => sub { return $self->_get_locus_description_filter },
 		allele_sequences    => sub { return $self->_get_allele_sequences_filters }
 	};
@@ -345,24 +340,6 @@ sub _get_sequence_filters {
 	}
 	push @$filters, $self->get_scheme_filter;
 	return $filters;
-}
-
-sub _get_sequence_bin_filter {
-	my ($self) = @_;
-	my %labels;
-	my @experiments;
-	my $qry = 'SELECT id,description FROM experiments ORDER BY description';
-	my $sql = $self->{'db'}->prepare($qry);
-	eval { $sql->execute };
-	$logger->error($@) if $@;
-	while ( my @data = $sql->fetchrow_array ) {
-		push @experiments, $data[0];
-		$labels{ $data[0] } = $data[1];
-	}
-	if (@experiments) {
-		return $self->get_filter( 'experiment', \@experiments, { labels => \%labels } );
-	}
-	return;
 }
 
 sub _get_locus_description_filter {
@@ -515,7 +492,6 @@ sub _run_query {
 		$self->_modify_schemes_for_sets( $table, \$qry );
 		$self->_filter_query_by_scheme( $table, \$qry );
 		$self->_filter_query_by_project( $table, \$qry );
-		$self->_filter_query_by_experiment( $table, \$qry );
 		$self->_filter_query_by_common_name( $table, \$qry );
 		$self->_filter_query_by_sequence_filters( $table, \$qry );
 		$self->_filter_query_by_allele_definition_filters( $table, \$qry );
@@ -630,24 +606,6 @@ sub _filter_query_by_project {
 		$$qry_ref .= " AND ($sub_qry)";
 	} else {
 		$$qry_ref = "($sub_qry)";
-	}
-	return;
-}
-
-sub _filter_query_by_experiment {
-	my ( $self, $table, $qry_ref ) = @_;
-	my $q = $self->{'cgi'};
-	return if ( $q->param('experiment_list') // q() ) eq q();
-	return if $table ne 'sequence_bin';
-	my $experiment = $q->param('experiment_list');
-	if ( BIGSdb::Utils::is_int($experiment) ) {
-		my $sub_qry = 'sequence_bin.id IN (SELECT id FROM sequence_bin JOIN experiment_sequences ON sequence_bin.id = '
-		  . "experiment_sequences.seqbin_id WHERE experiment_id = $experiment)";
-		if ($$qry_ref) {
-			$$qry_ref .= " AND ($sub_qry)";
-		} else {
-			$$qry_ref = "($sub_qry)";
-		}
 	}
 	return;
 }
@@ -829,16 +787,15 @@ sub _check_invalid_fieldname {
 	my $additional = {
 		sequences => [ qw(sequence_length), @sender_fields ],
 		sequence_bin => [ @$extended, @sender_fields, $self->{'system'}->{'labelfield'} ],
-		allele_designations  => [ @sender_fields,                    $self->{'system'}->{'labelfield'} ],
-		allele_sequences     => [ $self->{'system'}->{'labelfield'} ],
-		project_members      => [ $self->{'system'}->{'labelfield'} ],
-		history              => [ $self->{'system'}->{'labelfield'} ],
-		isolate_aliases      => [ $self->{'system'}->{'labelfield'} ],
-		refs                 => [ $self->{'system'}->{'labelfield'} ],
-		experiment_sequences => [ 'isolate_id',                      $self->{'system'}->{'labelfield'} ],
-		user_group_members   => [@user_fields],
-		profile_history      => ['timestamp (date)'],
-		history              => [ $self->{'system'}->{'labelfield'}, 'timestamp (date)' ]
+		allele_designations => [ @sender_fields,                    $self->{'system'}->{'labelfield'} ],
+		allele_sequences    => [ $self->{'system'}->{'labelfield'} ],
+		project_members     => [ $self->{'system'}->{'labelfield'} ],
+		history             => [ $self->{'system'}->{'labelfield'} ],
+		isolate_aliases     => [ $self->{'system'}->{'labelfield'} ],
+		refs                => [ $self->{'system'}->{'labelfield'} ],
+		user_group_members  => [@user_fields],
+		profile_history     => ['timestamp (date)'],
+		history             => [ $self->{'system'}->{'labelfield'}, 'timestamp (date)' ]
 	};
 	if ( $additional->{$table} ) {
 		foreach my $field ( @{ $additional->{$table} } ) {
@@ -895,7 +852,6 @@ sub _generate_query {
 			thisfield => $thisfield,
 			qry_ref   => \$qry
 		};
-		next if $self->_modify_query_search_by_isolate_id($args);
 		next if $self->_modify_query_extended_attributes($args);
 		next if $self->_modify_query_search_by_isolate($args);
 		next if $self->_modify_query_search_by_users($args);
@@ -974,33 +930,6 @@ sub _modify_query_standard_field {
 	return;
 }
 
-sub _modify_query_search_by_isolate_id {
-	my ( $self, $args ) = @_;
-	my ( $table, $field, $text, $modifier, $operator, $qry_ref ) =
-	  @{$args}{qw(table field text modifier operator qry_ref)};
-	my %table_without_isolate_id = map { $_ => 1 } qw (experiment_sequences);
-	if ( $table_without_isolate_id{$table} && $field eq 'isolate_id' ) {
-		$$qry_ref .= $modifier;
-		$$qry_ref .= "$table.seqbin_id IN (SELECT sequence_bin.id FROM sequence_bin LEFT JOIN "
-		  . "$self->{'system'}->{'view'} ON isolate_id = $self->{'system'}->{'view'}.id WHERE ";
-		my %terms = (
-			'NOT'         => "NOT $self->{'system'}->{'view'}.id = $text",
-			'contains'    => "CAST($self->{'system'}->{'view'}.id AS text) LIKE '\%$text\%'",
-			'starts with' => "CAST($self->{'system'}->{'view'}.id AS text) LIKE '$text\%'",
-			'ends with'   => "CAST($self->{'system'}->{'view'}.id AS text) LIKE '\%$text'",
-			'NOT contain' => "NOT CAST($self->{'system'}->{'view'}.id AS text) LIKE '\%$text\%'"
-		);
-		if ( $terms{$operator} ) {
-			$$qry_ref .= $terms{$operator};
-		} else {
-			$$qry_ref .= "$self->{'system'}->{'view'}.id $operator $text";
-		}
-		$$qry_ref .= ')';
-		return 1;
-	}
-	return;
-}
-
 sub _modify_query_extended_attributes {
 	my ( $self, $args ) = @_;
 	my ( $table, $field, $text, $modifier, $operator, $thisfield, $qry_ref ) =
@@ -1044,20 +973,13 @@ sub _modify_query_search_by_isolate {
 	my ( $table, $field, $text, $modifier, $operator, $qry_ref ) =
 	  @{$args}{qw(table field text modifier operator qry_ref)};
 	my %table_linked_to_isolate = map { $_ => 1 }
-	  qw (allele_sequences allele_designations experiment_sequences sequence_bin
-	  project_members isolate_aliases history refs);
+	  qw (allele_sequences allele_designations sequence_bin project_members isolate_aliases history refs);
 	return if !$table_linked_to_isolate{$table};
 	return if $field ne $self->{'system'}->{'labelfield'};
 	$$qry_ref .= $modifier;
+	
+	$$qry_ref .= "$table.isolate_id IN (SELECT id FROM $self->{'system'}->{'view'} WHERE ";
 	my $att = $self->{'xmlHandler'}->get_field_attributes( $self->{'system'}->{'labelfield'} );
-
-	if ( $table eq 'experiment_sequences' ) {
-		$$qry_ref .=
-		    "$table.seqbin_id IN (SELECT sequence_bin.id FROM sequence_bin LEFT JOIN $self->{'system'}->{'view'} ON "
-		  . "isolate_id = $self->{'system'}->{'view'}.id WHERE ";
-	} else {
-		$$qry_ref .= "$table.isolate_id IN (SELECT id FROM $self->{'system'}->{'view'} WHERE ";
-	}
 	my %methods = (
 		NOT => sub {
 			if ( $text eq '<blank>' || lc($text) eq 'null' ) {
@@ -1260,7 +1182,7 @@ sub _modify_isolates_for_view {
 
 sub _modify_seqbin_for_view {
 	my ( $self, $table, $qry_ref ) = @_;
-	return if none { $table eq $_ } qw(allele_sequences experiment_sequences);
+	return if none { $table eq $_ } qw(allele_sequences);
 	my $view = $self->{'system'}->{'view'};
 	if ( $view ne 'isolates' ) {
 		$$qry_ref .= q[ AND] if $$qry_ref;

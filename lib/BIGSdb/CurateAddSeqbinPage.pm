@@ -242,26 +242,6 @@ sub _print_interface {
 	say $self->get_tooltip( q(Homopolymers - These are sequences such as 'NNNNNNNNNNNNN' or 'GGGGGGGGGGGGG' )
 		  . q(that seem to be produced by some assemblers. There is no benefit to including these in the database.) );
 	say q(</li>);
-	my @experiments = ('');
-	my $exp_data =
-	  $self->{'datastore'}
-	  ->run_query( 'SELECT id,description FROM experiments ORDER BY description', undef, { fetch => 'all_arrayref' } );
-	my $exp_labels = { '' => ' ' };
-
-	foreach my $data (@$exp_data) {
-		push @experiments, $data->[0];
-		$exp_labels->{ $data->[0] } = $data->[1];
-	}
-	if ( @experiments > 1 ) {
-		say q(<li><label for="experiment" class="parameter">Link to experiment: </label>);
-		say $q->popup_menu(
-			-name   => 'experiment',
-			-id     => 'experiment',
-			-values => \@experiments,
-			-labels => $exp_labels
-		);
-		say q(</li>);
-	}
 	say q(</ul></fieldset>);
 	say qq(<fieldset style="float:left">\n<legend>Alternatively upload FASTA file</legend>);
 	say q(Select FASTA file: );
@@ -446,8 +426,7 @@ sub _check_records {
 		$self->print_action_fieldset( { no_reset => 1, submit_label => 'Upload' } );
 		my $filename = $self->make_temp_file(@$checked_buffer);
 		$q->param( 'checked_buffer', $filename );
-		say $q->hidden($_)
-		  foreach qw (db page checked_buffer isolate_id sender method run_id assembly_id comments experiment);
+		say $q->hidden($_) foreach qw (db page checked_buffer isolate_id sender method run_id assembly_id comments);
 		say $q->hidden( $_->{'key'} ) foreach (@$seq_attributes);
 		say $q->end_form;
 	} else {
@@ -506,17 +485,14 @@ sub _upload {
 	}
 	my $qry = 'INSERT INTO sequence_bin (isolate_id,sequence,method,run_id,assembly_id,original_designation,'
 	  . 'comments,sender,curator,date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?,?,?,?)';
-	my $sql = $self->{'db'}->prepare($qry);
-	$qry = 'INSERT INTO experiment_sequences (experiment_id,seqbin_id,curator,datestamp) VALUES (?,?,?,?)';
-	my $sql_experiment = $self->{'db'}->prepare($qry);
-	my $experiment     = BIGSdb::Utils::is_int( scalar $q->param('experiment') ) ? $q->param('experiment') : undef;
-	my $curator        = $self->get_curator_id;
-	my $sender         = $q->param('sender');
+	my $sql     = $self->{'db'}->prepare($qry);
+	my $curator = $self->get_curator_id;
+	my $sender  = $q->param('sender');
 	my $seq_attributes = $self->{'datastore'}->run_query( 'SELECT key,type FROM sequence_attributes ORDER BY key',
 		undef, { fetch => 'all_arrayref', slice => {} } );
 	my @attribute_sql;
-
 	if (@$seq_attributes) {
+
 		foreach my $attribute (@$seq_attributes) {
 			if ( $q->param( $attribute->{'key'} ) ) {
 				( my $value = $q->param( $attribute->{'key'} ) ) =~ s/'/\\'/gx;
@@ -548,7 +524,6 @@ sub _upload {
 			);
 			$sql->execute(@values);
 			my $id = $self->{'db'}->last_insert_id( undef, undef, 'sequence_bin', 'id' );
-			$sql_experiment->execute( $experiment, $id, $curator, 'now' ) if $experiment;
 			$_->execute($id) foreach @attribute_sql;
 		}
 	};

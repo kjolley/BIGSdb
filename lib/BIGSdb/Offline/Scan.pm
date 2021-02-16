@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -431,14 +431,9 @@ sub _create_fasta_index {
 sub _create_query_fasta_file {
 	my ( $self, $isolate_id, $temp_infile, $params ) = @_;
 	return if -e $temp_infile;
-	my $experiment      = $params->{'experiment_list'};
-	my $distinct_clause = $experiment ? ' DISTINCT' : '';
 	my $seqbin          = $self->{'seqbin_table'} // 'sequence_bin';
-	my $qry             = "SELECT$distinct_clause s.id,sequence FROM $seqbin s ";
-	$qry .= 'LEFT JOIN experiment_sequences e ON s.id=e.seqbin_id ' if $experiment;
-	$qry .= 'WHERE s.isolate_id=? AND NOT remote_contig';
-	my $remote_qry = "SELECT$distinct_clause s.id,r.uri,r.length,r.checksum FROM $seqbin s ";
-	$remote_qry .= 'LEFT JOIN experiment_sequences e ON s.id=e.seqbin_id ' if $experiment;
+	my $qry             = "SELECT s.id,sequence FROM $seqbin s WHERE s.isolate_id=? AND NOT remote_contig";
+	my $remote_qry = "SELECT s.id,r.uri,r.length,r.checksum FROM $seqbin s ";
 	$remote_qry .= 'LEFT JOIN remote_contigs r ON s.id=r.seqbin_id WHERE s.isolate_id=? AND remote_contig';
 	my @criteria = ($isolate_id);
 	my $method   = $params->{'seq_method_list'};
@@ -451,14 +446,6 @@ sub _create_query_fasta_file {
 		}
 		$modifier .= ' AND method=?';
 		push @criteria, $method;
-	}
-	if ($experiment) {
-		if ( !BIGSdb::Utils::is_int($experiment) ) {
-			$logger->error("Invalid experiment $experiment");
-			return;
-		}
-		$modifier .= ' AND experiment_id=?';
-		push @criteria, $experiment;
 	}
 	$qry        .= $modifier;
 	$remote_qry .= $modifier;

@@ -2409,7 +2409,7 @@ sub get_tables {
 		@tables =
 		  qw(users user_groups user_group_members allele_sequences sequence_bin accession refs allele_designations
 		  loci locus_aliases schemes scheme_members scheme_fields composite_fields composite_field_values
-		  isolate_aliases permissions projects project_members experiments experiment_sequences
+		  isolate_aliases permissions projects project_members  
 		  isolate_field_extended_attributes isolate_value_extended_attributes scheme_groups scheme_group_scheme_members
 		  scheme_group_group_members pcr pcr_locus probes probe_locus sets set_loci set_schemes set_view
 		  isolates history sequence_attributes classification_schemes classification_group_fields
@@ -2437,7 +2437,7 @@ sub get_tables_with_curator {
 		@tables =
 		  qw(users user_groups user_group_members allele_sequences sequence_bin refs allele_designations loci schemes
 		  scheme_members locus_aliases scheme_fields composite_fields composite_field_values isolate_aliases
-		  projects project_members experiments experiment_sequences isolate_field_extended_attributes
+		  projects project_members isolate_field_extended_attributes
 		  isolate_value_extended_attributes scheme_groups scheme_group_scheme_members scheme_group_group_members
 		  pcr pcr_locus probes probe_locus accession sequence_flags sequence_attributes history classification_schemes
 		  isolates eav_fields validation_rules validation_conditions validation_rule_conditions);

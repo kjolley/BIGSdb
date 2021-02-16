@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -314,7 +314,6 @@ sub _print_curate_headerbar_functions {
 	}
 	if ( $self->can_modify_table($table) ) {
 		$self->_print_delete_all_function($table);
-		$self->_print_link_seq_to_experiment_function if $table eq 'sequence_bin';
 		$self->_print_export_configuration_function($table);
 		if (   ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes'
 			&& $table eq 'sequences'
@@ -493,29 +492,13 @@ sub _print_delete_all_function {
 	return;
 }
 
-sub _print_link_seq_to_experiment_function {
-	my ($self)            = @_;
-	my $q                 = $self->{'cgi'};
-	my $experiments_exist = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM experiments)');
-	if ($experiments_exist) {
-		say q(<fieldset><legend>Experiments</legend>);
-		say $q->start_form;
-		$q->param( page => 'linkToExperiment' );
-		say $q->hidden($_) foreach qw (db page query_file list_file datatype);
-		say $q->submit( -name => 'Link to experiment', -class => 'small_submit' );
-		say $q->end_form;
-		say q(</fieldset>);
-	}
-	return;
-}
-
 sub _print_export_configuration_function {
 	my ( $self, $table ) = @_;
 	my $q = $self->{'cgi'};
 	if (
 		any { $table eq $_ }
 		qw (schemes users user_groups user_group_members permissions projects project_members
-		isolate_aliases accession experiments experiment_sequences allele_sequences loci locus_aliases
+		isolate_aliases accession allele_sequences loci locus_aliases
 		pcr probes isolate_field_extended_attributes isolate_value_extended_attributes scheme_fields
 		scheme_members scheme_groups scheme_group_scheme_members scheme_group_group_members locus_descriptions
 		scheme_curators locus_curators sequences sequence_refs profile_refs locus_extended_attributes
@@ -1371,7 +1354,6 @@ sub _get_record_table_info {
 		}
 		if ( !$attr->{'hide_query'} ) {
 			push @headers, $cleaned;
-			push @headers, 'isolate id' if $table eq 'experiment_sequences' && $attr->{'name'} eq 'experiment_id';
 			push @headers, 'sequence length'
 			  if $q->param('page') eq 'tableQuery' && $table eq 'sequences' && $attr->{'name'} eq 'sequence';
 			push @headers, 'sequence length' if $q->param('page') eq 'alleleQuery' && $attr->{'name'} eq 'sequence';
@@ -1694,10 +1676,6 @@ sub _print_record_field {
 		  ->get_citation_hash( [ $data->{'pubmed_id'} ], { formatted => 1, no_title => 1, link_pubmed => 1 } );
 		print qq(<td>$citation->{$data->{ 'pubmed_id'}}</td>);
 		return;
-	}
-	if ( ( $table eq 'experiment_sequences' ) && $field eq 'seqbin_id' ) {
-		my ( $isolate_id, $isolate ) = $self->get_isolate_id_and_name_from_seqbin_id( $data->{'seqbin_id'} );
-		print qq[<td>$isolate_id) $isolate</td>];
 	}
 	if ( $field eq 'isolate_id' ) {
 		my $isolate_name = $self->get_isolate_name_from_id( $data->{'isolate_id'} );

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -47,7 +47,6 @@ use BIGSdb::CurateIndexPage;
 use BIGSdb::CurateIsolateAddPage;
 use BIGSdb::CurateIsolateDeletePage;
 use BIGSdb::CurateIsolateUpdatePage;
-use BIGSdb::CurateLinkToExperimentPage;
 use BIGSdb::CurateMembersPage;
 use BIGSdb::CurateNewVersionPage;
 use BIGSdb::CuratePage;
@@ -119,7 +118,6 @@ sub print_page {
 		isolateUpdate         => 'CurateIsolateUpdatePage',
 		locusInfo             => 'LocusInfoPage',
 		job                   => 'JobViewerPage',
-		linkToExperiment      => 'CurateLinkToExperimentPage',
 		listQuery             => 'ListQueryPage',
 		memberUpdate          => 'CurateMembersPage',
 		newVersion            => 'CurateNewVersionPage',

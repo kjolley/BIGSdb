@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -665,9 +665,6 @@ sub print_sequence_filter_fieldset {
 	say qq(<li>$buffer</li>) if $buffer;
 	$buffer = $self->get_project_filter( { class => 'parameter' } );
 	say qq(<li>$buffer</li>) if $buffer;
-	$buffer = $self->get_experiment_filter( { class => 'parameter' } );
-	say qq(<li>$buffer</li>) if $buffer;
-
 	if ( $options->{'min_length'} ) {
 		$buffer = $self->get_filter(
 			'min_length',
@@ -1001,13 +998,12 @@ sub print_recommended_scheme_fieldset {
 	my ($self) = @_;
 	my $schemes =
 	  $self->{'datastore'}
-	  ->run_query( 'SELECT id FROM schemes WHERE recommended ORDER BY name', undef, { fetch => 'col_arrayref' } )
-	  ;
+	  ->run_query( 'SELECT id FROM schemes WHERE recommended ORDER BY name', undef, { fetch => 'col_arrayref' } );
 	return if !@$schemes;
 	my $set_id = $self->get_set_id;
 	my $labels = {};
-	foreach my $scheme_id (@$schemes){
-		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id,{set_id=>$set_id});
+	foreach my $scheme_id (@$schemes) {
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 		$labels->{$scheme_id} = $scheme_info->{'name'};
 	}
 	say q(<fieldset id="recommended_scheme_fieldset" style="float:left"><legend>Recommended schemes</legend>);
