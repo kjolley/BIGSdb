@@ -67,6 +67,7 @@ use BIGSdb::LocusInfoPage;
 use BIGSdb::JobViewerPage;
 use BIGSdb::PluginSummaryPage;
 use BIGSdb::RefreshSchemeCachePage;
+use BIGSdb::SchemeInfoPage;
 use BIGSdb::Offline::UpdateSchemeCaches;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -135,6 +136,7 @@ sub print_page {
 		query                 => $query_page,
 		refreshCache          => 'RefreshSchemeCachePage',
 		renumber              => 'CurateRenumber',
+		schemeInfo            => 'SchemeInfoPage',
 		seqbin                => 'SeqbinPage',
 		setAlleleFlags        => 'CurateBatchSetAlleleFlagsPage',
 		setPassword           => 'ChangePasswordPage',
