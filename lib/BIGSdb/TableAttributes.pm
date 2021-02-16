@@ -1329,6 +1329,7 @@ sub get_schemes_table_attributes {
 			type        => 'bool',
 			hide_public => 1,
 			required    => $self->{'system'}->{'dbtype'} eq 'isolates' ? 1 : 0,
+			default     => 'false',
 			comments    => q(This is only relevant to schemes with primary key fields, e.g. MLST.),
 			tooltip     => q(allow_missing_loci - Allow profiles to contain '0' (locus missing) or 'N' (any allele).)
 		}

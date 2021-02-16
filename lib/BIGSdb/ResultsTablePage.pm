@@ -538,7 +538,8 @@ sub _print_modify_project_members_function {
 		'SELECT id,short_description FROM projects WHERE NOT private '
 		  . 'OR id IN (SELECT project_id FROM merged_project_users WHERE user_id=?) '
 		  . 'ORDER BY short_description',
-		$user_info->{'id'}, { fetch => 'all_arrayref', slice => {} }
+		$user_info->{'id'},
+		{ fetch => 'all_arrayref', slice => {} }
 	);
 	my ( @projects, %labels );
 	foreach my $project (@$project_data) {
@@ -1669,49 +1670,70 @@ sub _print_record_field {
 		$self->_print_fk_field_with_label($args);
 		return;
 	}
-	if ( $field eq 'pubmed_id' ) {
-		print qq(<td>$data->{'pubmed_id'}</td>);
-		my $citation =
-		  $self->{'datastore'}
-		  ->get_citation_hash( [ $data->{'pubmed_id'} ], { formatted => 1, no_title => 1, link_pubmed => 1 } );
-		print qq(<td>$citation->{$data->{ 'pubmed_id'}}</td>);
+	my $special_fields = {
+		isolate_id => sub { $self->_print_isolate_id( $data->{'isolate_id'} ) },
+		pubmed_id  => sub { $self->_print_pubmed_id( $data->{'pubmed_id'} ) },
+		timestamp  => sub { $self->_print_timestamp( $data->{'timestamp'} ) }
+	};
+	if ( $special_fields->{$field} ) {
+		$special_fields->{$field}->();
 		return;
 	}
-	if ( $field eq 'isolate_id' ) {
-		my $isolate_name = $self->get_isolate_name_from_id( $data->{'isolate_id'} );
-		print $isolate_name
-		  ? qq[<td>$data->{'isolate_id'}) $isolate_name</td>]
-		  : qq[<td>$data->{'isolate_id'}</td>];
+	my $value = $data->{ lc($field) };
+	if (
+		!$self->{'curate'}
+		&& ( ( $field eq 'locus' && $table ne 'set_loci' ) || ( $table eq 'loci' && $field eq 'id' ) )
+	  )
+	{
+		$value = $self->clean_locus($value);
 	} else {
-		my $value = $data->{ lc($field) };
-		if ( !$self->{'curate'}
-			&& ( ( $field eq 'locus' && $table ne 'set_loci' ) || ( $table eq 'loci' && $field eq 'id' ) ) )
-		{
-			$value = $self->clean_locus($value);
-		} else {
-			$value =~ s/&/&amp;/gx;
-			if ( $table !~ /history/x ) {
-				$value =~ s/>/&gt;/gx;
-				$value =~ s/</&lt;/gx;
-			}
-		}
-		if ( $field eq 'action' ) {
-			print qq(<td style="text-align:left">$value</td>);
-		} else {
-			if ( length( $data->{ lc($field) } ) > 500 ) {
-				$self->{'cache'}->{'div_id'}++;
-				my $div = qq($self->{'cache'}->{'div_id'}_$field);
-				say q(<td>);
-				say qq(<div id="$div" style="overflow:hidden" class="expandable_retracted">);
-				say $value;
-				say q(</div>);
-				say qq(<div class="expand_link" id="expand_$div"><span class="fas fa-chevron-down"></span></div>);
-				say q(</td>);
-			} else {
-				print qq(<td>$value</td>);
-			}
+		$value =~ s/&/&amp;/gx;
+		if ( $table !~ /history/x ) {
+			$value =~ s/>/&gt;/gx;
+			$value =~ s/</&lt;/gx;
 		}
 	}
+	if ( $field eq 'action' ) {
+		print qq(<td style="text-align:left">$value</td>);
+	} else {
+		if ( length( $data->{ lc($field) } ) > 500 ) {
+			$self->{'cache'}->{'div_id'}++;
+			my $div = qq($self->{'cache'}->{'div_id'}_$field);
+			say q(<td>);
+			say qq(<div id="$div" style="overflow:hidden" class="expandable_retracted">);
+			say $value;
+			say q(</div>);
+			say qq(<div class="expand_link" id="expand_$div"><span class="fas fa-chevron-down"></span></div>);
+			say q(</td>);
+		} else {
+			print qq(<td>$value</td>);
+		}
+	}
+	return;
+}
+
+sub _print_isolate_id {
+	my ( $self, $isolate_id ) = @_;
+	my $isolate_name = $self->get_isolate_name_from_id($isolate_id);
+	print $isolate_name
+	  ? qq[<td>$isolate_id) $isolate_name</td>]
+	  : qq[<td>$isolate_id</td>];
+	return;
+}
+
+sub _print_pubmed_id {
+	my ( $self, $pubmed_id ) = @_;
+	print qq(<td>$pubmed_id</td>);
+	my $citation =
+	  $self->{'datastore'}->get_citation_hash( [$pubmed_id], { formatted => 1, no_title => 1, link_pubmed => 1 } );
+	print qq(<td>$citation->{$pubmed_id}</td>);
+	return;
+}
+
+sub _print_timestamp {
+	my ( $self, $timestamp ) = @_;
+	$timestamp =~ s/\..*$//x;    #Remove fractions of a second.
+	print qq(<td>$timestamp</td>);
 	return;
 }
 
