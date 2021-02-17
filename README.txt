@@ -1,3 +1,9 @@
+v1.31.0: *Batch uploading data is now performed in a separate process, with
+          progress notifications loaded by AJAX polling. This prevents browser
+          timeout when lots of genomes are uploaded together.
+         *N50 and L50 values are now stored in the seqbin_stats table and can
+          be used in isolate queries. The stats are automatically updated by
+          a database trigger whenever contigs are added to the sequence bin.
 v1.30.1: *Option to limit number of running jobs for particular plugins.
 v1.30.0: *Annotation quality metrics. Use the number of allele designations
           defined for a scheme as an indication of annotation quality.
