@@ -54,7 +54,7 @@ sub get_attributes {
 		buttontext  => 'rMLST species id',
 		menutext    => 'Species identification',
 		module      => 'RMLSTSpecies',
-		version     => '2.0.4',
+		version     => '2.1.0',
 		dbtype      => 'isolates',
 		section     => 'isolate_info,analysis,postquery',
 		input       => 'query',
@@ -302,6 +302,7 @@ sub _perform_rest_query {
 	my $id_obj;
 	my $error;
 	my $threads = $self->_get_threads;
+	$self->{'dataConnector'}->set_forks(1);
 	try {
 		$id_obj = BIGSdb::Plugins::Helpers::SpeciesIDFork->new(
 			{
@@ -330,6 +331,7 @@ sub _perform_rest_query {
 		$logger->error($error);
 	};
 	BIGSdb::Exception::Plugin->throw($error) if $error;
+	$self->{'dataConnector'}->set_forks(0);
 	my $dataset = [];
 	foreach my $id ( sort { $a <=> $b } keys %$results ) {
 		my $record_result = $results->{$id};
@@ -339,8 +341,32 @@ sub _perform_rest_query {
 		push @$values, $json_link;
 		push @$values, @{$result}{qw{rST species}};
 		push @$dataset, { data => $data, values => $values, response_code => $response->code };
+		$self->_store_result( $id, $record_result );
 	}
 	return $dataset;
+}
+
+sub _store_result {
+	my ( $self, $isolate_id, $record_result ) = @_;
+	my ( $data, $result,     $response )      = @{$record_result}{qw{data values response}};
+	return if $response->code != 200;
+	my $predictions = ref $result->{'rank'} eq 'ARRAY' ? @{ $result->{'rank'} } : 0;
+	return if !$predictions;
+	my $att  = $self->get_attributes;
+	my $json = encode_json($data);
+	eval {
+		$self->{'db'}
+		  ->do( 'DELETE FROM analysis_results WHERE (isolate_id,name)=(?,?)', undef, $isolate_id, $att->{'module'} );
+		$self->{'db'}->do( 'INSERT INTO analysis_results (name,isolate_id,results) VALUES (?,?,?)',
+			undef, $att->{'module'}, $isolate_id, $json );
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+	return;
 }
 
 sub _write_row_json_file {
