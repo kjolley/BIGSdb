@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext => 'Two Field',
 		menutext   => 'Two field breakdown',
 		module     => 'TwoFieldBreakdown',
-		version    => '1.6.1',
+		version    => '1.6.2',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/two_field_breakdown.html",
@@ -130,7 +130,7 @@ sub run {
 		my $att       = $self->get_attributes;
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 		my $params    = $q->Vars;
-		delete $params->{$_} foreach qw(field1 field2);
+		delete $params->{$_} foreach qw(field1 field2 isolate_paste_list);
 		$params->{'field1'}     = $field1;
 		$params->{'field2'}     = $field2;
 		$params->{'attribute1'} = $attribute1;
