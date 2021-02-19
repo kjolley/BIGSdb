@@ -1,0 +1,117 @@
+[% # Template file for outputting formatted rMLST analysis in the isolate information page. %]
+[% IF RMLSTSpecies %]
+<script type="text/Javascript">
+var scan_genome = 0;
+$(function () {
+	$(".rmlst_toggle").click(function(event){	
+		event.preventDefault();
+		$.ajax({
+   			contentType: 'application/json',
+			dataType: "json",
+    			url: $(this).attr("href"),
+    			success: function (data) {
+              			 var formatted = format_data(data);
+         			 $("#rmlst_matches").show();
+             			 $("#rmlst_matches_div").hide().html(formatted).slideDown("slow");
+				 $("#rmlst_hide").show();
+             			 $("#rmlst_show").hide();
+            		},
+    			error: function(data, errorThrown){
+            		       alert('request failed :'+errorThrown);
+          		}
+		});	
+		return false;
+	});
+	$("#rmlst_hide").click(function(event){	
+		event.preventDefault();
+		$("#rmlst_matches_div").slideUp("slow", function(){
+			$("#rmlst_hide").hide();
+			$("#rmlst_show").show();
+		});		
+		return false;
+	});
+});
+
+
+function format_data(data){
+	if (!('exact_matches' in data)){
+		return;
+	}
+	var loci = [];
+	console.log(data['exact_matches']);
+	var loci_matched = 0;
+	
+	for(var key in data['exact_matches']) {
+  		if(data['exact_matches'].hasOwnProperty(key)) { //to be safe
+    		loci.push(key);
+    		loci_matched++;
+ 		}
+	}
+	loci.sort();
+	var plural = loci_matched == 1 ? "us" : "i";
+	var table = '<p style="text-align:left"><b>' + loci_matched + ' loc' + plural 
+	  + ' matched (rMLST uses 53 in total)</b></p>\n'
+	  + '<div style="border:1px dashed black"><table class="ajaxtable" style="width:100%"><tr><th>Locus</th><th>Allele</th>';
+	if (scan_genome){
+	   table +='<th>Length</th><th>Contig</th><th>Start position</th><th>End position</th>'
+	}
+	table +='<th style="text-align:left">Linked data values</th></tr>\n';
+	var td = 1 ;
+	$.each(loci, function( locus_index, locus ) {
+		$.each(data['exact_matches'][locus], function(match_index, match){
+			table += '<tr class="td' + td + '"><td>' + locus + '</td>';
+			table += '<td>' + match['allele_id'] + '</td>';			
+			if (scan_genome){
+				table += '<td>' + match['length'] + '</td>';
+				table += '<td>' + match['contig'] + '</td>';
+				table += '<td>' + match['start'] + '</td>';
+				table += '<td>' + match['end'] + '</td>';
+			}
+			if (match.hasOwnProperty('linked_data')){
+				var list = '<b>species:</b> ';
+				var first = 1;
+				$.each(match['linked_data']['rMLST genome database']['species'], function (species_index,sp_obj){
+					if (!first){
+						list += '; ';
+					};
+					list += sp_obj['value'] + " [n=" + sp_obj['frequency'] + "]";
+					first = 0;
+				});
+				table += '<td style="text-align:left">' + list + '</td>';
+			} else {
+				table += '<td></td>';
+			}
+			table += '</tr>\n';
+			td = td == 1 ? 2 : 1;
+		});
+	});
+	
+	table += '</table></div>';
+	return table;
+}
+</script>
+
+[% td=1 %]
+<h3>rMLST species identification</h3>
+<table class="resultstable">
+<tr><th>Rank</th><th>Taxon</th><th>Taxonomy</th><th>Support</th><th>Matches</th></tr>
+
+[% FOREACH taxon IN RMLSTSpecies.results.taxon_prediction %]
+<tr class="td[% td %]"><td>[% taxon.rank %]</td>
+<td><em>[% taxon.taxon %]</em></td>
+<td><em>[% taxon.taxonomy %]</em></td>
+<td style="position:relative;text-align:left"><span style="position:absolute;margin-left:1em;font-size:0.8em">[% taxon.support %]%</span><div style="display:block-inline;margin-top:0.2em;background-color:#[% get_colour(taxon.support) %];border:1px solid #ccc;height:0.8em;width:[% taxon.support %]%"></div></td>
+[% IF loop.first %]
+<td rowspan="[% loop.size %]"><a class="rmlst_toggle" id="rmlst_show" rel="nofollow" href="bigsdb?db=[% instance %]&amp;page=ajaxAnalysis&amp;name=RMLSTSpecies&amp;isolate_id=[% isolate_id %]"><span class="fas fa-plus-circle" style="color:green"></span></a><a id="rmlst_hide" class="row_hide" style="display:none;cursor:pointer"><span class="fas fa-minus-circle" style="color:red"></span></a></td>
+[% END %]
+</tr>
+[% IF td==1 %]
+  [% td=2 %]
+[% ELSE %]
+  [% td=1 %]
+[% END %]
+[% END %]
+<tr id="rmlst_matches" style="display:none"><td colspan="9" style="border:0"><div id="rmlst_matches_div"></div></td></tr>
+</table>
+<p style="font-size:0.8em"><em>Analysis performed: [% RMLSTSpecies.datestamp %]</em></p>
+[% END %]

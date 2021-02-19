@@ -54,7 +54,7 @@ sub get_attributes {
 		buttontext  => 'rMLST species id',
 		menutext    => 'Species identification',
 		module      => 'RMLSTSpecies',
-		version     => '2.1.0',
+		version     => '2.1.1',
 		dbtype      => 'isolates',
 		section     => 'isolate_info,analysis,postquery',
 		input       => 'query',
@@ -249,7 +249,7 @@ sub _format_row_html {
 				$buffer .= $left_align{$col} ? q(<td style="position:relative;text-align:left">) : q(<td>);
 				$buffer .= q(<i>) if $italicised{$col};
 				if ( $col == 5 ) {
-					my $colour = $self->_get_colour( $values->[$col]->[$row] );
+					my $colour = BIGSdb::Utils::get_percent_colour( $values->[$col]->[$row] );
 					$buffer .=
 					    q(<span style="position:absolute;margin-left:1em;font-size:0.8em">)
 					  . qq($values->[$col]->[$row]%</span>)
@@ -478,19 +478,6 @@ sub _rmlst_scheme_exists {
 		return if $locus !~ /^BACT0000\d{2}$/x;
 	}
 	return 1;
-}
-
-sub _get_colour {
-	my ( $self, $num ) = @_;
-	my ( $min, $max, $middle ) = ( 0, 100, 50 );
-	my $scale = 255 / ( $middle - $min );
-	return q(FF0000) if $num <= $min;    # lower boundry
-	return q(00FF00) if $num >= $max;    # upper boundary
-	if ( $num < $middle ) {
-		return sprintf q(FF%02X00) => int( ( $num - $min ) * $scale );
-	} else {
-		return sprintf q(%02XFF00) => 255 - int( ( $num - $middle ) * $scale );
-	}
 }
 
 sub _get_javascript {

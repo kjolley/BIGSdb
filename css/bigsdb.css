@@ -1647,7 +1647,7 @@ table.resultstable td, table.resultstable th {
 }
 
 table.ajaxtable {
-	border: 1px dashed black
+	border: 1px dashed black;
 }
 
 table.ajaxtable th {

@@ -125,7 +125,7 @@ sub run {
 	say q(<div class="box" id="resultspanel">);
 	my $type = $locus_info->{'data_type'} eq 'DNA' ? 'Nucleotide' : 'Amino acid';
 	say qq(<h2>$type differences between $displaylocus: $allele1 and $displaylocus: $allele2</h2>);
-	my $temp    = &BIGSdb::Utils::get_random();
+	my $temp    = BIGSdb::Utils::get_random();
 	my $outfile = "$self->{'config'}->{'tmp_dir'}/$temp.txt";
 	if ( $self->{'config'}->{'emboss_path'} ) {
 		my $seq1_infile = "$self->{'config'}->{'secure_tmp_dir'}/${temp}_1.txt";

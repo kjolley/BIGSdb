@@ -23,6 +23,7 @@ use 5.010;
 use version; our $VERSION = version->declare('v1.30.1');
 use Apache2::Connection;
 use parent qw(BIGSdb::BaseApplication);
+use BIGSdb::AjaxAnalysis;
 use BIGSdb::AjaxJobs;
 use BIGSdb::AjaxPrefs;
 use BIGSdb::AjaxRest;
@@ -377,6 +378,7 @@ sub print_page {
 	my $cookies;
 	my $query_page = ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ? 'IsolateQueryPage' : 'ProfileQueryPage';
 	my %classes = (
+		ajaxAnalysis       => 'AjaxAnalysis',
 		ajaxJobs           => 'AjaxJobs',
 		ajaxPrefs          => 'AjaxPrefs',
 		ajaxRest           => 'AjaxRest',

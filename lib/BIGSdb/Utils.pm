@@ -748,6 +748,29 @@ sub get_rainbow_gradient_colour {
 	return sprintf( '#%02x%02x%02x', @{ $rainbow->[$idx] } );
 }
 
+sub get_percent_colour {
+	my ( $num, $options ) = @_;
+	my $min    = $options->{'min'}    // 0;
+	my $max    = $options->{'max'}    // 100;
+	my $middle = $options->{'middle'} // 50;
+	if ( $min > $max ) {
+		$logger->error('Error in params - requirement is min < middle < max');
+		$logger->error("Min: $min; Middle: $middle; Max: $max");
+		return q(000000);
+	}
+	if ( $min == $middle ) {
+		return $min == 0 ? q(FF0000) : q(00FF00);
+	}
+	my $scale = 255 / ( $middle - $min );
+	return q(FF0000) if $num <= $min;    # lower boundry
+	return q(00FF00) if $num >= $max;    # upper boundary
+	if ( $num < $middle ) {
+		return sprintf q(FF%02X00) => int( ( $num - $min ) * $scale );
+	} else {
+		return sprintf q(%02XFF00) => 255 - int( ( $num - $middle ) * $scale );
+	}
+}
+
 sub all_ints {
 	my ($list) = @_;
 	$logger->logcarp('Not an arrayref') if ref $list ne 'ARRAY';

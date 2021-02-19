@@ -1,0 +1,4 @@
+[% # Default analysis output template file for isolate information page. %]
+[% # Override this by putting a new template in /etc/bigsdb/dbases/<instance>/templates. %]
+
+[% INCLUDE isolate_info_rmlst_species.tt %]

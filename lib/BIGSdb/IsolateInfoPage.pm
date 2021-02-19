@@ -25,6 +25,8 @@ use BIGSdb::Constants qw(:interface :limits);
 use Log::Log4perl qw(get_logger);
 use Try::Tiny;
 use List::MoreUtils qw(none uniq);
+use JSON;
+use Template;
 my $logger = get_logger('BIGSdb.Page');
 use constant ISOLATE_SUMMARY     => 1;
 use constant LOCUS_SUMMARY       => 2;
@@ -823,9 +825,47 @@ sub get_isolate_record {
 			$buffer .= $self->_get_ref_links($id);
 			$buffer .= $self->_get_seqbin_link($id);
 			$buffer .= $self->_get_annotation_metrics($id);
+			$buffer .= $self->_get_analysis($id);
 		}
 	}
 	$buffer .= qq(</div>\n);
+	return $buffer;
+}
+
+sub _get_analysis {
+	my ( $self, $isolate_id ) = @_;
+	my $analysis =
+	  $self->{'datastore'}->run_query( 'SELECT name,results,datestamp FROM analysis_results WHERE isolate_id=?',
+		$isolate_id, { fetch => 'all_arrayref', slice => {} } );
+	return q() if !@$analysis;
+	my $template_file = 'isolate_info_analysis.tt';
+	return q()
+	  if !-e "$self->{'config_dir'}/dbases/$self->{'instance'}/templates/$template_file"
+	  && !-e "$self->{'config_dir'}/templates/$template_file";
+	my $buffer =
+	  q(<div><span class="info_icon fas fa-2x fa-fw fa-chart-line fa-pull-left" style="margin-top:-0.2em"></span>);
+	$buffer .= qq(<h2>Analysis</h2>\n);
+	my $data = {};
+
+	foreach my $module (@$analysis) {
+		$data->{ $module->{'name'} } = {
+			datestamp => $module->{'datestamp'},
+			results   => decode_json( $module->{'results'} )
+		};
+	}
+	my $template = Template->new(
+		{
+			INCLUDE_PATH => "$self->{'config_dir'}/dbases/$self->{'instance'}/templates:$self->{'config_dir'}/templates"
+		}
+	);
+	$data->{'get_colour'} = sub { BIGSdb::Utils::get_percent_colour(@_) };
+	$data->{'isolate_id'} = $isolate_id;
+	$data->{'instance'}   = $self->{'instance'};
+	$data->{'config_dir'} = $self->{'config_dir'};
+	my $template_output = q();
+	$template->process( $template_file, $data, \$template_output ) || $logger->error( $template->error );
+	return q() if ( $template_output // q() ) =~ /^\s*$/x;
+	$buffer .= $template_output;
 	return $buffer;
 }
 
@@ -1767,7 +1807,7 @@ sub _get_annotation_metrics {
 		my $min    = 100 * $min_threshold / $scheme->{'loci'};
 		my $max    = 100 * $max_threshold / $scheme->{'loci'};
 		my $middle = ( $min + $max ) / 2;
-		my $colour = $self->_get_colour( $percent, { min => $min, max => $max, middle => $middle } );
+		my $colour = BIGSdb::Utils::get_percent_colour( $percent, { min => $min, max => $max, middle => $middle } );
 		$buffer .=
 		    q(<td style="position:relative"><span )
 		  . qq(style="position:absolute;font-size:0.8em;margin-left:-0.5em">$percent</span>)
@@ -1792,29 +1832,6 @@ sub _get_annotation_metrics {
 	$buffer .= qq(</table></div>\n);
 	$buffer .= qq(</div>\n);
 	return $buffer;
-}
-
-sub _get_colour {
-	my ( $self, $num, $options ) = @_;
-	my $min    = $options->{'min'}    // 0;
-	my $max    = $options->{'max'}    // 100;
-	my $middle = $options->{'middle'} // 50;
-	if ( $min > $max ) {
-		$logger->error('Error in params - requirement is min < middle < max');
-		$logger->error("Min: $min; Middle: $middle; Max: $max");
-		return q(000000);
-	}
-	if ( $min == $middle ) {
-		return $min == 0 ? q(FF0000) : q(00FF00);
-	}
-	my $scale = 255 / ( $middle - $min );
-	return q(FF0000) if $num <= $min;    # lower boundry
-	return q(00FF00) if $num >= $max;    # upper boundary
-	if ( $num < $middle ) {
-		return sprintf q(FF%02X00) => int( ( $num - $min ) * $scale );
-	} else {
-		return sprintf q(%02XFF00) => 255 - int( ( $num - $middle ) * $scale );
-	}
 }
 
 sub _print_projects {
