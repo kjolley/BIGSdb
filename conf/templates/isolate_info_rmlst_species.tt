@@ -93,6 +93,7 @@ function format_data(data){
 
 [% td=1 %]
 <h3>rMLST species identification</h3>
+<div class="scrollable">
 <table class="resultstable">
 <tr><th>Rank</th><th>Taxon</th><th>Taxonomy</th><th>Support</th><th>Matches</th></tr>
 
@@ -113,5 +114,6 @@ function format_data(data){
 [% END %]
 <tr id="rmlst_matches" style="display:none"><td colspan="9" style="border:0"><div id="rmlst_matches_div"></div></td></tr>
 </table>
+</div>
 <p style="font-size:0.8em"><em>Analysis performed: [% RMLSTSpecies.datestamp %]</em></p>
 [% END %]
