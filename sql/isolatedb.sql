@@ -1789,3 +1789,17 @@ ON UPDATE CASCADE
 );
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON analysis_results TO apache;
+
+CREATE TABLE genome_submission_stats (
+submission_id text NOT NULL,
+index int NOT NULL,
+contigs integer NOT NULL,
+total_length integer NOT NULL,
+n50 integer NOT NULL,
+PRIMARY KEY(submission_id,index),
+CONSTRAINT isi_submission_id FOREIGN KEY (submission_id) REFERENCES submissions
+ON DELETE CASCADE
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON genome_submission_stats TO apache;
