@@ -858,12 +858,13 @@ sub _submit_alleles {
 	my ( $loci, $labels );
 	say $q->start_form;
 	my $schemes = $self->{'datastore'}->run_query(
-		    'SELECT id FROM schemes WHERE id IN (SELECT sm.scheme_id FROM scheme_members sm '
+		'SELECT id FROM schemes WHERE id IN (SELECT sm.scheme_id FROM scheme_members sm '
 		  . 'JOIN loci l ON sm.locus=l.id WHERE (no_submissions = FALSE OR no_submissions IS NULL)) '
 		  . 'ORDER BY display_order,description',
 		undef,
 		{ fetch => 'col_arrayref' }
 	);
+
 	if ( @$schemes > 1 ) {
 		say q(<fieldset id="scheme_fieldset" style="float:left;display:none"><legend>Filter loci by scheme</legend>);
 		say q(<div id="tree" class="scheme_tree" style="float:left;max-height:initial">);
@@ -1878,16 +1879,18 @@ sub _print_isolate_table {
 	}
 	say q(<table class="resultstable"><tr>);
 	say qq(<th>$_</th>) foreach @$fields;
+	say q(<th>contigs</th><th>total length (bp)</th><th>N50</th>) if $submission->{'type'} eq 'genomes';
 	say q(</tr>);
 	my $td = 1;
 	local $" = q(</td><td>);
-	my $i           = 1;
 	my $files       = $self->_get_submission_files($submission_id);
 	my %file_exists = map { $_->{'filename'} => 1 } @$files;
 	my $dir         = $self->{'submissionHandler'}->get_submission_dir($submission_id) . '/supporting_files';
 	my %filename_already_used;
+	my $index = 0;
 
 	foreach my $isolate (@$isolates) {
+		$index++;
 		my @values;
 		foreach my $field (@$fields) {
 			if ( $field eq 'assembly_filename' ) {
@@ -1919,9 +1922,31 @@ sub _print_isolate_table {
 				push @values, $isolate->{$field} // q();
 			}
 		}
-		say qq(<tr class="td$td"><td>@values</td></tr>);
+		say qq(<tr class="td$td"><td>@values</td>);
+		if ( $submission->{'type'} eq 'genomes' ) {
+			my $assembly_stats = $self->{'submissionHandler'}->get_assembly_stats($submission_id);
+			if ( $isolate->{'assembly_filename'} ) {
+				if ( -e "$dir/$isolate->{'assembly_filename'}" ) {
+					if ( !$assembly_stats->{$index} ) {
+						$assembly_stats->{$index} = $self->{'submissionHandler'}
+						  ->calc_assembly_stats( $submission_id, $index, $isolate->{'assembly_filename'} );
+					}
+					if ($assembly_stats->{$index}->{'total_length'} == 0){
+						say q(<td colspan="3" class="warning">Invalid file format</td>);
+					} else {
+					say( q(<td>) . BIGSdb::Utils::commify( $assembly_stats->{$index}->{$_} ) . q(</td>) )
+					  foreach qw(contigs total_length n50);
+					}
+				} else {
+					if ( $assembly_stats->{$index} ) {
+						$self->{'submissionHandler'}->remove_assembly_stats( $submission_id, $index );
+					}
+					say q(<td colspan="3">No sequence</td>);
+				}
+			}
+		}
+		say q(</tr>);
 		$td = $td == 1 ? 2 : 1;
-		$i++;
 	}
 	say q(</table>);
 	return;

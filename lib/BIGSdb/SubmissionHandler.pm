@@ -29,6 +29,10 @@ use Email::Sender::Transport::SMTP;
 use Email::Sender::Simple qw(try_to_sendmail);
 use Email::MIME;
 use Email::Valid;
+use Try::Tiny;
+use File::Type;
+use IO::Uncompress::Gunzip qw(gunzip $GunzipError);
+use IO::Uncompress::Unzip qw(unzip $UnzipError);
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(:submissions SEQ_METHODS DEFAULT_DOMAIN);
 use constant EMAIL_FLOOD_PROTECTION_TIME => 60 * 2;    #2 minutes
@@ -1645,8 +1649,7 @@ sub remove_submission_from_digest {
 	my ( $self, $submission_id ) = @_;
 	my $user_dbs =
 	  $self->{'datastore'}->run_query( 'SELECT DISTINCT(user_db) FROM users WHERE user_db IS NOT NULL', undef,
-		{ fetch => 'col_arrayref' } )
-	  ;
+		{ fetch => 'col_arrayref' } );
 	foreach my $user_db_id (@$user_dbs) {
 		my $user_db = $self->{'datastore'}->get_user_db($user_db_id);
 		eval { $user_db->do( 'DELETE FROM submission_digests WHERE submission_id=?', undef, $submission_id ); };
@@ -2058,6 +2061,96 @@ sub _get_genome_submission_summary {     ## no critic (ProhibitUnusedPrivateSubr
 sub cleanup_validation_rules {
 	my ($self) = @_;
 	undef $self->{'validation_rules'};
+	return;
+}
+
+sub calc_assembly_stats {
+	my ( $self, $submission_id, $index, $assembly_filename ) = @_;
+	my $dir          = $self->get_submission_dir($submission_id) . '/supporting_files';
+	my $full_path    = "$dir/$assembly_filename";
+	my $total_length = 0;
+	my $contig_count = 0;
+	my $n50          = 0;
+	my ( $contigs, $error );
+	try {
+		my $fasta     = BIGSdb::Utils::slurp($full_path);
+		my $ft        = File::Type->new;
+		my $file_type = $ft->checktype_contents($$fasta);
+		my $uncompressed;
+		my $method = {
+			'application/x-gzip' =>
+			  sub { gunzip $fasta => \$uncompressed or $logger->error("gunzip failed: $GunzipError"); },
+			'application/zip' => sub { unzip $fasta => \$uncompressed or $logger->error("unzip failed: $UnzipError"); }
+		};
+		if ( $method->{$file_type} ) {
+			$method->{$file_type}->();
+			$contigs = BIGSdb::Utils::read_fasta( \$uncompressed );
+		} else {
+			$contigs = BIGSdb::Utils::read_fasta($fasta);
+		}
+	}
+	catch {
+		$logger->error($_);
+		$error = 1;
+	};
+	if ( !$error ) {
+		my $lengths = [];
+		foreach my $contig ( sort { length( $contigs->{$b} ) <=> length( $contigs->{$a} ) } keys %$contigs ) {
+			my $length = length( $contigs->{$contig} );
+			push @$lengths, $length;
+			$total_length += $length;
+			$contig_count++;
+		}
+		my $stats = BIGSdb::Utils::get_N_stats( $total_length, $lengths );
+		$n50 = $stats->{'N50'};
+	}
+	eval {
+		$self->{'db'}
+		  ->do( 'INSERT INTO genome_submission_stats (submission_id,index,contigs,total_length,n50) VALUES (?,?,?,?,?)',
+			undef, $submission_id, $index, $contig_count, $total_length, $n50 );
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+	return {
+		total_length => $total_length,
+		contigs      => $contig_count,
+		n50          => $n50
+	};
+}
+
+sub get_assembly_stats {
+	my ( $self, $submission_id ) = @_;
+	my $assemblies =
+	  $self->{'datastore'}->run_query( 'SELECT * FROM genome_submission_stats WHERE submission_id=? ORDER BY index',
+		$submission_id, { fetch => 'all_arrayref', slice => {} } );
+	my $data = {};
+	foreach my $assembly (@$assemblies) {
+		$data->{ $assembly->{'index'} } = {
+			total_length => $assembly->{'total_length'},
+			contigs      => $assembly->{'contigs'},
+			n50          => $assembly->{'n50'}
+		};
+	}
+	return $data;
+}
+
+sub remove_assembly_stats {
+	my ( $self, $submission_id, $index ) = @_;
+	eval {
+		$self->{'db'}
+		  ->do( 'DELETE FROM genome_submission_stats WHERE (submission_id,index)=(?,?)', undef, $submission_id,
+			$index );
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
 	return;
 }
 1;

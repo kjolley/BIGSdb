@@ -1,4 +1,4 @@
-/*Version: 20210216*/
+/*Version: 20210223*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -2305,9 +2305,12 @@ button.plugin:hover {
 	background-color: #f0f0ff;
 }
 
-.dz-message {
+.dropzone .dz-message {
+	margin: 1em 0;
+	line-height: 1em;
 	font-size: 2em;
-	color: #aaa
+	color: #aaa;
+	line-height: 1em;
 }
 
 a.slide_trigger {
