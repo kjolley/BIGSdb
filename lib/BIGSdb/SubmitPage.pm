@@ -1931,11 +1931,22 @@ sub _print_isolate_table {
 						$assembly_stats->{$index} = $self->{'submissionHandler'}
 						  ->calc_assembly_stats( $submission_id, $index, $isolate->{'assembly_filename'} );
 					}
-					if ($assembly_stats->{$index}->{'total_length'} == 0){
+					if ( $assembly_stats->{$index}->{'total_length'} == 0 ) {
 						say q(<td colspan="3" class="warning">Invalid file format</td>);
 					} else {
-					say( q(<td>) . BIGSdb::Utils::commify( $assembly_stats->{$index}->{$_} ) . q(</td>) )
-					  foreach qw(contigs total_length n50);
+						my $warn_max_contigs = $self->{'system'}->{'warn_max_contigs'}
+						  // $self->{'config'}->{'warn_max_contigs'} // WARN_MAX_CONTIGS;
+						my $class = $assembly_stats->{$index}->{'contigs'} > $warn_max_contigs ? 'warning' : '';
+						say qq(<td class="$class">)
+						  . BIGSdb::Utils::commify( $assembly_stats->{$index}->{'contigs'} )
+						  . q(</td>);
+						say q(<td>) . BIGSdb::Utils::commify( $assembly_stats->{$index}->{'total_length'} ) . q(</td>);
+						my $warn_min_n50 = $self->{'system'}->{'warn_min_n50'} // $self->{'config'}->{'warn_min_n50'}
+						  // WARN_MIN_N50;
+						$class = $assembly_stats->{$index}->{'n50'} < $warn_min_n50 ? 'warning' : '';
+						say qq(<td class="$class">)
+						  . BIGSdb::Utils::commify( $assembly_stats->{$index}->{'n50'} )
+						  . q(</td>);
 					}
 				} else {
 					if ( $assembly_stats->{$index} ) {

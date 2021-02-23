@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2020, University of Oxford
+#Copyright (c) 2015-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -266,9 +266,12 @@ use constant REQUIRED_GENOME_FIELDS   => qw(assembly_filename sequence_method);
 use constant DAILY_REST_LIMIT         => 50;
 use constant TOTAL_PENDING_LIMIT      => 20;
 use constant DAILY_PENDING_LIMIT      => 15;
-use constant NULL_TERMS               => ( 'none', 'N/A', 'NA', '-', '.', 'not applicable', 'no value' );
+use constant WARN_MAX_CONTIGS         => 500;
+use constant WARN_MIN_N50             => 20_000;
+use constant NULL_TERMS => ( 'none', 'N/A', 'NA', '-', '.', 'not applicable', 'no value' );
 @values = qw (SUBMISSIONS_DELETED_DAYS COVERAGE READ_LENGTH ASSEMBLY REQUIRES_READ_LENGTH
-  REQUIRES_COVERAGE REQUIRED_GENOME_FIELDS DAILY_REST_LIMIT TOTAL_PENDING_LIMIT DAILY_PENDING_LIMIT NULL_TERMS);
+  REQUIRES_COVERAGE REQUIRED_GENOME_FIELDS DAILY_REST_LIMIT TOTAL_PENDING_LIMIT DAILY_PENDING_LIMIT NULL_TERMS
+  WARN_MAX_CONTIGS WARN_MIN_N50);
 push @EXPORT_OK, @values;
 $EXPORT_TAGS{'submissions'} = [@values];
 
