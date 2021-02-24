@@ -1617,7 +1617,7 @@ sub _print_sequence_table {
 	my $locus             = $allele_submission->{'locus'};
 	my $locus_info        = $self->{'datastore'}->get_locus_info($locus);
 	my $cds = $locus_info->{'data_type'} eq 'DNA' && $locus_info->{'complete_cds'} ? '<th>Complete CDS</th>' : '';
-	say q(<table class="resultstable">);
+	say q(<table class="resultstable" style="margin-bottom:0">);
 	say qq(<tr><th>Identifier</th><th>Length</th><th>Sequence</th>$cds<th>Status</th><th>Query</th>)
 	  . q(<th>Assigned allele</th></tr>);
 	my ( $all_assigned, $all_rejected, $all_assigned_or_rejected ) = ( 1, 1, 1 );
@@ -1736,7 +1736,7 @@ sub _print_profile_table {
 	my ( $all_assigned, $all_rejected, $all_assigned_or_rejected ) = ( 1, 1, 1 );
 	my $pending_profiles = [];
 	my $loci             = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	say q(<table class="resultstable">);
+	say q(<table class="resultstable" style="margin-bottom:0">);
 	say q(<tr><th>Identifier</th>);
 
 	foreach my $locus (@$loci) {
@@ -1878,7 +1878,7 @@ sub _print_isolate_table {
 			};
 		}
 	}
-	say q(<table class="resultstable"><tr>);
+	say q(<table class="resultstable" style="margin-bottom:0"><tr>);
 	say qq(<th>$_</th>) foreach @$fields;
 	say q(<th>contigs</th><th>total length (bp)</th><th>N50</th>) if $submission->{'type'} eq 'genomes';
 	say q(</tr>);
