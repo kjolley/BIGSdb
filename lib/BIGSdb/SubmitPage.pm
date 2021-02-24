@@ -28,6 +28,7 @@ use BIGSdb::Constants qw(SEQ_METHODS :submissions :interface);
 use List::MoreUtils qw(none);
 use POSIX;
 use constant LIMIT => 500;
+use constant INF   => 9**99;
 
 sub get_help_url {
 	my ($self) = @_;
@@ -1940,7 +1941,17 @@ sub _print_isolate_table {
 						say qq(<td class="$class">)
 						  . BIGSdb::Utils::commify( $assembly_stats->{$index}->{'contigs'} )
 						  . q(</td>);
-						say q(<td>) . BIGSdb::Utils::commify( $assembly_stats->{$index}->{'total_length'} ) . q(</td>);
+						$class = (
+							$assembly_stats->{$index}->{'total_length'} <
+							  ( $self->{'system'}->{'warn_min_total_length'} // 0 )
+							  || $assembly_stats->{$index}->{'total_length'} >
+							  ( $self->{'system'}->{'warn_max_total_length'} // INF )
+						  )
+						  ? 'warning'
+						  : '';
+						say qq(<td class="$class">)
+						  . BIGSdb::Utils::commify( $assembly_stats->{$index}->{'total_length'} )
+						  . q(</td>);
 						my $warn_min_n50 = $self->{'system'}->{'warn_min_n50'} // $self->{'config'}->{'warn_min_n50'}
 						  // WARN_MIN_N50;
 						$class = $assembly_stats->{$index}->{'n50'} < $warn_min_n50 ? 'warning' : '';
