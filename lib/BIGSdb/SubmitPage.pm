@@ -24,7 +24,7 @@ use parent qw(BIGSdb::TreeViewPage BIGSdb::CurateProfileAddPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Submissions');
 use BIGSdb::Utils;
-use BIGSdb::Constants qw(SEQ_METHODS :submissions :interface);
+use BIGSdb::Constants qw(SEQ_METHODS :submissions :interface :design);
 use List::MoreUtils qw(none);
 use POSIX;
 use constant LIMIT => 500;
@@ -1632,14 +1632,15 @@ sub _print_sequence_table {
 	my $locus             = $allele_submission->{'locus'};
 	my $locus_info        = $self->{'datastore'}->get_locus_info($locus);
 	my $cds = $locus_info->{'data_type'} eq 'DNA' && $locus_info->{'complete_cds'} ? '<th>Complete CDS</th>' : '';
-	say q(<div style="max-width:calc(100vw - 80px)"><div class="scrollable">)
+	my $max_width = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
+	my $main_max_width = $max_width - 100;
+	say qq(<div style="max-width:min(${main_max_width}px, 100vw - 100px)"><div class="scrollable">)
 	  . q(<table class="resultstable" style="margin-bottom:0">);
 	say qq(<tr><th>Identifier</th><th>Length</th><th>Sequence</th>$cds<th>Status</th><th>Query</th>)
 	  . q(<th>Assigned allele</th></tr>);
 	my ( $all_assigned, $all_rejected, $all_assigned_or_rejected ) = ( 1, 1, 1 );
 	my $td           = 1;
 	my $pending_seqs = [];
-
 	foreach my $seq (@$seqs) {
 		my $id       = $seq->{'seq_id'};
 		my $length   = length $seq->{'sequence'};
@@ -1752,7 +1753,9 @@ sub _print_profile_table {
 	my ( $all_assigned, $all_rejected, $all_assigned_or_rejected ) = ( 1, 1, 1 );
 	my $pending_profiles = [];
 	my $loci             = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	say q(<div style="max-width:calc(100vw - 80px)"><div class="scrollable">)
+	my $max_width        = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
+	my $main_max_width   = $max_width - 100;
+	say qq(<div style="max-width:min(${main_max_width}px, 100vw - 100px)"><div class="scrollable">)
 	  . q(<table class="resultstable" style="margin-bottom:0">);
 	say q(<tr><th>Identifier</th>);
 
@@ -1895,8 +1898,10 @@ sub _print_isolate_table {
 			};
 		}
 	}
-	say
-q(<div style="max-width:calc(100vw - 80px)"><div class="scrollable"><table class="resultstable" style="margin-bottom:0"><tr>);
+	my $max_width = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
+	my $main_max_width = $max_width - 100;
+	say qq(<div style="max-width:min(${main_max_width}px, 100vw - 100px)"><div class="scrollable">)
+	  . q(<table class="resultstable" style="margin-bottom:0"><tr>);
 	say qq(<th>$_</th>) foreach @$fields;
 	say q(<th>contigs</th><th>total length (bp)</th><th>N50</th>) if $submission->{'type'} eq 'genomes';
 	say q(</tr>);
@@ -2146,7 +2151,7 @@ sub _print_message_fieldset {
 				last EXIT_IF if !@$messages;
 				$can_delete_last_message = $self->_can_delete_last_message($submission_id);
 			}
-			$buffer .= q(<table class="resultstable"><tr>);
+			$buffer .= q(<table class="resultstable" style="max-width:1000px"><tr>);
 			$buffer .= q(<th>Delete</th>) if $can_delete_last_message;
 			$buffer .= q(<th>Timestamp</th><th>User</th><th>Message</th></tr>);
 			my $td     = 1;
