@@ -850,7 +850,7 @@ sub _submit_alleles {
 			return;
 		}
 	}
-	say q(<div class="box" id="queryform"><div class="scrollable">);
+	say q(<div class="box" id="queryform">);
 	say q(<h2>Submit new alleles</h2>);
 	say q(<p>You need to make a separate submission for each locus for which you have new alleles - this is because )
 	  . q(different loci may have different curators.  You can submit any number of new sequences for a single locus )
@@ -889,7 +889,7 @@ sub _submit_alleles {
 		-id       => 'locus',
 		-values   => $loci,
 		-labels   => $labels,
-		-size     => 8,
+		-size     => 7,
 		-required => 'required'
 	);
 	say q(</fieldset>);
@@ -904,12 +904,11 @@ sub _submit_alleles {
 			$q->param( fasta => $$seq_ref );
 		}
 	}
-	say $q->textarea( -name => 'fasta', -cols => 60, -rows => 8, -id => 'fasta', -required => 'required' );
+	say $q->textarea( -name => 'fasta', -rows => 8, -id => 'fasta', -required => 'required',-style=>'max-width:800px;width:calc(100vw - 100px)'  );
 	say q(</fieldset>);
 	say $q->hidden($_) foreach qw(db page alleles);
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say $q->end_form;
-	say q(</div></div>);
 	return;
 }
 
@@ -950,7 +949,7 @@ sub _submit_profiles {
 		$self->print_bad_status( { message => q(Invalid scheme passed.) } );
 		return;
 	}
-	say q(<div class="box" id="queryform"><div class="scrollable">);
+	say q(<div class="box" id="queryform">);
 	say qq(<h2>Submit new $scheme_info->{'name'} profiles</h2>);
 	say q(<p>Paste in your profiles for assignment using the template available below.</p>);
 	say q(<h2>Templates</h2>);
@@ -964,12 +963,12 @@ sub _submit_profiles {
 	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Please paste in tab-delimited text <b>)
 	  . q((include a field header as the first line)</b></legend>);
-	say $q->textarea( -name => 'data', -rows => 20, -columns => 80, -required => 'required' );
+	say $q->textarea( -name => 'data', -rows => 15, -required => 'required', -style=>'max-width:800px;width:calc(100vw - 100px)' );
 	say q(</fieldset>);
 	say $q->hidden($_) foreach qw(db page profiles scheme_id);
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say $q->end_form;
-	say q(</div></div>);
+	say q(</div>);
 	return;
 }
 
@@ -1037,7 +1036,7 @@ sub _submit_isolates {
 	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Please paste in tab-delimited text <b>)
 	  . q((include a field header as the first line)</b></legend>);
-	say $q->textarea( -name => 'data', -rows => 20, -columns => 80, -required => 'required' );
+	say $q->textarea( -name => 'data', -rows => 15,  -required => 'required',-style=>'max-width:1400px;width:calc(100vw - 100px)' );
 	say q(</fieldset>);
 	say $q->hidden($_) foreach qw(db page isolates genomes);
 	$self->print_action_fieldset( { no_reset => 1 } );
@@ -1164,7 +1163,7 @@ sub _print_isolate_table_fieldset {
 	return if !$isolate_submission;
 	my $isolates = $isolate_submission->{'isolates'};
 	my $order    = $isolate_submission->{'order'};
-	say q(<fieldset style="float:left"><legend>Isolates</legend>);
+	say q(<fieldset><legend>Isolates</legend>);
 	my $csv_icon = $self->get_file_icon('CSV');
 	my $plural = @$isolates == 1 ? '' : 's';
 	say qq(<p>You are submitting the following isolate$plural: )
@@ -1617,7 +1616,8 @@ sub _print_sequence_table {
 	my $locus             = $allele_submission->{'locus'};
 	my $locus_info        = $self->{'datastore'}->get_locus_info($locus);
 	my $cds = $locus_info->{'data_type'} eq 'DNA' && $locus_info->{'complete_cds'} ? '<th>Complete CDS</th>' : '';
-	say q(<table class="resultstable" style="margin-bottom:0">);
+	say q(<div style="max-width:calc(100vw - 80px)"><div class="scrollable">)
+	. q(<table class="resultstable" style="margin-bottom:0">);
 	say qq(<tr><th>Identifier</th><th>Length</th><th>Sequence</th>$cds<th>Status</th><th>Query</th>)
 	  . q(<th>Assigned allele</th></tr>);
 	my ( $all_assigned, $all_rejected, $all_assigned_or_rejected ) = ( 1, 1, 1 );
@@ -1691,7 +1691,7 @@ sub _print_sequence_table {
 		$td = $td == 1 ? 2 : 1;
 		$self->{'mod_perl_request'}->rflush if $ENV{'MOD_PERL'};
 	}
-	say q(</table>);
+	say q(</table></div></div>);
 	if ( $options->{'curate'} ) {
 		my $outcome;
 		if ( !@$pending_seqs ) {
@@ -1736,7 +1736,8 @@ sub _print_profile_table {
 	my ( $all_assigned, $all_rejected, $all_assigned_or_rejected ) = ( 1, 1, 1 );
 	my $pending_profiles = [];
 	my $loci             = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	say q(<table class="resultstable" style="margin-bottom:0">);
+	say q(<div style="max-width:calc(100vw - 80px)"><div class="scrollable">)
+	. q(<table class="resultstable" style="margin-bottom:0">);
 	say q(<tr><th>Identifier</th>);
 
 	foreach my $locus (@$loci) {
@@ -1821,7 +1822,7 @@ sub _print_profile_table {
 		}
 		$self->{'submissionHandler'}->update_submission_outcome( $submission_id, $outcome );
 	}
-	say q(</table>);
+	say q(</table></div></div>);
 	return {
 		all_assigned_or_rejected => $all_assigned_or_rejected,
 		all_assigned             => $all_assigned,
@@ -1878,7 +1879,7 @@ sub _print_isolate_table {
 			};
 		}
 	}
-	say q(<table class="resultstable" style="margin-bottom:0"><tr>);
+	say q(<div style="max-width:calc(100vw - 80px)"><div class="scrollable"><table class="resultstable" style="margin-bottom:0"><tr>);
 	say qq(<th>$_</th>) foreach @$fields;
 	say q(<th>contigs</th><th>total length (bp)</th><th>N50</th>) if $submission->{'type'} eq 'genomes';
 	say q(</tr>);
@@ -1970,7 +1971,7 @@ sub _print_isolate_table {
 		say q(</tr>);
 		$td = $td == 1 ? 2 : 1;
 	}
-	say q(</table>);
+	say q(</table></div></div>);
 	return;
 }
 
@@ -2548,7 +2549,7 @@ sub _curate_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 		$self->print_bad_status( { message => q(This submission is closed and cannot now be modified.) } );
 		$curate = 0;
 	}
-	say q(<div class="box" id="resultstable"><div class="scrollable">);
+	say q(<div class="box" id="resultstable"><div class="flex_container" style="justify-content:left">);
 	say qq(<h2>Submission: $submission_id</h2>);
 	my %isolate_type = map { $_ => 1 } qw(isolates genomes);
 	if ( $isolate_type{ $submission->{'type'} } && $q->param('curate') && $q->param('update') ) {
@@ -2580,9 +2581,11 @@ sub _view_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Calle
 	say q(<h1>Submission summary</h1>);
 	return if !$self->_is_submission_valid($submission_id);
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
-	say q(<div class="box" id="resultstable"><div class="scrollable">);
+	say q(<div class="box" id="resultstable">);
 	say qq(<h2>Submission: $submission_id</h2>);
 	$self->_print_summary($submission_id);
+	say q(<div style="clear:both"></div>);
+	say q(<div class="flex_container" style="justify-content:left">);
 	$self->_print_sequence_table_fieldset($submission_id);
 	$self->_print_profile_table_fieldset($submission_id);
 	$self->_print_file_upload_fieldset( $submission_id, { no_add => $submission->{'status'} eq 'closed' ? 1 : 0 } )
