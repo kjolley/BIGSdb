@@ -1641,6 +1641,7 @@ sub _print_sequence_table {
 	my ( $all_assigned, $all_rejected, $all_assigned_or_rejected ) = ( 1, 1, 1 );
 	my $td           = 1;
 	my $pending_seqs = [];
+
 	foreach my $seq (@$seqs) {
 		my $id       = $seq->{'seq_id'};
 		my $length   = length $seq->{'sequence'};
@@ -2151,12 +2152,14 @@ sub _print_message_fieldset {
 				last EXIT_IF if !@$messages;
 				$can_delete_last_message = $self->_can_delete_last_message($submission_id);
 			}
-			$buffer .= q(<table class="resultstable" style="max-width:1000px"><tr>);
+			$buffer .= q(<div class="scrollable">);
+			$buffer .= q(<table class="resultstable"><tr>);
 			$buffer .= q(<th>Delete</th>) if $can_delete_last_message;
 			$buffer .= q(<th>Timestamp</th><th>User</th><th>Message</th></tr>);
 			my $td     = 1;
 			my $delete = DELETE;
 			my $count  = 0;
+
 			foreach my $message (@$messages) {
 				$count++;
 				my $user_string = $self->{'datastore'}->get_user_string( $message->{'user_id'} );
@@ -2174,14 +2177,13 @@ sub _print_message_fieldset {
 				  . qq(<td style="text-align:left">$message_text</td></tr>);
 				$td = $td == 1 ? 2 : 1;
 			}
-			$buffer .= q(</table>);
+			$buffer .= q(</table></div>);
 		}
 	}
 	if ( !$options->{'no_add'} ) {
 		$buffer .= $q->start_form;
 		$buffer .= q(<div>);
-		$buffer .=
-		  $q->textarea( -name => 'message', -id => 'message', -style => 'width:100%;min-width:20em;height:6em' );
+		$buffer .= $q->textarea( -name => 'message', -id => 'message', -style => 'width:100%;height:6em' );
 		$buffer .= q(</div><div style="float:right">Message: );
 		$buffer .= $q->submit(
 			-name  => 'append_only',
@@ -2197,7 +2199,14 @@ sub _print_message_fieldset {
 		  foreach qw(db page alleles profiles isolates genomes locus submit view curate abort submission_id no_check );
 		$buffer .= $q->end_form;
 	}
-	say qq(<fieldset style="float:left"><legend>Messages</legend>$buffer</fieldset>) if $buffer;
+	if ($buffer) {
+		my $max_width = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
+		my $main_max_width = $max_width - 100;
+		say q(<fieldset style="float:left"><legend>Messages</legend>);
+		say qq(<div style="max-width:min(${main_max_width}px, 100vw - 80px)">);
+		say $buffer;
+		say q(</div></fieldset>);
+	}
 	return;
 }
 
@@ -2571,7 +2580,7 @@ sub _curate_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 		$curate = 0;
 	}
 	say q(<div class="box" id="resultstable">);
-	say qq(<h2>Submission: $submission_id</h2>);
+	say qq(<h2 style="overflow-x:auto">Submission: $submission_id</h2>);
 	my %isolate_type = map { $_ => 1 } qw(isolates genomes);
 	if ( $isolate_type{ $submission->{'type'} } && $q->param('curate') && $q->param('update') ) {
 		$self->_update_isolate_submission_isolate_status($submission_id);
@@ -2605,7 +2614,7 @@ sub _view_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Calle
 	return if !$self->_is_submission_valid($submission_id);
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	say q(<div class="box" id="resultstable">);
-	say qq(<h2>Submission: $submission_id</h2>);
+	say qq(<h2 style="overflow-x:auto">Submission: $submission_id</h2>);
 	$self->_print_summary($submission_id);
 	say q(<div style="clear:both"></div>);
 	say q(<div class="flex_container" style="justify-content:left">);
