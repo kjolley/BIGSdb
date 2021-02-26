@@ -1423,10 +1423,11 @@ sub _print_file_upload_fieldset {
 		say q(<p>Please upload any supporting files required for curation although it's usually not )
 		  . q(necessary for isolate submissions. );
 	} else {
-		say q(<p>Please upload any supporting files required for curation.  Ensure that these are named unambiguously )
+		say q(<p>Please upload any supporting files required for curation. Ensure that these are named unambiguously )
 		  . q(or add an explanatory note so that they can be linked to the appropriate submission item. );
 	}
-	say qq(Individual filesize is limited to $nice_file_size.</p>);
+	say qq(You can upload up to $nice_file_size at a time. If your total submission is larger than this then )
+	  . qq(drag and drop files in batches of up to $nice_file_size.</p>);
 	say $q->start_form( -id => 'file_upload_form' );
 	say q(<div class="fallback">);
 	print $q->filefield( -name => 'file_upload', -id => 'file_upload', -multiple );
@@ -1537,8 +1538,15 @@ sub _presubmit_isolates {
 	$self->_print_message_fieldset($submission_id);
 	say $q->start_form;
 	$self->_print_email_fieldset($submission_id);
-	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Finalize submission!' } )
-	  if !$self->{'contigs_missing'};
+
+	if ( $self->{'failed_validation'} ) {
+		say q(<div style="clear:both"></div><div><p>One or more of your assemblies has <span class="fail">)
+		  . q(failed basic validation</span> checks. This submission cannot be finalized. Please )
+		  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
+		  . qq(submission_id=$submission_id&amp;abort=1&amp;confirm=1">abort this submission</a>.</p></div>);
+	} elsif ( !$self->{'contigs_missing'} ) {
+		$self->print_action_fieldset( { no_reset => 1, submit_label => 'Finalize submission!' } );
+	}
 	$q->param( finalize      => 1 );
 	$q->param( submission_id => $submission_id );
 	say $q->hidden($_) foreach qw(db page submit finalize submission_id);
@@ -1949,51 +1957,67 @@ sub _print_isolate_table {
 		}
 		say qq(<tr class="td$td"><td>@values</td>);
 		if ( $submission->{'type'} eq 'genomes' ) {
-			my $assembly_stats = $self->{'submissionHandler'}->get_assembly_stats($submission_id);
-			if ( $isolate->{'assembly_filename'} ) {
-				if ( -e "$dir/$isolate->{'assembly_filename'}" ) {
-					if ( !$assembly_stats->{$index} ) {
-						$assembly_stats->{$index} = $self->{'submissionHandler'}
-						  ->calc_assembly_stats( $submission_id, $index, $isolate->{'assembly_filename'} );
-					}
-					if ( $assembly_stats->{$index}->{'total_length'} == 0 ) {
-						say q(<td colspan="3" class="warning">Invalid file format</td>);
-					} else {
-						my $warn_max_contigs = $self->{'system'}->{'warn_max_contigs'}
-						  // $self->{'config'}->{'warn_max_contigs'} // WARN_MAX_CONTIGS;
-						my $class = $assembly_stats->{$index}->{'contigs'} > $warn_max_contigs ? 'warning' : '';
-						say qq(<td class="$class">)
-						  . BIGSdb::Utils::commify( $assembly_stats->{$index}->{'contigs'} )
-						  . q(</td>);
-						$class =
-						  ( $assembly_stats->{$index}->{'total_length'} <
-							  ( $self->{'system'}->{'warn_min_total_length'} // 0 )
-							  || $assembly_stats->{$index}->{'total_length'} >
-							  ( $self->{'system'}->{'warn_max_total_length'} // INF ) )
-						  ? 'warning'
-						  : '';
-						say qq(<td class="$class">)
-						  . BIGSdb::Utils::commify( $assembly_stats->{$index}->{'total_length'} )
-						  . q(</td>);
-						my $warn_min_n50 = $self->{'system'}->{'warn_min_n50'} // $self->{'config'}->{'warn_min_n50'}
-						  // WARN_MIN_N50;
-						$class = $assembly_stats->{$index}->{'n50'} < $warn_min_n50 ? 'warning' : '';
-						say qq(<td class="$class">)
-						  . BIGSdb::Utils::commify( $assembly_stats->{$index}->{'n50'} )
-						  . q(</td>);
-					}
-				} else {
-					if ( $assembly_stats->{$index} ) {
-						$self->{'submissionHandler'}->remove_assembly_stats( $submission_id, $index );
-					}
-					say q(<td colspan="3">No sequence</td>);
-				}
-			}
+			$self->_print_genome_stat_fields( $submission_id, $isolate, $index );
 		}
 		say q(</tr>);
 		$td = $td == 1 ? 2 : 1;
 	}
 	say q(</table></div></div>);
+	return;
+}
+
+sub _print_genome_stat_fields {
+	my ( $self, $submission_id, $isolate, $index ) = @_;
+	my $dir            = $self->{'submissionHandler'}->get_submission_dir($submission_id) . '/supporting_files';
+	my $assembly_stats = $self->{'submissionHandler'}->get_assembly_stats($submission_id);
+	return if !$isolate->{'assembly_filename'};
+	if ( -e "$dir/$isolate->{'assembly_filename'}" ) {
+		if ( !$assembly_stats->{$index} ) {
+			$assembly_stats->{$index} = $self->{'submissionHandler'}
+			  ->calc_assembly_stats( $submission_id, $index, $isolate->{'assembly_filename'} );
+		}
+		if ( $assembly_stats->{$index}->{'total_length'} == 0 ) {
+			say q(<td colspan="3" class="fail">Invalid file format</td>);
+			$self->{'failed_validation'} = 1;
+		} else {
+			my $warn_max_contigs = $self->{'system'}->{'warn_max_contigs'} // $self->{'config'}->{'warn_max_contigs'}
+			  // WARN_MAX_CONTIGS;
+			my $max_contigs = $self->{'system'}->{'max_contigs'} // $self->{'config'}->{'max_contigs'} // MAX_CONTIGS;
+			my $class = q();
+			if ( $assembly_stats->{$index}->{'contigs'} > $max_contigs ) {
+				$class = 'fail';
+				$self->{'failed_validation'} = 1;
+			} elsif ( $assembly_stats->{$index}->{'contigs'} > $warn_max_contigs ) {
+				$class = 'warning';
+			}
+			say qq(<td class="$class">) . BIGSdb::Utils::commify( $assembly_stats->{$index}->{'contigs'} ) . q(</td>);
+			$class =
+			  (      $assembly_stats->{$index}->{'total_length'} < ( $self->{'system'}->{'warn_min_total_length'} // 0 )
+				  || $assembly_stats->{$index}->{'total_length'} >
+				  ( $self->{'system'}->{'warn_max_total_length'} // INF ) )
+			  ? 'warning'
+			  : '';
+			say qq(<td class="$class">)
+			  . BIGSdb::Utils::commify( $assembly_stats->{$index}->{'total_length'} )
+			  . q(</td>);
+			my $warn_min_n50 = $self->{'system'}->{'warn_min_n50'} // $self->{'config'}->{'warn_min_n50'}
+			  // WARN_MIN_N50;
+			my $min_n50 = $self->{'system'}->{'min_n50'} // $self->{'config'}->{'min_n50'} // MIN_N50;
+			$class = q();
+			if ( $assembly_stats->{$index}->{'n50'} < $min_n50 ) {
+				$class = 'fail';
+				$self->{'failed_validation'} = 1;
+			} elsif ( $assembly_stats->{$index}->{'n50'} < $warn_min_n50 ) {
+				$class = 'warning';
+			}
+			say qq(<td class="$class">) . BIGSdb::Utils::commify( $assembly_stats->{$index}->{'n50'} ) . q(</td>);
+		}
+	} else {
+		if ( $assembly_stats->{$index} ) {
+			$self->{'submissionHandler'}->remove_assembly_stats( $submission_id, $index );
+		}
+		say q(<td colspan="3">No sequence</td>);
+	}
 	return;
 }
 

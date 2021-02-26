@@ -268,10 +268,12 @@ use constant TOTAL_PENDING_LIMIT      => 20;
 use constant DAILY_PENDING_LIMIT      => 15;
 use constant WARN_MAX_CONTIGS         => 500;
 use constant WARN_MIN_N50             => 20_000;
-use constant NULL_TERMS => ( 'none', 'N/A', 'NA', '-', '.', 'not applicable', 'no value' );
+use constant MAX_CONTIGS              => 1000;
+use constant MIN_N50                  => 10_000;
+use constant NULL_TERMS               => ( 'none', 'N/A', 'NA', '-', '.', 'not applicable', 'no value' );
 @values = qw (SUBMISSIONS_DELETED_DAYS COVERAGE READ_LENGTH ASSEMBLY REQUIRES_READ_LENGTH
   REQUIRES_COVERAGE REQUIRED_GENOME_FIELDS DAILY_REST_LIMIT TOTAL_PENDING_LIMIT DAILY_PENDING_LIMIT NULL_TERMS
-  WARN_MAX_CONTIGS WARN_MIN_N50);
+  WARN_MAX_CONTIGS WARN_MIN_N50 MAX_CONTIGS MIN_N50);
 push @EXPORT_OK, @values;
 $EXPORT_TAGS{'submissions'} = [@values];
 
