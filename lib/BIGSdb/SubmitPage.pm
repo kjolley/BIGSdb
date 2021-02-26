@@ -2153,7 +2153,7 @@ sub _print_message_fieldset {
 				$can_delete_last_message = $self->_can_delete_last_message($submission_id);
 			}
 			$buffer .= q(<div class="scrollable">);
-			$buffer .= q(<table class="resultstable"><tr>);
+			$buffer .= q(<table class="resultstable" style="margin-bottom:0"><tr>);
 			$buffer .= q(<th>Delete</th>) if $can_delete_last_message;
 			$buffer .= q(<th>Timestamp</th><th>User</th><th>Message</th></tr>);
 			my $td     = 1;
