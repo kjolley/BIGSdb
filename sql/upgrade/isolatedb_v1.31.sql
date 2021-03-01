@@ -119,7 +119,7 @@ DROP TABLE experiments;
 CREATE TABLE analysis_results (
 name text NOT NULL,
 isolate_id integer NOT NULL,
-datestamp date NOT NULL DEFAULT 'now',
+datestamp date NOT NULL DEFAULT now(),
 results jsonb NOT NULL,
 PRIMARY KEY(name,isolate_id),
 CONSTRAINT ar_isolate_id FOREIGN KEY (isolate_id) REFERENCES isolates
