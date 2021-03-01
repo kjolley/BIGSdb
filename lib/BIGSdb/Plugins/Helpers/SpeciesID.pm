@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2020, University of Oxford
+#Copyright (c) 2020-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -30,6 +30,12 @@ use constant ATTEMPTS_BEFORE_FAIL => 50;
 use constant MAX_DELAY            => 600;
 use constant SEQUENCE_URL         => 'https://rest.pubmlst.org/db/pubmlst_rmlst_seqdef_kiosk/schemes/1/sequence';
 use constant DESIGNATIONS_URL     => 'https://rest.pubmlst.org/db/pubmlst_rmlst_seqdef_kiosk/schemes/1/designations';
+
+sub set_scan_genome {
+	my ( $self, $scan_genome ) = @_;
+	$self->{'options'}->{'scan_genome'} = $scan_genome;
+	return;
+}
 
 sub run {
 	my ( $self, $isolate_id ) = @_;
@@ -63,7 +69,9 @@ sub run {
 		$isolate_id, { cache => 'SpeciesID::get_isolate_name_from_id' } );
 	my %server_error = map { $_ => 1 } ( 500, 502, 503, 504 );
 	my $attempts = 0;
-	$self->{'dataConnector'}->drop_all_connections;    #No need to keep these open while we wait for REST response.
+
+	#No need to keep these open while we wait for REST response.
+	$self->{'dataConnector'}->drop_all_connections if !$self->{'options'}->{'no_disconnect'};
 	do {
 		$unavailable = 0;
 		$response    = $agent->post(
