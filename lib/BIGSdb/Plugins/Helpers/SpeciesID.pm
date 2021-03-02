@@ -60,10 +60,10 @@ sub run {
 		);
 		$url = DESIGNATIONS_URL;
 	}
-	return $self->_make_rest_call( $isolate_id, $url, \$payload );
+	return $self->make_rest_call( $isolate_id, $url, \$payload );
 }
 
-sub _make_rest_call {
+sub make_rest_call {
 	my ( $self, $isolate_id, $url, $payload_ref ) = @_;
 	my ( $response, $unavailable );
 	my $agent = LWP::UserAgent->new( agent => 'BIGSdb' );
