@@ -99,6 +99,7 @@ sub get_dbs {
 			}
 		);
 		next if ( $script->{'system'}->{'dbtype'} // q() ) ne 'isolates';
+		next if ( $script->{'system'}->{'rMLSTSpecies'} // q() ) eq 'no';
 		if ( !$script->{'db'} ) {
 			$logger->error("Skipping $dir ... database does not exist.");
 			next;
