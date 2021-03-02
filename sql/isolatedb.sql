@@ -1790,6 +1790,18 @@ ON UPDATE CASCADE
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON analysis_results TO apache;
 
+CREATE TABLE last_run (
+name text NOT NULL,
+isolate_id integer NOT NULL,
+timestamp timestamptz NOT NULL DEFAULT now(),
+PRIMARY KEY(name,isolate_id),
+CONSTRAINT lr_isolate_id FOREIGN KEY (isolate_id) REFERENCES isolates
+ON DELETE CASCADE
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON last_run TO apache;
+
 CREATE TABLE genome_submission_stats (
 submission_id text NOT NULL,
 index int NOT NULL,
