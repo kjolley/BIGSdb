@@ -150,7 +150,7 @@ sub check_db {
 	my $plural = @$ids == 1 ? q() : q(s);
 	my $count = @$ids;
 	return if !$count;
-	my $job_id = $script->add_job( 'RMLSTSpecies', { temp_init => 1 } );
+	my $job_id = $script->add_job( 'RMLSTSpecies (offline)', { temp_init => 1 } );
 	my $EXIT = 0;
 	local @SIG{qw (INT TERM HUP)} = ( sub { $EXIT = 1 } ) x 3;    #Capture kill signals
 	say qq(\n$config: $count genome$plural to analyse) if !$opts{'quiet'};
