@@ -131,9 +131,14 @@ sub run {
 	return { data => $data, values => $values, response => $response };
 }
 
+sub get_rmlst_scheme_id {
+	my ($self) = @_;
+	return $self->{'datastore'}->run_query( 'SELECT id FROM schemes WHERE name=?', 'Ribosomal MLST' );
+}
+
 sub _get_rmlst_designations {
 	my ( $self, $isolate_id ) = @_;
-	my $scheme_id = $self->{'datastore'}->run_query( 'SELECT id FROM schemes WHERE name=?', 'Ribosomal MLST' );
+	my $scheme_id = $self->get_rmlst_scheme_id;
 	BIGSdb::Exception::Database::Configuration->throw('Ribosomal MLST scheme does not exist') if !defined $scheme_id;
 	my $designations = $self->{'datastore'}->run_query(
 		q(SELECT locus,allele_id FROM allele_designations WHERE isolate_id=? AND )

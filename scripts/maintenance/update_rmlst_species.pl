@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20210301
+#Version: 20210302
 use strict;
 use warnings;
 use 5.010;
@@ -62,7 +62,6 @@ if ( $opts{'help'} ) {
 	exit;
 }
 check_if_script_already_running();
-my $job_id = BIGSdb::Utils::get_random();
 main();
 remove_lock_file();
 local $| = 1;
@@ -122,7 +121,7 @@ sub check_db {
 			dbase_config_dir => DBASE_CONFIG_DIR,
 			instance         => $config,
 			logger           => $logger,
-			options          => {}
+			options          => { mark_job => 1 }
 		}
 	);
 	if ( ( $script->{'system'}->{'dbtype'} // q() ) ne 'isolates' ) {
@@ -143,6 +142,7 @@ sub check_db {
 	my $plural = @$ids == 1 ? q() : q(s);
 	my $count = @$ids;
 	return if !$count;
+	my $job_id = $script->add_job( 'RMLSTSpecies', { temp_init => 1 } );
 	say qq(\n$config: $count genome$plural to analyse) if !$opts{'quiet'};
 	my $id_obj = BIGSdb::Plugins::Helpers::SpeciesID->new(
 		{
@@ -168,9 +168,9 @@ sub check_db {
 		0 => 'designations',
 		1 => 'genome sequence'
 	);
+	my @scan_genome = defined $id_obj->get_rmlst_scheme_id ? ( 0, 1 ) : (1);
 
 	foreach my $isolate_id (@$ids) {
-		my @scan_genome = ( 0, 1 );
 	  RUN: foreach my $run (@scan_genome) {
 			print "Scanning id-$isolate_id $label{$run} ... " if !$opts{'quiet'};
 			$id_obj->set_scan_genome($run);
@@ -188,6 +188,7 @@ sub check_db {
 			}
 		}
 	}
+	$script->stop_job( $job_id, { temp_init => 1 } );
 	return;
 }
 
