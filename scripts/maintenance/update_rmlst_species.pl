@@ -143,6 +143,8 @@ sub check_db {
 	my $count = @$ids;
 	return if !$count;
 	my $job_id = $script->add_job( 'RMLSTSpecies', { temp_init => 1 } );
+	my $EXIT = 0;
+	local @SIG{qw (INT TERM HUP)} = ( sub { $EXIT = 1 } ) x 3;    #Allow temp files to be cleaned on kill signals
 	say qq(\n$config: $count genome$plural to analyse) if !$opts{'quiet'};
 	my $id_obj = BIGSdb::Plugins::Helpers::SpeciesID->new(
 		{
@@ -169,9 +171,9 @@ sub check_db {
 		1 => 'genome sequence'
 	);
 	my @scan_genome = defined $id_obj->get_rmlst_scheme_id ? ( 0, 1 ) : (1);
-
-	foreach my $isolate_id (@$ids) {
+  ISOLATE: foreach my $isolate_id (@$ids) {
 	  RUN: foreach my $run (@scan_genome) {
+			last ISOLATE if $EXIT;
 			print "Scanning id-$isolate_id $label{$run} ... " if !$opts{'quiet'};
 			$id_obj->set_scan_genome($run);
 			my $result = $id_obj->run($isolate_id);
