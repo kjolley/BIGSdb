@@ -39,7 +39,6 @@ sub set_scan_genome {
 
 sub run {
 	my ( $self, $isolate_id ) = @_;
-	my $agent = LWP::UserAgent->new( agent => 'BIGSdb' );
 	my $payload;
 	my $url;
 	if ( $self->{'options'}->{'scan_genome'} ) {
@@ -61,7 +60,13 @@ sub run {
 		);
 		$url = DESIGNATIONS_URL;
 	}
+	return $self->_make_rest_call( $isolate_id, $url, \$payload );
+}
+
+sub _make_rest_call {
+	my ( $self, $isolate_id, $url, $payload_ref ) = @_;
 	my ( $response, $unavailable );
+	my $agent = LWP::UserAgent->new( agent => 'BIGSdb' );
 	my $delay = INITIAL_BUSY_DELAY;
 	my $isolate_name =
 	  $self->{'datastore'}
@@ -77,7 +82,7 @@ sub run {
 		$response    = $agent->post(
 			$url,
 			Content_Type => 'application/json; charset=UTF-8',
-			Content      => $payload
+			Content      => $$payload_ref
 		);
 		if ( $server_error{ $response->code } ) {
 			my $code = $response->code;
