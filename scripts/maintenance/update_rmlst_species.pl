@@ -45,11 +45,12 @@ use JSON;
 use Getopt::Long qw(:config no_ignore_case);
 my %opts;
 GetOptions(
-	'database=s'     => \$opts{'d'},
-	'exclude=s'      => \$opts{'exclude'},
-	'help'           => \$opts{'help'},
-	'quiet'          => \$opts{'quiet'},
-	'refresh_days=i' => \$opts{'refresh_days'}
+	'database=s'      => \$opts{'d'},
+	'exclude=s'       => \$opts{'exclude'},
+	'help'            => \$opts{'help'},
+	'last_run_days=i' => \$opts{'last_run_days'},
+	'quiet'           => \$opts{'quiet'},
+	'refresh_days=i'  => \$opts{'refresh_days'}
 );
 
 #Direct all library logging calls to screen
@@ -131,21 +132,29 @@ sub check_db {
 	}
 	my $min_genome_size =
 	  $script->{'system'}->{'min_genome_size'} // $script->{'config'}->{'min_genome_size'} // MIN_GENOME_SIZE;
-	my $qry = q(SELECT id FROM isolates i JOIN seqbin_stats ss ON i.id=ss.isolate_id AND ss.total_length>=? LEFT JOIN )
-	  . q(analysis_results ar ON i.id=ar.isolate_id AND name=? WHERE ar.datestamp IS NULL );
+	my $qry =
+	    q[SELECT id FROM isolates i JOIN seqbin_stats ss ON i.id=ss.isolate_id AND ss.total_length>=? LEFT JOIN ]
+	  . q[analysis_results ar ON i.id=ar.isolate_id AND ar.name=? LEFT JOIN last_run lr ON i.id=lr.isolate_id AND lr.name=? ]
+	  . q[WHERE (ar.datestamp IS NULL ];
 	if ( $opts{'refresh_days'} ) {
 		$qry .= qq(OR ar.datestamp < now()-interval '$opts{'refresh_days'} days' );
+	}
+	$qry.=q[) ];
+	if ($opts{'last_run_days'}){
+		$qry .= qq(AND lr.timestamp IS NULL OR lr.timestamp < now()-interval '$opts{'last_run_days'} days' ); 
 	}
 	$qry .= q(ORDER BY i.id);
 	my $agent = LWP::UserAgent->new( agent => 'BIGSdb' );
 	my $ids =
-	  $script->{'datastore'}->run_query( $qry, [ $min_genome_size, 'RMLSTSpecies' ], { fetch => 'col_arrayref' } );
+	  $script->{'datastore'}
+	  ->run_query( $qry, [ $min_genome_size, 'RMLSTSpecies', 'RMLSTSpecies' ], { fetch => 'col_arrayref' } )
+	  ;
 	my $plural = @$ids == 1 ? q() : q(s);
 	my $count = @$ids;
 	return if !$count;
 	my $job_id = $script->add_job( 'RMLSTSpecies', { temp_init => 1 } );
 	my $EXIT = 0;
-	local @SIG{qw (INT TERM HUP)} = ( sub { $EXIT = 1 } ) x 3;    #Allow temp files to be cleaned on kill signals
+	local @SIG{qw (INT TERM HUP)} = ( sub { $EXIT = 1 } ) x 3;    #Capture kill signals
 	say qq(\n$config: $count genome$plural to analyse) if !$opts{'quiet'};
 	my $id_obj = BIGSdb::Plugins::Helpers::SpeciesID->new(
 		{
@@ -190,6 +199,7 @@ sub check_db {
 				say q(no match.) if !$opts{'quiet'};
 			}
 		}
+		set_last_run_time( $script, $isolate_id );
 	}
 	$script->stop_job( $job_id, { temp_init => 1 } );
 	return;
@@ -207,6 +217,24 @@ sub store_result {
 		  ->do( 'DELETE FROM analysis_results WHERE (isolate_id,name)=(?,?)', undef, $isolate_id, 'RMLSTSpecies' );
 		$script->{'db'}->do( 'INSERT INTO analysis_results (name,isolate_id,results) VALUES (?,?,?)',
 			undef, 'RMLSTSpecies', $isolate_id, $json );
+	};
+	if ($@) {
+		$logger->error($@);
+		$script->{'db'}->rollback;
+	} else {
+		$script->{'db'}->commit;
+	}
+	return;
+}
+
+sub set_last_run_time {
+	my ( $script, $isolate_id ) = @_;
+	eval {
+		$script->{'db'}->do(
+			'INSERT INTO last_run (name,isolate_id) VALUES (?,?) ON '
+			  . 'CONFLICT (name,isolate_id) DO UPDATE SET timestamp = now()',
+			undef, 'RMLSTSpecies', $isolate_id
+		);
 	};
 	if ($@) {
 		$logger->error($@);
@@ -294,6 +322,10 @@ ${bold}--exclude$norm ${under}CONFIG NAMES $norm
     
 ${bold}--help$norm
     This help page.
+    
+${bold}--last_run_days$norm ${under}DAYS$norm
+    Only run for a particular isolate when the analysis was last performed
+    at least the specified number of days ago.
     
 ${bold}--quiet$norm
     Only show errors.

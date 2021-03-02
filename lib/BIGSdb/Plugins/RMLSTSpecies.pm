@@ -54,7 +54,7 @@ sub get_attributes {
 		buttontext  => 'rMLST species id',
 		menutext    => 'Species identification',
 		module      => 'RMLSTSpecies',
-		version     => '2.1.1',
+		version     => '2.1.2',
 		dbtype      => 'isolates',
 		section     => 'isolate_info,analysis,postquery',
 		input       => 'query',
@@ -359,6 +359,11 @@ sub _store_result {
 		  ->do( 'DELETE FROM analysis_results WHERE (isolate_id,name)=(?,?)', undef, $isolate_id, $att->{'module'} );
 		$self->{'db'}->do( 'INSERT INTO analysis_results (name,isolate_id,results) VALUES (?,?,?)',
 			undef, $att->{'module'}, $isolate_id, $json );
+		$self->{'db'}->do(
+			'INSERT INTO last_run (name,isolate_id) VALUES (?,?) ON '
+			  . 'CONFLICT (name,isolate_id) DO UPDATE SET timestamp = now()',
+			undef, $att->{'module'}, $isolate_id
+		);
 	};
 	if ($@) {
 		$logger->error($@);
