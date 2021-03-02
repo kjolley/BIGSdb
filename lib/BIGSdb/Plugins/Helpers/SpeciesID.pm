@@ -136,6 +136,20 @@ sub get_rmlst_scheme_id {
 	return $self->{'datastore'}->run_query( 'SELECT id FROM schemes WHERE name=?', 'Ribosomal MLST' );
 }
 
+sub rmlst_scheme_exists {
+	my ($self) = @_;
+	my $scheme_id =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT id FROM schemes WHERE name=? AND dbase_name IS NOT NULL and dbase_id IS NOT NULL',
+		'Ribosomal MLST' );
+	return if !defined $scheme_id;
+	my $loci = $self->{'datastore'}->get_scheme_loci( $scheme_id, { profile_name => 1 } );
+	foreach my $locus (@$loci) {
+		return if $locus !~ /^BACT0000\d{2}$/x;
+	}
+	return 1;
+}
+
 sub _get_rmlst_designations {
 	my ( $self, $isolate_id ) = @_;
 	my $scheme_id = $self->get_rmlst_scheme_id;

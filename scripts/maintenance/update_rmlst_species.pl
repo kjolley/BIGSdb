@@ -106,8 +106,6 @@ sub get_dbs {
 			next;
 		}
 		next if $exclude{$dir};
-		my $scheme_exists = rmlst_scheme_exists($script);
-		next if !$scheme_exists;
 		push @$configs, $dir;
 	}
 	say scalar @$configs . ' found.' if !$opts{'quiet'};
@@ -180,7 +178,7 @@ sub check_db {
 		0 => 'designations',
 		1 => 'genome sequence'
 	);
-	my @scan_genome = defined $id_obj->get_rmlst_scheme_id ? ( 0, 1 ) : (1);
+	my @scan_genome = defined $id_obj->rmlst_scheme_exists ? ( 0, 1 ) : (1);
   ISOLATE: foreach my $isolate_id (@$ids) {
 	  RUN: foreach my $run (@scan_genome) {
 			last ISOLATE if $EXIT;
@@ -282,20 +280,6 @@ sub check_if_script_already_running {
 	say $fh $$;
 	close $fh;
 	return;
-}
-
-sub rmlst_scheme_exists {
-	my ($script) = @_;
-	my $scheme_id =
-	  $script->{'datastore'}
-	  ->run_query( 'SELECT id FROM schemes WHERE name=? AND dbase_name IS NOT NULL and dbase_id IS NOT NULL',
-		'Ribosomal MLST' );
-	return if !defined $scheme_id;
-	my $loci = $script->{'datastore'}->get_scheme_loci( $scheme_id, { profile_name => 1 } );
-	foreach my $locus (@$loci) {
-		return if $locus !~ /^BACT0000\d{2}$/x;
-	}
-	return 1;
 }
 
 sub show_help {
