@@ -66,9 +66,16 @@ if ( $opts{'help'} ) {
 	exit;
 }
 check_if_script_already_running();
+perform_sanity_check();
 main();
 remove_lock_file();
 local $| = 1;
+
+sub perform_sanity_check {
+	my $submission_dir = get_submission_dir();
+	die "Submission directory is not defined.\n" if !$submission_dir;
+	return;
+}
 
 sub main {
 	if ( $opts{'d'} ) {
@@ -306,7 +313,6 @@ sub get_submission_dir {
 		$logger->fatal( 'Unable to read or parse bigsdb.conf file. Reason: ' . Config::Tiny->errstr );
 		$config = Config::Tiny->new();
 	}
-	die "Submission directory not defined.\n" if !$config->{_}->{'submission_dir'};
 	return $config->{_}->{'submission_dir'};
 }
 
