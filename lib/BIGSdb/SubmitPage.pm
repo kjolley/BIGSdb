@@ -125,7 +125,7 @@ function resize_rmlst_cell(){
 			width = \$(this).width();
 		}
 	});
-	\$(".rmlst_cell").css("min-width", width + 10 + "px");
+	\$(".rmlst_cell").css("min-width", width + 20 + "px");
 }
 
 function status_markall(status){
@@ -2063,7 +2063,7 @@ sub _print_rmlst_analysis {
 				  . qq(<em>$result->{'taxon'}</em></span>)
 				  . q(<div style="display:block-inline;margin-top:0.2em;)
 				  . qq(background-color:#$colour;border:1px solid #ccc;)
-				  . qq(height:0.8em;width:$result->{'support'}%"></div></td></tr>);
+				  . qq(height:0.9em;width:$result->{'support'}%"></div></td></tr>);
 			}
 			say q(</table></td>);
 		} else {
