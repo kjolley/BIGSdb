@@ -327,7 +327,10 @@ sub check_if_script_already_running {
 			$logger->error('Lock file exists but process is no longer running - deleting lock.');
 			unlink $lock_file;
 		} else {
-			die "Script already running - terminating.\n" if !$opts{'quiet'};
+			if ( $opts{'quiet'} ) {
+				exit(1);
+			}
+			die "Script already running - terminating.\n";
 		}
 	}
 	open( my $fh, '>', $lock_file ) || $logger->error("Cannot open lock file $lock_file for writing");
