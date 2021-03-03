@@ -67,6 +67,8 @@ if ( $opts{'help'} ) {
 }
 check_if_script_already_running();
 perform_sanity_check();
+my $EXIT = 0;
+	local @SIG{qw (INT TERM HUP)} = ( sub { $EXIT = 1 } ) x 3;    #Capture kill signals
 main();
 remove_lock_file();
 local $| = 1;
@@ -84,6 +86,7 @@ sub main {
 	}
 	my $dbs = get_dbs();
 	foreach my $db (@$dbs) {
+		last if $EXIT;
 		check_db($db);
 	}
 	return;
@@ -161,8 +164,7 @@ sub check_db {
 	my $count = @submission_ids;
 	return if !$count;
 	my $job_id = $script->add_job( 'RMLSTSubmission', { temp_init => 1 } );
-	my $EXIT = 0;
-	local @SIG{qw (INT TERM HUP)} = ( sub { $EXIT = 1 } ) x 3;    #Capture kill signals
+	
 	say qq(\n$config: $count submission$plural to analyse) if !$opts{'quiet'};
 	my $id_obj = BIGSdb::Plugins::Helpers::SpeciesID->new(
 		{
