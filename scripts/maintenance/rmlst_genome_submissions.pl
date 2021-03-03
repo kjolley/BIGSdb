@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20210302
+#Version: 20210303
 use strict;
 use warnings;
 use 5.010;
@@ -68,7 +68,7 @@ if ( $opts{'help'} ) {
 check_if_script_already_running();
 perform_sanity_check();
 my $EXIT = 0;
-	local @SIG{qw (INT TERM HUP)} = ( sub { $EXIT = 1 } ) x 3;    #Capture kill signals
+local @SIG{qw (INT TERM HUP)} = ( sub { $EXIT = 1 } ) x 3;    #Capture kill signals
 main();
 remove_lock_file();
 local $| = 1;
@@ -164,7 +164,6 @@ sub check_db {
 	my $count = @submission_ids;
 	return if !$count;
 	my $job_id = $script->add_job( 'RMLSTSubmission', { temp_init => 1 } );
-	
 	say qq(\n$config: $count submission$plural to analyse) if !$opts{'quiet'};
 	my $id_obj = BIGSdb::Plugins::Helpers::SpeciesID->new(
 		{
@@ -224,6 +223,9 @@ sub check_db {
 				local $" = q(, );
 				say qq(@taxa.) if !$opts{'quiet'};
 				store_result( $script, $submission_id, $index, $result );
+			} elsif ( $result->{'response'}->code ) {
+				say q(Too big.) if !$opts{'quiet'};
+				store_failure( $script, $submission_id, $index, 'Failed - too many contigs' );
 			} else {
 				say q(no match.) if !$opts{'quiet'};
 			}
@@ -276,6 +278,23 @@ sub store_result {
 	} else {
 		$json = encode_json { results => 'no match' };
 	}
+	eval {
+		$script->{'db'}
+		  ->do( 'INSERT INTO genome_submission_analysis (submission_id,name,index,results) VALUES (?,?,?,?)',
+			undef, $submission_id, 'RMLSTSpecies', $index, $json );
+	};
+	if ($@) {
+		$logger->error($@);
+		$script->{'db'}->rollback;
+	} else {
+		$script->{'db'}->commit;
+	}
+	return;
+}
+
+sub store_failure {
+	my ( $script, $submission_id, $index, $message ) = @_;
+	my $json = encode_json( { failed => 1, message => $message } );
 	eval {
 		$script->{'db'}
 		  ->do( 'INSERT INTO genome_submission_analysis (submission_id,name,index,results) VALUES (?,?,?,?)',

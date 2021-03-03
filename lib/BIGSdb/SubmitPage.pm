@@ -2053,7 +2053,7 @@ sub _print_rmlst_analysis {
 	my $results = $rmlst_analysis->{$index}->{'results'};
 	if ($results) {
 		my $values = decode_json($results);
-		if ( ref $values ) {
+		if ( ref $values && ref $values eq 'ARRAY' ) {
 			say q(<td><table style="width:100%;height:100%">);
 			foreach my $result (@$values) {
 				my $colour = BIGSdb::Utils::get_percent_colour( $result->{'support'} );
@@ -2066,8 +2066,11 @@ sub _print_rmlst_analysis {
 				  . qq(height:0.9em;width:$result->{'support'}%"></div></td></tr>);
 			}
 			say q(</table></td>);
+		} elsif ( ref $values eq 'HASH' && defined $values->{'failed'} ) {
+			say qq(<td class="warning">$values->{'message'}</td>);
 		} else {
-			say qq(<td>$values</td>);
+			say q(<td></td>);
+			$logger->error('Unrecognised JSON value.');
 		}
 	} else {
 		say q(<td>pending</td>);
