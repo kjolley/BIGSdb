@@ -289,7 +289,7 @@ sub get_lock_file {
 		$config = Config::Tiny->new();
 	}
 	my $lock_dir = $config->{_}->{'lock_dir'} // LOCK_DIR;
-	my $lock_file = "$lock_dir/update_rmlst_species";
+	my $lock_file = "$lock_dir/rmlst_genome_submissions";
 	return $lock_file;
 }
 
