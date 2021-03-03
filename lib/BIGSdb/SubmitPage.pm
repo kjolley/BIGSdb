@@ -27,6 +27,7 @@ use BIGSdb::Utils;
 use BIGSdb::Constants qw(SEQ_METHODS :submissions :interface :design);
 use List::MoreUtils qw(none);
 use POSIX;
+use JSON;
 use constant LIMIT => 500;
 use constant INF   => 9**99;
 
@@ -114,7 +115,18 @@ END
 	});
 	\$("form#file_upload_form").addClass("dropzone");
 	$db_trigger
+	resize_rmlst_cell();
 });
+
+function resize_rmlst_cell(){
+	var width=0;
+	\$(".rmlst_result").each(function( index ) {
+		if (\$(this).width() > width){
+			width = \$(this).width();
+		}
+	});
+	\$(".rmlst_cell").css("min-width", width + 10 + "px");
+}
 
 function status_markall(status){
 	\$("select[name^='status_']").val(status);
@@ -1912,7 +1924,12 @@ sub _print_isolate_table {
 	say qq(<div style="max-width:min(${main_max_width}px, 100vw - 100px)"><div class="scrollable">)
 	  . q(<table class="resultstable" style="margin-bottom:0"><tr>);
 	say qq(<th>$_</th>) foreach @$fields;
-	say q(<th>contigs</th><th>total length (bp)</th><th>N50</th>) if $submission->{'type'} eq 'genomes';
+	my $rmlst_analysis;
+	if ( $submission->{'type'} eq 'genomes' ) {
+		say q(<th>contigs</th><th>total length (bp)</th><th>N50</th>);
+		$rmlst_analysis = $self->_get_rmlst_analysis($submission_id);
+		say q(<th>rMLST species prediction</th>) if %$rmlst_analysis;
+	}
 	say q(</tr>);
 	my $td = 1;
 	local $" = q(</td><td>);
@@ -1966,18 +1983,26 @@ sub _print_isolate_table {
 	return;
 }
 
+sub _get_rmlst_analysis {
+	my ( $self, $submission_id ) = @_;
+	return $self->{'datastore'}->run_query( 'SELECT * FROM genome_submission_analysis WHERE submission_id=?',
+		$submission_id, { fetch => 'all_hashref', key => 'index' } );
+}
+
 sub _print_genome_stat_fields {
 	my ( $self, $submission_id, $isolate, $index ) = @_;
 	my $dir            = $self->{'submissionHandler'}->get_submission_dir($submission_id) . '/supporting_files';
 	my $assembly_stats = $self->{'submissionHandler'}->get_assembly_stats($submission_id);
 	return if !$isolate->{'assembly_filename'};
+	my $rmlst_analysis = $self->_get_rmlst_analysis($submission_id);
+	my $colspan = %$rmlst_analysis ? 4 : 3;
 	if ( -e "$dir/$isolate->{'assembly_filename'}" ) {
 		if ( !$assembly_stats->{$index} ) {
 			$assembly_stats->{$index} = $self->{'submissionHandler'}
 			  ->calc_assembly_stats( $submission_id, $index, $isolate->{'assembly_filename'} );
 		}
 		if ( $assembly_stats->{$index}->{'total_length'} == 0 ) {
-			say q(<td colspan="3" class="fail">Invalid file format</td>);
+			say q(<td colspan="$colspan" class="fail">Invalid file format</td>);
 			$self->{'failed_validation'} = 1;
 		} else {
 			my $warn_max_contigs = $self->{'system'}->{'warn_max_contigs'} // $self->{'config'}->{'warn_max_contigs'}
@@ -2011,12 +2036,41 @@ sub _print_genome_stat_fields {
 				$class = 'warning';
 			}
 			say qq(<td class="$class">) . BIGSdb::Utils::commify( $assembly_stats->{$index}->{'n50'} ) . q(</td>);
+			$self->_print_rmlst_analysis( $rmlst_analysis, $index );
 		}
 	} else {
 		if ( $assembly_stats->{$index} ) {
 			$self->{'submissionHandler'}->remove_assembly_stats( $submission_id, $index );
 		}
-		say q(<td colspan="3">No sequence</td>);
+		say qq(<td colspan="$colspan">No sequence</td>);
+	}
+	return;
+}
+
+sub _print_rmlst_analysis {
+	my ( $self, $rmlst_analysis, $index ) = @_;
+	return if !%$rmlst_analysis;
+	my $results = $rmlst_analysis->{$index}->{'results'};
+	if ($results) {
+		my $values = decode_json($results);
+		if ( ref $values ) {
+			say q(<td><table style="width:100%;height:100%">);
+			foreach my $result (@$values) {
+				my $colour = BIGSdb::Utils::get_percent_colour( $result->{'support'} );
+				say q(<tr>);
+				say q(<td class="rmlst_cell" style="position:relative;text-align:left">)
+				  . q(<span class="rmlst_result" style="position:absolute;margin-left:1em;font-size:0.8em;white-space:nowrap">)
+				  . qq(<em>$result->{'taxon'}</em></span>)
+				  . q(<div style="display:block-inline;margin-top:0.2em;)
+				  . qq(background-color:#$colour;border:1px solid #ccc;)
+				  . qq(height:0.8em;width:$result->{'support'}%"></div></td></tr>);
+			}
+			say q(</table></td>);
+		} else {
+			say qq(<td>$values</td>);
+		}
+	} else {
+		say q(<td>pending</td>);
 	}
 	return;
 }

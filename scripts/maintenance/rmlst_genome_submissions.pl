@@ -265,7 +265,7 @@ sub store_result {
 	if ($predictions) {
 		$json = encode_json( $data->{'taxon_prediction'} );
 	} else {
-		$json = encode_json { result => 'no match' };
+		$json = encode_json { results => 'no match' };
 	}
 	eval {
 		$script->{'db'}
