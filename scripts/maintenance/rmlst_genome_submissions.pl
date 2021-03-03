@@ -319,7 +319,6 @@ sub get_submission_dir {
 sub check_if_script_already_running {
 	my $lock_file = get_lock_file();
 	if ( -e $lock_file ) {
-		say $lock_file;
 		open( my $fh, '<', $lock_file ) || $logger->error("Cannot open lock file $lock_file for reading");
 		my $pid = <$fh>;
 		close $fh;
@@ -328,7 +327,7 @@ sub check_if_script_already_running {
 			$logger->error('Lock file exists but process is no longer running - deleting lock.');
 			unlink $lock_file;
 		} else {
-			die "Script already running - terminating.\n";
+			die "Script already running - terminating.\n" if !$opts{'quiet'};
 		}
 	}
 	open( my $fh, '>', $lock_file ) || $logger->error("Cannot open lock file $lock_file for writing");
