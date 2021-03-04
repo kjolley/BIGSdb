@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20210302
+#Version: 20210304
 use strict;
 use warnings;
 use 5.010;
@@ -131,22 +131,21 @@ sub check_db {
 	my $min_genome_size =
 	  $script->{'system'}->{'min_genome_size'} // $script->{'config'}->{'min_genome_size'} // MIN_GENOME_SIZE;
 	my $qry =
-	    q[SELECT id FROM isolates i JOIN seqbin_stats ss ON i.id=ss.isolate_id AND ss.total_length>=? LEFT JOIN ]
-	  . q[analysis_results ar ON i.id=ar.isolate_id AND ar.name=? LEFT JOIN last_run lr ON i.id=lr.isolate_id AND lr.name=? ]
-	  . q[WHERE (ar.datestamp IS NULL ];
+	  q[SELECT ss.isolate_id FROM seqbin_stats ss LEFT JOIN analysis_results ar ON ss.isolate_id=ar.isolate_id ]
+	  . q[AND ar.name=? LEFT JOIN last_run lr ON ss.isolate_id=lr.isolate_id AND lr.name=? ]
+	  . q[WHERE ss.total_length>=? AND (ar.datestamp IS NULL ];
 	if ( $opts{'refresh_days'} ) {
 		$qry .= qq(OR ar.datestamp < now()-interval '$opts{'refresh_days'} days' );
 	}
-	$qry.=q[) ];
-	if ($opts{'last_run_days'}){
-		$qry .= qq(AND lr.timestamp IS NULL OR lr.timestamp < now()-interval '$opts{'last_run_days'} days' ); 
+	$qry .= q[) ];
+	if ( $opts{'last_run_days'} ) {
+		$qry .= qq(AND lr.timestamp IS NULL OR lr.timestamp < now()-interval '$opts{'last_run_days'} days' );
 	}
-	$qry .= q(ORDER BY i.id);
+	$qry .= q(ORDER BY ss.isolate_id);
 	my $agent = LWP::UserAgent->new( agent => 'BIGSdb' );
 	my $ids =
 	  $script->{'datastore'}
-	  ->run_query( $qry, [ $min_genome_size, 'RMLSTSpecies', 'RMLSTSpecies' ], { fetch => 'col_arrayref' } )
-	  ;
+	  ->run_query( $qry, [ 'RMLSTSpecies', 'RMLSTSpecies', $min_genome_size ], { fetch => 'col_arrayref' } );
 	my $plural = @$ids == 1 ? q() : q(s);
 	my $count = @$ids;
 	return if !$count;
