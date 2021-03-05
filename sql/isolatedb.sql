@@ -332,6 +332,7 @@ contigs integer NOT NULL,
 total_length integer NOT NULL,
 n50 integer,
 l50 integer,
+updated boolean,
 PRIMARY KEY (isolate_id),
 CONSTRAINT ss_isolate_id FOREIGN KEY (isolate_id) REFERENCES isolates
 ON DELETE CASCADE
@@ -535,8 +536,6 @@ CREATE OR REPLACE FUNCTION maint_seqbin_stats() RETURNS TRIGGER AS $maint_seqbin
 				VALUES (delta_isolate_id,delta_contigs,delta_total_length);
 			EXIT insert_update;
 		END LOOP insert_update;
-		PERFORM update_n50(delta_isolate_id);
-	
 		RETURN NULL;
 	END;
 $maint_seqbin_stats$ LANGUAGE plpgsql;	
@@ -544,6 +543,66 @@ $maint_seqbin_stats$ LANGUAGE plpgsql;
 CREATE TRIGGER maint_seqbin_stats AFTER INSERT OR UPDATE OR DELETE ON sequence_bin
 	FOR EACH ROW
 	EXECUTE PROCEDURE maint_seqbin_stats();
+	
+--https://stackoverflow.com/questions/8937203/execute-deferred-trigger-only-once-per-row-in-postgresql
+CREATE OR REPLACE FUNCTION trg_seqbin_stats_after_change_1()
+    RETURNS trigger AS
+$BODY$    
+BEGIN
+ -- We only want the following to run once per transaction per isolate
+ -- Not on addition of each contig.
+	PERFORM update_n50(NEW.isolate_id);
+	RETURN NULL; 
+END;
+$BODY$ LANGUAGE plpgsql;
+
+--Flag row as updated
+CREATE OR REPLACE FUNCTION trg_seqbin_stats_after_change_2()
+    RETURNS trigger AS
+$BODY$   
+BEGIN
+
+UPDATE seqbin_stats
+SET    updated = TRUE
+WHERE  isolate_id = NEW.isolate_id;
+RETURN NULL;
+
+END;
+$BODY$ LANGUAGE plpgsql;
+ 
+--Reset updated flag
+CREATE OR REPLACE FUNCTION trg_seqbin_stats_after_change_3()
+    RETURNS trigger AS
+$BODY$ 
+BEGIN
+
+UPDATE seqbin_stats
+SET    updated = NULL
+WHERE  isolate_id = NEW.isolate_id;
+RETURN NULL;
+
+END;
+$BODY$ LANGUAGE plpgsql;
+
+CREATE CONSTRAINT TRIGGER upaft_seqbin_stats_change_1
+    AFTER UPDATE OF contigs OR INSERT ON seqbin_stats
+    DEFERRABLE INITIALLY DEFERRED
+    FOR EACH ROW
+    WHEN (NEW.updated IS NULL)
+    EXECUTE PROCEDURE trg_seqbin_stats_after_change_1();
+    
+CREATE TRIGGER upaft_seqbin_stats_change_2   -- not deferred!
+    AFTER UPDATE OF contigs OR INSERT ON seqbin_stats
+    FOR EACH ROW
+    WHEN (NEW.updated IS NULL)
+    EXECUTE PROCEDURE trg_seqbin_stats_after_change_2();
+    
+CREATE CONSTRAINT TRIGGER upaft_seqbin_stats_change_3
+    AFTER UPDATE OF updated ON seqbin_stats
+    DEFERRABLE INITIALLY DEFERRED
+    FOR EACH ROW
+    WHEN (NEW.updated)                 --
+    EXECUTE PROCEDURE trg_seqbin_stats_after_change_3();    
 	
 CREATE TABLE oauth_credentials (
 base_uri text NOT NULL UNIQUE,

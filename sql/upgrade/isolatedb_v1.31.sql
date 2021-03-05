@@ -1,5 +1,6 @@
 ALTER TABLE seqbin_stats ADD n50 integer;
 ALTER TABLE seqbin_stats ADD l50 integer;
+ALTER TABLE seqbin_stats ADD updated boolean;
 
 CREATE OR REPLACE FUNCTION update_n50(_isolate_id int) RETURNS VOID AS $update_n50$
 	DECLARE 
@@ -59,53 +60,65 @@ CREATE OR REPLACE FUNCTION refresh_seqbin_stats() RETURNS VOID AS $refresh_seqbi
 	END;
 $refresh_seqbin_stats$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maint_seqbin_stats() RETURNS TRIGGER AS $maint_seqbin_stats$
-	DECLARE
-		delta_isolate_id	 integer;
-		delta_contigs		 integer;
-		delta_total_length	 integer;
-		remote_contig_length integer;
-	BEGIN
-		IF (TG_OP = 'DELETE') THEN
-			PERFORM id FROM isolates WHERE id=OLD.isolate_id;
-			IF NOT FOUND THEN  --The isolate record itself has been deleted.
-				RETURN NULL;
-			END IF;
-			delta_isolate_id = OLD.isolate_id;
-			delta_contigs = - 1;
-			SELECT length FROM remote_contigs WHERE seqbin_id=OLD.id INTO remote_contig_length;	
-			IF (remote_contig_length IS NULL) THEN
-				remote_contig_length = 0;
-			END IF;
-			delta_total_length = - length(OLD.sequence) - remote_contig_length;	
-		ELSIF (TG_OP = 'UPDATE') THEN
-			delta_isolate_id = OLD.isolate_id;
-			delta_total_length = length(NEW.sequence) - length(OLD.sequence);
-			delta_contigs = 0;
-		ELSIF (TG_OP = 'INSERT') THEN
-			delta_isolate_id = NEW.isolate_id;
-			delta_contigs = + 1;
-			delta_total_length = + length(NEW.sequence);
-		END IF;
-		
-		<<insert_update>>
-		LOOP
-			IF (TG_OP = 'DELETE') THEN
-				DELETE FROM seqbin_stats WHERE isolate_id = delta_isolate_id AND contigs + delta_contigs = 0;
-				EXIT insert_update WHEN found;
-			END IF;
-			UPDATE seqbin_stats SET contigs = contigs + delta_contigs,total_length = total_length + delta_total_length 
-				WHERE isolate_id = delta_isolate_id;
-			EXIT insert_update WHEN found;
-			INSERT INTO seqbin_stats (isolate_id,contigs,total_length)
-				VALUES (delta_isolate_id,delta_contigs,delta_total_length);
-			EXIT insert_update;
-		END LOOP insert_update;
-		PERFORM update_n50(delta_isolate_id);
-	
-		RETURN NULL;
-	END;
-$maint_seqbin_stats$ LANGUAGE plpgsql;	
+--https://stackoverflow.com/questions/8937203/execute-deferred-trigger-only-once-per-row-in-postgresql
+CREATE OR REPLACE FUNCTION trg_seqbin_stats_after_change_1()
+    RETURNS trigger AS
+$BODY$    
+BEGIN
+ -- We only want the following to run once per transaction per isolate
+ -- Not on addition of each contig.
+	PERFORM update_n50(NEW.isolate_id);
+	RETURN NULL; 
+END;
+$BODY$ LANGUAGE plpgsql;
+
+--Flag row as updated
+CREATE OR REPLACE FUNCTION trg_seqbin_stats_after_change_2()
+    RETURNS trigger AS
+$BODY$   
+BEGIN
+
+UPDATE seqbin_stats
+SET    updated = TRUE
+WHERE  isolate_id = NEW.isolate_id;
+RETURN NULL;
+
+END;
+$BODY$ LANGUAGE plpgsql;
+ 
+--Reset updated flag
+CREATE OR REPLACE FUNCTION trg_seqbin_stats_after_change_3()
+    RETURNS trigger AS
+$BODY$ 
+BEGIN
+
+UPDATE seqbin_stats
+SET    updated = NULL
+WHERE  isolate_id = NEW.isolate_id;
+RETURN NULL;
+
+END;
+$BODY$ LANGUAGE plpgsql;
+
+CREATE CONSTRAINT TRIGGER upaft_seqbin_stats_change_1
+    AFTER UPDATE OF contigs OR INSERT ON seqbin_stats
+    DEFERRABLE INITIALLY DEFERRED
+    FOR EACH ROW
+    WHEN (NEW.updated IS NULL)
+    EXECUTE PROCEDURE trg_seqbin_stats_after_change_1();
+    
+CREATE TRIGGER upaft_seqbin_stats_change_2   -- not deferred!
+    AFTER UPDATE OF contigs OR INSERT ON seqbin_stats
+    FOR EACH ROW
+    WHEN (NEW.updated IS NULL)
+    EXECUTE PROCEDURE trg_seqbin_stats_after_change_2();
+    
+CREATE CONSTRAINT TRIGGER upaft_seqbin_stats_change_3
+    AFTER UPDATE OF updated ON seqbin_stats
+    DEFERRABLE INITIALLY DEFERRED
+    FOR EACH ROW
+    WHEN (NEW.updated)                 
+    EXECUTE PROCEDURE trg_seqbin_stats_after_change_3();    
 
 SELECT update_n50_all();
 CREATE INDEX ON seqbin_stats(contigs);
