@@ -63,6 +63,8 @@ if ( $opts{'help'} ) {
 	exit;
 }
 check_if_script_already_running();
+my $EXIT = 0;
+local @SIG{qw (INT TERM HUP)} = ( sub { $EXIT = 1 } ) x 3;    #Capture kill signals
 main();
 remove_lock_file();
 local $| = 1;
@@ -74,6 +76,7 @@ sub main {
 	}
 	my $dbs = get_dbs();
 	foreach my $db (@$dbs) {
+		last if $EXIT;
 		check_db($db);
 	}
 	return;
@@ -131,7 +134,7 @@ sub check_db {
 	my $min_genome_size =
 	  $script->{'system'}->{'min_genome_size'} // $script->{'config'}->{'min_genome_size'} // MIN_GENOME_SIZE;
 	my $qry =
-	  q[SELECT ss.isolate_id FROM seqbin_stats ss LEFT JOIN analysis_results ar ON ss.isolate_id=ar.isolate_id ]
+	    q[SELECT ss.isolate_id FROM seqbin_stats ss LEFT JOIN analysis_results ar ON ss.isolate_id=ar.isolate_id ]
 	  . q[AND ar.name=? LEFT JOIN last_run lr ON ss.isolate_id=lr.isolate_id AND lr.name=? ]
 	  . q[WHERE ss.total_length>=? AND (ar.datestamp IS NULL ];
 	if ( $opts{'refresh_days'} ) {
@@ -150,8 +153,6 @@ sub check_db {
 	my $count = @$ids;
 	return if !$count;
 	my $job_id = $script->add_job( 'RMLSTSpecies (offline)', { temp_init => 1 } );
-	my $EXIT = 0;
-	local @SIG{qw (INT TERM HUP)} = ( sub { $EXIT = 1 } ) x 3;    #Capture kill signals
 	say qq(\n$config: $count genome$plural to analyse) if !$opts{'quiet'};
 	my $id_obj = BIGSdb::Plugins::Helpers::SpeciesID->new(
 		{
