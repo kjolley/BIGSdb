@@ -100,6 +100,10 @@ sub make_rest_call {
 			$delay += 10 if $delay < MAX_DELAY;
 		}
 	} while ($unavailable);
+	if ($attempts) {
+		$self->{'jobManager'}->update_job_status( $self->{'options'}->{'job_id'}, { stage => undef } )
+		  ;
+	}
 	my $data     = {};
 	my $rank     = [];
 	my $taxon    = [];
