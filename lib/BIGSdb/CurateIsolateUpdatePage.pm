@@ -207,7 +207,7 @@ sub _update {
 	my ( $pubmed_updates, $error ) = $self->_prepare_pubmed_updates( $data->{'id'}, $newdata, $updated_field );
 	return if $error;
 	if ($update) {
-		if ($fields_updated) {
+		if ($fields_updated || @$updated_field) {
 			eval {
 				$self->{'db'}->do( $qry, undef, @values );
 				foreach my $extra_update ( @$eav_updates, @$alias_updates, @$pubmed_updates ) {
