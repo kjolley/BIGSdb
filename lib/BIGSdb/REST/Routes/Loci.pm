@@ -78,7 +78,7 @@ sub _get_locus {
 	my $set_id     = $self->get_set_id;
 	my $subdir     = setting('subdir');
 	my $locus_name = $locus;
-	my $set_name = $locus_name;
+	my $set_name   = $locus_name;
 	if ($set_id) {
 		$locus_name = $self->{'datastore'}->get_set_locus_real_id( $locus, $set_id );
 	}
@@ -100,6 +100,7 @@ sub _get_locus {
 		}
 	}
 	$values->{'id'} = $set_name;
+
 	#Aliases
 	my $aliases = $self->{'datastore'}->run_query( 'SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias',
 		$locus_name, { fetch => 'col_arrayref' } );
@@ -147,7 +148,8 @@ sub _get_locus {
 sub _query_locus_sequence {
 	my $self   = setting('self');
 	my $params = params;
-	my ( $db, $locus, $sequence, $details, $base64 ) = @{$params}{qw(db locus sequence details base64)};
+	my ( $db, $locus, $sequence, $details, $base64, $partial_linked_data ) =
+	  @{$params}{qw(db locus sequence details base64 partial_linked_data)};
 	$self->check_post_payload;
 	$self->check_load_average;
 	$self->check_seqdef_database;
@@ -194,6 +196,11 @@ sub _query_locus_sequence {
 		if ( $partial_matches->{$locus} ) {
 			my $best     = $partial_matches->{$locus}->[0];
 			my $filtered = $self->filter_match($best);
+			if ($partial_linked_data) {
+				my $field_values =
+				  $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $best->{'allele'} );
+				$filtered->{'linked_data'} = $field_values->{'detailed_values'}
+			}
 			$values->{'best_match'} = $filtered;
 		}
 	}
