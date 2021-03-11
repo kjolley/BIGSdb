@@ -533,4 +533,12 @@ sub _update_submission_database {
 	}
 	return;
 }
+
+sub _get_locus_list {
+	my ($self) = @_;
+	if ( !$self->{'cache'}->{'loci'} ) {
+		$self->{'cache'}->{'loci'} = $self->{'datastore'}->get_loci;
+	}
+	return $self->{'cache'}->{'loci'};
+}
 1;

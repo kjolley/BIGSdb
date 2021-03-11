@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2020, University of Oxford
+#Copyright (c) 2011-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -468,11 +468,4 @@ sub stop_job {
 	return;
 }
 
-sub _get_locus_list {
-	my ($self) = @_;
-	if ( !$self->{'cache'}->{'loci'} ) {
-		$self->{'cache'}->{'loci'} = $self->{'datastore'}->get_loci;
-	}
-	return $self->{'cache'}->{'loci'};
-}
 1;
