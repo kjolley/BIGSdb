@@ -1715,6 +1715,29 @@ sub _get_seqbin_link {
 				data  => BIGSdb::Utils::commify( $seqbin_stats->{'total_length'} ) . ' bp'
 			  };
 		}
+		my $offline_stats_json =
+		  $self->{'datastore'}->run_query( 'SELECT results FROM analysis_results WHERE (name,isolate_id)=(?,?)',
+			[ 'AssemblyStats', $isolate_id ] );
+		if ($offline_stats_json) {
+			my $stats = decode_json($offline_stats_json);
+			if ( $stats->{'length'} == $seqbin_stats->{'total_length'} ) {
+				my %labels = (
+					percent_GC => '%GC',
+					N          => 'Ns'
+				);
+				foreach my $key (qw(percent_GC N gaps)) {
+					push @$list,
+					  {
+						title => $labels{$key} // $key,
+						data => $stats->{$key}
+					  } if defined $stats->{$key};
+				}
+			} else {
+				$logger->error( "$self->{'instance'} id-$isolate_id: "
+					  . 'Offline assembly stats total length does not match realtime calculated value. '
+					  . 'Re-run update_assembly_stats.pl against this database to fix.' );
+			}
+		}
 		my $set_id = $self->get_set_id;
 		my $set_clause =
 		  $set_id
