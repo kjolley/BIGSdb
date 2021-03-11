@@ -77,12 +77,10 @@ CREATE OR REPLACE FUNCTION trg_seqbin_stats_after_change_2()
     RETURNS trigger AS
 $BODY$   
 BEGIN
-
 UPDATE seqbin_stats
 SET    updated = TRUE
 WHERE  isolate_id = NEW.isolate_id;
 RETURN NULL;
-
 END;
 $BODY$ LANGUAGE plpgsql;
  
@@ -91,12 +89,10 @@ CREATE OR REPLACE FUNCTION trg_seqbin_stats_after_change_3()
     RETURNS trigger AS
 $BODY$ 
 BEGIN
-
 UPDATE seqbin_stats
 SET    updated = NULL
 WHERE  isolate_id = NEW.isolate_id;
 RETURN NULL;
-
 END;
 $BODY$ LANGUAGE plpgsql;
 
