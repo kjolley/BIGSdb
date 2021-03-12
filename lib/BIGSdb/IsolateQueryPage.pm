@@ -331,8 +331,7 @@ sub _print_display_fieldset {
 	my $prefs  = $self->{'prefs'};
 	say q(<fieldset id="display_fieldset" style="float:left"><legend>Display/sort options</legend>);
 	my ( $order_list, $labels ) = $self->get_field_selection_list(
-		{ isolate_fields => 1, loci => 1, scheme_fields => 1, locus_limit => MAX_LOCUS_ORDER_BY }
-	);
+		{ isolate_fields => 1, loci => 1, scheme_fields => 1, locus_limit => MAX_LOCUS_ORDER_BY } );
 	say q(<ul><li><span style="white-space:nowrap"><label for="order" class="display">Order by: </label>);
 	say $self->popup_menu(
 		-name   => 'order',
@@ -1542,11 +1541,18 @@ sub _print_seqbin_fields {
 	my ( $self, $row, $max_rows ) = @_;
 	my $q = $self->{'cgi'};
 	say q(<span style="white-space:nowrap">);
+	my @values = qw(size contigs N50 L50);
+	if (
+		$self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM analysis_results WHERE name=?)', 'AssemblyStats' )
+	  )
+	{
+		push @values, qw(percent_GC N gaps);
+	}
 	say $self->popup_menu(
 		-name   => "seqbin_field$row",
 		-id     => "seqbin_field$row",
-		-values => [ q(), qw(size contigs N50 L50) ],
-		-labels => { size => 'total length (Mbp)', contigs => 'number of contigs' },
+		-values => [ q(), @values ],
+		-labels => { size => 'total length (Mbp)', contigs => 'number of contigs', percent_GC => '%GC', N => 'Ns' },
 		-class  => 'fieldlist'
 	);
 	my $values = [ '>', '>=', '<', '<=', '=' ];
@@ -1562,7 +1568,6 @@ sub _print_seqbin_fields {
 	);
 	$args{'-value'} = $q->param("seqbin_value$row") if defined $q->param("seqbin_value$row");
 	say $self->textfield(%args);
-
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_seqbin" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
@@ -3001,7 +3006,7 @@ sub _modify_query_for_seqbin {
 	my $view = $self->{'system'}->{'view'};
 	my @seqbin_queries;
 	my %valid_operators = map { $_ => 1 } ( '<', '<=', '>', '>=', '=' );
-	my %valid_fields = map { $_ => 1 } qw(size contigs N50 L50);
+	my %valid_fields = map { $_ => 1 } qw(size contigs N50 L50 percent_GC N gaps);
 	my %labels = ( size => 'total length', contigs => 'number of contigs' );
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		my $field    = $q->param("seqbin_field$i")    // q();
@@ -3024,14 +3029,27 @@ sub _modify_query_for_seqbin {
 			push @$errors_ref, "$labels{$field} must be >= 0.";
 			next;
 		}
-		my %db_field = ( size => 'total_length', contigs => 'contigs' );
-		$db_field{$field} //= $field;
-		$value *= 1_000_000 if $field eq 'size';
-		my $seqbin_qry = "($view.id IN (SELECT isolate_id FROM seqbin_stats WHERE $db_field{$field} $operator $value)";
-		if ( $operator eq '<' || $operator eq '<=' || ( $operator eq '=' && $value == 0 ) ) {
-			$seqbin_qry .= " OR $view.id NOT IN (SELECT isolate_id FROM seqbin_stats)";
+		my %offline_analysis_field = map { $_ => 1 } qw(percent_GC N gaps);
+		my $seqbin_qry;
+		if ( $offline_analysis_field{$field} ) {
+			my %type = (
+				percent_GC => 'float',
+				N          => 'integer',
+				gaps       => 'integer'
+			);
+			$seqbin_qry =
+			    "($view.id IN (SELECT isolate_id FROM analysis_results WHERE name='AssemblyStats' AND "
+			  . "CAST(results->>'$field' AS $type{$field}) $operator $value))";
+		} else {
+			my %db_field = ( size => 'total_length', contigs => 'contigs' );
+			$db_field{$field} //= $field;
+			$value *= 1_000_000 if $field eq 'size';
+			$seqbin_qry = "($view.id IN (SELECT isolate_id FROM seqbin_stats WHERE $db_field{$field} $operator $value)";
+			if ( $operator eq '<' || $operator eq '<=' || ( $operator eq '=' && $value == 0 ) ) {
+				$seqbin_qry .= " OR $view.id NOT IN (SELECT isolate_id FROM seqbin_stats)";
+			}
+			$seqbin_qry .= ')';
 		}
-		$seqbin_qry .= ')';
 		push @seqbin_queries, $seqbin_qry;
 	}
 	if (@seqbin_queries) {
