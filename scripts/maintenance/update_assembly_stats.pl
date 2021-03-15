@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20210304
+#Version: 20210315
 use strict;
 use warnings;
 use 5.010;
@@ -141,6 +141,10 @@ sub check_db {
 	my $agent = LWP::UserAgent->new( agent => 'BIGSdb' );
 	my $ids =
 	  $script->{'datastore'}->run_query( $qry, [ 'AssemblyStats', $min_genome_size, ], { fetch => 'col_arrayref' } );
+	if ( !ref $ids ) {
+		$logger->error("Failed on database $config.");
+		exit(1);
+	}
 	my $plural = @$ids == 1 ? q() : q(s);
 	my $count = @$ids;
 	return if !$count;
