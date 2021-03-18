@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20210318
+#Version: 20210315
 use strict;
 use warnings;
 use 5.010;
@@ -192,9 +192,9 @@ sub calculate_stats {
 		my $seq             = $contigs->{$id};
 		my $last_base_was_N = 0;
 		my $contig_length   = length($seq);
-		my @nucleotides = split //x, uc($seq);
-		foreach my $base (@nucleotides){
+		for ( my $i = 0 ; $i < $contig_length ; $i++ ) {
 			$length++;
+			my $base = uc( substr( $seq, $i, 1 ) );
 			$GC++ if $base eq 'G' || $base eq 'C';
 			$AT++ if $base eq 'A' || $base eq 'T';
 			if ( $base eq 'N' ) {
