@@ -188,6 +188,7 @@ sub _initiate {
 	my $q = $self->{'cgi'};
 	Log::Log4perl::MDC->put( 'ip', $q->remote_host );
 	$self->read_host_mapping_file($config_dir);
+	
 	my $content_length = $ENV{'CONTENT_LENGTH'} // 0;
 	if ( $content_length > $self->{'max_upload_size_mb'} ) {
 		$self->{'error'} = 'tooBig';
@@ -225,6 +226,7 @@ sub _initiate {
 	$self->{'system'}->{'instance'} = $self->{'instance'};
 	$self->_check_kiosk_page;
 	$self->set_system_overrides;
+	$self->read_assembly_check_file;
 	if ( !defined $self->{'system'}->{'dbtype'}
 		|| ( $self->{'system'}->{'dbtype'} ne 'sequences' && $self->{'system'}->{'dbtype'} ne 'isolates' ) )
 	{
