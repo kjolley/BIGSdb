@@ -262,7 +262,6 @@ sub remove_lock_file {
 sub check_if_script_already_running {
 	my $lock_file = get_lock_file();
 	if ( -e $lock_file ) {
-		say $lock_file;
 		open( my $fh, '<', $lock_file ) || $logger->error("Cannot open lock file $lock_file for reading");
 		my $pid = <$fh>;
 		close $fh;
