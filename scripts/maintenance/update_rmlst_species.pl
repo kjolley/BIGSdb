@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20210304
+#Version: 20210325
 use strict;
 use warnings;
 use 5.010;
@@ -273,6 +273,9 @@ sub check_if_script_already_running {
 			$logger->error('Lock file exists but process is no longer running - deleting lock.');
 			unlink $lock_file;
 		} else {
+			if ( $opts{'quiet'} ) {
+				exit(1);
+			}
 			die "Script already running - terminating.\n";
 		}
 	}
