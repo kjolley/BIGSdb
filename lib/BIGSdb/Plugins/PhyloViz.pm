@@ -64,7 +64,7 @@ sub get_attributes {
 		  . '<a href="https://online.phyloviz.net/">PhyloViz Online</a> for visualisation. Datasets can include '
 		  . 'metadata which allows nodes in the resultant tree to be coloured interactively.',
 		module              => 'PhyloViz',
-		version             => '1.2.7',
+		version             => '1.2.8',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -87,7 +87,7 @@ sub get_initiation_values {
 
 sub run {
 	my ($self) = @_;
-	my $q      = $self->{'cgi'};
+	my $q = $self->{'cgi'};
 	say q(<h1>PhyloViz: phylogenetic tree vizualisation</h1>);
 	my $isolate_ids = [];
 	if ( $q->param('submit') ) {
@@ -261,11 +261,9 @@ sub _print_info_panel {
 	my ($self) = @_;
 	my $logo = '/images/plugins/PhyloViz/logo.png';
 	say q(<div class="box" id="resultspanel">);
-	if ( -e "$ENV{'DOCUMENT_ROOT'}$logo" ) {
-		say q(<div style="float:left">);
-		say qq(<img src="$logo" style="width:100px;margin-right:2em" />);
-		say q(</div>);
-	}
+	say q(<div style="float:left">);
+	say qq(<img src="$logo" style="width:100px;margin-right:2em" />);
+	say q(</div>);
 	say q(<p>This plugin uploads data for analysis within the PhyloViz online service:</p>);
 	say q(<p>PHYLOViZ Online is developed by: Bruno Gon&ccedil;alves (1), )
 	  . q(Jo&atilde;o Andr&eacute; Carri&ccedil;o (1), Alexandre P. Francisco (2,3), )

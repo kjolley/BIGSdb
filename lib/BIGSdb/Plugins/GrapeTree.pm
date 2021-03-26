@@ -1,6 +1,6 @@
 #GrapeTree.pm - MST visualization plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2017-2020, University of Oxford
+#Copyright (c) 2017-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -33,7 +33,7 @@ use constant MAX_RECORDS => 10_000;
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name             => 'GrapeTree',
+		name    => 'GrapeTree',
 		authors => [
 			{
 				name        => 'Keith Jolley',
@@ -53,7 +53,7 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.4.2',
+		version             => '1.4.3',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -85,11 +85,9 @@ sub print_info_panel {
 	my ($self) = @_;
 	my $logo = '/images/plugins/GrapeTree/logo.png';
 	say q(<div class="box" id="resultspanel">);
-	if ( -e "$ENV{'DOCUMENT_ROOT'}$logo" ) {
-		say q(<div style="float:left">);
-		say qq(<img src="$logo" style="width:100px" />);
-		say q(</div>);
-	}
+	say q(<div style="float:left">);
+	say qq(<img src="$logo" style="width:100px" />);
+	say q(</div>);
 	say q(<p>This plugin generates a minimum-spanning tree and visualizes within GrapeTree:</p>);
 	say q(<p>GrapeTree is developed by: Zhemin Zhou (1), Nabil-Fareed Alikhan (1), Martin J. Sergeant (1), )
 	  . q(Nina Luhmann (1), C&aacute;tia Vaz (2,5), Alexandre P. Francisco (2,4), )
@@ -198,7 +196,7 @@ sub _print_parameters_fieldset {
 
 sub run {
 	my ($self) = @_;
-	my $q      = $self->{'cgi'};
+	my $q = $self->{'cgi'};
 	say q(<h1>GrapeTree: Visualization of genomic relationships</h1>);
 	my $isolate_ids = [];
 	if ( $q->param('submit') ) {

@@ -1,6 +1,6 @@
 #ITol.pm - Phylogenetic tree plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2016-2020, University of Oxford
+#Copyright (c) 2016-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -58,7 +58,7 @@ sub get_attributes {
 		buttontext => 'iTOL',
 		menutext   => 'iTOL',
 		module     => 'ITOL',
-		version    => '1.5.0',
+		version    => '1.5.1',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
@@ -795,12 +795,11 @@ sub print_info_panel {
 	my ($self) = @_;
 	my $logo = '/images/plugins/ITOL/logo.png';
 	say q(<div class="box" id="resultspanel">);
-	if ( -e "$ENV{'DOCUMENT_ROOT'}$logo" ) {
-		say q(<div style="float:left">);
-		say qq(<img src="$logo" style="width:100px;margin-right:2em" />);
-		say q(</div>);
-	}
-	say q(<p>This plugin uploads data for analysis within the Interactive Tree of Life online service:</p>);
+	say q(<div style="float:left">);
+	say qq(<img src="$logo" style="width:100px;margin-right:2em" />);
+	say q(</div>);
+	say q(<p>This plugin uploads data for analysis within the Interactive Tree of Life online service:</p>)
+	  ;
 	say q(<p>iTOL is developed by: Ivica Letunic (1) and Peer Bork (2,3,4)</p>);
 	say q(<ol style="overflow:hidden">);
 	say q(<li>Biobyte solutions GmbH, Bothestr 142, 69126 Heidelberg, Germany</li>);

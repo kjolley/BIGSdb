@@ -62,7 +62,7 @@ sub get_attributes {
 		buttontext => 'Microreact',
 		menutext   => 'Microreact',
 		module     => 'Microreact',
-		version    => '1.0.13',
+		version    => '1.0.14',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
@@ -294,11 +294,9 @@ sub print_info_panel {
 	my ($self) = @_;
 	my $logo = '/images/plugins/Microreact/logo.png';
 	say q(<div class="box" id="resultspanel">);
-	if ( -e "$ENV{'DOCUMENT_ROOT'}$logo" ) {
-		say q(<div style="float:left">);
-		say qq(<img src="$logo" style="max-width:95%" />);
-		say q(</div>);
-	}
+	say q(<div style="float:left">);
+	say qq(<img src="$logo" style="max-width:95%" />);
+	say q(</div>);
 	say q(<div style="float:left">);
 	say q(<p>This plugin uploads data for analysis within the Microreact online service:</p>)
 	  . q(<p>Microreact is developed at the <a href="http://www.pathogensurveillance.net/">)
