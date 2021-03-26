@@ -1888,3 +1888,17 @@ ON UPDATE CASCADE
 );
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON genome_submission_analysis TO apache;
+
+CREATE TABLE assembly_checks (
+name text NOT NULL,
+isolate_id integer NOT NULL,
+datestamp date NOT NULL DEFAULT now(),
+status text NOT NULL,
+PRIMARY KEY(name,isolate_id),
+CONSTRAINT ac_isolate_id FOREIGN KEY (isolate_id) REFERENCES seqbin_stats
+ON DELETE CASCADE
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON assembly_checks TO apache;
+CREATE INDEX ON assembly_checks(status);

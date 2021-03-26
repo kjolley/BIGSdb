@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#(c) 2010-2020, University of Oxford
+#(c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -139,7 +139,7 @@ sub read_config_file {
 	my ( $self, $config_dir ) = @_;
 	my $config = Config::Tiny->read("$config_dir/bigsdb.conf");
 	if ( !defined $config ) {
-		$logger->fatal('Unable to read or parse bigsdb.conf file. Reason: ' . Config::Tiny->errstr);
+		$logger->fatal( 'Unable to read or parse bigsdb.conf file. Reason: ' . Config::Tiny->errstr );
 		$config = Config::Tiny->new();
 	}
 	foreach my $param ( keys %{ $config->{_} } ) {
@@ -185,6 +185,47 @@ sub read_config_file {
 		$self->{'config'}->{'site_user_dbs'} = \@user_dbs;
 	}
 	$self->_read_db_config_file($config_dir);
+	return;
+}
+
+sub read_assembly_check_file {
+	my ($self) = @_;
+	if ( !defined $self->{'config_dir'} ) {
+		$logger->error('Config directory not set.');
+		return;
+	}
+	if ( !defined $self->{'instance'} ) {
+		$logger->error('Database config not set.');
+		return;
+	}
+	return if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
+
+	#Read global settings first.
+	my $config      = {};
+	my $global_file = "$self->{'config_dir'}/assembly_checks.conf";
+	if ( -e $global_file ) {
+		$config = Config::Tiny->read($global_file);
+		if ( !defined $config ) {
+			$logger->fatal( "Unable to read or parse $global_file file. Reason: " . Config::Tiny->errstr );
+			return;
+		}
+	}
+
+	#Override with database-specific settings.
+	my $db_file = "$self->{'config_dir'}/dbases/$self->{'instance'}/assembly_checks.conf";
+	if ( -e $db_file ) {
+		my $local_config = Config::Tiny->read($db_file);
+		if ( !defined $local_config ) {
+			$logger->fatal( "Unable to read or parse $db_file file. Reason: " . Config::Tiny->errstr );
+			return;
+		}
+		foreach my $section ( keys %$local_config ) {
+			foreach my $key ( keys %{ $local_config->{$section} } ) {
+				$config->{$section}->{$key} = $local_config->{$section}->{$key};
+			}
+		}
+	}
+	$self->{'assembly_checks'} = $config;
 	return;
 }
 
