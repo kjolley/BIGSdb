@@ -4,6 +4,22 @@ v1.31.0: *Batch uploading data is now performed in a separate process, with
          *N50 and L50 values are now stored in the seqbin_stats table and can
           be used in isolate queries. The stats are automatically updated by
           a database trigger whenever contigs are added to the sequence bin.
+         *The results of arbitrary analyses can now be stored in the isolate
+          database as JSON values. These can be displayed within an isolate
+          record using a templating system. Results of rMLST analysis generated
+          by the rMLST species plugin are now stored and shown in isolate 
+          record.
+         *External script to run and store rMLST analysis for an isolate
+          database.
+         *External script to perform rMLST analysis on submitted genomes before
+          they are curated to check species and look for contamination. The 
+          results are displayed within the submission.
+         *Submitted genome assemblies are now checked immediately on upload.
+          Thresholds can be set for N50, total length, and number of contigs.
+          Soft limit breaches produce warnings to the submitter and curator. 
+          Hard limit breaches result in automatic rejection of submission.
+         *External script to record %GC, Ns and gaps. These values can now be
+          used in isolate queries.
 v1.30.1: *Option to limit number of running jobs for particular plugins.
 v1.30.0: *Annotation quality metrics. Use the number of allele designations
           defined for a scheme as an indication of annotation quality.

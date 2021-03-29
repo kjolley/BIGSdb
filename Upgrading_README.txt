@@ -36,6 +36,7 @@ Version 1.27: Change of seqdef and isolate database structures.
 Version 1.28: Change of REST database structure.
 Version 1.29: Change of user and isolate database structures.
 Version 1.30: Change of isolate database structure.
+Version 1.31: Change of isolate database structure.
 
 Details can be found below.
 
@@ -493,3 +494,10 @@ There are changes to the isolate database structure. These are to support
 recommended schemes and annotation quality metrics.
 
 Please run the isolatedb_v1.30.sql script against isolate databases.
+
+Version 1.31
+------------
+There are changes to the isolate database structure. These are to support 
+storing arbitrary analyses, assembly metrics, and quality checks.
+
+Please run the isolatedb_v1.31.sql script against isolate databases.
