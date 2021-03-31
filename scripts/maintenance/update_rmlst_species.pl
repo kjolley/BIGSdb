@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20210325
+#Version: 20210331
 use strict;
 use warnings;
 use 5.010;
@@ -142,7 +142,7 @@ sub check_db {
 	}
 	$qry .= q[) ];
 	if ( $opts{'last_run_days'} ) {
-		$qry .= qq(AND lr.timestamp IS NULL OR lr.timestamp < now()-interval '$opts{'last_run_days'} days' );
+		$qry .= qq(AND (lr.timestamp IS NULL OR lr.timestamp < now()-interval '$opts{'last_run_days'} days') );
 	}
 	$qry .= q(ORDER BY ss.isolate_id);
 	my $agent = LWP::UserAgent->new( agent => 'BIGSdb' );
