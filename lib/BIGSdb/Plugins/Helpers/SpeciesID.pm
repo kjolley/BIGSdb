@@ -101,8 +101,7 @@ sub make_rest_call {
 		}
 	} while ($unavailable);
 	if ($attempts) {
-		$self->{'jobManager'}->update_job_status( $self->{'options'}->{'job_id'}, { stage => undef } )
-		  ;
+		$self->{'jobManager'}->update_job_status( $self->{'options'}->{'job_id'}, { stage => undef } );
 	}
 	my $data     = {};
 	my $rank     = [];
@@ -124,6 +123,8 @@ sub make_rest_call {
 			$rST = $data->{'fields'}->{'rST'};
 			$species = $data->{'fields'}->{'species'} // q();
 		}
+	} elsif ( $response->code == 413 ) {
+		$self->{'logger'}->info('Request too large or too many contigs.');
 	} else {
 		$self->{'logger'}->error( $response->as_string );
 	}
