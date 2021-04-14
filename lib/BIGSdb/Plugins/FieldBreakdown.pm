@@ -1,6 +1,6 @@
 #FieldBreakdown.pm - FieldBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2018-2020, University of Oxford
+#Copyright (c) 2018-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -47,7 +47,7 @@ sub get_attributes {
 		buttontext => 'Fields',
 		menutext   => 'Field breakdown',
 		module     => 'FieldBreakdown',
-		version    => '2.2.11',
+		version    => '2.2.12',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
@@ -140,15 +140,18 @@ sub _get_field_values {
 	my $methods    = {
 		field => sub {
 			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-			$freqs =
-			  $self->_get_field_freqs( $field,
-				$att->{'type'} =~ /^(?:int|date)/x ? { order => 'label ASC', no_null => 1 } : undef );
+			$freqs = $self->_get_field_freqs(
+				$field, $att->{'type'} =~ /^(?:int|date)/x
+				? { order => 'label ASC' }
+				: undef
+			);
 		},
 		eav_field => sub {
 			my $att = $self->{'datastore'}->get_eav_field($field);
 			$freqs =
-			  $self->_get_eav_field_freqs( $field,
-				$att->{'value_format'} =~ /^(?:int|date)/x ? { order => 'label ASC', no_null => 1 } : undef );
+			  $self->_get_eav_field_freqs( $field, $att->{'value_format'} =~ /^(?:int|date)/x
+				? { order => 'label ASC' }
+				: undef );
 		},
 		extended_field => sub {
 			if ( $field =~ /^(.+)\.\.(.+)$/x ) {
@@ -248,7 +251,7 @@ sub _export_excel {
 	my $text_table = $self->_get_text_table($field);
 	my $temp_file  = $self->make_temp_file($text_table);
 	my $full_path  = "$self->{'config'}->{'secure_tmp_dir'}/$temp_file";
-	my $name = substr( $display_field, 0, 30 );    #Excel tab names cannot be >31 characters.
+	my $name       = substr( $display_field, 0, 30 );                      #Excel tab names cannot be >31 characters.
 	BIGSdb::Utils::text2excel(
 		$full_path,
 		{
@@ -627,6 +630,7 @@ JS
 
 sub _ajax {
 	my ( $self, $field ) = @_;
+	my $q     = $self->{'cgi'};
 	my $freqs = $self->_get_field_values($field);
 	say to_json($freqs);
 	return;
@@ -636,7 +640,6 @@ sub _get_field_freqs {
 	my ( $self, $field, $options ) = @_;
 	my $qry = "SELECT $field AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
 	  . 'JOIN id_list i ON v.id=i.value ';
-	$qry .= "WHERE $field IS NOT NULL " if $options->{'no_null'};
 	$qry .= 'GROUP BY label';
 	my $order = $options->{'order'} ? $options->{'order'} : 'value DESC';
 	$qry .= " ORDER BY $order";
@@ -660,7 +663,9 @@ sub _get_field_freqs {
 			}
 		} else {
 			foreach my $value (@$values) {
-				next if !defined $value->{'label'};
+				if ( !defined $value->{'label'} ) {
+					$value->{'label'} = ['No value'];
+				}
 				my @sorted_label =
 				  $att->{'type'} ne 'text'
 				  ? sort { $a <=> $b } @{ $value->{'label'} }
@@ -688,7 +693,6 @@ sub _get_eav_field_freqs {
 	my $eav_table = $self->{'datastore'}->get_eav_field_table($field);
 	my $qry       = "SELECT e.value AS label,COUNT(*) AS value FROM $eav_table e RIGHT JOIN id_list i ON "
 	  . 'e.isolate_id=i.value AND e.field=?';
-	$qry .= ' WHERE e.value IS NOT NULL' if $options->{'no_null'};
 	$qry .= ' GROUP BY label';
 	my $order = $options->{'order'} ? $options->{'order'} : 'value DESC';
 	$qry .= " ORDER BY $order";

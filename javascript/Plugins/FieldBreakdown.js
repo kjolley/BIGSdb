@@ -1,6 +1,6 @@
 /*FieldBreakdown.js - FieldBreakdown plugin for BIGSdb
 Written by Keith Jolley
-Copyright (c) 2018-2020, University of Oxford
+Copyright (c) 2018-2021, University of Oxford
 E-mail: keith.jolley@zoo.ox.ac.uk
 
 This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 
-Version 2.2.9.
+Version 2.2.12.
 */
 
 var prefs_loaded;
@@ -568,6 +568,7 @@ function load_line(url,field,cumulative) {
 	var title = field.replace(/^.+\.\./, "");
 
 	d3.json(url).then (function(jsonData) {
+		remove_null(jsonData);
 		var values = ['value'];
 		var fields = ['date'];
 		var count = 0;
@@ -661,7 +662,16 @@ function load_line(url,field,cumulative) {
 	});	
 }
 
+function remove_null(jsonData){
+	$.each(jsonData, function(index,value){
+		if (value['label'] === 'No value'){
+			jsonData.splice(index,1);
+		} 
+	});
+}
+
 function load_bar_json(jsonData,field,rotate){
+	remove_null(jsonData);
 	$("#line_controls").css("display", "none");
 	$("#pie_controls").css("display", "none");
 	$("#map_controls").css("display","none");

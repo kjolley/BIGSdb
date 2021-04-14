@@ -201,7 +201,7 @@ sub _get_javascript_paths {
 			'igv' => { src => [qw(igv.min.js)], defer => 1, version => '20200308' }
 		};
 		if ( $self->{'pluginJS'} ) {
-			$features->{'pluginJS'} = { src => ["Plugins/$self->{'pluginJS'}"], defer => 1, version => '20200308' };
+			$features->{'pluginJS'} = { src => ["Plugins/$self->{'pluginJS'}"], defer => 1, version => '20210414' };
 		}
 		my %used;
 		foreach my $feature ( keys %$features ) {
