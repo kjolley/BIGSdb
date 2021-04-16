@@ -2069,7 +2069,7 @@ sub _print_rmlst_analysis {
 		} elsif ( ref $values eq 'HASH' && defined $values->{'failed'} ) {
 			if ( $values->{'message'} eq 'No match' ) {
 				my $tooltip =
-				  $self->get_tooltip( q(No match - this means that no exactly matching rMLST alleles linked )
+				  $self->get_tooltip( q(No match - This means that no exactly matching rMLST alleles linked )
 					  . q(exclusively to a single species were found. This may be due to the sequence being more variable )
 					  . q(than normal, or may reflect a lack of coverage in the rMLST database.) );
 				$values->{'message'} .= qq( $tooltip);
