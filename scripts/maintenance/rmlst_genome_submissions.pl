@@ -228,6 +228,7 @@ sub check_db {
 				store_failure( $script, $submission_id, $index, 'Failed - too many contigs' );
 			} else {
 				say q(no match.) if !$opts{'quiet'};
+				store_failure( $script, $submission_id, $index, 'No match' );
 			}
 		}
 	}
