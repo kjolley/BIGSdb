@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20210303
+#Version: 20210416
 use strict;
 use warnings;
 use 5.010;
@@ -223,7 +223,7 @@ sub check_db {
 				local $" = q(, );
 				say qq(@taxa.) if !$opts{'quiet'};
 				store_result( $script, $submission_id, $index, $result );
-			} elsif ( $result->{'response'}->code ) {
+			} elsif ( $result->{'response'}->code == 413 ) {
 				say q(Too big.) if !$opts{'quiet'};
 				store_failure( $script, $submission_id, $index, 'Failed - too many contigs' );
 			} else {
