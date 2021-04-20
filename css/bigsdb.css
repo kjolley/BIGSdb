@@ -1,4 +1,4 @@
-/*Version: 20210226*/
+/*Version: 20210420*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -1685,6 +1685,11 @@ span.scheme {
 }
 
 span.aliases {
+	font-size: 0.9em
+}
+
+span.minor {
+	color: #888;
 	font-size: 0.9em
 }
 

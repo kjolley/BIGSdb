@@ -1793,15 +1793,16 @@ sub _print_fk_field_with_label {
 		$data->{ lc($field) },
 		{ cache => "ResultsTablePage::print_record_field::$field" }
 	);
-	my $value = $table_info->{'labels'}->{$field};
+	my $label = $table_info->{'labels'}->{$field};
+	
 	my $i     = 0;
 	foreach ( @{ $self->{'cache'}->{'fields_to_query'}->{$field} } ) {
-		$value =~ s/\$$_/$labels[$i]/x;
+		$label =~ s/\$$_/$labels[$i]/x;
 		$i++;
 	}
-	$value =~ s/[\|\$]//gx;
-	$value =~ s/&/\&amp;/gx;
-	print qq(<td>$value</td>);
+	$label =~ s/[\|\$]//gx;
+	$label =~ s/&/\&amp;/gx;
+	print qq(<td>$data->{ lc($field) } <span class="minor">[$label]</span></td>);
 	return;
 }
 

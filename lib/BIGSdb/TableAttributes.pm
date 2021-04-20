@@ -612,7 +612,7 @@ sub get_pcr_locus_table_attributes {
 			primary_key    => 1,
 			foreign_key    => 'pcr',
 			dropdown_query => 1,
-			labels         => '|$id|) |$description|',
+			labels         => '|$description|',
 		},
 		{
 			name           => 'locus',
@@ -654,7 +654,7 @@ sub get_probe_locus_table_attributes {
 			primary_key    => 1,
 			foreign_key    => 'probes',
 			dropdown_query => 1,
-			labels         => '|$id|) |$description|',
+			labels         => '|$description|',
 		},
 		{
 			name           => 'locus',
@@ -768,7 +768,7 @@ sub get_retired_profiles_table_attributes {
 			required        => 1,
 			primary_key     => 1,
 			foreign_key     => 'schemes',
-			labels          => '|$name| (id |$id|)',
+			labels          => '|$name|',
 			dropdown_query  => 1,
 			with_pk_only    => 1,
 			is_curator_only => 1
@@ -952,7 +952,7 @@ sub get_client_dbase_loci_fields_table_attributes {
 			required       => 1,
 			primary_key    => 1,
 			foreign_key    => 'client_dbases',
-			labels         => '|$id|) |$name|',
+			labels         => '|$name|',
 			dropdown_query => 1
 		},
 		{
@@ -984,7 +984,7 @@ sub get_client_dbase_loci_table_attributes {
 			required       => 1,
 			primary_key    => 1,
 			foreign_key    => 'client_dbases',
-			labels         => '|$id|) |$name|',
+			labels         => '|$name|',
 			dropdown_query => 1
 		},
 		{
@@ -1015,7 +1015,7 @@ sub get_client_dbase_schemes_table_attributes {
 			required       => 1,
 			primary_key    => 1,
 			foreign_key    => 'client_dbases',
-			labels         => '|$id|) |$name|',
+			labels         => '|$name|',
 			dropdown_query => 1
 		},
 		{
@@ -1046,7 +1046,7 @@ sub get_client_dbase_cschemes_table_attributes {
 			required       => 1,
 			primary_key    => 1,
 			foreign_key    => 'client_dbases',
-			labels         => '|$id|) |$name|',
+			labels         => '|$name|',
 			dropdown_query => 1
 		},
 		{
@@ -1055,7 +1055,7 @@ sub get_client_dbase_cschemes_table_attributes {
 			required       => 1,
 			primary_key    => 1,
 			foreign_key    => 'classification_schemes',
-			labels         => '|$id|) |$name|',
+			labels         => '|$name|',
 			dropdown_query => 1
 		},
 		{
@@ -1123,7 +1123,7 @@ sub get_profile_refs_table_attributes {
 			required        => 1,
 			primary_key     => 1,
 			foreign_key     => 'schemes',
-			labels          => '|$name| (id |$id|)',
+			labels          => '|$name|',
 			dropdown_query  => 1,
 			with_pk_only    => 1,
 			is_curator_only => 1
@@ -2081,7 +2081,7 @@ sub get_project_members_table_attributes {
 			required       => 1,
 			primary_key    => 1,
 			foreign_key    => 'projects',
-			labels         => '|$id|) |$short_description|',
+			labels         => '|$short_description|',
 			dropdown_query => 1
 		},
 		{ name => 'isolate_id', type => 'int',  required => 1, primary_key    => 1, foreign_key => 'isolates' },
@@ -2487,7 +2487,7 @@ sub get_validation_rule_conditions_table_attributes {
 			type           => 'int',
 			required       => 1,
 			foreign_key    => 'validation_rules',
-			labels         => '|$id|) |$message|',
+			labels         => '|$message|',
 			primary_key    => 1,
 			dropdown_query => 1
 		},
@@ -2496,7 +2496,7 @@ sub get_validation_rule_conditions_table_attributes {
 			type           => 'int',
 			required       => 1,
 			foreign_key    => 'validation_conditions',
-			labels         => '|$id|) |$field| |$operator| |$value|',
+			labels         => '|$field| |$operator| |$value|',
 			primary_key    => 1,
 			dropdown_query => 1
 		},
