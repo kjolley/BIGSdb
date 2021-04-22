@@ -21,6 +21,8 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Page);
+use Log::Log4perl qw(get_logger);
+my $logger = get_logger('BIGSdb.Page');
 
 sub set_pref_requirements {
 	my ($self) = @_;
@@ -241,8 +243,55 @@ sub _print_software_versions {
 	if ( $ENV{'MOD_PERL'} ) {
 		say qq(<li>$ENV{'MOD_PERL'}</li>);
 	}
+	my $blast_version = $self->_get_blast_version;
+	if ($blast_version){
+		say qq(<li>BLAST: $blast_version</li>);
+	}
+	my $muscle_version = $self->_get_muscle_version;
+	if ($muscle_version){
+		say qq(<li>MUSCLE: $muscle_version</li>);
+	}
+	my $mafft_version = $self->_get_mafft_version;
+	if ($mafft_version){
+		say qq(<li>MAFFT: $mafft_version</li>);
+	}
 	say q(</ul>);
 	say q(</div>);
+	return;
+}
+
+sub _get_blast_version {
+	my ($self) = @_;
+	my $cmd = "$self->{'config'}->{'blast+_path'}/blastn -version";
+	my $version_output = `$cmd`;
+	if ($version_output =~ /blastn:\s([\d\.\+]+)/x){
+		return $1;
+	}
+	$logger->error('Cannot determine BLAST version');
+	return;
+}
+
+sub _get_muscle_version {
+	my ($self) = @_;
+	return if !defined $self->{'config'}->{'muscle_path'};
+	my $cmd = "$self->{'config'}->{'muscle_path'} -version";
+	my $version_output = `$cmd`;
+	if ($version_output =~ /MUSCLE\sv([\d\.]+)/x){
+		return $1;
+	}
+	$logger->error('Cannot determine MUSCLE version');
+	return;
+}
+
+sub _get_mafft_version {
+	my ($self) = @_;
+	return if !defined $self->{'config'}->{'mafft_path'};
+	my $cmd = "$self->{'config'}->{'mafft_path'} --version 2>&1";
+	my $version_output = `$cmd`;
+	if ($version_output =~ /v([\d\.]+)/x){
+		return $1;
+	}
+	$logger->error('Cannot determine MAFFT version');
 	return;
 }
 
