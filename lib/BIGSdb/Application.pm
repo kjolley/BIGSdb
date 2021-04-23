@@ -188,7 +188,6 @@ sub _initiate {
 	my $q = $self->{'cgi'};
 	Log::Log4perl::MDC->put( 'ip', $q->remote_host );
 	$self->read_host_mapping_file($config_dir);
-	
 	my $content_length = $ENV{'CONTENT_LENGTH'} // 0;
 	if ( $content_length > $self->{'max_upload_size_mb'} ) {
 		$self->{'error'} = 'tooBig';
@@ -460,6 +459,7 @@ sub print_page {
 		pluginManager        => $self->{'pluginManager'},
 		mod_perl_request     => $self->{'mod_perl_request'},
 		jobManager           => $self->{'jobManager'},
+		assembly_checks      => $self->{'assembly_checks'},
 		needs_authentication => $self->{'pages_needing_authentication'}->{ $self->{'page'} },
 		curate               => 0
 	);

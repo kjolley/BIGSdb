@@ -824,6 +824,7 @@ sub get_isolate_record {
 			$buffer .= $self->_get_version_links($id);
 			$buffer .= $self->_get_ref_links($id);
 			$buffer .= $self->_get_seqbin_link($id);
+			$buffer .= $self->_get_assembly_checks($id);
 			$buffer .= $self->_get_annotation_metrics($id);
 			$buffer .= $self->_get_analysis($id);
 		}
@@ -1760,6 +1761,119 @@ sub _get_seqbin_link {
 		$buffer .= q(</div>);
 	}
 	return $buffer;
+}
+
+sub _get_assembly_checks {
+	my ( $self, $isolate_id ) = @_;
+	return q() if !defined $self->{'assembly_checks'};
+	return q()
+	  if !$self->{'datastore'}
+	  ->run_query( 'SELECT EXISTS(SELECT * FROM seqbin_stats WHERE isolate_id=?)', $isolate_id );
+	my $last_run =
+	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM last_run WHERE (isolate_id,name)=(?,?))',
+		[ $isolate_id, 'AssemblyChecks' ] );
+	my $results = $self->{'datastore'}->run_query( 'SELECT name,status FROM assembly_checks WHERE isolate_id=?',
+		$isolate_id, { fetch => 'all_hashref', key => 'name' } );
+	return q() if !$last_run && !keys %$results;
+	my @checks;
+	my @checks_to_perform =
+	  ( [qw(max_contigs)], [qw(min_size max_size)], [qw(min_n50)], [qw(min_gc max_gc)], [qw(max_n)], [qw(max_gaps)] );
+
+	foreach my $check (@checks_to_perform) {
+		my $result;
+		if ( @$check == 1 ) {
+			$result = $self->_get_check_results( $results, $check->[0] );
+		} else {
+			$result = $self->_get_min_max_check_results( $results, @$check );
+		}
+		push @checks, $result if $result;
+	}
+	return q() if !@checks;
+	my $buffer = qq(<div id="assembly_checks">\n);
+	$buffer .= qq(<span class="info_icon fas fa-2x fa-fw fa-tasks fa-pull-left" style="margin-top:-0.2em"></span>\n);
+	$buffer .= qq(<h2>Assembly checks</h2>\n);
+	$buffer .= qq(<div class="scrollable"><table class="resultstable">\n);
+	$buffer .= qq(<tr><th>Check</th><th>Status</th><th>Warn/fail reason</th></tr>\n);
+	my $td = 1;
+
+	foreach my $check (@checks) {
+		$buffer .= qq(<tr class="td$td"><td>$check->{'name'}</td><td>);
+		if ( $check->{'status'} eq 'passed' ) {
+			$buffer .= GOOD;
+		} elsif ( $check->{'status'} eq 'warn' ) {
+			$buffer .= MEH;
+		} elsif ( $check->{'status'} eq 'fail' ) {
+			$buffer .= BAD;
+		} else {
+			$logger->error("No status set for $check->{'name'}");
+		}
+		$buffer .= q(</td><td style="text-align:left">);
+		if ( $check->{'status'} ne 'passed' ) {
+			$buffer .= $check->{'message'} // q();
+		}
+		$buffer .= qq(</td></tr>\n);
+		$td = $td == 1 ? 2 : 1;
+	}
+	$buffer .= qq(</table></div>\n);
+	$buffer .= q(</div>);
+	return $buffer;
+}
+
+sub _get_check_results {
+	my ( $self, $results, $name ) = @_;
+	return if !$self->_check_exists($name);
+	my %label = (
+		max_contigs => 'Number of contigs',
+		min_n50     => 'Minimum N50',
+		max_n       => 'Number of Ns',
+		max_gaps    => 'Number of gaps'
+	);
+	my $message = $self->{'assembly_checks'}->{$name}->{'message'} // q();
+	if ( $results->{$name}->{'status'} ) {
+		$message .=
+		  qq[ ($results->{$name}->{'status'} threshold: ]
+		  . BIGSdb::Utils::commify( $self->{'assembly_checks'}->{$name}->{ $results->{$name}->{'status'} } ) . q[)];
+	}
+	return {
+		name    => $label{$name},
+		message => $message,
+		status  => $results->{$name}->{'status'} // 'passed'
+	};
+}
+
+sub _get_min_max_check_results {
+	my ( $self, $results, $min, $max ) = @_;
+	my %label = (
+		min_size => 'Assembly size',
+		max_size => 'Assembly size',
+		min_gc   => '%GC',
+		max_gc   => '%GC'
+	);
+	foreach my $check ( $min, $max ) {
+		if ( $self->_check_exists($check) && $self->{'assembly_checks'}->{$check}->{'fail'} != 0 ) {
+			my $message = $self->{'assembly_checks'}->{$check}->{'message'} // q();
+			if ( $results->{$check}->{'status'} ) {
+				$message .=
+				    qq[ ($results->{$check}->{'status'} threshold: ]
+				  . BIGSdb::Utils::commify( $self->{'assembly_checks'}->{$check}->{ $results->{$check}->{'status'} } )
+				  . q[)];
+				return {
+					name    => $label{$check},
+					message => $message,
+					status  => $results->{$check}->{'status'} // 'passed'
+				};
+			}
+		}
+	}
+	return {
+		name   => $label{$min},
+		status => 'passed'
+	};
+}
+
+sub _check_exists {
+	my ( $self, $check ) = @_;
+	return $self->{'assembly_checks'}->{$check}->{'warn'} || $self->{'assembly_checks'}->{$check}->{'fail'};
 }
 
 sub _get_annotation_metrics {
