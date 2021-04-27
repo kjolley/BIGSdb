@@ -1624,12 +1624,8 @@ sub _print_seqbin_fields {
 	return;
 }
 
-sub _print_assembly_checks_fields {
-	my ( $self, $row, $max_rows ) = @_;
-	my $q = $self->{'cgi'};
-	say q(<span style="white-space:nowrap">);
-	my @values = ( 'any', 'all' );
-	my $checks = {
+sub _get_assembly_check_values {
+	return {
 		contigs => [qw(max_contigs)],
 		size    => [qw(min_size max_size)],
 		n50     => [qw(min_n50)],
@@ -1637,6 +1633,14 @@ sub _print_assembly_checks_fields {
 		ns      => [qw(max_n)],
 		gaps    => [qw(max_gaps)]
 	};
+}
+
+sub _print_assembly_checks_fields {
+	my ( $self, $row, $max_rows ) = @_;
+	my $q = $self->{'cgi'};
+	say q(<span style="white-space:nowrap">);
+	my @values = ( 'any', 'all' );
+	my $checks = $self->_get_assembly_check_values;
 	foreach my $value (qw(contigs size n50 gc ns gaps)) {
 		my $check_defined;
 		foreach my $check_list ( $checks->{$value} ) {
@@ -1648,7 +1652,7 @@ sub _print_assembly_checks_fields {
 		push @values, $value if $check_defined;
 	}
 	my $labels = {
-		any     => 'Any check',
+		any     => 'Any checks',
 		all     => 'All checks',
 		contigs => 'Number of contigs',
 		size    => 'Assembly size',
@@ -1664,7 +1668,7 @@ sub _print_assembly_checks_fields {
 		-labels => $labels,
 		-class  => 'fieldlist'
 	);
-	my $values = [ q(), qw(pass warn fail) ];
+	my $values = [ q(), qw(pass warn fail warn/fail) ];
 	say $q->popup_menu(
 		-name   => "assembly_checks_value$row",
 		-id     => "assembly_checks_value$row",
@@ -1700,6 +1704,7 @@ sub _run_query {
 		$qry = $self->_modify_query_for_designation_status( $qry, $errors );
 		$qry = $self->_modify_query_for_seqbin( $qry, $errors );
 		$qry = $self->_modify_query_for_annotation_status( $qry, $errors );
+		$qry = $self->_modify_query_for_assembly_checks( $qry, $errors );
 		$qry .= ' ORDER BY ';
 
 		if ( defined $q->param('order')
@@ -3230,6 +3235,112 @@ sub _modify_query_for_annotation_status {
 			$qry .= " AND (@status_queries)";
 		} else {
 			$qry = "SELECT * FROM $view WHERE (@status_queries)";
+		}
+	}
+	return $qry;
+}
+
+sub _get_number_of_assembly_check_types {
+	my ($self) = @_;
+	my $count = 0;
+	my @check_types =
+	  ( [qw(max_contigs)], [qw(min_size max_size)], [qw(min_n50)], [qw(min_gc max_gc)], [qw(max_n)], [qw(max_gaps)] );
+	foreach my $check_type (@check_types) {
+		if ( @$check_type == 1 ) {
+			$count++
+			  if $self->{'assembly_checks'}->{ $check_type->[0] }->{'warn'}
+			  || $self->{'assembly_checks'}->{ $check_type->[0] }->{'fail'};
+		} else {
+			foreach my $check (@$check_type) {
+				if ( $self->{'assembly_checks'}->{$check}->{'warn'} || $self->{'assembly_checks'}->{$check}->{'fail'} )
+				{
+					$count++;
+					last;
+				}
+			}
+		}
+	}
+	return $count;
+}
+
+sub _modify_query_for_assembly_checks {
+	my ( $self, $qry, $errors_ref ) = @_;
+	my $q            = $self->{'cgi'};
+	my $view         = $self->{'system'}->{'view'};
+	my %valid_values = map { $_ => 1 } (qw(pass warn fail warn/fail));
+	my %valid_fields = map { $_ => 1 } qw(any all contigs size n50 gc ns gaps);
+	my @check_queries;
+	my $defined_checks = $self->_get_number_of_assembly_check_types;
+	my $checks         = $self->_get_assembly_check_values;
+	foreach my $i ( 1 .. MAX_ROWS ) {
+		my $field = $q->param("assembly_checks_field$i") // q();
+		my $value = $q->param("assembly_checks_value$i") // q();
+		next if $field eq q() || $value eq q();
+		if ( !$valid_values{$value} ) {
+			push @$errors_ref, 'Invalid value selected.';
+			next;
+		}
+		if ( !$valid_fields{$field} ) {
+			push @$errors_ref, 'Invalid check selected.';
+			next;
+		}
+		my $check_qry = "($view.id IN ";
+		if ( $field eq 'any' ) {
+			if ( $value eq 'pass' ) {
+				$check_qry .=
+				    q[(SELECT isolate_id FROM seqbin_stats) AND ]
+				  . qq[($view.id NOT IN (SELECT isolate_id FROM assembly_checks) OR ]
+				  . qq[$view.id IN (SELECT isolate_id FROM assembly_checks GROUP BY isolate_id ]
+				  . qq[HAVING COUNT(*) < $defined_checks))];
+			} elsif ( $value eq 'warn' ) {
+				$check_qry .= q[(SELECT isolate_id FROM assembly_checks WHERE status='warn')];
+			} elsif ( $value eq 'fail' ) {
+				$check_qry .= q[(SELECT isolate_id FROM assembly_checks WHERE status='fail')];
+			} else {    #warn/fail
+				$check_qry .= q[(SELECT isolate_id FROM assembly_checks)];
+			}
+		} elsif ( $field eq 'all' ) {
+			if ( $value eq 'pass' ) {
+				$check_qry .=
+				    q[(SELECT isolate_id FROM seqbin_stats) AND ]
+				  . qq[$view.id NOT IN (SELECT isolate_id FROM assembly_checks)];
+			} elsif ( $value eq 'warn' ) {
+				$check_qry .= q[(SELECT isolate_id FROM assembly_checks WHERE status='warn' GROUP BY isolate_id ]
+				  . qq[HAVING COUNT(*) = $defined_checks)];
+			} elsif ( $value eq 'fail' ) {
+				$check_qry .= q[(SELECT isolate_id FROM assembly_checks WHERE status='fail' GROUP BY isolate_id ]
+				  . qq[HAVING COUNT(*) = $defined_checks)];
+			} else {    #warn/fail
+				$check_qry .= q[(SELECT isolate_id FROM assembly_checks GROUP BY isolate_id ]
+				  . qq[HAVING COUNT(*) = $defined_checks)];
+			}
+		} else {
+			local $" = q(',');
+			if ( $value eq 'pass' ) {
+				$check_qry .=
+				    q[(SELECT isolate_id FROM seqbin_stats) AND ]
+				  . qq[$view.id NOT IN (SELECT isolate_id FROM assembly_checks WHERE name IN ('@{$checks->{$field}}'))];
+			} elsif ( $value eq 'warn' ) {
+				$check_qry .=
+				    q[(SELECT isolate_id FROM assembly_checks WHERE status='warn' AND ]
+				  . qq[name IN ('@{$checks->{$field}}')) ];
+			} elsif ( $value eq 'fail' ) {
+				$check_qry .= q[(SELECT isolate_id FROM assembly_checks WHERE status='fail' AND ]
+				  . qq[name IN ('@{$checks->{$field}}')) ];
+			} else { #warn/fail
+				$check_qry .= qq[(SELECT isolate_id FROM assembly_checks WHERE name IN ('@{$checks->{$field}}')) ];
+			}
+		}
+		$check_qry .= ')';
+		push @check_queries, $check_qry;
+	}
+	if (@check_queries) {
+		my $andor = ( $q->param('assembly_check_andor') // '' ) eq 'AND' ? ' AND ' : ' OR ';
+		local $" = $andor;
+		if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
+			$qry .= " AND (@check_queries)";
+		} else {
+			$qry = "SELECT * FROM $view WHERE (@check_queries)";
 		}
 	}
 	return $qry;
