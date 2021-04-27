@@ -49,6 +49,7 @@ sub _ajax_content {
 			allele_status       => sub { $self->_print_allele_status_fieldset_contents },
 			annotation_status   => sub { $self->_print_annotation_status_fieldset_contents },
 			seqbin              => sub { $self->_print_seqbin_fieldset_contents },
+			assembly_checks     => sub { $self->_print_assembly_checks_fieldset_contents },
 			tag_count           => sub { $self->_print_tag_count_fieldset_contents },
 			tags                => sub { $self->_print_tags_fieldset_contents },
 			list                => sub { $self->_print_list_fieldset_contents },
@@ -90,6 +91,9 @@ sub _ajax_content {
 		},
 		seqbin => sub {
 			$self->_print_seqbin_fields( $row, 0 );
+		},
+		assembly_checks => sub {
+			$self->_print_assembly_checks_fields( $row, 0 );
 		},
 		tag_count => sub {
 			my ( $locus_list, $locus_labels ) =
@@ -181,7 +185,7 @@ sub _save_options {
 	return if !$guid;
 	foreach my $attribute (
 		qw (provenance phenotypic allele_designations allele_count allele_status annotation_status
-		seqbin tag_count tags list filters)
+		seqbin assembly_checks tag_count tags list filters)
 	  )
 	{
 		my $value = $q->param($attribute) ? 'on' : 'off';
@@ -255,6 +259,7 @@ sub _print_interface {
 	$self->_print_allele_status_fieldset;
 	$self->_print_annotation_status_fieldset;
 	$self->_print_seqbin_fieldset;
+	$self->_print_assembly_checks_fieldset;
 	$self->_print_tag_count_fieldset;
 	$self->_print_tags_fieldset;
 	$self->_print_list_fieldset;
@@ -537,7 +542,6 @@ sub _print_annotation_status_fieldset_contents {
 
 sub _print_seqbin_fieldset {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
 	return if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM seqbin_stats)');
 	say q(<fieldset id="seqbin_fieldset" style="float:left;display:none">);
 	say q(<legend>Sequence bin</legend><div>);
@@ -561,6 +565,42 @@ sub _print_seqbin_fieldset_contents {
 	for ( 1 .. $seqbin_fields ) {
 		say q(<li>);
 		$self->_print_seqbin_fields( $_, $seqbin_fields );
+		say q(</li>);
+	}
+	say q(</ul>);
+	return;
+}
+
+sub _print_assembly_checks_fieldset {
+	my ($self) = @_;
+	return q() if !defined $self->{'assembly_checks'};
+	return q()
+	  if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM seqbin_stats)');
+	my $last_run =
+	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM last_run WHERE name=?)', 'AssemblyChecks' );
+	return q() if !$last_run;
+	say q(<fieldset id="assembly_checks_fieldset" style="float:left;display:none">);
+	say q(<legend>Assembly checks</legend><div>);
+	if ( $self->_highest_entered_fields('assembly_checks') ) {
+		$self->_print_assembly_checks_fieldset_contents;
+	}
+	say q(</div></fieldset>);
+	$self->{'assembly_checks_fieldset_exists'} = 1;
+	return;
+}
+
+sub _print_assembly_checks_fieldset_contents {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my $assembly_checks_fields = $self->_highest_entered_fields('assembly_checks') || 1;
+	my $assembly_checks_heading = $assembly_checks_fields == 1 ? 'none' : 'inline';
+	say qq(<span id="assembly_checks_field_heading" style="display:$assembly_checks_heading">)
+	  . q(<label for="assembly_checks_andor">Combine with: </label>);
+	say $q->popup_menu( -name => 'assembly_checks_andor', -id => 'assembly_checks_andor', -values => [qw (AND OR)] );
+	say q(</span><ul id="assembly_checks">);
+	for ( 1 .. $assembly_checks_fields ) {
+		say q(<li>);
+		$self->_print_assembly_checks_fields( $_, $assembly_checks_fields );
 		say q(</li>);
 	}
 	say q(</ul>);
@@ -939,6 +979,11 @@ sub _print_modify_search_fieldset {
 		my $seqbin_fieldset_display = $self->_should_display_fieldset('seqbin') ? HIDE : SHOW;
 		say qq(<li><a href="" class="button" id="show_seqbin">$seqbin_fieldset_display</a>);
 		say q(Sequence bin</li>);
+	}
+	if ( $self->{'assembly_checks_fieldset_exists'} ) {
+		my $assembly_checks_fieldset_display = $self->_should_display_fieldset('assembly_checks') ? HIDE : SHOW;
+		say qq(<li><a href="" class="button" id="show_assembly_checks">$assembly_checks_fieldset_display</a>);
+		say q(Assembly checks</li>);
 	}
 	if ( $self->{'tags_fieldset_exists'} ) {
 		my $tag_count_fieldset_display = $self->_should_display_fieldset('tag_count') ? HIDE : SHOW;
@@ -1579,6 +1624,63 @@ sub _print_seqbin_fields {
 	return;
 }
 
+sub _print_assembly_checks_fields {
+	my ( $self, $row, $max_rows ) = @_;
+	my $q = $self->{'cgi'};
+	say q(<span style="white-space:nowrap">);
+	my @values = ( 'any', 'all' );
+	my $checks = {
+		contigs => [qw(max_contigs)],
+		size    => [qw(min_size max_size)],
+		n50     => [qw(min_n50)],
+		gc      => [qw(min_gc max_gc)],
+		ns      => [qw(max_n)],
+		gaps    => [qw(max_gaps)]
+	};
+	foreach my $value (qw(contigs size n50 gc ns gaps)) {
+		my $check_defined;
+		foreach my $check_list ( $checks->{$value} ) {
+			foreach my $check (@$check_list) {
+				$check_defined = 1
+				  if $self->{'assembly_checks'}->{$check}->{'warn'} || $self->{'assembly_checks'}->{$check}->{'fail'};
+			}
+		}
+		push @values, $value if $check_defined;
+	}
+	my $labels = {
+		any     => 'Any check',
+		all     => 'All checks',
+		contigs => 'Number of contigs',
+		size    => 'Assembly size',
+		n50     => 'Minimum N50',
+		gc      => '%GC',
+		ns      => 'Number of Ns',
+		gaps    => 'Number of gaps'
+	};
+	say $self->popup_menu(
+		-name   => "assembly_checks_field$row",
+		-id     => "assembly_checks_field$row",
+		-values => [ q(), @values ],
+		-labels => $labels,
+		-class  => 'fieldlist'
+	);
+	my $values = [ q(), qw(pass warn fail) ];
+	say $q->popup_menu(
+		-name   => "assembly_checks_value$row",
+		-id     => "assembly_checks_value$row",
+		-values => $values
+	);
+	if ( $row == 1 ) {
+		my $next_row = $max_rows ? $max_rows + 1 : 2;
+		say qq(<a id="add_assembly_checks" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=query&amp;fields=assembly_checks&amp;row=$next_row&amp;no_header=1" data-rel="ajax" )
+		  . q(class="add_button"><span class="fa fas fa-plus"></span></a>);
+		say $self->get_tooltip( '', { id => 'seqbin_tooltip' } );
+	}
+	say q(</span>);
+	return;
+}
+
 sub _run_query {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
@@ -1658,7 +1760,8 @@ sub get_hidden_attributes {
 	my $extended = $self->get_extended_attributes;
 	my @hidden_attributes;
 	push @hidden_attributes,
-	  qw (prov_andor phenotypic_andor designation_andor tag_andor status_andor annotation_status_andor seqbin_andor);
+	  qw (prov_andor phenotypic_andor designation_andor tag_andor status_andor annotation_status_andor
+	  seqbin_andor assembly_checks_andor);
 	for my $row ( 1 .. MAX_ROWS ) {
 		push @hidden_attributes, "prov_field$row", "prov_value$row", "prov_operator$row", "phenotypic_field$row",
 		  "phenotypic_value$row", "phenotypic_operator$row", "designation_field$row",
@@ -1667,7 +1770,8 @@ sub get_hidden_attributes {
 		  "allele_status_value$row", "allele_count_field$row", "allele_count_operator$row",
 		  "allele_count_value$row", "tag_count_field$row", "tag_count_operator$row", "tag_count_value$row",
 		  "annotation_status_field$row", "annotation_status_value$row",
-		  "seqbin_field$row", "seqbin_operator$row", "seqbin_value$row";
+		  "seqbin_field$row",            "seqbin_operator$row", "seqbin_value$row",
+		  "assembly_checks_field$row",   "assembly_checks_value$row";
 	}
 	foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list } ) {
 		push @hidden_attributes, "${field}_list";
@@ -3140,6 +3244,7 @@ sub _should_display_fieldset {
 		allele_count        => 'allele_count',
 		allele_status       => 'allele_status',
 		seqbin              => 'seqbin',
+		assembly_checks     => 'assembly_checks',
 		tag_count           => 'tag_count',
 		tags                => 'tags',
 		annotation_status   => 'annotation_status'
@@ -3155,7 +3260,7 @@ sub _get_fieldset_display {
 	my ($self) = @_;
 	my $fieldset_display;
 	foreach my $term (
-		qw(phenotypic allele_designations annotation_status seqbin
+		qw(phenotypic allele_designations annotation_status seqbin assembly_checks
 		allele_count allele_status tag_count tags)
 	  )
 	{
@@ -3173,7 +3278,7 @@ sub get_javascript {
 	my $buffer   = $self->SUPER::get_javascript;
 	my $panel_js = $self->get_javascript_panel(
 		qw(provenance phenotypic allele_designations allele_count allele_status
-		  annotation_status seqbin tag_count tags list filters)
+		  annotation_status seqbin assembly_checks tag_count tags list filters)
 	);
 	my $ajax_load = q(var script_path = $(location).attr('href');script_path = script_path.split('?')[0];)
 	  . q(var fieldset_url=script_path + '?db=' + $.urlParam('db') + '&page=query&no_header=1';);
@@ -3184,6 +3289,7 @@ sub get_javascript {
 		allele_status       => 'allele_status',
 		annotation_status   => 'annotation_status',
 		seqbin              => 'seqbin',
+		assembly_checks     => 'assembly_checks',
 		tag_count           => 'tag_count',
 		tags                => 'tags'
 	);
@@ -3212,6 +3318,7 @@ sub get_javascript {
    	\$('#allele_status_fieldset').css({display:"$fieldset_display->{'allele_status'}"});
    	\$('#annotation_status_fieldset').css({display:"$fieldset_display->{'annotation_status'}"});
    	\$('#seqbin_fieldset').css({display:"$fieldset_display->{'seqbin'}"});
+   	\$('#assembly_checks_fieldset').css({display:"$fieldset_display->{'assembly_checks'}"});
    	\$('#tag_count_fieldset').css({display:"$fieldset_display->{'tag_count'}"});
    	\$('#tags_fieldset').css({display:"$fieldset_display->{'tags'}"});
    	\$('#filters_fieldset').css({display:"$fieldset_display->{'filters'}"});
@@ -3240,7 +3347,7 @@ function setTooltips() {
   	    + "fields by clicking the '+' button."
   		+ "</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, "
   		+ "'OR' to match ANY of these terms.</p>" });
-  	\$('#tag_tooltip,#tag_count_tooltip,#allele_count_tooltip,#allele_status_tooltip,#annotation_status_tooltip,#seqbin_tooltip').tooltip({ 
+  	\$('#tag_tooltip,#tag_count_tooltip,#allele_count_tooltip,#allele_status_tooltip,#annotation_status_tooltip,#seqbin_tooltip,#assembly_checks_tooltip').tooltip({ 
   		content: "<h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p>"
   		+ "</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, "
   		+ "'OR' to match ANY of these terms.</p>"  });	
@@ -3248,7 +3355,7 @@ function setTooltips() {
  
 function loadContent(url) {
 	var row = parseInt(url.match(/row=(\\d+)/)[1]);
-	var fields = url.match(/fields=([provenance|phenotypic|loci|allele_count|allele_status|annotation_status|seqbin|table_fields|tag_count|tags]+)/)[1];
+	var fields = url.match(/fields=([provenance|phenotypic|loci|allele_count|allele_status|annotation_status|seqbin|assembly_checks|table_fields|tag_count|tags]+)/)[1];
 	if (fields == 'provenance'){			
 		add_rows(url,fields,'fields',row,'prov_field_heading','add_fields');
 	} else if (fields == 'phenotypic'){
@@ -3262,7 +3369,9 @@ function loadContent(url) {
 	} else if (fields == 'annotation_status'){
 		add_rows(url,fields,'annotation_status',row,'annotation_status_field_heading','add_annotation_status');				
 	} else if (fields == 'seqbin'){
-		add_rows(url,fields,'seqbin',row,'seqbin_field_heading','add_seqbin');				
+		add_rows(url,fields,'seqbin',row,'seqbin_field_heading','add_seqbin');
+	} else if (fields == 'assembly_checks'){
+		add_rows(url,fields,'assembly_checks',row,'assembly_checks_field_heading','add_assembly_checks');						
 	} else if (fields == 'table_fields'){
 		add_rows(url,fields,'table_field',row,'table_field_heading','add_table_fields');
 	} else if (fields == 'tag_count'){
@@ -3418,6 +3527,7 @@ sub _highest_entered_fields {
 		allele_status     => 'allele_status_value',
 		annotation_status => 'annotation_status_value',
 		seqbin            => 'seqbin_value',
+		assembly_checks   => 'assembly_checks_value',
 		tag_count         => 'tag_count_value',
 		tags              => 'tag_value'
 	);
@@ -3441,7 +3551,7 @@ sub initiate {
 		return if !$guid;
 		foreach my $attribute (
 			qw (phenotypic allele_designations allele_count allele_status annotation_status
-			seqbin tag_count tags list filters)
+			seqbin assembly_checks tag_count tags list filters)
 		  )
 		{
 			my $value =
