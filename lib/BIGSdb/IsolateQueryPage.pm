@@ -1668,11 +1668,18 @@ sub _print_assembly_checks_fields {
 		-labels => $labels,
 		-class  => 'fieldlist'
 	);
-	my $values = [ q(), qw(pass warn fail warn/fail) ];
+	my $values = [ q(), qw(pass warn pass/warn warn/fail fail) ];
+	$labels = {
+		pass        => 'pass (no warnings)',
+		warn        => 'pass (with warnings)',
+		'pass/warn' => 'pass (with/without warnings)',
+		'warn/fail' => 'warnings/fail'
+	};
 	say $q->popup_menu(
 		-name   => "assembly_checks_value$row",
 		-id     => "assembly_checks_value$row",
-		-values => $values
+		-values => $values,
+		-labels => $labels
 	);
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
@@ -3267,7 +3274,7 @@ sub _modify_query_for_assembly_checks {
 	my ( $self, $qry, $errors_ref ) = @_;
 	my $q            = $self->{'cgi'};
 	my $view         = $self->{'system'}->{'view'};
-	my %valid_values = map { $_ => 1 } (qw(pass warn fail warn/fail));
+	my %valid_values = map { $_ => 1 } (qw(pass warn pass/warn fail warn/fail));
 	my %valid_fields = map { $_ => 1 } qw(any all contigs size n50 gc ns gaps);
 	my @check_queries;
 	my $defined_checks = $self->_get_number_of_assembly_check_types;
@@ -3284,58 +3291,59 @@ sub _modify_query_for_assembly_checks {
 			push @$errors_ref, 'Invalid check selected.';
 			next;
 		}
-		my $check_qry = "($view.id IN ";
+		my $statement = {};
 		if ( $field eq 'any' ) {
-			if ( $value eq 'pass' ) {
-				$check_qry .=
-				    q[(SELECT isolate_id FROM seqbin_stats) AND ]
+			$statement = {
+				'pass' => q[(SELECT isolate_id FROM seqbin_stats) AND ]
 				  . qq[($view.id NOT IN (SELECT isolate_id FROM assembly_checks) OR ]
 				  . qq[$view.id IN (SELECT isolate_id FROM assembly_checks GROUP BY isolate_id ]
-				  . qq[HAVING COUNT(*) < $defined_checks))];
-			} elsif ( $value eq 'warn' ) {
-				$check_qry .= q[(SELECT isolate_id FROM assembly_checks WHERE status='warn')];
-			} elsif ( $value eq 'fail' ) {
-				$check_qry .= q[(SELECT isolate_id FROM assembly_checks WHERE status='fail')];
-			} else {    #warn/fail
-				$check_qry .= q[(SELECT isolate_id FROM assembly_checks)];
-			}
+				  . qq[HAVING COUNT(*) < $defined_checks))],
+				'warn'      => q[(SELECT isolate_id FROM assembly_checks WHERE status='warn')],
+				'pass/warn' => q[(SELECT isolate_id FROM seqbin_stats) AND ]
+				  . qq[($view.id NOT IN (SELECT isolate_id FROM assembly_checks) OR ]
+				  . qq[$view.id NOT IN (SELECT isolate_id FROM assembly_checks WHERE status='fail') OR ]
+				  . qq[$view.id IN (SELECT isolate_id FROM assembly_checks GROUP BY isolate_id ]
+				  . qq[HAVING COUNT(*) < $defined_checks))],
+				'warn/fail' => q[(SELECT isolate_id FROM assembly_checks)],
+				'fail'      => q[(SELECT isolate_id FROM assembly_checks WHERE status='fail')]
+			};
 		} elsif ( $field eq 'all' ) {
-			if ( $value eq 'pass' ) {
-				$check_qry .=
-				    q[(SELECT isolate_id FROM seqbin_stats) AND ]
-				  . qq[$view.id NOT IN (SELECT isolate_id FROM assembly_checks)];
-			} elsif ( $value eq 'warn' ) {
-				$check_qry .= q[(SELECT isolate_id FROM assembly_checks WHERE status='warn' GROUP BY isolate_id ]
-				  . qq[HAVING COUNT(*) = $defined_checks)];
-			} elsif ( $value eq 'fail' ) {
-				$check_qry .= q[(SELECT isolate_id FROM assembly_checks WHERE status='fail' GROUP BY isolate_id ]
-				  . qq[HAVING COUNT(*) = $defined_checks)];
-			} else {    #warn/fail
-				$check_qry .= q[(SELECT isolate_id FROM assembly_checks GROUP BY isolate_id ]
-				  . qq[HAVING COUNT(*) = $defined_checks)];
-			}
+			$statement = {
+				'pass' => q[(SELECT isolate_id FROM seqbin_stats) AND ]
+				  . qq[$view.id NOT IN (SELECT isolate_id FROM assembly_checks)],
+				'warn' => q[(SELECT isolate_id FROM assembly_checks WHERE status='warn' GROUP BY isolate_id ]
+				  . qq[HAVING COUNT(*) = $defined_checks)],
+				'pass/warn' => q[(SELECT isolate_id FROM seqbin_stats) AND ]
+				  . qq[$view.id NOT IN (SELECT isolate_id FROM assembly_checks WHERE status='fail')],
+				'warn/fail' => q[(SELECT isolate_id FROM assembly_checks GROUP BY isolate_id ]
+				  . qq[HAVING COUNT(*) = $defined_checks)],
+				'fail' => q[(SELECT isolate_id FROM assembly_checks WHERE status='fail' GROUP BY isolate_id ]
+				  . qq[HAVING COUNT(*) = $defined_checks)]
+			};
 		} else {
 			local $" = q(',');
-			if ( $value eq 'pass' ) {
-				$check_qry .=
-				    q[(SELECT isolate_id FROM seqbin_stats) AND ]
-				  . qq[$view.id NOT IN (SELECT isolate_id FROM assembly_checks WHERE name IN ('@{$checks->{$field}}'))];
-			} elsif ( $value eq 'warn' ) {
-				$check_qry .=
-				    q[(SELECT isolate_id FROM assembly_checks WHERE status='warn' AND ]
-				  . qq[name IN ('@{$checks->{$field}}')) ];
-			} elsif ( $value eq 'fail' ) {
-				$check_qry .= q[(SELECT isolate_id FROM assembly_checks WHERE status='fail' AND ]
-				  . qq[name IN ('@{$checks->{$field}}')) ];
-			} else { #warn/fail
-				$check_qry .= qq[(SELECT isolate_id FROM assembly_checks WHERE name IN ('@{$checks->{$field}}')) ];
-			}
+			$statement = {
+				'pass' => q[(SELECT isolate_id FROM seqbin_stats) AND ]
+				  . qq[$view.id NOT IN (SELECT isolate_id FROM assembly_checks WHERE name IN ('@{$checks->{$field}}'))],
+				'warn' => q[(SELECT isolate_id FROM assembly_checks WHERE status='warn' AND ]
+				  . qq[name IN ('@{$checks->{$field}}')) ],
+				'pass/warn' => q[(SELECT isolate_id FROM seqbin_stats) AND ]
+				  . qq[$view.id NOT IN (SELECT isolate_id FROM assembly_checks WHERE name IN ('@{$checks->{$field}}') AND ]
+				  . q[status='fail')],
+				'warn/fail' => qq[(SELECT isolate_id FROM assembly_checks WHERE name IN ('@{$checks->{$field}}')) ],
+				'fail' => q[(SELECT isolate_id FROM assembly_checks WHERE status='fail' AND ]
+				  . qq[name IN ('@{$checks->{$field}}')) ]
+			};
 		}
-		$check_qry .= ')';
-		push @check_queries, $check_qry;
+		if ( $statement->{$value} ) {
+			push @check_queries, qq[($view.id IN (SELECT isolate_id FROM last_run WHERE name='AssemblyChecks') AND ]
+			. qq[$view.id IN $statement->{$value})];
+		} else {
+			$logger->error("No statement defined. Field: $field; Value: $value");
+		}
 	}
 	if (@check_queries) {
-		my $andor = ( $q->param('assembly_check_andor') // '' ) eq 'AND' ? ' AND ' : ' OR ';
+		my $andor = ( $q->param('assembly_checks_andor') // '' ) eq 'AND' ? ' AND ' : ' OR ';
 		local $" = $andor;
 		if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
 			$qry .= " AND (@check_queries)";
