@@ -431,6 +431,19 @@ sub get_file_icon {
 	return $buffer;
 }
 
+sub get_field_group_icon {
+	my ( $self, $group ) = @_;
+	return if !$group;
+	my $divider = q(,);
+	my @group_values =
+	  $self->{'system'}->{'eav_groups'} ? ( split /$divider/x, $self->{'system'}->{'field_groups'} ) : ();
+	foreach my $value ( sort @group_values ) {
+		my ( $name, $icon ) = split /\|/x, $value;
+		return $icon if $name eq $group;
+	}
+	return;
+}
+
 sub get_eav_group_icon {
 	my ( $self, $group ) = @_;
 	return if !$group;

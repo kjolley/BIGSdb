@@ -117,7 +117,7 @@ sub get_javascript {
 		\$( "div#tree" ).toggle( 'highlight', {} , 500 );
 		return false;
 	});
-	\$("#provenance").columnize({width:450});
+	\$(".field_group").columnize({width:450});
 	\$(".sparse").columnize({width:450,lastNeverTallest: true,doneFunc:function(){enable_slide_triggers();}});
 	\$("#seqbin").columnize({width:300,lastNeverTallest: true});  
 	if (!(\$("span").hasClass('aliases'))){
@@ -820,6 +820,7 @@ sub get_isolate_record {
 	} else {
 		$buffer .= $self->_get_provenance_fields( $id, $data, $summary_view );
 		if ( !$summary_view ) {
+			$buffer .= $self->_get_grouped_fields( $id, $data );
 			$buffer .= $self->_get_secondary_metadata_fields($id);
 			$buffer .= $self->_get_version_links($id);
 			$buffer .= $self->_get_ref_links($id);
@@ -870,23 +871,38 @@ sub _get_analysis {
 	return $buffer;
 }
 
-sub _get_provenance_fields {
-	my ( $self, $isolate_id, $data, $summary_view ) = @_;
-	my $buffer;
+sub _show_private_owner {
+	my ( $self, $isolate_id ) = @_;
 	my ( $private_owner, $request_publish ) =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT user_id,request_publish FROM private_isolates WHERE isolate_id=?', $isolate_id );
 	if ( defined $private_owner ) {
 		my $user_string = $self->{'datastore'}->get_user_string($private_owner);
 		my $request_string = $request_publish ? q( - publication requested.) : q();
-		$buffer .=
+		return
 		    q(<p style="float:right"><span class="main_icon fas fa-2x fa-user-secret"></span> )
 		  . qq(<span class="warning" style="padding: 0.1em 0.5em">Private record owned by $user_string)
 		  . qq($request_string</span></p>);
 	}
-	$buffer .= q(<div><span class="info_icon fas fa-2x fa-fw fa-globe fa-pull-left" style="margin-top:-0.2em"></span>);
-	$buffer .= qq(<h2>Provenance/primary metadata</h2>\n);
-	$buffer .= q(<div id="provenance">);
+}
+
+sub _get_provenance_fields {
+	my ( $self, $isolate_id, $data, $summary_view, $group ) = @_;
+	my $buffer;
+	my ( $icon, $heading, $div_id );
+	if ($group) {
+		$icon    = $self->get_field_group_icon($group) // 'fas fa-list';
+		$heading = $group;
+		$div_id  = $group;
+	} else {
+		$buffer .= $self->_show_private_owner($isolate_id);
+		$icon    = 'fas fa-globe';
+		$heading = 'Provenance/primary metadata';
+		$div_id  = 'provenance';
+	}
+	$buffer .= qq(<div><span class="info_icon fa-2x fa-fw $icon fa-pull-left" style="margin-top:-0.2em"></span>);
+	$buffer .= qq(<h2>$heading</h2>\n);
+	$buffer .= qq(<div id="$div_id" class="field_group">);
 	my $list       = [];
 	my $q          = $self->{'cgi'};
 	my $set_id     = $self->get_set_id;
@@ -911,6 +927,8 @@ sub _get_provenance_fields {
 		my $displayfield = $field;
 		$displayfield =~ tr/_/ /;
 		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+		next if !$group && $thisfield->{'group'};
+		next if $group && ( $thisfield->{'group'} // q() ) ne $group;
 		local $" = q(; );
 		if ( !defined $data->{ lc($field) } ) {
 			if ( $composites{$field} ) {
@@ -978,6 +996,7 @@ sub _get_provenance_fields {
 			push @$list, @$composites if @$composites;
 		}
 	}
+	return q() if !@$list;
 	$buffer .= $self->get_list_block( $list, { columnize => 1 } );
 	$buffer .= q(</div></div>);
 	return $buffer;
@@ -1009,6 +1028,17 @@ sub _get_web_links {
 		  . q(<span class="fa fas fa-external-link-alt" style="margin-left:0.5em"></span></span>);
 	}
 	return $web;
+}
+
+sub _get_grouped_fields {
+	my ( $self, $isolate_id, $data ) = @_;
+	my @group_list = split /,/x, ( $self->{'system'}->{'field_groups'} // q() );
+	my $buffer = q();
+	foreach my $group (@group_list) {
+		$group =~ s/\|.+$//x;
+		$buffer .= $self->_get_provenance_fields( $isolate_id, $data, 0, $group );
+	}
+	return $buffer;
 }
 
 sub _get_secondary_metadata_fields {
