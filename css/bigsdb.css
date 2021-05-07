@@ -1,4 +1,4 @@
-/*Version: 20210420*/
+/*Version: 20210429*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -1498,6 +1498,12 @@ div#abstract {
 
 div.banner {
 	background: #e2e5e9;
+	padding: 10px 10px 1px 10px;
+	color: #006
+}
+
+div.announcement {
+	background: #f0e9cc;
 	padding: 10px 10px 1px 10px;
 	color: #006
 }

@@ -64,6 +64,7 @@ sub print_content {
 	say qq(<div style="width:95vw;max-width:${title_max_width}px"></div>);
 	say qq(<div id="title_container" style="max-width:${title_max_width}px">);
 	say qq(<h1>$desc database</h1>);
+	$self->_print_general_announcement;
 	$self->print_banner;
 
 	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
@@ -214,12 +215,12 @@ sub _print_plugin_menu_item {
 	my $url_root     = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}$cache_string&amp;";
 	my $set_id       = $self->get_set_id;
 	local $" = q(,);
-	my $plugins  = $self->{'pluginManager'}
-	  ->get_appropriate_plugin_names( $args->{'sections'}, $self->{'system'}->{'dbtype'}, undef, { set_id => $set_id } );
+	my $plugins =
+	  $self->{'pluginManager'}->get_appropriate_plugin_names( $args->{'sections'}, $self->{'system'}->{'dbtype'}, undef,
+		{ set_id => $set_id } );
 	return if !@$plugins;
 
 	if ( @$plugins <= $list_number ) {
-		
 		my $links = [];
 		my $scheme_data = $self->get_scheme_data( { with_pk => 1 } );
 		foreach my $plugin (@$plugins) {
@@ -577,6 +578,17 @@ sub _print_submissions_menu_item {
 			href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit$set_string"
 		}
 	);
+	return;
+}
+
+sub _print_general_announcement {
+	my ( $self, $options ) = @_;
+	my $announcement_file = "$self->{'config_dir'}/announcement.html";
+	if ( -e $announcement_file ) {
+		say q(<div class="box announcement">);
+		$self->print_file($announcement_file);
+		say q(</div>);
+	}
 	return;
 }
 
