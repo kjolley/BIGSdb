@@ -37,7 +37,7 @@ sub initiate {
 		$self->{'noCache'} = 1;
 		return;
 	}
-	$self->{$_} = 1 foreach qw (tooltips packery jQuery c3 igv);
+	$self->{$_} = 1 foreach qw (tooltips packery jQuery billboard igv);
 	$self->{'prefix'} = BIGSdb::Utils::get_random();
 	my $page_name = $self->get_title( { breadcrumb => 1 } );
 	my $isolate_id = $q->param('isolate_id');
@@ -198,10 +198,10 @@ sub _print_stats {
 	say q(</div>);
 	if ( $seqbin_stats->{'contigs'} > 1 ) {
 		say q(<div class="grid-item" style="max-width:100%">);
-		say q(<div id="contig_size" class="embed_c3_chart smooth_enlarge"></div>);
+		say q(<div id="contig_size" class="embed_bb_chart smooth_enlarge"></div>);
 		say q(</div>);
 		say q(<div class="grid-item" style="max-width:100%">);
-		say q(<div id="cumulative" class="embed_c3_chart smooth_enlarge"></div>);
+		say q(<div id="cumulative" class="embed_bb_chart smooth_enlarge"></div>);
 		say q(</div>);
 	}
 	say q(</div>);
@@ -273,7 +273,7 @@ sub get_javascript {
     	}, 1000);
  	});
 	var chart = [];
-	\$(".embed_c3_chart").click(function() {
+	\$(".embed_bb_chart").click(function() {
 		if (jQuery.data(this,'expand')){
 			\$(this).css({width:'400px','height':'250px'});    
 			jQuery.data(this,'expand',0);
@@ -291,7 +291,7 @@ sub get_javascript {
 	});
 	
 	d3.json("$url" + "&ajax=contig_size").then (function(jsonData) {
-		chart['contig_size'] = c3.generate({
+		chart['contig_size'] = bb.generate({
 			bindto: '#contig_size',
 			title: {
 				text: 'Contig size distribution'
@@ -335,7 +335,7 @@ sub get_javascript {
 	});
 	
 	d3.json("$url" + "&ajax=cumulative").then (function(jsonData) {
-		chart['cumulative'] = c3.generate({
+		chart['cumulative'] = bb.generate({
 			bindto: '#cumulative',
 			title: {
 				text: 'Cumulative contig length'
@@ -376,7 +376,7 @@ sub get_javascript {
 			}
 		});
 	});
-	\$(".embed_c3_chart").css({width:'400px','max-width':'95%',height:'250px'});
+	\$(".embed_bb_chart").css({width:'400px','max-width':'95%',height:'250px'});
 	var resizeObserver = new ResizeObserver( entries => { 
 		for (let entry of entries) {
 			if (typeof chart[entry.target.id] != 'undefined'){
