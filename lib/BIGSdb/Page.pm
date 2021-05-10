@@ -183,7 +183,12 @@ sub _get_javascript_paths {
 			'packery'      => { src => [qw(packery.js)],  defer => 1, version => '20200308' },
 			'dropzone'     => { src => [qw(dropzone.js)], defer => 0, version => '20200308' },
 			'c3' =>
-			  { src => [qw(d3.v5.min.js c3.min.js jquery.ui.touch-punch.min.js)], defer => 1, version => '20200308' },
+			  { src => [qw(d3.v6.min.js c3.min.js jquery.ui.touch-punch.min.js)], defer => 1, version => '20200308' },
+			'billboard' => {
+				src     => [qw(d3.v6.min.js billboard.min.js jquery.ui.touch-punch.min.js)],
+				defer   => 1,
+				version => '20210510'
+			},
 			'pivot' => {
 				src     => [qw(pivot.min.js export_renderers.min.js jquery.ui.touch-punch.min.js)],
 				defer   => 1,
@@ -194,7 +199,7 @@ sub _get_javascript_paths {
 			'filesaver' => { src => [qw(FileSaver.min.js)],    defer => 1, version => '20200308' },
 			'modernizr' => { src => [qw(modernizr-custom.js)], defer => 1, version => '20200308' },
 			'geomap'    => {
-				src     => [qw(d3.v5.min.js d3.geomap.min.js d3-geo-projection.min.js topojson.min.js)],
+				src     => [qw(d3.v6.min.js d3.geomap.min.js d3-geo-projection.min.js topojson.min.js)],
 				defer   => 1,
 				version => '20200308'
 			},
@@ -635,11 +640,13 @@ sub _get_stylesheets {
 	my $system  = $self->{'system'};
 	my $version = '20210429';
 	my @filenames;
-	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
-	push @filenames, q(c3.css)                                                if $self->{'c3'};
-	push @filenames, q(pivot.min.css)                                         if $self->{'pivot'};
+	push @filenames, q(dropzone.css)      if $self->{'dropzone'};
+	push @filenames, q(c3.css)            if $self->{'c3'};
+	push @filenames, q(billboard.min.css) if $self->{'billboard'};
+	push @filenames, q(pivot.min.css)     if $self->{'pivot'};
 	push @filenames, qw(jquery.multiselect.css jquery.multiselect.filter.css) if $self->{'jQuery.multiselect'};
-	push @filenames, qw(d3.geomap.css)                                        if $self->{'geomap'};
+	push @filenames, qw(d3.geomap.css) if $self->{'geomap'};
+
 	if ( !$self->{'config'}->{'no_cookie_consent'} && !$self->{'curate'} && $self->{'instance'} ) {
 		push @filenames, q(cookieconsent.min.css);
 	}

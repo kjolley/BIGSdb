@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2019-2020, University of Oxford
+#Copyright (c) 2019-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -30,7 +30,7 @@ sub get_title {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw(jQuery c3);
+	$self->{$_} = 1 foreach qw(jQuery billboard);
 	return;
 }
 
@@ -63,7 +63,7 @@ sub print_content {
 	say q(<div id="response" class="dashboard_number optional"></div>);
 	say q(</div>);
 	say q(<div style="clear:both"></div>);
-	say q(<div id="c3_chart" style="height:250px">);
+	say q(<div id="bb_chart" style="height:250px">);
 	$self->print_loading_message( { top_margin => 0 } );
 	say q(</div>);
 	say q(<div id="period_select" style="display:none"><label for="period">Period:</label>);
@@ -214,8 +214,8 @@ function refresh_summary (url){
 function load_chart(url){
 	var interval =parseInt(\$("#interval").val());
 	d3.json(url).then (function(jsonData){
-		var chart = c3.generate({
-			bindto: '#c3_chart',
+		var chart = bb.generate({
+			bindto: '#bb_chart',
 			title: {
 				text: 'API requests'
 			},
@@ -233,6 +233,9 @@ function load_chart(url){
 				step: {
 					type: "step-after"
 				}
+			},
+			point: {
+				show: false
 			},	
 			axis: {
 				x: {
@@ -276,13 +279,13 @@ function load_chart(url){
 				}
 		    }
 		});
-		\$(".c3-title").css("font-weight","600");
+		\$(".bb-title").css("font-weight","600");
 		\$("div#waiting").css("display","none");
 		clearInterval(chart_interval);
 		chart_interval = setInterval(function(){load_chart(url)}, 30000);
 	},function(error){
 		console.log(error);
-		\$("#c3_chart").html('<p style="text-align:center;margin-top:5em">'
+		\$("#bb_chart").html('<p style="text-align:center;margin-top:5em">'
 		 + '<span class="error_message">Error accessing data.</span></p>');
 	});	
 }

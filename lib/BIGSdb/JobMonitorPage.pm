@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2019-2020, University of Oxford
+#Copyright (c) 2019-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -30,7 +30,7 @@ sub get_title {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw(jQuery c3);
+	$self->{$_} = 1 foreach qw(jQuery billboard);
 	return;
 }
 
@@ -57,7 +57,7 @@ sub print_content {
 	}
 	say q(<div style="clear:both"></div>);
 	say q(</div>);
-	say q(<div id="c3_chart" style="height:250px">);
+	say q(<div id="bb_chart" style="height:250px">);
 	$self->print_loading_message( { top_margin => 0 } );
 	say q(</div>);
 	say q(<div id="period_select" style="display:none"><label for="period">Period:</label>);
@@ -141,8 +141,8 @@ function load_chart(url){
 			queued.push(e.queued);
 			running.push(e.running);
 		});
-		var chart = c3.generate({
-			bindto: "#c3_chart",
+		var chart = bb.generate({
+			bindto: "#bb_chart",
 			title: {
 				text: "Queued and running jobs"
 	    	},
@@ -185,7 +185,7 @@ function load_chart(url){
 		    		tick: {
 						format: function (x) {
 	                    	if (x != Math.floor(x)) {
-								var tick = d3.selectAll('.c3-axis-y g.tick').filter(function () {
+								var tick = d3.selectAll('.bb-axis-y g.tick').filter(function () {
 		                    		var text = d3.select(this).select('text').text();
 		                    		return +text === x;
 	                      		}).style('opacity', 0);
@@ -216,7 +216,7 @@ function load_chart(url){
 				}
 		    }
 		});
-		\$(".c3-title").css("font-weight","600");
+		\$(".bb-title").css("font-weight","600");
 		\$("#period_select").show();
 		chart_interval = setInterval(function(){refresh_chart(chart,url)}, 30000);
 		\$("#period").off("change").on("change",function(){
@@ -228,7 +228,7 @@ function load_chart(url){
 		});		
 	},function(error){
 		console.log(error);
-		\$("#c3_chart").html('<p style="text-align:center;margin-top:5em">'
+		\$("#bb_chart").html('<p style="text-align:center;margin-top:5em">'
 		 + '<span class="error_message">Error accessing data.</span></p>');
 	});	
 }
