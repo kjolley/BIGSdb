@@ -225,7 +225,7 @@ sub read_assembly_check_file {
 			}
 		}
 	}
-	$self->{'assembly_checks'} = $config;
+	$self->{'assembly_checks'} = $config if keys %$config;
 	return;
 }
 
