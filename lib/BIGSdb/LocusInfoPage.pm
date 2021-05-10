@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -238,7 +238,7 @@ sub _print_alleles {
 		{ width => 5 }
 	);
 	say q(<div id="waiting"><span class="wait_icon fas fa-sync-alt fa-spin fa-2x"></span></div>);
-	say q(<div id="date_entered_container" class="embed_c3_chart" style="float:none">);
+	say q(<div id="date_entered_container" class="embed_bb_chart" style="float:none">);
 	say q(<div id="date_entered_chart"></div>);
 	say q(<div id="date_entered_control"></div>);
 	say q(</div>);
@@ -289,7 +289,7 @@ sub initiate {
 		$self->{'noCache'} = 1;
 		return;
 	}
-	$self->{$_} = 1 foreach qw (jQuery c3);
+	$self->{$_} = 1 foreach qw (jQuery billboard);
 	$self->set_level1_breadcrumbs;
 	my $locus = $q->param('locus');
 	return if !$locus;

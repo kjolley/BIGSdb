@@ -1,4 +1,4 @@
-/*Version: 20210429*/
+/*Version: 20210510*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -951,7 +951,7 @@ img.plugin_image {
 	box-shadow: 3px 3px 3px #aaa;
 }
 
-div.embed_c3_chart {
+div.embed_bb_chart {
 	float: left;
 	background: white;
 	box-shadow: 3px 3px 3px #aaa;
