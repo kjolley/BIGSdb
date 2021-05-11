@@ -182,8 +182,6 @@ sub _get_javascript_paths {
 			'CryptoJS.MD5' => { src => [qw(md5.js)],      defer => 1, version => '20200308' },
 			'packery'      => { src => [qw(packery.js)],  defer => 1, version => '20200308' },
 			'dropzone'     => { src => [qw(dropzone.js)], defer => 0, version => '20200308' },
-			'c3' =>
-			  { src => [qw(d3.v6.min.js c3.min.js jquery.ui.touch-punch.min.js)], defer => 1, version => '20200308' },
 			'billboard' => {
 				src     => [qw(d3.v6.min.js billboard.min.js jquery.ui.touch-punch.min.js)],
 				defer   => 1,
@@ -641,7 +639,6 @@ sub _get_stylesheets {
 	my $version = '20210510';
 	my @filenames;
 	push @filenames, q(dropzone.css)      if $self->{'dropzone'};
-	push @filenames, q(c3.css)            if $self->{'c3'};
 	push @filenames, q(billboard.min.css) if $self->{'billboard'};
 	push @filenames, q(pivot.min.css)     if $self->{'pivot'};
 	push @filenames, qw(jquery.multiselect.css jquery.multiselect.filter.css) if $self->{'jQuery.multiselect'};
