@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext => 'Two Field',
 		menutext   => 'Two field breakdown',
 		module     => 'TwoFieldBreakdown',
-		version    => '1.6.2',
+		version    => '1.7.0',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/two_field_breakdown.html",
@@ -63,7 +63,7 @@ sub get_attributes {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.slimbox' => 1, 'jQuery.tablesort' => 1, c3 => 1 };
+	return { 'jQuery.slimbox' => 1, 'jQuery.tablesort' => 1, billboard => 1 };
 }
 
 sub get_hidden_attributes {
@@ -272,20 +272,20 @@ sub run_job {
 		}
 		return;
 	}
-	my $charts       = $self->_get_c3_charts($args);
+	my $charts       = $self->_get_billboard_charts($args);
 	my $chart_buffer = q(<h3>Charts</h3>);
 	$chart_buffer .= q(<p>Click to enlarge</p>);
-	$chart_buffer .= q(<div id="values" class="embed_c3_chart"></div>);
-	$chart_buffer .= q(<div id="percentages" class="embed_c3_chart"></div>);
+	$chart_buffer .= q(<div id="values" class="embed_bb_chart"></div>);
+	$chart_buffer .= q(<div id="percentages" class="embed_bb_chart"></div>);
 	$chart_buffer .= q(<div style="clear:both;padding-bottom:1em"></div>);
-	my $c3_js = $self->_get_c3_js;
+	my $bb_js = $self->_get_billboard_js;
 	$chart_buffer .= << "HTML";
 <script>
 \$(function () {
-$c3_js
+$bb_js
 $charts	
 });
-\$(".embed_c3_chart").css({width:'300px','max-width':'95%',height:'200px'})
+\$(".embed_bb_chart").css({width:'300px','max-width':'95%',height:'200px'})
 </script>
 HTML
 	$html_buffer = qq(<div class="scrollable">$html_buffer</div>) if $html_buffer;
@@ -563,21 +563,21 @@ sub _breakdown {
 	foreach my $value ( keys %$data, @$field2values ) {
 		return if length($value) > 30;
 	}
-	my $charts = $self->_get_c3_charts($args);
+	my $charts = $self->_get_billboard_charts($args);
 	say q(<div class="box" id="chart"><h2>Charts</h2>);
 	say q(<p>Click to enlarge</p>);
-	say q(<div id="values" class="embed_c3_chart"></div>);
-	say q(<div id="percentages" class="embed_c3_chart"></div>);
+	say q(<div id="values" class="embed_bb_chart"></div>);
+	say q(<div id="percentages" class="embed_bb_chart"></div>);
 	say q(<div style="clear:both;padding-bottom:1em"></div>);
 	say q(</div>);
-	my $c3_js = $self->_get_c3_js;
+	my $bb_js = $self->_get_billboard_js;
 	say << "HTML";
 <script>
 \$(function () {
-$c3_js
+$bb_js
 $charts	
 });
-\$(".embed_c3_chart").css({width:'300px','max-width':'95%',height:'200px'})
+\$(".embed_bb_chart").css({width:'300px','max-width':'95%',height:'200px'})
 </script>
 HTML
 	return;
@@ -595,12 +595,12 @@ sub _should_we_chart {
 	return 1;
 }
 
-sub _get_c3_js {
+sub _get_billboard_js {
 	my ($self) = @_;
 	my $js = <<"JS";
 var chart = [];
 \$(function () {
-	\$(".embed_c3_chart").click(function() {
+	\$(".embed_bb_chart").click(function() {
 		if (jQuery.data(this,'expand')){
 			\$(this).css({width:'300px','height':'200px'});    
 			jQuery.data(this,'expand',0);
@@ -685,8 +685,7 @@ sub _generate_tables {
 	$html_buffer .= q(<table class="tablesorter" id="sortTable"><thead>);
 	my $field2_cols = $field2_count + 1;
 	$html_buffer .=
-	  qq(<tr><td class="sorter-false"></td><th colspan="$field2_cols" class="header">$html_field2</th></tr>)
-	  ;
+	  qq(<tr><td class="sorter-false"></td><th colspan="$field2_cols" class="header">$html_field2</th></tr>);
 	local $" = q(</th><th class="{sorter:'digit'}">);
 	$html_buffer .= qq(<tr><th>$html_field1</th><th class="{sorter:'digit'}">@$field2values</th>)
 	  . q(<th class="{sorter:'digit'}">Total</th></tr></thead><tbody>);
@@ -780,7 +779,7 @@ sub _generate_tables {
 	return ( \$html_buffer, \$text_buffer );
 }
 
-sub _get_c3_charts {
+sub _get_billboard_charts {
 	my ( $self, $args ) = @_;
 	my ( $data, $field1_total, $field2_values, $field1, $field2, $text_field1, $text_field2, ) =
 	  @{$args}{qw(data field1_total field2_values field1 field2 text_field1 text_field2)};
@@ -803,7 +802,7 @@ sub _get_c3_charts {
 	my $colours = keys %$data;
 	foreach my $chart (@charts) {
 		$buffer .= << "JS";
-chart['$chart->{'name'}'] = c3.generate({
+chart['$chart->{'name'}'] = bb.generate({
 		bindto: '#$chart->{'name'}',
 		title: {
 			text: '$chart->{'title'}'
