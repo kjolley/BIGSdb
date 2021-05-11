@@ -141,7 +141,7 @@ sub _get_field_values {
 		field => sub {
 			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
 			$freqs = $self->_get_field_freqs(
-				$field, $att->{'type'} =~ /^(?:int|date)/x
+				$field, $att->{'type'} =~ /^(?:int|float|date)/x
 				? { order => 'label ASC' }
 				: undef
 			);
@@ -149,7 +149,7 @@ sub _get_field_values {
 		eav_field => sub {
 			my $att = $self->{'datastore'}->get_eav_field($field);
 			$freqs =
-			  $self->_get_eav_field_freqs( $field, $att->{'value_format'} =~ /^(?:int|date)/x
+			  $self->_get_eav_field_freqs( $field, $att->{'value_format'} =~ /^(?:int|float|date)/x
 				? { order => 'label ASC' }
 				: undef );
 		},

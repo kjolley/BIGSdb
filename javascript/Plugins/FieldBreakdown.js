@@ -50,7 +50,7 @@ $(function () {
 	get_ajax_prefs();
  	if (map_fields.includes(field)){ 		
  		load_map_after_prefs_loaded(initial_url,field);
- 	} else if (field_types[field] == 'integer'){
+ 	} else if (field_types[field] == 'integer' || field_types[field] == 'float'){
 		load_bar(initial_url,field,rotate);
 	} else if (field_types[field] == 'date'){
 		load_line(initial_url,field,line);
@@ -68,7 +68,7 @@ $(function () {
 		var new_url = url + "&field=" + field;
 		if (map_fields.includes(field)){
 			load_map(new_url,field);
-		} else if (field_types[field] == 'integer'){
+		} else if (field_types[field] == 'integer' || field_types[field] == 'float'){
 			load_bar(new_url,field,rotate);
 		} else if (field_types[field] == 'date'){
 			load_line(new_url,field,line);
