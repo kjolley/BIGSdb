@@ -47,7 +47,7 @@ sub get_attributes {
 		buttontext => 'Fields',
 		menutext   => 'Field breakdown',
 		module     => 'FieldBreakdown',
-		version    => '2.2.12',
+		version    => '2.3.0',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
@@ -61,7 +61,7 @@ sub get_attributes {
 sub get_initiation_values {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my $values = { c3 => 1, filesaver => 1, noCache => 0, 'jQuery.tablesort' => 1, pluginJS => 'FieldBreakdown.js' };
+	my $values = { billboard => 1, filesaver => 1, noCache => 0, 'jQuery.tablesort' => 1, pluginJS => 'FieldBreakdown.js' };
 	if ( $self->_has_country_optlist ) {
 		$values->{'geomap'} = 1;
 	}
@@ -322,7 +322,7 @@ sub run {
 	say q(</li></ul></fieldset>);
 	say q(<div id="waiting" style="position:absolute;top:15em;left:1em;display:none">)
 	  . q(<span class="wait_icon fas fa-sync-alt fa-spin fa-2x"></span></div>);
-	say q(<div id="c3_chart" style="min-height:400px">);
+	say q(<div id="bb_chart" style="min-height:400px">);
 	$self->print_loading_message;
 	say q(</div>);
 	say q(<div id="map" style="max-width:800px;margin-left:auto;margin-right:auto"></div>);
@@ -346,7 +346,7 @@ sub _print_export_buttons {
 sub _print_map_controls {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say q(<fieldset id="map_controls" class="c3_controls" )
+	say q(<fieldset id="map_controls" class="bb_controls" )
 	  . q(style="position:absolute;top:1em;right:1em;display:none"><legend>Controls</legend>);
 	say q(<ul>);
 	$self->_print_chart_types;
@@ -410,7 +410,7 @@ sub _print_map_controls {
 sub _print_pie_controls {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say q(<fieldset id="pie_controls" class="c3_controls" )
+	say q(<fieldset id="pie_controls" class="bb_controls" )
 	  . q(style="position:absolute;top:1em;right:1em;display:none"><legend>Controls</legend>);
 	say q(<ul>);
 	say q(<li><label for="segments">Max segments:</label>);
@@ -442,7 +442,7 @@ sub _print_chart_types {
 sub _print_bar_controls {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say q(<fieldset id="bar_controls" class="c3_controls" )
+	say q(<fieldset id="bar_controls" class="bb_controls" )
 	  . q(style="position:absolute;top:1em;right:1em;display:none"><legend>Controls</legend>);
 	say q(<ul>);
 	say q(<li><label for="orientation">Orientation:</label>);
@@ -457,7 +457,7 @@ sub _print_bar_controls {
 sub _print_line_controls {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say q(<fieldset id="line_controls" class="c3_controls" )
+	say q(<fieldset id="line_controls" class="bb_controls" )
 	  . q(style="position:absolute;top:1em;right:1em;display:none"><legend>Controls</legend>);
 	say q(<ul>);
 	say q(<li><label for="height">Height:</label>);

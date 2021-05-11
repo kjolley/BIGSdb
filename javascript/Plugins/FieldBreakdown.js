@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 
-Version 2.2.12.
+Version 2.3.0.
 */
 
 var prefs_loaded;
@@ -59,10 +59,10 @@ $(function () {
 	}	
 	
 	$("#field").on("change",function(){
-		$("#c3_chart").css("min-height", "400px");
+		$("#bb_chart").css("min-height", "400px");
 		d3.selectAll('svg').remove();
 		$("div#waiting").css("display","block");
-		$(".c3_controls").css("display", "none");			
+		$(".bb_controls").css("display", "none");			
 		var rotate = is_vertical();
 		var field = $('#field').val();
 		var new_url = url + "&field=" + field;
@@ -113,16 +113,16 @@ $(function () {
 	
 	$("#export_image").off("click").click(function(){
 		// fix back fill
-		d3.select("#c3_chart").selectAll("path").attr("fill","none");	
+		d3.select("#bb_chart").selectAll("path").attr("fill","none");	
 		// fix no axes
-		d3.select("#c3_chart").selectAll("path.domain").attr("stroke","black");
+		d3.select("#bb_chart").selectAll("path.domain").attr("stroke","black");
 		// fix no tick
-		d3.select("#c3_chart").selectAll(".tick line").attr("stroke","black");
-		d3.select("#c3_chart").selectAll(".c3-axis-y2").attr("display","none");
+		d3.select("#bb_chart").selectAll(".tick line").attr("stroke","black");
+		d3.select("#bb_chart").selectAll(".bb-axis-y2").attr("display","none");
 		// Annoying 2nd x-axis
 		// Hide both, then selectively show the first one.
-		d3.select("#c3_chart").selectAll(".c3-axis-x").attr("display","none");
-		d3.select("#c3_chart").select(".c3-axis-x").attr("display","inline");
+		d3.select("#bb_chart").selectAll(".bb-axis-x").attr("display","none");
+		d3.select("#bb_chart").select(".bb-axis-x").attr("display","inline");
 		
 		// map
 		d3.select("#map").selectAll("path").attr("fill","none");	
@@ -179,11 +179,11 @@ function get_ajax_prefs(){
 
 function position_controls(){
 	if ($(window).width() < 800){
-		$(".c3_controls").css("position", "static");
-		$(".c3_controls").css("float", "left");
+		$(".bb_controls").css("position", "static");
+		$(".bb_controls").css("float", "left");
 	} else {
-		$(".c3_controls").css("position", "absolute");
-		$(".c3_controls").css("clear", "both");
+		$(".bb_controls").css("position", "absolute");
+		$(".bb_controls").css("clear", "both");
 	}
 }
 
@@ -208,7 +208,7 @@ function get_field_type() {
 function load_map(url,field){
 	$("#bar_height").off("slidechange");
 	var div_width = $("#map").width();
-	$("#c3_chart").html("");
+	$("#bb_chart").html("");
 	var unit_id = field == 'country' ? 'iso3' : 'continent';
 	var units = field == 'country' ? 'units' : 'continents';
 	var geo_file = field == 'country' ? '/javascript/topojson/countries.json' : '/javascript/topojson/continents.json';
@@ -390,18 +390,18 @@ function finished_map(url,field){
 		d3.selectAll("svg").remove();
 		load_pie(url,field,segments);		
 		pie = 0;
-		$("#c3_chart").css("min-height", "400px");
+		$("#bb_chart").css("min-height", "400px");
 	});
 	$(".transform_to_pie").off("click").click(function(){
 		$("div#waiting").css("display","block");
 		d3.selectAll("svg").remove();
 		load_pie(url,field,segments);
 		pie = 1;
-		$("#c3_chart").css("min-height", "400px");
+		$("#bb_chart").css("min-height", "400px");
 	});
 	show_export_options();
 	$("div#waiting").css("display","none");
-	$("#c3_chart").css("min-height", 0);
+	$("#bb_chart").css("min-height", 0);
 	$(".legend-bg").css("fill","none");	
 }
 
@@ -430,8 +430,8 @@ function load_pie(url,field,max_segments) {
 		
 		var plural = data.count == 1 ? "" : "s";
 		title += " (" + data.count + " value" + plural + ")";
-		var chart = c3.generate({
-			bindto: '#c3_chart',
+		var chart = bb.generate({
+			bindto: '#bb_chart',
 			title: {
 				text: title
 			},
@@ -491,22 +491,23 @@ function load_pie(url,field,max_segments) {
 			});
 		}
 		$(".transform_to_donut").off("click").click(function(){
-			chart.transform('donut');
 			$(".transform_to_donut").css("display","none");
 			$(".transform_to_pie").css("display","inline");
 			pie = 0;
 			set_prefs('pie',0);
+			chart.unload();
+			load_pie(url, field, max_segments)
 		});
 		$(".transform_to_pie").off("click").click(function(){
-			chart.transform('pie');
 			$(".transform_to_pie").css("display","none");
 			$(".transform_to_donut").css("display","inline");
 			pie = 1;
 			set_prefs('pie',1);
+			chart.unload();
+			load_pie(url, field, max_segments)
 		});
 		$(".transform_to_map").off("click").click(function(){
-			$(".transform_to_map").css("display","none");
-			
+			$(".transform_to_map").css("display","none");		
 			load_map(url,field);
 			$(".transform_to_pie").css("display","inline");
 			$(".transform_to_donut").css("display","inline");
@@ -526,7 +527,7 @@ function load_pie(url,field,max_segments) {
 		$("div#waiting").css("display","none");
 	},function(error) {
 		console.log(error);
-		$("#c3_chart").html('<p style="text-align:center;margin-top:5em">'
+		$("#bb_chart").html('<p style="text-align:center;margin-top:5em">'
 		 + '<span class="error_message">Error accessing data.</span></p>');
 	});
 }
@@ -562,6 +563,7 @@ function load_line(url,field,cumulative) {
 	$("#bar_controls").css("display", "none");
 	$("#pie_controls").css("display", "none");
 	$("#map_controls").css("display","none");
+	$(".transform_to_map").css("display","none");
 	// Prevent multiple event firing after reloading
 	$("#line_height").off("slidechange");
 	var data = [];
@@ -587,8 +589,8 @@ function load_line(url,field,cumulative) {
 		var plural = count == 1 ? "" : "s";
 		title += " (" + count + " value" + plural + ")";
 		
-		var chart = c3.generate({
-			bindto: '#c3_chart',
+		var chart = bb.generate({
+			bindto: '#bb_chart',
 			title: {
 				text: title
 			},
@@ -657,7 +659,7 @@ function load_line(url,field,cumulative) {
 		$("div#waiting").css("display","none");
 	},function(error) {
 		console.log(error);
-		$("#c3_chart").html('<p style="text-align:center;margin-top:5em">'
+		$("#bb_chart").html('<p style="text-align:center;margin-top:5em">'
 		 + '<span class="error_message">Error accessing data.</span></p>');
 	});	
 }
@@ -681,8 +683,8 @@ function load_bar_json(jsonData,field,rotate){
 	var plural = count == 1 ? "" : "s";
 	title += " (" + count + " value" + plural + ")";
 	
-	var chart = c3.generate({
-		bindto: '#c3_chart',
+	var chart = bb.generate({
+		bindto: '#bb_chart',
 		title: {
 			text: title
 		},
@@ -739,7 +741,7 @@ function load_bar(url,field,rotate) {
 		$("div#waiting").css("display","none");
 	},function(error) {
 		console.log(error);
-		$("#c3_chart").html('<p style="text-align:center;margin-top:5em">'
+		$("#bb_chart").html('<p style="text-align:center;margin-top:5em">'
 		 + '<span class="error_message">Error accessing data.</span></p>');
 	});
 	var orientation_radio = $('input[name="orientation"]');
