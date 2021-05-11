@@ -52,7 +52,7 @@ sub get_attributes {
 		menutext    => 'Sequence bin breakdown',
 		module      => 'SeqbinBreakdown',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/seqbin_breakdown.html",
-		version     => '1.5.5',
+		version     => '1.6.0',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -65,7 +65,7 @@ sub get_attributes {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.jstree' => 1, 'jQuery.tablesort' => 1, c3 => 1, tooltips => 1 };
+	return { 'jQuery.jstree' => 1, 'jQuery.tablesort' => 1, billboard => 1, tooltips => 1 };
 }
 
 sub set_pref_requirements {
@@ -509,7 +509,7 @@ sub _get_rounded_width {
 	return 100000;
 }
 
-sub _get_c3_chart {
+sub _get_billboard_chart {
 	my ( $self, $data, $type ) = @_;
 	my %title = (
 		contigs => 'Number of contigs',
@@ -540,7 +540,7 @@ sub _get_c3_chart {
 	}
 	my $json   = encode_json($histogram_data);
 	my $buffer = << "JS";
-chart['$type'] = c3.generate({
+chart['$type'] = bb.generate({
 	bindto: '#$type',
 	title: {
 		text: '$title{$type}'
@@ -590,7 +590,7 @@ sub _get_charts {
 <script>
 var chart = [];
 \$(function () {
-	\$(".embed_c3_chart").click(function() {
+	\$(".embed_bb_chart").click(function() {
 		if (jQuery.data(this,'expand')){
 			\$(this).css({width:'300px','height':'200px'});    
 			jQuery.data(this,'expand',0);
@@ -604,12 +604,12 @@ var chart = [];
 </script>
 JS
 	foreach my $type (@types) {
-		$buffer .= qq(<div id="$type" class="embed_c3_chart"></div>\n);
+		$buffer .= qq(<div id="$type" class="embed_bb_chart"></div>\n);
 		$buffer .= qq(<script>\n);
 		$buffer .= qq[\$(function () {\n];
-		$buffer .= $self->_get_c3_chart( $data, $type );
+		$buffer .= $self->_get_billboard_chart( $data, $type );
 		$buffer .= qq[});\n];
-		$buffer .= qq(\$(".embed_c3_chart").css({width:'300px','max-width':'95%',height:'200px'})\n);
+		$buffer .= qq(\$(".embed_bb_chart").css({width:'300px','max-width':'95%',height:'200px'})\n);
 		$buffer .= qq(</script>\n);
 	}
 	return $buffer;
