@@ -634,8 +634,8 @@ sub _get_query_statements {
 		contig_lengths => qq[SELECT length(sequence) FROM sequence_bin WHERE isolate_id=?$exclusion_clause ]
 		  . q[ORDER BY length(sequence) DESC],
 		gc => q[select SUM(CAST(length(regexp_replace(sequence,'[^GCgc]+','','g')) AS float))/]
-		  . qq[GREATEST(SUM(length(sequence)),1) AS gc FROM sequence_bin WHERE isolate_id=?$exclusion_clause ]
-		  . q[GROUP BY isolate_id ]
+		  . q[GREATEST(SUM(CAST(length(regexp_replace(sequence,'[^ATatGCgc]+','','g')) AS float)),1) AS gc ]
+		  . qq[FROM sequence_bin WHERE isolate_id=?$exclusion_clause GROUP BY isolate_id ]
 	};
 	if ( $contig_analysis || $use_seqbin_table ) {
 		$statements->{'contig_info'} =
