@@ -64,7 +64,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.6.6',
+		version     => '2.7.0',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -80,7 +80,7 @@ sub get_attributes {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.jstree' => 1, c3 => 1 };
+	return { 'jQuery.jstree' => 1, billboard => 1 };
 }
 
 sub run {
@@ -2438,7 +2438,7 @@ sub _core_analysis {
 		  $self->_core_mean_distance( $args, $out_file, \@core_loci, $loci );
 		if ($core_mean_js) {
 			$core_mean_div =
-			  q(<div id="core_mean" class="embed_c3_chart" style="width:300px;max-width:95%;height:200px"></div>);
+			  q(<div id="core_mean" class="embed_bb_chart" style="width:300px;max-width:95%;height:200px"></div>);
 		}
 	}
 	$core_mean_js //= q();
@@ -2446,7 +2446,7 @@ sub _core_analysis {
 		$self->{'jobManager'}->update_job_output( $args->{'job_id'},
 			{ filename => "$args->{'job_id'}\_core.txt", description => '40_Locus presence frequency (text)' } );
 	}
-	my $chart_js = $self->_get_c3_chart(
+	my $chart_js = $self->_get_billboard_chart(
 		$chart_data,
 		{
 			name     => 'locus_presence',
@@ -2459,7 +2459,7 @@ sub _core_analysis {
 <script>
 var chart = [];
 \$(function () {
-	\$(".embed_c3_chart").click(function() {
+	\$(".embed_bb_chart").click(function() {
 		if (jQuery.data(this,'expand')){
 			\$(this).css({width:'300px','height':'200px'});    
 			jQuery.data(this,'expand',0);
@@ -2479,7 +2479,7 @@ var chart = [];
 </script>
 <h3>Charts</h3>
 <p>Click to enlarge.</p>
-<div id="locus_presence" class="embed_c3_chart" style="width:300px;max-width:95%;height:200px"></div>
+<div id="locus_presence" class="embed_bb_chart" style="width:300px;max-width:95%;height:200px"></div>
 $core_mean_div
 <div style="clear:both"></div>
 JS
@@ -2547,7 +2547,7 @@ sub _core_mean_distance {
 	close $fh;
 	my $chart_js = q();
 	if (@$chart_data) {
-		$chart_js = $self->_get_c3_chart(
+		$chart_js = $self->_get_billboard_chart(
 			$chart_data,
 			{
 				name     => 'core_mean',
@@ -2560,11 +2560,11 @@ sub _core_mean_distance {
 	return ( $file_buffer, $chart_js );
 }
 
-sub _get_c3_chart {
+sub _get_billboard_chart {
 	my ( $self, $data, $att ) = @_;
 	my $json   = encode_json($data);
 	my $buffer = << "JS";
-chart['$att->{'name'}'] = c3.generate({
+chart['$att->{'name'}'] = bb.generate({
 		bindto: '#$att->{'name'}',
 		title: {
 			text: '$att->{'title'}'
