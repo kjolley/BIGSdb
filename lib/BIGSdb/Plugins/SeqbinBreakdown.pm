@@ -23,13 +23,14 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugin BIGSdb::SeqbinPage);
 use Log::Log4perl qw(get_logger);
-use POSIX qw(ceil);
+use POSIX qw(ceil lround);
 use JSON;
 my $logger = get_logger('BIGSdb.Plugins');
 use BIGSdb::Constants qw(SEQ_METHODS :interface);
 use List::MoreUtils qw(any uniq);
-use constant MAX_INSTANT_RUN => 100;
-use constant MAX_HTML_OUTPUT => 2000;
+use constant MAX_INSTANT_RUN                     => 100;
+use constant MAX_INSTANT_RUN_WITH_REMOTE_CONTIGS => 10;
+use constant MAX_HTML_OUTPUT                     => 2000;
 
 sub get_attributes {
 	my ($self) = @_;
@@ -52,7 +53,7 @@ sub get_attributes {
 		menutext    => 'Sequence bin breakdown',
 		module      => 'SeqbinBreakdown',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/seqbin_breakdown.html",
-		version     => '1.6.0',
+		version     => '1.7.0',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -111,7 +112,12 @@ sub run {
 			$self->_print_interface;
 		} else {
 			my $params = $q->Vars;
-			if ( @$filtered_ids > MAX_INSTANT_RUN ) {
+			if (
+				@$filtered_ids > MAX_INSTANT_RUN
+				|| ( @$filtered_ids > MAX_INSTANT_RUN_WITH_REMOTE_CONTIGS
+					&& ( $self->{'system'}->{'remote_contigs'} // q() ) eq 'yes' )
+			  )
+			{
 				$q->delete('isolate_paste_list');
 				$q->delete('isolate_id');
 				my $set_id = $self->get_set_id;
@@ -149,7 +155,6 @@ sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	$self->{'exit'} = 0;
 	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3; #Allow temp files to be cleaned on kill signals
-	my ( $statements, $arguments ) = $self->_get_query_statements($params);
 	$self->{'system'}->{'script_name'} = $params->{'script_name'};
 	my $isolate_ids = $self->{'jobManager'}->get_job_isolates($job_id);
 	my $loci        = $self->{'jobManager'}->get_job_loci($job_id);
@@ -167,8 +172,9 @@ sub run_job {
 	my $locus_count = @$loci;
 	my $html_message;
 	$params->{'loci_selected'} = @$loci ? 1 : 0;
+	my $last_progress = 0;
 	foreach my $id (@$isolate_ids) {
-		my $contig_info = $self->_get_isolate_contig_data( $id, $loci, $statements, $arguments, $params );
+		my $contig_info = $self->_get_isolate_contig_data( $id, $loci, $params );
 		$row++;
 		next if !$contig_info->{'contigs'};
 		$row_with_data++;
@@ -184,13 +190,14 @@ sub run_job {
 		  . q(</tbody></table></div>);
 		my $complete = int( $row * 100 / @$isolate_ids );
 
-		if ( $row % 20 == 0 || $row == @$isolate_ids ) {
+		if ( $complete > $last_progress || $row == @$isolate_ids ) {
 			if ($disabled_html) {
 				$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete } );
 			} else {
 				$self->{'jobManager'}
 				  ->update_job_status( $job_id, { percent_complete => $complete, message_html => $html_message } );
 			}
+			$last_progress = $complete;
 		}
 		if ( $self->{'exit'} ) {
 			my $job = $self->{'jobManager'}->get_job($job_id);
@@ -219,8 +226,7 @@ sub run_job {
 		}
 		my $job_file = "$self->{'config'}->{'tmp_dir'}/$job_id\.txt";
 		open( my $job_fh, '>:encoding(utf8)', $job_file ) || $logger->error("Cannot open $job_file for writing");
-		say $job_fh $self->_get_text_table_header(
-			{ gc => $params->{'gc'}, contig_analysis => $params->{'contig_analysis'} } );
+		say $job_fh $self->_get_text_table_header($params);
 		print $job_fh $text_buffer;
 		close $job_fh;
 		$self->{'jobManager'}->update_job_output( $job_id,
@@ -283,7 +289,6 @@ sub _print_interface {
 	$self->print_recommended_scheme_fieldset;
 	$self->print_scheme_fieldset;
 	$self->_print_options_fieldset;
-	$self->print_sequence_filter_fieldset;
 	$self->print_action_fieldset( { name => 'SeqbinBreakdown' } );
 	say $q->hidden($_) foreach qw (page name db set_id);
 	say q(</div>);
@@ -294,7 +299,6 @@ sub _print_interface {
 
 sub _print_options_fieldset {
 	my ($self) = @_;
-	return if ( $self->{'system'}->{'remote_contigs'} // q() ) eq 'yes';
 	my $q = $self->{'cgi'};
 	say q(<fieldset style="float:left"><legend>Options</legend><ul><li>);
 	say $q->checkbox( -name => 'contig_analysis', -label => 'Contig analysis (min, max, N50 etc.)' );
@@ -306,23 +310,23 @@ sub _print_options_fieldset {
 
 sub _print_table {
 	my ( $self, $ids, $loci, $params ) = @_;
-	my ( $statements, $arguments ) = $self->_get_query_statements($params);
 	my $temp = BIGSdb::Utils::get_random();
 	my $td   = 1;
 	local $| = 1;
 	my $data             = {};
 	my $header_displayed = 0;
 	my $locus_count      = @$loci;
-	say q(<div class="box" id="resultstable"><div class="scrollable">);
+	say q(<div class="box" id="resultstable">);
 	say qq(<p>Loci selected: $locus_count</p>);
 	my $text_file = "$self->{'config'}->{'tmp_dir'}/$temp.txt";
 	open( my $fh, '>:encoding(utf8)', $text_file ) or $logger->error("Cannot open temp file $text_file for writing");
 	$params->{'loci_selected'} = @$loci ? 1 : 0;
 
 	foreach my $id (@$ids) {
-		my $contig_info = $self->_get_isolate_contig_data( $id, $loci, $statements, $arguments, $params );
+		my $contig_info = $self->_get_isolate_contig_data( $id, $loci, $params );
 		next if !$contig_info->{'contigs'};
 		if ( !$header_displayed ) {
+			say q(<div class="scrollable">);
 			say $fh $self->_get_text_table_header($params);
 			say $self->_get_html_table_header($params);
 			$header_displayed = 1;
@@ -338,7 +342,7 @@ sub _print_table {
 	}
 	close $fh;
 	if ($header_displayed) {
-		say q(</tbody></table>);
+		say q(</tbody></table></div>);
 		my ( $text_icon, $excel_icon ) = ( TEXT_FILE, EXCEL_FILE );
 		print q(<p style="margin-top:0.5em">)
 		  . qq(<a href="/tmp/$temp.txt" title="Download in tab-delimited text format">$text_icon</a>);
@@ -352,7 +356,7 @@ sub _print_table {
 	} else {
 		say q(<p>There are no records with contigs matching your criteria.</p>);
 	}
-	say q(</div></div>);
+	say q(</div>);
 	say q(<div class="box" id="resultsfooter">);
 	say q(<p>Click charts to enlarge</p>);
 	say $self->_get_charts( $data, $params ) if $header_displayed;
@@ -458,39 +462,54 @@ sub _get_text_table_row {
 }
 
 sub _get_isolate_contig_data {
-	my ( $self, $isolate_id, $loci, $statements, $arguments, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
-	my $values = [ $isolate_id, @$arguments ];
-	my $q      = $self->{'cgi'};
-	my $set_id = $self->get_set_id;
-	my $data   = $self->{'datastore'}->run_query( $statements->{'contig_info'},
-		$values, { fetch => 'row_hashref', cache => 'SeqbinBreakdown::contig_info' } );
-	my %selected_loci = map { $_ => 1 } @$loci;
-	if ( $data->{'contigs'} ) {
-
-		if ( $options->{'contig_analysis'} ) {
-			$data->{'lengths'} = $self->{'datastore'}->run_query( $statements->{'contig_lengths'},
-				$values, { fetch => 'col_arrayref', cache => 'SeqbinBreakdown::contig_lengths' } );
-		}
-		$data->{'isolate_name'} = $self->get_isolate_name_from_id($isolate_id);
+	my ( $self, $isolate_id, $loci, $options ) = @_;
+	my $contig_ids = $self->{'datastore'}
+	  ->run_query( 'SELECT id FROM sequence_bin WHERE isolate_id=?', $isolate_id, { fetch => 'col_arrayref' } );
+	return {} if !@$contig_ids;
+	my $contigs = $self->{'contigManager'}->get_contigs_by_list($contig_ids);
+	my $length  = 0;
+	my $lengths = [];
+	foreach my $contig_id ( sort { length $contigs->{$b} <=> length $contigs->{$a} } keys %$contigs ) {
+		$length += length $contigs->{$contig_id};
+		push @$lengths, length $contigs->{$contig_id};
+	}
+	my $data = {
+		contigs      => scalar @$contig_ids,
+		sum          => $length,
+		isolate_name => $self->get_isolate_name_from_id($isolate_id)
+	};
+	if ( $options->{'contig_analysis'} ) {
+		$data->{'min'}     = $lengths->[-1];
+		$data->{'max'}     = $lengths->[0];
+		$data->{'mean'}    = lround( $length / @$contig_ids );
+		$data->{'stddev'}  = $self->_get_stddev($lengths);
+		$data->{'n_stats'} = BIGSdb::Utils::get_N_stats( $length, $lengths );
+		$data->{'lengths'} = $lengths;
+	}
+	if (@$loci) {
+		my $set_id              = $self->get_set_id;
+		my %selected_loci       = map { $_ => 1 } @$loci;
 		my $allele_designations = $self->{'datastore'}->get_all_allele_ids( $isolate_id, { set_id => $set_id } );
 		$data->{'allele_designations'} = 0;
 		foreach my $locus ( keys %$allele_designations ) {
 			$data->{'allele_designations'}++ if $selected_loci{$locus};
 		}
-		$data->{'percent_alleles'} =
-		  @$loci ? BIGSdb::Utils::decimal_place( 100 * $data->{'allele_designations'} / @$loci, 1 ) : '-';
+		$data->{'percent_alleles'} = BIGSdb::Utils::decimal_place( 100 * $data->{'allele_designations'} / @$loci, 1 );
 		my $allele_sequences = $self->{'datastore'}->get_all_allele_sequences($isolate_id);
 		$data->{'tagged'} = 0;
 		foreach my $locus ( keys %$allele_sequences ) {
 			$data->{'tagged'}++ if $selected_loci{$locus};
 		}
-		$data->{'percent_tagged'} = @$loci ? BIGSdb::Utils::decimal_place( 100 * $data->{'tagged'} / @$loci, 1 ) : '-';
-		$data->{'n_stats'} = BIGSdb::Utils::get_N_stats( $data->{'sum'}, $data->{'lengths'} );
+		$data->{'percent_tagged'} = BIGSdb::Utils::decimal_place( 100 * $data->{'tagged'} / @$loci, 1 );
 	}
 	if ( $options->{'gc'} ) {
-		my $gc_value = $self->{'datastore'}
-		  ->run_query( $statements->{'gc'}, $values, { fetch => 'row_array', cache => 'SeqbinBreakdown::gc' } );
+		my $gc = 0;
+		my $at = 0;
+		foreach my $contig_id ( keys %$contigs ) {
+			$gc += () = $contigs->{$contig_id} =~ /[GCgc]/gx;
+			$at += () = $contigs->{$contig_id} =~ /[ATat]/gx;
+		}
+		my $gc_value = $gc / ( $gc + $at );
 		$data->{'gc'} = BIGSdb::Utils::decimal_place( ( $gc_value // 0 ) * 100, 1 );
 	}
 	return $data;
@@ -615,37 +634,19 @@ JS
 	return $buffer;
 }
 
-sub _get_query_statements {
-	my ( $self,   $args )            = @_;
-	my ( $method, $contig_analysis ) = @{$args}{qw (seq_method_list contig_analysis)};
-	my $exclusion_clause = '';
-	my $arguments        = [];
-	my $use_seqbin_table;
-	if ($method) {
-		if ( !any { $_ eq $method } SEQ_METHODS ) {
-			$logger->error("Invalid method $method");
-			return;
-		}
-		$exclusion_clause .= ' AND method=?';
-		push @$arguments, $method;
-		$use_seqbin_table = 1;
+sub _get_stddev {
+	my ( $self, $values ) = @_;
+	return if @$values == 1;
+	my $total = 0;
+	foreach my $value (@$values) {
+		$total += $value;
 	}
-	my $statements = {
-		contig_lengths => qq[SELECT length(sequence) FROM sequence_bin WHERE isolate_id=?$exclusion_clause ]
-		  . q[ORDER BY length(sequence) DESC],
-		gc => q[select SUM(CAST(length(regexp_replace(sequence,'[^GCgc]+','','g')) AS float))/]
-		  . q[GREATEST(SUM(CAST(length(regexp_replace(sequence,'[^ATatGCgc]+','','g')) AS float)),1) AS gc ]
-		  . qq[FROM sequence_bin WHERE isolate_id=?$exclusion_clause GROUP BY isolate_id ]
-	};
-	if ( $contig_analysis || $use_seqbin_table ) {
-		$statements->{'contig_info'} =
-		    q[SELECT COUNT(sequence) AS contigs, SUM(length(sequence)) AS sum,MIN(length(sequence)) ]
-		  . q[AS min,MAX(length(sequence)) AS max, CEIL(AVG(length(sequence))) AS mean, ]
-		  . q[CEIL(STDDEV_SAMP(length(sequence))) AS stddev FROM sequence_bin WHERE ]
-		  . qq[isolate_id=?$exclusion_clause];
-	} else {
-		$statements->{'contig_info'} = q[SELECT contigs,total_length AS sum FROM seqbin_stats WHERE isolate_id=?];
+	my $mean    = $total / @$values;
+	my $sqtotal = 0;
+	foreach my $value (@$values) {
+		$sqtotal += ( $mean - $value )**2;
 	}
-	return ( $statements, $arguments );
+	my $std = ( $sqtotal / ( @$values - 1 ) )**0.5;
+	return lround($std);
 }
 1;
