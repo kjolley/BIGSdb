@@ -298,7 +298,7 @@ sub _print_provenance_fields_fieldset {
 	my $display = $self->{'prefs'}->{'provenance_fieldset'}
 	  || $self->_highest_entered_fields('provenance') ? 'inline' : 'none';
 	say qq(<fieldset id="provenance_fieldset" style="float:left;display:$display">)
-	  . q(<legend>Isolate provenance fields</legend>);
+	  . q(<legend>Isolate provenance/primary metadata fields</legend>);
 	my $prov_fields = $self->_highest_entered_fields('provenance') || 1;
 	my $display_field_heading = $prov_fields == 1 ? 'none' : 'inline';
 	say qq(<span id="prov_field_heading" style="display:$display_field_heading">)
@@ -1221,12 +1221,36 @@ sub _get_field_filters {
 
 sub _print_provenance_fields {
 	my ( $self, $row, $max_rows, $select_items, $labels ) = @_;
-	my $q = $self->{'cgi'};
+	my $q             = $self->{'cgi'};
+	my $values        = [];
+	my @group_list    = split /,/x, ( $self->{'system'}->{'field_groups'} // q() );
+	my $group_members = {};
+	if (@group_list) {
+		my $attributes = $self->{'xmlHandler'}->get_all_field_attributes;
+		foreach my $field (@$select_items) {
+			( my $stripped_field = $field ) =~ s/^[f|e]_//x;
+			$stripped_field =~ s/[\|\||\s].+$//x;
+			if ( $attributes->{$stripped_field}->{'group'} ) {
+				push @{ $group_members->{ $attributes->{$stripped_field}->{'group'} } }, $field;
+			} else {
+				push @{ $group_members->{'General'} }, $field;
+			}
+		}
+		foreach my $group ( undef, @group_list ) {
+			my $name = $group // 'General';
+			$name =~ s/\|.+$//x;
+			if ( ref $group_members->{$name} ) {
+				push @$values, $q->optgroup( -name => $name, -values => $group_members->{$name}, -labels => $labels );
+			}
+		}
+	} else {
+		$values = $select_items;
+	}
 	say q(<span style="white-space:nowrap">);
 	say $q->popup_menu(
 		-name   => "prov_field$row",
 		-id     => "prov_field$row",
-		-values => $select_items,
+		-values => $values,
 		-labels => $labels,
 		-class  => 'fieldlist'
 	);
@@ -1249,13 +1273,37 @@ sub _print_provenance_fields {
 
 sub _print_phenotypic_fields {
 	my ( $self, $row, $max_rows, $select_items, $labels ) = @_;
-	my $q = $self->{'cgi'};
+	my $q          = $self->{'cgi'};
+	my $values     = [];
+	my @group_list = split /,/x, ( $self->{'system'}->{'eav_groups'} // q() );
+	if (@group_list) {
+		my $eav_fields    = $self->{'datastore'}->get_eav_fields;
+		my $eav_groups    = { map { $_->{'field'} => $_->{'category'} } @$eav_fields };
+		my $group_members = {};
+		foreach my $field (@$select_items) {
+			( my $stripped_field = $field ) =~ s/^eav_//x;
+			if ( $eav_groups->{$stripped_field} ) {
+				push @{ $group_members->{ $eav_groups->{$stripped_field} } }, $field;
+			} else {
+				push @{ $group_members->{'General'} }, $field;
+			}
+		}
+		foreach my $group ( undef, @group_list ) {
+			my $name = $group // 'General';
+			$name =~ s/\|.+$//x;
+			if ( ref $group_members->{$name} ) {
+				push @$values, $q->optgroup( -name => $name, -values => $group_members->{$name}, -labels => $labels );
+			}
+		}
+	} else {
+		$values = $select_items;
+	}
 	say q(<span style="white-space:nowrap">);
-	unshift @$select_items, q();
+	unshift @$values, q();
 	say $q->popup_menu(
 		-name   => "phenotypic_field$row",
 		-id     => "phenotypic_field$row",
-		-values => $select_items,
+		-values => $values,
 		-labels => $labels,
 		-class  => 'fieldlist'
 	);
@@ -3331,13 +3379,13 @@ sub _modify_query_for_assembly_checks {
 				  . qq[$view.id NOT IN (SELECT isolate_id FROM assembly_checks WHERE name IN ('@{$checks->{$field}}') AND ]
 				  . q[status='fail')],
 				'warn/fail' => qq[(SELECT isolate_id FROM assembly_checks WHERE name IN ('@{$checks->{$field}}')) ],
-				'fail' => q[(SELECT isolate_id FROM assembly_checks WHERE status='fail' AND ]
+				'fail'      => q[(SELECT isolate_id FROM assembly_checks WHERE status='fail' AND ]
 				  . qq[name IN ('@{$checks->{$field}}')) ]
 			};
 		}
 		if ( $statement->{$value} ) {
 			push @check_queries, qq[($view.id IN (SELECT isolate_id FROM last_run WHERE name='AssemblyChecks') AND ]
-			. qq[$view.id IN $statement->{$value})];
+			  . qq[$view.id IN $statement->{$value})];
 		} else {
 			$logger->error("No statement defined. Field: $field; Value: $value");
 		}
