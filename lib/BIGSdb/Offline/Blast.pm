@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2020, University of Oxford
+#Copyright (c) 2017-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -685,13 +685,21 @@ sub _create_blast_database {
 	my $list_table = $self->{'datastore'}->create_temp_list_table_from_array( 'text', $loci );
 	my $qry = q(SELECT locus,allele_id,sequence from sequences WHERE locus IN )
 	  . qq((SELECT value FROM $list_table) AND allele_id NOT IN ('N','0'));
-	$qry .= ' AND exemplar' if $exemplar;
+	if ($exemplar) {
+		my $exemplars_defined = $self->{'datastore'}
+		  ->run_query("SELECT EXISTS(SELECT * FROM sequences s JOIN $list_table l ON s.locus=l.value WHERE exemplar)");
+		if ($exemplars_defined) {
+			$qry .= ' AND exemplar';
+		} else {
+			$self->{'logger'}->error('Exemplars not yet defined - using all alleles for BLAST cache.')
+			  ;
+		}
+	}
 	my $data = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref' } );
 	my $fasta_file = "$path/sequences.fas";
 	unlink $fasta_file;    #Recreate rather than overwrite to ensure both apache and bigsdb users can write
 	make_path($path);      #In case directory has since been deleted.
 	my $fasta_fh;
-
 	if ( !open( $fasta_fh, '>:encoding(utf8)', $fasta_file ) ) {
 		$self->{'logger'}->error("Cannot open $fasta_file for writing");
 		return;
