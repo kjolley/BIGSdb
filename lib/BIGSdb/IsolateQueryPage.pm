@@ -337,11 +337,39 @@ sub _print_display_fieldset {
 	say q(<fieldset id="display_fieldset" style="float:left"><legend>Display/sort options</legend>);
 	my ( $order_list, $labels ) = $self->get_field_selection_list(
 		{ isolate_fields => 1, loci => 1, scheme_fields => 1, locus_limit => MAX_LOCUS_ORDER_BY } );
+	my @group_list = split /,/x, ( $self->{'system'}->{'field_groups'} // q() );
+	push @group_list, qw(Loci Schemes);
+	my $group_members = {};
+	my $values        = [];
+	my $attributes    = $self->{'xmlHandler'}->get_all_field_attributes;
+
+	foreach my $field (@$order_list) {
+		if ( $field =~ /^s_/x ) {
+			push @{ $group_members->{'Schemes'} }, $field;
+		} elsif ( $field =~ /^[l|cn]_/x ) {
+			push @{ $group_members->{'Loci'} }, $field;
+		} elsif ( $field =~ /^f_/x ) {
+			( my $stripped_field = $field ) =~ s/^[f|e]_//x;
+			$stripped_field =~ s/[\|\||\s].+$//x;
+			if ( $attributes->{$stripped_field}->{'group'} ) {
+				push @{ $group_members->{ $attributes->{$stripped_field}->{'group'} } }, $field;
+			} else {
+				push @{ $group_members->{'General'} }, $field;
+			}
+		}
+	}
+	foreach my $group ( undef, @group_list ) {
+		my $name = $group // 'General';
+		$name =~ s/\|.+$//x;
+		if ( ref $group_members->{$name} ) {
+			push @$values, $q->optgroup( -name => $name, -values => $group_members->{$name}, -labels => $labels );
+		}
+	}
 	say q(<ul><li><span style="white-space:nowrap"><label for="order" class="display">Order by: </label>);
-	say $self->popup_menu(
+	say $q->popup_menu(
 		-name   => 'order',
 		-id     => 'order',
-		-values => $order_list,
+		-values => $values,
 		-labels => $labels,
 		-class  => 'fieldlist'
 	);
