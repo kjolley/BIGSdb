@@ -53,7 +53,7 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.4.3',
+		version             => '1.4.4',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -129,50 +129,23 @@ sub _print_interface {
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
 	$self->print_recommended_scheme_fieldset;
 	$self->print_scheme_fieldset( { fields_or_loci => 0 } );
-	$self->_print_includes_fieldset;
+	$self->print_includes_fieldset(
+		{
+			description=> 'Select additional fields to include in GrapeTree metadata.',
+			isolate_fields        => 1,
+			hide => "f_$self->{'system'}->{'labelfield'}",
+			extended_attributes   => 1,
+			scheme_fields         => 1,
+			eav_fields            => 1,
+			classification_groups => 1
+		}
+	);
 	$self->_print_parameters_fieldset;
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say $q->hidden($_) foreach qw (db page name);
 	say q(</div>);
 	say $q->end_form;
 	say q(</div>);
-	return;
-}
-
-sub _print_includes_fieldset {
-	my ($self) = @_;
-	my $set_id = $self->get_set_id;
-	say q(<fieldset style="float:left"><legend>Include fields</legend>);
-	say q(<p>Select additional fields to include in GrapeTree metadata.</p>);
-	my ( $headings, $labels ) = $self->get_field_selection_list(
-		{
-			isolate_fields        => 1,
-			extended_attributes   => 1,
-			loci                  => 0,
-			query_pref            => 0,
-			analysis_pref         => 1,
-			scheme_fields         => 1,
-			sort_labels           => 1,
-			eav_fields            => 1,
-			classification_groups => 1,
-			set_id                => $set_id
-		}
-	);
-	my $fields = [];
-	foreach my $field (@$headings) {
-		next if $field eq 'f_id';
-		next if $field eq "f_$self->{'system'}->{'labelfield'}";
-		push @$fields, $field;
-	}
-	say $self->popup_menu(
-		-name     => 'include_fields',
-		-id       => 'include_fields',
-		-values   => $fields,
-		-labels   => $labels,
-		-multiple => 'true',
-		-size     => 6
-	);
-	say q(</fieldset>);
 	return;
 }
 

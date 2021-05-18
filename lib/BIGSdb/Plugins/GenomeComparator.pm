@@ -64,7 +64,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.7.0',
+		version     => '2.7.1',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -241,8 +241,10 @@ sub _print_interface {
 	$self->print_includes_fieldset(
 		{
 			title                 => 'Include in identifiers',
-			preselect             => $self->{'system'}->{'labelfield'},
-			include_scheme_fields => 1
+			preselect             => "f_$self->{'system'}->{'labelfield'}",
+			isolate_fields        => 1,
+			scheme_fields => 1,
+			size=>9
 		}
 	);
 	$self->print_recommended_scheme_fieldset;
@@ -1176,7 +1178,7 @@ sub _get_identifier {
 	my ( $self, $id, $options ) = @_;
 	my $value = $options->{'no_id'} ? '' : $id;
 	my @includes;
-	@includes = split /\|\|/x, $self->{'params'}->{'includes'} if $self->{'params'}->{'includes'};
+	@includes = split /\|\|/x, $self->{'params'}->{'include_fields'} if $self->{'params'}->{'include_fields'};
 	if (@includes) {
 		my $include_data = $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?",
 			$id, { fetch => 'row_hashref', cache => 'GenomeComparator::get_identifier' } );
@@ -1189,8 +1191,9 @@ sub _get_identifier {
 				my @field_values = keys %{ $scheme_values->{ lc $scheme_field } };
 				local $" = q(_);
 				$field_value = qq(@field_values);
-			} else {
-				$field_value = $self->get_field_value( $include_data, $field, ';' );
+			} elsif ($field =~ /f_(.+)/x) {
+				
+				$field_value = $self->get_field_value( $include_data, $1, ';' );
 			}
 			$field_value =~ tr/[\(\):, ]/_/;
 			$value .= '|' if !$first || !$options->{'no_id'};
@@ -1381,7 +1384,7 @@ sub _run_splitstree {
 sub _is_isolate_name_selected {
 	my ($self) = @_;
 	my @includes;
-	@includes = split /\|\|/x, $self->{'params'}->{'includes'} if $self->{'params'}->{'includes'};
+	@includes = split /\|\|/x, $self->{'params'}->{'include_fields'} if $self->{'params'}->{'include_fields'};
 	my %includes = map { $_ => 1 } @includes;
 	return 1 if $includes{ $self->{'system'}->{'labelfield'} };
 	return;

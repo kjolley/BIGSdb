@@ -430,9 +430,8 @@ sub print_sequence_export_form {
 	$self->print_id_fieldset( { fieldname => $pk, list => $list } );
 	my ( $locus_list, $locus_labels ) =
 	  $self->get_field_selection_list( { loci => 1, analysis_pref => 1, query_pref => 0, sort_labels => 1 } );
-
 	if ( !$options->{'no_includes'} ) {
-		$self->print_includes_fieldset(
+		$self->_print_original_includes_fieldset(
 			{
 				scheme_id             => $scheme_id,
 				include_seqbin_id     => $options->{'include_seqbin_id'},
@@ -551,6 +550,86 @@ sub has_set_changed {
 }
 
 sub print_includes_fieldset {
+	my ( $self, $options ) = @_;
+	my $set_id = $self->get_set_id;
+	my $q      = $self->{'cgi'};
+	my $title  = $options->{'title'} // 'Include fields';
+	say qq(<div class="scrollable"><fieldset><legend>$title</legend>);
+	say qq(<p>$options->{'description'}</p>) if $options->{'description'};
+	my ( $fields, $labels ) = $self->get_field_selection_list(
+		{
+			query_pref    => 0,
+			analysis_pref => 1,
+			%$options,
+			set_id => $set_id
+		}
+	);
+	my $group_members    = {};
+	my $values           = [];
+	my %skip_fields      = map { $_ => 1 } qw (id datestamp date_entered curator sender);
+	my $attributes       = $self->{'xmlHandler'}->get_all_field_attributes;
+	my $eav_fields       = $self->{'datastore'}->get_eav_fields;
+	my $eav_field_groups = { map { $_->{'field'} => $_->{'category'} } @$eav_fields };
+	my %hide_field       = map { $_ => 1 } ( split /,/x, ( $options->{'hide'} // q() ) );
+
+	foreach my $field (@$fields) {
+		next if $field eq 'f_id';
+		next if $hide_field{$field};
+		if ( $field =~ /^s_/x ) {
+			push @{ $group_members->{'Schemes'} }, $field;
+		}
+		if ( $field =~ /^[l|cn]_/x ) {
+			push @{ $group_members->{'Loci'} }, $field;
+		}
+		if ( $field =~ /^[f|e]_/x ) {
+			( my $stripped_field = $field ) =~ s/^[f|e]_//x;
+			next if $skip_fields{$stripped_field};
+			$stripped_field =~ s/[\|\||\s].+$//x;
+			if ( $attributes->{$stripped_field}->{'group'} ) {
+				push @{ $group_members->{ $attributes->{$stripped_field}->{'group'} } }, $field;
+			} else {
+				push @{ $group_members->{'General'} }, $field;
+			}
+		}
+		if ( $field =~ /^eav_/x ) {
+			( my $stripped_field = $field ) =~ s/^eav_//x;
+			if ( $eav_field_groups->{$stripped_field} ) {
+				push @{ $group_members->{ $eav_field_groups->{$stripped_field} } }, $field;
+			} else {
+				push @{ $group_members->{'General'} }, $field;
+			}
+		}
+		if ( $field =~ /^cg_/x ) {
+			push @{ $group_members->{'Classification schemes'} }, $field;
+		}
+	}
+	my @group_list = split /,/x, ( $self->{'system'}->{'field_groups'} // q() );
+	my @eav_groups = split /,/x, ( $self->{'system'}->{'eav_groups'}   // q() );
+	push @group_list, @eav_groups if @eav_groups;
+	push @group_list, ( 'Loci', 'Schemes', 'Classification schemes' );
+	foreach my $group ( undef, @group_list ) {
+		my $name = $group // 'General';
+		$name =~ s/\|.+$//x;
+		if ( ref $group_members->{$name} ) {
+			push @$values, $q->optgroup( -name => $name, -values => $group_members->{$name}, -labels => $labels );
+		}
+	}
+	say $q->scrolling_list(
+		-name     => 'include_fields',
+		-id       => 'include_fields',
+		-values   => $values,
+		-labels   => $labels,
+		-multiple => 'true',
+		-size     => $options->{'size'} // 6,
+		-default  => $options->{'preselect'},
+	);
+	say q(</fieldset></div>);
+	return;
+}
+
+#Used only by print_sequence_export_form().
+#TODO Migrate this to use print_includes_fieldset()
+sub _print_original_includes_fieldset {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
