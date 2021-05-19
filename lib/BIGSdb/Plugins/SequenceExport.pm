@@ -1,6 +1,6 @@
 #SequenceExport.pm - Export concatenated sequences/XMFA file plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -30,16 +30,16 @@ use Bio::Perl;
 use Bio::SeqIO;
 use Bio::AlignIO;
 use BIGSdb::Utils;
-use BIGSdb::Constants qw(:limits);
+use BIGSdb::Constants qw(LOCUS_PATTERN :interface :limits);
 use constant DEFAULT_ALIGN_LIMIT => 200;
 use constant DEFAULT_SEQ_LIMIT   => 1_000_000;
-use BIGSdb::Plugin qw(SEQ_SOURCE);
+use constant SEQ_SOURCE          => 'seqbin id + position';
 
 sub get_attributes {
 	my ($self) = @_;
 	my $seqdef = ( $self->{'system'}->{'dbtype'} // q() ) eq 'sequences';
 	my %att = (
-		name             => 'Sequence Export',
+		name    => 'Sequence Export',
 		authors => [
 			{
 				name        => 'Keith Jolley',
@@ -55,7 +55,7 @@ sub get_attributes {
 		buttontext => 'Sequences',
 		menutext   => $seqdef ? 'Profile sequences' : 'Sequences',
 		module     => 'SequenceExport',
-		version    => '1.6.10',
+		version    => '1.6.11',
 		dbtype     => 'isolates,sequences',
 		seqdb_type => 'schemes',
 		section    => 'isolate_info,profile_info,export,postquery',
@@ -90,14 +90,8 @@ sub run {
 	my $commified_max = BIGSdb::Utils::commify($max_seqs);
 	say q(<h1>Export allele sequences in XMFA/concatenated FASTA formats</h1>);
 	return if $self->has_set_changed;
-	my $allow_alignment = 1;
-
-	if ( !-x $self->{'config'}->{'muscle_path'} && !-x $self->{'config'}->{'mafft_path'} ) {
-		$logger->error( 'This plugin requires an aligner (MAFFT or MUSCLE) to be installed and one is not. '
-			  . 'Please install one of these or check the settings in bigsdb.conf.' );
-		$allow_alignment = 0;
-	}
 	my $pk;
+
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$pk = 'id';
 	} else {
@@ -217,22 +211,143 @@ sub run {
 	if ( !@$list && BIGSdb::Utils::is_int( scalar $q->param('single_isolate') ) ) {
 		$list = [ scalar $q->param('single_isolate') ];
 	}
-	$self->print_sequence_export_form(
-		$pk, $list,
-		$scheme_id,
-		{
-			default_select        => 0,
-			translate             => 1,
-			flanking              => 1,
-			ignore_seqflags       => 1,
-			ignore_incomplete     => 1,
-			align                 => $allow_alignment,
-			in_frame              => 1,
-			include_seqbin_id     => 1,
-			include_scheme_fields => 1
-		}
-	);
+	$self->_print_interface( $pk, $list, $scheme_id );
 	say q(</div>);
+	return;
+}
+
+sub _print_interface {
+	my ( $self, $pk, $list, $scheme_id ) = @_;
+	$logger->error('No primary key passed') if !defined $pk;
+	my $q = $self->{'cgi'};
+	say $q->start_form;
+	say q(<div class="flex_container" style="justify-content:left">);
+	$self->print_id_fieldset( { fieldname => $pk, list => $list } );
+	my ( $locus_list, $locus_labels ) =
+	  $self->get_field_selection_list( { loci => 1, analysis_pref => 1, query_pref => 0, sort_labels => 1 } );
+	$self->_print_includes_fieldset($scheme_id);
+
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
+		$self->print_scheme_fieldset;
+	} else {
+		$self->print_scheme_locus_fieldset($scheme_id);
+	}
+	say q(<fieldset style="float:left"><legend>Options</legend>);
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		say q(<p>If both allele designations and tagged sequences<br />)
+		  . q(exist for a locus, choose how you want these handled: );
+		say $self->get_tooltip( q(Sequence retrieval - Peptide loci will only be retrieved from the )
+			  . q(sequence bin (as nucleotide sequences).) );
+		say q(</p><ul><li>);
+		my %labels = (
+			seqbin             => 'Use sequences tagged from the bin',
+			allele_designation => 'Use allele sequence retrieved from external database'
+		);
+		say $q->radio_group(
+			-name      => 'chooseseq',
+			-values    => [ 'seqbin', 'allele_designation' ],
+			-labels    => \%labels,
+			-linebreak => 'true'
+		);
+		say q(</li><li style="margin-top:0.5em">);
+		say $q->checkbox(
+			-name    => 'ignore_seqflags',
+			-label   => 'Do not include sequences with problem flagged (defined alleles will still be used)',
+			-checked => 'checked'
+		);
+		say q(</li><li>);
+		say $q->checkbox(
+			-name    => 'ignore_incomplete',
+			-label   => 'Do not include incomplete sequences',
+			-checked => 'checked'
+		);
+		say q(</li><li>);
+		say q(Include );
+		say $q->popup_menu( -name => 'flanking', -values => [FLANKING], -default => 0 );
+		say q( bp flanking sequence);
+		say $self->get_tooltip( q(Flanking sequence - This can only be included if you )
+			  . q(select to retrieve sequences from the sequence bin rather than from an external database.) );
+		say q(</li>);
+
+		if ( !-x $self->{'config'}->{'muscle_path'} && !-x $self->{'config'}->{'mafft_path'} ) {
+			$logger->error( 'This plugin requires an aligner (MAFFT or MUSCLE) to be installed and one is not. '
+				  . 'Please install one of these or check the settings in bigsdb.conf.' );
+		} else {
+			say q(<li>);
+			say $q->checkbox( -name => 'align', -id => 'align', -label => 'Align sequences' );
+			say q(</li>);
+			my @aligners;
+			foreach my $aligner (qw(mafft muscle)) {
+				push @aligners, uc($aligner) if $self->{'config'}->{"$aligner\_path"};
+			}
+			if (@aligners) {
+				say q(<li>Aligner: );
+				say $q->popup_menu( -name => 'aligner', -id => 'aligner', -values => \@aligners );
+				say q(</li>);
+			}
+		}
+		say q(<li>);
+		say $q->checkbox( -name => 'translate', -label => 'Translate sequences' );
+		say q(</li>);
+		say q(<li>);
+		say $q->checkbox( -name => 'in_frame', -label => 'Concatenate in frame' );
+		say q(</li>);
+		say q(</ul></fieldset>);
+	}
+	$self->print_action_fieldset( { no_reset => 1 } );
+	say q(<div style="clear:both"></div>);
+	my $set_id = $self->get_set_id;
+	$q->param( set_id => $set_id );
+	say $q->hidden($_) foreach qw (db page name query_file scheme_id set_id list_file datatype);
+	say q(</div>);
+	say $q->end_form;
+	return;
+}
+
+#TODO Refactor to use Plugin::print_includes_fieldset
+sub _print_includes_fieldset {
+	my ( $self, $scheme_id ) = @_;
+	my $q = $self->{'cgi'};
+	my ( @fields, $labels );
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		my $set_id     = $self->get_set_id;
+		my $is_curator = $self->is_curator;
+		my $field_list = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
+		foreach my $field (@$field_list) {
+			next if any { $field eq $_ } qw (id datestamp date_entered curator sender);
+			push @fields, $field;
+			( $labels->{$field} = $field ) =~ tr/_/ /;
+		}
+		my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
+		foreach my $scheme (@$schemes) {
+			my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $scheme->{'id'} );
+			foreach my $field (@$scheme_fields) {
+				push @fields, "s_$scheme->{'id'}_$field";
+				$labels->{"s_$scheme->{'id'}_$field"} = "$field ($scheme->{'name'})";
+				$labels->{"s_$scheme->{'id'}_$field"} =~ tr/_/ /;
+			}
+		}
+		push @fields, SEQ_SOURCE;
+	} else {
+		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+		foreach (@$scheme_fields) {
+			push @fields, $_ if $_ ne $scheme_info->{'primary_key'};
+		}
+	}
+	if (@fields) {
+		say q(<fieldset style="float:left"><legend>Include in identifier</legend>);
+		say $q->scrolling_list(
+			-name     => 'includes',
+			-id       => 'includes',
+			-values   => \@fields,
+			-labels   => $labels,
+			-size     => 9,
+			-multiple => 'true'
+		);
+		say q(</fieldset>);
+	}
 	return;
 }
 

@@ -1,6 +1,6 @@
 #CodonUsage.pm - Codon usage plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2011-2019, University of Oxford
+#Copyright (c) 2011-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -120,7 +120,7 @@ my %translate = (
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name             => 'Codon Usage',
+		name    => 'Codon Usage',
 		authors => [
 			{
 				name        => 'Keith Jolley',
@@ -137,7 +137,7 @@ sub get_attributes {
 		menutext    => 'Codon usage',
 		module      => 'CodonUsage',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/codon_usage.html",
-		version     => '1.2.11',
+		version     => '1.2.12',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -214,23 +214,53 @@ sub run {
 	  . q[of codons can only be achieved for loci for which the correct ORF has been set (if they are not ]
 	  . q[in reading frame 1).  Partial sequnces from the sequence bin will not be analysed. Please check ]
 	  . qq[the loci that you would like to include. Output is limited to $limit records.</p>];
-	my $options = {
-		default_select  => 0,
-		translate       => 0,
-		options_heading => 'Sequence retrieval',
-		ignore_seqflags => 1,
-		no_includes     => 1
-	};
-	my $query_file = $q->param('query_file');
-	my $list = $self->get_id_list( 'id', $query_file );
-	$self->print_sequence_export_form( 'id', $list, undef, $options );
+	$self->_print_interface;
 	say q(</div>);
 	return;
 }
 
-sub print_extra_form_elements {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
+sub _print_interface {
+	my ($self)     = @_;
+	my $q          = $self->{'cgi'};
+	my $query_file = $q->param('query_file');
+	my $list = $self->get_id_list( 'id', $query_file );
+	say $q->start_form;
+	say q(<div class="flex_container" style="justify-content:left">);
+	$self->print_id_fieldset( { fieldname => 'id', list => $list } );
+	my ( $locus_list, $locus_labels ) =
+	  $self->get_field_selection_list( { loci => 1, analysis_pref => 1, query_pref => 0, sort_labels => 1 } );
+	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
+	$self->print_scheme_fieldset;
+	say q(<fieldset style="float:left"><legend>Sequence retrieval</legend>);
+	say q(<p>If both allele designations and tagged sequences<br />)
+	  . q(exist for a locus, choose how you want these handled: );
+	say $self->get_tooltip( q(Sequence retrieval - Peptide loci will only be retrieved from the )
+		  . q(sequence bin (as nucleotide sequences).) );
+	say q(</p><ul><li>);
+	my %labels = (
+		seqbin             => 'Use sequences tagged from the bin',
+		allele_designation => 'Use allele sequence retrieved from external database'
+	);
+	say $q->radio_group(
+		-name      => 'chooseseq',
+		-values    => [ 'seqbin', 'allele_designation' ],
+		-labels    => \%labels,
+		-linebreak => 'true'
+	);
+	say q(</li><li style="margin-top:0.5em">);
+	say $q->checkbox(
+		-name    => 'ignore_seqflags',
+		-label   => 'Do not include sequences with problem flagged (defined alleles will still be used)',
+		-checked => 'checked'
+	);
+	say q(</li><li>);
+	say $q->checkbox(
+		-name    => 'ignore_incomplete',
+		-label   => 'Do not include incomplete sequences',
+		-checked => 'checked'
+	);
+	say q(</li><li>);
+	say q(</ul></fieldset>);
 	say q(<fieldset style="float:left"><legend>Codons</legend>);
 	say q(<p>Select codon order:</p>);
 	say $q->radio_group(
@@ -240,6 +270,13 @@ sub print_extra_form_elements {
 		-linebreak => 'true'
 	);
 	say q(</fieldset>);
+	$self->print_action_fieldset( { no_reset => 1 } );
+	say q(<div style="clear:both"></div>);
+	my $set_id = $self->get_set_id;
+	$q->param( set_id => $set_id );
+	say $q->hidden($_) foreach qw (db page name query_file scheme_id set_id list_file datatype);
+	say q(</div>);
+	say $q->end_form;
 	return;
 }
 

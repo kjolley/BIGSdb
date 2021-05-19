@@ -33,7 +33,6 @@ our @EXPORT_OK = qw(SEQ_SOURCE);
 #Override the following methods in subclass
 sub get_initiation_values { return {} }
 sub get_attributes        { return {} }
-sub print_extra_form_elements { }
 sub get_hidden_attributes     { return [] }
 sub get_plugin_javascript     { return q() }
 sub run                       { }
@@ -420,116 +419,7 @@ sub print_id_fieldset {
 	return;
 }
 
-sub print_sequence_export_form {
-	my ( $self, $pk, $list, $scheme_id, $options ) = @_;
-	$logger->error('No primary key passed') if !defined $pk;
-	$options = {} if ref $options ne 'HASH';
-	my $q = $self->{'cgi'};
-	say $q->start_form;
-	say q(<div class="flex_container" style="justify-content:left">);
-	$self->print_id_fieldset( { fieldname => $pk, list => $list } );
-	my ( $locus_list, $locus_labels ) =
-	  $self->get_field_selection_list( { loci => 1, analysis_pref => 1, query_pref => 0, sort_labels => 1 } );
-	if ( !$options->{'no_includes'} ) {
-		$self->_print_original_includes_fieldset(
-			{
-				scheme_id             => $scheme_id,
-				include_seqbin_id     => $options->{'include_seqbin_id'},
-				include_scheme_fields => $options->{'include_scheme_fields'}
-			}
-		);
-	}
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
-		$self->print_scheme_fieldset;
-	} else {
-		if ( !$options->{'no_locus_list'} ) {
-			$self->print_scheme_locus_fieldset( $scheme_id, $options );
-		}
-	}
-	if ( !$options->{'no_options'} ) {
-		my $options_heading = $options->{'options_heading'} || 'Options';
-		say qq(<fieldset style="float:left"><legend>$options_heading</legend>);
-		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-			say q(<p>If both allele designations and tagged sequences<br />)
-			  . q(exist for a locus, choose how you want these handled: );
-			say $self->get_tooltip( q(Sequence retrieval - Peptide loci will only be retrieved from the )
-				  . q(sequence bin (as nucleotide sequences).) );
-			say q(</p><ul><li>);
-			my %labels = (
-				seqbin             => 'Use sequences tagged from the bin',
-				allele_designation => 'Use allele sequence retrieved from external database'
-			);
-			say $q->radio_group(
-				-name      => 'chooseseq',
-				-values    => [ 'seqbin', 'allele_designation' ],
-				-labels    => \%labels,
-				-linebreak => 'true'
-			);
-			say q(</li><li style="margin-top:0.5em">);
-			if ( $options->{'ignore_seqflags'} ) {
-				say $q->checkbox(
-					-name    => 'ignore_seqflags',
-					-label   => 'Do not include sequences with problem flagged (defined alleles will still be used)',
-					-checked => 'checked'
-				);
-				say q(</li><li>);
-			}
-			if ( $options->{'ignore_incomplete'} ) {
-				say $q->checkbox(
-					-name    => 'ignore_incomplete',
-					-label   => 'Do not include incomplete sequences',
-					-checked => 'checked'
-				);
-				say q(</li><li>);
-			}
-			if ( $options->{'flanking'} ) {
-				say q(Include );
-				say $q->popup_menu( -name => 'flanking', -values => [FLANKING], -default => 0 );
-				say q( bp flanking sequence);
-				say $self->get_tooltip( q(Flanking sequence - This can only be included if you )
-					  . q(select to retrieve sequences from the sequence bin rather than from an external database.) );
-				say q(</li>);
-			}
-		} else {
-			say q(<ul>);
-		}
-		if ( $options->{'align'} ) {
-			say q(<li>);
-			say $q->checkbox( -name => 'align', -id => 'align', -label => 'Align sequences' );
-			say q(</li>);
-			my @aligners;
-			foreach my $aligner (qw(mafft muscle)) {
-				push @aligners, uc($aligner) if $self->{'config'}->{"$aligner\_path"};
-			}
-			if (@aligners) {
-				say q(<li>Aligner: );
-				say $q->popup_menu( -name => 'aligner', -id => 'aligner', -values => \@aligners );
-				say q(</li>);
-			}
-		}
-		if ( $options->{'translate'} ) {
-			say q(<li>);
-			say $q->checkbox( -name => 'translate', -label => 'Translate sequences' );
-			say q(</li>);
-		}
-		if ( $options->{'in_frame'} ) {
-			say q(<li>);
-			say $q->checkbox( -name => 'in_frame', -label => 'Concatenate in frame' );
-			say q(</li>);
-		}
-		say q(</ul></fieldset>);
-	}
-	$self->print_extra_form_elements;
-	$self->print_action_fieldset( { no_reset => 1 } );
-	say q(<div style="clear:both"></div>);
-	my $set_id = $self->get_set_id;
-	$q->param( set_id => $set_id );
-	say $q->hidden($_) foreach qw (db page name query_file scheme_id set_id list_file datatype);
-	say q(</div>);
-	say $q->end_form;
-	return;
-}
+
 
 sub has_set_changed {
 	my ($self) = @_;
@@ -627,62 +517,8 @@ sub print_includes_fieldset {
 	return;
 }
 
-#Used only by print_sequence_export_form().
-#TODO Migrate this to use print_includes_fieldset()
-sub _print_original_includes_fieldset {
-	my ( $self, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
-	my $q = $self->{'cgi'};
-	my ( @fields, $labels );
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		my $set_id     = $self->get_set_id;
-		my $is_curator = $self->is_curator;
-		my $field_list = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
-		foreach my $field (@$field_list) {
-			next if any { $field eq $_ } qw (id datestamp date_entered curator sender);
-			push @fields, $field;
-			( $labels->{$field} = $field ) =~ tr/_/ /;
-		}
-		if ( $options->{'include_scheme_fields'} ) {
-			my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
-			foreach my $scheme (@$schemes) {
-				my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $scheme->{'id'} );
-				foreach my $field (@$scheme_fields) {
-					push @fields, "s_$scheme->{'id'}_$field";
-					$labels->{"s_$scheme->{'id'}_$field"} = "$field ($scheme->{'name'})";
-					$labels->{"s_$scheme->{'id'}_$field"} =~ tr/_/ /;
-				}
-			}
-		}
-		if ( $options->{'include_seqbin_id'} ) {
-			push @fields, SEQ_SOURCE;
-		}
-	} else {
-		my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $options->{'scheme_id'} );
-		my $scheme_info = $self->{'datastore'}->get_scheme_info( $options->{'scheme_id'}, { get_pk => 1 } );
-		foreach (@$scheme_fields) {
-			push @fields, $_ if $_ ne $scheme_info->{'primary_key'};
-		}
-	}
-	if (@fields) {
-		my $title = $options->{'title'} // 'Include in identifier';
-		say qq(<fieldset style="float:left"><legend>$title</legend>);
-		say $q->scrolling_list(
-			-name     => 'includes',
-			-id       => 'includes',
-			-values   => \@fields,
-			-labels   => $labels,
-			-size     => 9,
-			-default  => $options->{'preselect'},
-			-multiple => 'true'
-		);
-		say q(</fieldset>);
-	}
-	return;
-}
-
 sub print_scheme_locus_fieldset {
-	my ( $self, $scheme_id, $options ) = @_;
+	my ( $self, $scheme_id ) = @_;
 	my $locus_list = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $set_id     = $self->get_set_id;
 	my %labels;
