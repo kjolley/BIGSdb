@@ -182,7 +182,7 @@ sub _get_javascript_paths {
 			'CryptoJS.MD5' => { src => [qw(md5.js)],      defer => 1, version => '20200308' },
 			'packery'      => { src => [qw(packery.js)],  defer => 1, version => '20200308' },
 			'dropzone'     => { src => [qw(dropzone.js)], defer => 0, version => '20200308' },
-			'billboard' => {
+			'billboard'    => {
 				src     => [qw(d3.v6.min.js billboard.min.js jquery.ui.touch-punch.min.js)],
 				defer   => 1,
 				version => '20210510'
@@ -638,12 +638,11 @@ sub _get_stylesheets {
 	my $system  = $self->{'system'};
 	my $version = '20210510';
 	my @filenames;
-	push @filenames, q(dropzone.css)      if $self->{'dropzone'};
-	push @filenames, q(billboard.min.css) if $self->{'billboard'};
-	push @filenames, q(pivot.min.css)     if $self->{'pivot'};
+	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
+	push @filenames, q(billboard.min.css)                                     if $self->{'billboard'};
+	push @filenames, q(pivot.min.css)                                         if $self->{'pivot'};
 	push @filenames, qw(jquery.multiselect.css jquery.multiselect.filter.css) if $self->{'jQuery.multiselect'};
-	push @filenames, qw(d3.geomap.css) if $self->{'geomap'};
-
+	push @filenames, qw(d3.geomap.css)                                        if $self->{'geomap'};
 	if ( !$self->{'config'}->{'no_cookie_consent'} && !$self->{'curate'} && $self->{'instance'} ) {
 		push @filenames, q(cookieconsent.min.css);
 	}
@@ -1338,8 +1337,8 @@ sub _get_classification_groups_fields {
 	if ( !$self->{'cache'}->{'classification_group_fields'} ) {
 		my $list = [];
 		my $cg_pkeys =
-		  $self->{'datastore'}
-		  ->run_query( 'SELECT id,name FROM classification_schemes', undef, { fetch => 'all_arrayref', slice => {} } );
+		  $self->{'datastore'}->run_query( 'SELECT id,name FROM classification_schemes ORDER BY display_order,name',
+			undef, { fetch => 'all_arrayref', slice => {} } );
 		foreach my $key (@$cg_pkeys) {
 			push @$list, "cg_$key->{'id'}_group";
 			$self->{'cache'}->{'labels'}->{"cg_$key->{'id'}_group"} = "$key->{'name'} group";

@@ -131,13 +131,14 @@ sub _print_interface {
 	$self->print_scheme_fieldset( { fields_or_loci => 0 } );
 	$self->print_includes_fieldset(
 		{
-			description=> 'Select additional fields to include in GrapeTree metadata.',
+			description           => 'Select additional fields to include in GrapeTree metadata.',
 			isolate_fields        => 1,
-			hide => "f_$self->{'system'}->{'labelfield'}",
+			hide                  => "f_$self->{'system'}->{'labelfield'}",
 			extended_attributes   => 1,
 			scheme_fields         => 1,
 			eav_fields            => 1,
-			classification_groups => 1
+			classification_groups => 1,
+			size                  => 8
 		}
 	);
 	$self->_print_parameters_fieldset;
