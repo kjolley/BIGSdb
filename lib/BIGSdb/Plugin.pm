@@ -504,6 +504,9 @@ sub print_includes_fieldset {
 			push @$values, $q->optgroup( -name => $name, -values => $group_members->{$name}, -labels => $labels );
 		}
 	}
+	if ($options->{'additional'}){
+		push @$values,  $q->optgroup(-name=>'Miscellaneous',-values=>$options->{'additional'});
+	}
 	say $q->scrolling_list(
 		-name     => 'include_fields',
 		-id       => 'include_fields',

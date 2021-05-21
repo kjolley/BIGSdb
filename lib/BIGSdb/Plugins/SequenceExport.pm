@@ -55,7 +55,7 @@ sub get_attributes {
 		buttontext => 'Sequences',
 		menutext   => $seqdef ? 'Profile sequences' : 'Sequences',
 		module     => 'SequenceExport',
-		version    => '1.6.11',
+		version    => '1.6.12',
 		dbtype     => 'isolates,sequences',
 		seqdb_type => 'schemes',
 		section    => 'isolate_info,profile_info,export,postquery',
@@ -305,48 +305,39 @@ sub _print_interface {
 	return;
 }
 
-#TODO Refactor to use Plugin::print_includes_fieldset
 sub _print_includes_fieldset {
 	my ( $self, $scheme_id ) = @_;
 	my $q = $self->{'cgi'};
 	my ( @fields, $labels );
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		my $set_id     = $self->get_set_id;
-		my $is_curator = $self->is_curator;
-		my $field_list = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
-		foreach my $field (@$field_list) {
-			next if any { $field eq $_ } qw (id datestamp date_entered curator sender);
-			push @fields, $field;
-			( $labels->{$field} = $field ) =~ tr/_/ /;
-		}
-		my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
-		foreach my $scheme (@$schemes) {
-			my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $scheme->{'id'} );
-			foreach my $field (@$scheme_fields) {
-				push @fields, "s_$scheme->{'id'}_$field";
-				$labels->{"s_$scheme->{'id'}_$field"} = "$field ($scheme->{'name'})";
-				$labels->{"s_$scheme->{'id'}_$field"} =~ tr/_/ /;
+		$self->print_includes_fieldset(
+			{
+				isolate_fields => 1,
+				scheme_fields  => 1,
+				analysis_pref  => 1,
+				title          => 'Include in identifier',
+				size           => 7,
+				additional     => [SEQ_SOURCE]
 			}
-		}
-		push @fields, SEQ_SOURCE;
+		);
 	} else {
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 		foreach (@$scheme_fields) {
 			push @fields, $_ if $_ ne $scheme_info->{'primary_key'};
 		}
-	}
-	if (@fields) {
-		say q(<fieldset style="float:left"><legend>Include in identifier</legend>);
-		say $q->scrolling_list(
-			-name     => 'includes',
-			-id       => 'includes',
-			-values   => \@fields,
-			-labels   => $labels,
-			-size     => 9,
-			-multiple => 'true'
-		);
-		say q(</fieldset>);
+		if (@fields) {
+			say q(<fieldset style="float:left"><legend>Include in identifier</legend>);
+			say $q->scrolling_list(
+				-name     => 'include_fields',
+				-id       => 'include_fields',
+				-values   => \@fields,
+				-labels   => $labels,
+				-size     => 7,
+				-multiple => 'true'
+			);
+			say q(</fieldset>);
+		}
 	}
 	return;
 }
@@ -367,9 +358,9 @@ sub run_job {
 sub _get_includes {
 	my ( $self, $params ) = @_;
 	my @includes;
-	if ( $params->{'includes'} ) {
+	if ( $params->{'include_fields'} ) {
 		my $separator = '\|\|';
-		@includes = split /$separator/x, $params->{'includes'};
+		@includes = split /$separator/x, $params->{'include_fields'};
 	}
 	return \@includes;
 }
@@ -488,7 +479,7 @@ sub _run_job_isolates {
 	my $loci          = $self->{'jobManager'}->get_job_loci($job_id);
 	my $selected_loci = $self->order_loci($loci);
 	my $ids           = $self->{'jobManager'}->get_job_isolates($job_id);
-	my $ret_val       = $self->make_isolate_seq_file(
+	my $ret_val       = $self->_make_isolate_seq_file(
 		{
 			job_id       => $job_id,
 			params       => $params,
@@ -507,7 +498,7 @@ sub _run_job_isolates {
 	return;
 }
 
-sub make_isolate_seq_file {
+sub _make_isolate_seq_file {
 	my ( $self, $args ) = @_;
 	my ( $job_id, $params, $ids, $loci, $filename, $max_progress ) =
 	  @$args{qw(job_id params ids loci filename max_progress)};
@@ -671,8 +662,8 @@ sub _get_included_values {
 			local $" = q(;);
 			( my $string = qq(@values) ) =~ tr/ /_/;
 			push @$include_values, $string;
-		} else {
-			my $value = $self->get_field_value( $isolate_data, $field );
+		} elsif ( $field =~ /^f_(.+)$/x ) {
+			my $value = $self->get_field_value( $isolate_data, $1 );
 			push @$include_values, $value;
 		}
 	}
