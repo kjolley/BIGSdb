@@ -610,13 +610,14 @@ sub _make_isolate_seq_file {
 				$no_seq{$id}       = 1;
 				$pos_include_value = 'no_seq';
 			}
+			my @local_include_values = @$include_values;    #Don't clobber
 			if ( $field_included{&SEQ_SOURCE} ) {
-				push @$include_values, $pos_include_value;
+				push @local_include_values, $pos_include_value;
 				$self->{'seq_source'} = 1;
 			}
 			print $fh_unaligned ">$id";
 			local $" = '|';
-			print $fh_unaligned "|@$include_values" if @$includes;
+			print $fh_unaligned "|@local_include_values" if @$includes;
 			print $fh_unaligned "\n";
 			$seq = $self->_translate_seq_if_required( $params, $locus_info, $seq );
 			say $fh_unaligned $seq;
