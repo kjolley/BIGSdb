@@ -210,52 +210,39 @@ sub _print_login_menu_item {
 sub _print_plugin_menu_item {
 	my ( $self, $args ) = @_;
 	my ( $label, $icon, $href, $list_number ) = @{$args}{qw (label icon href list_number)};
-	$list_number //= 5;
 	my $cache_string = $self->get_cache_string;
 	my $url_root     = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}$cache_string&amp;";
 	my $set_id       = $self->get_set_id;
 	local $" = q(,);
 	my $plugins =
-	  $self->{'pluginManager'}->get_appropriate_plugin_names( $args->{'sections'}, $self->{'system'}->{'dbtype'}, undef,
-		{ set_id => $set_id } );
+	  $self->{'pluginManager'}->get_appropriate_plugin_names( $args->{'sections'}, $self->{'system'}->{'dbtype'},
+		undef, { set_id => $set_id, order => 'menutext' } );
 	return if !@$plugins;
+	my $links = [];
+	my $scheme_data = $self->get_scheme_data( { with_pk => 1 } );
 
-	if ( @$plugins <= $list_number ) {
-		my $links = [];
-		my $scheme_data = $self->get_scheme_data( { with_pk => 1 } );
-		foreach my $plugin (@$plugins) {
-			my $att      = $self->{'pluginManager'}->get_plugin_attributes($plugin);
-			my $menuitem = $att->{'menutext'};
-			my $scheme_arg =
-			  (      $self->{'system'}->{'dbtype'} eq 'sequences'
-				  && $att->{'seqdb_type'} eq 'schemes'
-				  && @$scheme_data == 1 )
-			  ? qq(&amp;scheme_id=$scheme_data->[0]->{'id'})
-			  : q();
-			push @$links,
-			  {
-				href => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-				  . qq(page=plugin&amp;name=$att->{'module'}$scheme_arg$cache_string),
-				text => $menuitem
-			  };
-		}
-		$self->_print_menu_item(
-			{
-				icon  => $icon,
-				label => $label,
-				links => $links,
-				href  => $href
-			}
-		);
-	} elsif (@$plugins) {
-		$self->_print_menu_item(
-			{
-				icon  => $icon,
-				label => $label,
-				href  => $href
-			}
-		);
+	foreach my $plugin (@$plugins) {
+		my $att      = $self->{'pluginManager'}->get_plugin_attributes($plugin);
+		my $menuitem = $att->{'menutext'};
+		my $scheme_arg =
+		  ( $self->{'system'}->{'dbtype'} eq 'sequences' && $att->{'seqdb_type'} eq 'schemes' && @$scheme_data == 1 )
+		  ? qq(&amp;scheme_id=$scheme_data->[0]->{'id'})
+		  : q();
+		push @$links,
+		  {
+			href => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=plugin&amp;name=$att->{'module'}$scheme_arg$cache_string),
+			text => $menuitem
+		  };
 	}
+	$self->_print_menu_item(
+		{
+			icon  => $icon,
+			label => $label,
+			links => $links,
+			href  => $href
+		}
+	);
 	return;
 }
 

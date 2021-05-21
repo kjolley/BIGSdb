@@ -148,9 +148,9 @@ sub _section_matches_plugin {
 sub _filter_schemes {
 	my ( $self, $scheme_data, $plugin ) = @_;
 	my $filtered = [];
-	my $attr = $self->{'attributes'}->{$plugin};
+	my $attr     = $self->{'attributes'}->{$plugin};
 	foreach my $scheme (@$scheme_data) {
-		if (!defined $attr->{'max_scheme_loci'} && !defined $attr->{'min_scheme_loci'}){
+		if ( !defined $attr->{'max_scheme_loci'} && !defined $attr->{'min_scheme_loci'} ) {
 			push @$filtered, $scheme;
 			next;
 		}
@@ -168,10 +168,17 @@ sub get_appropriate_plugin_names {
 	my $q = $self->{'cgi'};
 	$sections = ref $sections ? $sections : [$sections];
 	return if !$self->_valid_section($sections);
-	my $plugins = [];
+	my $plugins        = [];
 	my $pk_scheme_list = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $options->{'set_id'} } );
+	my $order          = $options->{'order'} // 'order';
+	no warnings 'numeric';
+
 	foreach my $plugin (
-		sort { $self->{'attributes'}->{$a}->{'order'} <=> $self->{'attributes'}->{$b}->{'order'} }
+		sort {
+			$self->{'attributes'}->{$a}->{$order} <=> $self->{'attributes'}->{$b}->{$order}
+			  || lc( $self->{'attributes'}->{$a}->{$order} ) cmp
+			  lc( $self->{'attributes'}->{$b}->{$order} )
+		}
 		keys %{ $self->{'attributes'} }
 	  )
 	{
@@ -181,9 +188,9 @@ sub get_appropriate_plugin_names {
 		next if !$self->_has_required_genome( $attr->{'requires'}, $options );
 
 		#must be a scheme with primary key and loci defined
-		my $filtered_scheme_list = $self->_filter_schemes($pk_scheme_list,$plugin);
-		if (( $attr->{'requires'} // q() ) =~ /pk_scheme/){
-			next if !@$filtered_scheme_list ;
+		my $filtered_scheme_list = $self->_filter_schemes( $pk_scheme_list, $plugin );
+		if ( ( $attr->{'requires'} // q() ) =~ /pk_scheme/ ) {
+			next if !@$filtered_scheme_list;
 		}
 		next
 		  if $self->{'system'}->{'dbtype'} eq 'sequences'

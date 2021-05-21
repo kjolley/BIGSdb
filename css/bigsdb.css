@@ -1,4 +1,4 @@
-/*Version: 20210510*/
+/*Version: 20210521*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -860,6 +860,8 @@ div.multi_menu_panel {
 	color: #2779a8;
 	padding: 0.8em;
 	margin-bottom: 0.8em;
+	max-height: 20em;
+	overflow-y: auto
 }
 
 div.multi_menu_panel ul {

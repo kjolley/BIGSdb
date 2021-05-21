@@ -1,6 +1,6 @@
 #Export.pm - Export plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -48,9 +48,9 @@ sub get_attributes {
 		  . 'for the whole database. The output file is in Excel format.',
 		category   => 'Export',
 		buttontext => 'Dataset',
-		menutext   => 'Export dataset',
+		menutext   => 'Dataset',
 		module     => 'Export',
-		version    => '1.7.12',
+		version    => '1.7.13',
 		dbtype     => 'isolates',
 		section    => 'export,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
