@@ -231,38 +231,25 @@ sub _print_interface {
 
 sub print_extra_form_elements {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	my ( $fields, $labels ) =
-	  $self->get_field_selection_list( { isolate_fields => 1, extended_attributes => 1, scheme_fields => 1 } );
-	my @allowed_fields;
-	my %disabled = map { $_ => 1 } qw(f_id f_comments f_date_entered f_datestamp f_sender f_curator);
-	if ( $self->{'system'}->{'noshow'} ) {
-		my @noshow = split /,/x, $self->{'system'}->{'noshow'};
-		foreach my $field (@noshow) {
-			$disabled{"f_$field"} = 1 if $field ne $self->{'system'}->{'labelfield'};
+	my $tooltip =
+	  $self->get_tooltip( q(Datasets - These are not available for uploaded genomes since they require )
+		  . q(metadata or designations to be tagged within the database.</p>)
+		  . q(<p>Use Shift/Ctrl to select multiple values (depending on your system).</p>) );
+	$self->print_includes_fieldset(
+		{
+			title               => 'iTOL datasets',
+			description         => "Select to create data overlays $tooltip",
+			name                => 'itol_dataset',
+			isolate_fields      => 1,
+			extended_attributes => 1,
+			scheme_fields       => 1,
+			size                => 8,
+			preselect           => ["f_$self->{'system'}->{'labelfield'}"]
 		}
-	}
-	foreach my $field (@$fields) {
-		next if $disabled{$field};
-		push @allowed_fields, $field;
-	}
-	say q(<fieldset style="float:left"><legend>iTOL datasets</legend>);
-	say q(<p>Select to create data overlays<br />(Use Ctrl to select multiple) );
-	say $self->get_tooltip( q(Datasets - These are not available for uploaded genomes since they require )
-		  . q(metadata or designations to be tagged within the database.) );
-	say q(</p>);
-	say $q->scrolling_list(
-		-name     => 'itol_dataset',
-		-id       => 'itol_dataset',
-		-values   => \@allowed_fields,
-		-labels   => $labels,
-		-size     => 8,
-		-multiple => 'true',
-		-default  => ["f_$self->{'system'}->{'labelfield'}"]
 	);
-	say q(</fieldset>);
 	say q(<fieldset style="float:left"><legend>iTOL data type</legend>);
-	$labels = { text_label => 'text labels', colour_strips => 'coloured strips' };
+	my $q = $self->{'cgi'};
+	my $labels = { text_label => 'text labels', colour_strips => 'coloured strips' };
 	say $q->radio_group(
 		-name      => 'data_type',
 		-values    => [qw(text_label colour_strips)],
@@ -798,8 +785,7 @@ sub print_info_panel {
 	say q(<div style="float:left">);
 	say qq(<img src="$logo" style="width:100px;margin-right:2em" />);
 	say q(</div>);
-	say q(<p>This plugin uploads data for analysis within the Interactive Tree of Life online service:</p>)
-	  ;
+	say q(<p>This plugin uploads data for analysis within the Interactive Tree of Life online service:</p>);
 	say q(<p>iTOL is developed by: Ivica Letunic (1) and Peer Bork (2,3,4)</p>);
 	say q(<ol style="overflow:hidden">);
 	say q(<li>Biobyte solutions GmbH, Bothestr 142, 69126 Heidelberg, Germany</li>);

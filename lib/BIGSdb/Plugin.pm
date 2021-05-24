@@ -33,10 +33,10 @@ our @EXPORT_OK = qw(SEQ_SOURCE);
 #Override the following methods in subclass
 sub get_initiation_values { return {} }
 sub get_attributes        { return {} }
-sub get_hidden_attributes     { return [] }
-sub get_plugin_javascript     { return q() }
-sub run                       { }
-sub run_job                   { }              #used to run offline job
+sub get_hidden_attributes { return [] }
+sub get_plugin_javascript { return q() }
+sub run                   { }
+sub run_job { }    #used to run offline job
 
 sub get_javascript {
 	my ($self) = @_;
@@ -419,8 +419,6 @@ sub print_id_fieldset {
 	return;
 }
 
-
-
 sub has_set_changed {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
@@ -504,17 +502,20 @@ sub print_includes_fieldset {
 			push @$values, $q->optgroup( -name => $name, -values => $group_members->{$name}, -labels => $labels );
 		}
 	}
-	if ($options->{'additional'}){
-		push @$values,  $q->optgroup(-name=>'Miscellaneous',-values=>$options->{'additional'});
+	if ( $options->{'additional'} ) {
+		push @$values, $q->optgroup( -name => 'Miscellaneous', -values => $options->{'additional'} );
 	}
+	my $name = $options->{'name'} // 'include_fields';
+	my $id   = $options->{'id'}   // $name;
 	say $q->scrolling_list(
-		-name     => 'include_fields',
-		-id       => 'include_fields',
+		-name     => $name,
+		-id       => $id,
 		-values   => $values,
 		-labels   => $labels,
 		-multiple => 'true',
 		-size     => $options->{'size'} // 6,
 		-default  => $options->{'preselect'},
+		-style    => 'min-width:10em;width:20em;resize:both'
 	);
 	say q(</fieldset></div>);
 	return;
