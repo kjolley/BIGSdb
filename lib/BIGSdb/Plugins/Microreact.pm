@@ -239,11 +239,11 @@ sub print_extra_form_elements {
 	my $desc = $self->get_db_description;
 	my $q    = $self->{'cgi'};
 	say q(<fieldset style="float:left"><legend>Descriptions</legend>);
-	say q(<p>Modify the values below - these will be displayed within the created Microreact project.</p>);
-	say q(<ul><li><label for="title" class="form">Title:</label>);
-	say $q->textfield( -id => 'title', -name => 'title', -size => 30 );
-	say q(</li><li><label for="description" class="form">Description:</label>);
-	say $q->textarea( -id => 'description', -name => 'description', -default => $desc );
+	say q(<p>Modify the values below - these will be displayed<br />within the created Microreact project.</p>);
+	say q(<ul><li><label for="title" class="display">Title:</label>);
+	say $q->textfield( -id => 'title', -name => 'title', -maxlength => 50, -style => 'width:15em' );
+	say q(</li><li><label for="description" class="display">Description:</label>);
+	say $q->textarea( -id => 'description', -name => 'description', -default => $desc, -style => 'width:15em' );
 	say q(</li></ul>);
 	say q(</fieldset>);
 	my $tooltip = $self->get_tooltip( q(Additional fields - These will appear in the Microreact data table. )
