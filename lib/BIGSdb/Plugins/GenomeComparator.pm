@@ -1,6 +1,6 @@
 #GenomeComparator.pm - Genome comparison plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -240,11 +240,11 @@ sub _print_interface {
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
 	$self->print_includes_fieldset(
 		{
-			title                 => 'Include in identifiers',
-			preselect             => "f_$self->{'system'}->{'labelfield'}",
-			isolate_fields        => 1,
-			scheme_fields => 1,
-			size=>9
+			title          => 'Include in identifiers',
+			preselect      => "f_$self->{'system'}->{'labelfield'}",
+			isolate_fields => 1,
+			scheme_fields  => 1,
+			size           => 9
 		}
 	);
 	$self->print_recommended_scheme_fieldset;
@@ -1191,10 +1191,10 @@ sub _get_identifier {
 				my @field_values = keys %{ $scheme_values->{ lc $scheme_field } };
 				local $" = q(_);
 				$field_value = qq(@field_values);
-			} elsif ($field =~ /f_(.+)/x) {
-				
+			} elsif ( $field =~ /f_(.+)/x ) {
 				$field_value = $self->get_field_value( $include_data, $1, ';' );
 			}
+			$field_value //= q();
 			$field_value =~ tr/[\(\):, ]/_/;
 			$value .= '|' if !$first || !$options->{'no_id'};
 			$first = 0;

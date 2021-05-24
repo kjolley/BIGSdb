@@ -1,6 +1,6 @@
 #Microreact.pm - Phylogenetic tree/data visualization plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2017-2020, University of Oxford
+#Copyright (c) 2017-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -62,7 +62,7 @@ sub get_attributes {
 		buttontext => 'Microreact',
 		menutext   => 'Microreact',
 		module     => 'Microreact',
-		version    => '1.0.14',
+		version    => '1.0.15',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
@@ -246,37 +246,18 @@ sub print_extra_form_elements {
 	say $q->textarea( -id => 'description', -name => 'description', -default => $desc );
 	say q(</li></ul>);
 	say q(</fieldset>);
-	say q(<fieldset style="float:left"><legend>Include fields</legend>);
-	say q(<p>Select additional fields to include in Microreact data table.-<br />)
-	  . qq(($self->{'system'}->{'labelfield'}, country and year are always included).</p>);
-	my ( $headings, $labels ) = $self->get_field_selection_list(
+	my $tooltip = $self->get_tooltip( q(Additional fields - These will appear in the Microreact data table. )
+		  . qq(Note that $self->{'system'}->{'labelfield'}, country and year are always included.) );
+	$self->print_includes_fieldset(
 		{
+			description         => qq(Select additional fields to include. $tooltip),
 			isolate_fields      => 1,
 			extended_attributes => 1,
-			loci                => 0,
-			query_pref          => 0,
-			analysis_pref       => 1,
 			scheme_fields       => 1,
-			set_id              => $set_id
+			hide                => "f_$self->{'system'}->{'labelfield'},f_country,f_year"
 		}
 	);
-	my $fields = [];
-	my %invalid = map { $_ => 1 } qw(f_id f_country f_year);
 
-	foreach my $field (@$headings) {
-		next if $invalid{$field};
-		next if $field eq "f_$self->{'system'}->{'labelfield'}";
-		push @$fields, $field;
-	}
-	say $self->popup_menu(
-		-name     => 'include_fields',
-		-id       => 'include_fields',
-		-values   => $fields,
-		-labels   => $labels,
-		-multiple => 'true',
-		-size     => 6
-	);
-	say q(</fieldset>);
 	if ( $self->{'config'}->{'domain'} ) {
 		my $http = $q->https ? 'https' : 'http';
 		say $q->hidden( website => "$http://$self->{'config'}->{'domain'}$self->{'system'}->{'webroot'}" );
