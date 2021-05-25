@@ -1,3 +1,14 @@
+v1.31.1: *Added assembly checks - results of these can be queried and used for
+          filtering of isolate datasets.
+         *Added announcement banner to database front page. The contents of
+          /etc/bigsdb/announcement.html will be shown on all database front 
+          pages - this is useful for service announcements, e.g. scheduled
+          maintenance.
+         *Upgraded D3 to v6, and changed charting library from c3.js to 
+          billboard.js.
+         *Added means of grouping standard isolate fields into categories.
+          Separate groups are listed in dropdown boxes in queries and 
+          plugins, and on the isolate display page.
 v1.31.0: *Batch uploading data is now performed in a separate process, with
           progress notifications loaded by AJAX polling. This prevents browser
           timeout when lots of genomes are uploaded together.
