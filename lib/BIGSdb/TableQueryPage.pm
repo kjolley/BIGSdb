@@ -527,7 +527,7 @@ sub _run_query {
 				my $field = "${table}.allele_id";
 				$qry2 .=
 				    qq(,COALESCE(SUBSTRING($field FROM '^(\\d+)')::INTEGER, 99999999),)
-				  . qq(SUBSTRING($field FROM '^\\d* *(.*?)(\\d+)?\$'),)
+				  . qq(SUBSTRING($field FROM '^\\d* *(.*"?")(\\d+)"?"\$'),)
 				  . qq(COALESCE(SUBSTRING($field FROM '(\\d+)\$')::INTEGER, 0),$field);
 			} else {
 				$qry2 .= ",${table}.$pk";
