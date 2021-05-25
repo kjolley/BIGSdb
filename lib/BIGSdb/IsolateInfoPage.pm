@@ -886,9 +886,27 @@ sub _show_private_owner {
 	}
 }
 
+sub _set_prefix_fields {
+	my ($self) = @_;
+	state $already_defined;
+	return if $already_defined;
+	my $atts = $self->{'xmlHandler'}->get_all_field_attributes;
+	foreach my $field ( keys %$atts ) {
+		next if !$atts->{$field}->{'prefixes'};
+		if ( defined $atts->{ $atts->{$field}->{'prefixes'} } ) {
+			$atts->{ $atts->{$field}->{'prefixes'} }->{'prefixed_by'} = $field;
+		} else {
+			$logger->error("Field $field prefixes $atts->{$field}->{'prefixes'} but this is not defined.");
+		}
+	}
+	$already_defined = 1;
+	return;
+}
+
 sub _get_provenance_fields {
 	my ( $self, $isolate_id, $data, $summary_view, $group ) = @_;
 	my $buffer;
+	$self->_set_prefix_fields;
 	my ( $icon, $heading, $div_id );
 	if ($group) {
 		$icon    = $self->get_field_group_icon($group) // 'fas fa-list';
@@ -929,8 +947,10 @@ sub _get_provenance_fields {
 		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 		next if !$group && $thisfield->{'group'};
 		next if $group && ( $thisfield->{'group'} // q() ) ne $group;
+		next if $thisfield->{'prefixes'};
 		local $" = q(; );
 		if ( !defined $data->{ lc($field) } ) {
+
 			if ( $composites{$field} ) {
 				my $composites =
 				  $self->_get_composite_field_rows( $isolate_id, $data, $field, \%composite_display_pos );
@@ -972,7 +992,9 @@ sub _get_provenance_fields {
 				my $hyperlink = qq(<a href="$url">$url</a>);
 				$value =~ s/$url/$hyperlink/gx;
 			}
-			push @$list, { title => $displayfield, data => ( $web // $value ) } if $web || $value ne q();
+			my $prefix = $thisfield->{'prefixed_by'} ? $data->{ lc( $thisfield->{'prefixed_by'} ) } : q();
+			push @$list, { title => $displayfield, data => $prefix . ( $web // $value ) }
+			  if $web || $value ne q();
 		}
 		if ( $field eq 'curator' ) {
 			my $history = $self->_get_history_field($isolate_id);
