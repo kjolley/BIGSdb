@@ -888,8 +888,7 @@ sub _show_private_owner {
 
 sub _set_prefix_fields {
 	my ($self) = @_;
-	state $already_defined;
-	return if $already_defined;
+	return if $self->{'prefixes_already_defined'};
 	my $atts = $self->{'xmlHandler'}->get_all_field_attributes;
 	foreach my $field ( keys %$atts ) {
 		next if !$atts->{$field}->{'prefixes'};
@@ -904,7 +903,7 @@ sub _set_prefix_fields {
 			$logger->error("Field $field prefixes $atts->{$field}->{'prefixes'} but this is not defined.");
 		}
 	}
-	$already_defined = 1;
+	$self->{'prefixes_already_defined'} = 1;
 	return;
 }
 
