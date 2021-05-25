@@ -245,13 +245,6 @@ sub _print_interface {
 			  . q(locus-specific query</a> page.  Use this page for access to the sequence analysis or export )
 			  . q(plugins.</p>);
 		}
-		my $any_text_ids_used =
-		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM loci WHERE allele_id_format=?)', 'text' );
-		if ($any_text_ids_used) {
-			say q(<p>Also note that some loci in this database have allele ids defined as text strings.  )
-			  . q(Queries using the '&lt;' or '&gt;' modifiers will work alphabetically rather than numerically )
-			  . q(unless you filter your search to a locus that uses integer allele ids using the drop-down list.</p>);
-		}
 	}
 	say q(<p>Please enter your search criteria below (or leave blank and submit to return all records).);
 	if ( !$self->{'curate'} ) {
