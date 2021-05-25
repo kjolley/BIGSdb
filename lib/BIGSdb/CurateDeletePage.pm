@@ -243,7 +243,6 @@ sub _display_record {
 	}
 	foreach my $att (@$attributes) {
 		next if $att->{'hide_query'};
-		next if $att->{'noshow'};
 		my ( $field, $value ) = $self->_get_display_values( $table, $primary_key, $data, $att );
 		$value = '&nbsp;' if $value eq q( );
 		$buffer .= qq(<dt>$field</dt><dd>$value</dd>);
