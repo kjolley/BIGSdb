@@ -898,7 +898,6 @@ sub _set_prefix_fields {
 				$atts->{ $atts->{$field}->{'prefixes'} }->{'prefix_separator'} =
 				  $atts->{$field}->{'separator'};
 			}
-
 		} else {
 			$logger->error("Field $field prefixes $atts->{$field}->{'prefixes'} but this is not defined.");
 		}
@@ -966,20 +965,7 @@ sub _get_provenance_fields {
 		if ( $thisfield->{'web'} ) {
 			$web = $self->_get_web_links( $data, $field );
 		} else {
-			if ( ref $data->{ lc($field) } ) {
-				if ( ( $thisfield->{'optlist'} // q() ) eq 'yes' ) {
-					my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
-					$data->{ lc($field) } =
-					  BIGSdb::Utils::arbitrary_order_list( $optlist, $data->{ lc($field) } );
-				} else {
-					@{ $data->{ lc($field) } } =
-					  $thisfield->{'type'} eq 'text'
-					  ? sort { $a cmp $b } @{ $data->{ lc($field) } }
-					  : sort { $a <=> $b } @{ $data->{ lc($field) } };
-				}
-			}
-			$value = ref $data->{ lc($field) } ? qq(@{$data->{ lc($field) }}) : $data->{ lc($field) };
-			$value = BIGSdb::Utils::escape_html($value);
+			$value = $self->_get_field_value( $data, $field );
 		}
 		my %user_field = map { $_ => 1 } qw(curator sender);
 		if ( $user_field{$field} || ( $thisfield->{'userfield'} // '' ) eq 'yes' ) {
@@ -1055,6 +1041,26 @@ sub _get_web_links {
 		  . q(<span class="fa fas fa-external-link-alt" style="margin-left:0.5em"></span></span>);
 	}
 	return $web;
+}
+
+sub _get_field_value {
+	my ( $self, $data, $field ) = @_;
+	my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+	if ( ref $data->{ lc($field) } ) {
+		if ( ( $thisfield->{'optlist'} // q() ) eq 'yes' ) {
+			my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
+			$data->{ lc($field) } =
+			  BIGSdb::Utils::arbitrary_order_list( $optlist, $data->{ lc($field) } );
+		} else {
+			@{ $data->{ lc($field) } } =
+			  $thisfield->{'type'} eq 'text'
+			  ? sort { $a cmp $b } @{ $data->{ lc($field) } }
+			  : sort { $a <=> $b } @{ $data->{ lc($field) } };
+		}
+	}
+	my $value = ref $data->{ lc($field) } ? qq(@{$data->{ lc($field) }}) : $data->{ lc($field) };
+	$value = BIGSdb::Utils::escape_html($value);
+	return $value;
 }
 
 sub _get_grouped_fields {
