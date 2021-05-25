@@ -895,6 +895,11 @@ sub _set_prefix_fields {
 		next if !$atts->{$field}->{'prefixes'};
 		if ( defined $atts->{ $atts->{$field}->{'prefixes'} } ) {
 			$atts->{ $atts->{$field}->{'prefixes'} }->{'prefixed_by'} = $field;
+			if ( defined $atts->{$field}->{'separator'} ) {
+				$atts->{ $atts->{$field}->{'prefixes'} }->{'prefix_separator'} =
+				  $atts->{$field}->{'separator'};
+			}
+
 		} else {
 			$logger->error("Field $field prefixes $atts->{$field}->{'prefixes'} but this is not defined.");
 		}
@@ -993,7 +998,8 @@ sub _get_provenance_fields {
 				$value =~ s/$url/$hyperlink/gx;
 			}
 			my $prefix = $thisfield->{'prefixed_by'} ? $data->{ lc( $thisfield->{'prefixed_by'} ) } : q();
-			push @$list, { title => $displayfield, data => $prefix . ( $web // $value ) }
+			my $separator = $thisfield->{'prefix_separator'} // q();
+			push @$list, { title => $displayfield, data => $prefix . $separator . ( $web // $value ) }
 			  if $web || $value ne q();
 		}
 		if ( $field eq 'curator' ) {
