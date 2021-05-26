@@ -123,8 +123,7 @@ sub _check {
 	}
 	if ( $self->alias_null_term ) {
 		push @bad_field_buffer,
-		  'Aliases: this is an optional field - leave blank rather than using a term to indicate no value.'
-		  ;
+		  'Aliases: this is an optional field - leave blank rather than using a term to indicate no value.';
 	}
 	my $validation_failures = $self->{'submissionHandler'}->run_validation_checks($newdata);
 	if (@$validation_failures) {
@@ -573,82 +572,16 @@ sub print_provenance_form_elements {
 			next if ( $thisfield->{'no_curate'} // '' ) eq 'yes';
 			my $required_field = !( ( $thisfield->{'required'} // '' ) eq 'no' );
 			if ( $required_field == $required ) {
-				my $html5_args = $self->_get_html5_args(
+				$self->_print_field(
 					{
-						required_field => $required_field,
-						field          => $field,
-						thisfield      => $thisfield
+						field     => $field,
+						required  => $required,
+						newdata   => $newdata,
+						width     => $width,
+						update    => $options->{'update'},
+						user_info => $user_info
 					}
 				);
-				if (
-					( $thisfield->{'required'} // q() ) eq 'expected'
-					&& ( $q->param("allow_null_$field")
-						|| ( $options->{'update'} && !defined $newdata->{$field} && !defined $q->param($field) ) )
-				  )
-				{
-					$html5_args->{'disabled'} = 1;
-				}
-				$thisfield->{'length'} = $thisfield->{'length'} // ( $thisfield->{'type'} eq 'int' ? 15 : 50 );
-				( my $cleaned_name = $field ) =~ tr/_/ /;
-				my ( $label, $title ) = $self->get_truncated_label( $cleaned_name, 25 );
-				my $title_attribute = $title ? qq( title="$title") : q();
-				my %no_label_field = map { $_ => 1 } qw (curator date_entered datestamp);
-				my $for = $no_label_field{$field} ? q() : qq( for="field_$field");
-				print qq(<li><label$for class="form" style="width:${width}em"$title_attribute>);
-				print $label;
-				print ':';
-				print '!' if $required;
-				say q(</label>);
-				my $methods = {
-					update_id        => '_print_id_no_update',
-					optlist          => '_print_optlist',
-					bool             => '_print_bool',
-					datestamp        => '_print_datestamp',
-					date_entered     => '_print_date_entered',
-					curator          => '_print_curator',
-					sender_submitter => '_print_sender_when_submitting',
-					user_field       => '_print_user',
-					long_text_field  => '_print_long_text_field',
-					default_field    => '_print_default_field'
-				};
-
-				foreach my $condition (
-					qw(update_id optlist bool datestamp date_entered curator sender_submitter
-					user_field long_text_field default_field)
-				  )
-				{
-					my $method = $methods->{$condition};
-					my $args   = {
-						newdata    => $newdata,
-						field      => $field,
-						thisfield  => $thisfield,
-						html5_args => $html5_args,
-						update     => $options->{'update'},
-						user_info  => $user_info
-					};
-					if ( $self->$method($args) ) {
-						last;
-					}
-				}
-				if ( $thisfield->{'comments'} ) {
-					say $self->get_tooltip( $thisfield->{'comments'} );
-				}
-				if ( ( $thisfield->{'required'} // '' ) eq 'expected' ) {
-					my %args = (
-						-name  => "allow_null_$field",
-						-id    => "allow_null_$field",
-						-label => 'Value unknown',
-						-class => 'allow_null'
-					);
-					$args{'-checked'} = 'checked'
-					  if $options->{'update'} && ( $newdata->{$field} // q() ) eq q();
-					say $q->checkbox(%args);
-				}
-				my %special_date_field = map { $_ => 1 } qw(datestamp date_entered);
-				if ( !$special_date_field{$field} && lc( $thisfield->{'type'} ) eq 'date' ) {
-					say q( <span class="no_date_picker" style="display:none">format: yyyy-mm-dd</span>);
-				}
-				say q(</li>);
 			}
 		}
 	}
@@ -693,6 +626,92 @@ sub print_provenance_form_elements {
 		  . q(Put each identifier on a separate line.) );
 	say q(</li></ul>);
 	say q(</div></fieldset>);
+	return;
+}
+
+sub _print_field {
+	my ( $self, $args ) = @_;
+	my ( $field, $required, $newdata, $width, $update, $user_info ) =
+	  @{$args}{qw (field required newdata width update user_info)};
+	my $q              = $self->{'cgi'};
+	my $thisfield      = $self->{'xmlHandler'}->get_field_attributes($field);
+	my $required_field = !( ( $thisfield->{'required'} // '' ) eq 'no' );
+	my $html5_args     = $self->_get_html5_args(
+		{
+			required_field => $required_field,
+			field          => $field,
+			thisfield      => $thisfield
+		}
+	);
+	if (
+		( $thisfield->{'required'} // q() ) eq 'expected'
+		&& ( $q->param("allow_null_$field")
+			|| ( $update && !defined $newdata->{$field} && !defined $q->param($field) ) )
+	  )
+	{
+		$html5_args->{'disabled'} = 1;
+	}
+	$thisfield->{'length'} = $thisfield->{'length'} // ( $thisfield->{'type'} eq 'int' ? 15 : 50 );
+	( my $cleaned_name = $field ) =~ tr/_/ /;
+	my ( $label, $title ) = $self->get_truncated_label( $cleaned_name, 25 );
+	my $title_attribute = $title ? qq( title="$title") : q();
+	my %no_label_field = map { $_ => 1 } qw (curator date_entered datestamp);
+	my $for = $no_label_field{$field} ? q() : qq( for="field_$field");
+	print qq(<li><label$for class="form" style="width:${width}em"$title_attribute>);
+	print $label;
+	print ':';
+	print '!' if $required;
+	say q(</label>);
+	my $methods = {
+		update_id        => '_print_id_no_update',
+		optlist          => '_print_optlist',
+		bool             => '_print_bool',
+		datestamp        => '_print_datestamp',
+		date_entered     => '_print_date_entered',
+		curator          => '_print_curator',
+		sender_submitter => '_print_sender_when_submitting',
+		user_field       => '_print_user',
+		long_text_field  => '_print_long_text_field',
+		default_field    => '_print_default_field'
+	};
+
+	foreach my $condition (
+		qw(update_id optlist bool datestamp date_entered curator sender_submitter
+		user_field long_text_field default_field)
+	  )
+	{
+		my $method = $methods->{$condition};
+		my $args   = {
+			newdata    => $newdata,
+			field      => $field,
+			thisfield  => $thisfield,
+			html5_args => $html5_args,
+			update     => $update,
+			user_info  => $user_info
+		};
+		if ( $self->$method($args) ) {
+			last;
+		}
+	}
+	if ( $thisfield->{'comments'} ) {
+		say $self->get_tooltip( $thisfield->{'comments'} );
+	}
+	if ( ( $thisfield->{'required'} // '' ) eq 'expected' ) {
+		my %args = (
+			-name  => "allow_null_$field",
+			-id    => "allow_null_$field",
+			-label => 'Value unknown',
+			-class => 'allow_null'
+		);
+		$args{'-checked'} = 'checked'
+		  if $update && ( $newdata->{$field} // q() ) eq q();
+		say $q->checkbox(%args);
+	}
+	my %special_date_field = map { $_ => 1 } qw(datestamp date_entered);
+	if ( !$special_date_field{$field} && lc( $thisfield->{'type'} ) eq 'date' ) {
+		say q( <span class="no_date_picker" style="display:none">format: yyyy-mm-dd</span>);
+	}
+	say q(</li>);
 	return;
 }
 
