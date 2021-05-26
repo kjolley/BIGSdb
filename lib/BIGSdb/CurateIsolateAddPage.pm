@@ -570,16 +570,36 @@ sub print_provenance_form_elements {
 		foreach my $field (@$field_list) {
 			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 			next if ( $thisfield->{'no_curate'} // '' ) eq 'yes';
+			next if ( $thisfield->{'prefixes'} );
 			my $required_field = !( ( $thisfield->{'required'} // '' ) eq 'no' );
 			if ( $required_field == $required ) {
+				if ( $thisfield->{'prefixed_by'} ) {
+					$self->_print_field(
+						{
+							field        => $thisfield->{'prefixed_by'},
+							required     => $required,
+							newdata      => $newdata,
+							width        => $width,
+							update       => $options->{'update'},
+							user_info    => $user_info,
+							prefix       => 1,
+							display_name => $field
+						}
+					);
+					if ( $thisfield->{'prefix_separator'} ) {
+						print $thisfield->{'prefix_separator'};
+					}
+				}
 				$self->_print_field(
 					{
-						field     => $field,
-						required  => $required,
-						newdata   => $newdata,
-						width     => $width,
-						update    => $options->{'update'},
-						user_info => $user_info
+						field        => $field,
+						required     => $required,
+						newdata      => $newdata,
+						width        => $width,
+						update       => $options->{'update'},
+						user_info    => $user_info,
+						postfix      => $thisfield->{'prefixed_by'} ? 1 : 0,
+						display_name => $thisfield->{'prefixed_by'} ? q() : $field
 					}
 				);
 			}
@@ -630,9 +650,9 @@ sub print_provenance_form_elements {
 }
 
 sub _print_field {
-	my ( $self, $args ) = @_;
-	my ( $field, $required, $newdata, $width, $update, $user_info ) =
-	  @{$args}{qw (field required newdata width update user_info)};
+	my ( $self, $values ) = @_;
+	my ( $field, $required, $newdata, $width, $update, $user_info, $display_name, $prefix, $postfix ) =
+	  @{$values}{qw (field required newdata width update user_info display_name prefix postfix)};
 	my $q              = $self->{'cgi'};
 	my $thisfield      = $self->{'xmlHandler'}->get_field_attributes($field);
 	my $required_field = !( ( $thisfield->{'required'} // '' ) eq 'no' );
@@ -652,16 +672,20 @@ sub _print_field {
 		$html5_args->{'disabled'} = 1;
 	}
 	$thisfield->{'length'} = $thisfield->{'length'} // ( $thisfield->{'type'} eq 'int' ? 15 : 50 );
-	( my $cleaned_name = $field ) =~ tr/_/ /;
+	( my $cleaned_name = $display_name ) =~ tr/_/ /;
 	my ( $label, $title ) = $self->get_truncated_label( $cleaned_name, 25 );
 	my $title_attribute = $title ? qq( title="$title") : q();
 	my %no_label_field = map { $_ => 1 } qw (curator date_entered datestamp);
 	my $for = $no_label_field{$field} ? q() : qq( for="field_$field");
-	print qq(<li><label$for class="form" style="width:${width}em"$title_attribute>);
-	print $label;
-	print ':';
-	print '!' if $required;
-	say q(</label>);
+	print q(<li>) if !$postfix;
+
+	if ( defined $display_name && $display_name ne q() ) {
+		print qq(<label$for class="form" style="width:${width}em"$title_attribute>);
+		print $label;
+		print ':';
+		print '!' if $required;
+		say q(</label>);
+	}
 	my $methods = {
 		update_id        => '_print_id_no_update',
 		optlist          => '_print_optlist',
@@ -674,7 +698,6 @@ sub _print_field {
 		long_text_field  => '_print_long_text_field',
 		default_field    => '_print_default_field'
 	};
-
 	foreach my $condition (
 		qw(update_id optlist bool datestamp date_entered curator sender_submitter
 		user_field long_text_field default_field)
@@ -711,7 +734,7 @@ sub _print_field {
 	if ( !$special_date_field{$field} && lc( $thisfield->{'type'} ) eq 'date' ) {
 		say q( <span class="no_date_picker" style="display:none">format: yyyy-mm-dd</span>);
 	}
-	say q(</li>);
+	say q(</li>) if !$prefix;
 	return;
 }
 
