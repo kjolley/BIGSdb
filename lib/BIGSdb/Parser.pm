@@ -1,6 +1,6 @@
 #Parser.pm
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -35,6 +35,8 @@ use BIGSdb::Constants qw(COUNTRIES);
 use XML::Parser::PerlSAX;
 use Unicode::Collate;
 use List::MoreUtils qw(any);
+use Log::Log4perl qw(get_logger);
+my $logger = get_logger('BIGSdb.Page');
 
 sub get_system_hash {
 	my ($self) = @_;
@@ -58,12 +60,34 @@ sub get_field_list {
 
 sub get_all_field_attributes {
 	my ($self) = @_;
+	$self->_set_prefix_fields;
 	return $self->{'attributes'};
 }
 
 sub get_field_attributes {
 	my ( $self, $name ) = @_;
+	$self->_set_prefix_fields;
 	return $self->{'attributes'}->{$name} // { type => q(), required => q() };
+}
+
+sub _set_prefix_fields {
+	my ($self) = @_;
+	return if $self->{'prefixes_already_defined'};
+	my $atts = $self->{'attributes'};
+	foreach my $field ( keys %$atts ) {
+		next if !$atts->{$field}->{'prefixes'};
+		if ( defined $atts->{ $atts->{$field}->{'prefixes'} } ) {
+			$atts->{ $atts->{$field}->{'prefixes'} }->{'prefixed_by'} = $field;
+			if ( defined $atts->{$field}->{'separator'} ) {
+				$atts->{ $atts->{$field}->{'prefixes'} }->{'prefix_separator'} =
+				  $atts->{$field}->{'separator'};
+			}
+		} else {
+			$logger->error("Field $field prefixes $atts->{$field}->{'prefixes'} but this is not defined.");
+		}
+	}
+	$self->{'prefixes_already_defined'} = 1;
+	return;
 }
 
 sub is_field {

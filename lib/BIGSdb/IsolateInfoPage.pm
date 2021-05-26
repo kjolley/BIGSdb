@@ -886,30 +886,11 @@ sub _show_private_owner {
 	}
 }
 
-sub _set_prefix_fields {
-	my ($self) = @_;
-	return if $self->{'prefixes_already_defined'};
-	my $atts = $self->{'xmlHandler'}->get_all_field_attributes;
-	foreach my $field ( keys %$atts ) {
-		next if !$atts->{$field}->{'prefixes'};
-		if ( defined $atts->{ $atts->{$field}->{'prefixes'} } ) {
-			$atts->{ $atts->{$field}->{'prefixes'} }->{'prefixed_by'} = $field;
-			if ( defined $atts->{$field}->{'separator'} ) {
-				$atts->{ $atts->{$field}->{'prefixes'} }->{'prefix_separator'} =
-				  $atts->{$field}->{'separator'};
-			}
-		} else {
-			$logger->error("Field $field prefixes $atts->{$field}->{'prefixes'} but this is not defined.");
-		}
-	}
-	$self->{'prefixes_already_defined'} = 1;
-	return;
-}
+
 
 sub _get_provenance_fields {
 	my ( $self, $isolate_id, $data, $summary_view, $group ) = @_;
 	my $buffer;
-	$self->_set_prefix_fields;
 	my ( $icon, $heading, $div_id );
 	if ($group) {
 		$icon    = $self->get_field_group_icon($group) // 'fas fa-list';
