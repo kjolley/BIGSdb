@@ -1,6 +1,6 @@
 #DatabaseFields.pm - Database field description plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -97,7 +97,10 @@ sub _provenance_print_fields {
 		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 		$thisfield->{'type'} = 'integer' if $thisfield->{'type'} =~ /^int/x;
 		$thisfield->{'comments'} //= '';
-		say qq(<tr class="td$td"><td>$field</td><td>$thisfield->{'comments'}</td>);
+		if ($thisfield->{'warning'}){
+			$thisfield->{'comments'} .= qq(<div class="field_warning">$thisfield->{'warning'}</div>);
+		}
+		say qq(<tr class="td$td"><td>$field</td><td class="field_comment">$thisfield->{'comments'}</td>);
 		my $multiple = ( $thisfield->{'multiple'} // q() ) eq 'yes' ? q( (multiple)) : q();
 		say qq(<td>$thisfield->{'type'}$multiple</td>);
 		say q(<td>);

@@ -1,4 +1,4 @@
-/*Version: 20210521*/
+/*Version: 20210527*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -377,6 +377,12 @@ pre {
 
 .incomplete {
 	background: #fb6
+}
+
+div.field_warning {
+	background: #fee;
+	border: 2px solid red;
+	color: red
 }
 
 p.note {
@@ -1674,6 +1680,11 @@ table.ajaxtable tr.td1 {
 
 table.ajaxtable tr.td2 {
 	background: #eef
+}
+
+td.field_comment {
+	text-align:left;
+	
 }
 
 span.field {

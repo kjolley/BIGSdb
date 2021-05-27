@@ -886,8 +886,6 @@ sub _show_private_owner {
 	}
 }
 
-
-
 sub _get_provenance_fields {
 	my ( $self, $isolate_id, $data, $summary_view, $group ) = @_;
 	my $buffer;
