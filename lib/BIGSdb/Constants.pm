@@ -176,6 +176,9 @@ use constant LAST => q(<span class="fa-stack">)
 use constant TOOLTIP => q(<span class="fa-stack">)
   . q(<span class="far fa-circle fa-stack-2x"></span>)
   . q(<span class="fas fa-info fa-stack-1x"></span></span>);
+ use constant WARNING_TOOLTIP => q(<span class="fa-stack">)
+  . q(<span class="far fa-circle fa-stack-2x"></span>)
+  . q(<span class="fas fa-exclamation fa-stack-1x"></span></span>);
 use constant FLANKING => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
 use constant MAX_ROWS => 20;
 @values = qw(FACE_STYLE SHOW HIDE SAVE SAVING UP DOWN LEFT RIGHT
@@ -183,7 +186,7 @@ use constant MAX_ROWS => 20;
   BACK QUERY_MORE EDIT_MORE UPLOAD_CONTIGS LINK_CONTIGS MORE HOME RELOAD KEY EYE_SHOW EYE_HIDE
   CURATE EXPORT_TABLE EXCEL_FILE TEXT_FILE FASTA_FILE FASTA_FLANKING_FILE LABELLED_FASTA_FILE
   EMBL_FILE GBK_FILE GFF3_FILE MISC_FILE ARCHIVE_FILE IMAGE_FILE ALIGN_FILE CODE_FILE FLANKING
-  UPLOAD_BUTTON MAX_ROWS LOCK UNLOCK FIRST PREVIOUS NEXT LAST TOOLTIP);
+  UPLOAD_BUTTON MAX_ROWS LOCK UNLOCK FIRST PREVIOUS NEXT LAST TOOLTIP WARNING_TOOLTIP);
 push @EXPORT_OK, @values;
 $EXPORT_TAGS{'interface'} = [@values];
 

@@ -3187,10 +3187,17 @@ sub get_user_db_name {
 
 sub get_tooltip {
 	my ( $self, $text, $options ) = @_;
-	my $style = $options->{'style'} ? qq( style="$options->{'style'}") : q();
-	my $id    = $options->{'id'}    ? qq( id="$options->{'id'}")       : q();
+	my $id = $options->{'id'} ? qq( id="$options->{'id'}") : q();
 	my $tooltip_icon = TOOLTIP;
 	return qq(<a class="tooltip"$id style="margin-left:0.5em;vertical-align:top" title="$text">$tooltip_icon</a>);
+}
+
+sub get_warning_tooltip {
+	my ( $self, $text, $options ) = @_;
+	my $id = $options->{'id'} ? qq( id="$options->{'id'}") : q();
+	my $tooltip_icon = WARNING_TOOLTIP;
+	return qq(<a class="tooltip warning_tooltip"$id style="margin-left:0.5em;vertical-align:top" )
+	  . qq(title="$text">$tooltip_icon</a>);
 }
 
 sub print_navigation_bar {

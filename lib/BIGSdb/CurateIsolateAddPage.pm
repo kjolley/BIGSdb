@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -686,6 +686,7 @@ sub _print_field {
 		print '!' if $required;
 		say q(</label>);
 	}
+	print q(<div style="display:inline-block" class="field_warning">) if $thisfield->{'warning'};
 	my $methods = {
 		update_id        => '_print_id_no_update',
 		optlist          => '_print_optlist',
@@ -715,6 +716,10 @@ sub _print_field {
 		if ( $self->$method($args) ) {
 			last;
 		}
+	}
+	if ( $thisfield->{'warning'} ) {
+		say q(</div>);
+		say $self->get_warning_tooltip( $thisfield->{'warning'} );
 	}
 	if ( $thisfield->{'comments'} ) {
 		say $self->get_tooltip( $thisfield->{'comments'} );

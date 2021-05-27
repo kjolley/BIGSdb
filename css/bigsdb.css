@@ -219,6 +219,10 @@ a.tooltip {
 	font-size: 0.6em
 }
 
+a.warning_tooltip {
+	color: red
+}
+
 th a.tooltip {
 	color: #fff
 }
