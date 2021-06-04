@@ -66,6 +66,7 @@ use BIGSdb::IDList;
 use BIGSdb::LocusInfoPage;
 use BIGSdb::JobViewerPage;
 use BIGSdb::PluginSummaryPage;
+use BIGSdb::RefreshBlastCachePage;
 use BIGSdb::RefreshSchemeCachePage;
 use BIGSdb::SchemeInfoPage;
 use BIGSdb::Offline::UpdateSchemeCaches;
@@ -76,6 +77,8 @@ sub print_page {
 	my ($self) = @_;
 	my $query_page =
 	  ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ? 'IsolateQueryPage' : 'ProfileQueryPage' );
+	my $refresh_cache_page =
+	  ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ? 'RefreshSchemeCachePage' : 'RefreshBlastCachePage' );
 	my %classes = (
 		ajaxAnalysis          => 'AjaxAnalysis',
 		ajaxPrefs             => 'AjaxPrefs',
@@ -134,7 +137,7 @@ sub print_page {
 		publish               => 'CuratePublishIsolate',
 		pubquery              => 'PubQueryPage',
 		query                 => $query_page,
-		refreshCache          => 'RefreshSchemeCachePage',
+		refreshCache          => $refresh_cache_page,
 		renumber              => 'CurateRenumber',
 		schemeInfo            => 'SchemeInfoPage',
 		seqbin                => 'SeqbinPage',

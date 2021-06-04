@@ -348,7 +348,8 @@ sub _get_admin_links {
 	$buffer .= $self->_get_permissions;
 	$buffer .= $self->_get_user_passwords;
 	$buffer .= $self->_get_config_check;
-	$buffer .= $self->_get_cache_refresh;
+	$buffer .= $self->_get_blast_cache_refresh;
+	$buffer .= $self->_get_scheme_cache_refresh;
 	$buffer .= $self->_get_user_dbases;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$buffer .= $self->_get_geocoding;
@@ -1241,7 +1242,29 @@ sub _get_config_check {
 	return $buffer;
 }
 
-sub _get_cache_refresh {
+sub _get_blast_cache_refresh {
+	my ($self) = @_;
+	my $buffer = q();
+	my $loci = $self->{'datastore'}->get_loci;
+	return $buffer
+	  if !$self->is_admin || $self->{'system'}->{'dbtype'} ne 'sequences' || !@$loci;
+	$buffer .=
+	  q(<div class="curategroup curategroup_maintenance grid-item default_show_admin"><h2>BLAST caches</h2>);
+	$buffer .= $self->_get_icon_group(
+		undef,
+		'eraser',
+		{
+			action       => 1,
+			action_url   => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=refreshCache),
+			action_label => 'Clear caches',
+			info         => 'BLAST caches - Mark caches stale.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	return $buffer;
+}
+
+sub _get_scheme_cache_refresh {
 	my ($self) = @_;
 	my $buffer = q();
 	return $buffer

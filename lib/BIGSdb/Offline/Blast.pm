@@ -127,6 +127,18 @@ sub delete_caches {
 	return;
 }
 
+sub mark_all_caches_stale {
+	my ($self) = @_;
+	my $caches = $self->_get_cache_names;
+	foreach my $cache (@$caches) {
+		my $dir             = $self->_get_cache_dir($cache);
+		my $stale_flag_file = "$dir/stale";
+		open( my $fh, '>', $stale_flag_file ) || $self->{'logger'}->error("Cannot mark $cache cache stale.");
+		close $fh;
+	}
+	return;
+}
+
 sub mark_locus_caches_stale {
 	my ( $self, $locus ) = @_;
 	my $caches = $self->_get_caches_containing_locus($locus);
@@ -691,8 +703,7 @@ sub _create_blast_database {
 		if ($exemplars_defined) {
 			$qry .= ' AND exemplar';
 		} else {
-			$self->{'logger'}->error('Exemplars not yet defined - using all alleles for BLAST cache.')
-			  ;
+			$self->{'logger'}->error('Exemplars not yet defined - using all alleles for BLAST cache.');
 		}
 	}
 	my $data = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref' } );
