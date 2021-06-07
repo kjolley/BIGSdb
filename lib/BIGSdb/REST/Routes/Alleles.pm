@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2020, University of Oxford
+#Copyright (c) 2014-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -123,6 +123,8 @@ sub _get_allele {
 	}
 	my $flags = $self->{'datastore'}->get_allele_flags( $locus_name, $allele_id );
 	$values->{'flags'} = $flags if @$flags;
+	my $client_data = $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $allele_id );
+	$values->{'linked_data'} = $client_data->{'detailed_values'} if defined $client_data->{'detailed_values'};
 
 	#TODO scheme members
 	return $values;
