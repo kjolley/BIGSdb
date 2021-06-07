@@ -124,7 +124,8 @@ sub _get_allele {
 	my $flags = $self->{'datastore'}->get_allele_flags( $locus_name, $allele_id );
 	$values->{'flags'} = $flags if @$flags;
 	my $client_data = $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $allele_id );
-	$values->{'linked_data'} = $client_data->{'detailed_values'} if defined $client_data->{'detailed_values'};
+	$values->{'linked_data'} = $client_data->{'detailed_values'}
+	  if defined $client_data->{'detailed_values'};
 
 	#TODO scheme members
 	return $values;

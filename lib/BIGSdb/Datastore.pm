@@ -2012,11 +2012,10 @@ sub get_client_data_linked_to_allele {
 		$dl_buffer .= "<dt>$field</dt>";
 		my @values;
 		foreach my $data (@$field_data) {
-			push @{ $detailed_values->{$client_db_desc}->{$field} },
-			  {
-				value     => $data->{$field},
+			push @{ $detailed_values->{$client_db_desc}->{$field} }, {
+				value     => $data->{ lc($field) },
 				frequency => $data->{'frequency'}
-			  };
+			};
 			my $value = $data->{$field};
 			push @{ $field_values->{$field} }, $value;
 			if ( any { $field eq $_ } qw (species genus) ) {
@@ -2409,7 +2408,7 @@ sub get_tables {
 		@tables =
 		  qw(users user_groups user_group_members allele_sequences sequence_bin accession refs allele_designations
 		  loci locus_aliases schemes scheme_members scheme_fields composite_fields composite_field_values
-		  isolate_aliases permissions projects project_members  
+		  isolate_aliases permissions projects project_members
 		  isolate_field_extended_attributes isolate_value_extended_attributes scheme_groups scheme_group_scheme_members
 		  scheme_group_group_members pcr pcr_locus probes probe_locus sets set_loci set_schemes set_view
 		  isolates history sequence_attributes classification_schemes classification_group_fields
