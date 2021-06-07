@@ -176,7 +176,7 @@ use constant LAST => q(<span class="fa-stack">)
 use constant TOOLTIP => q(<span class="fa-stack">)
   . q(<span class="far fa-circle fa-stack-2x"></span>)
   . q(<span class="fas fa-info fa-stack-1x"></span></span>);
- use constant WARNING_TOOLTIP => q(<span class="fa-stack">)
+use constant WARNING_TOOLTIP => q(<span class="fa-stack">)
   . q(<span class="far fa-circle fa-stack-2x"></span>)
   . q(<span class="fas fa-exclamation fa-stack-1x"></span></span>);
 use constant FLANKING => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
@@ -271,12 +271,18 @@ use constant TOTAL_PENDING_LIMIT      => 20;
 use constant DAILY_PENDING_LIMIT      => 15;
 use constant WARN_MAX_CONTIGS         => 500;
 use constant WARN_MIN_N50             => 20_000;
+use constant WARN_MIN_TOTAL_LENGTH    => 1_000_000;
+use constant WARN_MAX_TOTAL_LENGTH    => 15_000_000;
 use constant MAX_CONTIGS              => 1000;
 use constant MIN_N50                  => 10_000;
+use constant MIN_TOTAL_LENGTH         => 1_000_000;
+use constant MAX_TOTAL_LENGTH         => 15_000_000;
 use constant NULL_TERMS               => ( 'none', 'N/A', 'NA', '-', '.', 'not applicable', 'no value' );
 @values = qw (SUBMISSIONS_DELETED_DAYS COVERAGE READ_LENGTH ASSEMBLY REQUIRES_READ_LENGTH
   REQUIRES_COVERAGE REQUIRED_GENOME_FIELDS DAILY_REST_LIMIT TOTAL_PENDING_LIMIT DAILY_PENDING_LIMIT NULL_TERMS
-  WARN_MAX_CONTIGS WARN_MIN_N50 MAX_CONTIGS MIN_N50);
+  WARN_MAX_CONTIGS WARN_MIN_N50 WARN_MIN_TOTAL_LENGTH WARN_MAX_TOTAL_LENGTH MAX_CONTIGS MIN_N50 MIN_TOTAL_LENGTH
+  MAX_TOTAL_LENGTH
+);
 push @EXPORT_OK, @values;
 $EXPORT_TAGS{'submissions'} = [@values];
 
