@@ -2012,11 +2012,12 @@ sub get_client_data_linked_to_allele {
 		$dl_buffer .= "<dt>$field</dt>";
 		my @values;
 		foreach my $data (@$field_data) {
-			push @{ $detailed_values->{$client_db_desc}->{$field} }, {
+			push @{ $detailed_values->{$client_db_desc}->{$field} },
+			  {
 				value     => $data->{ lc($field) },
 				frequency => $data->{'frequency'}
-			};
-			my $value = $data->{$field};
+			  };
+			my $value = $data->{ lc($field) };
 			push @{ $field_values->{$field} }, $value;
 			if ( any { $field eq $_ } qw (species genus) ) {
 				$value = "<i>$value</i>";
