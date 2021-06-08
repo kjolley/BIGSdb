@@ -269,32 +269,33 @@ sub _print_interface {
 		say $self->get_tooltip( q(Flanking sequence - This can only be included if you )
 			  . q(select to retrieve sequences from the sequence bin rather than from an external database.) );
 		say q(</li>);
-
-		if ( !-x $self->{'config'}->{'muscle_path'} && !-x $self->{'config'}->{'mafft_path'} ) {
-			$logger->error( 'This plugin requires an aligner (MAFFT or MUSCLE) to be installed and one is not. '
-				  . 'Please install one of these or check the settings in bigsdb.conf.' );
-		} else {
-			say q(<li>);
-			say $q->checkbox( -name => 'align', -id => 'align', -label => 'Align sequences' );
-			say q(</li>);
-			my @aligners;
-			foreach my $aligner (qw(mafft muscle)) {
-				push @aligners, uc($aligner) if $self->{'config'}->{"$aligner\_path"};
-			}
-			if (@aligners) {
-				say q(<li>Aligner: );
-				say $q->popup_menu( -name => 'aligner', -id => 'aligner', -values => \@aligners );
-				say q(</li>);
-			}
-		}
-		say q(<li>);
-		say $q->checkbox( -name => 'translate', -label => 'Translate sequences' );
-		say q(</li>);
-		say q(<li>);
-		say $q->checkbox( -name => 'in_frame', -label => 'Concatenate in frame' );
-		say q(</li>);
-		say q(</ul></fieldset>);
+	} else {
+		say q(<ul>);
 	}
+	if ( !-x $self->{'config'}->{'muscle_path'} && !-x $self->{'config'}->{'mafft_path'} ) {
+		$logger->error( 'This plugin requires an aligner (MAFFT or MUSCLE) to be installed and one is not. '
+			  . 'Please install one of these or check the settings in bigsdb.conf.' );
+	} else {
+		say q(<li>);
+		say $q->checkbox( -name => 'align', -id => 'align', -label => 'Align sequences' );
+		say q(</li>);
+		my @aligners;
+		foreach my $aligner (qw(mafft muscle)) {
+			push @aligners, uc($aligner) if $self->{'config'}->{"$aligner\_path"};
+		}
+		if (@aligners) {
+			say q(<li>Aligner: );
+			say $q->popup_menu( -name => 'aligner', -id => 'aligner', -values => \@aligners );
+			say q(</li>);
+		}
+	}
+	say q(<li>);
+	say $q->checkbox( -name => 'translate', -label => 'Translate sequences' );
+	say q(</li>);
+	say q(<li>);
+	say $q->checkbox( -name => 'in_frame', -label => 'Concatenate in frame' );
+	say q(</li>);
+	say q(</ul></fieldset>);
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say q(<div style="clear:both"></div>);
 	my $set_id = $self->get_set_id;
