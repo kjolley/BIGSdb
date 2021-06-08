@@ -55,7 +55,7 @@ sub get_attributes {
 		buttontext => 'Sequences',
 		menutext   => $seqdef ? 'Profile sequences' : 'Sequences',
 		module     => 'SequenceExport',
-		version    => '1.6.12',
+		version    => '1.6.13',
 		dbtype     => 'isolates,sequences',
 		seqdb_type => 'schemes',
 		section    => 'isolate_info,profile_info,export,postquery',
