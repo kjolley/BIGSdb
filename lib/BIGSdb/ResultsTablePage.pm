@@ -1680,10 +1680,8 @@ sub _print_record_field {
 		return;
 	}
 	my $value = $data->{ lc($field) };
-	if (
-		!$self->{'curate'}
-		&& ( ( $field eq 'locus' && $table ne 'set_loci' ) || ( $table eq 'loci' && $field eq 'id' ) )
-	  )
+	if ( !$self->{'curate'}
+		&& ( ( $field eq 'locus' && $table ne 'set_loci' ) || ( $table eq 'loci' && $field eq 'id' ) ) )
 	{
 		$value = $self->clean_locus($value);
 	} else {
@@ -1716,7 +1714,7 @@ sub _print_isolate_id {
 	my ( $self, $isolate_id ) = @_;
 	my $isolate_name = $self->get_isolate_name_from_id($isolate_id);
 	print $isolate_name
-	  ? qq[<td>$isolate_id) $isolate_name</td>]
+	  ? qq[<td>$isolate_id <span class="minor">[$isolate_name]</span></td>]
 	  : qq[<td>$isolate_id</td>];
 	return;
 }
@@ -1794,7 +1792,6 @@ sub _print_fk_field_with_label {
 		{ cache => "ResultsTablePage::print_record_field::$field" }
 	);
 	my $label = $table_info->{'labels'}->{$field};
-	
 	my $i     = 0;
 	foreach ( @{ $self->{'cache'}->{'fields_to_query'}->{$field} } ) {
 		$label =~ s/\$$_/$labels[$i]/x;
@@ -1811,7 +1808,8 @@ sub _print_pk_field {
 	my ( $table, $field, $data, $query_values, $scheme_info ) = @{$args}{qw(table field data query_values scheme_info)};
 	my $value;
 	if ( $field eq 'isolate_id' ) {
-		$value = $data->{ lc($field) } . ') ' . $self->get_isolate_name_from_id( $data->{ lc($field) } );
+		my $name = $self->get_isolate_name_from_id( $data->{'isolate_id'} );
+		$value = qq($data->{'isolate_id'} <span class="minor">[$name]</span>);
 	} else {
 		$value = $data->{ lc($field) };
 	}
