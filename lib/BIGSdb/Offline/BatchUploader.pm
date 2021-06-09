@@ -94,13 +94,13 @@ sub upload {
 		$qry = "INSERT INTO $table (@$fields_to_include) VALUES (@placeholders)";
 		push @inserts, { statement => $qry, arguments => \@value_list };
 		if ( $table eq 'allele_designations' ) {
-			my $action = "$data->[$field_order->{'locus'}]: new designation '$data->[$field_order->{'allele_id'}]'"
-			  ;
-			push @inserts,
-			  {
-				statement => 'INSERT INTO history (isolate_id,timestamp,action,curator) VALUES (?,?,?,?)',
-				arguments => [ $data->[ $field_order->{'isolate_id'} ], 'now', $action, $self->{'curator_id'} ]
-			  };
+			my $action = "$data->[$field_order->{'locus'}]: new designation '$data->[$field_order->{'allele_id'}]'";
+			push @inserts, {
+				statement => 'INSERT INTO history (isolate_id,timestamp,action,curator) VALUES '
+				  . '(?,clock_timestamp()::TIMESTAMP,?,?)'
+				,
+				arguments => [ $data->[ $field_order->{'isolate_id'} ], $action, $self->{'curator_id'} ]
+			};
 		}
 		my ( $upload_err, $failed_file );
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {

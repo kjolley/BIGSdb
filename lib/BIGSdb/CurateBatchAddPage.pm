@@ -523,7 +523,7 @@ sub _check_data {
 				checked_record     => \$checked_record,
 				table              => $table
 			};
-			if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+			if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates') {
 				my %newdata = map { $_ => $data[ $file_header_pos->{$_} ] } keys %$file_header_pos;
 				my $validation_failures = $self->{'submissionHandler'}->run_validation_checks( \%newdata );
 				if (@$validation_failures) {
