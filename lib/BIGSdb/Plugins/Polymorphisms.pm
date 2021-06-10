@@ -1,6 +1,6 @@
 #Polymorphisms.pm - Plugin for BIGSdb (requires LocusExplorer plugin)
 #Written by Keith Jolley
-#Copyright (c) 2011-2020, University of Oxford
+#Copyright (c) 2011-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -34,7 +34,7 @@ use constant MAX_SEQUENCES   => 2000;
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name             => 'Polymorphisms',
+		name    => 'Polymorphisms',
 		authors => [
 			{
 				name        => 'Keith Jolley',
@@ -49,7 +49,7 @@ sub get_attributes {
 		category => 'Breakdown',
 		menutext => 'Polymorphic sites',
 		module   => 'Polymorphisms',
-		version  => '1.1.11',
+		version  => '1.1.12',
 		dbtype   => 'isolates',
 		url      => "$self->{'config'}->{'doclink'}/data_analysis/polymorphisms.html",
 		section  => 'breakdown,postquery',
@@ -178,10 +178,11 @@ sub run_job {
 	$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => -1 } );    #indeterminate length of time
 	my $isolate_ids = $self->{'jobManager'}->get_job_isolates($job_id);
 	my %options;
-	$options{'from_bin'}            = $params->{'chooseseq'} eq 'seqbin' ? 1 : 0;
+	$options{'from_bin'}            = ( $params->{'chooseseq'} // q() ) eq 'seqbin' ? 1 : 0;
 	$options{'unique'}              = $params->{'unique'};
 	$options{'exclude_incompletes'} = $params->{'exclude_incompletes'};
 	my $seqs = $self->_get_seqs( $locus, $isolate_ids, \%options );
+
 	if ( !@$seqs ) {
 		$self->{'jobManager'}
 		  ->update_job_status( $job_id, { message_html => '<p>No sequences retrieved for analysis.</p>' } );
