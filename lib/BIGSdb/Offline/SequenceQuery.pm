@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2019, University of Oxford
+#Copyright (c) 2017-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -124,7 +124,8 @@ sub _is_match_size_unlikely {
 
 sub _make_match_download_seq_file {
 	my ( $self, $match ) = @_;
-	my $filename  = BIGSdb::Utils::get_random() . q(.fas);
+	my $prefix    = BIGSdb::Utils::get_random();
+	my $filename  = "$prefix.fas";
 	my $full_path = qq($self->{'config'}->{'tmp_dir'}/$filename);
 	my $direction = $match->{'reverse'} ? 'reverse' : 'forward';
 	open( my $fh, '>', $full_path ) || $self->{'logger'}->error("Cannot open $full_path for writing");
@@ -137,6 +138,20 @@ sub _make_match_download_seq_file {
 		my $fasta = FASTA_FILE;
 		$buffer .= qq(<a href="/tmp/$filename" target="_blank" )
 		  . qq(title="Export extracted sequence in FASTA format">$fasta</a>);
+	}
+	if ( $match->{'flanking_sequence'} && length $match->{'flanking_sequence'} > length $match->{'sequence'} ) {
+		$filename  = "${prefix}_flanking.fas";
+		$full_path = qq($self->{'config'}->{'tmp_dir'}/$filename);
+		open( my $fh, '>', $full_path ) || $self->{'logger'}->error("Cannot open $full_path for writing");
+		say $fh qq(>match start:$match->{'predicted_start'}; end:$match->{'predicted_end'}; including flanking )
+		  . qq(sequence; direction:$direction);
+		say $fh $match->{'flanking_sequence'};
+		close $fh;
+		if ( -e $full_path ) {
+			my $fasta = FASTA_FLANKING_FILE;
+			$buffer .= qq(<a href="/tmp/$filename" target="_blank" )
+			  . qq(title="Export extracted sequence in FASTA format (including flanking sequence)">$fasta</a>);
+		}
 	}
 	return $buffer;
 }
@@ -152,7 +167,7 @@ sub _start_submission {
 	my $upload   = UPLOAD_BUTTON;
 	my $seq_file = $self->make_temp_file( $match->{'sequence'} );
 	return
-	    qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;alleles=1&amp;)
+	    qq(<a href="?db=$self->{'instance'}&amp;page=submit&amp;alleles=1&amp;)
 	  . qq(locus=$match->{'locus'}&amp;sequence_file=$seq_file" target="_blank" )
 	  . qq(title="Start submission for new allele assignment">$upload</a>);
 }

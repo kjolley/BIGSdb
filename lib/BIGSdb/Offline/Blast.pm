@@ -27,6 +27,7 @@ use Digest::MD5;
 use File::Path qw(make_path remove_tree);
 use Fcntl qw(:flock);
 use constant INF => 9**99;
+use constant FLANKING_LENGTH => 100;
 
 sub blast {
 	my ( $self, $seq_ref, $args ) = @_;
@@ -215,6 +216,16 @@ sub get_best_partial_match {
 	if ( $self->{'seq_ref'} && keys %$best_match ) {
 		my $seq = $self->_extract_match_seq_from_query( $self->{'seq_ref'}, $best_match );
 		$best_match->{'sequence'} = $seq;
+		my $query_length = length ${$self->{'seq_ref'}};
+		if ($best_match->{'length'} < $query_length){
+			my $flanking_match = {%$best_match};
+			$flanking_match->{'predicted_start'} = $best_match->{'predicted_start'} - FLANKING_LENGTH;
+			$flanking_match->{'predicted_start'} = 1 if $flanking_match->{'predicted_start'} < 1;
+			$flanking_match->{'predicted_end'} = $flanking_match->{'predicted_end'} + FLANKING_LENGTH;
+			$flanking_match->{'predicted_end'} = $query_length if $flanking_match->{'predicted_end'} > $query_length;
+			my $flanking_seq = $self->_extract_match_seq_from_query( $self->{'seq_ref'}, $flanking_match );
+			$best_match->{'flanking_sequence'} = $flanking_seq;
+		}
 	}
 	return $best_match;
 }
