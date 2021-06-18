@@ -40,6 +40,7 @@ use BIGSdb::Constants qw(:login_requirements);
 use BIGSdb::CookiesPage;
 use BIGSdb::CurateSubmissionExcelPage;
 use BIGSdb::CustomizePage;
+use BIGSdb::DashboardPage;
 use BIGSdb::DownloadAllelesPage;
 use BIGSdb::DownloadProfilesPage;
 use BIGSdb::DownloadSeqbinPage;
@@ -394,6 +395,7 @@ sub print_page {
 		changePassword     => 'ChangePasswordPage',
 		cookies            => 'CookiesPage',
 		customize          => 'CustomizePage',
+		dashboard          => 'DashboardPage',
 		downloadAlleles    => 'DownloadAllelesPage',
 		downloadFiles      => 'DownloadFilePage',
 		downloadProfiles   => 'DownloadProfilesPage',

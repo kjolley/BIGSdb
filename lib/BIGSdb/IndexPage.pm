@@ -64,7 +64,7 @@ sub print_content {
 	say qq(<div style="width:95vw;max-width:${title_max_width}px"></div>);
 	say qq(<div id="title_container" style="max-width:${title_max_width}px">);
 	say qq(<h1>$desc database</h1>);
-	$self->_print_general_announcement;
+	$self->print_general_announcement;
 	$self->print_banner;
 
 	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
@@ -568,7 +568,7 @@ sub _print_submissions_menu_item {
 	return;
 }
 
-sub _print_general_announcement {
+sub print_general_announcement {
 	my ( $self, $options ) = @_;
 	my $announcement_file = "$self->{'config_dir'}/announcement.html";
 	if ( -e $announcement_file ) {
