@@ -963,7 +963,9 @@ sub _get_provenance_fields {
 			}
 			my $prefix = $thisfield->{'prefixed_by'} ? $data->{ lc( $thisfield->{'prefixed_by'} ) } : q();
 			my $separator = $thisfield->{'prefix_separator'} // q();
-			push @$list, { title => $displayfield, data => $prefix . $separator . ( $web // $value ) }
+			my $suffix    = $thisfield->{'suffix'}           // q();
+			push @$list,
+			  { title => $displayfield, data => $prefix . $separator . ( $web // $value ) . $suffix }
 			  if $web || $value ne q();
 		}
 		if ( $field eq 'curator' ) {
