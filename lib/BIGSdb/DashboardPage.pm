@@ -56,6 +56,67 @@ sub print_content {
 
 sub _print_main_section {
 	my ($self) = @_;
+	say q(<div class="grid">);
+	
+	#Testing layout
+	for my $i (1 .. 10){
+		my $width_class = $i % 2 ? 1 : 2;
+		my $class="dashboard_element_width$width_class";
+		$self->_print_element($i,$class);
+	}
+	say q(</div>);
 	return;
+}
+
+sub _print_element {
+	my ($self, $i,$class) = @_;
+	say qq(<div class="grid_item dashboard_element $class">);
+	say qq(<p style="font-size:2em;padding-top:1em;color:#aaa">$i</p>);
+	say q(</div>);
+	return;
+}
+
+sub initiate {
+	my ($self) = @_;
+	$self->{$_} = 1 foreach qw (jQuery noCache packery tooltips);
+	$self->choose_set;
+	$self->{'breadcrumbs'} = [];
+	if ( $self->{'system'}->{'webroot'} ) {
+		push @{ $self->{'breadcrumbs'} },
+		  {
+			label => $self->{'system'}->{'webroot_label'} // 'Organism',
+			href => $self->{'system'}->{'webroot'}
+		  };
+	}
+	push @{ $self->{'breadcrumbs'} },
+	  { label => $self->{'system'}->{'formatted_description'} // $self->{'system'}->{'description'} };
+	return;
+}
+
+sub get_javascript {
+	my ($self)     = @_;
+	my $buffer = << "END";
+\$(function () {
+	var \$grid = \$(".grid").packery({
+       	itemSelector: '.grid_item',
+  		gutter: 10,
+  		stagger: 30
+    }); 
+    var \$items = \$grid.find('.grid_item').draggable();  
+    \$grid.packery( 'bindUIDraggableEvents', \$items );
+
+    \$(window).resize(function() {
+    	delay(function(){
+     			\$grid.packery({
+     				gutter:10
+     			});
+    	}, 1000);
+ 	});
+
+});
+
+
+END
+	return $buffer;
 }
 1;

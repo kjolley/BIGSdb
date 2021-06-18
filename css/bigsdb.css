@@ -1252,7 +1252,7 @@ div.curategroup {
 	border: 1px solid #ccc;
 	border-radius: 10px;
 	float: left;
-	min-width:10em
+	min-width: 10em
 }
 
 div.curategroup h2 {
@@ -1319,7 +1319,37 @@ div.curategroup_geocoding {
 }
 
 div #admin_grid {
-	margin-right:100px
+	margin-right: 100px
+}
+
+div.dashboard_element {
+	display: flex;
+	justify-content: center;
+	align-items: center; padding : 1em;
+	border: 1px solid #ccc;
+	border-radius: 5px;
+	height: 100px;
+	padding: 1em;
+}
+
+div.dashboard_element_width1 {
+	width: 150px;
+}
+
+div.dashboard_element_width2 {
+	width: 300px;
+}
+
+.grid_item.ui-draggable-dragging, .grid_item.is-positioning-post-drag {
+	background: #729fcf;
+	z-index: 2; /* keep dragged item on top */
+}
+
+.packery-drop-placeholder {
+	outline: 3px dashed #888;
+	outline-offset: -6px;
+	-webkit-transition: -webkit-transform 0.2s;
+	transition: transform 0.2s;
 }
 
 div.queryform, div#queryform {
@@ -1692,8 +1722,7 @@ table.ajaxtable tr.td2 {
 }
 
 td.field_comment {
-	text-align:left;
-	
+	text-align: left;
 }
 
 span.field {
@@ -2045,19 +2074,19 @@ span.submission_indicator {
 }
 
 span.icon_button {
-	display:flex;
-	flex-direction:column;
-	text-align:center
+	display: flex;
+	flex-direction: column;
+	text-align: center
 }
 
 span.icon_button  a {
-	text-decoration:none
+	text-decoration: none
 }
 
 div.icon_label {
-	padding-top:0.2em;
-	font-size:0.7em;
-	line-height:0.85em;
+	padding-top: 0.2em;
+	font-size: 0.7em;
+	line-height: 0.85em;
 	text-shadow: 0 0 1px #000;
 }
 
@@ -2603,7 +2632,7 @@ a.slide_trigger {
 @media only screen and (max-width:800px) {
 	h1 {
 		font-size: 2em;
-		padding-top:0.5em
+		padding-top: 0.5em
 	}
 	h2 {
 		font-size: 1.4em
@@ -2634,7 +2663,7 @@ a.slide_trigger {
 		height: 150px
 	}
 	div.icon_label {
-		display:none
+		display: none
 	}
 }
 
@@ -2660,15 +2689,14 @@ a.slide_trigger {
 	div.registration_buttons {
 		margin: 0
 	}
-
 }
 
 @media only screen and (max-width:450px) {
-			div.curategroup {
-		min-width:85%
+	div.curategroup {
+		min-width: 85%
 	}
 	div#admin_grid {
-		margin-right:initial;
+		margin-right: initial;
 		margin-top: 150px
 	}
 }
@@ -2680,5 +2708,4 @@ a.slide_trigger {
 	button.pagebar_adjacent {
 		display: none
 	}
-
 }
