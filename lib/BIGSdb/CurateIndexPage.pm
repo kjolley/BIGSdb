@@ -1863,7 +1863,7 @@ sub print_content {
 		$self->_print_admin_toggles( \$buffer );
 		say q(<span class="config_icon fas fa-user-cog fa-3x fa-pull-left"></span>);
 		say q(<h2>Admin functions</h2>);
-		say q(<div class="grid" id="admin_grid" style="margin-right:100px">);
+		say q(<div class="grid" id="admin_grid">);
 		say $buffer;
 		say q(</div>);
 		say q(<div style="clear:both"></div>);

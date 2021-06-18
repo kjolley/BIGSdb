@@ -167,8 +167,8 @@ sub print_panel_buttons {
 		|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
 		|| $q->param('First') )
 	{
-		say q(<a class="trigger_button" id="panel_trigger" style="display:none" title="Modify form options">)
-		  . q(<span class="fas fa-lg fa-wrench"></span></a>);
+		say q(<span class="icon_button"><a class="trigger_button" id="panel_trigger" style="display:none">)
+		  . q(<span class="fas fa-lg fa-wrench"></span><div class="icon_label">Modify form</div></a></span>);
 	}
 	return;
 }

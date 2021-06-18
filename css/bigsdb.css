@@ -1,4 +1,4 @@
-/*Version: 20210527*/
+/*Version: 20210618*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -1056,7 +1056,7 @@ a.tooltips_disabled {
 }
 
 a#expand_trigger {
-	background: #d8d8c0;
+	background: #C7C7c0;
 }
 
 a#related_db_trigger {
@@ -1252,6 +1252,7 @@ div.curategroup {
 	border: 1px solid #ccc;
 	border-radius: 10px;
 	float: left;
+	min-width:10em
 }
 
 div.curategroup h2 {
@@ -1315,6 +1316,10 @@ div.curategroup_sets {
 
 div.curategroup_geocoding {
 	background-image: linear-gradient(#fff, #cce)
+}
+
+div #admin_grid {
+	margin-right:100px
 }
 
 div.queryform, div#queryform {
@@ -2039,6 +2044,23 @@ span.submission_indicator {
 	color: #d44
 }
 
+span.icon_button {
+	display:flex;
+	flex-direction:column;
+	text-align:center
+}
+
+span.icon_button  a {
+	text-decoration:none
+}
+
+div.icon_label {
+	padding-top:0.2em;
+	font-size:0.7em;
+	line-height:0.85em;
+	text-shadow: 0 0 1px #000;
+}
+
 div.menu_item:hover span.submission_indicator {
 	color: #a00
 }
@@ -2580,7 +2602,8 @@ a.slide_trigger {
 
 @media only screen and (max-width:800px) {
 	h1 {
-		font-size: 2em
+		font-size: 2em;
+		padding-top:0.5em
 	}
 	h2 {
 		font-size: 1.4em
@@ -2610,14 +2633,14 @@ a.slide_trigger {
 	a.link_box {
 		height: 150px
 	}
+	div.icon_label {
+		display:none
+	}
 }
 
 @media only screen and (max-width:600px) {
 	div.main_content {
 		width: calc(100vw - 20px)
-	}
-	div.button_panel {
-		display: none
 	}
 	.data dt {
 		float: none;
@@ -2637,6 +2660,17 @@ a.slide_trigger {
 	div.registration_buttons {
 		margin: 0
 	}
+
+}
+
+@media only screen and (max-width:450px) {
+			div.curategroup {
+		min-width:85%
+	}
+	div#admin_grid {
+		margin-right:initial;
+		margin-top: 150px
+	}
 }
 
 @media only screen and (max-width:360px) {
@@ -2646,4 +2680,5 @@ a.slide_trigger {
 	button.pagebar_adjacent {
 		display: none
 	}
+
 }
