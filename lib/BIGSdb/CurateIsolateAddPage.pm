@@ -717,6 +717,9 @@ sub _print_field {
 			last;
 		}
 	}
+	if ( $thisfield->{'suffix'} ) {
+		say $thisfield->{'suffix'};
+	}
 	if ( $thisfield->{'warning'} ) {
 		say q(</div>);
 		say $self->get_warning_tooltip( $thisfield->{'warning'} );
