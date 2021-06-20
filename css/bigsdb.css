@@ -1322,14 +1322,36 @@ div #admin_grid {
 	margin-right: 100px
 }
 
-div.dashboard_element {
-	display: flex;
-	justify-content: center;
-	align-items: center; padding : 1em;
+div.grid {
+	position: relative;
+}
+
+.item {
+	display: block;
+	position: absolute;
+	z-index: 1;
 	border: 1px solid #ccc;
 	border-radius: 5px;
 	height: 100px;
 	padding: 1em;
+}
+
+.item.muuri-item-dragging {
+	z-index: 3;
+}
+
+.item.muuri-item-releasing {
+	z-index: 2;
+}
+
+.item.muuri-item-hidden {
+	z-index: 0;
+}
+
+.item-content {
+	position: relative;
+	width: 100%;
+	height: 100%;
 }
 
 div.dashboard_element_width1 {
@@ -1337,7 +1359,7 @@ div.dashboard_element_width1 {
 }
 
 div.dashboard_element_width2 {
-	width: 300px;
+	width: 250px;
 }
 
 .grid_item.ui-draggable-dragging, .grid_item.is-positioning-post-drag {

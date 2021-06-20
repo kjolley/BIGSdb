@@ -179,9 +179,10 @@ sub _get_javascript_paths {
 				defer   => 1,
 				version => '2020308'
 			},
-			'CryptoJS.MD5' => { src => [qw(md5.js)],      defer => 1, version => '20200308' },
-			'packery'      => { src => [qw(packery.js)],  defer => 1, version => '20200308' },
-			'dropzone'     => { src => [qw(dropzone.js)], defer => 0, version => '20200308' },
+			'CryptoJS.MD5' => { src => [qw(md5.js)],         defer => 1, version => '20200308' },
+			'packery'      => { src => [qw(packery.min.js)], defer => 1, version => '20210620' },
+			'muuri'        => { src => [qw(muuri.min.js)],   defer => 1, version => '20210620' },
+			'dropzone'     => { src => [qw(dropzone.js)],    defer => 0, version => '20200308' },
 			'billboard'    => {
 				src     => [qw(d3.v6.min.js billboard.min.js jquery.ui.touch-punch.min.js)],
 				defer   => 1,

@@ -56,7 +56,7 @@ sub print_content {
 
 sub _print_main_section {
 	my ($self) = @_;
-	say q(<div class="grid">);
+	say q(<div id="dashboard" class="grid">);
 	
 	#Testing layout
 	for my $i (1 .. 10){
@@ -70,15 +70,16 @@ sub _print_main_section {
 
 sub _print_element {
 	my ($self, $i,$class) = @_;
-	say qq(<div class="grid_item dashboard_element $class">);
+	say q(<div class="item">);
+	say qq(<div class="item-content $class">);
 	say qq(<p style="font-size:2em;padding-top:1em;color:#aaa">$i</p>);
-	say q(</div>);
+	say q(</div></div>);
 	return;
 }
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (jQuery noCache packery tooltips);
+	$self->{$_} = 1 foreach qw (jQuery noCache muuri draggabilly tooltips);
 	$self->choose_set;
 	$self->{'breadcrumbs'} = [];
 	if ( $self->{'system'}->{'webroot'} ) {
@@ -97,21 +98,13 @@ sub get_javascript {
 	my ($self)     = @_;
 	my $buffer = << "END";
 \$(function () {
-	var \$grid = \$(".grid").packery({
-       	itemSelector: '.grid_item',
-  		gutter: 10,
-  		stagger: 30
-    }); 
-    var \$items = \$grid.find('.grid_item').draggable();  
-    \$grid.packery( 'bindUIDraggableEvents', \$items );
-
-    \$(window).resize(function() {
-    	delay(function(){
-     			\$grid.packery({
-     				gutter:10
-     			});
-    	}, 1000);
- 	});
+	var grid = new Muuri('.grid',{
+		dragEnabled: true,
+		layout: {
+			fillGaps: true,
+		}
+		
+	});
 
 });
 
