@@ -992,7 +992,7 @@ div.panel {
 	display: none;
 	padding: 1em 3em 1em 1em;
 	border: 1px solid #999;
-	border-radius: 10px;
+	border-radius: 10px 0 0 10px;
 	background: #d5d5e0;
 	background-image: linear-gradient(#d5d5e0, #f0f0f0 5em);
 	box-shadow: 3px 3px 3px #aaa;
@@ -1332,12 +1332,14 @@ div.grid {
 	z-index: 1;
 	border: 1px solid #ccc;
 	border-radius: 5px;
-	height: 100px;
-	padding: 1em;
+	margin: 1px;
+	max-width: 100%
 }
 
 .item.muuri-item-dragging {
 	z-index: 3;
+	border: 3px solid red;
+	background: #fcc;
 }
 
 .item.muuri-item-releasing {
@@ -1352,6 +1354,7 @@ div.grid {
 	position: relative;
 	width: 100%;
 	height: 100%;
+	max-width: 100%
 }
 
 div.dashboard_element_width1 {
@@ -1359,7 +1362,19 @@ div.dashboard_element_width1 {
 }
 
 div.dashboard_element_width2 {
-	width: 250px;
+	width: 304px; /*add extra pixels to take account of border*/
+}
+
+div.dashboard_element_width3 {
+	width: 458px;
+}
+
+div.dashboard_element_height1 {
+	height: 150px;
+}
+
+div.dashboard_element_height2 {
+	height: 304px;
 }
 
 .grid_item.ui-draggable-dragging, .grid_item.is-positioning-post-drag {
