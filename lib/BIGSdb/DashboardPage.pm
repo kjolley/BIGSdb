@@ -26,12 +26,17 @@ use Try::Tiny;
 use JSON;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
+use constant LAYOUT_TEST => 1;    #TODO Remove
 
 sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	if ( $q->param('updatePrefs') ) {
 		$self->_update_prefs;
+		return;
+	}
+	if ( $q->param('control') ) {
+		$self->_ajax_controls( scalar $q->param('control') );
 		return;
 	}
 	my $desc = $self->get_db_description( { formatted => 1 } );
@@ -51,6 +56,8 @@ sub print_content {
 	say q(</div>);
 	say qq(<div id="main_container" class="flex_container" style="max-width:${max_width}px">);
 	say qq(<div class="index_panel" style="max-width:${max_width}px">);
+
+	#	say q(<div id="waiting" class="dashboard_waiting"><span class="wait_icon fas fa-sync-alt fa-spin"></span></div>);
 	$self->_print_main_section;
 	say q(</div>);
 	say q(</div>);
@@ -60,35 +67,118 @@ sub print_content {
 	return;
 }
 
+sub _ajax_controls {
+	my ( $self, $id ) = @_;
+	my $elements = $self->_get_elements;
+	use Data::Dumper;
+	$logger->error( Dumper $elements->{$id} );
+	my $q = $self->{'cgi'};
+	say q(<div class="modal">);
+	say qq(<h2>$elements->{$id}->{'name'} options</h2>);
+	say q(<fieldset><legend>Size</legend>);
+	say q(<ul><li><span class="fas fa-arrows-alt-h fa-fw"></span> );
+	say $q->radio_group(
+		-name    => "${id}_width",
+		-id      => "${id}_width",
+		-class   => 'width_select',
+		-values  => [ 1, 2, 3, 4 ],
+		-default => $elements->{$id}->{'w'}
+	);
+	say q(</li><li><span class="fas fa-arrows-alt-v fa-fw"></span> );
+	say $q->radio_group(
+		-name    => "${id}_height",
+		-id      => "${id}_height",
+		-class   => 'height_select',
+		-values  => [ 1, 2, 3 ],
+		-default => $elements->{$id}->{'h'}
+	);
+	say q(</li></ul>);
+	say q(</fieldset>);
+	say q(</div>);
+	return;
+}
+
 sub _print_main_section {
 	my ($self) = @_;
 	say q(<div id="dashboard" class="grid">);
-
-	#Testing layout
-	for my $i ( 1 .. 10 ) {
-		my $wclass = $i % 2 ? 1 : 2;
-		$wclass = 3 if $i == 7;
-		my $hclass       = $i == 2 ? 2 : 1;
-		my $width_class  = "dashboard_element_width$wclass";
-		my $height_class = "dashboard_element_height$hclass";
-		$self->_print_element( $i, $width_class, $height_class );
+	my $elements = $self->_get_elements;
+	$logger->error( Dumper $elements);
+	foreach my $element ( sort { $elements->{$a}->{'order'} <=> $elements->{$b}->{'order'} } keys %$elements ) {
+		$self->_print_element( $elements->{$element} );
 	}
 	say q(</div>);
 	return;
 }
 
+sub _get_elements {
+	my ($self) = @_;
+	if ( $self->{'prefs'}->{'dashboard.elements'} ) {
+		my $elements = {};
+		eval { $elements = decode_json( $self->{'prefs'}->{'dashboard.elements'} ); };
+		if (@$) {
+			$logger->error('Invalid JSON in dashboard.elements.');
+		}
+		return $elements if keys %$elements;
+	}
+	if (LAYOUT_TEST) {
+		return $self->_get_test_elements;
+	}
+}
+
+sub _get_test_elements {
+	my ($self) = @_;
+	my $elements = {};
+	for my $i ( 1 .. 10 ) {
+		my $w = $i % 2 ? 1 : 2;
+		$w = 3 if $i == 7;
+		$w = 4 if $i == 4;
+		my $h = $i == 2 ? 2 : 1;
+		$elements->{$i} = {
+			id      => $i,
+			name    => "Test element $i",
+			w       => $w,
+			h       => $h,
+			display => 'test',
+			order   => $i
+		};
+	}
+	return $elements;
+}
+
 sub _print_element {
-	my ( $self, $i, $wclass, $hclass ) = @_;
-	say qq(<div data-id="id$i" class="item">);
-	say qq(<div class="item-content $wclass $hclass">);
-	say qq(<p style="font-size:3em;padding-top:0.75em;text-align:center;color:#aaa">$i</p>);
+	my ( $self, $element ) = @_;
+	say qq(<div data-id="$element->{'id'}" class="item">);
+	my $width_class  = "dashboard_element_width$element->{'w'}";
+	my $height_class = "dashboard_element_height$element->{'h'}";
+	say qq(<div class="item-content $width_class $height_class">);
+	$self->_print_settings_button( $element->{'id'} );
+	if ( $element->{'display'} eq 'test' ) {
+		$self->_print_test_element_content($element);
+	}
 	say q(</div></div>);
+	return;
+}
+
+sub _print_test_element_content {
+	my ( $self, $element ) = @_;
+	say qq(<p style="font-size:3em;padding-top:0.75em;text-align:center;color:#aaa">$element->{'id'}</p>);
+	say q(<p style="text-align:center;font-size:0.9em;margin-top:-2em">)
+	  . qq(W<span id="$element->{'id'}_width">$element->{'w'}</span>; )
+	  . qq(H<span id="$element->{'id'}_height">$element->{'h'}</span></p>);
+	return;
+}
+
+sub _print_settings_button {
+	my ( $self, $id ) = @_;
+	say
+	  qq(<span data-id="$id" id="wait_$id" class="dashboard_wait fas fa-sync-alt fa-spin" style="display:none"></span>);
+	say qq(<span data-id="$id" id="control_$id" class="dashboard_control fas fa-sliders-h"></span>);
 	return;
 }
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (jQuery noCache muuri draggabilly tooltips);
+	$self->{$_} = 1 foreach qw (jQuery noCache muuri modal);
 	$self->choose_set;
 	$self->{'breadcrumbs'} = [];
 	if ( $self->{'system'}->{'webroot'} ) {
@@ -101,9 +191,14 @@ sub initiate {
 	push @{ $self->{'breadcrumbs'} },
 	  { label => $self->{'system'}->{'formatted_description'} // $self->{'system'}->{'description'} };
 	my $q = $self->{'cgi'};
-	if ($q->param('updatePrefs')){
-		$self->{'type'}    = 'no_header';
+	if ( $q->param('updatePrefs') || $q->param('control') || $q->param('resetDefaults') ) {
+		$self->{'type'} = 'no_header';
 	}
+	my $guid = $self->get_guid;
+	if ( $q->param('resetDefaults') ) {
+		$self->{'prefstore'}->delete_dashboard_settings( $guid, $self->{'instance'} ) if $guid;
+	}
+	$self->{'prefs'} = $self->{'prefstore'}->get_all_general_prefs( $guid, $self->{'instance'} );
 	return;
 }
 
@@ -152,10 +247,8 @@ sub print_panel_buttons {
 
 sub _print_modify_dashboard_fieldset {
 	my ($self) = @_;
-	my $guid = $self->get_guid;
-	my $prefs = $self->{'prefstore'}->get_all_general_prefs( $guid, $self->{'instance'} );
-	my $layout    = $prefs->{'dashboard.layout'}    // 'left-top';
-	my $fill_gaps = $prefs->{'dashboard.fill_gaps'} // 1;
+	my $layout    = $self->{'prefs'}->{'dashboard.layout'}    // 'left-top';
+	my $fill_gaps = $self->{'prefs'}->{'dashboard.fill_gaps'} // 1;
 	my $q         = $self->{'cgi'};
 	say q(<div id="modify_panel" class="panel">);
 	say q(<a class="trigger" id="close_trigger" href="#"><span class="fas fa-lg fa-times"></span></a>);
@@ -182,17 +275,18 @@ sub _print_modify_dashboard_fieldset {
 		-checked => $fill_gaps ? 'checked' : undef
 	);
 	say q(</li></ul>);
+	say q(<a onclick="resetDefaults()" class="small_reset">Reset</a> Return to defaults);
 	say q(</div>);
 	return;
 }
 
 sub get_javascript {
-	my ($self)   = @_;
-	my $url      = $self->{'system'}->{'script_name'};
-	my $ajax_url = "$url?db=$self->{'instance'}&page=dashboard&updatePrefs=1";
-	my $guid     = $self->get_guid;
-	my $prefs = $self->{'prefstore'}->get_all_general_prefs( $guid, $self->{'instance'} );
-	my $order = $prefs->{'dashboard.order'} // 0;
+	my ($self)            = @_;
+	my $url               = $self->{'system'}->{'script_name'};
+	my $ajax_url          = "$url?db=$self->{'instance'}&page=dashboard&updatePrefs=1";
+	my $modal_control_url = "$url?db=$self->{'instance'}&page=dashboard";
+	my $reset_url         = "$url?db=$self->{'instance'}&page=dashboard&resetDefaults=1";
+	my $order = $self->{'prefs'}->{'dashboard.order'} // 0;
 	if ($order) {
 		eval { decode_json($order); };
 		if ($@) {
@@ -202,12 +296,11 @@ sub get_javascript {
 	}
 	my $order_defined = $order ? 1 : 0;
 	my $buffer = << "END";
+var grid;
 \$(function () {
 	var layout = \$("#layout").val();
 	var fill_gaps = \$("#fill_gaps").prop('checked');
-	console.log(layout);
-	console.log(fill_gaps);
-	var grid = new Muuri('.grid',{
+	grid = new Muuri('.grid',{
 		dragEnabled: true,
 		layout: {
 			alignRight : layout.includes('right'),
@@ -239,7 +332,43 @@ sub get_javascript {
 		grid.layout();
 		\$.ajax("$ajax_url&attribute=fill_gaps&value=" + (fill_gaps ? 1 : 0) );	
 	});
+	\$(".dashboard_control").click(function(){
+		var id=\$(this).attr('data-id');
+		\$("span#control_" + id).hide();
+		\$("span#wait_" + id).show();
+		event.preventDefault();
+		this.blur(); // Manually remove focus from clicked link.
+		\$.get("${modal_control_url}&control=" + id, function(html) {
+			\$(html).appendTo('body').modal();
+			\$("span#control_" + id).show();
+			\$("span#wait_" + id).hide();
+		});
+	});
+
+	var dimension = ['width','height'];
+	dimension.forEach((value) => {
+		\$(document).on("change", '.' + value + '_select', function(event) { 
+			var id = \$(this).attr('id');
+			var element_id = id.replace("_" + value,"");
+			changeElementDimension(element_id, value);
+		});
+	});
 });
+
+function changeElementDimension(id, attribute){	
+	var item_content = \$("div.item[data-id='" + id + "'] > div.item-content");
+	var classes = item_content.attr('class');
+	var class_list = classes.split(/\\s+/);
+	\$.each(class_list, function(index,value){
+		if (value.includes('dashboard_element_' + attribute)){
+			item_content.removeClass(value);
+		}
+	});
+	var new_dimension = \$("input[name='" + id + "_" + attribute + "']:checked").val();
+	item_content.addClass("dashboard_element_" + attribute + new_dimension); 
+	\$("span#" + id + "_" + attribute).html(new_dimension);  	
+    grid.refreshItems().layout();
+}
 
 function serializeLayout(grid) {
     var itemIds = grid.getItems().map(function (item) {
@@ -276,8 +405,16 @@ function loadLayout(grid, serializedLayout) {
       newItems.push(currentItems[itemIndex])
     }
   }
-
   grid.sort(newItems, {layout: 'instant'});
+}
+
+function resetDefaults(){
+	\$("#modify_panel").toggle("slide",{direction:"right"},"fast");
+	\$.get("$reset_url", function() {		
+		\$("#layout").val("left-top");
+		\$("#fill_gaps").prop("checked",true);
+		 location.reload();
+	});
 }
 
 END

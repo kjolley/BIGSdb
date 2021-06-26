@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -532,6 +532,21 @@ sub delete_all_field_settings {
 		$logger->error($@);
 		$self->{'db'}->rollback;
 		BIGSdb::Exception::Prefstore->throw('Cannot execute delete locus');
+	}
+	$self->{'db'}->commit;
+	return;
+}
+
+sub delete_dashboard_settings {
+	my ( $self, $guid, $dbase ) = @_;
+	eval {
+		$self->{'db'}->do( 'DELETE FROM general WHERE (guid,dbase)=(?,?) AND attribute LIKE ?',
+			undef, $guid, $dbase, 'dashboard%' );
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+		BIGSdb::Exception::Prefstore->throw('Cannot execute delete dashboard settings');
 	}
 	$self->{'db'}->commit;
 	return;

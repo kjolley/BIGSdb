@@ -1369,6 +1369,10 @@ div.dashboard_element_width3 {
 	width: 458px;
 }
 
+div.dashboard_element_width4 {
+	width: 612px;
+}
+
 div.dashboard_element_height1 {
 	height: 150px;
 }
@@ -1377,16 +1381,33 @@ div.dashboard_element_height2 {
 	height: 304px;
 }
 
+div.dashboard_element_height3 {
+	height: 458px;
+}
+
+span.dashboard_control, span.dashboard_wait{
+	display:inline-block;
+	position:absolute;
+	right:2px;
+	top:2px;
+	color:#aaa;
+	cursor:pointer;
+	z-index:1;
+}
+
+div.dashboard_waiting {
+	position:absolute;
+	top:1em;
+	display:none;
+	font-size:10em;
+	text-align:center;
+	width:100%;
+	z-index:2;
+}
+
 .grid_item.ui-draggable-dragging, .grid_item.is-positioning-post-drag {
 	background: #729fcf;
 	z-index: 2; /* keep dragged item on top */
-}
-
-.packery-drop-placeholder {
-	outline: 3px dashed #888;
-	outline-offset: -6px;
-	-webkit-transition: -webkit-transform 0.2s;
-	transition: transform 0.2s;
 }
 
 div.queryform, div#queryform {
