@@ -82,7 +82,7 @@ sub _ajax_controls {
 		-id      => "${id}_width",
 		-class   => 'width_select',
 		-values  => [ 1, 2, 3, 4 ],
-		-default => $elements->{$id}->{'w'}
+		-default => $elements->{$id}->{'width'}
 	);
 	say q(</li><li><span class="fas fa-arrows-alt-v fa-fw"></span> );
 	say $q->radio_group(
@@ -90,7 +90,7 @@ sub _ajax_controls {
 		-id      => "${id}_height",
 		-class   => 'height_select',
 		-values  => [ 1, 2, 3 ],
-		-default => $elements->{$id}->{'h'}
+		-default => $elements->{$id}->{'height'}
 	);
 	say q(</li></ul>);
 	say q(</fieldset>);
@@ -102,7 +102,6 @@ sub _print_main_section {
 	my ($self) = @_;
 	say q(<div id="dashboard" class="grid">);
 	my $elements = $self->_get_elements;
-	$logger->error( Dumper $elements);
 	foreach my $element ( sort { $elements->{$a}->{'order'} <=> $elements->{$b}->{'order'} } keys %$elements ) {
 		$self->_print_element( $elements->{$element} );
 	}
@@ -135,11 +134,11 @@ sub _get_test_elements {
 		my $h = $i == 2 ? 2 : 1;
 		$elements->{$i} = {
 			id      => $i,
+			order   => $i,
 			name    => "Test element $i",
-			w       => $w,
-			h       => $h,
+			width   => $w,
+			height  => $h,
 			display => 'test',
-			order   => $i
 		};
 	}
 	return $elements;
@@ -148,8 +147,8 @@ sub _get_test_elements {
 sub _print_element {
 	my ( $self, $element ) = @_;
 	say qq(<div data-id="$element->{'id'}" class="item">);
-	my $width_class  = "dashboard_element_width$element->{'w'}";
-	my $height_class = "dashboard_element_height$element->{'h'}";
+	my $width_class  = "dashboard_element_width$element->{'width'}";
+	my $height_class = "dashboard_element_height$element->{'height'}";
 	say qq(<div class="item-content $width_class $height_class">);
 	$self->_print_settings_button( $element->{'id'} );
 	if ( $element->{'display'} eq 'test' ) {
@@ -163,8 +162,8 @@ sub _print_test_element_content {
 	my ( $self, $element ) = @_;
 	say qq(<p style="font-size:3em;padding-top:0.75em;text-align:center;color:#aaa">$element->{'id'}</p>);
 	say q(<p style="text-align:center;font-size:0.9em;margin-top:-2em">)
-	  . qq(W<span id="$element->{'id'}_width">$element->{'w'}</span>; )
-	  . qq(H<span id="$element->{'id'}_height">$element->{'h'}</span></p>);
+	  . qq(W<span id="$element->{'id'}_width">$element->{'width'}</span>; )
+	  . qq(H<span id="$element->{'id'}_height">$element->{'height'}</span></p>);
 	return;
 }
 
@@ -209,10 +208,12 @@ sub _update_prefs {
 	return if !defined $attribute;
 	my $value = $q->param('value');
 	return if !defined $value;
-	my %allowed_attributes = map { $_ => 1 } qw(layout fill_gaps order);
-	return if !$allowed_attributes{$attribute};
+	my %allowed_attributes = map { $_ => 1 } qw(layout fill_gaps order elements);
+	if ( !$allowed_attributes{$attribute} ) {
+		$logger->error("Invalid attribute - $attribute");
+		return;
+	}
 	$attribute = "dashboard.$attribute";
-
 	if ( $attribute eq 'layout' ) {
 		my %allowed_values = map { $_ => 1 } ( 'left-top', 'right-top', 'left-bottom', 'right-bottom' );
 		return if !$allowed_values{$value};
@@ -222,7 +223,7 @@ sub _update_prefs {
 		my %allowed_values = map { $_ => 1 } ( 0, 1 );
 		return if !$allowed_values{$value};
 	}
-	my %json_attributes = map { $_ => 1 } qw(order);
+	my %json_attributes = map { $_ => 1 } qw(order elements);
 	if ( $json_attributes{$attribute} ) {
 		if ( length( $value > 5000 ) ) {
 			$logger->error("$attribute value too long.");
@@ -281,23 +282,24 @@ sub _print_modify_dashboard_fieldset {
 }
 
 sub get_javascript {
-	my ($self)            = @_;
-	my $order = $self->{'prefs'}->{'dashboard.order'} // 0;
+	my ($self) = @_;
+	my $order = $self->{'prefs'}->{'dashboard.order'} // q();
 	if ($order) {
 		eval { decode_json($order); };
 		if ($@) {
 			$logger->error('Invalid order JSON');
-			$order = 0;
+			$order = q();
 		}
 	}
-	my $order_defined = $order ? 1 : 0;
-	my $buffer = << "END";
+	my $elements      = $self->_get_elements;
+	my $json_elements = encode_json($elements);
+	my $buffer        = << "END";
 var url = "$self->{'system'}->{'script_name'}";
 var ajax_url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=dashboard&updatePrefs=1";
 var reset_url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=dashboard&resetDefaults=1";
 var modal_control_url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=dashboard";
+var elements = $json_elements;
 var order = '$order';
-var order_defined = $order_defined;
 var instance = "$self->{'instance'}";
 
 END

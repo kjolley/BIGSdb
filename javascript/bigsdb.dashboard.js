@@ -32,7 +32,7 @@ $(function () {
 	}).on('move', function () {
     	saveLayout(grid)
 	});
-	if (order_defined){
+	if (order){
 		loadLayout(grid, order);
 	}
 	$("#panel_trigger,#close_trigger").click(function(){		
@@ -90,6 +90,14 @@ function changeElementDimension(id, attribute) {
 			.val();
 	item_content.addClass("dashboard_element_" + attribute + new_dimension);
 	$("span#" + id + "_" + attribute).html(new_dimension);
+	elements[id][attribute] = Number(new_dimension);
+	$.post(ajax_url,{
+    	db:instance,
+    	page:"dashboard",
+    	updatePrefs:1,
+    	attribute:"elements",
+    	value:JSON.stringify(elements)
+    });
 	grid.refreshItems().layout();
 }
 
