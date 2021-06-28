@@ -143,7 +143,7 @@ function saveLayout(grid) {
 
 function resetDefaults(){
 	$("#modify_panel").toggle("slide",{direction:"right"},"fast");
-	$.get($reset_url, function() {		
+	$.get(reset_url, function() {		
 		$("#layout").val("left-top");
 		$("#fill_gaps").prop("checked",true);
 		 location.reload();
