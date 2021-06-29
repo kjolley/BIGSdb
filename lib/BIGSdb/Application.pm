@@ -385,7 +385,6 @@ sub _rewrite_page {
 	my $guid = $self->_get_guid;
 	return if !$guid;
 	my $dashboard_pref = $self->{'prefstore'}->get_general_pref( $guid, $self->{'instance'}, 'dashboard.default' );
-	$logger->error($dashboard_pref);
 	if ( defined $dashboard_pref ) {
 		$self->{'page'} = 'dashboard' if $dashboard_pref;
 	} else {
