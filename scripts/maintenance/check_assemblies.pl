@@ -516,7 +516,7 @@ ${bold}--refresh_days$norm ${under}DAYS$norm
     recorded will be checked. This will recheck records that have previously
     failed validation.
     
-${bold}--require_stats
+${bold}--require_stats$norm
     Do not perform checks, or update last run time, if detailed assembly stats
     have not been recorded for an isolate. Setting this ensures that the
     update_assembly_stats.pl script has had a chance to run first.  
