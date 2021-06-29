@@ -1071,6 +1071,10 @@ a#bookmark_trigger {
 	background: #d59bf2;
 }
 
+a#dashboard_toggle {
+	background: #9a80f1;
+}
+
 a#close_trigger {
 	color: black;
 	font-weight: 600;

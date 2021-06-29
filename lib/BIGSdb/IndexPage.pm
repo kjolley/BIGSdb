@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -96,6 +96,15 @@ sub _print_menu {
 	$self->_print_info_menu_item;
 	$self->_print_related_database_menu_item;
 	$self->_print_jobs_menu_item;
+	return;
+}
+
+sub print_panel_buttons {
+	
+	my ($self) = @_;
+	return if !$self->{'config'}->{'enable_dashboard'} && ($self->{'system'}->{'enable_dashboard'}//q()) ne 'yes';
+	  say q(<span class="icon_button"><a class="trigger_button" id="dashboard_toggle">)
+	  . q(<span class="fas fa-lg fa-th"></span><div class="icon_label">Dashboard</div></a></span>);
 	return;
 }
 
@@ -333,6 +342,12 @@ sub get_javascript {
 	  	    \$("#" + panel_id).slideUp();
 	  	    \$("#" + trigger_id).html('<span class="fas fa-plus"></span>');
 	    }  
+	});
+	\$('a#dashboard_toggle').on('click', function(){
+		\$.get("$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=dashboard&"
+		 + "updatePrefs=1&attribute=default&value=1",function(){
+			window.location="$self->{'system'}->{'script_name'}?db=$self->{'instance'}";
+		});	
 	});	
 }); 
 

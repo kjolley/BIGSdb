@@ -173,6 +173,7 @@ sub new {
 		}
 	}
 	$self->app_specific_initiation;
+	
 	$self->print_page;
 	$self->_db_disconnect;
 
@@ -374,6 +375,40 @@ sub _is_user_page {
 	return;
 }
 
+#Use dashboard if enabled and pref set.
+sub _rewrite_page {
+	my ($self) = @_;
+	return if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
+	return if $self->{'page'} ne 'index';
+	return if !$self->{'config'}->{'enable_dashboard'} && ( $self->{'system'}->{'enable_dashboard'} // q() ) ne 'yes';
+	return if ( $self->{'system'}->{'enable_dashboard'} // q() ) eq 'no';
+	my $guid = $self->_get_guid;
+	return if !$guid;
+	my $dashboard_pref = $self->{'prefstore'}->get_general_pref( $guid, $self->{'instance'}, 'dashboard.default' );
+	$logger->error($dashboard_pref);
+	if ( defined $dashboard_pref ) {
+		$self->{'page'} = 'dashboard' if $dashboard_pref;
+	} else {
+		if ( defined $self->{'system'}->{'default_dashboard_view'} ) {
+			$self->{'page'} = 'dashboard' if $self->{'system'}->{'default_dashboard_view'} eq 'yes';
+		} else {
+			$self->{'page'} = 'dashboard' if $self->{'config'}->{'default_dashboard_view'};
+		}
+	}
+	return;
+}
+
+sub _get_guid {
+	my ($self) = @_;
+	if ( defined $self->{'username'} ) {
+		return "$self->{'system'}->{'db'}\|$self->{'username'}";
+	} elsif ( $self->{'cgi'}->cookie( -name => 'guid' ) ) {
+		return $self->{'cgi'}->cookie( -name => 'guid' );
+	} else {
+		return 0;
+	}
+}
+
 sub print_page {
 	my ($self) = @_;
 	my $set_options = 0;
@@ -467,6 +502,7 @@ sub print_page {
 	);
 	my $continue = 1;
 	my $auth_cookies_ref;
+
 	if ( $self->{'error'} ) {
 		$page_attributes{'error'}              = $self->{'error'};
 		$page_attributes{'max_upload_size_mb'} = $self->{'max_upload_size_mb'};
@@ -515,6 +551,7 @@ sub print_page {
 			}
 		}
 		$page_attributes{'setOptions'} = $set_options;
+		$self->_rewrite_page;
 		$page = "BIGSdb::$classes{$self->{'page'}}"->new(%page_attributes);
 	} else {
 		$page_attributes{'error'} = 'unknown';
@@ -631,6 +668,7 @@ sub authenticate {
 			$self->{'handled_error'} = 1;
 		}
 	}
+	$self->{'username'} = $page_attributes->{'username'};
 	return ( $authenticated, $auth_cookies_ref );
 }
 1;

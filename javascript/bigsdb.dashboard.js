@@ -146,6 +146,6 @@ function resetDefaults(){
 	$.get(reset_url, function() {		
 		$("#layout").val("left-top");
 		$("#fill_gaps").prop("checked",true);
-		 location.reload();
+		location.reload();
 	});
 }

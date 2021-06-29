@@ -56,8 +56,6 @@ sub print_content {
 	say q(</div>);
 	say qq(<div id="main_container" class="flex_container" style="max-width:${max_width}px">);
 	say qq(<div class="index_panel" style="max-width:${max_width}px">);
-
-	#	say q(<div id="waiting" class="dashboard_waiting"><span class="wait_icon fas fa-sync-alt fa-spin"></span></div>);
 	$self->_print_main_section;
 	say q(</div>);
 	say q(</div>);
@@ -208,7 +206,7 @@ sub _update_prefs {
 	return if !defined $attribute;
 	my $value = $q->param('value');
 	return if !defined $value;
-	my %allowed_attributes = map { $_ => 1 } qw(layout fill_gaps order elements);
+	my %allowed_attributes = map { $_ => 1 } qw(layout fill_gaps order elements default);
 	if ( !$allowed_attributes{$attribute} ) {
 		$logger->error("Invalid attribute - $attribute");
 		return;
@@ -243,6 +241,8 @@ sub print_panel_buttons {
 	my ($self) = @_;
 	say q(<span class="icon_button"><a class="trigger_button" id="panel_trigger" style="display:none">)
 	  . q(<span class="fas fa-lg fa-wrench"></span><div class="icon_label">Modify display</div></a></span>);
+	  say q(<span class="icon_button"><a class="trigger_button" id="dashboard_toggle">)
+	  . q(<span class="fas fa-lg fa-th-list"></span><div class="icon_label">Index page</div></a></span>);
 	return;
 }
 
@@ -301,6 +301,14 @@ var modal_control_url = "$self->{'system'}->{'script_name'}?db=$self->{'instance
 var elements = $json_elements;
 var order = '$order';
 var instance = "$self->{'instance'}";
+
+\$(document).ready(function()   { 
+	\$('a#dashboard_toggle').on('click', function(){
+		\$.get(ajax_url + "&attribute=default&value=0",function(){
+			location.reload();	
+		});	
+	});	
+}); 
 
 END
 	return $buffer;
