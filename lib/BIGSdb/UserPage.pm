@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2016-2020, University of Oxford
+#Copyright (c) 2016-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -880,9 +880,10 @@ sub _select_merge_users {
 sub _merge {
 	my ( $self, $user, $account ) = @_;
 	return if !$account;
-	my @curator_tables = $self->{'datastore'}->get_tables_with_curator;
 	my ( $config, $remote_user ) = split /\|/x, $account;
 	my $system = $self->_read_config_xml($config);
+	my @curator_tables =
+	  $self->{'datastore'}->get_tables_with_curator( { dbtype => $system->{'dbtype'} } );
 	my @sender_tables =
 	  $system->{'dbtype'} eq 'isolates'
 	  ? qw(isolates sequence_bin allele_designations)

@@ -219,9 +219,9 @@ sub is_float {
 sub get_random {
 	return
 	    'BIGSdb_'
-	  . sprintf( '%06d', $$ ) . '_'
+	  . sprintf( '%06d',  $$ ) . '_'
 	  . sprintf( '%010d', int( rand(9999999999) ) ) . '_'
-	  . sprintf( '%05d', int( rand(99999) ) );
+	  . sprintf( '%05d',  int( rand(99999) ) );
 }
 
 sub pad_length {
@@ -415,6 +415,7 @@ sub text2excel {
 	my ( $row, $col ) = ( 0, 0 );
 	my %widths;
 	my $first_line = 1;
+	my %special_values = map { $_ => 1 } ('=');    #We may need to add to this later.
 
 	while ( my $line = <$text_fh> ) {
 		$line =~ s/\r?\n$//x;      #Remove terminal newline
@@ -428,7 +429,11 @@ sub text2excel {
 			if ( !$first_line && $text_cols{$col} ) {
 				$worksheet->write_string( $row, $col, $value, $text_format );
 			} else {
-				$worksheet->write( $row, $col, $value, $format );
+				if ( $special_values{$value} ) {
+					$worksheet->write_string( $row, $col, $value, $format );
+				} else {
+					$worksheet->write( $row, $col, $value, $format );
+				}
 			}
 			$widths{$col} = length $value if length $value > ( $widths{$col} // 0 );
 			$col++;
