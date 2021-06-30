@@ -75,6 +75,11 @@ $(function () {
 			changeElementDimension(element_id, value);
 		});
 	});
+	$('a#dashboard_toggle').on('click', function(){
+		$.get(ajax_url + "&attribute=default&value=0",function(){
+			window.location=url + "?db=" + instance;	
+		});	
+	});	
 });
 
 function changeElementDimension(id, attribute) {

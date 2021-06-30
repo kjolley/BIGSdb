@@ -240,7 +240,7 @@ sub _update_prefs {
 sub print_panel_buttons {
 	my ($self) = @_;
 	say q(<span class="icon_button"><a class="trigger_button" id="panel_trigger" style="display:none">)
-	  . q(<span class="fas fa-lg fa-wrench"></span><div class="icon_label">Modify display</div></a></span>);
+	  . q(<span class="fas fa-lg fa-wrench"></span><div class="icon_label">Dashboard settings</div></a></span>);
 	  say q(<span class="icon_button"><a class="trigger_button" id="dashboard_toggle">)
 	  . q(<span class="fas fa-lg fa-th-list"></span><div class="icon_label">Index page</div></a></span>);
 	return;
@@ -253,7 +253,7 @@ sub _print_modify_dashboard_fieldset {
 	my $q         = $self->{'cgi'};
 	say q(<div id="modify_panel" class="panel">);
 	say q(<a class="trigger" id="close_trigger" href="#"><span class="fas fa-lg fa-times"></span></a>);
-	say q(<h2>Modify dashboard</h2>);
+	say q(<h2>Dashboard settings</h2>);
 	say q(<ul style="list-style:none;margin-left:-2em">);
 	say q(<li><label for="layout">Layout:</label>);
 	say $q->popup_menu(
@@ -301,14 +301,6 @@ var modal_control_url = "$self->{'system'}->{'script_name'}?db=$self->{'instance
 var elements = $json_elements;
 var order = '$order';
 var instance = "$self->{'instance'}";
-
-\$(document).ready(function()   { 
-	\$('a#dashboard_toggle').on('click', function(){
-		\$.get(ajax_url + "&attribute=default&value=0",function(){
-			location.reload();	
-		});	
-	});	
-}); 
 
 END
 	return $buffer;
