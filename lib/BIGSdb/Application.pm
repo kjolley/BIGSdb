@@ -173,7 +173,6 @@ sub new {
 		}
 	}
 	$self->app_specific_initiation;
-	
 	$self->print_page;
 	$self->_db_disconnect;
 
@@ -384,7 +383,9 @@ sub _rewrite_page {
 	return if ( $self->{'system'}->{'enable_dashboard'} // q() ) eq 'no';
 	my $guid = $self->_get_guid;
 	return if !$guid;
-	my $dashboard_pref = $self->{'prefstore'}->get_general_pref( $guid, $self->{'instance'}, 'dashboard.default' );
+	my $dashboard_pref =
+	  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'dashboard.default' );
+
 	if ( defined $dashboard_pref ) {
 		$self->{'page'} = 'dashboard' if $dashboard_pref;
 	} else {

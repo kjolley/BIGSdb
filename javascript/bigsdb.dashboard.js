@@ -1,7 +1,6 @@
 /**
- * Written by Keith Jolley 
- * Copyright (c) 2021, University of Oxford 
- * E-mail: keith.jolley@zoo.ox.ac.uk
+ * Written by Keith Jolley Copyright (c) 2021, University of Oxford E-mail:
+ * keith.jolley@zoo.ox.ac.uk
  * 
  * This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
  * 
@@ -22,6 +21,7 @@ var grid;
 $(function () {
 	var layout = $("#layout").val();
 	var fill_gaps = $("#fill_gaps").prop('checked');
+	
 	grid = new Muuri('.grid',{
 		dragEnabled: true,
 		layout: {
@@ -53,6 +53,11 @@ $(function () {
 		grid._settings.layout.fillGaps = fill_gaps;
 		grid.layout();
 		$.ajax(ajax_url + "&attribute=fill_gaps&value=" + (fill_gaps ? 1 : 0) );	
+	});
+	$("#edit_elements").change(function(){	
+		var edit_elements = $("#edit_elements").prop('checked');
+		$.ajax(ajax_url + "&attribute=edit_elements&value=" + (edit_elements ? 1 : 0) );
+		$("span.dashboard_control").css("display",edit_elements ? "inline" : "none");
 	});
 	$(".dashboard_control").click(function(){
 		var id=$(this).attr('data-id');
@@ -151,6 +156,7 @@ function resetDefaults(){
 	$.get(reset_url, function() {		
 		$("#layout").val("left-top");
 		$("#fill_gaps").prop("checked",true);
+		$("#edit_elements").prop("checked",false);
 		location.reload();
 	});
 }

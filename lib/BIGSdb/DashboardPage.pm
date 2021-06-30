@@ -167,9 +167,11 @@ sub _print_test_element_content {
 
 sub _print_settings_button {
 	my ( $self, $id ) = @_;
-	say
-	  qq(<span data-id="$id" id="wait_$id" class="dashboard_wait fas fa-sync-alt fa-spin" style="display:none"></span>);
-	say qq(<span data-id="$id" id="control_$id" class="dashboard_control fas fa-sliders-h"></span>);
+	say qq(<span data-id="$id" id="wait_$id" class="dashboard_wait fas fa-sync-alt )
+	  . q(fa-spin" style="display:none"></span>);
+	my $display = $self->{'prefs'}->{'dashboard.edit_elements'} ? 'inline' : 'none';
+	say qq(<span data-id="$id" id="control_$id" class="dashboard_control fas fa-sliders-h" style="display:$display">)
+	  . q(</span>);
 	return;
 }
 
@@ -193,9 +195,9 @@ sub initiate {
 	}
 	my $guid = $self->get_guid;
 	if ( $q->param('resetDefaults') ) {
-		$self->{'prefstore'}->delete_dashboard_settings( $guid, $self->{'instance'} ) if $guid;
+		$self->{'prefstore'}->delete_dashboard_settings( $guid, $self->{'system'}->{'db'} ) if $guid;
 	}
-	$self->{'prefs'} = $self->{'prefstore'}->get_all_general_prefs( $guid, $self->{'instance'} );
+	$self->{'prefs'} = $self->{'prefstore'}->get_all_general_prefs( $guid, $self->{'system'}->{'db'} );
 	return;
 }
 
@@ -206,7 +208,7 @@ sub _update_prefs {
 	return if !defined $attribute;
 	my $value = $q->param('value');
 	return if !defined $value;
-	my %allowed_attributes = map { $_ => 1 } qw(layout fill_gaps order elements default);
+	my %allowed_attributes = map { $_ => 1 } qw(layout fill_gaps edit_elements order elements default);
 	if ( !$allowed_attributes{$attribute} ) {
 		$logger->error("Invalid attribute - $attribute");
 		return;
@@ -216,7 +218,7 @@ sub _update_prefs {
 		my %allowed_values = map { $_ => 1 } ( 'left-top', 'right-top', 'left-bottom', 'right-bottom' );
 		return if !$allowed_values{$value};
 	}
-	my %boolean_attributes = map { $_ => 1 } qw(fill_gaps);
+	my %boolean_attributes = map { $_ => 1 } qw(fill_gaps edit_elements);
 	if ( $boolean_attributes{$attribute} ) {
 		my %allowed_values = map { $_ => 1 } ( 0, 1 );
 		return if !$allowed_values{$value};
@@ -233,7 +235,7 @@ sub _update_prefs {
 		}
 	}
 	my $guid = $self->get_guid;
-	$self->{'prefstore'}->set_general( $guid, $self->{'instance'}, $attribute, $value );
+	$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, $attribute, $value );
 	return;
 }
 
@@ -241,16 +243,17 @@ sub print_panel_buttons {
 	my ($self) = @_;
 	say q(<span class="icon_button"><a class="trigger_button" id="panel_trigger" style="display:none">)
 	  . q(<span class="fas fa-lg fa-wrench"></span><div class="icon_label">Dashboard settings</div></a></span>);
-	  say q(<span class="icon_button"><a class="trigger_button" id="dashboard_toggle">)
+	say q(<span class="icon_button"><a class="trigger_button" id="dashboard_toggle">)
 	  . q(<span class="fas fa-lg fa-th-list"></span><div class="icon_label">Index page</div></a></span>);
 	return;
 }
 
 sub _print_modify_dashboard_fieldset {
 	my ($self) = @_;
-	my $layout    = $self->{'prefs'}->{'dashboard.layout'}    // 'left-top';
-	my $fill_gaps = $self->{'prefs'}->{'dashboard.fill_gaps'} // 1;
-	my $q         = $self->{'cgi'};
+	my $layout        = $self->{'prefs'}->{'dashboard.layout'}        // 'left-top';
+	my $fill_gaps     = $self->{'prefs'}->{'dashboard.fill_gaps'}     // 1;
+	my $edit_elements = $self->{'prefs'}->{'dashboard.edit_elements'} // 0;
+	my $q             = $self->{'cgi'};
 	say q(<div id="modify_panel" class="panel">);
 	say q(<a class="trigger" id="close_trigger" href="#"><span class="fas fa-lg fa-times"></span></a>);
 	say q(<h2>Dashboard settings</h2>);
@@ -274,6 +277,13 @@ sub _print_modify_dashboard_fieldset {
 		-id      => 'fill_gaps',
 		-label   => 'Fill gaps',
 		-checked => $fill_gaps ? 'checked' : undef
+	);
+	say q(</li><li>);
+	say $q->checkbox(
+		-name    => 'edit_elements',
+		-id      => 'edit_elements',
+		-label   => 'Edit elements',
+		-checked => $edit_elements ? 'checked' : undef
 	);
 	say q(</li></ul>);
 	say q(<a onclick="resetDefaults()" class="small_reset">Reset</a> Return to defaults);
