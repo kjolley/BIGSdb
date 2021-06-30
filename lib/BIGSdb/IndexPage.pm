@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -63,7 +63,7 @@ sub print_content {
 	say q(<div>);
 	say qq(<div style="width:95vw;max-width:${title_max_width}px"></div>);
 	say qq(<div id="title_container" style="max-width:${title_max_width}px">);
-	say qq(<h1>$desc database</h1>);
+	say qq(<h1 style="padding-top:0.3em">$desc database</h1>);
 	$self->_print_general_announcement;
 	$self->print_banner;
 
