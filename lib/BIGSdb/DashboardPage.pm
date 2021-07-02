@@ -39,6 +39,10 @@ sub print_content {
 		$self->_ajax_controls( scalar $q->param('control') );
 		return;
 	}
+	if ( $q->param('new') ) {
+		$self->_ajax_new( scalar $q->param('new') );
+		return;
+	}
 	my $desc = $self->get_db_description( { formatted => 1 } );
 	my $max_width = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
 	my $title_max_width = $max_width - 15;
@@ -96,9 +100,32 @@ sub _ajax_controls {
 	return;
 }
 
+sub _ajax_new {
+	my ( $self, $id ) = @_;
+	my $element;
+	if (LAYOUT_TEST) {
+		$element = {
+			id      => $id,
+			order   => $id,
+			name    => "Test element $id",
+			width   => 1,
+			height  => 1,
+			display => 'test',
+		};
+	}
+	say encode_json(
+		{
+			element => $element,
+			html    => $self->_get_element_html($element)
+		}
+	);
+	return;
+}
+
 sub _get_dashboard_empty_message {
 	my ($self) = @_;
-	return q(<div><p>)
+	return
+	    q(<div><p>)
 	  . q(<span class="dashboard_empty_message">Dashboard contains no elements!</span></p>)
 	  . q(<p>Go to dashboard settings to add visualisations.</p></div>);
 }
@@ -112,7 +139,7 @@ sub _print_main_section {
 		return;
 	}
 	foreach my $element ( sort { $elements->{$a}->{'order'} <=> $elements->{$b}->{'order'} } keys %$elements ) {
-		$self->_print_element( $elements->{$element} );
+		say $self->_get_element_html( $elements->{$element} );
 	}
 	say q(</div>);
 	return;
@@ -153,42 +180,44 @@ sub _get_test_elements {
 	return $elements;
 }
 
-sub _print_element {
+sub _get_element_html {
 	my ( $self, $element ) = @_;
-	say qq(<div id="element_$element->{'id'}" data-id="$element->{'id'}" class="item">);
+	my $buffer       = qq(<div id="element_$element->{'id'}" data-id="$element->{'id'}" class="item">);
 	my $width_class  = "dashboard_element_width$element->{'width'}";
 	my $height_class = "dashboard_element_height$element->{'height'}";
-	say qq(<div class="item-content $width_class $height_class">);
-	$self->_print_element_controls( $element->{'id'} );
+	$buffer .= qq(<div class="item-content $width_class $height_class">);
+	$buffer .= $self->_get_element_controls( $element->{'id'} );
 	if ( $element->{'display'} eq 'test' ) {
-		$self->_print_test_element_content($element);
+		$buffer .= $self->_get_test_element_content($element);
 	}
-	say q(</div></div>);
-	return;
+	$buffer .= q(</div></div>);
+	return $buffer;
+	
 }
 
-sub _print_test_element_content {
+sub _get_test_element_content {
 	my ( $self, $element ) = @_;
-	say qq(<p style="font-size:3em;padding-top:0.75em;text-align:center;color:#aaa">$element->{'id'}</p>);
-	say q(<p style="text-align:center;font-size:0.9em;margin-top:-2em">)
+	my $buffer =
+	    qq(<p style="font-size:3em;padding-top:0.75em;text-align:center;color:#aaa">$element->{'id'}</p>)
+	  . q(<p style="text-align:center;font-size:0.9em;margin-top:-2em">)
 	  . qq(W<span id="$element->{'id'}_width">$element->{'width'}</span>; )
 	  . qq(H<span id="$element->{'id'}_height">$element->{'height'}</span></p>);
-	return;
+	return $buffer;
 }
 
-sub _print_element_controls {
+sub _get_element_controls {
 	my ( $self, $id ) = @_;
 	my $display = $self->{'prefs'}->{'dashboard.remove_elements'} ? 'inline' : 'none';
-	say
-qq(<span data-id="$id" id="control_$id" class="dashboard_remove_element far fa-trash-alt" style="display:$display">)
-	  . q(</span>);
-	say qq(<span data-id="$id" id="wait_$id" class="dashboard_wait fas fa-sync-alt )
+	my $buffer =
+	    qq(<span data-id="$id" id="control_$id" )
+	  . qq(class="dashboard_remove_element far fa-trash-alt" style="display:$display"></span>)
+	  . qq(<span data-id="$id" id="wait_$id" class="dashboard_wait fas fa-sync-alt )
 	  . q(fa-spin" style="display:none"></span>);
 	$display = $self->{'prefs'}->{'dashboard.edit_elements'} ? 'inline' : 'none';
-	say
-	  qq(<span data-id="$id" id="control_$id" class="dashboard_edit_element fas fa-sliders-h" style="display:$display">)
-	  . q(</span>);
-	return;
+	$buffer .=
+	    qq(<span data-id="$id" id="control_$id" class="dashboard_edit_element fas fa-sliders-h" )
+	  . qq(style="display:$display"></span>);
+	return $buffer;
 }
 
 sub initiate {
@@ -206,8 +235,11 @@ sub initiate {
 	push @{ $self->{'breadcrumbs'} },
 	  { label => $self->{'system'}->{'formatted_description'} // $self->{'system'}->{'description'} };
 	my $q = $self->{'cgi'};
-	if ( $q->param('updatePrefs') || $q->param('control') || $q->param('resetDefaults') ) {
-		$self->{'type'} = 'no_header';
+	foreach my $ajax_param (qw(updatePrefs control resetDefaults new)) {
+		if ( $q->param($ajax_param) ) {
+			$self->{'type'} = 'no_header';
+			last;
+		}
 	}
 	my $guid = $self->get_guid;
 	if ( $q->param('resetDefaults') ) {
@@ -317,8 +349,13 @@ sub _print_modify_dashboard_fieldset {
 	say q(</li></ul>);
 	say q(</fieldset>);
 	say q(<div style="clear:both"></div>);
+	say q(<fieldset><legend>Visual elements</legend>);
+	say q(<a id="add_element" class="small_submit">Add element</a>);
+	say q(</fieldset>);
+	say q(<div style="clear:both"></div>);
+	say q(<div style="margin-top:2em">);
 	say q(<a onclick="resetDefaults()" class="small_reset">Reset</a> Return to defaults);
-	say q(</div>);
+	say q(</div></div>);
 	return;
 }
 
@@ -334,7 +371,7 @@ sub get_javascript {
 	}
 	my $elements      = $self->_get_elements;
 	my $json_elements = encode_json($elements);
-	my $empty = $self->_get_dashboard_empty_message;
+	my $empty         = $self->_get_dashboard_empty_message;
 	my $buffer        = << "END";
 var url = "$self->{'system'}->{'script_name'}";
 var ajax_url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=dashboard&updatePrefs=1";

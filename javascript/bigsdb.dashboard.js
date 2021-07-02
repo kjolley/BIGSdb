@@ -50,9 +50,9 @@ $(function () {
 	$("#layout").change(function(){
 		layout = $("#layout").val();
 		try {
-		grid._settings.layout.alignRight = layout.includes('right');
-		grid._settings.layout.alignBottom = layout.includes('bottom');		
-		grid.layout();
+			grid._settings.layout.alignRight = layout.includes('right');
+			grid._settings.layout.alignBottom = layout.includes('bottom');		
+			grid.layout();
 		} catch(err){
 			// Grid is empty.
 		}
@@ -78,25 +78,19 @@ $(function () {
 		$.ajax(ajax_url + "&attribute=remove_elements&value=" + (remove_elements ? 1 : 0) );
 		$("span.dashboard_remove_element").css("display",remove_elements ? "inline" : "none");
 	});
+	$("#add_element").click(function(){	
+		var nextId = getNextid();
+		console.log(nextId);
+		addElement(grid,nextId);
+	});
+	
 	$(".dashboard_edit_element").click(function(){
 		var id=$(this).attr('data-id');
-		$("span#control_" + id).hide();
-		$("span#wait_" + id).show();
-		$.get(modal_control_url + "&control=" + id, function(html) {
-			$(html).appendTo('body').modal();
-			$("span#control_" + id).show();
-			$("span#wait_" + id).hide();
-		});
+		editElement(grid,id);
 	});
 	$(".dashboard_remove_element").click(function(){
 		var id=$(this).attr('data-id');
-		var item = grid.getItem($("div#element_" + id)[0]);
-		grid.remove([item],{ removeElements: true });
-		delete elements[id];
-		saveElements(grid);
-		if (Object.keys(elements).length == 0){	
-			$("div#dashboard").html(empty);
-		}
+		removeElement(grid,id);
 	});
 
 	var dimension = ['width','height'];
@@ -113,6 +107,40 @@ $(function () {
 		});	
 	});	
 });
+
+function getNextid(){
+	 var max = Math.max(...Object.keys(elements));
+	 return max+1;
+}
+
+function addElement(grid,id){
+	$.get(url + "?db=" + instance + "&page=dashboard&new=" + id,function(json){
+		var div = document.createRange().createContextualFragment(JSON.parse(json).html);
+		grid.add([div.firstChild]);
+		elements[id] = JSON.parse(json).element;
+		saveElements(grid);
+	});	
+}
+
+function editElement(grid,id){
+	$("span#control_" + id).hide();
+	$("span#wait_" + id).show();
+	$.get(modal_control_url + "&control=" + id, function(html) {
+		$(html).appendTo('body').modal();
+		$("span#control_" + id).show();
+		$("span#wait_" + id).hide();
+	});
+}
+
+function removeElement(grid,id){
+	var item = grid.getItem($("div#element_" + id)[0]);
+	grid.remove([item],{ removeElements: true });
+	delete elements[id];
+	saveElements(grid);
+	if (Object.keys(elements).length == 0){	
+		$("div#dashboard").html(empty);
+	}
+}
 
 function changeElementDimension(grid, id, attribute) {
 	var item_content = $("div.item[data-id='" + id + "'] > div.item-content");
