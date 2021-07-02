@@ -17,12 +17,12 @@
  * BIGSdb. If not, see <http://www.gnu.org/licenses/>.
  */
 
-var grid;
+
 $(function () {
 	var layout = $("#layout").val();
 	var fill_gaps = $("#fill_gaps").prop('checked');
 	
-	grid = new Muuri('.grid',{
+	var grid = new Muuri('.grid',{
 		dragEnabled: true,
 		layout: {
 			alignRight : layout.includes('right'),
@@ -30,7 +30,7 @@ $(function () {
 			fillGaps: fill_gaps
 		}		
 	}).on('move', function () {
-    	saveLayout(grid)
+    	saveLayout(grid);
 	});
 	if (order){
 		loadLayout(grid, order);
@@ -57,19 +57,29 @@ $(function () {
 	$("#edit_elements").change(function(){	
 		var edit_elements = $("#edit_elements").prop('checked');
 		$.ajax(ajax_url + "&attribute=edit_elements&value=" + (edit_elements ? 1 : 0) );
-		$("span.dashboard_control").css("display",edit_elements ? "inline" : "none");
+		$("span.dashboard_edit_element").css("display",edit_elements ? "inline" : "none");
 	});
-	$(".dashboard_control").click(function(){
+	$("#remove_elements").change(function(){	
+		var remove_elements = $("#remove_elements").prop('checked');
+		$.ajax(ajax_url + "&attribute=remove_elements&value=" + (remove_elements ? 1 : 0) );
+		$("span.dashboard_remove_element").css("display",remove_elements ? "inline" : "none");
+	});
+	$(".dashboard_edit_element").click(function(){
 		var id=$(this).attr('data-id');
 		$("span#control_" + id).hide();
 		$("span#wait_" + id).show();
-		event.preventDefault();
-		this.blur(); // Manually remove focus from clicked link.
 		$.get(modal_control_url + "&control=" + id, function(html) {
 			$(html).appendTo('body').modal();
 			$("span#control_" + id).show();
 			$("span#wait_" + id).hide();
 		});
+	});
+	$(".dashboard_remove_element").click(function(){
+		var id=$(this).attr('data-id');
+		var item = grid.getItem($("div#element_" + id)[0]);
+		grid.remove([item],{ removeElements: true });
+		delete elements[id];
+		saveElements(grid);
 	});
 
 	var dimension = ['width','height'];
@@ -77,7 +87,7 @@ $(function () {
 		$(document).on("change", '.' + value + '_select', function(event) { 
 			var id = $(this).attr('id');
 			var element_id = id.replace("_" + value,"");
-			changeElementDimension(element_id, value);
+			changeElementDimension(grid, element_id, value);
 		});
 	});
 	$('a#dashboard_toggle').on('click', function(){
@@ -87,7 +97,7 @@ $(function () {
 	});	
 });
 
-function changeElementDimension(id, attribute) {
+function changeElementDimension(grid, id, attribute) {
 	var item_content = $("div.item[data-id='" + id + "'] > div.item-content");
 	var classes = item_content.attr('class');
 	var class_list = classes.split(/\s+/);
@@ -109,6 +119,17 @@ function changeElementDimension(id, attribute) {
     	value:JSON.stringify(elements)
     });
 	grid.refreshItems().layout();
+}
+
+function saveElements(grid){
+	$.post(ajax_url,{
+    	db:instance,
+    	page:"dashboard",
+    	updatePrefs:1,
+    	attribute:"elements",
+    	value:JSON.stringify(elements)
+    });
+	saveLayout(grid);
 }
 
 function serializeLayout(grid) {
@@ -157,6 +178,7 @@ function resetDefaults(){
 		$("#layout").val("left-top");
 		$("#fill_gaps").prop("checked",true);
 		$("#edit_elements").prop("checked",false);
+		$("#remove_elements").prop("checked",false);
 		location.reload();
 	});
 }

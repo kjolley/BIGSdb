@@ -144,11 +144,11 @@ sub _get_test_elements {
 
 sub _print_element {
 	my ( $self, $element ) = @_;
-	say qq(<div data-id="$element->{'id'}" class="item">);
+	say qq(<div id="element_$element->{'id'}" data-id="$element->{'id'}" class="item">);
 	my $width_class  = "dashboard_element_width$element->{'width'}";
 	my $height_class = "dashboard_element_height$element->{'height'}";
 	say qq(<div class="item-content $width_class $height_class">);
-	$self->_print_settings_button( $element->{'id'} );
+	$self->_print_element_controls( $element->{'id'} );
 	if ( $element->{'display'} eq 'test' ) {
 		$self->_print_test_element_content($element);
 	}
@@ -165,12 +165,15 @@ sub _print_test_element_content {
 	return;
 }
 
-sub _print_settings_button {
+sub _print_element_controls {
 	my ( $self, $id ) = @_;
+	my $display = $self->{'prefs'}->{'dashboard.remove_elements'} ? 'inline' : 'none';
+	say qq(<span data-id="$id" id="control_$id" class="dashboard_remove_element far fa-trash-alt" style="display:$display">)
+	  . q(</span>);
 	say qq(<span data-id="$id" id="wait_$id" class="dashboard_wait fas fa-sync-alt )
 	  . q(fa-spin" style="display:none"></span>);
-	my $display = $self->{'prefs'}->{'dashboard.edit_elements'} ? 'inline' : 'none';
-	say qq(<span data-id="$id" id="control_$id" class="dashboard_control fas fa-sliders-h" style="display:$display">)
+	$display = $self->{'prefs'}->{'dashboard.edit_elements'} ? 'inline' : 'none';
+	say qq(<span data-id="$id" id="control_$id" class="dashboard_edit_element fas fa-sliders-h" style="display:$display">)
 	  . q(</span>);
 	return;
 }
@@ -208,7 +211,8 @@ sub _update_prefs {
 	return if !defined $attribute;
 	my $value = $q->param('value');
 	return if !defined $value;
-	my %allowed_attributes = map { $_ => 1 } qw(layout fill_gaps edit_elements order elements default);
+	my %allowed_attributes =
+	  map { $_ => 1 } qw(layout fill_gaps edit_elements remove_elements order elements default);
 	if ( !$allowed_attributes{$attribute} ) {
 		$logger->error("Invalid attribute - $attribute");
 		return;
@@ -218,7 +222,7 @@ sub _update_prefs {
 		my %allowed_values = map { $_ => 1 } ( 'left-top', 'right-top', 'left-bottom', 'right-bottom' );
 		return if !$allowed_values{$value};
 	}
-	my %boolean_attributes = map { $_ => 1 } qw(fill_gaps edit_elements);
+	my %boolean_attributes = map { $_ => 1 } qw(fill_gaps edit_elements remove_elements);
 	if ( $boolean_attributes{$attribute} ) {
 		my %allowed_values = map { $_ => 1 } ( 0, 1 );
 		return if !$allowed_values{$value};
@@ -250,15 +254,17 @@ sub print_panel_buttons {
 
 sub _print_modify_dashboard_fieldset {
 	my ($self) = @_;
-	my $layout        = $self->{'prefs'}->{'dashboard.layout'}        // 'left-top';
-	my $fill_gaps     = $self->{'prefs'}->{'dashboard.fill_gaps'}     // 1;
-	my $edit_elements = $self->{'prefs'}->{'dashboard.edit_elements'} // 0;
-	my $q             = $self->{'cgi'};
+	my $layout          = $self->{'prefs'}->{'dashboard.layout'}          // 'left-top';
+	my $fill_gaps       = $self->{'prefs'}->{'dashboard.fill_gaps'}       // 1;
+	my $edit_elements   = $self->{'prefs'}->{'dashboard.edit_elements'}   // 0;
+	my $remove_elements = $self->{'prefs'}->{'dashboard.remove_elements'} // 0;
+	my $q               = $self->{'cgi'};
 	say q(<div id="modify_panel" class="panel">);
 	say q(<a class="trigger" id="close_trigger" href="#"><span class="fas fa-lg fa-times"></span></a>);
 	say q(<h2>Dashboard settings</h2>);
-	say q(<ul style="list-style:none;margin-left:-2em">);
-	say q(<li><label for="layout">Layout:</label>);
+	say q(<fieldset><legend>Layout</legend>);
+	say q(<ul>);
+	say q(<li><label for="layout">Orientation:</label>);
 	say $q->popup_menu(
 		-name   => 'layout',
 		-id     => 'layout',
@@ -278,14 +284,26 @@ sub _print_modify_dashboard_fieldset {
 		-label   => 'Fill gaps',
 		-checked => $fill_gaps ? 'checked' : undef
 	);
-	say q(</li><li>);
+	say q(</li></ul>);
+	say q(</fieldset>);
+	say q(<fieldset><legend>Visual elements</legend>);
+	say q(<ul><li>);
 	say $q->checkbox(
 		-name    => 'edit_elements',
 		-id      => 'edit_elements',
-		-label   => 'Edit elements',
+		-label   => 'Enable options',
 		-checked => $edit_elements ? 'checked' : undef
 	);
+	say q(</li><li>);
+	say $q->checkbox(
+		-name    => 'remove_elements',
+		-id      => 'remove_elements',
+		-label   => 'Enable removal',
+		-checked => $remove_elements ? 'checked' : undef
+	);
 	say q(</li></ul>);
+	say q(</fieldset>);
+	say q(<div style="clear:both"></div>);
 	say q(<a onclick="resetDefaults()" class="small_reset">Reset</a> Return to defaults);
 	say q(</div>);
 	return;

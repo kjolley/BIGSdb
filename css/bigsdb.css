@@ -1389,24 +1389,21 @@ div.dashboard_element_height3 {
 	height: 458px;
 }
 
-span.dashboard_control, span.dashboard_wait{
+span.dashboard_edit_element, span.dashboard_remove_element, span.dashboard_wait{
 	display:inline-block;
-	position:absolute;
-	right:2px;
+	position:absolute;	
 	top:2px;
 	color:#aaa;
 	cursor:pointer;
 	z-index:1;
 }
 
-div.dashboard_waiting {
-	position:absolute;
-	top:1em;
-	display:none;
-	font-size:10em;
-	text-align:center;
-	width:100%;
-	z-index:2;
+span.dashboard_edit_element,span.dashboard_wait{
+	right:2px;
+}
+
+span.dashboard_remove_element {
+	left:2px
 }
 
 .grid_item.ui-draggable-dragging, .grid_item.is-positioning-post-drag {
