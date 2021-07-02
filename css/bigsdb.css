@@ -2169,7 +2169,7 @@ div.menu_item:hover span.private_data_indicator {
 	color: #040
 }
 
-span.wait_message {
+span.wait_message, span.dashboard_empty_message {
 	color: #66a;
 	line-height: 1.2em;
 	font-size: 3em;

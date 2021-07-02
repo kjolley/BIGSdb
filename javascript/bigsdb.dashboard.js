@@ -21,8 +21,10 @@
 $(function () {
 	var layout = $("#layout").val();
 	var fill_gaps = $("#fill_gaps").prop('checked');
+	var grid;
+	try {
+		grid = new Muuri('.grid',{
 	
-	var grid = new Muuri('.grid',{
 		dragEnabled: true,
 		layout: {
 			alignRight : layout.includes('right'),
@@ -32,9 +34,13 @@ $(function () {
 	}).on('move', function () {
     	saveLayout(grid);
 	});
-	if (order){
-		loadLayout(grid, order);
+		if (order){
+			loadLayout(grid, order);
+		}
+	} catch(err) {
+		console.log(err.message);
 	}
+	
 	$("#panel_trigger,#close_trigger").click(function(){		
 		$("#modify_panel").toggle("slide",{direction:"right"},"fast");
 		$("#panel_trigger").show();		
@@ -43,15 +49,23 @@ $(function () {
 	$("#panel_trigger").show();
 	$("#layout").change(function(){
 		layout = $("#layout").val();
+		try {
 		grid._settings.layout.alignRight = layout.includes('right');
-		grid._settings.layout.alignBottom = layout.includes('bottom');
+		grid._settings.layout.alignBottom = layout.includes('bottom');		
 		grid.layout();
+		} catch(err){
+			// Grid is empty.
+		}
 		$.ajax(ajax_url + "&attribute=layout&value=" + layout );	
 	});
 	$("#fill_gaps").change(function(){
 		fill_gaps = $("#fill_gaps").prop('checked');
-		grid._settings.layout.fillGaps = fill_gaps;
-		grid.layout();
+		try {
+			grid._settings.layout.fillGaps = fill_gaps;		
+			grid.layout();		
+		} catch(err){
+			// Grid is empty.
+		}
 		$.ajax(ajax_url + "&attribute=fill_gaps&value=" + (fill_gaps ? 1 : 0) );	
 	});
 	$("#edit_elements").change(function(){	
@@ -80,6 +94,9 @@ $(function () {
 		grid.remove([item],{ removeElements: true });
 		delete elements[id];
 		saveElements(grid);
+		if (Object.keys(elements).length == 0){	
+			$("div#dashboard").html(empty);
+		}
 	});
 
 	var dimension = ['width','height'];

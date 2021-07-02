@@ -96,10 +96,21 @@ sub _ajax_controls {
 	return;
 }
 
+sub _get_dashboard_empty_message {
+	my ($self) = @_;
+	return q(<div><p>)
+	  . q(<span class="dashboard_empty_message">Dashboard contains no elements!</span></p>)
+	  . q(<p>Go to dashboard settings to add visualisations.</p></div>);
+}
+
 sub _print_main_section {
 	my ($self) = @_;
-	say q(<div id="dashboard" class="grid">);
+	say q(<div id="dashboard" class="grid" style="min-height:400px">);
 	my $elements = $self->_get_elements;
+	if ( !keys %$elements ) {
+		say $self->_get_dashboard_empty_message;
+		return;
+	}
 	foreach my $element ( sort { $elements->{$a}->{'order'} <=> $elements->{$b}->{'order'} } keys %$elements ) {
 		$self->_print_element( $elements->{$element} );
 	}
@@ -109,13 +120,13 @@ sub _print_main_section {
 
 sub _get_elements {
 	my ($self) = @_;
-	if ( $self->{'prefs'}->{'dashboard.elements'} ) {
+	if ( defined $self->{'prefs'}->{'dashboard.elements'} ) {
 		my $elements = {};
 		eval { $elements = decode_json( $self->{'prefs'}->{'dashboard.elements'} ); };
 		if (@$) {
 			$logger->error('Invalid JSON in dashboard.elements.');
 		}
-		return $elements if keys %$elements;
+		return $elements;
 	}
 	if (LAYOUT_TEST) {
 		return $self->_get_test_elements;
@@ -168,12 +179,14 @@ sub _print_test_element_content {
 sub _print_element_controls {
 	my ( $self, $id ) = @_;
 	my $display = $self->{'prefs'}->{'dashboard.remove_elements'} ? 'inline' : 'none';
-	say qq(<span data-id="$id" id="control_$id" class="dashboard_remove_element far fa-trash-alt" style="display:$display">)
+	say
+qq(<span data-id="$id" id="control_$id" class="dashboard_remove_element far fa-trash-alt" style="display:$display">)
 	  . q(</span>);
 	say qq(<span data-id="$id" id="wait_$id" class="dashboard_wait fas fa-sync-alt )
 	  . q(fa-spin" style="display:none"></span>);
 	$display = $self->{'prefs'}->{'dashboard.edit_elements'} ? 'inline' : 'none';
-	say qq(<span data-id="$id" id="control_$id" class="dashboard_edit_element fas fa-sliders-h" style="display:$display">)
+	say
+	  qq(<span data-id="$id" id="control_$id" class="dashboard_edit_element fas fa-sliders-h" style="display:$display">)
 	  . q(</span>);
 	return;
 }
@@ -321,6 +334,7 @@ sub get_javascript {
 	}
 	my $elements      = $self->_get_elements;
 	my $json_elements = encode_json($elements);
+	my $empty = $self->_get_dashboard_empty_message;
 	my $buffer        = << "END";
 var url = "$self->{'system'}->{'script_name'}";
 var ajax_url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=dashboard&updatePrefs=1";
@@ -329,6 +343,7 @@ var modal_control_url = "$self->{'system'}->{'script_name'}?db=$self->{'instance
 var elements = $json_elements;
 var order = '$order';
 var instance = "$self->{'instance'}";
+var empty='$empty';
 
 END
 	return $buffer;
