@@ -84,11 +84,11 @@ $(function () {
 		addElement(grid,nextId);
 	});
 	
-	$(".dashboard_edit_element").click(function(){
+	$("div#dashboard").on("click",".dashboard_edit_element",function(){
 		var id=$(this).attr('data-id');
 		editElement(grid,id);
 	});
-	$(".dashboard_remove_element").click(function(){
+	$("div#dashboard").on("click",".dashboard_remove_element",function(){
 		var id=$(this).attr('data-id');
 		removeElement(grid,id);
 	});
@@ -109,11 +109,17 @@ $(function () {
 });
 
 function getNextid(){
-	 var max = Math.max(...Object.keys(elements));
-	 return max+1;
+	if (Object.keys(elements).length === 0){
+		return 1;
+	}
+	var max = Math.max(...Object.keys(elements)); 
+	return max+1;
 }
 
 function addElement(grid,id){
+	if (Object.keys(elements).length === 0){
+		$("div#dashboard").html(""); 
+	}
 	$.get(url + "?db=" + instance + "&page=dashboard&new=" + id,function(json){
 		var div = document.createRange().createContextualFragment(JSON.parse(json).html);
 		grid.add([div.firstChild]);
