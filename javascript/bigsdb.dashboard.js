@@ -47,6 +47,17 @@ $(function () {
 		return false;
 	});
 	$("#panel_trigger").show();
+	$(document).mouseup(function(e) 
+			{
+			    var container = $("#modify_panel");
+
+			    // if the target of the click isn't the container nor a
+				// descendant of the container
+			    if (!container.is(e.target) && container.has(e.target).length === 0) 
+			    {
+			        container.hide();
+			    }
+			});
 	$("#layout").change(function(){
 		layout = $("#layout").val();
 		try {
@@ -80,7 +91,6 @@ $(function () {
 	});
 	$("#add_element").click(function(){	
 		var nextId = getNextid();
-		console.log(nextId);
 		addElement(grid,nextId);
 	});
 	
@@ -92,6 +102,7 @@ $(function () {
 		var id=$(this).attr('data-id');
 		removeElement(grid,id);
 	});
+
 
 	var dimension = ['width','height'];
 	dimension.forEach((value) => {
@@ -122,9 +133,13 @@ function addElement(grid,id){
 	}
 	$.get(url + "?db=" + instance + "&page=dashboard&new=" + id,function(json){
 		var div = document.createRange().createContextualFragment(JSON.parse(json).html);
-		grid.add([div.firstChild]);
-		elements[id] = JSON.parse(json).element;
-		saveElements(grid);
+		// Element may already exist if add button was clicked multiple times
+		// before AJAX response was received.
+		if (!(id in elements)){
+			grid.add([div.firstChild]);
+			elements[id] = JSON.parse(json).element;
+			saveElements(grid);
+		}
 	});	
 }
 
