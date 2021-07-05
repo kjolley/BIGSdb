@@ -24,16 +24,15 @@ $(function () {
 	var grid;
 	try {
 		grid = new Muuri('.grid',{
-	
-		dragEnabled: true,
-		layout: {
-			alignRight : layout.includes('right'),
-			alignBottom : layout.includes('bottom'),
-			fillGaps: fill_gaps
-		}		
-	}).on('move', function () {
-    	saveLayout(grid);
-	});
+			dragEnabled: true,
+			layout: {
+				alignRight : layout.includes('right'),
+				alignBottom : layout.includes('bottom'),
+				fillGaps: fill_gaps
+			}		
+		}).on('move', function () {
+	    	saveLayout(grid);
+		});
 		if (order){
 			loadLayout(grid, order);
 		}
@@ -67,7 +66,7 @@ $(function () {
 		} catch(err){
 			// Grid is empty.
 		}
-		$.ajax(ajax_url + "&attribute=layout&value=" + layout );	
+		$.ajax(url + "&page=dashboard&updatePrefs=1&attribute=layout&value=" + layout );	
 	});
 	$("#fill_gaps").change(function(){
 		fill_gaps = $("#fill_gaps").prop('checked');
@@ -77,16 +76,16 @@ $(function () {
 		} catch(err){
 			// Grid is empty.
 		}
-		$.ajax(ajax_url + "&attribute=fill_gaps&value=" + (fill_gaps ? 1 : 0) );	
+		$.ajax(url + "&page=dashboard&updatePrefs=1&attribute=fill_gaps&value=" + (fill_gaps ? 1 : 0) );	
 	});
 	$("#edit_elements").change(function(){	
 		var edit_elements = $("#edit_elements").prop('checked');
-		$.ajax(ajax_url + "&attribute=edit_elements&value=" + (edit_elements ? 1 : 0) );
+		$.ajax(url + "&page=dashboard&updatePrefs=1&attribute=edit_elements&value=" + (edit_elements ? 1 : 0) );
 		$("span.dashboard_edit_element").css("display",edit_elements ? "inline" : "none");
 	});
 	$("#remove_elements").change(function(){	
 		var remove_elements = $("#remove_elements").prop('checked');
-		$.ajax(ajax_url + "&attribute=remove_elements&value=" + (remove_elements ? 1 : 0) );
+		$.ajax(url + "&page=dashboard&updatePrefs=1&attribute=remove_elements&value=" + (remove_elements ? 1 : 0) );
 		$("span.dashboard_remove_element").css("display",remove_elements ? "inline" : "none");
 	});
 	$("#add_element").click(function(){	
@@ -102,7 +101,10 @@ $(function () {
 		var id=$(this).attr('data-id');
 		removeElement(grid,id);
 	});
-
+	$("div#dashboard").on("click",".setup_element",function(){
+		var id=$(this).attr('data-id');
+		setupElement(grid,id);
+	});
 
 	var dimension = ['width','height'];
 	dimension.forEach((value) => {
@@ -113,8 +115,8 @@ $(function () {
 		});
 	});
 	$('a#dashboard_toggle').on('click', function(){
-		$.get(ajax_url + "&attribute=default&value=0",function(){
-			window.location=url + "?db=" + instance;	
+		$.get(url + "&page=dashboard&updatePrefs=1&attribute=default&value=0",function(){
+			window.location=url;	
 		});	
 	});	
 });
@@ -129,16 +131,26 @@ function getNextid(){
 
 function addElement(grid,id){
 	if (Object.keys(elements).length === 0){
-		$("div#dashboard").html(""); 
+		$("div#empty").html(""); 
 	}
-	$.get(url + "?db=" + instance + "&page=dashboard&new=" + id,function(json){
-		var div = document.createRange().createContextualFragment(JSON.parse(json).html);
-		// Element may already exist if add button was clicked multiple times
-		// before AJAX response was received.
-		if (!(id in elements)){
-			grid.add([div.firstChild]);
-			elements[id] = JSON.parse(json).element;
-			saveElements(grid);
+	var add_url = url + "&page=dashboard&new=" + id;
+	var field = $("#add_field").val();
+	if (field){
+		add_url += "&field=" + field;
+	}
+	
+	$.get(add_url,function(json){
+		try {
+			var div = document.createRange().createContextualFragment(JSON.parse(json).html);
+			// Element may already exist if add button was clicked multiple
+			// times before AJAX response was received.
+			if (!(id in elements)){
+				grid.add([div.firstChild]);
+				elements[id] = JSON.parse(json).element;
+				saveElements(grid);
+			}
+		} catch (err){
+			console.log(err.message);
 		}
 	});	
 }
@@ -146,10 +158,21 @@ function addElement(grid,id){
 function editElement(grid,id){
 	$("span#control_" + id).hide();
 	$("span#wait_" + id).show();
-	$.get(modal_control_url + "&control=" + id, function(html) {
+	$.get(url + "&page=dashboard&control=" + id, function(html) {
 		$(html).appendTo('body').modal();
 		$("span#control_" + id).show();
 		$("span#wait_" + id).hide();
+	});
+}
+
+function reloadElement(grid,id){
+	$.get(url + "&page=dashboard&element=" + id,function(json){
+		try {
+			$("div#element_" + id + "> .item-content").html(JSON.parse(json).html);
+			elements[id] = JSON.parse(json).element;
+		} catch (err){
+			console.log(err.message);
+		}
 	});
 }
 
@@ -159,8 +182,14 @@ function removeElement(grid,id){
 	delete elements[id];
 	saveElements(grid);
 	if (Object.keys(elements).length == 0){	
-		$("div#dashboard").html(empty);
+		$("div#empty").html(empty);
 	}
+}
+
+function setupElement(grid,id){
+	$.get(url + "&page=dashboard&setup=" + id, function(html) {
+		$(html).appendTo('body').modal();
+	});
 }
 
 function changeElementDimension(grid, id, attribute) {
@@ -177,7 +206,7 @@ function changeElementDimension(grid, id, attribute) {
 	item_content.addClass("dashboard_element_" + attribute + new_dimension);
 	$("span#" + id + "_" + attribute).html(new_dimension);
 	elements[id][attribute] = Number(new_dimension);
-	$.post(ajax_url,{
+	$.post(url,{
     	db:instance,
     	page:"dashboard",
     	updatePrefs:1,
@@ -188,7 +217,7 @@ function changeElementDimension(grid, id, attribute) {
 }
 
 function saveElements(grid){
-	$.post(ajax_url,{
+	$.post(url,{
     	db:instance,
     	page:"dashboard",
     	updatePrefs:1,
@@ -229,7 +258,7 @@ function loadLayout(grid, serializedLayout) {
 
 function saveLayout(grid) {
     var layout = serializeLayout(grid);
-    $.post(url,{
+     $.post(url,{
     	db:instance,
     	page:"dashboard",
     	updatePrefs:1,
@@ -240,7 +269,7 @@ function saveLayout(grid) {
 
 function resetDefaults(){
 	$("#modify_panel").toggle("slide",{direction:"right"},"fast");
-	$.get(reset_url, function() {		
+	$.get(url + "&resetDefaults=1", function() {		
 		$("#layout").val("left-top");
 		$("#fill_gaps").prop("checked",true);
 		$("#edit_elements").prop("checked",false);

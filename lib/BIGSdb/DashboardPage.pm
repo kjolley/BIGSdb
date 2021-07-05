@@ -24,9 +24,10 @@ use parent qw(BIGSdb::IndexPage);
 use BIGSdb::Constants qw(:design :interface);
 use Try::Tiny;
 use JSON;
+use Data::Dumper;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
-use constant LAYOUT_TEST => 1;    #TODO Remove
+use constant LAYOUT_TEST => 0;    #TODO Remove
 
 sub print_content {
 	my ($self) = @_;
@@ -39,8 +40,16 @@ sub print_content {
 		$self->_ajax_controls( scalar $q->param('control') );
 		return;
 	}
+	if ( $q->param('setup') ) {
+		$self->_ajax_controls( scalar $q->param('setup'), { setup => 1 } );
+		return;
+	}
 	if ( $q->param('new') ) {
 		$self->_ajax_new( scalar $q->param('new') );
+		return;
+	}
+	if ( $q->param('element') ) {
+		$self->_ajax_get( scalar $q->param('element') );
 		return;
 	}
 	my $desc = $self->get_db_description( { formatted => 1 } );
@@ -70,13 +79,20 @@ sub print_content {
 }
 
 sub _ajax_controls {
-	my ( $self, $id ) = @_;
+	my ( $self, $id, $options ) = @_;
 	my $elements = $self->_get_elements;
-	use Data::Dumper;
-	$logger->error( Dumper $elements->{$id} );
-	my $q = $self->{'cgi'};
+	my $q        = $self->{'cgi'};
 	say q(<div class="modal">);
-	say qq(<h2>$elements->{$id}->{'name'} options</h2>);
+	say $options->{'setup'} ? q(<h2>Setup visual element</h2>) : q(<h2>Modify visual element</h2>);
+	say qq(<p>Field: $elements->{$id}->{'name'}</p>);
+	$self->_get_size_controls( $id, $elements->{$id} );
+	say q(</div>);
+	return;
+}
+
+sub _get_size_controls {
+	my ( $self, $id, $element ) = @_;
+	my $q = $self->{'cgi'};
 	say q(<fieldset><legend>Size</legend>);
 	say q(<ul><li><span class="fas fa-arrows-alt-h fa-fw"></span> );
 	say $q->radio_group(
@@ -84,7 +100,7 @@ sub _ajax_controls {
 		-id      => "${id}_width",
 		-class   => 'width_select',
 		-values  => [ 1, 2, 3, 4 ],
-		-default => $elements->{$id}->{'width'}
+		-default => $element->{'width'}
 	);
 	say q(</li><li><span class="fas fa-arrows-alt-v fa-fw"></span> );
 	say $q->radio_group(
@@ -92,26 +108,41 @@ sub _ajax_controls {
 		-id      => "${id}_height",
 		-class   => 'height_select',
 		-values  => [ 1, 2, 3 ],
-		-default => $elements->{$id}->{'height'}
+		-default => $element->{'height'}
 	);
 	say q(</li></ul>);
 	say q(</fieldset>);
-	say q(</div>);
 	return;
 }
 
 sub _ajax_new {
 	my ( $self, $id ) = @_;
-	my $element;
+	my $element = {
+		id     => $id,
+		order  => $id,
+		width  => 1,
+		height => 1,
+	};
 	if (LAYOUT_TEST) {
-		$element = {
-			id      => $id,
-			order   => $id,
-			name    => "Test element $id",
-			width   => 1,
-			height  => 1,
-			display => 'test',
+		$element->{'name'}    = "Test element $id";
+		$element->{'display'} = 'test';
+	} else {
+		my $default_elements = {
+			sp_count => {
+				name    =>ucfirst("$self->{'system'}->{'labelfield'} count"),
+				display => 'record_count'
+			}
 		};
+		my $q     = $self->{'cgi'};
+		my $field = $q->param('field');
+		if ( $default_elements->{$field} ) {
+			$element = { %$element, %{ $default_elements->{$field} } };
+		} else {
+			( my $display_field = $field ) =~ s/^[f]_//x;
+			$element->{'name'}    = $display_field;
+			$element->{'field'}   = $field;
+			$element->{'display'} = 'setup';
+		}
 	}
 	say encode_json(
 		{
@@ -122,33 +153,52 @@ sub _ajax_new {
 	return;
 }
 
+sub _ajax_get {
+	my ( $self, $id ) = @_;
+	my $elements = $self->_get_elements;
+	if ( $elements->{$id} ) {
+		say encode_json(
+			{
+				element => $elements->{$id},
+				html    => $self->_get_element_content( $elements->{$id} )
+			}
+		);
+		return;
+	}
+	say encode_json(
+		{
+			html => '<p>Invalid element!</p>'
+		}
+	);
+	return;
+}
+
 sub _get_dashboard_empty_message {
 	my ($self) = @_;
-	return
-	    q(<div><p>)
-	  . q(<span class="dashboard_empty_message">Dashboard contains no elements!</span></p>)
-	  . q(<p>Go to dashboard settings to add visualisations.</p></div>);
+	return q(<p><span class="dashboard_empty_message">Dashboard contains no elements!</span></p>)
+	  . q(<p>Go to dashboard settings to add visualisations.</p>);
 }
 
 sub _print_main_section {
 	my ($self) = @_;
-	say q(<div id="dashboard" class="grid" style="min-height:400px">);
 	my $elements = $self->_get_elements;
+	say q(<div style="min-height:400px"><div id="empty">);
 	if ( !keys %$elements ) {
 		say $self->_get_dashboard_empty_message;
-		return;
 	}
+	say q(</div>);
+	say q(<div id="dashboard" class="grid">);
 	foreach my $element ( sort { $elements->{$a}->{'order'} <=> $elements->{$b}->{'order'} } keys %$elements ) {
 		say $self->_get_element_html( $elements->{$element} );
 	}
-	say q(</div>);
+	say q(</div></div>);
 	return;
 }
 
 sub _get_elements {
 	my ($self) = @_;
+	my $elements = {};
 	if ( defined $self->{'prefs'}->{'dashboard.elements'} ) {
-		my $elements = {};
 		eval { $elements = decode_json( $self->{'prefs'}->{'dashboard.elements'} ); };
 		if (@$) {
 			$logger->error('Invalid JSON in dashboard.elements.');
@@ -158,6 +208,7 @@ sub _get_elements {
 	if (LAYOUT_TEST) {
 		return $self->_get_test_elements;
 	}
+	return $elements;
 }
 
 sub _get_test_elements {
@@ -187,21 +238,50 @@ sub _get_element_html {
 	my $height_class = "dashboard_element_height$element->{'height'}";
 	$buffer .= qq(<div class="item-content $width_class $height_class">);
 	$buffer .= $self->_get_element_controls( $element->{'id'} );
-	if ( $element->{'display'} eq 'test' ) {
-		$buffer .= $self->_get_test_element_content($element);
-	}
+	$buffer .= $self->_get_element_content($element);
 	$buffer .= q(</div></div>);
 	return $buffer;
-	
+}
+
+sub _get_element_content {
+	my ( $self, $element ) = @_;
+	my %display = (
+		test         => sub { $self->_get_test_element_content($element) },
+		setup        => sub { $self->_get_setup_element_content($element) },
+		record_count => sub { $self->_get_record_count_element_content($element) }
+	);
+	if ( $display{ $element->{'display'} } ) {
+		return $display{ $element->{'display'} }->();
+	}
+	return q();
 }
 
 sub _get_test_element_content {
 	my ( $self, $element ) = @_;
 	my $buffer =
-	    qq(<p style="font-size:3em;padding-top:0.75em;text-align:center;color:#aaa">$element->{'id'}</p>)
+	    qq(<p style="font-size:3em;padding-top:0.75em;color:#aaa">$element->{'id'}</p>)
 	  . q(<p style="text-align:center;font-size:0.9em;margin-top:-2em">)
 	  . qq(W<span id="$element->{'id'}_width">$element->{'width'}</span>; )
 	  . qq(H<span id="$element->{'id'}_height">$element->{'height'}</span></p>);
+	return $buffer;
+}
+
+sub _get_setup_element_content {
+	my ( $self, $element ) = @_;
+	my $buffer = q(<div><p style="font-size:2em;padding-top:0.75em;color:#aaa">Setup</p>);
+	$buffer .= q(<p style="font-size:0.8em;overflow:hidden;text-overflow:ellipsis;margin-top:-1em">)
+	  . qq($element->{'name'}</p>);
+	$buffer .= qq(<p><span data-id="$element->{'id'}" class="setup_element fas fa-wrench"></span></p>);
+	$buffer .= q(</div>);
+	return $buffer;
+}
+
+sub _get_record_count_element_content {
+	my ( $self, $element ) = @_;
+	my $buffer = qq(<div class="title">$element->{'name'}</div>);
+	my $count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}");
+	my $nice_count = BIGSdb::Utils::commify($count);
+	$buffer.=qq(<p>$nice_count</p>);
 	return $buffer;
 }
 
@@ -209,7 +289,7 @@ sub _get_element_controls {
 	my ( $self, $id ) = @_;
 	my $display = $self->{'prefs'}->{'dashboard.remove_elements'} ? 'inline' : 'none';
 	my $buffer =
-	    qq(<span data-id="$id" id="control_$id" )
+	    qq(<span data-id="$id" id="remove_$id" )
 	  . qq(class="dashboard_remove_element far fa-trash-alt" style="display:$display"></span>)
 	  . qq(<span data-id="$id" id="wait_$id" class="dashboard_wait fas fa-sync-alt )
 	  . q(fa-spin" style="display:none"></span>);
@@ -235,7 +315,7 @@ sub initiate {
 	push @{ $self->{'breadcrumbs'} },
 	  { label => $self->{'system'}->{'formatted_description'} // $self->{'system'}->{'description'} };
 	my $q = $self->{'cgi'};
-	foreach my $ajax_param (qw(updatePrefs control resetDefaults new)) {
+	foreach my $ajax_param (qw(updatePrefs control resetDefaults new setup element)) {
 		if ( $q->param($ajax_param) ) {
 			$self->{'type'} = 'no_header';
 			last;
@@ -350,12 +430,85 @@ sub _print_modify_dashboard_fieldset {
 	say q(</fieldset>);
 	say q(<div style="clear:both"></div>);
 	say q(<fieldset><legend>Visual elements</legend>);
+	say q(<ul><li>);
+
+	if ( !LAYOUT_TEST ) {
+		$self->_print_field_selector;
+	}
 	say q(<a id="add_element" class="small_submit">Add element</a>);
+	say q(</li></ul>);
 	say q(</fieldset>);
 	say q(<div style="clear:both"></div>);
 	say q(<div style="margin-top:2em">);
 	say q(<a onclick="resetDefaults()" class="small_reset">Reset</a> Return to defaults);
 	say q(</div></div>);
+	return;
+}
+
+sub _print_field_selector {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my ( $fields, $labels ) = $self->get_field_selection_list(
+		{
+			ignore_prefs        => 1,
+			isolate_fields      => 1,
+			scheme_fields       => 0,
+			extended_attributes => 0,
+			eav_fields          => 0,
+		}
+	);
+	my $values           = [];
+	my $group_members    = {};
+	my $attributes       = $self->{'xmlHandler'}->get_all_field_attributes;
+	my $eav_fields       = $self->{'datastore'}->get_eav_fields;
+	my $eav_field_groups = { map { $_->{'field'} => $_->{'category'} } @$eav_fields };
+	my %ignore           = map { $_ => 1 } ( 'f_id', "f_$self->{'system'}->{'labelfield'}" );
+
+	foreach my $field (@$fields) {
+		next if $ignore{$field};
+		if ( $field =~ /^s_/x ) {
+			push @{ $group_members->{'Schemes'} }, $field;
+		}
+		if ( $field =~ /^[f|e]_/x ) {
+			( my $stripped_field = $field ) =~ s/^[f|e]_//x;
+			$stripped_field =~ s/[\|\||\s].+$//x;
+			if ( $attributes->{$stripped_field}->{'group'} ) {
+				push @{ $group_members->{ $attributes->{$stripped_field}->{'group'} } }, $field;
+			} else {
+				push @{ $group_members->{'General'} }, $field;
+			}
+		}
+		if ( $field =~ /^eav_/x ) {
+			( my $stripped_field = $field ) =~ s/^eav_//x;
+			if ( $eav_field_groups->{$stripped_field} ) {
+				push @{ $group_members->{ $eav_field_groups->{$stripped_field} } }, $field;
+			} else {
+				push @{ $group_members->{'General'} }, $field;
+			}
+		}
+	}
+	my @group_list = split /,/x, ( $self->{'system'}->{'field_groups'} // q() );
+	push @{ $group_members->{'Special'} }, 'sp_count';
+	$labels->{'sp_count'} = "$self->{'system'}->{'labelfield'} count";
+	my @eav_groups = split /,/x, ( $self->{'system'}->{'eav_groups'} // q() );
+	push @group_list, @eav_groups if @eav_groups;
+	push @group_list, ( 'Loci', 'Schemes' );
+	foreach my $group ( 'Special', undef, @group_list ) {
+		my $name = $group // 'General';
+		$name =~ s/\|.+$//x;
+		if ( ref $group_members->{$name} ) {
+			push @$values, $q->optgroup( -name => $name, -values => $group_members->{$name}, -labels => $labels );
+		}
+	}
+	say q(<label for="add_field">Field:</label>);
+	say $q->popup_menu(
+		-name     => 'add_field',
+		-id       => 'add_field',
+		-values   => $values,
+		-labels   => $labels,
+		-multiple => 'true',
+		-style    => 'min-width:10em;width:15em;resize:both'
+	);
 	return;
 }
 
@@ -373,10 +526,7 @@ sub get_javascript {
 	my $json_elements = encode_json($elements);
 	my $empty         = $self->_get_dashboard_empty_message;
 	my $buffer        = << "END";
-var url = "$self->{'system'}->{'script_name'}";
-var ajax_url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=dashboard&updatePrefs=1";
-var reset_url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=dashboard&resetDefaults=1";
-var modal_control_url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=dashboard";
+var url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}";
 var elements = $json_elements;
 var order = '$order';
 var instance = "$self->{'instance'}";
