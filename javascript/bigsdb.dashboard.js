@@ -105,6 +105,7 @@ $(function () {
 		var id=$(this).attr('data-id');
 		setupElement(grid,id);
 	});
+	applyFormatting();
 
 	var dimension = ['width','height'];
 	dimension.forEach((value) => {
@@ -120,6 +121,12 @@ $(function () {
 		});	
 	});	
 });
+
+function applyFormatting(){
+	fitty(".dashboard_big_number",{
+		maxSize:64
+	});
+}
 
 function getNextid(){
 	if (Object.keys(elements).length === 0){
@@ -149,6 +156,7 @@ function addElement(grid,id){
 				elements[id] = JSON.parse(json).element;
 				saveElements(grid);
 			}
+			applyFormatting();
 		} catch (err){
 			console.log(err.message);
 		}
@@ -213,6 +221,7 @@ function changeElementDimension(grid, id, attribute) {
     	attribute:"elements",
     	value:JSON.stringify(elements)
     });
+	applyFormatting();
 	grid.refreshItems().layout();
 }
 

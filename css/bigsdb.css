@@ -1427,6 +1427,17 @@ span.dashboard_edit_element, span.dashboard_remove_element, span.dashboard_wait
 	z-index: 1;
 }
 
+p.dashboard_comment {
+	font-size:0.9em
+}
+
+.increase {
+	color:green
+}
+.no_change {
+	color:blue
+}
+
 span.dashboard_edit_element, span.dashboard_wait {
 	right: 2px;
 }

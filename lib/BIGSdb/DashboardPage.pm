@@ -129,8 +129,9 @@ sub _ajax_new {
 	} else {
 		my $default_elements = {
 			sp_count => {
-				name    => ucfirst("$self->{'system'}->{'labelfield'} count"),
-				display => 'record_count'
+				name          => ucfirst("$self->{'system'}->{'labelfield'} count"),
+				display       => 'record_count',
+				show_increase => 'week'
 			}
 		};
 		my $q     = $self->{'cgi'};
@@ -188,7 +189,7 @@ sub _print_main_section {
 	}
 	say q(</div>);
 	say q(<div id="dashboard" class="grid">);
-	my %display_immediately = map { $_ => 1 } qw(test setup);
+	my %display_immediately = map { $_ => 1 } qw(test setup record_count);
 	my $ajax_load = [];
 	foreach my $element ( sort { $elements->{$a}->{'order'} <=> $elements->{$b}->{'order'} } keys %$elements ) {
 		my $display = $elements->{$element}->{'display'};
@@ -330,7 +331,21 @@ sub _get_record_count_element_content {
 	my $buffer     = qq(<div class="title">$element->{'name'}</div>);
 	my $count      = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}");
 	my $nice_count = BIGSdb::Utils::commify($count);
-	$buffer .= qq(<p>$nice_count</p>);
+	$buffer .= qq(<p style="margin:1em"><span class="dashboard_big_number">$nice_count</span></p>);
+	if ( $element->{'show_increase'} && $count > 0 ) {
+		my %allowed = map { $_ => 1 } qw(week month year);
+		if ( $allowed{ $element->{'show_increase'} } ) {
+			my $past_count = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM $self->{'system'}->{'view'} "
+				  . "WHERE date_entered <= now()-interval '1 $element->{'show_increase'}'" );
+			if ($past_count) {
+				my $increase      = $count - $past_count;
+				my $nice_increase = BIGSdb::Utils::commify($increase);
+				my $class         = $increase ? 'increase' : 'no_change';
+				$buffer .= qq(<p class="dashboard_comment $class"><span class="fas fa-caret-up"></span> )
+				  . qq($nice_increase [$element->{'show_increase'}]</p>);
+			}
+		}
+	}
 	return $buffer;
 }
 
@@ -351,7 +366,7 @@ sub _get_element_controls {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (jQuery noCache muuri modal bigsdb.dashboard);
+	$self->{$_} = 1 foreach qw (jQuery noCache muuri modal fitty bigsdb.dashboard);
 	$self->choose_set;
 	$self->{'breadcrumbs'} = [];
 	if ( $self->{'system'}->{'webroot'} ) {
