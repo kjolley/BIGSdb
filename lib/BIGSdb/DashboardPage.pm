@@ -129,7 +129,7 @@ sub _ajax_new {
 	} else {
 		my $default_elements = {
 			sp_count => {
-				name    =>ucfirst("$self->{'system'}->{'labelfield'} count"),
+				name    => ucfirst("$self->{'system'}->{'labelfield'} count"),
 				display => 'record_count'
 			}
 		};
@@ -188,10 +188,47 @@ sub _print_main_section {
 	}
 	say q(</div>);
 	say q(<div id="dashboard" class="grid">);
+	my %display_immediately = map { $_ => 1 } qw(test setup);
+	my $ajax_load = [];
 	foreach my $element ( sort { $elements->{$a}->{'order'} <=> $elements->{$b}->{'order'} } keys %$elements ) {
-		say $self->_get_element_html( $elements->{$element} );
+		my $display = $elements->{$element}->{'display'};
+		if ( $display_immediately{$display} ) {
+			say $self->_get_element_html( $elements->{$element} );
+		} else {
+			say $self->_load_element_html_by_ajax( $elements->{$element} );
+			push @$ajax_load, $element;
+		}
 	}
 	say q(</div></div>);
+	if (@$ajax_load) {
+		$self->_print_ajax_load_code($ajax_load);
+	}
+	return;
+}
+
+sub _print_ajax_load_code {
+	my ( $self, $element_ids ) = @_;
+	local $" = q(,);
+	say q[<script>];
+	say q[$(function () {];
+	foreach my $element_id (@$element_ids) {
+		say << "JS"
+	var element_ids = [@$element_ids];
+	\$.each(element_ids, function(index,value){
+		\$.ajax({
+	    	url:"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=dashboard&element=" + value
+	    }).done(function(json){
+	       	try {
+	       	    \$("div#element_" + value + " > .item-content > .ajax_content").html(JSON.parse(json).html);
+	       	} catch (err) {
+	       		console.log(err.message);
+	       	} 	          	    
+	    });			
+	});    
+JS
+	}
+	say q[});];
+	say q(</script>);
 	return;
 }
 
@@ -243,6 +280,18 @@ sub _get_element_html {
 	return $buffer;
 }
 
+sub _load_element_html_by_ajax {
+	my ( $self, $element ) = @_;
+	my $buffer       = qq(<div id="element_$element->{'id'}" data-id="$element->{'id'}" class="item">);
+	my $width_class  = "dashboard_element_width$element->{'width'}";
+	my $height_class = "dashboard_element_height$element->{'height'}";
+	$buffer .= qq(<div class="item-content $width_class $height_class">);
+	$buffer .= $self->_get_element_controls( $element->{'id'} );
+	$buffer .= q(<div class="ajax_content"><span class="dashboard_wait_ajax fas fa-sync-alt fa-spin"></span></div>);
+	$buffer .= q(</div></div>);
+	return $buffer;
+}
+
 sub _get_element_content {
 	my ( $self, $element ) = @_;
 	my %display = (
@@ -278,10 +327,10 @@ sub _get_setup_element_content {
 
 sub _get_record_count_element_content {
 	my ( $self, $element ) = @_;
-	my $buffer = qq(<div class="title">$element->{'name'}</div>);
-	my $count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}");
+	my $buffer     = qq(<div class="title">$element->{'name'}</div>);
+	my $count      = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}");
 	my $nice_count = BIGSdb::Utils::commify($count);
-	$buffer.=qq(<p>$nice_count</p>);
+	$buffer .= qq(<p>$nice_count</p>);
 	return $buffer;
 }
 

@@ -1435,6 +1435,12 @@ span.dashboard_remove_element {
 	left: 2px
 }
 
+span.dashboard_wait_ajax {
+	margin-top:1em;
+	color: #ddd;
+	font-size:3em;
+}
+
 .grid_item.ui-draggable-dragging, .grid_item.is-positioning-post-drag {
 	background: #729fcf;
 	z-index: 2; /* keep dragged item on top */
