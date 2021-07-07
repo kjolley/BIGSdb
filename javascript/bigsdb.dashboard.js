@@ -29,7 +29,10 @@ $(function () {
 				alignRight : layout.includes('right'),
 				alignBottom : layout.includes('bottom'),
 				fillGaps: fill_gaps
-			}		
+			},
+			dragStartPredicate: function (item, e){
+				return enable_drag;
+			}
 		}).on('move', function () {
 	    	saveLayout(grid);
 		});
@@ -77,6 +80,11 @@ $(function () {
 			// Grid is empty.
 		}
 		$.ajax(url + "&page=dashboard&updatePrefs=1&attribute=fill_gaps&value=" + (fill_gaps ? 1 : 0) );	
+	});
+	$("#enable_drag").change(function(){
+		enable_drag = $("#enable_drag").prop('checked');
+		$.ajax(url + "&page=dashboard&updatePrefs=1&attribute=enable_drag&value=" + (enable_drag ? 1 : 0) );
+		
 	});
 	$("#edit_elements").change(function(){	
 		var edit_elements = $("#edit_elements").prop('checked');

@@ -436,7 +436,7 @@ sub _update_prefs {
 	my $value = $q->param('value');
 	return if !defined $value;
 	my %allowed_attributes =
-	  map { $_ => 1 } qw(layout fill_gaps edit_elements remove_elements order elements default);
+	  map { $_ => 1 } qw(layout fill_gaps enable_drag edit_elements remove_elements order elements default);
 	if ( !$allowed_attributes{$attribute} ) {
 		$logger->error("Invalid attribute - $attribute");
 		return;
@@ -446,7 +446,7 @@ sub _update_prefs {
 		my %allowed_values = map { $_ => 1 } ( 'left-top', 'right-top', 'left-bottom', 'right-bottom' );
 		return if !$allowed_values{$value};
 	}
-	my %boolean_attributes = map { $_ => 1 } qw(fill_gaps edit_elements remove_elements);
+	my %boolean_attributes = map { $_ => 1 } qw(fill_gaps enable_drag edit_elements remove_elements);
 	if ( $boolean_attributes{$attribute} ) {
 		my %allowed_values = map { $_ => 1 } ( 0, 1 );
 		return if !$allowed_values{$value};
@@ -480,6 +480,7 @@ sub _print_modify_dashboard_fieldset {
 	my ($self) = @_;
 	my $layout          = $self->{'prefs'}->{'dashboard.layout'}          // 'left-top';
 	my $fill_gaps       = $self->{'prefs'}->{'dashboard.fill_gaps'}       // 1;
+	my $enable_drag     = $self->{'prefs'}->{'dashboard.enable_drag'}     // 0;
 	my $edit_elements   = $self->{'prefs'}->{'dashboard.edit_elements'}   // 0;
 	my $remove_elements = $self->{'prefs'}->{'dashboard.remove_elements'} // 0;
 	my $q               = $self->{'cgi'};
@@ -507,6 +508,13 @@ sub _print_modify_dashboard_fieldset {
 		-id      => 'fill_gaps',
 		-label   => 'Fill gaps',
 		-checked => $fill_gaps ? 'checked' : undef
+	);
+	say q(</li><li>);
+	say $q->checkbox(
+		-name    => 'enable_drag',
+		-id      => 'enable_drag',
+		-label   => 'Enable drag',
+		-checked => $enable_drag ? 'checked' : undef
 	);
 	say q(</li></ul>);
 	say q(</fieldset>);
@@ -614,6 +622,7 @@ sub _print_field_selector {
 sub get_javascript {
 	my ($self) = @_;
 	my $order = $self->{'prefs'}->{'dashboard.order'} // q();
+	my $enable_drag = $self->{'prefs'}->{'dashboard.enable_drag'} ? 'true' : 'false';
 	if ($order) {
 		eval { decode_json($order); };
 		if ($@) {
@@ -630,6 +639,7 @@ var elements = $json_elements;
 var order = '$order';
 var instance = "$self->{'instance'}";
 var empty='$empty';
+var enable_drag=$enable_drag;
 
 END
 	return $buffer;
