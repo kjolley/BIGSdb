@@ -27,7 +27,9 @@ use JSON;
 use Data::Dumper;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
-use constant LAYOUT_TEST => 0;    #TODO Remove
+use constant LAYOUT_TEST       => 0;           #TODO Remove
+use constant MAIN_TEXT_COLOUR  => '#404040';
+use constant BACKGROUND_COLOUR => '#79cafb';
 
 sub print_content {
 	my ($self) = @_;
@@ -97,6 +99,16 @@ sub _ajax_controls {
 		$data_methods{ $element->{'display'} }->();
 		say q(</ul></fieldset>);
 	}
+	my %interface_methods = (
+		record_count => sub {
+			$self->_get_text_colour_control( $id, $element );
+		}
+	);
+	if ( $interface_methods{ $element->{'display'} } ) {
+		say q(<fieldset><legend>Interface</legend><ul>);
+		$interface_methods{ $element->{'display'} }->();
+		say q(</ul></fieldset>);
+	}
 	say q(</div>);
 	return;
 }
@@ -134,7 +146,7 @@ sub _get_change_duration_control {
 	say $q->popup_menu(
 		-name   => "${id}_change_duration",
 		-id     => "${id}_change_duration",
-		-class  => 'duration_select',
+		-class  => 'element_option',
 		-values => [qw(none week month year)],
 		-labels => {
 			none  => 'do not show',
@@ -144,6 +156,21 @@ sub _get_change_duration_control {
 		},
 		-default => $element->{'change_duration'}
 	);
+	say q(</li>);
+	return;
+}
+
+sub _get_text_colour_control {
+	my ( $self, $id, $element ) = @_;
+	my $q = $self->{'cgi'};
+	my $default = $element->{'main_text_colour'} // MAIN_TEXT_COLOUR;
+	say q(<li><label for="text_colour">Main text colour</label>);
+	say qq(<input type="color" id="${id}_main_text_colour" value="$default" class="element_option colour_selector">);
+	say q(</li><li>);
+	$default = $element->{'background_colour'} // BACKGROUND_COLOUR;
+	say q(<li><label for="text_colour">Main background</label>);
+	say qq(<input type="color" id="${id}_background_colour" value="$default" )
+	  . q(class="element_option colour_selector">);
 	say q(</li>);
 	return;
 }
@@ -162,9 +189,11 @@ sub _ajax_new {
 	} else {
 		my $default_elements = {
 			sp_count => {
-				name            => ucfirst("$self->{'system'}->{'labelfield'} count"),
-				display         => 'record_count',
-				change_duration => 'week'
+				name              => ucfirst("$self->{'system'}->{'labelfield'} count"),
+				display           => 'record_count',
+				change_duration   => 'week',
+				main_text_colour  => MAIN_TEXT_COLOUR,
+				background_colour => BACKGROUND_COLOUR
 			}
 		};
 		my $q     = $self->{'cgi'};
@@ -322,7 +351,8 @@ sub _load_element_html_by_ajax {
 	my $height_class = "dashboard_element_height$element->{'height'}";
 	$buffer .= qq(<div class="item-content $width_class $height_class">);
 	$buffer .= $self->_get_element_controls( $element->{'id'} );
-	$buffer .= q(<div class="ajax_content"><span class="dashboard_wait_ajax fas fa-sync-alt fa-spin"></span></div>);
+	$buffer .=
+q(<div class="ajax_content" style="position:relative"><span class="dashboard_wait_ajax fas fa-sync-alt fa-spin"></span></div>);
 	$buffer .= q(</div></div>);
 	return $buffer;
 }
@@ -332,7 +362,7 @@ sub _get_element_content {
 	my %display = (
 		test         => sub { $self->_get_test_element_content($element) },
 		setup        => sub { $self->_get_setup_element_content($element) },
-		record_count => sub { $self->_get_record_count_element_content($element) }
+		record_count => sub { $self->_get_count_element_content($element) }
 	);
 	if ( $display{ $element->{'display'} } ) {
 		return $display{ $element->{'display'} }->();
@@ -360,13 +390,18 @@ sub _get_setup_element_content {
 	return $buffer;
 }
 
-sub _get_record_count_element_content {
+sub _get_count_element_content {
 	my ( $self, $element ) = @_;
-	my $buffer = qq(<div class="title">$element->{'name'}</div>);
+	my $buffer            = qq(<div class="title">$element->{'name'}</div>);
+	my $text_colour       = $element->{'main_text_colour'} // MAIN_TEXT_COLOUR;
+	my $background_colour = $element->{'background_colour'} // BACKGROUND_COLOUR;
 	my $count =
 	  $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE new_version IS NULL");
 	my $nice_count = BIGSdb::Utils::commify($count);
-	$buffer .= qq(<p style="margin:1em"><span class="dashboard_big_number">$nice_count</span></p>);
+	$buffer .= qq(<div style="background-image:linear-gradient(#fff,$background_colour,#fff);)
+	  . q(margin-top:-1em;padding:2em 0.5em 0 0.5em"><p><span class="dashboard_big_number" )
+	  . qq(style="color:$text_colour">$nice_count</span></p>);
+
 	if ( $element->{'change_duration'} && $count > 0 ) {
 		my %allowed = map { $_ => 1 } qw(week month year);
 		if ( $allowed{ $element->{'change_duration'} } ) {
@@ -381,6 +416,7 @@ sub _get_record_count_element_content {
 			}
 		}
 	}
+	$buffer .= q(</div>);
 	return $buffer;
 }
 

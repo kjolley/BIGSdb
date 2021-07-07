@@ -123,10 +123,11 @@ $(function () {
 			changeElementDimension(grid, element_id, value);
 		});
 	});
-	$(document).on("change", '.duration_select', function(event) { 
+	$(document).on("change", '.element_option', function(event) { 
 		var id = $(this).attr('id');
-		var element_id = id.replace("_change_duration","");
-		changeElementAttribute(grid, element_id, 'change_duration', $(this).val() );
+		var attribute = id.replace(/^\d+_/,"");
+		var element_id = id.replace("_" + attribute,"");
+		changeElementAttribute(grid, element_id, attribute, $(this).val() );
 	});
 	$('a#dashboard_toggle').on('click', function(){
 		$.get(url + "&page=dashboard&updatePrefs=1&attribute=default&value=0",function(){

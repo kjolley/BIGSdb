@@ -1361,7 +1361,6 @@ div.grid {
 	height: 100%;
 	max-width: 100%;
 	text-align: center;
-
 }
 
 .item-content div.title {
@@ -1429,6 +1428,17 @@ span.dashboard_edit_element, span.dashboard_remove_element, span.dashboard_wait
 
 p.dashboard_comment {
 	font-size:0.9em
+}
+
+span.dashboard_big_number {
+	display:inline-block;
+	white-space:nowrap;
+}
+
+.colour_selector {
+	width:25px;
+	height:15px;
+	cursor:pointer;	
 }
 
 .increase {
