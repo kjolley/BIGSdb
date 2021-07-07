@@ -81,11 +81,22 @@ sub print_content {
 sub _ajax_controls {
 	my ( $self, $id, $options ) = @_;
 	my $elements = $self->_get_elements;
+	my $element  = $elements->{$id};
 	my $q        = $self->{'cgi'};
 	say q(<div class="modal">);
 	say $options->{'setup'} ? q(<h2>Setup visual element</h2>) : q(<h2>Modify visual element</h2>);
-	say qq(<p>Field: $elements->{$id}->{'name'}</p>);
-	$self->_get_size_controls( $id, $elements->{$id} );
+	say qq(<p>Field: $element->{'name'}</p>);
+	$self->_get_size_controls( $id, $element );
+	my %data_methods = (
+		record_count => sub {
+			$self->_get_change_duration_control( $id, $element );
+		}
+	);
+	if ( $data_methods{ $element->{'display'} } ) {
+		say q(<fieldset><legend>Data selection</legend><ul>);
+		$data_methods{ $element->{'display'} }->();
+		say q(</ul></fieldset>);
+	}
 	say q(</div>);
 	return;
 }
@@ -115,6 +126,28 @@ sub _get_size_controls {
 	return;
 }
 
+sub _get_change_duration_control {
+	my ( $self, $id, $element ) = @_;
+	my $q = $self->{'cgi'};
+	say q(<li>);
+	say q(<label for="change_duration">Show change</label>);
+	say $q->popup_menu(
+		-name   => "${id}_change_duration",
+		-id     => "${id}_change_duration",
+		-class  => 'duration_select',
+		-values => [qw(none week month year)],
+		-labels => {
+			none  => 'do not show',
+			week  => 'past week',
+			month => 'past month',
+			year  => 'past year'
+		},
+		-default => $element->{'change_duration'}
+	);
+	say q(</li>);
+	return;
+}
+
 sub _ajax_new {
 	my ( $self, $id ) = @_;
 	my $element = {
@@ -129,9 +162,9 @@ sub _ajax_new {
 	} else {
 		my $default_elements = {
 			sp_count => {
-				name          => ucfirst("$self->{'system'}->{'labelfield'} count"),
-				display       => 'record_count',
-				show_increase => 'week'
+				name            => ucfirst("$self->{'system'}->{'labelfield'} count"),
+				display         => 'record_count',
+				change_duration => 'week'
 			}
 		};
 		my $q     = $self->{'cgi'};
@@ -276,8 +309,9 @@ sub _get_element_html {
 	my $height_class = "dashboard_element_height$element->{'height'}";
 	$buffer .= qq(<div class="item-content $width_class $height_class">);
 	$buffer .= $self->_get_element_controls( $element->{'id'} );
+	$buffer .= q(<div class="ajax_content">);
 	$buffer .= $self->_get_element_content($element);
-	$buffer .= q(</div></div>);
+	$buffer .= q(</div></div></div>);
 	return $buffer;
 }
 
@@ -328,21 +362,22 @@ sub _get_setup_element_content {
 
 sub _get_record_count_element_content {
 	my ( $self, $element ) = @_;
-	my $buffer     = qq(<div class="title">$element->{'name'}</div>);
-	my $count      = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}");
+	my $buffer = qq(<div class="title">$element->{'name'}</div>);
+	my $count =
+	  $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE new_version IS NULL");
 	my $nice_count = BIGSdb::Utils::commify($count);
 	$buffer .= qq(<p style="margin:1em"><span class="dashboard_big_number">$nice_count</span></p>);
-	if ( $element->{'show_increase'} && $count > 0 ) {
+	if ( $element->{'change_duration'} && $count > 0 ) {
 		my %allowed = map { $_ => 1 } qw(week month year);
-		if ( $allowed{ $element->{'show_increase'} } ) {
+		if ( $allowed{ $element->{'change_duration'} } ) {
 			my $past_count = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM $self->{'system'}->{'view'} "
-				  . "WHERE date_entered <= now()-interval '1 $element->{'show_increase'}'" );
+				  . "WHERE date_entered <= now()-interval '1 $element->{'change_duration'}' AND new_version IS NULL" );
 			if ($past_count) {
 				my $increase      = $count - $past_count;
 				my $nice_increase = BIGSdb::Utils::commify($increase);
 				my $class         = $increase ? 'increase' : 'no_change';
 				$buffer .= qq(<p class="dashboard_comment $class"><span class="fas fa-caret-up"></span> )
-				  . qq($nice_increase [$element->{'show_increase'}]</p>);
+				  . qq($nice_increase [$element->{'change_duration'}]</p>);
 			}
 		}
 	}

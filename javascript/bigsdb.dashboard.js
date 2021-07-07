@@ -115,12 +115,31 @@ $(function () {
 			changeElementDimension(grid, element_id, value);
 		});
 	});
+	$(document).on("change", '.duration_select', function(event) { 
+		var id = $(this).attr('id');
+		var element_id = id.replace("_change_duration","");
+		changeElementAttribute(grid, element_id, 'change_duration', $(this).val() );
+	});
 	$('a#dashboard_toggle').on('click', function(){
 		$.get(url + "&page=dashboard&updatePrefs=1&attribute=default&value=0",function(){
 			window.location=url;	
 		});	
 	});	
 });
+
+function changeElementAttribute(grid, id, attribute, value){
+	elements[id][attribute] = value;
+	$.post(url,{
+    	db:instance,
+    	page:"dashboard",
+    	updatePrefs:1,
+    	attribute:"elements",
+    	value:JSON.stringify(elements)
+    }, function(){
+    	reloadElement(grid,id);
+    	
+    });	
+}
 
 function applyFormatting(){
 	fitty(".dashboard_big_number",{
@@ -176,8 +195,9 @@ function editElement(grid,id){
 function reloadElement(grid,id){
 	$.get(url + "&page=dashboard&element=" + id,function(json){
 		try {
-			$("div#element_" + id + "> .item-content").html(JSON.parse(json).html);
+			$("div#element_" + id + "> .item-content > .ajax_content").html(JSON.parse(json).html);
 			elements[id] = JSON.parse(json).element;
+			applyFormatting();
 		} catch (err){
 			console.log(err.message);
 		}
