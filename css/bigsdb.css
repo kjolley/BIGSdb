@@ -1344,7 +1344,6 @@ div.grid {
 .item.muuri-item-dragging {
 	z-index: 3;
 	border: 3px solid red;
-	background: #fcc;
 }
 
 .item.muuri-item-releasing {
@@ -1364,14 +1363,14 @@ div.grid {
 }
 
 .item-content div.title {
-	font-size:1em;
-	font-family:pt_sansregular, sans-serif;
-	padding:1em 0.1em;
-	color:#888;
-	font-weight:600;
+	font-size: 1em;
+	font-family: pt_sansregular, sans-serif;
+	padding: 1em 0.1em;
+	color: #888;
+	font-weight: 600;
 	white-space: nowrap;
-	overflow-x:hidden;
-	text-overflow:ellipsis;
+	overflow-x: hidden;
+	text-overflow: ellipsis;
 }
 
 span.setup_element {
@@ -1427,25 +1426,36 @@ span.dashboard_edit_element, span.dashboard_remove_element, span.dashboard_wait
 }
 
 p.dashboard_comment {
-	font-size:0.9em
+	font-size: 0.9em;
+	margin-bottom: 0
 }
 
 span.dashboard_big_number {
-	display:inline-block;
-	white-space:nowrap;
+	display: inline-block;
+	white-space: nowrap;
+}
+
+span.dashboard_watermark {
+	position: absolute;
+	bottom: 5px;
+	right: 5px;
+	font-size: 6em;
+	color: #444;
+	opacity: 0.1
 }
 
 .colour_selector {
-	width:25px;
-	height:15px;
-	cursor:pointer;	
+	width: 25px;
+	height: 15px;
+	cursor: pointer;
 }
 
 .increase {
-	color:green
+	color: green
 }
+
 .no_change {
-	color:blue
+	color: blue
 }
 
 span.dashboard_edit_element, span.dashboard_wait {
@@ -1457,9 +1467,9 @@ span.dashboard_remove_element {
 }
 
 span.dashboard_wait_ajax {
-	margin-top:1em;
+	margin-top: 1em;
 	color: #ddd;
-	font-size:3em;
+	font-size: 3em;
 }
 
 .grid_item.ui-draggable-dragging, .grid_item.is-positioning-post-drag {
