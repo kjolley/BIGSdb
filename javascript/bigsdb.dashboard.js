@@ -96,6 +96,17 @@ $(function () {
 		$.ajax(url + "&page=dashboard&updatePrefs=1&attribute=remove_elements&value=" + (remove_elements ? 1 : 0) );
 		$("span.dashboard_remove_element").css("display",remove_elements ? "inline" : "none");
 	});
+	$("#include_old_versions").change(function(){	
+		var include_old_versions = $("#include_old_versions").prop('checked');
+		$.ajax({
+				url:url + "&page=dashboard&updatePrefs=1&attribute=include_old_versions&value=" + 
+				(include_old_versions ? 1 : 0) 			
+		}).done(function() {
+			reloadAllElements(grid);
+		});
+	});
+		
+	
 	$("#add_element").click(function(){	
 		var nextId = getNextid();
 		addElement(grid,nextId);
@@ -210,6 +221,12 @@ function reloadElement(grid,id){
 		} catch (err){
 			console.log(err.message);
 		}
+	});
+}
+
+function reloadAllElements(grid){
+	$.each(Object.keys(elements),function(index,value){
+		reloadElement(grid,value);
 	});
 }
 

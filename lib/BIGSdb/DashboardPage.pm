@@ -191,6 +191,7 @@ sub _get_watermark_control {
 	$labels->{'fas fa-notes-medical'} = 'medical notes';
 	$labels->{'far fa-calendar-alt'}  = 'calendar';
 	@$values = sort { $labels->{$a} cmp $labels->{$b} } @$values;
+	unshift @$values, 'none';
 	say q(<li><label for="watermark">Watermark</label>);
 	say $self->popup_menu(
 		-id      => "${id}_watermark",
@@ -424,18 +425,23 @@ sub _get_count_element_content {
 	my $buffer            = qq(<div class="title">$element->{'name'}</div>);
 	my $text_colour       = $element->{'main_text_colour'} // COUNT_MAIN_TEXT_COLOUR;
 	my $background_colour = $element->{'background_colour'} // COUNT_BACKGROUND_COLOUR;
-	my $count =
-	  $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE new_version IS NULL");
+	my $qry               = "SELECT COUNT(*) FROM $self->{'system'}->{'view'}";
+	my $filter            = $self->{'prefs'}->{'dashboard.include_old_versions'} ? q():'new_version IS NULL' ;
+	$qry .= " WHERE $filter" if $filter;
+	my $count      = $self->{'datastore'}->run_query($qry);
 	my $nice_count = BIGSdb::Utils::commify($count);
 	$buffer .=
 	    qq(<div style="background-image:linear-gradient(#fff,$background_colour,#fff);)
 	  . q(margin-top:-1em;padding:2em 0.5em 0 0.5em;height:100%"><p><span class="dashboard_big_number" )
 	  . qq(style="color:$text_colour">$nice_count</span></p>);
+
 	if ( $element->{'change_duration'} && $count > 0 ) {
 		my %allowed = map { $_ => 1 } qw(week month year);
 		if ( $allowed{ $element->{'change_duration'} } ) {
-			my $past_count = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM $self->{'system'}->{'view'} "
-				  . "WHERE date_entered <= now()-interval '1 $element->{'change_duration'}' AND new_version IS NULL" );
+			$qry = "SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE "
+			  . "date_entered <= now()-interval '1 $element->{'change_duration'}'";
+			$qry .= " AND $filter" if $filter;
+			my $past_count = $self->{'datastore'}->run_query($qry);
 			if ($past_count) {
 				my $increase      = $count - $past_count;
 				my $nice_increase = BIGSdb::Utils::commify($increase);
@@ -509,7 +515,8 @@ sub _update_prefs {
 	my $value = $q->param('value');
 	return if !defined $value;
 	my %allowed_attributes =
-	  map { $_ => 1 } qw(layout fill_gaps enable_drag edit_elements remove_elements order elements default);
+	  map { $_ => 1 }
+	  qw(layout fill_gaps enable_drag edit_elements remove_elements order elements default include_old_versions);
 	if ( !$allowed_attributes{$attribute} ) {
 		$logger->error("Invalid attribute - $attribute");
 		return;
@@ -519,7 +526,8 @@ sub _update_prefs {
 		my %allowed_values = map { $_ => 1 } ( 'left-top', 'right-top', 'left-bottom', 'right-bottom' );
 		return if !$allowed_values{$value};
 	}
-	my %boolean_attributes = map { $_ => 1 } qw(fill_gaps enable_drag edit_elements remove_elements);
+	my %boolean_attributes =
+	  map { $_ => 1 } qw(fill_gaps enable_drag edit_elements remove_elements include_old_versions);
 	if ( $boolean_attributes{$attribute} ) {
 		my %allowed_values = map { $_ => 1 } ( 0, 1 );
 		return if !$allowed_values{$value};
@@ -551,12 +559,13 @@ sub print_panel_buttons {
 
 sub _print_modify_dashboard_fieldset {
 	my ($self) = @_;
-	my $layout          = $self->{'prefs'}->{'dashboard.layout'}          // 'left-top';
-	my $fill_gaps       = $self->{'prefs'}->{'dashboard.fill_gaps'}       // 1;
-	my $enable_drag     = $self->{'prefs'}->{'dashboard.enable_drag'}     // 0;
-	my $edit_elements   = $self->{'prefs'}->{'dashboard.edit_elements'}   // 0;
-	my $remove_elements = $self->{'prefs'}->{'dashboard.remove_elements'} // 0;
-	my $q               = $self->{'cgi'};
+	my $layout               = $self->{'prefs'}->{'dashboard.layout'}               // 'left-top';
+	my $fill_gaps            = $self->{'prefs'}->{'dashboard.fill_gaps'}            // 1;
+	my $enable_drag          = $self->{'prefs'}->{'dashboard.enable_drag'}          // 0;
+	my $edit_elements        = $self->{'prefs'}->{'dashboard.edit_elements'}        // 0;
+	my $remove_elements      = $self->{'prefs'}->{'dashboard.remove_elements'}      // 0;
+	my $include_old_versions = $self->{'prefs'}->{'dashboard.include_old_versions'} // 0;
+	my $q                    = $self->{'cgi'};
 	say q(<div id="modify_panel" class="panel">);
 	say q(<a class="trigger" id="close_trigger" href="#"><span class="fas fa-lg fa-times"></span></a>);
 	say q(<h2>Dashboard settings</h2>);
@@ -591,6 +600,16 @@ sub _print_modify_dashboard_fieldset {
 	);
 	say q(</li></ul>);
 	say q(</fieldset>);
+	say q(<fieldset><legend>Filters</legend>);
+	say q(<ul><li>);
+	say $q->checkbox(
+		-name    => 'include_old_versions',
+		-id      => 'include_old_versions',
+		-label   => 'Include old record versions',
+		-checked => $include_old_versions ? 'checked' : undef
+	);
+	say q(</li></ul>);
+	say q(</fieldset>);
 	say q(<fieldset><legend>Visual elements</legend>);
 	say q(<ul><li>);
 	say $q->checkbox(
@@ -615,7 +634,7 @@ sub _print_modify_dashboard_fieldset {
 	if ( !LAYOUT_TEST ) {
 		$self->_print_field_selector;
 	}
-	say q(<a id="add_element" class="small_submit">Add element</a>);
+	say q(<a id="add_element" class="small_submit" style="white-space:nowrap">Add element</a>);
 	say q(</li></ul>);
 	say q(</fieldset>);
 	say q(<div style="clear:both"></div>);
@@ -687,7 +706,7 @@ sub _print_field_selector {
 		-values   => $values,
 		-labels   => $labels,
 		-multiple => 'true',
-		-style    => 'min-width:10em;width:15em;resize:both'
+		-style    => 'max-width:10em'
 	);
 	return;
 }
