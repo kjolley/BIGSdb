@@ -21,15 +21,19 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::IndexPage);
-use BIGSdb::Constants qw(:design :interface);
+use BIGSdb::Constants qw(:design :interface :limits);
 use Try::Tiny;
 use JSON;
 use Data::Dumper;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
-use constant LAYOUT_TEST             => 0;           #TODO Remove
-use constant COUNT_MAIN_TEXT_COLOUR  => '#404040';
-use constant COUNT_BACKGROUND_COLOUR => '#79cafb';
+use constant {
+	LAYOUT_TEST               => 0,           #TODO Remove
+	COUNT_MAIN_TEXT_COLOUR    => '#404040',
+	COUNT_BACKGROUND_COLOUR   => '#79cafb',
+	GENOMES_MAIN_TEXT_COLOUR  => '#404040',
+	GENOMES_BACKGROUND_COLOUR => '#7ecc66'
+};
 
 sub print_content {
 	my ($self) = @_;
@@ -178,18 +182,25 @@ sub _get_text_colour_control {
 
 sub _get_watermark_control {
 	my ( $self, $id, $element ) = @_;
-	my $q      = $self->{'cgi'};
-	my @labels = qw(bacteria bacterium biohazard capsules clock globe pills syringe tablets virus viruses);
+	my $q = $self->{'cgi'};
+	my @labels =
+	  qw(bacteria bacterium biohazard bug capsules clock dna globe pills syringe tablets users virus viruses);
 	my $values = [];
 	my $labels = {};
 	foreach my $label (@labels) {
 		push @$values, "fas fa-$label";
 		$labels->{"fas fa-$label"} = $label;
 	}
-	push @$values, 'fas fa-circle-notch', 'fas fa-notes-medical', 'far fa-calendar-alt';
-	$labels->{'fas fa-circle-notch'}  = 'plasmid';
-	$labels->{'fas fa-notes-medical'} = 'medical notes';
-	$labels->{'far fa-calendar-alt'}  = 'calendar';
+	my %renamed_icons = (
+		'fas fa-circle-notch'  => 'plasmid',
+		'fas fa-notes-medical' => 'medical notes',
+		'far fa-calendar-alt'  => 'calendar',
+		'fas fa-file-alt'      => 'document'
+	);
+	foreach my $value ( keys %renamed_icons ) {
+		push @$values, $value;
+		$labels->{$value} = $renamed_icons{$value};
+	}
 	@$values = sort { $labels->{$a} cmp $labels->{$b} } @$values;
 	unshift @$values, 'none';
 	say q(<li><label for="watermark">Watermark</label>);
@@ -223,7 +234,19 @@ sub _ajax_new {
 				change_duration   => 'week',
 				main_text_colour  => COUNT_MAIN_TEXT_COLOUR,
 				background_colour => COUNT_BACKGROUND_COLOUR,
-				watermark         => 'fas fa-bacteria'
+				watermark         => 'fas fa-bacteria',
+				url               => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query&submit=1"
+			},
+			sp_genomes => {
+				name              => 'Genome count',
+				display           => 'record_count',
+				genomes           => 1,
+				change_duration   => 'week',
+				main_text_colour  => GENOMES_MAIN_TEXT_COLOUR,
+				background_colour => GENOMES_BACKGROUND_COLOUR,
+				watermark         => 'fas fa-dna',
+				url =>
+				  "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query&genomes=1&submit=1"
 			}
 		};
 		my $q     = $self->{'cgi'};
@@ -367,7 +390,7 @@ sub _get_element_html {
 	my $width_class  = "dashboard_element_width$element->{'width'}";
 	my $height_class = "dashboard_element_height$element->{'height'}";
 	$buffer .= qq(<div class="item-content $width_class $height_class">);
-	$buffer .= $self->_get_element_controls( $element->{'id'} );
+	$buffer .= $self->_get_element_controls($element);
 	$buffer .= q(<div class="ajax_content" style="position:relative;overflow:hidden">);
 	$buffer .= $self->_get_element_content($element);
 	$buffer .= q(</div></div></div>);
@@ -380,7 +403,7 @@ sub _load_element_html_by_ajax {
 	my $width_class  = "dashboard_element_width$element->{'width'}";
 	my $height_class = "dashboard_element_height$element->{'height'}";
 	$buffer .= qq(<div class="item-content $width_class $height_class">);
-	$buffer .= $self->_get_element_controls( $element->{'id'} );
+	$buffer .= $self->_get_element_controls($element);
 	$buffer .= q(<div class="ajax_content" style="position:relative;overflow:hidden">)
 	  . q(<span class="dashboard_wait_ajax fas fa-sync-alt fa-spin"></span></div>);
 	$buffer .= q(</div></div>);
@@ -426,8 +449,14 @@ sub _get_count_element_content {
 	my $text_colour       = $element->{'main_text_colour'} // COUNT_MAIN_TEXT_COLOUR;
 	my $background_colour = $element->{'background_colour'} // COUNT_BACKGROUND_COLOUR;
 	my $qry               = "SELECT COUNT(*) FROM $self->{'system'}->{'view'}";
-	my $filter            = $self->{'prefs'}->{'dashboard.include_old_versions'} ? q():'new_version IS NULL' ;
-	$qry .= " WHERE $filter" if $filter;
+	my @filters;
+	push @filters, 'new_version IS NULL' if !$self->{'prefs'}->{'dashboard.include_old_versions'};
+	my $genome_size = $self->{'system'}->{'min_genome_size'} // $self->{'config'}->{'min_genome_size'}
+	  // MIN_GENOME_SIZE;
+	push @filters, "id IN (SELECT isolate_id FROM seqbin_stats WHERE total_length>=$genome_size)"
+	  if $element->{'genomes'};
+	local $" = ' AND ';
+	$qry .= " WHERE @filters" if @filters;
 	my $count      = $self->{'datastore'}->run_query($qry);
 	my $nice_count = BIGSdb::Utils::commify($count);
 	$buffer .=
@@ -440,7 +469,7 @@ sub _get_count_element_content {
 		if ( $allowed{ $element->{'change_duration'} } ) {
 			$qry = "SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE "
 			  . "date_entered <= now()-interval '1 $element->{'change_duration'}'";
-			$qry .= " AND $filter" if $filter;
+			$qry .= " AND @filters" if @filters;
 			my $past_count = $self->{'datastore'}->run_query($qry);
 			if ($past_count) {
 				my $increase      = $count - $past_count;
@@ -464,7 +493,8 @@ sub _add_element_watermark {
 }
 
 sub _get_element_controls {
-	my ( $self, $id ) = @_;
+	my ( $self, $element ) = @_;
+	my $id = $element->{'id'};
 	my $display = $self->{'prefs'}->{'dashboard.remove_elements'} ? 'inline' : 'none';
 	my $buffer =
 	    qq(<span data-id="$id" id="remove_$id" )
@@ -475,6 +505,9 @@ sub _get_element_controls {
 	$buffer .=
 	    qq(<span data-id="$id" id="control_$id" class="dashboard_edit_element fas fa-sliders-h" )
 	  . qq(style="display:$display"></span>);
+	if ( $element->{'url'} ) {
+		$buffer .= qq(<span <span data-id="$id" id="explore_$id" class="dashboard_explore_element fas fa-share"></span>);
+	}
 	return $buffer;
 }
 
@@ -687,11 +720,13 @@ sub _print_field_selector {
 		}
 	}
 	my @group_list = split /,/x, ( $self->{'system'}->{'field_groups'} // q() );
-	push @{ $group_members->{'Special'} }, 'sp_count';
-	$labels->{'sp_count'} = "$self->{'system'}->{'labelfield'} count";
+	push @{ $group_members->{'Special'} }, 'sp_count', 'sp_genomes';
+	$labels->{'sp_count'}   = "$self->{'system'}->{'labelfield'} count";
+	$labels->{'sp_genomes'} = 'genome count';
 	my @eav_groups = split /,/x, ( $self->{'system'}->{'eav_groups'} // q() );
 	push @group_list, @eav_groups if @eav_groups;
 	push @group_list, ( 'Loci', 'Schemes' );
+
 	foreach my $group ( 'Special', undef, @group_list ) {
 		my $name = $group // 'General';
 		$name =~ s/\|.+$//x;

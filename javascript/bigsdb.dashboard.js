@@ -124,6 +124,12 @@ $(function () {
 		var id=$(this).attr('data-id');
 		setupElement(grid,id);
 	});
+	$("div#dashboard").on("click",".dashboard_explore_element",function(){
+		var id=$(this).attr('data-id');
+		if (elements[id]['url']){
+			window.location.href = elements[id]['url'];
+		}
+	});
 	applyFormatting();
 
 	var dimension = ['width','height'];
