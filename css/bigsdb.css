@@ -1432,6 +1432,49 @@ span.dashboard_edit_element, span.dashboard_wait {
 span.dashboard_explore_element {
 	bottom: 2px;
 	right: 2px;
+	border-radius: 100%;
+	border: 1px red #aaa;
+	padding: 5px;
+}
+
+span.dashboard_explore_element:hover {
+	background: #aaa;
+	color: white;
+}
+
+span.dashboard_explore_element span.tooltip {
+	font-family:pt_sansregular;
+	background: #fff;
+	color: #ddd;
+	position: absolute;
+	bottom: 0;
+	left: -100px;
+	right: 0px;
+	padding: 5px 7px;
+	visibility: hidden;
+	opacity: 0;
+	-webkit-transition: all .4s;
+	-moz-transition: all .4s;
+	transition: all .4s;
+	border-radius:5px;
+	background:#444;
+}
+
+span.dashboard_explore_element span.tooltip:before {
+	content: '';
+	border-left: 5px solid transparent;
+	border-right: 5px solid transparent;
+	border-top: 5px solid #444;
+	position: absolute;
+	bottom: -5px;
+	left: 108px;
+	
+}
+
+span.dashboard_explore_element:hover span.tooltip {
+	bottom: 35px;
+	visibility: visible;
+	opacity: 1;
 }
 
 span.dashboard_remove_element {

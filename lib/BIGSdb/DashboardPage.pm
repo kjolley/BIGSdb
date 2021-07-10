@@ -235,7 +235,8 @@ sub _ajax_new {
 				main_text_colour  => COUNT_MAIN_TEXT_COLOUR,
 				background_colour => COUNT_BACKGROUND_COLOUR,
 				watermark         => 'fas fa-bacteria',
-				url               => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query&submit=1"
+				url               => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query&submit=1",
+				url_text          => 'Browse isolates'
 			},
 			sp_genomes => {
 				name              => 'Genome count',
@@ -245,8 +246,8 @@ sub _ajax_new {
 				main_text_colour  => GENOMES_MAIN_TEXT_COLOUR,
 				background_colour => GENOMES_BACKGROUND_COLOUR,
 				watermark         => 'fas fa-dna',
-				url =>
-				  "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query&genomes=1&submit=1"
+				url => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query&genomes=1&submit=1",
+				url_text => 'Browse genomes'
 			}
 		};
 		my $q     = $self->{'cgi'};
@@ -506,14 +507,18 @@ sub _get_element_controls {
 	    qq(<span data-id="$id" id="control_$id" class="dashboard_edit_element fas fa-sliders-h" )
 	  . qq(style="display:$display"></span>);
 	if ( $element->{'url'} ) {
-		$buffer .= qq(<span <span data-id="$id" id="explore_$id" class="dashboard_explore_element fas fa-share"></span>);
+		$buffer .= qq(<span data-id="$id" id="explore_$id" class="dashboard_explore_element fas fa-share">);
+		if ( $element->{'url_text'} ) {
+			$buffer .= qq(<span class="tooltip">$element->{'url_text'}</span>);
+		}
+		$buffer .= q(</span>);
 	}
 	return $buffer;
 }
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (jQuery noCache muuri modal fitty bigsdb.dashboard);
+	$self->{$_} = 1 foreach qw (jQuery noCache muuri modal fitty bigsdb.dashboard tooltips);
 	$self->choose_set;
 	$self->{'breadcrumbs'} = [];
 	if ( $self->{'system'}->{'webroot'} ) {
