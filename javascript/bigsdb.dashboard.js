@@ -127,7 +127,11 @@ $(function () {
 	$("div#dashboard").on("click",".dashboard_explore_element",function(){
 		var id=$(this).attr('data-id');
 		if (elements[id]['url']){
-			window.location.href = elements[id]['url'];
+			var explore_url = elements[id]['url'];
+			if (explore_url.includes('&page=query') && $("#include_old_versions").prop('checked')){
+				explore_url += '&include_old=on';
+			}
+			window.location.href = explore_url;
 		}
 	});
 	applyFormatting();
@@ -333,6 +337,7 @@ function resetDefaults(){
 	$.get(url + "&resetDefaults=1", function() {		
 		$("#layout").val("left-top");
 		$("#fill_gaps").prop("checked",true);
+		$("#enable_drag").prop("checked",false);
 		$("#edit_elements").prop("checked",false);
 		$("#remove_elements").prop("checked",false);
 		location.reload();
