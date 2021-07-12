@@ -336,11 +336,12 @@ sub _print_ajax_load_code {
 	    }).done(function(json){
 	       	try {
 	       	    \$("div#element_" + value + " > .item-content > .ajax_content").html(JSON.parse(json).html);
+	       	    applyFormatting();
 	       	} catch (err) {
 	       		console.log(err.message);
 	       	} 	          	    
 	    });			
-	});    
+	}); 
 JS
 	}
 	say q[});];
