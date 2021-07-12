@@ -540,8 +540,8 @@ sub delete_all_field_settings {
 sub delete_dashboard_settings {
 	my ( $self, $guid, $dbase ) = @_;
 	eval {
-		$self->{'db'}->do( 'DELETE FROM general WHERE (guid,dbase)=(?,?) AND attribute LIKE ?',
-			undef, $guid, $dbase, 'dashboard%' );
+		$self->{'db'}->do( 'DELETE FROM general WHERE (guid,dbase)=(?,?) AND attribute LIKE ? AND attribute!=?',
+			undef, $guid, $dbase, 'dashboard%', 'dashboard.layout_test' );
 	};
 	if ($@) {
 		$logger->error($@);

@@ -28,7 +28,6 @@ use Data::Dumper;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant {
-	LAYOUT_TEST               => 0,           #TODO Remove
 	COUNT_MAIN_TEXT_COLOUR    => '#404040',
 	COUNT_BACKGROUND_COLOUR   => '#79cafb',
 	GENOMES_MAIN_TEXT_COLOUR  => '#404040',
@@ -223,7 +222,7 @@ sub _ajax_new {
 		width  => 1,
 		height => 1,
 	};
-	if (LAYOUT_TEST) {
+	if ( $self->{'prefs'}->{'dashboard.layout_test'} ) {
 		$element->{'name'}    = "Test element $id";
 		$element->{'display'} = 'test';
 	} else {
@@ -246,12 +245,12 @@ sub _ajax_new {
 				main_text_colour  => GENOMES_MAIN_TEXT_COLOUR,
 				background_colour => GENOMES_BACKGROUND_COLOUR,
 				watermark         => 'fas fa-dna',
-				url => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query&genomes=1&submit=1",
+				url      => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query&genomes=1&submit=1",
 				url_text => 'Browse genomes'
 			}
 		};
-		my $q     = $self->{'cgi'};
-		my $field = $q->param('field');
+		my $q = $self->{'cgi'};
+		my $field = $q->param('layout_test') ? q() : $q->param('field');
 		if ( $default_elements->{$field} ) {
 			$element = { %$element, %{ $default_elements->{$field} } };
 		} else {
@@ -359,7 +358,7 @@ sub _get_elements {
 		}
 		return $elements;
 	}
-	if (LAYOUT_TEST) {
+	if ( $self->{'prefs'}->{'dashboard.layout_test'} ) {
 		return $self->_get_test_elements;
 	}
 	return $elements;
@@ -554,7 +553,10 @@ sub _update_prefs {
 	return if !defined $value;
 	my %allowed_attributes =
 	  map { $_ => 1 }
-	  qw(layout fill_gaps enable_drag edit_elements remove_elements order elements default include_old_versions);
+	  qw(layout fill_gaps enable_drag edit_elements remove_elements order elements default include_old_versions
+	  layout_test
+	);
+
 	if ( !$allowed_attributes{$attribute} ) {
 		$logger->error("Invalid attribute - $attribute");
 		return;
@@ -597,6 +599,7 @@ sub print_panel_buttons {
 
 sub _print_modify_dashboard_fieldset {
 	my ($self) = @_;
+	my $layout_test          = $self->{'prefs'}->{'dashboard.layout_test'}          // 0;
 	my $layout               = $self->{'prefs'}->{'dashboard.layout'}               // 'left-top';
 	my $fill_gaps            = $self->{'prefs'}->{'dashboard.fill_gaps'}            // 1;
 	my $enable_drag          = $self->{'prefs'}->{'dashboard.enable_drag'}          // 0;
@@ -609,6 +612,16 @@ sub _print_modify_dashboard_fieldset {
 	say q(<h2>Dashboard settings</h2>);
 	say q(<fieldset><legend>Layout</legend>);
 	say q(<ul>);
+	#TODO Remove for production.
+	say q(<li style="border-width:3px;border-color:red;border-top-style:solid;)
+	  . q(border-bottom-style:solid;margin-bottom:1em">);
+	say $q->checkbox(
+		-name    => 'layout_test',
+		-id      => 'layout_test',
+		-label   => 'Layout test',
+		-checked => $layout_test ? 'checked' : undef
+	);
+	say q(</li>);
 	say q(<li><label for="layout">Orientation:</label>);
 	say $q->popup_menu(
 		-name   => 'layout',
@@ -668,10 +681,7 @@ sub _print_modify_dashboard_fieldset {
 	say q(<div style="clear:both"></div>);
 	say q(<fieldset><legend>Visual elements</legend>);
 	say q(<ul><li>);
-
-	if ( !LAYOUT_TEST ) {
-		$self->_print_field_selector;
-	}
+	$self->_print_field_selector;
 	say q(<a id="add_element" class="small_submit" style="white-space:nowrap">Add element</a>);
 	say q(</li></ul>);
 	say q(</fieldset>);
