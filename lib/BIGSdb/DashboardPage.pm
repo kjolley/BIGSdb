@@ -45,10 +45,6 @@ sub print_content {
 		$self->_ajax_controls( scalar $q->param('control') );
 		return;
 	}
-	if ( $q->param('setup') ) {
-		$self->_ajax_controls( scalar $q->param('setup'), { setup => 1 } );
-		return;
-	}
 	if ( $q->param('new') ) {
 		$self->_ajax_new( scalar $q->param('new') );
 		return;
@@ -84,12 +80,12 @@ sub print_content {
 }
 
 sub _ajax_controls {
-	my ( $self, $id, $options ) = @_;
+	my ( $self, $id ) = @_;
 	my $elements = $self->_get_elements;
 	my $element  = $elements->{$id};
 	my $q        = $self->{'cgi'};
 	say q(<div class="modal">);
-	say $options->{'setup'} ? q(<h2>Setup visual element</h2>) : q(<h2>Modify visual element</h2>);
+	say q(<h2>Modify visual element</h2>);
 	say qq(<p>Field: $element->{'name'}</p>);
 	$self->_get_size_controls( $id, $element );
 	my %data_methods = (
@@ -113,8 +109,109 @@ sub _ajax_controls {
 		$interface_methods{ $element->{'display'} }->();
 		say q(</ul></fieldset>);
 	}
+	if ( $element->{'display'} eq 'setup' ) {
+		$self->_get_setup_controls( $id, $element );
+	}
 	say q(</div>);
 	return;
+}
+
+sub _get_setup_controls {
+	my ( $self, $id, $element ) = @_;
+	my $q = $self->{'cgi'};
+	$element->{'visualisation_type'} //= 'breakdown';
+	say q(<fieldset><legend>Visualisation type</legend>);
+	say q(<ul><li>);
+	say q(<label for="visualisation_type" class="short_align">Type:</label>);
+	say $q->popup_menu(
+		-id      => "${id}_visualisation_type",
+		-name    => "${id}_visualisation_type",
+		-values  => [ 'breakdown', 'specific value' ],
+		-default => $element->{'visualisation_type'},
+		-class   => 'element_option'
+	);
+	say q(</li>);
+	my $display = $element->{'visualisation_type'} eq 'specific value' ? 'inline' : 'none';
+	say qq(<li id="${id}_value_selector" style="display:$display">)
+	  . q(<label for="specific_value" class="short_align">Value:</label>);
+
+	if ( $self->_field_has_optlist( $element->{'field'} ) ) {
+		my $values = $self->_get_field_values( $element->{'field'} );
+		unshift @$values, q( );
+		say $self->popup_menu(
+			-name    => "${id}_specific_value",
+			-id      => "${id}_specific_value",
+			-values  => $values,
+			-labels  => { ' ' => 'Select...' },
+			-style   => 'max-width:9em',
+			-default => $element->{'specific_value'},
+			-class   => 'element_option'
+		);
+	} else {
+		my $html5_args = $self->_get_html5_args( $element->{'field'} );
+		say $self->textfield(
+			-name        => "${id}_specific_value",
+			-id          => "${id}_specific_value",
+			-class       => 'element_option',
+			-style       => 'width:10em',
+			-maxlength   => 100,
+			-value       => $element->{'specific_value'},
+			-placeholder => 'Enter value...',
+			%$html5_args
+		);
+	}
+	say q(</li>);
+	say q(</fieldset>);
+	return;
+}
+
+sub _get_html5_args {
+	my ( $self, $field ) = @_;
+	my $html5_args = { required => 'required' };
+	if ( $field =~ /^f_(.*)/x ) {
+		my $att = $self->{'xmlHandler'}->get_field_attributes($1);
+		if ( !$att->{'optlist'} ) {
+			if ( $att->{'type'} =~ /^int/x ) {
+				@{$html5_args}{qw(type min step)} = qw(number 0 1);
+			}
+			if ( $att->{'type'} eq 'float' ) {
+				@{$html5_args}{qw(type step)} = qw(number any);
+			}
+			if ( $att->{'type'} eq 'date' ) {
+				$html5_args->{'type'} = 'date';
+			}
+			if ( $att->{'type'} =~ /^int/x || $att->{'type'} eq 'float' || $att->{'type'} eq 'date' ) {
+				$html5_args->{'min'} = $att->{'min'} if defined $att->{'min'};
+				$html5_args->{'max'} = $att->{'max'} if defined $att->{'max'};
+			}
+			$html5_args->{'pattern'} = $att->{'regex'} if $att->{'regex'};
+		}
+	}
+	return $html5_args;
+}
+
+sub _field_has_optlist {
+	my ( $self, $field ) = @_;
+	if ( $field =~ /^f_(.*)/x ) {
+		my $attributes = $self->{'xmlHandler'}->get_field_attributes($1);
+		return 1 if $attributes->{'optlist'};
+		return 1 if $attributes->{'type'} =~ /^bool/x;
+	}
+	return;
+}
+
+sub _get_field_values {
+	my ( $self, $field ) = @_;
+	if ( $field =~ /^f_(.*)/x ) {
+		my $attributes = $self->{'xmlHandler'}->get_field_attributes($1);
+		if ( $attributes->{'optlist'} ) {
+			return $self->{'xmlHandler'}->get_field_option_list($1);
+		}
+		if ( $attributes->{'type'} =~ /^bool/x ) {
+			return [qw(true false)];
+		}
+	}
+	return [];
 }
 
 sub _get_size_controls {
@@ -555,7 +652,7 @@ sub _update_prefs {
 	my %allowed_attributes =
 	  map { $_ => 1 }
 	  qw(layout fill_gaps enable_drag edit_elements remove_elements order elements default include_old_versions
-	  layout_test
+	  layout_test visualisation_type specific_value
 	);
 
 	if ( !$allowed_attributes{$attribute} ) {
@@ -568,7 +665,7 @@ sub _update_prefs {
 		return if !$allowed_values{$value};
 	}
 	my %boolean_attributes =
-	  map { $_ => 1 } qw(fill_gaps enable_drag edit_elements remove_elements include_old_versions);
+	  map { $_ => 1 } qw(fill_gaps enable_drag edit_elements remove_elements include_old_versions visualisation_type);
 	if ( $boolean_attributes{$attribute} ) {
 		my %allowed_values = map { $_ => 1 } ( 0, 1 );
 		return if !$allowed_values{$value};
@@ -613,6 +710,7 @@ sub _print_modify_dashboard_fieldset {
 	say q(<h2>Dashboard settings</h2>);
 	say q(<fieldset><legend>Layout</legend>);
 	say q(<ul>);
+
 	#TODO Remove for production.
 	say q(<li style="border-width:3px;border-color:red;border-top-style:solid;)
 	  . q(border-bottom-style:solid;margin-bottom:1em">);

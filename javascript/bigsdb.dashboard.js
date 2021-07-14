@@ -129,7 +129,7 @@ $(function () {
 	});
 	$("div#dashboard").on("click",".setup_element",function(){
 		var id=$(this).attr('data-id');
-		setupElement(grid,id);
+		editElement(grid,id);
 	});
 	$("div#dashboard").on("click",".dashboard_explore_element",function(){
 		var id=$(this).attr('data-id');
@@ -140,7 +140,7 @@ $(function () {
 			}
 			window.location.href = explore_url;
 		}
-	});
+	});	
 	applyFormatting();
 
 	var dimension = ['width','height'];
@@ -219,15 +219,22 @@ function addElement(grid,id){
 	});	
 }
 
-function editElement(grid,id){
+function editElement(grid,id,setup){
 	$("span#control_" + id).hide();
 	$("span#wait_" + id).show();
 	$.get(url + "&page=dashboard&control=" + id, function(html) {
 		$(html).appendTo('body').modal();
-		$("span#control_" + id).show();
-		$("span#wait_" + id).hide();
+		if ($("#edit_elements").prop("checked")){
+			$("span#control_" + id).show();
+		}
+		$("span#wait_" + id).hide();		
+		$("div.modal").on("change","#" + id + "_visualisation_type",function(){
+			$("li#" + id + "_value_selector").css("display", $("#" + id + "_visualisation_type").val() === 'breakdown' ? 'none' : 'inline');
+		});
 	});
 }
+
+
 
 function reloadElement(grid,id){
 	$.get(url + "&page=dashboard&element=" + id,function(json){
@@ -255,12 +262,6 @@ function removeElement(grid,id){
 	if (Object.keys(elements).length == 0){	
 		$("div#empty").html(empty);
 	}
-}
-
-function setupElement(grid,id){
-	$.get(url + "&page=dashboard&setup=" + id, function(html) {
-		$(html).appendTo('body').modal();
-	});
 }
 
 function changeElementDimension(grid, id, attribute) {
