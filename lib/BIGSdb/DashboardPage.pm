@@ -122,19 +122,19 @@ sub _get_setup_controls {
 	$element->{'visualisation_type'} //= 'breakdown';
 	say q(<fieldset><legend>Visualisation type</legend>);
 	say q(<ul><li>);
-	say q(<label for="visualisation_type" class="short_align">Type:</label>);
-	say $q->popup_menu(
-		-id      => "${id}_visualisation_type",
-		-name    => "${id}_visualisation_type",
-		-values  => [ 'breakdown', 'specific value' ],
-		-default => $element->{'visualisation_type'},
-		-class   => 'element_option'
+	say $q->radio_group(
+		-id        => "${id}_visualisation_type",
+		-name      => "${id}_visualisation_type",
+		-label     => 'Type',
+		-values    => [ 'breakdown', 'specific value' ],
+		-default   => $element->{'visualisation_type'},
+		-class     => 'element_option',
+		-linebreak => 'true'
 	);
 	say q(</li>);
 	my $display = $element->{'visualisation_type'} eq 'specific value' ? 'inline' : 'none';
 	say qq(<li id="${id}_value_selector" style="display:$display">)
 	  . q(<label for="specific_value" class="short_align">Value:</label>);
-
 	if ( $self->_field_has_optlist( $element->{'field'} ) ) {
 		my $values = $self->_get_field_values( $element->{'field'} );
 		unshift @$values, q( );

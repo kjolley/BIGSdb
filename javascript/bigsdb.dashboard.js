@@ -227,9 +227,13 @@ function editElement(grid,id,setup){
 		if ($("#edit_elements").prop("checked")){
 			$("span#control_" + id).show();
 		}
-		$("span#wait_" + id).hide();		
+		$("span#wait_" + id).hide();	
 		$("div.modal").on("change","#" + id + "_visualisation_type",function(){
-			$("li#" + id + "_value_selector").css("display", $("#" + id + "_visualisation_type").val() === 'breakdown' ? 'none' : 'inline');
+			$("li#" + id + "_value_selector").css("display", 
+				$("#" + id + "_visualisation_type:checked").val() === 'breakdown' ? 'none' : 'inline');
+		});
+		$("div.modal").on($.modal.AFTER_CLOSE, function(event, modal) {
+			$("div.modal").remove();
 		});
 	});
 }
