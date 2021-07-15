@@ -164,17 +164,31 @@ $(function () {
 	});	
 });
 
+function clean_value(value){
+	if (Array.isArray(value)){
+		value = value.map(function (el) {
+			return el.trim();
+		});
+	} else {
+		value = value.trim();
+	}
+	return value;
+}
+
 function changeElementAttribute(grid, id, attribute, value){
+	if (attribute === 'specific_values' && value.includes("\n")){
+		value = value.split("\n");
+	}
+	value = clean_value(value);
 	elements[id][attribute] = value;
 	$.post(url,{
-    	db:instance,
+		db:instance,
     	page:"dashboard",
     	updatePrefs:1,
     	attribute:"elements",
     	value:JSON.stringify(elements)
     }, function(){
-    	reloadElement(grid,id);
-    	
+    	reloadElement(grid,id);  	
     });	
 }
 
@@ -229,8 +243,18 @@ function editElement(grid,id,setup){
 		}
 		$("span#wait_" + id).hide();	
 		$("div.modal").on("change","#" + id + "_visualisation_type",function(){
-			$("li#" + id + "_value_selector").css("display", 
-				$("#" + id + "_visualisation_type:checked").val() === 'breakdown' ? 'none' : 'inline');
+			$("li#value_selector").css("display", 
+				$("#" + id + "_visualisation_type:checked").val() === 'breakdown' ? 'none' : 'block');
+			$("li#breakdown_display_selector").css("display", 
+					$("#" + id + "_visualisation_type:checked").val() === 'breakdown' ? 'block' : 'none');
+			$("li#specific_value_display_selector").css("display", 
+					$("#" + id + "_visualisation_type:checked").val() === 'breakdown' ? 'none' : 'block');
+			check_and_show_visualisation(grid,id);
+		});
+		$("div.modal").on("change","#" + id + "_breakdown_display,#" + 
+				id + "_specific_value_display,#" + 
+				id + "_specific_values",function(){		
+			check_and_show_visualisation(grid,id);
 		});
 		$("div.modal").on($.modal.AFTER_CLOSE, function(event, modal) {
 			$("div.modal").remove();
@@ -238,7 +262,12 @@ function editElement(grid,id,setup){
 	});
 }
 
-
+function check_and_show_visualisation(grid,id){
+	var visualisation_type = $("#" + id + "_visualisation_type:checked").val();
+	var breakdown_display = $("#" + id + "_breakdown_display").val();
+	var specific_value_display = $("#" + id + "_specific_value_display").val();
+	var specific_value = $("#" + id + "_specific_value").val();
+}
 
 function reloadElement(grid,id){
 	$.get(url + "&page=dashboard&element=" + id,function(json){

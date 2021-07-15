@@ -86,7 +86,7 @@ sub _ajax_controls {
 	my $q        = $self->{'cgi'};
 	say q(<div class="modal">);
 	say q(<h2>Modify visual element</h2>);
-	say qq(<p>Field: $element->{'name'}</p>);
+	say qq(<p><strong>Field: $element->{'name'}</strong></p>);
 	$self->_get_size_controls( $id, $element );
 	my %data_methods = (
 		record_count => sub {
@@ -110,13 +110,14 @@ sub _ajax_controls {
 		say q(</ul></fieldset>);
 	}
 	if ( $element->{'display'} eq 'setup' ) {
-		$self->_get_setup_controls( $id, $element );
+		$self->_print_visualisation_type_controls( $id, $element );
+		$self->_print_chart_type_controls( $id, $element );
 	}
 	say q(</div>);
 	return;
 }
 
-sub _get_setup_controls {
+sub _print_visualisation_type_controls {
 	my ( $self, $id, $element ) = @_;
 	my $q = $self->{'cgi'};
 	$element->{'visualisation_type'} //= 'breakdown';
@@ -126,38 +127,40 @@ sub _get_setup_controls {
 		-id        => "${id}_visualisation_type",
 		-name      => "${id}_visualisation_type",
 		-label     => 'Type',
-		-values    => [ 'breakdown', 'specific value' ],
+		-values    => [ 'breakdown', 'specific values' ],
 		-default   => $element->{'visualisation_type'},
 		-class     => 'element_option',
 		-linebreak => 'true'
 	);
 	say q(</li>);
-	my $display = $element->{'visualisation_type'} eq 'specific value' ? 'inline' : 'none';
-	say qq(<li id="${id}_value_selector" style="display:$display">)
-	  . q(<label for="specific_value" class="short_align">Value:</label>);
+	my $display = $element->{'visualisation_type'} eq 'specific values' ? 'block' : 'none';
+	say qq(<li id="value_selector" style="display:$display">);
+
 	if ( $self->_field_has_optlist( $element->{'field'} ) ) {
+		say q(<label>Select value(s):</label><br />);
 		my $values = $self->_get_field_values( $element->{'field'} );
-		unshift @$values, q( );
 		say $self->popup_menu(
-			-name    => "${id}_specific_value",
-			-id      => "${id}_specific_value",
-			-values  => $values,
-			-labels  => { ' ' => 'Select...' },
-			-style   => 'max-width:9em',
-			-default => $element->{'specific_value'},
-			-class   => 'element_option'
+			-name     => "${id}_specific_values",
+			-id       => "${id}_specific_values",
+			-values   => $values,
+			-style    => 'max-width:14em',
+			-default  => $element->{'specific_values'},
+			-class    => 'element_option',
+			-multiple => 'true'
 		);
 	} else {
 		my $html5_args = $self->_get_html5_args( $element->{'field'} );
-		say $self->textfield(
-			-name        => "${id}_specific_value",
-			-id          => "${id}_specific_value",
-			-class       => 'element_option',
-			-style       => 'width:10em',
-			-maxlength   => 100,
-			-value       => $element->{'specific_value'},
-			-placeholder => 'Enter value...',
-			%$html5_args
+		local $" = qq(\n);
+		say q(<label>Enter value(s):</label><br />);
+		say $q->textarea(
+			-name  => "${id}_specific_values",
+			-id    => "${id}_specific_values",
+			-class => 'element_option',
+			-style => 'width:14em',
+			-value => ref $element->{'specific_values'}
+			? qq(@{$element->{'specific_values'}})
+			: $element->{'specific_values'},
+			-placeholder => 'One value per line...',
 		);
 	}
 	say q(</li>);
@@ -197,6 +200,36 @@ sub _field_has_optlist {
 		return 1 if $attributes->{'optlist'};
 		return 1 if $attributes->{'type'} =~ /^bool/x;
 	}
+	return;
+}
+
+sub _print_chart_type_controls {
+	my ( $self, $id, $element ) = @_;
+	my $q = $self->{'cgi'};
+	$element->{'visualisation_type'} //= 'breakdown';
+	my $breakdown_display = $element->{'visualisation_type'} eq 'breakdown' ? 'block' : 'none';
+	my $value_display     = $element->{'visualisation_type'} eq 'breakdown' ? 'none'  : 'block';
+	say q(<fieldset><legend>Display element</legend>);
+	say qq(<ul><li id="breakdown_display_selector" style="display:$breakdown_display">);
+	say q(<label for="breakdown_display">Element: </label>);
+	say $q->popup_menu(
+		-name   => "${id}_breakdown_display",
+		-id     => "${id}_breakdown_display",
+		-values => [qw(0 doughnut pie)],
+		-labels => { 0 => 'Select...' },
+		-class  => 'element_option'
+	);
+	say qq(</li><li id="specific_value_display_selector" style="display:$value_display">);
+	say q(<label for="specific_value_display">Element: </label>);
+	say $q->popup_menu(
+		-name   => "${id}_specific_value_display",
+		-id     => "${id}_specific_value_display",
+		-values => [qw(0 number gauge)],
+		-labels => { 0 => 'Select...' },
+		-class  => 'element_option'
+	);
+	say q(</li></ul>);
+	say q(</fieldset>);
 	return;
 }
 
@@ -357,7 +390,8 @@ sub _ajax_new {
 			$element->{'display'} = 'setup';
 		}
 	}
-	say encode_json(
+	my $json = JSON->new->allow_nonref;
+	say $json->encode(
 		{
 			element => $element,
 			html    => $self->_get_element_html($element)
@@ -369,8 +403,9 @@ sub _ajax_new {
 sub _ajax_get {
 	my ( $self, $id ) = @_;
 	my $elements = $self->_get_elements;
+	my $json     = JSON->new->allow_nonref;
 	if ( $elements->{$id} ) {
-		say encode_json(
+		say $json->encode(
 			{
 				element => $elements->{$id},
 				html    => $self->_get_element_content( $elements->{$id} )
@@ -378,7 +413,7 @@ sub _ajax_get {
 		);
 		return;
 	}
-	say encode_json(
+	say $json->encode(
 		{
 			html => '<p>Invalid element!</p>'
 		}
@@ -450,7 +485,8 @@ sub _get_elements {
 	my ($self) = @_;
 	my $elements = {};
 	if ( defined $self->{'prefs'}->{'dashboard.elements'} ) {
-		eval { $elements = decode_json( $self->{'prefs'}->{'dashboard.elements'} ); };
+		my $json = JSON->new->allow_nonref;
+		eval { $elements = $json->decode( $self->{'prefs'}->{'dashboard.elements'} ); };
 		if (@$) {
 			$logger->error('Invalid JSON in dashboard.elements.');
 		}
@@ -652,7 +688,7 @@ sub _update_prefs {
 	my %allowed_attributes =
 	  map { $_ => 1 }
 	  qw(layout fill_gaps enable_drag edit_elements remove_elements order elements default include_old_versions
-	  layout_test visualisation_type specific_value
+	  layout_test visualisation_type specific_values
 	);
 
 	if ( !$allowed_attributes{$attribute} ) {
@@ -670,13 +706,14 @@ sub _update_prefs {
 		my %allowed_values = map { $_ => 1 } ( 0, 1 );
 		return if !$allowed_values{$value};
 	}
+	my $json = JSON->new->allow_nonref;
 	my %json_attributes = map { $_ => 1 } qw(order elements);
 	if ( $json_attributes{$attribute} ) {
 		if ( length( $value > 5000 ) ) {
 			$logger->error("$attribute value too long.");
 			return;
 		}
-		eval { decode_json($value); };
+		eval { $json->decode($value); };
 		if ($@) {
 			$logger->error("Invalid JSON for $attribute attribute");
 		}
@@ -864,15 +901,16 @@ sub get_javascript {
 	my ($self) = @_;
 	my $order = $self->{'prefs'}->{'dashboard.order'} // q();
 	my $enable_drag = $self->{'prefs'}->{'dashboard.enable_drag'} ? 'true' : 'false';
+	my $json = JSON->new->allow_nonref;
 	if ($order) {
-		eval { decode_json($order); };
+		eval { $json->encode($order); };
 		if ($@) {
 			$logger->error('Invalid order JSON');
 			$order = q();
 		}
 	}
 	my $elements      = $self->_get_elements;
-	my $json_elements = encode_json($elements);
+	my $json_elements = $json->encode($elements);
 	my $empty         = $self->_get_dashboard_empty_message;
 	my $buffer        = << "END";
 var url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}";
