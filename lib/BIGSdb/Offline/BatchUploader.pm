@@ -46,6 +46,7 @@ sub upload {
 	$loci{$locus} = 1 if $locus;
 	my $status_filepath = qq($self->{'config'}->{'tmp_dir'}/$status_file);
 	my $i               = 0;
+	my %allow_null_term = map { $_ => 1 } qw(validation_conditions);
 
 	foreach my $record (@$records) {
 		$self->_update_status(
@@ -59,7 +60,7 @@ sub upload {
 		$record =~ s/\r//gx;
 		next if !$record;
 		my $data = [ split /\t/x, $record ];
-		@$data = $self->_process_fields($data);
+		@$data = $self->_process_fields( $data, { allow_null => $allow_null_term{$table} } );
 		my @value_list;
 		my ( @extras, @ref_extras );
 		my $id;
@@ -95,12 +96,12 @@ sub upload {
 		push @inserts, { statement => $qry, arguments => \@value_list };
 		if ( $table eq 'allele_designations' ) {
 			my $action = "$data->[$field_order->{'locus'}]: new designation '$data->[$field_order->{'allele_id'}]'";
-			push @inserts, {
+			push @inserts,
+			  {
 				statement => 'INSERT INTO history (isolate_id,timestamp,action,curator) VALUES '
-				  . '(?,clock_timestamp()::TIMESTAMP,?,?)'
-				,
+				  . '(?,clock_timestamp()::TIMESTAMP,?,?)',
 				arguments => [ $data->[ $field_order->{'isolate_id'} ], $action, $self->{'curator_id'} ]
-			};
+			  };
 		}
 		my ( $upload_err, $failed_file );
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
@@ -255,14 +256,14 @@ sub _update_status {
 }
 
 sub _process_fields {
-	my ( $self, $data ) = @_;
+	my ( $self, $data, $options ) = @_;
 	my @return_data;
 	foreach my $value (@$data) {
 		$value =~ s/^\s+//x;
 		$value =~ s/\s+$//x;
 		$value =~ s/\r//gx;
 		$value =~ s/\n/ /gx;
-		$value =~ s/^null$//gx;
+		$value =~ s/^null$//gx if !$options->{'allow_null'};
 		if ( $value eq q() ) {
 			push @return_data, undef;
 		} else {
