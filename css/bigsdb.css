@@ -1488,23 +1488,24 @@ span.dashboard_explore_element:hover span.tooltip {
 
 span.dashboard_remove_element {
 	top: 2px;
-	left: 2px
+	left: 2px;
 }
 
 p.dashboard_comment {
 	font-size: 0.9em;
-	margin-bottom: 0
+	margin: 10px 10px 0 10px;
 }
 
 span.dashboard_big_number {
+	margin-top:0.25em;
 	display: inline-block;
 	white-space: nowrap;
 }
 
 span.dashboard_watermark {
 	position: absolute;
-	bottom: 5px;
-	right: 5px;
+	bottom: 15px;
+	right: 15px;
 	font-size: 6em;
 	color: #444;
 	opacity: 0.1

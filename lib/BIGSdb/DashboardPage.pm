@@ -33,7 +33,7 @@ use constant {
 	GENOMES_MAIN_TEXT_COLOUR         => '#404040',
 	GENOMES_BACKGROUND_COLOUR        => '#7ecc66',
 	SPECIFIC_FIELD_MAIN_TEXT_COLOUR  => '#404040',
-	SPECIFIC_FIELD_BACKGROUND_COLOUR => '#fdba77'
+	SPECIFIC_FIELD_BACKGROUND_COLOUR => '#d9e1ff'
 };
 
 sub print_content {
@@ -550,8 +550,9 @@ sub _get_element_html {
 	my $width_class  = "dashboard_element_width$element->{'width'}";
 	my $height_class = "dashboard_element_height$element->{'height'}";
 	$buffer .= qq(<div class="item-content $width_class $height_class">);
+#	$buffer .= $self->_get_colour_swatch($element);
 	$buffer .= $self->_get_element_controls($element);
-	$buffer .= q(<div class="ajax_content" style="position:relative;overflow:hidden">);
+	$buffer .= q(<div class="ajax_content" style="position:absolute;overflow:hidden;height:100%;width:100%">);
 	$buffer .= $self->_get_element_content($element);
 	$buffer .= q(</div></div></div>);
 	return $buffer;
@@ -563,8 +564,9 @@ sub _load_element_html_by_ajax {
 	my $width_class  = "dashboard_element_width$element->{'width'}";
 	my $height_class = "dashboard_element_height$element->{'height'}";
 	$buffer .= qq(<div class="item-content $width_class $height_class">);
+#	$buffer .= $self->_get_colour_swatch($element);
 	$buffer .= $self->_get_element_controls($element);
-	$buffer .= q(<div class="ajax_content" style="position:relative;overflow:hidden">)
+	$buffer .= q(<div class="ajax_content" style="position:absolute;overflow:hidden;height:100%;width:100%">)
 	  . q(<span class="dashboard_wait_ajax fas fa-sync-alt fa-spin"></span></div>);
 	$buffer .= q(</div></div>);
 	return $buffer;
@@ -606,7 +608,8 @@ sub _get_setup_element_content {
 
 sub _get_count_element_content {
 	my ( $self, $element ) = @_;
-	my $buffer            = qq(<div class="title">$element->{'name'}</div>);
+	 my $buffer=$self->_get_colour_swatch($element);   
+	 $buffer            .= qq(<div class="title">$element->{'name'}</div>);
 	my $text_colour       = $element->{'main_text_colour'} // COUNT_MAIN_TEXT_COLOUR;
 	my $background_colour = $element->{'background_colour'} // COUNT_BACKGROUND_COLOUR;
 	my $qry               = "SELECT COUNT(*) FROM $self->{'system'}->{'view'}";
@@ -645,15 +648,24 @@ sub _get_count_element_content {
 	return $buffer;
 }
 
+sub _get_colour_swatch {
+	my ( $self, $element ) = @_;
+	if ( $element->{'background_colour'} ) {
+		return
+		    qq(<div id="$element->{'id'}_background" )
+		  . qq(style="background-image:linear-gradient(#fff,#fff 10%,$element->{'background_colour'},#fff 90%,#fff);)
+		  . q(height:100%;width:100%;position:absolute;z-index:-1"></div>);
+	}
+	return q();
+}
+
 sub _get_big_number_content {
 	my ( $self, $args ) = @_;
 	my ( $element, $number, $background_colour, $text_colour, $increase, $change_duration ) =
 	  @{$args}{qw(element number background_colour text_colour increase change_duration)};
 	my $nice_count = BIGSdb::Utils::commify($number);
-	my $buffer =
-	    qq(<div style="background-image:linear-gradient(#fff,$background_colour,#fff);)
-	  . q(margin-top:-1em;padding:2em 0.5em 0 0.5em;height:100%"><p><span class="dashboard_big_number" )
-	  . qq(style="color:$text_colour">$nice_count</span></p>);
+	my $buffer     = q(<p style="margin:0 10px">)
+	  . qq(<span class="dashboard_big_number" style="color:$text_colour">$nice_count</span></p>);
 	if ( $change_duration && defined $increase ) {
 		my $nice_increase = BIGSdb::Utils::commify($increase);
 		my $class = $increase ? 'increase' : 'no_change';
@@ -661,13 +673,13 @@ sub _get_big_number_content {
 		  . qq($nice_increase [$change_duration]</p>);
 	}
 	$buffer .= $self->_add_element_watermark($element);
-	$buffer .= q(</div>);
 	return $buffer;
 }
 
 sub _get_field_element_content {
 	my ( $self, $element ) = @_;
-	my $buffer = qq(<div class="title">$element->{'name'}</div>);
+	my $buffer=$self->_get_colour_swatch($element);   
+	$buffer .= qq(<div class="title">$element->{'name'}</div>);
 	if ( $element->{'visualisation_type'} eq 'specific values' ) {
 		if ( $element->{'specific_value_display'} eq 'number' ) {
 			$buffer .= $self->_get_field_specific_value_number_content($element);
@@ -807,7 +819,9 @@ sub _update_prefs {
 		return if !$allowed_values{$value};
 	}
 	my %boolean_attributes =
-	  map { $_ => 1 } qw(fill_gaps enable_drag edit_elements remove_elements include_old_versions visualisation_type);
+	  map { $_ => 1 }
+	  qw(fill_gaps enable_drag edit_elements remove_elements include_old_versions visualisation_type
+	  );
 	if ( $boolean_attributes{$attribute} ) {
 		my %allowed_values = map { $_ => 1 } ( 0, 1 );
 		return if !$allowed_values{$value};
