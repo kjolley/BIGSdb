@@ -179,8 +179,13 @@ function changeElementAttribute(grid, id, attribute, value){
 	if (elements[id][attribute] === value){
 		return;
 	}
-	if (attribute === 'specific_values' && value.includes("\n")){
-		value = value.split("\n");
+	if (attribute === 'specific_values' ){
+	    console.log(value);
+	    if (value.includes("\n")){
+	        value = value.split("\n");
+	    } else {
+	        value = value.split();
+	    }
 	}
 	value = clean_value(value);
 	elements[id][attribute] = value;
