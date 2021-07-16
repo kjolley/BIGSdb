@@ -36,7 +36,7 @@ $(function () {
 				return enable_drag;
 			}
 		}).on('move', function () {
-	    	saveLayout(grid);
+			saveLayout(grid);
 		});
 		if (order){
 			loadLayout(grid, order);
@@ -44,7 +44,7 @@ $(function () {
 	} catch(err) {
 		console.log(err.message);
 	}
-	
+
 	$("#panel_trigger,#close_trigger").click(function(){		
 		$("#modify_panel").toggle("slide",{direction:"right"},"fast");
 		$("#panel_trigger").show();		
@@ -53,14 +53,14 @@ $(function () {
 	$("#panel_trigger").show();
 	$(document).mouseup(function(e) 
 			{
-			    var container = $("#modify_panel");
+		var container = $("#modify_panel");
 
-			    // if the target of the click isn't the container nor a
-				// descendant of the container
-			    if (!container.is(e.target) && container.has(e.target).length === 0) 
-			    {
-			        container.hide();
-			    }
+		// if the target of the click isn't the container nor a
+		// descendant of the container
+		if (!container.is(e.target) && container.has(e.target).length === 0) 
+		{
+			container.hide();
+		}
 			});
 	$("#layout").change(function(){
 		layout = $("#layout").val();
@@ -86,7 +86,7 @@ $(function () {
 	$("#enable_drag").change(function(){
 		enable_drag = $("#enable_drag").prop('checked');
 		$.ajax(url + "&page=dashboard&updatePrefs=1&attribute=enable_drag&value=" + (enable_drag ? 1 : 0) );
-		
+
 	});
 	$("#edit_elements").change(function(){	
 		var edit_elements = $("#edit_elements").prop('checked');
@@ -106,19 +106,19 @@ $(function () {
 	$("#include_old_versions").change(function(){	
 		var include_old_versions = $("#include_old_versions").prop('checked');
 		$.ajax({
-				url:url + "&page=dashboard&updatePrefs=1&attribute=include_old_versions&value=" + 
-				(include_old_versions ? 1 : 0) 			
+			url:url + "&page=dashboard&updatePrefs=1&attribute=include_old_versions&value=" + 
+			(include_old_versions ? 1 : 0) 			
 		}).done(function() {
 			reloadAllElements(grid);
 		});
 	});
-		
-	
+
+
 	$("#add_element").click(function(){	
 		var nextId = getNextid();
 		addElement(grid,nextId);
 	});
-	
+
 	$("div#dashboard").on("click",".dashboard_edit_element",function(){
 		var id=$(this).attr('data-id');
 		editElement(grid,id);
@@ -176,6 +176,9 @@ function clean_value(value){
 }
 
 function changeElementAttribute(grid, id, attribute, value){
+	if (elements[id][attribute] === value){
+		return;
+	}
 	if (attribute === 'specific_values' && value.includes("\n")){
 		value = value.split("\n");
 	}
@@ -183,13 +186,13 @@ function changeElementAttribute(grid, id, attribute, value){
 	elements[id][attribute] = value;
 	$.post(url,{
 		db:instance,
-    	page:"dashboard",
-    	updatePrefs:1,
-    	attribute:"elements",
-    	value:JSON.stringify(elements)
-    }, function(){
-    	reloadElement(grid,id);  	
-    });	
+		page:"dashboard",
+		updatePrefs:1,
+		attribute:"elements",
+		value:JSON.stringify(elements)
+	}, function(){
+		reloadElement(grid,id);  	
+	});	
 }
 
 function applyFormatting(){
@@ -215,7 +218,7 @@ function addElement(grid,id){
 	if (field){
 		add_url += "&field=" + field;
 	}
-	
+
 	$.get(add_url,function(json){
 		try {
 			var div = document.createRange().createContextualFragment(JSON.parse(json).html);
@@ -241,19 +244,17 @@ function editElement(grid,id,setup){
 		if ($("#edit_elements").prop("checked")){
 			$("span#control_" + id).show();
 		}
-		$("span#wait_" + id).hide();	
+		$("span#wait_" + id).hide();
+		show_or_hide_control_elements(grid,id);
 		$("div.modal").on("change","#" + id + "_visualisation_type",function(){
-			$("li#value_selector").css("display", 
-				$("#" + id + "_visualisation_type:checked").val() === 'breakdown' ? 'none' : 'block');
-			$("li#breakdown_display_selector").css("display", 
-					$("#" + id + "_visualisation_type:checked").val() === 'breakdown' ? 'block' : 'none');
-			$("li#specific_value_display_selector").css("display", 
-					$("#" + id + "_visualisation_type:checked").val() === 'breakdown' ? 'none' : 'block');
+			show_or_hide_control_elements(grid,id);
+
 			check_and_show_visualisation(grid,id);
 		});
 		$("div.modal").on("change","#" + id + "_breakdown_display,#" + 
 				id + "_specific_value_display,#" + 
-				id + "_specific_values",function(){		
+				id + "_specific_values",function(){	
+		    show_or_hide_control_elements(grid,id);
 			check_and_show_visualisation(grid,id);
 		});
 		$("div.modal").on($.modal.AFTER_CLOSE, function(event, modal) {
@@ -262,11 +263,31 @@ function editElement(grid,id,setup){
 	});
 }
 
+function show_or_hide_control_elements(grid,id){
+	var visualisation_type = $("input[name='" + id + "_visualisation_type']:checked").val();
+	var specific_value_display = $("#" + id + "_specific_value_display").val();
+	$("li#value_selector").css("display", visualisation_type === 'breakdown' ? 'none' : 'block');
+	$("li#breakdown_display_selector").css("display",visualisation_type === 'breakdown' ? 'block' : 'none');
+	$("li#specific_value_display_selector").css("display", visualisation_type === 'breakdown' ? 'none' : 'block');
+	if (visualisation_type==='specific values'){
+	    $("fieldset#change_duration_control").css("display",specific_value_display==='number' ? 'inline':'none');
+	    $("fieldset#design_control").css("display",specific_value_display==='number' ? 'inline':'none');
+	}
+	
+}
+
 function check_and_show_visualisation(grid,id){
-	var visualisation_type = $("#" + id + "_visualisation_type:checked").val();
+	var visualisation_type = $("input[name='" + id + "_visualisation_type']:checked").val();
 	var breakdown_display = $("#" + id + "_breakdown_display").val();
 	var specific_value_display = $("#" + id + "_specific_value_display").val();
-	var specific_value = $("#" + id + "_specific_value").val();
+	var specific_values = $("#" + id + "_specific_values").val();
+	if (visualisation_type === 'specific values'){
+		if (specific_value_display != '0' && specific_values.length != 0){
+			changeElementAttribute(grid,id,'display','field');
+		} else {
+			changeElementAttribute(grid, id, 'display', 'setup');
+		}
+	}
 }
 
 function reloadElement(grid,id){
@@ -307,29 +328,29 @@ function changeElementDimension(grid, id, attribute) {
 		}
 	});
 	var new_dimension = $("input[name='" + id + "_" + attribute + "']:checked")
-			.val();
+	.val();
 	item_content.addClass("dashboard_element_" + attribute + new_dimension);
 	$("span#" + id + "_" + attribute).html(new_dimension);
 	elements[id][attribute] = Number(new_dimension);
 	$.post(url,{
-    	db:instance,
-    	page:"dashboard",
-    	updatePrefs:1,
-    	attribute:"elements",
-    	value:JSON.stringify(elements)
-    });
+		db:instance,
+		page:"dashboard",
+		updatePrefs:1,
+		attribute:"elements",
+		value:JSON.stringify(elements)
+	});
 	applyFormatting();
 	grid.refreshItems().layout();
 }
 
 function saveElements(grid){
 	$.post(url,{
-    	db:instance,
-    	page:"dashboard",
-    	updatePrefs:1,
-    	attribute:"elements",
-    	value:JSON.stringify(elements)
-    });
+		db:instance,
+		page:"dashboard",
+		updatePrefs:1,
+		attribute:"elements",
+		value:JSON.stringify(elements)
+	});
 	saveLayout(grid);
 }
 
@@ -363,14 +384,14 @@ function loadLayout(grid, serializedLayout) {
 }
 
 function saveLayout(grid) {
-    var layout = serializeLayout(grid);
-     $.post(url,{
-    	db:instance,
-    	page:"dashboard",
-    	updatePrefs:1,
-    	attribute:"order",
-    	value:layout
-    });
+	var layout = serializeLayout(grid);
+	$.post(url,{
+		db:instance,
+		page:"dashboard",
+		updatePrefs:1,
+		attribute:"order",
+		value:layout
+	});
 }
 
 function resetDefaults(){

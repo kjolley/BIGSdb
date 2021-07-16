@@ -1362,15 +1362,24 @@ div.grid {
 	text-align: center;
 }
 
-.item-content div.title {
-	font-size: 1em;
+.item-content div.title,.item-content div.subtitle {
 	font-family: pt_sansregular, sans-serif;
-	padding: 1em 0.1em;
-	color: #888;
-	font-weight: 600;
 	white-space: nowrap;
 	overflow-x: hidden;
 	text-overflow: ellipsis;
+}
+
+.item-content div.title {
+	font-size: 1em;
+	padding: 1em 0.1em;
+	color: #888;
+	font-weight: 600;
+}
+
+.item-content div.subtitle {
+	margin-top:-1em;
+	font-size: 0.9em;
+	color: #1540ef
 }
 
 span.setup_element {

@@ -28,10 +28,12 @@ use Data::Dumper;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant {
-	COUNT_MAIN_TEXT_COLOUR    => '#404040',
-	COUNT_BACKGROUND_COLOUR   => '#79cafb',
-	GENOMES_MAIN_TEXT_COLOUR  => '#404040',
-	GENOMES_BACKGROUND_COLOUR => '#7ecc66'
+	COUNT_MAIN_TEXT_COLOUR           => '#404040',
+	COUNT_BACKGROUND_COLOUR          => '#79cafb',
+	GENOMES_MAIN_TEXT_COLOUR         => '#404040',
+	GENOMES_BACKGROUND_COLOUR        => '#7ecc66',
+	SPECIFIC_FIELD_MAIN_TEXT_COLOUR  => '#404040',
+	SPECIFIC_FIELD_BACKGROUND_COLOUR => '#fdba77'
 };
 
 sub print_content {
@@ -88,31 +90,29 @@ sub _ajax_controls {
 	say q(<h2>Modify visual element</h2>);
 	say qq(<p><strong>Field: $element->{'name'}</strong></p>);
 	$self->_get_size_controls( $id, $element );
-	my %data_methods = (
-		record_count => sub {
-			$self->_get_change_duration_control( $id, $element );
-		}
-	);
-	if ( $data_methods{ $element->{'display'} } ) {
-		say q(<fieldset><legend>Data selection</legend><ul>);
-		$data_methods{ $element->{'display'} }->();
-		say q(</ul></fieldset>);
-	}
-	my %interface_methods = (
-		record_count => sub {
-			$self->_get_text_colour_control( $id, $element );
-			$self->_get_watermark_control( $id, $element );
-		}
-	);
-	if ( $interface_methods{ $element->{'display'} } ) {
-		say q(<fieldset><legend>Interface</legend><ul>);
-		$interface_methods{ $element->{'display'} }->();
-		say q(</ul></fieldset>);
-	}
-	if ( $element->{'display'} eq 'setup' ) {
+
+	if ( $element->{'display'} eq 'setup' || $element->{'display'} eq 'field' ) {
 		$self->_print_visualisation_type_controls( $id, $element );
 		$self->_print_chart_type_controls( $id, $element );
 	}
+	my %controls = (
+		record_count => sub {
+			$self->_print_change_duration_control( $id, $element );
+			$self->_print_design_control( $id, $element );
+		},
+		field => sub {
+			$self->_print_change_duration_control( $id, $element, { display => 'none' } );
+			$self->_print_design_control( $id, $element , { display => 'none' });
+		},
+		setup => sub {
+			$self->_print_change_duration_control( $id, $element, { display => 'none' } );
+			$self->_print_design_control( $id, $element , { display => 'none' });
+		},
+	);
+	if ( $controls{ $element->{'display'} } ) {
+		$controls{ $element->{'display'} }->();
+	}
+
 	say q(</div>);
 	return;
 }
@@ -213,20 +213,22 @@ sub _print_chart_type_controls {
 	say qq(<ul><li id="breakdown_display_selector" style="display:$breakdown_display">);
 	say q(<label for="breakdown_display">Element: </label>);
 	say $q->popup_menu(
-		-name   => "${id}_breakdown_display",
-		-id     => "${id}_breakdown_display",
-		-values => [qw(0 doughnut pie)],
-		-labels => { 0 => 'Select...' },
-		-class  => 'element_option'
+		-name    => "${id}_breakdown_display",
+		-id      => "${id}_breakdown_display",
+		-values  => [qw(0 doughnut pie)],
+		-labels  => { 0 => 'Select...' },
+		-class   => 'element_option',
+		-default => $element->{'breakdown_display'}
 	);
 	say qq(</li><li id="specific_value_display_selector" style="display:$value_display">);
 	say q(<label for="specific_value_display">Element: </label>);
 	say $q->popup_menu(
-		-name   => "${id}_specific_value_display",
-		-id     => "${id}_specific_value_display",
-		-values => [qw(0 number gauge)],
-		-labels => { 0 => 'Select...' },
-		-class  => 'element_option'
+		-name    => "${id}_specific_value_display",
+		-id      => "${id}_specific_value_display",
+		-values  => [qw(0 number gauge)],
+		-labels  => { 0 => 'Select...' },
+		-class   => 'element_option',
+		-default => $element->{'specific_value_display'}
 	);
 	say q(</li></ul>);
 	say q(</fieldset>);
@@ -272,9 +274,11 @@ sub _get_size_controls {
 	return;
 }
 
-sub _get_change_duration_control {
-	my ( $self, $id, $element ) = @_;
+sub _print_change_duration_control {
+	my ( $self, $id, $element, $options ) = @_;
+	my $display = $options->{'display'} // 'inline';
 	my $q = $self->{'cgi'};
+	say qq(<fieldset id="change_duration_control" style="display:$display">) . q(<legend>Rate of change</legend><ul>);
 	say q(<li>);
 	say q(<label for="change_duration">Show change</label>);
 	say $q->popup_menu(
@@ -291,25 +295,38 @@ sub _get_change_duration_control {
 		-default => $element->{'change_duration'}
 	);
 	say q(</li>);
+	say q(</ul></fieldset>);
 	return;
 }
 
-sub _get_text_colour_control {
-	my ( $self, $id, $element ) = @_;
-	my $q = $self->{'cgi'};
+sub _print_design_control {
+	my ( $self, $id, $element, $options ) = @_;
+	my $display = $options->{'display'} // 'inline';
+	say qq(<fieldset id="design_control" style="display:$display"><legend>Design</legend><ul>);
+	$self->_print_text_colour_control( $id, $element );
+	$self->_print_watermark_control( $id, $element );
+	say q(</ul></fieldset>);
+	return;
+}
+
+sub _print_text_colour_control {
+	my ( $self, $id, $element, $options ) = @_;
+	my $display = $options->{'display'} // 'block';
+	my $q       = $self->{'cgi'};
 	my $default = $element->{'main_text_colour'} // COUNT_MAIN_TEXT_COLOUR;
-	say q(<li><label for="text_colour">Main text colour</label>);
+	say qq(<li class="text_colour_control" style="display:$display"><label for="text_colour">Main text colour</label>);
 	say qq(<input type="color" id="${id}_main_text_colour" value="$default" class="element_option colour_selector">);
 	say q(</li><li>);
 	$default = $element->{'background_colour'} // COUNT_BACKGROUND_COLOUR;
-	say q(<li><label for="text_colour">Main background</label>);
+	say qq(<li class="background_colour_control" style="display:$display">)
+	  . q(<label for="text_colour">Main background</label>);
 	say qq(<input type="color" id="${id}_background_colour" value="$default" )
 	  . q(class="element_option colour_selector">);
 	say q(</li>);
 	return;
 }
 
-sub _get_watermark_control {
+sub _print_watermark_control {
 	my ( $self, $id, $element ) = @_;
 	my $q = $self->{'cgi'};
 	my @labels =
@@ -385,9 +402,11 @@ sub _ajax_new {
 			$element = { %$element, %{ $default_elements->{$field} } };
 		} else {
 			( my $display_field = $field ) =~ s/^[f]_//x;
-			$element->{'name'}    = $display_field;
+			$element->{'name'}    = ucfirst($display_field);
 			$element->{'field'}   = $field;
 			$element->{'display'} = 'setup';
+			$element->{'background_colour'} = SPECIFIC_FIELD_BACKGROUND_COLOUR;
+			$element->{'main_text_colour'} = SPECIFIC_FIELD_MAIN_TEXT_COLOUR;
 		}
 	}
 	my $json = JSON->new->allow_nonref;
@@ -549,7 +568,8 @@ sub _get_element_content {
 	my %display = (
 		test         => sub { $self->_get_test_element_content($element) },
 		setup        => sub { $self->_get_setup_element_content($element) },
-		record_count => sub { $self->_get_count_element_content($element) }
+		record_count => sub { $self->_get_count_element_content($element) },
+		field        => sub { $self->_get_field_element_content($element) }
 	);
 	if ( $display{ $element->{'display'} } ) {
 		return $display{ $element->{'display'} }->();
@@ -591,37 +611,116 @@ sub _get_count_element_content {
 	  if $element->{'genomes'};
 	local $" = ' AND ';
 	$qry .= " WHERE @filters" if @filters;
-	my $count      = $self->{'datastore'}->run_query($qry);
-	my $nice_count = BIGSdb::Utils::commify($count);
-	$buffer .=
-	    qq(<div style="background-image:linear-gradient(#fff,$background_colour,#fff);)
-	  . q(margin-top:-1em;padding:2em 0.5em 0 0.5em;height:100%"><p><span class="dashboard_big_number" )
-	  . qq(style="color:$text_colour">$nice_count</span></p>);
+	my $count = $self->{'datastore'}->run_query($qry);
+	my ( $change_duration, $increase );
 
 	if ( $element->{'change_duration'} && $count > 0 ) {
 		my %allowed = map { $_ => 1 } qw(week month year);
 		if ( $allowed{ $element->{'change_duration'} } ) {
-			$qry = "SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE "
+			$change_duration = $element->{'change_duration'};
+			$qry             = "SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE "
 			  . "date_entered <= now()-interval '1 $element->{'change_duration'}'";
 			$qry .= " AND @filters" if @filters;
 			my $past_count = $self->{'datastore'}->run_query($qry);
-			if ($past_count) {
-				my $increase      = $count - $past_count;
-				my $nice_increase = BIGSdb::Utils::commify($increase);
-				my $class         = $increase ? 'increase' : 'no_change';
-				$buffer .= qq(<p class="dashboard_comment $class"><span class="fas fa-caret-up"></span> )
-				  . qq($nice_increase [$element->{'change_duration'}]</p>);
-			}
+			$increase = $count - ( $past_count // 0 );
 		}
+	}
+	$buffer .= $self->_get_big_number_content(
+		{
+			element           => $element,
+			number            => $count,
+			background_colour => $background_colour,
+			text_colour       => $text_colour,
+			change_duration   => $change_duration,
+			increase          => $increase
+		}
+	);
+	return $buffer;
+}
+
+sub _get_big_number_content {
+	my ( $self, $args ) = @_;
+	my ( $element, $number, $background_colour, $text_colour, $increase, $change_duration ) =
+	  @{$args}{qw(element number background_colour text_colour increase change_duration)};
+	my $nice_count = BIGSdb::Utils::commify($number);
+	my $buffer =
+	    qq(<div style="background-image:linear-gradient(#fff,$background_colour,#fff);)
+	  . q(margin-top:-1em;padding:2em 0.5em 0 0.5em;height:100%"><p><span class="dashboard_big_number" )
+	  . qq(style="color:$text_colour">$nice_count</span></p>);
+	if ( $change_duration && defined $increase ) {
+		my $nice_increase = BIGSdb::Utils::commify($increase);
+		my $class = $increase ? 'increase' : 'no_change';
+		$buffer .= qq(<p class="dashboard_comment $class"><span class="fas fa-caret-up"></span> )
+		  . qq($nice_increase [$change_duration]</p>);
 	}
 	$buffer .= $self->_add_element_watermark($element);
 	$buffer .= q(</div>);
 	return $buffer;
 }
 
+sub _get_field_element_content {
+	my ( $self, $element ) = @_;
+	my $buffer = qq(<div class="title">$element->{'name'}</div>);
+	if ( $element->{'visualisation_type'} eq 'specific values' ) {
+		if ( $element->{'specific_value_display'} eq 'number' ) {
+			$buffer .= $self->_get_field_specific_value_number_content($element);
+		}
+	}
+	$buffer .= q(</div>);
+	return $buffer;
+}
+
+sub _get_field_specific_value_number_content {
+	my ( $self, $element ) = @_;
+	my $text_colour       = $element->{'main_text_colour'}  // SPECIFIC_FIELD_MAIN_TEXT_COLOUR;
+	my $background_colour = $element->{'background_colour'} // SPECIFIC_FIELD_BACKGROUND_COLOUR;
+	my $value_count       = @{ $element->{'specific_values'} };
+	my $plural = $value_count == 1 ? q() : q(s);
+	local $" = q(, );
+	my $title  = qq(@{$element->{'specific_values'}});
+	my $buffer = qq(<div class="subtitle">$title</div>);
+	my $count  = 0;
+	my ( $increase, $change_duration );
+
+	if ( $element->{'field'} =~ /^f_/x ) {
+		( my $field = $element->{'field'} ) =~ s/^f_//x;
+		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+		my $type = $att->{'type'} // 'text';
+		my $temp_table =
+		  $self->{'datastore'}->create_temp_list_table_from_array( $type, $element->{'specific_values'} );
+		my $qry = "SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE $field IN (SELECT value FROM $temp_table)";
+		my @filters;
+		push @filters, 'new_version IS NULL' if !$self->{'prefs'}->{'dashboard.include_old_versions'};
+		local $" = ' AND ';
+		$qry .= " AND @filters" if @filters;
+		$count = $self->{'datastore'}->run_query($qry);
+
+		if ( $element->{'change_duration'} && $count > 0 ) {
+			my %allowed = map { $_ => 1 } qw(week month year);
+			if ( $allowed{ $element->{'change_duration'} } ) {
+				$change_duration = $element->{'change_duration'};
+				$qry .= " AND date_entered <= now()-interval '1 $element->{'change_duration'}'";
+				my $past_count = $self->{'datastore'}->run_query($qry);
+				$increase = $count - ( $past_count // 0 );
+			}
+		}
+	}
+	$buffer .= $self->_get_big_number_content(
+		{
+			element           => $element,
+			number            => $count,
+			background_colour => $background_colour,
+			text_colour       => $text_colour,
+			change_duration   => $change_duration,
+			increase          => $increase
+		}
+	);
+	return $buffer;
+}
+
 sub _add_element_watermark {
 	my ( $self, $element ) = @_;
-	return if ( $element->{'watermark'} // q() ) !~ /^fa[r|s]\ fa\-/x;
+	return q() if ( $element->{'watermark'} // q() ) !~ /^fa[r|s]\ fa\-/x;
 	my $buffer = qq(<span class="dashboard_watermark $element->{'watermark'}"></span>);
 	return $buffer;
 }
