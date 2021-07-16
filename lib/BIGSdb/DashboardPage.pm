@@ -550,7 +550,8 @@ sub _get_element_html {
 	my $width_class  = "dashboard_element_width$element->{'width'}";
 	my $height_class = "dashboard_element_height$element->{'height'}";
 	$buffer .= qq(<div class="item-content $width_class $height_class">);
-#	$buffer .= $self->_get_colour_swatch($element);
+
+	#	$buffer .= $self->_get_colour_swatch($element);
 	$buffer .= $self->_get_element_controls($element);
 	$buffer .= q(<div class="ajax_content" style="position:absolute;overflow:hidden;height:100%;width:100%">);
 	$buffer .= $self->_get_element_content($element);
@@ -564,7 +565,8 @@ sub _load_element_html_by_ajax {
 	my $width_class  = "dashboard_element_width$element->{'width'}";
 	my $height_class = "dashboard_element_height$element->{'height'}";
 	$buffer .= qq(<div class="item-content $width_class $height_class">);
-#	$buffer .= $self->_get_colour_swatch($element);
+
+	#	$buffer .= $self->_get_colour_swatch($element);
 	$buffer .= $self->_get_element_controls($element);
 	$buffer .= q(<div class="ajax_content" style="position:absolute;overflow:hidden;height:100%;width:100%">)
 	  . q(<span class="dashboard_wait_ajax fas fa-sync-alt fa-spin"></span></div>);
@@ -608,9 +610,9 @@ sub _get_setup_element_content {
 
 sub _get_count_element_content {
 	my ( $self, $element ) = @_;
-	 my $buffer=$self->_get_colour_swatch($element);   
-	 $buffer            .= qq(<div class="title">$element->{'name'}</div>);
-	my $text_colour       = $element->{'main_text_colour'} // COUNT_MAIN_TEXT_COLOUR;
+	my $buffer = $self->_get_colour_swatch($element);
+	$buffer .= qq(<div class="title">$element->{'name'}</div>);
+	my $text_colour       = $element->{'main_text_colour'}  // COUNT_MAIN_TEXT_COLOUR;
 	my $background_colour = $element->{'background_colour'} // COUNT_BACKGROUND_COLOUR;
 	my $qry               = "SELECT COUNT(*) FROM $self->{'system'}->{'view'}";
 	my @filters;
@@ -678,10 +680,10 @@ sub _get_big_number_content {
 
 sub _get_field_element_content {
 	my ( $self, $element ) = @_;
-	my $buffer=$self->_get_colour_swatch($element);   
+	my $buffer = $self->_get_colour_swatch($element);
 	$buffer .= qq(<div class="title">$element->{'name'}</div>);
 	if ( $element->{'visualisation_type'} eq 'specific values' ) {
-		if ( $element->{'specific_value_display'} eq 'number' ) {
+		if ( ($element->{'specific_value_display'} // q()) eq 'number' ) {
 			$buffer .= $self->_get_field_specific_value_number_content($element);
 		}
 	}
@@ -707,7 +709,11 @@ sub _get_field_specific_value_number_content {
 		my $type = $att->{'type'} // 'text';
 		my $temp_table =
 		  $self->{'datastore'}->create_temp_list_table_from_array( $type, $element->{'specific_values'} );
-		my $qry = "SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE $field IN (SELECT value FROM $temp_table)";
+		my $qry =
+		  ( $att->{'multiple'} // q() ) eq 'yes'
+		  ? "SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE $field && (SELECT array_agg(value) FROM $temp_table)"
+		  : "SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE $field IN (SELECT value FROM $temp_table)"
+		  ;
 		my @filters;
 		push @filters, 'new_version IS NULL' if !$self->{'prefs'}->{'dashboard.include_old_versions'};
 		local $" = ' AND ';
@@ -821,7 +827,7 @@ sub _update_prefs {
 	my %boolean_attributes =
 	  map { $_ => 1 }
 	  qw(fill_gaps enable_drag edit_elements remove_elements include_old_versions visualisation_type
-	  );
+	);
 	if ( $boolean_attributes{$attribute} ) {
 		my %allowed_values = map { $_ => 1 } ( 0, 1 );
 		return if !$allowed_values{$value};
