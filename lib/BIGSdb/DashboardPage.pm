@@ -102,17 +102,16 @@ sub _ajax_controls {
 		},
 		field => sub {
 			$self->_print_change_duration_control( $id, $element, { display => 'none' } );
-			$self->_print_design_control( $id, $element , { display => 'none' });
+			$self->_print_design_control( $id, $element, { display => 'none' } );
 		},
 		setup => sub {
 			$self->_print_change_duration_control( $id, $element, { display => 'none' } );
-			$self->_print_design_control( $id, $element , { display => 'none' });
+			$self->_print_design_control( $id, $element, { display => 'none' } );
 		},
 	);
 	if ( $controls{ $element->{'display'} } ) {
 		$controls{ $element->{'display'} }->();
 	}
-
 	say q(</div>);
 	return;
 }
@@ -330,7 +329,8 @@ sub _print_watermark_control {
 	my ( $self, $id, $element ) = @_;
 	my $q = $self->{'cgi'};
 	my @labels =
-	  qw(bacteria bacterium biohazard bug capsules clock dna globe pills syringe tablets users virus viruses);
+	  qw(bacteria bacterium biohazard bug capsules clock dna globe globe-africa globe-americas globe-asia globe-europe
+	  pills syringe tablets users virus viruses);
 	my $values = [];
 	my $labels = {};
 	foreach my $label (@labels) {
@@ -351,6 +351,7 @@ sub _print_watermark_control {
 	unshift @$values, 'none';
 	say q(<li><label for="watermark">Watermark</label>);
 	say $self->popup_menu(
+		-name    => "${id}_watermark",
 		-id      => "${id}_watermark",
 		-values  => $values,
 		-labels  => $labels,
@@ -402,11 +403,17 @@ sub _ajax_new {
 			$element = { %$element, %{ $default_elements->{$field} } };
 		} else {
 			( my $display_field = $field ) =~ s/^[f]_//x;
-			$element->{'name'}    = ucfirst($display_field);
-			$element->{'field'}   = $field;
-			$element->{'display'} = 'setup';
+			$element->{'name'}              = ucfirst($display_field);
+			$element->{'field'}             = $field;
+			$element->{'display'}           = 'setup';
+			$element->{'change_duration'}   = 'week';
 			$element->{'background_colour'} = SPECIFIC_FIELD_BACKGROUND_COLOUR;
-			$element->{'main_text_colour'} = SPECIFIC_FIELD_MAIN_TEXT_COLOUR;
+			$element->{'main_text_colour'}  = SPECIFIC_FIELD_MAIN_TEXT_COLOUR;
+			my %default_watermarks = ( f_country => 'fas fa-globe' );
+
+			if ( $default_watermarks{$field} ) {
+				$element->{'watermark'} = $default_watermarks{$field};
+			}
 		}
 	}
 	my $json = JSON->new->allow_nonref;
