@@ -169,6 +169,9 @@ function clean_value(value){
 		value = value.map(function (el) {
 			return el.trim();
 		});
+		value = value.filter(function (el) {
+            return el != null && el != '';
+        });
 	} else {
 		value = value.trim();
 	}
