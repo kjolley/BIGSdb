@@ -36,6 +36,9 @@ use constant {
 	SPECIFIC_FIELD_BACKGROUND_COLOUR => '#d9e1ff'
 };
 
+#TODO Cancel AJAX on new call
+#TODO New specific-value query doesn't always activate immediately
+#TODO Use POST for follow-on query
 sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
@@ -705,16 +708,16 @@ sub _get_field_specific_value_number_content {
 
 	if ( $element->{'field'} =~ /^f_/x ) {
 		( my $field = $element->{'field'} ) =~ s/^f_//x;
-		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-		my $type = $att->{'type'} // 'text';
-		my $temp_table =
-		  $self->{'datastore'}->create_temp_list_table_from_array( $type, $element->{'specific_values'} );
+		my $att        = $self->{'xmlHandler'}->get_field_attributes($field);
+		my $type       = $att->{'type'} // 'text';
+		my $values     = $self->_filter_list( $type, $element->{'specific_values'} );
+		my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( $type, $values );
 		my $qry;
 		my $view = $self->{'system'}->{'view'};
 		if ( $type eq 'text' ) {
 			$qry =
 			  ( $att->{'multiple'} // q() ) eq 'yes'
-			  ? "SELECT COUNT(*) FROM $view WHERE UPPER($field\::text)::text[] && "
+			  ? "SELECT COUNT(*) FROM $view WHERE UPPER(${field}::text)::text[] && "
 			  . "ARRAY(SELECT UPPER(value) FROM $temp_table)"
 			  : "SELECT COUNT(*) FROM $view WHERE UPPER($field) IN (SELECT UPPER(value) FROM $temp_table)";
 		} else {
@@ -749,6 +752,31 @@ sub _get_field_specific_value_number_content {
 		}
 	);
 	return $buffer;
+}
+
+sub _filter_list {
+	my ( $self, $type, $list ) = @_;
+	my $values = [];
+	foreach my $value (@$list) {
+		if ( $type =~ /^int/x ) {
+			push @$values, $value if BIGSdb::Utils::is_int($value);
+			next;
+		}
+		if ( $type =~ /^bool/x ) {
+			push @$values, $value if BIGSdb::Utils::is_bool($value);
+			next;
+		}
+		if ( $type eq 'float' ) {
+			push @$values, $value if BIGSdb::Utils::is_float($value);
+			next;
+		}
+		if ( $type eq 'date' ) {
+			push @$values, $value if BIGSdb::Utils::is_date($value);
+			next;
+		}
+		push @$values, $value;
+	}
+	return $values;
 }
 
 sub _add_element_watermark {
