@@ -137,10 +137,15 @@ $(function () {
 		var id=$(this).attr('data-id');
 		if (elements[id]['url']){
 			var explore_url = elements[id]['url'];
-			if (explore_url.includes('&page=query') && $("#include_old_versions").prop('checked')){
-				explore_url += '&include_old=on';
+			var params = {};
+			if (elements[id]['post_data']){
+			    params = elements[id]['post_data'];
 			}
-			window.location.href = explore_url;
+			params['sent'] = 1;
+			if (explore_url.includes('&page=query') && $("#include_old_versions").prop('checked')){
+			    params['include_old'] = 'on';
+			}
+			post(elements[id]['url'],params);
 		}
 	});	
 	applyFormatting();
@@ -165,6 +170,29 @@ $(function () {
 		});	
 	});	
 });
+
+
+//Post to the provided URL with the specified parameters.
+//https://stackoverflow.com/questions/133925/javascript-post-request-like-a-form-submit/5533477#5533477
+function post(path, parameters) {
+    var form = $('<form></form>');
+
+    form.attr("method", "post");
+    form.attr("action", path);
+
+    $.each(parameters, function(key, value) {
+        var field = $('<input></input>');
+        field.attr("type", "hidden");
+        field.attr("name", key);
+        field.attr("value", value);
+        form.append(field);
+    });
+
+    // The form needs to be a part of the document in
+    // order for us to be able to submit it.
+    $(document.body).append(form);
+    form.submit();
+}
 
 function clean_value(value){
 	if (Array.isArray(value)){

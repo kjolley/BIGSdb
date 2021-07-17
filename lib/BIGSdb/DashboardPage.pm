@@ -36,8 +36,6 @@ use constant {
 	SPECIFIC_FIELD_BACKGROUND_COLOUR => '#d9e1ff'
 };
 
-#TODO New specific-value query doesn't always activate immediately
-#TODO Use POST for follow-on query
 sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
@@ -384,8 +382,12 @@ sub _ajax_new {
 				main_text_colour  => COUNT_MAIN_TEXT_COLOUR,
 				background_colour => COUNT_BACKGROUND_COLOUR,
 				watermark         => 'fas fa-bacteria',
-				url               => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query&submit=1",
-				url_text          => 'Browse isolates'
+				url               => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query",
+				post_data         => {
+					db   => $self->{'instance'},
+					page => 'query'
+				},
+				url_text => 'Browse isolates'
 			},
 			sp_genomes => {
 				name              => 'Genome count',
@@ -395,7 +397,12 @@ sub _ajax_new {
 				main_text_colour  => GENOMES_MAIN_TEXT_COLOUR,
 				background_colour => GENOMES_BACKGROUND_COLOUR,
 				watermark         => 'fas fa-dna',
-				url      => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query&genomes=1&submit=1",
+				url               => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query",
+				post_data         => {
+					db      => $self->{'instance'},
+					page    => 'query',
+					genomes => 1,
+				},
 				url_text => 'Browse genomes'
 			}
 		};

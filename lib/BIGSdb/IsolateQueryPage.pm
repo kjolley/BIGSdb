@@ -3771,6 +3771,9 @@ sub initiate {
 		$q->param( seqbin_value1 => $min_genome_size );
 		$q->param( submit        => 1 );
 	}
+	if ($q->param('sent')){
+		$q->param( submit        => 1 );
+	}
 	return;
 }
 
