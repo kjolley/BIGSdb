@@ -683,7 +683,7 @@ sub _get_field_element_content {
 	my $buffer = $self->_get_colour_swatch($element);
 	$buffer .= qq(<div class="title">$element->{'name'}</div>);
 	if ( $element->{'visualisation_type'} eq 'specific values' ) {
-		if ( ($element->{'specific_value_display'} // q()) eq 'number' ) {
+		if ( ( $element->{'specific_value_display'} // q() ) eq 'number' ) {
 			$buffer .= $self->_get_field_specific_value_number_content($element);
 		}
 	}
@@ -709,17 +709,25 @@ sub _get_field_specific_value_number_content {
 		my $type = $att->{'type'} // 'text';
 		my $temp_table =
 		  $self->{'datastore'}->create_temp_list_table_from_array( $type, $element->{'specific_values'} );
-		my $qry =
-		  ( $att->{'multiple'} // q() ) eq 'yes'
-		  ? "SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE $field && (SELECT array_agg(value) FROM $temp_table)"
-		  : "SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE $field IN (SELECT value FROM $temp_table)"
-		  ;
+		my $qry;
+		my $view = $self->{'system'}->{'view'};
+		if ( $type eq 'text' ) {
+			$qry =
+			  ( $att->{'multiple'} // q() ) eq 'yes'
+			  ? "SELECT COUNT(*) FROM $view WHERE UPPER($field\::text)::text[] && "
+			  . "ARRAY(SELECT UPPER(value) FROM $temp_table)"
+			  : "SELECT COUNT(*) FROM $view WHERE UPPER($field) IN (SELECT UPPER(value) FROM $temp_table)";
+		} else {
+			$qry =
+			  ( $att->{'multiple'} // q() ) eq 'yes'
+			  ? "SELECT COUNT(*) FROM $view WHERE $field && ARRAY(SELECT value FROM temp_list)"
+			  : "SELECT COUNT(*) FROM $view WHERE $field IN (SELECT value FROM $temp_table)";
+		}
 		my @filters;
 		push @filters, 'new_version IS NULL' if !$self->{'prefs'}->{'dashboard.include_old_versions'};
 		local $" = ' AND ';
 		$qry .= " AND @filters" if @filters;
 		$count = $self->{'datastore'}->run_query($qry);
-
 		if ( $element->{'change_duration'} && $count > 0 ) {
 			my %allowed = map { $_ => 1 } qw(week month year);
 			if ( $allowed{ $element->{'change_duration'} } ) {
