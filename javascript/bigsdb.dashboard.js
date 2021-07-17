@@ -18,6 +18,7 @@
  * BIGSdb. If not, see <http://www.gnu.org/licenses/>.
  */
 
+var currentRequest = null;
 
 $(function () {
 	var layout_test = $("#layout_test").prop('checked');
@@ -180,27 +181,37 @@ function clean_value(value){
 }
 
 function changeElementAttribute(grid, id, attribute, value){
-	if (elements[id][attribute] === value){
-		return;
-	}
-	if (attribute === 'specific_values' && !Array.isArray(value)){
-	    if (value.includes("\n")){
-	        value = value.split("\n");
-	    } else {
-	        value = value.split();
-	    }	    
-	}
-	value = clean_value(value);
-	elements[id][attribute] = value;
-	$.post(url,{
-		db:instance,
-		page:"dashboard",
-		updatePrefs:1,
-		attribute:"elements",
-		value:JSON.stringify(elements)
-	}, function(){
-		reloadElement(grid,id);  	
-	});	
+    if (elements[id][attribute] === value){
+        return;
+    }
+    if (attribute === 'specific_values' && !Array.isArray(value)){
+        if (value.includes("\n")){
+            value = value.split("\n");
+        } else {
+            value = value.split();
+        }	    
+    }
+    value = clean_value(value);
+    elements[id][attribute] = value;
+    currentRequest = $.ajax({
+        url:url,
+        type:'POST',
+        data:{
+            db:instance,
+            page:"dashboard",
+            updatePrefs:1,
+            attribute:"elements",
+            value:JSON.stringify(elements)
+        }, 
+        beforeSend : function()    {           
+            if(currentRequest != null) {
+                currentRequest.abort();
+            }
+        },
+        success: function(){
+            reloadElement(grid,id);  	
+        }
+    });	
 }
 
 function applyFormatting(){

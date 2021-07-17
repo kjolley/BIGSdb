@@ -36,7 +36,6 @@ use constant {
 	SPECIFIC_FIELD_BACKGROUND_COLOUR => '#d9e1ff'
 };
 
-#TODO Cancel AJAX on new call
 #TODO New specific-value query doesn't always activate immediately
 #TODO Use POST for follow-on query
 sub print_content {
