@@ -559,8 +559,6 @@ sub _get_element_html {
 	my $width_class  = "dashboard_element_width$element->{'width'}";
 	my $height_class = "dashboard_element_height$element->{'height'}";
 	$buffer .= qq(<div class="item-content $width_class $height_class">);
-
-	#	$buffer .= $self->_get_colour_swatch($element);
 	$buffer .= $self->_get_element_controls($element);
 	$buffer .= q(<div class="ajax_content" style="position:absolute;overflow:hidden;height:100%;width:100%">);
 	$buffer .= $self->_get_element_content($element);
@@ -574,8 +572,6 @@ sub _load_element_html_by_ajax {
 	my $width_class  = "dashboard_element_width$element->{'width'}";
 	my $height_class = "dashboard_element_height$element->{'height'}";
 	$buffer .= qq(<div class="item-content $width_class $height_class">);
-
-	#	$buffer .= $self->_get_colour_swatch($element);
 	$buffer .= $self->_get_element_controls($element);
 	$buffer .= q(<div class="ajax_content" style="position:absolute;overflow:hidden;height:100%;width:100%">)
 	  . q(<span class="dashboard_wait_ajax fas fa-sync-alt fa-spin"></span></div>);
@@ -707,7 +703,9 @@ sub _get_field_specific_value_number_content {
 	my $value_count       = @{ $element->{'specific_values'} };
 	my $plural = $value_count == 1 ? q() : q(s);
 	local $" = q(, );
-	my $title  = qq(@{$element->{'specific_values'}});
+	my $title = $value_count <= ( $element->{'width'} // 1 ) * 2
+	  ? qq(@{$element->{'specific_values'}})
+	  : qq(<a title="@{$element->{'specific_values'}}">$value_count values selected</a>);
 	my $buffer = qq(<div class="subtitle">$title</div>);
 	my $count  = 0;
 	my ( $increase, $change_duration );

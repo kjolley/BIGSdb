@@ -1367,6 +1367,15 @@ div.grid {
 	white-space: nowrap;
 	overflow-x: hidden;
 	text-overflow: ellipsis;
+	padding:0 0.5em;
+}
+
+.item-content div.subtitle a {
+	cursor:pointer
+}
+
+.item-content div.subtitle a:hover {
+	text-decoration: none
 }
 
 .item-content div.title {

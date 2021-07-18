@@ -246,6 +246,7 @@ function applyFormatting(){
 	fitty(".dashboard_big_number",{
 		maxSize:64
 	});
+	$(".item-content div.subtitle a").tooltip();
 }
 
 function getNextid(){
@@ -379,14 +380,20 @@ function changeElementDimension(grid, id, attribute) {
 	item_content.addClass("dashboard_element_" + attribute + new_dimension);
 	$("span#" + id + "_" + attribute).html(new_dimension);
 	elements[id][attribute] = Number(new_dimension);
-	$.post(url,{
-		db:instance,
-		page:"dashboard",
-		updatePrefs:1,
-		attribute:"elements",
-		value:JSON.stringify(elements)
+	$.ajax({
+        url:url,
+        type:'POST',
+        data:{
+            db:instance,
+            page:"dashboard",
+            updatePrefs:1,
+            attribute:"elements",
+            value:JSON.stringify(elements)
+        }, 
+        success: function(){
+            reloadElement(grid,id);     
+        }
 	});
-	applyFormatting();
 	grid.refreshItems().layout();
 }
 
