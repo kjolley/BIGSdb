@@ -195,6 +195,9 @@ function post(path, parameters) {
 }
 
 function clean_value(value){
+    if (value == null){
+        return;
+    }
 	if (Array.isArray(value)){
 		value = value.map(function (el) {
 			return el.trim();
@@ -294,6 +297,11 @@ function editElement(grid,id,setup){
 		}
 		$("span#wait_" + id).hide();
 		show_or_hide_control_elements(grid,id);
+		
+		$("select.watermark_selector").fontIconPicker({
+		    theme: 'fip-darkgrey',
+		    emptyIconValue: 'none',
+		});
 		$("div.modal").on("change","#" + id + "_visualisation_type",function(){
 			show_or_hide_control_elements(grid,id);
 

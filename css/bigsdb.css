@@ -1520,6 +1520,10 @@ span.dashboard_watermark {
 	opacity: 0.1
 }
 
+select.watermark_selector {
+	color:blue;
+}
+
 .colour_selector {
 	width: 25px;
 	height: 15px;

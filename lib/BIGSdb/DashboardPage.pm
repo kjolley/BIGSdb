@@ -97,12 +97,12 @@ sub _ajax_controls {
 	}
 	my %controls = (
 		record_count => sub {
-			$self->_print_change_duration_control( $id, $element );
 			$self->_print_design_control( $id, $element );
+			$self->_print_change_duration_control( $id, $element );
 		},
 		field => sub {
-			$self->_print_change_duration_control( $id, $element, { display => 'none' } );
 			$self->_print_design_control( $id, $element, { display => 'none' } );
+			$self->_print_change_duration_control( $id, $element, { display => 'none' } );
 		},
 		setup => sub {
 			$self->_print_change_duration_control( $id, $element, { display => 'none' } );
@@ -327,28 +327,59 @@ sub _print_text_colour_control {
 
 sub _print_watermark_control {
 	my ( $self, $id, $element ) = @_;
-	my $q = $self->{'cgi'};
-	my @labels =
-	  qw(bacteria bacterium biohazard bug capsules clock dna globe globe-africa globe-americas globe-asia globe-europe
-	  pills syringe tablets users virus viruses);
+	my $q      = $self->{'cgi'};
 	my $values = [];
 	my $labels = {};
-	foreach my $label (@labels) {
-		push @$values, "fas fa-$label";
-		$labels->{"fas fa-$label"} = $label;
+	my $icons  = [
+		{ 'fas fa-bacteria'        => 'bacteria' },
+		{ 'fas fa-bacterium'       => 'bacterium' },
+		{ 'fas fa-virus'           => 'virus' },
+		{ 'fas fa-viruses'         => 'viruses' },
+		{ 'fas fa-bug'             => 'bug' },
+		{ 'fas fa-biohazard'       => 'biohazard' },
+		{ 'fas fa-circle-notch'    => 'plasmid' },
+		{ 'fas fa-pills'           => 'pills' },
+		{ 'fas fa-capsules'        => 'capsules' },
+		{ 'fas fa-tablets'         => 'tablets' },
+		{ 'fas fa-syringe'         => 'syringe' },
+		{ 'fas fa-dna'             => 'DNA' },
+		{ 'fas fa-microscope'      => 'microscope' },
+		{ 'fas fa-globe'           => 'country;globe' },
+		{ 'fas fa-globe-africa'    => 'country;Africa' },
+		{ 'fas fa-globe-americas'  => 'country;Americas' },
+		{ 'fas fa-globe-asia'      => 'country;Asia' },
+		{ 'fas fa-globe-europe'    => 'country;Europe' },
+		{ 'fas fa-map'             => 'region;map' },
+		{ 'fas fa-city'            => 'region;city' },
+		{ 'fas fa-school'          => 'school' },
+		{ 'fas fa-hospital'        => 'hospital' },
+		{ 'fas fa-clock'           => 'clock' },
+		{ 'far fa-calendar-alt'    => 'calendar' },
+		{ 'fas fa-user'            => 'user' },
+		{ 'fas fa-users'           => 'users' },
+		{ 'fas fa-mars'            => 'gender;sex;male' },
+		{ 'fas fa-venus'           => 'gender;sex;female' },
+		{ 'fas fa-venus-mars'      => 'gender;sex' },
+		{ 'fas fa-transgender'     => 'transgender' },
+		{ 'fas fa-glass-cheers'    => 'risk factor:drinking' },
+		{ 'fas fa-weight'          => 'risk factor:weight' },
+		{ 'fas fa-smoking'         => 'risk factor:smoking' },
+		{ 'fas fa-notes-medical'   => 'diagnosis;medical notes' },
+		{ 'fas fa-allergies'       => 'diagnosis:allergies' },
+		{ 'fas fa-head-side-cough' => 'diagnosis;cough' },
+		{ 'fas fa-heartbeat'       => 'diagnosis;heartbeat' },
+		{ 'fas fa-vials'           => 'diagnosis;vials' },
+		{ 'fas fa-stethoscope'     => 'diagnosis;stethoscope' },
+		{ 'fas fa-user-md'         => 'diagnosis;doctor' },
+		{ 'fas fa-file-alt'        => 'document' }
+	];
+	foreach my $icon (@$icons) {
+		push @$values, keys %$icon;
+		foreach my $key ( keys %$icon ) {
+			$labels->{$key} = $icon->{$key};
+		}
 	}
-	my %renamed_icons = (
-		'fas fa-circle-notch'  => 'plasmid',
-		'fas fa-notes-medical' => 'medical notes',
-		'far fa-calendar-alt'  => 'calendar',
-		'fas fa-file-alt'      => 'document'
-	);
-	foreach my $value ( keys %renamed_icons ) {
-		push @$values, $value;
-		$labels->{$value} = $renamed_icons{$value};
-	}
-	@$values = sort { $labels->{$a} cmp $labels->{$b} } @$values;
-	unshift @$values, 'none';
+	unshift @$values, '';
 	say q(<li><label for="watermark">Watermark</label>);
 	say $self->popup_menu(
 		-name    => "${id}_watermark",
@@ -356,7 +387,7 @@ sub _print_watermark_control {
 		-values  => $values,
 		-labels  => $labels,
 		-class   => 'element_option watermark_selector',
-		-default => $element->{'watermark'} // 'none',
+		-default => $element->{'watermark'} // '',
 	);
 	say q(</li>);
 	return;
@@ -703,7 +734,8 @@ sub _get_field_specific_value_number_content {
 	my $value_count       = @{ $element->{'specific_values'} };
 	my $plural = $value_count == 1 ? q() : q(s);
 	local $" = q(, );
-	my $title = $value_count <= ( $element->{'width'} // 1 ) * 2
+	my $title =
+	  $value_count <= ( $element->{'width'} // 1 ) * 2
 	  ? qq(@{$element->{'specific_values'}})
 	  : qq(<a title="@{$element->{'specific_values'}}">$value_count values selected</a>);
 	my $buffer = qq(<div class="subtitle">$title</div>);
@@ -815,7 +847,7 @@ sub _get_element_controls {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (jQuery noCache muuri modal fitty bigsdb.dashboard tooltips);
+	$self->{$_} = 1 foreach qw (jQuery noCache muuri modal fitty bigsdb.dashboard tooltips jQuery.fonticonpicker);
 	$self->choose_set;
 	$self->{'breadcrumbs'} = [];
 	if ( $self->{'system'}->{'webroot'} ) {

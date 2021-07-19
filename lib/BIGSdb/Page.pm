@@ -169,14 +169,15 @@ sub _get_javascript_paths {
 			push @$js, { src => "$relative_js_path/cookieconsent.min.js", defer => 1 };
 		}
 		my $features = {
-			'jQuery.tablesort'    => { src => [qw(jquery.tablesorter.js)],  defer => 1, version => '20200308' },
-			'jQuery.jstree'       => { src => [qw(jquery.jstree.js)],       defer => 1, version => '20200308' },
-			'jQuery.coolfieldset' => { src => [qw(jquery.coolfieldset.js)], defer => 1, version => '20200308' },
-			'jQuery.slimbox'      => { src => [qw(jquery.slimbox2.js)],     defer => 1, version => '20200308' },
-			'jQuery.columnizer'   => { src => [qw(jquery.columnizer.js)],   defer => 1, version => '20200308' },
-			'modal'               => { src => [qw(jquery.modal.min.js)],    defer => 1, version => '20210624' },
-			'fitty'              => { src => [qw(fitty.min.js)], defer => 1, version => '20210706' },
-			'jQuery.multiselect' => {
+			'jQuery.tablesort'      => { src => [qw(jquery.tablesorter.js)],        defer => 1, version => '20200308' },
+			'jQuery.jstree'         => { src => [qw(jquery.jstree.js)],             defer => 1, version => '20200308' },
+			'jQuery.coolfieldset'   => { src => [qw(jquery.coolfieldset.js)],       defer => 1, version => '20200308' },
+			'jQuery.slimbox'        => { src => [qw(jquery.slimbox2.js)],           defer => 1, version => '20200308' },
+			'jQuery.columnizer'     => { src => [qw(jquery.columnizer.js)],         defer => 1, version => '20200308' },
+			'jQuery.fonticonpicker' => { src => [qw(jquery.fonticonpicker.min.js)], defer => 1, version => '20210719' },
+			'modal'                 => { src => [qw(jquery.modal.min.js)],          defer => 1, version => '20210624' },
+			'fitty'                 => { src => [qw(fitty.min.js)],                 defer => 1, version => '20210706' },
+			'jQuery.multiselect'    => {
 				src     => [qw(jquery.multiselect.min.js jquery.multiselect.filter.min.js)],
 				defer   => 1,
 				version => '2020308'
@@ -648,6 +649,9 @@ sub _get_stylesheets {
 	push @filenames, qw(jquery.multiselect.css jquery.multiselect.filter.css) if $self->{'jQuery.multiselect'};
 	push @filenames, qw(d3.geomap.css)                                        if $self->{'geomap'};
 	push @filenames, qw(jquery.modal.min.css)                                 if $self->{'modal'};
+	push @filenames, qw(jquery.fonticonpicker.min.css jquery.fonticonpicker.darkgrey.min.css)
+	  if $self->{'jQuery.fonticonpicker'};
+
 	if ( !$self->{'config'}->{'no_cookie_consent'} && !$self->{'curate'} && $self->{'instance'} ) {
 		push @filenames, q(cookieconsent.min.css);
 	}
