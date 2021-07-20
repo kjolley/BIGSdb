@@ -34,7 +34,7 @@ use BIGSdb::Constants qw(:interface SEQ_METHODS);
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name             => 'Contig export',
+		name    => 'Contig export',
 		authors => [
 			{
 				name        => 'Keith Jolley',
@@ -52,7 +52,7 @@ sub get_attributes {
 		menutext     => 'Contigs',
 		module       => 'Contigs',
 		url          => "$self->{'config'}->{'doclink'}/data_export/contig_export.html",
-		version      => '1.1.10',
+		version      => '1.1.11',
 		dbtype       => 'isolates',
 		section      => 'export,postquery',
 		input        => 'query',
@@ -273,8 +273,12 @@ sub _calculate {
 		  $self->{'datastore'}->run_query( 'SELECT sum(abs(end_pos-start_pos)) FROM allele_sequences WHERE seqbin_id=?',
 			$seqbin_id, { cache => 'Contigs::tagged_length' } );
 		$tagged_length //= 0;
+		if ( $seq_length == 0 ) {
+			$logger->error(
+				"Seqbin id-$seqbin_id is zero length - this may be a remote contig that has not yet been processed.");
+			next;
+		}
 		$tagged_length = $seq_length if $tagged_length > $seq_length;
-
 		if ( ( ( $seq_length - $tagged_length ) * 100 / $seq_length ) >= $options->{'pc_untagged'} ) {
 			$pc_untagged++;
 		} else {
