@@ -121,19 +121,19 @@ $(function () {
 		addElement(grid,nextId);
 	});
 
-	$("div#dashboard").on("click",".dashboard_edit_element",function(){
+	$("div#dashboard").on("click touchstart",".dashboard_edit_element",function(){
 		var id=$(this).attr('data-id');
 		editElement(grid,id);
 	});
-	$("div#dashboard").on("click",".dashboard_remove_element",function(){
+	$("div#dashboard").on("click touchstart",".dashboard_remove_element",function(){
 		var id=$(this).attr('data-id');
 		removeElement(grid,id);
 	});
-	$("div#dashboard").on("click",".setup_element",function(){
+	$("div#dashboard").on("click touchstart",".setup_element",function(){
 		var id=$(this).attr('data-id');
 		editElement(grid,id);
 	});
-	$("div#dashboard").on("click",".dashboard_explore_element",function(){
+	$("div#dashboard").on("click touchstart",".dashboard_explore_element",function(){
 		var id=$(this).attr('data-id');
 		if (elements[id]['url']){
 			var explore_url = elements[id]['url'];
