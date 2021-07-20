@@ -338,10 +338,10 @@ sub _print_watermark_control {
 		{ 'fas fa-bug'             => 'bug' },
 		{ 'fas fa-biohazard'       => 'biohazard' },
 		{ 'fas fa-circle-notch'    => 'plasmid' },
-		{ 'fas fa-pills'           => 'pills' },
-		{ 'fas fa-capsules'        => 'capsules' },
-		{ 'fas fa-tablets'         => 'tablets' },
-		{ 'fas fa-syringe'         => 'syringe' },
+		{ 'fas fa-pills'           => 'medicine;treatment;pills' },
+		{ 'fas fa-capsules'        => 'medicine;treatment;capsules' },
+		{ 'fas fa-tablets'         => 'medicine;treatment;tablets' },
+		{ 'fas fa-syringe'         => 'medicine;treatment;vaccine;syringe' },
 		{ 'fas fa-dna'             => 'DNA' },
 		{ 'fas fa-microscope'      => 'microscope' },
 		{ 'fas fa-globe'           => 'country;globe' },
@@ -357,10 +357,11 @@ sub _print_watermark_control {
 		{ 'far fa-calendar-alt'    => 'calendar' },
 		{ 'fas fa-user'            => 'user' },
 		{ 'fas fa-users'           => 'users' },
+		{ 'fas fa-baby'            => 'age;baby' },
+		{ 'fas fa-child'           => 'age;child' },
 		{ 'fas fa-mars'            => 'gender;sex;male' },
 		{ 'fas fa-venus'           => 'gender;sex;female' },
 		{ 'fas fa-venus-mars'      => 'gender;sex' },
-		{ 'fas fa-transgender'     => 'transgender' },
 		{ 'fas fa-glass-cheers'    => 'risk factor:drinking' },
 		{ 'fas fa-weight'          => 'risk factor:weight' },
 		{ 'fas fa-smoking'         => 'risk factor:smoking' },
@@ -449,7 +450,13 @@ sub _ajax_new {
 			$element->{'change_duration'}   = 'week';
 			$element->{'background_colour'} = SPECIFIC_FIELD_BACKGROUND_COLOUR;
 			$element->{'main_text_colour'}  = SPECIFIC_FIELD_MAIN_TEXT_COLOUR;
-			my %default_watermarks = ( f_country => 'fas fa-globe' );
+			my %default_watermarks = (
+				f_country => 'fas fa-globe',
+				f_region  => 'fas fa-map',
+				f_sex     => 'fas fa-venus-mars',
+				f_disease => 'fas fa-notes-medical',
+				f_year    => 'far fa-calendar-alt'
+			);
 
 			if ( $default_watermarks{$field} ) {
 				$element->{'watermark'} = $default_watermarks{$field};
@@ -683,6 +690,7 @@ sub _get_count_element_content {
 			increase          => $increase
 		}
 	);
+	$buffer .= $self->_get_explore_link($element);
 	return $buffer;
 }
 
@@ -787,6 +795,7 @@ sub _get_field_specific_value_number_content {
 			increase          => $increase
 		}
 	);
+	$buffer .= $self->_get_explore_link($element);
 	return $buffer;
 }
 
@@ -835,8 +844,15 @@ sub _get_element_controls {
 	$buffer .=
 	    qq(<span data-id="$id" id="control_$id" class="dashboard_edit_element fas fa-sliders-h" )
 	  . qq(style="display:$display"></span>);
+	return $buffer;
+}
+
+sub _get_explore_link {
+	my ( $self, $element ) = @_;
+	my $buffer = q();
 	if ( $element->{'url'} ) {
-		$buffer .= qq(<span data-id="$id" id="explore_$id" class="dashboard_explore_element fas fa-share">);
+		$buffer .=
+qq(<span data-id="$element->{'id'}" id="explore_$element-{'id'}" class="dashboard_explore_element fas fa-share">);
 		if ( $element->{'url_text'} ) {
 			$buffer .= qq(<span class="tooltip">$element->{'url_text'}</span>);
 		}

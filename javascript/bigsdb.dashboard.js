@@ -115,7 +115,6 @@ $(function () {
 		});
 	});
 
-
 	$("#add_element").click(function(){	
 		var nextId = getNextid();
 		addElement(grid,nextId);
@@ -224,25 +223,7 @@ function changeElementAttribute(grid, id, attribute, value){
     }
     value = clean_value(value);
     elements[id][attribute] = value;
-    currentRequest = $.ajax({
-        url:url,
-        type:'POST',
-        data:{
-            db:instance,
-            page:"dashboard",
-            updatePrefs:1,
-            attribute:"elements",
-            value:JSON.stringify(elements)
-        }, 
-        beforeSend : function()    {           
-            if(currentRequest != null) {
-                currentRequest.abort();
-            }
-        },
-        success: function(){
-            reloadElement(grid,id);  	
-        }
-    });	
+    saveAndReloadElement(grid,id);
 }
 
 function applyFormatting(){
@@ -304,7 +285,6 @@ function editElement(grid,id,setup){
 		});
 		$("div.modal").on("change","#" + id + "_visualisation_type",function(){
 			show_or_hide_control_elements(grid,id);
-
 			check_and_show_visualisation(grid,id);
 		});
 		$("div.modal").on("change","#" + id + "_breakdown_display,#" + 
@@ -339,7 +319,16 @@ function check_and_show_visualisation(grid,id){
 	var specific_values = $("#" + id + "_specific_values").val();
 	if (visualisation_type === 'specific values'){
 		if (specific_value_display != '0' && specific_values.length != 0){
-			changeElementAttribute(grid,id,'display','field');
+		    elements[id]['display'] = 'field';
+		    elements[id]['url'] = url + "&page=query";
+		    elements[id]['url_text'] = 'Query records';
+		    elements[id]['post_data'] = {
+		          db: instance,
+		          page: "query",
+		          attribute: elements[id]['field'],
+		          list: Array.isArray(specific_values) ? specific_values.join("\n") : specific_values
+		    }
+		    saveAndReloadElement(grid,id);
 		} else {
 			changeElementAttribute(grid, id, 'display', 'setup');
 		}
@@ -388,20 +377,7 @@ function changeElementDimension(grid, id, attribute) {
 	item_content.addClass("dashboard_element_" + attribute + new_dimension);
 	$("span#" + id + "_" + attribute).html(new_dimension);
 	elements[id][attribute] = Number(new_dimension);
-	$.ajax({
-        url:url,
-        type:'POST',
-        data:{
-            db:instance,
-            page:"dashboard",
-            updatePrefs:1,
-            attribute:"elements",
-            value:JSON.stringify(elements)
-        }, 
-        success: function(){
-            reloadElement(grid,id);     
-        }
-	});
+	saveAndReloadElement(grid,id);
 	grid.refreshItems().layout();
 }
 
@@ -414,6 +390,28 @@ function saveElements(grid){
 		value:JSON.stringify(elements)
 	});
 	saveLayout(grid);
+}
+
+function saveAndReloadElement(grid,id){
+    currentRequest = $.ajax({
+        url:url,
+        type:'POST',
+        data:{
+            db:instance,
+            page:"dashboard",
+            updatePrefs:1,
+            attribute:"elements",
+            value:JSON.stringify(elements)
+        }, 
+        beforeSend : function()    {           
+            if(currentRequest != null) {
+                currentRequest.abort();
+            }
+        },
+        success: function(){
+            reloadElement(grid,id);     
+        }
+    });
 }
 
 function serializeLayout(grid) {
