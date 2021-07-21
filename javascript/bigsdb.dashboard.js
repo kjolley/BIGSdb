@@ -20,345 +20,343 @@
 
 var currentRequest = null;
 
-$(function () {
+$(function() {
 	var layout_test = $("#layout_test").prop('checked');
-	$("select#add_field,label[for='add_field']").css("display",layout_test ? "none" : "inline");
+	$("select#add_field,label[for='add_field']").css("display", layout_test ? "none" : "inline");
 	var layout = $("#layout").val();
 	var fill_gaps = $("#fill_gaps").prop('checked');
 	var grid;
 	try {
-		grid = new Muuri('.grid',{
+		grid = new Muuri('.grid', {
 			dragEnabled: true,
 			layout: {
-				alignRight : layout.includes('right'),
-				alignBottom : layout.includes('bottom'),
+				alignRight: layout.includes('right'),
+				alignBottom: layout.includes('bottom'),
 				fillGaps: fill_gaps
 			},
-			dragStartPredicate: function (item, e){
+			dragStartPredicate: function(item, e) {
 				return enable_drag;
 			}
-		}).on('move', function () {
+		}).on('move', function() {
 			saveLayout(grid);
 		});
-		if (order){
+		if (order) {
 			loadLayout(grid, order);
 		}
-	} catch(err) {
+	} catch (err) {
 		console.log(err.message);
 	}
 
-	$("#panel_trigger,#close_trigger").click(function(){		
-		$("#modify_panel").toggle("slide",{direction:"right"},"fast");
-		$("#panel_trigger").show();		
+	$("#panel_trigger,#close_trigger").click(function() {
+		$("#modify_panel").toggle("slide", { direction: "right" }, "fast");
+		$("#panel_trigger").show();
 		return false;
 	});
 	$("#panel_trigger").show();
-	$(document).mouseup(function(e) 
-			{
+	$(document).mouseup(function(e) {
 		var container = $("#modify_panel");
 
 		// if the target of the click isn't the container nor a
 		// descendant of the container
-		if (!container.is(e.target) && container.has(e.target).length === 0) 
-		{
+		if (!container.is(e.target) && container.has(e.target).length === 0) {
 			container.hide();
 		}
-			});
-	$("#layout").change(function(){
+	});
+	$("#layout").change(function() {
 		layout = $("#layout").val();
 		try {
 			grid._settings.layout.alignRight = layout.includes('right');
-			grid._settings.layout.alignBottom = layout.includes('bottom');		
+			grid._settings.layout.alignBottom = layout.includes('bottom');
 			grid.layout();
-		} catch(err){
+		} catch (err) {
 			// Grid is empty.
 		}
-		$.ajax(url + "&page=dashboard&updatePrefs=1&attribute=layout&value=" + layout );	
+		$.ajax(url + "&page=dashboard&updatePrefs=1&attribute=layout&value=" + layout);
 	});
-	$("#fill_gaps").change(function(){
+	$("#fill_gaps").change(function() {
 		fill_gaps = $("#fill_gaps").prop('checked');
 		try {
-			grid._settings.layout.fillGaps = fill_gaps;		
-			grid.layout();		
-		} catch(err){
+			grid._settings.layout.fillGaps = fill_gaps;
+			grid.layout();
+		} catch (err) {
 			// Grid is empty.
 		}
-		$.ajax(url + "&page=dashboard&updatePrefs=1&attribute=fill_gaps&value=" + (fill_gaps ? 1 : 0) );	
+		$.ajax(url + "&page=dashboard&updatePrefs=1&attribute=fill_gaps&value=" + (fill_gaps ? 1 : 0));
 	});
-	$("#enable_drag").change(function(){
+	$("#enable_drag").change(function() {
 		enable_drag = $("#enable_drag").prop('checked');
-		$.ajax(url + "&page=dashboard&updatePrefs=1&attribute=enable_drag&value=" + (enable_drag ? 1 : 0) );
+		$.ajax(url + "&page=dashboard&updatePrefs=1&attribute=enable_drag&value=" + (enable_drag ? 1 : 0));
 
 	});
-	$("#edit_elements").change(function(){	
+	$("#edit_elements").change(function() {
 		var edit_elements = $("#edit_elements").prop('checked');
-		$.ajax(url + "&page=dashboard&updatePrefs=1&attribute=edit_elements&value=" + (edit_elements ? 1 : 0) );
-		$("span.dashboard_edit_element").css("display",edit_elements ? "inline" : "none");
+		$.ajax(url + "&page=dashboard&updatePrefs=1&attribute=edit_elements&value=" + (edit_elements ? 1 : 0));
+		$("span.dashboard_edit_element").css("display", edit_elements ? "inline" : "none");
 	});
-	$("#remove_elements").change(function(){	
+	$("#remove_elements").change(function() {
 		var remove_elements = $("#remove_elements").prop('checked');
-		$.ajax(url + "&page=dashboard&updatePrefs=1&attribute=remove_elements&value=" + (remove_elements ? 1 : 0) );
-		$("span.dashboard_remove_element").css("display",remove_elements ? "inline" : "none");
+		$.ajax(url + "&page=dashboard&updatePrefs=1&attribute=remove_elements&value=" + (remove_elements ? 1 : 0));
+		$("span.dashboard_remove_element").css("display", remove_elements ? "inline" : "none");
 	});
-	$("#layout_test").change(function(){	
+	$("#layout_test").change(function() {
 		layout_test = $("#layout_test").prop('checked');
-		$.ajax(url + "&page=dashboard&updatePrefs=1&attribute=layout_test&value=" + (layout_test ? 1 : 0) );
-		$("select#add_field,label[for='add_field']").css("display",layout_test ? "none" : "inline");
+		$.ajax(url + "&page=dashboard&updatePrefs=1&attribute=layout_test&value=" + (layout_test ? 1 : 0));
+		$("select#add_field,label[for='add_field']").css("display", layout_test ? "none" : "inline");
 	});
-	$("#include_old_versions").change(function(){	
+	$("#include_old_versions").change(function() {
 		var include_old_versions = $("#include_old_versions").prop('checked');
 		$.ajax({
-			url:url + "&page=dashboard&updatePrefs=1&attribute=include_old_versions&value=" + 
-			(include_old_versions ? 1 : 0) 			
+			url: url + "&page=dashboard&updatePrefs=1&attribute=include_old_versions&value=" +
+				(include_old_versions ? 1 : 0)
 		}).done(function() {
 			reloadAllElements(grid);
 		});
 	});
 
-	$("#add_element").click(function(){	
+	$("#add_element").click(function() {
 		var nextId = getNextid();
-		addElement(grid,nextId);
+		addElement(grid, nextId);
 	});
 
-	$("div#dashboard").on("click touchstart",".dashboard_edit_element",function(){
-		var id=$(this).attr('data-id');
-		editElement(grid,id);
+	$("div#dashboard").on("click touchstart", ".dashboard_edit_element", function() {
+		var id = $(this).attr('data-id');
+		editElement(grid, id);
 	});
-	$("div#dashboard").on("click touchstart",".dashboard_remove_element",function(){
-		var id=$(this).attr('data-id');
-		removeElement(grid,id);
+	$("div#dashboard").on("click touchstart", ".dashboard_remove_element", function() {
+		var id = $(this).attr('data-id');
+		removeElement(grid, id);
 	});
-	$("div#dashboard").on("click touchstart",".setup_element",function(){
-		var id=$(this).attr('data-id');
-		editElement(grid,id);
+	$("div#dashboard").on("click touchstart", ".setup_element", function() {
+		var id = $(this).attr('data-id');
+		editElement(grid, id);
 	});
-	$("div#dashboard").on("click touchstart",".dashboard_explore_element",function(){
-		var id=$(this).attr('data-id');
-		if (elements[id]['url']){
+	$("div#dashboard").on("click touchstart", ".dashboard_explore_element", function() {
+		var id = $(this).attr('data-id');
+		if (elements[id]['url']) {
 			var explore_url = elements[id]['url'];
 			var params = {};
-			if (elements[id]['post_data']){
-			    params = elements[id]['post_data'];
+			if (elements[id]['post_data']) {
+				params = elements[id]['post_data'];
 			}
 			params['sent'] = 1;
-			if (explore_url.includes('&page=query') && $("#include_old_versions").prop('checked')){
-			    params['include_old'] = 'on';
+			if (explore_url.includes('&page=query') && $("#include_old_versions").prop('checked')) {
+				params['include_old'] = 'on';
 			}
-			post(elements[id]['url'],params);
+			post(elements[id]['url'], params);
 		}
-	});	
+	});
 	applyFormatting();
 
-	var dimension = ['width','height'];
+	var dimension = ['width', 'height'];
 	dimension.forEach((value) => {
-		$(document).on("change", '.' + value + '_select', function(event) { 
+		$(document).on("change", '.' + value + '_select', function(event) {
 			var id = $(this).attr('id');
-			var element_id = id.replace("_" + value,"");
+			var element_id = id.replace("_" + value, "");
 			changeElementDimension(grid, element_id, value);
 		});
 	});
-	$(document).on("change", '.element_option', function(event) { 
+	$(document).on("change", '.element_option', function(event) {
 		var id = $(this).attr('id');
-		var attribute = id.replace(/^\d+_/,"");
-		var element_id = id.replace("_" + attribute,"");
-		changeElementAttribute(grid, element_id, attribute, $(this).val() );
+		var attribute = id.replace(/^\d+_/, "");
+		var element_id = id.replace("_" + attribute, "");
+		changeElementAttribute(grid, element_id, attribute, $(this).val());
 	});
-	$('a#dashboard_toggle').on('click', function(){
-		$.get(url + "&page=dashboard&updatePrefs=1&attribute=default&value=0",function(){
-			window.location=url;	
-		});	
-	});	
+	$('a#dashboard_toggle').on('click', function() {
+		$.get(url + "&page=dashboard&updatePrefs=1&attribute=default&value=0", function() {
+			window.location = url;
+		});
+	});
 });
 
 
 //Post to the provided URL with the specified parameters.
 //https://stackoverflow.com/questions/133925/javascript-post-request-like-a-form-submit/5533477#5533477
 function post(path, parameters) {
-    var form = $('<form></form>');
+	var form = $('<form></form>');
 
-    form.attr("method", "post");
-    form.attr("action", path);
+	form.attr("method", "post");
+	form.attr("action", path);
 
-    $.each(parameters, function(key, value) {
-        var field = $('<input></input>');
-        field.attr("type", "hidden");
-        field.attr("name", key);
-        field.attr("value", value);
-        form.append(field);
-    });
+	$.each(parameters, function(key, value) {
+		var field = $('<input></input>');
+		field.attr("type", "hidden");
+		field.attr("name", key);
+		field.attr("value", value);
+		form.append(field);
+	});
 
-    // The form needs to be a part of the document in
-    // order for us to be able to submit it.
-    $(document.body).append(form);
-    form.submit();
+	// The form needs to be a part of the document in
+	// order for us to be able to submit it.
+	$(document.body).append(form);
+	form.submit();
 }
 
-function clean_value(value){
-    if (value == null){
-        return;
-    }
-	if (Array.isArray(value)){
-		value = value.map(function (el) {
+function clean_value(value) {
+	if (value == null) {
+		return;
+	}
+	if (Array.isArray(value)) {
+		value = value.map(function(el) {
 			return el.trim();
 		});
-		value = value.filter(function (el) {
-            return el != null && el != '';
-        });
+		value = value.filter(function(el) {
+			return el != null && el != '';
+		});
 	} else {
 		value = value.trim();
 	}
 	return value;
 }
 
-function changeElementAttribute(grid, id, attribute, value){
-    if (elements[id][attribute] === value){
-        return;
-    }
-    if (attribute === 'specific_values' && !Array.isArray(value)){
-        if (value.includes("\n")){
-            value = value.split("\n");
-        } else {
-            value = value.split();
-        }	    
-    }
-    value = clean_value(value);
-    elements[id][attribute] = value;
-    saveAndReloadElement(grid,id);
+function changeElementAttribute(grid, id, attribute, value) {
+	if (elements[id][attribute] === value) {
+		return;
+	}
+	if (attribute === 'specific_values' && !Array.isArray(value)) {
+		if (value.includes("\n")) {
+			value = value.split("\n");
+		} else {
+			value = value.split();
+		}
+	}
+	value = clean_value(value);
+	elements[id][attribute] = value;
+	saveAndReloadElement(grid, id);
 }
 
-function applyFormatting(){
-	fitty(".dashboard_big_number",{
-		maxSize:64
+function applyFormatting() {
+	fitty(".dashboard_big_number", {
+		maxSize: 64
 	});
 	$(".item-content div.subtitle a").tooltip();
 }
 
-function getNextid(){
-	if (Object.keys(elements).length === 0){
+function getNextid() {
+	if (Object.keys(elements).length === 0) {
 		return 1;
 	}
-	var max = Math.max(...Object.keys(elements)); 
-	return max+1;
+	var max = Math.max(...Object.keys(elements));
+	return max + 1;
 }
 
-function addElement(grid,id){
-	if (Object.keys(elements).length === 0){
-		$("div#empty").html(""); 
+function addElement(grid, id) {
+	if (Object.keys(elements).length === 0) {
+		$("div#empty").html("");
 	}
 	var add_url = url + "&page=dashboard&new=" + id;
 	var field = $("#add_field").val();
-	if (field){
+	if (field) {
 		add_url += "&field=" + field;
 	}
 
-	$.get(add_url,function(json){
+	$.get(add_url, function(json) {
 		try {
 			var div = document.createRange().createContextualFragment(JSON.parse(json).html);
 			// Element may already exist if add button was clicked multiple
 			// times before AJAX response was received.
-			if (!(id in elements)){
+			if (!(id in elements)) {
 				grid.add([div.firstChild]);
 				elements[id] = JSON.parse(json).element;
 				saveElements(grid);
 			}
 			applyFormatting();
-		} catch (err){
+		} catch (err) {
 			console.log(err.message);
 		}
-	});	
+	});
 }
 
-function editElement(grid,id,setup){
+function editElement(grid, id, setup) {
 	$("span#control_" + id).hide();
 	$("span#wait_" + id).show();
 	$.get(url + "&page=dashboard&control=" + id, function(html) {
 		$(html).appendTo('body').modal();
-		if ($("#edit_elements").prop("checked")){
+		if ($("#edit_elements").prop("checked")) {
 			$("span#control_" + id).show();
 		}
 		$("span#wait_" + id).hide();
-		show_or_hide_control_elements(grid,id);
-		
+		show_or_hide_control_elements(grid, id);
+
 		$("select.watermark_selector").fontIconPicker({
-		    theme: 'fip-darkgrey',
-		    emptyIconValue: 'none',
+			theme: 'fip-darkgrey',
+			emptyIconValue: 'none',
 		});
-		$("div.modal").on("change","#" + id + "_visualisation_type",function(){
-			show_or_hide_control_elements(grid,id);
-			check_and_show_visualisation(grid,id);
+		$("div.modal").on("change", "#" + id + "_visualisation_type", function() {
+			show_or_hide_control_elements(grid, id);
+			check_and_show_visualisation(grid, id);
 		});
-		$("div.modal").on("change","#" + id + "_breakdown_display,#" + 
-				id + "_specific_value_display,#" + 
-				id + "_specific_values",function(){	
-		    show_or_hide_control_elements(grid,id);
-			check_and_show_visualisation(grid,id);
-		});
+		$("div.modal").on("change", "#" + id + "_breakdown_display,#" +
+			id + "_specific_value_display,#" +
+			id + "_specific_values", function() {
+				show_or_hide_control_elements(grid, id);
+				check_and_show_visualisation(grid, id);
+			});
 		$("div.modal").on($.modal.AFTER_CLOSE, function(event, modal) {
 			$("div.modal").remove();
 		});
 	});
 }
 
-function show_or_hide_control_elements(grid,id){
+function show_or_hide_control_elements(grid, id) {
 	var visualisation_type = $("input[name='" + id + "_visualisation_type']:checked").val();
 	var specific_value_display = $("#" + id + "_specific_value_display").val();
 	$("li#value_selector").css("display", visualisation_type === 'breakdown' ? 'none' : 'block');
-	$("li#breakdown_display_selector").css("display",visualisation_type === 'breakdown' ? 'block' : 'none');
+	$("li#breakdown_display_selector").css("display", visualisation_type === 'breakdown' ? 'block' : 'none');
 	$("li#specific_value_display_selector").css("display", visualisation_type === 'breakdown' ? 'none' : 'block');
-	if (visualisation_type==='specific values'){
-	    $("fieldset#change_duration_control").css("display",specific_value_display==='number' ? 'inline':'none');
-	    $("fieldset#design_control").css("display",specific_value_display==='number' ? 'inline':'none');
+	if (visualisation_type === 'specific values') {
+		$("fieldset#change_duration_control").css("display", specific_value_display === 'number' ? 'inline' : 'none');
+		$("fieldset#design_control").css("display", specific_value_display === 'number' ? 'inline' : 'none');
 	}
-	
+
 }
 
-function check_and_show_visualisation(grid,id){
+function check_and_show_visualisation(grid, id) {
 	var visualisation_type = $("input[name='" + id + "_visualisation_type']:checked").val();
 	var breakdown_display = $("#" + id + "_breakdown_display").val();
 	var specific_value_display = $("#" + id + "_specific_value_display").val();
 	var specific_values = $("#" + id + "_specific_values").val();
-	if (visualisation_type === 'specific values'){
-		if (specific_value_display != '0' && specific_values.length != 0){
-		    elements[id]['display'] = 'field';
-		    elements[id]['url'] = url + "&page=query";
-		    elements[id]['url_text'] = 'Query records';
-		    elements[id]['post_data'] = {
-		          db: instance,
-		          page: "query",
-		          attribute: elements[id]['field'],
-		          list: Array.isArray(specific_values) ? specific_values.join("\n") : specific_values
-		    }
-		    saveAndReloadElement(grid,id);
+	if (visualisation_type === 'specific values') {
+		if (specific_value_display != '0' && specific_values.length != 0) {
+			elements[id]['display'] = 'field';
+			elements[id]['url'] = url + "&page=query";
+			elements[id]['url_text'] = 'Query records';
+			elements[id]['post_data'] = {
+				db: instance,
+				page: "query",
+				attribute: elements[id]['field'],
+				list: Array.isArray(specific_values) ? specific_values.join("\n") : specific_values
+			}
+			saveAndReloadElement(grid, id);
 		} else {
 			changeElementAttribute(grid, id, 'display', 'setup');
 		}
 	}
 }
 
-function reloadElement(grid,id){
-	$.get(url + "&page=dashboard&element=" + id,function(json){
+function reloadElement(grid, id) {
+	$.get(url + "&page=dashboard&element=" + id, function(json) {
 		try {
 			$("div#element_" + id + "> .item-content > .ajax_content").html(JSON.parse(json).html);
 			elements[id] = JSON.parse(json).element;
 			applyFormatting();
-		} catch (err){
+		} catch (err) {
 			console.log(err.message);
 		}
 	});
 }
 
-function reloadAllElements(grid){
-	$.each(Object.keys(elements),function(index,value){
-		reloadElement(grid,value);
+function reloadAllElements(grid) {
+	$.each(Object.keys(elements), function(index, value) {
+		reloadElement(grid, value);
 	});
 }
 
-function removeElement(grid,id){
+function removeElement(grid, id) {
 	var item = grid.getItem($("div#element_" + id)[0]);
-	grid.remove([item],{ removeElements: true });
+	grid.remove([item], { removeElements: true });
 	delete elements[id];
 	saveElements(grid);
-	if (Object.keys(elements).length == 0){	
+	if (Object.keys(elements).length == 0) {
 		$("div#empty").html(empty);
 	}
 }
@@ -373,45 +371,45 @@ function changeElementDimension(grid, id, attribute) {
 		}
 	});
 	var new_dimension = $("input[name='" + id + "_" + attribute + "']:checked")
-	.val();
+		.val();
 	item_content.addClass("dashboard_element_" + attribute + new_dimension);
 	$("span#" + id + "_" + attribute).html(new_dimension);
 	elements[id][attribute] = Number(new_dimension);
-	saveAndReloadElement(grid,id);
+	saveAndReloadElement(grid, id);
 	grid.refreshItems().layout();
 }
 
-function saveElements(grid){
-	$.post(url,{
-		db:instance,
-		page:"dashboard",
-		updatePrefs:1,
-		attribute:"elements",
-		value:JSON.stringify(elements)
+function saveElements(grid) {
+	$.post(url, {
+		db: instance,
+		page: "dashboard",
+		updatePrefs: 1,
+		attribute: "elements",
+		value: JSON.stringify(elements)
 	});
 	saveLayout(grid);
 }
 
-function saveAndReloadElement(grid,id){
-    currentRequest = $.ajax({
-        url:url,
-        type:'POST',
-        data:{
-            db:instance,
-            page:"dashboard",
-            updatePrefs:1,
-            attribute:"elements",
-            value:JSON.stringify(elements)
-        }, 
-        beforeSend : function()    {           
-            if(currentRequest != null) {
-                currentRequest.abort();
-            }
-        },
-        success: function(){
-            reloadElement(grid,id);     
-        }
-    });
+function saveAndReloadElement(grid, id) {
+	currentRequest = $.ajax({
+		url: url,
+		type: 'POST',
+		data: {
+			db: instance,
+			page: "dashboard",
+			updatePrefs: 1,
+			attribute: "elements",
+			value: JSON.stringify(elements)
+		},
+		beforeSend: function() {
+			if (currentRequest != null) {
+				currentRequest.abort();
+			}
+		},
+		success: function() {
+			reloadElement(grid, id);
+		}
+	});
 }
 
 function serializeLayout(grid) {
@@ -439,29 +437,29 @@ function loadLayout(grid, serializedLayout) {
 		}
 	}
 	grid.sort(newItems, {
-		layout : 'instant'
+		layout: 'instant'
 	});
 }
 
 function saveLayout(grid) {
 	var layout = serializeLayout(grid);
-	$.post(url,{
-		db:instance,
-		page:"dashboard",
-		updatePrefs:1,
-		attribute:"order",
-		value:layout
+	$.post(url, {
+		db: instance,
+		page: "dashboard",
+		updatePrefs: 1,
+		attribute: "order",
+		value: layout
 	});
 }
 
-function resetDefaults(){
-	$("#modify_panel").toggle("slide",{direction:"right"},"fast");
-	$.get(url + "&resetDefaults=1", function() {		
+function resetDefaults() {
+	$("#modify_panel").toggle("slide", { direction: "right" }, "fast");
+	$.get(url + "&resetDefaults=1", function() {
 		$("#layout").val("left-top");
-		$("#fill_gaps").prop("checked",true);
-		$("#enable_drag").prop("checked",false);
-		$("#edit_elements").prop("checked",false);
-		$("#remove_elements").prop("checked",false);
+		$("#fill_gaps").prop("checked", true);
+		$("#enable_drag").prop("checked", false);
+		$("#edit_elements").prop("checked", false);
+		$("#remove_elements").prop("checked", false);
 		location.reload();
 	});
 }
