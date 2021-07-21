@@ -590,7 +590,7 @@ input#fasta_upload {
 	position: relative;
 	text-align: right;
 	-moz-opacity: 0;
-	filter: alpha(opacity : 0);
+	filter: alpha(opacity=0);
 	opacity: 0;
 	z-index: 2;
 	height: 3em;

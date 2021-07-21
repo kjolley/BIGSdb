@@ -299,13 +299,22 @@ function editElement(grid, id, setup) {
 
 function show_or_hide_control_elements(grid, id) {
 	var visualisation_type = $("input[name='" + id + "_visualisation_type']:checked").val();
+	
 	var specific_value_display = $("#" + id + "_specific_value_display").val();
 	$("li#value_selector").css("display", visualisation_type === 'breakdown' ? 'none' : 'block');
 	$("li#breakdown_display_selector").css("display", visualisation_type === 'breakdown' ? 'block' : 'none');
 	$("li#specific_value_display_selector").css("display", visualisation_type === 'breakdown' ? 'none' : 'block');
 	if (visualisation_type === 'specific values') {
 		$("fieldset#change_duration_control").css("display", specific_value_display === 'number' ? 'inline' : 'none');
-		$("fieldset#design_control").css("display", specific_value_display === 'number' ? 'inline' : 'none');
+		//$("fieldset#design_control").css("display", specific_value_display === 'number' ? 'inline' : 'none');
+		$("fieldset#design_control").css("display", "inline");
+		if (specific_value_display === 'gauge'){
+			$("li#watermark_control,li#text_colour_control,li#background_colour_control").css("display","none");
+			$("li.gauge_colour").css("display","block");
+		} else if (specific_value_display === 'number'){
+			$("li#watermark_control,li#background_colour_control").css("display","block");
+			$("li.gauge_colour").css("display","none");
+		}
 	}
 
 }
@@ -462,4 +471,8 @@ function resetDefaults() {
 		$("#remove_elements").prop("checked", false);
 		location.reload();
 	});
+}
+
+function commify(x) {
+	return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
