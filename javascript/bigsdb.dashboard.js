@@ -161,6 +161,17 @@ $(function() {
 		var element_id = id.replace("_" + attribute, "");
 		changeElementAttribute(grid, element_id, attribute, $(this).val());
 	});
+	$('.multi_menu_trigger').on('click', function(){
+		var trigger_id = this.id;	
+		var panel_id = trigger_id.replace('_trigger','_panel');
+	  	if ($("#" + panel_id).css('display') == 'none') {
+	  		$("#" + panel_id).slideDown();
+	  		$("#" + trigger_id).html('<span class="fas fa-minus"></span>');
+	    } else {
+	  	    $("#" + panel_id).slideUp();
+	  	    $("#" + trigger_id).html('<span class="fas fa-plus"></span>');
+	    }  
+	});
 	$('a#dashboard_toggle').on('click', function() {
 		$.get(url + "&page=dashboard&updatePrefs=1&attribute=default&value=0", function() {
 			window.location = url;

@@ -60,6 +60,7 @@ sub print_content {
 	}
 	my $desc = $self->get_db_description( { formatted => 1 } );
 	my $max_width = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
+	my $index_panel_max_width = $max_width - 300;
 	my $title_max_width = $max_width - 15;
 	say q(<div class="flex_container" style="flex-direction:column;align-items:center">);
 	say q(<div>);
@@ -74,8 +75,11 @@ sub print_content {
 	}
 	say q(</div>);
 	say qq(<div id="main_container" class="flex_container" style="max-width:${max_width}px">);
-	say qq(<div class="index_panel" style="max-width:${max_width}px">);
+	say qq(<div class="index_panel" style="max-width:${index_panel_max_width}px;min-width:65%">);
 	$self->_print_main_section;
+	say q(</div>);
+	say q(<div class="menu_panel">);
+	$self->print_menu;
 	say q(</div>);
 	say q(</div>);
 	say q(</div>);
