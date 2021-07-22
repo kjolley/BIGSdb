@@ -312,7 +312,7 @@ function show_or_hide_control_elements(grid, id) {
 			$("li#watermark_control,li#text_colour_control,li#background_colour_control").css("display","none");
 			$("li.gauge_colour").css("display","block");
 		} else if (specific_value_display === 'number'){
-			$("li#watermark_control,li#background_colour_control").css("display","block");
+			$("li#watermark_control,li#text_colour_control,li#background_colour_control").css("display","block");
 			$("li.gauge_colour").css("display","none");
 		}
 	}
