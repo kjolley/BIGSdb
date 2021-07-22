@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -57,13 +57,10 @@ sub print_content {
 	my $remote_uri_list = [];
 	push @$remote_uri_list, $remote_contig_records->{$_}->{'uri'} foreach keys %$remote_contig_records;
 	my $remote_contig_seqs;
-	eval {
-		$remote_contig_seqs =
-		  $self->{'contigManager'}->get_remote_contigs_by_list($remote_uri_list);
-	};
+	eval { $remote_contig_seqs = $self->{'contigManager'}->get_remote_contigs_by_list($remote_uri_list); };
 	$logger->error($@) if $@;
 
-	foreach my $contig (@$data) {
+	foreach my $contig ( sort { length( $b->[2] ) <=> length( $a->[2] ) } @$data ) {
 		my ( $id, $orig, $seq ) = @$contig;
 		$seq = $remote_contig_seqs->{ $remote_contig_records->{$id}->{'uri'} } if !$seq;
 		print ">$id";
