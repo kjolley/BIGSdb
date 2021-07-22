@@ -52,7 +52,7 @@ sub get_attributes {
 		menutext     => 'Contigs',
 		module       => 'Contigs',
 		url          => "$self->{'config'}->{'doclink'}/data_export/contig_export.html",
-		version      => '1.1.11',
+		version      => '1.1.12',
 		dbtype       => 'isolates',
 		section      => 'export,postquery',
 		input        => 'query',
@@ -96,7 +96,7 @@ sub _get_contigs {
 		say q(No sequences matching selected criteria.) if $single;
 		return \$buffer;
 	}
-	foreach (@$export_seq) {
+	foreach ( sort { length( $b->{'sequence'} ) <=> length( $a->{'sequence'} ) } @$export_seq ) {
 		$buffer .= qq(>$_->{'seqbin_id'}\n);
 		my $cleaned_seq = BIGSdb::Utils::break_line( $_->{'sequence'}, 60 ) || '';
 		$buffer .= qq($cleaned_seq\n);
