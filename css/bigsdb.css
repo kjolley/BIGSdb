@@ -1519,6 +1519,11 @@ span.dashboard_watermark {
 	opacity: 0.1
 }
 
+div#dashboard .item-content .bb-tooltip-container {
+	
+}
+
+
 select.watermark_selector {
 	color:blue;
 }

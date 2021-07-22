@@ -59,9 +59,9 @@ sub print_content {
 		return;
 	}
 	my $desc = $self->get_db_description( { formatted => 1 } );
-	my $max_width = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
+	my $max_width             = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
 	my $index_panel_max_width = $max_width - 300;
-	my $title_max_width = $max_width - 15;
+	my $title_max_width       = $max_width - 15;
 	say q(<div class="flex_container" style="flex-direction:column;align-items:center">);
 	say q(<div>);
 	say qq(<div style="width:95vw;max-width:${title_max_width}px"></div>);
@@ -217,7 +217,7 @@ sub _print_chart_type_controls {
 	my $value_display     = $element->{'visualisation_type'} eq 'breakdown' ? 'none'  : 'block';
 	say q(<fieldset><legend>Display element</legend>);
 	say qq(<ul><li id="breakdown_display_selector" style="display:$breakdown_display">);
-	say q(<label for="breakdown_display">Element: </label>);
+	say qq(<label for="${id}_breakdown_display">Element: </label>);
 	say $q->popup_menu(
 		-name    => "${id}_breakdown_display",
 		-id      => "${id}_breakdown_display",
@@ -227,7 +227,7 @@ sub _print_chart_type_controls {
 		-default => $element->{'breakdown_display'}
 	);
 	say qq(</li><li id="specific_value_display_selector" style="display:$value_display">);
-	say q(<label for="specific_value_display">Element: </label>);
+	say qq(<label for="${id}_specific_value_display">Element: </label>);
 	say $q->popup_menu(
 		-name    => "${id}_specific_value_display",
 		-id      => "${id}_specific_value_display",
@@ -463,10 +463,12 @@ sub _ajax_new {
 			$element = { %$element, %{ $default_elements->{$field} } };
 		} else {
 			( my $display_field = $field ) =~ s/^[f]_//x;
-			$element->{'name'}              = ucfirst($display_field);
-			$element->{'field'}             = $field;
-			$element->{'display'}           = 'setup';
-			$element->{'change_duration'}   = 'week';
+			$element->{'name'}            = ucfirst($display_field);
+			$element->{'field'}           = $field;
+			$element->{'display'}         = 'setup';
+			$element->{'change_duration'} = 'week';
+
+			#		$element->{'visualisation_type'} = 'breakdown';
 			$element->{'background_colour'} = SPECIFIC_FIELD_BACKGROUND_COLOUR;
 			$element->{'main_text_colour'}  = SPECIFIC_FIELD_MAIN_TEXT_COLOUR;
 			my %default_watermarks = (
@@ -476,7 +478,6 @@ sub _ajax_new {
 				f_disease => 'fas fa-notes-medical',
 				f_year    => 'far fa-calendar-alt'
 			);
-
 			if ( $default_watermarks{$field} ) {
 				$element->{'watermark'} = $default_watermarks{$field};
 			}
@@ -617,7 +618,7 @@ sub _get_element_html {
 	my $height_class = "dashboard_element_height$element->{'height'}";
 	$buffer .= qq(<div class="item-content $width_class $height_class">);
 	$buffer .= $self->_get_element_controls($element);
-	$buffer .= q(<div class="ajax_content" style="position:absolute;overflow:hidden;height:100%;width:100%">);
+	$buffer .= q(<div class="ajax_content" style="overflow:hidden;height:100%;width:100%">);
 	$buffer .= $self->_get_element_content($element);
 	$buffer .= q(</div></div></div>);
 	return $buffer;
@@ -630,7 +631,7 @@ sub _load_element_html_by_ajax {
 	my $height_class = "dashboard_element_height$element->{'height'}";
 	$buffer .= qq(<div class="item-content $width_class $height_class">);
 	$buffer .= $self->_get_element_controls($element);
-	$buffer .= q(<div class="ajax_content" style="position:absolute;overflow:hidden;height:100%;width:100%">)
+	$buffer .= q(<div class="ajax_content" style="overflow:hidden;height:100%;width:100%">)
 	  . q(<span class="dashboard_wait_ajax fas fa-sync-alt fa-spin"></span></div>);
 	$buffer .= q(</div></div>);
 	return $buffer;
@@ -749,6 +750,7 @@ sub _get_big_number_content {
 
 sub _get_field_element_content {
 	my ( $self, $element ) = @_;
+	$element->{'visualisation_type'} //= 'breakdown';
 	my $buffer;
 	if ( $element->{'visualisation_type'} eq 'specific values' ) {
 		my $chart_type = $element->{'specific_value_display'} // q();
@@ -756,6 +758,12 @@ sub _get_field_element_content {
 			number => sub { $self->_get_field_specific_value_number_content($element) },
 			gauge  => sub { $self->_get_field_specific_value_gauge_content($element) }
 		);
+		if ( $methods{$chart_type} ) {
+			$buffer .= $methods{$chart_type}->();
+		}
+	} elsif ( $element->{'visualisation_type'} eq 'breakdown' ) {
+		my $chart_type = $element->{'breakdown_display'} // q();
+		my %methods = ( doughnut => sub { $self->_get_field_breakdown_doughnut_content($element) }, );
 		if ( $methods{$chart_type} ) {
 			$buffer .= $methods{$chart_type}->();
 		}
@@ -780,7 +788,7 @@ sub _get_multiselect_field_subtitle {
 	return qq(<div class="subtitle">$title</div>);
 }
 
-sub _get_field_counts {
+sub _get_specific_field_value_counts {
 	my ( $self, $element ) = @_;
 	my $count = 0;
 	my ( $increase, $change_duration );
@@ -826,13 +834,68 @@ sub _get_field_counts {
 	return $data;
 }
 
+sub _get_field_breakdown_values {
+	my ( $self, $element ) = @_;
+	if ( $element->{'field'} =~ /^f_/x ) {
+		( my $field = $element->{'field'} ) =~ s/^f_//x;
+		return $self->_get_primary_metadata_breakdown_values($field);
+	}
+	return {};
+}
+
+sub _get_primary_metadata_breakdown_values {
+	my ( $self, $field ) = @_;
+	my $qry     = "SELECT $field AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v ";
+	my $filters = $self->_get_filters;
+	local $" = ' AND ';
+	$qry .= " WHERE @$filters" if @$filters;
+	$qry .= ' GROUP BY label ORDER BY value DESC';
+	my $values = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
+	my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+	if ( ( $att->{'multiple'} // q() ) eq 'yes' ) {
+		my %new_values;
+		if ( ( $att->{'optlist'} // q() ) eq 'yes' ) {
+			my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
+			foreach my $value (@$values) {
+				my $sorted_label = BIGSdb::Utils::arbitrary_order_list( $optlist, $value->{'label'} );
+				local $" = q(; );
+				my $new_label = qq(@$sorted_label);
+				$new_values{$new_label} += $value->{'value'};
+			}
+		} else {
+			foreach my $value (@$values) {
+				if ( !defined $value->{'label'} ) {
+					$value->{'label'} = ['No value'];
+				}
+				my @sorted_label =
+				  $att->{'type'} ne 'text'
+				  ? sort { $a <=> $b } @{ $value->{'label'} }
+				  : sort { $a cmp $b } @{ $value->{'label'} };
+				local $" = q(; );
+				my $new_label = qq(@sorted_label);
+				$new_values{$new_label} += $value->{'value'};
+			}
+		}
+		my $new_return_list = [];
+		foreach my $label ( sort { $new_values{$b} <=> $new_values{$a} || $a cmp $b } keys %new_values ) {
+			push @$new_return_list,
+			  {
+				label => $label eq q() ? 'No value' : $label,
+				value => $new_values{$label}
+			  };
+		}
+		return $new_return_list;
+	}
+	return $values;
+}
+
 sub _get_field_specific_value_number_content {
 	my ( $self, $element ) = @_;
 	my $text_colour = $element->{'main_text_colour'} // SPECIFIC_FIELD_MAIN_TEXT_COLOUR;
 	my $buffer = $self->_get_colour_swatch($element);
 	$buffer .= $self->_get_title($element);
 	$buffer .= $self->_get_multiselect_field_subtitle($element);
-	my $data = $self->_get_field_counts($element);
+	my $data = $self->_get_specific_field_value_counts($element);
 	$buffer .= $self->_get_big_number_content(
 		{
 			element         => $element,
@@ -863,7 +926,7 @@ sub _get_total_record_count {
 
 sub _get_field_specific_value_gauge_content {
 	my ( $self, $element ) = @_;
-	my $data   = $self->_get_field_counts($element);
+	my $data   = $self->_get_specific_field_value_counts($element);
 	my $total  = $self->_get_total_record_count;
 	my $height = $element->{'height'} == 1 ? 100 : 200;
 	if ( $element->{'width'} == 1 ) {
@@ -871,7 +934,7 @@ sub _get_field_specific_value_gauge_content {
 	}
 	my $nice_count = BIGSdb::Utils::commify( $data->{'count'} );
 	my $background = $element->{'gauge_background_colour'} // GAUGE_BACKGROUND_COLOUR;
-	my $colour = $element->{'gauge_foreground_colour'} // GAUGE_FOREGROUND_COLOUR;
+	my $colour     = $element->{'gauge_foreground_colour'} // GAUGE_FOREGROUND_COLOUR;
 	my $buffer     = $self->_get_title($element);
 	$buffer .= $self->_get_multiselect_field_subtitle($element);
 	$buffer .= qq(<div id="chart_$element->{'id'}"></div>);
@@ -894,6 +957,9 @@ sub _get_field_specific_value_gauge_content {
 					values: [0]
 				}
 			},
+ 			interaction: {
+ 				enabled: false
+ 			},
 			gauge: {
 				background:"$background",
 				min: 0,
@@ -916,6 +982,53 @@ sub _get_field_specific_value_gauge_content {
 	</script>
 JS
 	$buffer .= $self->_get_explore_link($element);
+	return $buffer;
+}
+
+sub _get_field_breakdown_doughnut_content {
+	my ( $self, $element ) = @_;
+	my $height = $element->{'height'} == 1 ? 100 : 200;
+	if ( $element->{'width'} == 1 ) {
+		$height = 80;
+	}
+	my $data   = $self->_get_field_breakdown_values($element);
+	my @dataset;
+	foreach my $value (@$data){
+		$value->{'label'} //='No value';
+		push @dataset,qq(                ["$value->{'label'}", $value->{'value'}]);
+	}
+	my $buffer = $self->_get_title($element);
+	local $" = qq(,\n);
+	$buffer .= qq(<div id="chart_$element->{'id'}"></div>);
+	$buffer .= << "JS";
+	<script>
+	\$(function() {
+		bb.generate({
+			data: {
+				columns: [
+					@dataset
+				],
+				type: "donut" 
+			},
+			size: {
+				height: $height
+			},
+			legend: {
+				show: false
+			},
+			tooltip: {
+	    		position: function(data, width, height, element) {
+	         		return {
+	             		top: -40,
+	             		left: 0
+	         		}
+	         	}
+     		},
+			bindto: "#chart_$element->{'id'}"
+		});
+	});
+	</script>
+JS
 	return $buffer;
 }
 
@@ -960,7 +1073,7 @@ sub _get_element_controls {
 	  . qq(class="dashboard_remove_element far fa-trash-alt" style="display:$display"></span>)
 	  . qq(<span data-id="$id" id="wait_$id" class="dashboard_wait fas fa-sync-alt )
 	  . q(fa-spin" style="display:none"></span>);
-	$display = $self->{'prefs'}->{'dashboard.edit_elements'} ? 'inline' : 'none';
+	$display = ( $self->{'prefs'}->{'dashboard.edit_elements'} // 1 ) ? 'inline' : 'none';
 	$buffer .=
 	    qq(<span data-id="$id" id="control_$id" class="dashboard_edit_element fas fa-sliders-h" )
 	  . qq(style="display:$display"></span>);
@@ -1073,7 +1186,7 @@ sub _print_modify_dashboard_fieldset {
 	my $layout               = $self->{'prefs'}->{'dashboard.layout'}               // 'left-top';
 	my $fill_gaps            = $self->{'prefs'}->{'dashboard.fill_gaps'}            // 1;
 	my $enable_drag          = $self->{'prefs'}->{'dashboard.enable_drag'}          // 0;
-	my $edit_elements        = $self->{'prefs'}->{'dashboard.edit_elements'}        // 0;
+	my $edit_elements        = $self->{'prefs'}->{'dashboard.edit_elements'}        // 1;
 	my $remove_elements      = $self->{'prefs'}->{'dashboard.remove_elements'}      // 0;
 	my $include_old_versions = $self->{'prefs'}->{'dashboard.include_old_versions'} // 0;
 	my $q                    = $self->{'cgi'};

@@ -161,16 +161,16 @@ $(function() {
 		var element_id = id.replace("_" + attribute, "");
 		changeElementAttribute(grid, element_id, attribute, $(this).val());
 	});
-	$('.multi_menu_trigger').on('click', function(){
-		var trigger_id = this.id;	
-		var panel_id = trigger_id.replace('_trigger','_panel');
-	  	if ($("#" + panel_id).css('display') == 'none') {
-	  		$("#" + panel_id).slideDown();
-	  		$("#" + trigger_id).html('<span class="fas fa-minus"></span>');
-	    } else {
-	  	    $("#" + panel_id).slideUp();
-	  	    $("#" + trigger_id).html('<span class="fas fa-plus"></span>');
-	    }  
+	$('.multi_menu_trigger').on('click', function() {
+		var trigger_id = this.id;
+		var panel_id = trigger_id.replace('_trigger', '_panel');
+		if ($("#" + panel_id).css('display') == 'none') {
+			$("#" + panel_id).slideDown();
+			$("#" + trigger_id).html('<span class="fas fa-minus"></span>');
+		} else {
+			$("#" + panel_id).slideUp();
+			$("#" + trigger_id).html('<span class="fas fa-plus"></span>');
+		}
 	});
 	$('a#dashboard_toggle').on('click', function() {
 		$.get(url + "&page=dashboard&updatePrefs=1&attribute=default&value=0", function() {
@@ -237,7 +237,8 @@ function changeElementAttribute(grid, id, attribute, value) {
 
 function applyFormatting() {
 	fitty(".dashboard_big_number", {
-		maxSize: 64
+		maxSize: 64,
+		observeMutations: false
 	});
 	$(".item-content div.subtitle a").tooltip();
 }
@@ -310,22 +311,23 @@ function editElement(grid, id, setup) {
 
 function show_or_hide_control_elements(grid, id) {
 	var visualisation_type = $("input[name='" + id + "_visualisation_type']:checked").val();
-	
+
 	var specific_value_display = $("#" + id + "_specific_value_display").val();
 	$("li#value_selector").css("display", visualisation_type === 'breakdown' ? 'none' : 'block');
 	$("li#breakdown_display_selector").css("display", visualisation_type === 'breakdown' ? 'block' : 'none');
 	$("li#specific_value_display_selector").css("display", visualisation_type === 'breakdown' ? 'none' : 'block');
 	if (visualisation_type === 'specific values') {
 		$("fieldset#change_duration_control").css("display", specific_value_display === 'number' ? 'inline' : 'none');
-		//$("fieldset#design_control").css("display", specific_value_display === 'number' ? 'inline' : 'none');
 		$("fieldset#design_control").css("display", "inline");
-		if (specific_value_display === 'gauge'){
-			$("li#watermark_control,li#text_colour_control,li#background_colour_control").css("display","none");
-			$("li.gauge_colour").css("display","block");
-		} else if (specific_value_display === 'number'){
-			$("li#watermark_control,li#text_colour_control,li#background_colour_control").css("display","block");
-			$("li.gauge_colour").css("display","none");
+		if (specific_value_display === 'gauge') {
+			$("li#watermark_control,li#text_colour_control,li#background_colour_control").css("display", "none");
+			$("li.gauge_colour").css("display", "block");
+		} else if (specific_value_display === 'number') {
+			$("li#watermark_control,li#text_colour_control,li#background_colour_control").css("display", "block");
+			$("li.gauge_colour").css("display", "none");
 		}
+	} else if (visualisation_type === 'breakdown') {
+		$("fieldset#design_control").css("display", "none");
 	}
 
 }
@@ -346,6 +348,13 @@ function check_and_show_visualisation(grid, id) {
 				attribute: elements[id]['field'],
 				list: Array.isArray(specific_values) ? specific_values.join("\n") : specific_values
 			}
+			saveAndReloadElement(grid, id);
+		} else {
+			changeElementAttribute(grid, id, 'display', 'setup');
+		}
+	} else if (visualisation_type === 'breakdown') {
+		if (breakdown_display != 0) {
+			elements[id]['display'] = 'field';
 			saveAndReloadElement(grid, id);
 		} else {
 			changeElementAttribute(grid, id, 'display', 'setup');
