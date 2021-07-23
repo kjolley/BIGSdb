@@ -795,9 +795,21 @@ sub _get_specific_field_value_counts {
 	my ( $increase, $change_duration );
 	if ( $element->{'field'} =~ /^f_/x ) {
 		( my $field = $element->{'field'} ) =~ s/^f_//x;
-		my $att        = $self->{'xmlHandler'}->get_field_attributes($field);
-		my $type       = $att->{'type'} // 'text';
-		my $values     = $self->_filter_list( $type, $element->{'specific_values'} );
+		my $att    = $self->{'xmlHandler'}->get_field_attributes($field);
+		my $type   = $att->{'type'} // 'text';
+		my $values = $self->_filter_list( $type, $element->{'specific_values'} );
+		if ( ( $att->{'optlist'} // q() ) eq 'yes' ) {
+			my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
+			my %used = map { $_ => 1 } @$values;
+			foreach my $value (@$values) {
+				my $subvalues = $self->_get_sub_values( $value, $optlist );
+				foreach my $subvalue (@$subvalues) {
+					push @$values, $subvalue if !$used{$subvalue};
+					$used{$subvalue} = 1;
+				}
+			}
+			
+		}
 		my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( $type, $values );
 		my $qry;
 		my $view = $self->{'system'}->{'view'};
@@ -888,6 +900,17 @@ sub _get_primary_metadata_breakdown_values {
 		return $new_return_list;
 	}
 	return $values;
+}
+
+sub _get_sub_values {
+	my ( $self, $value, $optlist ) = @_;
+	return if !ref $optlist;
+	return if $value =~ /\[.+\]$/x;
+	my $subvalues;
+	foreach my $option (@$optlist) {
+		push @$subvalues, $option if $option =~ /^$value\ \[.+\]$/ix;
+	}
+	return $subvalues;
 }
 
 sub _get_field_specific_value_number_content {
@@ -988,29 +1011,26 @@ JS
 
 sub _get_field_breakdown_doughnut_content {
 	my ( $self, $element ) = @_;
-	my $min_dimension = min($element->{'height'},$element->{'width'}) //1;
-	my $height = ($min_dimension * 150) - 25;
-
-	my $data   = $self->_get_field_breakdown_values($element);
+	my $min_dimension = min( $element->{'height'}, $element->{'width'} ) // 1;
+	my $height        = ( $min_dimension * 150 ) - 25;
+	my $data          = $self->_get_field_breakdown_values($element);
 	my @dataset;
-	foreach my $value (@$data){
-		$value->{'label'} //='No value';
-		push @dataset,qq(                ["$value->{'label'}", $value->{'value'}]);
+	foreach my $value (@$data) {
+		$value->{'label'} //= 'No value';
+		push @dataset, qq(                ["$value->{'label'}", $value->{'value'}]);
 	}
 	my $buffer;
 	my $centre_title = q();
-	my ($margin_top,$label_show);
-	if ($min_dimension==1 || length($element->{'name'})>50){
-		$buffer.= $self->_get_title($element);
+	my ( $margin_top, $label_show );
+	if ( $min_dimension == 1 || length( $element->{'name'} ) > 50 ) {
+		$buffer .= $self->_get_title($element);
 		$margin_top = -20;
 		$label_show = 'false';
 	} else {
-		$centre_title=$element->{'name'};
-		$margin_top = 20;
-		$label_show='true';
+		$centre_title = $element->{'name'};
+		$margin_top   = 20;
+		$label_show   = 'true';
 	}
-	
-	
 	local $" = qq(,\n);
 	$buffer .= qq(<div id="chart_$element->{'id'}" style="margin-top:${margin_top}px"></div>);
 	$buffer .= << "JS";
