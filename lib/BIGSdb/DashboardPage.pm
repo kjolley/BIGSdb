@@ -439,7 +439,7 @@ sub _ajax_new {
 					db   => $self->{'instance'},
 					page => 'query'
 				},
-				url_text => 'Browse isolates'
+				url_text => "Browse $self->{'system'}->{'labelfield'}s"
 			},
 			sp_genomes => {
 				name              => 'Genome count',
@@ -554,20 +554,23 @@ sub _print_ajax_load_code {
 	say q[<script>];
 	say q[$(function () {];
 	foreach my $element_id (@$element_ids) {
-		say << "JS"
+	say << "JS";
 	var element_ids = [@$element_ids];
-	\$.each(element_ids, function(index,value){
-		\$.ajax({
-	    	url:"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=dashboard&element=" + value
-	    }).done(function(json){
-	       	try {
-	       	    \$("div#element_" + value + " > .item-content > .ajax_content").html(JSON.parse(json).html);
-	       	    applyFormatting();
-	       	} catch (err) {
-	       		console.log(err.message);
-	       	} 	          	    
-	    });			
-	}); 
+	if (!window.running){
+		window.running = true;
+		\$.each(element_ids, function(index,value){
+			\$.ajax({
+		    	url:"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=dashboard&element=" + value
+		    }).done(function(json){
+		       	try {
+		       	    \$("div#element_" + value + " > .item-content > .ajax_content").html(JSON.parse(json).html);
+		       	    applyFormatting();
+		       	} catch (err) {
+		       		console.log(err.message);
+		       	} 	          	    
+		    });			
+		}); 
+	}
 JS
 	}
 	say q[});];
@@ -1011,11 +1014,30 @@ JS
 	return $buffer;
 }
 
+sub _get_doughnut_pie_threshold {
+	my ( $self, $data ) = @_;
+	my $max_threshold = 0.10;    #Show segments that are >=10% of total
+	my $total         = 0;
+	$total += $_->{'value'} foreach @$data;
+	return $max_threshold if !$total;
+	my $running = 0;
+	my $threshold;
+	foreach my $value (@$data) {
+		$running += $value->{'value'};
+		if ( $running >= ( $total / 3 ) ) {    #Show first third of segments
+			$threshold = $value->{'value'} / $total;
+			last;
+		}
+	}
+	return $threshold >= $max_threshold ? $max_threshold : $threshold;
+}
+
 sub _get_field_breakdown_doughnut_content {
 	my ( $self, $element ) = @_;
 	my $min_dimension = min( $element->{'height'}, $element->{'width'} ) // 1;
 	my $height        = ( $min_dimension * 150 ) - 25;
 	my $data          = $self->_get_field_breakdown_values($element);
+	my $threshold     = $self->_get_doughnut_pie_threshold($data);
 	my @dataset;
 	foreach my $value (@$data) {
 		$value->{'label'} //= 'No value';
@@ -1034,7 +1056,7 @@ sub _get_field_breakdown_doughnut_content {
 		$label_show   = 'true';
 	}
 	local $" = qq(,\n);
-	$buffer .= qq(<div id="chart_$element->{'id'}" style="margin-top:${margin_top}px"></div>);
+	$buffer .= qq(<div id="chart_$element->{'id'}" class="doughnut" style="margin-top:${margin_top}px"></div>);
 	$buffer .= << "JS";
 	<script>
 	\$(function() {
@@ -1043,7 +1065,7 @@ sub _get_field_breakdown_doughnut_content {
 				columns: [
 					@dataset
 				],
-				type: "donut" 
+				type: "donut",
 			},
 			size: {
 				height: $height
@@ -1060,14 +1082,21 @@ sub _get_field_breakdown_doughnut_content {
 	         	},
 	         	format: {
 	         		value: function(name, ratio, id){
-	         			return d3.format(",")(name);
+	         			return $height <= 125 
+	         			  ? d3.format(",")(name) 
+	         			  : d3.format(",")(name) + " (" + d3.format(".1f")(100 * ratio) + "%)";
 	         		} 
 	         	}
      		},
      		donut: {
      			title: "$centre_title",
      			label: {
-     				show: $label_show
+     				show: $label_show,
+     				format:  function(value, ratio, id){
+     					var label = id.replace(" ","\\n");	
+		         		return label;
+	         		},
+	         		threshold: $threshold	         		
      			}
      		},     		
 			bindto: "#chart_$element->{'id'}"
@@ -1083,6 +1112,7 @@ sub _get_field_breakdown_pie_content {
 	my $min_dimension = min( $element->{'height'}, $element->{'width'} ) // 1;
 	my $height        = ( $min_dimension * 150 ) - 25;
 	my $data          = $self->_get_field_breakdown_values($element);
+	my $threshold     = $self->_get_doughnut_pie_threshold($data);
 	my @dataset;
 	foreach my $value (@$data) {
 		$value->{'label'} //= 'No value';
@@ -1091,7 +1121,7 @@ sub _get_field_breakdown_pie_content {
 	my $buffer = $self->_get_title($element);
 	my $label_show = $min_dimension == 1 || length( $element->{'name'} ) > 50 ? 'false' : 'true';
 	local $" = qq(,\n);
-	$buffer .= qq(<div id="chart_$element->{'id'}" style="margin-top:-20px"></div>);
+	$buffer .= qq(<div id="chart_$element->{'id'}" class="pie" style="margin-top:-20px"></div>);
 	$buffer .= << "JS";
 	<script>
 	\$(function() {
@@ -1114,16 +1144,23 @@ sub _get_field_breakdown_pie_content {
 	             		top: -20,
 	             		left: 0
 	         		}
-	         	},
+	         	},	         	
 	         	format: {
 	         		value: function(name, ratio, id){
-	         			return d3.format(",")(name);
-	         		} 
+	         			return $height <= 125 
+	         			  ? d3.format(",")(name) 
+	         			  : d3.format(",")(name) + " (" + d3.format(".1f")(100 * ratio) + "%)";
+	         		}
 	         	}
      		},
      		pie: {
      			label: {
-     				show: $label_show
+     				show: $label_show,
+     				format:  function(value, ratio, id){
+     					var label = id.replace(" ","\\n");	
+		         		return label;
+	         		},
+	         		threshold: $threshold
      			}
      		},     		
 			bindto: "#chart_$element->{'id'}"
