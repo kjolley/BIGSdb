@@ -764,7 +764,10 @@ sub _get_field_element_content {
 		}
 	} elsif ( $element->{'visualisation_type'} eq 'breakdown' ) {
 		my $chart_type = $element->{'breakdown_display'} // q();
-		my %methods = ( doughnut => sub { $self->_get_field_breakdown_doughnut_content($element) }, );
+		my %methods = (
+			doughnut => sub { $self->_get_field_breakdown_doughnut_content($element) },
+			pie      => sub { $self->_get_field_breakdown_pie_content($element) },
+		);
 		if ( $methods{$chart_type} ) {
 			$buffer .= $methods{$chart_type}->();
 		}
@@ -808,7 +811,6 @@ sub _get_specific_field_value_counts {
 					$used{$subvalue} = 1;
 				}
 			}
-			
 		}
 		my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( $type, $values );
 		my $qry;
@@ -1064,6 +1066,62 @@ sub _get_field_breakdown_doughnut_content {
      		},
      		donut: {
      			title: "$centre_title",
+     			label: {
+     				show: $label_show
+     			}
+     		},     		
+			bindto: "#chart_$element->{'id'}"
+		});
+	});
+	</script>
+JS
+	return $buffer;
+}
+
+sub _get_field_breakdown_pie_content {
+	my ( $self, $element ) = @_;
+	my $min_dimension = min( $element->{'height'}, $element->{'width'} ) // 1;
+	my $height        = ( $min_dimension * 150 ) - 25;
+	my $data          = $self->_get_field_breakdown_values($element);
+	my @dataset;
+	foreach my $value (@$data) {
+		$value->{'label'} //= 'No value';
+		push @dataset, qq(                ["$value->{'label'}", $value->{'value'}]);
+	}
+	my $buffer = $self->_get_title($element);
+	my $label_show = $min_dimension == 1 || length( $element->{'name'} ) > 50 ? 'false' : 'true';
+	local $" = qq(,\n);
+	$buffer .= qq(<div id="chart_$element->{'id'}" style="margin-top:-20px"></div>);
+	$buffer .= << "JS";
+	<script>
+	\$(function() {
+		bb.generate({
+			data: {
+				columns: [
+					@dataset
+				],
+				type: "pie" 
+			},
+			size: {
+				height: $height
+			},
+			legend: {
+				show: false
+			},
+			tooltip: {
+	    		position: function(data, width, height, element) {
+	         		return {
+	             		top: -20,
+	             		left: 0
+	         		}
+	         	},
+	         	format: {
+	         		value: function(name, ratio, id){
+	         			return d3.format(",")(name);
+	         		} 
+	         	}
+     		},
+     		pie: {
      			label: {
      				show: $label_show
      			}
