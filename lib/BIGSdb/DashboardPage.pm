@@ -23,6 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::IndexPage);
 use BIGSdb::Constants qw(:design :interface :limits);
 use Try::Tiny;
+use List::Util qw( min max );
 use JSON;
 use Data::Dumper;
 use Log::Log4perl qw(get_logger);
@@ -987,19 +988,31 @@ JS
 
 sub _get_field_breakdown_doughnut_content {
 	my ( $self, $element ) = @_;
-	my $height = $element->{'height'} == 1 ? 100 : 200;
-	if ( $element->{'width'} == 1 ) {
-		$height = 80;
-	}
+	my $min_dimension = min($element->{'height'},$element->{'width'}) //1;
+	my $height = ($min_dimension * 150) - 25;
+
 	my $data   = $self->_get_field_breakdown_values($element);
 	my @dataset;
 	foreach my $value (@$data){
 		$value->{'label'} //='No value';
 		push @dataset,qq(                ["$value->{'label'}", $value->{'value'}]);
 	}
-	my $buffer = $self->_get_title($element);
+	my $buffer;
+	my $centre_title = q();
+	my ($margin_top,$label_show);
+	if ($min_dimension==1 || length($element->{'name'})>50){
+		$buffer.= $self->_get_title($element);
+		$margin_top = -20;
+		$label_show = 'false';
+	} else {
+		$centre_title=$element->{'name'};
+		$margin_top = 20;
+		$label_show='true';
+	}
+	
+	
 	local $" = qq(,\n);
-	$buffer .= qq(<div id="chart_$element->{'id'}"></div>);
+	$buffer .= qq(<div id="chart_$element->{'id'}" style="margin-top:${margin_top}px"></div>);
 	$buffer .= << "JS";
 	<script>
 	\$(function() {
@@ -1019,11 +1032,22 @@ sub _get_field_breakdown_doughnut_content {
 			tooltip: {
 	    		position: function(data, width, height, element) {
 	         		return {
-	             		top: -40,
+	             		top: -20,
 	             		left: 0
 	         		}
+	         	},
+	         	format: {
+	         		value: function(name, ratio, id){
+	         			return d3.format(",")(name);
+	         		} 
 	         	}
      		},
+     		donut: {
+     			title: "$centre_title",
+     			label: {
+     				show: $label_show
+     			}
+     		},     		
 			bindto: "#chart_$element->{'id'}"
 		});
 	});
