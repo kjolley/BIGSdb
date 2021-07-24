@@ -61,7 +61,7 @@ sub print_content {
 	}
 	my $desc = $self->get_db_description( { formatted => 1 } );
 	my $max_width             = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
-	my $index_panel_max_width = $max_width - 270;
+	my $index_panel_max_width = $max_width - 250;
 	my $title_max_width       = $max_width - 15;
 	say q(<div class="flex_container" style="flex-direction:column;align-items:center">);
 	say q(<div>);
@@ -79,7 +79,7 @@ sub print_content {
 	say qq(<div class="index_panel" style="max-width:${index_panel_max_width}px;min-width:65%">);
 	$self->_print_main_section;
 	say q(</div>);
-	say q(<div class="menu_panel" style="width:220px">);
+	say q(<div class="menu_panel" style="width:250px">);
 	$self->print_menu;
 	say q(</div>);
 	say q(</div>);
@@ -553,7 +553,6 @@ sub _print_ajax_load_code {
 	local $" = q(,);
 	say q[<script>];
 	say q[$(function () {];
-	foreach my $element_id (@$element_ids) {
 	say << "JS";
 	var element_ids = [@$element_ids];
 	if (!window.running){
@@ -572,7 +571,6 @@ sub _print_ajax_load_code {
 		}); 
 	}
 JS
-	}
 	say q[});];
 	say q(</script>);
 	return;
