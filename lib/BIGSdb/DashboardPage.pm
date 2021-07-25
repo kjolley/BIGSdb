@@ -1035,6 +1035,7 @@ sub _get_doughnut_pie_dataset {
 	my ( $self, $data ) = @_;
 	my $dataset     = [];
 	my $others      = 0;
+	my $others_values = 0;
 	my $value_count = 0;
 	foreach my $value (@$data) {
 		$value->{'label'} //= 'No value';
@@ -1042,14 +1043,20 @@ sub _get_doughnut_pie_dataset {
 		$value_count++;
 		if ( $value_count >= MAX_SEGMENTS && @$data != MAX_SEGMENTS ) {
 			$others += $value->{'value'};
+			$others_values++;
 		} else {
 			push @$dataset, qq(                ["$value->{'label'}", $value->{'value'}]);
 		}
 	}
+	my $others_label;
 	if ($others) {
-		push @$dataset, qq(                ["Others", $others]);
+		$others_label = "Others ($others_values values)";
+		push @$dataset, qq(                ["Others ($others_values values)", $others]);
 	}
-	return $dataset;
+	return {
+		others_label => $others_label // 'Others',
+		dataset => $dataset
+	};
 }
 
 sub _get_field_breakdown_doughnut_content {
@@ -1059,6 +1066,7 @@ sub _get_field_breakdown_doughnut_content {
 	my $data          = $self->_get_field_breakdown_values($element);
 	my $threshold     = $self->_get_doughnut_pie_threshold($data);
 	my $dataset       = $self->_get_doughnut_pie_dataset($data);
+	my $others_label  = $data->[-1] =~ /^Others/x ? $data->[-1] : 'Others';
 	my $buffer;
 	my $centre_title = q();
 	my ( $margin_top, $label_show );
@@ -1080,12 +1088,12 @@ sub _get_field_breakdown_doughnut_content {
 		bb.generate({
 			data: {
 				columns: [
-					@$dataset
+					@{$dataset->{'dataset'}}
 				],
 				type: "donut",
 				order: null,
 				colors: {
-					'Others': '#aaa'
+					'$dataset->{'others_label'}': '#aaa'
 				}
 			},
 			size: {
@@ -1145,12 +1153,12 @@ sub _get_field_breakdown_pie_content {
 		bb.generate({
 			data: {
 				columns: [
-					@$dataset
+					@{$dataset->{'dataset'}}
 				],
 				type: "pie",
 				order: null,
 				colors: {
-					'Others': '#aaa'
+					'$dataset->{'others_label'}': '#aaa'
 				}
 			},
 			size: {
