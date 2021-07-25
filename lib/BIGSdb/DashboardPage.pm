@@ -30,6 +30,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant {
 	LAYOUT_TEST                      => 0,
+	MAX_SEGMENTS                     => 20,
 	COUNT_MAIN_TEXT_COLOUR           => '#404040',
 	COUNT_BACKGROUND_COLOUR          => '#79cafb',
 	GENOMES_MAIN_TEXT_COLOUR         => '#404040',
@@ -1030,20 +1031,38 @@ sub _get_doughnut_pie_threshold {
 	return $threshold >= $max_threshold ? $max_threshold : $threshold;
 }
 
+sub _get_doughnut_pie_dataset {
+	my ( $self, $data ) = @_;
+	my $dataset     = [];
+	my $others      = 0;
+	my $value_count = 0;
+	foreach my $value (@$data) {
+		$value->{'label'} //= 'No value';
+		$value->{'label'} =~ s/"/\\"/gx;
+		$value_count++;
+		if ( $value_count >= MAX_SEGMENTS && @$data != MAX_SEGMENTS ) {
+			$others += $value->{'value'};
+		} else {
+			push @$dataset, qq(                ["$value->{'label'}", $value->{'value'}]);
+		}
+	}
+	if ($others) {
+		push @$dataset, qq(                ["Others", $others]);
+	}
+	return $dataset;
+}
+
 sub _get_field_breakdown_doughnut_content {
 	my ( $self, $element ) = @_;
 	my $min_dimension = min( $element->{'height'}, $element->{'width'} ) // 1;
 	my $height        = ( $min_dimension * 150 ) - 25;
 	my $data          = $self->_get_field_breakdown_values($element);
 	my $threshold     = $self->_get_doughnut_pie_threshold($data);
-	my @dataset;
-	foreach my $value (@$data) {
-		$value->{'label'} //= 'No value';
-		push @dataset, qq(                ["$value->{'label'}", $value->{'value'}]);
-	}
+	my $dataset       = $self->_get_doughnut_pie_dataset($data);
 	my $buffer;
 	my $centre_title = q();
 	my ( $margin_top, $label_show );
+
 	if ( $min_dimension == 1 || length( $element->{'name'} ) > 50 ) {
 		$buffer .= $self->_get_title($element);
 		$margin_top = -20;
@@ -1061,9 +1080,13 @@ sub _get_field_breakdown_doughnut_content {
 		bb.generate({
 			data: {
 				columns: [
-					@dataset
+					@$dataset
 				],
 				type: "donut",
+				order: null,
+				colors: {
+					'Others': '#aaa'
+				}
 			},
 			size: {
 				height: $height
@@ -1111,13 +1134,9 @@ sub _get_field_breakdown_pie_content {
 	my $height        = ( $min_dimension * 150 ) - 25;
 	my $data          = $self->_get_field_breakdown_values($element);
 	my $threshold     = $self->_get_doughnut_pie_threshold($data);
-	my @dataset;
-	foreach my $value (@$data) {
-		$value->{'label'} //= 'No value';
-		push @dataset, qq(                ["$value->{'label'}", $value->{'value'}]);
-	}
-	my $buffer = $self->_get_title($element);
-	my $label_show = $min_dimension == 1 || length( $element->{'name'} ) > 50 ? 'false' : 'true';
+	my $dataset       = $self->_get_doughnut_pie_dataset($data);
+	my $buffer        = $self->_get_title($element);
+	my $label_show    = $min_dimension == 1 || length( $element->{'name'} ) > 50 ? 'false' : 'true';
 	local $" = qq(,\n);
 	$buffer .= qq(<div id="chart_$element->{'id'}" class="pie" style="margin-top:-20px"></div>);
 	$buffer .= << "JS";
@@ -1126,9 +1145,13 @@ sub _get_field_breakdown_pie_content {
 		bb.generate({
 			data: {
 				columns: [
-					@dataset
+					@$dataset
 				],
-				type: "pie" 
+				type: "pie",
+				order: null,
+				colors: {
+					'Others': '#aaa'
+				}
 			},
 			size: {
 				height: $height
