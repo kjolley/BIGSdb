@@ -1160,7 +1160,6 @@ sub _get_field_breakdown_bar_content {
 						if (String(labels[i]).length<=3 
 							&& label_count<=(10*$element->{'width'}) 
 							&& i % (5-$element->{'width'})==0){
-								console.log(i);
 								return labels[i];
 						}
 						if (String(labels[i]).length <=6 && local_max.includes(i)){

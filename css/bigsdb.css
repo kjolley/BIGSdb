@@ -2873,6 +2873,12 @@ a.slide_trigger {
 	}
 }
 
+@media only screen and (max-width:677px) {
+	div.dashboard_element_width3 {
+		width: 612px
+	}
+}
+
 @media only screen and (max-width:600px) {
 	div.main_content {
 		width: calc(100vw - 20px)
@@ -2894,6 +2900,12 @@ a.slide_trigger {
 	}
 	div.registration_buttons {
 		margin: 0
+	}
+}
+
+@media only screen and (max-width:517px) {
+	div.dashboard_element_width2 {
+		width: 458px
 	}
 }
 
