@@ -299,7 +299,8 @@ function editElement(grid, id, setup) {
 		});
 		$("div.modal").on("change", "#" + id + "_breakdown_display,#" +
 			id + "_specific_value_display,#" +
-			id + "_specific_values", function() {
+			id + "_specific_values,#" +
+			id + "_bar_colour_type", function() {
 				show_or_hide_control_elements(grid, id);
 				check_and_show_visualisation(grid, id);
 			});
@@ -311,8 +312,8 @@ function editElement(grid, id, setup) {
 
 function show_or_hide_control_elements(grid, id) {
 	var visualisation_type = $("input[name='" + id + "_visualisation_type']:checked").val();
-
 	var specific_value_display = $("#" + id + "_specific_value_display").val();
+	var breakdown_display = $("#" + id + "_breakdown_display").val();
 	$("li#value_selector").css("display", visualisation_type === 'breakdown' ? 'none' : 'block');
 	$("li#breakdown_display_selector").css("display", visualisation_type === 'breakdown' ? 'block' : 'none');
 	$("li#specific_value_display_selector").css("display", visualisation_type === 'breakdown' ? 'none' : 'block');
@@ -327,7 +328,14 @@ function show_or_hide_control_elements(grid, id) {
 			$("li.gauge_colour").css("display", "none");
 		}
 	} else if (visualisation_type === 'breakdown') {
-		$("fieldset#design_control").css("display", "none");
+		if (breakdown_display === 'bar'){
+			$("fieldset#design_control,li.bar_colour_type").css("display", "inline");
+			$("li#watermark_control,li#text_colour_control,li#background_colour_control").css("display", "none");			
+			var bar_colour_type = $("input[name='" + id + "_bar_colour_type']:checked").val();
+			$("li.bar_chart_colour").css("display",bar_colour_type === "continuous" ? "block":"none");
+		} else {
+			$("fieldset#design_control").css("display", "none");
+		}
 	}
 
 }

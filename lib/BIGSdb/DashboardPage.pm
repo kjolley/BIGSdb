@@ -39,6 +39,7 @@ use constant {
 	SPECIFIC_FIELD_BACKGROUND_COLOUR => '#d9e1ff',
 	GAUGE_BACKGROUND_COLOUR          => '#a0a0a0',
 	GAUGE_FOREGROUND_COLOUR          => '#0000ff',
+	BAR_CHART_COLOUR                 => '#1f77b4'
 };
 
 sub print_content {
@@ -223,7 +224,7 @@ sub _print_chart_type_controls {
 	say $q->popup_menu(
 		-name    => "${id}_breakdown_display",
 		-id      => "${id}_breakdown_display",
-		-values  => [qw(0 doughnut pie)],
+		-values  => [qw(0 bar doughnut pie)],
 		-labels  => { 0 => 'Select...' },
 		-class   => 'element_option',
 		-default => $element->{'breakdown_display'}
@@ -323,25 +324,40 @@ sub _print_colour_control {
 	my $default = $element->{'main_text_colour'} // COUNT_MAIN_TEXT_COLOUR;
 	say q(<li id="text_colour_control">);
 	say qq(<input type="color" id="${id}_main_text_colour" value="$default" class="element_option colour_selector">);
-	say q(<label for="text_colour">Main text colour</label>);
+	say qq(<label for="${id}_main_text_colour">Main text colour</label>);
 	say q(</li><li>);
 	$default = $element->{'background_colour'} // COUNT_BACKGROUND_COLOUR;
 	say q(<li id="background_colour_control">);
 	say qq(<input type="color" id="${id}_background_colour" value="$default" )
 	  . q(class="element_option colour_selector">);
-	say q(<label for="text_colour">Main background</label>);
+	say qq(<label for="${id}_background_colour">Main background</label>);
 	say q(</li>);
 	$default = $element->{'gauge_background_colour'} // GAUGE_BACKGROUND_COLOUR;
 	say q(<li class="gauge_colour" style="display:none">);
 	say qq(<input type="color" id="${id}_gauge_background_colour" value="$default" )
 	  . q(class="element_option colour_selector">);
-	say q(<label for="text_colour">Gauge background</label>);
+	say qq(<label for="${id}_gauge_background_colour">Gauge background</label>);
 	say q(</li>);
 	$default = $element->{'gauge_foreground_colour'} // GAUGE_FOREGROUND_COLOUR;
 	say q(<li class="gauge_colour" style="display:none">);
 	say qq(<input type="color" id="${id}_gauge_foreground_colour" value="$default" )
 	  . q(class="element_option colour_selector">);
-	say q(<label for="text_colour">Gauge foreground</label>);
+	say qq(<label for="${id}_gauge_foreground_colour">Gauge foreground</label>);
+	say q(</li>);
+	say qq(<li class="bar_colour_type" style="display:none"><label for="${id}_bar_colour_type">Value type:<br /></label>);
+	say $q->radio_group(
+		-name      => "${id}_bar_colour_type",
+		-id        => "${id}_bar_colour_type",
+		-class     => 'element_option',
+		-values    => [qw(categorical continuous)],
+		-default   => $element->{'bar_colour_type'} // 'categorical',
+		-linebreak => 'true'
+	);
+	$default = $element->{'bar_chart_colour'} // BAR_CHART_COLOUR;
+	say q(<li class="bar_chart_colour" style="display:none">);
+	say qq(<input type="color" id="${id}_bar_chart_colour" value="$default" )
+	  . q(class="element_option colour_selector">);
+	say qq(<label for="${id}_bar_chart_colour">Bar chart colour</label>);
 	say q(</li>);
 	return;
 }
@@ -767,6 +783,7 @@ sub _get_field_element_content {
 	} elsif ( $element->{'visualisation_type'} eq 'breakdown' ) {
 		my $chart_type = $element->{'breakdown_display'} // q();
 		my %methods = (
+			bar      => sub { $self->_get_field_breakdown_bar_content($element) },
 			doughnut => sub { $self->_get_field_breakdown_doughnut_content($element) },
 			pie      => sub { $self->_get_field_breakdown_pie_content($element) },
 		);
@@ -862,13 +879,18 @@ sub _get_field_breakdown_values {
 
 sub _get_primary_metadata_breakdown_values {
 	my ( $self, $field ) = @_;
+	my $att     = $self->{'xmlHandler'}->get_field_attributes($field);
 	my $qry     = "SELECT $field AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v ";
 	my $filters = $self->_get_filters;
 	local $" = ' AND ';
 	$qry .= " WHERE @$filters" if @$filters;
-	$qry .= ' GROUP BY label ORDER BY value DESC';
+	$qry .= ' GROUP BY label ORDER BY ';
+	if ( $att->{'type'} =~ /^int/x || $att->{'type'} eq 'date' || $att->{'type'} eq 'float' ) {
+		$qry .= $field;
+	} else {
+		$qry .= 'value DESC';
+	}
 	my $values = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
-	my $att = $self->{'xmlHandler'}->get_field_attributes($field);
 	if ( ( $att->{'multiple'} // q() ) eq 'yes' ) {
 		my %new_values;
 		if ( ( $att->{'optlist'} // q() ) eq 'yes' ) {
@@ -1033,10 +1055,10 @@ sub _get_doughnut_pie_threshold {
 
 sub _get_doughnut_pie_dataset {
 	my ( $self, $data ) = @_;
-	my $dataset     = [];
-	my $others      = 0;
+	my $dataset       = [];
+	my $others        = 0;
 	my $others_values = 0;
-	my $value_count = 0;
+	my $value_count   = 0;
 	foreach my $value (@$data) {
 		$value->{'label'} //= 'No value';
 		$value->{'label'} =~ s/"/\\"/gx;
@@ -1057,6 +1079,154 @@ sub _get_doughnut_pie_dataset {
 		others_label => $others_label // 'Others',
 		dataset => $dataset
 	};
+}
+
+sub _get_bar_dataset {
+	my ( $self, $element ) = @_;
+	my $labels    = [];
+	my $values    = [];
+	my $local_max = [];
+	my $max       = 0;
+	my $data      = $self->_get_field_breakdown_values($element);
+	foreach my $value (@$data) {
+		next if !defined $value->{'label'};
+		$value->{'label'} =~ s/"/\\"/gx;
+		push @$labels, $value->{'label'};
+		push @$values, $value->{'value'};
+		$max = $value->{'value'} if $value->{'value'} > $max;
+	}
+
+	#Calc local max
+	my $cols_either_side = int( @$data / ( $element->{'width'} * 3 ) );
+  POS: for my $i ( 0 .. @$values - 1 ) {
+		my $lower = $i >= $cols_either_side ? $i - $cols_either_side : 0;
+		for my $j ( $lower .. $i ) {
+			next if $i == $j;
+			next POS if $values->[$j] > $values->[$i];
+		}
+		my $upper = $i <= @$values - 1 - $cols_either_side ? $i + $cols_either_side : @$values - 1;
+		for my $j ( $i .. $upper ) {
+			next if $i == $j;
+			next POS if $values->[$j] > $values->[$i];
+		}
+		push @$local_max, $i;
+	}
+	my $dataset = {
+		count     => scalar @$data,
+		max       => $max,
+		labels    => $labels,
+		values    => $values,
+		local_max => $local_max
+	};
+	local $" = q(,);
+	return $dataset;
+}
+
+sub _get_field_breakdown_bar_content {
+	my ( $self, $element ) = @_;
+	my $dataset = $self->_get_bar_dataset($element);
+	my $height  = ( $element->{'height'} * 150 ) - 25;
+	local $" = q(",");
+	my $cat_string = qq("@{$dataset->{'labels'}}");
+	local $" = q(,);
+	my $value_string     = qq(@{$dataset->{'values'}});
+	my $local_max_string = qq(@{$dataset->{'local_max'}});
+	my $bar_colour_type = $element->{'bar_colour_type'} // 'categorical';
+	my $bar_chart_colour = $element->{'bar_chart_colour'} // BAR_CHART_COLOUR;
+	my $buffer           = $self->_get_title($element);
+	$buffer .= qq(<div id="chart_$element->{'id'}" class="pie" style="margin-top:-20px"></div>);
+	local $" = q(,);
+	$buffer .= << "JS";
+	<script>
+	\$(function() {
+		var labels = [$cat_string];
+		var values = [$value_string];
+		var label_count = $dataset->{'count'};
+		var max = $dataset->{'max'};
+		var local_max = [$local_max_string];
+		var bar_colour_type = "$bar_colour_type";
+		bb.generate({
+			data: {
+				columns: [
+					["values",@{$dataset->{'values'}}]
+				],
+				type: "bar",
+				labels: {
+					show: true,
+					format: function (v,id,i,j){
+						if (label_count<=6){
+							return labels[i];
+						}
+						if (String(labels[i]).length<=3 
+							&& label_count<=(10*$element->{'width'}) 
+							&& i % (5-$element->{'width'})==0){
+								console.log(i);
+								return labels[i];
+						}
+						if (String(labels[i]).length <=6 && local_max.includes(i)){
+							return labels[i];
+						}
+						if (v === max){
+							return labels[i];
+						}
+					}
+				},
+				color: function(color,d){
+					if (bar_colour_type === 'continuous'){
+						return "$bar_chart_colour";
+					} else {
+						return d3.schemeCategory10[d.index % 10];
+					}
+				}
+			},
+			axis: {
+				x: {
+					type: "category",
+					categories: [$cat_string],
+					tick: {
+						show: false,
+						text: {
+							show: false
+						}
+					},
+					padding: {
+						right: 1
+					}
+				},
+				y: {
+					padding: {
+						top: 15
+					}
+				}
+			},
+			size: {
+				height: $height
+			},
+			legend: {
+				show: false
+			},
+			tooltip: {
+	    		position: function(data, width, height, element) {
+	         		return {
+	             		top: -20,
+	             		left: 0
+	         		}
+	         	},
+	         	format: {
+	         		value: function(name, ratio, id){
+	         			return d3.format(",")(name) 	         			  
+	         		} 
+	         	}
+     		},
+     		bar: {
+
+     		},     		
+			bindto: "#chart_$element->{'id'}"
+		});
+	});
+	</script>
+JS
+	return $buffer;
 }
 
 sub _get_field_breakdown_doughnut_content {
