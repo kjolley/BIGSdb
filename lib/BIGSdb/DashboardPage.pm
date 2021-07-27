@@ -39,7 +39,7 @@ use constant {
 	SPECIFIC_FIELD_BACKGROUND_COLOUR => '#d9e1ff',
 	GAUGE_BACKGROUND_COLOUR          => '#a0a0a0',
 	GAUGE_FOREGROUND_COLOUR          => '#0000ff',
-	CHART_COLOUR                 => '#1f77b4'
+	CHART_COLOUR                     => '#1f77b4'
 };
 
 sub print_content {
@@ -375,8 +375,7 @@ sub _print_colour_control {
 	);
 	$default = $element->{'chart_colour'} // CHART_COLOUR;
 	say q(<li class="chart_colour" style="display:none">);
-	say qq(<input type="color" id="${id}_chart_colour" value="$default" )
-	  . q(class="element_option colour_selector">);
+	say qq(<input type="color" id="${id}_chart_colour" value="$default" ) . q(class="element_option colour_selector">);
 	say qq(<label for="${id}_chart_colour">Chart colour</label>);
 	say q(</li>);
 	return;
@@ -906,7 +905,7 @@ sub _get_primary_metadata_breakdown_values {
 	local $" = ' AND ';
 	$qry .= " WHERE @$filters" if @$filters;
 	$qry .= ' GROUP BY label ORDER BY ';
-	if ( lc($att->{'type'}) =~ /^int/x || lc($att->{'type'}) eq 'date' || lc($att->{'type'}) eq 'float' ) {
+	if ( lc( $att->{'type'} ) =~ /^int/x || lc( $att->{'type'} ) eq 'date' || lc( $att->{'type'} ) eq 'float' ) {
 		$qry .= $field;
 	} else {
 		$qry .= 'value DESC';
@@ -944,9 +943,26 @@ sub _get_primary_metadata_breakdown_values {
 				value => $new_values{$label}
 			  };
 		}
-		return $new_return_list;
+		$values = $new_return_list;
+	}
+	if ( ( $att->{'userfield'} // q() ) eq 'yes' || $field eq 'sender' || $field eq 'curator' ) {
+		$values = $self->_rewrite_user_field_values($values);
 	}
 	return $values;
+}
+
+sub _rewrite_user_field_values {
+	my ( $self, $values ) = @_;
+	my $new_values = [];
+	foreach my $value (@$values) {
+		my $label = $self->{'datastore'}->get_user_string( $value->{'label'},{affiliation=>1} );
+		$label =~ s/\r?\n/ /gx;
+		push @$new_values, {
+			label => $label,
+			value => $value->{'value'}
+		};
+	}
+	return $new_values;
 }
 
 sub _get_sub_values {
@@ -1066,7 +1082,8 @@ sub _get_doughnut_pie_threshold {
 	my $threshold;
 	foreach my $value (@$data) {
 		$running += $value->{'value'};
-		if ( $running >= ( $total / 3 ) ) {    #Show first third of segments
+		#Show first third of segments if >=2%
+		if ( $running >= ( $total / 3 ) && ($value->{'value'} / $total) >= 0.02) {    
 			$threshold = $value->{'value'} / $total;
 			last;
 		}
@@ -1145,12 +1162,12 @@ sub _get_bar_dataset {
 
 sub _get_cumulative_dataset {
 	my ( $self, $element ) = @_;
-	my $dataset = $self->_get_bar_dataset($element);
+	my $dataset    = $self->_get_bar_dataset($element);
 	my $cumulative = [];
-	my $running = 0;
-	foreach my $value (@{$dataset->{'values'}}){
+	my $running    = 0;
+	foreach my $value ( @{ $dataset->{'values'} } ) {
 		$running += $value;
-		push @$cumulative,$running;
+		push @$cumulative, $running;
 	}
 	$dataset->{'cumulative'} = $cumulative;
 	return $dataset;
@@ -1166,7 +1183,7 @@ sub _get_field_breakdown_bar_content {
 	my $value_string     = qq(@{$dataset->{'values'}});
 	my $local_max_string = qq(@{$dataset->{'local_max'}});
 	my $bar_colour_type  = $element->{'bar_colour_type'} // 'categorical';
-	my $chart_colour = $element->{'chart_colour'} // CHART_COLOUR;
+	my $chart_colour     = $element->{'chart_colour'} // CHART_COLOUR;
 	my $buffer           = $self->_get_title($element);
 	$buffer .= qq(<div id="chart_$element->{'id'}" class="pie" style="margin-top:-20px"></div>);
 	local $" = q(,);
@@ -1269,15 +1286,15 @@ sub _get_field_breakdown_cumulative_content {
 	my ( $self, $element ) = @_;
 	my $dataset = $self->_get_cumulative_dataset($element);
 	my $height  = ( $element->{'height'} * 150 ) - 25;
-	my $ticks = $element->{'width'} ;
+	my $ticks   = $element->{'width'};
 	local $" = q(",");
 	my $date_string = qq("@{$dataset->{'labels'}}");
 	local $" = q(,);
-	my $value_string     = qq(@{$dataset->{'cumulative'}});
+	my $value_string = qq(@{$dataset->{'cumulative'}});
 	my $chart_colour = $element->{'chart_colour'} // CHART_COLOUR;
-	my $buffer           = $self->_get_title($element);
+	my $buffer       = $self->_get_title($element);
 	$buffer .= qq(<div id="chart_$element->{'id'}" style="margin-top:-20px"></div>);
-		local $" = q(,);
+	local $" = q(,);
 	$buffer .= << "JS";
 	<script>
 	\$(function() {
