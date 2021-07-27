@@ -39,7 +39,7 @@ use constant {
 	SPECIFIC_FIELD_BACKGROUND_COLOUR => '#d9e1ff',
 	GAUGE_BACKGROUND_COLOUR          => '#a0a0a0',
 	GAUGE_FOREGROUND_COLOUR          => '#0000ff',
-	BAR_CHART_COLOUR                 => '#1f77b4'
+	CHART_COLOUR                 => '#1f77b4'
 };
 
 sub print_content {
@@ -212,6 +212,20 @@ sub _field_has_optlist {
 	return;
 }
 
+sub _get_field_type {
+	my ( $self, $element ) = @_;
+	if ( !defined $element->{'field'} ) {
+		$logger->error('No field defined');
+		return;
+	}
+	if ( $element->{'field'} =~ /^f_(.*)$/x ) {
+		my $field = $1;
+		my $att   = $self->{'xmlHandler'}->get_field_attributes($field);
+		return $att->{'type'};
+	}
+	return;
+}
+
 sub _print_chart_type_controls {
 	my ( $self, $id, $element ) = @_;
 	my $q = $self->{'cgi'};
@@ -221,10 +235,15 @@ sub _print_chart_type_controls {
 	say q(<fieldset><legend>Display element</legend>);
 	say qq(<ul><li id="breakdown_display_selector" style="display:$breakdown_display">);
 	say qq(<label for="${id}_breakdown_display">Element: </label>);
+	my $field_type = lc( $self->_get_field_type($element) );
+	my @breakdown_charts =
+	  $field_type eq 'date'
+	  ? qw(bar cumulative doughnut pie)
+	  : qw(bar doughnut pie);
 	say $q->popup_menu(
 		-name    => "${id}_breakdown_display",
 		-id      => "${id}_breakdown_display",
-		-values  => [qw(0 bar doughnut pie)],
+		-values  => [ 0, @breakdown_charts ],
 		-labels  => { 0 => 'Select...' },
 		-class   => 'element_option',
 		-default => $element->{'breakdown_display'}
@@ -344,7 +363,8 @@ sub _print_colour_control {
 	  . q(class="element_option colour_selector">);
 	say qq(<label for="${id}_gauge_foreground_colour">Gauge foreground</label>);
 	say q(</li>);
-	say qq(<li class="bar_colour_type" style="display:none"><label for="${id}_bar_colour_type">Value type:<br /></label>);
+	say
+	  qq(<li class="bar_colour_type" style="display:none"><label for="${id}_bar_colour_type">Value type:<br /></label>);
 	say $q->radio_group(
 		-name      => "${id}_bar_colour_type",
 		-id        => "${id}_bar_colour_type",
@@ -353,11 +373,11 @@ sub _print_colour_control {
 		-default   => $element->{'bar_colour_type'} // 'categorical',
 		-linebreak => 'true'
 	);
-	$default = $element->{'bar_chart_colour'} // BAR_CHART_COLOUR;
-	say q(<li class="bar_chart_colour" style="display:none">);
-	say qq(<input type="color" id="${id}_bar_chart_colour" value="$default" )
+	$default = $element->{'chart_colour'} // CHART_COLOUR;
+	say q(<li class="chart_colour" style="display:none">);
+	say qq(<input type="color" id="${id}_chart_colour" value="$default" )
 	  . q(class="element_option colour_selector">);
-	say qq(<label for="${id}_bar_chart_colour">Bar chart colour</label>);
+	say qq(<label for="${id}_chart_colour">Chart colour</label>);
 	say q(</li>);
 	return;
 }
@@ -783,9 +803,10 @@ sub _get_field_element_content {
 	} elsif ( $element->{'visualisation_type'} eq 'breakdown' ) {
 		my $chart_type = $element->{'breakdown_display'} // q();
 		my %methods = (
-			bar      => sub { $self->_get_field_breakdown_bar_content($element) },
-			doughnut => sub { $self->_get_field_breakdown_doughnut_content($element) },
-			pie      => sub { $self->_get_field_breakdown_pie_content($element) },
+			bar        => sub { $self->_get_field_breakdown_bar_content($element) },
+			doughnut   => sub { $self->_get_field_breakdown_doughnut_content($element) },
+			pie        => sub { $self->_get_field_breakdown_pie_content($element) },
+			cumulative => sub { $self->_get_field_breakdown_cumulative_content($element) },
 		);
 		if ( $methods{$chart_type} ) {
 			$buffer .= $methods{$chart_type}->();
@@ -885,7 +906,7 @@ sub _get_primary_metadata_breakdown_values {
 	local $" = ' AND ';
 	$qry .= " WHERE @$filters" if @$filters;
 	$qry .= ' GROUP BY label ORDER BY ';
-	if ( $att->{'type'} =~ /^int/x || $att->{'type'} eq 'date' || $att->{'type'} eq 'float' ) {
+	if ( lc($att->{'type'}) =~ /^int/x || lc($att->{'type'}) eq 'date' || lc($att->{'type'}) eq 'float' ) {
 		$qry .= $field;
 	} else {
 		$qry .= 'value DESC';
@@ -1122,6 +1143,19 @@ sub _get_bar_dataset {
 	return $dataset;
 }
 
+sub _get_cumulative_dataset {
+	my ( $self, $element ) = @_;
+	my $dataset = $self->_get_bar_dataset($element);
+	my $cumulative = [];
+	my $running = 0;
+	foreach my $value (@{$dataset->{'values'}}){
+		$running += $value;
+		push @$cumulative,$running;
+	}
+	$dataset->{'cumulative'} = $cumulative;
+	return $dataset;
+}
+
 sub _get_field_breakdown_bar_content {
 	my ( $self, $element ) = @_;
 	my $dataset = $self->_get_bar_dataset($element);
@@ -1131,8 +1165,8 @@ sub _get_field_breakdown_bar_content {
 	local $" = q(,);
 	my $value_string     = qq(@{$dataset->{'values'}});
 	my $local_max_string = qq(@{$dataset->{'local_max'}});
-	my $bar_colour_type = $element->{'bar_colour_type'} // 'categorical';
-	my $bar_chart_colour = $element->{'bar_chart_colour'} // BAR_CHART_COLOUR;
+	my $bar_colour_type  = $element->{'bar_colour_type'} // 'categorical';
+	my $chart_colour = $element->{'chart_colour'} // CHART_COLOUR;
 	my $buffer           = $self->_get_title($element);
 	$buffer .= qq(<div id="chart_$element->{'id'}" class="pie" style="margin-top:-20px"></div>);
 	local $" = q(,);
@@ -1172,7 +1206,7 @@ sub _get_field_breakdown_bar_content {
 				},
 				color: function(color,d){
 					if (bar_colour_type === 'continuous'){
-						return "$bar_chart_colour";
+						return "$chart_colour";
 					} else {
 						return d3.schemeCategory10[d.index % 10];
 					}
@@ -1195,7 +1229,10 @@ sub _get_field_breakdown_bar_content {
 				y: {
 					padding: {
 						top: 15
-					}
+					},
+					tick: {
+						culling: true
+					} 
 				}
 			},
 			size: {
@@ -1220,6 +1257,92 @@ sub _get_field_breakdown_bar_content {
      		bar: {
 
      		},     		
+			bindto: "#chart_$element->{'id'}"
+		});
+	});
+	</script>
+JS
+	return $buffer;
+}
+
+sub _get_field_breakdown_cumulative_content {
+	my ( $self, $element ) = @_;
+	my $dataset = $self->_get_cumulative_dataset($element);
+	my $height  = ( $element->{'height'} * 150 ) - 25;
+	my $ticks = $element->{'width'} ;
+	local $" = q(",");
+	my $date_string = qq("@{$dataset->{'labels'}}");
+	local $" = q(,);
+	my $value_string     = qq(@{$dataset->{'cumulative'}});
+	my $chart_colour = $element->{'chart_colour'} // CHART_COLOUR;
+	my $buffer           = $self->_get_title($element);
+	$buffer .= qq(<div id="chart_$element->{'id'}" style="margin-top:-20px"></div>);
+		local $" = q(,);
+	$buffer .= << "JS";
+	<script>
+	\$(function() {
+		var values = [$value_string];
+		var days_span = Math.round(( Date.parse("$dataset->{'labels'}->[-1]") - Date.parse("$dataset->{'labels'}->[0]") ) / 86400000);
+		var ms_span = 1000*60*60*24*days_span; 
+		bb.generate({
+			data: {
+				x: "x",
+				columns: [
+					["x",$date_string ],
+					["values",$value_string]
+				],
+				type: "line",
+				color: function(color,d){
+					return "$chart_colour";
+				}
+			},
+			axis: {
+				x: {
+					type: "timeseries",
+					tick: {
+						count: $ticks,
+						format: "%Y-%m-%d"
+					},
+					padding: {
+						right: $element->{'width'} == 1 ? 0 : ms_span / (4*$element->{'width'})
+					}
+				},
+				y: {
+					tick: {
+						culling: true
+					} 
+				}
+			},
+			point: {
+				r: 1,
+				focus: {
+					expand: {
+						r: 5
+					}
+				}	
+			},
+			size: {
+				height: $height
+			},
+			legend: {
+				show: false
+			},
+			tooltip: {
+	    		position: function(data, width, height, element) {
+	         		return {
+	             		top: -20,
+	             		left: 0
+	         		}
+	         	},
+	         	format: {
+	         		title: function(x) {
+						return d3.timeFormat("%Y-%m-%d")(x);
+	         		},
+	         		value: function(name, ratio, id){
+	         			return d3.format(",")(name) 	         			  
+	         		} 
+	         	}
+     		}, 		
 			bindto: "#chart_$element->{'id'}"
 		});
 	});

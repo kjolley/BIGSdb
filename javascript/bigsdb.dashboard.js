@@ -328,11 +328,15 @@ function show_or_hide_control_elements(grid, id) {
 			$("li.gauge_colour").css("display", "none");
 		}
 	} else if (visualisation_type === 'breakdown') {
-		if (breakdown_display === 'bar'){
+		if (breakdown_display === 'bar') {
 			$("fieldset#design_control,li.bar_colour_type").css("display", "inline");
-			$("li#watermark_control,li#text_colour_control,li#background_colour_control").css("display", "none");			
+			$("li#watermark_control,li#text_colour_control,li#background_colour_control").css("display", "none");
 			var bar_colour_type = $("input[name='" + id + "_bar_colour_type']:checked").val();
-			$("li.bar_chart_colour").css("display",bar_colour_type === "continuous" ? "block":"none");
+			$("li.chart_colour").css("display", bar_colour_type === "continuous" ? "block" : "none");
+		} else if (breakdown_display === 'cumulative') {
+			$("fieldset#design_control,li.chart_colour").css("display", "inline");
+			$("li#watermark_control,li#text_colour_control,li#background_colour_control,li.bar_colour_type").
+				css("display", "none");
 		} else {
 			$("fieldset#design_control").css("display", "none");
 		}
