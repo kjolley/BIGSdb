@@ -191,6 +191,8 @@ sub _get_javascript_paths {
 				defer   => 1,
 				version => '20210510'
 			},
+			'd3.layout.cloud' => { src => [qw(d3.layout.cloud.min.js)], defer => 1, version => '20210729' }
+			,
 			'pivot' => {
 				src     => [qw(pivot.min.js export_renderers.min.js jquery.ui.touch-punch.min.js)],
 				defer   => 1,

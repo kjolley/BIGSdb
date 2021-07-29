@@ -25,6 +25,7 @@ use BIGSdb::Constants qw(:design :interface :limits);
 use Try::Tiny;
 use List::Util qw( min max );
 use JSON;
+use POSIX qw(ceil);
 use Data::Dumper;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -253,6 +254,10 @@ sub _print_chart_type_controls {
 	  $field_type eq 'date'
 	  ? qw(bar cumulative doughnut pie)
 	  : qw(bar doughnut pie);
+
+	if ( $self->_field_has_optlist( $element->{'field'} ) ) {
+		push @breakdown_charts, 'word cloud';
+	}
 	say $q->popup_menu(
 		-name    => "${id}_breakdown_display",
 		-id      => "${id}_breakdown_display",
@@ -847,10 +852,11 @@ sub _get_field_element_content {
 	} elsif ( $element->{'visualisation_type'} eq 'breakdown' ) {
 		my $chart_type = $element->{'breakdown_display'} // q();
 		my %methods = (
-			bar        => sub { $self->_get_field_breakdown_bar_content($element) },
-			doughnut   => sub { $self->_get_field_breakdown_doughnut_content($element) },
-			pie        => sub { $self->_get_field_breakdown_pie_content($element) },
-			cumulative => sub { $self->_get_field_breakdown_cumulative_content($element) },
+			bar          => sub { $self->_get_field_breakdown_bar_content($element) },
+			doughnut     => sub { $self->_get_field_breakdown_doughnut_content($element) },
+			pie          => sub { $self->_get_field_breakdown_pie_content($element) },
+			cumulative   => sub { $self->_get_field_breakdown_cumulative_content($element) },
+			'word cloud' => sub { $self->_get_field_breakdown_wordcloud_content($element) }
 		);
 		if ( $methods{$chart_type} ) {
 			$buffer .= $methods{$chart_type}->();
@@ -1629,6 +1635,98 @@ JS
 	return $buffer;
 }
 
+sub _get_field_breakdown_wordcloud_content {
+	my ( $self, $element ) = @_;
+	my $data = $self->_get_field_breakdown_values($element);
+	if ( !@$data ) {
+		return $self->_print_no_value_content($element);
+	}
+	my $largest = 0;
+	my $longest_term = 10 * min( $element->{'width'}, $element->{'height'}, 2 );
+	my %ignore_word = map { $_ => 1 } qw(and or);
+	my %rename;
+	foreach my $value (@$data) {
+		next if !defined $value->{'label'};
+		$largest = $value->{'value'} if $value->{'value'} > $largest;
+	}
+	foreach my $value (@$data) {
+		if ( length $value->{'label'} > $longest_term && $value->{'value'} > 0.5 * $largest ) {
+			if ( $value->{'label'} !~ /\s/x ) {
+				$rename{ $value->{'label'} } = substr( $value->{'label'}, 0, $longest_term ) . '...';
+			} else {
+				my @words = split /\s/x, $value->{'label'};
+				my $new_label;
+				foreach my $word (@words) {
+					if ( !length $new_label ) {
+						$new_label .= $word;
+						next;
+					}
+					if ( length($new_label) + length($word) + 1 > $longest_term ) {
+						$new_label = $new_label;
+						last;
+					}
+					$new_label = $new_label . ' ' . $word;
+				}
+				$rename{ $value->{'label'} } = $new_label;
+			}
+		}
+	}
+	my $dataset  = [];
+	my $min_size = 8;
+	my $max_size = min( $element->{'width'}, $element->{'height'} ) * 0.5 + 20;
+	foreach my $value (@$data) {
+		next if !defined $value->{'label'};
+		my $freq = $value->{'value'} / $largest;
+		my $size = int( $max_size * $freq ) + $min_size;
+		push @$dataset,
+		  {
+			text => $rename{ $value->{'label'} } // $value->{'label'},
+			size => $size,
+			colour => ( $value->{'value'} / $largest )
+		  };
+	}
+	my $json   = JSON->new->allow_nonref;
+	my $words  = $json->encode($dataset);
+	my $height = ( $element->{'height'} * 150 ) - 25;
+	my $width  = $element->{'width'} * 150;
+	my $buffer = $self->_get_title($element);
+	$buffer .= qq(<div id="chart_$element->{'id'}" style="margin-top:-20px"></div>);
+	$buffer .= << "JS";
+	<script>
+	\$(function() {
+		var layout = d3.layout.cloud()
+	    .size([$width, $height])
+	    .words($words)
+	    .spiral('rectangular')
+	    .rotate(function() { return ~~(Math.random() * 2) * 90; })
+	    .fontSize(function(d) { return d.size; })
+	    .on("end", draw);
+
+		layout.start();
+		
+		function draw(words) {
+		  d3.select("div#chart_" + $element->{'id'}).append("svg")
+		      .attr("width", layout.size()[0])
+		      .attr("height", layout.size()[1])
+		    .append("g")
+		      .attr("transform", "translate(" + layout.size()[0] / 2 + "," + layout.size()[1] / 2 + ")")
+		    .selectAll("text")
+		      .data(words)
+		    .enter().append("text")
+		      .style("font-size", function(d) { return d.size + "px"; })
+			  .style("fill", function(d) { return d3.interpolateCool(d.colour);})
+		      .attr("text-anchor", "middle")
+		      .attr("transform", function(d) {
+		        return "translate(" + [d.x, d.y] + ")rotate(" + d.rotate + ")";
+		      })
+		      .text(function(d) { return d.text; });
+		}		
+	});
+	</script>
+JS
+	return $buffer;
+}
+
 sub _filter_list {
 	my ( $self, $type, $list ) = @_;
 	my $values = [];
@@ -1694,7 +1792,8 @@ sub _get_explore_link {
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1
-	  foreach qw (jQuery noCache muuri modal fitty bigsdb.dashboard tooltips jQuery.fonticonpicker billboard);
+	  foreach
+	  qw (jQuery noCache muuri modal fitty bigsdb.dashboard tooltips jQuery.fonticonpicker billboard d3.layout.cloud);
 	$self->choose_set;
 	$self->{'breadcrumbs'} = [];
 	if ( $self->{'system'}->{'webroot'} ) {
