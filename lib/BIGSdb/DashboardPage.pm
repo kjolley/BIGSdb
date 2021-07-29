@@ -545,7 +545,7 @@ sub _ajax_get {
 	}
 	say $json->encode(
 		{
-			html => '<p>Invalid element!</p>'
+			html => $self->_get_invalid_element_content
 		}
 	);
 	return;
@@ -687,6 +687,17 @@ sub _get_element_content {
 		return $display{ $element->{'display'} }->();
 	}
 	return q();
+}
+
+sub _get_invalid_element_content {
+	my ($self) = @_;
+	my $buffer = $self->_get_colour_swatch( { background_colour => '#ffe7e6' } );
+	$buffer .= q(<div class="title">Invalid element</div>);
+	$buffer .= q(<p><span class="fas fa-exclamation-triangle" )
+	  . q(style="color:#c44;font-size:3em;text-shadow: 3px 3px 3px #999;"></span></p>);
+	$buffer .= q(<p>Refresh page.</p>);
+	$buffer .= q(<script>window.location.reload(true);</script>);
+	return $buffer;
 }
 
 sub _get_test_element_content {
@@ -955,12 +966,13 @@ sub _rewrite_user_field_values {
 	my ( $self, $values ) = @_;
 	my $new_values = [];
 	foreach my $value (@$values) {
-		my $label = $self->{'datastore'}->get_user_string( $value->{'label'},{affiliation=>1} );
+		my $label = $self->{'datastore'}->get_user_string( $value->{'label'}, { affiliation => 1 } );
 		$label =~ s/\r?\n/ /gx;
-		push @$new_values, {
+		push @$new_values,
+		  {
 			label => $label,
 			value => $value->{'value'}
-		};
+		  };
 	}
 	return $new_values;
 }
@@ -1082,8 +1094,9 @@ sub _get_doughnut_pie_threshold {
 	my $threshold;
 	foreach my $value (@$data) {
 		$running += $value->{'value'};
+
 		#Show first third of segments if >=2%
-		if ( $running >= ( $total / 3 ) && ($value->{'value'} / $total) >= 0.02) {    
+		if ( $running >= ( $total / 3 ) && ( $value->{'value'} / $total ) >= 0.02 ) {
 			$threshold = $value->{'value'} / $total;
 			last;
 		}
