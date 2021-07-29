@@ -209,6 +209,9 @@ sub _field_has_optlist {
 		return 1 if $attributes->{'optlist'};
 		return 1 if $attributes->{'type'} =~ /^bool/x;
 	}
+	if ( $field =~ /^e_/x ) {
+		return 1;
+	}
 	return;
 }
 
@@ -222,6 +225,16 @@ sub _get_field_type {
 		my $field = $1;
 		my $att   = $self->{'xmlHandler'}->get_field_attributes($field);
 		return $att->{'type'};
+	}
+	if ( $element->{'field'} =~ /^e_(.*)\|\|(.*)/x ) {
+		my $extended_isolate_field = $1;
+		my $field                  = $2;
+		my $att                    = $self->{'datastore'}->run_query(
+			'SELECT * FROM isolate_field_extended_attributes WHERE (isolate_field,attribute)=(?,?)',
+			[ $extended_isolate_field, $field ],
+			{ fetch => 'row_hashref' }
+		);
+		return $att->{'value_format'};
 	}
 	return;
 }
@@ -273,6 +286,16 @@ sub _get_field_values {
 		if ( $attributes->{'type'} =~ /^bool/x ) {
 			return [qw(true false)];
 		}
+	}
+	if ( $field =~ /^e_(.*)\|\|(.*)/x ) {
+		my $isolate_field = $1;
+		my $attribute     = $2;
+		return $self->{'datastore'}->run_query(
+			'SELECT DISTINCT value FROM isolate_value_extended_attributes WHERE '
+			  . '(isolate_field,attribute)=(?,?) ORDER BY value',
+			[ $isolate_field, $attribute ],
+			{ fetch => 'col_arrayref' }
+		);
 	}
 	return [];
 }
@@ -499,22 +522,22 @@ sub _ajax_new {
 		if ( $default_elements->{$field} ) {
 			$element = { %$element, %{ $default_elements->{$field} } };
 		} else {
-			( my $display_field = $field ) =~ s/^[f]_//x;
-			$element->{'name'}            = ucfirst($display_field);
-			$element->{'field'}           = $field;
-			$element->{'display'}         = 'setup';
-			$element->{'change_duration'} = 'week';
-
-			#		$element->{'visualisation_type'} = 'breakdown';
+			my $display_field = $self->_get_display_field($field);
+			$element->{'name'}              = ucfirst($display_field);
+			$element->{'field'}             = $field;
+			$element->{'display'}           = 'setup';
+			$element->{'change_duration'}   = 'week';
 			$element->{'background_colour'} = SPECIFIC_FIELD_BACKGROUND_COLOUR;
 			$element->{'main_text_colour'}  = SPECIFIC_FIELD_MAIN_TEXT_COLOUR;
 			my %default_watermarks = (
-				f_country => 'fas fa-globe',
-				f_region  => 'fas fa-map',
-				f_sex     => 'fas fa-venus-mars',
-				f_disease => 'fas fa-notes-medical',
-				f_year    => 'far fa-calendar-alt'
+				f_country              => 'fas fa-globe',
+				'e_country||continent' => 'fas fa-globe',
+				f_region               => 'fas fa-map',
+				f_sex                  => 'fas fa-venus-mars',
+				f_disease              => 'fas fa-notes-medical',
+				f_year                 => 'far fa-calendar-alt'
 			);
+
 			if ( $default_watermarks{$field} ) {
 				$element->{'watermark'} = $default_watermarks{$field};
 			}
@@ -528,6 +551,19 @@ sub _ajax_new {
 		}
 	);
 	return;
+}
+
+sub _get_display_field {
+	my ( $self, $field ) = @_;
+	my $display_field = $field;
+	if ( $field =~ /^f_/x ) {
+		$display_field =~ s/^f_//x;
+	}
+	if ( $field =~ /^e_/x ) {
+		$display_field =~ s/^e_//x;
+		$display_field =~ s/.*\|\|//x;
+	}
+	return $display_field;
 }
 
 sub _ajax_get {
@@ -773,10 +809,8 @@ sub _get_count_element_content {
 sub _get_colour_swatch {
 	my ( $self, $element ) = @_;
 	if ( $element->{'background_colour'} ) {
-		return
-		    qq(<div id="$element->{'id'}_background" )
-		  . qq(style="background-image:linear-gradient(#fff,#fff 10%,$element->{'background_colour'},#fff 90%,#fff);)
-		  . q(height:100%;width:100%;position:absolute;z-index:-1"></div>);
+		return qq[<div style="background-image:linear-gradient(#fff,#fff 10%,$element->{'background_colour'},]
+		  . q[#fff 90%,#fff);height:100%;width:100%;position:absolute;z-index:-1"></div>];
 	}
 	return q();
 }
@@ -845,56 +879,95 @@ sub _get_multiselect_field_subtitle {
 sub _get_specific_field_value_counts {
 	my ( $self, $element ) = @_;
 	my $count = 0;
-	my ( $increase, $change_duration );
+	my $data;
 	if ( $element->{'field'} =~ /^f_/x ) {
-		( my $field = $element->{'field'} ) =~ s/^f_//x;
-		my $att    = $self->{'xmlHandler'}->get_field_attributes($field);
-		my $type   = $att->{'type'} // 'text';
-		my $values = $self->_filter_list( $type, $element->{'specific_values'} );
-		if ( ( $att->{'optlist'} // q() ) eq 'yes' ) {
-			my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
-			my %used = map { $_ => 1 } @$values;
-			foreach my $value (@$values) {
-				my $subvalues = $self->_get_sub_values( $value, $optlist );
-				foreach my $subvalue (@$subvalues) {
-					push @$values, $subvalue if !$used{$subvalue};
-					$used{$subvalue} = 1;
-				}
-			}
-		}
-		my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( $type, $values );
-		my $qry;
-		my $view = $self->{'system'}->{'view'};
-		if ( $type eq 'text' ) {
-			$qry =
-			  ( $att->{'multiple'} // q() ) eq 'yes'
-			  ? "SELECT COUNT(*) FROM $view WHERE UPPER(${field}::text)::text[] && "
-			  . "ARRAY(SELECT UPPER(value) FROM $temp_table)"
-			  : "SELECT COUNT(*) FROM $view WHERE UPPER($field) IN (SELECT UPPER(value) FROM $temp_table)";
-		} else {
-			$qry =
-			  ( $att->{'multiple'} // q() ) eq 'yes'
-			  ? "SELECT COUNT(*) FROM $view WHERE $field && ARRAY(SELECT value FROM temp_list)"
-			  : "SELECT COUNT(*) FROM $view WHERE $field IN (SELECT value FROM $temp_table)";
-		}
-		my $filters = $self->_get_filters;
-		local $" = ' AND ';
-		$qry .= " AND @$filters" if @$filters;
-		$count = $self->{'datastore'}->run_query($qry);
-		if ( $element->{'change_duration'} && $count > 0 ) {
-			my %allowed = map { $_ => 1 } qw(week month year);
-			if ( $allowed{ $element->{'change_duration'} } ) {
-				$change_duration = $element->{'change_duration'};
-				$qry .= " AND date_entered <= now()-interval '1 $element->{'change_duration'}'";
-				my $past_count = $self->{'datastore'}->run_query($qry);
-				$increase = $count - ( $past_count // 0 );
+		$data = $self->_get_provenance_field_counts($element);
+	}
+	if ( $element->{'field'} =~ /^e_/x ) {
+		$data = $self->_get_extended_field_counts($element);
+	}
+	return $data;
+}
+
+sub _get_provenance_field_counts {
+	my ( $self, $element ) = @_;
+	( my $field = $element->{'field'} ) =~ s/^f_//x;
+	my $att    = $self->{'xmlHandler'}->get_field_attributes($field);
+	my $type   = $att->{'type'} // 'text';
+	my $values = $self->_filter_list( $type, $element->{'specific_values'} );
+	if ( ( $att->{'optlist'} // q() ) eq 'yes' ) {
+		my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
+		my %used = map { $_ => 1 } @$values;
+		foreach my $value (@$values) {
+			my $subvalues = $self->_get_sub_values( $value, $optlist );
+			foreach my $subvalue (@$subvalues) {
+				push @$values, $subvalue if !$used{$subvalue};
+				$used{$subvalue} = 1;
 			}
 		}
 	}
+	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( $type, $values );
+	my $qry;
+	my $view = $self->{'system'}->{'view'};
+	if ( $type eq 'text' ) {
+		$qry =
+		  ( $att->{'multiple'} // q() ) eq 'yes'
+		  ? "SELECT COUNT(*) FROM $view WHERE UPPER(${field}::text)::text[] && "
+		  . "ARRAY(SELECT UPPER(value) FROM $temp_table)"
+		  : "SELECT COUNT(*) FROM $view WHERE UPPER($field) IN (SELECT UPPER(value) FROM $temp_table)";
+	} else {
+		$qry =
+		  ( $att->{'multiple'} // q() ) eq 'yes'
+		  ? "SELECT COUNT(*) FROM $view WHERE $field && ARRAY(SELECT value FROM temp_list)"
+		  : "SELECT COUNT(*) FROM $view WHERE $field IN (SELECT value FROM $temp_table)";
+	}
+	my $filters = $self->_get_filters;
+	local $" = ' AND ';
+	$qry .= " AND @$filters" if @$filters;
+	my $count = $self->{'datastore'}->run_query($qry);
 	my $data = { count => $count };
-	if ( defined $increase ) {
-		$data->{'increase'}        = $increase;
-		$data->{'change_duration'} = $change_duration;
+	if ( $element->{'change_duration'} && $count > 0 ) {
+		my %allowed = map { $_ => 1 } qw(week month year);
+		if ( $allowed{ $element->{'change_duration'} } ) {
+			$data->{'change_duration'} = $element->{'change_duration'};
+			$qry .= " AND date_entered <= now()-interval '1 $element->{'change_duration'}'";
+			my $past_count = $self->{'datastore'}->run_query($qry);
+			$data->{'increase'} = $count - ( $past_count // 0 );
+		}
+	}
+	return $data;
+}
+
+sub _get_extended_field_counts {
+	my ( $self, $element ) = @_;
+	my ( $field, $attribute );
+	if ( $element->{'field'} =~ /^e_(.*)\|\|(.*)/x ) {
+		$field     = $1;
+		$attribute = $2;
+	} else {
+		$logger->error("Invalid extended attribute: $element->{'field'}");
+		return {};
+	}
+	my $type       = $self->_get_field_type($element);
+	my $values     = $self->_filter_list( $type, $element->{'specific_values'} );
+	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( $type, $values );
+	my $view       = $self->{'system'}->{'view'};
+	my $qry = "SELECT COUNT(*) FROM $view v JOIN isolate_value_extended_attributes a ON v.$field = a.field_value AND "
+	  . "a.attribute=? WHERE a.value IN (SELECT value FROM $temp_table)";
+	my $filters = $self->_get_filters;
+	local $" = ' AND ';
+	$qry .= " AND @$filters" if @$filters;
+	my $count = $self->{'datastore'}->run_query( $qry, $attribute );
+	my $data = { count => $count };
+
+	if ( $element->{'change_duration'} && $count > 0 ) {
+		my %allowed = map { $_ => 1 } qw(week month year);
+		if ( $allowed{ $element->{'change_duration'} } ) {
+			$data->{'change_duration'} = $element->{'change_duration'};
+			$qry .= " AND date_entered <= now()-interval '1 $element->{'change_duration'}'";
+			my $past_count = $self->{'datastore'}->run_query( $qry, $attribute );
+			$data->{'increase'} = $count - ( $past_count // 0 );
+		}
 	}
 	return $data;
 }
@@ -905,7 +978,12 @@ sub _get_field_breakdown_values {
 		( my $field = $element->{'field'} ) =~ s/^f_//x;
 		return $self->_get_primary_metadata_breakdown_values($field);
 	}
-	return {};
+	if ( $element->{'field'} =~ /^e_(.*)\|\|(.*)/x ) {
+		my $isolate_field = $1;
+		my $attribute     = $2;
+		return $self->_get_extended_field_breakdown_values( $isolate_field, $attribute );
+	}
+	return [];
 }
 
 sub _get_primary_metadata_breakdown_values {
@@ -959,6 +1037,17 @@ sub _get_primary_metadata_breakdown_values {
 	if ( ( $att->{'userfield'} // q() ) eq 'yes' || $field eq 'sender' || $field eq 'curator' ) {
 		$values = $self->_rewrite_user_field_values($values);
 	}
+	return $values;
+}
+
+sub _get_extended_field_breakdown_values {
+	my ( $self, $field, $attribute ) = @_;
+	my $qry =
+	    "SELECT COALESCE(e.value,'No value') AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
+	  . "LEFT JOIN isolate_value_extended_attributes e ON v.$field=e.field_value "
+	  . 'AND (e.isolate_field,e.attribute)=(?,?) GROUP BY label ORDER BY value DESC';
+	my $values =
+	  $self->{'datastore'}->run_query( $qry, [ $field, $attribute ], { fetch => 'all_arrayref', slice => {} } );
 	return $values;
 }
 
@@ -1189,7 +1278,10 @@ sub _get_cumulative_dataset {
 sub _get_field_breakdown_bar_content {
 	my ( $self, $element ) = @_;
 	my $dataset = $self->_get_bar_dataset($element);
-	my $height  = ( $element->{'height'} * 150 ) - 25;
+	if ( !$dataset->{'count'} ) {
+		return $self->_print_no_value_content($element);
+	}
+	my $height = ( $element->{'height'} * 150 ) - 25;
 	local $" = q(",");
 	my $cat_string = qq("@{$dataset->{'labels'}}");
 	local $" = q(,);
@@ -1381,18 +1473,29 @@ JS
 	return $buffer;
 }
 
+sub _print_no_value_content {
+	my ( $self, $element ) = @_;
+	my $buffer = $self->_get_colour_swatch( { background_colour => '#ccc' } );
+	$buffer .= $self->_get_title($element);
+	$buffer .=
+	  q(<p><span class="fas fa-ban" ) . q(style="color:#44c;font-size:3em;text-shadow: 3px 3px 3px #999;"></span></p>);
+	$buffer .= q(<p>No values in dataset.</p>);
+	return $buffer;
+}
+
 sub _get_field_breakdown_doughnut_content {
 	my ( $self, $element ) = @_;
 	my $min_dimension = min( $element->{'height'}, $element->{'width'} ) // 1;
 	my $height        = ( $min_dimension * 150 ) - 25;
 	my $data          = $self->_get_field_breakdown_values($element);
-	my $threshold     = $self->_get_doughnut_pie_threshold($data);
-	my $dataset       = $self->_get_doughnut_pie_dataset($data);
-	my $others_label  = $data->[-1] =~ /^Others/x ? $data->[-1] : 'Others';
-	my $buffer;
+	if ( !@$data ) {
+		return $self->_print_no_value_content($element);
+	}
+	my $threshold    = $self->_get_doughnut_pie_threshold($data);
+	my $dataset      = $self->_get_doughnut_pie_dataset($data);
 	my $centre_title = q();
 	my ( $margin_top, $label_show );
-
+	my $buffer;
 	if ( $min_dimension == 1 || length( $element->{'name'} ) > 50 ) {
 		$buffer .= $self->_get_title($element);
 		$margin_top = -20;
@@ -1403,6 +1506,7 @@ sub _get_field_breakdown_doughnut_content {
 		$label_show   = 'true';
 	}
 	local $" = qq(,\n);
+	my $others_label = $data->[-1] =~ /^Others/x ? $data->[-1] : 'Others';
 	$buffer .= qq(<div id="chart_$element->{'id'}" class="doughnut" style="margin-top:${margin_top}px"></div>);
 	$buffer .= << "JS";
 	<script>
@@ -1463,10 +1567,13 @@ sub _get_field_breakdown_pie_content {
 	my $min_dimension = min( $element->{'height'}, $element->{'width'} ) // 1;
 	my $height        = ( $min_dimension * 150 ) - 25;
 	my $data          = $self->_get_field_breakdown_values($element);
-	my $threshold     = $self->_get_doughnut_pie_threshold($data);
-	my $dataset       = $self->_get_doughnut_pie_dataset($data);
-	my $buffer        = $self->_get_title($element);
-	my $label_show    = $min_dimension == 1 || length( $element->{'name'} ) > 50 ? 'false' : 'true';
+	if ( !@$data ) {
+		return $self->_print_no_value_content($element);
+	}
+	my $threshold  = $self->_get_doughnut_pie_threshold($data);
+	my $dataset    = $self->_get_doughnut_pie_dataset($data);
+	my $buffer     = $self->_get_title($element);
+	my $label_show = $min_dimension == 1 || length( $element->{'name'} ) > 50 ? 'false' : 'true';
 	local $" = qq(,\n);
 	$buffer .= qq(<div id="chart_$element->{'id'}" class="pie" style="margin-top:-20px"></div>);
 	$buffer .= << "JS";
@@ -1776,7 +1883,7 @@ sub _print_field_selector {
 			ignore_prefs        => 1,
 			isolate_fields      => 1,
 			scheme_fields       => 0,
-			extended_attributes => 0,
+			extended_attributes => 1,
 			eav_fields          => 0,
 		}
 	);
