@@ -320,6 +320,7 @@ function show_or_hide_control_elements(grid, id) {
 	if (visualisation_type === 'specific values') {
 		$("fieldset#change_duration_control").css("display", specific_value_display === 'number' ? 'inline' : 'none');
 		$("fieldset#design_control").css("display", "inline");
+		$("li#top_value_selector").css("display", "none");
 		if (specific_value_display === 'gauge') {
 			$("li#watermark_control,li#text_colour_control,li#background_colour_control").css("display", "none");
 			$("li.gauge_colour").css("display", "block");
@@ -330,15 +331,17 @@ function show_or_hide_control_elements(grid, id) {
 	} else if (visualisation_type === 'breakdown') {
 		if (breakdown_display === 'bar') {
 			$("fieldset#design_control,li.bar_colour_type").css("display", "inline");
-			$("li#watermark_control,li#text_colour_control,li#background_colour_control").css("display", "none");
+			$("li#watermark_control,li#text_colour_control,li#background_colour_control,li#top_value_selector").css("display", "none");
 			var bar_colour_type = $("input[name='" + id + "_bar_colour_type']:checked").val();
 			$("li.chart_colour").css("display", bar_colour_type === "continuous" ? "block" : "none");
 		} else if (breakdown_display === 'cumulative') {
 			$("fieldset#design_control,li.chart_colour").css("display", "inline");
-			$("li#watermark_control,li#text_colour_control,li#background_colour_control,li.bar_colour_type").
+			$("li#watermark_control,li#text_colour_control,li#background_colour_control,li.bar_colour_type,li#top_value_selector").
 				css("display", "none");
+		} else if (breakdown_display === 'top') {
+			$("li#top_value_selector").css("display", "inline");
 		} else {
-			$("fieldset#design_control").css("display", "none");
+			$("fieldset#design_control,li#top_value_selector").css("display", "none");
 		}
 	}
 

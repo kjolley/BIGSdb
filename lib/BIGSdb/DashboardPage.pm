@@ -40,7 +40,8 @@ use constant {
 	SPECIFIC_FIELD_BACKGROUND_COLOUR => '#d9e1ff',
 	GAUGE_BACKGROUND_COLOUR          => '#a0a0a0',
 	GAUGE_FOREGROUND_COLOUR          => '#0000ff',
-	CHART_COLOUR                     => '#1f77b4'
+	CHART_COLOUR                     => '#1f77b4',
+	TOP_VALUES                       => 5
 };
 
 sub print_content {
@@ -173,6 +174,21 @@ sub _print_visualisation_type_controls {
 			-placeholder => 'One value per line...',
 		);
 	}
+	say q(</li><li id="top_value_selector" style="display:none">);
+	say q(<label>Show top: </label>);
+	my $values = $self->_get_field_values( $element->{'field'} );
+	say $self->popup_menu(
+		-name   => "${id}_top_values",
+		-id     => "${id}_top_values",
+		-values => [ 3, 5, 10 ],
+		-labels => {
+			3  => '3 values',
+			5  => '5 values',
+			10 => '10 values'
+		},
+		-default => $element->{'top_values'} // TOP_VALUES,
+		-class => 'element_option',
+	);
 	say q(</li>);
 	say q(</fieldset>);
 	return;
@@ -253,7 +269,7 @@ sub _print_chart_type_controls {
 	my @breakdown_charts =
 	  $field_type eq 'date'
 	  ? qw(bar cumulative doughnut pie)
-	  : qw(bar doughnut pie);
+	  : qw(bar doughnut pie top);
 
 	if ( $self->_field_has_optlist( $element->{'field'} ) ) {
 		push @breakdown_charts, 'word cloud';
@@ -262,7 +278,7 @@ sub _print_chart_type_controls {
 		-name    => "${id}_breakdown_display",
 		-id      => "${id}_breakdown_display",
 		-values  => [ 0, @breakdown_charts ],
-		-labels  => { 0 => 'Select...' },
+		-labels  => { 0 => 'Select...', top => 'top values' },
 		-class   => 'element_option',
 		-default => $element->{'breakdown_display'}
 	);
@@ -856,7 +872,8 @@ sub _get_field_element_content {
 			doughnut     => sub { $self->_get_field_breakdown_doughnut_content($element) },
 			pie          => sub { $self->_get_field_breakdown_pie_content($element) },
 			cumulative   => sub { $self->_get_field_breakdown_cumulative_content($element) },
-			'word cloud' => sub { $self->_get_field_breakdown_wordcloud_content($element) }
+			'word cloud' => sub { $self->_get_field_breakdown_wordcloud_content($element) },
+			top          => sub { $self->_get_field_breakdown_top_values_content($element) }
 		);
 		if ( $methods{$chart_type} ) {
 			$buffer .= $methods{$chart_type}->();
@@ -1049,9 +1066,13 @@ sub _get_primary_metadata_breakdown_values {
 sub _get_extended_field_breakdown_values {
 	my ( $self, $field, $attribute ) = @_;
 	my $qry =
-	    "SELECT COALESCE(e.value,'No value') AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
+	  "SELECT COALESCE(e.value,'No value') AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
 	  . "LEFT JOIN isolate_value_extended_attributes e ON v.$field=e.field_value "
-	  . 'AND (e.isolate_field,e.attribute)=(?,?) GROUP BY label ORDER BY value DESC';
+	  . 'AND (e.isolate_field,e.attribute)=(?,?) ';
+	my $filters = $self->_get_filters;
+	local $" = ' AND ';
+	$qry .= "AND @$filters" if @$filters;
+	$qry .= ' GROUP BY label ORDER BY value DESC';
 	my $values =
 	  $self->{'datastore'}->run_query( $qry, [ $field, $attribute ], { fetch => 'all_arrayref', slice => {} } );
 	return $values;
@@ -1726,6 +1747,48 @@ sub _get_field_breakdown_wordcloud_content {
 	</script>
 JS
 	return $buffer;
+}
+
+sub _get_field_breakdown_top_values_content {
+	my ( $self, $element ) = @_;
+	my $data = $self->_get_field_breakdown_values($element);
+	if ( !@$data ) {
+		return $self->_print_no_value_content($element);
+	}
+	my $buffer = $self->_get_title($element);
+	$element->{'top_values'} //= TOP_VALUES;
+	my $style = $element->{'height'} == 1
+	  && $element->{'top_values'} == 5 ? 'line-height:100%;font-size:0.9em' : q();
+	$buffer .= qq(<div class="subtitle">Top $element->{'top_values'} values</div>);
+	$buffer .= q(<div><table class="dashboard_table"><tr><th>Value</th><th>Frequency</th></tr>);
+	my $td    = 1;
+	my $count = 0;
+
+	foreach my $value (@$data) {
+		next if !defined $value->{'label'} || $value->{'label'} eq 'No value';
+		my $url = $self->_get_query_url( $element, $value->{'label'} );
+		my $nice_value = BIGSdb::Utils::commify( $value->{'value'} );
+		$count++;
+		$buffer .= qq(<tr class="td$td" style="$style"><td><a href="$url">)
+		  . qq($value->{'label'}</a></td><td>$nice_value</td></tr>);
+		$td = $td == 1 ? 2 : 1;
+		last if $count >= $element->{'top_values'};
+	}
+	$buffer .= q(</table></div>);
+	return $buffer;
+}
+
+sub _get_query_url {
+	my ( $self, $element, $value ) = @_;
+	my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query";
+	$value =~ s/\ /\%20/gx;
+	if ( $element->{'field'} =~ /^[f|e]_/x ) {
+		$url .= "&prov_field1=$element->{'field'}&prov_value1=$value&submit=1";
+	}
+	if ( $self->{'prefs'}->{'dashboard.include_old_versions'} ) {
+		$url .= '&include_old=on';
+	}
+	return $url;
 }
 
 sub _filter_list {

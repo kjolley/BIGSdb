@@ -1829,6 +1829,21 @@ p.dashboard_number_detail {
 	color: #444
 }
 
+table.dashboard_table {
+	margin: 0 auto;
+	border-spacing: initial;
+	min-width:80%;
+}
+
+table.dashboard_table th {
+	background: #729fcf;
+	color: white
+}
+
+table.dashboard_table tr.td1 {
+	background: white
+} 
+
 div.expandable_retracted {
 	margin: 0;
 	padding: 0;
