@@ -1665,15 +1665,15 @@ sub _get_field_breakdown_wordcloud_content {
 						$new_label = $new_label;
 						last;
 					}
-					$new_label = $new_label . ' ' . $word;
+					$new_label = "$new_label $word";
 				}
 				$rename{ $value->{'label'} } = $new_label;
 			}
 		}
 	}
 	my $dataset  = [];
-	my $min_size = 8;
-	my $max_size = min( $element->{'width'}, $element->{'height'} ) * 0.5 + 20;
+	my $min_size = 10;
+	my $max_size = min( $element->{'width'}, $element->{'height'} ) * 0.5 + 15;
 	foreach my $value (@$data) {
 		next if !defined $value->{'label'};
 		my $freq = $value->{'value'} / $largest;
@@ -1714,7 +1714,8 @@ sub _get_field_breakdown_wordcloud_content {
 		      .data(words)
 		    .enter().append("text")
 		      .style("font-size", function(d) { return d.size + "px"; })
-			  .style("fill", function(d) { return d3.interpolateCool(d.colour);})
+		      .style("font-family","serif")   
+			  .style("fill", function(d) { return d3.interpolateTurbo(d.colour);})
 		      .attr("text-anchor", "middle")
 		      .attr("transform", function(d) {
 		        return "translate(" + [d.x, d.y] + ")rotate(" + d.rotate + ")";
