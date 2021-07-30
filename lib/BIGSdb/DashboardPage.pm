@@ -1641,12 +1641,12 @@ sub _get_field_breakdown_wordcloud_content {
 	if ( !@$data ) {
 		return $self->_print_no_value_content($element);
 	}
-	my $largest = 0;
+	my $largest      = 0;
 	my $longest_term = 10 * min( $element->{'width'}, $element->{'height'}, 2 );
-	my %ignore_word = map { $_ => 1 } qw(and or);
+	my %ignore_word  = map { $_ => 1 } qw(and or);
 	my %rename;
 	foreach my $value (@$data) {
-		next if !defined $value->{'label'};
+		next if !defined $value->{'label'} || $value->{'label'} eq 'No value';
 		$largest = $value->{'value'} if $value->{'value'} > $largest;
 	}
 	foreach my $value (@$data) {
@@ -1675,7 +1675,7 @@ sub _get_field_breakdown_wordcloud_content {
 	my $min_size = 10;
 	my $max_size = min( $element->{'width'}, $element->{'height'} ) * 0.5 + 15;
 	foreach my $value (@$data) {
-		next if !defined $value->{'label'};
+		next if !defined $value->{'label'} || $value->{'label'} eq 'No value';
 		my $freq = $value->{'value'} / $largest;
 		my $size = int( $max_size * $freq ) + $min_size;
 		push @$dataset,
