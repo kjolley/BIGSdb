@@ -386,14 +386,16 @@ sub _print_new_submission_links {
 			say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'system'}->{'isolate_database'}&amp;)
 			  . q(page=submit&amp;isolates=1">isolates</a> (without assembly files) )
 			  . q(<span class="link">Link to isolate database</span></li>);
-			say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'system'}->{'isolate_database'}&amp;)
-			  . q(page=submit&amp;genomes=1">genomes</a> (isolate records with assembly files) )
-			  . q(<span class="link">Link to isolate database</span></li>);
+			if ( ( $self->{'system'}->{'genome_submissions'} // q() ) ne 'no' ) {
+				say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'system'}->{'isolate_database'}&amp;)
+				  . q(page=submit&amp;genomes=1">genomes</a> (isolate records with assembly files) )
+				  . q(<span class="link">Link to isolate database</span></li>);
+			}
 		}
 	} else {    #Isolate database
 		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
 		  . q(isolates=1">isolates</a> (without assembly files)</li>);
-		if ( ( $self->{'system'}->{'genome_submissions'} // '' ) ne 'no' ) {
+		if ( ( $self->{'system'}->{'genome_submissions'} // q() ) ne 'no' ) {
 			say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
 			  . q(genomes=1">genomes</a> (isolate records with assembly files)</li>);
 		}
@@ -2036,7 +2038,8 @@ sub _print_genome_stat_fields {
 				$class = 'warning';
 			}
 			say qq(<td class="$class">)
-			  . BIGSdb::Utils::commify( $assembly_stats->{$index}->{'total_length'} ) . q(</td>);
+			  . BIGSdb::Utils::commify( $assembly_stats->{$index}->{'total_length'} )
+			  . q(</td>);
 			my $warn_min_n50 = $self->{'system'}->{'warn_min_n50'} // $self->{'config'}->{'warn_min_n50'}
 			  // WARN_MIN_N50;
 			my $min_n50 = $self->{'system'}->{'min_n50'} // $self->{'config'}->{'min_n50'} // MIN_N50;
