@@ -577,4 +577,35 @@ use constant LOG_TO_SCREEN => qq(log4perl.category.BIGSdb.Script        = INFO, 
   . qq(log4perl.appender.Screen.stderr        = 1\n)
   . qq(log4perl.appender.Screen.layout        = Log::Log4perl::Layout::SimpleLayout\n);
 push @EXPORT_OK, qw (LOG_TO_SCREEN);
+use constant DEFAULT_DASHBOARD => [
+	{
+		display           => 'record_count',
+		name              => 'Isolate count',
+		width             => 2,
+		height            => 1,
+		background_colour => '#79cafb',
+		main_text_colour  => '#404040',
+		watermark         => 'fas fa-bacteria',
+		change_duration   => 'week',
+		url_attributes    => 'page=query',
+		url_text          => 'Browse isolates',
+		post_data         => { page => 'query' },
+	},
+	{
+		display           => 'record_count',
+		name              => 'Genome count',
+		genomes           => 1,
+		width             => 2,
+		height            => 1,
+		background_colour => '#7ecc66',
+		main_text_colour  => '#404040',
+		watermark         => 'fas fa-dna',
+		change_duration   => 'week',
+		url_attributes    => 'page=query',
+		url_text          => 'Browse genomes',
+		post_data         => { page => 'query', genomes => 1 }
+	}
+];
+push @EXPORT_OK, qw (DEFAULT_DASHBOARD);
+$EXPORT_TAGS{'dashboard'} = [qw (DEFAULT_DASHBOARD)];
 1;

@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::IndexPage);
-use BIGSdb::Constants qw(:design :interface :limits);
+use BIGSdb::Constants qw(:design :interface :limits :dashboard);
 use Try::Tiny;
 use List::Util qw( min max );
 use JSON;
@@ -544,6 +544,7 @@ sub _ajax_new {
 			$element = { %$element, %{ $default_elements->{$field} } };
 		} else {
 			my $display_field = $self->_get_display_field($field);
+			$display_field =~ tr/_/ /;
 			$element->{'name'}              = ucfirst($display_field);
 			$element->{'field'}             = $field;
 			$element->{'display'}           = 'setup';
@@ -682,6 +683,25 @@ sub _get_elements {
 	}
 	if ( $self->{'prefs'}->{'dashboard.layout_test'} ) {
 		return $self->_get_test_elements;
+	}
+	my $i                 = 1;
+	my $default_dashboard = DEFAULT_DASHBOARD;
+	my $genome_size       = $self->{'system'}->{'min_genome_size'} // $self->{'config'}->{'min_genome_size'}
+	  // MIN_GENOME_SIZE;
+	my $genomes_exists =
+	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM seqbin_stats WHERE total_length>?)', $genome_size );
+	foreach my $element (@$default_dashboard) {
+		next if $element->{'genomes'} && !$genomes_exists;
+		$element->{'id'}    = $i;
+		$element->{'order'} = $i;
+		if ( $element->{'url_attributes'} ) {
+			$element->{'url'} =
+			  "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&$element->{'url_attributes'}";
+			delete $element->{'url_attributes'};
+			$element->{'post_data'}->{'db'} = $self->{'instance'};
+		}
+		$elements->{$i} = $element;
+		$i++;
 	}
 	return $elements;
 }
@@ -1066,7 +1086,7 @@ sub _get_primary_metadata_breakdown_values {
 sub _get_extended_field_breakdown_values {
 	my ( $self, $field, $attribute ) = @_;
 	my $qry =
-	  "SELECT COALESCE(e.value,'No value') AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
+	    "SELECT COALESCE(e.value,'No value') AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
 	  . "LEFT JOIN isolate_value_extended_attributes e ON v.$field=e.field_value "
 	  . 'AND (e.isolate_field,e.attribute)=(?,?) ';
 	my $filters = $self->_get_filters;
