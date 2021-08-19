@@ -1,0 +1,80 @@
+#Configuration for default front-end dashboard for isolate databases. This
+#defines the visual elements that will be included. If field-specific elements
+#are defined and that field does not exist in a particular database then it
+#will be ignored. 
+
+#The default configuration can be overridden for a particular database by 
+#including a dashboard.toml file, using the same format, in the database 
+#configuration directory.
+
+#Width can be 1, 2, 3, or 4.
+#Height can be 1, 2, or 3.
+
+#Field names have prefixes indicating the field type:
+#f_ are standard provenance/primary fields
+#e_ are extended attributes with the main field and the attribute separated 
+#   by ||, e.g. e_country||continent.
+
+elements = [
+	{   #Isolate count.
+		display           = 'record_count',
+		name              = 'Isolate count',
+		width             = 2,
+		background_colour = '#79cafb',
+		main_text_colour  = '#404040',
+		watermark         = 'fas fa-bacteria',
+		change_duration   = 'week',
+		url_attributes    = 'page=query',
+		url_text          = 'Browse isolates',
+		post_data         = { page = 'query' },
+	},
+	{ 	#Genome count (will only display if there are genomes in the database).	
+		display           = 'record_count',
+		name              = 'Genome count',
+		genomes           = 1,
+		width             = 2,
+		background_colour = '#7ecc66',
+		main_text_colour  = '#404040',
+		watermark         = 'fas fa-dna',
+		change_duration   = 'week',
+		url_attributes    = 'page=query',
+		url_text          = 'Browse genomes',
+		post_data         = { page = 'query', genomes = 1 }
+	},
+	{
+		#Top 5 list of continents (Geocoding should be set up with default country
+	    #list linked to continent - see 'Geocoding setup' on admin curator page.	
+		display           = 'field',
+		name              = 'Continent',
+		field             = 'e_country||continent',
+		breakdown_display = 'top',
+		top_values        = 5,
+		width             = 2
+	},
+	{   #Doughnut chart of species.
+		display           = 'field',
+		name              = 'Species',
+		field             = 'f_species',
+		breakdown_display = 'doughnut',
+		height            = 2,
+		width             = 2
+	},
+	{
+		#Bar chart of submission years. 
+		display           = 'field',
+		name              = 'Year',
+		field             = 'f_year',
+		breakdown_display = 'bar',
+		width             = 3,
+		bar_colour_type   = 'continuous',
+		chart_colour      = '#126716'
+	},	
+	{
+		#Cumulative chart of submissions by date.
+		display           = 'field',
+		name              = 'Date entered',
+		field             = 'f_date_entered',
+		width             = 2,
+		breakdown_display = 'cumulative'
+	}
+]

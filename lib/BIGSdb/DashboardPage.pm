@@ -26,6 +26,7 @@ use Try::Tiny;
 use List::Util qw( min max );
 use JSON;
 use POSIX qw(ceil);
+use TOML qw(from_toml);
 use Data::Dumper;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -497,10 +498,11 @@ sub _print_watermark_control {
 sub _ajax_new {
 	my ( $self, $id ) = @_;
 	my $element = {
-		id     => $id,
-		order  => $id,
-		width  => 1,
-		height => 1,
+		id    => $id,
+		order => $id,
+
+		#		width  => 1,
+		#		height => 1,
 	};
 	if ( $self->{'prefs'}->{'dashboard.layout_test'} ) {
 		$element->{'name'}    = "Test element $id";
@@ -565,6 +567,8 @@ sub _ajax_new {
 			}
 		}
 	}
+	$element->{'width'}  //= 1;
+	$element->{'height'} //= 1;
 	my $json = JSON->new->allow_nonref;
 	say $json->encode(
 		{
@@ -628,6 +632,7 @@ sub _print_main_section {
 	my $ajax_load = [];
 	foreach my $element ( sort { $elements->{$a}->{'order'} <=> $elements->{$b}->{'order'} } keys %$elements ) {
 		my $display = $elements->{$element}->{'display'};
+		next if !$display;
 		if ( $display_immediately{$display} ) {
 			say $self->_get_element_html( $elements->{$element} );
 		} else {
@@ -672,9 +677,9 @@ JS
 
 sub _get_elements {
 	my ($self) = @_;
-	my $elements = {};
 	if ( defined $self->{'prefs'}->{'dashboard.elements'} ) {
-		my $json = JSON->new->allow_nonref;
+		my $elements = {};
+		my $json     = JSON->new->allow_nonref;
 		eval { $elements = $json->decode( $self->{'prefs'}->{'dashboard.elements'} ); };
 		if (@$) {
 			$logger->error('Invalid JSON in dashboard.elements.');
@@ -684,26 +689,7 @@ sub _get_elements {
 	if ( $self->{'prefs'}->{'dashboard.layout_test'} ) {
 		return $self->_get_test_elements;
 	}
-	my $i                 = 1;
-	my $default_dashboard = DEFAULT_DASHBOARD;
-	my $genome_size       = $self->{'system'}->{'min_genome_size'} // $self->{'config'}->{'min_genome_size'}
-	  // MIN_GENOME_SIZE;
-	my $genomes_exists =
-	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM seqbin_stats WHERE total_length>?)', $genome_size );
-	foreach my $element (@$default_dashboard) {
-		next if $element->{'genomes'} && !$genomes_exists;
-		$element->{'id'}    = $i;
-		$element->{'order'} = $i;
-		if ( $element->{'url_attributes'} ) {
-			$element->{'url'} =
-			  "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&$element->{'url_attributes'}";
-			delete $element->{'url_attributes'};
-			$element->{'post_data'}->{'db'} = $self->{'instance'};
-		}
-		$elements->{$i} = $element;
-		$i++;
-	}
-	return $elements;
+	return $self->_get_default_elements;
 }
 
 sub _get_test_elements {
@@ -722,6 +708,57 @@ sub _get_test_elements {
 			height  => $h,
 			display => 'test',
 		};
+	}
+	return $elements;
+}
+
+sub _get_default_elements {
+	my ($self)   = @_;
+	my $elements = {};
+	my $i        = 1;
+	my $default_dashboard;
+	if ( -e "$self->{'dbase_config_dir'}/$self->{'instance'}/dashboard.toml" ) {
+		my $toml = BIGSdb::Utils::slurp("$self->{'dbase_config_dir'}/$self->{'instance'}/dashboard.toml");
+		my ( $data, $err ) = from_toml($$toml);
+		if ( !$data->{'elements'} ) {
+			$logger->error("Error parsing $self->{'dbase_config_dir'}/$self->{'instance'}/dashboard.toml: $err");
+		} else {
+			$default_dashboard = $data->{'elements'};
+		}
+	} elsif ( -e "$self->{'config_dir'}/dashboard.toml" ) {
+		my $toml = BIGSdb::Utils::slurp("$self->{'config_dir'}/dashboard.toml");
+		my ( $data, $err ) = from_toml($$toml);
+		if ( !$data->{'elements'} ) {
+			$logger->error("Error parsing $self->{'config_dir'}/dashboard.toml: $err");
+		} else {
+			$default_dashboard = $data->{'elements'};
+		}
+	} else {
+		$default_dashboard = DEFAULT_DASHBOARD;
+	}
+	if ( !ref $default_dashboard || ref $default_dashboard ne 'ARRAY' ) {
+		$logger->error('No default dashboard elements defined - using built-in default instead.');
+		$default_dashboard = DEFAULT_DASHBOARD;
+	}
+	my $genome_size = $self->{'system'}->{'min_genome_size'} // $self->{'config'}->{'min_genome_size'}
+	  // MIN_GENOME_SIZE;
+	my $genomes_exists =
+	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM seqbin_stats WHERE total_length>?)', $genome_size );
+	foreach my $element (@$default_dashboard) {
+		next if $element->{'genomes'} && !$genomes_exists;
+		next if $element->{'display'} eq 'field' && !$self->_field_exists( $element->{'field'} );
+		$element->{'id'}    = $i;
+		$element->{'order'} = $i;
+		if ( $element->{'url_attributes'} ) {
+			$element->{'url'} =
+			  "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&$element->{'url_attributes'}";
+			delete $element->{'url_attributes'};
+			$element->{'post_data'}->{'db'} = $self->{'instance'};
+		}
+		$element->{'width'}  //= 1;
+		$element->{'height'} //= 1;
+		$elements->{$i} = $element;
+		$i++;
 	}
 	return $elements;
 }
@@ -795,6 +832,21 @@ sub _get_setup_element_content {
 	$buffer .= qq(<p><span data-id="$element->{'id'}" class="setup_element fas fa-wrench"></span></p>);
 	$buffer .= q(</div>);
 	return $buffer;
+}
+
+sub _field_exists {
+	my ( $self, $field ) = @_;
+	if ( $field =~ /^f_(.*)$/x ) {
+		my $field_name = $1;
+		return $self->{'xmlHandler'}->is_field($field_name);
+	}
+	if ( $field =~ /^e_(.+)\|\|(.+)$/x ) {
+		return
+		  $self->{'datastore'}->run_query(
+			'SELECT EXISTS(SELECT * FROM isolate_field_extended_attributes WHERE (isolate_field,attribute)=(?,?))',
+			[ $1, $2 ] );
+	}
+	return;
 }
 
 sub _get_filters {
@@ -1436,6 +1488,8 @@ JS
 
 sub _get_field_breakdown_cumulative_content {
 	my ( $self, $element ) = @_;
+	$element->{'width'}  //= 1;
+	$element->{'height'} //= 3;
 	my $dataset = $self->_get_cumulative_dataset($element);
 	my $height  = ( $element->{'height'} * 150 ) - 25;
 	my $ticks   = $element->{'width'};

@@ -582,7 +582,6 @@ use constant DEFAULT_DASHBOARD => [
 		display           => 'record_count',
 		name              => 'Isolate count',
 		width             => 2,
-		height            => 1,
 		background_colour => '#79cafb',
 		main_text_colour  => '#404040',
 		watermark         => 'fas fa-bacteria',
@@ -596,7 +595,6 @@ use constant DEFAULT_DASHBOARD => [
 		name              => 'Genome count',
 		genomes           => 1,
 		width             => 2,
-		height            => 1,
 		background_colour => '#7ecc66',
 		main_text_colour  => '#404040',
 		watermark         => 'fas fa-dna',
@@ -604,6 +602,38 @@ use constant DEFAULT_DASHBOARD => [
 		url_attributes    => 'page=query',
 		url_text          => 'Browse genomes',
 		post_data         => { page => 'query', genomes => 1 }
+	},
+	{
+		display           => 'field',
+		name              => 'Continent',
+		field             => 'e_country||continent',
+		breakdown_display => 'top',
+		top_values        => 5,
+		width             => 2
+	},
+	{
+		display           => 'field',
+		name              => 'Species',
+		field             => 'f_species',
+		breakdown_display => 'doughnut',
+		height            => 2,
+		width             => 2
+	},
+	{
+		display           => 'field',
+		name              => 'Year',
+		field             => 'f_year',
+		breakdown_display => 'bar',
+		width             => 3,
+		bar_colour_type   => 'continuous',
+		chart_colour      => '#126716'
+	},
+	{
+		display           => 'field',
+		name              => 'Date entered',
+		field             => 'f_date_entered',
+		width             => 2,
+		breakdown_display => 'cumulative'
 	}
 ];
 push @EXPORT_OK, qw (DEFAULT_DASHBOARD);
