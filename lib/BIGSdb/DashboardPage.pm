@@ -270,7 +270,7 @@ sub _print_chart_type_controls {
 	my @breakdown_charts =
 	  $field_type eq 'date'
 	  ? qw(bar cumulative doughnut pie)
-	  : qw(bar doughnut pie top);
+	  : qw(bar doughnut pie top treemap);
 
 	if ( $self->_field_has_optlist( $element->{'field'} ) ) {
 		push @breakdown_charts, 'word cloud';
@@ -841,8 +841,7 @@ sub _field_exists {
 		return $self->{'xmlHandler'}->is_field($field_name);
 	}
 	if ( $field =~ /^e_(.+)\|\|(.+)$/x ) {
-		return
-		  $self->{'datastore'}->run_query(
+		return $self->{'datastore'}->run_query(
 			'SELECT EXISTS(SELECT * FROM isolate_field_extended_attributes WHERE (isolate_field,attribute)=(?,?))',
 			[ $1, $2 ] );
 	}
@@ -945,7 +944,8 @@ sub _get_field_element_content {
 			pie          => sub { $self->_get_field_breakdown_pie_content($element) },
 			cumulative   => sub { $self->_get_field_breakdown_cumulative_content($element) },
 			'word cloud' => sub { $self->_get_field_breakdown_wordcloud_content($element) },
-			top          => sub { $self->_get_field_breakdown_top_values_content($element) }
+			top          => sub { $self->_get_field_breakdown_top_values_content($element) },
+			treemap      => sub { $self->_get_field_breakdown_treemap_content($element) },
 		);
 		if ( $methods{$chart_type} ) {
 			$buffer .= $methods{$chart_type}->();
@@ -1849,6 +1849,104 @@ sub _get_field_breakdown_top_values_content {
 		last if $count >= $element->{'top_values'};
 	}
 	$buffer .= q(</table></div>);
+	return $buffer;
+}
+
+#Modified from https://www.d3-graph-gallery.com/graph/treemap_custom.html
+sub _get_field_breakdown_treemap_content {
+	my ( $self, $element ) = @_;
+	my $data = $self->_get_field_breakdown_values($element);
+	if ( !@$data ) {
+		return $self->_print_no_value_content($element);
+	}
+	foreach my $value (@$data){
+		if (!defined $value->{'label'}){
+			$value->{'label'} = 'No value';
+		}
+	}
+	my $min_dimension = min( $element->{'height'}, $element->{'width'} ) // 1;
+	my $buffer        = $self->_get_title($element);
+	my $height        = ( $element->{'height'} * 150 ) - 25;
+	my $width         = $element->{'width'} * 150;
+	my $json          = JSON->new->allow_nonref;
+	my $dataset       = $json->encode( { children => $data } );
+	$buffer .= qq(<div id="chart_$element->{'id'}" class="treemap" style="margin-top:-20px"></div>);
+	$buffer .= << "JS";
+<script>
+	var data = $dataset;
+
+	// set the dimensions and margins of the graph
+	var margin = {top: 10, right: 10, bottom: 10, left: 10},
+  	width = $width - margin.left - margin.right,
+  	height = $height - margin.top - margin.bottom;
+
+	// append the svg object to the body of the page
+	var svg = d3.select("#chart_$element->{'id'}")
+	.append("svg")
+ 		.attr("width", width + margin.left + margin.right)
+		.attr("height", height + margin.top + margin.bottom)
+	.append("g")
+  		.attr("transform",
+        	`translate(\${margin.left}, \${margin.top})`);
+
+  	// Give the data to this cluster layout:
+  	// Here the size of each leave is given in the 'value' field in input data
+  	var root = d3.hierarchy(data).sum(function(d){ return d.value}) 
+
+  	// Then d3.treemap computes the position of each element of the hierarchy
+  	d3.treemap()
+    	.size([width, height])
+    	.paddingTop(5)
+    	.paddingRight(0)
+    	.paddingInner($min_dimension)      // Padding between each rectangle
+    	(root)
+
+  	// prepare a color scale
+  	var color = d3.scaleOrdinal(d3.schemeCategory10)
+
+  	// And a opacity scale
+  	var opacity = d3.scaleLinear()
+    	.domain([10, 30])
+    	.range([.5,1])
+
+  	// use this information to add rectangles:
+  	svg
+	    .selectAll("rect")
+	    .data(root.leaves())
+	    .join("rect")
+	      	.attr('x', function (d) { return d.x0; })
+	      	.attr('y', function (d) { return d.y0; })
+	      	.attr('width', function (d) { return d.x1 - d.x0; })
+	      	.attr('height', function (d) { return d.y1 - d.y0; })
+	      	.style("stroke", "black")
+	      	.style("fill", function(d){ return color(d.data.label)} )
+	      	.style("opacity", function(d){ return opacity(d.data.value)})
+
+  	// and to add the text labels
+  	svg
+	    .selectAll("text")
+	    .data(root.leaves())
+	    .enter()
+	    .append("text")
+	    	.attr("x", function(d){ return d.x0+5})    // +10 to adjust position (more right)
+	    	.attr("y", function(d){ return d.y0+20})    // +20 to adjust position (lower)
+	    	.text(function(d){ return d.data.label })
+	    	.attr("font-size", "19px")
+	    	.attr("fill", "white")
+
+	// and to add the text labels
+	svg
+		.selectAll("vals")
+	    	.data(root.leaves())
+	    	.enter()
+	    	.append("text")
+	      		.attr("x", function(d){ return d.x0+5})    // +10 to adjust position (more right)
+	      		.attr("y", function(d){ return d.y0+35})    // +20 to adjust position (lower)
+	      		.text(function(d){ return d.data.value })
+	      		.attr("font-size", "11px")
+	      		.attr("fill", "white")
+</script>
+JS
 	return $buffer;
 }
 

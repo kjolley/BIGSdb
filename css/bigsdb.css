@@ -1518,7 +1518,8 @@ span.dashboard_watermark {
 	opacity: 0.1
 }
 
-div#dashboard .item-content div.doughnut .bb-chart-arc text, div#dashboard .item-content div.pie .bb-chart-arc text
+div#dashboard .item-content div.doughnut .bb-chart-arc text, div#dashboard .item-content div.pie .bb-chart-arc text,
+div#dashboard .item-content div.treemap text
 	{
 	fill: white;
 	stroke-width: 1;
