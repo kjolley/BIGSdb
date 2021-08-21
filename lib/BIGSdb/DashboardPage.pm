@@ -1859,17 +1859,27 @@ sub _get_field_breakdown_treemap_content {
 	if ( !@$data ) {
 		return $self->_print_no_value_content($element);
 	}
-	foreach my $value (@$data){
-		if (!defined $value->{'label'}){
+	my $total = 0;
+	foreach my $value (@$data) {
+		if ( !defined $value->{'label'} ) {
 			$value->{'label'} = 'No value';
 		}
+		$total += $value->{'value'};
 	}
 	my $min_dimension = min( $element->{'height'}, $element->{'width'} ) // 1;
-	my $buffer        = $self->_get_title($element);
-	my $height        = ( $element->{'height'} * 150 ) - 25;
-	my $width         = $element->{'width'} * 150;
-	my $json          = JSON->new->allow_nonref;
-	my $dataset       = $json->encode( { children => $data } );
+	my $buffer =
+	  qq(<div id="chart_$element->{'id'}_tooltip" style="position:absolute;top:0;left:0px;display:none">)
+	  . q(<table class="bb-tooltip"><tbody><tr>)
+	  . qq(<td><span id="chart_$element->{'id'}_background" style="background-color:#1f77b4"></span>)
+	  . qq(<span id="chart_$element->{'id'}_label" style="white-space:nowrap;width:initial"></span></td>)
+	  . qq(<td><span id="chart_$element->{'id'}_value" style="width:initial"></span> )
+	  . qq(<span id="chart_$element->{'id'}_percent" style="width:initial"></span></td>)
+	  . q(</tr></tbody></table></div>);
+	$buffer .= $self->_get_title($element);
+	my $height  = ( $element->{'height'} * 150 ) - 25;
+	my $width   = $element->{'width'} * 150;
+	my $json    = JSON->new->allow_nonref;
+	my $dataset = $json->encode( { children => $data } );
 	$buffer .= qq(<div id="chart_$element->{'id'}" class="treemap" style="margin-top:-20px"></div>);
 	$buffer .= << "JS";
 <script>
@@ -1918,10 +1928,22 @@ sub _get_field_breakdown_treemap_content {
 	      	.attr('y', function (d) { return d.y0; })
 	      	.attr('width', function (d) { return d.x1 - d.x0; })
 	      	.attr('height', function (d) { return d.y1 - d.y0; })
+	      	.attr('name', function(d) {  return d.data.label })
 	      	.style("stroke", "black")
 	      	.style("fill", function(d){ return color(d.data.label)} )
 	      	.style("opacity", function(d){ return opacity(d.data.value)})
+			.on("mouseover", function(d,i){
+	    		d3.select("#chart_$element->{'id'}_label").html([i.data.label]);
+	    		d3.select("#chart_$element->{'id'}_value").html([i.data.value]);
+	    		d3.select("#chart_$element->{'id'}_percent").html($total ? [" (" + d3.format(".1f")((100 * i.data.value)/$total) + "%)"] : [""]);
+	    		d3.select("#chart_$element->{'id'}_background").style("background",function(d){ return color(i.data.label)});
+	    		d3.select("#chart_$element->{'id'}_tooltip").style("display","block");
+	    	})
+	    	.on("mouseout", function(d,i){
+	    		d3.select("#chart_$element->{'id'}_tooltip").style("display","none");
+	    	});
 
+  	
   	// and to add the text labels
   	svg
 	    .selectAll("text")
@@ -1933,18 +1955,15 @@ sub _get_field_breakdown_treemap_content {
 	    	.text(function(d){ return d.data.label })
 	    	.attr("font-size", "19px")
 	    	.attr("fill", "white")
-
-	// and to add the text labels
-	svg
-		.selectAll("vals")
-	    	.data(root.leaves())
-	    	.enter()
-	    	.append("text")
-	      		.attr("x", function(d){ return d.x0+5})    // +10 to adjust position (more right)
-	      		.attr("y", function(d){ return d.y0+35})    // +20 to adjust position (lower)
-	      		.text(function(d){ return d.data.value })
-	      		.attr("font-size", "11px")
-	      		.attr("fill", "white")
+	    	.on("mouseover", function(d,i){
+	    		d3.select("#chart_$element->{'id'}_label").html([i.data.label]);
+	    		d3.select("#chart_$element->{'id'}_value").html([i.data.value]);
+	    		d3.select("#chart_$element->{'id'}_background").style("background",function(d){ return color(i.data.label)});
+	    		d3.select("#chart_$element->{'id'}_tooltip").style("display","block");
+	    	})
+	    	.on("mouseout", function(d,i){
+	    		d3.select("#chart_$element->{'id'}_tooltip").style("display","none");
+	    	});
 </script>
 JS
 	return $buffer;
