@@ -1871,12 +1871,12 @@ sub _get_field_breakdown_treemap_content {
 	  qq(<div id="chart_$element->{'id'}_tooltip" style="position:absolute;top:0;left:0px;display:none">)
 	  . q(<table class="bb-tooltip"><tbody><tr>)
 	  . qq(<td><span id="chart_$element->{'id'}_background" style="background-color:#1f77b4"></span>)
-	  . qq(<span id="chart_$element->{'id'}_label" style="white-space:nowrap;width:initial"></span></td>)
-	  . qq(<td><span id="chart_$element->{'id'}_value" style="width:initial"></span> )
+	  . qq(<span id="chart_$element->{'id'}_label" style="width:initial"></span></td>)
+	  . qq(<td><span id="chart_$element->{'id'}_value" style="width:initial"></span>)
 	  . qq(<span id="chart_$element->{'id'}_percent" style="width:initial"></span></td>)
 	  . q(</tr></tbody></table></div>);
 	$buffer .= $self->_get_title($element);
-	my $height  = ( $element->{'height'} * 150 ) - 25;
+	my $height  = ( $element->{'height'} * 150 ) - 40;
 	my $width   = $element->{'width'} * 150;
 	my $json    = JSON->new->allow_nonref;
 	my $dataset = $json->encode( { children => $data } );
@@ -1928,14 +1928,16 @@ sub _get_field_breakdown_treemap_content {
 	      	.attr('y', function (d) { return d.y0; })
 	      	.attr('width', function (d) { return d.x1 - d.x0; })
 	      	.attr('height', function (d) { return d.y1 - d.y0; })
-	      	.attr('name', function(d) {  return d.data.label })
 	      	.style("stroke", "black")
 	      	.style("fill", function(d){ return color(d.data.label)} )
 	      	.style("opacity", function(d){ return opacity(d.data.value)})
-			.on("mouseover", function(d,i){
+			.on("mouseover touchstart", function(d,i){
 	    		d3.select("#chart_$element->{'id'}_label").html([i.data.label]);
 	    		d3.select("#chart_$element->{'id'}_value").html([i.data.value]);
-	    		d3.select("#chart_$element->{'id'}_percent").html($total ? [" (" + d3.format(".1f")((100 * i.data.value)/$total) + "%)"] : [""]);
+	    		d3.select("#chart_$element->{'id'}_percent").html(
+	    		$total 
+	    		? ["(" + d3.format(".1f")((100 * i.data.value)/$total) + "%)"] 
+	    		: [""]);
 	    		d3.select("#chart_$element->{'id'}_background").style("background",function(d){ return color(i.data.label)});
 	    		d3.select("#chart_$element->{'id'}_tooltip").style("display","block");
 	    	})
@@ -1952,10 +1954,20 @@ sub _get_field_breakdown_treemap_content {
 	    .append("text")
 	    	.attr("x", function(d){ return d.x0+5})    // +10 to adjust position (more right)
 	    	.attr("y", function(d){ return d.y0+20})    // +20 to adjust position (lower)
-	    	.text(function(d){ return d.data.label })
-	    	.attr("font-size", "19px")
+	    	.text(function(d){
+	    		var cell_width = d.x1 - d.x0;    				
+	    		if (
+	    			$total 
+	    			&& d.data.value/$total >= 0.05 
+	    			&& String(d.data.label).length <= $min_dimension * d.data.value/$total * 100){
+		    			return d.data.label
+	    		}
+	    		return ""; 
+	    	})
+	    	.attr("font-size", "12px")
 	    	.attr("fill", "white")
-	    	.on("mouseover", function(d,i){
+	    	.call(wrap, 30)
+	    	.on("mouseover touchstart", function(d,i){
 	    		d3.select("#chart_$element->{'id'}_label").html([i.data.label]);
 	    		d3.select("#chart_$element->{'id'}_value").html([i.data.value]);
 	    		d3.select("#chart_$element->{'id'}_background").style("background",function(d){ return color(i.data.label)});
@@ -1963,8 +1975,42 @@ sub _get_field_breakdown_treemap_content {
 	    	})
 	    	.on("mouseout", function(d,i){
 	    		d3.select("#chart_$element->{'id'}_tooltip").style("display","none");
-	    	});
-</script>
+	    	});	
+	    	
+			function wrap(text, width) {
+		    	text.each(function () {
+			        var text = d3.select(this),
+			            words = text.text().split(/\\s+/).reverse(),
+			            word,
+			            line = [],
+			            lineNumber = 0,
+			            lineHeight = 1.1, // ems
+			            x = text.attr("x"),
+			            y = text.attr("y"),
+			            dy = 0, //parseFloat(text.attr("dy")),
+			            tspan = text.text(null)
+			                        .append("tspan")
+			                        .attr("x", x)
+			                        .attr("y", y)
+			                        .attr("dy", dy + "em");
+			        while (word = words.pop()) {
+			            line.push(word);
+			            tspan.text(line.join(" "));
+			            if (tspan.node().getComputedTextLength() > width) {
+			                line.pop();
+			                tspan.text(line.join(" "));
+			                line = [word];
+			                tspan = text.append("tspan")
+			                            .attr("x", x)
+			                            .attr("y", y)
+			                            .attr("dy", ++lineNumber * lineHeight + dy + "em")
+			                            .text(word);
+			            }
+			        }
+		    	});
+			}   	
+	    	    	
+	</script>
 JS
 	return $buffer;
 }
