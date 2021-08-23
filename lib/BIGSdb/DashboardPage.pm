@@ -1883,6 +1883,7 @@ sub _get_field_breakdown_treemap_content {
 	$buffer .= qq(<div id="chart_$element->{'id'}" class="treemap" style="margin-top:-20px"></div>);
 	$buffer .= << "JS";
 <script>
+\$(function() {
 	var data = $dataset;
 
 	// set the dimensions and margins of the graph
@@ -1931,17 +1932,17 @@ sub _get_field_breakdown_treemap_content {
 	      	.style("stroke", "black")
 	      	.style("fill", function(d){ return color(d.data.label)} )
 	      	.style("opacity", function(d){ return opacity(d.data.value)})
-			.on("mouseover touchstart", function(d,i){
-	    		d3.select("#chart_$element->{'id'}_label").html([i.data.label]);
-	    		d3.select("#chart_$element->{'id'}_value").html([i.data.value]);
+			.on("mouseover touchstart", function(event,d){
+	    		d3.select("#chart_$element->{'id'}_label").html([d.data.label]);
+	    		d3.select("#chart_$element->{'id'}_value").html([d.data.value]);
 	    		d3.select("#chart_$element->{'id'}_percent").html(
 	    		$total 
-	    		? ["(" + d3.format(".1f")((100 * i.data.value)/$total) + "%)"] 
+	    		? ["(" + d3.format(".1f")((100 * d.data.value)/$total) + "%)"] 
 	    		: [""]);
-	    		d3.select("#chart_$element->{'id'}_background").style("background",function(d){ return color(i.data.label)});
+	    		d3.select("#chart_$element->{'id'}_background").style("background",color(d.data.label));
 	    		d3.select("#chart_$element->{'id'}_tooltip").style("display","block");
 	    	})
-	    	.on("mouseout", function(d,i){
+	    	.on("mouseout", function(){
 	    		d3.select("#chart_$element->{'id'}_tooltip").style("display","none");
 	    	});
 
@@ -1966,14 +1967,14 @@ sub _get_field_breakdown_treemap_content {
 	    	})
 	    	.attr("font-size", "12px")
 	    	.attr("fill", "white")
-	    	.call(wrap, 30)
-	    	.on("mouseover touchstart", function(d,i){
-	    		d3.select("#chart_$element->{'id'}_label").html([i.data.label]);
-	    		d3.select("#chart_$element->{'id'}_value").html([i.data.value]);
-	    		d3.select("#chart_$element->{'id'}_background").style("background",function(d){ return color(i.data.label)});
+	    	.call(wrap, 100)
+	    	.on("mouseover touchstart", function(event,d){
+	    		d3.select("#chart_$element->{'id'}_label").html([d.data.label]);
+	    		d3.select("#chart_$element->{'id'}_value").html([d.data.value]);
+	    		d3.select("#chart_$element->{'id'}_background").style("background", color(d.data.label));
 	    		d3.select("#chart_$element->{'id'}_tooltip").style("display","block");
 	    	})
-	    	.on("mouseout", function(d,i){
+	    	.on("mouseout", function(){
 	    		d3.select("#chart_$element->{'id'}_tooltip").style("display","none");
 	    	});	
 	    	
@@ -2009,7 +2010,7 @@ sub _get_field_breakdown_treemap_content {
 			        }
 		    	});
 			}   	
-	    	    	
+	});    	    	
 	</script>
 JS
 	return $buffer;
