@@ -1868,7 +1868,7 @@ sub _get_field_breakdown_treemap_content {
 	}
 	my $min_dimension = min( $element->{'height'}, $element->{'width'} ) // 1;
 	my $buffer =
-	  qq(<div id="chart_$element->{'id'}_tooltip" style="position:absolute;top:0;left:0px;display:none">)
+	  qq(<div id="chart_$element->{'id'}_tooltip" style="position:absolute;top:0;left:0px;display:none;z-index:1">)
 	  . q(<table class="bb-tooltip"><tbody><tr>)
 	  . qq(<td><span id="chart_$element->{'id'}_background" style="background-color:#1f77b4"></span>)
 	  . qq(<span id="chart_$element->{'id'}_label" style="width:initial"></span></td>)
@@ -1967,16 +1967,8 @@ sub _get_field_breakdown_treemap_content {
 	    	})
 	    	.attr("font-size", "12px")
 	    	.attr("fill", "white")
+	    	.style("pointer-events","none")
 	    	.call(wrap, 100)
-	    	.on("mouseover touchstart", function(event,d){
-	    		d3.select("#chart_$element->{'id'}_label").html([d.data.label]);
-	    		d3.select("#chart_$element->{'id'}_value").html([d.data.value]);
-	    		d3.select("#chart_$element->{'id'}_background").style("background", color(d.data.label));
-	    		d3.select("#chart_$element->{'id'}_tooltip").style("display","block");
-	    	})
-	    	.on("mouseout", function(){
-	    		d3.select("#chart_$element->{'id'}_tooltip").style("display","none");
-	    	});	
 	    	
 			function wrap(text, width) {
 		    	text.each(function () {
@@ -2009,7 +2001,14 @@ sub _get_field_breakdown_treemap_content {
 			            }
 			        }
 		    	});
-			}   	
+			} 
+			
+			//Hide legend when touching outside area.
+			d3.select("#element_$element->{'id'}").on("touchstart", function(event,d){
+				if (event.target.nodeName !== 'rect'){
+					d3.select("#chart_$element->{'id'}_tooltip").style("display","none");
+				}
+			});  	
 	});    	    	
 	</script>
 JS
