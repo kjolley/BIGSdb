@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::IndexPage);
-use BIGSdb::Constants qw(:design :interface :limits :dashboard);
+use BIGSdb::Constants qw(:design :interface :limits :dashboard COUNTRIES);
 use Try::Tiny;
 use List::Util qw( min max );
 use JSON;
@@ -273,13 +273,16 @@ sub _print_chart_type_controls {
 	  : qw(bar doughnut pie top treemap);
 
 	if ( $self->_field_has_optlist( $element->{'field'} ) ) {
-		push @breakdown_charts, 'word cloud';
+		push @breakdown_charts, 'word';
+	}
+	if ( $element->{'field'} eq 'f_country' && $self->_has_country_optlist ) {
+		push @breakdown_charts, 'map';
 	}
 	say $q->popup_menu(
 		-name    => "${id}_breakdown_display",
 		-id      => "${id}_breakdown_display",
 		-values  => [ 0, @breakdown_charts ],
-		-labels  => { 0 => 'Select...', top => 'top values' },
+		-labels  => { 0 => 'Select...', top => 'top values', map => 'world map', word => 'word cloud' },
 		-class   => 'element_option',
 		-default => $element->{'breakdown_display'}
 	);
@@ -296,6 +299,13 @@ sub _print_chart_type_controls {
 	say q(</li></ul>);
 	say q(</fieldset>);
 	return;
+}
+
+sub _has_country_optlist {
+	my ($self) = @_;
+	return if !$self->{'xmlHandler'}->is_field('country');
+	my $thisfield = $self->{'xmlHandler'}->get_field_attributes('country');
+	return $thisfield->{'optlist'} ? 1 : 0;
 }
 
 sub _get_field_values {
@@ -939,13 +949,14 @@ sub _get_field_element_content {
 	} elsif ( $element->{'visualisation_type'} eq 'breakdown' ) {
 		my $chart_type = $element->{'breakdown_display'} // q();
 		my %methods = (
-			bar          => sub { $self->_get_field_breakdown_bar_content($element) },
-			doughnut     => sub { $self->_get_field_breakdown_doughnut_content($element) },
-			pie          => sub { $self->_get_field_breakdown_pie_content($element) },
-			cumulative   => sub { $self->_get_field_breakdown_cumulative_content($element) },
-			'word cloud' => sub { $self->_get_field_breakdown_wordcloud_content($element) },
-			top          => sub { $self->_get_field_breakdown_top_values_content($element) },
-			treemap      => sub { $self->_get_field_breakdown_treemap_content($element) },
+			bar        => sub { $self->_get_field_breakdown_bar_content($element) },
+			doughnut   => sub { $self->_get_field_breakdown_doughnut_content($element) },
+			pie        => sub { $self->_get_field_breakdown_pie_content($element) },
+			cumulative => sub { $self->_get_field_breakdown_cumulative_content($element) },
+			word       => sub { $self->_get_field_breakdown_wordcloud_content($element) },
+			top        => sub { $self->_get_field_breakdown_top_values_content($element) },
+			treemap    => sub { $self->_get_field_breakdown_treemap_content($element) },
+			map        => sub { $self->_get_field_breakdown_map_content($element) },
 		);
 		if ( $methods{$chart_type} ) {
 			$buffer .= $methods{$chart_type}->();
@@ -1868,7 +1879,7 @@ sub _get_field_breakdown_treemap_content {
 	}
 	my $min_dimension = min( $element->{'height'}, $element->{'width'} ) // 1;
 	my $buffer =
-	  qq(<div id="chart_$element->{'id'}_tooltip" style="position:absolute;top:0;left:0px;display:none;z-index:1">)
+	    qq(<div id="chart_$element->{'id'}_tooltip" style="position:absolute;top:0;left:0px;display:none;z-index:1">)
 	  . q(<table class="bb-tooltip"><tbody><tr>)
 	  . qq(<td><span id="chart_$element->{'id'}_background" style="background-color:#1f77b4"></span>)
 	  . qq(<span id="chart_$element->{'id'}_label" style="width:initial"></span></td>)
@@ -2015,6 +2026,156 @@ JS
 	return $buffer;
 }
 
+sub _get_field_breakdown_map_content {
+	my ( $self, $element ) = @_;
+	my $data = $self->_get_field_breakdown_values($element);
+	if ( !@$data ) {
+		return $self->_print_no_value_content($element);
+	}
+	my $countries = COUNTRIES;
+	foreach my $value (@$data) {
+		$value->{'iso3'} = $countries->{ $value->{'label'} }->{'iso3'} // q(XXX);
+	}
+	my $buffer    = $self->_get_title($element);
+	my $unit_id   = $element->{'field'} eq 'f_country' ? 'iso3' : 'continent';
+	my $units     = $element->{'field'} eq 'f_country' ? 'units' : 'continents';
+	my $merge     = $element->{'field'} eq 'f_country' ? q(data = merge_terms(data);) : q();
+	my %max_width = (
+		1 => 200,
+		2 => 500,
+		3 => 600
+	);
+	my $width = min( $element->{'width'} * 150, $max_width{ $element->{'height'} } );
+	my $top_margin = $element->{'height'} == 1 && $element->{'width'} == 1 ? '-10px'  : '-10px';
+	my $legend     = $element->{'width'} == 1                              ? q(false) : q({width:50,height:100});
+	my $legend_pos = {
+		1 => {
+			1 => q(0,0),
+			2 => q(0,0),
+			3 => q(0,0)
+		},
+		2 => {
+			1 => q(-30,0),
+			2 => q(0,50),
+			3 => q(0,50)
+		},
+		3 => {
+			1 => q(-50,0),
+			2 => q(20,120),
+			3 => q(20,120)
+		},
+		4 => {
+			1 => q(-50,0),
+			2 => q(0,140),
+			3 => q(50,160)
+		}
+	};
+	my $json    = JSON->new->allow_nonref;
+	my $dataset = $json->encode($data);
+	my $geo_file =
+	  $element->{'field'} eq 'f_country'
+	  ? '/javascript/topojson/countries.json'
+	  : '/javascript/topojson/continents.json';
+	$buffer .= qq(<div id="chart_$element->{'id'}" class="map" style="margin-top:$top_margin"></div>);
+	$buffer .= << "JS";
+<script>
+\$(function() {
+	var colours = colorbrewer.Greens[5];
+	var data = $dataset;
+	$merge
+	var range = get_range(data);
+	var div_width = $width;
+	var	map = d3.geomap.choropleth()
+		.geofile("$geo_file")
+		.width(Math.min($width,document.documentElement.clientWidth-30))
+		.colors(colours)
+		.column('value')
+		.format(d3.format(",d"))
+		.legend($legend)
+		.domain([ 0, range.recommended ])
+		.valueScale(d3.scaleQuantize)
+		.unitId("$unit_id")
+		.units("$units")
+		.postUpdate(function(){
+			var legend = d3.select(".legend");
+			legend.attr("transform","translate($legend_pos->{$element->{'width'}}->{$element->{'height'}})");	
+		});
+	var selection = d3.select("#chart_$element->{'id'}").datum(data);
+	map.draw(selection);
+}); 
+
+function drawLegend(map){
+	
+}
+
+function merge_terms(data){
+	var iso3_counts = {};
+	for (var i = 0; i < data.length; i++) { 
+		if (typeof iso3_counts[data[i].iso3] == 'undefined'){
+			iso3_counts[data[i].iso3] = data[i].value;
+		} else {
+			iso3_counts[data[i].iso3] += data[i].value;
+		}
+	}
+	var merged = [];
+	var iso3 = Object.keys(iso3_counts);
+	for (var i=0; i < iso3.length; i++){
+		merged.push({iso3: iso3[i], value: iso3_counts[iso3[i]]});
+	}
+	return merged;
+}
+
+// Choose recommended value so that ~5% of records are in top fifth (25% if <= 10 records).
+function get_range(data) {
+	var records = data.length;
+	var percent_in_top_fifth = records > 10 ? 0.05 : 0.25;
+	var target = parseInt(percent_in_top_fifth * records);
+	var multiplier = 10;
+	var max;
+	var recommended;
+	var options = [];
+	var finish;	
+	while (true){
+		var test = [1,2,5];
+		for (var i = 0; i < test.length; i++) { 
+			max = test[i] * multiplier;
+			options.push(max);
+			if (recommended && options.length >= 5){
+				finish = 1;
+				break;
+			}
+			var top_division_start = max * 4 / 5;
+			var in_top_fifth = 0;
+			for (var j = 0; j < data.length; j++) { 
+				if (data[j].value >= top_division_start){
+					in_top_fifth++;
+				}
+			}
+			if (in_top_fifth <= target && !recommended){
+				recommended = max;
+			}
+		}
+		if (finish){
+			break;
+		}
+		multiplier = multiplier * 10;
+		if (max > 10000000){
+			if (!recommended){
+				recommended = max;
+			}
+			break;
+		}
+	}
+	return {
+		recommended : recommended,
+		options: options.slice(-5)
+	}
+}  	    	
+</script>
+JS
+	return $buffer;
+}
+
 sub _get_query_url {
 	my ( $self, $element, $value ) = @_;
 	my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query";
@@ -2095,6 +2256,7 @@ sub initiate {
 	$self->{$_} = 1
 	  foreach
 	  qw (jQuery noCache muuri modal fitty bigsdb.dashboard tooltips jQuery.fonticonpicker billboard d3.layout.cloud);
+	$self->{'geomap'} = 1 if $self->_has_country_optlist;
 	$self->choose_set;
 	$self->{'breadcrumbs'} = [];
 	if ( $self->{'system'}->{'webroot'} ) {

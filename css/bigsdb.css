@@ -1519,12 +1519,15 @@ span.dashboard_watermark {
 }
 
 div#dashboard .item-content div.doughnut .bb-chart-arc text, div#dashboard .item-content div.pie .bb-chart-arc text,
-div#dashboard .item-content div.treemap text
-	{
+	div#dashboard .item-content div.treemap text {
 	fill: white;
 	stroke-width: 1;
 	-webkit-filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.7));
 	filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.7));
+}
+
+div#dashboard .item-content div.map svg:not (:root ){
+	overflow: visible
 }
 
 .colour_selector {
@@ -1833,7 +1836,7 @@ p.dashboard_number_detail {
 table.dashboard_table {
 	margin: 0 auto;
 	border-spacing: initial;
-	min-width:80%;
+	min-width: 80%;
 }
 
 table.dashboard_table th {
@@ -1843,7 +1846,7 @@ table.dashboard_table th {
 
 table.dashboard_table tr.td1 {
 	background: white
-} 
+}
 
 div.expandable_retracted {
 	margin: 0;
