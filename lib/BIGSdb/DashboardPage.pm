@@ -275,7 +275,9 @@ sub _print_chart_type_controls {
 	if ( $self->_field_has_optlist( $element->{'field'} ) ) {
 		push @breakdown_charts, 'word';
 	}
-	if ( $element->{'field'} eq 'f_country' && $self->_has_country_optlist ) {
+	if ( ( $element->{'field'} eq 'f_country' || $element->{'field'} eq 'e_country||continent' )
+		&& $self->_has_country_optlist )
+	{
 		push @breakdown_charts, 'map';
 	}
 	say $q->popup_menu(
@@ -2033,9 +2035,16 @@ sub _get_field_breakdown_map_content {
 		return $self->_print_no_value_content($element);
 	}
 	my $countries = COUNTRIES;
-	foreach my $value (@$data) {
-		$value->{'iso3'} = $countries->{ $value->{'label'} }->{'iso3'} // q(XXX);
-	}
+	
+		foreach my $value (@$data) {
+			if ( $element->{'field'} eq 'f_country' ) {
+			$value->{'iso3'} = $countries->{ $value->{'label'} }->{'iso3'} // q(XXX);
+			} else {
+				$value->{'continent'} = $value->{'label'} // q(XXX); 
+				$value->{'continent'} =~ s/\s/_/gx;
+			}
+		}
+	
 	my $buffer    = $self->_get_title($element);
 	my $unit_id   = $element->{'field'} eq 'f_country' ? 'iso3' : 'continent';
 	my $units     = $element->{'field'} eq 'f_country' ? 'units' : 'continents';
@@ -2046,9 +2055,9 @@ sub _get_field_breakdown_map_content {
 		3 => 600
 	);
 	my $width = min( $element->{'width'} * 150, $max_width{ $element->{'height'} } );
-	my $top_margin = $element->{'height'} == 1 && $element->{'width'} == 1 ? '-10px'  : '-10px';
-	my $json    = JSON->new->allow_nonref;
-	my $dataset = $json->encode($data);
+	my $top_margin = $element->{'height'} == 1 && $element->{'width'} == 1 ? '-10px' : '-10px';
+	my $json       = JSON->new->allow_nonref;
+	my $dataset    = $json->encode($data);
 	my $geo_file =
 	  $element->{'field'} eq 'f_country'
 	  ? '/javascript/topojson/countries.json'
@@ -2098,7 +2107,7 @@ sub _get_field_breakdown_map_content {
 		.unitId("$unit_id")
 		.units("$units")
 		.postUpdate(function(){
-			var legend = d3.select(".legend");
+			var legend = d3.select("#chart_$element->{'id'} .legend");
 			legend.attr("transform","translate(" + 
 				legend_pos[width][$element->{'height'}]['x'] + "," + 
 				legend_pos[width][$element->{'height'}]['y'] + ")");	
