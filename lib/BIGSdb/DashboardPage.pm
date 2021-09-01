@@ -2047,29 +2047,6 @@ sub _get_field_breakdown_map_content {
 	);
 	my $width = min( $element->{'width'} * 150, $max_width{ $element->{'height'} } );
 	my $top_margin = $element->{'height'} == 1 && $element->{'width'} == 1 ? '-10px'  : '-10px';
-	my $legend     = $element->{'width'} == 1                              ? q(false) : q({width:50,height:100});
-	my $legend_pos = {
-		1 => {
-			1 => q(0,0),
-			2 => q(0,0),
-			3 => q(0,0)
-		},
-		2 => {
-			1 => q(-30,0),
-			2 => q(0,50),
-			3 => q(0,50)
-		},
-		3 => {
-			1 => q(-50,0),
-			2 => q(20,120),
-			3 => q(20,120)
-		},
-		4 => {
-			1 => q(-50,0),
-			2 => q(0,140),
-			3 => q(50,160)
-		}
-	};
 	my $json    = JSON->new->allow_nonref;
 	my $dataset = $json->encode($data);
 	my $geo_file =
@@ -2084,29 +2061,51 @@ sub _get_field_breakdown_map_content {
 	var data = $dataset;
 	$merge
 	var range = get_range(data);
-	var div_width = $width;
+	var vw = \$("#chart_$element->{'id'}").width();
+	var vw_unit = Math.max(Math.floor(vw/150),1);
+	var width = $element->{'width'} > vw_unit ? vw_unit : $element->{'width'};
+	var legend_pos = {
+		1: {
+			1: {x:0, y:0},
+			2: {x:0, y:0},
+			3: {x:0, y:0}
+		},
+		2: {
+			1: {x:-30, y:0},
+			2: {x:0, y:50},
+			3: {x:0, y:50}
+		},
+		3: {
+			1: {x: -50, y:0},
+			2: {x: 20, y:120},
+			3: {x: 20, y:120}
+		},
+		4: {
+			1: {x:-50, y:0},
+			2: {x:0, y:140},
+			3: {x:50, y:160}
+		}
+	};
 	var	map = d3.geomap.choropleth()
 		.geofile("$geo_file")
 		.width(Math.min($width,document.documentElement.clientWidth-30))
 		.colors(colours)
 		.column('value')
 		.format(d3.format(",d"))
-		.legend($legend)
+		.legend(width == 1 ? false : {width:50,height:100})
 		.domain([ 0, range.recommended ])
 		.valueScale(d3.scaleQuantize)
 		.unitId("$unit_id")
 		.units("$units")
 		.postUpdate(function(){
 			var legend = d3.select(".legend");
-			legend.attr("transform","translate($legend_pos->{$element->{'width'}}->{$element->{'height'}})");	
+			legend.attr("transform","translate(" + 
+				legend_pos[width][$element->{'height'}]['x'] + "," + 
+				legend_pos[width][$element->{'height'}]['y'] + ")");	
 		});
 	var selection = d3.select("#chart_$element->{'id'}").datum(data);
 	map.draw(selection);
 }); 
-
-function drawLegend(map){
-	
-}
 
 function merge_terms(data){
 	var iso3_counts = {};
