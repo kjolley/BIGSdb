@@ -1883,7 +1883,7 @@ sub _get_field_breakdown_treemap_content {
 	my $buffer =
 	    qq(<div id="chart_$element->{'id'}_tooltip" style="position:absolute;top:0;left:0px;display:none;z-index:1">)
 	  . q(<table class="bb-tooltip"><tbody><tr>)
-	  . qq(<td><span id="chart_$element->{'id'}_background" style="background-color:#1f77b4"></span>)
+	  . qq(<td><span id="chart_$element->{'id'}_background"></span>)
 	  . qq(<span id="chart_$element->{'id'}_label" style="width:initial"></span></td>)
 	  . qq(<td><span id="chart_$element->{'id'}_value" style="width:initial"></span>)
 	  . qq(<span id="chart_$element->{'id'}_percent" style="width:initial"></span></td>)
@@ -2044,8 +2044,18 @@ sub _get_field_breakdown_map_content {
 				$value->{'continent'} =~ s/\s/_/gx;
 			}
 		}
-	
-	my $buffer    = $self->_get_title($element);
+		
+		
+		
+	my $buffer =
+	    qq(<div id="chart_$element->{'id'}_tooltip" style="position:absolute;top:0;left:0px;display:none;z-index:1">)
+	  . q(<table class="bb-tooltip"><tbody><tr>)
+	  . qq(<td><span id="chart_$element->{'id'}_background"></span>)
+	  . qq(<span id="chart_$element->{'id'}_label" style="width:initial"></span></td>)
+	  . qq(<td><span id="chart_$element->{'id'}_value" style="width:initial"></span>)
+	  . qq(<span id="chart_$element->{'id'}_percent" style="width:initial"></span></td>)
+	  . q(</tr></tbody></table></div>);
+	$buffer    .= $self->_get_title($element);
 	my $unit_id   = $element->{'field'} eq 'f_country' ? 'iso3' : 'continent';
 	my $units     = $element->{'field'} eq 'f_country' ? 'units' : 'continents';
 	my $merge     = $element->{'field'} eq 'f_country' ? q(data = merge_terms(data);) : q();
@@ -2062,6 +2072,7 @@ sub _get_field_breakdown_map_content {
 	  $element->{'field'} eq 'f_country'
 	  ? '/javascript/topojson/countries.json'
 	  : '/javascript/topojson/continents.json';
+	my $freq_key = $element->{'field'} eq 'f_country' ? 'iso3' : 'name';
 	$buffer .= qq(<div id="chart_$element->{'id'}" class="map" style="margin-top:$top_margin"></div>);
 	$buffer .= << "JS";
 <script>
@@ -2069,6 +2080,10 @@ sub _get_field_breakdown_map_content {
 	var colours = colorbrewer.Greens[5];
 	var data = $dataset;
 	$merge
+	var freqs = data.reduce(function(map, obj){
+		map[obj.label] = obj.value;
+		return map;
+	}, {});
 	var range = get_range(data);
 	var vw = \$("#chart_$element->{'id'}").width();
 	var vw_unit = Math.max(Math.floor(vw/150),1);
@@ -2095,6 +2110,7 @@ sub _get_field_breakdown_map_content {
 			3: {x:50, y:160}
 		}
 	};
+	var f = d3.format(",d");
 	var	map = d3.geomap.choropleth()
 		.geofile("$geo_file")
 		.width(Math.min($width,document.documentElement.clientWidth-30))
@@ -2110,7 +2126,27 @@ sub _get_field_breakdown_map_content {
 			var legend = d3.select("#chart_$element->{'id'} .legend");
 			legend.attr("transform","translate(" + 
 				legend_pos[width][$element->{'height'}]['x'] + "," + 
-				legend_pos[width][$element->{'height'}]['y'] + ")");	
+				legend_pos[width][$element->{'height'}]['y'] + ")");
+			d3.selectAll("#chart_$element->{'id'} path.unit").selectAll("title").remove();
+			d3.selectAll("#chart_$element->{'id'} path.unit")
+				.on("mouseover touchstart", function(event,d){				
+					d3.select("#chart_$element->{'id'}_label").html([d.properties.name]);
+					var value = freqs[d.properties.$freq_key] == null ? 0 : f(freqs[d.properties.$freq_key]);
+					d3.select("#chart_$element->{'id'}_value").html([value]);
+					var colour_index = Math.floor((5 * freqs[d.properties.$freq_key] / range.recommended),1);
+					if (isNaN(colour_index)){
+						d3.select("#chart_$element->{'id'}_background").style("background","#ccc");
+					} else {
+						if (colour_index > 4){
+							colour_index = 4;
+						}
+						d3.select("#chart_$element->{'id'}_background").style("background",colours[colour_index]);
+					}
+					d3.select("#chart_$element->{'id'}_tooltip").style("display","block");
+				})
+				.on("mouseout", function(){
+					d3.select("#chart_$element->{'id'}_tooltip").style("display","none");
+	    		});
 		});
 	var selection = d3.select("#chart_$element->{'id'}").datum(data);
 	map.draw(selection);
@@ -2128,7 +2164,7 @@ function merge_terms(data){
 	var merged = [];
 	var iso3 = Object.keys(iso3_counts);
 	for (var i=0; i < iso3.length; i++){
-		merged.push({iso3: iso3[i], value: iso3_counts[iso3[i]]});
+		merged.push({label:iso3[i], iso3: iso3[i], value: iso3_counts[iso3[i]]});
 	}
 	return merged;
 }

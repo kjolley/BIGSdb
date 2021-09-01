@@ -1526,8 +1526,8 @@ div#dashboard .item-content div.doughnut .bb-chart-arc text, div#dashboard .item
 	filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.7));
 }
 
-div#dashboard .item-content div.map svg:not (:root ){
-	overflow: visible
+div#dashboard .item-content div.map svg:not(:root){
+	overflow: visible;
 }
 
 .colour_selector {
