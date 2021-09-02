@@ -21,8 +21,7 @@
 var currentRequest = null;
 
 $(function() {
-	var layout_test = $("#layout_test").prop('checked');
-	$("select#add_field,label[for='add_field']").css("display", layout_test ? "none" : "inline");
+	$("select#add_field,label[for='add_field']").css("display", "inline");
 	var layout = $("#layout").val();
 	var fill_gaps = $("#fill_gaps").prop('checked');
 	var grid;
@@ -97,11 +96,6 @@ $(function() {
 		var remove_elements = $("#remove_elements").prop('checked');
 		$.ajax(url + "&page=dashboard&updatePrefs=1&attribute=remove_elements&value=" + (remove_elements ? 1 : 0));
 		$("span.dashboard_remove_element").css("display", remove_elements ? "inline" : "none");
-	});
-	$("#layout_test").change(function() {
-		layout_test = $("#layout_test").prop('checked');
-		$.ajax(url + "&page=dashboard&updatePrefs=1&attribute=layout_test&value=" + (layout_test ? 1 : 0));
-		$("select#add_field,label[for='add_field']").css("display", layout_test ? "none" : "inline");
 	});
 	$("#include_old_versions").change(function() {
 		var include_old_versions = $("#include_old_versions").prop('checked');

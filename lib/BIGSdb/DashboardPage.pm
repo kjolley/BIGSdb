@@ -31,7 +31,6 @@ use Data::Dumper;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant {
-	LAYOUT_TEST                      => 0,
 	MAX_SEGMENTS                     => 20,
 	COUNT_MAIN_TEXT_COLOUR           => '#404040',
 	COUNT_BACKGROUND_COLOUR          => '#79cafb',
@@ -551,67 +550,62 @@ sub _ajax_new {
 		id    => $id,
 		order => $id,
 	};
-	if ( $self->{'prefs'}->{'layout_test'} ) {
-		$element->{'name'}    = "Test element $id";
-		$element->{'display'} = 'test';
-	} else {
-		my $default_elements = {
-			sp_count => {
-				name              => ucfirst("$self->{'system'}->{'labelfield'} count"),
-				display           => 'record_count',
-				change_duration   => 'week',
-				main_text_colour  => COUNT_MAIN_TEXT_COLOUR,
-				background_colour => COUNT_BACKGROUND_COLOUR,
-				watermark         => 'fas fa-bacteria',
-				url               => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query",
-				post_data         => {
-					db   => $self->{'instance'},
-					page => 'query'
-				},
-				url_text => "Browse $self->{'system'}->{'labelfield'}s"
+	my $default_elements = {
+		sp_count => {
+			name              => ucfirst("$self->{'system'}->{'labelfield'} count"),
+			display           => 'record_count',
+			change_duration   => 'week',
+			main_text_colour  => COUNT_MAIN_TEXT_COLOUR,
+			background_colour => COUNT_BACKGROUND_COLOUR,
+			watermark         => 'fas fa-bacteria',
+			url               => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query",
+			post_data         => {
+				db   => $self->{'instance'},
+				page => 'query'
 			},
-			sp_genomes => {
-				name              => 'Genome count',
-				display           => 'record_count',
-				genomes           => 1,
-				change_duration   => 'week',
-				main_text_colour  => GENOMES_MAIN_TEXT_COLOUR,
-				background_colour => GENOMES_BACKGROUND_COLOUR,
-				watermark         => 'fas fa-dna',
-				url               => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query",
-				post_data         => {
-					db      => $self->{'instance'},
-					page    => 'query',
-					genomes => 1,
-				},
-				url_text => 'Browse genomes'
-			}
-		};
-		my $q = $self->{'cgi'};
-		my $field = $q->param('layout_test') ? q() : $q->param('field');
-		if ( $default_elements->{$field} ) {
-			$element = { %$element, %{ $default_elements->{$field} } };
-		} else {
-			my $display_field = $self->_get_display_field($field);
-			$display_field =~ tr/_/ /;
-			$element->{'name'}              = ucfirst($display_field);
-			$element->{'field'}             = $field;
-			$element->{'display'}           = 'setup';
-			$element->{'change_duration'}   = 'week';
-			$element->{'background_colour'} = SPECIFIC_FIELD_BACKGROUND_COLOUR;
-			$element->{'main_text_colour'}  = SPECIFIC_FIELD_MAIN_TEXT_COLOUR;
-			my %default_watermarks = (
-				f_country              => 'fas fa-globe',
-				'e_country||continent' => 'fas fa-globe',
-				f_region               => 'fas fa-map',
-				f_sex                  => 'fas fa-venus-mars',
-				f_disease              => 'fas fa-notes-medical',
-				f_year                 => 'far fa-calendar-alt'
-			);
+			url_text => "Browse $self->{'system'}->{'labelfield'}s"
+		},
+		sp_genomes => {
+			name              => 'Genome count',
+			display           => 'record_count',
+			genomes           => 1,
+			change_duration   => 'week',
+			main_text_colour  => GENOMES_MAIN_TEXT_COLOUR,
+			background_colour => GENOMES_BACKGROUND_COLOUR,
+			watermark         => 'fas fa-dna',
+			url               => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query",
+			post_data         => {
+				db      => $self->{'instance'},
+				page    => 'query',
+				genomes => 1,
+			},
+			url_text => 'Browse genomes'
+		}
+	};
+	my $q = $self->{'cgi'};
+	my $field = $q->param('field');
+	if ( $default_elements->{$field} ) {
+		$element = { %$element, %{ $default_elements->{$field} } };
+	} else {
+		my $display_field = $self->_get_display_field($field);
+		$display_field =~ tr/_/ /;
+		$element->{'name'}              = ucfirst($display_field);
+		$element->{'field'}             = $field;
+		$element->{'display'}           = 'setup';
+		$element->{'change_duration'}   = 'week';
+		$element->{'background_colour'} = SPECIFIC_FIELD_BACKGROUND_COLOUR;
+		$element->{'main_text_colour'}  = SPECIFIC_FIELD_MAIN_TEXT_COLOUR;
+		my %default_watermarks = (
+			f_country              => 'fas fa-globe',
+			'e_country||continent' => 'fas fa-globe',
+			f_region               => 'fas fa-map',
+			f_sex                  => 'fas fa-venus-mars',
+			f_disease              => 'fas fa-notes-medical',
+			f_year                 => 'far fa-calendar-alt'
+		);
 
-			if ( $default_watermarks{$field} ) {
-				$element->{'watermark'} = $default_watermarks{$field};
-			}
+		if ( $default_watermarks{$field} ) {
+			$element->{'watermark'} = $default_watermarks{$field};
 		}
 	}
 	$element->{'width'}  //= 1;
@@ -678,7 +672,7 @@ sub _print_main_section {
 	}
 	say q(</div>);
 	say q(<div id="dashboard" class="grid">);
-	my %display_immediately = map { $_ => 1 } qw(test setup record_count);
+	my %display_immediately = map { $_ => 1 } qw(setup record_count);
 	my $ajax_load = [];
 	foreach my $element ( sort { $elements->{$a}->{'order'} <=> $elements->{$b}->{'order'} } keys %$elements ) {
 		my $display = $elements->{$element}->{'display'};
@@ -736,30 +730,7 @@ sub _get_elements {
 		}
 		return $elements;
 	}
-	if ( $self->{'prefs'}->{'layout_test'} ) {
-		return $self->_get_test_elements;
-	}
 	return $self->_get_default_elements;
-}
-
-sub _get_test_elements {
-	my ($self) = @_;
-	my $elements = {};
-	for my $i ( 1 .. 10 ) {
-		my $w = $i % 2 ? 1 : 2;
-		$w = 3 if $i == 7;
-		$w = 4 if $i == 4;
-		my $h = $i == 2 ? 2 : 1;
-		$elements->{$i} = {
-			id      => $i,
-			order   => $i,
-			name    => "Test element $i",
-			width   => $w,
-			height  => $h,
-			display => 'test',
-		};
-	}
-	return $elements;
 }
 
 sub _get_default_elements {
@@ -842,7 +813,6 @@ sub _load_element_html_by_ajax {
 sub _get_element_content {
 	my ( $self, $element ) = @_;
 	my %display = (
-		test         => sub { $self->_get_test_element_content($element) },
 		setup        => sub { $self->_get_setup_element_content($element) },
 		record_count => sub { $self->_get_count_element_content($element) },
 		field        => sub { $self->_get_field_element_content($element) }
@@ -861,16 +831,6 @@ sub _get_invalid_element_content {
 	  . q(style="color:#c44;font-size:3em;text-shadow: 3px 3px 3px #999;"></span></p>);
 	$buffer .= q(<p>Refresh page.</p>);
 	$buffer .= q(<script>window.location.reload(true);</script>);
-	return $buffer;
-}
-
-sub _get_test_element_content {
-	my ( $self, $element ) = @_;
-	my $buffer =
-	    qq(<p style="font-size:3em;padding-top:0.75em;color:#aaa">$element->{'id'}</p>)
-	  . q(<p style="text-align:center;font-size:0.9em;margin-top:-2em">)
-	  . qq(W<span id="$element->{'id'}_width">$element->{'width'}</span>; )
-	  . qq(H<span id="$element->{'id'}_height">$element->{'height'}</span></p>);
 	return $buffer;
 }
 
@@ -1946,7 +1906,7 @@ sub _get_field_breakdown_top_values_content {
 	my $td    = 1;
 	my $count = 0;
 
-	foreach my $value (@$data) {
+	foreach my $value (sort {$b->{'value'} <=> $a->{'value'}} @$data) {
 		next if !defined $value->{'label'} || $value->{'label'} eq 'No value';
 		my $url = $self->_get_query_url( $element, $value->{'label'} );
 		my $nice_value = BIGSdb::Utils::commify( $value->{'value'} );
@@ -2344,6 +2304,9 @@ sub _get_query_url {
 	if ( $element->{'field'} =~ /^[f|e]_/x ) {
 		$url .= "&prov_field1=$element->{'field'}&prov_value1=$value&submit=1";
 	}
+	if ($element->{'field'} =~ /^eav_/x){
+		$url .= "&phenotypic_field1=$element->{'field'}&phenotypic_value1=$value&submit=1";
+	}
 	if ( $self->{'prefs'}->{'include_old_versions'} ) {
 		$url .= '&include_old=on';
 	}
@@ -2454,7 +2417,7 @@ sub _update_prefs {
 	my %allowed_attributes =
 	  map { $_ => 1 }
 	  qw(layout fill_gaps enable_drag edit_elements remove_elements order elements default include_old_versions
-	  layout_test visualisation_type specific_values palette
+	  visualisation_type specific_values palette
 	);
 
 	if ( !$allowed_attributes{$attribute} ) {
@@ -2501,7 +2464,6 @@ sub print_panel_buttons {
 
 sub _print_modify_dashboard_fieldset {
 	my ($self) = @_;
-	my $layout_test          = $self->{'prefs'}->{'layout_test'}          // 0;
 	my $layout               = $self->{'prefs'}->{'layout'}               // 'left-top';
 	my $fill_gaps            = $self->{'prefs'}->{'fill_gaps'}            // 1;
 	my $enable_drag          = $self->{'prefs'}->{'enable_drag'}          // 0;
@@ -2515,18 +2477,6 @@ sub _print_modify_dashboard_fieldset {
 	say q(<fieldset><legend>Layout</legend>);
 	say q(<ul>);
 
-	#TODO Remove for production.
-	if (LAYOUT_TEST) {
-		say q(<li style="border-width:3px;border-color:red;border-top-style:solid;)
-		  . q(border-bottom-style:solid;margin-bottom:1em">);
-		say $q->checkbox(
-			-name    => 'layout_test',
-			-id      => 'layout_test',
-			-label   => 'Layout test',
-			-checked => $layout_test ? 'checked' : undef
-		);
-		say q(</li>);
-	}
 	say q(<li><label for="layout">Orientation:</label>);
 	say $q->popup_menu(
 		-name   => 'layout',
