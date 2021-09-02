@@ -351,12 +351,14 @@ function show_or_hide_control_elements(id) {
 				$("li#chart_colour").css("display", "block");
 			}
 		} else if (breakdown_display === 'cumulative') {
-			$("fieldset#design_control,li#chart_colour").css("display", "inline");
+			$("fieldset#design_control").css("display", "inline");
+			$("li#chart_colour").css("display", "block");
 		} else if (breakdown_display === 'map') {
-			$("fieldset#design_control,li#palette_control").css("display", "inline");
+			$("fieldset#design_control").css("display", "inline");
+			$("li#palette_control").css("display", "block");
 			show_palette(id);
 		} else if (breakdown_display === 'top') {
-			$("li#top_value_selector").css("display", "inline");
+			$("li#top_value_selector").css("display", "block");
 		}
 	}
 }
