@@ -538,15 +538,65 @@ sub delete_all_field_settings {
 }
 
 sub delete_dashboard_settings {
-	my ( $self, $guid, $dbase ) = @_;
+	my ( $self, $guid, $dbase_config ) = @_;
 	eval {
-		$self->{'db'}->do( 'DELETE FROM general WHERE (guid,dbase)=(?,?) AND attribute LIKE ? AND attribute!=?',
-			undef, $guid, $dbase, 'dashboard%', 'dashboard.layout_test' );
+		$self->{'db'}
+		  ->do( 'DELETE FROM primary_dashboard WHERE (guid,dbase_config)=(?,?)', undef, $guid, $dbase_config );
 	};
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
 		BIGSdb::Exception::Prefstore->throw('Cannot execute delete dashboard settings');
+	}
+	$self->{'db'}->commit;
+	return;
+}
+
+sub get_primary_dashboard_prefs {
+	my ( $self, $guid, $dbase_config ) = @_;
+	my $sql = $self->{'db'}->prepare('SELECT attribute,value FROM primary_dashboard WHERE (guid,dbase_config)=(?,?)');
+	eval { $sql->execute( $guid, $dbase_config ) };
+	if ($@) {
+		$logger->error($@);
+		BIGSdb::Exception::Prefstore->throw('Cannot execute get primary dashboard query');
+	}
+	my $values = {};
+	my $data = $sql->fetchall_arrayref( {} );
+	foreach my $prefs (@$data) {
+		$values->{ $prefs->{'attribute'} } = $prefs->{'value'};
+	}
+	return $values;
+}
+
+sub get_primary_dashboard_pref {
+	my ( $self, $guid, $dbase_config, $attribute ) = @_;
+	BIGSdb::Exception::Database::NoRecord->throw('No guid passed') if !$guid;
+	my $sql = $self->{'db'}->prepare('SELECT value FROM primary_dashboard WHERE (guid,dbase_config,attribute)=(?,?,?)');
+	eval { $sql->execute( $guid, $dbase_config, $attribute ) };
+	$logger->error($@) if $@;
+	my $value = $sql->fetchrow_array;
+	return $value;
+}
+
+sub set_primary_dashboard_pref {
+	my ( $self, $guid, $dbase_config, $attribute, $value ) = @_;
+	if ( !$self->_guid_exists($guid) ) {
+		$self->_add_existing_guid($guid);
+	}
+	if ( !$self->{'sql'}->{'set_primary_dashboard'} ) {
+		$self->{'sql'}->{'set_primary_dashboard'} =
+		  $self->{'db'}->prepare('INSERT INTO primary_dashboard (guid,dbase_config,attribute,value) VALUES (?,?,?,?)');
+	}
+	eval {
+		$self->{'db'}->do( 'DELETE FROM primary_dashboard WHERE (guid,dbase_config,attribute)=(?,?,?)',
+			undef, $guid, $dbase_config, $attribute );
+		$self->{'db'}->do( 'INSERT INTO primary_dashboard (guid,dbase_config,attribute,value) VALUES (?,?,?,?)',
+			undef, $guid, $dbase_config, $attribute, $value );
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+		BIGSdb::Exception::Prefstore->throw('Could not insert primary dashboard values');
 	}
 	$self->{'db'}->commit;
 	return;

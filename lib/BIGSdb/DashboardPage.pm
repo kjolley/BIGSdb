@@ -533,7 +533,7 @@ sub _ajax_new {
 		id    => $id,
 		order => $id,
 	};
-	if ( $self->{'prefs'}->{'dashboard.layout_test'} ) {
+	if ( $self->{'prefs'}->{'layout_test'} ) {
 		$element->{'name'}    = "Test element $id";
 		$element->{'display'} = 'test';
 	} else {
@@ -706,16 +706,16 @@ JS
 
 sub _get_elements {
 	my ($self) = @_;
-	if ( defined $self->{'prefs'}->{'dashboard.elements'} ) {
+	if ( defined $self->{'prefs'}->{'elements'} ) {
 		my $elements = {};
 		my $json     = JSON->new->allow_nonref;
-		eval { $elements = $json->decode( $self->{'prefs'}->{'dashboard.elements'} ); };
+		eval { $elements = $json->decode( $self->{'prefs'}->{'elements'} ); };
 		if (@$) {
-			$logger->error('Invalid JSON in dashboard.elements.');
+			$logger->error('Invalid JSON in elements.');
 		}
 		return $elements;
 	}
-	if ( $self->{'prefs'}->{'dashboard.layout_test'} ) {
+	if ( $self->{'prefs'}->{'layout_test'} ) {
 		return $self->_get_test_elements;
 	}
 	return $self->_get_default_elements;
@@ -880,7 +880,7 @@ sub _field_exists {
 sub _get_filters {
 	my ( $self, $options ) = @_;
 	my $filters = [];
-	push @$filters, 'new_version IS NULL' if !$self->{'prefs'}->{'dashboard.include_old_versions'};
+	push @$filters, 'new_version IS NULL' if !$self->{'prefs'}->{'include_old_versions'};
 	if ( $options->{'genomes'} ) {
 		my $genome_size = $self->{'system'}->{'min_genome_size'} // $self->{'config'}->{'min_genome_size'}
 		  // MIN_GENOME_SIZE;
@@ -2266,7 +2266,7 @@ sub _get_query_url {
 	if ( $element->{'field'} =~ /^[f|e]_/x ) {
 		$url .= "&prov_field1=$element->{'field'}&prov_value1=$value&submit=1";
 	}
-	if ( $self->{'prefs'}->{'dashboard.include_old_versions'} ) {
+	if ( $self->{'prefs'}->{'include_old_versions'} ) {
 		$url .= '&include_old=on';
 	}
 	return $url;
@@ -2307,13 +2307,13 @@ sub _add_element_watermark {
 sub _get_element_controls {
 	my ( $self, $element ) = @_;
 	my $id = $element->{'id'};
-	my $display = $self->{'prefs'}->{'dashboard.remove_elements'} ? 'inline' : 'none';
+	my $display = $self->{'prefs'}->{'remove_elements'} ? 'inline' : 'none';
 	my $buffer =
 	    qq(<span data-id="$id" id="remove_$id" )
 	  . qq(class="dashboard_remove_element far fa-trash-alt" style="display:$display"></span>)
 	  . qq(<span data-id="$id" id="wait_$id" class="dashboard_wait fas fa-sync-alt )
 	  . q(fa-spin" style="display:none"></span>);
-	$display = ( $self->{'prefs'}->{'dashboard.edit_elements'} // 1 ) ? 'inline' : 'none';
+	$display = ( $self->{'prefs'}->{'edit_elements'} // 1 ) ? 'inline' : 'none';
 	$buffer .=
 	    qq(<span data-id="$id" id="control_$id" class="dashboard_edit_element fas fa-sliders-h" )
 	  . qq(style="display:$display"></span>);
@@ -2360,9 +2360,9 @@ sub initiate {
 	}
 	my $guid = $self->get_guid;
 	if ( $q->param('resetDefaults') ) {
-		$self->{'prefstore'}->delete_dashboard_settings( $guid, $self->{'system'}->{'db'} ) if $guid;
+		$self->{'prefstore'}->delete_dashboard_settings( $guid, $self->{'instance'} ) if $guid;
 	}
-	$self->{'prefs'} = $self->{'prefstore'}->get_all_general_prefs( $guid, $self->{'system'}->{'db'} );
+	$self->{'prefs'} = $self->{'prefstore'}->get_primary_dashboard_prefs( $guid, $self->{'instance'} );
 	return;
 }
 
@@ -2383,7 +2383,6 @@ sub _update_prefs {
 		$logger->error("Invalid attribute - $attribute");
 		return;
 	}
-	$attribute = "dashboard.$attribute";
 	if ( $attribute eq 'layout' ) {
 		my %allowed_values = map { $_ => 1 } ( 'left-top', 'right-top', 'left-bottom', 'right-bottom' );
 		return if !$allowed_values{$value};
@@ -2409,7 +2408,7 @@ sub _update_prefs {
 		}
 	}
 	my $guid = $self->get_guid;
-	$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, $attribute, $value );
+	$self->{'prefstore'}->set_primary_dashboard_pref( $guid, $self->{'instance'}, $attribute, $value );
 	return;
 }
 
@@ -2424,13 +2423,13 @@ sub print_panel_buttons {
 
 sub _print_modify_dashboard_fieldset {
 	my ($self) = @_;
-	my $layout_test          = $self->{'prefs'}->{'dashboard.layout_test'}          // 0;
-	my $layout               = $self->{'prefs'}->{'dashboard.layout'}               // 'left-top';
-	my $fill_gaps            = $self->{'prefs'}->{'dashboard.fill_gaps'}            // 1;
-	my $enable_drag          = $self->{'prefs'}->{'dashboard.enable_drag'}          // 0;
-	my $edit_elements        = $self->{'prefs'}->{'dashboard.edit_elements'}        // 1;
-	my $remove_elements      = $self->{'prefs'}->{'dashboard.remove_elements'}      // 0;
-	my $include_old_versions = $self->{'prefs'}->{'dashboard.include_old_versions'} // 0;
+	my $layout_test          = $self->{'prefs'}->{'layout_test'}          // 0;
+	my $layout               = $self->{'prefs'}->{'layout'}               // 'left-top';
+	my $fill_gaps            = $self->{'prefs'}->{'fill_gaps'}            // 1;
+	my $enable_drag          = $self->{'prefs'}->{'enable_drag'}          // 0;
+	my $edit_elements        = $self->{'prefs'}->{'edit_elements'}        // 1;
+	my $remove_elements      = $self->{'prefs'}->{'remove_elements'}      // 0;
+	my $include_old_versions = $self->{'prefs'}->{'include_old_versions'} // 0;
 	my $q                    = $self->{'cgi'};
 	say q(<div id="modify_panel" class="panel">);
 	say q(<a class="trigger" id="close_trigger" href="#"><span class="fas fa-lg fa-times"></span></a>);
@@ -2591,8 +2590,8 @@ sub _print_field_selector {
 
 sub get_javascript {
 	my ($self) = @_;
-	my $order = $self->{'prefs'}->{'dashboard.order'} // q();
-	my $enable_drag = $self->{'prefs'}->{'dashboard.enable_drag'} ? 'true' : 'false';
+	my $order = $self->{'prefs'}->{'order'} // q();
+	my $enable_drag = $self->{'prefs'}->{'enable_drag'} ? 'true' : 'false';
 	my $json = JSON->new->allow_nonref;
 	if ($order) {
 		eval { $json->encode($order); };
