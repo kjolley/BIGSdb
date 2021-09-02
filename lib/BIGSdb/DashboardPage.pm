@@ -1557,7 +1557,7 @@ sub _get_field_breakdown_cumulative_content {
 						format: "%Y-%m-%d"
 					},
 					padding: {
-						right: $element->{'width'} == 1 ? 0 : ms_span / (4*$element->{'width'})
+						right: $element->{'width'} == 1 ? 0 : ms_span / (3*$element->{'width'})
 					}
 				},
 				y: {
