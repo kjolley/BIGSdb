@@ -287,21 +287,21 @@ function editElement(grid, id, setup) {
 			$("span#control_" + id).show();
 		}
 		$("span#wait_" + id).hide();
-		show_or_hide_control_elements(grid, id);
+		show_or_hide_control_elements(id);
 
 		$("select.watermark_selector").fontIconPicker({
 			theme: 'fip-darkgrey',
 			emptyIconValue: 'none',
 		});
 		$("div.modal").on("change", "#" + id + "_visualisation_type", function() {
-			show_or_hide_control_elements(grid, id);
+			show_or_hide_control_elements(id);
 			check_and_show_visualisation(grid, id);
 		});
 		$("div.modal").on("change", "#" + id + "_breakdown_display,#" +
 			id + "_specific_value_display,#" +
 			id + "_specific_values,#" +
 			id + "_bar_colour_type", function() {
-				show_or_hide_control_elements(grid, id);
+				show_or_hide_control_elements(id);
 				check_and_show_visualisation(grid, id);
 			});
 		$("div.modal").on($.modal.AFTER_CLOSE, function(event, modal) {
@@ -310,38 +310,46 @@ function editElement(grid, id, setup) {
 	});
 }
 
-function show_or_hide_control_elements(grid, id) {
+function show_or_hide_control_elements(id) {
 	var visualisation_type = $("input[name='" + id + "_visualisation_type']:checked").val();
 	var specific_value_display = $("#" + id + "_specific_value_display").val();
 	var breakdown_display = $("#" + id + "_breakdown_display").val();
-	$("li#value_selector").css("display", visualisation_type === 'breakdown' ? 'none' : 'block');
-	$("li#breakdown_display_selector").css("display", visualisation_type === 'breakdown' ? 'block' : 'none');
-	$("li#specific_value_display_selector").css("display", visualisation_type === 'breakdown' ? 'none' : 'block');
-	if (visualisation_type === 'specific values') {
-		$("fieldset#change_duration_control").css("display", specific_value_display === 'number' ? 'inline' : 'none');
-		$("fieldset#design_control").css("display", "inline");
-		$("li#top_value_selector").css("display", "none");
+
+	//Hide all elements initially.
+	$("fieldset#change_duration_control,fieldset#design_control,"
+		+ "li#value_selector,li#breakdown_display_selector,li#specific_value_display_selector,"
+		+ "li#top_value_selector,li#watermark_control,li#palette_control,li#text_colour_control,"
+		+ "li#background_colour_control,li.gauge_colour,li#bar_colour_type,li#chart_colour").css("display", "none");
+		
+	//Enable elements as required.
+	if (elements[id]['display'] == 'record_count') {
+		$("fieldset#change_duration_control,fieldset#design_control").css("display", "inline");
+		$("li#text_colour_control,li#background_colour_control,li#watermark_control").css("display", "block");
+	}
+
+	else if (visualisation_type === 'specific values') {
+		$("li#specific_value_display_selector").css("display", "block");
 		if (specific_value_display === 'gauge') {
-			$("li#watermark_control,li#text_colour_control,li#background_colour_control").css("display", "none");
-			$("li.gauge_colour").css("display", "block");
+			$("fieldset#design_control").css("display", "inline");
+			$("li#value_selector,li.gauge_colour").css("display", "block");
 		} else if (specific_value_display === 'number') {
+			$("fieldset#change_duration_control,fieldset#design_control").css("display", "inline");
 			$("li#watermark_control,li#text_colour_control,li#background_colour_control").css("display", "block");
-			$("li.gauge_colour").css("display", "none");
 		}
 	} else if (visualisation_type === 'breakdown') {
+		$("li#breakdown_display_selector").css("display", "block");
 		if (breakdown_display === 'bar') {
-			$("fieldset#design_control,li.bar_colour_type").css("display", "inline");
-			$("li#watermark_control,li#text_colour_control,li#background_colour_control,li#top_value_selector").css("display", "none");
+			$("fieldset#design_control,li#bar_colour_type").css("display", "inline");
 			var bar_colour_type = $("input[name='" + id + "_bar_colour_type']:checked").val();
-			$("li.chart_colour").css("display", bar_colour_type === "continuous" ? "block" : "none");
+			if (bar_colour_type === "continuous") {
+				$("li#chart_colour").css("display", "block");
+			}
 		} else if (breakdown_display === 'cumulative') {
-			$("fieldset#design_control,li.chart_colour").css("display", "inline");
-			$("li#watermark_control,li#text_colour_control,li#background_colour_control,li.bar_colour_type,li#top_value_selector").
-				css("display", "none");
+			$("fieldset#design_control,li#chart_colour").css("display", "inline");
+		} else if (breakdown_display === 'map') {
+			$("fieldset#design_control,li#palette_control").css("display", "inline");
 		} else if (breakdown_display === 'top') {
 			$("li#top_value_selector").css("display", "inline");
-		} else {
-			$("fieldset#design_control,li#top_value_selector").css("display", "none");
 		}
 	}
 

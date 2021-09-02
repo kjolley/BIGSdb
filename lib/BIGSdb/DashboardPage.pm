@@ -390,6 +390,7 @@ sub _print_design_control {
 	say qq(<fieldset id="design_control" style="display:$display"><legend>Design</legend><ul>);
 	$self->_print_colour_control( $id, $element );
 	$self->_print_watermark_control( $id, $element );
+	$self->_print_palette_control( $id, $element );
 	say q(</ul></fieldset>);
 	return;
 }
@@ -421,7 +422,7 @@ sub _print_colour_control {
 	say qq(<label for="${id}_gauge_foreground_colour">Gauge foreground</label>);
 	say q(</li>);
 	say
-	  qq(<li class="bar_colour_type" style="display:none"><label for="${id}_bar_colour_type">Value type:<br /></label>);
+	  qq(<li id="bar_colour_type" style="display:none"><label for="${id}_bar_colour_type">Value type:<br /></label>);
 	say $q->radio_group(
 		-name      => "${id}_bar_colour_type",
 		-id        => "${id}_bar_colour_type",
@@ -431,7 +432,7 @@ sub _print_colour_control {
 		-linebreak => 'true'
 	);
 	$default = $element->{'chart_colour'} // CHART_COLOUR;
-	say q(<li class="chart_colour" style="display:none">);
+	say q(<li id="chart_colour" style="display:none">);
 	say qq(<input type="color" id="${id}_chart_colour" value="$default" ) . q(class="element_option colour_selector">);
 	say qq(<label for="${id}_chart_colour">Chart colour</label>);
 	say q(</li>);
@@ -494,7 +495,7 @@ sub _print_watermark_control {
 		}
 	}
 	unshift @$values, '';
-	say q(<li id="watermark_control"><label for="watermark">Watermark</label>);
+	say qq(<li id="watermark_control"><label for="${id}_watermark">Watermark</label>);
 	say $self->popup_menu(
 		-name    => "${id}_watermark",
 		-id      => "${id}_watermark",
@@ -507,14 +508,27 @@ sub _print_watermark_control {
 	return;
 }
 
+sub _print_palette_control {
+	my ( $self, $id, $element ) = @_;
+	say qq(<li id="palette_control" style="display:none"><label for="${id}_palette">Palette:</label>);
+	my $values = [qw(Blues Greens Purples)];
+	my $q      = $self->{'cgi'};
+	say $q->popup_menu(
+		-name    => "${id}_palette",
+		-id      => "${id}_palette",
+		-values  => $values,
+		-class   => 'element_option palette_selector',
+		-default => $element->{'palette'} // 'Greens'
+	);
+	say q(</li>);
+	return;
+}
+
 sub _ajax_new {
 	my ( $self, $id ) = @_;
 	my $element = {
 		id    => $id,
 		order => $id,
-
-		#		width  => 1,
-		#		height => 1,
 	};
 	if ( $self->{'prefs'}->{'dashboard.layout_test'} ) {
 		$element->{'name'}    = "Test element $id";
@@ -2035,18 +2049,14 @@ sub _get_field_breakdown_map_content {
 		return $self->_print_no_value_content($element);
 	}
 	my $countries = COUNTRIES;
-	
-		foreach my $value (@$data) {
-			if ( $element->{'field'} eq 'f_country' ) {
+	foreach my $value (@$data) {
+		if ( $element->{'field'} eq 'f_country' ) {
 			$value->{'iso3'} = $countries->{ $value->{'label'} }->{'iso3'} // q(XXX);
-			} else {
-				$value->{'continent'} = $value->{'label'} // q(XXX); 
-				$value->{'continent'} =~ s/\s/_/gx;
-			}
+		} else {
+			$value->{'continent'} = $value->{'label'} // q(XXX);
+			$value->{'continent'} =~ s/\s/_/gx;
 		}
-		
-		
-		
+	}
 	my $buffer =
 	    qq(<div id="chart_$element->{'id'}_tooltip" style="position:absolute;top:0;left:0px;display:none;z-index:1">)
 	  . q(<table class="bb-tooltip"><tbody><tr>)
@@ -2055,10 +2065,10 @@ sub _get_field_breakdown_map_content {
 	  . qq(<td><span id="chart_$element->{'id'}_value" style="width:initial"></span>)
 	  . qq(<span id="chart_$element->{'id'}_percent" style="width:initial"></span></td>)
 	  . q(</tr></tbody></table></div>);
-	$buffer    .= $self->_get_title($element);
-	my $unit_id   = $element->{'field'} eq 'f_country' ? 'iso3' : 'continent';
-	my $units     = $element->{'field'} eq 'f_country' ? 'units' : 'continents';
-	my $merge     = $element->{'field'} eq 'f_country' ? q(data = merge_terms(data);) : q();
+	$buffer .= $self->_get_title($element);
+	my $unit_id = $element->{'field'} eq 'f_country' ? 'iso3'                       : 'continent';
+	my $units   = $element->{'field'} eq 'f_country' ? 'units'                      : 'continents';
+	my $merge   = $element->{'field'} eq 'f_country' ? q(data = merge_terms(data);) : q();
 	my %max_width = (
 		1 => 200,
 		2 => 500,
@@ -2073,11 +2083,14 @@ sub _get_field_breakdown_map_content {
 	  ? '/javascript/topojson/countries.json'
 	  : '/javascript/topojson/continents.json';
 	my $freq_key = $element->{'field'} eq 'f_country' ? 'iso3' : 'name';
+	my $palettes = $self->_get_palettes;
+	$element->{'palette'} //= 'Greens';
+	my $palette = $palettes->{ $element->{'palette'} };
 	$buffer .= qq(<div id="chart_$element->{'id'}" class="map" style="margin-top:$top_margin"></div>);
 	$buffer .= << "JS";
 <script>
 \$(function() {
-	var colours = colorbrewer.Greens[5];
+	var colours = $palette;
 	var data = $dataset;
 	$merge
 	var freqs = data.reduce(function(map, obj){
@@ -2220,6 +2233,15 @@ JS
 	return $buffer;
 }
 
+sub _get_palettes {
+	my ($self) = @_;
+	return {
+		Blues   => 'colorbrewer.Blues[5]',
+		Greens  => 'colorbrewer.Greens[5]',
+		Purples => 'colorbrewer.Purples[5]',
+	};
+}
+
 sub _get_query_url {
 	my ( $self, $element, $value ) = @_;
 	my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query";
@@ -2337,7 +2359,7 @@ sub _update_prefs {
 	my %allowed_attributes =
 	  map { $_ => 1 }
 	  qw(layout fill_gaps enable_drag edit_elements remove_elements order elements default include_old_versions
-	  layout_test visualisation_type specific_values
+	  layout_test visualisation_type specific_values palette
 	);
 
 	if ( !$allowed_attributes{$attribute} ) {
