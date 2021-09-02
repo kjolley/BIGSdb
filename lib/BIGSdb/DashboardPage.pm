@@ -421,8 +421,7 @@ sub _print_colour_control {
 	  . q(class="element_option colour_selector">);
 	say qq(<label for="${id}_gauge_foreground_colour">Gauge foreground</label>);
 	say q(</li>);
-	say
-	  qq(<li id="bar_colour_type" style="display:none"><label for="${id}_bar_colour_type">Value type:<br /></label>);
+	say qq(<li id="bar_colour_type" style="display:none"><label for="${id}_bar_colour_type">Value type:<br /></label>);
 	say $q->radio_group(
 		-name      => "${id}_bar_colour_type",
 		-id        => "${id}_bar_colour_type",
@@ -510,15 +509,19 @@ sub _print_watermark_control {
 
 sub _print_palette_control {
 	my ( $self, $id, $element ) = @_;
-	say qq(<li id="palette_control" style="display:none"><label for="${id}_palette">Palette:</label>);
-	my $values = [qw(Blues Greens Purples)];
+	say q(<li id="palette_control" style="display:none">);
+	say q(<div style="margin-top:-0.5em">);
+	print qq(<span class="palette_item" id="palette_$_"></span>) for ( 0 .. 4 );
+	say q(</div>);
+	say qq(<label for="${id}_palette">Palette:</label>);
+	my $values = [sort keys %{$self->_get_palettes}];
 	my $q      = $self->{'cgi'};
 	say $q->popup_menu(
 		-name    => "${id}_palette",
 		-id      => "${id}_palette",
 		-values  => $values,
 		-class   => 'element_option palette_selector',
-		-default => $element->{'palette'} // 'Greens'
+		-default => $element->{'palette'} // 'green'
 	);
 	say q(</li>);
 	return;
@@ -2084,7 +2087,7 @@ sub _get_field_breakdown_map_content {
 	  : '/javascript/topojson/continents.json';
 	my $freq_key = $element->{'field'} eq 'f_country' ? 'iso3' : 'name';
 	my $palettes = $self->_get_palettes;
-	$element->{'palette'} //= 'Greens';
+	$element->{'palette'} //= 'green';
 	my $palette = $palettes->{ $element->{'palette'} };
 	$buffer .= qq(<div id="chart_$element->{'id'}" class="map" style="margin-top:$top_margin"></div>);
 	$buffer .= << "JS";
@@ -2236,9 +2239,23 @@ JS
 sub _get_palettes {
 	my ($self) = @_;
 	return {
-		Blues   => 'colorbrewer.Blues[5]',
-		Greens  => 'colorbrewer.Greens[5]',
-		Purples => 'colorbrewer.Purples[5]',
+		blue                  => 'colorbrewer.Blues[5]',
+		green                 => 'colorbrewer.Greens[5]',
+		purple                => 'colorbrewer.Purples[5]',
+		orange                => 'colorbrewer.Oranges[5]',
+		red                   => 'colorbrewer.Reds[5]',
+		'blue/green'          => 'colorbrewer.BuGn[5]',
+		'blue/purple'         => 'colorbrewer.BuPu[5]',
+		'green/blue'          => 'colorbrewer.GnBu[5]',
+		'orange/red'          => 'colorbrewer.OrRd[5]',
+		'purple/blue'         => 'colorbrewer.PuBu[5]',
+		'purple/blue/green'   => 'colorbrewer.PuBuGn[5]',
+		'purple/red'          => 'colorbrewer.PuRd[5]',
+		'red/purple'          => 'colorbrewer.RdPu[5]',
+		'yellow/green'        => 'colorbrewer.YlGn[5]',
+		'yellow/green/blue'   => 'colorbrewer.YlGnBu[5]',
+		'yellow/orange/brown' => 'colorbrewer.YlOrBr[5]',
+		'yellow/orange/red'   => 'colorbrewer.YlOrRd[5]',
 	};
 }
 

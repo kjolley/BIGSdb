@@ -113,6 +113,7 @@ $(function() {
 		});
 	});
 
+
 	$("#add_element").click(function() {
 		var nextId = getNextid();
 		addElement(grid, nextId);
@@ -160,6 +161,11 @@ $(function() {
 		var attribute = id.replace(/^\d+_/, "");
 		var element_id = id.replace("_" + attribute, "");
 		changeElementAttribute(grid, element_id, attribute, $(this).val());
+	});
+	$(document).on("change", '.palette_selector', function(event) {
+		var id = $(this).attr('id');
+		id = id.replace(/_palette$/, "");
+		show_palette(id);
 	});
 	$('.multi_menu_trigger').on('click', function() {
 		var trigger_id = this.id;
@@ -320,7 +326,7 @@ function show_or_hide_control_elements(id) {
 		+ "li#value_selector,li#breakdown_display_selector,li#specific_value_display_selector,"
 		+ "li#top_value_selector,li#watermark_control,li#palette_control,li#text_colour_control,"
 		+ "li#background_colour_control,li.gauge_colour,li#bar_colour_type,li#chart_colour").css("display", "none");
-		
+
 	//Enable elements as required.
 	if (elements[id]['display'] == 'record_count') {
 		$("fieldset#change_duration_control,fieldset#design_control").css("display", "inline");
@@ -348,9 +354,36 @@ function show_or_hide_control_elements(id) {
 			$("fieldset#design_control,li#chart_colour").css("display", "inline");
 		} else if (breakdown_display === 'map') {
 			$("fieldset#design_control,li#palette_control").css("display", "inline");
+			show_palette(id);
 		} else if (breakdown_display === 'top') {
 			$("li#top_value_selector").css("display", "inline");
 		}
+	}
+}
+
+function show_palette(id) {
+	var palettes = {
+		blue: colorbrewer.Blues[5],
+		green: colorbrewer.Greens[5],
+		purple: colorbrewer.Purples[5],
+		orange: colorbrewer.Oranges[5],
+		red: colorbrewer.Reds[5],
+		'blue/green': colorbrewer.BuGn[5],
+		'blue/purple': colorbrewer.BuPu[5],
+		'green/blue': colorbrewer.GnBu[5],
+		'orange/red': colorbrewer.OrRd[5],
+		'purple/blue': colorbrewer.PuBu[5],
+		'purple/blue/green': colorbrewer.PuBuGn[5],
+		'purple/red': colorbrewer.PuRd[5],
+		'red/purple': colorbrewer.RdPu[5],
+		'yellow/green': colorbrewer.YlGn[5],
+		'yellow/green/blue': colorbrewer.YlGnBu[5],
+		'yellow/orange/brown': colorbrewer.YlOrBr[5],
+		'yellow/orange/red': colorbrewer.YlOrRd[5]
+	};
+	var selected = $("#" + id + "_palette").val();
+	for (var i = 0; i < 5; i++) {
+		$("#palette_" + i).css("background", palettes[selected][i]);
 	}
 
 }
