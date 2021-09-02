@@ -230,6 +230,11 @@ sub _field_has_optlist {
 	if ( $field =~ /^e_/x ) {
 		return 1;
 	}
+	if ( $field =~ /^eav_(.*)/x ) {
+		my $attributes = $self->{'datastore'}->get_eav_field($1);
+		return 1 if $attributes->{'option_list'};
+		return 1 if $attributes->{'value_format'} eq 'boolean';
+	}
 	return;
 }
 
@@ -252,6 +257,10 @@ sub _get_field_type {
 			[ $extended_isolate_field, $field ],
 			{ fetch => 'row_hashref' }
 		);
+		return $att->{'value_format'};
+	}
+	if ( $element->{'field'} =~ /^eav_(.*)/x ) {
+		my $att = $self->{'datastore'}->get_eav_field($1);
 		return $att->{'value_format'};
 	}
 	return;
@@ -330,6 +339,15 @@ sub _get_field_values {
 			[ $isolate_field, $attribute ],
 			{ fetch => 'col_arrayref' }
 		);
+	}
+	if ( $field =~ /^eav_(.*)/x ) {
+		my $att = $self->{'datastore'}->get_eav_field($1);
+		if ( $att->{'option_list'} ) {
+			return [ split /;/x, $att->{'option_list'} ];
+		}
+		if ( $att->{'value_format'} eq 'boolean' ) {
+			return [qw(true false)];
+		}
 	}
 	return [];
 }
@@ -514,7 +532,7 @@ sub _print_palette_control {
 	print qq(<span class="palette_item" id="palette_$_"></span>) for ( 0 .. 4 );
 	say q(</div>);
 	say qq(<label for="${id}_palette">Palette:</label>);
-	my $values = [sort keys %{$self->_get_palettes}];
+	my $values = [ sort keys %{ $self->_get_palettes } ];
 	my $q      = $self->{'cgi'};
 	say $q->popup_menu(
 		-name    => "${id}_palette",
@@ -617,6 +635,9 @@ sub _get_display_field {
 	if ( $field =~ /^e_/x ) {
 		$display_field =~ s/^e_//x;
 		$display_field =~ s/.*\|\|//x;
+	}
+	if ( $field =~ /^eav_/x ) {
+		$display_field =~ s/^eav_//x;
 	}
 	return $display_field;
 }
@@ -1011,6 +1032,9 @@ sub _get_specific_field_value_counts {
 	if ( $element->{'field'} =~ /^e_/x ) {
 		$data = $self->_get_extended_field_counts($element);
 	}
+	if ( $element->{'field'} =~ /^eav_/x ) {
+		$data = $self->_get_eav_field_counts($element);
+	}
 	return $data;
 }
 
@@ -1097,6 +1121,35 @@ sub _get_extended_field_counts {
 	return $data;
 }
 
+sub _get_eav_field_counts {
+	my ( $self, $element ) = @_;
+	( my $field = $element->{'field'} ) =~ s/^eav_//x;
+	my $att        = $self->{'datastore'}->get_eav_field($field);
+	my $type       = $att->{'value_format'};
+	my $values     = $self->_filter_list( $type, $element->{'specific_values'} );
+	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( $type, $values );
+	my $view       = $self->{'system'}->{'view'};
+	my $table      = $self->{'datastore'}->get_eav_field_table($field);
+	my $qry        = "SELECT COUNT(*) FROM $table t JOIN $view v ON t.isolate_id = v.id AND t.field=? WHERE t.value "
+	  . "IN (SELECT value FROM $temp_table)";
+	my $filters = $self->_get_filters;
+	local $" = ' AND ';
+	$qry .= " AND @$filters" if @$filters;
+	my $count = $self->{'datastore'}->run_query( $qry, $field );
+	my $data = { count => $count };
+
+	if ( $element->{'change_duration'} && $count > 0 ) {
+		my %allowed = map { $_ => 1 } qw(week month year);
+		if ( $allowed{ $element->{'change_duration'} } ) {
+			$data->{'change_duration'} = $element->{'change_duration'};
+			$qry .= " AND v.date_entered <= now()-interval '1 $element->{'change_duration'}'";
+			my $past_count = $self->{'datastore'}->run_query( $qry, $field );
+			$data->{'increase'} = $count - ( $past_count // 0 );
+		}
+	}
+	return $data;
+}
+
 sub _get_field_breakdown_values {
 	my ( $self, $element ) = @_;
 	if ( $element->{'field'} =~ /^f_/x ) {
@@ -1107,6 +1160,10 @@ sub _get_field_breakdown_values {
 		my $isolate_field = $1;
 		my $attribute     = $2;
 		return $self->_get_extended_field_breakdown_values( $isolate_field, $attribute );
+	}
+	if ( $element->{'field'} =~ /^eav_(.*)/x ) {
+		my $field = $1;
+		return $self->_get_eav_field_breakdown_values($field);
 	}
 	return [];
 }
@@ -1177,6 +1234,27 @@ sub _get_extended_field_breakdown_values {
 	$qry .= ' GROUP BY label ORDER BY value DESC';
 	my $values =
 	  $self->{'datastore'}->run_query( $qry, [ $field, $attribute ], { fetch => 'all_arrayref', slice => {} } );
+	return $values;
+}
+
+sub _get_eav_field_breakdown_values {
+	my ( $self, $field ) = @_;
+	my $att   = $self->{'datastore'}->get_eav_field($field);
+	my $table = $self->{'datastore'}->get_eav_field_table($field);
+	my $qry   = "SELECT t.value AS label,COUNT(*) AS value FROM $table t RIGHT JOIN $self->{'system'}->{'view'} v "
+	  . 'ON t.isolate_id = v.id AND t.field=?';
+	my $filters = $self->_get_filters;
+	local $" = ' AND ';
+	$qry .= " WHERE @$filters" if @$filters;
+	$qry .= ' GROUP BY label ORDER BY ';
+
+	if ( $att->{'value_format'} eq 'integer' || $att->{'value_format'} eq 'date' || $att->{'value_format'} eq 'float' )
+	{
+		$qry .= 'label';
+	} else {
+		$qry .= 'value DESC';
+	}
+	my $values = $self->{'datastore'}->run_query( $qry, $field, { fetch => 'all_arrayref', slice => {} } );
 	return $values;
 }
 
@@ -2398,7 +2476,7 @@ sub _update_prefs {
 	my $json = JSON->new->allow_nonref;
 	my %json_attributes = map { $_ => 1 } qw(order elements);
 	if ( $json_attributes{$attribute} ) {
-		if ( length( $value > 5000 ) ) {
+		if ( length($value) > 5000 ) {
 			$logger->error("$attribute value too long.");
 			return;
 		}
@@ -2528,7 +2606,7 @@ sub _print_field_selector {
 			isolate_fields      => 1,
 			scheme_fields       => 0,
 			extended_attributes => 1,
-			eav_fields          => 0,
+			eav_fields          => 1,
 		}
 	);
 	my $values           = [];

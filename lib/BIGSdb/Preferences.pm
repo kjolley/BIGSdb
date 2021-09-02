@@ -583,10 +583,6 @@ sub set_primary_dashboard_pref {
 	if ( !$self->_guid_exists($guid) ) {
 		$self->_add_existing_guid($guid);
 	}
-	if ( !$self->{'sql'}->{'set_primary_dashboard'} ) {
-		$self->{'sql'}->{'set_primary_dashboard'} =
-		  $self->{'db'}->prepare('INSERT INTO primary_dashboard (guid,dbase_config,attribute,value) VALUES (?,?,?,?)');
-	}
 	eval {
 		$self->{'db'}->do( 'DELETE FROM primary_dashboard WHERE (guid,dbase_config,attribute)=(?,?,?)',
 			undef, $guid, $dbase_config, $attribute );

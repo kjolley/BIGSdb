@@ -334,10 +334,10 @@ function show_or_hide_control_elements(id) {
 	}
 
 	else if (visualisation_type === 'specific values') {
-		$("li#specific_value_display_selector").css("display", "block");
+		$("li#specific_value_display_selector,li#value_selector").css("display", "block");
 		if (specific_value_display === 'gauge') {
 			$("fieldset#design_control").css("display", "inline");
-			$("li#value_selector,li.gauge_colour").css("display", "block");
+			$("li.gauge_colour").css("display", "block");
 		} else if (specific_value_display === 'number') {
 			$("fieldset#change_duration_control,fieldset#design_control").css("display", "inline");
 			$("li#watermark_control,li#text_colour_control,li#background_colour_control").css("display", "block");
