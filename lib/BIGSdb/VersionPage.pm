@@ -297,6 +297,7 @@ sub _get_mafft_version {
 
 sub initiate {
 	my ($self) = @_;
+	$self->{'jQuery'} = 1;
 	$self->set_level1_breadcrumbs;
 	return;
 }
