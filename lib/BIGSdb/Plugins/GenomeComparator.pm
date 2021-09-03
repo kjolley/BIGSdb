@@ -64,7 +64,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.7.1',
+		version     => '2.7.2',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -1220,8 +1220,8 @@ sub _generate_splits {
 		{
 			filename    => $nexus_file,
 			description => '20_Distance matrix (Nexus format)|Suitable for loading in to '
-			  . '<a href="http://www.splitstree.org">SplitsTree</a>. Distances between taxa are '
-			  . 'calculated as the number of loci with different allele sequences'
+			  . 'SplitsTree. Distances between taxa are calculated as the number of loci '
+			  . 'with different allele sequences.'
 		}
 	);
 	return $dismat if ( keys %{ $data->{'isolate_data'} } ) > MAX_SPLITS_TAXA;
@@ -1230,7 +1230,6 @@ sub _generate_splits {
 	my $splits_img = "$job_id.svg";
 	$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file",
 		"$self->{'config'}->{'tmp_dir'}/$splits_img", 'SVG' );
-
 	if ( -e "$self->{'config'}->{'tmp_dir'}/$splits_img" ) {
 		$self->{'jobManager'}->update_job_output(
 			$job_id,

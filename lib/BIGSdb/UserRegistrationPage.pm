@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2016-2020, University of Oxford
+#Copyright (c) 2016-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -340,7 +340,7 @@ sub _print_registration_form {
 	say q(</fieldset>);
 	$q->param( register => 1 );
 	say $q->hidden($_) foreach qw(page register);
-	say $q->submit( -name => 'submit', -label => 'Log in', -class => 'submit', -style => 'margin-top:1em' );
+	say $q->submit( -name => 'submit', -label => 'Register', -class => 'submit', -style => 'margin-top:1em' );
 	say $q->end_form;
 	say q(</div>);
 	return;
