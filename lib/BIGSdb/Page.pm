@@ -191,9 +191,8 @@ sub _get_javascript_paths {
 				defer   => 1,
 				version => '20210510'
 			},
-			'd3.layout.cloud' => { src => [qw(d3.layout.cloud.min.js)], defer => 1, version => '20210729' }
-			,
-			'pivot' => {
+			'd3.layout.cloud' => { src => [qw(d3.layout.cloud.min.js)], defer => 1, version => '20210729' },
+			'pivot'           => {
 				src     => [qw(pivot.min.js export_renderers.min.js jquery.ui.touch-punch.min.js)],
 				defer   => 1,
 				version => '20200308'
@@ -1319,10 +1318,6 @@ sub _get_scheme_fields {
 		my $schemes       = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 		my $scheme_fields = $self->{'datastore'}->get_all_scheme_fields;
 		my $scheme_info   = $self->{'datastore'}->get_all_scheme_info;
-		my $set_sql;
-		if ($set_id) {
-			$set_sql = $self->{'db'}->prepare('SELECT set_name FROM set_schemes WHERE set_id=? AND scheme_id=?');
-		}
 		foreach my $scheme (@$schemes) {
 			my ( $scheme_id, $desc ) = ( $scheme->{'id'}, $scheme->{'name'} );
 			my $scheme_db = $scheme_info->{$scheme_id}->{'dbase_name'};
@@ -1336,13 +1331,16 @@ sub _get_scheme_fields {
 					|| $options->{'ignore_prefs'} )
 				{
 					if ($set_id) {
-						eval { $set_sql->execute( $set_id, $scheme_id ) };
-						$logger->error($@) if $@;
-						my ($set_name) = $set_sql->fetchrow_array;
+						my $set_name = $self->{'datastore'}->run_query(
+							'SELECT set_name FROM set_schemes WHERE set_id=? AND scheme_id=?',
+							[ $set_id, $scheme_id ],
+							{ cache => 'Page::get_scheme_fields' }
+						);
 						$desc = $set_name if defined $set_name;
 					}
-					( $self->{'cache'}->{'labels'}->{"s_$scheme_id\_$field"} = "$field ($desc)" ) =~ tr/_/ /;
-					push @scheme_field_list, "s_$scheme_id\_$field";
+					( $self->{'cache'}->{'labels'}->{"s_${scheme_id}_$field"} = "$field ($desc)" ) =~
+					  tr/_/ /;
+					push @scheme_field_list, "s_${scheme_id}_$field";
 				}
 			}
 		}
