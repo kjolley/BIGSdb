@@ -495,6 +495,7 @@ sub _print_watermark_control {
 		{ 'fas fa-glass-cheers'    => 'risk factor:drinking' },
 		{ 'fas fa-weight'          => 'risk factor:weight' },
 		{ 'fas fa-smoking'         => 'risk factor:smoking' },
+		{ 'fas fa-bong'            => 'risk factor:water pipe' },
 		{ 'fas fa-notes-medical'   => 'diagnosis;medical notes' },
 		{ 'fas fa-allergies'       => 'diagnosis:allergies' },
 		{ 'fas fa-head-side-cough' => 'diagnosis;cough' },
