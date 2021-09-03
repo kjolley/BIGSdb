@@ -582,7 +582,7 @@ sub _ajax_new {
 			url_text => 'Browse genomes'
 		}
 	};
-	my $q = $self->{'cgi'};
+	my $q     = $self->{'cgi'};
 	my $field = $q->param('field');
 	if ( $default_elements->{$field} ) {
 		$element = { %$element, %{ $default_elements->{$field} } };
@@ -632,6 +632,18 @@ sub _get_display_field {
 	}
 	if ( $field =~ /^eav_/x ) {
 		$display_field =~ s/^eav_//x;
+	}
+	if ( $field =~ /^s_(\d+)_(.*)$/x ) {
+		my ( $scheme_id, $scheme_field ) = ( $1, $2 );
+		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+		my $desc        = $scheme_info->{'name'};
+		my $set_id      = $self->get_set_id;
+		if ($set_id) {
+			my $set_name = $self->{'datastore'}
+			  ->run_query( 'SELECT set_name FROM set_schemes WHERE set_id=? AND scheme_id=?', [ $set_id, $scheme_id ] );
+			$desc = $set_name if defined $set_name;
+		}
+		$display_field = "$scheme_field ($desc)";
 	}
 	return $display_field;
 }
@@ -995,6 +1007,9 @@ sub _get_specific_field_value_counts {
 	if ( $element->{'field'} =~ /^eav_/x ) {
 		$data = $self->_get_eav_field_counts($element);
 	}
+	if ( $element->{'field'} =~ /^s_\d+_/x ) {
+		$data = $self->_get_scheme_field_counts($element);
+	}
 	return $data;
 }
 
@@ -1090,14 +1105,17 @@ sub _get_eav_field_counts {
 	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( $type, $values );
 	my $view       = $self->{'system'}->{'view'};
 	my $table      = $self->{'datastore'}->get_eav_field_table($field);
-	my $qry        = "SELECT COUNT(*) FROM $table t JOIN $view v ON t.isolate_id = v.id AND t.field=? WHERE t.value "
-	  . "IN (SELECT value FROM $temp_table)";
+	my $qry        = "SELECT COUNT(*) FROM $table t JOIN $view v ON t.isolate_id = v.id AND t.field=? WHERE ";
+	if ( $type eq 'text' ) {
+		$qry .= "UPPER(t.value) IN (SELECT UPPER(value) FROM $temp_table)";
+	} else {
+		$qry .= "t.value IN (SELECT value FROM $temp_table)";
+	}
 	my $filters = $self->_get_filters;
 	local $" = ' AND ';
 	$qry .= " AND @$filters" if @$filters;
 	my $count = $self->{'datastore'}->run_query( $qry, $field );
 	my $data = { count => $count };
-
 	if ( $element->{'change_duration'} && $count > 0 ) {
 		my %allowed = map { $_ => 1 } qw(week month year);
 		if ( $allowed{ $element->{'change_duration'} } ) {
@@ -1110,6 +1128,45 @@ sub _get_eav_field_counts {
 	return $data;
 }
 
+sub _get_scheme_field_counts {
+	my ( $self, $element ) = @_;
+	if ( $element->{'field'} =~ /^s_(\d+)_(.*)/x ) {
+		my ( $scheme_id, $field ) = ( $1, $2 );
+		my $scheme_table      = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+		my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+		my $type              = $scheme_field_info->{'type'};
+		my $values            = $self->_filter_list( $type, $element->{'specific_values'} );
+		my $temp_table        = $self->{'datastore'}->create_temp_list_table_from_array( $type, $values );
+
+		#We include the DISTINCT clause below because an isolate may have more than 1 row in the scheme
+		#cache table. This happens if the isolate has multiple STs (due to multiple allele hits).
+		my $qry =
+		  "SELECT COUNT(DISTINCT v.id) FROM $self->{'system'}->{'view'} v JOIN $scheme_table s ON v.id=s.id WHERE ";
+		if ( $type eq 'text' ) {
+			$qry .= "UPPER(s.$field) IN (SELECT UPPER(value) FROM $temp_table)";
+		} else {
+			$qry .= "s.$field IN (SELECT value FROM $temp_table)";
+		}
+		my $filters = $self->_get_filters;
+		local $" = ' AND ';
+		$qry .= " AND @$filters" if @$filters;
+		my $count = $self->{'datastore'}->run_query($qry);
+		my $data = { count => $count };
+		if ( $element->{'change_duration'} && $count > 0 ) {
+			my %allowed = map { $_ => 1 } qw(week month year);
+			if ( $allowed{ $element->{'change_duration'} } ) {
+				$data->{'change_duration'} = $element->{'change_duration'};
+				$qry .= " AND v.date_entered <= now()-interval '1 $element->{'change_duration'}'";
+				my $past_count = $self->{'datastore'}->run_query($qry);
+				$data->{'increase'} = $count - ( $past_count // 0 );
+			}
+		}
+		return $data;
+	}
+	$logger->error("Error in scheme field $element->{'field'}");
+	return { count => 0 };
+}
+
 sub _get_field_breakdown_values {
 	my ( $self, $element ) = @_;
 	if ( $element->{'field'} =~ /^f_/x ) {
@@ -1117,13 +1174,16 @@ sub _get_field_breakdown_values {
 		return $self->_get_primary_metadata_breakdown_values($field);
 	}
 	if ( $element->{'field'} =~ /^e_(.*)\|\|(.*)/x ) {
-		my $isolate_field = $1;
-		my $attribute     = $2;
+		my ( $isolate_field, $attribute ) = ( $1, $2 );
 		return $self->_get_extended_field_breakdown_values( $isolate_field, $attribute );
 	}
 	if ( $element->{'field'} =~ /^eav_(.*)/x ) {
 		my $field = $1;
 		return $self->_get_eav_field_breakdown_values($field);
+	}
+	if ( $element->{'field'} =~ /^s_(\d+)_(.*)/x ) {
+		my ( $scheme_id, $field ) = ( $1, $2 );
+		return $self->_get_scheme_field_breakdown_values( $scheme_id, $field );
 	}
 	return [];
 }
@@ -1215,6 +1275,24 @@ sub _get_eav_field_breakdown_values {
 		$qry .= 'value DESC';
 	}
 	my $values = $self->{'datastore'}->run_query( $qry, $field, { fetch => 'all_arrayref', slice => {} } );
+	return $values;
+}
+
+sub _get_scheme_field_breakdown_values {
+	my ( $self, $scheme_id, $field ) = @_;
+	my $scheme_table = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+
+	#We include the DISTINCT clause below because an isolate may have more than 1 row in the scheme
+	#cache table. This happens if the isolate has multiple STs (due to multiple allele hits).
+	my $qry =
+	    "SELECT s.$field AS label,COUNT(DISTINCT (v.id)) AS value FROM $self->{'system'}->{'view'} v "
+	  . "JOIN $scheme_table s ON v.id=s.id";
+	my $filters = $self->_get_filters;
+	local $" = ' AND ';
+	$qry .= " WHERE @$filters" if @$filters;
+	$qry .= ' GROUP BY label ORDER BY value DESC';
+	my $values =
+	  $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 	return $values;
 }
 
@@ -1906,7 +1984,7 @@ sub _get_field_breakdown_top_values_content {
 	my $td    = 1;
 	my $count = 0;
 
-	foreach my $value (sort {$b->{'value'} <=> $a->{'value'}} @$data) {
+	foreach my $value ( sort { $b->{'value'} <=> $a->{'value'} } @$data ) {
 		next if !defined $value->{'label'} || $value->{'label'} eq 'No value';
 		my $url = $self->_get_query_url( $element, $value->{'label'} );
 		my $nice_value = BIGSdb::Utils::commify( $value->{'value'} );
@@ -2002,7 +2080,7 @@ sub _get_field_breakdown_treemap_content {
 	      	.style("opacity", function(d){ return opacity(d.data.value)})
 			.on("mouseover touchstart", function(event,d){
 	    		d3.select("#chart_$element->{'id'}_label").html([d.data.label]);
-	    		d3.select("#chart_$element->{'id'}_value").html([d.data.value]);
+	    		d3.select("#chart_$element->{'id'}_value").html([d3.format(",d")(d.data.value)]);
 	    		d3.select("#chart_$element->{'id'}_percent").html(
 	    		$total 
 	    		? ["(" + d3.format(".1f")((100 * d.data.value)/$total) + "%)"] 
@@ -2304,8 +2382,11 @@ sub _get_query_url {
 	if ( $element->{'field'} =~ /^[f|e]_/x ) {
 		$url .= "&prov_field1=$element->{'field'}&prov_value1=$value&submit=1";
 	}
-	if ($element->{'field'} =~ /^eav_/x){
+	if ( $element->{'field'} =~ /^eav_/x ) {
 		$url .= "&phenotypic_field1=$element->{'field'}&phenotypic_value1=$value&submit=1";
+	}
+	if ( $element->{'field'} =~ /^s_\d+_/x ) {
+		$url .= "&designation_field1=$element->{'field'}&designation_value1=$value&submit=1";
 	}
 	if ( $self->{'prefs'}->{'include_old_versions'} ) {
 		$url .= '&include_old=on';
@@ -2476,7 +2557,6 @@ sub _print_modify_dashboard_fieldset {
 	say q(<h2>Dashboard settings</h2>);
 	say q(<fieldset><legend>Layout</legend>);
 	say q(<ul>);
-
 	say q(<li><label for="layout">Orientation:</label>);
 	say $q->popup_menu(
 		-name   => 'layout',
@@ -2554,7 +2634,7 @@ sub _print_field_selector {
 		{
 			ignore_prefs        => 1,
 			isolate_fields      => 1,
-			scheme_fields       => 0,
+			scheme_fields       => 1,
 			extended_attributes => 1,
 			eav_fields          => 1,
 		}
