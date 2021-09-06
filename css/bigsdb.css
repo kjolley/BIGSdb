@@ -1433,6 +1433,18 @@ div.dashboard_element_height3 {
 	height: 458px;
 }
 
+div.hide_mobile {
+	display: none;
+}
+
+.modal {
+	max-width: 600px
+}
+
+span.device {
+	color: #888
+}
+
 span.dashboard_edit_element, span.dashboard_remove_element, span.dashboard_wait,
 	span.dashboard_explore_element {
 	display: inline-block;
@@ -1526,17 +1538,17 @@ div#dashboard .item-content div.doughnut .bb-chart-arc text, div#dashboard .item
 	filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.7));
 }
 
-div#dashboard .item-content div.map svg:not(:root){
+div#dashboard .item-content div.map svg:not(:root ){
 	overflow: visible;
 }
 
 span.palette_item {
-	display:inline-block;
-	margin:0;
-	padding:0;
-	height:6px;
-	width:20px;
-	border:1px solid #ccc
+	display: inline-block;
+	margin: 0;
+	padding: 0;
+	height: 6px;
+	width: 20px;
+	border: 1px solid #ccc
 }
 
 .colour_selector {

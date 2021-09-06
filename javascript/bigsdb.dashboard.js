@@ -19,8 +19,10 @@
  */
 
 var currentRequest = null;
+const MOBILE_WIDTH = 480;
 
 $(function() {
+	showOrHideElements();
 	$("select#add_field,label[for='add_field']").css("display", "inline");
 	var layout = $("#layout").val();
 	var fill_gaps = $("#fill_gaps").prop('checked');
@@ -45,6 +47,7 @@ $(function() {
 	} catch (err) {
 		console.log(err.message);
 	}
+
 
 	$("#panel_trigger,#close_trigger").click(function() {
 		$("#modify_panel").toggle("slide", { direction: "right" }, "fast");
@@ -154,7 +157,18 @@ $(function() {
 		var id = $(this).attr('id');
 		var attribute = id.replace(/^\d+_/, "");
 		var element_id = id.replace("_" + attribute, "");
-		changeElementAttribute(grid, element_id, attribute, $(this).val());
+		var value;
+		if (attribute == 'hide_mobile') {
+			value = $(this).prop('checked');
+			if (value) {
+				$("div#element_" + element_id + " div.item-content").addClass("hide_mobile");
+			} else {
+				$("div#element_" + element_id + " div.item-content").removeClass("hide_mobile");
+			}
+		} else {
+			value = $(this).val();
+		}
+		changeElementAttribute(grid, element_id, attribute, value);
 	});
 	$(document).on("change", '.palette_selector', function(event) {
 		var id = $(this).attr('id');
@@ -177,7 +191,22 @@ $(function() {
 			window.location = url;
 		});
 	});
+	$(window).resize(function() {
+		showOrHideElements();
+		loadNewElements();
+	});
 });
+
+
+function showOrHideElements() {
+	var small_screen = $("div#dashboard").width() < MOBILE_WIDTH;
+	$("div.hide_mobile").css("display", small_screen ? "none" : "block");
+	$.each(elements, function(index, element) {
+		if (element['display'] == 'setup') {
+			$("div#element_" + element['id'] + " div.item-content").css("display", "block");
+		}
+	});
+}
 
 
 //Post to the provided URL with the specified parameters.
@@ -230,7 +259,12 @@ function changeElementAttribute(grid, id, attribute, value) {
 			value = value.split();
 		}
 	}
-	value = clean_value(value);
+
+	if (value == true || value == false) {
+		value = value ? 1 : 0;
+	} else {
+		value = clean_value(value);
+	}
 	elements[id][attribute] = value;
 	saveAndReloadElement(grid, id);
 }
@@ -287,22 +321,22 @@ function editElement(grid, id, setup) {
 			$("span#control_" + id).show();
 		}
 		$("span#wait_" + id).hide();
-		show_or_hide_control_elements(id);
+		showOrHideControlElements(id);
 
 		$("select.watermark_selector").fontIconPicker({
 			theme: 'fip-darkgrey',
 			emptyIconValue: 'none',
 		});
 		$("div.modal").on("change", "#" + id + "_visualisation_type", function() {
-			show_or_hide_control_elements(id);
-			check_and_show_visualisation(grid, id);
+			showOrHideControlElements(id);
+			checkAndShowVisualisation(grid, id);
 		});
 		$("div.modal").on("change", "#" + id + "_breakdown_display,#" +
 			id + "_specific_value_display,#" +
 			id + "_specific_values,#" +
 			id + "_bar_colour_type", function() {
-				show_or_hide_control_elements(id);
-				check_and_show_visualisation(grid, id);
+				showOrHideControlElements(id);
+				checkAndShowVisualisation(grid, id);
 			});
 		$("div.modal").on($.modal.AFTER_CLOSE, function(event, modal) {
 			$("div.modal").remove();
@@ -310,7 +344,7 @@ function editElement(grid, id, setup) {
 	});
 }
 
-function show_or_hide_control_elements(id) {
+function showOrHideControlElements(id) {
 	var visualisation_type = $("input[name='" + id + "_visualisation_type']:checked").val();
 	var specific_value_display = $("#" + id + "_specific_value_display").val();
 	var breakdown_display = $("#" + id + "_breakdown_display").val();
@@ -384,7 +418,7 @@ function show_palette(id) {
 
 }
 
-function check_and_show_visualisation(grid, id) {
+function checkAndShowVisualisation(grid, id) {
 	var visualisation_type = $("input[name='" + id + "_visualisation_type']:checked").val();
 	var breakdown_display = $("#" + id + "_breakdown_display").val();
 	var specific_value_display = $("#" + id + "_specific_value_display").val();
@@ -429,6 +463,15 @@ function reloadElement(grid, id) {
 function reloadAllElements(grid) {
 	$.each(Object.keys(elements), function(index, value) {
 		reloadElement(grid, value);
+	});
+}
+
+function loadNewElements(grid) {
+	$.each(Object.keys(elements), function(index, value) {
+		if (!loadedElements[value] && !($("div#dashboard").width() < MOBILE_WIDTH && elements[value]['hide_mobile'])) {
+			reloadElement(grid, value);
+			loadedElements[value] = 1;
+		}
 	});
 }
 

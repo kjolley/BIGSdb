@@ -41,7 +41,8 @@ use constant {
 	GAUGE_BACKGROUND_COLOUR          => '#a0a0a0',
 	GAUGE_FOREGROUND_COLOUR          => '#0000ff',
 	CHART_COLOUR                     => '#1f77b4',
-	TOP_VALUES                       => 5
+	TOP_VALUES                       => 5,
+	MOBILE_WIDTH                     => 480
 };
 
 sub print_content {
@@ -101,7 +102,7 @@ sub _ajax_controls {
 	say q(<div class="modal">);
 	say q(<h2>Modify visual element</h2>);
 	say qq(<p><strong>Field: $element->{'name'}</strong></p>);
-	$self->_get_size_controls( $id, $element );
+	$self->_print_size_controls( $id, $element );
 
 	if ( $element->{'display'} eq 'setup' || $element->{'display'} eq 'field' ) {
 		$self->_print_visualisation_type_controls( $id, $element );
@@ -351,10 +352,10 @@ sub _get_field_values {
 	return [];
 }
 
-sub _get_size_controls {
+sub _print_size_controls {
 	my ( $self, $id, $element ) = @_;
 	my $q = $self->{'cgi'};
-	say q(<fieldset><legend>Size</legend>);
+	say q(<fieldset style="float:left"><legend>Size</legend>);
 	say q(<ul><li><span class="fas fa-arrows-alt-h fa-fw"></span> );
 	say $q->radio_group(
 		-name    => "${id}_width",
@@ -371,6 +372,14 @@ sub _get_size_controls {
 		-values  => [ 1, 2, 3 ],
 		-default => $element->{'height'}
 	);
+	say q(</li><li>);
+	say $q->checkbox(
+		-name    => "${id}_hide_mobile",
+		-id      => "${id}_hide_mobile",
+		-label   => 'Hide on small screens',
+		-class   => 'element_option',
+		-checked => $element->{'hide_mobile'} // 1
+	);
 	say q(</li></ul>);
 	say q(</fieldset>);
 	return;
@@ -380,7 +389,8 @@ sub _print_change_duration_control {
 	my ( $self, $id, $element, $options ) = @_;
 	my $display = $options->{'display'} // 'inline';
 	my $q = $self->{'cgi'};
-	say qq(<fieldset id="change_duration_control" style="display:$display">) . q(<legend>Rate of change</legend><ul>);
+	say qq(<fieldset id="change_duration_control" style="float:left;display:$display">)
+	  . q(<legend>Rate of change</legend><ul>);
 	say q(<li>);
 	say q(<label for="change_duration">Show change</label>);
 	say $q->popup_menu(
@@ -404,7 +414,7 @@ sub _print_change_duration_control {
 sub _print_design_control {
 	my ( $self, $id, $element, $options ) = @_;
 	my $display = $options->{'display'} // 'inline';
-	say qq(<fieldset id="design_control" style="display:$display"><legend>Design</legend><ul>);
+	say qq(<fieldset id="design_control" style="float:left;display:$display"><legend>Design</legend><ul>);
 	$self->_print_colour_control( $id, $element );
 	$self->_print_watermark_control( $id, $element );
 	$self->_print_palette_control( $id, $element );
@@ -564,7 +574,8 @@ sub _ajax_new {
 				db   => $self->{'instance'},
 				page => 'query'
 			},
-			url_text => "Browse $self->{'system'}->{'labelfield'}s"
+			url_text    => "Browse $self->{'system'}->{'labelfield'}s",
+			hide_mobile => 0
 		},
 		sp_genomes => {
 			name              => 'Genome count',
@@ -580,7 +591,8 @@ sub _ajax_new {
 				page    => 'query',
 				genomes => 1,
 			},
-			url_text => 'Browse genomes'
+			url_text    => 'Browse genomes',
+			hide_mobile => 0
 		}
 	};
 	my $q     = $self->{'cgi'};
@@ -609,8 +621,9 @@ sub _ajax_new {
 			$element->{'watermark'} = $default_watermarks{$field};
 		}
 	}
-	$element->{'width'}  //= 1;
-	$element->{'height'} //= 1;
+	$element->{'width'}       //= 1;
+	$element->{'height'}      //= 1;
+	$element->{'hide_mobile'} //= 1;
 	my $json = JSON->new->allow_nonref;
 	say $json->encode(
 		{
@@ -679,7 +692,7 @@ sub _get_dashboard_empty_message {
 sub _print_main_section {
 	my ($self) = @_;
 	my $elements = $self->_get_elements;
-	say q(<div style="min-height:400px"><div id="empty">);
+	say q(<div><div id="empty">);
 	if ( !keys %$elements ) {
 		say $self->_get_dashboard_empty_message;
 	}
@@ -693,7 +706,7 @@ sub _print_main_section {
 		if ( $display_immediately{$display} ) {
 			say $self->_get_element_html( $elements->{$element} );
 		} else {
-			say $self->_load_element_html_by_ajax( $elements->{$element} );
+			say $self->_get_element_html( $elements->{$element}, { by_ajax => 1 } );
 			push @$ajax_load, $element;
 		}
 	}
@@ -714,12 +727,16 @@ sub _print_ajax_load_code {
 	if (!window.running){
 		window.running = true;
 		\$.each(element_ids, function(index,value){
+			if (\$("div#dashboard").width() < MOBILE_WIDTH && elements[value]['hide_mobile']){
+				return;
+			}
 			\$.ajax({
 		    	url:"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=dashboard&element=" + value
 		    }).done(function(json){
 		       	try {
 		       	    \$("div#element_" + value + " > .item-content > .ajax_content").html(JSON.parse(json).html);
 		       	    applyFormatting();
+		       	    loadedElements[value] = 1;
 		       	} catch (err) {
 		       		console.log(err.message);
 		       	} 	          	    
@@ -798,28 +815,21 @@ sub _get_default_elements {
 }
 
 sub _get_element_html {
-	my ( $self, $element ) = @_;
+	my ( $self, $element, $options ) = @_;
+	my $mobile_class = $element->{'hide_mobile'} ? q( hide_mobile) : q();
 	my $buffer       = qq(<div id="element_$element->{'id'}" data-id="$element->{'id'}" class="item">);
 	my $width_class  = "dashboard_element_width$element->{'width'}";
 	my $height_class = "dashboard_element_height$element->{'height'}";
-	$buffer .= qq(<div class="item-content $width_class $height_class">);
+	my $setup        = $element->{'display'} eq 'setup' ? q( style="display:block") : q();
+	$buffer .= qq(<div class="item-content $width_class $height_class$mobile_class"$setup>);
 	$buffer .= $self->_get_element_controls($element);
 	$buffer .= q(<div class="ajax_content" style="overflow:hidden;height:100%;width:100%">);
-	$buffer .= $self->_get_element_content($element);
+	if ( $options->{'by_ajax'} ) {
+		$buffer .= q(<span class="dashboard_wait_ajax fas fa-sync-alt fa-spin"></span>);
+	} else {
+		$buffer .= $self->_get_element_content($element);
+	}
 	$buffer .= q(</div></div></div>);
-	return $buffer;
-}
-
-sub _load_element_html_by_ajax {
-	my ( $self, $element ) = @_;
-	my $buffer       = qq(<div id="element_$element->{'id'}" data-id="$element->{'id'}" class="item">);
-	my $width_class  = "dashboard_element_width$element->{'width'}";
-	my $height_class = "dashboard_element_height$element->{'height'}";
-	$buffer .= qq(<div class="item-content $width_class $height_class">);
-	$buffer .= $self->_get_element_controls($element);
-	$buffer .= q(<div class="ajax_content" style="overflow:hidden;height:100%;width:100%">)
-	  . q(<span class="dashboard_wait_ajax fas fa-sync-alt fa-spin"></span></div>);
-	$buffer .= q(</div></div>);
 	return $buffer;
 }
 
@@ -2499,7 +2509,6 @@ sub _update_prefs {
 	my %allowed_attributes =
 	  map { $_ => 1 }
 	  qw(layout fill_gaps enable_drag edit_elements remove_elements order elements default include_old_versions
-	  visualisation_type specific_values palette
 	);
 
 	if ( !$allowed_attributes{$attribute} ) {
@@ -2512,7 +2521,7 @@ sub _update_prefs {
 	}
 	my %boolean_attributes =
 	  map { $_ => 1 }
-	  qw(fill_gaps enable_drag edit_elements remove_elements include_old_versions visualisation_type
+	  qw(fill_gaps enable_drag edit_elements remove_elements include_old_versions
 	);
 	if ( $boolean_attributes{$attribute} ) {
 		my %allowed_values = map { $_ => 1 } ( 0, 1 );
@@ -2719,6 +2728,7 @@ var order = '$order';
 var instance = "$self->{'instance'}";
 var empty='$empty';
 var enable_drag=$enable_drag;
+var loadedElements = {};
 
 END
 	return $buffer;

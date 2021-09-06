@@ -27,6 +27,7 @@ elements = [
 		url_attributes    = 'page=query',
 		url_text          = 'Browse isolates',
 		post_data         = { page = 'query' },
+		hide_mobile       = 0
 	},
 	{ 	#Genome count (will only display if there are genomes in the database).	
 		display           = 'record_count',
@@ -39,7 +40,8 @@ elements = [
 		change_duration   = 'week',
 		url_attributes    = 'page=query',
 		url_text          = 'Browse genomes',
-		post_data         = { page = 'query', genomes = 1 }
+		post_data         = { page = 'query', genomes = 1 },
+		hide_mobile       = 0
 	},
 	{
 		#Top 5 list of continents (Geocoding should be set up with default country
@@ -49,7 +51,8 @@ elements = [
 		field             = 'e_country||continent',
 		breakdown_display = 'top',
 		top_values        = 5,
-		width             = 2
+		width             = 2,
+		hide_mobile       = 1
 	},
 	{   #Doughnut chart of species.
 		display           = 'field',
@@ -57,7 +60,8 @@ elements = [
 		field             = 'f_species',
 		breakdown_display = 'doughnut',
 		height            = 2,
-		width             = 2
+		width             = 2,
+		hide_mobile       = 1
 	},
 	{
 		#Bar chart of submission years. 
@@ -67,7 +71,8 @@ elements = [
 		breakdown_display = 'bar',
 		width             = 3,
 		bar_colour_type   = 'continuous',
-		chart_colour      = '#126716'
+		chart_colour      = '#126716',
+		hide_mobile       = 1
 	},	
 	{
 		#Cumulative chart of submissions by date.
@@ -75,6 +80,7 @@ elements = [
 		name              = 'Date entered',
 		field             = 'f_date_entered',
 		width             = 2,
-		breakdown_display = 'cumulative'
+		breakdown_display = 'cumulative',
+		hide_mobile       = 1
 	}
 ]
