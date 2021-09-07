@@ -699,12 +699,14 @@ sub _print_main_section {
 	say q(</div>);
 	say q(<div id="dashboard" class="grid">);
 	my %display_immediately = map { $_ => 1 } qw(setup record_count);
-	my $ajax_load = [];
+	my $already_loaded      = [];
+	my $ajax_load           = [];
 	foreach my $element ( sort { $elements->{$a}->{'order'} <=> $elements->{$b}->{'order'} } keys %$elements ) {
 		my $display = $elements->{$element}->{'display'};
 		next if !$display;
 		if ( $display_immediately{$display} ) {
 			say $self->_get_element_html( $elements->{$element} );
+			push @$already_loaded, $element;
 		} else {
 			say $self->_get_element_html( $elements->{$element}, { by_ajax => 1 } );
 			push @$ajax_load, $element;
@@ -712,20 +714,25 @@ sub _print_main_section {
 	}
 	say q(</div></div>);
 	if (@$ajax_load) {
-		$self->_print_ajax_load_code($ajax_load);
+		$self->_print_ajax_load_code( $already_loaded, $ajax_load );
 	}
 	return;
 }
 
+#TODO Try to fill width of panel rather than leaving large right-hand gutter.
 sub _print_ajax_load_code {
-	my ( $self, $element_ids ) = @_;
+	my ( $self, $already_loaded, $ajax_load_ids ) = @_;
 	local $" = q(,);
 	say q[<script>];
 	say q[$(function () {];
 	say << "JS";
-	var element_ids = [@$element_ids];
+	var element_ids = [@$ajax_load_ids];
+	var already_loaded = [@$already_loaded];
 	if (!window.running){
 		window.running = true;
+		\$.each(already_loaded, function(index,value){
+			loadedElements[value] = 1;
+		});
 		\$.each(element_ids, function(index,value){
 			if (\$("div#dashboard").width() < MOBILE_WIDTH && elements[value]['hide_mobile']){
 				return;
