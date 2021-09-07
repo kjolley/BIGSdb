@@ -81,7 +81,7 @@ sub print_content {
 	}
 	say q(</div>);
 	say qq(<div id="main_container" class="flex_container" style="max-width:${max_width}px">);
-	say qq(<div class="index_panel" style="max-width:${index_panel_max_width}px;min-width:65%">);
+	say qq(<div class="dashboard_panel" style="max-width:${index_panel_max_width}px">);
 	$self->_print_main_section;
 	say q(</div>);
 	say q(<div class="menu_panel" style="width:250px">);
@@ -719,7 +719,6 @@ sub _print_main_section {
 	return;
 }
 
-#TODO Try to fill width of panel rather than leaving large right-hand gutter.
 sub _print_ajax_load_code {
 	my ( $self, $already_loaded, $ajax_load_ids ) = @_;
 	local $" = q(,);

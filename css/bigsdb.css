@@ -1330,6 +1330,14 @@ div.grid {
 	position: relative;
 }
 
+div.dashboard_panel {
+	flex: 10;
+	margin: 0.4em 0;
+	min-width: 65%;
+	padding: 5px;
+	background: #eceef1;
+}
+
 .item {
 	display: block;
 	position: absolute;
@@ -1538,7 +1546,7 @@ div#dashboard .item-content div.doughnut .bb-chart-arc text, div#dashboard .item
 	filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.7));
 }
 
-div#dashboard .item-content div.map svg:not(:root ){
+div#dashboard .item-content div .map svg {
 	overflow: visible;
 }
 
@@ -2943,12 +2951,11 @@ a.slide_trigger {
 	}
 }
 
-@media only screen and (max-width:517px) {
+/* @media only screen and (max-width:536px) {
 	div.dashboard_element_width2 {
 		width: 458px
 	}
-}
-
+} */
 @media only screen and (max-width:450px) {
 	div.curategroup {
 		min-width: 85%

@@ -23,6 +23,7 @@ const MOBILE_WIDTH = 480;
 
 $(function() {
 	showOrHideElements();
+	setElementWidths(grid);
 	$("select#add_field,label[for='add_field']").css("display", "inline");
 	var layout = $("#layout").val();
 	var fill_gaps = $("#fill_gaps").prop('checked');
@@ -192,10 +193,31 @@ $(function() {
 		});
 	});
 	$(window).resize(function() {
+		setElementWidths();
 		showOrHideElements();
 		loadNewElements();
 	});
+
 });
+
+function setElementWidths() {
+	var dashboard_width = $("div#dashboard").width();
+	var margin = 5;
+	var gutter = (dashboard_width - (margin * 2)) % 150;
+	var extra = gutter / 10;
+	var w1 = 150;
+	var w2 = 304;
+	var w3 = 458;
+	var w4 = 612;
+	$("div.dashboard_element_width1").css("width", w1 + extra);
+	$("div.dashboard_element_width2").css("width", w2 + extra * 2);
+	$("div.dashboard_element_width3").css("width", w3 + extra * 3);
+	$("div.dashboard_element_width4").css("width", w4 + extra * 4);
+	//Special case to ensure full mobile width is filled with a count element.
+	if (dashboard_width < w3 - (margin * 2)) {
+		$("div.dashboard_element_width2").css("width", w3);
+	}
+}
 
 
 function showOrHideElements() {
@@ -497,8 +519,8 @@ function changeElementDimension(grid, id, attribute) {
 	var new_dimension = $("input[name='" + id + "_" + attribute + "']:checked")
 		.val();
 	item_content.addClass("dashboard_element_" + attribute + new_dimension);
-	$("span#" + id + "_" + attribute).html(new_dimension);
 	elements[id][attribute] = Number(new_dimension);
+	setElementWidths();
 	saveAndReloadElement(grid, id);
 	grid.refreshItems().layout();
 }
