@@ -224,7 +224,7 @@ function setGridMargins(grid) {
 }
 
 function showOrHideElements() {
-	var small_screen = $("div#dashboard").width() < MOBILE_WIDTH;
+	var small_screen = $(window).width() < MOBILE_WIDTH;
 	$("div.hide_mobile").css("display", small_screen ? "none" : "block");
 	$("div.hide_border").css("border", small_screen ? "0" : "1px solid #ccc");
 	$.each(elements, function(index, element) {
