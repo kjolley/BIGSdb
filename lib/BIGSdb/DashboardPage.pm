@@ -824,7 +824,8 @@ sub _get_default_elements {
 sub _get_element_html {
 	my ( $self, $element, $options ) = @_;
 	my $mobile_class = $element->{'hide_mobile'} ? q( hide_mobile) : q();
-	my $buffer       = qq(<div id="element_$element->{'id'}" data-id="$element->{'id'}" class="item">);
+	my $border = $element->{'hide_mobile'} ? q( hide_border) : q();
+	my $buffer       = qq(<div id="element_$element->{'id'}" data-id="$element->{'id'}" class="item$border">);
 	my $width_class  = "dashboard_element_width$element->{'width'}";
 	my $height_class = "dashboard_element_height$element->{'height'}";
 	my $setup        = $element->{'display'} eq 'setup' ? q( style="display:block") : q();

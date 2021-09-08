@@ -1449,6 +1449,10 @@ div.hide_mobile {
 	display: none;
 }
 
+div.hide_border {
+	border:0
+}
+
 .modal {
 	max-width: 600px
 }
