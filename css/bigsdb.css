@@ -1338,6 +1338,10 @@ div.dashboard_panel {
 	background: #eceef1;
 }
 
+div.new_item {
+	visibility:hidden
+}
+
 .item {
 	display: block;
 	position: absolute;

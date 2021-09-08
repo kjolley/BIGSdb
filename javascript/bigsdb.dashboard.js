@@ -23,13 +23,13 @@ const MOBILE_WIDTH = 480;
 
 $(function() {
 	showOrHideElements();
-	setElementWidths(grid);
+
 	$("select#add_field,label[for='add_field']").css("display", "inline");
 	var layout = $("#layout").val();
 	var fill_gaps = $("#fill_gaps").prop('checked');
 	var grid;
 	try {
-		grid = new Muuri('.grid', {
+		grid = new Muuri('#dashboard', {
 			dragEnabled: true,
 			layout: {
 				alignRight: layout.includes('right'),
@@ -111,10 +111,10 @@ $(function() {
 		});
 	});
 
-
 	$("#add_element").click(function() {
 		var nextId = getNextid();
 		addElement(grid, nextId);
+		setGridMargins(grid);
 	});
 
 	$("div#dashboard").on("click touchstart", ".dashboard_edit_element", function() {
@@ -193,32 +193,35 @@ $(function() {
 		});
 	});
 	$(window).resize(function() {
-		setElementWidths();
 		showOrHideElements();
+		setGridMargins(grid)
 		loadNewElements();
 	});
-
+	setGridMargins(grid);
 });
 
-function setElementWidths() {
-	var dashboard_width = $("div#dashboard").width();
-	var margin = 5;
-	var gutter = (dashboard_width - (margin * 2)) % 150;
-	var extra = gutter / 10;
-	var w1 = 150;
-	var w2 = 304;
-	var w3 = 458;
-	var w4 = 612;
-	$("div.dashboard_element_width1").css("width", w1 + extra);
-	$("div.dashboard_element_width2").css("width", w2 + extra * 2);
-	$("div.dashboard_element_width3").css("width", w3 + extra * 3);
-	$("div.dashboard_element_width4").css("width", w4 + extra * 4);
-	//Special case to ensure full mobile width is filled with a count element.
-	if (dashboard_width < w3 - (margin * 2)) {
-		$("div.dashboard_element_width2").css("width", w3);
-	}
+function setGridMargins(grid) {	
+	let dashboard_width = Math.floor($("div#dashboard_panel").width() / 155) * 155
+	$("div#dashboard").css("width", dashboard_width);
+	grid.on('layoutEnd', function() {
+		grid.off('layoutEnd');
+		
+		let layout_width = 0
+		grid.getItems().forEach(item => {
+			let { left } = item.getPosition()
+			let right = left + item.getWidth()
+			layout_width = Math.max(layout_width, right)
+		})
+		if (layout_width < 300){
+			layout_width = 300;
+		} 
+		if (layout_width > dashboard_width ) {
+			$("div#dashboard").css("width", dashboard_width );
+		} else {
+			$("div#dashboard").css("width", layout_width );
+		}	
+	});
 }
-
 
 function showOrHideElements() {
 	var small_screen = $("div#dashboard").width() < MOBILE_WIDTH;
@@ -328,6 +331,7 @@ function addElement(grid, id) {
 				saveElements(grid);
 			}
 			applyFormatting();
+			$("div#element_" + id + " div.item-content").css("visibility","visible");
 		} catch (err) {
 			console.log(err.message);
 		}
@@ -520,7 +524,7 @@ function changeElementDimension(grid, id, attribute) {
 		.val();
 	item_content.addClass("dashboard_element_" + attribute + new_dimension);
 	elements[id][attribute] = Number(new_dimension);
-	setElementWidths();
+	//	setElementWidths(grid);
 	saveAndReloadElement(grid, id);
 	grid.refreshItems().layout();
 }

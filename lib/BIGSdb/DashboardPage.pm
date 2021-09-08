@@ -81,7 +81,7 @@ sub print_content {
 	}
 	say q(</div>);
 	say qq(<div id="main_container" class="flex_container" style="max-width:${max_width}px">);
-	say qq(<div class="dashboard_panel" style="max-width:${index_panel_max_width}px">);
+	say qq(<div id="dashboard_panel" class="dashboard_panel" style="max-width:${index_panel_max_width}px">);
 	$self->_print_main_section;
 	say q(</div>);
 	say q(<div class="menu_panel" style="width:250px">);
@@ -628,7 +628,7 @@ sub _ajax_new {
 	say $json->encode(
 		{
 			element => $element,
-			html    => $self->_get_element_html($element)
+			html    => $self->_get_element_html($element,{new=>1})
 		}
 	);
 	return;
@@ -697,7 +697,7 @@ sub _print_main_section {
 		say $self->_get_dashboard_empty_message;
 	}
 	say q(</div>);
-	say q(<div id="dashboard" class="grid">);
+	say q(<div id="dashboard" class="grid" style="margin:auto;max-width:90vw">);
 	my %display_immediately = map { $_ => 1 } qw(setup record_count);
 	my $already_loaded      = [];
 	my $ajax_load           = [];
@@ -716,6 +716,7 @@ sub _print_main_section {
 	if (@$ajax_load) {
 		$self->_print_ajax_load_code( $already_loaded, $ajax_load );
 	}
+	
 	return;
 }
 
@@ -827,9 +828,10 @@ sub _get_element_html {
 	my $width_class  = "dashboard_element_width$element->{'width'}";
 	my $height_class = "dashboard_element_height$element->{'height'}";
 	my $setup        = $element->{'display'} eq 'setup' ? q( style="display:block") : q();
-	$buffer .= qq(<div class="item-content $width_class $height_class$mobile_class"$setup>);
+	my $new_item = $options->{'new'} ? q( new_item) : q();
+	$buffer .= qq(<div class="item-content $width_class $height_class$mobile_class$new_item"$setup>);
 	$buffer .= $self->_get_element_controls($element);
-	$buffer .= q(<div class="ajax_content" style="overflow:hidden;height:100%;width:100%">);
+	$buffer .= q(<div class="ajax_content" style="overflow:hidden;height:100%;width:100%;">);
 	if ( $options->{'by_ajax'} ) {
 		$buffer .= q(<span class="dashboard_wait_ajax fas fa-sync-alt fa-spin"></span>);
 	} else {
