@@ -201,11 +201,11 @@ $(function() {
 });
 
 function setGridMargins(grid) {	
-	let dashboard_width = Math.floor($("div#dashboard_panel").width() / 155) * 155
+	let dashboard_width = Math.floor($("div#dashboard_panel").width() / 155) * 155;
+	console.log(dashboard_width);
 	$("div#dashboard").css("width", dashboard_width);
 	grid.on('layoutEnd', function() {
-		grid.off('layoutEnd');
-		
+		grid.off('layoutEnd');		
 		let layout_width = 0
 		grid.getItems().forEach(item => {
 			let { left } = item.getPosition()
@@ -220,6 +220,7 @@ function setGridMargins(grid) {
 		} else {
 			$("div#dashboard").css("width", layout_width );
 		}	
+		console.log($("div#dashboard").width());
 	});
 }
 
@@ -559,6 +560,7 @@ function saveAndReloadElement(grid, id) {
 		},
 		success: function() {
 			reloadElement(grid, id);
+			setGridMargins(grid);
 		}
 	});
 }
