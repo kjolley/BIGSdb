@@ -215,6 +215,7 @@ function setGridMargins(grid) {
 		if (layout_width < 300){
 			layout_width = 300;
 		} 
+		layout_width += 10;
 		if (layout_width > dashboard_width ) {
 			$("div#dashboard").css("width", dashboard_width );
 		} else {

@@ -149,6 +149,7 @@ sub _print_visualisation_type_controls {
 	say qq(<li id="value_selector" style="display:$display">);
 
 	if ( $self->_field_has_optlist( $element->{'field'} ) ) {
+		
 		say q(<label>Select value(s):</label><br />);
 		my $values = $self->_get_field_values( $element->{'field'} );
 		say $self->popup_menu(
@@ -232,6 +233,7 @@ sub _field_has_optlist {
 	}
 	if ( $field =~ /^eav_(.*)/x ) {
 		my $attributes = $self->{'datastore'}->get_eav_field($1);
+		$logger->error(Dumper $attributes);
 		return 1 if $attributes->{'option_list'};
 		return 1 if $attributes->{'value_format'} eq 'boolean';
 	}
@@ -2539,7 +2541,7 @@ sub _update_prefs {
 	my $json = JSON->new->allow_nonref;
 	my %json_attributes = map { $_ => 1 } qw(order elements);
 	if ( $json_attributes{$attribute} ) {
-		if ( length($value) > 5000 ) {
+		if ( length($value) > 50000 ) {
 			$logger->error("$attribute value too long.");
 			return;
 		}
