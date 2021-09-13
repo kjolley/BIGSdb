@@ -27,6 +27,7 @@ $(function() {
 	$("select#add_field,label[for='add_field']").css("display", "inline");
 	var layout = $("#layout").val();
 	var fill_gaps = $("#fill_gaps").prop('checked');
+	var open_new = $("#open_new").prop('checked');
 	var grid;
 	try {
 		grid = new Muuri('#dashboard', {
@@ -101,6 +102,14 @@ $(function() {
 		var remove_elements = $("#remove_elements").prop('checked');
 		$.ajax(url + "&page=dashboard&updatePrefs=1&attribute=remove_elements&value=" + (remove_elements ? 1 : 0));
 		$("span.dashboard_remove_element").css("display", remove_elements ? "inline" : "none");
+	});
+	$("#open_new").change(function() {
+		open_new = $("#open_new").prop('checked');
+		$.ajax({
+			url: url + "&page=dashboard&updatePrefs=1&attribute=open_new&value=" + (open_new ? 1 : 0)
+		}).done(function() {
+			reloadElementsWithURL(grid);
+		});
 	});
 	$("#include_old_versions").change(function() {
 		var include_old_versions = $("#include_old_versions").prop('checked');
@@ -201,26 +210,26 @@ $(function() {
 	setGridMargins(grid);
 });
 
-function setGridMargins(grid) {	
+function setGridMargins(grid) {
 	let dashboard_width = Math.floor($("div#dashboard_panel").width() / 155) * 155;
 	$("div#dashboard").css("width", dashboard_width);
 	grid.on('layoutEnd', function() {
-		grid.off('layoutEnd');		
+		grid.off('layoutEnd');
 		let layout_width = 0
 		grid.getItems().forEach(item => {
 			let { left } = item.getPosition()
 			let right = left + item.getWidth()
 			layout_width = Math.max(layout_width, right)
 		})
-		if (layout_width < 300){
+		if (layout_width < 300) {
 			layout_width = 300;
-		} 
+		}
 		layout_width += 10;
-		if (layout_width > dashboard_width ) {
-			$("div#dashboard").css("width", dashboard_width );
+		if (layout_width > dashboard_width) {
+			$("div#dashboard").css("width", dashboard_width);
 		} else {
-			$("div#dashboard").css("width", layout_width );
-		}	
+			$("div#dashboard").css("width", layout_width);
+		}
 	});
 }
 
@@ -240,10 +249,9 @@ function showOrHideElements() {
 //https://stackoverflow.com/questions/133925/javascript-post-request-like-a-form-submit/5533477#5533477
 function post(path, parameters) {
 	var form = $('<form></form>');
-
 	form.attr("method", "post");
 	form.attr("action", path);
-
+	form.attr("target", $("#open_new").prop('checked') ? '_blank' : null);
 	$.each(parameters, function(key, value) {
 		var field = $('<input></input>');
 		field.attr("type", "hidden");
@@ -333,7 +341,7 @@ function addElement(grid, id) {
 				saveElements(grid);
 			}
 			applyFormatting();
-			$("div#element_" + id + " div.item-content").css("visibility","visible");
+			$("div#element_" + id + " div.item-content").css("visibility", "visible");
 		} catch (err) {
 			console.log(err.message);
 		}
@@ -491,6 +499,15 @@ function reloadElement(grid, id) {
 function reloadAllElements(grid) {
 	$.each(Object.keys(elements), function(index, value) {
 		reloadElement(grid, value);
+	});
+}
+
+function reloadElementsWithURL(grid){
+	$.each(Object.keys(elements), function(index, value) {
+		if (elements[value]['visualisation_type'] != 'specific values' 
+		&&  elements[value]['breakdown_display'] == 'top'){
+			reloadElement(grid, value);
+		}
 	});
 }
 

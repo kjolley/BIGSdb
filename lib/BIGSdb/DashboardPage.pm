@@ -149,7 +149,6 @@ sub _print_visualisation_type_controls {
 	say qq(<li id="value_selector" style="display:$display">);
 
 	if ( $self->_field_has_optlist( $element->{'field'} ) ) {
-		
 		say q(<label>Select value(s):</label><br />);
 		my $values = $self->_get_field_values( $element->{'field'} );
 		say $self->popup_menu(
@@ -264,8 +263,8 @@ sub _get_field_type {
 		my $att = $self->{'datastore'}->get_eav_field($1);
 		return $att->{'value_format'};
 	}
-	if ($element->{'field'} =~ /^s_(\d+)_(.*)/x){
-		my $att = $self->{'datastore'}->get_scheme_field_info($1,$2);
+	if ( $element->{'field'} =~ /^s_(\d+)_(.*)/x ) {
+		my $att = $self->{'datastore'}->get_scheme_field_info( $1, $2 );
 		return $att->{'type'};
 	}
 	return;
@@ -633,7 +632,7 @@ sub _ajax_new {
 	say $json->encode(
 		{
 			element => $element,
-			html    => $self->_get_element_html($element,{new=>1})
+			html    => $self->_get_element_html( $element, { new => 1 } )
 		}
 	);
 	return;
@@ -721,7 +720,6 @@ sub _print_main_section {
 	if (@$ajax_load) {
 		$self->_print_ajax_load_code( $already_loaded, $ajax_load );
 	}
-	
 	return;
 }
 
@@ -829,15 +827,16 @@ sub _get_default_elements {
 sub _get_element_html {
 	my ( $self, $element, $options ) = @_;
 	my $mobile_class = $element->{'hide_mobile'} ? q( hide_mobile) : q();
-	my $border = $element->{'hide_mobile'} ? q( hide_border) : q();
+	my $border       = $element->{'hide_mobile'} ? q( hide_border) : q();
 	my $buffer       = qq(<div id="element_$element->{'id'}" data-id="$element->{'id'}" class="item$border">);
 	my $width_class  = "dashboard_element_width$element->{'width'}";
 	my $height_class = "dashboard_element_height$element->{'height'}";
 	my $setup        = $element->{'display'} eq 'setup' ? q( style="display:block") : q();
-	my $new_item = $options->{'new'} ? q( new_item) : q();
+	my $new_item     = $options->{'new'} ? q( new_item) : q();
 	$buffer .= qq(<div class="item-content $width_class $height_class$mobile_class$new_item"$setup>);
 	$buffer .= $self->_get_element_controls($element);
 	$buffer .= q(<div class="ajax_content" style="overflow:hidden;height:100%;width:100%;">);
+
 	if ( $options->{'by_ajax'} ) {
 		$buffer .= q(<span class="dashboard_wait_ajax fas fa-sync-alt fa-spin"></span>);
 	} else {
@@ -997,6 +996,9 @@ sub _get_field_element_content {
 		);
 		if ( $methods{$chart_type} ) {
 			$buffer .= $methods{$chart_type}->();
+		} else {
+			$logger->error("Element $element->{'id'}: No chart type selected");
+			$buffer .= $self->_get_setup_element_content($element);
 		}
 	}
 	$buffer .= q(</div>);
@@ -2008,13 +2010,14 @@ sub _get_field_breakdown_top_values_content {
 	$buffer .= q(<div><table class="dashboard_table"><tr><th>Value</th><th>Frequency</th></tr>);
 	my $td    = 1;
 	my $count = 0;
+	my $target = $self->{'prefs'}->{'open_new'} ? q( target="_blank") : q();
 
 	foreach my $value ( sort { $b->{'value'} <=> $a->{'value'} } @$data ) {
 		next if !defined $value->{'label'} || $value->{'label'} eq 'No value';
 		my $url = $self->_get_query_url( $element, $value->{'label'} );
 		my $nice_value = BIGSdb::Utils::commify( $value->{'value'} );
 		$count++;
-		$buffer .= qq(<tr class="td$td" style="$style"><td><a href="$url">)
+		$buffer .= qq(<tr class="td$td" style="$style"><td><a href="$url"$target>)
 		  . qq($value->{'label'}</a></td><td>$nice_value</td></tr>);
 		$td = $td == 1 ? 2 : 1;
 		last if $count >= $element->{'top_values'};
@@ -2522,7 +2525,8 @@ sub _update_prefs {
 	return if !defined $value;
 	my %allowed_attributes =
 	  map { $_ => 1 }
-	  qw(layout fill_gaps enable_drag edit_elements remove_elements order elements default include_old_versions
+	  qw(layout fill_gaps enable_drag edit_elements remove_elements order elements default include_old_versions 
+	  open_new
 	);
 
 	if ( !$allowed_attributes{$attribute} ) {
@@ -2535,7 +2539,7 @@ sub _update_prefs {
 	}
 	my %boolean_attributes =
 	  map { $_ => 1 }
-	  qw(fill_gaps enable_drag edit_elements remove_elements include_old_versions
+	  qw(fill_gaps enable_drag edit_elements remove_elements include_old_versions open_new
 	);
 	if ( $boolean_attributes{$attribute} ) {
 		my %allowed_values = map { $_ => 1 } ( 0, 1 );
@@ -2574,6 +2578,7 @@ sub _print_modify_dashboard_fieldset {
 	my $enable_drag          = $self->{'prefs'}->{'enable_drag'}          // 0;
 	my $edit_elements        = $self->{'prefs'}->{'edit_elements'}        // 1;
 	my $remove_elements      = $self->{'prefs'}->{'remove_elements'}      // 0;
+	my $open_new             = $self->{'prefs'}->{'open_new'}             // 1;
 	my $include_old_versions = $self->{'prefs'}->{'include_old_versions'} // 0;
 	my $q                    = $self->{'cgi'};
 	say q(<div id="modify_panel" class="panel">);
@@ -2607,6 +2612,16 @@ sub _print_modify_dashboard_fieldset {
 		-id      => 'enable_drag',
 		-label   => 'Enable drag',
 		-checked => $enable_drag ? 'checked' : undef
+	);
+	say q(</li></ul>);
+	say q(</fieldset>);
+	say q(<fieldset><legend>Links</legend>);
+	say q(<ul><li>);
+	say $q->checkbox(
+		-name    => 'open_new',
+		-id      => 'open_new',
+		-label   => 'Open links in new tab',
+		-checked => $open_new ? 'checked' : undef
 	);
 	say q(</li></ul>);
 	say q(</fieldset>);
