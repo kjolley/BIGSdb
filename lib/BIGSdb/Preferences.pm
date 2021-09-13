@@ -584,10 +584,12 @@ sub set_primary_dashboard_pref {
 		$self->_add_existing_guid($guid);
 	}
 	eval {
-		$self->{'db'}->do( 'DELETE FROM primary_dashboard WHERE (guid,dbase_config,attribute)=(?,?,?)',
-			undef, $guid, $dbase_config, $attribute );
-		$self->{'db'}->do( 'INSERT INTO primary_dashboard (guid,dbase_config,attribute,value) VALUES (?,?,?,?)',
-			undef, $guid, $dbase_config, $attribute, $value );
+		$self->{'db'}->do(
+			    'INSERT INTO primary_dashboard (guid,dbase_config,attribute,value) VALUES (?,?,?,?) '
+			  . 'ON CONFLICT ON CONSTRAINT primary_dashboard_pkey DO UPDATE SET value=?'
+			,
+			undef, $guid, $dbase_config, $attribute, $value, $value
+		);
 	};
 	if ($@) {
 		$logger->error($@);

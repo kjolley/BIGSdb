@@ -233,7 +233,6 @@ sub _field_has_optlist {
 	}
 	if ( $field =~ /^eav_(.*)/x ) {
 		my $attributes = $self->{'datastore'}->get_eav_field($1);
-		$logger->error(Dumper $attributes);
 		return 1 if $attributes->{'option_list'};
 		return 1 if $attributes->{'value_format'} eq 'boolean';
 	}
@@ -264,6 +263,10 @@ sub _get_field_type {
 	if ( $element->{'field'} =~ /^eav_(.*)/x ) {
 		my $att = $self->{'datastore'}->get_eav_field($1);
 		return $att->{'value_format'};
+	}
+	if ($element->{'field'} =~ /^s_(\d+)_(.*)/x){
+		my $att = $self->{'datastore'}->get_scheme_field_info($1,$2);
+		return $att->{'type'};
 	}
 	return;
 }
