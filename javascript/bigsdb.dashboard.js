@@ -25,7 +25,6 @@ $(function() {
 	showOrHideElements();
 
 	$("select#add_field,label[for='add_field']").css("display", "inline");
-	var layout = $("#layout").val();
 	var fill_gaps = $("#fill_gaps").prop('checked');
 	var open_new = $("#open_new").prop('checked');
 	var grid;
@@ -33,8 +32,6 @@ $(function() {
 		grid = new Muuri('#dashboard', {
 			dragEnabled: true,
 			layout: {
-				alignRight: layout.includes('right'),
-				alignBottom: layout.includes('bottom'),
 				fillGaps: fill_gaps
 			},
 			dragStartPredicate: function(item, e) {
@@ -66,17 +63,6 @@ $(function() {
 		if (!container.is(e.target) && container.has(e.target).length === 0) {
 			container.hide();
 		}
-	});
-	$("#layout").change(function() {
-		layout = $("#layout").val();
-		try {
-			grid._settings.layout.alignRight = layout.includes('right');
-			grid._settings.layout.alignBottom = layout.includes('bottom');
-			grid.layout();
-		} catch (err) {
-			// Grid is empty.
-		}
-		$.ajax(url + "&page=dashboard&updateDashboard=1&attribute=layout&value=" + layout);
 	});
 	$("#fill_gaps").change(function() {
 		fill_gaps = $("#fill_gaps").prop('checked');
@@ -502,10 +488,10 @@ function reloadAllElements(grid) {
 	});
 }
 
-function reloadElementsWithURL(grid){
+function reloadElementsWithURL(grid) {
 	$.each(Object.keys(elements), function(index, value) {
-		if (elements[value]['visualisation_type'] != 'specific values' 
-		&&  elements[value]['breakdown_display'] == 'top'){
+		if (elements[value]['visualisation_type'] != 'specific values'
+			&& elements[value]['breakdown_display'] == 'top') {
 			reloadElement(grid, value);
 		}
 	});
@@ -625,11 +611,12 @@ function saveLayout(grid) {
 function resetDefaults() {
 	$("#modify_panel").toggle("slide", { direction: "right" }, "fast");
 	$.get(url + "&resetDefaults=1", function() {
-		$("#layout").val("left-top");
 		$("#fill_gaps").prop("checked", true);
 		$("#enable_drag").prop("checked", false);
-		$("#edit_elements").prop("checked", false);
+		$("#open_new").prop("checked", true);
+		$("#edit_elements").prop("checked", true);
 		$("#remove_elements").prop("checked", false);
+		$("#include_old_versions").prop("checked", false);
 		location.reload();
 	});
 }

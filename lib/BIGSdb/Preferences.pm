@@ -674,26 +674,6 @@ sub update_dashboard_attribute {
 	return;
 }
 
-#sub set_primary_dashboard_pref {
-#	my ( $self, $guid, $dbase_config, $attribute, $value ) = @_;
-#	if ( !$self->_guid_exists($guid) ) {
-#		$self->_add_existing_guid($guid);
-#	}
-#	eval {
-#		$self->{'db'}->do(
-#			'INSERT INTO primary_dashboard (guid,dbase_config,attribute,value) VALUES (?,?,?,?) '
-#			  . 'ON CONFLICT ON CONSTRAINT primary_dashboard_pkey DO UPDATE SET value=?',
-#			undef, $guid, $dbase_config, $attribute, $value, $value
-#		);
-#	};
-#	if ($@) {
-#		$logger->error($@);
-#		$self->{'db'}->rollback;
-#		BIGSdb::Exception::Prefstore->throw('Could not insert primary dashboard values');
-#	}
-#	$self->{'db'}->commit;
-#	return;
-#}
 sub delete_locus {
 	my ( $self, $guid, $dbase, $locus, $action ) = @_;
 	if ( !$self->_guid_exists($guid) ) {

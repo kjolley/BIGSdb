@@ -2509,13 +2509,12 @@ sub initiate {
 	my $guid = $self->get_guid;
 	my $dashboard_id = $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
 	if ( $q->param('resetDefaults') ) {
-		$self->{'prefstore'}->delete_dashboard_settings( $dashboard_id,$guid, $self->{'instance'} ) if $guid;
+		$self->{'prefstore'}->delete_dashboard_settings( $dashboard_id, $guid, $self->{'instance'} ) if $guid;
 	}
 	$self->{'prefs'} = $self->{'prefstore'}->get_general_dashboard_prefs( $guid, $self->{'instance'} );
-	
 	if ( defined $dashboard_id ) {
 		my $dashboard = $self->{'prefstore'}->get_dashboard($dashboard_id);
-		$self->{'prefs'}->{$_} = $dashboard->{$_} foreach( keys %$dashboard);
+		$self->{'prefs'}->{$_} = $dashboard->{$_} foreach ( keys %$dashboard );
 	}
 	return;
 }
@@ -2550,8 +2549,7 @@ sub _update_dashboard_prefs {
 	return if !defined $value;
 	my %allowed_attributes =
 	  map { $_ => 1 }
-	  qw(layout fill_gaps order elements include_old_versions
-	  open_new
+	  qw(fill_gaps order elements include_old_versions open_new
 	);
 
 	if ( !$allowed_attributes{$attribute} ) {
@@ -2559,11 +2557,6 @@ sub _update_dashboard_prefs {
 		return;
 	}
 	my $json = JSON->new->allow_nonref;
-	if ( $attribute eq 'layout' ) {
-		my %allowed_values = map { $_ => 1 } ( 'left-top', 'right-top', 'left-bottom', 'right-bottom' );
-		return if !$allowed_values{$value};
-		$value = $json->encode($value);
-	}
 	my %boolean_attributes = map { $_ => 1 } qw(fill_gaps include_old_versions);
 	if ( $boolean_attributes{$attribute} ) {
 		my %allowed_values = map { $_ => 1 } ( 0, 1 );
@@ -2603,34 +2596,18 @@ sub print_panel_buttons {
 
 sub _print_modify_dashboard_fieldset {
 	my ($self) = @_;
-	my $enable_drag     = $self->{'prefs'}->{'enable_drag'}     // 0;
-	my $edit_elements   = $self->{'prefs'}->{'edit_elements'}   // 1;
-	my $remove_elements = $self->{'prefs'}->{'remove_elements'} // 0;
-	my $open_new        = $self->{'prefs'}->{'open_new'}        // 1;
-
-	my $layout               = $self->{'prefs'}->{'layout'}               // 'left-top';
+	my $enable_drag          = $self->{'prefs'}->{'enable_drag'}          // 0;
+	my $edit_elements        = $self->{'prefs'}->{'edit_elements'}        // 1;
+	my $remove_elements      = $self->{'prefs'}->{'remove_elements'}      // 0;
+	my $open_new             = $self->{'prefs'}->{'open_new'}             // 1;
 	my $fill_gaps            = $self->{'prefs'}->{'fill_gaps'}            // 1;
 	my $include_old_versions = $self->{'prefs'}->{'include_old_versions'} // 0;
-	my $q = $self->{'cgi'};
+	my $q                    = $self->{'cgi'};
 	say q(<div id="modify_panel" class="panel">);
 	say q(<a class="trigger" id="close_trigger" href="#"><span class="fas fa-lg fa-times"></span></a>);
 	say q(<h2>Dashboard settings</h2>);
 	say q(<fieldset><legend>Layout</legend>);
-	say q(<ul>);
-	say q(<li><label for="layout">Orientation:</label>);
-	say $q->popup_menu(
-		-name   => 'layout',
-		-id     => 'layout',
-		-values => [ 'left-top', 'right-top', 'left-bottom', 'right-bottom' ],
-		-labels => {
-			'left-top'     => 'Left top',
-			'right-top'    => 'Right top',
-			'left-bottom'  => 'Left bottom',
-			'right-bottom' => 'Right bottom'
-		},
-		-default => $layout
-	);
-	say q(</li><li>);
+	say q(<ul><li>);
 	say $q->checkbox(
 		-name    => 'fill_gaps',
 		-id      => 'fill_gaps',
@@ -2772,7 +2749,7 @@ sub get_javascript {
 	my $enable_drag = $self->{'prefs'}->{'enable_drag'} ? 'true' : 'false';
 	my $json = JSON->new->allow_nonref;
 	if ($order) {
-		$order = $json->encode($order); 
+		$order = $json->encode($order);
 	}
 	my $elements      = $self->_get_elements;
 	my $json_elements = $json->encode($elements);
