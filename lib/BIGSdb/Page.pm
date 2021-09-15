@@ -642,7 +642,7 @@ sub _get_meta_data {
 sub _get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20210708';
+	my $version = '20210914';
 	my @filenames;
 	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
 	push @filenames, q(billboard.min.css)                                     if $self->{'billboard'};
@@ -1338,8 +1338,7 @@ sub _get_scheme_fields {
 						);
 						$desc = $set_name if defined $set_name;
 					}
-					( $self->{'cache'}->{'labels'}->{"s_${scheme_id}_$field"} = "$field ($desc)" ) =~
-					  tr/_/ /;
+					( $self->{'cache'}->{'labels'}->{"s_${scheme_id}_$field"} = "$field ($desc)" ) =~ tr/_/ /;
 					push @scheme_field_list, "s_${scheme_id}_$field";
 				}
 			}

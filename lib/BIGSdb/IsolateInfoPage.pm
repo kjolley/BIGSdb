@@ -125,7 +125,21 @@ sub get_javascript {
 	}
 	\$(".slide_panel").click(function() {		
 		\$(this).toggle("slide",{direction:"right"},"fast");
-	});		
+	});	
+	\$("#show_csgroups").click(function() {		
+		\$("#show_csgroups").css('display','none');
+		\$("#hide_csgroups").css('display','inline');
+		\$(".cs_table").css('display','block');
+		\$(".cs_filtered").css('visibility','collapse');
+		\$(".cs_unfiltered").css('visibility','visible');
+	});
+	\$("#hide_csgroups").click(function() {	
+		\$("#show_csgroups").css('display','inline');
+		\$("#hide_csgroups").css('display','none');
+		\$(".cs_table").css('display','none');
+		\$(".cs_filtered").css('visibility','visible');
+		\$(".cs_unfiltered").css('visibility','collapse');
+	});
 });
 
 function enable_slide_triggers(){
@@ -447,7 +461,8 @@ sub print_content {
 	my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
 
 	if ( @$loci && $self->_should_show_schemes($isolate_id) ) {
-		say $self->_get_classification_group_data($isolate_id);
+		my $classification_data = $self->_get_classification_group_data($isolate_id);
+		say $self->_format_classifcation_data($classification_data);
 		say q(<div><span class="info_icon fas fa-2x fa-fw fa-table fa-pull-left" style="margin-top:0.3em"></span>);
 		say qq(<h2 style="display:inline-block">Schemes and loci</h2>$tree_button$aliases_button<div>);
 		if ( @$scheme_data < 3 && @$loci <= 100 ) {
@@ -574,20 +589,14 @@ sub _close_divs {
 	return;
 }
 
-sub _are_cgfields_defined {
-	my ($self) = @_;
-	return $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM classification_group_fields)');
-}
-
 sub _get_classification_group_data {
 	my ( $self, $isolate_id ) = @_;
-	my $view   = $self->{'system'}->{'view'};
-	my $buffer = q();
+	my $view = $self->{'system'}->{'view'};
 	my $classification_schemes =
 	  $self->{'datastore'}->run_query( 'SELECT * FROM classification_schemes ORDER BY display_order,name',
 		undef, { fetch => 'all_arrayref', slice => {} } );
-	my $td                = 1;
-	my $cg_fields_defined = $self->_are_cgfields_defined;
+	my $td   = 1;
+	my $data = [];
 	foreach my $cscheme (@$classification_schemes) {
 		my ( $cg_buffer, $cgf_buffer );
 		my $scheme_id = $cscheme->{'scheme_id'};
@@ -606,6 +615,7 @@ sub _get_classification_group_data {
 		my $pk_values =
 		  $self->{'datastore'}
 		  ->run_query( "SELECT $pk FROM $scheme_table WHERE id=?", $isolate_id, { fetch => 'col_arrayref' } );
+		my $max_isolate_count = 0;
 		if (@$pk_values) {
 			my $cscheme_table = $self->{'datastore'}->create_temp_cscheme_table( $cscheme->{'id'} );
 
@@ -621,16 +631,17 @@ sub _get_classification_group_data {
 						  . "(SELECT profile_id FROM $cscheme_table WHERE group_id=?)) AND new_version IS NULL",
 						$group_id
 					);
-					if ( $isolate_count > 1 ) {
-						my $cg_fields = $self->get_classification_group_fields( $cscheme->{'id'}, $group_id );
-						$cgf_buffer .= qq($cg_fields<br />) if $cg_fields;
-						my $url =
-						    qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
-						  . qq(designation_field1=cg_$cscheme->{'id'}_group&amp;designation_value1=$group_id&amp;)
-						  . q(submit=1);
-						$cg_buffer .= qq(group: <a href="$url">$group_id ($isolate_count isolates)</a><br />\n);
-						$group_displayed{$group_id} = 1;
-					}
+					next if !$isolate_count;
+					my $cg_fields = $self->get_classification_group_fields( $cscheme->{'id'}, $group_id );
+					$cgf_buffer .= qq($cg_fields<br />) if $cg_fields;
+					my $url =
+					    qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
+					  . qq(designation_field1=cg_$cscheme->{'id'}_group&amp;designation_value1=$group_id&amp;)
+					  . q(submit=1);
+					my $plural = $isolate_count == 1 ? q() : q(s);
+					$cg_buffer .= qq(<a href="$url">$group_id</a> ($isolate_count isolate$plural)<br />\n);
+					$max_isolate_count = $isolate_count if $isolate_count > $max_isolate_count;
+					$group_displayed{$group_id} = 1;
 				}
 			}
 		}
@@ -641,30 +652,71 @@ sub _get_classification_group_data {
 			  ? $self->get_tooltip(qq($cscheme->{'name'} - $desc))
 			  : q();
 			my $plural = $cscheme->{'inclusion_threshold'} == 1 ? q() : q(es);
-			$buffer .=
-			    qq(<tr class="td$td"><td>$cscheme->{'name'}$tooltip</td><td>$scheme_info->{'name'}</td>)
-			  . qq(<td>Single-linkage</td><td>$cscheme->{'inclusion_threshold'}</td><td>$cscheme->{'status'}</td><td>)
-			  . qq($cg_buffer</td>);
-			if ($cg_fields_defined) {
-				$buffer .= $cgf_buffer ? qq(<td>$cgf_buffer</td>) : q(<td></td>);
-			}
-			$buffer .= q(</tr>);
-			$td = $td == 1 ? 2 : 1;
+			push @$data,
+			  {
+				cscheme       => qq($cscheme->{'name'}$tooltip),
+				scheme        => $scheme_info->{'name'},
+				method        => 'Single-linkage',
+				threshold     => $cscheme->{'inclusion_threshold'},
+				status        => $cscheme->{'status'},
+				group         => $cg_buffer,
+				fields        => $cgf_buffer,
+				isolate_count => $max_isolate_count
+			  };
 		}
 	}
-	if ($buffer) {
-		my $fields_header = $cg_fields_defined ? q(<th>Fields</th>) : q();
-		$buffer =
-		    q(<div><span class="info_icon fas fa-2x fa-fw fa-sitemap fa-pull-left" )
-		  . q(style="margin-top:-0.2em"></span>)
-		  . q(<h2>Similar isolates (determined by classification schemes)</h2>)
-		  . q(<p>Experimental schemes are subject to change and are not a stable part of the nomenclature.</p>)
-		  . q(<div class="scrollable">)
-		  . q(<table class="resultstable"><tr>)
-		  . q(<th>Classification scheme</th><th>Underlying scheme</th><th>Clustering method</th>)
-		  . qq(<th>Mismatch threshold</th><th>Status</th><th>Group</th>$fields_header</tr>)
-		  . qq($buffer</table></div></div>);
+	return $data;
+}
+
+sub _format_classifcation_data {
+	my ( $self, $data ) = @_;
+	my $buffer = q();
+	return $buffer if !@$data;
+	my $fields_defined;
+	foreach my $row (@$data) {
+		$fields_defined = 1 if defined $row->{'fields'};
 	}
+	my @filtered;
+	my @unfiltered;
+	my $tdf = 1;
+	my $tdu = 1;
+	foreach my $row (@$data) {
+		my @values = @{$row}{qw(cscheme scheme method threshold status group)};
+		push @values, $row->{'fields'} // q() if $fields_defined;
+		local $" = q(</td><td>);
+		push @unfiltered, qq(<tr class="td$tdu cs_unfiltered" style="visibility:collapse"><td>@values</td></tr>);
+		$tdu = $tdu == 1 ? 2 : 1;
+		if ( $row->{'isolate_count'} > 1 ) {
+			push @filtered, qq(<tr class="td$tdf cs_filtered"><td>@values</td></tr>);
+			$tdf = $tdf == 1 ? 2 : 1;
+		}
+	}
+	my $filtered_display = @filtered ? 'block' : 'none';
+	my $hide_table_class = @filtered ? ''      : 'cs_table';
+	$buffer =
+	    q(<div><span class="info_icon fas fa-2x fa-fw fa-sitemap fa-pull-left" )
+	  . q(style="margin-top:-0.2em"></span>)
+	  . q(<h2>Similar isolates (determined by classification schemes)</h2>);
+	if ( !@filtered ) {
+		$buffer .=
+		    q(<p>No similar isolates at any threshold. )
+		  . q(<a id="show_csgroups" class="small_submit" style="display:inline">Show groups</a>)
+		  . q(<a id="hide_csgroups" class="small_submit" style="display:none">Hide groups</a></p>);
+	} elsif ( @unfiltered > @filtered ) {
+		$buffer .=
+		    q(<p>Some groups only contain this isolate. )
+		  . q(<a id="show_csgroups" class="small_submit" style="display:inline">Show single groups</a>)
+		  . q(<a id="hide_csgroups" class="small_submit" style="display:none">Hide single groups</a></p>);
+	}
+	$buffer .=
+	  qq(<p class="$hide_table_class" style="display:$filtered_display">Experimental schemes are subject to change and )
+	  . q(are not a stable part of the nomenclature.</p>)
+	  . q(<div class="scrollable">)
+	  . qq(<table class="resultstable $hide_table_class" style="display:$filtered_display"><tr>)
+	  . q(<th>Classification scheme</th><th>Underlying scheme</th><th>Clustering method</th>)
+	  . q(<th>Mismatch threshold</th><th>Status</th><th>Group</th>);
+	$buffer .= q(<th>Fields</th>) if $fields_defined;
+	$buffer .= qq(</tr>@filtered@unfiltered</table></div></div>);
 	return $buffer;
 }
 
@@ -964,8 +1016,7 @@ sub _get_provenance_fields {
 			my $prefix = $thisfield->{'prefixed_by'} ? $data->{ lc( $thisfield->{'prefixed_by'} ) } : q();
 			my $separator = $thisfield->{'prefix_separator'} // q();
 			my $suffix    = $thisfield->{'suffix'}           // q();
-			push @$list,
-			  { title => $displayfield, data => $prefix . $separator . ( $web // $value ) . $suffix }
+			push @$list, { title => $displayfield, data => $prefix . $separator . ( $web // $value ) . $suffix }
 			  if $web || $value ne q();
 		}
 		if ( $field eq 'curator' ) {

@@ -1,4 +1,4 @@
-/*Version: 20210618*/
+/*Version: 20210914*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -492,6 +492,7 @@ a.small_submit, input.small_submit {
 	background: #2F9FDB;
 	color: #FFFFFF;
 	cursor: pointer;
+	white-space: nowrap;
 }
 
 a.submit:hover, a.small_submit:hover, input.submit:hover, input.small_submit:hover
@@ -1339,7 +1340,7 @@ div.dashboard_panel {
 }
 
 div.new_item {
-	visibility:hidden
+	visibility: hidden
 }
 
 .item {
@@ -1450,7 +1451,7 @@ div.hide_mobile {
 }
 
 div.hide_border {
-	border:0
+	border: 0
 }
 
 .modal {
