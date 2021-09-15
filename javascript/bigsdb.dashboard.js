@@ -76,7 +76,7 @@ $(function() {
 		} catch (err) {
 			// Grid is empty.
 		}
-		$.ajax(url + "&page=dashboard&updatePrefs=1&attribute=layout&value=" + layout);
+		$.ajax(url + "&page=dashboard&updateDashboard=1&attribute=layout&value=" + layout);
 	});
 	$("#fill_gaps").change(function() {
 		fill_gaps = $("#fill_gaps").prop('checked');
@@ -86,27 +86,27 @@ $(function() {
 		} catch (err) {
 			// Grid is empty.
 		}
-		$.ajax(url + "&page=dashboard&updatePrefs=1&attribute=fill_gaps&value=" + (fill_gaps ? 1 : 0));
+		$.ajax(url + "&page=dashboard&updateDashboard=1&attribute=fill_gaps&value=" + (fill_gaps ? 1 : 0));
 	});
 	$("#enable_drag").change(function() {
 		enable_drag = $("#enable_drag").prop('checked');
-		$.ajax(url + "&page=dashboard&updatePrefs=1&attribute=enable_drag&value=" + (enable_drag ? 1 : 0));
+		$.ajax(url + "&page=dashboard&updateGeneralPrefs=1&attribute=enable_drag&value=" + (enable_drag ? 1 : 0));
 
 	});
 	$("#edit_elements").change(function() {
 		var edit_elements = $("#edit_elements").prop('checked');
-		$.ajax(url + "&page=dashboard&updatePrefs=1&attribute=edit_elements&value=" + (edit_elements ? 1 : 0));
+		$.ajax(url + "&page=dashboard&updateGeneralPrefs=1&attribute=edit_elements&value=" + (edit_elements ? 1 : 0));
 		$("span.dashboard_edit_element").css("display", edit_elements ? "inline" : "none");
 	});
 	$("#remove_elements").change(function() {
 		var remove_elements = $("#remove_elements").prop('checked');
-		$.ajax(url + "&page=dashboard&updatePrefs=1&attribute=remove_elements&value=" + (remove_elements ? 1 : 0));
+		$.ajax(url + "&page=dashboard&updateGeneralPrefs=1&attribute=remove_elements&value=" + (remove_elements ? 1 : 0));
 		$("span.dashboard_remove_element").css("display", remove_elements ? "inline" : "none");
 	});
 	$("#open_new").change(function() {
 		open_new = $("#open_new").prop('checked');
 		$.ajax({
-			url: url + "&page=dashboard&updatePrefs=1&attribute=open_new&value=" + (open_new ? 1 : 0)
+			url: url + "&page=dashboard&updateGeneralPrefs=1&attribute=open_new&value=" + (open_new ? 1 : 0)
 		}).done(function() {
 			reloadElementsWithURL(grid);
 		});
@@ -114,7 +114,7 @@ $(function() {
 	$("#include_old_versions").change(function() {
 		var include_old_versions = $("#include_old_versions").prop('checked');
 		$.ajax({
-			url: url + "&page=dashboard&updatePrefs=1&attribute=include_old_versions&value=" +
+			url: url + "&page=dashboard&updateDashboard=1&attribute=include_old_versions&value=" +
 				(include_old_versions ? 1 : 0)
 		}).done(function() {
 			reloadAllElements(grid);
@@ -198,7 +198,7 @@ $(function() {
 		}
 	});
 	$('a#dashboard_toggle').on('click', function() {
-		$.get(url + "&page=dashboard&updatePrefs=1&attribute=default&value=0", function() {
+		$.get(url + "&page=dashboard&updateGeneralPrefs=1&attribute=default&value=0", function() {
 			window.location = url;
 		});
 	});
@@ -552,7 +552,7 @@ function saveElements(grid) {
 	$.post(url, {
 		db: instance,
 		page: "dashboard",
-		updatePrefs: 1,
+		updateDashboard: 1,
 		attribute: "elements",
 		value: JSON.stringify(elements)
 	});
@@ -566,7 +566,7 @@ function saveAndReloadElement(grid, id) {
 		data: {
 			db: instance,
 			page: "dashboard",
-			updatePrefs: 1,
+			updateDashboard: 1,
 			attribute: "elements",
 			value: JSON.stringify(elements)
 		},
@@ -616,7 +616,7 @@ function saveLayout(grid) {
 	$.post(url, {
 		db: instance,
 		page: "dashboard",
-		updatePrefs: 1,
+		updateDashboard: 1,
 		attribute: "order",
 		value: layout
 	});

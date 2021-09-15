@@ -48,8 +48,12 @@ use constant {
 sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	if ( $q->param('updatePrefs') ) {
-		$self->_update_prefs;
+	if ( $q->param('updateDashboard') ) {
+		$self->_update_dashboard_prefs;
+		return;
+	}
+	if ( $q->param('updateGeneralPrefs') ) {
+		$self->_update_general_prefs;
 		return;
 	}
 	if ( $q->param('control') ) {
@@ -762,13 +766,7 @@ JS
 sub _get_elements {
 	my ($self) = @_;
 	if ( defined $self->{'prefs'}->{'elements'} ) {
-		my $elements = {};
-		my $json     = JSON->new->allow_nonref;
-		eval { $elements = $json->decode( $self->{'prefs'}->{'elements'} ); };
-		if (@$) {
-			$logger->error('Invalid JSON in elements.');
-		}
-		return $elements;
+		return $self->{'prefs'}->{'elements'};
 	}
 	return $self->_get_default_elements;
 }
@@ -2008,8 +2006,8 @@ sub _get_field_breakdown_top_values_content {
 	  && $element->{'top_values'} == 5 ? 'line-height:100%;font-size:0.9em' : q();
 	$buffer .= qq(<div class="subtitle">Top $element->{'top_values'} values</div>);
 	$buffer .= q(<div><table class="dashboard_table"><tr><th>Value</th><th>Frequency</th></tr>);
-	my $td    = 1;
-	my $count = 0;
+	my $td     = 1;
+	my $count  = 0;
 	my $target = $self->{'prefs'}->{'open_new'} ? q( target="_blank") : q();
 
 	foreach my $value ( sort { $b->{'value'} <=> $a->{'value'} } @$data ) {
@@ -2502,21 +2500,48 @@ sub initiate {
 	push @{ $self->{'breadcrumbs'} },
 	  { label => $self->{'system'}->{'formatted_description'} // $self->{'system'}->{'description'} };
 	my $q = $self->{'cgi'};
-	foreach my $ajax_param (qw(updatePrefs control resetDefaults new setup element)) {
+	foreach my $ajax_param (qw(updateGeneralPrefs updateDashboardPrefs control resetDefaults new setup element)) {
 		if ( $q->param($ajax_param) ) {
 			$self->{'type'} = 'no_header';
 			last;
 		}
 	}
 	my $guid = $self->get_guid;
+	my $dashboard_id = $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
 	if ( $q->param('resetDefaults') ) {
-		$self->{'prefstore'}->delete_dashboard_settings( $guid, $self->{'instance'} ) if $guid;
+		$self->{'prefstore'}->delete_dashboard_settings( $dashboard_id,$guid, $self->{'instance'} ) if $guid;
 	}
-	$self->{'prefs'} = $self->{'prefstore'}->get_primary_dashboard_prefs( $guid, $self->{'instance'} );
+	$self->{'prefs'} = $self->{'prefstore'}->get_general_dashboard_prefs( $guid, $self->{'instance'} );
+	
+	if ( defined $dashboard_id ) {
+		my $dashboard = $self->{'prefstore'}->get_dashboard($dashboard_id);
+		$self->{'prefs'}->{$_} = $dashboard->{$_} foreach( keys %$dashboard);
+	}
 	return;
 }
 
-sub _update_prefs {
+sub _update_general_prefs {
+	my ($self)    = @_;
+	my $q         = $self->{'cgi'};
+	my $attribute = $q->param('attribute');
+	return if !defined $attribute;
+	my $value = $q->param('value');
+	return if !defined $value;
+	my %allowed_attributes = map { $_ => 1 } qw(enable_drag edit_elements remove_elements open_new default);
+	if ( !$allowed_attributes{$attribute} ) {
+		$logger->error("Invalid attribute - $attribute");
+		return;
+	}
+	my %allowed_values = map { $_ => 1 } ( 0, 1 );
+	return if !$allowed_values{$value};
+	my $guid = $self->get_guid;
+	if ( $allowed_attributes{$attribute} ) {
+		$self->{'prefstore'}->set_general_dashboard_switch_pref( $guid, $self->{'instance'}, $attribute, $value );
+	}
+	return;
+}
+
+sub _update_dashboard_prefs {
 	my ($self)    = @_;
 	my $q         = $self->{'cgi'};
 	my $attribute = $q->param('attribute');
@@ -2525,7 +2550,7 @@ sub _update_prefs {
 	return if !defined $value;
 	my %allowed_attributes =
 	  map { $_ => 1 }
-	  qw(layout fill_gaps enable_drag edit_elements remove_elements order elements default include_old_versions 
+	  qw(layout fill_gaps order elements include_old_versions
 	  open_new
 	);
 
@@ -2533,33 +2558,38 @@ sub _update_prefs {
 		$logger->error("Invalid attribute - $attribute");
 		return;
 	}
+	my $json = JSON->new->allow_nonref;
 	if ( $attribute eq 'layout' ) {
 		my %allowed_values = map { $_ => 1 } ( 'left-top', 'right-top', 'left-bottom', 'right-bottom' );
 		return if !$allowed_values{$value};
+		$value = $json->encode($value);
 	}
-	my %boolean_attributes =
-	  map { $_ => 1 }
-	  qw(fill_gaps enable_drag edit_elements remove_elements include_old_versions open_new
-	);
+	my %boolean_attributes = map { $_ => 1 } qw(fill_gaps include_old_versions);
 	if ( $boolean_attributes{$attribute} ) {
 		my %allowed_values = map { $_ => 1 } ( 0, 1 );
 		return if !$allowed_values{$value};
 	}
-	my $json = JSON->new->allow_nonref;
-	my %json_attributes = map { $_ => 1 } qw(order elements);
-	if ( $json_attributes{$attribute} ) {
-		if ( length($value) > 50000 ) {
-			$logger->error("$attribute value too long.");
-			return;
-		}
-		eval { $json->decode($value); };
-		if ($@) {
-			$logger->error("Invalid JSON for $attribute attribute");
-		}
+	my $guid         = $self->get_guid;
+	my $dashboard_id = $self->_get_dashboard_id;
+	if ( $allowed_attributes{$attribute} ) {
+		$self->{'prefstore'}
+		  ->update_dashboard_attribute( $dashboard_id, $guid, $self->{'instance'}, $attribute, $value );
 	}
-	my $guid = $self->get_guid;
-	$self->{'prefstore'}->set_primary_dashboard_pref( $guid, $self->{'instance'}, $attribute, $value );
 	return;
+}
+
+sub _get_dashboard_id {
+	my ($self) = @_;
+	return $self->{'dashboard_id'} if defined $self->{'dashboard_id'};
+	my $guid = $self->get_guid;
+	$self->{'dashboard_id'} = $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
+	return $self->{'dashboard_id'} if defined $self->{'dashboard_id'};
+	$self->{'dashboard_id'} = $self->{'prefstore'}->initiate_new_dashboard( $guid, $self->{'instance'} );
+	if ( !defined $self->{'dashboard_id'} ) {
+		$logger->error('Dashboard pref could not be initiated.');
+	}
+	$self->{'prefstore'}->set_active_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_id'}, 'primary', 0 );
+	return $self->{'dashboard_id'};
 }
 
 sub print_panel_buttons {
@@ -2573,14 +2603,15 @@ sub print_panel_buttons {
 
 sub _print_modify_dashboard_fieldset {
 	my ($self) = @_;
+	my $enable_drag     = $self->{'prefs'}->{'enable_drag'}     // 0;
+	my $edit_elements   = $self->{'prefs'}->{'edit_elements'}   // 1;
+	my $remove_elements = $self->{'prefs'}->{'remove_elements'} // 0;
+	my $open_new        = $self->{'prefs'}->{'open_new'}        // 1;
+
 	my $layout               = $self->{'prefs'}->{'layout'}               // 'left-top';
 	my $fill_gaps            = $self->{'prefs'}->{'fill_gaps'}            // 1;
-	my $enable_drag          = $self->{'prefs'}->{'enable_drag'}          // 0;
-	my $edit_elements        = $self->{'prefs'}->{'edit_elements'}        // 1;
-	my $remove_elements      = $self->{'prefs'}->{'remove_elements'}      // 0;
-	my $open_new             = $self->{'prefs'}->{'open_new'}             // 1;
 	my $include_old_versions = $self->{'prefs'}->{'include_old_versions'} // 0;
-	my $q                    = $self->{'cgi'};
+	my $q = $self->{'cgi'};
 	say q(<div id="modify_panel" class="panel">);
 	say q(<a class="trigger" id="close_trigger" href="#"><span class="fas fa-lg fa-times"></span></a>);
 	say q(<h2>Dashboard settings</h2>);
@@ -2741,11 +2772,7 @@ sub get_javascript {
 	my $enable_drag = $self->{'prefs'}->{'enable_drag'} ? 'true' : 'false';
 	my $json = JSON->new->allow_nonref;
 	if ($order) {
-		eval { $json->encode($order); };
-		if ($@) {
-			$logger->error('Invalid order JSON');
-			$order = q();
-		}
+		$order = $json->encode($order); 
 	}
 	my $elements      = $self->_get_elements;
 	my $json_elements = $json->encode($elements);

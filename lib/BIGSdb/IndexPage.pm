@@ -345,7 +345,7 @@ sub get_javascript {
 	});
 	\$('a#dashboard_toggle').on('click', function(){
 		\$.get("$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=dashboard&"
-		 + "updatePrefs=1&attribute=default&value=1",function(){
+		 + "updateGeneralPrefs=1&attribute=default&value=1",function(){
 			window.location="$self->{'system'}->{'script_name'}?db=$self->{'instance'}";
 		});	
 	});	

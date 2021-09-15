@@ -23,6 +23,7 @@ use 5.010;
 use BIGSdb::Exceptions;
 use Log::Log4perl qw(get_logger);
 use Data::UUID;
+use JSON;
 my $logger = get_logger('BIGSdb.Prefs');
 
 sub new {    ## no critic (RequireArgUnpacking)
@@ -538,10 +539,10 @@ sub delete_all_field_settings {
 }
 
 sub delete_dashboard_settings {
-	my ( $self, $guid, $dbase_config ) = @_;
+	my ( $self, $id, $guid, $dbase_config ) = @_;
 	eval {
 		$self->{'db'}
-		  ->do( 'DELETE FROM primary_dashboard WHERE (guid,dbase_config)=(?,?)', undef, $guid, $dbase_config );
+		  ->do( 'DELETE FROM dashboards WHERE (id,guid,dbase_config)=(?,?,?)', undef, $id,$guid, $dbase_config );
 	};
 	if ($@) {
 		$logger->error($@);
@@ -552,9 +553,9 @@ sub delete_dashboard_settings {
 	return;
 }
 
-sub get_primary_dashboard_prefs {
+sub get_general_dashboard_prefs {
 	my ( $self, $guid, $dbase_config ) = @_;
-	my $sql = $self->{'db'}->prepare('SELECT attribute,value FROM primary_dashboard WHERE (guid,dbase_config)=(?,?)');
+	my $sql = $self->{'db'}->prepare('SELECT attribute,value FROM dashboard_switches WHERE (guid,dbase_config)=(?,?)');
 	eval { $sql->execute( $guid, $dbase_config ) };
 	if ($@) {
 		$logger->error($@);
@@ -568,38 +569,131 @@ sub get_primary_dashboard_prefs {
 	return $values;
 }
 
-sub get_primary_dashboard_pref {
+sub get_general_dashboard_switch_pref {
 	my ( $self, $guid, $dbase_config, $attribute ) = @_;
 	BIGSdb::Exception::Database::NoRecord->throw('No guid passed') if !$guid;
-	my $sql = $self->{'db'}->prepare('SELECT value FROM primary_dashboard WHERE (guid,dbase_config,attribute)=(?,?,?)');
+	my $sql =
+	  $self->{'db'}->prepare('SELECT value FROM dashboard_switches WHERE (guid,dbase_config,attribute)=(?,?,?)');
 	eval { $sql->execute( $guid, $dbase_config, $attribute ) };
-	$logger->error($@) if $@;
+	$logger->logcarp($@) if $@;
 	my $value = $sql->fetchrow_array;
 	return $value;
 }
 
-sub set_primary_dashboard_pref {
+sub set_general_dashboard_switch_pref {
 	my ( $self, $guid, $dbase_config, $attribute, $value ) = @_;
 	if ( !$self->_guid_exists($guid) ) {
 		$self->_add_existing_guid($guid);
 	}
 	eval {
 		$self->{'db'}->do(
-			    'INSERT INTO primary_dashboard (guid,dbase_config,attribute,value) VALUES (?,?,?,?) '
-			  . 'ON CONFLICT ON CONSTRAINT primary_dashboard_pkey DO UPDATE SET value=?'
-			,
+			'INSERT INTO dashboard_switches (guid,dbase_config,attribute,value) VALUES (?,?,?,?) '
+			  . 'ON CONFLICT ON CONSTRAINT dashboard_switches_pkey DO UPDATE SET value=?',
 			undef, $guid, $dbase_config, $attribute, $value, $value
 		);
 	};
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
-		BIGSdb::Exception::Prefstore->throw('Could not insert primary dashboard values');
+		BIGSdb::Exception::Prefstore->throw('Could not insert general dashboard switch value');
 	}
 	$self->{'db'}->commit;
 	return;
 }
 
+sub get_active_dashboard {
+	my ( $self, $guid, $dbase_config, $type, $value ) = @_;
+	BIGSdb::Exception::Database::NoRecord->throw('No guid passed') if !$guid;
+	my $sql = $self->{'db'}->prepare('SELECT id FROM active_dashboards WHERE (guid,dbase_config,type,value)=(?,?,?,?)');
+	eval { $sql->execute( $guid, $dbase_config, $type, $value ) };
+	$logger->logcarp($@) if $@;
+	return $sql->fetchrow_array;
+}
+
+sub get_dashboard {
+	my ($self, $id) = @_;
+	my $sql = $self->{'db'}->prepare('SELECT data FROM dashboards WHERE id=?');
+	eval { $sql->execute( $id ) };
+	$logger->logcarp($@) if $@;
+	my $data =  $sql->fetchrow_array;
+	$data //= '{}';
+	my $json     = JSON->new->allow_nonref;
+	return $json->decode($data);
+}
+
+sub initiate_new_dashboard {
+	my ( $self, $guid, $dbase_config ) = @_;
+	BIGSdb::Exception::Database::NoRecord->throw('No guid passed') if !$guid;
+	my $sql = $self->{'db'}->prepare('INSERT INTO dashboards (guid,dbase_config,data) VALUES (?,?,?) RETURNING id');
+	eval { $sql->execute( $guid, $dbase_config,'{}' ) };
+	if ($@) {
+		$logger->logcarp($@);
+		$self->{'db'}->rollback;
+		BIGSdb::Exception::Prefstore->throw('Could not initiate new dashboard');
+	}
+	my $id = $sql->fetchrow_array;
+	$self->{'db'}->commit;
+	return $id;
+}
+
+sub set_active_dashboard {
+	my ( $self, $guid, $dbase_config, $id, $type, $value ) = @_;
+	BIGSdb::Exception::Database::NoRecord->throw('No guid passed') if !$guid;
+	eval {
+		$self->{'db'}->do(
+			'INSERT INTO active_dashboards (guid,dbase_config,id,type,value) VALUES (?,?,?,?,?) '
+			  . 'ON CONFLICT ON CONSTRAINT active_dashboards_pkey DO UPDATE SET id=?',
+			undef, $guid, $dbase_config, $id, $type, $value, $id
+		);
+	};
+	if ($@) {
+		$logger->logcarp($@);
+		$self->{'db'}->rollback;
+		BIGSdb::Exception::Prefstore->throw('Could not initiate new dashboard');
+	}
+	$self->{'db'}->commit;
+	return;
+}
+
+sub update_dashboard_attribute {
+	my ( $self, $id, $guid, $dbase_config, $attribute, $value ) = @_;
+	BIGSdb::Exception::Database::NoRecord->throw('No guid passed') if !$guid;
+	eval {
+		$self->{'db'}->do(
+			qq[UPDATE dashboards SET data = jsonb_set(data, '{$attribute}', ?) ]
+			  . q[WHERE (guid,dbase_config,id)=(?,?,?)],
+			undef, $value, $guid, $dbase_config, $id
+		);
+	};
+	if ($@) {
+		$logger->logcarp($@);
+		$self->{'db'}->rollback;
+		BIGSdb::Exception::Prefstore->throw('Could not update dashboard');
+	}
+	$self->{'db'}->commit;
+	return;
+}
+
+#sub set_primary_dashboard_pref {
+#	my ( $self, $guid, $dbase_config, $attribute, $value ) = @_;
+#	if ( !$self->_guid_exists($guid) ) {
+#		$self->_add_existing_guid($guid);
+#	}
+#	eval {
+#		$self->{'db'}->do(
+#			'INSERT INTO primary_dashboard (guid,dbase_config,attribute,value) VALUES (?,?,?,?) '
+#			  . 'ON CONFLICT ON CONSTRAINT primary_dashboard_pkey DO UPDATE SET value=?',
+#			undef, $guid, $dbase_config, $attribute, $value, $value
+#		);
+#	};
+#	if ($@) {
+#		$logger->error($@);
+#		$self->{'db'}->rollback;
+#		BIGSdb::Exception::Prefstore->throw('Could not insert primary dashboard values');
+#	}
+#	$self->{'db'}->commit;
+#	return;
+#}
 sub delete_locus {
 	my ( $self, $guid, $dbase, $locus, $action ) = @_;
 	if ( !$self->_guid_exists($guid) ) {

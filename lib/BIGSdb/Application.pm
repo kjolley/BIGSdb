@@ -384,7 +384,7 @@ sub _rewrite_page {
 	my $guid = $self->_get_guid;
 	return if !$guid;
 	my $dashboard_pref =
-	  $self->{'prefstore'}->get_primary_dashboard_pref( $guid, $self->{'instance'}, 'default' );
+	  $self->{'prefstore'}->get_general_dashboard_switch_pref( $guid, $self->{'instance'}, 'default' );
 
 	if ( defined $dashboard_pref ) {
 		$self->{'page'} = 'dashboard' if $dashboard_pref;
