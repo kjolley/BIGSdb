@@ -126,16 +126,14 @@ sub get_javascript {
 	\$(".slide_panel").click(function() {		
 		\$(this).toggle("slide",{direction:"right"},"fast");
 	});	
-	\$("#show_csgroups").click(function() {
-		
+	\$("#show_csgroups").click(function() {		
 		\$("#show_csgroups").css('display','none');
 		\$("#hide_csgroups").css('display','inline');
 		\$(".cs_table").css('display','block');
 		\$(".cs_filtered").css('visibility','collapse');
 		\$(".cs_unfiltered").css('visibility','visible');
 	});
-	\$("#hide_csgroups").click(function() {
-		
+	\$("#hide_csgroups").click(function() {	
 		\$("#show_csgroups").css('display','inline');
 		\$("#hide_csgroups").css('display','none');
 		\$(".cs_table").css('display','none');
@@ -641,7 +639,7 @@ sub _get_classification_group_data {
 					  . qq(designation_field1=cg_$cscheme->{'id'}_group&amp;designation_value1=$group_id&amp;)
 					  . q(submit=1);
 					my $plural = $isolate_count == 1 ? q() : q(s);
-					$cg_buffer .= qq(group: <a href="$url">$group_id</a> ($isolate_count isolate$plural)<br />\n);
+					$cg_buffer .= qq(<a href="$url">$group_id</a> ($isolate_count isolate$plural)<br />\n);
 					$max_isolate_count = $isolate_count if $isolate_count > $max_isolate_count;
 					$group_displayed{$group_id} = 1;
 				}
