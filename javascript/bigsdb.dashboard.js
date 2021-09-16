@@ -462,8 +462,7 @@ function checkAndShowVisualisation(grid, id) {
 		}
 	} else if (visualisation_type === 'breakdown') {
 		if (breakdown_display != 0) {
-			elements[id]['display'] = 'field';
-			saveAndReloadElement(grid, id);
+			changeElementAttribute(grid, id, 'display', 'field');
 		} else {
 			changeElementAttribute(grid, id, 'display', 'setup');
 		}
