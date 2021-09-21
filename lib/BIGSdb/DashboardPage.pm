@@ -2596,6 +2596,7 @@ sub print_panel_buttons {
 
 sub _print_modify_dashboard_fieldset {
 	my ($self) = @_;
+	$logger->error(Dumper $self->{'prefs'});
 	my $enable_drag          = $self->{'prefs'}->{'enable_drag'}          // 0;
 	my $edit_elements        = $self->{'prefs'}->{'edit_elements'}        // 1;
 	my $remove_elements      = $self->{'prefs'}->{'remove_elements'}      // 0;

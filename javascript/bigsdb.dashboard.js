@@ -610,12 +610,6 @@ function saveLayout(grid) {
 function resetDefaults() {
 	$("#modify_panel").toggle("slide", { direction: "right" }, "fast");
 	$.get(url + "&resetDefaults=1", function() {
-		$("#fill_gaps").prop("checked", true);
-		$("#enable_drag").prop("checked", false);
-		$("#open_new").prop("checked", true);
-		$("#edit_elements").prop("checked", true);
-		$("#remove_elements").prop("checked", false);
-		$("#include_old_versions").prop("checked", false);
 		location.reload();
 	});
 }
