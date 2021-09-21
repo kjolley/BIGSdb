@@ -76,6 +76,10 @@ sub print_content {
 		$self->_ajax_get( scalar $q->param('element') );
 		return;
 	}
+	if ( $q->param('setActiveDashboard') ) {
+		$self->_ajax_set_active( scalar $q->param('setActiveDashboard') );
+		return;
+	}
 	my $desc = $self->get_db_description( { formatted => 1 } );
 	my $max_width             = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
 	my $index_panel_max_width = $max_width - 250;
@@ -707,6 +711,15 @@ sub _ajax_get {
 			html => $self->_get_invalid_element_content
 		}
 	);
+	return;
+}
+
+sub _ajax_set_active {
+	my ( $self, $active_id ) = @_;
+	my $guid = $self->get_guid;
+	if ( BIGSdb::Utils::is_int($active_id) ) {
+		$self->{'prefstore'}->set_active_dashboard( $guid, $self->{'instance'}, $active_id, 'primary', 0 );
+	}
 	return;
 }
 
@@ -2537,13 +2550,6 @@ sub initiate {
 		if (@$dashboards) {
 			$self->{'prefstore'}
 			  ->set_active_dashboard( $guid, $self->{'instance'}, $dashboards->[0]->{'id'}, 'primary', 0 );
-		}
-	}
-	if ( $q->param('setActiveDashboard') ) {
-		my $active_id = $q->param('setActiveDashboard');
-		if ( BIGSdb::Utils::is_int($active_id) ) {
-			$self->{'prefstore'}->set_active_dashboard( $guid, $self->{'instance'}, $active_id, 'primary', 0 )
-			  ;
 		}
 	}
 	$self->{'prefs'} = $self->{'prefstore'}->get_general_dashboard_prefs( $guid, $self->{'instance'} );
