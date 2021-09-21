@@ -106,6 +106,21 @@ $(function() {
 			reloadAllElements(grid);
 		});
 	});
+	$("#loaded_dashboard").change(function() {
+		var name = $("#loaded_dashboard").val();
+		if (name.length) {
+			$.ajax(url + "&page=dashboard&updateDashboardName=" + encodeURIComponent(name));
+		}
+	});
+
+	$("#switch_dashboard").change(function() {
+		var id = $("#switch_dashboard").val();
+		$.ajax({
+			url: url + "&page=dashboard&setActiveDashboard=" + id
+		}).done(function() {
+			location.reload();
+		});
+	});
 
 	$("#add_element").click(function() {
 		var nextId = getNextid();
@@ -610,6 +625,12 @@ function saveLayout(grid) {
 function resetDefaults() {
 	$("#modify_panel").toggle("slide", { direction: "right" }, "fast");
 	$.get(url + "&resetDefaults=1", function() {
+		location.reload();
+	});
+}
+
+function createNew() {
+	$.get(url + "&newDashboard=1", function() {
 		location.reload();
 	});
 }

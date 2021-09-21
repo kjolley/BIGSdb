@@ -52,8 +52,16 @@ sub print_content {
 		$self->_update_dashboard_prefs;
 		return;
 	}
+	if ( $q->param('updateDashboardName') ) {
+		$self->_update_dashboard_name;
+		return;
+	}
 	if ( $q->param('updateGeneralPrefs') ) {
 		$self->_update_general_prefs;
+		return;
+	}
+	if ( $q->param('newDashboard') ) {
+		$self->_ajax_new_dashboard;
 		return;
 	}
 	if ( $q->param('control') ) {
@@ -130,6 +138,17 @@ sub _ajax_controls {
 		$controls{ $element->{'display'} }->();
 	}
 	say q(</div>);
+	return;
+}
+
+sub _ajax_new_dashboard {
+	my ($self) = @_;
+	my $guid = $self->get_guid;
+	$self->{'dashboard_id'} = $self->{'prefstore'}->initiate_new_dashboard( $guid, $self->{'instance'} );
+	if ( !defined $self->{'dashboard_id'} ) {
+		$logger->error('Dashboard pref could not be initiated.');
+	}
+	$self->{'prefstore'}->set_active_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_id'}, 'primary', 0 );
 	return;
 }
 
@@ -2500,7 +2519,11 @@ sub initiate {
 	push @{ $self->{'breadcrumbs'} },
 	  { label => $self->{'system'}->{'formatted_description'} // $self->{'system'}->{'description'} };
 	my $q = $self->{'cgi'};
-	foreach my $ajax_param (qw(updateGeneralPrefs updateDashboardPrefs control resetDefaults new setup element)) {
+	foreach my $ajax_param (
+		qw(updateGeneralPrefs updateDashboardPrefs updateDashboardName newDashboard setActiveDashboard control
+		resetDefaults new setup element)
+	  )
+	{
 		if ( $q->param($ajax_param) ) {
 			$self->{'type'} = 'no_header';
 			last;
@@ -2509,13 +2532,37 @@ sub initiate {
 	my $guid = $self->get_guid;
 	my $dashboard_id = $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
 	if ( $q->param('resetDefaults') ) {
-		$self->{'prefstore'}->delete_dashboard_settings( $dashboard_id, $guid, $self->{'instance'} ) if $guid;
+		$self->{'prefstore'}->delete_dashboard( $dashboard_id, $guid, $self->{'instance'} ) if $guid;
+		my $dashboards = $self->{'prefstore'}->get_dashboards( $guid, $self->{'instance'} );
+		if (@$dashboards) {
+			$self->{'prefstore'}
+			  ->set_active_dashboard( $guid, $self->{'instance'}, $dashboards->[0]->{'id'}, 'primary', 0 );
+		}
+	}
+	if ( $q->param('setActiveDashboard') ) {
+		my $active_id = $q->param('setActiveDashboard');
+		if ( BIGSdb::Utils::is_int($active_id) ) {
+			$self->{'prefstore'}->set_active_dashboard( $guid, $self->{'instance'}, $active_id, 'primary', 0 )
+			  ;
+		}
 	}
 	$self->{'prefs'} = $self->{'prefstore'}->get_general_dashboard_prefs( $guid, $self->{'instance'} );
 	if ( defined $dashboard_id ) {
 		my $dashboard = $self->{'prefstore'}->get_dashboard($dashboard_id);
 		$self->{'prefs'}->{$_} = $dashboard->{$_} foreach ( keys %$dashboard );
 	}
+	return;
+}
+
+sub _update_dashboard_name {
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $name   = $q->param('updateDashboardName');
+	$name =~ s/^\s+|\s+$//x;
+	return if !$name || !length($name) || length($name) > 15;
+	my $guid = $self->get_guid;
+	my $dashboard_id = $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
+	$self->{'prefstore'}->update_dashboard_name( $dashboard_id, $guid, $self->{'instance'}, $name );
 	return;
 }
 
@@ -2549,7 +2596,7 @@ sub _update_dashboard_prefs {
 	return if !defined $value;
 	my %allowed_attributes =
 	  map { $_ => 1 }
-	  qw(fill_gaps order elements include_old_versions open_new
+	  qw(fill_gaps order elements include_old_versions open_new name
 	);
 
 	if ( !$allowed_attributes{$attribute} ) {
@@ -2596,7 +2643,6 @@ sub print_panel_buttons {
 
 sub _print_modify_dashboard_fieldset {
 	my ($self) = @_;
-	$logger->error(Dumper $self->{'prefs'});
 	my $enable_drag          = $self->{'prefs'}->{'enable_drag'}          // 0;
 	my $edit_elements        = $self->{'prefs'}->{'edit_elements'}        // 1;
 	my $remove_elements      = $self->{'prefs'}->{'remove_elements'}      // 0;
@@ -2668,10 +2714,66 @@ sub _print_modify_dashboard_fieldset {
 	say q(<a id="add_element" class="small_submit" style="white-space:nowrap">Add element</a>);
 	say q(</li></ul>);
 	say q(</fieldset>);
+	$self->_print_dashboard_management_fieldset;
 	say q(<div style="clear:both"></div>);
 	say q(<div style="margin-top:2em">);
 	say q(<a onclick="resetDefaults()" class="small_reset">Reset</a> Return to defaults);
 	say q(</div></div>);
+	return;
+}
+
+sub _print_dashboard_management_fieldset {
+	my ($self) = @_;
+	my $guid   = $self->get_guid;
+	my $name   = 'default';
+	my $dashboard_id = $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
+	my $dashboards = $self->{'prefstore'}->get_dashboards( $guid, $self->{'instance'} );
+	if ( !defined $dashboard_id ) {
+		if (@$dashboards) {
+			$dashboard_id = $dashboards->[0]->{'id'};
+		} else {
+			$dashboard_id = 0;
+		}
+	}
+	my $ids = [0];
+	my $labels = { 0 => 'Select dashboard...' };
+	foreach my $dashboard (@$dashboards) {
+		next if $dashboard->{'id'} == $dashboard_id;
+		push @$ids, $dashboard->{'id'};
+		$labels->{ $dashboard->{'id'} } = $dashboard->{'name'};
+	}
+	if ($dashboard_id) {
+		$name = $self->{'prefstore'}->get_dashboard_name($dashboard_id);
+	} else {
+		$name = 'default';
+	}
+	my $q = $self->{'cgi'};
+	say q(<fieldset><legend>Versions</legend>);
+	say q(<ul><li>);
+	say q(<label for="loaded_dashboard">Loaded:</label>);
+	say $q->textfield(
+		-id        => 'loaded_dashboard',
+		-name      => 'loaded_dashboard',
+		-maxlength => 15,
+		-style     => 'width:8em',
+		-value     => $name,
+	);
+	say q(</li>);
+	if ( @$dashboards > 1 ) {
+		say q(<li><label for="switch_dashboard">Switch:</label>);
+		say $q->popup_menu(
+			-id      => 'switch_dashboard',
+			-name    => 'switch_dashboard',
+			-labels  => $labels,
+			-values  => $ids,
+			-default => 0
+		);
+		say q(</li>);
+	}
+	say q(<li>);
+	say q(<a onclick="createNew()" class="small_submit">New dashboard</a>);
+	say q(</li></ul>);
+	say q(</fieldset>);
 	return;
 }
 

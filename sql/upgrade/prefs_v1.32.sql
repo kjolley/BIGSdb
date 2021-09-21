@@ -2,6 +2,7 @@ CREATE TABLE dashboards (
 id bigserial NOT NULL UNIQUE, 
 guid text NOT NULL,
 dbase_config text NOT NULL,
+name text NOT NULL,
 data jsonb NOT NULL,
 PRIMARY KEY (id),
 FOREIGN KEY (guid) REFERENCES guid
@@ -11,6 +12,33 @@ ON UPDATE CASCADE
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON dashboards TO apache;
 GRANT USAGE,SELECT ON SEQUENCE dashboards_id_seq TO apache;
+
+CREATE OR REPLACE FUNCTION next_dashboard(_guid text,_dbase_config text) RETURNS text AS $next_dashboard$
+DECLARE
+		dashboard_count integer;
+BEGIN
+	SELECT COUNT(*) INTO dashboard_count FROM dashboards WHERE (guid,dbase_config)=(_guid,_dbase_config);
+	RETURN 'dashboard#' || (dashboard_count+1);
+END
+$next_dashboard$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION name_dashboard() RETURNS TRIGGER AS $next_dashboard$
+DECLARE
+	dashboard_count integer;
+BEGIN
+    IF NEW.name IS NULL THEN
+    	SELECT COUNT(*) INTO dashboard_count FROM dashboards WHERE (guid,dbase_config)=(NEW.guid,NEW.dbase_config);
+    	NEW.name := 'dashboard#' || LPAD((dashboard_count+1)::text,3,'0');
+    END IF;
+    RETURN NEW;
+END;
+$next_dashboard$ language plpgsql;
+
+CREATE TRIGGER trig_insert_dashboards
+BEFORE INSERT
+ON dashboards
+FOR EACH ROW
+EXECUTE PROCEDURE name_dashboard();
 
 CREATE TABLE active_dashboards (
 guid text NOT NULL,

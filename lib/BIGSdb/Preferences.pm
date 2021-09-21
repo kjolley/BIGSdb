@@ -538,11 +538,11 @@ sub delete_all_field_settings {
 	return;
 }
 
-sub delete_dashboard_settings {
+sub delete_dashboard {
 	my ( $self, $id, $guid, $dbase_config ) = @_;
 	eval {
 		$self->{'db'}
-		  ->do( 'DELETE FROM dashboards WHERE (id,guid,dbase_config)=(?,?,?)', undef, $id,$guid, $dbase_config );
+		  ->do( 'DELETE FROM dashboards WHERE (id,guid,dbase_config)=(?,?,?)', undef, $id, $guid, $dbase_config );
 	};
 	if ($@) {
 		$logger->error($@);
@@ -610,14 +610,39 @@ sub get_active_dashboard {
 	return $sql->fetchrow_array;
 }
 
-sub get_dashboard {
-	my ($self, $id) = @_;
-	my $sql = $self->{'db'}->prepare('SELECT data FROM dashboards WHERE id=?');
-	eval { $sql->execute( $id ) };
+sub get_dashboard_name {
+	my ( $self, $id ) = @_;
+	my $sql = $self->{'db'}->prepare('SELECT name FROM dashboards WHERE id=?');
+	eval { $sql->execute($id) };
 	$logger->logcarp($@) if $@;
-	my $data =  $sql->fetchrow_array;
+	return $sql->fetchrow_array;
+}
+
+sub get_dashboard_names {
+	my ( $self, $guid, $dbase_config ) = @_;
+	my $sql   = $self->{'db'}->prepare('SELECT name FROM dashboards WHERE (guid,dbase_config)=(?,?)');
+	my $names = [];
+	eval { $names = $self->{'db'}->selectcol_arrayref( $sql, undef, $guid, $dbase_config ) };
+	$logger->logcarp($@) if $@;
+	return $names;
+}
+
+sub get_dashboards {
+	my ( $self, $guid, $dbase_config ) = @_;
+	my $sql   = $self->{'db'}->prepare('SELECT id,name FROM dashboards WHERE (guid,dbase_config)=(?,?) ORDER BY name');
+	eval { $sql->execute( $guid, $dbase_config ) };
+	$logger->logcarp($@) if $@;
+	return $sql->fetchall_arrayref({});
+}
+
+sub get_dashboard {
+	my ( $self, $id ) = @_;
+	my $sql = $self->{'db'}->prepare('SELECT data FROM dashboards WHERE id=?');
+	eval { $sql->execute($id) };
+	$logger->logcarp($@) if $@;
+	my $data = $sql->fetchrow_array;
 	$data //= '{}';
-	my $json     = JSON->new->allow_nonref;
+	my $json = JSON->new->allow_nonref;
 	return $json->decode($data);
 }
 
@@ -625,7 +650,7 @@ sub initiate_new_dashboard {
 	my ( $self, $guid, $dbase_config ) = @_;
 	BIGSdb::Exception::Database::NoRecord->throw('No guid passed') if !$guid;
 	my $sql = $self->{'db'}->prepare('INSERT INTO dashboards (guid,dbase_config,data) VALUES (?,?,?) RETURNING id');
-	eval { $sql->execute( $guid, $dbase_config,'{}' ) };
+	eval { $sql->execute( $guid, $dbase_config, '{}' ) };
 	if ($@) {
 		$logger->logcarp($@);
 		$self->{'db'}->rollback;
@@ -669,6 +694,28 @@ sub update_dashboard_attribute {
 		$logger->logcarp($@);
 		$self->{'db'}->rollback;
 		BIGSdb::Exception::Prefstore->throw('Could not update dashboard');
+	}
+	$self->{'db'}->commit;
+	return;
+}
+
+sub update_dashboard_name {
+	my ( $self, $id, $guid, $dbase_config, $name ) = @_;
+	BIGSdb::Exception::Database::NoRecord->throw('No guid passed') if !$guid;
+	my $names = $self->get_dashboard_names( $guid, $dbase_config );
+	my %existing = map { $_ => 1 } @$names;
+	if ($existing{$name}){
+		$logger->error("Dashboard $name already exists for this user.");
+		return;
+	}
+	eval {
+		$self->{'db'}->do( q(UPDATE dashboards SET name = ? WHERE (guid,dbase_config,id)=(?,?,?)),
+			undef, $name, $guid, $dbase_config, $id );
+	};
+	if ($@) {
+		$logger->logcarp($@);
+		$self->{'db'}->rollback;
+		BIGSdb::Exception::Prefstore->throw('Could not update dashboard name');
 	}
 	$self->{'db'}->commit;
 	return;
