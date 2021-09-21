@@ -69,6 +69,8 @@ sub print_content {
 		return;
 	}
 	if ( $q->param('new') ) {
+		#TODO Need to update the loaded_dashboard value when adding a new element to the
+		#default dashboard.
 		$self->_ajax_new( scalar $q->param('new') );
 		return;
 	}
