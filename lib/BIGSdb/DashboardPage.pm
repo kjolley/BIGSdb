@@ -42,7 +42,8 @@ use constant {
 	GAUGE_FOREGROUND_COLOUR          => '#0000ff',
 	CHART_COLOUR                     => '#1f77b4',
 	TOP_VALUES                       => 5,
-	MOBILE_WIDTH                     => 480
+	MOBILE_WIDTH                     => 480,
+	DASHBOARD_LIMIT                  => 20
 };
 
 sub print_content {
@@ -69,6 +70,7 @@ sub print_content {
 		return;
 	}
 	if ( $q->param('new') ) {
+
 		#TODO Need to update the loaded_dashboard value when adding a new element to the
 		#default dashboard.
 		$self->_ajax_new( scalar $q->param('new') );
@@ -2535,7 +2537,7 @@ sub initiate {
 	  { label => $self->{'system'}->{'formatted_description'} // $self->{'system'}->{'description'} };
 	my $q = $self->{'cgi'};
 	foreach my $ajax_param (
-		qw(updateGeneralPrefs updateDashboardPrefs updateDashboardName newDashboard setActiveDashboard control
+		qw(updateGeneralPrefs updateDashboard updateDashboardName newDashboard setActiveDashboard control
 		resetDefaults new setup element)
 	  )
 	{
@@ -2759,14 +2761,17 @@ sub _print_dashboard_management_fieldset {
 	say q(<fieldset><legend>Versions</legend>);
 	say q(<ul><li>);
 	say q(<label for="loaded_dashboard">Loaded:</label>);
-	say $q->textfield(
+	my %attributes = (
 		-id        => 'loaded_dashboard',
 		-name      => 'loaded_dashboard',
 		-maxlength => 15,
 		-style     => 'width:8em',
-		-value     => $name,
+		-value     => $name
 	);
+	$attributes{'disabled'} = 1 if $name eq 'default';
+	say $q->textfield( %attributes );
 	say q(</li>);
+
 	if ( @$dashboards > 1 ) {
 		say q(<li><label for="switch_dashboard">Switch:</label>);
 		say $q->popup_menu(
@@ -2778,9 +2783,12 @@ sub _print_dashboard_management_fieldset {
 		);
 		say q(</li>);
 	}
-	say q(<li>);
-	say q(<a onclick="createNew()" class="small_submit">New dashboard</a>);
-	say q(</li></ul>);
+	if ( @$dashboards < DASHBOARD_LIMIT ) {
+		say q(<li>);
+		say q(<a onclick="createNew()" class="small_submit">New dashboard</a>);
+		say q(</li>);
+	}
+	say q(</ul>);
 	say q(</fieldset>);
 	return;
 }

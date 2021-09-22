@@ -4,6 +4,7 @@ guid text NOT NULL,
 dbase_config text NOT NULL,
 name text NOT NULL,
 data jsonb NOT NULL,
+UNIQUE (guid,dbase_config,name),
 PRIMARY KEY (id),
 FOREIGN KEY (guid) REFERENCES guid
 ON DELETE CASCADE
