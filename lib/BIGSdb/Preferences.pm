@@ -647,16 +647,32 @@ sub get_dashboard {
 }
 
 sub initiate_new_dashboard {
-	my ( $self, $guid, $dbase_config ) = @_;
+	my ( $self, $guid, $dbase_config, $type, $value ) = @_;
 	BIGSdb::Exception::Database::NoRecord->throw('No guid passed') if !$guid;
 	my $sql = $self->{'db'}->prepare('INSERT INTO dashboards (guid,dbase_config,data) VALUES (?,?,?) RETURNING id');
-	eval { $sql->execute( $guid, $dbase_config, '{}' ) };
+	my $id;
+	eval { 
+		$sql->execute( $guid, $dbase_config, '{}' );
+		$id = $sql->fetchrow_array;
+		$self->{'db'}->do(
+			'INSERT INTO active_dashboards (guid,dbase_config,id,type,value) VALUES (?,?,?,?,?) '
+			  . 'ON CONFLICT ON CONSTRAINT active_dashboards_pkey DO UPDATE SET id=?',
+			undef, $guid, $dbase_config, $id, $type, $value, $id
+		);
+	 };
 	if ($@) {
-		$logger->logcarp($@);
 		$self->{'db'}->rollback;
-		BIGSdb::Exception::Prefstore->throw('Could not initiate new dashboard');
+		if ($@ =~ /duplicate/x){
+			
+			$id = $self->get_active_dashboard($guid, $dbase_config, $type, $value);
+			if (!defined $id){
+				BIGSdb::Exception::Prefstore->throw('Cannot initiate new dashboard.');
+			}
+		} else {
+			$logger->logcarp($@);
+			BIGSdb::Exception::Prefstore->throw('Cannot initiate new dashboard');
+		}
 	}
-	my $id = $sql->fetchrow_array;
 	$self->{'db'}->commit;
 	return $id;
 }

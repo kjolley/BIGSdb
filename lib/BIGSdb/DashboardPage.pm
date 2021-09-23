@@ -152,11 +152,10 @@ sub _ajax_controls {
 sub _ajax_new_dashboard {
 	my ($self) = @_;
 	my $guid = $self->get_guid;
-	$self->{'dashboard_id'} = $self->{'prefstore'}->initiate_new_dashboard( $guid, $self->{'instance'} );
+	$self->{'dashboard_id'} = $self->{'prefstore'}->initiate_new_dashboard( $guid, $self->{'instance'},'primary', 0 );
 	if ( !defined $self->{'dashboard_id'} ) {
 		$logger->error('Dashboard pref could not be initiated.');
 	}
-	$self->{'prefstore'}->set_active_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_id'}, 'primary', 0 );
 	return;
 }
 
@@ -2634,11 +2633,10 @@ sub _get_dashboard_id {
 	my $guid = $self->get_guid;
 	$self->{'dashboard_id'} = $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
 	return $self->{'dashboard_id'} if defined $self->{'dashboard_id'};
-	$self->{'dashboard_id'} = $self->{'prefstore'}->initiate_new_dashboard( $guid, $self->{'instance'} );
+	$self->{'dashboard_id'} = $self->{'prefstore'}->initiate_new_dashboard( $guid, $self->{'instance'},'primary', 0 );
 	if ( !defined $self->{'dashboard_id'} ) {
 		$logger->error('Dashboard pref could not be initiated.');
 	}
-	$self->{'prefstore'}->set_active_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_id'}, 'primary', 0 );
 	return $self->{'dashboard_id'};
 }
 

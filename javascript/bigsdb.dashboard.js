@@ -19,6 +19,8 @@
  */
 
 var currentRequest = null;
+var lastAjaxUpdate = new Date().getTime();
+var ajaxDelay = 1000;
 const MOBILE_WIDTH = 480;
 
 $(function() {
@@ -331,6 +333,7 @@ function addElement(grid, id) {
 		add_url += "&field=" + field;
 	}
 
+	lastAjaxUpdate = new Date().getTime();
 	$.get(add_url, function(json) {
 		try {
 			var div = document.createRange().createContextualFragment(JSON.parse(json).html);
@@ -612,14 +615,27 @@ function loadLayout(grid, serializedLayout) {
 }
 
 function saveLayout(grid) {
-	var layout = serializeLayout(grid);
-	$.post(url, {
-		db: instance,
-		page: "dashboard",
-		updateDashboard: 1,
-		attribute: "order",
-		value: layout
-	});
+	//Wait at least 1s after new elements have been added to prevent race condition
+	//resulting in two dashboards being initiated.
+
+	let time = new Date().getTime();
+	let delay = 0;
+	if (time - lastAjaxUpdate < ajaxDelay) {
+		delay = ajaxDelay;
+	}
+
+	setTimeout(
+		function() {
+			lastAjaxUpdate = new Date().getTime();
+			var layout = serializeLayout(grid);
+			$.post(url, {
+				db: instance,
+				page: "dashboard",
+				updateDashboard: 1,
+				attribute: "order",
+				value: layout
+			});
+		}, delay);
 }
 
 function resetDefaults() {
