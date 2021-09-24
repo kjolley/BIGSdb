@@ -42,7 +42,6 @@ use constant {
 	GAUGE_FOREGROUND_COLOUR          => '#0000ff',
 	CHART_COLOUR                     => '#1f77b4',
 	TOP_VALUES                       => 5,
-	MOBILE_WIDTH                     => 480,
 	DASHBOARD_LIMIT                  => 20
 };
 
@@ -138,7 +137,7 @@ sub _ajax_new_dashboard {    ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 	if ( !defined $self->{'dashboard_id'} ) {
 		$logger->error('Dashboard pref could not be initiated.');
 	}
-	my $dashboard_name = $self->{'prefstore'}->get_dashboard_name( $self->{'dashboard_id'}  );
+	my $dashboard_name = $self->{'prefstore'}->get_dashboard_name( $self->{'dashboard_id'} );
 	my $json           = JSON->new->allow_nonref;
 	say $json->encode(
 		{
@@ -616,6 +615,13 @@ sub _ajax_new {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by di
 			},
 			url_text    => 'Browse genomes',
 			hide_mobile => 0
+		},
+		sp_seqbin_size => {
+			name        => 'Sequence size',
+			display     => 'seqbin_size',
+			genomes     => 1,
+			hide_mobile => 1,
+			width       => 2
 		}
 	};
 	my $q     = $self->{'cgi'};
@@ -767,7 +773,7 @@ sub _print_ajax_load_code {
 			loadedElements[value] = 1;
 		});
 		\$.each(element_ids, function(index,value){
-			if (\$("div#dashboard").width() < MOBILE_WIDTH && elements[value]['hide_mobile']){
+			if (\$(window).width() < MOBILE_WIDTH && elements[value]['hide_mobile']){
 				return;
 			}
 			\$.ajax({
@@ -875,6 +881,7 @@ sub _get_element_content {
 	my %display = (
 		setup        => sub { $self->_get_setup_element_content($element) },
 		record_count => sub { $self->_get_count_element_content($element) },
+		seqbin_size  => sub { $self->_get_seqbin_size_element_content($element) },
 		field        => sub { $self->_get_field_element_content($element) }
 	);
 	if ( $display{ $element->{'display'} } ) {
@@ -966,6 +973,149 @@ sub _get_count_element_content {
 	$buffer .= $self->_add_element_watermark($element);
 	$buffer .= $self->_get_explore_link($element);
 	return $buffer;
+}
+
+sub _get_seqbin_size_element_content {
+	my ( $self, $element ) = @_;
+	my $buffer = $self->_get_colour_swatch($element);
+	$buffer .= qq(<div class="title">$element->{'name'}</div>);
+	my $qry     = "SELECT total_length FROM seqbin_stats s JOIN $self->{'system'}->{'view'} v ON s.isolate_id=v.id";
+	my $filters = $self->_get_filters;
+	local $" = ' AND ';
+	$qry .= " WHERE @$filters" if @$filters;
+	my $lengths = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
+
+	if ( !@$lengths ) {
+		$buffer .= q(<p>No sequences in dataset.</p>);
+		return $buffer;
+	}
+	my $stats      = BIGSdb::Utils::stats($lengths);
+	my $chart_data = {};
+	my $bins =
+	  ceil( ( 3.5 * $stats->{'std'} ) / $stats->{'count'}**0.33 )
+	  ;    #Scott's choice [Scott DW (1979). On optimal and data-based histograms. Biometrika 66(3):605–610]
+	$bins = 70 if $bins > 70;
+	$bins = 1  if !$bins;
+	my $width            = $stats->{'max'} / $bins;
+	my $round_to_nearest = $self->_get_rounded_width($width);
+	$width = int( $width - ( $width % $round_to_nearest ) ) || $round_to_nearest;
+	my ( $histogram, $min, $max ) = BIGSdb::Utils::histogram( $width, $lengths );
+	my $histogram_data = [];
+	my $largest_value = 0;
+	my @labels;
+	foreach my $i ( $min .. $max ) {
+		my $label = $i == 0
+			? q(0-) . BIGSdb::Utils::commify( $width / 1000 )
+			: BIGSdb::Utils::commify( ( $i * $width ) / 1000 ) . q(-) . BIGSdb::Utils::commify( ($i+1) * $width / 1000 );
+		push @$histogram_data, {
+			label => $label,
+			values => $histogram->{$i}
+		};
+		push @labels, $label if $histogram->{$i};
+		
+		if ($histogram->{$i} > $largest_value){
+			$largest_value =  $histogram->{$i};
+			
+		}
+	}
+	my $height = ( $element->{'height'} * 150 ) - 40;
+	$buffer .= qq(<div id="chart_$element->{'id'}" style="margin-top:-20px"></div>);
+	my $json      = JSON->new->allow_nonref;
+	my $json_data = $json->encode($histogram_data);
+	local $" = q(",");
+	my $label_string = qq("@labels");
+	$buffer .= << "JS";
+<script>
+\$(function() {
+	var labels = [$label_string];
+	bb.generate({
+		bindto: '#chart_$element->{'id'}',
+		data: {
+			json: $json_data,
+			keys: {
+				x: 'label',
+				value: ['values']
+			},
+			type: 'bar',
+			labels: {
+				show: true,
+				format: function (v,id,i,j){
+					if (v === $largest_value){
+						return labels[i];
+					}
+				}
+			},
+		},	
+		bar: {
+			width: {
+				ratio: 0.6
+			}
+		},
+
+		axis: {
+			x: {
+				type: 'category',
+				label: {
+					text: 'total length (kbp)',
+					position: 'outer-center'
+				},
+				tick: {
+					count: 1,
+					multiline:false
+				},
+
+			},
+			y: {
+				tick: {
+					count:$element->{'height'} + 1,
+					format: y => y % 1 > 0 ? y.toFixed(0) : y
+				},
+				padding: {
+					top: 20
+				}
+			}
+		},
+		tooltip: {
+	    	position: function(data, width, height, element) {
+	        	return {
+	           		top: -20,
+	           		left: 0
+	        	}
+	        },
+	        format: {
+	        	value: function(name, ratio, id){
+	        		return d3.format(",")(name) 	         			  
+	        	} 
+	        }
+     	},
+		legend: {
+			show: false
+		},
+		padding: {
+			top:10,
+			right: 50
+		},
+		size: {
+			height: $height
+		},
+	});
+});	
+</script>
+JS
+	return $buffer;
+}
+
+sub _get_rounded_width {
+	my ( $self, $width ) = @_;
+	$width //= 0;
+	return 5     if $width < 50;
+	return 10    if $width < 100;
+	return 50    if $width < 500;
+	return 100   if $width < 1000;
+	return 500   if $width < 5000;
+	return 1000  if $width < 10000;
+	return 50000 if $width < 500000;
+	return 100000;
 }
 
 sub _get_colour_swatch {
@@ -2615,7 +2765,7 @@ sub _update_dashboard_prefs {    ## no critic (ProhibitUnusedPrivateSubroutines)
 		$self->{'prefstore'}
 		  ->update_dashboard_attribute( $dashboard_id, $guid, $self->{'instance'}, $attribute, $value );
 	}
-	my $dashboard_name = $self->{'prefstore'}->get_dashboard_name( $dashboard_id );
+	my $dashboard_name = $self->{'prefstore'}->get_dashboard_name($dashboard_id);
 	say $json->encode(
 		{
 			dashboard_name => $dashboard_name
@@ -2750,6 +2900,7 @@ sub _print_dashboard_management_fieldset {
 	}
 	my $q = $self->{'cgi'};
 	say q(<fieldset><legend>Versions</legend>);
+	say q(<form autocomplete="off">);    #Needed because Firefox will override the value we set for loaded_dashboard.
 	say q(<ul><li>);
 	say q(<label for="loaded_dashboard">Loaded:</label>);
 	my %attributes = (
@@ -2782,6 +2933,7 @@ sub _print_dashboard_management_fieldset {
 		say q(<a onclick="createNew()" class="small_submit">New dashboard</a>);
 	}
 	say q(</li></ul>);
+	say q(</form>);
 	say q(</fieldset>);
 	return;
 }
@@ -2829,9 +2981,10 @@ sub _print_field_selector {
 		}
 	}
 	my @group_list = split /,/x, ( $self->{'system'}->{'field_groups'} // q() );
-	push @{ $group_members->{'Special'} }, 'sp_count', 'sp_genomes';
-	$labels->{'sp_count'}   = "$self->{'system'}->{'labelfield'} count";
-	$labels->{'sp_genomes'} = 'genome count';
+	push @{ $group_members->{'Special'} }, 'sp_count', 'sp_genomes', 'sp_seqbin_size';
+	$labels->{'sp_count'}       = "$self->{'system'}->{'labelfield'} count";
+	$labels->{'sp_genomes'}     = 'genome count';
+	$labels->{'sp_seqbin_size'} = 'sequence bin size distribution';
 	my @eav_groups = split /,/x, ( $self->{'system'}->{'eav_groups'} // q() );
 	push @group_list, @eav_groups if @eav_groups;
 	push @group_list, ( 'Loci', 'Schemes' );

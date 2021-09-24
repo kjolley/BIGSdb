@@ -349,7 +349,7 @@ function addElement(grid, id) {
 			let dashboard_name = JSON.parse(json).dashboard_name;
 			$("#loaded_dashboard").val(dashboard_name);
 			$("#loaded_dashboard").prop("disabled", false);
-			$("#delete_dashboard").css("display","inline");
+			$("#delete_dashboard").css("display","inline");	
 		} catch (err) {
 			console.log(err.message);
 		}
@@ -520,7 +520,8 @@ function reloadElementsWithURL(grid) {
 
 function loadNewElements(grid) {
 	$.each(Object.keys(elements), function(index, value) {
-		if (!loadedElements[value] && !($("div#dashboard").width() < MOBILE_WIDTH && elements[value]['hide_mobile'])) {
+		if (!loadedElements[value] && !($(window).width() < MOBILE_WIDTH && elements[value]['hide_mobile'])) {
+			console.log("Reload " + value);
 			reloadElement(grid, value);
 			loadedElements[value] = 1;
 		}
