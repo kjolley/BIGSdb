@@ -29,7 +29,7 @@ DECLARE
 BEGIN
     IF NEW.name IS NULL THEN
     	SELECT COUNT(*) INTO dashboard_count FROM dashboards WHERE (guid,dbase_config)=(NEW.guid,NEW.dbase_config);
-    	NEW.name := 'dashboard#' || LPAD((dashboard_count+1)::text,3,'0');
+    	NEW.name := 'dashboard#' || LPAD((dashboard_count+1)::text,2,'0');
     END IF;
     RETURN NEW;
 END;

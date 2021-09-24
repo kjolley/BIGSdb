@@ -47,42 +47,24 @@ use constant {
 };
 
 sub print_content {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	if ( $q->param('updateDashboard') ) {
-		$self->_update_dashboard_prefs;
-		return;
-	}
-	if ( $q->param('updateDashboardName') ) {
-		$self->_update_dashboard_name;
-		return;
-	}
-	if ( $q->param('updateGeneralPrefs') ) {
-		$self->_update_general_prefs;
-		return;
-	}
-	if ( $q->param('newDashboard') ) {
-		$self->_ajax_new_dashboard;
-		return;
-	}
-	if ( $q->param('control') ) {
-		$self->_ajax_controls( scalar $q->param('control') );
-		return;
-	}
-	if ( $q->param('new') ) {
-
-		#TODO Need to update the loaded_dashboard value when adding a new element to the
-		#default dashboard.
-		$self->_ajax_new( scalar $q->param('new') );
-		return;
-	}
-	if ( $q->param('element') ) {
-		$self->_ajax_get( scalar $q->param('element') );
-		return;
-	}
-	if ( $q->param('setActiveDashboard') ) {
-		$self->_ajax_set_active( scalar $q->param('setActiveDashboard') );
-		return;
+	my ($self)       = @_;
+	my $q            = $self->{'cgi'};
+	my %ajax_methods = (
+		updateDashboard     => '_update_dashboard_prefs',
+		updateDashboardName => '_update_dashboard_name',
+		updateGeneralPrefs  => '_update_general_prefs',
+		newDashboard        => '_ajax_new_dashboard',
+		control             => '_ajax_controls',
+		new                 => '_ajax_new',
+		element             => '_ajax_get',
+		setActiveDashboard  => '_ajax_set_active'
+	);
+	foreach my $method ( sort keys %ajax_methods ) {
+		my $sub = $ajax_methods{$method};
+		if ( $q->param($method) ) {
+			$self->$sub( scalar $q->param($method) );
+			return;
+		}
 	}
 	my $desc = $self->get_db_description( { formatted => 1 } );
 	my $max_width             = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
@@ -114,7 +96,7 @@ sub print_content {
 	return;
 }
 
-sub _ajax_controls {
+sub _ajax_controls {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $id ) = @_;
 	my $elements = $self->_get_elements;
 	my $element  = $elements->{$id};
@@ -149,13 +131,20 @@ sub _ajax_controls {
 	return;
 }
 
-sub _ajax_new_dashboard {
+sub _ajax_new_dashboard {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ($self) = @_;
 	my $guid = $self->get_guid;
-	$self->{'dashboard_id'} = $self->{'prefstore'}->initiate_new_dashboard( $guid, $self->{'instance'},'primary', 0 );
+	$self->{'dashboard_id'} = $self->{'prefstore'}->initiate_new_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
 	if ( !defined $self->{'dashboard_id'} ) {
 		$logger->error('Dashboard pref could not be initiated.');
 	}
+	my $dashboard_name = $self->{'prefstore'}->get_dashboard_name( $self->{'dashboard_id'}  );
+	my $json           = JSON->new->allow_nonref;
+	say $json->encode(
+		{
+			dashboard_name => $dashboard_name
+		}
+	);
 	return;
 }
 
@@ -589,7 +578,7 @@ sub _print_palette_control {
 	return;
 }
 
-sub _ajax_new {
+sub _ajax_new {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $id ) = @_;
 	my $element = {
 		id    => $id,
@@ -658,11 +647,13 @@ sub _ajax_new {
 	$element->{'width'}       //= 1;
 	$element->{'height'}      //= 1;
 	$element->{'hide_mobile'} //= 1;
-	my $json = JSON->new->allow_nonref;
+	my $dashboard_name = $self->{'prefstore'}->get_dashboard_name( $self->_get_dashboard_id );
+	my $json           = JSON->new->allow_nonref;
 	say $json->encode(
 		{
-			element => $element,
-			html    => $self->_get_element_html( $element, { new => 1 } )
+			element        => $element,
+			html           => $self->_get_element_html( $element, { new => 1 } ),
+			dashboard_name => $dashboard_name
 		}
 	);
 	return;
@@ -696,7 +687,7 @@ sub _get_display_field {
 	return $display_field;
 }
 
-sub _ajax_get {
+sub _ajax_get {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $id ) = @_;
 	my $elements = $self->_get_elements;
 	my $json     = JSON->new->allow_nonref;
@@ -717,7 +708,7 @@ sub _ajax_get {
 	return;
 }
 
-sub _ajax_set_active {
+sub _ajax_set_active {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $active_id ) = @_;
 	my $guid = $self->get_guid;
 	if ( BIGSdb::Utils::is_int($active_id) ) {
@@ -2563,7 +2554,7 @@ sub initiate {
 	return;
 }
 
-sub _update_dashboard_name {
+sub _update_dashboard_name {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $name   = $q->param('updateDashboardName');
@@ -2575,7 +2566,7 @@ sub _update_dashboard_name {
 	return;
 }
 
-sub _update_general_prefs {
+sub _update_general_prefs {     ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ($self)    = @_;
 	my $q         = $self->{'cgi'};
 	my $attribute = $q->param('attribute');
@@ -2596,7 +2587,7 @@ sub _update_general_prefs {
 	return;
 }
 
-sub _update_dashboard_prefs {
+sub _update_dashboard_prefs {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ($self)    = @_;
 	my $q         = $self->{'cgi'};
 	my $attribute = $q->param('attribute');
@@ -2624,6 +2615,12 @@ sub _update_dashboard_prefs {
 		$self->{'prefstore'}
 		  ->update_dashboard_attribute( $dashboard_id, $guid, $self->{'instance'}, $attribute, $value );
 	}
+	my $dashboard_name = $self->{'prefstore'}->get_dashboard_name( $dashboard_id );
+	say $json->encode(
+		{
+			dashboard_name => $dashboard_name
+		}
+	);
 	return;
 }
 
@@ -2633,7 +2630,7 @@ sub _get_dashboard_id {
 	my $guid = $self->get_guid;
 	$self->{'dashboard_id'} = $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
 	return $self->{'dashboard_id'} if defined $self->{'dashboard_id'};
-	$self->{'dashboard_id'} = $self->{'prefstore'}->initiate_new_dashboard( $guid, $self->{'instance'},'primary', 0 );
+	$self->{'dashboard_id'} = $self->{'prefstore'}->initiate_new_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
 	if ( !defined $self->{'dashboard_id'} ) {
 		$logger->error('Dashboard pref could not be initiated.');
 	}
@@ -2723,17 +2720,13 @@ sub _print_modify_dashboard_fieldset {
 	say q(</li></ul>);
 	say q(</fieldset>);
 	$self->_print_dashboard_management_fieldset;
-	say q(<div style="clear:both"></div>);
-	say q(<div style="margin-top:2em">);
-	say q(<a onclick="resetDefaults()" class="small_reset">Reset</a> Return to defaults);
-	say q(</div></div>);
 	return;
 }
 
 sub _print_dashboard_management_fieldset {
 	my ($self) = @_;
-	my $guid   = $self->get_guid;
-	my $name   = 'default';
+	my $guid = $self->get_guid;
+	my $name;
 	my $dashboard_id = $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
 	my $dashboards = $self->{'prefstore'}->get_dashboards( $guid, $self->{'instance'} );
 	if ( !defined $dashboard_id ) {
@@ -2766,8 +2759,8 @@ sub _print_dashboard_management_fieldset {
 		-style     => 'width:8em',
 		-value     => $name
 	);
-	$attributes{'disabled'} = 1 if $name eq 'default';
-	say $q->textfield( %attributes );
+	$attributes{'-disabled'} = 1 if $name eq 'default';
+	say $q->textfield(%attributes);
 	say q(</li>);
 
 	if ( @$dashboards > 1 ) {
@@ -2781,12 +2774,14 @@ sub _print_dashboard_management_fieldset {
 		);
 		say q(</li>);
 	}
+	say q(<li>);
+	my $reset_display = $name eq 'default' ? q(none) : q(inline);
+	say q(<a id="delete_dashboard" onclick="resetDefaults()" class="small_reset" )
+	  . qq(style="display:$reset_display;white-space:nowrap"><span class="far fa-trash-alt"></span> Delete</a>);
 	if ( @$dashboards < DASHBOARD_LIMIT ) {
-		say q(<li>);
 		say q(<a onclick="createNew()" class="small_submit">New dashboard</a>);
-		say q(</li>);
 	}
-	say q(</ul>);
+	say q(</li></ul>);
 	say q(</fieldset>);
 	return;
 }

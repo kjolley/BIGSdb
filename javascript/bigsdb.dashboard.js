@@ -346,6 +346,10 @@ function addElement(grid, id) {
 			}
 			applyFormatting();
 			$("div#element_" + id + " div.item-content").css("visibility", "visible");
+			let dashboard_name = JSON.parse(json).dashboard_name;
+			$("#loaded_dashboard").val(dashboard_name);
+			$("#loaded_dashboard").prop("disabled", false);
+			$("#delete_dashboard").css("display","inline");
 		} catch (err) {
 			console.log(err.message);
 		}
@@ -628,12 +632,21 @@ function saveLayout(grid) {
 		function() {
 			lastAjaxUpdate = new Date().getTime();
 			var layout = serializeLayout(grid);
-			$.post(url, {
+			$.ajax({
+				
+				url : url, 
+				type: 'POST',
+				data: {
 				db: instance,
 				page: "dashboard",
 				updateDashboard: 1,
 				attribute: "order",
-				value: layout
+				value: layout},
+				success: function(json){
+					$("#loaded_dashboard").val(JSON.parse(json).dashboard_name);
+					$("#loaded_dashboard").prop("disabled", false);
+					$("#delete_dashboard").css("display","inline");
+				}
 			});
 		}, delay);
 }
@@ -646,8 +659,12 @@ function resetDefaults() {
 }
 
 function createNew() {
-	$.get(url + "&newDashboard=1", function() {
-		location.reload();
+	$.ajax({
+		url: url+ "&newDashboard=1",
+		type: 'GET',
+		success: function() {
+			location.reload();
+		}
 	});
 }
 
