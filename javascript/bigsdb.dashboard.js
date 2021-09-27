@@ -96,7 +96,7 @@ $(function() {
 		$.ajax({
 			url: url + "&page=dashboard&updateGeneralPrefs=1&attribute=open_new&value=" + (open_new ? 1 : 0)
 		}).done(function() {
-			reloadElementsWithURL(grid);
+			reloadElementsWithURL();
 		});
 	});
 	$("#include_old_versions").change(function() {
@@ -105,7 +105,7 @@ $(function() {
 			url: url + "&page=dashboard&updateDashboard=1&attribute=include_old_versions&value=" +
 				(include_old_versions ? 1 : 0)
 		}).done(function() {
-			reloadAllElements(grid);
+			reloadAllElements();
 		});
 	});
 	$("#loaded_dashboard").change(function() {
@@ -404,6 +404,12 @@ function showOrHideControlElements(id) {
 		$("fieldset#change_duration_control,fieldset#design_control").css("display", "inline");
 		$("li#text_colour_control,li#background_colour_control,li#watermark_control").css("display", "block");
 	}
+	
+	else if (elements[id]['display'] == 'seqbin_size'){
+		$("fieldset#design_control").css("display", "inline");
+		$("li#chart_colour").css("display", "block");
+
+	}
 
 	else if (visualisation_type === 'specific values') {
 		$("li#specific_value_display_selector,li#value_selector").css("display", "block");
@@ -491,7 +497,7 @@ function checkAndShowVisualisation(grid, id) {
 	}
 }
 
-function reloadElement(grid, id) {
+function reloadElement(id) {
 	$.get(url + "&page=dashboard&element=" + id, function(json) {
 		try {
 			$("div#element_" + id + "> .item-content > .ajax_content").html(JSON.parse(json).html);
@@ -503,17 +509,17 @@ function reloadElement(grid, id) {
 	});
 }
 
-function reloadAllElements(grid) {
+function reloadAllElements() {
 	$.each(Object.keys(elements), function(index, value) {
-		reloadElement(grid, value);
+		reloadElement(value);
 	});
 }
 
-function reloadElementsWithURL(grid) {
+function reloadElementsWithURL() {
 	$.each(Object.keys(elements), function(index, value) {
 		if (elements[value]['visualisation_type'] != 'specific values'
 			&& elements[value]['breakdown_display'] == 'top') {
-			reloadElement(grid, value);
+			reloadElement(value);
 		}
 	});
 }
@@ -522,7 +528,7 @@ function loadNewElements(grid) {
 	$.each(Object.keys(elements), function(index, value) {
 		if (!loadedElements[value] && !($(window).width() < MOBILE_WIDTH && elements[value]['hide_mobile'])) {
 			console.log("Reload " + value);
-			reloadElement(grid, value);
+			reloadElement(value);
 			loadedElements[value] = 1;
 		}
 	});
@@ -584,8 +590,10 @@ function saveAndReloadElement(grid, id) {
 			}
 		},
 		success: function() {
-			reloadElement(grid, id);
-			setGridMargins(grid);
+			reloadElement(id);
+			if (grid != null){
+				setGridMargins(grid);
+			}
 		}
 	});
 }

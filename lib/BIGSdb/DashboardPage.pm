@@ -114,6 +114,10 @@ sub _ajax_controls {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called 
 			$self->_print_design_control( $id, $element );
 			$self->_print_change_duration_control( $id, $element );
 		},
+		seqbin_size => sub {
+			$self->_print_design_control( $id, $element );
+			$self->_print_seqbin_filter_control( $id, $element );
+		},
 		field => sub {
 			$self->_print_design_control( $id, $element, { display => 'none' } );
 			$self->_print_change_duration_control( $id, $element, { display => 'none' } );
@@ -577,6 +581,49 @@ sub _print_palette_control {
 	return;
 }
 
+sub _print_seqbin_filter_control {
+	my ( $self, $id, $element ) = @_;
+	my $q = $self->{'cgi'};
+	my $max =
+	  $self->{'datastore'}->run_query(
+		"SELECT MAX(total_length) FROM seqbin_stats s JOIN $self->{'system'}->{'view'} v ON s.isolate_id=v.id");
+	return if !$max;
+	my $max_kb    = int( $max / 1000_000 );
+	my $min_value = $element->{'seqbin_min'} // 0;
+	my $max_value = $element->{'seqbin_max'} // $max_kb;
+	say q(<fieldset id="seqbin_filter_control" style="float:left"><legend>Filter</legend>);
+	say q(<p><span id="seqbin_min"></span> - <span id="seqbin_max"></span> Mbp</p>);
+	say q(<div id="seqbin_slider_range" style="width:150px"></div>);
+	say q(</fieldset>);
+	say << "JS";
+	
+<script>
+\$(function() {
+	let max=$max_kb;
+	\$("#seqbin_min").html($min_value);
+	\$("#seqbin_max").html($max_value);
+	\$("#seqbin_slider_range").slider({
+      range: true,
+      min: 0,
+      max: $max_kb,
+      step: 0.1,
+      values: [ $min_value, $max_value ],
+      slide: function( event, ui ) {
+          \$("#seqbin_min").html(ui.values[0]);
+          \$("#seqbin_max").html(ui.values[1]);
+      },
+          change: function (event, ui){
+              elements[$element->{'id'}]['seqbin_min'] = ui.values[0];
+       		  elements[$element->{'id'}]['seqbin_max'] = ui.values[1];
+       	      saveAndReloadElement(null,$element->{'id'});
+          }
+    });
+});
+</script>
+JS
+	return;
+}
+
 sub _ajax_new {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $id ) = @_;
 	my $element = {
@@ -977,11 +1024,19 @@ sub _get_count_element_content {
 
 sub _get_seqbin_size_element_content {
 	my ( $self, $element ) = @_;
+	my $chart_colour = $element->{'chart_colour'} // CHART_COLOUR;
 	my $buffer = $self->_get_colour_swatch($element);
+	my $min_value = $element->{'seqbin_min'};
+	my $max_value = $element->{'seqbin_max'};
+
+	
 	$buffer .= qq(<div class="title">$element->{'name'}</div>);
+	
 	my $qry     = "SELECT total_length FROM seqbin_stats s JOIN $self->{'system'}->{'view'} v ON s.isolate_id=v.id";
 	my $filters = $self->_get_filters;
 	local $" = ' AND ';
+	push @$filters, "s.total_length>=$min_value*1000000" if defined $min_value;
+	push @$filters, "s.total_length<=$max_value*1000000" if defined $max_value;
 	$qry .= " WHERE @$filters" if @$filters;
 	my $lengths = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 
@@ -996,30 +1051,37 @@ sub _get_seqbin_size_element_content {
 	  ;    #Scott's choice [Scott DW (1979). On optimal and data-based histograms. Biometrika 66(3):605–610]
 	$bins = 70 if $bins > 70;
 	$bins = 1  if !$bins;
+	$logger->error(Dumper $stats);
 	my $width            = $stats->{'max'} / $bins;
 	my $round_to_nearest = $self->_get_rounded_width($width);
 	$width = int( $width - ( $width % $round_to_nearest ) ) || $round_to_nearest;
 	my ( $histogram, $min, $max ) = BIGSdb::Utils::histogram( $width, $lengths );
+	$logger->error("$min $max $width");
+	$logger->error(Dumper $histogram);
 	my $histogram_data = [];
-	my $largest_value = 0;
+	my $largest_value  = 0;
 	my @labels;
+
 	foreach my $i ( $min .. $max ) {
-		my $label = $i == 0
-			? q(0-) . BIGSdb::Utils::commify( $width / 1000 )
-			: BIGSdb::Utils::commify( ( $i * $width ) / 1000 ) . q(-) . BIGSdb::Utils::commify( ($i+1) * $width / 1000 );
-		push @$histogram_data, {
-			label => $label,
+		next if ($i * $width / 1_000_000) < $min_value;
+		my $label =
+		  $i == 0
+		  ? q(0-) . BIGSdb::Utils::commify( $width / 1_000_000 )
+		  : BIGSdb::Utils::commify( ( $i * $width ) / 1_000_000 ) . q(-)
+		  . BIGSdb::Utils::commify( ( $i + 1 ) * $width / 1_000_000 );
+		push @$histogram_data,
+		  {
+			label  => $label,
 			values => $histogram->{$i}
-		};
+		  };
 		push @labels, $label if $histogram->{$i};
-		
-		if ($histogram->{$i} > $largest_value){
-			$largest_value =  $histogram->{$i};
-			
+		if ( ( $histogram->{$i} // 0 ) > $largest_value ) {
+			$largest_value = $histogram->{$i};
 		}
 	}
+	my $label_length = length($labels[-1]);
 	my $height = ( $element->{'height'} * 150 ) - 40;
-	$buffer .= qq(<div id="chart_$element->{'id'}" style="margin-top:-20px"></div>);
+	$buffer .= qq(<div id="chart_$element->{'id'}" class="bar" style="margin-top:-20px"></div>);
 	my $json      = JSON->new->allow_nonref;
 	my $json_data = $json->encode($histogram_data);
 	local $" = q(",");
@@ -1040,11 +1102,17 @@ sub _get_seqbin_size_element_content {
 			labels: {
 				show: true,
 				format: function (v,id,i,j){
-					if (v === $largest_value){
+					if (v === $largest_value && $element->{'width'} > 1){
 						return labels[i];
 					}
+				},
+				position: {
+					x: 10
 				}
 			},
+			color: function(){
+				return "$chart_colour";
+			}
 		},	
 		bar: {
 			width: {
@@ -1056,18 +1124,24 @@ sub _get_seqbin_size_element_content {
 			x: {
 				type: 'category',
 				label: {
-					text: 'total length (kbp)',
+					text: 'total length (Mbp)',
 					position: 'outer-center'
 				},
 				tick: {
-					count: 1,
-					multiline:false
-				},
-
+					count: 2,
+					multiline:false,
+					text: {
+						position: {
+							x: -$label_length * 2
+						}
+					}
+				}
 			},
 			y: {
 				tick: {
-					count:$element->{'height'} + 1,
+					culling: {
+						max: $element->{'height'} * 2 + 1
+					},
 					format: y => y % 1 > 0 ? y.toFixed(0) : y
 				},
 				padding: {
@@ -1093,7 +1167,7 @@ sub _get_seqbin_size_element_content {
 		},
 		padding: {
 			top:10,
-			right: 50
+			right: 10
 		},
 		size: {
 			height: $height
@@ -2984,7 +3058,7 @@ sub _print_field_selector {
 	push @{ $group_members->{'Special'} }, 'sp_count', 'sp_genomes', 'sp_seqbin_size';
 	$labels->{'sp_count'}       = "$self->{'system'}->{'labelfield'} count";
 	$labels->{'sp_genomes'}     = 'genome count';
-	$labels->{'sp_seqbin_size'} = 'sequence bin size distribution';
+	$labels->{'sp_seqbin_size'} = 'sequence bin size';
 	my @eav_groups = split /,/x, ( $self->{'system'}->{'eav_groups'} // q() );
 	push @group_list, @eav_groups if @eav_groups;
 	push @group_list, ( 'Loci', 'Schemes' );
