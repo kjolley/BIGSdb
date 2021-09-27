@@ -1051,13 +1051,10 @@ sub _get_seqbin_size_element_content {
 	  ;    #Scott's choice [Scott DW (1979). On optimal and data-based histograms. Biometrika 66(3):605–610]
 	$bins = 70 if $bins > 70;
 	$bins = 1  if !$bins;
-	$logger->error(Dumper $stats);
 	my $width            = $stats->{'max'} / $bins;
 	my $round_to_nearest = $self->_get_rounded_width($width);
 	$width = int( $width - ( $width % $round_to_nearest ) ) || $round_to_nearest;
 	my ( $histogram, $min, $max ) = BIGSdb::Utils::histogram( $width, $lengths );
-	$logger->error("$min $max $width");
-	$logger->error(Dumper $histogram);
 	my $histogram_data = [];
 	my $largest_value  = 0;
 	my @labels;

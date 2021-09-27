@@ -524,10 +524,9 @@ function reloadElementsWithURL() {
 	});
 }
 
-function loadNewElements(grid) {
+function loadNewElements() {
 	$.each(Object.keys(elements), function(index, value) {
 		if (!loadedElements[value] && !($(window).width() < MOBILE_WIDTH && elements[value]['hide_mobile'])) {
-			console.log("Reload " + value);
 			reloadElement(value);
 			loadedElements[value] = 1;
 		}
@@ -557,7 +556,6 @@ function changeElementDimension(grid, id, attribute) {
 		.val();
 	item_content.addClass("dashboard_element_" + attribute + new_dimension);
 	elements[id][attribute] = Number(new_dimension);
-	//	setElementWidths(grid);
 	saveAndReloadElement(grid, id);
 	grid.refreshItems().layout();
 }
