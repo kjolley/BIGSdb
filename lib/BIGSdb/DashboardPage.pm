@@ -592,7 +592,7 @@ sub _print_seqbin_filter_control {
 	my $min_value = $element->{'seqbin_min'} // 0;
 	my $max_value = $element->{'seqbin_max'} // $max_kb;
 	say q(<fieldset id="seqbin_filter_control" style="float:left"><legend>Filter</legend>);
-	say q(<p><span id="seqbin_min"></span> - <span id="seqbin_max"></span> Mbp</p>);
+	say q(<p>Size: <span id="seqbin_min"></span> - <span id="seqbin_max"></span> Mbp</p>);
 	say q(<div id="seqbin_slider_range" style="width:150px"></div>);
 	say q(</fieldset>);
 	say << "JS";
@@ -612,11 +612,11 @@ sub _print_seqbin_filter_control {
           \$("#seqbin_min").html(ui.values[0]);
           \$("#seqbin_max").html(ui.values[1]);
       },
-          change: function (event, ui){
-              elements[$element->{'id'}]['seqbin_min'] = ui.values[0];
-       		  elements[$element->{'id'}]['seqbin_max'] = ui.values[1];
-       	      saveAndReloadElement(null,$element->{'id'});
-          }
+      change: function (event, ui){
+          elements[$element->{'id'}]['seqbin_min'] = ui.values[0];
+          elements[$element->{'id'}]['seqbin_max'] = ui.values[1];
+       	  saveAndReloadElement(null,$element->{'id'});
+      }
     });
 });
 </script>
@@ -1090,6 +1090,7 @@ sub _get_seqbin_size_element_content {
 <script>
 \$(function() {
 	var labels = [$label_string];
+	var label_shown = false;
 	bb.generate({
 		bindto: '#chart_$element->{'id'}',
 		data: {
@@ -1103,7 +1104,10 @@ sub _get_seqbin_size_element_content {
 				show: true,
 				format: function (v,id,i,j){
 					if (v === $largest_value && $element->{'width'} > 1){
-						return labels[i];
+						if (!label_shown && labels[i] != null){
+							label_shown = true;
+							return labels[i];
+						}
 					}
 				},
 				position: {
