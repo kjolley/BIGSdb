@@ -992,12 +992,8 @@ sub _get_filters {
 		push @$filters, "id IN (SELECT isolate_id FROM seqbin_stats WHERE total_length>=$genome_size)";
 	}
 	if ( $self->{'prefs'}->{'record_age'} ) {
-		my $periods = RECORD_AGE;
-		my $period  = $periods->{ $self->{'prefs'}->{'record_age'} };
-		$period =~ s/past\s//x;
-		$period = '1 ' . $period if $period !~ /^\d/x;
-		push @$filters,
-		  "id IN (SELECT id FROM $self->{'system'}->{'view'} WHERE date_entered>=now()-interval '$period')";
+		my $datestamp = $self->_get_record_age_datestamp;
+		push @$filters, "id IN (SELECT id FROM $self->{'system'}->{'view'} WHERE date_entered>='$datestamp')";
 	}
 	return $filters;
 }
@@ -2683,7 +2679,28 @@ sub _get_query_url {
 	if ( $self->{'prefs'}->{'include_old_versions'} ) {
 		$url .= '&include_old=on';
 	}
+	if ( $self->{'prefs'}->{'record_age'} ) {
+		my $row = $url =~ /prov_field1/x ? 2 : 1;
+		my $datestamp = $self->_get_record_age_datestamp;
+		$url .= "&prov_field$row=f_date_entered&prov_operator$row=>=&prov_value$row=$datestamp&submit=1";
+	}
 	return $url;
+}
+
+sub _get_record_age_datestamp {
+	my ($self) = @_;
+	my $record_age = $self->{'prefs'}->{'record_age'};
+	return if !$record_age || !BIGSdb::Utils::is_int($record_age);
+	if ( $self->{'cache'}->{'record_age'}->{$record_age} ) {
+		return $self->{'cache'}->{'record_age'}->{$record_age};
+	}
+	my $periods = RECORD_AGE;
+	my $period  = $periods->{ $self->{'prefs'}->{'record_age'} };
+	$period =~ s/past\s//x;
+	$period = '1 ' . $period if $period !~ /^\d/x;
+	$self->{'cache'}->{'record_age'}->{$record_age} =
+	  $self->{'datastore'}->run_query("SELECT CAST(now()-interval '$period' AS date)");
+	return $self->{'cache'}->{'record_age'}->{$record_age};
 }
 
 sub _filter_list {
@@ -3117,12 +3134,22 @@ sub get_javascript {
 	if ($order) {
 		$order = $json->encode($order);
 	}
-	my $elements          = $self->_get_elements;
-	my $json_elements     = $json->encode($elements);
-	my $record_age_labels = $json->encode(RECORD_AGE);
-	my $record_age        = $self->{'prefs'}->{'record_age'} // 0;
-	my $empty             = $self->_get_dashboard_empty_message;
-	my $buffer            = << "END";
+	my $elements            = $self->_get_elements;
+	my $json_elements       = $json->encode($elements);
+	my $record_age_labels   = $json->encode(RECORD_AGE);
+	my $record_age          = $self->{'prefs'}->{'record_age'} // 0;
+	my $empty               = $self->_get_dashboard_empty_message;
+	my $duration_datestamps = $self->{'datastore'}->run_query(
+		    q(SELECT CAST(now() AS DATE), CAST(now()-interval '5 years' AS DATE), )
+		  . q(CAST(now()-interval '4 years' AS DATE), CAST(now()-interval '3 years' AS DATE), )
+		  . q(CAST(now()-interval '2 years' AS DATE), CAST(now()-interval '1 year' AS DATE), )
+		  . q(CAST(now()-interval '1 month' AS DATE), CAST(now()-interval '1 week' AS DATE))
+		,
+		undef,
+		{ fetch => 'row_arrayref' }
+	);
+	my $datestamps = $json->encode($duration_datestamps);
+	my $buffer     = << "END";
 var url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}";
 var elements = $json_elements;
 var order = '$order';
@@ -3132,6 +3159,7 @@ var enable_drag=$enable_drag;
 var loadedElements = {};
 var recordAgeLabels = $record_age_labels;
 var recordAge = $record_age;
+var datestamps = $datestamps;
 END
 	return $buffer;
 }

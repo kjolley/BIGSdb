@@ -164,8 +164,16 @@ $(function() {
 				params = elements[id]['post_data'];
 			}
 			params['sent'] = 1;
-			if (explore_url.includes('&page=query') && $("#include_old_versions").prop('checked')) {
-				params['include_old'] = 'on';
+			if (explore_url.includes('&page=query')){
+				if ($("#include_old_versions").prop('checked')) {
+					params['include_old'] = 'on';
+				}
+				let recordAgeIndex = $("#record_age_slider").slider("value");
+				if (recordAgeIndex > 0){									
+					params['prov_field1'] = 'f_date_entered';
+					params['prov_operator1'] = '>=';
+					params['prov_value1'] = datestamps[recordAgeIndex];
+				}
 			}
 			post(elements[id]['url'], params);
 		}
