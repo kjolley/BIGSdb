@@ -49,8 +49,21 @@ $(function() {
 	} catch (err) {
 		console.log(err.message);
 	}
-
-
+	$("#record_age_slider").slider({
+		min: 0,
+		max: 7,
+		value: recordAge,
+		slide: function(event, ui) {
+			$("#record_age").html(recordAgeLabels[ui.value]);
+		},
+		change: function(event, ui ){
+			$.ajax({
+			url: url + "&page=dashboard&updateDashboard=1&attribute=record_age&value=" + ui.value
+			}).done(function() {
+				reloadAllElements();
+			});
+		}
+	});
 	$("#panel_trigger,#close_trigger").click(function() {
 		$("#modify_panel").toggle("slide", { direction: "right" }, "fast");
 		$("#panel_trigger").show();
@@ -349,7 +362,7 @@ function addElement(grid, id) {
 			let dashboard_name = JSON.parse(json).dashboard_name;
 			$("#loaded_dashboard").val(dashboard_name);
 			$("#loaded_dashboard").prop("disabled", false);
-			$("#delete_dashboard").css("display","inline");	
+			$("#delete_dashboard").css("display", "inline");
 		} catch (err) {
 			console.log(err.message);
 		}
@@ -404,8 +417,8 @@ function showOrHideControlElements(id) {
 		$("fieldset#change_duration_control,fieldset#design_control").css("display", "inline");
 		$("li#text_colour_control,li#background_colour_control,li#watermark_control").css("display", "block");
 	}
-	
-	else if (elements[id]['display'] == 'seqbin_size'){
+
+	else if (elements[id]['display'] == 'seqbin_size') {
 		$("fieldset#design_control").css("display", "inline");
 		$("li#chart_colour").css("display", "block");
 
@@ -589,7 +602,7 @@ function saveAndReloadElement(grid, id) {
 		},
 		success: function() {
 			reloadElement(id);
-			if (grid != null){
+			if (grid != null) {
 				setGridMargins(grid);
 			}
 		}
@@ -640,19 +653,20 @@ function saveLayout(grid) {
 			lastAjaxUpdate = new Date().getTime();
 			var layout = serializeLayout(grid);
 			$.ajax({
-				
-				url : url, 
+
+				url: url,
 				type: 'POST',
 				data: {
-				db: instance,
-				page: "dashboard",
-				updateDashboard: 1,
-				attribute: "order",
-				value: layout},
-				success: function(json){
+					db: instance,
+					page: "dashboard",
+					updateDashboard: 1,
+					attribute: "order",
+					value: layout
+				},
+				success: function(json) {
 					$("#loaded_dashboard").val(JSON.parse(json).dashboard_name);
 					$("#loaded_dashboard").prop("disabled", false);
-					$("#delete_dashboard").css("display","inline");
+					$("#delete_dashboard").css("display", "inline");
 				}
 			});
 		}, delay);
@@ -667,7 +681,7 @@ function resetDefaults() {
 
 function createNew() {
 	$.ajax({
-		url: url+ "&newDashboard=1",
+		url: url + "&newDashboard=1",
 		type: 'GET',
 		success: function() {
 			location.reload();

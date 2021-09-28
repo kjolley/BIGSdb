@@ -42,7 +42,17 @@ use constant {
 	GAUGE_FOREGROUND_COLOUR          => '#0000ff',
 	CHART_COLOUR                     => '#1f77b4',
 	TOP_VALUES                       => 5,
-	DASHBOARD_LIMIT                  => 20
+	DASHBOARD_LIMIT                  => 20,
+	RECORD_AGE                       => {
+		0 => 'all time',
+		1 => 'past 5 years',
+		2 => 'past 4 years',
+		3 => 'past 3 years',
+		4 => 'past 2 years',
+		5 => 'past year',
+		6 => 'past month',
+		7 => 'past week'
+	}
 };
 
 sub print_content {
@@ -593,7 +603,7 @@ sub _print_seqbin_filter_control {
 	my $max_value = $element->{'seqbin_max'} // $max_kb;
 	say q(<fieldset id="seqbin_filter_control" style="float:left"><legend>Filter</legend>);
 	say q(<p>Size: <span id="seqbin_min"></span> - <span id="seqbin_max"></span> Mbp</p>);
-	say q(<div id="seqbin_slider_range" style="width:150px"></div>);
+	say q(<div id="seqbin_range_slider" style="width:150px"></div>);
 	say q(</fieldset>);
 	say << "JS";
 	
@@ -602,7 +612,7 @@ sub _print_seqbin_filter_control {
 	let max=$max_kb;
 	\$("#seqbin_min").html($min_value);
 	\$("#seqbin_max").html($max_value);
-	\$("#seqbin_slider_range").slider({
+	\$("#seqbin_range_slider").slider({
       range: true,
       min: 0,
       max: $max_kb,
@@ -981,6 +991,14 @@ sub _get_filters {
 		  // MIN_GENOME_SIZE;
 		push @$filters, "id IN (SELECT isolate_id FROM seqbin_stats WHERE total_length>=$genome_size)";
 	}
+	if ( $self->{'prefs'}->{'record_age'} ) {
+		my $periods = RECORD_AGE;
+		my $period  = $periods->{ $self->{'prefs'}->{'record_age'} };
+		$period =~ s/past\s//x;
+		$period = '1 ' . $period if $period !~ /^\d/x;
+		push @$filters,
+		  "id IN (SELECT id FROM $self->{'system'}->{'view'} WHERE date_entered>=now()-interval '$period')";
+	}
 	return $filters;
 }
 
@@ -1025,13 +1043,10 @@ sub _get_count_element_content {
 sub _get_seqbin_size_element_content {
 	my ( $self, $element ) = @_;
 	my $chart_colour = $element->{'chart_colour'} // CHART_COLOUR;
-	my $buffer = $self->_get_colour_swatch($element);
-	my $min_value = $element->{'seqbin_min'};
-	my $max_value = $element->{'seqbin_max'};
-
-	
+	my $buffer       = $self->_get_colour_swatch($element);
+	my $min_value    = $element->{'seqbin_min'};
+	my $max_value    = $element->{'seqbin_max'};
 	$buffer .= qq(<div class="title">$element->{'name'}</div>);
-	
 	my $qry     = "SELECT total_length FROM seqbin_stats s JOIN $self->{'system'}->{'view'} v ON s.isolate_id=v.id";
 	my $filters = $self->_get_filters;
 	local $" = ' AND ';
@@ -1060,7 +1075,7 @@ sub _get_seqbin_size_element_content {
 	my @labels;
 
 	foreach my $i ( $min .. $max ) {
-		next if ($i * $width / 1_000_000) < $min_value;
+		next if ( $i * $width / 1_000_000 ) < $min_value;
 		my $label =
 		  $i == 0
 		  ? q(0-) . BIGSdb::Utils::commify( $width / 1_000_000 )
@@ -1076,8 +1091,8 @@ sub _get_seqbin_size_element_content {
 			$largest_value = $histogram->{$i};
 		}
 	}
-	my $label_length = length($labels[-1]);
-	my $height = ( $element->{'height'} * 150 ) - 40;
+	my $label_length = length( $labels[-1] );
+	my $height       = ( $element->{'height'} * 150 ) - 40;
 	$buffer .= qq(<div id="chart_$element->{'id'}" class="bar" style="margin-top:-20px"></div>);
 	my $json      = JSON->new->allow_nonref;
 	my $json_data = $json->encode($histogram_data);
@@ -2821,7 +2836,7 @@ sub _update_dashboard_prefs {    ## no critic (ProhibitUnusedPrivateSubroutines)
 	return if !defined $value;
 	my %allowed_attributes =
 	  map { $_ => 1 }
-	  qw(fill_gaps order elements include_old_versions open_new name
+	  qw(fill_gaps order elements include_old_versions open_new name record_age
 	);
 
 	if ( !$allowed_attributes{$attribute} ) {
@@ -2873,13 +2888,12 @@ sub print_panel_buttons {
 
 sub _print_modify_dashboard_fieldset {
 	my ($self) = @_;
-	my $enable_drag          = $self->{'prefs'}->{'enable_drag'}          // 0;
-	my $edit_elements        = $self->{'prefs'}->{'edit_elements'}        // 1;
-	my $remove_elements      = $self->{'prefs'}->{'remove_elements'}      // 0;
-	my $open_new             = $self->{'prefs'}->{'open_new'}             // 1;
-	my $fill_gaps            = $self->{'prefs'}->{'fill_gaps'}            // 1;
-	my $include_old_versions = $self->{'prefs'}->{'include_old_versions'} // 0;
-	my $q                    = $self->{'cgi'};
+	my $enable_drag     = $self->{'prefs'}->{'enable_drag'}     // 0;
+	my $edit_elements   = $self->{'prefs'}->{'edit_elements'}   // 1;
+	my $remove_elements = $self->{'prefs'}->{'remove_elements'} // 0;
+	my $open_new        = $self->{'prefs'}->{'open_new'}        // 1;
+	my $fill_gaps       = $self->{'prefs'}->{'fill_gaps'}       // 1;
+	my $q               = $self->{'cgi'};
 	say q(<div id="modify_panel" class="panel">);
 	say q(<a class="trigger" id="close_trigger" href="#"><span class="fas fa-lg fa-times"></span></a>);
 	say q(<h2>Dashboard settings</h2>);
@@ -2910,16 +2924,7 @@ sub _print_modify_dashboard_fieldset {
 	);
 	say q(</li></ul>);
 	say q(</fieldset>);
-	say q(<fieldset><legend>Filters</legend>);
-	say q(<ul><li>);
-	say $q->checkbox(
-		-name    => 'include_old_versions',
-		-id      => 'include_old_versions',
-		-label   => 'Include old record versions',
-		-checked => $include_old_versions ? 'checked' : undef
-	);
-	say q(</li></ul>);
-	say q(</fieldset>);
+	$self->_print_filter_fieldset;
 	say q(<fieldset><legend>Visual elements</legend>);
 	say q(<ul><li>);
 	say $q->checkbox(
@@ -2945,6 +2950,27 @@ sub _print_modify_dashboard_fieldset {
 	say q(</li></ul>);
 	say q(</fieldset>);
 	$self->_print_dashboard_management_fieldset;
+	return;
+}
+
+sub _print_filter_fieldset {
+	my ($self) = @_;
+	my $include_old_versions = $self->{'prefs'}->{'include_old_versions'} // 0;
+	my $record_age           = $self->{'prefs'}->{'record_age'}           // 0;
+	my $record_age_labels    = RECORD_AGE;
+	my $q                    = $self->{'cgi'};
+	say q(<fieldset><legend>Filters</legend>);
+	say q(<ul><li>);
+	say $q->checkbox(
+		-name    => 'include_old_versions',
+		-id      => 'include_old_versions',
+		-label   => 'Include old record versions',
+		-checked => $include_old_versions ? 'checked' : undef
+	);
+	say qq(</li><li>Record age: <span id="record_age">$record_age_labels->{$record_age}</span>);
+	say q(<div id="record_age_slider" style="width:150px;margin-top:5px"></div>);
+	say q(</li></ul>);
+	say q(</fieldset>);
 	return;
 }
 
@@ -3091,10 +3117,12 @@ sub get_javascript {
 	if ($order) {
 		$order = $json->encode($order);
 	}
-	my $elements      = $self->_get_elements;
-	my $json_elements = $json->encode($elements);
-	my $empty         = $self->_get_dashboard_empty_message;
-	my $buffer        = << "END";
+	my $elements          = $self->_get_elements;
+	my $json_elements     = $json->encode($elements);
+	my $record_age_labels = $json->encode(RECORD_AGE);
+	my $record_age        = $self->{'prefs'}->{'record_age'} // 0;
+	my $empty             = $self->_get_dashboard_empty_message;
+	my $buffer            = << "END";
 var url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}";
 var elements = $json_elements;
 var order = '$order';
@@ -3102,7 +3130,8 @@ var instance = "$self->{'instance'}";
 var empty='$empty';
 var enable_drag=$enable_drag;
 var loadedElements = {};
-
+var recordAgeLabels = $record_age_labels;
+var recordAge = $record_age;
 END
 	return $buffer;
 }
