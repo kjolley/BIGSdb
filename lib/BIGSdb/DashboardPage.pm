@@ -1009,21 +1009,24 @@ sub _field_exists {
 			'SELECT EXISTS(SELECT * FROM isolate_field_extended_attributes WHERE (isolate_field,attribute)=(?,?))',
 			[ $1, $2 ] );
 	}
+	if ($field =~ /^s_(\d+)_(.+)$/x){
+		return $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM scheme_fields WHERE (scheme_id,field)=(?,?))',[$1,$2]);
+	}
 	return;
 }
 
 sub _get_filters {
 	my ( $self, $options ) = @_;
 	my $filters = [];
-	push @$filters, 'new_version IS NULL' if !$self->{'prefs'}->{'include_old_versions'};
+	push @$filters, 'v.new_version IS NULL' if !$self->{'prefs'}->{'include_old_versions'};
 	if ( $options->{'genomes'} ) {
 		my $genome_size = $self->{'system'}->{'min_genome_size'} // $self->{'config'}->{'min_genome_size'}
 		  // MIN_GENOME_SIZE;
-		push @$filters, "id IN (SELECT isolate_id FROM seqbin_stats WHERE total_length>=$genome_size)";
+		push @$filters, "v.id IN (SELECT isolate_id FROM seqbin_stats WHERE total_length>=$genome_size)";
 	}
 	if ( $self->{'prefs'}->{'record_age'} ) {
 		my $datestamp = $self->_get_record_age_datestamp;
-		push @$filters, "id IN (SELECT id FROM $self->{'system'}->{'view'} WHERE date_entered>='$datestamp')";
+		push @$filters, "v.id IN (SELECT id FROM $self->{'system'}->{'view'} WHERE date_entered>='$datestamp')";
 	}
 	return $filters;
 }
@@ -1044,8 +1047,8 @@ sub _get_count_element_content {
 					genomes => $element->{'genomes'}
 				}
 			);
-			my $qry = "SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE "
-			  . "date_entered <= now()-interval '1 $element->{'change_duration'}'";
+			my $qry = "SELECT COUNT(*) FROM $self->{'system'}->{'view'} v WHERE "
+			  . "v.date_entered <= now()-interval '1 $element->{'change_duration'}'";
 			local $" = ' AND ';
 			$qry .= " AND @$filters" if @$filters;
 			my $past_count = $self->{'datastore'}->run_query($qry);
@@ -1682,7 +1685,7 @@ sub _get_field_specific_value_number_content {
 
 sub _get_total_record_count {
 	my ( $self, $options ) = @_;
-	my $qry     = "SELECT COUNT(*) FROM $self->{'system'}->{'view'}";
+	my $qry     = "SELECT COUNT(*) FROM $self->{'system'}->{'view'} v";
 	my $filters = $self->_get_filters(
 		{
 			genomes => $options->{'genomes'}
@@ -2972,6 +2975,8 @@ sub _print_modify_dashboard_fieldset {
 	say q(<a class="trigger" id="close_trigger" href="#"><span class="fas fa-lg fa-times"></span></a>);
 	say q(<h2>Dashboard settings</h2>);
 	say q(<fieldset><legend>Layout</legend>);
+		say q(<form autocomplete="off">);    #Needed because Firefox will override the value we set for loaded_dashboard.
+	
 	say q(<ul><li>);
 	say $q->checkbox(
 		-name    => 'fill_gaps',
@@ -2987,7 +2992,9 @@ sub _print_modify_dashboard_fieldset {
 		-checked => $enable_drag ? 'checked' : undef
 	);
 	say q(</li></ul>);
+	say q(</form>);
 	say q(</fieldset>);
+	
 	say q(<fieldset><legend>Links</legend>);
 	say q(<ul><li>);
 	say $q->checkbox(
@@ -3034,6 +3041,8 @@ sub _print_filter_fieldset {
 	my $record_age_labels    = RECORD_AGE;
 	my $q                    = $self->{'cgi'};
 	say q(<fieldset><legend>Filters</legend>);
+		say q(<form autocomplete="off">);    #Needed because Firefox will override the value we set for loaded_dashboard.
+	
 	say q(<ul><li>);
 	say $q->checkbox(
 		-name    => 'include_old_versions',
@@ -3044,7 +3053,9 @@ sub _print_filter_fieldset {
 	say qq(</li><li>Record age: <span id="record_age">$record_age_labels->{$record_age}</span>);
 	say q(<div id="record_age_slider" style="width:150px;margin-top:5px"></div>);
 	say q(</li></ul>);
+	say q(</form>);
 	say q(</fieldset>);
+	
 	return;
 }
 

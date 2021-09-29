@@ -80,6 +80,15 @@ elements = [
 		width             = 2,
 		hide_mobile       = 1
 	},
+	{   #Treemap of disease.
+		display           = 'field',
+		name              = 'Disease',
+		field             = 'f_disease',
+		breakdown_display = 'treemap',
+		height            = 2,
+		width             = 2,
+		hide_mobile       = 1
+	},
 	{
 		#Bar chart of submission years. 
 		display           = 'field',
