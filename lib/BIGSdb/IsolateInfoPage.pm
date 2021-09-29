@@ -1548,7 +1548,7 @@ sub _get_locus_value {
 		my @anchor_att;
 		my $update_tooltip = '';
 		if ( $self->{'prefs'}->{'update_details'} && $designation->{'allele_id'} ) {
-			$update_tooltip = $self->get_update_details_tooltip( $cleaned, $designation );
+			$update_tooltip = $self->get_update_details_tooltip( $locus, $designation );
 			push @anchor_att, qq(title="$update_tooltip");
 		}
 		if ( $locus_info->{'url'} && $designation->{'allele_id'} ne 'deleted' && ( $status // '' ) ne 'ignore' ) {
