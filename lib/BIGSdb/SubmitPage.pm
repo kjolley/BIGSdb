@@ -2683,7 +2683,7 @@ sub _curate_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 		$curate = 0;
 	}
 	say q(<div class="box" id="resultstable">);
-	say qq(<h2 style="overflow-x:auto">Submission: $submission_id</h2>);
+	say qq(<h2 style="overflow-x:auto;overflow-y:hidden">Submission: $submission_id</h2>);
 	my %isolate_type = map { $_ => 1 } qw(isolates genomes);
 	if ( $isolate_type{ $submission->{'type'} } && $q->param('curate') && $q->param('update') ) {
 		$self->_update_isolate_submission_isolate_status($submission_id);
