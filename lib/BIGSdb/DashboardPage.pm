@@ -1842,6 +1842,9 @@ sub _get_field_breakdown_bar_content {
 				labels: {
 					show: true,
 					format: function (v,id,i,j){
+						if (v < max*0.05){
+							return;
+						}
 						if (label_count<=6){
 							return labels[i];
 						}
@@ -1964,6 +1967,10 @@ sub _get_field_breakdown_cumulative_content {
 					}
 				},
 				y: {
+					min: 0,
+					padding: {
+						bottom: 0
+					},
 					tick: {
 						culling: true
 					} 
