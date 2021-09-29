@@ -605,11 +605,28 @@ use constant DEFAULT_DASHBOARD => [
 	},
 	{
 		display           => 'field',
+		name              => 'Country',
+		field             => 'f_country',
+		breakdown_display => 'map',
+		width             => 3,
+		height            => 2,
+		hide_mobile       => 1
+	},
+	{
+		display           => 'field',
 		name              => 'Continent',
 		field             => 'e_country||continent',
 		breakdown_display => 'top',
 		top_values        => 5,
 		width             => 2
+	},
+	{
+		name        => 'Sequence size',
+		display     => 'seqbin_size',
+		genomes     => 1,
+		hide_mobile => 1,
+		width       => 2,
+		height      => 1
 	},
 	{
 		display           => 'field',

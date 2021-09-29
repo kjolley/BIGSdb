@@ -594,13 +594,20 @@ sub _print_palette_control {
 sub _print_seqbin_filter_control {
 	my ( $self, $id, $element ) = @_;
 	my $q = $self->{'cgi'};
+	
 	my $max =
 	  $self->{'datastore'}->run_query(
 		"SELECT MAX(total_length) FROM seqbin_stats s JOIN $self->{'system'}->{'view'} v ON s.isolate_id=v.id");
 	return if !$max;
+	
 	my $max_kb    = int( $max / 1000_000 );
-	my $min_value = $element->{'seqbin_min'} // 0;
-	my $max_value = $element->{'seqbin_max'} // $max_kb;
+	if (!defined $element->{'min'} && !defined  $element->{'max'}){
+		my $range = $self->_get_seqbin_standard_range;
+		$element->{'min'} //= $range->{'min'};
+		$element->{'max'} //= $range->{'max'};
+	}
+	my $min_value = $element->{'min'} // 0;
+	my $max_value = $element->{'max'} // $max_kb;
 	say q(<fieldset id="seqbin_filter_control" style="float:left"><legend>Filter</legend>);
 	say q(<p>Size: <span id="seqbin_min"></span> - <span id="seqbin_max"></span> Mbp</p>);
 	say q(<div id="seqbin_range_slider" style="width:150px"></div>);
@@ -623,8 +630,8 @@ sub _print_seqbin_filter_control {
           \$("#seqbin_max").html(ui.values[1]);
       },
       change: function (event, ui){
-          elements[$element->{'id'}]['seqbin_min'] = ui.values[0];
-          elements[$element->{'id'}]['seqbin_max'] = ui.values[1];
+          elements[$element->{'id'}]['min'] = ui.values[0];
+          elements[$element->{'id'}]['max'] = ui.values[1];
        	  saveAndReloadElement(null,$element->{'id'});
       }
     });
@@ -907,6 +914,10 @@ sub _get_default_elements {
 	foreach my $element (@$default_dashboard) {
 		next if $element->{'genomes'} && !$genomes_exists;
 		next if $element->{'display'} eq 'field' && !$self->_field_exists( $element->{'field'} );
+		next
+		  if $element->{'visualisation_type'} eq 'breakdown'
+		  && $element->{'breakdown_display'} eq 'map'
+		  && !$self->_should_display_map_element( $element->{'field'} );
 		$element->{'id'}    = $i;
 		$element->{'order'} = $i;
 		if ( $element->{'url_attributes'} ) {
@@ -921,6 +932,13 @@ sub _get_default_elements {
 		$i++;
 	}
 	return $elements;
+}
+
+sub _should_display_map_element {
+	my ( $self, $field ) = @_;
+	return 1 if $field eq 'f_country' && $self->_field_has_optlst('f_country');
+	return 1 if $field eq 'e_country||continent';
+	return;
 }
 
 sub _get_element_html {
@@ -1048,14 +1066,34 @@ sub _get_count_element_content {
 	return $buffer;
 }
 
+sub _get_seqbin_standard_range {
+	my ($self) = @_;
+	my $qry = "SELECT total_length FROM seqbin_stats s JOIN $self->{'system'}->{'view'} v ON s.isolate_id=v.id";
+	my $lengths = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
+	return {} if !@$lengths;
+	my $stats = BIGSdb::Utils::stats($lengths);
+
+	#Set min/max 3 std. deviations from mean
+	my $min = BIGSdb::Utils::decimal_place( ( $stats->{'mean'} - 3 * $stats->{'std'} ) / 1000_000, 1 );
+	$min = 0 if $min < 0;
+	my $max =
+	  BIGSdb::Utils::decimal_place( ( $stats->{'mean'} + 3 * $stats->{'std'} ) / 1000_000, 1 );
+	  return {min => $min,max=>$max};
+}
+
 sub _get_seqbin_size_element_content {
 	my ( $self, $element ) = @_;
 	my $chart_colour = $element->{'chart_colour'} // CHART_COLOUR;
-	my $buffer       = $self->_get_colour_swatch($element);
-	my $min_value    = $element->{'seqbin_min'};
-	my $max_value    = $element->{'seqbin_max'};
+	my $buffer = $self->_get_colour_swatch($element);
+	my $qry = "SELECT total_length FROM seqbin_stats s JOIN $self->{'system'}->{'view'} v ON s.isolate_id=v.id";
+	if ( !defined $element->{'min'} && !defined $element->{'max'} ) {
+		my $range = $self->_get_seqbin_standard_range;
+		$element->{'min'}//=$range->{'min'};
+		$element->{'max'}//=$range->{'max'};
+	}
+	my $min_value = $element->{'min'};
+	my $max_value = $element->{'max'};
 	$buffer .= qq(<div class="title">$element->{'name'}</div>);
-	my $qry     = "SELECT total_length FROM seqbin_stats s JOIN $self->{'system'}->{'view'} v ON s.isolate_id=v.id";
 	my $filters = $self->_get_filters;
 	local $" = ' AND ';
 	push @$filters, "s.total_length>=$min_value*1000000" if defined $min_value;
