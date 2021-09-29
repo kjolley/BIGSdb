@@ -786,6 +786,17 @@ sub _get_dashboard_empty_message {
 	  . q(<p>Go to dashboard settings to add visualisations.</p>);
 }
 
+sub _print_filter_display {
+	my ($self) = @_;
+	my $versions   = $self->{'prefs'}->{'include_old_versions'} ? 'all' : 'current';
+	my $age_labels = RECORD_AGE;
+	my $record_age = $self->{'prefs'}->{'record_age'} // 0;
+	say q(<div id="filter_display">Record versions: )
+	  . qq(<span class="dashboard_filter" id="filter_versions">$versions</span>; )
+	  . qq(Record creation: <span class="dashboard_filter" id="filter_age">$age_labels->{$record_age}</span></div>);
+	return;
+}
+
 sub _print_main_section {
 	my ($self) = @_;
 	my $elements = $self->_get_elements;
@@ -794,6 +805,7 @@ sub _print_main_section {
 		say $self->_get_dashboard_empty_message;
 	}
 	say q(</div>);
+	$self->_print_filter_display;
 	say q(<div id="dashboard" class="grid" style="margin:auto;max-width:90vw">);
 	my %display_immediately = map { $_ => 1 } qw(setup record_count);
 	my $already_loaded      = [];
@@ -3147,11 +3159,10 @@ sub get_javascript {
 	my $record_age          = $self->{'prefs'}->{'record_age'} // 0;
 	my $empty               = $self->_get_dashboard_empty_message;
 	my $duration_datestamps = $self->{'datastore'}->run_query(
-		    q(SELECT CAST(now() AS DATE), CAST(now()-interval '5 years' AS DATE), )
+		q(SELECT CAST(now() AS DATE), CAST(now()-interval '5 years' AS DATE), )
 		  . q(CAST(now()-interval '4 years' AS DATE), CAST(now()-interval '3 years' AS DATE), )
 		  . q(CAST(now()-interval '2 years' AS DATE), CAST(now()-interval '1 year' AS DATE), )
-		  . q(CAST(now()-interval '1 month' AS DATE), CAST(now()-interval '1 week' AS DATE))
-		,
+		  . q(CAST(now()-interval '1 month' AS DATE), CAST(now()-interval '1 week' AS DATE)),
 		undef,
 		{ fetch => 'row_arrayref' }
 	);

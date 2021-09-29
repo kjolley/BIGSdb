@@ -649,6 +649,9 @@ sub get_dashboard {
 sub initiate_new_dashboard {
 	my ( $self, $guid, $dbase_config, $type, $value ) = @_;
 	BIGSdb::Exception::Database::NoRecord->throw('No guid passed') if !$guid;
+	if ( !$self->_guid_exists($guid) ) {
+		$self->_add_existing_guid($guid);
+	}
 	my $sql = $self->{'db'}->prepare('INSERT INTO dashboards (guid,dbase_config,data) VALUES (?,?,?) RETURNING id');
 	my $id;
 	eval { 
@@ -680,6 +683,9 @@ sub initiate_new_dashboard {
 sub set_active_dashboard {
 	my ( $self, $guid, $dbase_config, $id, $type, $value ) = @_;
 	BIGSdb::Exception::Database::NoRecord->throw('No guid passed') if !$guid;
+	if ( !$self->_guid_exists($guid) ) {
+		$self->_add_existing_guid($guid);
+	}
 	eval {
 		$self->{'db'}->do(
 			'INSERT INTO active_dashboards (guid,dbase_config,id,type,value) VALUES (?,?,?,?,?) '
@@ -699,6 +705,9 @@ sub set_active_dashboard {
 sub update_dashboard_attribute {
 	my ( $self, $id, $guid, $dbase_config, $attribute, $value ) = @_;
 	BIGSdb::Exception::Database::NoRecord->throw('No guid passed') if !$guid;
+	if ( !$self->_guid_exists($guid) ) {
+		$self->_add_existing_guid($guid);
+	}
 	eval {
 		$self->{'db'}->do(
 			qq[UPDATE dashboards SET data = jsonb_set(data, '{$attribute}', ?) ]
@@ -718,6 +727,9 @@ sub update_dashboard_attribute {
 sub update_dashboard_name {
 	my ( $self, $id, $guid, $dbase_config, $name ) = @_;
 	BIGSdb::Exception::Database::NoRecord->throw('No guid passed') if !$guid;
+	if ( !$self->_guid_exists($guid) ) {
+		$self->_add_existing_guid($guid);
+	}
 	my $names = $self->get_dashboard_names( $guid, $dbase_config );
 	my %existing = map { $_ => 1 } @$names;
 	if ($existing{$name}){

@@ -60,6 +60,7 @@ $(function() {
 			$.ajax({
 			url: url + "&page=dashboard&updateDashboard=1&attribute=record_age&value=" + ui.value
 			}).done(function() {
+				$("#filter_age").html(recordAgeLabels[ui.value]);
 				reloadAllElements();
 			});
 		}
@@ -118,6 +119,7 @@ $(function() {
 			url: url + "&page=dashboard&updateDashboard=1&attribute=include_old_versions&value=" +
 				(include_old_versions ? 1 : 0)
 		}).done(function() {
+			$("#filter_versions").html(include_old_versions ? 'all' : 'current');
 			reloadAllElements();
 		});
 	});

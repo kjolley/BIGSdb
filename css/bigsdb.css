@@ -1418,6 +1418,18 @@ span.setup_element:hover {
 	background: #8d5196;
 }
 
+span.dashboard_filter {
+	font-weight:800
+}
+
+div#filter_display {
+	font-size: 0.8em;
+	color: #888;
+	white-space: nowrap;
+	overflow-x: hidden;
+	text-overflow: ellipsis
+}
+
 div.dashboard_element_width1 {
 	width: 150px;
 }
