@@ -594,14 +594,12 @@ sub _print_palette_control {
 sub _print_seqbin_filter_control {
 	my ( $self, $id, $element ) = @_;
 	my $q = $self->{'cgi'};
-	
 	my $max =
 	  $self->{'datastore'}->run_query(
 		"SELECT MAX(total_length) FROM seqbin_stats s JOIN $self->{'system'}->{'view'} v ON s.isolate_id=v.id");
 	return if !$max;
-	
-	my $max_kb    = int( $max / 1000_000 );
-	if (!defined $element->{'min'} && !defined  $element->{'max'}){
+	my $max_kb = int( $max / 1000_000 );
+	if ( !defined $element->{'min'} && !defined $element->{'max'} ) {
 		my $range = $self->_get_seqbin_standard_range;
 		$element->{'min'} //= $range->{'min'};
 		$element->{'max'} //= $range->{'max'};
@@ -1009,8 +1007,9 @@ sub _field_exists {
 			'SELECT EXISTS(SELECT * FROM isolate_field_extended_attributes WHERE (isolate_field,attribute)=(?,?))',
 			[ $1, $2 ] );
 	}
-	if ($field =~ /^s_(\d+)_(.+)$/x){
-		return $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM scheme_fields WHERE (scheme_id,field)=(?,?))',[$1,$2]);
+	if ( $field =~ /^s_(\d+)_(.+)$/x ) {
+		return $self->{'datastore'}
+		  ->run_query( 'SELECT EXISTS(SELECT * FROM scheme_fields WHERE (scheme_id,field)=(?,?))', [ $1, $2 ] );
 	}
 	return;
 }
@@ -1081,7 +1080,7 @@ sub _get_seqbin_standard_range {
 	$min = 0 if $min < 0;
 	my $max =
 	  BIGSdb::Utils::decimal_place( ( $stats->{'mean'} + 3 * $stats->{'std'} ) / 1000_000, 1 );
-	  return {min => $min,max=>$max};
+	return { min => $min, max => $max };
 }
 
 sub _get_seqbin_size_element_content {
@@ -1091,8 +1090,8 @@ sub _get_seqbin_size_element_content {
 	my $qry = "SELECT total_length FROM seqbin_stats s JOIN $self->{'system'}->{'view'} v ON s.isolate_id=v.id";
 	if ( !defined $element->{'min'} && !defined $element->{'max'} ) {
 		my $range = $self->_get_seqbin_standard_range;
-		$element->{'min'}//=$range->{'min'};
-		$element->{'max'}//=$range->{'max'};
+		$element->{'min'} //= $range->{'min'};
+		$element->{'max'} //= $range->{'max'};
 	}
 	my $min_value = $element->{'min'};
 	my $max_value = $element->{'max'};
@@ -2975,8 +2974,7 @@ sub _print_modify_dashboard_fieldset {
 	say q(<a class="trigger" id="close_trigger" href="#"><span class="fas fa-lg fa-times"></span></a>);
 	say q(<h2>Dashboard settings</h2>);
 	say q(<fieldset><legend>Layout</legend>);
-		say q(<form autocomplete="off">);    #Needed because Firefox will override the value we set for loaded_dashboard.
-	
+	say q(<form autocomplete="off">);    #Needed because Firefox autocomplete can override the values we set.
 	say q(<ul><li>);
 	say $q->checkbox(
 		-name    => 'fill_gaps',
@@ -2994,7 +2992,6 @@ sub _print_modify_dashboard_fieldset {
 	say q(</li></ul>);
 	say q(</form>);
 	say q(</fieldset>);
-	
 	say q(<fieldset><legend>Links</legend>);
 	say q(<ul><li>);
 	say $q->checkbox(
@@ -3041,8 +3038,7 @@ sub _print_filter_fieldset {
 	my $record_age_labels    = RECORD_AGE;
 	my $q                    = $self->{'cgi'};
 	say q(<fieldset><legend>Filters</legend>);
-		say q(<form autocomplete="off">);    #Needed because Firefox will override the value we set for loaded_dashboard.
-	
+	say q(<form autocomplete="off">);    #Needed because Firefox autocomplete can override the values we set.
 	say q(<ul><li>);
 	say $q->checkbox(
 		-name    => 'include_old_versions',
@@ -3055,7 +3051,6 @@ sub _print_filter_fieldset {
 	say q(</li></ul>);
 	say q(</form>);
 	say q(</fieldset>);
-	
 	return;
 }
 

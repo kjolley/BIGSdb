@@ -56,10 +56,13 @@ $(function() {
 		slide: function(event, ui) {
 			$("#record_age").html(recordAgeLabels[ui.value]);
 		},
-		change: function(event, ui ){
+		change: function(event, ui) {
 			$.ajax({
-			url: url + "&page=dashboard&updateDashboard=1&attribute=record_age&value=" + ui.value
-			}).done(function() {
+				url: url + "&page=dashboard&updateDashboard=1&attribute=record_age&value=" + ui.value
+			}).done(function(json) {
+				$("#loaded_dashboard").val(JSON.parse(json).dashboard_name);
+				$("#loaded_dashboard").prop("disabled", false);
+				$("#delete_dashboard").css("display", "inline");
 				$("#filter_age").html(recordAgeLabels[ui.value]);
 				reloadAllElements();
 			});
@@ -88,12 +91,17 @@ $(function() {
 		} catch (err) {
 			// Grid is empty.
 		}
-		$.ajax(url + "&page=dashboard&updateDashboard=1&attribute=fill_gaps&value=" + (fill_gaps ? 1 : 0));
+		$.ajax({
+			url: url + "&page=dashboard&updateDashboard=1&attribute=fill_gaps&value=" + (fill_gaps ? 1 : 0)
+		}).done(function(json) {
+			updateDashboardName(JSON.parse(json).dashboard_name);
+		});
 	});
 	$("#enable_drag").change(function() {
 		enable_drag = $("#enable_drag").prop('checked');
-		$.ajax(url + "&page=dashboard&updateGeneralPrefs=1&attribute=enable_drag&value=" + (enable_drag ? 1 : 0));
-
+		$.ajax({
+			url: url + "&page=dashboard&updateGeneralPrefs=1&attribute=enable_drag&value=" + (enable_drag ? 1 : 0)
+		});
 	});
 	$("#edit_elements").change(function() {
 		var edit_elements = $("#edit_elements").prop('checked');
@@ -118,7 +126,8 @@ $(function() {
 		$.ajax({
 			url: url + "&page=dashboard&updateDashboard=1&attribute=include_old_versions&value=" +
 				(include_old_versions ? 1 : 0)
-		}).done(function() {
+		}).done(function(json) {
+			updateDashboardName(JSON.parse(json).dashboard_name);
 			$("#filter_versions").html(include_old_versions ? 'all' : 'current');
 			reloadAllElements();
 		});
@@ -166,12 +175,12 @@ $(function() {
 				params = elements[id]['post_data'];
 			}
 			params['sent'] = 1;
-			if (explore_url.includes('&page=query')){
+			if (explore_url.includes('&page=query')) {
 				if ($("#include_old_versions").prop('checked')) {
 					params['include_old'] = 'on';
 				}
 				let recordAgeIndex = $("#record_age_slider").slider("value");
-				if (recordAgeIndex > 0){									
+				if (recordAgeIndex > 0) {
 					params['prov_field1'] = 'f_date_entered';
 					params['prov_operator1'] = '>=';
 					params['prov_value1'] = datestamps[recordAgeIndex];
@@ -235,6 +244,12 @@ $(function() {
 	});
 	setGridMargins(grid);
 });
+
+function updateDashboardName(name) {
+	$("#loaded_dashboard").val(name);
+	$("#loaded_dashboard").prop("disabled", false);
+	$("#delete_dashboard").css("display", "inline");
+}
 
 function setGridMargins(grid) {
 	let dashboard_width = Math.floor($("div#dashboard_panel").width() / 155) * 155;
@@ -369,9 +384,7 @@ function addElement(grid, id) {
 			}
 			applyFormatting();
 			$("div#element_" + id + " div.item-content").css("visibility", "visible");
-			let dashboard_name = JSON.parse(json).dashboard_name;
-			$("#loaded_dashboard").val(dashboard_name);
-			$("#loaded_dashboard").prop("disabled", false);
+			updateDashboardName(JSON.parse(json).dashboard_name);
 			$("#delete_dashboard").css("display", "inline");
 		} catch (err) {
 			console.log(err.message);
