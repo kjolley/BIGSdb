@@ -913,8 +913,8 @@ sub _get_default_elements {
 		next if $element->{'genomes'} && !$genomes_exists;
 		next if $element->{'display'} eq 'field' && !$self->_field_exists( $element->{'field'} );
 		next
-		  if $element->{'visualisation_type'} eq 'breakdown'
-		  && $element->{'breakdown_display'} eq 'map'
+		  if ($element->{'visualisation_type'} // 'breakdown') eq 'breakdown'
+		  && ($element->{'breakdown_display'} // q()) eq 'map'
 		  && !$self->_should_display_map_element( $element->{'field'} );
 		$element->{'id'}    = $i;
 		$element->{'order'} = $i;
@@ -934,7 +934,7 @@ sub _get_default_elements {
 
 sub _should_display_map_element {
 	my ( $self, $field ) = @_;
-	return 1 if $field eq 'f_country' && $self->_field_has_optlst('f_country');
+	return 1 if $field eq 'f_country' && $self->_field_has_optlist('f_country');
 	return 1 if $field eq 'e_country||continent';
 	return;
 }
@@ -1074,12 +1074,16 @@ sub _get_seqbin_standard_range {
 	my $lengths = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	return {} if !@$lengths;
 	my $stats = BIGSdb::Utils::stats($lengths);
-
 	#Set min/max 3 std. deviations from mean
-	my $min = BIGSdb::Utils::decimal_place( ( $stats->{'mean'} - 3 * $stats->{'std'} ) / 1000_000, 1 );
+	my $min = BIGSdb::Utils::decimal_place( ( $stats->{'mean'} - 3 * $stats->{'std'} ) / 1_000_000, 1 );
+	
 	$min = 0 if $min < 0;
 	my $max =
-	  BIGSdb::Utils::decimal_place( ( $stats->{'mean'} + 3 * $stats->{'std'} ) / 1000_000, 1 );
+	  BIGSdb::Utils::decimal_place( ( $stats->{'mean'} + 3 * $stats->{'std'} ) / 1_000_000, 1 );
+	if ($stats->{'count'} == 1){
+		$min = $stats->{'mean'}/1_000_000 - 1;
+		$max = $stats->{'mean'}/1_000_000 + 1;
+	}
 	return { min => $min, max => $max };
 }
 
