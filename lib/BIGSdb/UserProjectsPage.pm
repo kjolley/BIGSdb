@@ -61,6 +61,10 @@ sub print_content {
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (jQuery jQuery.multiselect modernizr noCache);
+	my $q = $self->{'cgi'};
+	if ($q->param('project_info') || $q->param('project_id')){
+		$self->{'processing'} = 1;
+	}
 	$self->set_level1_breadcrumbs;
 	return;
 }
@@ -137,12 +141,23 @@ sub _fails_admin_check {
 	return;
 }
 
+sub _fails_add_remove_check {
+	my ( $self, $project_id ) = @_;
+	if ( !$self->_can_add_remove($project_id) ) {
+		$self->print_bad_status(
+			{ message => q(You do not have permission to add or remove isolates for this project.) } )
+		  ;
+		return 1;
+	}
+	return;
+}
+
 sub _edit_members {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
 	my $project_id = $q->param('project_id');
 	return if $self->_fails_project_check($project_id);
-	return if $self->_fails_admin_check($project_id);
+	return if $self->_fails_add_remove_check($project_id);
 	my $view        = $self->{'system'}->{'view'};
 	my $current_ids = $self->{'datastore'}->run_query(
 		"SELECT pm.isolate_id FROM project_members AS pm JOIN $view AS i ON pm.isolate_id=i.id "
@@ -624,6 +639,14 @@ sub _is_project_admin {
 		[ $project_id, $user_info->{'id'} ] );
 }
 
+sub _can_add_remove {
+	my ( $self, $project_id ) = @_;
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	return $self->{'datastore'}->run_query(
+		'SELECT EXISTS(SELECT * FROM merged_project_users WHERE (project_id,user_id)=(?,?) AND (admin OR modify))',
+		[ $project_id, $user_info->{'id'} ] );
+}
+
 sub _add_new_project {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
@@ -713,24 +736,28 @@ sub _print_user_projects {
 	say q(<div class="box" id="resultstable">);
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	my $projects  = $self->{'datastore'}->run_query(
-		'SELECT p.id,p.short_description,p.full_description,pu.admin FROM merged_project_users AS pu JOIN projects '
-		  . 'AS p ON p.id=pu.project_id WHERE user_id=? ORDER BY UPPER(short_description)',
+		'SELECT p.id,p.short_description,p.full_description,pu.admin,pu.modify FROM merged_project_users AS pu JOIN '
+		  . 'projects AS p ON p.id=pu.project_id WHERE user_id=? ORDER BY UPPER(short_description)',
 		$user_info->{'id'},
 		{ fetch => 'all_arrayref', slice => {} }
 	);
 
 	if (@$projects) {
-		my $is_admin = $self->_is_admin_of_any($projects);
+		my $is_admin       = $self->_is_admin_of_any($projects);
+		my $can_add_remove = $self->_can_add_remove_in_any($projects);
 		say q(<h2>Your projects</h2>);
 		say q(<div class="scrollable"><table class="resultstable" style="margin-bottom:1em">);
 		say q(<tr>);
 		if ($is_admin) {
-			say q(<th>Delete</th><th>Add/remove records</th><th>Modify users</th>);
+			say q(<th>Delete</th>);
+			say q(<th>Modify users</th>);
 		}
-		say q(<th>Project</th><th>Description</th><th>Administrator</th><th>Isolates</th><th>Browse</th></tr>);
+		say q(<th>Project</th><th>Description</th><th>Administrator</th>);
+		say q(<th>Add/remove records</th>) if $can_add_remove;
+		say q(<th>Isolates</th><th>Browse</th></tr>);
 		my $td = 1;
 		foreach my $project (@$projects) {
-			say $self->_get_project_row( $is_admin, $project, $td );
+			say $self->_get_project_row( $is_admin, $can_add_remove,$project, $td );
 			$td = $td == 1 ? 2 : 1;
 		}
 		say q(</table></div>);
@@ -770,7 +797,7 @@ sub _get_isolate_count {
 }
 
 sub _get_project_row {
-	my ( $self, $is_admin, $project, $td ) = @_;
+	my ( $self, $is_admin, $can_add_remove_in_any,$project, $td ) = @_;
 	my $count  = $self->_get_isolate_count( $project->{'id'} );
 	my $q      = $self->{'cgi'};
 	my $admin  = $project->{'admin'} ? TRUE : FALSE;
@@ -780,23 +807,29 @@ sub _get_project_row {
 			my ( $delete, $edit, $users ) = ( DELETE, EDIT, USERS );
 			$buffer .= qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . qq(page=userProjects&amp;delete=1&amp;project_id=$project->{'id'}" class="action">$delete</a></td>);
-			$buffer .= qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . qq(page=userProjects&amp;edit=1&amp;project_id=$project->{'id'}" class="action">$edit</a></td>);
 			$buffer .=
 			    qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . qq(page=userProjects&amp;modify_users=1&amp;project_id=$project->{'id'}" class="action">)
 			  . qq($users</a></td>);
 		} else {
 			if ($is_admin) {
-				$buffer .= q(<td></td><td></td><td></td>);
+				$buffer .= q(<td></td><td></td>);
 			}
 		}
 	}
 	$project->{'full_description'} //= q();
+	my $edit = EDIT;
 	$buffer .=
 	    qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=userProjects&amp;)
 	  . qq(project_info=$project->{'id'}">$project->{'short_description'}</a></td>)
-	  . qq(<td>$project->{'full_description'}</td><td>$admin</td><td>$count</td><td>);
+	  . qq(<td>$project->{'full_description'}</td><td>$admin</td>);
+	if ( $project->{'admin'} || $project->{'modify'} ) {
+		$buffer .= qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=userProjects&amp;edit=1&amp;project_id=$project->{'id'}" class="action">$edit</a></td>);
+	} elsif ($can_add_remove_in_any){
+		$buffer.=q(<td></td>);
+	}
+	$buffer .= qq(<td>$count</td><td>);
 	if ($count) {
 		$buffer .=
 		    qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
@@ -908,6 +941,14 @@ sub _is_admin_of_any {
 	my ( $self, $projects ) = @_;
 	foreach my $project (@$projects) {
 		return 1 if $project->{'admin'};
+	}
+	return;
+}
+
+sub _can_add_remove_in_any {
+	my ( $self, $projects ) = @_;
+	foreach my $project (@$projects) {
+		return 1 if $project->{'modify'};
 	}
 	return;
 }

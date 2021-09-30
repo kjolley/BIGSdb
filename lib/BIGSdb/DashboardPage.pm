@@ -913,8 +913,8 @@ sub _get_default_elements {
 		next if $element->{'genomes'} && !$genomes_exists;
 		next if $element->{'display'} eq 'field' && !$self->_field_exists( $element->{'field'} );
 		next
-		  if ($element->{'visualisation_type'} // 'breakdown') eq 'breakdown'
-		  && ($element->{'breakdown_display'} // q()) eq 'map'
+		  if ( $element->{'visualisation_type'} // 'breakdown' ) eq 'breakdown'
+		  && ( $element->{'breakdown_display'} // q() ) eq 'map'
 		  && !$self->_should_display_map_element( $element->{'field'} );
 		$element->{'id'}    = $i;
 		$element->{'order'} = $i;
@@ -1074,16 +1074,20 @@ sub _get_seqbin_standard_range {
 	my $lengths = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	return {} if !@$lengths;
 	my $stats = BIGSdb::Utils::stats($lengths);
-	#Set min/max 3 std. deviations from mean
-	my $min = BIGSdb::Utils::decimal_place( ( $stats->{'mean'} - 3 * $stats->{'std'} ) / 1_000_000, 1 );
-	
-	$min = 0 if $min < 0;
-	my $max =
-	  BIGSdb::Utils::decimal_place( ( $stats->{'mean'} + 3 * $stats->{'std'} ) / 1_000_000, 1 );
-	if ($stats->{'count'} == 1){
-		$min = $stats->{'mean'}/1_000_000 - 1;
-		$max = $stats->{'mean'}/1_000_000 + 1;
+	my ( $min, $max );
+	if ( $stats->{'count'} == 1 ) {
+		$min = $stats->{'mean'} / 1_000_000 - 1;
+		$max = $stats->{'mean'} / 1_000_000 + 1;
+	} else {    #Set min/max 3 std. deviations from mean
+		$min = BIGSdb::Utils::decimal_place( ( $stats->{'mean'} - 3 * $stats->{'std'} ) / 1_000_000, 1 );
+		$max =
+		  BIGSdb::Utils::decimal_place( ( $stats->{'mean'} + 3 * $stats->{'std'} ) / 1_000_000, 1 );
 	}
+	if ( $min == $max ) {
+		$min = $min - 1;
+		$max = $max + 1;
+	}
+	$min = 0 if $min < 0;
 	return { min => $min, max => $max };
 }
 
@@ -1117,7 +1121,7 @@ sub _get_seqbin_size_element_content {
 	  ceil( ( 3.5 * $stats->{'std'} ) / $stats->{'count'}**0.33 )
 	  ;    #Scott's choice [Scott DW (1979). On optimal and data-based histograms. Biometrika 66(3):605–610]
 	$bins = 70 if $bins > 70;
-	$bins = 1  if !$bins;
+	$bins = 50 if !$bins;
 	my $width            = $stats->{'max'} / $bins;
 	my $round_to_nearest = $self->_get_rounded_width($width);
 	$width = int( $width - ( $width % $round_to_nearest ) ) || $round_to_nearest;
@@ -1126,21 +1130,29 @@ sub _get_seqbin_size_element_content {
 	my $largest_value  = 0;
 	my @labels;
 
-	foreach my $i ( $min .. $max ) {
-		next if ( $i * $width / 1_000_000 ) < $min_value;
-		my $label =
-		  $i == 0
-		  ? q(0-) . BIGSdb::Utils::commify( $width / 1_000_000 )
-		  : BIGSdb::Utils::commify( ( $i * $width ) / 1_000_000 ) . q(-)
-		  . BIGSdb::Utils::commify( ( $i + 1 ) * $width / 1_000_000 );
-		push @$histogram_data,
-		  {
+	if ( @$lengths == 1 ) {
+		my $label = BIGSdb::Utils::decimal_place( $lengths->[0] / 1_000_000, 2 );
+		push @$histogram_data, {
 			label  => $label,
-			values => $histogram->{$i}
-		  };
-		push @labels, $label if $histogram->{$i};
-		if ( ( $histogram->{$i} // 0 ) > $largest_value ) {
-			$largest_value = $histogram->{$i};
+			values => 1
+		};
+		push @labels, $label;
+	} else {
+		foreach my $i ( $min .. $max ) {
+			next if ( $i * $width / 1_000_000 ) < $min_value;
+			my $label =
+			  $i == 0
+			  ? q(0-) . ( $width / 1_000_000 )
+			  : ( ( $i * $width ) / 1_000_000 ) . q(-) . ( ( $i + 1 ) * $width / 1_000_000 );
+			push @$histogram_data,
+			  {
+				label  => $label,
+				values => $histogram->{$i}
+			  };
+			push @labels, $label if $histogram->{$i};
+			if ( ( $histogram->{$i} // 0 ) > $largest_value ) {
+				$largest_value = $histogram->{$i};
+			}
 		}
 	}
 	my $label_length = length( $labels[-1] );
@@ -1898,7 +1910,7 @@ sub _get_field_breakdown_bar_content {
 				labels: {
 					show: true,
 					format: function (v,id,i,j){
-						if (v < max*0.05){
+						if (v < max*0.05 || v == 1){
 							return;
 						}
 						if (label_count<=6){

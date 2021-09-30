@@ -341,7 +341,7 @@ sub _print_project_add_function {
 	return if !$user_info;
 	my $projects = $self->{'datastore'}->run_query(
 		'SELECT p.id,p.short_description FROM project_users AS pu JOIN projects '
-		  . 'AS p ON p.id=pu.project_id WHERE user_id=? AND admin ORDER BY UPPER(short_description)',
+		  . 'AS p ON p.id=pu.project_id WHERE user_id=? AND (admin OR modify) ORDER BY UPPER(short_description)',
 		$user_info->{'id'},
 		{ fetch => 'all_arrayref', slice => {} }
 	);
@@ -2047,13 +2047,13 @@ sub add_to_project {
 	my $project_id = $q->param('project');
 	return if !$project_id || !BIGSdb::Utils::is_int($project_id);
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	my $is_admin =
+	my $can_add =
 	  $self->{'datastore'}
-	  ->run_query( 'SELECT EXISTS(SELECT * FROM project_users WHERE (project_id,user_id)=(?,?) AND admin)',
+	  ->run_query( 'SELECT EXISTS(SELECT * FROM project_users WHERE (project_id,user_id)=(?,?) AND (admin OR modify))',
 		[ $project_id, $user_info->{'id'} ] );
-	if ( !$is_admin ) {
+	if ( !$can_add ) {
 		$logger->error( "User $self->{'username'} attempted to add isolates to project "
-			  . "$project_id for which they are not an admin." );
+			  . "$project_id for which they do not have sufficient privileges." );
 		return;
 	}
 	my $ids = $self->get_query_ids;
