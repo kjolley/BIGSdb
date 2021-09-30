@@ -96,7 +96,7 @@ sub print_content {
 	$self->_print_main_section;
 	say q(</div>);
 	say q(<div class="menu_panel" style="width:250px">);
-	$self->print_menu;
+	$self->print_menu( { dashboard => 1 } );
 	say q(</div>);
 	say q(</div>);
 	say q(</div>);
@@ -1132,10 +1132,11 @@ sub _get_seqbin_size_element_content {
 
 	if ( @$lengths == 1 ) {
 		my $label = BIGSdb::Utils::decimal_place( $lengths->[0] / 1_000_000, 2 );
-		push @$histogram_data, {
+		push @$histogram_data,
+		  {
 			label  => $label,
 			values => 1
-		};
+		  };
 		push @labels, $label;
 	} else {
 		foreach my $i ( $min .. $max ) {

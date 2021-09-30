@@ -85,8 +85,9 @@ sub print_content {
 }
 
 sub print_menu {
-	my ($self) = @_;
+	my ( $self, $options ) = @_;
 	$self->_print_login_menu_item;
+	$self->_print_query_menu_item if $options->{'dashboard'};
 	$self->_print_submissions_menu_item;
 	$self->_print_private_data_menu_item;
 	$self->_print_projects_menu_item;
@@ -100,10 +101,9 @@ sub print_menu {
 }
 
 sub print_panel_buttons {
-	
 	my ($self) = @_;
-	return if !$self->{'config'}->{'enable_dashboard'} && ($self->{'system'}->{'enable_dashboard'}//q()) ne 'yes';
-	  say q(<span class="icon_button"><a class="trigger_button" id="dashboard_toggle">)
+	return if !$self->{'config'}->{'enable_dashboard'} && ( $self->{'system'}->{'enable_dashboard'} // q() ) ne 'yes';
+	say q(<span class="icon_button"><a class="trigger_button" id="dashboard_toggle">)
 	  . q(<span class="fas fa-lg fa-th"></span><div class="icon_label">Dashboard</div></a></span>);
 	return;
 }
@@ -126,6 +126,47 @@ sub _print_plugin_menu_items {
 			label    => 'ANALYSIS',
 			icon     => 'fas fa-chart-line',
 			href     => "${url_root}page=pluginSummary&amp;category=analysis"
+		}
+	);
+	return;
+}
+
+sub _print_query_menu_item {
+	my ($self) = @_;
+	return if $self->{'system'}->{'dbtype'} ne 'isolates';
+	my $cache_string = $self->get_cache_string;
+	my $url_root     = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}$cache_string&amp;";
+	my $links        = [
+		{
+			href => "${url_root}page=query",
+			text => 'Search database'
+		}
+	];
+	my $set_id = $self->get_set_id;
+	my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id, do_not_order => 1 } );
+	if (@$loci) {
+		push @$links,
+		  {
+			href => "${url_root}page=profiles",
+			text => 'Search by combinations of loci'
+		  };
+	}
+	if ( $self->{'username'} ) {
+		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+		my $bookmarks = $self->{'datastore'}
+		  ->run_query( 'SELECT EXISTS(SELECT * FROM bookmarks WHERE user_id=?)', $user_info->{'id'} );
+		if ($bookmarks) {
+			push @$links, {
+				href => "${url_root}page=bookmarks",
+				text => 'Bookmarked queries'
+			};
+		}
+	}
+	$self->_print_menu_item(
+		{
+			icon  => 'fas fa-search',
+			label => 'SEARCH DATA',
+			links => $links
 		}
 	);
 	return;
