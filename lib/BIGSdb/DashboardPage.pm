@@ -2445,7 +2445,7 @@ sub _get_field_breakdown_treemap_content {
   	// And a opacity scale
   	var opacity = d3.scaleLinear()
     	.domain([10, 30])
-    	.range([.5,1])
+    	.range([.8,1])
 
   	// use this information to add rectangles:
   	svg

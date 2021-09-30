@@ -449,12 +449,15 @@ function showOrHideControlElements(id) {
 
 	else if (visualisation_type === 'specific values') {
 		$("li#specific_value_display_selector,li#value_selector").css("display", "block");
+		$("li#header_colour_control,li#header_background_colour_control").css("display", "none");
 		if (specific_value_display === 'gauge') {
 			$("fieldset#design_control").css("display", "inline");
 			$("li.gauge_colour").css("display", "block");
+			$("li#text_colour_control,li#background_colour_control").css("display", "none");
 		} else if (specific_value_display === 'number') {
 			$("fieldset#change_duration_control,fieldset#design_control").css("display", "inline");
 			$("li#watermark_control,li#text_colour_control,li#background_colour_control").css("display", "block");
+			
 		}
 	} else if (visualisation_type === 'breakdown') {
 		$("li#breakdown_display_selector").css("display", "block");
@@ -521,7 +524,7 @@ function checkAndShowVisualisation(grid, id) {
 				attribute: elements[id]['field'],
 				list: Array.isArray(specific_values) ? specific_values.join("\n") : specific_values
 			}
-			saveAndReloadElement(grid, id);
+//			saveAndReloadElement(grid, id);
 		} else {
 			changeElementAttribute(grid, id, 'display', 'setup');
 		}

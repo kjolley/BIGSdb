@@ -165,7 +165,7 @@ sub _print_query_menu_item {
 	$self->_print_menu_item(
 		{
 			icon  => 'fas fa-search',
-			label => 'SEARCH DATA',
+			label => 'SEARCH',
 			links => $links
 		}
 	);
