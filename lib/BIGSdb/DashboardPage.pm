@@ -34,6 +34,8 @@ use constant {
 	MAX_SEGMENTS                     => 20,
 	COUNT_MAIN_TEXT_COLOUR           => '#404040',
 	COUNT_BACKGROUND_COLOUR          => '#79cafb',
+	HEADER_TEXT_COLOUR => '#ffffff',
+	HEADER_BACKGROUND_COLOUR => '#729fcf',
 	GENOMES_MAIN_TEXT_COLOUR         => '#404040',
 	GENOMES_BACKGROUND_COLOUR        => '#7ecc66',
 	SPECIFIC_FIELD_MAIN_TEXT_COLOUR  => '#404040',
@@ -462,15 +464,26 @@ sub _print_colour_control {
 	my ( $self, $id, $element ) = @_;
 	my $q = $self->{'cgi'};
 	my $default = $element->{'main_text_colour'} // COUNT_MAIN_TEXT_COLOUR;
-	say q(<li id="text_colour_control">);
+	say q(<li id="text_colour_control" style="display:none">);
 	say qq(<input type="color" id="${id}_main_text_colour" value="$default" class="element_option colour_selector">);
 	say qq(<label for="${id}_main_text_colour">Main text colour</label>);
 	say q(</li><li>);
 	$default = $element->{'background_colour'} // COUNT_BACKGROUND_COLOUR;
-	say q(<li id="background_colour_control">);
+	say q(<li id="background_colour_control" style="display:none">);
 	say qq(<input type="color" id="${id}_background_colour" value="$default" )
 	  . q(class="element_option colour_selector">);
 	say qq(<label for="${id}_background_colour">Main background</label>);
+	say q(</li>);
+	$default = $element->{'header_text_colour'} // HEADER_TEXT_COLOUR;
+	say q(<li id="header_colour_control" style="display:none">);
+	say qq(<input type="color" id="${id}_header_text_colour" value="$default" class="element_option colour_selector">);
+	say qq(<label for="${id}_header_text_colour">Header text colour</label>);
+	say q(</li><li>);
+	$default = $element->{'header_background_colour'} // HEADER_BACKGROUND_COLOUR;
+	say q(<li id="header_background_colour_control" style="display:none">);
+	say qq(<input type="color" id="${id}_header_background_colour" value="$default" )
+	  . q(class="element_option colour_selector">);
+	say qq(<label for="${id}_header_background_colour">Header background</label>);
 	say q(</li>);
 	$default = $element->{'gauge_background_colour'} // GAUGE_BACKGROUND_COLOUR;
 	say q(<li class="gauge_colour" style="display:none">);
@@ -495,7 +508,7 @@ sub _print_colour_control {
 	);
 	$default = $element->{'chart_colour'} // CHART_COLOUR;
 	say q(<li id="chart_colour" style="display:none">);
-	say qq(<input type="color" id="${id}_chart_colour" value="$default" ) . q(class="element_option colour_selector">);
+	say qq(<input type="color" id="${id}_chart_colour" value="$default" class="element_option colour_selector">);
 	say qq(<label for="${id}_chart_colour">Chart colour</label>);
 	say q(</li>);
 	return;
@@ -1392,14 +1405,14 @@ sub _get_provenance_field_counts {
 	if ( $type eq 'text' ) {
 		$qry =
 		  ( $att->{'multiple'} // q() ) eq 'yes'
-		  ? "SELECT COUNT(*) FROM $view WHERE UPPER(${field}::text)::text[] && "
+		  ? "SELECT COUNT(*) FROM $view v WHERE UPPER(v.${field}::text)::text[] && "
 		  . "ARRAY(SELECT UPPER(value) FROM $temp_table)"
-		  : "SELECT COUNT(*) FROM $view WHERE UPPER($field) IN (SELECT UPPER(value) FROM $temp_table)";
+		  : "SELECT COUNT(*) FROM $view v WHERE UPPER(v.$field) IN (SELECT UPPER(value) FROM $temp_table)";
 	} else {
 		$qry =
 		  ( $att->{'multiple'} // q() ) eq 'yes'
-		  ? "SELECT COUNT(*) FROM $view WHERE $field && ARRAY(SELECT value FROM temp_list)"
-		  : "SELECT COUNT(*) FROM $view WHERE $field IN (SELECT value FROM $temp_table)";
+		  ? "SELECT COUNT(*) FROM $view v WHERE v.$field && ARRAY(SELECT value FROM temp_list)"
+		  : "SELECT COUNT(*) FROM $view v WHERE v.$field IN (SELECT value FROM $temp_table)";
 	}
 	my $filters = $self->_get_filters;
 	local $" = ' AND ';
@@ -2334,6 +2347,8 @@ JS
 
 sub _get_field_breakdown_top_values_content {
 	my ( $self, $element ) = @_;
+	my $header_colour = $element->{'header_text_colour'} // HEADER_TEXT_COLOUR;
+	my $header_background = $element->{'header_background_colour'} // HEADER_BACKGROUND_COLOUR;
 	my $data = $self->_get_field_breakdown_values($element);
 	if ( !@$data ) {
 		return $self->_print_no_value_content($element);
@@ -2343,7 +2358,9 @@ sub _get_field_breakdown_top_values_content {
 	my $style = $element->{'height'} == 1
 	  && $element->{'top_values'} == 5 ? 'line-height:100%;font-size:0.9em' : q();
 	$buffer .= qq(<div class="subtitle">Top $element->{'top_values'} values</div>);
-	$buffer .= q(<div><table class="dashboard_table"><tr><th>Value</th><th>Frequency</th></tr>);
+	$buffer .= q(<div><table class="dashboard_table"><tr>)
+	. qq(<th style="color:$header_colour;background:$header_background">Value</th>)
+	. qq(<th style="color:$header_colour;background:$header_background">Frequency</th></tr>);
 	my $td     = 1;
 	my $count  = 0;
 	my $target = $self->{'prefs'}->{'open_new'} ? q( target="_blank") : q();

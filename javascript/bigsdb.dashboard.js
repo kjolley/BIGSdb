@@ -472,7 +472,8 @@ function showOrHideControlElements(id) {
 			$("li#palette_control").css("display", "block");
 			show_palette(id);
 		} else if (breakdown_display === 'top') {
-			$("li#top_value_selector").css("display", "block");
+			$("fieldset#design_control").css("display", "inline");
+			$("li#top_value_selector,li#header_colour_control,li#header_background_colour_control").css("display", "block");
 		}
 	}
 }

@@ -1401,7 +1401,8 @@ div.new_item {
 .item-content div.subtitle {
 	margin-top: -1em;
 	font-size: 0.9em;
-	color: #1540ef
+	color: #444;
+	font-weight: 600
 }
 
 span.setup_element {
