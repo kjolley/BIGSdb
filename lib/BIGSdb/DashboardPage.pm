@@ -1171,7 +1171,7 @@ sub _get_seqbin_size_element_content {
 	}
 	my $label_length = length( $labels[-1] );
 	my $height       = ( $element->{'height'} * 150 ) - 40;
-	$buffer .= qq(<div id="chart_$element->{'id'}" class="bar" style="margin-top:-20px"></div>);
+	$buffer .= qq(<div id="chart_$element->{'id'}" class="histogram" style="margin-top:-20px"></div>);
 	my $json      = JSON->new->allow_nonref;
 	my $json_data = $json->encode($histogram_data);
 	local $" = q(",");
@@ -1267,7 +1267,9 @@ sub _get_seqbin_size_element_content {
 			height: $height
 		},
 	});
+	d3.select(".bb-axis-x .tick text").attr("transform", "translate(20,0)");
 });	
+
 </script>
 JS
 	return $buffer;
@@ -1995,7 +1997,10 @@ sub _get_field_breakdown_bar_content {
      		},
      		bar: {
 
-     		},     		
+     		}, 
+     		padding: {
+     			right: 10
+     		},   		
 			bindto: "#chart_$element->{'id'}"
 		});
 	});

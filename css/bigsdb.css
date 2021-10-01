@@ -1560,8 +1560,8 @@ div#dashboard .item-content div.doughnut .bb-chart-arc text, div#dashboard .item
 	div#dashboard .item-content div.treemap text {
 	fill: white;
 	stroke-width: 1;
-	-webkit-filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.7));
-	filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.7));
+	-webkit-filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.9));
+	filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.9));
 }
 
 div#dashboard .item-content div .map svg {
