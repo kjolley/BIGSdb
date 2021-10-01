@@ -162,7 +162,7 @@ sub _get_javascript_paths {
 	my $js = [];
 	my $relative_js_path = $self->{'config'}->{'relative_js_dir'} // '/javascript';
 	if ( $self->{'jQuery'} ) {
-		push @$js, { src => "$relative_js_path/jquery.min.js",    version => '3.3.1' };
+		push @$js, { src => "$relative_js_path/jquery.min.js",    version => '3.6.0' };
 		push @$js, { src => "$relative_js_path/jquery-ui.min.js", defer   => 1, version => '1.12.1' };
 		push @$js, { src => "$relative_js_path/bigsdb.min.js",    defer   => 1, version => '20210628' };
 		if ( !$self->{'config'}->{'no_cookie_consent'} && !$self->{'curate'} && $self->{'instance'} ) {
