@@ -155,39 +155,29 @@ $(function() {
 	});
 
 	$("div#dashboard").on("click touchstart", ".dashboard_edit_element", function() {
-		var id = $(this).attr('data-id');
+		let id = $(this).attr('data-id');
 		editElement(grid, id);
 	});
 	$("div#dashboard").on("click touchstart", ".dashboard_remove_element", function() {
-		var id = $(this).attr('data-id');
+		let id = $(this).attr('data-id');
 		removeElement(grid, id);
 	});
 	$("div#dashboard").on("click touchstart", ".setup_element", function() {
-		var id = $(this).attr('data-id');
+		let id = $(this).attr('data-id');
 		editElement(grid, id);
 	});
-	$("div#dashboard").on("click touchstart", ".dashboard_explore_element", function() {
-		var id = $(this).attr('data-id');
-		if (elements[id]['url']) {
-			var explore_url = elements[id]['url'];
-			var params = {};
-			if (elements[id]['post_data']) {
-				params = elements[id]['post_data'];
-			}
-			params['sent'] = 1;
-			if (explore_url.includes('&page=query')) {
-				if ($("#include_old_versions").prop('checked')) {
-					params['include_old'] = 'on';
-				}
-				let recordAgeIndex = $("#record_age_slider").slider("value");
-				if (recordAgeIndex > 0) {
-					params['prov_field1'] = 'f_date_entered';
-					params['prov_operator1'] = '>=';
-					params['prov_value1'] = datestamps[recordAgeIndex];
-				}
-			}
-			post(elements[id]['url'], params);
-		}
+	$("div#dashboard").on("click touchstart", ".dashboard_data_query_element", function() {
+		let id = $(this).attr('data-id');
+		let query_url = url + "&page=query";
+		let params = getDataQueryParams(id);
+		post(query_url, params);
+	});
+	$("div#dashboard").on("click touchstart", ".dashboard_data_explorer_element", function() {
+		let id = $(this).attr('data-id');
+		let explorer_url = url + "&page=explorer";
+		let params = getDataExplorerParams(id);
+
+		post(explorer_url, params);
 	});
 	applyFormatting();
 
@@ -244,6 +234,33 @@ $(function() {
 	});
 	setGridMargins(grid);
 });
+
+function getDataQueryParams(id) {
+	let params = {};
+	if (elements[id]['post_data']) {
+		params = elements[id]['post_data'];
+	}
+	params['page'] = 'query';
+	params['db'] = instance;
+	params['sent'] = 1;
+	if ($("#include_old_versions").prop('checked')) {
+		params['include_old'] = 'on';
+	}
+	let recordAgeIndex = $("#record_age_slider").slider("value");
+	if (recordAgeIndex > 0) {
+		params['prov_field1'] = 'f_date_entered';
+		params['prov_operator1'] = '>=';
+		params['prov_value1'] = datestamps[recordAgeIndex];
+	}
+	return params;
+}
+
+function getDataExplorerParams(id) {
+	let params = {};
+	params['page'] = 'explorer';
+	params['db'] = instance;
+	return params;
+}
 
 function updateDashboardName(name) {
 	$("#loaded_dashboard").val(name);
@@ -457,7 +474,7 @@ function showOrHideControlElements(id) {
 		} else if (specific_value_display === 'number') {
 			$("fieldset#change_duration_control,fieldset#design_control").css("display", "inline");
 			$("li#watermark_control,li#text_colour_control,li#background_colour_control").css("display", "block");
-			
+
 		}
 	} else if (visualisation_type === 'breakdown') {
 		$("li#breakdown_display_selector").css("display", "block");
@@ -524,7 +541,7 @@ function checkAndShowVisualisation(grid, id) {
 				attribute: elements[id]['field'],
 				list: Array.isArray(specific_values) ? specific_values.join("\n") : specific_values
 			}
-//			saveAndReloadElement(grid, id);
+			//			saveAndReloadElement(grid, id);
 		} else {
 			changeElementAttribute(grid, id, 'display', 'setup');
 		}

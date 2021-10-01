@@ -34,8 +34,8 @@ use constant {
 	MAX_SEGMENTS                     => 20,
 	COUNT_MAIN_TEXT_COLOUR           => '#404040',
 	COUNT_BACKGROUND_COLOUR          => '#79cafb',
-	HEADER_TEXT_COLOUR => '#ffffff',
-	HEADER_BACKGROUND_COLOUR => '#729fcf',
+	HEADER_TEXT_COLOUR               => '#ffffff',
+	HEADER_BACKGROUND_COLOUR         => '#729fcf',
 	GENOMES_MAIN_TEXT_COLOUR         => '#404040',
 	GENOMES_BACKGROUND_COLOUR        => '#7ecc66',
 	SPECIFIC_FIELD_MAIN_TEXT_COLOUR  => '#404040',
@@ -666,13 +666,9 @@ sub _ajax_new {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by di
 			main_text_colour  => COUNT_MAIN_TEXT_COLOUR,
 			background_colour => COUNT_BACKGROUND_COLOUR,
 			watermark         => 'fas fa-bacteria',
-			url               => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query",
-			post_data         => {
-				db   => $self->{'instance'},
-				page => 'query'
-			},
-			url_text    => "Browse $self->{'system'}->{'labelfield'}s",
-			hide_mobile => 0
+			post_data         => {},
+			url_text          => "Browse $self->{'system'}->{'labelfield'}s",
+			hide_mobile       => 0
 		},
 		sp_genomes => {
 			name              => 'Genome count',
@@ -682,10 +678,7 @@ sub _ajax_new {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by di
 			main_text_colour  => GENOMES_MAIN_TEXT_COLOUR,
 			background_colour => GENOMES_BACKGROUND_COLOUR,
 			watermark         => 'fas fa-dna',
-			url               => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query",
 			post_data         => {
-				db      => $self->{'instance'},
-				page    => 'query',
 				genomes => 1,
 			},
 			url_text    => 'Browse genomes',
@@ -931,12 +924,10 @@ sub _get_default_elements {
 		  && !$self->_should_display_map_element( $element->{'field'} );
 		$element->{'id'}    = $i;
 		$element->{'order'} = $i;
-		if ( $element->{'url_attributes'} ) {
-			$element->{'url'} =
-			  "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&$element->{'url_attributes'}";
-			delete $element->{'url_attributes'};
-			$element->{'post_data'}->{'db'} = $self->{'instance'};
-		}
+
+		#		if ( $element->{'post_data'} ) {
+		#			$element->{'post_data'}->{'db'} = $self->{'instance'};
+		#		}
 		$element->{'width'}  //= 1;
 		$element->{'height'} //= 1;
 		$elements->{$i} = $element;
@@ -1077,7 +1068,7 @@ sub _get_count_element_content {
 		}
 	);
 	$buffer .= $self->_add_element_watermark($element);
-	$buffer .= $self->_get_explore_link($element);
+	$buffer .= $self->_get_data_query_link($element);
 	return $buffer;
 }
 
@@ -1710,7 +1701,7 @@ sub _get_field_specific_value_number_content {
 		}
 	);
 	$buffer .= $self->_add_element_watermark($element);
-	$buffer .= $self->_get_explore_link($element);
+	$buffer .= $self->_get_data_query_link($element);
 	return $buffer;
 }
 
@@ -1785,7 +1776,7 @@ sub _get_field_specific_value_gauge_content {
 	});
 	</script>
 JS
-	$buffer .= $self->_get_explore_link($element);
+	$buffer .= $self->_get_data_query_link($element);
 	return $buffer;
 }
 
@@ -2352,9 +2343,9 @@ JS
 
 sub _get_field_breakdown_top_values_content {
 	my ( $self, $element ) = @_;
-	my $header_colour = $element->{'header_text_colour'} // HEADER_TEXT_COLOUR;
+	my $header_colour     = $element->{'header_text_colour'}       // HEADER_TEXT_COLOUR;
 	my $header_background = $element->{'header_background_colour'} // HEADER_BACKGROUND_COLOUR;
-	my $data = $self->_get_field_breakdown_values($element);
+	my $data              = $self->_get_field_breakdown_values($element);
 	if ( !@$data ) {
 		return $self->_print_no_value_content($element);
 	}
@@ -2363,9 +2354,10 @@ sub _get_field_breakdown_top_values_content {
 	my $style = $element->{'height'} == 1
 	  && $element->{'top_values'} == 5 ? 'line-height:100%;font-size:0.9em' : q();
 	$buffer .= qq(<div class="subtitle">Top $element->{'top_values'} values</div>);
-	$buffer .= q(<div><table class="dashboard_table"><tr>)
-	. qq(<th style="color:$header_colour;background:$header_background">Value</th>)
-	. qq(<th style="color:$header_colour;background:$header_background">Frequency</th></tr>);
+	$buffer .=
+	    q(<div><table class="dashboard_table"><tr>)
+	  . qq(<th style="color:$header_colour;background:$header_background">Value</th>)
+	  . qq(<th style="color:$header_colour;background:$header_background">Frequency</th></tr>);
 	my $td     = 1;
 	my $count  = 0;
 	my $target = $self->{'prefs'}->{'open_new'} ? q( target="_blank") : q();
@@ -2592,6 +2584,7 @@ sub _get_field_breakdown_map_content {
 	$element->{'palette'} //= 'green';
 	my $palette = $palettes->{ $element->{'palette'} };
 	$buffer .= qq(<div id="chart_$element->{'id'}" class="map" style="margin-top:$top_margin"></div>);
+	$buffer .= $self->_get_data_explorer_link($element);
 	$buffer .= << "JS";
 <script>
 \$(function() {
@@ -2849,17 +2842,24 @@ sub _get_element_controls {
 	return $buffer;
 }
 
-sub _get_explore_link {
+sub _get_data_query_link {
 	my ( $self, $element ) = @_;
 	my $buffer = q();
-	if ( $element->{'url'} ) {
-		$buffer .= qq(<span data-id="$element->{'id'}" id="explore_$element->{'id'}" )
-		  . q(class="dashboard_explore_element fas fa-share">);
-		if ( $element->{'url_text'} ) {
-			$buffer .= qq(<span class="tooltip">$element->{'url_text'}</span>);
-		}
-		$buffer .= q(</span>);
+	$buffer .= qq(<span data-id="$element->{'id'}" class="dashboard_data_query_element fas fa-share">);
+	if ( $element->{'url_text'} ) {
+		$buffer .= qq(<span class="tooltip">$element->{'url_text'}</span>);
 	}
+	$buffer .= q(</span>);
+	return $buffer;
+}
+
+sub _get_data_explorer_link {
+	my ( $self, $element ) = @_;
+	my $buffer = q();
+	$buffer .= qq(<span data-id="$element->{'id'}" class="dashboard_data_explorer_element fas fa-search">);
+	$buffer .= qq(<span class="tooltip">$element->{'explorer_text'}</span>);
+	$buffer .= q(<span class="tooltip">Explore data</span>);
+	$buffer .= q(</span>);
 	return $buffer;
 }
 

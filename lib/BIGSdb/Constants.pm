@@ -586,9 +586,7 @@ use constant DEFAULT_DASHBOARD => [
 		main_text_colour  => '#404040',
 		watermark         => 'fas fa-bacteria',
 		change_duration   => 'week',
-		url_attributes    => 'page=query',
-		url_text          => 'Browse isolates',
-		post_data         => { page => 'query' },
+		url_text          => 'Browse isolates'
 	},
 	{
 		display           => 'record_count',
@@ -599,9 +597,8 @@ use constant DEFAULT_DASHBOARD => [
 		main_text_colour  => '#404040',
 		watermark         => 'fas fa-dna',
 		change_duration   => 'week',
-		url_attributes    => 'page=query',
 		url_text          => 'Browse genomes',
-		post_data         => { page => 'query', genomes => 1 }
+		post_data         => { genomes => 1 }
 	},
 	{
 		display           => 'field',

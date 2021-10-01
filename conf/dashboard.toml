@@ -24,9 +24,7 @@ elements = [
 		main_text_colour  = '#404040',
 		watermark         = 'fas fa-bacteria',
 		change_duration   = 'week',
-		url_attributes    = 'page=query',
 		url_text          = 'Browse isolates',
-		post_data         = { page = 'query' },
 		hide_mobile       = 0
 	},
 	{ 	#Genome count (will only display if there are genomes in the database).	
@@ -38,9 +36,8 @@ elements = [
 		main_text_colour  = '#404040',
 		watermark         = 'fas fa-dna',
 		change_duration   = 'week',
-		url_attributes    = 'page=query',
 		url_text          = 'Browse genomes',
-		post_data         = { page = 'query', genomes = 1 },
+		post_data         = { genomes = 1 },
 		hide_mobile       = 0
 	},
 	{
