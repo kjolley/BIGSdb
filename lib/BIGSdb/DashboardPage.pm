@@ -68,6 +68,7 @@ sub print_content {
 		control             => '_ajax_controls',
 		new                 => '_ajax_new',
 		element             => '_ajax_get',
+		seqbin_range => '_ajax_get_seqbin_range',
 		setActiveDashboard  => '_ajax_set_active'
 	);
 	foreach my $method ( sort keys %ajax_methods ) {
@@ -143,6 +144,18 @@ sub _ajax_controls {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called 
 		$controls{ $element->{'display'} }->();
 	}
 	say q(</div>);
+	return;
+}
+
+sub _ajax_get_seqbin_range {## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ($self) = @_;
+	my $range = $self->_get_seqbin_standard_range;
+	my $json           = JSON->new->allow_nonref;
+	say $json->encode(
+		{
+			range => $range
+		}
+	);
 	return;
 }
 
@@ -611,17 +624,22 @@ sub _print_seqbin_filter_control {
 	  $self->{'datastore'}->run_query(
 		"SELECT MAX(total_length) FROM seqbin_stats s JOIN $self->{'system'}->{'view'} v ON s.isolate_id=v.id");
 	return if !$max;
-	my $max_kb = int( $max / 1000_000 );
+	my $max_kb      = int( $max / 1000_000 );
+	my $reset_range = 'inline';
 	if ( !defined $element->{'min'} && !defined $element->{'max'} ) {
 		my $range = $self->_get_seqbin_standard_range;
 		$element->{'min'} //= $range->{'min'};
 		$element->{'max'} //= $range->{'max'};
+		$reset_range = 'none';
 	}
 	my $min_value = $element->{'min'} // 0;
 	my $max_value = $element->{'max'} // $max_kb;
 	say q(<fieldset id="seqbin_filter_control" style="float:left"><legend>Filter</legend>);
 	say q(<p>Size: <span id="seqbin_min"></span> - <span id="seqbin_max"></span> Mbp</p>);
 	say q(<div id="seqbin_range_slider" style="width:150px"></div>);
+	say
+	  qq(<p style="margin-top:1em"><a id="reset_seqbin_range" onclick="resetSeqbinRange($element->{'id'})" )
+	  . qq(class="small_reset" style="display:$reset_range;white-space:nowrap">Reset range</a></p>);
 	say q(</fieldset>);
 	say << "JS";
 	
@@ -638,12 +656,13 @@ sub _print_seqbin_filter_control {
       values: [ $min_value, $max_value ],
       slide: function( event, ui ) {
           \$("#seqbin_min").html(ui.values[0]);
-          \$("#seqbin_max").html(ui.values[1]);
+          \$("#seqbin_max").html(ui.values[1]);         
       },
       change: function (event, ui){
           elements[$element->{'id'}]['min'] = ui.values[0];
           elements[$element->{'id'}]['max'] = ui.values[1];
        	  saveAndReloadElement(null,$element->{'id'});
+       	  \$("#reset_seqbin_range").css("display","inline");
       }
     });
 });
@@ -752,7 +771,8 @@ sub _get_display_field {
 		my $desc        = $scheme_info->{'name'};
 		my $set_id      = $self->get_set_id;
 		if ($set_id) {
-			my $set_name = $self->{'datastore'}
+			my $set_name =
+			  $self->{'datastore'}
 			  ->run_query( 'SELECT set_name FROM set_schemes WHERE set_id=? AND scheme_id=?', [ $set_id, $scheme_id ] );
 			$desc = $set_name if defined $set_name;
 		}
@@ -1630,7 +1650,9 @@ sub _get_eav_field_breakdown_values {
 	$qry .= " WHERE @$filters" if @$filters;
 	$qry .= ' GROUP BY label ORDER BY ';
 
-	if ( $att->{'value_format'} eq 'integer' || $att->{'value_format'} eq 'date' || $att->{'value_format'} eq 'float' )
+	if (   $att->{'value_format'} eq 'integer'
+		|| $att->{'value_format'} eq 'date'
+		|| $att->{'value_format'} eq 'float' )
 	{
 		$qry .= 'label';
 	} else {
@@ -2883,7 +2905,7 @@ sub initiate {
 	my $q = $self->{'cgi'};
 	foreach my $ajax_param (
 		qw(updateGeneralPrefs updateDashboard updateDashboardName newDashboard setActiveDashboard control
-		resetDefaults new setup element)
+		resetDefaults new setup element seqbin_range)
 	  )
 	{
 		if ( $q->param($ajax_param) ) {
@@ -2985,7 +3007,8 @@ sub _get_dashboard_id {
 	my $guid = $self->get_guid;
 	$self->{'dashboard_id'} = $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
 	return $self->{'dashboard_id'} if defined $self->{'dashboard_id'};
-	$self->{'dashboard_id'} = $self->{'prefstore'}->initiate_new_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
+	$self->{'dashboard_id'} =
+	  $self->{'prefstore'}->initiate_new_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
 	if ( !defined $self->{'dashboard_id'} ) {
 		$logger->error('Dashboard pref could not be initiated.');
 	}

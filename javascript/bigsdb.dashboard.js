@@ -723,6 +723,22 @@ function resetDefaults() {
 	});
 }
 
+function resetSeqbinRange(id) {
+	delete elements[id]['min'];
+	delete elements[id]['max'];
+	saveAndReloadElement(null, id);
+	$.ajax({
+		url: url + "&seqbin_range=1",
+		type: 'GET',
+		success: function(json) {
+			let range = JSON.parse(json).range;
+			$("#seqbin_range_slider").slider("option","values",[range.min,range.max]);
+			$("#seqbin_min").html(range.min);
+			$("#seqbin_max").html(range.max);
+		}
+	});
+}
+
 function createNew() {
 	$.ajax({
 		url: url + "&newDashboard=1",
