@@ -659,10 +659,12 @@ sub _print_seqbin_filter_control {
           \$("#seqbin_max").html(ui.values[1]);         
       },
       change: function (event, ui){
-          elements[$element->{'id'}]['min'] = ui.values[0];
-          elements[$element->{'id'}]['max'] = ui.values[1];
-       	  saveAndReloadElement(null,$element->{'id'});
-       	  \$("#reset_seqbin_range").css("display","inline");
+      	  if(event.originalEvent){
+	          elements[$element->{'id'}]['min'] = ui.values[0];
+	          elements[$element->{'id'}]['max'] = ui.values[1];
+	       	  saveAndReloadElement(null,$element->{'id'});
+	       	  \$("#reset_seqbin_range").css("display","inline");
+      	  }
       }
     });
 });

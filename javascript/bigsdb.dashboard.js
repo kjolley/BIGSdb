@@ -400,6 +400,7 @@ function addElement(grid, id) {
 				saveElements(grid);
 			}
 			applyFormatting();
+			showOrHideElements();
 			$("div#element_" + id + " div.item-content").css("visibility", "visible");
 			updateDashboardName(JSON.parse(json).dashboard_name);
 			$("#delete_dashboard").css("display", "inline");
@@ -735,6 +736,7 @@ function resetSeqbinRange(id) {
 			$("#seqbin_range_slider").slider("option","values",[range.min,range.max]);
 			$("#seqbin_min").html(range.min);
 			$("#seqbin_max").html(range.max);
+			$("#reset_seqbin_range").css("display","none");
 		}
 	});
 }
