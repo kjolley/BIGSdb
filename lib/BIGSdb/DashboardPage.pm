@@ -1120,7 +1120,6 @@ sub _get_seqbin_standard_range {
 sub _get_seqbin_size_element_content {
 	my ( $self, $element ) = @_;
 	my $chart_colour = $element->{'chart_colour'} // CHART_COLOUR;
-	my $buffer = $self->_get_colour_swatch($element);
 	my $qry = "SELECT total_length FROM seqbin_stats s JOIN $self->{'system'}->{'view'} v ON s.isolate_id=v.id";
 	if ( !defined $element->{'min'} && !defined $element->{'max'} ) {
 		my $range = $self->_get_seqbin_standard_range;
@@ -1129,7 +1128,7 @@ sub _get_seqbin_size_element_content {
 	}
 	my $min_value = $element->{'min'};
 	my $max_value = $element->{'max'};
-	$buffer .= qq(<div class="title">$element->{'name'}</div>);
+	my $buffer = qq(<div class="title">$element->{'name'}</div>);
 	my $filters = $self->_get_filters;
 	local $" = ' AND ';
 	push @$filters, "s.total_length>=$min_value*1000000" if defined $min_value;
@@ -1305,7 +1304,7 @@ sub _get_colour_swatch {
 	my ( $self, $element ) = @_;
 	if ( $element->{'background_colour'} ) {
 		return qq[<div style="background-image:linear-gradient(#fff,#fff 10%,$element->{'background_colour'},]
-		  . q[#fff 90%,#fff);height:100%;width:100%;position:absolute;z-index:-1"></div>];
+		  . q[#fff 90%,#fff);height:calc(100% - 10px);margin-top:5px;width:100%;position:absolute;z-index:-1"></div>];
 	}
 	return q();
 }
@@ -2121,7 +2120,7 @@ sub _print_no_value_content {
 	my $buffer = $self->_get_colour_swatch( { background_colour => '#ccc' } );
 	$buffer .= $self->_get_title($element);
 	$buffer .=
-	  q(<p><span class="fas fa-ban" ) . q(style="color:#44c;font-size:3em;text-shadow: 3px 3px 3px #999;"></span></p>);
+	  q(<p><span class="fas fa-ban" style="color:#44c;font-size:3em;text-shadow: 3px 3px 3px #999;"></span></p>);
 	$buffer .= q(<p>No values in dataset.</p>);
 	return $buffer;
 }
