@@ -181,7 +181,7 @@ sub _print_stats {
 		my $commify = BIGSdb::Utils::commify( $seqbin_stats->{'total_length'} );
 		say qq(<dt>Length</dt><dd>$commify</dd></dl>);
 	}
-	my ( $fasta, $embl, $gbk, $gff3 ) = ( LABELLED_FASTA_FILE, EMBL_FILE, GBK_FILE, GFF3_FILE );
+	my ( $fasta, $embl, $gbk, $gff3 ) = ( FASTA_FILE, EMBL_FILE, GBK_FILE, GFF3_FILE );
 	print qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . qq(page=downloadSeqbin&amp;isolate_id=$isolate_id" title="FASTA format">$fasta</a>);
 	print qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=embl&amp;)

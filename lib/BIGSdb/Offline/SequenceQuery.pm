@@ -164,7 +164,7 @@ sub _start_submission {
 	return q() if $locus_info->{'min_length'} && $locus_info->{'min_length'} > length $match->{'sequence'};
 	return q() if $locus_info->{'max_length'} && $locus_info->{'max_length'} < length $match->{'sequence'};
 	return q() if !$locus_info->{'length_varies'} && $locus_info->{'length'} != length $match->{'sequence'};
-	my $upload   = UPLOAD_BUTTON;
+	my $upload   = SUBMIT_BUTTON;
 	my $seq_file = $self->make_temp_file( $match->{'sequence'} );
 	return
 	    qq(<a href="?db=$self->{'instance'}&amp;page=submit&amp;alleles=1&amp;)

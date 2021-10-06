@@ -101,27 +101,31 @@ use constant EYE_HIDE             => q(<span class="nav_icon fas fa-2x fa-eye-sl
 use constant CURATE               => q(<span class="nav_icon fas fa-2x fa-user-tie"></span>);
 use constant EXPORT_TABLE         => q(<span class="fa-stack fa-2x export">)
   . q(<span class="fas fa-square fa-stack-2x export_button"></span>)
-  . q(<span class="fas fa-table fa-stack-1x fa-inverse"></span></span>);
+  . q(<span class="fas fa-table fa-stack-1x fa-inverse" style="margin-top:-0.2em"></span>)
+  . q(<span class="fas fa-stack-text fa-stack-1x" style="font-size:0.4em;padding-left:0.1em;)
+  . q(margin-top:1.5em">Table</span></span>);
 use constant EXCEL_FILE => q(<span class="fa-stack fa-2x export">)
   . q(<span class="fas fa-square fa-stack-2x export_excel"></span>)
-  . q(<span class="fas fa-file-excel fa-stack-1x fa-inverse"></span></span>);
+  . q(<span class="fas fa-file-excel fa-stack-1x fa-inverse" style="margin-top:-0.2em"></span>)
+  . q(<span class="fas fa-stack-text fa-stack-1x" style="font-size:0.4em;padding-left:0.1em;)
+  . q(margin-top:1.5em">Excel</span></span>);
 use constant TEXT_FILE => q(<span class="fa-stack fa-2x export">)
   . q(<span class="fas fa-square fa-stack-2x export_text"></span>)
-  . q(<span class="fas fa-file-alt fa-stack-1x fa-inverse"></span></span>);
+  . q(<span class="fas fa-file-alt fa-stack-1x fa-inverse" style="margin-top:-0.2em"></span>)
+  . q(<span class="fas fa-stack-text fa-stack-1x" style="font-size:0.4em;padding-left:0.1em;)
+  . q(margin-top:1.5em">Text</span></span>);
 use constant FASTA_FILE => q(<span class="fa-stack fa-2x export">)
-  . q(<span class="fas fa-square fa-stack-2x export_fasta"></span>)
-  . q(<span class="fas fa-file fa-stack-1x fa-inverse"></span>)
-  . q(<span class="fas fa-dna fa-stack-1x" style="font-size:0.5em;padding-top:0.2em;color:#848"></span></span>);
-use constant FASTA_FLANKING_FILE => q(<span class="fa-stack fa-2x export">)
-  . q(<span class="fas fa-square fa-stack-2x export_fasta"></span>)
-  . q(<span class="fas fa-file fa-stack-1x fa-inverse"></span>)
-  . q(<span class="fas fa-dna fa-stack-1x" style="font-size:0.5em;padding-top:0.2em;color:#848"></span>)
-  . q(<span class="fas fa-plus fa-stack-1x" style="font-size:0.6em;padding-left:0.9em;)
-  . q(margin-top:-0.8em;color:#fff"></span></span>);
-use constant LABELLED_FASTA_FILE => q(<span class="fa-stack fa-2x export">)
   . q(<span class="fas fa-square fa-stack-2x export_fasta"></span>)
   . q(<span class="fas fa-file fa-stack-1x fa-inverse" style="margin-top:-0.2em"></span>)
   . q(<span class="fas fa-dna fa-stack-1x" style="font-size:0.5em;margin-top:-0.2em;color:#848"></span>)
+  . q(<span class="fas fa-stack-text fa-stack-1x" style="font-size:0.4em;padding-left:0.1em;)
+  . q(margin-top:1.5em">FASTA</span></span>);
+use constant FASTA_FLANKING_FILE => q(<span class="fa-stack fa-2x export">)
+  . q(<span class="fas fa-square fa-stack-2x export_fasta"></span>)
+  . q(<span class="fas fa-file fa-stack-1x fa-inverse" style="margin-top:-0.2em"></span>)
+  . q(<span class="fas fa-dna fa-stack-1x" style="font-size:0.5em;margin-top:-0.2em;color:#848"></span>)
+  . q(<span class="fas fa-plus fa-stack-1x" style="font-size:0.4em;padding-left:1.4em;)
+  . q(margin-top:-1.3em;color:#fff"></span>)
   . q(<span class="fas fa-stack-text fa-stack-1x" style="font-size:0.4em;padding-left:0.1em;)
   . q(margin-top:1.5em">FASTA</span></span>);
 use constant EMBL_FILE => q(<span class="fa-stack fa-2x export">)
@@ -146,21 +150,29 @@ use constant MISC_FILE => q(<span class="fa-stack fa-2x export">)
   . q(<span class="fas fa-file fa-stack-1x fa-inverse"></span></span>);
 use constant ARCHIVE_FILE => q(<span class="fa-stack fa-2x export">)
   . q(<span class="fas fa-square fa-stack-2x export_archive"></span>)
-  . q(<span class="fas fa-file-archive fa-stack-1x fa-inverse"></span></span>);
+  . q(<span class="fas fa-file-archive fa-stack-1x fa-inverse" style="margin-top:-0.2em"></span>)
+  . q(<span class="fas fa-stack-text fa-stack-1x" style="font-size:0.4em;padding-left:0.1em;)
+  . q(margin-top:1.5em">Archive</span></span>);
 use constant IMAGE_FILE => q(<span class="fa-stack fa-2x export">)
   . q(<span class="fas fa-square fa-stack-2x export_image"></span>)
-  . q(<span class="fas fa-file-image fa-stack-1x fa-inverse"></span></span>);
+  . q(<span class="fas fa-file-image fa-stack-1x fa-inverse" style="margin-top:-0.2em"></span>)
+  . q(<span class="fas fa-stack-text fa-stack-1x" style="font-size:0.4em;padding-left:0.1em;)
+  . q(margin-top:1.5em">Image</span></span>);
 use constant ALIGN_FILE => q(<span class="fa-stack fa-2x export">)
   . q(<span class="fas fa-square fa-stack-2x export_align"></span>)
-  . q(<span class="fas fa-file fa-stack-1x fa-inverse"></span>)
-  . q(<span class="fas fa-align-center fa-stack-1x" style="font-size:0.5em;padding-top:0.2em;color:#64e">)
-  . q(</span></span>);
+  . q(<span class="fas fa-file fa-stack-1x fa-inverse" style="margin-top:-0.2em"></span>)
+  . q(<span class="fas fa-align-center fa-stack-1x" style="font-size:0.5em;margin-top:-0.2em;color:#64e">)
+  . q(</span>)
+  . q(<span class="fas fa-stack-text fa-stack-1x" style="font-size:0.4em;padding-left:0.1em;)
+  . q(margin-top:1.5em">Aligned</span></span>);
 use constant CODE_FILE => q(<span class="fa-stack fa-2x export">)
   . q(<span class="fas fa-square fa-stack-2x export_code"></span>)
   . q(<span class="fas fa-file-code fa-stack-1x fa-inverse"></span></span>);
-use constant UPLOAD_BUTTON => q(<span class="fa-stack fa-2x upload">)
+use constant SUBMIT_BUTTON => q(<span class="fa-stack fa-2x upload">)
   . q(<span class="fas fa-square fa-stack-2x upload_button"></span>)
-  . q(<span class="fas fa-upload fa-stack-1x fa-inverse"></span></span>);
+  . q(<span class="fas fa-upload fa-stack-1x fa-inverse" style="margin-top:-0.2em"></span>)
+  . q(<span class="fas fa-stack-text fa-stack-1x" style="font-size:0.4em;padding-left:0.1em;)
+  . q(margin-top:1.5em">Submit</span></span>);
 use constant FIRST => q(<span class="fa-stack">)
   . q(<span class="far fa-circle fa-stack-2x"></span>)
   . q(<span class="fas fa-angle-double-left fa-stack-1x"></span></span>);
@@ -184,9 +196,9 @@ use constant MAX_ROWS => 20;
 @values = qw(FACE_STYLE SHOW HIDE SAVE SAVING UP DOWN LEFT RIGHT
   EDIT DELETE ADD COMPARE UPLOAD UPLOAD_CHANGE_CONFIG QUERY USERS GOOD BAD MEH TRUE FALSE BAN DOWNLOAD
   BACK QUERY_MORE EDIT_MORE UPLOAD_CONTIGS LINK_CONTIGS MORE HOME RELOAD KEY EYE_SHOW EYE_HIDE
-  CURATE EXPORT_TABLE EXCEL_FILE TEXT_FILE FASTA_FILE FASTA_FLANKING_FILE LABELLED_FASTA_FILE
+  CURATE EXPORT_TABLE EXCEL_FILE TEXT_FILE FASTA_FILE FASTA_FLANKING_FILE
   EMBL_FILE GBK_FILE GFF3_FILE MISC_FILE ARCHIVE_FILE IMAGE_FILE ALIGN_FILE CODE_FILE FLANKING
-  UPLOAD_BUTTON MAX_ROWS LOCK UNLOCK FIRST PREVIOUS NEXT LAST TOOLTIP WARNING_TOOLTIP);
+  SUBMIT_BUTTON MAX_ROWS LOCK UNLOCK FIRST PREVIOUS NEXT LAST TOOLTIP WARNING_TOOLTIP);
 push @EXPORT_OK, @values;
 $EXPORT_TAGS{'interface'} = [@values];
 

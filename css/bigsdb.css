@@ -2295,8 +2295,10 @@ h3.group6 {
 }
 
 span.fa-stack-text {
-	font-family: Helvetica, Arial, sans-serif;
-	color: white
+	font-family: pt_sansregular, sans-serif;
+ 	color: white;
+	font-weight:normal;
+	text-shadow: 0 0 1px #000;
 }
 
 span.wait_icon {

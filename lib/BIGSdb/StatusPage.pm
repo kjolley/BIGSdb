@@ -259,6 +259,9 @@ var date_chart;
 			values.push(total);
 			last_date = e.label;
 		});
+		if (last_date == null){
+			return;
+		}
 		
 		date_chart = bb.generate({
 			bindto: '#date_entered_chart',

@@ -355,7 +355,7 @@ sub _print_jobs_menu_item {
 		$job_count = '99+' if $job_count > 99;
 		$number_icon .= q(<span class="fa-stack" style="font-size:0.7em;margin:-0.5em 0 -0.2em 0.5em">);
 		$number_icon .= q(<span class="fas fa-circle fa-stack-2x job_indicator"></span>);
-		$number_icon .= qq(<span class="fa fa-stack-1x fa-stack-text">$job_count</span>);
+		$number_icon .= qq(<span class="fa fa-stack-1x fa-stack-text" style="font-size:1.2em">$job_count</span>);
 		$number_icon .= q(</span>);
 	}
 	$self->_print_menu_item(
@@ -611,7 +611,8 @@ sub _print_submissions_menu_item {
 		$number_icon .=
 		  q(<span class="fa-stack" style="font-size:0.7em;letter-spacing:normal;margin:-0.5em 0 -0.2em 0.5em">);
 		$number_icon .= q(<span class="fas fa-circle fa-stack-2x submission_indicator"></span>);
-		$number_icon .= qq(<span class="fa fa-stack-1x fa-stack-text">$pending_submissions</span>);
+		$number_icon .= q(<span class="fa fa-stack-1x fa-stack-text" style="font-size:1.2em">)
+		  . qq($pending_submissions</span>);
 		$number_icon .= q(</span>);
 	}
 	$self->_print_menu_item(
@@ -705,7 +706,7 @@ sub _print_private_data_menu_item {
 		$number_icon .=
 		  q(<span class="fa-stack" style="font-size:0.7em;letter-spacing:normal;margin:-0.5em 0 -0.2em 0.5em">);
 		$number_icon .= q(<span class="fas fa-circle fa-stack-2x private_data_indicator"></span>);
-		$number_icon .= qq(<span class="fa fa-stack-1x fa-stack-text">$label</span>);
+		$number_icon .= qq(<span class="fa fa-stack-1x fa-stack-text" style="font-size:1.2em">$label</span>);
 	}
 	$self->_print_menu_item(
 		{
