@@ -2427,6 +2427,10 @@ span.error_message {
 	-webkit-text-fill-color: transparent
 }
 
+span.export {
+	width: 2em
+}
+
 span.export_button {
 	color: #448;
 	text-shadow: 3px 3px 3px #999
