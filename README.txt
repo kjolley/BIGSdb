@@ -1,3 +1,4 @@
+v1.31.3: *Minor formatting changes.
 v1.31.2: *Option to clear BLAST caches from admin interface.
 v1.31.1: *Added assembly checks - results of these can be queried and used for
           filtering of isolate datasets.
