@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2019, University of Oxford
+#Copyright (c) 2017-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -29,6 +29,7 @@ sub setup_routes {
 	foreach my $dir ( @{ setting('api_dirs') } ) {
 		get "$dir/db/:db/classification_schemes"                           => sub { _get_classification_schemes() };
 		get "$dir/db/:db/classification_schemes/:cscheme_id"               => sub { _get_classification_scheme() };
+		get "$dir/db/:db/classification_schemes/:cscheme_id/groups"        => sub { _get_groups() };
 		get "$dir/db/:db/classification_schemes/:cscheme_id/groups/:group" => sub { _get_group() };
 	}
 	return;
@@ -75,32 +76,72 @@ sub _get_classification_scheme {
 		  $self->{'datastore'}->get_scheme_info( $c_scheme->{'scheme_id'}, { get_pk => 1, set_id => $set_id } );
 		my $pk_field_info =
 		  $self->{'datastore'}->get_scheme_field_info( $c_scheme->{'scheme_id'}, $scheme_info->{'primary_key'} );
-		my $profile_order = $pk_field_info->{'type'} eq 'integer' ? 'CAST(profile_id AS int)' : 'profile_id';
-		my $group_profiles = $self->{'datastore'}->run_query(
-			'SELECT group_id,profile_id FROM classification_group_profiles '
-			  . "WHERE cg_scheme_id=? ORDER BY group_id,$profile_order",
-			$cscheme_id,
-			{ fetch => 'all_arrayref', slice => {} }
-		);
-		my $groups = {};
-		foreach my $group_profile (@$group_profiles) {
-			push @{ $groups->{ $group_profile->{'group_id'} } },
-			  request->uri_for(
-				"$subdir/db/$db/schemes/$c_scheme->{'scheme_id'}/profiles/$group_profile->{'profile_id'}");
-		}
-		$values->{'groups'} = [];
-		foreach my $group ( sort { $a <=> $b } keys %$groups ) {
-			push @{ $values->{'groups'} },
-			  {
-				id       => int($group),
-				profiles => $groups->{$group}
-			  };
-		}
+		$values->{'groups'} = request->uri_for("$subdir/db/$db/classification_schemes/$cscheme_id/groups");
 	}
 	return $values;
 }
 
-sub _get_group {
+sub _get_groups {
+	my $self   = setting('self');
+	my $params = params;
+	my ( $db, $id, $cscheme_id, $group ) = @{$params}{qw(db id cscheme_id group)};
+	my $subdir = setting('subdir');
+	$self->check_seqdef_database;
+	my $group_count =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT COUNT(DISTINCT(group_id)) FROM classification_group_profiles WHERE cg_scheme_id=?',
+		$cscheme_id );
+	my $page_values = $self->get_page_values($group_count);
+	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
+	my $qry = 'SELECT DISTINCT(group_id) FROM classification_group_profiles WHERE cg_scheme_id=? ORDER BY group_id';
+	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
+	my $values = { records => int($group_count) };
+	my $path   = $self->get_full_path("$subdir/db/$db/classification_schemes/$cscheme_id/groups");
+	my $paging = $self->get_paging( $path, $pages, $page, $offset );
+	$values->{'paging'} = $paging if %$paging;
+	my $group_ids = $self->{'datastore'}->run_query( $qry, $cscheme_id, { fetch => 'col_arrayref' } );
+	my @links;
+	push @links, request->uri_for("$path/$_") foreach @$group_ids;
+	$values->{'groups'} = \@links;
+	return $values;
+}
+
+sub _get_group_seqdef {
+	my $self   = setting('self');
+	my $params = params;
+	my ( $db, $id, $cs, $group ) = @{$params}{qw(db id cscheme_id group)};
+	$self->check_seqdef_database;
+	my $subdir  = setting('subdir');
+	my $cscheme = $self->{'datastore'}
+	  ->run_query( 'SELECT * FROM classification_schemes WHERE id=?', $cs, { fetch => 'row_hashref' } );
+	if ( !$cscheme ) {
+		send_error( "Classification scheme $cs does not exist.", 404 );
+	}
+	my $scheme_id = $cscheme->{'scheme_id'};
+	my $profile_count =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT COUNT(*) FROM classification_group_profiles WHERE (cg_scheme_id,group_id)=(?,?)',
+		[ $cs, $group ] );
+	my $values = { records => int($profile_count) };
+	my $page_values = $self->get_page_values($profile_count);
+	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
+	my $pk_type =
+	  $self->{'datastore'}->run_query( 'SELECT type FROM scheme_fields WHERE scheme_id=? AND PRIMARY_KEY', $scheme_id );
+	my $order_by = $pk_type eq 'integer' ? 'CAST(profile_id AS int)' : 'profile_id';
+	my $qry =
+	  "SELECT profile_id FROM classification_group_profiles WHERE (cg_scheme_id,group_id)=(?,?) ORDER BY $order_by";
+	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
+	my $path = $self->get_full_path("$subdir/db/$db/classification_schemes/$cs/groups/$group");
+	my $paging = $self->get_paging( $path, $pages, $page, $offset );
+	$values->{'paging'} = $paging if %$paging;
+	my $profile_ids = $self->{'datastore'}->run_query( $qry, [ $cs, $group ], { fetch => 'col_arrayref' } );
+	my @links;
+	push @links, request->uri_for("$subdir/db/$db/schemes/$scheme_id/profiles/$_") foreach @$profile_ids;
+	$values->{'profiles'} = \@links;
+	return $values;
+}
+
+sub _get_group_isolates {
 	my $self   = setting('self');
 	my $params = params;
 	my ( $db, $id, $cs, $group ) = @{$params}{qw(db id cscheme_id group)};
@@ -150,5 +191,21 @@ sub _get_group {
 	};
 	$values->{'paging'} = $paging if %$paging;
 	return $values;
+}
+
+sub _get_group {
+	my $self   = setting('self');
+	my $params = params;
+	my $group  = params->{'group'};
+	if ( !BIGSdb::Utils::is_int($group) ) {
+		send_error( 'Group must be an integer.', 400 );
+	}
+	if ( ( $self->{'system'}->{'dbtype'} // q() ) eq 'isolates' ) {
+		return _get_group_isolates();
+	} elsif ( ( $self->{'system'}->{'dbtype'} // q() ) eq 'sequences' ) {
+		return _get_group_seqdef();
+	}
+	send_error( 'Invalid method.', 400 );
+	return;
 }
 1;
