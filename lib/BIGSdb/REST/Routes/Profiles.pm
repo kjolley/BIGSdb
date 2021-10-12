@@ -200,7 +200,7 @@ sub _get_profile {
 		my $profile_count = $self->{'datastore'}->run_query(
 			'SELECT COUNT(*) FROM classification_group_profiles WHERE (cg_scheme_id, group_id)=(?,?)',
 			[ $cs_scheme->{'id'}, $group ],
-			{ cache => 'Profiles:get_profile:get_profile_count' }
+			{ cache => 'Profiles::get_profile::get_profile_count' }
 		);
 		$fields =
 		  $self->{'datastore'}->run_query( 'SELECT field,type FROM classification_group_fields WHERE cg_scheme_id=?',
@@ -210,7 +210,7 @@ sub _get_profile {
 			my $value = $self->{'datastore'}->run_query(
 				'SELECT value FROM classification_group_field_values WHERE (cg_scheme_id,field,group_id)=(?,?,?)',
 				[ $cs_scheme->{'id'}, $field->{'field'}, $group ],
-				{ cache => 'Profiles:get_profile:get_field_value' }
+				{ cache => 'Profiles::get_profile::get_field_value' }
 			);
 			if ( defined $value ) {
 				$field_obj->{ $field->{'field'} } = $field->{'type'} eq 'integer' ? int($value) : $value;
