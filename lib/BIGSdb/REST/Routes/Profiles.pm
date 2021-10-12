@@ -122,8 +122,8 @@ sub _get_profiles_csv {
 			my $pk      = shift @$definition;
 			my $profile = shift @$definition;
 			$buffer .= qq($pk\t@$profile[@order]);
-			$buffer.=qq(\t@$definition) if @$scheme_fields > 1;
-			$buffer.=qq(\n);
+			$buffer .= qq(\t@$definition) if @$scheme_fields > 1;
+			$buffer .= qq(\n);
 		}
 	}
 	send_file( \$buffer, content_type => 'text/plain; charset=UTF-8' );
@@ -185,6 +185,47 @@ sub _get_profile {
 			$values->{$attribute} = $profile_info->{$attribute};
 		}
 	}
+	my $classification_schemes =
+	  $self->{'datastore'}->run_query( 'SELECT * FROM classification_schemes WHERE scheme_id=?',
+		$scheme_id, { fetch => 'all_arrayref', slice => {} } );
+	my $cs_values = {};
+	foreach my $cs_scheme (@$classification_schemes) {
+		my $group = $self->{'datastore'}->run_query(
+			'SELECT group_id FROM classification_group_profiles WHERE (cg_scheme_id,scheme_id,profile_id)=(?,?,?)',
+			[ $cs_scheme->{'id'}, $scheme_id, $profile_id ],
+			{ cache => 'Profiles::get_profile::get_group' }
+		);
+		next if !defined $group;
+		my $obj = { href => request->uri_for("$subdir/db/$db/classification_schemes/$cs_scheme->{'id'}") };
+		my $profile_count = $self->{'datastore'}->run_query(
+			'SELECT COUNT(*) FROM classification_group_profiles WHERE (cg_scheme_id, group_id)=(?,?)',
+			[ $cs_scheme->{'id'}, $group ],
+			{ cache => 'Profiles::get_profile::get_profile_count' }
+		);
+		$fields =
+		  $self->{'datastore'}->run_query( 'SELECT field,type FROM classification_group_fields WHERE cg_scheme_id=?',
+			$cs_scheme->{'id'}, { fetch => 'all_arrayref', slice => {}, cache => 'Profiles:get_profile:get_fields' } );
+		my $field_obj = {};
+		foreach my $field (@$fields) {
+			my $value = $self->{'datastore'}->run_query(
+				'SELECT value FROM classification_group_field_values WHERE (cg_scheme_id,field,group_id)=(?,?,?)',
+				[ $cs_scheme->{'id'}, $field->{'field'}, $group ],
+				{ cache => 'Profiles::get_profile::get_field_value' }
+			);
+			if ( defined $value ) {
+				$field_obj->{ $field->{'field'} } = $field->{'type'} eq 'integer' ? int($value) : $value;
+			}
+		}
+		my $group_obj = {
+			group    => int($group),
+			records  => $profile_count,
+			profiles => request->uri_for("$subdir/db/$db/classification_schemes/$cs_scheme->{'id'}/groups/$group")
+		};
+		$group_obj->{'fields'}               = $field_obj if keys %$field_obj;
+		$obj->{'group'}                      = $group_obj;
+		$cs_values->{ $cs_scheme->{'name'} } = $obj;
+	}
+	$values->{'classification_schemes'} = $cs_values if keys %$cs_values;
 	return $values;
 }
 1;

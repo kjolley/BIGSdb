@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2020, University of Oxford
+#Copyright (c) 2014-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -253,7 +253,7 @@ sub _get_similar {
 		my $pk           = $scheme_info->{'primary_key'};
 		my $pk_values =
 		  $self->{'datastore'}
-		  ->run_query( "SELECT $pk FROM $scheme_table WHERE id=?", $isolate_id, { fetch => 'col_arrayref' } );
+		  ->run_query( "SELECT DISTINCT($pk) FROM $scheme_table WHERE id=?", $isolate_id, { fetch => 'col_arrayref' } );
 		my $c_scheme_values = [];
 		if (@$pk_values) {
 			my $cscheme_table = $self->{'datastore'}->create_temp_cscheme_table( $cscheme->{'id'} );
@@ -261,7 +261,7 @@ sub _get_similar {
 			#You may get multiple groups if you have a mixed sample
 			my %group_displayed;
 			foreach my $pk_value (@$pk_values) {
-				my $groups = $self->{'datastore'}->run_query( "SELECT group_id FROM $cscheme_table WHERE profile_id=?",
+				my $groups = $self->{'datastore'}->run_query( "SELECT DISTINCT(group_id) FROM $cscheme_table WHERE profile_id=?",
 					$pk_value, { fetch => 'col_arrayref' } );
 				foreach my $group_id (@$groups) {
 					next if $group_displayed{$group_id};
