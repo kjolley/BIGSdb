@@ -686,7 +686,6 @@ sub _ajax_new {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by di
 			main_text_colour  => COUNT_MAIN_TEXT_COLOUR,
 			background_colour => COUNT_BACKGROUND_COLOUR,
 			watermark         => 'fas fa-bacteria',
-			post_data         => {},
 			url_text          => "Browse $self->{'system'}->{'labelfield'}s",
 			hide_mobile       => 0
 		},
@@ -945,10 +944,6 @@ sub _get_default_elements {
 		  && !$self->_should_display_map_element( $element->{'field'} );
 		$element->{'id'}    = $i;
 		$element->{'order'} = $i;
-
-		#		if ( $element->{'post_data'} ) {
-		#			$element->{'post_data'}->{'db'} = $self->{'instance'};
-		#		}
 		$element->{'width'}  //= 1;
 		$element->{'height'} //= 1;
 		$elements->{$i} = $element;

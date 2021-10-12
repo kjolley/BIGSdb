@@ -242,6 +242,11 @@ function getDataQueryParams(id) {
 	}
 	params['page'] = 'query';
 	params['db'] = instance;
+	if (elements[id]['specific_values'] != null && elements[id]['visualisation_type'] == 'specific values'){
+		let values = elements[id]['specific_values'];
+		params['list'] = Array.isArray(values) ? values.join("\n") : values;
+		params['attribute'] = elements[id]['field'];
+	}
 	params['sent'] = 1;
 	if ($("#include_old_versions").prop('checked')) {
 		params['include_old'] = 'on';
@@ -536,13 +541,6 @@ function checkAndShowVisualisation(grid, id) {
 			elements[id]['display'] = 'field';
 			elements[id]['url'] = url + "&page=query";
 			elements[id]['url_text'] = 'Query records';
-			elements[id]['post_data'] = {
-				db: instance,
-				page: "query",
-				attribute: elements[id]['field'],
-				list: Array.isArray(specific_values) ? specific_values.join("\n") : specific_values
-			}
-			//			saveAndReloadElement(grid, id);
 		} else {
 			changeElementAttribute(grid, id, 'display', 'setup');
 		}
