@@ -645,11 +645,12 @@ function saveAndReloadElement(grid, id) {
 				currentRequest.abort();
 			}
 		},
-		success: function() {
+		success: function(json) {
 			reloadElement(id);
 			if (grid != null) {
 				setGridMargins(grid);
 			}
+			updateDashboardName(JSON.parse(json).dashboard_name);
 		}
 	});
 }

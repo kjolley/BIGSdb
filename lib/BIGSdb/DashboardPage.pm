@@ -68,7 +68,7 @@ sub print_content {
 		control             => '_ajax_controls',
 		new                 => '_ajax_new',
 		element             => '_ajax_get',
-		seqbin_range => '_ajax_get_seqbin_range',
+		seqbin_range        => '_ajax_get_seqbin_range',
 		setActiveDashboard  => '_ajax_set_active'
 	);
 	foreach my $method ( sort keys %ajax_methods ) {
@@ -147,10 +147,10 @@ sub _ajax_controls {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called 
 	return;
 }
 
-sub _ajax_get_seqbin_range {## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _ajax_get_seqbin_range {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ($self) = @_;
-	my $range = $self->_get_seqbin_standard_range;
-	my $json           = JSON->new->allow_nonref;
+	my $range  = $self->_get_seqbin_standard_range;
+	my $json   = JSON->new->allow_nonref;
 	say $json->encode(
 		{
 			range => $range
@@ -159,7 +159,7 @@ sub _ajax_get_seqbin_range {## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 	return;
 }
 
-sub _ajax_new_dashboard {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _ajax_new_dashboard {       ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ($self) = @_;
 	my $guid = $self->get_guid;
 	$self->{'dashboard_id'} = $self->{'prefstore'}->initiate_new_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
@@ -637,8 +637,7 @@ sub _print_seqbin_filter_control {
 	say q(<fieldset id="seqbin_filter_control" style="float:left"><legend>Filter</legend>);
 	say q(<p>Size: <span id="seqbin_min"></span> - <span id="seqbin_max"></span> Mbp</p>);
 	say q(<div id="seqbin_range_slider" style="width:150px"></div>);
-	say
-	  qq(<p style="margin-top:1em"><a id="reset_seqbin_range" onclick="resetSeqbinRange($element->{'id'})" )
+	say qq(<p style="margin-top:1em"><a id="reset_seqbin_range" onclick="resetSeqbinRange($element->{'id'})" )
 	  . qq(class="small_reset" style="display:$reset_range;white-space:nowrap">Reset range</a></p>);
 	say q(</fieldset>);
 	say << "JS";
@@ -1024,6 +1023,7 @@ sub _get_setup_element_content {
 
 sub _field_exists {
 	my ( $self, $field ) = @_;
+	return if !defined $field;
 	if ( $field =~ /^f_(.*)$/x ) {
 		my $field_name = $1;
 		return $self->{'xmlHandler'}->is_field($field_name);
@@ -1128,8 +1128,8 @@ sub _get_seqbin_size_element_content {
 	}
 	my $min_value = $element->{'min'};
 	my $max_value = $element->{'max'};
-	my $buffer = qq(<div class="title">$element->{'name'}</div>);
-	my $filters = $self->_get_filters;
+	my $buffer    = qq(<div class="title">$element->{'name'}</div>);
+	my $filters   = $self->_get_filters;
 	local $" = ' AND ';
 	push @$filters, "s.total_length>=$min_value*1000000" if defined $min_value;
 	push @$filters, "s.total_length<=$max_value*1000000" if defined $max_value;
@@ -2879,9 +2879,10 @@ sub _get_data_query_link {
 sub _get_data_explorer_link {
 	my ( $self, $element ) = @_;
 	my $buffer = q();
+	return $buffer;    #Explorer page not yet developed.
+	$element->{'explorer_text'} //= 'Explore data';	
 	$buffer .= qq(<span data-id="$element->{'id'}" class="dashboard_data_explorer_element fas fa-search">);
 	$buffer .= qq(<span class="tooltip">$element->{'explorer_text'}</span>);
-	$buffer .= q(<span class="tooltip">Explore data</span>);
 	$buffer .= q(</span>);
 	return $buffer;
 }
