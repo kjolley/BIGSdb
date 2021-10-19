@@ -312,9 +312,6 @@ function showOrHideElements() {
 //https://stackoverflow.com/questions/133925/javascript-post-request-like-a-form-submit/5533477#5533477
 function post(path, parameters) {
 	var form = $('<form></form>');
-	form.attr("method", "post");
-	form.attr("action", path);
-	form.attr("target", $("#open_new").prop('checked') ? '_blank' : null);
 	$.each(parameters, function(key, value) {
 		var field = $('<input></input>');
 		field.attr("type", "hidden");
@@ -322,6 +319,9 @@ function post(path, parameters) {
 		field.attr("value", value);
 		form.append(field);
 	});
+	form.attr("method", "post");
+	form.attr("action", path);
+	form.attr("target", $("#open_new").prop('checked') ? '_blank' : null);
 
 	// The form needs to be a part of the document in
 	// order for us to be able to submit it.
