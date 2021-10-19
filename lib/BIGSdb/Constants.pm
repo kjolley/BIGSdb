@@ -597,7 +597,7 @@ use constant DEFAULT_DASHBOARD => [
 		background_colour => '#79cafb',
 		main_text_colour  => '#404040',
 		watermark         => 'fas fa-bacteria',
-		change_duration   => 'week',
+		change_duration   => 'month',
 		url_text          => 'Browse isolates'
 	},
 	{
@@ -608,7 +608,7 @@ use constant DEFAULT_DASHBOARD => [
 		background_colour => '#7ecc66',
 		main_text_colour  => '#404040',
 		watermark         => 'fas fa-dna',
-		change_duration   => 'week',
+		change_duration   => 'month',
 		url_text          => 'Browse genomes',
 		post_data         => { genomes => 1 }
 	},
