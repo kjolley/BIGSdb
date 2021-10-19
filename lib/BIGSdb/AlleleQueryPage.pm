@@ -75,8 +75,8 @@ sub get_javascript {
   	  \$(this).attr('href', function(){
   		  if (this.href.match(/javascript.loadContent/)){
   			  return;
-  		  };
-   		  return(this.href.replace(/(.*)/, "javascript:loadContent\('\$1\'\)"));
+  		  }; 
+		  return 'javascript:loadContent("' + this.href + '")';
    	  });
     });
     $panel_js
@@ -125,7 +125,7 @@ sub print_content {
 	my $locus = $q->param('locus') // '';
 	$locus =~ s/%27/'/gx;    #Web-escaped locus
 	$locus =~ s/^cn_//x;
-	if    ( $q->param('no_header') )    { $self->_ajax_content; return }
+	if    ( $q->param('no_header') )    { $self->_ajax_content($locus); return }
 	elsif ( $q->param('save_options') ) { $self->_save_options; return }
 	my $cleaned_locus = $self->clean_locus($locus);
 
