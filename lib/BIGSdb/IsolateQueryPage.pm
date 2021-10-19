@@ -23,7 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::QueryPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
-use List::MoreUtils qw(any none);
+use List::MoreUtils qw(any none uniq);
 use JSON;
 use BIGSdb::Constants qw(:interface :limits SEQ_FLAGS LOCUS_PATTERN OPERATORS MIN_GENOME_SIZE);
 use constant WARN_IF_TAKES_LONGER_THAN_X_SECONDS => 5;
@@ -3604,7 +3604,7 @@ END
 				$autocomplete_js .= ",\n" if !$first;
 				$autocomplete_js .= "       f_$field: [\n";
 				my %used;
-				foreach my $value (@$options) {
+				foreach my $value (uniq @$options) {
 					next if $used{$value};
 					( my $display_value = $value ) =~ s/"/\\"/gx;
 					$autocomplete_js .= qq(       "$display_value");
