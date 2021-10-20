@@ -3594,71 +3594,40 @@ function refresh_filters(){
 	});
 }
 END
-	my $fields = $self->{'xmlHandler'}->get_field_list;
-	my $autocomplete_js;
+	my $fields       = $self->{'xmlHandler'}->get_field_list;
+	my $autocomplete = {};
 	if (@$fields) {
-		my $first = 1;
 		foreach my $field (@$fields) {
 			my $options = $self->{'xmlHandler'}->get_field_option_list($field);
 			if (@$options) {
-				$autocomplete_js .= ",\n" if !$first;
-				$autocomplete_js .= "       f_$field: [\n";
-				my %used;
-				foreach my $value (uniq @$options) {
-					next if $used{$value};
-					( my $display_value = $value ) =~ s/"/\\"/gx;
-					$autocomplete_js .= qq(       "$display_value");
-					$autocomplete_js .= ',' if $value ne $options->[-1];
-					$autocomplete_js .= "\n";
-					$used{$value} = 1;
-				}
-				$autocomplete_js .= '       ]';
-				$first = 0;
+				$autocomplete->{"f_$field"} = $options;
 			}
 		}
 		my $ext_att = $self->get_extended_attributes;
 		foreach my $field ( keys %$ext_att ) {
 			foreach my $attribute ( @{ $ext_att->{$field} } ) {
-				$autocomplete_js .= ",\n" if !$first;
-				$autocomplete_js .= qq(       "e_$field||$attribute": [\n);
 				my $values = $self->{'datastore'}->run_query(
 					'SELECT DISTINCT value FROM isolate_value_extended_attributes WHERE '
 					  . '(isolate_field,attribute)=(?,?) ORDER BY value',
 					[ $field, $attribute ],
 					{ fetch => 'col_arrayref', cache => 'IsolateQuery::extended_attribute_values' }
 				);
-				foreach my $value (@$values) {
-					$value =~ s/"/\\"/gx;
-					$autocomplete_js .= qq(       "$value");
-					$autocomplete_js .= ',' if $value ne $values->[-1];
-					$autocomplete_js .= "\n";
-				}
-				$autocomplete_js .= '       ]';
-				$first = 0;
+				$autocomplete->{"e_$field||$attribute"} = $values;
 			}
 		}
 		my $eav_fields = $self->{'datastore'}->get_eav_fields;
 		foreach my $eav_field (@$eav_fields) {
 			if ( $eav_field->{'option_list'} ) {
-				$autocomplete_js .= ",\n" if !$first;
-				$autocomplete_js .= "       eav_$eav_field->{'field'}: [\n";
 				my @options = split /\s*;\s*/x, $eav_field->{'option_list'};
-				foreach my $value (@options) {
-					$value =~ s/"/\\"/gx;
-					$autocomplete_js .= qq(       "$value");
-					$autocomplete_js .= ',' if $value ne $options[-1];
-					$autocomplete_js .= "\n";
-				}
-				$autocomplete_js .= '       ]';
-				$first = 0;
+				$autocomplete->{"eav_$eav_field->{'field'}"} = [@options];
 			}
 		}
 	}
-	if ($autocomplete_js) {
+	my $json = JSON->new->allow_nonref;
+	if ($autocomplete) {
+		my $autocomplete_json = $json->encode($autocomplete);
 		$buffer .= << "END";
-var fieldLists = {
-  	$autocomplete_js
-};		
+var fieldLists = $autocomplete_json;		
 \$(function() {	
 	initiate_autocomplete();
 });
@@ -3771,8 +3740,8 @@ sub initiate {
 		$q->param( seqbin_value1 => $min_genome_size );
 		$q->param( submit        => 1 );
 	}
-	if ($q->param('sent')){
-		$q->param( submit        => 1 );
+	if ( $q->param('sent') ) {
+		$q->param( submit => 1 );
 	}
 	return;
 }
