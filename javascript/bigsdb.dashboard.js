@@ -242,7 +242,7 @@ function getDataQueryParams(id) {
 	}
 	params['page'] = 'query';
 	params['db'] = instance;
-	if (elements[id]['specific_values'] != null && elements[id]['visualisation_type'] == 'specific values'){
+	if (elements[id]['specific_values'] != null && elements[id]['visualisation_type'] == 'specific values') {
 		let values = elements[id]['specific_values'];
 		params['list'] = Array.isArray(values) ? values.join("\n") : values;
 		params['attribute'] = elements[id]['field'];
@@ -311,7 +311,10 @@ function showOrHideElements() {
 //Post to the provided URL with the specified parameters.
 //https://stackoverflow.com/questions/133925/javascript-post-request-like-a-form-submit/5533477#5533477
 function post(path, parameters) {
-	var form = $('<form></form>');
+	//POST using this method doesn't seem to work on Android Firefox,
+	//so we have to use GET instead. No idea why!
+	let method = detectAndroidFirefox() ? 'GET' : 'POST';
+	let form = $('<form></form>');
 	$.each(parameters, function(key, value) {
 		var field = $('<input></input>');
 		field.attr("type", "hidden");
@@ -319,7 +322,7 @@ function post(path, parameters) {
 		field.attr("value", value);
 		form.append(field);
 	});
-	form.attr("method", "post");
+	form.attr("method", method);
 	form.attr("action", path);
 	form.attr("target", $("#open_new").prop('checked') ? '_blank' : null);
 
@@ -327,6 +330,20 @@ function post(path, parameters) {
 	// order for us to be able to submit it.
 	$(document.body).append(form);
 	form.submit();
+}
+
+//https://stackoverflow.com/questions/7246091/how-to-detect-firefox-mobile-with-javascript
+function detectAndroidFirefox() {
+	var agent = navigator.userAgent.toLowerCase();
+	if (agent.indexOf('firefox') >= 0) {
+		if (agent.indexOf("android") >= 0) {
+			return true;
+		} else {
+			return false;
+		}
+	} else {
+		return false;
+	}
 }
 
 function clean_value(value) {
@@ -732,10 +749,10 @@ function resetSeqbinRange(id) {
 		type: 'GET',
 		success: function(json) {
 			let range = JSON.parse(json).range;
-			$("#seqbin_range_slider").slider("option","values",[range.min,range.max]);
+			$("#seqbin_range_slider").slider("option", "values", [range.min, range.max]);
 			$("#seqbin_min").html(range.min);
 			$("#seqbin_max").html(range.max);
-			$("#reset_seqbin_range").css("display","none");
+			$("#reset_seqbin_range").css("display", "none");
 		}
 	});
 }
