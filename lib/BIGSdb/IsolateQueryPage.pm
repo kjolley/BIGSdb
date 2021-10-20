@@ -225,9 +225,6 @@ sub print_content {
 	if ( $q->param('confirm_publish') ) {
 		$self->publish;
 	}
-	use Data::Dumper;
-	$logger->error(Dumper $q->Vars);
-	
 	my $title = $self->get_title;
 	say qq(<h1>$title</h1>);
 	my $qry;
