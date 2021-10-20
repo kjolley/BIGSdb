@@ -58,7 +58,7 @@ sub get_attributes {
 		buttontext => 'iTOL',
 		menutext   => 'iTOL',
 		module     => 'ITOL',
-		version    => '1.5.2',
+		version    => '1.5.3',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
@@ -77,7 +77,7 @@ sub get_attributes {
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->get_db_description;
+	my $desc = $self->get_db_description( { formatted => 1 } );
 	return "iTOL - Interactive Tree of Life - $desc";
 }
 

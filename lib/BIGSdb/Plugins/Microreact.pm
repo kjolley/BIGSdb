@@ -62,7 +62,7 @@ sub get_attributes {
 		buttontext => 'Microreact',
 		menutext   => 'Microreact',
 		module     => 'Microreact',
-		version    => '1.0.15',
+		version    => '1.0.16',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
@@ -267,7 +267,7 @@ sub print_extra_form_elements {
 
 sub get_title {
 	my ($self) = @_;
-	my $desc = $self->get_db_description;
+	my $desc = $self->get_db_description( { formatted => 1 } );
 	return "Microreact - $desc";
 }
 
