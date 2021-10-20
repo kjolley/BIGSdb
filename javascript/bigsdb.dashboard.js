@@ -307,43 +307,25 @@ function showOrHideElements() {
 	});
 }
 
+//https://stackoverflow.com/questions/133925/javascript-post-request-like-a-form-submit
+function post(path, params, method = 'post') {
+	const form = document.createElement('form');
+	form.method = method;
+	form.action = path;
 
-//Post to the provided URL with the specified parameters.
-//https://stackoverflow.com/questions/133925/javascript-post-request-like-a-form-submit/5533477#5533477
-function post(path, parameters) {
-	//POST using this method doesn't seem to work on Android Firefox,
-	//so we have to use GET instead. No idea why!
-	let method = detectAndroidFirefox() ? 'GET' : 'POST';
-	let form = $('<form></form>');
-	$.each(parameters, function(key, value) {
-		var field = $('<input></input>');
-		field.attr("type", "hidden");
-		field.attr("name", key);
-		field.attr("value", value);
-		form.append(field);
-	});
-	form.attr("method", method);
-	form.attr("action", path);
-	form.attr("target", $("#open_new").prop('checked') ? '_blank' : null);
+	for (const key in params) {
+		if (params.hasOwnProperty(key)) {
+			const hiddenField = document.createElement('input');
+			hiddenField.type = 'hidden';
+			hiddenField.name = key;
+			hiddenField.value = params[key];
 
-	// The form needs to be a part of the document in
-	// order for us to be able to submit it.
-	$(document.body).append(form);
-	form.submit();
-}
-
-//https://stackoverflow.com/questions/7246091/how-to-detect-firefox-mobile-with-javascript
-function detectAndroidFirefox() {
-	var agent = navigator.userAgent.toLowerCase();
-	if (agent.indexOf('firefox') >= 0) {
-		if (agent.indexOf("android") >= 0) {
-			return true;
-		} else {
-			return false;
+			form.appendChild(hiddenField);
 		}
-	} else {
-		return false;
 	}
+
+	document.body.appendChild(form);
+	form.submit();
 }
 
 function clean_value(value) {
