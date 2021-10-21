@@ -1,4 +1,4 @@
-/*Version: 20210914*/
+/*Version: 20211021*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -1420,7 +1420,7 @@ span.setup_element:hover {
 }
 
 span.dashboard_filter {
-	font-weight:800
+	font-weight: 800
 }
 
 div#filter_display {
@@ -1472,7 +1472,8 @@ span.device {
 }
 
 span.dashboard_edit_element, span.dashboard_remove_element, span.dashboard_wait,
-	span.dashboard_data_query_element, span.dashboard_data_explorer_element {
+	span.dashboard_data_query_element, span.dashboard_data_explorer_element
+	{
 	display: inline-block;
 	position: absolute;
 	color: #aaa;
@@ -1499,18 +1500,19 @@ span.dashboard_data_explorer_element {
 	padding: 5px;
 }
 
-span.dashboard_data_query_element:hover, span.dashboard_data_explorer_element:hover {
+span.dashboard_data_query_element:hover, span.dashboard_data_explorer_element:hover
+	{
 	background: #aaa;
 	color: white;
 }
 
-span.dashboard_data_query_element span.tooltip, span.dashboard_data_explorer_element span.tooltip {
+span.dashboard_data_query_element span.tooltip, span.dashboard_data_explorer_element span.tooltip
+	{
 	font-family: pt_sansregular;
 	background: #fff;
 	color: #ddd;
 	position: absolute;
 	bottom: 0;
-
 	padding: 5px 7px;
 	visibility: hidden;
 	opacity: 0;
@@ -1531,14 +1533,14 @@ span.dashboard_data_explorer_element span.tooltip {
 	right: -100px
 }
 
-span.dashboard_data_query_element span.tooltip:before, span.dashboard_data_explorer_element span.tooltip:before {
+span.dashboard_data_query_element span.tooltip:before, span.dashboard_data_explorer_element span.tooltip:before
+	{
 	content: '';
 	border-left: 5px solid transparent;
 	border-right: 5px solid transparent;
 	border-top: 5px solid #444;
 	position: absolute;
 	bottom: -5px;
-	
 }
 
 span.dashboard_data_query_element span.tooltip:before {
@@ -1547,9 +1549,10 @@ span.dashboard_data_query_element span.tooltip:before {
 
 span.dashboard_data_explorer_element span.tooltip:before {
 	left: 8px;
-} 
+}
 
-span.dashboard_data_query_element:hover span.tooltip, span.dashboard_data_explorer_element:hover span.tooltip {
+span.dashboard_data_query_element:hover span.tooltip, span.dashboard_data_explorer_element:hover span.tooltip
+	{
 	bottom: 35px;
 	visibility: visible;
 	opacity: 1;
@@ -1586,6 +1589,10 @@ div#dashboard .item-content div.doughnut .bb-chart-arc text, div#dashboard .item
 	stroke-width: 1;
 	-webkit-filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.9));
 	filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.9));
+}
+
+div#dashboard .item-content div.treemap rect:hover {
+	cursor: pointer
 }
 
 div#dashboard .item-content div .map svg {
@@ -2296,8 +2303,8 @@ h3.group6 {
 
 span.fa-stack-text {
 	font-family: pt_sansregular, sans-serif;
- 	color: white;
-	font-weight:normal;
+	color: white;
+	font-weight: normal;
 	text-shadow: 0 0 1px #000;
 }
 
