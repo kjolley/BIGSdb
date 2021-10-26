@@ -58,7 +58,17 @@ use constant {
 };
 
 sub print_content {
-	my ($self)       = @_;
+	my ($self) = @_;
+	my $desc = $self->get_db_description( { formatted => 1 } );
+	if ( ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates' ) {
+		say qq(<h1>$desc database</h1>);
+		$self->print_bad_status(
+			{
+				message => q(Dashboards can only be displayed for isolate databases.),
+			}
+		);
+		return;
+	}
 	my $q            = $self->{'cgi'};
 	my %ajax_methods = (
 		updateDashboard     => '_update_dashboard_prefs',
@@ -78,7 +88,6 @@ sub print_content {
 			return;
 		}
 	}
-	my $desc = $self->get_db_description( { formatted => 1 } );
 	my $max_width             = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
 	my $index_panel_max_width = $max_width - 250;
 	my $title_max_width       = $max_width - 15;
@@ -2875,7 +2884,7 @@ sub _get_data_explorer_link {
 	my ( $self, $element ) = @_;
 	my $buffer = q();
 	return $buffer;    #Explorer page not yet developed.
-	$element->{'explorer_text'} //= 'Explore data';	
+	$element->{'explorer_text'} //= 'Explore data';
 	$buffer .= qq(<span data-id="$element->{'id'}" class="dashboard_data_explorer_element fas fa-search">);
 	$buffer .= qq(<span class="tooltip">$element->{'explorer_text'}</span>);
 	$buffer .= q(</span>);
@@ -2884,6 +2893,7 @@ sub _get_data_explorer_link {
 
 sub initiate {
 	my ($self) = @_;
+	return if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
 	$self->{$_} = 1
 	  foreach
 	  qw (jQuery noCache muuri modal fitty bigsdb.dashboard tooltips jQuery.fonticonpicker billboard d3.layout.cloud);
@@ -3250,6 +3260,7 @@ sub _print_field_selector {
 
 sub get_javascript {
 	my ($self) = @_;
+	return if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
 	my $order = $self->{'prefs'}->{'order'} // q();
 	my $enable_drag = $self->{'prefs'}->{'enable_drag'} ? 'true' : 'false';
 	my $json = JSON->new->allow_nonref;

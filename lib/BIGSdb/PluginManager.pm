@@ -217,7 +217,7 @@ sub get_appropriate_plugin_names {
 		  if $dbtype eq 'sequences'
 		  && $options->{'seqdb_type'}
 		  && ( $attr->{'seqdb_type'} // q() ) !~ /$options->{'seqdb_type'}/x;
-		my %possible_index_page = map { $_ => 1 } qw (index options logout login pluginSummary);
+		my %possible_index_page = map { $_ => 1 } qw (index dashboard options logout login pluginSummary);
 		if (  !$q->param('page')
 			|| $possible_index_page{ $q->param('page') }
 			|| $self->_is_matching_category( $category, $attr->{'category'} ) )
