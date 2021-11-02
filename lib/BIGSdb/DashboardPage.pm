@@ -1714,6 +1714,7 @@ sub _get_sub_values {
 sub _get_field_specific_value_number_content {
 	my ( $self, $element ) = @_;
 	my $text_colour = $element->{'main_text_colour'} // SPECIFIC_FIELD_MAIN_TEXT_COLOUR;
+	$element->{'background_colour'} //= COUNT_BACKGROUND_COLOUR;
 	my $buffer = $self->_get_colour_swatch($element);
 	$buffer .= $self->_get_title($element);
 	$buffer .= $self->_get_multiselect_field_subtitle($element);
