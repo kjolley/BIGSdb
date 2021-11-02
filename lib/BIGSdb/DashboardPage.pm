@@ -1639,7 +1639,6 @@ sub _get_extended_field_breakdown_values {
 	local $" = ' AND ';
 	$qry .= "WHERE @$filters" if @$filters;
 	$qry .= ' GROUP BY label ORDER BY value DESC';
-	$logger->error($qry);
 	my $values =
 	  $self->{'datastore'}->run_query( $qry, [ $field, $attribute ], { fetch => 'all_arrayref', slice => {} } );
 	return $values;
