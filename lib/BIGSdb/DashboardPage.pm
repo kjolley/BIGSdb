@@ -2507,11 +2507,11 @@ sub _get_field_breakdown_treemap_content {
 	    	.attr("x", function(d){ return d.x0+5})    // +10 to adjust position (more right)
 	    	.attr("y", function(d){ return d.y0+20})    // +20 to adjust position (lower)
 	    	.text(function(d){
-	    		var cell_width = d.x1 - d.x0;    				
+	    		let cell_width = d.x1 - d.x0;   	    						
 	    		if (
 	    			$total 
 	    			&& d.data.value/$total >= 0.05 
-	    			&& String(d.data.label).length <= $min_dimension * d.data.value/$total * 100){
+	    			&& String(d.data.label).length <= cell_width / 6){
 		    			return d.data.label
 	    		}
 	    		return ""; 
