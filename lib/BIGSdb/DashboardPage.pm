@@ -1633,12 +1633,13 @@ sub _get_extended_field_breakdown_values {
 	my ( $self, $field, $attribute ) = @_;
 	my $qry =
 	    "SELECT COALESCE(e.value,'No value') AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
-	  . "LEFT JOIN isolate_value_extended_attributes e ON v.$field=e.field_value "
-	  . 'AND (e.isolate_field,e.attribute)=(?,?) ';
+	  . "LEFT JOIN isolate_value_extended_attributes e ON (v.$field,e.isolate_field,e.attribute)=(e.field_value,?,?) "
+	  ;
 	my $filters = $self->_get_filters;
 	local $" = ' AND ';
-	$qry .= "AND @$filters" if @$filters;
+	$qry .= "WHERE @$filters" if @$filters;
 	$qry .= ' GROUP BY label ORDER BY value DESC';
+	$logger->error($qry);
 	my $values =
 	  $self->{'datastore'}->run_query( $qry, [ $field, $attribute ], { fetch => 'all_arrayref', slice => {} } );
 	return $values;
