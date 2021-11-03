@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -159,7 +159,7 @@ sub print_content {
 				  . q((numbering includes upstream flanking sequence).</span>);
 			}
 			$buffer .= q(<pre class="sixpack">);
-			$buffer .= $self->get_sixpack_display($seq_features);
+			$buffer .= $self->get_sixpack_display( $seq_features, undef, { locus => $locus } );
 			$buffer .= q(</pre>);
 		}
 	}

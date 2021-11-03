@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20210105
+#Version: 20211103
 use strict;
 use warnings;
 use 5.010;
@@ -107,7 +107,10 @@ sub main {
 	  SEQS: foreach my $seq (@$seqs) {
 			$seq->{'sequence'} =~ s/[\-\.\s]//gx;
 			if ( $locus_info->{'complete_cds'} ) {
-				my $complete_cds = BIGSdb::Utils::is_complete_cds( $seq->{'sequence'} );
+				my $start_codons = $script->{'datastore'}->get_start_codons( $allele_submission->{'locus'} );
+				my $complete_cds =
+				  BIGSdb::Utils::is_complete_cds( $seq->{'sequence'}, { start_codons => $start_codons } )
+				  ;
 				if ( !$complete_cds->{'cds'} ) {
 					say "$seq->{'seq_id'}: Rejected - not complete CDS.";
 					next SEQS;

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2020, University of Oxford
+#Copyright (c) 2014-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -162,7 +162,7 @@ sub _handle_match {
 	my ( $self, $locus_info, $match, $seqs ) = @_;
 	return if $self->_off_end_of_contig($match);
 	my $seq = $self->extract_seq_from_match($match);
-	my ( $reject, $flag ) = $self->_check_cds($seq);
+	my ( $reject, $flag ) = $self->_check_cds( $seq, $locus_info->{'id'} );
 	return if $reject;
 	my $locus = $locus_info->{'id'};
 	if ( $locus_info->{'data_type'} eq 'peptide' ) {
@@ -185,10 +185,11 @@ sub _handle_match {
 }
 
 sub _check_cds {
-	my ( $self, $seq ) = @_;
+	my ( $self, $seq, $locus ) = @_;
 	my $reject       = 0;
 	my $flag         = q();
-	my $complete_cds = BIGSdb::Utils::is_complete_cds($seq);
+	my $start_codons = $self->{'datastore'}->get_start_codons($locus);
+	my $complete_cds = BIGSdb::Utils::is_complete_cds( $seq, { start_codons => $start_codons } );
 	if ( $self->{'options'}->{'c'} && !$complete_cds->{'cds'} ) {
 		if ( $self->{'options'}->{'allow_frameshift'} ) {
 			$complete_cds->{'err'} //= q();

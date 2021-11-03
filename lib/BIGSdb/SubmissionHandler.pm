@@ -472,7 +472,9 @@ sub check_new_alleles_fasta {
 		}
 		next if $options->{'skip_info_checks'};
 		if ( $locus_info->{'complete_cds'} && $locus_info->{'data_type'} eq 'DNA' ) {
-			my $check = BIGSdb::Utils::is_complete_cds( \$sequence );
+			my $start_codons = $self->{'datastore'}->get_start_codons($locus);
+			my $check =
+			  BIGSdb::Utils::is_complete_cds( \$sequence, { start_codons => $start_codons } );
 			if ( !$check->{'cds'} ) {
 				push @info, qq(Sequence "$seq_id" is $check->{'err'});
 			}

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -36,6 +36,7 @@ sub print_content {
 	my $translate    = $q->param('translate');
 	my $orf          = $q->param('orf');
 	my $no_highlight = $q->param('no_highlight');
+	my $locus        = $q->param('locus');
 	my ( $introns, $intron_length ) = $self->get_introns;
 	$self->update_prefs if $q->param('reload');
 
@@ -117,7 +118,7 @@ sub print_content {
 			  . q((numbering includes upstream flanking sequence).</span>);
 		}
 		say q(<div class="scrollable"><pre class="sixpack">);
-		say $self->get_sixpack_display($seq_features);
+		say $self->get_sixpack_display( $seq_features, undef, { locus => $locus } );
 		say q(</pre></div>);
 	}
 	say q(</div>);
@@ -288,7 +289,7 @@ sub update_prefs {
 }
 
 sub get_sixpack_display {
-	my ( $self, $seq_features, $orf ) = @_;
+	my ( $self, $seq_features, $orf, $options ) = @_;
 	$orf //= 1;
 	my $buffer = q();
 	return $buffer if !$self->{'config'}->{'emboss_path'} || !-e "$self->{'config'}->{'emboss_path'}/sixpack";
@@ -304,7 +305,8 @@ sub get_sixpack_display {
 	my @highlights;
 	my $mapped         = $self->_get_mapped_positions($seq_features);
 	my $pos            = 0;
-	my %start_codon    = map { $_ => 1 } qw(ATG GTG TTG);
+	my $start_codons   = $self->{'datastore'}->get_start_codons( $options->{'locus'} );
+	my %start_codon    = map { $_ => 1 } @$start_codons;
 	my %stop_codon     = map { $_ => 1 } qw(TAA TAG TGA);
 	my $exon_count     = $self->_get_exon_count($seq_features);
 	my $exon_number    = 0;

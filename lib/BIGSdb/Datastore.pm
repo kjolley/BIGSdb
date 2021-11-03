@@ -2698,4 +2698,54 @@ sub get_seqbin_stats {
 	}
 	return $results;
 }
+
+sub get_start_codons {
+	my ( $self, $locus ) = @_;
+	my %stop_codons = map { $_ => 1 } qw(TAG TAA TGA);
+	my %possible;
+	foreach my $p1 (qw (A T G C)) {
+		foreach my $p2 (qw (A T G C)) {
+			foreach my $p3 (qw (A T G C)) {
+				my $codon = "$p1$p2$p3";
+				next if $stop_codons{$codon};
+				$possible{$codon} = 1;
+			}
+		}
+	}
+	my $start_codons = [];
+	if ( $self->{'system'}->{'start_codons'} ) {
+		my @codons = split /;/x, $self->{'system'}->{'start_codons'};
+		foreach my $codon (@codons) {
+			$codon =~ s/^\s+|\s+$//gx;
+			if ( $possible{ uc $codon } ) {
+				push @$start_codons, uc $codon;
+			} else {
+				$logger->error("Invalid start codon specified in config.xml - $codon");
+			}
+		}
+	} else {
+		$start_codons = [qw(ATG GTG TTG)];
+	}
+	my %start_codons = map { $_ => 1 } @$start_codons;
+	if ($locus) {
+		my $locus_info = $self->get_locus_info($locus);
+		if ( $locus_info->{'start_codons'} ) {
+			my @additional = split /;/x, $locus_info->{'start_codons'};
+			foreach my $codon (@additional) {
+				$codon =~ s/^\s+|\s+$//gx;
+				if ( !$start_codons{ uc $codon } ) {
+					if ( $possible{ uc $codon } ) {
+						push @$start_codons, uc $codon;
+					} else {
+						$logger->error("Invalid start codon specified in locus table for locus $locus - $codon");
+					}
+				}
+			}
+		}
+	}
+	if ( !@$start_codons ) {
+		$logger->error('No valid start codons set!');
+	}
+	return $start_codons;
+}
 1;

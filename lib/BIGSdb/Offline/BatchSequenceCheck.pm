@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2019-2020, University of Oxford
+#Copyright (c) 2019-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -434,7 +434,8 @@ sub _check_sequence_length {
 			}
 		}
 		if ( $self->{'options'}->{'complete_CDS'} ) {
-			my $cds_check = BIGSdb::Utils::is_complete_cds( $args->{'value'} );
+			my $start_codons = $self->{'datastore'}->get_start_codons($locus);
+			my $cds_check = BIGSdb::Utils::is_complete_cds( $args->{'value'}, { start_codons => $start_codons } );
 			${ $args->{'continue'} } = 0 if !$cds_check->{'cds'};
 		}
 	}

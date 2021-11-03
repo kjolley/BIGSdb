@@ -70,11 +70,12 @@ sub is_valid_peptide {
 }
 
 sub is_complete_cds {
-	my ($seq) = @_;
+	my ($seq, $options) = @_;
 	my $check_seq = ref $seq eq 'SCALAR' ? uc($$seq) : uc($seq);
 	$check_seq =~ s/[\-\.\s]//gx;
 	my $first_codon = substr( $check_seq, 0, 3 );
-	if ( none { $first_codon eq $_ } qw (ATG GTG TTG) ) {
+	my $start_codons = $options->{'start_codons'} // [qw (ATG GTG TTG)];
+	if ( none { $first_codon eq $_ } @$start_codons ) {
 		return { cds => 0, err => 'not a complete CDS - no start codon.' };
 	}
 	my $end_codon = substr( $check_seq, -3 );

@@ -340,6 +340,17 @@ sub get_loci_table_attributes {
 			  . 'and stop codon and no internal stop codons.'
 		},
 		{
+			name        => 'start_codons',
+			type        => 'text',
+			hide_public => 1,
+			regex => '^[GgAaTtCc]{3}(\s*;\s*[GgAaTtCc]{3})*$',
+			comments => 'Additional non-standard start codons',
+			tooltip     => 'start codons - Semi-colon separated list of additional start codons valid for '
+			. 'this locus. Default codons may also be set for all loci in the database config file. If not '
+			. 'set in the config file, then ATG, GTG, and TTG will be set as standard start codons in addition '
+			. 'to any entered here.'
+		},
+		{
 			name        => 'orf',
 			type        => 'int',
 			optlist     => '1;2;3;4;5;6',

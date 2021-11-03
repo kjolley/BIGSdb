@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2019-2020, University of Oxford
+#Copyright (c) 2019-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -122,7 +122,9 @@ sub _check_sequence {
 
 	#Check if allele is complete coding sequence
 	if ( $self->{'locus_info'}->{'data_type'} eq 'DNA' && $q->param('complete_CDS') ) {
-		my $cds_check = BIGSdb::Utils::is_complete_cds( $data->{'seq'} );
+		my $start_codons = $self->{'datastore'}->get_start_codons($locus);
+		my $cds_check =
+		  BIGSdb::Utils::is_complete_cds( $data->{'seq'}, { start_codons => $start_codons } );
 		if ( !$cds_check->{'cds'} ) {
 			return ( FAILURE, $allele_id, ucfirst( $cds_check->{'err'} ) );
 		}

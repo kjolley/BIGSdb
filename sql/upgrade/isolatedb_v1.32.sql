@@ -10,3 +10,5 @@ BEGIN
 	RETURN NULL; 
 END;
 $BODY$ LANGUAGE plpgsql;
+
+ALTER TABLE loci ADD start_codons text;

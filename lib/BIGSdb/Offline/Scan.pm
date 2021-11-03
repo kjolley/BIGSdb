@@ -431,8 +431,8 @@ sub _create_fasta_index {
 sub _create_query_fasta_file {
 	my ( $self, $isolate_id, $temp_infile, $params ) = @_;
 	return if -e $temp_infile;
-	my $seqbin          = $self->{'seqbin_table'} // 'sequence_bin';
-	my $qry             = "SELECT s.id,sequence FROM $seqbin s WHERE s.isolate_id=? AND NOT remote_contig";
+	my $seqbin     = $self->{'seqbin_table'} // 'sequence_bin';
+	my $qry        = "SELECT s.id,sequence FROM $seqbin s WHERE s.isolate_id=? AND NOT remote_contig";
 	my $remote_qry = "SELECT s.id,r.uri,r.length,r.checksum FROM $seqbin s ";
 	$remote_qry .= 'LEFT JOIN remote_contigs r ON s.id=r.seqbin_id WHERE s.isolate_id=? AND remote_contig';
 	my @criteria = ($isolate_id);
@@ -1075,7 +1075,7 @@ sub _get_row {
 	    qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=extractedSequence&amp;)
 	  . qq(seqbin_id=$match->{'seqbin_id'}&amp;start=$hunter->{'predicted_start'}&amp;)
 	  . qq(end=$hunter->{'predicted_end'}&amp;reverse=$match->{'reverse'}&amp;translate=$translate&amp;)
-	  . qq(orf=$orf$intron_arg);
+	  . qq(locus=$locus&amp;orf=$orf$intron_arg);
 	$buffer .=
 	    qq($match->{'predicted_end'} <a target="_blank" class="extract_tooltip" )
 	  . qq(href="$url" style="white-space:nowrap">)
@@ -1245,7 +1245,7 @@ sub _hunt_for_start_and_stop_codons {
 				$off_end = 1 if $seq =~ /^N/x || $seq =~ /N$/x;    #Incomplete if Ns are end (scaffolding)
 				$first_codon_is_start = 1 if $start_codons{ substr( $seq, 0, 3 ) };
 				$last_codon_is_stop = 1 if $stop_codons{ substr( $seq, -3 ) };
-				($complete_gene) = $self->is_complete_gene($seq);
+				($complete_gene) = $self->is_complete_gene( $seq, { locus => $locus } );
 				if ($complete_gene) {
 					$complete_tooltip = q(<a class="cds" title="CDS - this is a complete coding sequence )
 					  . q(including start and terminating stop codons with no internal stop codons.">CDS</a>);
@@ -1770,8 +1770,9 @@ sub _get_designation_tooltip {
 }
 
 sub is_complete_gene {
-	my ( $self, $seq ) = @_;
-	my $status = BIGSdb::Utils::is_complete_cds($seq);
+	my ( $self, $seq, $options ) = @_;
+	my $start_codons = $self->{'datastore'}->get_start_codons( $options->{'locus'} );
+	my $status = BIGSdb::Utils::is_complete_cds( $seq, { start_codons => $start_codons } );
 	return $status->{'cds'};
 }
 
