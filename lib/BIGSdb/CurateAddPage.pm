@@ -508,15 +508,17 @@ sub _check_sequence_length {
 	}
 	my $q = $self->{'cgi'};
 	return if $q->param('ignore_length');
+	my $explain = q(If the sequence correctly aligns with the locus start and end points then you can still add it )
+	 . q(by going back and checking the 'Override sequence length check' checkbox before re-submitting.);
 	if ( !$locus_info->{'length_varies'} && defined $locus_info->{'length'} && $locus_info->{'length'} != $length ) {
 		push @$problems, "Sequence is $length $units long but this locus is set as a standard "
-		  . "length of $locus_info->{'length'} $units.";
+		  . "length of $locus_info->{'length'} $units. $explain";
 	} elsif ( $locus_info->{'min_length'} && $length < $locus_info->{'min_length'} ) {
 		push @$problems, "Sequence is $length $units long but this locus is set with a minimum "
-		  . "length of $locus_info->{'min_length'} $units.";
+		  . "length of $locus_info->{'min_length'} $units. $explain";
 	} elsif ( $locus_info->{'max_length'} && $length > $locus_info->{'max_length'} ) {
 		push @$problems, "Sequence is $length $units long but this locus is set with a maximum "
-		  . "length of $locus_info->{'max_length'} $units.";
+		  . "length of $locus_info->{'max_length'} $units. $explain";
 	}
 	return;
 }
