@@ -18,5 +18,4 @@ databases (which can also be set up with BIGSdb). Loci can also be grouped into
 schemes so that types can be defined by combinations of allelic profiles, a
 concept analagous to MLST.
 
-The latest version of the BIGSdb documentation can be found at 
-https://bigsdb.readthedocs.io.
+* [Latest version of documentation](https://bigsdb.readthedocs.io).
