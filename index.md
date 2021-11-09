@@ -1,37 +1,22 @@
-## Welcome to GitHub Pages
+Bacterial Isolate Genome Sequence Database (BIGSdb)
+===================================================
+**Gene-by-gene population annotation and analysis**
 
-You can use the [editor on GitHub](https://github.com/kjolley/BIGSdb/edit/gh-pages/index.md) to maintain and preview the content for your website in Markdown files.
+Written by Keith Jolley, © 2010-2021 University of Oxford
 
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
+<a href="http://www.biomedcentral.com/1471-2105/11/595">Jolley & Maiden 2010, BMC Bioinformatics 11:595</a>
 
-### Markdown
+BIGSdb is software designed to store and analyse sequence data for bacterial
+isolates. Any number of sequences can be linked to isolate records - these
+can be small contigs assembled from dideoxy sequencing through to whole genomes
+(complete or multiple contigs generated from parallel sequencing technologies
+such as Illumina).
 
-Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
+BIGSdb extends the principle of MLST to genomic data, where large numbers of 
+loci can be defined, with alleles assigned by reference to sequence definition 
+databases (which can also be set up with BIGSdb). Loci can also be grouped into
+schemes so that types can be defined by combinations of allelic profiles, a
+concept analagous to MLST.
 
-```markdown
-Syntax highlighted code block
-
-# Header 1
-## Header 2
-### Header 3
-
-- Bulleted
-- List
-
-1. Numbered
-2. List
-
-**Bold** and _Italic_ and `Code` text
-
-[Link](url) and ![Image](src)
-```
-
-For more details see [Basic writing and formatting syntax](https://docs.github.com/en/github/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax).
-
-### Jekyll Themes
-
-Your Pages site will use the layout and styles from the Jekyll theme you have selected in your [repository settings](https://github.com/kjolley/BIGSdb/settings/pages). The name of this theme is saved in the Jekyll `_config.yml` configuration file.
-
-### Support or Contact
-
-Having trouble with Pages? Check out our [documentation](https://docs.github.com/categories/github-pages-basics/) or [contact support](https://support.github.com/contact) and we’ll help you sort it out.
+The latest version of the BIGSdb documentation can be found at 
+http://bigsdb.readthedocs.io.
