@@ -27,7 +27,7 @@ Version 1.18: Change of seqdef and isolate database structures.
 Version 1.19: Change of seqdef and isolate database structures.
 Version 1.20: Change of seqdef and isolate database structures.
 Version 1.21: Change of seqdef and isolate database structures.
-Version 1.22: Change of isolate and rest_db database structure.
+Version 1.22: Change of isolate and rest_db database structures.
 Version 1.23: Change of isolate database structure.
 Version 1.24: Change of isolate database structure.
 Version 1.25: Change of isolate database structure.
@@ -37,6 +37,7 @@ Version 1.28: Change of REST database structure.
 Version 1.29: Change of user and isolate database structures.
 Version 1.30: Change of isolate database structure.
 Version 1.31: Change of isolate database structure.
+Version 1.32: Change of seqdef, isolate and preference database structures.
 
 Details can be found below.
 
@@ -501,3 +502,15 @@ There are changes to the isolate database structure. These are to support
 storing arbitrary analyses, assembly metrics, and quality checks.
 
 Please run the isolatedb_v1.31.sql script against isolate databases.
+
+Version 1.32
+------------
+There are changes to the isolate, sequence definition, and preference database
+structures. These are to support front-end dashboards and the use of 
+alternative start codons for loci.
+
+Please run the isolatedb_v1.32.sql script against isolate databases, the
+seqdefdb_v1.32.sql script against sequence definition databases, and the
+prefs_v1.32.sql script against the prefs database (bigsdb_prefs by default).
+
+Note that there is a new Perl module dependency: TOML.

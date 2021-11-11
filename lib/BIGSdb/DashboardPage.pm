@@ -2505,13 +2505,16 @@ sub _get_field_breakdown_treemap_content {
 	    .data(root.leaves())
 	    .enter()
 	    .append("text")
-	    	.attr("x", function(d){ return d.x0+5})    // +10 to adjust position (more right)
-	    	.attr("y", function(d){ return d.y0+20})    // +20 to adjust position (lower)
+	    	.attr("x", function(d){ return d.x0+3})    // adjust position (further right)
+	    	.attr("y", function(d){ 
+	    		let cell_height = d.y1 - d.y0;
+	    		return cell_height > 30 ? d.y0+20 : d.y0+ cell_height/2 + 5;// adjust position (lower)
+	    	})    
 	    	.text(function(d){
 	    		let cell_width = d.x1 - d.x0;   	    						
 	    		if (
 	    			$total 
-	    			&& d.data.value/$total >= 0.05 
+	    			&& d.data.value/$total >= 0.02 
 	    			&& String(d.data.label).length <= cell_width / 6){
 		    			return d.data.label
 	    		}
