@@ -4,7 +4,7 @@ Bacterial Isolate Genome Sequence Database (BIGSdb)
 
 Written by Keith Jolley, © 2010-2021 University of Oxford
 
-<a href="http://www.biomedcentral.com/1471-2105/11/595">Jolley & Maiden 2010, BMC Bioinformatics 11:595</a>
+<a href="https://www.biomedcentral.com/1471-2105/11/595">Jolley & Maiden 2010, BMC Bioinformatics 11:595</a>
 
 BIGSdb is software designed to store and analyse sequence data for bacterial
 isolates. Any number of sequences can be linked to isolate records - these
@@ -18,4 +18,5 @@ databases (which can also be set up with BIGSdb). Loci can also be grouped into
 schemes so that types can be defined by combinations of allelic profiles, a
 concept analagous to MLST.
 
-* [Latest version of documentation](https://bigsdb.readthedocs.io).
+* [Full documentation](https://bigsdb.readthedocs.io)
+* [Source code](https://github.com/kjolley/bigsdb/)
