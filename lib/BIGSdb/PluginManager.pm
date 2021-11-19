@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -305,7 +305,8 @@ sub _has_required_item {
 		itol_api_key           => 'itol_api_key',
 		itol_project_name      => 'itol_project_name',
 		phyloviz_user          => 'phyloviz_user',
-		phyloviz_passwd        => 'phyloviz_passwd'
+		phyloviz_passwd        => 'phyloviz_passwd',
+		microreact_token       => 'microreact_token'
 	);
 	return 1 if !$required_attr;
 	foreach my $config_param ( keys %requires ) {

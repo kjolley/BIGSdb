@@ -16,7 +16,7 @@
 #GNU General Public License for more details.
 #
 #You should have received a copy of the GNU General Public License
-#along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
+#along with BIGSdb.  If not, see <https://www.gnu.org/licenses/>.
 #
 #NOTE: This plugin requires that the isolate table has a country field with
 #a defined list of allowed values, and an integer year field. Values used in
@@ -29,15 +29,17 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugins::ITOL);
 use BIGSdb::Utils;
+use BIGSdb::Constants qw(COUNTRIES);
 use LWP::UserAgent;
 use Email::Valid;
 use JSON;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use utf8;
-use constant MAX_RECORDS    => 2000;
-use constant MAX_SEQS       => 100_000;
-use constant MICROREACT_URL => 'https://microreact.org/api/project/';
+use constant MAX_RECORDS                 => 2000;
+use constant MAX_SEQS                    => 100_000;
+use constant MICROREACT_SCHEMA_CONVERTER => 'https://demo.microreact.org/api/schema/convert';
+use constant MICROREACT_URL              => 'https://demo.microreact.org/api/projects/create';
 
 sub get_attributes {
 	my ($self) = @_;
@@ -62,12 +64,12 @@ sub get_attributes {
 		buttontext => 'Microreact',
 		menutext   => 'Microreact',
 		module     => 'Microreact',
-		version    => '1.0.16',
+		version    => '1.1.0',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
 		help       => 'tooltips',
-		requires   => 'aligner,offline_jobs,js_tree,clustalw,field_country_optlist,field_year_int',
+		requires   => 'aligner,offline_jobs,js_tree,clustalw,microreact_token',
 		order      => 40,
 		min        => 2,
 		max        => $self->{'system'}->{'microreact_record_limit'} // $self->{'config'}->{'microreact_record_limit'}
@@ -91,6 +93,18 @@ sub run_job {
 	return;
 }
 
+sub _get_country_field {
+	my ($self) = @_;
+	my $country_field = $self->{'system'}->{'microreact_country_field'} // 'country';
+	return $self->{'xmlHandler'}->is_field($country_field) ? $country_field : undef;
+}
+
+sub _get_year_field {
+	my ($self) = @_;
+	my $year_field = $self->{'system'}->{'microreact_year_field'} // 'year';
+	return $self->{'xmlHandler'}->is_field($year_field) ? $year_field : undef;
+}
+
 sub _microreact_upload {
 	my ( $self, $job_id, $params, $newick_file, $message_html ) = @_;
 	my $job = $self->{'jobManager'}->get_job($job_id);
@@ -106,32 +120,57 @@ sub _microreact_upload {
 	my $tree        = BIGSdb::Utils::slurp($newick_file);
 	my $upload_data = {
 		name => $params->{'title'} || $job_id,
-		description      => $params->{'description'},
-		website          => $params->{'website'},
-		map_countryField => 'Country__autocolour',
-		data             => $$tsv,
-		tree             => $$tree
+		description => $params->{'description'},
+		website     => $params->{'website'},
+		data        => $$tsv,
+		tree        => $$tree
 	};
 	my $email = Email::Valid->address( $job->{'email'} );
 	$upload_data->{'email'} = $email if $email;
-	my $upload_response = $uploader->post(
-		MICROREACT_URL,
+	my $converter_response = $uploader->post(
+		MICROREACT_SCHEMA_CONVERTER,
 		Content_Type => 'application/json; charset=UTF-8',
 		Content      => encode_json($upload_data)
 	);
 
-	if ( !$upload_response->is_success ) {
-		$logger->error( $upload_response->status_line );
-		$$message_html .= q(<p class="statusbad">Microreact upload failed.</p>);
+	if ( !$converter_response->is_success ) {
+		$logger->error( $converter_response->status_line );
+		$$message_html .= q(<p class="statusbad">Microreact scheme conversion failed.</p>);
 		return;
 	}
-	my $json    = $upload_response->decoded_content;
-	my $ret_val = decode_json($json);
+	my $microreact_json = $converter_response->decoded_content;
+	my $microreact_data = decode_json($microreact_json);
+	my $country_field   = $self->_get_country_field;
+	if ( defined $country_field ) {
+		$country_field =~ s/_/ /gx;
+		$microreact_data->{'maps'}->{'map-1'} = {
+			dataType     => 'iso-3166-codes',
+			iso3166Field => 'iso3166',
+			title        => 'Map'
+		};
+	}
+	my $year_field = $self->_get_year_field;
+	if ( defined $year_field ) {
+		$year_field =~ s/_/ /gx;
+		$microreact_data->{'timelines'}->{'timeline-1'} = {
+			dataType  => 'year-month-day',
+			yearField => $year_field,
+			title     => 'Timeline'
+		};
+	}
+	my $upload_response = $uploader->post(
+		MICROREACT_URL,
+		Content_Type   => 'application/json; charset=UTF-8',
+		'Access-Token' => $self->{'config'}->{'microreact_token'},
+		Content        => encode_json($microreact_data)
+	);
+	my $response_json = $upload_response->decoded_content;
+	my $ret_val       = decode_json($response_json);
 	if ( $ret_val->{'url'} ) {
 		$$message_html .= q(<p style="margin-top:2em;margin-bottom:2em">)
 		  . qq(<a href="$ret_val->{'url'} " target="_blank" class="launchbutton">Launch Microreact</a></p>);
 	} else {
-		$logger->error($json);
+		$logger->error($response_json);
 		$$message_html .= q(<p class="statusbad">Microreact did not return a valid project URL.</p>);
 	}
 	return;
@@ -149,7 +188,11 @@ sub _create_tsv_file {
 	open( my $fh, '>:encoding(utf8)', $tsv_file ) || $logger->error("Cannot open $tsv_file for writing.");
 	my @include_fields = split /\|_\|/x, ( $params->{'include_fields'} // q() );
 	my %include_fields = map { $_ => 1 } @include_fields;
-	$include_fields{"f_$_"} = 1 foreach qw(id country year);
+	$include_fields{"f_$_"} = 1 foreach qw(id);
+	my $country_field = $self->_get_country_field;
+	$include_fields{"f_$country_field"} = 1 if defined $country_field;
+	my $year_field = $self->_get_year_field;
+	$include_fields{"f_$year_field"} = 1 if defined $year_field;
 	$include_fields{"f_$self->{'system'}->{'labelfield'}"} = 1;
 	my $extended    = $self->get_extended_attributes;
 	my $prov_fields = $self->{'xmlHandler'}->get_field_list;
@@ -157,7 +200,6 @@ sub _create_tsv_file {
 
 	foreach my $field (@$prov_fields) {
 		( my $cleaned_field = $field ) =~ tr/_/ /;
-		$cleaned_field = 'Country__autocolour' if $cleaned_field eq 'country';
 		push @header_fields, $cleaned_field if $include_fields{"f_$field"};
 		my $extatt = $extended->{$field};
 		if ( ref $extatt eq 'ARRAY' ) {
@@ -176,22 +218,18 @@ sub _create_tsv_file {
 			push @header_fields, $field;
 		}
 	}
+	push @header_fields, 'iso3166' if defined $country_field;
 	local $" = qq(\t);
 	say $fh "@header_fields";
-	my $allowed = $self->_get_allowed_countries;
-	my $mapped  = $self->_get_mapped_countries;
+	my $iso_lookup = COUNTRIES;
 	foreach my $record (@$data) {
 		$record->{ $self->{'system'}->{'labelfield'} } =~ s/[\(\)]//gx;
 		$record->{ $self->{'system'}->{'labelfield'} } =~ tr/[:,. ]/_/;
 		$record->{'country'} //= q();
-		my $country = $record->{'country'};
-		if ( !$allowed->{ $record->{'country'} } ) {
-			if ( defined $mapped->{ $record->{'country'} } ) {
-				$record->{'country'} = $mapped->{ $record->{'country'} };
-			} else {
-				$logger->error("$record->{'country'} is not an allowed country")
-				  if $record->{'country'} ne q();
-			}
+		my $iso2 = 'XX';
+		if ( defined $country_field ) {
+			my $country = $record->{$country_field};
+			$iso2 = $iso_lookup->{$country}->{'iso2'} // 'XX';
 		}
 		my @record_values;
 		foreach my $field (@$prov_fields) {
@@ -201,7 +239,6 @@ sub _create_tsv_file {
 			if ( ref $extatt eq 'ARRAY' ) {
 				foreach my $extended_attribute (@$extatt) {
 					next if !$include_fields{"e_$field||$extended_attribute"};
-					$field_value = $field eq 'country' ? $country : $record->{$field};    #use unmapped country value
 					my $value = $self->{'datastore'}->run_query(
 						'SELECT value FROM isolate_value_extended_attributes WHERE '
 						  . '(isolate_field,attribute,field_value)=(?,?,?)',
@@ -222,6 +259,7 @@ sub _create_tsv_file {
 				push @record_values, qq(@display_values) // q();
 			}
 		}
+		push @record_values, $iso2 if defined $country_field;
 		say $fh "@record_values";
 	}
 	close $fh;
@@ -288,154 +326,5 @@ sub print_info_panel {
 	  . q(<i>Microb Genom</i> <b>2:</b>e000093</a>.</p>);
 	say q(</div><div style="clear:both"></div></div>);
 	return;
-}
-
-#list from https://developers.google.com/public-data/docs/canonical/countries_csv
-sub _get_allowed_countries {
-	my ($self) = @_;
-	my $list = [
-		q(Afghanistan),                                  q(Albania),
-		q(Andorra),                                      q(Anguilla),
-		q(Antigua and Barbuda),                          q(Armenia),
-		q(Netherlands Antilles),                         q(Algeria),
-		q(American Samoa),                               q(Angola),
-		q(Antarctica),                                   q(Argentina),
-		q(Aruba),                                        q(Australia),
-		q(Austria),                                      q(Azerbaijan),
-		q(Bahamas),                                      q(Bahrain),
-		q(Bangladesh),                                   q(Barbados),
-		q(Belarus),                                      q(Belgium),
-		q(Belize),                                       q(Benin),
-		q(Bermuda),                                      q(Bhutan),
-		q(Bolivia),                                      q(Bosnia and Herzegovina),
-		q(Botswana),                                     q(Bouvet Island),
-		q(Brazil),                                       q(British Indian Ocean Territory),
-		q(British Virgin Islands),                       q(Brunei),
-		q(Bulgaria),                                     q(Burkina Faso),
-		q(Burundi),                                      q(Cambodia),
-		q(Cameroon),                                     q(Canada),
-		q(Cape Verde),                                   q(Cayman Islands),
-		q(Central African Republic),                     q(Chad),
-		q(Chile),                                        q(China),
-		q(Christmas Island),                             q(Cocos [Keeling] Islands),
-		q(Colombia),                                     q(Comoros),
-		q(Congo [DRC]),                                  q(Congo [Republic]),
-		q(Cook Islands),                                 q(Costa Rica),
-		q(Côte d'Ivoire),                               q(Croatia),
-		q(Cuba),                                         q(Cyprus),
-		q(Czech Republic),                               q(Denmark),
-		q(Djibouti),                                     q(Dominica),
-		q(Dominican Republic),                           q(Ecuador),
-		q(Egypt),                                        q(El Salvador),
-		q(Equatorial Guinea),                            q(Eritrea),
-		q(Estonia),                                      q(Ethiopia),
-		q(Falkland Islands [Islas Malvinas]),            q(Faroe Islands),
-		q(Fiji),                                         q(Finland),
-		q(France),                                       q(French Guiana),
-		q(French Polynesia),                             q(French Southern Territories),
-		q(Gabon),                                        q(Gambia),
-		q(Gaza Strip),                                   q(Georgia),
-		q(Germany),                                      q(Ghana),
-		q(Gibraltar),                                    q(Greece),
-		q(Greenland),                                    q(Grenada),
-		q(Guadeloupe),                                   q(Guam),
-		q(Guatemala),                                    q(Guernsey),
-		q(Guinea),                                       q(Guinea-Bissau),
-		q(Guyana),                                       q(Haiti),
-		q(Heard Island and McDonald Islands),            q(Honduras),
-		q(Hong Kong),                                    q(Hungary),
-		q(Iceland),                                      q(India),
-		q(Indonesia),                                    q(Iran),
-		q(Iraq),                                         q(Ireland),
-		q(Isle of Man),                                  q(Israel),
-		q(Italy),                                        q(Jamaica),
-		q(Japan),                                        q(Jersey),
-		q(Jordan),                                       q(Kazakhstan),
-		q(Kenya),                                        q(Kiribati),
-		q(Kosovo),                                       q(Kuwait),
-		q(Kyrgyzstan),                                   q(Laos),
-		q(Latvia),                                       q(Lebanon),
-		q(Lesotho),                                      q(Liberia),
-		q(Libya),                                        q(Liechtenstein),
-		q(Lithuania),                                    q(Luxembourg),
-		q(Macau),                                        q(Macedonia [FYROM]),
-		q(Madagascar),                                   q(Malawi),
-		q(Malaysia),                                     q(Maldives),
-		q(Mali),                                         q(Malta),
-		q(Marshall Islands),                             q(Martinique),
-		q(Mauritania),                                   q(Mauritius),
-		q(Mayotte),                                      q(Mexico),
-		q(Micronesia),                                   q(Moldova),
-		q(Monaco),                                       q(Mongolia),
-		q(Montenegro),                                   q(Montserrat),
-		q(Morocco),                                      q(Mozambique),
-		q(Myanmar [Burma]),                              q(Namibia),
-		q(Nauru),                                        q(Nepal),
-		q(Netherlands),                                  q(New Caledonia),
-		q(New Zealand),                                  q(Nicaragua),
-		q(Niger),                                        q(Nigeria),
-		q(Niue),                                         q(Norfolk Island),
-		q(North Korea),                                  q(Northern Mariana Islands),
-		q(Norway),                                       q(Oman),
-		q(Pakistan),                                     q(Palau),
-		q(Palestinian Territories),                      q(Panama),
-		q(Papua New Guinea),                             q(Paraguay),
-		q(Peru),                                         q(Philippines),
-		q(Pitcairn Islands),                             q(Poland),
-		q(Portugal),                                     q(Puerto Rico),
-		q(Qatar),                                        q(Réunion),
-		q(Romania),                                      q(Russia),
-		q(Rwanda),                                       q(Saint Helena),
-		q(Saint Kitts and Nevis),                        q(Saint Lucia),
-		q(Saint Pierre and Miquelon),                    q(Saint Vincent and the Grenadines),
-		q(Samoa),                                        q(San Marino),
-		q(São Tomé and Príncipe),                     q(Saudi Arabia),
-		q(Senegal),                                      q(Serbia),
-		q(Seychelles),                                   q(Sierra Leone),
-		q(Singapore),                                    q(Slovakia),
-		q(Slovenia),                                     q(Solomon Islands),
-		q(Somalia),                                      q(South Africa),
-		q(South Georgia and the South Sandwich Islands), q(South Korea),
-		q(Spain),                                        q(Sri Lanka),
-		q(Sudan),                                        q(Suriname),
-		q(Svalbard and Jan Mayen),                       q(Swaziland),
-		q(Sweden),                                       q(Switzerland),
-		q(Syria),                                        q(Taiwan),
-		q(Tajikistan),                                   q(Tanzania),
-		q(Thailand),                                     q(Timor-Leste),
-		q(Togo),                                         q(Tokelau),
-		q(Tonga),                                        q(Trinidad and Tobago),
-		q(Tunisia),                                      q(Turkey),
-		q(Turkmenistan),                                 q(Turks and Caicos Islands),
-		q(Tuvalu),                                       q(U.S. Minor Outlying Islands),
-		q(U.S. Virgin Islands),                          q(Uganda),
-		q(Ukraine),                                      q(United Kingdom),
-		q(United States),                                q(Uruguay),
-		q(Uzbekistan),                                   q(Vanuatu),
-		q(Vatican City),                                 q(Venezuela),
-		q(Vietnam),                                      q(Wallis and Futuna),
-		q(Western Sahara),                               q(Yemen),
-		q(Zambia),                                       q(Zimbabwe),
-		q(United Arab Emirates)
-	];
-	my %allowed = map { $_ => 1 } @$list;
-	return \%allowed;
-}
-
-sub _get_mapped_countries {
-	my ($self) = @_;
-	my $mapped = {
-		'Ivory Coast'           => q(Côte d'Ivoire),
-		'The Gambia'            => 'Gambia',
-		'The Netherlands'       => 'Netherlands',
-		'UK'                    => 'United Kingdom',
-		'UK [England]'          => 'United Kingdom',
-		'UK [Northern Ireland]' => 'United Kingdom',
-		'UK [Scotland]'         => 'United Kingdom',
-		'UK [Wales]'            => 'United Kingdom',
-		'USA'                   => 'United States',
-		'Unknown'               => ''
-	};
-	return $mapped;
 }
 1;
