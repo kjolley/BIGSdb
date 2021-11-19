@@ -165,7 +165,13 @@ sub _microreact_upload {
 		Content        => encode_json($microreact_data)
 	);
 	my $response_json = $upload_response->decoded_content;
-	my $ret_val       = decode_json($response_json);
+	if ($response_json eq 'Unauthorized'){
+		$logger->error('Microreact token is not valid.');
+		$$message_html .= q(<p class="statusbad">Upload to Microreact failed.</p>);
+		return;
+	}
+	my $ret_val;
+	eval {$ret_val       = decode_json($response_json)};
 	if ( $ret_val->{'url'} ) {
 		$$message_html .= q(<p style="margin-top:2em;margin-bottom:2em">)
 		  . qq(<a href="$ret_val->{'url'} " target="_blank" class="launchbutton">Launch Microreact</a></p>);
