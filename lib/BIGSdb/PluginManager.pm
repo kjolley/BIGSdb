@@ -176,8 +176,7 @@ sub get_appropriate_plugin_names {
 	foreach my $plugin (
 		sort {
 			$self->{'attributes'}->{$a}->{$order} <=> $self->{'attributes'}->{$b}->{$order}
-			  || lc( $self->{'attributes'}->{$a}->{$order} ) cmp
-			  lc( $self->{'attributes'}->{$b}->{$order} )
+			  || lc( $self->{'attributes'}->{$a}->{$order} ) cmp lc( $self->{'attributes'}->{$b}->{$order} )
 		}
 		keys %{ $self->{'attributes'} }
 	  )
@@ -304,7 +303,9 @@ sub _has_required_item {
 		ipcress_path           => 'ipcress',
 		jobs_db                => 'offline_jobs',
 		itol_api_key           => 'itol_api_key',
-		itol_project_name      => 'itol_project_name'
+		itol_project_name      => 'itol_project_name',
+		phyloviz_user          => 'phyloviz_user',
+		phyloviz_passwd        => 'phyloviz_passwd'
 	);
 	return 1 if !$required_attr;
 	foreach my $config_param ( keys %requires ) {
