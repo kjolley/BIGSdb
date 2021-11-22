@@ -1,3 +1,4 @@
+v1.32.1: *Update of Microreact plugin to support new API.
 v1.32.0: *New front-end dashboards.
          *Please note that there is a new Perl module dependency: TOML.
 v1.31.3: *Minor formatting changes.
