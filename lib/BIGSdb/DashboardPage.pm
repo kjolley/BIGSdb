@@ -841,12 +841,13 @@ sub _print_filter_display {
 sub _print_main_section {
 	my ($self) = @_;
 	my $elements = $self->_get_elements;
-	say q(<div><div id="empty">);
+	say q(<div>);
+	$self->_print_filter_display;
+	say q(<div id="empty">);
 	if ( !keys %$elements ) {
 		say $self->_get_dashboard_empty_message;
 	}
 	say q(</div>);
-	$self->_print_filter_display;
 	say q(<div id="dashboard" class="grid" style="margin:auto;max-width:90vw">);
 	my %display_immediately = map { $_ => 1 } qw(setup record_count);
 	my $already_loaded      = [];
