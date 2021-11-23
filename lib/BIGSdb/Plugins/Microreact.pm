@@ -32,6 +32,7 @@ use BIGSdb::Utils;
 use BIGSdb::Constants qw(COUNTRIES);
 use LWP::UserAgent;
 use Email::Valid;
+use Storable qw(dclone);
 use JSON;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -64,7 +65,7 @@ sub get_attributes {
 		buttontext => 'Microreact',
 		menutext   => 'Microreact',
 		module     => 'Microreact',
-		version    => '1.1.0',
+		version    => '1.1.1',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
@@ -227,7 +228,7 @@ sub _create_tsv_file {
 	push @header_fields, 'iso3166' if defined $country_field;
 	local $" = qq(\t);
 	say $fh "@header_fields";
-	my $iso_lookup = COUNTRIES;
+	my $iso_lookup = dclone(COUNTRIES);
 	foreach my $record (@$data) {
 		$record->{ $self->{'system'}->{'labelfield'} } =~ s/[\(\)]//gx;
 		$record->{ $self->{'system'}->{'labelfield'} } =~ tr/[:,. ]/_/;

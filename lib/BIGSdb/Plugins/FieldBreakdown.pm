@@ -23,6 +23,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugin);
 use BIGSdb::Constants qw(COUNTRIES);
+use Storable qw(dclone);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use JSON;
@@ -47,7 +48,7 @@ sub get_attributes {
 		buttontext => 'Fields',
 		menutext   => 'Field breakdown',
 		module     => 'FieldBreakdown',
-		version    => '2.3.0',
+		version    => '2.3.1',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
@@ -61,7 +62,8 @@ sub get_attributes {
 sub get_initiation_values {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my $values = { billboard => 1, filesaver => 1, noCache => 0, 'jQuery.tablesort' => 1, pluginJS => 'FieldBreakdown.js' };
+	my $values =
+	  { billboard => 1, filesaver => 1, noCache => 0, 'jQuery.tablesort' => 1, pluginJS => 'FieldBreakdown.js' };
 	if ( $self->_has_country_optlist ) {
 		$values->{'geomap'} = 1;
 	}
@@ -140,16 +142,16 @@ sub _get_field_values {
 	my $methods    = {
 		field => sub {
 			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-			$freqs = $self->_get_field_freqs(
-				$field, $att->{'type'} =~ /^(?:int|float|date)/x
+			$freqs =
+			  $self->_get_field_freqs( $field, $att->{'type'} =~ /^(?:int|float|date)/x
 				? { order => 'label ASC' }
-				: undef
-			);
+				: undef );
 		},
 		eav_field => sub {
 			my $att = $self->{'datastore'}->get_eav_field($field);
 			$freqs =
-			  $self->_get_eav_field_freqs( $field, $att->{'value_format'} =~ /^(?:int|float|date)/x
+			  $self->_get_eav_field_freqs( $field,
+				$att->{'value_format'} =~ /^(?:int|float|date)/x
 				? { order => 'label ASC' }
 				: undef );
 		},
@@ -645,7 +647,7 @@ sub _get_field_freqs {
 	$qry .= " ORDER BY $order";
 	my $values = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 	if ( $field eq 'country' ) {
-		my $countries = COUNTRIES;
+		my $countries = dclone(COUNTRIES);
 		foreach my $value (@$values) {
 			$value->{'iso3'} = $countries->{ $value->{'label'} }->{'iso3'} // q(XXX);
 		}

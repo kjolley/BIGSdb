@@ -27,6 +27,7 @@ use List::Util qw( min max );
 use JSON;
 use POSIX qw(ceil);
 use TOML qw(from_toml);
+use Storable qw(dclone);
 use Data::Dumper;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -1633,8 +1634,7 @@ sub _get_extended_field_breakdown_values {
 	my ( $self, $field, $attribute ) = @_;
 	my $qry =
 	    "SELECT COALESCE(e.value,'No value') AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
-	  . "LEFT JOIN isolate_value_extended_attributes e ON (v.$field,e.isolate_field,e.attribute)=(e.field_value,?,?) "
-	  ;
+	  . "LEFT JOIN isolate_value_extended_attributes e ON (v.$field,e.isolate_field,e.attribute)=(e.field_value,?,?) ";
 	my $filters = $self->_get_filters;
 	local $" = ' AND ';
 	$qry .= "WHERE @$filters" if @$filters;
@@ -2576,7 +2576,7 @@ sub _get_field_breakdown_map_content {
 	if ( !@$data ) {
 		return $self->_print_no_value_content($element);
 	}
-	my $countries = COUNTRIES;
+	my $countries = dclone(COUNTRIES);
 	foreach my $value (@$data) {
 		if ( $element->{'field'} eq 'f_country' ) {
 			$value->{'iso3'} = $countries->{ $value->{'label'} }->{'iso3'} // q(XXX);
