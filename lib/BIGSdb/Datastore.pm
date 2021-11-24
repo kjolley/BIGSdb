@@ -1315,9 +1315,9 @@ sub create_temp_scheme_table {
 	foreach my $field (@$fields) {
 		my $field_info = $self->get_scheme_field_info( $id, $field );
 		if ( $field_info->{'type'} eq 'integer' ) {
-			$self->{'db'}->do("CREATE INDEX i_${table}_$field ON $table ($field)");
+			$self->{'db'}->do("CREATE INDEX ON $table ($field)");
 		} else {
-			$self->{'db'}->do("CREATE INDEX i_${table}_$field ON $table (UPPER($field))");
+			$self->{'db'}->do("CREATE INDEX ON $table (UPPER($field))");
 		}
 	}
 
