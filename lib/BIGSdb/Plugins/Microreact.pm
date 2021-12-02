@@ -65,7 +65,7 @@ sub get_attributes {
 		buttontext => 'Microreact',
 		menutext   => 'Microreact',
 		module     => 'Microreact',
-		version    => '1.1.1',
+		version    => '1.1.2',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
@@ -73,7 +73,7 @@ sub get_attributes {
 		requires   => 'aligner,offline_jobs,js_tree,clustalw,microreact_token',
 		order      => 40,
 		min        => 2,
-		max        => $self->{'system'}->{'microreact_record_limit'} // $self->{'config'}->{'microreact_record_limit'}
+		max => $self->{'system'}->{'microreact_record_limit'} // $self->{'config'}->{'microreact_record_limit'}
 		  // MAX_RECORDS,
 		url                 => "$self->{'config'}->{'doclink'}/data_analysis/microreact.html",
 		system_flag         => 'Microreact',
@@ -130,8 +130,8 @@ sub _microreact_upload {
 	$upload_data->{'email'} = $email if $email;
 	my $converter_response = $uploader->post(
 		MICROREACT_SCHEMA_CONVERTER,
-		Content_Type => 'application/json; charset=UTF-8',
-		Content      => encode_json($upload_data)
+		'Content-Type' => 'application/json; charset=UTF-8',
+		Content        => encode_json($upload_data)
 	);
 
 	if ( !$converter_response->is_success ) {
@@ -161,18 +161,18 @@ sub _microreact_upload {
 	}
 	my $upload_response = $uploader->post(
 		MICROREACT_URL,
-		Content_Type   => 'application/json; charset=UTF-8',
+		'Content-Type' => 'application/json; charset=UTF-8',
 		'Access-Token' => $self->{'config'}->{'microreact_token'},
 		Content        => encode_json($microreact_data)
 	);
 	my $response_json = $upload_response->decoded_content;
-	if ($response_json eq 'Unauthorized'){
+	if ( $response_json eq 'Unauthorized' ) {
 		$logger->error('Microreact token is not valid.');
 		$$message_html .= q(<p class="statusbad">Upload to Microreact failed.</p>);
 		return;
 	}
 	my $ret_val;
-	eval {$ret_val       = decode_json($response_json)};
+	eval { $ret_val = decode_json($response_json) };
 	if ( $ret_val->{'url'} ) {
 		$$message_html .= q(<p style="margin-top:2em;margin-bottom:2em">)
 		  . qq(<a href="$ret_val->{'url'} " target="_blank" class="launchbutton">Launch Microreact</a></p>);
