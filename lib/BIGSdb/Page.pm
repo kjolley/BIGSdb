@@ -207,7 +207,9 @@ sub _get_javascript_paths {
 				version => '20200308'
 			},
 			'igv'              => { src => [qw(igv.min.js)],              defer => 1, version => '20200308' },
-			'bigsdb.dashboard' => { src => [qw(bigsdb.dashboard.min.js)], defer => 1, version => '20211019' }
+			'bigsdb.dashboard' => { src => [qw(bigsdb.dashboard.min.js)], defer => 1, version => '20211019' },
+			'bigsdb.dataexplorer' =>
+			  { src => [qw(bigsdb.dataexplorer.min.js)], defer => 1, version => '20211203' }
 		};
 		if ( $self->{'pluginJS'} ) {
 			$features->{'pluginJS'} = { src => ["Plugins/$self->{'pluginJS'}"], defer => 1, version => '20210511' };

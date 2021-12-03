@@ -1962,6 +1962,10 @@ div.expandable_retracted_large {
 	mask-position: 0 100%;
 }
 
+div.data_explorer {
+	height: 25em;
+}
+
 div.expand_link {
 	text-align: center
 }

@@ -1046,7 +1046,7 @@ sub _get_filters {
 		push @$filters, "v.id IN (SELECT isolate_id FROM seqbin_stats WHERE total_length>=$genome_size)";
 	}
 	if ( $self->{'prefs'}->{'record_age'} ) {
-		my $datestamp = $self->_get_record_age_datestamp;
+		my $datestamp = $self->get_record_age_datestamp($self->{'prefs'}->{'record_age'});
 		push @$filters, "v.id IN (SELECT id FROM $self->{'system'}->{'view'} WHERE date_entered>='$datestamp')";
 	}
 	return $filters;
@@ -2796,21 +2796,20 @@ sub _get_query_url {
 	}
 	if ( $self->{'prefs'}->{'record_age'} ) {
 		my $row = $url =~ /prov_field1/x ? 2 : 1;
-		my $datestamp = $self->_get_record_age_datestamp;
+		my $datestamp = $self->get_record_age_datestamp($self->{'prefs'}->{'record_age'});
 		$url .= "&prov_field$row=f_date_entered&prov_operator$row=>=&prov_value$row=$datestamp&submit=1";
 	}
 	return $url;
 }
 
-sub _get_record_age_datestamp {
-	my ($self) = @_;
-	my $record_age = $self->{'prefs'}->{'record_age'};
+sub get_record_age_datestamp {
+	my ($self, $record_age) = @_;
 	return if !$record_age || !BIGSdb::Utils::is_int($record_age);
 	if ( $self->{'cache'}->{'record_age'}->{$record_age} ) {
 		return $self->{'cache'}->{'record_age'}->{$record_age};
 	}
 	my $periods = RECORD_AGE;
-	my $period  = $periods->{ $self->{'prefs'}->{'record_age'} };
+	my $period  = $periods->{ $record_age };
 	$period =~ s/past\s//x;
 	$period = '1 ' . $period if $period !~ /^\d/x;
 	$self->{'cache'}->{'record_age'}->{$record_age} =
