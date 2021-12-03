@@ -15,12 +15,13 @@
 #GNU General Public License for more details.
 #
 #You should have received a copy of the GNU General Public License
-#along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
+#along with BIGSdb.  If not, see <https://www.gnu.org/licenses/>.
 package BIGSdb::DataExplorerPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Page);
+use parent qw(BIGSdb::DashboardPage);
+use BIGSdb::Constants qw(RECORD_AGE);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -28,6 +29,26 @@ sub print_content {
 	my ($self) = @_;
 	my $title = $self->get_title;
 	say qq(<h1>$title</h1>);
+	
+	my $q = $self->{'cgi'};
+	my $field = $q->param('field');
+	if (!defined $field){
+		$self->print_bad_status(
+			{
+				message  => q(No field specified.),
+			}
+		);
+		return
+	}
+	my $display_field = $self->get_display_field($field);
+	say q(<div class="box resultstable">);
+	say qq(<h2>Field: $display_field</h2>);
+	say q(<div class="scrollable">);
+	say q(<table class="resultstable"><tr><th>Value</th><th>Frequency</th><th>Proportion</th></tr>);
+	
+	say q(</table>);
+	say q(</div>);
+	say q(</div>);
 	return;
 }
 

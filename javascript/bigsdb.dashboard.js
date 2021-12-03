@@ -176,7 +176,6 @@ $(function() {
 		let id = $(this).attr('data-id');
 		let explorer_url = url + "&page=explorer";
 		let params = getDataExplorerParams(id);
-
 		post(explorer_url, params);
 	});
 	applyFormatting();
@@ -264,6 +263,9 @@ function getDataExplorerParams(id) {
 	let params = {};
 	params['page'] = 'explorer';
 	params['db'] = instance;
+	params['field'] = elements[id]['field'];
+	params['include_old_versions'] = $("#include_old_versions").prop('checked');
+	params['record_age'] = $("#record_age_slider").slider("value");
 	return params;
 }
 

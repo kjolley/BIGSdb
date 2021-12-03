@@ -45,17 +45,7 @@ use constant {
 	GAUGE_FOREGROUND_COLOUR          => '#0000ff',
 	CHART_COLOUR                     => '#1f77b4',
 	TOP_VALUES                       => 5,
-	DASHBOARD_LIMIT                  => 20,
-	RECORD_AGE                       => {
-		0 => 'all time',
-		1 => 'past 5 years',
-		2 => 'past 4 years',
-		3 => 'past 3 years',
-		4 => 'past 2 years',
-		5 => 'past year',
-		6 => 'past month',
-		7 => 'past week'
-	}
+	DASHBOARD_LIMIT                  => 20
 };
 
 sub print_content {
@@ -726,7 +716,7 @@ sub _ajax_new {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by di
 	if ( $default_elements->{$field} ) {
 		$element = { %$element, %{ $default_elements->{$field} } };
 	} else {
-		my $display_field = $self->_get_display_field($field);
+		my $display_field = $self->get_display_field($field);
 		$display_field =~ tr/_/ /;
 		$element->{'name'}              = ucfirst($display_field);
 		$element->{'field'}             = $field;
@@ -762,7 +752,7 @@ sub _ajax_new {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by di
 	return;
 }
 
-sub _get_display_field {
+sub get_display_field {
 	my ( $self, $field ) = @_;
 	my $display_field = $field;
 	if ( $field =~ /^f_/x ) {
@@ -2888,7 +2878,6 @@ sub _get_data_query_link {
 sub _get_data_explorer_link {
 	my ( $self, $element ) = @_;
 	my $buffer = q();
-	return $buffer;    #Explorer page not yet developed.
 	$element->{'explorer_text'} //= 'Explore data';
 	$buffer .= qq(<span data-id="$element->{'id'}" class="dashboard_data_explorer_element fas fa-search">);
 	$buffer .= qq(<span class="tooltip">$element->{'explorer_text'}</span>);
