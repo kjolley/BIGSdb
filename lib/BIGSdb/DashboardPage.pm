@@ -1046,7 +1046,7 @@ sub _get_filters {
 		push @$filters, "v.id IN (SELECT isolate_id FROM seqbin_stats WHERE total_length>=$genome_size)";
 	}
 	if ( $self->{'prefs'}->{'record_age'} ) {
-		my $datestamp = $self->get_record_age_datestamp($self->{'prefs'}->{'record_age'});
+		my $datestamp = $self->get_record_age_datestamp( $self->{'prefs'}->{'record_age'} );
 		push @$filters, "v.id IN (SELECT id FROM $self->{'system'}->{'view'} WHERE date_entered>='$datestamp')";
 	}
 	return $filters;
@@ -1684,8 +1684,9 @@ sub _rewrite_user_field_values {
 		$label =~ s/\r?\n/ /gx;
 		push @$new_values,
 		  {
-			label => $label,
-			value => $value->{'value'}
+			label         => $value->{'label'},
+			display_label => $label,
+			value         => $value->{'value'}
 		  };
 	}
 	return $new_values;
@@ -1828,12 +1829,14 @@ sub _get_doughnut_pie_dataset {
 	foreach my $value (@$data) {
 		$value->{'label'} //= 'No value';
 		$value->{'label'} =~ s/"/\\"/gx;
+		$value->{'display_label'} =~ s/"/\\"/gx if defined $value->{'display_label'};
+		my $label = $value->{'display_label'} // $value->{'label'};
 		$value_count++;
 		if ( $value_count >= MAX_SEGMENTS && @$data != MAX_SEGMENTS ) {
 			$others += $value->{'value'};
 			$others_values++;
 		} else {
-			push @$dataset, qq(                ["$value->{'label'}", $value->{'value'}]);
+			push @$dataset, qq(                ["$label", $value->{'value'}]);
 		}
 	}
 	my $others_label;
@@ -1857,7 +1860,8 @@ sub _get_bar_dataset {
 	foreach my $value (@$data) {
 		next if !defined $value->{'label'};
 		$value->{'label'} =~ s/"/\\"/gx;
-		push @$labels, $value->{'label'};
+		$value->{'display_label'} =~ s/"/\\"/gx if defined $value->{'display_label'};
+		push @$labels, $value->{'display_label'} // $value->{'label'};
 		push @$values, $value->{'value'};
 		$max = $value->{'value'} if $value->{'value'} > $max;
 	}
@@ -2385,15 +2389,18 @@ sub _get_field_breakdown_top_values_content {
 
 	foreach my $value ( sort { $b->{'value'} <=> $a->{'value'} } @$data ) {
 		next if !defined $value->{'label'} || $value->{'label'} eq 'No value';
-		my $url = $self->_get_query_url( $element, $value->{'label'} );
-		my $nice_value = BIGSdb::Utils::commify( $value->{'value'} );
+		my $url           = $self->_get_query_url( $element, $value->{'label'} );
+		my $nice_value    = BIGSdb::Utils::commify( $value->{'value'} );
+		my $display_label = $value->{'display_label'} // $value->{'label'};
 		$count++;
 		$buffer .= qq(<tr class="td$td" style="$style"><td><a href="$url"$target>)
-		  . qq($value->{'label'}</a></td><td>$nice_value</td></tr>);
+		  . qq($display_label</a></td><td>$nice_value</td></tr>);
 		$td = $td == 1 ? 2 : 1;
 		last if $count >= $element->{'top_values'};
 	}
-	$buffer .= q(</table></div>);
+	$buffer .= q(</table>);
+	$buffer .= $self->_get_data_explorer_link($element);
+	$buffer .= q(</div>);
 	return $buffer;
 }
 
@@ -2411,6 +2418,14 @@ sub _get_field_breakdown_treemap_content {
 		}
 		$total += $value->{'value'};
 	}
+	my $display_data = [];
+	foreach my $value (@$data) {
+		push @$display_data,
+		  {
+			label => $value->{'display_label'} // $value->{'label'},
+			value => $value->{'value'}
+		  };
+	}
 	my $min_dimension = min( $element->{'height'}, $element->{'width'} ) // 1;
 	my $buffer =
 	    qq(<div id="chart_$element->{'id'}_tooltip" style="position:absolute;top:0;left:0px;display:none;z-index:1">)
@@ -2424,7 +2439,7 @@ sub _get_field_breakdown_treemap_content {
 	my $height  = ( $element->{'height'} * 150 ) - 40;
 	my $width   = $element->{'width'} * 150;
 	my $json    = JSON->new->allow_nonref;
-	my $dataset = $json->encode( { children => $data } );
+	my $dataset = $json->encode( { children => $display_data } );
 	$buffer .= qq(<div id="chart_$element->{'id'}" class="treemap" style="margin-top:-20px"></div>);
 	$buffer .= << "JS";
 <script>
@@ -2780,36 +2795,40 @@ sub _get_palettes {
 
 sub _get_query_url {
 	my ( $self, $element, $value ) = @_;
-	my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query";
+	my $url   = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query";
+	my $field = $element->{'field'};
 	$value =~ s/\ /\%20/gx;
 	if ( $element->{'field'} =~ /^[f|e]_/x ) {
-		$url .= "&prov_field1=$element->{'field'}&prov_value1=$value&submit=1";
+		$field = 'f_sender%20(id)'  if $field eq 'f_sender';
+		$field = 'f_curator%20(id)' if $field eq 'f_curator';
+		$url .= "&prov_field1=$field&prov_value1=$value";
 	}
 	if ( $element->{'field'} =~ /^eav_/x ) {
-		$url .= "&phenotypic_field1=$element->{'field'}&phenotypic_value1=$value&submit=1";
+		$url .= "&phenotypic_field1=$field&phenotypic_value1=$value";
 	}
 	if ( $element->{'field'} =~ /^s_\d+_/x ) {
-		$url .= "&designation_field1=$element->{'field'}&designation_value1=$value&submit=1";
+		$url .= "&designation_field1=$field&designation_value1=$value";
 	}
 	if ( $self->{'prefs'}->{'include_old_versions'} ) {
 		$url .= '&include_old=on';
 	}
 	if ( $self->{'prefs'}->{'record_age'} ) {
 		my $row = $url =~ /prov_field1/x ? 2 : 1;
-		my $datestamp = $self->get_record_age_datestamp($self->{'prefs'}->{'record_age'});
-		$url .= "&prov_field$row=f_date_entered&prov_operator$row=>=&prov_value$row=$datestamp&submit=1";
+		my $datestamp = $self->get_record_age_datestamp( $self->{'prefs'}->{'record_age'} );
+		$url .= "&prov_field$row=f_date_entered&prov_operator$row=>=&prov_value$row=$datestamp";
 	}
+	$url .= '&submit=1';
 	return $url;
 }
 
 sub get_record_age_datestamp {
-	my ($self, $record_age) = @_;
+	my ( $self, $record_age ) = @_;
 	return if !$record_age || !BIGSdb::Utils::is_int($record_age);
 	if ( $self->{'cache'}->{'record_age'}->{$record_age} ) {
 		return $self->{'cache'}->{'record_age'}->{$record_age};
 	}
 	my $periods = RECORD_AGE;
-	my $period  = $periods->{ $record_age };
+	my $period  = $periods->{$record_age};
 	$period =~ s/past\s//x;
 	$period = '1 ' . $period if $period !~ /^\d/x;
 	$self->{'cache'}->{'record_age'}->{$record_age} =

@@ -29,9 +29,14 @@ $(function() {
 		},
 		change: function(event, ui) {
 			$("#filter_age").html(recordAgeLabels[ui.value]);
+			recordAge = ui.value;
+			reloadTable();
 		}
 	});
-	$('.expand_link').on('click', function() {
+	$("#include_old_versions").change(function() {
+		reloadTable();
+	});
+	$("div#data_explorer").on("click touchstart", ".expand_link", function() {
 		var field = this.id.replace('expand_', '');
 		if ($('#' + field).hasClass('expandable_expanded')) {
 			$('#' + field).switchClass('expandable_expanded', 'expandable_retracted data_explorer', 1000, "easeInOutQuad", function() {
@@ -44,3 +49,26 @@ $(function() {
 		}
 	});
 });
+
+function reloadTable() {
+	$("div#waiting").css("display", "block");
+	let includeOld = $("#include_old_versions").is(":checked") ? 1 : 0;
+	$.ajax({
+		url: url + "&page=explorer&updateTable=1&field=" + field + "&record_age=" + recordAge + "&include_old_versions=" + includeOld
+	}).done(function(html) {
+		$("div#table_div").html(html);
+		$(".tablesorter").tablesorter({ widgets: ['zebra'] });
+		$("div#waiting").css("display", "none");
+		let count = (html.match(/value_row/g) || []).length;
+		$("span#unique_values").html(count);
+		let total = 0;
+		$('td.value_count').each(function () {
+			total += parseInt($(this).html(), 10) || 0;
+		});
+		$("span#total_records").html(commify(total));
+	});
+}
+
+function commify(x) {
+	return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
