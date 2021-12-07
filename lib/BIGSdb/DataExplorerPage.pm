@@ -36,8 +36,6 @@ sub _ajax_table {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by 
 		record_age           => scalar $q->param('record_age')
 	};
 	my $values = $self->_get_values( $field, $params );
-	use Data::Dumper;
-	$logger->error( Dumper $values);
 	say $self->_get_table( $field, $values, $params );
 	return;
 }
@@ -209,7 +207,8 @@ sub _get_primary_metadata_values {
 		}
 	} else {
 		foreach my $value (@$values) {
-			$freqs->{ $value->{'label'} } = $value->{'count'};
+			my $label = $value->{'label'} // 'No value';
+			$freqs->{ $label } = $value->{'count'};
 		}
 	}
 	return $freqs;

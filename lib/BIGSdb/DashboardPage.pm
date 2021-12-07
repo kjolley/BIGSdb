@@ -1923,6 +1923,7 @@ sub _get_field_breakdown_bar_content {
 	my $chart_colour     = $element->{'chart_colour'} // CHART_COLOUR;
 	my $buffer           = $self->_get_title($element);
 	$buffer .= qq(<div id="chart_$element->{'id'}" class="pie" style="margin-top:-20px"></div>);
+	$buffer .= $self->_get_data_explorer_link($element);
 	local $" = q(,);
 	$buffer .= << "JS";
 	<script>
@@ -2152,6 +2153,7 @@ sub _get_field_breakdown_doughnut_content {
 	local $" = qq(,\n);
 	my $others_label = $data->[-1] =~ /^Others/x ? $data->[-1] : 'Others';
 	$buffer .= qq(<div id="chart_$element->{'id'}" class="doughnut" style="margin-top:${margin_top}px"></div>);
+	$buffer .= $self->_get_data_explorer_link($element);
 	$buffer .= << "JS";
 	<script>
 	\$(function() {
@@ -2220,6 +2222,7 @@ sub _get_field_breakdown_pie_content {
 	my $label_show = $min_dimension == 1 || length( $element->{'name'} ) > 50 ? 'false' : 'true';
 	local $" = qq(,\n);
 	$buffer .= qq(<div id="chart_$element->{'id'}" class="pie" style="margin-top:-20px"></div>);
+	$buffer .= $self->_get_data_explorer_link($element);
 	$buffer .= << "JS";
 	<script>
 	\$(function() {
@@ -2329,6 +2332,7 @@ sub _get_field_breakdown_wordcloud_content {
 	my $width  = $element->{'width'} * 150;
 	my $buffer = $self->_get_title($element);
 	$buffer .= qq(<div id="chart_$element->{'id'}" style="margin-top:-20px"></div>);
+	$buffer .= $self->_get_data_explorer_link($element);
 	$buffer .= << "JS";
 	<script>
 	\$(function() {
@@ -2440,7 +2444,8 @@ sub _get_field_breakdown_treemap_content {
 	my $width   = $element->{'width'} * 150;
 	my $json    = JSON->new->allow_nonref;
 	my $dataset = $json->encode( { children => $display_data } );
-	$buffer .= qq(<div id="chart_$element->{'id'}" class="treemap" style="margin-top:-20px"></div>);
+	$buffer .= qq(<div id="chart_$element->{'id'}" class="treemap" style="margin-top:-25px"></div>);
+	$buffer .= $self->_get_data_explorer_link($element);
 	$buffer .= << "JS";
 <script>
 \$(function() {
