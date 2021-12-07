@@ -63,7 +63,8 @@ function reloadTable() {
 		$("span#unique_values").html(count);
 		let total = 0;
 		$('td.value_count').each(function () {
-			total += parseInt($(this).html(), 10) || 0;
+			let count = $(this).html().replace(",","");
+			total += parseInt(count, 10) || 0;
 		});
 		$("span#total_records").html(commify(total));
 	});

@@ -76,7 +76,7 @@ sub print_content {
 	my $count   = keys %$values;
 	my $records = 0;
 	$records += $_ foreach values %$values;
-	my $nice_count = BIGSdb::Utils::commify($count);
+	my $nice_count   = BIGSdb::Utils::commify($count);
 	my $nice_records = BIGSdb::Utils::commify($records);
 	say qq(<p>Total records: <span id="total_records" style="font-weight:600">$nice_records</span>; )
 	  . qq(Unique values: <span id="unique_values" style="font-weight:600">$nice_count</span></p>);
@@ -110,8 +110,9 @@ sub _get_table {
 			$label =~ s/\r?\n/ /gx;
 		}
 		$label //= $value;
+		my $count = BIGSdb::Utils::commify( $values->{$value} );
 		$table .= qq(<tr class="value_row"><td style="text-align:left"><a href="$url">$label</a></td>)
-		  . qq(<td class="value_count">$values->{$value}</td><td>$percent</td></tr>);
+		  . qq(<td class="value_count">$count</td><td>$percent</td></tr>);
 	}
 	$table .= q(</tbody></table></div>);
 	if ($hide) {
@@ -122,7 +123,6 @@ sub _get_table {
 
 sub _is_user_field {
 	my ( $self, $field ) = @_;
-	$logger->error($field);
 	if ( $field =~ /^f_/x ) {
 		$field =~ s/^f_//x;
 		return if !$self->{'xmlHandler'}->is_field($field);
@@ -136,9 +136,15 @@ sub _is_user_field {
 sub _get_url {
 	my ( $self, $field, $value, $params ) = @_;
 	my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query";
+	$value = 'null' if $value eq 'No value';
 	if ( $field =~ /^[f|e]_/x ) {
-		$value = 'null' if $value eq 'No value';
 		$url .= "&prov_field1=$field&prov_value1=$value&submit=1";
+	}
+	if ( $field =~ /^eav_/x ) {
+		$url .= "&phenotypic_field1=$field&phenotypic_value1=$value";
+	}
+	if ( $field =~ /^s_\d+_/x ) {
+		$url .= "&designation_field1=$field&designation_value1=$value";
 	}
 	if ( $params->{'include_old_versions'} ) {
 		$url .= '&include_old=on';
@@ -209,19 +215,65 @@ sub _get_primary_metadata_values {
 	return $freqs;
 }
 
-#TODO Stub
 sub _get_extended_field_values {
-	return {};
+	my ( $self, $field, $attribute, $params ) = @_;
+	my $qry =
+	    "SELECT COALESCE(e.value,'No value') AS label,COUNT(*) AS count FROM $self->{'system'}->{'view'} v "
+	  . "LEFT JOIN isolate_value_extended_attributes e ON (v.$field,e.isolate_field,e.attribute)=(e.field_value,?,?) ";
+	my $filters = $self->_get_filters($params);
+	local $" = ' AND ';
+	$qry .= "WHERE @$filters" if @$filters;
+	$qry .= ' GROUP BY label';
+	my $values =
+	  $self->{'datastore'}->run_query( $qry, [ $field, $attribute ], { fetch => 'all_arrayref', slice => {} } );
+	my $freqs = {};
+
+	foreach my $value (@$values) {
+		$freqs->{ $value->{'label'} } = $value->{'count'};
+	}
+	return $freqs;
 }
 
-#TODO Stub
 sub _get_eav_field_values {
-	return {};
+	my ( $self, $field, $params ) = @_;
+	my $att   = $self->{'datastore'}->get_eav_field($field);
+	my $table = $self->{'datastore'}->get_eav_field_table($field);
+	my $qry   = "SELECT COALESCE(t.value,'No value') AS label,COUNT(*) AS count FROM $table t RIGHT JOIN "
+	  . "$self->{'system'}->{'view'} v ON t.isolate_id = v.id AND t.field=?";
+	my $filters = $self->_get_filters($params);
+	local $" = ' AND ';
+	$qry .= " WHERE @$filters" if @$filters;
+	$qry .= ' GROUP BY label';
+	my $values = $self->{'datastore'}->run_query( $qry, $field, { fetch => 'all_arrayref', slice => {} } );
+	my $freqs = {};
+
+	foreach my $value (@$values) {
+		$freqs->{ $value->{'label'} } = $value->{'count'};
+	}
+	return $freqs;
 }
 
-#TODO Stub
 sub _get_scheme_field_values {
-	return {};
+	my ( $self, $scheme_id, $field, $params ) = @_;
+	my $scheme_table = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+
+	#We include the DISTINCT clause below because an isolate may have more than 1 row in the scheme
+	#cache table. This happens if the isolate has multiple STs (due to multiple allele hits).
+	my $qry =
+	    "SELECT COALESCE(s.$field,'No value') AS label,COUNT(DISTINCT (v.id)) AS count FROM "
+	  . "$self->{'system'}->{'view'} v LEFT JOIN $scheme_table s ON v.id=s.id";
+	my $filters = $self->_get_filters($params);
+	local $" = ' AND ';
+	$qry .= " WHERE @$filters" if @$filters;
+	$qry .= ' GROUP BY label';
+	my $values =
+	  $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
+	my $freqs = {};
+
+	foreach my $value (@$values) {
+		$freqs->{ $value->{'label'} } = $value->{'count'};
+	}
+	return $freqs;
 }
 
 sub _get_filters {

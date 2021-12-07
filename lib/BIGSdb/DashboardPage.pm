@@ -1666,7 +1666,7 @@ sub _get_scheme_field_breakdown_values {
 	#cache table. This happens if the isolate has multiple STs (due to multiple allele hits).
 	my $qry =
 	    "SELECT s.$field AS label,COUNT(DISTINCT (v.id)) AS value FROM $self->{'system'}->{'view'} v "
-	  . "JOIN $scheme_table s ON v.id=s.id";
+	  . "LEFT JOIN $scheme_table s ON v.id=s.id";
 	my $filters = $self->_get_filters;
 	local $" = ' AND ';
 	$qry .= " WHERE @$filters" if @$filters;
