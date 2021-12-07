@@ -2278,9 +2278,30 @@ JS
 
 sub _get_field_breakdown_wordcloud_content {
 	my ( $self, $element ) = @_;
-	my $data = $self->_get_field_breakdown_values($element);
-	if ( !@$data ) {
+	my $complete_data = $self->_get_field_breakdown_values($element);
+	if ( !@$complete_data ) {
 		return $self->_print_no_value_content($element);
+	}
+	my %word_counts;
+	my %invalid_words = map { $_ => 1 } qw(of and the);
+	foreach my $value (@$complete_data) {
+		my @words =
+		  length( $value->{'label'} ) > 12
+		  ? split /\s/x, $value->{'label'}
+		  : ( $value->{'label'} );
+		foreach my $word (@words) {
+			$word =~ s/[\[\]]//gx if @words > 1;
+			next if $invalid_words{$word};
+			$word_counts{$word} += $value->{'value'};
+		}
+	}
+	my $data = [];
+	foreach my $word ( keys %word_counts ) {
+		push @$data,
+		  {
+			label => $word,
+			value => $word_counts{$word}
+		  };
 	}
 	my $largest      = 0;
 	my $longest_term = 10 * min( $element->{'width'}, $element->{'height'}, 2 );
@@ -2341,7 +2362,7 @@ sub _get_field_breakdown_wordcloud_content {
 	    .words($words)
 	    .spiral('rectangular')
 	    .rotate(function() { return ~~(Math.random() * 2) * 90; })
-	    .fontSize(function(d) { return d.size; })
+	    .fontSize(function(d) { return d.size*1.5; })
 	    .on("end", draw);
 
 		layout.start();
