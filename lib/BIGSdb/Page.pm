@@ -209,7 +209,7 @@ sub _get_javascript_paths {
 			'igv'              => { src => [qw(igv.min.js)],              defer => 1, version => '20200308' },
 			'bigsdb.dashboard' => { src => [qw(bigsdb.dashboard.min.js)], defer => 1, version => '20211019' },
 			'bigsdb.dataexplorer' =>
-			  { src => [qw(bigsdb.dataexplorer.min.js)], defer => 1, version => '20211203' }
+			  { src => [qw(bigsdb.dataexplorer.min.js)], defer => 1, version => '20211213' }
 		};
 		if ( $self->{'pluginJS'} ) {
 			$features->{'pluginJS'} = { src => ["Plugins/$self->{'pluginJS'}"], defer => 1, version => '20210511' };
@@ -644,7 +644,7 @@ sub _get_meta_data {
 sub _get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20211021';
+	my $version = '20211213';
 	my @filenames;
 	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
 	push @filenames, q(billboard.min.css)                                     if $self->{'billboard'};

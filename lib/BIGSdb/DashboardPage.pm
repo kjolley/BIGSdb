@@ -3132,7 +3132,7 @@ sub _print_modify_dashboard_fieldset {
 	say q(<div style="clear:both"></div>);
 	say q(<fieldset><legend>Visual elements</legend>);
 	say q(<ul><li>);
-	$self->_print_field_selector;
+	$self->print_field_selector;
 	say q(<a id="add_element" class="small_submit" style="white-space:nowrap">Add element</a>);
 	say q(</li></ul>);
 	say q(</fieldset>);
@@ -3228,25 +3228,33 @@ sub _print_dashboard_management_fieldset {
 	return;
 }
 
-sub _print_field_selector {
-	my ($self) = @_;
+sub print_field_selector {
+	my ( $self, $select_options, $field_options ) = @_;
+	$select_options //= {
+		ignore_prefs        => 1,
+		isolate_fields      => 1,
+		scheme_fields       => 1,
+		extended_attributes => 1,
+		eav_fields          => 1,
+	};
 	my $q = $self->{'cgi'};
-	my ( $fields, $labels ) = $self->get_field_selection_list(
-		{
-			ignore_prefs        => 1,
-			isolate_fields      => 1,
-			scheme_fields       => 1,
-			extended_attributes => 1,
-			eav_fields          => 1,
+	my ( $fields, $labels ) = $self->get_field_selection_list($select_options);
+
+	#Remove excluded field from list
+	if ( $field_options->{'exclude_field'} ) {
+		my $field_index = 0;
+		foreach my $field (@$fields) {
+			last if $fields->[$field_index] eq $field_options->{'exclude_field'};
+			$field_index++;
 		}
-	);
+		splice( @$fields, $field_index, 1 ) if $field_index < @$fields;
+	}
 	my $values           = [];
 	my $group_members    = {};
 	my $attributes       = $self->{'xmlHandler'}->get_all_field_attributes;
 	my $eav_fields       = $self->{'datastore'}->get_eav_fields;
 	my $eav_field_groups = { map { $_->{'field'} => $_->{'category'} } @$eav_fields };
 	my %ignore           = map { $_ => 1 } ( 'f_id', "f_$self->{'system'}->{'labelfield'}" );
-
 	foreach my $field (@$fields) {
 		next if $ignore{$field};
 		if ( $field =~ /^s_/x ) {
@@ -3271,7 +3279,8 @@ sub _print_field_selector {
 		}
 	}
 	my @group_list = split /,/x, ( $self->{'system'}->{'field_groups'} // q() );
-	push @{ $group_members->{'Special'} }, 'sp_count', 'sp_genomes', 'sp_seqbin_size';
+	push @{ $group_members->{'Special'} }, 'sp_count', 'sp_genomes', 'sp_seqbin_size'
+	  if !$field_options->{'no_special'};
 	$labels->{'sp_count'}       = "$self->{'system'}->{'labelfield'} count";
 	$labels->{'sp_genomes'}     = 'genome count';
 	$labels->{'sp_seqbin_size'} = 'sequence bin size';
@@ -3286,14 +3295,17 @@ sub _print_field_selector {
 			push @$values, $q->optgroup( -name => $name, -values => $group_members->{$name}, -labels => $labels );
 		}
 	}
-	say q(<label for="add_field">Field:</label>);
+	unshift @$values, q() if $field_options->{'no_default'};
+	my $label = $field_options->{'label'} // 'Field';
+	say qq(<label for="add_field">$label:</label>);
 	say $q->popup_menu(
-		-name     => 'add_field',
-		-id       => 'add_field',
+		-name => $field_options->{'name'} // 'add_field',
+		-id   => $field_options->{'id'}   // 'add_field',
 		-values   => $values,
 		-labels   => $labels,
 		-multiple => 'true',
-		-style    => 'max-width:10em'
+		-style    => 'max-width:10em',
+		-class    => 'field_selector'
 	);
 	return;
 }

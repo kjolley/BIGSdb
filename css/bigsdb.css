@@ -537,6 +537,14 @@ a.small_reset:hover, input.small_reset:hover {
 	border: 1px solid #8D5196
 }
 
+input.disabled {
+	background: #B0B0B0;
+}
+
+input.disabled:hover {
+	background: #B0B0B0;
+}
+
 a.add_button {
 	background: #fff;
 	border: 1px solid #888;

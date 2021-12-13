@@ -48,25 +48,74 @@ $(function() {
 			});
 		}
 	});
+	$("div#data_explorer").on("change", ".option_check,.field_selector", function() {
+		if (canAnalyse()) {
+			$("#analyse").removeClass("disabled");
+		} else {
+			$("#analyse").addClass("disabled");
+		}
+	});
+	$("div#data_explorer").on("click touchstart", "#analyse", function() {
+		if (canAnalyse()) {
+			runAnalysis();
+		}
+	});
 });
+
+function canAnalyse() {
+	let checkbox_selected = false;
+	$('.option_check').each(function(index, obj) {
+		if (this.checked === true) {
+			checkbox_selected = true;
+		}
+	});
+	let field_selected = false;
+	$('.field_selector').each(function(index, obj) {
+		if (this.value !== '') {
+			field_selected = true;
+		}
+	});
+	return checkbox_selected && field_selected;
+}
+
+function runAnalysis(){
+	let values = [];
+	$('.option_check').each(function(index, obj) {
+		if (this.checked === true) {
+			let name = this.id;
+			name = name.replace("v","");
+			values.push(dataIndex[name]);
+		}
+	});
+	console.log("Values: " + values);
+	let fields = [field];
+	$('.field_selector').each(function(index, obj) {
+		if (this.value !== '') {
+			fields.push(this.value);
+		}
+	});
+	console.log("Fields: " + fields);
+}
 
 function reloadTable() {
 	$("div#waiting").css("display", "block");
 	let includeOld = $("#include_old_versions").is(":checked") ? 1 : 0;
 	$.ajax({
 		url: url + "&page=explorer&updateTable=1&field=" + field + "&record_age=" + recordAge + "&include_old_versions=" + includeOld
-	}).done(function(html) {
+	}).done(function(json) {
+		let html = JSON.parse(json).html;
 		$("div#table_div").html(html);
 		$(".tablesorter").tablesorter({ widgets: ['zebra'] });
 		$("div#waiting").css("display", "none");
 		let count = (html.match(/value_row/g) || []).length;
 		$("span#unique_values").html(count);
 		let total = 0;
-		$('td.value_count').each(function () {
-			let count = $(this).html().replace(",","");
+		$('td.value_count').each(function() {
+			let count = $(this).html().replace(",", "");
 			total += parseInt(count, 10) || 0;
 		});
 		$("span#total_records").html(commify(total));
+		dataIndex = JSON.parse(json).index;
 	});
 }
 

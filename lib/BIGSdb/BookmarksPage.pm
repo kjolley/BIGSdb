@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2020, University of Oxford
+#Copyright (c) 2020-2021, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -67,11 +67,11 @@ sub print_content {
 	say q(<div class="scrollable">);
 	my $show_sets = ( $self->{'system'}->{'sets'} // q() ) eq 'yes' && !defined $self->{'system'}->{'set_id'} ? 1 : 0;
 	say q(<table class="tablesorter" id="sortTable" style="margin-bottom:1em"><thead>)
-	  . q(<tr><th class="{sorter:false}">Delete</th><th>Name</th><th>Database configuration</th>);
+	  . q(<tr><th class="sorter-false">Delete</th><th>Name</th><th>Database configuration</th>);
 	if ($show_sets) {
 		say q(<th>Set</th>);
 	}
-	say q(<th>Created</th><th class="{sorter:false}">Share</th><th class="{sorter:false}">Run query</th></tr></thead>);
+	say q(<th>Created</th><th class="sorter-false">Share</th><th class="sorter-false">Run query</th></tr></thead>);
 	my $td = 1;
 	say q(<tbody>);
 	my ( $query, $delete, $public, $private ) = ( QUERY, DELETE, UNLOCK, LOCK );

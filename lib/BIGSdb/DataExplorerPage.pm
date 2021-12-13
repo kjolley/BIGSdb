@@ -36,7 +36,9 @@ sub _ajax_table {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by 
 		record_age           => scalar $q->param('record_age')
 	};
 	my $values = $self->_get_values( $field, $params );
-	say $self->_get_table( $field, $values, $params );
+	my $table = $self->_get_table( $field, $values, $params );
+	my $json = JSON->new->allow_nonref;
+	say $json->encode($table);
 	return;
 }
 
@@ -65,7 +67,7 @@ sub print_content {
 	my $display_field = $self->get_display_field($field);
 	say q(<div class="box resultstable" id="data_explorer">);
 	$self->_print_filters;
-	say qq(<h2>Field: $display_field</h2>);
+	say qq(<div style="float:left"><h2>Field: $display_field</h2>);
 	my $params = {
 		include_old_versions => $q->param('include_old_versions') eq 'true' ? 1 : 0,
 		record_age => scalar $q->param('record_age')
@@ -78,11 +80,63 @@ sub print_content {
 	my $nice_records = BIGSdb::Utils::commify($records);
 	say qq(<p>Total records: <span id="total_records" style="font-weight:600">$nice_records</span>; )
 	  . qq(Unique values: <span id="unique_values" style="font-weight:600">$nice_count</span></p>);
+	say q(</div><div style="clear:both"></div>);
 	say q(<div id="waiting" style="position:absolute;top:7em;left:1em;display:none">)
 	  . q(<span class="wait_icon fas fa-sync-alt fa-spin fa-2x"></span></div>);
-	say q(<div id="table_div" class="scrollable" style="margin-top:2em">);
-	say $self->_get_table( $field, $values, $params );
-	say q(</div></div>);
+	say q(<div style="margin-left:-50px">);
+	say q(<div id="table_div" class="scrollable" )
+	  . q(style="float:left;margin-left:50px;margin-top:2em;max-width:calc(100vw - 50px)">);
+	my $table = $self->_get_table( $field, $values, $params );
+	say $table->{'html'};
+	say q(</div>);
+	say q(<div style="float:left;margin-left:50px;margin-top:2em">);
+	$self->_print_field_controls;
+	say q(</div>);
+	say q(</div>);
+	say q(<div style="clear:both"></div>);
+	say q(</div>);
+	my $json  = JSON->new->allow_nonref;
+	my $index = $json->encode( $table->{'index'} );
+	say qq(<script>var dataIndex=$index</script>);
+	return;
+}
+
+sub _print_field_controls {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say q(<fieldset><legend>Drill down</legend>);
+	say q(<p>Select one or more field values in table,<br />then select one or more fields below to drill-down.</p>);
+	say q(<ul>);
+	for my $i ( 1 .. 3 ) {
+		say q(<li>);
+		$self->print_field_selector(
+			{
+				ignore_prefs        => 1,
+				isolate_fields      => 1,
+				scheme_fields       => 0,
+				extended_attributes => 0,
+				eav_fields          => 0,
+			},
+			{
+				no_special    => 1,
+				no_default    => 1,
+				id            => "field$i",
+				name          => "field$i",
+				label         => "Field#$i",
+				exclude_field => scalar $q->param('field')
+			}
+		);
+		say q(</li>);
+	}
+	say q(</ul>);
+	say $q->submit(
+		-id    => 'analyse',
+		-name  => 'analyse',
+		-label => 'Analyse',
+		-class => 'submit disabled',
+		-style => 'margin-top:1em'
+	);
+	say q(</fieldset>);
 	return;
 }
 
@@ -93,12 +147,17 @@ sub _get_table {
 	if ( !$total ) {
 		return q(<p>No values to display</p>);
 	}
+	my $q             = $self->{'cgi'};
+	my $i             = 1;
+	my $index         = {};
 	my $is_user_field = $self->_is_user_field($field);
 	my $hide          = keys %$values > DEFAULT_ROWS;
 	my $class         = $hide ? q(expandable_retracted data_explorer) : q();
-	my $table         = qq(<div id="table" style="overflow:hidden" class="$class"><ul>);
-	$table .= q(<table class="tablesorter"><thead><tr><th>Value</th><th>Frequency</th><th>Percentage</th></tr></thead>);
+	my $table         = qq(<div id="table" class="scrollable $class">);
+	$table .= q(<table class="tablesorter"><thead><tr><th>Value</th><th>Frequency</th><th>%</th>)
+	  . q(<th class="sorter-false">Select</th></tr></thead>);
 	$table .= q(<tbody>);
+
 	foreach my $value ( sort { $values->{$b} <=> $values->{$a} } keys %$values ) {
 		my $url = $self->_get_url( $field, $value, $params );
 		my $percent = BIGSdb::Utils::decimal_place( 100 * $values->{$value} / $total, 2 );
@@ -110,13 +169,17 @@ sub _get_table {
 		$label //= $value;
 		my $count = BIGSdb::Utils::commify( $values->{$value} );
 		$table .= qq(<tr class="value_row"><td style="text-align:left"><a href="$url">$label</a></td>)
-		  . qq(<td class="value_count">$count</td><td>$percent</td></tr>);
+		  . qq(<td class="value_count">$count</td><td>$percent</td><td>);
+		$table .= $q->checkbox( -id => "v$i", -name => "v$i", -class => 'option_check', -label => '' );
+		$table .= q(</td></tr>);
+		$index->{$i} = $label;
+		$i++;
 	}
 	$table .= q(</tbody></table></div>);
 	if ($hide) {
 		$table .= q(<div class="expand_link" id="expand_table"><span class="fas fa-chevron-down"></span></div>);
 	}
-	return $table;
+	return { html => $table, index => $index };
 }
 
 sub _is_user_field {
@@ -208,7 +271,7 @@ sub _get_primary_metadata_values {
 	} else {
 		foreach my $value (@$values) {
 			my $label = $value->{'label'} // 'No value';
-			$freqs->{ $label } = $value->{'count'};
+			$freqs->{$label} = $value->{'count'};
 		}
 	}
 	return $freqs;
