@@ -2827,23 +2827,23 @@ sub _get_query_url {
 	if ( $element->{'field'} =~ /^[f|e]_/x ) {
 		$field = 'f_sender%20(id)'  if $field eq 'f_sender';
 		$field = 'f_curator%20(id)' if $field eq 'f_curator';
-		$url .= "&prov_field1=$field&prov_value1=$value";
+		$url .= "&amp;prov_field1=$field&amp;prov_value1=$value";
 	}
 	if ( $element->{'field'} =~ /^eav_/x ) {
-		$url .= "&phenotypic_field1=$field&phenotypic_value1=$value";
+		$url .= "&amp;phenotypic_field1=$field&amp;phenotypic_value1=$value";
 	}
 	if ( $element->{'field'} =~ /^s_\d+_/x ) {
-		$url .= "&designation_field1=$field&designation_value1=$value";
+		$url .= "&amp;designation_field1=$field&amp;designation_value1=$value";
 	}
 	if ( $self->{'prefs'}->{'include_old_versions'} ) {
-		$url .= '&include_old=on';
+		$url .= '&amp;include_old=on';
 	}
 	if ( $self->{'prefs'}->{'record_age'} ) {
 		my $row = $url =~ /prov_field1/x ? 2 : 1;
 		my $datestamp = $self->get_record_age_datestamp( $self->{'prefs'}->{'record_age'} );
-		$url .= "&prov_field$row=f_date_entered&prov_operator$row=>=&prov_value$row=$datestamp";
+		$url .= "&amp;prov_field$row=f_date_entered&amp;prov_operator$row=>=&amp;prov_value$row=$datestamp";
 	}
-	$url .= '&submit=1';
+	$url .= '&amp;submit=1';
 	return $url;
 }
 

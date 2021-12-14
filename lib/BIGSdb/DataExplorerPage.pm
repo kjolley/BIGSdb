@@ -42,11 +42,108 @@ sub _ajax_table {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by 
 	return;
 }
 
+sub _ajax_analyse {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $json   = JSON->new->allow_nonref;
+	my $params;
+	eval { $params = $json->decode( scalar $q->param('params') ); };
+	if (@$) {
+		$logger->error('Cannot decode AJAX JSON.');
+	}
+	if ( !$params->{'fields'} || !@{ $params->{'fields'} } ) {
+		$logger->error('No fields passed');
+		return;
+	}
+	if ( !$params->{'values'} || !@{ $params->{'values'} } ) {
+		$logger->error('No values passed');
+		return;
+	}
+	my $data = $self->_create_freq_table($params);
+	eval { say $json->encode($data); };
+	if (@$) {
+		$logger->error('Cannot JSON encode dataset.');
+	}
+	return;
+}
+
+sub _create_freq_table {
+	my ( $self, $params ) = @_;
+	my $list_field;
+	my $primary_fields = [];
+	my @group_fields;
+	my $list_table = $self->{'datastore'}->create_temp_list_table_from_array( 'text', $params->{'values'} );
+	foreach my $field ( @{ $params->{'fields'} } ) {
+		if ( $field =~ /^f_(\w+)$/x ) {
+			my $this_field = $1;
+			next if !$self->{'xmlHandler'}->is_field($this_field);
+			push @$primary_fields, $this_field;
+			if ( $field eq $params->{'fields'}->[0] ) {
+				$list_field = "v.$this_field";
+			}
+		}
+	}
+	@group_fields = @$primary_fields;
+	my @tables;
+	my $qry = q(CREATE TEMP TABLE freqs AS SELECT );
+	if (@$primary_fields) {
+		my $processed = $self->_process_primary_fields($primary_fields);
+		local $" = q(,);
+		$qry .= qq(@{$processed->{'fields'}});
+		push @tables, $processed->{'table'};
+	}
+	$qry .= q(,COUNT(*) AS count );
+	local $" = q( OUTER JOIN );
+	$qry .= qq(FROM @tables );
+	my $filters = $self->_get_filters($params);
+	if (@$filters) {
+		local $" = q( AND );
+		$qry .= $qry =~ /WHERE/x ? 'AND ' : 'WHERE ';
+		$qry .= qq(@$filters );
+	}
+	$qry .= $qry =~ /WHERE/x ? 'AND ' : 'WHERE ';
+	$qry .= qq($list_field IN (SELECT value FROM $list_table) );
+	local $" = q(,);
+	$qry .= qq(GROUP BY @group_fields);
+	$logger->error($qry);
+	eval { $self->{'db'}->do($qry); };
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+	my $data =
+	  $self->{'datastore'}->run_query( 'SELECT * FROM freqs', undef, { fetch => 'all_arrayref', slice => {} } );
+	return $data;
+}
+
+sub _process_primary_fields {
+	my ( $self, $primary_fields ) = @_;
+	my $temp_fields = [];
+	foreach my $field (@$primary_fields) {
+		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+		if ( ( $att->{'multiple'} // q() ) eq 'yes' ) {
+			push @$temp_fields, "COALESCE(NULLIF(ARRAY_TO_STRING(array_sort(v.$field),'; '),''),'No value') AS $field",;
+		} else {
+			if ( lc( $att->{'type'} ) eq 'text' ) {
+				push @$temp_fields, "COALESCE(v.$field,'No value') AS $field";
+			} else {
+				push @$temp_fields, "COALESCE(CAST(v.$field AS text),'No value') AS $field";
+			}
+		}
+	}
+	return {
+		fields => $temp_fields,
+		table  => "$self->{'system'}->{'view'} v"
+	};
+}
+
 sub print_content {
 	my ($self) = @_;
 	my $title  = $self->get_title;
 	my $q      = $self->{'cgi'};
-	my %ajax_methods = ( updateTable => '_ajax_table', );
+	my %ajax_methods = ( updateTable => '_ajax_table', analyse => '_ajax_analyse' );
 	foreach my $method ( sort keys %ajax_methods ) {
 		my $sub = $ajax_methods{$method};
 		if ( $q->param($method) ) {
@@ -94,6 +191,11 @@ sub print_content {
 	say q(</div>);
 	say q(</div>);
 	say q(<div style="clear:both"></div>);
+	say $q->textarea(
+		-id          => 'response_test',
+		-style       => 'width:95%;height:10em',
+		-placeholder => 'Test area: JSON response from query will be displayed here.'
+	);
 	say q(</div>);
 	my $json  = JSON->new->allow_nonref;
 	my $index = $json->encode( $table->{'index'} );
@@ -199,22 +301,26 @@ sub _get_url {
 	my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query";
 	$value = 'null' if $value eq 'No value';
 	if ( $field =~ /^[f|e]_/x ) {
-		$url .= "&prov_field1=$field&prov_value1=$value&submit=1";
+		$field = 'f_sender%20(id)'  if $field eq 'f_sender';
+		$field = 'f_curator%20(id)' if $field eq 'f_curator';
+		$url .= "&amp;prov_field1=$field&amp;prov_value1=$value";
 	}
 	if ( $field =~ /^eav_/x ) {
-		$url .= "&phenotypic_field1=$field&phenotypic_value1=$value";
+		$url .= "&amp;phenotypic_field1=$field&amp;phenotypic_value1=$value";
 	}
 	if ( $field =~ /^s_\d+_/x ) {
-		$url .= "&designation_field1=$field&designation_value1=$value";
+		$url .= "&amp;designation_field1=$field&amp;designation_value1=$value";
 	}
 	if ( $params->{'include_old_versions'} ) {
-		$url .= '&include_old=on';
+		$url .= '&amp;include_old=on';
 	}
 	if ( $params->{'record_age'} ) {
 		my $row = $url =~ /prov_field1/x ? 2 : 1;
 		my $datestamp = $self->get_record_age_datestamp( $params->{'record_age'} );
-		$url .= "&prov_field$row=f_date_entered&prov_operator$row=>=&prov_value$row=$datestamp&submit=1";
+		$url .= "&amp;prov_field$row=f_date_entered&amp;prov_operator$row=>=&amp;"
+		  . "prov_value$row=$datestamp";
 	}
+	$url .= '&amp;submit=1';
 	return $url;
 }
 
@@ -379,7 +485,7 @@ sub initiate {
 	$self->{$_} = 1 foreach qw (jQuery noCache bigsdb.dataexplorer jQuery.tablesort);
 	$self->set_level1_breadcrumbs;
 	my $q = $self->{'cgi'};
-	foreach my $ajax_param (qw(updateTable)) {
+	foreach my $ajax_param (qw(updateTable analyse)) {
 		if ( $q->param($ajax_param) ) {
 			$self->{'type'} = 'no_header';
 			last;
@@ -398,6 +504,7 @@ sub get_javascript {
 	my $record_age        = $q->param('record_age') // 0;
 	my $buffer            = << "END";
 	var url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}";
+	var instance = "$self->{'instance'}";
 	var recordAgeLabels = $record_age_labels;
 	var recordAge = $record_age;
 	var field = "$field";

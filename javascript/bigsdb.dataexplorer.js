@@ -60,41 +60,63 @@ $(function() {
 			runAnalysis();
 		}
 	});
+	if (canAnalyse()){
+		$("#analyse").removeClass("disabled");
+	}
 });
 
 function canAnalyse() {
 	let checkbox_selected = false;
-	$('.option_check').each(function(index, obj) {
+	$(".option_check").each(function() {
 		if (this.checked === true) {
 			checkbox_selected = true;
 		}
 	});
 	let field_selected = false;
-	$('.field_selector').each(function(index, obj) {
-		if (this.value !== '') {
+	$(".field_selector").each(function() {
+		if (this.value !== "") {
 			field_selected = true;
 		}
 	});
 	return checkbox_selected && field_selected;
 }
 
-function runAnalysis(){
+function runAnalysis() {
+	$("div#waiting").css("display", "block");
 	let values = [];
-	$('.option_check').each(function(index, obj) {
+	$(".option_check").each(function() {
 		if (this.checked === true) {
 			let name = this.id;
-			name = name.replace("v","");
+			name = name.replace("v", "");
 			values.push(dataIndex[name]);
 		}
 	});
-	console.log("Values: " + values);
 	let fields = [field];
-	$('.field_selector').each(function(index, obj) {
+	$(".field_selector").each(function() {
 		if (this.value !== '') {
 			fields.push(this.value);
 		}
 	});
-	console.log("Fields: " + fields);
+	let params = {
+		fields: fields,
+			values: values,
+			include_old_versions: $("#include_old_versions").is(":checked") ? 1 : 0,
+			record_age: recordAge
+	};
+	$.ajax({
+		url: url + "&page=explorer",
+		type: "POST",
+		data: {
+			analyse: 1,
+			db: instance,
+			page: "explorer",
+			params: JSON.stringify(params) 
+		},
+		success: function(json) {
+			$("div#waiting").css("display", "none");
+			$("#response_test").html(json);
+		}
+	});
 }
 
 function reloadTable() {
@@ -116,6 +138,7 @@ function reloadTable() {
 		});
 		$("span#total_records").html(commify(total));
 		dataIndex = JSON.parse(json).index;
+		$("#analyse").addClass("disabled");
 	});
 }
 
