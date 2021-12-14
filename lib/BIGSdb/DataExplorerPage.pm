@@ -73,8 +73,14 @@ sub _create_freq_table {
 	my $primary_fields = [];
 	my @group_fields;
 	my $list_table = $self->{'datastore'}->create_temp_list_table_from_array( 'text', $params->{'values'} );
-	my %user_fields ;
+	my $includes_null;
+	foreach my $value (@{$params->{'values'}}){
+		$includes_null = 1 if $value eq 'No value';
+	}
+	my %user_fields;
+	my $multi_values;
 	foreach my $field ( @{ $params->{'fields'} } ) {
+
 		if ( $field =~ /^f_(\w+)$/x ) {
 			my $this_field = $1;
 			next if !$self->{'xmlHandler'}->is_field($this_field);
@@ -82,6 +88,7 @@ sub _create_freq_table {
 			push @$primary_fields, $this_field;
 			if ( $field eq $params->{'fields'}->[0] ) {
 				$list_field = lc( $att->{'type'} ) ne 'text' ? "CAST(v.$this_field AS text)" : "v.$this_field";
+				$multi_values = 1 if ( $att->{'multiple'} // q() ) eq 'yes';
 			}
 			$user_fields{$this_field} = 1
 			  if $this_field eq 'sender' || $this_field eq 'curator' || ( $att->{'userfield'} // q() ) eq 'yes';
@@ -106,7 +113,17 @@ sub _create_freq_table {
 		$qry .= qq(@$filters );
 	}
 	$qry .= $qry =~ /WHERE/x ? 'AND ' : 'WHERE ';
-	$qry .= qq($list_field IN (SELECT value FROM $list_table) );
+	if ($multi_values) {
+		$qry .= q[(];
+		$qry .= qq($list_field && ARRAY(SELECT value FROM $list_table));
+		$qry.= qq( OR $list_field IS NULL) if $includes_null;
+		$qry .= q[) ];
+	} else {
+		$qry .= q[(];
+		$qry .= qq($list_field IN (SELECT value FROM $list_table));
+		$qry.= qq( OR $list_field IS NULL) if $includes_null;
+		$qry .= q[) ];
+	}
 	local $" = q(,);
 	$qry .= qq(GROUP BY @group_fields);
 	$logger->error($qry);
@@ -119,15 +136,15 @@ sub _create_freq_table {
 	}
 	my $data =
 	  $self->{'datastore'}->run_query( 'SELECT * FROM freqs', undef, { fetch => 'all_arrayref', slice => {} } );
-	$data = $self->_rewrite_user_field_values($data,[keys %user_fields]) if keys %user_fields;
+	$data = $self->_rewrite_user_field_values( $data, [ keys %user_fields ] ) if keys %user_fields;
 	return $data;
 }
 
 sub _rewrite_user_field_values {
-	my ( $self, $data,$user_fields ) = @_;
+	my ( $self, $data, $user_fields ) = @_;
 	my %cache;
 	foreach my $record (@$data) {
-		foreach my $field ( @$user_fields ) {
+		foreach my $field (@$user_fields) {
 			next if $record->{$field} eq 'No value';
 			if ( !defined $cache{ $record->{$field} } ) {
 				$cache{ $record->{$field} } =
@@ -382,21 +399,15 @@ sub _get_primary_metadata_values {
 	my $att   = $self->{'xmlHandler'}->get_field_attributes($field);
 
 	if ( ( $att->{'multiple'} // q() ) eq 'yes' ) {
-		my %new_values;
+
+		#TODO Make note that values may be >100%;
 		foreach my $value (@$values) {
 			if ( !defined $value->{'label'} ) {
 				$value->{'label'} = ['No value'];
 			}
-			my @sorted_label =
-			  $att->{'type'} ne 'text'
-			  ? sort { $a <=> $b } @{ $value->{'label'} }
-			  : sort { $a cmp $b } @{ $value->{'label'} };
-			local $" = q(; );
-			my $new_label = qq(@sorted_label);
-			$new_values{$new_label} += $value->{'count'};
-		}
-		foreach my $label ( keys %new_values ) {
-			$freqs->{ $label eq q() ? 'No value' : $label } = $new_values{$label};
+			foreach my $label ( @{ $value->{'label'} } ) {
+				$freqs->{$label} += $value->{'count'};
+			}
 		}
 	} else {
 		foreach my $value (@$values) {
