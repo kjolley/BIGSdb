@@ -73,14 +73,18 @@ sub _create_freq_table {
 	my $primary_fields = [];
 	my @group_fields;
 	my $list_table = $self->{'datastore'}->create_temp_list_table_from_array( 'text', $params->{'values'} );
+	my %user_fields ;
 	foreach my $field ( @{ $params->{'fields'} } ) {
 		if ( $field =~ /^f_(\w+)$/x ) {
 			my $this_field = $1;
 			next if !$self->{'xmlHandler'}->is_field($this_field);
+			my $att = $self->{'xmlHandler'}->get_field_attributes($this_field);
 			push @$primary_fields, $this_field;
 			if ( $field eq $params->{'fields'}->[0] ) {
-				$list_field = "v.$this_field";
+				$list_field = lc( $att->{'type'} ) ne 'text' ? "CAST(v.$this_field AS text)" : "v.$this_field";
 			}
+			$user_fields{$this_field} = 1
+			  if $this_field eq 'sender' || $this_field eq 'curator' || ( $att->{'userfield'} // q() ) eq 'yes';
 		}
 	}
 	@group_fields = @$primary_fields;
@@ -115,6 +119,23 @@ sub _create_freq_table {
 	}
 	my $data =
 	  $self->{'datastore'}->run_query( 'SELECT * FROM freqs', undef, { fetch => 'all_arrayref', slice => {} } );
+	$data = $self->_rewrite_user_field_values($data,[keys %user_fields]) if keys %user_fields;
+	return $data;
+}
+
+sub _rewrite_user_field_values {
+	my ( $self, $data,$user_fields ) = @_;
+	my %cache;
+	foreach my $record (@$data) {
+		foreach my $field ( @$user_fields ) {
+			next if $record->{$field} eq 'No value';
+			if ( !defined $cache{ $record->{$field} } ) {
+				$cache{ $record->{$field} } =
+				  $self->{'datastore'}->get_user_string( $record->{$field}, { affiliation => 1 } );
+			}
+			$record->{$field} = $cache{ $record->{$field} };
+		}
+	}
 	return $data;
 }
 
@@ -274,7 +295,11 @@ sub _get_table {
 		  . qq(<td class="value_count">$count</td><td>$percent</td><td>);
 		$table .= $q->checkbox( -id => "v$i", -name => "v$i", -class => 'option_check', -label => '' );
 		$table .= q(</td></tr>);
-		$index->{$i} = $label;
+		if ($is_user_field) {
+			$index->{$i} = $value;
+		} else {
+			$index->{$i} = $label;
+		}
 		$i++;
 	}
 	$table .= q(</tbody></table></div>);
@@ -317,8 +342,7 @@ sub _get_url {
 	if ( $params->{'record_age'} ) {
 		my $row = $url =~ /prov_field1/x ? 2 : 1;
 		my $datestamp = $self->get_record_age_datestamp( $params->{'record_age'} );
-		$url .= "&amp;prov_field$row=f_date_entered&amp;prov_operator$row=>=&amp;"
-		  . "prov_value$row=$datestamp";
+		$url .= "&amp;prov_field$row=f_date_entered&amp;prov_operator$row=>=&amp;" . "prov_value$row=$datestamp";
 	}
 	$url .= '&amp;submit=1';
 	return $url;
