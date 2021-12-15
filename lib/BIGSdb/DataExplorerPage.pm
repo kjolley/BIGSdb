@@ -71,8 +71,14 @@ sub _create_freq_table {
 	my ( $self, $params ) = @_;
 	my $list_table = $self->{'datastore'}->create_temp_list_table_from_array( 'text', $params->{'values'} );
 	my $check = $self->_check_fields($params);
-	my ( $list_field, $includes_null, $primary_fields, $extended_fields, $group_fields, $multi_values, $user_fields ) =
-	  @{$check}{qw(list_field includes_null primary_fields extended_fields group_fields multi_values user_fields)};
+	my (
+		$list_field, $includes_null, $primary_fields, $extended_fields,
+		$eav_fields, $group_fields,  $multi_values,   $user_fields
+	  )
+	  = @{$check}{
+		qw(list_field includes_null primary_fields extended_fields eav_fields group_fields multi_values
+		  user_fields)
+	  };
 	my @tables;
 	my @fields;
 	my $qry = q(CREATE TEMP TABLE freqs AS SELECT );
@@ -83,6 +89,12 @@ sub _create_freq_table {
 	}
 	if (@$extended_fields) {
 		my $processed = $self->_process_extended_fields($extended_fields);
+		local $" = q(,);
+		push @fields, @{ $processed->{'fields'} };
+		push @tables, @{ $processed->{'tables'} };
+	}
+	if (@$eav_fields) {
+		my $processed = $self->_process_eav_fields($eav_fields);
 		local $" = q(,);
 		push @fields, @{ $processed->{'fields'} };
 		push @tables, @{ $processed->{'tables'} };
@@ -131,6 +143,7 @@ sub _check_fields {
 	my %used;
 	my $primary_fields  = [];
 	my $extended_fields = [];
+	my $eav_fields      = [];
 	my $group_fields    = [];
 	my $multi_values;
 	my %user_fields;
@@ -171,12 +184,26 @@ sub _check_fields {
 			push @$group_fields, $attribute;
 			$used{$attribute} = 1;
 		}
+		if ( $field =~ /^eav_(.*)/x ) {
+			my $this_field = $1;
+			next if $used{$this_field};
+			my $att = $self->{'datastore'}->get_eav_field($this_field);
+			next if !$att;
+			push @$eav_fields, $this_field;
+			if ( $field eq $params->{'fields'}->[0] ) {
+				$list_field =
+				  $att->{'value_format'} ne 'text' ? 'CAST(eav1.value AS text)' : 'eav1.value';
+			}
+			push @$group_fields, $this_field;
+			$used{$this_field} = 1;
+		}
 	}
 	return {
 		list_field      => $list_field,
 		includes_null   => $includes_null,
 		primary_fields  => $primary_fields,
 		extended_fields => $extended_fields,
+		eav_fields      => $eav_fields,
 		group_fields    => $group_fields,
 		multi_values    => $multi_values,
 		user_fields     => [ keys %user_fields ]
@@ -237,6 +264,28 @@ sub _process_extended_fields {
 		    "isolate_value_extended_attributes e$i ON "
 		  . "(e$i.isolate_field,e$i.attribute,e$i.field_value)="
 		  . "('$field->{'isolate_field'}','$field->{'attribute'}',v.$field->{'isolate_field'})";
+		$i++;
+	}
+	return {
+		fields => $temp_fields,
+		tables => $tables
+	};
+}
+
+sub _process_eav_fields {
+	my ( $self, $eav_fields ) = @_;
+	my $tables      = [];
+	my $temp_fields = [];
+	my $i           = 1;
+	foreach my $field (@$eav_fields) {
+		my $table = $self->{'datastore'}->get_eav_field_table($field);
+		my $att   = $self->{'datastore'}->get_eav_field($field);
+		if ( $att->{'value_format'} eq 'text' ) {
+			push @$temp_fields, "COALESCE(eav$i.value,'No value') AS $field";
+		} else {
+			push @$temp_fields, "COALESCE(CAST(eav$i.value AS text),'No value') AS $field";
+		}
+		push @$tables, "$table eav$i ON (eav$i.isolate_id,eav$i.field)=(v.id,'$field')";
 		$i++;
 	}
 	return {
@@ -335,7 +384,7 @@ sub _print_field_controls {
 				isolate_fields      => 1,
 				scheme_fields       => 0,
 				extended_attributes => 1,
-				eav_fields          => 0,
+				eav_fields          => 1,
 			},
 			{
 				no_special    => 1,
