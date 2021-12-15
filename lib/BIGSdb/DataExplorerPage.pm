@@ -69,50 +69,10 @@ sub _ajax_analyse {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called b
 
 sub _create_freq_table {
 	my ( $self, $params ) = @_;
-	my $list_field;
-	my $primary_fields  = [];
-	my $extended_fields = [];
-	my @group_fields;
 	my $list_table = $self->{'datastore'}->create_temp_list_table_from_array( 'text', $params->{'values'} );
-	my $includes_null;
-	foreach my $value ( @{ $params->{'values'} } ) {
-		$includes_null = 1 if $value eq 'No value';
-	}
-	my %user_fields;
-	my $multi_values;
-	my %used;
-	foreach my $field ( @{ $params->{'fields'} } ) {
-		if ( $field =~ /^f_(\w+)$/x ) {
-			my $this_field = $1;
-			next if $used{$this_field};
-			next if !$self->{'xmlHandler'}->is_field($this_field);
-			my $att = $self->{'xmlHandler'}->get_field_attributes($this_field);
-			push @$primary_fields, $this_field;
-			if ( $field eq $params->{'fields'}->[0] ) {
-				$list_field = lc( $att->{'type'} ) ne 'text' ? "CAST(v.$this_field AS text)" : "v.$this_field";
-				$multi_values = 1 if ( $att->{'multiple'} // q() ) eq 'yes';
-			}
-			$user_fields{$this_field} = 1
-			  if $this_field eq 'sender' || $this_field eq 'curator' || ( $att->{'userfield'} // q() ) eq 'yes';
-			  push @group_fields,$this_field;
-			  $used{$this_field}=1;
-		}
-		if ( $field =~ /^e_(.*)\|\|(.*)/x ) {
-			my ( $isolate_field, $attribute ) = ( $1, $2 );
-			next if $used{$attribute};
-			my $att = $self->{'datastore'}->get_isolate_extended_field_attributes( $isolate_field, $attribute );
-			if ( $field eq $params->{'fields'}->[0] ) {
-				$list_field = $att->{'value_format'} ne 'text' ? 'CAST(e1.value AS text)' : 'e1.value';
-			}
-			push @$extended_fields,
-			  {
-				isolate_field => $isolate_field,
-				attribute     => $attribute
-			  };
-			push @group_fields,$attribute;
-			$used{$attribute}=1;
-		}
-	}
+	my $check = $self->_check_fields($params);
+	my ( $list_field, $includes_null, $primary_fields, $extended_fields, $group_fields, $multi_values, $user_fields ) =
+	  @{$check}{qw(list_field includes_null primary_fields extended_fields group_fields multi_values user_fields)};
 	my @tables;
 	my @fields;
 	my $qry = q(CREATE TEMP TABLE freqs AS SELECT );
@@ -151,7 +111,7 @@ sub _create_freq_table {
 		$qry .= q[) ];
 	}
 	local $" = q(,);
-	$qry .= qq(GROUP BY @group_fields);
+	$qry .= qq(GROUP BY @$group_fields);
 	$logger->error($qry);
 	eval { $self->{'db'}->do($qry); };
 	if ($@) {
@@ -162,8 +122,65 @@ sub _create_freq_table {
 	}
 	my $data =
 	  $self->{'datastore'}->run_query( 'SELECT * FROM freqs', undef, { fetch => 'all_arrayref', slice => {} } );
-	$data = $self->_rewrite_user_field_values( $data, [ keys %user_fields ] ) if keys %user_fields;
+	$data = $self->_rewrite_user_field_values( $data, $user_fields ) if @$user_fields;
 	return $data;
+}
+
+sub _check_fields {
+	my ( $self, $params ) = @_;
+	my %used;
+	my $primary_fields  = [];
+	my $extended_fields = [];
+	my $group_fields    = [];
+	my $multi_values;
+	my %user_fields;
+	my $list_field;
+	my $includes_null;
+
+	foreach my $value ( @{ $params->{'values'} } ) {
+		$includes_null = 1 if $value eq 'No value';
+	}
+	foreach my $field ( @{ $params->{'fields'} } ) {
+		if ( $field =~ /^f_(\w+)$/x ) {
+			my $this_field = $1;
+			next if $used{$this_field};
+			next if !$self->{'xmlHandler'}->is_field($this_field);
+			my $att = $self->{'xmlHandler'}->get_field_attributes($this_field);
+			push @$primary_fields, $this_field;
+			if ( $field eq $params->{'fields'}->[0] ) {
+				$list_field = lc( $att->{'type'} ) ne 'text' ? "CAST(v.$this_field AS text)" : "v.$this_field";
+				$multi_values = 1 if ( $att->{'multiple'} // q() ) eq 'yes';
+			}
+			$user_fields{$this_field} = 1
+			  if $this_field eq 'sender' || $this_field eq 'curator' || ( $att->{'userfield'} // q() ) eq 'yes';
+			push @$group_fields, $this_field;
+			$used{$this_field} = 1;
+		}
+		if ( $field =~ /^e_(.*)\|\|(.*)/x ) {
+			my ( $isolate_field, $attribute ) = ( $1, $2 );
+			next if $used{$attribute};
+			my $att = $self->{'datastore'}->get_isolate_extended_field_attributes( $isolate_field, $attribute );
+			if ( $field eq $params->{'fields'}->[0] ) {
+				$list_field = $att->{'value_format'} ne 'text' ? 'CAST(e1.value AS text)' : 'e1.value';
+			}
+			push @$extended_fields,
+			  {
+				isolate_field => $isolate_field,
+				attribute     => $attribute
+			  };
+			push @$group_fields, $attribute;
+			$used{$attribute} = 1;
+		}
+	}
+	return {
+		list_field      => $list_field,
+		includes_null   => $includes_null,
+		primary_fields  => $primary_fields,
+		extended_fields => $extended_fields,
+		group_fields    => $group_fields,
+		multi_values    => $multi_values,
+		user_fields     => [ keys %user_fields ]
+	};
 }
 
 sub _rewrite_user_field_values {
