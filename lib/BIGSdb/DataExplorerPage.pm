@@ -70,7 +70,8 @@ sub _ajax_analyse {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called b
 sub _create_freq_table {
 	my ( $self, $params ) = @_;
 	my $list_field;
-	my $primary_fields = [];
+	my $primary_fields  = [];
+	my $extended_fields = [];
 	my @group_fields;
 	my $list_table = $self->{'datastore'}->create_temp_list_table_from_array( 'text', $params->{'values'} );
 	my $includes_null;
@@ -79,9 +80,11 @@ sub _create_freq_table {
 	}
 	my %user_fields;
 	my $multi_values;
+	my %used;
 	foreach my $field ( @{ $params->{'fields'} } ) {
 		if ( $field =~ /^f_(\w+)$/x ) {
 			my $this_field = $1;
+			next if $used{$this_field};
 			next if !$self->{'xmlHandler'}->is_field($this_field);
 			my $att = $self->{'xmlHandler'}->get_field_attributes($this_field);
 			push @$primary_fields, $this_field;
@@ -91,19 +94,43 @@ sub _create_freq_table {
 			}
 			$user_fields{$this_field} = 1
 			  if $this_field eq 'sender' || $this_field eq 'curator' || ( $att->{'userfield'} // q() ) eq 'yes';
+			  push @group_fields,$this_field;
+			  $used{$this_field}=1;
+		}
+		if ( $field =~ /^e_(.*)\|\|(.*)/x ) {
+			my ( $isolate_field, $attribute ) = ( $1, $2 );
+			next if $used{$attribute};
+			my $att = $self->{'datastore'}->get_isolate_extended_field_attributes( $isolate_field, $attribute );
+			if ( $field eq $params->{'fields'}->[0] ) {
+				$list_field = $att->{'value_format'} ne 'text' ? 'CAST(e1.value AS text)' : 'e1.value';
+			}
+			push @$extended_fields,
+			  {
+				isolate_field => $isolate_field,
+				attribute     => $attribute
+			  };
+			push @group_fields,$attribute;
+			$used{$attribute}=1;
 		}
 	}
-	@group_fields = @$primary_fields;
 	my @tables;
+	my @fields;
 	my $qry = q(CREATE TEMP TABLE freqs AS SELECT );
 	if (@$primary_fields) {
 		my $processed = $self->_process_primary_fields($primary_fields);
-		local $" = q(,);
-		$qry .= qq(@{$processed->{'fields'}});
+		push @fields, @{ $processed->{'fields'} };
 		push @tables, $processed->{'table'};
 	}
-	$qry .= q(,COUNT(*) AS count );
-	local $" = q( OUTER JOIN );
+	if (@$extended_fields) {
+		my $processed = $self->_process_extended_fields($extended_fields);
+		local $" = q(,);
+		push @fields, @{ $processed->{'fields'} };
+		push @tables, @{ $processed->{'tables'} };
+	}
+	local $" = q(,);
+	$qry .= qq(@fields,COUNT(*) AS count );
+	local $" = q( LEFT JOIN );
+	unshift @tables, "$self->{'system'}->{'view'} v" if $tables[0] ne "$self->{'system'}->{'view'} v";
 	$qry .= qq(FROM @tables );
 	my $filters = $self->_get_filters($params);
 	if (@$filters) {
@@ -173,6 +200,31 @@ sub _process_primary_fields {
 	return {
 		fields => $temp_fields,
 		table  => "$self->{'system'}->{'view'} v"
+	};
+}
+
+sub _process_extended_fields {
+	my ( $self, $extended_fields ) = @_;
+	my $i           = 1;
+	my $tables      = [];
+	my $temp_fields = [];
+	foreach my $field (@$extended_fields) {
+		my $att = $self->{'datastore'}
+		  ->get_isolate_extended_field_attributes( $field->{'isolate_field'}, $field->{'attribute'} );
+		if ( $att->{'value_format'} eq 'text' ) {
+			push @$temp_fields, "COALESCE(e$i.value,'No value') AS $field->{'attribute'}";
+		} else {
+			push @$temp_fields, "COALESCE(CAST(e$i.value AS text),'No value') AS $field->{'attribute'}";
+		}
+		push @$tables,
+		    "isolate_value_extended_attributes e$i ON "
+		  . "(e$i.isolate_field,e$i.attribute,e$i.field_value)="
+		  . "('$field->{'isolate_field'}','$field->{'attribute'}',v.$field->{'isolate_field'})";
+		$i++;
+	}
+	return {
+		fields => $temp_fields,
+		tables => $tables
 	};
 }
 
@@ -265,7 +317,7 @@ sub _print_field_controls {
 				ignore_prefs        => 1,
 				isolate_fields      => 1,
 				scheme_fields       => 0,
-				extended_attributes => 0,
+				extended_attributes => 1,
 				eav_fields          => 0,
 			},
 			{

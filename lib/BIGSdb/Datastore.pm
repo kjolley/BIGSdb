@@ -85,6 +85,15 @@ sub get_data_connector {
 	return $self->{'dataConnector'};
 }
 
+sub get_isolate_extended_field_attributes {
+	my ( $self, $isolate_field, $attribute ) = @_;
+	return $self->run_query(
+		'SELECT * FROM isolate_field_extended_attributes WHERE (isolate_field,attribute)=(?,?)',
+		[ $isolate_field, $attribute ],
+		{ fetch => 'row_hashref' }
+	);
+}
+
 sub get_user_info {
 	my ( $self, $id ) = @_;
 	my $user_info =
