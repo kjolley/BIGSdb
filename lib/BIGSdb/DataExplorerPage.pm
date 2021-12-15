@@ -74,13 +74,12 @@ sub _create_freq_table {
 	my @group_fields;
 	my $list_table = $self->{'datastore'}->create_temp_list_table_from_array( 'text', $params->{'values'} );
 	my $includes_null;
-	foreach my $value (@{$params->{'values'}}){
+	foreach my $value ( @{ $params->{'values'} } ) {
 		$includes_null = 1 if $value eq 'No value';
 	}
 	my %user_fields;
 	my $multi_values;
 	foreach my $field ( @{ $params->{'fields'} } ) {
-
 		if ( $field =~ /^f_(\w+)$/x ) {
 			my $this_field = $1;
 			next if !$self->{'xmlHandler'}->is_field($this_field);
@@ -116,12 +115,12 @@ sub _create_freq_table {
 	if ($multi_values) {
 		$qry .= q[(];
 		$qry .= qq($list_field && ARRAY(SELECT value FROM $list_table));
-		$qry.= qq( OR $list_field IS NULL) if $includes_null;
+		$qry .= qq( OR $list_field IS NULL) if $includes_null;
 		$qry .= q[) ];
 	} else {
 		$qry .= q[(];
 		$qry .= qq($list_field IN (SELECT value FROM $list_table));
-		$qry.= qq( OR $list_field IS NULL) if $includes_null;
+		$qry .= qq( OR $list_field IS NULL) if $includes_null;
 		$qry .= q[) ];
 	}
 	local $" = q(,);
@@ -215,6 +214,10 @@ sub print_content {
 	my $nice_records = BIGSdb::Utils::commify($records);
 	say qq(<p>Total records: <span id="total_records" style="font-weight:600">$nice_records</span>; )
 	  . qq(Unique values: <span id="unique_values" style="font-weight:600">$nice_count</span></p>);
+
+	if ( $self->_is_multi_field($field) ) {
+		say q(<p>Field allows multiple values - totals may be >100%</p>);
+	}
 	say q(</div><div style="clear:both"></div>);
 	say q(<div id="waiting" style="position:absolute;top:7em;left:1em;display:none">)
 	  . q(<span class="wait_icon fas fa-sync-alt fa-spin fa-2x"></span></div>);
@@ -239,6 +242,14 @@ sub print_content {
 	my $index = $json->encode( $table->{'index'} );
 	say qq(<script>var dataIndex=$index</script>);
 	return;
+}
+
+sub _is_multi_field {
+	my ( $self, $field ) = @_;
+	return if $field !~ /^f_/x;
+	$field =~ s/^f_//x;
+	my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+	return ( $att->{'multiple'} // q() ) eq 'yes';
 }
 
 sub _print_field_controls {
@@ -399,8 +410,6 @@ sub _get_primary_metadata_values {
 	my $att   = $self->{'xmlHandler'}->get_field_attributes($field);
 
 	if ( ( $att->{'multiple'} // q() ) eq 'yes' ) {
-
-		#TODO Make note that values may be >100%;
 		foreach my $value (@$values) {
 			if ( !defined $value->{'label'} ) {
 				$value->{'label'} = ['No value'];
