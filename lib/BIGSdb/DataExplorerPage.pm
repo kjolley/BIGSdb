@@ -122,8 +122,8 @@ sub _create_freq_table {
 		$qry .= qq( OR $list_field IS NULL) if $includes_null;
 		$qry .= q[) ];
 	}
-	local $" = q(,);
-	$qry .= qq(GROUP BY @$group_fields);
+	local $" = q(",");
+	$qry .= qq(GROUP BY "@$group_fields");
 	$logger->error($qry);
 	eval { $self->{'db'}->do($qry); };
 	if ($@) {
@@ -132,8 +132,9 @@ sub _create_freq_table {
 	} else {
 		$self->{'db'}->commit;
 	}
+	local $"= q(",");
 	my $data =
-	  $self->{'datastore'}->run_query( 'SELECT * FROM freqs', undef, { fetch => 'all_arrayref', slice => {} } );
+	  $self->{'datastore'}->run_query( qq(SELECT "@$group_fields",count FROM freqs), undef, { fetch => 'all_arrayref', slice => {} } );
 	$data = $self->_rewrite_user_field_values( $data, $user_fields ) if @$user_fields;
 	return $data;
 }
@@ -232,12 +233,12 @@ sub _process_primary_fields {
 	foreach my $field (@$primary_fields) {
 		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
 		if ( ( $att->{'multiple'} // q() ) eq 'yes' ) {
-			push @$temp_fields, "COALESCE(NULLIF(ARRAY_TO_STRING(array_sort(v.$field),'; '),''),'No value') AS $field",;
+			push @$temp_fields, qq(COALESCE(NULLIF(ARRAY_TO_STRING(array_sort(v.$field),'; '),''),'No value') AS "$field");
 		} else {
 			if ( lc( $att->{'type'} ) eq 'text' ) {
-				push @$temp_fields, "COALESCE(v.$field,'No value') AS $field";
+				push @$temp_fields, qq(COALESCE(v.$field,'No value') AS "$field");
 			} else {
-				push @$temp_fields, "COALESCE(CAST(v.$field AS text),'No value') AS $field";
+				push @$temp_fields, qq(COALESCE(CAST(v.$field AS text),'No value') AS "$field");
 			}
 		}
 	}
@@ -256,9 +257,9 @@ sub _process_extended_fields {
 		my $att = $self->{'datastore'}
 		  ->get_isolate_extended_field_attributes( $field->{'isolate_field'}, $field->{'attribute'} );
 		if ( $att->{'value_format'} eq 'text' ) {
-			push @$temp_fields, "COALESCE(e$i.value,'No value') AS $field->{'attribute'}";
+			push @$temp_fields, qq(COALESCE(e$i.value,'No value') AS "$field->{'attribute'}");
 		} else {
-			push @$temp_fields, "COALESCE(CAST(e$i.value AS text),'No value') AS $field->{'attribute'}";
+			push @$temp_fields, qq(COALESCE(CAST(e$i.value AS text),'No value') AS "$field->{'attribute'}");
 		}
 		push @$tables,
 		    "isolate_value_extended_attributes e$i ON "
@@ -281,9 +282,9 @@ sub _process_eav_fields {
 		my $table = $self->{'datastore'}->get_eav_field_table($field);
 		my $att   = $self->{'datastore'}->get_eav_field($field);
 		if ( $att->{'value_format'} eq 'text' ) {
-			push @$temp_fields, "COALESCE(eav$i.value,'No value') AS $field";
+			push @$temp_fields, qq(COALESCE(eav$i.value,'No value') AS "$field");
 		} else {
-			push @$temp_fields, "COALESCE(CAST(eav$i.value AS text),'No value') AS $field";
+			push @$temp_fields, qq(COALESCE(CAST(eav$i.value AS text),'No value') AS "$field");
 		}
 		push @$tables, "$table eav$i ON (eav$i.isolate_id,eav$i.field)=(v.id,'$field')";
 		$i++;
