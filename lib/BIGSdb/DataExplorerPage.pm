@@ -72,12 +72,12 @@ sub _create_freq_table {
 	my $list_table = $self->{'datastore'}->create_temp_list_table_from_array( 'text', $params->{'values'} );
 	my $check = $self->_check_fields($params);
 	my (
-		$list_field, $includes_null, $primary_fields, $extended_fields,
-		$eav_fields, $group_fields,  $multi_values,   $user_fields
+		$list_field,    $includes_null, $primary_fields, $extended_fields, $eav_fields,
+		$scheme_fields, $group_fields,  $multi_values,   $user_fields
 	  )
 	  = @{$check}{
-		qw(list_field includes_null primary_fields extended_fields eav_fields group_fields multi_values
-		  user_fields)
+		qw(list_field includes_null primary_fields extended_fields eav_fields scheme_fields group_fields
+		  multi_values user_fields)
 	  };
 	my @tables;
 	my @fields;
@@ -95,6 +95,12 @@ sub _create_freq_table {
 	}
 	if (@$eav_fields) {
 		my $processed = $self->_process_eav_fields($eav_fields);
+		local $" = q(,);
+		push @fields, @{ $processed->{'fields'} };
+		push @tables, @{ $processed->{'tables'} };
+	}
+	if (@$scheme_fields) {
+		my $processed = $self->_process_scheme_fields($scheme_fields);
 		local $" = q(,);
 		push @fields, @{ $processed->{'fields'} };
 		push @tables, @{ $processed->{'tables'} };
@@ -122,8 +128,8 @@ sub _create_freq_table {
 		$qry .= qq( OR $list_field IS NULL) if $includes_null;
 		$qry .= q[) ];
 	}
-	local $" = q(",");
-	$qry .= qq(GROUP BY "@$group_fields");
+	local $" = q(","_);
+	$qry .= qq(GROUP BY "_@$group_fields");
 	$logger->error($qry);
 	eval { $self->{'db'}->do($qry); };
 	if ($@) {
@@ -132,9 +138,17 @@ sub _create_freq_table {
 	} else {
 		$self->{'db'}->commit;
 	}
-	local $"= q(",");
+
+	#We prefix output fieldnames with underscores to ensure they are unambiguous with scheme field names.
+	#Now we rewrite them without the prefix for output.
+	my @group_field_aliases;
+	foreach my $field (@$group_fields) {
+		push @group_field_aliases, qq("_$field" AS "$field");
+	}
+	local $" = q(,);
 	my $data =
-	  $self->{'datastore'}->run_query( qq(SELECT "@$group_fields",count FROM freqs), undef, { fetch => 'all_arrayref', slice => {} } );
+	  $self->{'datastore'}
+	  ->run_query( qq(SELECT @group_field_aliases,count FROM freqs), undef, { fetch => 'all_arrayref', slice => {} } );
 	$data = $self->_rewrite_user_field_values( $data, $user_fields ) if @$user_fields;
 	return $data;
 }
@@ -145,6 +159,7 @@ sub _check_fields {
 	my $primary_fields  = [];
 	my $extended_fields = [];
 	my $eav_fields      = [];
+	my $scheme_fields   = [];
 	my $group_fields    = [];
 	my $multi_values;
 	my %user_fields;
@@ -192,11 +207,28 @@ sub _check_fields {
 			next if !$att;
 			push @$eav_fields, $this_field;
 			if ( $field eq $params->{'fields'}->[0] ) {
-				$list_field =
-				  $att->{'value_format'} ne 'text' ? 'CAST(eav1.value AS text)' : 'eav1.value';
+				$list_field = $att->{'value_format'} ne 'text' ? 'CAST(eav1.value AS text)' : 'eav1.value';
 			}
 			push @$group_fields, $this_field;
 			$used{$this_field} = 1;
+		}
+		if ( $field =~ /^s_(\d+)_(.*)/x ) {
+			my ( $scheme_id, $field_name ) = ( $1, $2 );
+			next if $used{$field};
+			my $att = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field_name );
+			next if !$att;
+			push @$scheme_fields,
+			  {
+				scheme_id => $scheme_id,
+				field     => $field_name
+			  };
+			my $cleaned_field_name = $self->_get_scheme_field_name( { scheme_id => $scheme_id, field => $field_name } );
+			my $table = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+			if ( $field eq $params->{'fields'}->[0] ) {
+				$list_field = $att->{'type'} ne 'text' ? qq(CAST($table.$field_name AS text)) : qq($table.$field_name);
+			}
+			push @$group_fields, $cleaned_field_name;
+			$used{$field} = 1;
 		}
 	}
 	return {
@@ -205,6 +237,7 @@ sub _check_fields {
 		primary_fields  => $primary_fields,
 		extended_fields => $extended_fields,
 		eav_fields      => $eav_fields,
+		scheme_fields   => $scheme_fields,
 		group_fields    => $group_fields,
 		multi_values    => $multi_values,
 		user_fields     => [ keys %user_fields ]
@@ -233,12 +266,13 @@ sub _process_primary_fields {
 	foreach my $field (@$primary_fields) {
 		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
 		if ( ( $att->{'multiple'} // q() ) eq 'yes' ) {
-			push @$temp_fields, qq(COALESCE(NULLIF(ARRAY_TO_STRING(array_sort(v.$field),'; '),''),'No value') AS "$field");
+			push @$temp_fields,
+			  qq(COALESCE(NULLIF(ARRAY_TO_STRING(array_sort(v.$field),'; '),''),'No value') AS "_$field");
 		} else {
 			if ( lc( $att->{'type'} ) eq 'text' ) {
-				push @$temp_fields, qq(COALESCE(v.$field,'No value') AS "$field");
+				push @$temp_fields, qq(COALESCE(v.$field,'No value') AS "_$field");
 			} else {
-				push @$temp_fields, qq(COALESCE(CAST(v.$field AS text),'No value') AS "$field");
+				push @$temp_fields, qq(COALESCE(CAST(v.$field AS text),'No value') AS "_$field");
 			}
 		}
 	}
@@ -257,9 +291,9 @@ sub _process_extended_fields {
 		my $att = $self->{'datastore'}
 		  ->get_isolate_extended_field_attributes( $field->{'isolate_field'}, $field->{'attribute'} );
 		if ( $att->{'value_format'} eq 'text' ) {
-			push @$temp_fields, qq(COALESCE(e$i.value,'No value') AS "$field->{'attribute'}");
+			push @$temp_fields, qq(COALESCE(e$i.value,'No value') AS "_$field->{'attribute'}");
 		} else {
-			push @$temp_fields, qq(COALESCE(CAST(e$i.value AS text),'No value') AS "$field->{'attribute'}");
+			push @$temp_fields, qq(COALESCE(CAST(e$i.value AS text),'No value') AS "_$field->{'attribute'}");
 		}
 		push @$tables,
 		    "isolate_value_extended_attributes e$i ON "
@@ -282,9 +316,9 @@ sub _process_eav_fields {
 		my $table = $self->{'datastore'}->get_eav_field_table($field);
 		my $att   = $self->{'datastore'}->get_eav_field($field);
 		if ( $att->{'value_format'} eq 'text' ) {
-			push @$temp_fields, qq(COALESCE(eav$i.value,'No value') AS "$field");
+			push @$temp_fields, qq(COALESCE(eav$i.value,'No value') AS "_$field");
 		} else {
-			push @$temp_fields, qq(COALESCE(CAST(eav$i.value AS text),'No value') AS "$field");
+			push @$temp_fields, qq(COALESCE(CAST(eav$i.value AS text),'No value') AS "_$field");
 		}
 		push @$tables, "$table eav$i ON (eav$i.isolate_id,eav$i.field)=(v.id,'$field')";
 		$i++;
@@ -293,6 +327,39 @@ sub _process_eav_fields {
 		fields => $temp_fields,
 		tables => $tables
 	};
+}
+
+sub _process_scheme_fields {
+	my ( $self, $scheme_fields ) = @_;
+	my $tables      = [];
+	my $temp_fields = [];
+	my %used;
+	foreach my $field (@$scheme_fields) {
+		my $field_name = $self->_get_scheme_field_name($field);
+		my $table =
+		  $self->{'datastore'}->create_temp_isolate_scheme_fields_view( $field->{'scheme_id'} );
+		my $att = $self->{'datastore'}->get_scheme_field_info( $field->{'scheme_id'}, $field->{'field'} );
+		if ( $att->{'type'} eq 'text' ) {
+			push @$temp_fields, qq(COALESCE($table.$field->{'field'},'No value') AS "_$field_name");
+		} else {
+			push @$temp_fields, qq(COALESCE(CAST($table.$field->{'field'} AS text),'No value') AS "_$field_name");
+		}
+		push @$tables, "$table ON $table.id=v.id" if !$used{$table};
+		$used{$table} = 1;
+	}
+	return {
+		fields => $temp_fields,
+		tables => $tables
+	};
+}
+
+sub _get_scheme_field_name {
+	my ( $self, $field ) = @_;
+	my $set_id = $self->get_set_id;
+	my $scheme_info =
+	  $self->{'datastore'}->get_scheme_info( $field->{'scheme_id'}, { set_id => $set_id } );
+	my $field_name = "$field->{'field'} ($scheme_info->{'name'})";
+	return $field_name;
 }
 
 sub print_content {
@@ -383,7 +450,7 @@ sub _print_field_controls {
 			{
 				ignore_prefs        => 1,
 				isolate_fields      => 1,
-				scheme_fields       => 0,
+				scheme_fields       => 1,
 				extended_attributes => 1,
 				eav_fields          => 1,
 			},
