@@ -23,6 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::DashboardPage);
 use JSON;
 use BIGSdb::Constants qw(RECORD_AGE);
+use Data::Dumper;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant DEFAULT_ROWS => 15;
@@ -59,12 +60,104 @@ sub _ajax_analyse {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called b
 		$logger->error('No values passed');
 		return;
 	}
-	my $data = $self->_create_freq_table($params);
+	my $fields    = $self->_get_field_names( $params->{'fields'} );
+	my $freq      = $self->_create_freq_table($params);
+	my $hierarchy = $self->_create_hierarchy( $fields, $freq );
+	my $data      = {
+		fields      => $fields,
+		frequencies => $freq
+	};
 	eval { say $json->encode($data); };
 	if (@$) {
 		$logger->error('Cannot JSON encode dataset.');
 	}
 	return;
+}
+
+sub _create_hierarchy {
+	my ( $self, $fields, $freq ) = @_;
+	my $data = { children => {} };
+	$data->{'count'} = 0;
+	$data->{'count'} += $_->{'count'} foreach @$freq;
+	$data->{'children'} = [];
+	my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query";
+	foreach my $record (@$freq) {
+		$self->_populate_node( $data->{'children'}, $fields->{'cleaned'}, $record, $url, 0 );
+	}
+	$logger->error( Dumper $data);
+	return;
+}
+
+sub _populate_node {
+	my ( $self, $data, $fields, $record, $url, $level ) = @_;
+	return if $level == @$fields;
+	my $this_node = {};
+	$this_node->{'count'} += $record->{'count'};
+	my $field = $fields->[$level];
+	my $value = $record->{ $fields->[$level] };
+	foreach my $term (@{$record->{'search_terms'}->{$field}}){
+		$url.="&amp;$term->{'form'}=$term->{'value'}";
+	}
+	$url.='&amp;submit=1';
+	my $node_exists = 0;
+	foreach my $node (@$data) {
+		if ( $node->{'field'} eq $field && $node->{'value'} eq $value ) {    #Existing node
+			$node->{'count'} += $record->{'count'};
+			$node_exists = 1;
+			if ( $level < @$fields - 1 ) {
+				$self->_populate_node( $node->{'children'}, $fields, $record, $url, $level + 1 );
+			}
+			last;
+		}
+	}
+	if ( !$node_exists ) {
+		$this_node->{'field'} = $fields->[$level];
+		$this_node->{'value'} = $record->{ $fields->[$level] };
+		$this_node->{'url'}   = $url;
+		$this_node->{'count'} = $record->{'count'};
+		if ( $level < @$fields - 1 ) {
+			$this_node->{'children'} = [];
+			$self->_populate_node( $this_node->{'children'}, $fields, $record, $url, $level + 1 );
+		}
+		push @$data, $this_node;
+	}
+	return;
+}
+
+sub _get_field_names {
+	my ( $self, $prefixed_names ) = @_;
+	my $cleaned        = [];
+	my $mapped         = {};
+	my $reverse_mapped = {};
+	foreach my $field (@$prefixed_names) {
+		if ( $field =~ /^f_(\w+)$/x ) {
+			push @$cleaned, $1;
+			$mapped->{$1}             = $field;
+			$reverse_mapped->{$field} = $1;
+		}
+		if ( $field =~ /^e_(.*)\|\|(.*)/x ) {
+			push @$cleaned, $2;
+			$mapped->{$2}             = $field;
+			$reverse_mapped->{$field} = $2;
+		}
+		if ( $field =~ /^eav_(.*)/x ) {
+			push @$cleaned, $1;
+			$mapped->{$1}             = $field;
+			$reverse_mapped->{$field} = $1;
+		}
+		if ( $field =~ /^s_(\d+)_(.*)/x ) {
+			my ( $scheme_id, $field_name ) = ( $1, $2 );
+			my $cleaned_field_name = $self->_get_scheme_field_name( { scheme_id => $scheme_id, field => $field_name } );
+			push @$cleaned, $cleaned_field_name;
+			$mapped->{$cleaned_field_name} = $field;
+			$reverse_mapped->{$field}      = $cleaned_field_name;
+		}
+	}
+	return {
+		cleaned        => $cleaned,
+		mapped         => $mapped,
+		reverse_mapped => $reverse_mapped
+	};
 }
 
 sub _create_freq_table {
@@ -130,7 +223,6 @@ sub _create_freq_table {
 	}
 	local $" = q(","_);
 	$qry .= qq(GROUP BY "_@$group_fields");
-	$logger->error($qry);
 	eval { $self->{'db'}->do($qry); };
 	if ($@) {
 		$logger->error($@);
@@ -142,13 +234,51 @@ sub _create_freq_table {
 	#We prefix output fieldnames with underscores to ensure they are unambiguous with scheme field names.
 	#Now we rewrite them without the prefix for output.
 	my @group_field_aliases;
+	my @aliases;
 	foreach my $field (@$group_fields) {
 		push @group_field_aliases, qq("_$field" AS "$field");
+		push @aliases,             qq("$field");
 	}
 	local $" = q(,);
 	my $data =
-	  $self->{'datastore'}
-	  ->run_query( qq(SELECT @group_field_aliases,count FROM freqs), undef, { fetch => 'all_arrayref', slice => {} } );
+	  $self->{'datastore'}->run_query( qq(SELECT @group_field_aliases,count FROM freqs ORDER BY count DESC,@aliases),
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	my $field_names = $self->_get_field_names( $params->{'fields'} );
+	foreach my $record (@$data) {
+		my $search_terms = {};
+		my $prov         = 1;
+		my $eav          = 1;
+		my $scheme_field = 1;
+		foreach my $key ( @{ $field_names->{'cleaned'} } ) {
+			if ( $field_names->{'mapped'}->{$key} ) {
+				my $field = $field_names->{'mapped'}->{$key};
+				my $value = $record->{$key};
+				$value = 'null' if $value eq 'No value';
+				$value =~ s/\ /%20/gx;
+				if ( $field =~ /^[f|e]_/x ) {
+					$search_terms->{$key} =
+					  [ { form => "prov_field$prov", value => $field },
+						{ form => "prov_value$prov", value => $value } ];
+					$prov++;
+				}
+				if ( $field =~ /^eav_/x ) {
+					$search_terms->{$key} = [
+						{ form => "phenotypic_field$eav", value => $field },
+						{ form => "phenotypic_value$eav", value => $value }
+					];
+					$eav++;
+				}
+				if ( $field =~ /^s_(\d+)_(.*)/x ) {
+					$search_terms->{$key} = [
+						{ form => "designation_field$scheme_field", value => $field },
+						{ form => "designation_value$scheme_field", value => $value }
+					];
+					$scheme_field++;
+				}
+			}
+		}
+		$record->{'search_terms'} = $search_terms;
+	}
 	$data = $self->_rewrite_user_field_values( $data, $user_fields ) if @$user_fields;
 	return $data;
 }

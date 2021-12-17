@@ -115,6 +115,17 @@ function runAnalysis() {
 		success: function(json) {
 			$("div#waiting").css("display", "none");
 			$("#response_test").html(json);
+//			let response = JSON.parse(json);
+//			const rollupMulti = (data, ...keys) => {
+//  				return d3.rollup( 
+//				    data,
+//					v => d3.sum(v, d => d.count),
+//    				...keys.map(k => (d => d[k]))
+//  				)
+//			}
+//			console.log(response.fields);
+// 			let data = rollupMulti(response.frequencies,response.fields);
+//			let data = d3.rollup(response.frequencies,v=>d3.sum(v, d=>d.count), d=>d.country, d=>d["clonal_complex (MLST)"],d=>d.capsule_group);
 		}
 	});
 }
