@@ -62,10 +62,11 @@ sub _ajax_analyse {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called b
 	}
 	my $fields    = $self->_get_field_names( $params->{'fields'} );
 	my $freq      = $self->_create_freq_table($params);
-	my $hierarchy = $self->_create_hierarchy( $fields, $freq );
+	my $hierarchy = $self->_create_hierarchy( $params, $fields, $freq );
 	my $data      = {
 		fields      => $fields,
-		frequencies => $freq
+		frequencies => $freq,
+		hierarchy   => $hierarchy
 	};
 	eval { say $json->encode($data); };
 	if (@$) {
@@ -75,37 +76,56 @@ sub _ajax_analyse {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called b
 }
 
 sub _create_hierarchy {
-	my ( $self, $fields, $freq ) = @_;
+	my ( $self, $params, $fields, $freq ) = @_;
 	my $data = { children => {} };
 	$data->{'count'} = 0;
 	$data->{'count'} += $_->{'count'} foreach @$freq;
 	$data->{'children'} = [];
 	my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query";
+	
 	foreach my $record (@$freq) {
-		$self->_populate_node( $data->{'children'}, $fields->{'cleaned'}, $record, $url, 0 );
+		$self->_populate_node(
+			{
+				data   => $data->{'children'},
+				fields => $fields->{'cleaned'},
+				record => $record,
+				url    => $url,
+				level  => 0,
+				params=>$params
+			}
+		);
 	}
-	$logger->error( Dumper $data);
-	return;
+	return $data;
 }
 
 sub _populate_node {
-	my ( $self, $data, $fields, $record, $url, $level ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $data, $fields, $record, $url, $level,$params ) = @{$args}{qw(data fields record url level params)};
 	return if $level == @$fields;
 	my $this_node = {};
 	$this_node->{'count'} += $record->{'count'};
 	my $field = $fields->[$level];
 	my $value = $record->{ $fields->[$level] };
-	foreach my $term (@{$record->{'search_terms'}->{$field}}){
-		$url.="&amp;$term->{'form'}=$term->{'value'}";
+	foreach my $term ( @{ $record->{'search_terms'}->{$field} } ) {
+		$url .= "&amp;$term->{'form'}=$term->{'value'}";
 	}
-	$url.='&amp;submit=1';
+	$url .= '&amp;submit=1';
 	my $node_exists = 0;
 	foreach my $node (@$data) {
 		if ( $node->{'field'} eq $field && $node->{'value'} eq $value ) {    #Existing node
 			$node->{'count'} += $record->{'count'};
 			$node_exists = 1;
 			if ( $level < @$fields - 1 ) {
-				$self->_populate_node( $node->{'children'}, $fields, $record, $url, $level + 1 );
+				$self->_populate_node(
+					{
+						data   => $node->{'children'},
+						fields => $fields,
+						record => $record,
+						url    => $url,
+						level  => $level + 1,
+						params=>$params
+					}
+				);
 			}
 			last;
 		}
@@ -113,15 +133,41 @@ sub _populate_node {
 	if ( !$node_exists ) {
 		$this_node->{'field'} = $fields->[$level];
 		$this_node->{'value'} = $record->{ $fields->[$level] };
-		$this_node->{'url'}   = $url;
+		
+		$this_node->{'url'} = $self->_add_url_filters($url,$params);
 		$this_node->{'count'} = $record->{'count'};
 		if ( $level < @$fields - 1 ) {
 			$this_node->{'children'} = [];
-			$self->_populate_node( $this_node->{'children'}, $fields, $record, $url, $level + 1 );
+			$self->_populate_node(
+				{
+					data   => $this_node->{'children'},
+					fields => $fields,
+					record => $record,
+					url    => $url,
+					level  => $level + 1,
+					params=>$params
+				}
+			);
 		}
 		push @$data, $this_node;
 	}
 	return;
+}
+
+sub _add_url_filters{
+	my ($self,$url,$params) = @_;
+	if ($params->{'include_old_versions'}){
+		$url.='&amp;include_old=on'
+	}
+	if ($params->{'record_age'}){
+		my $highest_prov_field =  () = $url =~ /prov_field/gx;
+		my $n = $highest_prov_field + 1;
+		my $datestamp = $self->get_record_age_datestamp( $params->{'record_age'} );
+		$url .= "&amp;prov_field$n=f_date_entered&amp;prov_operator$n=>=&amp;prov_value$n=$datestamp";
+	}
+	
+	
+	return $url;
 }
 
 sub _get_field_names {
@@ -549,9 +595,14 @@ sub print_content {
 	say q(</div>);
 	say q(<div style="clear:both"></div>);
 	say $q->textarea(
-		-id          => 'response_test',
+		-id          => 'frequency_test',
 		-style       => 'width:95%;height:10em',
-		-placeholder => 'Test area: JSON response from query will be displayed here.'
+		-placeholder => 'Test area: Frequency JSON response from query will be displayed here.'
+	);
+	say $q->textarea(
+		-id          => 'hierarchy_test',
+		-style       => 'width:95%;height:10em',
+		-placeholder => 'Test area: Hierarchy JSON response from query will be displayed here.'
 	);
 	say q(</div>);
 	my $json  = JSON->new->allow_nonref;
