@@ -82,7 +82,6 @@ sub _create_hierarchy {
 	$data->{'count'} += $_->{'count'} foreach @$freq;
 	$data->{'children'} = [];
 	my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query";
-	
 	foreach my $record (@$freq) {
 		$self->_populate_node(
 			{
@@ -91,7 +90,8 @@ sub _create_hierarchy {
 				record => $record,
 				url    => $url,
 				level  => 0,
-				params=>$params
+				params => $params,
+				total  => $data->{'count'}
 			}
 		);
 	}
@@ -100,7 +100,7 @@ sub _create_hierarchy {
 
 sub _populate_node {
 	my ( $self, $args ) = @_;
-	my ( $data, $fields, $record, $url, $level,$params ) = @{$args}{qw(data fields record url level params)};
+	my ( $data, $fields, $record, $url, $level, $params ) = @{$args}{qw(data fields record url level params)};
 	return if $level == @$fields;
 	my $this_node = {};
 	$this_node->{'count'} += $record->{'count'};
@@ -123,7 +123,8 @@ sub _populate_node {
 						record => $record,
 						url    => $url,
 						level  => $level + 1,
-						params=>$params
+						params => $params,
+						total  => $node->{'count'}
 					}
 				);
 			}
@@ -133,8 +134,7 @@ sub _populate_node {
 	if ( !$node_exists ) {
 		$this_node->{'field'} = $fields->[$level];
 		$this_node->{'value'} = $record->{ $fields->[$level] };
-		
-		$this_node->{'url'} = $self->_add_url_filters($url,$params);
+		$this_node->{'url'}   = $self->_add_url_filters( $url, $params );
 		$this_node->{'count'} = $record->{'count'};
 		if ( $level < @$fields - 1 ) {
 			$this_node->{'children'} = [];
@@ -145,7 +145,7 @@ sub _populate_node {
 					record => $record,
 					url    => $url,
 					level  => $level + 1,
-					params=>$params
+					params => $params,
 				}
 			);
 		}
@@ -154,19 +154,17 @@ sub _populate_node {
 	return;
 }
 
-sub _add_url_filters{
-	my ($self,$url,$params) = @_;
-	if ($params->{'include_old_versions'}){
-		$url.='&amp;include_old=on'
+sub _add_url_filters {
+	my ( $self, $url, $params ) = @_;
+	if ( $params->{'include_old_versions'} ) {
+		$url .= '&amp;include_old=on';
 	}
-	if ($params->{'record_age'}){
-		my $highest_prov_field =  () = $url =~ /prov_field/gx;
-		my $n = $highest_prov_field + 1;
-		my $datestamp = $self->get_record_age_datestamp( $params->{'record_age'} );
+	if ( $params->{'record_age'} ) {
+		my $highest_prov_field = () = $url =~ /prov_field/gx;
+		my $n                  = $highest_prov_field + 1;
+		my $datestamp          = $self->get_record_age_datestamp( $params->{'record_age'} );
 		$url .= "&amp;prov_field$n=f_date_entered&amp;prov_operator$n=>=&amp;prov_value$n=$datestamp";
 	}
-	
-	
 	return $url;
 }
 
@@ -561,6 +559,7 @@ sub print_content {
 		return;
 	}
 	my $display_field = $self->get_display_field($field);
+	
 	say q(<div class="box resultstable" id="data_explorer">);
 	$self->_print_filters;
 	say qq(<div style="float:left"><h2>Field: $display_field</h2>);
@@ -594,16 +593,20 @@ sub print_content {
 	say q(</div>);
 	say q(</div>);
 	say q(<div style="clear:both"></div>);
-	say $q->textarea(
-		-id          => 'frequency_test',
-		-style       => 'width:95%;height:10em',
-		-placeholder => 'Test area: Frequency JSON response from query will be displayed here.'
-	);
-	say $q->textarea(
-		-id          => 'hierarchy_test',
-		-style       => 'width:95%;height:10em',
-		-placeholder => 'Test area: Hierarchy JSON response from query will be displayed here.'
-	);
+	say q(<div id="tooltip"></div>);
+	
+	say q(<div id="tree"></div>);
+
+	#	say $q->textarea(
+	#		-id          => 'frequency_test',
+	#		-style       => 'width:95%;height:10em',
+	#		-placeholder => 'Test area: Frequency JSON response from query will be displayed here.'
+	#	);
+#	say $q->textarea(
+#		-id          => 'hierarchy_test',
+#		-style       => 'width:95%;height:10em',
+#		-placeholder => 'Test area: Hierarchy JSON response from query will be displayed here.'
+#	);
 	say q(</div>);
 	my $json  = JSON->new->allow_nonref;
 	my $index = $json->encode( $table->{'index'} );

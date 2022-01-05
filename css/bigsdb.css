@@ -1,4 +1,4 @@
-/*Version: 20211021*/
+/*Version: 20220105*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -1972,6 +1972,16 @@ div.expandable_retracted_large {
 
 div.data_explorer {
 	height: 25em;
+}
+
+div#data_explorer #tooltip {
+	visibility: hidden;
+	display: inline-block;
+	padding: 0.1em 0.5em;
+	min-height: 1em;
+	background: #888;
+	color: white;
+	border-radius: 2px
 }
 
 div.expand_link {
