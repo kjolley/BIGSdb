@@ -163,7 +163,8 @@ WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
 ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.*/
 function loadTree(data) {
-	const root = d3.hierarchy(data.hierarchy);
+	const root = d3.hierarchy(data.hierarchy).copy().sort((a, b) => d3.descending(a.data.count, b.data.count));
+	console.log(root);
 	let fieldCount = data.fields.cleaned.length;
 	let dx = 20;
 
