@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2021, University of Oxford
+#Copyright (c) 2021-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -81,7 +81,7 @@ sub _create_hierarchy {
 	$data->{'count'} = 0;
 	$data->{'count'} += $_->{'count'} foreach @$freq;
 	$data->{'children'} = [];
-	my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query";
+	my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query";
 	foreach my $record (@$freq) {
 		$self->_populate_node(
 			{
@@ -107,9 +107,9 @@ sub _populate_node {
 	my $field = $fields->[$level];
 	my $value = $record->{ $fields->[$level] };
 	foreach my $term ( @{ $record->{'search_terms'}->{$field} } ) {
-		$url .= "&amp;$term->{'form'}=$term->{'value'}";
+		$url .= "&$term->{'form'}=$term->{'value'}";
 	}
-	$url .= '&amp;submit=1';
+	$url .= '&submit=1';
 	my $node_exists = 0;
 	foreach my $node (@$data) {
 		if ( $node->{'field'} eq $field && $node->{'value'} eq $value ) {    #Existing node
@@ -157,13 +157,13 @@ sub _populate_node {
 sub _add_url_filters {
 	my ( $self, $url, $params ) = @_;
 	if ( $params->{'include_old_versions'} ) {
-		$url .= '&amp;include_old=on';
+		$url .= '&include_old=on';
 	}
 	if ( $params->{'record_age'} ) {
 		my $highest_prov_field = () = $url =~ /prov_field/gx;
 		my $n                  = $highest_prov_field + 1;
 		my $datestamp          = $self->get_record_age_datestamp( $params->{'record_age'} );
-		$url .= "&amp;prov_field$n=f_date_entered&amp;prov_operator$n=>=&amp;prov_value$n=$datestamp";
+		$url .= "&prov_field$n=f_date_entered&prov_operator$n=>=&prov_value$n=$datestamp";
 	}
 	return $url;
 }
@@ -300,6 +300,8 @@ sub _create_freq_table {
 				$value = 'null' if $value eq 'No value';
 				$value =~ s/\ /%20/gx;
 				if ( $field =~ /^[f|e]_/x ) {
+					$field = 'f_sender%20(id)'  if $field eq 'f_sender';
+					$field = 'f_curator%20(id)' if $field eq 'f_curator';
 					$search_terms->{$key} =
 					  [ { form => "prov_field$prov", value => $field },
 						{ form => "prov_value$prov", value => $value } ];
@@ -559,7 +561,6 @@ sub print_content {
 		return;
 	}
 	my $display_field = $self->get_display_field($field);
-	
 	say q(<div class="box resultstable" id="data_explorer">);
 	$self->_print_filters;
 	say qq(<div style="float:left"><h2>Field: $display_field</h2>);
@@ -593,20 +594,11 @@ sub print_content {
 	say q(</div>);
 	say q(</div>);
 	say q(<div style="clear:both"></div>);
+	say q(<p id="notes" style="display:none">Click nodes to expand or contract the tree, )
+	  . q(click labels to query the database and return filtered dataset.</p>);
 	say q(<div id="tooltip"></div>);
-	
+	say q(<div id="field_labels"></div>);
 	say q(<div id="tree"></div>);
-
-	#	say $q->textarea(
-	#		-id          => 'frequency_test',
-	#		-style       => 'width:95%;height:10em',
-	#		-placeholder => 'Test area: Frequency JSON response from query will be displayed here.'
-	#	);
-#	say $q->textarea(
-#		-id          => 'hierarchy_test',
-#		-style       => 'width:95%;height:10em',
-#		-placeholder => 'Test area: Hierarchy JSON response from query will be displayed here.'
-#	);
 	say q(</div>);
 	my $json  = JSON->new->allow_nonref;
 	my $index = $json->encode( $table->{'index'} );
@@ -721,28 +713,29 @@ sub _is_user_field {
 
 sub _get_url {
 	my ( $self, $field, $value, $params ) = @_;
-	my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query";
+	my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query";
 	$value = 'null' if $value eq 'No value';
 	if ( $field =~ /^[f|e]_/x ) {
+		$logger->error($field);
 		$field = 'f_sender%20(id)'  if $field eq 'f_sender';
 		$field = 'f_curator%20(id)' if $field eq 'f_curator';
-		$url .= "&amp;prov_field1=$field&amp;prov_value1=$value";
+		$url .= "&prov_field1=$field&prov_value1=$value";
 	}
 	if ( $field =~ /^eav_/x ) {
-		$url .= "&amp;phenotypic_field1=$field&amp;phenotypic_value1=$value";
+		$url .= "&phenotypic_field1=$field&phenotypic_value1=$value";
 	}
 	if ( $field =~ /^s_\d+_/x ) {
-		$url .= "&amp;designation_field1=$field&amp;designation_value1=$value";
+		$url .= "&designation_field1=$field&designation_value1=$value";
 	}
 	if ( $params->{'include_old_versions'} ) {
-		$url .= '&amp;include_old=on';
+		$url .= '&include_old=on';
 	}
 	if ( $params->{'record_age'} ) {
 		my $row = $url =~ /prov_field1/x ? 2 : 1;
 		my $datestamp = $self->get_record_age_datestamp( $params->{'record_age'} );
-		$url .= "&amp;prov_field$row=f_date_entered&amp;prov_operator$row=>=&amp;" . "prov_value$row=$datestamp";
+		$url .= "&prov_field$row=f_date_entered&prov_operator$row=>=&prov_value$row=$datestamp";
 	}
-	$url .= '&amp;submit=1';
+	$url .= '&submit=1';
 	return $url;
 }
 

@@ -1,6 +1,6 @@
 /**
  * Written by Keith Jolley 
- * Copyright (c) 2021, University of Oxford 
+ * Copyright (c) 2021-2022, University of Oxford 
  * E-mail: keith.jolley@zoo.ox.ac.uk
  * 
  * This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -115,10 +115,9 @@ function runAnalysis() {
 		success: function(json) {
 			$("div#waiting").css("display", "none");
 			let data = JSON.parse(json);
-			//			$("#frequency_test").html(JSON.stringify(data.frequencies));
-			//			$("#hierarchy_test").html(JSON.stringify(data.hierarchy));
-
 			d3.select("div#tree").select("svg").remove();
+			d3.select("p#notes").style("display", "block");
+			d3.select("div#field_labels").html('<p style="margin-left:100px">' + data.fields.cleaned.join("</p><p>") + "</p>");
 			loadTree(data);
 		}
 	});
@@ -149,6 +148,7 @@ function reloadTable() {
 }
 
 //Modified from https://observablehq.com/@d3/collapsible-tree
+//Mike Bostock
 //Copyright 2018-2020 Observable, Inc.
 //ISC License
 /*Permission to use, copy, modify, and/or distribute this software for any
@@ -164,7 +164,6 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.*/
 function loadTree(data) {
 	const root = d3.hierarchy(data.hierarchy).copy().sort((a, b) => d3.descending(a.data.count, b.data.count));
-	console.log(root);
 	let fieldCount = data.fields.cleaned.length;
 	let dx = 20;
 
@@ -233,7 +232,8 @@ function loadTree(data) {
 
 		nodeEnter.append("circle")
 			.attr("r", 8)
-			.attr("fill", d => d._children ? "#555" : "#999")
+//			.attr("fill", d => d._children ? "#555" : "#999")
+			.attr("fill", d => d._children ? "#559" : "#999")
 			.attr("stroke-width", 10)
 			.attr("cursor", "pointer")
 			.on("click", (event, d) => {

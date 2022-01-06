@@ -1,4 +1,4 @@
-/*Version: 20220105*/
+/*Version: 20220106*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -1984,6 +1984,19 @@ div#data_explorer #tooltip {
 	border-radius: 2px
 }
 
+div#data_explorer div#field_labels {
+	display: flex;
+	margin: 0 40px 0 40px;
+	font-size: 1.4em;
+	line-height: 1.2em
+}
+
+div#data_explorer div#field_labels p {
+	flex: 1 1 0;
+	text-align: center;
+	color: #666;
+}
+
 div.expand_link {
 	text-align: center
 }
@@ -2958,6 +2971,9 @@ a.slide_trigger {
 	.resize_seq, pre.alignment, pre.sixpack {
 		font-size: 0.8em
 	}
+	div#data_explorer div#field_labels {
+		font-size: 1.2em
+	}
 }
 
 @media only screen and (max-width:800px) {
@@ -2995,6 +3011,9 @@ a.slide_trigger {
 	}
 	div.icon_label {
 		display: none
+	}
+	div#data_explorer div#field_labels {
+		font-size: 1em
 	}
 }
 
