@@ -176,7 +176,7 @@ function loadTree(data) {
 
 	root.x0 = dy / 2;
 	root.y0 = 0;
-	
+
 	root.descendants().forEach((d, i) => {
 		d.id = i;
 		d._children = d.children;
@@ -186,7 +186,7 @@ function loadTree(data) {
 	const svg = d3.select("div#tree")
 		.append("svg")
 		.attr("viewBox", [-margin.left, -margin.top, width, dx])
-		.style("font", "12px sans-serif")
+		.style("font", "13px sans-serif")
 		.style("user-select", "none");
 
 	const gLink = svg.append("g")
@@ -232,7 +232,7 @@ function loadTree(data) {
 		const tooltip = d3.select("div#tooltip");
 
 		nodeEnter.append("circle")
-			.attr("r", 5)
+			.attr("r", 8)
 			.attr("fill", d => d._children ? "#555" : "#999")
 			.attr("stroke-width", 10)
 			.attr("cursor", "pointer")
@@ -241,7 +241,7 @@ function loadTree(data) {
 				update(d);
 			})
 			.on("mouseover", function(event, d) {
-				if (d._children == null){
+				if (d._children == null) {
 					return;
 				}
 				tooltip.html("Click to expand/contract")
@@ -253,7 +253,13 @@ function loadTree(data) {
 			.attr("dy", "0.31em")
 			.attr("x", d => d._children ? -12 : 12)
 			.attr("text-anchor", d => d._children ? "end" : "start")
-			.text(d => d.data.value)
+			.text(function(d) {
+				if (d.data.value && d.data.value.length > 25) {
+					return d.data.value.substring(0, 22) + '...';
+				} else {
+					return d.data.value;
+				}
+			})
 			.attr("cursor", "pointer")
 			.on("click touchstart", (event, d) => {
 				window.open(d.data.url);
