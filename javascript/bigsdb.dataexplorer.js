@@ -144,6 +144,8 @@ function reloadTable() {
 		dataIndex = JSON.parse(json).index;
 		$("#analyse").addClass("disabled");
 		d3.select("div#tree").select("svg").remove();
+		d3.select("div#field_labels").html("");
+		d3.select("p#notes").style("display", "none");
 	});
 }
 
@@ -232,7 +234,7 @@ function loadTree(data) {
 
 		nodeEnter.append("circle")
 			.attr("r", 8)
-//			.attr("fill", d => d._children ? "#555" : "#999")
+			//			.attr("fill", d => d._children ? "#555" : "#999")
 			.attr("fill", d => d._children ? "#559" : "#999")
 			.attr("stroke-width", 10)
 			.attr("cursor", "pointer")
