@@ -1,4 +1,4 @@
-/*Version: 20220106*/
+/*Version: 20220107*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -3044,6 +3044,9 @@ a.slide_trigger {
 	}
 	div.registration_buttons {
 		margin: 0
+	}
+	div#data_explorer div#field_labels {
+		display: none
 	}
 }
 
