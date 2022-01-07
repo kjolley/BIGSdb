@@ -49,21 +49,31 @@ $(function() {
 		}
 	});
 	$("div#data_explorer").on("change", ".option_check,.field_selector", function() {
-		if (canAnalyse()) {
-			$("#analyse").removeClass("disabled");
-		} else {
-			$("#analyse").addClass("disabled");
-		}
+		updateButtonStatus();
+	});
+	$("div#data_explorer").on("change", "#select_all", function() {
+		$(".option_check").prop('checked', this.checked);
+		updateButtonStatus();
+
 	});
 	$("div#data_explorer").on("click touchstart", "#analyse", function() {
 		if (canAnalyse()) {
 			runAnalysis();
 		}
 	});
+
 	if (canAnalyse()) {
 		$("#analyse").removeClass("disabled");
 	}
 });
+
+function updateButtonStatus() {
+	if (canAnalyse()) {
+		$("#analyse").removeClass("disabled");
+	} else {
+		$("#analyse").addClass("disabled");
+	}
+}
 
 function canAnalyse() {
 	let checkbox_selected = false;

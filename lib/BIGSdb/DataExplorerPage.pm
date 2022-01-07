@@ -668,8 +668,9 @@ sub _get_table {
 	my $class         = $hide ? q(expandable_retracted data_explorer) : q();
 	my $table         = qq(<div id="table" class="scrollable $class">);
 	$table .= q(<table class="tablesorter"><thead><tr><th>Value</th><th>Frequency</th><th>%</th>)
-	  . q(<th class="sorter-false">Select</th></tr></thead>);
-	$table .= q(<tbody>);
+	  . q(<th class="sorter-false">Select);
+	  $table .= $q->checkbox(-id=>'select_all', -name=>'select_all', -label => '');
+	$table .= q(</th></tr></thead><tbody>);
 
 	foreach my $value ( sort { $values->{$b} <=> $values->{$a} } keys %$values ) {
 		my $url = $self->_get_url( $field, $value, $params );
