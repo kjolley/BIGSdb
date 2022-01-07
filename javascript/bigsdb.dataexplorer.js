@@ -117,7 +117,7 @@ function runAnalysis() {
 			let data = JSON.parse(json);
 			d3.select("div#tree").select("svg").remove();
 			d3.select("p#notes").style("display", "block");
-			d3.select("div#field_labels").html('<p style="margin-left:100px">' + data.fields.cleaned.join("</p><p>") + "</p>");
+			d3.select("div#field_labels").html('<p style="margin-left:100px">' + data.fields.cleaned.join("</p><p>").replace(/_/g, " ") + "</p>");
 			loadTree(data);
 		}
 	});
