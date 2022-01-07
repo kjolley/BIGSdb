@@ -149,7 +149,7 @@ function reloadTable() {
 	});
 }
 
-//Modified from https://observablehq.com/@d3/collapsible-tree
+//Function modified from https://observablehq.com/@d3/collapsible-tree
 //Mike Bostock
 //Copyright 2018-2020 Observable, Inc.
 //ISC License
@@ -237,7 +237,7 @@ function loadTree(data) {
 			//			.attr("fill", d => d._children ? "#555" : "#999")
 			.attr("fill", d => d._children ? "#559" : "#999")
 			.attr("stroke-width", 10)
-			.attr("cursor", "pointer")
+			.attr("cursor", d => d._children ? "pointer" : "auto")
 			.on("click", (event, d) => {
 				d.children = d.children ? null : d._children;
 				update(d);
@@ -325,9 +325,7 @@ function loadTree(data) {
 			d.y0 = d.y;
 		});
 	}
-
 	update(root);
-
 }
 
 function commify(x) {

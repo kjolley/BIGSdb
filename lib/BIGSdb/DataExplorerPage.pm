@@ -716,7 +716,6 @@ sub _get_url {
 	my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query";
 	$value = 'null' if $value eq 'No value';
 	if ( $field =~ /^[f|e]_/x ) {
-		$logger->error($field);
 		$field = 'f_sender%20(id)'  if $field eq 'f_sender';
 		$field = 'f_curator%20(id)' if $field eq 'f_curator';
 		$url .= "&prov_field1=$field&prov_value1=$value";
