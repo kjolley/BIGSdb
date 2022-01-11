@@ -38,6 +38,7 @@ Version 1.29: Change of user and isolate database structures.
 Version 1.30: Change of isolate database structure.
 Version 1.31: Change of isolate database structure.
 Version 1.32: Change of seqdef, isolate and preference database structures.
+Version 1.33: Change of isolate database structure.
 
 Details can be found below.
 
@@ -514,3 +515,11 @@ seqdefdb_v1.32.sql script against sequence definition databases, and the
 prefs_v1.32.sql script against the prefs database (bigsdb_prefs by default).
 
 Note that there is a new Perl module dependency: TOML.
+
+Version 1.33
+------------
+There is a small change to the isolate database, introducing an embedded 
+function needed to sort the contents of array fields. This is used by the
+Data Explorer tool linked to the front-end dashboard.
+
+Please run the isolatedb_v1.33.sql script against isolate databases.

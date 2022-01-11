@@ -1,3 +1,6 @@
+v1.33.0: *Data explorer page linked to dashboard. This offers an interactive
+          decomposition tree based on selected fields with links directly to
+          return query dataset.
 v1.32.2: *Minor bug fix.
 v1.32.1: *Update of Microreact plugin to support new API.
 v1.32.0: *New front-end dashboards.
