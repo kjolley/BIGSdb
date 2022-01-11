@@ -277,7 +277,7 @@ function loadTree(data) {
 				window.open(d.data.url);
 			})
 			.on("mouseover", function(event, d) {
-				tooltip.html("Click to see records (" + d.data.count + ")")
+				tooltip.html("Click to see records (" + commify(d.data.count) + ")")
 					.style("visibility", "visible");
 			})
 			.on("mouseout", function() { tooltip.style("visibility", "hidden"); })
