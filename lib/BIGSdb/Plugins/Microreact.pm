@@ -39,8 +39,8 @@ my $logger = get_logger('BIGSdb.Plugins');
 use utf8;
 use constant MAX_RECORDS                 => 2000;
 use constant MAX_SEQS                    => 100_000;
-use constant MICROREACT_SCHEMA_CONVERTER => 'https://demo.microreact.org/api/schema/convert';
-use constant MICROREACT_URL              => 'https://demo.microreact.org/api/projects/create';
+use constant MICROREACT_SCHEMA_CONVERTER => 'https://microreact.org/api/schema/convert';
+use constant MICROREACT_URL              => 'https://microreact.org/api/projects/create';
 
 sub get_attributes {
 	my ($self) = @_;
@@ -65,7 +65,7 @@ sub get_attributes {
 		buttontext => 'Microreact',
 		menutext   => 'Microreact',
 		module     => 'Microreact',
-		version    => '1.1.2',
+		version    => '1.1.3',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',

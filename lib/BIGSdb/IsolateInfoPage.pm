@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -462,7 +462,7 @@ sub print_content {
 
 	if ( @$loci && $self->_should_show_schemes($isolate_id) ) {
 		my $classification_data = $self->_get_classification_group_data($isolate_id);
-		say $self->_format_classifcation_data($classification_data);
+		say $self->_format_classification_data($classification_data);
 		say q(<div><span class="info_icon fas fa-2x fa-fw fa-table fa-pull-left" style="margin-top:0.3em"></span>);
 		say qq(<h2 style="display:inline-block">Schemes and loci</h2>$tree_button$aliases_button<div>);
 		if ( @$scheme_data < 3 && @$loci <= 100 ) {
@@ -607,7 +607,7 @@ sub _get_classification_group_data {
 			$logger->warn( "Scheme $scheme_id is not cached for this database.  Display of similar isolates "
 				  . 'is disabled. You need to run the update_scheme_caches.pl script regularly against this '
 				  . 'database to create these caches.' );
-			return q();
+			return [];
 		}
 		my $scheme_info  = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 		my $scheme_table = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
@@ -668,7 +668,7 @@ sub _get_classification_group_data {
 	return $data;
 }
 
-sub _format_classifcation_data {
+sub _format_classification_data {
 	my ( $self, $data ) = @_;
 	my $buffer = q();
 	return $buffer if !@$data;
