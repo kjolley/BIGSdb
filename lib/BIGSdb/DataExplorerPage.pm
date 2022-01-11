@@ -568,6 +568,15 @@ sub print_content {
 		include_old_versions => $q->param('include_old_versions') eq 'true' ? 1 : 0,
 		record_age => scalar $q->param('record_age')
 	};
+	if ( $q->param('specific_values') ) {
+		my $json = JSON->new->allow_nonref;
+		my $values;
+		eval { $values = $json->decode( scalar $q->param('specific_values') ); };
+		if ($@) {
+			$logger->error('Invalid JSON encoding of specific values.');
+		}
+		$params->{'checked_values'} = $values;
+	}
 	my $values  = $self->_get_values( $field, $params );
 	my $count   = keys %$values;
 	my $records = 0;
@@ -660,6 +669,10 @@ sub _get_table {
 	if ( !$total ) {
 		return q(<p>No values to display</p>);
 	}
+	my %checked;
+	if ( $params->{'checked_values'} ) {
+		%checked = map { $_ => 1 } @{ $params->{'checked_values'} };
+	}
 	my $q             = $self->{'cgi'};
 	my $i             = 1;
 	my $index         = {};
@@ -669,7 +682,7 @@ sub _get_table {
 	my $table         = qq(<div id="table" class="scrollable $class">);
 	$table .= q(<table class="tablesorter"><thead><tr><th>Value</th><th>Frequency</th><th>%</th>)
 	  . q(<th class="sorter-false">Select);
-	  $table .= $q->checkbox(-id=>'select_all', -name=>'select_all', -label => '');
+	$table .= $q->checkbox( -id => 'select_all', -name => 'select_all', -label => '' );
 	$table .= q(</th></tr></thead><tbody>);
 
 	foreach my $value ( sort { $values->{$b} <=> $values->{$a} } keys %$values ) {
@@ -684,7 +697,13 @@ sub _get_table {
 		my $count = BIGSdb::Utils::commify( $values->{$value} );
 		$table .= qq(<tr class="value_row"><td style="text-align:left"><a href="$url">$label</a></td>)
 		  . qq(<td class="value_count">$count</td><td>$percent</td><td>);
-		$table .= $q->checkbox( -id => "v$i", -name => "v$i", -class => 'option_check', -label => '' );
+		$table .= $q->checkbox(
+			-id      => "v$i",
+			-name    => "v$i",
+			-class   => 'option_check',
+			-label   => '',
+			-checked => $checked{$label} ? 1 : 0
+		);
 		$table .= q(</td></tr>);
 		if ($is_user_field) {
 			$index->{$i} = $value;

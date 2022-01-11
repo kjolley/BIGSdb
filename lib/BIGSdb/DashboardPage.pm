@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2021, University of Oxford
+#Copyright (c) 2021-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -1722,6 +1722,7 @@ sub _get_field_specific_value_number_content {
 	);
 	$buffer .= $self->_add_element_watermark($element);
 	$buffer .= $self->_get_data_query_link($element);
+	$buffer .= $self->_get_data_explorer_link($element);
 	return $buffer;
 }
 
@@ -1753,6 +1754,7 @@ sub _get_field_specific_value_gauge_content {
 	my $buffer     = $self->_get_title($element);
 	$buffer .= $self->_get_multiselect_field_subtitle($element);
 	$buffer .= qq(<div id="chart_$element->{'id'}"></div>);
+	$buffer .= $self->_get_data_explorer_link($element);
 	$buffer .= << "JS";
 	<script>
 	\$(function() {
