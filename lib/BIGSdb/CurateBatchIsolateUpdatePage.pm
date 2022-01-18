@@ -642,7 +642,6 @@ sub _update {
 				$tablebuffer .= qq(<td class="statusbad">$bad [unspecified error - check logs]</td><td></td></tr>\n);
 			}
 			$error = 1;
-			$self->{'db'}->rollback;
 		} else {
 			my $failures = $self->_run_validation_checks($isolate_id);
 			if ( @$failures && @$failures > keys %{ $validation_failures->{$isolate_id} } ) {
