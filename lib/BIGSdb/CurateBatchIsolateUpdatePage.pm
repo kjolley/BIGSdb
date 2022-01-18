@@ -580,6 +580,7 @@ sub _update {
 	my @history;
 
 	foreach my $record (@records) {
+		last if $error;
 		my ( $id1, $id2, $field, $value ) = @$record;
 		my $old_value;
 		$nochange = 0;
