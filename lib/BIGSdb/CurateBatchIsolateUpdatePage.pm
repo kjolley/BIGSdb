@@ -636,8 +636,11 @@ sub _update {
 			$self->{'db'}->do( $qry, undef, @$args );
 		};
 		if ($@) {
-			$logger->error($@) if $@ !~ /duplicate/;    #Designation submitted twice in update - ignore if so
-			$tablebuffer .= qq(<td class="statusbad">$bad</td><td></td></tr>\n);
+			if ( $@ =~ /duplicate/x ) {
+				$tablebuffer .= qq(<td class="statusbad">$bad [duplicate]</td><td></td></tr>\n);
+			} else {
+				$tablebuffer .= qq(<td class="statusbad">$bad [unspecified error - check logs]</td><td></td></tr>\n);
+			}
 			$error = 1;
 		} else {
 			my $failures = $self->_run_validation_checks($isolate_id);
