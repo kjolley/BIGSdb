@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -46,20 +46,22 @@ sub print_content {
 		return;
 	}
 	local $| = 1;
-	my $data =
-	  $self->{'datastore'}->run_query(
-		'SELECT id,original_designation,sequence,remote_contig FROM sequence_bin WHERE isolate_id=? ORDER BY id',
-		$isolate_id, { fetch => 'all_arrayref' } );
-	my $remote_contig_records =
-	  $self->{'datastore'}->run_query(
-		'SELECT r.seqbin_id,r.uri FROM remote_contigs r JOIN sequence_bin S ON r.seqbin_id = s.id AND s.isolate_id=?',
-		$isolate_id, { fetch => 'all_hashref', key => 'seqbin_id' } );
+	my $data = $self->{'datastore'}->run_query(
+		'SELECT s.id,s.original_designation,s.sequence,s.remote_contig FROM sequence_bin s '
+		  . "JOIN $self->{'system'}->{'view'} v ON s.isolate_id=v.id WHERE isolate_id=? ORDER BY id",
+		$isolate_id,
+		{ fetch => 'all_arrayref' }
+	);
+	my $remote_contig_records = $self->{'datastore'}->run_query(
+		'SELECT r.seqbin_id,r.uri FROM remote_contigs r JOIN sequence_bin s ON r.seqbin_id = s.id AND '
+		  . "s.isolate_id=? JOIN $self->{'system'}->{'view'} v ON s.isolate_id=v.id",
+		$isolate_id, { fetch => 'all_hashref', key => 'seqbin_id' }
+	);
 	my $remote_uri_list = [];
 	push @$remote_uri_list, $remote_contig_records->{$_}->{'uri'} foreach keys %$remote_contig_records;
 	my $remote_contig_seqs;
 	eval { $remote_contig_seqs = $self->{'contigManager'}->get_remote_contigs_by_list($remote_uri_list); };
 	$logger->error($@) if $@;
-
 	foreach my $contig ( sort { length( $b->[2] ) <=> length( $a->[2] ) } @$data ) {
 		my ( $id, $orig, $seq ) = @$contig;
 		$seq = $remote_contig_seqs->{ $remote_contig_records->{$id}->{'uri'} } if !$seq;
@@ -74,7 +76,7 @@ sub print_content {
 		}
 	}
 	if ( !@$data ) {
-		say qq(No sequences deposited for isolate id#$isolate_id.);
+		say qq(No sequence available for isolate id#$isolate_id.);
 	}
 	return;
 }
