@@ -52,7 +52,6 @@ sub print_content {
 			{ fetch => 'col_arrayref' }
 		);
 	}
-	$logger->error(scalar @$seqbin_ids);
 	if ( !@$seqbin_ids ) {
 		say 'Invalid isolate or sequence bin id.';
 		return;
