@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2020, University of Oxford
+#Copyright (c) 2020-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -39,9 +39,8 @@ sub print_content {
 		push @$seqbin_ids, $q->param('seqbin_id');
 	} elsif ( BIGSdb::Utils::is_int( scalar $q->param('isolate_id') ) ) {
 		$seqbin_ids = $self->{'datastore'}->run_query(
-			    "SELECT s.id FROM sequence_bin s JOIN $self->{'system'}->{'view'} v "
-			  . 'ON s.isolate_id=v.id WHERE isolate_id=?'
-			,
+			"SELECT s.id FROM sequence_bin s JOIN $self->{'system'}->{'view'} v "
+			  . 'ON s.isolate_id=v.id WHERE isolate_id=?',
 			scalar $q->param('isolate_id'),
 			{ fetch => 'col_arrayref' }
 		);

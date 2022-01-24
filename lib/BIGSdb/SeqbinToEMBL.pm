@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -30,8 +30,8 @@ my $logger = get_logger('BIGSdb.Page');
 sub initiate {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	if ((scalar $q->param('format') // q()) eq 'genbank'){
-		$self->{'type'} = 'genbank'
+	if ( ( scalar $q->param('format') // q() ) eq 'genbank' ) {
+		$self->{'type'} = 'genbank';
 	} else {
 		$self->{'type'} = 'embl';
 	}
@@ -43,11 +43,19 @@ sub print_content {
 	my $q          = $self->{'cgi'};
 	my $seqbin_ids = [];
 	if ( BIGSdb::Utils::is_int( scalar $q->param('seqbin_id') ) ) {
-		push @$seqbin_ids, scalar $q->param('seqbin_id');
+		if (
+			$self->{'datastore'}->run_query(
+				    'SELECT EXISTS(SELECT * FROM sequence_bin WHERE isolate_id IN '
+				  . "(SELECT id FROM $self->{'system'}->{'view'}) AND id=?)",scalar $q->param('seqbin_id')
+			)
+		  )
+		{
+			push @$seqbin_ids, scalar $q->param('seqbin_id');
+		}
 	} elsif ( BIGSdb::Utils::is_int( scalar $q->param('isolate_id') ) ) {
 		$seqbin_ids = $self->{'datastore'}->run_query(
 			"SELECT s.id FROM sequence_bin s JOIN $self->{'system'}->{'view'} v ON s.isolate_id=v.id "
-			. 'WHERE isolate_id=? ORDER BY id',
+			  . 'WHERE isolate_id=? ORDER BY id',
 			scalar $q->param('isolate_id'),
 			{ fetch => 'col_arrayref' }
 		);
@@ -58,7 +66,7 @@ sub print_content {
 	}
 	my $options;
 	$options->{'format'} = $q->param('format') // 'embl';
-	$self->_write_embl($seqbin_ids,$options);
+	$self->_write_embl( $seqbin_ids, $options );
 	return;
 }
 
@@ -66,7 +74,7 @@ sub _write_embl {
 	my ( $self, $seqbin_ids, $options ) = @_;
 	foreach my $seqbin_id (@$seqbin_ids) {
 		my $seq_ref = $self->{'contigManager'}->get_contig($seqbin_id);
-		my $seq = $self->{'datastore'}->run_query(
+		my $seq     = $self->{'datastore'}->run_query(
 			'SELECT s.sequence,s.comments,r.uri FROM sequence_bin s LEFT JOIN remote_contigs r '
 			  . 'ON s.id=r.seqbin_id WHERE s.id=?',
 			$seqbin_id,
@@ -109,8 +117,8 @@ sub _write_embl {
 			if    ( $locus_info->{'orf'} == 2 || $locus_info->{'orf'} == 5 ) { $frame = 1 }
 			elsif ( $locus_info->{'orf'} == 3 || $locus_info->{'orf'} == 6 ) { $frame = 2 }
 			else                                                             { $frame = 0 }
-			$allele_sequence->{'start_pos'} = 1 if $allele_sequence->{'start_pos'} < 1;
-			$allele_sequence->{'end_pos'} = $seq_length if $allele_sequence->{'end_pos'} > $seq_length;
+			$allele_sequence->{'start_pos'} = 1           if $allele_sequence->{'start_pos'} < 1;
+			$allele_sequence->{'end_pos'}   = $seq_length if $allele_sequence->{'end_pos'} > $seq_length;
 			my ( $product, $desc );
 			if ( $locus_info->{'dbase_name'} ) {
 				my $locus_desc = $self->{'datastore'}->get_locus( $allele_sequence->{'locus'} )->get_description;
@@ -133,8 +141,8 @@ sub _write_embl {
 		close $stringfh_in;
 		my $str;
 		open( my $stringfh_out, '>:encoding(utf8)', \$str ) or $logger->error("Could not open string for writing: $!");
-		my %allowed_format = map {$_ => 1} qw(genbank embl);
-		my $format = $allowed_format{$options->{'format'}} ? $options->{'format'} : 'embl';
+		my %allowed_format = map { $_ => 1 } qw(genbank embl);
+		my $format = $allowed_format{ $options->{'format'} } ? $options->{'format'} : 'embl';
 		my $seq_out = Bio::SeqIO->new( -fh => $stringfh_out, -format => $format );
 		$seq_out->verbose(-1);    #Otherwise apache error log can fill rapidly on old version of BioPerl.
 		$seq_out->write_seq($seq_object);

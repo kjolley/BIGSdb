@@ -48,8 +48,7 @@ sub initiate {
 			href => $self->{'system'}->{'webroot'}
 		},
 		{
-			label => $self->{'system'}->{'formatted_description'}
-			  // $self->{'system'}->{'description'},
+			label => $self->{'system'}->{'formatted_description'} // $self->{'system'}->{'description'},
 			href => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}"
 		},
 		{
@@ -138,7 +137,9 @@ sub print_content {
 	  ->run_query( "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)", $isolate_id );
 	if ( !$exists ) {
 		say qq(<h1>Sequence bin for isolate id $isolate_id</h1>);
-		$self->print_bad_status( { message => q(The database contains no record of this isolate.), navbar => 1 } );
+		$self->print_bad_status(
+			{ message => q(The database contains no accessible record of this isolate.), navbar => 1 } )
+		  ;
 		return;
 	}
 	my $name = $self->get_name($isolate_id);
