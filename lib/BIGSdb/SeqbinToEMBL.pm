@@ -46,11 +46,13 @@ sub print_content {
 		push @$seqbin_ids, scalar $q->param('seqbin_id');
 	} elsif ( BIGSdb::Utils::is_int( scalar $q->param('isolate_id') ) ) {
 		$seqbin_ids = $self->{'datastore'}->run_query(
-			'SELECT id FROM sequence_bin WHERE isolate_id=? ORDER BY id',
+			"SELECT s.id FROM sequence_bin s JOIN $self->{'system'}->{'view'} v ON s.isolate_id=v.id "
+			. 'WHERE isolate_id=? ORDER BY id',
 			scalar $q->param('isolate_id'),
 			{ fetch => 'col_arrayref' }
 		);
 	}
+	$logger->error(scalar @$seqbin_ids);
 	if ( !@$seqbin_ids ) {
 		say 'Invalid isolate or sequence bin id.';
 		return;

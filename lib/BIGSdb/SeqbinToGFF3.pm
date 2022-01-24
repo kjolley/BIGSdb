@@ -39,7 +39,9 @@ sub print_content {
 		push @$seqbin_ids, $q->param('seqbin_id');
 	} elsif ( BIGSdb::Utils::is_int( scalar $q->param('isolate_id') ) ) {
 		$seqbin_ids = $self->{'datastore'}->run_query(
-			'SELECT id FROM sequence_bin WHERE isolate_id=?',
+			    "SELECT s.id FROM sequence_bin s JOIN $self->{'system'}->{'view'} v "
+			  . 'ON s.isolate_id=v.id WHERE isolate_id=?'
+			,
 			scalar $q->param('isolate_id'),
 			{ fetch => 'col_arrayref' }
 		);
@@ -78,7 +80,7 @@ sub _write_gff3 {
 		$type =~ s/\s/_/gx;
 		$valid_type{$type} = 1;
 	}
-	my $type_clause   = q();
+	my $type_clause = q();
 	my $selected_type = $q->param('type') // q();
 	if ( $valid_type{$selected_type} ) {
 		( my $type = $selected_type ) =~ s/_/ /gx;
