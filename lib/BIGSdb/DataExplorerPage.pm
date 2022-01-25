@@ -937,4 +937,8 @@ sub get_javascript {
 END
 	return $buffer;
 }
+
+#Override Dashboard::print_panel_buttons.
+sub print_panel_buttons {
+}
 1;
