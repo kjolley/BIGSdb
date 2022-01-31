@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2021, University of Oxford
+#Copyright (c) 2011-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -272,7 +272,9 @@ sub _get_duplicate_job_id {
 
 sub cancel_job {
 	my ( $self, $id ) = @_;
-	eval { $self->{'db'}->do( q(UPDATE jobs SET status='cancelled',cancel=true WHERE id=?), undef, $id ) };
+	eval {
+		$self->{'db'}->do( q(UPDATE jobs SET status='cancelled',stop_time='now',cancel=true WHERE id=?), undef, $id );
+	};
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
