@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -25,6 +25,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use List::MoreUtils qw(uniq any none);
 use Try::Tiny;
+use Time::Duration;
 use BIGSdb::Constants qw(:interface SEQ_METHODS SEQ_FLAGS LOCUS_PATTERN);
 use BIGSdb::Offline::Scan;
 ##DEFAUT SCAN PARAMETERS#############
@@ -548,6 +549,7 @@ sub _scan {
 			$params->{'username'}   = $self->{'username'};
 			$params->{'email'}      = $user_info->{'email'};
 			$params->{'scannew'}    = 1;
+
 			if ( $params->{'loci_together'} ) {
 				$params->{'exemplar'}             = 1;
 				$params->{'scan_partial_matches'} = 100;
@@ -868,16 +870,9 @@ sub _show_results {
 	}
 	say q(</div>);
 	say q(<div class="box" id="resultsfooter">);
-	my $elapsed = $status->{'start_time'} ? $status->{'start_time'} - ( $status->{'stop_time'} // time ) : undef;
-	my ( $refresh_time, $elapsed_time );
-	eval 'use Time::Duration';    ## no critic (ProhibitStringyEval)
-	if ($@) {
-		$refresh_time = $self->{'refresh'} . ' seconds';
-		$elapsed_time = $elapsed ? "$elapsed seconds" : undef;
-	} else {
-		$refresh_time = duration( $self->{'refresh'} );
-		$elapsed_time = $elapsed ? duration($elapsed) : undef;
-	}
+	my $elapsed      = $status->{'start_time'} ? $status->{'start_time'} - ( $status->{'stop_time'} // time ) : undef;
+	my $refresh_time = duration( $self->{'refresh'} );
+	my $elapsed_time = $elapsed ? duration($elapsed) : undef;
 	if ( $status->{'match_limit_reached'} ) {
 		say "<p>Match limit reached (checked up to id-$status->{'last_isolate'}).</p>";
 		$self->_request_stop($scan_job);

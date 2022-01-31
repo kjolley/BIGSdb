@@ -1,6 +1,6 @@
 #GenomeComparator.pm - Genome comparison plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -26,6 +26,7 @@ use BIGSdb::Exceptions;
 use BIGSdb::Constants qw(SEQ_METHODS LOCUS_PATTERN :limits);
 use BIGSdb::Plugins::Helpers::GCAligner;
 use BIGSdb::Plugins::Helpers::GCForkScan;
+use Time::Duration;
 use Bio::AlignIO;
 use Bio::Seq;
 use Bio::SeqIO;
@@ -1230,6 +1231,7 @@ sub _generate_splits {
 	my $splits_img = "$job_id.svg";
 	$self->_run_splitstree( "$self->{'config'}->{'tmp_dir'}/$nexus_file",
 		"$self->{'config'}->{'tmp_dir'}/$splits_img", 'SVG' );
+
 	if ( -e "$self->{'config'}->{'tmp_dir'}/$splits_img" ) {
 		$self->{'jobManager'}->update_job_output(
 			$job_id,
@@ -1925,16 +1927,9 @@ sub _write_excel_parameters {
 	$formats->{'heading'} = $workbook->add_format( size  => 14,      align => 'left', bold => 1 );
 	$formats->{'key'}     = $workbook->add_format( align => 'right', bold  => 1 );
 	$formats->{'value'}   = $workbook->add_format( align => 'left' );
-	my $job = $self->{'jobManager'}->get_job($job_id);
-	my $total_time;
-	eval 'use Time::Duration';    ## no critic (ProhibitStringyEval)
-
-	if ($@) {
-		$total_time = int( $job->{'elapsed'} ) . ' s';
-	} else {
-		$total_time = duration( $job->{'elapsed'} );
-		$total_time = '<1 second' if $total_time eq 'just now';
-	}
+	my $job        = $self->{'jobManager'}->get_job($job_id);
+	my $total_time = duration( $job->{'elapsed'} );
+	$total_time = '<1 second' if $total_time eq 'just now';
 	( my $submit_time = $job->{'submit_time'} ) =~ s/\..*?$//x;
 	( my $start_time  = $job->{'start_time'} ) =~ s/\..*?$//x;
 	( my $stop_time   = $job->{'query_time'} ) =~ s/\..*?$//x;

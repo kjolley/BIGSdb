@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2020, University of Oxford
+#Copyright (c) 2014-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use Time::Piece;
+use Time::Duration;
 use parent qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -55,28 +56,21 @@ sub print_content {
 		$self->print_bad_status( { message => q(No information about current user.), navbar => 1 } );
 		return;
 	}
-	eval 'use Time::Duration';    ## no critic (ProhibitStringyEval)
-	my $use_time_duration    = 1;
-	my $nice_duration_header = q(<th class="{sorter: false}">Duration (description)</th>);
-	if ($@) {
-		$use_time_duration    = 0;
-		$nice_duration_header = q();
-	}
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
 	say qq(<p>This page shows all offline jobs run by you in the past $days day$days_plural.<p>);
 	say qq(<h2>User: $user->{'first_name'} $user->{'surname'}</h2>);
 	say q(<p>Click on the job id to see results. You can also cancel queued and running jobs.</p>);
 	say q(<table class="tablesorter" id="sortTable"><thead><tr><th class="{sorter: false}">Job</th>)
 	  . q(<th>Analysis</th><th class="{sorter: false}">Size</th><th>Submitted</th><th>Started</th>)
-	  . qq(<th>Finished</th><th>Duration (seconds)</th>$nice_duration_header<th>Status</th>)
-	  . q(<th>Progress (%)</th><th>Stage</th></tr></thead><tbody>);
+	  . q(<th>Finished</th><th>Duration (seconds)</th><th class="{sorter: false}">Duration (description)</th>)
+	  . q(<th>Status</th><th>Progress (%)</th><th>Stage</th></tr></thead><tbody>);
 	foreach my $job (@$jobs) {
 		if ( $job->{'total_time'} ) {
 			$job->{'duration_s'} = int( $job->{'total_time'} );
 		} elsif ( $job->{'elapsed'} ) {
 			$job->{'duration_s'} = int( $job->{'elapsed'} );
 		}
-		if ( defined $job->{'duration_s'} && $use_time_duration ) {
+		if ( defined $job->{'duration_s'} ) {
 			$job->{'duration'} = duration( $job->{'duration_s'} );
 			$job->{'duration'} = '<1 second' if $job->{'duration'} eq 'just now';
 		}
@@ -91,7 +85,6 @@ sub print_content {
 		foreach my $field (
 			qw (id module size submit_time start_time stop_time duration_s duration status percent_complete stage))
 		{
-			next if $field eq 'duration' && !$use_time_duration;
 			$job->{$field} //= '';
 			$job->{$field} = substr( $job->{$field}, 0, 16 ) if $field =~ /time$/x;
 			if ( $field eq 'id' ) {
