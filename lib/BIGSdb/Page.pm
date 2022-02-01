@@ -1933,7 +1933,8 @@ sub get_record_name {
 		client_dbase_cschemes             => 'classification scheme to client database definition',
 		validation_conditions             => 'validation condition',
 		validation_rules                  => 'validation rule',
-		validation_rule_conditions        => 'rule condition'
+		validation_rule_conditions        => 'rule condition',
+		lincode_schemes                   => 'lincode scheme'
 	);
 	return $names{$table};
 }
@@ -2206,7 +2207,7 @@ sub can_modify_table {
 	  locus_client_display_fields locus_extended_attributes locus_curators);
 	$general_permissions{$_} = $self->{'permissions'}->{'modify_schemes'}
 	  foreach qw(schemes scheme_members scheme_fields scheme_curators classification_schemes
-	  classification_group_fields);
+	  classification_group_fields lincode_schemes);
 
 	if ( $general_permissions{$table} ) {
 		return $general_permissions{$table};

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -2433,7 +2433,8 @@ sub get_tables {
 		  locus_extended_attributes scheme_curators locus_curators locus_descriptions scheme_groups
 		  scheme_group_scheme_members scheme_group_group_members client_dbase_loci_fields sets set_loci set_schemes
 		  profile_history locus_aliases retired_allele_ids retired_profiles classification_schemes
-		  classification_group_fields classification_group_field_values user_dbases locus_links client_dbase_cschemes);
+		  classification_group_fields classification_group_field_values user_dbases locus_links client_dbase_cschemes
+		  lincode_schemes);
 	}
 	return @tables;
 }

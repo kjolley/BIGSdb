@@ -219,7 +219,7 @@ sub _insert {
 	my $extra_transactions = [];
 	my %check_tables = map { $_ => 1 } qw(accession loci locus_aliases locus_descriptions profile_refs scheme_fields
 	  scheme_group_group_members sequences sequence_bin sequence_refs retired_profiles classification_group_fields
-	  retired_isolates schemes users eav_fields classification_group_field_values);
+	  retired_isolates schemes users eav_fields classification_group_field_values lincode_schemes);
 
 	if (
 		   $table ne 'retired_isolates'
@@ -509,7 +509,7 @@ sub _check_sequence_length {
 	my $q = $self->{'cgi'};
 	return if $q->param('ignore_length');
 	my $explain = q(If the sequence correctly aligns with the locus start and end points then you can still add it )
-	 . q(by checking the 'Override sequence length check' checkbox before re-submitting.);
+	  . q(by checking the 'Override sequence length check' checkbox before re-submitting.);
 	if ( !$locus_info->{'length_varies'} && defined $locus_info->{'length'} && $locus_info->{'length'} != $length ) {
 		push @$problems, "Sequence is $length $units long but this locus is set as a standard "
 		  . "length of $locus_info->{'length'} $units. $explain";
@@ -843,7 +843,7 @@ sub _check_sequence_bin {    ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 	my ( $self, $newdata, $problems, $extra_inserts ) = @_;
 	$newdata->{'sequence'} =~ s/[\W]//gx;
 	push @$problems, 'Sequence data invalid.' if !length $newdata->{'sequence'};
-	my $q = $self->{'cgi'};
+	my $q              = $self->{'cgi'};
 	my $seq_attributes = $self->{'datastore'}->run_query( 'SELECT key,type FROM sequence_attributes ORDER BY key',
 		undef, { fetch => 'all_arrayref', slice => {} } );
 	foreach my $attribute (@$seq_attributes) {
@@ -923,6 +923,28 @@ sub _check_schemes {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called 
 			  };
 		}
 		$i++;
+	}
+	return;
+}
+
+sub _check_lincode_schemes {  ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $newdata, $problems ) = @_;
+	return if @$problems;
+	$newdata->{'thresholds'} =~ s/\s//gx;
+	my $loci       = $self->{'datastore'}->get_scheme_loci( $newdata->{'scheme_id'} );
+	my $count      = @$loci;
+	my @thresholds = split /;/x, $newdata->{'thresholds'};
+	my $last = $count+1;
+	foreach my $threshold (@thresholds) {
+		if ( $threshold > $count ) {
+			push @$problems, qq(Scheme has $count loci - you cannot have a threshold of $threshold.);
+			last;
+		}
+		if ($threshold >= $last){
+			push @$problems, qq(Thresholds should be in descending order - $threshold >= $last.);
+			last;
+		}
+		$last = $threshold;
 	}
 	return;
 }

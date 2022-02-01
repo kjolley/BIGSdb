@@ -327,6 +327,7 @@ sub _get_seqdef_links {
 	$buffer .= $self->_get_sequence_fields;
 	$buffer .= $self->_get_profile_fields;
 	$buffer .= $self->_get_classification_field_values;
+	$buffer .= $self->_get_lincodes;
 	return $buffer;
 }
 
@@ -373,6 +374,7 @@ sub _get_admin_links {
 	$buffer .= $self->_get_schemes;
 	$buffer .= $self->_get_scheme_groups;
 	$buffer .= $self->_get_classification_schemes;
+	$buffer .= $self->_get_lincode_schemes;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		$buffer .= $self->_get_client_dbases;
 		$buffer .= $self->_get_locus_curators;
@@ -579,16 +581,18 @@ sub _get_profile_fields {
 	my $schemes;
 	my $set_id = $self->get_set_id;
 	if ( $self->is_admin ) {
+		my $set_clause = $set_id ? qq( AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)) : q();
 		$schemes = $self->{'datastore'}->run_query(
 			'SELECT DISTINCT id FROM schemes RIGHT JOIN scheme_members ON schemes.id=scheme_members.scheme_id '
-			  . 'JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE primary_key',
+			  . "JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE primary_key$set_clause",
 			undef,
 			{ fetch => 'col_arrayref' }
 		);
 	} else {
+		my $set_clause = $set_id ? qq( AND scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)) : q();
 		$schemes = $self->{'datastore'}->run_query(
 			'SELECT scheme_id FROM scheme_curators WHERE curator_id=? AND '
-			  . 'scheme_id IN (SELECT scheme_id FROM scheme_fields WHERE primary_key)',
+			  . "scheme_id IN (SELECT scheme_id FROM scheme_fields WHERE primary_key)$set_clause",
 			$self->get_curator_id,
 			{ fetch => 'col_arrayref' }
 		);
@@ -1245,14 +1249,12 @@ sub _get_config_check {
 sub _get_blast_cache_refresh {
 	my ($self) = @_;
 	my $buffer = q();
-	my $loci = $self->{'datastore'}->get_loci;
+	my $loci   = $self->{'datastore'}->get_loci;
 	return $buffer
 	  if !$self->is_admin || $self->{'system'}->{'dbtype'} ne 'sequences' || !@$loci;
-	$buffer .=
-	  q(<div class="curategroup curategroup_maintenance grid-item default_show_admin"><h2>BLAST caches</h2>);
+	$buffer .= q(<div class="curategroup curategroup_maintenance grid-item default_show_admin"><h2>BLAST caches</h2>);
 	$buffer .= $self->_get_icon_group(
-		undef,
-		'eraser',
+		undef, 'eraser',
 		{
 			action       => 1,
 			action_url   => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=refreshCache),
@@ -1597,6 +1599,88 @@ sub _get_classification_field_values {
 		}
 	);
 	$buffer .= qq(</div>\n);
+	return $buffer;
+}
+
+sub _get_lincode_schemes {
+	my ($self) = @_;
+	my $buffer = q();
+	return $buffer if !$self->_schemes_exist( { with_pk => 1 } );
+	return $buffer if !$self->can_modify_table('lincode_schemes');
+	$buffer .= q(<div class="curategroup curategroup_schemes grid-item scheme_admin" )
+	  . qq(style="display:$self->{'optional_scheme_admin_display'}"><h2>LINcode schemes</h2>);
+	$buffer .= $self->_get_icon_group(
+		'lincode_schemes',
+		'object-group',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'LINcode schemes - Set up LINcode clustering '
+			  . 'of scheme profiles at different locus difference thresholds.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	return $buffer;
+}
+
+sub _get_lincodes {
+	my ($self) = @_;
+	my $schemes;
+	my $set_id = $self->get_set_id;
+	if ( $self->is_admin ) {
+		my $set_clause = $set_id ? qq( AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)) : q();
+		$schemes = $self->{'datastore'}->run_query(
+			'SELECT DISTINCT ls.scheme_id FROM lincode_schemes ls RIGHT JOIN scheme_members sm ON '
+			  . 'ls.scheme_id=sm.scheme_id JOIN scheme_fields sf ON ls.scheme_id=sf.scheme_id '
+			  . "WHERE primary_key$set_clause",
+			undef,
+			{ fetch => 'col_arrayref' }
+		);
+	} else {
+		my $set_clause = $set_id ? qq( AND scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)) : q();
+		$schemes = $self->{'datastore'}->run_query(
+			'SELECT DISTINCT ls.scheme_id FROM lincode_schemes ls RIGHT JOIN scheme_curators sc ON '
+			  . 'ls.scheme_id=sc.scheme_id WHERE sc.curator_id=? AND '
+			  . "ls.scheme_id IN (SELECT scheme_id FROM scheme_fields WHERE primary_key)$set_clause",
+			$self->get_curator_id,
+			{ fetch => 'col_arrayref' }
+		);
+	}
+	my $buffer = q();
+	my %desc;
+	foreach my $scheme_id (@$schemes)
+	{    #Can only order schemes after retrieval since some can be renamed by set membership
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
+		$desc{$scheme_id} = $scheme_info->{'name'};
+	}
+	my $curator_id = $self->get_curator_id;
+	foreach my $scheme_id ( sort { $desc{$a} cmp $desc{$b} } @$schemes ) {
+		next if $set_id && !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id );
+		my $class   = q(default_show_curator);
+		my $display = q();
+		if ( !$self->{'datastore'}->is_scheme_curator( $scheme_id, $curator_id ) ) {
+			$class   = q(default_hide_curator);
+			$display = qq(style="display:$self->{'optional_curator_display'}");
+		}
+		$desc{$scheme_id} =~ s/\&/\&amp;/gx;
+		$buffer .=
+		    qq(<div class="curategroup curategroup_profiles grid-item $class" )
+		  . qq($display><h2>$desc{$scheme_id} LINcodes</h2>);
+		$buffer .= $self->_get_icon_group(
+			undef,
+			'grip-horizontal',
+			{
+				batch_add     => 1,
+				batch_add_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				  . qq(page=lincodeBatchAdd&amp;scheme_id=$scheme_id),
+				query     => 1,
+				query_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				  . qq(page=query&amp;scheme_id=$scheme_id),
+			}
+		);
+		$buffer .= qq(</div>\n);
+	}
 	return $buffer;
 }
 
@@ -2320,15 +2404,22 @@ sub _isolates_exist {
 }
 
 sub _schemes_exist {
-	my ($self) = @_;
-	return $self->{'datastore'}
-	  ->run_query( 'SELECT EXISTS(SELECT * FROM schemes)', undef, { cache => 'CurateIndexPage::schemes_exist' } );
+	my ( $self, $options ) = @_;
+	my $pk_term = $options->{'with_pk'} ? q(JOIN scheme_fields sf ON schemes.id=sf.scheme_id WHERE primary_key) : q();
+	return $self->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM schemes$pk_term)",
+		undef, { cache => 'CurateIndexPage::schemes_exist' } );
 }
 
 sub _classification_schemes_exist {
 	my ($self) = @_;
 	return $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM classification_schemes)',
 		undef, { cache => 'CurateIndexPage::cschemes_exist' } );
+}
+
+sub _lincode_schemes_exist {
+	my ($self) = @_;
+	return $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM lincode_schemes)',
+		undef, { cache => 'CurateIndexPage::lschemes_exist' } );
 }
 
 sub _loci_exist {

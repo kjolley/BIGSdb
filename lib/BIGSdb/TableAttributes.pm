@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -343,12 +343,12 @@ sub get_loci_table_attributes {
 			name        => 'start_codons',
 			type        => 'text',
 			hide_public => 1,
-			regex => '^[GgAaTtCc]{3}(\s*;\s*[GgAaTtCc]{3})*$',
-			comments => 'Additional non-standard start codons',
+			regex       => '^[GgAaTtCc]{3}(\s*;\s*[GgAaTtCc]{3})*$',
+			comments    => 'Additional non-standard start codons',
 			tooltip     => 'start codons - Semi-colon separated list of additional start codons valid for '
-			. 'this locus. Default codons may also be set for all loci in the database config file. If not '
-			. 'set in the config file, then ATG, GTG, and TTG will be set as standard start codons in addition '
-			. 'to any entered here.'
+			  . 'this locus. Default codons may also be set for all loci in the database config file. If not '
+			  . 'set in the config file, then ATG, GTG, and TTG will be set as standard start codons in addition '
+			  . 'to any entered here.'
 		},
 		{
 			name        => 'orf',
@@ -2512,6 +2512,39 @@ sub get_validation_rule_conditions_table_attributes {
 			dropdown_query => 1
 		},
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
+	];
+	return $attributes;
+}
+
+sub get_lincode_schemes_table_attributes {
+	my ($self) = @_;
+	my $attributes = [
+		{
+			name           => 'scheme_id',
+			type           => 'int',
+			required       => 1,
+			primary_key    => 1,
+			foreign_key    => 'schemes',
+			labels         => '|$name|',
+			dropdown_query => 1,
+			with_pk_only   => 1,
+		},
+		{
+			name     => 'thresholds',
+			type     => 'text',
+			required => 1,
+			regex       => '^\d+(\s*;\s*\d+)*$',
+			comments => q(Semi-colon separated list of thresholds)
+		},
+		{
+			name     => 'max_missing',
+			type     => 'int',
+			required => 1,
+			comments => q(Number of loci that are allowed to be missing for a LINcode to be defined. )
+	
+		},
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query   => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
