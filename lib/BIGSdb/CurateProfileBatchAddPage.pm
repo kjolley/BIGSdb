@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -98,14 +98,13 @@ sub print_content {
 
 sub get_title {
 	my $self        = shift;
-	my $table       = $self->{'cgi'}->param('table');
 	my $scheme_id   = $self->{'cgi'}->param('scheme_id');
-	my $scheme_desc = '';
+	my $scheme_desc = q();
 	if ( $scheme_id && BIGSdb::Utils::is_int($scheme_id) ) {
-		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
-		$scheme_desc = $scheme_info->{'name'} || '';
+		my $set_id = $self->get_set_id;
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
+		$scheme_desc = $scheme_info->{'name'} // q();
 	}
-	my $type = $self->get_record_name($table);
 	return "Batch add new $scheme_desc profiles";
 }
 
@@ -647,7 +646,8 @@ sub _print_interface {
 	say q[<fieldset style="float:left"><legend>Please paste in tab-delimited text ]
 	  . q[(<strong>include a field header as the first line</strong>)</legend>];
 	say $q->hidden($_) foreach qw (page db scheme_id submission_id);
-	say $q->textarea( -name => 'data', -rows => 20, -columns => 80, -required => 'required' );
+	say $q->textarea( -name => 'data', -rows => 20, -columns => 80, -required => 'required',
+		-style => 'max-width:85vw' );
 	say q(</fieldset>);
 	say q(<fieldset style="float:left"><legend>Parameters</legend>);
 	say q(<label for="sender" class="form" style="width:5em">Sender:</label>);
@@ -707,8 +707,6 @@ sub _set_submission_params {
 
 sub get_help_url {
 	my ($self) = @_;
-	return
-	  "$self->{'config'}->{'doclink'}/curator_guide/0060_adding_new_profiles.html#batch-profile-upload"
-	  ;
+	return "$self->{'config'}->{'doclink'}/curator_guide/0060_adding_new_profiles.html#batch-profile-upload";
 }
 1;

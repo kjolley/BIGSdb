@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -82,15 +82,17 @@ sub _get_isolate_table_headers {
 
 sub _get_profile_table_headers {
 	my ( $self, $options ) = @_;
-	my $q           = $self->{'cgi'};
-	my $headers     = [];
-	my $scheme_id   = $self->{'cgi'}->param('scheme_id') || 0;
+	my $q         = $self->{'cgi'};
+	my $headers   = [];
+	my $scheme_id = $self->{'cgi'}->param('scheme_id') // 0;
+	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
+		return ['Scheme id must be an integer.'];
+	}
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-	my $set_id      = $self->get_set_id;
+	my $set_id = $self->get_set_id;
 	push @$headers, 'id' if $options->{'id_field'};
 	push @$headers, $scheme_info->{'primary_key'} if ( !$options->{'no_fields'} );
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-
 	foreach my $locus (@$loci) {
 		my $label = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
 		push @$headers, $label // $locus;
@@ -101,6 +103,32 @@ sub _get_profile_table_headers {
 			my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 			push @$headers, $field if !$scheme_field_info->{'primary_key'};
 		}
+	}
+	return $headers;
+}
+
+sub _get_lincode_table_headers {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my $scheme_id = $q->param('scheme_id') // 0;
+	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
+		return ['Scheme id must be an integer.'];
+	}
+	my $lincode_scheme =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT * FROM lincode_schemes WHERE scheme_id=?', $scheme_id, { fetch => 'row_hashref' } );
+	if ( !$lincode_scheme ) {
+		return ['Lincode thresholds have not been defined for this scheme.'];
+	}
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	if ( !$scheme_info->{'primary_key'} ) {
+		return ['No primary key is defined for this scheme.'];
+	}
+	my $headers = [];
+	push @$headers, $scheme_info->{'primary_key'};
+	my @thresholds = split /;/x, $lincode_scheme->{'thresholds'};
+	foreach my $threshold (@thresholds) {
+		push @$headers, "threshold_$threshold";
 	}
 	return $headers;
 }
@@ -146,6 +174,8 @@ sub get_headers {
 		$headers = $self->_get_isolate_table_headers;
 	} elsif ( $table eq 'profiles' ) {
 		$headers = $self->_get_profile_table_headers($options);
+	} elsif ( $table eq 'lincodes' ) {
+		$headers = $self->_get_lincode_table_headers;
 	} else {
 		$headers = $self->_get_other_table_headers($table);
 	}
