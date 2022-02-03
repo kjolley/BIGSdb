@@ -339,14 +339,14 @@ sub _upload {
 	my $curator_id = $self->get_curator_id;
 	eval {
 		foreach my $record (@$data) {
-			my @lincode;
-			push @lincode, $record->{'thresholds'}->{$_} foreach @thresholds;
+			my $lincode = [];
+			push @$lincode, $record->{'thresholds'}->{$_} foreach @thresholds;
 			$self->{'db'}->do(
 				'INSERT INTO lincodes(scheme_id,profile_id,lincode,curator,datestamp) VALUES (?,?,?,?,?)',
 				undef,
 				$scheme_id,
 				$record->{ $scheme_info->{'primary_key'} },
-				BIGSdb::Utils::get_pg_array( \@lincode ),
+				BIGSdb::Utils::get_pg_array( $lincode ),
 				$curator_id,
 				'now'
 			);

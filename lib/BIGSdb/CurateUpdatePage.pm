@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -223,6 +223,9 @@ sub _upload {
 			},
 			sequence_bin => sub {
 				$status = $self->_prepare_extra_inserts_for_seqbin( $newdata, $extra_inserts );
+			},
+			lincode_schemes => sub {
+				$status = $self->_check_lincode_schemes($newdata);
 			}
 		);
 		$methods{$table}->() if $methods{$table};
@@ -333,6 +336,12 @@ sub _check_users {
 		);
 		return FAILURE;
 	}
+	return;
+}
+
+sub _check_lincode_schemes {
+	my ( $self, $newdata ) = @_;
+	$newdata->{'thresholds'} =~ s/\s//gx;
 	return;
 }
 
@@ -933,8 +942,7 @@ sub _prepare_extra_inserts_for_schemes {
 			if ( $new !~ /^(.+?)\|(.+)\|(.+)$/x ) {
 				$self->print_bad_status(
 					{
-						message =>
-						  q(Links must have an associated description separated from the URL by a '|'.)
+						message => q(Links must have an associated description separated from the URL by a '|'.)
 					}
 				);
 				return FAILURE;
