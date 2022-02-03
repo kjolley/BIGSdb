@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CuratePage);
+use JSON;
 use BIGSdb::Constants qw(:interface);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -81,7 +82,7 @@ sub print_content {
 		return;
 	}
 	if ( $q->param('checked_buffer') ) {
-		$self->_upload($scheme_id);
+		$self->_upload( $scheme_id, scalar $q->param('checked_buffer') );
 	} elsif ( $q->param('data') && $q->param('submit') ) {
 		$self->_check($scheme_id);
 	} else {
@@ -154,6 +155,11 @@ sub _check {
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT * FROM lincode_schemes WHERE scheme_id=?', $scheme_id, { fetch => 'row_hashref' } );
 	my @thresholds = split /;/x, $lincode_scheme->{'thresholds'};
+	my $lincode_pks =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT profile_id FROM lincodes WHERE scheme_id=?', $scheme_id, { fetch => 'col_arrayref' } );
+	my %lincode_pks = map { $_ => 1 } @$lincode_pks;
+	my %already_defined_here;
 	my $i = 0;
 	my @errors;
 	my $data = [];
@@ -176,6 +182,15 @@ sub _check {
 			push @errors, "$scheme_info->{'primary_key'} for row $i is not defined in scheme.";
 			next;
 		}
+		if ( $lincode_pks{$pk_value} ) {
+			push @errors, "LINcode has already been defined for row $i ($scheme_info->{'primary_key'}-$pk_value).";
+			next;
+		}
+		if ( $already_defined_here{$pk_value} ) {
+			push @errors,
+			  "LINcode has been defined earlier in this upload for row $i ($scheme_info->{'primary_key'}-$pk_value).";
+			next;
+		}
 		my $record = { $scheme_info->{'primary_key'} => $pk_value };
 		foreach my $threshold (@thresholds) {
 			my $value = $values[ $header_check->{'positions'}->{"threshold_$threshold"} ];
@@ -187,6 +202,7 @@ sub _check {
 			$record->{'thresholds'}->{$threshold} = $value;
 		}
 		push @$data, $record;
+		$already_defined_here{$pk_value} = 1;
 	}
 	if (@errors) {
 		local $" = q(<br />);
@@ -196,9 +212,71 @@ sub _check {
 				detail  => "Your data contains the following errors:<p>@errors</p>"
 			}
 		);
+		$self->_print_interface($scheme_id);
+		return;
 	}
-	use Data::Dumper;
-	$logger->error( Dumper $data);
+	if ( !@$data ) {
+		$self->print_bad_status(
+			{
+				message => 'No valid data',
+				detail  => 'Your upload contains no valid LINcode data.'
+			}
+		);
+		$self->_print_interface($scheme_id);
+		return;
+	}
+	my $filename = $self->_write_checked_file($data);
+	say q(<div class="box" id="resultsheader"><h2>Import status</h2><p>No obvious )
+	  . q(problems identified so far.</p>);
+	say $q->start_form;
+	say $q->hidden($_) foreach qw (page db scheme_id);
+	say $q->hidden( checked_buffer => $filename );
+	$self->print_action_fieldset( { submit_label => 'Import data', no_reset => 1 } );
+	say $q->end_form;
+	say q(</div>);
+	say q(<div class="box" id="resultstable"><h2>Data to be imported</h2>);
+	say q(<div class="scrollable">);
+	$self->_print_checked_data_table( $scheme_id, $data );
+	say q(</div>);
+	say q(</div>);
+	return;
+}
+
+sub _print_checked_data_table {
+	my ( $self, $scheme_id, $data ) = @_;
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $lincode_scheme = $self->{'datastore'}
+	  ->run_query( 'SELECT * FROM lincode_schemes WHERE scheme_id=?', $scheme_id, { fetch => 'row_hashref' } );
+	my @thresholds = split /;/x, $lincode_scheme->{'thresholds'};
+	my @headers = ( $scheme_info->{'primary_key'} );
+	foreach my $threshold (@thresholds) {
+		push @headers, "threshold_$threshold";
+	}
+	say q(<table class="resultstable">);
+	local $" = q(</th><th>);
+	say qq(<tr><th>@headers</th>);
+	my $td = 1;
+	foreach my $row (@$data) {
+		print qq(<tr class="td$td"><td>$row->{$scheme_info->{'primary_key'}}</td>);
+		foreach my $threshold (@thresholds) {
+			print qq(<td>$row->{'thresholds'}->{$threshold}</td>);
+		}
+		say q(</tr>);
+		$td = $td == 1 ? 2 : 1;
+	}
+	say q(</table>);
+	return;
+}
+
+sub _write_checked_file {
+	my ( $self, $data ) = @_;
+	my $json      = JSON->new->allow_nonref;
+	my $filename  = BIGSdb::Utils::get_random() . '.json';
+	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$filename";
+	open( my $fh, '>:encoding(utf8)', $full_path ) || $logger->error("Cannot open $full_path for writing.");
+	say $fh $json->encode($data);
+	close $fh;
+	return $filename;
 }
 
 sub _check_headers {
@@ -245,5 +323,62 @@ sub _check_headers {
 		return { error => "You data does not include required headers: @missing." };
 	}
 	return { positions => $positions, count => scalar keys %$positions };
+}
+
+sub _upload {
+	my ( $self, $scheme_id, $checked_file ) = @_;
+	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$checked_file";
+	my $json_ref  = BIGSdb::Utils::slurp($full_path);
+	my $json      = JSON->new->allow_nonref;
+	my $data      = $json->decode($$json_ref);
+	my $lincode_scheme =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT * FROM lincode_schemes WHERE scheme_id=?', $scheme_id, { fetch => 'row_hashref' } );
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my @thresholds = split /;/x, $lincode_scheme->{'thresholds'};
+	my $curator_id = $self->get_curator_id;
+	eval {
+		foreach my $record (@$data) {
+			my @lincode;
+			push @lincode, $record->{'thresholds'}->{$_} foreach @thresholds;
+			$self->{'db'}->do(
+				'INSERT INTO lincodes(scheme_id,profile_id,lincode,curator,datestamp) VALUES (?,?,?,?,?)',
+				undef,
+				$scheme_id,
+				$record->{ $scheme_info->{'primary_key'} },
+				BIGSdb::Utils::get_pg_array( \@lincode ),
+				$curator_id,
+				'now'
+			);
+		}
+	};
+	if ($@) {
+		$logger->error($@);
+		my $detail;
+		if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
+			$detail =
+			    q(<p>Data entry would have resulted in records with either duplicate ids or another )
+			  . q(unique field with duplicate values.</p>);
+		}
+		$self->print_bad_status(
+			{
+				message => q(Database update failed - transaction cancelled - no records have been touched.),
+				detail  => $detail
+			}
+		);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+			$self->print_good_status(
+		{
+			message       => q(LINcodes added.),
+			navbar        => 1,
+			more_text     => q(Add more),
+			more_url      => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=lincodeBatchAdd&amp;scheme_id=$scheme_id)
+		}
+	);
+	}
+	return;
 }
 1;
