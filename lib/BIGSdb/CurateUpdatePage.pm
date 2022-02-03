@@ -51,7 +51,10 @@ sub _pre_check_failed {
 		$self->print_bad_status( { message => q(Sequence tags cannot be updated using this function.) } );
 		return 1;
 	}
-	if ( $table eq 'scheme_fields' && $self->{'system'}->{'dbtype'} eq 'sequences' && !$q->param('sent') ) {
+	if (   $table eq 'scheme_fields'
+		&& $self->{'system'}->{'dbtype'} eq 'sequences'
+		&& !$q->param('sent') )
+	{
 		say q(<div class="box" id="warning"><p>Please be aware that any changes to the )
 		  . q(structure of a scheme will result in all data being removed from it. This )
 		  . q(will happen if you modify the type or change whether the field is a primary key. )
@@ -59,6 +62,14 @@ sub _pre_check_failed {
 		  . q(<p>If you change the index status of a field you will also need to rebuild the )
 		  . q(scheme table to reflect this change. This can be done by selecting 'Configuration )
 		  . q(repair' on the main curation page.</p>);
+		say q(</div>);
+	}
+	if (   $table eq 'lincode_schemes'
+		&& $self->{'system'}->{'dbtype'} eq 'sequences'
+		&& !$q->param('sent') )
+	{
+		say q(<div class="box" id="warning"><p>Please be aware that any changes to the )
+		  . q(thresholds of a LINcode scheme will result in all LINcode definitions being removed from it.</p>);
 		say q(</div>);
 	}
 	return;
@@ -225,7 +236,7 @@ sub _upload {
 				$status = $self->_prepare_extra_inserts_for_seqbin( $newdata, $extra_inserts );
 			},
 			lincode_schemes => sub {
-				$status = $self->_check_lincode_schemes($newdata);
+				$status = $self->_check_lincode_schemes( $newdata, $extra_inserts );
 			}
 		);
 		$methods{$table}->() if $methods{$table};
@@ -340,8 +351,17 @@ sub _check_users {
 }
 
 sub _check_lincode_schemes {
-	my ( $self, $newdata ) = @_;
+	my ( $self, $newdata, $extra_inserts ) = @_;
 	$newdata->{'thresholds'} =~ s/\s//gx;
+	my $existing_thresholds = $self->{'datastore'}
+	  ->run_query( 'SELECT thresholds FROM lincode_schemes WHERE scheme_id=?', $newdata->{'scheme_id'} );
+	$existing_thresholds =~ s/\s//gx;
+	if ( $newdata->{'thresholds'} ne $existing_thresholds ) {
+		push @$extra_inserts, {
+			statement => 'DELETE FROM lincodes WHERE scheme_id=?',
+			arguments => [ $newdata->{'scheme_id'} ]
+		};
+	}
 	return;
 }
 

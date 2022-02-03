@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -316,7 +316,7 @@ sub _delete {
 	if ( $table eq 'users' ) {
 		$self->_delete_user( $data, \$nogo_buffer, \$proceed );
 	}
-	my %dont_check = map { $_ => 1 } qw(composite_fields schemes classification_schemes projects);
+	my %dont_check = map { $_ => 1 } qw(composite_fields schemes classification_schemes projects lincode_schemes);
 
 	#Check if record is a foreign key in another table
 	if ( $proceed && !$dont_check{$table} ) {

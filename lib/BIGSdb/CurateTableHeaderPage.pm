@@ -126,7 +126,7 @@ sub _get_lincode_table_headers {
 	}
 	my $headers = [];
 	push @$headers, $scheme_info->{'primary_key'};
-	my @thresholds = split /;/x, $lincode_scheme->{'thresholds'};
+	my @thresholds = split /\s*;\s*/x, $lincode_scheme->{'thresholds'};
 	foreach my $threshold (@thresholds) {
 		push @$headers, "threshold_$threshold";
 	}

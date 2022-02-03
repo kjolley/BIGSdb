@@ -1934,7 +1934,7 @@ sub get_record_name {
 		validation_conditions             => 'validation condition',
 		validation_rules                  => 'validation rule',
 		validation_rule_conditions        => 'rule condition',
-		lincode_schemes                   => 'lincode scheme'
+		lincode_schemes                   => 'LINcode scheme'
 	);
 	return $names{$table};
 }

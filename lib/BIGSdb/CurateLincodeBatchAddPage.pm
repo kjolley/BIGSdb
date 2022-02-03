@@ -154,7 +154,7 @@ sub _check {
 	my $lincode_scheme =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT * FROM lincode_schemes WHERE scheme_id=?', $scheme_id, { fetch => 'row_hashref' } );
-	my @thresholds = split /;/x, $lincode_scheme->{'thresholds'};
+	my @thresholds = split /\s*;\s*/x, $lincode_scheme->{'thresholds'};
 	my $lincode_pks =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT profile_id FROM lincodes WHERE scheme_id=?', $scheme_id, { fetch => 'col_arrayref' } );
@@ -247,7 +247,7 @@ sub _print_checked_data_table {
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	my $lincode_scheme = $self->{'datastore'}
 	  ->run_query( 'SELECT * FROM lincode_schemes WHERE scheme_id=?', $scheme_id, { fetch => 'row_hashref' } );
-	my @thresholds = split /;/x, $lincode_scheme->{'thresholds'};
+	my @thresholds = split /\s*;\s*/x, $lincode_scheme->{'thresholds'};
 	my @headers = ( $scheme_info->{'primary_key'} );
 	foreach my $threshold (@thresholds) {
 		push @headers, "threshold_$threshold";
@@ -289,7 +289,7 @@ sub _check_headers {
 	my $lincode_scheme =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT * FROM lincode_schemes WHERE scheme_id=?', $scheme_id, { fetch => 'row_hashref' } );
-	my @thresholds = split /;/x, $lincode_scheme->{'thresholds'};
+	my @thresholds = split /\s*;\s*/x, $lincode_scheme->{'thresholds'};
 	my @expected_fields = ( $scheme_info->{'primary_key'} );
 	push @expected_fields, "threshold_$_" foreach @thresholds;
 	my %expected = map { $_ => 1 } @expected_fields;
@@ -335,7 +335,7 @@ sub _upload {
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT * FROM lincode_schemes WHERE scheme_id=?', $scheme_id, { fetch => 'row_hashref' } );
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-	my @thresholds = split /;/x, $lincode_scheme->{'thresholds'};
+	my @thresholds = split /\s*;\s*/x, $lincode_scheme->{'thresholds'};
 	my $curator_id = $self->get_curator_id;
 	eval {
 		foreach my $record (@$data) {

@@ -1676,7 +1676,7 @@ sub _get_lincodes {
 				  . qq(page=lincodeBatchAdd&amp;scheme_id=$scheme_id),
 				query     => 1,
 				query_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-				  . qq(page=query&amp;scheme_id=$scheme_id),
+				  . qq(page=tableQuery&amp;table=lincodes&amp;scheme_id=$scheme_id),
 			}
 		);
 		$buffer .= qq(</div>\n);

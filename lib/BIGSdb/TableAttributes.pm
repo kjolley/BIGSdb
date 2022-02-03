@@ -2549,4 +2549,12 @@ sub get_lincode_schemes_table_attributes {
 	];
 	return $attributes;
 }
+
+sub get_lincodes_table_attributes {
+	my ($self) = @_;
+	my $attributes = [
+	
+	];
+	return $attributes;
+}
 1;
