@@ -781,7 +781,7 @@ sub get_retired_profiles_table_attributes {
 			foreign_key     => 'schemes',
 			labels          => '|$name|',
 			dropdown_query  => 1,
-			with_pk_only    => 1,
+			with_pk         => 1,
 			is_curator_only => 1
 		},
 		{ name => 'profile_id', type => 'text', required => 1, primary_key    => 1 },
@@ -1136,7 +1136,7 @@ sub get_profile_refs_table_attributes {
 			foreign_key     => 'schemes',
 			labels          => '|$name|',
 			dropdown_query  => 1,
-			with_pk_only    => 1,
+			with_pk         => 1,
 			is_curator_only => 1
 		},
 		{ name => 'profile_id', type => 'text', required => 1, primary_key    => 1 },
@@ -2188,7 +2188,7 @@ sub get_classification_schemes_table_attributes {
 			foreign_key    => 'schemes',
 			labels         => '|$name|',
 			dropdown_query => 1,
-			with_pk_only   => 1,
+			with_pk        => 1,
 		},
 		{
 			name     => 'name',
@@ -2528,13 +2528,13 @@ sub get_lincode_schemes_table_attributes {
 			foreign_key    => 'schemes',
 			labels         => '|$name|',
 			dropdown_query => 1,
-			with_pk_only   => 1,
+			with_pk        => 1,
 		},
 		{
 			name     => 'thresholds',
 			type     => 'text',
 			required => 1,
-			regex       => '^\d+(\s*;\s*\d+)*$',
+			regex    => '^\d+(\s*;\s*\d+)*$',
 			comments => q(Semi-colon separated list of thresholds)
 		},
 		{
@@ -2542,18 +2542,9 @@ sub get_lincode_schemes_table_attributes {
 			type     => 'int',
 			required => 1,
 			comments => q(Number of loci that are allowed to be missing for a LINcode to be defined. )
-	
 		},
-		{ name => 'curator',   type => 'int',  required => 1, dropdown_query   => 1 },
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 }
-	];
-	return $attributes;
-}
-
-sub get_lincodes_table_attributes {
-	my ($self) = @_;
-	my $attributes = [
-	
 	];
 	return $attributes;
 }

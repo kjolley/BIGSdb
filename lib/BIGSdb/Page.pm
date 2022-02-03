@@ -1527,10 +1527,10 @@ sub get_number_records_control {
 }
 
 sub get_scheme_filter {
-	my ($self) = @_;
+	my ($self, $options) = @_;
 	if ( !$self->{'cache'}->{'schemes'} ) {
 		my $set_id = $self->get_set_id;
-		my $list = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+		my $list = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => $options->{'with_pk'} } );
 		foreach my $scheme (@$list) {
 			push @{ $self->{'cache'}->{'schemes'} }, $scheme->{'id'};
 			$self->{'cache'}->{'scheme_labels'}->{ $scheme->{'id'} } = $scheme->{'name'};

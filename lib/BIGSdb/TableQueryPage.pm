@@ -394,7 +394,7 @@ sub _get_dropdown_filter {
 		return $self->get_user_filter( $att->{'name'} );
 	}
 	if ( $att->{'name'} eq 'scheme_id' ) {
-		return $self->get_scheme_filter;
+		return $self->get_scheme_filter( { with_pk => $att->{'with_pk'} } );
 	}
 	if ( $att->{'name'} eq 'locus' ) {
 		return $self->get_locus_filter;
@@ -970,11 +970,11 @@ sub _modify_query_search_by_isolate {
 	return if !$table_linked_to_isolate{$table};
 	return if $field ne $self->{'system'}->{'labelfield'};
 	$$qry_ref .= $modifier;
-	
 	$$qry_ref .= "$table.isolate_id IN (SELECT id FROM $self->{'system'}->{'view'} WHERE ";
-	my $att = $self->{'xmlHandler'}->get_field_attributes( $self->{'system'}->{'labelfield'} );
+	my $att     = $self->{'xmlHandler'}->get_field_attributes( $self->{'system'}->{'labelfield'} );
 	my %methods = (
 		NOT => sub {
+
 			if ( $text eq '<blank>' || lc($text) eq 'null' ) {
 				$$qry_ref .= "$field is not null";
 			} else {

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2017, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -81,9 +81,13 @@ sub print_content {
 	}
 	my $cg_schemes = $self->_get_classification_schemes($scheme_id);
 	my $c_groups   = $self->_get_classification_groups($scheme_id);
+	my $lincodes   = $self->_get_lincodes($scheme_id);
 	foreach my $cg_scheme (@$cg_schemes) {
 		print qq(\t$cg_scheme->{'name'});
 	}
+	my $lincodes_defined =
+	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM lincode_schemes WHERE scheme_id=?)', $scheme_id );
+	print qq(\tLINcode) if $lincodes_defined;
 	print qq(\n);
 	local $" = q(,);
 	my $scheme_warehouse = qq(mv_scheme_$scheme_id);
@@ -98,10 +102,14 @@ sub print_content {
 			my $pk      = shift @$definition;
 			my $profile = shift @$definition;
 			print qq($pk\t@$profile[@order]);
-			print qq(\t@$definition);
+			print qq(\t@$definition) if @$scheme_fields > 1;
 			foreach my $cg_schemes (@$cg_schemes) {
 				my $group_id = $c_groups->{ $cg_schemes->{'id'} }->{$pk} // q();
 				print qq(\t$group_id);
+			}
+			if ($lincodes_defined) {
+				my $lincode = $lincodes->{$pk} // q();
+				print qq(\t$lincode);
 			}
 			print qq(\n);
 		}
@@ -127,5 +135,19 @@ sub _get_classification_groups {
 		$groups->{ $values->{'cg_scheme_id'} }->{ $values->{'profile_id'} } = $values->{'group_id'};
 	}
 	return $groups;
+}
+
+sub _get_lincodes {
+	my ( $self, $scheme_id ) = @_;
+	my $data =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT * FROM lincodes WHERE scheme_id=?', $scheme_id, { fetch => 'all_arrayref', slice => {} } );
+	my $lincodes = {};
+	foreach my $record (@$data) {
+		my $lincode = $record->{'lincode'};
+		local $" = q(_);
+		$lincodes->{ $record->{'profile_id'} } = qq(@$lincode);
+	}
+	return $lincodes;
 }
 1;

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -377,7 +377,7 @@ sub _get_foreign_key_dropdown_field {
 		( $values, $desc ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id, no_list_by_common_name => 1 } );
 	} elsif ( $att->{'foreign_key'} eq 'schemes' && $table ne 'set_schemes' ) {
 		my $scheme_list =
-		  $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => $att->{'with_pk_only'} } );
+		  $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => $att->{'with_pk'} } );
 		foreach my $scheme (@$scheme_list) {
 			if ( $att->{'is_curator_only'} && !$self->is_admin ) {
 				my $curator_id = $self->get_curator_id;
