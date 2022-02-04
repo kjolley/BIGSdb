@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2021, University of Oxford
+#Copyright (c) 2014-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -103,6 +103,9 @@ sub _get_profiles_csv {
 		push @heading, $field;
 		push @fields,  $field;
 	}
+	my $lincodes_defined =
+	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM lincode_schemes WHERE scheme_id=?)', $scheme_id );
+	push @heading, 'LINcode' if $lincodes_defined;
 	local $" = "\t";
 	my $buffer = "@heading\n";
 	local $" = ',';
@@ -111,7 +114,12 @@ sub _get_profiles_csv {
 	my $qry              = $self->add_filters( "SELECT @fields FROM $scheme_warehouse", $allowed_filters );
 	$qry .= ' ORDER BY ' . ( $pk_info->{'type'} eq 'integer' ? "CAST($primary_key AS int)" : $primary_key );
 	my $data = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref' } );
+	my $lincodes;
 
+	if ($lincodes_defined) {
+		$lincodes = $self->{'datastore'}->run_query( 'SELECT profile_id,lincode FROM lincodes WHERE scheme_id=?',
+			$scheme_id, { fetch => 'all_hashref', key => 'profile_id' } );
+	}
 	if ( !@$data ) {
 		send_error( "No profiles for scheme $scheme_id are defined.", 404 );
 	}
@@ -123,6 +131,11 @@ sub _get_profiles_csv {
 			my $profile = shift @$definition;
 			$buffer .= qq($pk\t@$profile[@order]);
 			$buffer .= qq(\t@$definition) if @$scheme_fields > 1;
+			if ($lincodes_defined) {
+				my $lincode = $lincodes->{$pk}->{'lincode'} // [];
+				local $" = q(_);
+				$buffer .= qq(\t@$lincode);
+			}
 			$buffer .= qq(\n);
 		}
 	}
@@ -226,6 +239,17 @@ sub _get_profile {
 		$cs_values->{ $cs_scheme->{'name'} } = $obj;
 	}
 	$values->{'classification_schemes'} = $cs_values if keys %$cs_values;
+	my $lincode_scheme =
+	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM lincode_schemes WHERE scheme_id=?)', $scheme_id );
+	if ($lincode_scheme) {
+		my $lincode =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT lincode FROM lincodes WHERE (scheme_id,profile_id)=(?,?)', [ $scheme_id, $profile_id ] );
+		if ($lincode) {
+			local $" = q(_);
+			$values->{'LINcode'} = qq(@$lincode);
+		}
+	}
 	return $values;
 }
 1;
