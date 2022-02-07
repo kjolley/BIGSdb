@@ -85,8 +85,7 @@ sub print_content {
 	foreach my $cg_scheme (@$cg_schemes) {
 		print qq(\t$cg_scheme->{'name'});
 	}
-	my $lincodes_defined =
-	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM lincode_schemes WHERE scheme_id=?)', $scheme_id );
+	my $lincodes_defined = $self->{'datastore'}->are_lincodes_defined($scheme_id);
 	print qq(\tLINcode) if $lincodes_defined;
 	print qq(\n);
 	local $" = q(,);

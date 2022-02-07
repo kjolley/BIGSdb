@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -129,12 +129,11 @@ sub _print_plugin_buttons {
 				my $att = $self->{'pluginManager'}->get_plugin_attributes($plugin_name);
 				next if $att->{'min'} && $att->{'min'} > 1;
 				$plugin_buffer .= $q->start_form( -style => 'float:left;margin-right:0.2em;margin-bottom:0.3em' );
-				$q->param( page           => 'plugin' );
-				$q->param( name           => $att->{'module'} );
-				$q->param( set_id         => $set_id );
-				$q->param( list => $profile_id );
-				$plugin_buffer .= $q->hidden($_)
-				  foreach qw (db page name calling_page set_id scheme_id list);
+				$q->param( page   => 'plugin' );
+				$q->param( name   => $att->{'module'} );
+				$q->param( set_id => $set_id );
+				$q->param( list   => $profile_id );
+				$plugin_buffer .= $q->hidden($_) foreach qw (db page name calling_page set_id scheme_id list);
 				$plugin_buffer .=
 				  $q->submit( -label => ( $att->{'buttontext'} || $att->{'menutext'} ), -class => 'plugin_button' );
 				$plugin_buffer .= $q->end_form;
@@ -406,6 +405,16 @@ sub _print_profile {
 		say q(<div class="expand_link" id="expand_profile"><span class="fas fa-chevron-down"></span></div>);
 	}
 	say q(<dl class="data">);
+	if ( $self->{'datastore'}->are_lincodes_defined($scheme_id) ) {
+		my $lincode =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT lincode FROM lincodes WHERE (scheme_id,profile_id)=(?,?)', [ $scheme_id, $profile_id ] )
+		  // [];
+		if (@$lincode) {
+			local $" = q(_);
+			say qq(<dt>LINcode</dt><dd>@$lincode</dd>);
+		}
+	}
 	foreach my $field (qw (sender curator date_entered datestamp)) {
 		my $cleaned = $field;
 		$cleaned =~ tr/_/ /;

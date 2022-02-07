@@ -2758,4 +2758,9 @@ sub get_start_codons {
 	}
 	return $start_codons;
 }
+
+sub are_lincodes_defined {
+	my ( $self, $scheme_id ) = @_;
+	return $self->run_query( 'SELECT EXISTS(SELECT * FROM lincode_schemes WHERE scheme_id=?)', $scheme_id );
+}
 1;

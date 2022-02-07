@@ -2405,12 +2405,6 @@ sub _classification_schemes_exist {
 		undef, { cache => 'CurateIndexPage::cschemes_exist' } );
 }
 
-sub _lincode_schemes_exist {
-	my ($self) = @_;
-	return $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM lincode_schemes)',
-		undef, { cache => 'CurateIndexPage::lschemes_exist' } );
-}
-
 sub _loci_exist {
 	my ($self) = @_;
 	return $self->{'datastore'}

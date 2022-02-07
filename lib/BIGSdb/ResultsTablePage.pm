@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -1199,6 +1199,10 @@ sub _print_profile_table {
 		say $self->get_tooltip( qq($primary_key - $scheme_field_info->{'description'}), { style => 'color:white' } );
 	}
 	say q(</th>);
+	my $lincodes_defined = $self->{'datastore'}->are_lincodes_defined($scheme_id);
+	if ($lincodes_defined){
+		say q(<th>LINcode</th>);
+	}
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	foreach (@$loci) {
@@ -1239,6 +1243,12 @@ sub _print_profile_table {
 		} else {
 			say qq(<td><a href="$self->{'system'}->{'script_name'}?page=profileInfo&amp;db=$self->{'instance'}&amp;)
 			  . qq(scheme_id=$scheme_id&amp;profile_id=$pk_value">$pk_value</a></td>);
+		}
+		if ($lincodes_defined){
+			my $lincode = $self->{'datastore'}->run_query('SELECT lincode FROM lincodes WHERE (scheme_id,profile_id)=(?,?)',
+			[$scheme_id,$pk_value]) // [];
+			local $" = q(_);
+			print qq(<td>@$lincode</td>);
 		}
 		foreach my $locus (@$loci) {
 			print qq(<td>$data->{'profile'}->[$locus_indices->{$locus}]</td>);

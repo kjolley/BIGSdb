@@ -103,8 +103,7 @@ sub _get_profiles_csv {
 		push @heading, $field;
 		push @fields,  $field;
 	}
-	my $lincodes_defined =
-	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM lincode_schemes WHERE scheme_id=?)', $scheme_id );
+	my $lincodes_defined = $self->{'datastore'}->are_lincodes_defined($scheme_id);
 	push @heading, 'LINcode' if $lincodes_defined;
 	local $" = "\t";
 	my $buffer = "@heading\n";
@@ -239,8 +238,7 @@ sub _get_profile {
 		$cs_values->{ $cs_scheme->{'name'} } = $obj;
 	}
 	$values->{'classification_schemes'} = $cs_values if keys %$cs_values;
-	my $lincode_scheme =
-	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM lincode_schemes WHERE scheme_id=?)', $scheme_id );
+	my $lincode_scheme = $self->{'datastore'}->are_lincodes_defined($scheme_id);
 	if ($lincode_scheme) {
 		my $lincode =
 		  $self->{'datastore'}
