@@ -1,4 +1,4 @@
-/*Version: 20220107*/
+/*Version: 20220207*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -3026,6 +3026,31 @@ a.slide_trigger {
 @media only screen and (max-width:600px) {
 	div.main_content {
 		width: calc(100vw - 20px)
+	}
+	dl.profile {
+		margin: initial;
+		display: initial;
+		border: initial;
+		text-align: initial;
+	}
+	.profile dt {
+		float: none;
+		white-space: normal;
+		text-align: inherit;
+		font-weight: bold;
+		color: #404080;
+		margin: 0;
+		padding: 0;
+		background-color: initial;
+	}
+	.profile dt:after {
+		content: ":"
+	}
+	.profile dd {
+		margin: initial;
+		padding: initial;
+		word-break: initial;
+		background: initial
 	}
 	.data dt {
 		float: none;

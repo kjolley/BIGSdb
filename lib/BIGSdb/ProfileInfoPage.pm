@@ -371,13 +371,12 @@ sub _print_profile {
 	my $hide = @$loci > MAX_LOCI_SHOW;
 	my $class = $hide ? q(expandable_retracted) : q();
 	say qq(<div id="profile" style="overflow:hidden" class="$class">);
-	say qq(<dl class="profile"><dt>$primary_key);
 	my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
-
+	my $tooltip = q();
 	if ( $scheme_field_info->{'description'} ) {
-		say $self->get_tooltip( qq($primary_key - $scheme_field_info->{'description'}), { style => 'color:white' } );
+		$tooltip= $self->get_tooltip( qq($primary_key - $scheme_field_info->{'description'}), { style => 'color:white' } );
 	}
-	say qq(</dt><dd>$profile_id</dd></dl>);
+	say qq(<dl class="profile"><dt>$primary_key$tooltip</dt><dd>$profile_id</dd></dl>);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $indices       = $self->{'datastore'}->get_scheme_locus_indices( $scheme_info->{'id'} );
 	foreach my $locus (@$loci) {
