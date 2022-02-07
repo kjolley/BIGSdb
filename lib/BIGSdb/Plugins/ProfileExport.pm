@@ -1,6 +1,6 @@
 #ProfileExport.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2018-2020, University of Oxford
+#Copyright (c) 2018-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -42,7 +42,7 @@ sub get_attributes {
 		menutext    => 'Profiles',
 		buttontext  => 'Profiles',
 		module      => 'ProfileExport',
-		version     => '1.2.1',
+		version     => '1.3.0',
 		dbtype      => 'sequences',
 		seqdb_type  => 'schemes',
 		input       => 'query',
@@ -192,6 +192,10 @@ sub run_job {
 	foreach my $cg_scheme (@$cg_schemes) {
 		push @header, $cg_scheme->{'name'};
 	}
+	my $lincodes_defined = $self->{'datastore'}->are_lincodes_defined($scheme_id);
+	if ($lincodes_defined) {
+		push @header, 'LINcode';
+	}
 	if ( $params->{'include_sender'} ) {
 		push @header, qw(sender sender_affiliation);
 	}
@@ -226,6 +230,13 @@ sub run_job {
 		foreach my $cg_schemes (@$cg_schemes) {
 			my $group_id = $c_groups->{ $cg_schemes->{'id'} }->{$pk_value} // q();
 			$buffer .= qq(\t$group_id);
+		}
+		if ($lincodes_defined) {
+			my $lincode =
+			  $self->{'datastore'}->run_query( 'SELECT lincode FROM lincodes WHERE (scheme_id,profile_id)=(?,?)',
+				[ $scheme_id, $profile_id ] ) // [];
+			local $" = q(_);
+			$buffer .= qq(\t@$lincode);
 		}
 		if ( $params->{'include_sender'} ) {
 			my $sender = $self->{'datastore'}->get_user_info( $data->{'sender'} );
