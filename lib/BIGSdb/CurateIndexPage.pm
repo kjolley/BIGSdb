@@ -327,7 +327,6 @@ sub _get_seqdef_links {
 	$buffer .= $self->_get_sequence_fields;
 	$buffer .= $self->_get_profile_fields;
 	$buffer .= $self->_get_classification_field_values;
-	$buffer .= $self->_get_lincodes;
 	return $buffer;
 }
 
@@ -376,6 +375,7 @@ sub _get_admin_links {
 	$buffer .= $self->_get_classification_schemes;
 	$buffer .= $self->_get_lincode_schemes;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		$buffer .= $self->_get_lincodes;
 		$buffer .= $self->_get_client_dbases;
 		$buffer .= $self->_get_locus_curators;
 		$buffer .= $self->_get_scheme_curators;
@@ -1626,29 +1626,21 @@ sub _get_lincode_schemes {
 
 sub _get_lincodes {
 	my ($self) = @_;
+	return q() if !$self->is_admin;
 	my $schemes;
 	my $set_id = $self->get_set_id;
-	if ( $self->is_admin ) {
-		my $set_clause = $set_id ? qq( AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)) : q();
-		$schemes = $self->{'datastore'}->run_query(
-			'SELECT DISTINCT ls.scheme_id FROM lincode_schemes ls RIGHT JOIN scheme_members sm ON '
-			  . 'ls.scheme_id=sm.scheme_id JOIN scheme_fields sf ON ls.scheme_id=sf.scheme_id '
-			  . "WHERE primary_key$set_clause",
-			undef,
-			{ fetch => 'col_arrayref' }
-		);
-	} else {
-		my $set_clause = $set_id ? qq( AND scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)) : q();
-		$schemes = $self->{'datastore'}->run_query(
-			'SELECT DISTINCT ls.scheme_id FROM lincode_schemes ls RIGHT JOIN scheme_curators sc ON '
-			  . 'ls.scheme_id=sc.scheme_id WHERE sc.curator_id=? AND '
-			  . "ls.scheme_id IN (SELECT scheme_id FROM scheme_fields WHERE primary_key)$set_clause",
-			$self->get_curator_id,
-			{ fetch => 'col_arrayref' }
-		);
-	}
+	my $set_clause =
+	  $set_id ? qq( AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)) : q();
+	$schemes = $self->{'datastore'}->run_query(
+		'SELECT DISTINCT ls.scheme_id FROM lincode_schemes ls RIGHT JOIN scheme_members sm ON '
+		  . 'ls.scheme_id=sm.scheme_id JOIN scheme_fields sf ON ls.scheme_id=sf.scheme_id '
+		  . "WHERE primary_key$set_clause",
+		undef,
+		{ fetch => 'col_arrayref' }
+	);
 	my $buffer = q();
 	my %desc;
+
 	foreach my $scheme_id (@$schemes)
 	{    #Can only order schemes after retrieval since some can be renamed by set membership
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
@@ -1657,11 +1649,15 @@ sub _get_lincodes {
 	my $curator_id = $self->get_curator_id;
 	foreach my $scheme_id ( sort { $desc{$a} cmp $desc{$b} } @$schemes ) {
 		next if $set_id && !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id );
-		my $class   = q(default_hide_curator);
-		my $display = qq(style="display:$self->{'optional_curator_display'}");
+		my $class   = q(default_show_curator);
+		my $display = q();
+		if ( !$self->{'datastore'}->is_scheme_curator( $scheme_id, $curator_id ) ) {
+			$class   = q(default_hide_curator);
+			$display = qq(style="display:$self->{'optional_scheme_admin_display'}");
+		}
 		$desc{$scheme_id} =~ s/\&/\&amp;/gx;
 		$buffer .=
-		    qq(<div class="curategroup curategroup_profiles grid-item $class" )
+		    q(<div class="curategroup curategroup_profiles grid-item scheme_admin" )
 		  . qq($display><h2>$desc{$scheme_id} LINcodes</h2>);
 		$buffer .= $self->_get_icon_group(
 			undef,
