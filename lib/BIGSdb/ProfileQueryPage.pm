@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -73,7 +73,6 @@ sub print_content {
 	my ($self) = @_;
 	my $system = $self->{'system'};
 	my $q      = $self->{'cgi'};
-	my $scheme_info;
 	if    ( $q->param('no_header') )    { $self->_ajax_content; return }
 	elsif ( $q->param('save_options') ) { $self->_save_options; return }
 	my $title = $self->get_title;
@@ -282,6 +281,9 @@ sub _get_select_items {
 	}
 	push @selectitems, $primary_key;
 	push @orderitems,  $primary_key;
+	if ( $self->{'datastore'}->are_lincodes_defined($scheme_id) ) {
+		push @selectitems, 'LINcode';
+	}
 	foreach my $locus (@$loci) {
 		$cleaned{$locus} = $self->clean_locus( $locus, { text_output => 1 } );
 		push @selectitems, $locus;
@@ -449,6 +451,8 @@ sub _generate_query_from_main_form {
 		'datestamp'
 	);
 	my %recognized_fields = ( %standard_fields, %$cscheme_names, %$cscheme_fields );
+	my $lincodes_defined = $self->{'datastore'}->are_lincodes_defined($scheme_id);
+	$recognized_fields{'LINcode'} = 1 if $lincodes_defined;
 
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		next if !defined $q->param("t$i") || $q->param("t$i") eq q();
@@ -503,36 +507,58 @@ sub _generate_query_from_main_form {
 			$qry .= $self->_modify_query_by_classification_group_field( $scheme_id, $field, $operator, $text, $errors );
 			next;
 		}
-		my $equals =
-		  lc($text) eq 'null'
-		  ? "$cleaned_field is null"
-		  : ( $type eq 'text' ? "UPPER($cleaned_field)=UPPER('$text')" : "$cleaned_field='$text'" );
-		my %modify = (
-			'NOT' => lc($text) eq 'null' ? "(NOT $equals)" : "((NOT $equals) OR $cleaned_field IS NULL)",
-			'contains'    => "(UPPER($cleaned_field) LIKE UPPER('\%$text\%'))",
-			'starts with' => "(UPPER($cleaned_field) LIKE UPPER('$text\%'))",
-			'ends with'   => "(UPPER($cleaned_field) LIKE UPPER('\%$text'))",
-			'NOT contain' => "(NOT UPPER($cleaned_field) LIKE UPPER('\%$text\%') OR $cleaned_field IS NULL)",
-			'='           => "($equals)"
-		);
-		if ( $modify{$operator} ) {
-			$qry .= $modify{$operator};
-		} else {
-			if ( lc($text) eq 'null' ) {
-				my $clean_operator = $operator;
-				$clean_operator =~ s/>/&gt;/x;
-				$clean_operator =~ s/</&lt;/x;
-				push @$errors, "$clean_operator is not a valid operator for comparing null values.";
-			}
-			$qry .= (
-				$type eq 'integer'
-				? "(to_number(textcat('0', $cleaned_field), text(99999999))"
-				: "($cleaned_field"
-			) . " $operator '$text')";
+		if ( $field eq 'LINcode' ) {
+			$qry .= $self->_modify_query_by_lincode( $scheme_id, $field, $operator, $text, $errors );
+			next;
 		}
+		$qry .= $self->_modify_query_by_scheme_fields(
+			{
+				scheme_id     => $scheme_id,
+				cleaned_field => $cleaned_field,
+				type          => $type,
+				operator      => $operator,
+				text          => $text,
+				errors        => $errors
+			}
+		);
 	}
 	$qry .= ')';
 	return ( $qry, $errors );
+}
+
+sub _modify_query_by_scheme_fields {
+	my ( $self, $args ) = @_;
+	my ( $scheme_id, $cleaned_field, $type, $operator, $text, $errors ) =
+	  @{$args}{qw(scheme_id cleaned_field type operator text errors)};
+	my $qry;
+	my $equals =
+	  lc($text) eq 'null'
+	  ? "$cleaned_field is null"
+	  : ( $type eq 'text' ? "UPPER($cleaned_field)=UPPER('$text')" : "$cleaned_field='$text'" );
+	my %modify = (
+		'NOT' => lc($text) eq 'null' ? "(NOT $equals)" : "((NOT $equals) OR $cleaned_field IS NULL)",
+		'contains'    => "(UPPER($cleaned_field) LIKE UPPER('\%$text\%'))",
+		'starts with' => "(UPPER($cleaned_field) LIKE UPPER('$text\%'))",
+		'ends with'   => "(UPPER($cleaned_field) LIKE UPPER('\%$text'))",
+		'NOT contain' => "(NOT UPPER($cleaned_field) LIKE UPPER('\%$text\%') OR $cleaned_field IS NULL)",
+		'='           => "($equals)"
+	);
+	if ( $modify{$operator} ) {
+		$qry .= $modify{$operator};
+	} else {
+		if ( lc($text) eq 'null' ) {
+			my $clean_operator = $operator;
+			$clean_operator =~ s/>/&gt;/x;
+			$clean_operator =~ s/</&lt;/x;
+			push @$errors, "$clean_operator is not a valid operator for comparing null values.";
+		}
+		$qry .= (
+			$type eq 'integer'
+			? "(to_number(textcat('0', $cleaned_field), text(99999999))"
+			: "($cleaned_field"
+		) . " $operator '$text')";
+	}
+	return $qry;
 }
 
 sub _modify_query_for_filters {
@@ -705,6 +731,11 @@ sub _modify_by_list {
 	return ( $qry, $list_file );
 }
 
+sub _modify_query_by_lincode {
+	my ( $self, $scheme_id, $field, $operator, $text, $errors ) = @_;
+	return q();
+}
+
 sub _print_list_fieldset {
 	my ( $self, $scheme_id ) = @_;
 	my $q = $self->{'cgi'};
@@ -746,12 +777,11 @@ sub get_javascript {
 	$buffer .= << "END";
 \$(function () {
 	\$('#filters_fieldset').css({display:"$filters_fieldset_display"});
-   	\$('#scheme_field_tooltip').tooltip({ content: "<h3>Search values</h3><p>Empty field "
+   	\$('#scheme_field_tooltip').attr("title", "<h3>Search values</h3><p>Empty field "
   		+ "values can be searched using the term 'null'. </p><h3>Number of fields</h3>"
   		+ "<p>Add more fields by clicking the '+' button.</p>"
   		+ "<h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search "
-  		+ "terms, 'OR' to match ANY of these terms.</p>" 
-   	});
+  		+ "terms, 'OR' to match ANY of these terms.</p>");   	
    	$panel_js
 });
  

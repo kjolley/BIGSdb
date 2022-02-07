@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -129,11 +129,11 @@ sub get_javascript {
   	\$('#filters_fieldset').coolfieldset({speed:"fast", collapsed:$filter_collapse});
   	\$('#filters_fieldset').show();
   	
-  	\$('#field_tooltip').tooltip({ content: "<h3>Search values</h3><p>Empty field "
+  	\$('#field_tooltip').attr("title", "<h3>Search values</h3><p>Empty field "
   		+ "values can be searched using the term 'null'. </p><h3>Number of fields</h3><p>Add more fields by clicking the '+' button."
   		+ "</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms."
-  		+ "</p>" });
-   });
+  		+ "</p>" );
+});
   	
 function loadContent(url) {
 	var row = parseInt(url.match(/row=(\\d+)/)[1]);
