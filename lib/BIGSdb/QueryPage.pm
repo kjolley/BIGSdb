@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -277,7 +277,7 @@ sub check_format {
 		}
 	}
 	if ( !$error && !$self->is_valid_operator( $data->{'operator'} ) ) {
-		$error = qq($data->{'operator'} is not a valid operator.);
+		$error = q(Operator is not valid.);
 	}
 	push @$error_ref, $error if $error;
 	return $error ? 1 : 0;

@@ -733,6 +733,84 @@ sub _modify_by_list {
 
 sub _modify_query_by_lincode {
 	my ( $self, $scheme_id, $field, $operator, $text, $errors ) = @_;
+	$text =~ s/^\s*|\s*$//gx;
+	return q() if $text eq q();
+	if ( lc($text) ne 'null' && $text !~ /^\d+(?:_\d+)*$/x ) {
+		push @$errors, 'LINcodes are integer values separated by underscores (_).';
+		return q();
+	}
+	my @values = split /_/x, $text;
+	my $value_count = @values;
+	my $thresholds =
+	  $self->{'datastore'}->run_query( 'SELECT thresholds FROM lincode_schemes WHERE scheme_id=?', $scheme_id );
+	my @thresholds = split /;/x, $thresholds;
+	my $threshold_count = @thresholds;
+	if ( $value_count > $threshold_count ) {
+		push @$errors, "LINcode scheme has $threshold_count thresholds but you have entered $value_count.";
+		return q();
+	}
+	my %allow_null = map { $_ => 1 } ( '=', 'NOT' );
+	if ( lc($text) eq 'null' && !$allow_null{$operator} ) {
+		my $clean_operator = $operator;
+		$clean_operator =~ s/>/&gt;/x;
+		$clean_operator =~ s/</&lt;/x;
+		push @$errors, "'$clean_operator' is not a valid operator for comparing null values.";
+		return q();
+	}
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $primary_key = $scheme_info->{'primary_key'};
+	my $modify      = {
+		'=' => sub {
+			if ( lc($text) eq 'null' ) {
+				return "($primary_key NOT IN (SELECT profile_id FROM lincodes WHERE scheme_id=$scheme_id))";
+			}
+			if ( $value_count != $threshold_count ) {
+				push @$errors, "You must enter $threshold_count values to perform an exact match LINcode query.";
+				return q();
+			}
+			my $pg_array = BIGSdb::Utils::get_pg_array( [@values] );
+			return
+			  "($primary_key IN (SELECT profile_id FROM lincodes WHERE scheme_id=$scheme_id AND lincode='$pg_array'))";
+		},
+		'starts with' => sub {
+			my $i = 1;    #pg arrays are 1-based.
+			my @terms;
+			foreach my $value (@values) {
+				push @terms, "lincode[$i]=$value";
+				$i++;
+			}
+			local $" = q( AND );
+			return "($primary_key IN (SELECT profile_id FROM lincodes WHERE scheme_id=$scheme_id AND @terms))";
+		},
+		'ends with' => sub {
+			my $i = $threshold_count;
+			my @terms;
+			foreach my $value ( reverse @values ) {
+				push @terms, "lincode[$i]=$value";
+				$i--;
+			}
+			local $" = q( AND );
+			return "($primary_key IN (SELECT profile_id FROM lincodes WHERE scheme_id=$scheme_id AND @terms))";
+		},
+		'NOT' => sub {
+			if ( lc($text) eq 'null' ) {
+				return "($primary_key IN (SELECT profile_id FROM lincodes WHERE scheme_id=$scheme_id))";
+			}
+			my $pg_array = BIGSdb::Utils::get_pg_array( [@values] );
+			return "($primary_key NOT IN (SELECT profile_id FROM lincodes "
+			  . "WHERE scheme_id=$scheme_id AND lincode='$pg_array'))";
+		}
+	};
+	if ( $modify->{$operator} ) {
+		return $modify->{$operator}->();
+	} else {
+		my $clean_operator = $operator;
+		$clean_operator =~ s/>/&gt;/x;
+		$clean_operator =~ s/</&lt;/x;
+		push @$errors, qq('$clean_operator' is not a valid operator for comparing LINcodes. Only '=', )
+		  . q('starts with', 'ends with', and 'NOT' are appropriate for searching LINcodes.);
+		return q();
+	}
 	return q();
 }
 
