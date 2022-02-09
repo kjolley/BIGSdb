@@ -1477,7 +1477,7 @@ sub _get_scheme_values {
 		{ set_id => $set_id, show_ignored => $self->{'curate'} } );
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	local $| = 1;
-	my $buffer;
+	my $buffer = q();
 	$buffer .= q(<dl class="data">) if $args->{'no_render'};
 
 	foreach my $locus (@$loci) {
@@ -1510,6 +1510,29 @@ sub _get_scheme_values {
 			$buffer .= qq(<dt>$cleaned</dt><dd>$values</dd>);
 		} else {
 			$buffer .= qq(<dl class="profile"><dt>$cleaned</dt><dd>$values</dd></dl>);
+		}
+	}
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	if (   $scheme_info->{'primary_key'}
+		&& $field_values->{ $scheme_info->{'primary_key'} }
+		&& $self->{'datastore'}->are_lincodes_defined($scheme_id) )
+	{
+		my @lincodes;
+		my @pk_values     = @{ $field_values->{ $scheme_info->{'primary_key'} } };
+		my $lincode_table = $self->{'datastore'}->create_temp_lincodes_table($scheme_id);
+		foreach my $pk_value (@pk_values) {
+			my $lincode =
+			  $self->{'datastore'}->run_query( "SELECT lincode FROM $lincode_table WHERE profile_id=?", $pk_value );
+			local $" = q(_);
+			push @lincodes, qq(@$lincode) if $lincode;
+		}
+		if (@lincodes) {
+			local $" = q(; );
+			if ( $args->{'no_render'} ) {
+				$buffer .= qq(<dt>LINcode</dt><dd>@lincodes</dd>);
+			} else {
+				$buffer .= qq(<dl class="profile"><dt>LINcode</dt><dd>@lincodes</dd></dl>);
+			}
 		}
 	}
 	$buffer .= q(</dl>) if $args->{'no_render'};

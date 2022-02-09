@@ -1157,6 +1157,67 @@ sub create_temp_cscheme_table {
 	return $table;
 }
 
+sub create_temp_lincodes_table {
+	my ( $self, $scheme_id, $options ) = @_;
+	return if !$self->are_lincodes_defined($scheme_id);
+	my $table = "temp_lincodes_$scheme_id";
+	if ( !$options->{'cache'} ) {
+		if ( $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table ) ) {
+			return $table;
+		}
+	}
+	my $table_type = 'TEMP TABLE';
+	my $rename_table;
+	if ( $options->{'cache'} ) {
+		$table_type   = 'TABLE';
+		$rename_table = $table;
+		my $timestamp = BIGSdb::Utils::get_timestamp();
+		$table = "${table}_$timestamp";
+	}
+	my $seqdef_scheme_id = $self->get_scheme_info($scheme_id)->{'dbase_id'};
+	my $scheme           = $self->get_scheme($scheme_id);
+	my $db               = $scheme->get_db;
+	my $lincodes         = $self->run_query( 'SELECT profile_id,lincode FROM lincodes WHERE scheme_id=?',
+		$seqdef_scheme_id, { db => $db, fetch => 'all_arrayref' } );
+	eval {
+		$self->{'db'}->do("CREATE $table_type $table (profile_id text, lincode int[])");
+		$self->{'db'}->do("COPY $table(profile_id,lincode) FROM STDIN");
+		local $" = "\t";
+		foreach my $values (@$lincodes) {
+			my ( $profile_id, $lincode ) = @$values;
+			local $" = q(,);
+			$self->{'db'}->pg_putcopydata("$profile_id\t{@$lincode}\n");
+		}
+		$self->{'db'}->pg_putcopyend;
+		$self->{'db'}->do("CREATE INDEX ON $table(profile_id)");
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+
+	#Create new temp table, then drop old and rename the new - this
+	#should minimize the time that the table is unavailable.
+	if ( $options->{'cache'} ) {
+		eval { $self->{'db'}->do("DROP TABLE IF EXISTS $rename_table; ALTER TABLE $table RENAME TO $rename_table") };
+		if ($@) {
+			$logger->error($@);
+			$logger->error("Dropping temp table $table.");
+			eval { $self->{'db'}->do("DROP TABLE IF EXISTS $table") };
+			$logger->error($@) if $@;
+		} else {
+
+			#Drop any old temp tables for this scheme that may have persisted due to a lock timeout.
+			$self->_delete_temp_tables("temp_lincodes_${scheme_id}_");
+		}
+		$self->{'db'}->commit;
+		$table = $rename_table;
+	}
+	return $table;
+}
+
 sub _delete_temp_tables {
 	my ( $self, $prefix ) = @_;
 	my $tables = $self->run_query( 'SELECT table_name FROM information_schema.tables where table_name LIKE ?',
@@ -2423,7 +2484,7 @@ sub get_tables {
 		  scheme_group_group_members pcr pcr_locus probes probe_locus sets set_loci set_schemes set_view
 		  isolates history sequence_attributes classification_schemes classification_group_fields
 		  retired_isolates user_dbases oauth_credentials eav_fields validation_rules validation_conditions
-		  validation_rule_conditions);
+		  validation_rule_conditions lincode_schemes);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}
 		  : 'isolates';

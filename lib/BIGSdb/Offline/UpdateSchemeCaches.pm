@@ -2,7 +2,7 @@
 #Create scheme profile caches in an isolate database
 #
 #Written by Keith Jolley
-#Copyright (c) 2014-2020, University of Oxford
+#Copyright (c) 2014-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -104,6 +104,11 @@ sub run_script {
 		say "Updating scheme $scheme_id completion status cache ($scheme_info->{'name'}) - method: $method"
 		  if !$self->{'options'}->{'q'};
 		$self->{'datastore'}->create_temp_scheme_status_table( $scheme_id, { cache => 1, method => $method } );
+		if ( $self->{'datastore'}->are_lincodes_defined($scheme_id) ) {
+			say "Updating scheme $scheme_id LINcodes cache ($scheme_info->{'name'})"
+			  if !$self->{'options'}->{'q'};
+			$self->{'datastore'}->create_temp_lincodes_table( $scheme_id, { cache => 1 } );
+		}
 	}
 	foreach my $cscheme_id (@$cschemes) {
 		$self->{'datastore'}->create_temp_cscheme_table( $cscheme_id, { cache => 1 } );

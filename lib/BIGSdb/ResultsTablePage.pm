@@ -503,7 +503,7 @@ sub _print_export_configuration_function {
 		scheme_members scheme_groups scheme_group_scheme_members scheme_group_group_members locus_descriptions
 		scheme_curators locus_curators sequences sequence_refs profile_refs locus_extended_attributes
 		client_dbases client_dbase_loci client_dbase_schemes classification_schemes classification_group_fields
-		validation_rules validation_conditions validation_rule_conditions)
+		validation_rules validation_conditions validation_rule_conditions lincode_schemes)
 	  )
 	{
 		say q(<fieldset><legend>Database configuration</legend>);
