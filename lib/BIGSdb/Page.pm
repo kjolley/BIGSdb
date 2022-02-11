@@ -1149,6 +1149,7 @@ sub get_field_selection_list {
 	#query_pref: only the loci for which the user has a query field preference selected will be returned
 	#analysis_pref: only the loci for which the user has an analysis preference selected will be returned
 	#scheme_fields: include scheme fields, prefix with s_SCHEME-ID_
+	#lincodes: include scheme LINcode field, named lin_SCHEME_id
 	#classification_groups: include classification group ids and field, prefix with cg_
 	#sort_labels: dictionary sort labels
 	my ( $self, $options ) = @_;
@@ -1170,6 +1171,10 @@ sub get_field_selection_list {
 	if ( $options->{'scheme_fields'} ) {
 		my $scheme_fields = $self->_get_scheme_fields($options);
 		push @$values, @$scheme_fields;
+	}
+	if ( $options->{'lincodes'} ) {
+		my $lincode_fields = $self->_get_lincode_fields($options);
+		push @$values, @$lincode_fields;
 	}
 	if ( $options->{'classification_groups'} ) {
 		my $classification_group_fields = $self->_get_classification_groups_fields;
@@ -1350,6 +1355,39 @@ sub _get_scheme_fields {
 	return $self->{'cache'}->{'scheme_fields'};
 }
 
+sub _get_lincode_fields {
+	my ( $self, $options ) = @_;
+	if ( !$self->{'cache'}->{'lincode_fields'} ) {
+		my $lincode_field_list = [];
+		my $set_id             = $self->get_set_id;
+		my $schemes            = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+		my $scheme_info        = $self->{'datastore'}->get_all_scheme_info;
+		foreach my $scheme (@$schemes) {
+			my ( $scheme_id, $desc ) = ( $scheme->{'id'}, $scheme->{'name'} );
+			my $scheme_db = $scheme_info->{$scheme_id}->{'dbase_name'};
+
+			#No point using LINcodes if no scheme database is available.
+			next
+			  if !( ( $self->{'prefs'}->{'query_field_schemes'}->{$scheme_id} || $options->{'ignore_prefs'} )
+				&& $scheme_db );
+			if ( $self->{'datastore'}->are_lincodes_defined($scheme_id) ) {
+				if ($set_id) {
+					my $set_name = $self->{'datastore'}->run_query(
+						'SELECT set_name FROM set_schemes WHERE set_id=? AND scheme_id=?',
+						[ $set_id, $scheme_id ],
+						{ cache => 'Page::get_scheme_fields' }
+					);
+					$desc = $set_name if defined $set_name;
+				}
+				( $self->{'cache'}->{'labels'}->{"lin_$scheme_id"} = "LINcode ($desc)" ) =~ tr/_/ /;
+				push @$lincode_field_list, "lin_$scheme_id";
+			}
+		}
+		$self->{'cache'}->{'lincode_fields'} = $lincode_field_list;
+	}
+	return $self->{'cache'}->{'lincode_fields'};
+}
+
 sub _get_classification_groups_fields {
 	my ($self) = @_;
 	if ( !$self->{'cache'}->{'classification_group_fields'} ) {
@@ -1527,7 +1565,7 @@ sub get_number_records_control {
 }
 
 sub get_scheme_filter {
-	my ($self, $options) = @_;
+	my ( $self, $options ) = @_;
 	if ( !$self->{'cache'}->{'schemes'} ) {
 		my $set_id = $self->get_set_id;
 		my $list = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => $options->{'with_pk'} } );

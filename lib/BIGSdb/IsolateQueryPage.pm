@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -400,7 +400,7 @@ sub _print_designations_fieldset_contents {
 	my $q = $self->{'cgi'};
 	my ( $locus_list, $locus_labels ) =
 	  $self->get_field_selection_list(
-		{ loci => 1, scheme_fields => 1, classification_groups => 1, sort_labels => 1 } );
+		{ loci => 1, scheme_fields => 1, lincodes => 1, classification_groups => 1, sort_labels => 1 } );
 	if (@$locus_list) {
 		my $locus_fields = $self->_highest_entered_fields('loci') || 1;
 		my $loci_field_heading = $locus_fields == 1 ? 'none' : 'inline';
@@ -2579,6 +2579,7 @@ sub _modify_query_for_designations {
 	push @null_queries, @$scheme_null_queries;
 	my ( $cgroup_queries, $cgroup_null_queries ) = $self->_get_classification_group_designations($errors);
 	push @null_queries, @$cgroup_null_queries;
+	my $lincode_queries = $self->_get_lincodes($errors);
 	my @designation_queries;
 
 	if ( keys %$queries_by_locus ) {
@@ -2595,9 +2596,10 @@ sub _modify_query_for_designations {
 		push @designation_queries, "$combined_allele_queries";
 	}
 	local $" = $andor;
-	push @designation_queries, "@null_queries"    if @null_queries;
-	push @designation_queries, "@$scheme_queries" if @$scheme_queries;
-	push @designation_queries, "@$cgroup_queries" if @$cgroup_queries;
+	push @designation_queries, "@null_queries"     if @null_queries;
+	push @designation_queries, "@$scheme_queries"  if @$scheme_queries;
+	push @designation_queries, "@$cgroup_queries"  if @$cgroup_queries;
+	push @designation_queries, "@$lincode_queries" if @$lincode_queries;
 	return $qry if !@designation_queries;
 	if ( $qry =~ /\(\)$/x ) {
 		$qry = "SELECT * FROM $view WHERE (@designation_queries)";
@@ -2905,6 +2907,110 @@ sub _get_classification_group_designations {
 		}
 	}
 	return ( \@qry, \@null_qry );
+}
+
+sub _get_lincodes {
+	my ( $self, $errors ) = @_;
+	my $q = $self->{'cgi'};
+	my $qry = [];
+	my $view = $self->{'system'}->{'view'};
+	foreach my $i ( 1 .. MAX_ROWS ) {
+		if ( defined $q->param("designation_value$i") && $q->param("designation_value$i") ne '' ) {
+			next if $q->param("designation_field$i") !~ /^lin_\d+$/x;
+			( my $scheme_id = $q->param("designation_field$i") ) =~ s/^lin_//x;
+			my $operator = $q->param("designation_operator$i") // '=';
+			my $text = $q->param("designation_value$i");
+			$self->process_value( \$text );
+			if ( lc($text) ne 'null' && $text !~ /^\d+(?:_\d+)*$/x ) {
+				push @$errors, 'LINcodes are integer values separated by underscores (_).';
+				next;
+			} elsif ( !$self->is_valid_operator($operator) ) {
+				push @$errors, "$operator is not a valid operator.";
+				next;
+			}
+			my @values = split /_/x, $text;
+			my $value_count = @values;
+			my $thresholds =
+			  $self->{'datastore'}->run_query( 'SELECT thresholds FROM lincode_schemes WHERE scheme_id=?', $scheme_id );
+			my @thresholds = split /;/x, $thresholds;
+			my $threshold_count = @thresholds;
+			if ( $value_count > $threshold_count ) {
+				push @$errors, "LINcode scheme has $threshold_count thresholds but you have entered $value_count.";
+				next;
+			}
+			my %allow_null = map { $_ => 1 } ( '=', 'NOT' );
+			if ( lc($text) eq 'null' && !$allow_null{$operator} ) {
+				my $clean_operator = $operator;
+				$clean_operator =~ s/>/&gt;/x;
+				$clean_operator =~ s/</&lt;/x;
+				push @$errors, "'$clean_operator' is not a valid operator for comparing null values.";
+				next;
+			}
+			my $scheme_info        = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+			my $primary_key        = $scheme_info->{'primary_key'};
+			my $scheme_field_table = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+			my $lincode_table      = $self->{'datastore'}->create_temp_lincodes_table($scheme_id);
+			my $temp_qry           = "SELECT $scheme_field_table.id FROM $scheme_field_table JOIN $lincode_table "
+			  . "ON CAST($scheme_field_table.$primary_key AS text)=$lincode_table.profile_id";
+			my $modify = {
+				'=' => sub {
+					if ( lc($text) eq 'null' ) {
+						push @$qry, "($view.id NOT IN ($temp_qry))";
+						next;
+					} 
+					elsif ( $value_count != $threshold_count ) {
+						push @$errors,
+						  "You must enter $threshold_count values to perform an exact match LINcode query.";
+						next;
+					}
+					local $" = q(,);
+					my $pg_array = qq({@values});
+					push @$qry, "($view.id IN ($temp_qry WHERE $lincode_table.lincode='$pg_array'))";
+				},
+				'starts with' => sub {
+					my $i = 1;    #pg arrays are 1-based.
+					my @terms;
+					foreach my $value (@values) {
+						push @terms, "lincode[$i]=$value";
+						$i++;
+					}
+					local $" = q( AND );
+					push @$qry, "($view.id IN ($temp_qry WHERE @terms))";
+				},
+				'ends with' => sub {
+					my $i = $threshold_count;
+					my @terms;
+					foreach my $value ( reverse @values ) {
+						push @terms, "lincode[$i]=$value";
+						$i--;
+					}
+					local $" = q( AND );
+					push @$qry, "($view.id IN ($temp_qry WHERE @terms))";
+				},
+				'NOT' => sub {
+					if ( lc($text) eq 'null' ) {
+						push @$qry, "($view.id IN ($temp_qry))";
+						next;
+					}
+					local $" = q(,);
+					my $pg_array = qq({@values});
+					push @$qry,
+					  "($view.id NOT IN ($temp_qry WHERE $lincode_table.lincode='$pg_array'))";
+				}
+			};
+			if ( $modify->{$operator} ) {
+				$modify->{$operator}->();
+			} else {
+				my $clean_operator = $operator;
+				$clean_operator =~ s/>/&gt;/x;
+				$clean_operator =~ s/</&lt;/x;
+				push @$errors, qq('$clean_operator' is not a valid operator for comparing LINcodes. Only '=', )
+				  . q('starts with', 'ends with', and 'NOT' are appropriate for searching LINcodes.);
+				next;
+			}
+		}
+	}
+	return ( $qry );
 }
 
 sub _modify_query_for_tags {
