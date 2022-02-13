@@ -36,6 +36,8 @@ use lib (LIB_DIR);
 use BIGSdb::Offline::Script;
 use BIGSdb::Constants qw(LOG_TO_SCREEN);
 use Term::Cap;
+
+#use Clone qw(clone);
 use Data::Dumper;                               #TODO Remove
 use PDL;
 
@@ -77,10 +79,53 @@ sub main {
 }
 
 sub get_prim_order {
+	##no critic (ProhibitMismatchedOperators) - PDL uses .= assignment.
+	my ( $index, $dismat ) = get_distance_matrix();
+	my $M = pdl($dismat);
+	for my $i ( 0 .. @$dismat - 1 ) {
+		$M->range( [ $i, $i ] ) .= 100;
+	}
+#	say $M;
+	my $ind = $M->flat->minimum_ind;
+	my ( $x, $y ) = ( int( $ind / @$index ), $ind - int( $ind / @$index ) * @$index );
+	my %used = map { $_ => 1 } ( $x, $y );
+	my $index_order = [ $x, $y ];
+	my $profile_order = [ $index->[$x], $index->[$y] ];
+	$M->range( [ $x, $y ] ) .= $M->range( [ $y, $x ] ) .= 100;
+
+	while ( @$profile_order != @$index ) {
+		my $min = 101;
+		my $v_min;
+		foreach my $x (@$index_order) {
+			my $this_min = $M->slice($x)->min;
+			if ( $this_min < $min ) {
+				$min   = $this_min;
+				$v_min = $x;
+			}
+		}
+		my $k = $M->slice($v_min)->flat->minimum_ind;
+		for my $i (@$index_order) {
+			$M->range( [ $i, $k ] ) .= $M->range( [ $k, $i ] ) .= 100;
+		}
+		if ( !$used{$k} ) {
+			push @$index_order,   $k;
+			push @$profile_order, $index->[$k];
+			$used{$k} = 1;
+		}
+	}
+	say Dumper $profile_order;
+
+	return $profile_order;
+}
+
+sub get_distance_matrix {
 	my $scheme_info = $script->{'datastore'}->get_scheme_info( $opts{'scheme_id'}, { get_pk => 1 } );
-	my $pk          = $scheme_info->{'primary_key'};
-	my $pk_info     = $script->{'datastore'}->get_scheme_field_info( $opts{'scheme_id'}, $pk );
-	my $order       = $pk_info->{'type'} eq 'integer' ? "CAST($pk AS integer)" : $pk;
+	my $loci        = $script->{'datastore'}->get_scheme_loci( $opts{'scheme_id'} );
+	my $locus_count = @$loci;
+	die "Scheme has no loci.\n" if !$locus_count;
+	my $pk      = $scheme_info->{'primary_key'};
+	my $pk_info = $script->{'datastore'}->get_scheme_field_info( $opts{'scheme_id'}, $pk );
+	my $order   = $pk_info->{'type'} eq 'integer' ? "CAST($pk AS integer)" : $pk;
 
 	#TODO Remove limit - just for testing.
 	local $| = 1;
@@ -95,6 +140,8 @@ sub get_prim_order {
 	my $i       = 0;
 	my %missing = ( N => 0 );
 	foreach my $profile (@$profiles) {
+
+		#TODO check not too many missing alleles.
 		push @$index, $profile->{ lc( $scheme_info->{'primary_key'} ) };
 		$_ = $missing{$_} // $_ foreach @{ $profile->{'profile'} };
 		push @$matrix, $profile->{'profile'};
@@ -108,10 +155,12 @@ sub get_prim_order {
 			my $prof2 = $m->slice(",($j)");
 			my ($diffs) =
 			  dims( where( $prof1, $prof2, ( $prof1 != $prof2 ) & ( $prof1 != 0 ) & ( $prof2 != 0 ) ) );
-			$dismat->[$i]->[$j] = $diffs;
-			say "$i;$j: $diffs";
+			my $distance = 100 * $diffs / $locus_count;
+			$dismat->[$i]->[$j] = $distance;
+			$dismat->[$j]->[$i] = $distance;
 		}
 	}
+	return ( $index, $dismat );
 }
 
 sub get_thresholds {
