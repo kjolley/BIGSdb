@@ -36,8 +36,6 @@ use lib (LIB_DIR);
 use BIGSdb::Offline::Script;
 use BIGSdb::Constants qw(LOG_TO_SCREEN);
 use Term::Cap;
-
-#use Clone qw(clone);
 use Data::Dumper;                               #TODO Remove
 use PDL;
 
@@ -81,18 +79,19 @@ sub main {
 sub get_prim_order {
 	##no critic (ProhibitMismatchedOperators) - PDL uses .= assignment.
 	my ( $index, $dismat ) = get_distance_matrix();
+	print 'Calculating PRIM order ...' if !$opts{'quiet'};
 	my $M = pdl($dismat);
 	for my $i ( 0 .. @$dismat - 1 ) {
 		$M->range( [ $i, $i ] ) .= 100;
 	}
-#	say $M;
+
+	#	say $M;
 	my $ind = $M->flat->minimum_ind;
 	my ( $x, $y ) = ( int( $ind / @$index ), $ind - int( $ind / @$index ) * @$index );
 	my %used = map { $_ => 1 } ( $x, $y );
 	my $index_order = [ $x, $y ];
 	my $profile_order = [ $index->[$x], $index->[$y] ];
 	$M->range( [ $x, $y ] ) .= $M->range( [ $y, $x ] ) .= 100;
-
 	while ( @$profile_order != @$index ) {
 		my $min = 101;
 		my $v_min;
@@ -113,8 +112,8 @@ sub get_prim_order {
 			$used{$k} = 1;
 		}
 	}
+	say 'Done.' if !$opts{'quiet'};
 	say Dumper $profile_order;
-
 	return $profile_order;
 }
 
@@ -155,7 +154,8 @@ sub get_distance_matrix {
 			my $prof2 = $m->slice(",($j)");
 			my ($diffs) =
 			  dims( where( $prof1, $prof2, ( $prof1 != $prof2 ) & ( $prof1 != 0 ) & ( $prof2 != 0 ) ) );
-			my $distance = 100 * $diffs / $locus_count;
+			my ($missing_in_either) = dims( where( $prof1, $prof2, ( $prof1 == 0 ) | ( $prof2 == 0 ) ) );
+			my $distance = 100 * $diffs / ( $locus_count - $missing_in_either );
 			$dismat->[$i]->[$j] = $distance;
 			$dismat->[$j]->[$i] = $distance;
 		}
