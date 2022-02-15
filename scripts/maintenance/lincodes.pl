@@ -84,8 +84,6 @@ sub get_prim_order {
 	for my $i ( 0 .. @$dismat - 1 ) {
 		$M->range( [ $i, $i ] ) .= 100;
 	}
-
-	#	say $M;
 	my $ind = $M->flat->minimum_ind;
 	my ( $x, $y ) = ( int( $ind / @$index ), $ind - int( $ind / @$index ) * @$index );
 	my %used = map { $_ => 1 } ( $x, $y );
