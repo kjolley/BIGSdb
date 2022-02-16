@@ -356,11 +356,12 @@ sub _check_lincode_schemes {
 	my $existing_thresholds = $self->{'datastore'}
 	  ->run_query( 'SELECT thresholds FROM lincode_schemes WHERE scheme_id=?', $newdata->{'scheme_id'} );
 	$existing_thresholds =~ s/\s//gx;
-	if ( $newdata->{'thresholds'} ne $existing_thresholds ) {
-		push @$extra_inserts, {
+	if ( $self->{'system'}->{'dbtype'} eq 'sequences' && $newdata->{'thresholds'} ne $existing_thresholds ) {
+		push @$extra_inserts,
+		  {
 			statement => 'DELETE FROM lincodes WHERE scheme_id=?',
 			arguments => [ $newdata->{'scheme_id'} ]
-		};
+		  };
 	}
 	return;
 }
