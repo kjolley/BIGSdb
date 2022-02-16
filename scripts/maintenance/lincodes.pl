@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20220211
+#Version: 20220216
 use strict;
 use warnings;
 use 5.010;
@@ -46,6 +46,7 @@ use Getopt::Long qw(:config no_ignore_case);
 my %opts;
 GetOptions(
 	'd|database=s'  => \$opts{'d'},
+	'init_size=i'   => \$opts{'init_size'},
 	'missing=i'     => \$opts{'missing'},
 	'q|quiet'       => \$opts{'quiet'},
 	's|scheme_id=i' => \$opts{'scheme_id'},
@@ -69,15 +70,18 @@ my $script = BIGSdb::Offline::Script->new(
 	}
 );
 check_db();
+$opts{'init_size'} //= 1000;
 main();
 
 sub main {
 	local $| = 1;
 	my $profiles_to_assign = [];
 	my $lincodes           = get_lincode_definitions();
+	my $initiating;
 	if ( !@{ $lincodes->{'profile_ids'} } ) {
 		say 'No LINcodes yet defined.' if !$opts{'quiet'};
 		$profiles_to_assign = get_prim_order();
+		$initiating         = 1;
 	} else {
 		$profiles_to_assign = get_profiles_without_lincodes();
 	}
@@ -86,6 +90,13 @@ sub main {
 		return;
 	}
 	assign_lincodes($profiles_to_assign);
+	if ($initiating) {
+		$profiles_to_assign = get_profiles_without_lincodes();
+		if (@$profiles_to_assign) {
+			say 'Assigning remaining profiles sequentially.';
+			assign_lincodes($profiles_to_assign);
+		}
+	}
 	return;
 }
 
@@ -111,7 +122,9 @@ sub assign_lincodes {
 			$lincode = get_new_lincode( $definitions, $profile_id, $profile );
 		}
 		local $" = q(_);
-		say "$pk-$profile_id:\t@$lincode." if !$opts{'quiet'};
+		my $identifier = "$pk-$profile_id";
+		my $spaces = q( ) x abs(20 - length($identifier));
+		say "$identifier:$spaces@$lincode." if !$opts{'quiet'};
 		assign_lincode( $profile_id, $lincode );
 		push @{ $definitions->{'profile_ids'} }, $profile_id;
 		push @{ $definitions->{'lincodes'} },    $lincode;
@@ -298,9 +311,10 @@ sub get_distance_matrix {
 	  $script->{'datastore'}
 	  ->run_query( 'SELECT * FROM lincode_schemes WHERE scheme_id=?', $opts{'scheme_id'}, { fetch => 'row_hashref' } );
 	my $order = get_profile_order_term();
-	print 'Reading profiles ...' if !$opts{'quiet'};
+	print "Reading profiles (first $opts{'init_size'}) ..." if !$opts{'quiet'};
 	my $profiles = $script->{'datastore'}->run_query(
-		"SELECT $scheme_info->{'primary_key'},profile FROM mv_scheme_$opts{'scheme_id'} ORDER BY $order"
+		    "SELECT $scheme_info->{'primary_key'},profile FROM mv_scheme_$opts{'scheme_id'} "
+		  . "ORDER BY $order LIMIT $opts{'init_size'}"
 		,
 		undef, { fetch => 'all_arrayref', slice => {} }
 	);
@@ -392,6 +406,13 @@ ${bold}OPTIONS$norm
 
 ${bold}--database$norm ${under}DATABASE CONFIG$norm
     Database configuration name. This must be a sequence definition database.
+    
+${bold}--init_size$norm ${under}NUMBER$norm
+    Maximum number of profiles to use to initiate assignment order if no 
+    LINcodes have yet been defined. The order of assignment is optimally 
+    determined using Prim's algorithm, but as this requires calculation of
+    a distance matrix is limited, by default, to the first 1000 profiles.
+    After this, new LINcodes will be assigned sequentially. 
     
 ${bold}--missing$norm ${under}NUMBER$norm
     Set the maximum number of loci that are allowed to be missing in a profile
