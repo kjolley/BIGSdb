@@ -36,7 +36,6 @@ use lib (LIB_DIR);
 use BIGSdb::Offline::Script;
 use BIGSdb::Constants qw(LOG_TO_SCREEN);
 use Term::Cap;
-use Data::Dumper;                               #TODO Remove
 use PDL;
 
 #Direct all library logging calls to screen
@@ -47,6 +46,7 @@ use Getopt::Long qw(:config no_ignore_case);
 my %opts;
 GetOptions(
 	'd|database=s'  => \$opts{'d'},
+	'missing=i'     => \$opts{'missing'},
 	'q|quiet'       => \$opts{'quiet'},
 	's|scheme_id=i' => \$opts{'scheme_id'},
 	'help'          => \$opts{'help'},
@@ -72,13 +72,188 @@ check_db();
 main();
 
 sub main {
-	get_prim_order();
+	local $| = 1;
+	my $profiles_to_assign = [];
+	my $lincodes           = get_lincode_definitions();
+	if ( !@{ $lincodes->{'profile_ids'} } ) {
+		say 'No LINcodes yet defined.' if !$opts{'quiet'};
+		$profiles_to_assign = get_prim_order();
+	} else {
+		$profiles_to_assign = get_profiles_without_lincodes();
+	}
+	if ( !@$profiles_to_assign ) {
+		say 'No profiles to assign.' if !$opts{'quiet'};
+		return;
+	}
+	assign_lincodes($profiles_to_assign);
 	return;
+}
+
+sub assign_lincodes {
+	my ($profiles_to_assign) = @_;
+	my $scheme_info = $script->{'datastore'}->get_scheme_info( $opts{'scheme_id'}, { get_pk => 1 } );
+	my $pk          = $scheme_info->{'primary_key'};
+	my $count       = @$profiles_to_assign;
+	my $plural      = $count == 1 ? q() : q(s);
+	say "Assigning LINcodes for $count profile$plural." if !$opts{'quiet'};
+	my $definitions = get_lincode_definitions();
+	my $thresholds  = get_thresholds();
+	my %missing     = ( N => 0 );
+	foreach my $profile_id (@$profiles_to_assign) {
+		my $lincode;
+		my $profile = $script->{'datastore'}
+		  ->run_query( "SELECT profile FROM mv_scheme_$opts{'scheme_id'} WHERE $pk=?", $profile_id );
+		$_ = $missing{$_} // $_ foreach @$profile;
+		if ( !@{ $definitions->{'profile_ids'} } ) {
+			$lincode = [ (0) x @{ $thresholds->{'diffs'} } ];
+			$definitions->{'profiles'} = pdl($profile);
+		} else {
+			$lincode = get_new_lincode( $definitions, $profile_id, $profile );
+		}
+		local $" = q(_);
+		say "$pk-$profile_id:\t@$lincode." if !$opts{'quiet'};
+		assign_lincode( $profile_id, $lincode );
+		push @{ $definitions->{'profile_ids'} }, $profile_id;
+		push @{ $definitions->{'lincodes'} },    $lincode;
+	}
+	return;
+}
+
+sub get_lincode_definitions {
+	my $scheme_info = $script->{'datastore'}->get_scheme_info( $opts{'scheme_id'}, { get_pk => 1 } );
+	my $pk          = $scheme_info->{'primary_key'};
+	my $data        = $script->{'datastore'}->run_query(
+		"SELECT profile_id,lincode,profile FROM lincodes l JOIN mv_scheme_$opts{'scheme_id'} s ON "
+		  . "l.profile_id=s.$pk WHERE scheme_id=? ORDER BY lincode",
+		$opts{'scheme_id'},
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	my $profile_ids = [];
+	my $profiles    = [];
+	my $lincodes    = [];
+	my %missing     = ( N => 0 );
+	foreach my $record (@$data) {
+		push @$profile_ids, $record->{'profile_id'};
+		$_ = $missing{$_} // $_ foreach @{ $record->{'profile'} };
+		push @$profiles, $record->{'profile'};
+		push @$lincodes, $record->{'lincode'};
+	}
+	return {
+		profile_ids => $profile_ids,
+		profiles    => pdl($profiles),
+		lincodes    => $lincodes
+	};
+}
+
+sub get_new_lincode {
+	my ( $definitions, $profile_id, $profile ) = @_;
+	my $loci        = $script->{'datastore'}->get_scheme_loci( $opts{'scheme_id'} );
+	my $locus_count = @$loci;
+	$definitions->{'profiles'} = $definitions->{'profiles'}->glue( 1, pdl($profile) );
+	my $j            = @{ $definitions->{'profile_ids'} };           #Newly added last row
+	my $prof2        = $definitions->{'profiles'}->slice(",($j)");
+	my $min_distance = 100;
+	my $closest_index;
+
+	for my $i ( 0 .. @{ $definitions->{'profile_ids'} } - 1 ) {
+		my $prof1 = $definitions->{'profiles'}->slice(",($i)");
+		my ($diffs) =
+		  dims( where( $prof1, $prof2, ( $prof1 != $prof2 ) & ( $prof1 != 0 ) & ( $prof2 != 0 ) ) );
+		my ($missing_in_either) = dims( where( $prof1, $prof2, ( $prof1 == 0 ) | ( $prof2 == 0 ) ) );
+		my $distance = 100 * $diffs / ( $locus_count - $missing_in_either );
+		if ( $distance < $min_distance ) {
+			$min_distance  = $distance;
+			$closest_index = $i;
+		}
+	}
+	my $identity        = 100 - $min_distance;
+	my $thresholds      = get_thresholds();
+	my $threshold_index = 0;
+	foreach my $threshold_identity ( @{ $thresholds->{'identity'} } ) {
+		if ( $identity > $threshold_identity ) {
+			$threshold_index++;
+			next;
+		}
+		last;
+	}
+	return increment_lincode( $definitions->{'lincodes'}, $closest_index, $threshold_index );
+}
+
+sub increment_lincode {
+	my ( $lincodes, $closest_index, $threshold_index ) = @_;
+	my $thresholds = get_thresholds();
+	if ( $threshold_index == 0 ) {
+		my $max_first = 0;
+		foreach my $lincode (@$lincodes) {
+			if ( $lincode->[0] > $max_first ) {
+				$max_first = $lincode->[0];
+			}
+		}
+		my @new_lincode = ( ++$max_first, (0) x ( @{ $thresholds->{'diffs'} } - 1 ) );
+		return [@new_lincode];
+	}
+	my $closest_lincode     = $lincodes->[$closest_index];
+	my @lincode_prefix      = @$closest_lincode[ 0 .. $threshold_index - 1 ];
+	my $max_threshold_index = 0;
+	foreach my $lincode (@$lincodes) {
+		local $" = q(_);
+		next if qq(@lincode_prefix) ne qq(@$lincode[ 0 .. $threshold_index - 1 ]);
+		if ( $lincode->[$threshold_index] > $max_threshold_index ) {
+			$max_threshold_index = $lincode->[$threshold_index];
+		}
+	}
+	my @new_lincode = @lincode_prefix;
+	push @new_lincode, ++$max_threshold_index;
+	push @new_lincode, 0 while @new_lincode < @{ $thresholds->{'diffs'} };
+	return [@new_lincode];
+}
+
+sub assign_lincode {
+	my ( $profile_id, $lincode ) = @_;
+	eval {
+		$script->{'db'}->do( 'INSERT INTO lincodes (scheme_id,profile_id,lincode,curator,datestamp) VALUES (?,?,?,?,?)',
+			undef, $opts{'scheme_id'}, $profile_id, $lincode, 0, 'now' );
+	};
+	if ($@) {
+		$script->{'db'}->rollback;
+		die "Cannot assign LINcode. $@.\n";
+	}
+	$script->{'db'}->commit;
+	return;
+}
+
+sub get_profiles_without_lincodes {
+	print 'Retrieving profiles without LINcodes ...' if !$opts{'quiet'};
+	my $scheme_info = $script->{'datastore'}->get_scheme_info( $opts{'scheme_id'}, { get_pk => 1 } );
+	my $pk          = $scheme_info->{'primary_key'};
+	my $order       = get_profile_order_term();
+	my $lincode_scheme =
+	  $script->{'datastore'}
+	  ->run_query( 'SELECT * FROM lincode_schemes WHERE scheme_id=?', $opts{'scheme_id'}, { fetch => 'row_hashref' } );
+	my $max_missing = $opts{'missing'} // $lincode_scheme->{'max_missing'};
+	my $profiles = $script->{'datastore'}->run_query(
+		"SELECT $pk FROM mv_scheme_$opts{'scheme_id'} WHERE cardinality(array_positions(profile,'N')) "
+		  . "<= $max_missing AND $pk NOT IN (SELECT profile_id FROM lincodes WHERE scheme_id=$opts{'scheme_id'}) "
+		  . "ORDER BY $order",
+		undef,
+		{ fetch => 'col_arrayref', slice => {} }
+	);
+	say 'Done.' if !$opts{'quiet'};
+	return $profiles;
+}
+
+sub get_profile_order_term {
+	my $scheme_info = $script->{'datastore'}->get_scheme_info( $opts{'scheme_id'}, { get_pk => 1 } );
+	my $pk          = $scheme_info->{'primary_key'};
+	my $pk_info     = $script->{'datastore'}->get_scheme_field_info( $opts{'scheme_id'}, $pk );
+	my $order       = $pk_info->{'type'} eq 'integer' ? "CAST($pk AS integer)" : $pk;
+	return $order;
 }
 
 sub get_prim_order {
 	##no critic (ProhibitMismatchedOperators) - PDL uses .= assignment.
 	my ( $index, $dismat ) = get_distance_matrix();
+	return $index if @$index == 1;
 	print 'Calculating PRIM order ...' if !$opts{'quiet'};
 	my $M = pdl($dismat);
 	for my $i ( 0 .. @$dismat - 1 ) {
@@ -111,7 +286,6 @@ sub get_prim_order {
 		}
 	}
 	say 'Done.' if !$opts{'quiet'};
-	say Dumper $profile_order;
 	return $profile_order;
 }
 
@@ -120,32 +294,40 @@ sub get_distance_matrix {
 	my $loci        = $script->{'datastore'}->get_scheme_loci( $opts{'scheme_id'} );
 	my $locus_count = @$loci;
 	die "Scheme has no loci.\n" if !$locus_count;
-	my $pk      = $scheme_info->{'primary_key'};
-	my $pk_info = $script->{'datastore'}->get_scheme_field_info( $opts{'scheme_id'}, $pk );
-	my $order   = $pk_info->{'type'} eq 'integer' ? "CAST($pk AS integer)" : $pk;
-
-	#TODO Remove limit - just for testing.
-	local $| = 1;
+	my $lincode_scheme =
+	  $script->{'datastore'}
+	  ->run_query( 'SELECT * FROM lincode_schemes WHERE scheme_id=?', $opts{'scheme_id'}, { fetch => 'row_hashref' } );
+	my $order = get_profile_order_term();
 	print 'Reading profiles ...' if !$opts{'quiet'};
-	my $profiles =
-	  $script->{'datastore'}->run_query(
-		"SELECT $scheme_info->{'primary_key'},profile FROM mv_scheme_$opts{'scheme_id'} ORDER BY $order LIMIT 100",
-		undef, { fetch => 'all_arrayref', slice => {} } );
-	my $count   = @$profiles;
-	my $matrix  = [];
-	my $index   = [];
-	my $i       = 0;
-	my %missing = ( N => 0 );
+	my $profiles = $script->{'datastore'}->run_query(
+		"SELECT $scheme_info->{'primary_key'},profile FROM mv_scheme_$opts{'scheme_id'} ORDER BY $order"
+		,
+		undef, { fetch => 'all_arrayref', slice => {} }
+	);
+	my $matrix      = [];
+	my $index       = [];
+	my $i           = 0;
+	my $max_missing = $opts{'missing'} // $lincode_scheme->{'max_missing'};
 	foreach my $profile (@$profiles) {
-
-		#TODO check not too many missing alleles.
-		push @$index, $profile->{ lc( $scheme_info->{'primary_key'} ) };
-		$_ = $missing{$_} // $_ foreach @{ $profile->{'profile'} };
+		my $Ns = 0;
+		foreach my $allele ( @{ $profile->{'profile'} } ) {
+			if ( $allele eq 'N' ) {
+				$Ns++;
+				$allele = 0;
+			}
+		}
+		next if $Ns > $max_missing;
+		push @$index,  $profile->{ lc( $scheme_info->{'primary_key'} ) };
 		push @$matrix, $profile->{'profile'};
 	}
 	say 'Done.' if !$opts{'quiet'};
+	my $count = @$index;
+	die "No profiles to assign.\n"          if ( !$count );
+	return $index                           if @$index == 1;
+	print 'Calculating distance matrix ...' if !$opts{'quiet'};
 	my $m      = pdl(@$matrix);
 	my $dismat = [];
+
 	for my $i ( 0 .. $count - 1 ) {
 		for my $j ( $i + 1 .. $count - 1 ) {
 			my $prof1 = $m->slice(",($i)");
@@ -158,14 +340,28 @@ sub get_distance_matrix {
 			$dismat->[$j]->[$i] = $distance;
 		}
 	}
+	say 'Done.' if !$opts{'quiet'};
 	return ( $index, $dismat );
 }
 
 sub get_thresholds {
+	if ( $script->{'cache'}->{'thresholds'} ) {
+		return $script->{'cache'}->{'thresholds'};
+	}
 	my $thresholds =
-	  $script->{'datastore'}->run_query( 'SELECT thresholds FROM lincodes WHERE scheme_id=?', $opts{'scheme_id'} );
-	my @thresholds = split /\s*;\s*/x, $thresholds;
-	return \@thresholds;
+	  $script->{'datastore'}
+	  ->run_query( 'SELECT thresholds FROM lincode_schemes WHERE scheme_id=?', $opts{'scheme_id'} );
+	my $diffs    = [ split /\s*;\s*/x, $thresholds ];
+	my $identity = [];
+	my $loci     = $script->{'datastore'}->get_scheme_loci( $opts{'scheme_id'} );
+	foreach my $diff (@$diffs) {
+		push @$identity, 100 * ( @$loci - $diff ) / @$loci;
+	}
+	$script->{'cache'}->{'thresholds'} = {
+		diffs    => $diffs,
+		identity => $identity
+	};
+	return $script->{'cache'}->{'thresholds'};
 }
 
 sub check_db {
@@ -196,6 +392,11 @@ ${bold}OPTIONS$norm
 
 ${bold}--database$norm ${under}DATABASE CONFIG$norm
     Database configuration name. This must be a sequence definition database.
+    
+${bold}--missing$norm ${under}NUMBER$norm
+    Set the maximum number of loci that are allowed to be missing in a profile
+    for LINcodes to be assigned. If not set, the value defined in the LINcode
+    schemes table will be used.
     
 ${bold}--quiet$norm
     Only output errors.
