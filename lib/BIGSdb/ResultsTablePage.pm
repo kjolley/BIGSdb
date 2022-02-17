@@ -43,38 +43,8 @@ sub _calculate_totals {
 		$passed_qry_file = $self->make_temp_file($qry);
 		$passed_qry      = $qry;
 	}
-	my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
-	my $cschemes =
-	  $self->{'datastore'}->run_query( 'SELECT id FROM classification_schemes', undef, { fetch => 'col_arrayref' } );
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		my $view = $self->{'system'}->{'view'};
-		try {
-			foreach my $scheme_id (@$schemes) {
-				if (   $qry =~ /temp_(?:isolates|$view)_scheme_fields_$scheme_id\D/x
-					|| $qry =~ /ORDER\ BY\ s_$scheme_id\D/x )
-				{
-					$self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
-				}
-				if ( $qry =~ /temp_(?:isolates|$view)_scheme_completion_$scheme_id\D/x ) {
-					$self->{'datastore'}->create_temp_scheme_status_table($scheme_id);
-				}
-			}
-			foreach my $cscheme_id (@$cschemes) {
-				if ( $qry =~ /temp_cscheme_$cscheme_id\D/x ) {
-					$self->{'datastore'}->create_temp_cscheme_table($cscheme_id);
-				}
-			}
-		}
-		catch {
-			if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
-				$self->print_bad_status(
-					{ message => q(Cannot connect to remote database. The query cannot be performed.) } );
-				$logger->error('Cannot create temporary table');
-				return;
-			} else {
-				$logger->logdie($_);
-			}
-		};
+		$self->create_temp_tables( \$qry );
 	}
 	if ( any { lc($qry) =~ /;\s*$_\s/x } (qw (insert delete update alter create drop)) ) {
 		$self->print_bad_status( { message => q(Invalid query attempted.) } );
@@ -1200,7 +1170,7 @@ sub _print_profile_table {
 	}
 	say q(</th>);
 	my $lincodes_defined = $self->{'datastore'}->are_lincodes_defined($scheme_id);
-	if ($lincodes_defined){
+	if ($lincodes_defined) {
 		say q(<th>LINcode</th>);
 	}
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
@@ -1244,9 +1214,10 @@ sub _print_profile_table {
 			say qq(<td><a href="$self->{'system'}->{'script_name'}?page=profileInfo&amp;db=$self->{'instance'}&amp;)
 			  . qq(scheme_id=$scheme_id&amp;profile_id=$pk_value">$pk_value</a></td>);
 		}
-		if ($lincodes_defined){
-			my $lincode = $self->{'datastore'}->run_query('SELECT lincode FROM lincodes WHERE (scheme_id,profile_id)=(?,?)',
-			[$scheme_id,$pk_value]) // [];
+		if ($lincodes_defined) {
+			my $lincode =
+			  $self->{'datastore'}->run_query( 'SELECT lincode FROM lincodes WHERE (scheme_id,profile_id)=(?,?)',
+				[ $scheme_id, $pk_value ] ) // [];
 			local $" = q(_);
 			print qq(<td>@$lincode</td>);
 		}

@@ -306,13 +306,16 @@ sub create_temp_tables {
 		my $view = $self->{'system'}->{'view'};
 		try {
 			foreach my $scheme_id (@$schemes) {
-				if (   $qry =~ /temp_(?:isolates|view)_scheme_fields_$scheme_id\s/x
+				if (   $qry =~ /temp_(?:isolates|$view)_scheme_fields_$scheme_id\D/x
 					|| $qry =~ /ORDER\ BY\ s_$scheme_id\_/x )
 				{
 					$self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 				}
-				if ( $qry =~ /temp_(?:isolates|view)_scheme_completion_$scheme_id\s/x ) {
+				if ( $qry =~ /temp_(?:isolates|$view)_scheme_completion_$scheme_id\D/x ) {
 					$self->{'datastore'}->create_temp_scheme_status_table($scheme_id);
+				}
+				if ($qry =~ /temp_lincodes_$scheme_id\D/x){
+					$self->{'datastore'}->create_temp_lincodes_table($scheme_id);
 				}
 			}
 			foreach my $cscheme_id (@$cschemes) {
