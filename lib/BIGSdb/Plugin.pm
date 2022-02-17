@@ -463,13 +463,13 @@ sub print_includes_fieldset {
 	foreach my $field (@$fields) {
 		next if $field eq 'f_id';
 		next if $hide_field{$field};
-		if ( $field =~ /^s_/x ) {
+		if ( $field =~ /^(?:s|lin)_/x ) {
 			push @{ $group_members->{'Schemes'} }, $field;
 		}
-		if ( $field =~ /^[l|cn]_/x ) {
+		if ( $field =~ /^(?:l|cn)_/x ) {
 			push @{ $group_members->{'Loci'} }, $field;
 		}
-		if ( $field =~ /^[f|e]_/x ) {
+		if ( $field =~ /^(?:f|e)_/x ) {
 			( my $stripped_field = $field ) =~ s/^[f|e]_//x;
 			next if $skip_fields{$stripped_field};
 			$stripped_field =~ s/[\|\||\s].+$//x;
@@ -775,7 +775,7 @@ sub escape_params {
 
 sub get_scheme_field_values {
 	my ( $self, $args ) = @_;
-	my ( $isolate_id, $scheme_id, $field, ) = @{$args}{qw(isolate_id scheme_id field )};
+	my ( $isolate_id, $scheme_id, $field ) = @{$args}{qw(isolate_id scheme_id field )};
 	return if !BIGSdb::Utils::is_int($isolate_id);
 	if ( !$self->{'scheme_field_table'}->{$scheme_id} ) {
 		try {
@@ -841,6 +841,27 @@ sub get_cscheme_value {
 		}
 	}
 	return $value;
+}
+
+sub get_lincode {
+	my ( $self, $isolate_id, $scheme_id ) = @_;
+	return if !BIGSdb::Utils::is_int($isolate_id);
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $profile_ids = $self->get_scheme_field_values(
+		{
+			isolate_id => $isolate_id,
+			scheme_id  => $scheme_id,
+			field      => $scheme_info->{'primary_key'}
+		}
+	);
+	my $lincode_table = $self->{'datastore'}->create_temp_lincodes_table($scheme_id);
+	my $lincodes      = [];
+	foreach my $profile_id (@$profile_ids) {
+		my $lincode =
+		  $self->{'datastore'}->run_query( "SELECT lincode FROM $lincode_table WHERE profile_id=?", $profile_id );
+		push @$lincodes, $lincode if $lincode;
+	}
+	return $lincodes;
 }
 
 sub attempted_spam {
@@ -935,7 +956,8 @@ sub print_recommended_scheme_fieldset {
 		-size     => 5,
 		-multiple => 'true'
 	);
-	say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("recommended_schemes",false)' )
+	say
+	  q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("recommended_schemes",false)' )
 	  . q(value="Clear" style="margin-top:1em" class="small_submit" /></div>);
 	say q(</fieldset>);
 	return;

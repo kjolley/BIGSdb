@@ -1,6 +1,6 @@
 #GrapeTree.pm - MST visualization plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2017-2021, University of Oxford
+#Copyright (c) 2017-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -53,7 +53,7 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.4.4',
+		version             => '1.5.0',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -138,6 +138,7 @@ sub _print_interface {
 			scheme_fields         => 1,
 			eav_fields            => 1,
 			classification_groups => 1,
+			lincodes              => 1,
 			size                  => 8
 		}
 	);
@@ -428,11 +429,29 @@ sub _generate_tsv_file {
 		( my $cleaned_field = $field ) =~ tr/_/ /;
 		push @header_fields, $cleaned_field if $include_fields{"eav_$field"};
 	}
+	my %lincode_threshold_counts;
 	foreach my $field (@include_fields) {
 		if ( $field =~ /^s_(\d+)_(.+)$/x ) {
 			my $scheme_info = $self->{'datastore'}->get_scheme_info( $1, { set_id => $params->{'set_id'} } );
 			( my $field = "$2 ($scheme_info->{'name'})" ) =~ tr/_/ /;
 			push @header_fields, $field;
+		}
+		if ( $field =~ /^lin_(\d+)$/x ) {
+			my $scheme_id = $1;
+			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $params->{'set_id'} } );
+			( my $field = "LINcode ($scheme_info->{'name'})" ) =~ tr/_/ /;
+			push @header_fields, $field;
+			my $thresholds =
+			  $self->{'datastore'}->run_query( 'SELECT thresholds FROM lincode_schemes WHERE scheme_id=?', $scheme_id );
+			my @threshold_values = split /\s*;\s*/x, $thresholds;
+			$lincode_threshold_counts{$scheme_id} = scalar @threshold_values;
+			if ( $lincode_threshold_counts{$scheme_id} > 1 ) {
+
+				for my $i ( 1 .. @threshold_values - 1 ) {
+					( my $field = "LINcode ($scheme_info->{'name'})[$i]" ) =~ tr/_/ /;
+					push @header_fields, $field;
+				}
+			}
 		}
 	}
 	foreach my $cs (@$classification_schemes) {
@@ -470,11 +489,42 @@ sub _generate_tsv_file {
 		foreach my $field (@include_fields) {
 			if ( $field =~ /^s_(\d+)_(.+)$/x ) {
 				my ( $scheme_id, $field ) = ( $1, $2 );
-				my $field_values =
-				  $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $record->{'id'}, $scheme_id );
-				my @display_values = sort keys %{ $field_values->{ lc($field) } };
+				my $field_values = $self->get_scheme_field_values(
+					{
+						isolate_id => $record->{'id'},
+						scheme_id  => $scheme_id,
+						field      => $field
+					}
+				);
+				local $" = q(; );
+				@$field_values = grep {defined $_} @$field_values;
+				push @record_values, @$field_values ? qq(@$field_values) : q();
+			}
+			if ( $field =~ /^lin_(\d+)$/x ) {
+				my $scheme_id = $1;
+				my $lincodes = $self->get_lincode( $record->{'id'}, $scheme_id );
+				my @display_values;
+				foreach my $lincode (@$lincodes) {
+					local $" = q(_);
+					push @display_values, qq(@$lincode);
+				}
 				local $" = q(; );
 				push @record_values, qq(@display_values) // q();
+				if ( $lincode_threshold_counts{$scheme_id} > 1 ) {
+					
+					for my $i ( 0 .. $lincode_threshold_counts{$scheme_id} - 2 ) {
+						@display_values = ();
+						my %used;
+						foreach my $lincode (@$lincodes) {
+							my @lincode_prefix = @$lincode[ 0 .. $i ] ;
+							local $" = q(_);
+							push @display_values, qq(@lincode_prefix) if !$used{qq(@lincode_prefix)};
+							$used{qq(@lincode_prefix)} = 1 
+						}
+						local $" = q(; );
+						push @record_values, qq(@display_values) // q();
+					}
+				}
 			}
 		}
 		foreach my $cs (@$classification_schemes) {
