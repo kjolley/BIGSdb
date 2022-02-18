@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2021, University of Oxford
+#Copyright (c) 2014-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -41,7 +41,9 @@ sub _get_loci {
 	my ($db)   = params->{'db'};
 	my $subdir = setting('subdir');
 	my $allowed_filters =
-	  $self->{'system'}->{'dbtype'} eq 'sequences' ? [qw(alleles_added_after alleles_updated_after)] : [];
+	  $self->{'system'}->{'dbtype'} eq 'sequences'
+	  ? [qw(alleles_added_after alleles_updated_after alleles_added_reldate alleles_updated_reldate)]
+	  : [];
 	my $set_id = $self->get_set_id;
 	my $set_clause =
 	  $set_id
@@ -199,7 +201,7 @@ sub _query_locus_sequence {
 			if ($partial_linked_data) {
 				my $field_values =
 				  $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $best->{'allele'} );
-				$filtered->{'linked_data'} = $field_values->{'detailed_values'}
+				$filtered->{'linked_data'} = $field_values->{'detailed_values'};
 			}
 			$values->{'best_match'} = $filtered;
 		}

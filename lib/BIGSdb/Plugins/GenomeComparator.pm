@@ -65,7 +65,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.7.2',
+		version     => '2.7.3',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -2352,7 +2352,7 @@ sub _core_analysis {
 	my $isolate_count = @{ $args->{'ids'} };
 	my $locus_count   = @$loci;
 	my $out_file      = "$self->{'config'}->{'tmp_dir'}/$args->{'job_id'}\_core.txt";
-	open( my $fh, '>', $out_file ) || $logger->error("Can't open $out_file for writing");
+	open( my $fh, '>:encoding(utf8)', $out_file ) || $logger->error("Can't open $out_file for writing");
 	say $fh 'Core genome analysis';
 	say $fh "--------------------\n";
 	say $fh 'Parameters:';
