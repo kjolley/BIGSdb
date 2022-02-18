@@ -541,7 +541,6 @@ sub _run_query {
 		local $" = q(<br />);
 		$self->print_bad_status( { message => q(Problem with search criteria:), detail => qq(@$errors) } );
 	} else {
-		$logger->error($qry2);
 		my $args = { table => $table, query => $qry2, hidden_attributes => \@hidden_attributes };
 		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
 		$self->paged_display($args);
