@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2021, University of Oxford
+#Copyright (c) 2014-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -39,7 +39,7 @@ sub _get_alleles {
 	my $params = params;
 	my ( $db, $locus ) = @{$params}{qw(db locus)};
 	my $subdir          = setting('subdir');
-	my $allowed_filters = [qw(added_after added_on updated_after updated_on)];
+	my $allowed_filters = [qw(added_after added_reldate added_on updated_after updated_reldate updated_on)];
 	my $set_id          = $self->get_set_id;
 	my $locus_name      = $locus;
 	my $set_name        = $locus;
@@ -136,7 +136,7 @@ sub _get_alleles_fasta {
 	$self->check_seqdef_database;
 	my $params = params;
 	my ( $db, $locus ) = @{$params}{qw(db locus)};
-	my $allowed_filters = [qw(added_after added_on updated_after updated_on)];
+	my $allowed_filters = [qw(added_after added_reldate added_on updated_after updated_reldate updated_on)];
 	my $set_id          = $self->get_set_id;
 	my $locus_name      = $locus;
 	my $set_name        = $locus;

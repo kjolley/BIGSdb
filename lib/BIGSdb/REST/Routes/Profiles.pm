@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2021, University of Oxford
+#Copyright (c) 2014-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -41,7 +41,7 @@ sub _get_profiles {
 	$self->check_seqdef_database;
 	my $params = params;
 	my ( $db, $scheme_id ) = @{$params}{qw(db scheme_id)};
-	my $allowed_filters = [qw(added_after added_on updated_after updated_on)];
+	my $allowed_filters = [qw(added_after added_reldate added_on updated_after updated_reldate updated_on)];
 	my $set_id          = $self->get_set_id;
 	$self->check_scheme( $scheme_id, { pk => 1 } );
 	my $subdir           = setting('subdir');
@@ -80,7 +80,8 @@ sub _get_profiles_csv {
 	$self->check_seqdef_database;
 	my $params = params;
 	my ( $db, $scheme_id ) = @{$params}{qw(db scheme_id)};
-	my $allowed_filters = [qw(added_after added_on updated_after updated_on)];
+	my $allowed_filters =
+	  [qw(added_after added_reldate added_on updated_after updated_reldate updated_on)];
 	$self->check_scheme( $scheme_id, { pk => 1 } );
 	my $set_id        = $self->get_set_id;
 	my $scheme_info   = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );

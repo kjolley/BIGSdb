@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2020, University of Oxford
+#Copyright (c) 2014-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -24,6 +24,8 @@ use parent qw(BIGSdb::Application);
 use Dancer2 0.156;
 use Time::HiRes qw(gettimeofday tv_interval);
 use Try::Tiny;
+use Time::Piece;
+use Time::Seconds;
 use Net::OAuth;
 $Net::OAuth::PROTOCOL_VERSION = Net::OAuth::PROTOCOL_VERSION_1_0A;
 use POSIX qw(ceil);
@@ -716,19 +718,37 @@ sub is_curator {
 sub add_filters {
 	my ( $self, $qry, $allowed_args, $options ) = @_;
 	my $params = params;
-	my ( $added_after, $added_on, $updated_after, $updated_on, $alleles_added_after, $alleles_updated_after ) =
-	  @{$params}{qw(added_after added_on updated_after updated_on alleles_added_after alleles_updated_after)};
+	my ( $added_after, $added_on, $updated_after, $updated_on, $alleles_added_after, $alleles_updated_after,
+		$alleles_added_reldate, $alleles_updated_reldate, $added_reldate, $updated_reldate)
+	  = @{$params}{
+		qw(added_after added_on updated_after updated_on alleles_added_after alleles_updated_after
+		  alleles_added_reldate alleles_updated_reldate added_reldate updated_reldate)
+	  };
 	my @terms;
 	my $id = $options->{'id'} // 'id';
 	my %methods = (
 		added_after => sub {
 			push @terms, qq(date_entered>'$added_after') if BIGSdb::Utils::is_date($added_after);
 		},
+		added_reldate => sub {
+			if ( BIGSdb::Utils::is_int($added_reldate) ) {
+				my $t         = localtime() - $added_reldate * ONE_DAY;
+				my $datestamp = $t->ymd;
+				push @terms, qq(date_entered>='$datestamp')
+			}
+		},
 		added_on => sub {
 			push @terms, qq(date_entered='$added_on') if BIGSdb::Utils::is_date($added_on);
 		},
 		updated_after => sub {
 			push @terms, qq(datestamp>'$updated_after') if BIGSdb::Utils::is_date($updated_after);
+		},
+		updated_reldate => sub {
+			if ( BIGSdb::Utils::is_int($updated_reldate) ) {
+				my $t         = localtime() - $updated_reldate * ONE_DAY;
+				my $datestamp = $t->ymd;
+				push @terms, qq(datestamp>='$datestamp')
+			}
 		},
 		updated_on => sub {
 			push @terms, qq(datestamp='$updated_on') if BIGSdb::Utils::is_date($updated_on);
@@ -740,7 +760,21 @@ sub add_filters {
 		alleles_updated_after => sub {
 			push @terms, qq($id IN (SELECT locus FROM locus_stats WHERE datestamp>'$alleles_updated_after'))
 			  if BIGSdb::Utils::is_date($alleles_updated_after);
-		}
+		},
+		alleles_added_reldate => sub {
+			if ( BIGSdb::Utils::is_int($alleles_added_reldate) ) {
+				my $t         = localtime() - $alleles_added_reldate * ONE_DAY;
+				my $datestamp = $t->ymd;
+				push @terms, qq($id IN (SELECT locus FROM sequences WHERE date_entered>'$datestamp'));
+			}
+		},
+		alleles_updated_reldate => sub {
+			if ( BIGSdb::Utils::is_int($alleles_updated_reldate) ) {
+				my $t         = localtime() - $alleles_updated_reldate * ONE_DAY;
+				my $datestamp = $t->ymd;
+				push @terms, qq($id IN (SELECT locus FROM locus_stats WHERE datestamp>'$datestamp'));
+			}
+		},
 	);
 	foreach my $arg (@$allowed_args) {
 		$methods{$arg}->() if $methods{$arg};

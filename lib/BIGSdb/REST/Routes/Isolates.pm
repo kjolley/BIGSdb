@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2021, University of Oxford
+#Copyright (c) 2014-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -41,12 +41,13 @@ sub setup_routes {
 sub _get_isolates {
 	my $self = setting('self');
 	$self->check_isolate_database;
-	my $params          = params;
-	my $db              = params->{'db'};
-	my $subdir          = setting('subdir');
-	my $allowed_filters = [qw(added_after added_on updated_after updated_on include_old_versions)];
-	my $old_versions    = params->{'include_old_versions'} ? q() : q( WHERE new_version IS NULL);
-	my $qry             = $self->add_filters(
+	my $params = params;
+	my $db     = params->{'db'};
+	my $subdir = setting('subdir');
+	my $allowed_filters =
+	  [qw(added_after added_reldate added_on updated_after updated_reldate updated_on include_old_versions)];
+	my $old_versions = params->{'include_old_versions'} ? q() : q( WHERE new_version IS NULL);
+	my $qry = $self->add_filters(
 		"SELECT COUNT(*),MAX(date_entered),MAX(datestamp) FROM $self->{'system'}->{'view'}$old_versions",
 		$allowed_filters );
 	my ( $isolate_count, $last_added, $last_updated ) = $self->{'datastore'}->run_query($qry);
@@ -71,10 +72,11 @@ sub _get_isolates {
 sub _get_genomes {
 	my $self = setting('self');
 	$self->check_isolate_database;
-	my $params          = params;
-	my $db              = params->{'db'};
-	my $subdir          = setting('subdir');
-	my $allowed_filters = [qw(added_after updated_after genome_size include_old_versions)];
+	my $params = params;
+	my $db     = params->{'db'};
+	my $subdir = setting('subdir');
+	my $allowed_filters =
+	  [qw(added_after added_reldate updated_after updated_reldate genome_size include_old_versions)];
 	my $genome_size =
 	  BIGSdb::Utils::is_int( params->{'genome_size'} )
 	  ? params->{'genome_size'}
@@ -261,7 +263,8 @@ sub _get_similar {
 			#You may get multiple groups if you have a mixed sample
 			my %group_displayed;
 			foreach my $pk_value (@$pk_values) {
-				my $groups = $self->{'datastore'}->run_query( "SELECT DISTINCT(group_id) FROM $cscheme_table WHERE profile_id=?",
+				my $groups =
+				  $self->{'datastore'}->run_query( "SELECT DISTINCT(group_id) FROM $cscheme_table WHERE profile_id=?",
 					$pk_value, { fetch => 'col_arrayref' } );
 				foreach my $group_id (@$groups) {
 					next if $group_displayed{$group_id};

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2021, University of Oxford
+#Copyright (c) 2014-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -107,7 +107,7 @@ sub _get_scheme {
 		push @$scheme_field_links, request->uri_for("$subdir/db/$db/schemes/$scheme_id/fields/$field");
 	}
 	if ( $scheme_info->{'primary_key'} && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		my $allowed_filters = [qw(added_after added_on updated_after updated_on)];
+		my $allowed_filters = [qw(added_after added_reldate added_on updated_after updated_reldate updated_on)];
 		my $table           = "mv_scheme_$scheme_id";
 		my $qry =
 		  $self->add_filters( "SELECT COUNT(*),MAX(date_entered),MAX(datestamp) FROM $table", $allowed_filters );
@@ -179,7 +179,9 @@ sub _get_scheme_loci {
 	$self->check_scheme($scheme_id);
 	my $subdir = setting('subdir');
 	my $allowed_filters =
-	  $self->{'system'}->{'dbtype'} eq 'sequences' ? [qw(alleles_added_after alleles_updated_after)] : [];
+	  $self->{'system'}->{'dbtype'} eq 'sequences'
+	  ? [qw(alleles_added_after alleles_added_reldate alleles_updated_after alleles_updated_reldate)]
+	  : [];
 	my $qry =
 	  $self->add_filters( 'SELECT locus FROM scheme_members WHERE scheme_id=?', $allowed_filters, { id => 'locus' } );
 	$qry .= ' ORDER BY field_order,locus';

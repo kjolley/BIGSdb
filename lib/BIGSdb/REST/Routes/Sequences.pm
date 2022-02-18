@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2018-2019, University of Oxford
+#Copyright (c) 2018-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -45,8 +45,14 @@ sub _get_sequences {
 	  ? ' AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes '
 	  . "WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
 	  : '';
-	if ( params->{'added_after'} || params->{'updated_after'} || params->{'added_on'} || params->{'updated_on'} ) {
-		my $allowed_filters = [qw(added_after added_on updated_after updated_on)];
+	if (   params->{'added_after'}
+		|| params->{'added_reldate'}
+		|| params->{'added_on'}
+		|| params->{'updated_after'}
+		|| params->{'updated_reldate'}
+		|| params->{'updated_on'} )
+	{
+		my $allowed_filters = [qw(added_after added_reldate added_on updated_after updated_reldate updated_on)];
 		my $qry             = $self->add_filters(
 			'SELECT COUNT(*),MAX(date_entered),MAX(datestamp) FROM sequences WHERE '
 			  . "allele_id NOT IN ('0','N')$set_clause",
