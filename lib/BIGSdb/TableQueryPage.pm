@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -541,6 +541,7 @@ sub _run_query {
 		local $" = q(<br />);
 		$self->print_bad_status( { message => q(Problem with search criteria:), detail => qq(@$errors) } );
 	} else {
+		$logger->error($qry2);
 		my $args = { table => $table, query => $qry2, hidden_attributes => \@hidden_attributes };
 		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
 		$self->paged_display($args);
@@ -865,9 +866,8 @@ sub _modify_query_standard_field {
 			if ( lc($text) eq 'null' ) {
 				$$qry_ref .= "$table.$field is not null";
 			} else {
-				$$qry_ref .=
-				  $thisfield->{'type'} ne 'text'
-				  ? "(NOT CAST($table.$field AS text) = '$text'"
+				$$qry_ref .= $thisfield->{'type'} ne 'text'
+				  ? "(NOT $table.$field = '$text'"
 				  : "(NOT upper($table.$field) = upper(E'$text')";
 				$$qry_ref .= " OR $table.$field IS NULL)";
 			}
@@ -970,11 +970,11 @@ sub _modify_query_search_by_isolate {
 	return if !$table_linked_to_isolate{$table};
 	return if $field ne $self->{'system'}->{'labelfield'};
 	$$qry_ref .= $modifier;
-	
 	$$qry_ref .= "$table.isolate_id IN (SELECT id FROM $self->{'system'}->{'view'} WHERE ";
-	my $att = $self->{'xmlHandler'}->get_field_attributes( $self->{'system'}->{'labelfield'} );
+	my $att     = $self->{'xmlHandler'}->get_field_attributes( $self->{'system'}->{'labelfield'} );
 	my %methods = (
 		NOT => sub {
+
 			if ( $text eq '<blank>' || lc($text) eq 'null' ) {
 				$$qry_ref .= "$field is not null";
 			} else {
