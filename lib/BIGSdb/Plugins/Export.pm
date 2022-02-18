@@ -1,6 +1,6 @@
 #Export.pm - Export plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -34,7 +34,7 @@ use constant MAX_DEFAULT_DATA_POINTS => 25_000_000;
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name             => 'Export',
+		name    => 'Export',
 		authors => [
 			{
 				name        => 'Keith Jolley',
@@ -50,7 +50,7 @@ sub get_attributes {
 		buttontext => 'Dataset',
 		menutext   => 'Dataset',
 		module     => 'Export',
-		version    => '1.7.13',
+		version    => '1.8.0',
 		dbtype     => 'isolates',
 		section    => 'export,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
@@ -193,7 +193,7 @@ sub run {
 	say q(<h1>Export dataset</h1>);
 	return if $self->has_set_changed;
 	if ( $q->param('submit') ) {
-		my $selected_fields = $self->get_selected_fields;
+		my $selected_fields = $self->get_selected_fields( { lincodes => 1 } );
 		$q->delete('classification_schemes');
 		push @$selected_fields, 'm_references' if $q->param('m_references');
 		if ( !@$selected_fields ) {
@@ -446,6 +446,7 @@ sub _write_tab_text {
 				eav_field             => qr/^eav_(.*)/x,
 				locus                 => qr/^(s_\d+_l_|l_)(.*)/x,
 				scheme_field          => qr/^s_(\d+)_f_(.*)/x,
+				lincode               => qr/^lin_(\d+)/x,
 				composite_field       => qr/^c_(.*)/x,
 				classification_scheme => qr/^cs_(.*)/x,
 				reference             => qr/^m_references/x
@@ -470,6 +471,10 @@ sub _write_tab_text {
 						{ fh => $fh, scheme_id => $1, field => $2, data => \%data, first => $first, params => $params }
 					);
 				},
+				lincode => sub {
+					$self->_write_lincode(
+						{ fh => $fh, scheme_id => $1, data => \%data, first => $first, params => $params } );
+				},
 				composite_field => sub {
 					$self->_write_composite( $fh, $1, \%data, $first, $params );
 				},
@@ -480,8 +485,8 @@ sub _write_tab_text {
 					$self->_write_ref( $fh, \%data, $first, $params );
 				}
 			};
-			foreach
-			  my $field_type (qw(field eav_field locus scheme_field composite_field classification_scheme reference))
+			foreach my $field_type (
+				qw(field eav_field locus scheme_field lincode composite_field classification_scheme reference))
 			{
 				if ( $field =~ $regex->{$field_type} ) {
 					$methods->{$field_type}->();
@@ -527,11 +532,14 @@ sub _get_header {
 		my %schemes;
 		foreach (@$fields) {
 			my $field = $_;    #don't modify @$fields
-			if ( $field =~ /^s_(\d+)_f/x ) {
-				my $scheme_info = $self->{'datastore'}->get_scheme_info( $1, { set_id => $set_id } );
+			if ( $field =~ /^s_(\d+)_f/x || $field =~ /^lin_(\d+)$/x ) {
+				my $scheme_id = $1;
+				my $scheme_info =
+				  $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
+				$field = 'LINcode' if $field =~ /^lin_/x;
 				$field .= " ($scheme_info->{'name'})"
 				  if $scheme_info->{'name'};
-				$schemes{$1} = 1;
+				$schemes{$scheme_id} = 1;
 			}
 			my $is_locus = $field =~ /^(s_\d+_l_|l_)/x ? 1 : 0;
 			my ( $cscheme, $is_cscheme );
@@ -731,23 +739,50 @@ sub _write_scheme_field {
 	my $values =
 	  $self->get_scheme_field_values( { isolate_id => $data->{'id'}, scheme_id => $scheme_id, field => $field } );
 	@$values = ('') if !@$values;
-	my $first_allele = 1;
+	my $first_value = 1;
 	foreach my $value (@$values) {
 
 		if ( $params->{'oneline'} ) {
+			next if !defined $value || $value eq q();
 			print $fh $self->_get_id_one_line( $data, $params );
 			print $fh "$field ($scheme_info->{'name'})\t";
-			print $fh $value if defined $value;
+			print $fh $value;
 			print $fh "\n";
 		} else {
-			if ( !$first_allele ) {
+			if ( !$first_value ) {
 				print $fh ';';
 			} elsif ( !$first_col ) {
 				print $fh "\t";
 			}
 			print $fh $value if defined $value;
 		}
-		$first_allele = 0;
+		$first_value = 0;
+	}
+	return;
+}
+
+sub _write_lincode {
+	my ( $self, $args ) = @_;
+	my ( $fh, $scheme_id, $data, $first_col, $params ) =
+	  @{$args}{qw(fh scheme_id data first params )};
+	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+	my $lincodes = $self->get_lincode( $data->{'id'}, $scheme_id );
+	my @values;
+	foreach my $lincode (@$lincodes) {
+		local $" = q(_);
+		push @values, qq(@$lincode);
+	}
+	if ( $params->{'oneline'} ) {
+		foreach my $value (@values) {
+			print $fh $self->_get_id_one_line( $data, $params );
+			print $fh "LINcode ($scheme_info->{'name'})\t";
+			print $fh $value if defined $value;
+			print $fh qq(\n);
+		}
+	} else {
+		print $fh qq(\t) if !$first_col;
+		local $" = q(; );
+		print $fh qq(@values) if @values;
 	}
 	return;
 }

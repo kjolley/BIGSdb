@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -333,7 +333,7 @@ sub get_allele_id_list {
 }
 
 sub get_selected_fields {
-	my ($self)     = @_;
+	my ( $self, $options ) = @_;
 	my $q          = $self->{'cgi'};
 	my $fields     = [];
 	my @provenance = $q->multi_param('fields');
@@ -360,6 +360,7 @@ sub get_selected_fields {
 	}
 	my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
 	foreach my $scheme_id (@$schemes) {
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 		my $scheme_members = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		foreach my $member (@$scheme_members) {
 			if ( $q->param("s_$scheme_id") && $q->param('scheme_members') ) {
@@ -370,8 +371,17 @@ sub get_selected_fields {
 		}
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 		foreach my $scheme_field (@$scheme_fields) {
-			push @$fields, "s_$scheme_id\_f_$scheme_field"
-			  if $q->param("s_$scheme_id") && $q->param('scheme_fields');
+			if ( $q->param("s_$scheme_id") && $q->param('scheme_fields') ) {
+				push @$fields, "s_${scheme_id}_f_$scheme_field";
+				if (
+					   $options->{'lincodes'}
+					&& $scheme_field eq ( $scheme_info->{'primary_key'} // q() )
+					&& $self->{'datastore'}->are_lincodes_defined($scheme_id)
+				  )
+				{
+					push @$fields, "lin_$scheme_id";
+				}
+			}
 		}
 	}
 	if ( $q->param('classification_schemes') ) {
