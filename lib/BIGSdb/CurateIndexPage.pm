@@ -327,6 +327,7 @@ sub _get_seqdef_links {
 	$buffer .= $self->_get_sequence_fields;
 	$buffer .= $self->_get_profile_fields;
 	$buffer .= $self->_get_classification_field_values;
+	$buffer.=$self->_get_lincode_prefix_values;
 	return $buffer;
 }
 
@@ -1602,6 +1603,27 @@ sub _get_classification_field_values {
 	return $buffer;
 }
 
+sub _get_lincode_prefix_values {
+	my ($self) = @_;
+	my $buffer = q();
+	return $buffer if !$self->{'system'}->{'dbtype'} eq 'sequences';
+	return $buffer if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM lincode_fields)');
+	$buffer .= q(<div class="curategroup curategroup_schemes grid-item default_hide_curator" )
+	  . qq(style="display:$self->{'optional_curator_display'}"><h2>LINcode prefix nomenclature</h2>);
+	$buffer .= $self->_get_icon_group(
+		'lincode_prefixes',
+		'grip-horizontal',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'LINcode prefix values - Link LINcode prefixes to nomenclature values.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	return $buffer;
+}
+
 sub _get_lincode_schemes {
 	my ($self) = @_;
 	my $buffer = q();
@@ -1618,6 +1640,20 @@ sub _get_lincode_schemes {
 			query     => 1,
 			info      => 'LINcode schemes - Set up LINcode clustering '
 			  . 'of scheme profiles at different locus difference thresholds.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	return $buffer if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM lincode_schemes)');
+	$buffer .= q(<div class="curategroup curategroup_schemes grid-item scheme_admin" )
+	  . qq(style="display:$self->{'optional_scheme_admin_display'}"><h2>LINcode fields</h2>);
+	$buffer .= $self->_get_icon_group(
+		'lincode_fields',
+		'th-list',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'LINcode fields - Set up fields to associate LINcode prefixes to nomenclature terms.'
 		}
 	);
 	$buffer .= qq(</div>\n);

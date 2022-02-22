@@ -314,7 +314,7 @@ sub create_temp_tables {
 				if ( $qry =~ /temp_(?:isolates|$view)_scheme_completion_$scheme_id\D/x ) {
 					$self->{'datastore'}->create_temp_scheme_status_table($scheme_id);
 				}
-				if ($qry =~ /temp_lincodes_$scheme_id\D/x){
+				if ( $qry =~ /temp_lincodes_$scheme_id\D/x ) {
 					$self->{'datastore'}->create_temp_lincodes_table($scheme_id);
 				}
 			}
@@ -1975,7 +1975,9 @@ sub get_record_name {
 		validation_conditions             => 'validation condition',
 		validation_rules                  => 'validation rule',
 		validation_rule_conditions        => 'rule condition',
-		lincode_schemes                   => 'LINcode scheme'
+		lincode_schemes                   => 'LINcode scheme',
+		lincode_fields                    => 'LINcode field',
+		lincode_prefixes                  => 'LINcode prefix nomenclature'
 	);
 	return $names{$table};
 }

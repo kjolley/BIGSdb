@@ -375,6 +375,13 @@ sub _get_foreign_key_dropdown_field {
 		$values = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	} elsif ( $att->{'foreign_key'} eq 'loci' && $table ne 'set_loci' && $set_id ) {
 		( $values, $desc ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id, no_list_by_common_name => 1 } );
+	} elsif ( $att->{'foreign_key'} eq 'schemes' && ( $table eq 'lincode_fields' || $table eq 'lincode_prefixes' ) ) {
+		$values = $self->{'datastore'}->run_query(
+			'SELECT ls.scheme_id FROM lincode_schemes ls JOIN schemes s ON ls.scheme_id=s.id '
+			  . 'ORDER BY s.display_order,s.name',
+			undef,
+			{ fetch => 'col_arrayref' }
+		);
 	} elsif ( $att->{'foreign_key'} eq 'schemes' && $table ne 'set_schemes' ) {
 		my $scheme_list =
 		  $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => $att->{'with_pk'} } );
@@ -393,13 +400,14 @@ sub _get_foreign_key_dropdown_field {
 		$values = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	}
 	$values = [] if ref $values ne 'ARRAY';
+	my $default = @$values == 1 ? $values->[0] : undef;
 	my $q = $self->{'cgi'};
 	return $q->popup_menu(
 		-name    => $name,
 		-id      => $name,
 		-values  => [ '', @$values ],
 		-labels  => $desc,
-		-default => $newdata->{ $att->{'name'} },
+		-default => $newdata->{ $att->{'name'} } // $default,
 		%$html5_args
 	);
 }
@@ -443,14 +451,17 @@ sub _get_optlist_field {
 	} else {
 		@optlist = split /;/x, $att->{'optlist'};
 	}
+	my $single_value = @optlist == 1 ? $optlist[0] : undef;
 	unshift @optlist, '';
 	my $labels = { '' => ' ' };    #Required for HTML5 validation
 	my $q = $self->{'cgi'};
+	my $default =
+	  defined $att->{'default'} && $att->{'default'} ne q() ? $att->{'default'} : $single_value;
 	return $q->popup_menu(
 		-name    => $name,
 		-id      => $name,
 		-values  => [@optlist],
-		-default => $options->{'update'} ? $newdata->{ $att->{'name'} } : $att->{'default'},
+		-default => $options->{'update'} ? $newdata->{ $att->{'name'} } : $default,
 		-labels  => $labels,
 		%$html5_args
 	);

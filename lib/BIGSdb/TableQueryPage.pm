@@ -277,15 +277,16 @@ sub _print_interface {
 	say q(</li></ul></fieldset>);
 	say q(<div style="clear:both"></div>);
 	my @filters;
-
 	foreach my $att (@$attributes) {
 		( my $tooltip = $att->{'tooltip'} ) =~ tr/_/ /;
 		my $sub = 'Select a value to filter your search to only those with the selected attribute.';
 		$tooltip =~ s/ - / filter - $sub/x;
 		if ( $att->{'dropdown_query'} ) {
 			my $dropdown_filter = $self->_get_dropdown_filter( $table, $att );
+			
 			push @filters, $dropdown_filter if $dropdown_filter;
 		} elsif ( $att->{'optlist'} ) {
+			
 			my @options = split /;/x, $att->{'optlist'};
 			push @filters, $self->get_filter( $att->{'name'}, \@options );
 		} elsif ( $att->{'type'} eq 'bool' ) {

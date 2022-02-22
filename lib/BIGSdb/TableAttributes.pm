@@ -2548,4 +2548,76 @@ sub get_lincode_schemes_table_attributes {
 	];
 	return $attributes;
 }
+
+sub get_lincode_fields_table_attributes {
+	my ($self) = @_;
+	my $attributes = [
+		{
+			name           => 'scheme_id',
+			type           => 'int',
+			required       => 1,
+			primary_key    => 1,
+			foreign_key    => 'schemes',
+			labels         => '|$name|',
+			dropdown_query => 1,
+			with_pk        => 1,
+		},
+		{
+			name        => 'field',
+			type        => 'text',
+			required    => 1,
+			primary_key => 1
+		},
+		{
+			name     => 'type',
+			type     => 'text',
+			required => 1,
+			optlist  => 'text;integer;date'
+		},
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
+	];
+	return $attributes;
+}
+
+sub get_lincode_prefixes_table_attributes {
+	my ($self) = @_;
+	my $fields =
+	  $self->run_query( 'SELECT field FROM lincode_fields ORDER BY field', undef, { fetch => 'col_arrayref' } );
+	local $" = ';';
+	my $attributes = [
+		{
+			name           => 'scheme_id',
+			type           => 'int',
+			required       => 1,
+			primary_key    => 1,
+			foreign_key    => 'schemes',
+			labels         => '|$name|',
+			dropdown_query => 1,
+			with_pk        => 1,
+		},
+		{
+			name     => 'prefix',
+			type     => 'text',
+			required => 1,
+			regex    => '^\d+(?:_\d+)*$',
+			tooltip  => 'LINcode prefix - this consists of integer values separated by underscores (_).'
+		},
+		{
+			name        => 'field',
+			type        => 'text',
+			required    => 1,
+			primary_key => 1,
+			optlist     => "@$fields"
+		},
+		{
+			name     => 'value',
+			type     => 'text',
+			required => 1,
+		},
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
+	];
+	return $attributes;
+}
 1;
