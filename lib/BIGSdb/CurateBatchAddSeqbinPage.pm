@@ -30,7 +30,7 @@ use IO::Uncompress::Gunzip qw(gunzip $GunzipError);
 use IO::Uncompress::Unzip qw(unzip $UnzipError);
 use BIGSdb::Constants qw(:interface :limits SEQ_METHODS);
 my $logger = get_logger('BIGSdb.Page');
-use constant LIMIT => 100;
+use constant LIMIT => 500;
 
 sub print_content {
 	my ($self) = @_;
