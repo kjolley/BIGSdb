@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20220216
+#Version: 20220221
 use strict;
 use warnings;
 use 5.010;
@@ -37,6 +37,12 @@ use BIGSdb::Offline::Script;
 use BIGSdb::Constants qw(LOG_TO_SCREEN);
 use Term::Cap;
 use PDL;
+use PDL::IO::FastRaw;
+use File::Map;
+{
+	no warnings 'once';
+	$PDL::BIGPDL = 1;
+}
 
 #Direct all library logging calls to screen
 my $log_conf = LOG_TO_SCREEN;
@@ -46,8 +52,10 @@ use Getopt::Long qw(:config no_ignore_case);
 my %opts;
 GetOptions(
 	'd|database=s'  => \$opts{'d'},
+	'debug'         => \$opts{'debug'},
 	'init_size=i'   => \$opts{'init_size'},
 	'missing=i'     => \$opts{'missing'},
+	'mmap'          => \$opts{'mmap'},
 	'q|quiet'       => \$opts{'quiet'},
 	's|scheme_id=i' => \$opts{'scheme_id'},
 	'help'          => \$opts{'help'},
@@ -123,7 +131,7 @@ sub assign_lincodes {
 		}
 		local $" = q(_);
 		my $identifier = "$pk-$profile_id";
-		my $spaces = q( ) x abs(20 - length($identifier));
+		my $spaces     = q( ) x abs( 20 - length($identifier) );
 		say "$identifier:$spaces@$lincode." if !$opts{'quiet'};
 		assign_lincode( $profile_id, $lincode );
 		push @{ $definitions->{'profile_ids'} }, $profile_id;
@@ -265,32 +273,36 @@ sub get_profile_order_term {
 
 sub get_prim_order {
 	##no critic (ProhibitMismatchedOperators) - PDL uses .= assignment.
-	my ( $index, $dismat ) = get_distance_matrix();
+	my ( $filename, $index, $dismat ) = get_distance_matrix();
 	return $index if @$index == 1;
 	print 'Calculating PRIM order ...' if !$opts{'quiet'};
-	my $M = pdl($dismat);
-	for my $i ( 0 .. @$dismat - 1 ) {
-		$M->range( [ $i, $i ] ) .= 100;
+	my $start_time = time;
+	if ( $opts{'debug'} ) {
+		my $timestamp = BIGSdb::Utils::get_timestamp();
+		say "\nStart time: $timestamp";
 	}
-	my $ind = $M->flat->minimum_ind;
+	for my $i ( 0 .. @$index - 1 ) {
+		$dismat->range( [ $i, $i ] ) .= 100;
+	}
+	my $ind = $dismat->flat->minimum_ind;
 	my ( $x, $y ) = ( int( $ind / @$index ), $ind - int( $ind / @$index ) * @$index );
 	my %used = map { $_ => 1 } ( $x, $y );
 	my $index_order = [ $x, $y ];
 	my $profile_order = [ $index->[$x], $index->[$y] ];
-	$M->range( [ $x, $y ] ) .= $M->range( [ $y, $x ] ) .= 100;
+	$dismat->range( [ $x, $y ] ) .= $dismat->range( [ $y, $x ] ) .= 100;
 	while ( @$profile_order != @$index ) {
 		my $min = 101;
 		my $v_min;
 		foreach my $x (@$index_order) {
-			my $this_min = $M->slice($x)->min;
+			my $this_min = $dismat->slice($x)->min;
 			if ( $this_min < $min ) {
 				$min   = $this_min;
 				$v_min = $x;
 			}
 		}
-		my $k = $M->slice($v_min)->flat->minimum_ind;
+		my $k = $dismat->slice($v_min)->flat->minimum_ind;
 		for my $i (@$index_order) {
-			$M->range( [ $i, $k ] ) .= $M->range( [ $k, $i ] ) .= 100;
+			$dismat->range( [ $i, $k ] ) .= $dismat->range( [ $k, $i ] ) .= 100;
 		}
 		if ( !$used{$k} ) {
 			push @$index_order,   $k;
@@ -299,6 +311,15 @@ sub get_prim_order {
 		}
 	}
 	say 'Done.' if !$opts{'quiet'};
+	unlink $filename;
+	unlink "$filename.hdr";
+	if ( $opts{'debug'} ) {
+		my $timestamp = BIGSdb::Utils::get_timestamp();
+		my $stop_time = time;
+		my $duration  = $stop_time - $start_time;
+		say "Stop time: $timestamp. Duration: $duration seconds.";
+		exit;
+	}
 	return $profile_order;
 }
 
@@ -313,15 +334,15 @@ sub get_distance_matrix {
 	my $order = get_profile_order_term();
 	print "Reading profiles (first $opts{'init_size'}) ..." if !$opts{'quiet'};
 	my $profiles = $script->{'datastore'}->run_query(
-		    "SELECT $scheme_info->{'primary_key'},profile FROM mv_scheme_$opts{'scheme_id'} "
-		  . "ORDER BY $order LIMIT $opts{'init_size'}"
-		,
-		undef, { fetch => 'all_arrayref', slice => {} }
+		"SELECT $scheme_info->{'primary_key'},profile FROM mv_scheme_$opts{'scheme_id'} "
+		  . "ORDER BY $order LIMIT $opts{'init_size'}",
+		undef,
+		{ fetch => 'all_arrayref', slice => {} }
 	);
 	my $matrix      = [];
 	my $index       = [];
-	my $i           = 0;
 	my $max_missing = $opts{'missing'} // $lincode_scheme->{'max_missing'};
+
 	foreach my $profile (@$profiles) {
 		my $Ns = 0;
 		foreach my $allele ( @{ $profile->{'profile'} } ) {
@@ -334,28 +355,47 @@ sub get_distance_matrix {
 		push @$index,  $profile->{ lc( $scheme_info->{'primary_key'} ) };
 		push @$matrix, $profile->{'profile'};
 	}
+	my $profile_matrix = pdl($matrix);
 	say 'Done.' if !$opts{'quiet'};
 	my $count = @$index;
 	die "No profiles to assign.\n"          if ( !$count );
 	return $index                           if @$index == 1;
 	print 'Calculating distance matrix ...' if !$opts{'quiet'};
-	my $m      = pdl(@$matrix);
-	my $dismat = [];
+	my $start_time = time;
 
+	if ( $opts{'debug'} ) {
+		my $timestamp = BIGSdb::Utils::get_timestamp();
+		say "\nStart time: $timestamp";
+	}
+	my $prefix   = BIGSdb::Utils::get_random();
+	my $filename = "$script->{'config'}->{'secure_tmp_dir'}/${prefix}.dismat";
+	my $dismat =
+	  $opts{'mmap'}
+	  ? mapfraw( $filename, { Creat => 1, Dims => [ $count, $count ], Datatype => float } )
+	  : zeroes( float, $count, $count );
 	for my $i ( 0 .. $count - 1 ) {
+		if ( $opts{'debug'} ) {
+			say "Profile $i";
+		}
 		for my $j ( $i + 1 .. $count - 1 ) {
-			my $prof1 = $m->slice(",($i)");
-			my $prof2 = $m->slice(",($j)");
+			my $prof1 = $profile_matrix->slice(",($i)");
+			my $prof2 = $profile_matrix->slice(",($j)");
 			my ($diffs) =
 			  dims( where( $prof1, $prof2, ( $prof1 != $prof2 ) & ( $prof1 != 0 ) & ( $prof2 != 0 ) ) );
 			my ($missing_in_either) = dims( where( $prof1, $prof2, ( $prof1 == 0 ) | ( $prof2 == 0 ) ) );
 			my $distance = 100 * $diffs / ( $locus_count - $missing_in_either );
-			$dismat->[$i]->[$j] = $distance;
-			$dismat->[$j]->[$i] = $distance;
+			$dismat->range( [ $i, $j ] ) .= $distance;
+			$dismat->range( [ $j, $i ] ) .= $distance;
 		}
 	}
 	say 'Done.' if !$opts{'quiet'};
-	return ( $index, $dismat );
+	if ( $opts{'debug'} ) {
+		my $timestamp = BIGSdb::Utils::get_timestamp();
+		my $stop_time = time;
+		my $duration  = $stop_time - $start_time;
+		say "Stop time: $timestamp. Duration: $duration seconds.";
+	}
+	return ( $filename, $index, $dismat );
 }
 
 sub get_thresholds {
@@ -418,6 +458,11 @@ ${bold}--missing$norm ${under}NUMBER$norm
     Set the maximum number of loci that are allowed to be missing in a profile
     for LINcodes to be assigned. If not set, the value defined in the LINcode
     schemes table will be used.
+    
+${bold}--mmap
+    Write distance matrix to disk rather than memory. Use this if calculating a
+    very large distance matrix on a machine with limited memory. This is likely
+    to run slower.
     
 ${bold}--quiet$norm
     Only output errors.
