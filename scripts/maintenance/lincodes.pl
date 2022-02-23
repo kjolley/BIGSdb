@@ -78,7 +78,6 @@ my $script = BIGSdb::Offline::Script->new(
 	}
 );
 check_db();
-$opts{'init_size'} //= 1000;
 main();
 
 sub main {
@@ -277,10 +276,6 @@ sub get_prim_order {
 	return $index if @$index == 1;
 	print 'Calculating PRIM order ...' if !$opts{'quiet'};
 	my $start_time = time;
-	if ( $opts{'debug'} ) {
-		my $timestamp = BIGSdb::Utils::get_timestamp();
-		say "\nStart time: $timestamp";
-	}
 	for my $i ( 0 .. @$index - 1 ) {
 		$dismat->range( [ $i, $i ] ) .= 100;
 	}
@@ -313,13 +308,9 @@ sub get_prim_order {
 	say 'Done.' if !$opts{'quiet'};
 	unlink $filename;
 	unlink "$filename.hdr";
-	if ( $opts{'debug'} ) {
-		my $timestamp = BIGSdb::Utils::get_timestamp();
-		my $stop_time = time;
-		my $duration  = $stop_time - $start_time;
-		say "Stop time: $timestamp. Duration: $duration seconds.";
-		exit;
-	}
+	my $stop_time = time;
+	my $duration  = $stop_time - $start_time;
+	say "Time taken (calculating PRIM order): $duration seconds." if !$opts{'quiet'};
 	return $profile_order;
 }
 
@@ -332,13 +323,13 @@ sub get_distance_matrix {
 	  $script->{'datastore'}
 	  ->run_query( 'SELECT * FROM lincode_schemes WHERE scheme_id=?', $opts{'scheme_id'}, { fetch => 'row_hashref' } );
 	my $order = get_profile_order_term();
-	print "Reading profiles (first $opts{'init_size'}) ..." if !$opts{'quiet'};
-	my $profiles = $script->{'datastore'}->run_query(
-		"SELECT $scheme_info->{'primary_key'},profile FROM mv_scheme_$opts{'scheme_id'} "
-		  . "ORDER BY $order LIMIT $opts{'init_size'}",
-		undef,
-		{ fetch => 'all_arrayref', slice => {} }
-	);
+	my $msg = $opts{'init_size'} ? qq( (first $opts{'init_size'})) : q();
+	print "Reading profiles$msg ..." if !$opts{'quiet'};
+	my $limit = $opts{'init_size'} ? qq(  LIMIT $opts{'init_size'}) : q();
+	my $profiles =
+	  $script->{'datastore'}->run_query(
+		"SELECT $scheme_info->{'primary_key'},profile FROM mv_scheme_$opts{'scheme_id'} " . "ORDER BY $order$limit",
+		undef, { fetch => 'all_arrayref', slice => {} } );
 	my $matrix      = [];
 	my $index       = [];
 	my $max_missing = $opts{'missing'} // $lincode_scheme->{'max_missing'};
@@ -358,24 +349,29 @@ sub get_distance_matrix {
 	my $profile_matrix = pdl($matrix);
 	say 'Done.' if !$opts{'quiet'};
 	my $count = @$index;
-	die "No profiles to assign.\n"          if ( !$count );
-	return $index                           if @$index == 1;
-	print 'Calculating distance matrix ...' if !$opts{'quiet'};
+	die "No profiles to assign.\n" if ( !$count );
+	return $index if @$index == 1;
+	$msg = $count > 2000 ? ' (this will take a while)' : q();
+	print "Calculating distance matrix$msg ..." if !$opts{'quiet'};
+	print "\n" if $count >= 500;
 	my $start_time = time;
-
-	if ( $opts{'debug'} ) {
-		my $timestamp = BIGSdb::Utils::get_timestamp();
-		say "\nStart time: $timestamp";
-	}
-	my $prefix   = BIGSdb::Utils::get_random();
-	my $filename = "$script->{'config'}->{'secure_tmp_dir'}/${prefix}.dismat";
+	my $prefix     = BIGSdb::Utils::get_random();
+	my $filename   = "$script->{'config'}->{'secure_tmp_dir'}/${prefix}.dismat";
 	my $dismat =
 	  $opts{'mmap'}
 	  ? mapfraw( $filename, { Creat => 1, Dims => [ $count, $count ], Datatype => float } )
 	  : zeroes( float, $count, $count );
+
 	for my $i ( 0 .. $count - 1 ) {
 		if ( $opts{'debug'} ) {
-			say "Profile $i";
+			say "Profile $i.";
+		} elsif ( $i && $i % 500 == 0 ) {
+			if ( !$opts{'quiet'} ) {
+				say "Calculated for $i profiles.";
+				if ( $i == 500 && $count > 5000 ) {
+					say 'Note that it does speed up (matrix calculations are for upper triangle)!';
+				}
+			}
 		}
 		for my $j ( $i + 1 .. $count - 1 ) {
 			my $prof1 = $profile_matrix->slice(",($i)");
@@ -389,12 +385,10 @@ sub get_distance_matrix {
 		}
 	}
 	say 'Done.' if !$opts{'quiet'};
-	if ( $opts{'debug'} ) {
-		my $timestamp = BIGSdb::Utils::get_timestamp();
-		my $stop_time = time;
-		my $duration  = $stop_time - $start_time;
-		say "Stop time: $timestamp. Duration: $duration seconds.";
-	}
+	my $timestamp = BIGSdb::Utils::get_timestamp();
+	my $stop_time = time;
+	my $duration  = $stop_time - $start_time;
+	say "Time taken (distance matrix): $duration seconds." if !$opts{'quiet'};
 	return ( $filename, $index, $dismat );
 }
 
@@ -448,21 +442,23 @@ ${bold}--database$norm ${under}DATABASE CONFIG$norm
     Database configuration name. This must be a sequence definition database.
     
 ${bold}--init_size$norm ${under}NUMBER$norm
-    Maximum number of profiles to use to initiate assignment order if no 
-    LINcodes have yet been defined. The order of assignment is optimally 
+    Sets a maximum number of profiles to use to initiate assignment order if 
+    no LINcodes have yet been defined. The order of assignment is optimally 
     determined using Prim's algorithm, but as this requires calculation of
-    a distance matrix is limited, by default, to the first 1000 profiles.
-    After this, new LINcodes will be assigned sequentially. 
+    a distance matrix it can take a long time if there are thousands of 
+    profiles. After initiation, new LINcodes will be assigned sequentially. 
+    No limit is set by default and it is recommended that you allow ordering
+    to be determined from all defined profiles.
     
 ${bold}--missing$norm ${under}NUMBER$norm
     Set the maximum number of loci that are allowed to be missing in a profile
     for LINcodes to be assigned. If not set, the value defined in the LINcode
     schemes table will be used.
     
-${bold}--mmap
+${bold}--mmap$norm
     Write distance matrix to disk rather than memory. Use this if calculating a
-    very large distance matrix on a machine with limited memory. This is likely
-    to run slower.
+    very large distance matrix on a machine with limited memory. This may run
+    slower.
     
 ${bold}--quiet$norm
     Only output errors.
