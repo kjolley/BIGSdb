@@ -273,16 +273,15 @@ sub get_profile_order_term {
 sub get_prim_order {
 	##no critic (ProhibitMismatchedOperators) - PDL uses .= assignment.
 	my ( $filename, $index, $dismat ) = get_distance_matrix();
-	return $index if @$index == 1;
+	return $index                      if @$index == 1;
 	print 'Calculating PRIM order ...' if !$opts{'quiet'};
-	print "\n" if @$index >= 500;
+	print "\n"                         if @$index >= 500;
 	my $start_time = time;
 	for my $i ( 0 .. @$index - 1 ) {
 		$dismat->range( [ $i, $i ] ) .= 100;
 	}
 	my $ind = $dismat->flat->minimum_ind;
 	my ( $x, $y ) = ( int( $ind / @$index ), $ind - int( $ind / @$index ) * @$index );
-	my %used = map { $_ => 1 } ( $x, $y );
 	my $index_order = [ $x, $y ];
 	my $profile_order = [ $index->[$x], $index->[$y] ];
 	$dismat->range( [ $x, $y ] ) .= $dismat->range( [ $y, $x ] ) .= 100;
@@ -300,18 +299,15 @@ sub get_prim_order {
 		for my $i (@$index_order) {
 			$dismat->range( [ $i, $k ] ) .= $dismat->range( [ $k, $i ] ) .= 100;
 		}
-		if ( !$used{$k} ) {
-			push @$index_order,   $k;
-			push @$profile_order, $index->[$k];
-			my $count = @$profile_order;
-			if ( $opts{'debug'} ) {
-				say "Profile $count ordered.";
-			} elsif ( $count % 500 == 0 ) {
-				if ( !$opts{'quiet'} ) {
-					say "Order calculated for $count profiles.";
+		push @$index_order,   $k;
+		push @$profile_order, $index->[$k];
+		my $count = @$profile_order;
+		if ( $opts{'debug'} ) {
+			say "Profile $count ordered.";
+		} elsif ( $count % 500 == 0 ) {
+			if ( !$opts{'quiet'} ) {
+				say "Order calculated for $count profiles.";
 			}
-		}
-			$used{$k} = 1;
 		}
 	}
 	say 'Done.' if !$opts{'quiet'};
