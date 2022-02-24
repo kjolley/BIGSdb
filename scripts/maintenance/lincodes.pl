@@ -275,6 +275,7 @@ sub get_prim_order {
 	my ( $filename, $index, $dismat ) = get_distance_matrix();
 	return $index if @$index == 1;
 	print 'Calculating PRIM order ...' if !$opts{'quiet'};
+	print "\n" if @$index >= 500;
 	my $start_time = time;
 	for my $i ( 0 .. @$index - 1 ) {
 		$dismat->range( [ $i, $i ] ) .= 100;
@@ -302,6 +303,14 @@ sub get_prim_order {
 		if ( !$used{$k} ) {
 			push @$index_order,   $k;
 			push @$profile_order, $index->[$k];
+			my $count = @$profile_order;
+			if ( $opts{'debug'} ) {
+				say "Profile $count ordered.";
+			} elsif ( $count % 500 == 0 ) {
+				if ( !$opts{'quiet'} ) {
+					say "Order calculated for $count profiles.";
+			}
+		}
 			$used{$k} = 1;
 		}
 	}
@@ -328,7 +337,7 @@ sub get_distance_matrix {
 	my $limit = $opts{'init_size'} ? qq(  LIMIT $opts{'init_size'}) : q();
 	my $profiles =
 	  $script->{'datastore'}->run_query(
-		"SELECT $scheme_info->{'primary_key'},profile FROM mv_scheme_$opts{'scheme_id'} " . "ORDER BY $order$limit",
+		"SELECT $scheme_info->{'primary_key'},profile FROM mv_scheme_$opts{'scheme_id'} ORDER BY $order$limit",
 		undef, { fetch => 'all_arrayref', slice => {} } );
 	my $matrix      = [];
 	my $index       = [];
@@ -368,7 +377,7 @@ sub get_distance_matrix {
 		} elsif ( $i && $i % 500 == 0 ) {
 			if ( !$opts{'quiet'} ) {
 				say "Calculated for $i profiles.";
-				if ( $i == 500 && $count > 5000 ) {
+				if ( $i == 500 && $count > 2000 ) {
 					say 'Note that it does speed up (matrix calculations are for upper triangle)!';
 				}
 			}
