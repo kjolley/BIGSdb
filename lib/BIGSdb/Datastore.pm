@@ -1218,6 +1218,69 @@ sub create_temp_lincodes_table {
 	return $table;
 }
 
+sub create_temp_lincode_prefix_values_table {
+	my ( $self, $scheme_id, $options ) = @_;
+	my $table = "temp_lincode_${scheme_id}_field_values";
+	if ( !$options->{'cache'} ) {
+		if ( $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table ) ) {
+			return $table;
+		}
+	}
+	my $table_type = 'TEMP TABLE';
+	my $rename_table;
+	if ( $options->{'cache'} ) {
+		$table_type   = 'TABLE';
+		$rename_table = $table;
+		my $timestamp = BIGSdb::Utils::get_timestamp();
+		$table = "${table}_$timestamp";
+	}
+	my $scheme_info =$self->get_scheme_info($scheme_id);
+	my $scheme      = $self->get_scheme($scheme_id);
+	
+	my $db           = $scheme->get_db;
+	my $group_values = $self->run_query(
+		'SELECT prefix,field,value FROM lincode_prefixes WHERE scheme_id=?',
+		$scheme_info->{'dbase_id'},
+		{ db => $db, fetch => 'all_arrayref' }
+	);
+	eval {
+		$self->{'db'}->do("CREATE $table_type $table (prefix text, field text, value text)");
+		$self->{'db'}->do("COPY $table(group_id,field,value) FROM STDIN");
+		local $" = "\t";
+		foreach my $values (@$group_values) {
+			$self->{'db'}->pg_putcopydata("@$values\n");
+		}
+		$self->{'db'}->pg_putcopyend;
+		$self->{'db'}->do("CREATE INDEX ON $table(prefix)");
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+
+	#Create new temp table, then drop old and rename the new - this
+	#should minimize the time that the table is unavailable.
+	if ( $options->{'cache'} ) {
+		eval { $self->{'db'}->do("DROP TABLE IF EXISTS $rename_table; ALTER TABLE $table RENAME TO $rename_table") };
+		if ($@) {
+			$logger->error($@);
+			$logger->error("Dropping temp table $table.");
+			eval { $self->{'db'}->do("DROP TABLE IF EXISTS $table") };
+			$logger->error($@) if $@;
+		} else {
+
+			#Drop any old temp tables for this scheme that may have persisted due to a lock timeout.
+			$self->_delete_temp_tables("temp_lincode_${scheme_id}_field_values_");
+		}
+		$self->{'db'}->commit;
+		$table = $rename_table;
+	}
+	return $table;
+}
+
+
 sub _delete_temp_tables {
 	my ( $self, $prefix ) = @_;
 	my $tables = $self->run_query( 'SELECT table_name FROM information_schema.tables where table_name LIKE ?',

@@ -2572,7 +2572,7 @@ sub get_lincode_fields_table_attributes {
 			name     => 'type',
 			type     => 'text',
 			required => 1,
-			optlist  => 'text;integer;date'
+			optlist  => 'text;integer'
 		},
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 }
@@ -2597,11 +2597,12 @@ sub get_lincode_prefixes_table_attributes {
 			with_pk        => 1,
 		},
 		{
-			name     => 'prefix',
-			type     => 'text',
-			required => 1,
-			regex    => '^\d+(?:_\d+)*$',
-			tooltip  => 'LINcode prefix - this consists of integer values separated by underscores (_).'
+			name        => 'prefix',
+			type        => 'text',
+			required    => 1,
+			primary_key => 1,
+			regex       => '^\d+(?:_\d+)*$',
+			tooltip     => 'LINcode prefix - this consists of integer values separated by underscores (_).'
 		},
 		{
 			name        => 'field',
@@ -2611,9 +2612,10 @@ sub get_lincode_prefixes_table_attributes {
 			optlist     => "@$fields"
 		},
 		{
-			name     => 'value',
-			type     => 'text',
-			required => 1,
+			name        => 'value',
+			type        => 'text',
+			required    => 1,
+			primary_key => 1,
 		},
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 }

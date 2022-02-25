@@ -39,6 +39,7 @@ CREATE TABLE lincode_fields (
 scheme_id int NOT NULL,
 field text NOT NULL,
 type text NOT NULL,
+display_order int,
 curator int NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY(scheme_id,field),
@@ -59,7 +60,7 @@ field text NOT NULL,
 value text NOT NULL,
 curator int NOT NULL,
 datestamp date NOT NULL,
-PRIMARY KEY(scheme_id,prefix,field),
+PRIMARY KEY(scheme_id,prefix,field,value),
 CONSTRAINT lp_scheme_id_field FOREIGN KEY(scheme_id,field) REFERENCES lincode_fields
 ON DELETE CASCADE
 ON UPDATE CASCADE,

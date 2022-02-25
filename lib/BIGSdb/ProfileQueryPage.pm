@@ -283,6 +283,9 @@ sub _get_select_items {
 	push @orderitems,  $primary_key;
 	if ( $self->{'datastore'}->are_lincodes_defined($scheme_id) ) {
 		push @selectitems, 'LINcode';
+		my $lincode_fields = $self->{'datastore'}
+		  ->run_query( 'SELECT field FROM lincode_fields WHERE scheme_id=?', $scheme_id, { fetch => 'col_arrayref' } );
+		push @selectitems, "$_ (LINcode)" foreach @$lincode_fields;
 	}
 	foreach my $locus (@$loci) {
 		$cleaned{$locus} = $self->clean_locus( $locus, { text_output => 1 } );
@@ -339,6 +342,7 @@ sub _run_query {
 		$qry =~ s/\ WHERE\ \(\)//x;
 		$browse = 1;
 	}
+	$logger->error($qry);
 	if (@$errors) {
 		local $" = '<br />';
 		$self->print_bad_status( { message => q(Problem with search criteria:), detail => qq(@$errors) } );
@@ -453,6 +457,9 @@ sub _generate_query_from_main_form {
 	my %recognized_fields = ( %standard_fields, %$cscheme_names, %$cscheme_fields );
 	my $lincodes_defined = $self->{'datastore'}->are_lincodes_defined($scheme_id);
 	$recognized_fields{'LINcode'} = 1 if $lincodes_defined;
+	my $lincode_fields = $self->{'datastore'}
+	  ->run_query( 'SELECT field FROM lincode_fields WHERE scheme_id=?', $scheme_id, { fetch => 'col_arrayref' } );
+	$recognized_fields{"$_ (LINcode)"} = 1 foreach @$lincode_fields;
 
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		next if !defined $q->param("t$i") || $q->param("t$i") eq q();
@@ -508,7 +515,12 @@ sub _generate_query_from_main_form {
 			next;
 		}
 		if ( $field eq 'LINcode' ) {
-			$qry .= $self->_modify_query_by_lincode( $scheme_id, $field, $operator, $text, $errors );
+			$qry .= $self->_modify_query_by_lincode( $scheme_id, $operator, $text, $errors );
+			next;
+		}
+		if ( $field =~ /^(.*)\ \(LINcode\)$/x ) {
+			$cleaned_field = $1;
+			$qry .= $self->_modify_query_by_lincode_field( $scheme_id, $cleaned_field, $operator, $text, $errors );
 			next;
 		}
 		$qry .= $self->_modify_query_by_scheme_fields(
@@ -641,7 +653,7 @@ sub _modify_query_by_classification_group {
 sub _get_cscheme_field_info {
 	my ( $self, $field ) = @_;
 	my $data = $self->{'datastore'}->run_query(
-		'SELECT cs.name,cgf.*FROM classification_group_fields cgf JOIN '
+		'SELECT cs.name,cgf.* FROM classification_group_fields cgf JOIN '
 		  . 'classification_schemes cs ON cgf.cg_scheme_id=cs.id',
 		undef,
 		{ fetch => 'all_arrayref', slice => {} }
@@ -732,7 +744,7 @@ sub _modify_by_list {
 }
 
 sub _modify_query_by_lincode {
-	my ( $self, $scheme_id, $field, $operator, $text, $errors ) = @_;
+	my ( $self, $scheme_id, $operator, $text, $errors ) = @_;
 	$text =~ s/^\s*|\s*$//gx;
 	return q() if $text eq q();
 	if ( lc($text) ne 'null' && $text !~ /^\d+(?:_\d+)*$/x ) {
@@ -812,6 +824,69 @@ sub _modify_query_by_lincode {
 		return q();
 	}
 	return q();
+}
+
+sub _modify_query_by_lincode_field {
+	my ( $self, $scheme_id, $field, $operator, $text, $errors ) = @_;
+	my $field_info = $self->{'datastore'}->run_query(
+		'SELECT * FROM lincode_fields WHERE (scheme_id,field)=(?,?)',
+		[ $scheme_id, $field ],
+		{ fetch => 'row_hashref' }
+	);
+	if ( $field_info->{'type'} eq 'integer' && $text ne 'null' && !BIGSdb::Utils::is_int($text) ) {
+		push @$errors, "$field (LINcode) is an integer field.";
+		return q();
+	}
+	$field =~ s/'/\\'/gx;
+	( my $cleaned_value = uc($text) ) =~ s/'/\\'/gx;
+	my $qry;
+	my $type = $self->{'datastore'}
+	  ->run_query( 'SELECT type FROM lincode_fields WHERE (scheme_id,field)=(?,?)', [ $scheme_id, $field ] );
+	my %valid_null = map { $_ => 1 } ( '=', 'NOT' );
+	if ( $cleaned_value eq 'NULL' && !$valid_null{$operator} ) {
+		push @$errors,
+		  q(You can only use '=' and 'NOT' when searching fields linked to LINcode ) . q(prefixes using null values.);
+		return q();
+	}
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $pk = $scheme_info->{'primary_key'};
+	my $join_table =
+	    qq[mv_scheme_$scheme_id LEFT JOIN lincodes ON mv_scheme_$scheme_id.$pk=lincodes.profile_id AND ]
+	  . qq[lincodes.scheme_id=$scheme_id LEFT JOIN lincode_prefixes ON ]
+	  . q[lincodes.scheme_id=lincode_prefixes.scheme_id AND (]
+	  . q[array_to_string(lincodes.lincode,'_') LIKE (REPLACE(lincode_prefixes.prefix,'_','\_') || E'\_' || '%') ]
+	  . q[OR array_to_string(lincodes.lincode,'_') = lincode_prefixes.prefix)];
+	$logger->error("JOIN : $join_table");
+	my %modify = (
+		  'NOT' => $cleaned_value eq 'NULL'
+		? "($pk IN (SELECT lincodes.profile_id FROM $join_table WHERE lincode_prefixes.field=E'$field'))"
+		: "($pk IN (SELECT mv_scheme_$scheme_id.$pk FROM $join_table WHERE (lincode_prefixes.field=E'$field' "
+		  . "AND UPPER(lincode_prefixes.value) != E'$cleaned_value') OR lincode_prefixes.value IS NULL))",
+		'contains' => "($pk IN (SELECT lincodes.profile_id FROM $join_table WHERE lincode_prefixes.field=E'$field' "
+		  . "AND UPPER(lincode_prefixes.value) LIKE E'%$cleaned_value%'))",
+		'starts with' => "($pk IN (SELECT lincodes.profile_id FROM $join_table WHERE lincode_prefixes.field=E'$field' "
+		  . "AND UPPER(lincode_prefixes.value) LIKE E'$cleaned_value%'))",
+		'ends with' => "($pk IN (SELECT lincodes.profile_id FROM $join_table WHERE lincode_prefixes.field=E'$field' "
+		  . "AND lincode_prefixes.value LIKE E'%$cleaned_value'))",
+		'NOT contain' =>
+		  "($pk IN (SELECT mv_scheme_$scheme_id.$pk FROM $join_table WHERE (lincode_prefixes.field=E'$field' "
+		  . "AND UPPER(lincode_prefixes.value) NOT LIKE E'%$cleaned_value%' OR lincode_prefixes.value IS NULL)))",
+		'=' => $cleaned_value eq 'NULL'
+		? "($pk NOT IN (SELECT lincodes.profile_id FROM $join_table WHERE lincode_prefixes.field=E'$field'))"
+		: "($pk IN (SELECT lincodes.profile_id FROM $join_table WHERE lincode_prefixes.field=E'$field' "
+		  . "AND UPPER(lincode_prefixes.value)=E'$cleaned_value'))"
+	);
+	if ( $modify{$operator} ) {
+		$qry .= $modify{$operator};
+	} else {
+		$qry .= "($pk IN (SELECT lincodes.profile_id FROM $join_table WHERE lincode_prefixes.field=E'$field' AND ";
+		$qry .=
+		  $type eq 'integer'
+		  ? 'CAST(lincode_prefixes.value AS integer) '
+		  : 'lincode_prefixes.value ';
+		$qry .= "$operator E'$cleaned_value'))";
+	}
+	return $qry;
 }
 
 sub _print_list_fieldset {
