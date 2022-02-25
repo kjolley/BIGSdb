@@ -2614,8 +2614,7 @@ sub get_lincode_prefixes_table_attributes {
 		{
 			name        => 'value',
 			type        => 'text',
-			required    => 1,
-			primary_key => 1,
+			required    => 1
 		},
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 }

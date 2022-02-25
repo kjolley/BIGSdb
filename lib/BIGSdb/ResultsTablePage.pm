@@ -1170,8 +1170,17 @@ sub _print_profile_table {
 	}
 	say q(</th>);
 	my $lincodes_defined = $self->{'datastore'}->are_lincodes_defined($scheme_id);
+	my $lincode_fields   = [];
 	if ($lincodes_defined) {
 		say q(<th>LINcode</th>);
+		$lincode_fields =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT field FROM lincode_fields WHERE scheme_id=? ORDER BY display_order,field',
+			$scheme_id, { fetch => 'col_arrayref' } );
+		foreach my $field (@$lincode_fields) {
+			( my $cleaned = $field ) =~ tr/_/ /;
+			say qq(<th>$cleaned (LINcode)</th>);
+		}
 	}
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
@@ -1220,6 +1229,24 @@ sub _print_profile_table {
 				[ $scheme_id, $pk_value ] ) // [];
 			local $" = q(_);
 			print qq(<td>@$lincode</td>);
+			my $join_table =
+			    q[lincodes LEFT JOIN lincode_prefixes ON lincodes.scheme_id=lincode_prefixes.scheme_id AND (]
+			  . q[array_to_string(lincodes.lincode,'_') LIKE (REPLACE(lincode_prefixes.prefix,'_','\_') || E'\_' || '%') ]
+			  . q[OR array_to_string(lincodes.lincode,'_') = lincode_prefixes.prefix)];
+			foreach my $field (@$lincode_fields) {
+				my $type =
+				  $self->{'datastore'}->run_query( 'SELECT type FROM lincode_fields WHERE (scheme_id,field)=(?,?)',
+					[ $scheme_id, $field ] );
+				my $order = $type eq 'integer' ? 'CAST(value AS integer)' : 'value';
+				my $values = $self->{'datastore'}->run_query(
+					"SELECT value FROM $join_table WHERE (lincodes.scheme_id,lincode_prefixes.field,lincodes.lincode)="
+					  . "(?,?,?) ORDER BY $order"
+					,
+					[ $scheme_id, $field, $lincode ], { fetch => 'col_arrayref' }
+				);
+				local $" = q(; );
+				print qq(<td>@$values</td>);
+			}
 		}
 		foreach my $locus (@$loci) {
 			print qq(<td>$data->{'profile'}->[$locus_indices->{$locus}]</td>);

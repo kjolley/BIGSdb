@@ -523,7 +523,7 @@ sub _check_data {
 				checked_record     => \$checked_record,
 				table              => $table
 			};
-			if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates') {
+			if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 				my %newdata = map { $_ => $data[ $file_header_pos->{$_} ] } keys %$file_header_pos;
 				my $validation_failures = $self->{'submissionHandler'}->run_validation_checks( \%newdata );
 				if (@$validation_failures) {
@@ -588,6 +588,9 @@ sub _check_data {
 				},
 				isolate_field_extended_attributes => sub {
 					$self->_check_isolate_field_extended_attributes( $new_args, $problems, $pk_combination );
+				},
+				lincode_prefixes => sub {
+					$self->_check_lincode_prefix_values( $new_args, $problems, $pk_combination );
 				}
 			);
 			$record_checks{$table}->() if $record_checks{$table};
@@ -758,6 +761,21 @@ sub _check_classification_field_values {
 		$problems->{$pk_combination} .=
 		    "$data->[$file_header_pos->{'field'}] value is invalid - "
 		  . "it must match the regular expression /$format->{'value_regex'}/.";
+	}
+	return;
+}
+
+sub _check_lincode_prefix_values {
+	my ( $self, $args, $problems, $pk_combination ) = @_;
+	my ( $data, $file_header_pos ) = ( $args->{'data'}, $args->{'file_header_pos'} );
+	my $type = $self->{'datastore'}->run_query( 'SELECT type FROM lincode_fields WHERE (scheme_id,field)=(?,?)',
+		[ $data->[ $file_header_pos->{'scheme_id'} ], $data->[ $file_header_pos->{'field'} ] ] );
+	if (
+		$type eq 'integer'
+		&& !BIGSdb::Utils::is_int( $data->[ $file_header_pos->{'value'} ] )
+	  )
+	{
+		$problems->{$pk_combination} .= "$data->[$file_header_pos->{'field'}] must be an integer.";
 	}
 	return;
 }

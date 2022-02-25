@@ -237,6 +237,9 @@ sub _upload {
 			},
 			lincode_schemes => sub {
 				$status = $self->_check_lincode_schemes( $newdata, $extra_inserts );
+			},
+			lincode_prefixes => sub {
+				$status = $self->_check_lincode_prefix_values( $newdata, $extra_inserts );
 			}
 		);
 		$methods{$table}->() if $methods{$table};
@@ -362,6 +365,22 @@ sub _check_lincode_schemes {
 			statement => 'DELETE FROM lincodes WHERE scheme_id=?',
 			arguments => [ $newdata->{'scheme_id'} ]
 		  };
+	}
+	return;
+}
+
+sub _check_lincode_prefix_values {
+	my ( $self, $newdata, $extra_inserts ) = @_;
+	my $type = $self->{'datastore'}->run_query('SELECT type FROM lincode_fields WHERE (scheme_id,field)=(?,?)',
+	[$newdata->{'scheme_id'},$newdata->{'field'}]);
+	if ($type eq 'integer' && !BIGSdb::Utils::is_int($newdata->{'value'})){
+		$self->print_bad_status(
+			{
+				    message => q(Field value must be an integer)
+			}
+		);
+		return FAILURE;
+		
 	}
 	return;
 }

@@ -219,7 +219,7 @@ sub _insert {
 	my $extra_transactions = [];
 	my %check_tables = map { $_ => 1 } qw(accession loci locus_aliases locus_descriptions profile_refs scheme_fields
 	  scheme_group_group_members sequences sequence_bin sequence_refs retired_profiles classification_group_fields
-	  retired_isolates schemes users eav_fields classification_group_field_values lincode_schemes);
+	  retired_isolates schemes users eav_fields classification_group_field_values lincode_schemes lincode_prefixes);
 
 	if (
 		   $table ne 'retired_isolates'
@@ -700,6 +700,17 @@ sub _check_classification_group_field_values { ## no critic (ProhibitUnusedPriva
 	return;
 }
 
+sub _check_lincode_prefixes { ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $newdata, $problems ) = @_;
+	my $type = $self->{'datastore'}->run_query('SELECT type FROM lincode_fields WHERE (scheme_id,field)=(?,?)',
+	[$newdata->{'scheme_id'},$newdata->{'field'}]);
+	if ($type eq 'integer' && !BIGSdb::Utils::is_int($newdata->{'value'})){
+		push @$problems, q(Field value must be an integer.);
+	}
+	
+	return;
+}
+
 sub _check_locus_aliases {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata, $problems ) = @_;
 	if ( $newdata->{'locus'} eq $newdata->{'alias'} ) {
@@ -927,20 +938,21 @@ sub _check_schemes {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called 
 	return;
 }
 
-sub _check_lincode_schemes {  ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_lincode_schemes {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata, $problems ) = @_;
 	return if @$problems;
 	$newdata->{'thresholds'} =~ s/\s//gx;
 	my $loci       = $self->{'datastore'}->get_scheme_loci( $newdata->{'scheme_id'} );
 	my $count      = @$loci;
 	my @thresholds = split /;/x, $newdata->{'thresholds'};
-	my $last = $count+1;
+	my $last       = $count + 1;
 	foreach my $threshold (@thresholds) {
+
 		if ( $threshold > $count ) {
 			push @$problems, qq(Scheme has $count loci - you cannot have a threshold of $threshold.);
 			last;
 		}
-		if ($threshold >= $last){
+		if ( $threshold >= $last ) {
 			push @$problems, qq(Thresholds should be in descending order - $threshold >= $last.);
 			last;
 		}

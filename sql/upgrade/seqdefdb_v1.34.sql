@@ -60,7 +60,7 @@ field text NOT NULL,
 value text NOT NULL,
 curator int NOT NULL,
 datestamp date NOT NULL,
-PRIMARY KEY(scheme_id,prefix,field,value),
+PRIMARY KEY(scheme_id,prefix,field),
 CONSTRAINT lp_scheme_id_field FOREIGN KEY(scheme_id,field) REFERENCES lincode_fields
 ON DELETE CASCADE
 ON UPDATE CASCADE,

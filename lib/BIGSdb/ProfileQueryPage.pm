@@ -845,7 +845,7 @@ sub _modify_query_by_lincode_field {
 	my %valid_null = map { $_ => 1 } ( '=', 'NOT' );
 	if ( $cleaned_value eq 'NULL' && !$valid_null{$operator} ) {
 		push @$errors,
-		  q(You can only use '=' and 'NOT' when searching fields linked to LINcode ) . q(prefixes using null values.);
+		  q(You can only use '=' and 'NOT' when searching fields linked to LINcode prefixes using null values.);
 		return q();
 	}
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
@@ -856,7 +856,6 @@ sub _modify_query_by_lincode_field {
 	  . q[lincodes.scheme_id=lincode_prefixes.scheme_id AND (]
 	  . q[array_to_string(lincodes.lincode,'_') LIKE (REPLACE(lincode_prefixes.prefix,'_','\_') || E'\_' || '%') ]
 	  . q[OR array_to_string(lincodes.lincode,'_') = lincode_prefixes.prefix)];
-	$logger->error("JOIN : $join_table");
 	my %modify = (
 		  'NOT' => $cleaned_value eq 'NULL'
 		? "($pk IN (SELECT lincodes.profile_id FROM $join_table WHERE lincode_prefixes.field=E'$field'))"
