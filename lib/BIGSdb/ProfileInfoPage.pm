@@ -373,8 +373,10 @@ sub _print_profile {
 	say qq(<div id="profile" style="overflow:hidden" class="$class">);
 	my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
 	my $tooltip = q();
+
 	if ( $scheme_field_info->{'description'} ) {
-		$tooltip= $self->get_tooltip( qq($primary_key - $scheme_field_info->{'description'}), { style => 'color:white' } );
+		$tooltip =
+		  $self->get_tooltip( qq($primary_key - $scheme_field_info->{'description'}), { style => 'color:white' } );
 	}
 	say qq(<dl class="profile"><dt>$primary_key$tooltip</dt><dd>$profile_id</dd></dl>);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
@@ -404,16 +406,9 @@ sub _print_profile {
 		say q(<div class="expand_link" id="expand_profile"><span class="fas fa-chevron-down"></span></div>);
 	}
 	say q(<dl class="data">);
-	if ( $self->{'datastore'}->are_lincodes_defined($scheme_id) ) {
-		my $lincode =
-		  $self->{'datastore'}
-		  ->run_query( 'SELECT lincode FROM lincodes WHERE (scheme_id,profile_id)=(?,?)', [ $scheme_id, $profile_id ] )
-		  // [];
-		if (@$lincode) {
-			local $" = q(_);
-			say qq(<dt>LINcode</dt><dd>@$lincode</dd>);
-		}
-	}
+	my $lincode_values = $self->_get_lincode_values( $scheme_id, $profile_id );
+	say qq(<dt>$_->{'label'}</dt><dd>$_->{'value'}</dd>) foreach @$lincode_values;
+		
 	foreach my $field (qw (sender curator date_entered datestamp)) {
 		my $cleaned = $field;
 		$cleaned =~ tr/_/ /;
@@ -459,6 +454,53 @@ sub _print_profile {
 	}
 	say q(</dl>);
 	return;
+}
+
+sub _get_lincode_values {
+	my ( $self, $scheme_id, $profile_id ) = @_;
+	my $lincode_values = [];
+	return $lincode_values if !$self->{'datastore'}->are_lincodes_defined($scheme_id);
+	my $lincode =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT lincode FROM lincodes WHERE (scheme_id,profile_id)=(?,?)', [ $scheme_id, $profile_id ] )
+	  // [];
+	if (@$lincode) {
+		local $" = q(_);
+		push @$lincode_values,
+		  {
+			label => 'LINcode',
+			value => qq(@$lincode)
+		  };
+		my $lincode_fields =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT field FROM lincode_fields WHERE scheme_id=? ORDER BY display_order,field',
+			$scheme_id, { fetch => 'col_arrayref' } );
+		my $join_table =
+		    q[lincodes LEFT JOIN lincode_prefixes ON lincodes.scheme_id=lincode_prefixes.scheme_id AND (]
+		  . q[array_to_string(lincodes.lincode,'_') LIKE (REPLACE(lincode_prefixes.prefix,'_','\_') || E'\_' || '%') ]
+		  . q[OR array_to_string(lincodes.lincode,'_') = lincode_prefixes.prefix)];
+		foreach my $field (@$lincode_fields) {
+			my $type =
+			  $self->{'datastore'}
+			  ->run_query( 'SELECT type FROM lincode_fields WHERE (scheme_id,field)=(?,?)', [ $scheme_id, $field ] );
+			my $order = $type eq 'integer' ? 'CAST(value AS integer)' : 'value';
+			my $values = $self->{'datastore'}->run_query(
+				"SELECT value FROM $join_table WHERE (lincodes.scheme_id,lincode_prefixes.field,lincodes.lincode)="
+				  . "(?,?,?) ORDER BY $order",
+				[ $scheme_id, $field, $lincode ],
+				{ fetch => 'col_arrayref' }
+			);
+			next if !@$values;
+			( my $cleaned = $field ) =~ tr/_/ /;
+			local $" = q(; );
+			push @$lincode_values,
+			  {
+				label => $cleaned,
+				value => qq(@$values)
+			  };
+		}
+	}
+	return $lincode_values;
 }
 
 sub _get_history {

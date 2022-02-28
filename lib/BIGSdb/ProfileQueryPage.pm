@@ -342,7 +342,6 @@ sub _run_query {
 		$qry =~ s/\ WHERE\ \(\)//x;
 		$browse = 1;
 	}
-	$logger->error($qry);
 	if (@$errors) {
 		local $" = '<br />';
 		$self->print_bad_status( { message => q(Problem with search criteria:), detail => qq(@$errors) } );
