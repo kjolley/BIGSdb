@@ -80,8 +80,7 @@ sub _get_profiles_csv {
 	$self->check_seqdef_database;
 	my $params = params;
 	my ( $db, $scheme_id ) = @{$params}{qw(db scheme_id)};
-	my $allowed_filters =
-	  [qw(added_after added_reldate added_on updated_after updated_reldate updated_on)];
+	my $allowed_filters = [qw(added_after added_reldate added_on updated_after updated_reldate updated_on)];
 	$self->check_scheme( $scheme_id, { pk => 1 } );
 	my $set_id        = $self->get_set_id;
 	my $scheme_info   = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
@@ -247,6 +246,29 @@ sub _get_profile {
 		if ($lincode) {
 			local $" = q(_);
 			$values->{'LINcode'} = qq(@$lincode);
+			my $lincode_fields =
+			  $self->{'datastore'}
+			  ->run_query( 'SELECT field FROM lincode_fields WHERE scheme_id=? ORDER BY display_order,field',
+				$scheme_id, { fetch => 'col_arrayref' } );
+			my $join_table =
+			    q[lincodes LEFT JOIN lincode_prefixes ON lincodes.scheme_id=lincode_prefixes.scheme_id AND (]
+			  . q[array_to_string(lincodes.lincode,'_') LIKE (REPLACE(lincode_prefixes.prefix,'_','\_') || E'\_' || '%') ]
+			  . q[OR array_to_string(lincodes.lincode,'_') = lincode_prefixes.prefix)];
+			foreach my $field (@$lincode_fields) {
+				my $type =
+				  $self->{'datastore'}->run_query( 'SELECT type FROM lincode_fields WHERE (scheme_id,field)=(?,?)',
+					[ $scheme_id, $field ] );
+				my $order = $type eq 'integer' ? 'CAST(value AS integer)' : 'value';
+				my $lincode_values = $self->{'datastore'}->run_query(
+					"SELECT value FROM $join_table WHERE (lincodes.scheme_id,lincode_prefixes.field,lincodes.lincode)="
+					  . "(?,?,?) ORDER BY $order",
+					[ $scheme_id, $field, $lincode ],
+					{ fetch => 'col_arrayref' }
+				);
+				next if !@$lincode_values;
+				( my $cleaned = $field ) =~ tr/_/ /;
+				$values->{$cleaned} = @$lincode_values == 1 ? $lincode_values->[0] : $lincode_values;
+			}
 		}
 	}
 	return $values;
