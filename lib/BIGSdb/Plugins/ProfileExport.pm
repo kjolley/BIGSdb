@@ -193,8 +193,14 @@ sub run_job {
 		push @header, $cg_scheme->{'name'};
 	}
 	my $lincodes_defined = $self->{'datastore'}->are_lincodes_defined($scheme_id);
+	my $lincode_fields   = [];
 	if ($lincodes_defined) {
 		push @header, 'LINcode';
+		$lincode_fields =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT field FROM lincode_fields WHERE scheme_id=? ORDER BY display_order,field',
+			$scheme_id, { fetch => 'col_arrayref' } );
+		push @header, @$lincode_fields;
 	}
 	if ( $params->{'include_sender'} ) {
 		push @header, qw(sender sender_affiliation);
@@ -232,11 +238,9 @@ sub run_job {
 			$buffer .= qq(\t$group_id);
 		}
 		if ($lincodes_defined) {
-			my $lincode =
-			  $self->{'datastore'}->run_query( 'SELECT lincode FROM lincodes WHERE (scheme_id,profile_id)=(?,?)',
-				[ $scheme_id, $profile_id ] ) // [];
-			local $" = q(_);
-			$buffer .= qq(\t@$lincode);
+			my $lincode_values = $self->_get_lincode_values( $lincode_fields, $scheme_id, $profile_id );
+			local $" = qq(\t);
+			$buffer .= qq(\t@$lincode_values);
 		}
 		if ( $params->{'include_sender'} ) {
 			my $sender = $self->{'datastore'}->get_user_info( $data->{'sender'} );
@@ -301,6 +305,43 @@ sub run_job {
 			{ filename => "$job_id.xlsx", description => '20_Profiles - Excel format (Excel)', compress => 1 } );
 	}
 	return;
+}
+
+sub _get_lincode_values {
+	my ( $self, $fields, $scheme_id, $profile_id ) = @_;
+	my $values = [];
+	my $lincode =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT lincode FROM lincodes WHERE (scheme_id,profile_id)=(?,?)', [ $scheme_id, $profile_id ] )
+	  // [];
+	local $" = q(_);
+	push @$values, qq(@$lincode);
+	return $values if !@$lincode;
+	my $join_table =
+	    q[lincodes LEFT JOIN lincode_prefixes ON lincodes.scheme_id=lincode_prefixes.scheme_id AND (]
+	  . q[array_to_string(lincodes.lincode,'_') LIKE (REPLACE(lincode_prefixes.prefix,'_','\_') || E'\_' || '%') ]
+	  . q[OR array_to_string(lincodes.lincode,'_') = lincode_prefixes.prefix)];
+	foreach my $field (@$fields) {
+
+		if ( !$self->{'cache'}->{'lincode_field_type'}->{$field} ) {
+			$self->{'cache'}->{'lincode_field_type'}->{$field} =
+			  $self->{'datastore'}
+			  ->run_query( 'SELECT type FROM lincode_fields WHERE (scheme_id,field)=(?,?)', [ $scheme_id, $field ] );
+		}
+		my $order =
+		  $self->{'cache'}->{'lincode_field_type'}->{$field} eq 'integer'
+		  ? 'CAST(value AS integer)'
+		  : 'value';
+		my $field_values = $self->{'datastore'}->run_query(
+			"SELECT value FROM $join_table WHERE (lincodes.scheme_id,lincode_prefixes.field,lincodes.lincode)="
+			  . "(?,?,?) ORDER BY $order",
+			[ $scheme_id, $field, $lincode ],
+			{ fetch => 'col_arrayref' }
+		);
+		local $" = q(; );
+		push @$values, qq(@$field_values);
+	}
+	return $values;
 }
 
 sub _sort_ids {
