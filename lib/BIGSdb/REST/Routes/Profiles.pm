@@ -104,7 +104,16 @@ sub _get_profiles_csv {
 		push @fields,  $field;
 	}
 	my $lincodes_defined = $self->{'datastore'}->are_lincodes_defined($scheme_id);
-	push @heading, 'LINcode' if $lincodes_defined;
+	my $lincode_fields   = [];
+	if ($lincodes_defined) {
+		push @heading, 'LINcode';
+		$lincode_fields =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT field FROM lincode_fields WHERE scheme_id=? ORDER BY display_order,field',
+			$scheme_id, { fetch => 'col_arrayref' } );
+		local $" = qq(\t);
+		push @heading, @$lincode_fields;
+	}
 	local $" = "\t";
 	my $buffer = "@heading\n";
 	local $" = ',';
@@ -134,12 +143,48 @@ sub _get_profiles_csv {
 				my $lincode = $lincodes->{$pk}->{'lincode'} // [];
 				local $" = q(_);
 				$buffer .= qq(\t@$lincode);
+				$buffer .= _print_lincode_fields( $scheme_id, $lincode_fields, qq(@$lincode) );
 			}
 			$buffer .= qq(\n);
 		}
 	}
 	send_file( \$buffer, content_type => 'text/plain; charset=UTF-8' );
 	return;
+}
+
+sub _print_lincode_fields {
+	my ( $scheme_id, $fields, $lincode ) = @_;
+
+	#Using $self->{'cache'} would be persistent between calls even when calling another database.
+	#Datastore is destroyed after call so $self->{'datastore'}->{'prefix_cache'} is safe to
+	#cache only for duration of call.
+	my $self = setting('self');
+	if ( !$self->{'datastore'}->{'prefix_cache'} ) {
+		my $data = $self->{'datastore'}->run_query( 'SELECT * FROM lincode_prefixes WHERE scheme_id=?',
+			$scheme_id, { fetch => 'all_arrayref', slice => {} } );
+		foreach my $record (@$data) {
+			$self->{'datastore'}->{'prefix_cache'}->{ $record->{'field'} }->{ $record->{'prefix'} } =
+			  $record->{'value'};
+		}
+	}
+	my $buffer = q();
+	foreach my $field (@$fields) {
+		if ( !$lincode ) {
+			$buffer.= qq(\t);
+			next;
+		}
+		my @prefixes = keys %{ $self->{'datastore'}->{'prefix_cache'}->{$field} };
+		my @values;
+		foreach my $prefix (@prefixes) {
+			if ( $lincode eq $prefix || $lincode =~ /^${prefix}_/x ) {
+				push @values, $self->{'datastore'}->{'prefix_cache'}->{$field}->{$prefix};
+			}
+		}
+		@values = sort @values;
+		local $" = q(; );
+		$buffer.= qq(\t@values);
+	}
+	return $buffer;
 }
 
 sub _get_profile {

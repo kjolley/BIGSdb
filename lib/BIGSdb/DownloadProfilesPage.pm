@@ -139,6 +139,7 @@ sub _print_lincode_fields {
 	foreach my $field (@$fields) {
 		if ( !$lincode ) {
 			print qq(\t);
+			next;
 		}
 		my @prefixes = keys %{ $self->{'cache'}->{'prefixes'}->{$field} };
 		my @values;
