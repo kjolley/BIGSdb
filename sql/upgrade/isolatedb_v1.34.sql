@@ -1,7 +1,6 @@
 CREATE TABLE lincode_schemes (
 scheme_id int NOT NULL,
 thresholds text NOT NULL,
-max_missing int NOT NULL,
 curator int NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY(scheme_id),
@@ -19,6 +18,7 @@ CREATE TABLE lincode_fields (
 scheme_id int NOT NULL,
 field text NOT NULL,
 type text NOT NULL,
+display_order int,
 curator int NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY(scheme_id,field),

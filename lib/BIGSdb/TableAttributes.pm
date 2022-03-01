@@ -2536,16 +2536,22 @@ sub get_lincode_schemes_table_attributes {
 			required => 1,
 			regex    => '^\d+(\s*;\s*\d+)*$',
 			comments => q(Semi-colon separated list of thresholds)
-		},
-		{
+		}
+	];
+	if ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'sequences' ) {
+		push @$attributes,
+		  {
 			name     => 'max_missing',
 			type     => 'int',
 			required => 1,
 			comments => q(Number of loci that are allowed to be missing for a LINcode to be defined. )
-		},
+		  };
+	}
+	push @$attributes,
+	  (
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 }
-	];
+	  );
 	return $attributes;
 }
 
@@ -2574,7 +2580,8 @@ sub get_lincode_fields_table_attributes {
 			required => 1,
 			optlist  => 'text;integer'
 		},
-		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'display_order', type => 'int' },
+		{ name => 'curator',       type => 'int', required => 1, dropdown_query => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
@@ -2612,9 +2619,9 @@ sub get_lincode_prefixes_table_attributes {
 			optlist     => "@$fields"
 		},
 		{
-			name        => 'value',
-			type        => 'text',
-			required    => 1
+			name     => 'value',
+			type     => 'text',
+			required => 1
 		},
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 }

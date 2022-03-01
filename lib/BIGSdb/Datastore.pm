@@ -1245,7 +1245,7 @@ sub create_temp_lincode_prefix_values_table {
 	);
 	eval {
 		$self->{'db'}->do("CREATE $table_type $table (prefix text, field text, value text)");
-		$self->{'db'}->do("COPY $table(group_id,field,value) FROM STDIN");
+		$self->{'db'}->do("COPY $table(prefix,field,value) FROM STDIN");
 		local $" = "\t";
 		foreach my $values (@$group_values) {
 			$self->{'db'}->pg_putcopydata("@$values\n");

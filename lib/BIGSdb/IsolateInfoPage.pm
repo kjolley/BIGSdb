@@ -1517,25 +1517,64 @@ sub _get_scheme_values {
 		&& $field_values->{ $scheme_info->{'primary_key'} }
 		&& $self->{'datastore'}->are_lincodes_defined($scheme_id) )
 	{
-		my @lincodes;
-		my @pk_values     = @{ $field_values->{ $scheme_info->{'primary_key'} } };
-		my $lincode_table = $self->{'datastore'}->create_temp_lincodes_table($scheme_id);
-		foreach my $pk_value (@pk_values) {
-			my $lincode =
-			  $self->{'datastore'}->run_query( "SELECT lincode FROM $lincode_table WHERE profile_id=?", $pk_value );
-			local $" = q(_);
-			push @lincodes, qq(@$lincode) if $lincode;
-		}
-		if (@lincodes) {
-			local $" = q(; );
-			if ( $args->{'no_render'} ) {
-				$buffer .= qq(<dt>LINcode</dt><dd>@lincodes</dd>);
-			} else {
-				$buffer .= qq(<dl class="profile"><dt>LINcode</dt><dd>@lincodes</dd></dl>);
-			}
-		}
+		my $pk_values = $field_values->{ $scheme_info->{'primary_key'} };
+		$buffer .= $self->_get_lincode_values( $scheme_id, $pk_values, $args );
 	}
 	$buffer .= q(</dl>) if $args->{'no_render'};
+	return $buffer;
+}
+
+sub _get_lincode_values {
+	my ( $self, $scheme_id, $pk_values, $args ) = @_;
+	my @lincodes;
+	my $lincode_table = $self->{'datastore'}->create_temp_lincodes_table($scheme_id);
+	foreach my $pk_value (@$pk_values) {
+		my $lincode =
+		  $self->{'datastore'}->run_query( "SELECT lincode FROM $lincode_table WHERE profile_id=?", $pk_value );
+		local $" = q(_);
+		push @lincodes, qq(@$lincode) if $lincode;
+	}
+	my $buffer = q();
+	if (@lincodes) {
+		local $" = q(; );
+		$buffer .=
+		  $args->{'no_render'}
+		  ? qq(<dt>LINcode</dt><dd>@lincodes</dd>)
+		  : qq(<dl class="profile"><dt>LINcode</dt><dd>@lincodes</dd></dl>);
+		my $prefix_table = $self->{'datastore'}->create_temp_lincode_prefix_values_table($scheme_id);
+		my $data         = $self->{'datastore'}
+		  ->run_query( "SELECT * FROM $prefix_table", undef, { fetch => 'all_arrayref', slice => {} } );
+		my $prefix_values = {};
+		foreach my $record (@$data) {
+			$prefix_values->{ $record->{'field'} }->{ $record->{'prefix'} } = $record->{'value'};
+		}
+		my $prefix_fields =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT field FROM lincode_fields WHERE scheme_id=? ORDER BY display_order,field',
+			$scheme_id, { fetch => 'col_arrayref' } );
+		foreach my $field (@$prefix_fields) {
+			my %used;
+			my @prefixes = keys %{ $prefix_values->{$field} };
+			my @values;
+			foreach my $prefix (@prefixes) {
+				foreach my $lincode (@lincodes) {
+					if (   $lincode eq $prefix
+						|| $lincode =~ /^${prefix}_/x && !$used{ $prefix_values->{$field}->{$prefix} } )
+					{
+						push @values, $prefix_values->{$field}->{$prefix};
+						$used{ $prefix_values->{$field}->{$prefix} } = 1;
+					}
+				}
+			}
+			@values = sort @values;
+			local $" = q(; );
+			next if !@values;
+			$buffer .=
+			  $args->{'no_render'}
+			  ? qq(<dt>$field</dt><dd>@values</dd>)
+			  : qq(<dl class="profile"><dt>$field</dt><dd>@values</dd></dl>);
+		}
+	}
 	return $buffer;
 }
 
