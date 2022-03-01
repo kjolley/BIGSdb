@@ -316,13 +316,15 @@ sub _get_lincode_values {
 	  // [];
 	local $" = q(_);
 	push @$values, qq(@$lincode);
-	return $values if !@$lincode;
 	my $join_table =
 	    q[lincodes LEFT JOIN lincode_prefixes ON lincodes.scheme_id=lincode_prefixes.scheme_id AND (]
 	  . q[array_to_string(lincodes.lincode,'_') LIKE (REPLACE(lincode_prefixes.prefix,'_','\_') || E'\_' || '%') ]
 	  . q[OR array_to_string(lincodes.lincode,'_') = lincode_prefixes.prefix)];
 	foreach my $field (@$fields) {
-
+		if (!@$lincode){
+			push @$values, q();
+			next;
+		}
 		if ( !$self->{'cache'}->{'lincode_field_type'}->{$field} ) {
 			$self->{'cache'}->{'lincode_field_type'}->{$field} =
 			  $self->{'datastore'}

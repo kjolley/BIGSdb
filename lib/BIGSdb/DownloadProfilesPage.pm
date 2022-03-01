@@ -86,7 +86,16 @@ sub print_content {
 		print qq(\t$cg_scheme->{'name'});
 	}
 	my $lincodes_defined = $self->{'datastore'}->are_lincodes_defined($scheme_id);
-	print qq(\tLINcode) if $lincodes_defined;
+	my $lincode_fields   = [];
+	if ($lincodes_defined) {
+		print qq(\tLINcode);
+		$lincode_fields =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT field FROM lincode_fields WHERE scheme_id=? ORDER BY display_order,field',
+			$scheme_id, { fetch => 'col_arrayref' } );
+		local $" = qq(\t);
+		print qq(\t@$lincode_fields);
+	}
 	print qq(\n);
 	local $" = q(,);
 	my $scheme_warehouse = qq(mv_scheme_$scheme_id);
@@ -109,9 +118,38 @@ sub print_content {
 			if ($lincodes_defined) {
 				my $lincode = $lincodes->{$pk} // q();
 				print qq(\t$lincode);
+				$self->_print_lincode_fields( $scheme_id, $lincode_fields, $lincode );
 			}
 			print qq(\n);
 		}
+	}
+	return;
+}
+
+sub _print_lincode_fields {
+	my ( $self, $scheme_id, $fields, $lincode ) = @_;
+	if ( !$self->{'cache'}->{'prefixes'} ) {
+		my $data = $self->{'datastore'}->run_query( 'SELECT * FROM lincode_prefixes WHERE scheme_id=?',
+			$scheme_id, { fetch => 'all_arrayref', slice => {} } );
+		foreach my $record (@$data) {
+			$self->{'cache'}->{'prefixes'}->{ $record->{'field'} }->{ $record->{'prefix'} } =
+			  $record->{'value'};
+		}
+	}
+	foreach my $field (@$fields) {
+		if ( !$lincode ) {
+			print qq(\t);
+		}
+		my @prefixes = keys %{ $self->{'cache'}->{'prefixes'}->{$field} };
+		my @values;
+		foreach my $prefix (@prefixes) {
+			if ( $lincode eq $prefix || $lincode =~ /^${prefix}_/x ) {
+				push @values, $self->{'cache'}->{'prefixes'}->{$field}->{$prefix};
+			}
+		}
+		@values = sort @values;
+		local $" = q(; );
+		print qq(\t@values);
 	}
 	return;
 }
