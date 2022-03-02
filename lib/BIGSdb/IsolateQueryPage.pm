@@ -398,9 +398,16 @@ sub _print_designations_fieldset {
 sub _print_designations_fieldset_contents {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my ( $locus_list, $locus_labels ) =
-	  $self->get_field_selection_list(
-		{ loci => 1, scheme_fields => 1, lincodes => 1, classification_groups => 1, sort_labels => 1 } );
+	my ( $locus_list, $locus_labels ) = $self->get_field_selection_list(
+		{
+			loci                  => 1,
+			scheme_fields         => 1,
+			lincodes              => 1,
+			lincode_fields        => 1,
+			classification_groups => 1,
+			sort_labels           => 1
+		}
+	);
 	if (@$locus_list) {
 		my $locus_fields = $self->_highest_entered_fields('loci') || 1;
 		my $loci_field_heading = $locus_fields == 1 ? 'none' : 'inline';
@@ -2237,7 +2244,7 @@ sub _provenance_ltmt_type_operator {
 		  . "WHERE alias $operator E'$text'))";
 	} else {
 		if ( lc($text) eq 'null' ) {
-			push @$errors, "$operator is not a valid operator for comparing null values.";
+			push @$errors, BIGSdb::Utils::escape_html("$operator is not a valid operator for comparing null values.");
 			return q();
 		}
 		if ($multiple) {
@@ -2549,7 +2556,8 @@ sub _modify_query_for_eav_fields {
 			$methods{$operator}->();
 		} else {
 			if ( lc($text) eq 'null' ) {
-				push @$errors, "$operator is not a valid operator for comparing null values.";
+				push @$errors,
+				  BIGSdb::Utils::escape_html("$operator is not a valid operator for comparing null values.");
 				next;
 			}
 			push @sub_qry,
@@ -2579,7 +2587,8 @@ sub _modify_query_for_designations {
 	push @null_queries, @$scheme_null_queries;
 	my ( $cgroup_queries, $cgroup_null_queries ) = $self->_get_classification_group_designations($errors);
 	push @null_queries, @$cgroup_null_queries;
-	my $lincode_queries = $self->_get_lincodes($errors);
+	my $lincode_queries       = $self->_get_lincodes($errors);
+	my $lincode_field_queries = $self->_get_lincode_fields($errors);
 	my @designation_queries;
 
 	if ( keys %$queries_by_locus ) {
@@ -2596,11 +2605,13 @@ sub _modify_query_for_designations {
 		push @designation_queries, "$combined_allele_queries";
 	}
 	local $" = $andor;
-	push @designation_queries, "@null_queries"     if @null_queries;
-	push @designation_queries, "@$scheme_queries"  if @$scheme_queries;
-	push @designation_queries, "@$cgroup_queries"  if @$cgroup_queries;
-	push @designation_queries, "@$lincode_queries" if @$lincode_queries;
+	push @designation_queries, "@null_queries"           if @null_queries;
+	push @designation_queries, "@$scheme_queries"        if @$scheme_queries;
+	push @designation_queries, "@$cgroup_queries"        if @$cgroup_queries;
+	push @designation_queries, "@$lincode_queries"       if @$lincode_queries;
+	push @designation_queries, "@$lincode_field_queries" if @$lincode_field_queries;
 	return $qry if !@designation_queries;
+
 	if ( $qry =~ /\(\)$/x ) {
 		$qry = "SELECT * FROM $view WHERE (@designation_queries)";
 	} else {
@@ -2640,7 +2651,7 @@ sub _get_allele_designations {
 					push @$errors_ref, "$unmodified_locus is an integer field.";
 					next;
 				} elsif ( !$self->is_valid_operator($operator) ) {
-					push @$errors_ref, "$operator is not a valid operator.";
+					push @$errors_ref, BIGSdb::Utils::escape_html("$operator is not a valid operator.");
 					next;
 				}
 				my %methods = (
@@ -2696,7 +2707,8 @@ sub _get_allele_designations {
 					$methods{$operator}->();
 				} else {
 					if ( lc($text) eq 'null' ) {
-						push @$errors_ref, "$operator is not a valid operator for comparing null values.";
+						push @$errors_ref,
+						  BIGSdb::Utils::escape_html("$operator is not a valid operator for comparing null values.");
 						next;
 					}
 					$lqry{$locus} .= $andor if $lqry{$locus};
@@ -2739,7 +2751,7 @@ sub _get_scheme_designations {
 					push @$errors_ref, "$field is an integer field.";
 					next;
 				} elsif ( !$self->is_valid_operator($operator) ) {
-					push @$errors_ref, "$operator is not a valid operator.";
+					push @$errors_ref, BIGSdb::Utils::escape_html("$operator is not a valid operator.");
 					next;
 				}
 				my $isolate_scheme_field_view =
@@ -2802,7 +2814,8 @@ sub _get_scheme_designations {
 					$methods{$operator}->();
 				} else {
 					if ( lc($text) eq 'null' ) {
-						push @$errors_ref, "$operator is not a valid operator for comparing null values.";
+						push @$errors_ref,
+						  BIGSdb::Utils::escape_html("$operator is not a valid operator for comparing null values.");
 						next;
 					}
 					if ( $scheme_field_info->{'type'} eq 'integer' ) {
@@ -2842,7 +2855,7 @@ sub _get_classification_group_designations {
 					push @$errors_ref, "$field is an integer field.";
 					next;
 				} elsif ( !$self->is_valid_operator($operator) ) {
-					push @$errors_ref, "$operator is not a valid operator.";
+					push @$errors_ref, BIGSdb::Utils::escape_html("$operator is not a valid operator.");
 					next;
 				}
 				my $cscheme_table = $self->{'datastore'}->create_temp_cscheme_table($cscheme_id);
@@ -2896,7 +2909,8 @@ sub _get_classification_group_designations {
 					$methods{$operator}->();
 				} else {
 					if ( lc($text) eq 'null' ) {
-						push @$errors_ref, "$operator is not a valid operator for comparing null values.";
+						push @$errors_ref,
+						  BIGSdb::Utils::escape_html("$operator is not a valid operator for comparing null values.");
 						next;
 					}
 					push @qry,
@@ -2911,8 +2925,8 @@ sub _get_classification_group_designations {
 
 sub _get_lincodes {
 	my ( $self, $errors ) = @_;
-	my $q = $self->{'cgi'};
-	my $qry = [];
+	my $q    = $self->{'cgi'};
+	my $qry  = [];
 	my $view = $self->{'system'}->{'view'};
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		if ( defined $q->param("designation_value$i") && $q->param("designation_value$i") ne '' ) {
@@ -2925,7 +2939,7 @@ sub _get_lincodes {
 				push @$errors, 'LINcodes are integer values separated by underscores (_).';
 				next;
 			} elsif ( !$self->is_valid_operator($operator) ) {
-				push @$errors, "$operator is not a valid operator.";
+				push @$errors, BIGSdb::Utils::escape_html("$operator is not a valid operator.");
 				next;
 			}
 			my @values = split /_/x, $text;
@@ -2940,10 +2954,8 @@ sub _get_lincodes {
 			}
 			my %allow_null = map { $_ => 1 } ( '=', 'NOT' );
 			if ( lc($text) eq 'null' && !$allow_null{$operator} ) {
-				my $clean_operator = $operator;
-				$clean_operator =~ s/>/&gt;/x;
-				$clean_operator =~ s/</&lt;/x;
-				push @$errors, "'$clean_operator' is not a valid operator for comparing null values.";
+				push @$errors,
+				  BIGSdb::Utils::escape_html("'$operator' is not a valid operator for comparing null values.");
 				next;
 			}
 			my $scheme_info        = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
@@ -2957,8 +2969,7 @@ sub _get_lincodes {
 					if ( lc($text) eq 'null' ) {
 						push @$qry, "($view.id NOT IN ($temp_qry))";
 						next;
-					} 
-					elsif ( $value_count != $threshold_count ) {
+					} elsif ( $value_count != $threshold_count ) {
 						push @$errors,
 						  "You must enter $threshold_count values to perform an exact match LINcode query.";
 						next;
@@ -2994,23 +3005,124 @@ sub _get_lincodes {
 					}
 					local $" = q(,);
 					my $pg_array = qq({@values});
-					push @$qry,
-					  "($view.id NOT IN ($temp_qry WHERE $lincode_table.lincode='$pg_array'))";
+					push @$qry, "($view.id NOT IN ($temp_qry WHERE $lincode_table.lincode='$pg_array'))";
 				}
 			};
 			if ( $modify->{$operator} ) {
 				$modify->{$operator}->();
 			} else {
-				my $clean_operator = $operator;
-				$clean_operator =~ s/>/&gt;/x;
-				$clean_operator =~ s/</&lt;/x;
-				push @$errors, qq('$clean_operator' is not a valid operator for comparing LINcodes. Only '=', )
-				  . q('starts with', 'ends with', and 'NOT' are appropriate for searching LINcodes.);
+				push @$errors,
+				  BIGSdb::Utils::escape_html( qq('$operator' is not a valid operator for comparing LINcodes. Only '=', )
+					  . q('starts with', 'ends with', and 'NOT' are appropriate for searching LINcodes.) );
 				next;
 			}
 		}
 	}
-	return ( $qry );
+	return ($qry);
+}
+
+sub _get_lincode_fields {
+	my ( $self, $errors ) = @_;
+	my $q    = $self->{'cgi'};
+	my $qry  = [];
+	my $view = $self->{'system'}->{'view'};
+	foreach my $i ( 1 .. MAX_ROWS ) {
+		if ( defined $q->param("designation_value$i") && $q->param("designation_value$i") ne '' ) {
+			my ( $scheme_id, $field );
+			if ( $q->param("designation_field$i") =~ /^lin_(\d+)_(.+)$/x ) {
+				( $scheme_id, $field ) = ( $1, $2 );
+			}
+			next if !defined $scheme_id || !defined $field;
+			my $operator = $q->param("designation_operator$i") // '=';
+			my $text = $q->param("designation_value$i");
+			$self->process_value( \$text );
+			my $type = $self->{'datastore'}
+			  ->run_query( 'SELECT type FROM lincode_fields WHERE (scheme_id,field)=(?,?)', [ $scheme_id, $field ] );
+			if ( $type ne 'text' && lc($text) ne 'null' && !BIGSdb::Utils::is_int($text) ) {
+				push @$errors, "$field is an integer field.";
+				next;
+			}
+			if ( !$self->is_valid_operator($operator) ) {
+				push @$errors, BIGSdb::Utils::escape_html("$operator is not a valid operator.");
+				next;
+			}
+			my %allow_null = map { $_ => 1 } ( '=', 'NOT' );
+			if ( lc($text) eq 'null' && !$allow_null{$operator} ) {
+				push @$errors,
+				  BIGSdb::Utils::escape_html("'$operator' is not a valid operator for comparing null values.");
+				next;
+			}
+			my $scheme_info        = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+			my $pk                 = $scheme_info->{'primary_key'};
+			my $pk_field_info      = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $pk );
+			my $scheme_field_table = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+			my $lincode_table      = $self->{'datastore'}->create_temp_lincodes_table($scheme_id);
+			my $pk_cast =
+			  $pk_field_info->{'type'} eq 'text' ? "$scheme_field_table.$pk" : "CAST($scheme_field_table.$pk AS text)";
+			my $temp_qry = "SELECT $scheme_field_table.id FROM $scheme_field_table JOIN $lincode_table "
+			  . "ON CAST($scheme_field_table.$pk AS text)=$lincode_table.profile_id";
+			my $prefix_table = $self->{'datastore'}->create_temp_lincode_prefix_values_table($scheme_id);
+			my $join_table =
+			    qq[$scheme_field_table LEFT JOIN $lincode_table ON $pk_cast=$lincode_table.profile_id  ]
+			  . qq[LEFT JOIN $prefix_table ON (array_to_string($lincode_table.lincode,'_') ]
+			  . qq[LIKE (REPLACE($prefix_table.prefix,'_','\\_') || E'\\\\_' || '%') ]
+			  . qq[OR array_to_string($lincode_table.lincode,'_') = $prefix_table.prefix)];
+			my $modify = {
+				'=' => sub {
+
+					if ( lc($text) eq 'null' ) {
+						push @$qry,
+						  "($view.id NOT IN (SELECT $scheme_field_table.id FROM "
+						  . "$join_table WHERE $prefix_table.field='$field'))";
+					} else {
+						push @$qry,
+						  "($view.id IN (SELECT $scheme_field_table.id FROM $join_table WHERE "
+						  . "$prefix_table.field='$field' AND UPPER($prefix_table.value)=UPPER(E'$text') ))";
+					}
+				},
+				'contains' => sub {
+					push @$qry,
+					  "($view.id IN (SELECT $scheme_field_table.id FROM $join_table WHERE "
+					  . "$prefix_table.field='$field' AND UPPER($prefix_table.value) LIKE UPPER(E'%$text%') ))";
+				},
+				'starts with' => sub {
+					push @$qry,
+					  "($view.id IN (SELECT $scheme_field_table.id FROM $join_table WHERE "
+					  . "$prefix_table.field='$field' AND UPPER($prefix_table.value) LIKE UPPER(E'$text%') ))";
+				},
+				'ends with' => sub {
+					push @$qry,
+					  "($view.id IN (SELECT $scheme_field_table.id FROM $join_table WHERE "
+					  . "$prefix_table.field='$field' AND UPPER($prefix_table.value) LIKE UPPER(E'%$text') ))";
+				},
+				'NOT' => sub {
+					if ( lc($text) eq 'null' ) {
+						push @$qry,
+						  "($view.id IN (SELECT $scheme_field_table.id FROM "
+						  . "$join_table WHERE $prefix_table.field='$field'))";
+					} else {
+						push @$qry,
+						  "($view.id NOT IN (SELECT $scheme_field_table.id FROM $join_table WHERE "
+						  . "$prefix_table.field='$field' AND UPPER($prefix_table.value)=UPPER(E'$text') ))";
+					}
+				},
+				'NOT contain' => sub {
+					push @$qry,
+					  "($view.id NOT IN (SELECT $scheme_field_table.id FROM $join_table WHERE "
+					  . "$prefix_table.field='$field' AND UPPER($prefix_table.value) LIKE UPPER(E'%$text%') ))";
+				}
+			};
+			if ( $modify->{$operator} ) {
+				$modify->{$operator}->();
+			} else {
+				my $cast_value = $type eq 'text' ? $field : "CAST($prefix_table.value AS $type)";
+				push @$qry,
+				  "($view.id IN (SELECT $scheme_field_table.id FROM $join_table WHERE "
+				  . "$prefix_table.field='$field' AND $cast_value $operator E'$text' ))";
+			}
+		}
+	}
+	return ($qry);
 }
 
 sub _modify_query_for_tags {
@@ -3242,7 +3354,7 @@ sub _invalid_count {
 	my ( $self, $operator, $value ) = @_;
 	my %valid_operator = map { $_ => 1 } ( '=', '<', '>' );
 	if ( !$valid_operator{$operator} ) {
-		return "$operator is not a valid operator.";
+		return BIGSdb::Utils::escape_html("$operator is not a valid operator.");
 	}
 	if ( $operator eq '<' && $value == 0 ) {
 		return 'It is meaningless to search for count < 0.';

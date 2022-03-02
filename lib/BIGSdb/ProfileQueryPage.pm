@@ -558,10 +558,7 @@ sub _modify_query_by_scheme_fields {
 		$qry .= $modify{$operator};
 	} else {
 		if ( lc($text) eq 'null' ) {
-			my $clean_operator = $operator;
-			$clean_operator =~ s/>/&gt;/x;
-			$clean_operator =~ s/</&lt;/x;
-			push @$errors, "$clean_operator is not a valid operator for comparing null values.";
+			push @$errors, BIGSdb::Utils::escape_html("$operator is not a valid operator for comparing null values.");
 		}
 		$qry .= (
 			$type eq 'integer'
@@ -637,10 +634,7 @@ sub _modify_query_by_classification_group {
 		return $modify{$operator};
 	} else {
 		if ( lc($text) eq 'null' ) {
-			my $clean_operator = $operator;
-			$clean_operator =~ s/>/&gt;/x;
-			$clean_operator =~ s/</&lt;/x;
-			push @$errors, "$clean_operator is not a valid operator for comparing null values.";
+			push @$errors, BIGSdb::Utils::escape_html("$operator is not a valid operator for comparing null values.");
 			return q();
 		}
 		return "($primary_key IN (SELECT profile_id FROM classification_group_profiles WHERE "
@@ -694,10 +688,7 @@ sub _modify_query_by_classification_group_field {
 		return $modify{$operator};
 	} else {
 		if ( lc($text) eq 'null' ) {
-			my $clean_operator = $operator;
-			$clean_operator =~ s/>/&gt;/x;
-			$clean_operator =~ s/</&lt;/x;
-			push @$errors, "$clean_operator is not a valid operator for comparing null values.";
+			push @$errors, BIGSdb::Utils::escape_html("$operator is not a valid operator for comparing null values.");
 			return q();
 		}
 		return $cscheme_field->{'type'} eq 'integer'
@@ -762,10 +753,7 @@ sub _modify_query_by_lincode {
 	}
 	my %allow_null = map { $_ => 1 } ( '=', 'NOT' );
 	if ( lc($text) eq 'null' && !$allow_null{$operator} ) {
-		my $clean_operator = $operator;
-		$clean_operator =~ s/>/&gt;/x;
-		$clean_operator =~ s/</&lt;/x;
-		push @$errors, "'$clean_operator' is not a valid operator for comparing null values.";
+		push @$errors, BIGSdb::Utils::escape_html("'$operator' is not a valid operator for comparing null values.");
 		return q();
 	}
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
@@ -815,11 +803,9 @@ sub _modify_query_by_lincode {
 	if ( $modify->{$operator} ) {
 		return $modify->{$operator}->();
 	} else {
-		my $clean_operator = $operator;
-		$clean_operator =~ s/>/&gt;/x;
-		$clean_operator =~ s/</&lt;/x;
-		push @$errors, qq('$clean_operator' is not a valid operator for comparing LINcodes. Only '=', )
-		  . q('starts with', 'ends with', and 'NOT' are appropriate for searching LINcodes.);
+		push @$errors,
+		  BIGSdb::Utils::escape_html( qq('$operator' is not a valid operator for comparing LINcodes. Only '=', )
+			  . q('starts with', 'ends with', and 'NOT' are appropriate for searching LINcodes.) );
 		return q();
 	}
 	return q();

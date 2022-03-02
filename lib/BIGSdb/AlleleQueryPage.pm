@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -656,7 +656,7 @@ sub _ext_other {
 	my ( $qry_ref, $std_clause_ref, $this_field, $text, $operator, $errors ) =
 	  @{$args}{qw(qry_ref std_clause_ref this_field text operator errors)};
 	if ( lc($text) eq 'null' ) {
-		push @$errors, "$operator is not a valid operator for comparing null values.";
+		push @$errors, BIGSdb::Utils::escape_html("$operator is not a valid operator for comparing null values.");
 		next;
 	}
 	$$qry_ref .= $$std_clause_ref;
@@ -742,7 +742,7 @@ sub _other {
 	my ( $qry_ref, $this_field, $field, $text, $locus, $operator, $errors ) =
 	  @{$args}{qw(qry_ref this_field field text locus operator errors)};
 	if ( lc($text) eq 'null' ) {
-		push @$errors, "$operator is not a valid operator for comparing null values.";
+		push @$errors, BIGSdb::Utils::escape_html("$operator is not a valid operator for comparing null values.");
 		return;
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);

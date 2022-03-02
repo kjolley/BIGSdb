@@ -1143,18 +1143,19 @@ sub get_extended_attributes {
 
 sub get_field_selection_list {
 
-	#options passed as hashref:
-	#isolate_fields: include isolate fields, prefix with f_
-	#eav_fields: include EAV fields, prefix with eav_
-	#extended_attributes: include isolate field extended attributes, named e_FIELDNAME||EXTENDED-FIELDNAME
-	#loci: include loci, prefix with either l_ or cn_ (common name)
-	#locus_limit: don't include loci if there are more than the set value
-	#query_pref: only the loci for which the user has a query field preference selected will be returned
-	#analysis_pref: only the loci for which the user has an analysis preference selected will be returned
-	#scheme_fields: include scheme fields, prefix with s_SCHEME-ID_
-	#lincodes: include scheme LINcode field, named lin_SCHEME_id
-	#classification_groups: include classification group ids and field, prefix with cg_
-	#sort_labels: dictionary sort labels
+#options passed as hashref:
+#isolate_fields: include isolate fields, prefix with f_
+#eav_fields: include EAV fields, prefix with eav_
+#extended_attributes: include isolate field extended attributes, named e_FIELDNAME||EXTENDED-FIELDNAME
+#loci: include loci, prefix with either l_ or cn_ (common name)
+#locus_limit: don't include loci if there are more than the set value
+#query_pref: only the loci for which the user has a query field preference selected will be returned
+#analysis_pref: only the loci for which the user has an analysis preference selected will be returned
+#scheme_fields: include scheme fields, prefix with s_SCHEME-ID_
+#lincodes: include scheme LINcode field, named lin_SCHEME-ID
+#lincode_fields: include fields linked to LINcode prefixes (must also select lincodes options), prefixed with lin_SCHEME_ID_
+#classification_groups: include classification group ids and field, prefix with cg_
+#sort_labels: dictionary sort labels
 	my ( $self, $options ) = @_;
 	$options->{'query_pref'}    //= 1;
 	$options->{'analysis_pref'} //= 0;
@@ -1176,7 +1177,7 @@ sub get_field_selection_list {
 		push @$values, @$scheme_fields;
 	}
 	if ( $options->{'lincodes'} ) {
-		my $lincode_fields = $self->_get_lincode_fields($options);
+		my $lincode_fields = $self->_get_lincode_schemes($options);
 		push @$values, @$lincode_fields;
 	}
 	if ( $options->{'classification_groups'} ) {
@@ -1358,7 +1359,7 @@ sub _get_scheme_fields {
 	return $self->{'cache'}->{'scheme_fields'};
 }
 
-sub _get_lincode_fields {
+sub _get_lincode_schemes {
 	my ( $self, $options ) = @_;
 	if ( !$self->{'cache'}->{'lincode_fields'} ) {
 		my $lincode_field_list = [];
@@ -1384,6 +1385,15 @@ sub _get_lincode_fields {
 				}
 				( $self->{'cache'}->{'labels'}->{"lin_$scheme_id"} = "LINcode ($desc)" ) =~ tr/_/ /;
 				push @$lincode_field_list, "lin_$scheme_id";
+				next if !$options->{'lincode_fields'};
+				my $fields =
+				  $self->{'datastore'}
+				  ->run_query( 'SELECT field FROM lincode_fields WHERE scheme_id=? ORDER BY display_order,field',
+					$scheme_id, { fetch => 'col_arrayref' } );
+				foreach my $field (@$fields) {
+					push @$lincode_field_list, "lin_${scheme_id}_$field";
+					( $self->{'cache'}->{'labels'}->{"lin_${scheme_id}_$field"} = "$field ($desc)" ) =~ tr/_/ /;
+				}
 			}
 		}
 		$self->{'cache'}->{'lincode_fields'} = $lincode_field_list;
