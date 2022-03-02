@@ -2546,6 +2546,16 @@ sub get_lincode_schemes_table_attributes {
 			required => 1,
 			comments => q(Number of loci that are allowed to be missing for a LINcode to be defined. )
 		  };
+	} else {
+		push @$attributes, {
+			name     => 'maindisplay',
+			type     => 'bool',
+			required => 1,
+			default  => 'true',
+			comments => q(Show in main results table.),
+			tooltip  => q(Maindisplay - Note that setting maindisplay to false for )
+			  . q(the scheme will override this setting.)
+		};
 	}
 	push @$attributes,
 	  (

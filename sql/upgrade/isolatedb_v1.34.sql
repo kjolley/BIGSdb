@@ -1,6 +1,7 @@
 CREATE TABLE lincode_schemes (
 scheme_id int NOT NULL,
 thresholds text NOT NULL,
+maindisplay boolean NOT NULL,
 curator int NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY(scheme_id),

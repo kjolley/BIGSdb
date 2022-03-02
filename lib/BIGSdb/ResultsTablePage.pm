@@ -988,6 +988,14 @@ sub _get_isolate_header_scheme_fields {
 				push @scheme_header, $field;
 			}
 		}
+		if ( $self->{'datastore'}->are_lincodes_defined($scheme_id) ) {
+			my $maindisplay = $self->{'datastore'}
+			  ->run_query( 'SELECT maindisplay FROM lincode_schemes WHERE scheme_id=?', $scheme_id );
+			if ($maindisplay) {
+				push @scheme_header, 'LINcode';
+				$self->{'lincodes'}->{$scheme_id} = 1;
+			}
+		}
 		my $scheme_cols = @scheme_header;
 		if ($scheme_cols) {
 			$field_type_header .= qq(<th colspan="$scheme_cols">$scheme->{'name'}</th>);
@@ -1056,69 +1064,120 @@ sub _print_isolate_table_scheme {
 	my $loci                = $self->{'scheme_loci'}->{$scheme_id};
 	foreach my $locus (@$loci) {
 		next if !$self->{'prefs'}->{'main_display_loci'}->{$locus};
-		my @display_values;
-		my $allele_ids = $self->_sort_allele_ids( $allele_designations, $locus );
-		foreach my $allele_id (@$allele_ids) {
-			my $status = $self->_get_designation_status( $allele_designations, $locus, $allele_id );
-			my $display = q();
-			$display .= qq(<span class="$status">) if $status;
-			if (   defined $self->{'url'}->{$locus}
-				&& $self->{'url'}->{$locus} ne ''
-				&& $self->{'prefs'}->{'main_display_loci'}->{$locus}
-				&& $self->{'prefs'}->{'hyperlink_loci'} )
-			{
-				my $url = $self->{'url'}->{$locus};
-				$url =~ s/\[\?\]/$allele_id/gx;
-				$display .= qq(<a href="$url">$allele_id</a>);
-			} else {
-				$display .= $allele_id;
-			}
-			$display .= q(</span>) if $status;
-			push @display_values, $display;
-		}
-		local $" = ',';
-		print qq(<td>@display_values);
-		print $self->get_seq_detail_tooltips( $isolate_id, $locus, { allele_flags => 1 } )
-		  if $self->{'prefs'}->{'sequence_details_main'};
-		my $action = @display_values ? EDIT : ADD;
-		print qq( <a href="$self->{'system'}->{'script_name'}?page=alleleUpdate&amp;db=$self->{'instance'}&amp;)
-		  . qq(isolate_id=$isolate_id&amp;locus=$locus">$action</a>)
-		  if $self->{'curate'};
-		print q(</td>);
+		$self->_print_locus_value( $isolate_id, $allele_designations, $locus );
 	}
 	return
 	     if !$scheme_id
 	  || !@{ $self->{'scheme_fields'}->{$scheme_id} }
 	  || !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id};
 	my $scheme_fields = $self->{'scheme_fields'}->{$scheme_id};
-	my $scheme_field_values = $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id );
+	my $scheme_field_values;
 	foreach my $field (@$scheme_fields) {
-		if ( $self->{'prefs'}->{'main_display_scheme_fields'}->{$scheme_id}->{$field} ) {
-			my @values;
-			my $field_values = $self->_sort_scheme_field_values( $scheme_field_values, $field );
-			my $att = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
-			foreach my $value (@$field_values) {
-				$value = defined $value ? $value : q();
-				next if $value eq q();
-				my $formatted_value;
-				my $provisional = ( $scheme_field_values->{ lc($field) }->{$value} // q() ) eq 'provisional' ? 1 : 0;
-				$provisional = 0 if $value eq '';
-				$formatted_value .= q(<span class="provisional">) if $provisional;
-				if ( $self->{'prefs'}->{'hyperlink_loci'} && $att->{'url'} && $value ne q() ) {
-					my $url = $att->{'url'};
-					$url =~ s/\[\?\]/$value/gx;
-					$url =~ s/\&/\&amp;/gx;
-					$formatted_value .= qq(<a href="$url">$value</a>);
-				} else {
-					$formatted_value .= $value;
-				}
-				$formatted_value .= q(</span>) if $provisional;
-				push @values, $formatted_value;
-			}
-			local $" = ',';
-			print qq(<td>@values</td>);
+		next if !$self->{'prefs'}->{'main_display_scheme_fields'}->{$scheme_id}->{$field};
+		if ( !defined $scheme_field_values ) {
+			$scheme_field_values =
+			  $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id );
 		}
+		my @values;
+		my $field_values = $self->_sort_scheme_field_values( $scheme_field_values, $field );
+		my $att = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+		foreach my $value (@$field_values) {
+			$value = defined $value ? $value : q();
+			next if $value eq q();
+			my $formatted_value;
+			my $provisional = ( $scheme_field_values->{ lc($field) }->{$value} // q() ) eq 'provisional' ? 1 : 0;
+			$provisional = 0 if $value eq '';
+			$formatted_value .= q(<span class="provisional">) if $provisional;
+			if ( $self->{'prefs'}->{'hyperlink_loci'} && $att->{'url'} && $value ne q() ) {
+				my $url = $att->{'url'};
+				$url =~ s/\[\?\]/$value/gx;
+				$url =~ s/\&/\&amp;/gx;
+				$formatted_value .= qq(<a href="$url">$value</a>);
+			} else {
+				$formatted_value .= $value;
+			}
+			$formatted_value .= q(</span>) if $provisional;
+			push @values, $formatted_value;
+		}
+		local $" = ',';
+		print qq(<td>@values</td>);
 	}
+	if ( $self->{'lincodes'}->{$scheme_id} ) {
+		$self->_print_lincode_value( $scheme_id, $isolate_id );
+	}
+	return;
+}
+
+sub _print_lincode_value {
+	my ( $self, $scheme_id, $isolate_id ) = @_;
+	if ( !$self->{'lincode_table'}->{$scheme_id} ) {
+		$self->{'lincode_table'}->{$scheme_id} = $self->{'datastore'}->create_temp_lincodes_table($scheme_id);
+	}
+	if ( !$self->{'scheme_field_table'}->{$scheme_id} ) {
+		$self->{'scheme_field_table'}->{$scheme_id} =
+		  $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+	}
+	if ( !$self->{'pk'}->{$scheme_id} ) {
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+		$self->{'pk'}->{$scheme_id} = $scheme_info->{'primary_key'};
+		my $scheme_field_info =
+		  $self->{'datastore'}->get_scheme_field_info( $scheme_id, $scheme_info->{'primary_key'} );
+		$self->{'pk_type'} = $scheme_field_info->{'type'};
+	}
+	my $pk =
+	  $self->{'pk_type'} eq 'integer'
+	  ? "CAST(s.$self->{'pk'}->{$scheme_id} AS text)"
+	  : "s.$self->{'pk'}->{$scheme_id}";
+	my $lincodes = $self->{'datastore'}->run_query(
+		"SELECT l.lincode FROM $self->{'lincode_table'}->{$scheme_id} l JOIN "
+		  . "$self->{'scheme_field_table'}->{$scheme_id} s ON l.profile_id=$pk WHERE id=?",
+		$isolate_id,
+		{ cache => 'ResultsTablePage::print_lincode_value', fetch => 'col_arrayref' }
+	);
+	my @values;
+	my %used;
+	foreach my $lincode (@$lincodes) {
+		local $" = q(_);
+		next if $used{"@$lincode"};
+		push @values, "@$lincode";
+		$used{"@$lincode"} = 1;
+	}
+	local $" = q(; );
+	print qq(<td>@values</td>);
+	return;
+}
+
+sub _print_locus_value {
+	my ( $self, $isolate_id, $allele_designations, $locus ) = @_;
+	my @display_values;
+	my $allele_ids = $self->_sort_allele_ids( $allele_designations, $locus );
+	foreach my $allele_id (@$allele_ids) {
+		my $status = $self->_get_designation_status( $allele_designations, $locus, $allele_id );
+		my $display = q();
+		$display .= qq(<span class="$status">) if $status;
+		if (   defined $self->{'url'}->{$locus}
+			&& $self->{'url'}->{$locus} ne ''
+			&& $self->{'prefs'}->{'main_display_loci'}->{$locus}
+			&& $self->{'prefs'}->{'hyperlink_loci'} )
+		{
+			my $url = $self->{'url'}->{$locus};
+			$url =~ s/\[\?\]/$allele_id/gx;
+			$display .= qq(<a href="$url">$allele_id</a>);
+		} else {
+			$display .= $allele_id;
+		}
+		$display .= q(</span>) if $status;
+		push @display_values, $display;
+	}
+	local $" = ',';
+	print qq(<td>@display_values);
+	print $self->get_seq_detail_tooltips( $isolate_id, $locus, { allele_flags => 1 } )
+	  if $self->{'prefs'}->{'sequence_details_main'};
+	my $action = @display_values ? EDIT : ADD;
+	print qq( <a href="$self->{'system'}->{'script_name'}?page=alleleUpdate&amp;db=$self->{'instance'}&amp;)
+	  . qq(isolate_id=$isolate_id&amp;locus=$locus">$action</a>)
+	  if $self->{'curate'};
+	print q(</td>);
 	return;
 }
 
@@ -1179,7 +1238,7 @@ sub _print_profile_table {
 			$scheme_id, { fetch => 'col_arrayref' } );
 		foreach my $field (@$lincode_fields) {
 			( my $cleaned = $field ) =~ tr/_/ /;
-			say qq(<th>$cleaned (LINcode)</th>);
+			say qq(<th>$cleaned</th>);
 		}
 	}
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
@@ -1240,9 +1299,9 @@ sub _print_profile_table {
 				my $order = $type eq 'integer' ? 'CAST(value AS integer)' : 'value';
 				my $values = $self->{'datastore'}->run_query(
 					"SELECT value FROM $join_table WHERE (lincodes.scheme_id,lincode_prefixes.field,lincodes.lincode)="
-					  . "(?,?,?) ORDER BY $order"
-					,
-					[ $scheme_id, $field, $lincode ], { fetch => 'col_arrayref' }
+					  . "(?,?,?) ORDER BY $order",
+					[ $scheme_id, $field, $lincode ],
+					{ fetch => 'col_arrayref' }
 				);
 				local $" = q(; );
 				print qq(<td>@$values</td>);
