@@ -2547,7 +2547,8 @@ sub get_lincode_schemes_table_attributes {
 			comments => q(Number of loci that are allowed to be missing for a LINcode to be defined. )
 		  };
 	} else {
-		push @$attributes, {
+		push @$attributes,
+		  {
 			name     => 'maindisplay',
 			type     => 'bool',
 			required => 1,
@@ -2555,7 +2556,7 @@ sub get_lincode_schemes_table_attributes {
 			comments => q(Show in main results table.),
 			tooltip  => q(Maindisplay - Note that setting maindisplay to false for )
 			  . q(the scheme will override this setting.)
-		};
+		  };
 	}
 	push @$attributes,
 	  (
@@ -2590,10 +2591,25 @@ sub get_lincode_fields_table_attributes {
 			required => 1,
 			optlist  => 'text;integer'
 		},
-		{ name => 'display_order', type => 'int' },
-		{ name => 'curator',       type => 'int', required => 1, dropdown_query => 1 },
-		{ name => 'datestamp', type => 'date', required => 1 }
+		{ name => 'display_order', type => 'int' }
 	];
+	if ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ) {
+		push @$attributes,
+		  {
+			name     => 'maindisplay',
+			type     => 'bool',
+			required => 1,
+			default  => 'true',
+			comments => q(Show in main results table.),
+			tooltip  => q(Maindisplay - Note that setting maindisplay to false for )
+			  . q(the scheme will override this setting.)
+		  };
+	}
+	push @$attributes,
+	  (
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
+	  );
 	return $attributes;
 }
 

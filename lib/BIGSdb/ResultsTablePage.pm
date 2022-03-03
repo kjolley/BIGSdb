@@ -995,6 +995,15 @@ sub _get_isolate_header_scheme_fields {
 				push @scheme_header, 'LINcode';
 				$self->{'lincodes'}->{$scheme_id} = 1;
 			}
+			my $fields =
+			  $self->{'datastore'}->run_query(
+				'SELECT field FROM lincode_fields WHERE scheme_id=? AND maindisplay ORDER BY display_order,field',
+				$scheme_id, { fetch => 'col_arrayref' } );
+			foreach my $field (@$fields) {
+				push @{ $self->{'lincode_fields'}->{$scheme_id} }, $field;
+				$field =~ tr/_/ /;
+				push @scheme_header, $field;
+			}
 		}
 		my $scheme_cols = @scheme_header;
 		if ($scheme_cols) {
@@ -1105,11 +1114,14 @@ sub _print_isolate_table_scheme {
 	if ( $self->{'lincodes'}->{$scheme_id} ) {
 		$self->_print_lincode_value( $scheme_id, $isolate_id );
 	}
+	foreach my $lincode_field ( @{ $self->{'lincode_fields'}->{$scheme_id} } ) {
+		$self->_print_lincode_field_value( $scheme_id, $lincode_field, $isolate_id );
+	}
 	return;
 }
 
-sub _print_lincode_value {
-	my ( $self, $scheme_id, $isolate_id ) = @_;
+sub _get_lincode_tables {
+	my ( $self, $scheme_id ) = @_;
 	if ( !$self->{'lincode_table'}->{$scheme_id} ) {
 		$self->{'lincode_table'}->{$scheme_id} = $self->{'datastore'}->create_temp_lincodes_table($scheme_id);
 	}
@@ -1124,24 +1136,76 @@ sub _print_lincode_value {
 		  $self->{'datastore'}->get_scheme_field_info( $scheme_id, $scheme_info->{'primary_key'} );
 		$self->{'pk_type'} = $scheme_field_info->{'type'};
 	}
-	my $pk =
-	  $self->{'pk_type'} eq 'integer'
-	  ? "CAST(s.$self->{'pk'}->{$scheme_id} AS text)"
-	  : "s.$self->{'pk'}->{$scheme_id}";
-	my $lincodes = $self->{'datastore'}->run_query(
-		"SELECT l.lincode FROM $self->{'lincode_table'}->{$scheme_id} l JOIN "
-		  . "$self->{'scheme_field_table'}->{$scheme_id} s ON l.profile_id=$pk WHERE id=?",
-		$isolate_id,
-		{ cache => 'ResultsTablePage::print_lincode_value', fetch => 'col_arrayref' }
-	);
-	my @values;
-	my %used;
-	foreach my $lincode (@$lincodes) {
-		local $" = q(_);
-		next if $used{"@$lincode"};
-		push @values, "@$lincode";
-		$used{"@$lincode"} = 1;
+	return {
+		lincode_table      => $self->{'lincode_table'}->{$scheme_id},
+		scheme_field_table => $self->{'scheme_field_table'}->{$scheme_id},
+		pk                 => $self->{'pk'}->{$scheme_id},
+		pk_type            => $self->{'pk_type'}
+	};
+}
+
+sub _print_lincode_value {
+	my ( $self, $scheme_id, $isolate_id ) = @_;
+	my $lincodes = $self->_get_lincode_values( $scheme_id, $isolate_id );
+	local $" = q(; );
+	print qq(<td>@$lincodes</td>);
+	return;
+}
+
+sub _get_lincode_values {
+	my ( $self, $scheme_id, $isolate_id ) = @_;
+	if ( !defined $self->{'cache'}->{'lincode_values'}->{$scheme_id}->{$isolate_id} ) {
+		my $lincode_info = $self->_get_lincode_tables($scheme_id);
+		my ( $lincode_table, $scheme_field_table, $pk, $pk_type ) =
+		  @{$lincode_info}{qw(lincode_table scheme_field_table pk pk_type)};
+		my $pk_cast =
+		  $pk_type eq 'integer'
+		  ? "CAST(s.$pk AS text)"
+		  : "s.$pk";
+		my $lincodes =
+		  $self->{'datastore'}->run_query(
+			"SELECT l.lincode FROM $lincode_table l JOIN $scheme_field_table s ON l.profile_id=$pk_cast WHERE id=?",
+			$isolate_id, { cache => 'ResultsTablePage::print_lincode_value', fetch => 'col_arrayref' } );
+		my $values = [];
+		my %used;
+		foreach my $lincode (@$lincodes) {
+			local $" = q(_);
+			next if $used{"@$lincode"};
+			push @$values, "@$lincode";
+			$used{"@$lincode"} = 1;
+		}
+		$self->{'cache'}->{'lincode_values'}->{$scheme_id}->{$isolate_id} = $values;
 	}
+	return $self->{'cache'}->{'lincode_values'}->{$scheme_id}->{$isolate_id};
+}
+
+sub _print_lincode_field_value {
+	my ( $self, $scheme_id, $field, $isolate_id ) = @_;
+	if ( !$self->{'cache'}->{'lincode_prefixes'}->{$scheme_id} ) {
+		my $prefix_table = $self->{'datastore'}->create_temp_lincode_prefix_values_table($scheme_id);
+		my $data         = $self->{'datastore'}
+		  ->run_query( "SELECT * FROM $prefix_table", undef, { fetch => 'all_arrayref', slice => {} } );
+		foreach my $record (@$data) {
+			$self->{'cache'}->{'lincode_prefixes'}->{$scheme_id}->{ $record->{'field'} }->{ $record->{'prefix'} } =
+			  $record->{'value'};
+		}
+	}
+	my $prefix_values = $self->{'cache'}->{'lincode_prefixes'}->{$scheme_id};
+	my $lincodes = $self->_get_lincode_values( $scheme_id, $isolate_id );
+	my %used;
+	my @prefixes = keys %{ $prefix_values->{$field} };
+	my @values;
+	foreach my $prefix (@prefixes) {
+		foreach my $lincode (@$lincodes) {
+			if (   $lincode eq $prefix
+				|| $lincode =~ /^${prefix}_/x && !$used{ $prefix_values->{$field}->{$prefix} } )
+			{
+				push @values, $prefix_values->{$field}->{$prefix};
+				$used{ $prefix_values->{$field}->{$prefix} } = 1;
+			}
+		}
+	}
+	@values = sort @values;
 	local $" = q(; );
 	print qq(<td>@values</td>);
 	return;
@@ -1994,39 +2058,27 @@ sub _is_scheme_data_present {
 	if ( !$self->{'cache'}->{$qry}->{'ids'} ) {
 		$self->{'cache'}->{$qry}->{'ids'} = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	}
-	my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	foreach my $isolate_id ( @{ $self->{'cache'}->{$qry}->{'ids'} } ) {
-
-		#use Datastore::get_all_allele_designations rather than Datastore::get_all_allele_ids
-		#because even though the latter is faster, the former will need to be called to display
-		#the data in the table and the results can be cached.
-		if ( !$self->{'designations_retrieved'}->{$isolate_id} ) {
-			$self->{'designations'}->{$isolate_id} =
-			  $self->{'datastore'}->get_all_allele_designations( $isolate_id, { show_ignored => $self->{'curate'} } );
-			$self->{'designations_retrieved'}->{$isolate_id} = 1;
-		}
-		my $allele_designations = $self->{'designations'}->{$isolate_id};
-		if ( !$self->{'sequences_retrieved'}->{$isolate_id} ) {
-			$self->{'allele_sequences'}->{$isolate_id} =
-			  $self->{'datastore'}->get_all_allele_sequences( $isolate_id, { keys => 'locus' } );
-			$self->{'sequences_retrieved'}->{$isolate_id} = 1;
-		}
-		my $allele_seqs = $self->{'allele_sequences'}->{$isolate_id};
-		foreach my $locus (@$scheme_loci) {
-
-			#Don't count allele_id '0' if it is the only designation.
-			if (
-				(
-					$allele_designations->{$locus}
-					&& !( keys %{ $allele_designations->{$locus} } == 1 && $allele_designations->{$locus}->{'0'} )
-				)
-				|| $allele_seqs->{$locus}
-			  )
-			{
-				$self->{'cache'}->{$qry}->{$scheme_id} = 1;
-				return 1;
-			}
-		}
+	my $isolate_list =
+	  $self->{'datastore'}->create_temp_list_table_from_array( 'int', $self->{'cache'}->{$qry}->{'ids'} );
+	if (
+		$self->{'datastore'}->run_query(
+			    qq[SELECT EXISTS(SELECT * FROM allele_designations ad JOIN $isolate_list l ON ad.isolate_id=l.value ]
+			  . qq[WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id=$scheme_id) AND allele_id !='0') ]
+		)
+	  )
+	{
+		$self->{'cache'}->{$qry}->{$scheme_id} = 1;
+		return 1;
+	}
+	if (
+		$self->{'datastore'}->run_query(
+			    qq[SELECT EXISTS(SELECT * FROM allele_sequences s JOIN $isolate_list l ON s.isolate_id=l.value ]
+			  . qq[WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id=$scheme_id))]
+		)
+	  )
+	{
+		$self->{'cache'}->{$qry}->{$scheme_id} = 1;
+		return 1;
 	}
 	$self->{'cache'}->{$qry}->{$scheme_id} = 0;
 	return 0;
