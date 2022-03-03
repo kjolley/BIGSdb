@@ -2206,7 +2206,8 @@ sub can_modify_table {
 	  locus_client_display_fields locus_extended_attributes locus_curators);
 	$general_permissions{$_} = $self->{'permissions'}->{'modify_schemes'}
 	  foreach qw(schemes scheme_members scheme_fields scheme_curators classification_schemes
-	  classification_group_fields);
+	  classification_group_fields scheme_groups)
+	  ;
 
 	if ( $general_permissions{$table} ) {
 		return $general_permissions{$table};
