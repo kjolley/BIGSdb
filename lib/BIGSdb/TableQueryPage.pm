@@ -866,9 +866,8 @@ sub _modify_query_standard_field {
 			if ( lc($text) eq 'null' ) {
 				$$qry_ref .= "$table.$field is not null";
 			} else {
-				$$qry_ref .=
-				  $thisfield->{'type'} ne 'text'
-				  ? "(NOT CAST($table.$field AS text) = '$text'"
+				$$qry_ref .= $thisfield->{'type'} ne 'text'
+				  ? "(NOT $table.$field = '$text'"
 				  : "(NOT upper($table.$field) = upper(E'$text')";
 				$$qry_ref .= " OR $table.$field IS NULL)";
 			}

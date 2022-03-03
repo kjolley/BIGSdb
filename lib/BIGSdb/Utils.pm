@@ -103,6 +103,7 @@ sub sequence_type {
 	my ($sequence) = @_;
 	my $seq = ref $sequence ? $$sequence : $sequence;
 	$seq =~ s/>.*?\n//gx;    #Remove any FASTA header lines
+	$seq =~ s/\s//gx;
 	return 'DNA' if !$seq;
 	my $AGTC_count = $seq =~ tr/[G|A|T|C|U|g|a|t|c|u|N|n]//;
 	return ( $AGTC_count / length $seq ) >= 0.8 ? 'DNA' : 'peptide';
