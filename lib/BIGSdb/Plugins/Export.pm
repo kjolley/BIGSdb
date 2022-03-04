@@ -193,7 +193,7 @@ sub run {
 	say q(<h1>Export dataset</h1>);
 	return if $self->has_set_changed;
 	if ( $q->param('submit') ) {
-		my $selected_fields = $self->get_selected_fields( { lincodes => 1 } );
+		my $selected_fields = $self->get_selected_fields( { lincodes => 1, lincode_fields => 1 } );
 		$q->delete('classification_schemes');
 		push @$selected_fields, 'm_references' if $q->param('m_references');
 		if ( !@$selected_fields ) {
@@ -446,7 +446,8 @@ sub _write_tab_text {
 				eav_field             => qr/^eav_(.*)/x,
 				locus                 => qr/^(s_\d+_l_|l_)(.*)/x,
 				scheme_field          => qr/^s_(\d+)_f_(.*)/x,
-				lincode               => qr/^lin_(\d+)/x,
+				lincode               => qr/^lin_(\d+)$/x,
+				lincode_field         => qr/^lin_(\d+)_(.+)$/x,
 				composite_field       => qr/^c_(.*)/x,
 				classification_scheme => qr/^cs_(.*)/x,
 				reference             => qr/^m_references/x
@@ -475,6 +476,11 @@ sub _write_tab_text {
 					$self->_write_lincode(
 						{ fh => $fh, scheme_id => $1, data => \%data, first => $first, params => $params } );
 				},
+				lincode_field => sub {
+					$self->_write_lincode_field(
+						{ fh => $fh, scheme_id => $1, field => $2, data => \%data, first => $first, params => $params }
+					);
+				},
 				composite_field => sub {
 					$self->_write_composite( $fh, $1, \%data, $first, $params );
 				},
@@ -486,7 +492,9 @@ sub _write_tab_text {
 				}
 			};
 			foreach my $field_type (
-				qw(field eav_field locus scheme_field lincode composite_field classification_scheme reference))
+				qw(field eav_field locus scheme_field lincode lincode_field composite_field
+				classification_scheme reference)
+			  )
 			{
 				if ( $field =~ $regex->{$field_type} ) {
 					$methods->{$field_type}->();
@@ -532,11 +540,15 @@ sub _get_header {
 		my %schemes;
 		foreach (@$fields) {
 			my $field = $_;    #don't modify @$fields
-			if ( $field =~ /^s_(\d+)_f/x || $field =~ /^lin_(\d+)$/x ) {
+			if ( $field =~ /^s_(\d+)_f/x || $field =~ /^lin_(\d+)$/x || $field =~ /^lin_(\d+)_(.+)$/x ) {
 				my $scheme_id = $1;
 				my $scheme_info =
 				  $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-				$field = 'LINcode' if $field =~ /^lin_/x;
+				if ( $field =~ /^lin_(\d+)$/x ) {
+					$field = 'LINcode';
+				} elsif ( defined $2 ) {    #Lincode prefix field
+					$field = $2;
+				}
 				$field .= " ($scheme_info->{'name'})"
 				  if $scheme_info->{'name'};
 				$schemes{$scheme_id} = 1;
@@ -766,16 +778,67 @@ sub _write_lincode {
 	my ( $fh, $scheme_id, $data, $first_col, $params ) =
 	  @{$args}{qw(fh scheme_id data first params )};
 	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
-	my $lincodes = $self->get_lincode( $data->{'id'}, $scheme_id );
-	my @values;
+	my $lincodes    = $self->get_lincode( $data->{'id'}, $scheme_id );
+	my $values      = [];
 	foreach my $lincode (@$lincodes) {
 		local $" = q(_);
-		push @values, qq(@$lincode);
+		push @$values, qq(@$lincode);
 	}
+
+	#LINcode fields are always calculated after the LINcode itself, so
+	#we can just cache the last LINcode value rather than re-calculating it.
+	$self->{'cache'}->{'current_lincode'} = $values;
+	if ( $params->{'oneline'} ) {
+		foreach my $value (@$values) {
+			print $fh $self->_get_id_one_line( $data, $params );
+			print $fh "LINcode ($scheme_info->{'name'})\t";
+			print $fh $value if defined $value;
+			print $fh qq(\n);
+		}
+	} else {
+		print $fh qq(\t) if !$first_col;
+		local $" = q(; );
+		print $fh qq(@$values) if @$values;
+	}
+	return;
+}
+
+sub _write_lincode_field {
+	my ( $self, $args ) = @_;
+	my ( $fh, $scheme_id, $field, $data, $first_col, $params ) =
+	  @{$args}{qw(fh scheme_id field data first params )};
+	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+	if ( !$self->{'cache'}->{'lincode_prefixes'}->{$scheme_id} ) {
+		my $prefix_table = $self->{'datastore'}->create_temp_lincode_prefix_values_table($scheme_id);
+		my $prefix_data  = $self->{'datastore'}
+		  ->run_query( "SELECT * FROM $prefix_table", undef, { fetch => 'all_arrayref', slice => {} } );
+		foreach my $record (@$prefix_data) {
+			$self->{'cache'}->{'lincode_prefixes'}->{$scheme_id}->{ $record->{'field'} }->{ $record->{'prefix'} } =
+			  $record->{'value'};
+		}
+	}
+	my $prefix_values = $self->{'cache'}->{'lincode_prefixes'}->{$scheme_id};
+	my %used;
+	my @prefixes = keys %{ $prefix_values->{$field} };
+	my @values;
+	foreach my $prefix (@prefixes) {
+
+		#LINcode is always calculated immediately before LINcode fields so we have cached the
+		#LINcode value(s) in $self->{'cache'}->{'current_lincode'}.
+		foreach my $lincode ( @{ $self->{'cache'}->{'current_lincode'} } ) {
+			if (   $lincode eq $prefix
+				|| $lincode =~ /^${prefix}_/x && !$used{ $prefix_values->{$field}->{$prefix} } )
+			{
+				push @values, $prefix_values->{$field}->{$prefix};
+				$used{ $prefix_values->{$field}->{$prefix} } = 1;
+			}
+		}
+	}
+	@values = sort @values;
 	if ( $params->{'oneline'} ) {
 		foreach my $value (@values) {
 			print $fh $self->_get_id_one_line( $data, $params );
-			print $fh "LINcode ($scheme_info->{'name'})\t";
+			print $fh "$field ($scheme_info->{'name'})\t";
 			print $fh $value if defined $value;
 			print $fh qq(\n);
 		}

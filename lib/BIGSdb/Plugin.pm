@@ -373,13 +373,16 @@ sub get_selected_fields {
 		foreach my $scheme_field (@$scheme_fields) {
 			if ( $q->param("s_$scheme_id") && $q->param('scheme_fields') ) {
 				push @$fields, "s_${scheme_id}_f_$scheme_field";
-				if (
-					   $options->{'lincodes'}
-					&& $scheme_field eq ( $scheme_info->{'primary_key'} // q() )
-					&& $self->{'datastore'}->are_lincodes_defined($scheme_id)
-				  )
+				if (   $scheme_field eq ( $scheme_info->{'primary_key'} // q() )
+					&& $self->{'datastore'}->are_lincodes_defined($scheme_id) )
 				{
-					push @$fields, "lin_$scheme_id";
+					push @$fields, "lin_$scheme_id" if $options->{'lincodes'};
+					next if !$options->{'lincode_fields'};
+					my $lincode_fields =
+					  $self->{'datastore'}
+					  ->run_query( 'SELECT field FROM lincode_fields WHERE scheme_id=? ORDER BY display_order,field',
+						$scheme_id, { fetch => 'col_arrayref' } );
+					push @$fields, "lin_${scheme_id}_$_" foreach @$lincode_fields;
 				}
 			}
 		}
