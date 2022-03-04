@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20220221
+#Version: 20220304
 use strict;
 use warnings;
 use 5.010;
@@ -53,7 +53,7 @@ my %opts;
 GetOptions(
 	'd|database=s'  => \$opts{'d'},
 	'debug'         => \$opts{'debug'},
-	'init_size=i'   => \$opts{'init_size'},
+	'batch_size=i'  => \$opts{'batch_size'},
 	'missing=i'     => \$opts{'missing'},
 	'mmap'          => \$opts{'mmap'},
 	'q|quiet'       => \$opts{'quiet'},
@@ -78,32 +78,29 @@ my $script = BIGSdb::Offline::Script->new(
 	}
 );
 check_db();
+$opts{'batch_size'} //= 10_000;
 main();
 
 sub main {
 	local $| = 1;
-	my $profiles_to_assign = [];
-	my $lincodes           = get_lincode_definitions();
-	my $initiating;
+	my $lincodes = get_lincode_definitions();
 	if ( !@{ $lincodes->{'profile_ids'} } ) {
 		say 'No LINcodes yet defined.' if !$opts{'quiet'};
-		$profiles_to_assign = get_prim_order();
-		$initiating         = 1;
-	} else {
-		$profiles_to_assign = get_profiles_without_lincodes();
 	}
-	if ( !@$profiles_to_assign ) {
-		say 'No profiles to assign.' if !$opts{'quiet'};
-		return;
-	}
-	assign_lincodes($profiles_to_assign);
-	if ($initiating) {
+	my $profiles_to_assign;
+	do {
 		$profiles_to_assign = get_profiles_without_lincodes();
-		if (@$profiles_to_assign) {
-			say 'Assigning remaining profiles sequentially.';
-			assign_lincodes($profiles_to_assign);
+		if ( !@$profiles_to_assign ) {
+			say 'All profiles assigned.' if !$opts{'quiet'};
+			return;
 		}
-	}
+		my $profiles = @$profiles_to_assign == 1 ? $profiles_to_assign : get_prim_order($profiles_to_assign);
+
+		#		use Data::Dumper;
+		#		$logger->error(Dumper $profiles);
+		#		exit;
+		assign_lincodes($profiles);
+	} while @$profiles_to_assign;
 	return;
 }
 
@@ -243,7 +240,7 @@ sub assign_lincode {
 }
 
 sub get_profiles_without_lincodes {
-	print 'Retrieving profiles without LINcodes ...' if !$opts{'quiet'};
+	print "Retrieving up to $opts{'batch_size'} profiles without LINcodes ..." if !$opts{'quiet'};
 	my $scheme_info = $script->{'datastore'}->get_scheme_info( $opts{'scheme_id'}, { get_pk => 1 } );
 	my $pk          = $scheme_info->{'primary_key'};
 	my $order       = get_profile_order_term();
@@ -254,11 +251,12 @@ sub get_profiles_without_lincodes {
 	my $profiles = $script->{'datastore'}->run_query(
 		"SELECT $pk FROM mv_scheme_$opts{'scheme_id'} WHERE cardinality(array_positions(profile,'N')) "
 		  . "<= $max_missing AND $pk NOT IN (SELECT profile_id FROM lincodes WHERE scheme_id=$opts{'scheme_id'}) "
-		  . "ORDER BY $order",
+		  . "ORDER BY $order LIMIT $opts{'batch_size'}",
 		undef,
-		{ fetch => 'col_arrayref', slice => {} }
+		{ fetch => 'col_arrayref' }
 	);
-	say 'Done.' if !$opts{'quiet'};
+	my $count = @$profiles;
+	say "$count retrieved." if !$opts{'quiet'};
 	return $profiles;
 }
 
@@ -271,20 +269,21 @@ sub get_profile_order_term {
 }
 
 sub get_prim_order {
+	my ($profiles) = @_;
 	##no critic (ProhibitMismatchedOperators) - PDL uses .= assignment.
-	my ( $filename, $index, $dismat ) = get_distance_matrix();
+	my ( $filename, $index, $dismat ) = get_distance_matrix($profiles);
 	return $index                      if @$index == 1;
 	print 'Calculating PRIM order ...' if !$opts{'quiet'};
 	print "\n"                         if @$index >= 500;
 	my $start_time = time;
 	for my $i ( 0 .. @$index - 1 ) {
-		$dismat->range( [ $i, $i ] ) .= 100;
+		$dismat->range( [ $i, $i ] ) .= 999;
 	}
 	my $ind = $dismat->flat->minimum_ind;
 	my ( $x, $y ) = ( int( $ind / @$index ), $ind - int( $ind / @$index ) * @$index );
 	my $index_order = [ $x, $y ];
 	my $profile_order = [ $index->[$x], $index->[$y] ];
-	$dismat->range( [ $x, $y ] ) .= $dismat->range( [ $y, $x ] ) .= 100;
+	$dismat->range( [ $x, $y ] ) .= $dismat->range( [ $y, $x ] ) .= 999;
 	while ( @$profile_order != @$index ) {
 		my $min = 101;
 		my $v_min;
@@ -297,7 +296,7 @@ sub get_prim_order {
 		}
 		my $k = $dismat->slice($v_min)->flat->minimum_ind;
 		for my $i (@$index_order) {
-			$dismat->range( [ $i, $k ] ) .= $dismat->range( [ $k, $i ] ) .= 100;
+			$dismat->range( [ $i, $k ] ) .= $dismat->range( [ $k, $i ] ) .= 999;
 		}
 		push @$index_order,   $k;
 		push @$profile_order, $index->[$k];
@@ -315,29 +314,28 @@ sub get_prim_order {
 	unlink "$filename.hdr";
 	my $stop_time = time;
 	my $duration  = $stop_time - $start_time;
-	say "Time taken (calculating PRIM order): $duration seconds." if !$opts{'quiet'};
+	say "Time taken (calculating PRIM order): $duration second(s)." if !$opts{'quiet'};
 	return $profile_order;
 }
 
 sub get_distance_matrix {
+	my ($profile_ids) = @_;
 	my $scheme_info = $script->{'datastore'}->get_scheme_info( $opts{'scheme_id'}, { get_pk => 1 } );
+	my $pk          = $scheme_info->{'primary_key'};
 	my $loci        = $script->{'datastore'}->get_scheme_loci( $opts{'scheme_id'} );
 	my $locus_count = @$loci;
 	die "Scheme has no loci.\n" if !$locus_count;
 	my $lincode_scheme =
 	  $script->{'datastore'}
 	  ->run_query( 'SELECT * FROM lincode_schemes WHERE scheme_id=?', $opts{'scheme_id'}, { fetch => 'row_hashref' } );
-	my $order = get_profile_order_term();
-	my $msg = $opts{'init_size'} ? qq( (first $opts{'init_size'})) : q();
-	print "Reading profiles$msg ..." if !$opts{'quiet'};
-	my $limit = $opts{'init_size'} ? qq(  LIMIT $opts{'init_size'}) : q();
-	my $profiles =
-	  $script->{'datastore'}->run_query(
-		"SELECT $scheme_info->{'primary_key'},profile FROM mv_scheme_$opts{'scheme_id'} ORDER BY $order$limit",
-		undef, { fetch => 'all_arrayref', slice => {} } );
 	my $matrix      = [];
 	my $index       = [];
 	my $max_missing = $opts{'missing'} // $lincode_scheme->{'max_missing'};
+	my $list_table  = $script->{'datastore'}->create_temp_list_table_from_array( 'text', $profile_ids );
+	my $profiles =
+	  $script->{'datastore'}
+	  ->run_query( "SELECT $pk,profile FROM mv_scheme_$opts{'scheme_id'} s JOIN $list_table l ON s.$pk=l.value",
+		undef, { fetch => 'all_arrayref', slice => {} } );
 
 	foreach my $profile (@$profiles) {
 		my $Ns = 0;
@@ -352,11 +350,10 @@ sub get_distance_matrix {
 		push @$matrix, $profile->{'profile'};
 	}
 	my $profile_matrix = pdl($matrix);
-	say 'Done.' if !$opts{'quiet'};
-	my $count = @$index;
+	my $count          = @$index;
 	die "No profiles to assign.\n" if ( !$count );
 	return $index if @$index == 1;
-	$msg = $count > 2000 ? ' (this will take a while)' : q();
+	my $msg = $count > 2000 ? ' (this will take a while)' : q();
 	print "Calculating distance matrix$msg ..." if !$opts{'quiet'};
 	print "\n" if $count >= 500;
 	my $start_time = time;
@@ -393,7 +390,7 @@ sub get_distance_matrix {
 	my $timestamp = BIGSdb::Utils::get_timestamp();
 	my $stop_time = time;
 	my $duration  = $stop_time - $start_time;
-	say "Time taken (distance matrix): $duration seconds." if !$opts{'quiet'};
+	say "Time taken (distance matrix): $duration second(s)." if !$opts{'quiet'};
 	return ( $filename, $index, $dismat );
 }
 
@@ -442,18 +439,19 @@ ${bold}SYNOPSIS$norm
     ${bold}lincodes.pl$norm ${bold}--database ${under}DB_CONFIG${norm} ${bold}--scheme ${under}SCHEME_ID$norm ${norm}[${under}options$norm]
 
 ${bold}OPTIONS$norm
+    
+${bold}--batch_size$norm ${under}NUMBER$norm
+    Sets a maximum number of profiles to use to initiate assignment order. 
+    The order of assignment is optimally determined using Prim's algorithm, 
+    but can take a long time if there are thousands of profiles. Up to the 
+    number of profiles set here will be ordered and assigned first before
+    further batches are ordered and assigned. The default value is 10,000 
+    but it is recommended that you allow ordering to be determined from all 
+    defined profiles if LINcodes have not been previously determined, i.e.
+    set this value to greater than the number of assigned profiles.
 
 ${bold}--database$norm ${under}DATABASE CONFIG$norm
     Database configuration name. This must be a sequence definition database.
-    
-${bold}--init_size$norm ${under}NUMBER$norm
-    Sets a maximum number of profiles to use to initiate assignment order if 
-    no LINcodes have yet been defined. The order of assignment is optimally 
-    determined using Prim's algorithm, but as this requires calculation of
-    a distance matrix it can take a long time if there are thousands of 
-    profiles. After initiation, new LINcodes will be assigned sequentially. 
-    No limit is set by default and it is recommended that you allow ordering
-    to be determined from all defined profiles.
     
 ${bold}--missing$norm ${under}NUMBER$norm
     Set the maximum number of loci that are allowed to be missing in a profile
