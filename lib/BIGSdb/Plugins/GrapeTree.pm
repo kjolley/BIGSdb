@@ -139,6 +139,7 @@ sub _print_interface {
 			eav_fields            => 1,
 			classification_groups => 1,
 			lincodes              => 1,
+			lincode_fields        => 1,
 			size                  => 8
 		}
 	);
@@ -429,31 +430,8 @@ sub _generate_tsv_file {
 		( my $cleaned_field = $field ) =~ tr/_/ /;
 		push @header_fields, $cleaned_field if $include_fields{"eav_$field"};
 	}
-	my %lincode_threshold_counts;
-	foreach my $field (@include_fields) {
-		if ( $field =~ /^s_(\d+)_(.+)$/x ) {
-			my $scheme_info = $self->{'datastore'}->get_scheme_info( $1, { set_id => $params->{'set_id'} } );
-			( my $field = "$2 ($scheme_info->{'name'})" ) =~ tr/_/ /;
-			push @header_fields, $field;
-		}
-		if ( $field =~ /^lin_(\d+)$/x ) {
-			my $scheme_id = $1;
-			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $params->{'set_id'} } );
-			( my $field = "LINcode ($scheme_info->{'name'})" ) =~ tr/_/ /;
-			push @header_fields, $field;
-			my $thresholds =
-			  $self->{'datastore'}->run_query( 'SELECT thresholds FROM lincode_schemes WHERE scheme_id=?', $scheme_id );
-			my @threshold_values = split /\s*;\s*/x, $thresholds;
-			$lincode_threshold_counts{$scheme_id} = scalar @threshold_values;
-			if ( $lincode_threshold_counts{$scheme_id} > 1 ) {
-
-				for my $i ( 1 .. @threshold_values - 1 ) {
-					( my $field = "LINcode ($scheme_info->{'name'})[$i]" ) =~ tr/_/ /;
-					push @header_fields, $field;
-				}
-			}
-		}
-	}
+	my ( $scheme_fields, $lincode_threshold_counts ) = $self->_get_scheme_fields_for_header($params);
+	push @header_fields, @$scheme_fields;
 	foreach my $cs (@$classification_schemes) {
 		if ( $include_fields{"cg_$cs->{'id'}_group"} ) {
 			push @header_fields, $cs->{'name'};
@@ -497,34 +475,16 @@ sub _generate_tsv_file {
 					}
 				);
 				local $" = q(; );
-				@$field_values = grep {defined $_} @$field_values;
+				@$field_values = grep { defined $_ } @$field_values;
 				push @record_values, @$field_values ? qq(@$field_values) : q();
 			}
 			if ( $field =~ /^lin_(\d+)$/x ) {
-				my $scheme_id = $1;
-				my $lincodes = $self->get_lincode( $record->{'id'}, $scheme_id );
-				my @display_values;
-				foreach my $lincode (@$lincodes) {
-					local $" = q(_);
-					push @display_values, qq(@$lincode);
-				}
-				local $" = q(; );
-				push @record_values, qq(@display_values) // q();
-				if ( $lincode_threshold_counts{$scheme_id} > 1 ) {
-					
-					for my $i ( 0 .. $lincode_threshold_counts{$scheme_id} - 2 ) {
-						@display_values = ();
-						my %used;
-						foreach my $lincode (@$lincodes) {
-							my @lincode_prefix = @$lincode[ 0 .. $i ] ;
-							local $" = q(_);
-							push @display_values, qq(@lincode_prefix) if !$used{qq(@lincode_prefix)};
-							$used{qq(@lincode_prefix)} = 1 
-						}
-						local $" = q(; );
-						push @record_values, qq(@display_values) // q();
-					}
-				}
+				my $lincodes = $self->_get_lincode_values( $record->{'id'}, $1, $lincode_threshold_counts );
+				push @record_values, @$lincodes;
+			}
+			if ( $field =~ /^lin_(\d+)_(.+)$/x ) {
+				my $lincode_field_values = $self->_get_lincode_field_values( $record->{'id'}, $1, $2 );
+				push @record_values, @$lincode_field_values;
 			}
 		}
 		foreach my $cs (@$classification_schemes) {
@@ -546,5 +506,103 @@ sub _generate_tsv_file {
 		);
 	}
 	return;
+}
+
+sub _get_lincode_values {
+	my ( $self, $isolate_id, $scheme_id, $lincode_threshold_counts ) = @_;
+	my $lincodes = $self->get_lincode( $isolate_id, $scheme_id );
+	$self->{'cache'}->{'current_lincode'} = $lincodes;
+	my @display_values;
+	my $record_values = [];
+	foreach my $lincode (@$lincodes) {
+		local $" = q(_);
+		push @display_values, qq(@$lincode);
+	}
+	local $" = q(; );
+	push @$record_values, qq(@display_values) // q();
+	if ( $lincode_threshold_counts->{$scheme_id} > 1 ) {
+		for my $i ( 0 .. $lincode_threshold_counts->{$scheme_id} - 2 ) {
+			@display_values = ();
+			my %used;
+			foreach my $lincode (@$lincodes) {
+				my @lincode_prefix = @$lincode[ 0 .. $i ];
+				local $" = q(_);
+				push @display_values, qq(@lincode_prefix) if !$used{qq(@lincode_prefix)};
+				$used{qq(@lincode_prefix)} = 1;
+			}
+			local $" = q(; );
+			push @$record_values, qq(@display_values) // q();
+		}
+	}
+	return $record_values;
+}
+
+sub _get_lincode_field_values {
+	my ( $self, $isolate_id, $scheme_id, $field ) = @_;
+	my $lincodes = $self->{'cache'}->{'current_lincode'} // $self->get_lincode( $isolate_id, $scheme_id );
+	if ( !$self->{'cache'}->{'lincode_prefixes'}->{$scheme_id} ) {
+		my $prefix_table = $self->{'datastore'}->create_temp_lincode_prefix_values_table($scheme_id);
+		my $prefix_data  = $self->{'datastore'}
+		  ->run_query( "SELECT * FROM $prefix_table", undef, { fetch => 'all_arrayref', slice => {} } );
+		foreach my $record (@$prefix_data) {
+			$self->{'cache'}->{'lincode_prefixes'}->{$scheme_id}->{ $record->{'field'} }->{ $record->{'prefix'} } =
+			  $record->{'value'};
+		}
+	}
+	my $prefix_values = $self->{'cache'}->{'lincode_prefixes'}->{$scheme_id};
+	my %used;
+	my @prefixes = keys %{ $prefix_values->{$field} };
+	my $values   = [];
+	foreach my $prefix (@prefixes) {
+		foreach my $lincode (@$lincodes) {
+			local $" = q(_);
+			if (   "@$lincode" eq $prefix
+				|| "@$lincode" =~ /^${prefix}_/x && !$used{ $prefix_values->{$field}->{$prefix} } )
+			{
+				push @$values, $prefix_values->{$field}->{$prefix};
+				$used{ $prefix_values->{$field}->{$prefix} } = 1;
+			}
+		}
+	}
+	@$values = sort @$values;
+	return $values;
+}
+
+sub _get_scheme_fields_for_header {
+	my ( $self, $params ) = @_;
+	my @include_fields           = split /\|_\|/x, ( $params->{'include_fields'} // q() );
+	my $header_fields            = [];
+	my $lincode_threshold_counts = {};
+	foreach my $field (@include_fields) {
+		if ( $field =~ /^s_(\d+)_(.+)$/x ) {
+			my $scheme_info = $self->{'datastore'}->get_scheme_info( $1, { set_id => $params->{'set_id'} } );
+			( my $field = "$2 ($scheme_info->{'name'})" ) =~ tr/_/ /;
+			push @$header_fields, $field;
+		}
+		if ( $field =~ /^lin_(\d+)$/x ) {
+			my $scheme_id = $1;
+			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $params->{'set_id'} } );
+			( my $field = "LINcode ($scheme_info->{'name'})" ) =~ tr/_/ /;
+			push @$header_fields, $field;
+			my $thresholds =
+			  $self->{'datastore'}->run_query( 'SELECT thresholds FROM lincode_schemes WHERE scheme_id=?', $scheme_id );
+			my @threshold_values = split /\s*;\s*/x, $thresholds;
+			$lincode_threshold_counts->{$scheme_id} = scalar @threshold_values;
+			if ( $lincode_threshold_counts->{$scheme_id} > 1 ) {
+
+				for my $i ( 1 .. @threshold_values - 1 ) {
+					( my $field = "LINcode ($scheme_info->{'name'})[$i]" ) =~ tr/_/ /;
+					push @$header_fields, $field;
+				}
+			}
+		}
+		if ( $field =~ /^lin_(\d+)_(.+)$/x ) {
+			my ( $scheme_id, $field ) = ( $1, $2 );
+			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $params->{'set_id'} } );
+			( my $display_field = "$field ($scheme_info->{'name'})" ) =~ tr/_/ /;
+			push @$header_fields, ($display_field);
+		}
+	}
+	return ( $header_fields, $lincode_threshold_counts );
 }
 1;

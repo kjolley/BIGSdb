@@ -476,8 +476,11 @@ sub print_includes_fieldset {
 	foreach my $field (@$fields) {
 		next if $field eq 'f_id';
 		next if $hide_field{$field};
-		if ( $field =~ /^(?:s|lin)_/x ) {
+		if ( $field =~ /^(?:s)_/x ) {
 			push @{ $group_members->{'Schemes'} }, $field;
+		}
+		if ( $field =~ /^(?:lin)_/x ) {
+			push @{ $group_members->{'LINcodes'} }, $field;
 		}
 		if ( $field =~ /^(?:l|cn)_/x ) {
 			push @{ $group_members->{'Loci'} }, $field;
@@ -507,7 +510,7 @@ sub print_includes_fieldset {
 	my @group_list = split /,/x, ( $self->{'system'}->{'field_groups'} // q() );
 	my @eav_groups = split /,/x, ( $self->{'system'}->{'eav_groups'}   // q() );
 	push @group_list, @eav_groups if @eav_groups;
-	push @group_list, ( 'Loci', 'Schemes', 'Classification schemes' );
+	push @group_list, ( 'Loci', 'Schemes', 'LINcodes', 'Classification schemes' );
 	foreach my $group ( undef, @group_list ) {
 		my $name = $group // 'General';
 		$name =~ s/\|.+$//x;
