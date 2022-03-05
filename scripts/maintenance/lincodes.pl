@@ -95,10 +95,6 @@ sub main {
 			return;
 		}
 		my $profiles = @$profiles_to_assign == 1 ? $profiles_to_assign : get_prim_order($profiles_to_assign);
-
-		#		use Data::Dumper;
-		#		$logger->error(Dumper $profiles);
-		#		exit;
 		assign_lincodes($profiles);
 	} while @$profiles_to_assign;
 	return;
