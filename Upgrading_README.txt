@@ -39,6 +39,7 @@ Version 1.30: Change of isolate database structure.
 Version 1.31: Change of isolate database structure.
 Version 1.32: Change of seqdef, isolate and preference database structures.
 Version 1.33: Change of isolate database structure.
+Version 1.34: Change of seqdef and isolate database structures.
 
 Details can be found below.
 
@@ -523,3 +524,13 @@ function needed to sort the contents of array fields. This is used by the
 Data Explorer tool linked to the front-end dashboard.
 
 Please run the isolatedb_v1.33.sql script against isolate databases.
+
+Version 1.34
+------------
+There are changes to the isolate and sequence definition database structures.
+These are to support the integration of cgMLST-based LINcodes.
+
+Please run the isolatedb_v1.34.sql script against isolate databases and the
+seqdefdb_v1.34.sql script against sequence definition databases.
+
+Note that there is a new Perl module dependency: PDL.

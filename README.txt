@@ -1,3 +1,4 @@
+v1.34.0: *Support for LINcodes based on cgMLST schemes.
 v1.33.0: *Data explorer page linked to dashboard. This offers an interactive
           decomposition tree based on selected fields with links directly to
           return query dataset.
