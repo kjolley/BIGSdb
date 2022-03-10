@@ -58,7 +58,7 @@ sub get_attributes {
 		buttontext => 'iTOL',
 		menutext   => 'iTOL',
 		module     => 'ITOL',
-		version    => '1.5.4',
+		version    => '1.5.5',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
@@ -795,9 +795,9 @@ sub print_info_panel {
 	say q(<li>Department of Bioinformatics, Biocenter, University of W&uuml;rzburg, 97074 W&uuml;rzburg, Germany</li>);
 	say q(</ol>);
 	say q(<p>Web site: <a href="https://itol.embl.de/">https://itol.embl.de/</a><br />);
-	say q(Publication: Letunic &amp; Bork (2016) Interactive tree of life (iTOL) v3: an online tool for the display )
-	  . q(and annotation of phylogenetic and other trees. <a href="https://www.ncbi.nlm.nih.gov/pubmed/27095192">)
-	  . q(<i>Nucleic Acids Res</i> <b>44(W1):</b>W242-5</a>.</p>);
+	say q(Publication: Letunic &amp; Bork (2021) Interactive tree of life (iTOL) v5: an online tool for phylogenetic )
+	  . q(tree display and annotation. <a href="https://www.ncbi.nlm.nih.gov/pubmed/33885785">)
+	  . q(<i>Nucleic Acids Res</i> <b>49(W1):</b>W293-6</a>.</p>);
 	say q(</div>);
 	return;
 }
