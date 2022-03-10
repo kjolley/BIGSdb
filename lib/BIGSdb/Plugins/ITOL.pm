@@ -243,6 +243,7 @@ sub print_extra_form_elements {
 			isolate_fields      => 1,
 			extended_attributes => 1,
 			scheme_fields       => 1,
+			eav_fields          => 1,
 			size                => 8,
 			preselect           => ["f_$self->{'system'}->{'labelfield'}"]
 		}
@@ -592,8 +593,14 @@ sub _create_itol_dataset {
 		$scheme_field_desc = "$name ($scheme_info->{'name'})";
 		$scheme_temp_table = $self->_create_scheme_field_temp_table( \@ids, $scheme_id, $name );
 	}
+	my ( $eav_table, $cleaned_eav_field );
+	if ( $type eq 'eav_field' ) {
+		$eav_table = $self->{'datastore'}->get_eav_field_table($name);
+		( $cleaned_eav_field = $name ) =~ s/'/\\'/gx;
+	}
 	return if !$type;
-	my %dataset_label = ( field => $name, extended_field => $extended_field, scheme_field => $scheme_field_desc );
+	my %dataset_label =
+	  ( field => $name, extended_field => $extended_field, eav_field => $name, scheme_field => $scheme_field_desc );
 	my $filename = "${job_id}_$field";
 	$filename .= qq(_$scheme_id) if $scheme_id;
 	my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
@@ -621,6 +628,9 @@ sub _create_itol_dataset {
 		  . "JOIN $self->{'system'}->{'view'} AS i ON e.isolate_field='$name' AND e.attribute=E'$cleaned_ext_field' "
 		  . "AND e.field_value=i.$name WHERE i.id IN (SELECT value FROM $job_id) AND e.value IS NOT NULL "
 		  . 'ORDER BY e.value',
+		eav_field => "SELECT DISTINCT(eav.value) FROM $eav_table AS eav JOIN $self->{'system'}->{'view'} AS i "
+		  . "ON eav.isolate_id=i.id AND eav.field=E'$cleaned_eav_field' WHERE i.id IN (SELECT value FROM $job_id) "
+		  . 'AND eav.value IS NOT NULL ORDER BY eav.value',
 		scheme_field => "SELECT DISTINCT(value) FROM $scheme_temp_table WHERE value IS NOT NULL ORDER BY value"
 	};
 	my $distinct_values =
@@ -671,6 +681,7 @@ sub _create_itol_dataset {
 		extended_field => 'SELECT e.value FROM isolate_value_extended_attributes AS e '
 		  . "JOIN $self->{'system'}->{'view'} AS i ON e.isolate_field='$name' AND "
 		  . "e.attribute=E'$cleaned_ext_field' AND e.field_value=i.$name WHERE i.id=?",
+		eav_field    => "SELECT value FROM $eav_table WHERE isolate_id=? AND field=E'$cleaned_eav_field'",
 		scheme_field => "SELECT value FROM $scheme_temp_table WHERE id=?"
 	};
 	my $buffer = q();
@@ -774,6 +785,11 @@ sub _get_field_type {
 	if ( $field =~ /^s_(\d+)_(.+)/x ) {
 		if ( $self->{'datastore'}->is_scheme_field( $1, $2 ) ) {
 			return { type => 'scheme_field', scheme_id => $1, field => $2 };
+		}
+	}
+	if ( $field =~ /^eav_(.+)/x ) {
+		if ( $self->{'datastore'}->is_eav_field($1) ) {
+			return { type => 'eav_field', field => $1 };
 		}
 	}
 	return;
