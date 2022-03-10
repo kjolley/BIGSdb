@@ -237,15 +237,16 @@ sub print_extra_form_elements {
 		  . q(<p>Use Shift/Ctrl to select multiple values (depending on your system).</p>) );
 	$self->print_includes_fieldset(
 		{
-			title               => 'iTOL datasets',
-			description         => "Select to create data overlays $tooltip",
-			name                => 'itol_dataset',
-			isolate_fields      => 1,
-			extended_attributes => 1,
-			scheme_fields       => 1,
-			eav_fields          => 1,
-			size                => 8,
-			preselect           => ["f_$self->{'system'}->{'labelfield'}"]
+			title                 => 'iTOL datasets',
+			description           => "Select to create data overlays $tooltip",
+			name                  => 'itol_dataset',
+			isolate_fields        => 1,
+			extended_attributes   => 1,
+			scheme_fields         => 1,
+			classification_groups => 1,
+			eav_fields            => 1,
+			size                  => 8,
+			preselect             => ["f_$self->{'system'}->{'labelfield'}"]
 		}
 	);
 	say q(<fieldset style="float:left"><legend>iTOL data type</legend>);
@@ -575,8 +576,10 @@ sub _itol_upload {
 sub _create_itol_dataset {
 	my ( $self, $job_id, $data_type, $identifiers, $field, $colour ) = @_;
 	my $field_info = $self->_get_field_type($field);
-	my ( $type, $name, $extended_field, $scheme_id ) = @{$field_info}{qw(type field extended_field scheme_id)};
+	my ( $type, $name, $extended_field, $scheme_id, $cscheme_id ) =
+	  @{$field_info}{qw(type field extended_field scheme_id cscheme_id)};
 	$extended_field //= q();
+	$name           //= q();
 	( my $cleaned_ext_field = $extended_field ) =~ s/'/\\'/gx;
 	my $scheme_field_desc;
 	my $scheme_temp_table = q();
@@ -593,14 +596,29 @@ sub _create_itol_dataset {
 		$scheme_field_desc = "$name ($scheme_info->{'name'})";
 		$scheme_temp_table = $self->_create_scheme_field_temp_table( \@ids, $scheme_id, $name );
 	}
-	my ( $eav_table, $cleaned_eav_field );
+	my $eav_table         = q();
+	my $cleaned_eav_field = q();
 	if ( $type eq 'eav_field' ) {
 		$eav_table = $self->{'datastore'}->get_eav_field_table($name);
 		( $cleaned_eav_field = $name ) =~ s/'/\\'/gx;
 	}
+	my ( $cscheme_temp_table, $cleaned_cscheme_name, $pk_field );
+	if ( $type eq 'classification_group' ) {
+		$cscheme_temp_table = $self->{'datastore'}->create_temp_cscheme_table($cscheme_id);
+		( $scheme_id, $cleaned_cscheme_name ) = $self->{'datastore'}
+		  ->run_query( 'SELECT scheme_id,name FROM classification_schemes WHERE id=?', $cscheme_id );
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+		$pk_field          = $scheme_info->{'primary_key'};
+		$scheme_temp_table = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+	}
 	return if !$type;
-	my %dataset_label =
-	  ( field => $name, extended_field => $extended_field, eav_field => $name, scheme_field => $scheme_field_desc );
+	my %dataset_label = (
+		field                => $name,
+		extended_field       => $extended_field,
+		eav_field            => $name,
+		scheme_field         => $scheme_field_desc,
+		classification_group => $cleaned_cscheme_name
+	);
 	my $filename = "${job_id}_$field";
 	$filename .= qq(_$scheme_id) if $scheme_id;
 	my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
@@ -631,7 +649,9 @@ sub _create_itol_dataset {
 		eav_field => "SELECT DISTINCT(eav.value) FROM $eav_table AS eav JOIN $self->{'system'}->{'view'} AS i "
 		  . "ON eav.isolate_id=i.id AND eav.field=E'$cleaned_eav_field' WHERE i.id IN (SELECT value FROM $job_id) "
 		  . 'AND eav.value IS NOT NULL ORDER BY eav.value',
-		scheme_field => "SELECT DISTINCT(value) FROM $scheme_temp_table WHERE value IS NOT NULL ORDER BY value"
+		scheme_field         => "SELECT DISTINCT(value) FROM $scheme_temp_table WHERE value IS NOT NULL ORDER BY value",
+		classification_group => "SELECT DISTINCT(group_id) FROM $cscheme_temp_table c JOIN $scheme_temp_table s ON "
+		  . "c.profile_id=s.$pk_field WHERE s.id IN (SELECT value FROM $job_id) ORDER BY group_id"
 	};
 	my $distinct_values =
 	  $self->{'datastore'}->run_query( $distinct_qry->{$type}, undef, { fetch => 'col_arrayref' } );
@@ -681,8 +701,10 @@ sub _create_itol_dataset {
 		extended_field => 'SELECT e.value FROM isolate_value_extended_attributes AS e '
 		  . "JOIN $self->{'system'}->{'view'} AS i ON e.isolate_field='$name' AND "
 		  . "e.attribute=E'$cleaned_ext_field' AND e.field_value=i.$name WHERE i.id=?",
-		eav_field    => "SELECT value FROM $eav_table WHERE isolate_id=? AND field=E'$cleaned_eav_field'",
-		scheme_field => "SELECT value FROM $scheme_temp_table WHERE id=?"
+		eav_field            => "SELECT value FROM $eav_table WHERE isolate_id=? AND field=E'$cleaned_eav_field'",
+		scheme_field         => "SELECT value FROM $scheme_temp_table WHERE id=?",
+		classification_group => "SELECT group_id FROM $cscheme_temp_table c JOIN $scheme_temp_table s "
+		  . "ON c.profile_id=s.$pk_field WHERE s.id=?"
 	};
 	my $buffer = q();
 	foreach my $identifier (@$identifiers) {
@@ -791,6 +813,9 @@ sub _get_field_type {
 		if ( $self->{'datastore'}->is_eav_field($1) ) {
 			return { type => 'eav_field', field => $1 };
 		}
+	}
+	if ( $field =~ /^cg_(\d+)_group$/x ) {
+		return { type => 'classification_group', cscheme_id => $1 };
 	}
 	return;
 }
