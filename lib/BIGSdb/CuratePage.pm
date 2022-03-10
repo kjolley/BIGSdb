@@ -221,7 +221,7 @@ sub _get_html5_args {
 	$html5_args{'required'} = 'required' if $att->{'required'};
 	if ( !$att->{'dropdown_query'} && !$att->{'optlist'} ) {
 		if ( $att->{'type'} eq 'int' ) {
-			@html5_args{qw(type min step)} = qw(number 0 1);
+			@html5_args{qw(type step)} = qw(number 1);
 		}
 		if ( $att->{'type'} eq 'float' ) {
 			@html5_args{qw(type step)} = qw(number any);
