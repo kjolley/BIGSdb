@@ -602,7 +602,9 @@ sub _create_itol_dataset {
 		$eav_table = $self->{'datastore'}->get_eav_field_table($name);
 		( $cleaned_eav_field = $name ) =~ s/'/\\'/gx;
 	}
-	my ( $cscheme_temp_table, $cleaned_cscheme_name, $pk_field );
+	my $cscheme_temp_table   = q();
+	my $cleaned_cscheme_name = q();
+	my $pk_field             = q();
 	if ( $type eq 'classification_group' ) {
 		$cscheme_temp_table = $self->{'datastore'}->create_temp_cscheme_table($cscheme_id);
 		( $scheme_id, $cleaned_cscheme_name ) = $self->{'datastore'}
