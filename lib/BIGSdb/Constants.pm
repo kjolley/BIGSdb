@@ -56,6 +56,10 @@ use constant SEQ_METHODS => (
 );
 push @EXPORT_OK, qw(SEQ_METHODS);
 
+#Codons
+use constant DEFAULT_CODON_TABLE => 11;
+push @EXPORT_OK, qw(DEFAULT_CODON_TABLE);
+
 #Interface
 use constant FACE_STYLE => (
 	good  => q(class="far fa-lg fa-smile" style="color:green"),

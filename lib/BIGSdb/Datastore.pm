@@ -34,7 +34,7 @@ use BIGSdb::ClientDB;
 use BIGSdb::Locus;
 use BIGSdb::Scheme;
 use BIGSdb::TableAttributes;
-use BIGSdb::Constants qw(:login_requirements);
+use BIGSdb::Constants qw(:login_requirements DEFAULT_CODON_TABLE);
 use IO::Handle;
 use Digest::MD5;
 use POSIX qw(ceil);
@@ -1234,9 +1234,8 @@ sub create_temp_lincode_prefix_values_table {
 		my $timestamp = BIGSdb::Utils::get_timestamp();
 		$table = "${table}_$timestamp";
 	}
-	my $scheme_info =$self->get_scheme_info($scheme_id);
-	my $scheme      = $self->get_scheme($scheme_id);
-	
+	my $scheme_info  = $self->get_scheme_info($scheme_id);
+	my $scheme       = $self->get_scheme($scheme_id);
 	my $db           = $scheme->get_db;
 	my $group_values = $self->run_query(
 		'SELECT prefix,field,value FROM lincode_prefixes WHERE scheme_id=?',
@@ -1279,7 +1278,6 @@ sub create_temp_lincode_prefix_values_table {
 	}
 	return $table;
 }
-
 
 sub _delete_temp_tables {
 	my ( $self, $prefix ) = @_;
@@ -2547,7 +2545,7 @@ sub get_tables {
 		  scheme_group_group_members pcr pcr_locus probes probe_locus sets set_loci set_schemes set_view
 		  isolates history sequence_attributes classification_schemes classification_group_fields
 		  retired_isolates user_dbases oauth_credentials eav_fields validation_rules validation_conditions
-		  validation_rule_conditions lincode_schemes lincode_fields);
+		  validation_rule_conditions lincode_schemes lincode_fields codon_tables);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}
 		  : 'isolates';
@@ -2881,6 +2879,23 @@ sub get_start_codons {
 		$logger->error('No valid start codons set!');
 	}
 	return $start_codons;
+}
+
+sub get_stop_codons {
+	my ( $self, $isolate_id ) = @_;
+	my $codon_table_id;
+	if ( ( $self->{'system'}->{'alternative_codon_tables'} // q() ) eq 'yes' ) {
+		my $isolate_codon_table =
+		  $self->run_query( 'SELECT codon_table FROM codon_tables WHERE isolate_id=?', $isolate_id );
+		$codon_table_id = $isolate_codon_table // $self->{'system'}->{'codon_table'}
+		  // DEFAULT_CODON_TABLE;
+	} else {
+		$codon_table_id = $self->{'system'}->{'codon_table'} // DEFAULT_CODON_TABLE;
+	}
+	my $codon_table = Bio::Tools::CodonTable->new( -id => $codon_table_id );
+	my @stops = $codon_table->revtranslate('*');
+	$_ = uc($_) foreach @stops;
+	return \@stops;
 }
 
 sub are_lincodes_defined {
