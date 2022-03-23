@@ -1530,9 +1530,15 @@ sub _get_lincode_values {
 	my $lincode_table = $self->{'datastore'}->create_temp_lincodes_table($scheme_id);
 	foreach my $pk_value (@$pk_values) {
 		my $lincode =
-		  $self->{'datastore'}->run_query( "SELECT lincode FROM $lincode_table WHERE profile_id=?", $pk_value );
+		  $self->{'datastore'}
+		  ->run_query( "SELECT DISTINCT(lincode) FROM $lincode_table WHERE profile_id=? ORDER BY lincode", $pk_value )
+		  ;
 		local $" = q(_);
 		push @lincodes, qq(@$lincode) if $lincode;
+	}
+	@lincodes = sort @lincodes;
+	if ( @lincodes > 1 ) {
+		@lincodes = ( $lincodes[0] );
 	}
 	my $buffer = q();
 	if (@lincodes) {

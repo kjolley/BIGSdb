@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20220304
+#Version: 20220324
 use strict;
 use warnings;
 use 5.010;
@@ -58,6 +58,8 @@ GetOptions(
 	'mmap'          => \$opts{'mmap'},
 	'q|quiet'       => \$opts{'quiet'},
 	's|scheme_id=i' => \$opts{'scheme_id'},
+	'x|min=s'       => \$opts{'x'},
+	'y|max=s'       => \$opts{'y'},
 	'help'          => \$opts{'help'},
 );
 if ( $opts{'help'} ) {
@@ -178,6 +180,9 @@ sub get_new_lincode {
 			$min_distance  = $distance;
 			$closest_index = $i;
 		}
+		if ( !$diffs ) {
+			return $definitions->{'lincodes'}->[$closest_index];
+		}
 	}
 	my $identity        = 100 - $min_distance;
 	my $thresholds      = get_thresholds();
@@ -239,15 +244,27 @@ sub get_profiles_without_lincodes {
 	print "Retrieving up to $opts{'batch_size'} profiles without LINcodes ..." if !$opts{'quiet'};
 	my $scheme_info = $script->{'datastore'}->get_scheme_info( $opts{'scheme_id'}, { get_pk => 1 } );
 	my $pk          = $scheme_info->{'primary_key'};
-	my $order       = get_profile_order_term();
+	my $cast_pk     = get_profile_order_term();
 	my $lincode_scheme =
 	  $script->{'datastore'}
 	  ->run_query( 'SELECT * FROM lincode_schemes WHERE scheme_id=?', $opts{'scheme_id'}, { fetch => 'row_hashref' } );
 	my $max_missing = $opts{'missing'} // $lincode_scheme->{'max_missing'};
+	my @filters;
+	if ( $opts{'x'} ) {
+		push @filters, "$cast_pk >= $opts{'x'}";
+	}
+	if ( $opts{'y'} ) {
+		push @filters, "$cast_pk <= $opts{'y'}";
+	}
+	my $qry = "SELECT $pk FROM mv_scheme_$opts{'scheme_id'} WHERE cardinality(array_positions(profile,'N')) "
+	  . "<= $max_missing AND $pk NOT IN (SELECT profile_id FROM lincodes WHERE scheme_id=$opts{'scheme_id'}) ";
+	if (@filters) {
+		local $" = ' AND ';
+		$qry .= "AND (@filters) ";
+	}
+	$qry .= "ORDER BY $cast_pk LIMIT $opts{'batch_size'}";
 	my $profiles = $script->{'datastore'}->run_query(
-		"SELECT $pk FROM mv_scheme_$opts{'scheme_id'} WHERE cardinality(array_positions(profile,'N')) "
-		  . "<= $max_missing AND $pk NOT IN (SELECT profile_id FROM lincodes WHERE scheme_id=$opts{'scheme_id'}) "
-		  . "ORDER BY $order LIMIT $opts{'batch_size'}",
+		$qry,
 		undef,
 		{ fetch => 'col_arrayref' }
 	);
@@ -321,8 +338,7 @@ sub get_distance_matrix {
 	my $loci        = $script->{'datastore'}->get_scheme_loci( $opts{'scheme_id'} );
 	my $locus_count = @$loci;
 	die "Scheme has no loci.\n" if !$locus_count;
-	my $lincode_scheme =
-	  $script->{'datastore'}
+	my $lincode_scheme = $script->{'datastore'}
 	  ->run_query( 'SELECT * FROM lincode_schemes WHERE scheme_id=?', $opts{'scheme_id'}, { fetch => 'row_hashref' } );
 	my $matrix      = [];
 	my $index       = [];
@@ -464,6 +480,14 @@ ${bold}--quiet$norm
 	
 ${bold}--scheme$norm ${under}SCHEME ID$norm
     Scheme id number for which a LINcode scheme has been defined.
+    
+${bold}-x, --min$norm ${under}ID$norm
+    Minimum profile id. Note that it is usually recommended that you allow 
+    ordering to be determined from all unassigned defined profiles.
+
+${bold}-y, --max$norm ${under}ID$norm
+    Maximum profile id. Note that it is usually recommended that you allow 
+    ordering to be determined from all unassigned defined profiles.
 HELP
 	return;
 }

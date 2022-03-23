@@ -839,7 +839,7 @@ sub _modify_query_by_lincode_field {
 	    qq[mv_scheme_$scheme_id LEFT JOIN lincodes ON mv_scheme_$scheme_id.$pk=lincodes.profile_id AND ]
 	  . qq[lincodes.scheme_id=$scheme_id LEFT JOIN lincode_prefixes ON ]
 	  . q[lincodes.scheme_id=lincode_prefixes.scheme_id AND (]
-	  . q[array_to_string(lincodes.lincode,'_') LIKE (REPLACE(lincode_prefixes.prefix,'_','\_') || E'\_' || '%') ]
+	  . q[array_to_string(lincodes.lincode,'_') LIKE (REPLACE(lincode_prefixes.prefix,'_',E'\\\_') || E'\\\_' || '%') ]
 	  . q[OR array_to_string(lincodes.lincode,'_') = lincode_prefixes.prefix)];
 	my %modify = (
 		  'NOT' => $cleaned_value eq 'NULL'
