@@ -56,7 +56,7 @@ sub is_valid_DNA {
 	if ( $options->{'allow_ambiguous'} ) {
 		return $check_seq =~ /[^ACGTRYWSMKVHDBXN]/x ? 0 : 1;
 	} elsif ( $options->{'diploid'} ) {
-		return $check_seq =~ /[^ACGTRYWSMK]/x ? 0 : 1;
+		return $check_seq =~ /[^ACGTRYWSMKBDHV]/x ? 0 : 1;
 	} else {
 		return $check_seq =~ /[^ACGT]/x ? 0 : 1;
 	}
