@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -1033,6 +1033,7 @@ sub _get_row {
 	my $hunter             = $self->_hunt_for_start_and_stop_codons(
 		{
 			hunt_for_start_end => $hunt_for_start_end,
+			isolate_id         => $isolate_id,
 			locus              => $locus,
 			match              => $match,
 			original_start     => $original_start,
@@ -1205,8 +1206,8 @@ sub _get_dir_arrow {
 
 sub _hunt_for_start_and_stop_codons {
 	my ( $self, $args ) = @_;
-	my ( $hunt_for_start_end, $locus, $match, $original_start, $original_end, $exact_ref ) =
-	  @{$args}{qw(hunt_for_start_end locus match original_start original_end exact_ref)};
+	my ( $hunt_for_start_end, $locus, $match, $original_start, $original_end, $exact_ref, $isolate_id ) =
+	  @{$args}{qw(hunt_for_start_end locus match original_start original_end exact_ref isolate_id)};
 	my ( $off_end, $predicted_start, $predicted_end, $complete_gene );
 	my $complete_tooltip = q();
 	my $seqbin_length    = $self->{'datastore'}->run_query(
@@ -1216,8 +1217,10 @@ sub _hunt_for_start_and_stop_codons {
 		{ cache => 'Scan::hunt_for_start_and_stop_codons::contig_length' }
 	);
 	my ( $first_codon_is_start, $last_codon_is_stop );
-	my %start_codons = map { $_ => 1 } qw(ATG GTG TTG);
-	my %stop_codons  = map { $_ => 1 } qw(TAG TAA TGA);
+	my $start_codons = $self->{'datastore'}->get_start_codons( { locus => $locus, isolate_id => $isolate_id } );
+	my %start_codons = map { $_ => 1 } @$start_codons;
+	my $stop_codons = $self->{'datastore'}->get_stop_codons( { isolate_id => $isolate_id } );
+	my %stop_codons = map { $_ => 1 } @$stop_codons;
 
 	#Hunt for nearby start and stop codons.  Walk in from each end by 3 bases, then out by 3 bases, then in by 6 etc.
 	my @runs = $hunt_for_start_end ? qw (-3 3 -6 6 -9 9 -12 12 -15 15 -18 18) : ();
@@ -1245,7 +1248,7 @@ sub _hunt_for_start_and_stop_codons {
 				$off_end = 1 if $seq =~ /^N/x || $seq =~ /N$/x;    #Incomplete if Ns are end (scaffolding)
 				$first_codon_is_start = 1 if $start_codons{ substr( $seq, 0, 3 ) };
 				$last_codon_is_stop = 1 if $stop_codons{ substr( $seq, -3 ) };
-				($complete_gene) = $self->is_complete_gene( $seq, { locus => $locus } );
+				($complete_gene) = $self->is_complete_gene( $seq, { locus => $locus,isolate_id=>$isolate_id } );
 				if ($complete_gene) {
 					$complete_tooltip = q(<a class="cds" title="CDS - this is a complete coding sequence )
 					  . q(including start and terminating stop codons with no internal stop codons.">CDS</a>);
@@ -1771,8 +1774,11 @@ sub _get_designation_tooltip {
 
 sub is_complete_gene {
 	my ( $self, $seq, $options ) = @_;
-	my $start_codons = $self->{'datastore'}->get_start_codons( $options->{'locus'} );
-	my $status = BIGSdb::Utils::is_complete_cds( $seq, { start_codons => $start_codons } );
+	my $start_codons = $self->{'datastore'}
+	  ->get_start_codons( { locus => $options->{'locus'}, isolate_id => $options->{'isolate_id'} } );
+	my $stop_codons =
+	  $self->{'datastore'}->get_stop_codons( { isolate_id => $options->{'isolate_id'} } );
+	my $status = BIGSdb::Utils::is_complete_cds( $seq, { start_codons => $start_codons, stop_codons => $stop_codons } );
 	return $status->{'cds'};
 }
 

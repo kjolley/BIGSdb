@@ -75,11 +75,12 @@ sub is_complete_cds {
 	$check_seq =~ s/[\-\.\s]//gx;
 	my $first_codon = substr( $check_seq, 0, 3 );
 	my $start_codons = $options->{'start_codons'} // [qw (ATG GTG TTG)];
+	my $stop_codons = $options->{'stop_codons'} // [qw (TAA TGA TAG)];
 	if ( none { $first_codon eq $_ } @$start_codons ) {
 		return { cds => 0, err => 'not a complete CDS - no start codon.' };
 	}
 	my $end_codon = substr( $check_seq, -3 );
-	if ( none { $end_codon eq $_ } qw (TAA TGA TAG) ) {
+	if ( none { $end_codon eq $_ } @$stop_codons ) {
 		return { cds => 0, err => 'not a complete CDS - no stop codon.' };
 	}
 	my $multiple_of_3 = ( length($check_seq) / 3 ) == int( length($check_seq) / 3 ) ? 1 : 0;
@@ -89,7 +90,7 @@ sub is_complete_cds {
 	my $internal_stop;
 	for ( my $pos = 0 ; $pos < length($check_seq) - 3 ; $pos += 3 ) {
 		my $codon = substr( $check_seq, $pos, 3 );
-		if ( any { $codon eq $_ } qw (TAA TGA TAG) ) {
+		if ( any { $codon eq $_ } @$stop_codons ) {
 			$internal_stop = 1;
 		}
 	}

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2021, University of Oxford
+#Copyright (c) 2015-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -472,9 +472,10 @@ sub check_new_alleles_fasta {
 		}
 		next if $options->{'skip_info_checks'};
 		if ( $locus_info->{'complete_cds'} && $locus_info->{'data_type'} eq 'DNA' ) {
-			my $start_codons = $self->{'datastore'}->get_start_codons($locus);
-			my $check =
-			  BIGSdb::Utils::is_complete_cds( \$sequence, { start_codons => $start_codons } );
+			my $start_codons = $self->{'datastore'}->get_start_codons( { locus => $locus } );
+			my $stop_codons  = $self->{'datastore'}->get_stop_codons;
+			my $check        = BIGSdb::Utils::is_complete_cds( \$sequence,
+				{ start_codons => $start_codons, stop_codons => $stop_codons } );
 			if ( !$check->{'cds'} ) {
 				push @info, qq(Sequence "$seq_id" is $check->{'err'});
 			}

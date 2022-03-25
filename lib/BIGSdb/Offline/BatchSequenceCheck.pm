@@ -434,7 +434,7 @@ sub _check_sequence_length {
 			}
 		}
 		if ( $self->{'options'}->{'complete_CDS'} ) {
-			my $start_codons = $self->{'datastore'}->get_start_codons($locus);
+			my $start_codons = $self->{'datastore'}->get_start_codons( { locus => $locus } );
 			my $cds_check = BIGSdb::Utils::is_complete_cds( $args->{'value'}, { start_codons => $start_codons } );
 			${ $args->{'continue'} } = 0 if !$cds_check->{'cds'};
 		}

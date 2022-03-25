@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Automatically curate the 'easy' allele submissions
 #Written by Keith Jolley
-#Copyright (c) 2016-2021, University of Oxford
+#Copyright (c) 2016-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20211103
+#Version: 20220325
 use strict;
 use warnings;
 use 5.010;
@@ -107,7 +107,7 @@ sub main {
 	  SEQS: foreach my $seq (@$seqs) {
 			$seq->{'sequence'} =~ s/[\-\.\s]//gx;
 			if ( $locus_info->{'complete_cds'} ) {
-				my $start_codons = $script->{'datastore'}->get_start_codons( $allele_submission->{'locus'} );
+				my $start_codons = $script->{'datastore'}->get_start_codons( {locus=>$allele_submission->{'locus'} });
 				my $complete_cds =
 				  BIGSdb::Utils::is_complete_cds( $seq->{'sequence'}, { start_codons => $start_codons } )
 				  ;

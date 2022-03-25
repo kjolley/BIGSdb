@@ -23,7 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::Page);
 use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
-use BIGSdb::Constants qw(FLANKING);
+use BIGSdb::Constants qw(FLANKING DEFAULT_CODON_TABLE);
 my $logger = get_logger('BIGSdb.Page');
 
 sub print_content {
@@ -37,6 +37,7 @@ sub print_content {
 	my $orf          = $q->param('orf');
 	my $no_highlight = $q->param('no_highlight');
 	my $locus        = $q->param('locus');
+	my $isolate_id = $self->{'datastore'}->run_query( 'SELECT isolate_id FROM sequence_bin WHERE id=?', $seqbin_id );
 	my ( $introns, $intron_length ) = $self->get_introns;
 	$self->update_prefs if $q->param('reload');
 
@@ -110,7 +111,14 @@ sub print_content {
 	}
 	if ($translate) {
 		say q(<h2>Translation</h2>);
-		my $stops = $self->find_internal_stops($seq_features);
+		my $codon_table = $self->{'datastore'}->get_codon_table($isolate_id);
+		if ( $codon_table > 23 ) {
+			say "<p>Set codon table ($codon_table) is not supported. Using default.</p>";
+			$codon_table = DEFAULT_CODON_TABLE;    #EMBOSS doesn't support later codon tables.
+		}
+		my $tables = Bio::Tools::CodonTable->tables;
+		say qq(<p>Codon table: $codon_table - $tables->{$codon_table}<p>);
+		my $stops = $self->find_internal_stops( $seq_features, 1, { isolate_id => $isolate_id } );
 		if (@$stops) {
 			local $" = ', ';
 			my $plural = @$stops == 1 ? q() : q(s);
@@ -118,7 +126,7 @@ sub print_content {
 			  . q((numbering includes upstream flanking sequence).</span>);
 		}
 		say q(<div class="scrollable"><pre class="sixpack">);
-		say $self->get_sixpack_display( $seq_features, undef, { locus => $locus } );
+		say $self->get_sixpack_display( $seq_features, undef, { locus => $locus, isolate_id => $isolate_id } );
 		say q(</pre></div>);
 	}
 	say q(</div>);
@@ -202,12 +210,13 @@ sub format_sequence_features {
 }
 
 sub find_internal_stops {
-	my ( $self, $features, $orf ) = @_;
+	my ( $self, $features, $orf, $options ) = @_;
 	$orf //= 1;
-	my %stop_codon = map { $_ => 1 } qw(TAA TAG TGA);
-	my $exon_seq   = $self->_get_exons_seqs($features);
-	my $mapped_pos = $self->_get_mapped_positions($features);
-	my $stops      = [];
+	my $stop_codons = $self->{'datastore'}->get_stop_codons($options);
+	my %stop_codon  = map { $_ => 1 } @$stop_codons;
+	my $exon_seq    = $self->_get_exons_seqs($features);
+	my $mapped_pos  = $self->_get_mapped_positions($features);
+	my $stops       = [];
 	for ( my $i = 0 + $orf - 1 ; $i < length $exon_seq ; $i += 3 ) {
 		my $codon = substr( $exon_seq, $i, 3 );
 		if ( $stop_codon{$codon} && $i < length($exon_seq) - 3 ) {
@@ -303,17 +312,22 @@ sub get_sixpack_display {
 	say $fh $seq;
 	close $fh;
 	my @highlights;
-	my $mapped         = $self->_get_mapped_positions($seq_features);
-	my $pos            = 0;
-	my $start_codons   = $self->{'datastore'}->get_start_codons( $options->{'locus'} );
-	my %start_codon    = map { $_ => 1 } @$start_codons;
-	my %stop_codon     = map { $_ => 1 } qw(TAA TAG TGA);
-	my $exon_count     = $self->_get_exon_count($seq_features);
+	my $mapped       = $self->_get_mapped_positions($seq_features);
+	my $pos          = 0;
+	my $start_codons = $self->{'datastore'}->get_start_codons( { locus => $options->{'locus'} } );
+	my %start_codon  = map { $_ => 1 } @$start_codons;
+	my $stop_codons  = $self->{'datastore'}->get_stop_codons( { isolate_id => $options->{'isolate_id'} } );
+	my %stop_codon   = map { $_ => 1 } @$stop_codons;
+	my $exon_count   = $self->_get_exon_count($seq_features);
+	my $codon_table  = $self->{'datastore'}->get_codon_table( $options->{'isolate_id'} );
+
+	if ( $codon_table > 23 ) {
+		$codon_table = DEFAULT_CODON_TABLE;
+	}
 	my $exon_number    = 0;
 	my $exon_length    = 0;
 	my $feature_number = 0;
 	my $stop_highlight = q();
-
 	foreach my $feature (@$seq_features) {
 		$feature_number++;
 		if ( $feature->{'feature'} ne 'allele_seq' && $feature->{'feature'} ne 'exon' ) {
@@ -354,7 +368,8 @@ sub get_sixpack_display {
 		$highlight = $1;
 	}
 	system( "$self->{'config'}->{'emboss_path'}/sixpack -sequence $seq_infile -outfile $outfile -outseq $outseq "
-		  . "-width $self->{'prefs'}->{'alignwidth'} -noreverse -noname -html $highlight 2>/dev/null" );
+		  . "-width $self->{'prefs'}->{'alignwidth'} -table $codon_table -noreverse -noname -html "
+		  . "$highlight 2>/dev/null" );
 	open( my $sixpack_fh, '<', $outfile ) || $logger->error("Cannot open $outfile for reading");
 	while ( my $line = <$sixpack_fh> ) {
 		last if $line =~ /^\#\#\#\#\#\#\#\#/x;
