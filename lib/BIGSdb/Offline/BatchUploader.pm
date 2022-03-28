@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2021, University of Oxford
+#Copyright (c) 2021-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -62,7 +62,7 @@ sub upload {
 		my $data = [ split /\t/x, $record ];
 		@$data = $self->_process_fields( $data, { allow_null => $allow_null_term{$table} } );
 		my @value_list;
-		my ( @extras, @ref_extras );
+		my ( @extras, @ref_extras, $codon_table );
 		my $id;
 		my $sender = $self->_get_sender( $field_order, $data, $user_info->{'status'} );
 
@@ -87,6 +87,10 @@ sub upload {
 			  if defined $field_order->{'aliases'} && defined $data->[ $field_order->{'aliases'} ];
 			@ref_extras = split /;/x, $data->[ $field_order->{'references'} ]
 			  if defined $field_order->{'references'} && defined $data->[ $field_order->{'references'} ];
+		}
+		if ( $table eq 'isolates' && ( $self->{'system'}->{'alternative_codon_tables'} // q() ) eq 'yes' ) {
+			$codon_table = $data->[ $field_order->{'codon_table'} ]
+			  if defined $field_order->{'codon_table'} && defined $data->[ $field_order->{'codon_table'} ];
 		}
 		my @inserts;
 		my $qry;
@@ -116,6 +120,7 @@ sub upload {
 					field_order => $field_order,
 					extras      => \@extras,
 					ref_extras  => \@ref_extras,
+					codon_table => $codon_table,
 					project_id  => $project_id,
 					private     => $private
 				}
@@ -329,8 +334,8 @@ sub _read_value {
 
 sub _prepare_isolate_extra_inserts {
 	my ( $self, $args ) = @_;
-	my ( $id, $sender, $curator, $data, $field_order, $extras, $ref_extras, $project_id, $private ) =
-	  @{$args}{qw(id sender curator data field_order extras ref_extras project_id private)};
+	my ( $id, $sender, $curator, $data, $field_order, $extras, $ref_extras, $codon_table, $project_id, $private ) =
+	  @{$args}{qw(id sender curator data field_order extras ref_extras codon_table project_id private)};
 	my @inserts;
 	my $locus_list = $self->_get_locus_list;
 	foreach (@$locus_list) {
@@ -383,6 +388,12 @@ sub _prepare_isolate_extra_inserts {
 				push @inserts, { statement => $qry, arguments => [ $id, $_, $curator, 'now' ] };
 			}
 		}
+	}
+	if (defined $codon_table) {
+		push @inserts, {
+			statement => 'INSERT INTO codon_tables (isolate_id,codon_table,curator,datestamp) VALUES (?,?,?,?)',
+			arguments => [ $id, $codon_table, $curator, 'now' ]
+		};
 	}
 	if ($project_id) {
 		push @inserts,

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2019, University of Oxford
+#Copyright (c) 2014-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CurateTableHeaderPage);
+use Bio::Tools::CodonTable;
 use BIGSdb::Constants qw(SEQ_METHODS :limits);
 use Excel::Writer::XLSX;
 use Excel::Writer::XLSX::Utility;
@@ -145,8 +146,9 @@ sub _get_col_width {
 
 sub _set_isolate_validation {
 	my ( $self, $worksheet, $field, $col ) = @_;
+	my %special_fields = map { $_ => 1 } qw(codon_table sequence_method);
 	if (   $self->{'xmlHandler'}->is_field($field)
-		|| $field eq 'sequence_method'
+		|| $special_fields{$field}
 		|| $self->{'datastore'}->is_eav_field($field) )
 	{
 		my $options = [];
@@ -154,6 +156,9 @@ sub _set_isolate_validation {
 			my $eav_field = $self->{'datastore'}->get_eav_field($field);
 			return if !$eav_field->{'option_list'};
 			@$options = split /\s*;\s*/x, $eav_field->{'option_list'};
+		} elsif ( $field eq 'codon_table' ) {
+			my $tables = Bio::Tools::CodonTable->tables;
+			@$options = sort { $a <=> $b } keys %$tables;
 		} else {
 			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
 			if ( ( $att->{'multiple'} // q() ) ne 'yes' ) {
@@ -180,6 +185,9 @@ sub _print_isolate_allowed_values {
 		my $eav_field = $self->{'datastore'}->get_eav_field($field);
 		return if !$eav_field->{'option_list'} || $eav_field->{'no_curate'};
 		@$option_list = split /\s*;\s*/x, $eav_field->{'option_list'};
+	} elsif ( $field eq 'codon_table' ) {
+		my $tables = Bio::Tools::CodonTable->tables;
+		$option_list = [ sort { $a <=> $b } keys %$tables ];
 	} else {
 		$option_list = $self->{'xmlHandler'}->get_field_option_list($field);
 		$option_list = [SEQ_METHODS] if $field eq 'sequence_method';

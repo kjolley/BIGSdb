@@ -66,7 +66,11 @@ sub _get_isolate_table_headers {
 		next if $att->{'no_submissions'} eq 'yes';
 		push @$headers, $field if none { $field eq $_ } qw (id curator sender date_entered datestamp);
 		if ( $field eq $self->{'system'}->{'labelfield'} ) {
-			push @$headers, qw(aliases references);
+			push @$headers, q(aliases);
+			if ( ( $self->{'system'}->{'alternative_codon_tables'} // q() ) eq 'yes' ) {
+				push @$headers, q(codon_table);
+			}
+			push @$headers, q(references);
 		}
 	}
 	my $eav_fields = $self->{'datastore'}->get_eav_fields;

@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CurateAddPage);
+use Bio::Tools::CodonTable;
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(:interface :submissions);
 use List::MoreUtils qw(any uniq);
