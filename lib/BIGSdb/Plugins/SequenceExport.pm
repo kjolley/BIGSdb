@@ -27,6 +27,7 @@ my $logger = get_logger('BIGSdb.Plugins');
 use Try::Tiny;
 use List::MoreUtils qw(any none uniq);
 use Bio::Perl;
+use Bio::Seq;
 use Bio::SeqIO;
 use Bio::AlignIO;
 use BIGSdb::Utils;
@@ -678,13 +679,20 @@ sub _get_included_values {
 }
 
 sub _translate_seq_if_required {
-	my ( $self, $params, $locus_info, $seq ) = @_;
+	my ( $self, $params, $locus_info, $seq, $isolate_id ) = @_;
 	if ( $locus_info->{'data_type'} eq 'DNA' ) {
 		if ( $params->{'in_frame'} || $params->{'translate'} ) {
 			$seq = BIGSdb::Utils::chop_seq( $seq, $locus_info->{'orf'} // 1 );
 		}
 		if ( $params->{'translate'} ) {
-			my $peptide = $seq ? Bio::Perl::translate_as_string($seq) : 'X';
+			my $seq_obj = Bio::Seq->new( -seq => $seq, -alphabet => 'dna' );
+			my $peptide;
+			if ($seq) {
+				my $codon_table = $self->{'datastore'}->get_codon_table($isolate_id);
+				$peptide = $seq_obj->translate( -codontable_id => $codon_table )->seq;
+			} else {
+				$peptide = 'X';
+			}
 			return $peptide;
 		}
 	}
