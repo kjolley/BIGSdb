@@ -1,6 +1,6 @@
 #SequenceExport.pm - Export concatenated sequences/XMFA file plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -30,6 +30,7 @@ use Bio::Perl;
 use Bio::Seq;
 use Bio::SeqIO;
 use Bio::AlignIO;
+use Time::HiRes qw(time);
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(LOCUS_PATTERN :interface :limits);
 use constant DEFAULT_ALIGN_LIMIT => 200;
@@ -56,7 +57,7 @@ sub get_attributes {
 		buttontext => 'Sequences',
 		menutext   => $seqdef ? 'Profile sequences' : 'Sequences',
 		module     => 'SequenceExport',
-		version    => '1.6.13',
+		version    => '1.7.0',
 		dbtype     => 'isolates,sequences',
 		seqdb_type => 'schemes',
 		section    => 'isolate_info,profile_info,export,postquery',
@@ -507,7 +508,7 @@ sub _make_isolate_seq_file {
 	my $problem_ids    = {};
 	my $includes       = $self->_get_includes($params);
 	my %field_included = map { $_ => 1 } @$includes;
-	my $seqbin_qry     = $self->_get_seqbin_query($params);
+	my $tag_data       = $self->_get_tag_data( $ids, $loci, $params );
 
 	#round up to the nearest multiple of 3 if translating sequences to keep in reading frame
 	$params->{'flanking'} = 0 if !BIGSdb::Utils::is_int( $params->{'flanking'} );
@@ -521,11 +522,16 @@ sub _make_isolate_seq_file {
 	my $progress  = 0;
 	open( my $fh, '>', $filename )
 	  or $logger->error("Can't open output file $filename for writing");
-
-	foreach my $locus_name (@$loci) {
+	my $last_update_time = 0;
+  LOCUS: foreach my $locus_name (@$loci) {
 		last if $self->{'exit'};
 		my $output_locus_name = $self->clean_locus( $locus_name, { text_output => 1, no_common_name => 1 } );
-		$self->{'jobManager'}->update_job_status( $job_id, { stage => "Processing $output_locus_name" } );
+		if ( time - $last_update_time > 2 ) {    #No need to update job db too often.
+			my $complete = int( $max_progress * $progress / scalar @$loci );
+			$self->{'jobManager'}->update_job_status( $job_id,
+				{ stage => "Processing $output_locus_name", percent_complete => $complete } );
+			$last_update_time = time;
+		}
 		my %no_seq;
 		my $locus;
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
@@ -553,28 +559,12 @@ sub _make_isolate_seq_file {
 				no warnings 'exiting';
 				next ISOLATE;
 			};
-			my $allele_ids = $self->{'datastore'}->get_allele_ids( $id, $locus_name );
-			my $allele_seq;
-			if ( $locus_info->{'data_type'} eq 'DNA' ) {
-				try {
-					foreach my $allele_id ( sort @$allele_ids ) {
-						next if $allele_id eq '0';
-						my $seq = ${ $locus->get_allele_sequence($allele_id) };
-						if ($seq) {
-							$allele_seq .= $seq;
-						} else {
-							$logger->error("$self->{'system'}->{'db'} id-$id $locus_name-$allele_id does not exist.");
-						}
-					}
-				}
-				catch { };    #do nothing
-			}
+			my $allele_seq = $self->_get_allele_seq( $id, $locus, $locus_name, $locus_info );
 			my $seqbin_seq;
-			my ( $reverse, $seqbin_id, $start_pos, $end_pos ) =
-			  $self->{'datastore'}
-			  ->run_query( $seqbin_qry, [ $id, $locus_name ], { cache => 'SequenceExport::run_job' } );
 			my $seqbin_pos = q();
-			if ($seqbin_id) {
+			my $tag        = $tag_data->{$locus}->{$id};
+			if ( $tag->{'seqbin_id'} ) {
+				my ( $reverse, $seqbin_id, $start_pos, $end_pos ) = @{$tag}{qw(seqbin_id start_pos end_pos reverse)};
 				my $seq_ref = $self->{'contigManager'}->get_contig_fragment(
 					{
 						seqbin_id => $seqbin_id,
@@ -640,11 +630,30 @@ sub _make_isolate_seq_file {
 			}
 		);
 		$progress++;
-		my $complete = int( $max_progress * $progress / scalar @$loci );
-		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $complete } );
 	}
 	close $fh;
 	return { problem_ids => [ sort { $a <=> $b } keys %$problem_ids ], no_output => $no_output };
+}
+
+sub _get_allele_seq {
+	my ( $self, $id, $locus, $locus_name, $locus_info ) = @_;
+	my $allele_ids = $self->{'datastore'}->get_allele_ids( $id, $locus_name );
+	my $allele_seq;
+	if ( $locus_info->{'data_type'} eq 'DNA' ) {
+		try {
+			foreach my $allele_id ( sort @$allele_ids ) {
+				next if $allele_id eq '0';
+				my $seq = ${ $locus->get_allele_sequence($allele_id) };
+				if ($seq) {
+					$allele_seq .= $seq;
+				} else {
+					$logger->error("$self->{'system'}->{'db'} id-$id $locus_name-$allele_id does not exist.");
+				}
+			}
+		}
+		catch { };    #do nothing
+	}
+	return $allele_seq;
 }
 
 sub _get_included_values {
@@ -699,16 +708,33 @@ sub _translate_seq_if_required {
 	return $seq;
 }
 
-sub _get_seqbin_query {
-	my ( $self, $params ) = @_;
+sub _get_tag_data {
+	my ( $self, $ids, $loci, $params ) = @_;
+	my $temp_isolate_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int',  $ids );
+	my $temp_locus_table   = $self->{'datastore'}->create_temp_list_table_from_array( 'text', $loci );
 	my $ignore_seqflags   = $params->{'ignore_seqflags'}   ? 'AND flag IS NULL' : '';
 	my $ignore_incomplete = $params->{'ignore_incomplete'} ? 'AND complete'     : '';
-	my $qry =
-	    'SELECT reverse,seqbin_id,start_pos,end_pos FROM allele_sequences a '
-	  . 'LEFT JOIN sequence_flags sf ON a.id=sf.id WHERE a.isolate_id=? '
-	  . "AND a.locus=? $ignore_seqflags $ignore_incomplete ORDER BY "
-	  . 'complete,a.datestamp LIMIT 1';
-	return $qry;
+	my $data              = $self->{'datastore'}->run_query(
+		'SELECT locus,isolate_id,reverse,seqbin_id,start_pos,end_pos FROM allele_sequences a '
+		  . "JOIN $temp_isolate_table i ON a.isolate_id=i.value JOIN $temp_locus_table l ON a.locus=l.value "
+		  . 'LEFT JOIN sequence_flags sf ON a.id=sf.id '
+		  . "$ignore_seqflags $ignore_incomplete ORDER BY complete,a.datestamp",
+		undef,
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	my $ordered = {};
+	foreach my $record (@$data) {
+
+		if ( !defined $ordered->{ $record->{'locus'} }->{ $record->{'isolate_id'} } ) {
+			$ordered->{ $record->{'locus'} }->{ $record->{'isolate_id'} } = {
+				seqbin_id => $record->{'seqbin_id'},
+				reverse   => $record->{'reverse'},
+				start_pos => $record->{'start_pos'},
+				end_pos   => $record->{'end_pos'}
+			};
+		}
+	}
+	return $ordered;
 }
 
 sub _output {
