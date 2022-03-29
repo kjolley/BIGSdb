@@ -304,14 +304,15 @@ sub _check {
 		push @checked_buffer, $header_row if $first_record;
 		$first_record = 0;
 		my $args = {
-			scheme_id   => $scheme_id,
-			scheme_info => $scheme_info,
-			primary_key => $primary_key,
-			loci        => $loci,
-			newdata     => \%newdata,
-			pk          => $pk,
-			problems    => $problems,
-			profile     => \@profile
+			scheme_id     => $scheme_id,
+			scheme_info   => $scheme_info,
+			primary_key   => $primary_key,
+			loci          => $loci,
+			newdata       => \%newdata,
+			pk            => $pk,
+			problems      => $problems,
+			profile       => \@profile,
+			match_missing => $q->param('match_missing') ? 1 : 0
 		};
 		next RECORD if $self->_check_profile_exists($args);
 		$self->_check_pk_exists($args);
@@ -375,12 +376,15 @@ sub _get_file_header_positions {
 
 sub _check_profile_exists {
 	my ( $self, $args ) = @_;
-	my ( $scheme_id, $primary_key, $loci, $newdata, $pk, $problems ) =
-	  @{$args}{qw(scheme_id primary_key loci newdata pk problems)};
-	my $q = $self->{'cgi'};
+	my ( $scheme_id, $primary_key, $loci, $newdata, $pk, $problems, $match_missing ) =
+	  @{$args}{qw(scheme_id primary_key loci newdata pk problems match_missing)};
+	my $q            = $self->{'cgi'};
 	my %designations = map { $_ => $newdata->{"locus:$_"} } @$loci;
-	my $ret =
-	  $self->{'datastore'}->check_new_profile( $scheme_id, \%designations, $newdata->{"field:$primary_key"} );
+	my $ret          = $self->{'datastore'}->check_new_profile(
+		$scheme_id, \%designations,
+		$newdata->{"field:$primary_key"},
+		{ match_missing => $match_missing }
+	);
 	if ( $ret->{'exists'} ) {
 		return 1 if $q->param('ignore_existing');
 		$problems->{$pk} .= "$ret->{'msg'}<br />";
@@ -449,15 +453,15 @@ sub _is_sender_invalid {
 #Checks if profile matches another in this submission using arbitrary matches against allele 'N'.
 sub _check_duplicate_profile {
 	my ( $self, $args ) = @_;
-	my ( $scheme_info, $profile, $pk, $problems ) =
-	  @{$args}{qw(scheme_info profile pk problems)};
+	my ( $scheme_info, $match_missing, $profile, $pk, $problems ) =
+	  @{$args}{qw(scheme_info match_missing profile pk problems)};
 	my $q = $self->{'cgi'};
 	no warnings 'uninitialized';
 	local $" = ',';
 	if ( $self->{'profiles_so_far'}->{"@$profile"} && none { $_ eq '' } @$profile ) {
 		return 1 if $q->param('ignore_duplicates');
 		$problems->{$pk} .= qq(The profile '@$profile' has been included more than once in this submission.<br />);
-	} elsif ( $scheme_info->{'allow_missing_loci'} ) {
+	} elsif ( $scheme_info->{'allow_missing_loci'} && !$match_missing ) {
 		foreach my $profile_string ( keys %{ $self->{'profiles_so_far'}->{"@$profile"} } ) {
 			my $it_matches = 1;
 			my @existing_profile = split /,/x, $profile_string;
@@ -646,8 +650,13 @@ sub _print_interface {
 	say q[<fieldset style="float:left"><legend>Please paste in tab-delimited text ]
 	  . q[(<strong>include a field header as the first line</strong>)</legend>];
 	say $q->hidden($_) foreach qw (page db scheme_id submission_id);
-	say $q->textarea( -name => 'data', -rows => 20, -columns => 80, -required => 'required',
-		-style => 'max-width:85vw' );
+	say $q->textarea(
+		-name     => 'data',
+		-rows     => 20,
+		-columns  => 80,
+		-required => 'required',
+		-style    => 'max-width:85vw'
+	);
 	say q(</fieldset>);
 	say q(<fieldset style="float:left"><legend>Parameters</legend>);
 	say q(<label for="sender" class="form" style="width:5em">Sender:</label>);
@@ -660,9 +669,17 @@ sub _print_interface {
 	);
 	say q(<p class="comment">Value will be overridden if you include a sender field in your pasted data.</p>);
 	say q(<ul><li>);
-	say $q->checkbox( -name => 'ignore_existing', -label => 'Ignore previously defined profiles' );
+	say $q->checkbox( -name => 'ignore_existing', -label => 'Remove previously-assigned profiles from upload' );
 	say q(</li><li>);
-	say $q->checkbox( -name => 'ignore_duplicates', -label => 'Ignore duplicate profiles' );
+	say $q->checkbox( -name => 'ignore_duplicates', -label => 'Remove duplicate profiles from upload' );
+
+	if ( $scheme_info->{'allow_missing_loci'} ) {
+		say q(</li><li>);
+		say $q->checkbox(
+			-name  => 'match_missing',
+			-label => 'Allow definition of profiles that differ from existing profiles only by missing loci'
+		);
+	}
 	say q(</li></ul>);
 	say q(</fieldset>);
 	$self->print_action_fieldset( { scheme_id => $scheme_id } );

@@ -476,7 +476,7 @@ sub get_scheme_warehouse_locus_name {
 
 #pk_value is optional and can be used to check if updating an existing profile matches another definition.
 sub check_new_profile {
-	my ( $self, $scheme_id, $designations, $pk_value ) = @_;
+	my ( $self, $scheme_id, $designations, $pk_value, $options ) = @_;
 	$pk_value //= q();
 	my $scheme_warehouse = "mv_scheme_$scheme_id";
 	my $scheme_info      = $self->get_scheme_info( $scheme_id, { get_pk => 1 } );
@@ -528,8 +528,11 @@ sub check_new_profile {
 
 		#N can be any allele so can not be used to differentiate profiles
 		$i++;
-		next if ( $designations->{$locus} // '' ) eq 'N';
-		push @locus_temp, "(profile[$i]=? OR profile[$i]='N')";
+		next if ( $designations->{$locus} // '' ) eq 'N' && !$options->{'match_missing'};
+		my $term = "(profile[$i]=?";
+		$term .= " OR profile[$i]='N'" if !$options->{'match_missing'};
+		$term .= ')';
+		push @locus_temp, $term;
 		push @values,     $designations->{$locus};
 		$temp_cache_key .= $locus;
 	}
@@ -1234,9 +1237,8 @@ sub create_temp_lincode_prefix_values_table {
 		my $timestamp = BIGSdb::Utils::get_timestamp();
 		$table = "${table}_$timestamp";
 	}
-	my $scheme_info =$self->get_scheme_info($scheme_id);
-	my $scheme      = $self->get_scheme($scheme_id);
-	
+	my $scheme_info  = $self->get_scheme_info($scheme_id);
+	my $scheme       = $self->get_scheme($scheme_id);
 	my $db           = $scheme->get_db;
 	my $group_values = $self->run_query(
 		'SELECT prefix,field,value FROM lincode_prefixes WHERE scheme_id=?',
@@ -1279,7 +1281,6 @@ sub create_temp_lincode_prefix_values_table {
 	}
 	return $table;
 }
-
 
 sub _delete_temp_tables {
 	my ( $self, $prefix ) = @_;
