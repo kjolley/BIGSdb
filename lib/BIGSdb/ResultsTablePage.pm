@@ -902,12 +902,11 @@ sub _print_isolate_table_header {
 		$fieldtype_header .= q(<th rowspan="2">New version</th>)
 		  if $self->{'system'}->{'view'} eq 'isolates' || $self->{'system'}->{'view'} eq 'temp_view';
 	}
-	$fieldtype_header .= qq(<th colspan="$col_count">Isolate fields);
-	$fieldtype_header .= $self->get_tooltip(
-		q(Isolate fields - You can select the isolate fields )
-		  . q(that are displayed here by going to the options page.),
-		{ style => 'color:white' }
-	);
+	$fieldtype_header .=
+	    qq(<th colspan="$col_count">Isolate fields <a target="_blank" )
+	  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=options" )
+	  . q(title="Options - Select which isolate fields that are displayed here.">)
+	  . q(<span class="fas fa-wrench"></span></a>);
 	$fieldtype_header .= q(</th>);
 	my %pref_fields = (
 		display_seqbin_main  => 'Seqbin size (bp)',
@@ -1364,7 +1363,7 @@ sub _print_profile_table {
 					[ $scheme_id, $field ] );
 				my $order = $type eq 'integer' ? 'CAST(value AS integer)' : 'value';
 				my $values = $self->{'datastore'}->run_query(
-					    "SELECT DISTINCT(value) FROM $join_table WHERE "
+					"SELECT DISTINCT(value) FROM $join_table WHERE "
 					  . '(lincodes.scheme_id,lincode_prefixes.field,lincodes.lincode)='
 					  . "(?,?,?) ORDER BY $order",
 					[ $scheme_id, $field, $lincode ],
