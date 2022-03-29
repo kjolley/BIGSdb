@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20220324
+#Version: 20220329
 use strict;
 use warnings;
 use 5.010;
@@ -188,7 +188,7 @@ sub get_new_lincode {
 	my $thresholds      = get_thresholds();
 	my $threshold_index = 0;
 	foreach my $threshold_identity ( @{ $thresholds->{'identity'} } ) {
-		if ( $identity > $threshold_identity ) {
+		if ( $identity >= $threshold_identity ) {
 			$threshold_index++;
 			next;
 		}
