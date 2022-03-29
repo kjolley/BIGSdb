@@ -905,7 +905,7 @@ sub _print_isolate_table_header {
 	$fieldtype_header .=
 	    qq(<th colspan="$col_count">Isolate fields <a target="_blank" )
 	  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=options" )
-	  . q(title="Options - Select which isolate fields that are displayed here.">)
+	  . q(title="Options - Select which isolate fields are displayed here.">)
 	  . q(<span class="fas fa-wrench"></span></a>);
 	$fieldtype_header .= q(</th>);
 	my %pref_fields = (
