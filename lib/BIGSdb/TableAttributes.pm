@@ -2654,4 +2654,22 @@ sub get_lincode_prefixes_table_attributes {
 	];
 	return $attributes;
 }
+
+sub get_codon_tables_table_attributes {
+	my $tables  = Bio::Tools::CodonTable->tables;
+	my @optlist = sort { $a <=> $b } keys %$tables;
+	my $labels  = {};
+	foreach my $id (@optlist) {
+		$labels->{$id} = "$id - $tables->{$id}";
+	}
+	local $" = q(;);
+	my $attributes = [
+		{ name => 'isolate_id',  type => 'int', required => 1, primary_key => 1,            foreign_key => 'isolates' },
+		{ name => 'codon_table', type => 'int', required => 1, optlist     => qq(@optlist), labels      => $labels }
+		,
+		{ name => 'datestamp', type => 'date', required => 1 },
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 }
+	];
+	return $attributes;
+}
 1;

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2021, University of Oxford
+#Copyright (c) 2015-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -1670,12 +1670,13 @@ sub _print_sequence_table {
 		my $sequence = BIGSdb::Utils::truncate_seq( \$seq->{'sequence'}, 40 );
 		$cds = '';
 		if ( $locus_info->{'data_type'} eq 'DNA' && $locus_info->{'complete_cds'} ) {
-			my $start_codons = $self->{'datastore'}->get_start_codons($locus);
+			my $start_codons = $self->{'datastore'}->get_start_codons( { locus => $locus } );
 			$cds = q(<td>)
-			  . ( BIGSdb::Utils::is_complete_cds( \$seq->{'sequence'}, { start_codons => $start_codons } )->{'cds'}
+			  . (
+				BIGSdb::Utils::is_complete_cds( \$seq->{'sequence'}, { start_codons => $start_codons } )->{'cds'}
 				? GOOD
-				: BAD )
-			  . q(</td>);
+				: BAD
+			  ) . q(</td>);
 		}
 		my $display_id = BIGSdb::Utils::escape_html($id);
 		say qq(<tr class="td$td"><td>$display_id</td><td>$length</td>);

@@ -327,7 +327,7 @@ sub _get_seqdef_links {
 	$buffer .= $self->_get_sequence_fields;
 	$buffer .= $self->_get_profile_fields;
 	$buffer .= $self->_get_classification_field_values;
-	$buffer.=$self->_get_lincode_prefix_values;
+	$buffer .= $self->_get_lincode_prefix_values;
 	return $buffer;
 }
 
@@ -709,6 +709,21 @@ sub _get_isolate_fields {
 			}
 		);
 		$buffer .= qq(</div>\n);
+		if ( ( $self->{'system'}->{'alternative_codon_tables'} // q() ) eq 'yes' ) {
+			$buffer .= q(<div class="curategroup curategroup_isolates grid-item default_hide_curator" )
+			  . qq(style="display:$self->{'optional_curator_display'}"><h2>Codon tables</h2>);
+			$buffer .= $self->_get_icon_group(
+				'codon_tables',
+				'table',
+				{
+					add       => 1,
+					batch_add => 1,
+					query     => 1,
+					info      => 'Codon tables - Set alternative codon tables for specific isolates.'
+				}
+			);
+			$buffer .= qq(</div>\n);
+		}
 		$buffer .= q(<div class="curategroup curategroup_isolates grid-item default_hide_curator" )
 		  . qq(style="display:$self->{'optional_curator_display'}"><h2>Publications</h2>);
 		$buffer .= $self->_get_icon_group(
@@ -1665,8 +1680,7 @@ sub _get_lincodes {
 	return q() if !$self->is_admin;
 	my $schemes;
 	my $set_id = $self->get_set_id;
-	my $set_clause =
-	  $set_id ? qq( AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)) : q();
+	my $set_clause = $set_id ? qq( AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)) : q();
 	$schemes = $self->{'datastore'}->run_query(
 		'SELECT DISTINCT ls.scheme_id FROM lincode_schemes ls RIGHT JOIN scheme_members sm ON '
 		  . 'ls.scheme_id=sm.scheme_id JOIN scheme_fields sf ON ls.scheme_id=sf.scheme_id '

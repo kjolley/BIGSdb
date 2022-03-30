@@ -34,7 +34,7 @@ use BIGSdb::ClientDB;
 use BIGSdb::Locus;
 use BIGSdb::Scheme;
 use BIGSdb::TableAttributes;
-use BIGSdb::Constants qw(:login_requirements);
+use BIGSdb::Constants qw(:login_requirements DEFAULT_CODON_TABLE);
 use IO::Handle;
 use Digest::MD5;
 use POSIX qw(ceil);
@@ -2548,7 +2548,7 @@ sub get_tables {
 		  scheme_group_group_members pcr pcr_locus probes probe_locus sets set_loci set_schemes set_view
 		  isolates history sequence_attributes classification_schemes classification_group_fields
 		  retired_isolates user_dbases oauth_credentials eav_fields validation_rules validation_conditions
-		  validation_rule_conditions lincode_schemes lincode_fields);
+		  validation_rule_conditions lincode_schemes lincode_fields codon_tables);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}
 		  : 'isolates';
@@ -2835,19 +2835,11 @@ sub get_seqbin_stats {
 }
 
 sub get_start_codons {
-	my ( $self, $locus ) = @_;
-	my %stop_codons = map { $_ => 1 } qw(TAG TAA TGA);
-	my %possible;
-	foreach my $p1 (qw (A T G C)) {
-		foreach my $p2 (qw (A T G C)) {
-			foreach my $p3 (qw (A T G C)) {
-				my $codon = "$p1$p2$p3";
-				next if $stop_codons{$codon};
-				$possible{$codon} = 1;
-			}
-		}
-	}
-	my $start_codons = [];
+	my ( $self, $options ) = @_;
+	my %stop_codons     = map { $_ => 1 } qw(TAG TAA TGA);
+	my @possible_starts = qw(TTA TTG CTG ATT ATC ATA ATG GTG);
+	my %possible        = map { $_ => 1 } @possible_starts;
+	my $start_codons    = [];
 	if ( $self->{'system'}->{'start_codons'} ) {
 		my @codons = split /;/x, $self->{'system'}->{'start_codons'};
 		foreach my $codon (@codons) {
@@ -2858,12 +2850,23 @@ sub get_start_codons {
 				$logger->error("Invalid start codon specified in config.xml - $codon");
 			}
 		}
-	} else {
+	}
+	if ( $options->{'isolate_id'} ) {
+		my $isolate_codon_table =
+		  $self->run_query( 'SELECT codon_table FROM codon_tables WHERE isolate_id=?', $options->{'isolate_id'} );
+		if ( defined $isolate_codon_table ) {
+			my $ct = Bio::Tools::CodonTable->new( -id => $isolate_codon_table );
+			foreach my $codon (@possible_starts) {
+				push @$start_codons, $codon if $ct->is_start_codon($codon);
+			}
+		}
+	}
+	if ( !@$start_codons ) {
 		$start_codons = [qw(ATG GTG TTG)];
 	}
 	my %start_codons = map { $_ => 1 } @$start_codons;
-	if ($locus) {
-		my $locus_info = $self->get_locus_info($locus);
+	if ( $options->{'locus'} ) {
+		my $locus_info = $self->get_locus_info( $options->{'locus'} );
 		if ( $locus_info->{'start_codons'} ) {
 			my @additional = split /;/x, $locus_info->{'start_codons'};
 			foreach my $codon (@additional) {
@@ -2872,16 +2875,55 @@ sub get_start_codons {
 					if ( $possible{ uc $codon } ) {
 						push @$start_codons, uc $codon;
 					} else {
-						$logger->error("Invalid start codon specified in locus table for locus $locus - $codon");
+						$logger->error(
+							"Invalid start codon specified in locus table for locus $options->{'locus'} - $codon");
 					}
 				}
 			}
 		}
 	}
-	if ( !@$start_codons ) {
-		$logger->error('No valid start codons set!');
-	}
+	@$start_codons = uniq(@$start_codons);
 	return $start_codons;
+}
+
+sub get_stop_codons {
+	my ( $self, $options ) = @_;
+	my $codon_table_id = $self->get_codon_table( $options->{'isolate_id'} );
+	my $codon_table    = Bio::Tools::CodonTable->new( -id => $codon_table_id );
+	my @stops          = $codon_table->revtranslate('*');
+	$_ = uc($_) foreach @stops;
+	return \@stops;
+}
+
+sub get_codon_table {
+	my ( $self, $isolate_id ) = @_;
+	if ( ( $self->{'system'}->{'alternative_codon_tables'} // q() ) eq 'yes' && $isolate_id ) {
+		my $isolate_codon_table =
+		  $self->run_query( 'SELECT codon_table FROM codon_tables WHERE isolate_id=?', $isolate_id );
+		if ( $self->{'system'}->{'codon_table'} ) {
+			if ( !$self->is_codon_table_valid( $self->{'system'}->{'codon_table'} ) ) {
+				$logger->error('Invalid codon table set. Using default table.');
+				$self->{'system'}->{'codon_table'} = DEFAULT_CODON_TABLE;
+			}
+		}
+		return $isolate_codon_table // $self->{'system'}->{'codon_table'} // DEFAULT_CODON_TABLE;
+	} else {
+		if ( defined $self->{'system'}->{'codon_table'} ) {
+			if ( !$self->is_codon_table_valid( $self->{'system'}->{'codon_table'} ) ) {
+				$logger->error('Invalid codon table set. Using default table.');
+				return DEFAULT_CODON_TABLE;
+			}
+			return $self->{'system'}->{'codon_table'};
+		}
+		return DEFAULT_CODON_TABLE;
+	}
+}
+
+sub is_codon_table_valid {
+	my ( $self, $codon_table ) = @_;
+	my $tables = Bio::Tools::CodonTable->tables;
+	my %allowed = map { $_ => 1 } keys %$tables;
+	return $allowed{$codon_table};
 }
 
 sub are_lincodes_defined {

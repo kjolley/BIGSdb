@@ -453,7 +453,8 @@ sub _get_optlist_field {
 	}
 	my $single_value = @optlist == 1 ? $optlist[0] : undef;
 	unshift @optlist, '';
-	my $labels = { '' => ' ' };    #Required for HTML5 validation
+	my $labels = $att->{'labels'} // {};
+	$labels->{''} = ' ';    #Required for HTML5 validation
 	my $q = $self->{'cgi'};
 	my $default =
 	  defined $att->{'default'} && $att->{'default'} ne q() ? $att->{'default'} : $single_value;

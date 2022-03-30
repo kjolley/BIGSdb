@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2021, University of Oxford
+#Copyright (c) 2014-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -98,7 +98,7 @@ sub _scan_loci_together {
 			next if ref $exact_matches->{$locus} && @{ $exact_matches->{$locus} };
 			my $matches = $partial_matches->{$locus} // [];
 			foreach my $match (@$matches) {
-				$self->_handle_match( $locus_info, $match, $seqs );
+				$self->_handle_match( $isolate_id, $locus_info, $match, $seqs );
 			}
 		}
 
@@ -140,7 +140,7 @@ sub _scan_locus_by_locus {
 			  $self->blast( $params, $locus, $isolate_id, "${isolate_prefix}_$isolate_id", $locus_prefix );
 			next if ref $exact_matches && @$exact_matches;
 			foreach my $match (@$partial_matches) {
-				$self->_handle_match( $locus_info, $match, $seqs );
+				$self->_handle_match( $isolate_id, $locus_info, $match, $seqs );
 			}
 			last if $self->{'exit'} || $self->_is_time_up;
 		}
@@ -159,10 +159,10 @@ sub _scan_locus_by_locus {
 }
 
 sub _handle_match {
-	my ( $self, $locus_info, $match, $seqs ) = @_;
+	my ( $self, $isolate_id, $locus_info, $match, $seqs ) = @_;
 	return if $self->_off_end_of_contig($match);
 	my $seq = $self->extract_seq_from_match($match);
-	my ( $reject, $flag ) = $self->_check_cds( $seq, $locus_info->{'id'} );
+	my ( $reject, $flag ) = $self->_check_cds( $seq, $isolate_id, $locus_info->{'id'} );
 	return if $reject;
 	my $locus = $locus_info->{'id'};
 	if ( $locus_info->{'data_type'} eq 'peptide' ) {
@@ -185,11 +185,14 @@ sub _handle_match {
 }
 
 sub _check_cds {
-	my ( $self, $seq, $locus ) = @_;
+	my ( $self, $seq, $isolate_id, $locus ) = @_;
 	my $reject       = 0;
 	my $flag         = q();
-	my $start_codons = $self->{'datastore'}->get_start_codons($locus);
-	my $complete_cds = BIGSdb::Utils::is_complete_cds( $seq, { start_codons => $start_codons } );
+	my $start_codons = $self->{'datastore'}->get_start_codons( { locus => $locus, isolate_id => $isolate_id } );
+	my $stop_codons  = $self->{'datastore'}->get_stop_codons( { isolate_id => $isolate_id } );
+	my $complete_cds =
+	  BIGSdb::Utils::is_complete_cds( $seq, { start_codons => $start_codons, $stop_codons => $stop_codons } )
+	  ;
 	if ( $self->{'options'}->{'c'} && !$complete_cds->{'cds'} ) {
 		if ( $self->{'options'}->{'allow_frameshift'} ) {
 			$complete_cds->{'err'} //= q();

@@ -1987,7 +1987,8 @@ sub get_record_name {
 		validation_rule_conditions        => 'rule condition',
 		lincode_schemes                   => 'LINcode scheme',
 		lincode_fields                    => 'LINcode field',
-		lincode_prefixes                  => 'LINcode prefix nomenclature'
+		lincode_prefixes                  => 'LINcode prefix nomenclature',
+		codon_tables                      => 'isolate codon table'
 	);
 	return $names{$table};
 }
@@ -2261,8 +2262,7 @@ sub can_modify_table {
 	$general_permissions{$_} = $self->{'permissions'}->{'modify_schemes'}
 	  foreach qw(schemes scheme_members scheme_fields scheme_curators classification_schemes
 	  classification_group_fields scheme_groups scheme_group_group_members scheme_group_scheme_members
-	  lincode_schemes)
-	  ;
+	  lincode_schemes);
 
 	if ( $general_permissions{$table} ) {
 		return $general_permissions{$table};

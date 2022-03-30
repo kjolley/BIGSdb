@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CurateAddPage);
+use Bio::Tools::CodonTable;
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(:interface :submissions);
 use List::MoreUtils qw(any uniq);
@@ -114,9 +115,10 @@ sub _check {
 	@$loci = uniq @$loci;
 	my @bad_field_buffer;
 	my $insert                      = 1;
+	my $bad_codon_table_buffer      = $self->check_codon_table($newdata);
 	my $bad_provenance_field_buffer = $self->check_provenance_fields($newdata);
 	my $bad_eav_field_buffer        = $self->check_eav_fields($newdata);
-	push @bad_field_buffer, @$bad_provenance_field_buffer, @$bad_eav_field_buffer;
+	push @bad_field_buffer, @$bad_codon_table_buffer, @$bad_provenance_field_buffer, @$bad_eav_field_buffer;
 
 	if ( $self->alias_duplicates_name ) {
 		push @bad_field_buffer, 'Aliases: duplicate isolate name - aliases are ALTERNATIVE names for the isolate.';
@@ -180,6 +182,20 @@ sub _check {
 		return $self->_insert($newdata) if $insert;
 	}
 	return;
+}
+
+sub check_codon_table {
+	my ( $self, $newdata, $options ) = @_;
+	my $q          = $self->{'cgi'};
+	my $bad_buffer = [];
+	return $bad_buffer
+	  if ( $self->{'system'}->{'alternative_codon_tables'} // q() ) ne 'yes' || !$q->param('codon_table');
+	my $tables = Bio::Tools::CodonTable->tables;
+	my %allowed = map { $_ => 1 } keys %$tables;
+	if ( !$allowed{ $q->param('codon_table') } ) {
+		push @$bad_buffer, q(Invalid codon table);
+	}
+	return $bad_buffer;
 }
 
 sub check_provenance_fields {
@@ -307,11 +323,13 @@ sub _insert {
 		push @$values, $cleaned;
 	}
 	push @$inserts, { statement => $qry, arguments => $values };
+	$self->_prepare_codon_table_inserts( $inserts, $newdata );
 	$self->_prepare_locus_inserts( $inserts, $newdata );
 	$self->_prepare_alias_inserts( $inserts, $newdata );
 	return if $self->_prepare_pubmed_inserts( $inserts, $newdata );
 	return if $self->_prepare_sparse_field_inserts( $inserts, $newdata );
 	local $" = ';';
+
 	foreach (@$inserts) {
 		$self->{'db'}->do( $_->{'statement'}, undef, @{ $_->{'arguments'} } );
 	}
@@ -351,6 +369,18 @@ sub _insert {
 		$self->update_history( $newdata->{'id'}, 'Isolate record added' );
 		return SUCCESS;
 	}
+	return;
+}
+
+sub _prepare_codon_table_inserts {
+	my ( $self, $inserts, $newdata ) = @_;
+	my $q = $self->{'cgi'};
+	return if !$q->param('codon_table');
+	push @$inserts,
+	  {
+		statement => 'INSERT INTO codon_tables (isolate_id,codon_table,curator,datestamp) VALUES (?,?,?,?)',
+		arguments => [ $newdata->{'id'}, scalar $q->param('codon_table'), $newdata->{'curator'}, 'now' ]
+	  };
 	return;
 }
 
@@ -513,6 +543,7 @@ sub _print_interface {
 	say $q->start_form;
 	$q->param( sent => 1 );
 	say $q->hidden($_) foreach qw(page db sent);
+	$self->print_codon_table_selection($newdata);
 	$self->print_provenance_form_elements($newdata);
 	$self->print_sparse_field_form_elements($newdata);
 	$self->_print_allele_designation_form_elements($newdata);
@@ -551,6 +582,35 @@ sub _get_html5_args {
 	}
 	$html5_args->{'pattern'} = $thisfield->{'regex'} if $thisfield->{'regex'};
 	return $html5_args;
+}
+
+sub print_codon_table_selection {
+	my ( $self, $newdata, $options ) = @_;
+	return if ( $self->{'system'}->{'alternative_codon_tables'} // q() ) ne 'yes';
+	my $codon_table;
+	if ($options->{'update'}){
+		$codon_table = $self->{'datastore'}->run_query('SELECT codon_table FROM codon_tables WHERE isolate_id=?',$newdata->{'id'});
+	}
+	my $q           = $self->{'cgi'};
+	my $db_codon_table = $self->{'datastore'}->get_codon_table;
+	my $tables      = Bio::Tools::CodonTable->tables;
+	my $labels      = {};
+	my @ids         = sort { $a <=> $b } keys %$tables;
+	foreach my $id (@ids) {
+		$labels->{$id} = "$id - $tables->{$id}";
+	}
+	say q(<fieldset style="float:left"><legend>Codon table</legend>);
+	say q(<p>Set codon table to use if different from the database default )
+	  . qq(($db_codon_table - $tables->{$db_codon_table}).</p>);
+	say $q->popup_menu(
+		-name    => 'codon_table',
+		-id      => 'codon_table',
+		-values  => [ '', @ids ],
+		-labels  => $labels,
+		-default => $codon_table
+	);
+	say q(</fieldset>);
+	return;
 }
 
 sub print_provenance_form_elements {
@@ -781,7 +841,7 @@ sub _print_optlist {         ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 		say q(<div style="display:inline-block">);
 		say $self->popup_menu( %args, %$html5_args );
 		if ($multiple) {
-			say q(<br /><span class="comment" style="color:#008">) . q(Supports multiple values</span>);
+			say q(<br /><span class="comment" style="color:#008">Supports multiple values</span>);
 		}
 		say q(</div>);
 		return 1;

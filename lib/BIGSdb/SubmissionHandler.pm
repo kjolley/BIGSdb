@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2021, University of Oxford
+#Copyright (c) 2015-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -472,9 +472,10 @@ sub check_new_alleles_fasta {
 		}
 		next if $options->{'skip_info_checks'};
 		if ( $locus_info->{'complete_cds'} && $locus_info->{'data_type'} eq 'DNA' ) {
-			my $start_codons = $self->{'datastore'}->get_start_codons($locus);
-			my $check =
-			  BIGSdb::Utils::is_complete_cds( \$sequence, { start_codons => $start_codons } );
+			my $start_codons = $self->{'datastore'}->get_start_codons( { locus => $locus } );
+			my $stop_codons  = $self->{'datastore'}->get_stop_codons;
+			my $check        = BIGSdb::Utils::is_complete_cds( \$sequence,
+				{ start_codons => $start_codons, stop_codons => $stop_codons } );
 			if ( !$check->{'cds'} ) {
 				push @info, qq(Sequence "$seq_id" is $check->{'err'});
 			}
@@ -705,6 +706,7 @@ sub _get_isolate_header_positions {
 		next if $self->{'datastore'}->is_locus($heading);
 		next if $self->{'datastore'}->is_eav_field($heading);
 		next if $heading eq 'references';
+		next if $heading eq 'codon_table';
 		next if $heading eq 'aliases';
 		push @unrecognized, $heading if $not_accounted_for{$heading};
 	}
@@ -752,6 +754,21 @@ sub _check_aliases {
 				  "aliases - this is an optional field - leave blank rather than using a value like '$alias'.";
 			}
 		}
+	}
+	return;
+}
+
+sub _check_codon_table {
+	my ( $self, $positions, $values, $error ) = @_;
+	return
+	     if !defined $positions->{'codon_table'}
+	  || !defined $values->[ $positions->{'codon_table'} ]
+	  || $values->[ $positions->{'codon_table'} ] eq q();
+	return if ( $self->{'system'}->{'alternative_codon_tables'} // q() ) ne 'yes';
+	my $tables = Bio::Tools::CodonTable->tables;
+	my %allowed = map { $_ => 1 } keys %$tables;
+	if ( !$allowed{ $values->[ $positions->{'codon_table'} ] } ) {
+		push @$error, 'codon_table - invalid table selected.';
 	}
 	return;
 }
@@ -804,6 +821,7 @@ sub _check_isolate_record {
 	}
 	$self->_check_pubmed_ids( $positions, $values, \@error );
 	$self->_check_aliases( $positions, $values, \@error );
+	$self->_check_codon_table( $positions, $values, \@error );
 	my $ret = { isolate => $isolate };
 	$ret->{'missing'} = \@missing if @missing;
 	$ret->{'error'}   = \@error   if @error;
@@ -853,7 +871,7 @@ sub _is_field_bad_isolates {
 	$thisfield->{'type'} ||= 'text';
 	$thisfield->{'required'} = 'no' if $self->{'datastore'}->is_eav_field($fieldname);
 	$thisfield->{'required'} //= 'yes';
-	my %optional_fields = map { $_ => 1 } qw(aliases references assembly_filename sequence_method);
+	my %optional_fields = map { $_ => 1 } qw(aliases codon_table references assembly_filename sequence_method);
 	if ( $value eq '' ) {
 		if ( $optional_fields{$fieldname} || ( $thisfield->{'required'} eq 'no' ) ) {
 			return;

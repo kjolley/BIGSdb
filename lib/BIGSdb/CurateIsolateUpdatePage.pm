@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -60,11 +60,10 @@ END
 sub initiate {
 	my ($self) = @_;
 	if ( $self->{'cgi'}->param('no_header') ) {
-		$self->{'type'}    = 'no_header';
-		$self->{'noCache'} = 1;
+		$self->{'type'} = 'no_header';
 		return;
 	}
-	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree jQuery.columnizer modernizr jQuery.multiselect tooltips);
+	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree jQuery.columnizer modernizr jQuery.multiselect tooltips noCache);
 	$self->set_level1_breadcrumbs;
 	return;
 }
@@ -126,9 +125,10 @@ sub _check {
 	}
 	my $newdata = {};
 	my @bad_field_buffer;
+	my $bad_codon_table_buffer      = $self->check_codon_table($newdata);
 	my $bad_provenance_field_buffer = $self->check_provenance_fields( $newdata, { update => 1 } );
-	my $bad_eav_field_buffer = $self->check_eav_fields($newdata);
-	push @bad_field_buffer, @$bad_provenance_field_buffer, @$bad_eav_field_buffer;
+	my $bad_eav_field_buffer        = $self->check_eav_fields($newdata);
+	push @bad_field_buffer, @$bad_codon_table_buffer, @$bad_provenance_field_buffer, @$bad_eav_field_buffer;
 	if ( $self->alias_duplicates_name ) {
 		push @bad_field_buffer, 'Aliases: duplicate isolate name - aliases are ALTERNATIVE names for the isolate.';
 	}
@@ -157,9 +157,8 @@ sub _check {
 
 sub _update {
 	my ( $self, $data, $newdata ) = @_;
-	my $q      = $self->{'cgi'};
-	my $update = 1;
-	my $qry    = '';
+	my $q   = $self->{'cgi'};
+	my $qry = '';
 	my @values;
 	local $" = ',';
 	my $updated_field = [];
@@ -202,55 +201,54 @@ sub _update {
 		$qry = "UPDATE isolates SET $qry WHERE id=?";
 		push @values, $data->{'id'};
 	}
+	my $codon_table_updates = $self->_prepare_codon_table_updates( $data->{'id'}, $newdata, $updated_field );
 	my $eav_updates = $self->_prepare_eav_updates( $data->{'id'}, $newdata, $updated_field );
 	my $alias_updates = $self->_prepare_alias_updates( $data->{'id'}, $newdata, $updated_field );
 	my ( $pubmed_updates, $error ) = $self->_prepare_pubmed_updates( $data->{'id'}, $newdata, $updated_field );
 	return if $error;
-	if ($update) {
-		if ($fields_updated || @$updated_field) {
-			eval {
-				$self->{'db'}->do( $qry, undef, @values );
-				foreach my $extra_update ( @$eav_updates, @$alias_updates, @$pubmed_updates ) {
-					$self->{'db'}->do( $extra_update->{'statement'}, undef, @{ $extra_update->{'arguments'} } );
-				}
-			};
-			if ($@) {
-				my $detail;
-				if ( $@ =~ /duplicate/x && $@ =~ /unique/x ) {
-					$detail = q(Data update would have resulted in records with either duplicate ids or )
-					  . q(another unique field with duplicate values.);
-				} elsif ( $@ =~ /datestyle/ ) {
-					$detail = q(Date fields must be entered in yyyy-mm-dd format.);
-				} else {
-					$logger->error($@);
-				}
-				$self->print_bad_status(
-					{
-						message => q(Update failed - transaction cancelled - no records have been touched.),
-						detail  => $detail
-					}
-				);
-				$self->{'db'}->rollback;
-			} else {
-				$self->{'db'}->commit;
-				$self->print_good_status(
-					{
-						message        => q(Isolate updated.),
-						navbar         => 1,
-						query_more_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query)
-					}
-				);
-				local $" = '<br />';
-				$self->update_history( $data->{'id'}, "@$updated_field" );
-				return SUCCESS;
+	if ( $fields_updated || @$updated_field ) {
+		eval {
+			$self->{'db'}->do( $qry, undef, @values );
+			foreach my $extra_update ( @$eav_updates, @$alias_updates, @$pubmed_updates, @$codon_table_updates ) {
+				$self->{'db'}->do( $extra_update->{'statement'}, undef, @{ $extra_update->{'arguments'} } );
 			}
-		} else {
+		};
+		if ($@) {
+			my $detail;
+			if ( $@ =~ /duplicate/x && $@ =~ /unique/x ) {
+				$detail = q(Data update would have resulted in records with either duplicate ids or )
+				  . q(another unique field with duplicate values.);
+			} elsif ( $@ =~ /datestyle/ ) {
+				$detail = q(Date fields must be entered in yyyy-mm-dd format.);
+			} else {
+				$logger->error($@);
+			}
 			$self->print_bad_status(
 				{
-					message => q(No field changes have been made.)
+					message => q(Update failed - transaction cancelled - no records have been touched.),
+					detail  => $detail
 				}
 			);
+			$self->{'db'}->rollback;
+		} else {
+			$self->{'db'}->commit;
+			$self->print_good_status(
+				{
+					message        => q(Isolate updated.),
+					navbar         => 1,
+					query_more_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query)
+				}
+			);
+			local $" = '<br />';
+			$self->update_history( $data->{'id'}, "@$updated_field" );
+			return SUCCESS;
 		}
+	} else {
+		$self->print_bad_status(
+			{
+				message => q(No field changes have been made.)
+			}
+		);
 	}
 	return;
 }
@@ -273,6 +271,42 @@ sub _field_changed {
 	} else {
 		return ( $old ne $new );
 	}
+}
+
+sub _prepare_codon_table_updates {
+	my ( $self, $isolate_id, $newdata, $updated_field ) = @_;
+	return [] if ( $self->{'system'}->{'alternative_codon_tables'} // q() ) ne 'yes';
+	my $existing_codon_table =
+	  $self->{'datastore'}->run_query( 'SELECT codon_table FROM codon_tables WHERE isolate_id=?', $newdata->{'id'} );
+	my $q               = $self->{'cgi'};
+	my $new_codon_table = $q->param('codon_table');
+	return [] if $new_codon_table eq q() && !defined $existing_codon_table;
+	return [] if defined $existing_codon_table && $new_codon_table ne q() && $new_codon_table eq $existing_codon_table;
+	my $updates = [];
+
+	if ( defined $existing_codon_table && $new_codon_table ne q() ) {
+		push @$updates,
+		  {
+			statement => 'UPDATE codon_tables SET (codon_table,datestamp,curator)=(?,?,?) WHERE isolate_id=?',
+			arguments => [ $new_codon_table, 'now', $newdata->{'curator'}, $isolate_id ]
+		  };
+	} elsif ( !defined $existing_codon_table && $new_codon_table ne q() ) {
+		push @$updates,
+		  {
+			statement => 'INSERT INTO codon_tables (isolate_id,codon_table,datestamp,curator) VALUES (?,?,?,?)',
+			arguments => [ $isolate_id, $new_codon_table, 'now', $newdata->{'curator'} ]
+		  };
+	} elsif ( defined $existing_codon_table && $new_codon_table eq q() ) {
+		push @$updates,
+		  {
+			statement => 'DELETE FROM codon_tables WHERE isolate_id=?',
+			arguments => [$isolate_id]
+		  };
+	}
+	$existing_codon_table //= 'default';
+	$new_codon_table = 'default' if $new_codon_table eq q();
+	push @$updated_field, "Codon table: $existing_codon_table -> $new_codon_table";
+	return $updates;
 }
 
 sub _prepare_eav_updates {
@@ -427,6 +461,7 @@ sub _print_interface {
 		say $q->start_form;
 		$q->param( 'sent', 1 );
 		say $q->hidden($_) foreach qw(page db sent);
+		$self->print_codon_table_selection( $data, { update => 1 } );
 		$self->print_provenance_form_elements( $data, { update => 1 } );
 		$self->print_sparse_field_form_elements( $data, { update => 1 } );
 		$self->print_action_fieldset( { submit_label => 'Update', id => $data->{'id'} } );
