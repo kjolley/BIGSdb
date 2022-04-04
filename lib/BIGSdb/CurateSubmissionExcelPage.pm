@@ -198,8 +198,9 @@ sub _print_isolate_allowed_values {
 	if (@$option_list) {
 		$worksheet->write( 0, $col, $field, $self->{'header_format'} );
 		my $row = 1;
+		
 		foreach my $value (@$option_list) {
-			$worksheet->write( $row, $col, $value );
+			$worksheet->write_string( $row, $col, $value );
 			push @{ $self->{'values'}->{$field} }, $value;    #used for calculating column width
 			my $length = int( 0.9 * ( length $value ) + 2 );
 			$col_width = $length if $length > $col_width;
