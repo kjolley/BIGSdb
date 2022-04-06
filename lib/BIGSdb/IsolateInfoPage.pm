@@ -998,6 +998,10 @@ sub _get_provenance_fields {
 		} else {
 			$value = $self->_get_field_value( $data, $field );
 		}
+		if ( $value && $thisfield->{'type'} eq 'geography_point' ) {
+			my $geography = $self->_get_geography_coordinates($value);
+			$value = "$geography->{'latitude'}, $geography->{'longitude'}";
+		}
 		my %user_field = map { $_ => 1 } qw(curator sender);
 		if ( $user_field{$field} || ( $thisfield->{'userfield'} // '' ) eq 'yes' ) {
 			push @$list, $self->_get_user_field( $summary_view, $field, $displayfield, $value, $data );
@@ -1045,6 +1049,21 @@ sub _get_provenance_fields {
 	$buffer .= $self->get_list_block( $list, { columnize => 1 } );
 	$buffer .= q(</div></div>);
 	return $buffer;
+}
+
+sub _get_geography_coordinates {
+	my ( $self, $point ) = @_;
+	my ( $long, $lat );
+	eval {
+		 ( $long, $lat ) =
+		  $self->{'datastore'}->run_query( 'SELECT ST_X(?::geometry),ST_Y(?::geometry)', [ $point, $point ] );
+		
+	};
+	if ($@) {
+		$logger->error('Invalid geography coordinate passed.');
+		return {};
+	}
+	return { longitude => $long, latitude => $lat };
 }
 
 sub _get_web_links {
@@ -1531,8 +1550,7 @@ sub _get_lincode_values {
 	foreach my $pk_value (@$pk_values) {
 		my $lincode =
 		  $self->{'datastore'}
-		  ->run_query( "SELECT DISTINCT(lincode) FROM $lincode_table WHERE profile_id=? ORDER BY lincode", $pk_value )
-		  ;
+		  ->run_query( "SELECT DISTINCT(lincode) FROM $lincode_table WHERE profile_id=? ORDER BY lincode", $pk_value );
 		local $" = q(_);
 		push @lincodes, qq(@$lincode) if $lincode;
 	}
