@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -1233,7 +1233,6 @@ sub _check_data_codon_table {
 	return if ( $self->{'system'}->{'alternative_codon_tables'} // q() ) ne 'yes';
 	my $field          = $arg_ref->{'field'};
 	my $value          = ${ $arg_ref->{'value'} };
-	
 	my $pk_combination = $arg_ref->{'pk_combination'};
 	return if $field ne 'codon_table';
 	return if !defined $value || $value eq q();
@@ -1325,7 +1324,7 @@ sub _check_data_primary_key {
 		}
 		my ($exists) = $self->{'sql'}->{'primary_key_check'}->fetchrow_array;
 		if ($exists) {
-			my %warn_tables = map { $_ => 1 } qw(project_members refs isolate_aliases locus_aliases);
+			my %warn_tables = map { $_ => 1 } qw(codon_tables project_members refs isolate_aliases locus_aliases);
 			if ( $warn_tables{ $arg_ref->{'table'} } ) {
 				my $warning_text = 'Primary key already exists in the database - upload will be skipped.<br />';
 				if ( !defined $arg_ref->{'problems'}->{$pk_combination}
