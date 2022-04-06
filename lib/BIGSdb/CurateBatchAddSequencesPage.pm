@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -198,14 +198,37 @@ sub _print_interface_sequence_switches {
 	say $q->checkbox( -name => 'ignore_similarity', -label => 'Override sequence similarity check' );
 	say q(</li><li>);
 	say $q->checkbox( -name => 'ignore_length', -label => 'Override sequence length check' );
+
+	if ( ( $self->{'system'}->{'alternative_codon_tables'} // q() ) eq 'yes' ) {
+		say q(</li></li>);
+		my $tables = Bio::Tools::CodonTable->tables;
+		my $labels = {};
+		my @ids    = sort { $a <=> $b } keys %$tables;
+		foreach my $id (@ids) {
+			$labels->{$id} = "$id - $tables->{$id}";
+		}
+		my $default_codon_table = $self->{'datastore'}->get_codon_table;
+		say q(<label for="codon_table">Codon table to use in CDS check: </label>);
+		say $q->popup_menu(
+			-name    => 'codon_table',
+			-id      => 'codon_table',
+			-values  => [ '', @ids ],
+			-labels  => $labels,
+			-default => $default_codon_table
+		);
+	}
 	say q(</li></ul>);
 	return;
 }
 
 sub _run_helper {
 	my ( $self, $locus, $prefix ) = @_;
-	my $q         = $self->{'cgi'};
-	my $set_id    = $self->get_set_id;
+	my $q           = $self->{'cgi'};
+	my $set_id      = $self->get_set_id;
+	my $codon_table = $q->param('codon_table') // $self->{'datastore'}->get_codon_table;
+	if ( !BIGSdb::Utils::is_int($codon_table) ) {
+		$codon_table = $self->{'datastore'}->get_codon_table;
+	}
 	my $check_obj = BIGSdb::Offline::BatchSequenceCheck->new(
 		{
 			config_dir       => $self->{'config_dir'},
@@ -226,6 +249,7 @@ sub _run_helper {
 				ignore_non_DNA    => $q->param('ignore_non_DNA') ? 1 : 0,
 				ignore_similarity => $q->param('ignore_similarity') ? 1 : 0,
 				ignore_length     => $q->param('ignore_length') ? 1 : 0,
+				codon_table       => $codon_table,
 				username          => $self->{'username'}
 			},
 			instance => $self->{'instance'},
