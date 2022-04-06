@@ -319,7 +319,8 @@ sub get_sixpack_display {
 	my $stop_codons  = $self->{'datastore'}->get_stop_codons( { isolate_id => $options->{'isolate_id'} } );
 	my %stop_codon   = map { $_ => 1 } @$stop_codons;
 	my $exon_count   = $self->_get_exon_count($seq_features);
-	my $codon_table  = $self->{'datastore'}->get_codon_table( $options->{'isolate_id'} );
+	my $codon_table  = $options->{'codon_table'}
+	  // $self->{'datastore'}->get_codon_table( $options->{'isolate_id'} );
 
 	if ( $codon_table > 23 ) {
 		$codon_table = DEFAULT_CODON_TABLE;

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2013-2021, University of Oxford
+#Copyright (c) 2013-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::ExtractedSequencePage);
+use Bio::Tools::CodonTable;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant MAX_SEQ_LENGTH => 10000;
@@ -72,8 +73,27 @@ sub print_content {
 	say q(<fieldset><legend>Modify sequence attributes</legend>);
 	say $q->start_form;
 	say q(<ul style="padding-bottom: 0.5em"><li>);
-	say q(<label for="orf">ORF: </label>);
+	say q(<label for="orf" class="display">ORF: </label>);
 	say $q->popup_menu( -name => 'orf', -id => 'orf', -values => [qw(1 2 3)], -default => $orf );
+
+	if ( ( $self->{'system'}->{'alternative_codon_tables'} // q() ) eq 'yes' ) {
+		say q(</li></li>);
+		my $tables = Bio::Tools::CodonTable->tables;
+		my $labels = {};
+		my @ids    = sort { $a <=> $b } keys %$tables;
+		foreach my $id (@ids) {
+			$labels->{$id} = "$id - $tables->{$id}";
+		}
+		my $default_codon_table = $self->{'datastore'}->get_codon_table;
+		say q(<label for="codon_table" class="display">Codon table: </label>);
+		say $q->popup_menu(
+			-name    => 'codon_table',
+			-id      => 'codon_table',
+			-values  => [ '', @ids ],
+			-labels  => $labels,
+			-default => $default_codon_table
+		);
+	}
 	say q(</li></ul>);
 	say q(<span style="float:left">);
 	say $q->submit( -label => 'Reverse', -name => 'reverse', -class => 'small_submit' );
@@ -92,7 +112,11 @@ sub print_content {
 	say $self->format_sequence_features($seq_feature);
 	say q(</div>);
 	say q(<h2>Translation</h2>);
-	my $stops = $self->find_internal_stops( $seq_feature, $orf );
+		my $codon_table = $q->param('codon_table') // $self->{'datastore'}->get_codon_table;
+	if (!BIGSdb::Utils::is_int($codon_table)){
+		$codon_table = $self->{'datastore'}->get_codon_table;
+	}
+	my $stops = $self->find_internal_stops( $seq_feature, $orf,{codon_table=>$codon_table} );
 
 	if (@$stops) {
 		local $" = ', ';
@@ -102,7 +126,8 @@ sub print_content {
 		say qq(<span class="statusgood">No internal stop codons in ORF-$orf</span>);
 	}
 	say q(<pre class="sixpack">);
-	say $self->get_sixpack_display( $seq_feature, $orf );
+
+	say $self->get_sixpack_display( $seq_feature, $orf,{codon_table=>$codon_table} );
 	say q(</pre>);
 	say q(</div></div>);
 	return;

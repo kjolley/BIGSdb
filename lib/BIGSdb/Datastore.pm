@@ -2888,9 +2888,9 @@ sub get_start_codons {
 
 sub get_stop_codons {
 	my ( $self, $options ) = @_;
-	my $codon_table_id = $self->get_codon_table( $options->{'isolate_id'} );
-	my $codon_table    = Bio::Tools::CodonTable->new( -id => $codon_table_id );
-	my @stops          = $codon_table->revtranslate('*');
+	my $codon_table_id = $options->{'codon_table'} // $self->get_codon_table( $options->{'isolate_id'} );
+	my $codon_table = Bio::Tools::CodonTable->new( -id => $codon_table_id );
+	my @stops = $codon_table->revtranslate('*');
 	$_ = uc($_) foreach @stops;
 	return \@stops;
 }
