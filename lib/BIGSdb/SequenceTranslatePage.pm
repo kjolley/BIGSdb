@@ -112,12 +112,16 @@ sub print_content {
 	say $self->format_sequence_features($seq_feature);
 	say q(</div>);
 	say q(<h2>Translation</h2>);
-		my $codon_table = $q->param('codon_table') // $self->{'datastore'}->get_codon_table;
-	if (!BIGSdb::Utils::is_int($codon_table)){
+	
+	my $codon_table = $q->param('codon_table') // $self->{'datastore'}->get_codon_table;
+
+	if ( !BIGSdb::Utils::is_int($codon_table) ) {
 		$codon_table = $self->{'datastore'}->get_codon_table;
 	}
-	my $stops = $self->find_internal_stops( $seq_feature, $orf,{codon_table=>$codon_table} );
-
+	if ( $codon_table =~ /^(\d*)$/x ) {
+		$codon_table = $1;    #untaint
+	}
+	my $stops = $self->find_internal_stops( $seq_feature, $orf, { codon_table => $codon_table } );
 	if (@$stops) {
 		local $" = ', ';
 		my $plural = @$stops == 1 ? '' : 's';
@@ -126,8 +130,7 @@ sub print_content {
 		say qq(<span class="statusgood">No internal stop codons in ORF-$orf</span>);
 	}
 	say q(<pre class="sixpack">);
-
-	say $self->get_sixpack_display( $seq_feature, $orf,{codon_table=>$codon_table} );
+	say $self->get_sixpack_display( $seq_feature, $orf, { codon_table => $codon_table } );
 	say q(</pre>);
 	say q(</div></div>);
 	return;
