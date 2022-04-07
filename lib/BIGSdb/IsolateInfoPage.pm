@@ -54,6 +54,13 @@ sub initiate {
 		return;
 	}
 	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree jQuery.columnizer);
+	my $field_attributes = $self->{'xmlHandler'}->get_all_field_attributes;
+	foreach my $field ( keys %$field_attributes ) {
+		if ( $field_attributes->{$field}->{'type'} eq 'geography_point' ) {
+			$self->{'ol'} = 1;
+			last;
+		}
+	}
 	$self->set_level1_breadcrumbs;
 	return;
 }
@@ -960,6 +967,7 @@ sub _get_provenance_fields {
 	my $set_id     = $self->get_set_id;
 	my $is_curator = $self->is_curator;
 	my $field_list = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
+	my $map;
 	my ( %composites, %composite_display_pos );
 	my $composite_data =
 	  $self->{'datastore'}
@@ -999,8 +1007,10 @@ sub _get_provenance_fields {
 			$value = $self->_get_field_value( $data, $field );
 		}
 		if ( $value && $thisfield->{'type'} eq 'geography_point' ) {
-			my $geography = $self->_get_geography_coordinates($value);
-			$value = "$geography->{'latitude'}, $geography->{'longitude'}";
+			my $geography = $self->{'datastore'}->get_geography_coordinates($value);
+			$map = $geography;
+			$map->{'field'} = ucfirst($displayfield);
+			next;
 		}
 		my %user_field = map { $_ => 1 } qw(curator sender);
 		if ( $user_field{$field} || ( $thisfield->{'userfield'} // '' ) eq 'yes' ) {
@@ -1048,22 +1058,49 @@ sub _get_provenance_fields {
 	return q() if !@$list;
 	$buffer .= $self->get_list_block( $list, { columnize => 1 } );
 	$buffer .= q(</div></div>);
+	$buffer .= $self->_get_map_section($map);
 	return $buffer;
 }
 
-sub _get_geography_coordinates {
-	my ( $self, $point ) = @_;
-	my ( $long, $lat );
-	eval {
-		 ( $long, $lat ) =
-		  $self->{'datastore'}->run_query( 'SELECT ST_X(?::geometry),ST_Y(?::geometry)', [ $point, $point ] );
-		
-	};
-	if ($@) {
-		$logger->error('Invalid geography coordinate passed.');
-		return {};
-	}
-	return { longitude => $long, latitude => $lat };
+sub _get_map_section {
+	my ( $self, $map ) = @_;
+	return q() if !defined $map;
+	my $buffer = q(<div><span class="info_icon fa-2x fa-fw fas fa-map fa-pull-left" style="margin-top:-0.2em"></span>);
+	$buffer .= qq(<h2>$map->{'field'}</h2>\n);
+	$buffer .= qq(<p>$map->{'latitude'}, $map->{'longitude'}</p>);
+	$buffer .= q(<div id="map" class="map"></div>);
+	$buffer .= <<"MAP";
+
+<script>
+\$(document).ready(function() 
+    { 
+      var map = new ol.Map({
+        target: 'map',
+        layers: [
+          new ol.layer.Tile({
+            source: new ol.source.OSM()
+          })
+        ],
+        view: new ol.View({
+          center: ol.proj.fromLonLat([$map->{'longitude'}, $map->{'latitude'}]),
+          zoom: 8
+        })
+      });
+      var layer = new ol.layer.Vector({
+        source: new ol.source.Vector({
+          features: [
+             new ol.Feature({
+                 geometry: new ol.geom.Point(ol.proj.fromLonLat([$map->{'longitude'}, $map->{'latitude'}]))
+             })
+          ]
+       })
+     });
+     map.addLayer(layer);
+   });
+</script>
+MAP
+	$buffer .= q(</div>);
+	return $buffer;
 }
 
 sub _get_web_links {

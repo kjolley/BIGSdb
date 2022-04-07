@@ -2930,4 +2930,19 @@ sub are_lincodes_defined {
 	my ( $self, $scheme_id ) = @_;
 	return $self->run_query( 'SELECT EXISTS(SELECT * FROM lincode_schemes WHERE scheme_id=?)', $scheme_id );
 }
+
+sub get_geography_coordinates {
+	my ( $self, $point ) = @_;
+	my ( $long, $lat );
+	eval {
+		 ( $long, $lat ) =
+		  $self->run_query( 'SELECT ST_X(?::geometry),ST_Y(?::geometry)', [ $point, $point ] );
+		
+	};
+	if ($@) {
+		$logger->error('Invalid geography coordinate passed.');
+		return {};
+	}
+	return { longitude => $long, latitude => $lat };
+}
 1;

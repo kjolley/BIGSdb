@@ -207,6 +207,7 @@ sub _get_javascript_paths {
 				version => '20200308'
 			},
 			'igv'              => { src => [qw(igv.min.js)],              defer => 1, version => '20200308' },
+			'ol'               => { src => [qw(ol.js)],                   defer => 1, version => '6.14.1' },
 			'bigsdb.dashboard' => { src => [qw(bigsdb.dashboard.min.js)], defer => 1, version => '20220111' },
 			'bigsdb.dataexplorer' =>
 			  { src => [qw(bigsdb.dataexplorer.min.js d3.v6.min.js)], defer => 1, version => '20220111' }
@@ -647,7 +648,7 @@ sub _get_meta_data {
 sub _get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20220207';
+	my $version = '20220407';
 	my @filenames;
 	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
 	push @filenames, q(billboard.min.css)                                     if $self->{'billboard'};
@@ -655,6 +656,7 @@ sub _get_stylesheets {
 	push @filenames, qw(jquery.multiselect.css jquery.multiselect.filter.css) if $self->{'jQuery.multiselect'};
 	push @filenames, qw(d3.geomap.css)                                        if $self->{'geomap'};
 	push @filenames, qw(jquery.modal.min.css)                                 if $self->{'modal'};
+	push @filenames, qw(ol.css) if $self->{'ol'};
 	push @filenames, qw(jquery.fonticonpicker.min.css jquery.fonticonpicker.darkgrey.min.css)
 	  if $self->{'jQuery.fonticonpicker'};
 
