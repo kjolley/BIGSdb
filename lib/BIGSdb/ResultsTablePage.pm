@@ -598,15 +598,6 @@ sub _print_isolate_table {
 	$self->_print_isolate_table_header( $schemes, $qry_limit );
 	my $td = 1;
 	local $" = '=? AND ';
-	my $field_attributes = {};
-	my $optlist          = {};
-
-	foreach my $field (@$fields) {
-		$field_attributes->{$field} = $self->{'xmlHandler'}->get_field_attributes($field);
-		if ( ( $field_attributes->{$field}->{'optlist'} // q() ) eq 'yes' ) {
-			$optlist->{$field} = $self->{'xmlHandler'}->get_field_option_list($field);
-		}
-	}
 	$self->{'scheme_loci'}->{0} = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
 	my $field_list =
 	  $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
@@ -618,38 +609,10 @@ sub _print_isolate_table {
 		next if $id_used{ $data{'id'} };
 		$id_used{ $data{'id'} } = 1;
 		my $profcomplete = 1;
-		my $id;
+		my $id           = $data{'id'};
 		print qq(<tr class="td$td">);
 		foreach my $thisfieldname (@$field_list) {
-			if ( $self->{'prefs'}->{'maindisplayfields'}->{$thisfieldname} || $thisfieldname eq 'id' ) {
-				if ( $thisfieldname eq 'id' ) {
-					$id = $data{$thisfieldname};
-					$self->_print_isolate_id_links( $id, \%data );
-				} elsif ( $thisfieldname eq 'sender'
-					|| $thisfieldname eq 'curator'
-					|| ( ( $field_attributes->{$thisfieldname}->{'userfield'} // '' ) eq 'yes' ) )
-				{
-					my $user_info = $self->{'datastore'}->get_user_info( $data{$thisfieldname} );
-					print qq(<td>$user_info->{'first_name'} $user_info->{'surname'}</td>);
-				} else {
-					if ( $optlist->{$thisfieldname} && ref $data{$thisfieldname} ) {
-						$data{$thisfieldname} =
-						  BIGSdb::Utils::arbitrary_order_list( $optlist->{$thisfieldname}, $data{$thisfieldname} );
-					} elsif ( ( $field_attributes->{$thisfieldname}->{'multiple'} // q() ) eq 'yes'
-						&& ref $data{$thisfieldname} )
-					{
-						@{ $data{$thisfieldname} } =
-						  $field_attributes->{$thisfieldname}->{'type'} eq 'text'
-						  ? sort { $a cmp $b } @{ $data{$thisfieldname} }
-						  : sort { $a <=> $b } @{ $data{$thisfieldname} };
-					}
-					local $" = q(; );
-					my $value = ref $data{$thisfieldname} ? qq(@{$data{$thisfieldname}}) : $data{$thisfieldname};
-					$value //= q();
-					$value =~ tr/\n/ /;
-					print qq(<td>$value</td>);
-				}
-			}
+			$self->_print_field_value( \%data, $thisfieldname );
 			$self->_print_isolate_extended_attributes( $id, \%data, $thisfieldname );
 			$self->_print_isolate_composite_fields( $id, \%data, $thisfieldname );
 			$self->_print_isolate_aliases($id) if $thisfieldname eq $self->{'system'}->{'labelfield'};
@@ -673,6 +636,45 @@ sub _print_isolate_table {
 	say q(</table></div>);
 	say q(</div>);
 	$sql->finish if $sql;
+	return;
+}
+
+sub _print_field_value {
+	my ( $self, $data, $thisfieldname ) = @_;
+	if ( $self->{'prefs'}->{'maindisplayfields'}->{$thisfieldname} || $thisfieldname eq 'id' ) {
+		my $att = $self->{'xmlHandler'}->get_field_attributes($thisfieldname);
+		if ( $thisfieldname eq 'id' ) {
+			my $id = $data->{$thisfieldname};
+			$self->_print_isolate_id_links( $id, $data );
+		} elsif ( $thisfieldname eq 'sender'
+			|| $thisfieldname eq 'curator'
+			|| ( ( $att->{'userfield'} // '' ) eq 'yes' ) )
+		{
+			my $user_info = $self->{'datastore'}->get_user_info( $data->{$thisfieldname} );
+			print qq(<td>$user_info->{'first_name'} $user_info->{'surname'}</td>);
+		} else {
+			my $optlist = [];
+			if ( ( $att->{'optlist'} // q() ) eq 'yes' ) {
+				$optlist = $self->{'xmlHandler'}->get_field_option_list($thisfieldname);
+			}
+			if ( @$optlist && ref $data->{$thisfieldname} ) {
+				$data->{$thisfieldname} =
+				  BIGSdb::Utils::arbitrary_order_list( $optlist, $data->{$thisfieldname} );
+			} elsif ( ( $att->{'multiple'} // q() ) eq 'yes'
+				&& ref $data->{$thisfieldname} )
+			{
+				@{ $data->{$thisfieldname} } =
+				  $att->{'type'} eq 'text'
+				  ? sort { $a cmp $b } @{ $data->{$thisfieldname} }
+				  : sort { $a <=> $b } @{ $data->{$thisfieldname} };
+			}
+			local $" = q(; );
+			my $value = ref $data->{$thisfieldname} ? qq(@{$data->{$thisfieldname}}) : $data->{$thisfieldname};
+			$value //= q();
+			$value =~ tr/\n/ /;
+			print qq(<td>$value</td>);
+		}
+	}
 	return;
 }
 
