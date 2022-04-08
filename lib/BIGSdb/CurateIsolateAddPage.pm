@@ -588,14 +588,15 @@ sub print_codon_table_selection {
 	my ( $self, $newdata, $options ) = @_;
 	return if ( $self->{'system'}->{'alternative_codon_tables'} // q() ) ne 'yes';
 	my $codon_table;
-	if ($options->{'update'}){
-		$codon_table = $self->{'datastore'}->run_query('SELECT codon_table FROM codon_tables WHERE isolate_id=?',$newdata->{'id'});
+	if ( $options->{'update'} ) {
+		$codon_table = $self->{'datastore'}
+		  ->run_query( 'SELECT codon_table FROM codon_tables WHERE isolate_id=?', $newdata->{'id'} );
 	}
-	my $q           = $self->{'cgi'};
+	my $q              = $self->{'cgi'};
 	my $db_codon_table = $self->{'datastore'}->get_codon_table;
-	my $tables      = Bio::Tools::CodonTable->tables;
-	my $labels      = {};
-	my @ids         = sort { $a <=> $b } keys %$tables;
+	my $tables         = Bio::Tools::CodonTable->tables;
+	my $labels         = {};
+	my @ids            = sort { $a <=> $b } keys %$tables;
 	foreach my $id (@ids) {
 		$labels->{$id} = "$id - $tables->{$id}";
 	}

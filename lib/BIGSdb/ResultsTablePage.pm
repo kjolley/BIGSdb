@@ -603,6 +603,7 @@ sub _print_isolate_table {
 	  $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
 	local $| = 1;
 	my %id_used;
+
 	while ( $limit_sql->fetchrow_arrayref ) {
 
 		#Ordering by scheme field/locus can result in multiple rows per isolate if multiple values defined.
@@ -641,41 +642,74 @@ sub _print_isolate_table {
 
 sub _print_field_value {
 	my ( $self, $data, $thisfieldname ) = @_;
-	if ( $self->{'prefs'}->{'maindisplayfields'}->{$thisfieldname} || $thisfieldname eq 'id' ) {
-		my $att = $self->{'xmlHandler'}->get_field_attributes($thisfieldname);
-		if ( $thisfieldname eq 'id' ) {
-			my $id = $data->{$thisfieldname};
-			$self->_print_isolate_id_links( $id, $data );
-		} elsif ( $thisfieldname eq 'sender'
-			|| $thisfieldname eq 'curator'
-			|| ( ( $att->{'userfield'} // '' ) eq 'yes' ) )
-		{
-			my $user_info = $self->{'datastore'}->get_user_info( $data->{$thisfieldname} );
-			print qq(<td>$user_info->{'first_name'} $user_info->{'surname'}</td>);
-		} else {
-			my $optlist = [];
-			if ( ( $att->{'optlist'} // q() ) eq 'yes' ) {
-				$optlist = $self->{'xmlHandler'}->get_field_option_list($thisfieldname);
-			}
-			if ( @$optlist && ref $data->{$thisfieldname} ) {
-				$data->{$thisfieldname} =
-				  BIGSdb::Utils::arbitrary_order_list( $optlist, $data->{$thisfieldname} );
-			} elsif ( ( $att->{'multiple'} // q() ) eq 'yes'
-				&& ref $data->{$thisfieldname} )
-			{
-				@{ $data->{$thisfieldname} } =
-				  $att->{'type'} eq 'text'
-				  ? sort { $a cmp $b } @{ $data->{$thisfieldname} }
-				  : sort { $a <=> $b } @{ $data->{$thisfieldname} };
-			}
-			local $" = q(; );
-			my $value = ref $data->{$thisfieldname} ? qq(@{$data->{$thisfieldname}}) : $data->{$thisfieldname};
-			$value //= q();
-			$value =~ tr/\n/ /;
-			print qq(<td>$value</td>);
+	return if !$self->{'prefs'}->{'maindisplayfields'}->{$thisfieldname} && $thisfieldname ne 'id';
+	my $att     = $self->{'xmlHandler'}->get_field_attributes($thisfieldname);
+	my $methods = {
+		id => sub { $self->_process_id_links( $data, $thisfieldname ) },
+		users => sub { $self->_process_user_values( $data, $att, $thisfieldname ) },
+		location => sub {$self->_process_location_values( $data, $att, $thisfieldname )}
+	};
+	foreach my $method (qw(id users location)) {
+		if ( $methods->{$method}->() ) {
+			return;
 		}
 	}
+	my $optlist = [];
+	if ( ( $att->{'optlist'} // q() ) eq 'yes' ) {
+		$optlist = $self->{'xmlHandler'}->get_field_option_list($thisfieldname);
+	}
+	if ( @$optlist && ref $data->{$thisfieldname} ) {
+		$data->{$thisfieldname} =
+		  BIGSdb::Utils::arbitrary_order_list( $optlist, $data->{$thisfieldname} );
+	} elsif ( ( $att->{'multiple'} // q() ) eq 'yes'
+		&& ref $data->{$thisfieldname} )
+	{
+		@{ $data->{$thisfieldname} } =
+		  $att->{'type'} eq 'text'
+		  ? sort { $a cmp $b } @{ $data->{$thisfieldname} }
+		  : sort { $a <=> $b } @{ $data->{$thisfieldname} };
+	}
+	local $" = q(; );
+	my $value = ref $data->{$thisfieldname} ? qq(@{$data->{$thisfieldname}}) : $data->{$thisfieldname};
+	$value //= q();
+	$value =~ tr/\n/ /;
+	print qq(<td>$value</td>);
 	return;
+}
+
+sub _process_id_links {
+	my ( $self, $data, $fieldname ) = @_;
+	return if $fieldname ne 'id';
+	my $id = $data->{$fieldname};
+	$self->_print_isolate_id_links( $id, $data );
+	return 1;
+}
+
+sub _process_user_values {
+	my ( $self, $data, $att, $fieldname ) = @_;
+	if (   $fieldname eq 'sender'
+		|| $fieldname eq 'curator'
+		|| ( ( $att->{'userfield'} // '' ) eq 'yes' ) )
+	{
+		my $user_info = $self->{'datastore'}->get_user_info( $data->{$fieldname} );
+		print qq(<td>$user_info->{'first_name'} $user_info->{'surname'}</td>);
+		return 1;
+	}
+	return;
+}
+
+sub _process_location_values {
+	my ( $self, $data, $att, $fieldname ) = @_;
+	return if $att->{'type'} ne 'geography_point';
+	
+	my $point = $data->{$fieldname};
+	if (defined $point){
+	my $location = $self->{'datastore'}->get_geography_coordinates($point);
+	print qq(<td>$location->{'latitude'}, $location->{'longitude'}</td>);
+	} else {
+		print q(<td></td>);
+	}
+	return 1;
 }
 
 sub _print_isolate_id_links {
