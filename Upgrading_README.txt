@@ -40,6 +40,7 @@ Version 1.31: Change of isolate database structure.
 Version 1.32: Change of seqdef, isolate and preference database structures.
 Version 1.33: Change of isolate database structure.
 Version 1.34: Change of seqdef and isolate database structures.
+Version 1.35: Change of isolate database structure.
 
 Details can be found below.
 
@@ -534,3 +535,10 @@ Please run the isolatedb_v1.34.sql script against isolate databases and the
 seqdefdb_v1.34.sql script against sequence definition databases.
 
 Note that there is a new Perl module dependency: PDL.
+
+Version 1.35
+------------
+There are changes to the isolate database in order to support alternative codon
+tables.
+
+Please run the isolatedb_v1.35.sql script against isolate databases.

@@ -1,3 +1,4 @@
+v1.35.0: *Adds support for alternative codon tables.
 v1.34.2: *LINcode bug fixes.
          *Option to allow batch upload of profiles that are identical except
           for missing data.
