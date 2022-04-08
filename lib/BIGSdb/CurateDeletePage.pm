@@ -337,7 +337,7 @@ sub _delete {
 
 			#cascade deletion of validation rules
 			next if $table eq 'validation_rules' && $table_to_check eq 'validation_rule_conditions';
-
+			
 			#cascade deletion of scheme group
 			next
 			  if $table eq 'scheme_groups' && any { $table_to_check eq $_ }
@@ -621,6 +621,7 @@ sub get_title {
 sub _get_tables_which_reference_table {
 	my ( $self, $table ) = @_;
 	my %tables;
+	my %ignore_tables = map{$_ => 1}(qw(lincodes));
 	foreach my $table2 ( $self->{'datastore'}->get_tables ) {
 		if (
 			!(
@@ -630,6 +631,7 @@ sub _get_tables_which_reference_table {
 			&& $table2 ne $table
 		  )
 		{
+			next if $ignore_tables{$table2};
 			my $attributes = $self->{'datastore'}->get_table_field_attributes($table2);
 			if ( ref $attributes eq 'ARRAY' ) {
 				foreach my $att (@$attributes) {
