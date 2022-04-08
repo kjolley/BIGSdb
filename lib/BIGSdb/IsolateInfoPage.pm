@@ -968,15 +968,7 @@ sub _get_provenance_fields {
 	my $is_curator = $self->is_curator;
 	my $field_list = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
 	my $map;
-	my ( %composites, %composite_display_pos );
-	my $composite_data =
-	  $self->{'datastore'}
-	  ->run_query( 'SELECT id,position_after FROM composite_fields', undef, { fetch => 'all_arrayref', slice => {} } );
-
-	foreach (@$composite_data) {
-		$composite_display_pos{ $_->{'id'} }  = $_->{'position_after'};
-		$composites{ $_->{'position_after'} } = 1;
-	}
+	my ( $composites, $composite_display_pos ) = $self->_get_composites;
 	my $field_with_extended_attributes;
 	if ( !$summary_view ) {
 		$field_with_extended_attributes =
@@ -993,10 +985,10 @@ sub _get_provenance_fields {
 		local $" = q(; );
 		if ( !defined $data->{ lc($field) } ) {
 
-			if ( $composites{$field} ) {
-				my $composites =
-				  $self->_get_composite_field_rows( $isolate_id, $data, $field, \%composite_display_pos );
-				push @$list, @$composites if @$composites;
+			if ( $composites->{$field} ) {
+				my $composite_fields =
+				  $self->_get_composite_field_rows( $isolate_id, $data, $field, $composite_display_pos );
+				push @$list, @$composite_fields if @$composite_fields;
 			}
 			next;    #Do not print row
 		}
@@ -1033,27 +1025,18 @@ sub _get_provenance_fields {
 			push @$list, { title => $displayfield, data => $prefix . $separator . ( $web // $value ) . $suffix }
 			  if $web || $value ne q();
 		}
-		if ( $field eq 'curator' ) {
-			my $history = $self->_get_history_field($isolate_id);
-			push @$list, $history if $history;
-		}
 		my %ext_attribute_field = map { $_ => 1 } @$field_with_extended_attributes;
 		if ( $ext_attribute_field{$field} ) {
 			my $ext_list = $self->_get_field_extended_attributes( $field, $value );
-			push @$list, @$ext_list if @$ext_list;
+			push @$list, @$ext_list;
 		}
-		if ( $field eq $self->{'system'}->{'labelfield'} ) {
-			my $aliases = $self->{'datastore'}->get_isolate_aliases($isolate_id);
-			if (@$aliases) {
-				local $" = q(; );
-				my $plural = @$aliases > 1 ? 'es' : '';
-				push @$list, { title => "alias$plural", data => "@$aliases" };
-			}
+		if ( $composites->{$field} ) {
+			my $composite_fields =
+			  $self->_get_composite_field_rows( $isolate_id, $data, $field, $composite_display_pos );
+			push @$list, @$composite_fields;
 		}
-		if ( $composites{$field} ) {
-			my $composites = $self->_get_composite_field_rows( $isolate_id, $data, $field, \%composite_display_pos );
-			push @$list, @$composites if @$composites;
-		}
+		$self->_check_curator( $isolate_id, $list, $field );
+		$self->_check_aliases( $isolate_id, $list, $field );
 	}
 	return q() if !@$list;
 	$buffer .= $self->get_list_block( $list, { columnize => 1 } );
@@ -1062,13 +1045,48 @@ sub _get_provenance_fields {
 	return $buffer;
 }
 
+sub _get_composites {
+	my ($self) = @_;
+	my ( $composites, $composite_display_pos );
+	my $composite_data =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT id,position_after FROM composite_fields', undef, { fetch => 'all_arrayref', slice => {} } );
+	foreach (@$composite_data) {
+		$composite_display_pos->{ $_->{'id'} }  = $_->{'position_after'};
+		$composites->{ $_->{'position_after'} } = 1;
+	}
+	return ( $composites, $composite_display_pos );
+}
+
+sub _check_curator {
+	my ( $self, $isolate_id, $list, $field ) = @_;
+	if ( $field eq 'curator' ) {
+		my $history = $self->_get_history_field($isolate_id);
+		push @$list, $history if $history;
+	}
+	return;
+}
+
+sub _check_aliases {
+	my ( $self, $isolate_id, $list, $field ) = @_;
+	if ( $field eq $self->{'system'}->{'labelfield'} ) {
+		my $aliases = $self->{'datastore'}->get_isolate_aliases($isolate_id);
+		if (@$aliases) {
+			local $" = q(; );
+			my $plural = @$aliases > 1 ? 'es' : '';
+			push @$list, { title => "alias$plural", data => "@$aliases" };
+		}
+	}
+	return;
+}
+
 sub _get_map_section {
 	my ( $self, $map ) = @_;
 	return q() if !defined $map;
 	my $buffer = q(<div><span class="info_icon fa-2x fa-fw fas fa-map fa-pull-left" style="margin-top:-0.2em"></span>);
 	$buffer .= qq(<h2>$map->{'field'}</h2>\n);
 	$buffer .= qq(<p>$map->{'latitude'}, $map->{'longitude'}</p>);
-	$buffer .= q(<div id="map" class="map"></div>);
+	$buffer .= q(<div id="map" class="ol_map"></div>);
 	$buffer .= <<"MAP";
 
 <script>

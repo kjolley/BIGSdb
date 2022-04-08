@@ -1036,7 +1036,7 @@ div.registration_buttons {
 	margin: 0 3em
 }
 
-div.map {
+div.ol_map {
 	width: 400px;
 	height: 400px;
 	max-width: 100%;
