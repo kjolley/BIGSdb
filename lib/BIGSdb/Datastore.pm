@@ -2945,4 +2945,17 @@ sub get_geography_coordinates {
 	}
 	return { longitude => $long, latitude => $lat };
 }
+
+sub convert_coordinates_to_geography {
+	my ($self, $latitude, $longitude) = @_;
+	my $value;
+	eval {
+		$value = $self->run_query('SELECT ST_MakePoint(?,?)::geography',[$longitude,$latitude]);
+	};
+	if ($@) {
+		$logger->error($@);
+		return;
+	}
+	return $value;
+}
 1;

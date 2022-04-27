@@ -313,6 +313,7 @@ sub _insert {
 			push @fields_with_values, $field;
 		}
 	}
+	$self->convert_geography_data($newdata);
 	my $inserts      = [];
 	my @placeholders = ('?') x @fields_with_values;
 	local $" = ',';
@@ -368,6 +369,20 @@ sub _insert {
 		);
 		$self->update_history( $newdata->{'id'}, 'Isolate record added' );
 		return SUCCESS;
+	}
+	return;
+}
+
+sub convert_geography_data {
+	my ( $self, $newdata ) = @_;
+	my $atts = $self->{'xmlHandler'}->get_all_field_attributes;
+	foreach my $field ( keys %$atts ) {
+		if ( ( $atts->{$field}->{'type'} // q() ) eq 'geography_point'
+			&& $newdata->{$field} =~ /\s*(\-?\d+\.?\d+)\s*,\s*(\-?\d+\.?\d+)\s*/x )
+		{
+			my ( $lat, $long ) = ( $1, $2 );
+			$newdata->{$field} = $self->{'datastore'}->convert_coordinates_to_geography( $lat, $long );
+		}
 	}
 	return;
 }
@@ -757,12 +772,13 @@ sub _print_field {
 		curator          => '_print_curator',
 		sender_submitter => '_print_sender_when_submitting',
 		user_field       => '_print_user',
+		geography_point  => '_print_geography_point_field',
 		long_text_field  => '_print_long_text_field',
 		default_field    => '_print_default_field'
 	};
 	foreach my $condition (
 		qw(update_id optlist bool datestamp date_entered curator sender_submitter
-		user_field long_text_field default_field)
+		user_field geography_point long_text_field default_field)
 	  )
 	{
 		my $method = $methods->{$condition};
@@ -987,6 +1003,21 @@ sub _print_long_text_field {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 		  . q(Supports multiple values - enter each one on separate line</span>);
 	}
 	say q(</div>);
+	return 1;
+}
+
+sub _print_geography_point_field {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $args ) = @_;
+	my ( $field, $newdata, $thisfield, $html5_args, $update ) =
+	  @{$args}{qw(field newdata thisfield html5_args update)};
+	my $q = $self->{'cgi'};
+	return if $thisfield->{'type'} ne 'geography_point';
+	return if !$update;
+	if ( defined $newdata->{$field} ) {
+		my $coordinates = $self->{'datastore'}->get_geography_coordinates( $newdata->{$field} );
+		$newdata->{$field} = "$coordinates->{'latitude'}, $coordinates->{'longitude'}";
+	}
+	$self->_print_default_field($args);
 	return 1;
 }
 

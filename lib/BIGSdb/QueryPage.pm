@@ -267,9 +267,19 @@ sub check_format {
 					$error = qq($display_field is a date field - )
 					  . q(should be in yyyy-mm-dd format (or 'today' / 'yesterday').);
 				}
+			},
+			gp_longitude => sub {
+				if ( !BIGSdb::Utils::is_float( $data->{'text'} ) ) {
+					$error = qq($display_field (longitiude) is a floating point number field.);
+				}
+			},
+			gp_latitude => sub {
+				if ( !BIGSdb::Utils::is_float( $data->{'text'} ) ) {
+					$error = qq($display_field (latitude) is a floating point number field.);
+				}
 			}
 		);
-		foreach my $type (qw(int bool float date)) {
+		foreach my $type (qw(int bool float date gp_longitude gp_latitude)) {
 			if ( $data->{'type'} =~ /$type/x ) {
 				$checks{$type}->();
 				last;

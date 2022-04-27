@@ -1924,6 +1924,9 @@ sub _generate_query_for_provenance_fields {
 				  $self->{'xmlHandler'}->get_field_attributes( $att_info->{'isolate_field'} )->{'type'};
 				$thisfield->{'type'} = $att_info->{'value_format'};
 				$thisfield->{'type'} = 'int' if $thisfield->{'type'} eq 'integer';
+			} elsif ( $field =~ /^gp_(.*)_(latitude|longitude)/x ) {
+				$field = $1;
+				$thisfield->{'type'} = "gp_$2";
 			}
 			my $operator = $q->param("prov_operator$i") // '=';
 			my $text = $q->param("prov_value$i");
@@ -2143,7 +2146,9 @@ sub _provenance_equals_type_operator {
 		my $null_clause = $values->{'not'} ? "OR $field IS NULL" : '';
 		if ( lc($text) eq 'null' ) {
 			$buffer .= "$field IS $not null";
-		} elsif ( lc($type) eq 'text' ) {
+			return $buffer;
+		}
+		if ( lc($type) eq 'text' ) {
 			my $subvalues = $self->_get_sub_values( $text, $optlist );
 			if ($multiple) {
 				$buffer .= "(($not E'$text' ILIKE ANY($field)) $null_clause)";
@@ -2157,6 +2162,10 @@ sub _provenance_equals_type_operator {
 				}
 				$buffer .= "(($not (UPPER($field) = UPPER(E'$text')$subvalue_clause)) $null_clause)";
 			}
+		} elsif ( $type =~ /^gp_(longitude|latitude)/x ) {
+			my $long_lat = $1;
+			my %function = ( latitude => 'ST_Y', longitude => 'ST_X' );
+			$buffer .= "($not ($function{$long_lat}(${field}::geometry) = $text) $null_clause)";
 		} else {
 			if ($multiple) {
 				$buffer .= "(($not E'$text' = ANY($field)) $null_clause)";
@@ -2204,7 +2213,12 @@ sub _provenance_like_type_operator {
 	} else {
 		my $null_clause = $values->{'not'} ? "OR $field IS NULL" : '';
 		my $rand = 'x' . int( rand(99999999) );
-		if ( $type ne 'text' ) {
+		if ( $type =~ /^gp_(longitude|latitude)/x ) {
+			my $long_lat = $1;
+			my %function = ( latitude => 'ST_Y', longitude => 'ST_X' );
+			$buffer .= "($not ($function{$long_lat}(${field}::geometry)::text LIKE '$text') $null_clause)";
+		}
+		elsif ( $type ne 'text' ) {
 			if ($multiple) {
 				$buffer .=
 				    "($view.id $not IN (SELECT $view.id FROM $view,unnest($field) "
@@ -2212,6 +2226,7 @@ sub _provenance_like_type_operator {
 			} else {
 				$buffer .= "($not CAST($field AS text) LIKE E'$text' $null_clause)";
 			}
+
 		} else {
 			if ($multiple) {
 				$buffer .=
@@ -2227,11 +2242,18 @@ sub _provenance_like_type_operator {
 
 sub _provenance_ltmt_type_operator {
 	my ( $self, $values ) = @_;
-	my ( $field, $extended_isolate_field, $text, $parent_field_type, $operator, $errors, $multiple ) =
-	  @$values{qw(field extended_isolate_field text parent_field_type operator errors multiple)};
+	my ( $field, $extended_isolate_field, $text, $parent_field_type, $operator, $errors, $type,$multiple ) =
+	  @$values{qw(field extended_isolate_field text parent_field_type operator errors type multiple)};
 	my $buffer     = $values->{'modifier'};
 	my $view       = $self->{'system'}->{'view'};
 	my $labelfield = "$view.$self->{'system'}->{'labelfield'}";
+	
+	if ( $type =~ /^gp_(longitude|latitude)/x ) {
+			my $long_lat = $1;
+			my %function = ( latitude => 'ST_Y', longitude => 'ST_X' );
+			$field = "$function{$long_lat}(${field}::geometry)";
+		}
+	
 	if ($extended_isolate_field) {
 		$buffer .=
 		  $parent_field_type eq 'int'

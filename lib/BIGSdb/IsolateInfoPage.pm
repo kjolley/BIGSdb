@@ -1096,7 +1096,9 @@ sub _get_map_section {
         target: 'map',
         layers: [
           new ol.layer.Tile({
-            source: new ol.source.OSM()
+            source: new ol.source.OSM({
+            	crossOrigin: null
+            })
           })
         ],
         view: new ol.View({
