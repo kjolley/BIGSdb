@@ -804,6 +804,11 @@ sub _prepare_provenance_field_update {
 	my $view       = $self->{'system'}->{'view'};
 	my $match      = $self->_get_match_criteria;
 	my $curator_id = $self->get_curator_id;
+	if ( ( $att->{'type'} // q() ) eq 'geography_point' ) {
+		if ( $value =~ /\s*(\-?\d+\.?\d+)\s*,\s*(\-?\d+\.?\d+)\s*/x ) {
+			$value = $self->{'datastore'}->convert_coordinates_to_geography( $1, $2 );
+		}
+	}
 	push @$args, ( ( $value // q() ) eq q() || ( ref $value && !@$value ) ? undef : $value );
 	if ( $multivalue_fields->{$field} && scalar $q->param('multi_value') eq 'add' ) {
 		$qry =
@@ -818,6 +823,12 @@ sub _prepare_provenance_field_update {
 	my $id_qry = $qry;
 	$id_qry =~ s/UPDATE\ isolates\ .*?\ WHERE/SELECT $field FROM isolates WHERE/x;
 	my $old_value = $self->{'datastore'}->run_query( $id_qry, $id_args );
+	if ( ( $att->{'type'} // q() ) eq 'geography_point' ) {
+		if ($old_value) {
+			my $coordinates = $self->{'datastore'}->get_geography_coordinates($old_value);
+			$old_value = qq($coordinates->{'latitude'}, $coordinates->{'longitude'});
+		}
+	}
 	return { qry => $qry, args => $args, old_value => $old_value, no_history => $no_history };
 }
 
