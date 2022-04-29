@@ -1,4 +1,4 @@
-/*Version: 20220407*/
+/*Version: 20220429*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -1039,8 +1039,8 @@ div.registration_buttons {
 div.ol_map {
 	width: 400px;
 	height: 400px;
-	max-width: 100%;
-	border: 1px #888 solid
+	max-width: 80vw;
+	border: 1px #888 solid;
 }
 
 a.close_trigger {

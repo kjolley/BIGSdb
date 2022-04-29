@@ -967,9 +967,10 @@ sub _get_provenance_fields {
 	my $set_id     = $self->get_set_id;
 	my $is_curator = $self->is_curator;
 	my $field_list = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
-	my $map;
+	my $maps       = [];
 	my ( $composites, $composite_display_pos ) = $self->_get_composites;
 	my $field_with_extended_attributes;
+
 	if ( !$summary_view ) {
 		$field_with_extended_attributes =
 		  $self->{'datastore'}->run_query( 'SELECT DISTINCT isolate_field FROM isolate_field_extended_attributes',
@@ -1000,8 +1001,9 @@ sub _get_provenance_fields {
 		}
 		if ( $value && $thisfield->{'type'} eq 'geography_point' ) {
 			my $geography = $self->{'datastore'}->get_geography_coordinates($value);
-			$map = $geography;
+			my $map       = $geography;
 			$map->{'field'} = ucfirst($displayfield);
+			push @$maps, $map;
 			next;
 		}
 		my %user_field = map { $_ => 1 } qw(curator sender);
@@ -1041,7 +1043,7 @@ sub _get_provenance_fields {
 	return q() if !@$list;
 	$buffer .= $self->get_list_block( $list, { columnize => 1 } );
 	$buffer .= q(</div></div>);
-	$buffer .= $self->_get_map_section($map);
+	$buffer .= $self->_get_map_section($maps);
 	return $buffer;
 }
 
@@ -1081,19 +1083,23 @@ sub _check_aliases {
 }
 
 sub _get_map_section {
-	my ( $self, $map ) = @_;
-	return q() if !defined $map;
+	my ( $self, $maps ) = @_;
+	return q() if !@$maps;
 	my $buffer = q(<div><span class="info_icon fa-2x fa-fw fas fa-map fa-pull-left" style="margin-top:-0.2em"></span>);
-	$buffer .= qq(<h2>$map->{'field'}</h2>\n);
-	$buffer .= qq(<p>$map->{'latitude'}, $map->{'longitude'}</p>);
-	$buffer .= q(<div id="map" class="ol_map"></div>);
-	$buffer .= <<"MAP";
+	$buffer .= qq(<h2>Maps</h2>\n);
+	my $i = 1;
+	foreach my $map (@$maps) {
+		$buffer .= q(<div style="float:left;margin:0 1em">);
+		$buffer .= qq(<h2>$map->{'field'}</h2>\n);
+		$buffer .= qq(<p>$map->{'latitude'}, $map->{'longitude'}</p>);
+		$buffer .= qq(<div id="map$i" class="ol_map"></div>);
+		$buffer .= <<"MAP";
 
 <script>
 \$(document).ready(function() 
     { 
       var map = new ol.Map({
-        target: 'map',
+        target: 'map$i',
         layers: [
           new ol.layer.Tile({
             source: new ol.source.OSM({
@@ -1119,6 +1125,9 @@ sub _get_map_section {
    });
 </script>
 MAP
+		$buffer .= q(</div>);
+		$i++;
+	}
 	$buffer .= q(</div>);
 	return $buffer;
 }
