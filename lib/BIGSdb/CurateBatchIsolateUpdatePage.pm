@@ -422,9 +422,7 @@ sub _get_old_values {
 	push @$qry_args, $id->[$i];
 	push @$qry_args, $id2->[$i] if $id_fields->{'field2'} ne '<none>';
 	my $old_values = $self->{'datastore'}->run_query( $qry, $qry_args, { fetch => 'col_arrayref' } );
-	$self->_reformat_values($field->[$i],$old_values);
-
-	
+	$self->_reformat_values( $field->[$i], $old_values );
 	if ( ( $self->{'cache'}->{'attributes'}->{ $field->[$i] }->{'multiple'} // q() ) eq 'yes' ) {
 		if ( ( $self->{'cache'}->{'attributes'}->{ $field->[$i] }->{'optlist'} // q() ) eq 'yes' ) {
 			$old_values =
@@ -444,10 +442,10 @@ sub _get_old_values {
 }
 
 sub _reformat_values {
-	my ($self, $field, $list) = @_;
-	if (($self->{'cache'}->{'attributes'}->{ $field}->{'type'}//q() ) eq 'geography_point'){
-		foreach my $value (@$list){
-			if ($value){
+	my ( $self, $field, $list ) = @_;
+	if ( ( $self->{'cache'}->{'attributes'}->{$field}->{'type'} // q() ) eq 'geography_point' ) {
+		foreach my $value (@$list) {
+			if ($value) {
 				my $coordinates = $self->{'datastore'}->get_geography_coordinates($value);
 				$value = "$coordinates->{'latitude'}, $coordinates->{'longitude'}";
 			}
@@ -525,7 +523,6 @@ sub _check_field {
 	} else {
 		$action = q(<span class="statusbad">no action - value already in db</span>);
 	}
-
 	return ( $old_value, $action, $will_update );
 }
 
@@ -604,9 +601,9 @@ sub _update {
 		my $deleted_designations = [];
 		my $args                 = [];
 		my $delete_args          = [];
-		my @id_args              = ($id1);
-		push @id_args, $id2 if $id->{'field2'} ne '<none>';
-		my $isolate_id = $self->{'datastore'}->run_query( "SELECT $view.id FROM $view WHERE $match", \@id_args );
+		my $id_args              = [$id1];
+		push @$id_args, $id2 if $id->{'field2'} ne '<none>';
+		my $isolate_id = $self->{'datastore'}->run_query( "SELECT $view.id FROM $view WHERE $match", $id_args );
 		my $no_history;
 
 		if ($is_locus) {
@@ -616,28 +613,9 @@ sub _update {
 			my $data = $self->_prepare_eav_update( $isolate_id, $field, $value );
 			( $args, $qry, $old_value ) = @{$data}{qw(args qry old_value)};
 		} else {
-			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-			$no_history = 1 if ( $att->{'curate_only'} // q() ) eq 'yes';
-			if ( ( $att->{'multiple'} // q() ) eq 'yes' && defined $value && scalar $q->param('multi_value') ne 'add' )
-			{
-				$value = [ split /;/x, $value ];
-				s/^\s+|\s+$//gx foreach @$value;
-				@$value = uniq @$value;
-			}
-			push @$args, ( ( $value // q() ) eq q() || ( ref $value && !@$value ) ? undef : $value );
-			if ( $multivalue_fields{$field} && scalar $q->param('multi_value') eq 'add' ) {
-				$qry =
-				    "UPDATE isolates SET ($field,datestamp,curator)=(ARRAY_APPEND($field,?),?,?) WHERE id IN "
-				  . "(SELECT $view.id FROM $view WHERE $match)";
-			} else {
-				$qry =
-				    "UPDATE isolates SET ($field,datestamp,curator)=(?,?,?) WHERE id IN "
-				  . "(SELECT $view.id FROM $view WHERE $match)";
-			}
-			push @$args, ( 'now', $curator_id, @id_args );
-			my $id_qry = $qry;
-			$id_qry =~ s/UPDATE\ isolates\ .*?\ WHERE/SELECT id,$field FROM isolates WHERE/x;
-			( $isolate_id, $old_value ) = $self->{'datastore'}->run_query( $id_qry, \@id_args );
+			my $data =
+			  $self->_prepare_provenance_field_update( \%multivalue_fields, $id_args, $isolate_id, $field, $value );
+			( $args, $qry, $old_value, $no_history ) = @{$data}{qw(args qry old_value no_history)};
 		}
 		$tablebuffer .= qq(<tr class="td$td"><td>$id->{'field1'}='$id1');
 		$tablebuffer .= qq( AND $id->{'field2'}='$id2') if $id->{'field2'} ne '<none>';
@@ -809,6 +787,38 @@ sub _prepare_allele_designation_update {
 		}
 	}
 	return { qry => $qry, args => $args, delete_qry => $delete_qry, delete_args => $delete_args };
+}
+
+sub _prepare_provenance_field_update {
+	my ( $self, $multivalue_fields, $id_args, $isolate_id, $field, $value ) = @_;
+	my $q          = $self->{'cgi'};
+	my $att        = $self->{'xmlHandler'}->get_field_attributes($field);
+	my $no_history = ( $att->{'curate_only'} // q() ) eq 'yes' ? 1 : 0;
+	if ( ( $att->{'multiple'} // q() ) eq 'yes' && defined $value && scalar $q->param('multi_value') ne 'add' ) {
+		$value = [ split /;/x, $value ];
+		s/^\s+|\s+$//gx foreach @$value;
+		@$value = uniq @$value;
+	}
+	my $qry;
+	my $args       = [];
+	my $view       = $self->{'system'}->{'view'};
+	my $match      = $self->_get_match_criteria;
+	my $curator_id = $self->get_curator_id;
+	push @$args, ( ( $value // q() ) eq q() || ( ref $value && !@$value ) ? undef : $value );
+	if ( $multivalue_fields->{$field} && scalar $q->param('multi_value') eq 'add' ) {
+		$qry =
+		    "UPDATE isolates SET ($field,datestamp,curator)=(ARRAY_APPEND($field,?),?,?) WHERE id IN "
+		  . "(SELECT $view.id FROM $view WHERE $match)";
+	} else {
+		$qry =
+		    "UPDATE isolates SET ($field,datestamp,curator)=(?,?,?) WHERE id IN "
+		  . "(SELECT $view.id FROM $view WHERE $match)";
+	}
+	push @$args, ( 'now', $curator_id, @$id_args );
+	my $id_qry = $qry;
+	$id_qry =~ s/UPDATE\ isolates\ .*?\ WHERE/SELECT $field FROM isolates WHERE/x;
+	my $old_value = $self->{'datastore'}->run_query( $id_qry, $id_args );
+	return { qry => $qry, args => $args, old_value => $old_value, no_history => $no_history };
 }
 
 sub _prepare_eav_update {
