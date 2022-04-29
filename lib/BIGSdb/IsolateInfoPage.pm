@@ -1086,12 +1086,15 @@ sub _get_map_section {
 	my ( $self, $maps ) = @_;
 	return q() if !@$maps;
 	my $buffer = q(<div><span class="info_icon fa-2x fa-fw fas fa-map fa-pull-left" style="margin-top:-0.2em"></span>);
-	$buffer .= qq(<h2>Maps</h2>\n);
+	$buffer .= @$maps > 1 ? qq(<h2>Maps</h2>\n) : qq(<h2>$maps->[0]->{'field'}</h2>\n);
 	my $i = 1;
 	foreach my $map (@$maps) {
 		$buffer .= q(<div style="float:left;margin:0 1em">);
-		$buffer .= qq(<h2>$map->{'field'}</h2>\n);
-		$buffer .= qq(<p>$map->{'latitude'}, $map->{'longitude'}</p>);
+		if ( @$maps > 1 ) {
+			$buffer .= qq(<dl class="data"><dt>$map->{'field'}</dt><dd>$map->{'latitude'}, $map->{'longitude'}</dd></dl>\n);
+		} else {
+			$buffer .= qq(<p>$map->{'latitude'}, $map->{'longitude'}</p>);
+		}
 		$buffer .= qq(<div id="map$i" class="ol_map"></div>);
 		$buffer .= <<"MAP";
 
