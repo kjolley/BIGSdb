@@ -1,6 +1,6 @@
 #BLAST.pm - BLAST plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -115,7 +115,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.5.1',
+		version     => '1.5.2',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -537,7 +537,7 @@ sub _get_isolate_label {
 	if ( !$self->{'cache'}->{'label'}->{$isolate_id} ) {
 		$self->{'cache'}->{'label'}->{$isolate_id} =
 		  $self->{'datastore'}
-		  ->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?",
+		  ->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM isolates WHERE id=?",
 			$isolate_id, { cache => 'BLAST::get_isolate_label' } );
 	}
 	return $self->{'cache'}->{'label'}->{$isolate_id};
