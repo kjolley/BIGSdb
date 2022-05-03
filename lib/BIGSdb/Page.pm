@@ -1295,11 +1295,12 @@ sub _get_provenance_fields {
 				( $self->{'cache'}->{'labels'}->{"f_$field ($user_attribute)"} = "$field ($user_attribute)" ) =~
 				  tr/_/ /;
 			}
-		} elsif (($attributes->{$field}->{'type'} // q()) eq 'geography_point'){
-			foreach my $term (qw(latitude longitude)){
+		} elsif ( ( $attributes->{$field}->{'type'} // q() ) eq 'geography_point'
+			&& !$options->{'nosplit_geography_points'} )
+		{
+			foreach my $term (qw(latitude longitude)) {
 				push @isolate_list, "gp_${field}_$term";
-				( $self->{'cache'}->{'labels'}->{"gp_${field}_$term"} = "${field} ($term)" ) =~
-				  tr/_/ /;
+				( $self->{'cache'}->{'labels'}->{"gp_${field}_$term"} = "${field} ($term)" ) =~ tr/_/ /;
 			}
 		} else {
 			push @isolate_list, "f_$field";

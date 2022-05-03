@@ -485,7 +485,7 @@ sub print_includes_fieldset {
 		if ( $field =~ /^(?:l|cn)_/x ) {
 			push @{ $group_members->{'Loci'} }, $field;
 		}
-		if ( $field =~ /^(?:f|e)_/x ) {
+		if ( $field =~ /^(?:f|e|gp)_/x ) {
 			( my $stripped_field = $field ) =~ s/^[f|e]_//x;
 			next if $skip_fields{$stripped_field};
 			$stripped_field =~ s/[\|\||\s].+$//x;
@@ -1098,5 +1098,47 @@ sub get_breadcrumbs {
 		}
 	  );
 	return $breadcrumbs;
+}
+
+#Currently only for geography_point values.
+sub field_needs_conversion {
+	my ( $self, $field ) = @_;
+	my %conversion_types = map { $_ => 1 } qw(geography_point);
+	if ( !defined $self->{'cache'}->{'fields_needing_value_conversion'} ) {
+		$self->{'cache'}->{'fields_needing_value_conversion'} = {};
+		my $atts = $self->{'xmlHandler'}->get_all_field_attributes;
+		foreach my $field ( keys %$atts ) {
+			if ( $conversion_types{ $atts->{$field}->{'type'} } ) {
+				$self->{'cache'}->{'fields_needing_value_conversion'}->{$field} = 1;
+			}
+		}
+	}
+	return $self->{'cache'}->{'fields_needing_value_conversion'}->{$field};
+}
+
+sub convert_field_value {
+	my ( $self, $field, $value ) = @_;
+	if ( !defined $self->{'cache'}->{'field_types'} ) {
+		my $atts = $self->{'xmlHandler'}->get_all_field_attributes;
+		foreach my $field ( keys %$atts ) {
+			$self->{'cache'}->{'field_types'}->{$field} = $atts->{$field}->{'type'} // 'text';
+		}
+	}
+	my %conversion = (
+		geography_point => sub {
+			return q() if !defined $value || $value eq q();
+			my $coordinates = $self->{'datastore'}->get_geography_coordinates($value);
+			return qq($coordinates->{'latitude'}, $coordinates->{'longitude'});
+		}
+	);
+	if ( $conversion{ $self->{'cache'}->{'field_types'}->{$field} } ) {
+		if ( ref $value eq 'ARRAY' ) {
+			$logger->error("$self->{'cache'}->{'field_types'}->{$field} array values are not supported.")
+			  ;
+			return $value;
+		}
+		return $conversion{ $self->{'cache'}->{'field_types'}->{$field} }->();
+	}
+	return $value;
 }
 1;

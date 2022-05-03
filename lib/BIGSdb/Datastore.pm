@@ -28,6 +28,9 @@ my $logger = get_logger('BIGSdb.Datastore');
 use Unicode::Collate;
 use File::Path qw(make_path);
 use Fcntl qw(:flock);
+use Memoize;
+memoize('get_geography_coordinates');
+memoize('convert_coordinates_to_geography');
 use BIGSdb::Exceptions;
 use BIGSdb::ClassificationScheme;
 use BIGSdb::ClientDB;
@@ -2934,11 +2937,7 @@ sub are_lincodes_defined {
 sub get_geography_coordinates {
 	my ( $self, $point ) = @_;
 	my ( $long, $lat );
-	eval {
-		 ( $long, $lat ) =
-		  $self->run_query( 'SELECT ST_X(?::geometry),ST_Y(?::geometry)', [ $point, $point ] );
-		
-	};
+	eval { ( $long, $lat ) = $self->run_query( 'SELECT ST_X(?::geometry),ST_Y(?::geometry)', [ $point, $point ] ); };
 	if ($@) {
 		$logger->error('Invalid geography coordinate passed.');
 		return {};
@@ -2947,15 +2946,14 @@ sub get_geography_coordinates {
 }
 
 sub convert_coordinates_to_geography {
-	my ($self, $latitude, $longitude) = @_;
+	my ( $self, $latitude, $longitude ) = @_;
 	my $value;
-	eval {
-		$value = $self->run_query('SELECT ST_MakePoint(?,?)::geography',[$longitude,$latitude]);
-	};
+	eval { $value = $self->run_query( 'SELECT ST_MakePoint(?,?)::geography', [ $longitude, $latitude ] ); };
 	if ($@) {
 		$logger->error($@);
 		return;
 	}
 	return $value;
 }
+
 1;

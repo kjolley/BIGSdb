@@ -1,6 +1,6 @@
 #FieldBreakdown.pm - FieldBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2018-2021, University of Oxford
+#Copyright (c) 2018-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -48,7 +48,7 @@ sub get_attributes {
 		buttontext => 'Fields',
 		menutext   => 'Field breakdown',
 		module     => 'FieldBreakdown',
-		version    => '2.3.1',
+		version    => '2.3.2',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
@@ -525,7 +525,7 @@ sub _get_fields_js {
 	my $field_attributes = $self->{'xmlHandler'}->get_all_field_attributes;
 	my %types = map { $field_attributes->{$_} => $field_attributes->{$_}->{'type'} } keys %$field_attributes;
 	my @type_values;
-	my %allowed_types = map { $_ => 1 } qw(integer text float date);
+	my %allowed_types = map { $_ => 1 } qw(integer text float date geography_point);
 	foreach my $field ( keys %$field_attributes ) {
 		my $type = lc( $field_attributes->{$field}->{'type'} );
 		$type = 'integer' if $type eq 'int';
@@ -640,7 +640,8 @@ sub _ajax {
 
 sub _get_field_freqs {
 	my ( $self, $field, $options ) = @_;
-	my $qry = "SELECT $field AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
+	my $needs_conversion = $self->field_needs_conversion($field);
+	my $qry              = "SELECT $field AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
 	  . 'JOIN id_list i ON v.id=i.value ';
 	$qry .= 'GROUP BY label';
 	my $order = $options->{'order'} ? $options->{'order'} : 'value DESC';
@@ -686,6 +687,12 @@ sub _get_field_freqs {
 			  };
 		}
 		return $new_return_list;
+	}
+	if ($needs_conversion) {
+		foreach my $value (@$values) {
+			next if !defined $value->{'label'};
+			$value->{'label'} = $self->convert_field_value( $field, $value->{'label'} );
+		}
 	}
 	return $values;
 }

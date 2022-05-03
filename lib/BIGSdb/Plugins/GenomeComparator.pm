@@ -65,7 +65,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.7.3',
+		version     => '2.7.4',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -241,11 +241,12 @@ sub _print_interface {
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
 	$self->print_includes_fieldset(
 		{
-			title          => 'Include in identifiers',
-			preselect      => "f_$self->{'system'}->{'labelfield'}",
-			isolate_fields => 1,
-			scheme_fields  => 1,
-			size           => 9
+			title                    => 'Include in identifiers',
+			preselect                => "f_$self->{'system'}->{'labelfield'}",
+			isolate_fields           => 1,
+			nosplit_geography_points => 1,
+			scheme_fields            => 1,
+			size                     => 9
 		}
 	);
 	$self->print_recommended_scheme_fieldset;
@@ -1192,8 +1193,11 @@ sub _get_identifier {
 				my @field_values = keys %{ $scheme_values->{ lc $scheme_field } };
 				local $" = q(_);
 				$field_value = qq(@field_values);
-			} elsif ( $field =~ /f_(.+)/x ) {
+			} elsif ( $field =~ /^f_(.+)/x ) {
 				$field_value = $self->get_field_value( $include_data, $1, ';' );
+				if ( $self->field_needs_conversion($1) ) {
+					$field_value = $self->convert_field_value( $1, $field_value );
+				}
 			}
 			$field_value //= q();
 			$field_value =~ tr/[\(\):, ]/_/;
