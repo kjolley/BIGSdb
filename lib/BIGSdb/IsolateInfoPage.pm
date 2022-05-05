@@ -147,6 +147,9 @@ sub get_javascript {
 		\$(".cs_filtered").css('visibility','visible');
 		\$(".cs_unfiltered").css('visibility','collapse');
 	});
+	\$("a#toggle_satellite").click(function(){
+		alert('toggle');
+	});
 });
 
 function enable_slide_triggers(){
@@ -1088,10 +1091,42 @@ sub _get_map_section {
 	my $buffer = q(<div><span class="info_icon fa-2x fa-fw fas fa-map fa-pull-left" style="margin-top:-0.2em"></span>);
 	$buffer .= @$maps > 1 ? qq(<h2>Maps</h2>\n) : qq(<h2>$maps->[0]->{'field'}</h2>\n);
 	my $i = 1;
+	my $layers;
+	my $bingmaps_api = $self->{'system'}->{'bingmaps_api'} // $self->{'config'}->{'bingmaps_api'};
+	if ( $bingmaps_api) {
+		$layers = <<"JS";
+const styles = ['RoadOnDemand','AerialWithLabelsOnDemand'];
+const layers = [];
+let i, ii;
+for (i = 0, ii = styles.length; i < ii; ++i) {
+  layers.push(
+    new ol.layer.Tile({
+      visible: i == 0 ? true : false,
+      preload: Infinity,
+      source: new ol.source.BingMaps({
+        key: '$bingmaps_api',
+        imagerySet: styles[i],
+      }),
+    })
+  );
+}		
+JS
+	} else {
+		$layers = <<"JS";
+	  const layers = [
+          new ol.layer.Tile({
+            source: new ol.source.OSM({
+            	crossOrigin: null
+            })
+          })
+        ];			
+JS
+	}
 	foreach my $map (@$maps) {
 		$buffer .= q(<div style="float:left;margin:0 1em">);
 		if ( @$maps > 1 ) {
-			$buffer .= qq(<dl class="data"><dt>$map->{'field'}</dt><dd>$map->{'latitude'}, $map->{'longitude'}</dd></dl>\n);
+			$buffer .=
+			  qq(<p><span class="data_title">$map->{'field'}:</span>$map->{'latitude'}, $map->{'longitude'}</p>\n);
 		} else {
 			$buffer .= qq(<p>$map->{'latitude'}, $map->{'longitude'}</p>);
 		}
@@ -1099,20 +1134,23 @@ sub _get_map_section {
 		$buffer .= <<"MAP";
 
 <script>
-\$(document).ready(function() 
+\$(document).ready(function() 	
     { 
+      $layers
       var map = new ol.Map({
         target: 'map$i',
-        layers: [
-          new ol.layer.Tile({
-            source: new ol.source.OSM({
-            	crossOrigin: null
-            })
-          })
-        ],
+        layers: layers,
         view: new ol.View({
           center: ol.proj.fromLonLat([$map->{'longitude'}, $map->{'latitude'}]),
           zoom: 8
+        })
+      });
+      var pointer_style = new ol.style.Style({
+        image: new ol.style.Circle({
+          radius: 7,
+          stroke: new ol.style.Stroke({
+            color: [255,0,0], width: 2
+          })  
         })
       });
       var layer = new ol.layer.Vector({
@@ -1122,12 +1160,35 @@ sub _get_map_section {
                  geometry: new ol.geom.Point(ol.proj.fromLonLat([$map->{'longitude'}, $map->{'latitude'}]))
              })
           ]
-       })
+        }), 
+        style: pointer_style
      });
      map.addLayer(layer);
+     \$("a#toggle_satellite$i").click(function(event){
+     	if (layers[0].getVisible()){
+     		layers[0].setVisible(false);
+     		layers[1].setVisible(true);
+     		\$("span#satellite${i}_off").hide();
+     		\$("span#satellite${i}_on").show();
+     	} else {
+     		layers[0].setVisible(true);
+     		layers[1].setVisible(false);
+     		\$("span#satellite${i}_on").hide();
+     		\$("span#satellite${i}_off").show();
+     	}
+     });	
    });
+
 </script>
 MAP
+		if ( $self->{'config'}->{'bingmaps_api'} ) {
+			$buffer .=
+			    q(<p><span style="vertical-align:0.4em">Aerial view </span>)
+			  . qq(<a class="toggle_satellite" id="toggle_satellite$i" style="cursor:pointer">)
+			  . qq(<span class="fas fa-toggle-off toggle_icon fa-2x" id="satellite${i}_off"></span>)
+			  . qq(<span class="fas fa-toggle-on toggle_icon fa-2x" id="satellite${i}_on" style="display:none">)
+			  . q(</span></a></p>);
+		}
 		$buffer .= q(</div>);
 		$i++;
 	}

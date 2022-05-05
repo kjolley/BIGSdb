@@ -1,4 +1,4 @@
-/*Version: 20220429*/
+/*Version: 20220506*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -2255,6 +2255,12 @@ dl.profile {
 	padding: 0;
 	margin: 0;
 	background: white;
+}
+
+span.data_title {
+	font-weight: bold;
+	color: #404080;
+	padding-right: 1em
 }
 
 div.large_scheme dl.profile {
