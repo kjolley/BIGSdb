@@ -241,8 +241,8 @@ sub _create_tsv_file {
 		my @record_values;
 		foreach my $field (@$prov_fields) {
 			my $field_value = $self->get_field_value( $record, $field );
-			if ( $self->field_needs_conversion($field) ) {
-				$field_value = $self->convert_field_value( $field, $field_value );
+			if ( $self->{'datastore'}->field_needs_conversion($field) ) {
+				$field_value = $self->{'datastore'}->convert_field_value( $field, $field_value );
 			}
 			push @record_values, $field_value if $include_fields{"f_$field"};
 			my $extatt = $extended->{$field};

@@ -1021,7 +1021,7 @@ sub _get_field_value {
 	my ( $self, $args ) = @_;
 	my ( $isolate_id, $field, $clean_fields, $options ) = @{$args}{qw(isolate_id field clean_fields options)};
 	my $value;
-	my $needs_conversion = $self->field_needs_conversion( $clean_fields->{$field} );
+	my $needs_conversion = $self->{'datastore'}->field_needs_conversion( $clean_fields->{$field} );
 	if ( $options->{'fetchall'} ) {
 		if ( !$self->{'cache'}->{$field} ) {
 			$self->{'cache'}->{$field} =
@@ -1030,7 +1030,7 @@ sub _get_field_value {
 			if ($needs_conversion) {
 				foreach my $id ( keys %{ $self->{'cache'}->{$field} } ) {
 					$self->{'cache'}->{$field}->{$id}->{ $clean_fields->{$field} } =
-					  $self->convert_field_value( $clean_fields->{$field},
+					  $self->{'datastore'}->convert_field_value( $clean_fields->{$field},
 						$self->{'cache'}->{$field}->{$id}->{ $clean_fields->{$field} } );
 				}
 			}
@@ -1041,7 +1041,7 @@ sub _get_field_value {
 		  $self->{'datastore'}->run_query( "SELECT $clean_fields->{$field} FROM $self->{'system'}->{'view'} WHERE id=?",
 			$isolate_id, { cache => "TwoFieldBreakdown::get_field_value::$field" } );
 		if ($needs_conversion) {
-			$value = $self->convert_field_value( $clean_fields->{$field}, $value );
+			$value = $self->{'datastore'}->convert_field_value( $clean_fields->{$field}, $value );
 		}
 	}
 	return $value;

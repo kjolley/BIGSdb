@@ -305,10 +305,10 @@ sub _get_field_value {
 		$value = '-' if !defined $value || $value eq '';
 		return $value;
 	} else {
-		my $needs_conversion = $self->field_needs_conversion( $field );
+		my $needs_conversion = $self->{'datastore'}->field_needs_conversion( $field );
 		my $value = $self->get_field_value( $data, $field );
 		if ($needs_conversion){
-			$value = $self->convert_field_value($field,$value);
+			$value = $self->{'datastore'}->convert_field_value($field,$value);
 		}
 		$value = q(-) if $value eq q();
 		return $value;

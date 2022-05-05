@@ -445,8 +445,8 @@ sub _generate_tsv_file {
 		foreach my $field (@$prov_fields) {
 			if ( $include_fields{"f_$field"} ) {
 				my $value = $self->get_field_value( $record, $field );
-				if ( $self->field_needs_conversion($field) ) {
-					$value = $self->convert_field_value( $field, $value );
+				if ( $self->{'datastore'}->field_needs_conversion($field) ) {
+					$value = $self->{'datastore'}->convert_field_value( $field, $value );
 				}
 				push @record_values, $value;
 			}

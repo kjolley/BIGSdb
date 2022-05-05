@@ -109,6 +109,12 @@ sub _get_field {
 	my $qry = "SELECT DISTINCT $field FROM $self->{'system'}->{'view'} WHERE $field IS NOT NULL ORDER BY $field";
 	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
 	my $set_values = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
+	if ($self->{'datastore'}->field_needs_conversion($field)){
+		foreach my $value (@$set_values){
+			$value = $self->{'datastore'}->convert_field_value($field,$value);
+		}
+		@$set_values = sort @$set_values;
+	}
 	my $values = {
 		records => int($value_count),
 		values  => $set_values
@@ -117,6 +123,8 @@ sub _get_field {
 	$values->{'paging'} = $paging if %$paging;
 	return $values;
 }
+
+
 
 sub _get_extended_field {
 	my $self   = setting('self');

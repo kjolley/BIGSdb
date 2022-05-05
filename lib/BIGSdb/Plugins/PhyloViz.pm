@@ -441,8 +441,8 @@ sub _generate_auxiliary_file {
 		my @values;
 		foreach my $field (@$fields) {
 			my $value = $self->get_field_value( $isolate_data, $field );
-			if ( $self->field_needs_conversion($field) ) {
-				$value = $self->convert_field_value( $field, $value );
+			if ( $self->{'datastore'}->field_needs_conversion($field) ) {
+				$value = $self->{'datastore'}->convert_field_value( $field, $value );
 			}
 			push @values, $value;
 			if ( $ext_fields->{$field} ) {

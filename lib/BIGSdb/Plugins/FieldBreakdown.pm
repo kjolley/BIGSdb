@@ -640,7 +640,7 @@ sub _ajax {
 
 sub _get_field_freqs {
 	my ( $self, $field, $options ) = @_;
-	my $needs_conversion = $self->field_needs_conversion($field);
+	my $needs_conversion = $self->{'datastore'}->field_needs_conversion($field);
 	my $qry              = "SELECT $field AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
 	  . 'JOIN id_list i ON v.id=i.value ';
 	$qry .= 'GROUP BY label';
@@ -691,7 +691,7 @@ sub _get_field_freqs {
 	if ($needs_conversion) {
 		foreach my $value (@$values) {
 			next if !defined $value->{'label'};
-			$value->{'label'} = $self->convert_field_value( $field, $value->{'label'} );
+			$value->{'label'} = $self->{'datastore'}->convert_field_value( $field, $value->{'label'} );
 		}
 	}
 	return $values;

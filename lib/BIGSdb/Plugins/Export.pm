@@ -631,8 +631,8 @@ sub _write_field {
 		}
 	} else {
 		my $value = $self->get_field_value( $data, $field );
-		if ($self->field_needs_conversion($field)){
-			$value = $self->convert_field_value($field,$value);
+		if ($self->{'datastore'}->field_needs_conversion($field)){
+			$value = $self->{'datastore'}->convert_field_value($field,$value);
 		}
 		if ( $params->{'oneline'} ) {
 			print $fh $self->_get_id_one_line( $data, $params );

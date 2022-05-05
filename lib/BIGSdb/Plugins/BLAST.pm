@@ -601,8 +601,8 @@ sub _get_include_values {
 				$value = "@values" // q();
 			} else {
 				$value = $self->get_field_value( $include_data, $field );
-				if ( $self->field_needs_conversion($field) ) {
-					$value = $self->convert_field_value( $field, $value );
+				if ( $self->{'datastore'}->field_needs_conversion($field) ) {
+					$value = $self->{'datastore'}->convert_field_value( $field, $value );
 				}
 			}
 			push @$include_values, $value;

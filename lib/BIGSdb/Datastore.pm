@@ -2956,4 +2956,41 @@ sub convert_coordinates_to_geography {
 	return $value;
 }
 
+#Currently only for geography_point values.
+sub field_needs_conversion {
+	my ( $self,$field ) = @_;
+	my %conversion_types = map { $_ => 1 } qw(geography_point);
+	if ( !defined $self->{'cache'}->{'fields_needing_value_conversion'} ) {
+		$self->{'cache'}->{'fields_needing_value_conversion'} = {};
+		my $atts = $self->{'xmlHandler'}->get_all_field_attributes;
+		foreach my $field ( keys %$atts ) {
+			if ( $conversion_types{ $atts->{$field}->{'type'} } ) {
+				$self->{'cache'}->{'fields_needing_value_conversion'}->{$field} = 1;
+			}
+		}
+	}
+	return $self->{'cache'}->{'fields_needing_value_conversion'}->{$field};
+}
+
+sub convert_field_value {
+	my ( $self, $field, $value ) = @_;
+	if ( !defined $self->{'cache'}->{'field_types'} ) {
+		my $atts = $self->{'xmlHandler'}->get_all_field_attributes;
+		foreach my $field ( keys %$atts ) {
+			$self->{'cache'}->{'field_types'}->{$field} = $atts->{$field}->{'type'} // 'text';
+		}
+	}
+	my %conversion = (
+		geography_point => sub {
+			return q() if !defined $value || $value eq q();
+			my $coordinates = $self->get_geography_coordinates($value);
+			return qq($coordinates->{'latitude'}, $coordinates->{'longitude'});
+		}
+	);
+	if ( $conversion{ $self->{'cache'}->{'field_types'}->{$field} } ) {
+		return $conversion{ $self->{'cache'}->{'field_types'}->{$field} }->();
+	}
+	return $value;
+}
+
 1;

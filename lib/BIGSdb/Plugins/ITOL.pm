@@ -687,8 +687,8 @@ sub _create_itol_dataset {
 	my $i        = 1;
 	my $all_ints = BIGSdb::Utils::all_ints($distinct_values);
 	foreach my $value ( sort { $all_ints ? $a <=> $b : $a cmp $b } @$distinct_values ) {
-		if ( $type eq 'field' && $self->field_needs_conversion($name) ) {
-			$value = $self->convert_field_value( $name, $value );
+		if ( $type eq 'field' && $self->{'datastore'}->field_needs_conversion($name) ) {
+			$value = $self->{'datastore'}->convert_field_value( $name, $value );
 		}
 		$value_colour->{$value} = BIGSdb::Utils::get_rainbow_gradient_colour( $i, $distinct );
 		$i++;
@@ -719,8 +719,8 @@ sub _create_itol_dataset {
 			my $data =
 			  $self->{'datastore'}->run_query( $qry->{$type}, $id, { cache => "ITol::itol_dataset::$field" } );
 			next if !defined $data;
-			if ( $self->field_needs_conversion($name) ) {
-				$data = $self->convert_field_value( $name, $data );
+			if ( $self->{'datastore'}->field_needs_conversion($name) ) {
+				$data = $self->{'datastore'}->convert_field_value( $name, $data );
 			}
 			if ( ( $self->{'cache'}->{'attributes'}->{$name}->{'multiple'} // q() ) eq 'yes' ) {
 				local $" = q(; );

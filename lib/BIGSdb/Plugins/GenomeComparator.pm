@@ -1195,8 +1195,8 @@ sub _get_identifier {
 				$field_value = qq(@field_values);
 			} elsif ( $field =~ /^f_(.+)/x ) {
 				$field_value = $self->get_field_value( $include_data, $1, ';' );
-				if ( $self->field_needs_conversion($1) ) {
-					$field_value = $self->convert_field_value( $1, $field_value );
+				if ( $self->{'datastore'}->field_needs_conversion($1) ) {
+					$field_value = $self->{'datastore'}->convert_field_value( $1, $field_value );
 				}
 			}
 			$field_value //= q();
