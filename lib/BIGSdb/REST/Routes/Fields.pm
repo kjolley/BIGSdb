@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2020, University of Oxford
+#Copyright (c) 2017-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -109,9 +109,10 @@ sub _get_field {
 	my $qry = "SELECT DISTINCT $field FROM $self->{'system'}->{'view'} WHERE $field IS NOT NULL ORDER BY $field";
 	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
 	my $set_values = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
-	if ($self->{'datastore'}->field_needs_conversion($field)){
-		foreach my $value (@$set_values){
-			$value = $self->{'datastore'}->convert_field_value($field,$value);
+	if ( $self->{'datastore'}->field_needs_conversion($field) ) {
+
+		foreach my $value (@$set_values) {
+			$value = $self->{'datastore'}->convert_field_value( $field, $value );
 		}
 		@$set_values = sort @$set_values;
 	}
@@ -123,8 +124,6 @@ sub _get_field {
 	$values->{'paging'} = $paging if %$paging;
 	return $values;
 }
-
-
 
 sub _get_extended_field {
 	my $self   = setting('self');
@@ -195,6 +194,11 @@ sub _get_breakdown {
 	}
 	my $value_counts =
 	  $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
+	if ( $self->{'datastore'}->field_needs_conversion($field) ) {
+		foreach my $value_count (@$value_counts) {
+			$value_count->{$field} = $self->{'datastore'}->convert_field_value( $field, $value_count->{$field} );
+		}
+	}
 	my %values = map { $_->{$field} => $_->{'count'} } @$value_counts;
 	return \%values;
 }

@@ -136,6 +136,9 @@ sub _get_isolate {
 				} else {
 					$provenance->{$field} = $field_values->{ lc $field };
 				}
+				if ($self->{'datastore'}->field_needs_conversion($field)){
+					$provenance->{$field} = $self->{'datastore'}->convert_field_value($field,$provenance->{$field});
+				}
 			}
 		}
 	}
