@@ -147,9 +147,6 @@ sub get_javascript {
 		\$(".cs_filtered").css('visibility','visible');
 		\$(".cs_unfiltered").css('visibility','collapse');
 	});
-	\$("a#toggle_satellite").click(function(){
-		alert('toggle');
-	});
 });
 
 function enable_slide_triggers(){
@@ -1105,7 +1102,7 @@ for (i = 0, ii = styles.length; i < ii; ++i) {
       preload: Infinity,
       source: new ol.source.BingMaps({
         key: '$bingmaps_api',
-        imagerySet: styles[i],
+        imagerySet: styles[i]
       }),
     })
   );
@@ -1176,19 +1173,30 @@ JS
      		\$("span#satellite${i}_on").hide();
      		\$("span#satellite${i}_off").show();
      	}
-     });	
+     });
+     \$("a#recentre$i").click(function(event){
+     	map.getView().animate({
+     		center: ol.proj.fromLonLat([$map->{'longitude'}, $map->{'latitude'}]),
+     		duration: 500
+     	});
+     });
    });
 
 </script>
 MAP
+		$buffer.=q(<p style="margin-top:0.5em">);
 		if ( $self->{'config'}->{'bingmaps_api'} ) {
 			$buffer .=
-			    q(<p><span style="vertical-align:0.4em">Aerial view </span>)
-			  . qq(<a class="toggle_satellite" id="toggle_satellite$i" style="cursor:pointer">)
+			    q(<span style="vertical-align:0.4em">Aerial view </span>)
+			  . qq(<a class="toggle_satellite" id="toggle_satellite$i" style="cursor:pointer;margin-right:2em">)
 			  . qq(<span class="fas fa-toggle-off toggle_icon fa-2x" id="satellite${i}_off"></span>)
 			  . qq(<span class="fas fa-toggle-on toggle_icon fa-2x" id="satellite${i}_on" style="display:none">)
-			  . q(</span></a></p>);
+			  . q(</span></a>);
 		}
+		$buffer.=q(<span style="vertical-align:0.4em">Recentre </span>)
+		. qq(<a class="recentre" id="recentre$i" style="cursor:pointer;margin-right:2em">)
+		. qq(<span class="fas fa-crosshairs toggle_icon fa-2x" id="crosshairs$i"></span>)
+		. q(</a></p>);
 		$buffer .= q(</div>);
 		$i++;
 	}
