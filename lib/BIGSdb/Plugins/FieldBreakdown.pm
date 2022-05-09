@@ -61,9 +61,15 @@ sub get_attributes {
 
 sub get_initiation_values {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	my $values =
-	  { billboard => 1, filesaver => 1, noCache => 0, 'jQuery.tablesort' => 1, pluginJS => 'FieldBreakdown.js' };
+	my $q      = $self->{'cgi'};
+	my $values = {
+		billboard          => 1,
+		filesaver          => 1,
+		noCache            => 0,
+		'jQuery.tablesort' => 1,
+		pluginJS           => 'FieldBreakdown.min.js',
+		ol                 => 1
+	};
 	if ( $self->_has_country_optlist ) {
 		$values->{'geomap'} = 1;
 	}
@@ -328,6 +334,7 @@ sub run {
 	$self->print_loading_message;
 	say q(</div>);
 	say q(<div id="map" style="max-width:800px;margin-left:auto;margin-right:auto"></div>);
+	say q(<div id="geography" style="max-width:800px;margin-left:auto;margin-right:auto;max-height:100vw"></div>);
 	$self->_print_map_controls;
 	$self->_print_pie_controls;
 	$self->_print_bar_controls;
@@ -607,10 +614,11 @@ sub get_plugin_javascript {
 	my $prefs_ajax_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=ajaxPrefs);
 	my $param_string = @$query_params ? qq(&@$query_params) : q();
 	$url .= $param_string;
-	my $types_js   = $self->_get_fields_js;
-	my $loci_js    = $self->_get_loci_js;
-	my $schemes_js = $self->_get_schemes_js;
-	my $buffer     = <<"JS";
+	my $types_js     = $self->_get_fields_js;
+	my $loci_js      = $self->_get_loci_js;
+	my $schemes_js   = $self->_get_schemes_js;
+	my $bingmaps_api = $self->{'system'}->{'bingmaps_api'} // $self->{'config'}->{'bingmaps_api'};
+	my $buffer       = <<"JS";
 var height = 400;
 var segments = 20;
 var rotate = 0;
@@ -621,6 +629,7 @@ var theme = "$theme";
 var projection = "$projection";
 var url = "$url";
 var prefs_ajax_url = "$plugin_prefs_ajax_url";
+var bingmaps_api = "$bingmaps_api";
 
 $types_js	
 $loci_js

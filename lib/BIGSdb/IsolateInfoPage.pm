@@ -1134,7 +1134,7 @@ JS
 \$(document).ready(function() 	
     { 
       $layers
-      var map = new ol.Map({
+      let map = new ol.Map({
         target: 'map$i',
         layers: layers,
         view: new ol.View({
@@ -1142,7 +1142,7 @@ JS
           zoom: 8
         })
       });
-      var pointer_style = new ol.style.Style({
+      let pointer_style = new ol.style.Style({
         image: new ol.style.Circle({
           radius: 7,
           stroke: new ol.style.Stroke({
@@ -1150,7 +1150,7 @@ JS
           })  
         })
       });
-      var layer = new ol.layer.Vector({
+      let layer = new ol.layer.Vector({
         source: new ol.source.Vector({
           features: [
              new ol.Feature({

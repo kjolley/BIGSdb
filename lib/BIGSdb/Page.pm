@@ -209,7 +209,7 @@ sub _get_javascript_paths {
 			'igv' => { src => [qw(igv.min.js)], defer => 1, version => '20200308' },
 
 			#See https://dolmenweb.it/viewers/openlayer/doc/tutorials/custom-builds.html
-			'ol'               => { src => [qw(ol-custom.js)],            defer => 1, version => '6.14.1' },
+			'ol'               => { src => [qw(ol.js)],            defer => 1, version => '6.14.1' },
 			'bigsdb.dashboard' => { src => [qw(bigsdb.dashboard.min.js)], defer => 1, version => '20220111' },
 			'bigsdb.dataexplorer' =>
 			  { src => [qw(bigsdb.dataexplorer.min.js d3.v6.min.js)], defer => 1, version => '20220111' }
