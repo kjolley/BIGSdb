@@ -67,9 +67,16 @@ sub get_initiation_values {
 		filesaver          => 1,
 		noCache            => 0,
 		'jQuery.tablesort' => 1,
-		pluginJS           => 'FieldBreakdown.min.js',
-		ol                 => 1
+		pluginJS           => 'FieldBreakdown.min.js'
+		
 	};
+	my $field_attributes = $self->{'xmlHandler'}->get_all_field_attributes;
+	foreach my $field ( keys %$field_attributes ) {
+		if ( $field_attributes->{$field}->{'type'} eq 'geography_point' ) {
+			$values->{'ol'} = 1;
+			last;
+		}
+	}
 	if ( $self->_has_country_optlist ) {
 		$values->{'geomap'} = 1;
 	}

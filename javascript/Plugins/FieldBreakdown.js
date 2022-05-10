@@ -52,7 +52,7 @@ $(function() {
 	var rotate = is_vertical();
 
 	get_ajax_prefs();
-	
+
 	if (map_fields.includes(field)) {
 		load_map_after_prefs_loaded(initial_url, field);
 	} else if (field_types[field] == 'integer' || field_types[field] == 'float') {
@@ -66,7 +66,7 @@ $(function() {
 	}
 
 	$("#field").on("change", function() {
-		
+
 		$("#bb_chart").css("min-height", "400px");
 		d3.selectAll('svg').remove();
 		$("div#waiting").css("display", "block");
@@ -75,7 +75,7 @@ $(function() {
 		$("#geography").html("");
 		var rotate = is_vertical();
 		var field = $('#field').val();
-		
+
 		selected_field = field;
 		selected_type = field_types[field];
 		var new_url = url + "&field=" + field;
@@ -437,8 +437,7 @@ function load_pie(url, field, max_segments) {
 		var data = pie_json_to_cols(jsonData, max_segments);
 
 		// Load all data first otherwise a glitch causes one segment to be
-		// missing
-		// when increasing number of segments.
+		// missing when increasing number of segments.
 		var all_data = pie_json_to_cols(jsonData, 50);
 
 		// Need to create 'Others' segment otherwise it won't display properly
@@ -774,7 +773,6 @@ function load_bar(url, field, rotate) {
 
 function load_geography(url, field) {
 	$("#bb_chart").html("");
-
 	$("#geography").css("height", "400px");
 	const styles = ['RoadOnDemand', 'AerialWithLabelsOnDemand'];
 	let layers = [];
@@ -793,26 +791,56 @@ function load_geography(url, field) {
 			);
 		}
 	} else {
-		layers = [
+		layers.push(
 			new ol.layer.Tile({
 				source: new ol.source.OSM({
 					crossOrigin: null
 				})
 			})
-		];
+		);
 	}
-	let map = new ol.Map({
-		target: 'geography',
-		layers: layers,
-		view: new ol.View({
-			center: ol.proj.fromLonLat([0, 20]),
-			zoom: 2
-		})
-	});
-	map.on('postrender', function(e) {
-		$("div#waiting").css("display", "none");
-		$("#bb_chart").css("min-height", 0);
-		show_export_options();
+	d3.json(url).then(function(jsonData) {
+
+		let map = new ol.Map({
+			target: 'geography',
+			layers: layers,
+			view: new ol.View({
+				center: ol.proj.fromLonLat([0, 20]),
+				zoom: 2
+			})
+		});
+		let pointer_style = new ol.style.Style({
+			image: new ol.style.Circle({
+				radius: 3,
+				fill: new ol.style.Fill({
+					color: 'rgba(255,0,0,0.5)'
+				})
+			})
+		});
+
+		jsonData.forEach(function(e) {
+			let coordinates = (e.label.match(/(\-?\d+\.?\d+),\s*(\-?\d+\.?\d+)/));
+			if (coordinates != null) {
+				let latitude = parseFloat(coordinates[1]);
+				let longitude = parseFloat(coordinates[2]);
+				let layer = new ol.layer.Vector({
+					source: new ol.source.Vector({
+						features: [
+							new ol.Feature({
+								geometry: new ol.geom.Point(ol.proj.fromLonLat([longitude, latitude]))
+							})
+						]
+					}),
+					style: pointer_style
+				});
+				map.addLayer(layer);
+			}
+		});
+		map.on('postrender', function(e) {
+			$("div#waiting").css("display", "none");
+			$("#bb_chart").css("min-height", 0);
+			show_export_options();
+		});
 	});
 }
 
