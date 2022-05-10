@@ -1,6 +1,6 @@
 /*FieldBreakdown.js - FieldBreakdown plugin for BIGSdb
 Written by Keith Jolley
-Copyright (c) 2018-2021, University of Oxford
+Copyright (c) 2018-2022, University of Oxford
 E-mail: keith.jolley@zoo.ox.ac.uk
 
 This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 
-Version 2.3.0.
+Version 2.4.0.
 */
 
 var prefs_loaded;
@@ -426,6 +426,7 @@ function load_pie(url, field, max_segments) {
 	$("#bar_controls").css("display", "none");
 	$("#line_controls").css("display", "none");
 	$("#map_controls").css("display", "none");
+	$("#geography_controls").css("display", "none");
 	if (typeof field == 'undefined') {
 		return;
 	}
@@ -579,6 +580,7 @@ function load_line(url, field, cumulative) {
 	$("#bar_controls").css("display", "none");
 	$("#pie_controls").css("display", "none");
 	$("#map_controls").css("display", "none");
+	$("#geography_controls").css("display", "none");
 	$(".transform_to_map").css("display", "none");
 	// Prevent multiple event firing after reloading
 	$("#line_height").off("slidechange");
@@ -693,6 +695,7 @@ function load_bar_json(jsonData, field, rotate) {
 	$("#line_controls").css("display", "none");
 	$("#pie_controls").css("display", "none");
 	$("#map_controls").css("display", "none");
+	$("#geography_controls").css("display", "none");
 	$("#bar_height").off("slidechange");
 	var title = field.replace(/^.+\.\./, "");
 	var count = Object.keys(jsonData).length;
@@ -813,7 +816,7 @@ function load_geography(url, field) {
 			image: new ol.style.Circle({
 				radius: 3,
 				fill: new ol.style.Fill({
-					color: 'rgba(255,0,0,0.5)'
+					color: 'rgba(255,0,0,0.7)'
 				})
 			})
 		});
@@ -838,8 +841,19 @@ function load_geography(url, field) {
 		});
 		map.on('postrender', function(e) {
 			$("div#waiting").css("display", "none");
+			$("#geography_controls").css("display", "block");
 			$("#bb_chart").css("min-height", 0);
 			show_export_options();
+			$("#geography_view").off("change").change(function() {
+				if ($("#geography_view").val() == 'Aerial'){
+					layers[0].setVisible(false);
+					layers[1].setVisible(true);
+				} else {
+					layers[0].setVisible(true);
+					layers[1].setVisible(false);
+				}
+			});
+			
 		});
 	});
 }
