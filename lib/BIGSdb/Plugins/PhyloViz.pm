@@ -1,7 +1,7 @@
 #PhyloViz.pm - phylogenetic inference and data visualization for sequence
 #based typing methods for BIGSdb
 #Written by Emmanuel Quevillon
-#Copyright (c) 2016-2021, Institut Pasteur, Paris
+#Copyright (c) 2016-2022, Institut Pasteur, Paris
 #E-mail: tuco@pasteur.fr
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -64,7 +64,7 @@ sub get_attributes {
 		  . '<a href="https://online.phyloviz.net/">PhyloViz Online</a> for visualisation. Datasets can include '
 		  . 'metadata which allows nodes in the resultant tree to be coloured interactively.',
 		module              => 'PhyloViz',
-		version             => '1.3.0',
+		version             => '1.3.1',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -441,6 +441,9 @@ sub _generate_auxiliary_file {
 		my @values;
 		foreach my $field (@$fields) {
 			my $value = $self->get_field_value( $isolate_data, $field );
+			if ( $self->{'datastore'}->field_needs_conversion($field) ) {
+				$value = $self->{'datastore'}->convert_field_value( $field, $value );
+			}
 			push @values, $value;
 			if ( $ext_fields->{$field} ) {
 				foreach my $ext_field ( @{ $ext_fields->{$field} } ) {

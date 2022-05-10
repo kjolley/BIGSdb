@@ -763,6 +763,8 @@ sub _modify_query_by_list {
 		$isolate_scheme_field_view = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 	}
 	$field_type = 'provenance_multiple' if $field_type eq 'provenance' && $multiple;
+
+	#	$logger->error("$field $field_type");
 	my %sql = (
 		labelfield => ( $data_type eq 'text' ? "UPPER($view.$field) " : "$view.$field " )
 		  . "IN (SELECT value FROM temp_list) OR $view.id IN (SELECT isolate_id FROM isolate_aliases "
@@ -783,7 +785,9 @@ sub _modify_query_by_list {
 		  . '(SELECT value FROM temp_list))',
 		scheme_field => "$view.id IN (SELECT id FROM $isolate_scheme_field_view WHERE "
 		  . ( $data_type eq 'text' ? "UPPER($field)" : $field )
-		  . ' IN (SELECT value FROM temp_list))'
+		  . ' IN (SELECT value FROM temp_list))',
+		geography_point_latitude  => "ST_Y($view.${field}::geometry) IN (SELECT value FROM temp_list)",
+		geography_point_longitude => "ST_X($view.${field}::geometry) IN (SELECT value FROM temp_list)"
 	);
 	return $qry if !$sql{$field_type};
 	if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
@@ -837,6 +841,10 @@ sub _get_list_attribute_data {
 		$field          = $2;
 		$data_type      = 'text';
 		$field_type     = 'extended_isolate';
+	} elsif ( $attribute =~ /^gp_(.+)_(latitude|longitude)/x ) {
+		$field      = $1;
+		$field_type = "geography_point_$2";
+		$data_type  = 'float';
 	}
 	$_ //= q() foreach ( $eav_table, $extended_field );
 	return {
@@ -1924,6 +1932,9 @@ sub _generate_query_for_provenance_fields {
 				  $self->{'xmlHandler'}->get_field_attributes( $att_info->{'isolate_field'} )->{'type'};
 				$thisfield->{'type'} = $att_info->{'value_format'};
 				$thisfield->{'type'} = 'int' if $thisfield->{'type'} eq 'integer';
+			} elsif ( $field =~ /^gp_(.*)_(latitude|longitude)/x ) {
+				$field = $1;
+				$thisfield->{'type'} = "gp_$2";
 			}
 			my $operator = $q->param("prov_operator$i") // '=';
 			my $text = $q->param("prov_value$i");
@@ -2143,7 +2154,9 @@ sub _provenance_equals_type_operator {
 		my $null_clause = $values->{'not'} ? "OR $field IS NULL" : '';
 		if ( lc($text) eq 'null' ) {
 			$buffer .= "$field IS $not null";
-		} elsif ( lc($type) eq 'text' ) {
+			return $buffer;
+		}
+		if ( lc($type) eq 'text' ) {
 			my $subvalues = $self->_get_sub_values( $text, $optlist );
 			if ($multiple) {
 				$buffer .= "(($not E'$text' ILIKE ANY($field)) $null_clause)";
@@ -2157,6 +2170,10 @@ sub _provenance_equals_type_operator {
 				}
 				$buffer .= "(($not (UPPER($field) = UPPER(E'$text')$subvalue_clause)) $null_clause)";
 			}
+		} elsif ( $type =~ /^gp_(longitude|latitude)/x ) {
+			my $long_lat = $1;
+			my %function = ( latitude => 'ST_Y', longitude => 'ST_X' );
+			$buffer .= "($not ($function{$long_lat}(${field}::geometry) = $text) $null_clause)";
 		} else {
 			if ($multiple) {
 				$buffer .= "(($not E'$text' = ANY($field)) $null_clause)";
@@ -2204,7 +2221,11 @@ sub _provenance_like_type_operator {
 	} else {
 		my $null_clause = $values->{'not'} ? "OR $field IS NULL" : '';
 		my $rand = 'x' . int( rand(99999999) );
-		if ( $type ne 'text' ) {
+		if ( $type =~ /^gp_(longitude|latitude)/x ) {
+			my $long_lat = $1;
+			my %function = ( latitude => 'ST_Y', longitude => 'ST_X' );
+			$buffer .= "($not ($function{$long_lat}(${field}::geometry)::text LIKE '$text') $null_clause)";
+		} elsif ( $type ne 'text' ) {
 			if ($multiple) {
 				$buffer .=
 				    "($view.id $not IN (SELECT $view.id FROM $view,unnest($field) "
@@ -2227,11 +2248,16 @@ sub _provenance_like_type_operator {
 
 sub _provenance_ltmt_type_operator {
 	my ( $self, $values ) = @_;
-	my ( $field, $extended_isolate_field, $text, $parent_field_type, $operator, $errors, $multiple ) =
-	  @$values{qw(field extended_isolate_field text parent_field_type operator errors multiple)};
+	my ( $field, $extended_isolate_field, $text, $parent_field_type, $operator, $errors, $type, $multiple ) =
+	  @$values{qw(field extended_isolate_field text parent_field_type operator errors type multiple)};
 	my $buffer     = $values->{'modifier'};
 	my $view       = $self->{'system'}->{'view'};
 	my $labelfield = "$view.$self->{'system'}->{'labelfield'}";
+	if ( $type =~ /^gp_(longitude|latitude)/x ) {
+		my $long_lat = $1;
+		my %function = ( latitude => 'ST_Y', longitude => 'ST_X' );
+		$field = "$function{$long_lat}(${field}::geometry)";
+	}
 	if ($extended_isolate_field) {
 		$buffer .=
 		  $parent_field_type eq 'int'

@@ -53,7 +53,7 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.5.0',
+		version             => '1.5.1',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -131,16 +131,17 @@ sub _print_interface {
 	$self->print_scheme_fieldset( { fields_or_loci => 0 } );
 	$self->print_includes_fieldset(
 		{
-			description           => 'Select additional fields to include in GrapeTree metadata.',
-			isolate_fields        => 1,
-			hide                  => "f_$self->{'system'}->{'labelfield'}",
-			extended_attributes   => 1,
-			scheme_fields         => 1,
-			eav_fields            => 1,
-			classification_groups => 1,
-			lincodes              => 1,
-			lincode_fields        => 1,
-			size                  => 8
+			description              => 'Select additional fields to include in GrapeTree metadata.',
+			isolate_fields           => 1,
+			nosplit_geography_points => 1,
+			hide                     => "f_$self->{'system'}->{'labelfield'}",
+			extended_attributes      => 1,
+			scheme_fields            => 1,
+			eav_fields               => 1,
+			classification_groups    => 1,
+			lincodes                 => 1,
+			lincode_fields           => 1,
+			size                     => 8
 		}
 	);
 	$self->_print_parameters_fieldset;
@@ -442,8 +443,13 @@ sub _generate_tsv_file {
 	foreach my $record (@$data) {
 		my @record_values;
 		foreach my $field (@$prov_fields) {
-			push @record_values, $self->get_field_value( $record, $field )
-			  if $include_fields{"f_$field"};
+			if ( $include_fields{"f_$field"} ) {
+				my $value = $self->get_field_value( $record, $field );
+				if ( $self->{'datastore'}->field_needs_conversion($field) ) {
+					$value = $self->{'datastore'}->convert_field_value( $field, $value );
+				}
+				push @record_values, $value;
+			}
 			my $extatt = $extended->{$field};
 			if ( ref $extatt eq 'ARRAY' ) {
 				foreach my $extended_attribute (@$extatt) {

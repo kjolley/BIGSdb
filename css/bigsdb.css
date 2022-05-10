@@ -1,4 +1,4 @@
-/*Version: 20220207*/
+/*Version: 20220506*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -1034,6 +1034,13 @@ div.registration_buttons {
 	display: flex;
 	justify-content: space-between;
 	margin: 0 3em
+}
+
+div.ol_map {
+	width: 400px;
+	height: 400px;
+	max-width: 80vw;
+	border: 1px #888 solid;
 }
 
 a.close_trigger {
@@ -2248,6 +2255,12 @@ dl.profile {
 	padding: 0;
 	margin: 0;
 	background: white;
+}
+
+span.data_title {
+	font-weight: bold;
+	color: #404080;
+	padding-right: 1em
 }
 
 div.large_scheme dl.profile {

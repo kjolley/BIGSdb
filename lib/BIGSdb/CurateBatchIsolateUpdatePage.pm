@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -221,6 +221,31 @@ sub _get_table_header {
 	  . qq(<th>Field</th><th>New value</th><th>Value(s) currently in database</th><th>Action</th></tr>\n);
 }
 
+sub _fails_id_check {
+	my ( $self, $args ) = @_;
+	if ( !$self->{'sql'}->{'id_check'} ) {
+		my $match = $self->_get_match_criteria;
+		my $qry   = "SELECT id FROM $self->{'system'}->{'view'} WHERE $match";
+		$self->{'sql'}->{'id_check'} = $self->{'db'}->prepare($qry);
+	}
+	eval { $self->{'sql'}->{'id_check'}->execute(@$args) };
+	if ($@) {
+		foreach my $type (qw (integer date float)) {
+			if ( $@ =~ /$type/x ) {
+				$self->print_bad_status(
+					{
+						message => q(Your id field(s) contain text characters but the )
+						  . qq(field can only contain ${type}s.),
+					}
+				);
+				$self->_print_interface;
+				return 1;
+			}
+		}
+	}
+	return;
+}
+
 sub _check {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
@@ -230,12 +255,9 @@ sub _check {
 	my $id_fields = $self->_get_id_fields;
 	my $i         = 0;
 	my ( @id, @id2, @field, @value );
-	my $td    = 1;
-	my $match = $self->_get_match_criteria;
-	my $qry   = "SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE $match";
-	my $sql   = $self->{'db'}->prepare($qry);
-	$qry =~ s/COUNT\(\*\)/id/x;
-	my $sql_id       = $self->{'db'}->prepare($qry);
+	my $td           = 1;
+	my $match        = $self->_get_match_criteria;
+	my $qry          = "SELECT COUNT(*) FROM $self->{'system'}->{'view'} WHERE $match";
 	my $table_rows   = 0;
 	my $update_rows  = [];
 	my $table_buffer = q();
@@ -252,33 +274,26 @@ sub _check {
 		$id2[$i] //= q();
 		$id2[$i] =~ s/%20/ /gx;
 		$value[$i] =~ s/\s*$//gx if defined $value[$i];
-		my $display_value = $value[$i];
-		my $display_field = $field[$i];
-		my $is_locus      = $self->_is_locus( $field[$i] );
-		my $is_eav_field  = $self->{'datastore'}->is_eav_field( $field[$i] );
+		my $display_new_value = $value[$i];
+		my $display_field     = $field[$i];
+		my $is_locus          = $self->_is_locus( $field[$i] );
+		my $is_eav_field      = $self->{'datastore'}->is_eav_field( $field[$i] );
 		my ( $bad_field, $not_allowed_field ) = $self->_check_field_status( $field[$i], $is_locus );
 		my ( $old_value, $action );
 
 		if ( $i && defined $value[$i] && $value[$i] ne '' ) {
 			if ( !$bad_field && !$not_allowed_field ) {
 				my $count;
-				my @args;
-				push @args, $id[$i];
-				push @args, $id2[$i] if $id_fields->{'field2'} ne '<none>';
-
-				#check invalid query
-				eval { $sql_id->execute(@args) };
-				if ($@) {
-					$self->_display_error($@);
-					return;
-				}
+				my $args = [];
+				push @$args, $id[$i];
+				push @$args, $id2[$i] if $id_fields->{'field2'} ne '<none>';
+				return if $self->_fails_id_check($args);
 
 				#Check if id exists
-				eval {
-					$sql->execute(@args);
-					($count) = $sql->fetchrow_array;
-				};
-				if ( $@ || $count == 0 ) {
+				$count =
+				  $self->{'datastore'}
+				  ->run_query( $qry, $args, { cache => 'CurateBlastIsolateUpdatePage::check_count_qry' } );
+				if ( $count == 0 ) {
 					$old_value = qq(<span class="statusbad">no editable record with $id_fields->{'field1'}='$id[$i]');
 					$old_value .= qq( and $id_fields->{'field2'}='$id2[$i]') if $id_fields->{'field2'} ne '<none>';
 					$old_value .= q(</span>);
@@ -312,14 +327,14 @@ sub _check {
 				  : q(<span class="statusbad">field not recognised</span>);
 				$action = q(<span class="statusbad">no action</span>);
 			}
-			$display_value =~ s/<blank>/&lt;blank&gt;/x;
+			$display_new_value =~ s/<blank>/&lt;blank&gt;/x;
 			if ( $id_fields->{'field2'} ne '<none>' ) {
 				$table_buffer .=
 				    qq(<tr class="td$td"><td>$i</td><td>$id[$i]</td><td>$id2[$i]</td><td>$display_field</td>)
-				  . qq(<td>$display_value</td><td>$old_value</td><td>$action</td></tr>\n);
+				  . qq(<td>$display_new_value</td><td>$old_value</td><td>$action</td></tr>\n);
 			} else {
 				$table_buffer .=
-				    qq(<tr class="td$td"><td>$i</td><td>$id[$i]</td><td>$display_field</td><td>$display_value</td>)
+				    qq(<tr class="td$td"><td>$i</td><td>$id[$i]</td><td>$display_field</td><td>$display_new_value</td>)
 				  . qq(<td>$old_value</td><td>$action</td></tr>);
 			}
 			$table_rows++;
@@ -376,23 +391,6 @@ sub _display_update_form {
 	return;
 }
 
-sub _display_error {
-	my ( $self, $err ) = @_;
-	foreach my $type (qw (integer date float)) {
-		if ( $err =~ /$type/x ) {
-			$self->print_bad_status(
-				{
-					message => q(Your id field(s) contain text characters but the )
-					  . qq(field can only contain ${type}s.),
-				}
-			);
-			$self->_print_interface;
-			return;
-		}
-	}
-	return;
-}
-
 sub _get_old_values {
 	my ( $self, $args ) = @_;
 	my ( $field, $i, $is_locus, $is_eav_field, $match, $id, $id2, $id_fields, $value ) =
@@ -424,6 +422,7 @@ sub _get_old_values {
 	push @$qry_args, $id->[$i];
 	push @$qry_args, $id2->[$i] if $id_fields->{'field2'} ne '<none>';
 	my $old_values = $self->{'datastore'}->run_query( $qry, $qry_args, { fetch => 'col_arrayref' } );
+	$self->_reformat_values( $field->[$i], $old_values );
 	if ( ( $self->{'cache'}->{'attributes'}->{ $field->[$i] }->{'multiple'} // q() ) eq 'yes' ) {
 		if ( ( $self->{'cache'}->{'attributes'}->{ $field->[$i] }->{'optlist'} // q() ) eq 'yes' ) {
 			$old_values =
@@ -442,13 +441,25 @@ sub _get_old_values {
 	return $old_values;
 }
 
+sub _reformat_values {
+	my ( $self, $field, $list ) = @_;
+	if ( ( $self->{'cache'}->{'attributes'}->{$field}->{'type'} // q() ) eq 'geography_point' ) {
+		foreach my $value (@$list) {
+			if ($value) {
+				my $coordinates = $self->{'datastore'}->get_geography_coordinates($value);
+				$value = "$coordinates->{'latitude'}, $coordinates->{'longitude'}";
+			}
+		}
+	}
+	return;
+}
+
 sub _check_field {
 	my ( $self, $args ) = @_;
 	my ( $field, $i, $is_locus, $is_eav_field, $match, $id, $id2, $id_fields, $value ) =
 	  @{$args}{qw(field i is_locus is_eav_field match id id2 id_fields value)};
 	my ( $old_value, $action );
 	my $q = $self->{'cgi'};
-	my @args;
 	my $qry;
 	my $set_id      = $self->get_set_id;
 	my $will_update = 0;
@@ -481,8 +492,8 @@ sub _check_field {
 				&& $multivalue_fields{ $field->[$i] }
 				&& $q->param('multi_value') eq 'add' )
 			{
-				$action =
-q(<span class="statusbad">no action - cannot add a null value (set to replace existing values instead)</span>);
+				$action = q(<span class="statusbad">no action - cannot add a null value )
+				  . q((set to replace existing values instead)</span>);
 			} elsif ( $self->_are_values_the_same( $field->[$i], $value->[$i], $old_values ) ) {
 				if ($is_locus) {
 					$action = q(<span class="statusbad">no action - designation already set</span>);
@@ -590,9 +601,9 @@ sub _update {
 		my $deleted_designations = [];
 		my $args                 = [];
 		my $delete_args          = [];
-		my @id_args              = ($id1);
-		push @id_args, $id2 if $id->{'field2'} ne '<none>';
-		my $isolate_id = $self->{'datastore'}->run_query( "SELECT $view.id FROM $view WHERE $match", \@id_args );
+		my $id_args              = [$id1];
+		push @$id_args, $id2 if $id->{'field2'} ne '<none>';
+		my $isolate_id = $self->{'datastore'}->run_query( "SELECT $view.id FROM $view WHERE $match", $id_args );
 		my $no_history;
 
 		if ($is_locus) {
@@ -602,28 +613,9 @@ sub _update {
 			my $data = $self->_prepare_eav_update( $isolate_id, $field, $value );
 			( $args, $qry, $old_value ) = @{$data}{qw(args qry old_value)};
 		} else {
-			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-			$no_history = 1 if ( $att->{'curate_only'} // q() ) eq 'yes';
-			if ( ( $att->{'multiple'} // q() ) eq 'yes' && defined $value && scalar $q->param('multi_value') ne 'add' )
-			{
-				$value = [ split /;/x, $value ];
-				s/^\s+|\s+$//gx foreach @$value;
-				@$value = uniq @$value;
-			}
-			push @$args, ( ( $value // q() ) eq q() || ( ref $value && !@$value ) ? undef : $value );
-			if ( $multivalue_fields{$field} && scalar $q->param('multi_value') eq 'add' ) {
-				$qry =
-				    "UPDATE isolates SET ($field,datestamp,curator)=(ARRAY_APPEND($field,?),?,?) WHERE id IN "
-				  . "(SELECT $view.id FROM $view WHERE $match)";
-			} else {
-				$qry =
-				    "UPDATE isolates SET ($field,datestamp,curator)=(?,?,?) WHERE id IN "
-				  . "(SELECT $view.id FROM $view WHERE $match)";
-			}
-			push @$args, ( 'now', $curator_id, @id_args );
-			my $id_qry = $qry;
-			$id_qry =~ s/UPDATE\ isolates\ .*?\ WHERE/SELECT id,$field FROM isolates WHERE/x;
-			( $isolate_id, $old_value ) = $self->{'datastore'}->run_query( $id_qry, \@id_args );
+			my $data =
+			  $self->_prepare_provenance_field_update( \%multivalue_fields, $id_args, $isolate_id, $field, $value );
+			( $args, $qry, $old_value, $no_history ) = @{$data}{qw(args qry old_value no_history)};
 		}
 		$tablebuffer .= qq(<tr class="td$td"><td>$id->{'field1'}='$id1');
 		$tablebuffer .= qq( AND $id->{'field2'}='$id2') if $id->{'field2'} ne '<none>';
@@ -640,6 +632,7 @@ sub _update {
 			if ( $@ =~ /duplicate/x ) {
 				$tablebuffer .= qq(<td class="statusbad">$bad [duplicate]</td><td></td></tr>\n);
 			} else {
+				$logger->error($@);
 				$tablebuffer .= qq(<td class="statusbad">$bad [unspecified error - check logs]</td><td></td></tr>\n);
 			}
 			$error = 1;
@@ -794,6 +787,49 @@ sub _prepare_allele_designation_update {
 		}
 	}
 	return { qry => $qry, args => $args, delete_qry => $delete_qry, delete_args => $delete_args };
+}
+
+sub _prepare_provenance_field_update {
+	my ( $self, $multivalue_fields, $id_args, $isolate_id, $field, $value ) = @_;
+	my $q          = $self->{'cgi'};
+	my $att        = $self->{'xmlHandler'}->get_field_attributes($field);
+	my $no_history = ( $att->{'curate_only'} // q() ) eq 'yes' ? 1 : 0;
+	if ( ( $att->{'multiple'} // q() ) eq 'yes' && defined $value && scalar $q->param('multi_value') ne 'add' ) {
+		$value = [ split /;/x, $value ];
+		s/^\s+|\s+$//gx foreach @$value;
+		@$value = uniq @$value;
+	}
+	my $qry;
+	my $args       = [];
+	my $view       = $self->{'system'}->{'view'};
+	my $match      = $self->_get_match_criteria;
+	my $curator_id = $self->get_curator_id;
+	if ( ( $att->{'type'} // q() ) eq 'geography_point' ) {
+		if ( $value =~ /\s*(\-?\d+\.?\d+)\s*,\s*(\-?\d+\.?\d+)\s*/x ) {
+			$value = $self->{'datastore'}->convert_coordinates_to_geography( $1, $2 );
+		}
+	}
+	push @$args, ( ( $value // q() ) eq q() || ( ref $value && !@$value ) ? undef : $value );
+	if ( $multivalue_fields->{$field} && scalar $q->param('multi_value') eq 'add' ) {
+		$qry =
+		    "UPDATE isolates SET ($field,datestamp,curator)=(ARRAY_APPEND($field,?),?,?) WHERE id IN "
+		  . "(SELECT $view.id FROM $view WHERE $match)";
+	} else {
+		$qry =
+		    "UPDATE isolates SET ($field,datestamp,curator)=(?,?,?) WHERE id IN "
+		  . "(SELECT $view.id FROM $view WHERE $match)";
+	}
+	push @$args, ( 'now', $curator_id, @$id_args );
+	my $id_qry = $qry;
+	$id_qry =~ s/UPDATE\ isolates\ .*?\ WHERE/SELECT $field FROM isolates WHERE/x;
+	my $old_value = $self->{'datastore'}->run_query( $id_qry, $id_args );
+	if ( ( $att->{'type'} // q() ) eq 'geography_point' ) {
+		if ($old_value) {
+			my $coordinates = $self->{'datastore'}->get_geography_coordinates($old_value);
+			$old_value = qq($coordinates->{'latitude'}, $coordinates->{'longitude'});
+		}
+	}
+	return { qry => $qry, args => $args, old_value => $old_value, no_history => $no_history };
 }
 
 sub _prepare_eav_update {

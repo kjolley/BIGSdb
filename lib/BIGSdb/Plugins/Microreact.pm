@@ -1,6 +1,6 @@
 #Microreact.pm - Phylogenetic tree/data visualization plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2017-2021, University of Oxford
+#Copyright (c) 2017-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -65,7 +65,7 @@ sub get_attributes {
 		buttontext => 'Microreact',
 		menutext   => 'Microreact',
 		module     => 'Microreact',
-		version    => '1.1.3',
+		version    => '1.1.4',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
@@ -73,7 +73,7 @@ sub get_attributes {
 		requires   => 'aligner,offline_jobs,js_tree,clustalw,microreact_token',
 		order      => 40,
 		min        => 2,
-		max => $self->{'system'}->{'microreact_record_limit'} // $self->{'config'}->{'microreact_record_limit'}
+		max        => $self->{'system'}->{'microreact_record_limit'} // $self->{'config'}->{'microreact_record_limit'}
 		  // MAX_RECORDS,
 		url                 => "$self->{'config'}->{'doclink'}/data_analysis/microreact.html",
 		system_flag         => 'Microreact',
@@ -241,6 +241,9 @@ sub _create_tsv_file {
 		my @record_values;
 		foreach my $field (@$prov_fields) {
 			my $field_value = $self->get_field_value( $record, $field );
+			if ( $self->{'datastore'}->field_needs_conversion($field) ) {
+				$field_value = $self->{'datastore'}->convert_field_value( $field, $field_value );
+			}
 			push @record_values, $field_value if $include_fields{"f_$field"};
 			my $extatt = $extended->{$field};
 			if ( ref $extatt eq 'ARRAY' ) {
@@ -295,11 +298,12 @@ sub print_extra_form_elements {
 		  . qq(Note that $self->{'system'}->{'labelfield'}, country and year are always included.) );
 	$self->print_includes_fieldset(
 		{
-			description         => qq(Select additional fields to include. $tooltip),
-			isolate_fields      => 1,
-			extended_attributes => 1,
-			scheme_fields       => 1,
-			hide                => "f_$self->{'system'}->{'labelfield'},f_country,f_year"
+			description              => qq(Select additional fields to include. $tooltip),
+			isolate_fields           => 1,
+			nosplit_geography_points => 1,
+			extended_attributes      => 1,
+			scheme_fields            => 1,
+			hide                     => "f_$self->{'system'}->{'labelfield'},f_country,f_year"
 		}
 	);
 

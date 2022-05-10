@@ -237,16 +237,17 @@ sub print_extra_form_elements {
 		  . q(<p>Use Shift/Ctrl to select multiple values (depending on your system).</p>) );
 	$self->print_includes_fieldset(
 		{
-			title                 => 'iTOL datasets',
-			description           => "Select to create data overlays $tooltip",
-			name                  => 'itol_dataset',
-			isolate_fields        => 1,
-			extended_attributes   => 1,
-			scheme_fields         => 1,
-			classification_groups => 1,
-			eav_fields            => 1,
-			size                  => 8,
-			preselect             => ["f_$self->{'system'}->{'labelfield'}"]
+			title                    => 'iTOL datasets',
+			description              => "Select to create data overlays $tooltip",
+			name                     => 'itol_dataset',
+			isolate_fields           => 1,
+			nosplit_geography_points => 1,
+			extended_attributes      => 1,
+			scheme_fields            => 1,
+			classification_groups    => 1,
+			eav_fields               => 1,
+			size                     => 8,
+			preselect                => ["f_$self->{'system'}->{'labelfield'}"]
 		}
 	);
 	say q(<fieldset style="float:left"><legend>iTOL data type</legend>);
@@ -686,6 +687,9 @@ sub _create_itol_dataset {
 	my $i        = 1;
 	my $all_ints = BIGSdb::Utils::all_ints($distinct_values);
 	foreach my $value ( sort { $all_ints ? $a <=> $b : $a cmp $b } @$distinct_values ) {
+		if ( $type eq 'field' && $self->{'datastore'}->field_needs_conversion($name) ) {
+			$value = $self->{'datastore'}->convert_field_value( $name, $value );
+		}
 		$value_colour->{$value} = BIGSdb::Utils::get_rainbow_gradient_colour( $i, $distinct );
 		$i++;
 	}
@@ -715,6 +719,9 @@ sub _create_itol_dataset {
 			my $data =
 			  $self->{'datastore'}->run_query( $qry->{$type}, $id, { cache => "ITol::itol_dataset::$field" } );
 			next if !defined $data;
+			if ( $self->{'datastore'}->field_needs_conversion($name) ) {
+				$data = $self->{'datastore'}->convert_field_value( $name, $data );
+			}
 			if ( ( $self->{'cache'}->{'attributes'}->{$name}->{'multiple'} // q() ) eq 'yes' ) {
 				local $" = q(; );
 				if ( $self->{'cache'}->{'optlist'}->{$name} ) {

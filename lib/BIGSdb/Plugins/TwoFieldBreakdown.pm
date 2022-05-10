@@ -1,6 +1,6 @@
 #FieldBreakdown.pm - TwoFieldBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext => 'Two Field',
 		menutext   => 'Two field breakdown',
 		module     => 'TwoFieldBreakdown',
-		version    => '1.7.0',
+		version    => '1.7.1',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/two_field_breakdown.html",
@@ -310,14 +310,15 @@ sub _print_interface {
 	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $list, isolate_paste_list => 1 } );
 	my ( $headings, $labels ) = $self->get_field_selection_list(
 		{
-			isolate_fields      => 1,
-			eav_fields          => 1,
-			extended_attributes => 1,
-			loci                => 1,
-			query_pref          => 0,
-			analysis_pref       => 1,
-			scheme_fields       => 1,
-			set_id              => $set_id
+			isolate_fields           => 1,
+			nosplit_geography_points => 1,
+			eav_fields               => 1,
+			extended_attributes      => 1,
+			loci                     => 1,
+			query_pref               => 0,
+			analysis_pref            => 1,
+			scheme_fields            => 1,
+			set_id                   => $set_id
 		}
 	);
 
@@ -1020,17 +1021,28 @@ sub _get_field_value {
 	my ( $self, $args ) = @_;
 	my ( $isolate_id, $field, $clean_fields, $options ) = @{$args}{qw(isolate_id field clean_fields options)};
 	my $value;
+	my $needs_conversion = $self->{'datastore'}->field_needs_conversion( $clean_fields->{$field} );
 	if ( $options->{'fetchall'} ) {
 		if ( !$self->{'cache'}->{$field} ) {
 			$self->{'cache'}->{$field} =
 			  $self->{'datastore'}->run_query( "SELECT id,$clean_fields->{$field} FROM $self->{'system'}->{'view'}",
 				undef, { fetch => 'all_hashref', key => 'id' } );
+			if ($needs_conversion) {
+				foreach my $id ( keys %{ $self->{'cache'}->{$field} } ) {
+					$self->{'cache'}->{$field}->{$id}->{ $clean_fields->{$field} } =
+					  $self->{'datastore'}->convert_field_value( $clean_fields->{$field},
+						$self->{'cache'}->{$field}->{$id}->{ $clean_fields->{$field} } );
+				}
+			}
 		}
 		$value = $self->{'cache'}->{$field}->{$isolate_id}->{ lc( $clean_fields->{$field} ) };
 	} else {
 		$value =
 		  $self->{'datastore'}->run_query( "SELECT $clean_fields->{$field} FROM $self->{'system'}->{'view'} WHERE id=?",
 			$isolate_id, { cache => "TwoFieldBreakdown::get_field_value::$field" } );
+		if ($needs_conversion) {
+			$value = $self->{'datastore'}->convert_field_value( $clean_fields->{$field}, $value );
+		}
 	}
 	return $value;
 }

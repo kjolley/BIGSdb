@@ -235,6 +235,10 @@ sub _print_allowed_values {
 		  . q(field=f_curator" target="_blank">Click for list of curator ids</a>);
 		return;
 	}
+	if (($thisfield->{'type'} // q()) eq 'geography_point'){
+		say q(latitude [min: -90; max: 90], longitude [min: -180; max: 180]);
+		return;
+	}
 	print q(-);
 	return;
 }

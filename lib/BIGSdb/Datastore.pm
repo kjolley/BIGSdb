@@ -28,6 +28,9 @@ my $logger = get_logger('BIGSdb.Datastore');
 use Unicode::Collate;
 use File::Path qw(make_path);
 use Fcntl qw(:flock);
+use Memoize;
+memoize('get_geography_coordinates');
+memoize('convert_coordinates_to_geography');
 use BIGSdb::Exceptions;
 use BIGSdb::ClassificationScheme;
 use BIGSdb::ClientDB;
@@ -2930,4 +2933,64 @@ sub are_lincodes_defined {
 	my ( $self, $scheme_id ) = @_;
 	return $self->run_query( 'SELECT EXISTS(SELECT * FROM lincode_schemes WHERE scheme_id=?)', $scheme_id );
 }
+
+sub get_geography_coordinates {
+	my ( $self, $point ) = @_;
+	my ( $long, $lat );
+	eval { ( $long, $lat ) = $self->run_query( 'SELECT ST_X(?::geometry),ST_Y(?::geometry)', [ $point, $point ] ); };
+	if ($@) {
+		$logger->error('Invalid geography coordinate passed.');
+		return {};
+	}
+	return { longitude => $long, latitude => $lat };
+}
+
+sub convert_coordinates_to_geography {
+	my ( $self, $latitude, $longitude ) = @_;
+	my $value;
+	eval { $value = $self->run_query( 'SELECT ST_MakePoint(?,?)::geography', [ $longitude, $latitude ] ); };
+	if ($@) {
+		$logger->error($@);
+		return;
+	}
+	return $value;
+}
+
+#Currently only for geography_point values.
+sub field_needs_conversion {
+	my ( $self,$field ) = @_;
+	my %conversion_types = map { $_ => 1 } qw(geography_point);
+	if ( !defined $self->{'cache'}->{'fields_needing_value_conversion'} ) {
+		$self->{'cache'}->{'fields_needing_value_conversion'} = {};
+		my $atts = $self->{'xmlHandler'}->get_all_field_attributes;
+		foreach my $field ( keys %$atts ) {
+			if ( $conversion_types{ $atts->{$field}->{'type'} } ) {
+				$self->{'cache'}->{'fields_needing_value_conversion'}->{$field} = 1;
+			}
+		}
+	}
+	return $self->{'cache'}->{'fields_needing_value_conversion'}->{$field};
+}
+
+sub convert_field_value {
+	my ( $self, $field, $value ) = @_;
+	if ( !defined $self->{'cache'}->{'field_types'} ) {
+		my $atts = $self->{'xmlHandler'}->get_all_field_attributes;
+		foreach my $field ( keys %$atts ) {
+			$self->{'cache'}->{'field_types'}->{$field} = $atts->{$field}->{'type'} // 'text';
+		}
+	}
+	my %conversion = (
+		geography_point => sub {
+			return q() if !defined $value || $value eq q();
+			my $coordinates = $self->get_geography_coordinates($value);
+			return qq($coordinates->{'latitude'}, $coordinates->{'longitude'});
+		}
+	);
+	if ( $conversion{ $self->{'cache'}->{'field_types'}->{$field} } ) {
+		return $conversion{ $self->{'cache'}->{'field_types'}->{$field} }->();
+	}
+	return $value;
+}
+
 1;

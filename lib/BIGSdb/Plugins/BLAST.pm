@@ -601,6 +601,9 @@ sub _get_include_values {
 				$value = "@values" // q();
 			} else {
 				$value = $self->get_field_value( $include_data, $field );
+				if ( $self->{'datastore'}->field_needs_conversion($field) ) {
+					$value = $self->{'datastore'}->convert_field_value( $field, $value );
+				}
 			}
 			push @$include_values, $value;
 		}
@@ -748,7 +751,7 @@ sub _blast {
 
 	#create isolate FASTA database
 	my $qry =
-	  'SELECT DISTINCT s.id FROM sequence_bin s LEFT JOIN project_members p ON s.isolate_id = p.isolate_id '
+	    'SELECT DISTINCT s.id FROM sequence_bin s LEFT JOIN project_members p ON s.isolate_id = p.isolate_id '
 	  . 'WHERE s.isolate_id=?';
 	my @criteria = ($isolate_id);
 	my $method   = $form_params->{'seq_method_list'};

@@ -485,7 +485,7 @@ sub print_includes_fieldset {
 		if ( $field =~ /^(?:l|cn)_/x ) {
 			push @{ $group_members->{'Loci'} }, $field;
 		}
-		if ( $field =~ /^(?:f|e)_/x ) {
+		if ( $field =~ /^(?:f|e|gp)_/x ) {
 			( my $stripped_field = $field ) =~ s/^[f|e]_//x;
 			next if $skip_fields{$stripped_field};
 			$stripped_field =~ s/[\|\||\s].+$//x;
@@ -1099,4 +1099,5 @@ sub get_breadcrumbs {
 	  );
 	return $breadcrumbs;
 }
+
 1;

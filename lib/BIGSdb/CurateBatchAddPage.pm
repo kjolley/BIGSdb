@@ -499,6 +499,7 @@ sub _check_data {
 					}
 				);
 				$value //= q();
+				$self->_run_table_specific_reformatting( $table, $new_args );
 				if ( defined $file_header_pos->{$field} || ( $field eq 'id' ) ) {
 					$checked_record .= qq($value\t);
 				}
@@ -898,6 +899,42 @@ sub _run_table_specific_field_checks {
 	);
 	$further_checks{$table}->() if $further_checks{$table};
 	return;
+}
+
+sub _run_table_specific_reformatting {
+	my ( $self, $table, $new_args ) = @_;
+	my %methods = (
+		isolates => sub {
+			$self->_rewrite_geography_point_data($new_args);
+		}
+	);
+	$methods{$table}->() if $methods{$table};
+	return;
+}
+
+sub _rewrite_geography_point_data {
+	my ( $self,  $args )  = @_;
+	my ( $field, $value ) = @{$args}{qw(field value)};
+	my $geo_fields = $self->_get_geography_point_fields;
+	return if !$geo_fields->{$field};
+	if ( $$value =~ /\s*(\-?\d+\.?\d+)\s*,\s*(\-?\d+\.?\d+)\s*/x ) {
+		$$value = $self->{'datastore'}->convert_coordinates_to_geography( $1, $2 );
+	}
+	return;
+}
+
+sub _get_geography_point_fields {
+	my ($self) = @_;
+	if ( !defined $self->{'cache'}->{'geography_point_fields'} ) {
+		$self->{'cache'}->{'geography_point_fields'} = {};
+		my $atts = $self->{'xmlHandler'}->get_all_field_attributes;
+		foreach my $field ( keys %$atts ) {
+			if ( ( $atts->{$field}->{'type'} // q() ) eq 'geography_point' ) {
+				$self->{'cache'}->{'geography_point_fields'}->{$field} = 1;
+			}
+		}
+	}
+	return $self->{'cache'}->{'geography_point_fields'};
 }
 
 sub _get_existing_label_field_values {
@@ -1629,7 +1666,7 @@ sub _get_polling_javascript {
 	my $error         = $self->print_bad_status(
 		{
 			message  => 'Could not find results file',
-			detail   => 'Please try re-uploading sequences.',
+			detail   => 'Please try re-uploading records.',
 			get_only => 1
 		}
 	);

@@ -186,6 +186,8 @@ sub _get_javascript_paths {
 			'packery'      => { src => [qw(packery.min.js)], defer => 1, version => '20210620' },
 			'muuri'        => { src => [qw(muuri.min.js)],   defer => 1, version => '20210620' },
 			'dropzone'     => { src => [qw(dropzone.js)],    defer => 0, version => '20200308' },
+			#See https://dolmenweb.it/viewers/openlayer/doc/tutorials/custom-builds.html
+			'ol'               => { src => [qw(ol-custom.js)],            defer => 0, version => '6.14.1' },
 			'billboard'    => {
 				src     => [qw(d3.v6.min.js billboard.min.js jquery.ui.touch-punch.min.js)],
 				defer   => 1,
@@ -206,13 +208,15 @@ sub _get_javascript_paths {
 				defer   => 1,
 				version => '20200308'
 			},
-			'igv'              => { src => [qw(igv.min.js)],              defer => 1, version => '20200308' },
+			'igv' => { src => [qw(igv.min.js)], defer => 1, version => '20200308' },
+
+			
 			'bigsdb.dashboard' => { src => [qw(bigsdb.dashboard.min.js)], defer => 1, version => '20220111' },
 			'bigsdb.dataexplorer' =>
 			  { src => [qw(bigsdb.dataexplorer.min.js d3.v6.min.js)], defer => 1, version => '20220111' }
 		};
 		if ( $self->{'pluginJS'} ) {
-			$features->{'pluginJS'} = { src => ["Plugins/$self->{'pluginJS'}"], defer => 1, version => '20210511' };
+			$features->{'pluginJS'} = { src => ["Plugins/$self->{'pluginJS'}"], defer => 1, version => '20220510' };
 		}
 		my %used;
 		foreach my $feature ( keys %$features ) {
@@ -647,7 +651,7 @@ sub _get_meta_data {
 sub _get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20220207';
+	my $version = '20220506';
 	my @filenames;
 	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
 	push @filenames, q(billboard.min.css)                                     if $self->{'billboard'};
@@ -655,6 +659,7 @@ sub _get_stylesheets {
 	push @filenames, qw(jquery.multiselect.css jquery.multiselect.filter.css) if $self->{'jQuery.multiselect'};
 	push @filenames, qw(d3.geomap.css)                                        if $self->{'geomap'};
 	push @filenames, qw(jquery.modal.min.css)                                 if $self->{'modal'};
+	push @filenames, qw(ol.css)                                               if $self->{'ol'};
 	push @filenames, qw(jquery.fonticonpicker.min.css jquery.fonticonpicker.darkgrey.min.css)
 	  if $self->{'jQuery.fonticonpicker'};
 
@@ -1290,6 +1295,13 @@ sub _get_provenance_fields {
 				push @isolate_list, "f_$field ($user_attribute)";
 				( $self->{'cache'}->{'labels'}->{"f_$field ($user_attribute)"} = "$field ($user_attribute)" ) =~
 				  tr/_/ /;
+			}
+		} elsif ( ( $attributes->{$field}->{'type'} // q() ) eq 'geography_point'
+			&& !$options->{'nosplit_geography_points'} )
+		{
+			foreach my $term (qw(latitude longitude)) {
+				push @isolate_list, "gp_${field}_$term";
+				( $self->{'cache'}->{'labels'}->{"gp_${field}_$term"} = "${field} ($term)" ) =~ tr/_/ /;
 			}
 		} else {
 			push @isolate_list, "f_$field";

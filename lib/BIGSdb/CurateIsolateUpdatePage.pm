@@ -165,6 +165,8 @@ sub _update {
 	my $fields_updated;
 	my $set_id     = $self->get_set_id;
 	my $field_list = $self->{'xmlHandler'}->get_field_list;
+	$self->convert_geography_data($newdata);
+	my $atts = $self->{'xmlHandler'}->get_all_field_attributes;
 
 	foreach my $field (@$field_list) {
 		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
@@ -191,6 +193,9 @@ sub _update {
 				my $new = ref $newdata->{$field} ? qq(@{$newdata->{$field}}) : $newdata->{$field};
 				$old //= q();
 				$new //= q();
+				if ( ( $atts->{$field}->{'type'} // q() ) eq 'geography_point' ) {
+					$self->_rewrite_geography_point( \$_ ) foreach ( $old, $new );
+				}
 				push @$updated_field, qq($field: '$old' -> '$new') if ( $att->{'curate_only'} // q() ) ne 'yes';
 			}
 			$fields_updated = 1;
@@ -249,6 +254,15 @@ sub _update {
 				message => q(No field changes have been made.)
 			}
 		);
+	}
+	return;
+}
+
+sub _rewrite_geography_point {
+	my ( $self, $value_ref ) = @_;
+	if ( $$value_ref ne q() ) {
+		my $coordinates = $self->{'datastore'}->get_geography_coordinates($$value_ref);
+		$$value_ref = qq($coordinates->{'latitude'}, $coordinates->{'longitude'});
 	}
 	return;
 }

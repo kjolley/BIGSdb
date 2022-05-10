@@ -598,58 +598,22 @@ sub _print_isolate_table {
 	$self->_print_isolate_table_header( $schemes, $qry_limit );
 	my $td = 1;
 	local $" = '=? AND ';
-	my $field_attributes = {};
-	my $optlist          = {};
-
-	foreach my $field (@$fields) {
-		$field_attributes->{$field} = $self->{'xmlHandler'}->get_field_attributes($field);
-		if ( ( $field_attributes->{$field}->{'optlist'} // q() ) eq 'yes' ) {
-			$optlist->{$field} = $self->{'xmlHandler'}->get_field_option_list($field);
-		}
-	}
 	$self->{'scheme_loci'}->{0} = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
 	my $field_list =
 	  $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
 	local $| = 1;
 	my %id_used;
+
 	while ( $limit_sql->fetchrow_arrayref ) {
 
 		#Ordering by scheme field/locus can result in multiple rows per isolate if multiple values defined.
 		next if $id_used{ $data{'id'} };
 		$id_used{ $data{'id'} } = 1;
 		my $profcomplete = 1;
-		my $id;
+		my $id           = $data{'id'};
 		print qq(<tr class="td$td">);
 		foreach my $thisfieldname (@$field_list) {
-			if ( $self->{'prefs'}->{'maindisplayfields'}->{$thisfieldname} || $thisfieldname eq 'id' ) {
-				if ( $thisfieldname eq 'id' ) {
-					$id = $data{$thisfieldname};
-					$self->_print_isolate_id_links( $id, \%data );
-				} elsif ( $thisfieldname eq 'sender'
-					|| $thisfieldname eq 'curator'
-					|| ( ( $field_attributes->{$thisfieldname}->{'userfield'} // '' ) eq 'yes' ) )
-				{
-					my $user_info = $self->{'datastore'}->get_user_info( $data{$thisfieldname} );
-					print qq(<td>$user_info->{'first_name'} $user_info->{'surname'}</td>);
-				} else {
-					if ( $optlist->{$thisfieldname} && ref $data{$thisfieldname} ) {
-						$data{$thisfieldname} =
-						  BIGSdb::Utils::arbitrary_order_list( $optlist->{$thisfieldname}, $data{$thisfieldname} );
-					} elsif ( ( $field_attributes->{$thisfieldname}->{'multiple'} // q() ) eq 'yes'
-						&& ref $data{$thisfieldname} )
-					{
-						@{ $data{$thisfieldname} } =
-						  $field_attributes->{$thisfieldname}->{'type'} eq 'text'
-						  ? sort { $a cmp $b } @{ $data{$thisfieldname} }
-						  : sort { $a <=> $b } @{ $data{$thisfieldname} };
-					}
-					local $" = q(; );
-					my $value = ref $data{$thisfieldname} ? qq(@{$data{$thisfieldname}}) : $data{$thisfieldname};
-					$value //= q();
-					$value =~ tr/\n/ /;
-					print qq(<td>$value</td>);
-				}
-			}
+			$self->_print_field_value( \%data, $thisfieldname );
 			$self->_print_isolate_extended_attributes( $id, \%data, $thisfieldname );
 			$self->_print_isolate_composite_fields( $id, \%data, $thisfieldname );
 			$self->_print_isolate_aliases($id) if $thisfieldname eq $self->{'system'}->{'labelfield'};
@@ -674,6 +638,78 @@ sub _print_isolate_table {
 	say q(</div>);
 	$sql->finish if $sql;
 	return;
+}
+
+sub _print_field_value {
+	my ( $self, $data, $thisfieldname ) = @_;
+	return if !$self->{'prefs'}->{'maindisplayfields'}->{$thisfieldname} && $thisfieldname ne 'id';
+	my $att     = $self->{'xmlHandler'}->get_field_attributes($thisfieldname);
+	my $methods = {
+		id => sub { $self->_process_id_links( $data, $thisfieldname ) },
+		users => sub { $self->_process_user_values( $data, $att, $thisfieldname ) },
+		location => sub {$self->_process_location_values( $data, $att, $thisfieldname )}
+	};
+	foreach my $method (qw(id users location)) {
+		if ( $methods->{$method}->() ) {
+			return;
+		}
+	}
+	my $optlist = [];
+	if ( ( $att->{'optlist'} // q() ) eq 'yes' ) {
+		$optlist = $self->{'xmlHandler'}->get_field_option_list($thisfieldname);
+	}
+	if ( @$optlist && ref $data->{$thisfieldname} ) {
+		$data->{$thisfieldname} =
+		  BIGSdb::Utils::arbitrary_order_list( $optlist, $data->{$thisfieldname} );
+	} elsif ( ( $att->{'multiple'} // q() ) eq 'yes'
+		&& ref $data->{$thisfieldname} )
+	{
+		@{ $data->{$thisfieldname} } =
+		  $att->{'type'} eq 'text'
+		  ? sort { $a cmp $b } @{ $data->{$thisfieldname} }
+		  : sort { $a <=> $b } @{ $data->{$thisfieldname} };
+	}
+	local $" = q(; );
+	my $value = ref $data->{$thisfieldname} ? qq(@{$data->{$thisfieldname}}) : $data->{$thisfieldname};
+	$value //= q();
+	$value =~ tr/\n/ /;
+	print qq(<td>$value</td>);
+	return;
+}
+
+sub _process_id_links {
+	my ( $self, $data, $fieldname ) = @_;
+	return if $fieldname ne 'id';
+	my $id = $data->{$fieldname};
+	$self->_print_isolate_id_links( $id, $data );
+	return 1;
+}
+
+sub _process_user_values {
+	my ( $self, $data, $att, $fieldname ) = @_;
+	if (   $fieldname eq 'sender'
+		|| $fieldname eq 'curator'
+		|| ( ( $att->{'userfield'} // '' ) eq 'yes' ) )
+	{
+		my $user_info = $self->{'datastore'}->get_user_info( $data->{$fieldname} );
+		print qq(<td>$user_info->{'first_name'} $user_info->{'surname'}</td>);
+		return 1;
+	}
+	return;
+}
+
+sub _process_location_values {
+	my ( $self, $data, $att, $fieldname ) = @_;
+	return if $att->{'type'} ne 'geography_point';
+	
+	my $point = $data->{$fieldname};
+	if (defined $point){
+	my $location = $self->{'datastore'}->get_geography_coordinates($point);
+	print qq(<td>$location->{'latitude'}, $location->{'longitude'}</td>);
+	} else {
+		print q(<td></td>);
+	}
+	return 1;
 }
 
 sub _print_isolate_id_links {

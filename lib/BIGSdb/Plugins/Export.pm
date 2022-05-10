@@ -50,7 +50,7 @@ sub get_attributes {
 		buttontext => 'Dataset',
 		menutext   => 'Dataset',
 		module     => 'Export',
-		version    => '1.8.0',
+		version    => '1.8.1',
 		dbtype     => 'isolates',
 		section    => 'export,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
@@ -631,6 +631,9 @@ sub _write_field {
 		}
 	} else {
 		my $value = $self->get_field_value( $data, $field );
+		if ($self->{'datastore'}->field_needs_conversion($field)){
+			$value = $self->{'datastore'}->convert_field_value($field,$value);
+		}
 		if ( $params->{'oneline'} ) {
 			print $fh $self->_get_id_one_line( $data, $params );
 			print $fh "$field\t";

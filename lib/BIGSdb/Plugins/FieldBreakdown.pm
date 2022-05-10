@@ -1,6 +1,6 @@
 #FieldBreakdown.pm - FieldBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2018-2021, University of Oxford
+#Copyright (c) 2018-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -48,7 +48,7 @@ sub get_attributes {
 		buttontext => 'Fields',
 		menutext   => 'Field breakdown',
 		module     => 'FieldBreakdown',
-		version    => '2.3.1',
+		version    => '2.4.0',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
@@ -61,9 +61,21 @@ sub get_attributes {
 
 sub get_initiation_values {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	my $values =
-	  { billboard => 1, filesaver => 1, noCache => 0, 'jQuery.tablesort' => 1, pluginJS => 'FieldBreakdown.js' };
+	my $q      = $self->{'cgi'};
+	my $values = {
+		billboard          => 1,
+		filesaver          => 1,
+		noCache            => 0,
+		'jQuery.tablesort' => 1,
+		pluginJS           => 'FieldBreakdown.min.js'
+	};
+	my $field_attributes = $self->{'xmlHandler'}->get_all_field_attributes;
+	foreach my $field ( keys %$field_attributes ) {
+		if ( $field_attributes->{$field}->{'type'} eq 'geography_point' ) {
+			$values->{'ol'} = 1;
+			last;
+		}
+	}
 	if ( $self->_has_country_optlist ) {
 		$values->{'geomap'} = 1;
 	}
@@ -328,7 +340,9 @@ sub run {
 	$self->print_loading_message;
 	say q(</div>);
 	say q(<div id="map" style="max-width:800px;margin-left:auto;margin-right:auto"></div>);
+	say q(<div id="geography" style="max-width:800px;margin-left:auto;margin-right:auto;max-height:100vw"></div>);
 	$self->_print_map_controls;
+	$self->_print_geography_controls;
 	$self->_print_pie_controls;
 	$self->_print_bar_controls;
 	$self->_print_line_controls;
@@ -406,6 +420,23 @@ sub _print_map_controls {
 	);
 	say q(</li>);
 	say q(</ul></fieldset>);
+	return;
+}
+
+sub _print_geography_controls {
+	my ($self) = @_;
+	my $bingmaps_api = $self->{'system'}->{'bingmaps_api'} // $self->{'config'}->{'bingmaps_api'};
+	return if !defined $bingmaps_api;
+	my $q = $self->{'cgi'};
+	say q(<fieldset id="geography_controls" class="bb_controls" )
+	  . q(style="position:absolute;top:1em;right:1em;display:none"><legend>Controls</legend>);
+	say q(<ul><li><label for="view">View:</label>);
+	say $q->popup_menu(
+		-id      => 'geography_view',
+		-values  => [qw(Map Aerial)],
+		-default => 'Map'
+	);
+	say q(</li></ul></fieldset>);
 	return;
 }
 
@@ -525,7 +556,7 @@ sub _get_fields_js {
 	my $field_attributes = $self->{'xmlHandler'}->get_all_field_attributes;
 	my %types = map { $field_attributes->{$_} => $field_attributes->{$_}->{'type'} } keys %$field_attributes;
 	my @type_values;
-	my %allowed_types = map { $_ => 1 } qw(integer text float date);
+	my %allowed_types = map { $_ => 1 } qw(integer text float date geography_point);
 	foreach my $field ( keys %$field_attributes ) {
 		my $type = lc( $field_attributes->{$field}->{'type'} );
 		$type = 'integer' if $type eq 'int';
@@ -607,10 +638,11 @@ sub get_plugin_javascript {
 	my $prefs_ajax_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=ajaxPrefs);
 	my $param_string = @$query_params ? qq(&@$query_params) : q();
 	$url .= $param_string;
-	my $types_js   = $self->_get_fields_js;
-	my $loci_js    = $self->_get_loci_js;
-	my $schemes_js = $self->_get_schemes_js;
-	my $buffer     = <<"JS";
+	my $types_js     = $self->_get_fields_js;
+	my $loci_js      = $self->_get_loci_js;
+	my $schemes_js   = $self->_get_schemes_js;
+	my $bingmaps_api = $self->{'system'}->{'bingmaps_api'} // $self->{'config'}->{'bingmaps_api'};
+	my $buffer       = <<"JS";
 var height = 400;
 var segments = 20;
 var rotate = 0;
@@ -621,6 +653,7 @@ var theme = "$theme";
 var projection = "$projection";
 var url = "$url";
 var prefs_ajax_url = "$plugin_prefs_ajax_url";
+var bingmaps_api = "$bingmaps_api";
 
 $types_js	
 $loci_js
@@ -640,7 +673,8 @@ sub _ajax {
 
 sub _get_field_freqs {
 	my ( $self, $field, $options ) = @_;
-	my $qry = "SELECT $field AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
+	my $needs_conversion = $self->{'datastore'}->field_needs_conversion($field);
+	my $qry              = "SELECT $field AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
 	  . 'JOIN id_list i ON v.id=i.value ';
 	$qry .= 'GROUP BY label';
 	my $order = $options->{'order'} ? $options->{'order'} : 'value DESC';
@@ -686,6 +720,12 @@ sub _get_field_freqs {
 			  };
 		}
 		return $new_return_list;
+	}
+	if ($needs_conversion) {
+		foreach my $value (@$values) {
+			next if !defined $value->{'label'};
+			$value->{'label'} = $self->{'datastore'}->convert_field_value( $field, $value->{'label'} );
+		}
 	}
 	return $values;
 }
