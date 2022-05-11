@@ -802,6 +802,8 @@ function load_geography(url, field) {
 			})
 		);
 	}
+
+
 	d3.json(url).then(function(jsonData) {
 
 		let map = new ol.Map({
@@ -812,20 +814,35 @@ function load_geography(url, field) {
 				zoom: 2
 			})
 		});
-		let pointer_style = new ol.style.Style({
-			image: new ol.style.Circle({
-				radius: 3,
-				fill: new ol.style.Fill({
-					color: 'rgba(255,0,0,0.7)'
+		let pstyles = [];
+		for (let i = 0; i < 10; ++i) {
+			let pstyle = new ol.style.Style({
+				image: new ol.style.Circle({
+					radius: 2 + i,
+					fill: new ol.style.Fill({
+						color: 'rgba(255,60,0,0.7)'
+					})
 				})
-			})
-		});
-
+			});
+			pstyles.push(pstyle);
+		}
+		let thresholds = [1,2,5,10,25,50,100,250,500];
 		jsonData.forEach(function(e) {
 			let coordinates = (e.label.match(/(\-?\d+\.?\d*),\s*(\-?\d+\.?\d*)/));
 			if (coordinates != null) {
 				let latitude = parseFloat(coordinates[1]);
 				let longitude = parseFloat(coordinates[2]);
+				let threshold;
+				for (let i = 0; i < 9; ++i) {
+					if (parseInt(e.value) <= thresholds[i]){
+						threshold = i;
+						break;
+					}
+				}
+				if (threshold == null){
+					threshold = 9;
+				}
+
 				let layer = new ol.layer.Vector({
 					source: new ol.source.Vector({
 						features: [
@@ -834,7 +851,7 @@ function load_geography(url, field) {
 							})
 						]
 					}),
-					style: pointer_style
+					style: pstyles[threshold]
 				});
 				map.addLayer(layer);
 			}
@@ -845,7 +862,7 @@ function load_geography(url, field) {
 			$("#bb_chart").css("min-height", 0);
 			show_export_options();
 			$("#geography_view").off("change").change(function() {
-				if ($("#geography_view").val() == 'Aerial'){
+				if ($("#geography_view").val() == 'Aerial') {
 					layers[0].setVisible(false);
 					layers[1].setVisible(true);
 				} else {
@@ -853,7 +870,7 @@ function load_geography(url, field) {
 					layers[1].setVisible(false);
 				}
 			});
-			
+
 		});
 	});
 }
