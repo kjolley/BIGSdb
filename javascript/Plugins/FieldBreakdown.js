@@ -822,7 +822,7 @@ function load_geography(url, field) {
 		});
 
 		jsonData.forEach(function(e) {
-			let coordinates = (e.label.match(/(\-?\d+\.?\d+),\s*(\-?\d+\.?\d+)/));
+			let coordinates = (e.label.match(/(\-?\d+\.?\d*),\s*(\-?\d+\.?\d*)/));
 			if (coordinates != null) {
 				let latitude = parseFloat(coordinates[1]);
 				let longitude = parseFloat(coordinates[2]);

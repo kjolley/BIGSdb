@@ -1382,7 +1382,7 @@ sub _check_isolate_geography_point {    ## no critic (ProhibitUnusedPrivateSubro
 	my $thisfield = $self->{'cache'}->{'field_attributes'}->{$field};
 	$logger->error("$field attributes not cached") if !$thisfield;
 	return if $thisfield->{'type'} ne 'geography_point';
-	if ( $value =~ /\s*(\-?\d+\.?\d+)\s*,\s*(\-?\d+\.?\d+)\s*/x ) {
+	if ( $value =~ /\s*(\-?\d+\.?\d*)\s*,\s*(\-?\d+\.?\d*)\s*/x ) {
 		my ( $lat, $long ) = ( $1, $2 );
 		if ( defined $lat && !defined $long ) {
 			return q(must be in the form of 'latitude, longitude');

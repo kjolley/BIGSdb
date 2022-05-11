@@ -378,7 +378,7 @@ sub convert_geography_data {
 	my $atts = $self->{'xmlHandler'}->get_all_field_attributes;
 	foreach my $field ( keys %$atts ) {
 		if ( ( $atts->{$field}->{'type'} // q() ) eq 'geography_point'
-			&& $newdata->{$field} =~ /\s*(\-?\d+\.?\d+)\s*,\s*(\-?\d+\.?\d+)\s*/x )
+			&& $newdata->{$field} =~ /\s*(\-?\d+\.?\d*)\s*,\s*(\-?\d+\.?\d*)\s*/x )
 		{
 			my ( $lat, $long ) = ( $1, $2 );
 			$newdata->{$field} = $self->{'datastore'}->convert_coordinates_to_geography( $lat, $long );

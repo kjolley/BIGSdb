@@ -917,7 +917,7 @@ sub _rewrite_geography_point_data {
 	my ( $field, $value ) = @{$args}{qw(field value)};
 	my $geo_fields = $self->_get_geography_point_fields;
 	return if !$geo_fields->{$field};
-	if ( $$value =~ /\s*(\-?\d+\.?\d+)\s*,\s*(\-?\d+\.?\d+)\s*/x ) {
+	if ( $$value =~ /\s*(\-?\d+\.?\d*)\s*,\s*(\-?\d+\.?\d*)\s*/x ) {
 		$$value = $self->{'datastore'}->convert_coordinates_to_geography( $1, $2 );
 	}
 	return;
