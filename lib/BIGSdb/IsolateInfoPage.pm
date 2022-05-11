@@ -1200,7 +1200,7 @@ MAP
 		$buffer .= q(</div>);
 		$i++;
 	}
-	$buffer .= q(</div>);
+	$buffer .= q(</div><div style="clear:both"></div>);
 	return $buffer;
 }
 
