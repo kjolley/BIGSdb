@@ -805,7 +805,7 @@ sub _prepare_provenance_field_update {
 	my $match      = $self->_get_match_criteria;
 	my $curator_id = $self->get_curator_id;
 	if ( ( $att->{'type'} // q() ) eq 'geography_point' ) {
-		if ( $value =~ /\s*(\-?\d+\.?\d*)\s*,\s*(\-?\d+\.?\d*)\s*/x ) {
+		if ( $value =~ /^\s*(\-?\d+\.?\d*)\s*,\s*(\-?\d+\.?\d*)\s*$/x ) {
 			$value = $self->{'datastore'}->convert_coordinates_to_geography( $1, $2 );
 		}
 	}
