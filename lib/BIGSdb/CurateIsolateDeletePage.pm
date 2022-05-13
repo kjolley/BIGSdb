@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -28,6 +28,13 @@ my $logger = get_logger('BIGSdb.Page');
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw(jQuery jQuery.columnizer);
+	my $field_attributes = $self->{'xmlHandler'}->get_all_field_attributes;
+	foreach my $field ( keys %$field_attributes ) {
+		if ( $field_attributes->{$field}->{'type'} eq 'geography_point' ) {
+			$self->{'ol'} = 1;
+			last;
+		}
+	}
 	$self->set_level1_breadcrumbs;
 	return;
 }
@@ -57,8 +64,7 @@ sub print_content {
 	if ( !$self->can_modify_table('isolates') ) {
 		$self->print_bad_status(
 			{
-				message =>
-				  q(Your user account is not allowed to delete records in the isolates table.)
+				message => q(Your user account is not allowed to delete records in the isolates table.)
 			}
 		);
 		return;
