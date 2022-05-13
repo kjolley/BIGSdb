@@ -1,3 +1,7 @@
+v1.35.2: *New isolate field type - geography_point that stores GPS coordinates.
+          Mapping using OpenStreetMap or Bing is now available for such fields
+          within isolate records and within the FieldBreakdown plugin.
+v1.35.1: *Minor bug fixes.
 v1.35.0: *Adds support for alternative codon tables.
 v1.34.2: *LINcode bug fixes.
          *Option to allow batch upload of profiles that are identical except
