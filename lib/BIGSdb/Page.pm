@@ -1999,7 +1999,8 @@ sub get_record_name {
 		lincode_schemes                   => 'LINcode scheme',
 		lincode_fields                    => 'LINcode field',
 		lincode_prefixes                  => 'LINcode prefix nomenclature',
-		codon_tables                      => 'isolate codon table'
+		codon_tables                      => 'isolate codon table',
+		sequence_extended_attributes      => 'sequence extended attribute'
 	);
 	return $names{$table};
 }
@@ -2312,9 +2313,8 @@ sub can_modify_table {
 		}
 
 		#Alleles and locus descriptions
-		my %seq_tables = map { $_ => 1 }
-		  qw (sequences locus_descriptions locus_links retired_allele_ids sequence_extended_attributes)
-		  ;
+		my %seq_tables =
+		  map { $_ => 1 } qw (sequences locus_descriptions locus_links retired_allele_ids sequence_extended_attributes);
 		if ( $seq_tables{$table} ) {
 			return 1 if !$locus;
 			return $self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $self->get_curator_id );

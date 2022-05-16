@@ -567,6 +567,11 @@ sub _check_data {
 					$self->_check_corresponding_sequence_exists( $pk_values_ref, $problems, $pk_combination );
 					$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
 				},
+				sequence_extended_attributes => sub {
+					$self->_check_corresponding_sequence_exists( [ $pk_values_ref->[0], $pk_values_ref->[2] ],
+						$problems, $pk_combination );
+					$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
+				},
 				loci => sub {
 					$self->_check_data_loci($new_args);
 				},
@@ -845,6 +850,8 @@ sub check_permissions {
 sub _check_corresponding_sequence_exists {
 	my ( $self, $pk_values_ref, $problems, $pk_combination ) = @_;
 	return if $self->{'system'}->{'dbtype'} ne 'sequences';
+	return if !defined $pk_values_ref->[0];
+	return if !defined $pk_values_ref->[1];
 	if ( !$self->{'datastore'}->sequence_exists(@$pk_values_ref) ) {
 		$problems->{$pk_combination} .= "Sequence $pk_values_ref->[0]-$pk_values_ref->[1] does not exist. ";
 	}
