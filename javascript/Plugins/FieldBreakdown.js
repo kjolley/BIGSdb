@@ -811,7 +811,9 @@ function load_geography(url, field) {
 			layers: layers,
 			view: new ol.View({
 				center: ol.proj.fromLonLat([0, 20]),
-				zoom: 2
+				zoom: 2,
+				minZoom: 1,
+				maxZoom: 16
 			})
 		});
 		let pstyles = [];
@@ -859,7 +861,10 @@ function load_geography(url, field) {
 		if (features.length) {
 			map.getView().fit(vectorLayer.getSource().getExtent(), {
 				size: map.getSize(),
-				maxZoom: 16
+				padding: [10, 10, 10, 10],
+				minZoom: 2,
+				maxZoom: 12,
+				constrainResolution: false
 			});
 		}
 		map.on('postrender', function(e) {
