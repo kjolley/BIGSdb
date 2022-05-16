@@ -843,27 +843,24 @@ function load_geography(url, field) {
 				if (threshold == null) {
 					threshold = 9;
 				}
-				if (features[threshold] == undefined) {
-					features[threshold] = [];
-				}
-				features[threshold].push(
-					new ol.Feature({
-						geometry: new ol.geom.Point(ol.proj.fromLonLat([longitude, latitude]))
-					})
-				);
+				let feature = new ol.Feature({
+					geometry: new ol.geom.Point(ol.proj.fromLonLat([longitude, latitude])),
+				});
+				feature.setStyle(pstyles[threshold])
+				features.push(feature);
 			}
 		});
-		console.log(features);
-		for (let i = 0; i < 10; i++) {
-			if (features[i] !== undefined) {
-				let layer = new ol.layer.Vector({
-					source: new ol.source.Vector({
-						features: features[i]
-					}),
-					style: pstyles[i]
-				})
-				map.addLayer(layer);
-			}
+		let vectorLayer = new ol.layer.Vector({
+			source: new ol.source.Vector({
+				features: features
+			})
+		})
+		map.addLayer(vectorLayer);
+		if (features.length) {
+			map.getView().fit(vectorLayer.getSource().getExtent(), {
+				size: map.getSize(),
+				maxZoom: 16
+			});
 		}
 		map.on('postrender', function(e) {
 			$("div#waiting").css("display", "none");
