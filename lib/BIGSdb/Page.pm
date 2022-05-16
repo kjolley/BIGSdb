@@ -188,7 +188,7 @@ sub _get_javascript_paths {
 			'dropzone'     => { src => [qw(dropzone.js)],    defer => 0, version => '20200308' },
 
 			#See https://dolmenweb.it/viewers/openlayer/doc/tutorials/custom-builds.html
-			'ol' => { src => [qw(ol-custom.js)], defer => 0, version => '6.14.1#20220516' },
+			'ol'        => { src => [qw(ol-custom.js)], defer => 0, version => '6.14.1#20220516' },
 			'billboard' => {
 				src     => [qw(d3.v6.min.js billboard.min.js jquery.ui.touch-punch.min.js)],
 				defer   => 1,
@@ -2312,7 +2312,9 @@ sub can_modify_table {
 		}
 
 		#Alleles and locus descriptions
-		my %seq_tables = map { $_ => 1 } qw (sequences locus_descriptions locus_links retired_allele_ids);
+		my %seq_tables = map { $_ => 1 }
+		  qw (sequences locus_descriptions locus_links retired_allele_ids sequence_extended_attributes)
+		  ;
 		if ( $seq_tables{$table} ) {
 			return 1 if !$locus;
 			return $self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $self->get_curator_id );
