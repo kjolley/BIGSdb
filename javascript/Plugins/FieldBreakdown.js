@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 
-Version 2.4.0.
+Version 2.4.1.
 */
 
 var prefs_loaded;
@@ -826,7 +826,8 @@ function load_geography(url, field) {
 			});
 			pstyles.push(pstyle);
 		}
-		let thresholds = [1,2,5,10,25,50,100,250,500];
+		let thresholds = [1, 2, 5, 10, 25, 50, 100, 250, 500];
+		let features = [];
 		jsonData.forEach(function(e) {
 			let coordinates = (e.label.match(/(\-?\d+\.?\d*),\s*(\-?\d+\.?\d*)/));
 			if (coordinates != null) {
@@ -834,28 +835,36 @@ function load_geography(url, field) {
 				let longitude = parseFloat(coordinates[2]);
 				let threshold;
 				for (let i = 0; i < 9; ++i) {
-					if (parseInt(e.value) <= thresholds[i]){
+					if (parseInt(e.value) <= thresholds[i]) {
 						threshold = i;
 						break;
 					}
 				}
-				if (threshold == null){
+				if (threshold == null) {
 					threshold = 9;
 				}
-
-				let layer = new ol.layer.Vector({
-					source: new ol.source.Vector({
-						features: [
-							new ol.Feature({
-								geometry: new ol.geom.Point(ol.proj.fromLonLat([longitude, latitude]))
-							})
-						]
-					}),
-					style: pstyles[threshold]
-				});
-				map.addLayer(layer);
+				if (features[threshold] == undefined) {
+					features[threshold] = [];
+				}
+				features[threshold].push(
+					new ol.Feature({
+						geometry: new ol.geom.Point(ol.proj.fromLonLat([longitude, latitude]))
+					})
+				);
 			}
 		});
+		console.log(features);
+		for (let i = 0; i < 10; i++) {
+			if (features[i] !== undefined) {
+				let layer = new ol.layer.Vector({
+					source: new ol.source.Vector({
+						features: features[i]
+					}),
+					style: pstyles[i]
+				})
+				map.addLayer(layer);
+			}
+		}
 		map.on('postrender', function(e) {
 			$("div#waiting").css("display", "none");
 			$("#geography_controls").css("display", "block");
