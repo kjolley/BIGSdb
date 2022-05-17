@@ -426,16 +426,43 @@ sub _print_map_controls {
 sub _print_geography_controls {
 	my ($self) = @_;
 	my $bingmaps_api = $self->{'system'}->{'bingmaps_api'} // $self->{'config'}->{'bingmaps_api'};
-	return if !defined $bingmaps_api;
 	my $q = $self->{'cgi'};
 	say q(<fieldset id="geography_controls" class="bb_controls" )
 	  . q(style="position:absolute;top:1em;right:1em;display:none"><legend>Controls</legend>);
-	say q(<ul><li><label for="view">View:</label>);
-	say $q->popup_menu(
-		-id      => 'geography_view',
-		-values  => [qw(Map Aerial)],
-		-default => 'Map'
-	);
+	say q(<ul>);
+	my %allowed = map { $_ => 1 } qw(Map Aerial);
+	my $guid = $self->get_guid;
+	my $style;
+	eval {
+		$style =
+		  $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'FieldBreakdown', 'map_style' );
+	};
+
+	if ( !defined $style || !$allowed{$style} ) {
+		$style = 'Map';
+	}
+	if ( defined $bingmaps_api ) {
+		say q(<li><label for="view">View:</label>);
+		say $q->popup_menu(
+			-id      => 'geography_view',
+			-values  => [qw(Map Aerial)],
+			-default => $style
+		);
+		say q(</li>);
+	}
+	say q(<style>.marker_colour.fa-square {text-shadow: 2px 2px 2px #999;font-size:1.8em;)
+	  . q(margin-right:0.2em;cursor:pointer}</style>);
+	say q(<li><span style="float:left;margin-right:0.5em">Marker colour:</span>)
+	  . q(<div style="display:inline-block">)
+	  . q(<span id="marker_red" style="color:#ff0000" class="marker_colour fas fa-square"></span>)
+	  . q(<span id="marker_green" style="color:#0d823a" class="marker_colour fas fa-square"></span>)
+	  . q(<span id="marker_blue" style="color:#0000ff" class="marker_colour fas fa-square"></span>)
+	  . q(<span id="marker_purple" style="color:#b002fa" class="marker_colour fas fa-square"></span>)
+	  . q(<span id="marker_orange" style="color:#fa5502" class="marker_colour fas fa-square"></span>)
+	  . q(<span id="marker_yellow" style="color:#fccf03" class="marker_colour fas fa-square"></span>)
+	  . q(<span id="marker_grey" style="color:#303030" class="marker_colour fas fa-square"></span>);
+	say q(<li><li><label for="segments">Marker size:</label>);
+	say q(<div id="marker_size" style="display:inline-block;width:8em;margin-left:0.5em"></div>);
 	say q(</li></ul></fieldset>);
 	return;
 }
@@ -621,16 +648,6 @@ sub get_plugin_javascript {
 	my ($self)              = @_;
 	my $has_valid_countries = $self->_has_country_optlist;
 	my $query_params        = $self->_get_query_params;
-	my $guid                = $self->get_guid;
-	my ( $theme, $projection );
-	eval {
-		$theme =
-		  $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'FieldBreakdown', 'theme' );
-		$projection = $self->{'prefstore'}
-		  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'FieldBreakdown', 'projection' );
-	};
-	$theme      //= 'theme_green';
-	$projection //= 'Natural Earth';
 	local $" = q(&);
 	my $url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=plugin&name=FieldBreakdown);
 	my $plugin_prefs_ajax_url =
@@ -649,8 +666,6 @@ var rotate = 0;
 var pie = 1;
 var line = 1;
 var fasta = 0;
-var theme = "$theme";
-var projection = "$projection";
 var url = "$url";
 var prefs_ajax_url = "$plugin_prefs_ajax_url";
 var bingmaps_api = "$bingmaps_api";

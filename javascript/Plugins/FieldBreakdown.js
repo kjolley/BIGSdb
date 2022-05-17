@@ -25,6 +25,8 @@ var prefs_loaded;
 var prefs_load_attempts = 0;
 var selected_field;
 var selected_type;
+var marker_colour;
+var marker_size;
 
 $(function() {
 	$.ajax({
@@ -36,6 +38,8 @@ $(function() {
 			if (prefObj.segments) { segments = prefObj.segments };
 			if (prefObj.pie == 0) { pie = 0 }
 			theme = prefObj.theme ? prefObj.theme : 'theme_green';
+			marker_colour = prefObj.marker_colour ? prefObj.marker_colour : 'marker_red';
+			marker_size = prefObj.marker_size ? prefObj.marker_size : 2;
 			projection = prefObj.projection ? prefObj.projection : 'Natural Earth';
 			$("#projection").val(projection);
 			prefs_loaded = 1;
@@ -778,13 +782,16 @@ function load_geography(url, field) {
 	$("#bb_chart").html("");
 	$("#geography").css("height", "400px");
 	const styles = ['RoadOnDemand', 'AerialWithLabelsOnDemand'];
+	const prefStyles = ['Map', 'Aerial'];
 	let layers = [];
+	
 	if (bingmaps_api) {
+		let map_style = $("#geography_view").val();
 		let i, ii;
 		for (i = 0, ii = styles.length; i < ii; ++i) {
 			layers.push(
 				new ol.layer.Tile({
-					visible: i == 0 ? true : false,
+					visible: prefStyles[i] == map_style ? true : false,
 					preload: Infinity,
 					source: new ol.source.BingMaps({
 						key: bingmaps_api,
@@ -802,8 +809,6 @@ function load_geography(url, field) {
 			})
 		);
 	}
-
-
 	d3.json(url).then(function(jsonData) {
 
 		let map = new ol.Map({
@@ -816,48 +821,11 @@ function load_geography(url, field) {
 				maxZoom: 16
 			})
 		});
-		let pstyles = [];
-		for (let i = 0; i < 10; ++i) {
-			let pstyle = new ol.style.Style({
-				image: new ol.style.Circle({
-					radius: 2 + i,
-					fill: new ol.style.Fill({
-						color: 'rgba(255,60,0,0.7)'
-					})
-				})
-			});
-			pstyles.push(pstyle);
-		}
-		let thresholds = [1, 2, 5, 10, 25, 50, 100, 250, 500];
-		let features = [];
-		jsonData.forEach(function(e) {
-			let coordinates = (e.label.match(/(\-?\d+\.?\d*),\s*(\-?\d+\.?\d*)/));
-			if (coordinates != null) {
-				let latitude = parseFloat(coordinates[1]);
-				let longitude = parseFloat(coordinates[2]);
-				let threshold;
-				for (let i = 0; i < 9; ++i) {
-					if (parseInt(e.value) <= thresholds[i]) {
-						threshold = i;
-						break;
-					}
-				}
-				if (threshold == null) {
-					threshold = 9;
-				}
-				let feature = new ol.Feature({
-					geometry: new ol.geom.Point(ol.proj.fromLonLat([longitude, latitude])),
-				});
-				feature.setStyle(pstyles[threshold])
-				features.push(feature);
-			}
-		});
-		let vectorLayer = new ol.layer.Vector({
-			source: new ol.source.Vector({
-				features: features
-			})
-		})
+
+		let vectorLayer = get_marker_layer(jsonData);
 		map.addLayer(vectorLayer);
+
+		let features = vectorLayer.getSource().getFeatures();
 		if (features.length) {
 			map.getView().fit(vectorLayer.getSource().getExtent(), {
 				size: map.getSize(),
@@ -880,10 +848,80 @@ function load_geography(url, field) {
 					layers[0].setVisible(true);
 					layers[1].setVisible(false);
 				}
+				set_prefs('map_style', $("#geography_view").val());
 			});
 
 		});
+		$("#marker_size").slider({ min: 1, max: 10, value: marker_size });
+		$(".marker_colour").off("click").click(function() {
+			set_prefs('marker_colour', this.id);
+			marker_colour = this.id;
+			map.removeLayer(vectorLayer);
+			vectorLayer = get_marker_layer(jsonData);
+			map.addLayer(vectorLayer);
+		});
+		$("#marker_size").off("slidechange").on("slidechange", function() {
+			marker_size = $("#marker_size").slider('value');
+			set_prefs('marker_size', marker_size);
+			map.removeLayer(vectorLayer);
+			vectorLayer = get_marker_layer(jsonData);
+			map.addLayer(vectorLayer);
+		});
 	});
+}
+
+function get_marker_layer(jsonData) {
+	let colours = {
+		marker_red: 'rgb(255,0,0,0.7)',
+		marker_blue: 'rgb(0,0,255,0.7)',
+		marker_green: 'rgb(13,130,58,0.7)',
+		marker_purple: 'rgb(176,2,250,0.7)',
+		marker_orange: 'rgb(250,85,2,0.7)',
+		marker_yellow: 'rgb(252,207,3,0.7)',
+		marker_grey: 'rgb(48,48,48,0.7)'
+	};
+	let pstyles = [];
+	for (let i = 0; i < 10; ++i) {
+		let pstyle = new ol.style.Style({
+			image: new ol.style.Circle({
+				radius: parseInt(marker_size) + i,
+				fill: new ol.style.Fill({
+					color: colours[marker_colour]
+				})
+			})
+		});
+		pstyles.push(pstyle);
+	}
+	let thresholds = [1, 2, 5, 10, 25, 50, 100, 250, 500];
+	let features = [];
+	jsonData.forEach(function(e) {
+		let coordinates = (e.label.match(/(\-?\d+\.?\d*),\s*(\-?\d+\.?\d*)/));
+		if (coordinates != null) {
+			let latitude = parseFloat(coordinates[1]);
+			let longitude = parseFloat(coordinates[2]);
+			let threshold;
+			for (let i = 0; i < 9; ++i) {
+				if (parseInt(e.value) <= thresholds[i]) {
+					threshold = i;
+					break;
+				}
+			}
+			if (threshold == null) {
+				threshold = 9;
+			}
+			let feature = new ol.Feature({
+				geometry: new ol.geom.Point(ol.proj.fromLonLat([longitude, latitude])),
+			});
+			feature.setStyle(pstyles[threshold])
+			features.push(feature);
+		}
+	});
+	let vectorLayer = new ol.layer.Vector({
+		source: new ol.source.Vector({
+			features: features
+		})
+	})
+	return vectorLayer;
 }
 
 
