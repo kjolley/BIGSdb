@@ -64,7 +64,7 @@ $(function() {
 	} else if (field_types[field] == 'date') {
 		load_line(initial_url, field, line);
 	} else if (field_types[field] == 'geography_point') {
-		load_geography(initial_url, field)
+		load_geography_after_prefs_loaded(initial_url, field)
 	} else {
 		load_pie(initial_url, field, segments);
 	}
@@ -177,6 +177,18 @@ function load_map_after_prefs_loaded(initial_url, field) {
 		}, 50);
 	}
 	load_map(initial_url, field);
+}
+
+function load_geography_after_prefs_loaded(initial_url, field) {
+	prefs_load_attempts++;
+	// Wait 50ms and check again.
+	// Give up waiting after 10s.
+	if (!prefs_loaded && prefs_load_attempts < 200) {
+		return setTimeout(function() {
+			load_geography_after_prefs_loaded(initial_url, field)
+		}, 50);
+	}
+	load_geography(initial_url, field);
 }
 
 function get_ajax_prefs() {
@@ -784,7 +796,7 @@ function load_geography(url, field) {
 	const styles = ['RoadOnDemand', 'AerialWithLabelsOnDemand'];
 	const prefStyles = ['Map', 'Aerial'];
 	let layers = [];
-	
+
 	if (bingmaps_api) {
 		let map_style = $("#geography_view").val();
 		let i, ii;
