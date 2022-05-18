@@ -862,23 +862,23 @@ function load_geography(url, field) {
 				}
 				set_prefs('map_style', $("input[name='geography_view']:checked").val());
 			});
-
+			$(".marker_colour").off("click").click(function() {
+				set_prefs('marker_colour', this.id);
+				marker_colour = this.id;
+				map.removeLayer(vectorLayer);
+				vectorLayer = get_marker_layer(jsonData);
+				map.addLayer(vectorLayer);
+			});
+			$("#marker_size").off("slidechange").on("slidechange", function() {
+				marker_size = $("#marker_size").slider('value');
+				set_prefs('marker_size', marker_size);
+				map.removeLayer(vectorLayer);
+				vectorLayer = get_marker_layer(jsonData);
+				map.addLayer(vectorLayer);
+			});
 		});
 		$("#marker_size").slider({ min: 1, max: 10, value: marker_size });
-		$(".marker_colour").off("click").click(function() {
-			set_prefs('marker_colour', this.id);
-			marker_colour = this.id;
-			map.removeLayer(vectorLayer);
-			vectorLayer = get_marker_layer(jsonData);
-			map.addLayer(vectorLayer);
-		});
-		$("#marker_size").off("slidechange").on("slidechange", function() {
-			marker_size = $("#marker_size").slider('value');
-			set_prefs('marker_size', marker_size);
-			map.removeLayer(vectorLayer);
-			vectorLayer = get_marker_layer(jsonData);
-			map.addLayer(vectorLayer);
-		});
+
 	});
 }
 

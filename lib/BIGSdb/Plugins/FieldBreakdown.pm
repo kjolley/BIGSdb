@@ -449,11 +449,6 @@ sub _print_geography_controls {
 			-values  => [qw(Map Aerial)],
 			-default => $style
 		);
-#		say $q->popup_menu(
-#			-id      => 'geography_view',
-#			-values  => [qw(Map Aerial)],
-#			-default => $style
-#		);
 		say q(</li>);
 	}
 	say q(<style>.marker_colour.fa-square {text-shadow: 2px 2px 2px #999;font-size:1.8em;)
