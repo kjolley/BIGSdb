@@ -409,6 +409,9 @@ function get_range(data) {
 
 
 function finished_map(url, field) {
+	if (field !== selected_field) {
+		return;
+	}
 	$("div#waiting").css("display", "block");
 	$("#bar_controls").css("display", "none");
 	$("#line_controls").css("display", "none");
@@ -822,7 +825,6 @@ function load_geography(url, field) {
 		);
 	}
 	d3.json(url).then(function(jsonData) {
-
 		let map = new ol.Map({
 			target: 'geography',
 			layers: layers,
@@ -848,6 +850,10 @@ function load_geography(url, field) {
 			});
 		}
 		map.on('postrender', function(e) {
+			if (field !== selected_field) {
+				return;
+			}
+			$("#map").html("");
 			$("div#waiting").css("display", "none");
 			$("#geography_controls").css("display", "block");
 			$("#bb_chart").css("min-height", 0);
