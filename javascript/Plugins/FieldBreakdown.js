@@ -798,7 +798,7 @@ function load_geography(url, field) {
 	let layers = [];
 
 	if (bingmaps_api) {
-		let map_style = $("#geography_view").val();
+		let map_style = $("input[name='geography_view']:checked").val();
 		let i, ii;
 		for (i = 0, ii = styles.length; i < ii; ++i) {
 			layers.push(
@@ -852,15 +852,15 @@ function load_geography(url, field) {
 			$("#geography_controls").css("display", "block");
 			$("#bb_chart").css("min-height", 0);
 			show_export_options();
-			$("#geography_view").off("change").change(function() {
-				if ($("#geography_view").val() == 'Aerial') {
+			$("input[name='geography_view']").off("change").change(function() {
+				if ($("input[name='geography_view']:checked").val() == 'Aerial') {
 					layers[0].setVisible(false);
 					layers[1].setVisible(true);
 				} else {
 					layers[0].setVisible(true);
 					layers[1].setVisible(false);
 				}
-				set_prefs('map_style', $("#geography_view").val());
+				set_prefs('map_style', $("input[name='geography_view']:checked").val());
 			});
 
 		});
