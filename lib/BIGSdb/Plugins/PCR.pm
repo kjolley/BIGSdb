@@ -1,6 +1,6 @@
 #PCR.pm - In silico PCR plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2019-2020, University of Oxford
+#Copyright (c) 2019-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -57,7 +57,7 @@ sub get_attributes {
 		buttontext  => 'PCR',
 		menutext    => 'In silico PCR',
 		module      => 'PCR',
-		version     => '1.0.8',
+		version     => '1.0.9',
 		dbtype      => 'isolates',
 		section     => 'isolate_info,analysis,postquery',
 		input       => 'query',
@@ -353,7 +353,7 @@ sub run_job {
 	my $progress = 0;
 	my @fields   = (
 		'id', $self->{'system'}->{'labelfield'},
-		'PCR +ve', 'products', 'contig', 'length', 'start', 'end', 'description'
+		'PCR +ve', 'products', 'contig', 'length', 'start', 'end', 'direction'
 	);
 	local $" = q(</th><th>);
 	my $table_header = qq(<table class="resultstable"><tr><th>@fields</th></tr>);
@@ -396,17 +396,17 @@ sub run_job {
 			$row_buffer .=
 			  qq(<tr class="td$td"><td>$id</td><td>$label</td><td>$bad</td><td>0</td><td colspan="5"></td></tr>);
 		} elsif ( $num_results == 1 ) {
-			my @values = @{ $results->[0] }{qw(seqbin_id length start end description)};
+			my @values = @{ $results->[0] }{qw(seqbin_id length start end direction)};
 			$row_buffer .=
 			  qq(<tr class="td$td"><td>$id</td><td>$label</td><td>$good</td><td>1</td><td>@values</td></tr>);
 		} else {
-			my @values = @{ $results->[0] }{qw(seqbin_id length start end description)};
+			my @values = @{ $results->[0] }{qw(seqbin_id length start end direction)};
 			$row_buffer .=
 			    qq(<tr class="td$td"><td rowspan="$num_results">$id</td>)
 			  . qq(<td rowspan="$num_results">$label</td><td rowspan="$num_results">$good</td>)
 			  . qq(<td rowspan="$num_results">$num_results</td><td>@values</td></tr>);
 			for my $i ( 1 .. $num_results - 1 ) {
-				@values = @{ $results->[$i] }{qw(seqbin_id length start end description)};
+				@values = @{ $results->[$i] }{qw(seqbin_id length start end direction)};
 				$row_buffer .= qq(<tr class="td$td"><td>@values</td></tr>);
 			}
 		}
@@ -499,7 +499,7 @@ sub _parse_results {
 			length      => $values[3],
 			start       => $values[5] + 1,
 			end         => $values[8],
-			description => $desc->{ $values[10] }
+			direction => $desc->{ $values[10] }
 		};
 		$product->{'seqbin_id'} =~ s/:.*//x;
 		$product->{'end'} += ( $values[7] eq 'A' ) ? length( $params->{'primer1'} ) : length( $params->{'primer2'} );
