@@ -1,3 +1,6 @@
+v1.35.3: *Improve GPS mapping in FieldBreakdown plugin - users can dynamically
+          change pointer colour and size, and the map is automatically centred
+          and zoomed on displayed points.
 v1.35.2: *New isolate field type - geography_point that stores GPS coordinates.
           Mapping using OpenStreetMap or Bing is now available for such fields
           within isolate records and within the FieldBreakdown plugin.
