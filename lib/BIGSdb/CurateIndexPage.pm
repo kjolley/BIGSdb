@@ -409,6 +409,7 @@ sub _get_geocoding {
 sub _get_geography_point_lookup {
 	my ($self) = @_;
 	return q() if !$self->can_modify_table('geography_point_lookup');
+	return if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
 	my $atts = $self->{'xmlHandler'}->get_all_field_attributes;
 	my $lookup_fields;
 	foreach my $field ( keys %$atts ) {
@@ -418,6 +419,15 @@ sub _get_geography_point_lookup {
 		}
 	}
 	return q() if !$lookup_fields;
+	if ( !$self->{'datastore'}->run_query(q(SELECT to_regclass('geography_point_lookup'))) ) {
+		$logger->fatal(
+			    'Your database configuration contains one or more fields with the geography_point_lookup attribute set '
+			  . 'but your database does not contain the geography_point_lookup table. You need to ensure that PostGIS '
+			  . 'is installed and run the isolatedb_geocoding.sql SQL script against the database to set this up.'
+		);
+		undef $atts->{$_}->{'geography_point_lookup'} foreach keys %$atts;
+		return q();
+	}
 	my $buffer = q(<div class="curategroup curategroup_projects grid-item default_hide_curator" )
 	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Geopoint field lookup</h2>);
 	$buffer .= $self->_get_icon_group(
