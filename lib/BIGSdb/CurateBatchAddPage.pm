@@ -598,6 +598,9 @@ sub _check_data {
 				},
 				lincode_prefixes => sub {
 					$self->_check_lincode_prefix_values( $new_args, $problems, $pk_combination );
+				},
+				geography_point_lookup => sub {
+					$self->_check_geography_point_values( $new_args, $problems, $pk_combination );
 				}
 			);
 			$record_checks{$table}->() if $record_checks{$table};
@@ -782,6 +785,22 @@ sub _check_lincode_prefix_values {
 		&& !BIGSdb::Utils::is_int( $data->[ $file_header_pos->{'value'} ] ) )
 	{
 		$problems->{$pk_combination} .= "$data->[$file_header_pos->{'field'}] must be an integer.";
+	}
+	return;
+}
+
+sub _check_geography_point_values {
+	my ( $self, $args, $problems, $pk_combination ) = @_;
+	my ( $data, $file_header_pos ) = ( $args->{'data'}, $args->{'file_header_pos'} );
+	my $location = $data->[ $file_header_pos->{'location'} ] ;
+	if ( $location =~ /^\s*(\-?\d+\.?\d*)\s*,\s*(\-?\d+\.?\d*)\s*$/x ) {
+		my ( $lat, $long ) = ( $1, $2 );
+		if ( $lat < -90 || $lat > 90 || $long < -180 || $long > 180 ) {
+			$problems->{$pk_combination} .= qq('$data->[$file_header_pos->{'field'}]' latitude must be in the )
+			. q(range: -90 - 90; longitude must be in the range: -180 - 180 );
+		}
+	} else {
+		$problems->{$pk_combination} .= "$data->[$file_header_pos->{'field'}] should be in the format '[Latitude], [Longitude]'.";
 	}
 	return;
 }

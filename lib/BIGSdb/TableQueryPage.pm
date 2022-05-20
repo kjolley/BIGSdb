@@ -166,7 +166,7 @@ sub _get_select_items {
 		} else {
 			push @select_items, $att->{'name'};
 		}
-		push @order_by, $att->{'name'};
+		push @order_by, $att->{'name'} if !$att->{'no_order_by'};
 		if ( $att->{'name'} eq 'isolate_id' && $table ne 'retired_isolates' ) {
 			push @select_items, $self->{'system'}->{'labelfield'};
 		}

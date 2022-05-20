@@ -336,8 +336,7 @@ sub _get_non_admin_locus_field {
 	my %seq_table =
 	  map { $_ => 1 }
 	  qw(sequences retired_allele_ids sequence_refs accession locus_descriptions locus_links
-	  sequence_extended_attributes)
-	  ;
+	  sequence_extended_attributes);
 	return q() if !( $seq_table{$table} && $att->{'name'} eq 'locus' && !$self->is_admin );
 	my $set_id = $self->get_set_id;
 	my ( $values, $desc ) =
@@ -1091,6 +1090,13 @@ sub check_record {
 					$self->_check_validation_conditions_field_value( $att, $newdata );
 				}
 			},
+			{
+				table  => 'geography_point_lookup',
+				field  => 'location',
+				method => sub {
+					$self->_check_geopoint_field_value( $att, $newdata );
+				}
+			}
 		);
 		foreach my $check (@table_field_checks) {
 			if ( $table eq $check->{'table'} && $att->{'name'} eq $check->{'field'} ) {
@@ -1300,6 +1306,22 @@ sub _check_validation_conditions_field_value {
 	}
 	if ( lc($field_type) =~ /^bool/x && !BIGSdb::Utils::is_bool( $newdata->{'value'} ) ) {
 		return qq('$newdata->{'field'}' is a boolean field.);
+	}
+	return;
+}
+
+sub _check_geopoint_field_value {
+	my ( $self, $att, $newdata ) = @_;
+	if ( $newdata->{'location'} =~ /^\s*(\-?\d+\.?\d*)\s*,\s*(\-?\d+\.?\d*)\s*$/x ) {
+		my ( $lat, $long ) = ( $1, $2 );
+		if ( $lat < -90 || $lat > 90 || $long < -180 || $long > 180 ) {
+			return qq('$newdata->{'field'}' latitude must be in the range: -90 - 90; )
+			  . q(longitude must be in the range: -180 - 180 );
+		}
+		$newdata->{'location'} =
+		  $self->{'datastore'}->convert_coordinates_to_geography( $lat, $long );
+	} else {
+		return qq('$newdata->{'field'}' should be in the format '[Latitude], [Longitude]'.);
 	}
 	return;
 }

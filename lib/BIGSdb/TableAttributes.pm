@@ -19,8 +19,8 @@
 package BIGSdb::TableAttributes;
 use strict;
 use warnings;
-use List::MoreUtils qw(any);
-use BIGSdb::Constants qw(SEQ_METHODS SEQ_STATUS SEQ_FLAGS LOCUS_TYPES DATABANKS IDENTITY_THRESHOLD OPERATORS);
+use List::MoreUtils qw(any uniq);
+use BIGSdb::Constants qw(SEQ_METHODS SEQ_STATUS SEQ_FLAGS LOCUS_TYPES DATABANKS IDENTITY_THRESHOLD OPERATORS COUNTRIES);
 
 #Attributes
 #hide => 1: Do not display in results table and do not return field values in query
@@ -2665,8 +2665,41 @@ sub get_codon_tables_table_attributes {
 	local $" = q(;);
 	my $attributes = [
 		{ name => 'isolate_id',  type => 'int', required => 1, primary_key => 1,            foreign_key => 'isolates' },
-		{ name => 'codon_table', type => 'int', required => 1, optlist     => qq(@optlist), labels      => $labels }
-		,
+		{ name => 'codon_table', type => 'int', required => 1, optlist     => qq(@optlist), labels      => $labels },
+		{ name => 'datestamp', type => 'date', required => 1 },
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 }
+	];
+	return $attributes;
+}
+
+sub get_geography_point_lookup_table_attributes {
+	my ($self) = @_;
+	my @optlist;
+	my $countries = COUNTRIES;
+	foreach my $country ( uniq sort { $countries->{$a}->{'iso2'} cmp $countries->{$b}->{'iso2'} } keys %$countries ) {
+		push @optlist, $countries->{$country}->{'iso2'};
+	}
+	@optlist = uniq(@optlist);
+	my $fields = $self->{'xmlHandler'}->get_field_list;
+	my @field_opt_list;
+	foreach my $field (@$fields) {
+		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+		if ( ( $att->{'geography_point_lookup'} // q() ) eq 'yes' ) {
+			push @field_opt_list, $field;
+		}
+	}
+	local $" = q(;);
+	my $attributes = [
+		{ name => 'country_code', type => 'text', required => 1, primary_key => 1, optlist => qq(@optlist) },
+		{ name => 'field',        type => 'text', required => 1, primary_key => 1, optlist => qq(@field_opt_list) },
+		{ name => 'value',        type => 'text', required => 1, primary_key => 1 },
+		{
+			name        => 'location',
+			type        => 'geography_point',
+			required    => 1,
+			no_order_by => 1,
+			tooltip     => 'GPS coordinates in [LATITUDE], [LONGITUDE] format'
+		},
 		{ name => 'datestamp', type => 'date', required => 1 },
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 }
 	];

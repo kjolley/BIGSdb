@@ -340,6 +340,7 @@ sub _get_isolate_links {
 	$buffer .= $self->_get_allele_designations;
 	$buffer .= $self->_get_sequence_bin;
 	$buffer .= $self->_get_allele_sequences;
+	$buffer .= $self->_get_geography_point_lookup;
 	return $buffer;
 }
 
@@ -402,6 +403,33 @@ sub _get_geocoding {
 		}
 	);
 	$buffer .= qq(</div>\n);
+	return $buffer;
+}
+
+sub _get_geography_point_lookup {
+	my ($self) = @_;
+	return q() if !$self->can_modify_table('geography_point_lookup');
+	my $atts = $self->{'xmlHandler'}->get_all_field_attributes;
+	my $lookup_fields;
+	foreach my $field ( keys %$atts ) {
+		if ( ( $atts->{$field}->{'geography_point_lookup'} // q() ) eq 'yes' ) {
+			$lookup_fields = 1;
+			last;
+		}
+	}
+	return q() if !$lookup_fields;
+	my $buffer = q(<div class="curategroup curategroup_projects grid-item default_hide_curator" )
+	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Geopoint field lookup</h2>);
+	$buffer .= $self->_get_icon_group(
+		'geography_point_lookup',
+		'globe-europe',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Geopoint lookup - Set GPS coordinates for geographic field values.'
+		}
+	);
 	return $buffer;
 }
 

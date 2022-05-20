@@ -320,6 +320,11 @@ sub _read_value {
 	if ( $field eq 'sender' && $user_status eq 'submitter' ) {
 		return $self->{'curator_id'};
 	}
+	if ($table eq 'geography_point_lookup' && $field eq 'location'){
+		if ( $data->[ $field_order->{$field} ] =~ /^\s*(\-?\d+\.?\d*)\s*,\s*(\-?\d+\.?\d*)\s*$/x ) {
+			$data->[ $field_order->{$field} ]= $self->{'datastore'}->convert_coordinates_to_geography($1,$2);
+		}
+	}
 	if ( defined $field_order->{$field} && defined $data->[ $field_order->{$field} ] ) {
 		return $data->[ $field_order->{$field} ];
 	}
@@ -329,6 +334,7 @@ sub _read_value {
 	if ( $table eq 'sequences' && !defined $field_order->{$field} && $locus && $field eq 'locus' ) {
 		return $locus;
 	}
+
 	return;
 }
 

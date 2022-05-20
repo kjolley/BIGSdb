@@ -2000,7 +2000,8 @@ sub get_record_name {
 		lincode_fields                    => 'LINcode field',
 		lincode_prefixes                  => 'LINcode prefix nomenclature',
 		codon_tables                      => 'isolate codon table',
-		sequence_extended_attributes      => 'sequence extended attribute'
+		sequence_extended_attributes      => 'sequence extended attribute',
+		geography_point_lookup            => 'geography point lookup value'
 	);
 	return $names{$table};
 }
@@ -3206,12 +3207,20 @@ sub get_scheme_data {
 
 sub modify_dataset_if_needed {
 	my ( $self, $table, $dataset ) = @_;
-	return if $table ne 'users';
-	foreach my $user (@$dataset) {
-		next if !defined $user->{'user_db'};
-		my $remote_user = $self->{'datastore'}->get_remote_user_info( $user->{'user_name'}, $user->{'user_db'} );
-		if ( $remote_user->{'user_name'} ) {
-			$user->{$_} = $remote_user->{$_} foreach qw(first_name surname email affiliation);
+	if ( $table eq 'users' ) {
+		foreach my $user (@$dataset) {
+			next if !defined $user->{'user_db'};
+			my $remote_user = $self->{'datastore'}->get_remote_user_info( $user->{'user_name'}, $user->{'user_db'} );
+			if ( $remote_user->{'user_name'} ) {
+				$user->{$_} = $remote_user->{$_} foreach qw(first_name surname email affiliation);
+			}
+		}
+	}
+	if ( $table eq 'geography_point_lookup' ) {
+		foreach my $record (@$dataset){
+			my $location = $self->{'datastore'}->get_geography_coordinates($record->{'location'});
+			$record->{'location'} ="$location->{'latitude'}, $location->{'longitude'}";
+			
 		}
 	}
 	return;
