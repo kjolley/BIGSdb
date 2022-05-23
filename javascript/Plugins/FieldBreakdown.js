@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 
-Version 2.4.1.
+Version 2.5.0.
 */
 
 var prefs_loaded;
@@ -65,6 +65,8 @@ $(function() {
 		load_line(initial_url, field, line);
 	} else if (field_types[field] == 'geography_point') {
 		load_geography_after_prefs_loaded(initial_url, field)
+	} else if (geography_point_lookup_fields.includes(field)){
+		load_geography_after_prefs_loaded(initial_url + "&lookup_coordinates=1", field)
 	} else {
 		load_pie(initial_url, field, segments);
 	}
@@ -91,6 +93,8 @@ $(function() {
 			load_line(new_url, field, line);
 		} else if (field_types[field] == 'geography_point') {
 			load_geography(new_url, field)
+		} else if (geography_point_lookup_fields.includes(field)){
+			load_geography_after_prefs_loaded(new_url + "&lookup_coordinates=1", field)
 		} else {
 			load_pie(new_url, field, segments);
 		}
@@ -950,7 +954,7 @@ function show_export_options() {
 	$("a#export_text").attr("href", url + "&export=" + field + "&format=text");
 	$("a#export_fasta").attr("href", url + "&export=" + field + "&format=fasta");
 	$("a#export_fasta").css("display", fasta ? "inline" : "none");
-	$("a#export_image").css("display", selected_type == 'geography_point' ? "none" : "inline");
+	$("a#export_image").css("display", selected_type == 'geography_point' || geography_point_lookup_fields.includes(selected_field) ? "none" : "inline");
 	$("#export").css("display", "block");
 }
 

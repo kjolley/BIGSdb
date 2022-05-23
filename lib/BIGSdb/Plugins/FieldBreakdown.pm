@@ -48,7 +48,7 @@ sub get_attributes {
 		buttontext => 'Fields',
 		menutext   => 'Field breakdown',
 		module     => 'FieldBreakdown',
-		version    => '2.4.1',
+		version    => '2.5.0',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
@@ -71,7 +71,9 @@ sub get_initiation_values {
 	};
 	my $field_attributes = $self->{'xmlHandler'}->get_all_field_attributes;
 	foreach my $field ( keys %$field_attributes ) {
-		if ( $field_attributes->{$field}->{'type'} eq 'geography_point' ) {
+		if ( $field_attributes->{$field}->{'type'} eq 'geography_point'
+			|| ( $field_attributes->{$field}->{'geography_point_lookup'} // q() ) eq 'yes' )
+		{
 			$values->{'ol'} = 1;
 			last;
 		}
@@ -148,16 +150,23 @@ sub _get_field_type {
 }
 
 sub _get_field_values {
-	my ( $self, $field ) = @_;
+	my ( $self, $field, $options ) = @_;
 	my $field_type = $self->_get_field_type($field) // q();
 	my $freqs      = [];
 	my $methods    = {
 		field => sub {
 			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-			$freqs =
-			  $self->_get_field_freqs( $field, $att->{'type'} =~ /^(?:int|float|date)/x
-				? { order => 'label ASC' }
-				: undef );
+			$freqs = $self->_get_field_freqs(
+				$field,
+				$att->{'type'} =~ /^(?:int|float|date)/x
+				? {
+					order => 'label ASC'
+				  }
+				: {
+					geography_point_lookup => ( $att->{'geography_point_lookup'} // q() ) eq 'yes'
+					  && $options->{'geography_point_lookup'} ? 1 : 0
+				}
+			);
 		},
 		eav_field => sub {
 			my $att = $self->{'datastore'}->get_eav_field($field);
@@ -444,7 +453,7 @@ sub _print_geography_controls {
 	if ( defined $bingmaps_api ) {
 		say q(<li><label for="view">View:</label>);
 		say $q->radio_group(
-			-name => 'geography_view',
+			-name    => 'geography_view',
 			-id      => 'geography_view',
 			-values  => [qw(Map Aerial)],
 			-default => $style
@@ -584,6 +593,7 @@ sub _get_fields_js {
 	my $field_attributes = $self->{'xmlHandler'}->get_all_field_attributes;
 	my %types = map { $field_attributes->{$_} => $field_attributes->{$_}->{'type'} } keys %$field_attributes;
 	my @type_values;
+	my @geography_lookup_values;
 	my %allowed_types = map { $_ => 1 } qw(integer text float date geography_point);
 	foreach my $field ( keys %$field_attributes ) {
 		my $type = lc( $field_attributes->{$field}->{'type'} );
@@ -597,6 +607,9 @@ sub _get_fields_js {
 			$type = 'text';
 		}
 		push @type_values, qq('$field':'$type');
+		if ( ( $field_attributes->{$field}->{'geography_point_lookup'} // q() ) eq 'yes' ) {
+			push @geography_lookup_values, $field;
+		}
 	}
 	local $" = qq(,\n\t);
 	my ($fields) = $self->_get_fields;
@@ -608,6 +621,12 @@ sub _get_fields_js {
 		$buffer .= qq(var map_fields = ['@map_fields'];\n);
 	} else {
 		$buffer .= qq(var map_fields = [];\n);
+	}
+	if (@geography_lookup_values) {
+		local $" = q(',');
+		$buffer .= qq(var geography_point_lookup_fields = ['@geography_lookup_values'];\n);
+	} else {
+		$buffer .= qq(var geography_point_lookup_fields = [];\n);
 	}
 	return $buffer;
 }
@@ -681,26 +700,54 @@ JS
 
 sub _ajax {
 	my ( $self, $field ) = @_;
-	my $q     = $self->{'cgi'};
-	my $freqs = $self->_get_field_values($field);
+	my $q       = $self->{'cgi'};
+	my $options = {};
+	$options->{'geography_point_lookup'} = 1 if $q->param('lookup_coordinates');
+	my $freqs = $self->_get_field_values( $field, $options );
 	say to_json($freqs);
 	return;
 }
 
 sub _get_field_freqs {
 	my ( $self, $field, $options ) = @_;
-	my $needs_conversion = $self->{'datastore'}->field_needs_conversion($field);
-	my $qry              = "SELECT $field AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
-	  . 'JOIN id_list i ON v.id=i.value ';
-	$qry .= 'GROUP BY label';
+	my ( $needs_conversion, $qry );
+	my $country_field = $self->{'system'}->{'country_field'} // 'country';
+	if ( $options->{'geography_point_lookup'} ) {
+		$qry = "SELECT $country_field,$field AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
+		  . "JOIN id_list i ON v.id=i.value GROUP BY $country_field,label";
+	} else {
+		$needs_conversion = $self->{'datastore'}->field_needs_conversion($field);
+		$qry              = "SELECT $field AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
+		  . 'JOIN id_list i ON v.id=i.value ';
+		$qry .= 'GROUP BY label';
+	}
 	my $order = $options->{'order'} ? $options->{'order'} : 'value DESC';
 	$qry .= " ORDER BY $order";
 	my $values = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
-	if ( $field eq 'country' ) {
+	if ( $field eq $country_field ) {
 		my $countries = dclone(COUNTRIES);
 		foreach my $value (@$values) {
 			$value->{'iso3'} = $countries->{ $value->{'label'} }->{'iso3'} // q(XXX);
 		}
+	} elsif ( $options->{'geography_point_lookup'} ) {
+		my $countries  = dclone(COUNTRIES);
+		my $new_values = [];
+		foreach my $value (@$values) {
+			my $geography =
+			  $self->{'datastore'}
+			  ->lookup_geography_point( { $country_field => $value->{'country'}, $field => $value->{'label'} },
+				$field );
+			if ( defined $geography->{'latitude'} ) {
+				push @$new_values,
+				  {
+					label => "$geography->{'latitude'}, $geography->{'longitude'}",
+					value => $value->{'value'}
+				  };
+			} else {
+				$logger->error("No geographic coordinates defined in lookup table for $field: $value->{'label'}");
+			}
+		}
+		$values = $new_values;
 	}
 	my $att = $self->{'xmlHandler'}->get_field_attributes($field);
 	if ( ( $att->{'multiple'} // q() ) eq 'yes' ) {

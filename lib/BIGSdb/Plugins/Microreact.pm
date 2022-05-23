@@ -65,7 +65,7 @@ sub get_attributes {
 		buttontext => 'Microreact',
 		menutext   => 'Microreact',
 		module     => 'Microreact',
-		version    => '1.2.0',
+		version    => '1.2.1',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
@@ -96,7 +96,8 @@ sub run_job {
 
 sub _get_country_field {
 	my ($self) = @_;
-	my $country_field = $self->{'system'}->{'microreact_country_field'} // 'country';
+	my $country_field = $self->{'system'}->{'microreact_country_field'} // $self->{'system'}->{'country_field'}
+	  // 'country';
 	return $self->{'xmlHandler'}->is_field($country_field) ? $country_field : undef;
 }
 
@@ -142,10 +143,10 @@ sub _microreact_upload {
 	my $microreact_json = $converter_response->decoded_content;
 	my $microreact_data = decode_json($microreact_json);
 	my $country_field   = $self->_get_country_field;
-	my $geo_field = $self->_get_geo_field($params);
-	if (defined $geo_field){
-			$microreact_data->{'maps'}->{'map-1'} = {
-			dataType => 'geographic-coordinates',
+	my $geo_field       = $self->_get_geo_field($params);
+	if ( defined $geo_field ) {
+		$microreact_data->{'maps'}->{'map-1'} = {
+			dataType       => 'geographic-coordinates',
 			title          => 'Map',
 			latitudeField  => '__latitude',
 			longitudeField => '__longitude'
@@ -153,8 +154,8 @@ sub _microreact_upload {
 	} elsif ( defined $country_field ) {
 		$country_field =~ s/_/ /gx;
 		$microreact_data->{'maps'}->{'map-1'} = {
-			dataType => 'iso-3166-codes',
-			iso3166Field => 'iso3166',
+			dataType       => 'iso-3166-codes',
+			iso3166Field   => 'iso3166',
 			title          => 'Map',
 			latitudeField  => '__latitude',
 			longitudeField => '__longitude'
@@ -235,11 +236,9 @@ sub _create_tsv_file {
 			push @header_fields, $field;
 		}
 	}
-
 	push @header_fields, 'iso3166' if defined $country_field;
 	my $geo_field = $self->_get_geo_field($params);
-	
-	push @header_fields, qw(__latitude __longitude) if $geo_field; 
+	push @header_fields, qw(__latitude __longitude) if $geo_field;
 	local $" = qq(\t);
 	say $fh "@header_fields";
 	my $iso_lookup = dclone(COUNTRIES);
@@ -283,7 +282,6 @@ sub _create_tsv_file {
 				push @record_values, qq(@display_values) // q();
 			}
 		}
-
 		push @record_values, $iso2 if defined $country_field;
 		if ($geo_field) {
 			if ( defined $record->{$geo_field} ) {
@@ -300,7 +298,7 @@ sub _create_tsv_file {
 }
 
 sub _get_geo_field {
-	my ($self,$params) = @_;
+	my ( $self, $params ) = @_;
 	return if !defined $params->{'geo_field'};
 	my $geo_field;
 	my $country_field = $self->_get_country_field;
@@ -358,8 +356,8 @@ sub print_extra_form_elements {
 		say q(<p>Select field to use for mapping.</p>);
 		say q(<label for="geofield">Field: </label>);
 		my $labels = {};
-		foreach my $field (@$geo_fields){
-			(my $label = $field) =~ tr/_/ /;
+		foreach my $field (@$geo_fields) {
+			( my $label = $field ) =~ tr/_/ /;
 			$labels->{$field} = $label;
 		}
 		say $q->popup_menu( -id => 'geo_field', -name => 'geo_field', values => $geo_fields, labels => $labels );
