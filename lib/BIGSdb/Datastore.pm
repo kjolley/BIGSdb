@@ -37,7 +37,7 @@ use BIGSdb::ClientDB;
 use BIGSdb::Locus;
 use BIGSdb::Scheme;
 use BIGSdb::TableAttributes;
-use BIGSdb::Constants qw(:login_requirements DEFAULT_CODON_TABLE);
+use BIGSdb::Constants qw(:login_requirements DEFAULT_CODON_TABLE COUNTRIES);
 use IO::Handle;
 use Digest::MD5;
 use POSIX qw(ceil);
@@ -2954,6 +2954,27 @@ sub convert_coordinates_to_geography {
 		return;
 	}
 	return $value;
+}
+
+sub lookup_geography_point {
+	my ( $self, $data, $field ) = @_;
+	my $country_field = $self->{'system'}->{'country_field'} // 'country';
+	if ( !defined $data->{$country_field} ) {
+		$logger->error(
+			"Field $field has geography_point_lookup set but this requires a field for $country_field to be defined.");
+		return;
+	}
+	my $countries = COUNTRIES;
+	if ( !defined $countries->{ $data->{'country'} }->{'iso2'} ) {
+		$logger->error("No iso2 country code defined for $data->{'country'}");
+		return;
+	}
+	my ( $long, $lat ) = $self->run_query(
+		'SELECT ST_X(location::geometry),ST_Y(location::geometry) FROM geography_point_lookup '
+		  . 'WHERE (country_code,field,value)=(?,?,?)',
+		[ $countries->{ $data->{'country'} }->{'iso2'}, $field, $data->{$field} ]
+	);
+	return { longitude => $long, latitude => $lat };
 }
 
 #Currently only for geography_point values.

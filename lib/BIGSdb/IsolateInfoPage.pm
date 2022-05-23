@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::TreeViewPage);
-use BIGSdb::Constants qw(:interface :limits);
+use BIGSdb::Constants qw(:interface :limits COUNTRIES);
 use Log::Log4perl qw(get_logger);
 use Try::Tiny;
 use List::MoreUtils qw(none uniq);
@@ -56,7 +56,9 @@ sub initiate {
 	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree jQuery.columnizer);
 	my $field_attributes = $self->{'xmlHandler'}->get_all_field_attributes;
 	foreach my $field ( keys %$field_attributes ) {
-		if ( $field_attributes->{$field}->{'type'} eq 'geography_point' ) {
+		if ( $field_attributes->{$field}->{'type'} eq 'geography_point'
+			|| ( $field_attributes->{$field}->{'geography_point_lookup'} // q() ) eq 'yes' )
+		{
 			$self->{'ol'} = 1;
 			last;
 		}
@@ -999,13 +1001,13 @@ sub _get_provenance_fields {
 		} else {
 			$value = $self->_get_field_value( $data, $field );
 		}
-		if ( $value && $thisfield->{'type'} eq 'geography_point' ) {
-			my $geography = $self->{'datastore'}->get_geography_coordinates($value);
-			my $map       = $geography;
-			$map->{'field'} = ucfirst($displayfield);
-			push @$maps, $map;
-			next;
-		}
+		next if $self->_process_geography_fields(
+			{
+				data  => $data,
+				field => $field,
+				maps  => $maps
+			}
+		);
 		my %user_field = map { $_ => 1 } qw(curator sender);
 		if ( $user_field{$field} || ( $thisfield->{'userfield'} // '' ) eq 'yes' ) {
 			push @$list, $self->_get_user_field( $summary_view, $field, $displayfield, $value, $data );
@@ -1045,6 +1047,33 @@ sub _get_provenance_fields {
 	$buffer .= q(</div></div>);
 	$buffer .= $self->_get_map_section($maps);
 	return $buffer;
+}
+
+sub _process_geography_fields {
+	my ( $self, $args ) = @_;
+	my ( $data, $field, $maps ) = @{$args}{qw(data field maps)};
+	my $thisfield    = $self->{'xmlHandler'}->get_field_attributes($field);
+	my $value        = $data->{$field};
+	my $displayfield = $field;
+	$displayfield =~ tr/_/ /;
+	if ( $value && $thisfield->{'type'} eq 'geography_point' ) {
+		my $geography = $self->{'datastore'}->get_geography_coordinates($value);
+		my $map       = $geography;
+		$map->{'field'} = ucfirst($displayfield);
+		push @$maps, $geography;
+		return 1;
+	}
+	if ( $value && ( $thisfield->{'geography_point_lookup'} // q() ) eq 'yes' ) {
+		my $geography = $self->{'datastore'}->lookup_geography_point( $data, $field );
+		if ( defined $geography->{'latitude'} ) {
+			my $map = $geography;
+			$map->{'field'}      = ucfirst($displayfield);
+			$map->{'show_value'} = $value;
+			$map->{'imprecise'} = 1;
+			push @$maps, $geography;
+		}
+	}
+	return;
 }
 
 sub _get_composites {
@@ -1090,7 +1119,7 @@ sub _get_map_section {
 	my $i = 1;
 	my $layers;
 	my $bingmaps_api = $self->{'system'}->{'bingmaps_api'} // $self->{'config'}->{'bingmaps_api'};
-	if ( $bingmaps_api) {
+	if ($bingmaps_api) {
 		$layers = <<"JS";
 const styles = ['RoadOnDemand','AerialWithLabelsOnDemand'];
 const layers = [];
@@ -1122,12 +1151,22 @@ JS
 	foreach my $map (@$maps) {
 		$buffer .= q(<div style="float:left;margin:0 1em">);
 		if ( @$maps > 1 ) {
-			$buffer .=
-			  qq(<p><span class="data_title">$map->{'field'}:</span>$map->{'latitude'}, $map->{'longitude'}</p>\n);
+			if ( $map->{'show_value'} ) {
+				$buffer .=
+				  qq(<p><span class="data_title">$map->{'field'}:</span>$map->{'show_value'}</p>\n);
+			} else {
+				$buffer .=
+				  qq(<p><span class="data_title">$map->{'field'}:</span>$map->{'latitude'}, $map->{'longitude'}</p>\n);
+			}
 		} else {
-			$buffer .= qq(<p>$map->{'latitude'}, $map->{'longitude'}</p>);
+			if ( $map->{'show_value'} ) {
+				$buffer .= qq(<p>$map->{'show_value'}</p>);
+			} else {
+				$buffer .= qq(<p>$map->{'latitude'}, $map->{'longitude'}</p>);
+			}
 		}
 		$buffer .= qq(<div id="map$i" class="ol_map"></div>);
+		my $imprecise = $map->{'imprecise'} ? 1 : 0;
 		$buffer .= <<"MAP";
 
 <script>
@@ -1139,17 +1178,32 @@ JS
         layers: layers,
         view: new ol.View({
           center: ol.proj.fromLonLat([$map->{'longitude'}, $map->{'latitude'}]),
-          zoom: 8
+          zoom: 8 - $imprecise
         })
       });
-      let pointer_style = new ol.style.Style({
-        image: new ol.style.Circle({
-          radius: 7,
-          stroke: new ol.style.Stroke({
-            color: [255,0,0], width: 2
-          })  
-        })
-      });
+      let pointer_style;
+      if ($imprecise){
+      	pointer_style = new ol.style.Style({
+	        image: new ol.style.Circle({
+	          radius: 20,
+	          fill: new ol.style.Fill({
+	          	color: 'rgb(0,0,255,0.2)'
+	          	}),
+	          stroke: new ol.style.Stroke({
+	            color: [100,100,255], width: 2
+	          })  
+	        })
+	      });
+      } else {
+	      pointer_style = new ol.style.Style({
+	        image: new ol.style.Circle({
+	          radius: 7,
+	          stroke: new ol.style.Stroke({
+	            color: [255,0,0], width: 2
+	          })  
+	        })
+	      });
+      }
       let layer = new ol.layer.Vector({
         source: new ol.source.Vector({
           features: [
@@ -1184,7 +1238,7 @@ JS
 
 </script>
 MAP
-		$buffer.=q(<p style="margin-top:0.5em">);
+		$buffer .= q(<p style="margin-top:0.5em">);
 		if ( $self->{'config'}->{'bingmaps_api'} ) {
 			$buffer .=
 			    q(<span style="vertical-align:0.4em">Aerial view </span>)
@@ -1193,10 +1247,11 @@ MAP
 			  . qq(<span class="fas fa-toggle-on toggle_icon fa-2x" id="satellite${i}_on" style="display:none">)
 			  . q(</span></a>);
 		}
-		$buffer.=q(<span style="vertical-align:0.4em">Recentre </span>)
-		. qq(<a class="recentre" id="recentre$i" style="cursor:pointer;margin-right:2em">)
-		. qq(<span class="fas fa-crosshairs toggle_icon fa-2x" id="crosshairs$i"></span>)
-		. q(</a></p>);
+		$buffer .=
+		    q(<span style="vertical-align:0.4em">Recentre </span>)
+		  . qq(<a class="recentre" id="recentre$i" style="cursor:pointer;margin-right:2em">)
+		  . qq(<span class="fas fa-crosshairs toggle_icon fa-2x" id="crosshairs$i"></span>)
+		  . q(</a></p>);
 		$buffer .= q(</div>);
 		$i++;
 	}

@@ -137,15 +137,16 @@ sub _get_form_fields {
 			my $name = $options->{'prepend_table_name'} ? "$table\_$att->{'name'}" : $att->{'name'};
 			my $length = $att->{'length'} || ( $att->{'type'} eq 'int' ? 15 : 50 );
 			my $args = {
-				table      => $table,
-				newdata    => $newdata_ref,
-				name       => $name,
-				att        => $att,
-				options    => $options,
-				width      => $width,
-				length     => $length,
-				html5_args => $html5_args,
-				disabled   => $disabled{ $att->{'name'} }
+				table       => $table,
+				newdata     => $newdata_ref,
+				name        => $name,
+				att         => $att,
+				options     => $options,
+				width       => $width,
+				length      => $length,
+				html5_args  => $html5_args,
+				placeholder => $att->{'placeholder'},
+				disabled    => $disabled{ $att->{'name'} }
 			};
 			my $label = $self->_get_label($args);
 			$buffer .= qq(<li>$label);
@@ -480,11 +481,12 @@ sub _get_text_field {
 		$newdata->{ $att->{'name'} } = BIGSdb::Utils::split_line( $newdata->{ $att->{'name'} } )
 		  if $att->{'name'} eq 'sequence';
 		return $q->textarea(
-			-name    => $name,
-			-id      => $name,
-			-rows    => 6,
-			-cols    => 75,
-			-default => $newdata->{ $att->{'name'} },
+			-name        => $name,
+			-id          => $name,
+			-rows        => 6,
+			-cols        => 75,
+			-default     => $newdata->{ $att->{'name'} },
+			-placeholder => $att->{'placeholder'},
 			%disabled,
 			%$html5_args
 		);
@@ -492,21 +494,23 @@ sub _get_text_field {
 		$newdata->{ $att->{'name'} } = BIGSdb::Utils::split_line( $newdata->{ $att->{'name'} } )
 		  if $att->{'name'} eq 'sequence';
 		return $q->textarea(
-			-name    => $name,
-			-id      => $name,
-			-rows    => 3,
-			-cols    => 75,
-			-default => $newdata->{ $att->{'name'} },
+			-name        => $name,
+			-id          => $name,
+			-rows        => 3,
+			-cols        => 75,
+			-default     => $newdata->{ $att->{'name'} },
+			-placeholder => $att->{'placeholder'},
 			%disabled,
 			%$html5_args
 		);
 	} else {
 		return $self->textfield(
-			name      => $name,
-			id        => $name,
-			size      => ( $length > 75 ? 75 : $length ),
-			maxlength => $length,
-			value     => $newdata->{ $att->{'name'} },
+			name        => $name,
+			id          => $name,
+			size        => ( $length > 75 ? 75 : $length ),
+			maxlength   => $length,
+			value       => $newdata->{ $att->{'name'} },
+			placeholder => $att->{'placeholder'},
 			%disabled,
 			%$html5_args
 		);

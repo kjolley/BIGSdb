@@ -2698,7 +2698,9 @@ sub get_geography_point_lookup_table_attributes {
 			type        => 'geography_point',
 			required    => 1,
 			no_order_by => 1,
-			tooltip     => 'GPS coordinates in [LATITUDE], [LONGITUDE] format'
+			hide_query  => 1,
+			tooltip     => 'GPS coordinates in [latitude], [longitude] format',
+			placeholder => '[latitude], [longitude]'
 		},
 		{ name => 'datestamp', type => 'date', required => 1 },
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 }
