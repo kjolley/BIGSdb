@@ -1731,10 +1731,10 @@ sub get_accession_table_attributes {
 
 sub get_allele_sequences_table_attributes {
 	my $attributes = [
-		{ name => 'id',         type => 'int',  hide_query => 1, primary_key => 1 },
-		{ name => 'isolate_id', type => 'int',  required   => 1, foreign_key => 'isolates' },
-		{ name => 'seqbin_id',  type => 'int',  required   => 1, foreign_key => 'sequence_bin' },
-		{ name => 'locus',      type => 'text', required   => 1, foreign_key => 'loci', dropdown_query => 1 },
+		{ name => 'id', type => 'int', hide_query => 1, hide_results => 1, primary_key => 1 },
+		{ name => 'isolate_id', type => 'int',  required => 1, foreign_key => 'isolates' },
+		{ name => 'seqbin_id',  type => 'int',  required => 1, foreign_key => 'sequence_bin' },
+		{ name => 'locus',      type => 'text', required => 1, foreign_key => 'loci', dropdown_query => 1 },
 		{
 			name     => 'start_pos',
 			type     => 'int',

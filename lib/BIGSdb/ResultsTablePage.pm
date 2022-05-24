@@ -1522,7 +1522,7 @@ sub _get_record_table_info {
 			$cleaned .= '*';
 			$user_variable_fields = 1;
 		}
-		if ( !$attr->{'hide_query'} ) {
+		if ( !$attr->{'hide_results'} ) {
 			push @headers, $cleaned;
 			push @headers, 'sequence length'
 			  if $q->param('page') eq 'tableQuery' && $table eq 'sequences' && $attr->{'name'} eq 'sequence';
@@ -1655,7 +1655,7 @@ sub _print_record_table {
 				$value = CGI::Util::escape($value);
 				push @query_values, "$att->{'name'}=$value";
 			}
-			$hide_field{ $att->{'name'} } = 1 if $att->{'hide_query'};
+			$hide_field{ $att->{'name'} } = 1 if $att->{'hide_results'};
 		}
 		print qq(<tr class="td$td">);
 		if ( $self->{'curate'} ) {
