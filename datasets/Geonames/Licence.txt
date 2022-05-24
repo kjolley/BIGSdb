@@ -1,0 +1,11 @@
+Geonames
+
+Licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+Modified: May 10, 2022 7:03 AM
+Publisher: GeoNames
+Contributor: Opendatasoft
+Attributions: https://www.geonames.org/about.html
+Reference: https://download.geonames.org/export/dump/
+
+Downloaded with: 
+wget -r -np -nH --cut-dirs=2 -R index.html -e robots=off -A "??.zip" -w 2 https://download.geonames.org/export/dump/
