@@ -158,29 +158,41 @@ sub process_country {
 		foreach my $town (@$undefined) {
 			my $assigned;
 			open( my $fh, '<:encoding(utf8)', $csv_filename ) || die "Cannot open $csv_filename.\n";
+			my $largest_population = -1;    #Some populations are not available and are listed as 0.
+			my $best_lat;
+			my $best_long;
+			my $hits;
 			while ( my $line = <$fh> ) {
 				my @data       = split /\t/x, $line;
 				my $name       = $data[1];
 				my $ascii_name = $data[2];
 				my $latitude   = $data[4];
 				my $longitude  = $data[5];
+				my $population = $data[14];
 				if ( $town eq $name || $town eq $ascii_name ) {
-					say "GB - $town: $latitude, $longitude" if !$opts{'quiet'};
-					eval {
-						$script->{'db'}->do(
-							'INSERT INTO geography_point_lookup (country_code,field,value,location,datestamp,curator) '
-							  . 'VALUES (?,?,?,ST_MakePoint(?,?)::geography,?,?)',
-							undef, $iso2, $opts{'field'}, $town, $longitude, $latitude, 'now', 0
-						);
-					};
-					$assigned = 1;
-					if ($@) {
-						$script->{'db'}->rollback;
-						die "$@\n";
+					$hits++;
+					if ( $population > $largest_population ) {
+						$largest_population = $population;
+						$best_lat           = $latitude;
+						$best_long          = $longitude;
 					}
-					$script->{'db'}->commit;
-					last;
 				}
+			}
+			if ($hits) {
+				say "GB - $town (pop:$largest_population): $best_lat, $best_long" if !$opts{'quiet'};
+				eval {
+					$script->{'db'}->do(
+						'INSERT INTO geography_point_lookup (country_code,field,value,location,datestamp,curator) '
+						  . 'VALUES (?,?,?,ST_MakePoint(?,?)::geography,?,?)',
+						undef, $iso2, $opts{'field'}, $town, $best_long, $best_lat, 'now', 0
+					);
+				};
+				$assigned = 1;
+				if ($@) {
+					$script->{'db'}->rollback;
+					die "$@\n";
+				}
+				$script->{'db'}->commit;
 			}
 			close $fh;
 			$logger->info("No match found for $iso2: $town.") if !$assigned;
