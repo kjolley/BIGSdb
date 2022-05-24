@@ -46,12 +46,13 @@ Log::Log4perl->init( \$log_conf );
 my $logger = Log::Log4perl::get_logger('BIGSdb.Script');
 my %opts;
 GetOptions(
-	'database=s'   => \$opts{'d'},
-	'field=s'      => \$opts{'field'},
-	'geodataset=s' => \$opts{'geodataset'},
-	'help'         => \$opts{'h'},
-	'quiet'        => \$opts{'quiet'},
-	'tmp_dir=s'    => \$opts{'tmp_dir'}
+	'database=s'       => \$opts{'d'},
+	'field=s'          => \$opts{'field'},
+	'geodataset=s'     => \$opts{'geodataset'},
+	'help'             => \$opts{'h'},
+	'min_population=i' => \$opts{'min_population'},
+	'quiet'            => \$opts{'quiet'},
+	'tmp_dir=s'        => \$opts{'tmp_dir'}
 ) or die("Error in command line arguments\n");
 if ( $opts{'h'} ) {
 	show_help();
@@ -69,6 +70,7 @@ if ( $opts{'tmp_dir'} =~ /\/$/x ) {
 if ( $opts{'geodataset'} =~ /\/$/x ) {
 	$opts{'geodataset'} =~ s/\/$//x;
 }
+$opts{'min_population'} //= 0;
 my $script = BIGSdb::Offline::Script->new(
 	{
 		config_dir       => CONFIG_DIR,
@@ -169,7 +171,7 @@ sub process_country {
 				my $latitude   = $data[4];
 				my $longitude  = $data[5];
 				my $population = $data[14];
-				if ( $town eq $name || $town eq $ascii_name ) {
+				if ( ( $town eq $name || $town eq $ascii_name ) && $population > $opts{'min_population'} ) {
 					$hits++;
 					if ( $population > $largest_population ) {
 						$largest_population = $population;
@@ -230,7 +232,13 @@ ${bold}--field$norm ${under}FIELD$norm
     'yes' in config.xml.
     
 ${bold}--help$norm
-    This help page.  
+    This help page.
+    
+${bold}--min_population$norm ${under}POPULATION$norm
+    Set the minimum population for town to assign. Note that all entries in the
+    Geonames database has population, so setting this attribute may result in 
+    some values not being assigned, but can ensure that only high-confidence 
+    values are used.
     
 ${bold}--quiet$norm
     Only show error messages.
