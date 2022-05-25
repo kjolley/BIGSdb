@@ -181,7 +181,7 @@ sub process_country {
 				}
 			}
 			if ($hits) {
-				say "GB - $town (pop:$largest_population): $best_lat, $best_long" if !$opts{'quiet'};
+				say "$iso2 - $town (pop:$largest_population): $best_lat, $best_long" if !$opts{'quiet'};
 				eval {
 					$script->{'db'}->do(
 						'INSERT INTO geography_point_lookup (country_code,field,value,location,datestamp,curator) '
