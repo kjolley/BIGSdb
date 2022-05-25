@@ -39,6 +39,7 @@ use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
 use List::MoreUtils qw(uniq);
 use Archive::Zip;
+binmode( STDOUT, ':encoding(UTF-8)' );
 
 #Direct all library logging calls to screen
 my $log_conf = LOG_TO_SCREEN;
