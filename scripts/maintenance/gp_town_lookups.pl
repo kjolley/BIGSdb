@@ -21,7 +21,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20220524
+#Version: 20220525
 use strict;
 use warnings;
 use 5.010;
@@ -171,7 +171,7 @@ sub process_country {
 				my $latitude   = $data[4];
 				my $longitude  = $data[5];
 				my $population = $data[14];
-				if ( ( $town eq $name || $town eq $ascii_name ) && $population > $opts{'min_population'} ) {
+				if ( ( $town eq $name || $town eq $ascii_name ) && $population >= $opts{'min_population'} ) {
 					$hits++;
 					if ( $population > $largest_population ) {
 						$largest_population = $population;
