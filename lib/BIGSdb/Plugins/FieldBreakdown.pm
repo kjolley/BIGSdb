@@ -733,6 +733,7 @@ sub _get_field_freqs {
 		my $countries  = dclone(COUNTRIES);
 		my $new_values = [];
 		foreach my $value (@$values) {
+			next if !defined $value->{'label'};
 			my $geography =
 			  $self->{'datastore'}
 			  ->lookup_geography_point( { $country_field => $value->{'country'}, $field => $value->{'label'} },
