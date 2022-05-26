@@ -165,20 +165,26 @@ sub process_country {
 			my $best_lat;
 			my $best_long;
 			my $hits;
+			my $most_alternative_names = 0;
 			while ( my $line = <$fh> ) {
-				my @data       = split /\t/x, $line;
-				my $name       = $data[1];
-				my $ascii_name = $data[2];
+				my @data              = split /\t/x, $line;
+				my $name              = $data[1];
+				my $ascii_name        = $data[2];
+				my @alternative_names = split /,/x,
+				  $data[3];    #Records with more alternative names defined tend to be more accurate.
 				my $latitude   = $data[4];
 				my $longitude  = $data[5];
 				my $population = $data[14];
 				if ( ( $town eq $name || $town eq $ascii_name ) && $population >= $opts{'min_population'} ) {
 					$hits++;
-					if ( $population > $largest_population ) {
+					if ( $population > $largest_population
+						|| ( $population == $largest_population && @alternative_names > $most_alternative_names ) )
+					{
 						$largest_population = $population;
 						$best_lat           = $latitude;
 						$best_long          = $longitude;
 					}
+					$most_alternative_names = @alternative_names if @alternative_names > $most_alternative_names;
 				}
 			}
 			if ($hits) {
