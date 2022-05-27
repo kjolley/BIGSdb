@@ -183,8 +183,7 @@ sub process_country {
 						|| uc($town) eq uc($name)
 						|| $town eq $ascii_name
 						|| uc($town) eq uc($ascii_name)
-						|| $alternative_names{$name}
-						|| $alternative_names{$ascii_name}
+						|| $alternative_names{$town}
 					)
 					&& $population >= $opts{'min_population'}
 				  )
