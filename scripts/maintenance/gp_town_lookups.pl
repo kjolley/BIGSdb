@@ -172,12 +172,19 @@ sub process_country {
 				my $ascii_name        = $data[2];
 				my @alternative_names = split /,/x,
 				  $data[3];                 #Records with more alternative names defined tend to be more accurate.
-				my $latitude   = $data[4];
-				my $longitude  = $data[5];
-				my $population = $data[14];
+				my %alternative_names = map { $_ => 1 } @alternative_names;
+				my $latitude          = $data[4];
+				my $longitude         = $data[5];
+				my $population        = $data[14];
+
 				if (
 					(
-						$town eq $name || uc($town) eq uc($name) || $town eq $ascii_name || uc($town) eq uc($ascii_name)
+						   $town eq $name
+						|| uc($town) eq uc($name)
+						|| $town eq $ascii_name
+						|| uc($town) eq uc($ascii_name)
+						|| $alternative_names{$name}
+						|| $alternative_names{$ascii_name}
 					)
 					&& $population >= $opts{'min_population'}
 				  )
