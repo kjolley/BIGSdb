@@ -21,7 +21,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20220525
+#Version: 20220527
 use strict;
 use warnings;
 use 5.010;
@@ -171,11 +171,17 @@ sub process_country {
 				my $name              = $data[1];
 				my $ascii_name        = $data[2];
 				my @alternative_names = split /,/x,
-				  $data[3];    #Records with more alternative names defined tend to be more accurate.
+				  $data[3];                 #Records with more alternative names defined tend to be more accurate.
 				my $latitude   = $data[4];
 				my $longitude  = $data[5];
 				my $population = $data[14];
-				if ( ( $town eq $name || $town eq $ascii_name ) && $population >= $opts{'min_population'} ) {
+				if (
+					(
+						$town eq $name || uc($town) eq uc($name) || $town eq $ascii_name || uc($town) eq uc($ascii_name)
+					)
+					&& $population >= $opts{'min_population'}
+				  )
+				{
 					$hits++;
 					if ( $population > $largest_population
 						|| ( $population == $largest_population && @alternative_names > $most_alternative_names ) )
