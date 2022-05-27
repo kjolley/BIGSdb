@@ -2969,17 +2969,24 @@ sub lookup_geography_point {
 		$logger->error("No iso2 country code defined for $data->{'country'}");
 		return;
 	}
+
+	#Match using exact lookups as well as case-insensitive. We need to be careful using just the latter due
+	#to potential issues with unicode characters.
 	my ( $long, $lat ) = $self->run_query(
 		'SELECT ST_X(location::geometry),ST_Y(location::geometry) FROM geography_point_lookup '
-		  . 'WHERE (country_code,field,value)=(?,?,?)',
-		[ $countries->{ $data->{'country'} }->{'iso2'}, $field, $data->{$field} ]
+		  . 'WHERE (country_code,field,value)=(?,?,?) OR (country_code,field,UPPER(value))=(?,?,UPPER(?))',
+		[
+			$countries->{ $data->{'country'} }->{'iso2'},
+			$field, $data->{$field}, $countries->{ $data->{'country'} }->{'iso2'},
+			$field, $data->{$field}
+		]
 	);
 	return { longitude => $long, latitude => $lat };
 }
 
 #Currently only for geography_point values.
 sub field_needs_conversion {
-	my ( $self,$field ) = @_;
+	my ( $self, $field ) = @_;
 	my %conversion_types = map { $_ => 1 } qw(geography_point);
 	if ( !defined $self->{'cache'}->{'fields_needing_value_conversion'} ) {
 		$self->{'cache'}->{'fields_needing_value_conversion'} = {};
@@ -3013,5 +3020,4 @@ sub convert_field_value {
 	}
 	return $value;
 }
-
 1;
