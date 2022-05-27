@@ -887,7 +887,7 @@ function load_geography(url, field) {
 				map.addLayer(vectorLayer);
 			});
 		});
-		$("#marker_size").slider({ min: 1, max: 10, value: marker_size });
+		$("#marker_size").slider({ min: 0, max: 10, value: marker_size });
 
 	});
 }
