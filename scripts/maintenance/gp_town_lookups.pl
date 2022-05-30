@@ -21,7 +21,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20220527
+#Version: 20220530
 use strict;
 use warnings;
 use 5.010;
@@ -48,6 +48,7 @@ my $logger = Log::Log4perl::get_logger('BIGSdb.Script');
 my %opts;
 GetOptions(
 	'database=s'       => \$opts{'d'},
+	'feature_code=s'   => \$opts{'feature_code'},
 	'field=s'          => \$opts{'field'},
 	'geodataset=s'     => \$opts{'geodataset'},
 	'help'             => \$opts{'h'},
@@ -72,6 +73,7 @@ if ( $opts{'geodataset'} =~ /\/$/x ) {
 	$opts{'geodataset'} =~ s/\/$//x;
 }
 $opts{'min_population'} //= 0;
+$opts{'feature_code'} //= 'P';
 my $script = BIGSdb::Offline::Script->new(
 	{
 		config_dir       => CONFIG_DIR,
@@ -175,6 +177,7 @@ sub process_country {
 				my %alternative_names = map { $_ => 1 } @alternative_names;
 				my $latitude          = $data[4];
 				my $longitude         = $data[5];
+				my $feature_code      = $data[6];
 				my $population        = $data[14];
 
 				if (
@@ -186,6 +189,7 @@ sub process_country {
 						|| $alternative_names{$town}
 					)
 					&& $population >= $opts{'min_population'}
+					&& $feature_code eq $opts{'feature_code'}
 				  )
 				{
 					$hits++;
@@ -245,6 +249,10 @@ ${bold}OPTIONS$norm
 
 ${bold}--database$norm ${under}NAME$norm
     Database configuration name.
+    
+${bold}--feature_code$norm ${under}CODE$norm
+    Geonames feature code. See http://www.geonames.org/export/codes.html.
+    Default is 'P' (towns/cities).
     
 ${bold}--field$norm ${under}FIELD$norm
     Name of field. This should have the geography_point_lookup attribute set to
