@@ -2289,7 +2289,8 @@ sub can_modify_table {
 			allele_sequences                  => $self->{'permissions'}->{'tag_sequences'},
 			isolate_field_extended_attributes => $self->{'permissions'}->{'modify_field_attributes'},
 			isolate_value_extended_attributes => $self->{'permissions'}->{'modify_value_attributes'},
-			eav_fields                        => $self->{'permissions'}->{'modify_sparse_fields'}
+			eav_fields                        => $self->{'permissions'}->{'modify_sparse_fields'},
+			geography_point_lookup            => $self->{'permissions'}->{'modify_geopoints'}
 		);
 		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_isolates'}
 		  foreach qw(isolates isolate_aliases refs);
@@ -3217,10 +3218,9 @@ sub modify_dataset_if_needed {
 		}
 	}
 	if ( $table eq 'geography_point_lookup' ) {
-		foreach my $record (@$dataset){
-			my $location = $self->{'datastore'}->get_geography_coordinates($record->{'location'});
-			$record->{'location'} ="$location->{'latitude'}, $location->{'longitude'}";
-			
+		foreach my $record (@$dataset) {
+			my $location = $self->{'datastore'}->get_geography_coordinates( $record->{'location'} );
+			$record->{'location'} = "$location->{'latitude'}, $location->{'longitude'}";
 		}
 	}
 	return;
