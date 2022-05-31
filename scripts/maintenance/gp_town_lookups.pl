@@ -21,7 +21,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20220530
+#Version: 20220531
 use strict;
 use warnings;
 use 5.010;
@@ -73,7 +73,7 @@ if ( $opts{'geodataset'} =~ /\/$/x ) {
 	$opts{'geodataset'} =~ s/\/$//x;
 }
 $opts{'min_population'} //= 0;
-$opts{'feature_code'} //= 'P';
+$opts{'feature_code'}   //= 'P';
 my $script = BIGSdb::Offline::Script->new(
 	{
 		config_dir       => CONFIG_DIR,
@@ -161,6 +161,14 @@ sub process_country {
 			$logger->error("$filename does not contain $iso2.txt file ... skipping.");
 		}
 		foreach my $town (@$undefined) {
+			my $this_town;
+			my $this_admin1_code;
+			if ( $town =~ /^(.+)\s+\[(.+)\]$/x ) {
+				$this_town        = $1;
+				$this_admin1_code = $2;
+			} else {
+				$this_town = $town;
+			}
 			my $assigned;
 			open( my $fh, '<:encoding(utf8)', $csv_filename ) || die "Cannot open $csv_filename.\n";
 			my $largest_population = -1;    #Some populations are not available and are listed as 0.
@@ -168,6 +176,7 @@ sub process_country {
 			my $best_long;
 			my $hits;
 			my $most_alternative_names = 0;
+
 			while ( my $line = <$fh> ) {
 				my @data              = split /\t/x, $line;
 				my $name              = $data[1];
@@ -178,15 +187,18 @@ sub process_country {
 				my $latitude          = $data[4];
 				my $longitude         = $data[5];
 				my $feature_code      = $data[6];
+				my $admin1_code       = $data[10];
 				my $population        = $data[14];
-
+				if (defined $this_admin1_code && $this_admin1_code ne $admin1_code){
+					next;
+				}
 				if (
 					(
-						   $town eq $name
-						|| uc($town) eq uc($name)
-						|| $town eq $ascii_name
-						|| uc($town) eq uc($ascii_name)
-						|| $alternative_names{$town}
+						   $this_town eq $name
+						|| uc($this_town) eq uc($name)
+						|| $this_town eq $ascii_name
+						|| uc($this_town) eq uc($ascii_name)
+						|| $alternative_names{$this_town}
 					)
 					&& $population >= $opts{'min_population'}
 					&& $feature_code eq $opts{'feature_code'}
@@ -204,7 +216,7 @@ sub process_country {
 				}
 			}
 			if ($hits) {
-				say "$iso2 - $town (pop:$largest_population): $best_lat, $best_long" if !$opts{'quiet'};
+				say "$iso2 - $this_town (pop:$largest_population): $best_lat, $best_long" if !$opts{'quiet'};
 				eval {
 					$script->{'db'}->do(
 						'INSERT INTO geography_point_lookup (country_code,field,value,location,datestamp,curator) '
