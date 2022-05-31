@@ -189,7 +189,7 @@ sub process_country {
 				my $feature_code      = $data[6];
 				my $admin1_code       = $data[10];
 				my $population        = $data[14];
-				if (defined $this_admin1_code && $this_admin1_code ne $admin1_code){
+				if ( defined $this_admin1_code && $this_admin1_code ne $admin1_code ) {
 					next;
 				}
 				if (
@@ -234,6 +234,7 @@ sub process_country {
 			close $fh;
 			$logger->info("No match found for $iso2: $town.") if !$assigned;
 		}
+		unlink $csv_filename;
 	} else {
 		$logger->error("$filename does not exist ... skipping.");
 	}
