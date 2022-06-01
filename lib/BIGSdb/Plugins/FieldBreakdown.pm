@@ -48,7 +48,7 @@ sub get_attributes {
 		buttontext => 'Fields',
 		menutext   => 'Field breakdown',
 		module     => 'FieldBreakdown',
-		version    => '2.5.0',
+		version    => '2.5.1',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
@@ -763,7 +763,7 @@ sub _get_field_freqs {
 			}
 		} else {
 			foreach my $value (@$values) {
-				if ( !defined $value->{'label'} ) {
+				if ( !defined $value->{'label'} || $value->{'label'} eq q() ) {
 					$value->{'label'} = ['No value'];
 				}
 				my @sorted_label =

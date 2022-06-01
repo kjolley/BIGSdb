@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 
-Version 2.5.0.
+Version 2.5.1.
 */
 
 var prefs_loaded;
@@ -65,7 +65,7 @@ $(function() {
 		load_line(initial_url, field, line);
 	} else if (field_types[field] == 'geography_point') {
 		load_geography_after_prefs_loaded(initial_url, field)
-	} else if (geography_point_lookup_fields.includes(field)){
+	} else if (geography_point_lookup_fields.includes(field)) {
 		load_geography_after_prefs_loaded(initial_url + "&lookup_coordinates=1", field)
 	} else {
 		load_pie(initial_url, field, segments);
@@ -93,7 +93,7 @@ $(function() {
 			load_line(new_url, field, line);
 		} else if (field_types[field] == 'geography_point') {
 			load_geography(new_url, field)
-		} else if (geography_point_lookup_fields.includes(field)){
+		} else if (geography_point_lookup_fields.includes(field)) {
 			load_geography_after_prefs_loaded(new_url + "&lookup_coordinates=1", field)
 		} else {
 			load_pie(new_url, field, segments);
@@ -466,10 +466,13 @@ function load_pie(url, field, max_segments) {
 
 		// Need to create 'Others' segment otherwise it won't display properly
 		// if needed when reducing segment count.
-		all_data.columns.push(['Others', 0]);
+		if (all_data.columns['Others'] == 'undefined') {
+			all_data.columns.push(['Others', 0]);
+		}
 
 		var plural = data.count == 1 ? "" : "s";
 		title += " (" + data.count + " value" + plural + ")";
+		console.log(jsonData);
 		var chart = bb.generate({
 			bindto: '#bb_chart',
 			title: {
@@ -580,6 +583,9 @@ function pie_json_to_cols(jsonData, segments) {
 	var other_fields = 0;
 	jsonData.forEach(function(e) {
 		e.label = e.label.toString();
+		if (e.label == ''){
+			e.label = 'No value';
+		}
 		count++;
 		if (count >= segments) {
 			others += e.value;
