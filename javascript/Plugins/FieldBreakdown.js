@@ -472,7 +472,6 @@ function load_pie(url, field, max_segments) {
 
 		var plural = data.count == 1 ? "" : "s";
 		title += " (" + data.count + " value" + plural + ")";
-		console.log(jsonData);
 		var chart = bb.generate({
 			bindto: '#bb_chart',
 			title: {
