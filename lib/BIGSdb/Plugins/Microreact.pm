@@ -65,7 +65,7 @@ sub get_attributes {
 		buttontext => 'Microreact',
 		menutext   => 'Microreact',
 		module     => 'Microreact',
-		version    => '1.2.1',
+		version    => '1.3.0',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
@@ -238,6 +238,11 @@ sub _create_tsv_file {
 	}
 	push @header_fields, 'iso3166' if defined $country_field;
 	my $geo_field = $self->_get_geo_field($params);
+	my $lookup_field;
+	if ($geo_field) {
+		my $att = $self->{'xmlHandler'}->get_field_attributes($geo_field);
+		$lookup_field = ( $att->{'geography_point_lookup'} // q() ) eq 'yes';
+	}
 	push @header_fields, qw(__latitude __longitude) if $geo_field;
 	local $" = qq(\t);
 	say $fh "@header_fields";
@@ -284,17 +289,38 @@ sub _create_tsv_file {
 		}
 		push @record_values, $iso2 if defined $country_field;
 		if ($geo_field) {
-			if ( defined $record->{$geo_field} ) {
-				my $coordinates = $self->{'datastore'}->get_geography_coordinates( $record->{$geo_field} );
-				push @record_values, ( $coordinates->{'latitude'}, $coordinates->{'longitude'} );
-			} else {
-				push @record_values, ( q(), q() );
-			}
+			my $coordinate_values = $self->_process_geo_field( $iso2, $record, $geo_field, $lookup_field );
+			push @record_values, @$coordinate_values;
 		}
 		say $fh "@record_values";
 	}
 	close $fh;
 	return $tsv_file;
+}
+
+sub _process_geo_field {
+	my ( $self, $iso2, $record, $geo_field, $lookup_field ) = @_;
+	my $values = [];
+	if ( defined $record->{$geo_field} ) {
+		if ($lookup_field) {
+			my $lookup =
+			  $self->{'datastore'}
+			  ->run_query( 'SELECT location FROM geography_point_lookup WHERE (country_code,field,value)=(?,?,?)',
+				[ $iso2, $geo_field, $record->{$geo_field} ] );
+			if ( defined $lookup ) {
+				my $coordinates = $self->{'datastore'}->get_geography_coordinates($lookup);
+				@$values = ( $coordinates->{'latitude'}, $coordinates->{'longitude'} );
+			} else {
+				@$values = ( q(), q() );
+			}
+		} else {
+			my $coordinates = $self->{'datastore'}->get_geography_coordinates( $record->{$geo_field} );
+			@$values = ( $coordinates->{'latitude'}, $coordinates->{'longitude'} );
+		}
+	} else {
+		@$values = ( q(), q() );
+	}
+	return $values;
 }
 
 sub _get_geo_field {
@@ -345,7 +371,7 @@ sub print_extra_form_elements {
 	my $fields     = $self->{'xmlHandler'}->get_field_list;
 	foreach my $field (@$fields) {
 		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-		if ( ( $att->{'type'} // q() ) eq 'geography_point' ) {
+		if ( ( $att->{'type'} // q() ) eq 'geography_point' || ( $att->{'geography_point_lookup'} // q() ) eq 'yes' ) {
 			push @$geo_fields, $field;
 		}
 	}
