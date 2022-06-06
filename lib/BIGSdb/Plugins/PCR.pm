@@ -38,7 +38,7 @@ my $logger = get_logger('BIGSdb.Plugins');
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name             => 'PCR',
+		name    => 'PCR',
 		authors => [
 			{
 				name        => 'Keith Jolley',
@@ -57,7 +57,7 @@ sub get_attributes {
 		buttontext  => 'PCR',
 		menutext    => 'In silico PCR',
 		module      => 'PCR',
-		version     => '1.0.9',
+		version     => '1.0.10',
 		dbtype      => 'isolates',
 		section     => 'isolate_info,analysis,postquery',
 		input       => 'query',
@@ -425,7 +425,7 @@ sub run_job {
 				push @$export_seqs,
 				  {
 					id => qq(id:${id}_$j|$product->{'seqbin_id'}|)
-					  . qq($product->{'start'}-$product->{'end'}|$product->{'description'}),
+					  . qq($product->{'start'}-$product->{'end'}|$product->{'direction'}),
 					seq => $seqs->{'seq'}
 				  };
 				weaken($seqs);
@@ -495,10 +495,10 @@ sub _parse_results {
 		next if $line !~ /^ipcress:/x;
 		my @values = split /\s/x, $line;
 		my $product = {
-			seqbin_id   => $values[1],
-			length      => $values[3],
-			start       => $values[5] + 1,
-			end         => $values[8],
+			seqbin_id => $values[1],
+			length    => $values[3],
+			start     => $values[5] + 1,
+			end       => $values[8],
 			direction => $desc->{ $values[10] }
 		};
 		$product->{'seqbin_id'} =~ s/:.*//x;
@@ -588,7 +588,7 @@ sub _extract_seqs {
 			seqbin_id => $product->{'seqbin_id'},
 			start     => $product->{'start'},
 			end       => $product->{'end'},
-			reverse   => ( $product->{'description'} eq 'forward' ) ? 0 : 1
+			reverse   => ( $product->{'direction'} eq 'forward' ) ? 0 : 1
 		}
 	);
 	my $primer1 = substr( $seq->{'seq'}, 0, length( $params->{'primer1'} ) );
