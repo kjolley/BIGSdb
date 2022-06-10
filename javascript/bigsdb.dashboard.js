@@ -232,6 +232,7 @@ $(function() {
 		loadNewElements();
 	});
 	setGridMargins(grid);
+	window.dispatchEvent(new Event('resize'));
 });
 
 function getDataQueryParams(id) {
