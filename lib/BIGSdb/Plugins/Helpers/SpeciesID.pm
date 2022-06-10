@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2020-2021, University of Oxford
+#Copyright (c) 2020-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -66,7 +66,7 @@ sub run {
 sub make_rest_call {
 	my ( $self, $isolate_id, $url, $payload_ref ) = @_;
 	my ( $response, $unavailable );
-	my $agent = LWP::UserAgent->new( agent => 'BIGSdb' );
+	my $agent = LWP::UserAgent->new( agent => 'BIGSdb', timeout => 600 );
 	my $delay = INITIAL_BUSY_DELAY;
 	my $isolate_name =
 	  $self->{'datastore'}
@@ -85,7 +85,7 @@ sub make_rest_call {
 			Content      => $$payload_ref
 		);
 		if ( $server_error{ $response->code } ) {
-			my $code = $response->code;
+			my $code        = $response->code;
 			my $err_message = $response->message;
 			$self->{'logger'}->error("Error $code received from rMLST REST API. $err_message");
 			$self->initiate_job_manager if !$self->{'jobManager'};
