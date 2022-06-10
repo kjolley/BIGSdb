@@ -86,7 +86,8 @@ sub make_rest_call {
 		);
 		if ( $server_error{ $response->code } ) {
 			my $code = $response->code;
-			$self->{'logger'}->error("Error $code received from rMLST REST API.");
+			my $err_message = $response->as_string;
+			$self->{'logger'}->error("Error $code received from rMLST REST API. $err_message");
 			$self->initiate_job_manager if !$self->{'jobManager'};
 			$self->{'jobManager'}->update_job_status( $self->{'options'}->{'job_id'},
 				{ stage => "rMLST server is unavailable or too busy at the moment - retrying in $delay seconds" } );
