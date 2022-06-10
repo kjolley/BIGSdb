@@ -324,7 +324,11 @@ sub _run_seq_query_script {
 		$self->{'dataConnector'}->drop_all_connections( $self->{'do_not_drop'} );
 		my $results_json = encode_json($values);
 		_write_results_file( $results_json_file, $results_json );
-		my $script_out = `$self->{'system'}->{'rest_hook_seq_query'} $results_json_file`;
+		my $script_out;
+		eval { $script_out = `$self->{'system'}->{'rest_hook_seq_query'} $results_json_file`; };
+		if ($@) {
+			$self->{'logger'}->error($@);
+		}
 		if ($script_out) {
 			$analysis = decode_json($script_out);
 		}
