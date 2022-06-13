@@ -271,6 +271,9 @@ ${bold}--field$norm ${under}FIELD$norm
     Name of field. This should have the geography_point_lookup attribute set to
     'yes' in config.xml.
     
+${bold}--geodataset$norm ${under}DIR$norm
+    Directory containing the Geonames dataset
+    
 ${bold}--help$norm
     This help page.
     
@@ -284,7 +287,7 @@ ${bold}--quiet$norm
     Only show error messages.
     
 ${bold}--tmp_dir$norm ${under}DIR$norm
-	Location for temporary files. Defaults to /var/tmp/.
+    Location for temporary files. Defaults to /var/tmp/.
 HELP
 	return;
 }
