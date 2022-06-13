@@ -21,7 +21,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20220531
+#Version: 20220613
 use strict;
 use warnings;
 use 5.010;
@@ -272,7 +272,7 @@ ${bold}--field$norm ${under}FIELD$norm
     'yes' in config.xml.
     
 ${bold}--geodataset$norm ${under}DIR$norm
-    Directory containing the Geonames dataset
+    Directory containing the Geonames dataset.
     
 ${bold}--help$norm
     This help page.
