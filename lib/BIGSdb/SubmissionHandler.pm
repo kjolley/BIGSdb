@@ -1709,7 +1709,7 @@ sub email {
 		$logger->logdie("No $_") if !$params->{$_};
 	}
 	my $domain     = $self->{'config'}->{'domain'} // DEFAULT_DOMAIN;
-	my $from_email = qq(no_reply\@$domain);
+	my $sender_address = $self->{'config'}->{'automated_email_address'} // "no_reply\@$domain";
 	my $sender     = $self->{'datastore'}->get_user_info( $params->{'sender'} );
 	my $recipient  = $self->{'datastore'}->get_user_info( $params->{'recipient'} );
 	foreach my $user ( $sender, $recipient ) {
@@ -1729,7 +1729,7 @@ sub email {
 	  : undef;
 	my $header_params = [
 		To      => $recipient->{'email'},
-		From    => $from_email,
+		From    => $sender_address,
 		Subject => $subject
 	];
 	push @$header_params, ( Cc => $cc ) if defined $cc;

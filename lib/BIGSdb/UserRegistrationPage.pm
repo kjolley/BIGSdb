@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2016-2021, University of Oxford
+#Copyright (c) 2016-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -154,6 +154,7 @@ sub _username_reminder {
 		$message .= qq(\nYou can update your profile or register for ${additional}databases at )
 		  . qq($self->{'config'}->{'registration_address'}.);
 	}
+	my $sender_address = $self->{'config'}->{'automated_email_address'} // "no_reply\@$domain";
 	my $email = Email::MIME->create(
 		attributes => {
 			encoding => 'quoted-printable',
@@ -161,7 +162,7 @@ sub _username_reminder {
 		},
 		header_str => [
 			To      => $email_address,
-			From    => "no_reply\@$domain",
+			From    => $sender_address,
 			Subject => "$domain user name reminder",
 		],
 		body_str => $message
@@ -254,15 +255,16 @@ sub _reset_password {
 	my $transport = Email::Sender::Transport::SMTP->new(
 		{ host => $self->{'config'}->{'smtp_server'} // 'localhost', port => $self->{'config'}->{'smtp_port'} // 25, }
 	);
-	my $domain = $self->{'config'}->{'domain'} // DEFAULT_DOMAIN;
-	my $email = Email::MIME->create(
+	my $domain         = $self->{'config'}->{'domain'}                  // DEFAULT_DOMAIN;
+	my $sender_address = $self->{'config'}->{'automated_email_address'} // "no_reply\@$domain";
+	my $email          = Email::MIME->create(
 		attributes => {
 			encoding => 'quoted-printable',
 			charset  => 'UTF-8',
 		},
 		header_str => [
 			To      => $email_address,
-			From    => "no_reply\@$domain",
+			From    => $sender_address,
 			Subject => "$domain password reset",
 		],
 		body_str => $message
@@ -503,15 +505,16 @@ sub _send_email {
 	my $transport = Email::Sender::Transport::SMTP->new(
 		{ host => $self->{'config'}->{'smtp_server'} // 'localhost', port => $self->{'config'}->{'smtp_port'} // 25, }
 	);
-	my $domain = $self->{'config'}->{'domain'} // DEFAULT_DOMAIN;
-	my $email = Email::MIME->create(
+	my $domain         = $self->{'config'}->{'domain'}                  // DEFAULT_DOMAIN;
+	my $sender_address = $self->{'config'}->{'automated_email_address'} // "no_reply\@$domain";
+	my $email          = Email::MIME->create(
 		attributes => {
 			encoding => 'quoted-printable',
 			charset  => 'UTF-8',
 		},
 		header_str => [
 			To      => $data->{'email'},
-			From    => "no_reply\@$domain",
+			From    => $sender_address,
 			Subject => "New $domain user account",
 		],
 		body_str => $message

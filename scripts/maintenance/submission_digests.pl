@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20201130
+#Version: 20220614
 use strict;
 use warnings;
 use 5.010;
@@ -32,8 +32,8 @@ use constant {
 	USER_DATABASE    => 'pubmlst_bigsdb_users',
 	SMTP_SERVER      => 'localhost',
 	SMTP_PORT        => 25,
-	SENDER           => 'no_reply@pubmlst.org',
-	ACCOUNT_URL      => 'https://pubmlst.org/bigsdb'
+	SENDER           => 'no_reply@pubmlst.org', #Use if automated_email_address not set in bigsdb.conf
+	ACCOUNT_URL => 'https://pubmlst.org/bigsdb'
 };
 #######End Local configuration#############################################
 use lib (LIB_DIR);
@@ -134,9 +134,9 @@ sub create_digest {
 	my ($curator)   = @_;
 	my $domain      = DOMAIN;
 	my $digest_data = $script->{'datastore'}->run_query(
-		'SELECT * FROM submission_digests WHERE user_name=? ORDER BY dbase_description,submission_id,timestamp,submitter'
-		,
-		$curator, { fetch => 'all_arrayref', slice => {} }
+'SELECT * FROM submission_digests WHERE user_name=? ORDER BY dbase_description,submission_id,timestamp,submitter',
+		$curator,
+		{ fetch => 'all_arrayref', slice => {} }
 	);
 	my $current_db = q();
 	my $buffer;
@@ -166,6 +166,7 @@ sub email_digest {
 	my $user_info = $script->{'datastore'}->get_user_info_from_username($curator);
 	my $transport =
 	  Email::Sender::Transport::SMTP->new( { host => SMTP_SERVER // 'localhost', port => SMTP_PORT // 25 } );
+	my $sender_address = $script->{'config'}->{'automated_email_address'} // SENDER;
 	my $email = Email::MIME->create(
 		attributes => {
 			encoding => 'quoted-printable',
@@ -173,7 +174,7 @@ sub email_digest {
 		},
 		header_str => [
 			To      => $user_info->{'email'},
-			From    => SENDER,
+			From    => $sender_address,
 			Subject => $digest->{'title'}
 		],
 		body_str => $digest->{'content'}

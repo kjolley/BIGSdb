@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2016-2021, University of Oxford
+#Copyright (c) 2016-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -1034,6 +1034,7 @@ sub _notify_db_admin {
 	$message .=
 	  qq(Please log in to the $system->{'description'} database curation system to accept or reject this user.);
 	my $domain = $self->{'config'}->{'domain'} // DEFAULT_DOMAIN;
+	my $sender_address = $self->{'config'}->{'automated_email_address'} // "no_reply\@$domain";
 	foreach my $recipient (@$recipients) {
 		next if !$recipient->{'account_request_emails'};
 		my $transport = Email::Sender::Transport::SMTP->new(
@@ -1049,7 +1050,7 @@ sub _notify_db_admin {
 			},
 			header_str => [
 				To      => $recipient->{'email'},
-				From    => "no_reply\@$domain",
+				From    => $sender_address,
 				Subject => $subject
 			],
 			body_str => $message

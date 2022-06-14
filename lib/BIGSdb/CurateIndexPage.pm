@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -423,8 +423,7 @@ sub _get_geography_point_lookup {
 		$logger->fatal(
 			    'Your database configuration contains one or more fields with the geography_point_lookup attribute set '
 			  . 'but your database does not contain the geography_point_lookup table. You need to ensure that PostGIS '
-			  . 'is installed and run the isolatedb_geocoding.sql SQL script against the database to set this up.'
-		);
+			  . 'is installed and run the isolatedb_geocoding.sql SQL script against the database to set this up.' );
 		undef $atts->{$_}->{'geography_point_lookup'} foreach keys %$atts;
 		return q();
 	}
@@ -2242,9 +2241,10 @@ sub _accept_publication {
 
 sub _send_email {
 	my ( $self, $user_id, $subject, $message ) = @_;
-	my $user_info = $self->{'datastore'}->get_user_info($user_id);
-	my $address   = Email::Valid->address( $user_info->{'email'} );
-	my $domain    = $self->{'config'}->{'domain'} // DEFAULT_DOMAIN;
+	my $user_info      = $self->{'datastore'}->get_user_info($user_id);
+	my $address        = Email::Valid->address( $user_info->{'email'} );
+	my $domain         = $self->{'config'}->{'domain'} // DEFAULT_DOMAIN;
+	my $sender_address = $self->{'config'}->{'automated_email_address'} // "no_reply\@$domain";
 	return if !$address;
 	my $transport = Email::Sender::Transport::SMTP->new(
 		{
@@ -2255,7 +2255,7 @@ sub _send_email {
 	my $email = Email::MIME->create(
 		header_str => [
 			To      => $address,
-			From    => "no_reply\@$domain",
+			From    => $sender_address,
 			Subject => $subject
 		],
 		attributes => {
@@ -2450,6 +2450,7 @@ sub _notify_succesful_registration {
 	my $address   = Email::Valid->address( $user_info->{'email'} );
 	my $domain    = $self->{'config'}->{'domain'} // DEFAULT_DOMAIN;
 	return if !$address;
+	my $sender_address = $self->{'config'}->{'automated_email_address'} // "no_reply\@$domain";
 	my $transport = Email::Sender::Transport::SMTP->new(
 		{
 			host => $self->{'config'}->{'smtp_server'} // 'localhost',
@@ -2459,7 +2460,7 @@ sub _notify_succesful_registration {
 	my $email = Email::MIME->create(
 		header_str => [
 			To      => $address,
-			From    => "no_reply\@$domain",
+			From    => $sender_address,
 			Subject => $subject
 		],
 		attributes => {
