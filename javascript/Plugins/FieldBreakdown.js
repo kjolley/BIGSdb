@@ -468,7 +468,6 @@ function load_pie(url, field, max_segments) {
 		// if needed when reducing segment count.
 		var others_exist = 0;
 		for (var i = 0; i < all_data.columns.length; i++) {
-			console.log(all_data.columns[i][0]);
 			if (all_data.columns[i][0] == 'Others') {
 				others_exist = 1;
 			}
