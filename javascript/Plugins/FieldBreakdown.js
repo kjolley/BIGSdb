@@ -467,15 +467,15 @@ function load_pie(url, field, max_segments) {
 		// Need to create 'Others' segment otherwise it won't display properly
 		// if needed when reducing segment count.
 		var others_exist = 0;
-		for (var i=0; i<all_data.length; i++){
-			if (all_data.columns[i][0] == 'Others'){
+		for (var i = 0; i < all_data.columns.length; i++) {
+			console.log(all_data.columns[i][0]);
+			if (all_data.columns[i][0] == 'Others') {
 				others_exist = 1;
 			}
 		}
-		if (!others_exist){
+		if (!others_exist) {
 			all_data.columns.push(['Others', 0]);
 		}
-
 		var plural = data.count == 1 ? "" : "s";
 		title += " (" + data.count + " value" + plural + ")";
 		var chart = bb.generate({
@@ -588,7 +588,7 @@ function pie_json_to_cols(jsonData, segments) {
 	var other_fields = 0;
 	jsonData.forEach(function(e) {
 		e.label = e.label.toString();
-		if (e.label == ''){
+		if (e.label == '') {
 			e.label = 'No value';
 		}
 		count++;
