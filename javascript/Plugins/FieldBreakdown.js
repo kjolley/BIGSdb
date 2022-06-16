@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 
-Version 2.5.1.
+Version 2.5.2.
 */
 
 var prefs_loaded;
@@ -466,7 +466,13 @@ function load_pie(url, field, max_segments) {
 
 		// Need to create 'Others' segment otherwise it won't display properly
 		// if needed when reducing segment count.
-		if (all_data.columns['Others'] == 'undefined') {
+		var others_exist = 0;
+		for (var i=0; i<all_data.length; i++){
+			if (all_data.columns[i][0] == 'Others'){
+				others_exist = 1;
+			}
+		}
+		if (!others_exist){
 			all_data.columns.push(['Others', 0]);
 		}
 
