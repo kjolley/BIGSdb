@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 
-Version 2.5.2.
+Version 2.5.3.
 */
 
 var prefs_loaded;
@@ -484,6 +484,7 @@ function load_pie(url, field, max_segments) {
 			},
 			data: {
 				columns: all_data.columns,
+				names: all_data.names,
 				type: pie ? 'pie' : 'donut',
 				order: null,
 				colors: {
@@ -581,6 +582,7 @@ function load_pie(url, field, max_segments) {
 
 function pie_json_to_cols(jsonData, segments) {
 	var columns = [];
+	var names = {};
 	var first_other = [];
 	var count = 0;
 	var others = 0;
@@ -591,6 +593,7 @@ function pie_json_to_cols(jsonData, segments) {
 			e.label = 'No value';
 		}
 		count++;
+		var name = "Data" + count;
 		if (count >= segments) {
 			others += e.value;
 			other_fields++;
@@ -598,15 +601,16 @@ function pie_json_to_cols(jsonData, segments) {
 				first_other = [e.label, e.value];
 			}
 		} else {
-			columns.push([e.label, e.value]);
+			columns.push([name, e.value]);
 		}
+		names[name] = e.label;
 	})
 	if (other_fields == 1) {
 		columns.push(first_other);
 	} else if (other_fields > 1) {
 		columns.push(['Others', others]);
 	}
-	return { columns: columns, count: count };
+	return { columns: columns, names: names, count: count };
 }
 
 function load_line(url, field, cumulative) {
