@@ -1,3 +1,11 @@
+v1.36.0: *Option to link isolate field values to a lookup table containing GPS
+          coordinates to facilitate mapping by e.g. town/city.
+         *Display maps for these fields in isolate info page and in Field
+          Breakdown plugin.
+         *Script to automatically lookup GPS coordinates for towns and cities
+          from linked fields, using the Geonames database.
+         *Optionally export GPS coordinates from above in the Microreact 
+          plugin.
 v1.35.3: *Improve GPS mapping in FieldBreakdown plugin - users can dynamically
           change pointer colour and size, and the map is automatically centred
           and zoomed on displayed points.
