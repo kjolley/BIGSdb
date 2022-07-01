@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20220426
+#Version: 20220701
 use strict;
 use warnings;
 use 5.010;
@@ -101,9 +101,51 @@ sub main {
 			return;
 		}
 		my $profiles = @$profiles_to_assign == 1 ? $profiles_to_assign : get_prim_order($profiles_to_assign);
+		if ( @{ $lincodes->{'profile_ids'} } ) {
+			$profiles = adjust_prim_order( $lincodes->{'profile_ids'}, $lincodes->{'profiles'}, $profiles );
+		}
 		assign_lincodes($profiles);
+		$lincodes = get_lincode_definitions();
 	} while @$profiles_to_assign;
 	return;
+}
+
+sub adjust_prim_order {
+	my ( $assigned_profile_ids, $assigned_profiles, $new_profiles ) = @_;
+	my $scheme_info      = $script->{'datastore'}->get_scheme_info( $opts{'scheme_id'}, { get_pk => 1 } );
+	my $pk               = $scheme_info->{'primary_key'};
+	my $loci             = $script->{'datastore'}->get_scheme_loci( $opts{'scheme_id'} );
+	my $locus_count      = @$loci;
+	my $closest_distance = 100;
+	my $closest_profile_index;
+	my $index = 0;
+
+	foreach my $profile_id (@$new_profiles) {
+		my $profile = pdl( $script->{'datastore'}
+			  ->run_query( "SELECT profile FROM mv_scheme_$opts{'scheme_id'} WHERE $pk=?", $profile_id ) );
+		for my $i ( 0 .. @$assigned_profile_ids - 1 ) {
+			my $assigned_profile = $assigned_profiles->slice(",($i)");
+			my ($diffs) = dims(
+				where(
+					$assigned_profile, $profile,
+					( $assigned_profile != $profile ) & ( $assigned_profile != 0 ) & ( $profile != 0 )
+				)
+			);
+			my ($missing_in_either) =
+			  dims( where( $assigned_profile, $profile, ( $assigned_profile == 0 ) | ( $profile == 0 ) ) );
+			my $distance = 100 * $diffs / ( $locus_count - $missing_in_either );
+			if ( $distance < $closest_distance ) {
+				$closest_distance      = $distance;
+				$closest_profile_index = $index;
+			}
+		}
+		$index++;
+	}
+	my $reordered_profiles = [ @$new_profiles[ $closest_profile_index .. @$new_profiles - 1 ] ];
+	if ( $closest_profile_index > 0 ) {
+		push @$reordered_profiles, reverse @$new_profiles[ 0 .. $closest_profile_index - 1 ];
+	}
+	return $reordered_profiles;
 }
 
 sub initiate_log_file {
@@ -242,6 +284,7 @@ sub increment_lincode {
 		my @new_lincode = ( ++$max_first, (0) x ( @{ $thresholds->{'diffs'} } - 1 ) );
 		return [@new_lincode];
 	}
+	$closest_index //= 0;
 	my $closest_lincode     = $lincodes->[$closest_index];
 	my @lincode_prefix      = @$closest_lincode[ 0 .. $threshold_index - 1 ];
 	my $max_threshold_index = 0;
