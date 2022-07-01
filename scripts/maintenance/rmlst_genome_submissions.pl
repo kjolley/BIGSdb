@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Perform/update species id check and store results in isolate database.
 #Written by Keith Jolley
-#Copyright (c) 2021, University of Oxford
+#Copyright (c) 2021-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20210416
+#Version: 20220701
 use strict;
 use warnings;
 use 5.010;
@@ -208,6 +208,7 @@ sub check_db {
 				next ISOLATE;
 			}
 			my $fasta_ref = get_fasta( $script, $submission_id, $index );
+			next if !ref $fasta_ref;
 			my $payload = encode_json(
 				{
 					base64   => JSON::true(),
@@ -244,6 +245,7 @@ sub get_fasta {
 	  ->run_query( 'SELECT value FROM isolate_submission_isolates WHERE (submission_id,index,field)=(?,?,?)',
 		[ $submission_id, $index, 'assembly_filename' ] );
 	my $full_path = "$submission_dir/$submission_id/supporting_files/$filename";
+	return if !-e $full_path;
 	my $return_value;
 	try {
 		my $fasta     = BIGSdb::Utils::slurp($full_path);
