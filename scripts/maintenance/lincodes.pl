@@ -119,10 +119,13 @@ sub adjust_prim_order {
 	my $closest_distance = 100;
 	my $closest_profile_index;
 	my $index = 0;
+	my %missing = ( N => 0 );
 
 	foreach my $profile_id (@$new_profiles) {
-		my $profile = pdl( $script->{'datastore'}
-			  ->run_query( "SELECT profile FROM mv_scheme_$opts{'scheme_id'} WHERE $pk=?", $profile_id ) );
+		my $profile_array = $script->{'datastore'}
+		  ->run_query( "SELECT profile FROM mv_scheme_$opts{'scheme_id'} WHERE $pk=?", $profile_id );
+		$_ = $missing{$_} // $_ foreach @$profile_array;
+		my $profile = pdl($profile_array);
 		for my $i ( 0 .. @$assigned_profile_ids - 1 ) {
 			my $assigned_profile = $assigned_profiles->slice(",($i)");
 			my ($diffs) = dims(
