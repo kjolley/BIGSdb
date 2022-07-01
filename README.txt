@@ -1,3 +1,5 @@
+v1.36.1: *Minor update to lincodes.pl script affecting order when adding new
+          batch of profiles.
 v1.36.0: *Option to link isolate field values to a lookup table containing GPS
           coordinates to facilitate mapping by e.g. town/city.
          *Display maps for these fields in isolate info page and in Field
