@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Automatically tag scan genomes for exactly matching alleles
 #Written by Keith Jolley
-#Copyright (c) 2011-2020, University of Oxford
+#Copyright (c) 2011-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20201129
+#Version: 20220704
 use strict;
 use warnings;
 use 5.010;
@@ -68,6 +68,7 @@ GetOptions(
 	'q|quiet'              => \$opts{'q'},
 	'r|random'             => \$opts{'r'},
 	'reuse_blast'          => \$opts{'reuse_blast'},
+	'seqbin_reldate=i'     => \$opts{'seqbin_reldate'},
 	'type_alleles'         => \$opts{'type_alleles'},
 	'T|already_tagged'     => \$opts{'T'},
 	'v|view=s'             => \$opts{'v'}
@@ -265,6 +266,10 @@ ${bold}-R, --locus_regex$norm ${under}REGEX$norm
 
 ${bold}-s, --schemes$norm ${under}LIST$norm
     Comma-separated list of scheme loci to scan.
+    
+${bold}--seqbin_reldate$norm ${under}DAYS$norm
+    Filter to only include isolates for which the sequence bin was last
+    modified within the specified number of days (set 1 for today).
 
 ${bold}-t, --time$norm ${under}MINS$norm
     Stop after t minutes.

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2021, University of Oxford
+#Copyright (c) 2011-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -264,6 +264,15 @@ sub filter_and_sort_isolates {
 		@$isolates = sort { $tag_date->{$a} cmp $tag_date->{$b} } @$isolates;
 	}
 	my %exclude = map { $_ => 1 } @exclude_isolates;
+	my %seqbin_reldate;
+	if ( $self->{'options'}->{'seqbin_reldate'} ) {
+		my $records = $self->{'datastore'}->run_query(
+			q(SELECT DISTINCT(isolate_id) FROM sequence_bin where )
+			  . qq(date_entered>=NOW()-INTERVAL '$self->{'options'}->{'seqbin_reldate'} days'), undef,
+			{ fetch => 'col_arrayref' }
+		);
+		%seqbin_reldate = map { $_ => 1 } @$records;
+	}
 	my @list;
 	foreach my $isolate_id (@$isolates) {
 		next if $exclude{$isolate_id};
@@ -286,6 +295,9 @@ sub filter_and_sort_isolates {
 		  )
 		{
 			next;
+		}
+		if ( defined $self->{'options'}->{'seqbin_reldate'} ) {
+			next if !$seqbin_reldate{$isolate_id};
 		}
 		push @list, $isolate_id;
 	}
@@ -467,5 +479,4 @@ sub stop_job {
 	undef $self->{'jobManager'} if $options->{'temp_init'};
 	return;
 }
-
 1;

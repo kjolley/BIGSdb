@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Scan genomes for new alleles
 #Written by Keith Jolley
-#Copyright (c) 2013-2020, University of Oxford
+#Copyright (c) 2013-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20201203
+#Version: 20220704
 use strict;
 use warnings;
 use 5.010;
@@ -71,6 +71,7 @@ GetOptions(
 	'new_max_alleles=i'    => \$opts{'new_max_alleles'},
 	'o|order'              => \$opts{'o'},
 	'r|random'             => \$opts{'r'},
+	'seqbin_reldate=i'     => \$opts{'seqbin_reldate'},
 	'reuse_blast'          => \$opts{'reuse_blast'},
 	'type_alleles'         => \$opts{'type_alleles'},
 	'T|already_tagged'     => \$opts{'T'},
@@ -118,7 +119,7 @@ if ( BIGSdb::Utils::is_int( $opts{'threads'} ) && $opts{'threads'} > 1 ) {
 	}
 	delete $opts{$_} foreach qw(l L R s);             #Remove options that impact locus list
 	my $uses_remote_contigs = $script->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM oauth_credentials)');
-	$script->{'dataConnector'}->drop_all_connections;                          
+	$script->{'dataConnector'}->drop_all_connections;
 	$script->{'logger'}->info("$opts{'d'}:Running Autodefiner (up to $opts{'threads'} threads)");
 	my $job_id = $script->add_job( 'ScanNew', { temp_init => 1 } );
 	print_header();
@@ -287,6 +288,10 @@ ${bold}-R, --locus_regex$norm ${under}REGEX$norm
 
 ${bold}-s, --schemes$norm ${under}LIST$norm
     Comma-separated list of scheme loci to scan.
+    
+${bold}--seqbin_reldate$norm ${under}DAYS$norm
+    Filter to only include isolates for which the sequence bin was last
+    modified within the specified number of days (set 1 for today).
 
 ${bold}-t, --time$norm ${under}MINS$norm
     Stop after t minutes.
