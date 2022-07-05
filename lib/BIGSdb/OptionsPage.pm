@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -154,7 +154,7 @@ sub _set_isolate_options {
 	my $eav_field_list = $self->{'datastore'}->get_eav_fieldnames;
 	foreach my $field (@$field_list) {
 		next if $field eq 'id';
-		my $display_default = $field_attributes->{$field}->{'maindisplay'} eq 'no' ? 0 : 1;
+		my $display_default = ( $field_attributes->{$field}->{'maindisplay'} // 'yes' ) eq 'no' ? 0 : 1;
 		if ( $prefs->{'maindisplayfields'}->{$field} != $display_default ) {
 			$prefstore->set_field( $guid, $dbname, $field, 'maindisplay',
 				$prefs->{'maindisplayfields'}->{$field} ? 'true' : 'false' );
@@ -593,8 +593,7 @@ sub _print_isolate_query_fields_options {
 	local $" = ';';
 	say qq(<input type="button" value="All" onclick='@js' class="batch reset" style="display:none" />);
 	say qq(<input type="button" value="None" onclick='@js2' class="batch reset" style="display:none" />);
-	say qq(<input type="button" value="Default" onclick='@js3' class="batch reset" style="display:none" />)
-	  ;
+	say qq(<input type="button" value="Default" onclick='@js3' class="batch reset" style="display:none" />);
 	say $q->submit( -name => 'set', -label => 'Set options', -class => 'submit' );
 	say q(</div></div></div>);
 	return;

@@ -237,6 +237,17 @@ sub print_page {
 		$page->print_page_content;
 		return;
 	}
+	if ( $self->{'page'} eq 'options'
+		&& ( $self->{'cgi'}->param('set') || $self->{'cgi'}->param('reset') ) )
+	{
+		$page = BIGSdb::OptionsPage->new(%page_attributes);
+		$page->initiate_prefs;
+		$page->set_options;
+		$self->{'page'} = 'index';
+		$self->{'cgi'}->param( page => 'index' );    #stop prefs initiating twice
+		$page->print_page_content;
+		return;
+	}
 	if ( $classes{ $self->{'page'} } ) {
 		if ( ref $auth_cookies_ref eq 'ARRAY' ) {
 			foreach (@$auth_cookies_ref) {
@@ -253,6 +264,7 @@ sub print_page {
 	if ( $page_attributes{'error'} ) {
 		$self->{'handled_error'} = 1;
 	}
+
 	return;
 }
 1;
