@@ -62,8 +62,9 @@ sub get_javascript {
 			last;
 		}
 	}
-	my $links      = $self->get_related_databases;
-	my $db_trigger = q();
+	my $submission_id = $q->param('submission_id') // q();
+	my $links         = $self->get_related_databases;
+	my $db_trigger    = q();
 	if ( @$links > 1 ) {
 		$db_trigger = << "END";
 +\$("#related_db_trigger,#close_related_db").click(function(){		
@@ -106,8 +107,12 @@ END
 		init: function () {
         	this.on('queuecomplete', function () {
          		if (this.getUploadingFiles().length === 0 && this.getQueuedFiles().length === 0) {
-	         		var url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
-	         		+"page=submit&amp;$submit_type=1" 
+	         		var url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=submit";
+	         		if ('$submit_type'.length){
+	         			url += "&$submit_type=1";
+	         		} else if ('$submission_id'.length){
+	         			url += "&submission_id=$submission_id";
+	         		}
 	             	location.href = url;
          		}
         	});
@@ -165,6 +170,13 @@ sub initiate {
 	} elsif ( $q->param('alleles') || $q->param('profiles') || $q->param('isolate') || $q->param('genomes') ) {
 		$self->set_level2_breadcrumbs('New submission');
 	} else {
+		$self->{'processing'} = 1 if defined $q->param('submission_id');
+		foreach my $method (qw(abort finalize close remove cancel)) {
+			if ( $q->param($method) ) {
+				$self->{'processing'} = 0;
+				last;
+			}
+		}
 		$self->set_level1_breadcrumbs;
 	}
 	return;
@@ -188,12 +200,24 @@ sub print_content {
 			$self->_reopen_submission($submission_id);
 		}
 		my %return_after = map { $_ => 1 } qw (tar view curate);
+		my $action_performed;
 		foreach my $action (qw (abort finalize close remove tar view curate cancel)) {
 			if ( $q->param($action) ) {
 				my $method = "_${action}_submission";
 				$self->$method($submission_id);
+				$action_performed = 1;
 				return if $return_after{$action};
 				last;
+			}
+		}
+		if ( !$action_performed ) {
+			foreach my $type (qw (alleles profiles isolates genomes)) {
+				if ( $q->param($type) ) {
+					last if $self->_user_over_quota;
+					my $method = "_handle_$type";
+					$self->$method;
+					return;
+				}
 			}
 		}
 	}
@@ -1426,6 +1450,7 @@ sub _print_file_upload_fieldset {
 		}
 		if ( $q->param('delete') ) {
 			$self->_delete_selected_submission_files($submission_id);
+			$q->delete('delete');
 		}
 	}
 	say q(<fieldset style="float:left"><legend>Supporting files</legend>);
@@ -1456,11 +1481,14 @@ sub _print_file_upload_fieldset {
 	if (@$files) {
 		say $q->start_form;
 		say q(<h2>Uploaded files</h2>);
-		$self->_print_submission_file_table( $submission_id, { delete_checkbox => 1 } );
+		$self->_print_submission_file_table( $submission_id,
+			{ delete_checkbox => $submission->{'status'} eq 'started' ? 1 : 0 } );
 		$q->param( delete => 1 );
 		say $q->hidden($_)
 		  foreach qw(db page alleles profiles isolates genomes locus submission_id delete no_check view);
-		say $q->submit( -label => 'Delete selected files', -class => 'small_submit' );
+		if ( $submission->{'status'} eq 'started' ) {
+			say $q->submit( -label => 'Delete selected files', -class => 'small_submit' );
+		}
 		say $q->end_form;
 	}
 	say q(</fieldset>);
