@@ -1,3 +1,4 @@
+v1.36.2: *Fix for LINcode prefix field matching in Profile Export plugin.
 v1.36.1: *Minor update to lincodes.pl script affecting order when adding new
           batch of profiles.
 v1.36.0: *Option to link isolate field values to a lookup table containing GPS
