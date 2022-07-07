@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -174,13 +174,13 @@ sub _check_locus_databases {
 				$buffer .= GOOD;
 			}
 			$buffer .= q(</td><td>);
-			my $seq_count;
-			eval { $seq_count = $self->{'datastore'}->get_locus($locus)->get_sequence_count; };
-			if ( $@ || ( !$seq_count ) ) {
+			my $locus_stats;
+			eval { $locus_stats = $self->{'datastore'}->get_locus($locus)->get_stats; };
+			if ( $@ || ( !$locus_stats->{'allele_count'} ) ) {
 				$logger->debug("$locus; $@");
 				$buffer .= BAD;
 			} else {
-				$buffer .= qq(<span class="statusgood">$seq_count</span>);
+				$buffer .= qq(<span class="statusgood">$locus_stats->{'allele_count'}</span>);
 				next LOCUS if $q->param('show_probs_only') && $seq_query_ok;
 			}
 			$buffer .= q(</td></tr>);

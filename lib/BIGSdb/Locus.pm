@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2019, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -149,20 +149,20 @@ sub get_all_sequences {
 	return \%seqs;
 }
 
-sub get_sequence_count {
+sub get_stats {
 	my ($self) = @_;
 	if ( !$self->{'db'} ) {
 		$logger->info("No connection to locus $self->{'id'} database");
 		return;
 	}
-	my $qry = 'SELECT allele_count FROM locus_stats WHERE locus=?';
+	my $qry = 'SELECT allele_count,min_length,max_length FROM locus_stats WHERE locus=?';
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute( $self->{'dbase_id'} ) };
 	if ($@) {
 		$logger->error($@);
 		BIGSdb::Exception::Database::Configuration->throw('Locus configuration error');
 	}
-	return $sql->fetchrow_array;
+	return $sql->fetchrow_hashref;
 }
 
 sub get_flags {
