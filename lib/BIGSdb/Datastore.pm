@@ -2764,6 +2764,7 @@ sub initiate_view {
 		my $has_user_project =
 		  $self->run_query( 'SELECT EXISTS(SELECT * FROM merged_project_users WHERE user_id=?)', $user_info->{'id'} );
 		if ($curate) {
+			my $status = $user_info->{'status'};
 			my $method = {
 				admin => sub {
 					@user_terms = (ALL_ISOLATES);
@@ -2775,13 +2776,25 @@ sub initiate_view {
 						PRIVATE_ISOLATES_FROM_SAME_USER_GROUP
 					);
 				},
+				private_submitter => sub {
+					@user_terms = ( OWN_PRIVATE_ISOLATES, );
+				},
 				curator => sub {
 					@user_terms = ( PUBLIC_ISOLATES, OWN_PRIVATE_ISOLATES, PUBLICATION_REQUESTED );
 					push @user_terms, ISOLATES_FROM_USER_PROJECT if $has_user_project;
 				}
 			};
-			if ( $method->{ $user_info->{'status'} } ) {
-				$method->{ $user_info->{'status'} }->();
+			if ( $status eq 'submitter' ) {
+				my $only_private = $self->run_query(
+					'SELECT EXISTS(SELECT * FROM permissions WHERE (user_id,permission)=(?,?))',
+					[ $user_info->{'id'}, 'only_private' ]
+				);
+				if ($only_private) {
+					$status = 'private_submitter';
+				}
+			}
+			if ( $method->{$status} ) {
+				$method->{$status}->();
 			} else {
 				return;
 			}
