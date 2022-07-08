@@ -42,7 +42,7 @@ sub get_attributes {
 		menutext    => 'Profiles',
 		buttontext  => 'Profiles',
 		module      => 'ProfileExport',
-		version     => '1.3.1',
+		version     => '1.3.2',
 		dbtype      => 'sequences',
 		seqdb_type  => 'schemes',
 		input       => 'query',
@@ -321,7 +321,7 @@ sub _get_lincode_values {
 	  . q[array_to_string(lincodes.lincode,'_') LIKE (REPLACE(lincode_prefixes.prefix,'_',E'\\\_') || E'\\\_' || '%') ]
 	  . q[OR array_to_string(lincodes.lincode,'_') = lincode_prefixes.prefix)];
 	foreach my $field (@$fields) {
-		if (!@$lincode){
+		if ( !@$lincode ) {
 			push @$values, q();
 			next;
 		}
@@ -335,8 +335,9 @@ sub _get_lincode_values {
 		  ? 'CAST(value AS integer)'
 		  : 'value';
 		my $field_values = $self->{'datastore'}->run_query(
-			"SELECT value FROM $join_table WHERE (lincodes.scheme_id,lincode_prefixes.field,lincodes.lincode)="
-			  . "(?,?,?) ORDER BY $order",
+			"SELECT DISTINCT(value) FROM $join_table WHERE "
+			  . "(lincodes.scheme_id,lincode_prefixes.field,lincodes.lincode)=(?,?,?) ORDER BY $order"
+			,
 			[ $scheme_id, $field, $lincode ],
 			{ fetch => 'col_arrayref' }
 		);

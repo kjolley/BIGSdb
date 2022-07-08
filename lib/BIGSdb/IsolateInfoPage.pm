@@ -1589,7 +1589,7 @@ sub _should_display_scheme {
 
 sub _get_scheme_field_values {
 	my ( $self, $scheme_id, $designations ) = @_;
-	my %values;
+	my $values = {};
 	my $scheme_field_values =
 	  $self->{'datastore'}->get_scheme_field_values_by_designations( $scheme_id, $designations );
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
@@ -1619,14 +1619,21 @@ sub _get_scheme_field_values {
 					$formatted_value .= $value;
 				}
 				$formatted_value .= q(</span>) if $provisional;
-				push @{ $values{$field} }, $formatted_value;
+				push @{ $values->{$field}->{'formatted'} }, $formatted_value;
+				push @{ $values->{$field}->{'unformatted'} }, $value;
 			}
-			$values{$field} = ['Not defined'] if ref $values{$field} ne 'ARRAY';
+			if (ref $values->{$field}->{'formatted'} ne 'ARRAY'){
+				$values->{$field}->{'formatted'} = ['Not defined'];
+				$values->{$field}->{'unformatted'} = [];
+			} 
 		}
 	} else {
-		$values{$_} = ['Not defined'] foreach @$scheme_fields;
+		foreach my $field (@$scheme_fields){
+			$values->{$field}->{'formatted'} = ['Not defined'] ;
+			$values->{$field}->{'unformatted'} = [];
+		}
 	}
-	return \%values;
+	return $values;
 }
 
 sub _get_scheme {
@@ -1717,7 +1724,7 @@ sub _get_scheme_values {
 			  $self->get_tooltip( qq($field - $scheme_field_info->{'description'}), { style => 'color:white' } );
 		}
 		local $" = ', ';
-		my $values = qq(@{$field_values->{$field}}) // q(-);
+		my $values = qq(@{$field_values->{$field}->{'formatted'}}) // q(-);
 		if ( $args->{'no_render'} ) {
 			$buffer .= qq(<dt>$cleaned</dt><dd>$values</dd>);
 		} else {
@@ -1726,10 +1733,10 @@ sub _get_scheme_values {
 	}
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	if (   $scheme_info->{'primary_key'}
-		&& $field_values->{ $scheme_info->{'primary_key'} }
+		&& $field_values->{ $scheme_info->{'primary_key'} }->{'formatted'}
 		&& $self->{'datastore'}->are_lincodes_defined($scheme_id) )
 	{
-		my $pk_values = $field_values->{ $scheme_info->{'primary_key'} };
+		my $pk_values = $field_values->{ $scheme_info->{'primary_key'} }->{'unformatted'};
 		$buffer .= $self->_get_lincode_values( $scheme_id, $pk_values, $args );
 	}
 	$buffer .= q(</dl>) if $args->{'no_render'};
@@ -1748,6 +1755,7 @@ sub _get_lincode_values {
 		push @lincodes, qq(@$lincode) if $lincode;
 	}
 	@lincodes = sort @lincodes;
+	
 	if ( @lincodes > 1 ) {
 		@lincodes = ( $lincodes[0] );
 	}

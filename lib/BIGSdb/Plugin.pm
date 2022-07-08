@@ -872,10 +872,16 @@ sub get_lincode {
 	);
 	my $lincode_table = $self->{'datastore'}->create_temp_lincodes_table($scheme_id);
 	my $lincodes      = [];
+	my %used;
 	foreach my $profile_id (@$profile_ids) {
 		my $lincode =
 		  $self->{'datastore'}->run_query( "SELECT lincode FROM $lincode_table WHERE profile_id=?", $profile_id );
-		push @$lincodes, $lincode if $lincode;
+		if ($lincode) {
+			local $" = q(_);
+			next if $used{"@$lincode"};
+			push @$lincodes, $lincode;
+			$used{"@$lincode"} = 1;
+		}
 	}
 	return $lincodes;
 }
@@ -1099,5 +1105,4 @@ sub get_breadcrumbs {
 	  );
 	return $breadcrumbs;
 }
-
 1;
