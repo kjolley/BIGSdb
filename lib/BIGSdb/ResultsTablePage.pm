@@ -324,17 +324,21 @@ sub _print_project_add_function {
 		$labels->{ $project->{'id'} } = $project->{'short_description'};
 	}
 	say q(<fieldset><legend>Your projects</legend>);
+	say q(<button id="project_trigger" class="small_submit"><span class="far fa-folder">)
+	  . q(</span> Add to project</button>);
+	say q(<div id="project_section" style="margin-top:1em;display:none">);
 	my $hidden_attributes = $self->get_hidden_attributes;
 	say $q->start_form;
 	say $q->popup_menu( -id => 'project', -name => 'project', -values => $project_ids, -labels => $labels );
 	say $q->submit( -name => 'add_to_project', -label => 'Add these records', -class => 'small_submit' );
-	say qq(<span class="flash_message" style="margin-left:2em">$self->{'project_add_message'}</span>)
-	  if $self->{'project_add_message'};
 	say $q->hidden($_) foreach qw (db query_file temp_table_file table page);
 
 	#Using print instead of say prevents blank line if attribute not set.
 	print $q->hidden($_) foreach @$hidden_attributes;
 	say $q->end_form;
+	say q(</div>);
+	say qq(<span class="flash_message" style="margin-left:2em">$self->{'project_add_message'}</span>)
+	  if $self->{'project_add_message'};
 	say q(</fieldset>);
 	return;
 }
@@ -355,6 +359,9 @@ sub _print_add_bookmark_function {
 		say q(</fieldset>);
 		return;
 	}
+	say q(<button id="add_bookmark_trigger" class="small_submit">)
+	  . q(<span class="far fa-bookmark"></span> Bookmark</button>);
+	say q(<div id="bookmark_section" style="margin-top:1em;display:none">);
 	my $hidden_attributes = $self->get_hidden_attributes;
 	$q->delete('bookmark') if !$self->{'bookmark_add_message'};
 	say $q->start_form;
@@ -372,6 +379,7 @@ sub _print_add_bookmark_function {
 
 	#Using print instead of say prevents blank line if attribute not set.
 	print $q->hidden($_) foreach @$hidden_attributes;
+	say q(Bookmark name:<br />);
 	say $q->textfield(
 		-id          => 'bookmark',
 		-name        => 'bookmark',
@@ -384,6 +392,7 @@ sub _print_add_bookmark_function {
 	say qq(<span class="flash_message" style="margin-left:2em">$self->{'bookmark_add_message'}</span>)
 	  if $self->{'bookmark_add_message'};
 	say $q->end_form;
+	say q(</div>);
 	say q(</fieldset>);
 	return;
 }
@@ -404,11 +413,13 @@ sub _print_publish_function {
 		return if !@$matched && !$q->param('publish');
 	}
 	say q(<fieldset><legend>Private records</legend>);
-	my $label = $self->{'permissions'}->{'only_private'}
-	  || !$self->can_modify_table('isolates') ? 'Request publication' : 'Publish';
+	my $label =
+	  $self->{'permissions'}->{'only_private'} || !$self->can_modify_table('isolates')
+	  ? '<span class="fas fa-globe-africa"></span> Request publication'
+	  : '<span class="fas fa-globe-africa"></span> Publish';
 	my $hidden_attributes = $self->get_hidden_attributes;
 	say $q->start_form;
-	say $q->submit( -name => 'publish', -label => $label, -class => 'small_submit' );
+	say qq(<button type="submit" name="publish" value="publish" class="small_submit">$label</button>);
 	say qq(<span class="flash_message" style="margin-left:2em">$self->{'publish_message'}</span>)
 	  if $self->{'publish_message'};
 	say $q->hidden($_) foreach qw (db query_file datatype table page);
@@ -456,7 +467,8 @@ sub _print_delete_all_function {
 			say q(</li></ul>);
 		}
 	}
-	say $q->submit( -name => 'Delete ALL', -class => 'small_submit' );
+	say q(<button type="submit" name="Delete ALL" value="publish" class="small_submit">)
+	  . q(<span class="fas fa-times"></span> Delete ALL</button>);
 	say $q->end_form;
 	say q(</fieldset>);
 	return;
@@ -480,7 +492,8 @@ sub _print_export_configuration_function {
 		say $q->start_form;
 		$q->param( page => 'exportConfig' );
 		say $q->hidden($_) foreach qw (db page table query_file list_file datatype);
-		say $q->submit( -name => 'Export configuration/data', -class => 'small_submit' );
+		say q(<button type="submit" name="Export data" value="Export data" class="small_submit">)
+		  . q(<span class="fas fa-file-export"></span> Export data</button>);
 		say $q->end_form;
 		say q(</fieldset>);
 	}
@@ -494,7 +507,8 @@ sub _print_tag_scanning_function {
 	say $q->start_form;
 	$q->param( page => 'tagScan' );
 	say $q->hidden($_) foreach qw (db page table query_file list_file datatype);
-	say $q->submit( -name => 'Scan', -class => 'small_submit' );
+	say q(<button type="submit" name="Scan" value="Scan" class="small_submit">)
+	  . q(<span class="fas fa-barcode"></span> Scan</button>);
 	say $q->end_form;
 	say q(</fieldset>);
 	return;
@@ -518,6 +532,9 @@ sub _print_modify_project_members_function {
 	}
 	if (@projects) {
 		say q(<fieldset><legend>Projects</legend>);
+		say q(<button id="project_trigger" class="small_submit"><span class="far fa-folder">)
+		  . q(</span> Add to project</button>);
+		say q(<div id="project_section" style="margin-top:1em;display:none">);
 		unshift @projects, '';
 		$labels{''} = 'Select project...';
 		say $q->start_form;
@@ -525,8 +542,9 @@ sub _print_modify_project_members_function {
 		$q->param( table => 'project_members' );
 		say $q->hidden($_) foreach qw (db page table query_file list_file datatype);
 		say $q->popup_menu( -name => 'project', -values => \@projects, -labels => \%labels );
-		say $q->submit( -name => 'Link', -class => 'small_submit' );
+		say $q->submit( -name => 'Add records', -class => 'small_submit' );
 		say $q->end_form;
+		say q(</div>);
 		say q(</fieldset>);
 	}
 	return;
@@ -539,7 +557,8 @@ sub _print_set_sequence_flags_function {
 	say $q->start_form;
 	$q->param( page => 'setAlleleFlags' );
 	say $q->hidden($_) foreach qw (db page query_file list_file datatype);
-	say $q->submit( -name => 'Batch set', -class => 'small_submit' );
+	say q(<button type="submit" name="Batch set" value="Batch set" class="small_submit">)
+	  . q(<span class="fas fa-flag"></span> Batch set</button>);
 	say $q->end_form;
 	say q(</fieldset>);
 	return;
@@ -646,8 +665,8 @@ sub _print_field_value {
 	my $att     = $self->{'xmlHandler'}->get_field_attributes($thisfieldname);
 	my $methods = {
 		id => sub { $self->_process_id_links( $data, $thisfieldname ) },
-		users => sub { $self->_process_user_values( $data, $att, $thisfieldname ) },
-		location => sub {$self->_process_location_values( $data, $att, $thisfieldname )}
+		users    => sub { $self->_process_user_values( $data,     $att, $thisfieldname ) },
+		location => sub { $self->_process_location_values( $data, $att, $thisfieldname ) }
 	};
 	foreach my $method (qw(id users location)) {
 		if ( $methods->{$method}->() ) {
@@ -701,11 +720,10 @@ sub _process_user_values {
 sub _process_location_values {
 	my ( $self, $data, $att, $fieldname ) = @_;
 	return if $att->{'type'} ne 'geography_point';
-	
 	my $point = $data->{$fieldname};
-	if (defined $point){
-	my $location = $self->{'datastore'}->get_geography_coordinates($point);
-	print qq(<td>$location->{'latitude'}, $location->{'longitude'}</td>);
+	if ( defined $point ) {
+		my $location = $self->{'datastore'}->get_geography_coordinates($point);
+		print qq(<td>$location->{'latitude'}, $location->{'longitude'}</td>);
 	} else {
 		print q(<td></td>);
 	}
@@ -1920,6 +1938,12 @@ sub get_javascript {
 	  	});	    
 	  }
 	});	
+	\$("button#add_bookmark_trigger").on('click', function(){	
+		\$("div#bookmark_section").toggle(200);	
+	});
+	\$("button#project_trigger").on('click', function(){	
+		\$("div#project_section").toggle(200);	
+	});
 });
 
 END

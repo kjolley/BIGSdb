@@ -1,4 +1,4 @@
-/*Version: 20220506*/
+/*Version: 20220708*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -156,7 +156,7 @@ select.fieldlist {
 	width: 5em
 }
 
-input {
+input, button {
 	font-size: 1em;
 	border: 1px solid #ccc
 }
@@ -483,7 +483,7 @@ a.submit, input.submit {
 	background: #2F9FDB;
 }
 
-a.small_submit, input.small_submit {
+a.small_submit, input.small_submit, button.small_submit {
 	border-radius: 3px;
 	font-family: 'pt_sansbold';
 	border: 0;
@@ -495,8 +495,8 @@ a.small_submit, input.small_submit {
 	white-space: nowrap;
 }
 
-a.submit:hover, a.small_submit:hover, input.submit:hover, input.small_submit:hover
-	{
+a.submit:hover, a.small_submit:hover, input.submit:hover, input.small_submit:hover,
+	button.small_submit:hover {
 	background: #8D5196;
 	text-decoration: none
 }
