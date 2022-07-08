@@ -1,3 +1,6 @@
+v1.36.3: *Fix for LINcode and field duplication in exports.
+         *Prevent private submitters from deleting their own public records.
+         *Improved results header button display.
 v1.36.2: *Fix for LINcode prefix field matching in Profile Export plugin.
 v1.36.1: *Minor update to lincodes.pl script affecting order when adding new
           batch of profiles.
