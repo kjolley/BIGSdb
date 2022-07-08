@@ -1106,8 +1106,8 @@ sub _get_seqbin_standard_range {
 		  BIGSdb::Utils::decimal_place( ( $stats->{'mean'} + 3 * $stats->{'std'} ) / 1_000_000, 1 );
 	}
 	if ( $min == $max ) {
-		$min = $min - 1;
-		$max = $max + 1;
+		$min -= 1;
+		$max += 1;
 	}
 	$min = 0 if $min < 0;
 	return { min => $min, max => $max };

@@ -1,6 +1,6 @@
 #BURST.pm - BURST plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -1004,18 +1004,18 @@ sub _offset_line {
 	my ( $self, $x1, $y1, $x2, $y2, $unit ) = @_;
 	my $line_offset = int( sin( 0.25 * PI ) * ( $unit / 2 ) );
 	if ( $x2 > $x1 ) {
-		$x2 = $x2 - $line_offset;
-		$x1 = $x1 + $line_offset;
+		$x2 -= $line_offset;
+		$x1 += $line_offset;
 	} else {
-		$x2 = $x2 + $line_offset;
-		$x1 = $x1 - $line_offset;
+		$x2 += $line_offset;
+		$x1 -= $line_offset;
 	}
 	if ( $y2 > $y1 ) {
-		$y2 = $y2 - $line_offset;
-		$y1 = $y1 + $line_offset;
+		$y2 -= $line_offset;
+		$y1 += $line_offset;
 	} else {
-		$y2 = $y2 + $line_offset;
-		$y1 = $y1 - $line_offset;
+		$y2 += $line_offset;
+		$y1 -= $line_offset;
 	}
 	return ( $x1, $y1, $x2, $y2 );
 }

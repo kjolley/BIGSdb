@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -747,7 +747,7 @@ sub _print_field {
 	{
 		$html5_args->{'disabled'} = 1;
 	}
-	$thisfield->{'length'} = $thisfield->{'length'} // ( $thisfield->{'type'} eq 'int' ? 15 : 50 );
+	$thisfield->{'length'} //= ( $thisfield->{'type'} eq 'int' ? 15 : 50 );
 	( my $cleaned_name = $display_name ) =~ tr/_/ /;
 	my ( $label, $title ) = $self->get_truncated_label( $cleaned_name, 25 );
 	my $title_attribute = $title ? qq( title="$title") : q();
@@ -1083,7 +1083,7 @@ sub print_sparse_field_form_elements {
 					thisfield => $thisfield
 				}
 			);
-			$field->{'length'} = $field->{'length'} // ( $field->{'value_format'} eq 'integer' ? 15 : 50 );
+			$field->{'length'} //= ( $field->{'value_format'} eq 'integer' ? 15 : 50 );
 			( my $cleaned_name = $field->{'field'} ) =~ tr/_/ /;
 			my ( $label, $title ) = $self->get_truncated_label( $cleaned_name, 25 );
 			my $title_attribute = $title ? qq( title="$title") : q();
