@@ -70,7 +70,7 @@ sub main {
 	my $client_id = random_string(24);
 	my $client_secret = random_string( 42, { extended_chars => 1 } );
 	say "Application: $opts{'a'}";
-	say "Version: $opts{'v'}";
+	say "Version: $opts{'v'}" if defined $opts{'v'};
 	if ( !$opts{'u'} ) {
 		say "Client id: $client_id";
 		say "Client secret: $client_secret";
