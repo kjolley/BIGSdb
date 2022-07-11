@@ -2,7 +2,7 @@
 #Populate authentication database with third party application (API client)
 #credentials.
 #Written by Keith Jolley
-#Copyright (c) 2015-2019, University of Oxford
+#Copyright (c) 2015-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20190522
+#Version: 20220711
 use strict;
 use warnings;
 use 5.010;
@@ -167,7 +167,7 @@ sub random_string {
 	my ( $length, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my @chars = ( 'a' .. 'z', 'A' .. 'Z', 0 .. 9 );
-	push @chars, qw(! @ $ % ^ & * \( \) _ + ~) if $options->{'extended_chars'};
+	push @chars, qw(! @ $ % ^ & * _ + ~) if $options->{'extended_chars'};
 	my $string;
 	for ( 1 .. $length ) {
 		$string .= $chars[ int( rand($#chars) ) ];
