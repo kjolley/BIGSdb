@@ -84,9 +84,8 @@ q[$('[id^="designation_field"]').val(''),$('[id^="designation_operator"]').val('
 	}
 	my $buffer = <<"END";
 	$button_toggle_js
-	\$("#panel_trigger,#close_trigger").click(function(){		
+	\$("#panel_trigger,#close_trigger").click(function(){			
 		\$("#modify_panel").toggle("slide",{direction:"right"},"fast");
-		\$("#panel_trigger").show();		
 		return false;
 	});
 	\$("#panel_trigger").show();
@@ -124,11 +123,20 @@ sub get_javascript {
     	});
   	});
   	\$(document).mouseup(function(e) {
-		var container = \$("#modify_panel");
 
+		
 		// if the target of the click isn't the container nor a
 		// descendant of the container
-		if (!container.is(e.target) && container.has(e.target).length === 0) {
+		var trigger = \$("#panel_trigger");
+ 		var container = \$("#modify_panel");
+		if (!container.is(e.target) && container.has(e.target).length === 0 && 
+		!trigger.is(e.target) && trigger.has(e.target).length === 0) {
+			container.hide();
+		}
+		trigger = \$("#bookmark_trigger");
+ 		container = \$("#bookmark_panel");
+		if (!container.is(e.target) && container.has(e.target).length === 0 && 
+		!trigger.is(e.target) && trigger.has(e.target).length === 0) {
 			container.hide();
 		}
 	});

@@ -1083,15 +1083,19 @@ a#panel_trigger {
 	background: #8093f1;
 }
 
+a#dashboard_panel_trigger {
+	background: #f17ed4;
+}
+
 a#bookmark_trigger {
 	background: #d59bf2;
 }
 
 a#dashboard_toggle {
-	background: #9a80f1;
+ 	background: #9a80f1; 
 }
 
-a#close_trigger {
+a#close_trigger,a#close_dashboard_trigger {
 	color: black;
 	font-weight: 600;
 	text-decoration: none;
@@ -1108,6 +1112,7 @@ div#bookmark_panel, #related_db_panel {
 	background: #e0d5e0;
 	background-image: linear-gradient(#e0d5e0, #f0f0f0 5em);
 	box-shadow: 3px 3px 3px #aaa;
+	z-index: 9
 }
 
 a#close_bookmark, a#close_related_db {

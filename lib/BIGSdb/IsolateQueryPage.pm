@@ -20,7 +20,7 @@ package BIGSdb::IsolateQueryPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::QueryPage);
+use parent qw(BIGSdb::QueryPage BIGSdb::DashboardPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use List::MoreUtils qw(any none uniq);
@@ -237,6 +237,7 @@ sub print_content {
 		$self->_print_interface;
 	}
 	$self->_run_query if $q->param('submit') || defined $q->param('query_file');
+	$self->print_modify_dashboard_fieldset({no_filters=>1});
 	return;
 }
 
@@ -284,6 +285,8 @@ sub print_panel_buttons {
 		say q(<span class="icon_button">)
 		  . q(<a class="trigger_button" id="panel_trigger" style="display:none">)
 		  . q(<span class="fas fa-lg fa-wrench"></span><div class="icon_label">Modify form</div></a></span>);
+		say q(<span class="icon_button"><a class="trigger_button" id="dashboard_panel_trigger" style="display:none">)
+		  . q(<span class="fas fa-lg fa-tools"></span><div class="icon_label">Modify dashboard</div></a></span>);
 		my $bookmarks = $self->_get_bookmarks;
 		if (@$bookmarks) {
 			say q(<span class="icon_button"><a class="trigger_button" id="bookmark_trigger" style="display:none">)
@@ -731,7 +734,7 @@ sub _modify_query_by_list {
 	my ( $self, $qry ) = @_;
 	my $q = $self->{'cgi'};
 	return $qry if !$q->param('list');
-	my $attribute_data = $self->_get_list_attribute_data( scalar $q->param('attribute') );
+	my $attribute_data = $self->get_list_attribute_data( scalar $q->param('attribute') );
 	my ( $field, $extended_field, $scheme_id, $field_type, $data_type, $eav_table, $optlist, $multiple ) =
 	  @{$attribute_data}{qw (field extended_field scheme_id field_type data_type eav_table optlist multiple)};
 	return $qry if !$field;
@@ -763,8 +766,6 @@ sub _modify_query_by_list {
 		$isolate_scheme_field_view = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 	}
 	$field_type = 'provenance_multiple' if $field_type eq 'provenance' && $multiple;
-
-	#	$logger->error("$field $field_type");
 	my %sql = (
 		labelfield => ( $data_type eq 'text' ? "UPPER($view.$field) " : "$view.$field " )
 		  . "IN (SELECT value FROM temp_list) OR $view.id IN (SELECT isolate_id FROM isolate_aliases "
@@ -798,66 +799,7 @@ sub _modify_query_by_list {
 	return $qry;
 }
 
-sub _get_list_attribute_data {
-	my ( $self, $attribute ) = @_;
-	my $pattern = LOCUS_PATTERN;
-	my ( $field, $extended_field, $scheme_id, $field_type, $data_type, $eav_table, $optlist, $multiple );
-	if ( $attribute =~ /^s_(\d+)_(\S+)$/x ) {    ## no critic (ProhibitCascadingIfElse)
-		$scheme_id  = $1;
-		$field      = $2;
-		$field_type = 'scheme_field';
-		my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
-		$data_type = $scheme_field_info->{'type'};
-		return if !$scheme_field_info;
-	} elsif ( $attribute =~ /$pattern/x ) {
-		$field      = $1;
-		$field_type = 'locus';
-		$data_type  = 'text';
-		return if !$self->{'datastore'}->is_locus($field);
-		$field =~ s/\'/\\'/gx;
-	} elsif ( $attribute =~ /^f_(\S+)$/x ) {
-		$field      = $1;
-		$field_type = 'provenance';
-		$field_type = 'labelfield'
-		  if $field_type eq 'provenance' && $field eq $self->{'system'}->{'labelfield'};
-		return if !$self->{'xmlHandler'}->is_field($field);
-		my $field_info = $self->{'xmlHandler'}->get_field_attributes($field);
-		$data_type = $field_info->{'type'};
-		if ( ( $field_info->{'optlist'} // q() ) eq 'yes' ) {
-			$optlist = $self->{'xmlHandler'}->get_field_option_list($field);
-		}
-		if ( ( $field_info->{'multiple'} // q() ) eq 'yes' ) {
-			$multiple = 1;
-		}
-	} elsif ( $attribute =~ /^eav_(\S+)$/x ) {
-		$field      = $1;
-		$field_type = 'phenotypic';
-		my $field_info = $self->{'datastore'}->get_eav_field($field);
-		return if !$field_info;
-		$data_type = $field_info->{'value_format'};
-		$eav_table = $self->{'datastore'}->get_eav_table($data_type);
-	} elsif ( $attribute =~ /^e_(.*)\|\|(.*)/x ) {
-		$extended_field = $1;
-		$field          = $2;
-		$data_type      = 'text';
-		$field_type     = 'extended_isolate';
-	} elsif ( $attribute =~ /^gp_(.+)_(latitude|longitude)/x ) {
-		$field      = $1;
-		$field_type = "geography_point_$2";
-		$data_type  = 'float';
-	}
-	$_ //= q() foreach ( $eav_table, $extended_field );
-	return {
-		field          => $field,
-		eav_table      => $eav_table,
-		extended_field => $extended_field,
-		scheme_id      => $scheme_id,
-		field_type     => $field_type,
-		data_type      => $data_type,
-		optlist        => $optlist,
-		multiple       => $multiple
-	};
-}
+
 
 sub _print_filters_fieldset {
 	my ($self) = @_;
@@ -1823,7 +1765,7 @@ sub _run_query {
 	} else {
 		$qry = $self->get_query_from_temp_file( scalar $q->param('query_file') );
 		if ( $q->param('list_file') && $q->param('attribute') ) {
-			my $attribute_data = $self->_get_list_attribute_data( scalar $q->param('attribute') );
+			my $attribute_data = $self->get_list_attribute_data( scalar $q->param('attribute') );
 			$self->{'datastore'}
 			  ->create_temp_list_table( $attribute_data->{'data_type'}, scalar $q->param('list_file') );
 		}
@@ -1848,6 +1790,13 @@ sub _run_query {
 			hidden_attributes => $hidden_attributes
 		};
 		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
+		if (   !defined $q->param('currentpage')
+			|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
+			|| $q->param('First') )
+		{
+			$self->{'no_filters'} = 1;
+			$self->_print_dashboard_panel($args);
+		}
 		$self->paged_display($args);
 	}
 	my $elapsed = time - $start_time;
@@ -1857,6 +1806,30 @@ sub _run_query {
 			  . 'this database to create these caches.' );
 	}
 	return;
+}
+
+sub _print_dashboard_panel {
+	my ( $self, $args ) = @_;
+	return if !$self->_dashboard_enabled;
+	my $q = $self->{'cgi'};
+	my $qry_file;
+	if ( !$args->{'passed_query_file'} ) {
+		( my $dashboard_qry = $args->{'query'} ) =~ s/ORDER\sBY.*$//gx;
+		$qry_file = $self->make_temp_file($dashboard_qry);
+	}
+	
+	say q(<div id="dashboard_panel" class="dashboard_panel">);
+#	use Data::Dumper;$logger->error(Dumper {$q->Vars});
+	$self->print_dashboard( { qry_file => $qry_file, list_file => scalar $q->param('list_file'),attribute=>scalar $q->param('attribute')} );
+	say q(</div>);
+	return;
+}
+
+sub _dashboard_enabled {
+	my ($self) = @_;
+	return if !$self->{'config'}->{'enable_dashboard'} && ( $self->{'system'}->{'enable_dashboard'} // q() ) ne 'yes';
+	return if ( $self->{'system'}->{'enable_dashboard'} // q() ) eq 'no';
+	return 1;
 }
 
 sub get_hidden_attributes {
@@ -3775,7 +3748,7 @@ $panel_js
 	
 	\$("#bookmark_trigger,#close_bookmark").click(function(){		
 		\$("#bookmark_panel").toggle("slide",{direction:"right"},"fast");
-		\$("#bookmark_trigger").show();		
+//		\$("#bookmark_trigger").show();		
 		return false;
 	});
 	\$("#bookmark_trigger").show();
@@ -3903,6 +3876,41 @@ function set_autocomplete_values(element){
 }
 END
 	}
+	if ( $self->_dashboard_enabled ) {
+		my $elements        = $self->_get_elements;
+		my $json_elements   = $json->encode($elements);
+		my $qry_file        = $q->param('query_file');
+		my $qry_file_clause = defined $qry_file ? qq(&qry_file=$qry_file) : q();
+		my $qry_file_init   = defined $qry_file ? qq(var qryFile="$qry_file";) : q(var qryFile;);
+		my $list_file = $q->param('list_file');
+		my $attribute = $q->param('attribute');
+		my $list_file_clause = defined $list_file && defined $attribute ? qq(&list_file=$list_file&&attribute=$attribute) : q();
+		my $list_file_init   = defined $list_file ? qq(var listFile="$list_file";) : q(var listFile;);
+		
+
+		my $order           = $self->{'prefs'}->{'order'} // q();
+		my $enable_drag     = $self->{'prefs'}->{'enable_drag'} ? 'true' : 'false';
+		my $guid            = $self->get_guid;
+		my $dashboard_id    = $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
+		my $empty           = $self->_get_dashboard_empty_message;
+
+		if ($order) {
+			$order = $json->encode($order);
+		}
+		$buffer .= << "END";
+var url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}$qry_file_clause$list_file_clause";
+var elements = $json_elements;	
+var recordAge = 0;
+var loadedElements = {};
+var order = '$order';
+var instance = "$self->{'instance'}";
+var empty='$empty';
+var enable_drag=$enable_drag;
+$qry_file_init
+$list_file_init
+var attribute;
+END
+	}
 	return $buffer;
 }
 
@@ -3955,6 +3963,13 @@ sub initiate {
 	my $q = $self->{'cgi'};
 	$self->SUPER::initiate;
 	$self->{$_} = 1 foreach qw(noCache addProjects addBookmarks);
+	if ( $self->_dashboard_enabled ) {
+		$self->{$_} = 1 foreach qw(muuri modal fitty bigsdb.dashboard jQuery.fonticonpicker billboard d3.layout.cloud);
+		$self->{'geomap'} = 1 if $self->has_country_optlist;
+		$self->get_or_set_dashboard_prefs;
+		$self->{'prefs'}->{'record_age'} = 0;
+		$self->{'prefs'}->{'include_old_versions'} = 0;
+	}
 	if ( !$self->{'cgi'}->param('save_options') ) {
 		my $guid = $self->get_guid;
 		return if !$guid;

@@ -68,14 +68,14 @@ $(function() {
 			});
 		}
 	});
-	$("#panel_trigger,#close_trigger").click(function() {
-		$("#modify_panel").toggle("slide", { direction: "right" }, "fast");
-		$("#panel_trigger").show();
+	$("#dashboard_panel_trigger,#close_dashboard_trigger").click(function() {
+		$("#modify_dashboard_panel").toggle("slide", { direction: "right" }, "fast");
+		$("#dashboard_panel_trigger").show();
 		return false;
 	});
-	$("#panel_trigger").show();
+	$("#dashboard_panel_trigger").show();
 	$(document).mouseup(function(e) {
-		var container = $("#modify_panel");
+		var container = $("#modify_dashboard_panel");
 
 		// if the target of the click isn't the container nor a
 		// descendant of the container
@@ -280,6 +280,9 @@ function updateDashboardName(name) {
 }
 
 function setGridMargins(grid) {
+	if (grid == null){
+		return;
+	}
 	let dashboard_width = Math.floor($("div#dashboard_panel").width() / 155) * 155;
 	$("div#dashboard").css("width", dashboard_width);
 	grid.on('layoutEnd', function() {
@@ -557,7 +560,15 @@ function checkAndShowVisualisation(grid, id) {
 }
 
 function reloadElement(id) {
-	$.get(url + "&page=dashboard&element=" + id, function(json) {
+	var reload_url = url + "&page=dashboard&element=" + id;
+	if (qryFile != null && qryFile.length){
+		reload_url += "&qry_file=" + qryFile; 
+	}
+	if (listFile != null && listFile.length && attribute != null && attribute.length){
+		reload_url += "&list_file=" + listFile + "&attribute=" + attribute; 
+	}
+	
+	$.get(reload_url, function(json) {
 		try {
 			$("div#element_" + id + "> .item-content > .ajax_content").html(JSON.parse(json).html);
 			elements[id] = JSON.parse(json).element;
@@ -720,7 +731,7 @@ function saveLayout(grid) {
 }
 
 function resetDefaults() {
-	$("#modify_panel").toggle("slide", { direction: "right" }, "fast");
+	$("#modify_dashboard_panel").toggle("slide", { direction: "right" }, "fast");
 	$.get(url + "&resetDefaults=1", function() {
 		location.reload();
 	});
