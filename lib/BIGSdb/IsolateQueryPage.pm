@@ -237,7 +237,7 @@ sub print_content {
 		$self->_print_interface;
 	}
 	$self->_run_query if $q->param('submit') || defined $q->param('query_file');
-	$self->print_modify_dashboard_fieldset({no_filters=>1});
+	$self->print_modify_dashboard_fieldset( { no_filters => 1 } );
 	return;
 }
 
@@ -798,8 +798,6 @@ sub _modify_query_by_list {
 	}
 	return $qry;
 }
-
-
 
 sub _print_filters_fieldset {
 	my ($self) = @_;
@@ -1817,10 +1815,16 @@ sub _print_dashboard_panel {
 		( my $dashboard_qry = $args->{'query'} ) =~ s/ORDER\sBY.*$//gx;
 		$qry_file = $self->make_temp_file($dashboard_qry);
 	}
-	
 	say q(<div id="dashboard_panel" class="dashboard_panel">);
-#	use Data::Dumper;$logger->error(Dumper {$q->Vars});
-	$self->print_dashboard( { qry_file => $qry_file, list_file => scalar $q->param('list_file'),attribute=>scalar $q->param('attribute')} );
+
+	#	use Data::Dumper;$logger->error(Dumper {$q->Vars});
+	$self->print_dashboard(
+		{
+			qry_file  => $qry_file,
+			list_file => scalar $q->param('list_file'),
+			list_attribute => scalar $q->param('attribute')
+		}
+	);
 	say q(</div>);
 	return;
 }
@@ -3882,17 +3886,18 @@ END
 		my $qry_file        = $q->param('query_file');
 		my $qry_file_clause = defined $qry_file ? qq(&qry_file=$qry_file) : q();
 		my $qry_file_init   = defined $qry_file ? qq(var qryFile="$qry_file";) : q(var qryFile;);
-		my $list_file = $q->param('list_file');
-		my $attribute = $q->param('attribute');
-		my $list_file_clause = defined $list_file && defined $attribute ? qq(&list_file=$list_file&&attribute=$attribute) : q();
-		my $list_file_init   = defined $list_file ? qq(var listFile="$list_file";) : q(var listFile;);
+		my $list_file       = $q->param('list_file');
+		my $list_attribute       = $q->param('attribute');
 		
-
-		my $order           = $self->{'prefs'}->{'order'} // q();
-		my $enable_drag     = $self->{'prefs'}->{'enable_drag'} ? 'true' : 'false';
-		my $guid            = $self->get_guid;
-		my $dashboard_id    = $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
-		my $empty           = $self->_get_dashboard_empty_message;
+		my $list_file_clause =
+		  defined $list_file && defined $list_attribute ? qq(&list_file=$list_file&&list_attribute=$list_attribute) : q();
+		my $list_file_init = defined $list_file ? qq(var listFile="$list_file";) : q(var listFile;);
+		my $list_attribute_init = defined $list_attribute ? qq(var listAttribute="$list_attribute";) : q(var listAttribute;);
+		my $order = $self->{'prefs'}->{'order'} // q();
+		my $enable_drag  = $self->{'prefs'}->{'enable_drag'} ? 'true' : 'false';
+		my $guid         = $self->get_guid;
+		my $dashboard_id = $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
+		my $empty        = $self->_get_dashboard_empty_message;
 
 		if ($order) {
 			$order = $json->encode($order);
@@ -3908,7 +3913,7 @@ var empty='$empty';
 var enable_drag=$enable_drag;
 $qry_file_init
 $list_file_init
-var attribute;
+$list_attribute_init
 END
 	}
 	return $buffer;
@@ -3967,7 +3972,7 @@ sub initiate {
 		$self->{$_} = 1 foreach qw(muuri modal fitty bigsdb.dashboard jQuery.fonticonpicker billboard d3.layout.cloud);
 		$self->{'geomap'} = 1 if $self->has_country_optlist;
 		$self->get_or_set_dashboard_prefs;
-		$self->{'prefs'}->{'record_age'} = 0;
+		$self->{'prefs'}->{'record_age'}           = 0;
 		$self->{'prefs'}->{'include_old_versions'} = 0;
 	}
 	if ( !$self->{'cgi'}->param('save_options') ) {

@@ -564,8 +564,8 @@ function reloadElement(id) {
 	if (qryFile != null && qryFile.length){
 		reload_url += "&qry_file=" + qryFile; 
 	}
-	if (listFile != null && listFile.length && attribute != null && attribute.length){
-		reload_url += "&list_file=" + listFile + "&attribute=" + attribute; 
+	if (listFile != null && listFile.length && listAttribute != null && listAttribute.length){
+		reload_url += "&list_file=" + listFile + "&list_attribute=" + listAttribute; 
 	}
 	
 	$.get(reload_url, function(json) {

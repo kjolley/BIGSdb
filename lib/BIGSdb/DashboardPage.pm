@@ -81,7 +81,7 @@ sub print_content {
 				{
 					qry_file  => scalar $q->param('qry_file'),
 					list_file => scalar $q->param('list_file'),
-					attribute => scalar $q->param('attribute')
+					list_attribute => scalar $q->param('list_attribute')
 				}
 			);
 			return;
@@ -792,8 +792,8 @@ sub get_display_field {
 sub _ajax_get {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $id, $options ) = @_;
 	my $q = $self->{'cgi'};
-	if ( $options->{'list_file'} && $options->{'attribute'} ) {
-		my $attribute_data = $self->get_list_attribute_data( $options->{'attribute'} );
+	if ( $options->{'list_file'} && $options->{'list_attribute'} ) {
+		my $attribute_data = $self->get_list_attribute_data( $options->{'list_attribute'} );
 		$self->{'datastore'}->create_temp_list_table( $attribute_data->{'data_type'}, $options->{'list_file'} );
 	}
 	if ( defined $options->{'qry_file'} ) {
@@ -948,7 +948,7 @@ sub print_dashboard {
 			{
 				qry_file  => $options->{'qry_file'},
 				list_file => $options->{'list_file'},
-				attribute => $options->{'attribute'}
+				list_attribute => $options->{'list_attribute'}
 			}
 		);
 	}
@@ -960,9 +960,10 @@ sub _print_ajax_load_code {
 	my $qry_file_clause = $options->{'qry_file'} ? qq(&qry_file=$options->{'qry_file'}) : q();
 	my $qry_file  = $options->{'qry_file'} // q();
 	my $list_file = $options->{'list_file'};
-	my $attribute = $options->{'attribute'};
+	my $list_attribute = $options->{'list_attribute'};
+	
 	my $list_file_clause =
-	  defined $list_file && defined $attribute ? qq(&list_file=$list_file&attribute=$attribute) : q();
+	  defined $list_file && defined $list_attribute ? qq(&list_file=$list_file&list_attribute=$list_attribute) : q();
 	my $filter_clause = $self->{'no_filters'} ? '&no_filters=1' : q();
 	local $" = q(,);
 	say q[<script>];
@@ -3464,7 +3465,7 @@ var recordAge = $record_age;
 var datestamps = $datestamps;
 var qryFile;
 var listFile;
-var attribute;
+var listAttribute;
 END
 	return $buffer;
 }
