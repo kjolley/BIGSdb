@@ -797,6 +797,7 @@ sub _ajax_get {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by di
 		$self->{'datastore'}->create_temp_list_table( $attribute_data->{'data_type'}, $options->{'list_file'} );
 	}
 	if ( defined $options->{'qry_file'} ) {
+		$self->{'no_query_link'} = 1;
 		my $qry = $self->get_query_from_temp_file( $options->{'qry_file'} );
 		$qry =~ s/ORDER\sBY.*$//gx;
 		$self->{'db'}->do("CREATE TEMP VIEW dashboard_view AS $qry");
@@ -3026,6 +3027,7 @@ sub _get_element_controls {
 
 sub _get_data_query_link {
 	my ( $self, $element ) = @_;
+	return if $self->{'no_query_link'};
 	my $buffer = q();
 	$buffer .= qq(<span data-id="$element->{'id'}" class="dashboard_data_query_element fas fa-share">);
 	if ( $element->{'url_text'} ) {
@@ -3037,6 +3039,7 @@ sub _get_data_query_link {
 
 sub _get_data_explorer_link {
 	my ( $self, $element ) = @_;
+	return if $self->{'no_query_link'};
 	my $buffer = q();
 	$element->{'explorer_text'} //= 'Explore data';
 	$buffer .= qq(<span data-id="$element->{'id'}" class="dashboard_data_explorer_element fas fa-search">);

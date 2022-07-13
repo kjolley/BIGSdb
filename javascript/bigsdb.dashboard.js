@@ -266,7 +266,7 @@ function getDataExplorerParams(id) {
 	params['db'] = instance;
 	params['field'] = elements[id]['field'];
 	params['include_old_versions'] = $("#include_old_versions").prop('checked');
-	params['record_age'] = $("#record_age_slider").slider("value");
+	params['record_age'] = $("#record_age_slider").length ? $("#record_age_slider").slider("value") : 0;
 	if (elements[id]['specific_values'] != null){
 		params['specific_values'] = elements[id]['specific_values'];
 	}

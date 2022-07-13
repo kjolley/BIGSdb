@@ -1817,12 +1817,13 @@ sub _print_dashboard_panel {
 		return if $empty_dataset; 
 		$qry_file = $self->make_temp_file($dashboard_qry);
 	}
+	$self->{'no_query_link'} = 1;
 	say q(<div id="dashboard_panel" class="dashboard_panel">);
 	$self->print_dashboard(
 		{
 			qry_file  => $qry_file,
 			list_file => scalar $q->param('list_file'),
-			list_attribute => scalar $q->param('attribute')
+			list_attribute => scalar $q->param('attribute'),
 		}
 	);
 	say q(</div>);
