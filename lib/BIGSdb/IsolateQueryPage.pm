@@ -1813,11 +1813,11 @@ sub _print_dashboard_panel {
 	my $qry_file;
 	if ( !$args->{'passed_query_file'} ) {
 		( my $dashboard_qry = $args->{'query'} ) =~ s/ORDER\sBY.*$//gx;
+		my $empty_dataset = $self->{'datastore'}->run_query("SELECT NOT EXISTS($dashboard_qry)");
+		return if $empty_dataset; 
 		$qry_file = $self->make_temp_file($dashboard_qry);
 	}
 	say q(<div id="dashboard_panel" class="dashboard_panel">);
-
-	#	use Data::Dumper;$logger->error(Dumper {$q->Vars});
 	$self->print_dashboard(
 		{
 			qry_file  => $qry_file,

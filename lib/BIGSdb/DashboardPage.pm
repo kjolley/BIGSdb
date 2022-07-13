@@ -79,8 +79,8 @@ sub print_content {
 			$self->$sub(
 				scalar $q->param($method),
 				{
-					qry_file  => scalar $q->param('qry_file'),
-					list_file => scalar $q->param('list_file'),
+					qry_file       => scalar $q->param('qry_file'),
+					list_file      => scalar $q->param('list_file'),
 					list_attribute => scalar $q->param('list_attribute')
 				}
 			);
@@ -946,8 +946,8 @@ sub print_dashboard {
 			$already_loaded,
 			$ajax_load,
 			{
-				qry_file  => $options->{'qry_file'},
-				list_file => $options->{'list_file'},
+				qry_file       => $options->{'qry_file'},
+				list_file      => $options->{'list_file'},
 				list_attribute => $options->{'list_attribute'}
 			}
 		);
@@ -958,10 +958,9 @@ sub print_dashboard {
 sub _print_ajax_load_code {
 	my ( $self, $already_loaded, $ajax_load_ids, $options ) = @_;
 	my $qry_file_clause = $options->{'qry_file'} ? qq(&qry_file=$options->{'qry_file'}) : q();
-	my $qry_file  = $options->{'qry_file'} // q();
-	my $list_file = $options->{'list_file'};
+	my $qry_file       = $options->{'qry_file'} // q();
+	my $list_file      = $options->{'list_file'};
 	my $list_attribute = $options->{'list_attribute'};
-	
 	my $list_file_clause =
 	  defined $list_file && defined $list_attribute ? qq(&list_file=$list_file&list_attribute=$list_attribute) : q();
 	my $filter_clause = $self->{'no_filters'} ? '&no_filters=1' : q();
@@ -2143,8 +2142,11 @@ sub _get_field_breakdown_cumulative_content {
 	$element->{'width'}  //= 1;
 	$element->{'height'} //= 3;
 	my $dataset = $self->_get_cumulative_dataset($element);
-	my $height  = ( $element->{'height'} * 150 ) - 25;
-	my $ticks   = $element->{'width'};
+	my $height = ( $element->{'height'} * 150 ) - 25;
+	my $ticks  = $element->{'width'};
+	if ( $ticks > @{ $dataset->{'labels'} } ) {
+		$ticks = @{ $dataset->{'labels'} };
+	}
 	local $" = q(",");
 	my $date_string = qq("@{$dataset->{'labels'}}");
 	local $" = q(,);
@@ -3191,7 +3193,7 @@ sub print_panel_buttons {
 }
 
 sub print_modify_dashboard_fieldset {
-	my ($self,$options) = @_;
+	my ( $self, $options ) = @_;
 	my $enable_drag     = $self->{'prefs'}->{'enable_drag'}     // 0;
 	my $edit_elements   = $self->{'prefs'}->{'edit_elements'}   // 1;
 	my $remove_elements = $self->{'prefs'}->{'remove_elements'} // 0;
