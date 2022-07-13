@@ -170,7 +170,8 @@ sub _ajax_get_seqbin_range {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 sub _ajax_new_dashboard {       ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ($self) = @_;
 	my $guid = $self->get_guid;
-	$self->{'dashboard_id'} = $self->{'prefstore'}->initiate_new_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
+	$self->{'dashboard_id'} =
+	  $self->{'prefstore'}->initiate_new_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, 0 );
 	if ( !defined $self->{'dashboard_id'} ) {
 		$logger->error('Dashboard pref could not be initiated.');
 	}
@@ -749,7 +750,6 @@ sub _ajax_new {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by di
 	$element->{'height'}      //= 1;
 	$element->{'hide_mobile'} //= 1;
 	my $dashboard_name = $self->{'prefstore'}->get_dashboard_name( $self->_get_dashboard_id );
-	
 	if ( defined $options->{'qry_file'} ) {
 		$self->{'no_query_link'} = 1;
 		my $qry = $self->get_query_from_temp_file( $options->{'qry_file'} );
@@ -757,8 +757,7 @@ sub _ajax_new {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by di
 		$self->{'db'}->do("CREATE TEMP VIEW dashboard_view AS $qry");
 		$self->{'view'} = 'dashboard_view';
 	}
-	
-	my $json           = JSON->new->allow_nonref;
+	my $json = JSON->new->allow_nonref;
 	say $json->encode(
 		{
 			element        => $element,
@@ -894,9 +893,11 @@ sub get_list_attribute_data {
 
 sub _ajax_set_active {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $active_id ) = @_;
+	my $q    = $self->{'cgi'};
+	my $type = $q->param('type') // $self->{'dashboard_type'};
 	my $guid = $self->get_guid;
 	if ( BIGSdb::Utils::is_int($active_id) ) {
-		$self->{'prefstore'}->set_active_dashboard( $guid, $self->{'instance'}, $active_id, 'primary', 0 );
+		$self->{'prefstore'}->set_active_dashboard( $guid, $self->{'instance'}, $active_id, $type, 0 );
 	}
 	return;
 }
@@ -994,7 +995,7 @@ sub _print_ajax_load_code {
 			loadedElements[value] = 1;
 			\$.ajax({
 		    	url:"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=dashboard$qry_file_clause"
-		    	+ "$list_file_clause$filter_clause&element=" + value
+		    	+ "$list_file_clause$filter_clause&type=$self->{'dashboard_type'}&element=" + value
 		    }).done(function(json){
 		       	try {
 		       	    \$("div#element_" + value + " > .item-content > .ajax_content").html(JSON.parse(json).html);
@@ -2152,8 +2153,8 @@ sub _get_field_breakdown_cumulative_content {
 	$element->{'width'}  //= 1;
 	$element->{'height'} //= 3;
 	my $dataset = $self->_get_cumulative_dataset($element);
-	my $height = ( $element->{'height'} * 150 ) - 25;
-	my $ticks  = $element->{'width'};
+	my $height  = ( $element->{'height'} * 150 ) - 25;
+	my $ticks   = $element->{'width'};
 	if ( $ticks > @{ $dataset->{'labels'} } ) {
 		$ticks = @{ $dataset->{'labels'} };
 	}
@@ -2542,8 +2543,8 @@ sub _get_field_breakdown_top_values_content {
 		my $nice_value    = BIGSdb::Utils::commify( $value->{'value'} );
 		my $display_label = $value->{'display_label'} // $value->{'label'};
 		$count++;
-		$buffer .= qq(<tr class="td$td" style="$style"><td><a href="$url"$target>)
-		  . qq($display_label</a></td><td>$nice_value</td></tr>);
+		my $formatted_value = $self->{'no_query_link'} ? $display_label : qq(<a href="$url"$target>$display_label</a>);
+		$buffer .= qq(<tr class="td$td" style="$style"><td>$formatted_value</td><td>$nice_value</td></tr>);
 		$td = $td == 1 ? 2 : 1;
 		last if $count >= $element->{'top_values'};
 	}
@@ -3060,6 +3061,7 @@ sub _get_data_explorer_link {
 sub initiate {
 	my ($self) = @_;
 	return if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
+	$self->{'dashboard_type'} = 'primary';
 	$self->{$_} = 1
 	  foreach
 	  qw (jQuery noCache muuri modal fitty bigsdb.dashboard tooltips jQuery.fonticonpicker billboard d3.layout.cloud);
@@ -3092,15 +3094,20 @@ sub initiate {
 
 sub get_or_set_dashboard_prefs {
 	my ($self) = @_;
-	my $guid = $self->get_guid;
-	my $dashboard_id = $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
-	my $q = $self->{'cgi'};
+	my $guid   = $self->get_guid;
+	my $q      = $self->{'cgi'};
+	$self->{'dashboard_type'} = $q->param('type') if defined $q->param('type');
+	my $dashboard_id =
+	  $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, 0 );
 	if ( $q->param('resetDefaults') ) {
 		$self->{'prefstore'}->delete_dashboard( $dashboard_id, $guid, $self->{'instance'} ) if $guid;
 		my $dashboards = $self->{'prefstore'}->get_dashboards( $guid, $self->{'instance'} );
 		if (@$dashboards) {
-			$self->{'prefstore'}
-			  ->set_active_dashboard( $guid, $self->{'instance'}, $dashboards->[0]->{'id'}, 'primary', 0 );
+			$self->{'prefstore'}->set_active_dashboard(
+				$guid, $self->{'instance'},
+				$dashboards->[0]->{'id'},
+				$self->{'dashboard_type'}, 0
+			);
 		}
 	}
 	$self->{'prefs'} = $self->{'prefstore'}->get_general_dashboard_prefs( $guid, $self->{'instance'} );
@@ -3118,12 +3125,13 @@ sub _update_dashboard_name {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 	$name =~ s/^\s+|\s+$//x;
 	return if !$name || !length($name) || length($name) > 15;
 	my $guid = $self->get_guid;
-	my $dashboard_id = $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
+	my $dashboard_id =
+	  $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, 0 );
 	$self->{'prefstore'}->update_dashboard_name( $dashboard_id, $guid, $self->{'instance'}, $name );
 	return;
 }
 
-sub _update_general_prefs {     ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _update_general_prefs {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ($self)    = @_;
 	my $q         = $self->{'cgi'};
 	my $attribute = $q->param('attribute');
@@ -3185,10 +3193,11 @@ sub _get_dashboard_id {
 	my ($self) = @_;
 	return $self->{'dashboard_id'} if defined $self->{'dashboard_id'};
 	my $guid = $self->get_guid;
-	$self->{'dashboard_id'} = $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
+	$self->{'dashboard_id'} =
+	  $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, 0 );
 	return $self->{'dashboard_id'} if defined $self->{'dashboard_id'};
 	$self->{'dashboard_id'} =
-	  $self->{'prefstore'}->initiate_new_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
+	  $self->{'prefstore'}->initiate_new_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, 0 );
 	if ( !defined $self->{'dashboard_id'} ) {
 		$logger->error('Dashboard pref could not be initiated.');
 	}
@@ -3300,7 +3309,8 @@ sub _print_dashboard_management_fieldset {
 	my ($self) = @_;
 	my $guid = $self->get_guid;
 	my $name;
-	my $dashboard_id = $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
+	my $dashboard_id =
+	  $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, 0 );
 	my $dashboards = $self->{'prefstore'}->get_dashboards( $guid, $self->{'instance'} );
 	if ( !defined $dashboard_id ) {
 		if (@$dashboards) {
@@ -3473,6 +3483,7 @@ var order = '$order';
 var instance = "$self->{'instance'}";
 var empty='$empty';
 var enable_drag=$enable_drag;
+var dashboard_type='primary';
 var loadedElements = {};
 var recordAgeLabels = $record_age_labels;
 var recordAge = $record_age;

@@ -1814,15 +1814,15 @@ sub _print_dashboard_panel {
 	if ( !$args->{'passed_query_file'} ) {
 		( my $dashboard_qry = $args->{'query'} ) =~ s/ORDER\sBY.*$//gx;
 		my $empty_dataset = $self->{'datastore'}->run_query("SELECT NOT EXISTS($dashboard_qry)");
-		return if $empty_dataset; 
+		return if $empty_dataset;
 		$qry_file = $self->make_temp_file($dashboard_qry);
 	}
 	$self->{'no_query_link'} = 1;
 	say q(<div id="dashboard_panel" class="dashboard_panel">);
 	$self->print_dashboard(
 		{
-			qry_file  => $qry_file,
-			list_file => scalar $q->param('list_file'),
+			qry_file       => $qry_file,
+			list_file      => scalar $q->param('list_file'),
 			list_attribute => scalar $q->param('attribute'),
 		}
 	);
@@ -3888,12 +3888,13 @@ END
 		my $qry_file_clause = defined $qry_file ? qq(&qry_file=$qry_file) : q();
 		my $qry_file_init   = defined $qry_file ? qq(var qryFile="$qry_file";) : q(var qryFile;);
 		my $list_file       = $q->param('list_file');
-		my $list_attribute       = $q->param('attribute');
-		
+		my $list_attribute  = $q->param('attribute');
 		my $list_file_clause =
-		  defined $list_file && defined $list_attribute ? qq(&list_file=$list_file&&list_attribute=$list_attribute) : q();
+		     defined $list_file
+		  && defined $list_attribute ? qq(&list_file=$list_file&&list_attribute=$list_attribute) : q();
 		my $list_file_init = defined $list_file ? qq(var listFile="$list_file";) : q(var listFile;);
-		my $list_attribute_init = defined $list_attribute ? qq(var listAttribute="$list_attribute";) : q(var listAttribute;);
+		my $list_attribute_init =
+		  defined $list_attribute ? qq(var listAttribute="$list_attribute";) : q(var listAttribute;);
 		my $order = $self->{'prefs'}->{'order'} // q();
 		my $enable_drag  = $self->{'prefs'}->{'enable_drag'} ? 'true' : 'false';
 		my $guid         = $self->get_guid;
@@ -3912,6 +3913,7 @@ var order = '$order';
 var instance = "$self->{'instance'}";
 var empty='$empty';
 var enable_drag=$enable_drag;
+var dashboard_type='query';
 $qry_file_init
 $list_file_init
 $list_attribute_init
@@ -3967,11 +3969,12 @@ sub _highest_entered_fields {
 sub initiate {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	$self->SUPER::initiate;
 	$self->{$_} = 1 foreach qw(noCache addProjects addBookmarks);
 	if ( $self->_dashboard_enabled ) {
 		$self->{$_} = 1 foreach qw(muuri modal fitty bigsdb.dashboard jQuery.fonticonpicker billboard d3.layout.cloud);
 		$self->{'geomap'} = 1 if $self->has_country_optlist;
+		$self->SUPER::initiate;
+		$self->{'dashboard_type'} = 'query';
 		$self->get_or_set_dashboard_prefs;
 		$self->{'prefs'}->{'record_age'}           = 0;
 		$self->{'prefs'}->{'include_old_versions'} = 0;

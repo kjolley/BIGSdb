@@ -58,7 +58,7 @@ $(function() {
 		},
 		change: function(event, ui) {
 			$.ajax({
-				url: url + "&page=dashboard&updateDashboard=1&attribute=record_age&value=" + ui.value
+				url: url + "&page=dashboard&updateDashboard=1&type=" + dashboard_type + "&attribute=record_age&value=" + ui.value
 			}).done(function(json) {
 				$("#loaded_dashboard").val(JSON.parse(json).dashboard_name);
 				$("#loaded_dashboard").prop("disabled", false);
@@ -92,7 +92,7 @@ $(function() {
 			// Grid is empty.
 		}
 		$.ajax({
-			url: url + "&page=dashboard&updateDashboard=1&attribute=fill_gaps&value=" + (fill_gaps ? 1 : 0)
+			url: url + "&page=dashboard&updateDashboard=1&type=" + dashboard_type + "&attribute=fill_gaps&value=" + (fill_gaps ? 1 : 0)
 		}).done(function(json) {
 			updateDashboardName(JSON.parse(json).dashboard_name);
 		});
@@ -124,7 +124,7 @@ $(function() {
 	$("#include_old_versions").change(function() {
 		var include_old_versions = $("#include_old_versions").prop('checked');
 		$.ajax({
-			url: url + "&page=dashboard&updateDashboard=1&attribute=include_old_versions&value=" +
+			url: url + "&page=dashboard&updateDashboard=1&type=" + dashboard_type + "&attribute=include_old_versions&value=" +
 				(include_old_versions ? 1 : 0)
 		}).done(function(json) {
 			updateDashboardName(JSON.parse(json).dashboard_name);
@@ -135,14 +135,14 @@ $(function() {
 	$("#loaded_dashboard").change(function() {
 		var name = $("#loaded_dashboard").val();
 		if (name.length) {
-			$.ajax(url + "&page=dashboard&updateDashboardName=" + encodeURIComponent(name));
+			$.ajax(url + "&page=dashboard&type=" + dashboard_type + "&updateDashboardName=" + encodeURIComponent(name));
 		}
 	});
 
 	$("#switch_dashboard").change(function() {
 		var id = $("#switch_dashboard").val();
 		$.ajax({
-			url: url + "&page=dashboard&setActiveDashboard=" + id
+			url: url + "&page=dashboard&setActiveDashboard=" + id + "&type=" + dashboard_type
 		}).done(function() {
 			location.reload();
 		});
@@ -393,7 +393,7 @@ function addElement(grid, id) {
 	if (Object.keys(elements).length === 0) {
 		$("div#empty").html("");
 	}
-	var add_url = url + "&page=dashboard&new=" + id;
+	var add_url = url + "&page=dashboard&type=" + dashboard_type + "&new=" + id;
 	var field = $("#add_field").val();
 	if (field) {
 		add_url += "&field=" + field;
@@ -429,7 +429,7 @@ function addElement(grid, id) {
 function editElement(grid, id, setup) {
 	$("span#control_" + id).hide();
 	$("span#wait_" + id).show();
-	$.get(url + "&page=dashboard&control=" + id, function(html) {
+	$.get(url + "&page=dashboard&type=" + dashboard_type + "&control=" + id, function(html) {
 		$(html).appendTo('body').modal();
 		if ($("#edit_elements").prop("checked")) {
 			$("span#control_" + id).show();
@@ -565,7 +565,7 @@ function checkAndShowVisualisation(grid, id) {
 }
 
 function reloadElement(id) {
-	var reload_url = url + "&page=dashboard&element=" + id;
+	var reload_url = url + "&page=dashboard&type=" + dashboard_type + "&element=" + id;
 	if (qryFile != null && qryFile.length){
 		reload_url += "&qry_file=" + qryFile; 
 	}
@@ -640,6 +640,7 @@ function saveElements(grid) {
 		db: instance,
 		page: "dashboard",
 		updateDashboard: 1,
+		type: dashboard_type,
 		attribute: "elements",
 		value: JSON.stringify(elements)
 	});
@@ -654,6 +655,7 @@ function saveAndReloadElement(grid, id) {
 			db: instance,
 			page: "dashboard",
 			updateDashboard: 1,
+			type: dashboard_type,
 			attribute: "elements",
 			value: JSON.stringify(elements)
 		},
@@ -723,6 +725,7 @@ function saveLayout(grid) {
 					db: instance,
 					page: "dashboard",
 					updateDashboard: 1,
+					type: dashboard_type,
 					attribute: "order",
 					value: layout
 				},
