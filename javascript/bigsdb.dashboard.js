@@ -398,7 +398,12 @@ function addElement(grid, id) {
 	if (field) {
 		add_url += "&field=" + field;
 	}
-
+	if (qryFile != null && qryFile.length){
+		add_url += "&qry_file=" + qryFile; 
+	}
+	if (listFile != null && listFile.length && listAttribute != null && listAttribute.length){
+		add_url += "&list_file=" + listFile + "&list_attribute=" + listAttribute; 
+	}
 	lastAjaxUpdate = new Date().getTime();
 	$.get(add_url, function(json) {
 		try {

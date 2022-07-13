@@ -681,7 +681,7 @@ JS
 }
 
 sub _ajax_new {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $id ) = @_;
+	my ( $self, $id, $options ) = @_;
 	my $element = {
 		id    => $id,
 		order => $id,
@@ -749,6 +749,15 @@ sub _ajax_new {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by di
 	$element->{'height'}      //= 1;
 	$element->{'hide_mobile'} //= 1;
 	my $dashboard_name = $self->{'prefstore'}->get_dashboard_name( $self->_get_dashboard_id );
+	
+	if ( defined $options->{'qry_file'} ) {
+		$self->{'no_query_link'} = 1;
+		my $qry = $self->get_query_from_temp_file( $options->{'qry_file'} );
+		$qry =~ s/ORDER\sBY.*$//gx;
+		$self->{'db'}->do("CREATE TEMP VIEW dashboard_view AS $qry");
+		$self->{'view'} = 'dashboard_view';
+	}
+	
 	my $json           = JSON->new->allow_nonref;
 	say $json->encode(
 		{
