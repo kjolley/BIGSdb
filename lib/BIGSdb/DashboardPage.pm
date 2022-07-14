@@ -75,7 +75,7 @@ sub print_content {
 	);
 	foreach my $method ( sort keys %ajax_methods ) {
 		my $sub = $ajax_methods{$method};
-		if ( $q->param($method) ) {
+		if ( defined $q->param($method) ) {
 			$self->$sub(
 				scalar $q->param($method),
 				{
@@ -893,6 +893,7 @@ sub get_list_attribute_data {
 
 sub _ajax_set_active {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $active_id ) = @_;
+	return if $active_id < 0;
 	my $q    = $self->{'cgi'};
 	my $type = $q->param('type') // $self->{'dashboard_type'};
 	my $guid = $self->get_guid;
@@ -1027,28 +1028,33 @@ sub _get_default_elements {
 	my $elements = {};
 	my $i        = 1;
 	my $default_dashboard;
-	if ( -e "$self->{'dbase_config_dir'}/$self->{'instance'}/dashboard.toml" ) {
-		my $toml = BIGSdb::Utils::slurp("$self->{'dbase_config_dir'}/$self->{'instance'}/dashboard.toml");
-		my ( $data, $err ) = from_toml($$toml);
-		if ( !$data->{'elements'} ) {
-			$logger->error("Error parsing $self->{'dbase_config_dir'}/$self->{'instance'}/dashboard.toml: $err");
-		} else {
-			$default_dashboard = $data->{'elements'};
+	my @possible_files = (
+		"$self->{'dbase_config_dir'}/$self->{'instance'}/dashboard_$self->{'dashboard_type'}.toml",
+		"$self->{'config_dir'}/dashboard_$self->{'dashboard_type'}.toml",
+		"$self->{'dbase_config_dir'}/$self->{'instance'}/dashboard.toml",
+		"$self->{'config_dir'}/dashboard.toml"
+	);
+	my $file_exists;
+	foreach my $filename (@possible_files) {
+		if ( -e $filename ) {
+			$file_exists = 1;
+			my $toml = BIGSdb::Utils::slurp($filename);
+			my ( $data, $err ) = from_toml($$toml);
+			if ( !$data->{'elements'} ) {
+				$logger->error("Error parsing $filename: $err");
+			} else {
+				$default_dashboard = $data->{'elements'};
+			}
+			last;
 		}
-	} elsif ( -e "$self->{'config_dir'}/dashboard.toml" ) {
-		my $toml = BIGSdb::Utils::slurp("$self->{'config_dir'}/dashboard.toml");
-		my ( $data, $err ) = from_toml($$toml);
-		if ( !$data->{'elements'} ) {
-			$logger->error("Error parsing $self->{'config_dir'}/dashboard.toml: $err");
-		} else {
-			$default_dashboard = $data->{'elements'};
-		}
-	} else {
-		$default_dashboard = DEFAULT_DASHBOARD;
 	}
+	if (!$file_exists){
+		$default_dashboard = $self->{'dashboard_type'} eq 'primary' ? DEFAULT_FRONTEND_DASHBOARD : DEFAULT_QUERY_DASHBOARD;
+	}
+
 	if ( !ref $default_dashboard || ref $default_dashboard ne 'ARRAY' ) {
 		$logger->error('No default dashboard elements defined - using built-in default instead.');
-		$default_dashboard = DEFAULT_DASHBOARD;
+		$default_dashboard = $self->{'dashboard_type'} eq 'primary' ? DEFAULT_FRONTEND_DASHBOARD : DEFAULT_QUERY_DASHBOARD;
 	}
 	my $genome_size = $self->{'system'}->{'min_genome_size'} // $self->{'config'}->{'min_genome_size'}
 	  // MIN_GENOME_SIZE;
@@ -3037,7 +3043,7 @@ sub _get_element_controls {
 
 sub _get_data_query_link {
 	my ( $self, $element ) = @_;
-	return if $self->{'no_query_link'};
+	return q() if $self->{'no_query_link'};
 	my $buffer = q();
 	$buffer .= qq(<span data-id="$element->{'id'}" class="dashboard_data_query_element fas fa-share">);
 	if ( $element->{'url_text'} ) {
@@ -3049,7 +3055,7 @@ sub _get_data_query_link {
 
 sub _get_data_explorer_link {
 	my ( $self, $element ) = @_;
-	return if $self->{'no_query_link'};
+	return q() if $self->{'no_query_link'};
 	my $buffer = q();
 	$element->{'explorer_text'} //= 'Explore data';
 	$buffer .= qq(<span data-id="$element->{'id'}" class="dashboard_data_explorer_element fas fa-search">);
@@ -3312,15 +3318,21 @@ sub _print_dashboard_management_fieldset {
 	my $dashboard_id =
 	  $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, 0 );
 	my $dashboards = $self->{'prefstore'}->get_dashboards( $guid, $self->{'instance'} );
-	if ( !defined $dashboard_id ) {
-		if (@$dashboards) {
-			$dashboard_id = $dashboards->[0]->{'id'};
-		} else {
+	my $ids = [-1];
+	my $labels = { -1 => 'Select dashboard...' };
+	if ( defined $dashboard_id ) {
+	push @$ids,0;
+	$labels->{0} = "$self->{'dashboard_type'} default";	
+	} else {
+#		if (@$dashboards) {
+#			$dashboard_id = $dashboards->[0]->{'id'};
+#		} else {
 			$dashboard_id = 0;
-		}
 	}
-	my $ids = [0];
-	my $labels = { 0 => 'Select dashboard...' };
+	
+#		
+	
+	
 	foreach my $dashboard (@$dashboards) {
 		next if $dashboard->{'id'} == $dashboard_id;
 		push @$ids, $dashboard->{'id'};
@@ -3329,7 +3341,7 @@ sub _print_dashboard_management_fieldset {
 	if ($dashboard_id) {
 		$name = $self->{'prefstore'}->get_dashboard_name($dashboard_id);
 	} else {
-		$name = 'default';
+		$name = "$self->{'dashboard_type'} default";
 	}
 	my $q = $self->{'cgi'};
 	say q(<fieldset><legend>Versions</legend>);
@@ -3343,25 +3355,27 @@ sub _print_dashboard_management_fieldset {
 		-style     => 'width:8em',
 		-value     => $name
 	);
-	$attributes{'-disabled'} = 1 if $name eq 'default';
+	$attributes{'-disabled'} = 1 if $name eq "$self->{'dashboard_type'} default";
 	say $q->textfield(%attributes);
 	say q(</li>);
 
-	if ( @$dashboards > 1 ) {
+	if ( @$ids > 1 ) {
 		say q(<li><label for="switch_dashboard">Switch:</label>);
 		say $q->popup_menu(
 			-id      => 'switch_dashboard',
 			-name    => 'switch_dashboard',
 			-labels  => $labels,
 			-values  => $ids,
-			-default => 0
+			-default => -1
 		);
 		say q(</li>);
 	}
 	say q(<li>);
-	my $reset_display = $name eq 'default' ? q(none) : q(inline);
+	if ( @$ids > 1 ) {
+	my $reset_display = $name eq 'query default' || $name eq 'primary default' ? q(none) : q(inline);
 	say q(<a id="delete_dashboard" onclick="resetDefaults()" class="small_reset" )
 	  . qq(style="display:$reset_display;white-space:nowrap"><span class="far fa-trash-alt"></span> Delete</a>);
+	}
 	if ( @$dashboards < DASHBOARD_LIMIT ) {
 		say q(<a onclick="createNew()" class="small_submit">New dashboard</a>);
 	}

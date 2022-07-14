@@ -842,7 +842,8 @@ sub print_action_fieldset {
 		$buffer .= qq(<a href="$url" class="reset"><span>$reset_label</span></a>\n);
 	}
 	local $" = q( );
-	$buffer .= $q->submit( -name => $submit_name, -label => $submit_label, -class => 'submit' );
+	my %id = $options->{'id'} ? (id => $options->{'id'}): ();
+	$buffer .= $q->submit( -name => $submit_name, -label => $submit_label, -class => 'submit', %id );
 	if ( $options->{'submit2'} ) {
 		$options->{'submit2_label'} //= $options->{'submit2'};
 		$buffer .= $q->submit(

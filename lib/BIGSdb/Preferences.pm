@@ -629,10 +629,10 @@ sub get_dashboard_names {
 
 sub get_dashboards {
 	my ( $self, $guid, $dbase_config ) = @_;
-	my $sql   = $self->{'db'}->prepare('SELECT id,name FROM dashboards WHERE (guid,dbase_config)=(?,?) ORDER BY name');
+	my $sql = $self->{'db'}->prepare('SELECT id,name FROM dashboards WHERE (guid,dbase_config)=(?,?) ORDER BY name');
 	eval { $sql->execute( $guid, $dbase_config ) };
 	$logger->logcarp($@) if $@;
-	return $sql->fetchall_arrayref({});
+	return $sql->fetchall_arrayref( {} );
 }
 
 sub get_dashboard {
@@ -654,7 +654,7 @@ sub initiate_new_dashboard {
 	}
 	my $sql = $self->{'db'}->prepare('INSERT INTO dashboards (guid,dbase_config,data) VALUES (?,?,?) RETURNING id');
 	my $id;
-	eval { 
+	eval {
 		$sql->execute( $guid, $dbase_config, '{}' );
 		$id = $sql->fetchrow_array;
 		$self->{'db'}->do(
@@ -662,13 +662,12 @@ sub initiate_new_dashboard {
 			  . 'ON CONFLICT ON CONSTRAINT active_dashboards_pkey DO UPDATE SET id=?',
 			undef, $guid, $dbase_config, $id, $type, $value, $id
 		);
-	 };
+	};
 	if ($@) {
 		$self->{'db'}->rollback;
-		if ($@ =~ /duplicate/x){
-			
-			$id = $self->get_active_dashboard($guid, $dbase_config, $type, $value);
-			if (!defined $id){
+		if ( $@ =~ /duplicate/x ) {
+			$id = $self->get_active_dashboard( $guid, $dbase_config, $type, $value );
+			if ( !defined $id ) {
 				BIGSdb::Exception::Prefstore->throw('Cannot initiate new dashboard.');
 			}
 		} else {
@@ -687,11 +686,16 @@ sub set_active_dashboard {
 		$self->_add_existing_guid($guid);
 	}
 	eval {
-		$self->{'db'}->do(
-			'INSERT INTO active_dashboards (guid,dbase_config,id,type,value) VALUES (?,?,?,?,?) '
-			  . 'ON CONFLICT ON CONSTRAINT active_dashboards_pkey DO UPDATE SET id=?',
-			undef, $guid, $dbase_config, $id, $type, $value, $id
-		);
+		if ( $id > 0 ) {
+			$self->{'db'}->do(
+				'INSERT INTO active_dashboards (guid,dbase_config,id,type,value) VALUES (?,?,?,?,?) '
+				  . 'ON CONFLICT ON CONSTRAINT active_dashboards_pkey DO UPDATE SET id=?',
+				undef, $guid, $dbase_config, $id, $type, $value, $id
+			);
+		} else {
+			$self->{'db'}->do( 'DELETE FROM active_dashboards WHERE (guid,dbase_config,type)=(?,?,?)',
+				undef, $guid, $dbase_config, $type );
+		}
 	};
 	if ($@) {
 		$logger->logcarp($@);
@@ -732,7 +736,7 @@ sub update_dashboard_name {
 	}
 	my $names = $self->get_dashboard_names( $guid, $dbase_config );
 	my %existing = map { $_ => 1 } @$names;
-	if ($existing{$name}){
+	if ( $existing{$name} ) {
 		$logger->error("Dashboard $name already exists for this user.");
 		return;
 	}

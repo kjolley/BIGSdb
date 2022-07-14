@@ -144,7 +144,12 @@ $(function() {
 		$.ajax({
 			url: url + "&page=dashboard&setActiveDashboard=" + id + "&type=" + dashboard_type
 		}).done(function() {
-			location.reload();
+			//Prevent form reload message on Firefox - simulate click of the submit button instead.
+			if ($("input#search").length) {
+				$("input#search").trigger('click');
+			} else {
+				location.reload();
+			}
 		});
 	});
 
@@ -267,7 +272,7 @@ function getDataExplorerParams(id) {
 	params['field'] = elements[id]['field'];
 	params['include_old_versions'] = $("#include_old_versions").prop('checked');
 	params['record_age'] = $("#record_age_slider").length ? $("#record_age_slider").slider("value") : 0;
-	if (elements[id]['specific_values'] != null){
+	if (elements[id]['specific_values'] != null) {
 		params['specific_values'] = elements[id]['specific_values'];
 	}
 	return params;
@@ -280,7 +285,7 @@ function updateDashboardName(name) {
 }
 
 function setGridMargins(grid) {
-	if (grid == null){
+	if (grid == null) {
 		return;
 	}
 	let dashboard_width = Math.floor($("div#dashboard_panel").width() / 155) * 155;
@@ -327,7 +332,7 @@ function post(path, params, method = 'post') {
 			const hiddenField = document.createElement('input');
 			hiddenField.type = 'hidden';
 			hiddenField.name = key;
-			hiddenField.value = Array.isArray(params[key]) ? JSON.stringify(params[key]): params[key];
+			hiddenField.value = Array.isArray(params[key]) ? JSON.stringify(params[key]) : params[key];
 			form.appendChild(hiddenField);
 		}
 	}
@@ -398,11 +403,11 @@ function addElement(grid, id) {
 	if (field) {
 		add_url += "&field=" + field;
 	}
-	if (qryFile != null && qryFile.length){
-		add_url += "&qry_file=" + qryFile; 
+	if (qryFile != null && qryFile.length) {
+		add_url += "&qry_file=" + qryFile;
 	}
-	if (listFile != null && listFile.length && listAttribute != null && listAttribute.length){
-		add_url += "&list_file=" + listFile + "&list_attribute=" + listAttribute; 
+	if (listFile != null && listFile.length && listAttribute != null && listAttribute.length) {
+		add_url += "&list_file=" + listFile + "&list_attribute=" + listAttribute;
 	}
 	lastAjaxUpdate = new Date().getTime();
 	$.get(add_url, function(json) {
@@ -566,13 +571,13 @@ function checkAndShowVisualisation(grid, id) {
 
 function reloadElement(id) {
 	var reload_url = url + "&page=dashboard&type=" + dashboard_type + "&element=" + id;
-	if (qryFile != null && qryFile.length){
-		reload_url += "&qry_file=" + qryFile; 
+	if (qryFile != null && qryFile.length) {
+		reload_url += "&qry_file=" + qryFile;
 	}
-	if (listFile != null && listFile.length && listAttribute != null && listAttribute.length){
-		reload_url += "&list_file=" + listFile + "&list_attribute=" + listAttribute; 
+	if (listFile != null && listFile.length && listAttribute != null && listAttribute.length) {
+		reload_url += "&list_file=" + listFile + "&list_attribute=" + listAttribute;
 	}
-	
+
 	$.get(reload_url, function(json) {
 		try {
 			$("div#element_" + id + "> .item-content > .ajax_content").html(JSON.parse(json).html);
@@ -764,7 +769,7 @@ function resetSeqbinRange(id) {
 
 function createNew() {
 	$.ajax({
-		url: url + "&newDashboard=1",
+		url: url + "&newDashboard=1&type=" + dashboard_type,
 		type: 'GET',
 		success: function() {
 			location.reload();
