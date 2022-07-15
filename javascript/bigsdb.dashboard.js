@@ -745,8 +745,13 @@ function saveLayout(grid) {
 
 function resetDefaults() {
 	$("#modify_dashboard_panel").toggle("slide", { direction: "right" }, "fast");
-	$.get(url + "&resetDefaults=1", function() {
-		location.reload();
+	$.get(url + "&resetDefaults=1&type=" + dashboard_type, function() {
+		//Prevent form reload message on Firefox - simulate click of the submit button instead.
+		if ($("input#search").length) {
+			$("input#search").trigger('click');
+		} else {
+			location.reload();
+		}
 	});
 }
 
@@ -772,7 +777,12 @@ function createNew() {
 		url: url + "&newDashboard=1&type=" + dashboard_type,
 		type: 'GET',
 		success: function() {
-			location.reload();
+			//Prevent form reload message on Firefox - simulate click of the submit button instead.
+			if ($("input#search").length) {
+				$("input#search").trigger('click');
+			} else {
+				location.reload();
+			}
 		}
 	});
 }
