@@ -1537,6 +1537,16 @@ sub _get_provenance_field_counts {
 			}
 		}
 	}
+	if ( $type eq 'geography_point' ) {
+		$type = 'geography(POINT, 4326)';
+		my $new_values = [];
+		foreach my $value (@$values) {
+			if ( $value =~ /^(\-?\d+\.?\d*),\s*(\-?\d+\.?\d*)/x ) {
+				push @$new_values, $self->{'datastore'}->convert_coordinates_to_geography( $1, $2 );
+			}
+		}
+		$values = $new_values;
+	}
 	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( $type, $values );
 	my $qry;
 	my $view = $self->{'view'};
@@ -1744,6 +1754,12 @@ sub _get_primary_metadata_breakdown_values {
 	}
 	if ( ( $att->{'userfield'} // q() ) eq 'yes' || $field eq 'sender' || $field eq 'curator' ) {
 		$values = $self->_rewrite_user_field_values($values);
+	}
+	if ( $self->{'datastore'}->field_needs_conversion($field) ) {
+		foreach my $value (@$values) {
+			next if !defined $value->{'label'};
+			$value->{'label'} = $self->{'datastore'}->convert_field_value( $field, $value->{'label'} );
+		}
 	}
 	return $values;
 }
@@ -2959,7 +2975,15 @@ sub _get_query_url {
 	if ( $element->{'field'} =~ /^[f|e]_/x ) {
 		$field = 'f_sender%20(id)'  if $field eq 'f_sender';
 		$field = 'f_curator%20(id)' if $field eq 'f_curator';
-		$url .= "&amp;prov_field1=$field&amp;prov_value1=$value";
+		my $type = $self->_get_field_type($element);
+		if ( $type eq 'geography_point' ) {
+			my ( $lat, $long ) = split /,%20/x, $value;
+			$field =~ s/^f_/gp_/x;
+			$url .= "&amp;prov_field1=${field}_latitude&amp;prov_value1=$lat&amp;"
+			  . "prov_field2=${field}_longitude&amp;prov_value2=$long";
+		} else {
+			$url .= "&amp;prov_field1=$field&amp;prov_value1=$value";
+		}
 	}
 	if ( $element->{'field'} =~ /^eav_/x ) {
 		$url .= "&amp;phenotypic_field1=$field&amp;phenotypic_value1=$value";
@@ -2971,7 +2995,14 @@ sub _get_query_url {
 		$url .= '&amp;include_old=on';
 	}
 	if ( $self->{'prefs'}->{'record_age'} ) {
-		my $row = $url =~ /prov_field1/x ? 2 : 1;
+		my $row;
+		for ( my $i = 20 ; $i >= 0 ; $i-- ) {
+			if ( $url =~ /prov_field$i/x ) {
+				$row = $i + 1;
+				last;
+			}
+			$row = 1;
+		}
 		my $datestamp = $self->get_record_age_datestamp( $self->{'prefs'}->{'record_age'} );
 		$url .= "&amp;prov_field$row=f_date_entered&amp;prov_operator$row=>=&amp;prov_value$row=$datestamp";
 	}
@@ -3045,6 +3076,8 @@ sub _get_element_controls {
 sub _get_data_query_link {
 	my ( $self, $element ) = @_;
 	return q() if $self->{'no_query_link'};
+	my $type = $self->_get_field_type($element);
+	return q() if $type eq 'geography_point';
 	my $buffer = q();
 	$buffer .= qq(<span data-id="$element->{'id'}" class="dashboard_data_query_element fas fa-share">);
 	if ( $element->{'url_text'} ) {
@@ -3057,6 +3090,8 @@ sub _get_data_query_link {
 sub _get_data_explorer_link {
 	my ( $self, $element ) = @_;
 	return q() if $self->{'no_query_link'};
+	my $type = $self->_get_field_type($element);
+	return q() if $type eq 'geography_point';
 	my $buffer = q();
 	$element->{'explorer_text'} //= 'Explore data';
 	$buffer .= qq(<span data-id="$element->{'id'}" class="dashboard_data_explorer_element fas fa-search">);
@@ -3382,11 +3417,12 @@ sub _print_dashboard_management_fieldset {
 sub print_field_selector {
 	my ( $self, $select_options, $field_options ) = @_;
 	$select_options //= {
-		ignore_prefs        => 1,
-		isolate_fields      => 1,
-		scheme_fields       => 1,
-		extended_attributes => 1,
-		eav_fields          => 1,
+		ignore_prefs             => 1,
+		isolate_fields           => 1,
+		scheme_fields            => 1,
+		extended_attributes      => 1,
+		eav_fields               => 1,
+		nosplit_geography_points => 1
 	};
 	my $q = $self->{'cgi'};
 	my ( $fields, $labels ) = $self->get_field_selection_list($select_options);
