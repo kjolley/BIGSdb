@@ -1512,7 +1512,9 @@ sub create_temp_scheme_status_table {
 #This should only be used to create a table of user entered values.
 #The table name is hard-coded.
 sub create_temp_list_table {
-	my ( $self, $datatype, $list_file ) = @_;
+	my ( $self, $data_type, $list_file ) = @_;
+	my $pg_data_type = $data_type;
+	$pg_data_type = 'geography(POINT, 4326)' if $data_type eq 'geography_point';
 	my $table_exists =
 	  $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', 'temp_list' );
 	if ($table_exists) {
@@ -1522,7 +1524,7 @@ sub create_temp_list_table {
 	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$list_file";
 	open( my $fh, '<:encoding(utf8)', $full_path ) || $logger->logcarp("Can't open $full_path for reading");
 	eval {
-		$self->{'db'}->do("CREATE TEMP TABLE temp_list (value $datatype)");
+		$self->{'db'}->do("CREATE TEMP TABLE temp_list (value $pg_data_type)");
 		$self->{'db'}->do('COPY temp_list FROM STDIN');
 		while ( my $value = <$fh> ) {
 			chomp $value;
@@ -1540,13 +1542,15 @@ sub create_temp_list_table {
 }
 
 sub create_temp_list_table_from_array {
-	my ( $self, $datatype, $list, $options ) = @_;
+	my ( $self, $data_type, $list, $options ) = @_;
+	my $pg_data_type = $data_type;
+	$pg_data_type = 'geography(POINT, 4326)' if $data_type eq 'geography_point';
 	$options = {} if ref $options ne 'HASH';
 	my $table = $options->{'table'} // ( 'temp_list' . int( rand(99999999) ) );
 	return
 	  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
 	eval {
-		$self->{'db'}->do("CREATE TEMP TABLE $table (value $datatype)");
+		$self->{'db'}->do("CREATE TEMP TABLE $table (value $pg_data_type)");
 		$self->{'db'}->do("COPY $table FROM STDIN");
 		foreach (@$list) {
 			s/\t/    /gx;

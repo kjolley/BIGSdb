@@ -70,12 +70,12 @@ sub is_valid_peptide {
 }
 
 sub is_complete_cds {
-	my ($seq, $options) = @_;
+	my ( $seq, $options ) = @_;
 	my $check_seq = ref $seq eq 'SCALAR' ? uc($$seq) : uc($seq);
 	$check_seq =~ s/[\-\.\s]//gx;
 	my $first_codon = substr( $check_seq, 0, 3 );
 	my $start_codons = $options->{'start_codons'} // [qw (ATG GTG TTG)];
-	my $stop_codons = $options->{'stop_codons'} // [qw (TAA TGA TAG)];
+	my $stop_codons  = $options->{'stop_codons'}  // [qw (TAA TGA TAG)];
 	if ( none { $first_codon eq $_ } @$start_codons ) {
 		return { cds => 0, err => 'not a complete CDS - no start codon.' };
 	}
@@ -217,6 +217,26 @@ sub is_float {
 	## no critic (ProhibitUnusedCapture)
 	return if $value !~ /^([+-]?)(?=\d|\.\d)\d*(\.\d*)?([Ee]([+-]?\d+))?$/x;
 	return 1;
+}
+
+sub is_geography_point {
+	my ($value) = @_;
+	return if !defined $value;
+	if ( $value =~ /^(\-?\d+\.?\d*),\s*(\-?\d+\.?\d*)/x ) {
+		my ( $lat, $long ) = ( $1, $2 );
+		return 1 if $lat >= -90 && $lat <= 90 && $long >= -180 && $long <= 180;
+	}
+	return;
+}
+
+sub get_geography_point_coordinates {
+	my ($value) = @_;
+	return if !defined $value;
+	if ( $value =~ /^(\-?\d+\.?\d*),\s*(\-?\d+\.?\d*)/x ) {
+		my ( $lat, $long ) = ( $1, $2 );
+		return { latitude => $lat, longitude => $long };
+	}
+	return;
 }
 
 sub get_random {

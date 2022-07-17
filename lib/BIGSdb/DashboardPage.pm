@@ -296,7 +296,7 @@ sub _field_has_optlist {
 
 sub _get_field_type {
 	my ( $self, $element ) = @_;
-	if ( !defined $element->{'field'} ) {
+	if ( $element->{'display'} eq 'field' && !defined $element->{'field'} ) {
 		$logger->error('No field defined');
 		return;
 	}
@@ -1952,7 +1952,7 @@ sub _get_doughnut_pie_threshold {
 	$total += $_->{'value'} foreach @$data;
 	return $max_threshold if !$total;
 	my $running = 0;
-	my $threshold;
+	my $threshold = 0;
 	foreach my $value (@$data) {
 		$running += $value->{'value'};
 

@@ -842,7 +842,7 @@ sub print_action_fieldset {
 		$buffer .= qq(<a href="$url" class="reset"><span>$reset_label</span></a>\n);
 	}
 	local $" = q( );
-	my %id = $options->{'id'} ? (id => $options->{'id'}): ();
+	my %id = $options->{'id'} ? ( id => $options->{'id'} ) : ();
 	$buffer .= $q->submit( -name => $submit_name, -label => $submit_label, -class => 'submit', %id );
 	if ( $options->{'submit2'} ) {
 		$options->{'submit2_label'} //= $options->{'submit2'};
@@ -1299,6 +1299,10 @@ sub _get_provenance_fields {
 		} elsif ( ( $attributes->{$field}->{'type'} // q() ) eq 'geography_point'
 			&& !$options->{'nosplit_geography_points'} )
 		{
+			if ( $options->{'include_unsplit_geography_point'} ) {
+				push @isolate_list, "f_$field";
+				( $self->{'cache'}->{'labels'}->{"f_$field"} = $field ) =~ tr/_/ /;
+			}
 			foreach my $term (qw(latitude longitude)) {
 				push @isolate_list, "gp_${field}_$term";
 				( $self->{'cache'}->{'labels'}->{"gp_${field}_$term"} = "${field} ($term)" ) =~ tr/_/ /;

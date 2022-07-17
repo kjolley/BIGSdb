@@ -704,12 +704,13 @@ sub _print_list_fieldset_contents {
 	my @grouped_fields;
 	my ( $field_list, $labels ) = $self->get_field_selection_list(
 		{
-			isolate_fields      => 1,
-			eav_fields          => 1,
-			loci                => 1,
-			scheme_fields       => 1,
-			sender_attributes   => 0,
-			extended_attributes => 1
+			isolate_fields                  => 1,
+			include_unsplit_geography_point => 1,
+			eav_fields                      => 1,
+			loci                            => 1,
+			scheme_fields                   => 1,
+			sender_attributes               => 0,
+			extended_attributes             => 1
 		}
 	);
 	my $grouped = $self->{'xmlHandler'}->get_grouped_fields;
@@ -734,7 +735,8 @@ sub _modify_query_by_list {
 	my ( $self, $qry ) = @_;
 	my $q = $self->{'cgi'};
 	return $qry if !$q->param('list');
-	my $attribute_data = $self->get_list_attribute_data( scalar $q->param('attribute') );
+	my $attribute = $q->param('attribute');
+	my $attribute_data = $self->get_list_attribute_data( $attribute );
 	my ( $field, $extended_field, $scheme_id, $field_type, $data_type, $eav_table, $optlist, $multiple ) =
 	  @{$attribute_data}{qw (field extended_field scheme_id field_type data_type eav_table optlist multiple)};
 	return $qry if !$field;
@@ -759,6 +761,7 @@ sub _modify_query_by_list {
 	close $fh;
 	$q->param( list_file => $list_file );
 	$q->param( datatype  => $data_type );
+	say qq(<script>listFile="$list_file";listAttribute="$attribute;"</script>);
 	my $view                      = $self->{'system'}->{'view'};
 	my $isolate_scheme_field_view = q();
 
@@ -787,6 +790,7 @@ sub _modify_query_by_list {
 		scheme_field => "$view.id IN (SELECT id FROM $isolate_scheme_field_view WHERE "
 		  . ( $data_type eq 'text' ? "UPPER($field)" : $field )
 		  . ' IN (SELECT value FROM temp_list))',
+		geography_point           => "$view.$field IN (SELECT value FROM temp_list)",
 		geography_point_latitude  => "ST_Y($view.${field}::geometry) IN (SELECT value FROM temp_list)",
 		geography_point_longitude => "ST_X($view.${field}::geometry) IN (SELECT value FROM temp_list)"
 	);
@@ -3460,7 +3464,8 @@ sub _modify_query_for_seqbin {
 			$db_field{$field} //= $field;
 			$value *= 1_000_000 if $field eq 'size';
 			$seqbin_qry = "($view.id IN (SELECT isolate_id FROM seqbin_stats WHERE $db_field{$field} $operator $value)";
-			if ( $operator eq '<' || $operator eq '<=' || ( $operator eq '=' && $value == 0 ) ) {
+			if ( $operator eq '<' || $operator eq '<=' || ( ( $operator eq '=' || $operator eq '>=' ) && $value == 0 ) )
+			{
 				$seqbin_qry .= " OR $view.id NOT IN (SELECT isolate_id FROM seqbin_stats)";
 			}
 			$seqbin_qry .= ')';
@@ -3753,7 +3758,6 @@ $panel_js
 	
 	\$("#bookmark_trigger,#close_bookmark").click(function(){		
 		\$("#bookmark_panel").toggle("slide",{direction:"right"},"fast");
-//		\$("#bookmark_trigger").show();		
 		return false;
 	});
 	\$("#bookmark_trigger").show();
@@ -3882,16 +3886,15 @@ function set_autocomplete_values(element){
 END
 	}
 	if ( $self->_dashboard_enabled ) {
-		my $elements        = $self->_get_elements;
-		my $json_elements   = $json->encode($elements);
-		my $qry_file        = $q->param('query_file');
-		my $qry_file_clause = defined $qry_file ? qq(&qry_file=$qry_file) : q();
-		my $qry_file_init   = defined $qry_file ? qq(var qryFile="$qry_file";) : q(var qryFile;);
-		my $list_file       = $q->param('list_file');
-		my $list_attribute  = $q->param('attribute');
-		my $list_file_clause =
-		     defined $list_file
-		  && defined $list_attribute ? qq(&list_file=$list_file&&list_attribute=$list_attribute) : q();
+		my $elements         = $self->_get_elements;
+		my $json_elements    = $json->encode($elements);
+		my $qry_file         = $q->param('query_file');
+		my $qry_file_clause  = defined $qry_file ? qq(&qry_file=$qry_file) : q();
+		my $qry_file_init    = defined $qry_file ? qq(var qryFile="$qry_file";) : q(var qryFile;);
+		my $list_file        = $q->param('list_file');
+		my $list_attribute   = $q->param('attribute');
+		my $list_file_clause = defined $list_file
+		  && defined $list_attribute ? qq(&list_file=$list_file&list_attribute=$list_attribute) : q();
 		my $list_file_init = defined $list_file ? qq(var listFile="$list_file";) : q(var listFile;);
 		my $list_attribute_init =
 		  defined $list_attribute ? qq(var listAttribute="$list_attribute";) : q(var listAttribute;);
