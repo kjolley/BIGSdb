@@ -1048,13 +1048,14 @@ sub _get_default_elements {
 			last;
 		}
 	}
-	if (!$file_exists){
-		$default_dashboard = $self->{'dashboard_type'} eq 'primary' ? DEFAULT_FRONTEND_DASHBOARD : DEFAULT_QUERY_DASHBOARD;
+	if ( !$file_exists ) {
+		$default_dashboard =
+		  $self->{'dashboard_type'} eq 'primary' ? DEFAULT_FRONTEND_DASHBOARD : DEFAULT_QUERY_DASHBOARD;
 	}
-
 	if ( !ref $default_dashboard || ref $default_dashboard ne 'ARRAY' ) {
 		$logger->error('No default dashboard elements defined - using built-in default instead.');
-		$default_dashboard = $self->{'dashboard_type'} eq 'primary' ? DEFAULT_FRONTEND_DASHBOARD : DEFAULT_QUERY_DASHBOARD;
+		$default_dashboard =
+		  $self->{'dashboard_type'} eq 'primary' ? DEFAULT_FRONTEND_DASHBOARD : DEFAULT_QUERY_DASHBOARD;
 	}
 	my $genome_size = $self->{'system'}->{'min_genome_size'} // $self->{'config'}->{'min_genome_size'}
 	  // MIN_GENOME_SIZE;
@@ -3318,21 +3319,14 @@ sub _print_dashboard_management_fieldset {
 	my $dashboard_id =
 	  $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, 0 );
 	my $dashboards = $self->{'prefstore'}->get_dashboards( $guid, $self->{'instance'} );
-	my $ids = [-1];
-	my $labels = { -1 => 'Select dashboard...' };
+	my $ids        = [-1];
+	my $labels     = { -1 => 'Select dashboard...' };
 	if ( defined $dashboard_id ) {
-	push @$ids,0;
-	$labels->{0} = "$self->{'dashboard_type'} default";	
+		push @$ids, 0;
+		$labels->{0} = "$self->{'dashboard_type'} default";
 	} else {
-#		if (@$dashboards) {
-#			$dashboard_id = $dashboards->[0]->{'id'};
-#		} else {
-			$dashboard_id = 0;
+		$dashboard_id = 0;
 	}
-	
-#		
-	
-	
 	foreach my $dashboard (@$dashboards) {
 		next if $dashboard->{'id'} == $dashboard_id;
 		push @$ids, $dashboard->{'id'};
@@ -3372,9 +3366,9 @@ sub _print_dashboard_management_fieldset {
 	}
 	say q(<li>);
 	if ( @$ids > 1 ) {
-	my $reset_display = $name eq 'query default' || $name eq 'primary default' ? q(none) : q(inline);
-	say q(<a id="delete_dashboard" onclick="resetDefaults()" class="small_reset" )
-	  . qq(style="display:$reset_display;white-space:nowrap"><span class="far fa-trash-alt"></span> Delete</a>);
+		my $reset_display = $name eq 'query default' || $name eq 'primary default' ? q(none) : q(inline);
+		say q(<a id="delete_dashboard" onclick="resetDefaults()" class="small_reset" )
+		  . qq(style="display:$reset_display;white-space:nowrap"><span class="far fa-trash-alt"></span> Delete</a>);
 	}
 	if ( @$dashboards < DASHBOARD_LIMIT ) {
 		say q(<a onclick="createNew()" class="small_submit">New dashboard</a>);
