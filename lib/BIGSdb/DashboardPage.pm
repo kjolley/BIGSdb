@@ -1951,7 +1951,7 @@ sub _get_doughnut_pie_threshold {
 	my $total         = 0;
 	$total += $_->{'value'} foreach @$data;
 	return $max_threshold if !$total;
-	my $running = 0;
+	my $running   = 0;
 	my $threshold = 0;
 	foreach my $value (@$data) {
 		$running += $value->{'value'};
@@ -3106,8 +3106,10 @@ sub initiate {
 	  foreach
 	  qw (jQuery noCache muuri modal fitty bigsdb.dashboard tooltips jQuery.fonticonpicker billboard d3.layout.cloud);
 	$self->{'geomap'} = 1 if $self->has_country_optlist;
+	$self->{'ol'}     = 1 if $self->need_openlayers;
 	$self->choose_set;
 	$self->{'breadcrumbs'} = [];
+
 	if ( $self->{'system'}->{'webroot'} ) {
 		push @{ $self->{'breadcrumbs'} },
 		  {
