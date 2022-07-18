@@ -3076,8 +3076,6 @@ sub _get_element_controls {
 sub _get_data_query_link {
 	my ( $self, $element ) = @_;
 	return q() if $self->{'no_query_link'};
-	my $type = $self->_get_field_type($element);
-	return q() if $type eq 'geography_point';
 	my $buffer = q();
 	$buffer .= qq(<span data-id="$element->{'id'}" class="dashboard_data_query_element fas fa-share">);
 	if ( $element->{'url_text'} ) {
