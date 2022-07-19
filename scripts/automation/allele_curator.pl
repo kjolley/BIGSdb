@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20220325
+#Version: 20220719
 use strict;
 use warnings;
 use 5.010;
@@ -49,8 +49,10 @@ GetOptions(
 	'identity=f'     => \$opts{'identity'},
 	'loci=s'         => \$opts{'l'},
 	'locus_regex=s'  => \$opts{'R'},
+	'reject'         => \$opts{'reject'},
 	'schemes=s'      => \$opts{'s'},
 	'submission=s'   => \$opts{'submission'},
+	'submitter=i'    => \$opts{'submitter_id'},
 	'type_alleles'   => \$opts{'type_alleles'},
 ) or die("Error in command line arguments\n");
 
@@ -96,6 +98,7 @@ sub main {
 		next if !$allele_submission;
 		next if $allele_submission->{'technology'} eq 'Sanger';
 		next if !$allowed_loci{ $allele_submission->{'locus'} };
+		next if defined $opts{'submitter_id'} && $submission->{'submitter'} != $opts{'submitter_id'};
 		my $locus_info = $script->{'datastore'}->get_locus_info( $allele_submission->{'locus'} );
 		next if $locus_info->{'allele_id_format'} ne 'integer';
 		my $ext_attributes =
@@ -107,11 +110,12 @@ sub main {
 	  SEQS: foreach my $seq (@$seqs) {
 			$seq->{'sequence'} =~ s/[\-\.\s]//gx;
 			if ( $locus_info->{'complete_cds'} ) {
-				my $start_codons = $script->{'datastore'}->get_start_codons( {locus=>$allele_submission->{'locus'} });
+				my $start_codons =
+				  $script->{'datastore'}->get_start_codons( { locus => $allele_submission->{'locus'} } );
 				my $complete_cds =
-				  BIGSdb::Utils::is_complete_cds( $seq->{'sequence'}, { start_codons => $start_codons } )
-				  ;
+				  BIGSdb::Utils::is_complete_cds( $seq->{'sequence'}, { start_codons => $start_codons } );
 				if ( !$complete_cds->{'cds'} ) {
+					reject_allele( $submission_id, $seq );
 					say "$seq->{'seq_id'}: Rejected - not complete CDS.";
 					next SEQS;
 				}
@@ -158,9 +162,10 @@ sub main {
 					next SEQS;
 				}
 			}
+			reject_allele( $submission_id, $seq );
 			say "$seq->{'seq_id'}: Rejected - too dissimilar to existing allele.";
 		}
-		my $all_assigned = are_all_alleles_assigned($submission_id);
+		my $all_assigned = are_all_alleles_assigned_or_rejected($submission_id);
 		if ($all_assigned) {
 			close_submission($submission_id);
 		}
@@ -170,13 +175,31 @@ sub main {
 	return;
 }
 
+sub reject_allele {
+	my ( $submission_id, $seq ) = @_;
+	return if !$opts{'reject'};
+	my $submission = $script->{'submissionHandler'}->get_submission($submission_id);
+	return if !$submission;
+	eval {
+		$script->{'db'}->do( 'UPDATE allele_submission_sequences SET status=? WHERE (submission_id,index)=(?,?)',
+			undef, 'rejected', $submission_id, $seq->{'index'} );
+	};
+	if ($@) {
+		$script->{'db'}->rollback;
+		die "$@\n";
+	}
+	$script->{'db'}->commit;
+	return;
+}
+
 sub close_submission {
 	my ($submission_id) = @_;
 	my $submission = $script->{'submissionHandler'}->get_submission($submission_id);
 	return if !$submission;
+	my $outcome = get_outcome($submission_id);
 	eval {
 		$script->{'db'}->do( 'UPDATE submissions SET (status,outcome,datestamp,curator)=(?,?,?,?) WHERE id=?',
-			undef, 'closed', 'good', 'now', DEFINER_USER, $submission_id );
+			undef, 'closed', $outcome, 'now', DEFINER_USER, $submission_id );
 	};
 	if ($@) {
 		$script->{'db'}->rollback;
@@ -202,13 +225,27 @@ sub close_submission {
 	return;
 }
 
-sub are_all_alleles_assigned {
+sub get_outcome {
+	my ($submission_id) = @_;
+	my $states =
+	  $script->{'datastore'}
+	  ->run_query( 'SELECT DISTINCT(status) FROM allele_submission_sequences WHERE submission_id=?',
+		$submission_id, { fetch => 'col_arrayref' } );
+	my %states = map { $_ => 1 } @$states;
+	return 'pending' if $states{'pending'};
+	return 'mixed'   if $states{'rejected'} && $states{'assigned'};
+	return 'bad'     if $states{'rejected'};
+	return 'good'    if $states{'assigned'};
+	return;
+}
+
+sub are_all_alleles_assigned_or_rejected {
 	my ($submission_id) = @_;
 	my $allele_submission = $script->{'submissionHandler'}->get_allele_submission($submission_id);
 	return if !$allele_submission;
 	my $all_assigned = 1;
 	foreach my $seq ( @{ $allele_submission->{'seqs'} } ) {
-		$all_assigned = 0 if $seq->{'status'} ne 'assigned';
+		$all_assigned = 0 if $seq->{'status'} ne 'assigned' && $seq->{'status'} ne 'rejected';
 	}
 	return $all_assigned;
 }
@@ -287,12 +324,18 @@ ${bold}--loci$norm ${under}LIST$norm
     
 ${bold}--locus_regex$norm ${under}REGEX$norm
     Regex for locus names.    
+    
+${bold}--reject$norm
+    Automatically reject any allele that fails checks.
 
 ${bold}--schemes$norm ${under}LIST$norm
     Comma-separated list of scheme loci to scan.
    
 ${bold}--submission$norm ${under}SUBMISSION ID$norm
     Submission id.
+    
+${bold}--submitter$norm ${under}USER_ID$norm
+    Only process submissions from specifed user id.
     
 ${bold}--type_alleles$norm
     Only use alleles with the 'type_allele' flag set to compare against.
