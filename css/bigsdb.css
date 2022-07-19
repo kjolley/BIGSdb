@@ -1416,6 +1416,7 @@ div.new_item {
 	padding: 1em 0.1em;
 	color: #888;
 	font-weight: 600;
+	pointer-events:none
 }
 
 .item-content div.subtitle {

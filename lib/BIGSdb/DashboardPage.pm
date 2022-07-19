@@ -335,25 +335,32 @@ sub _print_chart_type_controls {
 	say q(<fieldset><legend>Display element</legend>);
 	say qq(<ul><li id="breakdown_display_selector" style="display:$breakdown_display">);
 	say qq(<label for="${id}_breakdown_display">Element: </label>);
-	my $field_type = lc( $self->_get_field_type($element) );
-	my @breakdown_charts =
-	  $field_type eq 'date'
-	  ? qw(bar cumulative doughnut pie)
-	  : qw(bar doughnut pie top treemap);
+	my $field_type  = lc( $self->_get_field_type($element) );
+	my $chart_types = {
+		date            => [qw(bar cumulative doughnut pie)],
+		geography_point => [qw(bar doughnut gps_map pie top treemap)]
+	};
+	my $breakdown_charts;
 
+	if ( $chart_types->{$field_type} ) {
+		$breakdown_charts = $chart_types->{$field_type};
+	} else {
+		$breakdown_charts = [qw(bar doughnut pie top treemap)];
+	}
 	if ( $self->_field_has_optlist( $element->{'field'} ) ) {
-		push @breakdown_charts, 'word';
+		push @$breakdown_charts, 'word';
 	}
 	if ( ( $element->{'field'} eq 'f_country' || $element->{'field'} eq 'e_country||continent' )
 		&& $self->has_country_optlist )
 	{
-		push @breakdown_charts, 'map';
+		push @$breakdown_charts, 'map';
 	}
 	say $q->popup_menu(
-		-name    => "${id}_breakdown_display",
-		-id      => "${id}_breakdown_display",
-		-values  => [ 0, @breakdown_charts ],
-		-labels  => { 0 => 'Select...', top => 'top values', map => 'world map', word => 'word cloud' },
+		-name   => "${id}_breakdown_display",
+		-id     => "${id}_breakdown_display",
+		-values => [ 0, @$breakdown_charts ],
+		-labels =>
+		  { 0 => 'Select...', top => 'top values', gps_map => 'map', map => 'world map', word => 'word cloud' },
 		-class   => 'element_option',
 		-default => $element->{'breakdown_display'}
 	);
@@ -1473,6 +1480,7 @@ sub _get_field_element_content {
 			top        => sub { $self->_get_field_breakdown_top_values_content($element) },
 			treemap    => sub { $self->_get_field_breakdown_treemap_content($element) },
 			map        => sub { $self->_get_field_breakdown_map_content($element) },
+			gps_map    => sub { $self->_get_field_breakdown_gps_map_content($element) },
 		);
 		if ( $methods{$chart_type} ) {
 			$buffer .= $methods{$chart_type}->();
@@ -2941,6 +2949,58 @@ function get_range(data) {
 }  	    	
 </script>
 JS
+	return $buffer;
+}
+
+sub _get_field_breakdown_gps_map_content {
+	my ( $self, $element ) = @_;
+	my $data = $self->_get_field_breakdown_values($element);
+	if ( !@$data ) {
+		return $self->_print_no_value_content($element);
+	}
+	my $height = $element->{'height'} * 150;
+	my $buffer = qq(<div id="chart_$element->{'id'}" style="height:${height}px;"></div>);
+	$buffer .= qq(<script>\n);
+	if ( $self->{'config'}->{'bingmaps_api'} ) {
+		$buffer .= <<"JS";
+		var layer = [
+			new ol.layer.Tile({
+				visible: true,
+				preload: Infinity,
+				source: new ol.source.BingMaps({
+					key: '$self->{'config'}->{'bingmaps_api'}',
+					imagerySet: 'RoadOnDemand'
+				})
+			})
+		];
+JS
+	} else {
+		$buffer .= <<"JS";
+		var layer = [
+			new ol.layer.Tile({
+				source: new ol.source.OSM({
+					crossOrigin: null
+				})
+			})
+		];	
+JS
+	}
+	$buffer .= <<"JS";
+		var map = new ol.Map({
+			target: 'chart_$element->{'id'}',
+			layers: layer,
+			view: new ol.View({
+				center: ol.proj.fromLonLat([0, 20]),
+				zoom: 2,
+				minZoom: 1,
+				maxZoom: 16
+			})
+		});
+JS
+	$buffer .= qq(</script>\n);
+	$buffer .=
+	    q(<div class="title gps_map_title" )
+	  . qq(style="position:absolute;top:0;width:100%;color:#666">$element->{'name'}</div>);
 	return $buffer;
 }
 
