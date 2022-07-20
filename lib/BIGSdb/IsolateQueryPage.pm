@@ -735,12 +735,13 @@ sub _modify_query_by_list {
 	my ( $self, $qry ) = @_;
 	my $q = $self->{'cgi'};
 	return $qry if !$q->param('list');
-	my $attribute = $q->param('attribute');
-	my $attribute_data = $self->get_list_attribute_data( $attribute );
+	my $attribute      = $q->param('attribute');
+	my $attribute_data = $self->get_list_attribute_data($attribute);
 	my ( $field, $extended_field, $scheme_id, $field_type, $data_type, $eav_table, $optlist, $multiple ) =
 	  @{$attribute_data}{qw (field extended_field scheme_id field_type data_type eav_table optlist multiple)};
 	return $qry if !$field;
 	my @list = split /\n/x, $q->param('list');
+
 	if ($optlist) {
 		my %used = map { $_ => 1 } @list;
 		foreach my $value (@list) {
@@ -3921,7 +3922,11 @@ $qry_file_init
 $list_file_init
 $list_attribute_init
 END
+	if ( $self->need_openlayers ) {
+		$buffer .= $self->get_gps_marker_layer_javascript;
 	}
+	}
+	
 	return $buffer;
 }
 
@@ -3976,6 +3981,7 @@ sub initiate {
 	if ( $self->_dashboard_enabled ) {
 		$self->{$_} = 1 foreach qw(muuri modal fitty bigsdb.dashboard jQuery.fonticonpicker billboard d3.layout.cloud);
 		$self->{'geomap'} = 1 if $self->has_country_optlist;
+		$self->{'ol'}     = 1 if $self->need_openlayers;
 		$self->SUPER::initiate;
 		$self->{'dashboard_type'} = 'query';
 		$self->get_or_set_dashboard_prefs;

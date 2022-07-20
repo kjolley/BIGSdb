@@ -2958,11 +2958,19 @@ sub _get_field_breakdown_gps_map_content {
 	if ( !@$data ) {
 		return $self->_print_no_value_content($element);
 	}
-	my $height = $element->{'height'} * 150;
-	my $buffer = qq(<div id="chart_$element->{'id'}" style="height:${height}px;"></div>);
+	my $values = [];
+	foreach my $value (@$data) {
+		next if !defined $value->{'label'};
+		push @$values, $value;
+	}
+	my $json    = JSON->new->allow_nonref;
+	my $dataset = $json->encode($values);
+	my $height  = $element->{'height'} * 150;
+	my $buffer  = qq(<div id="chart_$element->{'id'}" style="height:${height}px;"></div>);
 	$buffer .= qq(<script>\n);
 	if ( $self->{'config'}->{'bingmaps_api'} ) {
 		$buffer .= <<"JS";
+		var data = $dataset;	
 		var layer = [
 			new ol.layer.Tile({
 				visible: true,
@@ -2996,6 +3004,19 @@ JS
 				maxZoom: 16
 			})
 		});
+		var vectorLayer = get_marker_layer(data);
+		map.addLayer(vectorLayer);
+		var features = vectorLayer.getSource().getFeatures();
+		if (features.length) {
+			map.getView().fit(vectorLayer.getSource().getExtent(), {
+				size: map.getSize(),
+				padding: [10, 10, 10, 10],
+				minZoom: 2,
+				maxZoom: 12,
+				constrainResolution: false
+			});
+		}
+		
 JS
 	$buffer .= qq(</script>\n);
 	$buffer .=
@@ -3595,7 +3616,73 @@ var datestamps = $datestamps;
 var qryFile;
 var listFile;
 var listAttribute;
+
 END
+
+	if ( $self->need_openlayers ) {
+		$buffer .= $self->get_gps_marker_layer_javascript;
+	}
+	return $buffer;
+}
+
+sub get_gps_marker_layer_javascript {
+	my $buffer = <<"JS";
+function get_marker_layer(jsonData) {
+	let colours = {
+		marker_red: 'rgb(255,0,0,0.7)',
+		marker_blue: 'rgb(0,0,255,0.7)',
+		marker_green: 'rgb(13,130,58,0.7)',
+		marker_purple: 'rgb(176,2,250,0.7)',
+		marker_orange: 'rgb(250,85,2,0.7)',
+		marker_yellow: 'rgb(252,207,3,0.7)',
+		marker_grey: 'rgb(48,48,48,0.7)'
+	};
+	let marker_colour = 'marker_red';
+	let marker_size = 2;
+	let pstyles = [];
+	for (let i = 0; i < 10; ++i) {
+		let pstyle = new ol.style.Style({
+			image: new ol.style.Circle({
+				radius: parseInt(marker_size) + i,
+				fill: new ol.style.Fill({
+					color: colours[marker_colour]
+				})
+			})
+		});
+		pstyles.push(pstyle);
+	}
+	let thresholds = [1, 2, 5, 10, 25, 50, 100, 250, 500];
+	let features = [];
+	jsonData.forEach(function(e) {
+		let coordinates = (e.label.match(/(\\-?\\d+\\.?\\d*),\\s*(\\-?\\d+\\.?\\d*)/));
+		if (coordinates != null) {
+			let latitude = parseFloat(coordinates[1]);
+			let longitude = parseFloat(coordinates[2]);
+			let threshold;
+			for (let i = 0; i < 9; ++i) {
+				if (parseInt(e.value) <= thresholds[i]) {
+					threshold = i;
+					break;
+				}
+			}
+			if (threshold == null) {
+				threshold = 9;
+			}
+			let feature = new ol.Feature({
+				geometry: new ol.geom.Point(ol.proj.fromLonLat([longitude, latitude])),
+			});
+			feature.setStyle(pstyles[threshold])
+			features.push(feature);
+		}
+	});
+	let vectorLayer = new ol.layer.Vector({
+		source: new ol.source.Vector({
+			features: features
+		})
+	})
+	return vectorLayer;
+}	
+JS
 	return $buffer;
 }
 1;
