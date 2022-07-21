@@ -2982,7 +2982,7 @@ sub lookup_geography_point {
 		return;
 	}
 	my $countries = COUNTRIES;
-	if ( !defined $countries->{ $data->{'country'} }->{'iso2'} ) {
+	if ( !defined $countries->{ $data->{$country_field} }->{'iso2'} ) {
 		$logger->error("No iso2 country code defined for $data->{'country'}");
 		return;
 	}
@@ -2993,8 +2993,8 @@ sub lookup_geography_point {
 		'SELECT ST_X(location::geometry),ST_Y(location::geometry) FROM geography_point_lookup '
 		  . 'WHERE (country_code,field,value)=(?,?,?) OR (country_code,field,UPPER(value))=(?,?,UPPER(?))',
 		[
-			$countries->{ $data->{'country'} }->{'iso2'},
-			$field, $data->{$field}, $countries->{ $data->{'country'} }->{'iso2'},
+			$countries->{ $data->{$country_field} }->{'iso2'},
+			$field, $data->{$field}, $countries->{ $data->{$country_field} }->{'iso2'},
 			$field, $data->{$field}
 		]
 	);

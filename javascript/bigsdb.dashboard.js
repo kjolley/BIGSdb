@@ -218,7 +218,7 @@ $(function() {
 		value = value.replace(/^marker_/, "");
 		changeElementAttribute(grid, element_id, attribute, value);
 	});
-	$(document).on("click", '.marker_size', function(event) {
+	$(document).on("click touchstart mouseup keyup", '.marker_size', function(event) {
 		var id = $(this).attr('id');
 		var attribute = 'marker_size';
 		var element_id = id.replace("_" + value, "");
@@ -831,7 +831,8 @@ function get_marker_layer(jsonData, colour, size) {
 		});
 		pstyles.push(pstyle);
 	}
-	let thresholds = [1, 2, 5, 10, 25, 50, 100, 250, 500];
+//	let thresholds = [1, 2, 5, 10, 25, 50, 100, 250, 500];
+	let thresholds = [1, 25, 100, 500];
 	let features = [];
 	jsonData.forEach(function(e) {
 		let coordinates = (e.label.match(/(\-?\d+\.?\d*),\s*(\-?\d+\.?\d*)/));
@@ -839,14 +840,14 @@ function get_marker_layer(jsonData, colour, size) {
 			let latitude = parseFloat(coordinates[1]);
 			let longitude = parseFloat(coordinates[2]);
 			let threshold;
-			for (let i = 0; i < 9; ++i) {
+			for (let i = 0; i < thresholds.length; ++i) {
 				if (parseInt(e.value) <= thresholds[i]) {
 					threshold = i;
 					break;
 				}
 			}
 			if (threshold == null) {
-				threshold = 9;
+				threshold = thresholds.length;
 			}
 			let feature = new ol.Feature({
 				geometry: new ol.geom.Point(ol.proj.fromLonLat([longitude, latitude])),

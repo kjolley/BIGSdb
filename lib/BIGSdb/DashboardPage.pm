@@ -294,6 +294,15 @@ sub _field_has_optlist {
 	return;
 }
 
+sub _field_linked_to_gps {
+	my ( $self, $field ) = @_;
+	if ( $field =~ /^f_(.*)/x ) {
+		my $attributes = $self->{'xmlHandler'}->get_field_attributes($1);
+		return 1 if ( $attributes->{'geography_point_lookup'} // q() ) eq 'yes';
+	}
+	return;
+}
+
 sub _get_field_type {
 	my ( $self, $element ) = @_;
 	if ( $element->{'display'} eq 'field' && !defined $element->{'field'} ) {
@@ -350,17 +359,20 @@ sub _print_chart_type_controls {
 	if ( $self->_field_has_optlist( $element->{'field'} ) ) {
 		push @$breakdown_charts, 'word';
 	}
+	if ( $self->_field_linked_to_gps( $element->{'field'} ) ) {
+		push @$breakdown_charts, 'gps_map';
+	}
 	if ( ( $element->{'field'} eq 'f_country' || $element->{'field'} eq 'e_country||continent' )
 		&& $self->has_country_optlist )
 	{
 		push @$breakdown_charts, 'map';
 	}
+	my %labels = ( top => 'top values', gps_map => 'map', map => 'world map', word => 'word cloud' );
 	say $q->popup_menu(
 		-name   => "${id}_breakdown_display",
 		-id     => "${id}_breakdown_display",
-		-values => [ 0, @$breakdown_charts ],
-		-labels =>
-		  { 0 => 'Select...', top => 'top values', gps_map => 'map', map => 'world map', word => 'word cloud' },
+		-values => [ 0, sort { ( $labels{$a} // $a ) cmp( $labels{$b} // $b ) } @$breakdown_charts ],
+		-labels  => { 0 => 'Select...', %labels },
 		-class   => 'element_option',
 		-default => $element->{'breakdown_display'}
 	);
@@ -637,8 +649,8 @@ sub _print_palette_control {
 sub _print_gps_map_control {
 	my ( $self, $id, $element ) = @_;
 	my $bingmaps_api = $self->{'system'}->{'bingmaps_api'} // $self->{'config'}->{'bingmaps_api'};
-	my $q = $self->{'cgi'};
-	my $marker_size = $element->{'marker_size'} // 2;
+	my $q            = $self->{'cgi'};
+	my $marker_size  = $element->{'marker_size'} // 2;
 	say q(<li id="gps_map_control" style="display:none">);
 	say q(<div style="margin-top:-0.5em"><ul>);
 	if ( defined $bingmaps_api ) {
@@ -665,7 +677,8 @@ sub _print_gps_map_control {
 	  . qq(<span id="${id}_marker_yellow" style="color:#fccf03" class="marker_colour fas fa-square"></span>)
 	  . qq(<span id="${id}_marker_grey" style="color:#303030" class="marker_colour fas fa-square"></span>);
 	say q(<li><li><label for="segments">Marker size:</label>);
-	say qq(<div id="${id}_marker_size" class="marker_size" style="display:inline-block;width:8em;margin-left:0.5em"></div>);
+	say
+qq(<div id="${id}_marker_size" class="marker_size" style="display:inline-block;width:8em;margin-left:0.5em"></div>);
 	say q(</ul></div>);
 	say q(</li>);
 	say qq(<script>\$("#${id}_marker_size").slider({ min: 0, max: 10, value: $marker_size });</script>);
@@ -1749,6 +1762,42 @@ sub _get_field_breakdown_values {
 		return $self->_get_scheme_field_breakdown_values( $scheme_id, $field );
 	}
 	return [];
+}
+
+sub _get_linked_gps_field_breakdown_values {
+	my ( $self, $element ) = @_;
+	( my $field = $element->{'field'} ) =~ s/^f_//x;
+	my $country_field = $self->{'system'}->{'country_field'} // 'country';
+	if ( !$self->{'xmlHandler'}->is_field($country_field) ) {
+		$logger->error("$country_field field does not exist.");
+		return;
+	}
+	my $qry =
+	    "SELECT $field AS label,$country_field AS country,COUNT(*) "
+	  . "AS value FROM $self->{'view'} v WHERE $field IS NOT NULL";
+	my $filters = $self->_get_filters;
+	local $" = ' AND ';
+	$qry .= " AND @$filters" if @$filters;
+	$qry .= ' GROUP BY label,country';
+	my $data = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
+	my $values = [];
+
+	foreach my $value (@$data) {
+		my $coordinates = $self->{'datastore'}->lookup_geography_point(
+			{
+				$country_field => $value->{'country'},
+				$field         => $value->{'label'}
+			},
+			$field
+		);
+		if ($coordinates->{'latitude'}){
+			push @$values, {
+				label => "$coordinates->{'latitude'}, $coordinates->{'longitude'}",
+				value => $value->{'value'}
+			};
+		}
+	}
+	return $values;
 }
 
 sub _get_primary_metadata_breakdown_values {
@@ -2993,7 +3042,10 @@ JS
 
 sub _get_field_breakdown_gps_map_content {
 	my ( $self, $element ) = @_;
-	my $data = $self->_get_field_breakdown_values($element);
+	my $data =
+	    $self->_field_linked_to_gps( $element->{'field'} )
+	  ? $self->_get_linked_gps_field_breakdown_values($element)
+	  : $self->_get_field_breakdown_values($element);
 	if ( !@$data ) {
 		return $self->_print_no_value_content($element);
 	}
@@ -3012,7 +3064,7 @@ sub _get_field_breakdown_gps_map_content {
 	);
 	my $imagery_set = $map_type{ $element->{'geography_view'} // 'Map' };
 	my $marker_colour = $element->{'marker_colour'} // 'red';
-	my $marker_size = $element->{'marker_size'} // 1;
+	my $marker_size   = $element->{'marker_size'}   // 1;
 	$imagery_set //= 'RoadOnDemand';
 	$buffer .= qq(<script>\n);
 
