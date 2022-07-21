@@ -210,6 +210,22 @@ $(function() {
 		}
 		changeElementAttribute(grid, element_id, attribute, value);
 	});
+	$(document).on("click", '.marker_colour', function(event) {
+		var id = $(this).attr('id');
+		var attribute = 'marker_colour';
+		var value = id.replace(/^\d+_/, "");
+		var element_id = id.replace("_" + value, "");
+		value = value.replace(/^marker_/, "");
+		changeElementAttribute(grid, element_id, attribute, value);
+	});
+	$(document).on("click", '.marker_size', function(event) {
+		var id = $(this).attr('id');
+		var attribute = 'marker_size';
+		var element_id = id.replace("_" + value, "");
+		var value = $(this).slider("option","value");
+		var element_id = id.replace("_" + attribute, "");
+		changeElementAttribute(grid, element_id, attribute, value);
+	});
 	$(document).on("change", '.palette_selector', function(event) {
 		var id = $(this).attr('id');
 		id = id.replace(/_palette$/, "");
@@ -352,13 +368,15 @@ function clean_value(value) {
 			return el != null && el != '';
 		});
 	} else {
-		value = value.trim();
+		if (typeof value === 'string'){
+			value = value.trim();
+		}
 	}
 	return value;
 }
 
 function changeElementAttribute(grid, id, attribute, value) {
-	if (elements[id][attribute] === value) {
+	if (typeof elements[id][attribute] !== 'undefined' && elements[id][attribute] === value) {
 		return;
 	}
 	if (attribute === 'specific_values' && !Array.isArray(value)) {
@@ -472,7 +490,8 @@ function showOrHideControlElements(id) {
 	$("fieldset#change_duration_control,fieldset#design_control,"
 		+ "li#value_selector,li#breakdown_display_selector,li#specific_value_display_selector,"
 		+ "li#top_value_selector,li#watermark_control,li#palette_control,li#text_colour_control,"
-		+ "li#background_colour_control,li.gauge_colour,li#bar_colour_type,li#chart_colour").css("display", "none");
+		+ "li#background_colour_control,li.gauge_colour,li#bar_colour_type,li#chart_colour",
+		+ "li#gps_map_control").css("display", "none");
 
 	//Enable elements as required.
 	if (elements[id]['display'] == 'record_count') {
@@ -516,6 +535,9 @@ function showOrHideControlElements(id) {
 		} else if (breakdown_display === 'top') {
 			$("fieldset#design_control").css("display", "inline");
 			$("li#top_value_selector,li#header_colour_control,li#header_background_colour_control").css("display", "block");
+		} else if (breakdown_display === 'gps_map') {
+			$("fieldset#design_control").css("display", "inline");
+			$("li#gps_map_control").css("display", "block");
 		}
 	}
 }
@@ -785,6 +807,60 @@ function createNew() {
 			}
 		}
 	});
+}
+
+function get_marker_layer(jsonData, colour, size) {
+	let colours = {
+		red: 'rgb(255,0,0,0.7)',
+		blue: 'rgb(0,0,255,0.7)',
+		green: 'rgb(13,130,58,0.7)',
+		purple: 'rgb(176,2,250,0.7)',
+		orange: 'rgb(250,85,2,0.7)',
+		yellow: 'rgb(252,207,3,0.7)',
+		grey: 'rgb(48,48,48,0.7)'
+	};
+	let pstyles = [];
+	for (let i = 0; i < 10; ++i) {
+		let pstyle = new ol.style.Style({
+			image: new ol.style.Circle({
+				radius: parseInt(size) + i,
+				fill: new ol.style.Fill({
+					color: colours[colour]
+				})
+			})
+		});
+		pstyles.push(pstyle);
+	}
+	let thresholds = [1, 2, 5, 10, 25, 50, 100, 250, 500];
+	let features = [];
+	jsonData.forEach(function(e) {
+		let coordinates = (e.label.match(/(\-?\d+\.?\d*),\s*(\-?\d+\.?\d*)/));
+		if (coordinates != null) {
+			let latitude = parseFloat(coordinates[1]);
+			let longitude = parseFloat(coordinates[2]);
+			let threshold;
+			for (let i = 0; i < 9; ++i) {
+				if (parseInt(e.value) <= thresholds[i]) {
+					threshold = i;
+					break;
+				}
+			}
+			if (threshold == null) {
+				threshold = 9;
+			}
+			let feature = new ol.Feature({
+				geometry: new ol.geom.Point(ol.proj.fromLonLat([longitude, latitude])),
+			});
+			feature.setStyle(pstyles[threshold])
+			features.push(feature);
+		}
+	});
+	let vectorLayer = new ol.layer.Vector({
+		source: new ol.source.Vector({
+			features: features
+		})
+	})
+	return vectorLayer;
 }
 
 function commify(x) {

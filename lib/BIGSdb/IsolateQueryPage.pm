@@ -3922,11 +3922,7 @@ $qry_file_init
 $list_file_init
 $list_attribute_init
 END
-	if ( $self->need_openlayers ) {
-		$buffer .= $self->get_gps_marker_layer_javascript;
 	}
-	}
-	
 	return $buffer;
 }
 

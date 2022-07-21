@@ -485,6 +485,7 @@ sub _print_design_control {
 	$self->_print_colour_control( $id, $element );
 	$self->_print_watermark_control( $id, $element );
 	$self->_print_palette_control( $id, $element );
+	$self->_print_gps_map_control( $id, $element );
 	say q(</ul></fieldset>);
 	return;
 }
@@ -630,6 +631,44 @@ sub _print_palette_control {
 		-default => $element->{'palette'} // 'green'
 	);
 	say q(</li>);
+	return;
+}
+
+sub _print_gps_map_control {
+	my ( $self, $id, $element ) = @_;
+	my $bingmaps_api = $self->{'system'}->{'bingmaps_api'} // $self->{'config'}->{'bingmaps_api'};
+	my $q = $self->{'cgi'};
+	my $marker_size = $element->{'marker_size'} // 2;
+	say q(<li id="gps_map_control" style="display:none">);
+	say q(<div style="margin-top:-0.5em"><ul>);
+	if ( defined $bingmaps_api ) {
+		say q(<li><label for="view">View:</label>);
+		say $q->radio_group(
+			-name    => "${id}_geography_view",
+			-id      => "${id}_geography_view",
+			-values  => [qw(Map Aerial)],
+			-default => 'Map',
+			-class   => 'element_option',
+			-default => $element->{'geography_view'} // 'Map'
+		);
+		say q(</li>);
+	}
+	say q(<style>.marker_colour.fa-square {text-shadow: 2px 2px 2px #999;font-size:1.8em;)
+	  . q(margin-right:0.2em;cursor:pointer}</style>);
+	say q(<li><span style="float:left;margin-right:0.5em">Marker colour:</span>)
+	  . q(<div style="display:inline-block">)
+	  . qq(<span id="${id}_marker_red" style="color:#ff0000" class="marker_colour fas fa-square"></span>)
+	  . qq(<span id="${id}_marker_green" style="color:#0d823a" class="marker_colour fas fa-square"></span>)
+	  . qq(<span id="${id}_marker_blue" style="color:#0000ff" class="marker_colour fas fa-square"></span>)
+	  . qq(<span id="${id}_marker_purple" style="color:#b002fa" class="marker_colour fas fa-square"></span>)
+	  . qq(<span id="${id}_marker_orange" style="color:#fa5502" class="marker_colour fas fa-square"></span>)
+	  . qq(<span id="${id}_marker_yellow" style="color:#fccf03" class="marker_colour fas fa-square"></span>)
+	  . qq(<span id="${id}_marker_grey" style="color:#303030" class="marker_colour fas fa-square"></span>);
+	say q(<li><li><label for="segments">Marker size:</label>);
+	say qq(<div id="${id}_marker_size" class="marker_size" style="display:inline-block;width:8em;margin-left:0.5em"></div>);
+	say q(</ul></div>);
+	say q(</li>);
+	say qq(<script>\$("#${id}_marker_size").slider({ min: 0, max: 10, value: $marker_size });</script>);
 	return;
 }
 
@@ -2963,21 +3002,30 @@ sub _get_field_breakdown_gps_map_content {
 		next if !defined $value->{'label'};
 		push @$values, $value;
 	}
-	my $json    = JSON->new->allow_nonref;
-	my $dataset = $json->encode($values);
-	my $height  = $element->{'height'} * 150;
-	my $buffer  = qq(<div id="chart_$element->{'id'}" style="height:${height}px;"></div>);
+	my $json     = JSON->new->allow_nonref;
+	my $dataset  = $json->encode($values);
+	my $height   = $element->{'height'} * 150 + ( $element->{'height'} - 1 ) * 4;
+	my $buffer   = qq(<div id="chart_$element->{'id'}" style="height:${height}px;"></div>);
+	my %map_type = (
+		Map    => 'RoadOnDemand',
+		Aerial => 'AerialWithLabelsOnDemand'
+	);
+	my $imagery_set = $map_type{ $element->{'geography_view'} // 'Map' };
+	my $marker_colour = $element->{'marker_colour'} // 'red';
+	my $marker_size = $element->{'marker_size'} // 1;
+	$imagery_set //= 'RoadOnDemand';
 	$buffer .= qq(<script>\n);
+
 	if ( $self->{'config'}->{'bingmaps_api'} ) {
 		$buffer .= <<"JS";
-		var data = $dataset;	
+		
 		var layer = [
 			new ol.layer.Tile({
 				visible: true,
 				preload: Infinity,
 				source: new ol.source.BingMaps({
 					key: '$self->{'config'}->{'bingmaps_api'}',
-					imagerySet: 'RoadOnDemand'
+					imagerySet: '$imagery_set'
 				})
 			})
 		];
@@ -2994,28 +3042,29 @@ JS
 JS
 	}
 	$buffer .= <<"JS";
-		var map = new ol.Map({
-			target: 'chart_$element->{'id'}',
-			layers: layer,
-			view: new ol.View({
-				center: ol.proj.fromLonLat([0, 20]),
-				zoom: 2,
-				minZoom: 1,
-				maxZoom: 16
-			})
+	var data = $dataset;	
+	var map = new ol.Map({
+		target: 'chart_$element->{'id'}',
+		layers: layer,
+		view: new ol.View({
+			center: ol.proj.fromLonLat([0, 20]),
+			zoom: 2,
+			minZoom: 1,
+			maxZoom: 16
+		})
+	});
+	var vectorLayer = get_marker_layer(data, '$marker_colour', $marker_size);
+	map.addLayer(vectorLayer);
+	var features = vectorLayer.getSource().getFeatures();
+	if (features.length) {
+		map.getView().fit(vectorLayer.getSource().getExtent(), {
+			size: map.getSize(),
+			padding: [10, 10, 10, 10],
+			minZoom: 2,
+			maxZoom: 12,
+			constrainResolution: false
 		});
-		var vectorLayer = get_marker_layer(data);
-		map.addLayer(vectorLayer);
-		var features = vectorLayer.getSource().getFeatures();
-		if (features.length) {
-			map.getView().fit(vectorLayer.getSource().getExtent(), {
-				size: map.getSize(),
-				padding: [10, 10, 10, 10],
-				minZoom: 2,
-				maxZoom: 12,
-				constrainResolution: false
-			});
-		}
+	}
 		
 JS
 	$buffer .= qq(</script>\n);
@@ -3618,71 +3667,6 @@ var listFile;
 var listAttribute;
 
 END
-
-	if ( $self->need_openlayers ) {
-		$buffer .= $self->get_gps_marker_layer_javascript;
-	}
-	return $buffer;
-}
-
-sub get_gps_marker_layer_javascript {
-	my $buffer = <<"JS";
-function get_marker_layer(jsonData) {
-	let colours = {
-		marker_red: 'rgb(255,0,0,0.7)',
-		marker_blue: 'rgb(0,0,255,0.7)',
-		marker_green: 'rgb(13,130,58,0.7)',
-		marker_purple: 'rgb(176,2,250,0.7)',
-		marker_orange: 'rgb(250,85,2,0.7)',
-		marker_yellow: 'rgb(252,207,3,0.7)',
-		marker_grey: 'rgb(48,48,48,0.7)'
-	};
-	let marker_colour = 'marker_red';
-	let marker_size = 2;
-	let pstyles = [];
-	for (let i = 0; i < 10; ++i) {
-		let pstyle = new ol.style.Style({
-			image: new ol.style.Circle({
-				radius: parseInt(marker_size) + i,
-				fill: new ol.style.Fill({
-					color: colours[marker_colour]
-				})
-			})
-		});
-		pstyles.push(pstyle);
-	}
-	let thresholds = [1, 2, 5, 10, 25, 50, 100, 250, 500];
-	let features = [];
-	jsonData.forEach(function(e) {
-		let coordinates = (e.label.match(/(\\-?\\d+\\.?\\d*),\\s*(\\-?\\d+\\.?\\d*)/));
-		if (coordinates != null) {
-			let latitude = parseFloat(coordinates[1]);
-			let longitude = parseFloat(coordinates[2]);
-			let threshold;
-			for (let i = 0; i < 9; ++i) {
-				if (parseInt(e.value) <= thresholds[i]) {
-					threshold = i;
-					break;
-				}
-			}
-			if (threshold == null) {
-				threshold = 9;
-			}
-			let feature = new ol.Feature({
-				geometry: new ol.geom.Point(ol.proj.fromLonLat([longitude, latitude])),
-			});
-			feature.setStyle(pstyles[threshold])
-			features.push(feature);
-		}
-	});
-	let vectorLayer = new ol.layer.Vector({
-		source: new ol.source.Vector({
-			features: features
-		})
-	})
-	return vectorLayer;
-}	
-JS
 	return $buffer;
 }
 1;
