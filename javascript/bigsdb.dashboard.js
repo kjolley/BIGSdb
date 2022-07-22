@@ -218,7 +218,7 @@ $(function() {
 		value = value.replace(/^marker_/, "");
 		changeElementAttribute(grid, element_id, attribute, value);
 	});
-	$(document).on("click touchstart mouseup keyup", '.marker_size', function(event) {
+	$(document).on("click change touchstart mouseup keyup", '.marker_size', function(event) {
 		var id = $(this).attr('id');
 		var attribute = 'marker_size';
 		var element_id = id.replace("_" + value, "");
@@ -490,8 +490,8 @@ function showOrHideControlElements(id) {
 	$("fieldset#change_duration_control,fieldset#design_control,"
 		+ "li#value_selector,li#breakdown_display_selector,li#specific_value_display_selector,"
 		+ "li#top_value_selector,li#watermark_control,li#palette_control,li#text_colour_control,"
-		+ "li#background_colour_control,li.gauge_colour,li#bar_colour_type,li#chart_colour",
-		+ "li#gps_map_control").css("display", "none");
+		+ "li#background_colour_control,li.gauge_colour,li#bar_colour_type,li#chart_colour,"
+		+ "li#header_colour_control,li#header_background_colour_control,li#gps_map_control").css("display", "none");
 
 	//Enable elements as required.
 	if (elements[id]['display'] == 'record_count') {

@@ -1790,11 +1790,12 @@ sub _get_linked_gps_field_breakdown_values {
 			},
 			$field
 		);
-		if ($coordinates->{'latitude'}){
-			push @$values, {
+		if ( $coordinates->{'latitude'} ) {
+			push @$values,
+			  {
 				label => "$coordinates->{'latitude'}, $coordinates->{'longitude'}",
 				value => $value->{'value'}
-			};
+			  };
 		}
 	}
 	return $values;
@@ -3046,9 +3047,7 @@ sub _get_field_breakdown_gps_map_content {
 	    $self->_field_linked_to_gps( $element->{'field'} )
 	  ? $self->_get_linked_gps_field_breakdown_values($element)
 	  : $self->_get_field_breakdown_values($element);
-	if ( !@$data ) {
-		return $self->_print_no_value_content($element);
-	}
+
 	my $values = [];
 	foreach my $value (@$data) {
 		next if !defined $value->{'label'};
@@ -3123,6 +3122,9 @@ JS
 	$buffer .=
 	    q(<div class="title gps_map_title" )
 	  . qq(style="position:absolute;top:0;width:100%;color:#666">$element->{'name'}</div>);
+	if ( !@$data ) {
+		$buffer .= q(<div style="position:absolute;top:50px;width:100%;color:#666;font-size:2em">No values</div>);
+	}
 	return $buffer;
 }
 
