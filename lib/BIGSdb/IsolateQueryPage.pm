@@ -1813,7 +1813,7 @@ sub _run_query {
 
 sub _print_dashboard_panel {
 	my ( $self, $args ) = @_;
-	return if !$self->dashboard_enabled;
+	return if !$self->dashboard_enabled( { query_dashboard => 1 } );
 	return if !$self->{'prefs'}->{'query_dashboard'};
 	my $q = $self->{'cgi'};
 	my $qry_file;
@@ -3880,7 +3880,7 @@ function set_autocomplete_values(element){
 }
 END
 	}
-	if ( $self->dashboard_enabled ) {
+	if ( $self->dashboard_enabled( { query_dashboard => 1 } ) ) {
 		my $elements         = $self->_get_elements;
 		my $json_elements    = $json->encode($elements);
 		my $qry_file         = $q->param('query_file');
@@ -3968,7 +3968,7 @@ sub initiate {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	$self->{$_} = 1 foreach qw(noCache addProjects addBookmarks);
-	if ( $self->dashboard_enabled ) {
+	if ( $self->dashboard_enabled( { query_dashboard => 1 } ) ) {
 		$self->{$_} = 1 foreach qw(muuri modal fitty bigsdb.dashboard jQuery.fonticonpicker billboard d3.layout.cloud);
 		$self->{'geomap'} = 1 if $self->has_country_optlist;
 		$self->{'ol'}     = 1 if $self->need_openlayers;

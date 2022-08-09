@@ -2401,9 +2401,18 @@ sub isolate_exists {
 }
 
 sub dashboard_enabled {
-	my ($self) = @_;
+	my ( $self, $options ) = @_;
 	return if !$self->{'config'}->{'enable_dashboard'} && ( $self->{'system'}->{'enable_dashboard'} // q() ) ne 'yes';
 	return if ( $self->{'system'}->{'enable_dashboard'} // q() ) eq 'no';
+	return
+	     if $options->{'query_dashboard'}
+	  && ( $self->{'config'}->{'query_dashboard'} // 1 ) == 0
+	  && ( $self->{'system'}->{'query_dashboard'} // 'no' ) eq 'no';
+	return
+	     if $options->{'query_dashboard'}
+	  && ( $self->{'config'}->{'query_dashboard'} // 1 ) == 1
+	  && ( $self->{'system'}->{'query_dashboard'} // 'yes' ) eq 'no';
+	
 	return 1;
 }
 
