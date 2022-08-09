@@ -1813,7 +1813,8 @@ sub _run_query {
 
 sub _print_dashboard_panel {
 	my ( $self, $args ) = @_;
-	return if !$self->_dashboard_enabled;
+	return if !$self->dashboard_enabled;
+	return if !$self->{'prefs'}->{'query_dashboard'};
 	my $q = $self->{'cgi'};
 	my $qry_file;
 	if ( !$args->{'passed_query_file'} ) {
@@ -1833,13 +1834,6 @@ sub _print_dashboard_panel {
 	);
 	say q(</div>);
 	return;
-}
-
-sub _dashboard_enabled {
-	my ($self) = @_;
-	return if !$self->{'config'}->{'enable_dashboard'} && ( $self->{'system'}->{'enable_dashboard'} // q() ) ne 'yes';
-	return if ( $self->{'system'}->{'enable_dashboard'} // q() ) eq 'no';
-	return 1;
 }
 
 sub get_hidden_attributes {
@@ -3886,7 +3880,7 @@ function set_autocomplete_values(element){
 }
 END
 	}
-	if ( $self->_dashboard_enabled ) {
+	if ( $self->dashboard_enabled ) {
 		my $elements         = $self->_get_elements;
 		my $json_elements    = $json->encode($elements);
 		my $qry_file         = $q->param('query_file');
@@ -3974,7 +3968,7 @@ sub initiate {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	$self->{$_} = 1 foreach qw(noCache addProjects addBookmarks);
-	if ( $self->_dashboard_enabled ) {
+	if ( $self->dashboard_enabled ) {
 		$self->{$_} = 1 foreach qw(muuri modal fitty bigsdb.dashboard jQuery.fonticonpicker billboard d3.layout.cloud);
 		$self->{'geomap'} = 1 if $self->has_country_optlist;
 		$self->{'ol'}     = 1 if $self->need_openlayers;

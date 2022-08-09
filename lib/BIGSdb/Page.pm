@@ -2400,6 +2400,13 @@ sub isolate_exists {
 		$id, { cache => 'Page::isolate_exists' } );
 }
 
+sub dashboard_enabled {
+	my ($self) = @_;
+	return if !$self->{'config'}->{'enable_dashboard'} && ( $self->{'system'}->{'enable_dashboard'} // q() ) ne 'yes';
+	return if ( $self->{'system'}->{'enable_dashboard'} // q() ) eq 'no';
+	return 1;
+}
+
 sub initiate_prefs {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
@@ -2558,7 +2565,7 @@ sub _set_isolatedb_options {
 	foreach my $option (
 		qw ( update_details sequence_details allele_flags mark_provisional mark_provisional_main
 		sequence_details_main display_seqbin_main display_contig_count locus_alias scheme_members_alias
-		display_publications)
+		display_publications query_dashboard)
 	  )
 	{
 		$self->{'prefs'}->{$option} = $params->{$option} ? 1 : 0;
@@ -2609,7 +2616,7 @@ sub _initiate_isolatedb_general_prefs {
 	}
 
 	#default on
-	foreach my $option (qw (sequence_details mark_provisional mark_provisional_main)) {
+	foreach my $option (qw (sequence_details mark_provisional mark_provisional_main query_dashboard)) {
 		$general_prefs->{$option} //= 'on';
 		$self->{'prefs'}->{$option} = $general_prefs->{$option} eq 'off' ? 0 : 1;
 	}
