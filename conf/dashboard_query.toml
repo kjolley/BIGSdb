@@ -39,8 +39,8 @@ elements = [	{
 	},
 	{
 		display           = 'field',
-		name              = 'Country',
-		field             = 'f_country',
+		name              = 'Continent',
+		field             = 'e_country||continent',
 		breakdown_display = 'map',
 		width             = 2,
 		height            = 1,
