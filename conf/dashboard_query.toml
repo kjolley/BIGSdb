@@ -52,7 +52,8 @@ elements = [	{
 		field             = 'f_species',
 		breakdown_display = 'treemap',
 		height            = 1,
-		width             = 1
+		width             = 1,
+		hide_mobile       = 1
 	},
 	{
 		display           = 'field',
@@ -60,7 +61,8 @@ elements = [	{
 		field             = 'f_disease',
 		breakdown_display = 'treemap',
 		height            = 1,
-		width             = 1
+		width             = 1,
+		hide_mobile       = 1
 	},
 	{
 		display           = 'field',
@@ -68,7 +70,8 @@ elements = [	{
 		field             = 'f_source',
 		breakdown_display = 'treemap',
 		height            = 1,
-		width             = 1
+		width             = 1,
+		hide_mobile       = 1
 	},
 	{
 		display           = 'field',
@@ -77,6 +80,7 @@ elements = [	{
 		breakdown_display = 'bar',
 		width             = 2,
 		bar_colour_type   = 'continuous',
-		chart_colour      = '#126716'
+		chart_colour      = '#126716',
+		hide_mobile       = 1
 	}
 ]
