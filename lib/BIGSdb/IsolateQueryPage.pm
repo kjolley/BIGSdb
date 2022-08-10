@@ -237,7 +237,8 @@ sub print_content {
 		$self->_print_interface;
 	}
 	$self->_run_query if $q->param('submit') || defined $q->param('query_file');
-	$self->print_modify_dashboard_fieldset( { no_filters => 1 } );
+	$self->print_modify_dashboard_fieldset( { no_filters => 1 } )
+	  if $self->dashboard_enabled( { query_dashboard => 1 } );
 	return;
 }
 
@@ -285,8 +286,11 @@ sub print_panel_buttons {
 		say q(<span class="icon_button">)
 		  . q(<a class="trigger_button" id="panel_trigger" style="display:none">)
 		  . q(<span class="fas fa-lg fa-wrench"></span><div class="icon_label">Modify form</div></a></span>);
-		say q(<span class="icon_button"><a class="trigger_button" id="dashboard_panel_trigger" style="display:none">)
-		  . q(<span class="fas fa-lg fa-tools"></span><div class="icon_label">Modify dashboard</div></a></span>);
+		if ( $self->dashboard_enabled( { query_dashboard => 1 } ) ) {
+			say
+			  q(<span class="icon_button"><a class="trigger_button" id="dashboard_panel_trigger" style="display:none">)
+			  . q(<span class="fas fa-lg fa-tools"></span><div class="icon_label">Modify dashboard</div></a></span>);
+		}
 		my $bookmarks = $self->_get_bookmarks;
 		if (@$bookmarks) {
 			say q(<span class="icon_button"><a class="trigger_button" id="bookmark_trigger" style="display:none">)
@@ -3968,11 +3972,11 @@ sub initiate {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	$self->{$_} = 1 foreach qw(noCache addProjects addBookmarks);
+	$self->SUPER::initiate;
 	if ( $self->dashboard_enabled( { query_dashboard => 1 } ) ) {
 		$self->{$_} = 1 foreach qw(muuri modal fitty bigsdb.dashboard jQuery.fonticonpicker billboard d3.layout.cloud);
 		$self->{'geomap'} = 1 if $self->has_country_optlist;
 		$self->{'ol'}     = 1 if $self->need_openlayers;
-		$self->SUPER::initiate;
 		$self->{'dashboard_type'} = 'query';
 		$self->get_or_set_dashboard_prefs;
 		$self->{'prefs'}->{'record_age'}           = 0;

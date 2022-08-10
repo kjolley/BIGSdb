@@ -63,6 +63,7 @@ use BIGSdb::CurateTableHeaderPage;
 use BIGSdb::CurateTagScanPage;
 use BIGSdb::CurateTagUpdatePage;
 use BIGSdb::CurateUpdatePage;
+use BIGSdb::DashboardPage;
 use BIGSdb::IDList;
 use BIGSdb::LocusInfoPage;
 use BIGSdb::JobViewerPage;
@@ -105,6 +106,7 @@ sub print_page {
 		configCheck           => 'ConfigCheckPage',
 		configRepair          => 'ConfigRepairPage',
 		curatorPermissions    => 'CuratePermissionsPage',
+		dashboard             => 'DashboardPage',
 		databankScan          => 'CurateDatabankScanPage',
 		delete                => 'CurateDeletePage',
 		deleteAll             => 'CurateDeleteAllPage',
@@ -264,7 +266,6 @@ sub print_page {
 	if ( $page_attributes{'error'} ) {
 		$self->{'handled_error'} = 1;
 	}
-
 	return;
 }
 1;
