@@ -4,8 +4,8 @@
 #will be ignored. 
 
 #The default configuration can be overridden for a particular database by 
-#including a dashboard.toml file, using the same format, in the database 
-#configuration directory.
+#including a dashboard_primary.toml file, using the same format, in the 
+#database configuration directory.
 
 #Width can be 1, 2, 3, or 4.
 #Height can be 1, 2, or 3.

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -85,24 +85,6 @@ sub get_new_guid {
 	my $guid   = $ug->create_str;
 	$self->_add_existing_guid($guid);
 	return $guid;
-}
-
-sub _general_attribute_exists {
-	my ( $self, @values ) = @_;
-	if ( !$self->{'sql'}->{'general_attribute_exists'} ) {
-		$self->{'sql'}->{'general_attribute_exists'} =
-		  $self->{'db'}->prepare('SELECT EXISTS(SELECT * FROM general WHERE (guid,dbase,attribute)=(?,?,?))');
-	}
-	my $exists;
-	eval {
-		$self->{'sql'}->{'general_attribute_exists'}->execute(@values);
-		$exists = $self->{'sql'}->{'general_attribute_exists'}->fetchrow_array;
-	};
-	if ($@) {
-		$logger->error($@);
-		BIGSdb::Exception::Prefstore->throw('Cannot execute attribute check');
-	}
-	return $exists;
 }
 
 sub _field_attribute_exists {
@@ -201,29 +183,18 @@ sub set_general {
 	if ( !$self->_guid_exists($guid) ) {
 		$self->_add_existing_guid($guid);
 	}
-	if ( $self->_general_attribute_exists( $guid, $dbase, $attribute ) ) {
-		if ( !$self->{'sql'}->{'update_general'} ) {
-			$self->{'sql'}->{'update_general'} =
-			  $self->{'db'}->prepare('UPDATE general SET value=? WHERE (guid,dbase,attribute)=(?,?,?)');
-		}
-		eval { $self->{'sql'}->{'update_general'}->execute( $value, $guid, $dbase, $attribute ); };
-		if ($@) {
-			$logger->error($@);
-			$self->{'db'}->rollback;
-			BIGSdb::Exception::Prefstore->throw('Could not insert prefs values');
-		}
-		$self->{'db'}->commit;
+	eval {
+		$self->{'db'}->do(
+			'INSERT INTO general (guid,dbase,attribute,value) VALUES (?,?,?,?) ON '
+			  . 'CONFLICT ON CONSTRAINT general_pkey DO UPDATE SET value=?',
+			undef, $guid, $dbase, $attribute, $value, $value
+		);
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+		BIGSdb::Exception::Prefstore->throw('Could not insert prefs values');
 	} else {
-		if ( !$self->{'sql'}->{'set_general'} ) {
-			$self->{'sql'}->{'set_general'} =
-			  $self->{'db'}->prepare('INSERT INTO general (guid,dbase,attribute,value) VALUES (?,?,?,?)');
-		}
-		eval { $self->{'sql'}->{'set_general'}->execute( $guid, $dbase, $attribute, $value ); };
-		if ($@) {
-			$logger->error($@);
-			$self->{'db'}->rollback;
-			BIGSdb::Exception::Prefstore->throw('Could not insert prefs values');
-		}
 		$self->{'db'}->commit;
 	}
 	return;
@@ -629,10 +600,10 @@ sub get_dashboard_names {
 
 sub get_dashboards {
 	my ( $self, $guid, $dbase_config ) = @_;
-	my $sql   = $self->{'db'}->prepare('SELECT id,name FROM dashboards WHERE (guid,dbase_config)=(?,?) ORDER BY name');
+	my $sql = $self->{'db'}->prepare('SELECT id,name FROM dashboards WHERE (guid,dbase_config)=(?,?) ORDER BY name');
 	eval { $sql->execute( $guid, $dbase_config ) };
 	$logger->logcarp($@) if $@;
-	return $sql->fetchall_arrayref({});
+	return $sql->fetchall_arrayref( {} );
 }
 
 sub get_dashboard {
@@ -654,7 +625,7 @@ sub initiate_new_dashboard {
 	}
 	my $sql = $self->{'db'}->prepare('INSERT INTO dashboards (guid,dbase_config,data) VALUES (?,?,?) RETURNING id');
 	my $id;
-	eval { 
+	eval {
 		$sql->execute( $guid, $dbase_config, '{}' );
 		$id = $sql->fetchrow_array;
 		$self->{'db'}->do(
@@ -662,13 +633,12 @@ sub initiate_new_dashboard {
 			  . 'ON CONFLICT ON CONSTRAINT active_dashboards_pkey DO UPDATE SET id=?',
 			undef, $guid, $dbase_config, $id, $type, $value, $id
 		);
-	 };
+	};
 	if ($@) {
 		$self->{'db'}->rollback;
-		if ($@ =~ /duplicate/x){
-			
-			$id = $self->get_active_dashboard($guid, $dbase_config, $type, $value);
-			if (!defined $id){
+		if ( $@ =~ /duplicate/x ) {
+			$id = $self->get_active_dashboard( $guid, $dbase_config, $type, $value );
+			if ( !defined $id ) {
 				BIGSdb::Exception::Prefstore->throw('Cannot initiate new dashboard.');
 			}
 		} else {
@@ -687,11 +657,16 @@ sub set_active_dashboard {
 		$self->_add_existing_guid($guid);
 	}
 	eval {
-		$self->{'db'}->do(
-			'INSERT INTO active_dashboards (guid,dbase_config,id,type,value) VALUES (?,?,?,?,?) '
-			  . 'ON CONFLICT ON CONSTRAINT active_dashboards_pkey DO UPDATE SET id=?',
-			undef, $guid, $dbase_config, $id, $type, $value, $id
-		);
+		if ( $id > 0 ) {
+			$self->{'db'}->do(
+				'INSERT INTO active_dashboards (guid,dbase_config,id,type,value) VALUES (?,?,?,?,?) '
+				  . 'ON CONFLICT ON CONSTRAINT active_dashboards_pkey DO UPDATE SET id=?',
+				undef, $guid, $dbase_config, $id, $type, $value, $id
+			);
+		} else {
+			$self->{'db'}->do( 'DELETE FROM active_dashboards WHERE (guid,dbase_config,type)=(?,?,?)',
+				undef, $guid, $dbase_config, $type );
+		}
 	};
 	if ($@) {
 		$logger->logcarp($@);
@@ -732,7 +707,7 @@ sub update_dashboard_name {
 	}
 	my $names = $self->get_dashboard_names( $guid, $dbase_config );
 	my %existing = map { $_ => 1 } @$names;
-	if ($existing{$name}){
+	if ( $existing{$name} ) {
 		$logger->error("Dashboard $name already exists for this user.");
 		return;
 	}

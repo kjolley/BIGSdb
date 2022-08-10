@@ -58,7 +58,7 @@ $(function() {
 		},
 		change: function(event, ui) {
 			$.ajax({
-				url: url + "&page=dashboard&updateDashboard=1&attribute=record_age&value=" + ui.value
+				url: url + "&page=dashboard&updateDashboard=1&type=" + dashboard_type + "&attribute=record_age&value=" + ui.value
 			}).done(function(json) {
 				$("#loaded_dashboard").val(JSON.parse(json).dashboard_name);
 				$("#loaded_dashboard").prop("disabled", false);
@@ -68,14 +68,14 @@ $(function() {
 			});
 		}
 	});
-	$("#panel_trigger,#close_trigger").click(function() {
-		$("#modify_panel").toggle("slide", { direction: "right" }, "fast");
-		$("#panel_trigger").show();
+	$("#dashboard_panel_trigger,#close_dashboard_trigger").click(function() {
+		$("#modify_dashboard_panel").toggle("slide", { direction: "right" }, "fast");
+		$("#dashboard_panel_trigger").show();
 		return false;
 	});
-	$("#panel_trigger").show();
+	$("#dashboard_panel_trigger").show();
 	$(document).mouseup(function(e) {
-		var container = $("#modify_panel");
+		var container = $("#modify_dashboard_panel");
 
 		// if the target of the click isn't the container nor a
 		// descendant of the container
@@ -92,7 +92,7 @@ $(function() {
 			// Grid is empty.
 		}
 		$.ajax({
-			url: url + "&page=dashboard&updateDashboard=1&attribute=fill_gaps&value=" + (fill_gaps ? 1 : 0)
+			url: url + "&page=dashboard&updateDashboard=1&type=" + dashboard_type + "&attribute=fill_gaps&value=" + (fill_gaps ? 1 : 0)
 		}).done(function(json) {
 			updateDashboardName(JSON.parse(json).dashboard_name);
 		});
@@ -124,7 +124,7 @@ $(function() {
 	$("#include_old_versions").change(function() {
 		var include_old_versions = $("#include_old_versions").prop('checked');
 		$.ajax({
-			url: url + "&page=dashboard&updateDashboard=1&attribute=include_old_versions&value=" +
+			url: url + "&page=dashboard&updateDashboard=1&type=" + dashboard_type + "&attribute=include_old_versions&value=" +
 				(include_old_versions ? 1 : 0)
 		}).done(function(json) {
 			updateDashboardName(JSON.parse(json).dashboard_name);
@@ -135,16 +135,21 @@ $(function() {
 	$("#loaded_dashboard").change(function() {
 		var name = $("#loaded_dashboard").val();
 		if (name.length) {
-			$.ajax(url + "&page=dashboard&updateDashboardName=" + encodeURIComponent(name));
+			$.ajax(url + "&page=dashboard&type=" + dashboard_type + "&updateDashboardName=" + encodeURIComponent(name));
 		}
 	});
 
 	$("#switch_dashboard").change(function() {
 		var id = $("#switch_dashboard").val();
 		$.ajax({
-			url: url + "&page=dashboard&setActiveDashboard=" + id
+			url: url + "&page=dashboard&setActiveDashboard=" + id + "&type=" + dashboard_type
 		}).done(function() {
-			location.reload();
+			//Prevent form reload message on Firefox - simulate click of the submit button instead.
+			if ($("input#search").length) {
+				$("input#search").trigger('click');
+			} else {
+				location.reload();
+			}
 		});
 	});
 
@@ -203,6 +208,22 @@ $(function() {
 		} else {
 			value = $(this).val();
 		}
+		changeElementAttribute(grid, element_id, attribute, value);
+	});
+	$(document).on("click", '.marker_colour', function(event) {
+		var id = $(this).attr('id');
+		var attribute = 'marker_colour';
+		var value = id.replace(/^\d+_/, "");
+		var element_id = id.replace("_" + value, "");
+		value = value.replace(/^marker_/, "");
+		changeElementAttribute(grid, element_id, attribute, value);
+	});
+	$(document).on("click change touchstart mouseup keyup", '.marker_size', function(event) {
+		var id = $(this).attr('id');
+		var attribute = 'marker_size';
+		var element_id = id.replace("_" + value, "");
+		var value = $(this).slider("option","value");
+		var element_id = id.replace("_" + attribute, "");
 		changeElementAttribute(grid, element_id, attribute, value);
 	});
 	$(document).on("change", '.palette_selector', function(event) {
@@ -266,8 +287,8 @@ function getDataExplorerParams(id) {
 	params['db'] = instance;
 	params['field'] = elements[id]['field'];
 	params['include_old_versions'] = $("#include_old_versions").prop('checked');
-	params['record_age'] = $("#record_age_slider").slider("value");
-	if (elements[id]['specific_values'] != null){
+	params['record_age'] = $("#record_age_slider").length ? $("#record_age_slider").slider("value") : 0;
+	if (elements[id]['specific_values'] != null) {
 		params['specific_values'] = elements[id]['specific_values'];
 	}
 	return params;
@@ -280,6 +301,9 @@ function updateDashboardName(name) {
 }
 
 function setGridMargins(grid) {
+	if (grid == null) {
+		return;
+	}
 	let dashboard_width = Math.floor($("div#dashboard_panel").width() / 155) * 155;
 	$("div#dashboard").css("width", dashboard_width);
 	grid.on('layoutEnd', function() {
@@ -324,7 +348,7 @@ function post(path, params, method = 'post') {
 			const hiddenField = document.createElement('input');
 			hiddenField.type = 'hidden';
 			hiddenField.name = key;
-			hiddenField.value = Array.isArray(params[key]) ? JSON.stringify(params[key]): params[key];
+			hiddenField.value = Array.isArray(params[key]) ? JSON.stringify(params[key]) : params[key];
 			form.appendChild(hiddenField);
 		}
 	}
@@ -344,13 +368,15 @@ function clean_value(value) {
 			return el != null && el != '';
 		});
 	} else {
-		value = value.trim();
+		if (typeof value === 'string'){
+			value = value.trim();
+		}
 	}
 	return value;
 }
 
 function changeElementAttribute(grid, id, attribute, value) {
-	if (elements[id][attribute] === value) {
+	if (typeof elements[id][attribute] !== 'undefined' && elements[id][attribute] === value) {
 		return;
 	}
 	if (attribute === 'specific_values' && !Array.isArray(value)) {
@@ -390,12 +416,17 @@ function addElement(grid, id) {
 	if (Object.keys(elements).length === 0) {
 		$("div#empty").html("");
 	}
-	var add_url = url + "&page=dashboard&new=" + id;
+	var add_url = url + "&page=dashboard&type=" + dashboard_type + "&new=" + id;
 	var field = $("#add_field").val();
 	if (field) {
 		add_url += "&field=" + field;
 	}
-
+	if (qryFile != null && qryFile.length) {
+		add_url += "&qry_file=" + qryFile;
+	}
+	if (listFile != null && listFile.length && listAttribute != null && listAttribute.length) {
+		add_url += "&list_file=" + listFile + "&list_attribute=" + listAttribute;
+	}
 	lastAjaxUpdate = new Date().getTime();
 	$.get(add_url, function(json) {
 		try {
@@ -421,7 +452,7 @@ function addElement(grid, id) {
 function editElement(grid, id, setup) {
 	$("span#control_" + id).hide();
 	$("span#wait_" + id).show();
-	$.get(url + "&page=dashboard&control=" + id, function(html) {
+	$.get(url + "&page=dashboard&type=" + dashboard_type + "&control=" + id, function(html) {
 		$(html).appendTo('body').modal();
 		if ($("#edit_elements").prop("checked")) {
 			$("span#control_" + id).show();
@@ -459,7 +490,8 @@ function showOrHideControlElements(id) {
 	$("fieldset#change_duration_control,fieldset#design_control,"
 		+ "li#value_selector,li#breakdown_display_selector,li#specific_value_display_selector,"
 		+ "li#top_value_selector,li#watermark_control,li#palette_control,li#text_colour_control,"
-		+ "li#background_colour_control,li.gauge_colour,li#bar_colour_type,li#chart_colour").css("display", "none");
+		+ "li#background_colour_control,li.gauge_colour,li#bar_colour_type,li#chart_colour,"
+		+ "li#header_colour_control,li#header_background_colour_control,li#gps_map_control").css("display", "none");
 
 	//Enable elements as required.
 	if (elements[id]['display'] == 'record_count') {
@@ -503,6 +535,9 @@ function showOrHideControlElements(id) {
 		} else if (breakdown_display === 'top') {
 			$("fieldset#design_control").css("display", "inline");
 			$("li#top_value_selector,li#header_colour_control,li#header_background_colour_control").css("display", "block");
+		} else if (breakdown_display === 'gps_map') {
+			$("fieldset#design_control").css("display", "inline");
+			$("li#gps_map_control").css("display", "block");
 		}
 	}
 }
@@ -557,7 +592,15 @@ function checkAndShowVisualisation(grid, id) {
 }
 
 function reloadElement(id) {
-	$.get(url + "&page=dashboard&element=" + id, function(json) {
+	var reload_url = url + "&page=dashboard&type=" + dashboard_type + "&element=" + id;
+	if (qryFile != null && qryFile.length) {
+		reload_url += "&qry_file=" + qryFile;
+	}
+	if (listFile != null && listFile.length && listAttribute != null && listAttribute.length) {
+		reload_url += "&list_file=" + listFile + "&list_attribute=" + listAttribute;
+	}
+
+	$.get(reload_url, function(json) {
 		try {
 			$("div#element_" + id + "> .item-content > .ajax_content").html(JSON.parse(json).html);
 			elements[id] = JSON.parse(json).element;
@@ -624,6 +667,7 @@ function saveElements(grid) {
 		db: instance,
 		page: "dashboard",
 		updateDashboard: 1,
+		type: dashboard_type,
 		attribute: "elements",
 		value: JSON.stringify(elements)
 	});
@@ -638,6 +682,7 @@ function saveAndReloadElement(grid, id) {
 			db: instance,
 			page: "dashboard",
 			updateDashboard: 1,
+			type: dashboard_type,
 			attribute: "elements",
 			value: JSON.stringify(elements)
 		},
@@ -707,6 +752,7 @@ function saveLayout(grid) {
 					db: instance,
 					page: "dashboard",
 					updateDashboard: 1,
+					type: dashboard_type,
 					attribute: "order",
 					value: layout
 				},
@@ -720,9 +766,14 @@ function saveLayout(grid) {
 }
 
 function resetDefaults() {
-	$("#modify_panel").toggle("slide", { direction: "right" }, "fast");
-	$.get(url + "&resetDefaults=1", function() {
-		location.reload();
+	$("#modify_dashboard_panel").toggle("slide", { direction: "right" }, "fast");
+	$.get(url + "&resetDefaults=1&type=" + dashboard_type, function() {
+		//Prevent form reload message on Firefox - simulate click of the submit button instead.
+		if ($("input#search").length) {
+			$("input#search").trigger('click');
+		} else {
+			location.reload();
+		}
 	});
 }
 
@@ -745,12 +796,72 @@ function resetSeqbinRange(id) {
 
 function createNew() {
 	$.ajax({
-		url: url + "&newDashboard=1",
+		url: url + "&newDashboard=1&type=" + dashboard_type,
 		type: 'GET',
 		success: function() {
-			location.reload();
+			//Prevent form reload message on Firefox - simulate click of the submit button instead.
+			if ($("input#search").length) {
+				$("input#search").trigger('click');
+			} else {
+				location.reload();
+			}
 		}
 	});
+}
+
+function get_marker_layer(jsonData, colour, size) {
+	let colours = {
+		red: 'rgb(255,0,0,0.7)',
+		blue: 'rgb(0,0,255,0.7)',
+		green: 'rgb(13,130,58,0.7)',
+		purple: 'rgb(176,2,250,0.7)',
+		orange: 'rgb(250,85,2,0.7)',
+		yellow: 'rgb(252,207,3,0.7)',
+		grey: 'rgb(48,48,48,0.7)'
+	};
+	let pstyles = [];
+	for (let i = 0; i < 10; ++i) {
+		let pstyle = new ol.style.Style({
+			image: new ol.style.Circle({
+				radius: parseInt(size) + i,
+				fill: new ol.style.Fill({
+					color: colours[colour]
+				})
+			})
+		});
+		pstyles.push(pstyle);
+	}
+//	let thresholds = [1, 2, 5, 10, 25, 50, 100, 250, 500];
+	let thresholds = [1, 25, 100, 500];
+	let features = [];
+	jsonData.forEach(function(e) {
+		let coordinates = (e.label.match(/(\-?\d+\.?\d*),\s*(\-?\d+\.?\d*)/));
+		if (coordinates != null) {
+			let latitude = parseFloat(coordinates[1]);
+			let longitude = parseFloat(coordinates[2]);
+			let threshold;
+			for (let i = 0; i < thresholds.length; ++i) {
+				if (parseInt(e.value) <= thresholds[i]) {
+					threshold = i;
+					break;
+				}
+			}
+			if (threshold == null) {
+				threshold = thresholds.length;
+			}
+			let feature = new ol.Feature({
+				geometry: new ol.geom.Point(ol.proj.fromLonLat([longitude, latitude])),
+			});
+			feature.setStyle(pstyles[threshold])
+			features.push(feature);
+		}
+	});
+	let vectorLayer = new ol.layer.Vector({
+		source: new ol.source.Vector({
+			features: features
+		})
+	})
+	return vectorLayer;
 }
 
 function commify(x) {

@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::IndexPage);
-use BIGSdb::Constants qw(:design :interface :limits :dashboard COUNTRIES);
+use BIGSdb::Constants qw(:design :interface :limits :dashboard COUNTRIES LOCUS_PATTERN);
 use Try::Tiny;
 use List::Util qw( min max );
 use JSON;
@@ -50,6 +50,7 @@ use constant {
 
 sub print_content {
 	my ($self) = @_;
+	$self->{'view'} = $self->{'system'}->{'view'};
 	my $desc = $self->get_db_description( { formatted => 1 } );
 	if ( ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates' ) {
 		say qq(<h1>$desc database</h1>);
@@ -74,8 +75,15 @@ sub print_content {
 	);
 	foreach my $method ( sort keys %ajax_methods ) {
 		my $sub = $ajax_methods{$method};
-		if ( $q->param($method) ) {
-			$self->$sub( scalar $q->param($method) );
+		if ( defined $q->param($method) ) {
+			$self->$sub(
+				scalar $q->param($method),
+				{
+					qry_file       => scalar $q->param('qry_file'),
+					list_file      => scalar $q->param('list_file'),
+					list_attribute => scalar $q->param('list_attribute')
+				}
+			);
 			return;
 		}
 	}
@@ -96,7 +104,7 @@ sub print_content {
 	say q(</div>);
 	say qq(<div id="main_container" class="flex_container" style="max-width:${max_width}px">);
 	say qq(<div id="dashboard_panel" class="dashboard_panel" style="max-width:${index_panel_max_width}px">);
-	$self->_print_main_section;
+	$self->print_dashboard( { filter_display => 1 } );
 	say q(</div>);
 	say q(<div class="menu_panel" style="width:250px">);
 	$self->print_menu( { dashboard => 1 } );
@@ -104,7 +112,7 @@ sub print_content {
 	say q(</div>);
 	say q(</div>);
 	say q(</div>);
-	$self->_print_modify_dashboard_fieldset;
+	$self->print_modify_dashboard_fieldset;
 	return;
 }
 
@@ -162,7 +170,8 @@ sub _ajax_get_seqbin_range {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 sub _ajax_new_dashboard {       ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ($self) = @_;
 	my $guid = $self->get_guid;
-	$self->{'dashboard_id'} = $self->{'prefstore'}->initiate_new_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
+	$self->{'dashboard_id'} =
+	  $self->{'prefstore'}->initiate_new_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, 0 );
 	if ( !defined $self->{'dashboard_id'} ) {
 		$logger->error('Dashboard pref could not be initiated.');
 	}
@@ -285,9 +294,18 @@ sub _field_has_optlist {
 	return;
 }
 
+sub _field_linked_to_gps {
+	my ( $self, $field ) = @_;
+	if ( $field =~ /^f_(.*)/x ) {
+		my $attributes = $self->{'xmlHandler'}->get_field_attributes($1);
+		return 1 if ( $attributes->{'geography_point_lookup'} // q() ) eq 'yes';
+	}
+	return;
+}
+
 sub _get_field_type {
 	my ( $self, $element ) = @_;
-	if ( !defined $element->{'field'} ) {
+	if ( $element->{'display'} eq 'field' && !defined $element->{'field'} ) {
 		$logger->error('No field defined');
 		return;
 	}
@@ -326,25 +344,35 @@ sub _print_chart_type_controls {
 	say q(<fieldset><legend>Display element</legend>);
 	say qq(<ul><li id="breakdown_display_selector" style="display:$breakdown_display">);
 	say qq(<label for="${id}_breakdown_display">Element: </label>);
-	my $field_type = lc( $self->_get_field_type($element) );
-	my @breakdown_charts =
-	  $field_type eq 'date'
-	  ? qw(bar cumulative doughnut pie)
-	  : qw(bar doughnut pie top treemap);
+	my $field_type  = lc( $self->_get_field_type($element) );
+	my $chart_types = {
+		date            => [qw(bar cumulative doughnut pie)],
+		geography_point => [qw(bar doughnut gps_map pie top treemap)]
+	};
+	my $breakdown_charts;
 
+	if ( $chart_types->{$field_type} ) {
+		$breakdown_charts = $chart_types->{$field_type};
+	} else {
+		$breakdown_charts = [qw(bar doughnut pie top treemap)];
+	}
 	if ( $self->_field_has_optlist( $element->{'field'} ) ) {
-		push @breakdown_charts, 'word';
+		push @$breakdown_charts, 'word';
+	}
+	if ( $self->_field_linked_to_gps( $element->{'field'} ) ) {
+		push @$breakdown_charts, 'gps_map';
 	}
 	if ( ( $element->{'field'} eq 'f_country' || $element->{'field'} eq 'e_country||continent' )
-		&& $self->_has_country_optlist )
+		&& $self->has_country_optlist )
 	{
-		push @breakdown_charts, 'map';
+		push @$breakdown_charts, 'map';
 	}
+	my %labels = ( top => 'top values', gps_map => 'map', map => 'world map', word => 'word cloud' );
 	say $q->popup_menu(
-		-name    => "${id}_breakdown_display",
-		-id      => "${id}_breakdown_display",
-		-values  => [ 0, @breakdown_charts ],
-		-labels  => { 0 => 'Select...', top => 'top values', map => 'world map', word => 'word cloud' },
+		-name   => "${id}_breakdown_display",
+		-id     => "${id}_breakdown_display",
+		-values => [ 0, sort { ( $labels{$a} // $a ) cmp( $labels{$b} // $b ) } @$breakdown_charts ],
+		-labels  => { 0 => 'Select...', %labels },
 		-class   => 'element_option',
 		-default => $element->{'breakdown_display'}
 	);
@@ -363,7 +391,7 @@ sub _print_chart_type_controls {
 	return;
 }
 
-sub _has_country_optlist {
+sub has_country_optlist {
 	my ($self) = @_;
 	return if !$self->{'xmlHandler'}->is_field('country');
 	my $thisfield = $self->{'xmlHandler'}->get_field_attributes('country');
@@ -469,6 +497,7 @@ sub _print_design_control {
 	$self->_print_colour_control( $id, $element );
 	$self->_print_watermark_control( $id, $element );
 	$self->_print_palette_control( $id, $element );
+	$self->_print_gps_map_control( $id, $element );
 	say q(</ul></fieldset>);
 	return;
 }
@@ -617,6 +646,45 @@ sub _print_palette_control {
 	return;
 }
 
+sub _print_gps_map_control {
+	my ( $self, $id, $element ) = @_;
+	my $bingmaps_api = $self->{'system'}->{'bingmaps_api'} // $self->{'config'}->{'bingmaps_api'};
+	my $q            = $self->{'cgi'};
+	my $marker_size  = $element->{'marker_size'} // 2;
+	say q(<li id="gps_map_control" style="display:none">);
+	say q(<div style="margin-top:-0.5em"><ul>);
+	if ( defined $bingmaps_api ) {
+		say q(<li><label for="view">View:</label>);
+		say $q->radio_group(
+			-name    => "${id}_geography_view",
+			-id      => "${id}_geography_view",
+			-values  => [qw(Map Aerial)],
+			-default => 'Map',
+			-class   => 'element_option',
+			-default => $element->{'geography_view'} // 'Map'
+		);
+		say q(</li>);
+	}
+	say q(<style>.marker_colour.fa-square {text-shadow: 2px 2px 2px #999;font-size:1.8em;)
+	  . q(margin-right:0.2em;cursor:pointer}</style>);
+	say q(<li><span style="float:left;margin-right:0.5em">Marker colour:</span>)
+	  . q(<div style="display:inline-block">)
+	  . qq(<span id="${id}_marker_red" style="color:#ff0000" class="marker_colour fas fa-square"></span>)
+	  . qq(<span id="${id}_marker_green" style="color:#0d823a" class="marker_colour fas fa-square"></span>)
+	  . qq(<span id="${id}_marker_blue" style="color:#0000ff" class="marker_colour fas fa-square"></span>)
+	  . qq(<span id="${id}_marker_purple" style="color:#b002fa" class="marker_colour fas fa-square"></span>)
+	  . qq(<span id="${id}_marker_orange" style="color:#fa5502" class="marker_colour fas fa-square"></span>)
+	  . qq(<span id="${id}_marker_yellow" style="color:#fccf03" class="marker_colour fas fa-square"></span>)
+	  . qq(<span id="${id}_marker_grey" style="color:#303030" class="marker_colour fas fa-square"></span>);
+	say q(<li><li><label for="segments">Marker size:</label>);
+	say
+qq(<div id="${id}_marker_size" class="marker_size" style="display:inline-block;width:8em;margin-left:0.5em"></div>);
+	say q(</ul></div>);
+	say q(</li>);
+	say qq(<script>\$("#${id}_marker_size").slider({ min: 0, max: 10, value: $marker_size });</script>);
+	return;
+}
+
 sub _print_seqbin_filter_control {
 	my ( $self, $id, $element ) = @_;
 	my $q = $self->{'cgi'};
@@ -673,7 +741,7 @@ JS
 }
 
 sub _ajax_new {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $id ) = @_;
+	my ( $self, $id, $options ) = @_;
 	my $element = {
 		id    => $id,
 		order => $id,
@@ -741,7 +809,14 @@ sub _ajax_new {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by di
 	$element->{'height'}      //= 1;
 	$element->{'hide_mobile'} //= 1;
 	my $dashboard_name = $self->{'prefstore'}->get_dashboard_name( $self->_get_dashboard_id );
-	my $json           = JSON->new->allow_nonref;
+	if ( defined $options->{'qry_file'} ) {
+		$self->{'no_query_link'} = 1;
+		my $qry = $self->get_query_from_temp_file( $options->{'qry_file'} );
+		$qry =~ s/ORDER\sBY.*$//gx;
+		$self->{'db'}->do("CREATE TEMP VIEW dashboard_view AS $qry");
+		$self->{'view'} = 'dashboard_view';
+	}
+	my $json = JSON->new->allow_nonref;
 	say $json->encode(
 		{
 			element        => $element,
@@ -782,7 +857,19 @@ sub get_display_field {
 }
 
 sub _ajax_get {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $id ) = @_;
+	my ( $self, $id, $options ) = @_;
+	my $q = $self->{'cgi'};
+	if ( $options->{'list_file'} && $options->{'list_attribute'} ) {
+		my $attribute_data = $self->get_list_attribute_data( $options->{'list_attribute'} );
+		$self->{'datastore'}->create_temp_list_table( $attribute_data->{'data_type'}, $options->{'list_file'} );
+	}
+	if ( defined $options->{'qry_file'} ) {
+		$self->{'no_query_link'} = 1;
+		my $qry = $self->get_query_from_temp_file( $options->{'qry_file'} );
+		$qry =~ s/ORDER\sBY.*$//gx;
+		$self->{'db'}->do("CREATE TEMP VIEW dashboard_view AS $qry");
+		$self->{'view'} = 'dashboard_view';
+	}
 	my $elements = $self->_get_elements;
 	my $json     = JSON->new->allow_nonref;
 	if ( $elements->{$id} ) {
@@ -802,11 +889,75 @@ sub _ajax_get {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by di
 	return;
 }
 
+sub get_list_attribute_data {
+	my ( $self, $attribute ) = @_;
+	my $pattern = LOCUS_PATTERN;
+	my ( $field, $extended_field, $scheme_id, $field_type, $data_type, $eav_table, $optlist, $multiple );
+	if ( $attribute =~ /^s_(\d+)_(\S+)$/x ) {    ## no critic (ProhibitCascadingIfElse)
+		$scheme_id  = $1;
+		$field      = $2;
+		$field_type = 'scheme_field';
+		my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+		$data_type = $scheme_field_info->{'type'};
+		return if !$scheme_field_info;
+	} elsif ( $attribute =~ /$pattern/x ) {
+		$field      = $1;
+		$field_type = 'locus';
+		$data_type  = 'text';
+		return if !$self->{'datastore'}->is_locus($field);
+		$field =~ s/\'/\\'/gx;
+	} elsif ( $attribute =~ /^f_(\S+)$/x ) {
+		$field      = $1;
+		$field_type = 'provenance';
+		$field_type = 'labelfield'
+		  if $field_type eq 'provenance' && $field eq $self->{'system'}->{'labelfield'};
+		return if !$self->{'xmlHandler'}->is_field($field);
+		my $field_info = $self->{'xmlHandler'}->get_field_attributes($field);
+		$data_type = $field_info->{'type'};
+		if ( ( $field_info->{'optlist'} // q() ) eq 'yes' ) {
+			$optlist = $self->{'xmlHandler'}->get_field_option_list($field);
+		}
+		if ( ( $field_info->{'multiple'} // q() ) eq 'yes' ) {
+			$multiple = 1;
+		}
+	} elsif ( $attribute =~ /^eav_(\S+)$/x ) {
+		$field      = $1;
+		$field_type = 'phenotypic';
+		my $field_info = $self->{'datastore'}->get_eav_field($field);
+		return if !$field_info;
+		$data_type = $field_info->{'value_format'};
+		$eav_table = $self->{'datastore'}->get_eav_table($data_type);
+	} elsif ( $attribute =~ /^e_(.*)\|\|(.*)/x ) {
+		$extended_field = $1;
+		$field          = $2;
+		$data_type      = 'text';
+		$field_type     = 'extended_isolate';
+	} elsif ( $attribute =~ /^gp_(.+)_(latitude|longitude)/x ) {
+		$field      = $1;
+		$field_type = "geography_point_$2";
+		$data_type  = 'float';
+	}
+	$_ //= q() foreach ( $eav_table, $extended_field );
+	return {
+		field          => $field,
+		eav_table      => $eav_table,
+		extended_field => $extended_field,
+		scheme_id      => $scheme_id,
+		field_type     => $field_type,
+		data_type      => $data_type,
+		optlist        => $optlist,
+		multiple       => $multiple
+	};
+}
+
 sub _ajax_set_active {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $active_id ) = @_;
+	return if $active_id < 0;
+	my $q    = $self->{'cgi'};
+	my $type = $q->param('type') // $self->{'dashboard_type'};
 	my $guid = $self->get_guid;
 	if ( BIGSdb::Utils::is_int($active_id) ) {
-		$self->{'prefstore'}->set_active_dashboard( $guid, $self->{'instance'}, $active_id, 'primary', 0 );
+		$self->{'prefstore'}->set_active_dashboard( $guid, $self->{'instance'}, $active_id, $type, 0 );
 	}
 	return;
 }
@@ -828,11 +979,11 @@ sub _print_filter_display {
 	return;
 }
 
-sub _print_main_section {
-	my ($self) = @_;
+sub print_dashboard {
+	my ( $self, $options ) = @_;
 	my $elements = $self->_get_elements;
 	say q(<div>);
-	$self->_print_filter_display;
+	$self->_print_filter_display if ( $options->{'filter_display'} );
 	say q(<div id="empty">);
 	if ( !keys %$elements ) {
 		say $self->_get_dashboard_empty_message;
@@ -846,6 +997,13 @@ sub _print_main_section {
 		my $display = $elements->{$element}->{'display'};
 		next if !$display;
 		if ( $display_immediately{$display} ) {
+			if ( $options->{'qry_file'} && !$self->{'view_set_up'} ) {
+				my $qry = $self->get_query_from_temp_file( $options->{'qry_file'} );
+				$qry =~ s/ORDER\sBY.*$//gx;
+				$self->{'db'}->do("CREATE TEMP VIEW dashboard_view AS $qry");
+				$self->{'view'}        = 'dashboard_view';
+				$self->{'view_set_up'} = 1;
+			}
 			say $self->_get_element_html( $elements->{$element} );
 			push @$already_loaded, $element;
 		} else {
@@ -855,19 +1013,36 @@ sub _print_main_section {
 	}
 	say q(</div></div>);
 	if (@$ajax_load) {
-		$self->_print_ajax_load_code( $already_loaded, $ajax_load );
+		$self->_print_ajax_load_code(
+			$already_loaded,
+			$ajax_load,
+			{
+				qry_file       => $options->{'qry_file'},
+				list_file      => $options->{'list_file'},
+				list_attribute => $options->{'list_attribute'}
+			}
+		);
 	}
 	return;
 }
 
 sub _print_ajax_load_code {
-	my ( $self, $already_loaded, $ajax_load_ids ) = @_;
+	my ( $self, $already_loaded, $ajax_load_ids, $options ) = @_;
+	my $qry_file_clause = $options->{'qry_file'} ? qq(&qry_file=$options->{'qry_file'}) : q();
+	my $qry_file       = $options->{'qry_file'} // q();
+	my $list_file      = $options->{'list_file'};
+	my $list_attribute = $options->{'list_attribute'};
+	my $list_file_clause =
+	  defined $list_file && defined $list_attribute ? qq(&list_file=$list_file&list_attribute=$list_attribute) : q();
+	my $filter_clause = $self->{'no_filters'} ? '&no_filters=1' : q();
 	local $" = q(,);
 	say q[<script>];
 	say q[$(function () {];
 	say << "JS";
 	var element_ids = [@$ajax_load_ids];
 	var already_loaded = [@$already_loaded];
+	qryFile="$qry_file";
+	
 	if (!window.running){
 		window.running = true;
 		\$.each(already_loaded, function(index,value){
@@ -877,19 +1052,22 @@ sub _print_ajax_load_code {
 			if (\$(window).width() < MOBILE_WIDTH && elements[value]['hide_mobile']){
 				return;
 			}
+			loadedElements[value] = 1;
 			\$.ajax({
-		    	url:"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=dashboard&element=" + value
+		    	url:"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=dashboard$qry_file_clause"
+		    	+ "$list_file_clause$filter_clause&type=$self->{'dashboard_type'}&element=" + value
 		    }).done(function(json){
 		       	try {
 		       	    \$("div#element_" + value + " > .item-content > .ajax_content").html(JSON.parse(json).html);
 		       	    applyFormatting();
-		       	    loadedElements[value] = 1;
+		       	    
 		       	} catch (err) {
 		       		console.log(err.message);
 		       	} 	          	    
 		    });			
 		}); 
 	}
+	
 JS
 	say q[});];
 	say q(</script>);
@@ -909,28 +1087,34 @@ sub _get_default_elements {
 	my $elements = {};
 	my $i        = 1;
 	my $default_dashboard;
-	if ( -e "$self->{'dbase_config_dir'}/$self->{'instance'}/dashboard.toml" ) {
-		my $toml = BIGSdb::Utils::slurp("$self->{'dbase_config_dir'}/$self->{'instance'}/dashboard.toml");
-		my ( $data, $err ) = from_toml($$toml);
-		if ( !$data->{'elements'} ) {
-			$logger->error("Error parsing $self->{'dbase_config_dir'}/$self->{'instance'}/dashboard.toml: $err");
-		} else {
-			$default_dashboard = $data->{'elements'};
+	my @possible_files = (
+		"$self->{'dbase_config_dir'}/$self->{'instance'}/dashboard_$self->{'dashboard_type'}.toml",
+		"$self->{'config_dir'}/dashboard_$self->{'dashboard_type'}.toml",
+		"$self->{'dbase_config_dir'}/$self->{'instance'}/dashboard.toml",
+		"$self->{'config_dir'}/dashboard.toml"
+	);
+	my $file_exists;
+	foreach my $filename (@possible_files) {
+		if ( -e $filename ) {
+			$file_exists = 1;
+			my $toml = BIGSdb::Utils::slurp($filename);
+			my ( $data, $err ) = from_toml($$toml);
+			if ( !$data->{'elements'} ) {
+				$logger->error("Error parsing $filename: $err");
+			} else {
+				$default_dashboard = $data->{'elements'};
+			}
+			last;
 		}
-	} elsif ( -e "$self->{'config_dir'}/dashboard.toml" ) {
-		my $toml = BIGSdb::Utils::slurp("$self->{'config_dir'}/dashboard.toml");
-		my ( $data, $err ) = from_toml($$toml);
-		if ( !$data->{'elements'} ) {
-			$logger->error("Error parsing $self->{'config_dir'}/dashboard.toml: $err");
-		} else {
-			$default_dashboard = $data->{'elements'};
-		}
-	} else {
-		$default_dashboard = DEFAULT_DASHBOARD;
+	}
+	if ( !$file_exists ) {
+		$default_dashboard =
+		  $self->{'dashboard_type'} eq 'primary' ? DEFAULT_FRONTEND_DASHBOARD : DEFAULT_QUERY_DASHBOARD;
 	}
 	if ( !ref $default_dashboard || ref $default_dashboard ne 'ARRAY' ) {
 		$logger->error('No default dashboard elements defined - using built-in default instead.');
-		$default_dashboard = DEFAULT_DASHBOARD;
+		$default_dashboard =
+		  $self->{'dashboard_type'} eq 'primary' ? DEFAULT_FRONTEND_DASHBOARD : DEFAULT_QUERY_DASHBOARD;
 	}
 	my $genome_size = $self->{'system'}->{'min_genome_size'} // $self->{'config'}->{'min_genome_size'}
 	  // MIN_GENOME_SIZE;
@@ -1038,16 +1222,19 @@ sub _field_exists {
 
 sub _get_filters {
 	my ( $self, $options ) = @_;
+	my $q       = $self->{'cgi'};
 	my $filters = [];
-	push @$filters, 'v.new_version IS NULL' if !$self->{'prefs'}->{'include_old_versions'};
+	if ( !$q->param('no_filters') ) {
+		push @$filters, 'v.new_version IS NULL' if !$self->{'prefs'}->{'include_old_versions'};
+		if ( $self->{'prefs'}->{'record_age'} ) {
+			my $datestamp = $self->get_record_age_datestamp( $self->{'prefs'}->{'record_age'} );
+			push @$filters, "v.id IN (SELECT id FROM $self->{'system'}->{'view'} WHERE date_entered>='$datestamp')";
+		}
+	}
 	if ( $options->{'genomes'} ) {
 		my $genome_size = $self->{'system'}->{'min_genome_size'} // $self->{'config'}->{'min_genome_size'}
 		  // MIN_GENOME_SIZE;
 		push @$filters, "v.id IN (SELECT isolate_id FROM seqbin_stats WHERE total_length>=$genome_size)";
-	}
-	if ( $self->{'prefs'}->{'record_age'} ) {
-		my $datestamp = $self->get_record_age_datestamp( $self->{'prefs'}->{'record_age'} );
-		push @$filters, "v.id IN (SELECT id FROM $self->{'system'}->{'view'} WHERE date_entered>='$datestamp')";
 	}
 	return $filters;
 }
@@ -1068,7 +1255,7 @@ sub _get_count_element_content {
 					genomes => $element->{'genomes'}
 				}
 			);
-			my $qry = "SELECT COUNT(*) FROM $self->{'system'}->{'view'} v WHERE "
+			my $qry = "SELECT COUNT(*) FROM $self->{'view'} v WHERE "
 			  . "v.date_entered <= now()-interval '1 $element->{'change_duration'}'";
 			local $" = ' AND ';
 			$qry .= " AND @$filters" if @$filters;
@@ -1116,7 +1303,7 @@ sub _get_seqbin_standard_range {
 sub _get_seqbin_size_element_content {
 	my ( $self, $element ) = @_;
 	my $chart_colour = $element->{'chart_colour'} // CHART_COLOUR;
-	my $qry = "SELECT total_length FROM seqbin_stats s JOIN $self->{'system'}->{'view'} v ON s.isolate_id=v.id";
+	my $qry = "SELECT total_length FROM seqbin_stats s JOIN $self->{'view'} v ON s.isolate_id=v.id";
 	if ( !defined $element->{'min'} && !defined $element->{'max'} ) {
 		my $range = $self->_get_seqbin_standard_range;
 		$element->{'min'} //= $range->{'min'};
@@ -1345,6 +1532,7 @@ sub _get_field_element_content {
 			top        => sub { $self->_get_field_breakdown_top_values_content($element) },
 			treemap    => sub { $self->_get_field_breakdown_treemap_content($element) },
 			map        => sub { $self->_get_field_breakdown_map_content($element) },
+			gps_map    => sub { $self->_get_field_breakdown_gps_map_content($element) },
 		);
 		if ( $methods{$chart_type} ) {
 			$buffer .= $methods{$chart_type}->();
@@ -1409,9 +1597,19 @@ sub _get_provenance_field_counts {
 			}
 		}
 	}
+	if ( $type eq 'geography_point' ) {
+		$type = 'geography(POINT, 4326)';
+		my $new_values = [];
+		foreach my $value (@$values) {
+			if ( $value =~ /^(\-?\d+\.?\d*),\s*(\-?\d+\.?\d*)/x ) {
+				push @$new_values, $self->{'datastore'}->convert_coordinates_to_geography( $1, $2 );
+			}
+		}
+		$values = $new_values;
+	}
 	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( $type, $values );
 	my $qry;
-	my $view = $self->{'system'}->{'view'};
+	my $view = $self->{'view'};
 	if ( $type eq 'text' ) {
 		$qry =
 		  ( $att->{'multiple'} // q() ) eq 'yes'
@@ -1454,7 +1652,7 @@ sub _get_extended_field_counts {
 	my $type       = $self->_get_field_type($element);
 	my $values     = $self->_filter_list( $type, $element->{'specific_values'} );
 	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( $type, $values );
-	my $view       = $self->{'system'}->{'view'};
+	my $view       = $self->{'view'};
 	my $qry = "SELECT COUNT(*) FROM $view v JOIN isolate_value_extended_attributes a ON v.$field = a.field_value AND "
 	  . "a.attribute=? WHERE a.value IN (SELECT value FROM $temp_table)";
 	my $filters = $self->_get_filters;
@@ -1519,8 +1717,7 @@ sub _get_scheme_field_counts {
 
 		#We include the DISTINCT clause below because an isolate may have more than 1 row in the scheme
 		#cache table. This happens if the isolate has multiple STs (due to multiple allele hits).
-		my $qry =
-		  "SELECT COUNT(DISTINCT v.id) FROM $self->{'system'}->{'view'} v JOIN $scheme_table s ON v.id=s.id WHERE ";
+		my $qry = "SELECT COUNT(DISTINCT v.id) FROM $self->{'view'} v JOIN $scheme_table s ON v.id=s.id WHERE ";
 		if ( $type eq 'text' ) {
 			$qry .= "UPPER(s.$field) IN (SELECT UPPER(value) FROM $temp_table)";
 		} else {
@@ -1567,10 +1764,47 @@ sub _get_field_breakdown_values {
 	return [];
 }
 
+sub _get_linked_gps_field_breakdown_values {
+	my ( $self, $element ) = @_;
+	( my $field = $element->{'field'} ) =~ s/^f_//x;
+	my $country_field = $self->{'system'}->{'country_field'} // 'country';
+	if ( !$self->{'xmlHandler'}->is_field($country_field) ) {
+		$logger->error("$country_field field does not exist.");
+		return;
+	}
+	my $qry =
+	    "SELECT $field AS label,$country_field AS country,COUNT(*) "
+	  . "AS value FROM $self->{'view'} v WHERE $field IS NOT NULL";
+	my $filters = $self->_get_filters;
+	local $" = ' AND ';
+	$qry .= " AND @$filters" if @$filters;
+	$qry .= ' GROUP BY label,country';
+	my $data = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
+	my $values = [];
+
+	foreach my $value (@$data) {
+		my $coordinates = $self->{'datastore'}->lookup_geography_point(
+			{
+				$country_field => $value->{'country'},
+				$field         => $value->{'label'}
+			},
+			$field
+		);
+		if ( $coordinates->{'latitude'} ) {
+			push @$values,
+			  {
+				label => "$coordinates->{'latitude'}, $coordinates->{'longitude'}",
+				value => $value->{'value'}
+			  };
+		}
+	}
+	return $values;
+}
+
 sub _get_primary_metadata_breakdown_values {
 	my ( $self, $field ) = @_;
 	my $att     = $self->{'xmlHandler'}->get_field_attributes($field);
-	my $qry     = "SELECT $field AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v ";
+	my $qry     = "SELECT $field AS label,COUNT(*) AS value FROM $self->{'view'} v ";
 	my $filters = $self->_get_filters;
 	local $" = ' AND ';
 	$qry .= " WHERE @$filters" if @$filters;
@@ -1618,13 +1852,19 @@ sub _get_primary_metadata_breakdown_values {
 	if ( ( $att->{'userfield'} // q() ) eq 'yes' || $field eq 'sender' || $field eq 'curator' ) {
 		$values = $self->_rewrite_user_field_values($values);
 	}
+	if ( $self->{'datastore'}->field_needs_conversion($field) ) {
+		foreach my $value (@$values) {
+			next if !defined $value->{'label'};
+			$value->{'label'} = $self->{'datastore'}->convert_field_value( $field, $value->{'label'} );
+		}
+	}
 	return $values;
 }
 
 sub _get_extended_field_breakdown_values {
 	my ( $self, $field, $attribute ) = @_;
 	my $qry =
-	    "SELECT COALESCE(e.value,'No value') AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
+	    "SELECT COALESCE(e.value,'No value') AS label,COUNT(*) AS value FROM $self->{'view'} v "
 	  . "LEFT JOIN isolate_value_extended_attributes e ON (v.$field,e.isolate_field,e.attribute)=(e.field_value,?,?) ";
 	my $filters = $self->_get_filters;
 	local $" = ' AND ';
@@ -1639,7 +1879,7 @@ sub _get_eav_field_breakdown_values {
 	my ( $self, $field ) = @_;
 	my $att   = $self->{'datastore'}->get_eav_field($field);
 	my $table = $self->{'datastore'}->get_eav_field_table($field);
-	my $qry   = "SELECT t.value AS label,COUNT(*) AS value FROM $table t RIGHT JOIN $self->{'system'}->{'view'} v "
+	my $qry   = "SELECT t.value AS label,COUNT(*) AS value FROM $table t RIGHT JOIN $self->{'view'} v "
 	  . 'ON t.isolate_id = v.id AND t.field=?';
 	my $filters = $self->_get_filters;
 	local $" = ' AND ';
@@ -1665,7 +1905,7 @@ sub _get_scheme_field_breakdown_values {
 	#We include the DISTINCT clause below because an isolate may have more than 1 row in the scheme
 	#cache table. This happens if the isolate has multiple STs (due to multiple allele hits).
 	my $qry =
-	    "SELECT s.$field AS label,COUNT(DISTINCT (v.id)) AS value FROM $self->{'system'}->{'view'} v "
+	    "SELECT s.$field AS label,COUNT(DISTINCT (v.id)) AS value FROM $self->{'view'} v "
 	  . "LEFT JOIN $scheme_table s ON v.id=s.id";
 	my $filters = $self->_get_filters;
 	local $" = ' AND ';
@@ -1728,7 +1968,7 @@ sub _get_field_specific_value_number_content {
 
 sub _get_total_record_count {
 	my ( $self, $options ) = @_;
-	my $qry     = "SELECT COUNT(*) FROM $self->{'system'}->{'view'} v";
+	my $qry     = "SELECT COUNT(*) FROM $self->{'view'} v";
 	my $filters = $self->_get_filters(
 		{
 			genomes => $options->{'genomes'}
@@ -1808,8 +2048,8 @@ sub _get_doughnut_pie_threshold {
 	my $total         = 0;
 	$total += $_->{'value'} foreach @$data;
 	return $max_threshold if !$total;
-	my $running = 0;
-	my $threshold;
+	my $running   = 0;
+	my $threshold = 0;
 	foreach my $value (@$data) {
 		$running += $value->{'value'};
 
@@ -2035,6 +2275,9 @@ sub _get_field_breakdown_cumulative_content {
 	my $dataset = $self->_get_cumulative_dataset($element);
 	my $height  = ( $element->{'height'} * 150 ) - 25;
 	my $ticks   = $element->{'width'};
+	if ( $ticks > @{ $dataset->{'labels'} } ) {
+		$ticks = @{ $dataset->{'labels'} };
+	}
 	local $" = q(",");
 	my $date_string = qq("@{$dataset->{'labels'}}");
 	local $" = q(,);
@@ -2420,8 +2663,8 @@ sub _get_field_breakdown_top_values_content {
 		my $nice_value    = BIGSdb::Utils::commify( $value->{'value'} );
 		my $display_label = $value->{'display_label'} // $value->{'label'};
 		$count++;
-		$buffer .= qq(<tr class="td$td" style="$style"><td><a href="$url"$target>)
-		  . qq($display_label</a></td><td>$nice_value</td></tr>);
+		my $formatted_value = $self->{'no_query_link'} ? $display_label : qq(<a href="$url"$target>$display_label</a>);
+		$buffer .= qq(<tr class="td$td" style="$style"><td>$formatted_value</td><td>$nice_value</td></tr>);
 		$td = $td == 1 ? 2 : 1;
 		last if $count >= $element->{'top_values'};
 	}
@@ -2798,6 +3041,93 @@ JS
 	return $buffer;
 }
 
+sub _get_field_breakdown_gps_map_content {
+	my ( $self, $element ) = @_;
+	my $data =
+	    $self->_field_linked_to_gps( $element->{'field'} )
+	  ? $self->_get_linked_gps_field_breakdown_values($element)
+	  : $self->_get_field_breakdown_values($element);
+
+	my $values = [];
+	foreach my $value (@$data) {
+		next if !defined $value->{'label'};
+		push @$values, $value;
+	}
+	my $json     = JSON->new->allow_nonref;
+	my $dataset  = $json->encode($values);
+	my $height   = $element->{'height'} * 150 + ( $element->{'height'} - 1 ) * 4;
+	my $buffer   = qq(<div id="chart_$element->{'id'}" style="height:${height}px;"></div>);
+	my %map_type = (
+		Map    => 'RoadOnDemand',
+		Aerial => 'AerialWithLabelsOnDemand'
+	);
+	my $imagery_set = $map_type{ $element->{'geography_view'} // 'Map' };
+	my $marker_colour = $element->{'marker_colour'} // 'red';
+	my $marker_size   = $element->{'marker_size'}   // 1;
+	$imagery_set //= 'RoadOnDemand';
+	$buffer .= qq(<script>\n);
+
+	if ( $self->{'config'}->{'bingmaps_api'} ) {
+		$buffer .= <<"JS";
+		
+		var layer = [
+			new ol.layer.Tile({
+				visible: true,
+				preload: Infinity,
+				source: new ol.source.BingMaps({
+					key: '$self->{'config'}->{'bingmaps_api'}',
+					imagerySet: '$imagery_set'
+				})
+			})
+		];
+JS
+	} else {
+		$buffer .= <<"JS";
+		var layer = [
+			new ol.layer.Tile({
+				source: new ol.source.OSM({
+					crossOrigin: null
+				})
+			})
+		];	
+JS
+	}
+	$buffer .= <<"JS";
+	var data = $dataset;	
+	var map = new ol.Map({
+		target: 'chart_$element->{'id'}',
+		layers: layer,
+		view: new ol.View({
+			center: ol.proj.fromLonLat([0, 20]),
+			zoom: 2,
+			minZoom: 1,
+			maxZoom: 16
+		})
+	});
+	var vectorLayer = get_marker_layer(data, '$marker_colour', $marker_size);
+	map.addLayer(vectorLayer);
+	var features = vectorLayer.getSource().getFeatures();
+	if (features.length) {
+		map.getView().fit(vectorLayer.getSource().getExtent(), {
+			size: map.getSize(),
+			padding: [10, 10, 10, 10],
+			minZoom: 2,
+			maxZoom: 12,
+			constrainResolution: false
+		});
+	}
+		
+JS
+	$buffer .= qq(</script>\n);
+	$buffer .=
+	    q(<div class="title gps_map_title" )
+	  . qq(style="position:absolute;top:0;width:100%;color:#666">$element->{'name'}</div>);
+	if ( !@$data ) {
+		$buffer .= q(<div style="position:absolute;top:50px;width:100%;color:#666;font-size:2em">No values</div>);
+	}
+	return $buffer;
+}
+
 sub _get_palettes {
 	my ($self) = @_;
 	return {
@@ -2829,7 +3159,15 @@ sub _get_query_url {
 	if ( $element->{'field'} =~ /^[f|e]_/x ) {
 		$field = 'f_sender%20(id)'  if $field eq 'f_sender';
 		$field = 'f_curator%20(id)' if $field eq 'f_curator';
-		$url .= "&amp;prov_field1=$field&amp;prov_value1=$value";
+		my $type = $self->_get_field_type($element);
+		if ( $type eq 'geography_point' ) {
+			my ( $lat, $long ) = split /,%20/x, $value;
+			$field =~ s/^f_/gp_/x;
+			$url .= "&amp;prov_field1=${field}_latitude&amp;prov_value1=$lat&amp;"
+			  . "prov_field2=${field}_longitude&amp;prov_value2=$long";
+		} else {
+			$url .= "&amp;prov_field1=$field&amp;prov_value1=$value";
+		}
 	}
 	if ( $element->{'field'} =~ /^eav_/x ) {
 		$url .= "&amp;phenotypic_field1=$field&amp;phenotypic_value1=$value";
@@ -2841,7 +3179,14 @@ sub _get_query_url {
 		$url .= '&amp;include_old=on';
 	}
 	if ( $self->{'prefs'}->{'record_age'} ) {
-		my $row = $url =~ /prov_field1/x ? 2 : 1;
+		my $row;
+		for ( my $i = 20 ; $i >= 0 ; $i-- ) {
+			if ( $url =~ /prov_field$i/x ) {
+				$row = $i + 1;
+				last;
+			}
+			$row = 1;
+		}
 		my $datestamp = $self->get_record_age_datestamp( $self->{'prefs'}->{'record_age'} );
 		$url .= "&amp;prov_field$row=f_date_entered&amp;prov_operator$row=>=&amp;prov_value$row=$datestamp";
 	}
@@ -2914,6 +3259,7 @@ sub _get_element_controls {
 
 sub _get_data_query_link {
 	my ( $self, $element ) = @_;
+	return q() if $self->{'no_query_link'};
 	my $buffer = q();
 	$buffer .= qq(<span data-id="$element->{'id'}" class="dashboard_data_query_element fas fa-share">);
 	if ( $element->{'url_text'} ) {
@@ -2925,6 +3271,9 @@ sub _get_data_query_link {
 
 sub _get_data_explorer_link {
 	my ( $self, $element ) = @_;
+	return q() if $self->{'no_query_link'};
+	my $type = $self->_get_field_type($element);
+	return q() if $type eq 'geography_point';
 	my $buffer = q();
 	$element->{'explorer_text'} //= 'Explore data';
 	$buffer .= qq(<span data-id="$element->{'id'}" class="dashboard_data_explorer_element fas fa-search">);
@@ -2936,12 +3285,15 @@ sub _get_data_explorer_link {
 sub initiate {
 	my ($self) = @_;
 	return if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
+	$self->{'dashboard_type'} = 'primary';
 	$self->{$_} = 1
 	  foreach
 	  qw (jQuery noCache muuri modal fitty bigsdb.dashboard tooltips jQuery.fonticonpicker billboard d3.layout.cloud);
-	$self->{'geomap'} = 1 if $self->_has_country_optlist;
+	$self->{'geomap'} = 1 if $self->has_country_optlist;
+	$self->{'ol'}     = 1 if $self->need_openlayers;
 	$self->choose_set;
 	$self->{'breadcrumbs'} = [];
+
 	if ( $self->{'system'}->{'webroot'} ) {
 		push @{ $self->{'breadcrumbs'} },
 		  {
@@ -2962,14 +3314,26 @@ sub initiate {
 			last;
 		}
 	}
-	my $guid = $self->get_guid;
-	my $dashboard_id = $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
+	$self->get_or_set_dashboard_prefs;
+	return;
+}
+
+sub get_or_set_dashboard_prefs {
+	my ($self) = @_;
+	my $guid   = $self->get_guid;
+	my $q      = $self->{'cgi'};
+	$self->{'dashboard_type'} = $q->param('type') if defined $q->param('type');
+	my $dashboard_id =
+	  $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, 0 );
 	if ( $q->param('resetDefaults') ) {
 		$self->{'prefstore'}->delete_dashboard( $dashboard_id, $guid, $self->{'instance'} ) if $guid;
 		my $dashboards = $self->{'prefstore'}->get_dashboards( $guid, $self->{'instance'} );
 		if (@$dashboards) {
-			$self->{'prefstore'}
-			  ->set_active_dashboard( $guid, $self->{'instance'}, $dashboards->[0]->{'id'}, 'primary', 0 );
+			$self->{'prefstore'}->set_active_dashboard(
+				$guid, $self->{'instance'},
+				$dashboards->[0]->{'id'},
+				$self->{'dashboard_type'}, 0
+			);
 		}
 	}
 	$self->{'prefs'} = $self->{'prefstore'}->get_general_dashboard_prefs( $guid, $self->{'instance'} );
@@ -2987,12 +3351,13 @@ sub _update_dashboard_name {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 	$name =~ s/^\s+|\s+$//x;
 	return if !$name || !length($name) || length($name) > 15;
 	my $guid = $self->get_guid;
-	my $dashboard_id = $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
+	my $dashboard_id =
+	  $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, 0 );
 	$self->{'prefstore'}->update_dashboard_name( $dashboard_id, $guid, $self->{'instance'}, $name );
 	return;
 }
 
-sub _update_general_prefs {     ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _update_general_prefs {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ($self)    = @_;
 	my $q         = $self->{'cgi'};
 	my $attribute = $q->param('attribute');
@@ -3054,10 +3419,11 @@ sub _get_dashboard_id {
 	my ($self) = @_;
 	return $self->{'dashboard_id'} if defined $self->{'dashboard_id'};
 	my $guid = $self->get_guid;
-	$self->{'dashboard_id'} = $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
+	$self->{'dashboard_id'} =
+	  $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, 0 );
 	return $self->{'dashboard_id'} if defined $self->{'dashboard_id'};
 	$self->{'dashboard_id'} =
-	  $self->{'prefstore'}->initiate_new_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
+	  $self->{'prefstore'}->initiate_new_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, 0 );
 	if ( !defined $self->{'dashboard_id'} ) {
 		$logger->error('Dashboard pref could not be initiated.');
 	}
@@ -3066,23 +3432,23 @@ sub _get_dashboard_id {
 
 sub print_panel_buttons {
 	my ($self) = @_;
-	say q(<span class="icon_button"><a class="trigger_button" id="panel_trigger" style="display:none">)
-	  . q(<span class="fas fa-lg fa-wrench"></span><div class="icon_label">Dashboard settings</div></a></span>);
+	say q(<span class="icon_button"><a class="trigger_button" id="dashboard_panel_trigger" style="display:none">)
+	  . q(<span class="fas fa-lg fa-tools"></span><div class="icon_label">Modify dashboard</div></a></span>);
 	say q(<span class="icon_button"><a class="trigger_button" id="dashboard_toggle">)
 	  . q(<span class="fas fa-lg fa-th-list"></span><div class="icon_label">Index page</div></a></span>);
 	return;
 }
 
-sub _print_modify_dashboard_fieldset {
-	my ($self) = @_;
+sub print_modify_dashboard_fieldset {
+	my ( $self, $options ) = @_;
 	my $enable_drag     = $self->{'prefs'}->{'enable_drag'}     // 0;
 	my $edit_elements   = $self->{'prefs'}->{'edit_elements'}   // 1;
 	my $remove_elements = $self->{'prefs'}->{'remove_elements'} // 0;
 	my $open_new        = $self->{'prefs'}->{'open_new'}        // 1;
 	my $fill_gaps       = $self->{'prefs'}->{'fill_gaps'}       // 1;
 	my $q               = $self->{'cgi'};
-	say q(<div id="modify_panel" class="panel">);
-	say q(<a class="trigger" id="close_trigger" href="#"><span class="fas fa-lg fa-times"></span></a>);
+	say q(<div id="modify_dashboard_panel" class="panel">);
+	say q(<a class="trigger" id="close_dashboard_trigger" href="#"><span class="fas fa-lg fa-times"></span></a>);
 	say q(<h2>Dashboard settings</h2>);
 	say q(<fieldset><legend>Layout</legend>);
 	say q(<form autocomplete="off">);    #Needed because Firefox autocomplete can override the values we set.
@@ -3113,7 +3479,7 @@ sub _print_modify_dashboard_fieldset {
 	);
 	say q(</li></ul>);
 	say q(</fieldset>);
-	$self->_print_filter_fieldset;
+	$self->_print_filter_fieldset if !$options->{'no_filters'};
 	say q(<fieldset><legend>Visual elements</legend>);
 	say q(<ul><li>);
 	say $q->checkbox(
@@ -3169,17 +3535,17 @@ sub _print_dashboard_management_fieldset {
 	my ($self) = @_;
 	my $guid = $self->get_guid;
 	my $name;
-	my $dashboard_id = $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
+	my $dashboard_id =
+	  $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, 0 );
 	my $dashboards = $self->{'prefstore'}->get_dashboards( $guid, $self->{'instance'} );
-	if ( !defined $dashboard_id ) {
-		if (@$dashboards) {
-			$dashboard_id = $dashboards->[0]->{'id'};
-		} else {
-			$dashboard_id = 0;
-		}
+	my $ids        = [-1];
+	my $labels     = { -1 => 'Select dashboard...' };
+	if ( defined $dashboard_id ) {
+		push @$ids, 0;
+		$labels->{0} = "$self->{'dashboard_type'} default";
+	} else {
+		$dashboard_id = 0;
 	}
-	my $ids = [0];
-	my $labels = { 0 => 'Select dashboard...' };
 	foreach my $dashboard (@$dashboards) {
 		next if $dashboard->{'id'} == $dashboard_id;
 		push @$ids, $dashboard->{'id'};
@@ -3188,7 +3554,7 @@ sub _print_dashboard_management_fieldset {
 	if ($dashboard_id) {
 		$name = $self->{'prefstore'}->get_dashboard_name($dashboard_id);
 	} else {
-		$name = 'default';
+		$name = "$self->{'dashboard_type'} default";
 	}
 	my $q = $self->{'cgi'};
 	say q(<fieldset><legend>Versions</legend>);
@@ -3202,25 +3568,27 @@ sub _print_dashboard_management_fieldset {
 		-style     => 'width:8em',
 		-value     => $name
 	);
-	$attributes{'-disabled'} = 1 if $name eq 'default';
+	$attributes{'-disabled'} = 1 if $name eq "$self->{'dashboard_type'} default";
 	say $q->textfield(%attributes);
 	say q(</li>);
 
-	if ( @$dashboards > 1 ) {
+	if ( @$ids > 1 ) {
 		say q(<li><label for="switch_dashboard">Switch:</label>);
 		say $q->popup_menu(
 			-id      => 'switch_dashboard',
 			-name    => 'switch_dashboard',
 			-labels  => $labels,
 			-values  => $ids,
-			-default => 0
+			-default => -1
 		);
 		say q(</li>);
 	}
 	say q(<li>);
-	my $reset_display = $name eq 'default' ? q(none) : q(inline);
-	say q(<a id="delete_dashboard" onclick="resetDefaults()" class="small_reset" )
-	  . qq(style="display:$reset_display;white-space:nowrap"><span class="far fa-trash-alt"></span> Delete</a>);
+	if ( @$ids > 1 ) {
+		my $reset_display = $name eq 'query default' || $name eq 'primary default' ? q(none) : q(inline);
+		say q(<a id="delete_dashboard" onclick="resetDefaults()" class="small_reset" )
+		  . qq(style="display:$reset_display;white-space:nowrap"><span class="far fa-trash-alt"></span> Delete</a>);
+	}
 	if ( @$dashboards < DASHBOARD_LIMIT ) {
 		say q(<a onclick="createNew()" class="small_submit">New dashboard</a>);
 	}
@@ -3233,11 +3601,12 @@ sub _print_dashboard_management_fieldset {
 sub print_field_selector {
 	my ( $self, $select_options, $field_options ) = @_;
 	$select_options //= {
-		ignore_prefs        => 1,
-		isolate_fields      => 1,
-		scheme_fields       => 1,
-		extended_attributes => 1,
-		eav_fields          => 1,
+		ignore_prefs             => 1,
+		isolate_fields           => 1,
+		scheme_fields            => 1,
+		extended_attributes      => 1,
+		eav_fields               => 1,
+		nosplit_geography_points => 1
 	};
 	my $q = $self->{'cgi'};
 	my ( $fields, $labels ) = $self->get_field_selection_list($select_options);
@@ -3342,10 +3711,15 @@ var order = '$order';
 var instance = "$self->{'instance'}";
 var empty='$empty';
 var enable_drag=$enable_drag;
+var dashboard_type='primary';
 var loadedElements = {};
 var recordAgeLabels = $record_age_labels;
 var recordAge = $record_age;
 var datestamps = $datestamps;
+var qryFile;
+var listFile;
+var listAttribute;
+
 END
 	return $buffer;
 }

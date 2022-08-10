@@ -1,0 +1,82 @@
+#Configuration for default query dashboard for isolate databases. This
+#defines the visual elements that will be included. If field-specific elements
+#are defined and that field does not exist in a particular database then it
+#will be ignored. 
+
+#The default configuration can be overridden for a particular database by 
+#including a dashboard_query.toml file, using the same format, in the database 
+#configuration directory.
+
+#Width can be 1, 2, 3, or 4.
+#Height can be 1, 2, or 3.
+
+#Field names have prefixes indicating the field type:
+#f_ are standard provenance/primary fields
+#e_ are extended attributes with the main field and the attribute separated 
+#   by ||, e.g. e_country||continent.
+
+elements = [	{
+		display           = 'record_count',
+		name              = 'Isolate count',
+		width             = 1,
+		background_colour = '#79cafb',
+		main_text_colour  = '#404040',
+		watermark         = 'fas fa-bacteria',
+		change_duration   = 'month',
+		url_text          = 'Browse isolates'
+	},
+	{
+		display           = 'record_count',
+		name              = 'Genome count',
+		genomes           = 1,
+		width             = 1,
+		background_colour = '#7ecc66',
+		main_text_colour  = '#404040',
+		watermark         = 'fas fa-dna',
+		change_duration   = 'month',
+		url_text          = 'Browse genomes',
+		post_data         = { genomes = 1 }
+	},
+	{
+		display           = 'field',
+		name              = 'Country',
+		field             = 'f_country',
+		breakdown_display = 'map',
+		width             = 2,
+		height            = 1,
+		hide_mobile       = 1
+	},
+	{
+		display           = 'field',
+		name              = 'Species',
+		field             = 'f_species',
+		breakdown_display = 'treemap',
+		height            = 1,
+		width             = 1
+	},
+	{
+		display           = 'field',
+		name              = 'Disease',
+		field             = 'f_disease',
+		breakdown_display = 'treemap',
+		height            = 1,
+		width             = 1
+	},
+	{
+		display           = 'field',
+		name              = 'Source',
+		field             = 'f_source',
+		breakdown_display = 'treemap',
+		height            = 1,
+		width             = 1
+	},
+	{
+		display           = 'field',
+		name              = 'Year',
+		field             = 'f_year',
+		breakdown_display = 'bar',
+		width             = 2,
+		bar_colour_type   = 'continuous',
+		chart_colour      = '#126716'
+	}
+]

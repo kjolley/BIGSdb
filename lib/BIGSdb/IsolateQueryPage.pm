@@ -20,7 +20,7 @@ package BIGSdb::IsolateQueryPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::QueryPage);
+use parent qw(BIGSdb::QueryPage BIGSdb::DashboardPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use List::MoreUtils qw(any none uniq);
@@ -237,6 +237,7 @@ sub print_content {
 		$self->_print_interface;
 	}
 	$self->_run_query if $q->param('submit') || defined $q->param('query_file');
+	$self->print_modify_dashboard_fieldset( { no_filters => 1 } );
 	return;
 }
 
@@ -265,7 +266,7 @@ sub _print_interface {
 	$self->_print_list_fieldset;
 	$self->_print_filters_fieldset;
 	$self->_print_display_fieldset;
-	$self->print_action_fieldset( { submit_label => 'Search' } );
+	$self->print_action_fieldset( { id => 'search', submit_label => 'Search' } );
 	$self->_print_modify_search_fieldset;
 	$self->_print_bookmark_fieldset;
 	say q(</div>);
@@ -284,6 +285,8 @@ sub print_panel_buttons {
 		say q(<span class="icon_button">)
 		  . q(<a class="trigger_button" id="panel_trigger" style="display:none">)
 		  . q(<span class="fas fa-lg fa-wrench"></span><div class="icon_label">Modify form</div></a></span>);
+		say q(<span class="icon_button"><a class="trigger_button" id="dashboard_panel_trigger" style="display:none">)
+		  . q(<span class="fas fa-lg fa-tools"></span><div class="icon_label">Modify dashboard</div></a></span>);
 		my $bookmarks = $self->_get_bookmarks;
 		if (@$bookmarks) {
 			say q(<span class="icon_button"><a class="trigger_button" id="bookmark_trigger" style="display:none">)
@@ -701,12 +704,13 @@ sub _print_list_fieldset_contents {
 	my @grouped_fields;
 	my ( $field_list, $labels ) = $self->get_field_selection_list(
 		{
-			isolate_fields      => 1,
-			eav_fields          => 1,
-			loci                => 1,
-			scheme_fields       => 1,
-			sender_attributes   => 0,
-			extended_attributes => 1
+			isolate_fields                  => 1,
+			include_unsplit_geography_point => 1,
+			eav_fields                      => 1,
+			loci                            => 1,
+			scheme_fields                   => 1,
+			sender_attributes               => 0,
+			extended_attributes             => 1
 		}
 	);
 	my $grouped = $self->{'xmlHandler'}->get_grouped_fields;
@@ -731,11 +735,13 @@ sub _modify_query_by_list {
 	my ( $self, $qry ) = @_;
 	my $q = $self->{'cgi'};
 	return $qry if !$q->param('list');
-	my $attribute_data = $self->_get_list_attribute_data( scalar $q->param('attribute') );
+	my $attribute      = $q->param('attribute');
+	my $attribute_data = $self->get_list_attribute_data($attribute);
 	my ( $field, $extended_field, $scheme_id, $field_type, $data_type, $eav_table, $optlist, $multiple ) =
 	  @{$attribute_data}{qw (field extended_field scheme_id field_type data_type eav_table optlist multiple)};
 	return $qry if !$field;
 	my @list = split /\n/x, $q->param('list');
+
 	if ($optlist) {
 		my %used = map { $_ => 1 } @list;
 		foreach my $value (@list) {
@@ -756,6 +762,7 @@ sub _modify_query_by_list {
 	close $fh;
 	$q->param( list_file => $list_file );
 	$q->param( datatype  => $data_type );
+	say qq(<script>listFile="$list_file";listAttribute="$attribute;"</script>);
 	my $view                      = $self->{'system'}->{'view'};
 	my $isolate_scheme_field_view = q();
 
@@ -763,8 +770,6 @@ sub _modify_query_by_list {
 		$isolate_scheme_field_view = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 	}
 	$field_type = 'provenance_multiple' if $field_type eq 'provenance' && $multiple;
-
-	#	$logger->error("$field $field_type");
 	my %sql = (
 		labelfield => ( $data_type eq 'text' ? "UPPER($view.$field) " : "$view.$field " )
 		  . "IN (SELECT value FROM temp_list) OR $view.id IN (SELECT isolate_id FROM isolate_aliases "
@@ -786,6 +791,7 @@ sub _modify_query_by_list {
 		scheme_field => "$view.id IN (SELECT id FROM $isolate_scheme_field_view WHERE "
 		  . ( $data_type eq 'text' ? "UPPER($field)" : $field )
 		  . ' IN (SELECT value FROM temp_list))',
+		geography_point           => "$view.$field IN (SELECT value FROM temp_list)",
 		geography_point_latitude  => "ST_Y($view.${field}::geometry) IN (SELECT value FROM temp_list)",
 		geography_point_longitude => "ST_X($view.${field}::geometry) IN (SELECT value FROM temp_list)"
 	);
@@ -796,67 +802,6 @@ sub _modify_query_by_list {
 		$qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE ($sql{$field_type})";
 	}
 	return $qry;
-}
-
-sub _get_list_attribute_data {
-	my ( $self, $attribute ) = @_;
-	my $pattern = LOCUS_PATTERN;
-	my ( $field, $extended_field, $scheme_id, $field_type, $data_type, $eav_table, $optlist, $multiple );
-	if ( $attribute =~ /^s_(\d+)_(\S+)$/x ) {    ## no critic (ProhibitCascadingIfElse)
-		$scheme_id  = $1;
-		$field      = $2;
-		$field_type = 'scheme_field';
-		my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
-		$data_type = $scheme_field_info->{'type'};
-		return if !$scheme_field_info;
-	} elsif ( $attribute =~ /$pattern/x ) {
-		$field      = $1;
-		$field_type = 'locus';
-		$data_type  = 'text';
-		return if !$self->{'datastore'}->is_locus($field);
-		$field =~ s/\'/\\'/gx;
-	} elsif ( $attribute =~ /^f_(\S+)$/x ) {
-		$field      = $1;
-		$field_type = 'provenance';
-		$field_type = 'labelfield'
-		  if $field_type eq 'provenance' && $field eq $self->{'system'}->{'labelfield'};
-		return if !$self->{'xmlHandler'}->is_field($field);
-		my $field_info = $self->{'xmlHandler'}->get_field_attributes($field);
-		$data_type = $field_info->{'type'};
-		if ( ( $field_info->{'optlist'} // q() ) eq 'yes' ) {
-			$optlist = $self->{'xmlHandler'}->get_field_option_list($field);
-		}
-		if ( ( $field_info->{'multiple'} // q() ) eq 'yes' ) {
-			$multiple = 1;
-		}
-	} elsif ( $attribute =~ /^eav_(\S+)$/x ) {
-		$field      = $1;
-		$field_type = 'phenotypic';
-		my $field_info = $self->{'datastore'}->get_eav_field($field);
-		return if !$field_info;
-		$data_type = $field_info->{'value_format'};
-		$eav_table = $self->{'datastore'}->get_eav_table($data_type);
-	} elsif ( $attribute =~ /^e_(.*)\|\|(.*)/x ) {
-		$extended_field = $1;
-		$field          = $2;
-		$data_type      = 'text';
-		$field_type     = 'extended_isolate';
-	} elsif ( $attribute =~ /^gp_(.+)_(latitude|longitude)/x ) {
-		$field      = $1;
-		$field_type = "geography_point_$2";
-		$data_type  = 'float';
-	}
-	$_ //= q() foreach ( $eav_table, $extended_field );
-	return {
-		field          => $field,
-		eav_table      => $eav_table,
-		extended_field => $extended_field,
-		scheme_id      => $scheme_id,
-		field_type     => $field_type,
-		data_type      => $data_type,
-		optlist        => $optlist,
-		multiple       => $multiple
-	};
 }
 
 sub _print_filters_fieldset {
@@ -1823,7 +1768,7 @@ sub _run_query {
 	} else {
 		$qry = $self->get_query_from_temp_file( scalar $q->param('query_file') );
 		if ( $q->param('list_file') && $q->param('attribute') ) {
-			my $attribute_data = $self->_get_list_attribute_data( scalar $q->param('attribute') );
+			my $attribute_data = $self->get_list_attribute_data( scalar $q->param('attribute') );
 			$self->{'datastore'}
 			  ->create_temp_list_table( $attribute_data->{'data_type'}, scalar $q->param('list_file') );
 		}
@@ -1848,6 +1793,13 @@ sub _run_query {
 			hidden_attributes => $hidden_attributes
 		};
 		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
+		if (   !defined $q->param('currentpage')
+			|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
+			|| $q->param('First') )
+		{
+			$self->{'no_filters'} = 1;
+			$self->_print_dashboard_panel($args);
+		}
 		$self->paged_display($args);
 	}
 	my $elapsed = time - $start_time;
@@ -1856,6 +1808,31 @@ sub _run_query {
 			  . 'database.  You should consider running the update_scheme_caches.pl script regularly against '
 			  . 'this database to create these caches.' );
 	}
+	return;
+}
+
+sub _print_dashboard_panel {
+	my ( $self, $args ) = @_;
+	return if !$self->dashboard_enabled( { query_dashboard => 1 } );
+	return if !$self->{'prefs'}->{'query_dashboard'};
+	my $q = $self->{'cgi'};
+	my $qry_file;
+	if ( !$args->{'passed_query_file'} ) {
+		( my $dashboard_qry = $args->{'query'} ) =~ s/ORDER\sBY.*$//gx;
+		my $empty_dataset = $self->{'datastore'}->run_query("SELECT NOT EXISTS($dashboard_qry)");
+		return if $empty_dataset;
+		$qry_file = $self->make_temp_file($dashboard_qry);
+	}
+	$self->{'no_query_link'} = 1;
+	say q(<div id="dashboard_panel" class="dashboard_panel">);
+	$self->print_dashboard(
+		{
+			qry_file       => $qry_file,
+			list_file      => scalar $q->param('list_file'),
+			list_attribute => scalar $q->param('attribute'),
+		}
+	);
+	say q(</div>);
 	return;
 }
 
@@ -3482,7 +3459,8 @@ sub _modify_query_for_seqbin {
 			$db_field{$field} //= $field;
 			$value *= 1_000_000 if $field eq 'size';
 			$seqbin_qry = "($view.id IN (SELECT isolate_id FROM seqbin_stats WHERE $db_field{$field} $operator $value)";
-			if ( $operator eq '<' || $operator eq '<=' || ( $operator eq '=' && $value == 0 ) ) {
+			if ( $operator eq '<' || $operator eq '<=' || ( ( $operator eq '=' || $operator eq '>=' ) && $value == 0 ) )
+			{
 				$seqbin_qry .= " OR $view.id NOT IN (SELECT isolate_id FROM seqbin_stats)";
 			}
 			$seqbin_qry .= ')';
@@ -3775,7 +3753,6 @@ $panel_js
 	
 	\$("#bookmark_trigger,#close_bookmark").click(function(){		
 		\$("#bookmark_panel").toggle("slide",{direction:"right"},"fast");
-		\$("#bookmark_trigger").show();		
 		return false;
 	});
 	\$("#bookmark_trigger").show();
@@ -3903,6 +3880,43 @@ function set_autocomplete_values(element){
 }
 END
 	}
+	if ( $self->dashboard_enabled( { query_dashboard => 1 } ) ) {
+		my $elements         = $self->_get_elements;
+		my $json_elements    = $json->encode($elements);
+		my $qry_file         = $q->param('query_file');
+		my $qry_file_clause  = defined $qry_file ? qq(&qry_file=$qry_file) : q();
+		my $qry_file_init    = defined $qry_file ? qq(var qryFile="$qry_file";) : q(var qryFile;);
+		my $list_file        = $q->param('list_file');
+		my $list_attribute   = $q->param('attribute');
+		my $list_file_clause = defined $list_file
+		  && defined $list_attribute ? qq(&list_file=$list_file&list_attribute=$list_attribute) : q();
+		my $list_file_init = defined $list_file ? qq(var listFile="$list_file";) : q(var listFile;);
+		my $list_attribute_init =
+		  defined $list_attribute ? qq(var listAttribute="$list_attribute";) : q(var listAttribute;);
+		my $order = $self->{'prefs'}->{'order'} // q();
+		my $enable_drag  = $self->{'prefs'}->{'enable_drag'} ? 'true' : 'false';
+		my $guid         = $self->get_guid;
+		my $dashboard_id = $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
+		my $empty        = $self->_get_dashboard_empty_message;
+
+		if ($order) {
+			$order = $json->encode($order);
+		}
+		$buffer .= << "END";
+var url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}$qry_file_clause$list_file_clause";
+var elements = $json_elements;	
+var recordAge = 0;
+var loadedElements = {};
+var order = '$order';
+var instance = "$self->{'instance'}";
+var empty='$empty';
+var enable_drag=$enable_drag;
+var dashboard_type='query';
+$qry_file_init
+$list_file_init
+$list_attribute_init
+END
+	}
 	return $buffer;
 }
 
@@ -3953,8 +3967,17 @@ sub _highest_entered_fields {
 sub initiate {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	$self->SUPER::initiate;
 	$self->{$_} = 1 foreach qw(noCache addProjects addBookmarks);
+	if ( $self->dashboard_enabled( { query_dashboard => 1 } ) ) {
+		$self->{$_} = 1 foreach qw(muuri modal fitty bigsdb.dashboard jQuery.fonticonpicker billboard d3.layout.cloud);
+		$self->{'geomap'} = 1 if $self->has_country_optlist;
+		$self->{'ol'}     = 1 if $self->need_openlayers;
+		$self->SUPER::initiate;
+		$self->{'dashboard_type'} = 'query';
+		$self->get_or_set_dashboard_prefs;
+		$self->{'prefs'}->{'record_age'}           = 0;
+		$self->{'prefs'}->{'include_old_versions'} = 0;
+	}
 	if ( !$self->{'cgi'}->param('save_options') ) {
 		my $guid = $self->get_guid;
 		return if !$guid;

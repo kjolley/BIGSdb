@@ -598,7 +598,7 @@ use constant LOG_TO_SCREEN => qq(log4perl.category.BIGSdb.Script        = INFO, 
 push @EXPORT_OK, qw (LOG_TO_SCREEN);
 
 #Dashboards
-use constant DEFAULT_DASHBOARD => [
+use constant DEFAULT_FRONTEND_DASHBOARD => [
 	{
 		display           => 'record_count',
 		name              => 'Isolate count',
@@ -671,6 +671,72 @@ use constant DEFAULT_DASHBOARD => [
 		breakdown_display => 'cumulative'
 	}
 ];
+use constant DEFAULT_QUERY_DASHBOARD => [
+	{
+		display           => 'record_count',
+		name              => 'Isolate count',
+		width             => 1,
+		background_colour => '#79cafb',
+		main_text_colour  => '#404040',
+		watermark         => 'fas fa-bacteria',
+		change_duration   => 'month',
+		url_text          => 'Browse isolates'
+	},
+	{
+		display           => 'record_count',
+		name              => 'Genome count',
+		genomes           => 1,
+		width             => 1,
+		background_colour => '#7ecc66',
+		main_text_colour  => '#404040',
+		watermark         => 'fas fa-dna',
+		change_duration   => 'month',
+		url_text          => 'Browse genomes',
+		post_data         => { genomes => 1 }
+	},
+	{
+		display           => 'field',
+		name              => 'Country',
+		field             => 'f_country',
+		breakdown_display => 'map',
+		width             => 2,
+		height            => 1,
+		hide_mobile       => 1
+	},
+	{
+		display           => 'field',
+		name              => 'Species',
+		field             => 'f_species',
+		breakdown_display => 'treemap',
+		height            => 1,
+		width             => 1
+	},
+	{
+		display           => 'field',
+		name              => 'Disease',
+		field             => 'f_disease',
+		breakdown_display => 'treemap',
+		height            => 1,
+		width             => 1
+	},
+	{
+		display           => 'field',
+		name              => 'Source',
+		field             => 'f_source',
+		breakdown_display => 'treemap',
+		height            => 1,
+		width             => 1
+	},
+	{
+		display           => 'field',
+		name              => 'Year',
+		field             => 'f_year',
+		breakdown_display => 'bar',
+		width             => 2,
+		bar_colour_type   => 'continuous',
+		chart_colour      => '#126716'
+	}
+];
 use constant RECORD_AGE => {
 	0 => 'all time',
 	1 => 'past 5 years',
@@ -681,6 +747,6 @@ use constant RECORD_AGE => {
 	6 => 'past month',
 	7 => 'past week'
 };
-push @EXPORT_OK, qw (DEFAULT_DASHBOARD RECORD_AGE);
-$EXPORT_TAGS{'dashboard'} = [qw (DEFAULT_DASHBOARD RECORD_AGE)];
+push @EXPORT_OK, qw (DEFAULT_FRONTEND_DASHBOARD DEFAULT_QUERY_DASHBOARD RECORD_AGE);
+$EXPORT_TAGS{'dashboard'} = [qw (DEFAULT_FRONTEND_DASHBOARD DEFAULT_QUERY_DASHBOARD RECORD_AGE)];
 1;

@@ -143,7 +143,7 @@ sub _set_isolate_options {
 	foreach my $action (
 		qw (mark_provisional_main mark_provisional sequence_details_main display_seqbin_main
 		display_contig_count locus_alias update_details sequence_details allele_flags
-		display_publications)
+		display_publications query_dashboard)
 	  )
 	{
 		$prefstore->set_general( $guid, $dbname, $action, $prefs->{$action} ? 'on' : 'off' );
@@ -269,6 +269,17 @@ sub _print_general_options {
 			-label   => 'Display locus aliases if set.'
 		);
 		say q(</li>);
+		if ( $self->dashboard_enabled ) {
+			say q(<li>);
+			say $q->checkbox(
+				-name    => 'query_dashboard',
+				-checked => $prefs->{'query_dashboard'},
+				-label   => 'Display query dashboards.'
+			);
+			say q(</li>);
+		} else {
+			say $q->hidden(query_dashboard => 'on');
+		}
 	}
 	say q(<li>);
 	say $q->checkbox(

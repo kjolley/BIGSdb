@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20220711
+#Version: 20220808
 use strict;
 use warnings;
 use 5.010;
@@ -60,7 +60,6 @@ if ( !$opts{'a'} ) {
 if ( $opts{'i'} && $opts{'u'} ) {
 	die "--update and --insert options are mutually exclusive!\n";
 }
-$opts{'v'}      //= '';
 $opts{'dbuser'} //= 'postgres';
 $opts{'dbpass'} //= '';
 main();

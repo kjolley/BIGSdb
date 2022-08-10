@@ -55,6 +55,19 @@ sub initiate {
 	return;
 }
 
+sub need_openlayers {
+	my ($self) = @_;
+	my $field_attributes = $self->{'xmlHandler'}->get_all_field_attributes;
+	foreach my $field ( keys %$field_attributes ) {
+		if ( $field_attributes->{$field}->{'type'} eq 'geography_point'
+			|| ( $field_attributes->{$field}->{'geography_point_lookup'} // q() ) eq 'yes' )
+		{
+			return 1;
+		}
+	}
+	return;
+}
+
 sub set_pref_requirements {
 	my ($self) = @_;
 	$self->{'pref_requirements'} =
@@ -210,7 +223,7 @@ sub _get_javascript_paths {
 				version => '20200308'
 			},
 			'igv'              => { src => [qw(igv.min.js)],              defer => 1, version => '20200308' },
-			'bigsdb.dashboard' => { src => [qw(bigsdb.dashboard.min.js)], defer => 1, version => '20220610' },
+			'bigsdb.dashboard' => { src => [qw(bigsdb.dashboard.min.js)], defer => 1, version => '20220721' },
 			'bigsdb.dataexplorer' =>
 			  { src => [qw(bigsdb.dataexplorer.min.js d3.v6.min.js)], defer => 1, version => '20220111' }
 		};
@@ -650,7 +663,7 @@ sub _get_meta_data {
 sub _get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20220708';
+	my $version = '20220713';
 	my @filenames;
 	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
 	push @filenames, q(billboard.min.css)                                     if $self->{'billboard'};
@@ -842,7 +855,8 @@ sub print_action_fieldset {
 		$buffer .= qq(<a href="$url" class="reset"><span>$reset_label</span></a>\n);
 	}
 	local $" = q( );
-	$buffer .= $q->submit( -name => $submit_name, -label => $submit_label, -class => 'submit' );
+	my %id = $options->{'id'} ? ( id => $options->{'id'} ) : ();
+	$buffer .= $q->submit( -name => $submit_name, -label => $submit_label, -class => 'submit', %id );
 	if ( $options->{'submit2'} ) {
 		$options->{'submit2_label'} //= $options->{'submit2'};
 		$buffer .= $q->submit(
@@ -1298,6 +1312,10 @@ sub _get_provenance_fields {
 		} elsif ( ( $attributes->{$field}->{'type'} // q() ) eq 'geography_point'
 			&& !$options->{'nosplit_geography_points'} )
 		{
+			if ( $options->{'include_unsplit_geography_point'} ) {
+				push @isolate_list, "f_$field";
+				( $self->{'cache'}->{'labels'}->{"f_$field"} = $field ) =~ tr/_/ /;
+			}
 			foreach my $term (qw(latitude longitude)) {
 				push @isolate_list, "gp_${field}_$term";
 				( $self->{'cache'}->{'labels'}->{"gp_${field}_$term"} = "${field} ($term)" ) =~ tr/_/ /;
@@ -2382,6 +2400,22 @@ sub isolate_exists {
 		$id, { cache => 'Page::isolate_exists' } );
 }
 
+sub dashboard_enabled {
+	my ( $self, $options ) = @_;
+	return if !$self->{'config'}->{'enable_dashboard'} && ( $self->{'system'}->{'enable_dashboard'} // q() ) ne 'yes';
+	return if ( $self->{'system'}->{'enable_dashboard'} // q() ) eq 'no';
+	return
+	     if $options->{'query_dashboard'}
+	  && ( $self->{'config'}->{'query_dashboard'} // 1 ) == 0
+	  && ( $self->{'system'}->{'query_dashboard'} // 'no' ) eq 'no';
+	return
+	     if $options->{'query_dashboard'}
+	  && ( $self->{'config'}->{'query_dashboard'} // 1 ) == 1
+	  && ( $self->{'system'}->{'query_dashboard'} // 'yes' ) eq 'no';
+	
+	return 1;
+}
+
 sub initiate_prefs {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
@@ -2540,7 +2574,7 @@ sub _set_isolatedb_options {
 	foreach my $option (
 		qw ( update_details sequence_details allele_flags mark_provisional mark_provisional_main
 		sequence_details_main display_seqbin_main display_contig_count locus_alias scheme_members_alias
-		display_publications)
+		display_publications query_dashboard)
 	  )
 	{
 		$self->{'prefs'}->{$option} = $params->{$option} ? 1 : 0;
@@ -2591,7 +2625,7 @@ sub _initiate_isolatedb_general_prefs {
 	}
 
 	#default on
-	foreach my $option (qw (sequence_details mark_provisional mark_provisional_main)) {
+	foreach my $option (qw (sequence_details mark_provisional mark_provisional_main query_dashboard)) {
 		$general_prefs->{$option} //= 'on';
 		$self->{'prefs'}->{$option} = $general_prefs->{$option} eq 'off' ? 0 : 1;
 	}

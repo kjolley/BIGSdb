@@ -84,9 +84,8 @@ q[$('[id^="designation_field"]').val(''),$('[id^="designation_operator"]').val('
 	}
 	my $buffer = <<"END";
 	$button_toggle_js
-	\$("#panel_trigger,#close_trigger").click(function(){		
+	\$("#panel_trigger,#close_trigger").click(function(){			
 		\$("#modify_panel").toggle("slide",{direction:"right"},"fast");
-		\$("#panel_trigger").show();		
 		return false;
 	});
 	\$("#panel_trigger").show();
@@ -124,11 +123,20 @@ sub get_javascript {
     	});
   	});
   	\$(document).mouseup(function(e) {
-		var container = \$("#modify_panel");
 
+		
 		// if the target of the click isn't the container nor a
 		// descendant of the container
-		if (!container.is(e.target) && container.has(e.target).length === 0) {
+		var trigger = \$("#panel_trigger");
+ 		var container = \$("#modify_panel");
+		if (!container.is(e.target) && container.has(e.target).length === 0 && 
+		!trigger.is(e.target) && trigger.has(e.target).length === 0) {
+			container.hide();
+		}
+		trigger = \$("#bookmark_trigger");
+ 		container = \$("#bookmark_panel");
+		if (!container.is(e.target) && container.has(e.target).length === 0 && 
+		!trigger.is(e.target) && trigger.has(e.target).length === 0) {
 			container.hide();
 		}
 	});
@@ -298,10 +306,15 @@ sub clean_list {
 	my @new_list;
 	foreach my $value (@$list) {
 		$value =~ tr/[\x{ff10}-\x{ff19}]/[0-9]/;    #Convert Unicode full width integers
-		next if lc($data_type) =~ /^int/x  && !BIGSdb::Utils::is_int($value);
-		next if lc($data_type) =~ /^bool/x && !BIGSdb::Utils::is_bool($value);
-		next if lc($data_type) eq 'date'   && !BIGSdb::Utils::is_date($value);
-		next if lc($data_type) eq 'float'  && !BIGSdb::Utils::is_float($value);
+		next if lc($data_type) =~ /^int/x           && !BIGSdb::Utils::is_int($value);
+		next if lc($data_type) =~ /^bool/x          && !BIGSdb::Utils::is_bool($value);
+		next if lc($data_type) eq 'date'            && !BIGSdb::Utils::is_date($value);
+		next if lc($data_type) eq 'float'           && !BIGSdb::Utils::is_float($value);
+		if (lc($data_type) eq 'geography_point'){
+			next if !BIGSdb::Utils::is_geography_point($value);
+			my $coordinates = BIGSdb::Utils::get_geography_point_coordinates($value);
+			$value = $self->{'datastore'}->convert_coordinates_to_geography($coordinates->{'latitude'},$coordinates->{'longitude'});
+		}
 		push @new_list, uc($value);
 	}
 	return \@new_list;

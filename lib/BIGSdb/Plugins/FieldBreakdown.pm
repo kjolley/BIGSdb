@@ -69,15 +69,7 @@ sub get_initiation_values {
 		'jQuery.tablesort' => 1,
 		pluginJS           => 'FieldBreakdown.min.js'
 	};
-	my $field_attributes = $self->{'xmlHandler'}->get_all_field_attributes;
-	foreach my $field ( keys %$field_attributes ) {
-		if ( $field_attributes->{$field}->{'type'} eq 'geography_point'
-			|| ( $field_attributes->{$field}->{'geography_point_lookup'} // q() ) eq 'yes' )
-		{
-			$values->{'ol'} = 1;
-			last;
-		}
-	}
+	$values->{'ol'} = 1 if $self->need_openlayers;
 	if ( $self->_has_country_optlist ) {
 		$values->{'geomap'} = 1;
 	}
