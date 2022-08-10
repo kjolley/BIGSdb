@@ -709,7 +709,8 @@ use constant DEFAULT_QUERY_DASHBOARD => [
 		field             => 'f_species',
 		breakdown_display => 'treemap',
 		height            => 1,
-		width             => 1
+		width             => 1,
+		hide_mobile       => 1
 	},
 	{
 		display           => 'field',
@@ -717,7 +718,8 @@ use constant DEFAULT_QUERY_DASHBOARD => [
 		field             => 'f_disease',
 		breakdown_display => 'treemap',
 		height            => 1,
-		width             => 1
+		width             => 1,
+		hide_mobile       => 1
 	},
 	{
 		display           => 'field',
@@ -725,7 +727,8 @@ use constant DEFAULT_QUERY_DASHBOARD => [
 		field             => 'f_source',
 		breakdown_display => 'treemap',
 		height            => 1,
-		width             => 1
+		width             => 1,
+		hide_mobile       => 1
 	},
 	{
 		display           => 'field',
@@ -734,7 +737,8 @@ use constant DEFAULT_QUERY_DASHBOARD => [
 		breakdown_display => 'bar',
 		width             => 2,
 		bar_colour_type   => 'continuous',
-		chart_colour      => '#126716'
+		chart_colour      => '#126716',
+		hide_mobile       => 1
 	}
 ];
 use constant RECORD_AGE => {
