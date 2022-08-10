@@ -23,7 +23,6 @@ elements = [	{
 		main_text_colour  = '#404040',
 		watermark         = 'fas fa-bacteria',
 		change_duration   = 'month',
-		url_text          = 'Browse isolates'
 	},
 	{
 		display           = 'record_count',
@@ -34,8 +33,6 @@ elements = [	{
 		main_text_colour  = '#404040',
 		watermark         = 'fas fa-dna',
 		change_duration   = 'month',
-		url_text          = 'Browse genomes',
-		post_data         = { genomes = 1 }
 	},
 	{
 		display           = 'field',

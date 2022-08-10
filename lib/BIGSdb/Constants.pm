@@ -679,8 +679,7 @@ use constant DEFAULT_QUERY_DASHBOARD => [
 		background_colour => '#79cafb',
 		main_text_colour  => '#404040',
 		watermark         => 'fas fa-bacteria',
-		change_duration   => 'month',
-		url_text          => 'Browse isolates'
+		change_duration   => 'month'
 	},
 	{
 		display           => 'record_count',
@@ -690,9 +689,7 @@ use constant DEFAULT_QUERY_DASHBOARD => [
 		background_colour => '#7ecc66',
 		main_text_colour  => '#404040',
 		watermark         => 'fas fa-dna',
-		change_duration   => 'month',
-		url_text          => 'Browse genomes',
-		post_data         => { genomes => 1 }
+		change_duration   => 'month'
 	},
 	{
 		display           => 'field',
