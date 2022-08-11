@@ -2412,7 +2412,6 @@ sub dashboard_enabled {
 	     if $options->{'query_dashboard'}
 	  && ( $self->{'config'}->{'query_dashboard'} // 1 ) == 1
 	  && ( $self->{'system'}->{'query_dashboard'} // 'yes' ) eq 'no';
-	
 	return 1;
 }
 
@@ -2454,29 +2453,7 @@ sub initiate_prefs {
 		$scheme_field_prefs = $self->{'prefstore'}->get_all_scheme_field_prefs( $guid, $dbname );
 		if ( $self->{'pref_requirements'}->{'general'} ) {
 			$general_prefs = $self->{'prefstore'}->get_all_general_prefs( $guid, $dbname );
-			$self->{'prefs'}->{'displayrecs'} = $general_prefs->{'displayrecs'} // 25;
-			$self->{'prefs'}->{'pagebar'}     = $general_prefs->{'pagebar'}     // 'top and bottom';
-			$self->{'prefs'}->{'alignwidth'}  = $general_prefs->{'alignwidth'}  // 100;
-			$self->{'prefs'}->{'flanking'}    = $general_prefs->{'flanking'}    // 100;
-			foreach (
-				qw(set_id submit_allele_technology submit_allele_read_length
-				submit_allele_coverage submit_allele_assembly submit_allele_software)
-			  )
-			{
-				$self->{'prefs'}->{$_} = $general_prefs->{$_};
-			}
-
-			#default off
-			foreach (qw (hyperlink_loci )) {
-				$general_prefs->{$_} //= 'off';
-				$self->{'prefs'}->{$_} = $general_prefs->{$_} eq 'on' ? 1 : 0;
-			}
-
-			#default on
-			foreach (qw (tooltips submit_email)) {
-				$general_prefs->{$_} //= 'on';
-				$self->{'prefs'}->{$_} = $general_prefs->{$_} eq 'off' ? 0 : 1;
-			}
+			$self->_initiate_general_prefs( $guid, $general_prefs );
 		}
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
@@ -2493,20 +2470,46 @@ sub initiate_prefs {
 		my $scheme_fields              = $self->{'datastore'}->get_all_scheme_fields;
 		my $scheme_field_default_prefs = $self->{'datastore'}->get_all_scheme_field_info;
 		foreach my $scheme_id (@$scheme_ids) {
-			foreach ( @{ $scheme_fields->{$scheme_id} } ) {
-				foreach my $action (qw(dropdown)) {
-					if ( defined $scheme_field_prefs->{$scheme_id}->{$_}->{$action} ) {
-						$self->{'prefs'}->{"$action\_scheme_fields"}->{$scheme_id}->{$_} =
-						  $scheme_field_prefs->{$scheme_id}->{$_}->{$action} ? 1 : 0;
-					} else {
-						$self->{'prefs'}->{"$action\_scheme_fields"}->{$scheme_id}->{$_} =
-						  $scheme_field_default_prefs->{$scheme_id}->{$_}->{$action};
-					}
+			foreach my $field ( @{ $scheme_fields->{$scheme_id} } ) {
+				if ( defined $scheme_field_prefs->{$scheme_id}->{$field}->{'dropdown'} ) {
+					$self->{'prefs'}->{'dropdown_scheme_fields'}->{$scheme_id}->{$field} =
+					  $scheme_field_prefs->{$scheme_id}->{$field}->{'dropdown'} ? 1 : 0;
+				} else {
+					$self->{'prefs'}->{'dropdown_scheme_fields'}->{$scheme_id}->{$field} =
+					  $scheme_field_default_prefs->{$scheme_id}->{$field}->{'dropdown'};
 				}
 			}
 		}
 	}
 	$self->{'datastore'}->update_prefs( $self->{'prefs'} );
+	return;
+}
+
+sub _initiate_general_prefs {
+	my ( $self, $guid, $general_prefs ) = @_;
+	$self->{'prefs'}->{'displayrecs'} = $general_prefs->{'displayrecs'} // 25;
+	$self->{'prefs'}->{'pagebar'}     = $general_prefs->{'pagebar'}     // 'top and bottom';
+	$self->{'prefs'}->{'alignwidth'}  = $general_prefs->{'alignwidth'}  // 100;
+	$self->{'prefs'}->{'flanking'}    = $general_prefs->{'flanking'}    // 100;
+	foreach (
+		qw(set_id submit_allele_technology submit_allele_read_length
+		submit_allele_coverage submit_allele_assembly submit_allele_software)
+	  )
+	{
+		$self->{'prefs'}->{$_} = $general_prefs->{$_};
+	}
+
+	#default off
+	foreach (qw (hyperlink_loci )) {
+		$general_prefs->{$_} //= 'off';
+		$self->{'prefs'}->{$_} = $general_prefs->{$_} eq 'on' ? 1 : 0;
+	}
+
+	#default on
+	foreach (qw (tooltips submit_email)) {
+		$general_prefs->{$_} //= 'on';
+		$self->{'prefs'}->{$_} = $general_prefs->{$_} eq 'off' ? 0 : 1;
+	}
 	return;
 }
 
