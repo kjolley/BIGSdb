@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20220719
+#Version: 20220823
 use strict;
 use warnings;
 use 5.010;
@@ -101,9 +101,11 @@ sub main {
 		next if defined $opts{'submitter_id'} && $submission->{'submitter'} != $opts{'submitter_id'};
 		my $locus_info = $script->{'datastore'}->get_locus_info( $allele_submission->{'locus'} );
 		next if $locus_info->{'allele_id_format'} ne 'integer';
-		my $ext_attributes =
-		  $script->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM locus_extended_attributes WHERE locus=?)',
-			$allele_submission->{'locus'} );
+		my $ext_attributes = $script->{'datastore'}->run_query(
+			'SELECT EXISTS(SELECT * FROM locus_extended_attributes WHERE locus=?)',
+			$allele_submission->{'locus'},
+			{ cache => 'allele_curator::ext_attrib' }
+		);
 		next if $ext_attributes;
 		say "Submission: $submission_id";
 		my $seqs = $allele_submission->{'seqs'};
@@ -120,10 +122,11 @@ sub main {
 					next SEQS;
 				}
 			}
-			my $seq_exists =
-			  $script->{'datastore'}
-			  ->run_query( 'SELECT allele_id FROM sequences WHERE (locus,md5(UPPER(sequence)))=(?,md5(UPPER(?)))',
-				[ $allele_submission->{'locus'}, $seq->{'sequence'} ] );
+			my $seq_exists = $script->{'datastore'}->run_query(
+				'SELECT allele_id FROM sequences WHERE (locus,md5(UPPER(sequence)))=(?,md5(UPPER(?)))',
+				[ $allele_submission->{'locus'}, $seq->{'sequence'} ],
+				{ cache => 'allele_curator::get_allele_id' }
+			);
 			if ($seq_exists) {
 				next SEQS;
 			}
@@ -131,7 +134,7 @@ sub main {
 			my $ref_seqs = $script->{'datastore'}->run_query(
 				"SELECT sequence FROM sequences WHERE (locus,length(sequence))=(?,?)$type_allele_clause",
 				[ $allele_submission->{'locus'}, length $seq->{'sequence'} ],
-				{ fetch => 'col_arrayref' }
+				{ fetch => 'col_arrayref', cache => 'allele_curator::get_ref_seqs' }
 			);
 		  COMPARE_SEQS: foreach my $ref_seq (@$ref_seqs) {
 				if ( are_sequences_similar( uc( $seq->{'sequence'} ), $ref_seq, $opts{'identity'} ) ) {
@@ -230,7 +233,7 @@ sub get_outcome {
 	my $states =
 	  $script->{'datastore'}
 	  ->run_query( 'SELECT DISTINCT(status) FROM allele_submission_sequences WHERE submission_id=?',
-		$submission_id, { fetch => 'col_arrayref' } );
+		$submission_id, { fetch => 'col_arrayref', cache => 'allele_curator::get_outcome' } );
 	my %states = map { $_ => 1 } @$states;
 	return 'pending' if $states{'pending'};
 	return 'mixed'   if $states{'rejected'} && $states{'assigned'};
