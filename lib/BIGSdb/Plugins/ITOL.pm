@@ -58,7 +58,7 @@ sub get_attributes {
 		buttontext => 'iTOL',
 		menutext   => 'iTOL',
 		module     => 'ITOL',
-		version    => '1.5.6',
+		version    => '1.5.7',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
@@ -156,6 +156,7 @@ sub run {
 			$self->set_scheme_param;
 			my $params = $q->Vars;
 			$params->{'set_id'} = $self->get_set_id;
+			$params->{'curate'} = 1 if $self->{'curate'};
 			$q->delete('list');
 			$q->delete('isolate_paste_list');
 			foreach my $field_dataset (qw(itol_dataset include_fields)) {

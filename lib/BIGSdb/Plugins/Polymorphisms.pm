@@ -1,6 +1,6 @@
 #Polymorphisms.pm - Plugin for BIGSdb (requires LocusExplorer plugin)
 #Written by Keith Jolley
-#Copyright (c) 2011-2021, University of Oxford
+#Copyright (c) 2011-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -49,7 +49,7 @@ sub get_attributes {
 		category => 'Breakdown',
 		menutext => 'Polymorphic sites',
 		module   => 'Polymorphisms',
-		version  => '1.1.12',
+		version  => '1.1.13',
 		dbtype   => 'isolates',
 		url      => "$self->{'config'}->{'doclink'}/data_analysis/polymorphisms.html",
 		section  => 'breakdown,postquery',
@@ -142,6 +142,7 @@ sub run {
 		}
 		my $params = $q->Vars;
 		$params->{'alignwidth'} = $self->{'prefs'}->{'alignwidth'};
+		$params->{'curate'} = 1 if $self->{'curate'};
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 		my $job_id    = $self->{'jobManager'}->add_job(
 			{

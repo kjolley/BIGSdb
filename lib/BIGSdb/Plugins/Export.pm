@@ -50,7 +50,7 @@ sub get_attributes {
 		buttontext => 'Dataset',
 		menutext   => 'Dataset',
 		module     => 'Export',
-		version    => '1.8.1',
+		version    => '1.8.2',
 		dbtype     => 'isolates',
 		section    => 'export,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
@@ -224,6 +224,7 @@ sub run {
 		my $set_id = $self->get_set_id;
 		my $params = $q->Vars;
 		$params->{'set_id'} = $set_id if $set_id;
+		$params->{'curate'} = 1       if $self->{'curate'};
 		$params->{'script_name'} = $self->{'system'}->{'script_name'};
 		local $" = '||';
 		$params->{'selected_fields'} = "@$selected_fields";
@@ -631,8 +632,8 @@ sub _write_field {
 		}
 	} else {
 		my $value = $self->get_field_value( $data, $field );
-		if ($self->{'datastore'}->field_needs_conversion($field)){
-			$value = $self->{'datastore'}->convert_field_value($field,$value);
+		if ( $self->{'datastore'}->field_needs_conversion($field) ) {
+			$value = $self->{'datastore'}->convert_field_value( $field, $value );
 		}
 		if ( $params->{'oneline'} ) {
 			print $fh $self->_get_id_one_line( $data, $params );

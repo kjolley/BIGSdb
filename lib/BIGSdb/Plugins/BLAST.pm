@@ -115,7 +115,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.5.2',
+		version     => '1.5.3',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -189,6 +189,7 @@ sub run {
 		$q->delete('isolate_id');
 		my $params = $q->Vars;
 		$params->{'script_name'} = $self->{'system'}->{'script_name'};
+		$params->{'curate'} = 1 if $self->{'curate'};
 		my $job_id = $self->{'jobManager'}->add_job(
 			{
 				dbase_config => $self->{'instance'},
@@ -364,6 +365,7 @@ sub run_job {
 	}
 	foreach my $id (@$ids) {
 		$progress++;
+		next if !$self->isolate_exists( $id, { has_seqbin => 1 } );
 		my $complete = int( 100 * $progress / @$ids );
 		my $matches = $self->_blast( $id, \$params->{'sequence'}, $params );
 		if ( !$params->{'show_no_match'} && ( ref $matches ne 'ARRAY' || !@$matches ) ) {
@@ -536,8 +538,7 @@ sub _get_isolate_label {
 	my ( $self, $isolate_id ) = @_;
 	if ( !$self->{'cache'}->{'label'}->{$isolate_id} ) {
 		$self->{'cache'}->{'label'}->{$isolate_id} =
-		  $self->{'datastore'}
-		  ->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM isolates WHERE id=?",
+		  $self->{'datastore'}->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM isolates WHERE id=?",
 			$isolate_id, { cache => 'BLAST::get_isolate_label' } );
 	}
 	return $self->{'cache'}->{'label'}->{$isolate_id};

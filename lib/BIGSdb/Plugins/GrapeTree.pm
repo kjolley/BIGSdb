@@ -53,7 +53,7 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.5.1',
+		version             => '1.5.2',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -223,6 +223,7 @@ sub run {
 		$self->set_scheme_param;
 		my $params = $q->Vars;
 		$params->{'set_id'} = $self->get_set_id;
+		$params->{'curate'} = 1 if $self->{'curate'};
 		$q->delete('list');
 		$q->delete('isolate_paste_list');
 		$q->delete('locus_paste_list');
