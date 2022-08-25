@@ -1400,7 +1400,8 @@ sub create_temp_scheme_table {
 	push @table_fields, 'profile text[]';
 	my $locus_indices = $scheme->get_locus_indices;
 	eval {
-		$self->{'db'}->do( 'DELETE FROM scheme_warehouse_indices WHERE scheme_id=?', undef, $id );
+		$self->{'db'}->do( 'LOCK TABLE scheme_warehouse_indices;DELETE FROM scheme_warehouse_indices WHERE scheme_id=?',
+			undef, $id );
 		foreach my $profile_locus ( keys %$locus_indices ) {
 			my $locus_name = $self->run_query(
 				'SELECT locus FROM scheme_members WHERE profile_name=? AND scheme_id=?',
@@ -2789,10 +2790,9 @@ sub initiate_view {
 				}
 			};
 			if ( $status eq 'submitter' ) {
-				my $only_private = $self->run_query(
-					'SELECT EXISTS(SELECT * FROM permissions WHERE (user_id,permission)=(?,?))',
-					[ $user_info->{'id'}, 'only_private' ]
-				);
+				my $only_private =
+				  $self->run_query( 'SELECT EXISTS(SELECT * FROM permissions WHERE (user_id,permission)=(?,?))',
+					[ $user_info->{'id'}, 'only_private' ] );
 				if ($only_private) {
 					$status = 'private_submitter';
 				}
@@ -2816,11 +2816,9 @@ sub initiate_view {
 		my $user_term_count = () = $qry =~ /\?/gx;    #apply list context to capture
 		@args = ( $user_info->{'id'} ) x $user_term_count;
 	}
-	if ($qry) {
-		eval { $self->{'db'}->do( $qry, undef, @args ) };
-		$logger->error($@) if $@;
-		$self->{'system'}->{'view'} = 'temp_view';
-	}
+	eval { $self->{'db'}->do( $qry, undef, @args ) };
+	$logger->error($@) if $@;
+	$self->{'system'}->{'view'} = 'temp_view';
 	return;
 }
 
