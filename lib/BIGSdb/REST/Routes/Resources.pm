@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2020, University of Oxford
+#Copyright (c) 2014-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -87,7 +87,10 @@ sub _get_db {
 		$routes->{'fields'}   = request->uri_for("$subdir/db/$db/fields");
 		my $projects = $self->{'datastore'}->run_query('SELECT COUNT(*) FROM projects');
 		$routes->{'projects'} = request->uri_for("$subdir/db/$db/projects") if $projects;
-		my $genome_size = BIGSdb::Utils::is_int( params->{'genome_size'} ) ? params->{'genome_size'} : MIN_GENOME_SIZE;
+		my $genome_size =
+		  BIGSdb::Utils::is_int( params->{'genome_size'} )
+		  ? params->{'genome_size'}
+		  : $self->{'system'}->{'min_genome_size'} // $self->{'config'}->{'min_genome_size'} // MIN_GENOME_SIZE;
 		my $genomes =
 		  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM seqbin_stats WHERE total_length>=?', $genome_size );
 		my $size_param = $genome_size != MIN_GENOME_SIZE ? qq(?genome_size=$genome_size) : q();

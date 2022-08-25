@@ -173,7 +173,10 @@ sub _get_breakdown {
 	if ( !$self->{'xmlHandler'}->is_field($field) ) {
 		send_error( "Field $field does not exist.", 404 );
 	}
-	my $genome_size = BIGSdb::Utils::is_int( params->{'genome_size'} ) ? params->{'genome_size'} : MIN_GENOME_SIZE;
+	my $genome_size =
+	  BIGSdb::Utils::is_int( params->{'genome_size'} )
+	  ? params->{'genome_size'}
+	  : $self->{'system'}->{'min_genome_size'} // $self->{'config'}->{'min_genome_size'} // MIN_GENOME_SIZE;
 	my $genome_clause =
 	  $params->{'genomes'}
 	  ? " AND id IN (SELECT isolate_id FROM seqbin_stats WHERE total_length>=$genome_size)"
