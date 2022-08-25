@@ -867,6 +867,7 @@ sub _ajax_get {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by di
 		$self->{'no_query_link'} = 1;
 		my $qry = $self->get_query_from_temp_file( $options->{'qry_file'} );
 		$qry =~ s/ORDER\sBY.*$//gx;
+		$self->create_temp_tables(\$qry);
 		$self->{'db'}->do("CREATE TEMP VIEW dashboard_view AS $qry");
 		$self->{'view'} = 'dashboard_view';
 	}
