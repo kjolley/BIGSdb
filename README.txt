@@ -1,3 +1,6 @@
+v1.36.5: *Support for GPS maps in dashboards.
+         *Introduction of query dashboards to visually summarise the results
+          of an isolate query.
 v1.36.4: *New options to reject alleles in allele_curator.pl script.
 v1.36.3: *Fix for LINcode and field duplication in exports.
          *Prevent private submitters from deleting their own public records.
