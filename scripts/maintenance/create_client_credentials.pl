@@ -111,7 +111,7 @@ sub main {
 					  . 'default_submission,default_curation,datestamp) VALUES (?,?,?,?,?,?,?,?)',
 					undef,
 					$opts{'a'},
-					$opts{'v'},
+					$opts{'v'} // q(),
 					$client_id,
 					$client_secret,
 					$opts{'permission'},
