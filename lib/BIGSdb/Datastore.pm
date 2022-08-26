@@ -1393,10 +1393,11 @@ sub create_temp_scheme_table {
 	}
 	my $create = "CREATE $table_type $table (";
 	my @table_fields;
-	foreach (@$fields) {
-		my $type = $self->get_scheme_field_info( $id, $_ )->{'type'};
-		push @table_fields, "$_ $type";
+	foreach my $field (@$fields) {
+		my $type = $self->get_scheme_field_info( $id, $field )->{'type'};
+		push @table_fields, "$field $type";
 	}
+	push @table_fields, 'missing_loci int';
 	push @table_fields, 'profile text[]';
 	my $locus_indices = $scheme->get_locus_indices;
 	eval {
@@ -1424,10 +1425,13 @@ sub create_temp_scheme_table {
 	$create .= ')';
 	$self->{'db'}->do($create);
 	my $seqdef_scheme_id = $self->get_scheme_info($id)->{'dbase_id'};
-	my $data = $self->run_query( "SELECT @$fields,array_to_string(profile,',') FROM mv_scheme_$seqdef_scheme_id",
-		undef, { db => $scheme_db, fetch => 'all_arrayref' } );
-	eval { $self->{'db'}->do("COPY $table(@$fields,profile) FROM STDIN"); };
-
+	my $data             = $self->run_query(
+		"SELECT @$fields,cardinality(array_positions(profile, 'N')),array_to_string(profile,',') "
+		  . "FROM mv_scheme_$seqdef_scheme_id",
+		undef,
+		{ db => $scheme_db, fetch => 'all_arrayref' }
+	);
+	eval { $self->{'db'}->do("COPY $table(@$fields,missing_loci,profile) FROM STDIN"); };
 	if ($@) {
 		$logger->error('Cannot start copying data into temp table');
 	}

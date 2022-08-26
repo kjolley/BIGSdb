@@ -2,7 +2,7 @@
 #Define scheme profiles found in isolate database.
 #Designed for uploading cgMLST profiles to the seqdef database.
 #Written by Keith Jolley
-#Copyright (c) 2016-2020, University of Oxford
+#Copyright (c) 2016-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20201120
+#Version: 20220826
 use strict;
 use warnings;
 use 5.010;
@@ -123,10 +123,33 @@ sub main {
 		my $field_values =
 		  $scheme->get_field_values_by_designations( $designations,
 			{ dont_match_missing_loci => $opts{'match_missing'} ? 0 : 1 } );
-		next if @$field_values;                                 #Already defined
-		print "Isolate id: $isolate_id; " if !$opts{'quiet'};
-		define_new_profile($designations);
-		$need_to_refresh_cache = 1;
+		next if @$field_values;    #Already defined
+		my $retval = define_new_profile($designations);
+		if ( $retval->{'status'} == 1 ) {
+			print "Isolate id: $isolate_id; " if !$opts{'quiet'};
+			say $retval->{'message'};
+			$need_to_refresh_cache = 1;
+		} else {
+			if ( $retval->{'message'} =~ /Profile\ already\ defined/x ) {
+
+				#Profile already exists - this may be because the allele designation counts
+				#include allele '0' which is treated as a 'N' in profile definitions.
+				my $defined_zero = $script->{'datastore'}->run_query(
+					'SELECT COUNT(*) FROM allele_designations WHERE (isolate_id,allele_id)=(?,?) AND '
+					  . 'locus IN (SELECT locus FROM scheme_members WHERE scheme_id=?)',
+					[ $isolate_id, '0', $opts{'scheme_id'} ]
+				);
+
+				#We can skip if it's because of this, otherwise report the error.
+				if ($defined_zero) {
+					next;
+				} else {
+					$logger->error("Isolate id: $isolate_id; Cannot define cgST - profile already defined!");
+				}
+			} else {
+				$logger->error("Isolate idL $isolate_id; $retval->{'message'}");
+			}
+		}
 	}
 	refresh_caches() if $need_to_refresh_cache;
 	return;
@@ -155,6 +178,8 @@ sub define_new_profile {
 	my $scheme_warehouse = "mv_scheme_$scheme_id";
 	$script->{'new_missing_awaiting_commit'} = [];
 	my $failed;
+	my $message = q();
+	my $status  = 1;
 	eval {
 		$db->do(
 			'INSERT INTO profiles (scheme_id,profile_id,sender,curator,date_entered,datestamp) VALUES (?,?,?,?,?,?)',
@@ -174,8 +199,9 @@ sub define_new_profile {
 			if ( allele_exists( $locus_name, $allele_id ) ) {
 				push @allele_data, [ $locus_name, $scheme_id, $next_pk, $allele_id, DEFINER_USER, 'now' ];
 			} else {
-				say "Allele $locus->{'locus'}-$allele_id has not been defined.";
-				$failed = 1;
+				$message = "Allele $locus->{'locus'}-$allele_id has not been defined.";
+				$failed  = 1;
+				$status  = 0;
 			}
 			last if $failed;
 		}
@@ -199,12 +225,18 @@ sub define_new_profile {
 		if ($@) {
 			if ( $@ =~ /must\ be\ owner\ of\ relation\ profile_members/x ) {
 				$logger->error('The profile_members table must be owned by apache.');
+			} elsif ( $@ =~ /unique\ constraint/x ) {
+				$message = "Error defining new $script->{'primary_key'}: Profile already defined.";
 			} else {
 				$logger->error($@);
 			}
+			$status = 0;
 		}
 		$db->rollback;
-		return;
+		return {
+			message => $message,
+			status  => $status
+		};
 	}
 	$db->commit;
 	if ( @{ $script->{'new_missing_awaiting_commit'} } ) {
@@ -213,8 +245,11 @@ sub define_new_profile {
 		}
 		$script->{'new_missing_awaiting_commit'} = [];
 	}
-	say "$script->{'primary_key'}-$next_pk assigned." if !$opts{'quiet'};
-	return;
+	$message = "$script->{'primary_key'}-$next_pk assigned." if !$opts{'quiet'};
+	return {
+		message => $message,
+		status  => $status
+	};
 }
 
 sub allele_exists {
@@ -315,6 +350,7 @@ sub perform_sanity_checks {
 	check_user_exists();
 	check_scheme_properly_defined();
 	check_allowed_missing();
+	check_caches_defined();
 	return;
 }
 
@@ -332,6 +368,37 @@ sub check_user_exists {
 		{ db => $db }
 	);
 	die "The autodefiner user does not exist in the seqdef users table.\n" if !$exists;
+	return;
+}
+
+sub get_cache_table_names {
+	return {
+		field_cache      => "temp_isolates_scheme_fields_$opts{'scheme_id'}",
+		scheme_cache     => "temp_scheme_$opts{'scheme_id'}",
+		completion_cache => "temp_isolates_scheme_completion_$opts{'scheme_id'}"
+	};
+}
+
+sub check_caches_defined {
+	my $cache_tables = get_cache_table_names();
+	foreach my $cache (qw(field_cache scheme_cache completion_cache)) {
+		my $exists = $script->{'datastore'}->run_query(
+			'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
+			$cache_tables->{$cache},
+			{ cache => 'defined_in_cache::table_exists' }
+		);
+		if ( !$exists ) {
+			die "$cache cache table $cache_tables->{$cache} does not exist. Run update_scheme_caches.pl.\n";
+		}
+	}
+	my $missing_loci_column_exists =
+	  $script->{'datastore'}->run_query(
+		'SELECT EXISTS(SELECT column_name FROM information_schema.columns WHERE (table_name,column_name)=(?,?))',
+		[ $cache_tables->{'scheme_cache'}, 'missing_loci' ] );
+	if ( !$missing_loci_column_exists ) {
+		die "The scheme cache table $cache_tables->{'scheme_cache'} is missing the missing_loci column.\n"
+		  . "Refresh by running update_scheme_caches.pl.\n";
+	}
 	return;
 }
 
@@ -433,14 +500,27 @@ sub refresh_caches {
 }
 
 sub defined_in_cache {
-	my ($isolate_id) = @_;
-	my $table = "temp_isolates_scheme_fields_$opts{'scheme_id'}";
-	my $cache_exists =
-	  $script->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
-		$table, { cache => 'defined_in_cache::table_exists' } );
-	return if !$cache_exists;
-	return $script->{'datastore'}->run_query( "SELECT EXISTS(SELECT * FROM $table WHERE id=?)",
-		$isolate_id, { cache => 'defined_in_cache::isolate_found' } );
+	my ($isolate_id)       = @_;
+	my $cache_tables       = get_cache_table_names();
+	my $scheme_loci        = $script->{'datastore'}->get_scheme_loci( $opts{'scheme_id'} );
+	my $scheme_locus_count = scalar @$scheme_loci;
+	my $scheme_info = $script->{'datastore'}->get_scheme_info( $opts{'scheme_id'}, { get_pk => 1 } );
+	my $pk = $scheme_info->{'primary_key'};
+	if ( $opts{'match_missing'} ) {
+
+		#Determine if a profile is cached that has the same number of missing loci as the isolate
+		return $script->{'datastore'}->run_query(
+			"SELECT EXISTS(SELECT * FROM $cache_tables->{'field_cache'} a JOIN $cache_tables->{'scheme_cache'} b "
+			  . "ON b.$pk=a.$pk JOIN $cache_tables->{'completion_cache'} c ON c.id=a.id WHERE a.id=? AND "
+			  . "b.missing_loci=($scheme_locus_count-c.locus_count))",
+			$isolate_id,
+			{ cache => 'defined_in_cache::isolate_found_with_same_missing_loci' }
+		);
+	} else {
+		return $script->{'datastore'}
+		  ->run_query( "SELECT EXISTS(SELECT * FROM $cache_tables->{'field_cache'} WHERE id=?)",
+			$isolate_id, { cache => 'defined_in_cache::isolate_found' } );
+	}
 }
 
 sub filtered_out_by_view {
