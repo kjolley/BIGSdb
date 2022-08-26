@@ -147,7 +147,7 @@ sub main {
 					$logger->error("Isolate id: $isolate_id; Cannot define cgST - profile already defined!");
 				}
 			} else {
-				$logger->error("Isolate idL $isolate_id; $retval->{'message'}");
+				$logger->error("Isolate id: $isolate_id; $retval->{'message'}");
 			}
 		}
 	}
