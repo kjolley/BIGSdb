@@ -137,7 +137,7 @@ sub main {
 				my $defined_zero = $script->{'datastore'}->run_query(
 					'SELECT COUNT(*) FROM allele_designations WHERE (isolate_id,allele_id)=(?,?) AND '
 					  . 'locus IN (SELECT locus FROM scheme_members WHERE scheme_id=?)',
-					[ $isolate_id, '0', $opts{'scheme_id'} ]
+					[ $isolate_id, '0', $opts{'scheme_id'} ], { cache => 'check_for_zeroes' }
 				);
 
 				#We can skip if it's because of this, otherwise report the error.
