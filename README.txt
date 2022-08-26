@@ -1,3 +1,6 @@
+v1.36.6: *Improvement to define_profiles.pl script so that it assigns profiles
+          even when there is an existing profile that matches but has more
+          missing loci than the isolate.
 v1.36.5: *Support for GPS maps in dashboards.
          *Introduction of query dashboards to visually summarise the results
           of an isolate query.
