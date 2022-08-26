@@ -45,6 +45,7 @@ GetOptions(
 	'N|dbport=i'      => \$opts{'dbport'},
 	'v|version=s'     => \$opts{'v'}
 ) or die("Error in command line arguments\n");
+
 if ( $opts{'permission'} && $opts{'permission'} ne 'allow' && $opts{'permission'} ne 'deny' ) {
 	die("Allowed permissions are 'allow' or 'deny'.\n");
 }
@@ -61,48 +62,60 @@ if ( $opts{'i'} && $opts{'u'} ) {
 	die "--update and --insert options are mutually exclusive!\n";
 }
 $opts{'dbuser'} //= 'postgres';
-$opts{'dbpass'} //= '';
+$opts{'dbpass'} //= q();
+$opts{'v'}      //= q();
+my $db;
+my $db_name = DBASE;
+if ( $opts{'dbhost'} || $opts{'dbport'} ) {
+	$opts{'dbhost'} //= 'localhost';
+	$opts{'dbport'} //= 5432;
+	$db = DBI->connect( "DBI:Pg:dbname=$db_name;host=$opts{'dbhost'};port=$opts{'dbport'}",
+		$opts{'dbuser'}, $opts{'dbpass'}, { AutoCommit => 0, RaiseError => 1, PrintError => 0 } )
+	  || croak q(couldn't open database);
+} else {    #No host/port - use UNIX domain sockets
+	$db =
+	  DBI->connect( "DBI:Pg:dbname=$db_name",
+		$opts{'dbuser'}, $opts{'dbpass'}, { AutoCommit => 0, RaiseError => 1, PrintError => 0 } )
+	  || croak q(couldn't open database);
+}
 main();
+$db->disconnect;
 exit;
 
 sub main {
-	my $client_id = random_string(24);
-	my $client_secret = random_string( 42, { extended_chars => 1 } );
 	say "Application: $opts{'a'}";
-	say "Version: $opts{'v'}" if defined $opts{'v'};
+	say "Version: $opts{'v'}" if $opts{'v'} ne q();
+	my $sql = $db->prepare('SELECT EXISTS(SELECT * FROM clients WHERE (application,version)=(?,?))');
+	eval { $sql->execute( $opts{'a'}, $opts{'v'} ) };
+	croak $@ if $@;
+	my $exists = $sql->fetchrow_array;
+	my ( $client_id, $client_secret );
+	if ($exists) {
+		$sql = $db->prepare('SELECT client_id,client_secret FROM clients WHERE (application,version)=(?,?)');
+		eval { $sql->execute( $opts{'a'}, $opts{'v'} ) };
+		croak $@ if $@;
+		( $client_id, $client_secret ) = $sql->fetchrow_array;
+	} else {
+		$client_id = random_string(24);
+		$client_secret = random_string( 42, { extended_chars => 1 } );
+	}
 	if ( !$opts{'u'} ) {
 		say "Client id: $client_id";
 		say "Client secret: $client_secret";
 	}
 	if ( $opts{'i'} || $opts{'u'} ) {
-		my $db;
-		my $db_name = DBASE;
-		if ( $opts{'dbhost'} || $opts{'dbport'} ) {
-			$opts{'dbhost'} //= 'localhost';
-			$opts{'dbport'} //= 5432;
-			$db = DBI->connect( "DBI:Pg:dbname=$db_name;host=$opts{'dbhost'};port=$opts{'dbport'}",
-				$opts{'dbuser'}, $opts{'dbpass'}, { AutoCommit => 0, RaiseError => 1, PrintError => 0 } )
-			  || croak q(couldn't open database);
-		} else {    #No host/port - use UNIX domain sockets
-			$db =
-			  DBI->connect( "DBI:Pg:dbname=$db_name",
-				$opts{'dbuser'}, $opts{'dbpass'}, { AutoCommit => 0, RaiseError => 1, PrintError => 0 } )
-			  || croak q(couldn't open database);
-		}
-		my $sql = $db->prepare('SELECT EXISTS(SELECT * FROM clients WHERE (application,version)=(?,?))');
-		eval { $sql->execute( $opts{'a'}, $opts{'v'} ) };
-		my $exists = $sql->fetchrow_array;
-		croak $@ if $@;
 		$opts{'permission'} //= 'allow';
 		if ( $opts{'i'} && $exists ) {
 			$sql->finish;
 			$db->disconnect;
-			die "\nCredentials for this application/version already exist\n(use --update option to update).\n";
+			say "\nCredentials for this application/version already exist - shown above\n(use --update option to update).";
+			return;
 		}
 		if ( $opts{'u'} && !$exists ) {
 			$sql->finish;
 			$db->disconnect;
-			die "\nCredentials for this application/version do not already exist\n(use --insert option to add).\n";
+			say "\nCredentials for this application/version do not already exist\n(use --insert option to add).\n";
+			return;
 		}
 		if ( $opts{'i'} ) {
 			eval {
@@ -157,7 +170,6 @@ sub main {
 			say "\nCredentials updated in authentication database.";
 		}
 		$sql->finish;
-		$db->disconnect;
 	}
 	return;
 }
