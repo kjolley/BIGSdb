@@ -87,14 +87,12 @@ sub _get_db {
 		$routes->{'fields'}   = request->uri_for("$subdir/db/$db/fields");
 		my $projects = $self->{'datastore'}->run_query('SELECT COUNT(*) FROM projects');
 		$routes->{'projects'} = request->uri_for("$subdir/db/$db/projects") if $projects;
-		my $genome_size =
-		  BIGSdb::Utils::is_int( params->{'genome_size'} )
-		  ? params->{'genome_size'}
-		  : $self->{'system'}->{'min_genome_size'} // $self->{'config'}->{'min_genome_size'} // MIN_GENOME_SIZE;
+		my $min_genome_size = $self->{'system'}->{'min_genome_size'} // $self->{'config'}->{'min_genome_size'}
+		  // MIN_GENOME_SIZE;
 		my $genomes =
-		  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM seqbin_stats WHERE total_length>=?', $genome_size );
-		my $size_param = $genome_size != MIN_GENOME_SIZE ? qq(?genome_size=$genome_size) : q();
-		$routes->{'genomes'} = request->uri_for("$subdir/db/$db/genomes") . $size_param if $genomes;
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT COUNT(*) FROM seqbin_stats WHERE total_length>=?', $min_genome_size );
+		$routes->{'genomes'} = request->uri_for("$subdir/db/$db/genomes");
 		return $routes;
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		$routes->{'sequences'} = request->uri_for("$subdir/db/$db/sequences");
