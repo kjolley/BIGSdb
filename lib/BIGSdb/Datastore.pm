@@ -1432,6 +1432,7 @@ sub create_temp_scheme_table {
 		{ db => $scheme_db, fetch => 'all_arrayref' }
 	);
 	eval { $self->{'db'}->do("COPY $table(@$fields,missing_loci,profile) FROM STDIN"); };
+
 	if ($@) {
 		$logger->error('Cannot start copying data into temp table');
 	}
@@ -2874,8 +2875,11 @@ sub get_start_codons {
 		}
 	}
 	if ( $options->{'isolate_id'} ) {
-		my $isolate_codon_table =
-		  $self->run_query( 'SELECT codon_table FROM codon_tables WHERE isolate_id=?', $options->{'isolate_id'} );
+		my $isolate_codon_table = $self->run_query(
+			'SELECT codon_table FROM codon_tables WHERE isolate_id=?',
+			$options->{'isolate_id'},
+			{ cache => 'Datastore::get_start_codons::get_codon_table' }
+		);
 		if ( defined $isolate_codon_table ) {
 			my $ct = Bio::Tools::CodonTable->new( -id => $isolate_codon_table );
 			foreach my $codon (@possible_starts) {
@@ -2920,8 +2924,8 @@ sub get_stop_codons {
 sub get_codon_table {
 	my ( $self, $isolate_id ) = @_;
 	if ( ( $self->{'system'}->{'alternative_codon_tables'} // q() ) eq 'yes' && $isolate_id ) {
-		my $isolate_codon_table =
-		  $self->run_query( 'SELECT codon_table FROM codon_tables WHERE isolate_id=?', $isolate_id );
+		my $isolate_codon_table = $self->run_query( 'SELECT codon_table FROM codon_tables WHERE isolate_id=?',
+			$isolate_id, { cache => 'Datastore::get_codon_table' } );
 		if ( $self->{'system'}->{'codon_table'} ) {
 			if ( !$self->is_codon_table_valid( $self->{'system'}->{'codon_table'} ) ) {
 				$logger->error('Invalid codon table set. Using default table.');
