@@ -50,7 +50,7 @@ sub get_attributes {
 		buttontext => 'Dataset',
 		menutext   => 'Dataset',
 		module     => 'Export',
-		version    => '1.8.2',
+		version    => '1.9.0',
 		dbtype     => 'isolates',
 		section    => 'export,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
@@ -69,16 +69,21 @@ sub get_initiation_values {
 
 sub get_plugin_javascript {
 	my $js = << "END";
-function enable_controls(){
+function enable_ref_controls(){
 	if (\$("#m_references").prop("checked")){
 		\$("input:radio[name='ref_type']").prop("disabled", false);
 	} else {
 		\$("input:radio[name='ref_type']").prop("disabled", true);
 	}
 }
+function enable_private_controls(){
+	\$("#private_owner").prop("disabled", !\$("#private_record").prop("checked"));
+	\$("input:radio[name='private_name']").prop("disabled", !(\$("#private_owner").prop("checked") && \$("#private_record").prop("checked")));
+}
 
 \$(document).ready(function(){ 
-	enable_controls();
+	enable_ref_controls();
+	enable_private_controls();
 }); 
 END
 	return $js;
@@ -93,13 +98,49 @@ sub _print_ref_fields {
 		-id       => 'm_references',
 		-value    => 'checked',
 		-label    => 'references',
-		-onChange => 'enable_controls()'
+		-onChange => 'enable_ref_controls()'
 	);
 	say q(</li><li>);
 	say $q->radio_group(
 		-name      => 'ref_type',
 		-values    => [ 'PubMed id', 'Full citation' ],
 		-default   => 'PubMed id',
+		-linebreak => 'true'
+	);
+	say q(</li></ul></fieldset>);
+	return;
+}
+
+sub _print_private_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my $private =
+	  $self->{'datastore'}->run_query(
+		"SELECT EXISTS(SELECT * FROM private_isolates p JOIN $self->{'system'}->{'view'} v ON p.isolate_id=v.id)");
+	return if !$private;
+	say q(<fieldset style="float:left"><legend>Private records</legend><ul><li>);
+	say $q->checkbox(
+		-name     => 'private_record',
+		-id       => 'private_record',
+		-value    => 'checked',
+		-label    => 'Indicate private records',
+		-onChange => 'enable_private_controls()'
+	);
+	say q(</li><li>);
+	say $q->checkbox(
+		-name     => 'private_owner',
+		-id       => 'private_owner',
+		-value    => 'checked',
+		-label    => 'List owner',
+		-onChange => 'enable_private_controls()'
+	);
+	say q(</li><li>);
+	say $q->radio_group(
+		-name      => 'private_name',
+		-id        => 'private_name',
+		-values    => [ 'user_id', 'name' ],
+		-labels    => { user_id => 'user id', name => 'name/affiliation' },
+		-default   => 'user_id',
 		-linebreak => 'true'
 	);
 	say q(</li></ul></fieldset>);
@@ -195,7 +236,9 @@ sub run {
 	if ( $q->param('submit') ) {
 		my $selected_fields = $self->get_selected_fields( { lincodes => 1, lincode_fields => 1 } );
 		$q->delete('classification_schemes');
-		push @$selected_fields, 'm_references' if $q->param('m_references');
+		push @$selected_fields, 'm_references'   if $q->param('m_references');
+		push @$selected_fields, 'private_record' if $q->param('private_record');
+		push @$selected_fields, 'private_owner'  if $q->param('private_owner');
 		if ( !@$selected_fields ) {
 			$self->print_bad_status( { message => q(No fields have been selected!) } );
 			$self->_print_interface;
@@ -319,6 +362,7 @@ sub _print_interface {
 	$self->print_eav_fields_fieldset;
 	$self->print_composite_fields_fieldset;
 	$self->_print_ref_fields;
+	$self->_print_private_fieldset;
 	$self->print_isolates_locus_fieldset;
 	$self->print_scheme_fieldset( { fields_or_loci => 1 } );
 	$self->_print_classification_scheme_fields;
@@ -451,7 +495,9 @@ sub _write_tab_text {
 				lincode_field         => qr/^lin_(\d+)_(.+)$/x,
 				composite_field       => qr/^c_(.*)/x,
 				classification_scheme => qr/^cs_(.*)/x,
-				reference             => qr/^m_references/x
+				reference             => qr/^m_references/x,
+				private_record        => qr/^private_record$/x,
+				private_owner         => qr/^private_owner$/x
 			};
 			my $methods = {
 				field     => sub { $self->_write_field( $fh,     $1, \%data, $first, $params ) },
@@ -490,11 +536,17 @@ sub _write_tab_text {
 				},
 				reference => sub {
 					$self->_write_ref( $fh, \%data, $first, $params );
+				},
+				private_record => sub {
+					$self->_write_private( $fh, \%data, $first, $params );
+				},
+				private_owner => sub {
+					$self->_write_private_owner( $fh, \%data, $first, $params );
 				}
 			};
 			foreach my $field_type (
 				qw(field eav_field locus scheme_field lincode lincode_field composite_field
-				classification_scheme reference)
+				classification_scheme reference private_record private_owner)
 			  )
 			{
 				if ( $field =~ $regex->{$field_type} ) {
@@ -910,6 +962,46 @@ sub _write_ref {
 		print $fh "\t" if !$first;
 		local $" = ';';
 		print $fh "@$values";
+	}
+	return;
+}
+
+sub _write_private {
+	my ( $self, $fh, $data, $first, $params ) = @_;
+	my $private = $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM private_isolates WHERE isolate_id=?)',
+		$data->{'id'}, { cache => 'Export::write_private' } );
+	my $value = $private ? 'true' : 'false';
+	if ( $params->{'oneline'} ) {
+		print $fh $self->_get_id_one_line( $data, $params );
+		print $fh "private\t";
+		print $fh "$value";
+		print $fh "\n";
+	} else {
+		print $fh "\t" if !$first;
+		print $fh $value;
+	}
+	return;
+}
+
+sub _write_private_owner {
+	my ( $self, $fh, $data, $first, $params ) = @_;
+	my $value = $self->{'datastore'}->run_query( 'SELECT user_id FROM private_isolates WHERE isolate_id=?',
+		$data->{'id'}, { cache => 'Export::write_private_owner' } );
+	if ( defined $value ) {
+		$value =
+		    $params->{'private_name'} eq 'name'
+		  ? $self->{'datastore'}->get_user_string( $value, { affiliation => 1 } )
+		  : $value;
+	}
+	$value //= q();
+	if ( $params->{'oneline'} ) {
+		print $fh $self->_get_id_one_line( $data, $params );
+		print $fh "private_owner\t";
+		print $fh "$value";
+		print $fh "\n";
+	} else {
+		print $fh "\t" if !$first;
+		print $fh $value;
 	}
 	return;
 }
