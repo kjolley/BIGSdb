@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Synchronize user database users with details from client databases
 #Written by Keith Jolley
-#Copyright (c) 2016-2020, University of Oxford
+#Copyright (c) 2016-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20201009
+#Version: 20220903
 use strict;
 use warnings;
 use 5.010;
@@ -355,17 +355,22 @@ sub add_registered_users {
 		local $" = qq(\t\n);
 		say heading('Registering usernames') if !$opts{'quiet'};
 		foreach my $reg (@list) {
-			say qq($reg->{'config'}: $reg->{'user_name'}) if !$opts{'quiet'};
+			print qq($reg->{'config'}: $reg->{'user_name'}) if !$opts{'quiet'};
 			eval {
 				$script->{'db'}->do( 'INSERT INTO registered_users (dbase_config,user_name,datestamp) VALUES (?,?,?)',
 					undef, $reg->{'config'}, $reg->{'user_name'}, 'now' );
 			};
 			if ($@) {
-				$script->{'logger'}->error($@);
 				$script->{'db'}->rollback;
+				if ( $@ =~ /ru_user_name/x ) {
+					print ' - Site-wide user but not in users table!';
+				} else {
+					$script->{'logger'}->error($@);
+				}
 			} else {
 				$script->{'db'}->commit;
 			}
+			print qq(\n);
 		}
 	}
 	return;
