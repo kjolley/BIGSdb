@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20220826
+#Version: 20220903
 use strict;
 use warnings;
 use 5.010;
@@ -126,8 +126,10 @@ sub main {
 		next if @$field_values;    #Already defined
 		my $retval = define_new_profile($designations);
 		if ( $retval->{'status'} == 1 ) {
-			print "Isolate id: $isolate_id; " if !$opts{'quiet'};
-			say $retval->{'message'};
+			if (!$opts{'quiet'}){
+				print "Isolate id: $isolate_id; ";
+				say $retval->{'message'};
+			}
 			$need_to_refresh_cache = 1;
 		} else {
 			if ( $retval->{'message'} =~ /Profile\ already\ defined/x ) {
@@ -245,7 +247,7 @@ sub define_new_profile {
 		}
 		$script->{'new_missing_awaiting_commit'} = [];
 	}
-	$message = "$script->{'primary_key'}-$next_pk assigned." if !$opts{'quiet'};
+	$message = "$script->{'primary_key'}-$next_pk assigned.";
 	return {
 		message => $message,
 		status  => $status
