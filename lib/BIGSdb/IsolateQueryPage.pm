@@ -285,11 +285,14 @@ sub print_panel_buttons {
 	{
 		say q(<span class="icon_button">)
 		  . q(<a class="trigger_button" id="panel_trigger" style="display:none">)
-		  . q(<span class="fas fa-lg fa-wrench"></span><div class="icon_label">Modify form</div></a></span>);
+		  . q(<span class="fas fa-lg fa-wrench"></span><div class="icon_label">Modify form</div></a></span>)
+		  ;
 		if ( $self->dashboard_enabled( { query_dashboard => 1 } ) ) {
-			say
-			  q(<span class="icon_button"><a class="trigger_button" id="dashboard_panel_trigger" style="display:none">)
-			  . q(<span class="fas fa-lg fa-tools"></span><div class="icon_label">Modify dashboard</div></a></span>);
+			if ( $q->param('submit') || defined $q->param('query_file') ) {
+				say
+q(<span class="icon_button"><a class="trigger_button" id="dashboard_panel_trigger" style="display:none">)
+				  . q(<span class="fas fa-lg fa-tools"></span><div class="icon_label">Modify dashboard</div></a></span>);
+			}
 		}
 		my $bookmarks = $self->_get_bookmarks;
 		if (@$bookmarks) {
