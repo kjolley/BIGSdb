@@ -2038,7 +2038,7 @@ sub _print_genome_stat_fields {
 			  ->calc_assembly_stats( $submission_id, $index, $isolate->{'assembly_filename'} );
 		}
 		if ( $assembly_stats->{$index}->{'total_length'} == 0 ) {
-			say q(<td colspan="$colspan" class="fail">Invalid file format</td>);
+			say qq(<td colspan="$colspan" class="fail">Invalid file format</td>);
 			$self->{'failed_validation'} = 1;
 		} else {
 			my $warn_max_contigs = $self->{'system'}->{'warn_max_contigs'} // $self->{'config'}->{'warn_max_contigs'}
