@@ -484,7 +484,8 @@ sub stop_job {
 			status           => 'finished',
 			stop_time        => 'now',
 			percent_complete => 100,
-			pid              => undef
+			pid              => undef,
+			stage            => undef
 		}
 	);
 	undef $self->{'jobManager'} if $options->{'temp_init'};
