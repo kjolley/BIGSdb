@@ -268,7 +268,8 @@ sub filter_and_sort_isolates {
 	if ( $self->{'options'}->{'seqbin_reldate'} ) {
 		my $records = $self->{'datastore'}->run_query(
 			q(SELECT DISTINCT(isolate_id) FROM sequence_bin where )
-			  . qq(date_entered>=NOW()-INTERVAL '$self->{'options'}->{'seqbin_reldate'} days'), undef,
+			  . qq(date_entered>=NOW()-INTERVAL '$self->{'options'}->{'seqbin_reldate'} days'),
+			undef,
 			{ fetch => 'col_arrayref' }
 		);
 		%seqbin_reldate = map { $_ => 1 } @$records;
@@ -460,6 +461,16 @@ sub add_job {
 	);
 	undef $self->{'jobManager'} if $options->{'temp_init'};
 	return $job_id;
+}
+
+sub update_job {
+	my ( $self, $job_id, $options ) = @_;
+	return
+	  if !$self->{'config'}->{'jobs_db'} || !$self->{'options'}->{'mark_job'} || !$self->{'config'}->{'record_scripts'};
+	$self->initiate_job_manager if $options->{'temp_init'};
+	$self->{'jobManager'}->update_job_status( $job_id, $options->{'status'} ) if $options->{'status'};
+	undef $self->{'jobManager'} if $options->{'temp_init'};
+	return;
 }
 
 sub stop_job {

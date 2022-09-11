@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Script to cluster cgMLST profiles using classification groups
 #Written by Keith Jolley
-#Copyright (c) 2016-2020, University of Oxford
+#Copyright (c) 2016-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20201120
+#Version: 20220911
 use strict;
 use warnings;
 use 5.010;
@@ -105,14 +105,30 @@ sub perform_sanity_checks {
 }
 
 sub main {
+	my $EXIT = 0;
+	local @SIG{qw (INT TERM HUP)} = ( sub { $EXIT = 1 } ) x 3;    #Mark job as finished on kill signals
 	my $profiles    = get_ungrouped_profiles();
 	my $cg_info     = get_cscheme_info();
 	my $scheme_info = $script->{'datastore'}->get_scheme_info( $cg_info->{'scheme_id'}, { get_pk => 1 } );
 	$script->{'pk'} = $scheme_info->{'primary_key'};
 	$script->{'grouped_profiles'} = { map { $_ => 1 } @{ get_grouped_profiles() } };
   ITERATION: while (1) {
+		my $i = 0;
 	  PROFILE: foreach my $profile_id (@$profiles) {
-			next PROFILE if $script->{'grouped_profiles'}->{$profile_id};
+			$i++;
+			next PROFILE   if $script->{'grouped_profiles'}->{$profile_id};
+			last ITERATION if $EXIT;
+			my $complete = int( $i * 100 / @$profiles );
+			$script->update_job(
+				$job_id,
+				{
+					temp_init => 1,
+					status    => {
+						stage            => "Processing $script->{'pk'}-$profile_id",
+						percent_complete => $complete
+					}
+				}
+			);
 			my $pg_method =
 			  $cg_info->{'use_relative_threshold'}
 			  ? 'matching_profiles_with_relative_threshold_cg'
