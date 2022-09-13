@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20220911
+#Version: 20220913
 use strict;
 use warnings;
 use 5.010;
@@ -140,6 +140,7 @@ sub main {
 				{ fetch => 'col_arrayref', cache => 'matching_profiles' }
 			);
 			if (@$possible_groups) {
+
 				if ( @$possible_groups == 1 ) {
 					add_profile_to_group( $possible_groups->[0], $profile_id );
 					next ITERATION;
@@ -309,16 +310,19 @@ sub remove_lock_file {
 sub check_if_script_already_running {
 	my $lock_file = get_lock_file();
 	if ( -e $lock_file ) {
-		open( my $fh, '<', $lock_file ) || $script->{'logger'}->error("Cannot open lock file $lock_file for reading");
+		open( my $fh, '<', $lock_file )
+		  || $script->{'logger'}->error("Cannot open lock file $lock_file for reading");
 		my $pid = <$fh>;
 		close $fh;
 		my $pid_exists = kill( 0, $pid );
 		if ( !$pid_exists ) {
-			say 'Lock file exists but process is no longer running - deleting lock.';
+			say 'Lock file exists but process is no longer running - deleting lock.'
+			  if !$opts{'quiet'};
 			unlink $lock_file;
 		} else {
 			undef $script;
-			die "Script already running with these parameters - terminating.\n";
+			say 'Script already running with these parameters - terminating.' if !$opts{'quiet'};
+			exit(1);
 		}
 	}
 	open( my $fh, '>', $lock_file ) || $script->{'logger'}->error("Cannot open lock file $lock_file for writing");

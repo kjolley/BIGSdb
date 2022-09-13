@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20220903
+#Version: 20220913
 use strict;
 use warnings;
 use 5.010;
@@ -126,7 +126,8 @@ sub main {
 		next if @$field_values;    #Already defined
 		my $retval = define_new_profile($designations);
 		if ( $retval->{'status'} == 1 ) {
-			if (!$opts{'quiet'}){
+
+			if ( !$opts{'quiet'} ) {
 				print "Isolate id: $isolate_id; ";
 				say $retval->{'message'};
 			}
@@ -139,7 +140,8 @@ sub main {
 				my $defined_zero = $script->{'datastore'}->run_query(
 					'SELECT COUNT(*) FROM allele_designations WHERE (isolate_id,allele_id)=(?,?) AND '
 					  . 'locus IN (SELECT locus FROM scheme_members WHERE scheme_id=?)',
-					[ $isolate_id, '0', $opts{'scheme_id'} ], { cache => 'check_for_zeroes' }
+					[ $isolate_id, '0', $opts{'scheme_id'} ],
+					{ cache => 'check_for_zeroes' }
 				);
 
 				#We can skip if it's because of this, otherwise report the error.
@@ -552,11 +554,13 @@ sub check_if_script_already_running {
 		close $fh;
 		my $pid_exists = kill( 0, $pid );
 		if ( !$pid_exists ) {
-			say 'Lock file exists but process is no longer running - deleting lock.';
+			say 'Lock file exists but process is no longer running - deleting lock.'
+			  if !$opts{'quiet'};
 			unlink $lock_file;
 		} else {
 			undef $script;
-			die "Script already running with these parameters - terminating.\n";
+			say 'Script already running with these parameters - terminating.' if !$opts{'quiet'};
+			exit(1);
 		}
 	}
 	open( my $fh, '>', $lock_file ) || $script->{'logger'}->error("Cannot open lock file $lock_file for writing");
