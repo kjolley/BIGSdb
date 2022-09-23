@@ -50,7 +50,7 @@ sub get_attributes {
 		buttontext => 'Dataset',
 		menutext   => 'Dataset',
 		module     => 'Export',
-		version    => '1.9.0',
+		version    => '1.9.1',
 		dbtype     => 'isolates',
 		section    => 'export,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
@@ -631,6 +631,12 @@ sub _get_header {
 				my $name =
 				  $self->{'datastore'}->run_query( 'SELECT name FROM classification_schemes WHERE id=?', $cscheme );
 				$buffer .= $name;
+				my $cscheme_fields =
+				  $self->{'datastore'}->run_query(
+					'SELECT field FROM classification_group_fields WHERE cg_scheme_id=? ORDER BY field_order,field',
+					$cscheme, { fetch => 'col_arrayref' } );
+				local $" = "\t";
+				$buffer .= "\t@$cscheme_fields" if @$cscheme_fields;
 			} else {
 				$buffer .= "\t" if !$first;
 				$buffer .= $field;
@@ -927,6 +933,12 @@ sub _write_classification_scheme {
 		$self->{'cache'}->{'cscheme_name'}->{$cscheme} =
 		  $self->{'datastore'}->run_query( 'SELECT name FROM classification_schemes WHERE id=?', $cscheme );
 	}
+	if ( !defined $self->{'cache'}->{'cscheme_fields'}->{$cscheme} ) {
+		$self->{'cache'}->{'cscheme_fields'}->{$cscheme} =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT field FROM classification_group_fields WHERE cg_scheme_id=? ORDER BY field_order,field',
+			$cscheme, { fetch => 'col_arrayref' } );
+	}
 	my $value = $self->get_cscheme_value( $data->{'id'}, $cscheme );
 	if ( $params->{'oneline'} ) {
 		if ( $self->{'cache'}->{'cscheme_cache_table_exists'}->{$cscheme} ) {
@@ -934,10 +946,22 @@ sub _write_classification_scheme {
 			print $fh "$self->{'cache'}->{'cscheme_name'}->{$cscheme}\t";
 			print $fh $value if defined $value;
 			print $fh "\n";
+			foreach my $cscheme_field ( @{ $self->{'cache'}->{'cscheme_fields'}->{$cscheme} } ) {
+				print $fh $self->_get_id_one_line( $data, $params );
+				print $fh "$cscheme_field\t";
+				my $field_value = $self->get_cscheme_field_value( $data->{'id'}, $cscheme, $cscheme_field );
+				print $fh $field_value if defined $field_value;
+				print $fh "\n";
+			}
 		}
 	} else {
 		print $fh "\t"   if !$first;
 		print $fh $value if defined $value;
+		foreach my $cscheme_field ( @{ $self->{'cache'}->{'cscheme_fields'}->{$cscheme} } ) {
+			print $fh "\t";
+			my $field_value = $self->get_cscheme_field_value( $data->{'id'}, $cscheme, $cscheme_field );
+			print $fh $field_value if defined $field_value;
+		}
 	}
 	return;
 }
