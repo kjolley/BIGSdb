@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20220913
+#Version: 20220926
 use strict;
 use warnings;
 use 5.010;
@@ -115,7 +115,11 @@ sub main {
 	my $scheme_info  = $script->{'datastore'}->get_scheme_info( $opts{'scheme_id'} );
 	my $view         = $scheme_info->{'view'};
 	my $need_to_refresh_cache;
+	my $EXIT = 0;
+	local @SIG{qw (INT TERM HUP)} = ( sub { $EXIT = 1 } ) x 3;    #Mark job as finished on kill signals
+
 	foreach my $isolate_id (@$isolate_list) {
+		last if $EXIT;
 		next if defined_in_cache($isolate_id);
 		next if filtered_out_by_view( $view, $isolate_id );
 		my ( $profile, $designations, $missing ) = get_profile($isolate_id);
@@ -123,10 +127,10 @@ sub main {
 		my $field_values =
 		  $scheme->get_field_values_by_designations( $designations,
 			{ dont_match_missing_loci => $opts{'match_missing'} ? 0 : 1 } );
-		next if @$field_values;    #Already defined
+		next if @$field_values;                                   #Already defined
 		my $retval = define_new_profile($designations);
-		if ( $retval->{'status'} == 1 ) {
 
+		if ( $retval->{'status'} == 1 ) {
 			if ( !$opts{'quiet'} ) {
 				print "Isolate id: $isolate_id; ";
 				say $retval->{'message'};
