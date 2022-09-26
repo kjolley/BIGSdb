@@ -159,7 +159,7 @@ sub main {
 			}
 		}
 	}
-	refresh_caches() if $need_to_refresh_cache;
+	refresh_caches() if $need_to_refresh_cache && !$EXIT;
 	return;
 }
 
