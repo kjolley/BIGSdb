@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2013-2020, University of Oxford
+#Copyright (c) 2013-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -404,6 +404,11 @@ sub _check_field_format {
 	my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_info->{'id'}, $field );
 	if ( $field_info->{'type'} eq 'integer' && !BIGSdb::Utils::is_int($value) ) {
 		$$problem = q(invalid field value (must be an integer));
+	}
+	elsif ( defined $field_info->{'option_list'} && $value ne q() ) {
+		my @optlist = split /\|/x, $field_info->{'option_list'};
+		my %optlist = map { $_ => 1 } @optlist;
+		$$problem = q(Field value not in allowed list.) if !$optlist{$value};
 	}
 	return;
 }

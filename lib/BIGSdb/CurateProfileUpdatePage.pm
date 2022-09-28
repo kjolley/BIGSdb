@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -147,10 +147,15 @@ sub _prepare_update {
 		$self->clean_field( \$newdata{"field:$field"} );
 		my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 		if (   $field_info->{'type'} eq 'integer'
-			&& $newdata{"field:$field"} ne ''
+			&& $newdata{"field:$field"} ne q()
 			&& !BIGSdb::Utils::is_int( $newdata{"field:$field"} ) )
 		{
 			push @bad_field_buffer, "Field '$field' must be an integer.";
+		} elsif ( defined $field_info->{'option_list'} && $newdata{"field:$field"} ne q() ) {
+			my @optlist = split /\|/x, $field_info->{'option_list'};
+			my %optlist = map { $_ => 1 } @optlist;
+			push @bad_field_buffer, "Field '$field' value not in allowed list."
+			  if !$optlist{ $newdata{"field:$field"} };
 		}
 		$field_data->{$field} = defined $field_data->{$field} ? $field_data->{$field} : '';
 		if ( $field_data->{$field} ne $newdata{"field:$field"} ) {
@@ -400,13 +405,24 @@ sub _print_interface {
 		( $label, $title ) = $self->get_truncated_label( $field, 24 );
 		$title_attribute = $title ? qq( title="$title") : q();
 		say qq(<li><label for="field:$field" class="form" style="width:${width}em"$title_attribute>$label: </label>);
-		say $q->textfield(
-			-name => "field:$field",
-			-id   => "field:$field",
-			-size => $field_info->{'type'} eq 'integer' ? 10 : 50,
-			-value => $q->param("field:$field") // $field_data->{$field},
-			%html5_args
-		);
+		if ( defined $field_info->{'option_list'} ) {
+			my @optlist = split /\|/x, $field_info->{'option_list'};
+			unshift @optlist, q();
+			say $q->popup_menu(
+				-name   => "field:$field",
+				-id     => "field:$field",
+				-values => \@optlist,
+				default => $q->param("field:$field") // $field_data->{$field}
+			);
+		} else {
+			say $q->textfield(
+				-name => "field:$field",
+				-id   => "field:$field",
+				-size => $field_info->{'type'} eq 'integer' ? 10 : 50,
+				-value => $q->param("field:$field") // $field_data->{$field},
+				%html5_args
+			);
+		}
 		say q(</li>);
 	}
 	say qq(<li><label for="field:sender" class="form" style="width:${width}em">sender: !</label>);

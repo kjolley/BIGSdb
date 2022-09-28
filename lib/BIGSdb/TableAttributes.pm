@@ -1480,8 +1480,7 @@ sub get_scheme_fields_table_attributes {
 			}
 		  );
 	} else {
-		push @$attributes,
-		  (
+		push @$attributes, (
 			{
 				name     => 'index',
 				type     => 'bool',
@@ -1501,8 +1500,14 @@ sub get_scheme_fields_table_attributes {
 				name    => 'value_regex',
 				type    => 'text',
 				tooltip => 'value regex - Regular expression that constrains value of field'
+			},
+			{
+				name    => 'option_list',
+				type    => 'text',
+				length  => 128,
+				tooltip => q(option list - '|' separated list of allowed values.)
 			}
-		  );
+		);
 	}
 	push @$attributes,
 	  (
@@ -1731,10 +1736,10 @@ sub get_accession_table_attributes {
 
 sub get_allele_sequences_table_attributes {
 	my $attributes = [
-		{ name => 'id', type => 'int', hide_query => 1, hide_results => 1, primary_key => 1 },
-		{ name => 'isolate_id', type => 'int',  required => 1, foreign_key => 'isolates' },
-		{ name => 'seqbin_id',  type => 'int',  required => 1, foreign_key => 'sequence_bin' },
-		{ name => 'locus',      type => 'text', required => 1, foreign_key => 'loci', dropdown_query => 1 },
+		{ name => 'id',         type => 'int',  hide_query => 1, hide_results => 1,      primary_key    => 1 },
+		{ name => 'isolate_id', type => 'int',  required   => 1, foreign_key  => 'isolates' },
+		{ name => 'seqbin_id',  type => 'int',  required   => 1, foreign_key  => 'sequence_bin' },
+		{ name => 'locus',      type => 'text', required   => 1, foreign_key  => 'loci', dropdown_query => 1 },
 		{
 			name     => 'start_pos',
 			type     => 'int',

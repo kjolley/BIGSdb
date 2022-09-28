@@ -289,6 +289,13 @@ sub _check {
 				{
 					$problems->{$pk} .= "Field $field must be an integer.<br />";
 					$problem = 1;
+				} elsif ( defined $scheme_field_info->{$field}->{'option_list'} && $value ne q() ) {
+					my @optlist = split /\|/x, $scheme_field_info->{$field}->{'option_list'};
+					my %optlist = map { $_ => 1 } @optlist;
+					if ( !$optlist{$value} ) {
+						$problems->{$pk} .= "Field '$field' value not in allowed list.";
+						$problem = 1;
+					}
 				}
 			}
 			my $display_value = $value;
