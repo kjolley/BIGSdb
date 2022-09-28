@@ -65,7 +65,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.7.4',
+		version     => '2.7.5',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -102,6 +102,14 @@ sub run {
 		}
 		$q->param( upload_filename      => scalar $q->param('ref_upload') );
 		$q->param( user_genome_filename => scalar $q->param('user_upload') );
+		if ( $q->param('align') && !defined $q->param('aligner') ) {
+			foreach my $aligner (qw(mafft muscle)) {
+				if ( $self->{'config'}->{"${aligner}_path"} ) {
+					$q->param( aligner => $aligner );
+					last;
+				}
+			}
+		}
 		my ( $ref_upload, $user_upload );
 		if ( $q->param('ref_upload') ) {
 			$ref_upload = $self->_upload_ref_file;
