@@ -57,7 +57,7 @@ sub get_attributes {
 		buttontext => 'Sequences',
 		menutext   => $seqdef ? 'Profile sequences' : 'Sequences',
 		module     => 'SequenceExport',
-		version    => '1.7.0',
+		version    => '1.7.1',
 		dbtype     => 'isolates,sequences',
 		seqdb_type => 'schemes',
 		section    => 'isolate_info,profile_info,export,postquery',
@@ -790,12 +790,21 @@ sub _append_sequences {
 	my ( $fh, $output_locus_name, $params, $aligned_file, $temp_file, $start, $end, $no_output_ref, $no_seq ) =
 	  @{$args}{qw(fh output_locus_name params aligned_file temp_file start end no_output_ref no_seq)};
 	my $output_file;
-	if ( $params->{'align'} && $params->{'aligner'} eq 'MAFFT' && -e $temp_file && -s $temp_file ) {
+	my $aligner = $params->{'aligner'};
+	if ( !defined $aligner ) {
+		foreach my $program (qw(mafft muscle)) {
+			if ( $self->{'config'}->{"${program}_path"} ) {
+				$aligner = $program;
+				last;
+			}
+		}
+	}
+	if ( $params->{'align'} && $aligner eq 'MAFFT' && -e $temp_file && -s $temp_file ) {
 		my $threads =
 		  BIGSdb::Utils::is_int( $self->{'config'}->{'mafft_threads'} ) ? $self->{'config'}->{'mafft_threads'} : 1;
 		system("$self->{'config'}->{'mafft_path'} --thread $threads --quiet --preservecase $temp_file > $aligned_file");
 		$output_file = $aligned_file;
-	} elsif ( $params->{'align'} && $params->{'aligner'} eq 'MUSCLE' && -e $temp_file && -s $temp_file ) {
+	} elsif ( $params->{'align'} && $aligner eq 'MUSCLE' && -e $temp_file && -s $temp_file ) {
 		my $max_mb = $self->{'config'}->{'max_muscle_mb'} // MAX_MUSCLE_MB;
 		system( $self->{'config'}->{'muscle_path'},
 			-in    => $temp_file,
