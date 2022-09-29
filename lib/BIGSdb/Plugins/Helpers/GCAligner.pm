@@ -233,7 +233,7 @@ sub _run_alignment {
 	my $aligner = $self->{'params'}->{'aligner'};
 	if ( !defined $aligner ) {
 		foreach my $program (qw(mafft muscle)) {
-			if ( $self->{'config'}->{"${aligner}_path"} ) {
+			if ( $self->{'config'}->{"${program}_path"} ) {
 				$aligner = $program;
 				last;
 			}
