@@ -1772,6 +1772,10 @@ sub get_locus_list {
 
 sub get_locus_info {
 	my ( $self, $locus, $options ) = @_;
+	if ( !defined $locus ) {    #Seeing some errors in the logs but this should not happen.
+		$logger->logcarp('No locus passed.');
+		return {};
+	}
 	$self->{'locus_count'}++;
 
 	#Get information for all loci if we're being called multiple times.
@@ -1780,19 +1784,18 @@ sub get_locus_info {
 		$self->{'all_locus_info'} =
 		  $self->run_query( 'SELECT * FROM loci', undef, { fetch => 'all_hashref', key => 'id' } );
 	}
-	$options = {} if ref $options ne 'HASH';
 	my $locus_info;
 	if ( $self->{'all_locus_info'} ) {
 		$locus_info = $self->{'all_locus_info'}->{$locus};
 	} else {
 		$locus_info = $self->run_query( 'SELECT * FROM loci WHERE id=?',
-			$locus, { fetch => 'row_hashref', cache => 'get_locus_info' } );
+			$locus, { fetch => 'row_hashref', cache => 'Datastore::get_locus_info' } );
 	}
 	if ( $options->{'set_id'} ) {
 		my $set_locus = $self->run_query(
 			'SELECT * FROM set_loci WHERE set_id=? AND locus=?',
 			[ $options->{'set_id'}, $locus ],
-			{ fetch => 'row_hashref', cache => 'get_locus_info_set_loci' }
+			{ fetch => 'row_hashref', cache => 'Datastore::get_locus_info::set_loci' }
 		);
 		foreach (qw(set_name set_common_name formatted_set_name formatted_set_common_name)) {
 			$locus_info->{$_} = $set_locus->{$_};
