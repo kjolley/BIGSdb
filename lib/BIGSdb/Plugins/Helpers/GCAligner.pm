@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2019, University of Oxford
+#Copyright (c) 2019-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -230,7 +230,16 @@ sub _run_alignment {
 		unlink $fasta_file;
 		return ( $aligned_out, $core_locus );
 	}
-	if (   $self->{'params'}->{'aligner'} eq 'MAFFT'
+	my $aligner = $self->{'params'}->{'aligner'};
+	if ( !defined $aligner ) {
+		foreach my $program (qw(mafft muscle)) {
+			if ( $self->{'config'}->{"${aligner}_path"} ) {
+				$aligner = $program;
+				last;
+			}
+		}
+	}
+	if (   $aligner eq 'MAFFT'
 		&& $self->{'config'}->{'mafft_path'}
 		&& -e $fasta_file
 		&& -s $fasta_file )
@@ -239,7 +248,7 @@ sub _run_alignment {
 		  BIGSdb::Utils::is_int( $self->{'config'}->{'mafft_threads'} ) ? $self->{'config'}->{'mafft_threads'} : 1;
 		system( "$self->{'config'}->{'mafft_path'} --thread $threads --quiet "
 			  . "--preservecase --clustalout $fasta_file > $aligned_out" );
-	} elsif ( $self->{'params'}->{'aligner'} eq 'MUSCLE'
+	} elsif ( $aligner eq 'MUSCLE'
 		&& $self->{'config'}->{'muscle_path'}
 		&& -e $fasta_file
 		&& -s $fasta_file )
