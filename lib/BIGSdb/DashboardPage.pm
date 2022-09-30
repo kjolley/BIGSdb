@@ -809,6 +809,10 @@ sub _ajax_new {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by di
 	$element->{'height'}      //= 1;
 	$element->{'hide_mobile'} //= 1;
 	my $dashboard_name = $self->{'prefstore'}->get_dashboard_name( $self->_get_dashboard_id );
+	if ( $options->{'list_file'} && $options->{'list_attribute'} ) {
+		my $attribute_data = $self->get_list_attribute_data( $options->{'list_attribute'} );
+		$self->{'datastore'}->create_temp_list_table( $attribute_data->{'data_type'}, $options->{'list_file'} );
+	}
 	if ( defined $options->{'qry_file'} ) {
 		$self->{'no_query_link'} = 1;
 		my $qry = $self->get_query_from_temp_file( $options->{'qry_file'} );
