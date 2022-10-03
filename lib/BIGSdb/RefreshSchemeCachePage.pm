@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2021, University of Oxford
+#Copyright (c) 2015-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -26,7 +26,7 @@ my $logger = get_logger('BIGSdb.Page');
 
 sub get_title {
 	my ($self) = @_;
-	return 'Refresh scheme caches'
+	return 'Refresh scheme caches';
 }
 
 sub _print_interface {
@@ -65,7 +65,7 @@ sub _print_interface {
 sub print_content {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
+	my $desc = $self->get_db_description( { formatted => 1 } ) // 'BIGSdb';
 	say "<h1>Refresh scheme caches - $desc</h1>";
 	if ( $self->{'system'}->{'dbtype'} ne 'isolates' ) {
 		$self->print_bad_status( { message => q(This function is only for use on isolate databases.), navbar => 1 } );
