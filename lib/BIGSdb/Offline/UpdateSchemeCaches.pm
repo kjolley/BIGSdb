@@ -108,6 +108,7 @@ sub run_script {
 			say "Updating scheme $scheme_id LINcodes cache ($scheme_info->{'name'})"
 			  if !$self->{'options'}->{'q'};
 			$self->{'datastore'}->create_temp_lincodes_table( $scheme_id, { cache => 1 } );
+			$self->{'datastore'}->create_temp_lincode_prefix_values_table($scheme_id, { cache => 1 });
 		}
 	}
 	foreach my $cscheme_id (@$cschemes) {

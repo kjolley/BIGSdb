@@ -333,6 +333,9 @@ sub create_temp_tables {
 				if ( $qry =~ /temp_lincodes_$scheme_id\D/x ) {
 					$self->{'datastore'}->create_temp_lincodes_table($scheme_id);
 				}
+				if ( $qry =~ /temp_lincode_${scheme_id}_field_values/x ) {
+					$self->{'datastore'}->create_temp_lincode_prefix_values_table($scheme_id);
+				}
 			}
 			foreach my $cscheme_id (@$cschemes) {
 				if ( $qry =~ /temp_cscheme_$cscheme_id\D/x ) {
