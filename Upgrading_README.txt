@@ -42,6 +42,7 @@ Version 1.33: Change of isolate database structure.
 Version 1.34: Change of seqdef and isolate database structures.
 Version 1.35: Change of isolate database structure.
 Version 1.36: Optional additional table added to the isolate database structure.
+Version 1.37: Change of seqdef and isolate database structures.
 
 Details can be found below.
 
@@ -554,3 +555,14 @@ does not need to be installed.
 
 To add this table please first install PostGIS and then run the 
 isolatedb_geocoding.sql script against any isolate databases requiring it.
+
+Version 1.37
+------------
+There are changes to the sequence definition database structure to support 
+profile fields with constrained allowed values. There is also a small change
+to the isolate database structure, adding a foreign key constraint to the
+sequence_flags table.
+
+Please run the isolatedb_v1.37.sql script against isolate databases and the
+seqdefdb_v1.37.sql script against sequence definition databases.
+

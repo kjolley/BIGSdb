@@ -1,3 +1,4 @@
+v1.37.0: *Support for scheme fields with constrained allowed values.
 v1.36.7: *Option to show whether isolate is private in data exports.
 v1.36.6: *Improvement to define_profiles.pl script so that it assigns profiles
           even when there is an existing profile that matches but has more
