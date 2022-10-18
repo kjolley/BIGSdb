@@ -219,7 +219,8 @@ sub _insert {
 	my $extra_transactions = [];
 	my %check_tables = map { $_ => 1 } qw(accession loci locus_aliases locus_descriptions profile_refs scheme_fields
 	  scheme_group_group_members sequences sequence_bin sequence_refs retired_profiles classification_group_fields
-	  retired_isolates schemes users eav_fields classification_group_field_values lincode_schemes lincode_prefixes);
+	  retired_isolates schemes users eav_fields classification_group_field_values lincode_schemes lincode_prefixes
+	  projects);
 
 	if (
 		   $table ne 'retired_isolates'
@@ -700,18 +701,17 @@ sub _check_classification_group_field_values { ## no critic (ProhibitUnusedPriva
 	return;
 }
 
-sub _check_lincode_prefixes { ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_lincode_prefixes {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata, $problems ) = @_;
-	my $type = $self->{'datastore'}->run_query('SELECT type FROM lincode_fields WHERE (scheme_id,field)=(?,?)',
-	[$newdata->{'scheme_id'},$newdata->{'field'}]);
-	if ($type eq 'integer' && !BIGSdb::Utils::is_int($newdata->{'value'})){
+	my $type = $self->{'datastore'}->run_query( 'SELECT type FROM lincode_fields WHERE (scheme_id,field)=(?,?)',
+		[ $newdata->{'scheme_id'}, $newdata->{'field'} ] );
+	if ( $type eq 'integer' && !BIGSdb::Utils::is_int( $newdata->{'value'} ) ) {
 		push @$problems, q(Field value must be an integer.);
 	}
-	
 	return;
 }
 
-sub _check_locus_aliases {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_locus_aliases {       ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata, $problems ) = @_;
 	if ( $newdata->{'locus'} eq $newdata->{'alias'} ) {
 		push @$problems, 'Locus alias can not be set the same as the locus name.';
@@ -817,6 +817,19 @@ sub _check_eav_fields {    ## no critic (ProhibitUnusedPrivateSubroutines) #Call
 	my %prov_fields = map { lc($_) => 1 } @$prov_fields;
 	if ( $prov_fields{ lc( $newdata->{'field'} ) } ) {
 		push @$problems, 'A provenance field already exists with this name.';
+	}
+	return;
+}
+
+sub _check_projects {      ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $newdata, $problems, $extra_inserts ) = @_;
+	if ( $newdata->{'private'} ) {
+		push @$extra_inserts,
+		  {
+			statement =>
+			  'INSERT INTO project_users (project_id,user_id,admin,modify,curator,datestamp) VALUES (?,?,?,?,?,?)',
+			arguments => [ $newdata->{'id'}, $newdata->{'curator'}, 'true', 'true', $newdata->{'curator'}, 'now' ]
+		  };
 	}
 	return;
 }
