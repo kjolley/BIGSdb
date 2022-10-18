@@ -871,7 +871,7 @@ sub _ajax_get {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by di
 		$self->{'no_query_link'} = 1;
 		my $qry = $self->get_query_from_temp_file( $options->{'qry_file'} );
 		$qry =~ s/ORDER\sBY.*$//gx;
-		$self->create_temp_tables(\$qry);
+		$self->create_temp_tables( \$qry );
 		$self->{'db'}->do("CREATE TEMP VIEW dashboard_view AS $qry");
 		$self->{'view'} = 'dashboard_view';
 	}
@@ -986,6 +986,7 @@ sub _print_filter_display {
 
 sub print_dashboard {
 	my ( $self, $options ) = @_;
+	my $q        = $self->{'cgi'};
 	my $elements = $self->_get_elements;
 	say q(<div>);
 	$self->_print_filter_display if ( $options->{'filter_display'} );
@@ -1008,6 +1009,7 @@ sub print_dashboard {
 				$self->{'db'}->do("CREATE TEMP VIEW dashboard_view AS $qry");
 				$self->{'view'}        = 'dashboard_view';
 				$self->{'view_set_up'} = 1;
+				$q->param( no_filters => 1 );
 			}
 			say $self->_get_element_html( $elements->{$element} );
 			push @$already_loaded, $element;
@@ -3052,7 +3054,6 @@ sub _get_field_breakdown_gps_map_content {
 	    $self->_field_linked_to_gps( $element->{'field'} )
 	  ? $self->_get_linked_gps_field_breakdown_values($element)
 	  : $self->_get_field_breakdown_values($element);
-
 	my $values = [];
 	foreach my $value (@$data) {
 		next if !defined $value->{'label'};
@@ -3689,7 +3690,7 @@ sub print_field_selector {
 sub set_pref_requirements {
 	my ($self) = @_;
 	$self->{'pref_requirements'} =
-	  { general => 0, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0};
+	  { general => 0, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
 	return;
 }
 
