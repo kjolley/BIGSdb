@@ -320,9 +320,9 @@ sub _read_value {
 	if ( $field eq 'sender' && $user_status eq 'submitter' ) {
 		return $self->{'curator_id'};
 	}
-	if ($table eq 'geography_point_lookup' && $field eq 'location'){
+	if ( $table eq 'geography_point_lookup' && $field eq 'location' ) {
 		if ( $data->[ $field_order->{$field} ] =~ /^\s*(\-?\d+\.?\d*)\s*,\s*(\-?\d+\.?\d*)\s*$/x ) {
-			$data->[ $field_order->{$field} ]= $self->{'datastore'}->convert_coordinates_to_geography($1,$2);
+			$data->[ $field_order->{$field} ] = $self->{'datastore'}->convert_coordinates_to_geography( $1, $2 );
 		}
 	}
 	if ( defined $field_order->{$field} && defined $data->[ $field_order->{$field} ] ) {
@@ -334,7 +334,6 @@ sub _read_value {
 	if ( $table eq 'sequences' && !defined $field_order->{$field} && $locus && $field eq 'locus' ) {
 		return $locus;
 	}
-
 	return;
 }
 
@@ -343,6 +342,15 @@ sub _prepare_isolate_extra_inserts {
 	my ( $id, $sender, $curator, $data, $field_order, $extras, $ref_extras, $codon_table, $project_id, $private ) =
 	  @{$args}{qw(id sender curator data field_order extras ref_extras codon_table project_id private)};
 	my @inserts;
+	my $hidden_defaults = $self->_get_hidden_field_defaults;
+	foreach my $field ( keys %$hidden_defaults ) {
+		next if $hidden_defaults->{$field} eq q();
+		push @inserts,
+		  {
+			statement => "UPDATE isolates SET $field=? WHERE id=?",
+			arguments => [ $hidden_defaults->{$field}, $id ]
+		  };
+	}
 	my $locus_list = $self->_get_locus_list;
 	foreach (@$locus_list) {
 		next if !$field_order->{$_};
@@ -395,11 +403,12 @@ sub _prepare_isolate_extra_inserts {
 			}
 		}
 	}
-	if (defined $codon_table) {
-		push @inserts, {
+	if ( defined $codon_table ) {
+		push @inserts,
+		  {
 			statement => 'INSERT INTO codon_tables (isolate_id,codon_table,curator,datestamp) VALUES (?,?,?,?)',
 			arguments => [ $id, $codon_table, $curator, 'now' ]
-		};
+		  };
 	}
 	if ($project_id) {
 		push @inserts,
@@ -558,5 +567,19 @@ sub _get_locus_list {
 		$self->{'cache'}->{'loci'} = $self->{'datastore'}->get_loci;
 	}
 	return $self->{'cache'}->{'loci'};
+}
+
+sub _get_hidden_field_defaults {
+	my ($self) = @_;
+	if ( !defined $self->{'cache'}->{'hidden_defaults'} ) {
+		$self->{'cache'}->{'hidden_defaults'} = {};
+		my $atts = $self->{'xmlHandler'}->get_all_field_attributes;
+		foreach my $field ( keys %$atts ) {
+			next if ( $atts->{$field}->{'hide'} // q() ) ne 'yes';
+			next if !defined $atts->{$field}->{'default'};
+			$self->{'cache'}->{'hidden_defaults'}->{$field} = $atts->{$field}->{'default'};
+		}
+	}
+	return $self->{'cache'}->{'hidden_defaults'};
 }
 1;

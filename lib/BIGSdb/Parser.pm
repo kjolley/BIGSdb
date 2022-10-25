@@ -53,6 +53,7 @@ sub get_field_list {
 		next
 		  if $options->{'multivalue_only'}
 		  && ( $self->{'attributes'}->{$field}->{'multiple'} // q() ) ne 'yes';
+		next if !$options->{'show_hidden'} && ($self->{'attributes'}->{$field}->{'hide'} // q()) eq 'yes';
 		push @fields, $field;
 	}
 	return \@fields;

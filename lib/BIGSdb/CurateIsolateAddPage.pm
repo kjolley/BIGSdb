@@ -304,22 +304,24 @@ sub alias_null_term {
 
 sub _insert {
 	my ( $self, $newdata ) = @_;
-	my $q      = $self->{'cgi'};
-	my $set_id = $self->get_set_id;
-	my @fields_with_values;
-	my $field_list = $self->{'xmlHandler'}->get_field_list;
+	my $q                  = $self->{'cgi'};
+	my $set_id             = $self->get_set_id;
+	my $fields_with_values = [];
+	my $field_list         = $self->{'xmlHandler'}->get_field_list;
 	foreach my $field (@$field_list) {
 		if ( ( $newdata->{$field} // q() ) ne q() ) {
-			push @fields_with_values, $field;
+			push @$fields_with_values, $field;
 		}
 	}
+	$self->_add_hidden_values( $newdata, $fields_with_values );
 	$self->convert_geography_data($newdata);
 	my $inserts      = [];
-	my @placeholders = ('?') x @fields_with_values;
+	my @placeholders = ('?') x @$fields_with_values;
 	local $" = ',';
-	my $qry    = "INSERT INTO isolates (@fields_with_values) VALUES (@placeholders)";
+	my $qry    = "INSERT INTO isolates (@$fields_with_values) VALUES (@placeholders)";
 	my $values = [];
-	foreach my $field (@fields_with_values) {
+
+	foreach my $field (@$fields_with_values) {
 		my $cleaned = $self->clean_value( $newdata->{$field}, { no_escape => 1 } );
 		push @$values, $cleaned;
 	}
@@ -369,6 +371,18 @@ sub _insert {
 		);
 		$self->update_history( $newdata->{'id'}, 'Isolate record added' );
 		return SUCCESS;
+	}
+	return;
+}
+
+sub _add_hidden_values {
+	my ( $self, $newdata, $fields_with_values ) = @_;
+	my $atts = $self->{'xmlHandler'}->get_all_field_attributes;
+	foreach my $field ( keys %$atts ) {
+		next if ( $atts->{$field}->{'hide'} // q() ) ne 'yes';
+		next if !defined $atts->{$field}->{'default'} || $atts->{$field}->{'default'} eq q();
+		$newdata->{$field} = $atts->{$field}->{'default'};
+		push @$fields_with_values, $field;
 	}
 	return;
 }
