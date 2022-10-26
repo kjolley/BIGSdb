@@ -1999,7 +1999,7 @@ sub print_content {
 			  . qq(style="display:$off" title="Showing common functions"></span>);
 			say q(<span id="all_curator_methods_on" class="toggle_icon fas fa-toggle-on fa-2x" )
 			  . qq(style="display:$on" title="Showing all authorized functions"></span>);
-			say q(<span style="vertical-align:0.4em">Show all</a></a>);
+			say q(<span style="vertical-align:0.4em">Show all</a></span>);
 			say q(</div>);
 		}
 		say q(<span class="main_icon fas fa-user-tie fa-3x fa-pull-left"></span>);
