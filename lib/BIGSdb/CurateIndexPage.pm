@@ -439,6 +439,7 @@ sub _get_geography_point_lookup {
 			info      => 'Geopoint lookup - Set GPS coordinates for geographic field values.'
 		}
 	);
+	$buffer .= q(</div>);
 	return $buffer;
 }
 
