@@ -1776,8 +1776,8 @@ sub _get_sets {
 			info => 'Sets - Describe a collection of loci and schemes that can be treated like a stand-alone database.'
 		}
 	);
-	return $buffer if !$self->_sets_exist;
 	$buffer .= qq(</div>\n);
+	return $buffer if !$self->_sets_exist;
 
 	if ( $self->_loci_exist ) {
 		$buffer .= q(<div class="curategroup curategroup_sets grid-item set_admin" )
