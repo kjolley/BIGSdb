@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Send E-mail reminders to curators about pending submissions
 #Written by Keith Jolley
-#Copyright (c) 2016-2020, University of Oxford
+#Copyright (c) 2016-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20201016
+#Version: 20221026
 use strict;
 use warnings;
 use Carp;
@@ -383,7 +383,7 @@ sub get_databases_with_submissions {
 			}
 			if ( $override_values{'submissions'} ) {
 				next if $override_values{'submissions'} ne 'yes';
-				$dbases{ $attributes{'db'} } = 1;
+				$submissions = 1;
 				next;
 			}
 		}
