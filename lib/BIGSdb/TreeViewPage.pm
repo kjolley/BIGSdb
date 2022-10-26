@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2021, University of Oxford
+#Copyright (c) 2011-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -111,18 +111,18 @@ sub _get_schemes_not_in_groups {
 	  . 'sm.locus=l.id WHERE NOT l.no_submissions OR l.no_submissions IS NULL)'
 	  : '';
 	my $schemes = $self->{'datastore'}->run_query(
-		'SELECT id,name FROM schemes WHERE id NOT IN (SELECT scheme_id FROM '
+		'SELECT id FROM schemes WHERE id NOT IN (SELECT scheme_id FROM '
 		  . "scheme_group_scheme_members) $set_clause$no_submission_clause ORDER BY display_order,name",
 		undef,
-		{ fetch => 'all_arrayref', slice => {} }
+		{ fetch => 'col_arrayref', slice => {} }
 	);
-	return $schemes if !$options->{'no_disabled'};
-	my @not_in_group;
-	foreach my $scheme (@$schemes) {
-		next if $self->{'prefs'}->{'disable_schemes'}->{ $scheme->{'id'} };
-		push @not_in_group, $scheme;
+	my $not_in_group = [];
+	foreach my $scheme_id (@$schemes) {
+		next if $self->{'prefs'}->{'disable_schemes'}->{$scheme_id} && $options->{'no_disabled'};
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
+		push @$not_in_group, { id => $scheme_id, name => $scheme_info->{'name'} };
 	}
-	return \@not_in_group;
+	return $not_in_group;
 }
 
 sub get_tree {
@@ -278,6 +278,7 @@ sub _get_group_schemes {
 		$group_id,
 		{ fetch => 'col_arrayref' }
 	);
+
 	if (@$schemes) {
 		foreach my $scheme_id (@$schemes) {
 			next if $options->{'isolate_display'} && !$self->{'prefs'}->{'isolate_display_schemes'}->{$scheme_id};
