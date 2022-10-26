@@ -171,10 +171,13 @@ sub _get_rmlst_designations {
 		[ $isolate_id, $scheme_id ],
 		{ fetch => 'all_arrayref', slice => {} }
 	);
-	my $values = {};
+	my $values    = {};
+	my $locus_map = $self->{'datastore'}->run_query( 'SELECT locus,profile_name FROM scheme_members WHERE scheme_id=?',
+		$scheme_id, { fetch => 'all_arrayref', slice => {} } );
+	my %map = map { $_->{'locus'} => $_->{'profile_name'} // $_->{'locus'} } @$locus_map;
 	foreach my $designation (@$designations) {
 		next if !$designation->{'allele_id'};
-		push @{ $values->{ $designation->{'locus'} } }, { allele => $designation->{'allele_id'} };
+		push @{ $values->{ $map{ $designation->{'locus'} } } }, { allele => $designation->{'allele_id'} };
 	}
 	return $values;
 }
