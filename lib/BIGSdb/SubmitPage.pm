@@ -288,8 +288,9 @@ sub _user_over_quota {
 	  ? $self->{'system'}->{'total_pending_submissions'}
 	  : TOTAL_PENDING_LIMIT;
 	my $total_pending =
-	  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM submissions WHERE (submitter,status)=(?,?)',
-		[ $user_info->{'id'}, 'pending' ] );
+	  $self->{'datastore'}->run_query(
+		'SELECT COUNT(*) FROM submissions WHERE (submitter,status)=(?,?) AND (dataset IS NULL OR dataset = ?)',
+		[ $user_info->{'id'}, 'pending', $self->{'instance'} ] );
 	if ( $total_pending >= $total_limit ) {
 		$self->print_bad_status(
 			{
@@ -303,10 +304,11 @@ sub _user_over_quota {
 	  BIGSdb::Utils::is_int( $self->{'system'}->{'daily_pending_submissions'} )
 	  ? $self->{'system'}->{'daily_pending_submissions'}
 	  : DAILY_PENDING_LIMIT;
-	my $daily_pending =
-	  $self->{'datastore'}
-	  ->run_query( 'SELECT COUNT(*) FROM submissions WHERE (submitter,status,date_submitted)=(?,?,?)',
-		[ $user_info->{'id'}, 'pending', 'now' ] );
+	my $daily_pending = $self->{'datastore'}->run_query(
+		'SELECT COUNT(*) FROM submissions WHERE (submitter,status,date_submitted)=(?,?,?) '
+		  . 'AND (dataset IS NULL OR dataset = ?)',
+		[ $user_info->{'id'}, 'pending', 'now', $self->{'instance'} ]
+	);
 	if ( $daily_pending >= $daily_limit ) {
 		$self->print_bad_status(
 			{
@@ -447,13 +449,14 @@ sub _get_submissions_by_status {
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	my ( $qry, $get_all, @args );
 	if ( $options->{'get_all'} ) {
-		$qry     = 'SELECT * FROM submissions WHERE status=? ORDER BY id';
+		$qry     = 'SELECT * FROM submissions WHERE status=? AND (dataset IS NULL OR dataset = ?) ORDER BY id';
 		$get_all = 1;
-		push @args, $status;
+		push @args, ( $status, $self->{'instance'} );
 	} else {
-		$qry     = 'SELECT * FROM submissions WHERE (submitter,status)=(?,?) ORDER BY id';
+		$qry =
+		  'SELECT * FROM submissions WHERE (submitter,status)=(?,?) AND (dataset IS NULL OR dataset = ?) ORDER BY id';
 		$get_all = 0;
-		push @args, ( $user_info->{'id'}, $status );
+		push @args, ( $user_info->{'id'}, $status, $self->{'instance'} );
 	}
 	my $submissions =
 	  $self->{'datastore'}->run_query( $qry, \@args,
@@ -1283,10 +1286,11 @@ sub _start_submission {
 	  . sprintf( '%06d', $$ ) . '_'
 	  . sprintf( '%05d', int( rand(99999) ) );
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $dataset = ($self->{'system'}->{'separate_dataset'} // q()) eq 'yes' ? $self->{'instance'} : undef;
 	eval {
 		$self->{'db'}
-		  ->do( 'INSERT INTO submissions (id,type,submitter,date_submitted,datestamp,status) VALUES (?,?,?,?,?,?)',
-			undef, $submission_id, $type, $user_info->{'id'}, 'now', 'now', 'started' );
+		  ->do( 'INSERT INTO submissions (id,type,submitter,date_submitted,datestamp,status,dataset) VALUES (?,?,?,?,?,?,?)',
+			undef, $submission_id, $type, $user_info->{'id'}, 'now', 'now', 'started',$dataset );
 	};
 	if ($@) {
 		$logger->error($@);

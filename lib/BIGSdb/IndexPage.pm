@@ -103,7 +103,7 @@ sub print_menu {
 sub print_panel_buttons {
 	my ($self) = @_;
 	return if !$self->{'config'}->{'enable_dashboard'} && ( $self->{'system'}->{'enable_dashboard'} // q() ) ne 'yes';
-	return if ($self->{'system'}->{'dbtype'} // q()) ne 'isolates';
+	return if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
 	say q(<span class="icon_button"><a class="trigger_button" id="dashboard_toggle">)
 	  . q(<span class="fas fa-lg fa-th"></span><div class="icon_label">Dashboard</div></a></span>);
 	return;
@@ -157,10 +157,11 @@ sub _print_query_menu_item {
 		my $bookmarks = $self->{'datastore'}
 		  ->run_query( 'SELECT EXISTS(SELECT * FROM bookmarks WHERE user_id=?)', $user_info->{'id'} );
 		if ($bookmarks) {
-			push @$links, {
+			push @$links,
+			  {
 				href => "${url_root}page=bookmarks",
 				text => 'Bookmarked queries'
-			};
+			  };
 		}
 	}
 	$self->_print_menu_item(
@@ -612,8 +613,8 @@ sub _print_submissions_menu_item {
 		$number_icon .=
 		  q(<span class="fa-stack" style="font-size:0.7em;letter-spacing:normal;margin:-0.5em 0 -0.2em 0.5em">);
 		$number_icon .= q(<span class="fas fa-circle fa-stack-2x submission_indicator"></span>);
-		$number_icon .= q(<span class="fa fa-stack-1x fa-stack-text" style="font-size:1.2em">)
-		  . qq($pending_submissions</span>);
+		$number_icon .=
+		  q(<span class="fa fa-stack-1x fa-stack-text" style="font-size:1.2em">) . qq($pending_submissions</span>);
 		$number_icon .= q(</span>);
 	}
 	$self->_print_menu_item(
@@ -784,20 +785,24 @@ sub _get_pending_submission_count {
 	return 0 if $user_info->{'status'} ne 'admin' && $user_info->{'status'} ne 'curator';
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		return 0 if !$self->can_modify_table('isolates');
-		my $count = $self->{'datastore'}
-		  ->run_query( 'SELECT COUNT(*) FROM submissions WHERE (type,status)=(?,?)', [ 'isolates', 'pending' ] );
+		my $count =
+		  $self->{'datastore'}->run_query(
+			'SELECT COUNT(*) FROM submissions WHERE (type,status)=(?,?) AND (dataset IS NULL OR dataset = ?)',
+			[ 'isolates', 'pending', $self->{'instance'} ] );
 		if ( $self->can_modify_table('sequence_bin') ) {
 			$count +=
-			  $self->{'datastore'}
-			  ->run_query( 'SELECT COUNT(*) FROM submissions WHERE (type,status)=(?,?)', [ 'genomes', 'pending' ] );
+			  $self->{'datastore'}->run_query(
+				'SELECT COUNT(*) FROM submissions WHERE (type,status)=(?,?) AND (dataset IS NULL OR dataset = ?)',
+				[ 'genomes', 'pending', $self->{'instance'} ] );
 		}
 		return $count;
 	} else {
-		my $count = 0;
-		my $allele_submissions =
-		  $self->{'datastore'}->run_query(
-			'SELECT a.locus FROM submissions s JOIN allele_submissions a ON s.id=a.submission_id WHERE s.status=?',
-			'pending', { fetch => 'col_arrayref' } );
+		my $count              = 0;
+		my $allele_submissions = $self->{'datastore'}->run_query(
+			'SELECT a.locus FROM submissions s JOIN allele_submissions a ON s.id=a.submission_id WHERE s.status=? '
+			  . 'AND (dataset IS NULL OR dataset = ?)',
+			[ 'pending', $self->{'instance'} ], { fetch => 'col_arrayref' }
+		);
 		foreach my $locus (@$allele_submissions) {
 			if (   $self->is_admin
 				|| $self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $user_info->{'id'} ) )
@@ -807,8 +812,8 @@ sub _get_pending_submission_count {
 		}
 		my $profile_submissions = $self->{'datastore'}->run_query(
 			'SELECT ps.scheme_id FROM submissions s JOIN profile_submissions ps '
-			  . 'ON s.id=ps.submission_id WHERE s.status=?',
-			'pending',
+			  . 'ON s.id=ps.submission_id WHERE s.status=? AND (dataset IS NULL OR dataset = ?)',
+			['pending', $self->{'instance'}],
 			{ fetch => 'col_arrayref' }
 		);
 		foreach my $scheme_id (@$profile_submissions) {

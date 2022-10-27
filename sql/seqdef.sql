@@ -812,6 +812,7 @@ status text NOT NULL,
 curator int,
 outcome text,
 email boolean,
+dataset text,
 PRIMARY KEY(id),
 CONSTRAINT s_submitter FOREIGN KEY (submitter) REFERENCES users
 ON DELETE CASCADE

@@ -179,8 +179,11 @@ sub update_submission_datestamp {
 sub get_submission {
 	my ( $self, $submission_id ) = @_;
 	$logger->logcarp('No submission_id passed') if !$submission_id;
-	return $self->{'datastore'}->run_query( 'SELECT * FROM submissions WHERE id=?',
-		$submission_id, { fetch => 'row_hashref', cache => 'SubmissionHandler::get_submission' } );
+	return $self->{'datastore'}->run_query(
+		'SELECT * FROM submissions WHERE id=? AND (dataset IS NULL OR dataset = ?)',
+		[ $submission_id, $self->{'instance'} ],
+		{ fetch => 'row_hashref', cache => 'SubmissionHandler::get_submission' }
+	);
 }
 
 sub get_allele_submission {
@@ -703,7 +706,8 @@ sub _get_isolate_header_positions {
 		delete $not_accounted_for{$field};
 	}
 	foreach my $heading (@header) {
-		next if $self->{'datastore'}->is_locus($heading);
+		next if $self->{'datastore'}->is_locus( $heading, { set_id => $set_id } );
+		next if $self->_is_set_locus_name( $set_id, $heading );
 		next if $self->{'datastore'}->is_eav_field($heading);
 		next if $heading eq 'references';
 		next if $heading eq 'codon_table';
@@ -714,6 +718,15 @@ sub _get_isolate_header_positions {
 	$ret->{'duplicates'}   = [ uniq @duplicates ] if @duplicates;
 	$ret->{'unrecognized'} = \@unrecognized       if @unrecognized;
 	return $ret;
+}
+
+sub _is_set_locus_name {
+	my ( $self, $set_id, $value ) = @_;
+	return if !$set_id;
+	my $set_names = $self->{'datastore'}
+	  ->run_query( 'SELECT set_name FROM set_loci WHERE set_id=?', $set_id, { fetch => 'col_arrayref' } );
+	my %names = map { $_ => 1 } @$set_names;
+	return $names{$value};
 }
 
 sub _strip_trailing_spaces {
@@ -1708,10 +1721,10 @@ sub email {
 	foreach (qw(sender recipient message)) {
 		$logger->logdie("No $_") if !$params->{$_};
 	}
-	my $domain     = $self->{'config'}->{'domain'} // DEFAULT_DOMAIN;
+	my $domain         = $self->{'config'}->{'domain'}                  // DEFAULT_DOMAIN;
 	my $sender_address = $self->{'config'}->{'automated_email_address'} // "no_reply\@$domain";
-	my $sender     = $self->{'datastore'}->get_user_info( $params->{'sender'} );
-	my $recipient  = $self->{'datastore'}->get_user_info( $params->{'recipient'} );
+	my $sender         = $self->{'datastore'}->get_user_info( $params->{'sender'} );
+	my $recipient      = $self->{'datastore'}->get_user_info( $params->{'recipient'} );
 	foreach my $user ( $sender, $recipient ) {
 		my $address = Email::Valid->address( $user->{'email'} );
 		if ( !$address ) {
