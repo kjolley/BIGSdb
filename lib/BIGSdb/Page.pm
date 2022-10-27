@@ -2022,7 +2022,8 @@ sub get_record_name {
 		lincode_prefixes                  => 'LINcode prefix nomenclature',
 		codon_tables                      => 'isolate codon table',
 		sequence_extended_attributes      => 'sequence extended attribute',
-		geography_point_lookup            => 'geography point lookup value'
+		geography_point_lookup            => 'geography point lookup value',
+		curator_configs                   => 'curator database configuration'
 	);
 	return $names{$table};
 }
@@ -2285,6 +2286,20 @@ sub can_modify_table {
 	$locus =~ s/%27/'/gx if $locus;    #Web-escaped locus
 	return if $table eq 'history' || $table eq 'profile_history';
 	return 1 if $self->is_admin;
+	my $curator_id = $self->get_curator_id;
+
+	if ( !defined $self->{'cache'}->{'curator_configs'} ) {
+		my $curator_configs =
+		  $self->{'datastore'}->run_query( 'SELECT dbase_config FROM curator_configs WHERE user_id=?',
+			$curator_id, { fetch => 'col_arrayref' } );
+		$self->{'cache'}->{'curator_configs'} = { map { $_ => 1 } @$curator_configs };
+		
+	}
+	if ( keys %{ $self->{'cache'}->{'curator_configs'} }
+		&& !$self->{'cache'}->{'curator_configs'}->{ $self->{'instance'} } )
+	{
+		return;
+	}
 	my %general_permissions = (
 		users              => $self->{'permissions'}->{'modify_users'},
 		user_groups        => $self->{'permissions'}->{'modify_usergroups'},
@@ -2297,7 +2312,6 @@ sub can_modify_table {
 	  foreach qw(schemes scheme_members scheme_fields scheme_curators classification_schemes
 	  classification_group_fields scheme_groups scheme_group_group_members scheme_group_scheme_members
 	  lincode_schemes);
-
 	if ( $general_permissions{$table} ) {
 		return $general_permissions{$table};
 	}
@@ -2315,7 +2329,7 @@ sub can_modify_table {
 		);
 		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_isolates'}
 		  foreach qw(isolates isolate_aliases refs);
-		my $user_info = $self->{'datastore'}->get_user_info( $self->get_curator_id );
+		my $user_info = $self->{'datastore'}->get_user_info($curator_id);
 		$isolate_permissions{'retired_isolates'} = $self->{'permissions'}->{'modify_isolates'}
 		  if $user_info->{'status'} eq 'curator';
 		$isolate_permissions{$_} = $self->{'permissions'}->{'modify_composites'}

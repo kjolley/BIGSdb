@@ -353,6 +353,7 @@ sub _get_admin_links {
 	$buffer .= $self->_get_blast_cache_refresh;
 	$buffer .= $self->_get_scheme_cache_refresh;
 	$buffer .= $self->_get_user_dbases;
+	$buffer .= $self->_get_curator_configs;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$buffer .= $self->_get_geocoding;
 		$buffer .= $self->_get_eav_fields;
@@ -978,6 +979,28 @@ sub _get_user_dbases {
 			query     => 1,
 			info      => 'User databases - Add global databases containing site-wide user data - '
 			  . 'these can be used to set up accounts that work across databases.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	return $buffer;
+}
+
+sub _get_curator_configs {
+	my ($self) = @_;
+	my $buffer = q();
+	return $buffer if !$self->can_modify_table('curator_configs');
+	$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item misc_admin" )
+	  . qq(style="display:$self->{'optional_misc_admin_display'}"><h2>Curator configs</h2>);
+	$buffer .= $self->_get_icon_group(
+		'curator_configs',
+		'user-tie',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Curator configs - Limit users to curator access only from specific database '
+			  . 'configurations. If a curator does not have a value set here, then they can curate using '
+			  . 'any configurations that their other permissions allow them to use.'
 		}
 	);
 	$buffer .= qq(</div>\n);

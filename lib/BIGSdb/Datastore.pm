@@ -2564,7 +2564,8 @@ sub get_tables {
 		  scheme_group_group_members pcr pcr_locus probes probe_locus sets set_loci set_schemes set_view
 		  isolates history sequence_attributes classification_schemes classification_group_fields
 		  retired_isolates user_dbases oauth_credentials eav_fields validation_rules validation_conditions
-		  validation_rule_conditions lincode_schemes lincode_fields codon_tables geography_point_lookup);
+		  validation_rule_conditions lincode_schemes lincode_fields codon_tables geography_point_lookup
+		  curator_configs);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}
 		  : 'isolates';
@@ -2575,7 +2576,7 @@ sub get_tables {
 		  scheme_group_scheme_members scheme_group_group_members client_dbase_loci_fields sets set_loci set_schemes
 		  profile_history locus_aliases retired_allele_ids retired_profiles classification_schemes
 		  classification_group_fields classification_group_field_values user_dbases locus_links client_dbase_cschemes
-		  lincode_schemes lincodes lincode_fields lincode_prefixes sequence_extended_attributes);
+		  lincode_schemes lincodes lincode_fields lincode_prefixes sequence_extended_attributes curator_configs);
 	}
 	return @tables;
 }

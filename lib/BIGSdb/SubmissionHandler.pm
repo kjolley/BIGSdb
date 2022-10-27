@@ -1898,6 +1898,11 @@ sub notify_curators {
 	my $submission = $self->get_submission($submission_id);
 	my $curators   = $self->_get_curators($submission_id);
 	foreach my $curator_id (@$curators) {
+		my $curator_configs =
+		  $self->{'datastore'}->run_query( 'SELECT dbase_config FROM curator_configs WHERE user_id=?',
+			$curator_id, { fetch => 'col_arrayref' } );
+		my %curator_configs = { map { $_ => 1 } @$curator_configs };
+		next if keys %curator_configs && !$curator_configs{ $self->{'instance'} };
 		if ( $self->curator_wants_digests($curator_id) ) {
 			my $message = $self->_get_digest_summary( $submission_id, { messages => 1 } );
 			my $submitter_name = $self->{'datastore'}->get_user_string( $submission->{'submitter'} );

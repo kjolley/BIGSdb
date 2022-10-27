@@ -1480,7 +1480,8 @@ sub get_scheme_fields_table_attributes {
 			}
 		  );
 	} else {
-		push @$attributes, (
+		push @$attributes,
+		  (
 			{
 				name     => 'index',
 				type     => 'bool',
@@ -1507,7 +1508,7 @@ sub get_scheme_fields_table_attributes {
 				length  => 128,
 				tooltip => q(option list - '|' separated list of allowed values.)
 			}
-		);
+		  );
 	}
 	push @$attributes,
 	  (
@@ -2709,6 +2710,24 @@ sub get_geography_point_lookup_table_attributes {
 		},
 		{ name => 'datestamp', type => 'date', required => 1 },
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 }
+	];
+	return $attributes;
+}
+
+sub get_curator_configs_table_attributes {
+	my $attributes = [
+		{
+			name           => 'user_id',
+			type           => 'int',
+			required       => 1,
+			primary_key    => 1,
+			dropdown_query => 1,
+			user_field => 1,
+			foreign_key    => 'users'
+		},
+		{ name => 'dbase_config', type => 'text', required => 1, primary_key    => 1 },
+		{ name => 'datestamp',    type => 'date', required => 1 },
+		{ name => 'curator',      type => 'int',  required => 1, dropdown_query => 1 }
 	];
 	return $attributes;
 }
