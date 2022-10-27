@@ -1901,7 +1901,7 @@ sub notify_curators {
 		my $curator_configs =
 		  $self->{'datastore'}->run_query( 'SELECT dbase_config FROM curator_configs WHERE user_id=?',
 			$curator_id, { fetch => 'col_arrayref' } );
-		my %curator_configs = { map { $_ => 1 } @$curator_configs };
+		my %curator_configs =  map { $_ => 1 } @$curator_configs ;
 		next if keys %curator_configs && !$curator_configs{ $self->{'instance'} };
 		if ( $self->curator_wants_digests($curator_id) ) {
 			my $message = $self->_get_digest_summary( $submission_id, { messages => 1 } );
