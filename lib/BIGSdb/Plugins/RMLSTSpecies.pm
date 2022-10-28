@@ -1,6 +1,6 @@
 #RMLSTSpecies.pm - rMLST species identification plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2018-2021, University of Oxford
+#Copyright (c) 2018-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -54,7 +54,7 @@ sub get_attributes {
 		buttontext  => 'rMLST species id',
 		menutext    => 'Species identification',
 		module      => 'RMLSTSpecies',
-		version     => '2.1.2',
+		version     => '2.2.0',
 		dbtype      => 'isolates',
 		section     => 'isolate_info,analysis,postquery',
 		input       => 'query',
@@ -162,6 +162,8 @@ sub run_job {
 	my $scan_genome  = ( $params->{'scan'} // 'scan' ) eq 'scan' ? 1 : 0;
 	my $table_header = $self->_get_javascript($scan_genome);
 	my $colspan      = 5;
+	my $text_file    = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
+	$self->_append_text_file( $text_file, "id\tisolate\trank\ttaxon\ttaxonomy\tsupport\trST\tspecies" );
 	$table_header .=
 	    q(<div class="scrollable"><table class="resultstable"><tr><th rowspan="2">id</th>)
 	  . qq(<th rowspan="2">$self->{'system'}->{'labelfield'}</th>)
@@ -201,8 +203,33 @@ sub run_job {
 			my $message_html = qq($html\n$table_header\n$row_buffer\n</table></div>);
 			$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } );
 			$td = $td == 1 ? 2 : 1;
+			my $text_row_buffer = $self->_format_row_text(
+				$params,
+				{
+					values        => $values,
+					response_code => $response_code,
+					isolate_id    => $values->[0]
+				}
+			);
+			$self->_append_text_file( $text_file, $text_row_buffer );
 		}
 		last if $self->{'exit'};
+	}
+	if ( -e $text_file ) {
+		$self->{'jobManager'}
+		  ->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Report file (Text format)' } );
+		my $excel_file = BIGSdb::Utils::text2excel(
+			$text_file,
+			{
+				worksheet   => 'rMLST',
+				tmp_dir     => $self->{'config'}->{'secure_tmp_dir'},
+				text_fields => $self->{'system'}->{'labelfield'}
+			}
+		);
+		if ( -e $excel_file ) {
+			$self->{'jobManager'}->update_job_output( $job_id,
+				{ filename => "$job_id.xlsx", description => '02_Report file (Excel)', compress => 1 } );
+		}
 	}
 	if ($report) {
 		my $filename = "$self->{'config'}->{'tmp_dir'}/$job_id.json";
@@ -211,9 +238,17 @@ sub run_job {
 		close $fh;
 		if ( -e $filename ) {
 			$self->{'jobManager'}->update_job_output( $job_id,
-				{ filename => "$job_id.json", description => '01_Report file (JSON format)' } );
+				{ filename => "$job_id.json", description => '03_Report file (JSON format)' } );
 		}
 	}
+	return;
+}
+
+sub _append_text_file {
+	my ( $self, $file_path, $line ) = @_;
+	open( my $fh, '>>:encoding(utf8)', $file_path ) || $logger->error("Cannot open $file_path for writing.");
+	say $fh $line;
+	close $fh;
 	return;
 }
 
@@ -285,6 +320,52 @@ sub _format_row_html {
 			}
 		}
 		$buffer .= qq(</tr>\n);
+	}
+	return $buffer;
+}
+
+sub _format_row_text {
+	my ( $self,   $params,        $args )       = @_;
+	my ( $values, $response_code, $isolate_id ) = @{$args}{qw(values response_code isolate_id)};
+	my $buffer;
+	my $allele_predictions = ref $values->[2] eq 'ARRAY' ? @{ $values->[2] } : 0;
+	my $rows = max( $allele_predictions, 1 );
+	foreach my $row ( 0 .. $rows - 1 ) {
+		my $no_matches;
+		if ( $row == 0 ) {
+			$buffer .= qq($values->[$_]\t) foreach ( 0, 1 );
+		} else {
+			$buffer .= qq(\t\t);
+		}
+		if ( !$allele_predictions ) {
+			my $message;
+			if ( $response_code == 413 ) {
+				$message = q(Genome size is too large or contains too many contigs for analysis);
+			} else {
+				$message = q(No exact matching alleles linked to genome found);
+			}
+			$no_matches = 1;
+			$buffer .= qq($message\t\t\t\t);
+		} else {
+			foreach my $col ( 2 .. 5 ) {
+				if ( $col == 5 ) {
+					$buffer .= qq($values->[$col]->[$row]%\t);
+				} else {
+					$buffer .= $values->[$col]->[$row] // q();
+					$buffer .= qq(\t);
+				}
+			}
+		}
+		if ( $row == 0 ) {
+			foreach my $col ( 6 .. 8 ) {
+				next if $col == 6;
+				$buffer .= $values->[$col] // q();
+				$buffer .= qq(\t) if $col == 7;
+			}
+		}
+		if ( $row < $rows - 1 ) {
+			$buffer .= qq(\n);
+		}
 	}
 	return $buffer;
 }
