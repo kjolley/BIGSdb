@@ -43,6 +43,7 @@ Version 1.34: Change of seqdef and isolate database structures.
 Version 1.35: Change of isolate database structure.
 Version 1.36: Optional additional table added to the isolate database structure.
 Version 1.37: Change of seqdef and isolate database structures.
+Version 1.38: Change of seqdef and isolate database structures.
 
 Details can be found below.
 
@@ -565,4 +566,14 @@ sequence_flags table.
 
 Please run the isolatedb_v1.37.sql script against isolate databases and the
 seqdefdb_v1.37.sql script against sequence definition databases.
+
+Version 1.38
+------------
+There are changes to the sequence definition and isolate database structures
+to support limiting both submissions and curators to specific database 
+configurations. This allows databases with harmonised fields to contain 
+multiple datasets, each with their own configuration, submissions and curators.
+
+Please run the isolatedb_v1.38.sql script against isolate databases and the
+seqdefdb_v1.38.sql script against sequence definition databases.
 

@@ -1,3 +1,8 @@
+v1.38.0: *Support for limiting submissions and curators to a specific database
+          configuration.
+         *Added ability to hide fields in a specific configuration with a 
+          default value automatically set if provided.
+         *Added tab-delimited text and Excel outputs to rMLST species tool.
 v1.37.0: *Support for scheme fields with constrained allowed values.
 v1.36.7: *Option to show whether isolate is private in data exports.
 v1.36.6: *Improvement to define_profiles.pl script so that it assigns profiles
