@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 
-Version 2.5.3.
+Version 2.5.4.
 */
 
 var prefs_loaded;
@@ -109,13 +109,19 @@ $(function() {
 			loci: locus_list,
 			schemes: scheme_list
 		};
-
 		$.each(list[field_type], function(index, item) {
 			var value;
 			var label;
 			if (field_type == 'schemes') {
 				label = item.label;
 				value = item.field;
+			} else if (field_type == 'loci') {
+				value = item;
+				if (locus_labels[item] != undefined) {
+					label = locus_labels[item];
+				} else {
+					label = item;
+				}
 			} else {
 				label = item.replace(/^.+\.\./, "");
 				value = item;
@@ -453,7 +459,12 @@ function load_pie(url, field, max_segments) {
 	if (typeof field == 'undefined') {
 		return;
 	}
+
 	var title = field.replace(/^.+\.\./, "");
+	var field_type = get_field_type();
+	if (field_type == 'loci' && locus_labels[field] != undefined) {
+		title = locus_labels[field];
+	}
 
 	title = title.replace(/^s_\d+_/, "");
 	var f = d3.format(".1f");

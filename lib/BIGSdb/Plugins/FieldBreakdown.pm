@@ -48,7 +48,7 @@ sub get_attributes {
 		buttontext => 'Fields',
 		menutext   => 'Field breakdown',
 		module     => 'FieldBreakdown',
-		version    => '2.5.3',
+		version    => '2.5.4',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
@@ -197,15 +197,30 @@ sub _get_field_values {
 	return $freqs;
 }
 
+sub _get_display_field {
+	my ( $self, $field ) = @_;
+	my $display_field = $field;
+	$display_field =~ s/^s_\d+_//x;
+	$display_field =~ s/^.*\.\.//x;
+	$display_field =~ tr/_/ /;
+	my $field_type = $self->_get_field_type($field) // q();
+	if ( $field_type eq 'locus' ) {
+		my $set_id = $self->get_set_id;
+		if ($set_id) {
+			my $set_name = $self->{'datastore'}
+			  ->run_query( 'SELECT set_name FROM set_loci WHERE (set_id,locus)=(?,?)', [ $set_id, $field ] );
+			$display_field = $set_name // $field;
+		}
+	}
+	return $display_field;
+}
+
 sub _show_table {
 	my ( $self, $field ) = @_;
 	my $freqs         = $self->_get_field_values($field);
 	my $count         = @$freqs;
 	my $plural        = $count != 1 ? 's' : '';
-	my $display_field = $field;
-	$display_field =~ s/^s_\d+_//x;
-	$display_field =~ s/^.*\.\.//x;
-	$display_field =~ tr/_/ /;
+	my $display_field = $self->_get_display_field($field);
 	say qq(<h1>Breakdown by $display_field</h1>);
 	say q(<div class="box" id="resultstable">);
 	say qq(<p>$count value$plural.</p>);
@@ -234,10 +249,7 @@ sub _get_text_table {
 	my $freqs         = $self->_get_field_values($field);
 	my $count         = @$freqs;
 	my $plural        = $count != 1 ? 's' : '';
-	my $display_field = $field;
-	$display_field =~ s/^s_\d+_//x;
-	$display_field =~ s/^.*\.\.//x;
-	$display_field =~ tr/_/ /;
+	my $display_field = $self->_get_display_field($field);
 	my $buffer = qq($display_field\tFrequency\tPercentage\n);
 	my $total  = 0;
 	$total += $_->{'value'} foreach @$freqs;
@@ -629,8 +641,16 @@ sub _get_loci_js {
 	#The list will be updated by an AJAX call, but we cannot tell who is logged in
 	#when the Javascript is being prepared as this goes in the header.
 	my ($self) = @_;
-	my $loci = $self->{'datastore'}->get_loci;
-	return q(var locus_list=) . encode_json($loci);
+	my $set_id = $self->get_set_id;
+	my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
+	my $buffer = q(var locus_list=) . encode_json($loci) . qq(\n);
+	if ($set_id) {
+		my $set_loci = $self->{'datastore'}->run_query( 'SELECT locus,set_name AS label FROM set_loci WHERE set_id=?',
+			$set_id, { fetch => 'all_arrayref', slice => {} } );
+		my $labels = { map { $_->{'locus'} => $_->{'label'} } @$set_loci };
+		$buffer .= q(var locus_labels=) . encode_json($labels) . qq(\n);
+	}
+	return $buffer;
 }
 
 sub _get_schemes_js {
