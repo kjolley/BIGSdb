@@ -111,7 +111,10 @@ sub make_rest_call {
 	my $support  = [];
 	my ( $rST, $species );
 	if ( $response->is_success ) {
-		$data = decode_json( $response->content );
+		eval { $data = decode_json( $response->content ); };
+		if ($@) {
+			$self->{'logger'}->error('Invalid JSON from API.');
+		}
 		if ( $data->{'taxon_prediction'} ) {
 			foreach my $prediction ( @{ $data->{'taxon_prediction'} } ) {
 				push @$rank,     $prediction->{'rank'};
