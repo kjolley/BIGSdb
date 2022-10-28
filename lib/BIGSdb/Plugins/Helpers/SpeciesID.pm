@@ -113,7 +113,7 @@ sub make_rest_call {
 	if ( $response->is_success ) {
 		eval { $data = decode_json( $response->content ); };
 		if ($@) {
-			$self->{'logger'}->error('Invalid JSON from API.');
+			$self->{'logger'}->error("Invalid JSON from API. $@");
 		}
 		if ( $data->{'taxon_prediction'} ) {
 			foreach my $prediction ( @{ $data->{'taxon_prediction'} } ) {
