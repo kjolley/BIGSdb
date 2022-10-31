@@ -239,29 +239,29 @@ sub _run_alignment {
 			}
 		}
 	}
-	if (   $aligner eq 'MAFFT'
-		&& $self->{'config'}->{'mafft_path'}
-		&& -e $fasta_file
-		&& -s $fasta_file )
-	{
-		my $threads =
-		  BIGSdb::Utils::is_int( $self->{'config'}->{'mafft_threads'} ) ? $self->{'config'}->{'mafft_threads'} : 1;
-		system( "$self->{'config'}->{'mafft_path'} --thread $threads --quiet "
-			  . "--preservecase --clustalout $fasta_file > $aligned_out" );
-	} elsif ( $aligner eq 'MUSCLE'
-		&& $self->{'config'}->{'muscle_path'}
-		&& -e $fasta_file
-		&& -s $fasta_file )
-	{
-		my $max_mb = $self->{'config'}->{'max_muscle_mb'} // MAX_MUSCLE_MB;
-		system( $self->{'config'}->{'muscle_path'},
-			-in    => $fasta_file,
-			-out   => $aligned_out,
-			-maxmb => $max_mb,
-			'-quiet', '-clwstrict'
-		);
+	if ( -e $fasta_file && -s $fasta_file ) {
+		if (   $aligner eq 'MAFFT'
+			&& $self->{'config'}->{'mafft_path'} )
+		{
+			my $threads =
+			  BIGSdb::Utils::is_int( $self->{'config'}->{'mafft_threads'} ) ? $self->{'config'}->{'mafft_threads'} : 1;
+			system( "$self->{'config'}->{'mafft_path'} --thread $threads --quiet "
+				  . "--preservecase --clustalout $fasta_file > $aligned_out" );
+		} elsif ( $aligner eq 'MUSCLE'
+			&& $self->{'config'}->{'muscle_path'} )
+		{
+			my $max_mb = $self->{'config'}->{'max_muscle_mb'} // MAX_MUSCLE_MB;
+			system( $self->{'config'}->{'muscle_path'},
+				-in    => $fasta_file,
+				-out   => $aligned_out,
+				-maxmb => $max_mb,
+				'-quiet', '-clwstrict'
+			);
+		} else {
+			$self->{'logger'}->error('No aligner selected');
+		}
 	} else {
-		$self->{'logger'}->error('No aligner selected');
+		$self->{'logger'}->error("File $fasta_file does not exist or is empty.");
 	}
 	unlink $fasta_file;
 	return ( $aligned_out, $core_locus );
