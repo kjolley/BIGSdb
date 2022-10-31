@@ -216,11 +216,11 @@ sub get_isolates {
 	}
 	my $where_or_and = $options->{'with_seqbin'} ? 'AND' : 'WHERE';
 	if ( $self->{'options'}->{'p'} ) {
-		my @projects = split( ',', $self->{'options'}->{'p'} );
+		my @projects = split /\s*,\s*/x, $self->{'options'}->{'p'};
 		die "Invalid project list.\n" if any { !BIGSdb::Utils::is_int($_) } @projects;
 		$qry .= " $where_or_and $view.id IN (SELECT isolate_id FROM project_members WHERE project_id IN (@projects))";
 	} elsif ( $self->{'options'}->{'i'} ) {
-		my @ids = split( ',', $self->{'options'}->{'i'} );
+		my @ids = split /\s*,\s*/x, $self->{'options'}->{'i'};
 		die "Invalid isolate id list.\n" if any { !BIGSdb::Utils::is_int($_) } @ids;
 		$qry .= " $where_or_and $view.id IN (@ids)";
 	} elsif ( $self->{'options'}->{'isolate_list_file'} ) {
@@ -251,7 +251,7 @@ sub filter_and_sort_isolates {
 	my ( $self, $isolates ) = @_;
 	my @exclude_isolates;
 	if ( $self->{'options'}->{'I'} ) {
-		@exclude_isolates = split( ',', $self->{'options'}->{'I'} );
+		@exclude_isolates = split /\s*,\*/x, $self->{'options'}->{'I'};
 	}
 	if ( $self->{'options'}->{'P'} ) {
 		push @exclude_isolates, @{ $self->_get_isolates_excluded_by_project };
@@ -307,7 +307,7 @@ sub filter_and_sort_isolates {
 
 sub _get_isolates_excluded_by_project {
 	my ($self) = @_;
-	my @projects = split( ',', $self->{'options'}->{'P'} );
+	my @projects = split /\s*,\s*/x, $self->{'options'}->{'P'};
 	my @isolates;
 	foreach my $project_id (@projects) {
 		next if !BIGSdb::Utils::is_int($project_id);
@@ -363,7 +363,7 @@ sub get_selected_loci {
 	$options = {} if ref $options ne 'HASH';
 	my %ignore;
 	if ( $self->{'options'}->{'L'} ) {
-		my @ignore = split( ',', $self->{'options'}->{'L'} );
+		my @ignore = split /\s*,\s*/x, $self->{'options'}->{'L'};
 		%ignore = map { $_ => 1 } @ignore;
 	}
 	my $qry;
@@ -385,7 +385,7 @@ sub get_selected_loci {
 	}
 	if ( $self->{'options'}->{'s'} || @group_schemes ) {
 		my @schemes;
-		@schemes = split( ',', $self->{'options'}->{'s'} ) if $self->{'options'}->{'s'};
+		@schemes = split /\s*,\s*/x, $self->{'options'}->{'s'} if $self->{'options'}->{'s'};
 		push @schemes, @group_schemes;
 		die "Invalid scheme list.\n" if any { !BIGSdb::Utils::is_int($_) } @schemes;
 		local $" = ',';
@@ -405,7 +405,7 @@ sub get_selected_loci {
 		my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'text', \@list );
 		$qry = "$loci_qry $and_or id IN (SELECT value FROM $temp_table) ORDER BY id";
 	} elsif ( $self->{'options'}->{'l'} ) {
-		my @loci = split( ',', $self->{'options'}->{'l'} );
+		my @loci = split /\s*,\s*/x, $self->{'options'}->{'l'};
 		foreach (@loci) {
 			$_ =~ s/'/\\'/gx;
 		}
