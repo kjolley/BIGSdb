@@ -285,8 +285,7 @@ sub print_panel_buttons {
 	{
 		say q(<span class="icon_button">)
 		  . q(<a class="trigger_button" id="panel_trigger" style="display:none">)
-		  . q(<span class="fas fa-lg fa-wrench"></span><div class="icon_label">Modify form</div></a></span>)
-		  ;
+		  . q(<span class="fas fa-lg fa-wrench"></span><div class="icon_label">Modify form</div></a></span>);
 		if ( $self->dashboard_enabled( { query_dashboard => 1 } ) ) {
 			if ( $q->param('submit') || defined $q->param('query_file') ) {
 				say
@@ -3901,11 +3900,9 @@ END
 		my $list_attribute_init =
 		  defined $list_attribute ? qq(var listAttribute="$list_attribute";) : q(var listAttribute;);
 		my $order = $self->{'prefs'}->{'order'} // q();
-		my $enable_drag  = $self->{'prefs'}->{'enable_drag'} ? 'true' : 'false';
-		my $guid         = $self->get_guid;
-		my $dashboard_id = $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, 'primary', 0 );
-		my $empty        = $self->_get_dashboard_empty_message;
-
+		my $enable_drag = $self->{'prefs'}->{'enable_drag'} ? 'true' : 'false';
+		my $guid = $self->get_guid;
+		my $empty = $self->_get_dashboard_empty_message;
 		if ($order) {
 			$order = $json->encode($order);
 		}
@@ -3987,19 +3984,22 @@ sub initiate {
 	}
 	if ( !$self->{'cgi'}->param('save_options') ) {
 		my $guid = $self->get_guid;
-		return if !$guid;
-		foreach my $attribute (
-			qw (phenotypic allele_designations allele_count allele_status annotation_status
-			seqbin assembly_checks tag_count tags list filters)
-		  )
-		{
+		if ($guid) {
+			foreach my $attribute (
+				qw (phenotypic allele_designations allele_count allele_status annotation_status
+				seqbin assembly_checks tag_count tags list filters)
+			  )
+			{
+				my $value =
+				  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, "${attribute}_fieldset" );
+				$self->{'prefs'}->{"${attribute}_fieldset"} = ( $value // '' ) eq 'on' ? 1 : 0;
+			}
 			my $value =
-			  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, "${attribute}_fieldset" );
-			$self->{'prefs'}->{"${attribute}_fieldset"} = ( $value // '' ) eq 'on' ? 1 : 0;
+			  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'provenance_fieldset' );
+			$self->{'prefs'}->{'provenance_fieldset'} = ( $value // '' ) eq 'off' ? 0 : 1;
+		} else {
+			$self->{'prefs'}->{'provenance_fieldset'} = 1
 		}
-		my $value =
-		  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'provenance_fieldset' );
-		$self->{'prefs'}->{'provenance_fieldset'} = ( $value // '' ) eq 'off' ? 0 : 1;
 	}
 	if ( BIGSdb::Utils::is_int( scalar $q->param('bookmark') ) ) {
 		$self->_initiate_bookmark( scalar $q->param('bookmark') );

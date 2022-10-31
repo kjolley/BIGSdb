@@ -3326,8 +3326,9 @@ sub initiate {
 
 sub get_or_set_dashboard_prefs {
 	my ($self) = @_;
-	my $guid   = $self->get_guid;
-	my $q      = $self->{'cgi'};
+	my $guid = $self->get_guid;
+	return if !$guid;
+	my $q = $self->{'cgi'};
 	$self->{'dashboard_type'} = $q->param('type') if defined $q->param('type');
 	my $dashboard_id =
 	  $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, 0 );
@@ -3541,11 +3542,15 @@ sub _print_dashboard_management_fieldset {
 	my ($self) = @_;
 	my $guid = $self->get_guid;
 	my $name;
-	my $dashboard_id =
-	  $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, 0 );
-	my $dashboards = $self->{'prefstore'}->get_dashboards( $guid, $self->{'instance'} );
-	my $ids        = [-1];
-	my $labels     = { -1 => 'Select dashboard...' };
+	my $dashboard_id;
+	my $dashboards = [];
+	if ($guid) {
+		$dashboard_id =
+		  $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, 0 );
+		$dashboards = $self->{'prefstore'}->get_dashboards( $guid, $self->{'instance'} );
+	}
+	my $ids = [-1];
+	my $labels = { -1 => 'Select dashboard...' };
 	if ( defined $dashboard_id ) {
 		push @$ids, 0;
 		$labels->{0} = "$self->{'dashboard_type'} default";
