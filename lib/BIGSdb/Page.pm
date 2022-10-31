@@ -502,20 +502,22 @@ sub print_page_content {
 		#since this is needed to determine page title (other prefs are read later but these are needed early).
 		if ( $self->{'prefstore'} ) {
 			my $guid = $self->get_guid;
-			try {
-				$self->{'prefs'}->{'tooltips'} =
-				  ( $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'tooltips' ) // '' ) eq
-				  'off' ? 0 : 1;
-				$self->{'prefs'}->{'set_id'} =
-				  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'set_id' );
-			}
-			catch {
-				if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
-					$self->{'prefs'}->{'tooltips'} = 1;
-				} else {
-					$logger->logdie($_);
+			if ($guid) {
+				try {
+					$self->{'prefs'}->{'tooltips'} =
+					  ( $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'tooltips' ) // '' )
+					  eq 'off' ? 0 : 1;
+					$self->{'prefs'}->{'set_id'} =
+					  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'set_id' );
 				}
-			};
+				catch {
+					if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
+						$self->{'prefs'}->{'tooltips'} = 1;
+					} else {
+						$logger->logdie($_);
+					}
+				};
+			}
 			$self->choose_set;
 		}
 	} else {
@@ -2293,7 +2295,6 @@ sub can_modify_table {
 		  $self->{'datastore'}->run_query( 'SELECT dbase_config FROM curator_configs WHERE user_id=?',
 			$curator_id, { fetch => 'col_arrayref' } );
 		$self->{'cache'}->{'curator_configs'} = { map { $_ => 1 } @$curator_configs };
-		
 	}
 	if ( keys %{ $self->{'cache'}->{'curator_configs'} }
 		&& !$self->{'cache'}->{'curator_configs'}->{ $self->{'instance'} } )
