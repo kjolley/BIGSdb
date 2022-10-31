@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20220913
+#Version: 20221031
 use strict;
 use warnings;
 use 5.010;
@@ -184,7 +184,7 @@ sub check_db {
 		print "Checking id-$isolate_id ... " if !$opts{'quiet'};
 		my $results = check_record( $script, $isolate_id );
 		store_result( $script, $isolate_id, $results );
-		say q(done) if !$opts{'quiet'};
+		say qq(done\t) if !$opts{'quiet'};
 		set_last_run_time( $script, $isolate_id );
 	}
 	$script->stop_job( $job_id, { temp_init => 1 } );
