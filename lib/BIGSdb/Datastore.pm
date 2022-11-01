@@ -1626,7 +1626,9 @@ sub get_classification_scheme_info {
 	my ( $self, $cg_scheme_id ) = @_;
 	my $info = $self->run_query( 'SELECT * FROM classification_schemes WHERE id=?',
 		$cg_scheme_id, { fetch => 'row_hashref', cache => 'get_classification_scheme_info' } );
-	$info->{'seqdef_cscheme_id'} //= $cg_scheme_id;
+	if ( ref $info ) {
+		$info->{'seqdef_cscheme_id'} //= $cg_scheme_id;
+	}
 	return $info;
 }
 

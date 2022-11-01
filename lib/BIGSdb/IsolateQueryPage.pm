@@ -2848,7 +2848,7 @@ sub _get_classification_group_designations {
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		if ( defined $q->param("designation_value$i") && $q->param("designation_value$i") ne '' ) {
 			if ( $q->param("designation_field$i") =~ /^cg_(\d+)_group/x ) {
-				my ( $cscheme_id, $field ) = ( $1, $2 );
+				my $cscheme_id   = $1;
 				my $operator     = $q->param("designation_operator$i") // '=';
 				my $text         = $q->param("designation_value$i");
 				my $cscheme_info = $self->{'datastore'}->get_classification_scheme_info($cscheme_id);
@@ -2861,7 +2861,7 @@ sub _get_classification_group_designations {
 				my $pk = $scheme_info->{'primary_key'};
 				$self->process_value( \$text );
 				if ( lc($text) ne 'null' && !BIGSdb::Utils::is_int($text) ) {
-					push @$errors_ref, "$field is an integer field.";
+					push @$errors_ref, 'Classification groups have integer values.';
 					next;
 				} elsif ( !$self->is_valid_operator($operator) ) {
 					push @$errors_ref, BIGSdb::Utils::escape_html("$operator is not a valid operator.");
@@ -3901,8 +3901,9 @@ END
 		  defined $list_attribute ? qq(var listAttribute="$list_attribute";) : q(var listAttribute;);
 		my $order = $self->{'prefs'}->{'order'} // q();
 		my $enable_drag = $self->{'prefs'}->{'enable_drag'} ? 'true' : 'false';
-		my $guid = $self->get_guid;
-		my $empty = $self->_get_dashboard_empty_message;
+		my $guid        = $self->get_guid;
+		my $empty       = $self->_get_dashboard_empty_message;
+
 		if ($order) {
 			$order = $json->encode($order);
 		}
@@ -3998,7 +3999,7 @@ sub initiate {
 			  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'provenance_fieldset' );
 			$self->{'prefs'}->{'provenance_fieldset'} = ( $value // '' ) eq 'off' ? 0 : 1;
 		} else {
-			$self->{'prefs'}->{'provenance_fieldset'} = 1
+			$self->{'prefs'}->{'provenance_fieldset'} = 1;
 		}
 	}
 	if ( BIGSdb::Utils::is_int( scalar $q->param('bookmark') ) ) {
