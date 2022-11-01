@@ -137,7 +137,7 @@ sub get_attributes {
 		menutext    => 'Codon usage',
 		module      => 'CodonUsage',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/codon_usage.html",
-		version     => '1.2.13',
+		version     => '1.2.14',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -175,7 +175,7 @@ sub run {
 		if (@$invalid_loci) {
 			local $" = q(, );
 			$self->print_bad_status(
-				{ message => q(The following loci in your pasted ) . qq(list are invalid: @$invalid_loci.) } );
+				{ message => qq(The following loci in your pasted list are invalid: @$invalid_loci.) } );
 		} elsif ( !@$loci_selected ) {
 			$self->print_bad_status( { message => q(You must select one or more loci or schemes.) } );
 		} else {
