@@ -54,7 +54,7 @@ sub get_attributes {
 		buttontext  => 'rMLST species id',
 		menutext    => 'Species identification',
 		module      => 'RMLSTSpecies',
-		version     => '2.2.0',
+		version     => '2.2.1',
 		dbtype      => 'isolates',
 		section     => 'isolate_info,analysis,postquery',
 		input       => 'query',
@@ -535,8 +535,10 @@ sub _print_options_fieldset {
 	my $default_scan;
 	my $guid = $self->get_guid;
 	eval {
-		$default_scan =
-		  $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'RMLSTSpecies', 'scan' );
+		if ($guid) {
+			$default_scan =
+			  $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'RMLSTSpecies', 'scan' );
+		}
 	};
 	my $q = $self->{'cgi'};
 	say q(<fieldset style="float:left"><legend>Options</legend>);

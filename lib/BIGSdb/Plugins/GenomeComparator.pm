@@ -65,7 +65,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.7.5',
+		version     => '2.7.6',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -215,8 +215,12 @@ sub _print_interface {
 	my $guid = $self->get_guid;
 	my $use_all;
 	try {
-		my $pref =
-		  $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'GenomeComparator', 'use_all' );
+		my $pref;
+		if ($guid) {
+			$pref =
+			  $self->{'prefstore'}
+			  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'GenomeComparator', 'use_all' );
+		}
 		$use_all = ( defined $pref && $pref eq 'true' ) ? 1 : 0;
 	}
 	catch {
