@@ -122,8 +122,9 @@ sub adjust_prim_order {
 	my %missing = ( N => 0 );
 
 	foreach my $profile_id (@$new_profiles) {
-		my $profile_array = $script->{'datastore'}
-		  ->run_query( "SELECT profile FROM mv_scheme_$opts{'scheme_id'} WHERE $pk=?", $profile_id );
+		my $profile_array =
+		  $script->{'datastore'}->run_query( "SELECT profile FROM mv_scheme_$opts{'scheme_id'} WHERE $pk=?",
+			$profile_id, { cache => 'Lincodes::getprofile' } );
 		$_ = $missing{$_} // $_ foreach @$profile_array;
 		my $profile = pdl($profile_array);
 		for my $i ( 0 .. @$assigned_profile_ids - 1 ) {
@@ -174,8 +175,8 @@ sub assign_lincodes {
 	my %missing     = ( N => 0 );
 	foreach my $profile_id (@$profiles_to_assign) {
 		my $lincode;
-		my $profile = $script->{'datastore'}
-		  ->run_query( "SELECT profile FROM mv_scheme_$opts{'scheme_id'} WHERE $pk=?", $profile_id );
+		my $profile = $script->{'datastore'}->run_query( "SELECT profile FROM mv_scheme_$opts{'scheme_id'} WHERE $pk=?",
+			$profile_id, { cache => 'Lincodes::getprofile' } );
 		$_ = $missing{$_} // $_ foreach @$profile;
 		if ( !@{ $definitions->{'profile_ids'} } ) {
 			$lincode = [ (0) x @{ $thresholds->{'diffs'} } ];
