@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20220701
+#Version: 20221102
 use strict;
 use warnings;
 use 5.010;
@@ -81,6 +81,7 @@ my $script = BIGSdb::Offline::Script->new(
 	}
 );
 check_db();
+check_if_script_already_running();
 $opts{'batch_size'} //= 10_000;
 if ( $opts{'log'} ) {
 	initiate_log_file( $opts{'log'} );
@@ -510,6 +511,41 @@ sub check_db {
 		$logger->error("LINcodes are not defined for scheme $opts{'scheme_id'}.");
 		exit;
 	}
+}
+sub check_if_script_already_running {
+	my $lock_file = get_lock_file();
+	if ( -e $lock_file ) {
+		say $lock_file;
+		open( my $fh, '<', $lock_file ) || $logger->error("Cannot open lock file $lock_file for reading");
+		my $pid = <$fh>;
+		close $fh;
+		my $pid_exists = kill( 0, $pid );
+		if ( !$pid_exists ) {
+			say 'Lock file exists but process is no longer running - deleting lock.'
+			  if !$opts{'quiet'};
+			unlink $lock_file;
+		} else {
+			say 'Script already running with these parameters - terminating.' if !$opts{'quiet'};
+			exit(1);
+		}
+	}
+	open( my $fh, '>', $lock_file ) || $logger->error("Cannot open lock file $lock_file for writing");
+	say $fh $$;
+	close $fh;
+	return;
+}
+
+sub get_lock_file {
+	my $hash      = Digest::MD5::md5_hex("$0||$opts{'d'}||$opts{'scheme_id'}");
+	my $lock_dir  = $script->{'config'}->{'lock_dir'} // LOCK_DIR;
+	my $lock_file = "$lock_dir/BIGSdb_lincodes_$hash";
+	return $lock_file;
+}
+
+sub remove_lock_file {
+	my $lock_file = get_lock_file();
+	unlink $lock_file;
+	return;
 }
 
 sub show_help {
