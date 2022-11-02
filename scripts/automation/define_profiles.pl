@@ -348,7 +348,7 @@ sub get_profile {
 			$value = $opts{'ignore_multiple_hits'} ? 'N' : $locus_designations->[0]->{'allele_id'};
 		}
 		push @profile, $value;
-		$missing++ if $value eq 'N';
+		$missing++ if $value eq 'N' || $value eq '0';
 		$designations->{ $script->{'cache'}->{'locus_labels'}->{$locus} } =
 		  [ { allele_id => $value, status => 'confirmed' } ];
 	}
