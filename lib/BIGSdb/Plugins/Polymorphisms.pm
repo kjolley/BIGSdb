@@ -49,7 +49,7 @@ sub get_attributes {
 		category => 'Breakdown',
 		menutext => 'Polymorphic sites',
 		module   => 'Polymorphisms',
-		version  => '1.1.13',
+		version  => '1.1.14',
 		dbtype   => 'isolates',
 		url      => "$self->{'config'}->{'doclink'}/data_analysis/polymorphisms.html",
 		section  => 'breakdown,postquery',
@@ -264,6 +264,11 @@ sub _get_seqs {
 		} else {
 			foreach my $allele_id ( keys %allele_seq ) {
 				my $seq = ${ $allele_seq{$allele_id} };
+				next if $allele_id eq '0';
+				if (!defined $seq){
+					$logger->error("$locus_name-$allele_id does not exit.");
+					next;
+				}
 				next if $used{$seq};
 				$i++;
 				say $fh ">seq$i\n$seq";
