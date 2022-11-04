@@ -946,16 +946,23 @@ sub _check_if_new {
 	$$new_seqs_found = 1;
 	my $new = 1;
 	$new = 0 if any { $seq eq $_ } @{ $new_alleles->{$locus} };
+	my $set_id = $self->get_set_id;
 	if ($new) {
+		my $set_name = $self->{'datastore'}->run_query(
+			'SELECT set_name FROM set_loci WHERE (set_id,locus)=(?,?)',
+			[ $set_id, $locus ],
+			{ cache => 'Scan::_check_if_new::set_name' }
+		);
+		my $locus_name = $set_name // $locus;
 		push @{ $new_alleles->{$locus} }, $seq;
 		open( my $seqs_fh, '>>', $seq_filename )
 		  or $logger->error("Can't open $seq_filename for appending");
-		say $seqs_fh "$locus\t\tWGS: automated extract (BIGSdb)\t$seq";
+		say $seqs_fh "$locus_name\t\tWGS: automated extract (BIGSdb)\t$seq";
 		close $seqs_fh;
 		open( $seqs_fh, '>>', $fasta_filename )
 		  or $logger->error("Can't open $seq_filename for appending");
 		say $seqs_fh
-		  qq(>${locus}_seqbin_$match->{'seqbin_id'}_$match->{'start'}-$match->{'end'}_isolate_id_$isolate_id);
+		  qq(>${locus_name}_seqbin_$match->{'seqbin_id'}_$match->{'start'}-$match->{'end'}_isolate_id_$isolate_id);
 		say $seqs_fh qq($seq);
 		close $seqs_fh;
 	}
@@ -1248,7 +1255,7 @@ sub _hunt_for_start_and_stop_codons {
 				$off_end = 1 if $seq =~ /^N/x || $seq =~ /N$/x;    #Incomplete if Ns are end (scaffolding)
 				$first_codon_is_start = 1 if $start_codons{ substr( $seq, 0, 3 ) };
 				$last_codon_is_stop = 1 if $stop_codons{ substr( $seq, -3 ) };
-				($complete_gene) = $self->is_complete_gene( $seq, { locus => $locus,isolate_id=>$isolate_id } );
+				($complete_gene) = $self->is_complete_gene( $seq, { locus => $locus, isolate_id => $isolate_id } );
 				if ($complete_gene) {
 					$complete_tooltip = q(<a class="cds" title="CDS - this is a complete coding sequence )
 					  . q(including start and terminating stop codons with no internal stop codons.">CDS</a>);
