@@ -261,7 +261,8 @@ sub get_composite_value {
 			my @allele_values;
 			foreach my $designation (@$designations) {
 				my $allele_id = $designation->{'allele_id'};
-				$allele_id = '&Delta;' if $allele_id =~ /^del/ix || $allele_id eq '0';
+				$allele_id = $options->{'no_format'} ? 'deleted' : '&Delta;'
+				  if ( $allele_id =~ /^del/ix || $allele_id eq '0' );
 				if ($regex) {
 					my $expression = "\$allele_id =~ $regex";
 					eval "$expression";    ## no critic (ProhibitStringyEval)
