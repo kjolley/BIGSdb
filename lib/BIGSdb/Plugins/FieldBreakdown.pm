@@ -250,8 +250,8 @@ sub _get_text_table {
 	my $count         = @$freqs;
 	my $plural        = $count != 1 ? 's' : '';
 	my $display_field = $self->_get_display_field($field);
-	my $buffer = qq($display_field\tFrequency\tPercentage\n);
-	my $total  = 0;
+	my $buffer        = qq($display_field\tFrequency\tPercentage\n);
+	my $total         = 0;
 	$total += $_->{'value'} foreach @$freqs;
 
 	foreach my $record (@$freqs) {
@@ -447,10 +447,12 @@ sub _print_geography_controls {
 	my $guid = $self->get_guid;
 	my $style;
 	eval {
-		$style =
-		  $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'FieldBreakdown', 'map_style' );
+		if ($guid) {
+			$style =
+			  $self->{'prefstore'}
+			  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'FieldBreakdown', 'map_style' );
+		}
 	};
-
 	if ( !defined $style || !$allowed{$style} ) {
 		$style = 'Map';
 	}
