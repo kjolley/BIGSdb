@@ -1792,7 +1792,11 @@ sub get_text_summary {
 		datestamp      => 'Last updated',
 		status         => 'Status',
 	);
-	my $msg = $self->_get_text_heading('Submission status');
+	my $msg =
+	    'This message is sent from an automated account, please do not reply directly. If you wish to '
+	  . "add any correspondence then please enter this using the message box on the submission page.\n\n"
+	  ;
+	$msg .= $self->_get_text_heading('Submission status');
 	foreach my $field (qw (id type date_submitted datestamp status)) {
 		$msg .= "$fields{$field}: $submission->{$field}\n";
 	}
@@ -1901,7 +1905,7 @@ sub notify_curators {
 		my $curator_configs =
 		  $self->{'datastore'}->run_query( 'SELECT dbase_config FROM curator_configs WHERE user_id=?',
 			$curator_id, { fetch => 'col_arrayref' } );
-		my %curator_configs =  map { $_ => 1 } @$curator_configs ;
+		my %curator_configs = map { $_ => 1 } @$curator_configs;
 		next if keys %curator_configs && !$curator_configs{ $self->{'instance'} };
 		if ( $self->curator_wants_digests($curator_id) ) {
 			my $message = $self->_get_digest_summary( $submission_id, { messages => 1 } );
