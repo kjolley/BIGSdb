@@ -985,6 +985,7 @@ sub _get_provenance_fields {
 		next if !$group && $thisfield->{'group'};
 		next if $group && ( $thisfield->{'group'} // q() ) ne $group;
 		next if $thisfield->{'prefixes'};
+		next if ($thisfield->{'isolate_display'} // q()) eq 'no';
 		local $" = q(; );
 		if ( !defined $data->{ lc($field) } ) {
 

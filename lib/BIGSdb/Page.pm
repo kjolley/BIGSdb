@@ -1301,10 +1301,9 @@ sub _get_provenance_fields {
 	my $attributes = $self->{'xmlHandler'}->get_all_field_attributes;
 	my $extended   = $options->{'extended_attributes'} ? $self->get_extended_attributes : undef;
 	foreach my $field (@$fields) {
-
+		next if $options->{'query_pref'} && ( $attributes->{$field}->{'query'} // q() ) eq 'no';
 		if (
-			( $options->{'sender_attributes'} )
-			&& (   $field eq 'sender'
+			( $options->{'sender_attributes'} ) && ( $field eq 'sender'
 				|| $field eq 'curator'
 				|| ( $attributes->{$field}->{'userfield'} // '' ) eq 'yes' )
 		  )
