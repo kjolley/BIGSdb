@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -177,8 +177,7 @@ sub print_content {
 				} else {
 					$self->print_bad_status(
 						{
-							message =>
-							  q(Password not updated. Please check with the system administrator.)
+							message => q(Password not updated. Please check with the system administrator.)
 						}
 					);
 				}
@@ -268,15 +267,16 @@ sub _print_interface {
 	say q(<noscript><p class="highlight">Please note that Javascript must be enabled in order to login. )
 	  . q(Passwords are encrypted using Javascript prior to transmitting to the server.</p></noscript>);
 	say $q->start_form(
-		-onSubmit => q[existing_password.value=existing.value; existing.value='';new_length.value=new1.value.length;]
-		  . q[var username;]
+		-onSubmit => q[existing_password.value=existing.value.trim();existing.value='';]
+		  . q[new_length.value=new1.value.trim().length;var username;]
 		  . q[if ($('#user').length){username=document.getElementById('user').value} else {username=user.value}]
-		  . q[new_password1.value=new1.value;new1.value='';new_password2.value=new2.value;new2.value='';]
+		  . q[new_password1.value=new1.value.trim();new1.value='';new_password2.value=new2.value.trim();new2.value='';]
 		  . q[existing_password.value=CryptoJS.MD5(existing_password.value+username);]
 		  . q[new_password1.value=CryptoJS.MD5(new_password1.value+username);]
 		  . q[new_password2.value=CryptoJS.MD5(new_password2.value+username);]
 		  . q[username_as_password.value=CryptoJS.MD5(username+username);]
-		  . q[return true] );
+		  . q[return true]
+	);
 	say q(<fieldset style="border-top:0">);
 	say q(<ul>);
 	if ( $q->param('page') eq 'changePassword' || $self->{'system'}->{'password_update_required'} ) {

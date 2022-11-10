@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#(c) 2010-2020, University of Oxford
+#(c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -274,11 +274,12 @@ sub _print_login_form {
 	say q(</h1>);
 	my $reg_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/registration.html";
 	$self->print_file($reg_file) if -e $reg_file;
-	say $q->start_form( -onSubmit => q(password.value=password_field.value; password_field.value=''; )
-		  . q(password.value=CryptoJS.MD5(password.value+user.value); return true) );
+	say $q->start_form(
+		-onSubmit => q(password.value=password_field.value.trim();password_field.value=''; )
+		  . q(user.value=user.value.trim();password.value=CryptoJS.MD5(password.value+user.value);return true)
+	);
 	say q(<fieldset style="float:left;display:block;border-top:0">);
 	say q(<ul>);
-
 	if ( $self->{'show_domains'} && $self->{'config'}->{'site_user_dbs'} ) {
 		say q(<li><label for="db" class="display">Domain: </label>);
 		say $self->_get_domain_dropdown;
