@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20221027
+#Version: 20221111
 use strict;
 use warnings;
 use Carp;
@@ -144,6 +144,17 @@ sub is_allowed_to_curate {
 	my $status = $db->selectrow_array( q(SELECT status FROM users WHERE id=?), undef, $user_id );
 	return 1 if $status eq 'admin';
 	return   if $status ne 'curator';
+	if ( $dbase->{'key'} =~ /^(?:[\d\w_]+):([\d\w_]+)$/x ) {
+		my $dbase_config = $1;
+		return if $submission->{'dataset'} && $submission->{'dataset'} ne $dbase_config;
+		my $reg_configs =
+		  $db->selectcol_arrayref( q(SELECT dbase_config FROM curator_configs WHERE user_id=?), undef, $user_id );
+		$db->disconnect;
+		if (@$reg_configs) {
+			my %configs = map { $_ => 1 } @$reg_configs;
+			return if !$configs{$dbase_config};
+		}
+	}
 	my $is_allowed;
 	my %method = (
 		alleles => sub {
