@@ -1207,6 +1207,10 @@ sub get_field_selection_list {
 		my $classification_group_fields = $self->_get_classification_groups_fields;
 		push @$values, @$classification_group_fields;
 	}
+	if ( $options->{'annotation_status'} ) {
+		my $annotation_status_fields = $self->_get_annotation_status_fields;
+		push @$values, @$annotation_status_fields;
+	}
 	if ( $options->{'sort_labels'} ) {
 		$values = BIGSdb::Utils::dictionary_sort( $values, $self->{'cache'}->{'labels'} );
 	}
@@ -1303,7 +1307,8 @@ sub _get_provenance_fields {
 	foreach my $field (@$fields) {
 		next if $options->{'query_pref'} && ( $attributes->{$field}->{'query'} // q() ) eq 'no';
 		if (
-			( $options->{'sender_attributes'} ) && ( $field eq 'sender'
+			( $options->{'sender_attributes'} )
+			&& (   $field eq 'sender'
 				|| $field eq 'curator'
 				|| ( $attributes->{$field}->{'userfield'} // '' ) eq 'yes' )
 		  )
@@ -1448,6 +1453,25 @@ sub _get_classification_groups_fields {
 		$self->{'cache'}->{'classification_group_fields'} = $list;
 	}
 	return $self->{'cache'}->{'classification_group_fields'};
+}
+
+sub _get_annotation_status_fields {
+	my ($self) = @_;
+	if ( !$self->{'cache'}->{'annotation_status_fields'} ) {
+		my $list                 = [];
+		my $set_id               = $self->get_set_id;
+		my $schemes              = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+		my $schemes_with_metrics = $self->{'datastore'}
+		  ->run_query( 'SELECT id FROM schemes WHERE quality_metric', undef, { fetch => 'col_arrayref' } );
+		my %with_metrics = map { $_ => 1 } @$schemes_with_metrics;
+		foreach my $scheme (@$schemes) {
+			next if !$with_metrics{ $scheme->{'id'} };
+			push @$list, "as_$scheme->{'id'}";
+			$self->{'cache'}->{'labels'}->{"as_$scheme->{'id'}"} = "$scheme->{'name'} annotation status";
+		}
+		$self->{'cache'}->{'annotation_status_fields'} = $list;
+	}
+	return $self->{'cache'}->{'annotation_status_fields'};
 }
 
 sub _print_footer {

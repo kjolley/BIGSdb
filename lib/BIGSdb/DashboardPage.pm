@@ -332,6 +332,9 @@ sub _get_field_type {
 		my $att = $self->{'datastore'}->get_scheme_field_info( $1, $2 );
 		return $att->{'type'};
 	}
+	if ( $element->{'field'} =~ /^as_(?:\d+)$/x ) {
+		return 'text';
+	}
 	return;
 }
 
@@ -844,7 +847,7 @@ sub get_display_field {
 	if ( $field =~ /^eav_/x ) {
 		$display_field =~ s/^eav_//x;
 	}
-	if ( $field =~ /^s_(\d+)_(.*)$/x ) {
+	if ( $field =~ /^(?:s|as)_(\d+)_?(.*)$/x ) {
 		my ( $scheme_id, $scheme_field ) = ( $1, $2 );
 		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 		my $desc        = $scheme_info->{'name'};
@@ -855,7 +858,11 @@ sub get_display_field {
 			  ->run_query( 'SELECT set_name FROM set_schemes WHERE set_id=? AND scheme_id=?', [ $set_id, $scheme_id ] );
 			$desc = $set_name if defined $set_name;
 		}
-		$display_field = "$scheme_field ($desc)";
+		if ( $field =~ /^as_/x ) {
+			$display_field = "annotation ($desc)";
+		} else {
+			$display_field = "$scheme_field ($desc)";
+		}
 	}
 	return $display_field;
 }
@@ -1756,17 +1763,21 @@ sub _get_field_breakdown_values {
 		( my $field = $element->{'field'} ) =~ s/^f_//x;
 		return $self->_get_primary_metadata_breakdown_values($field);
 	}
-	if ( $element->{'field'} =~ /^e_(.*)\|\|(.*)/x ) {
+	if ( $element->{'field'} =~ /^e_(.*)\|\|(.*)$/x ) {
 		my ( $isolate_field, $attribute ) = ( $1, $2 );
 		return $self->_get_extended_field_breakdown_values( $isolate_field, $attribute );
 	}
-	if ( $element->{'field'} =~ /^eav_(.*)/x ) {
+	if ( $element->{'field'} =~ /^eav_(.*)$/x ) {
 		my $field = $1;
 		return $self->_get_eav_field_breakdown_values($field);
 	}
-	if ( $element->{'field'} =~ /^s_(\d+)_(.*)/x ) {
+	if ( $element->{'field'} =~ /^s_(\d+)_(.*)$/x ) {
 		my ( $scheme_id, $field ) = ( $1, $2 );
 		return $self->_get_scheme_field_breakdown_values( $scheme_id, $field );
+	}
+	if ( $element->{'field'} =~ /^as_(\d+)$/x ) {
+		my $scheme_id = $1;
+		return $self->_get_scheme_annotation_values($scheme_id);
 	}
 	return [];
 }
@@ -1920,6 +1931,54 @@ sub _get_scheme_field_breakdown_values {
 	$qry .= ' GROUP BY label ORDER BY value DESC';
 	my $values =
 	  $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
+	return $values;
+}
+
+sub _get_scheme_annotation_values {
+	my ( $self, $scheme_id ) = @_;
+	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+	my $loci        = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $count       = $self->_get_total_record_count;
+	my $view_clause = q();
+	my $view_count;
+	my $filters = $self->_get_filters;
+	local $" = ' AND ';
+
+	if ( $scheme_info->{'view'} ) {
+		my $qry = "SELECT COUNT(*) FROM $self->{'view'} v JOIN $scheme_info->{'view'} v2 ON v.id=v2.id";
+		$qry .= " WHERE @$filters" if @$filters;
+		$view_count  = $self->{'datastore'}->run_query($qry);
+		$view_clause = " JOIN $scheme_info->{'view'} v2 ON v.id=v2.id";
+	} else {
+		$view_count = $count;
+	}
+	my $max_threshold = $scheme_info->{'quality_metric_good_threshold'} // @$loci;
+	$max_threshold = $scheme_info->{'loci'} if $max_threshold > @$loci;
+	my $min_threshold = $scheme_info->{'quality_metric_bad_threshold'} // 0;
+	$min_threshold = 0 if $min_threshold < 0;
+	my $filter_clause = @$filters ? " AND @$filters" : q();
+	my $good = $self->{'datastore'}->run_query(
+		"SELECT COUNT(*) FROM $self->{'view'} v$view_clause JOIN temp_isolates_scheme_completion_$scheme_id "
+		  . "v3 ON v.id=v3.id WHERE locus_count>=?$filter_clause",
+		$max_threshold
+	);
+	my $bad = $self->{'datastore'}->run_query(
+		"SELECT COUNT(*) FROM $self->{'view'} v$view_clause JOIN temp_isolates_scheme_completion_$scheme_id "
+		  . "v3 ON v.id=v3.id WHERE locus_count<?$filter_clause",
+		$min_threshold
+	);
+	my $intermediate = $self->{'datastore'}->run_query(
+		"SELECT COUNT(*) FROM $self->{'view'} v$view_clause JOIN temp_isolates_scheme_completion_$scheme_id "
+		  . "v3 ON v.id=v3.id WHERE locus_count<? AND locus_count>=?$filter_clause",
+		[ $max_threshold, $min_threshold ]
+	);
+	my $values = [
+		{ label => 'good',           value => $good },
+		{ label => 'intermediate',   value => $intermediate },
+		{ label => 'bad',            value => $bad },
+		{ label => 'not applicable', value => $count - $view_count },
+		{ label => 'not started',    value => $view_count - $good - $bad - $intermediate }
+	];
 	return $values;
 }
 
@@ -2170,7 +2229,16 @@ sub _get_field_breakdown_bar_content {
 	my $local_max_string = qq(@{$dataset->{'local_max'}});
 	my $bar_colour_type  = $element->{'bar_colour_type'} // 'categorical';
 	my $chart_colour     = $element->{'chart_colour'} // CHART_COLOUR;
-	my $buffer           = $self->_get_title($element);
+	my $colour_function;
+
+	if ( $element->{'bar_colour_type'} eq 'continuous' ) {
+		$colour_function = qq("$chart_colour");
+	} elsif ( $element->{'field'} =~ /^as_/x ) {
+		$colour_function = q(["#2ca02c","#ff7f0e","#d62728","#aaa","#888"][d.index]);
+	} else {
+		$colour_function = q(d3.schemeCategory10[d.index % 10];);
+	}
+	my $buffer = $self->_get_title($element);
 	$buffer .= qq(<div id="chart_$element->{'id'}" class="pie" style="margin-top:-20px"></div>);
 	$buffer .= $self->_get_data_explorer_link($element);
 	local $" = q(,);
@@ -2211,13 +2279,7 @@ sub _get_field_breakdown_bar_content {
 						}
 					}
 				},
-				color: function(color,d){
-					if (bar_colour_type === 'continuous'){
-						return "$chart_colour";
-					} else {
-						return d3.schemeCategory10[d.index % 10];
-					}
-				}
+				color: function(color,d){return $colour_function}
 			},
 			axis: {
 				x: {
@@ -2417,7 +2479,12 @@ sub _get_field_breakdown_doughnut_content {
 				type: "donut",
 				order: null,
 				colors: {
-					'$dataset->{'others_label'}': '#aaa'
+					'$dataset->{'others_label'}': '#aaa',
+					'good': '#2ca02c',
+					'bad' : '#d62728',
+					'intermediate' : '#ff7f0e',
+					'not applicable' : '#aaa',
+					'not started':'#888'
 				}
 			},
 			size: {
@@ -2486,7 +2553,12 @@ sub _get_field_breakdown_pie_content {
 				type: "pie",
 				order: null,
 				colors: {
-					'$dataset->{'others_label'}': '#aaa'
+					'$dataset->{'others_label'}': '#aaa',
+					'good': '#2ca02c',
+					'bad': '#d62728',
+					'intermediate': '#ff7f0e',
+					'not applicable': '#aaa',
+					'not started': '#888'
 				}
 			},
 			size: {
@@ -2670,7 +2742,8 @@ sub _get_field_breakdown_top_values_content {
 		my $nice_value    = BIGSdb::Utils::commify( $value->{'value'} );
 		my $display_label = $value->{'display_label'} // $value->{'label'};
 		$count++;
-		my $formatted_value = $self->{'no_query_link'} ? $display_label : qq(<a href="$url"$target>$display_label</a>);
+		my $formatted_value = $self->{'no_query_link'}
+		  || !$url ? $display_label : qq(<a href="$url"$target>$display_label</a>);
 		$buffer .= qq(<tr class="td$td" style="$style"><td>$formatted_value</td><td>$nice_value</td></tr>);
 		$td = $td == 1 ? 2 : 1;
 		last if $count >= $element->{'top_values'};
@@ -2717,6 +2790,24 @@ sub _get_field_breakdown_treemap_content {
 	my $width   = $element->{'width'} * 150;
 	my $json    = JSON->new->allow_nonref;
 	my $dataset = $json->encode( { children => $display_data } );
+	my $colour_function;
+
+	if ( $element->{'field'} =~ /^as_/x ) {
+		$colour_function = << 'JS';
+function(label){
+	var annotations={
+		'good':'#2ca02c',
+		'intermediate':'#ff7f0e',
+		'bad':'#d62728',
+		'not applicable':'#aaa',
+		'not started':'#888'
+	};
+	return annotations[label]
+}
+JS
+	} else {
+		$colour_function = q(d3.scaleOrdinal(d3.schemeCategory10));
+	}
 	$buffer .= qq(<div id="chart_$element->{'id'}" class="treemap" style="margin-top:-25px"></div>);
 	$buffer .= $self->_get_data_explorer_link($element);
 	$buffer .= << "JS";
@@ -2751,7 +2842,7 @@ sub _get_field_breakdown_treemap_content {
     	(root)
 
   	// prepare a color scale
-  	var color = d3.scaleOrdinal(d3.schemeCategory10)
+	var color = $colour_function
 
   	// And a opacity scale
   	var opacity = d3.scaleLinear()
@@ -3181,6 +3272,11 @@ sub _get_query_url {
 	if ( $element->{'field'} =~ /^s_\d+_/x ) {
 		$url .= "&amp;designation_field1=$field&amp;designation_value1=$value";
 	}
+	if ( $element->{'field'} =~ /^as_(\d+)$/x ) {
+		my %no_url = map { $_ => 1 } ( 'not%20started', 'not%20applicable' );
+		return q() if $no_url{$value};
+		$url .= "&amp;annotation_status_field1=$1&amp;annotation_status_value1=$value";
+	}
 	if ( $self->{'prefs'}->{'include_old_versions'} ) {
 		$url .= '&amp;include_old=on';
 	}
@@ -3280,6 +3376,7 @@ sub _get_data_explorer_link {
 	return q() if $self->{'no_query_link'};
 	my $type = $self->_get_field_type($element);
 	return q() if $type eq 'geography_point';
+	return q() if $element->{'field'} =~ /^as_/x;
 	my $buffer = q();
 	$element->{'explorer_text'} //= 'Explore data';
 	$buffer .= qq(<span data-id="$element->{'id'}" class="dashboard_data_explorer_element fas fa-search">);
@@ -3617,6 +3714,7 @@ sub print_field_selector {
 		scheme_fields            => 1,
 		extended_attributes      => 1,
 		eav_fields               => 1,
+		annotation_status        => 1,
 		nosplit_geography_points => 1
 	};
 	my $q = $self->{'cgi'};
@@ -3641,6 +3739,9 @@ sub print_field_selector {
 		next if $ignore{$field};
 		if ( $field =~ /^s_/x ) {
 			push @{ $group_members->{'Schemes'} }, $field;
+		}
+		if ( $field =~ /^as_/x ) {
+			push @{ $group_members->{'Annotation status'} }, $field;
 		}
 		if ( $field =~ /^[f|e]_/x ) {
 			( my $stripped_field = $field ) =~ s/^[f|e]_//x;
@@ -3668,7 +3769,7 @@ sub print_field_selector {
 	$labels->{'sp_seqbin_size'} = 'sequence bin size';
 	my @eav_groups = split /,/x, ( $self->{'system'}->{'eav_groups'} // q() );
 	push @group_list, @eav_groups if @eav_groups;
-	push @group_list, ( 'Loci', 'Schemes' );
+	push @group_list, ( 'Loci', 'Schemes', 'Annotation status' );
 
 	foreach my $group ( 'Special', undef, @group_list ) {
 		my $name = $group // 'General';
