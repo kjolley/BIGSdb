@@ -1,4 +1,4 @@
-/*Version: 20220713*/
+/*Version: 202201114*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -1403,6 +1403,8 @@ div.new_item {
 	padding: 0 0.5em;
 }
 
+
+
 .item-content div.subtitle a {
 	cursor: pointer
 }
@@ -1416,7 +1418,7 @@ div.new_item {
 	padding: 1em 0.1em;
 	color: #888;
 	font-weight: 600;
-	pointer-events:none
+/*	pointer-events:none */
 }
 
 .item-content div.subtitle {
@@ -1424,6 +1426,11 @@ div.new_item {
 	font-size: 0.9em;
 	color: #444;
 	font-weight: 600
+}
+
+div.title:hover, div.subtitle:hover {
+	overflow: visible;
+	white-space: normal;
 }
 
 span.setup_element {
