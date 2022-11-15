@@ -2738,6 +2738,7 @@ sub _get_field_breakdown_top_values_content {
 
 	foreach my $value ( sort { $b->{'value'} <=> $a->{'value'} } @$data ) {
 		next if !defined $value->{'label'} || $value->{'label'} eq 'No value';
+		next if $value->{'value'} == 0;
 		my $url           = $self->_get_query_url( $element, $value->{'label'} );
 		my $nice_value    = BIGSdb::Utils::commify( $value->{'value'} );
 		my $display_label = $value->{'display_label'} // $value->{'label'};
