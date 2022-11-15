@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,7 +20,7 @@ package BIGSdb::PubQueryPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::ResultsTablePage);
+use parent qw(BIGSdb::IsolateQueryPage);
 use Try::Tiny;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -103,9 +103,8 @@ sub print_content {
 	my $qry;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$qry =
-		    "SELECT * FROM $self->{'system'}->{'view'} LEFT JOIN refs on "
-		  . "refs.isolate_id=$self->{'system'}->{'view'}.id WHERE pubmed_id=$pmid AND new_version IS NULL "
-		  . "ORDER BY $self->{'system'}->{'view'}.id;";
+		    "SELECT * FROM $self->{'system'}->{'view'} WHERE id IN (SELECT isolate_id FROM refs WHERE "
+		  . "pubmed_id=$pmid)  AND new_version IS NULL ORDER BY $self->{'system'}->{'view'}.id;";
 	} else {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 		my $primary_key = $scheme_info->{'primary_key'};
@@ -116,19 +115,21 @@ sub print_content {
 	}
 	my $args = { table => $table, query => $qry, hidden_attributes => [qw (curate scheme_id pmid)] };
 	$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
+	if (   !defined $q->param('currentpage')
+		|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
+		|| $q->param('First') )
+	{
+		$self->{'no_filters'} = 1;
+		$self->print_dashboard_panel($args);
+	}
 	$self->paged_display($args);
+	$self->print_modify_dashboard_fieldset( { no_filters => 1 } )
+	  if $self->dashboard_enabled( { query_dashboard => 1 } );
 	return;
 }
 
 sub get_title {
 	my ($self) = @_;
 	return q(Publication dataset);
-}
-
-sub initiate {
-	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (jQuery allowExpand);
-	$self->set_level1_breadcrumbs;
-	return;
 }
 1;

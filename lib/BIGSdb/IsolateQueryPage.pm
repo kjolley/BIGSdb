@@ -1804,7 +1804,7 @@ sub _run_query {
 			|| $q->param('First') )
 		{
 			$self->{'no_filters'} = 1;
-			$self->_print_dashboard_panel($args);
+			$self->print_dashboard_panel($args);
 		}
 		$self->paged_display($args);
 	}
@@ -1817,7 +1817,7 @@ sub _run_query {
 	return;
 }
 
-sub _print_dashboard_panel {
+sub print_dashboard_panel {
 	my ( $self, $args ) = @_;
 	return if !$self->dashboard_enabled( { query_dashboard => 1 } );
 	return if !$self->{'prefs'}->{'query_dashboard'};
