@@ -132,4 +132,22 @@ sub get_title {
 	my ($self) = @_;
 	return q(Publication dataset);
 }
+
+sub print_panel_buttons {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if (
+		!defined $q->param('currentpage')
+		|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
+		|| $q->param('First')
+	  )
+	{
+		if ( $self->dashboard_enabled( { query_dashboard => 1 } ) ) {
+			say q(<span class="icon_button">)
+			  . q(<a class="trigger_button" id="dashboard_panel_trigger" style="display:none">)
+			  . q(<span class="fas fa-lg fa-tools"></span><div class="icon_label">Modify dashboard</div></a></span>);
+		}
+	}
+	return;
+}
 1;
