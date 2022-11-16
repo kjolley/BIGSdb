@@ -906,7 +906,6 @@ sub remove_trailing_spaces_from_list {
 		s/^\s*//x;
 		s/\s*$//x;
 	}
-	@$list = grep { $_ ne q() } @$list;    #Remove empty values.
 	return;
 }
 
