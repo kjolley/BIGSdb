@@ -279,11 +279,9 @@ sub _print_interface {
 sub print_panel_buttons {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	if (
-		!defined $q->param('currentpage')
+	if (   !defined $q->param('currentpage')
 		|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
-		|| $q->param('First')
-	  )
+		|| $q->param('First') )
 	{
 		say q(<span class="icon_button">)
 		  . q(<a class="trigger_button" id="panel_trigger" style="display:none">)
@@ -761,6 +759,7 @@ sub _modify_query_by_list {
 		}
 	}
 	BIGSdb::Utils::remove_trailing_spaces_from_list( \@list );
+	@list = grep { $_ ne q() } @list;    #Remove empty values.
 	my $list = $self->clean_list( $data_type, \@list );
 	$self->{'datastore'}->create_temp_list_table_from_array( $data_type, $list, { table => 'temp_list' } );
 	my $list_file = BIGSdb::Utils::get_random() . '.list';
