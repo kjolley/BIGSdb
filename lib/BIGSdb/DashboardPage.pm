@@ -283,7 +283,7 @@ sub _field_has_optlist {
 		return 1 if $attributes->{'optlist'};
 		return 1 if $attributes->{'type'} =~ /^bool/x;
 	}
-	if ( $field =~ /^e_/x ) {
+	if ( $field =~ /^(?:e|as)_/x ) {
 		return 1;
 	}
 	if ( $field =~ /^eav_(.*)/x ) {
@@ -411,6 +411,9 @@ sub _get_field_values {
 		if ( $attributes->{'type'} =~ /^bool/x ) {
 			return [qw(true false)];
 		}
+	}
+	if ( $field =~ /^as_/x ) {
+		return [ 'good', 'bad', 'intermediate', 'not applicable', 'not started' ];
 	}
 	if ( $field =~ /^e_(.*)\|\|(.*)/x ) {
 		my $isolate_field = $1;
@@ -1591,6 +1594,9 @@ sub _get_specific_field_value_counts {
 	if ( $element->{'field'} =~ /^s_\d+_/x ) {
 		$data = $self->_get_scheme_field_counts($element);
 	}
+	if ( $element->{'field'} =~ /^as_\d+$/x ) {
+		$data = $self->_get_scheme_annotation_status_field_counts($element);
+	}
 	return $data;
 }
 
@@ -1755,6 +1761,23 @@ sub _get_scheme_field_counts {
 	}
 	$logger->error("Error in scheme field $element->{'field'}");
 	return { count => 0 };
+}
+
+sub _get_scheme_annotation_status_field_counts {
+	my ( $self, $element ) = @_;
+	if ( $element->{'field'} =~ /^as_(\d+)$/x ) {
+		my $scheme_id = $1;
+		my $counts    = $self->_get_scheme_annotation_values($scheme_id);
+		my %counts = map {$_->{'label'} => $_->{'value'}}@$counts;
+		my $total = 0;
+		foreach my $value (@{$element->{'specific_values'}}){
+			$total += $counts{$value} // 0;
+		}
+		return {count=>$total};
+	} else {
+		$logger->error("Error in scheme field $element->{'field'}");
+		return {count => 0};
+	}
 }
 
 sub _get_field_breakdown_values {
@@ -3363,6 +3386,7 @@ sub _get_element_controls {
 sub _get_data_query_link {
 	my ( $self, $element ) = @_;
 	return q() if $self->{'no_query_link'};
+	return q() if ($element->{'field'} // q()) =~ /^as_/x;
 	my $buffer = q();
 	$buffer .= qq(<span data-id="$element->{'id'}" class="dashboard_data_query_element fas fa-share">);
 	if ( $element->{'url_text'} ) {
