@@ -51,9 +51,9 @@ use constant {
 sub print_content {
 	my ($self) = @_;
 	$self->{'view'} = $self->{'system'}->{'view'};
-	my $desc = $self->get_db_description( { formatted => 1 } );
+	my $heading = $self->get_heading;
 	if ( ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates' ) {
-		say qq(<h1>$desc database</h1>);
+		say qq(<h1>$heading</h1>);
 		$self->print_bad_status(
 			{
 				message => q(Dashboards can only be displayed for isolate databases.),
@@ -94,7 +94,7 @@ sub print_content {
 	say q(<div>);
 	say qq(<div style="width:95vw;max-width:${title_max_width}px"></div>);
 	say qq(<div id="title_container" style="max-width:${title_max_width}px">);
-	say qq(<h1>$desc database</h1>);
+	say qq(<h1>$heading</h1>);
 	$self->print_general_announcement;
 	$self->print_banner;
 
@@ -104,7 +104,7 @@ sub print_content {
 	say q(</div>);
 	say qq(<div id="main_container" class="flex_container" style="max-width:${max_width}px">);
 	say qq(<div id="dashboard_panel" class="dashboard_panel" style="max-width:${index_panel_max_width}px">);
-	$self->print_dashboard( { filter_display => 1 } );
+	$self->print_dashboard( { filter_display => 1, qry_file => $self->{'qry_file'} } );
 	say q(</div>);
 	say q(<div class="menu_panel" style="width:250px">);
 	$self->print_menu( { dashboard => 1 } );
@@ -1768,15 +1768,15 @@ sub _get_scheme_annotation_status_field_counts {
 	if ( $element->{'field'} =~ /^as_(\d+)$/x ) {
 		my $scheme_id = $1;
 		my $counts    = $self->_get_scheme_annotation_values($scheme_id);
-		my %counts = map {$_->{'label'} => $_->{'value'}}@$counts;
-		my $total = 0;
-		foreach my $value (@{$element->{'specific_values'}}){
+		my %counts    = map { $_->{'label'} => $_->{'value'} } @$counts;
+		my $total     = 0;
+		foreach my $value ( @{ $element->{'specific_values'} } ) {
 			$total += $counts{$value} // 0;
 		}
-		return {count=>$total};
+		return { count => $total };
 	} else {
 		$logger->error("Error in scheme field $element->{'field'}");
-		return {count => 0};
+		return { count => 0 };
 	}
 }
 
@@ -3386,7 +3386,7 @@ sub _get_element_controls {
 sub _get_data_query_link {
 	my ( $self, $element ) = @_;
 	return q() if $self->{'no_query_link'};
-	return q() if ($element->{'field'} // q()) =~ /^as_/x;
+	return q() if ( $element->{'field'} // q() ) =~ /^as_/x;
 	my $buffer = q();
 	$buffer .= qq(<span data-id="$element->{'id'}" class="dashboard_data_query_element fas fa-share">);
 	if ( $element->{'url_text'} ) {
@@ -3420,18 +3420,9 @@ sub initiate {
 	$self->{'geomap'} = 1 if $self->has_country_optlist;
 	$self->{'ol'}     = 1 if $self->need_openlayers;
 	$self->choose_set;
-	$self->{'breadcrumbs'} = [];
-
-	if ( $self->{'system'}->{'webroot'} ) {
-		push @{ $self->{'breadcrumbs'} },
-		  {
-			label => $self->{'system'}->{'webroot_label'} // 'Organism',
-			href => $self->{'system'}->{'webroot'}
-		  };
-	}
-	push @{ $self->{'breadcrumbs'} },
-	  { label => $self->{'system'}->{'formatted_description'} // $self->{'system'}->{'description'} };
+	$self->process_breadcrumbs;
 	my $q = $self->{'cgi'};
+
 	foreach my $ajax_param (
 		qw(updateGeneralPrefs updateDashboard updateDashboardName newDashboard setActiveDashboard control
 		resetDefaults new setup element seqbin_range)
@@ -3443,6 +3434,21 @@ sub initiate {
 		}
 	}
 	$self->get_or_set_dashboard_prefs;
+	return;
+}
+
+sub process_breadcrumbs {
+	my ($self) = @_;
+	$self->{'breadcrumbs'} = [];
+	if ( $self->{'system'}->{'webroot'} ) {
+		push @{ $self->{'breadcrumbs'} },
+		  {
+			label => $self->{'system'}->{'webroot_label'} // 'Organism',
+			href => $self->{'system'}->{'webroot'}
+		  };
+	}
+	push @{ $self->{'breadcrumbs'} },
+	  { label => $self->{'system'}->{'formatted_description'} // $self->{'system'}->{'description'} };
 	return;
 }
 
@@ -3561,8 +3567,18 @@ sub _get_dashboard_id {
 
 sub print_panel_buttons {
 	my ($self) = @_;
+	$self->_print_modify_dashboard_trigger;
+	$self->_print_dashboard_toggle;
+	return;
+}
+
+sub _print_modify_dashboard_trigger {
 	say q(<span class="icon_button"><a class="trigger_button" id="dashboard_panel_trigger" style="display:none">)
 	  . q(<span class="fas fa-lg fa-tools"></span><div class="icon_label">Modify dashboard</div></a></span>);
+	return;
+}
+
+sub _print_dashboard_toggle {
 	say q(<span class="icon_button"><a class="trigger_button" id="dashboard_toggle">)
 	  . q(<span class="fas fa-lg fa-th-list"></span><div class="icon_label">Index page</div></a></span>);
 	return;
@@ -3823,6 +3839,12 @@ sub set_pref_requirements {
 	$self->{'pref_requirements'} =
 	  { general => 1, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
 	return;
+}
+
+sub get_heading {
+	my ($self) = @_;
+	my $desc = $self->get_db_description( { formatted => 1 } );
+	return "$desc database";
 }
 
 sub get_javascript {

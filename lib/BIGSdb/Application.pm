@@ -62,6 +62,7 @@ use BIGSdb::PluginSummaryPage;
 use BIGSdb::PrivateRecordsPage;
 use BIGSdb::ProfileInfoPage;
 use BIGSdb::ProfileQueryPage;
+use BIGSdb::ProjectPage;
 use BIGSdb::ProjectsPage;
 use BIGSdb::PubQueryPage;
 use BIGSdb::QueryPage;
@@ -87,7 +88,7 @@ use Config::Tiny;
 use Try::Tiny;
 use constant PAGES_NEEDING_AUTHENTICATION => qw(authorizeClient changePassword userProjects bookmarks
   submit login logout);
-use constant PAGES_NEEDING_JOB_MANAGER        => qw(plugin job jobs index dashboard login logout options ajaxJobs);
+use constant PAGES_NEEDING_JOB_MANAGER        => qw(plugin job jobs index dashboard project login logout options ajaxJobs);
 use constant PAGES_NEEDING_SUBMISSION_HANDLER => qw(submit batchAddFasta profileAdd profileBatchAdd batchAdd
   batchAddSequences batchIsolateUpdate isolateAdd isolateUpdate index logout);
 use constant PAGES_NOT_NEEDING_PLUGINS => qw(ajaxJobs jobMonitor ajaxRest restMonitor);
@@ -173,6 +174,7 @@ sub new {
 			}
 		}
 	}
+	$self->{'pages_needing_authentication'}->{'project'} = 1 if $self->_private_project_passed;
 	$self->app_specific_initiation;
 	$self->print_page;
 	$self->_db_disconnect;
@@ -183,6 +185,17 @@ sub new {
 		$self->{'mod_perl_request'}->status(200);
 	}
 	return $self;
+}
+
+sub _private_project_passed {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my $page = $q->param('page') // q();
+	my $project_id = $q->param('project_id');
+	return if $page ne 'project';
+	return if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
+	return if !BIGSdb::Utils::is_int($project_id);
+	return $self->{'datastore'}->run_query( 'SELECT private FROM projects WHERE id=?', $project_id );
 }
 
 sub _initiate {
@@ -459,6 +472,7 @@ sub print_page {
 		privateRecords     => 'PrivateRecordsPage',
 		profileInfo        => 'ProfileInfoPage',
 		profiles           => 'CombinationQueryPage',
+		project            => 'ProjectPage',
 		projects           => 'ProjectsPage',
 		recordInfo         => 'RecordInfoPage',
 		registration       => 'UserRegistrationPage',
@@ -504,6 +518,7 @@ sub print_page {
 	);
 	my $continue = 1;
 	my $auth_cookies_ref;
+
 	if ( $self->{'error'} ) {
 		$page_attributes{'error'}              = $self->{'error'};
 		$page_attributes{'max_upload_size_mb'} = $self->{'max_upload_size_mb'};
