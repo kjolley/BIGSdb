@@ -54,7 +54,7 @@ sub initiate {
 		open( my $fh, '>', $qry_file ) || $logger->error("Cannot open $qry_file for writing.");
 		say $fh $qry;
 		close $fh;
-		$self->{'qry_file'} = $prefix;
+		$self->{'qry_file'}   = $prefix;
 		$self->{'project_id'} = $project_id;
 	}
 	$self->{'dashboard_type'} = 'project';
@@ -82,7 +82,9 @@ sub print_content {
 		$self->print_bad_status( { message => 'You are not a registered user of the selected project.' } );
 		return;
 	}
-	$self->SUPER::print_content;
+	my $banner_text =
+	  $self->{'datastore'}->run_query( 'SELECT full_description FROM projects WHERE id=?', $project_id );
+	$self->SUPER::print_content( { banner_text => $banner_text } );
 	return;
 }
 
@@ -133,13 +135,13 @@ sub print_panel_buttons {
 }
 
 sub get_javascript {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my ($self)     = @_;
+	my $q          = $self->{'cgi'};
 	my $project_id = $q->param('project_id');
-	my $buffer = $self->SUPER::get_javascript;
+	my $buffer     = $self->SUPER::get_javascript;
 	$buffer .= qq(qryFile="$self->{'qry_file'}";\n);
 	$buffer .= qq(dashboard_type='project';\n);
-	$buffer.=qq(var project_id=$project_id;\n) if BIGSdb::Utils::is_int($project_id);
+	$buffer .= qq(var project_id=$project_id;\n) if BIGSdb::Utils::is_int($project_id);
 	return $buffer;
 }
 1;

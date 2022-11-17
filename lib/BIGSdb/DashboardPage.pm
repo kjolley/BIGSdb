@@ -49,7 +49,7 @@ use constant {
 };
 
 sub print_content {
-	my ($self) = @_;
+	my ($self,$options) = @_;
 	$self->{'view'} = $self->{'system'}->{'view'};
 	my $heading = $self->get_heading;
 	if ( ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates' ) {
@@ -96,7 +96,13 @@ sub print_content {
 	say qq(<div id="title_container" style="max-width:${title_max_width}px">);
 	say qq(<h1>$heading</h1>);
 	$self->print_general_announcement;
-	$self->print_banner;
+	if ($options->{'banner_text'}){
+		say q(<div class="box banner">);
+		say $options->{'banner_text'};
+		say q(</div>)
+	} else {
+		$self->print_banner;
+	}
 
 	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
 		$self->print_set_section;
