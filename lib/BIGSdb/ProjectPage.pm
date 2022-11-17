@@ -35,6 +35,13 @@ sub set_pref_requirements {
 
 sub get_title {
 	my ( $self, $options ) = @_;
+	my $q          = $self->{'cgi'};
+	my $project_id = $q->param('project_id');
+	if ( BIGSdb::Utils::is_int($project_id) ) {
+		if ( $self->_is_project_private($project_id) && !$self->_can_user_access_project($project_id) ) {
+			return 'Private project';
+		}
+	}
 	my $project = $self->_get_project_name // 'Invalid project';
 	return $project if $options->{'breadcrumb'};
 	my $desc = $self->get_db_description || 'BIGSdb';
