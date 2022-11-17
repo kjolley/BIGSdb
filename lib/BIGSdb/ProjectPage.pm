@@ -49,12 +49,15 @@ sub initiate {
 	if ( BIGSdb::Utils::is_int($project_id) ) {
 		my $prefix   = BIGSdb::Utils::get_random();
 		my $qry_file = "$self->{'config'}->{'secure_tmp_dir'}/$prefix";
-		open( my $fh, '>', $qry_file ) || $logger->error("Cannot open $qry_file for writing.");
-		say $fh "SELECT * FROM $self->{'system'}->{'view'} WHERE id IN "
+		my $qry      = "SELECT * FROM $self->{'system'}->{'view'} v WHERE id IN "
 		  . "(SELECT isolate_id FROM project_members WHERE project_id=$project_id)";
+		open( my $fh, '>', $qry_file ) || $logger->error("Cannot open $qry_file for writing.");
+		say $fh $qry;
 		close $fh;
 		$self->{'qry_file'} = $prefix;
+		$self->{'project_id'} = $project_id;
 	}
+	$self->{'dashboard_type'} = 'project';
 	return;
 }
 
@@ -131,10 +134,12 @@ sub print_panel_buttons {
 
 sub get_javascript {
 	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my $project_id = $q->param('project_id');
 	my $buffer = $self->SUPER::get_javascript;
 	$buffer .= qq(qryFile="$self->{'qry_file'}";\n);
-			
+	$buffer .= qq(dashboard_type='project';\n);
+	$buffer.=qq(var project_id=$project_id;\n) if BIGSdb::Utils::is_int($project_id);
 	return $buffer;
-
 }
 1;

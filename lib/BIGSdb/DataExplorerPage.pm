@@ -34,7 +34,8 @@ sub _ajax_table {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by 
 	my $field  = $q->param('field');
 	my $params = {
 		include_old_versions => scalar $q->param('include_old_versions'),
-		record_age           => scalar $q->param('record_age')
+		record_age           => scalar $q->param('record_age'),
+		project_id           => scalar $q->param('project_id')
 	};
 	my $values = $self->_get_values( $field, $params );
 	my $table = $self->_get_table( $field, $values, $params );
@@ -164,6 +165,9 @@ sub _add_url_filters {
 		my $n                  = $highest_prov_field + 1;
 		my $datestamp          = $self->get_record_age_datestamp( $params->{'record_age'} );
 		$url .= "&prov_field$n=f_date_entered&prov_operator$n=>=&prov_value$n=$datestamp";
+	}
+	if ( $params->{'project_id'} ) {
+		$url .= "&project_list=$params->{'project_id'}";
 	}
 	return $url;
 }
@@ -566,7 +570,8 @@ sub print_content {
 	say qq(<div style="float:left"><h2>Field: $display_field</h2>);
 	my $params = {
 		include_old_versions => $q->param('include_old_versions') eq 'true' ? 1 : 0,
-		record_age => scalar $q->param('record_age')
+		record_age           => scalar $q->param('record_age'),
+		project_id           => scalar $q->param('project_id')
 	};
 	if ( $q->param('specific_values') ) {
 		my $json = JSON->new->allow_nonref;
@@ -667,7 +672,7 @@ sub _get_table {
 	my $total = 0;
 	$total += $values->{$_} foreach keys %$values;
 	if ( !$total ) {
-		return q(<p>No values to display</p>);
+		return { html => q(<p>No values to display</p>) };
 	}
 	my %checked;
 	if ( $params->{'checked_values'} ) {
@@ -753,6 +758,9 @@ sub _get_url {
 		my $row = $url =~ /prov_field1/x ? 2 : 1;
 		my $datestamp = $self->get_record_age_datestamp( $params->{'record_age'} );
 		$url .= "&prov_field$row=f_date_entered&prov_operator$row=>=&prov_value$row=$datestamp";
+	}
+	if ( $params->{'project_id'} ) {
+		$url .= "&project_list=$params->{'project_id'}";
 	}
 	$url .= '&submit=1';
 	return $url;
@@ -878,6 +886,11 @@ sub _get_filters {
 		my $datestamp = $self->get_record_age_datestamp( $params->{'record_age'} );
 		push @$filters, "v.id IN (SELECT id FROM $self->{'system'}->{'view'} WHERE date_entered>='$datestamp')";
 	}
+	if ( $params->{'project_id'} ) {
+		if ( BIGSdb::Utils::is_int( $params->{'project_id'} ) ) {
+			push @$filters, "v.id IN (SELECT isolate_id FROM project_members WHERE project_id=$params->{'project_id'})";
+		}
+	}
 	return $filters;
 }
 
@@ -935,6 +948,11 @@ sub get_javascript {
 	var recordAge = $record_age;
 	var field = "$field";
 END
+	my $project_id = $q->param('project_id');
+
+	if ($project_id) {
+		$buffer .= qq(    var projectId=$project_id;\n);
+	}
 	return $buffer;
 }
 

@@ -111,7 +111,8 @@ function runAnalysis() {
 		fields: fields,
 		values: values,
 		include_old_versions: $("#include_old_versions").is(":checked") ? 1 : 0,
-		record_age: recordAge
+		record_age: recordAge,
+		project_id: typeof projectId !== 'undefined' ? projectId: null
 	};
 	$.ajax({
 		url: url + "&page=explorer",
@@ -136,8 +137,13 @@ function runAnalysis() {
 function reloadTable() {
 	$("div#waiting").css("display", "block");
 	let includeOld = $("#include_old_versions").is(":checked") ? 1 : 0;
+	let new_url = url + "&page=explorer&updateTable=1&field=" + field + "&record_age=" + recordAge + "&include_old_versions=" + includeOld;
+	console.log(projectId);
+	if (typeof projectId !== 'undefined'){
+		new_url += "&project_id=" + projectId;
+	}
 	$.ajax({
-		url: url + "&page=explorer&updateTable=1&field=" + field + "&record_age=" + recordAge + "&include_old_versions=" + includeOld
+		url: new_url
 	}).done(function(json) {
 		let html = JSON.parse(json).html;
 		$("div#table_div").html(html);

@@ -25,7 +25,6 @@ const MOBILE_WIDTH = 480;
 
 $(function() {
 	showOrHideElements();
-
 	$("select#add_field,label[for='add_field']").css("display", "inline");
 	var fill_gaps = $("#fill_gaps").prop('checked');
 	var open_new = $("#open_new").prop('checked');
@@ -278,6 +277,9 @@ function getDataQueryParams(id) {
 		params['prov_operator1'] = '>=';
 		params['prov_value1'] = datestamps[recordAgeIndex];
 	}
+	if (typeof project_id !== 'undefined'){
+		params['project_list'] = project_id;
+	}
 	return params;
 }
 
@@ -290,6 +292,9 @@ function getDataExplorerParams(id) {
 	params['record_age'] = $("#record_age_slider").length ? $("#record_age_slider").slider("value") : 0;
 	if (elements[id]['specific_values'] != null) {
 		params['specific_values'] = elements[id]['specific_values'];
+	}
+	if (typeof project_id !== 'undefined'){
+		params['project_id'] = project_id;
 	}
 	return params;
 }

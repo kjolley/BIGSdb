@@ -820,7 +820,7 @@ sub _ajax_new {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by di
 		$self->{'datastore'}->create_temp_list_table( $attribute_data->{'data_type'}, $options->{'list_file'} );
 	}
 	if ( defined $options->{'qry_file'} ) {
-		$self->{'no_query_link'} = 1;
+		$self->{'no_query_link'} = 1 if $self->{'dashboard_type'} eq 'query';
 		my $qry = $self->get_query_from_temp_file( $options->{'qry_file'} );
 		$qry =~ s/ORDER\sBY.*$//gx;
 		$self->{'db'}->do("CREATE TEMP VIEW dashboard_view AS $qry");
@@ -878,7 +878,7 @@ sub _ajax_get {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by di
 		$self->{'datastore'}->create_temp_list_table( $attribute_data->{'data_type'}, $options->{'list_file'} );
 	}
 	if ( defined $options->{'qry_file'} ) {
-		$self->{'no_query_link'} = 1;
+		$self->{'no_query_link'} = 1 if $self->{'dashboard_type'} eq 'query';
 		my $qry = $self->get_query_from_temp_file( $options->{'qry_file'} );
 		$qry =~ s/ORDER\sBY.*$//gx;
 		$self->create_temp_tables( \$qry );
@@ -1009,6 +1009,7 @@ sub print_dashboard {
 	my %display_immediately = map { $_ => 1 } qw(setup record_count);
 	my $already_loaded      = [];
 	my $ajax_load           = [];
+	my $page                = $q->param('page');
 	foreach my $element ( sort { $elements->{$a}->{'order'} <=> $elements->{$b}->{'order'} } keys %$elements ) {
 		my $display = $elements->{$element}->{'display'};
 		next if !$display;
@@ -1019,7 +1020,7 @@ sub print_dashboard {
 				$self->{'db'}->do("CREATE TEMP VIEW dashboard_view AS $qry");
 				$self->{'view'}        = 'dashboard_view';
 				$self->{'view_set_up'} = 1;
-				$q->param( no_filters => 1 );
+				$q->param( no_filters => $page eq 'project' ? 0 : 1 );
 			}
 			say $self->_get_element_html( $elements->{$element} );
 			push @$already_loaded, $element;
@@ -3276,6 +3277,7 @@ sub _get_query_url {
 	my ( $self, $element, $value ) = @_;
 	my $url   = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query";
 	my $field = $element->{'field'};
+	
 	$value =~ s/\ /\%20/gx;
 	if ( $element->{'field'} =~ /^[f|e]_/x ) {
 		$field = 'f_sender%20(id)'  if $field eq 'f_sender';
@@ -3386,7 +3388,6 @@ sub _get_element_controls {
 sub _get_data_query_link {
 	my ( $self, $element ) = @_;
 	return q() if $self->{'no_query_link'};
-	return q() if ( $element->{'field'} // q() ) =~ /^as_/x;
 	my $buffer = q();
 	$buffer .= qq(<span data-id="$element->{'id'}" class="dashboard_data_query_element fas fa-share">);
 	if ( $element->{'url_text'} ) {
