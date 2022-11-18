@@ -86,16 +86,16 @@ sub print_content {
 
 sub print_menu {
 	my ( $self, $options ) = @_;
-	$self->_print_login_menu_item;
-	$self->_print_query_menu_item if $options->{'dashboard'};
+	$self->print_login_menu_item;
+	$self->print_query_menu_item if $options->{'dashboard'};
 	$self->_print_submissions_menu_item;
 	$self->_print_private_data_menu_item;
 	$self->_print_projects_menu_item;
 	$self->_print_downloads_menu_item;
 	$self->_print_plugin_menu_items;
-	$self->_print_options_menu_item;
-	$self->_print_info_menu_item;
-	$self->_print_related_database_menu_item;
+	$self->print_options_menu_item;
+	$self->print_info_menu_item;
+	$self->print_related_database_menu_item;
 	$self->_print_jobs_menu_item;
 	return;
 }
@@ -132,27 +132,28 @@ sub _print_plugin_menu_items {
 	return;
 }
 
-sub _print_query_menu_item {
-	my ($self) = @_;
+sub print_query_menu_item {
+	my ( $self, $options ) = @_;
 	return if $self->{'system'}->{'dbtype'} ne 'isolates';
-	my $cache_string = $self->get_cache_string;
-	my $url_root     = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}$cache_string&amp;";
-	my $links        = [
+	my $cache_string   = $self->get_cache_string;
+	my $url_root       = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}$cache_string&amp;";
+	my $project_clause = $options->{'project_id'} ? "&project_list=$options->{'project_id'}" : q();
+	my $links          = [
 		{
-			href => "${url_root}page=query",
+			href => "${url_root}page=query$project_clause",
 			text => 'Search database'
 		}
 	];
 	my $set_id = $self->get_set_id;
 	my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id, do_not_order => 1 } );
+
 	if (@$loci) {
-		push @$links,
-		  {
-			href => "${url_root}page=profiles",
+		push @$links, {
+			href => "${url_root}page=profiles$project_clause",
 			text => 'Search by combinations of loci'
-		  };
+		};
 	}
-	if ( $self->{'username'} ) {
+	if ( $self->{'username'} && !$options->{'project_id'} ) {
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 		my $bookmarks = $self->{'datastore'}
 		  ->run_query( 'SELECT EXISTS(SELECT * FROM bookmarks WHERE user_id=?)', $user_info->{'id'} );
@@ -218,7 +219,7 @@ sub _print_downloads_menu_item {
 	return;
 }
 
-sub _print_login_menu_item {
+sub print_login_menu_item {
 	my ($self) = @_;
 	my $login_requirement = $self->{'datastore'}->get_login_requirement;
 	return if $login_requirement == NOT_ALLOWED && !$self->{'needs_authentication'};
@@ -529,7 +530,7 @@ sub _get_label {
 	return qq(<span style="font-size:0.8em">${label}K+</span>);
 }
 
-sub _print_options_menu_item {
+sub print_options_menu_item {
 	my ($self)       = @_;
 	my $cache_string = $self->get_cache_string;
 	my $links        = [
@@ -720,7 +721,7 @@ sub _print_private_data_menu_item {
 	return;
 }
 
-sub _print_info_menu_item {
+sub print_info_menu_item {
 	my ($self)       = @_;
 	my $cache_string = $self->get_cache_string;
 	my $links        = [
@@ -754,7 +755,7 @@ sub _print_info_menu_item {
 	return;
 }
 
-sub _print_related_database_menu_item {
+sub print_related_database_menu_item {
 	my ($self) = @_;
 	my $links = $self->get_related_databases;
 	return if !@$links;
@@ -801,7 +802,8 @@ sub _get_pending_submission_count {
 		my $allele_submissions = $self->{'datastore'}->run_query(
 			'SELECT a.locus FROM submissions s JOIN allele_submissions a ON s.id=a.submission_id WHERE s.status=? '
 			  . 'AND (dataset IS NULL OR dataset = ?)',
-			[ 'pending', $self->{'instance'} ], { fetch => 'col_arrayref' }
+			[ 'pending', $self->{'instance'} ],
+			{ fetch => 'col_arrayref' }
 		);
 		foreach my $locus (@$allele_submissions) {
 			if (   $self->is_admin
@@ -813,7 +815,7 @@ sub _get_pending_submission_count {
 		my $profile_submissions = $self->{'datastore'}->run_query(
 			'SELECT ps.scheme_id FROM submissions s JOIN profile_submissions ps '
 			  . 'ON s.id=ps.submission_id WHERE s.status=? AND (dataset IS NULL OR dataset = ?)',
-			['pending', $self->{'instance'}],
+			[ 'pending', $self->{'instance'} ],
 			{ fetch => 'col_arrayref' }
 		);
 		foreach my $scheme_id (@$profile_submissions) {

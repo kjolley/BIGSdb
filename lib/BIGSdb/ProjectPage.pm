@@ -75,15 +75,22 @@ sub process_breadcrumbs {
 }
 
 sub print_content {
-	my ($self) = @_;
+	my ($self)     = @_;
+	my $q          = $self->{'cgi'};
+	my $project_id = $q->param('project_id');
+	if ( !defined $project_id ) {
+		if ( !defined $project_id ) {
+			say q(<h1>Invalid project</h1>);
+			$self->print_bad_status( { message => 'No project id has been passed.' } );
+			return;
+		}
+	}
 	my $project_name = $self->_get_project_name;
 	if ( !defined $project_name ) {
 		say q(<h1>Invalid project</h1>);
 		$self->print_bad_status( { message => 'An invalid project has been passed.' } );
 		return;
 	}
-	my $q          = $self->{'cgi'};
-	my $project_id = $q->param('project_id');
 	if ( $self->_is_project_private($project_id) && !$self->_can_user_access_project($project_id) ) {
 		say q(<h1>Cannot access project</h1>);
 		$self->print_bad_status( { message => 'You are not a registered user of the selected project.' } );
@@ -148,7 +155,19 @@ sub get_javascript {
 	my $buffer     = $self->SUPER::get_javascript;
 	$buffer .= qq(qryFile="$self->{'qry_file'}";\n);
 	$buffer .= qq(dashboard_type='project';\n);
-	$buffer .= qq(var project_id=$project_id;\n) if BIGSdb::Utils::is_int($project_id);
+	$buffer .= qq(var projectId=$project_id;\n) if BIGSdb::Utils::is_int($project_id);
 	return $buffer;
+}
+
+sub print_menu {
+	my ( $self, $options ) = @_;
+	my $q          = $self->{'cgi'};
+	my $project_id = $q->param('project_id');
+	$self->print_login_menu_item;
+	$self->print_query_menu_item( { project_id => $project_id } );
+	$self->print_options_menu_item;
+	$self->print_info_menu_item;
+	$self->print_related_database_menu_item;
+	return;
 }
 1;

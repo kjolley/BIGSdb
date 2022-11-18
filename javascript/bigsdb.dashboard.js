@@ -277,8 +277,8 @@ function getDataQueryParams(id) {
 		params['prov_operator1'] = '>=';
 		params['prov_value1'] = datestamps[recordAgeIndex];
 	}
-	if (typeof project_id !== 'undefined'){
-		params['project_list'] = project_id;
+	if (typeof projectId !== 'undefined'){
+		params['project_list'] = projectId;
 	}
 	return params;
 }
@@ -293,8 +293,8 @@ function getDataExplorerParams(id) {
 	if (elements[id]['specific_values'] != null) {
 		params['specific_values'] = elements[id]['specific_values'];
 	}
-	if (typeof project_id !== 'undefined'){
-		params['project_id'] = project_id;
+	if (typeof projectId !== 'undefined'){
+		params['project_id'] = projectId;
 	}
 	return params;
 }
@@ -421,7 +421,12 @@ function addElement(grid, id) {
 	if (Object.keys(elements).length === 0) {
 		$("div#empty").html("");
 	}
-	var add_url = url + "&page=dashboard&type=" + dashboard_type + "&new=" + id;
+	var add_url = url + "&page=dashboard&type=" + dashboard_type;
+	if (typeof projectId !== 'undefined'){
+		add_url += "&project_id=" + projectId;
+	}
+	
+	add_url += "&new=" + id;
 	var field = $("#add_field").val();
 	if (field) {
 		add_url += "&field=" + field;
@@ -597,7 +602,11 @@ function checkAndShowVisualisation(grid, id) {
 }
 
 function reloadElement(id) {
-	var reload_url = url + "&page=dashboard&type=" + dashboard_type + "&element=" + id;
+	var reload_url = url + "&page=dashboard&type=" + dashboard_type;
+	if (typeof projectId !== 'undefined'){
+		reload_url += "&project_id=" + projectId;
+	}
+	reload_url += "&element=" + id;
 	if (qryFile != null && qryFile.length) {
 		reload_url += "&qry_file=" + qryFile;
 	}

@@ -49,7 +49,7 @@ use constant {
 };
 
 sub print_content {
-	my ($self,$options) = @_;
+	my ( $self, $options ) = @_;
 	$self->{'view'} = $self->{'system'}->{'view'};
 	my $heading = $self->get_heading;
 	if ( ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates' ) {
@@ -96,14 +96,14 @@ sub print_content {
 	say qq(<div id="title_container" style="max-width:${title_max_width}px">);
 	say qq(<h1>$heading</h1>);
 	$self->print_general_announcement;
-	if ($options->{'banner_text'}){
+
+	if ( $options->{'banner_text'} ) {
 		say q(<div class="box banner">);
 		say $options->{'banner_text'};
-		say q(</div>)
+		say q(</div>);
 	} else {
 		$self->print_banner;
 	}
-
 	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
 		$self->print_set_section;
 	}
@@ -176,8 +176,9 @@ sub _ajax_get_seqbin_range {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 sub _ajax_new_dashboard {       ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ($self) = @_;
 	my $guid = $self->get_guid;
+	my $dashboard_type = $self->get_dashboard_type;
 	$self->{'dashboard_id'} =
-	  $self->{'prefstore'}->initiate_new_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, 0 );
+	  $self->{'prefstore'}->initiate_new_dashboard( $guid, $self->{'instance'}, $dashboard_type, 0 );
 	if ( !defined $self->{'dashboard_id'} ) {
 		$logger->error('Dashboard pref could not be initiated.');
 	}
@@ -1056,6 +1057,7 @@ sub _print_ajax_load_code {
 	my $qry_file       = $options->{'qry_file'} // q();
 	my $list_file      = $options->{'list_file'};
 	my $list_attribute = $options->{'list_attribute'};
+	my $project_clause = $self->{'project_id'} ? qq(&project_id=$self->{'project_id'}) : q();
 	my $list_file_clause =
 	  defined $list_file && defined $list_attribute ? qq(&list_file=$list_file&list_attribute=$list_attribute) : q();
 	my $filter_clause = $self->{'no_filters'} ? '&no_filters=1' : q();
@@ -1079,7 +1081,7 @@ sub _print_ajax_load_code {
 			loadedElements[value] = 1;
 			\$.ajax({
 		    	url:"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=dashboard$qry_file_clause"
-		    	+ "$list_file_clause$filter_clause&type=$self->{'dashboard_type'}&element=" + value
+		    	+ "$list_file_clause$filter_clause&type=$self->{'dashboard_type'}$project_clause&element=" + value
 		    }).done(function(json){
 		       	try {
 		       	    \$("div#element_" + value + " > .item-content > .ajax_content").html(JSON.parse(json).html);
@@ -1111,12 +1113,19 @@ sub _get_default_elements {
 	my $elements = {};
 	my $i        = 1;
 	my $default_dashboard;
-	my @possible_files = (
+	my $q          = $self->{'cgi'};
+	my $project_id = $q->param('project_id');
+	my @possible_files;
+	if ( BIGSdb::Utils::is_int($project_id) ) {
+		push @possible_files, "$self->{'dbase_config_dir'}/$self->{'instance'}/dashboard_project_$project_id.toml",;
+	}
+	push @possible_files,
+	  (
 		"$self->{'dbase_config_dir'}/$self->{'instance'}/dashboard_$self->{'dashboard_type'}.toml",
 		"$self->{'config_dir'}/dashboard_$self->{'dashboard_type'}.toml",
 		"$self->{'dbase_config_dir'}/$self->{'instance'}/dashboard.toml",
 		"$self->{'config_dir'}/dashboard.toml"
-	);
+	  );
 	my $file_exists;
 	foreach my $filename (@possible_files) {
 		if ( -e $filename ) {
@@ -1137,8 +1146,9 @@ sub _get_default_elements {
 	}
 	if ( !ref $default_dashboard || ref $default_dashboard ne 'ARRAY' ) {
 		$logger->error('No default dashboard elements defined - using built-in default instead.');
+		my %use_default_dashboard = map { $_ => 1 } qw(primary project);
 		$default_dashboard =
-		  $self->{'dashboard_type'} eq 'primary' ? DEFAULT_FRONTEND_DASHBOARD : DEFAULT_QUERY_DASHBOARD;
+		  $use_default_dashboard{ $self->{'dashboard_type'} } ? DEFAULT_FRONTEND_DASHBOARD : DEFAULT_QUERY_DASHBOARD;
 	}
 	my $genome_size = $self->{'system'}->{'min_genome_size'} // $self->{'config'}->{'min_genome_size'}
 	  // MIN_GENOME_SIZE;
@@ -3283,7 +3293,6 @@ sub _get_query_url {
 	my ( $self, $element, $value ) = @_;
 	my $url   = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query";
 	my $field = $element->{'field'};
-	
 	$value =~ s/\ /\%20/gx;
 	if ( $element->{'field'} =~ /^[f|e]_/x ) {
 		$field = 'f_sender%20(id)'  if $field eq 'f_sender';
@@ -3486,13 +3495,13 @@ sub get_or_set_dashboard_prefs {
 	return;
 }
 
-sub _update_dashboard_name {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _update_dashboard_name {            ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $name   = $q->param('updateDashboardName');
 	$name =~ s/^\s+|\s+$//x;
 	return if !$name || !length($name) || length($name) > 15;
-	my $guid = $self->get_guid;
+	my $guid           = $self->get_guid;
 	my $dashboard_id =
 	  $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, 0 );
 	$self->{'prefstore'}->update_dashboard_name( $dashboard_id, $guid, $self->{'instance'}, $name );
@@ -3694,11 +3703,16 @@ sub _print_dashboard_management_fieldset {
 		  $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, 0 );
 		$dashboards = $self->{'prefstore'}->get_dashboards( $guid, $self->{'instance'} );
 	}
-	my $ids = [-1];
+	my $ids    = [-1];
 	my $labels = { -1 => 'Select dashboard...' };
+	my $q      = $self->{'cgi'};
+	my $default_name =
+	  ( $self->{'dashboard_type'} && $self->{'project_id'} )
+	  ? "$self->{'dashboard_type'}#$self->{'project_id'} default"
+	  : "$self->{'dashboard_type'} default";
 	if ( defined $dashboard_id ) {
 		push @$ids, 0;
-		$labels->{0} = "$self->{'dashboard_type'} default";
+		$labels->{0} = $default_name;
 	} else {
 		$dashboard_id = 0;
 	}
@@ -3710,9 +3724,8 @@ sub _print_dashboard_management_fieldset {
 	if ($dashboard_id) {
 		$name = $self->{'prefstore'}->get_dashboard_name($dashboard_id);
 	} else {
-		$name = "$self->{'dashboard_type'} default";
+		$name = $default_name;
 	}
-	my $q = $self->{'cgi'};
 	say q(<fieldset><legend>Versions</legend>);
 	say q(<form autocomplete="off">);    #Needed because Firefox will override the value we set for loaded_dashboard.
 	say q(<ul><li>);
@@ -3724,7 +3737,7 @@ sub _print_dashboard_management_fieldset {
 		-style     => 'width:8em',
 		-value     => $name
 	);
-	$attributes{'-disabled'} = 1 if $name eq "$self->{'dashboard_type'} default";
+	$attributes{'-disabled'} = 1 if $name eq $default_name;
 	say $q->textfield(%attributes);
 	say q(</li>);
 
