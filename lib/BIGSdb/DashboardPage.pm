@@ -174,11 +174,13 @@ sub _ajax_get_seqbin_range {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 }
 
 sub _ajax_new_dashboard {       ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ($self) = @_;
-	my $guid = $self->get_guid;
-	my $dashboard_type = $self->get_dashboard_type;
+	my ($self)     = @_;
+	my $guid       = $self->get_guid;
+	my $q          = $self->{'cgi'};
+	my $project_id = $q->param('project_id');
 	$self->{'dashboard_id'} =
-	  $self->{'prefstore'}->initiate_new_dashboard( $guid, $self->{'instance'}, $dashboard_type, 0 );
+	  $self->{'prefstore'}
+	  ->initiate_new_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, $project_id // 0 );
 	if ( !defined $self->{'dashboard_id'} ) {
 		$logger->error('Dashboard pref could not be initiated.');
 	}
@@ -975,11 +977,12 @@ sub get_list_attribute_data {
 sub _ajax_set_active {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $active_id ) = @_;
 	return if $active_id < 0;
-	my $q    = $self->{'cgi'};
-	my $type = $q->param('type') // $self->{'dashboard_type'};
-	my $guid = $self->get_guid;
+	my $q          = $self->{'cgi'};
+	my $project_id = $q->param('project_id');
+	my $type       = $q->param('type') // $self->{'dashboard_type'};
+	my $guid       = $self->get_guid;
 	if ( BIGSdb::Utils::is_int($active_id) ) {
-		$self->{'prefstore'}->set_active_dashboard( $guid, $self->{'instance'}, $active_id, $type, 0 );
+		$self->{'prefstore'}->set_active_dashboard( $guid, $self->{'instance'}, $active_id, $type, $project_id // 0 );
 	}
 	return;
 }
@@ -2271,7 +2274,7 @@ sub _get_field_breakdown_bar_content {
 	my $chart_colour     = $element->{'chart_colour'} // CHART_COLOUR;
 	my $colour_function;
 
-	if ( $element->{'bar_colour_type'} eq 'continuous' ) {
+	if ( ( $element->{'bar_colour_type'} // q() ) eq 'continuous' ) {
 		$colour_function = qq("$chart_colour");
 	} elsif ( $element->{'field'} =~ /^as_/x ) {
 		$colour_function = q(["#2ca02c","#ff7f0e","#d62728","#aaa","#888"][d.index]);
@@ -3472,10 +3475,12 @@ sub get_or_set_dashboard_prefs {
 	my ($self) = @_;
 	my $guid = $self->get_guid;
 	return if !$guid;
-	my $q = $self->{'cgi'};
+	my $q          = $self->{'cgi'};
+	my $project_id = $q->param('project_id');
 	$self->{'dashboard_type'} = $q->param('type') if defined $q->param('type');
 	my $dashboard_id =
-	  $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, 0 );
+	  $self->{'prefstore'}
+	  ->get_active_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, $project_id // 0 );
 	if ( $q->param('resetDefaults') ) {
 		$self->{'prefstore'}->delete_dashboard( $dashboard_id, $guid, $self->{'instance'} ) if $guid;
 		my $dashboards = $self->{'prefstore'}->get_dashboards( $guid, $self->{'instance'} );
@@ -3483,7 +3488,8 @@ sub get_or_set_dashboard_prefs {
 			$self->{'prefstore'}->set_active_dashboard(
 				$guid, $self->{'instance'},
 				$dashboards->[0]->{'id'},
-				$self->{'dashboard_type'}, 0
+				$self->{'dashboard_type'},
+				$project_id // 0
 			);
 		}
 	}
@@ -3495,15 +3501,17 @@ sub get_or_set_dashboard_prefs {
 	return;
 }
 
-sub _update_dashboard_name {            ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ($self) = @_;
-	my $q      = $self->{'cgi'};
-	my $name   = $q->param('updateDashboardName');
+sub _update_dashboard_name {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ($self)     = @_;
+	my $q          = $self->{'cgi'};
+	my $project_id = $q->param('project_id');
+	my $name       = $q->param('updateDashboardName');
 	$name =~ s/^\s+|\s+$//x;
 	return if !$name || !length($name) || length($name) > 15;
-	my $guid           = $self->get_guid;
+	my $guid = $self->get_guid;
 	my $dashboard_id =
-	  $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, 0 );
+	  $self->{'prefstore'}
+	  ->get_active_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, $project_id // 0 );
 	$self->{'prefstore'}->update_dashboard_name( $dashboard_id, $guid, $self->{'instance'}, $name );
 	return;
 }
@@ -3569,12 +3577,18 @@ sub _update_dashboard_prefs {    ## no critic (ProhibitUnusedPrivateSubroutines)
 sub _get_dashboard_id {
 	my ($self) = @_;
 	return $self->{'dashboard_id'} if defined $self->{'dashboard_id'};
-	my $guid = $self->get_guid;
+	my $guid       = $self->get_guid;
+	my $q          = $self->{'cgi'};
+	my $project_id = $q->param('project_id');
+
+	#Note that $project_id may be an empty string (not undef) if param was posted as project_id=>undef.
 	$self->{'dashboard_id'} =
-	  $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, 0 );
+	  $self->{'prefstore'}
+	  ->get_active_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, $project_id || 0 );
 	return $self->{'dashboard_id'} if defined $self->{'dashboard_id'};
 	$self->{'dashboard_id'} =
-	  $self->{'prefstore'}->initiate_new_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, 0 );
+	  $self->{'prefstore'}
+	  ->initiate_new_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, $project_id || 0 );
 	if ( !defined $self->{'dashboard_id'} ) {
 		$logger->error('Dashboard pref could not be initiated.');
 	}
@@ -3698,14 +3712,16 @@ sub _print_dashboard_management_fieldset {
 	my $name;
 	my $dashboard_id;
 	my $dashboards = [];
+	my $q          = $self->{'cgi'};
+	my $project_id = $q->param('project_id');
 	if ($guid) {
 		$dashboard_id =
-		  $self->{'prefstore'}->get_active_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, 0 );
+		  $self->{'prefstore'}
+		  ->get_active_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, $project_id // 0 );
 		$dashboards = $self->{'prefstore'}->get_dashboards( $guid, $self->{'instance'} );
 	}
-	my $ids    = [-1];
+	my $ids = [-1];
 	my $labels = { -1 => 'Select dashboard...' };
-	my $q      = $self->{'cgi'};
 	my $default_name =
 	  ( $self->{'dashboard_type'} && $self->{'project_id'} )
 	  ? "$self->{'dashboard_type'}#$self->{'project_id'} default"

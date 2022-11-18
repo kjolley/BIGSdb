@@ -140,8 +140,12 @@ $(function() {
 
 	$("#switch_dashboard").change(function() {
 		var id = $("#switch_dashboard").val();
+		var switch_url = url + "&page=dashboard&setActiveDashboard=" + id + "&type=" + dashboard_type;
+		if (typeof projectId !== 'undefined'){
+			switch_url += "&project_id=" + projectId;
+		}
 		$.ajax({
-			url: url + "&page=dashboard&setActiveDashboard=" + id + "&type=" + dashboard_type
+			url: switch_url
 		}).done(function() {
 			//Prevent form reload message on Firefox - simulate click of the submit button instead.
 			if ($("input#search").length) {
@@ -462,7 +466,11 @@ function addElement(grid, id) {
 function editElement(grid, id, setup) {
 	$("span#control_" + id).hide();
 	$("span#wait_" + id).show();
-	$.get(url + "&page=dashboard&type=" + dashboard_type + "&control=" + id, function(html) {
+	var edit_url = url + "&page=dashboard&type=" + dashboard_type + "&control=" + id;
+	if (typeof projectId !== 'undefined'){
+		edit_url += "&project_id=" + projectId;
+	}
+	$.get(edit_url, function(html) {
 		$(html).appendTo('body').modal();
 		if ($("#edit_elements").prop("checked")) {
 			$("span#control_" + id).show();
@@ -682,6 +690,7 @@ function saveElements(grid) {
 		page: "dashboard",
 		updateDashboard: 1,
 		type: dashboard_type,
+		project_id: (typeof projectId !== 'undefined' ? projectId : null),
 		attribute: "elements",
 		value: JSON.stringify(elements)
 	});
@@ -697,6 +706,7 @@ function saveAndReloadElement(grid, id) {
 			page: "dashboard",
 			updateDashboard: 1,
 			type: dashboard_type,
+			project_id: (typeof projectId !== 'undefined' ? projectId : null),
 			attribute: "elements",
 			value: JSON.stringify(elements)
 		},
@@ -767,6 +777,7 @@ function saveLayout(grid) {
 					page: "dashboard",
 					updateDashboard: 1,
 					type: dashboard_type,
+					project_id: (typeof projectId !== 'undefined' ? projectId : null),
 					attribute: "order",
 					value: layout
 				},
@@ -781,7 +792,11 @@ function saveLayout(grid) {
 
 function resetDefaults() {
 	$("#modify_dashboard_panel").toggle("slide", { direction: "right" }, "fast");
-	$.get(url + "&resetDefaults=1&type=" + dashboard_type, function() {
+	var reset_url = url + "&resetDefaults=1&type=" + dashboard_type;
+	if (typeof projectId !== 'undefined'){
+		reset_url += "&project_id=" + projectId;
+	}
+	$.get(reset_url, function() {
 		//Prevent form reload message on Firefox - simulate click of the submit button instead.
 		if ($("input#search").length) {
 			$("input#search").trigger('click');
@@ -809,8 +824,12 @@ function resetSeqbinRange(id) {
 }
 
 function createNew() {
+	var new_url = url + "&newDashboard=1&type=" + dashboard_type;
+	if (typeof projectId !== 'undefined'){
+		new_url += "&project_id=" + projectId;
+	}
 	$.ajax({
-		url: url + "&newDashboard=1&type=" + dashboard_type,
+		url: new_url,
 		type: 'GET',
 		success: function() {
 			//Prevent form reload message on Firefox - simulate click of the submit button instead.

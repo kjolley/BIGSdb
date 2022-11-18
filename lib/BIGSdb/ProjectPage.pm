@@ -65,6 +65,7 @@ sub initiate {
 		$self->{'project_id'} = $project_id;
 	}
 	$self->{'dashboard_type'} = 'project';
+	$self->get_or_set_dashboard_prefs;
 	return;
 }
 

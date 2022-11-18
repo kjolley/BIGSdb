@@ -694,8 +694,10 @@ sub set_active_dashboard {
 				undef, $guid, $dbase_config, $id, $type, $value, $id
 			);
 		} else {
-			$self->{'db'}->do( 'DELETE FROM active_dashboards WHERE (guid,dbase_config,type)=(?,?,?)',
-				undef, $guid, $dbase_config, $type );
+			$self->{'db'}->do(
+				'DELETE FROM active_dashboards WHERE (guid,dbase_config,type)=(?,?,?)',
+				undef, $guid, $dbase_config, $type
+			);
 		}
 	};
 	if ($@) {
