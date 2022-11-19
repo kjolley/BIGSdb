@@ -60,11 +60,12 @@ sub print_content {
 	say qq(<p>This page shows all offline jobs run by you in the past $days day$days_plural.<p>);
 	say qq(<h2>User: $user->{'first_name'} $user->{'surname'}</h2>);
 	say q(<p>Click on the job id to see results. You can also cancel queued and running jobs.</p>);
-	say q(<table class="tablesorter" id="sortTable"><thead><tr><th class="{sorter: false}">Job</th>)
-	  . q(<th>Analysis</th><th class="{sorter: false}">Size</th><th>Submitted</th><th>Started</th>)
-	  . q(<th>Finished</th><th>Duration (seconds)</th><th class="{sorter: false}">Duration (description)</th>)
+	say q(<table class="tablesorter" id="sortTable"><thead><tr><th class="sorter-false">Job</th>)
+	  . q(<th>Analysis</th><th class="sorter-false">Size</th><th>Submitted</th><th>Started</th>)
+	  . q(<th>Finished</th><th>Duration (seconds)</th><th class="sorter-false">Duration (description)</th>)
 	  . q(<th>Status</th><th>Progress (%)</th><th>Stage</th></tr></thead><tbody>);
 	foreach my $job (@$jobs) {
+
 		if ( $job->{'total_time'} ) {
 			$job->{'duration_s'} = int( $job->{'total_time'} );
 		} elsif ( $job->{'elapsed'} ) {

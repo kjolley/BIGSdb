@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2020, University of Oxford
+#Copyright (c) 2014-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -49,8 +49,8 @@ sub print_content {
 	}
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
 	say q(<table class="tablesorter" id="sortTable">);
-	say q(<thead><tr><th>Project id</th><th>Short description</th><th class="{sorter: false}">Full description</th>)
-	  . q(<th>Isolates</th><th class="{sorter: false}">Browse</th></tr></thead><tbody>);
+	say q(<thead><tr><th>Project id</th><th>Short description</th><th class="sorter-false">Full description</th>)
+	  . q(<th>Isolates</th><th class="sorter-false">Browse</th></tr></thead><tbody>);
 	my $td = 1;
 	foreach my $project (@$projects) {
 		my $isolates = $self->{'datastore'}->run_query(

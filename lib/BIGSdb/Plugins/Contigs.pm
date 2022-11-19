@@ -1,6 +1,6 @@
 #Contigs.pm - Contig export and analysis plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2013-2021, University of Oxford
+#Copyright (c) 2013-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -52,7 +52,7 @@ sub get_attributes {
 		menutext     => 'Contigs',
 		module       => 'Contigs',
 		url          => "$self->{'config'}->{'doclink'}/data_export/contig_export.html",
-		version      => '1.1.12',
+		version      => '1.1.13',
 		dbtype       => 'isolates',
 		section      => 'export,postquery',
 		input        => 'query',
@@ -176,10 +176,10 @@ sub _run_analysis {
 	my $title = qq(Contigs with >=$pc_untagged\% sequence length untagged);
 	say qq(<h2>$title</h2><table class="tablesorter" id="sortTable"><thead>)
 	  . qq(<tr><th rowspan="2">id</th><th rowspan="2">$self->{'system'}->{'labelfield'}</th>)
-	  . q(<th rowspan="2">contigs</th><th colspan="2" class="{sorter: false}">matching contigs</th>)
-	  . qq(<th colspan="2" class="{sorter: false}">non-matching contigs</th></tr>\n<tr><th>count</th>)
-	  . q(<th class="{sorter: false}">download</th><th>count</th>)
-	  . q(<th class="{sorter: false}">download</th></tr></thead><tbody>);
+	  . q(<th rowspan="2">contigs</th><th colspan="2" class="sorter-false">matching contigs</th>)
+	  . qq(<th colspan="2" class="sorter-false">non-matching contigs</th></tr>\n<tr><th>count</th>)
+	  . q(<th class="sorter-false">download</th><th>count</th>)
+	  . q(<th class="sorter-false">download</th></tr></thead><tbody>);
 	my $filebuffer  = qq(id\t$self->{'system'}->{'labelfield'}\tcontigs\tmatching contigs\tnon-matching contigs\n);
 	my $label_field = $self->{'system'}->{'labelfield'};
 	my $isolate_sql = $self->{'db'}->prepare("SELECT $label_field FROM $self->{'system'}->{'view'} WHERE id=?");

@@ -1,6 +1,6 @@
 #LocusExplorer.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -47,7 +47,7 @@ sub get_attributes {
 		menutext   => 'Locus Explorer',
 		module     => 'LocusExplorer',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/locus_explorer.html",
-		version    => '1.3.15',
+		version    => '1.3.16',
 		dbtype     => 'sequences',
 		seqdb_type => 'sequences',
 		input      => 'query',
@@ -824,7 +824,7 @@ sub get_freq_table {
 	my $cols = @chars * 2;
 	$buffer .= q(<div class="scrollable">);
 	$buffer .= q(<table class="tablesorter" id="sortTable"><thead><tr><th rowspan="2">Position</th>)
-	  . qq(<th colspan="$cols" class="{sorter: false}">$heading</th></tr>);
+	  . qq(<th colspan="$cols" class="sorter-false">$heading</th></tr>);
 	local $" = '</th><th>';
 	$buffer .= qq(<tr><th>@chars</th>);
 	local $" = '</th><th>%';

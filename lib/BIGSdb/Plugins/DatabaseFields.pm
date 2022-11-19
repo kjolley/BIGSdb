@@ -1,6 +1,6 @@
 #DatabaseFields.pm - Database field description plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -42,7 +42,7 @@ sub get_attributes {
 		  . 'the field is compulsory or optional and the maximum length of values is displayed.',
 		menutext => 'Description of database fields',
 		module   => 'DatabaseFields',
-		version  => '1.1.4',
+		version  => '1.1.5',
 		section  => 'miscellaneous',
 		order    => 10,
 		dbtype   => 'isolates',
@@ -90,14 +90,15 @@ sub _provenance_print_fields {
 	my $field_list = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
 	my $td = 1;
 	say q(<table class="tablesorter" style="margin-bottom:1em"><thead>);
-	say q(<tr><th>field name</th><th>comments</th><th>data type</th><th class="{sorter: false}">)
-	  . q(allowed values</th><th>required</th><th>maximum length (characters)</th></tr></thead><tbody>);
+	say q(<tr><th>field name</th><th>comments</th><th>data type</th><th class="sorter-false">)
+	  . q(allowed values</th><th>required</th><th class="sorter-false">maximum length (characters)</th>)
+	  . q(</tr></thead><tbody>);
 
 	foreach my $field (@$field_list) {
 		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 		$thisfield->{'type'} = 'integer' if $thisfield->{'type'} =~ /^int/x;
 		$thisfield->{'comments'} //= '';
-		if ($thisfield->{'warning'}){
+		if ( $thisfield->{'warning'} ) {
 			$thisfield->{'comments'} .= qq(<div class="field_warning">$thisfield->{'warning'}</div>);
 		}
 		say qq(<tr class="td$td"><td>$field</td><td class="field_comment">$thisfield->{'comments'}</td>);
@@ -114,6 +115,7 @@ sub _provenance_print_fields {
 		say qq(<td>$length</td>);
 		say q(</tr>);
 		$td = $td == 1 ? 2 : 1;
+
 		if ( $field eq $self->{'system'}->{'labelfield'} ) {
 			say qq(<tr class="td$td"><td>aliases</td><td>alternative names for $self->{'system'}->{'labelfield'}</td>)
 			  . q(<td>text (multiple)</td><td>-</td><td>no</td><td>-</td></tr>);
@@ -154,8 +156,9 @@ sub _print_eav_fields {
 		}
 		my $td = 1;
 		say q(<table class="tablesorter" style="margin-top:1em"><thead>);
-		say q(<tr><th>field name</th><th>comments</th><th>data type</th><th class="{sorter: false}">)
-		  . q(allowed values</th><th>required</th><th>maximum length (characters)</th></tr></thead><tbody>);
+		say q(<tr><th>field name</th><th>comments</th><th>data type</th><th class="sorter-false">)
+		  . q(allowed values</th><th>required</th><th class="sorter-false">maximum length (characters)</th>)
+		  . q(</tr></thead><tbody>);
 		foreach my $field (@$eav_fields) {
 			if ( $field->{'category'} ) {
 				next if !$cat || $cat ne $field->{'category'};
@@ -235,7 +238,7 @@ sub _print_allowed_values {
 		  . q(field=f_curator" target="_blank">Click for list of curator ids</a>);
 		return;
 	}
-	if (($thisfield->{'type'} // q()) eq 'geography_point'){
+	if ( ( $thisfield->{'type'} // q() ) eq 'geography_point' ) {
 		say q(latitude [min: -90; max: 90], longitude [min: -180; max: 180]);
 		return;
 	}
