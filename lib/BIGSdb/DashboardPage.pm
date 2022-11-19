@@ -1138,7 +1138,6 @@ sub _get_default_elements {
 	  );
 	my $file_exists;
 	foreach my $filename (@possible_files) {
-		$logger->error($filename);
 		if ( -e $filename ) {
 			$file_exists = 1;
 			my $toml = BIGSdb::Utils::slurp($filename);
