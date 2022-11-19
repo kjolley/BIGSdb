@@ -56,8 +56,13 @@ $(function() {
 			$("#record_age").html(recordAgeLabels[ui.value]);
 		},
 		change: function(event, ui) {
+			var age_url = url + "&page=dashboard&updateDashboard=1&type=" + dashboard_type;
+			age_url += "&attribute=record_age&value=" + ui.value;
+			if (typeof projectId !== 'undefined'){
+				age_url += "&project_id=" + projectId;
+			}
 			$.ajax({
-				url: url + "&page=dashboard&updateDashboard=1&type=" + dashboard_type + "&attribute=record_age&value=" + ui.value
+				url: age_url 
 			}).done(function(json) {
 				$("#loaded_dashboard").val(JSON.parse(json).dashboard_name);
 				$("#loaded_dashboard").prop("disabled", false);
@@ -90,8 +95,13 @@ $(function() {
 		} catch (err) {
 			// Grid is empty.
 		}
+		var gaps_url = url + "&page=dashboard&updateDashboard=1&type=" + dashboard_type;
+		if (typeof projectId !== 'undefined'){
+			gaps_url += "&project_id=" + projectId;
+		}
+		gaps_url += "&attribute=fill_gaps&value=" + (fill_gaps ? 1 : 0);
 		$.ajax({
-			url: url + "&page=dashboard&updateDashboard=1&type=" + dashboard_type + "&attribute=fill_gaps&value=" + (fill_gaps ? 1 : 0)
+			url: gaps_url
 		}).done(function(json) {
 			updateDashboardName(JSON.parse(json).dashboard_name);
 		});
@@ -122,9 +132,13 @@ $(function() {
 	});
 	$("#include_old_versions").change(function() {
 		var include_old_versions = $("#include_old_versions").prop('checked');
+		var old_url = url + "&page=dashboard&updateDashboard=1&type=" + dashboard_type;
+		if (typeof projectId !== 'undefined'){
+			old_url += "&project_id=" + projectId;
+		}
+		old_url += "&attribute=include_old_versions&value=" + (include_old_versions ? 1 : 0);
 		$.ajax({
-			url: url + "&page=dashboard&updateDashboard=1&type=" + dashboard_type + "&attribute=include_old_versions&value=" +
-				(include_old_versions ? 1 : 0)
+			url: old_url 
 		}).done(function(json) {
 			updateDashboardName(JSON.parse(json).dashboard_name);
 			$("#filter_versions").html(include_old_versions ? 'all' : 'current');
@@ -133,8 +147,13 @@ $(function() {
 	});
 	$("#loaded_dashboard").change(function() {
 		var name = $("#loaded_dashboard").val();
+		var rename_url = url + "&page=dashboard&type=" + dashboard_type;
+		if (typeof projectId !== 'undefined'){
+			rename_url += "&project_id=" + projectId;
+		}
+		rename_url += "&updateDashboardName=" + encodeURIComponent(name);
 		if (name.length) {
-			$.ajax(url + "&page=dashboard&type=" + dashboard_type + "&updateDashboardName=" + encodeURIComponent(name));
+			$.ajax(rename_url);
 		}
 	});
 
