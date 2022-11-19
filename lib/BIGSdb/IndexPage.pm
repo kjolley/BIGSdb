@@ -90,7 +90,7 @@ sub print_menu {
 	$self->print_query_menu_item if $options->{'dashboard'};
 	$self->_print_submissions_menu_item;
 	$self->_print_private_data_menu_item;
-	$self->_print_projects_menu_item;
+	$self->print_projects_menu_item;
 	$self->_print_downloads_menu_item;
 	$self->_print_plugin_menu_items;
 	$self->print_options_menu_item;
@@ -639,7 +639,7 @@ sub print_general_announcement {
 	return;
 }
 
-sub _print_projects_menu_item {
+sub print_projects_menu_item {
 	my ($self) = @_;
 	return if $self->{'system'}->{'dbtype'} ne 'isolates';
 	my $cache_string = $self->get_cache_string;

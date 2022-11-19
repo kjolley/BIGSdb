@@ -50,7 +50,7 @@ sub print_content {
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
 	say q(<table class="tablesorter" id="sortTable">);
 	say q(<thead><tr><th>Project id</th><th>Short description</th><th class="{sorter: false}">Full description</th>)
-	  . q(<th>Isolates</th><th class="{sorter: false}">Browse</th></tr></thead><tbody>);
+	  . q(<th>Isolates</th><th class="sorter-false">Browse</th></tr></thead><tbody>);
 	my $td = 1;
 	foreach my $project (@$projects) {
 		my $isolates = $self->{'datastore'}->run_query(

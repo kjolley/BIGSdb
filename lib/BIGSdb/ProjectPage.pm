@@ -166,6 +166,7 @@ sub print_menu {
 	my $project_id = $q->param('project_id');
 	$self->print_login_menu_item;
 	$self->print_query_menu_item( { project_id => $project_id } );
+	$self->print_projects_menu_item;
 	$self->print_options_menu_item;
 	$self->print_info_menu_item;
 	$self->print_related_database_menu_item;
