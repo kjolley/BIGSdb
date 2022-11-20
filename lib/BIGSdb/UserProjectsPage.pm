@@ -751,10 +751,10 @@ sub _print_user_projects {
 			say q(<th class="sorter-false">Delete</th>);
 			say q(<th class="sorter-false">Modify users</th>);
 		}
-		say q(<th>Project</th><th class="sorter-false">Description</th><th class="sorter-false">Administrator</th>)
-		  ;
+		say q(<th>Project</th><th class="sorter-false">Description</th><th class="sorter-false">Administrator</th>);
 		say q(<th class="sorter-false">Add/remove records</th>) if $can_add_remove;
-		say q(<th>Isolates</th><th class="sorter-false">Browse</th></tr></thead><tbody>);
+		say q(<th>Isolates</th><th class="sorter-false">Dashboard</th><th class="sorter-false">Browse</th></tr>)
+		  . q(</thead><tbody>);
 		my $td = 1;
 		foreach my $project (@$projects) {
 			say $self->_get_project_row( $is_admin, $can_add_remove, $project, $td );
@@ -820,7 +820,7 @@ sub _get_project_row {
 	$project->{'full_description'} //= q();
 	my $edit = EDIT;
 	$buffer .=
-	    qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=userProjects&amp;)
+	  qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=userProjects&amp;)
 	  . qq(project_info=$project->{'id'}">$project->{'short_description'}</a></td>)
 	  . qq(<td>$project->{'full_description'}</td><td>$admin</td>);
 	if ( $project->{'admin'} || $project->{'modify'} ) {
@@ -830,6 +830,13 @@ sub _get_project_row {
 		$buffer .= q(<td></td>);
 	}
 	$buffer .= qq(<td>$count</td><td>);
+	if ($count) {
+		$buffer .=
+		    qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=project&amp;)
+		  . qq(project_id=$project->{'id'}&amp"><span class="fas fa-th action browse">)
+		  . q(</span></a>);
+	}
+	$buffer .= q(</td><td>);
 	if ($count) {
 		$buffer .=
 		    qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)

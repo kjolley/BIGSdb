@@ -50,7 +50,7 @@ sub print_content {
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
 	say q(<table class="tablesorter" id="sortTable">);
 	say q(<thead><tr><th>Project id</th><th>Short description</th><th class="sorter-false">Full description</th>)
-	  . q(<th>Isolates</th><th class="sorter-false">Browse</th></tr></thead><tbody>);
+	  . q(<th>Isolates</th><th class="sorter-false">Dashboard</th><th class="sorter-false">Browse</th></tr></thead><tbody>);
 	my $td = 1;
 	foreach my $project (@$projects) {
 		my $isolates = $self->{'datastore'}->run_query(
@@ -62,6 +62,9 @@ sub print_content {
 		$project->{'full_description'} //= q();
 		say qq(<tr class="td$td"><td>$project->{'id'}</td><td>$project->{'short_description'}</td>)
 		  . qq(<td>$project->{'full_description'}</td><td>$isolates</td><td>);
+		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=project&amp;)
+		  . qq(project_id=$project->{'id'}"><span class="fas fa-th action browse">)
+		  . q(</span></a></td><td>);
 		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
 		  . qq(project_list=$project->{'id'}&amp;submit=1"><span class="fas fa-binoculars action browse">)
 		  . q(</span></a></td></tr>);
