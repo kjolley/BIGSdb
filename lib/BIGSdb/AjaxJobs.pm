@@ -71,6 +71,7 @@ sub print_content {
 	my $queued  = $initial_queued;
 	my $running = $initial_running;
 	foreach my $time ( sort keys %$times ) {
+		next if $time lt $begin_time;
 		if ( $times->{$time}->{'submit'} ) {
 			$queued += $times->{$time}->{'submit'};
 		}
