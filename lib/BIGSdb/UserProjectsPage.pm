@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2020, University of Oxford
+#Copyright (c) 2017-2022, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -60,9 +60,9 @@ sub print_content {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (jQuery jQuery.multiselect modernizr noCache);
+	$self->{$_} = 1 foreach qw (jQuery jQuery.multiselect modernizr jQuery.tablesort allowExpand noCache);
 	my $q = $self->{'cgi'};
-	if ($q->param('project_info') || $q->param('project_id')){
+	if ( $q->param('project_info') || $q->param('project_id') ) {
 		$self->{'processing'} = 1;
 	}
 	$self->set_level1_breadcrumbs;
@@ -145,8 +145,7 @@ sub _fails_add_remove_check {
 	my ( $self, $project_id ) = @_;
 	if ( !$self->_can_add_remove($project_id) ) {
 		$self->print_bad_status(
-			{ message => q(You do not have permission to add or remove isolates for this project.) } )
-		  ;
+			{ message => q(You do not have permission to add or remove isolates for this project.) } );
 		return 1;
 	}
 	return;
@@ -746,21 +745,22 @@ sub _print_user_projects {
 		my $is_admin       = $self->_is_admin_of_any($projects);
 		my $can_add_remove = $self->_can_add_remove_in_any($projects);
 		say q(<h2>Your projects</h2>);
-		say q(<div class="scrollable"><table class="resultstable" style="margin-bottom:1em">);
-		say q(<tr>);
+		say q(<div class="scrollable"><table class="tablesorter" id="sortTable" style="margin-bottom:1em">);
+		say q(<thead><tr>);
 		if ($is_admin) {
-			say q(<th>Delete</th>);
-			say q(<th>Modify users</th>);
+			say q(<th class="sorter-false">Delete</th>);
+			say q(<th class="sorter-false">Modify users</th>);
 		}
-		say q(<th>Project</th><th>Description</th><th>Administrator</th>);
-		say q(<th>Add/remove records</th>) if $can_add_remove;
-		say q(<th>Isolates</th><th>Browse</th></tr>);
+		say q(<th>Project</th><th class="sorter-false">Description</th><th class="sorter-false">Administrator</th>)
+		  ;
+		say q(<th class="sorter-false">Add/remove records</th>) if $can_add_remove;
+		say q(<th>Isolates</th><th class="sorter-false">Browse</th></tr></thead><tbody>);
 		my $td = 1;
 		foreach my $project (@$projects) {
-			say $self->_get_project_row( $is_admin, $can_add_remove,$project, $td );
+			say $self->_get_project_row( $is_admin, $can_add_remove, $project, $td );
 			$td = $td == 1 ? 2 : 1;
 		}
-		say q(</table></div>);
+		say q(<tbody></table></div>);
 		if ($is_admin) {
 			say q(<p>You can also add isolates to projects from the results of a )
 			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query">query</a>.</p>);
@@ -797,7 +797,7 @@ sub _get_isolate_count {
 }
 
 sub _get_project_row {
-	my ( $self, $is_admin, $can_add_remove_in_any,$project, $td ) = @_;
+	my ( $self, $is_admin, $can_add_remove_in_any, $project, $td ) = @_;
 	my $count  = $self->_get_isolate_count( $project->{'id'} );
 	my $q      = $self->{'cgi'};
 	my $admin  = $project->{'admin'} ? TRUE : FALSE;
@@ -826,8 +826,8 @@ sub _get_project_row {
 	if ( $project->{'admin'} || $project->{'modify'} ) {
 		$buffer .= qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=userProjects&amp;edit=1&amp;project_id=$project->{'id'}" class="action">$edit</a></td>);
-	} elsif ($can_add_remove_in_any){
-		$buffer.=q(<td></td>);
+	} elsif ($can_add_remove_in_any) {
+		$buffer .= q(<td></td>);
 	}
 	$buffer .= qq(<td>$count</td><td>);
 	if ($count) {
@@ -963,6 +963,7 @@ sub get_javascript {
 	my $buffer = << "END";
 \$(function () {
   	\$('.multiselect').multiselect();
+  	\$("#sortTable").tablesorter({widgets:['zebra']}); 
 });	
 END
 	return $buffer;
