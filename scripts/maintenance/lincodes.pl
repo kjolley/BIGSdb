@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20221102
+#Version: 20221121
 use strict;
 use warnings;
 use 5.010;
@@ -87,6 +87,7 @@ if ( $opts{'log'} ) {
 	initiate_log_file( $opts{'log'} );
 }
 main();
+remove_lock_file();
 
 sub main {
 	local $| = 1;
