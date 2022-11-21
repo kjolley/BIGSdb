@@ -99,7 +99,7 @@ sub print_content {
 
 	if ( $options->{'banner_text'} ) {
 		say q(<div class="box banner">);
-		say $options->{'banner_text'};
+		say $self->_format_banner( $options->{'banner_text'} );
 		say q(</div>);
 	} else {
 		$self->print_banner;
@@ -120,6 +120,15 @@ sub print_content {
 	say q(</div>);
 	$self->print_modify_dashboard_fieldset;
 	return;
+}
+
+sub _format_banner {
+	my ( $self, $text ) = @_;
+	if ( $text =~ /(?:<p>|<div>)/x ) {
+		return $text;
+	} else {
+		return qq(<p>$text</p>);
+	}
 }
 
 sub _ajax_controls {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
@@ -1151,9 +1160,9 @@ sub _get_default_elements {
 		}
 	}
 	if ( !$file_exists ) {
-		my %primary_default = map {$_ => 1}qw(primary project);
+		my %primary_default = map { $_ => 1 } qw(primary project);
 		$default_dashboard =
-		  $primary_default{$self->{'dashboard_type'}} ? DEFAULT_FRONTEND_DASHBOARD : DEFAULT_QUERY_DASHBOARD;
+		  $primary_default{ $self->{'dashboard_type'} } ? DEFAULT_FRONTEND_DASHBOARD : DEFAULT_QUERY_DASHBOARD;
 	}
 	if ( !ref $default_dashboard || ref $default_dashboard ne 'ARRAY' ) {
 		$logger->error('No default dashboard elements defined - using built-in default instead.');
