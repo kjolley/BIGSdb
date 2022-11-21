@@ -1,3 +1,5 @@
+v1.38.1: *New project front-end dashboards.
+         *Query dashboard now shown for publication results. 
 v1.38.0: *Support for limiting submissions and curators to a specific database
           configuration.
          *Added ability to hide fields in a specific configuration with a 
