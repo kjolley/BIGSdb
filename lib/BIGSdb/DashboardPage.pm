@@ -3311,6 +3311,7 @@ sub _get_palettes {
 
 sub _get_query_url {
 	my ( $self, $element, $value ) = @_;
+	my $q     = $self->{'cgi'};
 	my $url   = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query";
 	my $field = $element->{'field'};
 	$value =~ s/\ /\%20/gx;
@@ -3352,6 +3353,12 @@ sub _get_query_url {
 		}
 		my $datestamp = $self->get_record_age_datestamp( $self->{'prefs'}->{'record_age'} );
 		$url .= "&amp;prov_field$row=f_date_entered&amp;prov_operator$row=>=&amp;prov_value$row=$datestamp";
+	}
+	if ( $self->{'dashboard_type'} eq 'project' ) {
+		my $project_id = $q->param('project_id');
+		if ( BIGSdb::Utils::is_int($project_id) ) {
+			$url .= "&amp;project_list=$project_id";
+		}
 	}
 	$url .= '&amp;submit=1';
 	return $url;
