@@ -172,7 +172,7 @@ my $script = BIGSdb::Offline::ScanNew->new(
 
 sub print_header {
 	if ( !$opts{'a'} ) {
-		say "locus\tallele_id\tstatus\tsequence\tflags";
+		say "locus\tallele_id\tstatus\tsequence\tflags" if !$opts{'q'};
 	}
 	return;
 }
