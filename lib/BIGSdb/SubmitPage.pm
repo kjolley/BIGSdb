@@ -211,7 +211,7 @@ sub print_content {
 			}
 		}
 		if ( !$action_performed ) {
-			foreach my $type (qw (alleles profiles isolates genomes)) {
+			foreach my $type (qw (alleles profiles isolates genomes add_genomes)) {
 				if ( $q->param($type) ) {
 					last if $self->_user_over_quota;
 					my $method = "_handle_$type";
@@ -230,7 +230,7 @@ sub print_content {
 		say q(</div>);
 		return;
 	}
-	foreach my $type (qw (alleles profiles isolates genomes)) {
+	foreach my $type (qw (alleles profiles isolates genomes add_genomes)) {
 		if ( $q->param($type) ) {
 			last if $self->_user_over_quota;
 			my $method = "_handle_$type";
@@ -385,6 +385,21 @@ sub _handle_genomes {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called
 	return;
 }
 
+sub _handle_add_genomes {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if ( $self->{'system'}->{'dbtype'} ne 'isolates' ) {
+		$self->print_bad_status(
+			{
+				message => q(You cannot submit new genomes to a sequence definition database.)
+			}
+		);
+		return;
+	}
+	$self->_add_genomes;
+	return;
+}
+
 sub _print_new_submission_links {
 	my ($self) = @_;
 	say q(<h2>Submit new data</h2>);
@@ -424,6 +439,8 @@ sub _print_new_submission_links {
 		if ( ( $self->{'system'}->{'genome_submissions'} // q() ) ne 'no' ) {
 			say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
 			  . q(genomes=1">genomes</a> (isolate records with assembly files)</li>);
+			say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
+			  . q(add_genomes=1">add genome assemblies to existing records</a></li>);
 		}
 	}
 	say q(</ul>);
@@ -1102,6 +1119,148 @@ sub _submit_isolates {
 	return;
 }
 
+sub _add_genomes {
+	my ($self)        = @_;
+	my $q             = $self->{'cgi'};
+	my $submission_id = $self->_get_started_submission_id;
+	$q->param( submission_id => $submission_id );
+	my $checks;
+	if ($submission_id) {
+		$self->_presubmit_add_genomes( { submission_id => $submission_id } );
+		return;
+	} elsif ( ( $q->param('submit') && $q->param('filenames') ) ) {
+		my $data = $q->param('filenames');
+		$checks = $self->_check_add_genomes_isolate_records( \$data );
+		use Data::Dumper;
+		$logger->error( Dumper $checks);
+		if ( @{ $checks->{'cleaned_list'} } && !keys %{ $checks->{'errors'} } ) {
+			$self->_presubmit_add_genomes(
+				{ cleaned_list => $checks->{'cleaned_list'}, wrong_sender => $checks->{'wrong_sender'} } );
+			return;
+		}
+	}
+	say q(<div class="box" id="queryform"><div class="scrollable">);
+	say q(<h2>Add genome assemblies to existing isolate records</h2>);
+	say q(<p>The first step in the upload process is to state which assembly contig FASTA file should be )
+	  . q(linked to each isolate record. We use both the database id and the isolate name fields to cross-check )
+	  . q(that the correct record is identified.</p>);
+	my $limit = LIMIT;
+	say qq(<p>You can upload up to $limit genomes at a time.</p>);
+	say $q->start_form;
+	say q(<fieldset style="float:left"><legend>Filenames</legend>);
+	say q(<p>Paste in tab-delimited text, e.g. copied from a spreadsheet, consisting of 3 columns )
+	  . q( (database id, isolate name, FASTA filename). You need to ensure that you use the full filename, )
+	  . q(including any suffix such as .fas or .fasta, which may be hidden by your operating system. FASTA )
+	  . q(files may be either uncompressed (.fas, .fasta) or gzip/zip compressed (.fas.gz, .fas.zip).</p>);
+	say $q->textarea(
+		-id          => 'filenames',
+		-name        => 'filenames',
+		-cols        => 50,
+		-rows        => 6,
+		-placeholder => "1001\tisolate1\tisolate_1001.fasta\n1002\tisolate2\tisolate_1002.fasta",
+		-required    => 'required'
+	);
+	say q(</fieldset>);
+	say $q->hidden($_) foreach qw(db page isolates add_genomes);
+	$self->print_action_fieldset( { no_reset => 1 } );
+	say $q->end_form;
+	say q(</div></div>);
+
+	if ( $checks->{'errors'} ) {
+		my $table = q(<table class="resultstable"><th>Row</th><th>Error</th></tr>);
+		my $td    = 1;
+		foreach my $row ( sort { $a <=> $b } keys %{ $checks->{'errors'} } ) {
+			$table .=
+			  qq(<tr class="td$td"><td>$row</td><td style="text-align:left">$checks->{'errors'}->{$row}</td></tr>);
+			$td = $td == 1 ? 2 : 1;
+		}
+		$table .= q(</table>);
+		$self->print_bad_status(
+			{
+				message => 'Invalid data submitted',
+				detail  => $table
+			}
+		);
+	}
+	return;
+}
+
+sub _check_add_genomes_isolate_records {
+	my ( $self, $data_ref ) = @_;
+	my @records   = split /\r?\n/x, $$data_ref;
+	my $errors    = {};
+	my $wrong_sender  = [];
+	my $row       = 0;
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $cleaned   = [];
+	my %id_used;
+	my %filename_used;
+
+	foreach my $record (@records) {
+		next if !$record;
+		$row++;
+		my ( $id, $isolate, $filename ) = split /\t/x, $record;
+		BIGSdb::Utils::remove_trailing_spaces_from_list( [ $id, $isolate, $filename ] );
+		if ( !BIGSdb::Utils::is_int($id) ) {
+			my $value = BIGSdb::Utils::escape_html($id);
+			$errors->{$row} = "invalid id - $value is not an integer.";
+			next;
+		}
+		if (
+			!$self->{'datastore'}->run_query(
+				"SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)",
+				$id, { cache => 'SubmitPage::id_exists' }
+			)
+		  )
+		{
+			$errors->{$row} = "invalid id - no record accessible with id-$id.";
+			next;
+		}
+		if ( !defined $isolate || $isolate eq q() ) {
+			$errors->{$row} = 'no isolate value.';
+			next;
+		}
+		if (
+			!$self->{'datastore'}->run_query(
+				qq[SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} ]
+				  . qq[WHERE (id,$self->{'system'}->{'labelfield'})=(?,?))],
+				[ $id, $isolate ],
+				{ cache => 'SubmitPage:isolate_matches_id' }
+			)
+		  )
+		{
+			$errors->{$row} = "isolate value does not match record for id-$id.";
+			next;
+		}
+		if ( !defined $filename || $filename eq q() ) {
+			$errors->{$row} = 'no filename.';
+			next;
+		}
+		if ( $id_used{$id} ) {
+			$errors->{$row} = "id-$id already submitted earlier in list.";
+			next;
+		}
+		if ( $filename_used{$filename} ) {
+			$errors->{$row} = 'filename already used earlier in list.';
+			next;
+		}
+		my $sender = $self->{'datastore'}->run_query( qq[SELECT sender FROM $self->{'system'}->{'view'} WHERE id=?],
+			$id, { cache => 'SubmitPage:get_sender' } );
+		if ( $sender != $user_info->{'id'} ) {
+			push @$wrong_sender, $id;
+		}
+		$id_used{$id}             = 1;
+		$filename_used{$filename} = 1;
+		push @$cleaned,
+		  {
+			id       => $id,
+			isolate  => $isolate,
+			filename => $filename
+		  };
+	}
+	return { cleaned_list => $cleaned, errors => $errors, wrong_sender => $wrong_sender };
+}
+
 sub _print_sequence_details_fieldset {
 	my ( $self, $submission_id ) = @_;
 	my $q = $self->{'cgi'};
@@ -1279,18 +1438,21 @@ sub _check_new_alleles {
 
 sub _start_submission {
 	my ( $self, $type ) = @_;
-	$logger->logdie("Invalid submission type '$type'") if none { $type eq $_ } qw (alleles profiles isolates genomes);
+	$logger->logdie("Invalid submission type '$type'")
+	  if none { $type eq $_ } qw (alleles profiles isolates genomes add_genomes);
 	my $submission_id =
 	    'BIGSdb_'
 	  . strftime( '%Y%m%d%H%M%S', localtime ) . '_'
 	  . sprintf( '%06d', $$ ) . '_'
 	  . sprintf( '%05d', int( rand(99999) ) );
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	my $dataset = ($self->{'system'}->{'separate_dataset'} // q()) eq 'yes' ? $self->{'instance'} : undef;
+	my $dataset = ( $self->{'system'}->{'separate_dataset'} // q() ) eq 'yes' ? $self->{'instance'} : undef;
 	eval {
-		$self->{'db'}
-		  ->do( 'INSERT INTO submissions (id,type,submitter,date_submitted,datestamp,status,dataset) VALUES (?,?,?,?,?,?,?)',
-			undef, $submission_id, $type, $user_info->{'id'}, 'now', 'now', 'started',$dataset );
+		$self->{'db'}->do(
+			'INSERT INTO submissions (id,type,submitter,date_submitted,datestamp,status,dataset) '
+			  . 'VALUES (?,?,?,?,?,?,?)',
+			undef, $submission_id, $type, $user_info->{'id'}, 'now', 'now', 'started', $dataset
+		);
 	};
 	if ($@) {
 		$logger->error($@);
@@ -1422,6 +1584,24 @@ sub _start_isolate_submission {
 	}
 	$self->{'db'}->commit;
 	$self->{'submissionHandler'}->write_isolate_csv($submission_id);
+	return;
+}
+
+sub _start_add_genomes_submission {
+	my ( $self, $submission_id, $cleaned_list ) = @_;
+	eval {
+		foreach my $record (@$cleaned_list) {
+			$self->{'db'}
+			  ->do( 'INSERT INTO add_genome_submissions (submission_id,isolate_id,isolate,filename) VALUES (?,?,?,?)',
+				undef, $submission_id, $record->{'id'}, $record->{'isolate'}, $record->{'filename'} );
+		}
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+		return;
+	}
+	$self->{'db'}->commit;
 	return;
 }
 
@@ -1598,6 +1778,47 @@ sub _presubmit_isolates {
 	say $q->hidden($_) foreach qw(db page submit finalize submission_id);
 	say $q->end_form;
 	say q(</div></div>);
+	return;
+}
+
+sub _presubmit_add_genomes {
+	my ( $self, $args ) = @_;
+#	$logger->error( Dumper $args);
+	my ( $submission_id, $cleaned_list, $wrong_sender ) = @{$args}{qw(submission_id cleaned_list wrong_sender)};
+	return if !$submission_id && !@$cleaned_list;
+	if ( !$submission_id ) {
+		$submission_id = $self->_start_submission('add_genomes');
+		$self->_start_add_genomes_submission( $submission_id, $cleaned_list );
+	} else {
+		$cleaned_list = $self->{'datastore'}->run_query(
+			'SELECT isolate_id AS id,isolate,filename FROM add_genome_submissions WHERE '
+			  . 'submission_id=? ORDER BY isolate_id',
+			$submission_id,
+			{ fetch => 'all_arrayref', slice => {} }
+		);
+	}
+#	$logger->error( Dumper $cleaned_list);
+#	$logger->error($submission_id);
+	if ($wrong_sender){
+		$self->_print_genome_warnings($wrong_sender);
+	}
+	say q(<div class="box" id="resultstable"><div class="scrollable">);
+	$self->_print_abort_form($submission_id);
+	say qq(<h2>Submission: $submission_id</h2>);
+	say q(</div></div>);
+}
+
+sub _print_genome_warnings {
+	my ($self, $wrong_sender) = @_;
+	my @ids = sort @$wrong_sender;
+	say q(<div class="box" id="resultspanel">);
+	say q(<h2>Advisories</h2>);
+	my $plural = @$wrong_sender == 1 ? q() : q(s);
+	say qq(<p>Note that you are not the original sender for the following isolate id$plural: @ids.</p>);
+	print q(<p>You can still submit assemblies but please add a message to the curator to confirm why )
+	. q(you are adding assemblies for );
+	print @$wrong_sender > 1 ? 'these isolates' : 'this isolate';
+	say q(.</p></div>);
 	return;
 }
 
@@ -2170,7 +2391,11 @@ sub _print_sequence_table_fieldset {
 
 	if ( $options->{'curate'} && !$status->{'all_assigned_or_rejected'} && !$has_extended_attributes ) {
 		say $q->start_form( -action => $self->{'system'}->{'curate_script'} );
-		say $q->submit( -name => 'Batch curate', -class => 'submit', -style => 'float:left;margin:0.5em 0.5em 0 0' );
+		say $q->submit(
+			-name  => 'Batch curate',
+			-class => 'submit',
+			-style => 'float:left;margin:0.5em 0.5em 0 0'
+		);
 		my $page = $q->param('page');
 		$q->param( page         => 'batchAddFasta' );
 		$q->param( locus        => $locus );
@@ -2277,7 +2502,8 @@ sub _print_message_fieldset {
 	my $buffer;
 	my $qry = q(SELECT date_trunc('second',timestamp) AS timestamp,user_id,message FROM messages )
 	  . q(WHERE submission_id=? ORDER BY timestamp asc);
-	my $messages = $self->{'datastore'}->run_query( $qry, $submission_id, { fetch => 'all_arrayref', slice => {} } );
+	my $messages =
+	  $self->{'datastore'}->run_query( $qry, $submission_id, { fetch => 'all_arrayref', slice => {} } );
 	my $can_delete_last_message = $self->_can_delete_last_message($submission_id);
 	if (@$messages) {
 	  EXIT_IF: {
@@ -2400,7 +2626,8 @@ sub _send_message_from_submitter {
 sub _can_delete_last_message {
 	my ( $self, $submission_id ) = @_;
 	my $qry = q(SELECT timestamp,user_id,message FROM messages WHERE submission_id=? ORDER BY timestamp asc);
-	my $messages = $self->{'datastore'}->run_query( $qry, $submission_id, { fetch => 'all_arrayref', slice => {} } );
+	my $messages =
+	  $self->{'datastore'}->run_query( $qry, $submission_id, { fetch => 'all_arrayref', slice => {} } );
 	my $last_message = $messages->[-1];
 	my $datestamp    = BIGSdb::Utils::get_datestamp();
 	my $user         = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
