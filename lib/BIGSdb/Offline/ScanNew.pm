@@ -176,10 +176,12 @@ sub _handle_match {
 	if ( $self->{'options'}->{'a'} ) {
 		return if $locus_info->{'data_type'} eq 'DNA' && $seq =~ /[^GATC]/x;
 		my $allele_id = $self->_define_allele( $locus, $seq, $flag );
-		say ">$locus-$allele_id";
-		say $seq;
+		if ( !$self->{'options'}->{'q'} ) {
+			say ">$locus-$allele_id";
+			say $seq;
+		}
 	} else {
-		say "$locus\t\tWGS: automated extract (BIGSdb)\t$seq\t$flag";
+		say "$locus\t\tWGS: automated extract (BIGSdb)\t$seq\t$flag" if !$self->{'options'}->{'q'};
 	}
 	return;
 }
@@ -191,8 +193,7 @@ sub _check_cds {
 	my $start_codons = $self->{'datastore'}->get_start_codons( { locus => $locus, isolate_id => $isolate_id } );
 	my $stop_codons  = $self->{'datastore'}->get_stop_codons( { isolate_id => $isolate_id } );
 	my $complete_cds =
-	  BIGSdb::Utils::is_complete_cds( $seq, { start_codons => $start_codons, $stop_codons => $stop_codons } )
-	  ;
+	  BIGSdb::Utils::is_complete_cds( $seq, { start_codons => $start_codons, $stop_codons => $stop_codons } );
 	if ( $self->{'options'}->{'c'} && !$complete_cds->{'cds'} ) {
 		if ( $self->{'options'}->{'allow_frameshift'} ) {
 			$complete_cds->{'err'} //= q();
@@ -286,7 +287,7 @@ sub _define_allele {
 				  . 'defined allele in the past few minutes.';
 			} else {
 				$self->{'logger'}->error($@);
-				say "Can't add new allele. Error: $@";
+				say "Cannot add new allele. Error: $@";
 				$can_define = 0;
 			}
 			$locus_db->rollback;
@@ -298,7 +299,7 @@ sub _define_allele {
 	catch {
 		if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
 			$self->{'logger'}->error("Cannot connect to database for locus $locus");
-			say "Can not connect to database for locus $locus";
+			say "Cannot connect to database for locus $locus";
 			$can_define = 0;
 		} else {
 			$self->{'logger'}->logdie($_);

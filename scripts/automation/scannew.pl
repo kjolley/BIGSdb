@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20220704
+#Version: 20221122
 use strict;
 use warnings;
 use 5.010;
@@ -70,6 +70,7 @@ GetOptions(
 	'n|new_only'           => \$opts{'n'},
 	'new_max_alleles=i'    => \$opts{'new_max_alleles'},
 	'o|order'              => \$opts{'o'},
+	'q|quiet'              => \$opts{'q'},
 	'r|random'             => \$opts{'r'},
 	'seqbin_reldate=i'     => \$opts{'seqbin_reldate'},
 	'reuse_blast'          => \$opts{'reuse_blast'},
@@ -270,6 +271,9 @@ ${bold}-p, --projects$norm ${under}LIST$norm
 
 ${bold}-P, --exclude_projects$norm ${under}LIST$norm
     Comma-separated list of projects whose isolates will be excluded.
+    
+${bold}-q, --quiet$norm
+    Only error messages displayed.
            
 ${bold}-r, --random$norm
     Shuffle order of isolate ids to scan.
