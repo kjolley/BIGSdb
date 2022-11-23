@@ -56,7 +56,7 @@ sub get_javascript {
 	my $max_files   = LIMIT;
 	my $tree_js     = $self->get_tree_javascript( { checkboxes => 1, check_schemes => 1, submit_name => 'filter' } );
 	my $submit_type = q();
-	foreach my $type (qw(isolates genomes alleles profiles)) {
+	foreach my $type (qw(isolates genomes add_genomes alleles profiles)) {
 		if ( $q->param($type) ) {
 			$submit_type = $type;
 			last;
@@ -531,31 +531,21 @@ sub _get_own_submissions {
 		my $set_id = $self->get_set_id;
 		my $table_buffer;
 		foreach my $submission (@$submissions) {
-			my $details = '';
-			if ( $submission->{'type'} eq 'alleles' ) {
-				my $allele_submission = $self->{'submissionHandler'}->get_allele_submission( $submission->{'id'} );
-				my $allele_count      = @{ $allele_submission->{'seqs'} };
-				my $plural            = $allele_count == 1 ? '' : 's';
-				next if $set_id && !$self->{'datastore'}->is_locus_in_set( $allele_submission->{'locus'}, $set_id );
-				my $clean_locus = $self->clean_locus( $allele_submission->{'locus'} );
-				$details = "$allele_count $clean_locus sequence$plural";
-			} elsif ( $submission->{'type'} eq 'profiles' ) {
-				my $profile_submission = $self->{'submissionHandler'}->get_profile_submission( $submission->{'id'} );
-				my $profile_count      = @{ $profile_submission->{'profiles'} };
-				my $plural             = $profile_count == 1 ? '' : 's';
-				next
-				  if $set_id
-				  && !$self->{'datastore'}->is_scheme_in_set( $profile_submission->{'scheme_id'}, $set_id );
-				my $scheme_info =
-				  $self->{'datastore'}
-				  ->get_scheme_info( $profile_submission->{'scheme_id'}, { get_pk => 1, set_id => $set_id } );
-				$details = "$profile_count $scheme_info->{'name'} profile$plural";
-			} elsif ( $submission->{'type'} eq 'isolates' || $submission->{'type'} eq 'genomes' ) {
-				my $isolate_submission = $self->{'submissionHandler'}->get_isolate_submission( $submission->{'id'} );
-				my $isolate_count      = @{ $isolate_submission->{'isolates'} };
-				my $plural             = $isolate_count == 1 ? '' : 's';
-				$details = "$isolate_count isolate$plural";
+			my $details        = q();
+			my %details_method = (
+				alleles  => '_get_allele_submission_details',
+				profiles => '_get_profile_submission_details',
+				isolates => '_get_isolate_submission_details',
+				genomes  => '_get_isolate_submission_details',
+				add_genomes => '_get_assembly_submission_details'
+			);
+
+			if ( $details_method{ $submission->{'type'} } ) {
+				my $method = $details_method{ $submission->{'type'} };
+				$details = $self->$method( $submission );
 			}
+
+	
 			my $url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
 			  . qq(submission_id=$submission->{'id'}&amp;view=1);
 			$table_buffer .=
@@ -587,6 +577,47 @@ sub _get_own_submissions {
 		}
 	}
 	return $buffer;
+}
+
+sub _get_allele_submission_details {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $submission ) = @_;
+	my $set_id            = $self->get_set_id;
+	my $allele_submission = $self->{'submissionHandler'}->get_allele_submission( $submission->{'id'} );
+	my $allele_count      = @{ $allele_submission->{'seqs'} };
+	my $plural            = $allele_count == 1 ? '' : 's';
+	next if $set_id && !$self->{'datastore'}->is_locus_in_set( $allele_submission->{'locus'}, $set_id );
+	my $clean_locus = $self->clean_locus( $allele_submission->{'locus'} );
+	return "$allele_count $clean_locus sequence$plural";
+}
+
+sub _get_profile_submission_details {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $submission ) = @_;
+	my $set_id             = $self->get_set_id;
+	my $profile_submission = $self->{'submissionHandler'}->get_profile_submission( $submission->{'id'} );
+	my $profile_count      = @{ $profile_submission->{'profiles'} };
+	my $plural             = $profile_count == 1 ? '' : 's';
+	next
+	  if $set_id
+	  && !$self->{'datastore'}->is_scheme_in_set( $profile_submission->{'scheme_id'}, $set_id );
+	my $scheme_info =
+	  $self->{'datastore'}->get_scheme_info( $profile_submission->{'scheme_id'}, { get_pk => 1, set_id => $set_id } );
+	return "$profile_count $scheme_info->{'name'} profile$plural";
+}
+
+sub _get_isolate_submission_details {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $submission ) = @_;
+	my $isolate_submission = $self->{'submissionHandler'}->get_isolate_submission( $submission->{'id'} );
+	my $isolate_count      = @{ $isolate_submission->{'isolates'} };
+	my $plural             = $isolate_count == 1 ? '' : 's';
+	return "$isolate_count isolate$plural";
+}
+
+sub _get_assembly_submission_details {## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+		my ( $self, $submission ) = @_;
+	my $isolate_submission = $self->{'submissionHandler'}->get_add_genome_submission( $submission->{'id'} );
+	my $assembly_count = @$isolate_submission;
+	my $plural             = $assembly_count == 1 ? 'y' : 'ies';
+	return "$assembly_count assembl$plural";
 }
 
 sub _print_pending_submissions {
@@ -1187,12 +1218,12 @@ sub _add_genomes {
 
 sub _check_add_genomes_isolate_records {
 	my ( $self, $data_ref ) = @_;
-	my @records   = split /\r?\n/x, $$data_ref;
-	my $errors    = {};
-	my $wrong_sender  = [];
-	my $row       = 0;
-	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	my $cleaned   = [];
+	my @records      = split /\r?\n/x, $$data_ref;
+	my $errors       = {};
+	my $wrong_sender = [];
+	my $row          = 0;
+	my $user_info    = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $cleaned      = [];
 	my %id_used;
 	my %filename_used;
 
@@ -1409,6 +1440,31 @@ sub _print_isolate_table_fieldset {
 	say q(</fieldset>);
 	say q(<div id="dialog"></div>);
 	$self->{'all_assigned_or_rejected'} = $submission->{'outcome'} ? 1 : 0;
+	return;
+}
+
+sub _print_add_genome_table_fieldset {
+	my ( $self, $submission_id, $options ) = @_;
+	my $q          = $self->{'cgi'};
+	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
+	return if !$submission;
+	return if $submission->{'type'} ne 'add_genomes';
+	my $add_genome_submission = $self->{'submissionHandler'}->get_add_genome_submission($submission_id);
+	return if !$add_genome_submission;
+	my @isolates;
+	push @isolates, $_->{'id'} foreach @$add_genome_submission;
+	say q(<fieldset><legend>Assemblies</legend>);
+	my $csv_icon = $self->get_file_icon('CSV');
+	my $plural = @isolates == 1 ? '' : 's';
+	say qq(<p>You are submitting the following isolate$plural: ) if $options->{'download_link'};
+	say $q->start_form;
+	$self->_print_assembly_table( $submission_id, $options );
+	say q(<p><span style="color:red">Missing contig assembly files are shown in red.</span>)
+	  if $self->{'contigs_missing'};
+	$self->_print_update_button( { record_status => 1 } ) if $options->{'curate'};
+	say $q->hidden($_) foreach qw(db page submission_id curate);
+	say $q->end_form;
+	say q(</fieldset>);
 	return;
 }
 
@@ -1658,7 +1714,8 @@ sub _print_file_upload_fieldset {
 	say q(</div>);
 	say q(<div class="dz-message">Drop files here or click to upload.</div>);
 	$q->param( no_check => 1 );
-	say $q->hidden($_) foreach qw(db page alleles profiles isolates genomes locus submit submission_id no_check view);
+	say $q->hidden($_)
+	  foreach qw(db page alleles profiles isolates genomes add_genomes locus submit submission_id no_check view);
 	say $q->end_form;
 	my $files = $self->_get_submission_files($submission_id);
 
@@ -1669,7 +1726,7 @@ sub _print_file_upload_fieldset {
 			{ delete_checkbox => $submission->{'status'} eq 'started' ? 1 : 0 } );
 		$q->param( delete => 1 );
 		say $q->hidden($_)
-		  foreach qw(db page alleles profiles isolates genomes locus submission_id delete no_check view);
+		  foreach qw(db page alleles profiles isolates genomes add_genomes locus submission_id delete no_check view);
 		if ( $submission->{'status'} eq 'started' ) {
 			say $q->submit( -label => 'Delete selected files', -class => 'small_submit' );
 		}
@@ -1783,9 +1840,10 @@ sub _presubmit_isolates {
 
 sub _presubmit_add_genomes {
 	my ( $self, $args ) = @_;
-#	$logger->error( Dumper $args);
 	my ( $submission_id, $cleaned_list, $wrong_sender ) = @{$args}{qw(submission_id cleaned_list wrong_sender)};
 	return if !$submission_id && !@$cleaned_list;
+	my $q           = $self->{'cgi'};
+	my $invalid_ids = [];
 	if ( !$submission_id ) {
 		$submission_id = $self->_start_submission('add_genomes');
 		$self->_start_add_genomes_submission( $submission_id, $cleaned_list );
@@ -1796,28 +1854,64 @@ sub _presubmit_add_genomes {
 			$submission_id,
 			{ fetch => 'all_arrayref', slice => {} }
 		);
+		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+		foreach my $record (@$cleaned_list) {
+			my $sender = $self->{'datastore'}
+			  ->run_query( "SELECT sender FROM $self->{'system'}->{'view'} WHERE id=?", $record->{'id'} );
+			if ( !$sender ) {
+				push @$invalid_ids, $record->{'id'};
+			} elsif ( $sender != $user_info->{'id'} ) {
+				push @$wrong_sender, $record->{'id'};
+			}
+		}
 	}
-#	$logger->error( Dumper $cleaned_list);
-#	$logger->error($submission_id);
-	if ($wrong_sender){
-		$self->_print_genome_warnings($wrong_sender);
+	if ($wrong_sender) {
+		$self->_print_genome_warnings( $wrong_sender, $invalid_ids );
 	}
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
 	$self->_print_abort_form($submission_id);
 	say qq(<h2>Submission: $submission_id</h2>);
+	$self->_print_file_upload_fieldset( $submission_id, { download_link => 1 } );
+	$self->_print_add_genome_table_fieldset( $submission_id, { download_link => 1 } );
+	$self->_print_message_fieldset($submission_id);
+	say $q->start_form;
+	$self->_print_email_fieldset($submission_id);
+
+	if ( $self->{'failed_validation'} ) {
+		say q(<div style="clear:both"></div><div><p>One or more of your assemblies has <span class="fail">)
+		  . q(failed basic validation</span> checks. This submission cannot be finalized. Please )
+		  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
+		  . qq(submission_id=$submission_id&amp;abort=1&amp;confirm=1">abort this submission</a>.</p></div>);
+	} elsif ( !$self->{'contigs_missing'} ) {
+		$self->print_action_fieldset( { no_reset => 1, submit_label => 'Finalize submission!' } );
+	}
+	$q->param( finalize      => 1 );
+	$q->param( submission_id => $submission_id );
+	say $q->hidden($_) foreach qw(db page submit finalize submission_id);
+	say $q->end_form;
 	say q(</div></div>);
 }
 
 sub _print_genome_warnings {
-	my ($self, $wrong_sender) = @_;
+	my ( $self, $wrong_sender, $invalid_ids ) = @_;
 	my @ids = sort @$wrong_sender;
+	return if !@$wrong_sender && ( !defined $invalid_ids || !@$invalid_ids );
 	say q(<div class="box" id="resultspanel">);
 	say q(<h2>Advisories</h2>);
-	my $plural = @$wrong_sender == 1 ? q() : q(s);
-	say qq(<p>Note that you are not the original sender for the following isolate id$plural: @ids.</p>);
-	print q(<p>You can still submit assemblies but please add a message to the curator to confirm why )
-	. q(you are adding assemblies for );
-	print @$wrong_sender > 1 ? 'these isolates' : 'this isolate';
+	if ( defined $invalid_ids && @$invalid_ids ) {
+		my $plural  = @$invalid_ids == 1 ? q()   : q(s);
+		my $are_is  = @$invalid_ids == 1 ? q(is) : q(are);
+		my $they_it = @$invalid_ids == 1 ? q(It) : q(They);
+		say qq(<p>The following isolate id$plural $are_is no longer accessible: @$invalid_ids. )
+		  . qq($they_it may have been removed since this submission was started.</p>);
+	}
+	if (@$wrong_sender) {
+		my $plural = @$wrong_sender == 1 ? q() : q(s);
+		say qq(<p>Note that you are not the original sender for the following isolate id$plural: @ids.</p>);
+		print q(<p>You can still submit assemblies but please add a message to the curator to confirm why )
+		  . q(you are adding assemblies for );
+		print @$wrong_sender > 1 ? 'these isolates' : 'this isolate';
+	}
 	say q(.</p></div>);
 	return;
 }
@@ -2235,13 +2329,51 @@ sub _print_isolate_table {
 		}
 		say qq(<tr class="td$td"><td>@values</td>);
 		if ( $submission->{'type'} eq 'genomes' ) {
-			$self->_print_genome_stat_fields( $submission_id, $isolate, $index );
+			$self->_print_genome_stat_fields( $submission_id, $isolate->{'assembly_filename'}, $index );
 		}
 		say q(</tr>);
 		$td = $td == 1 ? 2 : 1;
 	}
 	say q(</table></div></div>);
 	return;
+}
+
+sub _print_assembly_table {
+	my ( $self, $submission_id, $options ) = @_;
+	my $submission            = $self->{'submissionHandler'}->get_submission($submission_id);
+	my $add_genome_submission = $self->{'submissionHandler'}->get_add_genome_submission($submission_id);
+	my $max_width             = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
+	my $main_max_width        = $max_width - 100;
+	say qq(<div style="max-width:min(${main_max_width}px, 100vw - 100px)"><div class="scrollable">)
+	  . q(<table class="resultstable" style="margin-bottom:0"><tr><th>id</th>)
+	  . qq(<th>$self->{'system'}->{'labelfield'}</th><th>filename</th><th>contigs</th>)
+	  . q(<th>total length (bp)</th><th>N50</th>);
+	my $rmlst_analysis = $self->_get_rmlst_analysis($submission_id);
+	say q(<th>rMLST species prediction</th>) if %$rmlst_analysis;
+	say q(</tr>);
+	my $td = 1;
+	local $" = q(</td><td>);
+	my $files       = $self->_get_submission_files($submission_id);
+	my %file_exists = map { $_->{'filename'} => 1 } @$files;
+	my $dir         = $self->{'submissionHandler'}->get_submission_dir($submission_id) . '/supporting_files';
+	my %filename_already_used;
+	my $index = 0;
+
+	foreach my $record (@$add_genome_submission) {
+		$index++;
+		my @values;
+		push @values, ( $record->{$_} ) foreach qw(isolate_id isolate);
+		if ( !-e "$dir/$record->{'filename'}" ) {
+			push @values, qq(<span style="color:red">$record->{'filename'}</span>);
+			$self->{'contigs_missing'} = 1;
+		} else {
+			push @values, $record->{'filename'};
+		}
+		say qq(<tr class="td$td"><td>@values</td>);
+		$self->_print_genome_stat_fields( $submission_id, $record->{'filename'}, $index );
+		$td = $td == 1 ? 2 : 1;
+	}
+	say q(</table></div></div>);
 }
 
 sub _get_rmlst_analysis {
@@ -2251,16 +2383,16 @@ sub _get_rmlst_analysis {
 }
 
 sub _print_genome_stat_fields {
-	my ( $self, $submission_id, $isolate, $index ) = @_;
+	my ( $self, $submission_id, $assembly_filename, $index ) = @_;
 	my $dir            = $self->{'submissionHandler'}->get_submission_dir($submission_id) . '/supporting_files';
 	my $assembly_stats = $self->{'submissionHandler'}->get_assembly_stats($submission_id);
-	return if !$isolate->{'assembly_filename'};
+	return if !$assembly_filename;
 	my $rmlst_analysis = $self->_get_rmlst_analysis($submission_id);
 	my $colspan = %$rmlst_analysis ? 4 : 3;
-	if ( -e "$dir/$isolate->{'assembly_filename'}" ) {
+	if ( -e "$dir/$assembly_filename" ) {
 		if ( !$assembly_stats->{$index} ) {
-			$assembly_stats->{$index} = $self->{'submissionHandler'}
-			  ->calc_assembly_stats( $submission_id, $index, $isolate->{'assembly_filename'} );
+			$assembly_stats->{$index} =
+			  $self->{'submissionHandler'}->calc_assembly_stats( $submission_id, $index, $assembly_filename );
 		}
 		if ( $assembly_stats->{$index}->{'total_length'} == 0 ) {
 			say qq(<td colspan="$colspan" class="fail">Invalid file format</td>);
@@ -2446,8 +2578,7 @@ sub _print_update_button {
 sub _print_message_fieldset {
 	my ( $self, $submission_id, $options ) = @_;
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
-	$options = {} if ref $options ne 'HASH';
-	my $q = $self->{'cgi'};
+	my $q          = $self->{'cgi'};
 	if ( $q->param('message') ) {
 		my $user = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 		if ( !$user ) {
@@ -2562,8 +2693,8 @@ sub _print_message_fieldset {
 			$buffer .= $q->submit( -name => 'append_and_send', -label => 'Send now', -class => 'small_submit' );
 		}
 		$buffer .= q(</div>);
-		$buffer .= $q->hidden($_)
-		  foreach qw(db page alleles profiles isolates genomes locus submit view curate abort submission_id no_check );
+		$buffer .= $q->hidden($_) foreach qw(db page alleles profiles isolates genomes add_genomes locus submit view
+		  curate abort submission_id no_check );
 		$buffer .= $q->end_form;
 	}
 	if ($buffer) {
@@ -2580,7 +2711,7 @@ sub _print_message_fieldset {
 sub _send_message_from_submitter {
 	my ( $self, $submission_id, $subject, $message, $summary ) = @_;
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
-	my $curators   = $self->{'submissionHandler'}->_get_curators($submission_id);
+	my $curators   = $self->{'submissionHandler'}->get_curators($submission_id);
 	foreach my $curator_id (@$curators) {
 		my $curator_info = $self->{'datastore'}->get_user_info($curator_id);
 		if ( $curator_info->{'submission_digests'} ) {
@@ -2653,7 +2784,7 @@ sub _delete_message {
 	} else {
 		$self->{'db'}->commit;
 	}
-	my $curators = $self->{'submissionHandler'}->_get_curators($submission_id);
+	my $curators = $self->{'submissionHandler'}->get_curators($submission_id);
 	my %user_db_sent;
 	foreach my $curator_id (@$curators) {
 		my $curator_info = $self->{'datastore'}->get_user_info($curator_id);
@@ -2990,10 +3121,19 @@ sub _view_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Calle
 	$self->_print_profile_table_fieldset($submission_id);
 	$self->_print_file_upload_fieldset( $submission_id, { no_add => $submission->{'status'} eq 'closed' ? 1 : 0 } )
 	  if $submission->{'type'} ne 'isolates';
+	$self->_print_add_genome_table_fieldset( $submission_id, { download_link => 1 } );
 	$self->_print_isolate_table_fieldset($submission_id);
 	$self->_print_message_fieldset( $submission_id, { no_add => $submission->{'status'} eq 'closed' ? 1 : 0 } );
 	$self->_print_archive_fieldset($submission_id);
 	$self->_print_cancel_fieldset($submission_id);
+
+	if ( $submission->{'status'} eq 'started' ) {
+		say $q->start_form;
+		$self->print_action_fieldset( { no_reset => 1, submit_label => 'Finalize submission!' } );
+		say $q->hidden( finalize => 1 );
+		say $q->hidden($_) foreach qw(db page locus submit finalize submission_id);
+		say $q->end_form;
+	}
 	say q(</div></div>);
 	return;
 }
@@ -3046,7 +3186,7 @@ sub _cancel_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 	return if !$self->_is_submission_valid( $submission_id, { no_message => 1, user_owns => 1 } );
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	return if $submission->{'status'} ne 'pending';
-	my $curators = $self->{'submissionHandler'}->_get_curators($submission_id);
+	my $curators = $self->{'submissionHandler'}->get_curators($submission_id);
 	my $desc     = $self->{'system'}->{'description'} || 'BIGSdb';
 	my $subject  = "CANCELLED $submission->{'type'} submission ($desc) - $submission_id";
 	my $message  = "This submission has been CANCELLED by the submitter.\n\n";
