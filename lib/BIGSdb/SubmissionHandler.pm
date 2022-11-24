@@ -270,12 +270,12 @@ sub get_isolate_submission {
 	return $submission;
 }
 
-sub get_add_genome_submission {
+sub get_assembly_submission {
 	my ( $self, $submission_id ) = @_;
 	$logger->logcarp('No submission_id passed') if !$submission_id;
-	my $submission = $self->{'datastore'}->run_query( 'SELECT * FROM add_genome_submissions WHERE submission_id=?',
+	my $submission = $self->{'datastore'}->run_query( 'SELECT * FROM assembly_submissions WHERE submission_id=?',
 		$submission_id,
-		{ fetch => 'all_arrayref', slice => {}, cache => 'SubmissionHandler::get_add_genome_submission' } )
+		{ fetch => 'all_arrayref', slice => {}, cache => 'SubmissionHandler::get_assembly_submission' } )
 	  ;
 	return $submission;
 }

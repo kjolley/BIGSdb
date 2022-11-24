@@ -145,16 +145,27 @@ sub check_db {
 	  $script->{'system'}->{'min_genome_size'} // $script->{'config'}->{'min_genome_size'} // MIN_GENOME_SIZE;
 	my $agent = LWP::UserAgent->new( agent => 'BIGSdb' );
 	my $pending_submissions = $script->{'datastore'}->run_query(
-		'SELECT id FROM submissions WHERE (type,status)=(?,?)',
-		[ 'genomes', 'pending' ],
+		'SELECT id FROM submissions WHERE type IN (?,?) AND status=?',
+		[ 'genomes', 'assemblies', 'pending' ],
 		{ fetch => 'col_arrayref' }
 	);
 	my @submission_ids;
+	my %submission_type;
 	foreach my $submission_id (@$pending_submissions) {
-		my $genome_count =
-		  $script->{'datastore'}
-		  ->run_query( 'SELECT COUNT(DISTINCT index) FROM isolate_submission_isolates WHERE submission_id=?',
-			$submission_id );
+		my $genome_count;
+		my $type = $script->{'datastore'}
+		  ->run_query( 'SELECT type FROM submissions WHERE id=?', $submission_id, { cache => 'get_submission_type' } );
+		$submission_type{$submission_id} = $type;
+		if ( $type eq 'genomes' ) {
+			$genome_count =
+			  $script->{'datastore'}
+			  ->run_query( 'SELECT COUNT(DISTINCT index) FROM isolate_submission_isolates WHERE submission_id=?',
+				$submission_id );
+		} elsif ( $type eq 'assemblies' ) {
+			$genome_count =
+			  $script->{'datastore'}
+			  ->run_query( 'SELECT COUNT(*) FROM assembly_submissions WHERE submission_id=?', $submission_id );
+		}
 		my $analysed_count = $script->{'datastore'}
 		  ->run_query( 'SELECT COUNT(*) FROM genome_submission_analysis WHERE submission_id=?', $submission_id );
 		next if $genome_count == $analysed_count;
@@ -187,12 +198,20 @@ sub check_db {
 	);
   SUBMISSION: foreach my $submission_id (@submission_ids) {
 		say "Checking submission: $submission_id" if !$opts{'quiet'};
-		my $indices =
-		  $script->{'datastore'}
-		  ->run_query( 'SELECT DISTINCT index FROM isolate_submission_isolates WHERE submission_id=? ORDER BY index',
-			$submission_id, { fetch => 'col_arrayref' } );
-	  ISOLATE: foreach my $index (@$indices) {
-			last ISOLATE if $EXIT;
+		my $indices;
+		if ( $submission_type{$submission_id} eq 'genomes' ) {
+			$indices =
+			  $script->{'datastore'}->run_query(
+				'SELECT DISTINCT index FROM isolate_submission_isolates WHERE submission_id=? ORDER BY index',
+				$submission_id, { fetch => 'col_arrayref' } );
+		} elsif ( $submission_type{$submission_id} eq 'assemblies' ) {
+			$indices =
+			  $script->{'datastore'}
+			  ->run_query( 'SELECT index FROM assembly_submissions WHERE submission_id=? ORDER BY index',
+				$submission_id, { fetch => 'col_arrayref' } );
+		}
+	  RECORD: foreach my $index (@$indices) {
+			last RECORD if $EXIT;
 
 			#Make sure submission hasn't handled and removed while we're scanning.
 			next SUBMISSION
@@ -205,7 +224,7 @@ sub check_db {
 			print "Scanning record:$index ... " if !$opts{'quiet'};
 			if ($already_done) {
 				say 'already checked.' if !$opts{'quiet'};
-				next ISOLATE;
+				next RECORD;
 			}
 			my $fasta_ref = get_fasta( $script, $submission_id, $index );
 			next if !ref $fasta_ref;
@@ -240,10 +259,20 @@ sub check_db {
 sub get_fasta {
 	my ( $script, $submission_id, $index ) = @_;
 	my $submission_dir = get_submission_dir();
-	my $filename =
-	  $script->{'datastore'}
-	  ->run_query( 'SELECT value FROM isolate_submission_isolates WHERE (submission_id,index,field)=(?,?,?)',
-		[ $submission_id, $index, 'assembly_filename' ] );
+	my $type           = $script->{'datastore'}
+	  ->run_query( 'SELECT type FROM submissions WHERE id=?', $submission_id, { cache => 'get_submission_type' } );
+	my $filename;
+	if ( $type eq 'isolates' ) {
+		$filename =
+		  $script->{'datastore'}
+		  ->run_query( 'SELECT value FROM isolate_submission_isolates WHERE (submission_id,index,field)=(?,?,?)',
+			[ $submission_id, $index, 'assembly_filename' ] );
+	} elsif ( $type eq 'assemblies' ) {
+		$filename =
+		  $script->{'datastore'}
+		  ->run_query( 'SELECT filename FROM assembly_submissions WHERE (submission_id,index)=(?,?)',
+			[ $submission_id, $index ] );
+	}
 	my $full_path = "$submission_dir/$submission_id/supporting_files/$filename";
 	return if !-e $full_path;
 	my $return_value;

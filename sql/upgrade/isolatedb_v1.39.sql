@@ -1,5 +1,6 @@
-CREATE TABLE add_genome_submissions (
+CREATE TABLE assembly_submissions (
 submission_id text NOT NULL,
+index int NOT NULL,
 isolate_id int NOT NULL,
 isolate text NOT NULL,
 filename text NOT NULL,
@@ -9,4 +10,4 @@ ON DELETE CASCADE
 ON UPDATE CASCADE
 );
 
-GRANT SELECT,UPDATE,INSERT,DELETE ON add_genome_submissions TO apache;
+GRANT SELECT,UPDATE,INSERT,DELETE ON assembly_submissions TO apache;
