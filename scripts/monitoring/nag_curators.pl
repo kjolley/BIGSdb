@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20221111
+#Version: 20221125
 use strict;
 use warnings;
 use Carp;
@@ -42,7 +42,7 @@ use constant {
 	DOMAIN           => 'PubMLST',
 	SMTP_SERVER      => '127.0.0.1',
 	SMTP_PORT        => 25,
-	SENDER           => 'no_reply@pubmlst.org',
+	SENDER           => 'pubmlst@biology.ox.ac.uk',
 };
 #######End Local configuration################################
 my %opts;
