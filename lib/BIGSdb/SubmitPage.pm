@@ -396,7 +396,7 @@ sub _handle_assemblies {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 		);
 		return;
 	}
-	$self->_add_assemblies;
+	$self->_submit_assemblies;
 	return;
 }
 
@@ -1217,7 +1217,7 @@ sub _get_assembly_wrong_sender {
 	return { wrong_sender => $wrong_sender, invalid_ids => $invalid_ids };
 }
 
-sub _add_assemblies {
+sub _submit_assemblies {
 	my ($self)        = @_;
 	my $q             = $self->{'cgi'};
 	my $submission_id = $self->_get_started_submission_id;
@@ -1240,20 +1240,23 @@ sub _add_assemblies {
 	say q(<p>The first step in the upload process is to state which assembly contig FASTA file should be )
 	  . q(linked to each isolate record. We use both the database id and the isolate name fields to cross-check )
 	  . q(that the correct record is identified.</p>);
+	my @seq_methods = SEQ_METHODS;
+	local $" = q(, );
+	say qq(<p>You also need to state the sequencing method for each assembly. Allowed values are: @seq_methods.</p>);
 	my $limit = LIMIT;
 	say qq(<p>You can upload up to $limit genomes at a time.</p>);
 	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Filenames</legend>);
-	say q(<p>Paste in tab-delimited text, e.g. copied from a spreadsheet, consisting of 3 columns )
-	  . q( (database id, isolate name, FASTA filename). You need to ensure that you use the full filename, )
+	say q(<p>Paste in tab-delimited text, e.g. copied from a spreadsheet, consisting of 4 columns )
+	  . q( (database id, isolate name, method, FASTA filename). You need to ensure that you use the full filename, )
 	  . q(including any suffix such as .fas or .fasta, which may be hidden by your operating system. FASTA )
 	  . q(files may be either uncompressed (.fas, .fasta) or gzip/zip compressed (.fas.gz, .fas.zip).</p>);
 	say $q->textarea(
 		-id          => 'filenames',
 		-name        => 'filenames',
-		-cols        => 50,
+		-cols        => 60,
 		-rows        => 6,
-		-placeholder => "1001\tisolate1\tisolate_1001.fasta\n1002\tisolate2\tisolate_1002.fasta",
+		-placeholder => "1001\tisolate1\tIllumina\tisolate_1001.fasta\n1002\tisolate2\tIllumina\tisolate_1002.fasta",
 		-required    => 'required'
 	);
 	say q(</fieldset>);
@@ -1291,12 +1294,13 @@ sub _check_assemblies_isolate_records {
 	my $cleaned      = [];
 	my %id_used;
 	my %filename_used;
+	my %allowed_methods = map { $_ => 1 } SEQ_METHODS;
 
 	foreach my $record (@records) {
 		next if !$record;
 		$row++;
-		my ( $id, $isolate, $filename ) = split /\t/x, $record;
-		BIGSdb::Utils::remove_trailing_spaces_from_list( [ $id, $isolate, $filename ] );
+		my ( $id, $isolate, $method, $filename ) = split /\t/x, $record;
+		BIGSdb::Utils::remove_trailing_spaces_from_list( [ $id, $isolate, $method, $filename ] );
 		if ( !BIGSdb::Utils::is_int($id) ) {
 			my $value = BIGSdb::Utils::escape_html($id);
 			$errors->{$row} = "invalid id - $value is not an integer.";
@@ -1328,6 +1332,14 @@ sub _check_assemblies_isolate_records {
 			$errors->{$row} = "isolate value does not match record for id-$id.";
 			next;
 		}
+		if ( !defined $method || $method eq q() ) {
+			$errors->{$row} = 'no method.';
+			next;
+		}
+		if ( !$allowed_methods{$method} ) {
+			$errors->{$row} = 'invalid sequencing method.';
+			next;
+		}
 		if ( !defined $filename || $filename eq q() ) {
 			$errors->{$row} = 'no filename.';
 			next;
@@ -1356,12 +1368,12 @@ sub _check_assemblies_isolate_records {
 		}
 		$id_used{$id}             = 1;
 		$filename_used{$filename} = 1;
-		push @$cleaned,
-		  {
-			id       => $id,
-			isolate  => $isolate,
-			filename => $filename
-		  };
+		push @$cleaned, {
+			id              => $id,
+			isolate         => $isolate,
+			sequence_method => $method,
+			filename        => $filename
+		};
 	}
 	return { cleaned_list => $cleaned, errors => $errors, wrong_sender => $wrong_sender };
 }
@@ -1532,12 +1544,24 @@ sub _print_assembly_table_fieldset {
 	my $plural = @isolates == 1 ? '' : 's';
 	say qq(<p>You are submitting the following isolate$plural: ) if $options->{'download_link'};
 	say $q->start_form;
-	$self->_print_assembly_table( $submission_id, $options );
+	my $status = $self->_print_assembly_table( $submission_id, $options );
 	say q(<p><span style="color:red">Missing contig assembly files are shown in red.</span>)
 	  if $self->{'contigs_missing'};
-	$self->_print_update_button( { record_status => 1 } ) if $options->{'curate'};
+	$self->_print_update_button( { record_status => 1, no_accepted => 1 } ) if $options->{'curate'};
 	say $q->hidden($_) foreach qw(db page submission_id curate);
 	say $q->end_form;
+
+	if ( $options->{'curate'} && !$submission->{'outcome'} && !$self->{'contigs_missing'} ) {
+		say $q->start_form( -action => $self->{'system'}->{'curate_script'} );
+		say $q->submit( -name => 'Batch upload', -class => 'submit', -style => 'margin-top:0.5em' );
+		my $page = $q->param('page');
+		$q->param( page => 'profileBatchAdd' );
+		say $q->hidden($_) foreach qw( db page submission_id scheme_id profile_indexes  );
+		say $q->end_form;
+
+		#Restore value
+		$q->param( page => $page );
+	}
 	say q(</fieldset>);
 	return;
 }
@@ -1723,9 +1747,15 @@ sub _start_assemblies_submission {
 		my $i = 1;
 		foreach my $record (@$cleaned_list) {
 			$self->{'db'}->do(
-				'INSERT INTO assembly_submissions (submission_id,index,isolate_id,isolate,filename) '
-				  . 'VALUES (?,?,?,?,?)',
-				undef, $submission_id, $i, $record->{'id'}, $record->{'isolate'}, $record->{'filename'}
+				'INSERT INTO assembly_submissions (submission_id,index,isolate_id,isolate,sequence_method,filename) '
+				  . 'VALUES (?,?,?,?,?,?)',
+				undef,
+				$submission_id,
+				$i,
+				$record->{'id'},
+				$record->{'isolate'},
+				$record->{'sequence_method'},
+				$record->{'filename'}
 			);
 			$i++;
 		}
@@ -1931,7 +1961,7 @@ sub _presubmit_assemblies {
 		$invalid_ids  = $checks->{'invalid_ids'};
 	}
 	if ( $wrong_sender || @$invalid_ids ) {
-		$self->_print_genome_warnings( $wrong_sender, $invalid_ids );
+		$self->_print_assembly_warnings( $wrong_sender, $invalid_ids );
 	}
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
 	$self->_print_abort_form($submission_id);
@@ -1958,7 +1988,7 @@ sub _presubmit_assemblies {
 	return;
 }
 
-sub _print_genome_warnings {
+sub _print_assembly_warnings {
 	my ( $self, $wrong_sender, $invalid_ids ) = @_;
 	my @ids = sort @$wrong_sender;
 	return if !@$wrong_sender && ( !defined $invalid_ids || !@$invalid_ids );
@@ -1980,6 +2010,34 @@ sub _print_genome_warnings {
 		print @$wrong_sender > 1 ? 'these isolates' : 'this isolate';
 	}
 	say q(.</p></div>);
+	return;
+}
+
+sub _print_finalised_assembly_warning {
+	my ( $self, $submission_id, $options ) = @_;
+	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
+	return if $submission->{'type'} ne 'assemblies';
+	my $checks       = $self->_get_assembly_wrong_sender($submission_id);
+	my $wrong_sender = $checks->{'wrong_sender'};
+	my $invalid_ids  = $checks->{'invalid_ids'};
+	if ( @$wrong_sender || @$invalid_ids ) {
+		say q(<fieldset style="float:left;max-width:300px"><legend>Advisories</legend>);
+		if (@$wrong_sender) {
+			local $" = q(, );
+			my $record_term = @$wrong_sender == 1 ? q(this record) : q(these records);
+			if ( $options->{'view'} ) {
+				say qq(<p class="warning">You are not the original sender for isolate ids: @$wrong_sender.</p>);
+				print qq(<p>Please ensure that you should be modifying $record_term and add a message for<br /> )
+				  . qq(the curator to confirm why you should be modifying $record_term.</p>);
+			}
+			if ( $options->{'curate'} ) {
+				say
+				  qq(<p class="warning">The submitter is not the original sender for isolate ids: @$wrong_sender.</p>)
+				  . qq(<p>This may be ok, but please check that the submitter should be modifying $record_term.</p>);
+			}
+		}
+		say q(</fieldset>);
+	}
 	return;
 }
 
@@ -2407,13 +2465,13 @@ sub _print_isolate_table {
 
 sub _print_assembly_table {
 	my ( $self, $submission_id, $options ) = @_;
-	my $submission            = $self->{'submissionHandler'}->get_submission($submission_id);
+	my $submission          = $self->{'submissionHandler'}->get_submission($submission_id);
 	my $assembly_submission = $self->{'submissionHandler'}->get_assembly_submission($submission_id);
-	my $max_width             = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
-	my $main_max_width        = $max_width - 100;
+	my $max_width           = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
+	my $main_max_width      = $max_width - 100;
 	say qq(<div style="max-width:min(${main_max_width}px, 100vw - 100px)"><div class="scrollable">)
 	  . q(<table class="resultstable" style="margin-bottom:0"><tr><th>id</th>)
-	  . qq(<th>$self->{'system'}->{'labelfield'}</th><th>filename</th><th>contigs</th>)
+	  . qq(<th>$self->{'system'}->{'labelfield'}</th><th>method</th><th>filename</th><th>contigs</th>)
 	  . q(<th>total length (bp)</th><th>N50</th>);
 	my $rmlst_analysis = $self->_get_rmlst_analysis($submission_id);
 	say q(<th>rMLST species prediction</th>) if %$rmlst_analysis;
@@ -2428,7 +2486,7 @@ sub _print_assembly_table {
 
 	foreach my $record (@$assembly_submission) {
 		my @values;
-		push @values, ( $record->{$_} ) foreach qw(isolate_id isolate);
+		push @values, ( $record->{$_} ) foreach qw(isolate_id isolate sequence_method);
 		if ( !-e "$dir/$record->{'filename'}" ) {
 			push @values, qq(<span style="color:red">$record->{'filename'}</span>);
 			$self->{'contigs_missing'} = 1;
@@ -2629,12 +2687,13 @@ sub _print_update_button {
 		  . q(onclick='status_markall("rejected")' value="Rejected" class="small_reset" />)
 		  . q(</span>);
 	}
+	my $values = $options->{'no_accepted'} ? [qw(pending rejected)] : [qw(pending accepted rejected)];
 	if ( $options->{'record_status'} ) {
 		say q(<label for="record_status">Record status:</label>);
 		say $q->popup_menu(
 			-name  => 'record_status',
 			id     => 'record_status',
-			values => [qw(pending accepted rejected)]
+			values => $values
 		);
 	}
 	say $q->submit( -name => 'update', -label => 'Update', -class => 'small_submit' );
@@ -3159,6 +3218,7 @@ sub _curate_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 	$self->_print_profile_table_fieldset( $submission_id, { curate => $curate } );
 	$self->_print_isolate_table_fieldset( $submission_id, { curate => $curate } );
 	$self->_print_assembly_table_fieldset( $submission_id, { curate => $curate } );
+	$self->_print_finalised_assembly_warning( $submission_id, { curate => $curate } );
 	$self->_print_file_fieldset($submission_id);
 	$self->_print_message_fieldset($submission_id);
 	$self->_print_archive_fieldset($submission_id);
@@ -3190,6 +3250,7 @@ sub _view_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Calle
 	$self->_print_file_upload_fieldset( $submission_id, { no_add => $submission->{'status'} eq 'closed' ? 1 : 0 } )
 	  if $submission->{'type'} ne 'isolates';
 	$self->_print_assembly_table_fieldset( $submission_id, { download_link => 1 } );
+	$self->_print_finalised_assembly_warning( $submission_id, { view => 1 } );
 	$self->_print_isolate_table_fieldset($submission_id);
 	$self->_print_message_fieldset( $submission_id, { no_add => $submission->{'status'} eq 'closed' ? 1 : 0 } );
 	$self->_print_archive_fieldset($submission_id);

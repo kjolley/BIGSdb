@@ -262,7 +262,7 @@ sub get_fasta {
 	my $type           = $script->{'datastore'}
 	  ->run_query( 'SELECT type FROM submissions WHERE id=?', $submission_id, { cache => 'get_submission_type' } );
 	my $filename;
-	if ( $type eq 'isolates' ) {
+	if ( $type eq 'genomes' ) {
 		$filename =
 		  $script->{'datastore'}
 		  ->run_query( 'SELECT value FROM isolate_submission_isolates WHERE (submission_id,index,field)=(?,?,?)',
