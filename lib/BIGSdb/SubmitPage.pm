@@ -1128,7 +1128,8 @@ sub _submit_isolates {
 	} elsif ( ( $q->param('submit') && $q->param('data') ) ) {
 		my $set_id = $self->get_set_id;
 		my $data   = $q->param('data');
-		my $ret    = $self->{'submissionHandler'}->check_new_isolates( $set_id, \$data, $options );
+		$options->{'limit'} = LIMIT if $options->{'genomes'};
+		my $ret = $self->{'submissionHandler'}->check_new_isolates( $set_id, \$data, $options );
 		if ( $ret->{'err'} ) {
 			my $err = $ret->{'err'};
 			local $" = '<br />';
@@ -1295,10 +1296,15 @@ sub _check_assemblies_isolate_records {
 	my %id_used;
 	my %filename_used;
 	my %allowed_methods = map { $_ => 1 } SEQ_METHODS;
+	my $limit = LIMIT;
 
 	foreach my $record (@records) {
 		next if !$record;
 		$row++;
+		if ( $row > LIMIT ) {
+			$errors->{$row} = "record limit reached - please only submit up to $limit records at a time.";
+			last;
+		}
 		my ( $id, $isolate, $method, $filename ) = split /\t/x, $record;
 		BIGSdb::Utils::remove_trailing_spaces_from_list( [ $id, $isolate, $method, $filename ] );
 		if ( !BIGSdb::Utils::is_int($id) ) {
@@ -1368,12 +1374,13 @@ sub _check_assemblies_isolate_records {
 		}
 		$id_used{$id}             = 1;
 		$filename_used{$filename} = 1;
-		push @$cleaned, {
+		push @$cleaned,
+		  {
 			id              => $id,
 			isolate         => $isolate,
 			sequence_method => $method,
 			filename        => $filename
-		};
+		  };
 	}
 	return { cleaned_list => $cleaned, errors => $errors, wrong_sender => $wrong_sender };
 }

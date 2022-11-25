@@ -275,8 +275,7 @@ sub get_assembly_submission {
 	$logger->logcarp('No submission_id passed') if !$submission_id;
 	my $submission = $self->{'datastore'}->run_query( 'SELECT * FROM assembly_submissions WHERE submission_id=?',
 		$submission_id,
-		{ fetch => 'all_arrayref', slice => {}, cache => 'SubmissionHandler::get_assembly_submission' } )
-	  ;
+		{ fetch => 'all_arrayref', slice => {}, cache => 'SubmissionHandler::get_assembly_submission' } );
 	return $submission;
 }
 
@@ -666,6 +665,11 @@ sub check_new_isolates {
 			$row =~ s/\s*$//x;
 			next if !$row;
 			$row_number++;
+			if ( $options->{'limit'} && $row > $options->{'limit'} ) {
+				push @err, "Record limit reached - please only submit up to $options->{'limit'} records at a time."
+				  ;
+				last;
+			}
 			my @values = split /\t/x, $row;
 			my $row_id =
 			  defined $positions->{ $self->{'system'}->{'labelfield'} }
