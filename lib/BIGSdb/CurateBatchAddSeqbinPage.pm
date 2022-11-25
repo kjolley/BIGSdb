@@ -178,6 +178,8 @@ sub _validate {
 		$self->print_bad_status( { message => 'Cannot read temporary file. Please repeat upload' } );
 		return;
 	}
+	my $submission_id = $q->param('submission_id');
+	$self->_check_if_already_uploaded($submission_id);
 	say q(<div class="box resultstable"><div class="scrollable">);
 	say q(<h2>Validation</h2>);
 	say q(<table class="resultstable">);
@@ -185,7 +187,9 @@ sub _validate {
 	say qq(<th>$field</th>) if $field ne 'id';
 	say qq(<th>$self->{'system'}->{'labelfield'}</th>)
 	  if $field ne $self->{'system'}->{'labelfield'};
-	say q(<th>filename</th><th>valid FASTA</th><th>contigs</th><th>total size</th></tr>);
+	print q(<th>filename</th>);
+	print q(<th>method</th>) if $submission_id;
+	say q(<th>valid FASTA</th><th>contigs</th><th>total size</th></tr>);
 	my $td      = 1;
 	my $dir     = $self->_get_upload_dir;
 	my $success = 0;
@@ -199,6 +203,7 @@ sub _validate {
 			say qq(<td>$name</td>);
 		}
 		say qq(<td>$row->{'filename'}</td>);
+		say qq(<td>$row->{'sequence_method'}</td>) if $submission_id;
 		my $filename = "$dir/$row->{'filename'}";
 		my $seq_ref;
 		my ( $good, $bad ) = ( GOOD, BAD );
@@ -241,77 +246,7 @@ sub _validate {
 		say qq(<p>You can upload $success record$plural.</p>);
 		say q(<p><strong><em>Please do not refresh the page after you click the upload button. )
 		  . q(Upload may take a short while.</em></strong>);
-		say $q->start_form;
-		say q(<fieldset style="float:left"><legend>Attributes</legend><ul>);
-		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-		say q(<li><label for="sender" class="parameter">sender: !</label>);
-		if ( $user_info->{'status'} eq 'submitter' ) {
-			say qq(<span id="sender" style="font-weight:600">$user_info->{'first_name'} $user_info->{'surname'}</span>);
-			say $q->hidden( sender => $user_info->{'id'} );
-		} else {
-			my $sender;
-			my $isolate_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}");
-			my ( $users, $user_names ) = $self->{'datastore'}->get_users( { blank_message => 'Select sender ...' } );
-			say $self->popup_menu(
-				-name     => 'sender',
-				-id       => 'sender',
-				-values   => [ '', @$users ],
-				-labels   => $user_names,
-				-required => 'required',
-				-default  => $sender
-			);
-		}
-		say q(</li><li><label for="method" class="parameter">method: </label>);
-		my $method_labels = { '' => ' ' };
-		say $q->popup_menu(
-			-name   => 'method',
-			-id     => 'method',
-			-values => [ '', SEQ_METHODS ],
-			-labels => $method_labels
-		);
-		my $seq_attributes =
-		  $self->{'datastore'}->run_query( 'SELECT key,type,description FROM sequence_attributes ORDER BY key',
-			undef, { fetch => 'all_arrayref', slice => {} } );
-		if (@$seq_attributes) {
-			foreach my $attribute (@$seq_attributes) {
-				( my $label = $attribute->{'key'} ) =~ s/_/ /;
-				say qq(<li><label for="$attribute->{'key'}" class="parameter">$label:</label>\n);
-				say $q->textfield( -name => $attribute->{'key'}, -id => $attribute->{'key'} );
-				if ( $attribute->{'description'} ) {
-					say $self->get_tooltip(qq($attribute->{'key'} - $attribute->{'description'}.));
-				}
-			}
-		}
-		say q(</li></ul></fieldset><fieldset style="float:left"><legend>Options</legend>);
-		say q(<ul><li>);
-		say $q->checkbox(
-			-name    => 'size_filter',
-			-label   => q(Don't insert sequences shorter than ),
-			-checked => 'checked'
-		);
-		say $q->popup_menu(
-			-name    => 'size',
-			-values  => [qw(25 50 100 200 300 400 500 1000)],
-			-default => MIN_CONTIG_LENGTH
-		);
-		say q( bps.);
-		say $self->get_tooltip( q(Contig size - There is little point to uploading very short contigs. )
-			  . q(They are too short to contain most loci, will simply clutter the database unnecessarily )
-			  . q(and slow down BLAST queries.) );
-		say q(</li><li>);
-		say $q->checkbox(
-			-name    => 'remove_homopolymers',
-			-label   => q(Don't insert sequences containing only homopolymers.),
-			-checked => 'checked'
-		);
-		say $self->get_tooltip( q(Homopolymers - These are sequences such as 'NNNNNNNNNNNNN' or 'GGGGGGGGGGGGG' )
-			  . q(that seem to be produced by some assemblers. There is no benefit to including these in the database.)
-		);
-		say q(</li></ul></fieldset>);
-		$self->print_action_fieldset( { submit_label => 'Upload validated contigs', no_reset => 1 } );
-		$q->param( upload => 1 );
-		say $q->hidden($_) foreach qw(db page field temp_file upload);
-		say $q->end_form;
+		$self->_print_validated_upload_form;
 	}
 	say q(</div></div>);
 	if ($failure) {
@@ -326,6 +261,118 @@ sub _validate {
 	return;
 }
 
+sub _check_if_already_uploaded {
+	my ( $self, $submission_id ) = @_;
+	return if !$submission_id;
+	my $submission        = $self->{'submissionHandler'}->get_assembly_submission($submission_id);
+	my $already_populated = 0;
+	foreach my $record (@$submission) {
+		if (
+			$self->{'datastore'}->run_query(
+				'SELECT EXISTS(SELECT * FROM seqbin_stats WHERE isolate_id=?)',
+				$record->{'isolate_id'},
+				{ cache => 'CurateBatchAddSeqbinPage::seqbin_exists' }
+			)
+		  )
+		{
+			$already_populated++;
+		}
+	}
+	if ($already_populated) {
+		my $plural   = $already_populated == 1 ? q()    : q(s);
+		my $have_has = $already_populated == 1 ? q(has) : q(have);
+		$self->print_warning(
+			{
+				message => qq(Sequences already uploaded for $already_populated record$plural),
+				detail  => qq(Please note that $already_populated of your records already )
+				  . qq($have_has sequences uploaded. If you upload now, these sequences will )
+				  . q(be added to those already existing. Please abort this upload if you do not wish to do that.)
+			}
+		);
+	}
+	$self->_remove_lock_file;
+	return;
+}
+
+sub _print_validated_upload_form {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say $q->start_form;
+	say q(<fieldset style="float:left"><legend>Attributes</legend><ul>);
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	say q(<li><label for="sender" class="parameter">sender: !</label>);
+	if ( $user_info->{'status'} eq 'submitter' ) {
+		say qq(<span id="sender" style="font-weight:600">$user_info->{'first_name'} $user_info->{'surname'}</span>);
+		say $q->hidden( sender => $user_info->{'id'} );
+	} else {
+		my $sender;
+		my $isolate_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}");
+		my ( $users, $user_names ) = $self->{'datastore'}->get_users( { blank_message => 'Select sender ...' } );
+		say $self->popup_menu(
+			-name     => 'sender',
+			-id       => 'sender',
+			-values   => [ '', @$users ],
+			-labels   => $user_names,
+			-required => 'required',
+			-default  => $sender
+		);
+	}
+	say q(</li>);
+	if ( !$q->param('submission_id') ) {
+		say q(<li><label for="method" class="parameter">method: </label>);
+		my $method_labels = { '' => ' ' };
+		say $q->popup_menu(
+			-name   => 'method',
+			-id     => 'method',
+			-values => [ '', SEQ_METHODS ],
+			-labels => $method_labels
+		);
+	}
+	my $seq_attributes =
+	  $self->{'datastore'}->run_query( 'SELECT key,type,description FROM sequence_attributes ORDER BY key',
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	if (@$seq_attributes) {
+		foreach my $attribute (@$seq_attributes) {
+			( my $label = $attribute->{'key'} ) =~ s/_/ /;
+			say qq(<li><label for="$attribute->{'key'}" class="parameter">$label:</label>\n);
+			say $q->textfield( -name => $attribute->{'key'}, -id => $attribute->{'key'} );
+			if ( $attribute->{'description'} ) {
+				say $self->get_tooltip(qq($attribute->{'key'} - $attribute->{'description'}.));
+			}
+		}
+	}
+	say q(</li></ul></fieldset><fieldset style="float:left"><legend>Options</legend>);
+	say q(<ul><li>);
+	say $q->checkbox(
+		-name    => 'size_filter',
+		-label   => q(Don't insert sequences shorter than ),
+		-checked => 'checked'
+	);
+	say $q->popup_menu(
+		-name    => 'size',
+		-values  => [qw(25 50 100 200 300 400 500 1000)],
+		-default => MIN_CONTIG_LENGTH
+	);
+	say q( bps.);
+	say $self->get_tooltip( q(Contig size - There is little point to uploading very short contigs. )
+		  . q(They are too short to contain most loci, will simply clutter the database unnecessarily )
+		  . q(and slow down BLAST queries.) );
+	say q(</li><li>);
+	say $q->checkbox(
+		-name    => 'remove_homopolymers',
+		-label   => q(Don't insert sequences containing only homopolymers.),
+		-checked => 'checked'
+	);
+	say $self->get_tooltip( q(Homopolymers - These are sequences such as 'NNNNNNNNNNNNN' or 'GGGGGGGGGGGGG' )
+		  . q(that seem to be produced by some assemblers. There is no benefit to including these in the database.) );
+	say q(</li></ul></fieldset>);
+	$self->print_action_fieldset( { submit_label => 'Upload validated contigs', no_reset => 1 } );
+	$q->param( upload => 1 );
+	say $q->hidden($_) foreach qw(db page field temp_file upload submission_id);
+	say $q->end_form;
+	return;
+}
+
 sub _create_lock_file {
 	my ($self) = @_;
 	my $dir = $self->_get_upload_dir;
@@ -333,6 +380,15 @@ sub _create_lock_file {
 	my $lock_file = "$dir/.LOCK";
 	open( my $fh, '>', $lock_file ) || $logger->error("Cannot touch $lock_file");
 	close $fh;
+	return;
+}
+
+sub _remove_lock_file {
+	my ($self) = @_;
+	my $dir = $self->_get_upload_dir;
+	return if !-e $dir;
+	my $lock_file = "$dir/.LOCK";
+	unlink $lock_file;
 	return;
 }
 
@@ -370,8 +426,7 @@ sub _upload {
 			{
 				message => 'Please do not refresh!',
 				detail  => 'Your contigs are already uploading. Check the database to see if '
-				  . 'they have finished uploading. If you click Restart below and they have not '
-				  . 'finished uploading, the process will be terminated.'
+				  . 'they have finished uploading.'
 			}
 		);
 		return;
@@ -443,7 +498,7 @@ sub _upload {
 					$q->delete($field) if defined $q->param($field) && $q->param($field) eq q();
 				}
 				my @values = (
-					$row->{'id'}, $seq_ref->{$seq_id}, $q->param('method') // undef,
+					$row->{'id'}, $seq_ref->{$seq_id}, ( $row->{'sequence_method'} // $q->param('method') ) // undef,
 					$designation, $comments, $sender, $curator, 'now', 'now'
 				);
 				$insert_sql->execute(@values);
@@ -478,13 +533,34 @@ sub _upload {
 		return;
 	}
 	$self->{'db'}->commit;
+	my $detail = q();
+	if ( $q->param('submission_id') ) {
+		my $submission_id = $q->param('submission_id');
+		my $url           = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
+		  . qq(submission_id=$submission_id&amp;curate=1);
+		$detail = qq(Don't forget to <a href="$url">close the submission</a>!);
+	}
 	my $plural = $added == 1 ? q(y) : q(ies);
 	$self->print_good_status(
 		{
-			message => qq($added sequence assembl$plural uploaded.)
+			message => qq($added sequence assembl$plural uploaded.),
+			detail  => $detail
 		}
 	);
-	$self->_remove_dir($dir);
+	if ( $q->param('submission_id') ) {
+		$self->_update_submission_database( scalar $q->param('submission_id'), 'Assemblies uploaded.' );
+	} else {
+		$self->_remove_dir($dir);
+	}
+	return;
+}
+
+sub _update_submission_database {
+	my ( $self, $submission_id, $message ) = @_;
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	$self->{'submissionHandler'}->insert_message( $submission_id, $user_info->{'id'}, $message );
+	$self->{'submissionHandler'}->append_message( $submission_id, $user_info->{'id'}, $message );
+	$self->{'submissionHandler'}->update_submission_outcome( $submission_id, 'good' );
 	return;
 }
 
@@ -619,14 +695,15 @@ sub _file_upload {
 	$buffer .= $q->end_form;
 
 	if ($already_populated) {
-		my $plural = $already_populated == 1 ? q() : q(s);
+		my $plural   = $already_populated == 1 ? q()    : q(s);
+		my $have_has = $already_populated == 1 ? q(has) : q(have);
 		$self->print_warning(
 			{
 				message => qq(Sequences already uploaded for $already_populated record$plural),
 				detail  => qq(Please note that $already_populated of your records already )
-				  . q(has sequences uploaded. If you upload now, these sequences will be added to those already existing. )
-				  . q(If you did not intend to add new contigs to an existing sequence bin, please remove the isolate )
-				  . q(record from the table.)
+				  . qq($have_has sequences uploaded. If you upload now, these sequences will be added to )
+				  . q(those already existing. If you did not intend to add new contigs to an existing sequence )
+				  . q(bin, please remove the isolate record from the table.)
 			}
 		);
 	}
@@ -812,7 +889,14 @@ sub _write_validated_temp_file {
 
 sub _get_upload_dir {
 	my ($self) = @_;
-	my $dir = "$self->{'config'}->{'tmp_dir'}/$self->{'system'}->{'db'}/$self->{'username'}";
+	my $q = $self->{'cgi'};
+	my $dir;
+	if ( $q->param('submission_id') ) {
+		my $submission_id = $q->param('submission_id');
+		$dir = "$self->{'config'}->{'submission_dir'}/$submission_id/supporting_files";
+	} else {
+		$dir = "$self->{'config'}->{'tmp_dir'}/$self->{'system'}->{'db'}/$self->{'username'}";
+	}
 	if ( $dir =~ /(.*)/x ) {
 		$dir = $1;    #Untaint
 	}

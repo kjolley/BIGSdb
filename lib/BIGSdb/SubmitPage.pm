@@ -1249,9 +1249,10 @@ sub _submit_assemblies {
 	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Filenames</legend>);
 	say q(<p>Paste in tab-delimited text, e.g. copied from a spreadsheet, consisting of 4 columns )
-	  . q( (database id, isolate name, method, FASTA filename). You need to ensure that you use the full filename, )
-	  . q(including any suffix such as .fas or .fasta, which may be hidden by your operating system. FASTA )
-	  . q(files may be either uncompressed (.fas, .fasta) or gzip/zip compressed (.fas.gz, .fas.zip).</p>);
+	  . qq( (database id, $self->{'system'}->{'labelfield'} name, method, FASTA filename). You need to ensure )
+	  . q(that you use the full filename, including any suffix such as .fas or .fasta, which may be hidden by )
+	  . q(your operating system. FASTA files may be either uncompressed (.fas, .fasta) or gzip/zip compressed )
+	  . q((.fas.gz, .fas.zip).</p>);
 	say $q->textarea(
 		-id          => 'filenames',
 		-name        => 'filenames',
@@ -1559,18 +1560,48 @@ sub _print_assembly_table_fieldset {
 	say $q->end_form;
 
 	if ( $options->{'curate'} && !$submission->{'outcome'} && !$self->{'contigs_missing'} ) {
+		my $validated =
+		  $self->{'datastore'}->run_query(
+			'SELECT isolate_id AS id,sequence_method,filename FROM assembly_submissions WHERE submission_id=?',
+			$submission_id, { fetch => 'all_arrayref', slice => {} } );
+		$self->_write_validated_temp_file( $validated, "$submission_id.json" );
 		say $q->start_form( -action => $self->{'system'}->{'curate_script'} );
 		say $q->submit( -name => 'Batch upload', -class => 'submit', -style => 'margin-top:0.5em' );
 		my $page = $q->param('page');
-		$q->param( page => 'profileBatchAdd' );
-		say $q->hidden($_) foreach qw( db page submission_id scheme_id profile_indexes  );
+		$q->param( page   => 'batchAddSeqbin' );
+		$q->param( validate => 1 );
+		$q->param( field=>'id');
+		$q->param(temp_file => "$submission_id.json");
+		$q->param(sender => $submission->{'submitter'});
+		say $q->hidden($_) foreach qw( db page submission_id field validate temp_file sender);
 		say $q->end_form;
 
 		#Restore value
 		$q->param( page => $page );
 	}
 	say q(</fieldset>);
+	$self->{'all_assigned_or_rejected'} = $submission->{'outcome'} ? 1 : 0;
 	return;
+}
+
+sub _write_validated_temp_file {
+	my ( $self, $validated, $filename ) = @_;
+	my $json = encode_json($validated);
+	my $full_file_path;
+	if ($filename) {
+		if ( $filename =~ /(BIGSdb_\d+_\d+_\d+\.json)/x ) {    #Untaint
+			$full_file_path = "$self->{'config'}->{'secure_tmp_dir'}/$1";
+		}
+	} else {
+		do {
+			$filename       = BIGSdb::Utils::get_random() . '.json';
+			$full_file_path = "$self->{'config'}->{'secure_tmp_dir'}/$filename";
+		} while ( -e $full_file_path );
+	}
+	open( my $fh, '>:raw', $full_file_path ) || $logger->error("Cannot open $full_file_path for writing");
+	say $fh $json;
+	close $fh;
+	return $filename;
 }
 
 sub _check_new_alleles {
@@ -3213,7 +3244,7 @@ sub _curate_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 	}
 	say q(<div class="box" id="resultstable">);
 	say qq(<h2 style="overflow-x:auto;overflow-y:hidden">Submission: $submission_id</h2>);
-	my %isolate_type = map { $_ => 1 } qw(isolates genomes);
+	my %isolate_type = map { $_ => 1 } qw(isolates genomes assemblies);
 	if ( $isolate_type{ $submission->{'type'} } && $q->param('curate') && $q->param('update') ) {
 		$self->_update_isolate_submission_isolate_status($submission_id);
 		$submission = $self->{'submissionHandler'}->get_submission($submission_id);

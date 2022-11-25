@@ -380,6 +380,22 @@ sub get_populated_fields {
 	return \@fields;
 }
 
+sub insert_message {
+	my ( $self, $submission_id, $user_id, $message ) = @_;
+	eval {
+		$self->{'db'}->do( 'INSERT INTO messages (submission_id,timestamp,user_id,message) VALUES (?,?,?,?)',
+			undef, $submission_id, 'now', $user_id, $message );
+	};
+	if ($@) {
+		$self->{'logger'}->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+	return;
+}
+
+#Appends message to correspondence text file.
 sub append_message {
 	my ( $self, $submission_id, $user_id, $message ) = @_;
 	my $dir = $self->get_submission_dir($submission_id);
@@ -666,8 +682,7 @@ sub check_new_isolates {
 			next if !$row;
 			$row_number++;
 			if ( $options->{'limit'} && $row > $options->{'limit'} ) {
-				push @err, "Record limit reached - please only submit up to $options->{'limit'} records at a time."
-				  ;
+				push @err, "Record limit reached - please only submit up to $options->{'limit'} records at a time.";
 				last;
 			}
 			my @values = split /\t/x, $row;

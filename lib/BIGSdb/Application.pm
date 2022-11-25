@@ -90,7 +90,7 @@ use constant PAGES_NEEDING_AUTHENTICATION => qw(authorizeClient changePassword u
   submit login logout);
 use constant PAGES_NEEDING_JOB_MANAGER        => qw(plugin job jobs index dashboard project login logout options ajaxJobs);
 use constant PAGES_NEEDING_SUBMISSION_HANDLER => qw(submit batchAddFasta profileAdd profileBatchAdd batchAdd
-  batchAddSequences batchIsolateUpdate isolateAdd isolateUpdate index logout);
+  batchAddSequences batchIsolateUpdate batchAddSeqbin isolateAdd isolateUpdate index logout);
 use constant PAGES_NOT_NEEDING_PLUGINS => qw(ajaxJobs jobMonitor ajaxRest restMonitor);
 
 sub new {
