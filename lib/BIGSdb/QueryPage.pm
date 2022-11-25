@@ -102,7 +102,7 @@ q[$('[id^="designation_field"]').val(''),$('[id^="designation_operator"]').val('
 	  				\$("a#save_options").hide();
 	  				\$("span#saving").text('');
 	  				\$("a#save_options").html('$save');
-	  				\$(".panel").toggle("slide",{direction:"right"},"fast");
+	  				\$("#modify_panel").toggle("slide",{direction:"right"},"fast");
 	  			}
 	  		});
 	   	});
