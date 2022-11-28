@@ -1120,11 +1120,8 @@ sub _get_elements {
 	return $self->_get_default_elements;
 }
 
-sub _get_default_elements {
-	my ($self)   = @_;
-	my $elements = {};
-	my $i        = 1;
-	my $default_dashboard;
+sub _read_default_dashboard_toml {
+	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
 	my $project_id = $q->param('project_id');
 	my @possible_files;
@@ -1146,23 +1143,30 @@ sub _get_default_elements {
 		"$self->{'config_dir'}/dashboard.toml"
 	  );
 	my $file_exists;
+	my $data;
 	foreach my $filename (@possible_files) {
 		if ( -e $filename ) {
 			$file_exists = 1;
 			my $toml = BIGSdb::Utils::slurp($filename);
-			my ( $data, $err ) = from_toml($$toml);
+			my $err;
+			( $data, $err ) = from_toml($$toml);
 			if ( !$data->{'elements'} ) {
 				$logger->error("Error parsing $filename: $err");
-			} else {
-				$default_dashboard = $data->{'elements'};
 			}
 			last;
 		}
 	}
-	if ( !$file_exists ) {
-		my %primary_default = map { $_ => 1 } qw(primary project);
-		$default_dashboard =
-		  $primary_default{ $self->{'dashboard_type'} } ? DEFAULT_FRONTEND_DASHBOARD : DEFAULT_QUERY_DASHBOARD;
+	return $data;
+}
+
+sub _get_default_elements {
+	my ($self)         = @_;
+	my $elements       = {};
+	my $i              = 1;
+	my $dashboard_data = $self->_read_default_dashboard_toml;
+	my $default_dashboard;
+	if ($dashboard_data) {
+		$default_dashboard = $dashboard_data->{'elements'};
 	}
 	if ( !ref $default_dashboard || ref $default_dashboard ne 'ARRAY' ) {
 		$logger->error('No default dashboard elements defined - using built-in default instead.');
