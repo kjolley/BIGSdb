@@ -107,3 +107,20 @@ elements = [
 		hide_mobile       = 1
 	}
 ]
+
+#By default elements are positioned to close gaps if possible
+#Set fill_gaps to 0 to always position elements in order.
+fill_gaps = 1
+
+#Use the following codes for setting record age (as defined by the
+#date_entered value).
+#	0 => 'all time',
+#	1 => 'past 5 years',
+#	2 => 'past 4 years',
+#	3 => 'past 3 years',
+#	4 => 'past 2 years',
+#	5 => 'past year',
+#	6 => 'past month',
+#	7 => 'past week'
+
+record_age = 0

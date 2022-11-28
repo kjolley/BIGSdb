@@ -1004,9 +1004,15 @@ sub _get_dashboard_empty_message {
 
 sub _print_filter_display {
 	my ($self) = @_;
-	my $versions   = $self->{'prefs'}->{'include_old_versions'} ? 'all' : 'current';
+	my $default_attributes;
+	$default_attributes = $self->_get_default_dashboard_attributes
+	  if !$self->{'user_dashboard_loaded'};
+	my $versions =
+	  ( $self->{'prefs'}->{'include_old_versions'} // $default_attributes->{'include_old_versions'} )
+	  ? 'all'
+	  : 'current';
 	my $age_labels = RECORD_AGE;
-	my $record_age = $self->{'prefs'}->{'record_age'} // 0;
+	my $record_age = $self->{'prefs'}->{'record_age'} // $default_attributes->{'record_age'} // 0;
 	say q(<div id="filter_display">Record versions: )
 	  . qq(<span class="dashboard_filter" id="filter_versions">$versions</span>; )
 	  . qq(Record creation: <span class="dashboard_filter" id="filter_age">$age_labels->{$record_age}</span></div>);
@@ -1115,6 +1121,7 @@ JS
 sub _get_elements {
 	my ($self) = @_;
 	if ( defined $self->{'prefs'}->{'elements'} ) {
+		$self->{'user_dashboard_loaded'} = 1;
 		return $self->{'prefs'}->{'elements'};
 	}
 	return $self->_get_default_elements;
@@ -1157,6 +1164,16 @@ sub _read_default_dashboard_toml {
 		}
 	}
 	return $data;
+}
+
+sub _get_default_dashboard_attributes {
+	my ($self)         = @_;
+	my $dashboard_data = $self->_read_default_dashboard_toml;
+	my $defaults       = {};
+	foreach my $key (qw(fill_gaps include_old_versions record_age)) {
+		$defaults->{$key} = $dashboard_data->{$key} if defined $dashboard_data->{$key};
+	}
+	return $defaults;
 }
 
 sub _get_default_elements {
@@ -1283,9 +1300,15 @@ sub _get_filters {
 	my $q       = $self->{'cgi'};
 	my $filters = [];
 	if ( !$q->param('no_filters') ) {
-		push @$filters, 'v.new_version IS NULL' if !$self->{'prefs'}->{'include_old_versions'};
-		if ( $self->{'prefs'}->{'record_age'} ) {
-			my $datestamp = $self->get_record_age_datestamp( $self->{'prefs'}->{'record_age'} );
+		my $default_attributes;
+		$default_attributes = $self->_get_default_dashboard_attributes
+		  if !$self->{'user_dashboard_loaded'};
+		my $include_old_versions = $self->{'prefs'}->{'include_old_versions'}
+		  // $default_attributes->{'include_old_versions'} // 0;
+		my $record_age = $self->{'prefs'}->{'record_age'} // $default_attributes->{'record_age'} // 0;
+		push @$filters, 'v.new_version IS NULL' if !$include_old_versions;
+		if ($record_age) {
+			my $datestamp = $self->get_record_age_datestamp($record_age);
 			push @$filters, "v.id IN (SELECT id FROM $self->{'system'}->{'view'} WHERE date_entered>='$datestamp')";
 		}
 	}
@@ -3647,9 +3670,11 @@ sub print_modify_dashboard_fieldset {
 	my $enable_drag     = $self->{'prefs'}->{'enable_drag'}     // 0;
 	my $edit_elements   = $self->{'prefs'}->{'edit_elements'}   // 1;
 	my $remove_elements = $self->{'prefs'}->{'remove_elements'} // 0;
-	my $open_new        = $self->{'prefs'}->{'open_new'}        // 1;
-	my $fill_gaps       = $self->{'prefs'}->{'fill_gaps'}       // 1;
-	my $q               = $self->{'cgi'};
+	my $default_attributes;
+	$default_attributes = $self->_get_default_dashboard_attributes if !$self->{'user_dashboard_loaded'};
+	my $open_new = $self->{'prefs'}->{'open_new'} // 1;
+	my $fill_gaps = $self->{'prefs'}->{'fill_gaps'} // $default_attributes->{'fill_gaps'} // 1;
+	my $q = $self->{'cgi'};
 	say q(<div id="modify_dashboard_panel" class="panel">);
 	say q(<a class="trigger" id="close_dashboard_trigger" href="#"><span class="fas fa-lg fa-times"></span></a>);
 	say q(<h2>Dashboard settings</h2>);
@@ -3713,10 +3738,14 @@ sub print_modify_dashboard_fieldset {
 
 sub _print_filter_fieldset {
 	my ($self) = @_;
-	my $include_old_versions = $self->{'prefs'}->{'include_old_versions'} // 0;
-	my $record_age           = $self->{'prefs'}->{'record_age'}           // 0;
-	my $record_age_labels    = RECORD_AGE;
-	my $q                    = $self->{'cgi'};
+	my $default_attributes;
+	$default_attributes = $self->_get_default_dashboard_attributes
+	  if !$self->{'user_dashboard_loaded'};
+	my $include_old_versions = $self->{'prefs'}->{'include_old_versions'}
+	  // $default_attributes->{'include_old_versions'} // 0;
+	my $record_age        = $self->{'prefs'}->{'record_age'} // $default_attributes->{'record_age'} // 0;
+	my $record_age_labels = RECORD_AGE;
+	my $q                 = $self->{'cgi'};
 	say q(<fieldset><legend>Filters</legend>);
 	say q(<form autocomplete="off">);    #Needed because Firefox autocomplete can override the values we set.
 	say q(<ul><li>);
@@ -3920,10 +3949,13 @@ sub get_javascript {
 	if ($order) {
 		$order = $json->encode($order);
 	}
+	my $default_attributes;
+	$default_attributes = $self->_get_default_dashboard_attributes
+	  if !$self->{'user_dashboard_loaded'};
 	my $elements            = $self->_get_elements;
 	my $json_elements       = $json->encode($elements);
 	my $record_age_labels   = $json->encode(RECORD_AGE);
-	my $record_age          = $self->{'prefs'}->{'record_age'} // 0;
+	my $record_age          = $self->{'prefs'}->{'record_age'} // $default_attributes->{'record_age'} // 0;
 	my $empty               = $self->_get_dashboard_empty_message;
 	my $duration_datestamps = $self->{'datastore'}->run_query(
 		q(SELECT CAST(now() AS DATE), CAST(now()-interval '5 years' AS DATE), )
