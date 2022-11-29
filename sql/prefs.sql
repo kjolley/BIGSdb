@@ -104,12 +104,22 @@ END
 $next_dashboard$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION name_dashboard() RETURNS TRIGGER AS $next_dashboard$
-DECLARE
+DECLARE	
 	dashboard_count integer;
+	new_name text;
+	name_exists boolean;
 BEGIN
     IF NEW.name IS NULL THEN
-    	SELECT COUNT(*) INTO dashboard_count FROM dashboards WHERE (guid,dbase_config)=(NEW.guid,NEW.dbase_config);
-    	NEW.name := 'dashboard#' || LPAD((dashboard_count+1)::text,2,'0');
+    	dashboard_count := 1;
+    	name_exists := 1;
+    	WHILE name_exists LOOP
+    		new_name := 'dashboard#' || LPAD((dashboard_count)::text,2,'0');
+    		IF NOT EXISTS (SELECT * FROM dashboards WHERE (guid,dbase_config,name)=(NEW.guid,NEW.dbase_config,new_name)) THEN
+    			name_exists = false;
+    		END IF;
+    		dashboard_count := dashboard_count + 1;
+    	END LOOP;
+    	NEW.name := new_name;  	
     END IF;
     RETURN NEW;
 END;
