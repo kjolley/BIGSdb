@@ -322,6 +322,7 @@ sub _check {
 			match_missing => $q->param('match_missing') ? 1 : 0
 		};
 		next RECORD if $self->_check_profile_exists($args);
+		next RECORD if @profile == 1 && $profile[0] eq q();
 		$self->_check_pk_exists($args);
 		$self->_check_pk_used_already($args);
 		next RECORD if $self->_check_duplicate_profile($args);
