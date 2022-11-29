@@ -1,3 +1,5 @@
+v1.39.0: *Export dashboard function which can be used to create TOML files for
+          setting up default primary, query, or project dashboards.
 v1.38.1: *New project front-end dashboards.
          *Query dashboard now shown for publication results. 
          *New annotation status visualisation for dashboards.

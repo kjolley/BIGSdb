@@ -3917,8 +3917,9 @@ sub _export {
 	my $old_versions = $self->{'prefs'}->{'include_old_versions'} // 0;
 	my $record_age   = $self->{'prefs'}->{'record_age'}           // 0;
 	say qq(fill_gaps            = $fill_gaps);
-	say qq(include_old_versions = $old_versions);
-	say qq(record_age           = $record_age);
+	say qq(include_old_versions = $old_versions) if $self->{'dashboard_type'} ne 'query';
+	say qq(record_age           = $record_age)   if $self->{'dashboard_type'} ne 'query';
+	;
 	return;
 }
 
