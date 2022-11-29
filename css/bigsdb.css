@@ -1,4 +1,4 @@
-/*Version: 202201114*/
+/*Version: 20221129*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -1028,6 +1028,22 @@ div#login_details, a.trigger_button {
 	margin-left: 0.75em;
 	box-shadow: 3px 3px 3px #aaa;
 	cursor: pointer;
+}
+
+a.dashboard_file {
+	text-align: center;
+	text-decoration: none;
+	border-radius: 5px;
+	display: block;
+	padding: 0.25em ;
+	margin-left: 0.75em;
+	cursor: pointer;	
+}
+
+div.dashboard_file_label {
+	padding-top: 0.2em;
+	font-size: 0.7em;
+	line-height: 0.85em;
 }
 
 div.registration_buttons {

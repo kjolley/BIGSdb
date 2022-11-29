@@ -87,6 +87,10 @@ sub print_content {
 			return;
 		}
 	}
+	if ( $q->param('export') ) {
+		$self->_export;
+		return;
+	}
 	my $max_width             = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
 	my $index_panel_max_width = $max_width - 250;
 	my $title_max_width       = $max_width - 15;
@@ -1197,7 +1201,10 @@ sub _get_default_elements {
 	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM seqbin_stats WHERE total_length>?)', $genome_size );
 	foreach my $element (@$default_dashboard) {
 		next if $element->{'genomes'} && !$genomes_exists;
-		next if $element->{'display'} eq 'field' && !$self->_field_exists( $element->{'field'} );
+		next
+		  if $element->{'display'} eq 'field'
+		  && !$self->_field_exists( $element->{'field'} )
+		  && $element->{'field'} !~ /^as_/x;
 		next
 		  if ( $element->{'visualisation_type'} // 'breakdown' ) eq 'breakdown'
 		  && ( $element->{'breakdown_display'} // q() ) eq 'map'
@@ -3503,6 +3510,17 @@ sub initiate {
 			last;
 		}
 	}
+	if ( $q->param('export') ) {
+		$self->{'type'} = 'text';
+		if ( $q->param('project_id') && BIGSdb::Utils::is_int( scalar $q->param('project_id') ) ) {
+			my $project_id = $q->param('project_id');
+			$self->{'attachment'} = "dashboard_project_$project_id.toml";
+		} elsif ( $q->param('type') eq 'query' ) {
+			$self->{'attachment'} = 'dashboard_query.toml';
+		} else {
+			$self->{'attachment'} = 'dashboard_primary.toml';
+		}
+	}
 	$self->get_or_set_dashboard_prefs;
 	return;
 }
@@ -3836,7 +3854,71 @@ sub _print_dashboard_management_fieldset {
 	}
 	say q(</li></ul>);
 	say q(</form>);
+	return if !$self->{'username'};
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	return if $user_info->{'status'} ne 'curator' && $user_info->{'status'} ne 'admin';
+	my $project_clause = $self->{'project_id'} ? qq(&amp;project_id=$self->{'project_id'}) : q();
+	say q(<div style="display:flex;margin-top:1em">)
+	  . q(<span class="icon_button"><a class="dashboard_file small_reset" )
+	  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=dashboard&amp;type=$self->{'dashboard_type'})
+	  . qq($project_clause&export=1">)
+	  . q(<span class="fas fa-lg fa-file-export"></span><div class="dashboard_file_label">Export dashboard</div></a></div>);
 	say q(</fieldset>);
+	return;
+}
+
+sub _export {
+	my ($self) = @_;
+	my $elements = $self->_get_elements;
+	return if !keys %$elements;
+	my @order =
+	  ref $self->{'prefs'}->{'order'} && @{ $self->{'prefs'}->{'order'} }
+	  ? @{ $self->{'prefs'}->{'order'} }
+	  : sort { $elements->{$a}->{'order'} <=> $elements->{$b}->{'order'} } keys %$elements;
+	my $q = $self->{'cgi'};
+	print qq(#This file can be copied to the database configuration directory to set the\n)
+	  . qq(#default $self->{'dashboard_type'} dashboard);
+	print q( for this project) if $q->param('project_id');
+	say qq(.\n);
+	say 'elements = [';
+
+	foreach my $element (@order) {
+		say q(  {);
+		my $i = 0;
+		foreach my $key ( sort keys %{ $elements->{$element} } ) {
+			$i++;
+			next if $key eq 'order';
+			next if $key eq 'id';
+			my $spacer = q( ) x ( 25 - length($key) );
+			my $value = $elements->{$element}->{$key};
+			if ( ref $value eq 'ARRAY' ) {
+				local $" = q(',');
+				$value = qq(['@$value']);
+			} elsif ( ref $value eq 'HASH' ) {
+				my @key_pairs;
+				foreach my $hash_key ( sort keys %$value ) {
+					if ( !BIGSdb::Utils::is_int( $value->{$hash_key} ) ) {
+						push @key_pairs, qq($hash_key = '$value->{$hash_key}');
+					} else {
+						push @key_pairs, qq($hash_key = $value->{$hash_key});
+					}
+				}
+				local $" = q(, );
+				$value = qq({ @key_pairs });
+			} elsif ( !BIGSdb::Utils::is_int($value) ) {
+				$value = qq('$value');
+			}
+			say qq(    $key${spacer}= $value) . ( ( $i != keys %{ $elements->{$element} } ) ? q(,) : q() );
+		}
+		say q(  }) . ( $element != keys %$elements ? q(,) : q() );
+	}
+	say qq(]\n);
+	my $fill_gaps    = $self->{'prefs'}->{'fill_gaps'}            // 1;
+	my $old_versions = $self->{'prefs'}->{'include_old_versions'} // 0;
+	my $record_age   = $self->{'prefs'}->{'record_age'}           // 0;
+	say qq(fill_gaps            = $fill_gaps);
+	say qq(include_old_versions = $old_versions);
+	say qq(record_age           = $record_age);
 	return;
 }
 
