@@ -1,4 +1,4 @@
-/*Version: 20221129*/
+/*Version: 20221130*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -1370,7 +1370,7 @@ div.grid {
 div.dashboard_panel {
 	flex: 10;
 	margin: 0.4em 0;
-	min-width: 65%;
+	min-width: 75%;
 	padding: 5px;
 	background: #eceef1;
 }
