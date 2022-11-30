@@ -373,7 +373,7 @@ sub _print_chart_type_controls {
 	say qq(<label for="${id}_breakdown_display">Element: </label>);
 	my $field_type  = lc( $self->_get_field_type($element) );
 	my $chart_types = {
-		date            => [qw(bar cumulative doughnut pie)],
+		date            => [qw(bar cumulative doughnut pie top treemap)],
 		geography_point => [qw(bar doughnut gps_map pie top treemap)]
 	};
 	my $breakdown_charts;
