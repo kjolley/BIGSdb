@@ -2304,7 +2304,6 @@ sub _get_bar_dataset {
 		@ordered = sort keys %values;
 	} else {
 		@ordered = sort { $values{$b}->{'value'} <=> $values{$a}->{'value'} } keys %values;
-		$logger->error(@ordered);
 	}
 	my @ordered_data;
 	foreach my $label (@ordered) {
@@ -2407,7 +2406,7 @@ sub _get_field_breakdown_bar_content {
 						if (v < max*0.05 || v == 1){
 							return;
 						}
-						if (label_count<=6){
+						if (label_count<=$element->{'width'}*4){
 							return labels[i];
 						}
 						if (String(labels[i]).length<=3 
