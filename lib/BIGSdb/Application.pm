@@ -88,7 +88,7 @@ use Config::Tiny;
 use Try::Tiny;
 use constant PAGES_NEEDING_AUTHENTICATION => qw(authorizeClient changePassword userProjects bookmarks
   submit login logout);
-use constant PAGES_NEEDING_JOB_MANAGER        => qw(plugin job jobs index dashboard project login logout options ajaxJobs);
+use constant PAGES_NEEDING_JOB_MANAGER => qw(plugin job jobs index dashboard project login logout options ajaxJobs);
 use constant PAGES_NEEDING_SUBMISSION_HANDLER => qw(submit batchAddFasta profileAdd profileBatchAdd batchAdd
   batchAddSequences batchIsolateUpdate isolateAdd isolateUpdate index logout);
 use constant PAGES_NOT_NEEDING_PLUGINS => qw(ajaxJobs jobMonitor ajaxRest restMonitor);
@@ -396,18 +396,26 @@ sub _rewrite_page {
 	return if !$self->{'config'}->{'enable_dashboard'} && ( $self->{'system'}->{'enable_dashboard'} // q() ) ne 'yes';
 	return if ( $self->{'system'}->{'enable_dashboard'} // q() ) eq 'no';
 	my $guid = $self->_get_guid;
-	return if !$guid;
+	if ( !$guid ) {
+		$self->_set_default_dashboard_view;
+		return;
+	}
 	my $dashboard_pref =
 	  $self->{'prefstore'}->get_general_dashboard_switch_pref( $guid, $self->{'instance'}, 'default' );
-
 	if ( defined $dashboard_pref ) {
 		$self->{'page'} = 'dashboard' if $dashboard_pref;
 	} else {
-		if ( defined $self->{'system'}->{'default_dashboard_view'} ) {
-			$self->{'page'} = 'dashboard' if $self->{'system'}->{'default_dashboard_view'} eq 'yes';
-		} else {
-			$self->{'page'} = 'dashboard' if $self->{'config'}->{'default_dashboard_view'};
-		}
+		$self->_set_default_dashboard_view;
+	}
+	return;
+}
+
+sub _set_default_dashboard_view {
+	my ($self) = @_;
+	if ( defined $self->{'system'}->{'default_dashboard_view'} ) {
+		$self->{'page'} = 'dashboard' if $self->{'system'}->{'default_dashboard_view'} eq 'yes';
+	} else {
+		$self->{'page'} = 'dashboard' if $self->{'config'}->{'default_dashboard_view'};
 	}
 	return;
 }
