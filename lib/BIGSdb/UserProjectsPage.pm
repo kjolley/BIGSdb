@@ -833,7 +833,7 @@ sub _get_project_row {
 	if ($count) {
 		$buffer .=
 		    qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=project&amp;)
-		  . qq(project_id=$project->{'id'}&amp"><span class="fas fa-th action browse">)
+		  . qq(project_id=$project->{'id'}"><span class="fas fa-th action browse">)
 		  . q(</span></a>);
 	}
 	$buffer .= q(</td><td>);
