@@ -2288,14 +2288,10 @@ sub _get_bar_dataset {
 	my $max       = 0;
 	my $data      = $self->_get_field_breakdown_values($element);
 	my %values;
-	my @frequency_order;
-
 	foreach my $value (@$data) {
 		next if !defined $value->{'label'};
 		$values{ $value->{'label'} } = $value;
-		push @frequency_order, $value->{'label'};
 	}
-	$logger->error( Dumper \%values );
 	my @ordered;
 	my $order_by = $element->{'order_by'};
 	if ( !$order_by ) {
@@ -2307,7 +2303,8 @@ sub _get_bar_dataset {
 	} elsif ( $order_by eq 'label' ) {
 		@ordered = sort keys %values;
 	} else {
-		@ordered = @frequency_order;
+		@ordered = sort { $values{$b}->{'value'} <=> $values{$a}->{'value'} } keys %values;
+		$logger->error(@ordered);
 	}
 	my @ordered_data;
 	foreach my $label (@ordered) {
