@@ -160,10 +160,12 @@ sub _ajax_controls {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called 
 		},
 		field => sub {
 			$self->_print_design_control( $id, $element, { display => 'none' } );
+			$self->_print_order_control( $id, $element, { display => 'none' } );
 			$self->_print_change_duration_control( $id, $element, { display => 'none' } );
 		},
 		setup => sub {
 			$self->_print_change_duration_control( $id, $element, { display => 'none' } );
+			$self->_print_order_control( $id, $element, { display => 'none' } );
 			$self->_print_design_control( $id, $element, { display => 'none' } );
 		},
 	);
@@ -581,6 +583,32 @@ sub _print_colour_control {
 	say qq(<input type="color" id="${id}_chart_colour" value="$default" class="element_option colour_selector">);
 	say qq(<label for="${id}_chart_colour">Chart colour</label>);
 	say q(</li>);
+	return;
+}
+
+sub _print_order_control {
+	my ( $self, $id, $element, $options ) = @_;
+	my $display = $options->{'display'} // 'inline';
+	my $q = $self->{'cgi'};
+	my ( $default, $values );
+	if ( $self->_field_has_optlist( $element->{'field'} ) ) {
+		$values  = [qw(frequency label list)];
+		$default = 'list';
+	} else {
+		$values  = [qw(frequency label)];
+		$default = 'label';
+	}
+	say qq(<fieldset id="order_control" style="float:left;display:$display"><legend>Order</legend><ul>);
+	say q(<li><label for="${id}_order_by">Order by:<br /></label>);
+	say $q->radio_group(
+		-name      => "${id}_order_by",
+		-id        => "${id}_order_by",
+		-class     => 'element_option',
+		-values    => $values,
+		-default   => $element->{'order_by'} // $default,
+		-linebreak => 'true'
+	);
+	say q(</li></ul></fieldset>);
 	return;
 }
 
@@ -2259,8 +2287,33 @@ sub _get_bar_dataset {
 	my $local_max = [];
 	my $max       = 0;
 	my $data      = $self->_get_field_breakdown_values($element);
+	my %values;
+	my @frequency_order;
+
 	foreach my $value (@$data) {
 		next if !defined $value->{'label'};
+		$values{ $value->{'label'} } = $value;
+		push @frequency_order, $value->{'label'};
+	}
+	$logger->error( Dumper \%values );
+	my @ordered;
+	my $order_by = $element->{'order_by'};
+	if ( !$order_by ) {
+		$order_by = $self->_field_has_optlist( $element->{'field'} ) ? 'list' : 'label';
+	}
+	if ( $order_by eq 'list' ) {
+		my $list = $self->_get_field_values( $element->{'field'} );
+		@ordered = @$list;
+	} elsif ( $order_by eq 'label' ) {
+		@ordered = sort keys %values;
+	} else {
+		@ordered = @frequency_order;
+	}
+	my @ordered_data;
+	foreach my $label (@ordered) {
+		push @ordered_data, $values{$label};
+	}
+	foreach my $value (@ordered_data) {
 		$value->{'label'} =~ s/"/\\"/gx;
 		$value->{'display_label'} =~ s/"/\\"/gx if defined $value->{'display_label'};
 		push @$labels, $value->{'display_label'} // $value->{'label'};
@@ -3919,7 +3972,6 @@ sub _export {
 	say qq(fill_gaps            = $fill_gaps);
 	say qq(include_old_versions = $old_versions) if $self->{'dashboard_type'} ne 'query';
 	say qq(record_age           = $record_age)   if $self->{'dashboard_type'} ne 'query';
-	;
 	return;
 }
 
