@@ -883,8 +883,7 @@ function get_marker_layer(jsonData, colour, size) {
 		});
 		pstyles.push(pstyle);
 	}
-//	let thresholds = [1, 2, 5, 10, 25, 50, 100, 250, 500];
-	let thresholds = [1, 25, 100, 500];
+	let thresholds = [1, 2, 5, 10, 25, 50, 100, 250, 500];
 	let features = [];
 	jsonData.forEach(function(e) {
 		let coordinates = (e.label.match(/(\-?\d+\.?\d*),\s*(\-?\d+\.?\d*)/));
