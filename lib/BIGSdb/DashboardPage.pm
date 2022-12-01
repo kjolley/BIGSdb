@@ -2321,7 +2321,6 @@ sub _get_bar_dataset {
 	my $cols_either_side = int( @$data / ( $element->{'width'} * 3 ) );
 	my %local_max;
 	my $dont_label_distance = int( @$values / 10 ) || 1;
-	$logger->error($dont_label_distance);
   POS: for my $i ( 0 .. @$values - 1 ) {
 		my $lower = $i >= $cols_either_side ? $i - $cols_either_side : 0;
 		for my $j ( $lower .. $i ) {
