@@ -2297,6 +2297,7 @@ sub _get_bar_dataset {
 	if ( !$order_by ) {
 		$order_by = $self->_field_has_optlist( $element->{'field'} ) ? 'list' : 'label';
 	}
+	
 	if ( $order_by eq 'list' ) {
 		my $list = $self->_get_field_values( $element->{'field'} );
 		@ordered = @$list;
@@ -2305,9 +2306,10 @@ sub _get_bar_dataset {
 	} else {
 		@ordered = sort { $values{$b}->{'value'} <=> $values{$a}->{'value'} } keys %values;
 	}
+	
 	my @ordered_data;
 	foreach my $label (@ordered) {
-		push @ordered_data, $values{$label};
+		push @ordered_data, $values{$label} if defined $values{$label};
 	}
 	foreach my $value (@ordered_data) {
 		$value->{'label'} =~ s/"/\\"/gx;
@@ -2478,8 +2480,16 @@ sub _get_field_breakdown_bar_content {
      		}, 
      		padding: {
      			right: 10
-     		},   		
-			bindto: "#chart_$element->{'id'}"
+     		},  
+			bindto: "#chart_$element->{'id'}",
+			onrendered: function() { //Offset first label
+				d3.selectAll(".bb-texts text").each(function(d) {
+					if (d.x == 0 && $dataset->{'count'} > 20){
+						const x = +this.getAttribute("x");
+						this.setAttribute("x", x + 10);
+					}
+				});
+ 			},		
 		});
 	});
 	</script>
