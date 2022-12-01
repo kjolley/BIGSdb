@@ -2483,7 +2483,7 @@ sub _get_field_breakdown_bar_content {
      		},  
 			bindto: "#chart_$element->{'id'}",
 			onrendered: function() { //Offset first label
-				d3.selectAll(".bb-texts text").each(function(d) {
+				d3.selectAll("#chart_$element->{'id'} .bb-texts text").each(function(d) {
 					if (d.x == 0 && $dataset->{'count'} > 20){
 						const x = +this.getAttribute("x");
 						if (typeof labels[d.x] !== 'undefined'){
