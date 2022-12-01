@@ -2321,6 +2321,7 @@ sub _get_bar_dataset {
 	my $cols_either_side = int( @$data / ( $element->{'width'} * 3 ) );
 	my %local_max;
 	my $dont_label_distance = int( @$values / 10 ) || 1;
+	$logger->error($dont_label_distance);
   POS: for my $i ( 0 .. @$values - 1 ) {
 		my $lower = $i >= $cols_either_side ? $i - $cols_either_side : 0;
 		for my $j ( $lower .. $i ) {
@@ -2332,8 +2333,13 @@ sub _get_bar_dataset {
 			next if $i == $j;
 			next POS if $values->[$j] > $values->[$i];
 		}
-		push @$local_max, $i
-		  if !$local_max{ $i - $dont_label_distance };    #Don't label close to another label.
+		my $label_nearby = 0;
+		foreach my $distance ( 1 .. $dont_label_distance ) {
+			if ( $local_max{ $i - $distance } ) {
+				$label_nearby = 1;
+			}
+		}
+		push @$local_max, $i if !$label_nearby;
 		$local_max{$i} = 1;
 	}
 	my $dataset = {
