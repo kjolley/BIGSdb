@@ -161,11 +161,13 @@ sub _ajax_controls {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called 
 		field => sub {
 			$self->_print_design_control( $id, $element, { display => 'none' } );
 			$self->_print_order_control( $id, $element, { display => 'none' } );
+			$self->_print_orientation_control( $id, $element, { display => 'none' } );
 			$self->_print_change_duration_control( $id, $element, { display => 'none' } );
 		},
 		setup => sub {
 			$self->_print_change_duration_control( $id, $element, { display => 'none' } );
 			$self->_print_order_control( $id, $element, { display => 'none' } );
+			$self->_print_orientation_control( $id, $element, { display => 'none' } );
 			$self->_print_design_control( $id, $element, { display => 'none' } );
 		},
 	);
@@ -606,6 +608,24 @@ sub _print_order_control {
 		-class     => 'element_option',
 		-values    => $values,
 		-default   => $element->{'order_by'} // $default,
+		-linebreak => 'true'
+	);
+	say q(</li></ul></fieldset>);
+	return;
+}
+
+sub _print_orientation_control {
+	my ( $self, $id, $element, $options ) = @_;
+	my $display = $options->{'display'} // 'inline';
+	my $q = $self->{'cgi'};
+	say qq(<fieldset id="orientation_control" style="float:left;display:$display"><legend>Orientation</legend><ul>);
+	say q(<li><label for="${id}_orientation">Orientation:<br /></label>);
+	say $q->radio_group(
+		-name      => "${id}_orientation",
+		-id        => "${id}_orientation",
+		-class     => 'element_option',
+		-values    => [ 'horizontal', 'vertical' ],
+		-default   => $element->{'orientation'} // 'horizontal',
 		-linebreak => 'true'
 	);
 	say q(</li></ul></fieldset>);
@@ -2297,7 +2317,6 @@ sub _get_bar_dataset {
 	if ( !$order_by ) {
 		$order_by = $self->_field_has_optlist( $element->{'field'} ) ? 'list' : 'label';
 	}
-	
 	if ( $order_by eq 'list' ) {
 		my $list = $self->_get_field_values( $element->{'field'} );
 		@ordered = @$list;
@@ -2306,7 +2325,6 @@ sub _get_bar_dataset {
 	} else {
 		@ordered = sort { $values{$b}->{'value'} <=> $values{$a}->{'value'} } keys %values;
 	}
-	
 	my @ordered_data;
 	foreach my $label (@ordered) {
 		push @ordered_data, $values{$label} if defined $values{$label};
@@ -2381,6 +2399,7 @@ sub _get_field_breakdown_bar_content {
 	my $local_max_string = qq(@{$dataset->{'local_max'}});
 	my $bar_colour_type  = $element->{'bar_colour_type'} // 'categorical';
 	my $chart_colour     = $element->{'chart_colour'} // CHART_COLOUR;
+	my $is_vertical = ($element->{'orientation'} // 'horizontal') eq 'vertical' ? 1 : 0;
 	my $colour_function;
 
 	if ( ( $element->{'bar_colour_type'} // q() ) eq 'continuous' ) {
@@ -2391,7 +2410,8 @@ sub _get_field_breakdown_bar_content {
 		$colour_function = q(d3.schemeCategory10[d.index % 10];);
 	}
 	my $buffer = $self->_get_title($element);
-	$buffer .= qq(<div id="chart_$element->{'id'}" class="pie" style="margin-top:-20px"></div>);
+	my $vert_class = $is_vertical ? q( vertical):q();
+	$buffer .= qq(<div id="chart_$element->{'id'}" class="pie$vert_class" style="margin-top:-20px"></div>);
 	$buffer .= $self->_get_data_explorer_link($element);
 	local $" = q(,);
 	$buffer .= << "JS";
@@ -2412,8 +2432,12 @@ sub _get_field_breakdown_bar_content {
 				labels: {
 					show: true,
 					format: function (v,id,i,j){
+
 						if (v < max*0.05 || v == 1){
 							return;
+						}
+						if ($is_vertical && label_count<=$element->{'height'}*6){
+							return labels[i];
 						}
 						if (label_count<=$element->{'width'}*4){
 							return labels[i];
@@ -2429,11 +2453,17 @@ sub _get_field_breakdown_bar_content {
 						if (v === max){
 							return labels[i];
 						}
+					},
+					colors: function (){
+						if ($is_vertical){
+							return 'white';
+						}
 					}
 				},
 				color: function(color,d){return $colour_function}
 			},
 			axis: {
+				rotated: $is_vertical,
 				x: {
 					type: "category",
 					categories: [$cat_string],
@@ -2483,14 +2513,22 @@ sub _get_field_breakdown_bar_content {
      		},  
 			bindto: "#chart_$element->{'id'}",
 			onrendered: function() { //Offset first label
-				d3.selectAll("#chart_$element->{'id'} .bb-texts text").each(function(d) {
-					if (d.x == 0 && $dataset->{'count'} > 20){
-						const x = +this.getAttribute("x");
+				if ($is_vertical){
+					d3.selectAll("#chart_$element->{'id'} .bb-texts text").each(function(d) {
 						if (typeof labels[d.x] !== 'undefined'){
-							this.setAttribute("x", x + (labels[d.x].length * 3));
+								this.setAttribute("x", 0);
 						}
-					}
-				});
+					});
+				} else {
+					d3.selectAll("#chart_$element->{'id'} .bb-texts text").each(function(d) {
+						if (d.x == 0 && $dataset->{'count'} > 20){
+							const x = +this.getAttribute("x");
+							if (typeof labels[d.x] !== 'undefined'){
+								this.setAttribute("x", x + (labels[d.x].length * 3));
+							}
+						}
+					});
+				}
  			},		
 		});
 	});

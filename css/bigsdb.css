@@ -1,4 +1,4 @@
-/*Version: 20221201*/
+/*Version: 20221202*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -1637,6 +1637,12 @@ div#dashboard .item-content div.doughnut .bb-chart-arc text, div#dashboard .item
 	stroke-width: 1;
 	-webkit-filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.9));
 	filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.9));
+}
+
+.vertical .bb-texts text {
+	-webkit-filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.9));
+	filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.9));	
+	
 }
 
 div#dashboard .item-content div.treemap rect:hover {

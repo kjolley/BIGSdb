@@ -524,7 +524,7 @@ function showOrHideControlElements(id) {
 	var breakdown_display = $("#" + id + "_breakdown_display").val();
 
 	//Hide all elements initially.
-	$("fieldset#change_duration_control,fieldset#design_control,fieldset#order_control,"
+	$("fieldset#change_duration_control,fieldset#design_control,fieldset#order_control,fieldset#orientation_control,"
 		+ "li#value_selector,li#breakdown_display_selector,li#specific_value_display_selector,"
 		+ "li#top_value_selector,li#watermark_control,li#palette_control,li#text_colour_control,"
 		+ "li#background_colour_control,li.gauge_colour,li#bar_colour_type,li#chart_colour,"
@@ -557,7 +557,8 @@ function showOrHideControlElements(id) {
 	} else if (visualisation_type === 'breakdown') {
 		$("li#breakdown_display_selector").css("display", "block");
 		if (breakdown_display === 'bar') {
-			$("fieldset#design_control,fieldset#order_control,li#bar_colour_type").css("display", "inline");
+			$("fieldset#design_control,fieldset#order_control,fieldset#orientation_control,li#bar_colour_type")
+			.css("display", "inline");
 			var bar_colour_type = $("input[name='" + id + "_bar_colour_type']:checked").val();
 			if (bar_colour_type === "continuous") {
 				$("li#chart_colour").css("display", "block");
