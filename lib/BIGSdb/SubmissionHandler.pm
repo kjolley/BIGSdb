@@ -270,6 +270,15 @@ sub get_isolate_submission {
 	return $submission;
 }
 
+sub get_assembly_submission {
+	my ( $self, $submission_id ) = @_;
+	$logger->logcarp('No submission_id passed') if !$submission_id;
+	my $submission = $self->{'datastore'}->run_query( 'SELECT * FROM assembly_submissions WHERE submission_id=?',
+		$submission_id,
+		{ fetch => 'all_arrayref', slice => {}, cache => 'SubmissionHandler::get_assembly_submission' } );
+	return $submission;
+}
+
 sub write_submission_allele_FASTA {
 	my ( $self, $submission_id ) = @_;
 	my $allele_submission = $self->get_allele_submission($submission_id);
@@ -371,6 +380,22 @@ sub get_populated_fields {
 	return \@fields;
 }
 
+sub insert_message {
+	my ( $self, $submission_id, $user_id, $message ) = @_;
+	eval {
+		$self->{'db'}->do( 'INSERT INTO messages (submission_id,timestamp,user_id,message) VALUES (?,?,?,?)',
+			undef, $submission_id, 'now', $user_id, $message );
+	};
+	if ($@) {
+		$self->{'logger'}->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+	return;
+}
+
+#Appends message to correspondence text file.
 sub append_message {
 	my ( $self, $submission_id, $user_id, $message ) = @_;
 	my $dir = $self->get_submission_dir($submission_id);
@@ -656,6 +681,10 @@ sub check_new_isolates {
 			$row =~ s/\s*$//x;
 			next if !$row;
 			$row_number++;
+			if ( $options->{'limit'} && $row > $options->{'limit'} ) {
+				push @err, "Record limit reached - please only submit up to $options->{'limit'} records at a time.";
+				last;
+			}
 			my @values = split /\t/x, $row;
 			my $row_id =
 			  defined $positions->{ $self->{'system'}->{'labelfield'} }
@@ -1794,8 +1823,7 @@ sub get_text_summary {
 	);
 	my $msg =
 	    'This message is sent from an automated account, please do not reply directly. If you wish to '
-	  . "add any correspondence then please enter this using the message box on the submission page.\n\n"
-	  ;
+	  . "add any correspondence then please enter this using the message box on the submission page.\n\n";
 	$msg .= $self->_get_text_heading('Submission status');
 	foreach my $field (qw (id type date_submitted datestamp status)) {
 		$msg .= "$fields{$field}: $submission->{$field}\n";
@@ -1848,7 +1876,7 @@ sub get_text_summary {
 	return $msg;
 }
 
-sub _get_curators {
+sub get_curators {
 	my ( $self, $submission_id ) = @_;
 	my $submission = $self->get_submission($submission_id);
 	return [] if !$submission;
@@ -1900,7 +1928,7 @@ sub notify_curators {
 	my ( $self, $submission_id ) = @_;
 	return if !$self->{'config'}->{'smtp_server'};
 	my $submission = $self->get_submission($submission_id);
-	my $curators   = $self->_get_curators($submission_id);
+	my $curators   = $self->get_curators($submission_id);
 	foreach my $curator_id (@$curators) {
 		my $curator_configs =
 		  $self->{'datastore'}->run_query( 'SELECT dbase_config FROM curator_configs WHERE user_id=?',

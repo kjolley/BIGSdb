@@ -148,10 +148,11 @@ sub print_query_menu_item {
 	my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id, do_not_order => 1 } );
 
 	if (@$loci) {
-		push @$links, {
+		push @$links,
+		  {
 			href => "${url_root}page=profiles$project_clause",
 			text => 'Search by combinations of loci'
-		};
+		  };
 	}
 	if ( $self->{'username'} && !$options->{'project_id'} ) {
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
@@ -795,6 +796,10 @@ sub _get_pending_submission_count {
 			  $self->{'datastore'}->run_query(
 				'SELECT COUNT(*) FROM submissions WHERE (type,status)=(?,?) AND (dataset IS NULL OR dataset = ?)',
 				[ 'genomes', 'pending', $self->{'instance'} ] );
+			$count +=
+			  $self->{'datastore'}->run_query(
+				'SELECT COUNT(*) FROM submissions WHERE (type,status)=(?,?) AND (dataset IS NULL OR dataset = ?)',
+				[ 'assemblies', 'pending', $self->{'instance'} ] );
 		}
 		return $count;
 	} else {
