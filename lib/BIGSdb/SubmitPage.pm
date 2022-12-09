@@ -1568,11 +1568,11 @@ sub _print_assembly_table_fieldset {
 		say $q->start_form( -action => $self->{'system'}->{'curate_script'} );
 		say $q->submit( -name => 'Batch upload', -class => 'submit', -style => 'margin-top:0.5em' );
 		my $page = $q->param('page');
-		$q->param( page   => 'batchAddSeqbin' );
-		$q->param( validate => 1 );
-		$q->param( field=>'id');
-		$q->param(temp_file => "$submission_id.json");
-		$q->param(sender => $submission->{'submitter'});
+		$q->param( page      => 'batchAddSeqbin' );
+		$q->param( validate  => 1 );
+		$q->param( field     => 'id' );
+		$q->param( temp_file => "$submission_id.json" );
+		$q->param( sender    => $submission->{'submitter'} );
 		say $q->hidden($_) foreach qw( db page submission_id field validate temp_file sender);
 		say $q->end_form;
 
@@ -2065,8 +2065,8 @@ sub _print_finalised_assembly_warning {
 			my $record_term = @$wrong_sender == 1 ? q(this record) : q(these records);
 			if ( $options->{'view'} ) {
 				say qq(<p class="warning">You are not the original sender for isolate ids: @$wrong_sender.</p>);
-				print qq(<p>Please ensure that you should be modifying $record_term and add a message for<br /> )
-				  . qq(the curator to confirm why you should be modifying $record_term.</p>);
+				print qq(<p>Please ensure that you should be modifying $record_term and add a message to the<br /> )
+				  . q(curator to confirm why you should.</p>);
 			}
 			if ( $options->{'curate'} ) {
 				say
