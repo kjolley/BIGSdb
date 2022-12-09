@@ -1,5 +1,7 @@
 v1.39.0: *Export dashboard function which can be used to create TOML files for
           setting up default primary, query, or project dashboards.
+         *Assembly submissions now allow users to submit genome assemblies via
+          the submission interface for adding to existing records.
 v1.38.1: *New project front-end dashboards.
          *Query dashboard now shown for publication results. 
          *New annotation status visualisation for dashboards.

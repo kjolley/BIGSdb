@@ -44,7 +44,7 @@ Version 1.35: Change of isolate database structure.
 Version 1.36: Optional additional table added to the isolate database structure.
 Version 1.37: Change of seqdef and isolate database structures.
 Version 1.38: Change of seqdef and isolate database structures.
-Version 1.39: Change of preference database structure.
+Version 1.39: Change of isolate and preference database structures.
 
 Details can be found below.
 
@@ -584,5 +584,8 @@ There is a change to an embedded function in the preference database needed to
 fix the automated default naming of new dashboards in the case of a dashboard
 with a lower number having been removed.
 
+There is also a new table added to the isolate database to support submission
+of assemblies for existing records.
+
 Please run the prefs_v1.39.sql script against the prefs database (bigsdb_prefs
-by default).
+by default) and the isolatedb_v1.39.sql script against isolate databases.
