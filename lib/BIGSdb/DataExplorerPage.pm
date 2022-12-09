@@ -862,7 +862,7 @@ sub _get_scheme_field_values {
 	#We include the DISTINCT clause below because an isolate may have more than 1 row in the scheme
 	#cache table. This happens if the isolate has multiple STs (due to multiple allele hits).
 	my $qry =
-	    "SELECT COALESCE(s.$field,'No value') AS label,COUNT(DISTINCT (v.id)) AS count FROM "
+	    "SELECT COALESCE(CAST(s.$field AS text),'No value') AS label,COUNT(DISTINCT (v.id)) AS count FROM "
 	  . "$self->{'system'}->{'view'} v LEFT JOIN $scheme_table s ON v.id=s.id";
 	my $filters = $self->_get_filters($params);
 	local $" = ' AND ';
