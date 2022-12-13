@@ -50,7 +50,8 @@ sub run_script {
 
 	if ( !@$isolate_list ) {
 		exit(0) if $self->{'options'}->{'n'};
-		die "No isolates selected.\n";
+		$self->{'logger'}->error('No isolates selected.') if !$self->{'options'}->{'quiet'};
+		exit;
 	}
 	my $loci = $self->get_loci_with_ref_db;
 	die "No valid loci selected.\n" if !@$loci;
