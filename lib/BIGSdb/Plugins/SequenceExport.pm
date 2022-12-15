@@ -26,7 +26,6 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Try::Tiny;
 use List::MoreUtils qw(any none uniq);
-use Bio::Perl;
 use Bio::Seq;
 use Bio::SeqIO;
 use Bio::AlignIO;
@@ -57,7 +56,7 @@ sub get_attributes {
 		buttontext => 'Sequences',
 		menutext   => $seqdef ? 'Profile sequences' : 'Sequences',
 		module     => 'SequenceExport',
-		version    => '1.7.1',
+		version    => '1.7.2',
 		dbtype     => 'isolates,sequences',
 		seqdb_type => 'schemes',
 		section    => 'isolate_info,profile_info,export,postquery',
