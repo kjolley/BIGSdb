@@ -64,8 +64,8 @@ sub _print_interface {
 
 sub print_content {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	my $desc = $self->get_db_description( { formatted => 1 } ) // 'BIGSdb';
+	my $q      = $self->{'cgi'};
+	my $desc   = $self->get_db_description( { formatted => 1 } ) // 'BIGSdb';
 	say "<h1>Refresh scheme caches - $desc</h1>";
 	if ( $self->{'system'}->{'dbtype'} ne 'isolates' ) {
 		$self->print_bad_status( { message => q(This function is only for use on isolate databases.), navbar => 1 } );
@@ -126,6 +126,10 @@ sub _refresh_caches {
 			$self->{'datastore'}
 			  ->create_temp_isolate_scheme_fields_view( $scheme_id, { cache => 1, method => $method } );
 			$self->{'datastore'}->create_temp_scheme_status_table( $scheme_id, { cache => 1, method => $method } );
+			if ( $self->{'datastore'}->are_lincodes_defined($scheme_id) ) {
+				$self->{'datastore'}->create_temp_lincodes_table( $scheme_id, { cache => 1 } );
+				$self->{'datastore'}->create_temp_lincode_prefix_values_table( $scheme_id, { cache => 1 } );
+			}
 			my $cschemes = $self->{'datastore'}->run_query( 'SELECT id FROM classification_schemes WHERE scheme_id=?',
 				$scheme_id, { fetch => 'col_arrayref', cache => 'get_cschemes_from_scheme' } );
 			foreach my $cscheme_id (@$cschemes) {
