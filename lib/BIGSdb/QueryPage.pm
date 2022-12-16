@@ -114,6 +114,7 @@ END
 sub get_javascript {
 	my ($self)   = @_;
 	my $max_rows = MAX_ROWS;
+	my $close_panel_js = $self->_get_close_panel_js;
 	my $buffer   = $self->SUPER::get_javascript;
 	$buffer .= << "END";
 \$(function () {
@@ -122,24 +123,7 @@ sub get_javascript {
     		return(this.href.replace(/(.*)/, "javascript:loadContent\('\$1\'\)"));
     	});
   	});
-  	\$(document).mouseup(function(e) {
-
-		
-		// if the target of the click isn't the container nor a
-		// descendant of the container
-		var trigger = \$("#panel_trigger");
- 		var container = \$("#modify_panel");
-		if (!container.is(e.target) && container.has(e.target).length === 0 && 
-		!trigger.is(e.target) && trigger.has(e.target).length === 0) {
-			container.hide();
-		}
-		trigger = \$("#bookmark_trigger");
- 		container = \$("#bookmark_panel");
-		if (!container.is(e.target) && container.has(e.target).length === 0 && 
-		!trigger.is(e.target) && trigger.has(e.target).length === 0) {
-			container.hide();
-		}
-	});
+	$close_panel_js
  });
  
 function add_rows(url,list_name,row_name,row,field_heading,button_id){
@@ -155,6 +139,27 @@ function add_rows(url,list_name,row_name,row,field_heading,button_id){
 }
 END
 	return $buffer;
+}
+
+sub _get_close_panel_js {
+	return << "JS";
+	\$(document).mouseup(function(e) {
+		// if the target of the click isn't the container nor a
+		// descendant of the container
+		var trigger = \$("#panel_trigger");
+ 		var container = \$("#modify_panel");
+		if (!container.is(e.target) && container.has(e.target).length === 0 && 
+		!trigger.is(e.target) && trigger.has(e.target).length === 0) {
+			container.hide();
+		}
+		trigger = \$("#bookmark_trigger");
+ 		container = \$("#bookmark_panel");
+		if (!container.is(e.target) && container.has(e.target).length === 0 && 
+		!trigger.is(e.target) && trigger.has(e.target).length === 0) {
+			container.hide();
+		}
+	});
+JS
 }
 
 sub filters_selected {

@@ -60,6 +60,7 @@ sub get_javascript {
 	my $filters_fieldset_display = $self->{'prefs'}->{'aq_filters_fieldset'}
 	  || $self->filters_selected ? 'inline' : 'none';
 	my $list_fieldset_display = $self->{'prefs'}->{'aq_list_fieldset'} || $q->param('list') ? 'inline' : 'none';
+	my $close_panel_js = $self->_get_close_panel_js;
 	my $panel_js              = $self->get_javascript_panel(qw(filters list allele));
 	my $buffer                = << "END";
 \$(function () {
@@ -80,6 +81,7 @@ sub get_javascript {
    	  });
     });
     $panel_js
+    $close_panel_js
 });
 
 function loadContent(url) {
