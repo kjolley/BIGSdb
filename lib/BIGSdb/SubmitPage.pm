@@ -50,8 +50,8 @@ sub get_submission_days {
 }
 
 sub get_javascript {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my ($self)      = @_;
+	my $q           = $self->{'cgi'};
 	my $max         = $self->{'config'}->{'max_upload_size'} / ( 1024 * 1024 );
 	my $max_files   = LIMIT;
 	my $tree_js     = $self->get_tree_javascript( { checkboxes => 1, check_schemes => 1, submit_name => 'filter' } );
@@ -312,7 +312,7 @@ sub _user_over_quota {
 	if ( $daily_pending >= $daily_limit ) {
 		$self->print_bad_status(
 			{
-				    message => q(Your account has too many pending submissions )
+					message => q(Your account has too many pending submissions )
 				  . q(submitted today. You will not be able to submit any more until either tomorrow or )
 				  . q(when these have been curated.)
 			}
@@ -546,7 +546,7 @@ sub _get_own_submissions {
 			my $url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
 			  . qq(submission_id=$submission->{'id'}&amp;view=1);
 			$table_buffer .=
-			    qq(<tr class="td$td"><td><a href="$url">$submission->{'id'}</a></td>)
+				qq(<tr class="td$td"><td><a href="$url">$submission->{'id'}</a></td>)
 			  . qq(<td>$submission->{'date_submitted'}</td><td>$submission->{'datestamp'}</td>)
 			  . qq(<td>$submission->{'type'}</td>);
 			$table_buffer .= qq(<td>$details</td>);
@@ -556,7 +556,7 @@ sub _get_own_submissions {
 			}
 			if ( $options->{'allow_remove'} ) {
 				$table_buffer .=
-				    qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+					qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 				  . qq(page=submit&amp;submission_id=$submission->{'id'}&amp;remove=1">)
 				  . q(<span class="fas fa-lg fa-times"></span></a></td>);
 			}
@@ -644,7 +644,7 @@ sub print_submissions_for_curation {
 		$buffer .= $self->_get_assembly_submissions_for_curation($options);
 	}
 	return $buffer if $options->{'get_only'};
-	say $buffer if $buffer;
+	say $buffer    if $buffer;
 	return;
 }
 
@@ -665,9 +665,9 @@ sub _get_allele_submissions_for_curation {
 			->is_allowed_to_modify_locus_sequences( $allele_submission->{'locus'}, $user_info->{'id'} ) );
 		next if $set_id && !$self->{'datastore'}->is_locus_in_set( $allele_submission->{'locus'}, $set_id );
 		my $submitter_string = $self->{'datastore'}->get_user_string( $submission->{'submitter'}, { email => 1 } );
-		my $locus = $self->clean_locus( $allele_submission->{'locus'} ) // $allele_submission->{'locus'};
+		my $locus            = $self->clean_locus( $allele_submission->{'locus'} ) // $allele_submission->{'locus'};
 		$buffer .=
-		    qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=submit&amp;submission_id=$submission->{'id'}&amp;curate=1">$submission->{'id'}</a></td>)
 		  . qq(<td>$submission->{'date_submitted'}</td><td>$submission->{'datestamp'}</td><td>$submitter_string</td>)
 		  . qq(<td>$locus</td><td>$allele_submission->{'technology'}</td>);
@@ -724,7 +724,7 @@ sub _get_profile_submissions_for_curation {
 		my $scheme_info =
 		  $self->{'datastore'}->get_scheme_info( $profile_submission->{'scheme_id'}, { set_id => $set_id } );
 		$buffer .=
-		    qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=submit&amp;submission_id=$submission->{'id'}&amp;curate=1">$submission->{'id'}</a></td>)
 		  . qq(<td>$submission->{'date_submitted'}</td><td>$submission->{'datestamp'}</td><td>$submitter_string</td>)
 		  . qq(<td>$scheme_info->{'name'}</td>);
@@ -772,7 +772,7 @@ sub _get_isolate_submissions_for_curation {
 		my $submitter_string   = $self->{'datastore'}->get_user_string( $submission->{'submitter'}, { email => 1 } );
 		my $isolate_count      = @{ $isolate_submission->{'isolates'} };
 		$buffer .=
-		    qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=submit&amp;submission_id=$submission->{'id'}&amp;curate=1">$submission->{'id'}</a></td>)
 		  . qq(<td>$submission->{'date_submitted'}</td><td>$submission->{'datestamp'}</td><td>$submitter_string</td>)
 		  . qq(<td>$isolate_count</td>);
@@ -818,7 +818,7 @@ sub _get_assembly_submissions_for_curation {
 		my $submitter_string    = $self->{'datastore'}->get_user_string( $submission->{'submitter'}, { email => 1 } );
 		my $assembly_count      = @$assembly_submission;
 		$buffer .=
-		    qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=submit&amp;submission_id=$submission->{'id'}&amp;curate=1">$submission->{'id'}</a></td>)
 		  . qq(<td>$submission->{'date_submitted'}</td><td>$submission->{'datestamp'}</td><td>$submitter_string</td>)
 		  . qq(<td>$assembly_count</td>);
@@ -1082,7 +1082,7 @@ sub _submit_profiles {
 		$self->print_bad_status( { message => q(Scheme id must be an integer.) } );
 		return;
 	}
-	my $set_id = $self->get_set_id;
+	my $set_id      = $self->get_set_id;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1, set_id => $set_id } );
 	if ( !$scheme_info || !$scheme_info->{'primary_key'} ) {
 		$self->print_bad_status( { message => q(Invalid scheme passed.) } );
@@ -1142,7 +1142,7 @@ sub _submit_isolates {
 			return;
 		}
 	}
-	my $set_id = $self->get_set_id;
+	my $set_id     = $self->get_set_id;
 	my $set_clause = $set_id ? qq(&amp;set_id=$set_id) : q();
 	say q(<div class="box" id="queryform"><div class="scrollable">);
 	say q(<h2>Submit new isolates);
@@ -1297,7 +1297,7 @@ sub _check_assemblies_isolate_records {
 	my %id_used;
 	my %filename_used;
 	my %allowed_methods = map { $_ => 1 } SEQ_METHODS;
-	my $limit = LIMIT;
+	my $limit           = LIMIT;
 
 	foreach my $record (@records) {
 		next if !$record;
@@ -1462,7 +1462,7 @@ sub _print_profile_table_fieldset {
 	}
 	say q(<fieldset style="float:left"><legend>Profiles</legend>);
 	my $csv_icon = $self->get_file_icon('CSV');
-	my $plural = @$profiles == 1 ? '' : 's';
+	my $plural   = @$profiles == 1 ? '' : 's';
 	say qq(<p>You are submitting the following $scheme_info->{'name'} profile$plural: )
 	  . qq(<a href="/submissions/$submission_id/profiles.txt">Download$csv_icon</a></p>)
 	  if ( $options->{'download_link'} );
@@ -1506,7 +1506,7 @@ sub _print_isolate_table_fieldset {
 	my $order    = $isolate_submission->{'order'};
 	say q(<fieldset><legend>Isolates</legend>);
 	my $csv_icon = $self->get_file_icon('CSV');
-	my $plural = @$isolates == 1 ? '' : 's';
+	my $plural   = @$isolates == 1 ? '' : 's';
 	say qq(<p>You are submitting the following isolate$plural: )
 	  . qq(<a href="/submissions/$submission_id/isolates.txt">Download$csv_icon</a></p>)
 	  if ( $options->{'download_link'} );
@@ -1549,7 +1549,7 @@ sub _print_assembly_table_fieldset {
 	push @isolates, $_->{'id'} foreach @$add_genome_submission;
 	say q(<fieldset><legend>Assemblies</legend>);
 	my $csv_icon = $self->get_file_icon('CSV');
-	my $plural = @isolates == 1 ? '' : 's';
+	my $plural   = @isolates == 1 ? '' : 's';
 	say qq(<p>You are submitting the following isolate$plural: ) if $options->{'download_link'};
 	say $q->start_form;
 	my $status = $self->_print_assembly_table( $submission_id, $options );
@@ -1633,12 +1633,12 @@ sub _start_submission {
 	$logger->logdie("Invalid submission type '$type'")
 	  if none { $type eq $_ } qw (alleles profiles isolates genomes assemblies);
 	my $submission_id =
-	    'BIGSdb_'
+		'BIGSdb_'
 	  . strftime( '%Y%m%d%H%M%S', localtime ) . '_'
 	  . sprintf( '%06d', $$ ) . '_'
 	  . sprintf( '%05d', int( rand(99999) ) );
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	my $dataset = ( $self->{'system'}->{'separate_dataset'} // q() ) eq 'yes' ? $self->{'instance'} : undef;
+	my $dataset   = ( $self->{'system'}->{'separate_dataset'} // q() ) eq 'yes' ? $self->{'instance'} : undef;
 	eval {
 		$self->{'db'}->do(
 			'INSERT INTO submissions (id,type,submitter,date_submitted,datestamp,status,dataset) '
@@ -2140,7 +2140,7 @@ sub _update_isolate_submission_isolate_status {
 	my ( $self, $submission_id ) = @_;
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	return if !$submission;
-	my $q = $self->{'cgi'};
+	my $q       = $self->{'cgi'};
 	my %outcome = ( accepted => 'good', rejected => 'bad' );
 	$self->{'submissionHandler'}->update_submission_outcome( $submission_id, $outcome{ $q->param('record_status') } );
 	if ( $q->param('record_status') eq 'accepted' ) {
@@ -2163,7 +2163,7 @@ sub _print_sequence_table {
 	my $seqs              = $allele_submission->{'seqs'};
 	my $locus             = $allele_submission->{'locus'};
 	my $locus_info        = $self->{'datastore'}->get_locus_info($locus);
-	my $cds = $locus_info->{'data_type'} eq 'DNA' && $locus_info->{'complete_cds'} ? '<th>Complete CDS</th>' : '';
+	my $cds       = $locus_info->{'data_type'} eq 'DNA' && $locus_info->{'complete_cds'} ? '<th>Complete CDS</th>' : '';
 	my $max_width = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
 	my $main_max_width = $max_width - 100;
 	say qq(<div style="max-width:min(${main_max_width}px, 100vw - 100px)"><div class="scrollable">)
@@ -2395,12 +2395,15 @@ sub _get_completed_schemes {
 	  $self->{'submissionHandler'}
 	  ->get_populated_fields( $isolate_submission->{'isolates'}, $isolate_submission->{'order'} );
 	my %populated = map { $_ => 1 } @$fields;
-	my $set_id = $self->get_set_id;
+	my $set_id    = $self->get_set_id;
 	my $schemes =
 	  $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => 1 } );
+	use Data::Dumper;
+	$logger->error( Dumper $schemes);
 	my $list = [];
+
 	foreach my $scheme (@$schemes) {
-		my $loci          = $self->{'datastore'}->get_scheme_loci( $scheme->{'id'} );
+		my $loci          = $self->{'datastore'}->get_scheme_loci( $scheme->{'id'}, { profile_name => 1 } );
 		my $all_populated = 1;
 		foreach my $locus (@$loci) {
 			if ( !$populated{$locus} ) {
@@ -2437,7 +2440,7 @@ sub _print_isolate_table {
 			};
 		}
 	}
-	my $max_width = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
+	my $max_width      = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
 	my $main_max_width = $max_width - 100;
 	say qq(<div style="max-width:min(${main_max_width}px, 100vw - 100px)"><div class="scrollable">)
 	  . q(<table class="resultstable" style="margin-bottom:0"><tr>);
@@ -2475,14 +2478,16 @@ sub _print_isolate_table {
 					$filename_already_used{ $isolate->{$field} } = 1;
 				}
 			} elsif ( $scheme_fields->{$field} ) {
-				my $scheme_loci  = $self->{'datastore'}->get_scheme_loci( $scheme_fields->{$field}->{'scheme_id'} );
+				my $scheme_loci = $self->{'datastore'}
+				  ->get_scheme_loci( $scheme_fields->{$field}->{'scheme_id'}, { profile_name => 1 } );
 				my $designations = {};
 				foreach my $locus (@$scheme_loci) {
 					$designations->{$locus} = [ { allele_id => $isolate->{$locus}, status => 'confirmed' } ];
 				}
 				my $field_values =
 				  $self->{'datastore'}
-				  ->get_scheme_field_values_by_designations( $scheme_fields->{$field}->{'scheme_id'}, $designations );
+				  ->get_scheme_field_values_by_designations( $scheme_fields->{$field}->{'scheme_id'},
+					$designations, { no_convert => 1 } );
 				my @pk_field_values =
 				  keys %{ $field_values->{ lc $scheme_fields->{$field}->{'field'} } };
 				push @values, $pk_field_values[0] // q(-);
@@ -2551,7 +2556,7 @@ sub _print_genome_stat_fields {
 	my $assembly_stats = $self->{'submissionHandler'}->get_assembly_stats($submission_id);
 	return if !$assembly_filename;
 	my $rmlst_analysis = $self->_get_rmlst_analysis($submission_id);
-	my $colspan = %$rmlst_analysis ? 4 : 3;
+	my $colspan        = %$rmlst_analysis ? 4 : 3;
 	if ( -e "$dir/$assembly_filename" ) {
 		if ( !$assembly_stats->{$index} ) {
 			$assembly_stats->{$index} =
@@ -2564,7 +2569,7 @@ sub _print_genome_stat_fields {
 			my $warn_max_contigs = $self->{'system'}->{'warn_max_contigs'} // $self->{'config'}->{'warn_max_contigs'}
 			  // WARN_MAX_CONTIGS;
 			my $max_contigs = $self->{'system'}->{'max_contigs'} // $self->{'config'}->{'max_contigs'} // MAX_CONTIGS;
-			my $class = q();
+			my $class       = q();
 			if ( $assembly_stats->{$index}->{'contigs'} > $max_contigs ) {
 				$class = 'fail';
 				$self->{'failed_validation'} = 1;
@@ -2672,7 +2677,7 @@ sub _print_sequence_table_fieldset {
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	say q(<fieldset style="float:left"><legend>Sequences</legend>);
 	my $fasta_icon = $self->get_file_icon('FAS');
-	my $plural = @$seqs == 1 ? '' : 's';
+	my $plural     = @$seqs == 1 ? '' : 's';
 	say qq(<p>You are submitting the following $allele_submission->{'locus'} sequence$plural: )
 	  . qq(<a href="/submissions/$submission_id/sequences.fas">Download$fasta_icon</a></p>)
 	  if ( $options->{'download_link'} );
@@ -2862,7 +2867,7 @@ sub _print_message_fieldset {
 		$buffer .= $q->end_form;
 	}
 	if ($buffer) {
-		my $max_width = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
+		my $max_width      = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
 		my $main_max_width = $max_width - 100;
 		say q(<fieldset style="float:left"><legend>Messages</legend>);
 		say qq(<div style="max-width:min(${main_max_width}px, 100vw - 80px)">);
@@ -2927,7 +2932,7 @@ sub _can_delete_last_message {
 	my $datestamp    = BIGSdb::Utils::get_datestamp();
 	my $user         = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	my $can_delete_last_message =
-	     $last_message
+		 $last_message
 	  && $last_message->{'user_id'} == $user->{'id'}
 	  && substr( $last_message->{'timestamp'}, 0, 10 ) eq $datestamp ? 1 : 0;
 	return $can_delete_last_message;
@@ -3045,7 +3050,7 @@ sub _print_submission_file_table {
 
 	foreach my $file (@$files) {
 		$buffer .=
-		    qq(<tr class="td$td"><td><a href="/submissions/$submission_id/supporting_files/$file->{'filename'}">)
+			qq(<tr class="td$td"><td><a href="/submissions/$submission_id/supporting_files/$file->{'filename'}">)
 		  . qq($file->{'filename'}</a></td><td>$file->{'size'}</td>);
 		if ( $options->{'delete_checkbox'} ) {
 			$buffer .= q(<td>);
@@ -3140,7 +3145,7 @@ sub _print_summary {
 	}
 	if ( $submission->{'type'} eq 'alleles' ) {
 		my $allele_submission = $self->{'submissionHandler'}->get_allele_submission($submission_id);
-		my $locus = $self->clean_locus( $allele_submission->{'locus'} ) // $allele_submission->{'locus'};
+		my $locus             = $self->clean_locus( $allele_submission->{'locus'} ) // $allele_submission->{'locus'};
 		say qq(<dt>locus</dt><dd>$locus</dd>);
 		my $allele_count   = @{ $allele_submission->{'seqs'} };
 		my $fasta_icon     = $self->get_file_icon('FAS');
@@ -3214,11 +3219,11 @@ sub set_level2_breadcrumbs {
 	$self->{'breadcrumbs'} = [
 		{
 			label => $self->{'system'}->{'webroot_label'} // 'Organism',
-			href => $self->{'system'}->{'webroot'}
+			href  => $self->{'system'}->{'webroot'}
 		},
 		{
 			label => $self->{'system'}->{'formatted_description'} // $self->{'system'}->{'description'},
-			href => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}"
+			href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}"
 		},
 		{
 			label => 'Submissions',
@@ -3461,7 +3466,7 @@ sub _get_scheme_loci {
 	my $set_id = $self->get_set_id;
 	foreach (@$scheme_ids) {
 		my $scheme_loci =
-		    $_
+			$_
 		  ? $self->{'datastore'}->get_scheme_loci($_)
 		  : $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
 		foreach my $locus (@$scheme_loci) {

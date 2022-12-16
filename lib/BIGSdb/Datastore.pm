@@ -364,13 +364,12 @@ sub get_scheme_field_values_by_designations {
 
 	#$designations is a hashref containing arrayref of allele_designations for each locus
 	my ( $self, $scheme_id, $designations, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
 	my $values     = {};
 	my $loci       = $self->get_scheme_loci($scheme_id);
 	my $fields     = $self->get_scheme_fields($scheme_id);
 	my $field_data = [];
 	my $scheme     = $self->get_scheme($scheme_id);
-	$self->_convert_designations_to_profile_names( $scheme_id, $designations );
+	$self->_convert_designations_to_profile_names( $scheme_id, $designations ) if !$options->{'no_convert'};
 	{
 		try {
 			$field_data = $scheme->get_field_values_by_designations($designations);
@@ -777,7 +776,6 @@ sub get_scheme_loci {
 	#profile_name: to substitute profile field value in query
 	#	({profile_name => 1, analysis_pref => 1})
 	my ( $self, $scheme_id, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
 	if ( !$self->{'cache'}->{'scheme_loci'}->{$scheme_id} ) {
 		my $qry =
 		    'SELECT locus'
