@@ -2398,8 +2398,6 @@ sub _get_completed_schemes {
 	my $set_id    = $self->get_set_id;
 	my $schemes =
 	  $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => 1 } );
-	use Data::Dumper;
-	$logger->error( Dumper $schemes);
 	my $list = [];
 
 	foreach my $scheme (@$schemes) {
