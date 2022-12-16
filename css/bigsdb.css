@@ -1,4 +1,4 @@
-/*Version: 20221202*/
+/*Version: 20221216*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -1059,7 +1059,7 @@ div.ol_map {
 	border: 1px #888 solid;
 }
 
-div.ol-zoom {
+div.ol-zoom, div.ol-rotate {
 	z-index:10
 }
 
