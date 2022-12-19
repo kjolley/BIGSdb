@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20220903
+#Version: 20221219
 use strict;
 use warnings;
 use 5.010;
@@ -282,7 +282,7 @@ sub get_dbase_configs {
 	my ($options) = @_;
 	my @configs;
 	opendir( my $dh, $script->{'dbase_config_dir'} )
-	  || $logger->error("Cannot open $script->{'dbase_config_dir'} for reading");
+	  || $logger->logdie("Cannot open $script->{'dbase_config_dir'} for reading");
 	my @items = sort readdir $dh;
 	foreach my $item (@items) {
 		next if $item =~ /^\./x;
@@ -749,7 +749,7 @@ sub get_users_allow_deny {
 		foreach my $allow_deny (qw(allow deny)) {
 			my $filename = "$script->{'dbase_config_dir'}/$this_config/users.$allow_deny";
 			if ( -e $filename ) {
-				open( my $fh, '<', $filename ) || $logger->error("Cannot open $filename for reading");
+				open( my $fh, '<', $filename ) || $logger->logdie("Cannot open $filename for reading");
 				while ( my $line = <$fh> ) {
 					$line =~ s/[\s\r\n]//gx;
 					$names{$line} = 1;
