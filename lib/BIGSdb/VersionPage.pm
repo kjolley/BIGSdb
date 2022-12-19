@@ -159,7 +159,7 @@ sub _print_plugins {
 				push @authors, $author;
 			}
 		}
-		my $name = defined $attr->{'url'} ? qq{<a href="$attr->{'url'}">$attr->{'name'}</a>} : $attr->{'name'};
+		my $name       = defined $attr->{'url'} ? qq{<a href="$attr->{'url'}">$attr->{'name'}</a>} : $attr->{'name'};
 		my $row_buffer = qq(<td>$name</td><td>@authors</td><td>$attr->{'description'}</td><td>$attr->{'version'}</td>);
 		if ( $disabled_reason{$plugin} ) {
 			$disabled_buffer .= qq(<tr class="td$dtd">$row_buffer<td>$disabled_reason{$plugin}</td></tr>);
@@ -179,7 +179,6 @@ sub _print_plugins {
 			say q(</table>);
 		}
 		say q(</div>);
-		
 		if ($disabled_buffer) {
 			say q(<h3>Disabled plugins</h3>);
 			say q(<div class="scrollable">);
@@ -189,7 +188,6 @@ sub _print_plugins {
 			say q(</table>);
 			say q(</div>);
 		}
-		
 	}
 	say q(</div>);
 	return;
@@ -245,15 +243,15 @@ sub _print_software_versions {
 		say qq(<li>$ENV{'MOD_PERL'}</li>);
 	}
 	my $blast_version = $self->_get_blast_version;
-	if ($blast_version){
+	if ($blast_version) {
 		say qq(<li>BLAST: $blast_version</li>);
 	}
 	my $muscle_version = $self->_get_muscle_version;
-	if ($muscle_version){
+	if ($muscle_version) {
 		say qq(<li>MUSCLE: $muscle_version</li>);
 	}
 	my $mafft_version = $self->_get_mafft_version;
-	if ($mafft_version){
+	if ($mafft_version) {
 		say qq(<li>MAFFT: $mafft_version</li>);
 	}
 	say q(</ul>);
@@ -262,10 +260,14 @@ sub _print_software_versions {
 }
 
 sub _get_blast_version {
-	my ($self) = @_;
-	my $cmd = "$self->{'config'}->{'blast+_path'}/blastn -version";
-	my $version_output = `$cmd`;
-	if ($version_output =~ /blastn:\s([\d\.\+]+)/x){
+	my ($self)       = @_;
+	my $cmd          = "$self->{'config'}->{'blast+_path'}/blastn -version";
+	my $prefix       = BIGSdb::Utils::get_random();
+	my $version_file = "$self->{'config'}->{'secure_tmp_dir'}/$prefix";
+	system "$cmd > $version_file";
+	my $version_output = BIGSdb::Utils::slurp($version_file);
+	unlink $version_file;
+	if ( $$version_output =~ /blastn:\s([\d\.\+]+)/x ) {
 		return $1;
 	}
 	$logger->error('Cannot determine BLAST version');
@@ -275,21 +277,30 @@ sub _get_blast_version {
 sub _get_muscle_version {
 	my ($self) = @_;
 	return if !defined $self->{'config'}->{'muscle_path'};
-	my $cmd = "$self->{'config'}->{'muscle_path'} -version";
-	my $version_output = `$cmd`;
-	if ($version_output =~ /MUSCLE\sv([\d\.]+)/x){
+	my $cmd          = "$self->{'config'}->{'muscle_path'} -version";
+	my $prefix       = BIGSdb::Utils::get_random();
+	my $version_file = "$self->{'config'}->{'secure_tmp_dir'}/$prefix";
+	system "$cmd > $version_file";
+	my $version_output = BIGSdb::Utils::slurp($version_file);
+	unlink $version_file;
+
+	if ( $$version_output =~ /MUSCLE\sv([\d\.]+)/x ) {
 		return $1;
 	}
 	$logger->error('Cannot determine MUSCLE version');
 	return;
 }
-
 sub _get_mafft_version {
 	my ($self) = @_;
 	return if !defined $self->{'config'}->{'mafft_path'};
-	my $cmd = "$self->{'config'}->{'mafft_path'} --version 2>&1";
-	my $version_output = `$cmd`;
-	if ($version_output =~ /v([\d\.]+)/x){
+	my $cmd          = "$self->{'config'}->{'mafft_path'} --version";
+	my $prefix       = BIGSdb::Utils::get_random();
+	my $version_file = "$self->{'config'}->{'secure_tmp_dir'}/$prefix";
+	system "$cmd > $version_file 2>&1";
+	my $version_output = BIGSdb::Utils::slurp($version_file);
+	unlink $version_file;
+
+	if ( $$version_output =~ /v([\d\.]+)/x ) {
 		return $1;
 	}
 	$logger->error('Cannot determine MAFFT version');
