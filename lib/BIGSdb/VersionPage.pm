@@ -36,7 +36,8 @@ sub print_content {
 	say q(<h1>Bacterial Isolate Genome Sequence Database (BIGSdb)</h1>);
 	$self->print_about_bigsdb;
 	$self->_print_plugins;
-	$self->_print_software_versions;
+	my $q = $self->{'cgi'};
+	$self->_print_software_versions if $q->param('details');
 	return;
 }
 
