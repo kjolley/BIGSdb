@@ -28,6 +28,7 @@ use BIGSdb::Plugins::Helpers::GCAligner;
 use BIGSdb::Plugins::Helpers::GCForkScan;
 use Time::Duration;
 use Bio::AlignIO;
+use Bio::DB::GenBank;
 use Bio::Seq;
 use Bio::SeqIO;
 use IO::Uncompress::Unzip qw(unzip $UnzipError);
@@ -65,7 +66,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.7.6',
+		version     => '2.7.7',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
