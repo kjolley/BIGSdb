@@ -53,7 +53,7 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.5.2',
+		version             => '1.5.3',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -123,9 +123,9 @@ sub _print_interface {
 	say qq(<p>Analysis is limited to $commify_limit records.</p>);
 	say $q->start_form;
 	my $query_file = $q->param('query_file');
-	my $list = $self->get_id_list( 'id', $query_file );
+	my $list       = $self->get_id_list( 'id', $query_file );
 	say q(<div class="flex_container" style="justify-content:left">);
-	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $list, isolate_paste_list => 1 } );
+	$self->print_seqbin_isolate_fieldset( { use_all          => 1, selected_ids => $list, isolate_paste_list => 1 } );
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
 	$self->print_recommended_scheme_fieldset;
 	$self->print_scheme_fieldset( { fields_or_loci => 0 } );
@@ -164,7 +164,7 @@ sub _print_parameters_fieldset {
 		-label => 'Rescan undesignated loci',
 	);
 	say $self->get_tooltip(
-		    q(Rescan undesignated - By default, if a genome has >= 50% of the selected loci designated, it will not )
+			q(Rescan undesignated - By default, if a genome has >= 50% of the selected loci designated, it will not )
 		  . q(be rescanned. Selecting this option will perform a BLAST query for each genome to attempt to fill in )
 		  . q(any missing annotations. Please note that this will take <b>much longer</b> to run.) );
 	say q(</li></ul></fieldset>);
@@ -301,7 +301,7 @@ sub run_job {
 	$self->{'jobManager'}->update_job_status(
 		$job_id,
 		{
-			    message_html => q(<p style="margin-top:2em;margin-bottom:2em">)
+				message_html => q(<p style="margin-top:2em;margin-bottom:2em">)
 			  . qq(<a href="$self->{'config'}->{'MSTree_holder_rel_path'}?tree=/tmp/${job_id}_tree.nwk&amp;)
 			  . qq(metadata=/tmp/${job_id}_metadata.txt" target="_blank" )
 			  . q(class="launchbutton">Launch GrapeTree</a></p>)
@@ -376,11 +376,22 @@ sub _generate_mstree {
 	my ( $self, $args ) = @_;
 	my ( $job_id, $profiles_file, $tree_file ) = @{$args}{qw(job_id profiles tree)};
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Generating minimum spanning tree' } );
-	my $python = $self->{'config'}->{'python3_path'};
-	my $cmd    = "$python $self->{'config'}->{'grapetree_path'}/grapetree.py --profile $profiles_file > $tree_file";
+	my $python     = $self->{'config'}->{'python3_path'};
+	my $prefix     = BIGSdb::Utils::get_random();
+	my $error_file = "$self->{'config'}->{'secure_tmp_dir'}/${prefix}_grapetree";
+	my $cmd =
+	  "$python $self->{'config'}->{'grapetree_path'}/grapetree.py --profile $profiles_file 2>$error_file > $tree_file ";
 	eval { system($cmd); };
+
 	if ($?) {
 		BIGSdb::Exception::Plugin->throw('Tree generation failed.');
+	}
+	if ( -e $error_file ) {
+		my $error = BIGSdb::Utils::slurp($error_file);
+		if ($$error) {
+			$logger->error($$error);
+		}
+		unlink $error_file;
 	}
 	$self->{'jobManager'}->update_job_output(
 		$job_id,
@@ -398,7 +409,7 @@ sub _generate_tsv_file {
 	my ( $job_id, $tsv_file, $params ) = @{$args}{qw(job_id tsv_file params)};
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Generating metadata file' } );
 	my $isolate_ids = $self->{'jobManager'}->get_job_isolates($job_id);
-	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $isolate_ids );
+	my $temp_table  = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $isolate_ids );
 	my $data =
 	  $self->{'datastore'}
 	  ->run_query( "SELECT i.* FROM $self->{'system'}->{'view'} i JOIN $temp_table l ON i.id=l.value ORDER BY i.id",
@@ -587,7 +598,7 @@ sub _get_scheme_fields_for_header {
 			push @$header_fields, $field;
 		}
 		if ( $field =~ /^lin_(\d+)$/x ) {
-			my $scheme_id = $1;
+			my $scheme_id   = $1;
 			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $params->{'set_id'} } );
 			( my $field = "LINcode ($scheme_info->{'name'})" ) =~ tr/_/ /;
 			push @$header_fields, $field;
@@ -596,7 +607,6 @@ sub _get_scheme_fields_for_header {
 			my @threshold_values = split /\s*;\s*/x, $thresholds;
 			$lincode_threshold_counts->{$scheme_id} = scalar @threshold_values;
 			if ( $lincode_threshold_counts->{$scheme_id} > 1 ) {
-
 				for my $i ( 1 .. @threshold_values - 1 ) {
 					( my $field = "LINcode ($scheme_info->{'name'})[$i]" ) =~ tr/_/ /;
 					push @$header_fields, $field;
