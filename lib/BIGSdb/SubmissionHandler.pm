@@ -681,7 +681,7 @@ sub check_new_isolates {
 			$row =~ s/\s*$//x;
 			next if !$row;
 			$row_number++;
-			if ( $options->{'limit'} && $row > $options->{'limit'} ) {
+			if ( $options->{'limit'} && $row_number > $options->{'limit'} ) {
 				push @err, "Record limit reached - please only submit up to $options->{'limit'} records at a time.";
 				last;
 			}
