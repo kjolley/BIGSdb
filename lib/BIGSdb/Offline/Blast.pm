@@ -98,7 +98,7 @@ sub create_scheme_cache {
 	} else {
 		$loci = $self->{'datastore'}->get_loci;
 	}
-	my $runs = [qw(DNA peptide)];
+	my $runs      = [qw(DNA peptide)];
 	my $exemplars = ( $self->{'system'}->{'exemplars'} // q() ) eq 'yes' ? 1 : 0;
 	foreach my $run (@$runs) {
 		my $loci_by_type = $self->_get_selected_loci_by_type( $loci, $run );
@@ -272,12 +272,12 @@ sub _run_blast {
 			close $lock_fh;
 		}
 		my $qry_type = BIGSdb::Utils::sequence_type($seq_ref);
-		my $program = $self->_determine_blast_program( $run, $qry_type );
+		my $program  = $self->_determine_blast_program( $run, $qry_type );
 		$self->{'program'} = $program;
 		my $blast_threads = $options->{'threads'} // $self->{'config'}->{'blast_threads'} // 1;
-		my $filter = $program eq 'blastn' ? 'dust' : 'seg';
-		my $word_size = $program eq 'blastn' ? ( $options->{'word_size'} // 15 ) : 3;
-		my $format = $args->{'alignment'} ? 0 : 6;
+		my $filter        = $program eq 'blastn' ? 'dust'                            : 'seg';
+		my $word_size     = $program eq 'blastn' ? ( $options->{'word_size'} // 15 ) : 3;
+		my $format        = $args->{'alignment'} ? 0                                 : 6;
 		$options->{'num_results'} //= 1_000_000;    #effectively return all results
 		my $fasta_file = "$path/sequences.fas";
 		my %params     = (
@@ -342,13 +342,13 @@ sub _parse_blast_exact_diploid {
 		my ( $locus, $match_allele_id ) = split( /\|/x, $record->[1], 2 );
 		$locus =~ s/__prime__/'/gx;
 		my $locus_match = $matches->{$locus} // [];
-		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+		my $locus_info  = $self->{'datastore'}->get_locus_info($locus);
 		$allele_id = $match_allele_id;
 		my $allele_seq = $self->{'datastore'}->get_sequence( $locus, $allele_id );
 		next if !$allele_seq;
 		my $length = length $$allele_seq;
 		$match->{'query'} = $record->[0];
-		my $qry_seq = $fasta->{ $match->{'query'} };
+		my $qry_seq        = $fasta->{ $match->{'query'} };
 		my $rev_allele_seq = BIGSdb::Utils::reverse_complement( $$allele_seq, { diploid => 1 } );
 		next RECORD if $qry_seq !~ /$$allele_seq|$rev_allele_seq/x;
 		$match->{'allele'}    = $allele_id;
@@ -390,7 +390,7 @@ sub _parse_blast_exact {
 			my ( $locus, $match_allele_id ) = split( /\|/x, $record->[1], 2 );
 			$locus =~ s/__prime__/'/gx;
 			my $locus_match = $matches->{$locus} // [];
-			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+			my $locus_info  = $self->{'datastore'}->get_locus_info($locus);
 			$allele_id = $match_allele_id;
 			if ( !$length_cache->{$locus}->{$allele_id} ) {
 				$length_cache->{$locus}->{$allele_id} = $self->{'datastore'}->run_query(
@@ -435,7 +435,7 @@ sub _parse_blast_partial {
 	my $partial_matches            = {};
 	my $identity                   = $self->{'options'}->{'identity'};
 	my $alignment                  = $self->{'options'}->{'alignment'};
-	my $return_best_poor_identity  = defined $self->{'options'}->{'identity'} ? 0 : 1;
+	my $return_best_poor_identity  = defined $self->{'options'}->{'identity'}  ? 0 : 1;
 	my $return_best_poor_alignment = defined $self->{'options'}->{'alignment'} ? 0 : 1;
 	$identity  = 90 if !BIGSdb::Utils::is_int($identity);
 	$alignment = 50 if !BIGSdb::Utils::is_int($alignment);
@@ -658,7 +658,7 @@ sub _get_shortest_seq_length {
 	my $shortest = INF;
 	foreach my $locus (@$loci) {
 		my $min_length = $self->{'datastore'}->run_query( 'SELECT min_length FROM locus_stats WHERE locus=?', $locus );
-		next if !defined $min_length;
+		next                    if !defined $min_length;
 		$shortest = $min_length if $min_length < $shortest;
 	}
 	return $shortest;
@@ -674,7 +674,7 @@ sub ensure_seq_has_identifer {
 
 sub _strip_invalid_chars {
 	my ( $self, $seq_ref ) = @_;
-	my @lines = split /\n/x, $$seq_ref;
+	my @lines   = split /\n/x, $$seq_ref;
 	my $new_seq = q();
 	foreach my $line (@lines) {
 		if ( $line !~ /^>/x ) {
@@ -706,7 +706,7 @@ sub _create_blast_database {
 		return;
 	}
 	my $list_table = $self->{'datastore'}->create_temp_list_table_from_array( 'text', $loci );
-	my $qry = q(SELECT locus,allele_id,sequence from sequences WHERE locus IN )
+	my $qry        = q(SELECT locus,allele_id,sequence from sequences WHERE locus IN )
 	  . qq((SELECT value FROM $list_table) AND allele_id NOT IN ('N','0'));
 	if ($exemplar) {
 		my $exemplars_defined = $self->{'datastore'}
@@ -717,7 +717,7 @@ sub _create_blast_database {
 			$self->{'logger'}->error('Exemplars not yet defined - using all alleles for BLAST cache.');
 		}
 	}
-	my $data = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref' } );
+	my $data       = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref' } );
 	my $fasta_file = "$path/sequences.fas";
 	unlink $fasta_file;    #Recreate rather than overwrite to ensure both apache and bigsdb users can write
 	make_path($path);      #In case directory has since been deleted.
@@ -797,7 +797,9 @@ sub _get_read_files {
 	my $age           = 5 * 60;                #5 minutes;
 	foreach my $file (@read_files) {
 		if ( time - ( stat $file )[9] > $age ) {
-			unlink $file;    #Clean out files older than 5 minutes as these may be from crashed processes.
+			if ( $file =~ /^($path\/READ_\d+)$/x ) {    #Untaint
+				unlink $1;    #Clean out files older than 5 minutes as these may be from crashed processes.
+			}
 		} else {
 			push @$returned_list, $file;
 		}
@@ -851,7 +853,7 @@ sub _get_selected_loci_by_type {
 	my ( $self, $selected_loci, $type ) = @_;
 	my $by_type =
 	  $self->{'datastore'}->run_query( 'SELECT id FROM loci WHERE data_type=?', $type, { fetch => 'col_arrayref' } );
-	my %by_type = map { $_ => 1 } @$by_type;
+	my %by_type      = map { $_ => 1 } @$by_type;
 	my $loci_of_type = [];
 	foreach my $locus (@$selected_loci) {
 		push @$loci_of_type, $locus if $by_type{$locus};
@@ -948,7 +950,7 @@ sub check_sequence_similarity {
 	if ( !$reversed && defined $identity && $identity >= $id_threshold && $alignment >= 0.9 * $length ) {
 		$similar = 1;
 		if ( $identity == 100 ) {
-			my $matched_seq_ref = $self->{'datastore'}->get_sequence( $locus, $allele_id );
+			my $matched_seq_ref       = $self->{'datastore'}->get_sequence( $locus, $allele_id );
 			my $length_of_matched_seq = length $$matched_seq_ref;
 			if ( $length == $alignment && $length < $length_of_matched_seq ) {
 				$subsequence_of = $allele_id;
@@ -975,8 +977,8 @@ sub check_sequence_similarity {
 }
 
 sub _get_stripped_sequence {
-	my ($self) = @_;
-	my @lines = split /\n/x, ${ $self->{'seq_ref'} };
+	my ($self)  = @_;
+	my @lines   = split /\n/x, ${ $self->{'seq_ref'} };
 	my $new_seq = q();
 	foreach my $line (@lines) {
 		next if $line =~ /^>/x;
