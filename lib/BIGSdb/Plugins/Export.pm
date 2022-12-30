@@ -27,6 +27,7 @@ my $logger = get_logger('BIGSdb.Plugins');
 use BIGSdb::Constants qw(:interface);
 use Try::Tiny;
 use List::MoreUtils qw(uniq);
+use Bio::Seq;
 use Bio::Tools::SeqStats;
 use constant MAX_INSTANT_RUN         => 2000;
 use constant MAX_DEFAULT_DATA_POINTS => 25_000_000;
@@ -50,7 +51,7 @@ sub get_attributes {
 		buttontext => 'Dataset',
 		menutext   => 'Dataset',
 		module     => 'Export',
-		version    => '1.9.1',
+		version    => '1.9.2',
 		dbtype     => 'isolates',
 		section    => 'export,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
@@ -1048,7 +1049,10 @@ sub _get_molwt {
 		if ($met) {
 			$seq =~ s/^(TTG|GTG)/ATG/x;
 		}
-		$peptide = Bio::Perl::translate_as_string($seq) if $seq;
+		if ($seq){
+			my $seq_obj = Bio::Seq->new( -seq => $seq, -alphabet => 'dna' );
+			$peptide = $seq_obj->translate->seq;
+		}
 	} else {
 		$peptide = ${ $locus->get_allele_sequence($allele) };
 	}
