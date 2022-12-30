@@ -40,7 +40,7 @@ sub run_script {
 
 	if ( $self->{'options'}->{'schemes'} ) {
 		my $divider = q(,);
-		@$schemes = split /$divider/x, $self->{'options'}->{'schemes'};
+		@$schemes      = split /$divider/x, $self->{'options'}->{'schemes'};
 		$scheme_status = $schemes;
 		foreach my $scheme_id (@$schemes) {
 			if ( !BIGSdb::Utils::is_int($scheme_id) ) {
@@ -93,6 +93,7 @@ sub run_script {
 		}
 		say "Updating scheme $scheme_id field cache ($scheme_info->{'name'}) - method: $method"
 		  if !$self->{'options'}->{'q'};
+		$self->update_job( $job_id, { temp_init => 1, status => { stage => "Scheme $scheme_id: fields ($method)" } } );
 		$self->{'datastore'}->create_temp_isolate_scheme_fields_view( $scheme_id, { cache => 1, method => $method } );
 	}
 	foreach my $scheme_id (@$scheme_status) {
@@ -103,15 +104,18 @@ sub run_script {
 		}
 		say "Updating scheme $scheme_id completion status cache ($scheme_info->{'name'}) - method: $method"
 		  if !$self->{'options'}->{'q'};
+		$self->update_job( $job_id, { temp_init => 1, status => { stage => "Scheme $scheme_id: status ($method)" } } );
 		$self->{'datastore'}->create_temp_scheme_status_table( $scheme_id, { cache => 1, method => $method } );
 		if ( $self->{'datastore'}->are_lincodes_defined($scheme_id) ) {
 			say "Updating scheme $scheme_id LINcodes cache ($scheme_info->{'name'})"
 			  if !$self->{'options'}->{'q'};
+			$self->update_job( $job_id, { temp_init => 1, status => { stage => "Scheme $scheme_id: LINcodes" } } );
 			$self->{'datastore'}->create_temp_lincodes_table( $scheme_id, { cache => 1 } );
-			$self->{'datastore'}->create_temp_lincode_prefix_values_table($scheme_id, { cache => 1 });
+			$self->{'datastore'}->create_temp_lincode_prefix_values_table( $scheme_id, { cache => 1 } );
 		}
 	}
 	foreach my $cscheme_id (@$cschemes) {
+		$self->update_job( $job_id, { temp_init => 1, status => { stage => "Cluster scheme $cscheme_id" } } );
 		$self->{'datastore'}->create_temp_cscheme_table( $cscheme_id, { cache => 1 } );
 		$self->{'datastore'}->create_temp_cscheme_field_values_table( $cscheme_id, { cache => 1 } );
 	}

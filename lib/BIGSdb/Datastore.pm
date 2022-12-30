@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -234,13 +234,13 @@ sub get_composite_value {
 		if (
 			defined $regex
 			&& (
-				$regex =~ /[^\w\d\-\.\\\/\(\)\+\*\ \$]/x    #reject regex containing any character not in list
-				|| $regex =~ /\$\D/x                        #allow only $1, $2 etc. variables
+				$regex =~ /[^\w\d\-\.\\\/\(\)\+\*\ \$]/x       #reject regex containing any character not in list
+				|| $regex =~ /\$\D/x                           #allow only $1, $2 etc. variables
 			)
 		  )
 		{
 			$logger->warn(
-				    qq(Regex for field '$field' in composite field '$composite_field' contains non-valid characters. )
+					qq(Regex for field '$field' in composite field '$composite_field' contains non-valid characters. )
 				  . q(This is potentially dangerous as it may allow somebody to include a command that could be )
 				  . qq(executed by the web server daemon.  The regex was '$regex'.  This regex has been disabled.) );
 			undef $regex;
@@ -256,7 +256,7 @@ sub get_composite_value {
 			next;
 		}
 		if ( $field =~ /^l_(.+)/x ) {
-			my $locus = $1;
+			my $locus        = $1;
 			my $designations = $self->get_allele_designations( $isolate_id, $locus );
 			my @allele_values;
 			foreach my $designation (@$designations) {
@@ -276,8 +276,8 @@ sub get_composite_value {
 			next;
 		}
 		if ( $field =~ /^s_(\d+)_(.+)/x ) {
-			my $scheme_id    = $1;
-			my $scheme_field = $2;
+			my $scheme_id                   = $1;
+			my $scheme_field                = $2;
 			my $scheme_fields->{$scheme_id} = $self->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id );
 			my @field_values;
 			$scheme_field = lc($scheme_field);    # hashref keys returned as lower case from db.
@@ -336,8 +336,7 @@ sub get_profile_by_primary_key {
 	my $loci_values;
 	try {
 		$loci_values = $self->get_scheme($scheme_id)->get_profile_by_primary_keys( [$profile_id] );
-	}
-	catch {
+	} catch {
 		if ( $_->isa('BIGSdb::Exception::Database::Configuration') ) {
 			$logger->error('Error retrieving information from remote database - check configuration.');
 		} else {
@@ -373,8 +372,7 @@ sub get_scheme_field_values_by_designations {
 	{
 		try {
 			$field_data = $scheme->get_field_values_by_designations($designations);
-		}
-		catch {
+		} catch {
 			if ( $_->isa('BIGSdb::Exception::Database::Configuration') ) {
 				$logger->warn("Scheme $scheme_id database is not configured correctly");
 			} else {
@@ -382,6 +380,7 @@ sub get_scheme_field_values_by_designations {
 			}
 		};
 	}
+	return $field_data if $options->{'no_status'};
 	foreach my $data (@$field_data) {
 		my $status = 'confirmed';
 	  LOCUS: foreach my $locus (@$loci) {
@@ -418,9 +417,9 @@ sub _convert_designations_to_profile_names {
 }
 
 sub get_scheme_field_values_by_isolate_id {
-	my ( $self, $isolate_id, $scheme_id ) = @_;
+	my ( $self, $isolate_id, $scheme_id, $options ) = @_;
 	my $designations = $self->get_scheme_allele_designations( $isolate_id, $scheme_id );
-	return $self->get_scheme_field_values_by_designations( $scheme_id, $designations );
+	return $self->get_scheme_field_values_by_designations( $scheme_id, $designations, $options );
 }
 
 #Used for profile/sequence definitions databases
@@ -557,7 +556,7 @@ sub check_new_profile {
 				}
 			}
 			$msg .=
-			    q(Profiles containing an arbitrary allele (N) at a particular locus may match profiles )
+				q(Profiles containing an arbitrary allele (N) at a particular locus may match profiles )
 			  . q(with actual values at that locus and cannot therefore be defined.  This profile matches )
 			  . qq($pk-$first_match);
 			my $other_matches = @$matching_profiles - 1;
@@ -594,8 +593,7 @@ sub get_client_db {
 			);
 			try {
 				$attributes->{'db'} = $self->{'dataConnector'}->get_connection( \%att );
-			}
-			catch {
+			} catch {
 				if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
 					$logger->warn( $_->error );
 				} else {
@@ -627,8 +625,7 @@ sub initiate_userdbs {
 				),
 				name => $config->{'dbase_name'}
 			};
-		}
-		catch {
+		} catch {
 			if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
 				$logger->warn( $_->error );
 				$self->{'error'} = 'noConnect';
@@ -778,7 +775,7 @@ sub get_scheme_loci {
 	my ( $self, $scheme_id, $options ) = @_;
 	if ( !$self->{'cache'}->{'scheme_loci'}->{$scheme_id} ) {
 		my $qry =
-		    'SELECT locus'
+			'SELECT locus'
 		  . ( $self->{'system'}->{'dbtype'} eq 'isolates' ? ',profile_name' : '' )
 		  . ' FROM scheme_members WHERE scheme_id=? ORDER BY field_order,locus';
 		$self->{'cache'}->{'scheme_loci'}->{$scheme_id} =
@@ -834,7 +831,7 @@ sub get_loci_in_no_scheme {
 	my $qry;
 	if ( $options->{'set_id'} ) {
 		$qry =
-		    "SELECT locus FROM set_loci WHERE set_id=$options->{'set_id'} AND locus NOT IN (SELECT locus FROM "
+			"SELECT locus FROM set_loci WHERE set_id=$options->{'set_id'} AND locus NOT IN (SELECT locus FROM "
 		  . "scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$options->{'set_id'})) "
 		  . 'ORDER BY locus';
 	} else {
@@ -915,14 +912,14 @@ sub get_scheme_list {
 	if ( $options->{'set_id'} ) {
 		if ( $options->{'with_pk'} ) {
 			$qry =
-			    q(SELECT DISTINCT schemes.id,set_schemes.set_name,schemes.name,schemes.display_order FROM )
+				q(SELECT DISTINCT schemes.id,set_schemes.set_name,schemes.name,schemes.display_order FROM )
 			  . q(set_schemes LEFT JOIN schemes ON set_schemes.scheme_id=schemes.id RIGHT JOIN scheme_members ON )
 			  . q(schemes.id=scheme_members.scheme_id JOIN scheme_fields ON schemes.id=scheme_fields.scheme_id WHERE )
 			  . qq(primary_key AND set_schemes.set_id=$options->{'set_id'}$submission_clause ORDER BY schemes.display_order,)
 			  . q(schemes.name);
 		} else {
 			$qry =
-			    q(SELECT DISTINCT schemes.id,set_schemes.set_name,schemes.name,schemes.display_order FROM )
+				q(SELECT DISTINCT schemes.id,set_schemes.set_name,schemes.name,schemes.display_order FROM )
 			  . q(set_schemes LEFT JOIN schemes ON set_schemes.scheme_id=schemes.id AND set_schemes.set_id=)
 			  . qq($options->{'set_id'} WHERE schemes.id IS NOT NULL$submission_clause ORDER BY schemes.display_order,)
 			  . q(schemes.name);
@@ -930,7 +927,7 @@ sub get_scheme_list {
 	} else {
 		if ( $options->{'with_pk'} ) {
 			$qry =
-			    q(SELECT DISTINCT schemes.id,schemes.name,schemes.display_order FROM schemes RIGHT JOIN )
+				q(SELECT DISTINCT schemes.id,schemes.name,schemes.display_order FROM schemes RIGHT JOIN )
 			  . q(scheme_members ON schemes.id=scheme_members.scheme_id JOIN scheme_fields ON schemes.id=)
 			  . qq(scheme_fields.scheme_id WHERE primary_key$submission_clause ORDER BY schemes.display_order,schemes.name);
 		} else {
@@ -938,7 +935,7 @@ sub get_scheme_list {
 			$qry = qq[SELECT id,name,display_order FROM schemes$submission_clause ORDER BY display_order,name];
 		}
 	}
-	my $list = $self->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
+	my $list          = $self->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 	my $filtered_list = [];
 	foreach my $scheme (@$list) {
 		$scheme->{'name'} = $scheme->{'set_name'} if $scheme->{'set_name'};
@@ -978,11 +975,11 @@ sub get_schemes_in_group {
 	my ( $self, $group_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $set_clause = $options->{'set_id'} ? ' AND scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=?)' : '';
-	my @args = ($group_id);
+	my @args       = ($group_id);
 	push @args, $options->{'set_id'} if $options->{'set_id'};
 	my $qry = "SELECT scheme_id FROM scheme_group_scheme_members WHERE group_id=?$set_clause "
 	  . 'AND scheme_id IN (SELECT scheme_id FROM scheme_members)';
-	my $schemes = $self->run_query( $qry, \@args, { fetch => 'col_arrayref', cache => 'get_schemes_in_group' } );
+	my $schemes      = $self->run_query( $qry, \@args, { fetch => 'col_arrayref', cache => 'get_schemes_in_group' } );
 	my $child_groups = $self->_get_groups_in_group($group_id);
 
 	foreach my $child_group (@$child_groups) {
@@ -1047,8 +1044,7 @@ sub get_scheme {
 			);
 			try {
 				$attributes->{'db'} = $self->{'dataConnector'}->get_connection( \%att );
-			}
-			catch {
+			} catch {
 				if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
 					$logger->warn( $_->error );
 				} else {
@@ -1057,7 +1053,7 @@ sub get_scheme {
 			};
 		}
 		$attributes->{'fields'} = $self->get_scheme_fields($scheme_id);
-		$attributes->{'loci'} = $self->get_scheme_loci( $scheme_id, ( { profile_name => 1, analysis_pref => 0 } ) );
+		$attributes->{'loci'}   = $self->get_scheme_loci( $scheme_id, ( { profile_name => 1, analysis_pref => 0 } ) );
 		$attributes->{'primary_keys'} =
 		  $self->run_query( 'SELECT field FROM scheme_fields WHERE scheme_id=? AND primary_key ORDER BY field_order',
 			$scheme_id, { fetch => 'col_arrayref', cache => 'get_scheme_primary_keys' } );
@@ -1078,26 +1074,74 @@ sub create_temp_isolate_scheme_fields_view {
 	#Create view containing isolate_id and scheme_fields.
 	#This view can instead be created as a persistent indexed table using the update_scheme_cache.pl script.
 	#This should be done once the scheme size/number of isolates results in a slowdown of queries.
-	$options = {} if ref $options ne 'HASH';
 	my $table = "temp_isolates_scheme_fields_$scheme_id";
+	my $table_exists =
+	  $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
 	if ( !$options->{'cache'} ) {
-		return $table
-		  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
+		return $table if $table_exists;
+
+		#Using the embedded database function is much quicker for small schemes but does not
+		#scale well for large schemes.
+		eval { $self->{'db'}->do("SELECT create_isolate_scheme_cache($scheme_id,'isolates','true','full')"); };
+		if ($@) {
+			$logger->error($@);
+			$self->{'db'}->rollback;
+		}
+		$self->{'scheme_not_cached'} = 1;
+		return $table;
 	}
-	local $| = 1;
-	my $scheme_table = $self->create_temp_scheme_table( $scheme_id, $options );
-	my $temp_table = $options->{'cache'} ? 'false' : 'true';
-	my $method = $options->{'method'} // 'full';
-	eval { $self->{'db'}->do("SELECT create_isolate_scheme_cache($scheme_id,'isolates',$temp_table,'$method')") };
+	my $scheme_table  = $self->create_temp_scheme_table( $scheme_id, $options );
+	my $method        = $options->{'method'} // 'full';
+	my $isolates      = $self->_get_isolate_ids_for_cache( $scheme_id, { method => $method, cache_type => 'fields' } );
+	my $scheme_fields = $self->get_scheme_fields($scheme_id);
+	if ( !$table_exists ) {
+		$options->{'method'} = 'full';
+		my @fields;
+		foreach my $field (@$scheme_fields) {
+			my $field_info = $self->get_scheme_field_info( $scheme_id, $field );
+			push @fields, qq($field $field_info->{'type'});
+		}
+		local $" = q(,);
+		eval { $self->{'db'}->do("CREATE TABLE $table (id int,@fields)"); };
+		if ($@) {
+			$logger->error("Cannot create table $table. $@");
+			$self->{'db'}->rollback;
+			return;
+		}
+	}
+	local $" = q(,);
+	my @placeholders = ('?') x ( @$scheme_fields + 1 );
+	eval {
+		if ( $options->{'method'} eq 'full' ) {
+			$self->{'db'}->do("DELETE FROM $table");
+		}
+		foreach my $isolate_id (@$isolates) {
+			my $field_values =
+			  $self->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id, { no_status => 1 } );
+			if ( $options->{'method'} =~ /^daily/x ) {
+				$self->{'db'}->do( "DELETE FROM $table WHERE id=?", undef, $isolate_id );
+			}
+			foreach my $field_value (@$field_values) {
+				my @values;
+				foreach my $field (@$scheme_fields) {
+					push @values, $field_value->{ lc($field) };
+				}
+				$self->{'db'}
+				  ->do( "INSERT INTO $table (id,@$scheme_fields) VALUES (@placeholders)", undef, $isolate_id, @values );
+			}
+		}
+		if ( !$table_exists ) {
+			foreach my $field (@$scheme_fields) {
+				$self->{'db'}->do("CREATE INDEX ON $table($field)");
+			}
+			$self->{'db'}->do("GRANT SELECT ON $table TO apache");
+		}
+	};
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
 	}
-	if ( $options->{'cache'} ) {
-		$self->{'db'}->commit;
-	} else {
-		$self->{'scheme_not_cached'} = 1;
-	}
+	$self->{'db'}->commit;
 	return $table;
 }
 
@@ -1487,31 +1531,107 @@ sub create_temp_scheme_table {
 sub create_temp_scheme_status_table {
 	my ( $self, $scheme_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $view  = $self->{'system'}->{'view'};
-	my $table = "temp_${view}_scheme_completion_$scheme_id";
+	my $table = "temp_isolates_scheme_completion_$scheme_id";
+	my $table_exists =
+	  $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
 	if ( !$options->{'cache'} ) {
-		return $table
-		  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
+		return $table if $table_exists;
 
-		#Check if cache of whole isolate table exists
-		if ( $view ne 'isolates' ) {
-			my $full_table = "temp_isolates_scheme_completion_$scheme_id";
-			return $full_table
-			  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
-				$full_table );
+		#Using the embedded database function is much quicker for small schemes but does not
+		#scale well for large schemes.
+		eval { $self->{'db'}->do("SELECT create_isolate_scheme_status_table($scheme_id,'isolates','true','full')"); };
+		if ($@) {
+			$logger->error($@);
+			$self->{'db'}->rollback;
+		}
+		return $table;
+	}
+	my $method   = $options->{'method'} // 'full';
+	my $isolates = $self->_get_isolate_ids_for_cache( $scheme_id, { method => $method, cache_type => 'completion' } );
+	my $scheme_fields = $self->get_scheme_fields($scheme_id);
+	if ( !$table_exists ) {
+		eval { $self->{'db'}->do("CREATE TABLE $table (id int,locus_count bigint)"); };
+		if ($@) {
+			$logger->error("Cannot create table $table. $@");
+			$self->{'db'}->rollback;
+			return;
 		}
 	}
-	my $temp_table = $options->{'cache'} ? 'false' : 'true';
-	my $method = $options->{'method'} // 'full';
-	eval { $self->{'db'}->do("SELECT create_isolate_scheme_status_table($scheme_id,'$view',$temp_table,'$method')") };
+	eval {
+		if ( $options->{'method'} eq 'full' ) {
+			$self->{'db'}->do("DELETE FROM $table");
+		}
+		foreach my $isolate_id (@$isolates) {
+			if ( $options->{'method'} =~ /^daily/x ) {
+				$self->{'db'}->do( "DELETE FROM $table WHERE id=?", undef, $isolate_id );
+			}
+			my $count = $self->run_query(
+					q(SELECT COUNT(DISTINCT(locus)) FROM allele_designations WHERE locus )
+				  . q(IN (SELECT locus FROM scheme_members WHERE scheme_id=?) AND status!='ignore' AND )
+				  . q(isolate_id=?),
+				[ $scheme_id, $isolate_id ],
+				{ cache => 'Datastore::create_temp_scheme_status_table::locus_count' }
+			);
+			next if !$count;
+			$self->{'db'}->do( "INSERT INTO $table (id,locus_count) VALUES (?,?)", undef, $isolate_id, $count );
+		}
+		if ( !$table_exists ) {
+			foreach my $field (qw(id locus_count)) {
+				$self->{'db'}->do("CREATE INDEX ON $table($field)");
+			}
+			$self->{'db'}->do("GRANT SELECT ON $table TO apache");
+		}
+	};
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
 	}
-	if ( $options->{'cache'} ) {
-		$self->{'db'}->commit;
-	}
+	$self->{'db'}->commit;
 	return $table;
+}
+
+sub _get_isolate_ids_for_cache {
+	my ( $self, $scheme_id, $options ) = @_;
+	$options->{'cache_type'} //= 'fields';
+	$options->{'method'}     //= 'full';
+	my $view           = $options->{'cache'} ? 'isolates' : $self->{'system'}->{'view'};
+	my %allowed_method = map { $_ => 1 } qw(full incremental daily daily_replace);
+	if ( !$allowed_method{ $options->{'method'} } ) {
+		$logger->error("Invalid method: $options->{'method'}.");
+		return [];
+	}
+	my %allowed_cache_type = map { $_ => 1 } qw(fields completion);
+	if ( !$allowed_cache_type{ $options->{'cache_type'} } ) {
+		$logger->error("Invalid cache type: $options->{'cache_type'}.");
+		return [];
+	}
+	if ( !defined $scheme_id ) {
+		$logger->error('No scheme_id passed.');
+		return [];
+	}
+	my %table = (
+		fields     => "temp_isolates_scheme_fields_$scheme_id",
+		completion => "temp_isolates_scheme_completion_$scheme_id"
+	);
+	if (
+		!$self->run_query(
+			'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
+			$table{ $options->{'cache_type'} }
+		)
+	  )
+	{
+		$options->{'method'} = 'full';
+	}
+	my $qry = "SELECT id FROM $self->{'system'}->{'view'} ";
+	if ( $options->{'method'} eq 'incremental' ) {
+		$qry .= qq(WHERE id NOT IN (SELECT id FROM $table{$options->{'cache_type'}}) );
+	} elsif ( $options->{'method'} eq 'daily' ) {
+		$qry .= qq(WHERE id NOT IN (SELECT id FROM $table{$options->{'cache_type'}}) AND datestamp='today' );
+	} elsif ( $options->{'method'} eq 'daily_replace' ) {
+		$qry .= q(WHERE datestamp = 'today' );
+	}
+	$qry .= 'ORDER BY id';
+	return $self->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 }
 
 #This should only be used to create a table of user entered values.
@@ -1550,7 +1670,7 @@ sub create_temp_list_table_from_array {
 	my ( $self, $data_type, $list, $options ) = @_;
 	my $pg_data_type = $data_type;
 	$pg_data_type = 'geography(POINT, 4326)' if $data_type eq 'geography_point';
-	$options = {} if ref $options ne 'HASH';
+	$options      = {}                       if ref $options ne 'HASH';
 	my $table = $options->{'table'} // ( 'temp_list' . int( rand(99999999) ) );
 	return
 	  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
@@ -1576,13 +1696,12 @@ sub create_temp_combinations_table_from_file {
 	return
 	  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', 'count_table' );
 	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$filename";
-	my $pk_type = $self->{'system'}->{'dbtype'} eq 'isolates' ? 'int' : 'text';
+	my $pk_type   = $self->{'system'}->{'dbtype'} eq 'isolates' ? 'int' : 'text';
 	my $text;
 	my $error;
 	try {
 		$text = BIGSdb::Utils::slurp($full_path);
-	}
-	catch {
+	} catch {
 		if ( $_->isa('BIGSdb::Exception::File::CannotOpen') ) {
 			$logger->error("Cannot open $full_path for reading");
 		} else {
@@ -1663,7 +1782,7 @@ sub get_loci {
 	if ( $options->{'set_id'} ) {
 		$set_clause = $defined_clause ? 'AND' : 'WHERE';
 		$set_clause .=
-		    ' (id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE '
+			' (id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE '
 		  . "set_id=$options->{'set_id'})) OR id IN (SELECT locus FROM set_loci WHERE set_id=$options->{'set_id'}))";
 	}
 	my $qry;
@@ -1710,7 +1829,7 @@ sub get_locus_list {
 	my $qry;
 	if ( $options->{'set_id'} ) {
 		$qry =
-		    'SELECT loci.id,common_name,set_id,set_name,set_common_name FROM loci LEFT JOIN set_loci ON loci.id='
+			'SELECT loci.id,common_name,set_id,set_name,set_common_name FROM loci LEFT JOIN set_loci ON loci.id='
 		  . "set_loci.locus AND set_loci.set_id=$options->{'set_id'} WHERE (id IN (SELECT locus FROM scheme_members "
 		  . "WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$options->{'set_id'})) OR id IN "
 		  . "(SELECT locus FROM set_loci WHERE set_id=$options->{'set_id'}))";
@@ -1734,8 +1853,8 @@ sub get_locus_list {
 	my $display_loci;
 	foreach my $locus (@$loci) {
 		next if $options->{'analysis_pref'} && !$self->{'prefs'}->{'analysis_loci'}->{ $locus->{'id'} };
-		next if $options->{'set_id'}        && $locus->{'set_id'} && $locus->{'set_id'} != $options->{'set_id'};
-		next if $options->{'only_include'}  && !$only_include{ $locus->{'id'} };
+		next if $options->{'set_id'} && $locus->{'set_id'} && $locus->{'set_id'} != $options->{'set_id'};
+		next if $options->{'only_include'} && !$only_include{ $locus->{'id'} };
 		push @$display_loci, $locus->{'id'};
 		if ( $locus->{'set_name'} ) {
 			$cleaned->{ $locus->{'id'} } = $locus->{'set_name'};
@@ -1825,8 +1944,7 @@ sub get_locus {
 			);
 			try {
 				$attributes->{'db'} = $self->{'dataConnector'}->get_connection( \%att );
-			}
-			catch {
+			} catch {
 				if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
 					$logger->warn( $_->error );
 				} else {
@@ -1971,7 +2089,7 @@ sub get_allele_ids {
 	my ( $self, $isolate_id, $locus, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $ignore_clause = $options->{'show_ignored'} ? '' : q( AND status != 'ignore');
-	my $allele_ids = $self->run_query(
+	my $allele_ids    = $self->run_query(
 		"SELECT allele_id FROM allele_designations WHERE isolate_id=? AND locus=?$ignore_clause",
 		[ $isolate_id, $locus ],
 		{ fetch => 'col_arrayref', cache => 'get_allele_ids' }
@@ -1983,7 +2101,7 @@ sub get_allele_ids {
 sub get_all_allele_ids {
 	my ( $self, $isolate_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $allele_ids = {};
+	my $allele_ids    = {};
 	my $ignore_clause = $options->{'show_ignored'} ? '' : q( AND status != 'ignore');
 	my $set_clause =
 	  $options->{'set_id'}
@@ -2148,8 +2266,7 @@ sub get_client_data_linked_to_allele {
 		my $field_data;
 		try {
 			$field_data = $client->get_fields( $field, $locus, $allele_id );
-		}
-		catch {
+		} catch {
 			if ( $_->isa('BIGSdb::Exception::Database::Configuration') ) {
 				$logger->error( "Can't extract isolate field '$field' FROM client database, make sure the "
 					  . "client_dbase_loci_fields table is correctly configured. $@" );
@@ -2234,16 +2351,15 @@ sub _get_ref_db {
 	my ($self) = @_;
 	my %att = (
 		dbase_name => $self->{'config'}->{'ref_db'},
-		host       => $self->{'config'}->{'dbhost'} // $self->{'system'}->{'host'},
-		port       => $self->{'config'}->{'dbport'} // $self->{'system'}->{'port'},
-		user       => $self->{'config'}->{'dbuser'} // $self->{'system'}->{'user'},
+		host       => $self->{'config'}->{'dbhost'}     // $self->{'system'}->{'host'},
+		port       => $self->{'config'}->{'dbport'}     // $self->{'system'}->{'port'},
+		user       => $self->{'config'}->{'dbuser'}     // $self->{'system'}->{'user'},
 		password   => $self->{'config'}->{'dbpassword'} // $self->{'system'}->{'password'},
 	);
 	my $dbr;
 	try {
 		$dbr = $self->{'dataConnector'}->get_connection( \%att );
-	}
-	catch {
+	} catch {
 		if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
 			$logger->error( $_->error );
 		} else {
@@ -2329,7 +2445,7 @@ sub get_citation_hash {
 			$citation_ref->{$pmid} .= "<a href=\"https://www.ncbi.nlm.nih.gov/pubmed/$pmid\">"
 			  if $options->{'link_pubmed'};
 			$citation_ref->{$pmid} .= "Pubmed id#$pmid";
-			$citation_ref->{$pmid} .= '</a>' if $options->{'link_pubmed'};
+			$citation_ref->{$pmid} .= '</a>'                    if $options->{'link_pubmed'};
 			$citation_ref->{$pmid} .= ': No details available.' if $options->{'state_if_unavailable'};
 			next;
 		}
@@ -2369,12 +2485,12 @@ sub get_citation_hash {
 				$citation .= "$title "                                                if !$options->{'no_title'};
 				$citation .= "<a href=\"https://www.ncbi.nlm.nih.gov/pubmed/$pmid\">" if $options->{'link_pubmed'};
 				$citation .= "<i>$journal</i> <b>$volume</b>$pages";
-				$citation .= '</a>'                                                   if $options->{'link_pubmed'};
+				$citation .= '</a>' if $options->{'link_pubmed'};
 			} else {
 				$citation = "$author $year ";
 				$citation .= "<a href=\"https://www.ncbi.nlm.nih.gov/pubmed/$pmid\">" if $options->{'link_pubmed'};
 				$citation .= "$journal $volume$pages";
-				$citation .= '</a>'                                                   if $options->{'link_pubmed'};
+				$citation .= '</a>' if $options->{'link_pubmed'};
 			}
 		}
 		if ($citation) {
@@ -2396,17 +2512,16 @@ sub create_temp_ref_table {
 	my ( $self, $list, $qry_ref ) = @_;
 	my %att = (
 		dbase_name => $self->{'config'}->{'ref_db'},
-		host       => $self->{'config'}->{'dbhost'} // $self->{'system'}->{'host'},
-		port       => $self->{'config'}->{'dbport'} // $self->{'system'}->{'port'},
-		user       => $self->{'config'}->{'dbuser'} // $self->{'system'}->{'user'},
+		host       => $self->{'config'}->{'dbhost'}     // $self->{'system'}->{'host'},
+		port       => $self->{'config'}->{'dbport'}     // $self->{'system'}->{'port'},
+		user       => $self->{'config'}->{'dbuser'}     // $self->{'system'}->{'user'},
 		password   => $self->{'config'}->{'dbpassword'} // $self->{'system'}->{'password'}
 	);
 	my $dbr;
 	my $continue = 1;
 	try {
 		$dbr = $self->{'dataConnector'}->get_connection( \%att );
-	}
-	catch {
+	} catch {
 		if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
 			$continue = 0;
 			say q(<div class="box" id="statusbad"><p>Cannot connect to reference database!</p></div>);
@@ -2444,7 +2559,7 @@ sub create_temp_ref_table {
 		}
 		local $" = ', ';
 		my $author_string = "@authors";
-		my $isolates = $self->run_query( $count_qry, $pmid, { cache => 'create_temp_ref_table_count' } );
+		my $isolates      = $self->run_query( $count_qry, $pmid, { cache => 'create_temp_ref_table_count' } );
 		eval {
 			my $qry = 'INSERT INTO temp_refs VALUES (?,?,?,?,?,?,?,?,?)';
 			if ($paper) {
@@ -2523,7 +2638,7 @@ sub get_table_field_attributes {
 	my $attributes;
 	eval { $attributes = $self->$function() };
 	$logger->logcarp($@) if $@;
-	return if ref $attributes ne 'ARRAY';
+	return               if ref $attributes ne 'ARRAY';
 	foreach my $att (@$attributes) {
 		foreach (qw(tooltip optlist required default hide hide_public hide_query main_display)) {
 			$att->{$_} = '' if !defined( $att->{$_} );
@@ -2763,7 +2878,7 @@ sub initiate_view {
 	  . 'WHERE ug.co_curate_private AND ugm.user_id=v.sender AND EXISTS(SELECT 1 FROM user_group_members '
 	  . 'WHERE (user_group,user_id)=(ug.id,?))) AND EXISTS(SELECT 1 FROM private_isolates '
 	  . 'WHERE isolate_id=v.id))';
-	use constant PUBLIC_ISOLATES => 'NOT EXISTS(SELECT 1 FROM private_isolates WHERE isolate_id=v.id)';
+	use constant PUBLIC_ISOLATES            => 'NOT EXISTS(SELECT 1 FROM private_isolates WHERE isolate_id=v.id)';
 	use constant ISOLATES_FROM_USER_PROJECT =>
 	  'EXISTS(SELECT 1 FROM project_members pm JOIN merged_project_users mpu ON '
 	  . 'pm.project_id=mpu.project_id WHERE (mpu.user_id,pm.isolate_id)=(?,v.id))';
@@ -2920,8 +3035,8 @@ sub get_start_codons {
 sub get_stop_codons {
 	my ( $self, $options ) = @_;
 	my $codon_table_id = $options->{'codon_table'} // $self->get_codon_table( $options->{'isolate_id'} );
-	my $codon_table = Bio::Tools::CodonTable->new( -id => $codon_table_id );
-	my @stops = $codon_table->revtranslate('*');
+	my $codon_table    = Bio::Tools::CodonTable->new( -id => $codon_table_id );
+	my @stops          = $codon_table->revtranslate('*');
 	$_ = uc($_) foreach @stops;
 	return \@stops;
 }
@@ -2952,7 +3067,7 @@ sub get_codon_table {
 
 sub is_codon_table_valid {
 	my ( $self, $codon_table ) = @_;
-	my $tables = Bio::Tools::CodonTable->tables;
+	my $tables  = Bio::Tools::CodonTable->tables;
 	my %allowed = map { $_ => 1 } keys %$tables;
 	return $allowed{$codon_table};
 }
