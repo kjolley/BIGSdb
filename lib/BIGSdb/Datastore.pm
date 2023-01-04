@@ -1624,7 +1624,7 @@ sub _get_isolate_ids_for_cache {
 	{
 		$options->{'method'} = 'full';
 	}
-	my $qry = "SELECT t1.id FROM $self->{'system'}->{'view'} t1 ";
+	my $qry = "SELECT t1.id FROM $view t1 ";
 	if ( $options->{'method'} eq 'incremental' ) {
 		$qry .= qq(LEFT JOIN $table{$options->{'cache_type'}} t2 ON t1.id=t2.id WHERE t2.id IS NULL );
 	} elsif ( $options->{'method'} eq 'daily' ) {
