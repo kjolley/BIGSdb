@@ -1547,7 +1547,7 @@ sub create_temp_scheme_status_table {
 		}
 		return $table;
 	}
-	my $method   = $options->{'method'} // 'full';
+	my $method = $options->{'method'} // 'full';
 	my $isolates = $self->_get_isolate_ids_for_cache( $scheme_id, { method => $method, cache_type => 'completion' } );
 	my $scheme_fields = $self->get_scheme_fields($scheme_id);
 	if ( !$table_exists ) {
@@ -1629,15 +1629,18 @@ sub _get_isolate_ids_for_cache {
 	{
 		$options->{'method'} = 'full';
 	}
-	my $qry = "SELECT id FROM $self->{'system'}->{'view'} ";
+	my $qry = "SELECT t1.id FROM $self->{'system'}->{'view'} t1 ";
 	if ( $options->{'method'} eq 'incremental' ) {
-		$qry .= qq(WHERE id NOT IN (SELECT id FROM $table{$options->{'cache_type'}}) );
+		$qry .= qq(LEFT JOIN $table{$options->{'cache_type'}} t2 ON t1.id=t2.id WHERE t2.id IS NULL );
 	} elsif ( $options->{'method'} eq 'daily' ) {
-		$qry .= qq(WHERE id NOT IN (SELECT id FROM $table{$options->{'cache_type'}}) AND datestamp='today' );
+		$qry .=
+			qq(LEFT JOIN $table{$options->{'cache_type'}} t2 ON t1.id=t2.id WHERE t2.id )
+		  . q(IS NULL AND t1.datestamp='today' )
+		  ;
 	} elsif ( $options->{'method'} eq 'daily_replace' ) {
 		$qry .= q(WHERE datestamp = 'today' );
 	}
-	$qry .= 'ORDER BY id';
+	$qry .= 'ORDER BY t1.id';
 	return $self->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 }
 
