@@ -1567,7 +1567,7 @@ sub create_temp_scheme_status_table {
 				$self->{'db'}->do( "DELETE FROM $table WHERE id=?", undef, $isolate_id );
 			}
 			my $count = $self->run_query(
-					q(SELECT COUNT(DISTINCT(locus)) FROM allele_designations WHERE locus )
+				q(SELECT COUNT(DISTINCT(locus)) FROM allele_designations WHERE locus )
 				  . q(IN (SELECT locus FROM scheme_members WHERE scheme_id=?) AND status!='ignore' AND )
 				  . q(isolate_id=?),
 				[ $scheme_id, $isolate_id ],
@@ -1595,7 +1595,13 @@ sub _get_isolate_ids_for_cache {
 	my ( $self, $scheme_id, $options ) = @_;
 	$options->{'cache_type'} //= 'fields';
 	$options->{'method'}     //= 'full';
-	my $view           = $options->{'cache'} ? 'isolates' : $self->{'system'}->{'view'};
+	my $view;
+	if ( $options->{'cache'} ) {
+		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+		$view = $scheme_info->{'view'} // 'isolates';
+	} else {
+		$view = $self->{'system'}->{'view'};
+	}
 	my %allowed_method = map { $_ => 1 } qw(full incremental daily daily_replace);
 	if ( !$allowed_method{ $options->{'method'} } ) {
 		$logger->error("Invalid method: $options->{'method'}.");
