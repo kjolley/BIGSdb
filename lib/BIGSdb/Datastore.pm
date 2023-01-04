@@ -1595,7 +1595,7 @@ sub _get_isolate_ids_for_cache {
 	my ( $self, $scheme_id, $options ) = @_;
 	$options->{'cache_type'} //= 'fields';
 	$options->{'method'}     //= 'full';
-	my $scheme_info    = $self->{'datastore'}->get_scheme_info($scheme_id);
+	my $scheme_info    = $self->get_scheme_info($scheme_id);
 	my $view           = $scheme_info->{'view'} // 'isolates';
 	my %allowed_method = map { $_ => 1 } qw(full incremental daily daily_replace);
 	if ( !$allowed_method{ $options->{'method'} } ) {
