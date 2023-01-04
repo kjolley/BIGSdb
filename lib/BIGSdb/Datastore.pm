@@ -1082,6 +1082,7 @@ sub create_temp_isolate_scheme_fields_view {
 
 		#Using the embedded database function is much quicker for small schemes but does not
 		#scale well for large schemes.
+		$self->create_temp_scheme_table( $scheme_id, $options );
 		eval { $self->{'db'}->do("SELECT create_isolate_scheme_cache($scheme_id,'isolates','true','full')"); };
 		if ($@) {
 			$logger->error($@);
