@@ -1547,7 +1547,7 @@ sub create_temp_scheme_status_table {
 		}
 		return $table;
 	}
-	my $method = $options->{'method'} // 'full';
+	my $method   = $options->{'method'} // 'full';
 	my $isolates = $self->_get_isolate_ids_for_cache( $scheme_id, { method => $method, cache_type => 'completion' } );
 	my $scheme_fields = $self->get_scheme_fields($scheme_id);
 	if ( !$table_exists ) {
@@ -1595,13 +1595,8 @@ sub _get_isolate_ids_for_cache {
 	my ( $self, $scheme_id, $options ) = @_;
 	$options->{'cache_type'} //= 'fields';
 	$options->{'method'}     //= 'full';
-	my $view;
-	if ( $options->{'cache'} ) {
-		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
-		$view = $scheme_info->{'view'} // 'isolates';
-	} else {
-		$view = $self->{'system'}->{'view'};
-	}
+	my $scheme_info    = $self->{'datastore'}->get_scheme_info($scheme_id);
+	my $view           = $scheme_info->{'view'} // 'isolates';
 	my %allowed_method = map { $_ => 1 } qw(full incremental daily daily_replace);
 	if ( !$allowed_method{ $options->{'method'} } ) {
 		$logger->error("Invalid method: $options->{'method'}.");
@@ -1635,8 +1630,7 @@ sub _get_isolate_ids_for_cache {
 	} elsif ( $options->{'method'} eq 'daily' ) {
 		$qry .=
 			qq(LEFT JOIN $table{$options->{'cache_type'}} t2 ON t1.id=t2.id WHERE t2.id )
-		  . q(IS NULL AND t1.datestamp='today' )
-		  ;
+		  . q(IS NULL AND t1.datestamp='today' );
 	} elsif ( $options->{'method'} eq 'daily_replace' ) {
 		$qry .= q(WHERE datestamp = 'today' );
 	}
