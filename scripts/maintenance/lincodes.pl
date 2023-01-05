@@ -2,7 +2,7 @@
 #Define LINcodes from cgMLST profiles
 #Written by Keith Jolley
 #Based on code by Melanie Hennart (https://gitlab.pasteur.fr/BEBP/LINcoding).
-#Copyright (c) 2022, University of Oxford
+#Copyright (c) 2022-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20221121
+#Version: 20230105
 use strict;
 use warnings;
 use 5.010;
@@ -87,6 +87,7 @@ if ( $opts{'log'} ) {
 	initiate_log_file( $opts{'log'} );
 }
 main();
+undef $script;
 remove_lock_file();
 
 sub main {
