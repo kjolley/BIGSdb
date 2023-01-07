@@ -1205,13 +1205,13 @@ sub _get_assembly_wrong_sender {
 		$submission_id,
 		{ fetch => 'all_arrayref', slice => {} }
 	);
-	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	foreach my $record (@$cleaned_list) {
 		my $sender = $self->{'datastore'}
 		  ->run_query( "SELECT sender FROM $self->{'system'}->{'view'} WHERE id=?", $record->{'id'} );
 		if ( !$sender ) {
 			push @$invalid_ids, $record->{'id'};
-		} elsif ( $sender != $user_info->{'id'} ) {
+		} elsif ( $sender != $submission->{'submitter'} ) {
 			push @$wrong_sender, $record->{'id'};
 		}
 	}
@@ -2399,7 +2399,6 @@ sub _get_completed_schemes {
 	my $schemes =
 	  $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => 1 } );
 	my $list = [];
-
 	foreach my $scheme (@$schemes) {
 		my $loci          = $self->{'datastore'}->get_scheme_loci( $scheme->{'id'}, { profile_name => 1 } );
 		my $all_populated = 1;
