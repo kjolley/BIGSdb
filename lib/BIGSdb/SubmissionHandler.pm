@@ -752,10 +752,10 @@ sub _get_isolate_header_positions {
 sub _is_set_locus_name {
 	my ( $self, $set_id, $value ) = @_;
 	return if !$set_id;
-	my $set_names = $self->{'datastore'}
-	  ->run_query( 'SELECT set_name FROM set_loci WHERE set_id=?', $set_id, { fetch => 'col_arrayref' } );
-	my %names = map { $_ => 1 } @$set_names;
-	return $names{$value};
+	return $self->{'datastore'}->run_query(
+		'SELECT EXISTS(SELECT * FROM set_loci WHERE (set_id,set_name)=(?,?))',
+		[ $set_id, $value ]
+	);
 }
 
 sub _strip_trailing_spaces {
