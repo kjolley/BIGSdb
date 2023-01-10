@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CuratePage);
+use JSON;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -46,7 +47,7 @@ sub _print_interface {
 	say q(<p>The following options are available:</p>);
 	say q(<ul><li>full - delete and re-create whole cache.</li>);
 	say q(<li>incremental - check and add records which currently lack scheme values. You will also have the option )
-	  . q(to select only recent records.</li>);
+	  . q(to update the cache only for recently modified records.</li>);
 	say q(<li>daily - add records that currently lack scheme values and were added today.</li>);
 	say q(<li>daily_replace - delete and re-create cache values for records that were added today.</li></ul>);
 
@@ -75,9 +76,21 @@ sub _print_interface {
 	return;
 }
 
+sub initiate {
+	my ($self) = @_;
+		
+	$self->{$_} = 1 foreach qw (tooltips jQuery noCache);
+	$self->set_level1_breadcrumbs;
+	$self->{'job_id'} = BIGSdb::Utils::get_random();
+	return;
+}
+
 sub get_javascript {
 	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	return if !$q->param('submit');
 	my $buffer = << "END";
+var status_file = "/tmp/$self->{'job_id'}.json" ;
 \$(function () {
 	if (\$("#method").val() === 'incremental'){
 		\$("fieldset#options").show();
@@ -89,7 +102,32 @@ sub get_javascript {
 			\$("fieldset#options").hide();
 		}
 	})
+	read_status();
+	
 });
+
+function read_status(){
+	 setTimeout(function () {
+	 	\$.ajax({
+			dataType: "json",
+			url: status_file,
+			success: function(response) {
+			console.log(response);
+				if (typeof response['stop_time'] !== 'undefined'){
+					alert(response['stop_time']);
+					finish();
+				} else {
+					read_status();
+				}
+			},
+		});
+	 }, 2000);
+}
+
+function finish(){
+	\$("p#wait").hide();
+	alert('Finished!');
+}
 END
 	return $buffer;
 }
@@ -130,14 +168,13 @@ sub print_content {
 sub _refresh_caches {
 	my ( $self, $schemes ) = @_;
 	my $q = $self->{'cgi'};
-	say q(<div class="box" id="resultsheader"><p>);
-	my @selected_schemes;
+	my $selected_scheme;
 	if ( $q->param('scheme') && BIGSdb::Utils::is_int( scalar $q->param('scheme') ) ) {
-		push @selected_schemes, scalar $q->param('scheme');
-	} else {
-		@selected_schemes = @$schemes;
+		$selected_scheme = $q->param('scheme');
+
 	}
-	my $set_id  = $self->get_set_id;
+
+
 	my $method  = $q->param('method');
 	my $reldate = $q->param('reldate');
 	if ( !$reldate || !BIGSdb::Utils::is_int($reldate) ) {
@@ -148,34 +185,89 @@ sub _refresh_caches {
 		$logger->error("Invalid method '$method' selected. Using 'full'.");
 		$method = 'full';
 	}
-	local $| = 1;
-	foreach my $scheme_id (@selected_schemes) {
-		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
-		if ( !defined $scheme_info->{'primary_key'} ) {
-			say "Scheme $scheme_id ($scheme_info->{'name'}) does not have a primary key - skipping.<br />";
+	my $status_file      = "$self->{'job_id'}.json";
+	my $status_full_path = "$self->{'config'}->{'tmp_dir'}/$status_file";
+
+
+	#Use double fork to prevent zombie processes on apache2-mpm-worker
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	defined( my $kid = fork ) or $logger->error('cannot fork');
+	if ($kid) {
+		waitpid( $kid, 0 );
+	} else {
+		defined( my $grandkid = fork ) or $logger->error('Kid cannot fork');
+		if ($grandkid) {
+			CORE::exit(0);
 		} else {
-			say qq(Updating scheme $scheme_id cache ($scheme_info->{'name'}) ...);
-			if ( $ENV{'MOD_PERL'} ) {
-				$self->{'mod_perl_request'}->rflush;
-				return if $self->{'mod_perl_request'}->connection->aborted;
-			}
-			$self->{'datastore'}->create_temp_isolate_scheme_fields_view( $scheme_id,
-				{ cache => 1, method => $method, reldate => $reldate } );
-			$self->{'datastore'}
-			  ->create_temp_scheme_status_table( $scheme_id, { cache => 1, method => $method, reldate => $reldate } );
-			if ( $self->{'datastore'}->are_lincodes_defined($scheme_id) ) {
-				$self->{'datastore'}->create_temp_lincodes_table( $scheme_id, { cache => 1 } );
-				$self->{'datastore'}->create_temp_lincode_prefix_values_table( $scheme_id, { cache => 1 } );
-			}
-			my $cschemes = $self->{'datastore'}->run_query( 'SELECT id FROM classification_schemes WHERE scheme_id=?',
-				$scheme_id, { fetch => 'col_arrayref', cache => 'get_cschemes_from_scheme' } );
-			foreach my $cscheme_id (@$cschemes) {
-				$self->{'datastore'}->create_temp_cscheme_table( $cscheme_id, { cache => 1 } );
-			}
-			say q(done.<br />);
+			open STDIN,  '<', '/dev/null' || $logger->error("Cannot detach STDIN: $!");
+			open STDOUT, '>', '/dev/null' || $logger->error("Cannot detach STDOUT: $!");
+			open STDERR, '>&STDOUT' || $logger->error("Cannott detach STDERR: $!");
+			try {
+				BIGSdb::Offline::UpdateSchemeCaches->new(
+					{
+						config_dir       => $self->{'config_dir'},
+						lib_dir          => $self->{'lib_dir'},
+						dbase_config_dir => $self->{'dbase_config_dir'},
+						options          => {
+							mark_job          => 1,
+							job_id => $self->{'job_id'},
+							no_user_db_needed => 1,
+							ip_address        => $ENV{'REMOTE_ADDR'},
+							username          => $self->{'username'},
+							email             => $user_info->{'email'},
+							method            => $method,
+							schemes           => $selected_scheme,
+							reldate           => $reldate,
+							status_file       => $status_full_path
+						},
+						instance => $self->{'instance'}
+					}
+				);
+			} catch {
+				if ( $_->isa('BIGSdb::Exception::Server::Busy') ) {
+					my $json = encode_json(
+						{
+							server_busy => 1
+						}
+					);
+					open( my $fh, '>', $status_full_path )
+					  || $logger->error("Cannot open $status_full_path for writing");
+					say $fh $json;
+					close $fh;
+				} else {
+					$logger->logdie($_);
+				}
+			};
+			CORE::exit(0);
 		}
 	}
-	say q(</p></div>);
+	say q(<div class="box" id="resultsheader"><p id="wait">)
+	  . q(<span class="wait_icon fas fa-sync-alt fa-spin fa-4x" style="margin-right:0.5em"></span>)
+	  . q(<span class="wait_message">Please wait...</span></p></div>);
 	return;
 }
+
+sub _get_status_filename {
+	my ($self) = @_;
+	return "$self->{'job'}.json";
+}
+
+sub _get_status_full_path {
+	my ($self) = @_;
+	my $status_file = $self->_get_status_filename;
+	return "$self->{'config'}->{'tmp_dir'}/$status_file";
+}
+
+sub _read_status {
+	my ($self) = @_;
+	my $status_file = $self->_get_status_full_path;
+	return {} if !-e $status_file;
+	my $status_ref = BIGSdb::Utils::slurp($status_file);
+	my $status     = {};
+	eval { $status = decode_json($$status_ref); };
+	$logger->error($@) if $@;
+	return $status;
+}
+
+
 1;
