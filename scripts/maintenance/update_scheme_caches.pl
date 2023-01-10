@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Update tables of scheme field values linked to isolate
 #Written by Keith Jolley
-#Copyright (c) 2014-2022, University of Oxford
+#Copyright (c) 2014-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20221230
+#Version: 20230110
 use strict;
 use warnings;
 use 5.010;
@@ -42,6 +42,7 @@ GetOptions(
 	'h|help'       => \$opts{'h'},
 	'm|method=s'   => \$opts{'method'},
 	'q|quiet'      => \$opts{'q'},
+	'r|reldate=i'  => \$opts{'reldate'},
 	's|schemes=s'  => \$opts{'schemes'}
 ) or die("Error in command line arguments\n");
 
@@ -120,7 +121,7 @@ sub show_help {
 	my $termios = POSIX::Termios->new;
 	$termios->getattr;
 	my $ospeed = $termios->getospeed;
-	my $t = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
+	my $t      = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
 	my ( $norm, $bold, $under ) = map { $t->Tputs( $_, 1 ) } qw(me md us);
 	say << "HELP";
 ${bold}NAME$norm
@@ -146,6 +147,11 @@ ${bold}--method$norm ${under}METHOD$norm
        
 ${bold}--quiet$norm
     Don't output progress messages.
+    
+${bold}--reldate$norm ${under}DAYS$norm
+    Limit updates to isolates that were last modified up to the specified
+    number of days ago. This option is only valid when method is set to
+    'incremental'.
     
 ${bold}--schemes$norm ${under}SCHEMES$norm
     Comma-separated list of scheme ids to use.

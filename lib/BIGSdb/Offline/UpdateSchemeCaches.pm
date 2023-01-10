@@ -94,7 +94,8 @@ sub run_script {
 		say "Updating scheme $scheme_id field cache ($scheme_info->{'name'}) - method: $method"
 		  if !$self->{'options'}->{'q'};
 		$self->update_job( $job_id, { temp_init => 1, status => { stage => "Scheme $scheme_id: fields ($method)" } } );
-		$self->{'datastore'}->create_temp_isolate_scheme_fields_view( $scheme_id, { cache => 1, method => $method } );
+		$self->{'datastore'}->create_temp_isolate_scheme_fields_view( $scheme_id,
+			{ cache => 1, method => $method, reldate => $self->{'options'}->{'reldate'} } );
 	}
 	foreach my $scheme_id (@$scheme_status) {
 		$scheme_id =~ s/\s//gx;
@@ -105,7 +106,8 @@ sub run_script {
 		say "Updating scheme $scheme_id completion status cache ($scheme_info->{'name'}) - method: $method"
 		  if !$self->{'options'}->{'q'};
 		$self->update_job( $job_id, { temp_init => 1, status => { stage => "Scheme $scheme_id: status ($method)" } } );
-		$self->{'datastore'}->create_temp_scheme_status_table( $scheme_id, { cache => 1, method => $method } );
+		$self->{'datastore'}->create_temp_scheme_status_table( $scheme_id,
+			{ cache => 1, method => $method, reldate => $self->{'options'}->{'reldate'} } );
 		if ( $self->{'datastore'}->are_lincodes_defined($scheme_id) ) {
 			say "Updating scheme $scheme_id LINcodes cache ($scheme_info->{'name'})"
 			  if !$self->{'options'}->{'q'};

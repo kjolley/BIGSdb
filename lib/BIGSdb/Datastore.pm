@@ -1091,9 +1091,10 @@ sub create_temp_isolate_scheme_fields_view {
 		$self->{'scheme_not_cached'} = 1;
 		return $table;
 	}
-	my $scheme_table  = $self->create_temp_scheme_table( $scheme_id, $options );
-	my $method        = $options->{'method'} // 'full';
-	my $isolates      = $self->_get_isolate_ids_for_cache( $scheme_id, { method => $method, cache_type => 'fields' } );
+	my $scheme_table = $self->create_temp_scheme_table( $scheme_id, $options );
+	my $method       = $options->{'method'} // 'full';
+	my $isolates     = $self->_get_isolate_ids_for_cache( $scheme_id,
+		{ method => $method, cache_type => 'fields', reldate => $options->{'reldate'} } );
 	my $scheme_fields = $self->get_scheme_fields($scheme_id);
 	if ( !$table_exists ) {
 		$options->{'method'} = 'full';
@@ -1531,7 +1532,6 @@ sub create_temp_scheme_table {
 #This should be done once the scheme size/number of isolates results in a slowdown of queries.
 sub create_temp_scheme_status_table {
 	my ( $self, $scheme_id, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
 	my $table = "temp_isolates_scheme_completion_$scheme_id";
 	my $table_exists =
 	  $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
@@ -1548,7 +1548,8 @@ sub create_temp_scheme_status_table {
 		return $table;
 	}
 	my $method   = $options->{'method'} // 'full';
-	my $isolates = $self->_get_isolate_ids_for_cache( $scheme_id, { method => $method, cache_type => 'completion' } );
+	my $isolates = $self->_get_isolate_ids_for_cache( $scheme_id,
+		{ method => $method, cache_type => 'completion', reldate => $options->{'reldate'} } );
 	my $scheme_fields = $self->get_scheme_fields($scheme_id);
 	if ( !$table_exists ) {
 		eval { $self->{'db'}->do("CREATE TABLE $table (id int,locus_count bigint)"); };
@@ -1627,6 +1628,9 @@ sub _get_isolate_ids_for_cache {
 	my $qry = "SELECT t1.id FROM $view t1 ";
 	if ( $options->{'method'} eq 'incremental' ) {
 		$qry .= qq(LEFT JOIN $table{$options->{'cache_type'}} t2 ON t1.id=t2.id WHERE t2.id IS NULL );
+		if ( $options->{'reldate'} && $options->{'reldate'} > 0 ) {
+			$qry .= qq(AND datestamp > now()-interval '$options->{'reldate'} days');
+		}
 	} elsif ( $options->{'method'} eq 'daily' ) {
 		$qry .=
 			qq(LEFT JOIN $table{$options->{'cache_type'}} t2 ON t1.id=t2.id WHERE t2.id )
