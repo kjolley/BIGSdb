@@ -43,6 +43,13 @@ sub _print_interface {
 	  . q(requirement to determine these in real time.  This can significantly speed up querying and data export, but )
 	  . q(the cache can become stale if there are changes to either the isolate or sequence definition database after )
 	  . q(it was last updated.</p>);
+	say q(<p>The following options are available:</p>);
+	say q(<ul><li>full - delete and re-create whole cache.</li>);
+	say q(<li>incremental - check and add records which currently lack scheme values. You will also have the option )
+	  . q(to select only recent records.</li>);
+	say q(<li>daily - add records that currently lack scheme values and were added today.</li>);
+	say q(<li>daily_replace - delete and re-create cache values for records that were added today.</li></ul>);
+
 	if ( $self->{'system'}->{'cache_schemes'} ) {
 		say q(<p>This database is also set to automatically refresh scheme caches when isolates are added using the )
 		  . q(batch add page.</p>);
@@ -53,13 +60,38 @@ sub _print_interface {
 	say $q->popup_menu( -name => 'scheme', -values => [ 0, @$schemes ], -labels => \%desc );
 	say q(</fieldset>);
 	say q(<fieldset style="float:left"><legend>Select method</legend>);
-	say $q->popup_menu( -name => 'method', -values => [qw(full incremental daily daily_replace)] );
+	say $q->popup_menu( -name => 'method', -id => 'method', -values => [qw(full incremental daily daily_replace)] );
+	say q(</fieldset>);
+	say q(<fieldset style="float:left;display:none" id="options"><legend>Options</legend>);
+	say q(Refresh records modified in past );
+	say $q->textfield( -name => 'reldate', -size => 3 );
+	say q( days.<br />);
+	say q(<span class="comment">Leave blank to include all records.</span>);
 	say q(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Refresh cache' } );
 	say $q->hidden($_) foreach qw(db page);
 	say $q->end_form;
 	say q(</div>);
 	return;
+}
+
+sub get_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+\$(function () {
+	if (\$("#method").val() === 'incremental'){
+		\$("fieldset#options").show();
+	}
+	\$("#method").change(function(){
+		if (\$("#method").val() === 'incremental'){
+			\$("fieldset#options").show();
+		} else {
+			\$("fieldset#options").hide();
+		}
+	})
+});
+END
+	return $buffer;
 }
 
 sub print_content {
@@ -105,8 +137,12 @@ sub _refresh_caches {
 	} else {
 		@selected_schemes = @$schemes;
 	}
-	my $set_id          = $self->get_set_id;
-	my $method          = $q->param('method');
+	my $set_id  = $self->get_set_id;
+	my $method  = $q->param('method');
+	my $reldate = $q->param('reldate');
+	if ( !$reldate || !BIGSdb::Utils::is_int($reldate) ) {
+		undef $reldate;
+	}
 	my %allowed_methods = map { $_ => 1 } qw(full incremental daily daily_replace);
 	if ( !$allowed_methods{$method} ) {
 		$logger->error("Invalid method '$method' selected. Using 'full'.");
@@ -123,9 +159,10 @@ sub _refresh_caches {
 				$self->{'mod_perl_request'}->rflush;
 				return if $self->{'mod_perl_request'}->connection->aborted;
 			}
+			$self->{'datastore'}->create_temp_isolate_scheme_fields_view( $scheme_id,
+				{ cache => 1, method => $method, reldate => $reldate } );
 			$self->{'datastore'}
-			  ->create_temp_isolate_scheme_fields_view( $scheme_id, { cache => 1, method => $method } );
-			$self->{'datastore'}->create_temp_scheme_status_table( $scheme_id, { cache => 1, method => $method } );
+			  ->create_temp_scheme_status_table( $scheme_id, { cache => 1, method => $method, reldate => $reldate } );
 			if ( $self->{'datastore'}->are_lincodes_defined($scheme_id) ) {
 				$self->{'datastore'}->create_temp_lincodes_table( $scheme_id, { cache => 1 } );
 				$self->{'datastore'}->create_temp_lincode_prefix_values_table( $scheme_id, { cache => 1 } );
