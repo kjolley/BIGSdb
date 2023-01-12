@@ -122,7 +122,7 @@ var status_file = "/tmp/$self->{'job_id'}.json" ;
 });
 
 function read_status(){
-	 setTimeout(function () {
+	 var interval = setInterval(function () {
 	 	\$.ajax({
 			dataType: "json",
 			url: status_file,
@@ -135,9 +135,8 @@ function read_status(){
 					\$("p#results").html(message);
 				}
 				if (typeof response['stop_time'] !== 'undefined'){
+					clearInterval(interval);
 					finish();
-				} else {
-					read_status();
 				}
 			},
 		});
