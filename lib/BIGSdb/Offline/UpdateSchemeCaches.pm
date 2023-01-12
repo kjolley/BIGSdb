@@ -170,7 +170,6 @@ sub run_script {
 
 sub _write_status_file {
 	my ( $self, $data ) = @_;
-	$self->{logger}->error( $self->{'options'}->{'status_file'} );
 	return if !$self->{'options'}->{'status_file'};
 	my $json = encode_json($data);
 	open( my $fh, '>', $self->{'options'}->{'status_file'} )
