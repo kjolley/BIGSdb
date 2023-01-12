@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2022, University of Oxford
+#Copyright (c) 2015-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -70,7 +70,8 @@ sub _print_interface {
 	say q(<span class="comment">Leave blank to include all records.</span>);
 	say q(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Refresh cache' } );
-	say $q->hidden($_) foreach qw(db page);
+	$q->param( job_id => $self->{'job_id'} );
+	say $q->hidden($_) foreach qw(db page job_id);
 	say $q->end_form;
 	say q(</div>);
 	return;
@@ -80,7 +81,8 @@ sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (tooltips jQuery noCache);
 	$self->set_level1_breadcrumbs;
-	$self->{'job_id'} = BIGSdb::Utils::get_random();
+	my $q = $self->{'cgi'};
+	$self->{'job_id'} = $q->param('job_id') // BIGSdb::Utils::get_random();
 	return;
 }
 
@@ -101,12 +103,18 @@ sub get_javascript {
 END
 		return $buffer;
 	}
+	my $bookmark =
+		"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=refreshCache&amp;"
+	  . "job_id=$self->{'job_id'}&amp;submit=1"
+	  ;
 	my $buffer = << "END";
 var status_file = "/tmp/$self->{'job_id'}.json" ;
 \$(function () {
 	\$(':input[type="submit"]').prop('disabled', true);
 	\$(':input[type="submit"]').addClass('submit_disabled');
-	\$("p#message").html('Processing will continue even if you close the page. Please do not refresh page.');
+	
+	\$("p#message").html('Processing will continue even if you close the page. Use <a href="$bookmark">this '
+	+ 'link</a> if you wish to bookmark and return.');
 	if (\$("#method").val() === 'incremental'){
 		\$("fieldset#options").show();
 	}
@@ -206,6 +214,10 @@ sub _refresh_caches {
 	}
 	my $status_file      = "$self->{'job_id'}.json";
 	my $status_full_path = "$self->{'config'}->{'tmp_dir'}/$status_file";
+	if ( -e $status_full_path ) {    #Page has been refreshed.
+		$self->_print_status_divs;
+		return;
+	}
 
 	#Use double fork to prevent zombie processes on apache2-mpm-worker
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
@@ -259,6 +271,11 @@ sub _refresh_caches {
 			CORE::exit(0);
 		}
 	}
+	$self->_print_status_divs;
+	return;
+}
+
+sub _print_status_divs {
 	say q(<div class="box" id="resultsheader"><p id="wait">)
 	  . q(<span class="wait_icon fas fa-sync-alt fa-spin fa-4x" style="margin-right:0.5em"></span>)
 	  . q(<span class="wait_message">Please wait...</span></p>);
@@ -267,16 +284,4 @@ sub _refresh_caches {
 	say q(</div>);
 	return;
 }
-
-sub _get_status_filename {
-	my ($self) = @_;
-	return "$self->{'job'}.json";
-}
-
-sub _get_status_full_path {
-	my ($self) = @_;
-	my $status_file = $self->_get_status_filename;
-	return "$self->{'config'}->{'tmp_dir'}/$status_file";
-}
-
 1;
