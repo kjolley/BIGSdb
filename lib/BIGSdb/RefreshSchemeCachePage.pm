@@ -78,7 +78,6 @@ sub _print_interface {
 
 sub initiate {
 	my ($self) = @_;
-		
 	$self->{$_} = 1 foreach qw (tooltips jQuery noCache);
 	$self->set_level1_breadcrumbs;
 	$self->{'job_id'} = BIGSdb::Utils::get_random();
@@ -88,13 +87,9 @@ sub initiate {
 sub get_javascript {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	return if !$q->param('submit');
-	my $buffer = << "END";
-var status_file = "/tmp/$self->{'job_id'}.json" ;
+	if ( !$q->param('submit') ) {
+		my $buffer = << "END";
 \$(function () {
-	if (\$("#method").val() === 'incremental'){
-		\$("fieldset#options").show();
-	}
 	\$("#method").change(function(){
 		if (\$("#method").val() === 'incremental'){
 			\$("fieldset#options").show();
@@ -102,8 +97,28 @@ var status_file = "/tmp/$self->{'job_id'}.json" ;
 			\$("fieldset#options").hide();
 		}
 	})
-	read_status();
-	
+});		
+END
+		return $buffer;
+	}
+	my $buffer = << "END";
+var status_file = "/tmp/$self->{'job_id'}.json" ;
+\$(function () {
+	\$(':input[type="submit"]').prop('disabled', true);
+	\$(':input[type="submit"]').addClass('submit_disabled');
+	\$("p#message").html('Processing will continue even if you close the page. Please do not refresh page.');
+	if (\$("#method").val() === 'incremental'){
+		\$("fieldset#options").show();
+	}
+	\$("#method").change(function(){
+		console.log('change');
+		if (\$("#method").val() === 'incremental'){
+			\$("fieldset#options").show();
+		} else {
+			\$("fieldset#options").hide();
+		}
+	})
+	read_status();	
 });
 
 function read_status(){
@@ -112,9 +127,14 @@ function read_status(){
 			dataType: "json",
 			url: status_file,
 			success: function(response) {
-			console.log(response);
+				if (typeof response['stage'] !== 'undefined'){
+					var message = response['stage'];
+					if (typeof response['stage_progress'] !== 'undefined'){
+						message += " (" + response['stage_progress'] + "% complete)";
+					}
+					\$("p#results").html(message);
+				}
 				if (typeof response['stop_time'] !== 'undefined'){
-					alert(response['stop_time']);
 					finish();
 				} else {
 					read_status();
@@ -126,7 +146,10 @@ function read_status(){
 
 function finish(){
 	\$("p#wait").hide();
-	alert('Finished!');
+	\$("p#results").html('Cache renewal finished.');
+	\$(':input[type="submit"]').prop('disabled', false);
+	\$(':input[type="submit"]').removeClass('submit_disabled');
+	\$("p#message").html("");
 }
 END
 	return $buffer;
@@ -171,10 +194,7 @@ sub _refresh_caches {
 	my $selected_scheme;
 	if ( $q->param('scheme') && BIGSdb::Utils::is_int( scalar $q->param('scheme') ) ) {
 		$selected_scheme = $q->param('scheme');
-
 	}
-
-
 	my $method  = $q->param('method');
 	my $reldate = $q->param('reldate');
 	if ( !$reldate || !BIGSdb::Utils::is_int($reldate) ) {
@@ -187,7 +207,6 @@ sub _refresh_caches {
 	}
 	my $status_file      = "$self->{'job_id'}.json";
 	my $status_full_path = "$self->{'config'}->{'tmp_dir'}/$status_file";
-
 
 	#Use double fork to prevent zombie processes on apache2-mpm-worker
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
@@ -210,7 +229,7 @@ sub _refresh_caches {
 						dbase_config_dir => $self->{'dbase_config_dir'},
 						options          => {
 							mark_job          => 1,
-							job_id => $self->{'job_id'},
+							job_id            => $self->{'job_id'},
 							no_user_db_needed => 1,
 							ip_address        => $ENV{'REMOTE_ADDR'},
 							username          => $self->{'username'},
@@ -243,7 +262,10 @@ sub _refresh_caches {
 	}
 	say q(<div class="box" id="resultsheader"><p id="wait">)
 	  . q(<span class="wait_icon fas fa-sync-alt fa-spin fa-4x" style="margin-right:0.5em"></span>)
-	  . q(<span class="wait_message">Please wait...</span></p></div>);
+	  . q(<span class="wait_message">Please wait...</span></p>);
+	say q(<p id="results" class="progress"></p>);
+	say q(<p id="message"</p>);
+	say q(</div>);
 	return;
 }
 
@@ -257,17 +279,5 @@ sub _get_status_full_path {
 	my $status_file = $self->_get_status_filename;
 	return "$self->{'config'}->{'tmp_dir'}/$status_file";
 }
-
-sub _read_status {
-	my ($self) = @_;
-	my $status_file = $self->_get_status_full_path;
-	return {} if !-e $status_file;
-	my $status_ref = BIGSdb::Utils::slurp($status_file);
-	my $status     = {};
-	eval { $status = decode_json($$status_ref); };
-	$logger->error($@) if $@;
-	return $status;
-}
-
 
 1;

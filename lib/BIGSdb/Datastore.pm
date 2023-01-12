@@ -26,6 +26,7 @@ use Try::Tiny;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Datastore');
 use Unicode::Collate;
+use JSON;
 use File::Path qw(make_path);
 use Fcntl qw(:flock);
 use Memoize;
@@ -1068,6 +1069,17 @@ sub is_scheme_field {
 	return any { $_ eq $field } @$fields;
 }
 
+sub _write_status_file {
+	my ( $self, $status_file, $data ) = @_;
+	return if !$status_file;
+	my $json = encode_json($data);
+	open( my $fh, '>', $status_file )
+	  || $logger->error("Cannot open $status_file for writing");
+	say $fh $json;
+	close $fh;
+	return;
+}
+
 sub create_temp_isolate_scheme_fields_view {
 	my ( $self, $scheme_id, $options ) = @_;
 
@@ -1091,11 +1103,15 @@ sub create_temp_isolate_scheme_fields_view {
 		$self->{'scheme_not_cached'} = 1;
 		return $table;
 	}
+	my $scheme_info = $self->get_scheme_info($scheme_id);
+	$options->{'status'}->{'stage'} = "Scheme $scheme_id ($scheme_info->{'name'}): importing definitions";
+	$self->_write_status_file( $options->{'status_file'}, $options->{'status'} );
 	my $scheme_table = $self->create_temp_scheme_table( $scheme_id, $options );
 	my $method       = $options->{'method'} // 'full';
 	my $isolates     = $self->_get_isolate_ids_for_cache( $scheme_id,
 		{ method => $method, cache_type => 'fields', reldate => $options->{'reldate'} } );
 	my $scheme_fields = $self->get_scheme_fields($scheme_id);
+
 	if ( !$table_exists ) {
 		$options->{'method'} = 'full';
 		my @fields;
@@ -1112,7 +1128,11 @@ sub create_temp_isolate_scheme_fields_view {
 		}
 	}
 	local $" = q(,);
-	my @placeholders = ('?') x ( @$scheme_fields + 1 );
+	my @placeholders  = ('?') x ( @$scheme_fields + 1 );
+	my $last_progress = 0;
+	my $i             = 0;
+	$options->{'status'}->{'stage'} = "Scheme $scheme_id ($scheme_info->{'name'}): looking up profiles";
+	$self->_write_status_file( $options->{'status_file'}, $options->{'status'} );
 	eval {
 		if ( $options->{'method'} eq 'full' ) {
 			$self->{'db'}->do("DELETE FROM $table");
@@ -1131,6 +1151,13 @@ sub create_temp_isolate_scheme_fields_view {
 				$self->{'db'}
 				  ->do( "INSERT INTO $table (id,@$scheme_fields) VALUES (@placeholders)", undef, $isolate_id, @values );
 			}
+			$i++;
+			my $progress = int( $i * 100 / @$isolates );
+			if ( $progress > $last_progress ) {
+				$options->{'status'}->{'stage_progress'} = $progress;
+				$self->_write_status_file( $options->{'status_file'}, $options->{'status'} );
+				$last_progress = $progress;
+			}
 		}
 		if ( !$table_exists ) {
 			foreach my $field (@$scheme_fields) {
@@ -1144,6 +1171,7 @@ sub create_temp_isolate_scheme_fields_view {
 		$self->{'db'}->rollback;
 	}
 	$self->{'db'}->commit;
+	delete $options->{'status'}->{'stage_progress'};
 	return $table;
 }
 
@@ -1559,6 +1587,11 @@ sub create_temp_scheme_status_table {
 			return;
 		}
 	}
+	my $scheme_info = $self->get_scheme_info($scheme_id);
+	$options->{'status'}->{'stage'} = "Scheme $scheme_id ($scheme_info->{'name'}): checking profile completion status";
+	$self->_write_status_file( $options->{'status_file'}, $options->{'status'} );
+	my $i             = 0;
+	my $last_progress = 0;
 	eval {
 		if ( $options->{'method'} eq 'full' ) {
 			$self->{'db'}->do("DELETE FROM $table");
@@ -1574,6 +1607,13 @@ sub create_temp_scheme_status_table {
 				[ $scheme_id, $isolate_id ],
 				{ cache => 'Datastore::create_temp_scheme_status_table::locus_count' }
 			);
+			$i++;
+			my $progress = int( $i * 100 / @$isolates );
+			if ( $progress > $last_progress ) {
+				$options->{'status'}->{'stage_progress'} = $progress;
+				$self->_write_status_file( $options->{'status_file'}, $options->{'status'} );
+				$last_progress = $progress;
+			}
 			next if !$count;
 			$self->{'db'}->do( "INSERT INTO $table (id,locus_count) VALUES (?,?)", undef, $isolate_id, $count );
 		}
@@ -1589,6 +1629,7 @@ sub create_temp_scheme_status_table {
 		$self->{'db'}->rollback;
 	}
 	$self->{'db'}->commit;
+	delete $options->{'status'}->{'stage_progress'};
 	return $table;
 }
 

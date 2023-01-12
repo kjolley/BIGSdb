@@ -105,10 +105,18 @@ sub run_script {
 		say "Updating scheme $scheme_id field cache ($scheme_info->{'name'}) - method: $method"
 		  if !$self->{'options'}->{'q'};
 		$self->update_job( $job_id, { temp_init => 1, status => { stage => "Scheme $scheme_id: fields ($method)" } } );
-		$status->{'stage'} = "Scheme $scheme_id: fields ($method)";
+		$status->{'stage'} = "Scheme $scheme_id ($scheme_info->{'name'}): fields ($method)";
 		$self->_write_status_file($status);
-		$self->{'datastore'}->create_temp_isolate_scheme_fields_view( $scheme_id,
-			{ cache => 1, method => $method, reldate => $self->{'options'}->{'reldate'} } );
+		$self->{'datastore'}->create_temp_isolate_scheme_fields_view(
+			$scheme_id,
+			{
+				cache       => 1,
+				method      => $method,
+				reldate     => $self->{'options'}->{'reldate'},
+				status      => $status,
+				status_file => $self->{'options'}->{'status_file'}
+			}
+		);
 	}
 	foreach my $scheme_id (@$scheme_status) {
 		$scheme_id =~ s/\s//gx;
@@ -118,16 +126,24 @@ sub run_script {
 		}
 		say "Updating scheme $scheme_id completion status cache ($scheme_info->{'name'}) - method: $method"
 		  if !$self->{'options'}->{'q'};
-		my $stage = "Scheme $scheme_id: status ($method)";
+		my $stage = "Scheme $scheme_id ($scheme_info->{'name'}): completion status ($method)";
 		$self->update_job( $job_id, { temp_init => 1, status => { stage => $stage } } );
 		$status->{'stage'} = $stage;
 		$self->_write_status_file($status);
-		$self->{'datastore'}->create_temp_scheme_status_table( $scheme_id,
-			{ cache => 1, method => $method, reldate => $self->{'options'}->{'reldate'} } );
+		$self->{'datastore'}->create_temp_scheme_status_table(
+			$scheme_id,
+			{
+				cache       => 1,
+				method      => $method,
+				reldate     => $self->{'options'}->{'reldate'},
+				status      => $status,
+				status_file => $self->{'options'}->{'status_file'}
+			}
+		);
 		if ( $self->{'datastore'}->are_lincodes_defined($scheme_id) ) {
 			say "Updating scheme $scheme_id LINcodes cache ($scheme_info->{'name'})"
 			  if !$self->{'options'}->{'q'};
-			$stage = "Scheme $scheme_id: LINcodes";
+			$stage = "Scheme $scheme_id ($scheme_info->{'name'}): LINcodes";
 			$self->update_job( $job_id, { temp_init => 1, status => { stage => $stage } } );
 			$status->{'stage'} = $stage;
 			$self->_write_status_file($status);
@@ -154,7 +170,7 @@ sub run_script {
 
 sub _write_status_file {
 	my ( $self, $data ) = @_;
-	$self->{logger}->error($self->{'options'}->{'status_file'});
+	$self->{logger}->error( $self->{'options'}->{'status_file'} );
 	return if !$self->{'options'}->{'status_file'};
 	my $json = encode_json($data);
 	open( my $fh, '>', $self->{'options'}->{'status_file'} )

@@ -1,4 +1,4 @@
-/*Version: 20221216*/
+/*Version: 20230112*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -398,6 +398,11 @@ p.note {
 	border-radius: 3px;
 }
 
+p.progress {
+	font-size: 1.5em;
+	color: #404080;
+}
+
 span.note {
 	font-weight: 600;
 	color: #e00
@@ -480,7 +485,6 @@ a.submit, input.submit {
 	letter-spacing: 0.06em;
 	text-transform: uppercase;
 	color: #FFFFFF;
-	background: #2F9FDB;
 }
 
 a.small_submit, input.small_submit, button.small_submit {
@@ -499,6 +503,14 @@ a.submit:hover, a.small_submit:hover, input.submit:hover, input.small_submit:hov
 	button.small_submit:hover {
 	background: #8D5196;
 	text-decoration: none
+}
+
+input.submit_disabled {
+	background: #aaa;
+}
+
+input.submit_disabled:hover {
+	background: #aaa;
 }
 
 a.reset, input.reset {
