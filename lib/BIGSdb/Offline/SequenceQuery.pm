@@ -49,7 +49,7 @@ sub run {
 sub _data_linked_to_loci {
 	my ( $self, $table, $loci ) = @_;
 	my $locus_table = $self->{'datastore'}->create_temp_list_table_from_array( 'text', $loci );
-	my $qry = "SELECT EXISTS(SELECT * FROM $table WHERE locus IN (SELECT value FROM $locus_table))";
+	my $qry         = "SELECT EXISTS(SELECT * FROM $table WHERE locus IN (SELECT value FROM $locus_table))";
 	return $self->{'datastore'}->run_query($qry);
 }
 
@@ -63,8 +63,8 @@ sub _single_query {
 	my $qry_type      = BIGSdb::Utils::sequence_type($seq_ref);
 	my $return_buffer = q();
 	my $file          = $q->param('fasta_upload');
-	if ( keys %$exact_matches ) {
 
+	if ( keys %$exact_matches ) {
 		if ( $options->{'select_type'} eq 'locus' ) {
 			( $buffer, $displayed ) =
 			  $self->_get_distinct_locus_exact_results( $options->{'select_id'}, $exact_matches, $data );
@@ -87,7 +87,7 @@ sub _single_query {
 		if ( keys %$best_match ) {
 			$return_buffer .= q(<div class="box" id="resultsheader" style="padding-top:1em">);
 			$return_buffer .= qq(<p><b>Uploaded file:</b> $file</p>) if $file;
-			$return_buffer .= $self->_translate_button($seq_ref) if $qry_type eq 'DNA';
+			$return_buffer .= $self->_translate_button($seq_ref)     if $qry_type eq 'DNA';
 			$return_buffer .= $self->_get_partial_match_results( $best_match, $data );
 			$return_buffer .= q(</div>);
 			$return_buffer .= q(<div class="box" id="resultspanel" style="padding-top:1em">);
@@ -161,13 +161,13 @@ sub _start_submission {
 	return q() if ( $self->{'system'}->{'submissions'} // q() ) ne 'yes';
 	my $locus_info = $self->{'datastore'}->get_locus_info( $match->{'locus'} );
 	return q() if $locus_info->{'no_submissions'};
-	return q() if $locus_info->{'min_length'} && $locus_info->{'min_length'} > length $match->{'sequence'};
-	return q() if $locus_info->{'max_length'} && $locus_info->{'max_length'} < length $match->{'sequence'};
+	return q() if $locus_info->{'min_length'}     && $locus_info->{'min_length'} > length $match->{'sequence'};
+	return q() if $locus_info->{'max_length'}     && $locus_info->{'max_length'} < length $match->{'sequence'};
 	return q() if !$locus_info->{'length_varies'} && $locus_info->{'length'} != length $match->{'sequence'};
 	my $upload   = SUBMIT_BUTTON;
 	my $seq_file = $self->make_temp_file( $match->{'sequence'} );
 	return
-	    qq(<a href="?db=$self->{'instance'}&amp;page=submit&amp;alleles=1&amp;)
+		qq(<a href="?db=$self->{'instance'}&amp;page=submit&amp;alleles=1&amp;)
 	  . qq(locus=$match->{'locus'}&amp;sequence_file=$seq_file" target="_blank" )
 	  . qq(title="Start submission for new allele assignment">$upload</a>);
 }
@@ -180,8 +180,7 @@ sub _batch_query {
 	my $error;
 	try {
 		$contigs = BIGSdb::Utils::read_fasta( $seq_ref, { allow_peptide => 1 } );
-	}
-	catch {
+	} catch {
 		$error = $_;
 	};
 	if ($error) {
@@ -226,30 +225,34 @@ sub _batch_query {
 				my $qry_type   = BIGSdb::Utils::sequence_type($contig_seq);
 				$contig_buffer .= qq(<tr class="td$td"><td>$name</td>);
 				my $cleaned_locus = $self->clean_locus( $match->{'locus'}, { strip_links => 1 } );
-				my $allele_link = $self->_get_allele_link( $match->{'locus'}, $match->{'allele'} );
+				my $allele_link   = $self->_get_allele_link( $match->{'locus'}, $match->{'allele'} );
 				$contig_buffer .= qq(<td>partial</td><td>$cleaned_locus</td><td>$allele_link</td>);
 				if ( $locus_info->{'data_type'} ne $qry_type ) {
 					$contig_buffer .=
-					    qq(<td style="text-align:left">Your query is a $qry_type sequence whereas this locus )
+						qq(<td style="text-align:left">Your query is a $qry_type sequence whereas this locus )
 					  . qq(is defined with $locus_info->{'data_type'} sequences. Perform a single query to see )
 					  . q(alignment.</td>);
 				} elsif ( $match->{'gaps'} ) {
 					$contig_buffer .=
-					    q(<td style="text-align:left">There are insertions/deletions between these sequences. )
+						q(<td style="text-align:left">There are insertions/deletions between these sequences. )
 					  . q(Try single sequence query to get more details.</td>);
 				} elsif ( $match->{'reverse'} ) {
 					$contig_buffer .=
 					  q(<td style="text-align:left">Reverse-complemented - try reversing it and query again.</td);
 				} else {
 					my $allele_seq_ref = $self->{'datastore'}->get_sequence( $match->{'locus'}, $match->{'allele'} );
-					my $contig_ref = $self->get_contig($name);
+					my $contig_ref     = $self->get_contig($name);
+					while ( $match->{'sstart'} > 1 && $match->{'start'} > 1 ) {
+						$match->{'sstart'}--;
+						$match->{'start'}--;
+					}
 					my $diffs =
 					  $self->_get_differences( $allele_seq_ref, \$contig_seq, $match->{'sstart'}, $match->{'start'} );
 					my @formatted_diffs;
 					foreach my $diff (@$diffs) {
 						push @formatted_diffs, $self->_format_difference( $diff, $qry_type );
 					}
-					my $count = @formatted_diffs;
+					my $count  = @formatted_diffs;
 					my $plural = $count == 1 ? q() : q(s);
 					local $" = q(; );
 					$contig_buffer .= qq(<td style="text-align:left">$count difference$plural found. @formatted_diffs);
@@ -260,7 +263,7 @@ sub _batch_query {
 					$contig_buffer .= q(</td>);
 				}
 				$contig_buffer .= q(</tr>);
-				$table .= $contig_buffer;
+				$table         .= $contig_buffer;
 				$td = $td == 1 ? 2 : 1;
 			}
 		}
@@ -392,7 +395,7 @@ sub _get_scheme_exact_results {
 			my $table = $self->_get_table_header($data);
 			$table .= $scheme_buffer;
 			$table .= q(</table>);
-			my $hide = $match_count > MAX_RESULTS_SHOW;
+			my $hide  = $match_count > MAX_RESULTS_SHOW;
 			my $class = $hide ? q(expandable_retracted_large) : q();
 			$buffer .= qq(<div id="matches" class="$class"><div class="scrollable">$table</div></div>);
 			if ($hide) {
@@ -459,13 +462,13 @@ sub _get_locus_matches {
 		$designations->{$locus} //= [];
 		my %existing_alleles = map { $_ => 1 } @{ $designations->{$locus} };
 		push @{ $designations->{$locus} }, $match->{'allele'} if !$existing_alleles{ $match->{'allele'} };
-		my $allele_link = $self->_get_allele_link( $locus, $match->{'allele'} );
+		my $allele_link   = $self->_get_allele_link( $locus, $match->{'allele'} );
 		my $cleaned_locus = $self->clean_locus( $locus, { strip_links => 1 } );
 		$buffer .= qq(<tr class="td$$td_ref"><td>$cleaned_locus</td><td>$allele_link</td>);
 		$field_values =
 		  $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $match->{'allele'}, { table_format => 1 } );
 		$self->{'linked_data'}->{$locus}->{ $match->{'allele'} } = $field_values->{'values'};
-		$attributes = $self->{'datastore'}->get_allele_attributes( $locus, [ $match->{'allele'} ] );
+		$attributes  = $self->{'datastore'}->get_allele_attributes( $locus, [ $match->{'allele'} ] );
 		$allele_info = $self->{'datastore'}->run_query(
 			'SELECT * FROM sequences WHERE (locus,allele_id)=(?,?)',
 			[ $locus, $match->{'allele'} ],
@@ -507,12 +510,12 @@ sub _get_allele_link {
 sub _get_table_header {
 	my ( $self, $data ) = @_;
 	my $buffer =
-	    q(<table class="resultstable"><tr><th>Locus</th><th>Allele</th><th>Length</th>)
+		q(<table class="resultstable"><tr><th>Locus</th><th>Allele</th><th>Length</th>)
 	  . q(<th>Contig</th><th>Start position</th><th>End position</th>)
-	  . ( $data->{'linked_data'}         ? '<th>Linked data values</th>' : q() )
-	  . ( $data->{'extended_attributes'} ? '<th>Attributes</th>'         : q() )
-	  . ( ( $self->{'system'}->{'allele_flags'}    // '' ) eq 'yes' ? q(<th>Flags</th>)    : q() )
-	  . ( ( $self->{'system'}->{'allele_comments'} // '' ) eq 'yes' ? q(<th>Comments</th>) : q() )
+	  . ( $data->{'linked_data'}                                    ? '<th>Linked data values</th>' : q() )
+	  . ( $data->{'extended_attributes'}                            ? '<th>Attributes</th>'         : q() )
+	  . ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes'    ? q(<th>Flags</th>)             : q() )
+	  . ( ( $self->{'system'}->{'allele_comments'} // '' ) eq 'yes' ? q(<th>Comments</th>)          : q() )
 	  . q(</tr>);
 	return $buffer;
 }
@@ -526,7 +529,7 @@ sub _get_scheme_fields {
 			my $scheme_loci = $self->{'datastore'}->get_scheme_loci( $scheme->{'id'} );
 			if ( any { defined $designations->{$_} } @$scheme_loci ) {
 				my $scheme_buffer = $self->_get_scheme_table( $scheme->{'id'}, $designations );
-				my $exact_match = $scheme_buffer ? 1 : 0;
+				my $exact_match   = $scheme_buffer ? 1 : 0;
 				$scheme_buffer .= $self->_get_classification_groups( $scheme->{'id'}, $designations, $exact_match );
 				if ($scheme_buffer) {
 					my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme->{'id'} );
@@ -540,7 +543,7 @@ sub _get_scheme_fields {
 		my $scheme_loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		if ( @$scheme_fields && @$scheme_loci ) {
 			my $scheme_buffer = $self->_get_scheme_table( $scheme_id, $designations );
-			my $exact_match = $scheme_buffer ? 1 : 0;
+			my $exact_match   = $scheme_buffer ? 1 : 0;
 			$scheme_buffer .= $self->_get_classification_groups( $scheme_id, $designations, $exact_match );
 			if ($scheme_buffer) {
 				my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
@@ -564,7 +567,7 @@ sub _get_classification_groups {
 	return $buffer if $matched_loci < $must_match;
 	my $ret_val = $self->_get_closest_matching_profile( $scheme_id, $designations );
 	return $buffer if !$ret_val;
-	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $scheme_info   = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	my $first_profile = shift @{ $ret_val->{'profiles'} };
 
 	if ( !$exact_match ) {
@@ -572,7 +575,7 @@ sub _get_classification_groups {
 		  q(<span class="info_icon fas fa-2x fa-fw fa-fingerprint fa-pull-left" style="margin-top:-0.2em"></span>);
 		$buffer .= q(<h3>Matching profiles</h3>);
 		my $other_profiles_count = @{ $ret_val->{'profiles'} };
-		my $plural = $other_profiles_count == 1 ? q() : q(s);
+		my $plural               = $other_profiles_count == 1 ? q() : q(s);
 		my $and_others =
 		  $other_profiles_count
 		  ? qq( and <a id="and_others" style="cursor:pointer">$other_profiles_count other$plural</a>)
@@ -610,7 +613,7 @@ sub _get_classification_groups {
 				$values = $self->_get_field_values( $scheme_id, $profile );
 				$values = qq( - $values) if $values;
 				$buffer .=
-				    qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+					qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 				  . qq(page=profileInfo&scheme_id=$scheme_id&amp;profile_id=$profile">)
 				  . qq($scheme_info->{'primary_key'}-$profile</a>$values</li>\n);
 			}
@@ -645,7 +648,7 @@ sub _get_classification_groups {
 		next if $cscheme->{'inclusion_threshold'} < $ret_val->{'mismatches'};
 		my $desc = $cscheme->{'description'};
 		my $tooltip =
-		    $desc
+			$desc
 		  ? $self->get_tooltip(qq($cscheme->{'name'} - $desc))
 		  : q();
 		my $profile_count =
@@ -655,7 +658,7 @@ sub _get_classification_groups {
 		my $url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
 		  . qq(scheme_id=$scheme_id&amp;s1=$cscheme->{'name'}&amp;y1==&amp;t1=$cgroup&amp;submit=1);
 		$cbuffer .=
-		    qq(<tr class="td$td"><td>$cscheme->{'name'}$tooltip</td><td>Single-linkage</td>)
+			qq(<tr class="td$td"><td>$cscheme->{'name'}$tooltip</td><td>Single-linkage</td>)
 		  . qq(<td>$cscheme->{'inclusion_threshold'}</td><td>$cscheme->{'status'}</td>)
 		  . qq(<td>$cgroup</td>);
 
@@ -670,7 +673,7 @@ sub _get_classification_groups {
 			my @client_links = ();
 			foreach my $client_db (@$client_dbs) {
 				next if $client_db->{'cscheme_id'} != $cscheme->{'id'};
-				my $client = $self->{'datastore'}->get_client_db( $client_db->{'id'} );
+				my $client         = $self->{'datastore'}->get_client_db( $client_db->{'id'} );
 				my $client_cscheme = $client_db->{'client_cscheme_id'} // $cscheme->{'id'};
 				try {
 					my $isolates =
@@ -678,13 +681,12 @@ sub _get_classification_groups {
 					my $client_db_url = $client_db->{'url'} // $self->{'system'}->{'script_name'};
 					if ($isolates) {
 						push @client_links,
-						    qq(<span class="source">$client_db->{'name'}</span> )
+							qq(<span class="source">$client_db->{'name'}</span> )
 						  . qq(<a href="$client_db_url?db=$client_db->{'dbase_config_name'}&amp;page=query&amp;)
 						  . qq(designation_field1=cg_${client_cscheme}_group&amp;designation_value1=$cgroup&amp;submit=1">)
 						  . qq($isolates</a>);
 					}
-				}
-				catch {
+				} catch {
 					if ( $_->isa('BIGSdb::Exception::Database::Configuration') ) {
 						$self->{'logger'}->error( "Client database for classification scheme $cscheme->{'name'} "
 							  . 'is not configured correctly.' );
@@ -701,7 +703,7 @@ sub _get_classification_groups {
 	}
 	if ($cbuffer) {
 		$buffer .=
-		    q(<div><span class="info_icon fas fa-2x fa-fw fa-sitemap fa-pull-left" )
+			q(<div><span class="info_icon fas fa-2x fa-fw fa-sitemap fa-pull-left" )
 		  . q(style="margin-top:-0.2em"></span>)
 		  . q(<h3>Similar profiles (determined by classification schemes)</h3>)
 		  . q(<p>Experimental schemes are subject to change and are not a stable part of the nomenclature.</p>)
@@ -709,7 +711,7 @@ sub _get_classification_groups {
 		  . q(<div class="resultstable" style="float:left"><table class="resultstable"><tr>)
 		  . q(<th>Classification scheme</th><th>Clustering method</th>)
 		  . q(<th>Mismatch threshold</th><th>Status</th><th>Group</th>);
-		$buffer .= q(<th>Fields</th>)   if $fields_defined;
+		$buffer .= q(<th>Fields</th>) if $fields_defined;
 		$buffer .= q(<th>Profiles</th>);
 		$buffer .= q(<th>Isolates</th>) if @$client_dbs;
 		$buffer .= q(</tr>);
@@ -739,11 +741,11 @@ sub _get_field_values {
 sub _get_closest_matching_profile {
 	my ( $self, $scheme_id, $designations ) = @_;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-	my $pk_field = $scheme_info->{'primary_key'};
+	my $pk_field    = $scheme_info->{'primary_key'};
 	return if !$pk_field;
 	my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $pk_field );
-	my $order = $pk_info->{'type'} eq 'integer' ? "CAST($pk_field AS int)" : $pk_field;
-	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $order   = $pk_info->{'type'} eq 'integer' ? "CAST($pk_field AS int)" : $pk_field;
+	my $loci    = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $profiles =
 	  $self->{'datastore'}->run_query( "SELECT $pk_field AS pk,profile FROM mv_scheme_$scheme_id ORDER BY $order",
 		undef, { fetch => 'all_arrayref', slice => {} } );
@@ -796,7 +798,7 @@ sub _how_many_loci_must_match {
 sub _get_scheme_table {
 	my ( $self, $scheme_id, $designations_no_clobber ) = @_;
 	my ( @profile, @temp_qry );
-	my $set_id = $self->{'options'}->{'set_id'};
+	my $set_id      = $self->{'options'}->{'set_id'};
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
 	return q() if !defined $scheme_info->{'primary_key'};
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
@@ -920,10 +922,10 @@ sub _get_differences {
 	}
 	for ( my $spos = $sstart - 1 ; $spos < length $$seq1_ref ; $spos++ ) {
 		my $diff;
-		$diff->{'spos'} = $spos + 1;
+		$diff->{'spos'}  = $spos + 1;
 		$diff->{'sbase'} = substr( $$seq1_ref, $spos, 1 );
 		if ( $qpos < length $$seq2_ref && substr( $$seq1_ref, $spos, 1 ) ne substr( $$seq2_ref, $qpos, 1 ) ) {
-			$diff->{'qpos'} = $qpos + 1;
+			$diff->{'qpos'}  = $qpos + 1;
 			$diff->{'qbase'} = substr( $$seq2_ref, $qpos, 1 );
 			push @diffs, $diff;
 		} elsif ( $qpos >= length $$seq2_ref ) {
@@ -958,9 +960,9 @@ sub _get_partial_match_results {
 	my ( $self, $partial_match, $data ) = @_;
 	return q() if !keys %$partial_match;
 	my $cleaned_locus = $self->clean_locus( $partial_match->{'locus'}, { strip_links => 1 } );
-	my $allele_link = $self->_get_allele_link( $partial_match->{'locus'}, $partial_match->{'allele'} );
-	my $buffer      = qq(<p style="margin-top:0.5em">Closest match: $cleaned_locus: $allele_link);
-	my $flags       = $self->{'datastore'}->get_allele_flags( $partial_match->{'locus'}, $partial_match->{'allele'} );
+	my $allele_link   = $self->_get_allele_link( $partial_match->{'locus'}, $partial_match->{'allele'} );
+	my $buffer        = qq(<p style="margin-top:0.5em">Closest match: $cleaned_locus: $allele_link);
+	my $flags         = $self->{'datastore'}->get_allele_flags( $partial_match->{'locus'}, $partial_match->{'allele'} );
 	my $field_values =
 	  $self->{'datastore'}->get_client_data_linked_to_allele( $partial_match->{'locus'}, $partial_match->{'allele'} );
 	if ( ref $flags eq 'ARRAY' ) {
@@ -986,7 +988,7 @@ sub _get_partial_match_alignment {
 		$self->_reset_blast_object( [ $match->{'locus'} ] );
 		my $align_file = $self->blast( $seq_ref, { num_results => 5, alignment => 1 } );
 		$buffer .=
-		    qq(<p>Your query is a $qry_type sequence whereas this locus is defined with )
+			qq(<p>Your query is a $qry_type sequence whereas this locus is defined with )
 		  . ( $qry_type eq 'DNA' ? 'peptide' : 'DNA' )
 		  . q( sequences.  There were no exact matches, but the BLAST results are shown below )
 		  . q((a maximum of five alignments are displayed).</p>)
@@ -1014,7 +1016,7 @@ sub _get_differences_output {
 	say $seq2_fh ">Query\n$$contig_ref";
 	close $seq2_fh;
 	my $reverse = $match->{'reverse'} ? 1 : 0;
-	my @args = (
+	my @args    = (
 		-aformat   => 'markx2',
 		-awidth    => $self->{'options'}->{'align_width'},
 		-asequence => $seq1_infile,
@@ -1038,7 +1040,7 @@ sub _get_differences_output {
 	if ( !$match->{'gaps'} ) {
 		if ($reverse) {
 			$buffer .=
-			    q(<p>The sequence is reverse-complemented with respect to the reference sequence. )
+				q(<p>The sequence is reverse-complemented with respect to the reference sequence. )
 			  . q(It has been reverse-complemented in the alignment but try reverse complementing )
 			  . q(your query sequence in order to see a list of differences.</p>);
 			$buffer .= $self->get_alignment( $outfile, $temp );
@@ -1082,7 +1084,7 @@ sub _get_differences_output {
 				$buffer .= qq(<p>Your query sequence only starts at position $match->{'sstart'} of sequence.</p>);
 			} else {
 				$buffer .=
-				    q(<p>The locus start point is at position )
+					q(<p>The locus start point is at position )
 				  . ( $match->{'start'} - $match->{'sstart'} + 1 )
 				  . q( of your query sequence.);
 				$buffer .= $self->get_tooltip(
@@ -1126,7 +1128,7 @@ sub get_allele_linked_data {
 
 sub _cleanup_alignment {
 	my ( $self, $infile, $outfile ) = @_;
-	open( my $in_fh, '<:encoding(utf8)', $infile ) || $self->{'logger'}->error("Cannot open $infile for reading");
+	open( my $in_fh,  '<:encoding(utf8)', $infile ) || $self->{'logger'}->error("Cannot open $infile for reading");
 	open( my $out_fh, '>:encoding(utf8)', $outfile )
 	  || $self->{'logger'}->error("Cannot open $outfile for writing");
 	while (<$in_fh>) {
