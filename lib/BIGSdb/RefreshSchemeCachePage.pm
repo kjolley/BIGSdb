@@ -209,7 +209,6 @@ sub _refresh_caches {
 	}
 	my %allowed_methods = map { $_ => 1 } qw(full incremental daily daily_replace);
 	if ( !$allowed_methods{$method} ) {
-		$logger->error("Invalid method '$method' selected. Using 'full'.");
 		$method = 'full';
 	}
 	my $status_file      = "$self->{'job_id'}.json";
