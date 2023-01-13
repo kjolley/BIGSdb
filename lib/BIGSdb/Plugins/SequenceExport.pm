@@ -1,6 +1,6 @@
 #SequenceExport.pm - Export concatenated sequences/XMFA file plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -39,7 +39,7 @@ use constant SEQ_SOURCE          => 'seqbin id + position';
 sub get_attributes {
 	my ($self) = @_;
 	my $seqdef = ( $self->{'system'}->{'dbtype'} // q() ) eq 'sequences';
-	my %att = (
+	my %att    = (
 		name    => 'Sequence Export',
 		authors => [
 			{
@@ -56,7 +56,7 @@ sub get_attributes {
 		buttontext => 'Sequences',
 		menutext   => $seqdef ? 'Profile sequences' : 'Sequences',
 		module     => 'SequenceExport',
-		version    => '1.7.2',
+		version    => '1.7.3',
 		dbtype     => 'isolates,sequences',
 		seqdb_type => 'schemes',
 		section    => 'isolate_info,profile_info,export,postquery',
@@ -83,11 +83,11 @@ sub get_initiation_values {
 }
 
 sub run {
-	my ($self)     = @_;
-	my $q          = $self->{'cgi'};
-	my $query_file = $q->param('query_file');
-	my $scheme_id  = $q->param('scheme_id');
-	my $max_seqs = $self->{'system'}->{'seq_export_limit'} // DEFAULT_SEQ_LIMIT;
+	my ($self)        = @_;
+	my $q             = $self->{'cgi'};
+	my $query_file    = $q->param('query_file');
+	my $scheme_id     = $q->param('scheme_id');
+	my $max_seqs      = $self->{'system'}->{'seq_export_limit'} // DEFAULT_SEQ_LIMIT;
 	my $commified_max = BIGSdb::Utils::commify($max_seqs);
 	say q(<h1>Export allele sequences in XMFA/concatenated FASTA formats</h1>);
 	return if $self->has_set_changed;
@@ -135,12 +135,12 @@ sub run {
 			@list = uniq @list;
 			if ( !@list ) {
 				if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-					my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
+					my $qry     = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
 					my $id_list = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 					@list = @$id_list;
 				} else {
 					my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $pk );
-					my $qry = 'SELECT profile_id FROM profiles WHERE scheme_id=? ORDER BY ';
+					my $qry     = 'SELECT profile_id FROM profiles WHERE scheme_id=? ORDER BY ';
 					$qry .= $pk_info->{'type'} eq 'integer' ? 'CAST(profile_id AS INT)' : 'profile_id';
 					my $id_list = $self->{'datastore'}->run_query( $qry, $scheme_id, { fetch => 'col_arrayref' } );
 					@list = @$id_list;
@@ -324,7 +324,7 @@ sub _print_includes_fieldset {
 		);
 	} else {
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+		my $scheme_info   = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 		foreach (@$scheme_fields) {
 			push @fields, $_ if $_ ne $scheme_info->{'primary_key'};
 		}
@@ -401,8 +401,7 @@ sub _run_job_profiles {
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
 		try {
 			$locus = $self->{'datastore'}->get_locus($locus_name);
-		}
-		catch {
+		} catch {
 			if ( $_->isa('BIGSdb::Exception::Data') ) {
 				$logger->warn("Invalid locus '$locus_name' passed.");
 			} else {
@@ -536,8 +535,7 @@ sub _make_isolate_seq_file {
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
 		try {
 			$locus = $self->{'datastore'}->get_locus($locus_name);
-		}
-		catch {
+		} catch {
 			if ( $_->isa('BIGSdb::Exception::Data') ) {
 				$logger->warn("Invalid locus '$locus_name' passed.");
 			} else {
@@ -553,8 +551,7 @@ sub _make_isolate_seq_file {
 			my $include_values = [];
 			try {
 				$include_values = $self->_get_included_values( $includes, $id, $problem_ids );
-			}
-			catch {
+			} catch {
 				no warnings 'exiting';
 				next ISOLATE;
 			};
@@ -575,7 +572,7 @@ sub _make_isolate_seq_file {
 				);
 				my $five_prime  = $reverse ? 'downstream' : 'upstream';
 				my $three_prime = $reverse ? 'upstream'   : 'downstream';
-				$seqbin_seq .= $seq_ref->{$five_prime}  if $seq_ref->{$five_prime};
+				$seqbin_seq .= $seq_ref->{$five_prime} if $seq_ref->{$five_prime};
 				$seqbin_seq .= $seq_ref->{'seq'};
 				$seqbin_seq .= $seq_ref->{$three_prime} if $seq_ref->{$three_prime};
 				$seqbin_pos = "${seqbin_id}_$start_pos" if $seqbin_seq;
@@ -649,8 +646,8 @@ sub _get_allele_seq {
 					$logger->error("$self->{'system'}->{'db'} id-$id $locus_name-$allele_id does not exist.");
 				}
 			}
-		}
-		catch { };    #do nothing
+		} catch {
+		};    #do nothing
 	}
 	return $allele_seq;
 }
@@ -711,9 +708,9 @@ sub _get_tag_data {
 	my ( $self, $ids, $loci, $params ) = @_;
 	my $temp_isolate_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int',  $ids );
 	my $temp_locus_table   = $self->{'datastore'}->create_temp_list_table_from_array( 'text', $loci );
-	my $ignore_seqflags   = $params->{'ignore_seqflags'}   ? 'AND flag IS NULL' : '';
-	my $ignore_incomplete = $params->{'ignore_incomplete'} ? 'AND complete'     : '';
-	my $data              = $self->{'datastore'}->run_query(
+	my $ignore_seqflags    = $params->{'ignore_seqflags'}   ? 'AND flag IS NULL' : '';
+	my $ignore_incomplete  = $params->{'ignore_incomplete'} ? 'AND complete'     : '';
+	my $data               = $self->{'datastore'}->run_query(
 		'SELECT locus,isolate_id,reverse,seqbin_id,start_pos,end_pos FROM allele_sequences a '
 		  . "JOIN $temp_isolate_table i ON a.isolate_id=i.value JOIN $temp_locus_table l ON a.locus=l.value "
 		  . 'LEFT JOIN sequence_flags sf ON a.id=sf.id '
@@ -723,7 +720,6 @@ sub _get_tag_data {
 	);
 	my $ordered = {};
 	foreach my $record (@$data) {
-
 		if ( !defined $ordered->{ $record->{'locus'} }->{ $record->{'isolate_id'} } ) {
 			$ordered->{ $record->{'locus'} }->{ $record->{'isolate_id'} } = {
 				seqbin_id => $record->{'seqbin_id'},
@@ -770,8 +766,7 @@ sub _output {
 					}
 				);
 			}
-		}
-		catch {
+		} catch {
 			if ( $_->isa('BIGSdb::Exception::File::CannotOpen') ) {
 				$logger->error('Cannot create FASTA file from XMFA.');
 			} else {
@@ -839,6 +834,10 @@ sub get_field_value {
 	my ( $self, $isolate_data, $field ) = @_;
 	my $value;
 	$value = $isolate_data->{ lc($field) } // '';
+	if ( ref $value eq 'ARRAY' ) {
+		local $" = q(; );
+		$value = qq(@$value);
+	}
 	$value =~ tr/ /_/;
 	$value =~ tr/(/_/;
 	$value =~ tr/)/_/;
