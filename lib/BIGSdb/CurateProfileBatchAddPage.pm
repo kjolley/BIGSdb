@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -470,7 +470,10 @@ sub _check_duplicate_profile {
 		return 1 if $q->param('ignore_duplicates');
 		$problems->{$pk} .= qq(The profile '@$profile' has been included more than once in this submission.<br />);
 	} elsif ( $scheme_info->{'allow_missing_loci'} && !$match_missing ) {
-		return if !ref $self->{'profiles_so_far'}->{"@$profile"};
+		if (!ref $self->{'profiles_so_far'}->{"@$profile"}){
+			$self->{'profiles_so_far'}->{"@$profile"} = 1;
+			return;
+		}
 		foreach my $profile_string ( keys %{ $self->{'profiles_so_far'}->{"@$profile"} } ) {
 			my $it_matches = 1;
 			my @existing_profile = split /,/x, $profile_string;
