@@ -171,9 +171,15 @@ sub run_script {
 sub _write_status_file {
 	my ( $self, $data ) = @_;
 	return if !$self->{'options'}->{'status_file'};
+	my $file_path;
+	if ( $self->{'options'}->{'status_file'} =~ /($self->{'config'}->{'tmp_dir'}\/BIGSdb_\d+_\d+_\d+\.json)/x ) {
+		$file_path = $1;    #Untaint.
+	} else {
+		$self->{'logger'}->error("Invalid status file $self->{'options'}->{'status_file'}");
+	}
 	my $json = encode_json($data);
-	open( my $fh, '>', $self->{'options'}->{'status_file'} )
-	  || $self->{'logger'}->error("Cannot open $self->{'options'}->{'status_file'} for writing");
+	open( my $fh, '>', $file_path )
+	  || $self->{'logger'}->error("Cannot open $file_path for writing");
 	say $fh $json;
 	close $fh;
 	return;

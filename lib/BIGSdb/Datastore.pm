@@ -1073,8 +1073,14 @@ sub _write_status_file {
 	my ( $self, $status_file, $data ) = @_;
 	return if !$status_file;
 	my $json = encode_json($data);
-	open( my $fh, '>', $status_file )
-	  || $logger->error("Cannot open $status_file for writing");
+	my $file_path;
+	if ( $status_file =~ /($self->{'config'}->{'tmp_dir'}\/BIGSdb_\d+_\d+_\d+\.json)/x ) {
+		$file_path = $1;    #Untaint.
+	} else {
+		$logger->error("Invalid status file $status_file");
+	}
+	open( my $fh, '>', $file_path )
+	  || $logger->error("Cannot open $file_path for writing");
 	say $fh $json;
 	close $fh;
 	return;
