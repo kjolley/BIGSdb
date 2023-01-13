@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -202,9 +202,8 @@ sub _reason_plugin_disabled {
 		return 'Offline job manager not running.'
 		  if !$self->{'config'}->{'jobs_db'}
 		  && $attr->{'requires'} =~ /offline_jobs/;
-		my %program_name =
-		  ( emboss => 'EMBOSS', mafft => 'MAFFT', muscle => 'MUSCLE', mogrify => 'ImageMagick mogrify' );
-		foreach my $program (qw(emboss muscle mogrify)) {
+		my %program_name = ( emboss => 'EMBOSS', mafft => 'MAFFT', muscle => 'MUSCLE' );
+		foreach my $program (qw(emboss muscle)) {
 			return "$program_name{$program} not installed."
 			  if !$self->{'config'}->{"${program}_path"}
 			  && $attr->{'requires'} =~ /$program/x;
@@ -290,6 +289,7 @@ sub _get_muscle_version {
 	$logger->error('Cannot determine MUSCLE version');
 	return;
 }
+
 sub _get_mafft_version {
 	my ($self) = @_;
 	return if !defined $self->{'config'}->{'mafft_path'};

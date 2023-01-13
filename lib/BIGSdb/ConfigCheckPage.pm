@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -90,7 +90,6 @@ sub _check_helpers {
 		muscle             => $self->{'config'}->{'muscle_path'},
 		clustalw           => $self->{'config'}->{'clustalw_path'},
 		ipcress            => $self->{'config'}->{'ipcress_path'},
-		mogrify            => $self->{'config'}->{'mogrify_path'},
 		GrapeTree          => $self->{'config'}->{'grapetree_path'} . '/grapetree.py',
 		blat               => $self->{'config'}->{'blat_path'}
 	);

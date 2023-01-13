@@ -107,7 +107,7 @@ END
 		"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=refreshCache&amp;"
 	  . "job_id=$self->{'job_id'}&amp;submit=1";
 	my $buffer = << "END";
-var status_file = "/tmp/$self->{'job_id'}.json" ;
+var status_file = "/tmp/$self->{'job_id'}.json";
 \$(function () {
 	\$(':input[type="submit"]').prop('disabled', true);
 	\$(':input[type="submit"]').addClass('submit_disabled');
