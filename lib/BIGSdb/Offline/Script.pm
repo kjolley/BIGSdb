@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2022, University of Oxford
+#Copyright (c) 2011-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -142,9 +142,9 @@ sub initiate_job_manager {
 		{
 			config_dir       => $self->{'config_dir'},
 			dbase_config_dir => $self->{'dbase_config_dir'},
-			host             => $self->{'config'}->{'dbhost'} // $self->{'host'} // 'localhost',
-			port             => $self->{'config'}->{'dbport'} // $self->{'port'} // 5432,
-			user             => $self->{'config'}->{'dbuser'} // $self->{'user'} // 'apache',
+			host             => $self->{'config'}->{'dbhost'}     // $self->{'host'}     // 'localhost',
+			port             => $self->{'config'}->{'dbport'}     // $self->{'port'}     // 5432,
+			user             => $self->{'config'}->{'dbuser'}     // $self->{'user'}     // 'apache',
 			password         => $self->{'config'}->{'dbpassword'} // $self->{'password'} // 'remote'
 		}
 	);
@@ -159,12 +159,11 @@ sub _go {
 	#refdb attribute has been renamed ref_db for consistency with other databases (refdb still works)
 	$self->{'config'}->{'ref_db'} //= $self->{'config'}->{'refdb'};
 	if ( !$self->{'options'}->{'always_run'} ) {
-		my $max_load = $self->{'config'}->{'max_load'} || 8;
+		my $max_load         = $self->{'config'}->{'max_load'} || 8;
 		my $max_load_webscan = $self->{'config'}->{'max_load_webscan'} || $self->{'config'}->{'max_load'} || 6;
 		try {
 			$load_average = $self->get_load_average;
-		}
-		catch {
+		} catch {
 			if ( $_->isa('BIGSdb::Exception::Data') ) {
 				$self->{'logger'}->fatal('Cannot determine load average ... aborting!');
 				exit;
@@ -306,7 +305,7 @@ sub filter_and_sort_isolates {
 }
 
 sub _get_isolates_excluded_by_project {
-	my ($self) = @_;
+	my ($self)   = @_;
 	my @projects = split /\s*,\s*/x, $self->{'options'}->{'P'};
 	my @isolates;
 	foreach my $project_id (@projects) {
@@ -443,17 +442,19 @@ sub delete_temp_files {
 sub add_job {
 	my ( $self, $module, $options ) = @_;
 	return
-	     if !$self->{'config'}->{'jobs_db'}
+		 if !$self->{'config'}->{'jobs_db'}
 	  || !$self->{'options'}->{'mark_job'}
 	  || !$self->{'config'}->{'record_scripts'};
 	$self->initiate_job_manager if $options->{'temp_init'};
 	( my $hostname = `hostname -s` ) =~ s/\s.*$//x;
 	my $job_id = $self->{'jobManager'}->add_job(
 		{
+			job_id => $options->{'job_id'},
 			dbase_config => $self->{'instance'},
-			ip_address   => $hostname,
+			ip_address   => $options->{'ip_address'} // $hostname,
 			module       => $module,
-			username     => 'bigsdb',
+			username     => $options->{'username'} // 'bigsdb',
+			email        => $options->{'email'},
 			parameters   => {},
 			mark_started => 1,
 			no_progress  => 1
@@ -467,9 +468,9 @@ sub update_job {
 	my ( $self, $job_id, $options ) = @_;
 	return
 	  if !$self->{'config'}->{'jobs_db'} || !$self->{'options'}->{'mark_job'} || !$self->{'config'}->{'record_scripts'};
-	$self->initiate_job_manager if $options->{'temp_init'};
+	$self->initiate_job_manager                                               if $options->{'temp_init'};
 	$self->{'jobManager'}->update_job_status( $job_id, $options->{'status'} ) if $options->{'status'};
-	undef $self->{'jobManager'} if $options->{'temp_init'};
+	undef $self->{'jobManager'}                                               if $options->{'temp_init'};
 	return;
 }
 

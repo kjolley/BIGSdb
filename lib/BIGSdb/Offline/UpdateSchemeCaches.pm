@@ -2,7 +2,7 @@
 #Create scheme profile caches in an isolate database
 #
 #Written by Keith Jolley
-#Copyright (c) 2014-2022, University of Oxford
+#Copyright (c) 2014-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -24,6 +24,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Offline::Script);
+use JSON;
 use constant DAILY_REPLACE_LIMIT => 10_000;
 
 sub run_script {
@@ -31,7 +32,17 @@ sub run_script {
 	die "No connection to database (check logs).\n" if !defined $self->{'db'};
 	die "This script can only be run against an isolate database.\n"
 	  if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
-	my $job_id = $self->add_job( 'UpdateSchemeCaches', { temp_init => 1 } );
+	my $status = { start_time => time };
+	my $job_id = $self->add_job(
+		'UpdateSchemeCaches',
+		{
+			temp_init  => 1,
+			job_id     => $self->{'options'}->{'job_id'},
+			username   => $self->{'options'}->{'username'},
+			email      => $self->{'options'}->{'email'},
+			ip_address => $self->{'options'}->{'ip_address'}
+		}
+	);
 	eval { $self->{'db'}->do(q(SET lock_timeout = 30000)) };
 	$self->{'logger'}->error($@) if $@;
 	my $schemes       = [];
@@ -94,8 +105,18 @@ sub run_script {
 		say "Updating scheme $scheme_id field cache ($scheme_info->{'name'}) - method: $method"
 		  if !$self->{'options'}->{'q'};
 		$self->update_job( $job_id, { temp_init => 1, status => { stage => "Scheme $scheme_id: fields ($method)" } } );
-		$self->{'datastore'}->create_temp_isolate_scheme_fields_view( $scheme_id,
-			{ cache => 1, method => $method, reldate => $self->{'options'}->{'reldate'} } );
+		$status->{'stage'} = "Scheme $scheme_id ($scheme_info->{'name'}): fields ($method)";
+		$self->_write_status_file($status);
+		$self->{'datastore'}->create_temp_isolate_scheme_fields_view(
+			$scheme_id,
+			{
+				cache       => 1,
+				method      => $method,
+				reldate     => $self->{'options'}->{'reldate'},
+				status      => $status,
+				status_file => $self->{'options'}->{'status_file'}
+			}
+		);
 	}
 	foreach my $scheme_id (@$scheme_status) {
 		$scheme_id =~ s/\s//gx;
@@ -105,25 +126,56 @@ sub run_script {
 		}
 		say "Updating scheme $scheme_id completion status cache ($scheme_info->{'name'}) - method: $method"
 		  if !$self->{'options'}->{'q'};
-		$self->update_job( $job_id, { temp_init => 1, status => { stage => "Scheme $scheme_id: status ($method)" } } );
-		$self->{'datastore'}->create_temp_scheme_status_table( $scheme_id,
-			{ cache => 1, method => $method, reldate => $self->{'options'}->{'reldate'} } );
+		my $stage = "Scheme $scheme_id ($scheme_info->{'name'}): completion status ($method)";
+		$self->update_job( $job_id, { temp_init => 1, status => { stage => $stage } } );
+		$status->{'stage'} = $stage;
+		$self->_write_status_file($status);
+		$self->{'datastore'}->create_temp_scheme_status_table(
+			$scheme_id,
+			{
+				cache       => 1,
+				method      => $method,
+				reldate     => $self->{'options'}->{'reldate'},
+				status      => $status,
+				status_file => $self->{'options'}->{'status_file'}
+			}
+		);
 		if ( $self->{'datastore'}->are_lincodes_defined($scheme_id) ) {
 			say "Updating scheme $scheme_id LINcodes cache ($scheme_info->{'name'})"
 			  if !$self->{'options'}->{'q'};
-			$self->update_job( $job_id, { temp_init => 1, status => { stage => "Scheme $scheme_id: LINcodes" } } );
+			$stage = "Scheme $scheme_id ($scheme_info->{'name'}): LINcodes";
+			$self->update_job( $job_id, { temp_init => 1, status => { stage => $stage } } );
+			$status->{'stage'} = $stage;
+			$self->_write_status_file($status);
 			$self->{'datastore'}->create_temp_lincodes_table( $scheme_id, { cache => 1 } );
 			$self->{'datastore'}->create_temp_lincode_prefix_values_table( $scheme_id, { cache => 1 } );
 		}
 	}
 	foreach my $cscheme_id (@$cschemes) {
-		$self->update_job( $job_id, { temp_init => 1, status => { stage => "Cluster scheme $cscheme_id" } } );
+		my $stage = "Cluster scheme $cscheme_id";
+		$self->update_job( $job_id, { temp_init => 1, status => { stage => $stage } } );
+		$status->{'stage'} = $stage;
+		$self->_write_status_file($status);
 		$self->{'datastore'}->create_temp_cscheme_table( $cscheme_id, { cache => 1 } );
 		$self->{'datastore'}->create_temp_cscheme_field_values_table( $cscheme_id, { cache => 1 } );
 	}
 	eval { $self->{'db'}->do('SET lock_timeout = 0') };
 	$self->{'logger'}->error($@) if $@;
 	$self->stop_job( $job_id, { temp_init => 1 } );
+	delete $status->{'stage'};
+	$status->{'stop_time'} = time;
+	$self->_write_status_file($status);
+	return;
+}
+
+sub _write_status_file {
+	my ( $self, $data ) = @_;
+	return if !$self->{'options'}->{'status_file'};
+	my $json = encode_json($data);
+	open( my $fh, '>', $self->{'options'}->{'status_file'} )
+	  || $self->{'logger'}->error("Cannot open $self->{'options'}->{'status_file'} for writing");
+	say $fh $json;
+	close $fh;
 	return;
 }
 1;
