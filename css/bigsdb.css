@@ -401,6 +401,7 @@ p.note {
 p.progress {
 	font-size: 1.5em;
 	color: #404080;
+	line-height: 130%;
 }
 
 span.note {

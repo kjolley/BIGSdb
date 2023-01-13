@@ -46,9 +46,9 @@ sub _print_interface {
 	  . q(it was last updated.</p>);
 	say q(<p>The following options are available:</p>);
 	say q(<ul><li>full - delete and re-create whole cache.</li>);
-	say q(<li>incremental - check and add records which currently lack scheme values. You will also have the option )
-	  . q(to update the cache only for recently modified records.</li>);
-	say q(<li>daily - add records that currently lack scheme values and were added today.</li>);
+	say q(<li>incremental - check and add cache values for records which currently lack values. You will also have )
+	  . q(the option to update the cache only for recently modified records.</li>);
+	say q(<li>daily - add cache values for records that currently lack scheme values and were added today.</li>);
 	say q(<li>daily_replace - delete and re-create cache values for records that were added today.</li></ul>);
 
 	if ( $self->{'system'}->{'cache_schemes'} ) {
@@ -105,8 +105,7 @@ END
 	}
 	my $bookmark =
 		"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=refreshCache&amp;"
-	  . "job_id=$self->{'job_id'}&amp;submit=1"
-	  ;
+	  . "job_id=$self->{'job_id'}&amp;submit=1";
 	my $buffer = << "END";
 var status_file = "/tmp/$self->{'job_id'}.json" ;
 \$(function () {
