@@ -118,7 +118,6 @@ var status_file = "/tmp/$self->{'job_id'}.json" ;
 		\$("fieldset#options").show();
 	}
 	\$("#method").change(function(){
-		console.log('change');
 		if (\$("#method").val() === 'incremental'){
 			\$("fieldset#options").show();
 		} else {
@@ -156,6 +155,7 @@ function finish(){
 	\$(':input[type="submit"]').prop('disabled', false);
 	\$(':input[type="submit"]').removeClass('submit_disabled');
 	\$("p#message").html("");
+	\$('input:hidden[name=job_id]').remove();
 }
 END
 	return $buffer;
