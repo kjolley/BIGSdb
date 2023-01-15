@@ -54,8 +54,7 @@ sub initiate {
 			  ( $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, $method ) // '' ) eq 'on'
 			  ? 1
 			  : 0;
-		}
-		catch {
+		} catch {
 			if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
 				$self->{'prefs'}->{$method} = 0;
 			} else {
@@ -92,7 +91,7 @@ sub initiate {
 		push @{ $self->{'breadcrumbs'} },
 		  {
 			label => $self->{'system'}->{'webroot_label'} // 'Organism',
-			href => $self->{'system'}->{'webroot'}
+			href  => $self->{'system'}->{'webroot'}
 		  };
 	}
 	push @{ $self->{'breadcrumbs'} },
@@ -251,7 +250,7 @@ END
 sub _toggle_notifications {
 	my ($self) = @_;
 	return if !$self->{'username'};
-	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $user_info  = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	my $new_status = $user_info->{'submission_emails'} ? 0 : 1;
 	eval {
 		$self->{'db'}
@@ -269,11 +268,10 @@ sub _toggle_notifications {
 sub _toggle_methods {
 	my ( $self, $category ) = @_;
 	my $new_value = $self->{'prefs'}->{"${category}_methods"} ? 'off' : 'on';
-	my $guid = $self->get_guid;
+	my $guid      = $self->get_guid;
 	try {
 		$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, "${category}_methods", $new_value );
-	}
-	catch {
+	} catch {
 		if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
 			$logger->error("Cannot toggle show $category methods");
 		} else {
@@ -309,8 +307,8 @@ sub _print_set_section {
 
 #Append to URLs to ensure unique caching.
 sub _get_set_string {
-	my ($self) = @_;
-	my $set_id = $self->get_set_id;
+	my ($self)     = @_;
+	my $set_id     = $self->get_set_id;
 	my $set_string = $set_id ? qq(&amp;set_id=$set_id) : q();
 	return $set_string;
 }
@@ -354,6 +352,7 @@ sub _get_admin_links {
 	$buffer .= $self->_get_scheme_cache_refresh;
 	$buffer .= $self->_get_user_dbases;
 	$buffer .= $self->_get_curator_configs;
+
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$buffer .= $self->_get_geocoding;
 		$buffer .= $self->_get_eav_fields;
@@ -391,7 +390,7 @@ sub _get_geocoding {
 	my ($self) = @_;
 	return q() if !$self->is_admin;
 	my $buffer =
-	    q(<div class="curategroup curategroup_geocoding grid-item field_admin" )
+		q(<div class="curategroup curategroup_geocoding grid-item field_admin" )
 	  . qq(style="display:$self->{'optional_field_admin_display'}"><h2>Geocoding setup</h2>);
 	$buffer .= $self->_get_icon_group(
 		undef,
@@ -410,7 +409,7 @@ sub _get_geocoding {
 sub _get_geography_point_lookup {
 	my ($self) = @_;
 	return q() if !$self->can_modify_table('geography_point_lookup');
-	return if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
+	return     if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
 	my $atts = $self->{'xmlHandler'}->get_all_field_attributes;
 	my $lookup_fields;
 	foreach my $field ( keys %$atts ) {
@@ -422,7 +421,7 @@ sub _get_geography_point_lookup {
 	return q() if !$lookup_fields;
 	if ( !$self->{'datastore'}->run_query(q(SELECT to_regclass('geography_point_lookup'))) ) {
 		$logger->fatal(
-			    'Your database configuration contains one or more fields with the geography_point_lookup attribute set '
+				'Your database configuration contains one or more fields with the geography_point_lookup attribute set '
 			  . 'but your database does not contain the geography_point_lookup table. You need to ensure that PostGIS '
 			  . 'is installed and run the isolatedb_geocoding.sql SQL script against the database to set this up.' );
 		undef $atts->{$_}->{'geography_point_lookup'} foreach keys %$atts;
@@ -655,7 +654,7 @@ sub _get_profile_fields {
 		}
 		$desc{$scheme_id} =~ s/\&/\&amp;/gx;
 		$buffer .=
-		    qq(<div class="curategroup curategroup_profiles grid-item $class" )
+			qq(<div class="curategroup curategroup_profiles grid-item $class" )
 		  . qq($display><h2>$desc{$scheme_id} profiles</h2>);
 		$buffer .= $self->_get_icon_group(
 			undef, 'table',
@@ -722,7 +721,7 @@ sub _get_isolate_fields {
 		'isolates',
 		'file-alt',
 		{
-			add => $self->{'permissions'}->{'only_private'} ? 0 : 1,
+			add              => $self->{'permissions'}->{'only_private'} ? 0 : 1,
 			add_url          => $add_url,
 			batch_add        => $self->{'permissions'}->{'only_private'} ? 0 : 1,
 			batch_add_url    => $batch_add_url,
@@ -869,7 +868,7 @@ sub _get_allele_designations {
 		{
 			batch_add => 1,
 			query     => 1,
-			info =>
+			info      =>
 			  'Allele designations - Update individual allele designations from within the isolate update function.'
 		}
 	);
@@ -1347,9 +1346,10 @@ sub _get_scheme_cache_refresh {
 	my ($self) = @_;
 	my $buffer = q();
 	return $buffer
-	  if !$self->is_admin || $self->{'system'}->{'dbtype'} ne 'isolates' || !$self->_cache_tables_exists;
-	$buffer .=
-	  q(<div class="curategroup curategroup_maintenance grid-item default_show_admin">) . q(<h2>Cache refresh</h2>);
+	  if !( $self->is_admin || $self->{'permissions'}->{'refresh_scheme_caches'} )
+	  || $self->{'system'}->{'dbtype'} ne 'isolates'
+	  || !$self->_cache_tables_exists;
+	$buffer .= q(<div class="curategroup curategroup_maintenance grid-item default_show_admin"><h2>Cache refresh</h2>);
 	$buffer .= $self->_get_icon_group(
 		undef,
 		'sync-alt',
@@ -1740,7 +1740,7 @@ sub _get_lincodes {
 	my ($self) = @_;
 	return q() if !$self->is_admin;
 	my $schemes;
-	my $set_id = $self->get_set_id;
+	my $set_id     = $self->get_set_id;
 	my $set_clause = $set_id ? qq( AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)) : q();
 	$schemes = $self->{'datastore'}->run_query(
 		'SELECT DISTINCT ls.scheme_id FROM lincode_schemes ls RIGHT JOIN scheme_members sm ON '
@@ -1768,7 +1768,7 @@ sub _get_lincodes {
 		}
 		$desc{$scheme_id} =~ s/\&/\&amp;/gx;
 		$buffer .=
-		    q(<div class="curategroup curategroup_profiles grid-item scheme_admin" )
+			q(<div class="curategroup curategroup_profiles grid-item scheme_admin" )
 		  . qq($display><h2>$desc{$scheme_id} LINcodes</h2>);
 		$buffer .= $self->_get_icon_group(
 			undef,
@@ -1871,7 +1871,7 @@ sub _get_icon_group {
 	}
 	$links--
 	  if ( $options->{'query'} || $options->{'query_only'} ) && !$records_exist && !$options->{'always_show_query'};
-	my $pos = 4.8 - BIGSdb::Utils::decimal_place( $links * 2.2 / 2, 1 );
+	my $pos    = 4.8 - BIGSdb::Utils::decimal_place( $links * 2.2 / 2, 1 );
 	my $buffer = q(<span style="position:relative">);
 	if ( $options->{'info'} ) {
 		$buffer .= q(<span style="position:absolute;right:2em;bottom:6.5em">);
@@ -1927,10 +1927,10 @@ sub _get_icon_group {
 			$buffer .= qq(<a href="$url$set_string" title="Update/delete" class="curate_icon_link">);
 			$buffer .= q(<span class="curate_icon_highlight curate_icon_query fas fa-search"></span>);
 			$buffer .=
-			    q(<span class="curate_icon_highlight curate_icon_edit fas fa-pencil-alt" )
+				q(<span class="curate_icon_highlight curate_icon_edit fas fa-pencil-alt" )
 			  . qq(style="left:0.8em;bottom:-0.5em;font-size:1.2em"></span>\n);
 			$buffer .=
-			    q(<span class="curate_icon_highlight curate_icon_delete fas fa-times" )
+				q(<span class="curate_icon_highlight curate_icon_delete fas fa-times" )
 			  . qq(style="left:0.8em;bottom:-1.5em;font-size:1.2em"></span>\n);
 			$buffer .= qq(</a></span>\n);
 			$pos += 2.2;
@@ -2062,7 +2062,7 @@ sub print_content {
 	if ( !$can_do_something ) {
 		$self->print_bad_status(
 			{
-				    message => q(Although you are set as a curator/submitter, )
+					message => q(Although you are set as a curator/submitter, )
 				  . q(you haven't been granted specific permission to do anything.  Please contact the )
 				  . q(database administrator to set your appropriate permissions.)
 			}
@@ -2097,11 +2097,11 @@ sub _print_admin_toggles {
 	foreach my $category (qw(locus scheme set client field misc)) {
 		next if !ref $buffer || $$buffer !~ /${category}_admin/x;
 		$count++;
-		my $off = $self->{'prefs'}->{"${category}_admin_methods"} ? 'none'   : 'inline';
-		my $on  = $self->{'prefs'}->{"${category}_admin_methods"} ? 'inline' : 'none';
+		my $off      = $self->{'prefs'}->{"${category}_admin_methods"} ? 'none'   : 'inline';
+		my $on       = $self->{'prefs'}->{"${category}_admin_methods"} ? 'inline' : 'none';
 		my $expanded = $expanded{$category} // $category;
 		$toggle_buffer .=
-		    qq(<li><a id="toggle_${category}_admin_methods" style="text-decoration:none" )
+			qq(<li><a id="toggle_${category}_admin_methods" style="text-decoration:none" )
 		  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=index&amp;toggle_${category}_admin_methods=1">)
 		  . qq(<span id="${category}_admin_methods_off" class="toggle_icon fas fa-toggle-off fa-2x" )
 		  . qq(style="display:$off" title="Not showing $expanded admin functions"></span>)
@@ -2131,8 +2131,8 @@ sub _print_admin_toggles {
 
 sub _get_curator_toggle_status {
 	my ( $self, $buffer_ref ) = @_;
-	my $hidden  = $$buffer_ref =~ /default_hide_curator/x ? 1 : 0;
-	my $default = $$buffer_ref =~ /default_show_curator/x ? 1 : 0;
+	my $hidden      = $$buffer_ref =~ /default_hide_curator/x ? 1 : 0;
+	my $default     = $$buffer_ref =~ /default_show_curator/x ? 1 : 0;
 	my $show_toggle = ( $hidden && $default ) ? 1 : 0;
 	my $always_show_hidden;
 	if ( $hidden && !$default ) {
@@ -2150,7 +2150,7 @@ sub _cache_tables_exists {
 }
 
 sub _print_submission_section {
-	my ($self) = @_;
+	my ($self)         = @_;
 	my $buffer         = $self->print_submissions_for_curation( { get_only => 1 } );
 	my $closed_buffer  = $self->_get_closed_submission_section;
 	my $publish_buffer = $self->_get_publication_requests;
@@ -2201,7 +2201,7 @@ sub _get_closed_submission_section {
 
 sub _reject_publication {
 	my ($self) = @_;
-	return if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
+	return     if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
 	return q() if !$self->can_modify_table('isolates');
 	my $q       = $self->{'cgi'};
 	my $user_id = $q->param('reject_publication');
@@ -2219,7 +2219,7 @@ sub _reject_publication {
 		my $curator_id = $self->get_curator_id;
 		my $curator_string =
 		  $self->{'datastore'}->get_user_string( $curator_id, { email => 1, text_email => 1, affiliation => 1 } );
-		my $plural = $to_publish == 1 ? q() : q(s);
+		my $plural         = $to_publish == 1 ? q() : q(s);
 		my $db_description = $self->get_db_description;
 		$self->_send_email(
 			$user_id,
@@ -2233,7 +2233,7 @@ sub _reject_publication {
 
 sub _accept_publication {
 	my ($self) = @_;
-	return if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
+	return     if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
 	return q() if !$self->can_modify_table('isolates');
 	my $q       = $self->{'cgi'};
 	my $user_id = $q->param('accept_publication');
@@ -2251,7 +2251,7 @@ sub _accept_publication {
 		my $curator_id = $self->get_curator_id;
 		my $curator_string =
 		  $self->{'datastore'}->get_user_string( $curator_id, { email => 1, text_email => 1, affiliation => 1 } );
-		my $plural = $to_publish == 1 ? q() : q(s);
+		my $plural         = $to_publish == 1 ? q() : q(s);
 		my $db_description = $self->get_db_description;
 		$self->_send_email(
 			$user_id,
@@ -2267,7 +2267,7 @@ sub _send_email {
 	my ( $self, $user_id, $subject, $message ) = @_;
 	my $user_info      = $self->{'datastore'}->get_user_info($user_id);
 	my $address        = Email::Valid->address( $user_info->{'email'} );
-	my $domain         = $self->{'config'}->{'domain'} // DEFAULT_DOMAIN;
+	my $domain         = $self->{'config'}->{'domain'}                  // DEFAULT_DOMAIN;
 	my $sender_address = $self->{'config'}->{'automated_email_address'} // "no_reply\@$domain";
 	return if !$address;
 	my $transport = Email::Sender::Transport::SMTP->new(
@@ -2288,15 +2288,14 @@ sub _send_email {
 		},
 		body_str => $message
 	);
-	eval { try_to_sendmail( $email, { transport => $transport } )
-		  || $logger->error("Cannot send E-mail to $address"); };
+	eval { try_to_sendmail( $email, { transport => $transport } ) || $logger->error("Cannot send E-mail to $address"); };
 	$logger->error($@) if $@;
 	return;
 }
 
 sub _get_publication_requests {
 	my ($self) = @_;
-	return if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
+	return     if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
 	return q() if !$self->can_modify_table('isolates');
 	my $q = $self->{'cgi'};
 	$self->_reject_publication if $q->param('reject_publication');
@@ -2309,7 +2308,7 @@ sub _get_publication_requests {
 
 	if ( $user_info->{'status'} ne 'submitter' ) {
 		$buffer .=
-		    q(<p>There are user requests to publish some private data. Please click the 'Display' links in the table )
+			q(<p>There are user requests to publish some private data. Please click the 'Display' links in the table )
 		  . q(below to see these records and to choose whether to publish them. The user will be notified automatically )
 		  . q(if you accept or deny the request.</p>);
 	}
@@ -2323,7 +2322,7 @@ sub _get_publication_requests {
 	  . q(<th>Display</th><th>Accept request</tr>);
 	my $td = 1;
 	foreach my $user_id (@$users) {
-		my $user_string = $self->{'datastore'}->get_user_string( $user_id, { email => 1 } );
+		my $user_string   = $self->{'datastore'}->get_user_string( $user_id, { email => 1 } );
 		my $isolate_count = $self->{'datastore'}->run_query(
 			'SELECT COUNT(*) FROM private_isolates p JOIN isolates i ON p.isolate_id=i.id '
 			  . 'WHERE request_publish AND sender=?',
@@ -2332,7 +2331,7 @@ sub _get_publication_requests {
 		my $link = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;"
 		  . "prov_field1=f_sender%20%28id%29&amp;prov_value1=$user_id&amp;private_records_list=4&amp;submit=1";
 		$buffer .=
-		    qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(reject_publication=$user_id"><span class="statusbad fas fa-times action"></span></a></td>)
 		  . qq(<td>$user_string</td><td>$isolate_count</td>)
 		  . qq(<td><a href="$link"><span class="fas fa-binoculars action browse"></span></a></td>)
@@ -2407,7 +2406,7 @@ sub _reject_user {
 	my $q = $self->{'cgi'};
 	my ( $user_name, $user_db ) = ( scalar $q->param('reject'), scalar $q->param('user_db') );
 	return if !$user_name || !BIGSdb::Utils::is_int($user_db);
-	my $db = $self->{'datastore'}->get_user_db($user_db);
+	my $db      = $self->{'datastore'}->get_user_db($user_db);
 	my $configs = $self->{'datastore'}->get_configs_using_same_database( $db, $self->{'system'}->{'db'} );
 	eval {
 		foreach my $config (@$configs) {
@@ -2475,7 +2474,7 @@ sub _notify_succesful_registration {
 	my $domain    = $self->{'config'}->{'domain'} // DEFAULT_DOMAIN;
 	return if !$address;
 	my $sender_address = $self->{'config'}->{'automated_email_address'} // "no_reply\@$domain";
-	my $transport = Email::Sender::Transport::SMTP->new(
+	my $transport      = Email::Sender::Transport::SMTP->new(
 		{
 			host => $self->{'config'}->{'smtp_server'} // 'localhost',
 			port => $self->{'config'}->{'smtp_port'}   // 25,
@@ -2493,8 +2492,7 @@ sub _notify_succesful_registration {
 		},
 		body_str => $message
 	);
-	eval { try_to_sendmail( $email, { transport => $transport } )
-		  || $logger->error("Cannot send E-mail to $address"); };
+	eval { try_to_sendmail( $email, { transport => $transport } ) || $logger->error("Cannot send E-mail to $address"); };
 	$logger->error($@) if $@;
 	return;
 }

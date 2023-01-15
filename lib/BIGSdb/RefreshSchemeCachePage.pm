@@ -170,6 +170,10 @@ sub print_content {
 		$self->print_bad_status( { message => q(This function is only for use on isolate databases.), navbar => 1 } );
 		return;
 	}
+	if ( !( $self->is_admin || $self->{'permissions'}->{'refresh_scheme_caches'} ) ) {
+		$self->print_bad_status( { message => q(You do not have permission to view this page.), navbar => 1 } );
+		return;
+	}
 	my $schemes =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT id FROM schemes WHERE dbase_name IS NOT NULL AND dbase_id IS NOT NULL ORDER BY id',
