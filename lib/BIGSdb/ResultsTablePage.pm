@@ -163,13 +163,13 @@ sub _print_results_header {
 	}
 	if ($records) {
 		print qq(<p>$message</p>) if $message;
-		my $plural = $records == 1 ? '' : 's';
+		my $plural  = $records == 1 ? '' : 's';
 		my $commify = BIGSdb::Utils::commify($records);
 		print qq(<p>$commify record$plural returned);
 		if ( $currentpage && $self->{'prefs'}->{'displayrecs'} ) {
 			if ( $records > $self->{'prefs'}->{'displayrecs'} ) {
 				my $first = ( ( $currentpage - 1 ) * $self->{'prefs'}->{'displayrecs'} ) + 1;
-				my $last = $currentpage * $self->{'prefs'}->{'displayrecs'};
+				my $last  = $currentpage * $self->{'prefs'}->{'displayrecs'};
 				if ( $last > $records ) {
 					$last = $records;
 				}
@@ -240,7 +240,7 @@ sub _get_pagebar {
 				} else {
 					my $name = $i == 1 ? 'First' : 'pagejump';
 					$buffer .=
-					    qq(<button type="submit" value="$i" name="$name" )
+						qq(<button type="submit" value="$i" name="$name" )
 					  . qq(class="pagebar page_number$adjacent$adjacent_plus1">$i</button>\n);
 				}
 			}
@@ -264,8 +264,8 @@ sub _get_pagebar {
 }
 
 sub _get_current_page {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my ($self)      = @_;
+	my $q           = $self->{'cgi'};
 	my $currentpage = $q->param('currentpage') ? $q->param('currentpage') : 1;
 	return $currentpage + 1      if $q->param('>');
 	return $currentpage - 1      if $q->param('<');
@@ -317,7 +317,7 @@ sub _print_project_add_function {
 	);
 	return if !@$projects;
 	my $project_ids = [0];
-	my $labels = { 0 => 'Select project...' };
+	my $labels      = { 0 => 'Select project...' };
 
 	foreach my $project (@$projects) {
 		push @$project_ids, $project->{'id'};
@@ -431,7 +431,7 @@ sub _print_publish_function {
 
 sub _get_query_private_records {
 	my ( $self, $user_id ) = @_;
-	my $ids = $self->get_query_ids;
+	my $ids        = $self->get_query_ids;
 	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $ids );
 	if ( !defined $user_id ) {
 		return $self->{'datastore'}
@@ -456,7 +456,7 @@ sub _print_delete_all_function {
 	my $q = $self->{'cgi'};
 	say q(<fieldset><legend>Delete</legend>);
 	print $q->start_form;
-	$q->param( page => 'deleteAll' );
+	$q->param( page  => 'deleteAll' );
 	$q->param( table => $table ) if !$q->param('table');
 	print $q->hidden($_) foreach qw (db page table query_file scheme_id list_file datatype);
 
@@ -612,7 +612,7 @@ sub _print_isolate_table {
 	}
 	my %data = ();
 	$limit_sql->bind_columns( map { \$data{$_} } @$fields );    #quicker binding hash to arrayref than to use hashref
-	my $set_id = $self->get_set_id;
+	my $set_id  = $self->get_set_id;
 	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	say q(<div class="box" id="large_resultstable"><div class="scrollable"><table class="resultstable">);
 	$self->_print_isolate_table_header( $schemes, $qry_limit );
@@ -665,8 +665,8 @@ sub _print_field_value {
 	return if !$self->{'prefs'}->{'maindisplayfields'}->{$thisfieldname} && $thisfieldname ne 'id';
 	my $att     = $self->{'xmlHandler'}->get_field_attributes($thisfieldname);
 	my $methods = {
-		id => sub { $self->_process_id_links( $data, $thisfieldname ) },
-		users    => sub { $self->_process_user_values( $data,     $att, $thisfieldname ) },
+		id       => sub { $self->_process_id_links( $data, $thisfieldname ) },
+		users    => sub { $self->_process_user_values( $data, $att, $thisfieldname ) },
 		location => sub { $self->_process_location_values( $data, $att, $thisfieldname ) }
 	};
 	foreach my $method (qw(id users location)) {
@@ -766,7 +766,7 @@ sub _print_isolate_id_links {
 		my $user_string = $self->{'datastore'}->get_user_string($private_owner);
 		$private_title = qq( title="Private record - owned by $user_string");
 	}
-	my $set_id = $self->get_set_id;
+	my $set_id     = $self->get_set_id;
 	my $set_clause = $set_id ? qq(&amp;set_id=$set_id) : q();
 	say qq(<td$private_class><a href="$self->{'system'}->{'script_name'}?page=info&amp;)
 	  . qq(db=$self->{'instance'}$set_clause&amp;id=$id"$private_title>$id</a></td>);
@@ -876,7 +876,7 @@ sub _get_seqbin_stats {
 sub _print_isolate_publications {
 	my ( $self, $isolate_id ) = @_;
 	if ( $self->{'prefs'}->{'display_publications'} ) {
-		my $pmids = $self->{'datastore'}->get_isolate_refs($isolate_id);
+		my $pmids     = $self->{'datastore'}->get_isolate_refs($isolate_id);
 		my $citations = $self->{'datastore'}->get_citation_hash( $pmids, { link_pubmed => 1 } );
 		my @formatted_list;
 		foreach my $pmid ( sort { $citations->{$a} cmp $citations->{$b} } @$pmids ) {
@@ -958,7 +958,7 @@ sub _print_isolate_table_header {
 		  if $self->{'system'}->{'view'} eq 'isolates' || $self->{'system'}->{'view'} eq 'temp_view';
 	}
 	$fieldtype_header .=
-	    qq(<th colspan="$col_count">Isolate fields <a target="_blank" )
+		qq(<th colspan="$col_count">Isolate fields <a target="_blank" )
 	  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=options" )
 	  . q(title="Options - Select which isolate fields are displayed here.">)
 	  . q(<span class="fas fa-wrench"></span></a>);
@@ -989,7 +989,7 @@ sub _print_isolate_table_header {
 		$fieldtype_header .= qq(<th colspan="$locus_cols">Loci</th>);
 	}
 	local $" = q(</th><th>);
-	$header_buffer .= qq(<th>@locus_header</th>) if @locus_header;
+	$header_buffer    .= qq(<th>@locus_header</th>) if @locus_header;
 	$fieldtype_header .= qq(</tr>\n);
 	$header_buffer    .= qq(</tr>\n);
 	print $fieldtype_header;
@@ -1084,7 +1084,7 @@ sub _sort_scheme_field_values {
 	my @field_values = keys %{ $scheme_field_values->{ lc($field) } };
 	no warnings 'numeric';    #might complain about numeric comparison with non-numeric data
 	my @values = sort {
-		     $scheme_field_values->{ lc($field) }->{$a} cmp $scheme_field_values->{ lc($field) }->{$b}
+			 $scheme_field_values->{ lc($field) }->{$a} cmp $scheme_field_values->{ lc($field) }->{$b}
 		  || $a <=> $b
 		  || $a cmp $b
 	} @field_values;
@@ -1130,7 +1130,7 @@ sub _print_isolate_table_scheme {
 		$self->_print_locus_value( $isolate_id, $allele_designations, $locus );
 	}
 	return
-	     if !$scheme_id
+		 if !$scheme_id
 	  || !@{ $self->{'scheme_fields'}->{$scheme_id} }
 	  || !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id};
 	my $scheme_fields = $self->{'scheme_fields'}->{$scheme_id};
@@ -1143,7 +1143,7 @@ sub _print_isolate_table_scheme {
 		}
 		my @values;
 		my $field_values = $self->_sort_scheme_field_values( $scheme_field_values, $field );
-		my $att = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+		my $att          = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 		foreach my $value (@$field_values) {
 			$value = defined $value ? $value : q();
 			next if $value eq q();
@@ -1230,6 +1230,10 @@ sub _get_lincode_values {
 			push @$values, "@$lincode";
 			$used{"@$lincode"} = 1;
 		}
+		@$values = sort @$values;
+		if ( @$values > 1 ) {
+			@$values = ( $values->[0] );
+		}
 		$self->{'cache'}->{'lincode_values'}->{$scheme_id}->{$isolate_id} = $values;
 	}
 	return $self->{'cache'}->{'lincode_values'}->{$scheme_id}->{$isolate_id};
@@ -1247,7 +1251,7 @@ sub _print_lincode_field_value {
 		}
 	}
 	my $prefix_values = $self->{'cache'}->{'lincode_prefixes'}->{$scheme_id};
-	my $lincodes = $self->_get_lincode_values( $scheme_id, $isolate_id );
+	my $lincodes      = $self->_get_lincode_values( $scheme_id, $isolate_id );
 	my %used;
 	my @prefixes = keys %{ $prefix_values->{$field} };
 	my @values;
@@ -1272,7 +1276,7 @@ sub _print_locus_value {
 	my @display_values;
 	my $allele_ids = $self->_sort_allele_ids( $allele_designations, $locus );
 	foreach my $allele_id (@$allele_ids) {
-		my $status = $self->_get_designation_status( $allele_designations, $locus, $allele_id );
+		my $status  = $self->_get_designation_status( $allele_designations, $locus, $allele_id );
 		my $display = q();
 		$display .= qq(<span class="$status">) if $status;
 		if (   defined $self->{'url'}->{$locus}
@@ -1409,14 +1413,14 @@ sub _print_profile_table {
 			local $" = q(_);
 			print qq(<td>@$lincode</td>);
 			my $join_table =
-			    q[lincodes LEFT JOIN lincode_prefixes ON lincodes.scheme_id=lincode_prefixes.scheme_id AND (]
+				q[lincodes LEFT JOIN lincode_prefixes ON lincodes.scheme_id=lincode_prefixes.scheme_id AND (]
 			  . q[array_to_string(lincodes.lincode,'_') LIKE (REPLACE(lincode_prefixes.prefix,'_',E'\\\_') || E'\\\_' || '%') ]
 			  . q[OR array_to_string(lincodes.lincode,'_') = lincode_prefixes.prefix)];
 			foreach my $field (@$lincode_fields) {
 				my $type =
 				  $self->{'datastore'}->run_query( 'SELECT type FROM lincode_fields WHERE (scheme_id,field)=(?,?)',
 					[ $scheme_id, $field ] );
-				my $order = $type eq 'integer' ? 'CAST(value AS integer)' : 'value';
+				my $order  = $type eq 'integer' ? 'CAST(value AS integer)' : 'value';
 				my $values = $self->{'datastore'}->run_query(
 					"SELECT DISTINCT(value) FROM $join_table WHERE "
 					  . '(lincodes.scheme_id,lincode_prefixes.field,lincodes.lincode)='
@@ -1446,7 +1450,7 @@ sub _print_profile_table {
 
 sub _print_plugin_buttons {
 	my ( $self, $records ) = @_;
-	my $q = $self->{'cgi'};
+	my $q       = $self->{'cgi'};
 	my %no_show = map { $_ => 1 } qw(customize tableQuery);
 	return if $no_show{ $q->param('page') };
 	my $seqdb_type = $q->param('page') eq 'alleleQuery' ? 'sequences' : 'schemes';
@@ -1499,7 +1503,7 @@ sub _print_plugin_buttons {
 			if ($plugin_buffer) {
 				$category = 'Miscellaneous' if !$category;
 				$cat_buffer .=
-				    q(<div><span style="float:left;text-align:right;width:8em;)
+					q(<div><span style="float:left;text-align:right;width:8em;)
 				  . q(white-space:nowrap;margin-right:0.5em">)
 				  . qq(<span class="fa-fw fa-lg $icon{$category} plugin_icon" style="margin-right:0.2em">)
 				  . qq(</span>$category:</span>)
@@ -1645,7 +1649,7 @@ sub _print_record_table {
 		$logger->error('Record table should not be called for isolates');
 		return;
 	}
-	my $qry = $self->_get_page_query( $qryref, $table, $page );
+	my $qry     = $self->_get_page_query( $qryref, $table, $page );
 	my $dataset = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 	return if !@$dataset;
 	$self->modify_dataset_if_needed( $table, $dataset );
@@ -1696,7 +1700,7 @@ sub _print_record_table {
 		}
 		my $set_id = $self->get_set_id;
 		my $scheme_info =
-		    $data->{'scheme_id'}
+			$data->{'scheme_id'}
 		  ? $self->{'datastore'}->get_scheme_info( $data->{'scheme_id'}, { set_id => $set_id } )
 		  : undef;
 		foreach my $field (@$display) {
@@ -1828,7 +1832,7 @@ sub _print_record_field {
 	my ( $table, $table_info, $data, $field, $primary_key, $query_values, $scheme_info ) =
 	  @{$args}{qw(table table_info data field primary_key query_values scheme_info)};
 	my $fields_to_query = {};
-	my %user_field = map { $_ => 1 } qw(sender curator curator_id user_id);
+	my %user_field      = map { $_ => 1 } qw(sender curator curator_id user_id);
 	$data->{ lc($field) } //= '';
 	if ( $primary_key->{$field} && !$self->{'curate'} ) {
 		$self->_print_pk_field($args);
@@ -1841,7 +1845,7 @@ sub _print_record_field {
 	if ( ( $field =~ /sequence$/x || $field =~ /^primer/x ) && $field ne 'coding_sequence' ) {
 		if ( length( $data->{ lc($field) } ) > 60 ) {
 			my $full_seq = $data->{ lc($field) };
-			my $seq = BIGSdb::Utils::truncate_seq( \$full_seq, 30 );
+			my $seq      = BIGSdb::Utils::truncate_seq( \$full_seq, 30 );
 			print qq(<td class="seq">$seq</td>);
 		} else {
 			print qq(<td class="seq">$data->{lc($field)}</td>);
@@ -2028,7 +2032,7 @@ sub _print_pk_field {
 				  . qq(page=profileInfo&amp;scheme_id=$data->{'scheme_id'}&amp;)
 				  . qq(profile_id=$data->{'profile_id'}">$value</a></td>);
 			} else {
-				if ( $field eq 'timestamp' ) { $value =~ s/\..*$//x }
+				if    ( $field eq 'timestamp' ) { $value =~ s/\..*$//x }
 				elsif ( $field eq 'scheme_id' ) { $value = $scheme_info->{'name'} }
 				print qq(<td>$value</td>);
 			}
@@ -2076,7 +2080,7 @@ sub _print_publication_table {
 		next if ( $author_filter && $author_filter ne 'All authors' && $refdata->{'authors'} !~ /$author_filter/x );
 		$refdata->{'year'} ||= '';
 		$buffer .=
-		    qq(<tr class="td$td">)
+			qq(<tr class="td$td">)
 		  . qq(<td><a href="https://www.ncbi.nlm.nih.gov/pubmed/$refdata->{'pmid'}">$refdata->{'pmid'}</a></td>)
 		  . qq(<td>$refdata->{'year'}</td><td style="text-align:left">);
 		if ( !$refdata->{'authors'} && !$refdata->{'title'} ) {
@@ -2125,7 +2129,7 @@ sub _is_scheme_data_present {
 	  $self->{'datastore'}->create_temp_list_table_from_array( 'int', $self->{'cache'}->{$qry}->{'ids'} );
 	if (
 		$self->{'datastore'}->run_query(
-			    qq[SELECT EXISTS(SELECT * FROM allele_designations ad JOIN $isolate_list l ON ad.isolate_id=l.value ]
+				qq[SELECT EXISTS(SELECT * FROM allele_designations ad JOIN $isolate_list l ON ad.isolate_id=l.value ]
 			  . qq[WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id=$scheme_id) AND allele_id !='0') ]
 		)
 	  )
@@ -2135,7 +2139,7 @@ sub _is_scheme_data_present {
 	}
 	if (
 		$self->{'datastore'}->run_query(
-			    qq[SELECT EXISTS(SELECT * FROM allele_sequences s JOIN $isolate_list l ON s.isolate_id=l.value ]
+				qq[SELECT EXISTS(SELECT * FROM allele_sequences s JOIN $isolate_list l ON s.isolate_id=l.value ]
 			  . qq[WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id=$scheme_id))]
 		)
 	  )
@@ -2238,7 +2242,7 @@ sub add_to_project {
 			  . "$project_id for which they do not have sufficient privileges." );
 		return;
 	}
-	my $ids = $self->get_query_ids;
+	my $ids        = $self->get_query_ids;
 	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $ids );
 	my @restrict_clauses;
 	my $project = $self->{'datastore'}->run_query( 'SELECT restrict_user,restrict_usergroup FROM projects WHERE id=?',
@@ -2249,7 +2253,7 @@ sub add_to_project {
 	}
 	if ( $project->{'restrict_usergroup'} ) {
 		push @restrict_clauses,
-		    qq[$temp_table.value IN (SELECT id FROM $self->{'system'}->{'view'} WHERE sender IN ]
+			qq[$temp_table.value IN (SELECT id FROM $self->{'system'}->{'view'} WHERE sender IN ]
 		  . q[(SELECT user_id FROM user_group_members WHERE user_group IN ]
 		  . qq[(SELECT user_group FROM user_group_members WHERE user_id=$user_info->{'id'})))];
 	}
@@ -2280,7 +2284,6 @@ sub add_to_project {
 			  . "SELECT $project_id,value,$user_info->{'id'},'now' FROM $temp_table WHERE value NOT IN "
 			  . "(SELECT isolate_id FROM project_members WHERE project_id=$project_id)$restrict_clause" );
 	};
-
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
@@ -2327,17 +2330,16 @@ sub publish {
 	} else {
 		$matched = $self->_get_query_private_records( $user_info->{'id'} );
 	}
-	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $matched );
+	my $temp_table   = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $matched );
 	my $request_only = $self->{'permissions'}->{'only_private'} || !$self->can_modify_table('isolates') ? 1 : 0;
 	my $message;
-	my $count = @$matched;
+	my $count  = @$matched;
 	my $plural = $count == 1 ? q() : q(s);
 	my $qry;
 	if (@$matched) {
-
 		if ($request_only) {
 			$qry =
-			    q(UPDATE private_isolates SET request_publish=TRUE,datestamp='now')
+				q(UPDATE private_isolates SET request_publish=TRUE,datestamp='now')
 			  . qq(WHERE isolate_id IN (SELECT value FROM $temp_table));
 			$message = "Publication requested for $count record$plural.";
 		} else {
