@@ -1,3 +1,6 @@
+v1.39.1: *Improvements to scheme caching in isolate databases. This is now more
+          scalable for large databases. Manually refreshing the scheme is now
+          done in a forked process with updates displayed using AJAX calls.
 v1.39.0: *Export dashboard function which can be used to create TOML files for
           setting up default primary, query, or project dashboards.
          *Assembly submissions now allow users to submit genome assemblies via
