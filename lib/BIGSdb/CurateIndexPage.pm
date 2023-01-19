@@ -2145,7 +2145,7 @@ sub _cache_tables_exists {
 	my ($self) = @_;
 	my $exists =
 	  $self->{'datastore'}
-	  ->run_query(q(SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name LIKE 'temp_%')));
+	  ->run_query(q(SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name LIKE 'temp_scheme%')));
 	return $exists;
 }
 
