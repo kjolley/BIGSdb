@@ -1174,67 +1174,36 @@ sub _print_isolate_table_scheme {
 	return;
 }
 
-sub _get_lincode_tables {
-	my ( $self, $scheme_id ) = @_;
-	if ( !$self->{'lincode_table'}->{$scheme_id} ) {
-		$self->{'lincode_table'}->{$scheme_id} = $self->{'datastore'}->create_temp_lincodes_table($scheme_id);
-	}
-	if ( !$self->{'scheme_field_table'}->{$scheme_id} ) {
-		$self->{'scheme_field_table'}->{$scheme_id} =
-		  $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
-	}
-	if ( !$self->{'pk'}->{$scheme_id} ) {
-		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-		$self->{'pk'}->{$scheme_id} = $scheme_info->{'primary_key'};
-		my $scheme_field_info =
-		  $self->{'datastore'}->get_scheme_field_info( $scheme_id, $scheme_info->{'primary_key'} );
-		$self->{'pk_type'} = $scheme_field_info->{'type'};
-	}
-	return {
-		lincode_table      => $self->{'lincode_table'}->{$scheme_id},
-		scheme_field_table => $self->{'scheme_field_table'}->{$scheme_id},
-		pk                 => $self->{'pk'}->{$scheme_id},
-		pk_type            => $self->{'pk_type'}
-	};
-}
-
 sub _print_lincode_value {
 	my ( $self, $scheme_id, $isolate_id ) = @_;
-	my $lincodes = $self->_get_lincode_values( $scheme_id, $isolate_id );
-	local $" = q(; );
-	print qq(<td>@$lincodes</td>);
+	my $lincode = $self->_get_lincode_value( $scheme_id, $isolate_id );
+	print qq(<td>$lincode</td>);
 	return;
 }
 
-sub _get_lincode_values {
+sub _get_lincode_value {
 	my ( $self, $scheme_id, $isolate_id ) = @_;
 	if ( !defined $self->{'cache'}->{'lincode_values'}->{$scheme_id}->{$isolate_id} ) {
-		my $lincode_info = $self->_get_lincode_tables($scheme_id);
+		my $lincode_info = $self->{'datastore'}->get_lincode_tables($scheme_id);
 		my ( $lincode_table, $scheme_field_table, $pk, $pk_type ) =
 		  @{$lincode_info}{qw(lincode_table scheme_field_table pk pk_type)};
 		my $pk_cast =
 		  $pk_type eq 'integer'
 		  ? "CAST(s.$pk AS text)"
 		  : "s.$pk";
-		my $lincodes = $self->{'datastore'}->run_query(
-			"SELECT DISTINCT(l.lincode) FROM $lincode_table l JOIN $scheme_field_table s ON "
-			  . "l.profile_id=$pk_cast WHERE id=? ORDER BY l.lincode",
+		my ($lincode) = $self->{'datastore'}->run_query(
+			"SELECT l.lincode FROM $lincode_table l JOIN $scheme_field_table s ON "
+			  . "l.profile_id=$pk_cast JOIN temp_scheme_$scheme_id t ON s.$pk=t.$pk WHERE id=? ORDER BY "
+			  . 't.missing_loci,l.lincode LIMIT 1',
 			$isolate_id,
-			{ cache => 'ResultsTablePage::print_lincode_value', fetch => 'col_arrayref' }
+			{ cache => 'ResultsTablePage::print_lincode_value' }
 		);
-		my $values = [];
-		my %used;
-		foreach my $lincode (@$lincodes) {
+		if ( defined $lincode ) {
 			local $" = q(_);
-			next if $used{"@$lincode"};
-			push @$values, "@$lincode";
-			$used{"@$lincode"} = 1;
+			$self->{'cache'}->{'lincode_values'}->{$scheme_id}->{$isolate_id} = "@$lincode";
+		} else {
+			$self->{'cache'}->{'lincode_values'}->{$scheme_id}->{$isolate_id} = q();
 		}
-		@$values = sort @$values;
-		if ( @$values > 1 ) {
-			@$values = ( $values->[0] );
-		}
-		$self->{'cache'}->{'lincode_values'}->{$scheme_id}->{$isolate_id} = $values;
 	}
 	return $self->{'cache'}->{'lincode_values'}->{$scheme_id}->{$isolate_id};
 }
@@ -1251,18 +1220,16 @@ sub _print_lincode_field_value {
 		}
 	}
 	my $prefix_values = $self->{'cache'}->{'lincode_prefixes'}->{$scheme_id};
-	my $lincodes      = $self->_get_lincode_values( $scheme_id, $isolate_id );
+	my $lincode       = $self->_get_lincode_value( $scheme_id, $isolate_id );
 	my %used;
 	my @prefixes = keys %{ $prefix_values->{$field} };
 	my @values;
 	foreach my $prefix (@prefixes) {
-		foreach my $lincode (@$lincodes) {
-			if (   $lincode eq $prefix
-				|| $lincode =~ /^${prefix}_/x && !$used{ $prefix_values->{$field}->{$prefix} } )
-			{
-				push @values, $prefix_values->{$field}->{$prefix};
-				$used{ $prefix_values->{$field}->{$prefix} } = 1;
-			}
+		if (   $lincode eq $prefix
+			|| $lincode =~ /^${prefix}_/x && !$used{ $prefix_values->{$field}->{$prefix} } )
+		{
+			push @values, $prefix_values->{$field}->{$prefix};
+			$used{ $prefix_values->{$field}->{$prefix} } = 1;
 		}
 	}
 	@values = sort @values;

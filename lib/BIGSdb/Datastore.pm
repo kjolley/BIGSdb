@@ -1303,6 +1303,30 @@ sub create_temp_lincodes_table {
 	return $table;
 }
 
+sub get_lincode_tables {
+	my ( $self, $scheme_id ) = @_;
+	if ( !$self->{'lincode_table'}->{$scheme_id} ) {
+		$self->{'lincode_table'}->{$scheme_id} = $self->create_temp_lincodes_table($scheme_id);
+	}
+	if ( !$self->{'scheme_field_table'}->{$scheme_id} ) {
+		$self->{'scheme_field_table'}->{$scheme_id} =
+		  $self->create_temp_isolate_scheme_fields_view($scheme_id);
+	}
+	if ( !$self->{'pk'}->{$scheme_id} ) {
+		my $scheme_info = $self->get_scheme_info( $scheme_id, { get_pk => 1 } );
+		$self->{'pk'}->{$scheme_id} = $scheme_info->{'primary_key'};
+		my $scheme_field_info =
+		  $self->get_scheme_field_info( $scheme_id, $scheme_info->{'primary_key'} );
+		$self->{'pk_type'} = $scheme_field_info->{'type'};
+	}
+	return {
+		lincode_table      => $self->{'lincode_table'}->{$scheme_id},
+		scheme_field_table => $self->{'scheme_field_table'}->{$scheme_id},
+		pk                 => $self->{'pk'}->{$scheme_id},
+		pk_type            => $self->{'pk_type'}
+	};
+}
+
 sub create_temp_lincode_prefix_values_table {
 	my ( $self, $scheme_id, $options ) = @_;
 	my $table = "temp_lincode_${scheme_id}_field_values";

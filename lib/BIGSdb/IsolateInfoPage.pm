@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -68,7 +68,7 @@ sub initiate {
 }
 
 sub get_javascript {
-	my ($self) = @_;
+	my ($self)       = @_;
 	my $show_aliases = $self->{'prefs'}->{'locus_alias'} ? 'none'   : 'inline';
 	my $hide_aliases = $self->{'prefs'}->{'locus_alias'} ? 'inline' : 'none';
 	my $buffer       = << "END";
@@ -222,7 +222,7 @@ sub _get_child_group_scheme_tables {
 
 sub _get_group_scheme_tables {
 	my ( $self, $group_id, $isolate_id, $options ) = @_;
-	my $set_id = $self->get_set_id;
+	my $set_id      = $self->get_set_id;
 	my $scheme_data = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($scheme_data);
 	my $schemes = $self->{'datastore'}->run_query(
@@ -325,7 +325,7 @@ sub _should_display_items {
 	} elsif ( BIGSdb::Utils::is_int( scalar $q->param('scheme_id') ) ) {
 		my $scheme_id = $q->param('scheme_id');
 		if ( $scheme_id == -1 ) {    #All schemes/loci
-			my $set_id = $self->get_set_id;
+			my $set_id  = $self->get_set_id;
 			my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 			foreach my $scheme (@$schemes) {
 				$items += $self->_get_display_items_in_scheme( $isolate_id, $scheme->{'id'} );
@@ -356,7 +356,7 @@ sub _get_display_items_in_scheme {
 			$items++ if $self->{'prefs'}->{'isolate_display_loci'}->{$locus} ne 'hide';
 		}
 	} else {
-		my $loci = $self->{'datastore'}->get_loci_in_no_scheme;
+		my $loci       = $self->{'datastore'}->get_loci_in_no_scheme;
 		my $list_table = $self->{'datastore'}->create_temp_list_table_from_array( 'text', $loci );
 		my $loci_with_designations =
 		  $self->{'datastore'}->run_query(
@@ -406,10 +406,10 @@ sub _print_separate_scheme_data {
 }
 
 sub print_content {
-	my ($self)     = @_;
-	my $q          = $self->{'cgi'};
-	my $isolate_id = $q->param('id');
-	my $set_id     = $self->get_set_id;
+	my ($self)      = @_;
+	my $q           = $self->{'cgi'};
+	my $isolate_id  = $q->param('id');
+	my $set_id      = $self->get_set_id;
 	my $scheme_data = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	return if $self->_handle_scheme_ajax($isolate_id);
 	if ( !defined $isolate_id || $isolate_id eq '' ) {
@@ -461,13 +461,13 @@ sub print_content {
 	say q(<div class="box" id="resultspanel">);
 	say $self->get_isolate_record($isolate_id);
 	my $tree_button =
-	    q( <span id="tree_button" style="margin-left:1em;display:none">)
+		q( <span id="tree_button" style="margin-left:1em;display:none">)
 	  . q(<a id="show_tree" class="small_submit" style="cursor:pointer">)
 	  . q(<span id="show_tree_text" style="display:none"><span class="fa fas fa-eye"></span> Show</span>)
 	  . q(<span id="hide_tree_text" style="display:inline">)
 	  . q(<span class="fa fas fa-eye-slash"></span> Hide</span> tree</a></span>);
 	my $aliases_button = $self->_get_show_aliases_button;
-	my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
+	my $loci           = $self->{'datastore'}->get_loci( { set_id => $set_id } );
 
 	if ( @$loci && $self->_should_show_schemes($isolate_id) ) {
 		my $classification_data = $self->_get_classification_group_data($isolate_id);
@@ -518,7 +518,7 @@ sub _get_show_aliases_button {
 	my $show_aliases = $options->{'show_aliases'} // $self->{'prefs'}->{'locus_alias'} ? 'none'   : 'inline';
 	my $hide_aliases = $options->{'show_aliases'} // $self->{'prefs'}->{'locus_alias'} ? 'inline' : 'none';
 	return
-	    qq(<span id="aliases_button" style="margin-left:1em;display:$display">)
+		qq(<span id="aliases_button" style="margin-left:1em;display:$display">)
 	  . q(<a id="show_aliases" class="small_submit" style="cursor:pointer">)
 	  . qq(<span id="show_aliases_text" style="display:$show_aliases"><span class="fa fas fa-eye"></span> )
 	  . qq(show</span><span id="hide_aliases_text" style="display:$hide_aliases">)
@@ -528,7 +528,7 @@ sub _get_show_aliases_button {
 
 sub _print_plugin_buttons {
 	my ( $self, $isolate_id ) = @_;
-	my $q = $self->{'cgi'};
+	my $q                 = $self->{'cgi'};
 	my $plugin_categories = $self->{'pluginManager'}->get_plugin_categories( 'info', $self->{'system'}->{'dbtype'} );
 	return if !@$plugin_categories;
 	my $buffer;
@@ -567,7 +567,7 @@ sub _print_plugin_buttons {
 			if ($plugin_buffer) {
 				$category = 'Miscellaneous' if !$category;
 				$cat_buffer .=
-				    q(<div><span style="float:left;text-align:right;width:8em;)
+					q(<div><span style="float:left;text-align:right;width:8em;)
 				  . q(white-space:nowrap;margin-right:0.5em">)
 				  . qq(<span class="fa-fw fa-lg $icon{$category} info_plugin_icon" style="margin-right:0.2em">)
 				  . qq(</span>$category:</span>)
@@ -644,7 +644,7 @@ sub _get_classification_group_data {
 					my $cg_fields = $self->get_classification_group_fields( $cscheme->{'id'}, $group_id );
 					$cgf_buffer .= qq($cg_fields<br />) if $cg_fields;
 					my $url =
-					    qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
+						qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
 					  . qq(designation_field1=cg_$cscheme->{'id'}_group&amp;designation_value1=$group_id&amp;)
 					  . q(submit=1);
 					my $plural = $isolate_count == 1 ? q() : q(s);
@@ -657,7 +657,7 @@ sub _get_classification_group_data {
 		if ($cg_buffer) {
 			my $desc = $cscheme->{'description'};
 			my $tooltip =
-			    $desc
+				$desc
 			  ? $self->get_tooltip(qq($cscheme->{'name'} - $desc))
 			  : q();
 			my $plural = $cscheme->{'inclusion_threshold'} == 1 ? q() : q(es);
@@ -703,17 +703,17 @@ sub _format_classification_data {
 	my $filtered_display = @filtered ? 'block' : 'none';
 	my $hide_table_class = @filtered ? ''      : 'cs_table';
 	$buffer =
-	    q(<div><span class="info_icon fas fa-2x fa-fw fa-sitemap fa-pull-left" )
+		q(<div><span class="info_icon fas fa-2x fa-fw fa-sitemap fa-pull-left" )
 	  . q(style="margin-top:-0.2em"></span>)
 	  . q(<h2>Similar isolates (determined by classification schemes)</h2>);
 	if ( !@filtered ) {
 		$buffer .=
-		    q(<p>No similar isolates at any threshold. )
+			q(<p>No similar isolates at any threshold. )
 		  . q(<a id="show_csgroups" class="small_submit" style="display:inline">Show groups</a>)
 		  . q(<a id="hide_csgroups" class="small_submit" style="display:none">Hide groups</a></p>);
 	} elsif ( @unfiltered > @filtered ) {
 		$buffer .=
-		    q(<p>Some groups only contain this isolate. )
+			q(<p>Some groups only contain this isolate. )
 		  . q(<a id="show_csgroups" class="small_submit" style="display:inline">Show single groups</a>)
 		  . q(<a id="hide_csgroups" class="small_submit" style="display:none">Hide single groups</a></p>);
 	}
@@ -938,10 +938,10 @@ sub _show_private_owner {
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT user_id,request_publish FROM private_isolates WHERE isolate_id=?', $isolate_id );
 	if ( defined $private_owner ) {
-		my $user_string = $self->{'datastore'}->get_user_string($private_owner);
+		my $user_string    = $self->{'datastore'}->get_user_string($private_owner);
 		my $request_string = $request_publish ? q( - publication requested.) : q();
 		return
-		    q(<p style="float:right"><span class="main_icon fas fa-2x fa-user-secret"></span> )
+			q(<p style="float:right"><span class="main_icon fas fa-2x fa-user-secret"></span> )
 		  . qq(<span class="warning" style="padding: 0.1em 0.5em">Private record owned by $user_string)
 		  . qq($request_string</span></p>);
 	}
@@ -983,12 +983,12 @@ sub _get_provenance_fields {
 		$displayfield =~ tr/_/ /;
 		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 		next if !$group && $thisfield->{'group'};
-		next if $group && ( $thisfield->{'group'} // q() ) ne $group;
+		next if $group  && ( $thisfield->{'group'} // q() ) ne $group;
 		next if $thisfield->{'prefixes'};
-		next if ($thisfield->{'isolate_display'} // q()) eq 'no';
+		next if ( $thisfield->{'isolate_display'} // q() ) eq 'no';
 		local $" = q(; );
-		if ( !defined $data->{ lc($field) } ) {
 
+		if ( !defined $data->{ lc($field) } ) {
 			if ( $composites->{$field} ) {
 				my $composite_fields =
 				  $self->_get_composite_field_rows( $isolate_id, $data, $field, $composite_display_pos );
@@ -1024,7 +1024,7 @@ sub _get_provenance_fields {
 				my $hyperlink = qq(<a href="$url">$url</a>);
 				$value =~ s/$url/$hyperlink/gx;
 			}
-			my $prefix = $thisfield->{'prefixed_by'} ? $data->{ lc( $thisfield->{'prefixed_by'} ) } : q();
+			my $prefix    = $thisfield->{'prefixed_by'} ? $data->{ lc( $thisfield->{'prefixed_by'} ) } : q();
 			my $separator = $thisfield->{'prefix_separator'} // q();
 			my $suffix    = $thisfield->{'suffix'}           // q();
 			push @$list, { title => $displayfield, data => $prefix . $separator . ( $web // $value ) . $suffix }
@@ -1070,7 +1070,7 @@ sub _process_geography_fields {
 			my $map = $geography;
 			$map->{'field'}      = ucfirst($displayfield);
 			$map->{'show_value'} = $value;
-			$map->{'imprecise'} = 1;
+			$map->{'imprecise'}  = 1;
 			push @$maps, $geography;
 		}
 	}
@@ -1153,8 +1153,7 @@ JS
 		$buffer .= q(<div style="float:left;margin:0 1em">);
 		if ( @$maps > 1 ) {
 			if ( $map->{'show_value'} ) {
-				$buffer .=
-				  qq(<p><span class="data_title">$map->{'field'}:</span>$map->{'show_value'}</p>\n);
+				$buffer .= qq(<p><span class="data_title">$map->{'field'}:</span>$map->{'show_value'}</p>\n);
 			} else {
 				$buffer .=
 				  qq(<p><span class="data_title">$map->{'field'}:</span>$map->{'latitude'}, $map->{'longitude'}</p>\n);
@@ -1242,14 +1241,14 @@ MAP
 		$buffer .= q(<p style="margin-top:0.5em">);
 		if ( $self->{'config'}->{'bingmaps_api'} ) {
 			$buffer .=
-			    q(<span style="vertical-align:0.4em">Aerial view </span>)
+				q(<span style="vertical-align:0.4em">Aerial view </span>)
 			  . qq(<a class="toggle_satellite" id="toggle_satellite$i" style="cursor:pointer;margin-right:2em">)
 			  . qq(<span class="fas fa-toggle-off toggle_icon fa-2x" id="satellite${i}_off"></span>)
 			  . qq(<span class="fas fa-toggle-on toggle_icon fa-2x" id="satellite${i}_on" style="display:none">)
 			  . q(</span></a>);
 		}
 		$buffer .=
-		    q(<span style="vertical-align:0.4em">Recentre </span>)
+			q(<span style="vertical-align:0.4em">Recentre </span>)
 		  . qq(<a class="recentre" id="recentre$i" style="cursor:pointer;margin-right:2em">)
 		  . qq(<span class="fas fa-crosshairs toggle_icon fa-2x" id="crosshairs$i"></span>)
 		  . q(</a></p>);
@@ -1311,7 +1310,7 @@ sub _get_field_value {
 sub _get_grouped_fields {
 	my ( $self, $isolate_id, $data ) = @_;
 	my @group_list = split /,/x, ( $self->{'system'}->{'field_groups'} // q() );
-	my $buffer = q();
+	my $buffer     = q();
 	foreach my $group (@group_list) {
 		$group =~ s/\|.+$//x;
 		$buffer .= $self->_get_provenance_fields( $isolate_id, $data, 0, $group );
@@ -1337,8 +1336,8 @@ sub _get_secondary_metadata_fields {
 	my $icon          = $self->{'system'}->{'eav_field_icon'} // 'fas fa-microscope';
 	$buffer .= qq(<div><span class="info_icon fa-2x fa-fw $icon fa-pull-left" )
 	  . qq(style="margin-top:-0.2em"></span><h2 style="display:inline">$uc_field_name</h2>\n);
-	my $hide = keys %$data > MAX_EAV_FIELD_LIST ? 1 : 0;
-	my $class = $hide ? q(expandable_retracted) : q();
+	my $hide  = keys %$data > MAX_EAV_FIELD_LIST ? 1                       : 0;
+	my $class = $hide                            ? q(expandable_retracted) : q();
 	my $categories =
 	  $self->{'datastore'}->run_query( 'SELECT DISTINCT category FROM eav_fields ORDER BY category NULLS LAST',
 		undef, { fetch => 'col_arrayref' } );
@@ -1420,7 +1419,7 @@ sub _get_field_extended_attributes {
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT attribute,field_order FROM isolate_field_extended_attributes WHERE isolate_field=?',
 		$field, { fetch => 'all_arrayref', slice => {} } );
-	my %order = map { $_->{'attribute'} => $_->{'field_order'} } @$attribute_order;
+	my %order          = map { $_->{'attribute'} => $_->{'field_order'} } @$attribute_order;
 	my $attribute_list = $self->{'datastore'}->run_query(
 		'SELECT attribute,value FROM isolate_value_extended_attributes WHERE (isolate_field,field_value)=(?,?)',
 		[ $field, $value ],
@@ -1509,7 +1508,7 @@ sub _get_history_field {
 	my $set_id     = $self->get_set_id;
 	my $set_clause = $set_id ? qq(&amp;set_id=$set_id) : q();
 	$data .=
-	    qq( <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		qq( <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . qq(page=tableQuery&amp;table=history&amp;s1=isolate_id&amp;t1=$isolate_id$set_clause&amp;)
 	  . qq(order=timestamp&amp;direction=descending">show details</a>\n);
 	return { title => 'update history', data => $data };
@@ -1537,7 +1536,7 @@ sub _get_tree {
 	$buffer .= $self->get_tree( $isolate_id, { isolate_display => $self->{'curate'} ? 0 : 1 } );
 	$buffer .= qq(</div>\n);
 	$buffer .=
-	    q(<div id="scheme_table" style="overflow:hidden; min-width:60%">)
+		q(<div id="scheme_table" style="overflow:hidden; min-width:60%">)
 	  . q(Navigate and select schemes within tree to display allele )
 	  . qq(designations</div><div style="clear:both"></div></div>\n)
 	  if $buffer !~ /No loci available/;
@@ -1552,7 +1551,7 @@ sub _get_loci_not_in_schemes {
 	my $loci_with_designations =
 	  $self->{'datastore'}->run_query( 'SELECT locus FROM allele_designations WHERE isolate_id=?',
 		$isolate_id, { fetch => 'col_arrayref' } );
-	my %designations = map { $_ => 1 } @$loci_with_designations;
+	my %designations   = map { $_ => 1 } @$loci_with_designations;
 	my $loci_with_tags = $self->{'datastore'}
 	  ->run_query( 'SELECT locus FROM allele_sequences WHERE isolate_id=?', $isolate_id, { fetch => 'col_arrayref' } );
 	my %tags = map { $_ => 1 } @$loci_with_tags;
@@ -1599,7 +1598,7 @@ sub _get_scheme_field_values {
 			no warnings 'numeric';    #might complain about numeric comparison with non-numeric data
 			my @field_values =
 			  sort {
-				     $scheme_field_values->{ lc($field) }->{$a} cmp $scheme_field_values->{ lc($field) }->{$b}
+					 $scheme_field_values->{ lc($field) }->{$a} cmp $scheme_field_values->{ lc($field) }->{$b}
 				  || $a <=> $b
 				  || $a cmp $b
 			  }
@@ -1620,17 +1619,17 @@ sub _get_scheme_field_values {
 					$formatted_value .= $value;
 				}
 				$formatted_value .= q(</span>) if $provisional;
-				push @{ $values->{$field}->{'formatted'} }, $formatted_value;
+				push @{ $values->{$field}->{'formatted'} },   $formatted_value;
 				push @{ $values->{$field}->{'unformatted'} }, $value;
 			}
-			if (ref $values->{$field}->{'formatted'} ne 'ARRAY'){
-				$values->{$field}->{'formatted'} = ['Not defined'];
+			if ( ref $values->{$field}->{'formatted'} ne 'ARRAY' ) {
+				$values->{$field}->{'formatted'}   = ['Not defined'];
 				$values->{$field}->{'unformatted'} = [];
-			} 
+			}
 		}
 	} else {
-		foreach my $field (@$scheme_fields){
-			$values->{$field}->{'formatted'} = ['Not defined'] ;
+		foreach my $field (@$scheme_fields) {
+			$values->{$field}->{'formatted'}   = ['Not defined'];
 			$values->{$field}->{'unformatted'} = [];
 		}
 	}
@@ -1737,36 +1736,35 @@ sub _get_scheme_values {
 		&& $field_values->{ $scheme_info->{'primary_key'} }->{'formatted'}
 		&& $self->{'datastore'}->are_lincodes_defined($scheme_id) )
 	{
-		my $pk_values = $field_values->{ $scheme_info->{'primary_key'} }->{'unformatted'};
-		$buffer .= $self->_get_lincode_values( $scheme_id, $pk_values, $args );
+		$buffer .= $self->_get_lincode_values( $isolate_id, $scheme_id, $args );
 	}
 	$buffer .= q(</dl>) if $args->{'no_render'};
 	return $buffer;
 }
 
 sub _get_lincode_values {
-	my ( $self, $scheme_id, $pk_values, $args ) = @_;
-	my @lincodes;
-	my $lincode_table = $self->{'datastore'}->create_temp_lincodes_table($scheme_id);
-	foreach my $pk_value (@$pk_values) {
-		my $lincode =
-		  $self->{'datastore'}
-		  ->run_query( "SELECT DISTINCT(lincode) FROM $lincode_table WHERE profile_id=? ORDER BY lincode", $pk_value );
-		local $" = q(_);
-		push @lincodes, qq(@$lincode) if $lincode;
-	}
-	@lincodes = sort @lincodes;
-	
-	if ( @lincodes > 1 ) {
-		@lincodes = ( $lincodes[0] );
-	}
+	my ( $self, $isolate_id, $scheme_id, $args ) = @_;
+	my $lincode_info = $self->{'datastore'}->get_lincode_tables($scheme_id);
+	my ( $lincode_table, $scheme_field_table, $pk, $pk_type ) =
+	  @{$lincode_info}{qw(lincode_table scheme_field_table pk pk_type)};
+	my $pk_cast =
+	  $pk_type eq 'integer'
+	  ? "CAST(s.$pk AS text)"
+	  : "s.$pk";
+	my ($lincode) = $self->{'datastore'}->run_query(
+		"SELECT l.lincode FROM $lincode_table l JOIN $scheme_field_table s ON "
+		  . "l.profile_id=$pk_cast JOIN temp_scheme_$scheme_id t ON s.$pk=t.$pk WHERE id=? ORDER BY "
+		  . 't.missing_loci,l.lincode LIMIT 1',
+		$isolate_id
+	);
 	my $buffer = q();
-	if (@lincodes) {
-		local $" = q(; );
+	if ( defined $lincode ) {
+		local $" = q(_);
+		my $lincode_string = qq(@$lincode);
 		$buffer .=
 		  $args->{'no_render'}
-		  ? qq(<dt>LINcode</dt><dd>@lincodes</dd>)
-		  : qq(<dl class="profile"><dt>LINcode</dt><dd>@lincodes</dd></dl>);
+		  ? qq(<dt>LINcode</dt><dd>$lincode_string</dd>)
+		  : qq(<dl class="profile"><dt>LINcode</dt><dd>$lincode_string</dd></dl>);
 		my $prefix_table = $self->{'datastore'}->create_temp_lincode_prefix_values_table($scheme_id);
 		my $data         = $self->{'datastore'}
 		  ->run_query( "SELECT * FROM $prefix_table", undef, { fetch => 'all_arrayref', slice => {} } );
@@ -1783,13 +1781,11 @@ sub _get_lincode_values {
 			my @prefixes = keys %{ $prefix_values->{$field} };
 			my @values;
 			foreach my $prefix (@prefixes) {
-				foreach my $lincode (@lincodes) {
-					if (   $lincode eq $prefix
-						|| $lincode =~ /^${prefix}_/x && !$used{ $prefix_values->{$field}->{$prefix} } )
-					{
-						push @values, $prefix_values->{$field}->{$prefix};
-						$used{ $prefix_values->{$field}->{$prefix} } = 1;
-					}
+				if (   $lincode_string eq $prefix
+					|| $lincode_string =~ /^${prefix}_/x && !$used{ $prefix_values->{$field}->{$prefix} } )
+				{
+					push @values, $prefix_values->{$field}->{$prefix};
+					$used{ $prefix_values->{$field}->{$prefix} } = 1;
 				}
 			}
 			@values = sort @values;
@@ -1860,7 +1856,7 @@ sub _get_locus_value {
 	  if $self->{'prefs'}->{'sequence_details'};
 	my $action = @$designations ? EDIT : ADD;
 	$display_value .=
-	    qq( <a href="$self->{'system'}->{'script_name'}?page=alleleUpdate&amp;db=$self->{'instance'}&amp;)
+		qq( <a href="$self->{'system'}->{'script_name'}?page=alleleUpdate&amp;db=$self->{'instance'}&amp;)
 	  . qq(isolate_id=$isolate_id&amp;locus=$locus" class="action">$action</a>)
 	  if $self->{'curate'};
 	$display_value .= q(&nbsp;) if !@$designations;
@@ -1880,8 +1876,7 @@ sub _get_locus_value {
 				my $sequence_ref =
 				  $self->{'datastore'}->get_locus($locus)->get_allele_sequence( $designation->{'allele_id'} );
 				$sequence = BIGSdb::Utils::split_line($$sequence_ref);
-			}
-			catch {
+			} catch {
 				if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
 					$sequence = 'Cannot connect to database';
 				}
@@ -1904,7 +1899,7 @@ sub get_title {
 	return 'Isolate information' if $options->{'breadcrumb'};
 	my $q          = $self->{'cgi'};
 	my $isolate_id = $q->param('id');
-	return q() if $q->param('no_header');
+	return q()                   if $q->param('no_header');
 	return q(Invalid isolate id) if !BIGSdb::Utils::is_int($isolate_id);
 	my $name  = $self->get_name($isolate_id);
 	my $title = qq(Isolate information: id-$isolate_id);
@@ -2026,10 +2021,10 @@ sub get_refs {
 	if (@$pmids) {
 		$buffer .=
 		  q(<div><span class="info_icon far fa-2x fa-fw fa-newspaper fa-pull-left" style="margin-top:-0.2em"></span>);
-		my $count = @$pmids;
+		my $count  = @$pmids;
 		my $plural = $count > 1 ? 's' : '';
 		$buffer .= qq(<h2 style="display:inline">Publication$plural ($count)</h2>);
-		my $hide = @$pmids > HIDE_PMIDS;
+		my $hide  = @$pmids > HIDE_PMIDS;
 		my $class = $hide ? q(expandable_retracted) : q();
 		$buffer .= qq(<div id="references" style="overflow:hidden" class="$class"><ul>);
 		my $citations = $self->{'datastore'}->get_citation_hash(
@@ -2064,7 +2059,7 @@ sub _get_seqbin_link {
 	my $buffer       = q();
 	my $q            = $self->{'cgi'};
 	if ( $seqbin_stats->{'contigs'} ) {
-		my $list = [];
+		my $list   = [];
 		my $div_id = $seqbin_stats->{'contigs'} > 1 ? 'seqbin' : 'seqbin_no_columnize';
 		my %commify =
 		  map { $_ => BIGSdb::Utils::commify( $seqbin_stats->{$_} ) } qw(contigs total_length max_length mean_length);
@@ -2113,7 +2108,7 @@ sub _get_seqbin_link {
 					push @$list,
 					  {
 						title => $labels{$key} // $key,
-						data => $stats->{$key}
+						data  => $stats->{$key}
 					  } if defined $stats->{$key};
 				}
 			} else {
@@ -2138,7 +2133,7 @@ sub _get_seqbin_link {
 		$buffer .= $self->get_list_block( $list, { columnize => $columnize, nowrap => 1 } );
 		$buffer .= q(</div>);
 		$buffer .=
-		    q(<p style="margin-left:3em"><a class="small_submit" )
+			q(<p style="margin-left:3em"><a class="small_submit" )
 		  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=seqbin&amp;isolate_id=$isolate_id">Show sequence bin</a></p>);
 		$buffer .= q(</div>);
@@ -2237,7 +2232,7 @@ sub _get_min_max_check_results {
 			my $message = $self->{'assembly_checks'}->{$check}->{'message'} // q();
 			if ( $results->{$check}->{'status'} ) {
 				$message .=
-				    qq[ ($results->{$check}->{'status'} threshold: ]
+					qq[ ($results->{$check}->{'status'} threshold: ]
 				  . BIGSdb::Utils::commify( $self->{'assembly_checks'}->{$check}->{ $results->{$check}->{'status'} } )
 				  . q[)];
 				return {
@@ -2267,8 +2262,8 @@ sub _get_annotation_metrics {
 		undef,
 		{ fetch => 'all_arrayref', slice => {} }
 	);
-	my $min_genome_size =
-	  $self->{'system'}->{'min_genome_size'} // $self->{'config'}->{'min_genome_size'} // MIN_GENOME_SIZE;
+	my $min_genome_size = $self->{'system'}->{'min_genome_size'} // $self->{'config'}->{'min_genome_size'}
+	  // MIN_GENOME_SIZE;
 	my $has_genome =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT EXISTS(SELECT * FROM seqbin_stats WHERE isolate_id=? AND total_length>=?)',
@@ -2311,7 +2306,7 @@ sub _get_annotation_metrics {
 		next if !$scheme->{'loci'};
 		next if !$scheme->{'designated'} && $scheme->{'loci'} > 1;
 		next if !$scheme->{'designated'} && !$has_genome;
-		my $percent = int( 100 * $scheme->{'designated'} / $scheme->{'loci'} );
+		my $percent       = int( 100 * $scheme->{'designated'} / $scheme->{'loci'} );
 		my $max_threshold = $scheme->{'max_threshold'} // $scheme->{'loci'};
 		$max_threshold = $scheme->{'loci'} if $max_threshold > $scheme->{'loci'};
 		my $min_threshold = $scheme->{'min_threshold'} // 0;
@@ -2329,7 +2324,7 @@ sub _get_annotation_metrics {
 		my $middle = ( $min + $max ) / 2;
 		my $colour = BIGSdb::Utils::get_percent_colour( $percent, { min => $min, max => $max, middle => $middle } );
 		$buffer .=
-		    q(<td style="position:relative"><span )
+			q(<td style="position:relative"><span )
 		  . qq(style="position:absolute;font-size:0.8em;margin-left:-0.5em">$percent</span>)
 		  . qq(<div style="display:block-inline;margin-top:0.2em;background-color:\#$colour;)
 		  . qq(border:1px solid #ccc;height:0.8em;width:$percent%"></div></td>);
@@ -2378,7 +2373,7 @@ sub _print_projects {
 		say q(<div class="box" id="projects">);
 		say q(<span class="info_icon fas fa-2x fa-fw fa-list-alt fa-pull-left" style="margin-top:0.3em"></span>);
 		say q(<h2>Projects</h2>);
-		my $hide = @$projects > 1;
+		my $hide  = @$projects > 1;
 		my $class = $hide ? q(expandable_retracted) : q();
 		say qq(<div id="project_list" style="overflow:hidden" class="$class">);
 		my $plural = @$projects == 1 ? '' : 's';
