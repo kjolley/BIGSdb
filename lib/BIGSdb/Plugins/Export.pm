@@ -1,6 +1,6 @@
 #Export.pm - Export plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext => 'Dataset',
 		menutext   => 'Dataset',
 		module     => 'Export',
-		version    => '1.9.2',
+		version    => '1.9.3',
 		dbtype     => 'isolates',
 		section    => 'export,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
@@ -267,8 +267,8 @@ sub run {
 		$q->delete('isolate_id');
 		my $set_id = $self->get_set_id;
 		my $params = $q->Vars;
-		$params->{'set_id'} = $set_id if $set_id;
-		$params->{'curate'} = 1       if $self->{'curate'};
+		$params->{'set_id'}      = $set_id if $set_id;
+		$params->{'curate'}      = 1       if $self->{'curate'};
 		$params->{'script_name'} = $self->{'system'}->{'script_name'};
 		local $" = '||';
 		$params->{'selected_fields'} = "@$selected_fields";
@@ -386,7 +386,7 @@ sub run_job {
 	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3;
 	$self->{'system'}->{'script_name'} = $params->{'script_name'};
 	my $filename = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
-	my @fields = split /\|\|/x, $params->{'selected_fields'};
+	my @fields   = split /\|\|/x, $params->{'selected_fields'};
 	$params->{'job_id'} = $job_id;
 	my $ids = $self->{'jobManager'}->get_job_isolates($job_id);
 	my $limit =
@@ -501,7 +501,7 @@ sub _write_tab_text {
 				private_owner         => qr/^private_owner$/x
 			};
 			my $methods = {
-				field     => sub { $self->_write_field( $fh,     $1, \%data, $first, $params ) },
+				field     => sub { $self->_write_field( $fh, $1, \%data, $first, $params ) },
 				eav_field => sub { $self->_write_eav_field( $fh, $1, \%data, $first, $params ) },
 				locus     => sub {
 					$self->_write_allele(
@@ -735,7 +735,7 @@ sub _write_allele {
 	my ( $fh, $locus, $data, $all_allele_ids, $first_col, $params ) =
 	  @{$args}{qw(fh locus data all_allele_ids first params)};
 	my @unsorted_allele_ids = defined $all_allele_ids->{$locus} ? @{ $all_allele_ids->{$locus} } : (q());
-	my $allele_ids = $self->_sort_alleles( $locus, \@unsorted_allele_ids );
+	my $allele_ids          = $self->_sort_alleles( $locus, \@unsorted_allele_ids );
 	if ( $params->{'alleles'} ) {
 		my $first_allele = 1;
 		foreach my $allele_id (@$allele_ids) {
@@ -816,7 +816,6 @@ sub _write_scheme_field {
 	@$values = ('') if !@$values;
 	my $first_value = 1;
 	foreach my $value (@$values) {
-
 		if ( $params->{'oneline'} ) {
 			next if !defined $value || $value eq q();
 			print $fh $self->_get_id_one_line( $data, $params );
@@ -841,27 +840,19 @@ sub _write_lincode {
 	my ( $fh, $scheme_id, $data, $first_col, $params ) =
 	  @{$args}{qw(fh scheme_id data first params )};
 	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
-	my $lincodes    = $self->get_lincode( $data->{'id'}, $scheme_id );
-	my $values      = [];
-	foreach my $lincode (@$lincodes) {
-		local $" = q(_);
-		push @$values, qq(@$lincode);
-	}
-
+	my $lincode     = $self->{'datastore'}->get_lincode_value( $data->{'id'}, $scheme_id );
 	#LINcode fields are always calculated after the LINcode itself, so
 	#we can just cache the last LINcode value rather than re-calculating it.
-	$self->{'cache'}->{'current_lincode'} = $values;
+	$self->{'cache'}->{'current_lincode'} = $lincode;
+	local $" = q(_);
 	if ( $params->{'oneline'} ) {
-		foreach my $value (@$values) {
-			print $fh $self->_get_id_one_line( $data, $params );
-			print $fh "LINcode ($scheme_info->{'name'})\t";
-			print $fh $value if defined $value;
-			print $fh qq(\n);
-		}
+		print $fh $self->_get_id_one_line( $data, $params );
+		print $fh "LINcode ($scheme_info->{'name'})\t";
+		print $fh qq(@$lincode) if defined $lincode;
+		print $fh qq(\n);
 	} else {
-		print $fh qq(\t) if !$first_col;
-		local $" = q(; );
-		print $fh qq(@$values) if @$values;
+		print $fh qq(\t)        if !$first_col;
+		print $fh qq(@$lincode) if defined $lincode;
 	}
 	return;
 }
@@ -1014,7 +1005,7 @@ sub _write_private_owner {
 		$data->{'id'}, { cache => 'Export::write_private_owner' } );
 	if ( defined $value ) {
 		$value =
-		    $params->{'private_name'} eq 'name'
+			$params->{'private_name'} eq 'name'
 		  ? $self->{'datastore'}->get_user_string( $value, { affiliation => 1 } )
 		  : $value;
 	}
@@ -1042,14 +1033,13 @@ sub _get_molwt {
 			if ( $allele ne '0' ) {
 				$seq_ref = $locus->get_allele_sequence($allele);
 			}
-		}
-		catch {    #do nothing
+		} catch {    #do nothing
 		};
 		my $seq = BIGSdb::Utils::chop_seq( $$seq_ref, $locus_info->{'orf'} || 1 );
 		if ($met) {
 			$seq =~ s/^(TTG|GTG)/ATG/x;
 		}
-		if ($seq){
+		if ($seq) {
 			my $seq_obj = Bio::Seq->new( -seq => $seq, -alphabet => 'dna' );
 			$peptide = $seq_obj->translate->seq;
 		}
@@ -1063,8 +1053,7 @@ sub _get_molwt {
 		my $seq_stats = Bio::Tools::SeqStats->new($seqobj);
 		my $stats     = $seq_stats->get_mol_wt;
 		$weight = $stats->[0];
-	}
-	catch {
+	} catch {
 		$weight = q(-);
 	};
 	return $weight;
