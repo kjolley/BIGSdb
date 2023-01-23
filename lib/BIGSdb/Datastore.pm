@@ -364,9 +364,6 @@ sub get_scheme_field_values_by_designations {
 
 	#$designations is a hashref containing arrayref of allele_designations for each locus
 	my ( $self, $scheme_id, $designations, $options ) = @_;
-	my $values     = {};
-	my $loci       = $self->get_scheme_loci($scheme_id);
-	my $fields     = $self->get_scheme_fields($scheme_id);
 	my $field_data = [];
 	my $scheme     = $self->get_scheme($scheme_id);
 	$self->_convert_designations_to_profile_names( $scheme_id, $designations ) if !$options->{'no_convert'};
@@ -382,6 +379,9 @@ sub get_scheme_field_values_by_designations {
 		};
 	}
 	return $field_data if $options->{'no_status'};
+	my $values = {};
+	my $loci   = $self->get_scheme_loci($scheme_id);
+	my $fields = $self->get_scheme_fields($scheme_id);
 	foreach my $data (@$field_data) {
 		my $status = 'confirmed';
 	  LOCUS: foreach my $locus (@$loci) {
@@ -420,7 +420,9 @@ sub _convert_designations_to_profile_names {
 sub get_scheme_field_values_by_isolate_id {
 	my ( $self, $isolate_id, $scheme_id, $options ) = @_;
 	my $designations = $self->get_scheme_allele_designations( $isolate_id, $scheme_id );
-	return $self->get_scheme_field_values_by_designations( $scheme_id, $designations, $options );
+	return [] if !$designations;
+	my $field_values = $self->get_scheme_field_values_by_designations( $scheme_id, $designations, $options );
+	return $field_values;
 }
 
 #Used for profile/sequence definitions databases
@@ -1143,21 +1145,31 @@ sub create_temp_isolate_scheme_fields_view {
 		if ( $options->{'method'} eq 'full' ) {
 			$self->{'db'}->do("DELETE FROM $table");
 		}
+#		use Data::Dumper;
+#		use Memory::Usage;
+#		my $mu = Memory::Usage->new();
+#		$mu->record('starting scheme field table');
+		my $insert_sql = $self->{'db'}->prepare("INSERT INTO $table (id,@$scheme_fields) VALUES (@placeholders)");
+		my $delete_sql = $self->{'db'}->prepare("DELETE FROM $table WHERE id=?");
+
 		foreach my $isolate_id (@$isolates) {
 			my $field_values =
 			  $self->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id, { no_status => 1 } );
+#			if ( !( $i % 500 ) ) {
+#				$mu->record($isolate_id);
+#				$mu->dump();
+#			}
+			$i++;
 			if ( $options->{'method'} =~ /^daily/x ) {
-				$self->{'db'}->do( "DELETE FROM $table WHERE id=?", undef, $isolate_id );
+				$delete_sql->execute($isolate_id);
 			}
 			foreach my $field_value (@$field_values) {
 				my @values;
 				foreach my $field (@$scheme_fields) {
 					push @values, $field_value->{ lc($field) };
 				}
-				$self->{'db'}
-				  ->do( "INSERT INTO $table (id,@$scheme_fields) VALUES (@placeholders)", undef, $isolate_id, @values );
+				$insert_sql->execute( $isolate_id, @values );
 			}
-			$i++;
 			my $progress = int( $i * 100 / @$isolates );
 			if ( $progress > $last_progress ) {
 				$options->{'status'}->{'stage_progress'} = $progress;
@@ -1326,12 +1338,13 @@ sub get_lincode_value {
 	  ? "CAST(s.$self->{'pk'}->{$scheme_id} AS text)"
 	  : "s.$self->{'pk'}->{$scheme_id}";
 	my ($lincode) = $self->run_query(
-			"SELECT l.lincode FROM $self->{'lincode_table'}->{$scheme_id} l JOIN "
+		"SELECT l.lincode FROM $self->{'lincode_table'}->{$scheme_id} l JOIN "
 		  . "$self->{'scheme_field_table'}->{$scheme_id} s ON "
 		  . "l.profile_id=$pk_cast JOIN $self->{'scheme_table'}->{$scheme_id} t ON "
 		  . "s.$self->{'pk'}->{$scheme_id}=t.$self->{'pk'}->{$scheme_id} WHERE id=? ORDER BY "
 		  . 't.missing_loci,l.lincode LIMIT 1',
-		$isolate_id, { fetch => 'row_array', cache => "Datastore::get_lincode_value::$scheme_id" }
+		$isolate_id,
+		{ fetch => 'row_array', cache => "Datastore::get_lincode_value::$scheme_id" }
 	);
 	return $lincode;
 }
@@ -1635,9 +1648,11 @@ sub create_temp_scheme_status_table {
 		if ( $options->{'method'} eq 'full' ) {
 			$self->{'db'}->do("DELETE FROM $table");
 		}
+		my $insert_sql = $self->{'db'}->prepare("INSERT INTO $table (id,locus_count) VALUES (?,?)");
+		my $delete_sql = $self->{'db'}->prepare("DELETE FROM $table WHERE id=?");
 		foreach my $isolate_id (@$isolates) {
 			if ( $options->{'method'} =~ /^daily/x ) {
-				$self->{'db'}->do( "DELETE FROM $table WHERE id=?", undef, $isolate_id );
+				$delete_sql->execute($isolate_id);
 			}
 			my $count = $self->run_query(
 				q(SELECT COUNT(DISTINCT(locus)) FROM allele_designations WHERE locus )
@@ -1654,7 +1669,7 @@ sub create_temp_scheme_status_table {
 				$last_progress = $progress;
 			}
 			next if !$count;
-			$self->{'db'}->do( "INSERT INTO $table (id,locus_count) VALUES (?,?)", undef, $isolate_id, $count );
+			$insert_sql->execute( $isolate_id, $count );
 		}
 		if ( !$table_exists ) {
 			foreach my $field (qw(id locus_count)) {
@@ -2108,7 +2123,6 @@ sub get_all_allele_designations {
 
 sub get_scheme_allele_designations {
 	my ( $self, $isolate_id, $scheme_id, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
 	my $ignore_clause = $options->{'show_ignored'} ? q() : q( AND status != 'ignore');
 	my $designations;
 	if ($scheme_id) {
@@ -2142,7 +2156,6 @@ sub get_scheme_allele_designations {
 
 sub get_all_allele_sequences {
 	my ( $self, $isolate_id, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
 	my $keys = $options->{'keys'} // [qw (locus seqbin_id start_pos end_pos)];
 	return $self->run_query( 'SELECT allele_sequences.* FROM allele_sequences WHERE isolate_id=?',
 		$isolate_id, { fetch => 'all_hashref', key => $keys, cache => 'get_all_allele_sequences' } );

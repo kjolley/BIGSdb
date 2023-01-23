@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -40,7 +40,7 @@ sub _initiate {
 	if ( $self->{'dbase_id'} ) {
 		eval { $sql->execute( $self->{'dbase_id'} ); };
 		$logger->error($@) if $@;
-		my $data = $sql->fetchall_arrayref;
+		my $data    = $sql->fetchall_arrayref;
 		my %indices = map { $_->[0] => $_->[1] } @$data;
 		$self->{'locus_index'} = \%indices;
 	}
@@ -93,10 +93,15 @@ sub get_field_values_by_designations {
 
 	#$designations is a hashref containing arrayref of allele_designations for each locus
 	my ( $self, $designations, $options ) = @_;
-	my ( @allele_count, @allele_ids );
 	my $loci   = $self->{'loci'};
 	my $fields = $self->{'fields'};
 	my @used_loci;
+	my $values = {};
+
+	#The original version of the query used placeholders. It was found, however, that memory usage
+	#accumulated when doing full cache renewals for cgMLST schemes. Although not as elegant, using
+	#a query without placeholders seems to use less memory. Allele ids do need to be escaped in case
+	#they include a ' symbol in their identifier.
 	foreach my $locus (@$loci) {
 		if ( !defined $designations->{$locus} ) {
 			next if $options->{'dont_match_missing_loci'};
@@ -104,44 +109,45 @@ sub get_field_values_by_designations {
 			#Define a null designation if one doesn't exist for the purposes of looking up profile.
 			#We can't just abort the query because some schemes allow missing loci, but we don't want to match based
 			#on an incomplete set of designations.
-			push @allele_ids,   '-999';
-			push @allele_count, 1;
+			$values->{$locus}->{'allele_ids'}   = [-999];
+			$values->{$locus}->{'allele_count'} = 1;
 		} else {
 			next if $options->{'dont_match_missing_loci'} && $designations->{$locus}->[0]->{'allele_id'} eq 'N';
-			push @allele_count,
-			  scalar @{ $designations->{$locus} }
-			  ;    #We need a different query depending on number of designations at loci.
+
+			#We need a different query depending on number of designations at loci.
+			$values->{$locus}->{'allele_count'} = scalar @{ $designations->{$locus} };
+			my $allele_ids = [];
 			foreach my $designation ( @{ $designations->{$locus} } ) {
-				push @allele_ids, $designation->{'status'} eq 'ignore' ? '-999' : $designation->{'allele_id'};
+				$designation->{'allele_id'} =~ s/'/\\'/gx;
+				push @$allele_ids, $designation->{'status'} eq 'ignore' ? '-999' : $designation->{'allele_id'};
 			}
+			$values->{$locus}->{'allele_ids'} = $allele_ids;
 		}
 		push @used_loci, $locus;
 	}
-	return {} if !@allele_ids;
+	return {} if !$values;
 	local $" = ',';
 	my @locus_terms;
-	my $i = 0;
 	foreach my $locus (@used_loci) {
-		my $locus_name = "profile[$self->{'locus_index'}->{$locus}]";
-		my @temp_terms;
-		push @temp_terms, ("$locus_name=?") x $allele_count[$i];
-		push @temp_terms, "$locus_name='N'"
-		  if $self->{'allow_missing_loci'}
-		  && ( !defined $options->{'dont_match_missing_loci'} || $options->{'dont_match_missing_loci'} )
-		  ;
-		local $" = ' OR ';
-		push @locus_terms, "(@temp_terms)";
-		$i++;
+		if ( $self->{'allow_missing_loci'}
+			&& ( !defined $options->{'dont_match_missing_loci'} || $options->{'dont_match_missing_loci'} ) )
+		{
+			push @{ $values->{$locus}->{'allele_ids'} }, 'N';
+		}
+		local $" = q(',E');
+		push @locus_terms, "profile[$self->{'locus_index'}->{$locus}] IN (E'@{ $values->{$locus}->{'allele_ids'} }')";
 	}
 	local $" = ' AND ';
 	my $locus_term_string = "@locus_terms";
 	local $" = ',';
 	my $table = "mv_scheme_$self->{'dbase_id'}";
 
-	#Don't cache statement handle because it will vary depending on whether or not there are missing loci
+	#The query varies depending on whether or not there are missing or multiple alleles for loci,
 	#or differing numbers of allele designations at loci.
-	my $sql = $self->{'db'}->prepare("SELECT @$fields FROM $table WHERE $locus_term_string");
-	eval { $sql->execute(@allele_ids) };
+	#Note that long queries cause memory to increase over time.
+	my $qry = "SELECT @$fields FROM $table WHERE $locus_term_string";
+	my $sql = $self->{'db'}->prepare($qry);
+	eval { $sql->execute };
 	if ($@) {
 		$logger->warn( q(Check database attributes in the scheme_fields table for )
 			  . qq(scheme#$self->{'id'} ($self->{'name'})! $@ ) );
