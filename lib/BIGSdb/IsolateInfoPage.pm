@@ -1744,19 +1744,7 @@ sub _get_scheme_values {
 
 sub _get_lincode_values {
 	my ( $self, $isolate_id, $scheme_id, $args ) = @_;
-	my $lincode_info = $self->{'datastore'}->get_lincode_tables($scheme_id);
-	my ( $lincode_table, $scheme_field_table, $pk, $pk_type ) =
-	  @{$lincode_info}{qw(lincode_table scheme_field_table pk pk_type)};
-	my $pk_cast =
-	  $pk_type eq 'integer'
-	  ? "CAST(s.$pk AS text)"
-	  : "s.$pk";
-	my ($lincode) = $self->{'datastore'}->run_query(
-		"SELECT l.lincode FROM $lincode_table l JOIN $scheme_field_table s ON "
-		  . "l.profile_id=$pk_cast JOIN temp_scheme_$scheme_id t ON s.$pk=t.$pk WHERE id=? ORDER BY "
-		  . 't.missing_loci,l.lincode LIMIT 1',
-		$isolate_id
-	);
+	my $lincode = $self->{'datastore'}->get_lincode_value($isolate_id,$scheme_id);
 	my $buffer = q();
 	if ( defined $lincode ) {
 		local $" = q(_);

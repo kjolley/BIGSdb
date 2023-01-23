@@ -1166,7 +1166,8 @@ sub _print_isolate_table_scheme {
 		print qq(<td>@values</td>);
 	}
 	if ( $self->{'lincodes'}->{$scheme_id} ) {
-		$self->_print_lincode_value( $scheme_id, $isolate_id );
+		my $lincode = $self->_get_lincode_value( $scheme_id, $isolate_id );
+		print qq(<td>$lincode</td>);
 	}
 	foreach my $lincode_field ( @{ $self->{'lincode_fields'}->{$scheme_id} } ) {
 		$self->_print_lincode_field_value( $scheme_id, $lincode_field, $isolate_id );
@@ -1174,33 +1175,14 @@ sub _print_isolate_table_scheme {
 	return;
 }
 
-sub _print_lincode_value {
-	my ( $self, $scheme_id, $isolate_id ) = @_;
-	my $lincode = $self->_get_lincode_value( $scheme_id, $isolate_id );
-	print qq(<td>$lincode</td>);
-	return;
-}
-
 sub _get_lincode_value {
 	my ( $self, $scheme_id, $isolate_id ) = @_;
 	if ( !defined $self->{'cache'}->{'lincode_values'}->{$scheme_id}->{$isolate_id} ) {
-		my $lincode_info = $self->{'datastore'}->get_lincode_tables($scheme_id);
-		my ( $lincode_table, $scheme_field_table, $pk, $pk_type ) =
-		  @{$lincode_info}{qw(lincode_table scheme_field_table pk pk_type)};
-		my $pk_cast =
-		  $pk_type eq 'integer'
-		  ? "CAST(s.$pk AS text)"
-		  : "s.$pk";
-		my ($lincode) = $self->{'datastore'}->run_query(
-			"SELECT l.lincode FROM $lincode_table l JOIN $scheme_field_table s ON "
-			  . "l.profile_id=$pk_cast JOIN temp_scheme_$scheme_id t ON s.$pk=t.$pk WHERE id=? ORDER BY "
-			  . 't.missing_loci,l.lincode LIMIT 1',
-			$isolate_id,
-			{ cache => 'ResultsTablePage::print_lincode_value' }
-		);
+		my $lincode = $self->{'cache'}->{'lincode_values'}->{$scheme_id}->{$isolate_id} =
+		  $self->{'datastore'}->get_lincode_value( $isolate_id, $scheme_id );
 		if ( defined $lincode ) {
 			local $" = q(_);
-			$self->{'cache'}->{'lincode_values'}->{$scheme_id}->{$isolate_id} = "@$lincode";
+			$self->{'cache'}->{'lincode_values'}->{$scheme_id}->{$isolate_id} = qq(@$lincode);
 		} else {
 			$self->{'cache'}->{'lincode_values'}->{$scheme_id}->{$isolate_id} = q();
 		}
