@@ -1088,6 +1088,31 @@ sub _write_status_file {
 	return;
 }
 
+sub _check_isolate_scheme_field_cache_structure {
+	my ( $self, $scheme_id ) = @_;
+	my $table = "temp_isolates_scheme_fields_$scheme_id";
+	return if !$self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
+	my $data = $self->run_query(
+		'SELECT column_name, data_type FROM information_schema.columns WHERE (table_schema,table_name)=(?,?)',
+		[ 'public', $table ],
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	my %cols          = map { $_->{'column_name'} => $_->{'data_type'} } @$data;
+	my $scheme_fields = $self->get_scheme_fields($scheme_id);
+	if ( @$scheme_fields + 1 != keys %cols ) {
+		$logger->error("Cache table $table has a different number of fields than the defined scheme.");
+		return 1;
+	}
+	foreach my $field ( keys %cols ) {
+		my $scheme_field_info = $self->get_scheme_field_info( $scheme_id, $field );
+		if ( $cols{$field} ne $scheme_field_info->{'type'} ) {
+			$logger->error("Column $field in $table is $cols{$field} but in scheme is $scheme_field_info->{'type'}.");
+			return 1;
+		}
+	}
+	return;
+}
+
 sub create_temp_isolate_scheme_fields_view {
 	my ( $self, $scheme_id, $options ) = @_;
 
@@ -1110,6 +1135,16 @@ sub create_temp_isolate_scheme_fields_view {
 		}
 		$self->{'scheme_not_cached'} = 1;
 		return $table;
+	}
+	if ( $self->_check_isolate_scheme_field_cache_structure($scheme_id) ) {
+		$logger->error("Removing and recreating $table.");
+		eval { $self->{'db'}->do("DROP TABLE $table") };
+		if ($@) {
+			$logger->error($@);
+			$self->{'db'}->rollback;
+			return;
+		}
+		$table_exists = 0;
 	}
 	my $scheme_info = $self->get_scheme_info($scheme_id);
 	$options->{'status'}->{'stage'} = "Scheme $scheme_id ($scheme_info->{'name'}): importing definitions";
@@ -1145,20 +1180,31 @@ sub create_temp_isolate_scheme_fields_view {
 		if ( $options->{'method'} eq 'full' ) {
 			$self->{'db'}->do("DELETE FROM $table");
 		}
-#		use Data::Dumper;
-#		use Memory::Usage;
-#		my $mu = Memory::Usage->new();
-#		$mu->record('starting scheme field table');
+		use Memory::Usage;
+		my $mu = Memory::Usage->new();
+		$mu->record('starting scheme field table');
 		my $insert_sql = $self->{'db'}->prepare("INSERT INTO $table (id,@$scheme_fields) VALUES (@placeholders)");
 		my $delete_sql = $self->{'db'}->prepare("DELETE FROM $table WHERE id=?");
-
+		my @f_values;
+		foreach my $scheme_field (@$scheme_fields) {
+			my $scheme_field_info = $self->get_scheme_field_info( $scheme_id, $scheme_field );
+			push @f_values, "$scheme_field $scheme_field_info->{'type'}";
+		}
 		foreach my $isolate_id (@$isolates) {
-			my $field_values =
-			  $self->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id, { no_status => 1 } );
-#			if ( !( $i % 500 ) ) {
-#				$mu->record($isolate_id);
-#				$mu->dump();
-#			}
+
+			#We know that the scheme_cache table exists and is up-to-date because we have just
+			#created it. We can therefore use an embedded plpgsql function to lookup values
+			#directly in the database, which will be quicker and use less memory.
+			local $" = q(,);
+			my $field_values = $self->run_query(
+				"SELECT * FROM get_isolate_scheme_fields(?,?) f(@f_values)",
+				[ $isolate_id, $scheme_id ],
+				{ fetch => 'all_arrayref', slice => {}, cache => "Pg::get_isolate_scheme_fields::$scheme_id" }
+			);
+			if ( !( $i % 500 ) ) {
+				$mu->record($isolate_id);
+				$mu->dump();
+			}
 			$i++;
 			if ( $options->{'method'} =~ /^daily/x ) {
 				$delete_sql->execute($isolate_id);
