@@ -2063,6 +2063,7 @@ RETURNS SETOF record AS $$
 			 AND status!='ignore'		
 			LOOP
 				is_missing:=FALSE;
+				designation=REPLACE(designation,'''','''''');
 				qry:=qry || ',''' || designation || '''';
 			END LOOP;
 			qry:=qry || ')';
