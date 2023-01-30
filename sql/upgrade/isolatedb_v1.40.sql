@@ -27,7 +27,7 @@ RETURNS SETOF record AS $$
 			RAISE EXCEPTION 'Scheme cache table % does not exist.', scheme_table;
 		END IF;
 		
-		EXECUTE('SELECT ARRAY(SELECT field FROM scheme_fields WHERE scheme_id=$1 ORDER BY primary_key DESC )') 
+		EXECUTE('SELECT ARRAY(SELECT field FROM scheme_fields WHERE scheme_id=$1 ORDER BY field_order,field DESC )') 
 		INTO fields USING _scheme_id;
 		IF ARRAY_UPPER(fields,1) IS NULL THEN
 			RAISE EXCEPTION 'Scheme has no fields.';

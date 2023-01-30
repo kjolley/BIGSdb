@@ -1106,11 +1106,11 @@ sub _check_isolate_scheme_field_cache_structure {
 	foreach my $field ( keys %cols ) {
 		next if $field eq 'id';
 		my $scheme_field_info = $self->get_scheme_field_info( $scheme_id, $field );
-		if (!$scheme_field_info){
+		if ( !$scheme_field_info ) {
 			$logger->error("Field $field in $table does not exist in scheme.");
 			return 1;
 		}
-		if ( $cols{$field} ne $scheme_field_info->{'type'} ) {
+		if ( lc( $cols{$field} ) ne lc( $scheme_field_info->{'type'} ) ) {
 			$logger->error("Column $field in $table is $cols{$field} but in scheme is $scheme_field_info->{'type'}.");
 			return 1;
 		}
@@ -1199,7 +1199,7 @@ sub create_temp_isolate_scheme_fields_view {
 			#directly in the database, which will be quicker and use less memory.
 			local $" = q(,);
 			my $field_values = $self->run_query(
-				"SELECT * FROM get_isolate_scheme_fields(?,?) f(@f_values)",
+				"SELECT @$scheme_fields FROM get_isolate_scheme_fields(?,?) f(@f_values)",
 				[ $isolate_id, $scheme_id ],
 				{ fetch => 'all_arrayref', slice => {}, cache => "Pg::get_isolate_scheme_fields::$scheme_id" }
 			);
