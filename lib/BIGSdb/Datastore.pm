@@ -1185,9 +1185,6 @@ sub create_temp_isolate_scheme_fields_view {
 		if ( $options->{'method'} eq 'full' ) {
 			$self->{'db'}->do("DELETE FROM $table");
 		}
-		use Memory::Usage;
-		my $mu = Memory::Usage->new();
-		$mu->record('starting scheme field table');
 		my $insert_sql = $self->{'db'}->prepare("INSERT INTO $table (id,@$scheme_fields) VALUES (@placeholders)");
 		my $delete_sql = $self->{'db'}->prepare("DELETE FROM $table WHERE id=?");
 		my @f_values;
@@ -1206,10 +1203,6 @@ sub create_temp_isolate_scheme_fields_view {
 				[ $isolate_id, $scheme_id ],
 				{ fetch => 'all_arrayref', slice => {}, cache => "Pg::get_isolate_scheme_fields::$scheme_id" }
 			);
-			if ( !( $i % 500 ) ) {
-				$mu->record($isolate_id);
-				$mu->dump();
-			}
 			$i++;
 			if ( $options->{'method'} =~ /^daily/x ) {
 				$delete_sql->execute($isolate_id);
