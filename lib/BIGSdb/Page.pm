@@ -859,8 +859,7 @@ sub print_action_fieldset {
 	local $" = q( );
 	my %id = $options->{'id'} ? ( id => $options->{'id'} ) : ();
 	$buffer .=
-	  $q->submit( -id => $submit_name, -name => $submit_name, -label => $submit_label, -class => 'submit', %id )
-	  ;
+	  $q->submit( -id => $submit_name, -name => $submit_name, -label => $submit_label, -class => 'submit', %id );
 	if ( $options->{'submit2'} ) {
 		$options->{'submit2_label'} //= $options->{'submit2'};
 		$buffer .= $q->submit(
@@ -3577,7 +3576,7 @@ sub set_level1_breadcrumbs {
 			href  => $self->{'system'}->{'webroot'}
 		  };
 	}
-	if ( $self->{'instance'} ) {
+	if ( $self->{'instance'} && $self->{'system'}->{'script_name'} ) {
 		push @$breadcrumbs,
 		  {
 			label => $self->{'system'}->{'formatted_description'} // $self->{'system'}->{'description'},
