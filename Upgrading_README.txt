@@ -45,6 +45,7 @@ Version 1.36: Optional additional table added to the isolate database structure.
 Version 1.37: Change of seqdef and isolate database structures.
 Version 1.38: Change of seqdef and isolate database structures.
 Version 1.39: Change of isolate and preference database structures.
+Version 1.40: Change of isolate database structure.
 
 Details can be found below.
 
@@ -589,3 +590,10 @@ of assemblies for existing records.
 
 Please run the prefs_v1.39.sql script against the prefs database (bigsdb_prefs
 by default) and the isolatedb_v1.39.sql script against isolate databases.
+
+Version 1.40
+------------
+There is a new stored procedure in the isolate databases needed for scheme 
+field lookup during cache renewal.
+
+Please run the isolatedb_v1.40.sql script against isolate databases.

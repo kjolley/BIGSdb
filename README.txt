@@ -1,3 +1,5 @@
+v1.40.0: *Cache renewal now uses an embedded database stored procedure for
+          scheme field lookup, improving memory use.
 v1.39.1: *Improvements to scheme caching in isolate databases. This is now more
           scalable for large databases. Manually refreshing the scheme is now
           done in a forked process with updates displayed using AJAX calls.
