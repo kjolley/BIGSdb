@@ -420,7 +420,7 @@ sub _convert_designations_to_profile_names {
 sub get_scheme_field_values_by_isolate_id {
 	my ( $self, $isolate_id, $scheme_id, $options ) = @_;
 	my $designations = $self->get_scheme_allele_designations( $isolate_id, $scheme_id );
-	return [] if !$designations;
+	return {} if !$designations;
 	my $field_values = $self->get_scheme_field_values_by_designations( $scheme_id, $designations, $options );
 	return $field_values;
 }
