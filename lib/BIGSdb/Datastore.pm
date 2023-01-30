@@ -1103,15 +1103,15 @@ sub _check_isolate_scheme_field_cache_structure {
 		$logger->error("Cache table $table has a different number of fields than the defined scheme.");
 		return 1;
 	}
-	foreach my $field ( keys %cols ) {
-		next if $field eq 'id';
+	foreach my $field ( @$scheme_fields ) {
 		my $scheme_field_info = $self->get_scheme_field_info( $scheme_id, $field );
-		if ( !$scheme_field_info ) {
-			$logger->error("Field $field in $table does not exist in scheme.");
+		if ( !$cols{lc $field} ) {
+			$logger->error("Scheme field $field does not exist in $table.");
 			return 1;
 		}
-		if ( lc( $cols{$field} ) ne lc( $scheme_field_info->{'type'} ) ) {
-			$logger->error("Column $field in $table is $cols{$field} but in scheme is $scheme_field_info->{'type'}.");
+		if (  $cols{lc $field}  ne  $scheme_field_info->{'type'} ) {
+			my $type = $cols{lc $field};
+			$logger->error("Column $field in $table is $type but in scheme is $scheme_field_info->{'type'}.");
 			return 1;
 		}
 	}
