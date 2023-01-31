@@ -1222,6 +1222,7 @@ sub create_temp_isolate_scheme_fields_view {
 			}
 		}
 		if ( !$table_exists ) {
+			$self->{'db'}->do("CREATE INDEX ON $table(id)");
 			foreach my $field (@$scheme_fields) {
 				$self->{'db'}->do("CREATE INDEX ON $table($field)");
 			}
