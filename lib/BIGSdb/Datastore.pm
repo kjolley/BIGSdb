@@ -1228,6 +1228,13 @@ sub create_temp_isolate_scheme_fields_view {
 			}
 			$self->{'db'}->do("GRANT SELECT ON $table TO apache");
 		}
+
+		#Check if all indexes are in place - create them if not.
+		foreach my $field ( 'id', @$scheme_fields ) {
+			if ( !$self->_index_exists( $table, $field ) ) {
+				$self->{'db'}->do("CREATE INDEX ON $table($field)");
+			}
+		}
 	};
 	if ($@) {
 		$logger->error($@);
@@ -1236,6 +1243,16 @@ sub create_temp_isolate_scheme_fields_view {
 	$self->{'db'}->commit;
 	delete $options->{'status'}->{'stage_progress'};
 	return $table;
+}
+
+#https://stackoverflow.com/questions/45983169/checking-for-existence-of-index-in-postgresql
+sub _index_exists {
+	my ( $self, $table, $column ) = @_;
+	my $qry =
+		q[SELECT EXISTS(SELECT a.attname FROM pg_class t,pg_class i,pg_index ix,pg_attribute a WHERE ]
+	  . q[t.oid = ix.indrelid AND i.oid = ix.indexrelid AND a.attrelid = t.oid AND a.attnum = ANY(ix.indkey) ]
+	  . q[AND t.relkind = 'r' AND t.relname=? AND a.attname=?)];
+	return $self->run_query( $qry, [ $table, lc($column) ] );
 }
 
 sub create_temp_cscheme_table {
@@ -1634,6 +1651,7 @@ sub create_temp_scheme_table {
 		}
 	}
 	$self->{'db'}->do("CREATE INDEX ON $table (missing_loci)");
+
 	#Index up to 3 elements
 	my $index_count = keys %$locus_indices >= 3 ? 3 : keys %$locus_indices;
 	foreach my $element ( 1 .. $index_count ) {
