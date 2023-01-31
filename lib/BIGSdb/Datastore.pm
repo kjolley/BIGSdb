@@ -1632,7 +1632,7 @@ sub create_temp_scheme_table {
 			$self->{'db'}->do("CREATE INDEX ON $table (UPPER($field))");
 		}
 	}
-
+	$self->{'db'}->do("CREATE INDEX ON $table (missing_loci)");
 	#Index up to 3 elements
 	my $index_count = keys %$locus_indices >= 3 ? 3 : keys %$locus_indices;
 	foreach my $element ( 1 .. $index_count ) {
