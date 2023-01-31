@@ -1222,16 +1222,12 @@ sub create_temp_isolate_scheme_fields_view {
 			}
 		}
 		if ( !$table_exists ) {
-			$self->{'db'}->do("CREATE INDEX ON $table(id)");
-			foreach my $field (@$scheme_fields) {
-				$self->{'db'}->do("CREATE INDEX ON $table($field)");
-			}
 			$self->{'db'}->do("GRANT SELECT ON $table TO apache");
 		}
 
 		#Check if all indexes are in place - create them if not.
 		foreach my $field ( 'id', @$scheme_fields ) {
-			if ( !$self->_index_exists( $table, $field ) ) {
+			if ( !$table_exists || !$self->_index_exists( $table, $field ) ) {
 				$self->{'db'}->do("CREATE INDEX ON $table($field)");
 			}
 		}
