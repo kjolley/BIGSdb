@@ -101,7 +101,7 @@ sub get_title {
 	my $scheme_id   = $self->{'cgi'}->param('scheme_id');
 	my $scheme_desc = q();
 	if ( $scheme_id && BIGSdb::Utils::is_int($scheme_id) ) {
-		my $set_id = $self->get_set_id;
+		my $set_id      = $self->get_set_id;
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 		$scheme_desc = $scheme_info->{'name'} // q();
 	}
@@ -138,16 +138,17 @@ sub _get_field_data {
 	my $is_field          = {};
 	my $is_locus          = {};
 	my $scheme_field_info = {};
+
 	foreach my $locus (@$loci) {
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-		my $mapped = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
+		my $mapped     = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
 		push @mapped_loci, $mapped;
 		$is_locus->{$locus} = 1;
 	}
 	my $field_order   = [ $primary_key, @$loci ];
 	my $cleaned_order = [ $primary_key, @mapped_loci ];
 	foreach my $field (@$scheme_fields) {
-		$is_field->{$field} = 1;
+		$is_field->{$field}          = 1;
 		$scheme_field_info->{$field} = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 		next if $field eq $primary_key;
 		push @$field_order,   $field;
@@ -470,12 +471,12 @@ sub _check_duplicate_profile {
 		return 1 if $q->param('ignore_duplicates');
 		$problems->{$pk} .= qq(The profile '@$profile' has been included more than once in this submission.<br />);
 	} elsif ( $scheme_info->{'allow_missing_loci'} && !$match_missing ) {
-		if (!ref $self->{'profiles_so_far'}->{"@$profile"}){
+		if ( !ref $self->{'profiles_so_far'}->{"@$profile"} ) {
 			$self->{'profiles_so_far'}->{"@$profile"} = 1;
 			return;
 		}
 		foreach my $profile_string ( keys %{ $self->{'profiles_so_far'}->{"@$profile"} } ) {
-			my $it_matches = 1;
+			my $it_matches       = 1;
 			my @existing_profile = split /,/x, $profile_string;
 			foreach my $i ( 0 .. @$profile - 1 ) {
 				if (   $profile->[$i] ne $existing_profile[$i]
@@ -487,7 +488,7 @@ sub _check_duplicate_profile {
 				}
 			}
 			$problems->{$pk} .=
-			    qq(The profile '@$profile' matches another profile in this submission when considering that )
+				qq(The profile '@$profile' matches another profile in this submission when considering that )
 			  . q(arbitrary allele 'N' can match any other allele.<br />)
 			  if $it_matches;
 		}
@@ -507,7 +508,7 @@ sub _upload {
 		$self->print_bad_status(
 			{
 				message => q(The temp file containing the checked profiles does not exist.),
-				detail =>
+				detail  =>
 				  q(Upload cannot proceed.  Make sure that you haven't used the back button and are attempting to )
 				  . q(re-upload already submitted data.  Please report this if the problem persists.),
 				navbar   => 1,
@@ -595,7 +596,7 @@ sub _upload {
 			my $detail;
 			if ( $@ =~ /duplicate/ && $@ =~ /unique/ ) {
 				$detail =
-				    q(<p>Data entry would have resulted in records with either duplicate ids or another )
+					q(<p>Data entry would have resulted in records with either duplicate ids or another )
 				  . q(unique field with duplicate values.</p>);
 			}
 			$self->print_bad_status(
@@ -681,9 +682,13 @@ sub _print_interface {
 	);
 	say q(<p class="comment">Value will be overridden if you include a sender field in your pasted data.</p>);
 	say q(<ul><li>);
-	say $q->checkbox( -name => 'ignore_existing', -label => 'Remove previously-assigned profiles from upload' );
+	say $q->checkbox(
+		-name    => 'ignore_existing',
+		-label   => 'Remove previously-assigned profiles from upload',
+		-checked => 1
+	);
 	say q(</li><li>);
-	say $q->checkbox( -name => 'ignore_duplicates', -label => 'Remove duplicate profiles from upload' );
+	say $q->checkbox( -name => 'ignore_duplicates', -label => 'Remove duplicate profiles from upload', -checked => 1 );
 
 	if ( $scheme_info->{'allow_missing_loci'} ) {
 		say q(</li><li>);
