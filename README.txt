@@ -1,3 +1,4 @@
+v1.41.0: *Bug fix for scheme field ordering in cache tables.
 v1.40.1: *Check, and add if necessary, field indexes on scheme cache tables.
          *Add new index that speeds up scheme cache renewal.
          *Fix flanking sequence export.

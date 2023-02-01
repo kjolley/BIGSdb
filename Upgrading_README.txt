@@ -46,6 +46,7 @@ Version 1.37: Change of seqdef and isolate database structures.
 Version 1.38: Change of seqdef and isolate database structures.
 Version 1.39: Change of isolate and preference database structures.
 Version 1.40: Change of isolate database structure.
+Version 1.41: Change of isolate database structure.
 
 Details can be found below.
 
@@ -597,3 +598,10 @@ There is a new stored procedure in the isolate databases needed for scheme
 field lookup during cache renewal.
 
 Please run the isolatedb_v1.40.sql script against isolate databases.
+
+Version 1.41
+------------
+There is an updated stored procedure in the isolate databases needed for 
+scheme field lookup during cache renewal.
+
+Please run the isolatedb_v1.41.sql script against isolate databases.
