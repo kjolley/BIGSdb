@@ -1,3 +1,7 @@
+v1.40.1: *Check, and add if necessary, field indexes on scheme cache tables.
+         *Add new index that speeds up scheme cache renewal.
+         *Fix flanking sequence export.
+         *Add --curator option to autotag.pl and scannew.pl scripts.
 v1.40.0: *Cache renewal now uses an embedded database stored procedure for
           scheme field lookup, improving memory use.
 v1.39.1: *Improvements to scheme caching in isolate databases. This is now more
