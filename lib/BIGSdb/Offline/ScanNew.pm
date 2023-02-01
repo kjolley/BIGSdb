@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2022, University of Oxford
+#Copyright (c) 2014-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -27,8 +27,7 @@ use Try::Tiny;
 use constant DEFAULT_ALIGNMENT => 100;
 use constant DEFAULT_IDENTITY  => 99;
 use constant DEFAULT_WORD_SIZE => 30;
-use constant DEFINER_USER      => -1;              #User id for tagger (there needs to be a record in the users table)
-use constant DEFINER_USERNAME  => 'autodefiner';
+use constant DEFINER_USER      => -1;    #User id for tagger (there needs to be a record in the users table)
 
 sub run_script {
 	my ($self) = @_;
@@ -38,9 +37,23 @@ sub run_script {
 	die "No connection to database (check logs).\n" if !defined $self->{'db'};
 	die "This script can only be run against an isolate database.\n"
 	  if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
+	$self->{'user_id'} = $self->{'options'}->{'curator_id'} // DEFINER_USER;
+	my $user_ok = $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM users WHERE id=? AND status IN (?,?))',
+		[ $self->{'user_id'}, 'curator', 'admin' ] );
+
+	if ( !$user_ok ) {
+		if ( !defined $self->{'options'}->{'curator_id'} ) {
+			die
+			  'No allele definer user with a status of curator or admin set. Enter a user with id -1 in the database '
+			  . "to represent the auto tagger.\n";
+		} else {
+			die "No curator/admin with a user id of $self->{'user_id'} exists.\n";
+		}
+	}
+	$self->{'username'} =
+	  $self->{'datastore'}->run_query( 'SELECT user_name FROM users WHERE id=?', $self->{'user_id'} );
 	my $params = $self->_get_params;
 	my $loci   = $self->get_loci_with_ref_db;
-
 	if ( $self->{'options'}->{'a'} && !$self->_can_define_alleles($loci) ) {
 		exit(1);
 	}
@@ -272,12 +285,12 @@ sub _define_allele {
 				'WGS: automated extract (BIGSdb)',
 				'now',
 				'now',
-				DEFINER_USER,
-				DEFINER_USER
+				$self->{'user_id'},
+				$self->{'user_id'}
 			);
 			if ($flag) {
 				$locus_db->do( 'INSERT INTO allele_flags (locus,allele_id,flag,curator,datestamp) VALUES (?,?,?,?,?)',
-					undef, $locus, $allele_id, $flag, DEFINER_USER, 'now' );
+					undef, $locus, $allele_id, $flag, $self->{'user_id'}, 'now' );
 			}
 		};
 		if ($@) {
@@ -295,8 +308,7 @@ sub _define_allele {
 			$locus_db->commit;
 			$self->{'logger'}->info("New allele defined: $locus-$allele_id");
 		}
-	}
-	catch {
+	} catch {
 		if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
 			$self->{'logger'}->error("Cannot connect to database for locus $locus");
 			say "Cannot connect to database for locus $locus";
@@ -360,16 +372,6 @@ sub _can_define_alleles {
 					dbase_name => $locus_info->{'dbase_name'}
 				}
 			);
-			my $user_exists = $self->{'datastore'}->run_query(
-				'SELECT EXISTS(SELECT * FROM users WHERE (id,user_name)=(?,?))',
-				[ DEFINER_USER, DEFINER_USERNAME ],
-				{ db => $locus_db }
-			);
-			if ( !$user_exists ) {
-				$self->{'logger'}->error("Autodefiner user does not exist in database for locus $locus.");
-				say "Autodefiner user does not exist in database for locus $locus.";
-				$can_define = 0;
-			}
 			my $extended_attributes =
 			  $self->{'datastore'}
 			  ->run_query( 'SELECT EXISTS(SELECT * FROM locus_extended_attributes WHERE locus=? AND required)',
@@ -379,8 +381,7 @@ sub _can_define_alleles {
 				say "Locus $locus has required extended attributes.";
 				$can_define = 0;
 			}
-		}
-		catch {
+		} catch {
 			if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
 				$self->{'logger'}->error("Cannot connect to database for locus $locus");
 				say "Cannot connect to database for locus $locus";

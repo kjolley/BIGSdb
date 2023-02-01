@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2022, University of Oxford
+#Copyright (c) 2011-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -24,9 +24,8 @@ use parent qw(BIGSdb::Offline::Scan);
 use BIGSdb::Utils;
 use BIGSdb::Exceptions;
 use Try::Tiny;
-use constant TAG_USER          => -1;             #User id for tagger (there needs to be a record in the users table)
-use constant TAG_USERNAME      => 'autotagger';
-use constant DEFAULT_WORD_SIZE => 60;             #Only looking for exact matches
+use constant TAG_USER                 => -1;    #User id for tagger (there needs to be a record in the users table)
+use constant DEFAULT_WORD_SIZE        => 60;    #Only looking for exact matches
 use constant MISSING_ALLELE_ALIGNMENT => 30;
 use constant MISSING_ALLELE_IDENTITY  => 50;
 use constant PROBLEM                  => 1;
@@ -38,18 +37,23 @@ sub run_script {
 	die "No connection to database (check logs).\n" if !defined $self->{'db'};
 	die "This script can only be run against an isolate database.\n"
 	  if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
-	my $tag_user_id = TAG_USER;
-	$self->{'username'} = TAG_USERNAME;
-	my $user_ok = $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM users WHERE (id,user_name)=(?,?))',
-		[ $tag_user_id, $self->{'username'} ] );
-	die "Database user '$self->{'username'}' not set.  Enter a user '$self->{'username'}' with id $tag_user_id\n"
-	  . "in the database to represent the auto tagger.\n"
-	  if !$user_ok;
+	$self->{'user_id'} = $self->{'options'}->{'curator_id'} // TAG_USER;
+	my $user_ok = $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM users WHERE id=? AND status IN (?,?))',
+		[ $self->{'user_id'}, 'curator', 'admin' ] );
+	if ( !$user_ok ) {
+		if ( !defined $self->{'options'}->{'curator_id'} ) {
+			die 'No autotagger user with a status of curator or admin set. Enter a user with id -1 in the database '
+			. "to represent the auto tagger.\n";
+		} else {
+			die "No curator/admin with a user id of $self->{'user_id'} exists.\n";
+		}
+	}
+	$self->{'username'} =
+	  $self->{'datastore'}->run_query( 'SELECT user_name FROM users WHERE id=?', $self->{'user_id'} );
 	my $isolates     = $self->get_isolates_with_linked_seqs;
 	my $isolate_list = $self->filter_and_sort_isolates($isolates);
-
 	if ( !@$isolate_list ) {
-		exit(0) if $self->{'options'}->{'n'};
+		exit(0)                                           if $self->{'options'}->{'n'};
 		$self->{'logger'}->error('No isolates selected.') if !$self->{'options'}->{'quiet'};
 		exit;
 	}
@@ -161,7 +165,7 @@ sub _scan_locus_by_locus {
 			"$self->{'options'}->{'d'}#pid$$:Checking isolate $isolate_id - $i/" . (@$isolate_list) . "($complete%)" );
 		undef $self->{'history'};
 	  LOCUS: foreach my $locus (@$loci) {
-			last if $EXIT || $self->_is_time_up;
+			last       if $EXIT || $self->_is_time_up;
 			next LOCUS if $self->skip_for_locus_view( $isolate_id, $locus, $params );
 			my $existing_allele_ids = $self->{'datastore'}->get_allele_ids( $isolate_id, $locus );
 			next if @$existing_allele_ids;
@@ -244,7 +248,7 @@ sub _handle_match {
 	  @{$args}{qw(isolate_id locus exact_matches allele_seq isolate_prefix locus_prefix)};
 	print "Isolate: $isolate_id; Locus: $locus; " if !$self->{'options'}->{'q'};
 	foreach my $match (@$exact_matches) {
-		next if !$match->{'allele'};
+		next                                if !$match->{'allele'};
 		print "Allele: $match->{'allele'} " if !$self->{'options'}->{'q'};
 		my $sender = $self->{'datastore'}->run_query( 'SELECT sender FROM sequence_bin WHERE id=?',
 			$match->{'seqbin_id'}, { cache => 'AutoTag::run_script_sender' } );
@@ -266,8 +270,7 @@ sub _handle_match {
 					}
 				);
 			}
-		}
-		catch {
+		} catch {
 			if ( $_->isa('BIGSdb::Exception::Database') ) {
 				$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$isolate_prefix*");
 				$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");
@@ -305,11 +308,10 @@ sub _handle_no_match {
 				locus      => $locus,
 				allele_id  => '0',
 				status     => 'provisional',
-				sender     => TAG_USER
+				sender     => $self->{'user_id'}
 			}
 		);
-	}
-	catch {
+	} catch {
 		if ( $_->isa('BIGSdb::Exception::Database') ) {
 			$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$isolate_prefix*");
 			$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/*$locus_prefix*");
@@ -357,7 +359,7 @@ sub _tag_allele {
 	eval {
 		$self->{'sql'}->{'tag_allele'}->execute(
 			$values->{'isolate_id'}, $values->{'locus'}, $values->{'allele_id'}, $values->{'sender'},
-			$status,                 'automatic',        TAG_USER,               'now',
+			$status,                 'automatic',        $self->{'user_id'},     'now',
 			'now'
 		);
 	};
@@ -374,12 +376,12 @@ sub _tag_allele {
 
 sub _tag_sequence {
 	my ( $self, $values ) = @_;
-	my $existing = $self->{'datastore'}->get_allele_sequence( $values->{'isolate_id'}, $values->{'locus'} );
+	my $existing   = $self->{'datastore'}->get_allele_sequence( $values->{'isolate_id'}, $values->{'locus'} );
 	my $locus_info = $self->{'datastore'}->get_locus_info( $values->{'locus'} );
 	if ( defined $existing ) {
 		foreach my $allele_sequence (@$existing) {
 			return
-			     if $allele_sequence->{'seqbin_id'} == $values->{'seqbin_id'}
+				 if $allele_sequence->{'seqbin_id'} == $values->{'seqbin_id'}
 			  && $allele_sequence->{'start_pos'} == $values->{'start_pos'}
 			  && $allele_sequence->{'end_pos'} == $values->{'end_pos'};
 		}
@@ -404,13 +406,13 @@ sub _tag_sequence {
 			$values->{'seqbin_id'},
 			$values->{'locus'}, $values->{'start_pos'},
 			$values->{'end_pos'}, ( $values->{'reverse'} ? 'true' : 'false' ),
-			'true', TAG_USER, 'now'
+			'true', $self->{'user_id'}, 'now'
 		);
 		my $flags = $self->{'datastore'}->get_locus( $values->{'locus'} )->get_flags( $values->{'allele_id'} );
 		push @$flags, 'introns' if $values->{'introns'};
 		foreach my $flag (@$flags) {
 			$self->{'sql'}->{'tag_flag'}->execute(
-				$flag, 'now', TAG_USER, $values->{'seqbin_id'},
+				$flag, 'now', $self->{'user_id'}, $values->{'seqbin_id'},
 				$values->{'locus'}, $values->{'start_pos'},
 				$values->{'end_pos'}
 			);

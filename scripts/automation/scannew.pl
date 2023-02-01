@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Scan genomes for new alleles
 #Written by Keith Jolley
-#Copyright (c) 2013-2022, University of Oxford
+#Copyright (c) 2013-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20221122
+#Version: 20230201
 use strict;
 use warnings;
 use 5.010;
@@ -43,6 +43,7 @@ my %opts;
 GetOptions(
 	'A|alignment=i'        => \$opts{'A'},
 	'B|identity=i'         => \$opts{'B'},
+	'curator=i'          => \$opts{'curator_id'},
 	'd|database=s'         => \$opts{'d'},
 	'e|exemplar'           => \$opts{'exemplar'},
 	'f|fast'               => \$opts{'fast'},
@@ -215,6 +216,8 @@ ${bold}-B, --identity$norm ${under}INT$norm
 
 ${bold}-c, --coding_sequences$norm
     Only return complete coding sequences.
+    
+${bold}--curator$norm ${under}CURATOR ID$norm
 
 ${bold}-d, --database$norm ${under}NAME$norm
     Database configuration name.
