@@ -76,7 +76,7 @@ sub print_content {
 		if ( $self->isolate_exists($new_version) ) {
 			$self->print_bad_status(
 				{
-					    message => q(This isolate already has a newer version defined. See )
+						message => q(This isolate already has a newer version defined. See )
 					  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;)
 					  . qq(id=$new_version">isolate id-$new_version</a>.)
 				}
@@ -104,6 +104,7 @@ sub print_content {
 			xmlHandler    => $self->{'xmlHandler'},
 			dataConnector => $self->{'dataConnector'},
 			contigManager => $self->{'contigManager'},
+			config_dir    => $self->{'config_dir'},
 			curate        => 1
 		)
 	);
@@ -140,7 +141,8 @@ sub _print_interface {
 	say q(<div class="box" id="queryform"><div class="scrollable">);
 	say q(<p>This page allows you to create a new version of the isolate record shown below.  )
 	  . q(Provenance and publication information will be copied to the new record but the sequence )
-	  . q(bin and allele designations will not.  This facilitates storage of different versions of )
+	  . q(bin, allele designations and fields that cannot be directly curated will not. This facilitates )
+	  . q(storage of different versions of )
 	  . q(genome assemblies.  The old record will be hidden by default, but can still be accessed )
 	  . q(when needed, with links from the new record.  The update history will be reset for the new record.</p>);
 	if ( BIGSdb::Utils::is_int($existing_id) && $self->_is_private($existing_id) ) {
@@ -192,13 +194,14 @@ sub _create_new_version {
 	my (@values);
 	my $curator_id = $self->get_curator_id;
 	my @used_fields;
-	my $att = $self->{'xmlHandler'}->get_all_field_attributes;
+	my $att             = $self->{'xmlHandler'}->get_all_field_attributes;
 	my %always_required = map { $_ => 1 } qw(id date_entered datestamp sender curator);
 
 	foreach my $field (@$fields) {
-		$field_values->{$field} = $new_id if $field eq 'id';
+		next if ( $att->{$field}->{'no_curate'} // q() ) eq 'yes';
+		$field_values->{$field} = $new_id                        if $field eq 'id';
 		$field_values->{$field} = BIGSdb::Utils::get_datestamp() if $field eq 'date_entered' || $field eq 'datestamp';
-		$field_values->{$field} = $curator_id if $field eq 'curator';
+		$field_values->{$field} = $curator_id                    if $field eq 'curator';
 		if (   ( $att->{$field}->{'new_version'} // q() ) eq 'no'
 			&& ( $att->{'field'}->{'required'} // q() ) ne 'yes'
 			&& !$always_required{$field} )
@@ -235,6 +238,8 @@ sub _create_new_version {
 				undef, $new_id, $curator_id, 'now' );
 		}
 		foreach my $field (@$eav_fields) {
+			my $eav_att = $self->{'datastore'}->get_eav_field($field);
+			next if $eav_att->{'no_curate'};
 			my $value = $self->{'datastore'}->get_eav_field_value( $existing_id, $field );
 			next if !defined $value;
 			my $eav_table = $self->{'datastore'}->get_eav_field_table($field);

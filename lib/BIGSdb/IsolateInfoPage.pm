@@ -1744,8 +1744,8 @@ sub _get_scheme_values {
 
 sub _get_lincode_values {
 	my ( $self, $isolate_id, $scheme_id, $args ) = @_;
-	my $lincode = $self->{'datastore'}->get_lincode_value($isolate_id,$scheme_id);
-	my $buffer = q();
+	my $lincode = $self->{'datastore'}->get_lincode_value( $isolate_id, $scheme_id );
+	my $buffer  = q();
 	if ( defined $lincode ) {
 		local $" = q(_);
 		my $lincode_string = qq(@$lincode);
