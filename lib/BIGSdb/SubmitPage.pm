@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2022, University of Oxford
+#Copyright (c) 2015-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -928,8 +928,8 @@ sub _finalize_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 			);
 		}
 		$self->{'db'}->do(
-			'UPDATE submissions SET (status,datestamp,email)=(?,?,?) WHERE (id,submitter)=(?,?)',
-			undef, 'pending', 'now', $q->param('email') // undef,
+			'UPDATE submissions SET (status,date_submitted,datestamp,email)=(?,?,?,?) WHERE (id,submitter)=(?,?)',
+			undef, 'pending', 'now', 'now', $q->param('email') // undef,
 			$submission_id, $user_info->{'id'}
 		);
 		$self->{'submissionHandler'}->write_db_file($submission_id);
