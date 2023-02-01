@@ -56,7 +56,7 @@ sub get_attributes {
 		buttontext => 'Sequences',
 		menutext   => $seqdef ? 'Profile sequences' : 'Sequences',
 		module     => 'SequenceExport',
-		version    => '1.7.3',
+		version    => '1.7.4',
 		dbtype     => 'isolates,sequences',
 		seqdb_type => 'schemes',
 		section    => 'isolate_info,profile_info,export,postquery',
@@ -558,9 +558,9 @@ sub _make_isolate_seq_file {
 			my $allele_seq = $self->_get_allele_seq( $id, $locus, $locus_name, $locus_info );
 			my $seqbin_seq;
 			my $seqbin_pos = q();
-			my $tag        = $tag_data->{$locus}->{$id};
+			my $tag        = $tag_data->{$locus_name}->{$id};
 			if ( $tag->{'seqbin_id'} ) {
-				my ( $reverse, $seqbin_id, $start_pos, $end_pos ) = @{$tag}{qw(seqbin_id start_pos end_pos reverse)};
+				my ( $reverse, $seqbin_id, $start_pos, $end_pos ) = @{$tag}{qw(reverse seqbin_id start_pos end_pos)};
 				my $seq_ref = $self->{'contigManager'}->get_contig_fragment(
 					{
 						seqbin_id => $seqbin_id,
