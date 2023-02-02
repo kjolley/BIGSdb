@@ -150,10 +150,11 @@ sub _write_embl {
 		$seq_out->write_seq($seq_object);
 		close $stringfh_out;
 		eval { print $str; };     #If client drops connection this can result in Apache error.
-		if ($@){
-			$logger->error($@);
+
+		if ($@) {
+			$logger->error($@) if $@ !~ /Broken\spipe/x;
 			last;
-		};
+		}
 	}
 	return;
 }

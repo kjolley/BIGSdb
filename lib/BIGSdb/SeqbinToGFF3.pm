@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2020-2022, University of Oxford
+#Copyright (c) 2020-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -79,7 +79,7 @@ sub _write_gff3 {
 		$type =~ s/\s/_/gx;
 		$valid_type{$type} = 1;
 	}
-	my $type_clause = q();
+	my $type_clause   = q();
 	my $selected_type = $q->param('type') // q();
 	if ( $valid_type{$selected_type} ) {
 		( my $type = $selected_type ) =~ s/_/ /gx;
@@ -129,8 +129,14 @@ sub _write_gff3 {
 
 			#IGV.js only recognizes some types (CDS and . are ok).
 			my $type = $locus_info->{'complete_cds'} ? 'CDS' : '.';
-			say qq($seqbin_id\t$self->{'system'}->{'description'}\t$type\t$tag->{'start_pos'}\t)
-			  . qq($tag->{'end_pos'}\t.\t$strand\t$phase\t$att);
+			eval {    #If client drops connection this can result in Apache error.
+				say qq($seqbin_id\t$self->{'system'}->{'description'}\t$type\t$tag->{'start_pos'}\t)
+				  . qq($tag->{'end_pos'}\t.\t$strand\t$phase\t$att);
+			};
+			if ($@) {
+				$logger->error($@) if $@ !~ /Broken\spipe/x;
+				last;
+			}
 		}
 	}
 	return;
