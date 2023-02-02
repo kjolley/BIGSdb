@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -371,6 +371,7 @@ sub _get_admin_links {
 		$buffer .= $self->_get_sequence_attributes;
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		$buffer .= $self->_get_locus_extended_attributes;
+		$buffer .= $self->_get_mutation_fields;
 	}
 	$buffer .= $self->_get_schemes;
 	$buffer .= $self->_get_scheme_groups;
@@ -699,6 +700,32 @@ sub _get_profile_fields {
 				batch_add => 1,
 				query     => 1,
 				info      => 'Retired profiles - Profile ids defined here will be prevented from being reused.'
+			}
+		);
+		$buffer .= qq(</div>\n);
+	}
+	return $buffer;
+}
+
+sub _get_mutation_fields {
+	my ($self) = @_;
+	my $buffer = q();
+	
+	if ( $self->can_modify_table('dna_mutations') && $self->_locus_type_exists('DNA') ) {
+		#TODO Add support for identifying SNPs.
+	}
+	if ( $self->can_modify_table('peptide_mutations')
+		&& ( $self->_locus_type_exists('peptide') || $self->_locus_type_exists('DNA') ) )
+	{
+		$buffer .= q(<div class="curategroup curategroup_loci grid-item locus_admin" )
+		  . qq(style="display:$self->{'optional_locus_admin_display'}"><h2>Peptide mutations</h2>);
+		$buffer .= $self->_get_icon_group(
+			'peptide_mutations',
+			'dna',
+			{
+				add       => 1,
+				batch_add => 1,
+				query     => 1
 			}
 		);
 		$buffer .= qq(</div>\n);
@@ -2520,6 +2547,12 @@ sub _loci_exist {
 	my ($self) = @_;
 	return $self->{'datastore'}
 	  ->run_query( 'SELECT EXISTS(SELECT * FROM loci)', undef, { cache => 'CurateIndexPage::loci_exist' } );
+}
+
+sub _locus_type_exists {
+	my ( $self, $type ) = @_;
+	return $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM loci WHERE data_type=?)',
+		$type, { cache => 'CurateIndexPage::locus_type_exists' } );
 }
 
 sub _scheme_groups_exist {

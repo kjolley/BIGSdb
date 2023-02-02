@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -32,7 +32,7 @@ sub get_isolate_aliases_table_attributes {
 		{ name => 'isolate_id', type => 'int',  required => 1, primary_key => 1, foreign_key => 'isolates' },
 		{ name => 'alias',      type => 'text', required => 1, primary_key => 1 },
 		{ name => 'datestamp',  type => 'date', required => 1 },
-		{ name => 'curator', type => 'int', required => 1, dropdown_query => 1 }
+		{ name => 'curator',    type => 'int',  required => 1, dropdown_query => 1 }
 	];
 	return $attributes;
 }
@@ -52,15 +52,15 @@ sub get_users_table_attributes {
 			dropdown_query => 1,
 			no_user_update => 1
 		},
-		{ name => 'surname',      type => 'text', required => 1, length  => 40,      dropdown_query => 1 },
-		{ name => 'first_name',   type => 'text', required => 1, length  => 40,      dropdown_query => 1 },
-		{ name => 'email',        type => 'text', required => 1, length  => 50 },
-		{ name => 'affiliation',  type => 'text', required => 1, length  => 255 },
-		{ name => 'status',       type => 'text', required => 1, optlist => $status, default        => 'user' },
-		{ name => 'date_entered', type => 'date', required => 1 },
-		{ name => 'datestamp',    type => 'date', required => 1 },
-		{ name => 'curator', type => 'int', required     => 1, dropdown_query => 1 },
-		{ name => 'user_db', type => 'int', hide_in_form => 1 }
+		{ name => 'surname',      type => 'text', required     => 1, length  => 40, dropdown_query => 1 },
+		{ name => 'first_name',   type => 'text', required     => 1, length  => 40, dropdown_query => 1 },
+		{ name => 'email',        type => 'text', required     => 1, length  => 50 },
+		{ name => 'affiliation',  type => 'text', required     => 1, length  => 255 },
+		{ name => 'status',       type => 'text', required     => 1, optlist => $status, default => 'user' },
+		{ name => 'date_entered', type => 'date', required     => 1 },
+		{ name => 'datestamp',    type => 'date', required     => 1 },
+		{ name => 'curator',      type => 'int',  required     => 1, dropdown_query => 1 },
+		{ name => 'user_db',      type => 'int',  hide_in_form => 1 }
 	];
 	if ( ( $self->{'system'}->{'submissions'} // '' ) eq 'yes' && $self->{'config'}->{'submission_dir'} ) {
 		push @$attributes,
@@ -90,8 +90,8 @@ sub get_users_table_attributes {
 
 sub get_user_dbases_table_attributes {
 	my $attributes = [
-		{ name => 'id',   type => 'int',  required => 1, primary_key => 1 },
-		{ name => 'name', type => 'text', required => 1, length      => 30, comments => 'Site/domain name' },
+		{ name => 'id',                type => 'int',  required => 1, primary_key => 1 },
+		{ name => 'name',              type => 'text', required => 1, length => 30, comments => 'Site/domain name' },
 		{ name => 'list_order',        type => 'int' },
 		{ name => 'auto_registration', type => 'bool', comments => 'Allow user to register themself for database' },
 		{
@@ -226,7 +226,7 @@ sub get_permissions_table_attributes {
 			dropdown_query => 1,
 			labels         => '|$surname|, |$first_name|'
 		},
-		{ name => 'permission', type => 'text', required => 1, optlist        => "@optlist", primary_key => 1 },
+		{ name => 'permission', type => 'text', required => 1, optlist => "@optlist", primary_key => 1 },
 		{ name => 'curator',    type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp',  type => 'date', required => 1 },
 	];
@@ -238,7 +238,7 @@ sub get_history_table_attributes {
 		{ name => 'isolate_id', type => 'int',       required => 1, primary_key => 1, foreign_key     => 'isolates' },
 		{ name => 'timestamp',  type => 'timestamp', required => 1, primary_key => 1, query_datestamp => 1 },
 		{ name => 'action',     type => 'text',      required => 1 },
-		{ name => 'curator', type => 'int', required => 1, dropdown_query => 1 },
+		{ name => 'curator',    type => 'int',       required => 1, dropdown_query => 1 },
 	];
 	return $attributes;
 }
@@ -255,8 +255,8 @@ sub get_profile_history_table_attributes {
 		},
 		{ name => 'profile_id', type => 'text',      required => 1, primary_key => 1 },
 		{ name => 'timestamp',  type => 'timestamp', required => 1, primary_key => 1, query_datestamp => 1 },
-		{ name => 'action',  type => 'text', required => 1 },
-		{ name => 'curator', type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'action',     type => 'text',      required => 1 },
+		{ name => 'curator',    type => 'int',       required => 1, dropdown_query => 1 },
 	];
 	return $attributes;
 }
@@ -575,16 +575,16 @@ sub get_loci_table_attributes {
 	push @$attributes,
 	  (
 		{ name => 'curator',      type => 'int',  required => 1, dropdown_query => 1, hide => 1 },
-		{ name => 'date_entered', type => 'date', required => 1, hide           => 1 },
-		{ name => 'datestamp',    type => 'date', required => 1, hide           => 1 }
+		{ name => 'date_entered', type => 'date', required => 1, hide => 1 },
+		{ name => 'datestamp',    type => 'date', required => 1, hide => 1 }
 	  );
 	return $attributes;
 }
 
 sub get_pcr_table_attributes {
 	my $attributes = [
-		{ name => 'id',          type => 'int',  required => 1,    unique   => 1, primary_key => 1 },
-		{ name => 'description', type => 'text', length   => '50', required => 1 },
+		{ name => 'id', type => 'int', required => 1, unique => 1, primary_key => 1 },
+		{ name => 'description', type => 'text', length => '50', required => 1 },
 		{
 			name     => 'primer1',
 			type     => 'text',
@@ -641,8 +641,8 @@ sub get_pcr_locus_table_attributes {
 
 sub get_probes_table_attributes {
 	my $attributes = [
-		{ name => 'id',          type => 'int',  required => 1,    unique   => 1, primary_key => 1 },
-		{ name => 'description', type => 'text', length   => '50', required => 1 },
+		{ name => 'id', type => 'int', required => 1, unique => 1, primary_key => 1 },
+		{ name => 'description', type => 'text', length => '50', required => 1 },
 		{
 			name     => 'sequence',
 			type     => 'text',
@@ -728,8 +728,8 @@ sub get_locus_links_table_attributes {
 			foreign_key    => 'loci',
 			dropdown_query => 1
 		},
-		{ name => 'url',         type => 'text', required => 1, primary_key    => 1 },
-		{ name => 'description', type => 'text', required => 1, length         => 256 },
+		{ name => 'url',         type => 'text', required => 1, primary_key => 1 },
+		{ name => 'description', type => 'text', required => 1, length      => 256 },
 		{ name => 'link_order',  type => 'int',  length   => 4 },
 		{ name => 'curator',     type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp',   type => 'date', required => 1 }
@@ -887,8 +887,8 @@ sub get_sequence_extended_attributes_table_attributes {
 			foreign_key    => 'loci',
 			dropdown_query => 1
 		},
-		{ name => 'field',     type => 'text', required => 1, primary_key    => 1 },
-		{ name => 'allele_id', type => 'text', required => 1, primary_key    => 1 },
+		{ name => 'field',     type => 'text', required => 1, primary_key => 1 },
+		{ name => 'allele_id', type => 'text', required => 1, primary_key => 1 },
 		{ name => 'value',     type => 'text', required => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 },
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 }
@@ -948,9 +948,9 @@ sub get_client_dbases_table_attributes {
 			  . 'you may be able to leave this blank.'
 		},
 		{ name => 'dbase_view', type => 'text', required => 0, comments => 'View of isolates table to use' },
-		{ name => 'url', type => 'text', length => 80, required => 0, comments => 'Web URL to database script' },
-		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
-		{ name => 'datestamp', type => 'date', required => 1 }
+		{ name => 'url',        type => 'text', length => 80, required => 0, comments => 'Web URL to database script' },
+		{ name => 'curator',    type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp',  type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -1167,8 +1167,8 @@ sub get_allele_designations_table_attributes {
 			optlist  => 'confirmed;provisional;ignore',
 			default  => 'confirmed'
 		},
-		{ name => 'method',  type => 'text', required => 1, optlist        => 'manual;automatic', default => 'manual' },
-		{ name => 'curator', type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'method',       type => 'text', required => 1, optlist => 'manual;automatic', default => 'manual' },
+		{ name => 'curator',      type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp',    type => 'date', required => 1 },
 		{ name => 'date_entered', type => 'date', required => 1 },
 		{ name => 'comments',     type => 'text', length   => 64 }
@@ -1430,7 +1430,7 @@ sub get_scheme_fields_table_attributes {
 			dropdown_query => 1
 		},
 		{ name => 'field', type => 'text', required => 1, primary_key => 1, regex => '^[a-zA-Z][\w_]*$' },
-		{ name => 'type', type => 'text', required => 1, optlist => 'text;integer;date' },
+		{ name => 'type',  type => 'text', required => 1, optlist     => 'text;integer;date' },
 		{
 			name     => 'primary_key',
 			type     => 'bool',
@@ -1656,9 +1656,9 @@ sub get_composite_field_values_table_attributes {
 			  . q(on the displayed value. For example: <br /><br /><b>s/ST-(\S+) complex.*/cc$1/</b><br /><br />)
 			  . q(will convert something like 'ST-41/44 complex/lineage III' to 'cc41/44')
 		},
-		{ name => 'field',     type => 'text', length   => 40, required       => 1 },
+		{ name => 'field',     type => 'text', length   => 40, required => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 },
-		{ name => 'int',       type => 'text', required => 1,  dropdown_query => 1 }
+		{ name => 'int',       type => 'text', required => 1, dropdown_query => 1 }
 	];
 	return $attributes;
 }
@@ -1677,8 +1677,8 @@ sub get_sequences_table_attributes {
 			dropdown_query => 1
 		},
 		{ name => 'allele_id', type => 'text', required => 1, primary_key => 1 },
-		{ name => 'sequence',  type => 'text', required => 1, length      => 32768, no_user_update => 1 },
-		{ name => 'status',    type => 'text', required => 1, optlist     => "@optlist", hide_public => 1 },
+		{ name => 'sequence',  type => 'text', required => 1, length      => 32768,      no_user_update => 1 },
+		{ name => 'status',    type => 'text', required => 1, optlist     => "@optlist", hide_public    => 1 },
 		{
 			name     => 'type_allele',
 			type     => 'bool',
@@ -1737,7 +1737,7 @@ sub get_accession_table_attributes {
 
 sub get_allele_sequences_table_attributes {
 	my $attributes = [
-		{ name => 'id',         type => 'int',  hide_query => 1, hide_results => 1,      primary_key    => 1 },
+		{ name => 'id',         type => 'int',  hide_query => 1, hide_results => 1, primary_key => 1 },
 		{ name => 'isolate_id', type => 'int',  required   => 1, foreign_key  => 'isolates' },
 		{ name => 'seqbin_id',  type => 'int',  required   => 1, foreign_key  => 'sequence_bin' },
 		{ name => 'locus',      type => 'text', required   => 1, foreign_key  => 'loci', dropdown_query => 1 },
@@ -1862,11 +1862,11 @@ sub get_locus_curators_table_attributes {
 sub get_sequence_attributes_table_attributes {
 	my ($self) = @_;
 	my $attributes = [
-		{ name => 'key', type => 'text', required => 1, primary_key => 1, regex => '^[A-z]\w*$' },
-		{ name => 'type', type => 'text', required => 1, optlist => 'text;integer;float;date', default => 'text' },
+		{ name => 'key',  type => 'text', required => 1, primary_key => 1, regex => '^[A-z]\w*$' },
+		{ name => 'type', type => 'text', required => 1, optlist     => 'text;integer;float;date', default => 'text' },
 		{ name => 'description', type => 'text' },
-		{ name => 'curator',     type => 'int', required => 1, dropdown_query => 1 },
-		{ name => 'datestamp', type => 'date', required => 1 }
+		{ name => 'curator',     type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp',   type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -1894,10 +1894,10 @@ sub get_sequence_bin_table_attributes {
 	my @methods = SEQ_METHODS;
 	local $" = ';';
 	my $attributes = [
-		{ name => 'id',         type => 'int',  required => 1, primary_key => 1 },
-		{ name => 'isolate_id', type => 'int',  required => 1, foreign_key => 'isolates' },
-		{ name => 'sequence',   type => 'text', required => 1, length      => 2048, no_user_update => 1 },
-		{ name => 'method',     type => 'text', required => 1, optlist     => "@methods" },
+		{ name => 'id',                   type => 'int',  required => 1, primary_key => 1 },
+		{ name => 'isolate_id',           type => 'int',  required => 1, foreign_key => 'isolates' },
+		{ name => 'sequence',             type => 'text', required => 1, length      => 2048, no_user_update => 1 },
+		{ name => 'method',               type => 'text', required => 1, optlist     => "@methods" },
 		{ name => 'run_id',               type => 'text', length   => 32 },
 		{ name => 'assembly_id',          type => 'text', length   => 32 },
 		{ name => 'original_designation', type => 'text', length   => 100 },
@@ -1918,9 +1918,9 @@ sub get_oauth_credentials_table_attributes {
 		{ name => 'consumer_secret', type => 'text', required => 1 },
 		{ name => 'access_token',    type => 'text', required => 1 },
 		{ name => 'access_secret',   type => 'text', required => 1 },
-		{ name => 'curator',      type => 'int',  required => 1, dropdown_query => 1 },
-		{ name => 'date_entered', type => 'date', required => 1 },
-		{ name => 'datestamp',    type => 'date', required => 1 }
+		{ name => 'curator',         type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'date_entered',    type => 'date', required => 1 },
+		{ name => 'datestamp',       type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -1966,9 +1966,9 @@ sub get_isolate_field_extended_attributes_table_attributes {
 			  . 'Instances of [?] within the URL will be substituted with the value.'
 		},
 		{ name => 'length',      type => 'integer' },
-		{ name => 'field_order', type => 'int', length => 4 },
-		{ name => 'curator',     type => 'int', required => 1, dropdown_query => 1 },
-		{ name => 'datestamp', type => 'date', required => 1 }
+		{ name => 'field_order', type => 'int',  length   => 4 },
+		{ name => 'curator',     type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp',   type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -1996,8 +1996,8 @@ sub get_isolate_value_extended_attributes_table_attributes {
 		{ name => 'attribute',   type => 'text', required => 1, primary_key => 1, optlist => "@$attributes" },
 		{ name => 'field_value', type => 'text', required => 1, primary_key => 1 },
 		{ name => 'value',       type => 'text', required => 1 },
-		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
-		{ name => 'datestamp', type => 'date', required => 1 }
+		{ name => 'curator',     type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp',   type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -2110,9 +2110,9 @@ sub get_project_members_table_attributes {
 
 sub get_sets_table_attributes {
 	my $attributes = [
-		{ name => 'id',          type => 'int',  required => 1, primary_key => 1 },
-		{ name => 'description', type => 'text', required => 1, length      => 40, unique => 1 },
-		{ name => 'long_description', type => 'text', length => 256 },
+		{ name => 'id',               type => 'int',  required => 1, primary_key => 1 },
+		{ name => 'description',      type => 'text', required => 1, length => 40, unique => 1 },
+		{ name => 'long_description', type => 'text', length   => 256 },
 		{ name => 'display_order',    type => 'int' },
 		{
 			name    => 'hidden',
@@ -2231,7 +2231,7 @@ sub get_classification_schemes_table_attributes {
 				name     => 'seqdef_cscheme_id',
 				type     => 'int',
 				comments => 'cscheme_id number defined in seqdef database',
-				tooltip =>
+				tooltip  =>
 				  'seqdef_cscheme_id - The id used in the isolate database will be used if this is not defined.'
 			}
 		  );
@@ -2279,7 +2279,7 @@ sub get_classification_group_fields_table_attributes {
 	}
 	push @$attributes,
 	  (
-		{ name => 'description', type => 'text', required => 0, length         => 64, },
+		{ name => 'description', type => 'text', required => 0, length => 64, },
 		{ name => 'field_order', type => 'int',  required => 0 },
 		{ name => 'curator',     type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp',   type => 'date', required => 1 }
@@ -2316,17 +2316,17 @@ sub get_classification_group_field_values_table_attributes {
 			required    => 1,
 			primary_key => 1,
 		},
-		{ name => 'value',   type => 'text', },
-		{ name => 'curator', type => 'int', required => 1, dropdown_query => 1 },
+		{ name => 'value',     type => 'text', },
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
 
 sub get_set_view_table_attributes {
-	my ($self) = @_;
+	my ($self)  = @_;
 	my $divider = q(,);
-	my @views = $self->{'system'}->{'views'} ? ( split /$divider/x, $self->{'system'}->{'views'} ) : ();
+	my @views   = $self->{'system'}->{'views'} ? ( split /$divider/x, $self->{'system'}->{'views'} ) : ();
 	local $" = ';';
 	my $attributes = [
 		{
@@ -2338,7 +2338,7 @@ sub get_set_view_table_attributes {
 			labels         => '|$description|',
 			dropdown_query => 1
 		},
-		{ name => 'view',      type => 'text', required => 1, optlist        => "@views", dropdown_query => 1 },
+		{ name => 'view',      type => 'text', required => 1, optlist => "@views", dropdown_query => 1 },
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 }
 	];
@@ -2672,8 +2672,8 @@ sub get_codon_tables_table_attributes {
 	my $attributes = [
 		{ name => 'isolate_id',  type => 'int', required => 1, primary_key => 1,            foreign_key => 'isolates' },
 		{ name => 'codon_table', type => 'int', required => 1, optlist     => qq(@optlist), labels      => $labels },
-		{ name => 'datestamp', type => 'date', required => 1 },
-		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 }
+		{ name => 'datestamp',   type => 'date', required => 1 },
+		{ name => 'curator',     type => 'int',  required => 1, dropdown_query => 1 }
 	];
 	return $attributes;
 }
@@ -2722,12 +2722,46 @@ sub get_curator_configs_table_attributes {
 			required       => 1,
 			primary_key    => 1,
 			dropdown_query => 1,
-			user_field => 1,
+			user_field     => 1,
 			foreign_key    => 'users'
 		},
-		{ name => 'dbase_config', type => 'text', required => 1, primary_key    => 1 },
+		{ name => 'dbase_config', type => 'text', required => 1, primary_key => 1 },
 		{ name => 'datestamp',    type => 'date', required => 1 },
 		{ name => 'curator',      type => 'int',  required => 1, dropdown_query => 1 }
+	];
+	return $attributes;
+}
+
+sub get_peptide_mutations_table_attributes {
+	my ($self) = @_;
+	my $attributes = [
+		{ name => 'id', type => 'int', required => 1, primary_key => 1, length => 6, autofill => 1 },
+		{
+			name           => 'locus',
+			type           => 'text',
+			required       => 1,
+			foreign_key    => 'loci',
+			dropdown_query => 1
+		},
+		{
+			name     => 'position',
+			type     => 'int',
+			required => 1,
+			length   => 5,
+			min      => 1,
+			comments => 'Position on wild-type sequence'
+		},
+		{ name => 'wild_type_aa', type => 'text', required => 1, optlist => 'A;C;D;E;F;G;H;I;K;L;M;N;P;Q;R;S;T;V;W;Y' },
+		{
+			name     => 'variant_aa',
+			type     => 'text',
+			required => 1,
+			length   => 20,
+			comments => 'Semi-colon separated list of possible amino acid 1 letter codes',
+			regex    => '^([ACDEFGHIKLMNPQRSTVWY])(;\s*[ACDEFGHIKLMNPQRSTVWY])*$'
+		},
+		{ name => 'datestamp', type => 'date', required => 1 },
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 }
 	];
 	return $attributes;
 }

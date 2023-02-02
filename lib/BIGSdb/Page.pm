@@ -2046,7 +2046,8 @@ sub get_record_name {
 		codon_tables                      => 'isolate codon table',
 		sequence_extended_attributes      => 'sequence extended attribute',
 		geography_point_lookup            => 'geography point lookup value',
-		curator_configs                   => 'curator database configuration'
+		curator_configs                   => 'curator database configuration',
+		peptide_mutations                 => 'peptide mutation'
 	);
 	return $names{$table};
 }
@@ -2329,7 +2330,7 @@ sub can_modify_table {
 	);
 	$general_permissions{$_} = $self->{'permissions'}->{'modify_loci'}
 	  foreach qw(loci locus_aliases client_dbases client_dbase_loci client_dbase_schemes
-	  locus_client_display_fields locus_extended_attributes locus_curators);
+	  locus_client_display_fields locus_extended_attributes locus_curators peptide_mutations dna_mutations);
 	$general_permissions{$_} = $self->{'permissions'}->{'modify_schemes'}
 	  foreach qw(schemes scheme_members scheme_fields scheme_curators classification_schemes
 	  classification_group_fields scheme_groups scheme_group_group_members scheme_group_scheme_members
