@@ -45,8 +45,9 @@ sub print_content {
 	if ( BIGSdb::Utils::is_int( scalar $q->param('seqbin_id') ) ) {
 		if (
 			$self->{'datastore'}->run_query(
-				    'SELECT EXISTS(SELECT * FROM sequence_bin WHERE isolate_id IN '
-				  . "(SELECT id FROM $self->{'system'}->{'view'}) AND id=?)",scalar $q->param('seqbin_id')
+				'SELECT EXISTS(SELECT * FROM sequence_bin WHERE isolate_id IN '
+				  . "(SELECT id FROM $self->{'system'}->{'view'}) AND id=?)",
+				scalar $q->param('seqbin_id')
 			)
 		  )
 		{
@@ -120,6 +121,7 @@ sub _write_embl {
 			$allele_sequence->{'start_pos'} = 1           if $allele_sequence->{'start_pos'} < 1;
 			$allele_sequence->{'end_pos'}   = $seq_length if $allele_sequence->{'end_pos'} > $seq_length;
 			my ( $product, $desc );
+
 			if ( $locus_info->{'dbase_name'} ) {
 				my $locus_desc = $self->{'datastore'}->get_locus( $allele_sequence->{'locus'} )->get_description;
 				$product = $locus_desc->{'product'};
@@ -142,12 +144,13 @@ sub _write_embl {
 		my $str;
 		open( my $stringfh_out, '>:encoding(utf8)', \$str ) or $logger->error("Could not open string for writing: $!");
 		my %allowed_format = map { $_ => 1 } qw(genbank embl);
-		my $format = $allowed_format{ $options->{'format'} } ? $options->{'format'} : 'embl';
-		my $seq_out = Bio::SeqIO->new( -fh => $stringfh_out, -format => $format );
+		my $format         = $allowed_format{ $options->{'format'} } ? $options->{'format'} : 'embl';
+		my $seq_out        = Bio::SeqIO->new( -fh => $stringfh_out, -format => $format );
 		$seq_out->verbose(-1);    #Otherwise apache error log can fill rapidly on old version of BioPerl.
 		$seq_out->write_seq($seq_object);
 		close $stringfh_out;
-		print $str;
+		eval { print $str; };     #If client drops connection this can result in Apache error.
+		$logger->error($@) if $@;
 	}
 	return;
 }
