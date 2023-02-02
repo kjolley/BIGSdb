@@ -2441,6 +2441,7 @@ sub isolate_exists {
 
 sub dashboard_enabled {
 	my ( $self, $options ) = @_;
+	return if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
 	return if !$self->{'config'}->{'enable_dashboard'} && ( $self->{'system'}->{'enable_dashboard'} // q() ) ne 'yes';
 	return if ( $self->{'system'}->{'enable_dashboard'} // q() ) eq 'no';
 	return
