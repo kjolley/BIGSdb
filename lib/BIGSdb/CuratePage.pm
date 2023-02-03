@@ -225,6 +225,9 @@ sub _get_html5_args {
 			if ( $att->{'min'} ) {
 				$html5_args{'min'} = $att->{'min'};
 			}
+			if ( $att->{'max'} ) {
+				$html5_args{'max'} = $att->{'max'};
+			}
 		}
 		if ( $att->{'type'} eq 'float' ) {
 			@html5_args{qw(type step)} = qw(number any);
@@ -1140,13 +1143,21 @@ sub _check_is_missing {
 
 sub _check_integer {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $att, $newdata ) = @_;
-	if (   $newdata->{ $att->{'name'} }
-		&& $att->{'type'} eq 'int'
-		&& !BIGSdb::Utils::is_int( $newdata->{ $att->{'name'} } ) )
+	use Data::Dumper;$logger->error(Dumper $att);
+	if (  defined $newdata->{ $att->{'name'} }
+		&& $att->{'type'} eq 'int' )
 	{
-		return "$att->{name} must be an integer.";
+		if ( !BIGSdb::Utils::is_int( $newdata->{ $att->{'name'} } ) ) {
+			return "$att->{name} must be an integer.";
+		}
+		if ( $att->{'min'} && $newdata->{ $att->{'name'} } < $att->{'min'} ) {
+			return "$att->{name} cannot be smaller than $att->{'min'}.";
+		}
+		if ( $att->{'max'} && $newdata->{ $att->{'name'} } > $att->{'max'} ) {
+			return "$att->{name} cannot be larger than $att->{'max'}.";
+		}
+		return;
 	}
-	return;
 }
 
 sub _check_float {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
@@ -1348,7 +1359,8 @@ sub _get_field_type {
 #Check that changing user status is allowed
 sub _check_users_status {
 	my ( $self, $att, $newdata, $update ) = @_;
-	my $status = $self->{'datastore'}->run_query( 'SELECT status FROM users WHERE user_name=?', $self->{'username'} );
+	my $status =
+	  $self->{'datastore'}->run_query( 'SELECT status FROM users WHERE user_name=?', $self->{'username'} );
 	my ( $user_status, $user_username );
 	if ($update) {
 		( $user_status, $user_username ) =
