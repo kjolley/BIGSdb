@@ -77,8 +77,8 @@ sub print_content {
 			last;
 		}
 		if ( $ENV{'MOD_PERL'} ) {
-			$self->{'mod_perl_request'}->rflush;
 			return if $self->{'mod_perl_request'}->connection->aborted;
+			$self->{'mod_perl_request'}->rflush;
 		}
 	}
 	if ( !@$data ) {
