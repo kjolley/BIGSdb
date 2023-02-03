@@ -2735,7 +2735,7 @@ sub get_curator_configs_table_attributes {
 sub get_peptide_mutations_table_attributes {
 	my ($self) = @_;
 	my $attributes = [
-		{ name => 'id', type => 'int', required => 1, primary_key => 1, length => 6, autofill => 1 },
+		{ name => 'id', type => 'int', required => 1, primary_key => 1, length => 6 },
 		{
 			name           => 'locus',
 			type           => 'text',

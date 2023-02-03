@@ -1298,10 +1298,10 @@ sub _check_validation_conditions_field_value {
 		}
 		return;
 	}
-	my $field_type = $self->_get_field_type( $newdata->{'field'} );
+	my $field_type = $self->get_field_type( $newdata->{'field'} );
 	if ( $newdata->{'value'} =~ /^\[(.+)\]$/x ) {
 		my $comp_field      = $1;
-		my $comp_field_type = $self->_get_field_type($comp_field);
+		my $comp_field_type = $self->get_field_type($comp_field);
 		if ( !$comp_field_type ) {
 			return qq(Comparison field '$comp_field' is not recognized.);
 		} else {
@@ -1343,7 +1343,7 @@ sub _check_geopoint_field_value {
 	return;
 }
 
-sub _get_field_type {
+sub get_field_type {
 	my ( $self, $field ) = @_;
 	my $type;
 	if ( $self->{'xmlHandler'}->is_field($field) ) {
