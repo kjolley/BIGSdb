@@ -134,7 +134,7 @@ sub _write_gff3 {
 				  . qq($tag->{'end_pos'}\t.\t$strand\t$phase\t$att);
 			};
 			if ($@) {
-				$logger->error($@) if $@ !~ /Broken\spipe/x;
+				$logger->error($@) if $@ !~ /Broken\spipe/x && $@ !~ /connection\sabort/x;
 				last;
 			}
 		}

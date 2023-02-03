@@ -152,7 +152,7 @@ sub _write_embl {
 		eval { print $str; };     #If client drops connection this can result in Apache error.
 
 		if ($@) {
-			$logger->error($@) if $@ !~ /Broken\spipe/x;
+			$logger->error($@) if $@ !~ /Broken\spipe/x && $@ !~ /connection\sabort/x;
 			last;
 		}
 	}

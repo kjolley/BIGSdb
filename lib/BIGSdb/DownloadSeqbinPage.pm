@@ -73,7 +73,7 @@ sub print_content {
 		my $seq_ref = BIGSdb::Utils::break_line( \$seq, 60 );
 		eval { say $$seq_ref};    #If client drops connection this can result in Apache error.
 		if ($@) {
-			$logger->error($@) if $@ !~ /Broken\spipe/x;
+			$logger->error($@) if $@ !~ /Broken\spipe/x && $@ !~ /connection\sabort/x;
 			last;
 		}
 		if ( $ENV{'MOD_PERL'} ) {
