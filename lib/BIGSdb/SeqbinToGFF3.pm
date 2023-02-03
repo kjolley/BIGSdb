@@ -94,49 +94,49 @@ sub _write_gff3 {
 	my $qry = 'SELECT * FROM allele_sequences s JOIN loci l ON s.locus=l.id WHERE seqbin_id=? '
 	  . "$set_clause$type_clause ORDER BY start_pos";
 	foreach my $seqbin_id (@$seqbin_ids) {
-		say qq(##sequence-region $seqbin_id 1 $lengths{$seqbin_id});
-		my $allele_sequences =
-		  $self->{'datastore'}->run_query( $qry, $seqbin_id,
-			{ fetch => 'all_arrayref', slice => {}, cache => 'SeqbinToEMBL::write_eff3::allele_sequences' } );
-		foreach my $tag (@$allele_sequences) {
-			if ( $tag->{'start_pos'} < 1 ) {
-				$tag->{'start_pos'} = 1;
-			}
-			if ( $tag->{'end_pos'} > $lengths{$seqbin_id} ) {
-				$tag->{'end_pos'} = $lengths{$seqbin_id};
-			}
-			my $locus_info = $self->{'datastore'}->get_locus_info( $tag->{'locus'} );
-			my $phase;
-
-			#BIGSdb stored ORF as 1-6.  GFF expects 0-2.
-			$locus_info->{'orf'} ||= 0;
-			if    ( $locus_info->{'orf'} == 2 || $locus_info->{'orf'} == 5 ) { $phase = 1 }
-			elsif ( $locus_info->{'orf'} == 3 || $locus_info->{'orf'} == 6 ) { $phase = 2 }
-			else                                                             { $phase = 0 }
-			my $strand   = $tag->{'reverse'}  ? '-'                       : '+';
-			my $complete = $tag->{'complete'} ? 1                         : 0;
-			my $att      = $igv               ? qq(locus=$tag->{'locus'}) : qq(locus_tag=$tag->{'locus'});
-			$att .= q(;incomplete=1) if !$complete;
-
-			if ( $locus_info->{'dbase_name'} ) {
-				my $locus_desc = $self->{'datastore'}->get_locus( $tag->{'locus'} )->get_description;
-				if ( $locus_desc->{'product'} ) {
-					$locus_desc->{'product'} =~ tr/[;|=]/_/;
-					$att .= qq(;product=$locus_desc->{'product'}) if $locus_desc->{'product'};
+		eval {    #If client drops connection this can result in Apache error.
+			say qq(##sequence-region $seqbin_id 1 $lengths{$seqbin_id});
+			my $allele_sequences =
+			  $self->{'datastore'}->run_query( $qry, $seqbin_id,
+				{ fetch => 'all_arrayref', slice => {}, cache => 'SeqbinToEMBL::write_eff3::allele_sequences' } );
+			foreach my $tag (@$allele_sequences) {
+				if ( $tag->{'start_pos'} < 1 ) {
+					$tag->{'start_pos'} = 1;
 				}
-			}
-			$att =~ s/\r?\n//x;
+				if ( $tag->{'end_pos'} > $lengths{$seqbin_id} ) {
+					$tag->{'end_pos'} = $lengths{$seqbin_id};
+				}
+				my $locus_info = $self->{'datastore'}->get_locus_info( $tag->{'locus'} );
+				my $phase;
 
-			#IGV.js only recognizes some types (CDS and . are ok).
-			my $type = $locus_info->{'complete_cds'} ? 'CDS' : '.';
-			eval {    #If client drops connection this can result in Apache error.
+				#BIGSdb stored ORF as 1-6.  GFF expects 0-2.
+				$locus_info->{'orf'} ||= 0;
+				if    ( $locus_info->{'orf'} == 2 || $locus_info->{'orf'} == 5 ) { $phase = 1 }
+				elsif ( $locus_info->{'orf'} == 3 || $locus_info->{'orf'} == 6 ) { $phase = 2 }
+				else                                                             { $phase = 0 }
+				my $strand   = $tag->{'reverse'}  ? '-'                       : '+';
+				my $complete = $tag->{'complete'} ? 1                         : 0;
+				my $att      = $igv               ? qq(locus=$tag->{'locus'}) : qq(locus_tag=$tag->{'locus'});
+				$att .= q(;incomplete=1) if !$complete;
+
+				if ( $locus_info->{'dbase_name'} ) {
+					my $locus_desc = $self->{'datastore'}->get_locus( $tag->{'locus'} )->get_description;
+					if ( $locus_desc->{'product'} ) {
+						$locus_desc->{'product'} =~ tr/[;|=]/_/;
+						$att .= qq(;product=$locus_desc->{'product'}) if $locus_desc->{'product'};
+					}
+				}
+				$att =~ s/\r?\n//x;
+
+				#IGV.js only recognizes some types (CDS and . are ok).
+				my $type = $locus_info->{'complete_cds'} ? 'CDS' : '.';
 				say qq($seqbin_id\t$self->{'system'}->{'description'}\t$type\t$tag->{'start_pos'}\t)
 				  . qq($tag->{'end_pos'}\t.\t$strand\t$phase\t$att);
-			};
-			if ($@) {
-				$logger->error($@) if $@ !~ /Broken\spipe/x && $@ !~ /connection\sabort/x;
-				last;
 			}
+		};
+		if ($@) {
+			$logger->error($@) if $@ !~ /Broken\spipe/x && $@ !~ /connection\sabort/x;
+			last;
 		}
 	}
 	return;
