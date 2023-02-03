@@ -1,7 +1,7 @@
 #SequenceSimilarity.pm - Plugin for BIGSdb
 #This requires the SequenceComparison plugin
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -49,7 +49,7 @@ sub get_attributes {
 		url =>
 		  "$self->{'config'}->{'doclink'}/data_query/0050_investigating_allele_differences.html#sequence-similarity"
 		,
-		version    => '1.1.3',
+		version    => '1.1.4',
 		dbtype     => 'sequences',
 		seqdb_type => 'sequences',
 		section    => 'analysis',
@@ -132,7 +132,7 @@ sub run {
 		foreach my $match (@$matches) {
 			next if $match->{'allele'} eq $allele;
 			my $length = length $$seq_ref;
-			say qq(<tr class="td$td"><td><a href="$self->{'script_name'}?db=$self->{'instance'}&amp;)
+			say qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . qq(page=alleleInfo&amp;locus=$locus&amp;allele_id=$match->{'allele'}">)
 			  . qq($cleanlocus: $match->{'allele'}</a></td><td>$match->{'identity'}</td>)
 			  . qq(<td>$match->{'mismatches'}</td><td>$match->{'gaps'}</td><td>$match->{'alignment'}/$length)

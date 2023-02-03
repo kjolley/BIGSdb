@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2016-2022, University of Oxford
+#Copyright (c) 2016-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -228,7 +228,7 @@ sub _update_submission_options {
 	my $q = $self->{'cgi'};
 	return if !$q->param('submission_options');
 	my $max_suspend_date = $self->_max_suspend_date;
-	if ( $q->param('absent_until') && $q->param('absent_until') > $max_suspend_date ) {
+	if ( $q->param('absent_until') && $q->param('absent_until') gt $max_suspend_date ) {
 		$q->param( absent_until => $max_suspend_date );
 	}
 	eval {

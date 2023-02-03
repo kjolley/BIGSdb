@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -281,7 +281,7 @@ sub _print_scheme_table {
 	my ( $self, $scheme_id ) = @_;
 	my $set_id = $self->get_set_id;
 	my $loci =
-	    $scheme_id
+		$scheme_id
 	  ? $self->{'datastore'}->get_scheme_loci($scheme_id)
 	  : $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
 	my $td = 1;
@@ -339,17 +339,23 @@ sub _print_scheme_table {
 		}
 	);
 	foreach my $locus (@$loci) {
-		$self->_print_locus_row(
-			$locus,
-			$self->clean_locus($locus),
-			{
-				td             => $td,
-				descs_exist    => $scheme_descs_exist,
-				aliases_exist  => $scheme_aliases_exist,
-				curators_exist => $scheme_curators_exist,
-				scheme         => $scheme_info->{'name'}
-			}
-		);
+		eval {
+			$self->_print_locus_row(
+				$locus,
+				$self->clean_locus($locus),
+				{
+					td             => $td,
+					descs_exist    => $scheme_descs_exist,
+					aliases_exist  => $scheme_aliases_exist,
+					curators_exist => $scheme_curators_exist,
+					scheme         => $scheme_info->{'name'}
+				}
+			);
+		};
+		if ($@) {
+			$logger->error($@) if $@ !~ /Broken\spipe/x && $@ !~ /connection\sabort/x;
+			return;
+		}
 		$td = $td == 1 ? 2 : 1;
 		if ( $ENV{'MOD_PERL'} ) {
 			return if $self->{'mod_perl_request'}->connection->aborted;
@@ -367,7 +373,7 @@ sub get_title {
 
 sub _print_sequences {
 	my ( $self, $locus ) = @_;
-	my $set_id = $self->get_set_id;
+	my $set_id     = $self->get_set_id;
 	my $locus_info = $self->{'datastore'}->get_locus_info( $locus, { set_id => $set_id } );
 	( my $cleaned = $locus_info->{'set_name'} // $locus ) =~ s/^_//x;
 	$cleaned =~ tr/ /_/;
@@ -505,7 +511,7 @@ sub _print_locus_row {
 		my $first = 1;
 		print q(<td>);
 		foreach my $curator_id ( sort { $info->{$a}->{'surname'} cmp $info->{$b}->{'surname'} } @$locus_curators ) {
-			print ', ' if !$first;
+			print ', '            if !$first;
 			$curator_list .= '; ' if !$first;
 			my $first_initial =
 			  $info->{$curator_id}->{'first_name'} ? substr( $info->{$curator_id}->{'first_name'}, 0, 1 ) . q(. ) : q();
@@ -522,13 +528,13 @@ sub _print_locus_row {
 	say "<td>$last_updated</td></tr>";
 	if ( !$self->{'text_buffer'} ) {
 		$self->{'text_buffer'} .=
-		    ( $options->{'scheme'} ? "scheme\t" : '' )
+			( $options->{'scheme'} ? "scheme\t" : '' )
 		  . "locus\tdata type\talleles\tlength varies\tstandard length\tmin length (setting)\t"
 		  . "max length (setting)\tmin length\tmax_length\tfull name/product\taliases\tcurators\n";
 	}
 	local $" = '; ';
 	$self->{'text_buffer'} .=
-	    ( $options->{'scheme'} ? "$options->{'scheme'}\t" : '' )
+		( $options->{'scheme'} ? "$options->{'scheme'}\t" : '' )
 	  . "$locus\t$locus_info->{'data_type'}\t$count\t"
 	  . ( $locus_info->{'length_varies'} ? 'true' : 'false' ) . qq(\t)
 	  . ( $locus_info->{'length'}     // '' ) . qq(\t)

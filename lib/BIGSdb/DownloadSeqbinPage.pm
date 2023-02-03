@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -55,13 +55,15 @@ sub print_content {
 	my $remote_contig_records = $self->{'datastore'}->run_query(
 		'SELECT r.seqbin_id,r.uri FROM remote_contigs r JOIN sequence_bin s ON r.seqbin_id = s.id AND '
 		  . "s.isolate_id=? JOIN $self->{'system'}->{'view'} v ON s.isolate_id=v.id",
-		$isolate_id, { fetch => 'all_hashref', key => 'seqbin_id' }
+		$isolate_id,
+		{ fetch => 'all_hashref', key => 'seqbin_id' }
 	);
 	my $remote_uri_list = [];
 	push @$remote_uri_list, $remote_contig_records->{$_}->{'uri'} foreach keys %$remote_contig_records;
 	my $remote_contig_seqs;
 	eval { $remote_contig_seqs = $self->{'contigManager'}->get_remote_contigs_by_list($remote_uri_list); };
 	$logger->error($@) if $@;
+
 	foreach my $contig ( sort { length( $b->[2] ) <=> length( $a->[2] ) } @$data ) {
 		my ( $id, $orig, $seq ) = @$contig;
 		$seq = $remote_contig_seqs->{ $remote_contig_records->{$id}->{'uri'} } if !$seq;
@@ -69,10 +71,14 @@ sub print_content {
 		print " $orig" if $orig;
 		print "\n";
 		my $seq_ref = BIGSdb::Utils::break_line( \$seq, 60 );
-		say $$seq_ref;
+		eval { say $$seq_ref};    #If client drops connection this can result in Apache error.
+		if ($@) {
+			$logger->error($@) if $@ !~ /Broken\spipe/x && $@ !~ /connection\sabort/x;
+			last;
+		}
 		if ( $ENV{'MOD_PERL'} ) {
-			$self->{'mod_perl_request'}->rflush;
 			return if $self->{'mod_perl_request'}->connection->aborted;
+			$self->{'mod_perl_request'}->rflush;
 		}
 	}
 	if ( !@$data ) {
