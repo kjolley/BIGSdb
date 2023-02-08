@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2021-2022, University of Oxford
+#Copyright (c) 2021-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -190,7 +190,7 @@ sub _ajax_get_seqbin_range {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 	return;
 }
 
-sub _ajax_new_dashboard {       ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _ajax_new_dashboard {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ($self)     = @_;
 	my $guid       = $self->get_guid;
 	my $q          = $self->{'cgi'};
@@ -270,7 +270,7 @@ sub _print_visualisation_type_controls {
 			10 => '10 values'
 		},
 		-default => $element->{'top_values'} // TOP_VALUES,
-		-class => 'element_option',
+		-class   => 'element_option',
 	);
 	say q(</li>);
 	say q(</fieldset>);
@@ -398,9 +398,9 @@ sub _print_chart_type_controls {
 	}
 	my %labels = ( top => 'top values', gps_map => 'map', map => 'world map', word => 'word cloud' );
 	say $q->popup_menu(
-		-name   => "${id}_breakdown_display",
-		-id     => "${id}_breakdown_display",
-		-values => [ 0, sort { ( $labels{$a} // $a ) cmp( $labels{$b} // $b ) } @$breakdown_charts ],
+		-name    => "${id}_breakdown_display",
+		-id      => "${id}_breakdown_display",
+		-values  => [ 0, sort { ( $labels{$a} // $a ) cmp( $labels{$b} // $b ) } @$breakdown_charts ],
 		-labels  => { 0 => 'Select...', %labels },
 		-class   => 'element_option',
 		-default => $element->{'breakdown_display'}
@@ -499,7 +499,7 @@ sub _print_size_controls {
 sub _print_change_duration_control {
 	my ( $self, $id, $element, $options ) = @_;
 	my $display = $options->{'display'} // 'inline';
-	my $q = $self->{'cgi'};
+	my $q       = $self->{'cgi'};
 	say qq(<fieldset id="change_duration_control" style="float:left;display:$display">)
 	  . q(<legend>Rate of change</legend><ul>);
 	say q(<li>);
@@ -536,7 +536,7 @@ sub _print_design_control {
 
 sub _print_colour_control {
 	my ( $self, $id, $element ) = @_;
-	my $q = $self->{'cgi'};
+	my $q       = $self->{'cgi'};
 	my $default = $element->{'main_text_colour'} // COUNT_MAIN_TEXT_COLOUR;
 	say q(<li id="text_colour_control" style="display:none">);
 	say qq(<input type="color" id="${id}_main_text_colour" value="$default" class="element_option colour_selector">);
@@ -591,7 +591,7 @@ sub _print_colour_control {
 sub _print_order_control {
 	my ( $self, $id, $element, $options ) = @_;
 	my $display = $options->{'display'} // 'inline';
-	my $q = $self->{'cgi'};
+	my $q       = $self->{'cgi'};
 	my ( $default, $values );
 	if ( $self->_field_has_optlist( $element->{'field'} ) ) {
 		$values  = [qw(frequency label list)];
@@ -617,7 +617,7 @@ sub _print_order_control {
 sub _print_orientation_control {
 	my ( $self, $id, $element, $options ) = @_;
 	my $display = $options->{'display'} // 'inline';
-	my $q = $self->{'cgi'};
+	my $q       = $self->{'cgi'};
 	say qq(<fieldset id="orientation_control" style="float:left;display:$display"><legend>Orientation</legend><ul>);
 	say q(<li><label for="${id}_orientation">Orientation:<br /></label>);
 	say $q->radio_group(
@@ -1124,10 +1124,10 @@ sub print_dashboard {
 sub _print_ajax_load_code {
 	my ( $self, $already_loaded, $ajax_load_ids, $options ) = @_;
 	my $qry_file_clause = $options->{'qry_file'} ? qq(&qry_file=$options->{'qry_file'}) : q();
-	my $qry_file       = $options->{'qry_file'} // q();
-	my $list_file      = $options->{'list_file'};
-	my $list_attribute = $options->{'list_attribute'};
-	my $project_clause = $self->{'project_id'} ? qq(&project_id=$self->{'project_id'}) : q();
+	my $qry_file        = $options->{'qry_file'} // q();
+	my $list_file       = $options->{'list_file'};
+	my $list_attribute  = $options->{'list_attribute'};
+	my $project_clause  = $self->{'project_id'} ? qq(&project_id=$self->{'project_id'}) : q();
 	my $list_file_clause =
 	  defined $list_file && defined $list_attribute ? qq(&list_file=$list_file&list_attribute=$list_attribute) : q();
 	my $filter_clause = $self->{'no_filters'} ? '&no_filters=1' : q();
@@ -1201,11 +1201,9 @@ sub _read_default_dashboard_toml {
 		"$self->{'dbase_config_dir'}/$self->{'instance'}/dashboard.toml",
 		"$self->{'config_dir'}/dashboard.toml"
 	  );
-	my $file_exists;
 	my $data;
 	foreach my $filename (@possible_files) {
 		if ( -e $filename ) {
-			$file_exists = 1;
 			my $toml = BIGSdb::Utils::slurp($filename);
 			my $err;
 			( $data, $err ) = from_toml($$toml);
@@ -1282,7 +1280,7 @@ sub _get_element_html {
 	my $width_class  = "dashboard_element_width$element->{'width'}";
 	my $height_class = "dashboard_element_height$element->{'height'}";
 	my $setup        = $element->{'display'} eq 'setup' ? q( style="display:block") : q();
-	my $new_item     = $options->{'new'} ? q( new_item) : q();
+	my $new_item     = $options->{'new'}                ? q( new_item)              : q();
 	$buffer .= qq(<div class="item-content $width_class $height_class$mobile_class$new_item"$setup>);
 	$buffer .= $self->_get_element_controls($element);
 	$buffer .= q(<div class="ajax_content" style="overflow:hidden;height:100%;width:100%;">);
@@ -1380,7 +1378,7 @@ sub _get_count_element_content {
 	my $buffer = $self->_get_colour_swatch($element);
 	$buffer .= qq(<div class="title">$element->{'name'}</div>);
 	my $text_colour = $element->{'main_text_colour'} // COUNT_MAIN_TEXT_COLOUR;
-	my $count = $self->_get_total_record_count( { genomes => $element->{'genomes'} } );
+	my $count       = $self->_get_total_record_count( { genomes => $element->{'genomes'} } );
 	my ( $change_duration, $increase );
 	if ( $element->{'change_duration'} && $count > 0 ) {
 		my %allowed = map { $_ => 1 } qw(week month year);
@@ -1414,8 +1412,8 @@ sub _get_count_element_content {
 }
 
 sub _get_seqbin_standard_range {
-	my ($self) = @_;
-	my $qry = "SELECT total_length FROM seqbin_stats s JOIN $self->{'system'}->{'view'} v ON s.isolate_id=v.id";
+	my ($self)  = @_;
+	my $qry     = "SELECT total_length FROM seqbin_stats s JOIN $self->{'system'}->{'view'} v ON s.isolate_id=v.id";
 	my $lengths = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	return {} if !@$lengths;
 	my $stats = BIGSdb::Utils::stats($lengths);
@@ -1439,7 +1437,7 @@ sub _get_seqbin_standard_range {
 sub _get_seqbin_size_element_content {
 	my ( $self, $element ) = @_;
 	my $chart_colour = $element->{'chart_colour'} // CHART_COLOUR;
-	my $qry = "SELECT total_length FROM seqbin_stats s JOIN $self->{'view'} v ON s.isolate_id=v.id";
+	my $qry          = "SELECT total_length FROM seqbin_stats s JOIN $self->{'view'} v ON s.isolate_id=v.id";
 	if ( !defined $element->{'min'} && !defined $element->{'max'} ) {
 		my $range = $self->_get_seqbin_standard_range;
 		$element->{'min'} //= $range->{'min'};
@@ -1637,7 +1635,7 @@ sub _get_big_number_content {
 	  . qq(<span class="dashboard_big_number" style="color:$text_colour">$nice_count</span></p>);
 	if ( $change_duration && defined $increase ) {
 		my $nice_increase = BIGSdb::Utils::commify($increase);
-		my $class = $increase ? 'increase' : 'no_change';
+		my $class         = $increase ? 'increase' : 'no_change';
 		$buffer .= qq(<p class="dashboard_comment $class"><span class="fas fa-caret-up"></span> )
 		  . qq($nice_increase [$change_duration]</p>);
 	}
@@ -1650,7 +1648,7 @@ sub _get_field_element_content {
 	my $buffer;
 	if ( $element->{'visualisation_type'} eq 'specific values' ) {
 		my $chart_type = $element->{'specific_value_display'} // q();
-		my %methods = (
+		my %methods    = (
 			number => sub { $self->_get_field_specific_value_number_content($element) },
 			gauge  => sub { $self->_get_field_specific_value_gauge_content($element) }
 		);
@@ -1659,7 +1657,7 @@ sub _get_field_element_content {
 		}
 	} elsif ( $element->{'visualisation_type'} eq 'breakdown' ) {
 		my $chart_type = $element->{'breakdown_display'} // q();
-		my %methods = (
+		my %methods    = (
 			bar        => sub { $self->_get_field_breakdown_bar_content($element) },
 			doughnut   => sub { $self->_get_field_breakdown_doughnut_content($element) },
 			pie        => sub { $self->_get_field_breakdown_pie_content($element) },
@@ -1727,7 +1725,7 @@ sub _get_provenance_field_counts {
 	my $values = $self->_filter_list( $type, $element->{'specific_values'} );
 	if ( ( $att->{'optlist'} // q() ) eq 'yes' ) {
 		my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
-		my %used = map { $_ => 1 } @$values;
+		my %used    = map { $_ => 1 } @$values;
 		foreach my $value (@$values) {
 			my $subvalues = $self->_get_sub_values( $value, $optlist );
 			foreach my $subvalue (@$subvalues) {
@@ -1765,7 +1763,7 @@ sub _get_provenance_field_counts {
 	local $" = ' AND ';
 	$qry .= " AND @$filters" if @$filters;
 	my $count = $self->{'datastore'}->run_query($qry);
-	my $data = { count => $count };
+	my $data  = { count => $count };
 	if ( $element->{'change_duration'} && $count > 0 ) {
 		my %allowed = map { $_ => 1 } qw(week month year);
 		if ( $allowed{ $element->{'change_duration'} } ) {
@@ -1798,7 +1796,7 @@ sub _get_extended_field_counts {
 	local $" = ' AND ';
 	$qry .= " AND @$filters" if @$filters;
 	my $count = $self->{'datastore'}->run_query( $qry, $attribute );
-	my $data = { count => $count };
+	my $data  = { count => $count };
 
 	if ( $element->{'change_duration'} && $count > 0 ) {
 		my %allowed = map { $_ => 1 } qw(week month year);
@@ -1822,6 +1820,7 @@ sub _get_eav_field_counts {
 	my $view       = $self->{'system'}->{'view'};
 	my $table      = $self->{'datastore'}->get_eav_field_table($field);
 	my $qry        = "SELECT COUNT(*) FROM $table t JOIN $view v ON t.isolate_id = v.id AND t.field=? WHERE ";
+
 	if ( $type eq 'text' ) {
 		$qry .= "UPPER(t.value) IN (SELECT UPPER(value) FROM $temp_table)";
 	} else {
@@ -1831,7 +1830,7 @@ sub _get_eav_field_counts {
 	local $" = ' AND ';
 	$qry .= " AND @$filters" if @$filters;
 	my $count = $self->{'datastore'}->run_query( $qry, $field );
-	my $data = { count => $count };
+	my $data  = { count => $count };
 	if ( $element->{'change_duration'} && $count > 0 ) {
 		my %allowed = map { $_ => 1 } qw(week month year);
 		if ( $allowed{ $element->{'change_duration'} } ) {
@@ -1866,7 +1865,7 @@ sub _get_scheme_field_counts {
 		local $" = ' AND ';
 		$qry .= " AND @$filters" if @$filters;
 		my $count = $self->{'datastore'}->run_query($qry);
-		my $data = { count => $count };
+		my $data  = { count => $count };
 		if ( $element->{'change_duration'} && $count > 0 ) {
 			my %allowed = map { $_ => 1 } qw(week month year);
 			if ( $allowed{ $element->{'change_duration'} } ) {
@@ -1933,13 +1932,13 @@ sub _get_linked_gps_field_breakdown_values {
 		return;
 	}
 	my $qry =
-	    "SELECT $field AS label,$country_field AS country,COUNT(*) "
+		"SELECT $field AS label,$country_field AS country,COUNT(*) "
 	  . "AS value FROM $self->{'view'} v WHERE $field IS NOT NULL";
 	my $filters = $self->_get_filters;
 	local $" = ' AND ';
 	$qry .= " AND @$filters" if @$filters;
 	$qry .= ' GROUP BY label,country';
-	my $data = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
+	my $data   = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 	my $values = [];
 
 	foreach my $value (@$data) {
@@ -2024,7 +2023,7 @@ sub _get_primary_metadata_breakdown_values {
 sub _get_extended_field_breakdown_values {
 	my ( $self, $field, $attribute ) = @_;
 	my $qry =
-	    "SELECT COALESCE(e.value,'No value') AS label,COUNT(*) AS value FROM $self->{'view'} v "
+		"SELECT COALESCE(e.value,'No value') AS label,COUNT(*) AS value FROM $self->{'view'} v "
 	  . "LEFT JOIN isolate_value_extended_attributes e ON (v.$field,e.isolate_field,e.attribute)=(e.field_value,?,?) ";
 	my $filters = $self->_get_filters;
 	local $" = ' AND ';
@@ -2065,7 +2064,7 @@ sub _get_scheme_field_breakdown_values {
 	#We include the DISTINCT clause below because an isolate may have more than 1 row in the scheme
 	#cache table. This happens if the isolate has multiple STs (due to multiple allele hits).
 	my $qry =
-	    "SELECT s.$field AS label,COUNT(DISTINCT (v.id)) AS value FROM $self->{'view'} v "
+		"SELECT s.$field AS label,COUNT(DISTINCT (v.id)) AS value FROM $self->{'view'} v "
 	  . "LEFT JOIN $scheme_table s ON v.id=s.id";
 	my $filters = $self->_get_filters;
 	local $" = ' AND ';
@@ -2099,7 +2098,7 @@ sub _get_scheme_annotation_values {
 	my $min_threshold = $scheme_info->{'quality_metric_bad_threshold'} // 0;
 	$min_threshold = 0 if $min_threshold < 0;
 	my $filter_clause = @$filters ? " AND @$filters" : q();
-	my $good = $self->{'datastore'}->run_query(
+	my $good          = $self->{'datastore'}->run_query(
 		"SELECT COUNT(*) FROM $self->{'view'} v$view_clause JOIN temp_isolates_scheme_completion_$scheme_id "
 		  . "v3 ON v.id=v3.id WHERE locus_count>=?$filter_clause",
 		$max_threshold
@@ -2278,7 +2277,7 @@ sub _get_doughnut_pie_dataset {
 	my $value_count   = 0;
 	foreach my $value (@$data) {
 		$value->{'label'} //= 'No value';
-		$value->{'label'} =~ s/"/\\"/gx;
+		$value->{'label'}         =~ s/"/\\"/gx;
 		$value->{'display_label'} =~ s/"/\\"/gx if defined $value->{'display_label'};
 		my $label = $value->{'display_label'} // $value->{'label'};
 		$value_count++;
@@ -2296,7 +2295,7 @@ sub _get_doughnut_pie_dataset {
 	}
 	return {
 		others_label => $others_label // 'Others',
-		dataset => $dataset
+		dataset      => $dataset
 	};
 }
 
@@ -2330,7 +2329,7 @@ sub _get_bar_dataset {
 		push @ordered_data, $values{$label} if defined $values{$label};
 	}
 	foreach my $value (@ordered_data) {
-		$value->{'label'} =~ s/"/\\"/gx;
+		$value->{'label'}         =~ s/"/\\"/gx;
 		$value->{'display_label'} =~ s/"/\\"/gx if defined $value->{'display_label'};
 		push @$labels, $value->{'display_label'} // $value->{'label'};
 		push @$values, $value->{'value'};
@@ -2344,12 +2343,12 @@ sub _get_bar_dataset {
   POS: for my $i ( 0 .. @$values - 1 ) {
 		my $lower = $i >= $cols_either_side ? $i - $cols_either_side : 0;
 		for my $j ( $lower .. $i ) {
-			next if $i == $j;
+			next     if $i == $j;
 			next POS if $values->[$j] > $values->[$i];
 		}
 		my $upper = $i <= @$values - 1 - $cols_either_side ? $i + $cols_either_side : @$values - 1;
 		for my $j ( $i .. $upper ) {
-			next if $i == $j;
+			next     if $i == $j;
 			next POS if $values->[$j] > $values->[$i];
 		}
 		my $label_nearby = 0;
@@ -2398,8 +2397,8 @@ sub _get_field_breakdown_bar_content {
 	my $value_string     = qq(@{$dataset->{'values'}});
 	my $local_max_string = qq(@{$dataset->{'local_max'}});
 	my $bar_colour_type  = $element->{'bar_colour_type'} // 'categorical';
-	my $chart_colour     = $element->{'chart_colour'} // CHART_COLOUR;
-	my $is_vertical = ($element->{'orientation'} // 'horizontal') eq 'vertical' ? 1 : 0;
+	my $chart_colour     = $element->{'chart_colour'}    // CHART_COLOUR;
+	my $is_vertical      = ( $element->{'orientation'} // 'horizontal' ) eq 'vertical' ? 1 : 0;
 	my $colour_function;
 
 	if ( ( $element->{'bar_colour_type'} // q() ) eq 'continuous' ) {
@@ -2409,8 +2408,8 @@ sub _get_field_breakdown_bar_content {
 	} else {
 		$colour_function = q(d3.schemeCategory10[d.index % 10];);
 	}
-	my $buffer = $self->_get_title($element);
-	my $vert_class = $is_vertical ? q( vertical):q();
+	my $buffer     = $self->_get_title($element);
+	my $vert_class = $is_vertical ? q( vertical) : q();
 	$buffer .= qq(<div id="chart_$element->{'id'}" class="pie$vert_class" style="margin-top:-20px"></div>);
 	$buffer .= $self->_get_data_explorer_link($element);
 	local $" = q(,);
@@ -2815,7 +2814,7 @@ sub _get_field_breakdown_wordcloud_content {
 		  : ( $value->{'label'} );
 		foreach my $word (@words) {
 			$word =~ s/[\[\]]//gx if @words > 1;
-			next if $invalid_words{$word};
+			next                  if $invalid_words{$word};
 			$word_counts{$word} += $value->{'value'};
 		}
 	}
@@ -2832,7 +2831,7 @@ sub _get_field_breakdown_wordcloud_content {
 	my %ignore_word  = map { $_ => 1 } qw(and or);
 	my %rename;
 	foreach my $value (@$data) {
-		next if !defined $value->{'label'} || $value->{'label'} eq 'No value';
+		next                         if !defined $value->{'label'} || $value->{'label'} eq 'No value';
 		$largest = $value->{'value'} if $value->{'value'} > $largest;
 	}
 	foreach my $value (@$data) {
@@ -2866,8 +2865,8 @@ sub _get_field_breakdown_wordcloud_content {
 		my $size = int( $max_size * $freq ) + $min_size;
 		push @$dataset,
 		  {
-			text => $rename{ $value->{'label'} } // $value->{'label'},
-			size => $size,
+			text   => $rename{ $value->{'label'} } // $value->{'label'},
+			size   => $size,
 			colour => ( $value->{'value'} / $largest )
 		  };
 	}
@@ -2929,7 +2928,7 @@ sub _get_field_breakdown_top_values_content {
 	  && $element->{'top_values'} == 5 ? 'line-height:100%;font-size:0.9em' : q();
 	$buffer .= qq(<div class="subtitle">Top $element->{'top_values'} values</div>);
 	$buffer .=
-	    q(<div><table class="dashboard_table"><tr>)
+		q(<div><table class="dashboard_table"><tr>)
 	  . qq(<th style="color:$header_colour;background:$header_background">Value</th>)
 	  . qq(<th style="color:$header_colour;background:$header_background">Frequency</th></tr>);
 	my $td     = 1;
@@ -2979,7 +2978,7 @@ sub _get_field_breakdown_treemap_content {
 	}
 	my $min_dimension = min( $element->{'height'}, $element->{'width'} ) // 1;
 	my $buffer =
-	    qq(<div id="chart_$element->{'id'}_tooltip" style="position:absolute;top:0;left:0px;display:none;z-index:1">)
+		qq(<div id="chart_$element->{'id'}_tooltip" style="position:absolute;top:0;left:0px;display:none;z-index:1">)
 	  . q(<table class="bb-tooltip"><tbody><tr>)
 	  . qq(<td><span id="chart_$element->{'id'}_background"></span>)
 	  . qq(<span id="chart_$element->{'id'}_label" style="width:initial"></span></td>)
@@ -2992,8 +2991,17 @@ sub _get_field_breakdown_treemap_content {
 	my $json    = JSON->new->allow_nonref;
 	my $dataset = $json->encode( { children => $display_data } );
 	my $colour_function;
+	my $colour_values = $self->_get_colour_values;
 
-	if ( $element->{'field'} =~ /^as_/x ) {
+	if ( $colour_values->{ $element->{'field'} } ) {
+		my $values = $json->encode( $colour_values->{ $element->{'field'} } );
+		$colour_function = << "JS";
+function(label){
+	var annotations=$values;
+	return annotations[label];
+}
+JS
+	} elsif ( $element->{'field'} =~ /^as_/x ) {
 		$colour_function = << 'JS';
 function(label){
 	var annotations={
@@ -3003,7 +3011,7 @@ function(label){
 		'not applicable':'#aaa',
 		'not started':'#888'
 	};
-	return annotations[label]
+	return annotations[label];
 }
 JS
 	} else {
@@ -3148,6 +3156,31 @@ JS
 	return $buffer;
 }
 
+#Checks to see if colours have been defined for values for a specific field
+#in a TOML file.
+sub _get_colour_values {
+	my ($self) = @_;
+	my @possible_files = (
+		"$self->{'dbase_config_dir'}/$self->{'instance'}/dashboard_colours.toml",
+		"$self->{'dbase_config_dir'}/$self->{'instance'}/dashboard_colors.toml",
+		"$self->{'config_dir'}/dashboard_colours.toml",
+		"$self->{'config_dir'}/dashboard_colors.toml",
+	);
+	my $data = {};
+	foreach my $filename (@possible_files) {
+		if ( -e $filename ) {
+			my $toml = BIGSdb::Utils::slurp($filename);
+			my $err;
+			( $data, $err ) = from_toml($$toml);
+			if ($err) {
+				$logger->error($err);
+			}
+			last;
+		}
+	}
+	return $data;
+}
+
 sub _get_field_breakdown_map_content {
 	my ( $self, $element ) = @_;
 	my $data = $self->_get_field_breakdown_values($element);
@@ -3164,7 +3197,7 @@ sub _get_field_breakdown_map_content {
 		}
 	}
 	my $buffer =
-	    qq(<div id="chart_$element->{'id'}_tooltip" style="position:absolute;top:0;left:0px;display:none;z-index:1">)
+		qq(<div id="chart_$element->{'id'}_tooltip" style="position:absolute;top:0;left:0px;display:none;z-index:1">)
 	  . q(<table class="bb-tooltip"><tbody><tr>)
 	  . qq(<td><span id="chart_$element->{'id'}_background"></span>)
 	  . qq(<span id="chart_$element->{'id'}_label" style="width:initial"></span></td>)
@@ -3172,15 +3205,15 @@ sub _get_field_breakdown_map_content {
 	  . qq(<span id="chart_$element->{'id'}_percent" style="width:initial"></span></td>)
 	  . q(</tr></tbody></table></div>);
 	$buffer .= $self->_get_title($element);
-	my $unit_id = $element->{'field'} eq 'f_country' ? 'iso3'                       : 'continent';
-	my $units   = $element->{'field'} eq 'f_country' ? 'units'                      : 'continents';
-	my $merge   = $element->{'field'} eq 'f_country' ? q(data = merge_terms(data);) : q();
+	my $unit_id   = $element->{'field'} eq 'f_country' ? 'iso3'                       : 'continent';
+	my $units     = $element->{'field'} eq 'f_country' ? 'units'                      : 'continents';
+	my $merge     = $element->{'field'} eq 'f_country' ? q(data = merge_terms(data);) : q();
 	my %max_width = (
 		1 => 200,
 		2 => 500,
 		3 => 600
 	);
-	my $width = min( $element->{'width'} * 150, $max_width{ $element->{'height'} } );
+	my $width      = min( $element->{'width'} * 150, $max_width{ $element->{'height'} } );
 	my $top_margin = $element->{'height'} == 1 && $element->{'width'} == 1 ? '-10px' : '-10px';
 	my $json       = JSON->new->allow_nonref;
 	my $dataset    = $json->encode($data);
@@ -3343,7 +3376,7 @@ JS
 sub _get_field_breakdown_gps_map_content {
 	my ( $self, $element ) = @_;
 	my $data =
-	    $self->_field_linked_to_gps( $element->{'field'} )
+		$self->_field_linked_to_gps( $element->{'field'} )
 	  ? $self->_get_linked_gps_field_breakdown_values($element)
 	  : $self->_get_field_breakdown_values($element);
 	my $values = [];
@@ -3359,7 +3392,7 @@ sub _get_field_breakdown_gps_map_content {
 		Map    => 'RoadOnDemand',
 		Aerial => 'AerialWithLabelsOnDemand'
 	);
-	my $imagery_set = $map_type{ $element->{'geography_view'} // 'Map' };
+	my $imagery_set   = $map_type{ $element->{'geography_view'} // 'Map' };
 	my $marker_colour = $element->{'marker_colour'} // 'red';
 	my $marker_size   = $element->{'marker_size'}   // 1;
 	$imagery_set //= 'RoadOnDemand';
@@ -3418,7 +3451,7 @@ JS
 JS
 	$buffer .= qq(</script>\n);
 	$buffer .=
-	    q(<div class="title gps_map_title" )
+		q(<div class="title gps_map_title" )
 	  . qq(style="position:absolute;top:0;width:100%;color:#666">$element->{'name'}</div>);
 	if ( !@$data ) {
 		$buffer .= q(<div style="position:absolute;top:50px;width:100%;color:#666;font-size:2em">No values</div>);
@@ -3553,16 +3586,16 @@ sub _add_element_watermark {
 
 sub _get_element_controls {
 	my ( $self, $element ) = @_;
-	my $id = $element->{'id'};
+	my $id      = $element->{'id'};
 	my $display = $self->{'prefs'}->{'remove_elements'} ? 'inline' : 'none';
 	my $buffer =
-	    qq(<span data-id="$id" id="remove_$id" )
+		qq(<span data-id="$id" id="remove_$id" )
 	  . qq(class="dashboard_remove_element far fa-trash-alt" style="display:$display"></span>)
 	  . qq(<span data-id="$id" id="wait_$id" class="dashboard_wait fas fa-sync-alt )
 	  . q(fa-spin" style="display:none"></span>);
 	$display = ( $self->{'prefs'}->{'edit_elements'} // 1 ) ? 'inline' : 'none';
 	$buffer .=
-	    qq(<span data-id="$id" id="control_$id" class="dashboard_edit_element fas fa-sliders-h" )
+		qq(<span data-id="$id" id="control_$id" class="dashboard_edit_element fas fa-sliders-h" )
 	  . qq(style="display:$display"></span>);
 	return $buffer;
 }
@@ -3638,7 +3671,7 @@ sub process_breadcrumbs {
 		push @{ $self->{'breadcrumbs'} },
 		  {
 			label => $self->{'system'}->{'webroot_label'} // 'Organism',
-			href => $self->{'system'}->{'webroot'}
+			href  => $self->{'system'}->{'webroot'}
 		  };
 	}
 	push @{ $self->{'breadcrumbs'} },
@@ -3722,13 +3755,13 @@ sub _update_dashboard_prefs {    ## no critic (ProhibitUnusedPrivateSubroutines)
 	my %allowed_attributes =
 	  map { $_ => 1 }
 	  qw(fill_gaps order elements include_old_versions open_new name record_age
-	);
+	  );
 
 	if ( !$allowed_attributes{$attribute} ) {
 		$logger->error("Invalid attribute - $attribute");
 		return;
 	}
-	my $json = JSON->new->allow_nonref;
+	my $json               = JSON->new->allow_nonref;
 	my %boolean_attributes = map { $_ => 1 } qw(fill_gaps include_old_versions);
 	if ( $boolean_attributes{$attribute} ) {
 		my %allowed_values = map { $_ => 1 } ( 0, 1 );
@@ -3796,9 +3829,9 @@ sub print_modify_dashboard_fieldset {
 	my $remove_elements = $self->{'prefs'}->{'remove_elements'} // 0;
 	my $default_attributes;
 	$default_attributes = $self->_get_default_dashboard_attributes if !$self->{'user_dashboard_loaded'};
-	my $open_new = $self->{'prefs'}->{'open_new'} // 1;
+	my $open_new  = $self->{'prefs'}->{'open_new'}  // 1;
 	my $fill_gaps = $self->{'prefs'}->{'fill_gaps'} // $default_attributes->{'fill_gaps'} // 1;
-	my $q = $self->{'cgi'};
+	my $q         = $self->{'cgi'};
 	say q(<div id="modify_dashboard_panel" class="panel">);
 	say q(<a class="trigger" id="close_dashboard_trigger" href="#"><span class="fas fa-lg fa-times"></span></a>);
 	say q(<h2>Dashboard settings</h2>);
@@ -3901,7 +3934,7 @@ sub _print_dashboard_management_fieldset {
 		  ->get_active_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, $project_id // 0 );
 		$dashboards = $self->{'prefstore'}->get_dashboards( $guid, $self->{'instance'} );
 	}
-	my $ids = [-1];
+	my $ids    = [-1];
 	my $labels = { -1 => 'Select dashboard...' };
 	my $default_name =
 	  ( $self->{'dashboard_type'} && $self->{'project_id'} )
@@ -3996,7 +4029,7 @@ sub _export {
 			next if $key eq 'order';
 			next if $key eq 'id';
 			my $spacer = q( ) x ( 25 - length($key) );
-			my $value = $elements->{$element}->{$key};
+			my $value  = $elements->{$element}->{$key};
 			if ( ref $value eq 'ARRAY' ) {
 				local $" = q(',');
 				$value = qq(['@$value']);
@@ -4104,8 +4137,8 @@ sub print_field_selector {
 	my $label = $field_options->{'label'} // 'Field';
 	say qq(<label for="add_field">$label:</label>);
 	say $q->popup_menu(
-		-name => $field_options->{'name'} // 'add_field',
-		-id   => $field_options->{'id'}   // 'add_field',
+		-name     => $field_options->{'name'} // 'add_field',
+		-id       => $field_options->{'id'}   // 'add_field',
 		-values   => $values,
 		-labels   => $labels,
 		-multiple => 'true',
@@ -4131,9 +4164,9 @@ sub get_heading {
 sub get_javascript {
 	my ($self) = @_;
 	return if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
-	my $order = $self->{'prefs'}->{'order'} // q();
+	my $order       = $self->{'prefs'}->{'order'} // q();
 	my $enable_drag = $self->{'prefs'}->{'enable_drag'} ? 'true' : 'false';
-	my $json = JSON->new->allow_nonref;
+	my $json        = JSON->new->allow_nonref;
 	if ($order) {
 		$order = $json->encode($order);
 	}
