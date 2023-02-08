@@ -4020,9 +4020,11 @@ sub _export {
 	print q( for this project) if $q->param('project_id');
 	say qq(.\n);
 	say 'elements = [';
+	my $j = 0;
 
 	foreach my $element (@order) {
 		say q(  {);
+		$j++;
 		my $i = 0;
 		foreach my $key ( sort keys %{ $elements->{$element} } ) {
 			$i++;
@@ -4049,7 +4051,7 @@ sub _export {
 			}
 			say qq(    $key${spacer}= $value) . ( ( $i != keys %{ $elements->{$element} } ) ? q(,) : q() );
 		}
-		say q(  }) . ( $element != keys %$elements ? q(,) : q() );
+		say q(  }) . ( $j != keys %$elements ? q(,) : q() );
 	}
 	say qq(]\n);
 	my $fill_gaps    = $self->{'prefs'}->{'fill_gaps'}            // 1;
