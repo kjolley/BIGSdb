@@ -1345,6 +1345,9 @@ sub _field_exists {
 		return $self->{'datastore'}
 		  ->run_query( 'SELECT EXISTS(SELECT * FROM scheme_fields WHERE (scheme_id,field)=(?,?))', [ $1, $2 ] );
 	}
+	if ( $field =~ /^eav_(.*)$/x ) {
+		return $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM eav_fields WHERE field=?)', $1 );
+	}
 	return;
 }
 
