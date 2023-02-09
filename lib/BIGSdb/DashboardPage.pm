@@ -2403,13 +2403,29 @@ sub _get_field_breakdown_bar_content {
 	my $chart_colour     = $element->{'chart_colour'}    // CHART_COLOUR;
 	my $is_vertical      = ( $element->{'orientation'} // 'horizontal' ) eq 'vertical' ? 1 : 0;
 	my $colour_function;
+	my $id = $element->{'id'};
 
 	if ( ( $element->{'bar_colour_type'} // q() ) eq 'continuous' ) {
-		$colour_function = qq("$chart_colour");
-	} elsif ( $element->{'field'} =~ /^as_/x ) {
-		$colour_function = q(["#2ca02c","#ff7f0e","#d62728","#aaa","#888"][d.index]);
+		$colour_function = << "JS";
+function getColour$id(label){
+	return "$chart_colour";
+}
+JS
 	} else {
-		$colour_function = q(d3.schemeCategory10[d.index % 10];);
+		$colour_function = $self->_get_colour_function($element);
+		$colour_function = qq(getColour$id = d3.scaleOrdinal(d3.schemeCategory10)) if !$colour_function;
+	}
+	my $bb_defaults = q();
+	if ($colour_function) {
+		$bb_defaults = << "DEFAULTS";
+		bb.defaults({
+		data: {
+			color: function(color, d){
+				return getColour$id(labels[d.index]);	
+			}
+		}
+	});	
+DEFAULTS
 	}
 	my $buffer     = $self->_get_title($element);
 	my $vert_class = $is_vertical ? q( vertical) : q();
@@ -2418,10 +2434,13 @@ sub _get_field_breakdown_bar_content {
 	local $" = q(,);
 	$buffer .= << "JS";
 	<script>
+	var labels = [$cat_string];
+	var values = [$value_string];
+	var label_count = $dataset->{'count'};
+	$colour_function
 	\$(function() {
-		var labels = [$cat_string];
-		var values = [$value_string];
-		var label_count = $dataset->{'count'};
+		$bb_defaults
+
 		var max = $dataset->{'max'};
 		var local_max = [$local_max_string];
 		var bar_colour_type = "$bar_colour_type";
@@ -2462,7 +2481,6 @@ sub _get_field_breakdown_bar_content {
 						}
 					}
 				},
-				color: function(color,d){return $colour_function}
 			},
 			axis: {
 				rotated: $is_vertical,
@@ -2667,12 +2685,32 @@ sub _get_field_breakdown_doughnut_content {
 		$label_show   = 'true';
 	}
 	local $" = qq(,\n);
-	my $others_label = $data->[-1] =~ /^Others/x ? $data->[-1] : 'Others';
+	my $others_label    = $data->[-1] =~ /^Others/x ? $data->[-1] : 'Others';
+	my $id              = $element->{'id'};
+	my $colour_function = $self->_get_colour_function($element);
+	my $bb_defaults     = q();
+	if ($colour_function) {
+		$bb_defaults = << "DEFAULTS";
+		bb.defaults({
+			data: {
+				color: function(color, d){
+					return getColour$id(d.id);	
+				}
+			}
+		});	
+DEFAULTS
+	} else {
+		$bb_defaults = << "DEFAULTS";
+		bb.defaults({});
+DEFAULTS
+	}
 	$buffer .= qq(<div id="chart_$element->{'id'}" class="doughnut" style="margin-top:${margin_top}px"></div>);
 	$buffer .= $self->_get_data_explorer_link($element);
 	$buffer .= << "JS";
 	<script>
+	$colour_function
 	\$(function() {
+		$bb_defaults
 		bb.generate({
 			data: {
 				columns: [
@@ -2682,11 +2720,6 @@ sub _get_field_breakdown_doughnut_content {
 				order: null,
 				colors: {
 					'$dataset->{'others_label'}': '#aaa',
-					'good': '#2ca02c',
-					'bad' : '#d62728',
-					'intermediate' : '#ff7f0e',
-					'not applicable' : '#aaa',
-					'not started':'#888'
 				}
 			},
 			size: {
@@ -2729,6 +2762,42 @@ JS
 	return $buffer;
 }
 
+sub _get_colour_function {
+	my ( $self, $element ) = @_;
+	my $colour_function = q();
+	my $colour_values   = $self->_get_colour_values;
+	my $json            = JSON->new->allow_nonref;
+	my $id              = $element->{'id'};
+	if ( $colour_values->{ $element->{'field'} } ) {
+		my $values = $json->encode( $colour_values->{ $element->{'field'} } );
+		$colour_function = << "JS";
+function getColour$id(label){
+	var annotations=$values;
+	if (typeof annotations[label] === 'undefined'){
+		return '#ddd';
+	}
+	return annotations[label];
+}
+JS
+		return $colour_function;
+	} elsif ( $element->{'field'} =~ /^as_/x ) {
+		$colour_function = << "JS";
+function getColour$id(label){
+	var annotations={
+		'good':'#2ca02c',
+		'intermediate':'#ff7f0e',
+		'bad':'#d62728',
+		'not applicable':'#aaa',
+		'not started':'#888'
+	};
+	return annotations[label];
+}
+JS
+		return $colour_function;
+	}
+	return q();
+}
+
 sub _get_field_breakdown_pie_content {
 	my ( $self, $element ) = @_;
 	my $min_dimension = min( $element->{'height'}, $element->{'width'} ) // 1;
@@ -2742,11 +2811,32 @@ sub _get_field_breakdown_pie_content {
 	my $buffer     = $self->_get_title($element);
 	my $label_show = $min_dimension == 1 || length( $element->{'name'} ) > 50 ? 'false' : 'true';
 	local $" = qq(,\n);
+	my $id              = $element->{'id'};
+	my $colour_function = $self->_get_colour_function($element);
+	my $bb_defaults     = q();
+
+	if ($colour_function) {
+		$bb_defaults = << "DEFAULTS";
+		bb.defaults({
+		data: {
+			color: function(color, d){
+				return getColour$id(d.id);	
+			}
+		}
+	});	
+DEFAULTS
+	} else {
+		$bb_defaults = << "DEFAULTS";
+		bb.defaults({});
+DEFAULTS
+	}
 	$buffer .= qq(<div id="chart_$element->{'id'}" class="pie" style="margin-top:-20px"></div>);
 	$buffer .= $self->_get_data_explorer_link($element);
 	$buffer .= << "JS";
 	<script>
+	$colour_function
 	\$(function() {
+		$bb_defaults		
 		bb.generate({
 			data: {
 				columns: [
@@ -2756,11 +2846,6 @@ sub _get_field_breakdown_pie_content {
 				order: null,
 				colors: {
 					'$dataset->{'others_label'}': '#aaa',
-					'good': '#2ca02c',
-					'bad': '#d62728',
-					'intermediate': '#ff7f0e',
-					'not applicable': '#aaa',
-					'not started': '#888'
 				}
 			},
 			size: {
@@ -2989,37 +3074,12 @@ sub _get_field_breakdown_treemap_content {
 	  . qq(<span id="chart_$element->{'id'}_percent" style="width:initial"></span></td>)
 	  . q(</tr></tbody></table></div>);
 	$buffer .= $self->_get_title($element);
-	my $height  = ( $element->{'height'} * 150 ) - 40;
-	my $width   = $element->{'width'} * 150;
-	my $json    = JSON->new->allow_nonref;
-	my $dataset = $json->encode( { children => $display_data } );
-	my $colour_function;
-	my $colour_values = $self->_get_colour_values;
-
-	if ( $colour_values->{ $element->{'field'} } ) {
-		my $values = $json->encode( $colour_values->{ $element->{'field'} } );
-		$colour_function = << "JS";
-function(label){
-	var annotations=$values;
-	return annotations[label];
-}
-JS
-	} elsif ( $element->{'field'} =~ /^as_/x ) {
-		$colour_function = << 'JS';
-function(label){
-	var annotations={
-		'good':'#2ca02c',
-		'intermediate':'#ff7f0e',
-		'bad':'#d62728',
-		'not applicable':'#aaa',
-		'not started':'#888'
-	};
-	return annotations[label];
-}
-JS
-	} else {
-		$colour_function = q(d3.scaleOrdinal(d3.schemeCategory10));
-	}
+	my $height          = ( $element->{'height'} * 150 ) - 40;
+	my $width           = $element->{'width'} * 150;
+	my $json            = JSON->new->allow_nonref;
+	my $dataset         = $json->encode( { children => $display_data } );
+	my $colour_function = $self->_get_colour_function($element);
+	$colour_function = q(d3.scaleOrdinal(d3.schemeCategory10)) if !$colour_function;
 	$buffer .= qq(<div id="chart_$element->{'id'}" class="treemap" style="margin-top:-25px"></div>);
 	$buffer .= $self->_get_data_explorer_link($element);
 	$buffer .= << "JS";
