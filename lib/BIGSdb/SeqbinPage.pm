@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -39,17 +39,17 @@ sub initiate {
 	}
 	$self->{$_} = 1 foreach qw (tooltips packery jQuery billboard igv);
 	$self->{'prefix'} = BIGSdb::Utils::get_random();
-	my $page_name = $self->get_title( { breadcrumb => 1 } );
+	my $page_name  = $self->get_title( { breadcrumb => 1 } );
 	my $isolate_id = $q->param('isolate_id');
 	return if !BIGSdb::Utils::is_int($isolate_id);
 	$self->{'breadcrumbs'} = [
 		{
 			label => $self->{'system'}->{'webroot_label'} // 'Organism',
-			href => $self->{'system'}->{'webroot'}
+			href  => $self->{'system'}->{'webroot'}
 		},
 		{
 			label => $self->{'system'}->{'formatted_description'} // $self->{'system'}->{'description'},
-			href => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}"
+			href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}"
 		},
 		{
 			label => 'Isolate info',
@@ -138,8 +138,7 @@ sub print_content {
 	if ( !$exists ) {
 		say qq(<h1>Sequence bin for isolate id $isolate_id</h1>);
 		$self->print_bad_status(
-			{ message => q(The database contains no accessible record of this isolate.), navbar => 1 } )
-		  ;
+			{ message => q(The database contains no accessible record of this isolate.), navbar => 1 } );
 		return;
 	}
 	my $name = $self->get_name($isolate_id);
@@ -219,7 +218,7 @@ sub _get_tracks_js {
 		'SELECT DISTINCT locus_type FROM loci l JOIN allele_sequences a ON l.id=a.locus WHERE a.isolate_id=?',
 		$isolate_id, { fetch => 'col_arrayref' } );
 	my @palette = ( '#7570b3', '#1b9e77', '#d95f02', '#e7298a', '#66a61e', '#e6ab02', '#a6761d', '#666666' );
-	my @types = ( LOCUS_TYPES, 'miscellaneous', );
+	my @types   = ( LOCUS_TYPES, 'miscellaneous', );
 	my %locus_colours;
 	my $no_types_defined = @$locus_types == 1 && !defined $locus_types->[0];
 	if ($no_types_defined) {
@@ -459,7 +458,7 @@ sub _print_contig_table {
 	  : '';
 	local $| = 1;
 	my $qry =
-	    'SELECT id,GREATEST(r.length,length(sequence)) AS length,original_designation,method,comments,sender,'
+		'SELECT id,GREATEST(r.length,length(sequence)) AS length,original_designation,method,comments,sender,'
 	  . 'curator,date_entered,datestamp FROM sequence_bin s LEFT JOIN remote_contigs r ON s.id=r.seqbin_id WHERE '
 	  . 'isolate_id=? ORDER BY length desc';
 	my $contig_data = $self->{'datastore'}->run_query( $qry, $isolate_id, { fetch => 'all_arrayref', slice => {} } );
@@ -492,7 +491,7 @@ sub _print_contig_table {
 			foreach my $allele_seq (@$allele_seqs) {
 				print qq(<tr class="td$td">) if !$first;
 				my $cleaned_locus = $self->clean_locus( $allele_seq->{'locus'} );
-				my $start = $allele_seq->{'start_pos'} < 1 ? 1 : $allele_seq->{'start_pos'};
+				my $start         = $allele_seq->{'start_pos'} < 1     ? 1                 : $allele_seq->{'start_pos'};
 				my $end = $allele_seq->{'end_pos'} > $data->{'length'} ? $data->{'length'} : $allele_seq->{'end_pos'};
 				say qq(<td>$cleaned_locus )
 				  . ( $allele_seq->{'complete'} ? '' : '*' )
@@ -520,7 +519,7 @@ sub _print_contig_table {
 			}
 		} else {
 			say qq(<tr class="td$td"><td>$data->{'id'}</td>);
-			say defined $data->{'method'} ? qq(<td>$data->{'method'}</td>) : q(<td /></td>);
+			say defined $data->{'method'}               ? qq(<td>$data->{'method'}</td>)               : q(<td /></td>);
 			say defined $data->{'original_designation'} ? qq(<td>$data->{'original_designation'}</td>) : q(<td></td>);
 			say qq(<td>$data->{'length'}</td>);
 			print defined $data->{'comments'} ? qq(<td>$data->{'comments'}</td>) : q(<td></td>);
@@ -534,8 +533,8 @@ sub _print_contig_table {
 		}
 		$td = $td == 1 ? 2 : 1;
 		if ( $ENV{'MOD_PERL'} ) {
-			$self->{'mod_perl_request'}->rflush;
 			return if $self->{'mod_perl_request'}->connection->aborted;
+			eval { $self->{'mod_perl_request'}->rflush };
 		}
 	}
 	say q(</table></div></div>);

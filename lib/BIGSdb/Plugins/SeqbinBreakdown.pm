@@ -53,7 +53,7 @@ sub get_attributes {
 		menutext    => 'Sequence bin breakdown',
 		module      => 'SeqbinBreakdown',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/seqbin_breakdown.html",
-		version     => '1.7.1',
+		version     => '1.7.2',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -121,7 +121,7 @@ sub run {
 				$q->delete('isolate_paste_list');
 				$q->delete('isolate_id');
 				my $set_id = $self->get_set_id;
-				$params->{'set_id'} = $set_id if $set_id;
+				$params->{'set_id'}      = $set_id if $set_id;
 				$params->{'script_name'} = $self->{'system'}->{'script_name'};
 				my $att       = $self->get_attributes;
 				my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
@@ -183,7 +183,7 @@ sub run_job {
 		$td = $td == 1 ? 2 : 1;
 		$self->_update_totals( $data, $contig_info );
 		$html_message =
-		    qq(<p>Loci selected: $locus_count</p>)
+			qq(<p>Loci selected: $locus_count</p>)
 		  . q(<div class="scrollable">)
 		  . $self->_get_html_table_header($params)
 		  . $html_buffer
@@ -284,7 +284,7 @@ sub _print_interface {
 	say q(<div class="scrollable">);
 	say $q->start_form;
 	say q(<div class="flex_container" style="justify-content:left">);
-	$self->print_seqbin_isolate_fieldset( { selected_ids => $selected_ids, isolate_paste_list => 1 } );
+	$self->print_seqbin_isolate_fieldset( { selected_ids     => $selected_ids, isolate_paste_list => 1 } );
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
 	$self->print_recommended_scheme_fieldset;
 	$self->print_scheme_fieldset;
@@ -378,13 +378,13 @@ sub _get_html_table_header {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $labelfield = ucfirst( $self->{'system'}->{'labelfield'} );
-	my $gc = $options->{'gc'} ? q(<th>Mean %GC</th>) : q();
+	my $gc         = $options->{'gc'} ? q(<th>Mean %GC</th>) : q();
 	my $buffer =
-	    q(<table class="tablesorter" id="sortTable"><thead>)
+		q(<table class="tablesorter" id="sortTable"><thead>)
 	  . qq(<tr><th>Isolate id</th><th>$labelfield</th><th>Contigs</th><th>Total length</th>);
 	if ( $options->{'contig_analysis'} ) {
 		$buffer .=
-		    q(<th>Min</th><th>Max</th><th>Mean</th><th>&sigma;</th><th>N50</th><th>L50</th>)
+			q(<th>Min</th><th>Max</th><th>Mean</th><th>&sigma;</th><th>N50</th><th>L50</th>)
 		  . q(<th>N90</th><th>L90</th><th>N95</th><th>L95</th>);
 	}
 	$buffer .= $gc;
@@ -509,8 +509,13 @@ sub _get_isolate_contig_data {
 			$gc += () = $contigs->{$contig_id} =~ /[GCgc]/gx;
 			$at += () = $contigs->{$contig_id} =~ /[ATat]/gx;
 		}
-		my $gc_value = $gc / ( $gc + $at );
-		$data->{'gc'} = BIGSdb::Utils::decimal_place( ( $gc_value // 0 ) * 100, 2 );
+		if ( $gc + $at ) {
+			my $gc_value = $gc / ( $gc + $at );
+			$data->{'gc'} = BIGSdb::Utils::decimal_place( ( $gc_value // 0 ) * 100, 2 );
+		} else {
+			$logger->error("$self->{'instance'} id-$isolate_id reports no nucleotide characters in seqbin.");
+			$data->{'gc'} = q();
+		}
 	}
 	return $data;
 }

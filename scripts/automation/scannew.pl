@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20230201
+#Version: 20230210
 use strict;
 use warnings;
 use 5.010;
@@ -218,6 +218,8 @@ ${bold}-c, --coding_sequences$norm
     Only return complete coding sequences.
     
 ${bold}--curator$norm ${under}CURATOR ID$norm
+    Curator id to use for updates. By default -1 is used - there should be an
+    autodefiner account set with this id number.
 
 ${bold}-d, --database$norm ${under}NAME$norm
     Database configuration name.
