@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -195,7 +195,7 @@ sub _print_client_db_links {
 		}
 		my $count;
 		if ( !( scalar keys %alleles ) ) {
-			$logger->error('No client database loci have been set.');
+			$logger->error("$self->{'instance'} - scheme $scheme_id: No client database loci have been set.");
 			$count = 0;
 		} else {
 			my $client_db = $self->{'datastore'}->get_client_db( $client->{'client_dbase_id'} );
