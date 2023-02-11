@@ -1,6 +1,6 @@
 /**
  * Written by Keith Jolley 
- * Copyright (c) 2021-2022, University of Oxford 
+ * Copyright (c) 2021-2023, University of Oxford 
  * E-mail: keith.jolley@zoo.ox.ac.uk
  * 
  * This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -58,11 +58,11 @@ $(function() {
 		change: function(event, ui) {
 			var age_url = url + "&page=dashboard&updateDashboard=1&type=" + dashboard_type;
 			age_url += "&attribute=record_age&value=" + ui.value;
-			if (typeof projectId !== 'undefined'){
+			if (typeof projectId !== 'undefined') {
 				age_url += "&project_id=" + projectId;
 			}
 			$.ajax({
-				url: age_url 
+				url: age_url
 			}).done(function(json) {
 				$("#loaded_dashboard").val(JSON.parse(json).dashboard_name);
 				$("#loaded_dashboard").prop("disabled", false);
@@ -96,7 +96,7 @@ $(function() {
 			// Grid is empty.
 		}
 		var gaps_url = url + "&page=dashboard&updateDashboard=1&type=" + dashboard_type;
-		if (typeof projectId !== 'undefined'){
+		if (typeof projectId !== 'undefined') {
 			gaps_url += "&project_id=" + projectId;
 		}
 		gaps_url += "&attribute=fill_gaps&value=" + (fill_gaps ? 1 : 0);
@@ -133,12 +133,12 @@ $(function() {
 	$("#include_old_versions").change(function() {
 		var include_old_versions = $("#include_old_versions").prop('checked');
 		var old_url = url + "&page=dashboard&updateDashboard=1&type=" + dashboard_type;
-		if (typeof projectId !== 'undefined'){
+		if (typeof projectId !== 'undefined') {
 			old_url += "&project_id=" + projectId;
 		}
 		old_url += "&attribute=include_old_versions&value=" + (include_old_versions ? 1 : 0);
 		$.ajax({
-			url: old_url 
+			url: old_url
 		}).done(function(json) {
 			updateDashboardName(JSON.parse(json).dashboard_name);
 			$("#filter_versions").html(include_old_versions ? 'all' : 'current');
@@ -148,7 +148,7 @@ $(function() {
 	$("#loaded_dashboard").change(function() {
 		var name = $("#loaded_dashboard").val();
 		var rename_url = url + "&page=dashboard&type=" + dashboard_type;
-		if (typeof projectId !== 'undefined'){
+		if (typeof projectId !== 'undefined') {
 			rename_url += "&project_id=" + projectId;
 		}
 		rename_url += "&updateDashboardName=" + encodeURIComponent(name);
@@ -160,7 +160,7 @@ $(function() {
 	$("#switch_dashboard").change(function() {
 		var id = $("#switch_dashboard").val();
 		var switch_url = url + "&page=dashboard&setActiveDashboard=" + id + "&type=" + dashboard_type;
-		if (typeof projectId !== 'undefined'){
+		if (typeof projectId !== 'undefined') {
 			switch_url += "&project_id=" + projectId;
 		}
 		$.ajax({
@@ -244,7 +244,7 @@ $(function() {
 		var id = $(this).attr('id');
 		var attribute = 'marker_size';
 		var element_id = id.replace("_" + value, "");
-		var value = $(this).slider("option","value");
+		var value = $(this).slider("option", "value");
 		var element_id = id.replace("_" + attribute, "");
 		changeElementAttribute(grid, element_id, attribute, value);
 	});
@@ -300,7 +300,7 @@ function getDataQueryParams(id) {
 		params['prov_operator1'] = '>=';
 		params['prov_value1'] = datestamps[recordAgeIndex];
 	}
-	if (typeof projectId !== 'undefined'){
+	if (typeof projectId !== 'undefined') {
 		params['project_list'] = projectId;
 	}
 	return params;
@@ -316,7 +316,7 @@ function getDataExplorerParams(id) {
 	if (elements[id]['specific_values'] != null) {
 		params['specific_values'] = elements[id]['specific_values'];
 	}
-	if (typeof projectId !== 'undefined'){
+	if (typeof projectId !== 'undefined') {
 		params['project_id'] = projectId;
 	}
 	return params;
@@ -396,7 +396,7 @@ function clean_value(value) {
 			return el != null && el != '';
 		});
 	} else {
-		if (typeof value === 'string'){
+		if (typeof value === 'string') {
 			value = value.trim();
 		}
 	}
@@ -445,10 +445,10 @@ function addElement(grid, id) {
 		$("div#empty").html("");
 	}
 	var add_url = url + "&page=dashboard&type=" + dashboard_type;
-	if (typeof projectId !== 'undefined'){
+	if (typeof projectId !== 'undefined') {
 		add_url += "&project_id=" + projectId;
 	}
-	
+
 	add_url += "&new=" + id;
 	var field = $("#add_field").val();
 	if (field) {
@@ -486,7 +486,7 @@ function editElement(grid, id, setup) {
 	$("span#control_" + id).hide();
 	$("span#wait_" + id).show();
 	var edit_url = url + "&page=dashboard&type=" + dashboard_type + "&control=" + id;
-	if (typeof projectId !== 'undefined'){
+	if (typeof projectId !== 'undefined') {
 		edit_url += "&project_id=" + projectId;
 	}
 	$.get(edit_url, function(html) {
@@ -558,7 +558,7 @@ function showOrHideControlElements(id) {
 		$("li#breakdown_display_selector").css("display", "block");
 		if (breakdown_display === 'bar') {
 			$("fieldset#design_control,fieldset#order_control,fieldset#orientation_control,li#bar_colour_type")
-			.css("display", "inline");
+				.css("display", "inline");
 			var bar_colour_type = $("input[name='" + id + "_bar_colour_type']:checked").val();
 			if (bar_colour_type === "continuous") {
 				$("li#chart_colour").css("display", "block");
@@ -631,7 +631,7 @@ function checkAndShowVisualisation(grid, id) {
 
 function reloadElement(id) {
 	var reload_url = url + "&page=dashboard&type=" + dashboard_type;
-	if (typeof projectId !== 'undefined'){
+	if (typeof projectId !== 'undefined') {
 		reload_url += "&project_id=" + projectId;
 	}
 	reload_url += "&element=" + id;
@@ -813,7 +813,7 @@ function saveLayout(grid) {
 function resetDefaults() {
 	$("#modify_dashboard_panel").toggle("slide", { direction: "right" }, "fast");
 	var reset_url = url + "&resetDefaults=1&type=" + dashboard_type;
-	if (typeof projectId !== 'undefined'){
+	if (typeof projectId !== 'undefined') {
 		reset_url += "&project_id=" + projectId;
 	}
 	$.get(reset_url, function() {
@@ -845,7 +845,7 @@ function resetSeqbinRange(id) {
 
 function createNew() {
 	var new_url = url + "&newDashboard=1&type=" + dashboard_type;
-	if (typeof projectId !== 'undefined'){
+	if (typeof projectId !== 'undefined') {
 		new_url += "&project_id=" + projectId;
 	}
 	$.ajax({
@@ -919,3 +919,32 @@ function get_marker_layer(jsonData, colour, size) {
 function commify(x) {
 	return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
+
+//https://gist.github.com/krabs-github/ec56e4f1c12cddf86ae9c551aa9d9e04
+function lightOrDark(color) {
+	// If RGB --> Convert it to HEX: http://gist.github.com/983661
+	color = +("0x" + color.slice(1).replace(
+		color.length < 5 && /./g, '$&$&'
+	)
+	);
+
+	r = color >> 16;
+	g = color >> 8 & 255;
+	b = color & 255;
+
+	// HSP equation from http://alienryderflex.com/hsp.html
+	hsp = Math.sqrt(
+		0.299 * (r * r) +
+		0.587 * (g * g) +
+		0.114 * (b * b)
+	);
+
+	// Using the HSP value, determine whether the color is light or dark
+	if (hsp > 127.5) {
+		return 'light';
+	}
+	else {
+		return 'dark';
+	}
+}
+

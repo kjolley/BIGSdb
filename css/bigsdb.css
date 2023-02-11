@@ -1650,11 +1650,11 @@ div#dashboard .item-content div.doughnut .bb-chart-arc text, div#dashboard .item
 	filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.9));
 }
 
-/* div#dashboard .item-content div.bar .bb-texts text {
+/*  div#dashboard .item-content div.bar .bb-texts text {
 	stroke-width: 1;
-	-webkit-filter: drop-shadow(1px 1px 1px rgba(80, 80, 80, 0.5));
-	filter: drop-shadow(1px 1px 1px rgba(80, 80, 80, 0.5));
-} */
+	-webkit-filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.1));
+	filter: drop-shadow(1px 1px 1px rgba(150, 150, 150, 0.5));
+}  */
 
 .vertical .bb-texts text {
 	-webkit-filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.9));

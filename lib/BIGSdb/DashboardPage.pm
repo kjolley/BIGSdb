@@ -2414,9 +2414,7 @@ JS
 	} else {
 		$colour_function = $self->_get_colour_function($element);
 	}
-	my $bb_defaults = q();
-	if ($colour_function) {
-		$bb_defaults = << "DEFAULTS";
+	my $bb_defaults = << "DEFAULTS";
 		bb.defaults({
 		data: {
 			color: function(color, d){
@@ -2425,7 +2423,6 @@ JS
 		}
 	});	
 DEFAULTS
-	}
 	my $buffer     = $self->_get_title($element);
 	my $vert_class = $is_vertical ? q( vertical) : q();
 	$buffer .= qq(<div id="chart_$element->{'id'}" class="bar$vert_class" style="margin-top:-20px"></div>);
@@ -2441,7 +2438,6 @@ DEFAULTS
 	$colour_function
 	\$(function() {
 		$bb_defaults
-
 		var max = $dataset->{'max'};
 		var local_max = [$local_max_string];
 		var bar_colour_type = "$bar_colour_type";
@@ -2476,10 +2472,13 @@ DEFAULTS
 							return labels[i];
 						}
 					},
-					colors: function (){
+					colors: function(c){
 						if ($is_vertical){
 							return 'white';
-						} 
+						}
+						if (lightOrDark(c) === 'light'){
+							return '#888';
+						}
 					}
 				},
 			},
@@ -2791,18 +2790,7 @@ function getColour$id(label){
 JS
 		return $colour_function;
 	} else {
-		my $scale = 'd3.schemeCategory10';
-#		$scale = 'd3.schemeAccent';
-#		$scale = 'd3.schemeDark2';
-#		$scale = 'd3.schemePastel1';
-#		$scale = 'd3.schemePastel2';
-#		$scale = 'd3.schemeSet1';
-#		$scale = 'd3.schemeSet2';
-#		$scale = 'd3.schemeSet3';
-#		$scale = 'd3.schemeTableau10';
-#		$scale = 'd3.schemeSpectral[11]';
-		
-		
+		my $scale = $self->_get_palette('Category');
 		$colour_function = << "JS";
 function getColour$id(label){
 	if (!used_label${id}[label]){
@@ -2814,6 +2802,39 @@ function getColour$id(label){
 JS
 		return $colour_function;
 	}
+}
+
+sub _get_palette {
+	my ( $self, $name ) = @_;
+	my %palettes = (
+		Category          => 'd3.schemeCategory10',
+		Accent            => 'd3.schemeAccent',
+		Dark              => 'd3.schemeDark2',
+		Pastel1           => 'd3.schemePastel1',
+		Pastel2           => 'd3.schemePastel2',
+		Set1              => 'd3.schemeSet1',
+		Set2              => 'd3.schemeSet2',
+		Set3              => 'd3.schemeSet3',
+		Tableau           => 'd3.schemeTableau10',
+		Spectral          => 'd3.schemeSpectral[11]',
+		Blues             => 'd3.schemeBlues[9].slice(2-8)',
+		Greens            => 'd3.schemeGreens[9].slice(2-8)',
+		Oranges           => 'd3.schemeOranges[9].slice(2-8)',
+		Purples           => 'd3.schemePurples[9].slice(2-8)',
+		Reds              => 'd3.schemeReds[9].slice(2-8)',
+		BlueGreen         => 'd3.schemeBuGn[9].slice(1-8)',
+		BluePurple        => 'd3.schemeBuPu[9].slice(1-8)',
+		GreenBlue         => 'd3.schemeGnBu[9].slice(1-8)',
+		OrangeRed         => 'd3.schemeOrRd[9].slice(1-8)',
+		PurpleBlueGreen   => 'd3.schemePuBuGn[9].slice(1-8)',
+		PurpleBlue        => 'd3.schemePuBu[9].slice(1-8)',
+		PurpleRed         => 'd3.schemePuRd[9].slice(1-8)',
+		RedPurple         => 'd3.schemeRdPu[9].slice(1-8)',
+		YellowGreen       => 'd3.schemeYlGn[9].slice(1-8)',
+		YellowOrangeBrown => 'd3.schemeYlOrBr[9].slice(1-8)',
+		YellowOrangeRed   => 'd3.schemeYlOrRd[9].slice(1-8)',
+	);
+	return $palettes{$name} // $palettes{'Category'};
 }
 
 sub _get_field_breakdown_pie_content {
@@ -3091,7 +3112,7 @@ sub _get_field_breakdown_treemap_content {
 	my $json            = JSON->new->allow_nonref;
 	my $dataset         = $json->encode( { children => $display_data } );
 	my $colour_function = $self->_get_colour_function($element);
-	my $id = $element->{'id'};
+	my $id              = $element->{'id'};
 	$buffer .= qq(<div id="chart_$element->{'id'}" class="treemap" style="margin-top:-25px"></div>);
 	$buffer .= $self->_get_data_explorer_link($element);
 	$buffer .= << "JS";
