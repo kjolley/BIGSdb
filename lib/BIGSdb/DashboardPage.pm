@@ -2413,7 +2413,6 @@ function getColour$id(label){
 JS
 	} else {
 		$colour_function = $self->_get_colour_function($element);
-		$colour_function = qq(getColour$id = d3.scaleOrdinal(d3.schemeCategory10)) if !$colour_function;
 	}
 	my $bb_defaults = q();
 	if ($colour_function) {
@@ -2429,11 +2428,13 @@ DEFAULTS
 	}
 	my $buffer     = $self->_get_title($element);
 	my $vert_class = $is_vertical ? q( vertical) : q();
-	$buffer .= qq(<div id="chart_$element->{'id'}" class="pie$vert_class" style="margin-top:-20px"></div>);
+	$buffer .= qq(<div id="chart_$element->{'id'}" class="bar$vert_class" style="margin-top:-20px"></div>);
 	$buffer .= $self->_get_data_explorer_link($element);
 	local $" = q(,);
 	$buffer .= << "JS";
 	<script>
+	var unique_labels$id = [];
+	var used_label$id = {};
 	var labels = [$cat_string];
 	var values = [$value_string];
 	var label_count = $dataset->{'count'};
@@ -2478,7 +2479,7 @@ DEFAULTS
 					colors: function (){
 						if ($is_vertical){
 							return 'white';
-						}
+						} 
 					}
 				},
 			},
@@ -2688,9 +2689,7 @@ sub _get_field_breakdown_doughnut_content {
 	my $others_label    = $data->[-1] =~ /^Others/x ? $data->[-1] : 'Others';
 	my $id              = $element->{'id'};
 	my $colour_function = $self->_get_colour_function($element);
-	my $bb_defaults     = q();
-	if ($colour_function) {
-		$bb_defaults = << "DEFAULTS";
+	my $bb_defaults     = << "DEFAULTS";
 		bb.defaults({
 			data: {
 				color: function(color, d){
@@ -2699,15 +2698,12 @@ sub _get_field_breakdown_doughnut_content {
 			}
 		});	
 DEFAULTS
-	} else {
-		$bb_defaults = << "DEFAULTS";
-		bb.defaults({});
-DEFAULTS
-	}
 	$buffer .= qq(<div id="chart_$element->{'id'}" class="doughnut" style="margin-top:${margin_top}px"></div>);
 	$buffer .= $self->_get_data_explorer_link($element);
 	$buffer .= << "JS";
 	<script>
+	var unique_labels$id = [];
+	var used_label$id = {};
 	$colour_function
 	\$(function() {
 		$bb_defaults
@@ -2794,8 +2790,30 @@ function getColour$id(label){
 }
 JS
 		return $colour_function;
+	} else {
+		my $scale = 'd3.schemeCategory10';
+#		$scale = 'd3.schemeAccent';
+#		$scale = 'd3.schemeDark2';
+#		$scale = 'd3.schemePastel1';
+#		$scale = 'd3.schemePastel2';
+#		$scale = 'd3.schemeSet1';
+#		$scale = 'd3.schemeSet2';
+#		$scale = 'd3.schemeSet3';
+#		$scale = 'd3.schemeTableau10';
+#		$scale = 'd3.schemeSpectral[11]';
+		
+		
+		$colour_function = << "JS";
+function getColour$id(label){
+	if (!used_label${id}[label]){
+		unique_labels${id}.push(label);
+		used_label${id}[label] = 1;
 	}
-	return q();
+	return d3.scaleOrdinal().domain(unique_labels$id).range($scale)(label);
+}
+JS
+		return $colour_function;
+	}
 }
 
 sub _get_field_breakdown_pie_content {
@@ -2813,10 +2831,7 @@ sub _get_field_breakdown_pie_content {
 	local $" = qq(,\n);
 	my $id              = $element->{'id'};
 	my $colour_function = $self->_get_colour_function($element);
-	my $bb_defaults     = q();
-
-	if ($colour_function) {
-		$bb_defaults = << "DEFAULTS";
+	my $bb_defaults     = << "DEFAULTS";
 		bb.defaults({
 		data: {
 			color: function(color, d){
@@ -2825,15 +2840,12 @@ sub _get_field_breakdown_pie_content {
 		}
 	});	
 DEFAULTS
-	} else {
-		$bb_defaults = << "DEFAULTS";
-		bb.defaults({});
-DEFAULTS
-	}
 	$buffer .= qq(<div id="chart_$element->{'id'}" class="pie" style="margin-top:-20px"></div>);
 	$buffer .= $self->_get_data_explorer_link($element);
 	$buffer .= << "JS";
 	<script>
+	var unique_labels$id = [];
+	var used_label$id = {};
 	$colour_function
 	\$(function() {
 		$bb_defaults		
@@ -3079,11 +3091,13 @@ sub _get_field_breakdown_treemap_content {
 	my $json            = JSON->new->allow_nonref;
 	my $dataset         = $json->encode( { children => $display_data } );
 	my $colour_function = $self->_get_colour_function($element);
-	$colour_function = q(d3.scaleOrdinal(d3.schemeCategory10)) if !$colour_function;
+	my $id = $element->{'id'};
 	$buffer .= qq(<div id="chart_$element->{'id'}" class="treemap" style="margin-top:-25px"></div>);
 	$buffer .= $self->_get_data_explorer_link($element);
 	$buffer .= << "JS";
 <script>
+var unique_labels$id = [];
+var used_label$id = {};
 \$(function() {
 	var data = $dataset;
 
