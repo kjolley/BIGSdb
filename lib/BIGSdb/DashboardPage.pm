@@ -2758,17 +2758,31 @@ JS
 	return $buffer;
 }
 
+#TODO Store and read this from config and prefs.
+sub _get_palette_name {
+	my ($self) = @_;
+	return 'Tableau';
+}
+
 sub _get_colour_function {
 	my ( $self, $element ) = @_;
 	my $colour_function = q();
 	my $colour_values   = $self->_get_colour_values;
 	my $json            = JSON->new->allow_nonref;
 	my $id              = $element->{'id'};
+	my $palette         = $self->_get_palette_name;
 	if ( $colour_values->{ $element->{'field'} } ) {
-		my $values = $json->encode( $colour_values->{ $element->{'field'} } );
+		my $values = dclone( $colour_values->{ $element->{'field'} } );
+		foreach my $value ( keys %$values ) {
+			if ( $values->{$value} !~ /^\#/x ) {
+				my $special = $self->_get_palette_colours_mapped_to_values($palette);
+				$values->{$value} = $special->{ $values->{$value} } // '#ddd';
+			}
+		}
+		my $json_values = $json->encode($values);
 		$colour_function = << "JS";
 function getColour$id(label){
-	var annotations=$values;
+	var annotations=$json_values;
 	if (typeof annotations[label] === 'undefined'){
 		return '#ddd';
 	}
@@ -2777,12 +2791,14 @@ function getColour$id(label){
 JS
 		return $colour_function;
 	} elsif ( $element->{'field'} =~ /^as_/x ) {
+		my ( $good, $bad, $intermediate );
+		my $palette_values = $self->_get_palette_colours_mapped_to_values($palette);
 		$colour_function = << "JS";
 function getColour$id(label){
 	var annotations={
-		'good':'#2ca02c',
-		'intermediate':'#ff7f0e',
-		'bad':'#d62728',
+		'good':'$palette_values->{'good'}',
+		'intermediate':'$palette_values->{'intermediate'}',
+		'bad':'$palette_values->{'bad'}',
 		'not applicable':'#aaa',
 		'not started':'#888'
 	};
@@ -2791,7 +2807,7 @@ function getColour$id(label){
 JS
 		return $colour_function;
 	} else {
-		my $scale = $self->_get_palette('Category');
+		my $scale = $self->_get_palette($palette);
 		$colour_function = << "JS";
 function getColour$id(label){
 	if (!used_label${id}[label]){
@@ -2803,6 +2819,76 @@ function getColour$id(label){
 JS
 		return $colour_function;
 	}
+}
+
+sub _get_palette_colours_mapped_to_values {
+	my ( $self, $palette ) = @_;
+	my $palette_values = {
+		Accent => {
+			good         => '#7fc97f',
+			intermediate => '#fdc086'
+		},
+		Pastel1 => {
+			good         => '#ccebc5',
+			intermediate => '#fed9a6',
+			bad          => '#fbb4ae'
+		},
+		Pastel2 => {
+			good         => '#b3e2cd',
+			intermediate => '#fff2ae',
+			bad          => '#fbb4ae'
+		},
+		Set2 => {
+			good         => '#66c2a5',
+			intermediate => '#fc8d62',
+			bad          => '#c26683'
+		},
+		Set3 => {
+			good         => '#8dd3c7',
+			intermediate => '#fdb462',
+			bad          => '#fb8072'
+		},
+		Tableau => {
+			good         => '#59a14f',
+			intermediate => '#f28e2c',
+			bad          => '#e15759'
+		},
+		Blues => {
+			good         => '#9ecae1',
+			intermediate => '#4292c6',
+			bad          => '#08306b'
+		},
+		Greens => {
+			good         => '#a1d99b',
+			intermediate => '#41ab5d',
+			bad          => '#00441b'
+		},
+		Oranges => {
+			good         => '#fdae6b',
+			intermediate => '#f16913',
+			bad          => '#7f2704'
+		},
+		Purples => {
+			good         => '#bcbddc',
+			intermediate => '#807dba',
+			bad          => '#3f007d'
+		},
+		Reds => {
+			good         => '#fc9272',
+			intermediate => '#ef3b2c',
+			bad          => '#67000d'
+		},
+		BlueGreen => {
+			good         => '#ccece6',
+			intermediate => '#66c2a4',
+			bad          => '#006d2c'
+		},
+	};
+	my $values = $palette_values->{$palette};
+	$values->{'good'}         //= '#2ca02c';
+	$values->{'intermediate'} //= '#ff7f0e';
+	$values->{'bad'}          //= '#d62728';
+	return $values;
 }
 
 sub _get_palette {
