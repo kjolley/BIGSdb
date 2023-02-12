@@ -2692,7 +2692,11 @@ sub _get_field_breakdown_doughnut_content {
 		bb.defaults({
 			data: {
 				color: function(color, d){
-					return getColour$id(d.id);	
+					if (d.id === '$dataset->{'others_label'}'){
+						return '#aaa';
+					} else {
+						return getColour$id(d.id);
+					}
 				}
 			}
 		});	
@@ -2712,10 +2716,7 @@ DEFAULTS
 					@{$dataset->{'dataset'}}
 				],
 				type: "donut",
-				order: null,
-				colors: {
-					'$dataset->{'others_label'}': '#aaa',
-				}
+				order: null
 			},
 			size: {
 				height: $height
@@ -2856,7 +2857,11 @@ sub _get_field_breakdown_pie_content {
 		bb.defaults({
 		data: {
 			color: function(color, d){
-				return getColour$id(d.id);	
+				if (d.id === '$dataset->{'others_label'}'){
+					return '#aaa';
+				} else {
+					return getColour$id(d.id);
+				}	
 			}
 		}
 	});	
@@ -2876,10 +2881,7 @@ DEFAULTS
 					@{$dataset->{'dataset'}}
 				],
 				type: "pie",
-				order: null,
-				colors: {
-					'$dataset->{'others_label'}': '#aaa',
-				}
+				order: null
 			},
 			size: {
 				height: $height
