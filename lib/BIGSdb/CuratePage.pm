@@ -1143,7 +1143,6 @@ sub _check_is_missing {
 
 sub _check_integer {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $att, $newdata ) = @_;
-	use Data::Dumper;$logger->error(Dumper $att);
 	if (  defined $newdata->{ $att->{'name'} }
 		&& $att->{'type'} eq 'int' )
 	{

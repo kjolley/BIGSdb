@@ -26,7 +26,7 @@ use 5.010;
 use constant {
 	CONFIG_DIR       => '/etc/bigsdb',
 	LIB_DIR          => '/usr/local/lib',
-	DBASE_CONFIG_DIR => '/etc/bigsdb/dbases'
+	DBASE_CONFIG_DIR => '/etc/bigsdb/dbases',
 };
 #######End Local configuration################################
 use lib (LIB_DIR);
@@ -37,7 +37,9 @@ use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
 use POSIX;
 use Bio::Seq;
+use Try::Tiny;
 use Data::Dumper;    #TODO Remove after testing.
+use constant EVALUE_THRESHOLD => 0.001;
 my %opts;
 GetOptions(
 	'database=s'     => \$opts{'d'},
@@ -77,7 +79,6 @@ die "This script can only be run against a seqdef database.\n"
   if ( $script->{'system'}->{'dbtype'} // '' ) ne 'sequences';
 $opts{'flanking'} //= 10;
 if ( $opts{'flanking'} < 5 || $opts{'flanking'} > 20 ) {
-
 	die "Flanking length should be between 5 and 20.\n";
 }
 main();
@@ -130,21 +131,130 @@ sub dna_locus_peptide_mutation {
 	}
 	my $mutations =
 	  $script->{'datastore'}
-	  ->run_query( 'SELECT position,wild_type_aa,variant_aa FROM peptide_mutations WHERE locus=? ORDER BY position',
+	  ->run_query( 'SELECT id,position,wild_type_aa,variant_aa FROM peptide_mutations WHERE locus=? ORDER BY position',
 		$locus, { fetch => 'all_arrayref', slice => {} } );
 	foreach my $mutation (@$mutations) {
 		my $most_common_length =
 		  find_most_common_sequence_length_with_wt( $sequences, $mutation->{'position'}, $mutation->{'wild_type_aa'} );
+		if ( !$most_common_length ) {
+			$logger->error( "$locus: No sequences found with WT amino acid '$mutation->{'wild_type_aa'}' "
+				  . "at position $mutation->{'position'}." );
+			next;
+		}
 		my $motifs = define_motifs(
 			$sequences, $most_common_length,
 			$mutation->{'position'},
 			$mutation->{'wild_type_aa'},
 			$mutation->{'variant_aa'}
 		);
-		$logger->error( Dumper $motifs);
+		annotate_alleles_with_peptide_mutations( $locus, $mutation->{'id'}, $motifs );
 	}
 	return;
-	#$logger->error( Dumper $mutations);
+}
+
+sub annotate_alleles_with_peptide_mutations {
+	my ( $locus, $mutation_id, $motifs ) = @_;
+	my $locus_info = $script->{'datastore'}->get_locus_info($locus);
+	my $order      = $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS int)' : 'allele_id';
+	my $alleles    = $script->{'datastore'}->run_query(
+		"SELECT allele_id,sequence FROM sequences WHERE locus=? AND allele_id NOT IN (?,?) ORDER BY $order",
+		[ $locus, 0, 'N' ],
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	my $job_id  = BIGSdb::Utils::get_random();
+	my $db_type = 'prot';
+	create_blast_database( $job_id, $db_type, $motifs );
+	foreach my $allele (@$alleles) {
+		my $best_match = run_blast( $job_id, $db_type, $locus, \$allele->{'sequence'} );
+		if ( !$best_match ) {
+			$logger->error("$locus-$allele->{'allele_id'}: motif not found");
+			next;
+		}
+		my $seq_ref = extract_seq_from_match( $locus, 'prot', \$allele->{'sequence'}, $best_match );
+		say "$allele->{'allele_id'}: $$seq_ref";
+	}
+	$script->delete_temp_files("$script->{'config'}->{'secure_tmp_dir'}/$job_id*");
+}
+
+sub extract_seq_from_match {
+	my ( $locus, $db_type, $seq_ref, $match ) = @_;
+	my $locus_info = $script->{'datastore'}->get_locus_info($locus);
+
+	#	$logger->error( Dumper $match);
+	my ( $start, $end );
+	if ( $locus_info->{'data_type'} eq 'DNA' ) {
+		if ( $db_type eq 'prot' ) {
+			$start = $match->{'qstart'} - ( ( $match->{'sstart'} - 1 ) * 3 );
+			$end =
+			  $match->{'qend'} + ( ( $opts{'flanking'} * 2 + 1 - ( $match->{'send'} - $match->{'sstart'} + 1 ) ) * 3 );
+		} else {
+			$start = $match->{'qstart'} - $match->{'sstart'} - 1;
+			$end   = $match->{'qend'} + ( $opts{'flanking'} * 2 + 1 - ( $match->{'send'} - $match->{'sstart'} + 1 ) );
+		}
+	}
+
+	#	$logger->error("Start: $start; End: $end");
+	my $seq = substr( $$seq_ref, $start - 1, ( $end - $start ) );
+	if ( $locus_info->{'data_type'} eq 'DNA' && $db_type eq 'prot' ) {
+		my $codon_table = $script->{'system'}->{'codon_table'} // 11;
+		my $seq_obj     = Bio::Seq->new( -seq => $seq, -alphabet => 'dna' );
+		$seq = $seq_obj->translate( -codontable_id => $codon_table )->seq;
+	}
+	return \$seq;
+}
+
+sub create_blast_database {
+	my ( $job_id, $db_type, $motifs ) = @_;
+	my $fasta_file = "$script->{'config'}->{'secure_tmp_dir'}/${job_id}.fasta";
+	open( my $fasta_fh, '>:encoding(utf8)', $fasta_file ) || die "Cannot open $fasta_file for writing.\n";
+	foreach my $motif (@$motifs) {
+		say $fasta_fh ">$motif->{'id'}\n$motif->{'motif'}";
+	}
+	close $fasta_fh;
+	system( "$script->{'config'}->{'blast+_path'}/makeblastdb",
+		( -in => $fasta_file, -logfile => '/dev/null', -dbtype => $db_type ) );
+	return;
+}
+
+sub run_blast {
+	my ( $job_id, $db_type, $locus, $seq_ref ) = @_;
+	my $locus_info = $script->{'datastore'}->get_locus_info($locus);
+	my $program;
+	if ( $db_type eq 'prot' ) {
+		$program = $locus_info->{'data_type'} eq 'DNA' ? 'blastx' : 'blastp';
+	} else {
+		if ( $locus_info->{'data_type'} eq 'peptide' ) {
+			die "Cannot query nucleotide mutations for a peptide locus.\n";
+		}
+		$program = 'blastn';
+	}
+	my $fasta_file = "$script->{'config'}->{'secure_tmp_dir'}/${job_id}.fasta";
+	my $out_file   = "$script->{'config'}->{'secure_tmp_dir'}/${job_id}.out";
+	my $in_file    = "$script->{'config'}->{'secure_tmp_dir'}/${job_id}.in";
+	my $filter     = $program eq 'blastn' ? 'dust' : 'seg';
+	open( my $fh, '>:encoding(utf8)', $in_file ) || die "Cannot open $in_file for writing.\n";
+	say $fh ">in\n$$seq_ref";
+	close $fh;
+	my %params = (
+		-db      => $fasta_file,
+		-query   => $in_file,
+		-out     => $out_file,
+		-outfmt  => 6,
+		-$filter => 'no'
+	);
+	system( "$script->{'config'}->{'blast+_path'}/$program", %params );
+	my $best_match = {};
+
+	if ( -s $out_file ) {
+		open( my $fh, '<:encoding(utf8)', $out_file ) || die "Cannot open $out_file for reading.\n";
+		my $top_match = <$fh>;
+		close $fh;
+		my @fields = qw(qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore);
+		my @values = split /\t/x, $top_match;
+		%$best_match = map { $fields[$_] => $values[$_] } 0 .. $#values;
+		$best_match->{'evalue'} = sprintf( '%.6f', $best_match->{'evalue'} );
+	}
+	return $best_match;
 }
 
 sub define_motifs {
@@ -159,18 +269,23 @@ sub define_motifs {
 	$end = ( $most_common_length - 1 ) if $end > ( $most_common_length - 1 );
 	my %used;
 	my %allowed_char = map { $_ => 1 } ( $wt, split /;/x, $variants );
-	my $motifs       = {};
-	foreach my $allele_id ( sort keys %$sequences ) {    
+	my $motifs       = [];
+	my $id           = 1;
+	foreach my $allele_id ( sort keys %$sequences ) {
 		next if length $sequences->{$allele_id} != $most_common_length;
 		my $motif = substr( $sequences->{$allele_id}, $start, ( $end - $start + 1 ) );
 		next if $used{$motif};
 		$used{$motif} = 1;
 		my $char = substr( $motif, $opts{'flanking'} - $offset, 1 );
 		next if !$allowed_char{$char};
-		$motifs->{$motif}= {
+		push @$motifs,
+		  {
+			motif        => $motif,
+			id           => $id,
 			variant_char => $char,
 			wt           => ( $char eq $wt ? 1 : 0 )
-		};
+		  };
+		$id++;
 	}
 	return $motifs;
 }
