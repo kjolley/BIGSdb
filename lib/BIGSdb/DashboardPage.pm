@@ -2567,8 +2567,8 @@ sub _get_field_breakdown_cumulative_content {
 	if ( !$dataset->{'count'} ) {
 		return $self->_print_no_value_content($element);
 	}
-	my $height  = ( $element->{'height'} * 150 ) - 25;
-	my $ticks   = $element->{'width'};
+	my $height = ( $element->{'height'} * 150 ) - 25;
+	my $ticks  = $element->{'width'};
 	if ( $ticks > @{ $dataset->{'labels'} } ) {
 		$ticks = @{ $dataset->{'labels'} };
 	}
@@ -2581,7 +2581,6 @@ sub _get_field_breakdown_cumulative_content {
 	$buffer .= qq(<div id="chart_$element->{'id'}" style="margin-top:-20px"></div>);
 	local $" = q(,);
 	$dataset->{'labels'}->[0] //= q();
-	
 	$buffer .= << "JS";
 	<script>
 	\$(function() {
@@ -2767,7 +2766,7 @@ JS
 #TODO Store and read this from config and prefs.
 sub _get_palette_name {
 	my ($self) = @_;
-	return 'Tableau';
+	return 'YellowOrangeRed';
 }
 
 sub _get_colour_function {
@@ -2860,40 +2859,87 @@ sub _get_palette_colours_mapped_to_values {
 			bad          => '#e15759'
 		},
 		Blues => {
-			good         => '#9ecae1',
+			good         => '#08306b',
 			intermediate => '#4292c6',
-			bad          => '#08306b'
+			bad          => '#9ecae1'
 		},
 		Greens => {
-			good         => '#a1d99b',
+			good         => '#00441b',
 			intermediate => '#41ab5d',
-			bad          => '#00441b'
+			bad          => '#a1d99b'
 		},
 		Oranges => {
-			good         => '#fdae6b',
+			good         => '#7f2704',
 			intermediate => '#f16913',
-			bad          => '#7f2704'
+			bad          => '#fdae6b'
 		},
 		Purples => {
-			good         => '#bcbddc',
+			good         => '#3f007d',
 			intermediate => '#807dba',
-			bad          => '#3f007d'
+			bad          => '#bcbddc'
 		},
 		Reds => {
-			good         => '#fc9272',
+			good         => '#67000d',
 			intermediate => '#ef3b2c',
-			bad          => '#67000d'
+			bad          => '#fc9272'
 		},
 		BlueGreen => {
-			good         => '#ccece6',
+			good         => '#006d2c',
 			intermediate => '#66c2a4',
-			bad          => '#006d2c'
+			bad          => '#ccece6'
+		},
+		BluePurple => {
+			good         => '#4d004b',
+			intermediate => '#8c96c6',
+			bad          => '#bfd3e6'
+		},
+		GreenBlue => {
+			good         => '#084081',
+			intermediate => '#7bccc4',
+			bad          => '#ccebc5'
+		},
+		OrangeRed => {
+			good         => '#7f0000',
+			intermediate => '#fc8d59',
+			bad          => '#fdd49e'
+		},
+		PurpleBlueGreen => {
+			good         => '#014636',
+			intermediate => '#67a9cf',
+			bad          => '#d0d1e6'
+		},
+		PurpleBlue => {
+			good         => '#023858',
+			intermediate => '#74a9cf',
+			bad          => '#d0d1e6'
+		},
+		PurpleRed => {
+			good         => '#67001f',
+			intermediate => '#df65b0',
+			bad          => '#d4b9da'
+		},
+		YellowGreen => {
+			good         => '#004529',
+			intermediate => '#78c679',
+			bad          => '#d9f0a3'
+		},
+		YellowOrangeBrown => {
+			good         => '#662506',
+			intermediate => '#fe9929',
+			bad          => '#fee391'
+		},
+		YellowOrangeRed => {
+			good         => '#800026',
+			intermediate => '#fd8d3c',
+			bad          => '#fed976'
 		},
 	};
 	my $values = $palette_values->{$palette};
 	$values->{'good'}         //= '#2ca02c';
 	$values->{'intermediate'} //= '#ff7f0e';
 	$values->{'bad'}          //= '#d62728';
+	$values->{'high'} = $values->{'good'};
+	$values->{'low'}  = $values->{'bad'};
 	return $values;
 }
 
