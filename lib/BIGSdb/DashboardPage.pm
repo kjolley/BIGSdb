@@ -2456,15 +2456,14 @@ DEFAULTS
 				labels: {
 					show: true,
 					format: function (v,id,i,j){
-
-						if (v < max*0.05 || v == 1){
-							return;
-						}
 						if ($is_vertical && label_count<=$element->{'height'}*6){
 							return labels[i];
 						}
 						if (label_count<=$element->{'width'}*4){
 							return labels[i];
+						}
+						if (v < max*0.05 || v == 1){
+							return;
 						}
 						if (String(labels[i]).length<=3 
 							&& label_count<=(10*$element->{'width'}) 
