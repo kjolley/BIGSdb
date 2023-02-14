@@ -2390,6 +2390,9 @@ sub _get_cumulative_dataset {
 sub _get_field_breakdown_bar_content {
 	my ( $self, $element ) = @_;
 	my $dataset = $self->_get_bar_dataset($element);
+	if ( !$dataset ) {
+		return $self->_print_no_value_content($element);
+	}
 	if ( !$dataset->{'count'} ) {
 		return $self->_print_no_value_content($element);
 	}
@@ -2450,15 +2453,14 @@ DEFAULTS
 				labels: {
 					show: true,
 					format: function (v,id,i,j){
-
-						if (v < max*0.05 || v == 1){
-							return;
-						}
 						if ($is_vertical && label_count<=$element->{'height'}*6){
 							return labels[i];
 						}
 						if (label_count<=$element->{'width'}*4){
 							return labels[i];
+						}
+						if (v < max*0.05 || v == 1){
+							return;
 						}
 						if (String(labels[i]).length<=3 
 							&& label_count<=(10*$element->{'width'}) 
@@ -2562,6 +2564,9 @@ sub _get_field_breakdown_cumulative_content {
 	$element->{'width'}  //= 1;
 	$element->{'height'} //= 3;
 	my $dataset = $self->_get_cumulative_dataset($element);
+	if ( !$dataset->{'count'} ) {
+		return $self->_print_no_value_content($element);
+	}
 	my $height  = ( $element->{'height'} * 150 ) - 25;
 	my $ticks   = $element->{'width'};
 	if ( $ticks > @{ $dataset->{'labels'} } ) {
@@ -2575,6 +2580,8 @@ sub _get_field_breakdown_cumulative_content {
 	my $buffer       = $self->_get_title($element);
 	$buffer .= qq(<div id="chart_$element->{'id'}" style="margin-top:-20px"></div>);
 	local $" = q(,);
+	$dataset->{'labels'}->[0] //= q();
+	
 	$buffer .= << "JS";
 	<script>
 	\$(function() {
@@ -2654,8 +2661,7 @@ JS
 
 sub _print_no_value_content {
 	my ( $self, $element ) = @_;
-	my $buffer = $self->_get_colour_swatch( { background_colour => '#ccc' } );
-	$buffer .= $self->_get_title($element);
+	my $buffer = $self->_get_title($element);
 	$buffer .=
 	  q(<p><span class="fas fa-ban" style="color:#44c;font-size:3em;text-shadow: 3px 3px 3px #999;"></span></p>);
 	$buffer .= q(<p>No values in dataset.</p>);
