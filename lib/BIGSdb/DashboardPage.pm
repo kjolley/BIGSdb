@@ -2575,6 +2575,8 @@ sub _get_field_breakdown_cumulative_content {
 	my $buffer       = $self->_get_title($element);
 	$buffer .= qq(<div id="chart_$element->{'id'}" style="margin-top:-20px"></div>);
 	local $" = q(,);
+	$dataset->{'labels'}->[0] //= q();
+	
 	$buffer .= << "JS";
 	<script>
 	\$(function() {
