@@ -709,7 +709,7 @@ sub _print_palette_control {
 	print qq(<span class="palette_item" id="palette_$_"></span>) for ( 0 .. 4 );
 	say q(</div>);
 	say qq(<label for="${id}_palette">Palette:</label>);
-	my $values = [ sort keys %{ $self->_get_palettes } ];
+	my $values = [ sort keys %{ $self->_get_map_palettes } ];
 	my $q      = $self->{'cgi'};
 	say $q->popup_menu(
 		-name    => "${id}_palette",
@@ -3460,7 +3460,7 @@ sub _get_field_breakdown_map_content {
 	  ? '/javascript/topojson/countries.json'
 	  : '/javascript/topojson/continents.json';
 	my $freq_key = $element->{'field'} eq 'f_country' ? 'iso3' : 'name';
-	my $palettes = $self->_get_palettes;
+	my $palettes = $self->_get_map_palettes;
 	$element->{'palette'} //= 'green';
 	my $palette = $palettes->{ $element->{'palette'} };
 	$buffer .= qq(<div id="chart_$element->{'id'}" class="map" style="margin-top:$top_margin"></div>);
@@ -3697,7 +3697,7 @@ JS
 	return $buffer;
 }
 
-sub _get_palettes {
+sub _get_map_palettes {
 	my ($self) = @_;
 	return {
 		blue                  => 'colorbrewer.Blues[5]',
