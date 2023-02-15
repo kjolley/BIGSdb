@@ -32,20 +32,10 @@ use Data::Dumper;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant {
-	MAX_SEGMENTS                     => 20,
-	COUNT_MAIN_TEXT_COLOUR           => '#404040',
-	COUNT_BACKGROUND_COLOUR          => '#79cafb',
-	HEADER_TEXT_COLOUR               => '#ffffff',
-	HEADER_BACKGROUND_COLOUR         => '#729fcf',
-	GENOMES_MAIN_TEXT_COLOUR         => '#404040',
-	GENOMES_BACKGROUND_COLOUR        => '#7ecc66',
-	SPECIFIC_FIELD_MAIN_TEXT_COLOUR  => '#404040',
-	SPECIFIC_FIELD_BACKGROUND_COLOUR => '#d9e1ff',
-	GAUGE_BACKGROUND_COLOUR          => '#a0a0a0',
-	GAUGE_FOREGROUND_COLOUR          => '#0000ff',
-	CHART_COLOUR                     => '#1f77b4',
-	TOP_VALUES                       => 5,
-	DASHBOARD_LIMIT                  => 20
+	MAX_SEGMENTS    => 20,
+	PALETTE         => 'Category',
+	TOP_VALUES      => 5,
+	DASHBOARD_LIMIT => 20
 };
 
 sub print_content {
@@ -537,35 +527,36 @@ sub _print_design_control {
 sub _print_colour_control {
 	my ( $self, $id, $element ) = @_;
 	my $q       = $self->{'cgi'};
-	my $default = $element->{'main_text_colour'} // COUNT_MAIN_TEXT_COLOUR;
+	my $palette = $self->_get_palette_name;
+	my $default = $element->{'main_text_colour'} // $self->_get_default_colour( $palette, 'count_text' );
 	say q(<li id="text_colour_control" style="display:none">);
 	say qq(<input type="color" id="${id}_main_text_colour" value="$default" class="element_option colour_selector">);
 	say qq(<label for="${id}_main_text_colour">Main text colour</label>);
 	say q(</li><li>);
-	$default = $element->{'background_colour'} // COUNT_BACKGROUND_COLOUR;
+	$default = $element->{'background_colour'} // $self->_get_default_colour( $palette, 'count_background' );
 	say q(<li id="background_colour_control" style="display:none">);
 	say qq(<input type="color" id="${id}_background_colour" value="$default" )
 	  . q(class="element_option colour_selector">);
 	say qq(<label for="${id}_background_colour">Main background</label>);
 	say q(</li>);
-	$default = $element->{'header_text_colour'} // HEADER_TEXT_COLOUR;
+	$default = $element->{'header_text_colour'} // $self->_get_default_colour( $palette, 'header_text' );
 	say q(<li id="header_colour_control" style="display:none">);
 	say qq(<input type="color" id="${id}_header_text_colour" value="$default" class="element_option colour_selector">);
 	say qq(<label for="${id}_header_text_colour">Header text colour</label>);
 	say q(</li><li>);
-	$default = $element->{'header_background_colour'} // HEADER_BACKGROUND_COLOUR;
+	$default = $element->{'header_background_colour'} // $self->_get_default_colour( $palette, 'header_background' );
 	say q(<li id="header_background_colour_control" style="display:none">);
 	say qq(<input type="color" id="${id}_header_background_colour" value="$default" )
 	  . q(class="element_option colour_selector">);
 	say qq(<label for="${id}_header_background_colour">Header background</label>);
 	say q(</li>);
-	$default = $element->{'gauge_background_colour'} // GAUGE_BACKGROUND_COLOUR;
+	$default = $element->{'gauge_background_colour'} // $self->_get_default_colour( $palette, 'gauge_background' );
 	say q(<li class="gauge_colour" style="display:none">);
 	say qq(<input type="color" id="${id}_gauge_background_colour" value="$default" )
 	  . q(class="element_option colour_selector">);
 	say qq(<label for="${id}_gauge_background_colour">Gauge background</label>);
 	say q(</li>);
-	$default = $element->{'gauge_foreground_colour'} // GAUGE_FOREGROUND_COLOUR;
+	$default = $element->{'gauge_foreground_colour'} // $self->_get_default_colour( $palette, 'gauge_foreground' );
 	say q(<li class="gauge_colour" style="display:none">);
 	say qq(<input type="color" id="${id}_gauge_foreground_colour" value="$default" )
 	  . q(class="element_option colour_selector">);
@@ -580,7 +571,7 @@ sub _print_colour_control {
 		-default   => $element->{'bar_colour_type'} // 'categorical',
 		-linebreak => 'true'
 	);
-	$default = $element->{'chart_colour'} // CHART_COLOUR;
+	$default = $element->{'chart_colour'} // $self->_get_default_colour( $palette, 'chart' );
 	say q(<li id="chart_colour" style="display:none">);
 	say qq(<input type="color" id="${id}_chart_colour" value="$default" class="element_option colour_selector">);
 	say qq(<label for="${id}_chart_colour">Chart colour</label>);
@@ -822,13 +813,14 @@ sub _ajax_new {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by di
 		id    => $id,
 		order => $id,
 	};
+	my $palette          = $self->_get_palette_name;
 	my $default_elements = {
 		sp_count => {
 			name              => ucfirst("$self->{'system'}->{'labelfield'} count"),
 			display           => 'record_count',
 			change_duration   => 'week',
-			main_text_colour  => COUNT_MAIN_TEXT_COLOUR,
-			background_colour => COUNT_BACKGROUND_COLOUR,
+			main_text_colour  => $self->_get_default_colour( $palette, 'count_text' ),
+			background_colour => $self->_get_default_colour( $palette, 'count_background' ),
 			watermark         => 'fas fa-bacteria',
 			url_text          => "Browse $self->{'system'}->{'labelfield'}s",
 			hide_mobile       => 0
@@ -838,8 +830,8 @@ sub _ajax_new {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by di
 			display           => 'record_count',
 			genomes           => 1,
 			change_duration   => 'week',
-			main_text_colour  => GENOMES_MAIN_TEXT_COLOUR,
-			background_colour => GENOMES_BACKGROUND_COLOUR,
+			main_text_colour  => $self->_get_default_colour( $palette, 'count_genomes_text' ),
+			background_colour => $self->_get_default_colour( $palette, 'count_genomes_background' ),
 			watermark         => 'fas fa-dna',
 			post_data         => {
 				genomes => 1,
@@ -866,8 +858,8 @@ sub _ajax_new {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by di
 		$element->{'field'}             = $field;
 		$element->{'display'}           = 'setup';
 		$element->{'change_duration'}   = 'week';
-		$element->{'background_colour'} = SPECIFIC_FIELD_BACKGROUND_COLOUR;
-		$element->{'main_text_colour'}  = SPECIFIC_FIELD_MAIN_TEXT_COLOUR;
+		$element->{'background_colour'} = $self->_get_default_colour( $palette, 'specific_field_background' );
+		$element->{'main_text_colour'}  = $self->_get_default_colour( $palette, 'specific_field_text' );
 		my %default_watermarks = (
 			f_country              => 'fas fa-globe',
 			'e_country||continent' => 'fas fa-globe',
@@ -1220,7 +1212,7 @@ sub _get_default_dashboard_attributes {
 	my ($self)         = @_;
 	my $dashboard_data = $self->_read_default_dashboard_toml;
 	my $defaults       = {};
-	foreach my $key (qw(fill_gaps include_old_versions record_age)) {
+	foreach my $key (qw(fill_gaps include_old_versions record_age palette)) {
 		$defaults->{$key} = $dashboard_data->{$key} if defined $dashboard_data->{$key};
 	}
 	return $defaults;
@@ -1380,7 +1372,8 @@ sub _get_count_element_content {
 	my ( $self, $element ) = @_;
 	my $buffer = $self->_get_colour_swatch($element);
 	$buffer .= qq(<div class="title">$element->{'name'}</div>);
-	my $text_colour = $element->{'main_text_colour'} // COUNT_MAIN_TEXT_COLOUR;
+	my $palette     = $self->_get_palette_name;
+	my $text_colour = $element->{'main_text_colour'} // $self->_get_default_colour( $palette, 'count_text' );
 	my $count       = $self->_get_total_record_count( { genomes => $element->{'genomes'} } );
 	my ( $change_duration, $increase );
 	if ( $element->{'change_duration'} && $count > 0 ) {
@@ -1439,7 +1432,8 @@ sub _get_seqbin_standard_range {
 
 sub _get_seqbin_size_element_content {
 	my ( $self, $element ) = @_;
-	my $chart_colour = $element->{'chart_colour'} // CHART_COLOUR;
+	my $palette      = $self->_get_palette_name;
+	my $chart_colour = $element->{'chart_colour'} // $self->_get_default_colour( $palette, 'chart' );
 	my $qry          = "SELECT total_length FROM seqbin_stats s JOIN $self->{'view'} v ON s.isolate_id=v.id";
 	if ( !defined $element->{'min'} && !defined $element->{'max'} ) {
 		my $range = $self->_get_seqbin_standard_range;
@@ -2155,8 +2149,9 @@ sub _get_sub_values {
 
 sub _get_field_specific_value_number_content {
 	my ( $self, $element ) = @_;
-	my $text_colour = $element->{'main_text_colour'} // SPECIFIC_FIELD_MAIN_TEXT_COLOUR;
-	$element->{'background_colour'} //= COUNT_BACKGROUND_COLOUR;
+	my $palette     = $self->_get_palette_name;
+	my $text_colour = $element->{'main_text_colour'} // $self->_get_default_colour( $palette, 'specific_field_text' );
+	$element->{'background_colour'} //= $self->_get_default_colour( $palette, 'count_background' );
 	my $buffer = $self->_get_colour_swatch($element);
 	$buffer .= $self->_get_title($element);
 	$buffer .= $self->_get_multiselect_field_subtitle($element);
@@ -2199,9 +2194,11 @@ sub _get_field_specific_value_gauge_content {
 		$height = 80;
 	}
 	my $nice_count = BIGSdb::Utils::commify( $data->{'count'} );
-	my $background = $element->{'gauge_background_colour'} // GAUGE_BACKGROUND_COLOUR;
-	my $colour     = $element->{'gauge_foreground_colour'} // GAUGE_FOREGROUND_COLOUR;
-	my $buffer     = $self->_get_title($element);
+	my $palette    = $self->_get_palette_name;
+	my $background = $element->{'gauge_background_colour'}
+	  // $self->_get_default_colour( $palette, 'gauge_background' );
+	my $colour = $element->{'gauge_foreground_colour'} // $self->_get_default_colour( $palette, 'gauge_foreground' );
+	my $buffer = $self->_get_title($element);
 	$buffer .= $self->_get_multiselect_field_subtitle($element);
 	$buffer .= qq(<div id="chart_$element->{'id'}"></div>);
 	$buffer .= $self->_get_data_explorer_link($element);
@@ -2403,7 +2400,8 @@ sub _get_field_breakdown_bar_content {
 	my $value_string     = qq(@{$dataset->{'values'}});
 	my $local_max_string = qq(@{$dataset->{'local_max'}});
 	my $bar_colour_type  = $element->{'bar_colour_type'} // 'categorical';
-	my $chart_colour     = $element->{'chart_colour'}    // CHART_COLOUR;
+	my $palette          = $self->_get_palette_name;
+	my $chart_colour     = $element->{'chart_colour'} // $self->_get_default_colour( $palette, 'chart' );
 	my $is_vertical      = ( $element->{'orientation'} // 'horizontal' ) eq 'vertical' ? 1 : 0;
 	my $colour_function;
 	my $id = $element->{'id'};
@@ -2576,7 +2574,8 @@ sub _get_field_breakdown_cumulative_content {
 	my $date_string = qq("@{$dataset->{'labels'}}");
 	local $" = q(,);
 	my $value_string = qq(@{$dataset->{'cumulative'}});
-	my $chart_colour = $element->{'chart_colour'} // CHART_COLOUR;
+	my $palette      = $self->_get_palette_name;
+	my $chart_colour = $element->{'chart_colour'} // $self->_get_default_colour( $palette, 'chart' );
 	my $buffer       = $self->_get_title($element);
 	$buffer .= qq(<div id="chart_$element->{'id'}" style="margin-top:-20px"></div>);
 	local $" = q(,);
@@ -2763,10 +2762,13 @@ JS
 	return $buffer;
 }
 
-#TODO Store and read this from config and prefs.
 sub _get_palette_name {
 	my ($self) = @_;
-	return 'YellowOrangeRed';
+	my $default_attributes;
+	if ( !$self->{'user_dashboard_loaded'} ) {
+		$default_attributes = $self->_get_default_dashboard_attributes;
+	}
+	return $self->{'prefs'}->{'palette'} // $default_attributes->{'palette'} // PALETTE;
 }
 
 sub _get_colour_function {
@@ -2918,6 +2920,11 @@ sub _get_palette_colours_mapped_to_values {
 			intermediate => '#df65b0',
 			bad          => '#d4b9da'
 		},
+		RedPurple => {
+			good         => '#49006a',
+			intermediate => '#f768a1',
+			bad          => '#fcc5c0'
+		},
 		YellowGreen => {
 			good         => '#004529',
 			intermediate => '#78c679',
@@ -2943,9 +2950,64 @@ sub _get_palette_colours_mapped_to_values {
 	return $values;
 }
 
-sub _get_palette {
-	my ( $self, $name ) = @_;
-	my %palettes = (
+sub _get_default_colour {
+	my ( $self, $palette, $chart_type ) = @_;
+	my $defaults = {
+		Category => {
+			count_text                => '#404040',
+			count_background          => '#79cafb',
+			count_genomes_text        => '#404040',
+			count_genomes_background  => '#7ecc66',
+			header_text               => '#ffffff',
+			header_background         => '#729fcf',
+			chart                     => '#1f77b4',
+			gauge_background          => '#a0a0a0',
+			gauge_foreground          => '#1f77b4',
+			specific_field_text       => '#404040',
+			specific_field_background => '#d9e1ff',
+			map                       => 'green'
+		},
+		Accent => {},
+		Dark   => {
+			header_background => '#1b9e77',
+			chart             => '#1b9e77',
+			map               => 'purple/blue/green',
+			gauge_foreground  => '#7570b3'
+		},
+		Pastel1 => {
+			header_background => '#b3cde3',
+			chart             => '#74b9e7',
+			gauge_foreground  => '#decbe4'
+		},
+		Pastel2           => {},
+		Set1              => {},
+		Set2              => {},
+		Set3              => {},
+		Tableau           => {},
+		Spectral          => {},
+		Blues             => {},
+		Greens            => {},
+		Oranges           => {},
+		Purples           => {},
+		Reds              => {},
+		BlueGreen         => {},
+		BluePurple        => {},
+		GreenBlue         => {},
+		OrangeRed         => {},
+		PurpleBlueGreen   => {},
+		PurpleBlue        => {},
+		PurpleRed         => {},
+		RedPurple         => {},
+		YellowGreen       => {},
+		YellowOrangeBrown => {},
+		YellowOrangeRed   => {},
+	};
+	return $defaults->{$palette}->{$chart_type} // $defaults->{'Category'}->{$chart_type};
+}
+
+sub _get_palettes {
+	my ($self) = @_;
+	return {
 		Category          => 'd3.schemeCategory10',
 		Accent            => 'd3.schemeAccent',
 		Dark              => 'd3.schemeDark2',
@@ -2972,8 +3034,13 @@ sub _get_palette {
 		YellowGreen       => 'd3.schemeYlGn[9].slice(1-8)',
 		YellowOrangeBrown => 'd3.schemeYlOrBr[9].slice(1-8)',
 		YellowOrangeRed   => 'd3.schemeYlOrRd[9].slice(1-8)',
-	);
-	return $palettes{$name} // $palettes{'Category'};
+	};
+}
+
+sub _get_palette {
+	my ( $self, $name ) = @_;
+	my $palettes = $self->_get_palettes;
+	return $palettes->{$name} // $palettes->{PALETTE};
 }
 
 sub _get_field_breakdown_pie_content {
@@ -3177,9 +3244,11 @@ JS
 
 sub _get_field_breakdown_top_values_content {
 	my ( $self, $element ) = @_;
-	my $header_colour     = $element->{'header_text_colour'}       // HEADER_TEXT_COLOUR;
-	my $header_background = $element->{'header_background_colour'} // HEADER_BACKGROUND_COLOUR;
-	my $data              = $self->_get_field_breakdown_values($element);
+	my $palette           = $self->_get_palette_name;
+	my $header_colour     = $element->{'header_text_colour'} // $self->_get_default_colour( $palette, 'header_text' );
+	my $header_background = $element->{'header_background_colour'}
+	  // $self->_get_default_colour( $palette, 'header_background' );
+	my $data = $self->_get_field_breakdown_values($element);
 	if ( !@$data ) {
 		return $self->_print_no_value_content($element);
 	}
@@ -3459,16 +3528,17 @@ sub _get_field_breakdown_map_content {
 	  $element->{'field'} eq 'f_country'
 	  ? '/javascript/topojson/countries.json'
 	  : '/javascript/topojson/continents.json';
-	my $freq_key = $element->{'field'} eq 'f_country' ? 'iso3' : 'name';
-	my $palettes = $self->_get_map_palettes;
-	$element->{'palette'} //= 'green';
-	my $palette = $palettes->{ $element->{'palette'} };
+	my $freq_key          = $element->{'field'} eq 'f_country' ? 'iso3' : 'name';
+	my $palettes          = $self->_get_map_palettes;
+	my $dashboard_palette = $self->_get_palette_name;
+	my $map_palette_name  = $element->{'palette'} // $self->_get_default_colour( $dashboard_palette, 'map' );
+	my $map_palette       = $palettes->{$map_palette_name};
 	$buffer .= qq(<div id="chart_$element->{'id'}" class="map" style="margin-top:$top_margin"></div>);
 	$buffer .= $self->_get_data_explorer_link($element);
 	$buffer .= << "JS";
 <script>
 \$(function() {
-	var colours = $palette;
+	var colours = $map_palette;
 	var data = $dataset;
 	$merge
 	var freqs = data.reduce(function(map, obj){
@@ -3992,7 +4062,7 @@ sub _update_dashboard_prefs {    ## no critic (ProhibitUnusedPrivateSubroutines)
 	return if !defined $value;
 	my %allowed_attributes =
 	  map { $_ => 1 }
-	  qw(fill_gaps order elements include_old_versions open_new name record_age
+	  qw(fill_gaps order elements include_old_versions open_new name record_age palette
 	  );
 
 	if ( !$allowed_attributes{$attribute} ) {
@@ -4017,6 +4087,50 @@ sub _update_dashboard_prefs {    ## no critic (ProhibitUnusedPrivateSubroutines)
 			dashboard_name => $dashboard_name
 		}
 	);
+	if ( $attribute eq 'palette' ) {
+		$self->_change_palette($value);
+	}
+	return;
+}
+
+sub _change_palette {
+	my ( $self, $palette ) = @_;
+	my $elements = $self->_get_elements;
+	foreach my $element_id ( keys %$elements ) {
+		my $element = $elements->{$element_id};
+		if ( $element->{'display'} eq 'record_count' ) {
+			if ( $element->{'genomes'} ) {
+				$elements->{$element_id}->{'main_text_colour'} =
+				  $self->_get_default_colour( $palette, 'count_genomes_text' );
+				$elements->{$element_id}->{'background_colour'} =
+				  $self->_get_default_colour( $palette, 'count_genomes_background' );
+			} else {
+				$elements->{$element_id}->{'main_text_colour'} = $self->_get_default_colour( $palette, 'count_text' );
+				$elements->{$element_id}->{'background_colour'} =
+				  $self->_get_default_colour( $palette, 'count_background' );
+			}
+		} else {
+			$element->{'main_text_colour'} = $self->_get_default_colour( $palette, 'specific_field_text' )
+			  if $element->{'main_text_colour'};
+			$element->{'background_colour'} = $self->_get_default_colour( $palette, 'specific_field_background' )
+			  if $element->{'background_colour'};
+		}
+		if ( ( $element->{'breakdown_display'} // q() ) eq 'map' ) {
+			$element->{'palette'} = $self->_get_default_colour( $palette, 'map' );
+		}
+		$element->{'chart_colour'}     = $self->_get_default_colour( $palette, 'chart' ) if $element->{'chart_colour'};
+		$element->{'gauge_background'} = $self->_get_default_colour( $palette, 'gauge_background' )
+		  if $element->{'gauge_background'};
+		$element->{'gauge_foreground'} = $self->_get_default_colour( $palette, 'gauge_foreground' )
+		  if $element->{'gauge_foreground'};
+	}
+	my $dashboard_id = $self->_get_dashboard_id;
+	my $guid         = $self->get_guid;
+	my $json         = JSON->new->allow_nonref;
+	$self->{'prefstore'}
+	  ->update_dashboard_attribute( $dashboard_id, $guid, $self->{'instance'}, 'elements', $json->encode($elements) );
+
+	#$logger->error( Dumper $elements);
 	return;
 }
 
@@ -4069,6 +4183,7 @@ sub print_modify_dashboard_fieldset {
 	$default_attributes = $self->_get_default_dashboard_attributes if !$self->{'user_dashboard_loaded'};
 	my $open_new  = $self->{'prefs'}->{'open_new'}  // 1;
 	my $fill_gaps = $self->{'prefs'}->{'fill_gaps'} // $default_attributes->{'fill_gaps'} // 1;
+	my $palette   = $self->{'prefs'}->{'palette'}   // $default_attributes->{'palette'}   // PALETTE;
 	my $q         = $self->{'cgi'};
 	say q(<div id="modify_dashboard_panel" class="panel">);
 	say q(<a class="trigger" id="close_dashboard_trigger" href="#"><span class="fas fa-lg fa-times"></span></a>);
@@ -4103,7 +4218,7 @@ sub print_modify_dashboard_fieldset {
 	say q(</li></ul>);
 	say q(</fieldset>);
 	$self->_print_filter_fieldset if !$options->{'no_filters'};
-	say q(<fieldset><legend>Visual elements</legend>);
+	say q(<fieldset><legend>Element controls</legend>);
 	say q(<ul><li>);
 	say $q->checkbox(
 		-name    => 'edit_elements',
@@ -4125,6 +4240,17 @@ sub print_modify_dashboard_fieldset {
 	say q(<ul><li>);
 	$self->print_field_selector;
 	say q(<a id="add_element" class="small_submit" style="white-space:nowrap">Add element</a>);
+	say q(</li></li>);
+	say q(<label for="dashboard_palette">Palette:</label>);
+	my $palettes = $self->_get_palettes;
+	say $q->popup_menu(
+		-name         => 'dashboard_palette',
+		-id           => 'dashboard_palette',
+		-values       => [ sort keys %$palettes ],
+		-default      => $palette,
+		-class        => 'field_selector',
+		-autocomplete => 'off'                       #Shouldn't need this but Firefox will cache value otherwise.
+	);
 	say q(</li></ul>);
 	say q(</fieldset>);
 	$self->_print_dashboard_management_fieldset;
@@ -4295,9 +4421,11 @@ sub _export {
 	my $fill_gaps    = $self->{'prefs'}->{'fill_gaps'}            // 1;
 	my $old_versions = $self->{'prefs'}->{'include_old_versions'} // 0;
 	my $record_age   = $self->{'prefs'}->{'record_age'}           // 0;
+	my $palette      = $self->{'prefs'}->{'palette'}              // 'category';
 	say qq(fill_gaps            = $fill_gaps);
 	say qq(include_old_versions = $old_versions) if $self->{'dashboard_type'} ne 'query';
 	say qq(record_age           = $record_age)   if $self->{'dashboard_type'} ne 'query';
+	say qq(palette              = '$palette');
 	return;
 }
 
@@ -4377,13 +4505,14 @@ sub print_field_selector {
 	my $label = $field_options->{'label'} // 'Field';
 	say qq(<label for="add_field">$label:</label>);
 	say $q->popup_menu(
-		-name     => $field_options->{'name'} // 'add_field',
-		-id       => $field_options->{'id'}   // 'add_field',
-		-values   => $values,
-		-labels   => $labels,
-		-multiple => 'true',
-		-style    => 'max-width:10em',
-		-class    => 'field_selector'
+		-name         => $field_options->{'name'} // 'add_field',
+		-id           => $field_options->{'id'}   // 'add_field',
+		-values       => $values,
+		-labels       => $labels,
+		-multiple     => 'true',
+		-style        => 'max-width:10em',
+		-class        => 'field_selector',
+		-autocomplete => 'off'               #Shouldn't need this but Firefox will cache value otherwise.
 	);
 	return;
 }

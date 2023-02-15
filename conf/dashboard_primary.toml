@@ -124,3 +124,33 @@ fill_gaps = 1
 #	7 => 'past week'
 
 record_age = 0
+
+#The following palettes can be chosen:
+#	Category         
+#	Accent           
+#	Dark             
+#	Pastel1          
+#	Pastel2          
+#	Set1             
+#	Set2             
+#	Set3             
+#	Tableau          
+#	Spectral         
+#	Blues            
+#	Greens           
+#	Oranges          
+#	Purples          
+#	Reds             
+#	BlueGreen        
+#	BluePurple       
+#	GreenBlue        
+#	OrangeRed        
+#	PurpleBlueGreen  
+#	PurpleBlue       
+#	PurpleRed        
+#	RedPurple        
+#	YellowGreen      
+#	YellowOrangeBrown
+#	YellowOrangeRed  
+
+palette = 'Category'

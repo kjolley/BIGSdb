@@ -145,6 +145,20 @@ $(function() {
 			reloadAllElements();
 		});
 	});
+	$("#dashboard_palette").change(function() {
+		var name = $("#dashboard_palette").val();
+		var change_dashboard_url = url + "&page=dashboard&updateDashboard=1&type=" + dashboard_type;
+		if (typeof projectId !== 'undefined') {
+			change_dashboard_url += "&project_id=" + projectId;
+		}
+		
+		change_dashboard_url += "&attribute=palette&value=" + name;
+		$.ajax({
+			url: change_dashboard_url
+		}).done(function(){
+			reloadAllElements();
+		});
+	});
 	$("#loaded_dashboard").change(function() {
 		var name = $("#loaded_dashboard").val();
 		var rename_url = url + "&page=dashboard&type=" + dashboard_type;
