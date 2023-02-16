@@ -840,11 +840,12 @@ sub _ajax_new {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by di
 			hide_mobile => 0
 		},
 		sp_seqbin_size => {
-			name        => 'Sequence size',
-			display     => 'seqbin_size',
-			genomes     => 1,
-			hide_mobile => 1,
-			width       => 2
+			name         => 'Sequence size',
+			display      => 'seqbin_size',
+			genomes      => 1,
+			hide_mobile  => 1,
+			width        => 2,
+			chart_colour => $self->_get_default_colour( $palette, 'seqbin' )
 		}
 	};
 	my $q     = $self->{'cgi'};
@@ -1505,8 +1506,8 @@ sub _get_seqbin_size_element_content {
 	$buffer .= << "JS";
 <script>
 \$(function() {
-	var labels = [$label_string];
-	var label_shown = false;
+	let labels = [$label_string];
+	let label_shown = false;
 	bb.generate({
 		bindto: '#chart_$element->{'id'}',
 		data: {
@@ -2433,15 +2434,15 @@ DEFAULTS
 	<script>
 	var unique_labels$id = [];
 	var used_label$id = {};
-	var labels = [$cat_string];
-	var values = [$value_string];
-	var label_count = $dataset->{'count'};
 	$colour_function
 	\$(function() {
+		let labels = [$cat_string];
+		let values = [$value_string];
+		let label_count = $dataset->{'count'};
 		$bb_defaults
-		var max = $dataset->{'max'};
-		var local_max = [$local_max_string];
-		var bar_colour_type = "$bar_colour_type";
+		let max = $dataset->{'max'};
+		let local_max = [$local_max_string];
+		let bar_colour_type = "$bar_colour_type";
 		bb.generate({
 			data: {
 				columns: [
@@ -2583,9 +2584,9 @@ sub _get_field_breakdown_cumulative_content {
 	$buffer .= << "JS";
 	<script>
 	\$(function() {
-		var values = [$value_string];
-		var days_span = Math.round(( Date.parse("$dataset->{'labels'}->[-1]") - Date.parse("$dataset->{'labels'}->[0]") ) / 86400000);
-		var ms_span = 1000*60*60*24*days_span; 
+		let values = [$value_string];
+		let days_span = Math.round(( Date.parse("$dataset->{'labels'}->[-1]") - Date.parse("$dataset->{'labels'}->[0]") ) / 86400000);
+		let ms_span = 1000*60*60*24*days_span; 
 		bb.generate({
 			data: {
 				x: "x",
@@ -2748,7 +2749,7 @@ DEFAULTS
      			label: {
      				show: $label_show,
      				format:  function(value, ratio, id){
-     					var label = id.replace(" ","\\n");	
+     					let label = id.replace(" ","\\n");	
 		         		return label;
 	         		},
 	         		threshold: $threshold	         		
@@ -2789,7 +2790,7 @@ sub _get_colour_function {
 		my $json_values = $json->encode($values);
 		$colour_function = << "JS";
 function getColour$id(label){
-	var annotations=$json_values;
+	let annotations=$json_values;
 	if (typeof annotations[label] === 'undefined'){
 		return '#ddd';
 	}
@@ -2802,7 +2803,7 @@ JS
 		my $palette_values = $self->_get_palette_colours_mapped_to_values($palette);
 		$colour_function = << "JS";
 function getColour$id(label){
-	var annotations={
+	let annotations={
 		'good':'$palette_values->{'good'}',
 		'intermediate':'$palette_values->{'intermediate'}',
 		'bad':'$palette_values->{'bad'}',
@@ -3225,7 +3226,7 @@ DEFAULTS
      			label: {
      				show: $label_show,
      				format:  function(value, ratio, id){
-     					var label = id.replace(" ","\\n");	
+     					let label = id.replace(" ","\\n");	
 		         		return label;
 	         		},
 	         		threshold: $threshold
@@ -3320,7 +3321,7 @@ sub _get_field_breakdown_wordcloud_content {
 	$buffer .= << "JS";
 	<script>
 	\$(function() {
-		var layout = d3.layout.cloud()
+		let layout = d3.layout.cloud()
 	    .size([$width, $height])
 	    .words($words)
 	    .spiral('rectangular')
@@ -3441,15 +3442,15 @@ sub _get_field_breakdown_treemap_content {
 var unique_labels$id = [];
 var used_label$id = {};
 \$(function() {
-	var data = $dataset;
+	let data = $dataset;
 
 	// set the dimensions and margins of the graph
-	var margin = {top: 10, right: 10, bottom: 10, left: 10},
+	let margin = {top: 10, right: 10, bottom: 10, left: 10},
   	width = $width - margin.left - margin.right,
   	height = $height - margin.top - margin.bottom;
 
 	// append the svg object to the body of the page
-	var svg = d3.select("#chart_$element->{'id'}")
+	let svg = d3.select("#chart_$element->{'id'}")
 	.append("svg")
  		.attr("width", width + margin.left + margin.right)
 		.attr("height", height + margin.top + margin.bottom)
@@ -3459,7 +3460,7 @@ var used_label$id = {};
 
   	// Give the data to this cluster layout:
   	// Here the size of each leave is given in the 'value' field in input data
-  	var root = d3.hierarchy(data).sum(function(d){ return d.value}) 
+  	let root = d3.hierarchy(data).sum(function(d){ return d.value}) 
 
   	// Then d3.treemap computes the position of each element of the hierarchy
   	d3.treemap()
@@ -3470,10 +3471,10 @@ var used_label$id = {};
     	(root)
 
   	// prepare a color scale
-	var color = $colour_function
+	let color = $colour_function
 
   	// And a opacity scale
-  	var opacity = d3.scaleLinear()
+  	let opacity = d3.scaleLinear()
     	.domain([10, 30])
     	.range([.8,1])
 
@@ -3532,7 +3533,7 @@ var used_label$id = {};
 	    	
 			function wrap(text, width) {
 		    	text.each(function () {
-			        var text = d3.select(this),
+			        let text = d3.select(this),
 			            words = text.text().split(/\\s+/).reverse(),
 			            word,
 			            line = [],
@@ -3650,18 +3651,18 @@ sub _get_field_breakdown_map_content {
 	$buffer .= << "JS";
 <script>
 \$(function() {
-	var colours = $map_palette;
-	var data = $dataset;
+	let colours = $map_palette;
+	let data = $dataset;
 	$merge
-	var freqs = data.reduce(function(map, obj){
+	let freqs = data.reduce(function(map, obj){
 		map[obj.label] = obj.value;
 		return map;
 	}, {});
-	var range = get_range(data);
-	var vw = \$("#chart_$element->{'id'}").width();
-	var vw_unit = Math.max(Math.floor(vw/150),1);
-	var width = $element->{'width'} > vw_unit ? vw_unit : $element->{'width'};
-	var legend_pos = {
+	let range = get_range(data);
+	let vw = \$("#chart_$element->{'id'}").width();
+	let vw_unit = Math.max(Math.floor(vw/150),1);
+	let width = $element->{'width'} > vw_unit ? vw_unit : $element->{'width'};
+	let legend_pos = {
 		1: {
 			1: {x:0, y:0},
 			2: {x:0, y:0},
@@ -3683,8 +3684,8 @@ sub _get_field_breakdown_map_content {
 			3: {x:50, y:160}
 		}
 	};
-	var f = d3.format(",d");
-	var	map = d3.geomap.choropleth()
+	let f = d3.format(",d");
+	let	map = d3.geomap.choropleth()
 		.geofile("$geo_file")
 		.width(Math.min($width,document.documentElement.clientWidth-30))
 		.colors(colours)
@@ -3696,7 +3697,7 @@ sub _get_field_breakdown_map_content {
 		.unitId("$unit_id")
 		.units("$units")
 		.postUpdate(function(){
-			var legend = d3.select("#chart_$element->{'id'} .legend");
+			let legend = d3.select("#chart_$element->{'id'} .legend");
 			legend.attr("transform","translate(" + 
 				legend_pos[width][$element->{'height'}]['x'] + "," + 
 				legend_pos[width][$element->{'height'}]['y'] + ")");
@@ -3704,9 +3705,9 @@ sub _get_field_breakdown_map_content {
 			d3.selectAll("#chart_$element->{'id'} path.unit")
 				.on("mouseover touchstart", function(event,d){				
 					d3.select("#chart_$element->{'id'}_label").html([d.properties.name]);
-					var value = freqs[d.properties.$freq_key] == null ? 0 : f(freqs[d.properties.$freq_key]);
+					let value = freqs[d.properties.$freq_key] == null ? 0 : f(freqs[d.properties.$freq_key]);
 					d3.select("#chart_$element->{'id'}_value").html([value]);
-					var colour_index = Math.floor((5 * freqs[d.properties.$freq_key] / range.recommended),1);
+					let colour_index = Math.floor((5 * freqs[d.properties.$freq_key] / range.recommended),1);
 					if (isNaN(colour_index)){
 						d3.select("#chart_$element->{'id'}_background").style("background","#ccc");
 					} else {
@@ -3721,22 +3722,22 @@ sub _get_field_breakdown_map_content {
 					d3.select("#chart_$element->{'id'}_tooltip").style("display","none");
 	    		});
 		});
-	var selection = d3.select("#chart_$element->{'id'}").datum(data);
+	let selection = d3.select("#chart_$element->{'id'}").datum(data);
 	map.draw(selection);
 }); 
 
 function merge_terms(data){
-	var iso3_counts = {};
-	for (var i = 0; i < data.length; i++) { 
+	let iso3_counts = {};
+	for (let i = 0; i < data.length; i++) { 
 		if (typeof iso3_counts[data[i].iso3] == 'undefined'){
 			iso3_counts[data[i].iso3] = data[i].value;
 		} else {
 			iso3_counts[data[i].iso3] += data[i].value;
 		}
 	}
-	var merged = [];
-	var iso3 = Object.keys(iso3_counts);
-	for (var i=0; i < iso3.length; i++){
+	let merged = [];
+	let iso3 = Object.keys(iso3_counts);
+	for (let i=0; i < iso3.length; i++){
 		merged.push({label:iso3[i], iso3: iso3[i], value: iso3_counts[iso3[i]]});
 	}
 	return merged;
@@ -3744,26 +3745,26 @@ function merge_terms(data){
 
 // Choose recommended value so that ~5% of records are in top fifth (25% if <= 10 records).
 function get_range(data) {
-	var records = data.length;
-	var percent_in_top_fifth = records > 10 ? 0.05 : 0.25;
-	var target = parseInt(percent_in_top_fifth * records);
-	var multiplier = 10;
-	var max;
-	var recommended;
-	var options = [];
-	var finish;	
+	let records = data.length;
+	let percent_in_top_fifth = records > 10 ? 0.05 : 0.25;
+	let target = parseInt(percent_in_top_fifth * records);
+	let multiplier = 10;
+	let max;
+	let recommended;
+	let options = [];
+	let finish;	
 	while (true){
-		var test = [1,2,5];
-		for (var i = 0; i < test.length; i++) { 
+		let test = [1,2,5];
+		for (let i = 0; i < test.length; i++) { 
 			max = test[i] * multiplier;
 			options.push(max);
 			if (recommended && options.length >= 5){
 				finish = 1;
 				break;
 			}
-			var top_division_start = max * 4 / 5;
-			var in_top_fifth = 0;
-			for (var j = 0; j < data.length; j++) { 
+			let top_division_start = max * 4 / 5;
+			let in_top_fifth = 0;
+			for (let j = 0; j < data.length; j++) { 
 				if (data[j].value >= top_division_start){
 					in_top_fifth++;
 				}
@@ -3816,12 +3817,13 @@ sub _get_field_breakdown_gps_map_content {
 	my $marker_colour = $element->{'marker_colour'} // 'red';
 	my $marker_size   = $element->{'marker_size'}   // 1;
 	$imagery_set //= 'RoadOnDemand';
+	my $id = $element->{'id'};
 	$buffer .= qq(<script>\n);
-
+	
 	if ( $self->{'config'}->{'bingmaps_api'} ) {
 		$buffer .= <<"JS";
-		
-		var layer = [
+	\$(function() {
+		let layer = [
 			new ol.layer.Tile({
 				visible: true,
 				preload: Infinity,
@@ -3834,7 +3836,8 @@ sub _get_field_breakdown_gps_map_content {
 JS
 	} else {
 		$buffer .= <<"JS";
-		var layer = [
+	\$(function() {
+		let layer = [
 			new ol.layer.Tile({
 				source: new ol.source.OSM({
 					crossOrigin: null
@@ -3844,8 +3847,8 @@ JS
 JS
 	}
 	$buffer .= <<"JS";
-	var data = $dataset;	
-	var map = new ol.Map({
+	let data = $dataset;	
+	let map = new ol.Map({
 		target: 'chart_$element->{'id'}',
 		layers: layer,
 		view: new ol.View({
@@ -3855,9 +3858,9 @@ JS
 			maxZoom: 16
 		})
 	});
-	var vectorLayer = get_marker_layer(data, '$marker_colour', $marker_size);
+	let vectorLayer = get_marker_layer(data, '$marker_colour', $marker_size);
 	map.addLayer(vectorLayer);
-	var features = vectorLayer.getSource().getFeatures();
+	let features = vectorLayer.getSource().getFeatures();
 	if (features.length) {
 		map.getView().fit(vectorLayer.getSource().getExtent(), {
 			size: map.getSize(),
@@ -3867,7 +3870,7 @@ JS
 			constrainResolution: false
 		});
 	}
-		
+});	
 JS
 	$buffer .= qq(</script>\n);
 	$buffer .=
