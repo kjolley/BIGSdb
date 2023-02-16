@@ -19,7 +19,7 @@ elements = [	{
 		display           = 'record_count',
 		name              = 'Isolate count',
 		width             = 1,
-		background_colour = '#79cafb',
+		background_colour = '#9bb5d0',
 		main_text_colour  = '#404040',
 		watermark         = 'fas fa-bacteria',
 		change_duration   = 'month',
@@ -29,7 +29,7 @@ elements = [	{
 		name              = 'Genome count',
 		genomes           = 1,
 		width             = 1,
-		background_colour = '#7ecc66',
+		background_colour = '#99ca92',
 		main_text_colour  = '#404040',
 		watermark         = 'fas fa-dna',
 		change_duration   = 'month',
@@ -82,3 +82,5 @@ elements = [	{
 		hide_mobile       = 1
 	}
 ]
+
+palette = 'Tableau'

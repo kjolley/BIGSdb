@@ -33,7 +33,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant {
 	MAX_SEGMENTS    => 20,
-	PALETTE         => 'Category',
+	PALETTE         => 'Tableau',
 	TOP_VALUES      => 5,
 	DASHBOARD_LIMIT => 20
 };
@@ -3008,7 +3008,11 @@ sub _get_default_colour {
 			seqbin                   => '#69c5b5',
 			chart                    => '#9f99c8'
 		},
-		Tableau  => {},
+		Tableau => {
+			count_background         => '#9bb5d0',
+			count_genomes_background => '#99ca92',
+			chart                    => '#4e79a7'
+		},
 		Spectral => {
 			chart => '#6d60ab'
 		},
@@ -3819,7 +3823,7 @@ sub _get_field_breakdown_gps_map_content {
 	$imagery_set //= 'RoadOnDemand';
 	my $id = $element->{'id'};
 	$buffer .= qq(<script>\n);
-	
+
 	if ( $self->{'config'}->{'bingmaps_api'} ) {
 		$buffer .= <<"JS";
 	\$(function() {
