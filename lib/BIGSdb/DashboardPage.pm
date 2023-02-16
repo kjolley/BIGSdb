@@ -2960,47 +2960,159 @@ sub _get_default_colour {
 			count_genomes_background  => '#7ecc66',
 			header_text               => '#ffffff',
 			header_background         => '#729fcf',
-			chart                     => '#1f77b4',
+			seqbin                    => '#1f77b4',
+			chart                     => '#126716',
 			gauge_background          => '#a0a0a0',
 			gauge_foreground          => '#1f77b4',
 			specific_field_text       => '#404040',
 			specific_field_background => '#d9e1ff',
 			map                       => 'green'
 		},
-		Accent => {},
-		Dark   => {
-			header_background => '#1b9e77',
-			chart             => '#1b9e77',
-			map               => 'purple/blue/green',
-			gauge_foreground  => '#7570b3'
+		Accent => {
+			chart => '#58b858'
+		},
+		Dark => {
+			count_background         => '#21b689',
+			count_genomes_background => '#e86504',
+			header_background        => '#1b9e77',
+			chart                    => '#1b9e77',
+			map                      => 'purple/blue/green',
+			gauge_foreground         => '#7570b3'
 		},
 		Pastel1 => {
-			header_background => '#b3cde3',
-			chart             => '#74b9e7',
-			gauge_foreground  => '#decbe4'
+			count_background         => '#addffd',
+			count_genomes_background => '#b9e3ac',
+			header_background        => '#b3cde3',
+			seqbin                   => '#cbaed5',
+			chart                    => '#74b9e7',
+			gauge_foreground         => '#decbe4'
 		},
-		Pastel2           => {},
-		Set1              => {},
-		Set2              => {},
-		Set3              => {},
-		Tableau           => {},
-		Spectral          => {},
-		Blues             => {},
-		Greens            => {},
-		Oranges           => {},
-		Purples           => {},
-		Reds              => {},
-		BlueGreen         => {},
-		BluePurple        => {},
-		GreenBlue         => {},
-		OrangeRed         => {},
-		PurpleBlueGreen   => {},
-		PurpleBlue        => {},
-		PurpleRed         => {},
-		RedPurple         => {},
-		YellowGreen       => {},
-		YellowOrangeBrown => {},
-		YellowOrangeRed   => {},
+		Pastel2 => {
+			count_background         => '#addffd',
+			count_genomes_background => '#b9e3ac',
+			seqbin                   => '#fca870',
+			chart                    => '#74b9e7',
+			gauge_foreground         => '#decbe4'
+		},
+		Set1 => {},
+		Set2 => {
+			count_background         => '#92d3be',
+			count_genomes_background => '#fdb499',
+			seqbin                   => '#8da0cb',
+			chart                    => '#fc8d62'
+		},
+		Set3 => {
+			count_background         => '#8dd3c7',
+			count_genomes_background => '#bebada',
+			seqbin                   => '#69c5b5',
+			chart                    => '#9f99c8'
+		},
+		Tableau  => {},
+		Spectral => {
+			chart => '#6d60ab'
+		},
+		Blues => {
+			count_background         => '#9ecae1',
+			count_genomes_background => '#6baed6',
+			map                      => 'blue',
+			chart                    => '#2171b5'
+		},
+		Greens => {
+			count_background  => '#69d288',
+			seqbin            => '#00441b',
+			header_background => '#006d2c'
+		},
+		Oranges => {
+			count_background         => '#efb088',
+			count_genomes_background => '#cf9e68',
+			map                      => 'orange',
+			chart                    => '#d94801',
+			seqbin                   => '#a63603',
+			header_background        => '#7f2704'
+		},
+		Purples => {
+			count_background         => '#bcbddc',
+			count_genomes_background => '#9e9ac8',
+			map                      => 'purple',
+			chart                    => '#54278f',
+			seqbin                   => '#6a51a3',
+			header_background        => '#9e9ac8'
+		},
+		Reds => {
+			count_background         => '#fdae98',
+			count_genomes_background => '#fda28e',
+			map                      => 'red',
+			header_background        => '#cb181d',
+			seqbin                   => '#ef3b2c',
+			chart                    => '#cb181d'
+		},
+		BlueGreen => {
+			map => 'blue/green'
+		},
+		BluePurple => {
+			count_background         => '#97c0fd',
+			count_genomes_background => '#a6aae3',
+			map                      => 'blue/purple',
+			chart                    => '#88419d'
+		},
+		GreenBlue => {},
+		OrangeRed => {
+			count_background         => '#efb088',
+			count_genomes_background => '#cf9e68',
+			map                      => 'orange/red',
+			chart                    => '#d7301f',
+			seqbin                   => '#7f0000',
+			header_background        => '#7f2704'
+		},
+		PurpleBlueGreen => {
+			count_background         => '#d0d1e6',
+			count_genomes_background => '#a6bddb',
+			map                      => 'purple/blue/green'
+		},
+		PurpleBlue => {
+			count_background         => '#d0d1e6',
+			count_genomes_background => '#a6bddb',
+			map                      => 'purple/blue',
+			chart                    => '#3690c0'
+		},
+		PurpleRed => {
+			count_background         => '#d4b9da',
+			count_genomes_background => '#c994c7',
+			map                      => 'purple/red',
+			header_background        => '#ce1256',
+			chart                    => '#e7298a',
+			seqbin                   => '#980043',
+		},
+		RedPurple => {
+			count_background         => '#fcc5c0',
+			count_genomes_background => '#fa9fb5',
+			map                      => 'red/purple',
+			header_background        => '#49006a',
+			chart                    => '#e7298a',
+			seqbin                   => '#ae017e',
+		},
+		YellowGreen => {
+			count_background  => '#d9f0a3',
+			map               => 'yellow/green',
+			seqbin            => '#238443',
+			header_background => '#004529'
+		},
+		YellowOrangeBrown => {
+			count_background         => '#fee391',
+			count_genomes_background => '#fec44f',
+			map                      => 'yellow/orange/brown',
+			seqbin                   => '#993404',
+			chart                    => '#662506',
+			header_background        => '#993404'
+		},
+		YellowOrangeRed => {
+			count_background         => '#fed976',
+			count_genomes_background => '#feb24c',
+			map                      => 'yellow/orange/red',
+			seqbin                   => '#bd0026',
+			chart                    => '#800026',
+			header_background        => '#fc4e2a'
+		},
 	};
 	return $defaults->{$palette}->{$chart_type} // $defaults->{'Category'}->{$chart_type};
 }
@@ -4118,7 +4230,11 @@ sub _change_palette {
 		if ( ( $element->{'breakdown_display'} // q() ) eq 'map' ) {
 			$element->{'palette'} = $self->_get_default_colour( $palette, 'map' );
 		}
-		$element->{'chart_colour'}     = $self->_get_default_colour( $palette, 'chart' ) if $element->{'chart_colour'};
+		if ( $element->{'display'} eq 'seqbin_size' ) {
+			$element->{'chart_colour'} = $self->_get_default_colour( $palette, 'seqbin' );
+		} elsif ( $element->{'chart_colour'} ) {
+			$element->{'chart_colour'} = $self->_get_default_colour( $palette, 'chart' );
+		}
 		$element->{'gauge_background'} = $self->_get_default_colour( $palette, 'gauge_background' )
 		  if $element->{'gauge_background'};
 		$element->{'gauge_foreground'} = $self->_get_default_colour( $palette, 'gauge_foreground' )
@@ -4238,9 +4354,6 @@ sub print_modify_dashboard_fieldset {
 	say q(<div style="clear:both"></div>);
 	say q(<fieldset><legend>Visual elements</legend>);
 	say q(<ul><li>);
-	$self->print_field_selector;
-	say q(<a id="add_element" class="small_submit" style="white-space:nowrap">Add element</a>);
-	say q(</li></li>);
 	say q(<label for="dashboard_palette">Palette:</label>);
 	my $palettes = $self->_get_palettes;
 	say $q->popup_menu(
@@ -4251,6 +4364,10 @@ sub print_modify_dashboard_fieldset {
 		-class        => 'field_selector',
 		-autocomplete => 'off'                       #Shouldn't need this but Firefox will cache value otherwise.
 	);
+	say q(<p><span class="comment">Note changing palette will reset user-selected colours.</span></p>);
+	say q(</li><li>);
+	$self->print_field_selector;
+	say q(<a id="add_element" class="small_submit" style="white-space:nowrap">Add element</a>);
 	say q(</li></ul>);
 	say q(</fieldset>);
 	$self->_print_dashboard_management_fieldset;
