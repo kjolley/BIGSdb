@@ -4472,8 +4472,6 @@ sub _print_dashboard_management_fieldset {
 	}
 	say q(<li>);
 	my $reset_display = ( $name eq 'query default' || $name eq 'primary default' ) ? q(none) : q(inline);
-	$logger->error($name);
-	$logger->error($reset_display);
 	say q(<a id="delete_dashboard" onclick="resetDefaults()" class="small_reset" )
 	  . qq(style="display:$reset_display;white-space:nowrap"><span class="far fa-trash-alt"></span> Delete</a>);
 	if ( @$dashboards < DASHBOARD_LIMIT ) {
