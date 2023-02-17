@@ -2737,6 +2737,12 @@ sub get_peptide_mutations_table_attributes {
 	my $attributes = [
 		{ name => 'id', type => 'int', required => 1, primary_key => 1, length => 6 },
 		{
+			name     => 'name',
+			type     => 'text',
+			required => 1,
+			unique   => 1
+		},
+		{
 			name           => 'locus',
 			type           => 'text',
 			required       => 1,

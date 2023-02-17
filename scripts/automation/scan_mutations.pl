@@ -122,6 +122,9 @@ sub get_loci_with_mutations {
 	return $filtered;
 }
 
+sub get_peptide_mutation {
+}
+
 sub dna_locus_peptide_mutation {
 	my ($locus) = @_;
 	my $sequences = get_translated_alleles($locus);
@@ -132,8 +135,10 @@ sub dna_locus_peptide_mutation {
 	my $mutations =
 	  $script->{'datastore'}
 	  ->run_query( 'SELECT id,position,wild_type_aa,variant_aa FROM peptide_mutations WHERE locus=? ORDER BY position',
-		$locus, { fetch => 'all_arrayref', slice => {} } );
+		$locus, { fetch => 'all_arrayref', slice => {}, cache => 'get_locus_peptide_mutations' } );
 	foreach my $mutation (@$mutations) {
+		my $alleles_to_check = get_alleles_to_check_peptide_mutations( $locus, $mutation->{'id'} );
+		next if !@$alleles_to_check;
 		my $most_common_length =
 		  find_most_common_sequence_length_with_wt( $sequences, $mutation->{'position'}, $mutation->{'wild_type_aa'} );
 		if ( !$most_common_length ) {
@@ -152,18 +157,33 @@ sub dna_locus_peptide_mutation {
 	return;
 }
 
-sub annotate_alleles_with_peptide_mutations {
-	my ( $locus, $mutation_id, $motifs ) = @_;
+sub get_alleles_to_check_peptide_mutations {
+	my ( $locus, $mutation_id ) = @_;
 	my $locus_info = $script->{'datastore'}->get_locus_info($locus);
 	my $order      = $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS int)' : 'allele_id';
-	my $alleles    = $script->{'datastore'}->run_query(
-		"SELECT allele_id,sequence FROM sequences WHERE locus=? AND allele_id NOT IN (?,?) ORDER BY $order",
-		[ $locus, 0, 'N' ],
-		{ fetch => 'all_arrayref', slice => {} }
+	return $script->{'datastore'}->run_query(
+		'SELECT allele_id,sequence FROM sequences s WHERE locus=? AND allele_id NOT IN (?,?) AND allele_id NOT IN '
+		  . '(SELECT allele_id FROM sequences_peptide_mutations m WHERE (m.locus,m.mutation_id)=(s.locus,?)) ORDER '
+		  . "BY $order",
+		[ $locus, 0, 'N', $mutation_id ],
+		{ fetch => 'all_arrayref', slice => {}, cache => 'get_alleles_to_check_peptide_mutations' }
 	);
-	my $job_id  = BIGSdb::Utils::get_random();
-	my $db_type = 'prot';
-	create_blast_database( $job_id, $db_type, $motifs );
+}
+
+sub annotate_alleles_with_peptide_mutations {
+	my ( $locus, $mutation_id, $motifs ) = @_;
+	my $alleles  = get_alleles_to_check_peptide_mutations( $locus, $mutation_id );
+	my $mutation = $script->{'datastore'}->run_query( 'SELECT * FROM peptide_mutations WHERE id=?',
+		$mutation_id, { fetch => 'row_hashref', cache => 'get_peptide_mutation' } );
+	my %variant_aas = map { $_ => 1 } split /;/x, $mutation->{'variant_aa'};
+	my $job_id      = BIGSdb::Utils::get_random();
+	my $db_type     = 'prot';
+	create_blast_database( $job_id, $db_type, $motifs->{'motifs'} );
+	my $pos = $opts{'flanking'} - $motifs->{'offset'};
+	my $insert_sql = $script->{'db'}->prepare('INSERT INTO sequences_peptide_mutations '
+			  . '(locus,allele_id,mutation_id,amino_acid,is_wild_type,is_mutation,curator,datestamp) '
+			  . 'VALUES (?,?,?,?,?,?,?,?)');
+
 	foreach my $allele (@$alleles) {
 		my $best_match = run_blast( $job_id, $db_type, $locus, \$allele->{'sequence'} );
 		if ( !$best_match ) {
@@ -171,16 +191,30 @@ sub annotate_alleles_with_peptide_mutations {
 			next;
 		}
 		my $seq_ref = extract_seq_from_match( $locus, 'prot', \$allele->{'sequence'}, $best_match );
-		say "$allele->{'allele_id'}: $$seq_ref";
+		my $aa      = substr( $$seq_ref, $pos, 1 );
+
+		#TODO Define curator_id.
+		my $is_wt  = ( $aa eq $mutation->{'wild_type_aa'} ) ? 1 : 0;
+		my $is_mut = $variant_aas{$aa} ? 1 : 0;
+		eval {
+		$insert_sql->execute($locus, $allele->{'allele_id'}, $mutation_id, $aa, $is_wt, $is_mut, 0, 'now' );
+			
+		};
+		if ($@){
+			$logger->error($@);
+			$script->{'db'}->rollback;
+			exit;
+		}
+		say "$allele->{'allele_id'}: $$seq_ref\t$aa - WT:$is_wt; Mutation:$is_mut";
 	}
+	$script->{'db'}->commit;
 	$script->delete_temp_files("$script->{'config'}->{'secure_tmp_dir'}/$job_id*");
+	return;
 }
 
 sub extract_seq_from_match {
 	my ( $locus, $db_type, $seq_ref, $match ) = @_;
 	my $locus_info = $script->{'datastore'}->get_locus_info($locus);
-
-	#	$logger->error( Dumper $match);
 	my ( $start, $end );
 	if ( $locus_info->{'data_type'} eq 'DNA' ) {
 		if ( $db_type eq 'prot' ) {
@@ -192,8 +226,6 @@ sub extract_seq_from_match {
 			$end   = $match->{'qend'} + ( $opts{'flanking'} * 2 + 1 - ( $match->{'send'} - $match->{'sstart'} + 1 ) );
 		}
 	}
-
-	#	$logger->error("Start: $start; End: $end");
 	my $seq = substr( $$seq_ref, $start - 1, ( $end - $start ) );
 	if ( $locus_info->{'data_type'} eq 'DNA' && $db_type eq 'prot' ) {
 		my $codon_table = $script->{'system'}->{'codon_table'} // 11;
@@ -283,11 +315,11 @@ sub define_motifs {
 			motif        => $motif,
 			id           => $id,
 			variant_char => $char,
-			wt           => ( $char eq $wt ? 1 : 0 )
+			wt           => ( $char eq $wt ? 1 : 0 ),
 		  };
 		$id++;
 	}
-	return $motifs;
+	return { motifs => $motifs, offset => $offset };
 }
 
 sub find_most_common_sequence_length_with_wt {
