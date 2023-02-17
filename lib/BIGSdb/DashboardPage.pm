@@ -4545,7 +4545,7 @@ sub _export {
 	my $fill_gaps    = $self->{'prefs'}->{'fill_gaps'}            // 1;
 	my $old_versions = $self->{'prefs'}->{'include_old_versions'} // 0;
 	my $record_age   = $self->{'prefs'}->{'record_age'}           // 0;
-	my $palette      = $self->{'prefs'}->{'palette'}              // 'category';
+	my $palette      = $self->{'prefs'}->{'palette'}              // 'Tableau';
 	say qq(fill_gaps            = $fill_gaps);
 	say qq(include_old_versions = $old_versions) if $self->{'dashboard_type'} ne 'query';
 	say qq(record_age           = $record_age)   if $self->{'dashboard_type'} ne 'query';
