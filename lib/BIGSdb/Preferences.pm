@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -449,7 +449,7 @@ sub get_all_scheme_prefs {
 		BIGSdb::Exception::Prefstore->throw('Cannot execute get scheme all attribute query');
 	}
 	my $values = {};
-	my $data = $sql->fetchall_arrayref( {} );
+	my $data   = $sql->fetchall_arrayref( {} );
 	foreach my $pref (@$data) {
 		$values->{ $pref->{'scheme_id'} }->{ $pref->{'action'} } = $pref->{'value'};
 	}
@@ -465,7 +465,7 @@ sub get_all_scheme_field_prefs {
 		BIGSdb::Exception::Prefstore->throw('Cannot execute get all scheme fields attribute query');
 	}
 	my $values = {};
-	my $data = $sql->fetchall_arrayref( {} );
+	my $data   = $sql->fetchall_arrayref( {} );
 	foreach my $pref (@$data) {
 		$values->{ $pref->{'scheme_id'} }->{ $pref->{'field'} }->{ $pref->{'action'} } = $pref->{'value'};
 	}
@@ -485,7 +485,7 @@ sub get_plugin_attributes {
 		BIGSdb::Exception::Prefstore->throw('Cannot execute get plugin attributes query');
 	}
 	my $values = {};
-	my $data = $sql->fetchall_arrayref( {} );
+	my $data   = $sql->fetchall_arrayref( {} );
 	foreach my $prefs (@$data) {
 		$values->{ $prefs->{'attribute'} } = $prefs->{'value'};
 	}
@@ -551,7 +551,7 @@ sub get_general_dashboard_prefs {
 		BIGSdb::Exception::Prefstore->throw('Cannot execute get primary dashboard query');
 	}
 	my $values = {};
-	my $data = $sql->fetchall_arrayref( {} );
+	my $data   = $sql->fetchall_arrayref( {} );
 	foreach my $prefs (@$data) {
 		$values->{ $prefs->{'attribute'} } = $prefs->{'value'};
 	}
@@ -677,6 +677,28 @@ sub initiate_new_dashboard {
 	return $id;
 }
 
+sub reset_active_dashboard {
+	my ( $self, $guid, $dbase_config, $type, $value ) = @_;
+	if ( !$guid ) {
+		$logger->logcarp('No guid passed');
+		BIGSdb::Exception::Database::NoRecord->throw('No guid passed');
+	}
+	if ( !$self->_guid_exists($guid) ) {
+		$self->_add_existing_guid($guid);
+	}
+	eval {
+		$self->{'db'}->do( 'DELETE FROM active_dashboards WHERE (guid,dbase_config,type,value)=(?,?,?,?)',
+			undef, $guid, $dbase_config, $type, $value );
+	};
+	if ($@) {
+		$logger->logcarp($@);
+		$self->{'db'}->rollback;
+		BIGSdb::Exception::Prefstore->throw('Could not reset active dashboard');
+	}
+	$self->{'db'}->commit;
+	return;
+}
+
 sub set_active_dashboard {
 	my ( $self, $guid, $dbase_config, $id, $type, $value ) = @_;
 	if ( !$guid ) {
@@ -694,10 +716,8 @@ sub set_active_dashboard {
 				undef, $guid, $dbase_config, $id, $type, $value, $id
 			);
 		} else {
-			$self->{'db'}->do(
-				'DELETE FROM active_dashboards WHERE (guid,dbase_config,type)=(?,?,?)',
-				undef, $guid, $dbase_config, $type
-			);
+			$self->{'db'}->do( 'DELETE FROM active_dashboards WHERE (guid,dbase_config,type)=(?,?,?)',
+				undef, $guid, $dbase_config, $type );
 		}
 	};
 	if ($@) {
@@ -719,6 +739,10 @@ sub update_dashboard_attribute {
 		$self->_add_existing_guid($guid);
 	}
 	eval {
+		#Elements are passed as JSON already.
+		if ( !BIGSdb::Utils::is_int($value) && $attribute eq 'palette' ) {
+			$value = qq("$value");
+		}
 		$self->{'db'}->do(
 			qq[UPDATE dashboards SET data = jsonb_set(data, '{$attribute}', ?) ]
 			  . q[WHERE (guid,dbase_config,id)=(?,?,?)],
@@ -743,7 +767,7 @@ sub update_dashboard_name {
 	if ( !$self->_guid_exists($guid) ) {
 		$self->_add_existing_guid($guid);
 	}
-	my $names = $self->get_dashboard_names( $guid, $dbase_config );
+	my $names    = $self->get_dashboard_names( $guid, $dbase_config );
 	my %existing = map { $_ => 1 } @$names;
 	if ( $existing{$name} ) {
 		$logger->error("Dashboard $name already exists for this user.");

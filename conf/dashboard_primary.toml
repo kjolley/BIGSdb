@@ -20,7 +20,7 @@ elements = [
 		display           = 'record_count',
 		name              = 'Isolate count',
 		width             = 2,
-		background_colour = '#79cafb',
+		background_colour = '#9bb5d0',
 		main_text_colour  = '#404040',
 		watermark         = 'fas fa-bacteria',
 		change_duration   = 'month',
@@ -32,7 +32,7 @@ elements = [
 		name              = 'Genome count',
 		genomes           = 1,
 		width             = 2,
-		background_colour = '#7ecc66',
+		background_colour = '#99ca92',
 		main_text_colour  = '#404040',
 		watermark         = 'fas fa-dna',
 		change_duration   = 'month',
@@ -124,3 +124,33 @@ fill_gaps = 1
 #	7 => 'past week'
 
 record_age = 0
+
+#The following palettes can be chosen:
+#	Category         
+#	Accent           
+#	Dark             
+#	Pastel1          
+#	Pastel2          
+#	Set1             
+#	Set2             
+#	Set3             
+#	Tableau          
+#	Spectral         
+#	Blues            
+#	Greens           
+#	Oranges          
+#	Purples          
+#	Reds             
+#	BlueGreen        
+#	BluePurple       
+#	GreenBlue        
+#	OrangeRed        
+#	PurpleBlueGreen  
+#	PurpleBlue       
+#	PurpleRed        
+#	RedPurple        
+#	YellowGreen      
+#	YellowOrangeBrown
+#	YellowOrangeRed  
+
+palette = 'Tableau'

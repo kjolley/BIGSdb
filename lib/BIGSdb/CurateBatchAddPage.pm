@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -808,6 +808,7 @@ sub _check_validation_conditions {
 	my ( $self, $args, $problems, $pk_combination ) = @_;
 	my ( $data, $file_header_pos ) = ( $args->{'data'}, $args->{'file_header_pos'} );
 	my %newdata = map { $_ => $data->[ $file_header_pos->{$_} ] } keys %$file_header_pos;
+	return if !defined $newdata{'field'};
 	if ( $newdata{'value'} eq 'null' ) {
 		if ( $newdata{'operator'} ne '=' && $newdata{'operator'} ne 'NOT' ) {
 			$problems->{$pk_combination} .= qq(The operator '$newdata{'operator'}' cannot be used for null values.);
