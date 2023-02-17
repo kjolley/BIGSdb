@@ -150,12 +150,12 @@ $(function() {
 		var change_dashboard_url = url + "&page=dashboard&updateDashboard=1&type=" + dashboard_type;
 		if (typeof projectId !== 'undefined') {
 			change_dashboard_url += "&project_id=" + projectId;
-		}
-		
+		}		
 		change_dashboard_url += "&attribute=palette&value=" + name;
 		$.ajax({
 			url: change_dashboard_url
-		}).done(function(){
+		}).done(function(json){
+			updateDashboardName(JSON.parse(json).dashboard_name);
 			reloadAllElements();
 		});
 	});

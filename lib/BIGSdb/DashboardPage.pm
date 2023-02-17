@@ -4117,15 +4117,10 @@ sub get_or_set_dashboard_prefs {
 	  $self->{'prefstore'}
 	  ->get_active_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, $project_id // 0 );
 	if ( $q->param('resetDefaults') ) {
-		$self->{'prefstore'}->delete_dashboard( $dashboard_id, $guid, $self->{'instance'} ) if $guid;
-		my $dashboards = $self->{'prefstore'}->get_dashboards( $guid, $self->{'instance'} );
-		if (@$dashboards) {
-			$self->{'prefstore'}->set_active_dashboard(
-				$guid, $self->{'instance'},
-				$dashboards->[0]->{'id'},
-				$self->{'dashboard_type'},
-				$project_id // 0
-			);
+		if ($guid) {
+			$self->{'prefstore'}->delete_dashboard( $dashboard_id, $guid, $self->{'instance'} );
+			$self->{'prefstore'}
+			  ->reset_active_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, $project_id // 0 );
 		}
 	}
 	$self->{'prefs'} = $self->{'prefstore'}->get_general_dashboard_prefs( $guid, $self->{'instance'} );
@@ -4252,8 +4247,6 @@ sub _change_palette {
 	my $json         = JSON->new->allow_nonref;
 	$self->{'prefstore'}
 	  ->update_dashboard_attribute( $dashboard_id, $guid, $self->{'instance'}, 'elements', $json->encode($elements) );
-
-	#$logger->error( Dumper $elements);
 	return;
 }
 

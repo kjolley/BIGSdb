@@ -677,6 +677,28 @@ sub initiate_new_dashboard {
 	return $id;
 }
 
+sub reset_active_dashboard {
+	my ( $self, $guid, $dbase_config, $type, $value ) = @_;
+	if ( !$guid ) {
+		$logger->logcarp('No guid passed');
+		BIGSdb::Exception::Database::NoRecord->throw('No guid passed');
+	}
+	if ( !$self->_guid_exists($guid) ) {
+		$self->_add_existing_guid($guid);
+	}
+	eval {
+		$self->{'db'}->do( 'DELETE FROM active_dashboards WHERE (guid,dbase_config,type,value)=(?,?,?,?)',
+			undef, $guid, $dbase_config, $type, $value );
+	};
+	if ($@) {
+		$logger->logcarp($@);
+		$self->{'db'}->rollback;
+		BIGSdb::Exception::Prefstore->throw('Could not reset active dashboard');
+	}
+	$self->{'db'}->commit;
+	return;
+}
+
 sub set_active_dashboard {
 	my ( $self, $guid, $dbase_config, $id, $type, $value ) = @_;
 	if ( !$guid ) {
