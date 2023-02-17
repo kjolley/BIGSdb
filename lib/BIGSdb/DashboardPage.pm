@@ -2685,7 +2685,9 @@ sub _get_field_breakdown_doughnut_content {
 		$margin_top = -20;
 		$label_show = 'false';
 	} else {
-		$centre_title = $element->{'name'};
+		my $title = $element->{'name'};
+		$title =~ s/([\w()\.]{3,})\s([\w()\.]{3,})/$1\\n$2/gx;
+		$centre_title = $title;
 		$margin_top   = 20;
 		$label_show   = 'true';
 	}
@@ -2750,7 +2752,7 @@ DEFAULTS
      				show: $label_show,
      				format:  function(value, ratio, id){
      					let label = id.replace(" ","\\n");	
-		         		return label;
+  		         		return label;
 	         		},
 	         		threshold: $threshold	         		
      			}
