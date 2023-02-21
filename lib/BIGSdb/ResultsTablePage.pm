@@ -1479,6 +1479,8 @@ sub _get_record_table_info {
 	my ( $self, $table ) = @_;
 	my $q                    = $self->{'cgi'};
 	my $headers              = [];
+	my $html_table_headers1  = [];
+	my $html_table_headers2  = [];
 	my $display              = [];
 	my $qry_fields           = [];
 	my $type                 = {};
@@ -1514,8 +1516,9 @@ sub _get_record_table_info {
 	}
 	my $extended_attributes;
 	my $linked_data;
+	push @$html_table_headers1, qq(<th rowspan="2">$_</th>) foreach @$headers;
 	if ( $q->param('page') eq 'alleleQuery' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		$extended_attributes = $self->_add_allele_query_info($headers);
+		$extended_attributes = $self->_add_allele_query_info( $headers, $html_table_headers1, $html_table_headers2 );
 		my $locus = $q->param('locus');
 		$linked_data = $self->_data_linked_to_locus($locus);
 	} elsif ( $table eq 'sequence_bin' ) {
@@ -1524,14 +1527,18 @@ sub _get_record_table_info {
 		  ->run_query( 'SELECT key FROM sequence_attributes ORDER BY key', undef, { fetch => 'col_arrayref' } );
 		my @cleaned = @$extended_attributes;
 		tr/_/ / foreach @cleaned;
-		push @$headers, @cleaned;
+		push @$headers,             @cleaned;
+		push @$html_table_headers1, qq(<th rowspan="2">$_</th>) foreach @$headers;
 	}
 	if ( $self->_show_allele_flags ) {
-		push @$headers, 'flags';
+		push @$headers,             'flags';
+		push @$html_table_headers1, q(<th rowspan="2">flags</th>);
 	}
 	return (
 		{
 			headers              => $headers,
+			html_table_headers1  => $html_table_headers1,
+			html_table_headers2  => $html_table_headers2,
 			qry_fields           => $qry_fields,
 			display              => $display,
 			type                 => $type,
@@ -1545,7 +1552,7 @@ sub _get_record_table_info {
 }
 
 sub _add_allele_query_info {
-	my ( $self, $headers ) = @_;
+	my ( $self, $headers, $html_table_headers1, $html_table_headers2 ) = @_;
 	my $q     = $self->{'cgi'};
 	my $locus = $q->param('locus');
 	return if !$self->{'datastore'}->is_locus($locus);
@@ -1553,17 +1560,27 @@ sub _add_allele_query_info {
 	  $self->{'datastore'}->run_query(
 		'SELECT field,url FROM locus_extended_attributes WHERE locus=? AND main_display ORDER BY field_order',
 		$locus, { fetch => 'all_arrayref', slice => {} } );
-	foreach my $ext_att (@$extended_attributes) {
-		( my $cleaned = $ext_att->{'field'} ) =~ tr/_/ /;
-		push @$headers, $cleaned;
+	my $count = @$extended_attributes;
+	if ($count) {
+		push @$html_table_headers1, qq(<th colspan="$count">Extended attributes</th>);
+		foreach my $ext_att (@$extended_attributes) {
+			( my $cleaned = $ext_att->{'field'} ) =~ tr/_/ /;
+			push @$headers,             $cleaned;
+			push @$html_table_headers2, qq(<th>$cleaned</th>);
+		}
 	}
 	my $databanks = $self->{'datastore'}
 	  ->run_query( 'SELECT DISTINCT databank FROM accession WHERE locus=?', $locus, { fetch => 'col_arrayref' } );
 	push @$headers, sort @$databanks;
+	my $rowspan = @$html_table_headers2 ? q( rowspan="2") : q();
 	if ( $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM sequence_refs WHERE locus=?)', $locus ) ) {
-		push @$headers, 'Publications';
+		push @$headers,             'Publications';
+		push @$html_table_headers1, qq(<th$rowspan>Publications</th>);
 	}
-	push @$headers, 'linked data values' if $self->_data_linked_to_locus($locus);
+	if ( $self->_data_linked_to_locus($locus) ) {
+		push @$headers,             'linked data values';
+		push @$html_table_headers1, qq(<th$rowspan>Linked data values</th>);
+	}
 	return $extended_attributes;
 }
 
@@ -1614,17 +1631,23 @@ sub _print_record_table {
 	my $dataset = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 	return if !@$dataset;
 	$self->modify_dataset_if_needed( $table, $dataset );
-	local $" = q(</th><th>);
+	local $" = q();
 	say q(<div class="box" id="large_resultstable"><div class="scrollable"><table class="resultstable">);
 	say q(<tr>);
+	my $table_info = $self->_get_record_table_info($table);
+	my ( $headers, $html_table_headers1, $html_table_headers2, $display, $extended_attributes ) =
+	  @{$table_info}{qw(headers html_table_headers1 html_table_headers2 display extended_attributes)};
 
 	if ( $self->{'curate'} ) {
-		print q(<th>Delete</th>);
-		print q(<th>Update</th>) if $table !~ /refs$/x;
+		my $rowspan = @$html_table_headers2 ? q( rowspan="2") : q();
+		print qq(<th$rowspan>Delete</th>);
+		print qq(<th$rowspan>Update</th>) if $table !~ /refs$/x;
 	}
-	my $table_info = $self->_get_record_table_info($table);
-	my ( $headers, $display, $extended_attributes ) = @{$table_info}{qw(headers display extended_attributes)};
-	say qq(<th>@$headers</th></tr>);
+	if ( !@$html_table_headers2 ) {
+		s/rowspan="2"//gx foreach @$html_table_headers1;
+	}
+	say qq(@$html_table_headers1</tr>);
+	say qq(<tr>@$html_table_headers2</tr>) if @$html_table_headers2;
 	my $td         = 1;
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my %hide_field;
