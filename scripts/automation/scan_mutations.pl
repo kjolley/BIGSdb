@@ -128,19 +128,21 @@ sub get_peptide_mutation {
 sub dna_locus_peptide_mutation {
 	my ($locus) = @_;
 	my $sequences = get_translated_alleles($locus);
-	if ( !keys %$sequences ) {
+	if ( !@$sequences ) {
 		$logger->error("No translated sequences generated for $locus.");
 		return;
 	}
-	my $mutations =
-	  $script->{'datastore'}
-	  ->run_query( 'SELECT id,position,wild_type_aa,variant_aa FROM peptide_mutations WHERE locus=? ORDER BY position',
-		$locus, { fetch => 'all_arrayref', slice => {}, cache => 'get_locus_peptide_mutations' } );
+	my $mutations = $script->{'datastore'}->run_query(
+		'SELECT id,name,position,wild_type_aa,variant_aa FROM peptide_mutations WHERE locus=? ORDER BY position'
+		,
+		$locus, { fetch => 'all_arrayref', slice => {}, cache => 'get_locus_peptide_mutations' }
+	);
 	foreach my $mutation (@$mutations) {
 		my $alleles_to_check = get_alleles_to_check_peptide_mutations( $locus, $mutation->{'id'} );
 		next if !@$alleles_to_check;
 		my $most_common_length =
 		  find_most_common_sequence_length_with_wt( $sequences, $mutation->{'position'}, $mutation->{'wild_type_aa'} );
+		say "$locus - $mutation->{'name'}:" if !$opts{'quiet'};
 		if ( !$most_common_length ) {
 			$logger->error( "$locus: No sequences found with WT amino acid '$mutation->{'wild_type_aa'}' "
 				  . "at position $mutation->{'position'}." );
@@ -172,6 +174,7 @@ sub get_alleles_to_check_peptide_mutations {
 
 sub annotate_alleles_with_peptide_mutations {
 	my ( $locus, $mutation_id, $motifs ) = @_;
+#	say Dumper $motifs;exit;
 	my $alleles  = get_alleles_to_check_peptide_mutations( $locus, $mutation_id );
 	my $mutation = $script->{'datastore'}->run_query( 'SELECT * FROM peptide_mutations WHERE id=?',
 		$mutation_id, { fetch => 'row_hashref', cache => 'get_peptide_mutation' } );
@@ -180,9 +183,10 @@ sub annotate_alleles_with_peptide_mutations {
 	my $db_type     = 'prot';
 	create_blast_database( $job_id, $db_type, $motifs->{'motifs'} );
 	my $pos = $opts{'flanking'} - $motifs->{'offset'};
-	my $insert_sql = $script->{'db'}->prepare('INSERT INTO sequences_peptide_mutations '
-			  . '(locus,allele_id,mutation_id,amino_acid,is_wild_type,is_mutation,curator,datestamp) '
-			  . 'VALUES (?,?,?,?,?,?,?,?)');
+	my $insert_sql =
+	  $script->{'db'}->prepare( 'INSERT INTO sequences_peptide_mutations '
+		  . '(locus,allele_id,mutation_id,amino_acid,is_wild_type,is_mutation,curator,datestamp) '
+		  . 'VALUES (?,?,?,?,?,?,?,?)' );
 
 	foreach my $allele (@$alleles) {
 		my $best_match = run_blast( $job_id, $db_type, $locus, \$allele->{'sequence'} );
@@ -195,17 +199,14 @@ sub annotate_alleles_with_peptide_mutations {
 
 		#TODO Define curator_id.
 		my $is_wt  = ( $aa eq $mutation->{'wild_type_aa'} ) ? 1 : 0;
-		my $is_mut = $variant_aas{$aa} ? 1 : 0;
-		eval {
-		$insert_sql->execute($locus, $allele->{'allele_id'}, $mutation_id, $aa, $is_wt, $is_mut, 0, 'now' );
-			
-		};
-		if ($@){
+		my $is_mut = $variant_aas{$aa}                      ? 1 : 0;
+		eval { $insert_sql->execute( $locus, $allele->{'allele_id'}, $mutation_id, $aa, $is_wt, $is_mut, 0, 'now' ); };
+		if ($@) {
 			$logger->error($@);
 			$script->{'db'}->rollback;
 			exit;
 		}
-		say "$allele->{'allele_id'}: $$seq_ref\t$aa - WT:$is_wt; Mutation:$is_mut";
+		say "$allele->{'allele_id'}: $$seq_ref\t$aa - WT:$is_wt; Mutation:$is_mut" if !$opts{'quiet'};
 	}
 	$script->{'db'}->commit;
 	$script->delete_temp_files("$script->{'config'}->{'secure_tmp_dir'}/$job_id*");
@@ -233,6 +234,7 @@ sub extract_seq_from_match {
 		$seq = $seq_obj->translate( -codontable_id => $codon_table )->seq;
 	}
 	return \$seq;
+	
 }
 
 sub create_blast_database {
@@ -303,9 +305,9 @@ sub define_motifs {
 	my %allowed_char = map { $_ => 1 } ( $wt, split /;/x, $variants );
 	my $motifs       = [];
 	my $id           = 1;
-	foreach my $allele_id ( sort keys %$sequences ) {
-		next if length $sequences->{$allele_id} != $most_common_length;
-		my $motif = substr( $sequences->{$allele_id}, $start, ( $end - $start + 1 ) );
+	foreach my $allele ( @$sequences ) {
+		next if length $allele->{'seq'} != $most_common_length;
+		my $motif = substr( $allele->{'seq'}, $start, ( $end - $start + 1 ) );
 		next if $used{$motif};
 		$used{$motif} = 1;
 		my $char = substr( $motif, $opts{'flanking'} - $offset, 1 );
@@ -316,6 +318,7 @@ sub define_motifs {
 			id           => $id,
 			variant_char => $char,
 			wt           => ( $char eq $wt ? 1 : 0 ),
+			from_allele_id => $allele->{'allele_id'}
 		  };
 		$id++;
 	}
@@ -325,9 +328,9 @@ sub define_motifs {
 sub find_most_common_sequence_length_with_wt {
 	my ( $sequences, $pos, $wt ) = @_;
 	my %lengths;
-	foreach my $allele_id ( keys %$sequences ) {
-		next if substr( $sequences->{$allele_id}, $pos - 1, 1 ) ne $wt;
-		my $length = length( $sequences->{$allele_id} );
+	foreach my $allele (  @$sequences ) {
+		next if substr( $allele->{'seq'}, $pos - 1, 1 ) ne $wt;
+		my $length = length( $allele->{'seq'} );
 		$lengths{$length}++;
 	}
 	my $most_common_length;
@@ -336,6 +339,7 @@ sub find_most_common_sequence_length_with_wt {
 			$most_common_length = $length;
 		}
 	}
+#	say Dumper \%lengths;exit;
 	return $most_common_length;
 }
 
@@ -349,12 +353,13 @@ sub get_translated_alleles {
 		$reverse = 1;
 		$orf     = $orf - 3;
 	}
+	my $order = $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS int)' : 'allele_id';
 	my $alleles = $script->{'datastore'}->run_query(
-		'SELECT allele_id,sequence FROM sequences WHERE locus=? AND allele_id NOT IN (?,?)',
+		"SELECT allele_id,sequence FROM sequences WHERE locus=? AND allele_id NOT IN (?,?) ORDER BY $order",
 		[ $locus, 0, 'N' ],
 		{ fetch => 'all_arrayref', slice => {} }
 	);
-	my $translated = {};
+	my $translated = [];
 	foreach my $allele (@$alleles) {
 		my $seq = $reverse ? BIGSdb::Utils::reverse_complement( $allele->{'sequence'} ) : $allele->{'sequence'};
 		if ( $orf > 1 && $orf <= 3 ) {
@@ -364,7 +369,7 @@ sub get_translated_alleles {
 		my $peptide = $seq_obj->translate( -codontable_id => $codon_table )->seq;
 		$peptide =~ s/\*$//x;            #Remove terminal stop codon.
 		next if $peptide =~ /\*/gx;      #Ignore any alleles with internal stops.
-		$translated->{ $allele->{'allele_id'} } = $peptide;
+		push @$translated, { allele_id => $allele->{'allele_id'}, seq => $peptide};
 	}
 	return $translated;
 }
