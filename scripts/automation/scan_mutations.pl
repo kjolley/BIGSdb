@@ -49,6 +49,7 @@ GetOptions(
 	'loci=s'         => \$opts{'l'},
 	'locus_regex=s'  => \$opts{'R'},
 	'quiet'          => \$opts{'quiet'},
+	'rescan'         => \$opts{'rescan'},
 	'schemes=s'      => \$opts{'s'},
 );
 
@@ -87,6 +88,9 @@ undef $script;
 sub main {
 	my $locus_records = get_loci_with_mutations();
 	foreach my $locus_record (@$locus_records) {
+		if ( $opts{'rescan'} ) {
+			remove_existing_designations( $locus_record->{'locus'} );
+		}
 		if ( $locus_record->{'locus_type'} eq 'DNA' ) {
 			if ( $locus_record->{'mutation_type'} eq 'DNA' ) {    #Mutation defined by DNA position
 				die "Mutation defined by DNA position not yet supported.\n";
@@ -96,6 +100,18 @@ sub main {
 		} else {    #Peptide locus
 			die "Peptide loci not yet supported.\n";
 		}
+	}
+	return;
+}
+
+sub remove_existing_designations {
+	my ($locus) = @_;
+	eval { $script->{'db'}->do( 'DELETE FROM sequences_peptide_mutations WHERE locus=?', undef, $locus ); };
+	if ($@) {
+		$logger->error($@);
+		$script->{'db'}->rollback;
+	} else {
+		$script->{'db'}->commit;
 	}
 	return;
 }
@@ -133,28 +149,51 @@ sub dna_locus_peptide_mutation {
 		return;
 	}
 	my $mutations = $script->{'datastore'}->run_query(
-		'SELECT id,name,position,wild_type_aa,variant_aa FROM peptide_mutations WHERE locus=? ORDER BY position'
-		,
-		$locus, { fetch => 'all_arrayref', slice => {}, cache => 'get_locus_peptide_mutations' }
+		'SELECT * FROM peptide_mutations WHERE locus=? ORDER BY locus_position',
+		$locus,
+		{ fetch => 'all_arrayref', slice => {}, cache => 'get_locus_peptide_mutations' }
 	);
 	foreach my $mutation (@$mutations) {
 		my $alleles_to_check = get_alleles_to_check_peptide_mutations( $locus, $mutation->{'id'} );
 		next if !@$alleles_to_check;
-		my $most_common_length =
-		  find_most_common_sequence_length_with_wt( $sequences, $mutation->{'position'}, $mutation->{'wild_type_aa'} );
-		say "$locus - $mutation->{'name'}:" if !$opts{'quiet'};
+		my $most_common_length;
+		if ( defined $mutation->{'wild_type_allele_id'} ) {
+			my $wt_seq = extract_allele( $sequences, $mutation->{'wild_type_allele_id'} );
+			if ( !defined $wt_seq ) {
+				die "Wild type allele defined for $locus (allele $mutation->{'wild_type_allele_id'}) does not exist.\n";
+			}
+			$most_common_length =
+			  find_most_common_sequence_length_with_wt( [$wt_seq], $mutation->{'locus_position'}, $mutation->{'wild_type_aa'} );
+		} else {
+			$most_common_length = find_most_common_sequence_length_with_wt(
+				$sequences,
+				$mutation->{'locus_position'},
+				$mutation->{'wild_type_aa'}
+			);
+		}
+		say "$locus - $mutation->{'wild_type_aa'}$mutation->{'reported_position'}$mutation->{'variant_aa'}:" if !$opts{'quiet'};
 		if ( !$most_common_length ) {
 			$logger->error( "$locus: No sequences found with WT amino acid '$mutation->{'wild_type_aa'}' "
-				  . "at position $mutation->{'position'}." );
+				  . "at position $mutation->{'locus_position'}." );
 			next;
 		}
 		my $motifs = define_motifs(
 			$sequences, $most_common_length,
-			$mutation->{'position'},
+			$mutation->{'locus_position'},
 			$mutation->{'wild_type_aa'},
 			$mutation->{'variant_aa'}
 		);
 		annotate_alleles_with_peptide_mutations( $locus, $mutation->{'id'}, $motifs );
+	}
+	return;
+}
+
+sub extract_allele {
+	my ( $sequences, $allele_id ) = @_;
+	foreach my $seq (@$sequences) {
+		
+		next if $seq->{'allele_id'} ne $allele_id;
+		return $seq;
 	}
 	return;
 }
@@ -174,7 +213,8 @@ sub get_alleles_to_check_peptide_mutations {
 
 sub annotate_alleles_with_peptide_mutations {
 	my ( $locus, $mutation_id, $motifs ) = @_;
-#	say Dumper $motifs;exit;
+
+	#	say Dumper $motifs;exit;
 	my $alleles  = get_alleles_to_check_peptide_mutations( $locus, $mutation_id );
 	my $mutation = $script->{'datastore'}->run_query( 'SELECT * FROM peptide_mutations WHERE id=?',
 		$mutation_id, { fetch => 'row_hashref', cache => 'get_peptide_mutation' } );
@@ -234,7 +274,6 @@ sub extract_seq_from_match {
 		$seq = $seq_obj->translate( -codontable_id => $codon_table )->seq;
 	}
 	return \$seq;
-	
 }
 
 sub create_blast_database {
@@ -305,7 +344,7 @@ sub define_motifs {
 	my %allowed_char = map { $_ => 1 } ( $wt, split /;/x, $variants );
 	my $motifs       = [];
 	my $id           = 1;
-	foreach my $allele ( @$sequences ) {
+	foreach my $allele (@$sequences) {
 		next if length $allele->{'seq'} != $most_common_length;
 		my $motif = substr( $allele->{'seq'}, $start, ( $end - $start + 1 ) );
 		next if $used{$motif};
@@ -314,10 +353,10 @@ sub define_motifs {
 		next if !$allowed_char{$char};
 		push @$motifs,
 		  {
-			motif        => $motif,
-			id           => $id,
-			variant_char => $char,
-			wt           => ( $char eq $wt ? 1 : 0 ),
+			motif          => $motif,
+			id             => $id,
+			variant_char   => $char,
+			wt             => ( $char eq $wt ? 1 : 0 ),
 			from_allele_id => $allele->{'allele_id'}
 		  };
 		$id++;
@@ -328,7 +367,7 @@ sub define_motifs {
 sub find_most_common_sequence_length_with_wt {
 	my ( $sequences, $pos, $wt ) = @_;
 	my %lengths;
-	foreach my $allele (  @$sequences ) {
+	foreach my $allele (@$sequences) {
 		next if substr( $allele->{'seq'}, $pos - 1, 1 ) ne $wt;
 		my $length = length( $allele->{'seq'} );
 		$lengths{$length}++;
@@ -339,7 +378,8 @@ sub find_most_common_sequence_length_with_wt {
 			$most_common_length = $length;
 		}
 	}
-#	say Dumper \%lengths;exit;
+
+	#	say Dumper \%lengths;exit;
 	return $most_common_length;
 }
 
@@ -353,7 +393,7 @@ sub get_translated_alleles {
 		$reverse = 1;
 		$orf     = $orf - 3;
 	}
-	my $order = $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS int)' : 'allele_id';
+	my $order   = $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS int)' : 'allele_id';
 	my $alleles = $script->{'datastore'}->run_query(
 		"SELECT allele_id,sequence FROM sequences WHERE locus=? AND allele_id NOT IN (?,?) ORDER BY $order",
 		[ $locus, 0, 'N' ],
@@ -369,7 +409,7 @@ sub get_translated_alleles {
 		my $peptide = $seq_obj->translate( -codontable_id => $codon_table )->seq;
 		$peptide =~ s/\*$//x;            #Remove terminal stop codon.
 		next if $peptide =~ /\*/gx;      #Ignore any alleles with internal stops.
-		push @$translated, { allele_id => $allele->{'allele_id'}, seq => $peptide};
+		push @$translated, { allele_id => $allele->{'allele_id'}, seq => $peptide };
 	}
 	return $translated;
 }
@@ -409,7 +449,10 @@ ${bold}--locus_regex$norm ${under}REGEX$norm
     Regex for locus names.
    
 ${bold}--quiet$norm
-    Only show errors.   
+    Only show errors.  
+    
+${bold}--rescan$norm
+    Remove existing designations and rescan. 
 
 ${bold}--schemes$norm ${under}LIST$norm
     Comma-separated list of scheme loci to scan.   

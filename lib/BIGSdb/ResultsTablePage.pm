@@ -1477,15 +1477,21 @@ sub _hide_field {
 
 sub _get_record_table_info {
 	my ( $self, $table ) = @_;
-	my $q = $self->{'cgi'};
-	my ( @headers, @display, @qry_fields, %type, %foreign_key, %labels );
+	my $q                    = $self->{'cgi'};
+	my $headers              = [];
+	my $display              = [];
+	my $qry_fields           = [];
+	my $type                 = {};
+	my $foreign_key          = {};
+	my $labels               = {};
 	my $user_variable_fields = 0;
 	my $attributes           = $self->{'datastore'}->get_table_field_attributes($table);
+
 	foreach my $attr (@$attributes) {
 		next if $table eq 'sequence_bin' && $attr->{'name'} eq 'sequence';
 		next if $self->_hide_field($attr);
-		push @display,    $attr->{'name'};
-		push @qry_fields, "$table.$attr->{'name'}";
+		push @$display,    $attr->{'name'};
+		push @$qry_fields, "$table.$attr->{'name'}";
 		my $cleaned = $attr->{'name'};
 		$cleaned =~ tr/_/ /;
 		my %overridable =
@@ -1495,64 +1501,70 @@ sub _get_record_table_info {
 			$user_variable_fields = 1;
 		}
 		if ( !$attr->{'hide_results'} ) {
-			push @headers, $cleaned;
-			push @headers, 'sequence length'
+			push @$headers, $cleaned;
+			push @$headers, 'sequence length'
 			  if $q->param('page') eq 'tableQuery' && $table eq 'sequences' && $attr->{'name'} eq 'sequence';
-			push @headers, 'sequence length' if $q->param('page') eq 'alleleQuery' && $attr->{'name'} eq 'sequence';
-			push @headers, 'flag'            if $table eq 'allele_sequences'       && $attr->{'name'} eq 'complete';
-			push @headers, 'citation'        if $attr->{'name'} eq 'pubmed_id';
+			push @$headers, 'sequence length' if $q->param('page') eq 'alleleQuery' && $attr->{'name'} eq 'sequence';
+			push @$headers, 'flag'            if $table eq 'allele_sequences'       && $attr->{'name'} eq 'complete';
+			push @$headers, 'citation'        if $attr->{'name'} eq 'pubmed_id';
 		}
-		$type{ $attr->{'name'} }        = $attr->{'type'};
-		$foreign_key{ $attr->{'name'} } = $attr->{'foreign_key'};
-		$labels{ $attr->{'name'} }      = $attr->{'labels'};
+		$type->{ $attr->{'name'} }        = $attr->{'type'};
+		$foreign_key->{ $attr->{'name'} } = $attr->{'foreign_key'};
+		$labels->{ $attr->{'name'} }      = $attr->{'labels'};
 	}
 	my $extended_attributes;
 	my $linked_data;
 	if ( $q->param('page') eq 'alleleQuery' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		$extended_attributes = $self->_add_allele_query_info($headers);
 		my $locus = $q->param('locus');
-		if ( $self->{'datastore'}->is_locus($locus) ) {
-			$extended_attributes =
-			  $self->{'datastore'}->run_query(
-				'SELECT field,url FROM locus_extended_attributes WHERE locus=? AND main_display ORDER BY field_order',
-				$locus, { fetch => 'all_arrayref', slice => {} } );
-			foreach my $ext_att (@$extended_attributes) {
-				( my $cleaned = $ext_att->{'field'} ) =~ tr/_/ /;
-				push @headers, $cleaned;
-			}
-			my $databanks = $self->{'datastore'}->run_query( 'SELECT DISTINCT databank FROM accession WHERE locus=?',
-				$locus, { fetch => 'col_arrayref' } );
-			push @headers, sort @$databanks;
-			if ( $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM sequence_refs WHERE locus=?)', $locus ) )
-			{
-				push @headers, 'Publications';
-			}
-			$linked_data = $self->_data_linked_to_locus($locus);
-			push @headers, 'linked data values' if $linked_data;
-		}
+		$linked_data = $self->_data_linked_to_locus($locus);
 	} elsif ( $table eq 'sequence_bin' ) {
 		$extended_attributes =
 		  $self->{'datastore'}
 		  ->run_query( 'SELECT key FROM sequence_attributes ORDER BY key', undef, { fetch => 'col_arrayref' } );
 		my @cleaned = @$extended_attributes;
 		tr/_/ / foreach @cleaned;
-		push @headers, @cleaned;
+		push @$headers, @cleaned;
 	}
 	if ( $self->_show_allele_flags ) {
-		push @headers, 'flags';
+		push @$headers, 'flags';
 	}
 	return (
 		{
-			headers              => \@headers,
-			qry_fields           => \@qry_fields,
-			display              => \@display,
-			type                 => \%type,
-			foreign_key          => \%foreign_key,
-			labels               => \%labels,
+			headers              => $headers,
+			qry_fields           => $qry_fields,
+			display              => $display,
+			type                 => $type,
+			foreign_key          => $foreign_key,
+			labels               => $labels,
 			extended_attributes  => $extended_attributes,
 			linked_data          => $linked_data,
 			user_variable_fields => $user_variable_fields
 		}
 	);
+}
+
+sub _add_allele_query_info {
+	my ( $self, $headers ) = @_;
+	my $q     = $self->{'cgi'};
+	my $locus = $q->param('locus');
+	return if !$self->{'datastore'}->is_locus($locus);
+	my $extended_attributes =
+	  $self->{'datastore'}->run_query(
+		'SELECT field,url FROM locus_extended_attributes WHERE locus=? AND main_display ORDER BY field_order',
+		$locus, { fetch => 'all_arrayref', slice => {} } );
+	foreach my $ext_att (@$extended_attributes) {
+		( my $cleaned = $ext_att->{'field'} ) =~ tr/_/ /;
+		push @$headers, $cleaned;
+	}
+	my $databanks = $self->{'datastore'}
+	  ->run_query( 'SELECT DISTINCT databank FROM accession WHERE locus=?', $locus, { fetch => 'col_arrayref' } );
+	push @$headers, sort @$databanks;
+	if ( $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM sequence_refs WHERE locus=?)', $locus ) ) {
+		push @$headers, 'Publications';
+	}
+	push @$headers, 'linked data values' if $self->_data_linked_to_locus($locus);
+	return $extended_attributes;
 }
 
 sub _show_allele_flags {

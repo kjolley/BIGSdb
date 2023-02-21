@@ -1,13 +1,17 @@
 CREATE TABLE peptide_mutations (
 id int NOT NULL UNIQUE,
-name text NOT NULL,
 locus text NOT NULL,
-position int NOT NULL,
+wild_type_allele_id text,
+named_position int NOT NULL,
+locus_position int NOT NULL,
 wild_type_aa char(1) NOT NULL,
 variant_aa text NOT NULL,
 curator integer NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY (id),
+CONSTRAINT pm_wild_type_allele_id FOREIGN KEY (locus,wild_type_allele_id) REFERENCES sequences(locus,allele_id)
+ON DELETE NO ACTION
+ON UPDATE CASCADE,
 CONSTRAINT pm_curator FOREIGN KEY (curator) REFERENCES users
 ON DELETE NO ACTION
 ON UPDATE CASCADE
