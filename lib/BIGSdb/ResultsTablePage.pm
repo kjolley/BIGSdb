@@ -486,11 +486,11 @@ sub _print_export_configuration_function {
 		scheme_curators locus_curators sequences sequence_refs profile_refs locus_extended_attributes
 		client_dbases client_dbase_loci client_dbase_schemes classification_schemes classification_group_fields
 		validation_rules validation_conditions validation_rule_conditions lincode_schemes lincode_fields
-		lincode_prefixes)
+		lincode_prefixes geography_point_lookup)
 	  )
 	{
 		say q(<fieldset><legend>Database configuration</legend>);
-		say $q->start_form;
+		say $q->start_forgeography_point_lookupm;
 		$q->param( page => 'exportConfig' );
 		say $q->hidden($_) foreach qw (db page table query_file list_file datatype);
 		say q(<button type="submit" name="Export data" value="Export data" class="small_submit">)
