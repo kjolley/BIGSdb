@@ -1583,10 +1583,11 @@ sub _add_allele_query_info {
 			push @$html_table_headers2, qq(<th>position $mutation->{'reported_position'}</th>);
 		}
 	}
+	my $rowspan   = @$html_table_headers2 ? q( rowspan="2") : q();
 	my $databanks = $self->{'datastore'}
 	  ->run_query( 'SELECT DISTINCT databank FROM accession WHERE locus=?', $locus, { fetch => 'col_arrayref' } );
-	push @$headers, sort @$databanks;
-	my $rowspan = @$html_table_headers2 ? q( rowspan="2") : q();
+	push @$headers,             sort @$databanks;
+	push @$html_table_headers1, qq(<th$rowspan>$_</th>) foreach @$databanks;
 	if ( $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM sequence_refs WHERE locus=?)', $locus ) ) {
 		push @$headers,             'Publications';
 		push @$html_table_headers1, qq(<th$rowspan>Publications</th>);
@@ -1785,12 +1786,11 @@ sub _print_sequences_extended_fields {
 			[ $data->{'locus'}, $data->{'allele_id'}, $mutation->{'id'} ],
 			{ fetch => 'row_hashref', cache => 'ResultsTablePage:get_sequences_peptide_mutations' }
 		);
-		my @wt = split/;/x,$mutation->{'wild_type_aa'};
-		my %wt = map{$_ => 1} @wt;
-		if ( $result && !$wt{$result->{'amino_acid'}} ) {
-			local $" =q();
-			print
-			  qq(<td>@wt$mutation->{'reported_position'}$result->{'amino_acid'}</td>);
+		my @wt = split /;/x, $mutation->{'wild_type_aa'};
+		my %wt = map { $_ => 1 } @wt;
+		if ( $result && !$wt{ $result->{'amino_acid'} } ) {
+			local $" = q();
+			print qq(<td>@wt$mutation->{'reported_position'}$result->{'amino_acid'}</td>);
 		} else {
 			print q(<td></td>);
 		}
