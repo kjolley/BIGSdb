@@ -1534,6 +1534,9 @@ sub _get_record_table_info {
 		push @$headers,             'flags';
 		push @$html_table_headers1, q(<th rowspan="2">flags</th>);
 	}
+	if ( !@$html_table_headers2 ) {
+		s/rowspan="2"//gx foreach @$html_table_headers1;
+	}
 	return (
 		{
 			headers              => $headers,
@@ -1567,6 +1570,17 @@ sub _add_allele_query_info {
 			( my $cleaned = $ext_att->{'field'} ) =~ tr/_/ /;
 			push @$headers,             $cleaned;
 			push @$html_table_headers2, qq(<th>$cleaned</th>);
+		}
+	}
+	my $peptide_mutations =
+	  $self->{'datastore'}->run_query( 'SELECT * FROM peptide_mutations WHERE locus=? ORDER BY reported_position,id',
+		$locus, { fetch => 'all_arrayref', slice => {}, cache => 'ResultsTablePage:get_peptide_mutations' } );
+	$count = @$peptide_mutations;
+	if ($count) {
+		push @$html_table_headers1, qq(<th colspan="$count">Peptide mutations</th>);
+		foreach my $mutation (@$peptide_mutations) {
+			push @$headers,             "position $mutation->{'reported_position'}";
+			push @$html_table_headers2, qq(<th>position $mutation->{'reported_position'}</th>);
 		}
 	}
 	my $databanks = $self->{'datastore'}
@@ -1642,9 +1656,6 @@ sub _print_record_table {
 		my $rowspan = @$html_table_headers2 ? q( rowspan="2") : q();
 		print qq(<th$rowspan>Delete</th>);
 		print qq(<th$rowspan>Update</th>) if $table !~ /refs$/x;
-	}
-	if ( !@$html_table_headers2 ) {
-		s/rowspan="2"//gx foreach @$html_table_headers1;
 	}
 	say qq(@$html_table_headers1</tr>);
 	say qq(<tr>@$html_table_headers2</tr>) if @$html_table_headers2;
@@ -1761,6 +1772,22 @@ sub _print_sequences_extended_fields {
 				$value = qq(<a href="$url">$value</a>);
 			}
 			print qq(<td>$value</td>);
+		} else {
+			print q(<td></td>);
+		}
+	}
+	my $peptide_mutations =
+	  $self->{'datastore'}->run_query( 'SELECT * FROM peptide_mutations WHERE locus=? ORDER BY reported_position,id',
+		$data->{'locus'}, { fetch => 'all_arrayref', slice => {}, cache => 'ResultsTablePage:get_peptide_mutations' } );
+	foreach my $mutation (@$peptide_mutations) {
+		my $result = $self->{'datastore'}->run_query(
+			'SELECT * FROM sequences_peptide_mutations WHERE (locus,allele_id,mutation_id)=(?,?,?)',
+			[ $data->{'locus'}, $data->{'allele_id'}, $mutation->{'id'} ],
+			{ fetch => 'row_hashref', cache => 'ResultsTablePage:get_sequences_peptide_mutations' }
+		);
+		if ( $result && $mutation->{'wild_type_aa'} ne $result->{'amino_acid'} ) {
+			print
+			  qq(<td>$mutation->{'wild_type_aa'}$mutation->{'reported_position'}$result->{'amino_acid'}</td>);
 		} else {
 			print q(<td></td>);
 		}

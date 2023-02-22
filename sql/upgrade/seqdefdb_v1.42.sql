@@ -2,7 +2,7 @@ CREATE TABLE peptide_mutations (
 id int NOT NULL UNIQUE,
 locus text NOT NULL,
 wild_type_allele_id text,
-named_position int NOT NULL,
+reported_position int NOT NULL,
 locus_position int NOT NULL,
 wild_type_aa char(1) NOT NULL,
 variant_aa text NOT NULL,
