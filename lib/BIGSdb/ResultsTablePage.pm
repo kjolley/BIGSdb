@@ -1785,9 +1785,12 @@ sub _print_sequences_extended_fields {
 			[ $data->{'locus'}, $data->{'allele_id'}, $mutation->{'id'} ],
 			{ fetch => 'row_hashref', cache => 'ResultsTablePage:get_sequences_peptide_mutations' }
 		);
-		if ( $result && $mutation->{'wild_type_aa'} ne $result->{'amino_acid'} ) {
+		my @wt = split/;/x,$mutation->{'wild_type_aa'};
+		my %wt = map{$_ => 1} @wt;
+		if ( $result && !$wt{$result->{'amino_acid'}} ) {
+			local $" =q();
 			print
-			  qq(<td>$mutation->{'wild_type_aa'}$mutation->{'reported_position'}$result->{'amino_acid'}</td>);
+			  qq(<td>@wt$mutation->{'reported_position'}$result->{'amino_acid'}</td>);
 		} else {
 			print q(<td></td>);
 		}

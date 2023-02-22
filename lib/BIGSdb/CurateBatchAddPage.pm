@@ -935,9 +935,21 @@ sub _run_table_specific_reformatting {
 	my %methods = (
 		isolates => sub {
 			$self->_rewrite_geography_point_data($new_args);
+		},
+		peptide_mutations => sub {
+			$self->_rewrite_peptide_mutations_data($new_args);
 		}
 	);
 	$methods{$table}->() if $methods{$table};
+	return;
+}
+
+sub _rewrite_peptide_mutations_data {
+	my ( $self,  $args )  = @_;
+	my ( $field, $value ) = @{$args}{qw(field value)};
+	if ($field =~ /aa$/x){
+		$$value =~ s/\s//gx;
+	}
 	return;
 }
 
@@ -1254,21 +1266,30 @@ sub _check_peptide_mutation_fields {
 	if ( $field eq 'variant_aa' ) {
 		$value =~ s/\s//gx;
 		my @variants = split /;/x, $value;
-		my %used;
-		my $wt = $arg_ref->{'data'}->[ $arg_ref->{'file_header_pos'}->{'wild_type_aa'} ];
+		my %used_variant;
+		my $wt_string = $arg_ref->{'data'}->[ $arg_ref->{'file_header_pos'}->{'wild_type_aa'} ];
+		my @wt        = split /\s*;\s*/x, $wt_string;
+		my %wt        = map { $_ => 1 } @wt;
+		my %used_wt;
 		foreach my $variant (@variants) {
-			if ( $variant eq $wt ) {
+			if ( $wt{$variant} ) {
 				$arg_ref->{'problems'}->{$pk_combination} .= 'Variant amino acid is the same as wild-type.<br />';
 			}
-			if ( $used{$variant} ) {
+			if ( $used_variant{$variant} ) {
 				$arg_ref->{'problems'}->{$pk_combination} .= "Variant '$variant' is listed more than once.<br />";
 			}
-			$used{$variant} = 1;
+			$used_variant{$variant} = 1;
+		}
+		foreach my $wt (@wt) {
+			if ( $used_wt{$wt} ) {
+				$arg_ref->{'problems'}->{$pk_combination} .= "WT '$wt' is listed more than once.";
+			}
+			$used_wt{$wt} = 1;
 		}
 	}
-	if ( $field eq 'position' ) {
+	if ( $field eq 'locus_position' || $field eq 'reported_position' ) {
 		if ( $value < 1 ) {
-			$arg_ref->{'problems'}->{$pk_combination} .= 'Position must be a positive integer.<br />';
+			$arg_ref->{'problems'}->{$pk_combination} .= uc($field) . ' must be a positive integer.<br />';
 		}
 	}
 	return;

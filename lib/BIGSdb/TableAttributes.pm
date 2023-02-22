@@ -2743,6 +2743,41 @@ sub get_peptide_mutations_table_attributes {
 			foreign_key    => 'loci',
 			dropdown_query => 1
 		},
+
+		{
+			name     => 'locus_position',
+			type     => 'int',
+			required => 1,
+			length   => 5,
+			min      => 1,
+			comments => 'Position in locus wild-type sequence',
+			tooltip  => 'This is likely to be the same as the reported position but may vary slightly if the locus '
+			  . 'includes regions that are not part of the final expressed protein.'
+		},
+		{
+			name     => 'reported_position',
+			type     => 'int',
+			required => 1,
+			length   => 5,
+			min      => 1,
+			comments => 'Position for reporting purposes'
+		},
+		{
+			name     => 'wild_type_aa',
+			type     => 'text',
+			required => 1,
+			length   => 20,
+			comments => 'Semi-colon separated list of possible amino acid 1 letter codes',
+			regex    => '^([ACDEFGHIKLMNPQRSTVWY])(;\s*[ACDEFGHIKLMNPQRSTVWY])*$'
+		},
+		{
+			name     => 'variant_aa',
+			type     => 'text',
+			required => 1,
+			length   => 20,
+			comments => 'Semi-colon separated list of possible amino acid 1 letter codes',
+			regex    => '^([ACDEFGHIKLMNPQRSTVWY])(;\s*[ACDEFGHIKLMNPQRSTVWY])*$'
+		},
 		{
 			name     => 'wild_type_allele_id',
 			type     => 'text',
@@ -2753,34 +2788,6 @@ sub get_peptide_mutations_table_attributes {
 			  . 'then alleles of the most common length with the wild-type amino acid at the selected position '
 			  . 'will be used as exemplars to define the motifs used in the search. It may be necessary to set this '
 			  . 'if indels are common before the mutation position.'
-		},
-		{
-			name     => 'locus_position',
-			type     => 'int',
-			required => 1,
-			length   => 5,
-			min      => 1,
-			comments => 'Position in locus wild-type sequence',
-			tooltip => 'This is likely to be the same as the reported position but may vary slightly if the locus '
-			. 'includes regions that are not part of the final expressed protein.'
-		},
-		{
-			name     => 'reported_position',
-			type     => 'int',
-			required => 1,
-			length   => 5,
-			min      => 1,
-			comments => 'Position for reporting purposes'
-		},
-
-		{ name => 'wild_type_aa', type => 'text', required => 1, optlist => 'A;C;D;E;F;G;H;I;K;L;M;N;P;Q;R;S;T;V;W;Y' },
-		{
-			name     => 'variant_aa',
-			type     => 'text',
-			required => 1,
-			length   => 20,
-			comments => 'Semi-colon separated list of possible amino acid 1 letter codes',
-			regex    => '^([ACDEFGHIKLMNPQRSTVWY])(;\s*[ACDEFGHIKLMNPQRSTVWY])*$'
 		},
 		{ name => 'datestamp', type => 'date', required => 1 },
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 }

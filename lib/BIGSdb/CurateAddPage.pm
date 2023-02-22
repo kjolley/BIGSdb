@@ -724,16 +724,26 @@ sub _check_locus_aliases {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 sub _check_peptide_mutations {## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata, $problems ) = @_;
 	$newdata->{'variant_aa'} =~ s/\s//gx;
+	$newdata->{'wild_type_aa'} =~ s/\s//gx;
 	my @variants = split /;/x,$newdata->{'variant_aa'};
-	my %used;
+	my %used_variant;
+	my @wt = split /;/x,$newdata->{'wild_type_aa'};
+	my %wt = map {$_ => 1}@wt;
+	my %used_wt;
 	foreach my $variant (@variants){
-		if ($variant eq $newdata->{'wild_type_aa'}){
+		if ($wt{$variant}){
 			push @$problems, 'Variant amino acid is the same as wild-type.';
 		}
-		if ($used{$variant}){
+		if ($used_variant{$variant}){
 			push @$problems, "Variant '$variant' is listed more than once.";
 		}
-		$used{$variant} = 1;
+		$used_variant{$variant} = 1;
+	}
+	foreach my $wt (@wt){
+		if ($used_wt{$wt}){
+			push @$problems, "WT '$wt' is listed more than once.";
+		}
+		$used_wt{$wt} = 1;
 	}
 	return;
 }

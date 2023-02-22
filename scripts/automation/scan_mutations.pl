@@ -138,9 +138,6 @@ sub get_loci_with_mutations {
 	return $filtered;
 }
 
-sub get_peptide_mutation {
-}
-
 sub dna_locus_peptide_mutation {
 	my ($locus) = @_;
 	my $sequences = get_translated_alleles($locus);
@@ -148,11 +145,9 @@ sub dna_locus_peptide_mutation {
 		$logger->error("No translated sequences generated for $locus.");
 		return;
 	}
-	my $mutations = $script->{'datastore'}->run_query(
-		'SELECT * FROM peptide_mutations WHERE locus=? ORDER BY locus_position',
-		$locus,
-		{ fetch => 'all_arrayref', slice => {}, cache => 'get_locus_peptide_mutations' }
-	);
+	my $mutations =
+	  $script->{'datastore'}->run_query( 'SELECT * FROM peptide_mutations WHERE locus=? ORDER BY locus_position',
+		$locus, { fetch => 'all_arrayref', slice => {}, cache => 'get_locus_peptide_mutations' } );
 	foreach my $mutation (@$mutations) {
 		my $alleles_to_check = get_alleles_to_check_peptide_mutations( $locus, $mutation->{'id'} );
 		next if !@$alleles_to_check;
@@ -162,8 +157,11 @@ sub dna_locus_peptide_mutation {
 			if ( !defined $wt_seq ) {
 				die "Wild type allele defined for $locus (allele $mutation->{'wild_type_allele_id'}) does not exist.\n";
 			}
-			$most_common_length =
-			  find_most_common_sequence_length_with_wt( [$wt_seq], $mutation->{'locus_position'}, $mutation->{'wild_type_aa'} );
+			$most_common_length = find_most_common_sequence_length_with_wt(
+				[$wt_seq],
+				$mutation->{'locus_position'},
+				$mutation->{'wild_type_aa'}
+			);
 		} else {
 			$most_common_length = find_most_common_sequence_length_with_wt(
 				$sequences,
@@ -171,7 +169,10 @@ sub dna_locus_peptide_mutation {
 				$mutation->{'wild_type_aa'}
 			);
 		}
-		say "$locus - $mutation->{'wild_type_aa'}$mutation->{'reported_position'}$mutation->{'variant_aa'}:" if !$opts{'quiet'};
+		( my $wt = $mutation->{'wild_type_aa'} ) =~ s/;//gx;
+		(my $variant = $mutation->{'variant_aa'}) =~ s/;//gx;
+		  say "$locus - $wt$mutation->{'reported_position'}$variant:"
+		  if !$opts{'quiet'};
 		if ( !$most_common_length ) {
 			$logger->error( "$locus: No sequences found with WT amino acid '$mutation->{'wild_type_aa'}' "
 				  . "at position $mutation->{'locus_position'}." );
@@ -191,7 +192,6 @@ sub dna_locus_peptide_mutation {
 sub extract_allele {
 	my ( $sequences, $allele_id ) = @_;
 	foreach my $seq (@$sequences) {
-		
 		next if $seq->{'allele_id'} ne $allele_id;
 		return $seq;
 	}
@@ -213,12 +213,11 @@ sub get_alleles_to_check_peptide_mutations {
 
 sub annotate_alleles_with_peptide_mutations {
 	my ( $locus, $mutation_id, $motifs ) = @_;
-
-	#	say Dumper $motifs;exit;
 	my $alleles  = get_alleles_to_check_peptide_mutations( $locus, $mutation_id );
 	my $mutation = $script->{'datastore'}->run_query( 'SELECT * FROM peptide_mutations WHERE id=?',
 		$mutation_id, { fetch => 'row_hashref', cache => 'get_peptide_mutation' } );
 	my %variant_aas = map { $_ => 1 } split /;/x, $mutation->{'variant_aa'};
+	my %wt_aas      = map { $_ => 1 } split /;/x, $mutation->{'wild_type_aa'};
 	my $job_id      = BIGSdb::Utils::get_random();
 	my $db_type     = 'prot';
 	create_blast_database( $job_id, $db_type, $motifs->{'motifs'} );
@@ -238,8 +237,8 @@ sub annotate_alleles_with_peptide_mutations {
 		my $aa      = substr( $$seq_ref, $pos, 1 );
 
 		#TODO Define curator_id.
-		my $is_wt  = ( $aa eq $mutation->{'wild_type_aa'} ) ? 1 : 0;
-		my $is_mut = $variant_aas{$aa}                      ? 1 : 0;
+		my $is_wt  = $wt_aas{$aa}      ? 1 : 0;
+		my $is_mut = $variant_aas{$aa} ? 1 : 0;
 		eval { $insert_sql->execute( $locus, $allele->{'allele_id'}, $mutation_id, $aa, $is_wt, $is_mut, 0, 'now' ); };
 		if ($@) {
 			$logger->error($@);
@@ -332,6 +331,8 @@ sub run_blast {
 
 sub define_motifs {
 	my ( $sequences, $most_common_length, $pos, $wt, $variants ) = @_;
+	my @wt     = split /;/x, $wt;
+	my %wt     = map { $_ => 1 } @wt;
 	my $start  = $pos - $opts{'flanking'} - 1;
 	my $offset = 0;
 	if ( $start < 0 ) {
@@ -341,7 +342,7 @@ sub define_motifs {
 	my $end = $pos + $opts{'flanking'} + $offset - 1;
 	$end = ( $most_common_length - 1 ) if $end > ( $most_common_length - 1 );
 	my %used;
-	my %allowed_char = map { $_ => 1 } ( $wt, split /;/x, $variants );
+	my %allowed_char = map { $_ => 1 } ( @wt, split /;/x, $variants );
 	my $motifs       = [];
 	my $id           = 1;
 	foreach my $allele (@$sequences) {
@@ -356,7 +357,7 @@ sub define_motifs {
 			motif          => $motif,
 			id             => $id,
 			variant_char   => $char,
-			wt             => ( $char eq $wt ? 1 : 0 ),
+			wt             => ( $wt{$char} ? 1 : 0 ),
 			from_allele_id => $allele->{'allele_id'}
 		  };
 		$id++;
@@ -366,9 +367,10 @@ sub define_motifs {
 
 sub find_most_common_sequence_length_with_wt {
 	my ( $sequences, $pos, $wt ) = @_;
+	my %wt = map { $_ => 1 } split /;/x, $wt;
 	my %lengths;
 	foreach my $allele (@$sequences) {
-		next if substr( $allele->{'seq'}, $pos - 1, 1 ) ne $wt;
+		next if !$wt{ substr( $allele->{'seq'}, $pos - 1, 1 ) };
 		my $length = length( $allele->{'seq'} );
 		$lengths{$length}++;
 	}
@@ -378,8 +380,6 @@ sub find_most_common_sequence_length_with_wt {
 			$most_common_length = $length;
 		}
 	}
-
-	#	say Dumper \%lengths;exit;
 	return $most_common_length;
 }
 

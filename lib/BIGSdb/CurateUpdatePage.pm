@@ -240,6 +240,9 @@ sub _upload {
 			},
 			lincode_prefixes => sub {
 				$status = $self->_check_lincode_prefix_values( $newdata, $extra_inserts );
+			},
+			peptide_mutations => sub {
+				$status = $self->_check_peptide_mutations($newdata);
 			}
 		);
 		$methods{$table}->() if $methods{$table};
@@ -381,6 +384,43 @@ sub _check_lincode_prefix_values {
 		);
 		return FAILURE;
 		
+	}
+	return;
+}
+
+sub _check_peptide_mutations {
+	my ($self, $newdata) = @_;
+	$newdata->{'variant_aa'} =~ s/\s//gx;
+	$newdata->{'wild_type_aa'} =~ s/\s//gx;
+	my @variants = split /;/x,$newdata->{'variant_aa'};
+	my %used_variant;
+	my @wt = split /;/x,$newdata->{'wild_type_aa'};
+	my %wt = map {$_ => 1}@wt;
+	my %used_wt;
+	my @problems;
+	foreach my $variant (@variants){
+		if ($wt{$variant}){
+			push @problems, 'Variant amino acid is the same as wild-type.';
+		}
+		if ($used_variant{$variant}){
+			push @problems, "Variant '$variant' is listed more than once.";
+		}
+		$used_variant{$variant} = 1;
+	}
+	foreach my $wt (@wt){
+		if ($used_wt{$wt}){
+			push @problems, "WT '$wt' is listed more than once.";
+		}
+		$used_wt{$wt} = 1;
+	}
+	if (@problems){
+		local $" = q(<br />);
+		$self->print_bad_status(
+			{
+				    message => qq(@problems)
+			}
+		);
+		return FAILURE;
 	}
 	return;
 }
