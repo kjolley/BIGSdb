@@ -61,12 +61,12 @@ $(function () {
 	$('a#expand_trigger').click(function(event){
 		if ($('span#expand').is(":visible")){
 			$('div.main_content').css({"max-width":"calc(100vw - 40px)"});
-			$('span#expand').hide();
-			$('span#contract').show();
+			$('span#expand, span#expand_label_expand').hide();
+			$('span#contract, span#expand_label_contract').show();
 		} else {
 			$('div.main_content').css({"max-width":max_width + 'px'});
-			$('span#expand').show();
-			$('span#contract').hide();
+			$('span#expand, span#expand_label_expand').show();
+			$('span#contract, span#expand_label_contract').hide();
 		}
 	});
 	

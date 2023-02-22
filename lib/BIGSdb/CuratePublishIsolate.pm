@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2020, University of Oxford
+#Copyright (c) 2017-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -144,6 +144,22 @@ sub _print_interface {
 		say $q->end_form;
 	}
 	say q(</div>);
+	return;
+}
+
+sub initiate {
+	my ($self) = @_;
+	$self->{$_} = 1 foreach qw(jQuery jQuery.columnizer);
+	my $field_attributes = $self->{'xmlHandler'}->get_all_field_attributes;
+	foreach my $field ( keys %$field_attributes ) {
+		if ( $field_attributes->{$field}->{'type'} eq 'geography_point'
+			|| ( $field_attributes->{$field}->{'geography_point_lookup'} // q() ) eq 'yes' )
+		{
+			$self->{'ol'} = 1;
+			last;
+		}
+	}
+	$self->set_level1_breadcrumbs;
 	return;
 }
 

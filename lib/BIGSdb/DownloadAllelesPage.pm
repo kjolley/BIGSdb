@@ -625,10 +625,13 @@ sub _get_loci_by_letter {
 		"$letter%",
 		{ fetch => 'all_arrayref', slice => {}, cache => 'DownloadAllelePage::get_loci_by_letter::common' } );
 	$set_clause =~ s/ id IN/ locus IN/g;
-	my $aliases =
-	  $self->{'datastore'}->run_query( "SELECT locus,alias FROM locus_aliases WHERE alias ILIKE ? $set_clause",
+	my $aliases = $self->{'datastore'}->run_query(
+			'SELECT locus,alias FROM locus_aliases la JOIN loci l ON la.locus=l.id WHERE locus!=alias '
+		  . "AND common_name!=alias AND alias ILIKE ? $set_clause"
+		,
 		"$letter%",
-		{ fetch => 'all_arrayref', slice => {}, cache => 'DownloadAllelePage::get_loci_by_letter::aliases' } );
+		{ fetch => 'all_arrayref', slice => {}, cache => 'DownloadAllelePage::get_loci_by_letter::aliases' }
+	);
 	return ( $main, $common, $aliases );
 }
 1;
