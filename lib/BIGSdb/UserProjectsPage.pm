@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2022, University of Oxford
+#Copyright (c) 2017-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -168,7 +168,7 @@ sub _edit_members {
 		my $new_ids = [];
 		my @invalid;
 		my @no_isolate;
-		my @ids = split /\n/x, $q->param('ids');
+		my @ids       = split /\n/x, $q->param('ids');
 		my $valid_ids = $self->{'datastore'}->run_query( "SELECT id FROM $view", undef, { fetch => 'col_arrayref' } );
 		my %valid_ids = map { $_ => 1 } @$valid_ids;
 		foreach my $id (@ids) {
@@ -223,9 +223,9 @@ sub _edit_members {
 
 sub _update_project_members {
 	my ( $self, $project_id, $current_ids, $new_ids ) = @_;
-	my %new = map { $_ => 1 } @$new_ids;
-	my %old = map { $_ => 1 } @$current_ids;
-	my $add = [];
+	my %new    = map { $_ => 1 } @$new_ids;
+	my %old    = map { $_ => 1 } @$current_ids;
+	my $add    = [];
 	my $remove = [];
 	foreach my $new_id (@$new_ids) {
 		next if $old{$new_id};
@@ -252,7 +252,7 @@ sub _update_project_members {
 			$self->{'db'}->rollback;
 			return;
 		}
-		my $count = @$add;
+		my $count  = @$add;
 		my $plural = $count == 1 ? q() : q(s);
 		push @results, qq($count record$plural added.);
 	}
@@ -270,7 +270,7 @@ sub _update_project_members {
 			$self->{'db'}->rollback;
 			return;
 		}
-		my $count = @$remove;
+		my $count  = @$remove;
 		my $plural = $count == 1 ? q() : q(s);
 		push @results, qq($count record$plural removed.);
 	}
@@ -542,7 +542,6 @@ sub _remove_user {
 	eval {
 		$self->{'db'}->do( 'DELETE FROM project_users WHERE (project_id,user_id)=(?,?)', undef, $project_id, $user_id );
 	};
-
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
@@ -575,8 +574,8 @@ sub _update_users {
 					undef, $project_id, $user_id, $admin, $modify, $user_info->{'id'}, 'now'
 				);
 			} else {
-				if (   $modify != $explicit_permissions->{$user_id}->{'modify'}
-					|| $admin != $explicit_permissions->{$user_id}->{'admin'} )
+				if (   ( $modify != ( $explicit_permissions->{$user_id}->{'modify'} // 0 ) )
+					|| ( $admin != ( $explicit_permissions->{$user_id}->{'admin'} // 0 ) ) )
 				{
 					$self->{'db'}->do(
 						'UPDATE project_users SET (admin,modify,curator,datestamp)=(?,?,?,?) WHERE '
@@ -808,7 +807,7 @@ sub _get_project_row {
 			$buffer .= qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . qq(page=userProjects&amp;delete=1&amp;project_id=$project->{'id'}" class="action">$delete</a></td>);
 			$buffer .=
-			    qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . qq(page=userProjects&amp;modify_users=1&amp;project_id=$project->{'id'}" class="action">)
 			  . qq($users</a></td>);
 		} else {
@@ -820,7 +819,7 @@ sub _get_project_row {
 	$project->{'full_description'} //= q();
 	my $edit = EDIT;
 	$buffer .=
-	  qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=userProjects&amp;)
+		qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=userProjects&amp;)
 	  . qq(project_info=$project->{'id'}">$project->{'short_description'}</a></td>)
 	  . qq(<td>$project->{'full_description'}</td><td>$admin</td>);
 	if ( $project->{'admin'} || $project->{'modify'} ) {
@@ -832,14 +831,14 @@ sub _get_project_row {
 	$buffer .= qq(<td>$count</td><td>);
 	if ($count) {
 		$buffer .=
-		    qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=project&amp;)
+			qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=project&amp;)
 		  . qq(project_id=$project->{'id'}"><span class="fas fa-th action browse">)
 		  . q(</span></a>);
 	}
 	$buffer .= q(</td><td>);
 	if ($count) {
 		$buffer .=
-		    qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
+			qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
 		  . qq(project_list=$project->{'id'}&amp;submit=1"><span class="fas fa-binoculars action browse">)
 		  . q(</span></a>);
 	}
