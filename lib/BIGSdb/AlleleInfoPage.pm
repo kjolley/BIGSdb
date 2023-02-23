@@ -131,6 +131,7 @@ sub print_content {
 	if (@$scheme_list) {
 		my $profiles_list = [];
 		foreach my $scheme (@$scheme_list) {
+			next if $self->{'prefs'}->{'disable_schemes'}->{ $scheme->{'id'} };
 			my $scheme_info =
 			  $self->{'datastore'}->get_scheme_info( $scheme->{'id'}, { set_id => $set_id, get_pk => 1 } );
 			next if !$scheme_info->{'primary_key'};
