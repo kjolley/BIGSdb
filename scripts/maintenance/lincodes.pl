@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20230105
+#Version: 20230222
 use strict;
 use warnings;
 use 5.010;
@@ -472,8 +472,8 @@ sub get_distance_matrix {
 			  dims( where( $prof1, $prof2, ( $prof1 != $prof2 ) & ( $prof1 != 0 ) & ( $prof2 != 0 ) ) );
 			my ($missing_in_either) = dims( where( $prof1, $prof2, ( $prof1 == 0 ) | ( $prof2 == 0 ) ) );
 			my $distance = 100 * $diffs / ( $locus_count - $missing_in_either );
-			$dismat->range( [ $i, $j ] ) .= $distance;
-			$dismat->range( [ $j, $i ] ) .= $distance;
+			$dismat->set( $i, $j, $distance );
+			$dismat->set( $j, $i, $distance );
 		}
 	}
 	say 'Done.' if !$opts{'quiet'};
