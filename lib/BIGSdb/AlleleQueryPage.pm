@@ -34,7 +34,7 @@ sub initiate {
 	if ( !$self->{'cgi'}->param('save_options') ) {
 		my $guid = $self->get_guid;
 		return if !$guid;
-		foreach my $attribute (qw (filters list)) {
+		foreach my $attribute (qw (filters list mutations)) {
 			my $value =
 			  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, "aq_${attribute}_fieldset" );
 			$self->{'prefs'}->{"aq_${attribute}_fieldset"} = ( $value // '' ) eq 'on' ? 1 : 0;
@@ -54,46 +54,31 @@ sub get_help_url {
 }
 
 sub get_javascript {
-	my ($self)                   = @_;
-	my $q                        = $self->{'cgi'};
-	my $max_rows                 = MAX_ROWS;
-	my $filters_fieldset_display = $self->{'prefs'}->{'aq_filters_fieldset'}
-	  || $self->filters_selected ? 'inline' : 'none';
-	my $list_fieldset_display = $self->{'prefs'}->{'aq_list_fieldset'} || $q->param('list') ? 'inline' : 'none';
-	my $close_panel_js = $self->_get_close_panel_js;
-	my $panel_js              = $self->get_javascript_panel(qw(filters list allele));
-	my $buffer                = << "END";
+	my ($self)   = @_;
+	my $q        = $self->{'cgi'};
+	my $max_rows = MAX_ROWS;
+	my $panel_js = $self->get_javascript_panel(qw(filters list allele mutations));
+	my $buffer   = $self->SUPER::get_javascript;
+	$buffer .= << "END";
 \$(function () {
-   \$('#filters_fieldset').css({display:"$filters_fieldset_display"});
-   \$('#list_fieldset').css({display:"$list_fieldset_display"});
    \$("#locus").change(function(){
  	  var locus_name = \$("#locus").val();
  	  locus_name = locus_name.replace("cn_","");
   	  var url = '$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=alleleQuery&locus=' + locus_name;
  	  location.href=url;
     });
-    \$('a[data-rel=ajax]').click(function(){
-  	  \$(this).attr('href', function(){
-  		  if (this.href.match(/javascript.loadContent/)){
-  			  return;
-  		  }; 
-		  return 'javascript:loadContent("' + this.href + '")';
-   	  });
-    });
+
     $panel_js
-    $close_panel_js
-});
+ });
+
 
 function loadContent(url) {
 	var row = parseInt(url.match(/row=(\\d+)/)[1]);
-	var new_row = row+1;
-	\$("ul#table_fields").append('<li id="fields' + row + '" />');
-	\$("li#fields"+row).html('<img src=\"/javascript/themes/default/throbber.gif\" /> Loading ...').load(url);
-	url = url.replace(/row=\\d+/,'row='+new_row);
-	\$("#add_table_fields").attr('href',url);
-	\$("span#table_field_heading").show();
-	if (new_row > $max_rows){
-		\$("#add_table_fields").hide();
+	var fields = url.match(/fields=([allele|mutation]+)/)[1];
+	if (fields == 'allele'){			
+		add_rows(url,fields,'allele',row,'allele_field_heading','add_allele_fields');
+	} else if (fields == 'mutation'){
+		add_rows(url,fields,'mutation',row,'mutation_field_heading','add_mutation_fields');	
 	}
 }
 END
@@ -104,8 +89,15 @@ sub _ajax_content {
 	my ( $self, $locus ) = @_;
 	my $row = $self->{'cgi'}->param('row');
 	return if !BIGSdb::Utils::is_int($row) || $row > MAX_ROWS || $row < 2;
-	my ( $select_items, $labels ) = $self->_get_select_items($locus);
-	$self->_print_table_fields( $locus, $row, 0, $select_items, $labels );
+	my $q      = $self->{'cgi'};
+	my $fields = $q->param('fields');
+	return if !$fields;
+	if ( $fields eq 'allele' ) {
+		my ( $select_items, $labels ) = $self->_get_select_items($locus);
+		$self->_print_allele_fields( $locus, $row, 0, $select_items, $labels );
+	} elsif ($fields eq 'mutation'){
+		$self->_print_mutation_fields( $locus, $row, 0);
+	}
 	return;
 }
 
@@ -114,7 +106,7 @@ sub _save_options {
 	my $q      = $self->{'cgi'};
 	my $guid   = $self->get_guid;
 	return if !$guid;
-	foreach my $attribute (qw (allele filters list)) {
+	foreach my $attribute (qw (allele filters list mutations)) {
 		my $value = $q->param($attribute) ? 'on' : 'off';
 		$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, "aq_${attribute}_fieldset", $value );
 	}
@@ -123,12 +115,12 @@ sub _save_options {
 
 sub print_content {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	my $locus = $q->param('locus') // '';
+	my $q      = $self->{'cgi'};
+	my $locus  = $q->param('locus') // '';
 	$locus =~ s/%27/'/gx;    #Web-escaped locus
 	$locus =~ s/^cn_//x;
 	if    ( $q->param('no_header') )    { $self->_ajax_content($locus); return }
-	elsif ( $q->param('save_options') ) { $self->_save_options; return }
+	elsif ( $q->param('save_options') ) { $self->_save_options;         return }
 	my $cleaned_locus = $self->clean_locus($locus);
 
 	if ( !$self->{'datastore'}->is_locus($locus) ) {
@@ -152,7 +144,7 @@ sub print_content {
 		if ( $q->param('locus') eq q() ) {
 			$self->print_bad_status(
 				{
-					    message => q(Please select locus or use the general )
+						message => q(Please select locus or use the general )
 					  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;)
 					  . q(table=sequences">sequence attribute query</a> page.)
 				}
@@ -206,7 +198,7 @@ sub _get_select_items {
 	return ( \@select_items, \%labels, \@order_by );
 }
 
-sub _print_table_fields {
+sub _print_allele_fields {
 
 	#split so single row can be added by AJAX call
 	my ( $self, $locus, $row, $max_rows, $select_items, $labels ) = @_;
@@ -218,8 +210,8 @@ sub _print_table_fields {
 	if ( $row == 1 ) {
 		$locus //= '';
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
-		say qq(<a id="add_table_fields" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=alleleQuery&amp;locus=$locus&amp;row=$next_row&amp;no_header=1" data-rel="ajax" )
+		say qq(<a id="add_allele_fields" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=alleleQuery&amp;locus=$locus&amp;fields=allele&amp;row=$next_row&amp;no_header=1" data-rel="ajax" )
 		  . q(class="add_button"><span class="fa fas fa-plus"></span></a>);
 		say $self->get_tooltip( q(Search values - Empty field values can be searched using the term 'null'. )
 			  . q(<h3>Number of fields</h3>Add more fields by clicking the '+' button.) );
@@ -233,7 +225,7 @@ sub _print_interface {
 	my $q      = $self->{'cgi'};
 	my $locus  = $q->param('locus');
 	if ($locus) {
-		$locus =~ s/%27/'/gx;    #Web-escaped locus
+		$locus =~ s/%27/'/gx;            #Web-escaped locus
 		$q->param( locus => $locus );    #In case of escape
 	}
 	my ( $select_items, $labels, $order_by ) = $self->_get_select_items($locus);
@@ -253,22 +245,23 @@ sub _print_interface {
 		  . qq(locus=$locus">Further information</a> is available for this locus.</li></ul>);
 	}
 	say q(<p>Please enter your search criteria below (or leave blank and submit to return all records).</p>);
-	my $table_fields = $self->_highest_entered_fields || 1;
-	my $display = $self->{'prefs'}->{'aq_allele_fieldset'}
-	  || $self->_highest_entered_fields ? 'inline' : 'none';
+	my $table_fields = $self->_highest_entered_fields('alleles') || 1;
+	my $display      = $self->{'prefs'}->{'aq_allele_fieldset'}
+	  || $self->_highest_entered_fields('alleles') ? 'inline' : 'none';
 	say qq(<fieldset id="allele_fieldset" style="float:left;display:$display"><legend>Allele fields</legend>);
 	my $table_field_heading = $table_fields == 1 ? 'none' : 'inline';
-	say qq(<span id="table_field_heading" style="display:$table_field_heading">)
+	say qq(<span id="allele_field_heading" style="display:$table_field_heading">)
 	  . q(<label for="c0">Combine searches with: </label>);
 	say $q->popup_menu( -name => 'c0', -id => 'c0', -values => [qw(AND OR)] );
-	say qq(</span>\n<ul id="table_fields">);
+	say qq(</span>\n<ul id="allele">);
 
 	foreach my $i ( 1 .. $table_fields ) {
 		say q(<li>);
-		$self->_print_table_fields( $locus, $i, $table_fields, $select_items, $labels );
+		$self->_print_allele_fields( $locus, $i, $table_fields, $select_items, $labels );
 		say q(</li>);
 	}
 	say q(</ul></fieldset>);
+	$self->_print_mutation_fieldset;
 	$self->_print_list_fieldset;
 	$self->_print_filters_fieldset;
 	say q(<fieldset style="float:left"><legend>Display</legend>);
@@ -292,26 +285,96 @@ sub print_panel_buttons {
 		|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
 		|| $q->param('First') )
 	{
-		say
-		  q(<span class="icon_button"><a class="trigger_button" id="panel_trigger" style="display:none">)
+		say q(<span class="icon_button"><a class="trigger_button" id="panel_trigger" style="display:none">)
 		  . q(<span class="fas fa-lg fa-wrench"></span><div class="icon_label">Modify form</div></a></span>);
 	}
 	return;
 }
 
-sub _print_list_fieldset {
+sub _print_mutation_fieldset {
 	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $locus  = $q->param('locus');
+	return if !defined $locus;
+	return
+	  if !$self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM peptide_mutations WHERE locus=?)', $locus );
+	my $mutation_fields = $self->_highest_entered_fields('mutations') || 1;
+	my $display         = $self->{'prefs'}->{'aq_mutations_fieldset'}
+	  || $self->_highest_entered_fields('mutations') ? 'inline' : 'none';
+	say qq(<fieldset id="mutations_fieldset" style="float:left;display:$display"><legend>Mutations</legend>);
+	my $mutation_field_heading = $mutation_fields == 1 ? 'none' : 'inline';
+	say qq(<span id="mutation_field_heading" style="display:$mutation_field_heading">)
+	  . q(<label for="mutation_andor">Combine searches with: </label>);
+	say $q->popup_menu( -name => 'mutation_andor', -id => 'mutation_andor', -values => [qw(AND OR)] );
+	say q(</span><ul id="mutation">);
+
+	foreach my $i ( 1 .. $mutation_fields ) {
+		say q(<li>);
+		$self->_print_mutation_fields( $locus, $i, $mutation_fields );
+		say q(</li>);
+	}
+	say q(</ul></fieldset>);
+	return;
+}
+
+sub _print_mutation_fields {
+	my ( $self, $locus, $row, $max_rows ) = @_;
 	my $q = $self->{'cgi'};
-	say q(<fieldset id="list_fieldset" style="float:left;display:none"><legend>Allele id list</legend>);
+	my $peptide_mutations =
+	  $self->{'datastore'}->run_query( 'SELECT * FROM peptide_mutations WHERE locus=? ORDER BY reported_position',
+		$locus, { fetch => 'all_arrayref', slice => {} } );
+	my @values;
+	my $labels = {};
+	foreach my $mutation (@$peptide_mutations) {
+		my @wt  = split /;/x, $mutation->{'wild_type_aa'};
+		my @mut = split /;/x, $mutation->{'variant_aa'};
+		foreach my $wt (@wt) {
+			push @values, "pm_$mutation->{'id'}_${wt}_wt";
+			$labels->{"pm_$mutation->{'id'}_${wt}_wt"} = "$wt$mutation->{'reported_position'} wild-type";
+			if ( @mut > 1 ) {
+				push @values, "pm_$mutation->{'id'}_${wt}_variant";
+				$labels->{"pm_$mutation->{'id'}_${wt}_variant"} = "$wt$mutation->{'reported_position'} mutation";
+			}
+			foreach my $mut (@mut) {
+				push @values, "pm_$mutation->{'id'}_${wt}_$mut";
+				$labels->{"pm_$mutation->{'id'}_${wt}_$mut"} = "$wt$mutation->{'reported_position'}$mut";
+			}
+		}
+	}
+	say q(<span style="white-space:nowrap">);
+	say $self->popup_menu(
+		-name   => "mutation$row",
+		-id     => "mutation$row",
+		-values => [ q(), @values ],
+		-labels => $labels,
+		-class  => 'fieldlist'
+	);
+	if ( $row == 1 ) {
+		my $next_row = $max_rows ? $max_rows + 1 : 2;
+		say qq(<a id="add_mutation_fields" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=alleleQuery&amp;fields=mutation&amp;locus=$locus&amp;row=$next_row&amp;no_header=1" data-rel="ajax" )
+		  . q(class="add_button"><span class="fa fas fa-plus"></span></a>);
+	}
+	say q(</span>);
+	return;
+}
+
+sub _print_list_fieldset {
+	my ($self)  = @_;
+	my $q       = $self->{'cgi'};
+	my $display = $self->{'prefs'}->{'aq_list_fieldset'} || $q->param('list') ? 'inline' : 'none';
+	say qq(<fieldset id="list_fieldset" style="float:left;display:$display"><legend>Allele id list</legend>);
 	say $q->textarea( -name => 'list', -id => 'list', -rows => 6, -cols => 12 );
 	say q(</fieldset>);
 	return;
 }
 
 sub _print_filters_fieldset {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	say q(<fieldset id="filters_fieldset" style="float:left;display:none"><legend>Filters</legend>);
+	my ($self)  = @_;
+	my $q       = $self->{'cgi'};
+	my $display = $self->{'prefs'}->{'aq_filters_fieldset'}
+	  || $self->filters_selected ? 'inline' : 'none';
+	say qq(<fieldset id="filters_fieldset" style="float:left;display:$display"><legend>Filters</legend>);
 	say q(<ul><li>);
 	say $self->get_filter( 'status', [SEQ_STATUS], { class => 'display' } );
 	say q(</li><li>);
@@ -332,9 +395,19 @@ sub _print_modify_search_fieldset {
 	say q(<p style="white-space:nowrap">Click to add or remove additional query terms:</p>)
 	  . q(<ul style="list-style:none;margin-left:-2em">);
 	my $allele_fieldset_display = $self->{'prefs'}->{'aq_allele_fieldset'}
-	  || $self->_highest_entered_fields ? HIDE : SHOW;
+	  || $self->_highest_entered_fields('alleles') ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_allele">$allele_fieldset_display</a>);
 	say q(Allele fields</li>);
+	my $locus = $q->param('locus');
+
+	if ($locus) {
+		my $mutations =
+		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM peptide_mutations WHERE locus=?)', $locus );
+		my $mutation_fieldset_display = $self->{'prefs'}->{'aq_mutations_fieldset'}
+		  || $self->_highest_entered_fields('mutations') ? HIDE : SHOW;
+		say qq(<li><a href="" class="button" id="show_mutations">$mutation_fieldset_display</a>);
+		say q(Mutations</li>);
+	}
 	my $list_fieldset_display = $self->{'prefs'}->{'aq_list_fieldset'}
 	  || $q->param('list') ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_list">$list_fieldset_display</a>);
@@ -613,7 +686,7 @@ sub _ext_starts_with {    ## no critic (ProhibitUnusedPrivateSubroutines) #Calle
 	return;
 }
 
-sub _ext_ends_with {      ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _ext_ends_with {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $args ) = @_;
 	my ( $qry_ref, $std_clause_ref, $this_field, $text ) = @{$args}{qw(qry_ref std_clause_ref this_field text )};
 	$$qry_ref .= $$std_clause_ref;
@@ -635,7 +708,7 @@ sub _ext_not_contain {    ## no critic (ProhibitUnusedPrivateSubroutines) #Calle
 	return;
 }
 
-sub _ext_equals {         ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _ext_equals {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $args ) = @_;
 	my ( $qry_ref, $std_clause_ref, $this_field, $text, $modifier, $field, $locus ) =
 	  @{$args}{qw(qry_ref std_clause_ref this_field text modifier field locus)};
@@ -704,7 +777,7 @@ sub _starts_with {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by
 	return;
 }
 
-sub _ends_with {      ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _ends_with {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $args ) = @_;
 	my ( $qry_ref, $this_field, $field, $text ) = @{$args}{qw(qry_ref this_field field text )};
 	$$qry_ref .=
@@ -725,7 +798,7 @@ sub _not_contain {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by
 	return;
 }
 
-sub _equals {         ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _equals {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $args ) = @_;
 	my ( $qry_ref, $this_field, $field, $text ) = @{$args}{qw(qry_ref this_field field text )};
 	if ( lc($text) eq 'null' ) {
@@ -777,11 +850,13 @@ sub _process_flags {
 }
 
 sub _highest_entered_fields {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my ( $self, $type ) = @_;
+	my $q          = $self->{'cgi'};
+	my %param_name = ( alleles => 'value', mutations => 'mutation' );
 	my $highest;
 	for my $row ( 1 .. MAX_ROWS ) {
-		$highest = $row if defined $q->param("value$row") && $q->param("value$row") ne '';
+		$highest = $row
+		  if defined $q->param("$param_name{$type}$row") && $q->param("$param_name{$type}$row") ne '';
 	}
 	return $highest;
 }
