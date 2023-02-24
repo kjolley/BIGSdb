@@ -95,8 +95,8 @@ sub _ajax_content {
 	if ( $fields eq 'allele' ) {
 		my ( $select_items, $labels ) = $self->_get_select_items($locus);
 		$self->_print_allele_fields( $locus, $row, 0, $select_items, $labels );
-	} elsif ($fields eq 'mutation'){
-		$self->_print_mutation_fields( $locus, $row, 0);
+	} elsif ( $fields eq 'mutation' ) {
+		$self->_print_mutation_fields( $locus, $row, 0 );
 	}
 	return;
 }
@@ -403,10 +403,12 @@ sub _print_modify_search_fieldset {
 	if ($locus) {
 		my $mutations =
 		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM peptide_mutations WHERE locus=?)', $locus );
-		my $mutation_fieldset_display = $self->{'prefs'}->{'aq_mutations_fieldset'}
-		  || $self->_highest_entered_fields('mutations') ? HIDE : SHOW;
-		say qq(<li><a href="" class="button" id="show_mutations">$mutation_fieldset_display</a>);
-		say q(Mutations</li>);
+		if ($mutations) {
+			my $mutation_fieldset_display = $self->{'prefs'}->{'aq_mutations_fieldset'}
+			  || $self->_highest_entered_fields('mutations') ? HIDE : SHOW;
+			say qq(<li><a href="" class="button" id="show_mutations">$mutation_fieldset_display</a>);
+			say q(Mutations</li>);
+		}
 	}
 	my $list_fieldset_display = $self->{'prefs'}->{'aq_list_fieldset'}
 	  || $q->param('list') ? HIDE : SHOW;
@@ -449,9 +451,9 @@ sub _run_query {
 		}
 	}
 	my @hidden_attributes;
-	push @hidden_attributes, 'c0';
+	push @hidden_attributes, 'c0', 'mutation_andor';
 	foreach my $i ( 1 .. MAX_ROWS ) {
-		push @hidden_attributes, "field$i", "value$i", "operator$i";
+		push @hidden_attributes, "field$i", "value$i", "operator$i", "mutation$i";
 	}
 	foreach (@$attributes) {
 		push @hidden_attributes, $_->{'name'} . '_list';
@@ -576,9 +578,11 @@ sub _generate_query {
 	$locus =~ s/'/\\'/gx;
 	$qry //= q();
 	$qry =~ s/sequence_length/length(sequence)/g;
-	$qry2 = "SELECT * FROM sequences WHERE locus=E'$locus' AND ($qry)";
+	$qry2 = "SELECT * FROM sequences WHERE locus=E'$locus'";
+	$qry2 .=" AND ($qry)" if $qry;
 	my $list_file = $self->_modify_by_list( \$qry2, $locus );
 	$self->_modify_by_filter( \$qry2, $locus );
+	$self->_modify_query_by_mutations( \$qry2, $locus );
 	$qry2 .= $self->_process_flags;
 	$qry2 .= q( AND sequences.allele_id NOT IN ('0', 'N'));
 	$qry2 .= q( ORDER BY );
@@ -592,7 +596,41 @@ sub _generate_query {
 	my $dir = ( $q->param('direction') // '' ) eq 'descending' ? 'desc' : 'asc';
 	$qry2 .= " $dir;";
 	$qry2 =~ s/sequence_length/length(sequence)/g;
+	$logger->error($qry2);
 	return ( $qry2, $list_file, $errors );
+}
+
+sub _modify_query_by_mutations {
+	my ( $self, $qry_ref, $locus ) = @_;
+	my $q      = $self->{'cgi'};
+	my $and_or = $q->param('mutation_andor') // 'AND';
+	my @mutations;
+	foreach my $i ( 1 .. MAX_ROWS ) {
+		my $value = $q->param("mutation$i");
+		next if !defined $value || $value eq q();
+		if ( $value =~ /^pm_(\d+)_([A-Z])_([A-Z]|wt|variant)/x ) {
+			my ( $mutation_id, $wt, $mut ) = ( $1, $2, $3 );
+			if ( $mut eq 'wt' ) {
+				push @mutations,
+				  'allele_id IN (SELECT allele_id FROM sequences_peptide_mutations WHERE '
+				  . "(mutation_id,amino_acid,is_wild_type)=($mutation_id,'$wt','true'))";
+			} elsif ($mut eq 'variant'){
+				push @mutations,
+				  'allele_id IN (SELECT allele_id FROM sequences_peptide_mutations WHERE '
+				  . "(mutation_id,is_mutation)=($mutation_id,'true'))";
+			} else {
+				push @mutations,
+				  'allele_id IN (SELECT allele_id FROM sequences_peptide_mutations WHERE '
+				  . "(mutation_id,amino_acid,is_mutation)=($mutation_id,'$mut','true'))";
+			}
+		} else {
+			$logger->error("Invalid mutation passed: $value");
+			next;
+		}
+	}
+	local $" = qq[) $and_or (];
+	$$qry_ref .= " AND ((@mutations))" if @mutations;
+	return;
 }
 
 sub _modify_by_list {
