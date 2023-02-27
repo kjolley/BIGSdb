@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20230105
+#Version: 20230222
 use strict;
 use warnings;
 use 5.010;
@@ -361,20 +361,20 @@ sub get_profile_order_term {
 
 sub get_prim_order {
 	my ($profiles) = @_;
-	##no critic (ProhibitMismatchedOperators) - PDL uses .= assignment.
 	my ( $filename, $index, $dismat ) = get_distance_matrix($profiles);
 	return $index                      if @$index == 1;
 	print 'Calculating PRIM order ...' if !$opts{'quiet'};
 	print "\n"                         if @$index >= 500;
 	my $start_time = time;
 	for my $i ( 0 .. @$index - 1 ) {
-		$dismat->range( [ $i, $i ] ) .= 999;
+		$dismat->set( $i, $i, 999 );
 	}
 	my $ind = $dismat->flat->minimum_ind;
 	my ( $x, $y ) = ( int( $ind / @$index ), $ind - int( $ind / @$index ) * @$index );
 	my $index_order = [ $x, $y ];
 	my $profile_order = [ $index->[$x], $index->[$y] ];
-	$dismat->range( [ $x, $y ] ) .= $dismat->range( [ $y, $x ] ) .= 999;
+	$dismat->set( $x, $y, 999 );
+	$dismat->set( $y, $x, 999 );
 	while ( @$profile_order != @$index ) {
 		my $min = 101;
 		my $v_min;
@@ -387,7 +387,8 @@ sub get_prim_order {
 		}
 		my $k = $dismat->slice($v_min)->flat->minimum_ind;
 		for my $i (@$index_order) {
-			$dismat->range( [ $i, $k ] ) .= $dismat->range( [ $k, $i ] ) .= 999;
+			$dismat->set( $i, $k, 999 );
+			$dismat->set( $k, $i, 999 );
 		}
 		push @$index_order,   $k;
 		push @$profile_order, $index->[$k];
@@ -472,8 +473,8 @@ sub get_distance_matrix {
 			  dims( where( $prof1, $prof2, ( $prof1 != $prof2 ) & ( $prof1 != 0 ) & ( $prof2 != 0 ) ) );
 			my ($missing_in_either) = dims( where( $prof1, $prof2, ( $prof1 == 0 ) | ( $prof2 == 0 ) ) );
 			my $distance = 100 * $diffs / ( $locus_count - $missing_in_either );
-			$dismat->range( [ $i, $j ] ) .= $distance;
-			$dismat->range( [ $j, $i ] ) .= $distance;
+			$dismat->set( $i, $j, $distance );
+			$dismat->set( $j, $i, $distance );
 		}
 	}
 	say 'Done.' if !$opts{'quiet'};
