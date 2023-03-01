@@ -23,6 +23,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugin);
 use List::MoreUtils qw(uniq);
+use JSON;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_RECORDS => 1000;
@@ -171,7 +172,7 @@ sub run_job {
 		my $assembly_file = $self->_make_assembly_file( $job_id, $isolate_id );
 		my $method        = $params->{'method'} ne 'basic' ? " --$params->{'method'}" : q();
 		system("$self->{'config'}->{'kleborate_path'}$method -o $out_file -a $assembly_file > /dev/null");
-		my ( $headers, $results ) = $self->_extract_results( $out_file, $params->{'method'} );
+		my ( $headers, $results ) = $self->_extract_results($out_file);
 		my $isolate = $self->get_isolate_name_from_id($isolate_id);
 		$headers->[0] = $self->{'system'}->{'labelfield'};
 		$results->[0] = $isolate;
@@ -197,7 +198,8 @@ sub run_job {
 				percent_complete => $progress
 			}
 		);
-		unlink $assembly_file;
+		$self->_store_results( $isolate_id, $out_file ) if $params->{'method'} eq 'all';
+		$self->delete_temp_files("$assembly_file*");
 		unlink $out_file;
 		last if $self->{'exit'};
 	}
@@ -220,7 +222,7 @@ sub run_job {
 }
 
 sub _extract_results {
-	my ( $self, $filename, $method ) = @_;
+	my ( $self, $filename ) = @_;
 	open( my $fh, '<', $filename ) || $logger->error("Cannot open $filename for reading");
 	my $header_line = <$fh>;
 	chomp $header_line;
@@ -358,6 +360,41 @@ sub _print_options_fieldset {
 		-default   => $default_method // 'basic'
 	);
 	say q(</fieldset>);
+	return;
+}
+
+sub _store_results {
+	my ( $self, $isolate_id, $output_file ) = @_;
+	my $cleaned_results = {};
+	my ( $headers, $results ) = $self->_extract_results($output_file);
+	if ( !@$headers || !@$results ) {
+		$logger->error("No valid results for id-$isolate_id");
+		return;
+	}
+	for my $i ( 0 .. @$headers - 1 ) {
+		next if !defined $results->[$i] || $results->[$i] eq '-';
+		$cleaned_results->{ $headers->[$i] } =
+		  BIGSdb::Utils::is_int( $results->[$i] ) ? int( $results->[$i] ) : $results->[$i];
+	}
+	my $att  = $self->get_attributes;
+	my $json = encode_json($cleaned_results);
+	eval {
+		$self->{'db'}
+		  ->do( 'DELETE FROM analysis_results WHERE (isolate_id,name)=(?,?)', undef, $isolate_id, $att->{'module'} );
+		$self->{'db'}->do( 'INSERT INTO analysis_results (name,isolate_id,results) VALUES (?,?,?)',
+			undef, $att->{'module'}, $isolate_id, $json );
+		$self->{'db'}->do(
+			'INSERT INTO last_run (name,isolate_id) VALUES (?,?) ON '
+			  . 'CONFLICT (name,isolate_id) DO UPDATE SET timestamp = now()',
+			undef, $att->{'module'}, $isolate_id
+		);
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
 	return;
 }
 
