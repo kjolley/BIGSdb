@@ -365,19 +365,24 @@ sub _print_options_fieldset {
 
 sub _store_results {
 	my ( $self, $isolate_id, $output_file ) = @_;
-	my $cleaned_results = {};
+	my $cleaned_results = [];
 	my ( $headers, $results ) = $self->_extract_results($output_file);
 	if ( !@$headers || !@$results ) {
 		$logger->error("No valid results for id-$isolate_id");
 		return;
 	}
+	my %ignore = map { $_ => 1 }
+	  qw(strain contig_count N50 largest_contig total_size ambiguous_bases ST Chr_ST gapA infB mdh pgi phoE rpoB tonB);
 	for my $i ( 0 .. @$headers - 1 ) {
-		next if !defined $results->[$i] || $results->[$i] eq '-';
-		$cleaned_results->{ $headers->[$i] } =
-		  BIGSdb::Utils::is_int( $results->[$i] ) ? int( $results->[$i] ) : $results->[$i];
+		next if $ignore{ $headers->[$i] };
+		next if !defined $results->[$i] || $results->[$i] eq '-' || $results->[$i] eq '';
+		push @$cleaned_results,
+		  { $headers->[$i] => BIGSdb::Utils::is_int( $results->[$i] ) ? int( $results->[$i] ) : $results->[$i] };
 	}
-	my $att  = $self->get_attributes;
-	my $json = encode_json($cleaned_results);
+	my $att     = $self->get_attributes;
+	my $version = $self->_get_kleborate_version;
+	chomp $version;
+	my $json    = encode_json( { version => $version, values => $cleaned_results } );
 	eval {
 		$self->{'db'}
 		  ->do( 'DELETE FROM analysis_results WHERE (isolate_id,name)=(?,?)', undef, $isolate_id, $att->{'module'} );

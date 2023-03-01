@@ -1,0 +1,18 @@
+[% # Template file for outputting formatted Kleborate analysis in the isolate information page. %]
+[% IF Kleborate %]
+<h3>Kleborate</h3>
+<div class="scrollable">
+<div class="field_group">
+<dl class="data">
+[% FOREACH result IN Kleborate.results.values %]
+	[% FOREACH field IN result.keys %]
+		<span class="dontsplit">
+		<dt>[% field %]</dt>
+		<dd>[% result.$field %]</dd>
+		</span>
+	[% END %]
+[% END %]
+</dl></div>
+<p style="font-size:0.8em"><em>Analysis performed: [% Kleborate.datestamp %]</em>; [% Kleborate.results.version %]</p>
+[% END %]
+</div>
