@@ -220,8 +220,11 @@ sub _reason_plugin_disabled {
 	  if (
 		   !( ( $self->{'system'}->{'all_plugins'} // '' ) eq 'yes' )
 		&& $attr->{'system_flag'}
-		&& (  !$self->{'system'}->{ $attr->{'system_flag'} }
-			|| $self->{'system'}->{ $attr->{'system_flag'} } eq 'no' )
+		&& (
+			  !$self->{'system'}->{ $attr->{'system_flag'} }
+			|| $self->{'system'}->{ $attr->{'system_flag'} } eq 'no'
+		)
+		|| ( $attr->{'explicit_enable'} && ( $self->{'system'}->{ $attr->{'system_flag'} } // q() ) ne 'yes' )
 	  );
 	return;
 }
