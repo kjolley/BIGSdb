@@ -98,7 +98,7 @@ sub get_dbs {
 				options          => {}
 			}
 		);
-		if ( !defined $script->{'config'}->{'kleborate_pathx'} ) {
+		if ( !defined $script->{'config'}->{'kleborate_path'} ) {
 			die "kleborate_path is not set in bigsdb.conf.\n";
 		}
 		next if ( $script->{'system'}->{'dbtype'}    // q() ) ne 'isolates';
