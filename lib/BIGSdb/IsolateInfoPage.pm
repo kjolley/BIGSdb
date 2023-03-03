@@ -613,9 +613,9 @@ sub _get_classification_group_data {
 		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
 			["temp_isolates_scheme_fields_$scheme_id"] );
 		if ( !$cache_table_exists ) {
-			$logger->warn( "Scheme $scheme_id is not cached for this database.  Display of similar isolates "
-				  . 'is disabled. You need to run the update_scheme_caches.pl script regularly against this '
-				  . 'database to create these caches.' );
+			$logger->warn( "$self->{'instance'}: Scheme $scheme_id is not cached for this database.  "
+				  . 'Display of similar isolates is disabled. You need to run the update_scheme_caches.pl script '
+				  . 'regularly against this database to create these caches.' );
 			return [];
 		}
 		my $scheme_info  = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
