@@ -74,14 +74,6 @@ sub run {
 	my $q      = $self->{'cgi'};
 	my $title  = $self->get_title;
 	say qq(<h1>$title</h1>);
-	if ( !-e $self->{'config'}->{'kleborate_path'} ) {
-		$self->print_bad_status( { message => 'Kleborate is not installed.' } );
-		return;
-	}
-	if ( !-x $self->{'config'}->{'kleborate_path'} ) {
-		$self->print_bad_status( { message => 'Kleborate is not executable.' } );
-		return;
-	}
 	if ( $q->param('submit') ) {
 		my $guid = $self->get_guid;
 		eval {
