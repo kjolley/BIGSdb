@@ -4,7 +4,7 @@
 <div class="scrollable">
 <div class="field_group">
 <dl class="data">
-[% FOREACH result IN Kleborate.results.values %]
+[% FOREACH result IN Kleborate.results.fields %]
 	[% FOREACH field IN result.keys %]
 		<span class="dontsplit">
 		<dt>[% field %]</dt>

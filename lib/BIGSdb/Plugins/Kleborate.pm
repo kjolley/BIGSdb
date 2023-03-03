@@ -74,6 +74,14 @@ sub run {
 	my $q      = $self->{'cgi'};
 	my $title  = $self->get_title;
 	say qq(<h1>$title</h1>);
+	if ( !-e $self->{'config'}->{'kleborate_path'} ) {
+		$self->print_bad_status( { message => 'Kleborate is not installed.' } );
+		return;
+	}
+	if ( !-x $self->{'config'}->{'kleborate_path'} ) {
+		$self->print_bad_status( { message => 'Kleborate is not executable.' } );
+		return;
+	}
 	if ( $q->param('submit') ) {
 		my $guid = $self->get_guid;
 		eval {
@@ -164,6 +172,10 @@ sub run_job {
 	my $table_html;
 	my $td = 1;
 
+	if ( !-x "$self->{'config'}->{'kleborate_path'}" ) {
+		$logger->error("Kleborate not executable: Path is $self->{'config'}->{'kleborate_path'}");
+		return;
+	}
 	foreach my $isolate_id (@$isolate_ids) {
 		$i++;
 		$progress = int( $i / @$isolate_ids * 100 );
@@ -171,14 +183,18 @@ sub run_job {
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => $message } );
 		my $assembly_file = $self->_make_assembly_file( $job_id, $isolate_id );
 		my $method        = $params->{'method'} ne 'basic' ? " --$params->{'method'}" : q();
-		system("$self->{'config'}->{'kleborate_path'}$method -o $out_file -a $assembly_file > /dev/null");
+		my $exit_code =
+		  system("$self->{'config'}->{'kleborate_path'}$method -o $out_file -a $assembly_file > /dev/null");
+		if ( !-e $out_file ) {
+			$logger->error('Kleborate did not produce an output file.');
+			return;
+		}
 		my ( $headers, $results ) = $self->_extract_results($out_file);
 		my $isolate = $self->get_isolate_name_from_id($isolate_id);
 		$headers->[0] = $self->{'system'}->{'labelfield'};
 		$results->[0] = $isolate;
 		unshift @$headers, 'id';
 		unshift @$results, $isolate_id;
-
 		if ( !$table_html ) {
 			local $" = q(</th><th>);
 			$table_html = qq(<tr><th>@$headers</th></tr>\n);
@@ -326,7 +342,7 @@ sub _print_interface {
 
 sub _get_kleborate_version {
 	my ($self) = @_;
-	return if !-x $self->{'config'}->{'kleborate_path'};
+	return if !-e $self->{'config'}->{'kleborate_path'} || !-x $self->{'config'}->{'kleborate_path'};
 	my $out = "$self->{'config'}->{'secure_tmp_dir'}/kleborate_$$";
 	local $ENV{'TERM'} = 'dumb';
 	my $version     = system("$self->{'config'}->{'kleborate_path'} --version > $out");
@@ -382,7 +398,7 @@ sub _store_results {
 	my $att     = $self->get_attributes;
 	my $version = $self->_get_kleborate_version;
 	chomp $version;
-	my $json    = encode_json( { version => $version, values => $cleaned_results } );
+	my $json = encode_json( { version => $version, fields => $cleaned_results } );
 	eval {
 		$self->{'db'}
 		  ->do( 'DELETE FROM analysis_results WHERE (isolate_id,name)=(?,?)', undef, $isolate_id, $att->{'module'} );

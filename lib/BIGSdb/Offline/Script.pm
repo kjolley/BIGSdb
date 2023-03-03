@@ -492,4 +492,40 @@ sub stop_job {
 	undef $self->{'jobManager'} if $options->{'temp_init'};
 	return;
 }
+
+sub set_last_run_time {
+	my ( $self, $name, $isolate_id ) = @_;
+	eval {
+		$self->{'db'}->do(
+			'INSERT INTO last_run (name,isolate_id) VALUES (?,?) ON '
+			  . 'CONFLICT (name,isolate_id) DO UPDATE SET timestamp = now()',
+			undef, $name, $isolate_id
+		);
+	};
+	if ($@) {
+		$self->{'logger'}->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+	return;
+}
+
+sub make_assembly_file {
+	my ( $self, $job_id, $isolate_id ) = @_;
+	if (!defined $self->{'contigManager'}){
+		$self->{'logger'}->fatal('Contig manager is not set up.');
+	}
+	my $filename   = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}_$isolate_id.fas";
+	my $seqbin_ids = $self->{'datastore'}->run_query( 'SELECT id FROM sequence_bin WHERE isolate_id=?',
+		$isolate_id, { fetch => 'col_arrayref', cache => 'make_assembly_file::get_seqbin_list' } );
+	my $contigs = $self->{'contigManager'}->get_contigs_by_list($seqbin_ids);
+	open( my $fh, '>', $filename ) || $self->{'logger'}->error("Cannot open $filename for writing.");
+	foreach my $contig_id ( sort { $a <=> $b } keys %$contigs ) {
+		say $fh ">$contig_id";
+		say $fh $contigs->{$contig_id};
+	}
+	close $fh;
+	return $filename;
+}
 1;
