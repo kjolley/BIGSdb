@@ -57,11 +57,10 @@ sub get_attributes {
 		requires        => 'offline_jobs,Kleborate,seqbin',
 		system_flag     => 'Kleborate',
 		explicit_enable => 1,
-
-		#		url        => "$self->{'config'}->{'doclink'}/data_analysis/kleborate.html",
-		order => 36,
-		min   => 1,
-		max   => $self->{'system'}->{'kleborate_record_limit'} // $self->{'config'}->{'kleborate_record_limit'}
+		url             => "$self->{'config'}->{'doclink'}/data_analysis/kleborate.html",
+		order           => 36,
+		min             => 1,
+		max => $self->{'system'}->{'kleborate_record_limit'} // $self->{'config'}->{'kleborate_record_limit'}
 		  // MAX_RECORDS,
 		always_show_in_menu => 1,
 		image               => '/images/plugins/Kleborate/screenshot.png'
