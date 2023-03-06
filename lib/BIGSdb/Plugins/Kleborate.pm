@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext      => 'Kleborate',
 		menutext        => 'Kleborate',
 		module          => 'Kleborate',
-		version         => '1.0.0',
+		version         => '1.0.1',
 		dbtype          => 'isolates',
 		section         => 'third_party,isolate_info,postquery',
 		input           => 'query',
@@ -216,7 +216,7 @@ sub run_job {
 		my $excel_file = BIGSdb::Utils::text2excel(
 			$text_file,
 			{
-				worksheet => 'rMLST',
+				worksheet => 'Kleborate',
 				tmp_dir   => $self->{'config'}->{'secure_tmp_dir'},
 			}
 		);
