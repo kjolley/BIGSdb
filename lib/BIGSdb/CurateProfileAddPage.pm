@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -493,7 +493,7 @@ sub is_locus_field_bad {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 		if ( $scheme_info->{'allow_missing_loci'} ) {
 			if ( !$self->{'datastore'}->sequence_exists( $locus, $value ) ) {
-				$self->define_missing_allele( $locus, $value );
+				$self->{'datastore'}->define_missing_allele( $locus, $value );
 			}
 			return;
 		}
@@ -515,33 +515,13 @@ sub is_locus_field_bad {
 	return;
 }
 
-sub define_missing_allele {
-	my ( $self, $locus, $allele ) = @_;
-	my $seq;
-	if    ( $allele eq '0' ) { $seq = 'null allele' }
-	elsif ( $allele eq 'N' ) { $seq = 'arbitrary allele' }
-	else                     { return }
-	my $sql =
-	  $self->{'db'}
-	  ->prepare( 'INSERT INTO sequences (locus, allele_id, sequence, sender, curator, date_entered, datestamp, '
-		  . 'status) VALUES (?,?,?,?,?,?,?,?)' );
-	eval { $sql->execute( $locus, $allele, $seq, 0, 0, 'now', 'now', '' ) };
-	if ($@) {
-		$logger->error($@) if $@;
-		$self->{'db'}->rollback;
-		return;
-	}
-	$self->{'db'}->commit;
-	return;
-}
-
 sub update_profile_history {
 	my ( $self, $scheme_id, $profile_id, $action ) = @_;
 	return if !$action || !$scheme_id || !$profile_id;
 	my $curator_id = $self->get_curator_id;
 	eval {
 		$self->{'db'}
-		  ->do( 'INSERT INTO profile_history (scheme_id,profile_id,timestamp,action,curator) VALUES ' . '(?,?,?,?,?)',
+		  ->do( 'INSERT INTO profile_history (scheme_id,profile_id,timestamp,action,curator) VALUES (?,?,?,?,?)',
 			undef, $scheme_id, $profile_id, 'now', $action, $curator_id );
 	};
 	if ($@) {
