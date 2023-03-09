@@ -130,7 +130,7 @@ sub _print_interface {
 	  . q(enter a list of values.</p>);
 	say $q->start_form;
 	say $q->hidden($_) foreach qw (db page scheme_id);
-	my $scheme_field_count = $self->_highest_entered_fields || 1;
+	my $scheme_field_count   = $self->_highest_entered_fields || 1;
 	my $scheme_field_heading = $scheme_field_count == 1 ? 'none' : 'inline';
 	say q(<div style="white-space:nowrap">);
 	my $display = $self->{'prefs'}->{'scheme_fieldset'}
@@ -176,7 +176,7 @@ sub _print_filter_fieldset {
 	my ( $self, $scheme_id ) = @_;
 	my $q = $self->{'cgi'};
 	my @filters;
-	my $set_id = $self->get_set_id;
+	my $set_id      = $self->get_set_id;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
 	if ( $self->{'config'}->{'ref_db'} ) {
 		my $pmid = $self->{'datastore'}->run_query( 'SELECT DISTINCT(pubmed_id) FROM profile_refs WHERE scheme_id=?',
@@ -201,8 +201,8 @@ sub _print_filter_fieldset {
 	foreach my $field (@$scheme_fields) {
 		if ( $self->{'prefs'}->{'dropdown_scheme_fields'}->{$scheme_id}->{$field} ) {
 			my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
-			my $value_clause = $scheme_field_info->{'type'} eq 'integer' ? 'CAST(value AS integer)' : 'value';
-			my $values = $self->{'datastore'}->run_query(
+			my $value_clause      = $scheme_field_info->{'type'} eq 'integer' ? 'CAST(value AS integer)' : 'value';
+			my $values            = $self->{'datastore'}->run_query(
 				"SELECT DISTINCT $value_clause FROM profile_fields WHERE "
 				  . "(scheme_id,scheme_field)=(?,?) ORDER BY $value_clause",
 				[ $scheme_id, $field ],
@@ -326,7 +326,7 @@ sub _run_query {
 	my $q      = $self->{'cgi'};
 	my $system = $self->{'system'};
 	my ( $qry, $list_file );
-	my $errors = [];
+	my $errors    = [];
 	my $scheme_id = BIGSdb::Utils::is_int( scalar $q->param('scheme_id') ) ? $q->param('scheme_id') : 0;
 	if ( !defined $q->param('query_file') ) {
 		( $qry, $list_file, $errors ) = $self->_generate_query($scheme_id);
@@ -373,7 +373,7 @@ sub _is_locus_in_scheme {
 
 sub _generate_query {
 	my ( $self, $scheme_id ) = @_;
-	my $q = $self->{'cgi'};
+	my $q           = $self->{'cgi'};
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	my ( $qry, $errors ) = $self->_generate_query_from_main_form($scheme_id);
 	( $qry, my $list_file ) = $self->_modify_by_list( $scheme_id, $qry );
@@ -386,20 +386,21 @@ sub _generate_query {
 	my $profile_id_field = $pk_field_info->{'type'} eq 'integer' ? "lpad($primary_key,20,'0')" : $primary_key;
 
 	if ( $self->{'datastore'}->is_locus($order) ) {
-		my $locus_info = $self->{'datastore'}->get_locus_info($order);
+		my $locus_info    = $self->{'datastore'}->get_locus_info($order);
 		my $cleaned_order = $self->{'datastore'}->get_scheme_warehouse_locus_name( $scheme_id, $order );
 		if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
 			$order = "to_number(textcat('0', $cleaned_order), text(99999999))";    #Handle arbitrary allele = 'N'
 		}
 	}
 	$qry .= ' ORDER BY' . ( $order ne $primary_key ? " $order $dir,$profile_id_field;" : " $profile_id_field $dir;" );
+	#TODO Ordering is not working for presence schemes.
 	return ( $qry, $list_file, $errors );
 }
 
 sub _get_data_type {
 	my ( $self, $scheme_id, $field ) = @_;
 	my %date_fields = map { $_ => 1 } qw(date_entered datestamp);
-	my $is_locus = $self->_is_locus_in_scheme( $scheme_id, $field );
+	my $is_locus    = $self->_is_locus_in_scheme( $scheme_id, $field );
 	if ($is_locus) {
 		return $self->{'datastore'}->get_locus_info($field)->{'allele_id_format'};
 	} elsif ( $self->{'datastore'}->is_scheme_field( $scheme_id, $field ) ) {
@@ -454,7 +455,7 @@ sub _generate_query_from_main_form {
 		'datestamp'
 	);
 	my %recognized_fields = ( %standard_fields, %$cscheme_names, %$cscheme_fields );
-	my $lincodes_defined = $self->{'datastore'}->are_lincodes_defined($scheme_id);
+	my $lincodes_defined  = $self->{'datastore'}->are_lincodes_defined($scheme_id);
 	$recognized_fields{'LINcode'} = 1 if $lincodes_defined;
 	my $lincode_fields = $self->{'datastore'}
 	  ->run_query( 'SELECT field FROM lincode_fields WHERE scheme_id=?', $scheme_id, { fetch => 'col_arrayref' } );
@@ -463,7 +464,7 @@ sub _generate_query_from_main_form {
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		next if !defined $q->param("t$i") || $q->param("t$i") eq q();
 		my $field = $q->param("s$i") // q();
-		my $type = $self->_get_data_type( $scheme_id, $field );
+		my $type  = $self->_get_data_type( $scheme_id, $field );
 		if ( !defined $type && !$recognized_fields{$field} ) {
 
 			#Prevent cross-site scripting vulnerability
@@ -473,19 +474,22 @@ sub _generate_query_from_main_form {
 			next;
 		}
 		my $operator = $q->param("y$i") // '=';
-		my $text = $q->param("t$i");
+		my $text     = $q->param("t$i");
 		$self->process_value( \$text );
 		my $is_locus = $self->_is_locus_in_scheme( $scheme_id, $field );
 		next
-		  if !($scheme_info->{'allow_missing_loci'}
+		  if !(
+			(
+				   ( $scheme_info->{'allow_missing_loci'} && $text eq 'N' )
+				|| ( $scheme_info->{'allow_presence'} && $text eq 'P' )
+			)
 			&& $is_locus
-			&& $text eq 'N'
 			&& $operator ne '<'
-			&& $operator ne '>' )
+			&& $operator ne '>'
+		  )
 		  && $self->check_format( { field => $field, text => $text, type => $type, operator => $operator }, \@$errors );
 		my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : '';
 		$first_value = 0;
-
 		if ( $field =~ /(.*)\ \(id\)$/x
 			&& !BIGSdb::Utils::is_int($text) )
 		{
@@ -547,7 +551,7 @@ sub _modify_query_by_scheme_fields {
 	  ? "$cleaned_field is null"
 	  : ( $type eq 'text' ? "UPPER($cleaned_field)=UPPER('$text')" : "$cleaned_field='$text'" );
 	my %modify = (
-		'NOT' => lc($text) eq 'null' ? "(NOT $equals)" : "((NOT $equals) OR $cleaned_field IS NULL)",
+		'NOT'         => lc($text) eq 'null' ? "(NOT $equals)" : "((NOT $equals) OR $cleaned_field IS NULL)",
 		'contains'    => "(UPPER($cleaned_field) LIKE UPPER('\%$text\%'))",
 		'starts with' => "(UPPER($cleaned_field) LIKE UPPER('$text\%'))",
 		'ends with'   => "(UPPER($cleaned_field) LIKE UPPER('\%$text'))",
@@ -669,9 +673,9 @@ sub _modify_query_by_classification_group_field {
 		return q();
 	}
 	( my $cleaned_field = $cscheme_field->{'field'} ) =~ s/'/\\'/gx;
-	( my $cleaned_value = $text ) =~ s/'/\\'/gx;
+	( my $cleaned_value = $text )                     =~ s/'/\\'/gx;
 	my $join_table =
-	    q(classification_group_field_values v JOIN classification_group_profiles p )
+		q(classification_group_field_values v JOIN classification_group_profiles p )
 	  . q(ON v.cg_scheme_id=p.cg_scheme_id AND v.group_id=p.group_id AND )
 	  . qq(v.cg_scheme_id=$cscheme_field->{'cg_scheme_id'} AND v.field=E'$cleaned_field');
 	my %modify = (
@@ -741,11 +745,11 @@ sub _modify_query_by_lincode {
 		push @$errors, 'LINcodes are integer values separated by underscores (_).';
 		return q();
 	}
-	my @values = split /_/x, $text;
+	my @values      = split /_/x, $text;
 	my $value_count = @values;
 	my $thresholds =
 	  $self->{'datastore'}->run_query( 'SELECT thresholds FROM lincode_schemes WHERE scheme_id=?', $scheme_id );
-	my @thresholds = split /;/x, $thresholds;
+	my @thresholds      = split /;/x, $thresholds;
 	my $threshold_count = @thresholds;
 	if ( $value_count > $threshold_count ) {
 		push @$errors, "LINcode scheme has $threshold_count thresholds but you have entered $value_count.";
@@ -834,9 +838,9 @@ sub _modify_query_by_lincode_field {
 		return q();
 	}
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-	my $pk = $scheme_info->{'primary_key'};
+	my $pk          = $scheme_info->{'primary_key'};
 	my $join_table =
-	    qq[mv_scheme_$scheme_id LEFT JOIN lincodes ON mv_scheme_$scheme_id.$pk=lincodes.profile_id AND ]
+		qq[mv_scheme_$scheme_id LEFT JOIN lincodes ON mv_scheme_$scheme_id.$pk=lincodes.profile_id AND ]
 	  . qq[lincodes.scheme_id=$scheme_id LEFT JOIN lincode_prefixes ON ]
 	  . q[lincodes.scheme_id=lincode_prefixes.scheme_id AND (]
 	  . q[array_to_string(lincodes.lincode,'_') LIKE (REPLACE(lincode_prefixes.prefix,'_',E'\\\_') || E'\\\_' || '%') ]

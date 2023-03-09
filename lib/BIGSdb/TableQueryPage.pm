@@ -495,7 +495,7 @@ sub _run_query {
 		if ( $table eq 'sequences' ) {
 
 			#Alleles can be set to 0 or N for arbitrary profile definitions
-			$qry2 .= " AND $table.allele_id NOT IN ('0', 'N')";
+			$qry2 .= " AND $table.allele_id NOT IN ('0', 'N', 'P')";
 		}
 		$qry2 .= " ORDER BY $table.";
 		my $default_order;

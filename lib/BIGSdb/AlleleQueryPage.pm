@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -507,7 +507,7 @@ sub _generate_query {
 	my $list_file = $self->_modify_by_list( \$qry2, $locus );
 	$self->_modify_by_filter( \$qry2, $locus );
 	$qry2 .= $self->_process_flags;
-	$qry2 .= q( AND sequences.allele_id NOT IN ('0', 'N'));
+	$qry2 .= q( AND sequences.allele_id NOT IN ('0', 'N', 'P'));
 	$qry2 .= q( ORDER BY );
 	$q->param( order => 'allele_id' ) if !defined $q->param('order');
 

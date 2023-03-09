@@ -181,7 +181,7 @@ sub _upload {
 	my $insert        = 1;
 	my ( $bad_field_buffer, $fields_with_values ) = $self->_check_upload_data( $scheme_id, $newdata );
 	my @extra_inserts;
-	my @new_pubmeds = split /\r?\n/x, $q->param('pubmed');
+	my @new_pubmeds  = split /\r?\n/x, $q->param('pubmed');
 	my $pubmed_error = 0;
 
 	foreach my $new (@new_pubmeds) {
@@ -217,7 +217,7 @@ sub _upload {
 		my $ret =
 		  $self->{'datastore'}->check_new_profile( $scheme_id, \%designations, $newdata->{"field:$primary_key"} );
 		$self->print_bad_status( { message => $ret->{'msg'} } ) if $ret->{'msg'};
-		$insert = 0 if $ret->{'exists'} || $ret->{'err'};
+		$insert = 0                                             if $ret->{'exists'} || $ret->{'err'};
 	}
 	if ($insert) {
 		my $pk_exists =
@@ -309,7 +309,7 @@ sub _upload {
 				my $submission_id = $q->param('submission_id');
 				if ($submission_id) {
 					my $url =
-					    qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
+						qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
 					  . qq(submission_id=$submission_id&amp;curate=1);
 					$detail = qq(Don't forget to <a href="$url">close the submission</a>!);
 				}
@@ -319,7 +319,7 @@ sub _upload {
 						detail        => $detail,
 						navbar        => 1,
 						submission_id => $submission_id,
-						more_url =>
+						more_url      =>
 						  qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=profileAdd&amp;)
 						  . qq(scheme_id=$scheme_id)
 					}
@@ -338,11 +338,19 @@ sub _print_interface {
 	my $set_id      = $self->get_set_id;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
 	my $primary_key = $scheme_info->{'primary_key'};
-	my $msg =
-	  $scheme_info->{'allow_missing_loci'}
-	  ? q[ This scheme allows profile definitions to contain missing alleles (designate ]
-	  . q[these as '0') or ignored alleles (designate these as 'N').]
-	  : q[];
+	my $msg         = q();
+	my @allowed;
+	if ( $scheme_info->{'allow_missing_loci'} ) {
+		push @allowed, q(contain missing alleles (designate these as '0'));
+		push @allowed, q(ignored alleles (designate these as 'N'));
+	}
+	if ( $scheme_info->{'allow_presence'} ) {
+		push @allowed, q(show that a locus is present (designate these as 'P'));
+	}
+	if (@allowed) {
+		local $" = q(, or );
+		$msg = qq( This scheme allows profile definitions to @allowed.);
+	}
 	say q(<div class="box" id="queryform">);
 	say q(<div class="scrollable">);
 	my $icon = $self->get_form_icon( 'profiles', 'plus' );
@@ -363,12 +371,12 @@ sub _print_interface {
 	my $title_attribute = $title ? qq( title="$title") : q();
 	say qq(<li><label for="field:$primary_key" class="form" style="width:${width}em"$title_attribute>$label: !</label>);
 	my $pk_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
-	my %html5_args = ( required => 'required' );
+	my %html5_args    = ( required => 'required' );
 	$html5_args{'type'} = 'number' if $pk_field_info->{'type'} eq 'integer';
 	say $self->textfield(
-		-name => "field:$primary_key",
-		-id   => "field:$primary_key",
-		-size => $pk_field_info->{'type'} eq 'integer' ? 10 : 30,
+		-name  => "field:$primary_key",
+		-id    => "field:$primary_key",
+		-size  => $pk_field_info->{'type'} eq 'integer' ? 10 : 30,
 		-value => $q->param("field:$primary_key") // $newdata->{$primary_key},
 		%html5_args
 	);
@@ -409,8 +417,8 @@ sub _print_interface {
 	say q(</li>);
 	foreach my $field (@$fields) {
 		next if $field eq $primary_key;
-		$scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
-		%html5_args = ();
+		$scheme_field_info  = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+		%html5_args         = ();
 		$html5_args{'type'} = 'number' if $scheme_field_info->{'type'} eq 'integer';
 		( $label, $title ) = $self->get_truncated_label( $field, 24 );
 		$title_attribute = $title ? " title=\"$title\"" : '';
@@ -499,6 +507,15 @@ sub is_locus_field_bad {
 		}
 		return "$mapped value is invalid - this scheme does not allow missing (0) or arbitrary alleles (N) "
 		  . 'in the profile.';
+	} elsif ($value eq 'P'){
+		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+		if ( $scheme_info->{'allow_presence'} ) {
+			if ( !$self->{'datastore'}->sequence_exists( $locus, $value ) ) {
+				$self->{'datastore'}->define_missing_allele( $locus, $value );
+			}
+			return;
+		}
+		return "$mapped value is invalid - this scheme does not allow setting locus presence (P) in the profile.";
 	}
 	if ( $locus_info->{'allele_id_format'} eq 'integer' && !BIGSdb::Utils::is_int($value) ) {
 		return "Locus '$mapped' must be an integer.";

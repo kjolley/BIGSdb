@@ -3330,12 +3330,14 @@ sub define_missing_allele {
 	my $seq;
 	if    ( $allele eq '0' ) { $seq = 'null allele' }
 	elsif ( $allele eq 'N' ) { $seq = 'arbitrary allele' }
+	elsif ( $allele eq 'P' ) { $seq = 'locus is present' }
 	else                     { return }
 	my $sql =
 	  $self->{'db'}
 	  ->prepare( 'INSERT INTO sequences (locus, allele_id, sequence, sender, curator, date_entered, datestamp, '
 		  . 'status) VALUES (?,?,?,?,?,?,?,?)' );
 	eval { $sql->execute( $locus, $allele, $seq, 0, 0, 'now', 'now', '' ) };
+
 	if ($@) {
 		$logger->error($@) if $@;
 		$self->{'db'}->rollback;

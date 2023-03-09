@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -92,8 +92,14 @@ sub print_content {
 		push @$data,
 		  {
 			title => 'description',
-			data  => q(This is an arbitrary allele.  When included in a profile it means that this locus is ignored.)
+			data  => q(This is an arbitrary allele. When included in a profile it means that this locus is ignored.)
 		  };
+	} elsif ( $allele_id eq 'P' ) {
+		push @$data, {
+			title => 'description',
+			data  => q(When included in a profile it means that this locus is present )
+			  . q((it may or may not have an allele designated and it may be incomplete).)
+		};
 	} else {
 		push @$data,
 		  (
@@ -230,8 +236,7 @@ sub _print_client_database_data {
 				local $" = ' ';
 				$buffer .= $q->hidden($_)
 				  foreach qw (db page designation_field1 designation_operator1 designation_value1 order set_id submit);
-				$buffer .=
-				  $q->submit( -label => "$isolate_count isolate$plural", -class => 'small_submit' );
+				$buffer .= $q->submit( -label => "$isolate_count isolate$plural", -class => 'small_submit' );
 				$buffer .= $q->end_form;
 			}
 			$buffer .= q(</dd>);
@@ -288,7 +293,7 @@ sub _print_accessions {
 	my $hide = @$accession_list > 15;
 	if (@$accession_list) {
 		my $plural = @$accession_list > 1 ? q(s) : q();
-		my $count = @$accession_list;
+		my $count  = @$accession_list;
 		my ( $display, $offset );
 		if ( @$accession_list > 4 ) {
 			$display = 'none';
@@ -331,7 +336,7 @@ sub _print_ref_links {
 	);
 	my $hide = @$pmids > 4;
 	if (@$pmids) {
-		my $count = @$pmids;
+		my $count  = @$pmids;
 		my $plural = $count > 1 ? q(s) : q();
 		say q(<div><span class="info_icon far fa-2x fa-fw fa-newspaper fa-pull-left" )
 		  . q(style="margin-top:-0.2em"></span>);
