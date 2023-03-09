@@ -1,8 +1,8 @@
 #!/usr/bin/env perl
-#Perform/update species id check and store results in isolate database.
+#Perform/update Kleborate analyses and store results in isolate database.
 #Written by Keith Jolley
-#Copyright (c) 2021-2023, University of Oxford
-#E-mail: keith.jolley@zoo.ox.ac.uk
+#Copyright (c) 2023, University of Oxford
+#E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
 #
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20230306
+#Version: 20230301
 use strict;
 use warnings;
 use 5.010;
@@ -34,15 +34,10 @@ use constant {
 use lib (LIB_DIR);
 use BIGSdb::Offline::Script;
 use BIGSdb::Constants qw(LOG_TO_SCREEN :limits);
-use BIGSdb::Plugins::Helpers::SpeciesID;
-use BIGSdb::Utils;
+use JSON;
 use Term::Cap;
 use POSIX;
-use MIME::Base64;
-use LWP::UserAgent;
-use Config::Tiny;
-use JSON;
-use constant MODULE_NAME => 'RMLSTSpecies';
+use constant MODULE_NAME => 'Kleborate';
 use Getopt::Long qw(:config no_ignore_case);
 my %opts;
 GetOptions(
@@ -103,8 +98,11 @@ sub get_dbs {
 				options          => {}
 			}
 		);
-		next if ( $script->{'system'}->{'dbtype'}       // q() ) ne 'isolates';
-		next if ( $script->{'system'}->{'rMLSTSpecies'} // q() ) eq 'no';
+		if ( !defined $script->{'config'}->{'kleborate_path'} ) {
+			die "kleborate_path is not set in bigsdb.conf.\n";
+		}
+		next if ( $script->{'system'}->{'dbtype'}    // q() ) ne 'isolates';
+		next if ( $script->{'system'}->{'Kleborate'} // q() ) ne 'yes';
 		if ( !$script->{'db'} ) {
 			$logger->error("Skipping $dir ... database does not exist.");
 			next;
@@ -149,79 +147,81 @@ sub check_db {
 	my $agent = LWP::UserAgent->new( agent => 'BIGSdb', timeout => 600 );
 	my $ids =
 	  $script->{'datastore'}
-	  ->run_query( $qry, [ 'RMLSTSpecies', 'RMLSTSpecies', $min_genome_size ], { fetch => 'col_arrayref' } );
+	  ->run_query( $qry, [ 'Kleborate', 'Kleborate', $min_genome_size ], { fetch => 'col_arrayref' } );
 	my $plural = @$ids == 1 ? q() : q(s);
 	my $count  = @$ids;
 	return if !$count;
-	my $job_id = $script->add_job( 'RMLSTSpecies (offline)', { temp_init => 1 } );
+	my $job_id = $script->add_job( 'Kleborate (offline)', { temp_init => 1 } );
 	say qq(\n$config: $count genome$plural to analyse) if !$opts{'quiet'};
-	my $id_obj = BIGSdb::Plugins::Helpers::SpeciesID->new(
-		{
-			config_dir       => CONFIG_DIR,
-			lib_dir          => LIB_DIR,
-			dbase_config_dir => DBASE_CONFIG_DIR,
-			host             => $script->{'system'}->{'host'},
-			port             => $script->{'system'}->{'port'},
-			user             => $script->{'system'}->{'user'},
-			password         => $script->{'system'}->{'password'},
-			options          => {
-				always_run           => 1,
-				throw_busy_exception => 0,
-				job_id               => $job_id,
-				scan_genome          => 0,
-				no_disconnect        => 1
-			},
-			instance => $config,
-			logger   => $logger
-		}
-	);
-	my %label = (
-		0 => 'designations',
-		1 => 'genome sequence'
-	);
-	my @scan_genome = defined $id_obj->rmlst_scheme_exists ? ( 0, 1 ) : (1);
-	my $i           = 0;
-  ISOLATE: foreach my $isolate_id (@$ids) {
-		my $progress = int( ( $i * 100 ) / $count );
-		$script->update_job( $job_id,
-			{ status => { stage => "Checking id-$isolate_id", percent_complete => $progress }, temp_init => 1 } )
-		  ;
-	  RUN: foreach my $run (@scan_genome) {
-			last ISOLATE                                      if $EXIT;
-			print "Scanning id-$isolate_id $label{$run} ... " if !$opts{'quiet'};
-			$id_obj->set_scan_genome($run);
-			my $result = $id_obj->run($isolate_id);
-			if ( $result->{'data'}->{'taxon_prediction'} ) {
-				my @predictions = @{ $result->{'data'}->{'taxon_prediction'} };
-				my @taxa;
-				push @taxa, $_->{'taxon'} foreach @predictions;
-				local $" = q(, );
-				say qq(@taxa.) if !$opts{'quiet'};
-				store_result( $script, $isolate_id, $result );
-				last RUN;
-			} else {
-				say q(no match.) if !$opts{'quiet'};
+	my $i = 0;
+
+	foreach my $isolate_id (@$ids) {
+		my $progress = int( $i * 100 / @$ids );
+		$script->update_job(
+			$job_id,
+			{
+				status    => { stage => "Analysing id-$isolate_id", percent_complete => $progress },
+				temp_init => 1
 			}
-		}
+		);
+		print qq(Processing -id-$isolate_id ...) if !$opts{'quiet'};
+		my $assembly_file = $script->make_assembly_file( $job_id, $isolate_id );
+		my $out_file      = "$script->{'config'}->{'secure_tmp_dir'}/${job_id}_kleborate.txt";
+		system("$script->{'config'}->{'kleborate_path'} --all -o $out_file -a $assembly_file > /dev/null");
+		store_results( $script, $isolate_id, $out_file );
 		$script->set_last_run_time( MODULE_NAME, $isolate_id );
+		unlink $assembly_file;
+		unlink $out_file;
+		say q(done.) if !$opts{'quiet'};
 		$i++;
+		last if $EXIT;
 	}
 	$script->stop_job( $job_id, { temp_init => 1 } );
 	return;
 }
 
-sub store_result {
-	my ( $script, $isolate_id, $record_result ) = @_;
-	my ( $data,   $result,     $response )      = @{$record_result}{qw{data values response}};
-	return if $response->code != 200;
-	my $predictions = ref $result->{'rank'} eq 'ARRAY' ? @{ $result->{'rank'} } : 0;
-	return if !$predictions;
-	my $json = encode_json($data);
+sub extract_results {
+	my ($filename) = @_;
+	open( my $fh, '<', $filename ) || $logger->error("Cannot open $filename for reading");
+	my $header_line = <$fh>;
+	chomp $header_line;
+	my $results_line = <$fh>;
+	chomp $results_line;
+	close $fh;
+	my $headers = [ split /\t/x, $header_line ];
+	my $results = [ split /\t/x, $results_line ];
+	return ( $headers, $results );
+}
+
+sub store_results {
+	my ( $script, $isolate_id, $output_file ) = @_;
+	my $cleaned_results = [];
+	my ( $headers, $results ) = extract_results($output_file);
+	if ( !@$headers || !@$results ) {
+		$logger->error("No valid results for id-$isolate_id");
+		return;
+	}
+	my %ignore = map { $_ => 1 }
+	  qw(strain contig_count N50 largest_contig total_size ambiguous_bases ST Chr_ST gapA infB mdh pgi phoE rpoB tonB);
+	for my $i ( 0 .. @$headers - 1 ) {
+		next if $ignore{ $headers->[$i] };
+		next if !defined $results->[$i] || $results->[$i] eq '-' || $results->[$i] eq '';
+		push @$cleaned_results,
+		  { $headers->[$i] => BIGSdb::Utils::is_int( $results->[$i] ) ? int( $results->[$i] ) : $results->[$i] };
+	}
+	my $version = get_kleborate_version($script);
+	chomp $version;
+	my $json = encode_json( { version => $version, fields => $cleaned_results } );
 	eval {
 		$script->{'db'}
-		  ->do( 'DELETE FROM analysis_results WHERE (isolate_id,name)=(?,?)', undef, $isolate_id, 'RMLSTSpecies' );
+		  ->do( 'DELETE FROM analysis_results WHERE (isolate_id,name)=(?,?)', undef, $isolate_id, MODULE_NAME );
 		$script->{'db'}->do( 'INSERT INTO analysis_results (name,isolate_id,results) VALUES (?,?,?)',
-			undef, 'RMLSTSpecies', $isolate_id, $json );
+			undef, MODULE_NAME, $isolate_id, $json );
+		$script->{'db'}->do(
+			'INSERT INTO last_run (name,isolate_id) VALUES (?,?) ON '
+			  . 'CONFLICT (name,isolate_id) DO UPDATE SET timestamp = now()',
+			undef, MODULE_NAME, $isolate_id
+		);
 	};
 	if ($@) {
 		$logger->error($@);
@@ -232,26 +232,19 @@ sub store_result {
 	return;
 }
 
-sub get_lock_file {
-	my $config_dir = CONFIG_DIR;
-	my $config     = Config::Tiny->read("$config_dir/bigsdb.conf");
-	if ( !defined $config ) {
-		$logger->fatal( 'Unable to read or parse bigsdb.conf file. Reason: ' . Config::Tiny->errstr );
-		$config = Config::Tiny->new();
-	}
-	my $lock_dir  = $config->{_}->{'lock_dir'} // LOCK_DIR;
-	my $lock_file = "$lock_dir/update_rmlst_species";
-	return $lock_file;
-}
-
-sub remove_lock_file {
-	my $lock_file = get_lock_file();
-	unlink $lock_file;
-	return;
+sub get_kleborate_version {
+	my ($script) = @_;
+	return if !-x $script->{'config'}->{'kleborate_path'};
+	my $out = "$script->{'config'}->{'secure_tmp_dir'}/kleborate_$$";
+	local $ENV{'TERM'} = 'dumb';
+	my $version     = system("$script->{'config'}->{'kleborate_path'} --version > $out");
+	my $version_ref = BIGSdb::Utils::slurp($out);
+	unlink $out;
+	return $$version_ref;
 }
 
 sub check_if_script_already_running {
-	my $lock_file = get_lock_file();
+	my $lock_file = get_lock_file('update_kleborate');
 	if ( -e $lock_file ) {
 		open( my $fh, '<', $lock_file ) || $logger->error("Cannot open lock file $lock_file for reading");
 		my $pid = <$fh>;
@@ -272,6 +265,24 @@ sub check_if_script_already_running {
 	return;
 }
 
+sub get_lock_file {
+	my $config_dir = CONFIG_DIR;
+	my $config     = Config::Tiny->read("$config_dir/bigsdb.conf");
+	if ( !defined $config ) {
+		$logger->fatal( 'Unable to read or parse bigsdb.conf file. Reason: ' . Config::Tiny->errstr );
+		$config = Config::Tiny->new();
+	}
+	my $lock_dir  = $config->{_}->{'lock_dir'} // LOCK_DIR;
+	my $lock_file = "$lock_dir/update_kleborate";
+	return $lock_file;
+}
+
+sub remove_lock_file {
+	my $lock_file = get_lock_file();
+	unlink $lock_file;
+	return;
+}
+
 sub show_help {
 	my $termios = POSIX::Termios->new;
 	$termios->getattr;
@@ -280,16 +291,16 @@ sub show_help {
 	my ( $norm, $bold, $under ) = map { $t->Tputs( $_, 1 ) } qw/me md us/;
 	say << "HELP";
 ${bold}NAME$norm
-    ${bold}update_rmlst_species.pl$norm - Perform/update species id check
+    ${bold}update_kleborate.pl$norm - Perform/update Kleborate analysis
 
 ${bold}SYNOPSIS$norm
-    ${bold}update_rmlst_species.pl$norm [${under}options$norm]
+    ${bold}update_kleborate.pl$norm [${under}options$norm]
 
 ${bold}OPTIONS$norm
 
 ${bold}--database$norm ${under}DATABASE CONFIG$norm
     Database configuration name. If not included then all isolate databases
-    defined on the system will be checked.
+    with the Kleborate flag set on their configuration will be checked.
     
 ${bold}--exclude$norm ${under}CONFIG NAMES $norm
     Comma-separated list of config names to exclude.

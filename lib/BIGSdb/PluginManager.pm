@@ -104,7 +104,7 @@ sub get_plugin_categories {
 	{
 		my $attr = $self->{'attributes'}->{$_};
 		next if $attr->{'section'} !~ /$section/x;
-		next if $attr->{'dbtype'} !~ /$dbtype/x;
+		next if $attr->{'dbtype'}  !~ /$dbtype/x;
 		next
 		  if $dbtype eq 'sequences'
 		  && $options->{'seqdb_type'}
@@ -197,6 +197,7 @@ sub get_appropriate_plugin_names {
 		  && ( $attr->{'seqdb_type'} // q() ) eq 'schemes';
 		if ( $attr->{'system_flag'} ) {
 			next if ( $self->{'system'}->{ $attr->{'system_flag'} } // q() ) eq 'no';
+			next if $attr->{'explicit_enable'} && ( $self->{'system'}->{ $attr->{'system_flag'} } // q() ) ne 'yes';
 			next
 			  if (!( ( $self->{'system'}->{'all_plugins'} // q() ) eq 'yes' )
 				&& ( $self->{'system'}->{ $attr->{'system_flag'} } // q() ) ne 'yes' );
@@ -305,7 +306,8 @@ sub _has_required_item {
 		itol_project_name      => 'itol_project_name',
 		phyloviz_user          => 'phyloviz_user',
 		phyloviz_passwd        => 'phyloviz_passwd',
-		microreact_token       => 'microreact_token'
+		microreact_token       => 'microreact_token',
+		kleborate_path         => 'Kleborate'
 	);
 	return 1 if !$required_attr;
 	foreach my $config_param ( keys %requires ) {

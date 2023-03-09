@@ -491,10 +491,11 @@ sub check_new_profile {
 	my @profile;
 	my $empty_profile = 1;
 	my $missing_loci  = 0;
+	my %missing       = map { $_ => 1 } qw(N 0);
 
 	foreach my $locus (@$loci) {
 		push @profile, $designations->{$locus};
-		if ( ( $designations->{$locus} // 'N' ) eq 'N' ) {
+		if ( $missing{ ( $designations->{$locus} // 'N' ) } ) {
 			$missing_loci++;
 		} else {
 			$empty_profile = 0;
@@ -3323,5 +3324,25 @@ sub convert_field_value {
 		return $conversion{ $self->{'cache'}->{'field_types'}->{$field} }->();
 	}
 	return $value;
+}
+
+sub define_missing_allele {
+	my ( $self, $locus, $allele ) = @_;
+	my $seq;
+	if    ( $allele eq '0' ) { $seq = 'null allele' }
+	elsif ( $allele eq 'N' ) { $seq = 'arbitrary allele' }
+	else                     { return }
+	my $sql =
+	  $self->{'db'}
+	  ->prepare( 'INSERT INTO sequences (locus, allele_id, sequence, sender, curator, date_entered, datestamp, '
+		  . 'status) VALUES (?,?,?,?,?,?,?,?)' );
+	eval { $sql->execute( $locus, $allele, $seq, 0, 0, 'now', 'now', '' ) };
+	if ($@) {
+		$logger->error($@) if $@;
+		$self->{'db'}->rollback;
+		return;
+	}
+	$self->{'db'}->commit;
+	return;
 }
 1;

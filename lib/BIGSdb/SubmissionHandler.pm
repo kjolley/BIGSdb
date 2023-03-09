@@ -604,18 +604,33 @@ sub check_new_profiles {
 				$values[$i] =~ s/\s*$//x;
 				$values[$i] =~ s/"//gx;
 				next if !$field_by_pos{$i} || $field_by_pos{$i} eq 'id';
-				if ( $values[$i] eq q(N) && !$scheme_info->{'allow_missing_loci'} ) {
-					push @err, "$row_id: Arbitrary values (N) are not allowed for locus $field_by_pos{$i}.";
-				} elsif ( $values[$i] eq q() ) {
+				if ( $values[$i] eq q() ) {
 					push @err, "$row_id: No value for locus $field_by_pos{$i}.";
-				} else {
-					my $allele_exists = $self->{'datastore'}->sequence_exists( $field_by_pos{$i}, $values[$i] );
-					push @err, "$row_id: $field_by_pos{$i}:$values[$i] has not been defined." if !$allele_exists;
-					$designations->{ $field_by_pos{$i} } = $values[$i];
+					next;
 				}
+				my $allele_exists = $self->{'datastore'}->sequence_exists( $field_by_pos{$i}, $values[$i] );
+				if ( !$scheme_info->{'allow_missing_loci'} ) {
+					if ( $values[$i] eq q(N) ) {
+						push @err, "$row_id: Arbitrary values (N) are not allowed for locus $field_by_pos{$i}.";
+						next;
+					} elsif ( $values[$i] eq q(0) ) {
+						push @err, "$row_id: Missing values (0) are not allowed for locus $field_by_pos{$i}.";
+						next;
+					}
+				} elsif ( !$allele_exists && ( $values[$i] eq q(N) || $values[$i] eq q(0) ) ) {
+					$self->{'datastore'}->define_missing_allele( $field_by_pos{$i}, $values[$i] );
+					$allele_exists = 1;
+				}
+				if ( !$allele_exists ) {
+					push @err, "$row_id: $field_by_pos{$i}:$values[$i] has not been defined." if !$allele_exists;
+				}
+				$designations->{ $field_by_pos{$i} } = $values[$i];
 			}
-			my $profile_status = $self->{'datastore'}->check_new_profile( $scheme_id, $designations );
-			push @err, "$row_id: $profile_status->{'msg'}" if $profile_status->{'exists'};
+			if ( !@err ) {
+				my $profile_status = $self->{'datastore'}->check_new_profile( $scheme_id, $designations );
+				push @err, "$row_id: $profile_status->{'msg'}"
+				  if $profile_status->{'exists'} || $profile_status->{'err'};
+			}
 			push @profiles, { id => $row_id, %$designations };
 			$row_number++;
 		}
@@ -752,10 +767,8 @@ sub _get_isolate_header_positions {
 sub _is_set_locus_name {
 	my ( $self, $set_id, $value ) = @_;
 	return if !$set_id;
-	return $self->{'datastore'}->run_query(
-		'SELECT EXISTS(SELECT * FROM set_loci WHERE (set_id,set_name)=(?,?))',
-		[ $set_id, $value ]
-	);
+	return $self->{'datastore'}
+	  ->run_query( 'SELECT EXISTS(SELECT * FROM set_loci WHERE (set_id,set_name)=(?,?))', [ $set_id, $value ] );
 }
 
 sub _strip_trailing_spaces {

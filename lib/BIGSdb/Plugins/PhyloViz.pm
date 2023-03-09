@@ -1,7 +1,7 @@
 #PhyloViz.pm - phylogenetic inference and data visualization for sequence
 #based typing methods for BIGSdb
 #Written by Emmanuel Quevillon
-#Copyright (c) 2016-2022, Institut Pasteur, Paris
+#Copyright (c) 2016-2023, Institut Pasteur, Paris
 #E-mail: tuco@pasteur.fr
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -64,14 +64,14 @@ sub get_attributes {
 		  . '<a href="https://online.phyloviz.net/">PhyloViz Online</a> for visualisation. Datasets can include '
 		  . 'metadata which allows nodes in the resultant tree to be coloured interactively.',
 		module              => 'PhyloViz',
-		version             => '1.3.1',
+		version             => '1.3.2',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
 		system_flag         => 'PhyloViz',
 		requires            => 'js_tree,phyloviz_user,phyloviz_passwd',
 		help                => 'tooltips',
-		order               => 36,
+		order               => 45,
 		min                 => 2,
 		max                 => 10000,
 		url                 => "$self->{'config'}->{'doclink'}/data_analysis/phyloviz.html",
