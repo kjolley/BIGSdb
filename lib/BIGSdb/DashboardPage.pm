@@ -1100,17 +1100,15 @@ sub print_dashboard {
 		}
 	}
 	say q(</div></div>);
-	if (@$ajax_load) {
-		$self->_print_ajax_load_code(
-			$already_loaded,
-			$ajax_load,
-			{
-				qry_file       => $options->{'qry_file'},
-				list_file      => $options->{'list_file'},
-				list_attribute => $options->{'list_attribute'}
-			}
-		);
-	}
+	$self->_print_ajax_load_code(
+		$already_loaded,
+		$ajax_load,
+		{
+			qry_file       => $options->{'qry_file'},
+			list_file      => $options->{'list_file'},
+			list_attribute => $options->{'list_attribute'}
+		}
+	);
 	return;
 }
 
