@@ -1694,6 +1694,7 @@ sub _get_scheme_values {
 	my $allele_designations =
 	  $self->{'datastore'}->get_scheme_allele_designations( $isolate_id, $scheme_id,
 		{ set_id => $set_id, show_ignored => $self->{'curate'} } );
+	my $scheme_info   = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	local $| = 1;
 	my $buffer = q();
@@ -1713,6 +1714,23 @@ sub _get_scheme_values {
 			}
 		);
 	}
+	if ( $scheme_info->{'allow_presence'} ) {
+		my $present = $self->{'datastore'}->run_query(
+			'SELECT a.locus FROM allele_sequences a JOIN scheme_members s ON a.locus=s.locus '
+			  . 'WHERE (a.isolate_id,s.scheme_id)=(?,?)',
+			[ $isolate_id, $scheme_id ],
+			{ fetch => 'col_arrayref' }
+		);
+		foreach my $locus (@$present) {
+			next if defined $allele_designations->{$locus};
+			$allele_designations->{$locus} = [
+				{
+					allele_id => 'P',
+					status    => 'confirmed'
+				}
+			];
+		}
+	}
 	my $field_values =
 	  $scheme_fields_count ? $self->_get_scheme_field_values( $scheme_id, $allele_designations ) : undef;
 	foreach my $field (@$scheme_fields) {
@@ -1731,7 +1749,6 @@ sub _get_scheme_values {
 			$buffer .= qq(<dl class="profile"><dt>$cleaned</dt><dd>$values</dd></dl>);
 		}
 	}
-	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	if (   $scheme_info->{'primary_key'}
 		&& $field_values->{ $scheme_info->{'primary_key'} }->{'formatted'}
 		&& $self->{'datastore'}->are_lincodes_defined($scheme_id) )
