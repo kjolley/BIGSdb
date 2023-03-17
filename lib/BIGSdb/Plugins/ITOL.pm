@@ -1,6 +1,6 @@
 #ITol.pm - Phylogenetic tree plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2016-2022, University of Oxford
+#Copyright (c) 2016-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -58,7 +58,7 @@ sub get_attributes {
 		buttontext => 'iTOL',
 		menutext   => 'iTOL',
 		module     => 'ITOL',
-		version    => '1.5.7',
+		version    => '1.5.8',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
@@ -443,7 +443,7 @@ sub _generate_paralogous_report {
 	my @loci = sort keys %{ $scan_data->{'paralogous'} };
 	local $" = qq(\t);
 	my $text_file = "$self->{'config'}->{'tmp_dir'}/${job_id}_paralogous.txt";
-	open( my $fh, '>', $text_file ) || $logger->error("Cannot open $text_file for writing");
+	open( my $fh, '>:encoding(utf8)', $text_file ) || $logger->error("Cannot open $text_file for writing");
 	say $fh qq(id\t$self->{'system'}->{'labelfield'}\t@loci);
 	foreach my $isolate_id ( sort { $a <=> $b } keys %{ $scan_data->{'isolate_data'} } ) {
 		my $paralogous = $scan_data->{'isolate_data'}->{$isolate_id}->{'paralogous'};
