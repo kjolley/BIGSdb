@@ -112,6 +112,7 @@ sub get_field_values_by_designations {
 			#on an incomplete set of designations.
 			$values->{$locus}->{'allele_ids'}   = [-999];
 			$values->{$locus}->{'allele_count'} = 1;
+			$missing_loci{$locus} = 1
 		} else {
 			next if $options->{'dont_match_missing_loci'} && $designations->{$locus}->[0]->{'allele_id'} eq 'N';
 

@@ -1327,8 +1327,7 @@ sub get_schemes_table_attributes {
 			  );
 		}
 	}
-	push @$attributes,
-	  (
+	push @$attributes, (
 		{
 			name        => 'display_order',
 			type        => 'int',
@@ -1338,6 +1337,7 @@ sub get_schemes_table_attributes {
 		{
 			name        => 'allow_missing_loci',
 			type        => 'bool',
+			required    => $self->{'system'}->{'dbtype'} eq 'isolates' ? 1 : 0,
 			hide_public => 1,
 			default     => 'false',
 			comments    => q(This is only relevant to schemes with primary key fields, e.g. MLST.),
@@ -1347,14 +1347,16 @@ sub get_schemes_table_attributes {
 		{
 			name        => 'allow_presence',
 			type        => 'bool',
+			required    => $self->{'system'}->{'dbtype'} eq 'isolates' ? 1 : 0,
 			hide_public => 1,
 			default     => 'false',
 			comments    => q(This is only relevant to schemes with primary key fields, e.g. MLST.),
 			tooltip     => q(allow_presence - Allow profiles to contain 'P' (locus present).)
 		}
-	  );
+	);
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		push @$attributes, (
+		push @$attributes,
+		  (
 			{
 				name     => 'max_missing',
 				type     => 'int',
@@ -1376,7 +1378,7 @@ sub get_schemes_table_attributes {
 				comments    => q(Set to true to prevent submission of profiles of this )
 				  . q(scheme via the automated submission system.)
 			}
-		);
+		  );
 	}
 	push @$attributes,
 	  (

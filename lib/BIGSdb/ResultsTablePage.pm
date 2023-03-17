@@ -1129,6 +1129,9 @@ sub _print_isolate_table_scheme {
 		next if !$self->{'prefs'}->{'main_display_loci'}->{$locus};
 		$self->_print_locus_value( $isolate_id, $allele_designations, $locus );
 	}
+	if ( !defined $self->{'scheme_info'}->{$scheme_id} && $scheme_id ) {
+		$self->{'scheme_info'}->{$scheme_id} = $self->{'datastore'}->get_scheme_info($scheme_id);
+	}
 	return
 		 if !$scheme_id
 	  || !@{ $self->{'scheme_fields'}->{$scheme_id} }
@@ -1139,7 +1142,8 @@ sub _print_isolate_table_scheme {
 		next if !$self->{'prefs'}->{'main_display_scheme_fields'}->{$scheme_id}->{$field};
 		if ( !defined $scheme_field_values ) {
 			$scheme_field_values =
-			  $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id );
+			  $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id,
+				{ allow_presence => $self->{'scheme_info'}->{$scheme_id}->{'allow_presence'} } );
 		}
 		my @values;
 		my $field_values = $self->_sort_scheme_field_values( $scheme_field_values, $field );
