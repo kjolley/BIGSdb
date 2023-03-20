@@ -173,6 +173,11 @@ sub _print_interface {
 		$errors = $self->_autofill( $scheme_id, $loci );
 	}
 	say q(<div class="scrollable">);
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $scheme_info->{'allow_presence'} ) {
+		say q(<p>Note that although this scheme allows profiles to be defined by locus presence )
+		  . q((including incomplete sequences), results here will only include isolates where allele )
+		  . q(designations have been assigned.</p>);
+	}
 	say $q->start_form;
 	$self->_print_profile_table_fieldset( $scheme_id, $loci );
 	if (
@@ -362,6 +367,8 @@ sub _generate_query {
 		my $locus_qry;
 		if ( $values{$locus} eq 'N' ) {
 			$locus_qry = "($table.locus=E'$cleaned_locus'";    #don't match allele_id because it can be anything
+		} elsif ( $values{$locus} eq 'P' ) {
+			$locus_qry = "($table.locus=E'$cleaned_locus' AND ($table.allele_id != '0')";
 		} else {
 			my $arbitrary_clause = $scheme_info->{'allow_missing_loci'} ? q(,'N') : q();
 			$locus_qry =
