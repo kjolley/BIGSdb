@@ -1,6 +1,6 @@
 /**
  * Written by Keith Jolley 
- * Copyright (c) 2021-2022, University of Oxford 
+ * Copyright (c) 2021-2023, University of Oxford 
  * E-mail: keith.jolley@zoo.ox.ac.uk
  * 
  * This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -138,7 +138,6 @@ function reloadTable() {
 	$("div#waiting").css("display", "block");
 	let includeOld = $("#include_old_versions").is(":checked") ? 1 : 0;
 	let new_url = url + "&page=explorer&updateTable=1&field=" + field + "&record_age=" + recordAge + "&include_old_versions=" + includeOld;
-	console.log(projectId);
 	if (typeof projectId !== 'undefined'){
 		new_url += "&project_id=" + projectId;
 	}

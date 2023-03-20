@@ -584,7 +584,7 @@ sub _generate_query {
 	$self->_modify_by_filter( \$qry2, $locus );
 	$self->_modify_query_by_mutations( \$qry2, $locus );
 	$qry2 .= $self->_process_flags;
-	$qry2 .= q( AND sequences.allele_id NOT IN ('0', 'N'));
+	$qry2 .= q( AND sequences.allele_id NOT IN ('0', 'N', 'P'));
 	$qry2 .= q( ORDER BY );
 	$q->param( order => 'allele_id' ) if !defined $q->param('order');
 

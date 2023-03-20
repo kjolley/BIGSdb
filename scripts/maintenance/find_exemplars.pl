@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Find and mark exemplar alleles for use by tagging functions
 #Written by Keith Jolley
-#Copyright (c) 2016-2020, University of Oxford
+#Copyright (c) 2016-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20201129
+#Version: 20230308
 use strict;
 use warnings;
 use 5.010;
@@ -154,9 +154,10 @@ sub main {
 }
 
 sub get_alleles {
-	my ($locus)    = @_;
+	my ($locus) = @_;
 	my $locus_info = $script->{'datastore'}->get_locus_info($locus);
-	my $qry        = q(SELECT allele_id,sequence FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N') ORDER BY )
+	my $qry =
+	  q(SELECT allele_id,sequence FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N', 'P') ORDER BY )
 	  . ( $locus_info->{'allele_id_format'} eq 'integer' ? q(CAST(allele_id AS int)) : q(allele_id) );
 	my $alleles = $script->{'datastore'}->run_query( $qry, $locus, { fetch => 'all_arrayref' } );
 	$script->{'db'}->commit;    #Prevent idle in transaction
@@ -167,7 +168,7 @@ sub show_help {
 	my $termios = POSIX::Termios->new;
 	$termios->getattr;
 	my $ospeed = $termios->getospeed;
-	my $t = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
+	my $t      = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
 	my ( $norm, $bold, $under ) = map { $t->Tputs( $_, 1 ) } qw(me md us);
 	say << "HELP";
 ${bold}NAME$norm

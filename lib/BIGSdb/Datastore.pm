@@ -420,6 +420,23 @@ sub _convert_designations_to_profile_names {
 sub get_scheme_field_values_by_isolate_id {
 	my ( $self, $isolate_id, $scheme_id, $options ) = @_;
 	my $designations = $self->get_scheme_allele_designations( $isolate_id, $scheme_id );
+	if ( $options->{'allow_presence'} ) {
+		my $present = $self->run_query(
+			'SELECT a.locus FROM allele_sequences a JOIN scheme_members s ON a.locus=s.locus '
+			  . 'WHERE (a.isolate_id,s.scheme_id)=(?,?)',
+			[ $isolate_id, $scheme_id ],
+			{ fetch => 'col_arrayref', cache => 'Datastore::get_scheme_field_values_by_isolate_id' }
+		);
+		foreach my $locus (@$present) {
+			next if defined $designations->{$locus};
+			$designations->{$locus} = [
+				{
+					allele_id => 'P',
+					status    => 'confirmed'
+				}
+			];
+		}
+	}
 	return {} if !$designations;
 	my $field_values = $self->get_scheme_field_values_by_designations( $scheme_id, $designations, $options );
 	return $field_values;
@@ -1044,7 +1061,8 @@ sub get_scheme {
 				port               => $attributes->{'dbase_port'},
 				user               => $attributes->{'dbase_user'},
 				password           => $attributes->{'dbase_password'},
-				allow_missing_loci => $attributes->{'allow_missing_loci'}
+				allow_missing_loci => $attributes->{'allow_missing_loci'},
+				allow_presence     => $attributes->{'allow_presence'}
 			);
 			try {
 				$attributes->{'db'} = $self->{'dataConnector'}->get_connection( \%att );
@@ -1130,6 +1148,11 @@ sub create_temp_isolate_scheme_fields_view {
 	  $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
 	if ( !$options->{'cache'} ) {
 		return $table if $table_exists;
+		my $scheme_info = $self->get_scheme_info($scheme_id);
+		if ( $scheme_info->{'allow_presence'} ) {
+			$logger->error( "$self->{'instance'} scheme:$scheme_id uses locus presence/absence. Scheme caching must "
+				  . 'be enabled for this scheme to return reliable results.' );
+		}
 
 		#Using the embedded database function is much quicker for small schemes but does not
 		#scale well for large schemes.
@@ -1194,16 +1217,21 @@ sub create_temp_isolate_scheme_fields_view {
 			push @f_values, "$scheme_field $scheme_field_info->{'type'}";
 		}
 		foreach my $isolate_id (@$isolates) {
-
-			#We know that the scheme_cache table exists and is up-to-date because we have just
-			#created it. We can therefore use an embedded plpgsql function to lookup values
-			#directly in the database, which will be quicker and use less memory.
 			local $" = q(,);
-			my $field_values = $self->run_query(
-				"SELECT @$scheme_fields FROM get_isolate_scheme_fields(?,?) f(@f_values)",
-				[ $isolate_id, $scheme_id ],
-				{ fetch => 'all_arrayref', slice => {}, cache => "Pg::get_isolate_scheme_fields::$scheme_id" }
-			);
+			my $field_values;
+			if ( $scheme_info->{'allow_presence'} ) {
+				$field_values = $self->_get_field_values_from_presence_scheme( $isolate_id, $scheme_id );
+			} else {
+
+				#We know that the scheme_cache table exists and is up-to-date because we have just
+				#created it. We can therefore use an embedded plpgsql function to lookup values
+				#directly in the database, which will be quicker and use less memory.
+				$field_values = $self->run_query(
+					"SELECT @$scheme_fields FROM get_isolate_scheme_fields(?,?) f(@f_values)",
+					[ $isolate_id, $scheme_id ],
+					{ fetch => 'all_arrayref', slice => {}, cache => "Pg::get_isolate_scheme_fields::$scheme_id" }
+				);
+			}
 			$i++;
 			if ( $options->{'method'} =~ /^daily/x ) {
 				$delete_sql->execute($isolate_id);
@@ -1240,6 +1268,28 @@ sub create_temp_isolate_scheme_fields_view {
 	$self->{'db'}->commit;
 	delete $options->{'status'}->{'stage_progress'};
 	return $table;
+}
+
+sub _get_field_values_from_presence_scheme {
+	my ( $self, $isolate_id, $scheme_id ) = @_;
+	my $designations = $self->get_scheme_allele_designations( $isolate_id, $scheme_id );
+	my $present      = $self->run_query(
+		'SELECT a.locus FROM allele_sequences a JOIN scheme_members s ON a.locus=s.locus '
+		  . 'WHERE (a.isolate_id,s.scheme_id)=(?,?)',
+		[ $isolate_id, $scheme_id ],
+		{ fetch => 'col_arrayref', cache => 'Datastore::_get_field_values_from_presence_scheme::presence' }
+	);
+	foreach my $locus (@$present) {
+		next if defined $designations->{$locus};
+		$designations->{$locus} = [
+			{
+				allele_id => 'P',
+				status    => 'confirmed'
+			}
+		];
+	}
+	return $self->get_scheme_field_values_by_designations( $scheme_id, $designations,
+		{ no_status => 1, dont_match_missing_loci => 1 } );
 }
 
 #https://stackoverflow.com/questions/45983169/checking-for-existence-of-index-in-postgresql
@@ -3331,12 +3381,14 @@ sub define_missing_allele {
 	my $seq;
 	if    ( $allele eq '0' ) { $seq = 'null allele' }
 	elsif ( $allele eq 'N' ) { $seq = 'arbitrary allele' }
+	elsif ( $allele eq 'P' ) { $seq = 'locus is present' }
 	else                     { return }
 	my $sql =
 	  $self->{'db'}
 	  ->prepare( 'INSERT INTO sequences (locus, allele_id, sequence, sender, curator, date_entered, datestamp, '
 		  . 'status) VALUES (?,?,?,?,?,?,?,?)' );
 	eval { $sql->execute( $locus, $allele, $seq, 0, 0, 'now', 'now', '' ) };
+
 	if ($@) {
 		$logger->error($@) if $@;
 		$self->{'db'}->rollback;

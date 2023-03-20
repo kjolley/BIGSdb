@@ -96,6 +96,7 @@ sub get_field_values_by_designations {
 	my $loci   = $self->{'loci'};
 	my $fields = $self->{'fields'};
 	my @used_loci;
+	my %missing_loci;
 	my $values = {};
 
 	#The original version of the query used placeholders. It was found, however, that memory usage
@@ -111,6 +112,7 @@ sub get_field_values_by_designations {
 			#on an incomplete set of designations.
 			$values->{$locus}->{'allele_ids'}   = [-999];
 			$values->{$locus}->{'allele_count'} = 1;
+			$missing_loci{$locus} = 1
 		} else {
 			next if $options->{'dont_match_missing_loci'} && $designations->{$locus}->[0]->{'allele_id'} eq 'N';
 
@@ -118,6 +120,7 @@ sub get_field_values_by_designations {
 			$values->{$locus}->{'allele_count'} = scalar @{ $designations->{$locus} };
 			my $allele_ids = [];
 			foreach my $designation ( @{ $designations->{$locus} } ) {
+				$missing_loci{$locus} = 1 if $designation->{'allele_id'} eq '0';
 				$designation->{'allele_id'} =~ s/'/\\'/gx;
 				push @$allele_ids, $designation->{'status'} eq 'ignore' ? '-999' : $designation->{'allele_id'};
 			}
@@ -129,10 +132,13 @@ sub get_field_values_by_designations {
 	local $" = ',';
 	my @locus_terms;
 	foreach my $locus (@used_loci) {
-		if ( $self->{'allow_missing_loci'}
-			&& ( !defined $options->{'dont_match_missing_loci'} || $options->{'dont_match_missing_loci'} ) )
-		{
-			push @{ $values->{$locus}->{'allele_ids'} }, 'N';
+		if (!defined $options->{'dont_match_missing_loci'} || $options->{'dont_match_missing_loci'} ){
+			if ( $self->{'allow_missing_loci'}){
+				push @{ $values->{$locus}->{'allele_ids'} }, 'N';
+			}
+			if ( $self->{'allow_presence'} && !$missing_loci{$locus} ){
+				push @{ $values->{$locus}->{'allele_ids'} }, 'P';
+			}
 		}
 		local $" = q(',E');
 		push @locus_terms, "profile[$self->{'locus_index'}->{$locus}] IN (E'@{ $values->{$locus}->{'allele_ids'} }')";

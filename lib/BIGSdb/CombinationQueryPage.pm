@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -47,11 +47,11 @@ sub get_help_url {
 }
 
 sub print_content {
-	my ($self) = @_;
-	my $system = $self->{'system'};
-	my $q      = $self->{'cgi'};
+	my ($self)    = @_;
+	my $system    = $self->{'system'};
+	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id') // 0;
-	my $desc = $self->get_db_description;
+	my $desc      = $self->get_db_description;
 	$self->populate_submission_params;
 	if ( ( $self->{'system'}->{'dbtype'} // q() ) eq 'isolates' ) {
 		if ( $q->param('add_to_project') ) {
@@ -125,8 +125,7 @@ sub _autofill {
 				foreach my $locus (@$loci) {
 					$q->param( "l_$locus" => $loci_values->[ $indices->{$locus} ] );
 				}
-			}
-			catch {
+			} catch {
 				if ( $_->isa('BIGSdb::Exception::Database::Configuration') ) {
 					push @errors, 'Error retrieving information from remote database - check configuration.';
 				} else {
@@ -146,15 +145,6 @@ sub _autofill {
 	return \@errors;
 }
 
-sub _get_col_width {
-	my ( $self, $has_pk, $all_integers ) = @_;
-	if ($has_pk) {
-		return $all_integers ? 7 : 4;
-	} else {
-		return $all_integers ? 14 : 7;
-	}
-}
-
 sub _print_interface {
 	my ( $self, $scheme_id ) = @_;
 	my $q = $self->{'cgi'};
@@ -163,7 +153,7 @@ sub _print_interface {
 	my $primary_key = $scheme_info->{'primary_key'};
 	my $set_id      = $self->get_set_id;
 	my $loci =
-	    $scheme_id
+		$scheme_id
 	  ? $self->{'datastore'}->get_scheme_loci($scheme_id)
 	  : $self->{'datastore'}->get_loci( { query_pref => 1, set_id => $set_id } );
 	my $scheme_fields;
@@ -174,7 +164,18 @@ sub _print_interface {
 		$errors = $self->_autofill( $scheme_id, $loci );
 	}
 	say q(<div class="scrollable">);
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $scheme_info->{'allow_presence'} ) {
+		say q(<p>Note that although this scheme allows profiles to be defined by locus presence )
+		  . q((including incomplete sequences), results here will only include isolates where allele )
+		  . q(designations have been assigned.</p>);
+	}
 	say $q->start_form;
+
+	#Hidden button fires if user presses Enter but it mimics clicking the Search button (which is not
+	#the first button on the page). Otherwise, the 'Autofill' button would be used.
+	say q(<button style="overflow: visible !important; height: 0 !important; width: 0 !important; margin: 0 )
+	  . q(!important; border: 0 !important; padding: 0 !important; display: block !important;" )
+	  . q(type="submit" name="submit" value="Search"></button>);
 	$self->_print_profile_table_fieldset( $scheme_id, $loci );
 	if (
 		$primary_key
@@ -323,7 +324,7 @@ sub _generate_query {
 						$1, { fetch => 'col_arrayref' } );
 					local $" = ', ';
 					push @errors,
-					    "Locus $1 has been defined with more than one value (due to an "
+						"Locus $1 has been defined with more than one value (due to an "
 					  . 'alias for this locus also being used). The following alias(es) exist '
 					  . "for this locus: @$aliases";
 					next;
@@ -344,10 +345,18 @@ sub _generate_query {
 				&& !BIGSdb::Utils::is_int( $values{$locus} )
 			)
 			&& !( $scheme_info->{'allow_missing_loci'} && $values{$locus} eq 'N' )
+			&& !( $scheme_info->{'allow_presence'}     && $values{$locus} eq 'P' )
 		  )
 		{
-			my $arbitrary_msg = $scheme_info->{'allow_missing_loci'} ? ' Arbitrary values (N) may also be used.' : '';
-			push @errors, "$locus is an integer field.$arbitrary_msg";
+			my @can_use;
+			push @can_use, 'arbitrary values (N)' if $scheme_info->{'allow_missing_loci'};
+			push @can_use, 'locus presence (P)'   if $scheme_info->{'allow_presence'};
+			my $arbitrary_msg = q();
+			if (@can_use) {
+				local $" = ' and ';
+				$arbitrary_msg = ucfirst(qq(@can_use may also be used.));
+			}
+			push @errors, "$locus is an integer field. $arbitrary_msg";
 			next;
 		}
 		next if $values{$locus} eq '';
@@ -355,6 +364,8 @@ sub _generate_query {
 		my $locus_qry;
 		if ( $values{$locus} eq 'N' ) {
 			$locus_qry = "($table.locus=E'$cleaned_locus'";    #don't match allele_id because it can be anything
+		} elsif ( $values{$locus} eq 'P' ) {
+			$locus_qry = "($table.locus=E'$cleaned_locus' AND ($table.allele_id != '0')";
 		} else {
 			my $arbitrary_clause = $scheme_info->{'allow_missing_loci'} ? q(,'N') : q();
 			$locus_qry =
@@ -377,11 +388,11 @@ sub _generate_query {
 			#not using DISTINCT if we don't need it.
 			my $count_item = $scheme_info->{'allow_missing_loci'} ? 'DISTINCT(ad.locus)' : '*';
 			$create_temp_table =
-			    "CREATE TEMP TABLE count_table AS SELECT $view.id,COUNT($count_item) AS count FROM $view "
+				"CREATE TEMP TABLE count_table AS SELECT $view.id,COUNT($count_item) AS count FROM $view "
 			  . "JOIN allele_designations ad ON $view.id=ad.isolate_id WHERE @lqry GROUP BY $view.id";
 		} else {
 			$create_temp_table =
-			    'CREATE TEMP TABLE count_table AS SELECT pm.profile_id AS id,COUNT(*) AS count FROM profile_members pm '
+				'CREATE TEMP TABLE count_table AS SELECT pm.profile_id AS id,COUNT(*) AS count FROM profile_members pm '
 			  . "WHERE pm.scheme_id=$scheme_id AND (@lqry) GROUP BY pm.profile_id";
 		}
 		$create_temp_table .= ';CREATE INDEX ON count_table(count)';
@@ -390,14 +401,14 @@ sub _generate_query {
 			my $match = $self->{'datastore'}->run_query('SELECT MAX(count) FROM count_table');
 			if ($match) {
 				$required_matches = $match;
-				$msg = $self->_get_match_msg( $match, scalar @lqry );
+				$msg              = $self->_get_match_msg( $match, scalar @lqry );
 			}
 		}
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 			$qry = "SELECT * FROM $view WHERE $view.id IN (SELECT id FROM count_table WHERE count>=$required_matches)";
 		} else {
 			$qry =
-			    "SELECT * FROM $scheme_warehouse WHERE $scheme_warehouse.$scheme_info->{'primary_key'} IN "
+				"SELECT * FROM $scheme_warehouse WHERE $scheme_warehouse.$scheme_info->{'primary_key'} IN "
 			  . "(SELECT id FROM count_table WHERE count>=$required_matches)";
 		}
 	}
@@ -458,7 +469,7 @@ sub _add_query_ordering {
 		$$qry_ref .= " $dir,$view.id;";
 	} else {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-		my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $scheme_info->{'primary_key'} );
+		my $pk_info     = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $scheme_info->{'primary_key'} );
 		my $profile_id_field =
 		  $pk_info->{'type'} eq 'integer'
 		  ? "lpad($scheme_info->{'primary_key'},20,'0')"
@@ -515,7 +526,7 @@ sub _run_query {
 		push @hidden_attributes, $_ foreach qw(scheme matches project_list);
 		my $set_id = $self->get_set_id;
 		my $loci =
-		    $scheme_id
+			$scheme_id
 		  ? $self->{'datastore'}->get_scheme_loci($scheme_id)
 		  : $self->{'datastore'}->get_loci( { query_pref => 1, set_id => $set_id } );
 		foreach my $locus (@$loci) {
@@ -523,7 +534,7 @@ sub _run_query {
 		}
 		push @hidden_attributes, qw(scheme_id matches_list temp_table_file);
 		my $table = $self->{'system'}->{'dbtype'} eq 'isolates' ? $self->{'system'}->{'view'} : 'profiles';
-		my $args = { table => $table, query => $qry, message => $msg, hidden_attributes => \@hidden_attributes };
+		my $args  = { table => $table, query => $qry, message => $msg, hidden_attributes => \@hidden_attributes };
 		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
 		$self->paged_display($args);
 	} else {

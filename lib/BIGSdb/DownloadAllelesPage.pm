@@ -377,7 +377,7 @@ sub _print_sequences {
 	my $locus_info = $self->{'datastore'}->get_locus_info( $locus, { set_id => $set_id } );
 	( my $cleaned = $locus_info->{'set_name'} // $locus ) =~ s/^_//x;
 	$cleaned =~ tr/ /_/;
-	my $qry = q(SELECT allele_id,sequence FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N') ORDER BY )
+	my $qry = q(SELECT allele_id,sequence FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N', 'P') ORDER BY )
 	  . ( $locus_info->{'allele_id_format'} eq 'integer' ? q(CAST(allele_id AS int)) : q(allele_id) );
 	my $alleles = $self->{'datastore'}->run_query( $qry, $locus, { fetch => 'all_arrayref' } );
 	if ( !@$alleles ) {

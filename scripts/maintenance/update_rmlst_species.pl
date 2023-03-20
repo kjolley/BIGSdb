@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20230306
+#Version: 20230310
 use strict;
 use warnings;
 use 5.010;
@@ -262,7 +262,7 @@ sub check_if_script_already_running {
 			  if !$opts{'quiet'};
 			unlink $lock_file;
 		} else {
-			say 'Script already running with these parameters - terminating.' if !$opts{'quiet'};
+			say 'Script already running - terminating.' if !$opts{'quiet'};
 			exit(1);
 		}
 	}

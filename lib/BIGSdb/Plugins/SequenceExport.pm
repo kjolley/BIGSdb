@@ -56,7 +56,7 @@ sub get_attributes {
 		buttontext => 'Sequences',
 		menutext   => $seqdef ? 'Profile sequences' : 'Sequences',
 		module     => 'SequenceExport',
-		version    => '1.7.4',
+		version    => '1.7.5',
 		dbtype     => 'isolates,sequences',
 		seqdb_type => 'schemes',
 		section    => 'isolate_info,profile_info,export,postquery',
@@ -432,7 +432,7 @@ sub _run_job_profiles {
 				  $self->{'datastore'}->get_profile_allele_designation( $scheme_id, $id, $locus_name )->{'allele_id'};
 				my $allele_seq_ref = $self->{'datastore'}->get_sequence( $locus_name, $allele_id );
 				say $fh_unaligned $header;
-				if ( $allele_id eq '0' || $allele_id eq 'N' ) {
+				if ( $allele_id eq '0' || $allele_id eq 'N' || $allele_id eq 'P' ) {
 					say $fh_unaligned 'N';
 					$no_seq{$id} = 1;
 				} else {

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2018, University of Oxford
+#Copyright (c) 2011-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -25,15 +25,13 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
 sub get_title {
-	my ($self) = @_;
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
-	return "Configuration repair - $desc";
+	return 'Configuration repair';
 }
 
 sub print_content {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
+	my $q      = $self->{'cgi'};
+	my $desc   = $self->{'system'}->{'description'} || 'BIGSdb';
 	say qq(<h1>Configuration repair - $desc</h1>);
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$self->print_bad_status(

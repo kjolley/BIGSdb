@@ -92,8 +92,14 @@ sub print_content {
 		push @$data,
 		  {
 			title => 'description',
-			data  => q(This is an arbitrary allele.  When included in a profile it means that this locus is ignored.)
+			data  => q(This is an arbitrary allele. When included in a profile it means that this locus is ignored.)
 		  };
+	} elsif ( $allele_id eq 'P' ) {
+		push @$data, {
+			title => 'description',
+			data  => q(When included in a profile it means that this locus is present )
+			  . q((it may or may not have an allele designated and it may be incomplete).)
+		};
 	} else {
 		push @$data,
 		  (

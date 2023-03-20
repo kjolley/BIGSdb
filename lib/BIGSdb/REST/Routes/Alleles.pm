@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2022, University of Oxford
+#Copyright (c) 2014-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -54,7 +54,7 @@ sub _get_alleles {
 	my ( $allele_count, $last_updated ) = $self->{'datastore'}->run_query( $qry, $locus_name );
 	my $page_values = $self->get_page_values($allele_count);
 	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
-	$qry = $self->add_filters( q(SELECT allele_id FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N')),
+	$qry = $self->add_filters( q(SELECT allele_id FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N', 'P')),
 		$allowed_filters );
 	$qry .= q( ORDER BY ) . ( $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS int)' : 'allele_id' );
 	$qry .= qq( LIMIT $self->{'page_size'} OFFSET $offset) if !param('return_all');
@@ -148,7 +148,7 @@ sub _get_alleles_fasta {
 		send_error( "Locus $locus does not exist.", 404 );
 	}
 	my $qry =
-	  $self->add_filters( q(SELECT allele_id,sequence FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N')),
+	  $self->add_filters( q(SELECT allele_id,sequence FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N', 'P')),
 		$allowed_filters );
 	$qry .= q( ORDER BY ) . ( $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS int)' : 'allele_id' );
 	my $alleles = $self->{'datastore'}->run_query( $qry, $locus_name, { fetch => 'all_arrayref', slice => {} } );
