@@ -145,15 +145,6 @@ sub _autofill {
 	return \@errors;
 }
 
-sub _get_col_width {
-	my ( $self, $has_pk, $all_integers ) = @_;
-	if ($has_pk) {
-		return $all_integers ? 7 : 4;
-	} else {
-		return $all_integers ? 14 : 7;
-	}
-}
-
 sub _print_interface {
 	my ( $self, $scheme_id ) = @_;
 	my $q = $self->{'cgi'};
@@ -179,6 +170,12 @@ sub _print_interface {
 		  . q(designations have been assigned.</p>);
 	}
 	say $q->start_form;
+
+	#Hidden button fires if user presses Enter but it mimics clicking the Search button (which is not
+	#the first button on the page). Otherwise, the 'Autofill' button would be used.
+	say q(<button style="overflow: visible !important; height: 0 !important; width: 0 !important; margin: 0 )
+	  . q(!important; border: 0 !important; padding: 0 !important; display: block !important;" )
+	  . q(type="submit" name="submit" value="Search"></button>);
 	$self->_print_profile_table_fieldset( $scheme_id, $loci );
 	if (
 		$primary_key
