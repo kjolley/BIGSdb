@@ -44,10 +44,11 @@ GRANT SELECT,UPDATE,INSERT,DELETE ON sequences_peptide_mutations TO apache;
 
 CREATE TABLE dna_mutations (
 id int NOT NULL UNIQUE,
-name text NOT NULL,
 locus text NOT NULL,
-position int NOT NULL,
-wt_nuc char(1) NOT NULL,
+wild_type_allele_id text,
+reported_position int NOT NULL,
+locus_position int NOT NULL,
+wild_type_nuc text NOT NULL,
 variant_nuc text NOT NULL,
 curator integer NOT NULL,
 datestamp date NOT NULL,
