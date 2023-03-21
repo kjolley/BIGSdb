@@ -2775,8 +2775,7 @@ sub _get_scheme_designations {
 				my %methods = (
 					'NOT' => sub {
 						if ( lc($text) eq 'null' ) {
-							push @sqry,
-							  "($view.id NOT IN ($temp_qry WHERE $field IS NULL) AND $view.id IN ($temp_qry))";
+							push @sqry, "($view.id IN ($temp_qry WHERE $field IS NOT NULL))";
 						} else {
 							push @sqry,
 							  $scheme_field_info->{'type'} eq 'integer'
@@ -2813,7 +2812,8 @@ sub _get_scheme_designations {
 					'=' => sub {
 						if ( lc($text) eq 'null' ) {
 							push @sqry_blank,
-							  "($view.id IN ($temp_qry WHERE $field IS NULL) OR $view.id NOT IN ($temp_qry))";
+							  "($view.id IN (SELECT $view.id FROM $view LEFT JOIN $isolate_scheme_field_view ON "
+							  . "$view.id=$isolate_scheme_field_view.id WHERE $field IS NULL))";
 						} else {
 							push @sqry,
 							  $scheme_field_info->{'type'} eq 'text'
