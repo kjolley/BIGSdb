@@ -84,6 +84,11 @@ sub run_script {
 			my $limit = DAILY_REPLACE_LIMIT;
 			$self->{'logger'}->error( "Daily replace limit is $limit. $count records were modified today. "
 				  . 'Scheme renewal cancelled. Run full refresh if necessary.' );
+			$status->{'status'} = 'failed';
+			my $nice_count = BIGSdb::Utils::commify($count);
+			$status->{'message'} =
+			  "Too many records for daily_replace ($nice_count) - re-run using method: full.";
+			$self->_write_status_file($status);
 			$self->stop_job( $job_id, { temp_init => 1 } );
 			return;
 		}

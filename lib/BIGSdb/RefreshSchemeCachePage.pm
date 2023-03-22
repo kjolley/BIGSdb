@@ -144,6 +144,17 @@ function read_status(){
 					clearInterval(interval);
 					finish();
 				}
+				if (typeof response['status'] !== 'undefined'){
+					if (response['status'] === 'failed'){
+						clearInterval(interval);
+						finish();
+						let msg = 'Failed.'
+						if (typeof response['message'] !== 'undefined'){
+							msg = response['message'];
+						}
+						\$("p#results").html(msg);
+					}
+				}
 			},
 		});
 	 }, 2000);
