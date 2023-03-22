@@ -26,7 +26,7 @@ use BIGSdb::Exceptions;
 use Try::Tiny;
 use constant TAG_USER                 => -1;    #User id for tagger (there needs to be a record in the users table)
 use constant DEFAULT_WORD_SIZE        => 60;    #Only looking for exact matches
-use constant MISSING_ALLELE_ALIGNMENT => 30;
+use constant MISSING_ALLELE_ALIGNMENT => 50;
 use constant MISSING_ALLELE_IDENTITY  => 50;
 use constant PROBLEM                  => 1;
 
