@@ -26,7 +26,7 @@ use BIGSdb::Exceptions;
 use Try::Tiny;
 use constant TAG_USER                 => -1;    #User id for tagger (there needs to be a record in the users table)
 use constant DEFAULT_WORD_SIZE        => 60;    #Only looking for exact matches
-use constant MISSING_ALLELE_ALIGNMENT => 50;
+use constant MISSING_ALLELE_ALIGNMENT => 30;
 use constant MISSING_ALLELE_IDENTITY  => 50;
 use constant PROBLEM                  => 1;
 
@@ -43,7 +43,7 @@ sub run_script {
 	if ( !$user_ok ) {
 		if ( !defined $self->{'options'}->{'curator_id'} ) {
 			die 'No autotagger user with a status of curator or admin set. Enter a user with id -1 in the database '
-			. "to represent the auto tagger.\n";
+			  . "to represent the auto tagger.\n";
 		} else {
 			die "No curator/admin with a user id of $self->{'user_id'} exists.\n";
 		}
@@ -234,8 +234,8 @@ sub _get_params {
 		}
 	}
 	if ( $self->{'options'}->{'0'} ) {
-		$params->{'alignment'} = MISSING_ALLELE_ALIGNMENT;
-		$params->{'identity'}  = MISSING_ALLELE_IDENTITY;
+		$params->{'alignment'} = $self->{'options'}->{'missing_alignment'} // MISSING_ALLELE_ALIGNMENT;
+		$params->{'identity'}  = $self->{'options'}->{'missing_identity'}  // MISSING_ALLELE_IDENTITY;
 	}
 	$params->{$_} = $self->{'options'}->{$_} foreach qw(exemplar fast type_alleles);
 	$params->{'partial_matches'} = 100 if $self->{'options'}->{'exemplar'};

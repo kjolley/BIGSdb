@@ -61,6 +61,8 @@ GetOptions(
 	'x|min=i'              => \$opts{'x'},
 	'y|max=i'              => \$opts{'y'},
 	'0|missing'            => \$opts{'0'},
+	'missing_alignment=f'  => \$opts{'missing_alignment'},
+	'missing_identity=f'   => \$opts{'missing_identity'},
 	'h|help'               => \$opts{'h'},
 	'n|new_only'           => \$opts{'n'},
 	'new_max_alleles=i'    => \$opts{'new_max_alleles'},
@@ -223,6 +225,12 @@ ${bold}-L, --exclude_loci$norm ${under}LIST$norm
 ${bold}-m, --min_size$norm ${under}SIZE$norm
     Minimum size of seqbin (bp) - limit search to isolates with at least this
     much sequence.
+    
+${bold}--missing_alignment$norm ${under}PERCENTAGE$norm
+    Minimum alignment threshold to use when tagging missing loci (default 30)
+    
+${bold}--missing_identity$norm ${under}PERCENTAGE$norm
+    Minimum identity threshold to use when tagging missing loci (default 50)   
            
 ${bold}-n, --new_only$norm
     New (previously untagged) isolates only.  Combine with --new_max_alleles
