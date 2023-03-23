@@ -596,7 +596,6 @@ sub _generate_query {
 	my $dir = ( $q->param('direction') // '' ) eq 'descending' ? 'desc' : 'asc';
 	$qry2 .= " $dir;";
 	$qry2 =~ s/sequence_length/length(sequence)/g;
-	$logger->error($qry2);
 	return ( $qry2, $list_file, $errors );
 }
 

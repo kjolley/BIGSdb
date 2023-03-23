@@ -1,4 +1,4 @@
-/*Version: 20230112*/
+/*Version: 20230322*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -1310,14 +1310,18 @@ div.curategroup {
 	border: 1px solid #ccc;
 	border-radius: 10px;
 	float: left;
-	min-width: 10em
+	width: 10em;
+	height: 10em;
 }
 
 div.curategroup h2 {
-	font-family: pt_sansbold, sans-serif;
-	font-size: 1.15em;
-	color: #8080a0;
-	margin: 0 0 0.5em 0
+	font-family: pt_sans, sans-serif;
+	font-size: 1em;
+	color: #393976;
+	margin: 0 0 0.5em 0;
+	width:80%;
+	position: absolute;
+	z-index:9
 }
 
 div.curategroup_users {
@@ -2430,7 +2434,9 @@ span.plugin_icon {
 
 span.curate_icon {
 	color: #aaa;
-	text-shadow: 3px 3px 3px #999
+	opacity: 0.4;
+	text-shadow: 3px 3px 3px #999;
+	position: relative;
 }
 
 span.info_icon {
@@ -2764,7 +2770,8 @@ button.plugin:hover {
 }
 
 .curate_icon_info {
-	color: #88c
+	color: #88c;
+	z-index:9
 }
 
 .curate_icon_batch_edit {

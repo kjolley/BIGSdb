@@ -710,15 +710,25 @@ sub _get_profile_fields {
 sub _get_mutation_fields {
 	my ($self) = @_;
 	my $buffer = q();
-	
 	if ( $self->can_modify_table('dna_mutations') && $self->_locus_type_exists('DNA') ) {
-		#TODO Add support for identifying SNPs.
+		$buffer .= q(<div class="curategroup curategroup_loci grid-item locus_admin" )
+		  . qq(style="display:$self->{'optional_locus_admin_display'}"><h2>Single nucleotide polymorphisms</h2>);
+		$buffer .= $self->_get_icon_group(
+			'dna_mutations',
+			'dna',
+			{
+				add       => 1,
+				batch_add => 1,
+				query     => 1
+			}
+		);
+		$buffer .= qq(</div>\n);
 	}
 	if ( $self->can_modify_table('peptide_mutations')
 		&& ( $self->_locus_type_exists('peptide') || $self->_locus_type_exists('DNA') ) )
 	{
 		$buffer .= q(<div class="curategroup curategroup_loci grid-item locus_admin" )
-		  . qq(style="display:$self->{'optional_locus_admin_display'}"><h2>Peptide mutations</h2>);
+		  . qq(style="display:$self->{'optional_locus_admin_display'}"><h2>Single AA variations</h2>);
 		$buffer .= $self->_get_icon_group(
 			'peptide_mutations',
 			'dna',
@@ -1899,9 +1909,9 @@ sub _get_icon_group {
 	$links--
 	  if ( $options->{'query'} || $options->{'query_only'} ) && !$records_exist && !$options->{'always_show_query'};
 	my $pos    = 4.8 - BIGSdb::Utils::decimal_place( $links * 2.2 / 2, 1 );
-	my $buffer = q(<span style="position:relative">);
+	my $buffer = q(<span style="position:relative;top:2.5em">);
 	if ( $options->{'info'} ) {
-		$buffer .= q(<span style="position:absolute;right:2em;bottom:6.5em">);
+		$buffer .= q(<span style="position:absolute;right:0.2em;bottom:7.5em">);
 		$buffer .= qq(<a style="cursor:help" title="$options->{'info'}" class="tooltip">);
 		$buffer .= q(<span class="curate_icon_highlight curate_icon_info fas fa-info-circle"></span>);
 		$buffer .= qq(</a></span>\n);
