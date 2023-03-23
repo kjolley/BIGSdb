@@ -4280,13 +4280,13 @@ sub print_panel_buttons {
 
 sub _print_modify_dashboard_trigger {
 	say q(<span class="icon_button"><a class="trigger_button" id="dashboard_panel_trigger" style="display:none">)
-	  . q(<span class="fas fa-lg fa-tools"></span><div class="icon_label">Modify dashboard</div></a></span>);
+	  . q(<span class="fas fa-lg fa-tools"></span><span class="icon_label">Modify dashboard</span></a></span>);
 	return;
 }
 
 sub _print_dashboard_toggle {
 	say q(<span class="icon_button"><a class="trigger_button" id="dashboard_toggle">)
-	  . q(<span class="fas fa-lg fa-th-list"></span><div class="icon_label">Index page</div></a></span>);
+	  . q(<span class="fas fa-lg fa-th-list"></span><span class="icon_label">Index page</span></a></span>);
 	return;
 }
 

@@ -183,6 +183,7 @@ END
 	var \$grid = \$(".grid").packery({
        	itemSelector: '.grid-item',
   		gutter: 10,
+  		stamp: '.stamp'
     });        
     \$(window).resize(function() {
     	delay(function(){
@@ -1908,15 +1909,17 @@ sub _get_icon_group {
 	}
 	$links--
 	  if ( $options->{'query'} || $options->{'query_only'} ) && !$records_exist && !$options->{'always_show_query'};
-	my $pos    = 4.8 - BIGSdb::Utils::decimal_place( $links * 2.2 / 2, 1 );
-	my $buffer = q(<span style="position:relative;top:2.5em">);
+	my $buffer;
 	if ( $options->{'info'} ) {
-		$buffer .= q(<span style="position:absolute;right:0.2em;bottom:7.5em">);
+		$buffer .= q(<span style="position:absolute;right:1.5em;top:0.2em">);
 		$buffer .= qq(<a style="cursor:help" title="$options->{'info'}" class="tooltip">);
 		$buffer .= q(<span class="curate_icon_highlight curate_icon_info fas fa-info-circle"></span>);
 		$buffer .= qq(</a></span>\n);
 	}
-	$buffer .= qq(<span class="curate_icon fa-7x fa-fw $fa_class fa-$icon"></span>);
+	$buffer .=
+	  qq(<span class="curate_icon_span"><span class="curate_icon fa-7x fa-fw $fa_class fa-$icon"></span></span>);
+	$buffer .= q(<span class="curate_buttonbar">);
+	my $pos = 5.7 - BIGSdb::Utils::decimal_place( $links * 2.2 / 2, 1 );
 	if ( $options->{'add'} ) {
 		my $url = $options->{'add_url'}
 		  // qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=$table);
@@ -2060,7 +2063,7 @@ sub print_content {
 			  . qq(style="display:$off" title="Showing common functions"></span>);
 			say q(<span id="all_curator_methods_on" class="toggle_icon fas fa-toggle-on fa-2x" )
 			  . qq(style="display:$on" title="Showing all authorized functions"></span>);
-			say q(<span style="vertical-align:0.4em">Show all</a></span>);
+			say q(<span style="vertical-align:0.4em">Show all</span></a>);
 			say q(</div>);
 		}
 		say q(<span class="main_icon fas fa-user-tie fa-3x fa-pull-left"></span>);
@@ -2085,6 +2088,8 @@ sub print_content {
 		say q(<span class="config_icon fas fa-user-cog fa-3x fa-pull-left"></span>);
 		say q(<h2>Admin functions</h2>);
 		say q(<div class="grid" id="admin_grid">);
+		say q(<div class="grid-item stamp" style="position:absolute;right:0;width:100px;height:178px;z-index:0"></div>)
+		  ;
 		say $buffer;
 		say q(</div>);
 		say q(<div style="clear:both"></div>);
@@ -2116,8 +2121,8 @@ sub print_panel_buttons {
 
 sub _print_admin_toggles {
 	my ( $self, $buffer ) = @_;
-	say q(<div style="float:right">);
-	say q(<ul style="list-style:none">);
+	say q(<div style="position:absolute;right:16px;z-index:9">);
+	say q(<ul style="list-style:none;padding-left:0">);
 	my %label = (
 		locus  => 'Loci',
 		scheme => 'Schemes',

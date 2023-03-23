@@ -286,7 +286,7 @@ sub print_panel_buttons {
 		|| $q->param('First') )
 	{
 		say q(<span class="icon_button"><a class="trigger_button" id="panel_trigger" style="display:none">)
-		  . q(<span class="fas fa-lg fa-wrench"></span><div class="icon_label">Modify form</div></a></span>);
+		  . q(<span class="fas fa-lg fa-wrench"></span><span class="icon_label">Modify form</span></a></span>);
 	}
 	return;
 }
