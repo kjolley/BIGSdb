@@ -681,8 +681,8 @@ sub _strip_invalid_chars {
 			$line =~ s/\s//gx;
 			$line =~ s/\-//gx;
 		} else {
-			$line =~ s/\s*$/_/gx;
 			$line =~ s/\s/_/gx;
+			$line =~ s/\#/_/gx;
 		}
 		$new_seq .= qq($line\n);
 	}
