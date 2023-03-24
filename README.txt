@@ -1,3 +1,5 @@
+v1.41.3: *Add Kleborate plugin.
+v1.41.2: *Add choice of colour palettes to front-end and query dashboards.
 v1.41.1: *Option to define dashboard colours for specific field values.
 v1.41.0: *Bug fix for scheme field ordering in cache tables.
 v1.40.1: *Check, and add if necessary, field indexes on scheme cache tables.
