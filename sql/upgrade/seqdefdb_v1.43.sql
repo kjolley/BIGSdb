@@ -59,3 +59,26 @@ ON UPDATE CASCADE
 );
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON dna_mutations TO apache;
+
+CREATE TABLE sequences_dna_mutations (
+locus text NOT NULL,
+allele_id text NOT NULL,
+mutation_id int NOT NULL,
+nucleotide char(1) NOT NULL,
+is_wild_type boolean NOT NULL,
+is_mutation boolean NOT NULL,
+curator integer NOT NULL,
+datestamp date NOT NULL,
+PRIMARY KEY(locus, allele_id, mutation_id),
+CONSTRAINT sdm_sequences FOREIGN KEY (locus,allele_id) REFERENCES sequences
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT sdm_mutation_id FOREIGN KEY (mutation_id) REFERENCES dna_mutations
+ON DELETE CASCADE
+ON UPDATE CASCADE,
+CONSTRAINT sdm_curator FOREIGN KEY (curator) REFERENCES users
+ON DELETE NO ACTION
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON sequences_dna_mutations TO apache;
