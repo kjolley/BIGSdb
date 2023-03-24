@@ -1581,8 +1581,21 @@ sub _add_allele_query_info {
 		$locus, { fetch => 'all_arrayref', slice => {}, cache => 'ResultsTablePage:get_peptide_mutations' } );
 	$count = @$peptide_mutations;
 	if ($count) {
-		push @$html_table_headers1, qq(<th colspan="$count">Peptide mutations</th>);
+		my $tooltip = $self->get_tooltip( q(SAV - single amino-acid variation), { style => 'color:white' } );
+		push @$html_table_headers1, qq(<th colspan="$count">SAV$tooltip</th>);
 		foreach my $mutation (@$peptide_mutations) {
+			push @$headers,             "position $mutation->{'reported_position'}";
+			push @$html_table_headers2, qq(<th>position $mutation->{'reported_position'}</th>);
+		}
+	}
+	my $snps =
+	  $self->{'datastore'}->run_query( 'SELECT * FROM dna_mutations WHERE locus=? ORDER BY reported_position,id',
+		$locus, { fetch => 'all_arrayref', slice => {}, cache => 'ResultsTablePage:get_dna_mutations' } );
+	$count = @$snps;
+	if ($count) {
+		my $tooltip = $self->get_tooltip( q(SNP - single nucleotide polymorphism), { style => 'color:white' } );
+		push @$html_table_headers1, qq(<th colspan="$count">SNPs$tooltip</th>);
+		foreach my $mutation (@$snps) {
 			push @$headers,             "position $mutation->{'reported_position'}";
 			push @$html_table_headers2, qq(<th>position $mutation->{'reported_position'}</th>);
 		}
@@ -1795,6 +1808,24 @@ sub _print_sequences_extended_fields {
 		if ( $result && !$wt{ $result->{'amino_acid'} } ) {
 			local $" = q();
 			print qq(<td>@wt$mutation->{'reported_position'}$result->{'amino_acid'}</td>);
+		} else {
+			print q(<td></td>);
+		}
+	}
+		my $snps =
+	  $self->{'datastore'}->run_query( 'SELECT * FROM dna_mutations WHERE locus=? ORDER BY reported_position,id',
+		$data->{'locus'}, { fetch => 'all_arrayref', slice => {}, cache => 'ResultsTablePage:get_dna_mutations' } );
+	foreach my $mutation (@$snps) {
+		my $result = $self->{'datastore'}->run_query(
+			'SELECT * FROM sequences_dna_mutations WHERE (locus,allele_id,mutation_id)=(?,?,?)',
+			[ $data->{'locus'}, $data->{'allele_id'}, $mutation->{'id'} ],
+			{ fetch => 'row_hashref', cache => 'ResultsTablePage:get_sequences_dna_mutations' }
+		);
+		my @wt = split /;/x, $mutation->{'wild_type_nuc'};
+		my %wt = map { $_ => 1 } @wt;
+		if ( $result && !$wt{ $result->{'nucleotide'} } ) {
+			local $" = q();
+			print qq(<td>@wt$mutation->{'reported_position'}$result->{'nucleotide'}</td>);
 		} else {
 			print q(<td></td>);
 		}

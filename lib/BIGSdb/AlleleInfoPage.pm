@@ -95,11 +95,12 @@ sub print_content {
 			data  => q(This is an arbitrary allele. When included in a profile it means that this locus is ignored.)
 		  };
 	} elsif ( $allele_id eq 'P' ) {
-		push @$data, {
+		push @$data,
+		  {
 			title => 'description',
 			data  => q(When included in a profile it means that this locus is present )
 			  . q((it may or may not have an allele designated and it may be incomplete).)
-		};
+		  };
 	} else {
 		push @$data,
 		  (
@@ -127,6 +128,7 @@ sub print_content {
 	push @$data, @$extended_attributes;
 	say $self->get_list_block($data);
 	say q(</div>);
+	$self->_print_nucleotide_mutations( $locus, $allele_id );
 	$self->_print_peptide_mutations( $locus, $allele_id );
 	$self->_print_accessions( $locus, $allele_id );
 	$self->_print_ref_links( $locus, $allele_id );
@@ -334,6 +336,52 @@ sub _print_accessions {
 			say q(<div class="expand_link" id="expand_accessions"><span class="fas fa-chevron-down"></span></div>);
 		}
 	}
+	return;
+}
+
+sub _print_nucleotide_mutations {
+	my ( $self, $locus, $allele_id ) = @_;
+	my $list = [];
+	my $peptide_mutations =
+	  $self->{'datastore'}->run_query( 'SELECT * FROM dna_mutations WHERE locus=? ORDER BY reported_position,id',
+		$locus, { fetch => 'all_arrayref', slice => {} } );
+	return if !@$peptide_mutations;
+	foreach my $mutation (@$peptide_mutations) {
+		my $data = $self->{'datastore'}->run_query(
+			'SELECT * FROM sequences_dna_mutations WHERE (locus,allele_id,mutation_id)=(?,?,?)',
+			[ $locus, $allele_id, $mutation->{'id'} ],
+			{ fetch => 'row_hashref', cache => 'AlleleInfoPage::get_sequence_dna_mutation' }
+		);
+		if ($data) {
+			my $value;
+			if ( $data->{'is_wild_type'} ) {
+				$value = "WT ($data->{'nucleotide'})";
+			} elsif ( $data->{'is_mutation'} ) {
+				( my $wt = $mutation->{'wild_type_nuc'} ) =~ s/;//gx;
+				$value = "$wt$mutation->{'reported_position'}$data->{'nucleotide'}";
+			}
+			push @$list,
+			  {
+				title => "position $mutation->{'reported_position'}",
+				data  => $value
+			  };
+		}
+	}
+	return if !@$list;
+	my $plural = @$list > 1 ? q(s) : q();
+	my $count  = @$list;
+	my ( $display, $offset );
+	if ( @$list > 4 ) {
+		$display = 'none';
+		$offset  = 0.1;
+	} else {
+		$display = 'block';
+		$offset  = -0.1;
+	}
+	say q(<span class="info_icon fas fa-2x fa-fw fa-star-of-life fa-pull-left" )
+	  . qq(style="margin-top:${offset}em"></span>);
+	say qq(<h2 style="display:inline">Single nucleotide polymorphism$plural ($count)</h2>);
+	say $self->get_list_block($list);
 	return;
 }
 
