@@ -923,7 +923,10 @@ sub _run_table_specific_field_checks {
 			$self->_check_data_scheme_fields($new_args);
 		},
 		peptide_mutations => sub {
-			$self->_check_peptide_mutation_fields($new_args);
+			$self->_check_mutation_fields( $new_args, 'peptide' );
+		},
+		dna_mutations => sub {
+			$self->_check_mutation_fields( $new_args, 'dna' );
 		}
 	);
 	$further_checks{$table}->() if $further_checks{$table};
@@ -937,17 +940,20 @@ sub _run_table_specific_reformatting {
 			$self->_rewrite_geography_point_data($new_args);
 		},
 		peptide_mutations => sub {
-			$self->_rewrite_peptide_mutations_data($new_args);
+			$self->_rewrite_mutations_data($new_args);
+		},
+		dna_mutations => sub {
+			$self->_rewrite_mutations_data($new_args);
 		}
 	);
 	$methods{$table}->() if $methods{$table};
 	return;
 }
 
-sub _rewrite_peptide_mutations_data {
+sub _rewrite_mutations_data {
 	my ( $self,  $args )  = @_;
 	my ( $field, $value ) = @{$args}{qw(field value)};
-	if ($field =~ /aa$/x){
+	if ( $field =~ /aa$/x || $field =~ /nuc$/x ) {
 		$$value =~ s/\s//gx;
 	}
 	return;
@@ -1258,22 +1264,33 @@ sub _check_data_refs {
 	return;
 }
 
-sub _check_peptide_mutation_fields {
-	my ( $self, $arg_ref ) = @_;
+sub _check_mutation_fields {
+	my ( $self, $arg_ref, $type ) = @_;
+	my ( $variant_field, $wt_field, $value_type );
+	if ( $type eq 'peptide' ) {
+		$variant_field = 'variant_aa';
+		$wt_field      = 'wild_type_aa';
+		$value_type    = 'amino acid';
+	} else {
+		$variant_field = 'variant_nuc';
+		$wt_field      = 'wild_type_nuc';
+		$value_type    = 'nucleotide';
+	}
 	my $field          = $arg_ref->{'field'};
 	my $value          = ${ $arg_ref->{'value'} };
 	my $pk_combination = $arg_ref->{'pk_combination'};
-	if ( $field eq 'variant_aa' ) {
+	if ( $field eq $variant_field ) {
 		$value =~ s/\s//gx;
 		my @variants = split /;/x, $value;
 		my %used_variant;
-		my $wt_string = $arg_ref->{'data'}->[ $arg_ref->{'file_header_pos'}->{'wild_type_aa'} ];
+		my $wt_string = $arg_ref->{'data'}->[ $arg_ref->{'file_header_pos'}->{$wt_field} ];
 		my @wt        = split /\s*;\s*/x, $wt_string;
 		my %wt        = map { $_ => 1 } @wt;
 		my %used_wt;
 		foreach my $variant (@variants) {
 			if ( $wt{$variant} ) {
-				$arg_ref->{'problems'}->{$pk_combination} .= 'Variant amino acid is the same as wild-type.<br />';
+				$arg_ref->{'problems'}->{$pk_combination} .=
+				  "Variant $value_type '$variant' is the same as wild-type.<br />";
 			}
 			if ( $used_variant{$variant} ) {
 				$arg_ref->{'problems'}->{$pk_combination} .= "Variant '$variant' is listed more than once.<br />";

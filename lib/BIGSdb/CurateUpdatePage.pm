@@ -76,10 +76,10 @@ sub _pre_check_failed {
 }
 
 sub print_content {
-	my ($self) = @_;
-	my $q      = $self->{'cgi'};
-	my $vars   = $q->Vars;
-	my $table  = $q->param('table');
+	my ($self)      = @_;
+	my $q           = $self->{'cgi'};
+	my $vars        = $q->Vars;
+	my $table       = $q->param('table');
 	my $record_name = $self->get_record_name($table) // 'record';
 	say qq(<h1>Update $record_name</h1>);
 	return if $self->_pre_check_failed($table);
@@ -122,7 +122,7 @@ sub print_content {
 	$self->modify_dataset_if_needed( $table, [$data] );
 	local $" = q( );
 	my $disabled_fields = $self->_get_disabled_fields( $table, $data );
-	my $icon = $self->get_form_icon( $table, 'edit' );
+	my $icon            = $self->get_form_icon( $table, 'edit' );
 	$buffer .=
 	  $self->create_record_table( $table, $data, { update => 1, disabled => $disabled_fields, icon => $icon } );
 	my %newdata;
@@ -159,7 +159,7 @@ sub _get_message {
 	if ( $table eq 'users' && $options->{'update'} ) {
 		if ( $data->{'user_db'} ) {
 			my $msg =
-			    q(<div class="box" id="message"><p>The name, E-mail and affiliation of this user are )
+				q(<div class="box" id="message"><p>The name, E-mail and affiliation of this user are )
 			  . q(imported from the site user database. Modifying these here will change them for all )
 			  . q(databases on the system that this account uses. Changes to status affect only this )
 			  . q(database.</p>);
@@ -242,7 +242,10 @@ sub _upload {
 				$status = $self->_check_lincode_prefix_values( $newdata, $extra_inserts );
 			},
 			peptide_mutations => sub {
-				$status = $self->_check_peptide_mutations($newdata);
+				$status = $self->_check_mutations($newdata,'peptide');
+			},
+			dna_mutations => sub {
+				$status = $self->_check_mutations($newdata,'dna');
 			}
 		);
 		$methods{$table}->() if $methods{$table};
@@ -346,7 +349,7 @@ sub _check_users {
 	{
 		$self->print_bad_status(
 			{
-				    message => q(It is not a good idea to remove admin status from )
+					message => q(It is not a good idea to remove admin status from )
 				  . q(yourself as you will lock yourself out!  If you really wish to do this, you will need )
 				  . q(to do it from another admin account.)
 			}
@@ -374,50 +377,60 @@ sub _check_lincode_schemes {
 
 sub _check_lincode_prefix_values {
 	my ( $self, $newdata, $extra_inserts ) = @_;
-	my $type = $self->{'datastore'}->run_query('SELECT type FROM lincode_fields WHERE (scheme_id,field)=(?,?)',
-	[$newdata->{'scheme_id'},$newdata->{'field'}]);
-	if ($type eq 'integer' && !BIGSdb::Utils::is_int($newdata->{'value'})){
+	my $type = $self->{'datastore'}->run_query( 'SELECT type FROM lincode_fields WHERE (scheme_id,field)=(?,?)',
+		[ $newdata->{'scheme_id'}, $newdata->{'field'} ] );
+	if ( $type eq 'integer' && !BIGSdb::Utils::is_int( $newdata->{'value'} ) ) {
 		$self->print_bad_status(
 			{
-				    message => q(Field value must be an integer)
+				message => q(Field value must be an integer)
 			}
 		);
 		return FAILURE;
-		
 	}
 	return;
 }
 
-sub _check_peptide_mutations {
-	my ($self, $newdata) = @_;
-	$newdata->{'variant_aa'} =~ s/\s//gx;
-	$newdata->{'wild_type_aa'} =~ s/\s//gx;
-	my @variants = split /;/x,$newdata->{'variant_aa'};
+sub _check_mutations {
+	my ( $self, $newdata, $type ) = @_;
+	my ( $variant_field, $wt_field, $value_type );
+	if ( $type eq 'peptide' ) {
+		$variant_field = 'variant_aa';
+		$wt_field      = 'wild_type_aa';
+		$value_type    = 'amino acid';
+	} else {
+		$variant_field = 'variant_nuc';
+		$wt_field      = 'wild_type_nuc';
+		$value_type    = 'nucleotide';
+	}
+	$newdata->{$variant_field} =~ s/\s//gx;
+	$newdata->{$wt_field}      =~ s/\s//gx;
+	my @variants = split /;/x, $newdata->{$variant_field};
 	my %used_variant;
-	my @wt = split /;/x,$newdata->{'wild_type_aa'};
-	my %wt = map {$_ => 1}@wt;
+	my @wt = split /;/x, $newdata->{$wt_field};
+	my %wt = map { $_ => 1 } @wt;
 	my %used_wt;
 	my @problems;
-	foreach my $variant (@variants){
-		if ($wt{$variant}){
-			push @problems, 'Variant amino acid is the same as wild-type.';
+
+	foreach my $variant (@variants) {
+		if ( $wt{$variant} ) {
+			push @problems, "Variant $value_type '$variant' is the same as wild-type.";
 		}
-		if ($used_variant{$variant}){
+		if ( $used_variant{$variant} ) {
 			push @problems, "Variant '$variant' is listed more than once.";
 		}
 		$used_variant{$variant} = 1;
 	}
-	foreach my $wt (@wt){
-		if ($used_wt{$wt}){
+	foreach my $wt (@wt) {
+		if ( $used_wt{$wt} ) {
 			push @problems, "WT '$wt' is listed more than once.";
 		}
 		$used_wt{$wt} = 1;
 	}
-	if (@problems){
+	if (@problems) {
 		local $" = q(<br />);
 		$self->print_bad_status(
 			{
-				    message => qq(@problems)
+				message => qq(@problems)
 			}
 		);
 		return FAILURE;
@@ -520,7 +533,7 @@ sub _check_loci {
 		if ($non_int) {
 			$self->print_bad_status(
 				{
-					    message => q(The sequence table already contains data with )
+						message => q(The sequence table already contains data with )
 					  . q(non-integer allele ids. You will need to remove these before you can change the )
 					  . q(allele_id_format to 'integer'.)
 				}
@@ -727,7 +740,7 @@ sub _prepare_extra_inserts_for_loci {
 	  ( scalar $q->param('full_name'), scalar $q->param('product'), scalar $q->param('description') );
 	if ($existing_desc) {
 		if (   $full_name ne ( $existing_desc->{'full_name'} // '' )
-			|| $product ne ( $existing_desc->{'product'} // '' )
+			|| $product ne ( $existing_desc->{'product'}         // '' )
 			|| $description ne ( $existing_desc->{'description'} // '' ) )
 		{
 			push @$extra_inserts,
@@ -1100,8 +1113,8 @@ sub _prepare_extra_inserts_for_seqbin {
 
 sub get_title {
 	my ($self) = @_;
-	my $table = $self->{'cgi'}->param('table');
-	my $type = $self->get_record_name($table) // 'record';
+	my $table  = $self->{'cgi'}->param('table');
+	my $type   = $self->get_record_name($table) // 'record';
 	return qq(Update $type);
 }
 1;

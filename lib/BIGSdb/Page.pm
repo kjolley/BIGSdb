@@ -2048,7 +2048,8 @@ sub get_record_name {
 		sequence_extended_attributes      => 'sequence extended attribute',
 		geography_point_lookup            => 'geography point lookup value',
 		curator_configs                   => 'curator database configuration',
-		peptide_mutations                 => 'peptide mutation'
+		peptide_mutations                 => 'peptide mutation definition',
+		dna_mutations                     => 'single nucleotide polymorphism definition'
 	);
 	return $names{$table};
 }

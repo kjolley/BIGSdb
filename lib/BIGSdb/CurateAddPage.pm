@@ -220,7 +220,7 @@ sub _insert {
 	my %check_tables = map { $_ => 1 } qw(accession loci locus_aliases locus_descriptions profile_refs scheme_fields
 	  scheme_group_group_members sequences sequence_bin sequence_refs retired_profiles classification_group_fields
 	  retired_isolates schemes users eav_fields classification_group_field_values lincode_schemes lincode_prefixes
-	  projects peptide_mutations );
+	  projects peptide_mutations dna_mutations );
 
 	if (
 		   $table ne 'retired_isolates'
@@ -721,26 +721,49 @@ sub _check_locus_aliases {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 	return;
 }
 
-sub _check_peptide_mutations {## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_peptide_mutations {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata, $problems ) = @_;
-	$newdata->{'variant_aa'} =~ s/\s//gx;
-	$newdata->{'wild_type_aa'} =~ s/\s//gx;
-	my @variants = split /;/x,$newdata->{'variant_aa'};
+	$self->_check_mutations( $newdata, $problems, 'peptide' );
+	return;
+}
+
+sub _check_dna_mutations {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $newdata, $problems ) = @_;
+	$self->_check_mutations( $newdata, $problems, 'dna' );
+	return;
+}
+
+sub _check_mutations {
+	my ( $self, $newdata, $problems, $type ) = @_;
+	my ( $variant_field, $wt_field, $value_type );
+	if ( $type eq 'peptide' ) {
+		$variant_field = 'variant_aa';
+		$wt_field      = 'wild_type_aa';
+		$value_type    = 'amino acid';
+	} else {
+		$variant_field = 'variant_nuc';
+		$wt_field      = 'wild_type_nuc';
+		$value_type    = 'nucleotide';
+	}
+	$newdata->{$variant_field} =~ s/\s//gx;
+	$newdata->{$wt_field}      =~ s/\s//gx;
+	my @variants = split /;/x, $newdata->{$variant_field};
 	my %used_variant;
-	my @wt = split /;/x,$newdata->{'wild_type_aa'};
-	my %wt = map {$_ => 1}@wt;
+	my @wt = split /;/x, $newdata->{$wt_field};
+	my %wt = map { $_ => 1 } @wt;
 	my %used_wt;
-	foreach my $variant (@variants){
-		if ($wt{$variant}){
-			push @$problems, 'Variant amino acid is the same as wild-type.';
+
+	foreach my $variant (@variants) {
+		if ( $wt{$variant} ) {
+			push @$problems, "Variant $value_type '$variant' is the same as wild-type.";
 		}
-		if ($used_variant{$variant}){
+		if ( $used_variant{$variant} ) {
 			push @$problems, "Variant '$variant' is listed more than once.";
 		}
 		$used_variant{$variant} = 1;
 	}
-	foreach my $wt (@wt){
-		if ($used_wt{$wt}){
+	foreach my $wt (@wt) {
+		if ( $used_wt{$wt} ) {
 			push @$problems, "WT '$wt' is listed more than once.";
 		}
 		$used_wt{$wt} = 1;
