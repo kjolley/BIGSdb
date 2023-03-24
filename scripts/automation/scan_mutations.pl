@@ -78,9 +78,8 @@ if ( !$opts{'d'} ) {
 }
 die "This script can only be run against a seqdef database.\n"
   if ( $script->{'system'}->{'dbtype'} // '' ) ne 'sequences';
-$opts{'flanking'} //= 10;
-if ( $opts{'flanking'} < 5 || $opts{'flanking'} > 20 ) {
-	die "Flanking length should be between 5 and 20.\n";
+if ( defined $opts{'flanking'} && ( $opts{'flanking'} < 10 || $opts{'flanking'} > 50 ) ) {
+	die "Flanking length should be between 10 and 50.\n";
 }
 main();
 undef $script;
@@ -93,7 +92,7 @@ sub main {
 		}
 		if ( $locus_record->{'locus_type'} eq 'DNA' ) {
 			if ( $locus_record->{'mutation_type'} eq 'DNA' ) {    #Mutation defined by DNA position
-				die "Mutation defined by DNA position not yet supported.\n";
+				dna_locus_dna_mutation( $locus_record->{'locus'} );
 			} else {                                              #Mutation defined by peptide position
 				dna_locus_peptide_mutation( $locus_record->{'locus'} );
 			}
@@ -119,7 +118,7 @@ sub remove_existing_designations {
 sub get_loci_with_mutations {
 	my $loci     = $script->get_selected_loci;
 	my $filtered = [];
-	foreach my $mutation_type (qw(peptide dna)) {
+	foreach my $mutation_type (qw(peptide DNA)) {
 		my $loci_with_mutations =
 		  $script->{'datastore'}
 		  ->run_query( "SELECT locus FROM ${mutation_type}_mutations", undef, { fetch => 'col_arrayref' } );
@@ -169,22 +168,75 @@ sub dna_locus_peptide_mutation {
 				$mutation->{'wild_type_aa'}
 			);
 		}
-		( my $wt = $mutation->{'wild_type_aa'} ) =~ s/;//gx;
-		(my $variant = $mutation->{'variant_aa'}) =~ s/;//gx;
-		  say "$locus - $wt$mutation->{'reported_position'}$variant:"
+		( my $wt      = $mutation->{'wild_type_aa'} ) =~ s/;//gx;
+		( my $variant = $mutation->{'variant_aa'} )   =~ s/;//gx;
+		say "$locus - $wt$mutation->{'reported_position'}$variant:"
 		  if !$opts{'quiet'};
 		if ( !$most_common_length ) {
 			$logger->error( "$locus: No sequences found with WT amino acid '$mutation->{'wild_type_aa'}' "
 				  . "at position $mutation->{'locus_position'}." );
 			next;
 		}
-		my $motifs = define_motifs(
-			$sequences, $most_common_length,
+		my $flanking = $opts{'flanking'} // $mutation->{'flanking_length'};
+		my $motifs   = define_motifs(
+			$sequences, $flanking, $most_common_length,
 			$mutation->{'locus_position'},
 			$mutation->{'wild_type_aa'},
 			$mutation->{'variant_aa'}
 		);
 		annotate_alleles_with_peptide_mutations( $locus, $mutation->{'id'}, $motifs );
+	}
+	return;
+}
+
+sub dna_locus_dna_mutation {
+	my ($locus) = @_;
+	my $sequences = get_dna_alleles($locus);
+	if ( !@$sequences ) {
+		$logger->error("No sequences defined for $locus.");
+		return;
+	}
+	my $mutations =
+	  $script->{'datastore'}->run_query( 'SELECT * FROM dna_mutations WHERE locus=? ORDER BY locus_position',
+		$locus, { fetch => 'all_arrayref', slice => {}, cache => 'get_locus_dna_mutations' } );
+	foreach my $mutation (@$mutations) {
+		my $alleles_to_check = get_alleles_to_check_dna_mutations( $locus, $mutation->{'id'} );
+		next if !@$alleles_to_check;
+		my $most_common_length;
+		if ( defined $mutation->{'wild_type_allele_id'} ) {
+			my $wt_seq = extract_allele( $sequences, $mutation->{'wild_type_allele_id'} );
+			if ( !defined $wt_seq ) {
+				die "Wild type allele defined for $locus (allele $mutation->{'wild_type_allele_id'}) does not exist.\n";
+			}
+			$most_common_length = find_most_common_sequence_length_with_wt(
+				[$wt_seq],
+				$mutation->{'locus_position'},
+				$mutation->{'wild_type_nuc'}
+			);
+		} else {
+			$most_common_length = find_most_common_sequence_length_with_wt(
+				$sequences,
+				$mutation->{'locus_position'},
+				$mutation->{'wild_type_nuc'}
+			);
+		}
+		( my $wt      = $mutation->{'wild_type_nuc'} ) =~ s/;//gx;
+		( my $variant = $mutation->{'variant_nuc'} )   =~ s/;//gx;
+		say "$locus - $wt$mutation->{'reported_position'}$variant:"
+		  if !$opts{'quiet'};
+		if ( !$most_common_length ) {
+			$logger->error( "$locus: No sequences found with WT nucleotide '$mutation->{'wild_type_nuc'}' "
+				  . "at position $mutation->{'locus_position'}." );
+			next;
+		}
+		my $flanking = $opts{'flanking'} // $mutation->{'flanking_length'};
+		my $motifs   = define_motifs(
+			$sequences, $flanking, $most_common_length,
+			$mutation->{'locus_position'},
+			$mutation->{'wild_type_nuc'},
+			$mutation->{'variant_nuc'}
+		);
+		annotate_alleles_with_dna_mutations( $locus, $mutation->{'id'}, $motifs );
 	}
 	return;
 }
@@ -211,6 +263,19 @@ sub get_alleles_to_check_peptide_mutations {
 	);
 }
 
+sub get_alleles_to_check_dna_mutations {
+	my ( $locus, $mutation_id ) = @_;
+	my $locus_info = $script->{'datastore'}->get_locus_info($locus);
+	my $order      = $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS int)' : 'allele_id';
+	return $script->{'datastore'}->run_query(
+		'SELECT allele_id,sequence FROM sequences s WHERE locus=? AND allele_id NOT IN (?,?) AND allele_id NOT IN '
+		  . '(SELECT allele_id FROM sequences_dna_mutations m WHERE (m.locus,m.mutation_id)=(s.locus,?)) ORDER '
+		  . "BY $order",
+		[ $locus, 0, 'N', $mutation_id ],
+		{ fetch => 'all_arrayref', slice => {}, cache => 'get_alleles_to_check_dna_mutations' }
+	);
+}
+
 sub annotate_alleles_with_peptide_mutations {
 	my ( $locus, $mutation_id, $motifs ) = @_;
 	my $alleles  = get_alleles_to_check_peptide_mutations( $locus, $mutation_id );
@@ -221,7 +286,8 @@ sub annotate_alleles_with_peptide_mutations {
 	my $job_id      = BIGSdb::Utils::get_random();
 	my $db_type     = 'prot';
 	create_blast_database( $job_id, $db_type, $motifs->{'motifs'} );
-	my $pos = $opts{'flanking'} - $motifs->{'offset'};
+	my $flanking = $opts{'flanking'} // $mutation->{'flanking_length'};
+	my $pos      = $flanking - $motifs->{'offset'};
 	my $insert_sql =
 	  $script->{'db'}->prepare( 'INSERT INTO sequences_peptide_mutations '
 		  . '(locus,allele_id,mutation_id,amino_acid,is_wild_type,is_mutation,curator,datestamp) '
@@ -229,12 +295,16 @@ sub annotate_alleles_with_peptide_mutations {
 
 	foreach my $allele (@$alleles) {
 		my $best_match = run_blast( $job_id, $db_type, $locus, \$allele->{'sequence'} );
-		if ( !$best_match ) {
+		if ( !$best_match || $best_match->{'evalue'} > EVALUE_THRESHOLD ) {
 			$logger->error("$locus-$allele->{'allele_id'}: motif not found");
 			next;
 		}
-		my $seq_ref = extract_seq_from_match( $locus, 'prot', \$allele->{'sequence'}, $best_match );
-		my $aa      = substr( $$seq_ref, $pos, 1 );
+		my $seq_ref = extract_seq_from_match( $locus, $flanking, 'prot', \$allele->{'sequence'}, $best_match );
+		if ( $pos >= length $$seq_ref || length $$seq_ref < ( 2 * $flanking + 1 ) ) {
+			$logger->error("$locus-$allele->{'allele_id'}: extracted motif too short.");
+			last;
+		}
+		my $aa = substr( $$seq_ref, $pos, 1 );
 
 		#TODO Define curator_id.
 		my $is_wt  = $wt_aas{$aa}      ? 1 : 0;
@@ -252,18 +322,64 @@ sub annotate_alleles_with_peptide_mutations {
 	return;
 }
 
+sub annotate_alleles_with_dna_mutations {
+	my ( $locus, $mutation_id, $motifs ) = @_;
+	my $alleles  = get_alleles_to_check_dna_mutations( $locus, $mutation_id );
+	my $mutation = $script->{'datastore'}->run_query( 'SELECT * FROM dna_mutations WHERE id=?',
+		$mutation_id, { fetch => 'row_hashref', cache => 'get_dna_mutation' } );
+	my %variant_nucs = map { $_ => 1 } split /;/x, $mutation->{'variant_nuc'};
+	my %wt_nucs      = map { $_ => 1 } split /;/x, $mutation->{'wild_type_nuc'};
+	my $job_id       = BIGSdb::Utils::get_random();
+	my $db_type      = 'nucl';
+	create_blast_database( $job_id, $db_type, $motifs->{'motifs'} );
+	my $flanking = $opts{'flanking'} // $mutation->{'flanking_length'};
+	my $pos      = $flanking - $motifs->{'offset'};
+	my $insert_sql =
+	  $script->{'db'}->prepare( 'INSERT INTO sequences_dna_mutations '
+		  . '(locus,allele_id,mutation_id,nucleotide,is_wild_type,is_mutation,curator,datestamp) '
+		  . 'VALUES (?,?,?,?,?,?,?,?)' );
+
+	foreach my $allele (@$alleles) {
+		my $best_match = run_blast( $job_id, $db_type, $locus, \$allele->{'sequence'} );
+		if ( !$best_match || $best_match->{'evalue'} > EVALUE_THRESHOLD ) {
+			$logger->error("$locus-$allele->{'allele_id'}: motif not found.");
+			next;
+		}
+		my $seq_ref = extract_seq_from_match( $locus, $flanking, 'dna', \$allele->{'sequence'}, $best_match );
+		if ( $pos >= length $$seq_ref || length $$seq_ref < ( 2 * $flanking + 1 ) ) {
+			$logger->error("$locus-$allele->{'allele_id'}: extracted motif too short.");
+			next;
+		}
+		my $nuc = substr( $$seq_ref, $pos, 1 );
+
+		#TODO Define curator_id.
+		my $is_wt  = $wt_nucs{$nuc}      ? 1 : 0;
+		my $is_mut = $variant_nucs{$nuc} ? 1 : 0;
+		eval { $insert_sql->execute( $locus, $allele->{'allele_id'}, $mutation_id, $nuc, $is_wt, $is_mut, 0, 'now' ); };
+		if ($@) {
+			$logger->error($@);
+			$script->{'db'}->rollback;
+			exit;
+		}
+		say "$allele->{'allele_id'}: $$seq_ref\t$nuc - WT:$is_wt; Mutation:$is_mut" if !$opts{'quiet'};
+	}
+	$script->{'db'}->commit;
+	$script->delete_temp_files("$script->{'config'}->{'secure_tmp_dir'}/$job_id*");
+	return;
+}
+
 sub extract_seq_from_match {
-	my ( $locus, $db_type, $seq_ref, $match ) = @_;
+	my ( $locus, $flanking, $db_type, $seq_ref, $match ) = @_;
 	my $locus_info = $script->{'datastore'}->get_locus_info($locus);
 	my ( $start, $end );
 	if ( $locus_info->{'data_type'} eq 'DNA' ) {
 		if ( $db_type eq 'prot' ) {
 			$start = $match->{'qstart'} - ( ( $match->{'sstart'} - 1 ) * 3 );
 			$end =
-			  $match->{'qend'} + ( ( $opts{'flanking'} * 2 + 1 - ( $match->{'send'} - $match->{'sstart'} + 1 ) ) * 3 );
+			  $match->{'qend'} + ( ( $flanking * 2 + 1 - ( $match->{'send'} - $match->{'sstart'} + 1 ) ) * 3 );
 		} else {
-			$start = $match->{'qstart'} - $match->{'sstart'} - 1;
-			$end   = $match->{'qend'} + ( $opts{'flanking'} * 2 + 1 - ( $match->{'send'} - $match->{'sstart'} + 1 ) );
+			$start = $match->{'qstart'};
+			$end   = $match->{'qend'} + 1;
 		}
 	}
 	my $seq = substr( $$seq_ref, $start - 1, ( $end - $start ) );
@@ -314,6 +430,7 @@ sub run_blast {
 		-outfmt  => 6,
 		-$filter => 'no'
 	);
+	$params{'-word_size'} = 7 if $program eq 'blastn';
 	system( "$script->{'config'}->{'blast+_path'}/$program", %params );
 	my $best_match = {};
 
@@ -330,16 +447,16 @@ sub run_blast {
 }
 
 sub define_motifs {
-	my ( $sequences, $most_common_length, $pos, $wt, $variants ) = @_;
+	my ( $sequences, $flanking, $most_common_length, $pos, $wt, $variants ) = @_;
 	my @wt     = split /;/x, $wt;
 	my %wt     = map { $_ => 1 } @wt;
-	my $start  = $pos - $opts{'flanking'} - 1;
+	my $start  = $pos - $flanking - 1;
 	my $offset = 0;
 	if ( $start < 0 ) {
 		$offset = -$start;
 		$start  = 0;
 	}
-	my $end = $pos + $opts{'flanking'} + $offset - 1;
+	my $end = $pos + $flanking + $offset - 1;
 	$end = ( $most_common_length - 1 ) if $end > ( $most_common_length - 1 );
 	my %used;
 	my %allowed_char = map { $_ => 1 } ( @wt, split /;/x, $variants );
@@ -350,7 +467,7 @@ sub define_motifs {
 		my $motif = substr( $allele->{'seq'}, $start, ( $end - $start + 1 ) );
 		next if $used{$motif};
 		$used{$motif} = 1;
-		my $char = substr( $motif, $opts{'flanking'} - $offset, 1 );
+		my $char = substr( $motif, $flanking - $offset, 1 );
 		next if !$allowed_char{$char};
 		push @$motifs,
 		  {
@@ -412,6 +529,17 @@ sub get_translated_alleles {
 		push @$translated, { allele_id => $allele->{'allele_id'}, seq => $peptide };
 	}
 	return $translated;
+}
+
+sub get_dna_alleles {
+	my ($locus)    = @_;
+	my $locus_info = $script->{'datastore'}->get_locus_info($locus);
+	my $order      = $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS int)' : 'allele_id';
+	return $script->{'datastore'}->run_query(
+		"SELECT allele_id,sequence AS seq FROM sequences WHERE locus=? AND allele_id NOT IN (?,?) ORDER BY $order",
+		[ $locus, 0, 'N' ],
+		{ fetch => 'all_arrayref', slice => {} }
+	);
 }
 
 sub show_help {

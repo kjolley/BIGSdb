@@ -1950,6 +1950,7 @@ sub _get_icon_group {
 	}
 	if ( $options->{'fasta'} ) {
 		my $text = $options->{'fasta_label'} // 'Upload FASTA';
+		$pos -= 0.5;
 		$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:1em">);
 		$buffer .= qq(<a href="$options->{'fasta_url'}" title="$text" class="curate_icon_link">);
 		$buffer .= q(<span class="curate_icon_highlight fa-stack" style="font-size:1em">);

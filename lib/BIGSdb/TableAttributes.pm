@@ -1327,7 +1327,8 @@ sub get_schemes_table_attributes {
 			  );
 		}
 	}
-	push @$attributes, (
+	push @$attributes,
+	  (
 		{
 			name        => 'display_order',
 			type        => 'int',
@@ -1353,7 +1354,7 @@ sub get_schemes_table_attributes {
 			comments    => q(This is only relevant to schemes with primary key fields, e.g. MLST.),
 			tooltip     => q(allow_presence - Allow profiles to contain 'P' (locus present).)
 		}
-	);
+	  );
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		push @$attributes,
 		  (
@@ -2754,7 +2755,6 @@ sub get_peptide_mutations_table_attributes {
 			foreign_key    => 'loci',
 			dropdown_query => 1
 		},
-
 		{
 			name     => 'locus_position',
 			type     => 'int',
@@ -2800,6 +2800,15 @@ sub get_peptide_mutations_table_attributes {
 			  . 'will be used as exemplars to define the motifs used in the search. It may be necessary to set this '
 			  . 'if indels are common before the mutation position.'
 		},
+		{
+			name     => 'flanking_length',
+			type     => 'int',
+			required => 1,
+			comments => 'Length of sequence either side of variant position used to define search motifs.',
+			default  => 10,
+			min      => 5,
+			max      => 50
+		},
 		{ name => 'datestamp', type => 'date', required => 1 },
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 }
 	];
@@ -2817,7 +2826,6 @@ sub get_dna_mutations_table_attributes {
 			foreign_key    => 'loci',
 			dropdown_query => 1
 		},
-
 		{
 			name     => 'locus_position',
 			type     => 'int',
@@ -2862,6 +2870,15 @@ sub get_dna_mutations_table_attributes {
 			  . 'then alleles of the most common length with the wild-type nucleotide at the selected position '
 			  . 'will be used as exemplars to define the motifs used in the search. It may be necessary to set this '
 			  . 'if indels are common before the mutation position.'
+		},
+		{
+			name     => 'flanking_length',
+			type     => 'int',
+			required => 1,
+			comments => 'Length of sequence either side of variant position used to define search motifs.',
+			default  => 20,
+			min      => 10,
+			max      => 50
 		},
 		{ name => 'datestamp', type => 'date', required => 1 },
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 }
