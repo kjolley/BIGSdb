@@ -297,11 +297,15 @@ sub _print_mutation_fieldset {
 	my $locus  = $q->param('locus');
 	return if !defined $locus;
 	return
-	  if !$self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM peptide_mutations WHERE locus=?)', $locus );
+	  if !$self->{'datastore'}->run_query(
+		'SELECT EXISTS(SELECT * FROM peptide_mutations WHERE locus=?) OR '
+		  . 'EXISTS(SELECT * FROM dna_mutations WHERE locus=?)',
+		[ $locus, $locus ]
+	  );
 	my $mutation_fields = $self->_highest_entered_fields('mutations') || 1;
 	my $display         = $self->{'prefs'}->{'aq_mutations_fieldset'}
 	  || $self->_highest_entered_fields('mutations') ? 'inline' : 'none';
-	say qq(<fieldset id="mutations_fieldset" style="float:left;display:$display"><legend>Mutations</legend>);
+	say qq(<fieldset id="mutations_fieldset" style="float:left;display:$display"><legend>Sequence variation</legend>);
 	my $mutation_field_heading = $mutation_fields == 1 ? 'none' : 'inline';
 	say qq(<span id="mutation_field_heading" style="display:$mutation_field_heading">)
 	  . q(<label for="mutation_andor">Combine searches with: </label>);
@@ -320,11 +324,11 @@ sub _print_mutation_fieldset {
 sub _print_mutation_fields {
 	my ( $self, $locus, $row, $max_rows ) = @_;
 	my $q = $self->{'cgi'};
+	my @values;
+	my $labels = {};
 	my $peptide_mutations =
 	  $self->{'datastore'}->run_query( 'SELECT * FROM peptide_mutations WHERE locus=? ORDER BY reported_position',
 		$locus, { fetch => 'all_arrayref', slice => {} } );
-	my @values;
-	my $labels = {};
 	foreach my $mutation (@$peptide_mutations) {
 		my @wt  = split /;/x, $mutation->{'wild_type_aa'};
 		my @mut = split /;/x, $mutation->{'variant_aa'};
@@ -333,11 +337,30 @@ sub _print_mutation_fields {
 			$labels->{"pm_$mutation->{'id'}_${wt}_wt"} = "$wt$mutation->{'reported_position'} wild-type";
 			if ( @mut > 1 ) {
 				push @values, "pm_$mutation->{'id'}_${wt}_variant";
-				$labels->{"pm_$mutation->{'id'}_${wt}_variant"} = "$wt$mutation->{'reported_position'} mutation";
+				$labels->{"pm_$mutation->{'id'}_${wt}_variant"} = "$wt$mutation->{'reported_position'} variant";
 			}
 			foreach my $mut (@mut) {
 				push @values, "pm_$mutation->{'id'}_${wt}_$mut";
 				$labels->{"pm_$mutation->{'id'}_${wt}_$mut"} = "$wt$mutation->{'reported_position'}$mut";
+			}
+		}
+	}
+	my $dna_mutations =
+	  $self->{'datastore'}->run_query( 'SELECT * FROM dna_mutations WHERE locus=? ORDER BY reported_position',
+		$locus, { fetch => 'all_arrayref', slice => {} } );
+	foreach my $mutation (@$dna_mutations) {
+		my @wt  = split /;/x, $mutation->{'wild_type_nuc'};
+		my @mut = split /;/x, $mutation->{'variant_nuc'};
+		foreach my $wt (@wt) {
+			push @values, "dm_$mutation->{'id'}_${wt}_wt";
+			$labels->{"dm_$mutation->{'id'}_${wt}_wt"} = "$wt$mutation->{'reported_position'} wild-type";
+			if ( @mut > 1 ) {
+				push @values, "dm_$mutation->{'id'}_${wt}_variant";
+				$labels->{"dm_$mutation->{'id'}_${wt}_variant"} = "$wt$mutation->{'reported_position'} polymorphism";
+			}
+			foreach my $mut (@mut) {
+				push @values, "dm_$mutation->{'id'}_${wt}_$mut";
+				$labels->{"dm_$mutation->{'id'}_${wt}_$mut"} = "$wt$mutation->{'reported_position'}$mut";
 			}
 		}
 	}
@@ -401,13 +424,16 @@ sub _print_modify_search_fieldset {
 	my $locus = $q->param('locus');
 
 	if ($locus) {
-		my $mutations =
-		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM peptide_mutations WHERE locus=?)', $locus );
+		my $mutations = $self->{'datastore'}->run_query(
+			'SELECT EXISTS(SELECT * FROM peptide_mutations WHERE locus=?) '
+			  . 'OR EXISTS(SELECT * FROM dna_mutations WHERE locus=?)',
+			[ $locus, $locus ]
+		);
 		if ($mutations) {
 			my $mutation_fieldset_display = $self->{'prefs'}->{'aq_mutations_fieldset'}
 			  || $self->_highest_entered_fields('mutations') ? HIDE : SHOW;
 			say qq(<li><a href="" class="button" id="show_mutations">$mutation_fieldset_display</a>);
-			say q(Mutations</li>);
+			say q(Sequence variation</li>);
 		}
 	}
 	my $list_fieldset_display = $self->{'prefs'}->{'aq_list_fieldset'}
@@ -579,7 +605,7 @@ sub _generate_query {
 	$qry //= q();
 	$qry =~ s/sequence_length/length(sequence)/g;
 	$qry2 = "SELECT * FROM sequences WHERE locus=E'$locus'";
-	$qry2 .=" AND ($qry)" if $qry;
+	$qry2 .= " AND ($qry)" if $qry;
 	my $list_file = $self->_modify_by_list( \$qry2, $locus );
 	$self->_modify_by_filter( \$qry2, $locus );
 	$self->_modify_query_by_mutations( \$qry2, $locus );
@@ -613,7 +639,7 @@ sub _modify_query_by_mutations {
 				push @mutations,
 				  'allele_id IN (SELECT allele_id FROM sequences_peptide_mutations WHERE '
 				  . "(mutation_id,amino_acid,is_wild_type)=($mutation_id,'$wt','true'))";
-			} elsif ($mut eq 'variant'){
+			} elsif ( $mut eq 'variant' ) {
 				push @mutations,
 				  'allele_id IN (SELECT allele_id FROM sequences_peptide_mutations WHERE '
 				  . "(mutation_id,is_mutation)=($mutation_id,'true'))";
@@ -621,6 +647,21 @@ sub _modify_query_by_mutations {
 				push @mutations,
 				  'allele_id IN (SELECT allele_id FROM sequences_peptide_mutations WHERE '
 				  . "(mutation_id,amino_acid,is_mutation)=($mutation_id,'$mut','true'))";
+			}
+		} elsif ( $value =~ /^dm_(\d+)_([A-Z])_([A-Z]|wt|variant)/x ) {
+			my ( $mutation_id, $wt, $mut ) = ( $1, $2, $3 );
+			if ( $mut eq 'wt' ) {
+				push @mutations,
+				  'allele_id IN (SELECT allele_id FROM sequences_dna_mutations WHERE '
+				  . "(mutation_id,nucleotide,is_wild_type)=($mutation_id,'$wt','true'))";
+			} elsif ( $mut eq 'variant' ) {
+				push @mutations,
+				  'allele_id IN (SELECT allele_id FROM sequences_dna_mutations WHERE '
+				  . "(mutation_id,is_mutation)=($mutation_id,'true'))";
+			} else {
+				push @mutations,
+				  'allele_id IN (SELECT allele_id FROM sequences_dna_mutations WHERE '
+				  . "(mutation_id,nucleotide,is_mutation)=($mutation_id,'$mut','true'))";
 			}
 		} else {
 			$logger->error("Invalid mutation passed: $value");
