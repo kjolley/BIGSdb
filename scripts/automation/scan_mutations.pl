@@ -92,12 +92,16 @@ sub main {
 		}
 		if ( $locus_record->{'locus_type'} eq 'DNA' ) {
 			if ( $locus_record->{'mutation_type'} eq 'DNA' ) {    #Mutation defined by DNA position
-				dna_locus_dna_mutation( $locus_record->{'locus'} );
+				process_dna_mutation( $locus_record->{'locus'} );
 			} else {                                              #Mutation defined by peptide position
-				dna_locus_peptide_mutation( $locus_record->{'locus'} );
+				process_peptide_mutation( $locus_record->{'locus_type'}, $locus_record->{'locus'} );
 			}
 		} else {    #Peptide locus
-			die "Peptide loci not yet supported.\n";
+			if ( $locus_record->{'mutation_type'} eq 'DNA' ) {
+				die "Cannot process peptide locus $locus_record->{'locus'} by DNA polymorphisms.\n";
+			} else {
+				process_peptide_mutation( $locus_record->{'locus_type'}, $locus_record->{'locus'} );
+			}
 		}
 	}
 	return;
@@ -137,12 +141,21 @@ sub get_loci_with_mutations {
 	return $filtered;
 }
 
-sub dna_locus_peptide_mutation {
-	my ($locus) = @_;
-	my $sequences = get_translated_alleles($locus);
-	if ( !@$sequences ) {
-		$logger->error("No translated sequences generated for $locus.");
-		return;
+sub process_peptide_mutation {
+	my ( $locus_type, $locus ) = @_;
+	my $sequences;
+	if ( $locus_type eq 'DNA' ) {
+		$sequences = get_translated_alleles($locus);
+		if ( !@$sequences ) {
+			$logger->error("No translated sequences generated for $locus.");
+			return;
+		}
+	} else {
+		$sequences = get_alleles($locus);
+		if ( !@$sequences ) {
+			$logger->error("No sequences defined for $locus.");
+			return;
+		}
 	}
 	my $mutations =
 	  $script->{'datastore'}->run_query( 'SELECT * FROM peptide_mutations WHERE locus=? ORDER BY locus_position',
@@ -189,9 +202,9 @@ sub dna_locus_peptide_mutation {
 	return;
 }
 
-sub dna_locus_dna_mutation {
+sub process_dna_mutation {
 	my ($locus) = @_;
-	my $sequences = get_dna_alleles($locus);
+	my $sequences = get_alleles($locus);
 	if ( !@$sequences ) {
 		$logger->error("No sequences defined for $locus.");
 		return;
@@ -295,14 +308,14 @@ sub annotate_alleles_with_peptide_mutations {
 
 	foreach my $allele (@$alleles) {
 		my $best_match = run_blast( $job_id, $db_type, $locus, \$allele->{'sequence'} );
-		if ( !$best_match || $best_match->{'evalue'} > EVALUE_THRESHOLD ) {
+		if ( !$best_match || !keys %$best_match || $best_match->{'evalue'} > EVALUE_THRESHOLD ) {
 			$logger->error("$locus-$allele->{'allele_id'}: motif not found");
 			next;
 		}
 		my $seq_ref = extract_seq_from_match( $locus, $flanking, 'prot', \$allele->{'sequence'}, $best_match );
 		if ( $pos >= length $$seq_ref || length $$seq_ref < ( 2 * $flanking + 1 ) ) {
 			$logger->error("$locus-$allele->{'allele_id'}: extracted motif too short.");
-			last;
+			next;
 		}
 		my $aa = substr( $$seq_ref, $pos, 1 );
 
@@ -376,11 +389,14 @@ sub extract_seq_from_match {
 		if ( $db_type eq 'prot' ) {
 			$start = $match->{'qstart'} - ( ( $match->{'sstart'} - 1 ) * 3 );
 			$end =
-			  $match->{'qend'} + ( ( $flanking * 2 + 1 - ( $match->{'send'} - $match->{'sstart'} + 1 ) ) * 3 );
+			  $match->{'qend'} + ( ( $flanking * 2 + 1 - ( $match->{'send'} - $match->{'sstart'} + 1 ) ) * 3 ) + 1;
 		} else {
 			$start = $match->{'qstart'};
 			$end   = $match->{'qend'} + 1;
 		}
+	} else {
+		$start = $match->{'qstart'};
+		$end   = $match->{'qend'} + 1;
 	}
 	my $seq = substr( $$seq_ref, $start - 1, ( $end - $start ) );
 	if ( $locus_info->{'data_type'} eq 'DNA' && $db_type eq 'prot' ) {
@@ -531,13 +547,13 @@ sub get_translated_alleles {
 	return $translated;
 }
 
-sub get_dna_alleles {
+sub get_alleles {
 	my ($locus)    = @_;
 	my $locus_info = $script->{'datastore'}->get_locus_info($locus);
 	my $order      = $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS int)' : 'allele_id';
 	return $script->{'datastore'}->run_query(
-		"SELECT allele_id,sequence AS seq FROM sequences WHERE locus=? AND allele_id NOT IN (?,?) ORDER BY $order",
-		[ $locus, 0, 'N' ],
+		"SELECT allele_id,sequence AS seq FROM sequences WHERE locus=? AND allele_id NOT IN (?,?,?) ORDER BY $order",
+		[ $locus, 0, 'N', 'P' ],
 		{ fetch => 'all_arrayref', slice => {} }
 	);
 }
