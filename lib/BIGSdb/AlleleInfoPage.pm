@@ -342,11 +342,11 @@ sub _print_accessions {
 sub _print_nucleotide_mutations {
 	my ( $self, $locus, $allele_id ) = @_;
 	my $list = [];
-	my $peptide_mutations =
+	my $dna_mutations =
 	  $self->{'datastore'}->run_query( 'SELECT * FROM dna_mutations WHERE locus=? ORDER BY reported_position,id',
 		$locus, { fetch => 'all_arrayref', slice => {} } );
-	return if !@$peptide_mutations;
-	foreach my $mutation (@$peptide_mutations) {
+	return if !@$dna_mutations;
+	foreach my $mutation (@$dna_mutations) {
 		my $data = $self->{'datastore'}->run_query(
 			'SELECT * FROM sequences_dna_mutations WHERE (locus,allele_id,mutation_id)=(?,?,?)',
 			[ $locus, $allele_id, $mutation->{'id'} ],
