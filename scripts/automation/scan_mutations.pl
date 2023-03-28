@@ -18,7 +18,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20230207
+#Version: 20230328
 use strict;
 use warnings;
 use 5.010;
@@ -109,7 +109,10 @@ sub main {
 
 sub remove_existing_designations {
 	my ($locus) = @_;
-	eval { $script->{'db'}->do( 'DELETE FROM sequences_peptide_mutations WHERE locus=?', undef, $locus ); };
+	eval {
+		$script->{'db'}->do( 'DELETE FROM sequences_peptide_mutations WHERE locus=?', undef, $locus );
+		$script->{'db'}->do( 'DELETE FROM sequences_dna_mutations WHERE locus=?',     undef, $locus );
+	};
 	if ($@) {
 		$logger->error($@);
 		$script->{'db'}->rollback;
@@ -309,12 +312,12 @@ sub annotate_alleles_with_peptide_mutations {
 	foreach my $allele (@$alleles) {
 		my $best_match = run_blast( $job_id, $db_type, $locus, \$allele->{'sequence'} );
 		if ( !$best_match || !keys %$best_match || $best_match->{'evalue'} > EVALUE_THRESHOLD ) {
-			$logger->error("$locus-$allele->{'allele_id'}: motif not found");
+			say "$locus-$allele->{'allele_id'}: motif not found" if !$opts{'quiet'};
 			next;
 		}
 		my $seq_ref = extract_seq_from_match( $locus, $flanking, 'prot', \$allele->{'sequence'}, $best_match );
 		if ( $pos >= length $$seq_ref || length $$seq_ref < ( 2 * $flanking + 1 ) ) {
-			$logger->error("$locus-$allele->{'allele_id'}: extracted motif too short.");
+			say "$locus-$allele->{'allele_id'}: extracted motif too short." if !$opts{'quiet'};
 			next;
 		}
 		my $aa = substr( $$seq_ref, $pos, 1 );
@@ -355,12 +358,12 @@ sub annotate_alleles_with_dna_mutations {
 	foreach my $allele (@$alleles) {
 		my $best_match = run_blast( $job_id, $db_type, $locus, \$allele->{'sequence'} );
 		if ( !$best_match || $best_match->{'evalue'} > EVALUE_THRESHOLD ) {
-			$logger->error("$locus-$allele->{'allele_id'}: motif not found.");
+			say "$locus-$allele->{'allele_id'}: motif not found." if !$opts{'quiet'};
 			next;
 		}
 		my $seq_ref = extract_seq_from_match( $locus, $flanking, 'dna', \$allele->{'sequence'}, $best_match );
 		if ( $pos >= length $$seq_ref || length $$seq_ref < ( 2 * $flanking + 1 ) ) {
-			$logger->error("$locus-$allele->{'allele_id'}: extracted motif too short.");
+			say "$locus-$allele->{'allele_id'}: extracted motif too short." if !$opts{'quiet'};
 			next;
 		}
 		my $nuc = substr( $$seq_ref, $pos, 1 );

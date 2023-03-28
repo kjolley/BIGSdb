@@ -729,7 +729,13 @@ sub _check_peptide_mutations {    ## no critic (ProhibitUnusedPrivateSubroutines
 
 sub _check_dna_mutations {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata, $problems ) = @_;
+	my $locus_info = $self->{'datastore'}->get_locus_info($newdata->{'locus'});
+	if ($locus_info->{'data_type'} eq 'peptide'){
+		push @$problems, 'You cannot define SNPs for peptide loci.';
+		return;
+	}
 	$self->_check_mutations( $newdata, $problems, 'dna' );
+
 	return;
 }
 

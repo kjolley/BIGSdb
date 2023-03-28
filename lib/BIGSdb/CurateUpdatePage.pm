@@ -242,10 +242,10 @@ sub _upload {
 				$status = $self->_check_lincode_prefix_values( $newdata, $extra_inserts );
 			},
 			peptide_mutations => sub {
-				$status = $self->_check_mutations($newdata,'peptide');
+				$status = $self->_check_mutations( $newdata, 'peptide' );
 			},
 			dna_mutations => sub {
-				$status = $self->_check_mutations($newdata,'dna');
+				$status = $self->_check_mutations( $newdata, 'dna' );
 			}
 		);
 		$methods{$table}->() if $methods{$table};
@@ -393,11 +393,16 @@ sub _check_lincode_prefix_values {
 sub _check_mutations {
 	my ( $self, $newdata, $type ) = @_;
 	my ( $variant_field, $wt_field, $value_type );
+	my @problems;
 	if ( $type eq 'peptide' ) {
 		$variant_field = 'variant_aa';
 		$wt_field      = 'wild_type_aa';
 		$value_type    = 'amino acid';
 	} else {
+		my $locus_info = $self->{'datastore'}->get_locus_info( $newdata->{'locus'} );
+		if ( $locus_info->{'data_type'} eq 'peptide' ) {
+			push @problems, 'You cannot define SNPs for peptide loci.';
+		}
 		$variant_field = 'variant_nuc';
 		$wt_field      = 'wild_type_nuc';
 		$value_type    = 'nucleotide';
@@ -409,7 +414,6 @@ sub _check_mutations {
 	my @wt = split /;/x, $newdata->{$wt_field};
 	my %wt = map { $_ => 1 } @wt;
 	my %used_wt;
-	my @problems;
 
 	foreach my $variant (@variants) {
 		if ( $wt{$variant} ) {

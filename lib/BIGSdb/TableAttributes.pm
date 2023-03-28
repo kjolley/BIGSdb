@@ -2806,7 +2806,7 @@ sub get_peptide_mutations_table_attributes {
 			required => 1,
 			comments => 'Length of sequence either side of variant position used to define search motifs.',
 			default  => 10,
-			min      => 5,
+			min      => 10,
 			max      => 50
 		},
 		{ name => 'datestamp', type => 'date', required => 1 },

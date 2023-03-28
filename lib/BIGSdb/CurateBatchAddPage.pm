@@ -1279,6 +1279,12 @@ sub _check_mutation_fields {
 	my $field          = $arg_ref->{'field'};
 	my $value          = ${ $arg_ref->{'value'} };
 	my $pk_combination = $arg_ref->{'pk_combination'};
+	if ( $field eq 'locus' && $type eq 'dna' ) {
+		my $locus_info = $self->{'datastore'}->get_locus_info($value);
+		if ( $locus_info->{'data_type'} eq 'peptide' ) {
+			$arg_ref->{'problems'}->{$pk_combination} .= 'You cannot define SNPs for peptide loci.<br />';
+		}
+	}
 	if ( $field eq $variant_field ) {
 		$value =~ s/\s//gx;
 		my @variants = split /;/x, $value;
