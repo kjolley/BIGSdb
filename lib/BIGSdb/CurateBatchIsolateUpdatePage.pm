@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -271,7 +271,9 @@ sub _check {
 			( $id[$i], $id2[$i], $field[$i], $value[$i] ) = split /\t/x, $row;
 		}
 		$id[$i] =~ s/%20/ /gx;
+		$id[$i] =~ s/^\s*|\s*$//gx;
 		$id2[$i] //= q();
+		$id2[$i] =~ s/^\s*|\s*$//gx;
 		$id2[$i] =~ s/%20/ /gx;
 		$value[$i] =~ s/\s*$//gx if defined $value[$i];
 		my $display_new_value = $value[$i];
