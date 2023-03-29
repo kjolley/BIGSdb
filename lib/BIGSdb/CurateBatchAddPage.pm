@@ -33,8 +33,8 @@ use Try::Tiny;
 my $logger = get_logger('BIGSdb.Page');
 
 sub print_content {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my ($self)        = @_;
+	my $q             = $self->{'cgi'};
 	my $table         = $q->param('table') // q();
 	my $cleaned_table = $table;
 	my $locus         = $q->param('locus');
@@ -356,7 +356,7 @@ sub get_file_header_data {
 	my %file_header_pos;
 	my $pos = 0;
 	foreach my $field (@file_header_fields) {
-		$field =~ s/^\s+|\s+$//gx;           #Remove trailing spaces from header fields
+		$field =~ s/^\s+|\s+$//gx;    #Remove trailing spaces from header fields
 		$file_header_pos{$field} = $pos;
 		$pos++;
 	}
@@ -526,7 +526,7 @@ sub _check_data {
 				table              => $table
 			};
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
-				my %newdata = map { $_ => $data[ $file_header_pos->{$_} ] } keys %$file_header_pos;
+				my %newdata             = map { $_ => $data[ $file_header_pos->{$_} ] } keys %$file_header_pos;
 				my $validation_failures = $self->{'submissionHandler'}->run_validation_checks( \%newdata );
 				if (@$validation_failures) {
 					foreach my $failure (@$validation_failures) {
@@ -546,8 +546,7 @@ sub _check_data {
 				my $skip_record = 0;
 				try {
 					$self->_check_data_primary_key($new_args);
-				}
-				catch {
+				} catch {
 					if ( $_->isa('BIGSdb::Exception::Data::Warning') ) {
 						$skip_record = 1;
 					} elsif ( $_->isa('BIGSdb::Exception::Data') ) {
@@ -769,7 +768,7 @@ sub _check_classification_field_values {
 		$problems->{$pk_combination} .= "$data->[$file_header_pos->{'field'}] must be an integer.";
 	} elsif ( $format->{'value_regex'} && $data->[ $file_header_pos->{'value'} ] !~ /$format->{'value_regex'}/x ) {
 		$problems->{$pk_combination} .=
-		    "$data->[$file_header_pos->{'field'}] value is invalid - "
+			"$data->[$file_header_pos->{'field'}] value is invalid - "
 		  . "it must match the regular expression /$format->{'value_regex'}/.";
 	}
 	return;
@@ -816,18 +815,17 @@ sub _check_validation_conditions {
 		}
 		return;
 	}
-	
-	my $field_type = $self->_get_field_type( $newdata{'field'} );
+	my $field_type = $self->get_field_type( $newdata{'field'} );
 	if ( $newdata{'value'} =~ /^\[(.+)\]$/x ) {
 		my $comp_field      = $1;
-		my $comp_field_type = $self->_get_field_type($comp_field);
+		my $comp_field_type = $self->get_field_type($comp_field);
 		if ( !$comp_field_type ) {
 			$problems->{$pk_combination} .= qq(Comparison field '$comp_field' is not recognized.);
 			return;
 		} else {
 			if ( lc( substr( $field_type, 0, 3 ) ) ne lc( substr( $comp_field_type, 0, 3 ) ) ) {
 				$problems->{$pk_combination} .=
-				    qq(Comparison field '$comp_field' has a different data type )
+					qq(Comparison field '$comp_field' has a different data type )
 				  . qq(from '$newdata{'field'}' so cannot be compared.);
 				return;
 			}
@@ -923,6 +921,12 @@ sub _run_table_specific_field_checks {
 		},
 		classification_group_fields => sub {
 			$self->_check_data_scheme_fields($new_args);
+		},
+		peptide_mutations => sub {
+			$self->_check_mutation_fields( $new_args, 'peptide' );
+		},
+		dna_mutations => sub {
+			$self->_check_mutation_fields( $new_args, 'dna' );
 		}
 	);
 	$further_checks{$table}->() if $further_checks{$table};
@@ -934,9 +938,24 @@ sub _run_table_specific_reformatting {
 	my %methods = (
 		isolates => sub {
 			$self->_rewrite_geography_point_data($new_args);
+		},
+		peptide_mutations => sub {
+			$self->_rewrite_mutations_data($new_args);
+		},
+		dna_mutations => sub {
+			$self->_rewrite_mutations_data($new_args);
 		}
 	);
 	$methods{$table}->() if $methods{$table};
+	return;
+}
+
+sub _rewrite_mutations_data {
+	my ( $self,  $args )  = @_;
+	my ( $field, $value ) = @{$args}{qw(field value)};
+	if ( $field =~ /aa$/x || $field =~ /nuc$/x ) {
+		$$value =~ s/\s//gx;
+	}
 	return;
 }
 
@@ -1108,7 +1127,6 @@ sub _check_data_isolate_record_locus_fields {
 	my $set_id          = $self->get_set_id;
 	my $locusbuffer;
 	foreach my $field ( @{ $arg_ref->{'file_header_fields'} } ) {
-
 		if ( !$self->{'field_name_cache'}->{$field} ) {
 			$self->{'field_name_cache'}->{$field} = $self->{'submissionHandler'}->map_locus_name( $field, $set_id )
 			  // $field;
@@ -1246,6 +1264,60 @@ sub _check_data_refs {
 	return;
 }
 
+sub _check_mutation_fields {
+	my ( $self, $arg_ref, $type ) = @_;
+	my ( $variant_field, $wt_field, $value_type );
+	if ( $type eq 'peptide' ) {
+		$variant_field = 'variant_aa';
+		$wt_field      = 'wild_type_aa';
+		$value_type    = 'amino acid';
+	} else {
+		$variant_field = 'variant_nuc';
+		$wt_field      = 'wild_type_nuc';
+		$value_type    = 'nucleotide';
+	}
+	my $field          = $arg_ref->{'field'};
+	my $value          = ${ $arg_ref->{'value'} };
+	my $pk_combination = $arg_ref->{'pk_combination'};
+	if ( $field eq 'locus' && $type eq 'dna' ) {
+		my $locus_info = $self->{'datastore'}->get_locus_info($value);
+		if ( $locus_info->{'data_type'} eq 'peptide' ) {
+			$arg_ref->{'problems'}->{$pk_combination} .= 'You cannot define SNPs for peptide loci.<br />';
+		}
+	}
+	if ( $field eq $variant_field ) {
+		$value =~ s/\s//gx;
+		my @variants = split /;/x, $value;
+		my %used_variant;
+		my $wt_string = $arg_ref->{'data'}->[ $arg_ref->{'file_header_pos'}->{$wt_field} ];
+		my @wt        = split /\s*;\s*/x, $wt_string;
+		my %wt        = map { $_ => 1 } @wt;
+		my %used_wt;
+		foreach my $variant (@variants) {
+			if ( $wt{$variant} ) {
+				$arg_ref->{'problems'}->{$pk_combination} .=
+				  "Variant $value_type '$variant' is the same as wild-type.<br />";
+			}
+			if ( $used_variant{$variant} ) {
+				$arg_ref->{'problems'}->{$pk_combination} .= "Variant '$variant' is listed more than once.<br />";
+			}
+			$used_variant{$variant} = 1;
+		}
+		foreach my $wt (@wt) {
+			if ( $used_wt{$wt} ) {
+				$arg_ref->{'problems'}->{$pk_combination} .= "WT '$wt' is listed more than once.";
+			}
+			$used_wt{$wt} = 1;
+		}
+	}
+	if ( $field eq 'locus_position' || $field eq 'reported_position' ) {
+		if ( $value < 1 ) {
+			$arg_ref->{'problems'}->{$pk_combination} .= uc($field) . ' must be a positive integer.<br />';
+		}
+	}
+	return;
+}
+
 sub _check_data_aliases {
 
 	#special case to check that isolate aliases don't duplicate isolate name or consist of null terms
@@ -1256,7 +1328,7 @@ sub _check_data_aliases {
 	my $pk_combination = $arg_ref->{'pk_combination'};
 	if ( $field eq 'aliases' ) {
 		my $isolate_name = $arg_ref->{'data'}->[ $arg_ref->{'file_header_pos'}->{ $self->{'system'}->{'labelfield'} } ];
-		my %null_terms = map { lc($_) => 1 } NULL_TERMS;
+		my %null_terms   = map { lc($_) => 1 } NULL_TERMS;
 		if ( defined $value ) {
 			$value =~ s/\s//gx;
 			my @aliases = split /;/x, $value;
@@ -1303,7 +1375,7 @@ sub _check_data_codon_table {
 	return if !defined $value || $value eq q();
 	my $tables  = Bio::Tools::CodonTable->tables;
 	my @allowed = sort { $a <=> $b } keys %$tables;
-	my %allowed = map { $_ => 1 } @allowed;
+	my %allowed = map  { $_ => 1 } @allowed;
 
 	if ( !$allowed{$value} ) {
 		local $" = q(, );
@@ -1367,7 +1439,7 @@ sub _check_data_primary_key {
 			my $message = $@;
 			local $" = ', ';
 			$logger->debug(
-				    "Can't execute primary key check (incorrect data pasted): primary keys: @primary_keys values: "
+					"Can't execute primary key check (incorrect data pasted): primary keys: @primary_keys values: "
 				  . "@{$arg_ref->{'pk_values'}} $message" );
 			my $plural = scalar @primary_keys > 1 ? 's' : '';
 			if ( $message =~ /invalid input/ ) {
@@ -1431,7 +1503,7 @@ sub _check_data_loci {
 	}
 	if ( $data[ $file_header_pos{'id'} ] =~ /[^\w_\-']/x ) {
 		$arg_ref->{'problems'}->{$pk_combination} .=
-		    q(Locus names can only contain alphanumeric, underscore (_), hyphen (-) )
+			q(Locus names can only contain alphanumeric, underscore (_), hyphen (-) )
 		  . q(and prime (') characters (no spaces or other symbols).<br />);
 	}
 	return;
@@ -1487,7 +1559,7 @@ sub _check_data_allele_designations {
 				&& ${ $arg_ref->{'value'} } !~ /$format->{'allele_id_regex'}/x )
 			{
 				$arg_ref->{'problems'}->{$pk_combination} .=
-				    qq($field value is invalid - it must match the regular )
+					qq($field value is invalid - it must match the regular )
 				  . qq(expression /$format->{'allele_id_regex'}/.<br />);
 				${ $arg_ref->{'special_problem'} } = 1;
 			}
@@ -1576,7 +1648,7 @@ sub _check_isolate_id_not_retired {
 	my ( $self, $arg_ref ) = @_;
 	my ( $pk_combination, $field, $file_header_pos ) = @{$arg_ref}{qw(pk_combination field file_header_pos)};
 	return
-	     if $field ne 'id'
+		 if $field ne 'id'
 	  || !defined $file_header_pos->{'id'}
 	  || !BIGSdb::Utils::is_int( $arg_ref->{'data'}->[ $file_header_pos->{'id'} ] );
 	if (
@@ -1808,7 +1880,7 @@ sub _extract_checked_records {
 	if ( !-e $tmp_file ) {
 		$self->print_bad_status(
 			{
-				    message => q(The temp file containing the checked data does not exist.</p>)
+					message => q(The temp file containing the checked data does not exist.</p>)
 				  . q(<p>Upload cannot proceed.  Make sure that you haven't used the back button and are attempting to )
 				  . q(re-upload already submitted data.  Please report this if the problem persists.)
 			}
@@ -1866,8 +1938,8 @@ sub _get_fields_to_include {
 
 sub get_title {
 	my ($self) = @_;
-	my $table = $self->{'cgi'}->param('table');
-	my $type = $self->get_record_name($table) || '';
+	my $table  = $self->{'cgi'}->param('table');
+	my $type   = $self->get_record_name($table) || '';
 	return "Batch add $type records";
 }
 
@@ -1961,7 +2033,7 @@ sub _is_id_used {
 	my ( $self, $table, $id ) = @_;
 	if ( $table eq 'isolates' ) {
 		my $qry =
-		    'SELECT EXISTS(SELECT * FROM isolates WHERE id=?) OR '
+			'SELECT EXISTS(SELECT * FROM isolates WHERE id=?) OR '
 		  . 'EXISTS(SELECT * FROM retired_isolates WHERE isolate_id=?)';
 		return $self->{'datastore'}->run_query( $qry, [ $id, $id ], { cache => "CurateBatchAdd::is_id_used::$table" } );
 	}

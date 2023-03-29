@@ -1481,15 +1481,23 @@ sub _hide_field {
 
 sub _get_record_table_info {
 	my ( $self, $table ) = @_;
-	my $q = $self->{'cgi'};
-	my ( @headers, @display, @qry_fields, %type, %foreign_key, %labels );
+	my $q                    = $self->{'cgi'};
+	my $headers              = [];
+	my $html_table_headers1  = [];
+	my $html_table_headers2  = [];
+	my $display              = [];
+	my $qry_fields           = [];
+	my $type                 = {};
+	my $foreign_key          = {};
+	my $labels               = {};
 	my $user_variable_fields = 0;
 	my $attributes           = $self->{'datastore'}->get_table_field_attributes($table);
+
 	foreach my $attr (@$attributes) {
 		next if $table eq 'sequence_bin' && $attr->{'name'} eq 'sequence';
 		next if $self->_hide_field($attr);
-		push @display,    $attr->{'name'};
-		push @qry_fields, "$table.$attr->{'name'}";
+		push @$display,    $attr->{'name'};
+		push @$qry_fields, "$table.$attr->{'name'}";
 		my $cleaned = $attr->{'name'};
 		$cleaned =~ tr/_/ /;
 		my %overridable =
@@ -1499,64 +1507,113 @@ sub _get_record_table_info {
 			$user_variable_fields = 1;
 		}
 		if ( !$attr->{'hide_results'} ) {
-			push @headers, $cleaned;
-			push @headers, 'sequence length'
+			push @$headers, $cleaned;
+			push @$headers, 'sequence length'
 			  if $q->param('page') eq 'tableQuery' && $table eq 'sequences' && $attr->{'name'} eq 'sequence';
-			push @headers, 'sequence length' if $q->param('page') eq 'alleleQuery' && $attr->{'name'} eq 'sequence';
-			push @headers, 'flag'            if $table eq 'allele_sequences'       && $attr->{'name'} eq 'complete';
-			push @headers, 'citation'        if $attr->{'name'} eq 'pubmed_id';
+			push @$headers, 'sequence length' if $q->param('page') eq 'alleleQuery' && $attr->{'name'} eq 'sequence';
+			push @$headers, 'flag'            if $table eq 'allele_sequences'       && $attr->{'name'} eq 'complete';
+			push @$headers, 'citation'        if $attr->{'name'} eq 'pubmed_id';
 		}
-		$type{ $attr->{'name'} }        = $attr->{'type'};
-		$foreign_key{ $attr->{'name'} } = $attr->{'foreign_key'};
-		$labels{ $attr->{'name'} }      = $attr->{'labels'};
+		$type->{ $attr->{'name'} }        = $attr->{'type'};
+		$foreign_key->{ $attr->{'name'} } = $attr->{'foreign_key'};
+		$labels->{ $attr->{'name'} }      = $attr->{'labels'};
 	}
 	my $extended_attributes;
 	my $linked_data;
+	push @$html_table_headers1, qq(<th rowspan="2">$_</th>) foreach @$headers;
 	if ( $q->param('page') eq 'alleleQuery' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		$extended_attributes = $self->_add_allele_query_info( $headers, $html_table_headers1, $html_table_headers2 );
 		my $locus = $q->param('locus');
-		if ( $self->{'datastore'}->is_locus($locus) ) {
-			$extended_attributes =
-			  $self->{'datastore'}->run_query(
-				'SELECT field,url FROM locus_extended_attributes WHERE locus=? AND main_display ORDER BY field_order',
-				$locus, { fetch => 'all_arrayref', slice => {} } );
-			foreach my $ext_att (@$extended_attributes) {
-				( my $cleaned = $ext_att->{'field'} ) =~ tr/_/ /;
-				push @headers, $cleaned;
-			}
-			my $databanks = $self->{'datastore'}->run_query( 'SELECT DISTINCT databank FROM accession WHERE locus=?',
-				$locus, { fetch => 'col_arrayref' } );
-			push @headers, sort @$databanks;
-			if ( $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM sequence_refs WHERE locus=?)', $locus ) )
-			{
-				push @headers, 'Publications';
-			}
-			$linked_data = $self->_data_linked_to_locus($locus);
-			push @headers, 'linked data values' if $linked_data;
-		}
+		$linked_data = $self->_data_linked_to_locus($locus);
 	} elsif ( $table eq 'sequence_bin' ) {
 		$extended_attributes =
 		  $self->{'datastore'}
 		  ->run_query( 'SELECT key FROM sequence_attributes ORDER BY key', undef, { fetch => 'col_arrayref' } );
 		my @cleaned = @$extended_attributes;
 		tr/_/ / foreach @cleaned;
-		push @headers, @cleaned;
+		push @$headers,             @cleaned;
+		push @$html_table_headers1, qq(<th rowspan="2">$_</th>) foreach @$headers;
 	}
 	if ( $self->_show_allele_flags ) {
-		push @headers, 'flags';
+		push @$headers,             'flags';
+		push @$html_table_headers1, q(<th rowspan="2">flags</th>);
+	}
+	if ( !@$html_table_headers2 ) {
+		s/rowspan="2"//gx foreach @$html_table_headers1;
 	}
 	return (
 		{
-			headers              => \@headers,
-			qry_fields           => \@qry_fields,
-			display              => \@display,
-			type                 => \%type,
-			foreign_key          => \%foreign_key,
-			labels               => \%labels,
+			headers              => $headers,
+			html_table_headers1  => $html_table_headers1,
+			html_table_headers2  => $html_table_headers2,
+			qry_fields           => $qry_fields,
+			display              => $display,
+			type                 => $type,
+			foreign_key          => $foreign_key,
+			labels               => $labels,
 			extended_attributes  => $extended_attributes,
 			linked_data          => $linked_data,
 			user_variable_fields => $user_variable_fields
 		}
 	);
+}
+
+sub _add_allele_query_info {
+	my ( $self, $headers, $html_table_headers1, $html_table_headers2 ) = @_;
+	my $q     = $self->{'cgi'};
+	my $locus = $q->param('locus');
+	return if !$self->{'datastore'}->is_locus($locus);
+	my $extended_attributes =
+	  $self->{'datastore'}->run_query(
+		'SELECT field,url FROM locus_extended_attributes WHERE locus=? AND main_display ORDER BY field_order',
+		$locus, { fetch => 'all_arrayref', slice => {} } );
+	my $count = @$extended_attributes;
+	if ($count) {
+		push @$html_table_headers1, qq(<th colspan="$count">Extended attributes</th>);
+		foreach my $ext_att (@$extended_attributes) {
+			( my $cleaned = $ext_att->{'field'} ) =~ tr/_/ /;
+			push @$headers,             $cleaned;
+			push @$html_table_headers2, qq(<th>$cleaned</th>);
+		}
+	}
+	my $peptide_mutations =
+	  $self->{'datastore'}->run_query( 'SELECT * FROM peptide_mutations WHERE locus=? ORDER BY reported_position,id',
+		$locus, { fetch => 'all_arrayref', slice => {}, cache => 'ResultsTablePage:get_peptide_mutations' } );
+	$count = @$peptide_mutations;
+	if ($count) {
+		my $tooltip = $self->get_tooltip( q(SAV - single amino-acid variation), { style => 'color:white' } );
+		push @$html_table_headers1, qq(<th colspan="$count">SAV$tooltip</th>);
+		foreach my $mutation (@$peptide_mutations) {
+			push @$headers,             "position $mutation->{'reported_position'}";
+			push @$html_table_headers2, qq(<th>position $mutation->{'reported_position'}</th>);
+		}
+	}
+	my $snps =
+	  $self->{'datastore'}->run_query( 'SELECT * FROM dna_mutations WHERE locus=? ORDER BY reported_position,id',
+		$locus, { fetch => 'all_arrayref', slice => {}, cache => 'ResultsTablePage:get_dna_mutations' } );
+	$count = @$snps;
+	if ($count) {
+		my $tooltip = $self->get_tooltip( q(SNP - single nucleotide polymorphism), { style => 'color:white' } );
+		push @$html_table_headers1, qq(<th colspan="$count">SNPs$tooltip</th>);
+		foreach my $mutation (@$snps) {
+			push @$headers,             "position $mutation->{'reported_position'}";
+			push @$html_table_headers2, qq(<th>position $mutation->{'reported_position'}</th>);
+		}
+	}
+	my $rowspan   = @$html_table_headers2 ? q( rowspan="2") : q();
+	my $databanks = $self->{'datastore'}
+	  ->run_query( 'SELECT DISTINCT databank FROM accession WHERE locus=?', $locus, { fetch => 'col_arrayref' } );
+	push @$headers,             sort @$databanks;
+	push @$html_table_headers1, qq(<th$rowspan>$_</th>) foreach @$databanks;
+	if ( $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM sequence_refs WHERE locus=?)', $locus ) ) {
+		push @$headers,             'Publications';
+		push @$html_table_headers1, qq(<th$rowspan>Publications</th>);
+	}
+	if ( $self->_data_linked_to_locus($locus) ) {
+		push @$headers,             'linked data values';
+		push @$html_table_headers1, qq(<th$rowspan>Linked data values</th>);
+	}
+	return $extended_attributes;
 }
 
 sub _show_allele_flags {
@@ -1606,17 +1663,20 @@ sub _print_record_table {
 	my $dataset = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 	return if !@$dataset;
 	$self->modify_dataset_if_needed( $table, $dataset );
-	local $" = q(</th><th>);
+	local $" = q();
 	say q(<div class="box" id="large_resultstable"><div class="scrollable"><table class="resultstable">);
 	say q(<tr>);
+	my $table_info = $self->_get_record_table_info($table);
+	my ( $headers, $html_table_headers1, $html_table_headers2, $display, $extended_attributes ) =
+	  @{$table_info}{qw(headers html_table_headers1 html_table_headers2 display extended_attributes)};
 
 	if ( $self->{'curate'} ) {
-		print q(<th>Delete</th>);
-		print q(<th>Update</th>) if $table !~ /refs$/x;
+		my $rowspan = @$html_table_headers2 ? q( rowspan="2") : q();
+		print qq(<th$rowspan>Delete</th>);
+		print qq(<th$rowspan>Update</th>) if $table !~ /refs$/x;
 	}
-	my $table_info = $self->_get_record_table_info($table);
-	my ( $headers, $display, $extended_attributes ) = @{$table_info}{qw(headers display extended_attributes)};
-	say qq(<th>@$headers</th></tr>);
+	say qq(@$html_table_headers1</tr>);
+	say qq(<tr>@$html_table_headers2</tr>) if @$html_table_headers2;
 	my $td         = 1;
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my %hide_field;
@@ -1730,6 +1790,42 @@ sub _print_sequences_extended_fields {
 				$value = qq(<a href="$url">$value</a>);
 			}
 			print qq(<td>$value</td>);
+		} else {
+			print q(<td></td>);
+		}
+	}
+	my $peptide_mutations =
+	  $self->{'datastore'}->run_query( 'SELECT * FROM peptide_mutations WHERE locus=? ORDER BY reported_position,id',
+		$data->{'locus'}, { fetch => 'all_arrayref', slice => {}, cache => 'ResultsTablePage:get_peptide_mutations' } );
+	foreach my $mutation (@$peptide_mutations) {
+		my $result = $self->{'datastore'}->run_query(
+			'SELECT * FROM sequences_peptide_mutations WHERE (locus,allele_id,mutation_id)=(?,?,?)',
+			[ $data->{'locus'}, $data->{'allele_id'}, $mutation->{'id'} ],
+			{ fetch => 'row_hashref', cache => 'ResultsTablePage:get_sequences_peptide_mutations' }
+		);
+		my @wt = split /;/x, $mutation->{'wild_type_aa'};
+		my %wt = map { $_ => 1 } @wt;
+		if ( $result && !$wt{ $result->{'amino_acid'} } ) {
+			local $" = q();
+			print qq(<td>@wt$mutation->{'reported_position'}$result->{'amino_acid'}</td>);
+		} else {
+			print q(<td></td>);
+		}
+	}
+		my $snps =
+	  $self->{'datastore'}->run_query( 'SELECT * FROM dna_mutations WHERE locus=? ORDER BY reported_position,id',
+		$data->{'locus'}, { fetch => 'all_arrayref', slice => {}, cache => 'ResultsTablePage:get_dna_mutations' } );
+	foreach my $mutation (@$snps) {
+		my $result = $self->{'datastore'}->run_query(
+			'SELECT * FROM sequences_dna_mutations WHERE (locus,allele_id,mutation_id)=(?,?,?)',
+			[ $data->{'locus'}, $data->{'allele_id'}, $mutation->{'id'} ],
+			{ fetch => 'row_hashref', cache => 'ResultsTablePage:get_sequences_dna_mutations' }
+		);
+		my @wt = split /;/x, $mutation->{'wild_type_nuc'};
+		my %wt = map { $_ => 1 } @wt;
+		if ( $result && !$wt{ $result->{'nucleotide'} } ) {
+			local $" = q();
+			print qq(<td>@wt$mutation->{'reported_position'}$result->{'nucleotide'}</td>);
 		} else {
 			print q(<td></td>);
 		}

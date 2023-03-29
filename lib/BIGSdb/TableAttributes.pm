@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -1327,7 +1327,8 @@ sub get_schemes_table_attributes {
 			  );
 		}
 	}
-	push @$attributes, (
+	push @$attributes,
+	  (
 		{
 			name        => 'display_order',
 			type        => 'int',
@@ -1353,7 +1354,7 @@ sub get_schemes_table_attributes {
 			comments    => q(This is only relevant to schemes with primary key fields, e.g. MLST.),
 			tooltip     => q(allow_presence - Allow profiles to contain 'P' (locus present).)
 		}
-	);
+	  );
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		push @$attributes,
 		  (
@@ -2739,6 +2740,148 @@ sub get_curator_configs_table_attributes {
 		{ name => 'dbase_config', type => 'text', required => 1, primary_key => 1 },
 		{ name => 'datestamp',    type => 'date', required => 1 },
 		{ name => 'curator',      type => 'int',  required => 1, dropdown_query => 1 }
+	];
+	return $attributes;
+}
+
+sub get_peptide_mutations_table_attributes {
+	my ($self) = @_;
+	my $attributes = [
+		{ name => 'id', type => 'int', required => 1, primary_key => 1, length => 6 },
+		{
+			name           => 'locus',
+			type           => 'text',
+			required       => 1,
+			foreign_key    => 'loci',
+			dropdown_query => 1
+		},
+		{
+			name     => 'locus_position',
+			type     => 'int',
+			required => 1,
+			length   => 5,
+			min      => 1,
+			comments => 'Position in locus wild-type sequence',
+			tooltip  => 'This is likely to be the same as the reported position but may vary slightly if the locus '
+			  . 'includes regions that are not part of the final expressed protein.'
+		},
+		{
+			name     => 'reported_position',
+			type     => 'int',
+			required => 1,
+			length   => 5,
+			min      => 1,
+			comments => 'Position for reporting purposes'
+		},
+		{
+			name     => 'wild_type_aa',
+			type     => 'text',
+			required => 1,
+			length   => 20,
+			comments => 'Semi-colon separated list of possible amino acid 1 letter codes',
+			regex    => '^([ACDEFGHIKLMNPQRSTVWY])(;\s*[ACDEFGHIKLMNPQRSTVWY])*$'
+		},
+		{
+			name     => 'variant_aa',
+			type     => 'text',
+			required => 1,
+			length   => 20,
+			comments => 'Semi-colon separated list of possible amino acid 1 letter codes',
+			regex    => '^([ACDEFGHIKLMNPQRSTVWY])(;\s*[ACDEFGHIKLMNPQRSTVWY])*$'
+		},
+		{
+			name     => 'wild_type_allele_id',
+			type     => 'text',
+			required => 0,
+			length   => 10,
+			tooltip  =>
+			  'Wild type allele id - Optionally define a wild-type allele to use as an exemplar. If this is not set '
+			  . 'then alleles of the most common length with the wild-type amino acid at the selected position '
+			  . 'will be used as exemplars to define the motifs used in the search. It may be necessary to set this '
+			  . 'if indels are common before the mutation position.'
+		},
+		{
+			name     => 'flanking_length',
+			type     => 'int',
+			required => 1,
+			comments => 'Length of sequence either side of variant position used to define search motifs.',
+			default  => 10,
+			min      => 10,
+			max      => 50
+		},
+		{ name => 'datestamp', type => 'date', required => 1 },
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 }
+	];
+	return $attributes;
+}
+
+sub get_dna_mutations_table_attributes {
+	my ($self) = @_;
+	my $attributes = [
+		{ name => 'id', type => 'int', required => 1, primary_key => 1, length => 6 },
+		{
+			name           => 'locus',
+			type           => 'text',
+			required       => 1,
+			foreign_key    => 'loci',
+			dropdown_query => 1
+		},
+		{
+			name     => 'locus_position',
+			type     => 'int',
+			required => 1,
+			length   => 5,
+			min      => 1,
+			comments => 'Position in locus wild-type sequence',
+			tooltip  => 'This is likely to be the same as the reported position but may vary if the locus '
+			  . 'does not represent the complete coding sequence of the gene.'
+		},
+		{
+			name     => 'reported_position',
+			type     => 'int',
+			required => 1,
+			length   => 5,
+			min      => 1,
+			comments => 'Position for reporting purposes'
+		},
+		{
+			name     => 'wild_type_nuc',
+			type     => 'text',
+			required => 1,
+			length   => 20,
+			comments => 'Semi-colon separated list of possible nucleotides',
+			regex    => '^([GATC])(;\s*[GATC])*$'
+		},
+		{
+			name     => 'variant_nuc',
+			type     => 'text',
+			required => 1,
+			length   => 20,
+			comments => 'Semi-colon separated list of possible nucleotides',
+			regex    => '^([GATC])(;\s*[GATC])*$'
+		},
+		{
+			name     => 'wild_type_allele_id',
+			type     => 'text',
+			required => 0,
+			length   => 10,
+			tooltip  =>
+			  'Wild type allele id - Optionally define a wild-type allele to use as an exemplar. If this is not set '
+			  . 'then alleles of the most common length with the wild-type nucleotide at the selected position '
+			  . 'will be used as exemplars to define the motifs used in the search. It may be necessary to set this '
+			  . 'if indels are common before the mutation position.'
+		},
+		{
+			name     => 'flanking_length',
+			type     => 'int',
+			required => 1,
+			comments => 'Length of sequence either side of variant position used to define search motifs.',
+			default  => 20,
+			min      => 10,
+			max      => 50
+		},
+		{ name => 'datestamp', type => 'date', required => 1 },
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 }
 	];
 	return $attributes;
 }

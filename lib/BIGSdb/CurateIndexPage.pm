@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -183,6 +183,7 @@ END
 	var \$grid = \$(".grid").packery({
        	itemSelector: '.grid-item',
   		gutter: 10,
+  		stamp: '.stamp'
     });        
     \$(window).resize(function() {
     	delay(function(){
@@ -371,6 +372,7 @@ sub _get_admin_links {
 		$buffer .= $self->_get_sequence_attributes;
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		$buffer .= $self->_get_locus_extended_attributes;
+		$buffer .= $self->_get_mutation_fields;
 	}
 	$buffer .= $self->_get_schemes;
 	$buffer .= $self->_get_scheme_groups;
@@ -699,6 +701,42 @@ sub _get_profile_fields {
 				batch_add => 1,
 				query     => 1,
 				info      => 'Retired profiles - Profile ids defined here will be prevented from being reused.'
+			}
+		);
+		$buffer .= qq(</div>\n);
+	}
+	return $buffer;
+}
+
+sub _get_mutation_fields {
+	my ($self) = @_;
+	my $buffer = q();
+	if ( $self->can_modify_table('dna_mutations') && $self->_locus_type_exists('DNA') ) {
+		$buffer .= q(<div class="curategroup curategroup_loci grid-item locus_admin" )
+		  . qq(style="display:$self->{'optional_locus_admin_display'}"><h2>Single nucleotide polymorphisms</h2>);
+		$buffer .= $self->_get_icon_group(
+			'dna_mutations',
+			'dna',
+			{
+				add       => 1,
+				batch_add => 1,
+				query     => 1
+			}
+		);
+		$buffer .= qq(</div>\n);
+	}
+	if ( $self->can_modify_table('peptide_mutations')
+		&& ( $self->_locus_type_exists('peptide') || $self->_locus_type_exists('DNA') ) )
+	{
+		$buffer .= q(<div class="curategroup curategroup_loci grid-item locus_admin" )
+		  . qq(style="display:$self->{'optional_locus_admin_display'}"><h2>Single AA variations</h2>);
+		$buffer .= $self->_get_icon_group(
+			'peptide_mutations',
+			'dna',
+			{
+				add       => 1,
+				batch_add => 1,
+				query     => 1
 			}
 		);
 		$buffer .= qq(</div>\n);
@@ -1871,15 +1909,17 @@ sub _get_icon_group {
 	}
 	$links--
 	  if ( $options->{'query'} || $options->{'query_only'} ) && !$records_exist && !$options->{'always_show_query'};
-	my $pos    = 4.8 - BIGSdb::Utils::decimal_place( $links * 2.2 / 2, 1 );
-	my $buffer = q(<span style="position:relative">);
+	my $buffer;
 	if ( $options->{'info'} ) {
-		$buffer .= q(<span style="position:absolute;right:2em;bottom:6.5em">);
+		$buffer .= q(<span style="position:absolute;right:1.5em;top:0.2em">);
 		$buffer .= qq(<a style="cursor:help" title="$options->{'info'}" class="tooltip">);
 		$buffer .= q(<span class="curate_icon_highlight curate_icon_info fas fa-info-circle"></span>);
 		$buffer .= qq(</a></span>\n);
 	}
-	$buffer .= qq(<span class="curate_icon fa-7x fa-fw $fa_class fa-$icon"></span>);
+	$buffer .=
+	  qq(<span class="curate_icon_span"><span class="curate_icon fa-7x fa-fw $fa_class fa-$icon"></span></span>);
+	$buffer .= q(<span class="curate_buttonbar">);
+	my $pos = 5.7 - BIGSdb::Utils::decimal_place( $links * 2.2 / 2, 1 );
 	if ( $options->{'add'} ) {
 		my $url = $options->{'add_url'}
 		  // qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=$table);
@@ -1910,6 +1950,7 @@ sub _get_icon_group {
 	}
 	if ( $options->{'fasta'} ) {
 		my $text = $options->{'fasta_label'} // 'Upload FASTA';
+		$pos -= 0.5;
 		$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:1em">);
 		$buffer .= qq(<a href="$options->{'fasta_url'}" title="$text" class="curate_icon_link">);
 		$buffer .= q(<span class="curate_icon_highlight fa-stack" style="font-size:1em">);
@@ -2023,7 +2064,7 @@ sub print_content {
 			  . qq(style="display:$off" title="Showing common functions"></span>);
 			say q(<span id="all_curator_methods_on" class="toggle_icon fas fa-toggle-on fa-2x" )
 			  . qq(style="display:$on" title="Showing all authorized functions"></span>);
-			say q(<span style="vertical-align:0.4em">Show all</a></span>);
+			say q(<span style="vertical-align:0.4em">Show all</span></a>);
 			say q(</div>);
 		}
 		say q(<span class="main_icon fas fa-user-tie fa-3x fa-pull-left"></span>);
@@ -2048,6 +2089,8 @@ sub print_content {
 		say q(<span class="config_icon fas fa-user-cog fa-3x fa-pull-left"></span>);
 		say q(<h2>Admin functions</h2>);
 		say q(<div class="grid" id="admin_grid">);
+		say q(<div class="grid-item stamp" style="position:absolute;right:0;width:100px;height:178px;z-index:0"></div>)
+		  ;
 		say $buffer;
 		say q(</div>);
 		say q(<div style="clear:both"></div>);
@@ -2079,8 +2122,8 @@ sub print_panel_buttons {
 
 sub _print_admin_toggles {
 	my ( $self, $buffer ) = @_;
-	say q(<div style="float:right">);
-	say q(<ul style="list-style:none">);
+	say q(<div style="position:absolute;right:16px;z-index:9">);
+	say q(<ul style="list-style:none;padding-left:0">);
 	my %label = (
 		locus  => 'Loci',
 		scheme => 'Schemes',
@@ -2520,6 +2563,12 @@ sub _loci_exist {
 	my ($self) = @_;
 	return $self->{'datastore'}
 	  ->run_query( 'SELECT EXISTS(SELECT * FROM loci)', undef, { cache => 'CurateIndexPage::loci_exist' } );
+}
+
+sub _locus_type_exists {
+	my ( $self, $type ) = @_;
+	return $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM loci WHERE data_type=?)',
+		$type, { cache => 'CurateIndexPage::locus_type_exists' } );
 }
 
 sub _scheme_groups_exist {

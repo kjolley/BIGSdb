@@ -1,4 +1,4 @@
-/*Version: 20230112*/
+/*Version: 20230323*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -1310,14 +1310,27 @@ div.curategroup {
 	border: 1px solid #ccc;
 	border-radius: 10px;
 	float: left;
-	min-width: 10em
+	width: 9em;
+	height: 9em;
+	position: relative;
 }
 
 div.curategroup h2 {
-	font-family: pt_sansbold, sans-serif;
-	font-size: 1.15em;
-	color: #8080a0;
-	margin: 0 0 0.5em 0
+	font-family: pt_sans, sans-serif;
+	font-size: 1em;
+	color: #393976;
+	margin: 0;
+	width: 80%;
+	position: absolute;
+	z-index: 9
+}
+
+span.curate_buttonbar {
+	position: absolute;
+	bottom: 2em;
+	left: 0;
+	opacity: 0.9;
+	width: 100%;
 }
 
 div.curategroup_users {
@@ -1377,7 +1390,7 @@ div.curategroup_geocoding {
 }
 
 div #admin_grid {
-	margin-right: 100px
+	/*margin-right: 100px*/
 }
 
 div.grid {
@@ -1655,7 +1668,6 @@ div#dashboard .item-content div.doughnut .bb-chart-arc text, div#dashboard .item
 	-webkit-filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.1));
 	filter: drop-shadow(1px 1px 1px rgba(150, 150, 150, 0.5));
 }  */
-
 .vertical .bb-texts text {
 	-webkit-filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.9));
 	filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.9));
@@ -2428,9 +2440,18 @@ span.plugin_icon {
 	color: #435973;
 }
 
+span.curate_icon_span {
+	position: absolute;
+	text-align: center;
+	width: 100%;
+	left: 0;
+	top: 3em;
+}
+
 span.curate_icon {
 	color: #aaa;
-	text-shadow: 3px 3px 3px #999
+	opacity: 0.4;
+	text-shadow: 3px 3px 3px #999;
 }
 
 span.info_icon {
@@ -2491,7 +2512,8 @@ span.icon_button  a {
 	text-decoration: none
 }
 
-div.icon_label {
+span.icon_label {
+	display: block;
 	padding-top: 0.2em;
 	font-size: 0.7em;
 	line-height: 0.85em;
@@ -2764,7 +2786,8 @@ button.plugin:hover {
 }
 
 .curate_icon_info {
-	color: #88c
+	color: #88c;
+	z-index: 9
 }
 
 .curate_icon_batch_edit {
@@ -3077,7 +3100,7 @@ a.slide_trigger {
 	a.link_box {
 		height: 150px
 	}
-	div.icon_label {
+	span.icon_label {
 		display: none
 	}
 	div#data_explorer div#field_labels {
@@ -3143,19 +3166,14 @@ a.slide_trigger {
 	}
 }
 
-/* @media only screen and (max-width:536px) {
-	div.dashboard_element_width2 {
-		width: 458px
-	}
-} */
 @media only screen and (max-width:450px) {
-	div.curategroup {
+/*	div.curategroup {
 		min-width: 85%
 	}
 	div#admin_grid {
 		margin-right: initial;
 		margin-top: 150px
-	}
+	}*/
 }
 
 @media only screen and (max-width:360px) {

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -71,7 +71,7 @@ sub create_record_table {
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	$buffer .= $q->start_form;
 	$q->param( action => $options->{'update'} ? 'update' : 'add' );
-	$q->param( table => $table );
+	$q->param( table  => $table );
 	$buffer .= $q->hidden($_) foreach qw(page table db action submission_id);
 
 	if ( $table eq 'allele_designations' ) {
@@ -80,7 +80,7 @@ sub create_record_table {
 	}
 	$buffer .= $q->hidden( sent => 1 );
 	$buffer .= q(<div class="box" id="queryform">) if !$options->{'nodiv'};
-	$buffer .= $options->{'icon'} if $options->{'icon'};
+	$buffer .= $options->{'icon'}                  if $options->{'icon'};
 	$buffer .= qq(<p>Please fill in the fields below - required fields are marked with an exclamation mark (!).</p>\n);
 	$buffer .= q(<div class="scrollable" style="white-space:nowrap">) if !$options->{'nodiv'};
 	$buffer .= q(<fieldset class="form" style="float:left"><legend>Record</legend><ul>);
@@ -123,8 +123,7 @@ sub create_record_table {
 
 sub _get_form_fields {
 	my ( $self, $attributes, $table, $newdata_ref, $options, $width ) = @_;
-	$options = {} if ref $options ne 'HASH';
-	my $q = $self->{'cgi'};
+	my $q        = $self->{'cgi'};
 	my %disabled = $options->{'disabled'} ? map { $_ => 1 } @{ $options->{'disabled'} } : ();
 	$self->populate_submission_params;
 	my $buffer = q();
@@ -134,9 +133,9 @@ sub _get_form_fields {
 			next FIELD if ( any { $att->{'name'} eq $_ } @{ $options->{'noshow'} } );
 			my $html5_args = $self->_get_html5_args($att);
 			next FIELD if !$self->_show_field( $required, $att );
-			my $name = $options->{'prepend_table_name'} ? "$table\_$att->{'name'}" : $att->{'name'};
+			my $name   = $options->{'prepend_table_name'} ? "$table\_$att->{'name'}" : $att->{'name'};
 			my $length = $att->{'length'} || ( $att->{'type'} eq 'int' ? 15 : 50 );
-			my $args = {
+			my $args   = {
 				table       => $table,
 				newdata     => $newdata_ref,
 				name        => $name,
@@ -202,7 +201,7 @@ sub _get_label {
 	#Associate label with form element (element has to exist)
 	my %auto_field = map { $_ => 1 } qw (curator date_entered datestamp);
 	my $for =
-	    !$auto_field{ $att->{'name'} }
+		!$auto_field{ $att->{'name'} }
 	  && $att->{'type'} ne 'bool'
 	  && !(( $options->{'update'} && $att->{'primary_key'} )
 		|| ( $options->{'newdata_readonly'} && $newdata->{ $att->{'name'} } ) )
@@ -223,6 +222,12 @@ sub _get_html5_args {
 	if ( !$att->{'dropdown_query'} && !$att->{'optlist'} ) {
 		if ( $att->{'type'} eq 'int' ) {
 			@html5_args{qw(type step)} = qw(number 1);
+			if ( $att->{'min'} ) {
+				$html5_args{'min'} = $att->{'min'};
+			}
+			if ( $att->{'max'} ) {
+				$html5_args{'max'} = $att->{'max'};
+			}
 		}
 		if ( $att->{'type'} eq 'float' ) {
 			@html5_args{qw(type step)} = qw(number any);
@@ -268,7 +273,7 @@ sub _get_no_update_field {
 		my $data_length = length( $newdata->{ $att->{'name'} } );
 		if ( $data_length > 5000 ) {
 			$buffer .=
-			    q[<span class="seq"><b>]
+				q[<span class="seq"><b>]
 			  . BIGSdb::Utils::truncate_seq( \$newdata->{ $att->{'name'} }, 40 )
 			  . qq[</b></span><br />sequence is $data_length characters (too long to display)];
 		} else {
@@ -399,12 +404,12 @@ sub _get_foreign_key_dropdown_field {
 		}
 	} else {
 		local $" = ',';
-		$qry = "SELECT id FROM $att->{'foreign_key'} ORDER BY @fields_to_query";
+		$qry    = "SELECT id FROM $att->{'foreign_key'} ORDER BY @fields_to_query";
 		$values = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	}
 	$values = [] if ref $values ne 'ARRAY';
 	my $default = @$values == 1 ? $values->[0] : undef;
-	my $q = $self->{'cgi'};
+	my $q       = $self->{'cgi'};
 	return $q->popup_menu(
 		-name    => $name,
 		-id      => $name,
@@ -475,7 +480,7 @@ sub _get_text_field {
 	my ( $self, $args ) = @_;
 	my ( $name, $length, $newdata, $att, $options, $html5_args ) =
 	  @$args{qw(name length newdata att options html5_args)};
-	my $q = $self->{'cgi'};
+	my $q        = $self->{'cgi'};
 	my %disabled = $args->{'disabled'} ? ( disabled => 'disabled' ) : ();
 	if ( $length >= 256 ) {
 		$newdata->{ $att->{'name'} } = BIGSdb::Utils::split_line( $newdata->{ $att->{'name'} } )
@@ -653,7 +658,7 @@ sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateS
 		foreach my $att (@$ext_att) {
 			my ( $field, $desc, $format, $required, $length, $optlist ) = @$att;
 			$buffer .=
-			    qq(<li><label for="$field" class="form" style="width:${width}em">$field:)
+				qq(<li><label for="$field" class="form" style="width:${width}em">$field:)
 			  . ( $required ? '!' : '' )
 			  . qq(</label>\n);
 			$length = 12 if !$length;
@@ -918,7 +923,7 @@ sub _create_extra_fields_for_schemes {    ## no critic (ProhibitUnusedPrivateSub
 
 sub _create_extra_fields_for_users {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata, $width, $options ) = @_;
-	my $q = $self->{'cgi'};
+	my $q      = $self->{'cgi'};
 	my $buffer = $self->_get_user_site_db_field( $newdata, $width, $options );
 	$buffer .= $self->_get_user_quota_field( $newdata, $width, $options );
 	return $buffer;
@@ -941,14 +946,14 @@ sub _get_user_site_db_field {
 		$labels->{ $db->{'id'} } = $db->{'name'};
 	}
 	push @$ids, 0;
-	my %disabled_field = $options->{'disabled'} ? map { $_ => 1 } @{ $options->{'disabled'} } : ();
-	my %disabled = $disabled_field{'user_db'} ? ( disabled => 'disabled' ) : ();
+	my %disabled_field = $options->{'disabled'}     ? map { $_ => 1 } @{ $options->{'disabled'} } : ();
+	my %disabled       = $disabled_field{'user_db'} ? ( disabled => 'disabled' )                  : ();
 	$labels->{0} = 'this database only';
 	if ( $options->{'update'} ) {
 		$newdata->{'user_db'} //= 0;
 	}
 	my $default = $newdata->{'user_db'} // $default_db;
-	my $buffer = qq(<li><label for="user_db" class="form" style="width:${width}em">site/domain:</label>\n);
+	my $buffer  = qq(<li><label for="user_db" class="form" style="width:${width}em">site/domain:</label>\n);
 	$buffer .= $q->popup_menu(
 		-name    => 'user_db',
 		-id      => 'user_db',
@@ -1027,7 +1032,7 @@ sub check_record {
 		}
 		my @checks = qw(integer float date regex foreign_key);
 		foreach my $check (@checks) {
-			my $method = "_check_$check";
+			my $method  = "_check_$check";
 			my $message = $self->$method( $att, $newdata );
 			if ($message) {
 				push @problems, $message;
@@ -1138,16 +1143,23 @@ sub _check_is_missing {
 
 sub _check_integer {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $att, $newdata ) = @_;
-	if (   $newdata->{ $att->{'name'} }
-		&& $att->{'type'} eq 'int'
-		&& !BIGSdb::Utils::is_int( $newdata->{ $att->{'name'} } ) )
+	if (  defined $newdata->{ $att->{'name'} }
+		&& $att->{'type'} eq 'int' )
 	{
-		return "$att->{name} must be an integer.";
+		if ( !BIGSdb::Utils::is_int( $newdata->{ $att->{'name'} } ) ) {
+			return "$att->{name} must be an integer.";
+		}
+		if ( $att->{'min'} && $newdata->{ $att->{'name'} } < $att->{'min'} ) {
+			return "$att->{name} cannot be smaller than $att->{'min'}.";
+		}
+		if ( $att->{'max'} && $newdata->{ $att->{'name'} } > $att->{'max'} ) {
+			return "$att->{name} cannot be larger than $att->{'max'}.";
+		}
+		return;
 	}
-	return;
 }
 
-sub _check_float {      ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_float {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $att, $newdata ) = @_;
 	if (   $newdata->{ $att->{'name'} }
 		&& $att->{'type'} eq 'float'
@@ -1158,7 +1170,7 @@ sub _check_float {      ## no critic (ProhibitUnusedPrivateSubroutines) #Called 
 	return;
 }
 
-sub _check_date {       ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_date {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $att, $newdata ) = @_;
 	if (   $newdata->{ $att->{'name'} }
 		&& $att->{'type'} eq 'date'
@@ -1169,7 +1181,7 @@ sub _check_date {       ## no critic (ProhibitUnusedPrivateSubroutines) #Called 
 	return;
 }
 
-sub _check_regex {      ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_regex {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $att, $newdata ) = @_;
 	if (   defined $newdata->{ $att->{'name'} }
 		&& $newdata->{ $att->{'name'} } ne ''
@@ -1285,10 +1297,10 @@ sub _check_validation_conditions_field_value {
 		}
 		return;
 	}
-	my $field_type = $self->_get_field_type( $newdata->{'field'} );
+	my $field_type = $self->get_field_type( $newdata->{'field'} );
 	if ( $newdata->{'value'} =~ /^\[(.+)\]$/x ) {
 		my $comp_field      = $1;
-		my $comp_field_type = $self->_get_field_type($comp_field);
+		my $comp_field_type = $self->get_field_type($comp_field);
 		if ( !$comp_field_type ) {
 			return qq(Comparison field '$comp_field' is not recognized.);
 		} else {
@@ -1330,7 +1342,7 @@ sub _check_geopoint_field_value {
 	return;
 }
 
-sub _get_field_type {
+sub get_field_type {
 	my ( $self, $field ) = @_;
 	my $type;
 	if ( $self->{'xmlHandler'}->is_field($field) ) {
@@ -1346,7 +1358,8 @@ sub _get_field_type {
 #Check that changing user status is allowed
 sub _check_users_status {
 	my ( $self, $att, $newdata, $update ) = @_;
-	my $status = $self->{'datastore'}->run_query( 'SELECT status FROM users WHERE user_name=?', $self->{'username'} );
+	my $status =
+	  $self->{'datastore'}->run_query( 'SELECT status FROM users WHERE user_name=?', $self->{'username'} );
 	my ( $user_status, $user_username );
 	if ($update) {
 		( $user_status, $user_username ) =
@@ -1549,7 +1562,7 @@ sub get_form_icon {
 	};
 	my $icon = $icons->{$table} // 'fa-file-alt';
 	my $bordered =
-	    q(<span class="form_icon"><span class="fa-stack fa-3x">)
+		q(<span class="form_icon"><span class="fa-stack fa-3x">)
 	  . qq(<span class="fas $icon fa-stack-2x form_icon_main"></span>)
 	  . qq(<span class="fas $highlight_class->{$highlight} fa-stack-1x" style="left:0.5em;"></span></span></span>);
 	return $bordered;

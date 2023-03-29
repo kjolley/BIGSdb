@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -55,15 +55,16 @@ sub get_javascript_panel {
 		provenance => q[$('[id^="prov_value"]').val('')],
 		phenotypic => q[$('[id^="phenotypic_value"]').val('')],
 		allele     => q[$('[id^="value"]').val('')],
-		scheme     => q[$('[id^="value"]').val('')],
+		mutations           => q[$('[id^="mutation_value"]').val('')],
+		scheme              => q[$('[id^="value"]').val('')],
 		allele_designations =>
 q[$('[id^="designation_field"]').val(''),$('[id^="designation_operator"]').val(''),$('[id^="designation_value"]').val('')],
-		allele_count    => q[$('[id^="allele_count"]').val('')],
-		allele_status   => q[$('[id^="allele_status"]').val('')],
-		tags            => q[$('[id^="tag"]').val('')],
-		tag_count       => q[$('[id^="tag_count"]').val('')],
-		seqbin          => q[$('[id^="seqbin_value"]').val('');$('[id^="seqbin_field"]').val('')],
-		assembly_checks => q[$('[id^="assembly_checks_value"]').val('');$('[id^="assembly_checks_field"]').val('')],
+		allele_count      => q[$('[id^="allele_count"]').val('')],
+		allele_status     => q[$('[id^="allele_status"]').val('')],
+		tags              => q[$('[id^="tag"]').val('')],
+		tag_count         => q[$('[id^="tag_count"]').val('')],
+		seqbin            => q[$('[id^="seqbin_value"]').val('');$('[id^="seqbin_field"]').val('')],
+		assembly_checks   => q[$('[id^="assembly_checks_value"]').val('');$('[id^="assembly_checks_field"]').val('')],
 		annotation_status =>
 		  q[$('[id^="annotation_status_value"]').val('');$('[id^="annotation_status_field"]').val('')]
 	);
@@ -112,10 +113,10 @@ END
 }
 
 sub get_javascript {
-	my ($self)   = @_;
-	my $max_rows = MAX_ROWS;
+	my ($self)         = @_;
+	my $max_rows       = MAX_ROWS;
 	my $close_panel_js = $self->_get_close_panel_js;
-	my $buffer   = $self->SUPER::get_javascript;
+	my $buffer         = $self->SUPER::get_javascript;
 	$buffer .= << "END";
 \$(function () {
 	\$('div#queryform').on('click', 'a[data-rel=ajax]',function(){
@@ -195,7 +196,7 @@ sub search_users {
 	my ( $self, $name, $operator, $text, $table ) = @_;
 	my ( $field, $suffix ) = split / /, $name;
 	$suffix =~ s/[\(\)\s]//gx;
-	my $qry = 'SELECT id FROM users WHERE ';
+	my $qry    = 'SELECT id FROM users WHERE ';
 	my $equals = $suffix ne 'id' ? "upper($suffix) = upper(E'$text')" : "$suffix = E'$text'";
 	my $contains =
 	  $suffix ne 'id' ? "upper($suffix) LIKE upper(E'\%$text\%')" : "CAST($suffix AS text) LIKE (E'\%$text\%')";
@@ -273,7 +274,7 @@ sub check_format {
 			},
 			date => sub {
 				my %invalid_operator = map { $_ => 1 } ( 'contains', 'NOT contain', 'starts with', 'ends with' );
-				my $operator = $data->{'operator'};
+				my $operator         = $data->{'operator'};
 				if ( $invalid_operator{$operator} ) {
 					$error = qq(Searching a date field cannot be done for the '$operator' operator.);
 				} elsif ( !BIGSdb::Utils::is_date( $data->{'text'} ) ) {
@@ -311,14 +312,15 @@ sub clean_list {
 	my @new_list;
 	foreach my $value (@$list) {
 		$value =~ tr/[\x{ff10}-\x{ff19}]/[0-9]/;    #Convert Unicode full width integers
-		next if lc($data_type) =~ /^int/x           && !BIGSdb::Utils::is_int($value);
-		next if lc($data_type) =~ /^bool/x          && !BIGSdb::Utils::is_bool($value);
-		next if lc($data_type) eq 'date'            && !BIGSdb::Utils::is_date($value);
-		next if lc($data_type) eq 'float'           && !BIGSdb::Utils::is_float($value);
-		if (lc($data_type) eq 'geography_point'){
+		next if lc($data_type) =~ /^int/x  && !BIGSdb::Utils::is_int($value);
+		next if lc($data_type) =~ /^bool/x && !BIGSdb::Utils::is_bool($value);
+		next if lc($data_type) eq 'date'  && !BIGSdb::Utils::is_date($value);
+		next if lc($data_type) eq 'float' && !BIGSdb::Utils::is_float($value);
+		if ( lc($data_type) eq 'geography_point' ) {
 			next if !BIGSdb::Utils::is_geography_point($value);
 			my $coordinates = BIGSdb::Utils::get_geography_point_coordinates($value);
-			$value = $self->{'datastore'}->convert_coordinates_to_geography($coordinates->{'latitude'},$coordinates->{'longitude'});
+			$value = $self->{'datastore'}
+			  ->convert_coordinates_to_geography( $coordinates->{'latitude'}, $coordinates->{'longitude'} );
 		}
 		push @new_list, uc($value);
 	}

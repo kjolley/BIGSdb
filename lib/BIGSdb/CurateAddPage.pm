@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -75,9 +75,9 @@ sub _table_exists {
 }
 
 sub print_content {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	my $table = $q->param('table') || '';
+	my ($self)      = @_;
+	my $q           = $self->{'cgi'};
+	my $table       = $q->param('table') || '';
 	my $record_name = $self->get_record_name($table);
 	return if !$self->_table_exists($table);
 	say qq(<h1>Add new $record_name</h1>);
@@ -125,14 +125,14 @@ sub print_content {
 		return;
 	}
 	$self->_warn_about_scheme_modification($table);
-	my $icon = $self->get_form_icon( $table, 'plus' );
+	my $icon     = $self->get_form_icon( $table, 'plus' );
 	my $new_data = $self->_populate_newdata($table);
 	if ( $table eq 'loci' && $q->param('Copy') ) {
 		$self->_copy_locus_config($new_data);
 	}
 	my $buffer = $self->create_record_table( $table, $new_data, { icon => $icon } );
 	$new_data->{'datestamp'} = $new_data->{'date_entered'} = BIGSdb::Utils::get_datestamp();
-	$new_data->{'curator'} = $self->get_curator_id;
+	$new_data->{'curator'}   = $self->get_curator_id;
 	my $retval;
 	if ( $q->param('sent') ) {
 		$retval = $self->_insert( $table, $new_data );
@@ -220,7 +220,7 @@ sub _insert {
 	my %check_tables = map { $_ => 1 } qw(accession loci locus_aliases locus_descriptions profile_refs scheme_fields
 	  scheme_group_group_members sequences sequence_bin sequence_refs retired_profiles classification_group_fields
 	  retired_isolates schemes users eav_fields classification_group_field_values lincode_schemes lincode_prefixes
-	  projects);
+	  projects peptide_mutations dna_mutations );
 
 	if (
 		   $table ne 'retired_isolates'
@@ -231,9 +231,11 @@ sub _insert {
 	{
 		return;    #Problem will be reported in CuratePage::create_record_table.
 	}
-	if ( $check_tables{$table} ) {
-		my $method = "_check_$table";
-		$self->$method( $newdata, \@problems, $extra_inserts, $extra_transactions );
+	if ( !@problems ) {
+		if ( $check_tables{$table} ) {
+			my $method = "_check_$table";
+			$self->$method( $newdata, \@problems, $extra_inserts, $extra_transactions );
+		}
 	}
 	if (@problems) {
 		local $" = qq(<br />\n);
@@ -271,7 +273,7 @@ sub _insert {
 			my $detail;
 			if ( $@ =~ /duplicate/x && $@ =~ /unique/x ) {
 				$detail =
-				    q(Data entry would have resulted in records with either duplicate ids or another unique )
+					q(Data entry would have resulted in records with either duplicate ids or another unique )
 				  . q(field with duplicate values. This can result from another curator adding data at the same )
 				  . q(time. Try pressing the browser back button and then re-submit the records.);
 			} else {
@@ -291,7 +293,7 @@ sub _insert {
 			my $detail;
 			if ( $table eq 'composite_fields' ) {
 				$detail =
-				    qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+					qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 				  . qq(page=compositeUpdate&amp;id=$newdata->{'id'}">)
 				  . q(Add values and fully customize this composite field</a>.);
 			}
@@ -374,7 +376,7 @@ sub _check_sequence_refs {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 	return;
 }
 
-sub _check_profile_refs {     ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_profile_refs {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata, $problems ) = @_;
 	if ( !$self->{'datastore'}->profile_exists( $newdata->{'scheme_id'}, $newdata->{'profile_id'} ) ) {
 		push @$problems, "Profile $newdata->{'profile_id'} does not exist.";
@@ -583,19 +585,19 @@ sub _check_sequence_field {
 			  : IDENTITY_THRESHOLD;
 			my $type = $locus_info->{'id_check_type_alleles'} ? q( type) : q();
 			push @$problems,
-			    qq[Sequence is too dissimilar to existing$type alleles (less than $id_threshold% identical or an ]
+				qq[Sequence is too dissimilar to existing$type alleles (less than $id_threshold% identical or an ]
 			  . q[alignment of less than 90% its length).  Similarity is determined by the output of the best ]
 			  . q[match from the BLAST algorithm - this may be conservative.  This check will also fail if the ]
 			  . q[best match is in the reverse orientation. If you're sure you want to add this sequence then make ]
 			  . q[sure that the 'Override sequence similarity check' box is ticked.];
 		} elsif ( $check->{'subsequence_of'} ) {
 			push @$problems,
-			    qq[Sequence is a sub-sequence of allele-$check->{'subsequence_of'}, i.e. it is identical over its ]
+				qq[Sequence is a sub-sequence of allele-$check->{'subsequence_of'}, i.e. it is identical over its ]
 			  . q[complete length but is shorter. If you're sure you want to add this sequence then make ]
 			  . q[sure that the 'Override sequence similarity check' box is ticked.];
 		} elsif ( $check->{'supersequence_of'} ) {
 			push @$problems,
-			    qq[Sequence is a super-sequence of allele $check->{'supersequence_of'}, i.e. it is identical over the ]
+				qq[Sequence is a super-sequence of allele $check->{'supersequence_of'}, i.e. it is identical over the ]
 			  . q[complete length of this allele but is longer. If you're sure you want to add this sequence then ]
 			  . q[make sure that the 'Override sequence similarity check' box is ticked.];
 		}
@@ -617,7 +619,7 @@ sub _check_sequence_extended_attributes {
 		my @optlist;
 		my %options;
 		if ($option_list) {
-			@optlist = split /\|/x, $option_list;
+			@optlist     = split /\|/x, $option_list;
 			$options{$_} = 1 foreach @optlist;
 		}
 		$newdata->{$field} = $q->param($field);
@@ -711,10 +713,66 @@ sub _check_lincode_prefixes {    ## no critic (ProhibitUnusedPrivateSubroutines)
 	return;
 }
 
-sub _check_locus_aliases {       ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_locus_aliases {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata, $problems ) = @_;
 	if ( $newdata->{'locus'} eq $newdata->{'alias'} ) {
 		push @$problems, 'Locus alias can not be set the same as the locus name.';
+	}
+	return;
+}
+
+sub _check_peptide_mutations {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $newdata, $problems ) = @_;
+	$self->_check_mutations( $newdata, $problems, 'peptide' );
+	return;
+}
+
+sub _check_dna_mutations {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $newdata, $problems ) = @_;
+	my $locus_info = $self->{'datastore'}->get_locus_info($newdata->{'locus'});
+	if ($locus_info->{'data_type'} eq 'peptide'){
+		push @$problems, 'You cannot define SNPs for peptide loci.';
+		return;
+	}
+	$self->_check_mutations( $newdata, $problems, 'dna' );
+
+	return;
+}
+
+sub _check_mutations {
+	my ( $self, $newdata, $problems, $type ) = @_;
+	my ( $variant_field, $wt_field, $value_type );
+	if ( $type eq 'peptide' ) {
+		$variant_field = 'variant_aa';
+		$wt_field      = 'wild_type_aa';
+		$value_type    = 'amino acid';
+	} else {
+		$variant_field = 'variant_nuc';
+		$wt_field      = 'wild_type_nuc';
+		$value_type    = 'nucleotide';
+	}
+	$newdata->{$variant_field} =~ s/\s//gx;
+	$newdata->{$wt_field}      =~ s/\s//gx;
+	my @variants = split /;/x, $newdata->{$variant_field};
+	my %used_variant;
+	my @wt = split /;/x, $newdata->{$wt_field};
+	my %wt = map { $_ => 1 } @wt;
+	my %used_wt;
+
+	foreach my $variant (@variants) {
+		if ( $wt{$variant} ) {
+			push @$problems, "Variant $value_type '$variant' is the same as wild-type.";
+		}
+		if ( $used_variant{$variant} ) {
+			push @$problems, "Variant '$variant' is listed more than once.";
+		}
+		$used_variant{$variant} = 1;
+	}
+	foreach my $wt (@wt) {
+		if ( $used_wt{$wt} ) {
+			push @$problems, "WT '$wt' is listed more than once.";
+		}
+		$used_wt{$wt} = 1;
 	}
 	return;
 }
@@ -763,7 +821,7 @@ sub _check_users {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by
 			my $remote_user =
 			  $self->{'datastore'}->get_remote_user_info( $newdata->{'user_name'}, $newdata->{'user_db'} );
 			my $msg =
-			    qq(Username '$newdata->{'user_name'}' already exists in remote user database.</p>)
+				qq(Username '$newdata->{'user_name'}' already exists in remote user database.</p>)
 			  . q(<div style="margin-top:3em">);
 			$msg .= $self->get_list_block(
 				[
@@ -776,7 +834,7 @@ sub _check_users {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by
 			$msg .= q(</div><p>);
 			if ( !@$problems ) {
 				$msg .=
-				    qq( <a class="reset" href="$self->{'system'}->{'script_name'}?)
+					qq( <a class="reset" href="$self->{'system'}->{'script_name'}?)
 				  . qq(db=$self->{'instance'}&amp;page=importUser&amp;user_db=$newdata->{'user_db'}&amp;)
 				  . qq(user_name=$newdata->{'user_name'}"><span>Import user</span></a>);
 			}
@@ -821,7 +879,7 @@ sub _check_eav_fields {    ## no critic (ProhibitUnusedPrivateSubroutines) #Call
 	return;
 }
 
-sub _check_projects {      ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_projects {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata, $problems, $extra_inserts ) = @_;
 	if ( $newdata->{'private'} ) {
 		push @$extra_inserts,
@@ -834,7 +892,7 @@ sub _check_projects {      ## no critic (ProhibitUnusedPrivateSubroutines) #Call
 	return;
 }
 
-sub _check_loci {          ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_loci {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata, $problems, $extra_inserts ) = @_;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		$newdata->{'locus'} = $newdata->{'id'};
@@ -960,7 +1018,6 @@ sub _check_lincode_schemes {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 	my @thresholds = split /;/x, $newdata->{'thresholds'};
 	my $last       = $count + 1;
 	foreach my $threshold (@thresholds) {
-
 		if ( $threshold > $count ) {
 			push @$problems, qq(Scheme has $count loci - you cannot have a threshold of $threshold.);
 			last;
@@ -1019,7 +1076,7 @@ sub next_id {
 sub _next_id_profiles {
 	my ( $self, $scheme_id ) = @_;
 	my $qry =
-	    'SELECT CAST(profile_id AS int) FROM profiles WHERE scheme_id=? AND '
+		'SELECT CAST(profile_id AS int) FROM profiles WHERE scheme_id=? AND '
 	  . 'CAST(profile_id AS int)>0 UNION SELECT CAST(profile_id AS int) FROM retired_profiles '
 	  . 'WHERE scheme_id=? ORDER BY profile_id';
 	my $test     = 0;
@@ -1046,9 +1103,9 @@ sub _next_id_isolates {
 	  ? $self->{'system'}->{'start_id'}
 	  : 1;
 	my $start_id_clause = $start_id > 1 ? " AND id >= $start_id" : '';
-	my $qry = "SELECT id FROM isolates WHERE id>0 $start_id_clause UNION SELECT isolate_id AS id "
+	my $qry             = "SELECT id FROM isolates WHERE id>0 $start_id_clause UNION SELECT isolate_id AS id "
 	  . 'FROM retired_isolates ORDER BY id';
-	my $test = $start_id - 1 // 0;
+	my $test          = $start_id - 1 // 0;
 	my $used_isolates = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	return $start_id if !@$used_isolates;
 	my %used = map { $_ => 1 } @$used_isolates;
