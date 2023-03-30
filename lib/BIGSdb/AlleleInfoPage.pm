@@ -414,7 +414,6 @@ sub _print_peptide_mutations {
 		}
 	}
 	return if !@$list;
-	my $plural = @$list > 1 ? q(s) : q();
 	my $count  = @$list;
 	my ( $display, $offset );
 	if ( @$list > 4 ) {
@@ -426,7 +425,7 @@ sub _print_peptide_mutations {
 	}
 	say q(<span class="info_icon fas fa-2x fa-fw fa-star-of-life fa-pull-left" )
 	  . qq(style="margin-top:${offset}em"></span>);
-	say qq(<h2 style="display:inline">Peptide mutation$plural ($count)</h2>);
+	say qq(<h2 style="display:inline">Single amino acid variation ($count)</h2>);
 	say $self->get_list_block($list);
 	return;
 }
