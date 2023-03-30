@@ -1,4 +1,4 @@
-/*Version: 20230323*/
+/*Version: 20230330*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -1322,7 +1322,7 @@ div.curategroup h2 {
 	margin: 0;
 	width: 80%;
 	position: absolute;
-	z-index: 9
+	z-index: 2
 }
 
 span.curate_buttonbar {
@@ -2787,7 +2787,7 @@ button.plugin:hover {
 
 .curate_icon_info {
 	color: #88c;
-	z-index: 9
+	z-index: 2
 }
 
 .curate_icon_batch_edit {
