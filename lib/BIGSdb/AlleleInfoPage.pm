@@ -359,6 +359,8 @@ sub _print_nucleotide_mutations {
 			} elsif ( $data->{'is_mutation'} ) {
 				( my $wt = $mutation->{'wild_type_nuc'} ) =~ s/;//gx;
 				$value = "$wt$mutation->{'reported_position'}$data->{'nucleotide'}";
+			} else {
+				next;
 			}
 			push @$list,
 			  {
@@ -405,6 +407,8 @@ sub _print_peptide_mutations {
 			} elsif ( $data->{'is_mutation'} ) {
 				( my $wt = $mutation->{'wild_type_aa'} ) =~ s/;//gx;
 				$value = "$wt$mutation->{'reported_position'}$data->{'amino_acid'}";
+			} else {
+				next;
 			}
 			push @$list,
 			  {
@@ -414,7 +418,7 @@ sub _print_peptide_mutations {
 		}
 	}
 	return if !@$list;
-	my $count  = @$list;
+	my $count = @$list;
 	my ( $display, $offset );
 	if ( @$list > 4 ) {
 		$display = 'none';

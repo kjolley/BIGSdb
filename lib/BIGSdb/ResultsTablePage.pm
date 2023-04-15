@@ -1803,16 +1803,18 @@ sub _print_sequences_extended_fields {
 			[ $data->{'locus'}, $data->{'allele_id'}, $mutation->{'id'} ],
 			{ fetch => 'row_hashref', cache => 'ResultsTablePage:get_sequences_peptide_mutations' }
 		);
-		my @wt = split /;/x, $mutation->{'wild_type_aa'};
-		my %wt = map { $_ => 1 } @wt;
-		if ( $result && !$wt{ $result->{'amino_acid'} } ) {
+		my @wt      = split /;/x, $mutation->{'wild_type_aa'};
+		my %wt      = map { $_ => 1 } @wt;
+		my @variant = split /;/x, $mutation->{'variant_aa'};
+		my %variant = map { $_ => 1 } @variant;
+		if ( $result && !$wt{ $result->{'amino_acid'} } && $variant{ $result->{'amino_acid'} } ) {
 			local $" = q();
 			print qq(<td>@wt$mutation->{'reported_position'}$result->{'amino_acid'}</td>);
 		} else {
 			print q(<td></td>);
 		}
 	}
-		my $snps =
+	my $snps =
 	  $self->{'datastore'}->run_query( 'SELECT * FROM dna_mutations WHERE locus=? ORDER BY reported_position,id',
 		$data->{'locus'}, { fetch => 'all_arrayref', slice => {}, cache => 'ResultsTablePage:get_dna_mutations' } );
 	foreach my $mutation (@$snps) {
@@ -1823,7 +1825,9 @@ sub _print_sequences_extended_fields {
 		);
 		my @wt = split /;/x, $mutation->{'wild_type_nuc'};
 		my %wt = map { $_ => 1 } @wt;
-		if ( $result && !$wt{ $result->{'nucleotide'} } ) {
+		my @variant = split /;/x, $mutation->{'variant_nuc'};
+		my %variant = map { $_ => 1 } @variant;
+		if ( $result && !$wt{ $result->{'nucleotide'} } && $variant{ $result->{'nucleotide'} } ) {
 			local $" = q();
 			print qq(<td>@wt$mutation->{'reported_position'}$result->{'nucleotide'}</td>);
 		} else {
