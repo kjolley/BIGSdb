@@ -524,7 +524,8 @@ sub print_page_content {
 	$q->charset('UTF-8');
 	if ( !$q->cookie( -name => 'guid' ) && $self->{'prefstore'} ) {
 		my $guid = $self->{'prefstore'}->get_new_guid;
-		push @{ $self->{'cookies'} }, $q->cookie( -name => 'guid', -value => $guid, -expires => '+10y' );
+		push @{ $self->{'cookies'} },
+		  $q->cookie( -name => 'guid', -value => $guid, -expires => '+10y', -httponly => 1, -secure => 1 );
 		$self->{'setOptions'} = 1;
 	}
 	my %header_options;
