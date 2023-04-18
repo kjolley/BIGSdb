@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2022, University of Oxford
+#Copyright (c) 2015-2023, University of Oxford
 #E-mail: keith.jolley@zoo.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -52,7 +52,7 @@ use constant SEQ_METHODS => (
 	'Illumina + ONT hybrid',
 	'Illumina + PacBio hybrid',
 	'Ion Torrent', 'Oxford Nanopore',
-	'PacBio', 'Sanger', 'Solexa', 'SOLiD', 'other'
+	'PacBio', 'Sanger', 'Solexa', 'SOLiD', 'other', 'unknown'
 );
 push @EXPORT_OK, qw(SEQ_METHODS);
 
@@ -303,7 +303,7 @@ push @EXPORT_OK, @values;
 $EXPORT_TAGS{'submissions'} = [@values];
 
 #Schemes
-use constant SCHEME_FLAGS => ( 'experimental', 'in development', 'please cite', 'unpublished' );
+use constant SCHEME_FLAGS        => ( 'experimental', 'in development', 'please cite', 'unpublished' );
 use constant SCHEME_FLAG_COLOURS => {
 	'please cite'    => '#990000',
 	'experimental'   => '#4c9900',
@@ -329,7 +329,7 @@ $EXPORT_TAGS{'accounts'} = [qw(NEW_ACCOUNT_VALIDATION_TIMEOUT_MINS INACTIVE_ACCO
 #ISO 3166-1 country codes
 use constant COUNTRIES => {
 	q(Afghanistan)                                  => { iso2 => q(AF), iso3 => q(AFG), continent => q(Asia) },
-	q(Åland Islands)                               => { iso2 => q(AX), iso3 => q(ALA), continent => q(Europe) },
+	q(Åland Islands)                                => { iso2 => q(AX), iso3 => q(ALA), continent => q(Europe) },
 	q(Albania)                                      => { iso2 => q(AL), iso3 => q(ALB), continent => q(Europe) },
 	q(Algeria)                                      => { iso2 => q(DZ), iso3 => q(DZA), continent => q(Africa) },
 	q(American Samoa)                               => { iso2 => q(AS), iso3 => q(ASM), continent => q(Oceania) },
@@ -387,7 +387,7 @@ use constant COUNTRIES => {
 	q(Costa Rica)                                   => { iso2 => q(CR), iso3 => q(CRI), continent => q(North America) },
 	q(Croatia)                                      => { iso2 => q(HR), iso3 => q(HRV), continent => q(Europe) },
 	q(Cuba)                                         => { iso2 => q(CU), iso3 => q(CUB), continent => q(North America) },
-	q(Curaçao)                                     => { iso2 => q(CW), iso3 => q(CUW), continent => q(North America) },
+	q(Curaçao)                                      => { iso2 => q(CW), iso3 => q(CUW), continent => q(North America) },
 	q(Cyprus)                                       => { iso2 => q(CY), iso3 => q(CYP), continent => q(Europe) },
 	q(Czech Republic)                               => { iso2 => q(CZ), iso3 => q(CZE), continent => q(Europe) },
 	q(Denmark)                                      => { iso2 => q(DK), iso3 => q(DNK), continent => q(Europe) },
@@ -507,13 +507,13 @@ use constant COUNTRIES => {
 	q(Portugal)                                     => { iso2 => q(PT), iso3 => q(PRT), continent => q(Europe) },
 	q(Puerto Rico)                                  => { iso2 => q(PR), iso3 => q(PRI), continent => q(North America) },
 	q(Qatar)                                        => { iso2 => q(QA), iso3 => q(QAT), continent => q(Asia) },
-	q(Réunion)                                     => { iso2 => q(RE), iso3 => q(REU), continent => q(Africa) },
+	q(Réunion)                                      => { iso2 => q(RE), iso3 => q(REU), continent => q(Africa) },
 	q(Romania)                                      => { iso2 => q(RO), iso3 => q(ROU), continent => q(Europe) },
 	q(Russia)                                       => { iso2 => q(RU), iso3 => q(RUS), continent => q(Asia) },
 	q(Russia [Asia])                                => { iso2 => q(RU), iso3 => q(RUS), continent => q(Asia) },
 	q(Russia [Europe])                              => { iso2 => q(RU), iso3 => q(RUS), continent => q(Europe) },
 	q(Rwanda)                                       => { iso2 => q(RW), iso3 => q(RWA), continent => q(Africa) },
-	q(Saint Barthélemy)                            => { iso2 => q(BL), iso3 => q(BLM), continent => q(North America) },
+	q(Saint Barthélemy)                             => { iso2 => q(BL), iso3 => q(BLM), continent => q(North America) },
 	q(Saint Helena)                                 => { iso2 => q(SH), iso3 => q(SHN), continent => q(Africa) },
 	q(Saint Kitts and Nevis)                        => { iso2 => q(KN), iso3 => q(KNA), continent => q(North America) },
 	q(Saint Lucia)                                  => { iso2 => q(LC), iso3 => q(LCA), continent => q(North America) },
@@ -522,7 +522,7 @@ use constant COUNTRIES => {
 	q(Saint Vincent and the Grenadines)             => { iso2 => q(VC), iso3 => q(VCT), continent => q(North America) },
 	q(Samoa)                                        => { iso2 => q(WS), iso3 => q(WSM), continent => q(Oceania) },
 	q(San Marino)                                   => { iso2 => q(SM), iso3 => q(SMR), continent => q(Europe) },
-	q(São Tomé and Príncipe)                     => { iso2 => q(ST), iso3 => q(STP), continent => q(Africa) },
+	q(São Tomé and Príncipe)                        => { iso2 => q(ST), iso3 => q(STP), continent => q(Africa) },
 	q(Sark)                                         => { iso2 => q(CQ), iso3 => q(),    continent => q(Europe) },
 	q(Saudi Arabia)                                 => { iso2 => q(SA), iso3 => q(SAU), continent => q(Asia) },
 	q(Senegal)                                      => { iso2 => q(SN), iso3 => q(SEN), continent => q(Africa) },
