@@ -671,7 +671,7 @@ sub _make_cookie {
 		-expires  => $expires,
 		-path     => '/',
 		-httponly => 1,
-		-secure   => 1
+		-secure   => $self->{'config'}->{'secure_cookies'} ? 1 : 0
 	);
 }
 

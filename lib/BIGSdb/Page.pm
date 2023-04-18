@@ -525,7 +525,13 @@ sub print_page_content {
 	if ( !$q->cookie( -name => 'guid' ) && $self->{'prefstore'} ) {
 		my $guid = $self->{'prefstore'}->get_new_guid;
 		push @{ $self->{'cookies'} },
-		  $q->cookie( -name => 'guid', -value => $guid, -expires => '+10y', -httponly => 1, -secure => 1 );
+		  $q->cookie(
+			-name     => 'guid',
+			-value    => $guid,
+			-expires  => '+10y',
+			-httponly => 1,
+			-secure   => $self->{'config'}->{'secure_cookies'} ? 1 : 0
+		  );
 		$self->{'setOptions'} = 1;
 	}
 	my %header_options;
