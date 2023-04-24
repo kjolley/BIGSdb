@@ -1338,7 +1338,7 @@ sub get_schemes_table_attributes {
 		{
 			name        => 'allow_missing_loci',
 			type        => 'bool',
-			required    => $self->{'system'}->{'dbtype'} eq 'isolates' ? 1 : 0,
+			required    => 1,
 			hide_public => 1,
 			default     => 'false',
 			comments    => q(This is only relevant to schemes with primary key fields, e.g. MLST.),
@@ -1348,7 +1348,7 @@ sub get_schemes_table_attributes {
 		{
 			name        => 'allow_presence',
 			type        => 'bool',
-			required    => $self->{'system'}->{'dbtype'} eq 'isolates' ? 1 : 0,
+			required    => 1,
 			hide_public => 1,
 			default     => 'false',
 			comments    => q(This is only relevant to schemes with primary key fields, e.g. MLST.),
@@ -1356,8 +1356,7 @@ sub get_schemes_table_attributes {
 		}
 	  );
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		push @$attributes,
-		  (
+		push @$attributes, (
 			{
 				name     => 'max_missing',
 				type     => 'int',
@@ -1368,18 +1367,20 @@ sub get_schemes_table_attributes {
 			{
 				name     => 'disable',
 				type     => 'bool',
+				required => 1,
 				default  => 'false',
 				comments => q(Set to true to disable scheme. This can be overridden by user preference settings.)
 			},
 			{
 				name        => 'no_submissions',
 				type        => 'bool',
+				required    => 1,
 				hide_public => 1,
 				default     => 'false',
 				comments    => q(Set to true to prevent submission of profiles of this )
 				  . q(scheme via the automated submission system.)
 			}
-		  );
+		);
 	}
 	push @$attributes,
 	  (
