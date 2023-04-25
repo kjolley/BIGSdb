@@ -1669,7 +1669,6 @@ sub _print_record_table {
 	my $table_info = $self->_get_record_table_info($table);
 	my ( $headers, $html_table_headers1, $html_table_headers2, $display, $extended_attributes ) =
 	  @{$table_info}{qw(headers html_table_headers1 html_table_headers2 display extended_attributes)};
-use Data::Dumper;$logger->error(Dumper $html_table_headers1);
 	if ( $self->{'curate'} ) {
 		my $rowspan = @$html_table_headers2 ? q( rowspan="2") : q();
 		print qq(<th$rowspan>Delete</th>);
