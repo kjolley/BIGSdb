@@ -1,6 +1,6 @@
 #FieldBreakdown.pm - FieldBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2018-2022, University of Oxford
+#Copyright (c) 2018-2023, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -48,7 +48,7 @@ sub get_attributes {
 		buttontext => 'Fields',
 		menutext   => 'Field breakdown',
 		module     => 'FieldBreakdown',
-		version    => '2.5.4',
+		version    => '2.5.5',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
@@ -508,7 +508,7 @@ sub _print_chart_types {
 	say q(<a class="chart_icon transform_to_map" title="Map chart" style="display:none">)
 	  . q(<span class="chart_icon fas fa-2x fa-globe-africa" style="color:#484"></span></a>);
 	say q(<a class="chart_icon transform_to_bar" title="Bar chart (discrete values)" style="display:none">)
-	  . q(<span class="chart_icon fas fa-2x fa-chart-bar" style="color:#484"></span></a>);
+	  . q(<span class="chart_icon fas fa-2x fa-chart-column" style="color:#484"></span></a>);
 	say q(<a class="chart_icon transform_to_line" title="Line chart (cumulative values)" style="display:none">)
 	  . q(<span class="chart_icon fas fa-2x fa-chart-line" style="color:#844"></span></a>);
 	say q(</li>);

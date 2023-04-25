@@ -672,7 +672,7 @@ sub _get_meta_data {
 sub _get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20230330';
+	my $version = '20230425';
 	my @filenames;
 	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
 	push @filenames, q(billboard.min.css)                                     if $self->{'billboard'};
@@ -687,7 +687,7 @@ sub _get_stylesheets {
 	if ( !$self->{'config'}->{'no_cookie_consent'} && !$self->{'curate'} && $self->{'instance'} ) {
 		push @filenames, q(cookieconsent.min.css);
 	}
-	push @filenames, qw(jquery-ui.min.css fontawesome-all.css bigsdb.min.css);
+	push @filenames, qw(jquery-ui.min.css fontawesome-all.min.css bigsdb.min.css);
 	my @paths;
 	foreach my $filename (@filenames) {
 		my $stylesheet;

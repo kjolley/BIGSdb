@@ -193,6 +193,12 @@ END
     	}, 1000);
  	});
 	$db_trigger
+	\$(".curate_icon_link").on("mouseenter", function(){
+		\$(".curate_icon_highlight", this).addClass("fa-beat");
+	});
+	\$(".curate_icon_link").on("mouseleave", function(){
+		\$(".curate_icon_highlight", this).removeClass("fa-beat");
+	});
 });
 
 function bind_toggle (cat){
