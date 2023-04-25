@@ -2,7 +2,7 @@
 #Script to test access to authenticated resources via REST interface.
 #Written by Keith Jolley
 #Copyright (c) 2017, University of Oxford
-#E-mail: keith.jolley@zoo.ox.ac.uk
+#E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
 #
@@ -22,7 +22,7 @@
 #databases (https://pubmlst.org/site_accounts.shtml#registering_with_databases)
 #
 #Please note that the consumer key below will only work for access to the 
-#PubMLST test databases. Please contact keith.jolley@zoo.ox.ac.uk to obtain your 
+#PubMLST test databases. Please contact keith.jolley@biology.ox.ac.uk to obtain your 
 #own consumer key for use in your own projects.
 
 CONSUMER_KEY = 'rUiQnMtLBZmCAEiCVFCEQeYu'

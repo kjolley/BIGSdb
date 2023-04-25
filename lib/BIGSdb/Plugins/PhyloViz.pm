@@ -52,7 +52,7 @@ sub get_attributes {
 			{
 				name        => 'Keith Jolley',
 				affiliation => 'University of Oxford, UK',
-				email       => 'keith.jolley@zoo.ox.ac.uk'
+				email       => 'keith.jolley@biology.ox.ac.uk'
 			}
 		],
 		description      => 'Creates phylogenetic inference and data visualization for sequence-based typing methods',

@@ -3,7 +3,7 @@
 #Written by Keith Jolley
 #Based on code by Melanie Hennart (https://gitlab.pasteur.fr/BEBP/LINcoding).
 #Copyright (c) 2022-2023, University of Oxford
-#E-mail: keith.jolley@zoo.ox.ac.uk
+#E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
 #

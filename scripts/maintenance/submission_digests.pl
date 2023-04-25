@@ -2,7 +2,7 @@
 #Send E-mail digests to curators summarising submissions since last digest
 #Written by Keith Jolley
 #Copyright (c) 2020, University of Oxford
-#E-mail: keith.jolley@zoo.ox.ac.uk
+#E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
 #

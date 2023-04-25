@@ -1,6 +1,6 @@
 #Written by Keith Jolley
 #Copyright (c) 2019, University of Oxford
-#E-mail: keith.jolley@zoo.ox.ac.uk
+#E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
 #
@@ -50,7 +50,7 @@ sub run {
 	}
 	return if !@$new_pmids;
 	my $url = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?'
-	  . 'db=PubMed&report=medline&retmode=xml&tool=BIGSdb&email=keith.jolley@zoo.ox.ac.uk';
+	  . 'db=PubMed&report=medline&retmode=xml&tool=BIGSdb&email=keith.jolley@biology.ox.ac.uk';
 	my $user_agent = LWP::UserAgent->new( agent => 'BIGSdb' );
 	local $" = q(,);
 	my $response = $user_agent->post( $url, content => "id=@$new_pmids" );
