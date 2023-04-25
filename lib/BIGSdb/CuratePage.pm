@@ -183,8 +183,8 @@ sub _get_form_fields {
 
 sub _show_field {
 	my ( $self, $showing_required, $att ) = @_;
-	if (   ( $att->{'required'} && $showing_required )
-		|| ( !$att->{'required'} && !$showing_required ) )
+	if (   ( $att->{'required'} && $showing_required && !$att->{'group_with_optional'})
+		|| (( !$att->{'required'} || $att->{'group_with_optional'}) && !$showing_required  ) )
 	{
 		return 1;
 	}

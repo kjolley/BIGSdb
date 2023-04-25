@@ -1336,51 +1336,64 @@ sub get_schemes_table_attributes {
 			tooltip     => 'display_order - order of appearance in interface.'
 		},
 		{
-			name        => 'allow_missing_loci',
-			type        => 'bool',
-			required    => 1,
-			hide_public => 1,
-			default     => 'false',
-			comments    => q(This is only relevant to schemes with primary key fields, e.g. MLST.),
-			tooltip     => q(allow_missing_loci - Allow profiles to contain '0' (locus missing) or 'N' )
+			name                => 'allow_missing_loci',
+			type                => 'bool',
+			required            => 1,
+			group_with_optional => 1,
+			hide_public         => 1,
+			default             => 'false',
+			comments            => q(This is only relevant to schemes with primary key fields, e.g. MLST.),
+			tooltip             => q(allow_missing_loci - Allow profiles to contain '0' (locus missing) or 'N' )
 			  . q((any allele or missing - essentially ignoring the locus in pairwise comparisons).)
 		},
-		{
-			name        => 'allow_presence',
-			type        => 'bool',
-			required    => 1,
-			hide_public => 1,
-			default     => 'false',
-			comments    => q(This is only relevant to schemes with primary key fields, e.g. MLST.),
-			tooltip     => q(allow_presence - Allow profiles to contain 'P' (locus present).)
-		}
 	  );
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		push @$attributes, (
+		push @$attributes,
+		  (
 			{
 				name     => 'max_missing',
 				type     => 'int',
 				comments => q(Number of loci that are allowed to be missing for a profile to be defined. ),
 				tooltip  => q(max_missing - The allow_missing_loci attribute must be set for this to take effect. )
 				  . q(If left blank then any number of missing loci will be allowed.)
-			},
+			}
+		  );
+	}
+	push @$attributes,
+	  (
+		{
+			name                => 'allow_presence',
+			type                => 'bool',
+			required            => 1,
+			group_with_optional => 1,
+			hide_public         => 1,
+			default             => 'false',
+			comments            => q(This is only relevant to schemes with primary key fields, e.g. MLST.),
+			tooltip             => q(allow_presence - Allow profiles to contain 'P' (locus present).)
+		}
+	  );
+	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		push @$attributes,
+		  (
 			{
-				name     => 'disable',
-				type     => 'bool',
-				required => 1,
-				default  => 'false',
+				name                => 'disable',
+				type                => 'bool',
+				required            => 1,
+				group_with_optional => 1,
+				default             => 'false',
 				comments => q(Set to true to disable scheme. This can be overridden by user preference settings.)
 			},
 			{
-				name        => 'no_submissions',
-				type        => 'bool',
-				required    => 1,
-				hide_public => 1,
-				default     => 'false',
-				comments    => q(Set to true to prevent submission of profiles of this )
+				name                => 'no_submissions',
+				type                => 'bool',
+				required            => 1,
+				group_with_optional => 1,
+				hide_public         => 1,
+				default             => 'false',
+				comments            => q(Set to true to prevent submission of profiles of this )
 				  . q(scheme via the automated submission system.)
 			}
-		);
+		  );
 	}
 	push @$attributes,
 	  (
