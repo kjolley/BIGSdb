@@ -1,3 +1,9 @@
+v1.42.0: *Option to define schemes that can include locus presence in profile
+          definitions.
+         *Mutation and SNP detection tools added to annotate allele 
+          definitions. Mutation presence can be queried in locus-specific
+          allele query interface.
+         *Add secure and httponly attributes to cookies.
 v1.41.3: *Add Kleborate plugin.
 v1.41.2: *Add choice of colour palettes to front-end and query dashboards.
 v1.41.1: *Option to define dashboard colours for specific field values.

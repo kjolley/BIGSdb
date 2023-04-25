@@ -47,6 +47,7 @@ Version 1.38: Change of seqdef and isolate database structures.
 Version 1.39: Change of isolate and preference database structures.
 Version 1.40: Change of isolate database structure.
 Version 1.41: Change of isolate database structure.
+Version 1.42: Change of seqdef and isolate database structures.
 
 Details can be found below.
 
@@ -605,3 +606,13 @@ There is an updated stored procedure in the isolate databases needed for
 scheme field lookup during cache renewal.
 
 Please run the isolatedb_v1.41.sql script against isolate databases.
+
+Version 1.42
+------------
+There are changes to the sequence definition and isolate database structures
+to support schemes using locus presence rather than just allelic variation.
+Changes to the seqdef database also support mutation and SNP detection tools
+that can be used to annotate allelic variants. 
+
+Please run the isolatedb_v1.42.sql script against isolate databases and the
+seqdefdb_v1.42.sql script against sequence definition databases.
