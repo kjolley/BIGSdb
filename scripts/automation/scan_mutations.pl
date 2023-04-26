@@ -18,7 +18,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20230328
+#Version: 20230426
 use strict;
 use warnings;
 use 5.010;
@@ -477,6 +477,10 @@ sub define_motifs {
 	}
 	my $end = $pos + $flanking + $offset - 1;
 	$end = ( $most_common_length - 1 ) if $end > ( $most_common_length - 1 );
+	if ( ( $end - $start ) < ( 2 * $flanking ) ) {
+		$offset = -( ( 2 * $flanking ) - ( $end - $start ) );
+		$start += $offset;
+	}
 	my %used;
 	my %allowed_char = map { $_ => 1 } ( @wt, split /;/x, $variants );
 	my $motifs       = [];
