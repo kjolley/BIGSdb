@@ -486,7 +486,7 @@ sub _print_export_configuration_function {
 		scheme_curators locus_curators sequences sequence_refs profile_refs locus_extended_attributes
 		client_dbases client_dbase_loci client_dbase_schemes classification_schemes classification_group_fields
 		validation_rules validation_conditions validation_rule_conditions lincode_schemes lincode_fields
-		lincode_prefixes geography_point_lookup)
+		lincode_prefixes geography_point_lookup peptide_mutations dna_mutations)
 	  )
 	{
 		say q(<fieldset><legend>Database configuration</legend>);
