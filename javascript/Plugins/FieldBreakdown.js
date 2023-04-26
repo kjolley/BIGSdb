@@ -1,6 +1,6 @@
 /*FieldBreakdown.js - FieldBreakdown plugin for BIGSdb
 Written by Keith Jolley
-Copyright (c) 2018-2022, University of Oxford
+Copyright (c) 2018-2023, University of Oxford
 E-mail: keith.jolley@biology.ox.ac.uk
 
 This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 
-Version 2.5.4.
+Version 2.5.5.
 */
 
 var prefs_loaded;
@@ -117,7 +117,7 @@ $(function() {
 				value = item.field;
 			} else if (field_type == 'loci') {
 				value = item;
-				if (locus_labels[item] != undefined) {
+				if (typeof locus_labels !== 'undefined' && locus_labels[item] != undefined) {
 					label = locus_labels[item];
 				} else {
 					label = item;
@@ -462,7 +462,7 @@ function load_pie(url, field, max_segments) {
 
 	var title = field.replace(/^.+\.\./, "");
 	var field_type = get_field_type();
-	if (field_type == 'loci' && locus_labels[field] != undefined) {
+	if (field_type == 'loci' && typeof locus_labels !== 'undefined' && locus_labels[field] != undefined) {
 		title = locus_labels[field];
 	}
 
