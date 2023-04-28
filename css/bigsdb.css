@@ -1,4 +1,4 @@
-/*Version: 20230330*/
+/*Version: 20230428*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -1391,6 +1391,7 @@ div.curategroup_geocoding {
 
 div #admin_grid {
 	/*margin-right: 100px*/
+	
 }
 
 div.grid {
@@ -2762,19 +2763,21 @@ button.plugin:hover {
 }
 
 .curate_icon_plus {
-	color: #080
+	color: #080;
+	text-shadow: 1px 1px 1px #080, 0px 0px 10px #fff
 }
 
 .curate_icon_query {
-	color: #44a
+	color: #44a;
 }
 
 .curate_icon_edit {
-	color: #22a
+	color: #22a;
 }
 
 .curate_icon_delete {
-	color: #a22
+	color: #a22;
+	text-shadow: 1px 1px 1px #a22, 0px 0px 3px #fff, 0px 0px 10px #fff
 }
 
 .curate_icon_import {
@@ -3166,8 +3169,7 @@ a.slide_trigger {
 	}
 }
 
-@media only screen and (max-width:450px) {
-/*	div.curategroup {
+@media only screen and (max-width:450px) { /*	div.curategroup {
 		min-width: 85%
 	}
 	div#admin_grid {
