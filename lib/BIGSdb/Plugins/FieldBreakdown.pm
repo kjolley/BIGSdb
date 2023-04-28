@@ -508,7 +508,7 @@ sub _print_chart_types {
 	say q(<a class="chart_icon transform_to_map" title="Map chart" style="display:none">)
 	  . q(<span class="chart_icon fas fa-2x fa-globe-africa" style="color:#484"></span></a>);
 	say q(<a class="chart_icon transform_to_bar" title="Bar chart (discrete values)" style="display:none">)
-	  . q(<span class="chart_icon fas fa-2x fa-chart-bar" style="color:#484"></span></a>);
+	  . q(<span class="chart_icon fas fa-2x fa-chart-column" style="color:#484"></span></a>);
 	say q(<a class="chart_icon transform_to_line" title="Line chart (cumulative values)" style="display:none">)
 	  . q(<span class="chart_icon fas fa-2x fa-chart-line" style="color:#844"></span></a>);
 	say q(</li>);

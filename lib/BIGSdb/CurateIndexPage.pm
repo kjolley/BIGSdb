@@ -193,6 +193,12 @@ END
     	}, 1000);
  	});
 	$db_trigger
+	\$(".curate_icon_link").on("mouseenter", function(){
+		\$(".curate_icon_highlight", this).addClass("fa-beat");
+	});
+	\$(".curate_icon_link").on("mouseleave", function(){
+		\$(".curate_icon_highlight", this).removeClass("fa-beat");
+	});
 });
 
 function bind_toggle (cat){
@@ -1999,7 +2005,7 @@ sub _get_icon_group {
 		$buffer .= qq(<a href="$options->{'batch_update_url'}$set_string" title="$text" class="curate_icon_link">);
 		$buffer .= q(<span class="curate_icon_highlight curate_icon_batch_edit fas fa-pencil-alt"></span>);
 		$buffer .= q(<span class="curate_icon_highlight curate_icon_batch_edit fas fa-plus" )
-		  . qq(style="left:0em;bottom:-0.8em;font-size:1.5em"></span>\n);
+		  . qq(style="left:0em;bottom:-0.5em;font-size:1.5em"></span>\n);
 		$buffer .= qq(</a></span>\n);
 		$pos += 2.2;
 	}
@@ -2089,8 +2095,7 @@ sub print_content {
 		say q(<span class="config_icon fas fa-user-cog fa-3x fa-pull-left"></span>);
 		say q(<h2>Admin functions</h2>);
 		say q(<div class="grid" id="admin_grid">);
-		say q(<div class="grid-item stamp" style="position:absolute;right:0;width:100px;height:178px;z-index:0"></div>)
-		  ;
+		say q(<div class="grid-item stamp" style="position:absolute;right:0;width:100px;height:178px;z-index:0"></div>);
 		say $buffer;
 		say q(</div>);
 		say q(<div style="clear:both"></div>);
