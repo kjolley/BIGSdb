@@ -579,7 +579,8 @@ sub _print_plugin_buttons {
 		$buffer .= qq($cat_buffer<div style="clear:both"></div>) if $cat_buffer;
 	}
 	if ($buffer) {
-		say q(<div><span class="info_icon fas fa-2x fa-fw fa-chart-bar fa-pull-left" style="margin-top:-0.2em"></span>);
+		say q(<div><span class="info_icon fas fa-2x fa-fw fa-chart-column fa-pull-left" style="margin-top:-0.2em">)
+		  . q(</span>);
 		say q(<h2>Tools</h2>);
 		say $buffer;
 		say q(</div>);
