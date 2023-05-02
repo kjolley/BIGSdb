@@ -3390,8 +3390,10 @@ sub _reopen_submission {
 	my $curator_id = $self->get_curator_id;
 	my $message    = 'Submission re-opened.';
 	eval {
-		$self->{'db'}->do( 'UPDATE submissions SET (status,datestamp,curator)=(?,?,?) WHERE id=?',
-			undef, 'pending', 'now', $curator_id, $submission_id );
+		$self->{'db'}->do(
+			'UPDATE submissions SET (status,outcome,datestamp,curator)=(?,?,?,?) WHERE id=?',
+			undef, 'pending', undef, 'now', $curator_id, $submission_id
+		);
 		$self->{'submissionHandler'}->update_submission_datestamp($submission_id);
 		$self->{'db'}->do( 'INSERT INTO messages (submission_id,timestamp,user_id,message) VALUES (?,?,?,?)',
 			undef, $submission_id, 'now', $curator_id, $message );
