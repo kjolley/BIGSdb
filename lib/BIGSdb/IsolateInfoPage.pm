@@ -21,12 +21,13 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::TreeViewPage);
-use BIGSdb::Constants qw(:interface :limits COUNTRIES);
+use BIGSdb::Constants qw(:interface :limits COUNTRIES DEFAULT_CODON_TABLE);
 use Log::Log4perl qw(get_logger);
 use Try::Tiny;
 use List::MoreUtils qw(none uniq);
 use JSON;
 use Template;
+use Bio::Tools::CodonTable;
 my $logger = get_logger('BIGSdb.Page');
 use constant ISOLATE_SUMMARY     => 1;
 use constant LOCUS_SUMMARY       => 2;
@@ -459,16 +460,21 @@ sub print_content {
 	$self->_print_action_panel($isolate_id) if $self->{'curate'};
 	$self->_print_projects($isolate_id);
 	say q(<div class="box" id="resultspanel">);
+	my $default_codon_table = $self->{'system'}->{'codon_table'} // DEFAULT_CODON_TABLE;
+	my $codon_table         = $self->{'datastore'}->get_codon_table($isolate_id);
+	if ( $codon_table != $default_codon_table ) {
+		my $tables = Bio::Tools::CodonTable->tables;
+		say q(<p>This isolate uses a different codon table than normal: )
+		  . qq(<span class="highlightvalue">$tables->{$codon_table}</span>.</p>);
+	}
 	say $self->get_isolate_record($isolate_id);
-	my $tree_button =
-		q( <span id="tree_button" style="margin-left:1em;display:none">)
+	my $tree_button = q( <span id="tree_button" style="margin-left:1em;display:none">)
 	  . q(<a id="show_tree" class="small_submit" style="cursor:pointer">)
 	  . q(<span id="show_tree_text" style="display:none"><span class="fa fas fa-eye"></span> Show</span>)
 	  . q(<span id="hide_tree_text" style="display:inline">)
 	  . q(<span class="fa fas fa-eye-slash"></span> Hide</span> tree</a></span>);
 	my $aliases_button = $self->_get_show_aliases_button;
 	my $loci           = $self->{'datastore'}->get_loci( { set_id => $set_id } );
-
 	if ( @$loci && $self->_should_show_schemes($isolate_id) ) {
 		my $classification_data = $self->_get_classification_group_data($isolate_id);
 		say $self->_format_classification_data($classification_data);
