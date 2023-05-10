@@ -1022,11 +1022,20 @@ sub _report_check {
 			say q(<table class="resultstable">);
 			say q(<tr><th>Primary key</th><th>Note(s)</th></tr>);
 			my $td = 1;
+			my $dup_isolate;
 			foreach my $id ( sort keys %$advisories ) {
 				say qq(<tr class="td$td"><td>$id</td><td style="text-align:left">$advisories->{$id}</td></tr>);
-				$td = $td == 1 ? 2 : 1;    #row stripes
+				$td          = $td == 1 ? 2 : 1;    #row stripes
+				$dup_isolate = 1 if $advisories->{$id} =~ /$self->{'system'}->{'labelfield'}.*already\sexists/x;
 			}
 			say q(</table>);
+			if ($dup_isolate) {
+				say q(<p>)
+				  . ucfirst( $self->{'system'}->{'labelfield'} )
+				  . q( names are not guaranteed to be unique so this alone may not be enough to prevent upload, )
+				  . q(but please check if there are public records from the same country and/or submitting laboratory )
+				  . q(with the same names as these are likely to be duplicates.</p>);
+			}
 		} else {
 			say q(<p>No obvious problems identified so far.</p>);
 		}
