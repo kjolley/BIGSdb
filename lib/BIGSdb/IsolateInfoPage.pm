@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::TreeViewPage);
-use BIGSdb::Constants qw(:interface :limits COUNTRIES DEFAULT_CODON_TABLE);
+use BIGSdb::Constants qw(:interface :limits COUNTRIES DEFAULT_CODON_TABLE NULL_TERMS);
 use Log::Log4perl qw(get_logger);
 use Try::Tiny;
 use List::MoreUtils qw(none uniq);
@@ -468,7 +468,8 @@ sub print_content {
 		  . qq(<span class="highlightvalue">$tables->{$codon_table}</span>.</p>);
 	}
 	say $self->get_isolate_record($isolate_id);
-	my $tree_button = q( <span id="tree_button" style="margin-left:1em;display:none">)
+	my $tree_button =
+		q( <span id="tree_button" style="margin-left:1em;display:none">)
 	  . q(<a id="show_tree" class="small_submit" style="cursor:pointer">)
 	  . q(<span id="show_tree_text" style="display:none"><span class="fa fas fa-eye"></span> Show</span>)
 	  . q(<span id="hide_tree_text" style="display:inline">)
@@ -894,7 +895,7 @@ sub get_isolate_record {
 			$buffer .= $self->_get_ref_links($id);
 			$buffer .= $self->_get_seqbin_link($id);
 			$buffer .= $self->_get_assembly_checks($id);
-			$buffer .= $self->_get_annotation_metrics($id);
+			$buffer .= $self->_get_annotation_metrics( $id, $data );
 			$buffer .= $self->_get_analysis($id);
 		}
 	}
@@ -2267,6 +2268,137 @@ sub _check_exists {
 }
 
 sub _get_annotation_metrics {
+	my ( $self, $isolate_id, $data ) = @_;
+	my $prov_metrics    = $self->_get_provenance_annotation_metrics($data);
+	my $scheme_metrics  = $self->_get_scheme_annotation_metrics($isolate_id);
+	my $min_genome_size = $self->{'system'}->{'min_genome_size'} // $self->{'config'}->{'min_genome_size'}
+	  // MIN_GENOME_SIZE;
+	my $has_genome =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT EXISTS(SELECT * FROM seqbin_stats WHERE isolate_id=? AND total_length>=?)',
+		[ $isolate_id, $min_genome_size ] );
+	return q() if !$prov_metrics->{'total_fields'} && !@$scheme_metrics;
+	my $prov_buffer = q(<h3>Provenance information</h3>);
+	if ( $prov_metrics->{'total_fields'} ) {
+		my $score         = int( 100 * $prov_metrics->{'annotated'} / $prov_metrics->{'total_fields'} );
+		my $colour        = BIGSdb::Utils::get_percent_colour( $score, { min => 0, max => 100, middle => 50 } );
+		my $min_threshold = $self->{'system'}->{'provenance_annotation_bad_threshold'}
+		  // $self->{'config'}->{'provenance_annotation_bad_threshold'} // 75;
+		my $quality;
+		if ( $score == 100 ) {
+			$quality = GOOD;
+		} elsif ( $score < $min_threshold ) {
+			$quality = BAD;
+		} else {
+			$quality = MEH;
+		}
+		my @missing;
+		foreach my $field_hash ( @{ $prov_metrics->{'fields'} } ) {
+			my ($annotated) = values %$field_hash;
+			push @missing, keys %$field_hash if !$annotated;
+		}
+		$prov_buffer .= qq(<table class="resultstable">\n);
+		$prov_buffer .= q(<tr><th rowspan="2">Fields used in metric</th><th rowspan="2">Fields completed</th>)
+		  . qq(<th colspan="2">Annotation</th></tr>\n);
+		$prov_buffer .= qq(<tr><th style="min-width:5em">Score</th><th>Status</th></tr>\n);
+		$prov_buffer .= qq(<tr class="td1"><td>$prov_metrics->{'total_fields'}</td>);
+		$prov_buffer .=
+			qq(<td>$prov_metrics->{'annotated'}</td></td>)
+		  . q(<td style="position:relative"><span )
+		  . qq(style="position:absolute;font-size:0.8em;margin-left:-0.5em">$score</span>)
+		  . qq(<div style="display:block-inline;margin-top:0.2em;background-color:\#$colour;)
+		  . qq(border:1px solid #ccc;height:0.8em;width:$score%"></div></td><td>$quality</td></tr>);
+		$prov_buffer .= qq(</table>\n);
+		if (@missing) {
+			local $" = q(, );
+			$prov_buffer .= qq(<p>Missing field values for: @missing</p>);
+		}
+	}
+	my $scheme_buffer = qq(<h3>Scheme completion</h3><table class="resultstable">\n);
+	$scheme_buffer .=
+		q(<tr><th rowspan="2">Scheme</th><th rowspan="2">Scheme loci</th><th rowspan="2">Designated loci</th>)
+	  . q(<th colspan="2">Annotation</th></tr>);
+	$scheme_buffer .= qq(<tr><th style="min-width:5em">Score</th><th>Status</th></tr>\n);
+	my $td = 1;
+	my $scheme_count;
+	foreach my $scheme (@$scheme_metrics) {
+		next if !$scheme->{'loci'};
+		next if !$scheme->{'designated'} && $scheme->{'loci'} > 1;
+		next if !$scheme->{'designated'} && !$has_genome;
+		my $percent       = int( 100 * $scheme->{'designated'} / $scheme->{'loci'} );
+		my $max_threshold = $scheme->{'max_threshold'} // $scheme->{'loci'};
+		$max_threshold = $scheme->{'loci'} if $max_threshold > $scheme->{'loci'};
+		my $min_threshold = $scheme->{'min_threshold'} // 0;
+		$min_threshold = 0 if $min_threshold < 0;
+
+		if ( $max_threshold < $min_threshold ) {
+			$logger->error("Scheme $scheme->{'id'} ($scheme->{'name'}) has max_threshold < min_threshold");
+			$min_threshold = 0;
+			$max_threshold = $scheme->{'loci'};
+		}
+		$scheme_buffer .= qq(<tr class="td$td"><td>$scheme->{'name'}</td><td>$scheme->{'loci'}</td>)
+		  . qq(<td>$scheme->{'designated'}</td>);
+		my $min    = 100 * $min_threshold / $scheme->{'loci'};
+		my $max    = 100 * $max_threshold / $scheme->{'loci'};
+		my $middle = ( $min + $max ) / 2;
+		my $colour = BIGSdb::Utils::get_percent_colour( $percent, { min => $min, max => $max, middle => $middle } );
+		$scheme_buffer .=
+			q(<td style="position:relative"><span )
+		  . qq(style="position:absolute;font-size:0.8em;margin-left:-0.5em">$percent</span>)
+		  . qq(<div style="display:block-inline;margin-top:0.2em;background-color:\#$colour;)
+		  . qq(border:1px solid #ccc;height:0.8em;width:$percent%"></div></td>);
+		my $quality;
+		$min_threshold = $scheme->{'min_threshold'} // $max_threshold;
+
+		if ( $scheme->{'designated'} >= $max_threshold ) {
+			$quality = GOOD;
+		} elsif ( $scheme->{'designated'} < $min_threshold ) {
+			$quality = BAD;
+		} else {
+			$quality = MEH;
+		}
+		$scheme_buffer .= qq(<td>$quality</td>);
+		$scheme_buffer .= qq(</tr>\n);
+		$td = $td == 1 ? 2 : 1;
+		$scheme_count++;
+	}
+	$scheme_buffer .= qq(</table>\n);
+	return q() if !$scheme_count && !$prov_metrics->{'total_fields'};
+	my $buffer = qq(<div id="annotation_metrics">\n);
+	$buffer .= qq(<span class="info_icon fas fa-2x fa-fw fa-award fa-pull-left" style="margin-top:-0.2em"></span>\n);
+	$buffer .= qq(<h2>Annotation quality metrics</h2>\n);
+	$buffer .= q(<div class="scrollable">);
+	$buffer .= $prov_buffer   if $prov_metrics->{'total_fields'};
+	$buffer .= $scheme_buffer if $scheme_count;
+	$buffer .= qq(</div></div>\n);
+	return $buffer;
+}
+
+sub _get_provenance_annotation_metrics {
+	my ( $self, $data ) = @_;
+	my $att           = $self->{'xmlHandler'}->get_all_field_attributes;
+	my $fields        = $self->{'xmlHandler'}->get_field_list( { show_hidden => 1 } );
+	my $results       = {};
+	my %null_terms    = map { lc($_) => 1 } NULL_TERMS;
+	my $count         = 0;
+	my $total_fields  = 0;
+	my $field_results = [];
+
+	foreach my $field (@$fields) {
+		next if ( $att->{$field}->{'annotation_metric'} // q() ) ne 'yes';
+		$total_fields++;
+		if ( defined $data->{ lc($field) } && !$null_terms{ lc( $data->{ lc($field) } ) } ) {
+			$count++;
+			push @$field_results, { $field => 1 };
+		} else {
+			push @$field_results, { $field => 0 };
+		}
+	}
+	$results = { total_fields => $total_fields, annotated => $count, fields => $field_results };
+	return $results;
+}
+
+sub _get_scheme_annotation_metrics {
 	my ( $self, $isolate_id ) = @_;
 	my $schemes = $self->{'datastore'}->run_query(
 		'SELECT id,COUNT(*) AS loci FROM schemes s JOIN scheme_members m ON s.id=m.scheme_id '
@@ -2274,12 +2406,6 @@ sub _get_annotation_metrics {
 		undef,
 		{ fetch => 'all_arrayref', slice => {} }
 	);
-	my $min_genome_size = $self->{'system'}->{'min_genome_size'} // $self->{'config'}->{'min_genome_size'}
-	  // MIN_GENOME_SIZE;
-	my $has_genome =
-	  $self->{'datastore'}
-	  ->run_query( 'SELECT EXISTS(SELECT * FROM seqbin_stats WHERE isolate_id=? AND total_length>=?)',
-		[ $isolate_id, $min_genome_size ] );
 	my $set_id = $self->get_set_id;
 	my $values = [];
 	foreach my $scheme (@$schemes) {
@@ -2303,62 +2429,7 @@ sub _get_annotation_metrics {
 		};
 		push @$values, $data;
 	}
-	return q() if !@$values;
-	my $buffer = qq(<div id="annotation_metrics">\n);
-	$buffer .= qq(<span class="info_icon fas fa-2x fa-fw fa-award fa-pull-left" style="margin-top:-0.2em"></span>\n);
-	$buffer .= qq(<h2>Annotation quality metrics</h2>\n);
-	$buffer .= qq(<div class="scrollable"><table class="resultstable">\n);
-	$buffer .= q(<tr><th rowspan="2">Scheme</th><th rowspan="2">Scheme loci</th><th rowspan="2">Designated loci</th>)
-	  . q(<th colspan="2">Annotation</th></tr>);
-	$buffer .= qq(<tr><th style="min-width:5em">Score</th><th>Status</th></tr>\n);
-	my $td = 1;
-	my $scheme_count;
-
-	foreach my $scheme (@$values) {
-		next if !$scheme->{'loci'};
-		next if !$scheme->{'designated'} && $scheme->{'loci'} > 1;
-		next if !$scheme->{'designated'} && !$has_genome;
-		my $percent       = int( 100 * $scheme->{'designated'} / $scheme->{'loci'} );
-		my $max_threshold = $scheme->{'max_threshold'} // $scheme->{'loci'};
-		$max_threshold = $scheme->{'loci'} if $max_threshold > $scheme->{'loci'};
-		my $min_threshold = $scheme->{'min_threshold'} // 0;
-		$min_threshold = 0 if $min_threshold < 0;
-
-		if ( $max_threshold < $min_threshold ) {
-			$logger->error("Scheme $scheme->{'id'} ($scheme->{'name'}) has max_threshold < min_threshold");
-			$min_threshold = 0;
-			$max_threshold = $scheme->{'loci'};
-		}
-		$buffer .= qq(<tr class="td$td"><td>$scheme->{'name'}</td><td>$scheme->{'loci'}</td>)
-		  . qq(<td>$scheme->{'designated'}</td>);
-		my $min    = 100 * $min_threshold / $scheme->{'loci'};
-		my $max    = 100 * $max_threshold / $scheme->{'loci'};
-		my $middle = ( $min + $max ) / 2;
-		my $colour = BIGSdb::Utils::get_percent_colour( $percent, { min => $min, max => $max, middle => $middle } );
-		$buffer .=
-			q(<td style="position:relative"><span )
-		  . qq(style="position:absolute;font-size:0.8em;margin-left:-0.5em">$percent</span>)
-		  . qq(<div style="display:block-inline;margin-top:0.2em;background-color:\#$colour;)
-		  . qq(border:1px solid #ccc;height:0.8em;width:$percent%"></div></td>);
-		my $quality;
-		$min_threshold = $scheme->{'min_threshold'} // $max_threshold;
-
-		if ( $scheme->{'designated'} >= $max_threshold ) {
-			$quality = GOOD;
-		} elsif ( $scheme->{'designated'} < $min_threshold ) {
-			$quality = BAD;
-		} else {
-			$quality = MEH;
-		}
-		$buffer .= qq(<td>$quality</td>);
-		$buffer .= qq(</tr>\n);
-		$td = $td == 1 ? 2 : 1;
-		$scheme_count++;
-	}
-	return q() if !$scheme_count;
-	$buffer .= qq(</table></div>\n);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	return $values;
 }
 
 sub _print_projects {
