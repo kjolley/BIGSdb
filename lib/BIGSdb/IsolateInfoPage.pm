@@ -150,6 +150,16 @@ sub get_javascript {
 		\$(".cs_filtered").css('visibility','visible');
 		\$(".cs_unfiltered").css('visibility','collapse');
 	});
+	\$("#show_metric_fields").click(function() {
+		\$("#hide_metric_fields").show();
+		\$("#show_metric_fields").hide();
+		\$("#metric_fields").show();
+	})
+	\$("#hide_metric_fields").click(function() {
+		\$("#show_metric_fields").show();
+		\$("#hide_metric_fields").hide();
+		\$("#metric_fields").hide();
+	})
 });
 
 function enable_slide_triggers(){
@@ -2293,28 +2303,37 @@ sub _get_annotation_metrics {
 			$quality = MEH;
 		}
 		my @missing;
+		my @field_list = @{ $prov_metrics->{'field_list'} };
+		local $" = q(</li><li>);
 		foreach my $field_hash ( @{ $prov_metrics->{'fields'} } ) {
 			my ($annotated) = values %$field_hash;
 			push @missing, keys %$field_hash if !$annotated;
 		}
-		$prov_buffer .= qq(<table class="resultstable">\n);
+		$prov_buffer .= qq(<div class="scrollable"><table class="resultstable">\n);
 		$prov_buffer .= q(<tr><th rowspan="2">Fields used in metric</th><th rowspan="2">Fields completed</th>)
 		  . qq(<th colspan="2">Annotation</th></tr>\n);
 		$prov_buffer .= qq(<tr><th style="min-width:5em">Score</th><th>Status</th></tr>\n);
-		$prov_buffer .= qq(<tr class="td1"><td>$prov_metrics->{'total_fields'}</td>);
+		$prov_buffer .=
+			qq(<tr class="td1"><td>$prov_metrics->{'total_fields'} )
+		  . q(<a id="showhide_metric_fields" style="cursor:pointer">)
+		  . q(<span id="show_metric_fields" title="Show list" style="padding-left:2em" class="fa-regular fa-eye"></span>)
+		  . q(<span id="hide_metric_fields" title="Hide list" style="display:none;padding-left:2em" )
+		  . q(class="fa-regular fa-eye-slash"></span></a>)
+		  . qq(<ul id="metric_fields" style="display:none;text-align:left"><li>@field_list</li></ul></td>);
 		$prov_buffer .=
 			qq(<td>$prov_metrics->{'annotated'}</td></td>)
 		  . q(<td style="position:relative"><span )
 		  . qq(style="position:absolute;font-size:0.8em;margin-left:-0.5em">$score</span>)
-		  . qq(<div style="display:block-inline;margin-top:0.2em;background-color:\#$colour;)
+		  . qq(<div style="margin-top:0.2em;background-color:\#$colour;)
 		  . qq(border:1px solid #ccc;height:0.8em;width:$score%"></div></td><td>$quality</td></tr>);
-		$prov_buffer .= qq(</table>\n);
+		$prov_buffer .= qq(</table></div>\n);
+
 		if (@missing) {
 			local $" = q(, );
 			$prov_buffer .= qq(<p>Missing field values for: @missing</p>);
 		}
 	}
-	my $scheme_buffer = qq(<h3>Scheme completion</h3><table class="resultstable">\n);
+	my $scheme_buffer = qq(<h3>Scheme completion</h3><div class="scrollable"><table class="resultstable">\n);
 	$scheme_buffer .=
 		q(<tr><th rowspan="2">Scheme</th><th rowspan="2">Scheme loci</th><th rowspan="2">Designated loci</th>)
 	  . q(<th colspan="2">Annotation</th></tr>);
@@ -2345,7 +2364,7 @@ sub _get_annotation_metrics {
 		$scheme_buffer .=
 			q(<td style="position:relative"><span )
 		  . qq(style="position:absolute;font-size:0.8em;margin-left:-0.5em">$percent</span>)
-		  . qq(<div style="display:block-inline;margin-top:0.2em;background-color:\#$colour;)
+		  . qq(<div style="margin-top:0.2em;background-color:\#$colour;)
 		  . qq(border:1px solid #ccc;height:0.8em;width:$percent%"></div></td>);
 		my $quality;
 		$min_threshold = $scheme->{'min_threshold'} // $max_threshold;
@@ -2362,15 +2381,15 @@ sub _get_annotation_metrics {
 		$td = $td == 1 ? 2 : 1;
 		$scheme_count++;
 	}
-	$scheme_buffer .= qq(</table>\n);
+	$scheme_buffer .= qq(</table></div>\n);
 	return q() if !$scheme_count && !$prov_metrics->{'total_fields'};
 	my $buffer = qq(<div id="annotation_metrics">\n);
 	$buffer .= qq(<span class="info_icon fas fa-2x fa-fw fa-award fa-pull-left" style="margin-top:-0.2em"></span>\n);
 	$buffer .= qq(<h2>Annotation quality metrics</h2>\n);
-	$buffer .= q(<div class="scrollable">);
+#	$buffer .= q(<div class="scrollable">);
 	$buffer .= $prov_buffer   if $prov_metrics->{'total_fields'};
 	$buffer .= $scheme_buffer if $scheme_count;
-	$buffer .= qq(</div></div>\n);
+	$buffer .= qq(</div>\n);
 	return $buffer;
 }
 
@@ -2382,11 +2401,13 @@ sub _get_provenance_annotation_metrics {
 	my %null_terms    = map { lc($_) => 1 } NULL_TERMS;
 	my $count         = 0;
 	my $total_fields  = 0;
+	my $metric_fields = [];
 	my $field_results = [];
 
 	foreach my $field (@$fields) {
 		next if ( $att->{$field}->{'annotation_metric'} // q() ) ne 'yes';
 		$total_fields++;
+		push @$metric_fields, $field;
 		if ( defined $data->{ lc($field) } && !$null_terms{ lc( $data->{ lc($field) } ) } ) {
 			$count++;
 			push @$field_results, { $field => 1 };
@@ -2394,7 +2415,8 @@ sub _get_provenance_annotation_metrics {
 			push @$field_results, { $field => 0 };
 		}
 	}
-	$results = { total_fields => $total_fields, annotated => $count, fields => $field_results };
+	$results =
+	  { total_fields => $total_fields, annotated => $count, field_list => $metric_fields, fields => $field_results };
 	return $results;
 }
 
