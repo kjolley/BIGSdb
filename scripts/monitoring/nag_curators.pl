@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Send E-mail reminders to curators about pending submissions
 #Written by Keith Jolley
-#Copyright (c) 2016-2022, University of Oxford
+#Copyright (c) 2016-2023, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20221125
+#Version: 20230511
 use strict;
 use warnings;
 use Carp;
@@ -83,7 +83,7 @@ sub main {
 	}
 	foreach my $email ( sort keys %$dbase_by_email ) {
 		my $summary;
-		my %mentioned;
+		my $mentioned = {};
 		my $buffer;
 		foreach my $run (qw(answered new)) {
 			my $run_buffer;
@@ -96,13 +96,18 @@ sub main {
 					  ? get_submissions_answered_by_curator( $dbase, $user_id )
 					  : get_new_submissions($dbase);
 					foreach my $submission (@$submissions) {
-						next if $mentioned{ $submission->{'id'} };
+						next
+						  if $dbase->{'key'} =~ /:(.*)$/x
+						  && defined $submission->{'dataset'}
+						  && $1 ne $submission->{'dataset'};
+						next if $mentioned->{ $dbase->{'description'} // $dbase->{'name'} }->{ $submission->{'id'} };
 						my $submission = get_submission_details( $dbase, $submission->{'id'} );
 						next if !( is_allowed_to_curate( $dbase, $submission, $user_id ) );
 						push @list,
 						  "$submission->{'description'}; submitted $submission->{'date_submitted'} "
 						  . "($submission->{'age'} days ago) by $submission->{'submitter_name'}";
-						$mentioned{ $submission->{'id'} } = 1;
+						$mentioned->{ $dbase->{'description'} // $dbase->{'name'} }->{ $submission->{'id'} } =
+						  1;
 					}
 				}
 				if (@list) {
@@ -140,7 +145,7 @@ sub main {
 
 sub is_allowed_to_curate {
 	my ( $dbase, $submission, $user_id ) = @_;
-	my $db = db_connect($dbase);
+	my $db     = db_connect($dbase);
 	my $status = $db->selectrow_array( q(SELECT status FROM users WHERE id=?), undef, $user_id );
 	return 1 if $status eq 'admin';
 	return   if $status ne 'curator';
@@ -275,7 +280,7 @@ sub add_isolate_submission_details {
 	  $db->selectrow_array( q(SELECT COUNT(DISTINCT index) FROM isolate_submission_isolates WHERE submission_id=?),
 		undef, $submission->{'id'} );
 	my $plural = $isolate_count == 1 ? q() : q(s);
-	my $type = $submission->{'type'};
+	my $type   = $submission->{'type'};
 	$type =~ s/s$//x;
 	$submission->{'description'} = "$isolate_count $type$plural";
 	return;
@@ -336,7 +341,7 @@ sub get_remote_user {
 		port => $remote_db->{'dbase_port'} // 5432
 	};
 	my $db        = db_connect($att);
-	my $user_info = $db->selectrow_hashref( 'SELECT * FROM users WHERE user_name=?', undef, $user_name );
+	my $user_info = $db->selectrow_hashref( 'SELECT * FROM users WHERE user_name=?',         undef, $user_name );
 	my $prefs     = $db->selectrow_hashref( 'SELECT * FROM curator_prefs WHERE user_name=?', undef, $user_name );
 	$db->disconnect;
 	foreach my $key ( keys %$prefs ) {
@@ -346,10 +351,29 @@ sub get_remote_user {
 }
 
 sub db_connect {
-	my ($dbase) = @_;
-	my $db = DBI->connect( "DBI:Pg:host=$dbase->{'host'};port=$dbase->{'port'};dbname=$dbase->{'name'}",
+	my ($dbase)  = @_;
+	my $host_map = get_host_mapping();
+	my $host     = $host_map->{ $dbase->{'host'} } // $dbase->{'host'};
+	my $db       = DBI->connect( "DBI:Pg:host=$host;port=$dbase->{'port'};dbname=$dbase->{'name'}",
 		USER, undef, { AutoCommit => 0, RaiseError => 1, PrintError => 0, pg_enable_utf8 => 1 } );
 	return $db;
+}
+
+sub get_host_mapping {
+	my $mapping_file = CONFIG_DIR . '/host_mapping.conf';
+	my $map          = {};
+	if ( -e $mapping_file ) {
+		open( my $fh, '<', $mapping_file )
+		  || die "Cannot open $mapping_file for reading.\n";
+		while ( my $line = <$fh> ) {
+			next if $line =~ /^\s+$/x || $line =~ /^\#/x;
+			my ( $host, $mapped ) = split /\s+/x, $line;
+			next if !$host || !$mapped;
+			$map->{$host} = $mapped;
+		}
+		close $fh;
+	}
+	return $map;
 }
 
 sub get_databases_with_submissions {
@@ -385,8 +409,8 @@ sub get_databases_with_submissions {
 			my %override_values;
 			while ( my $line = <$fh_override> ) {
 				next if $line =~ /^\#/x;
-				$line =~ s/^\s+//x;
-				$line =~ s/\s+$//x;
+				$line         =~ s/^\s+//x;
+				$line         =~ s/\s+$//x;
 				if ( $line =~ /^([^=\s]+)\s*=\s*"([^"]+)"$/x ) {
 					$override_values{$1} = $2;
 				}
@@ -454,7 +478,7 @@ sub show_help {
 	my $termios = POSIX::Termios->new;
 	$termios->getattr;
 	my $ospeed = $termios->getospeed;
-	my $t = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
+	my $t      = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
 	my ( $norm, $bold, $under ) = map { $t->Tputs( $_, 1 ) } qw/me md us/;
 	say << "HELP";
 ${bold}NAME$norm
