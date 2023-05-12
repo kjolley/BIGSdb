@@ -2632,7 +2632,7 @@ sub _print_rmlst_analysis {
 				say q(<td class="rmlst_cell" style="position:relative;text-align:left">)
 				  . q(<span class="rmlst_result" style="position:absolute;margin-left:1em;font-size:0.8em;white-space:nowrap">)
 				  . qq(<em>$result->{'taxon'}</em></span>)
-				  . q(<div style="margin-top:0.2em;background-color:#$colour;border:1px solid #ccc;)
+				  . qq(<div style="margin-top:0.2em;background-color:#$colour;border:1px solid #ccc;)
 				  . qq(height:0.9em;width:$result->{'support'}%"></div></td></tr>);
 			}
 			say q(</table></td>);
@@ -3389,10 +3389,8 @@ sub _reopen_submission {
 	my $curator_id = $self->get_curator_id;
 	my $message    = 'Submission re-opened.';
 	eval {
-		$self->{'db'}->do(
-			'UPDATE submissions SET (status,outcome,datestamp,curator)=(?,?,?,?) WHERE id=?',
-			undef, 'pending', undef, 'now', $curator_id, $submission_id
-		);
+		$self->{'db'}->do( 'UPDATE submissions SET (status,outcome,datestamp,curator)=(?,?,?,?) WHERE id=?',
+			undef, 'pending', undef, 'now', $curator_id, $submission_id );
 		$self->{'submissionHandler'}->update_submission_datestamp($submission_id);
 		$self->{'db'}->do( 'INSERT INTO messages (submission_id,timestamp,user_id,message) VALUES (?,?,?,?)',
 			undef, $submission_id, 'now', $curator_id, $message );
