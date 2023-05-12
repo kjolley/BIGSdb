@@ -1383,7 +1383,6 @@ sub _get_secondary_metadata_fields {
 					data  => $field->{'html_message'}
 				  };
 			}
-			$value =~ s/;/;<br \/>/gx;
 			$value =~ s/PMID:(\d+)/PMID:<a href="https:\/\/pubmed.ncbi.nlm.nih.gov\/$1">$1<\/a>/gx;
 			push @$list,
 			  {
