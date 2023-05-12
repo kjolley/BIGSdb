@@ -2632,8 +2632,7 @@ sub _print_rmlst_analysis {
 				say q(<td class="rmlst_cell" style="position:relative;text-align:left">)
 				  . q(<span class="rmlst_result" style="position:absolute;margin-left:1em;font-size:0.8em;white-space:nowrap">)
 				  . qq(<em>$result->{'taxon'}</em></span>)
-				  . q(<div style="display:block-inline;margin-top:0.2em;)
-				  . qq(background-color:#$colour;border:1px solid #ccc;)
+				  . q(<div style="margin-top:0.2em;background-color:#$colour;border:1px solid #ccc;)
 				  . qq(height:0.9em;width:$result->{'support'}%"></div></td></tr>);
 			}
 			say q(</table></td>);

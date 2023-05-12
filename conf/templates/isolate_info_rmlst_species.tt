@@ -101,7 +101,7 @@ function format_data(data){
 <tr class="td[% td %]"><td>[% taxon.rank %]</td>
 <td><em>[% taxon.taxon %]</em></td>
 <td><em>[% taxon.taxonomy %]</em></td>
-<td style="position:relative;text-align:left"><span style="position:absolute;margin-left:1em;font-size:0.8em">[% taxon.support %]%</span><div style="display:block-inline;margin-top:0.2em;background-color:#[% get_colour(taxon.support) %];border:1px solid #ccc;height:0.8em;width:[% taxon.support %]%"></div></td>
+<td style="position:relative;text-align:left"><span style="position:absolute;margin-left:1em;font-size:0.8em">[% taxon.support %]%</span><div style="margin-top:0.2em;background-color:#[% get_colour(taxon.support) %];border:1px solid #ccc;height:0.8em;width:[% taxon.support %]%"></div></td>
 [% IF loop.first %]
 <td rowspan="[% loop.size %]"><a class="rmlst_toggle" id="rmlst_show" rel="nofollow" href="?db=[% instance %]&amp;page=ajaxAnalysis&amp;name=RMLSTSpecies&amp;isolate_id=[% isolate_id %]"><span class="fas fa-plus-circle" style="color:green"></span></a><a id="rmlst_hide" class="row_hide" style="display:none;cursor:pointer"><span class="fas fa-minus-circle" style="color:red"></span></a></td>
 [% END %]
