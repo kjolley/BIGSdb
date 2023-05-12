@@ -2386,7 +2386,6 @@ sub _get_annotation_metrics {
 	my $buffer = qq(<div id="annotation_metrics">\n);
 	$buffer .= qq(<span class="info_icon fas fa-2x fa-fw fa-award fa-pull-left" style="margin-top:-0.2em"></span>\n);
 	$buffer .= qq(<h2>Annotation quality metrics</h2>\n);
-#	$buffer .= q(<div class="scrollable">);
 	$buffer .= $prov_buffer   if $prov_metrics->{'total_fields'};
 	$buffer .= $scheme_buffer if $scheme_count;
 	$buffer .= qq(</div>\n);

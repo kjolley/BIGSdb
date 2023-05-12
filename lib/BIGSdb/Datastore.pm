@@ -38,7 +38,7 @@ use BIGSdb::ClientDB;
 use BIGSdb::Locus;
 use BIGSdb::Scheme;
 use BIGSdb::TableAttributes;
-use BIGSdb::Constants qw(:login_requirements DEFAULT_CODON_TABLE COUNTRIES);
+use BIGSdb::Constants qw(:login_requirements DEFAULT_CODON_TABLE COUNTRIES NULL_TERMS);
 use IO::Handle;
 use Digest::MD5;
 use POSIX qw(ceil);
@@ -469,6 +469,20 @@ sub is_isolate_in_view {
 		return;
 	}
 	return $result;
+}
+
+sub provenance_metrics_exist {
+	my ($self) = @_;
+	my $provenance_metrics_exist;
+	my $att    = $self->{'xmlHandler'}->get_all_field_attributes;
+	my $fields = $self->{'xmlHandler'}->get_field_list( { show_hidden => 1 } );
+	foreach my $field (@$fields) {
+		if ( ( $att->{$field}->{'annotation_metric'} // q() ) eq 'yes' ) {
+			$provenance_metrics_exist = 1;
+			last;
+		}
+	}
+	return $provenance_metrics_exist;
 }
 
 sub get_scheme_locus_indices {
@@ -1536,6 +1550,64 @@ sub _delete_temp_tables {
 		$self->{'db'}->commit;
 	}
 	return;
+}
+
+sub create_temp_provenance_completion_table {
+	my ( $self, $options ) = @_;
+	my $att    = $self->{'xmlHandler'}->get_all_field_attributes;
+	my $fields = $self->{'xmlHandler'}->get_field_list( { show_hidden => 1 } );
+	my @metric_fields;
+	foreach my $field (@$fields) {
+		next if ( $att->{$field}->{'annotation_metric'} // q() ) ne 'yes';
+		push @metric_fields, $field;
+	}
+	my %null_terms = map { lc($_) => 1 } NULL_TERMS;
+	my $table_type = 'TEMP TABLE';
+	my $table      = 'temp_provenance_completion';
+	my $table_exists =
+	  $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
+	if ( $options->{'cache'} ) {
+		$table_type = 'TABLE';
+	} elsif ($table_exists) {
+		return $table;
+	}
+	my $create_index;
+	eval {
+		if ($table_exists) {
+			$self->{'db'}->do("TRUNCATE $table");
+		} else {
+			$self->{'db'}->do(
+					"CREATE $table_type $table (id int NOT NULL,field_count int "
+				  . 'NOT NULL,score int NOT NULL,PRIMARY KEY(id));'
+			);
+			$create_index = 1;    #Do this after adding data otherwise as it will be quicker.
+		}
+		local $" = q(,);
+		my $data = $self->run_query( "SELECT id,@metric_fields FROM $self->{'system'}->{'view'}",
+			undef, { fetch => 'all_arrayref', slice => {} } );
+		$self->{'db'}->do("COPY $table(id,field_count,score) FROM STDIN");
+		foreach my $record (@$data) {
+			my $count = 0;
+			foreach my $field (@metric_fields) {
+				if ( defined $record->{ lc($field) } && !$null_terms{ lc( $record->{ lc($field) } ) } ) {
+					$count++;
+				}
+			}
+			my $score = @metric_fields ? int( $count * 100 / @metric_fields ) : 0;
+			$self->{'db'}->pg_putcopydata("$record->{'id'}\t$count\t$score\n");
+		}
+		$self->{'db'}->pg_putcopyend;
+		if ($create_index) {
+			$self->{'db'}->do("CREATE INDEX ON $table(score)");
+		}
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+	return $table;
 }
 
 sub create_temp_cscheme_field_values_table {
