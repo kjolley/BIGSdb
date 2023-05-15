@@ -293,7 +293,9 @@ use constant MAX_CONTIGS              => 1000;
 use constant MIN_N50                  => 10_000;
 use constant MIN_TOTAL_LENGTH         => 1_000_000;
 use constant MAX_TOTAL_LENGTH         => 15_000_000;
-use constant NULL_TERMS               => ( 'none', 'N/A', 'NA', '-', '.', 'not applicable', 'no value' );
+use constant NULL_TERMS               =>
+  ( 'none', 'N/A', 'NA', '-', '.', 'not applicable', 'no value', 'unknown', 'unk', 'not known', 'null' )
+  ;
 @values = qw (SUBMISSIONS_DELETED_DAYS COVERAGE READ_LENGTH ASSEMBLY REQUIRES_READ_LENGTH
   REQUIRES_COVERAGE REQUIRED_GENOME_FIELDS DAILY_REST_LIMIT TOTAL_PENDING_LIMIT DAILY_PENDING_LIMIT NULL_TERMS
   WARN_MAX_CONTIGS WARN_MIN_N50 WARN_MIN_TOTAL_LENGTH WARN_MAX_TOTAL_LENGTH MAX_CONTIGS MIN_N50 MIN_TOTAL_LENGTH

@@ -552,7 +552,10 @@ sub _print_tag_count_fieldset_contents {
 sub _print_annotation_status_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	return if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM schemes WHERE quality_metric)');
+	my $scheme_metrics_exist =
+	  $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM schemes WHERE quality_metric)');
+	my $provenance_metrics_exist = $self->{'datastore'}->provenance_metrics_exist;
+	return if !$scheme_metrics_exist && !$provenance_metrics_exist;
 	say q(<fieldset id="annotation_status_fieldset" style="float:left;display:none">);
 	say q(<legend>Annotation status</legend><div>);
 	if ( $self->_highest_entered_fields('annotation_status') ) {
@@ -1588,25 +1591,28 @@ sub _print_tag_count_fields {
 
 sub _print_annotation_status_fields {
 	my ( $self, $row, $max_rows ) = @_;
-	my $q              = $self->{'cgi'};
-	my $metric_schemes = $self->{'datastore'}
+	my $q                  = $self->{'cgi'};
+	my $provenance_metrics = $self->{'datastore'}->provenance_metrics_exist;
+	my $metric_schemes     = $self->{'datastore'}
 	  ->run_query( 'SELECT id FROM schemes WHERE quality_metric', undef, { fetch => 'col_arrayref' } );
 	my %metric_schemes = map { $_ => 1 } @$metric_schemes;
-	my $scheme_ids     = [];
+	my $fields         = [];
 	my $labels         = {};
-	my $set_id         = $self->get_set_id;
-	my $schemes        = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
-
+	if ($provenance_metrics) {
+		push @$fields, 'provenance completion';
+	}
+	my $set_id  = $self->get_set_id;
+	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	foreach my $scheme (@$schemes) {
 		next if !$metric_schemes{ $scheme->{'id'} };
-		push @$scheme_ids, $scheme->{'id'};
-		$labels->{ $scheme->{'id'} } = $scheme->{'name'};
+		push @$fields, "s_$scheme->{'id'}";
+		$labels->{"s_$scheme->{'id'}"} = $scheme->{'name'};
 	}
 	say q(<span style="white-space:nowrap">);
 	say $self->popup_menu(
 		-name   => "annotation_status_field$row",
 		-id     => "annotation_status_field$row",
-		-values => [ q(), @$scheme_ids ],
+		-values => [ q(), @$fields ],
 		-labels => $labels,
 		-class  => 'fieldlist'
 	);
@@ -3496,49 +3502,31 @@ sub _modify_query_for_annotation_status {
 	my %valid_values = map { $_ => 1 } (qw(good bad intermediate));
 	my %valid_fields = map { $_ => 1 } @$valid_schemes;
 	foreach my $i ( 1 .. MAX_ROWS ) {
-		my $scheme_id = $q->param("annotation_status_field$i") // q();
-		my $value     = $q->param("annotation_status_value$i") // q();
-		next if $scheme_id eq q() || $value eq q();
+		my $field = $q->param("annotation_status_field$i") // q();
+		my $value = $q->param("annotation_status_value$i") // q();
+		next if $field eq q() || $value eq q();
+		my $status_qry;
 		if ( !$valid_values{$value} ) {
 			push @$errors_ref, 'Invalid value selected.';
 			next;
 		}
-		if ( !$valid_fields{$scheme_id} ) {
-			push @$errors_ref, 'Invalid scheme selected.';
+		if ( $field =~ /^s_(\d+)$/x ) {
+			my $scheme_id = $1;
+			if ( !$valid_fields{$scheme_id} ) {
+				push @$errors_ref, 'Invalid scheme selected.';
+				next;
+			}
+			$status_qry = $self->_get_scheme_annotation_subquery( $scheme_id, $value );
+		} elsif ( $field eq 'provenance completion' ) {
+			$status_qry = $self->_get_provenance_annotation_subquery($value);
+		} else {
+			push @$errors_ref, 'Invalid field selected.';
 			next;
 		}
-		my $table       = $self->{'datastore'}->create_temp_scheme_status_table($scheme_id);
-		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
-		my $scheme_locus_count =
-		  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM scheme_members WHERE scheme_id=?', $scheme_id );
-		my $status_qry = "($view.id IN (";
-		if ( $value eq 'good' ) {
-			my $threshold = $scheme_info->{'quality_metric_good_threshold'} // $scheme_locus_count;
-			$status_qry .= "(SELECT id FROM $table WHERE locus_count>=$threshold)";
-		} elsif ( $value eq 'bad' ) {
-			my $threshold = $scheme_info->{'quality_metric_bad_threshold'}
-			  // $scheme_info->{'quality_metric_good_threshold'} // $scheme_locus_count;
-			if ( $threshold == 1 && $scheme_locus_count == 1 ) {
-				my $min_genome_size = $self->{'system'}->{'min_genome_size'} // $self->{'config'}->{'min_genome_size'}
-				  // MIN_GENOME_SIZE;
-				$status_qry .= "(SELECT isolate_id FROM seqbin_stats ss LEFT JOIN $table ON "
-				  . "ss.isolate_id=$table.id WHERE ss.total_length>=$min_genome_size AND locus_count IS NULL)";
-			} else {
-				next if $threshold == 0;
-				$status_qry .= "(SELECT id FROM $table WHERE locus_count<$threshold)";
-			}
-		} else {
-			my $upper_threshold = $scheme_info->{'quality_metric_good_threshold'} // $scheme_locus_count;
-			my $lower_threshold = $scheme_info->{'quality_metric_bad_threshold'}
-			  // $scheme_info->{'quality_metric_good_threshold'} // $scheme_locus_count;
-			$status_qry .=
-			  "(SELECT id FROM $table WHERE locus_count<$upper_threshold AND locus_count>=$lower_threshold)";
+		if ( !$status_qry ) {
+			push @$errors_ref, 'Invalid annotation status query.';
+			next;
 		}
-		$status_qry .= ')';
-		if ( $scheme_info->{'view'} ) {
-			$status_qry .= " AND $view.id IN (SELECT id FROM $scheme_info->{'view'})";
-		}
-		$status_qry .= ')';
 		push @status_queries, $status_qry;
 	}
 	if (@status_queries) {
@@ -3551,6 +3539,71 @@ sub _modify_query_for_annotation_status {
 		}
 	}
 	return $qry;
+}
+
+sub _get_scheme_annotation_subquery {
+	my ( $self, $scheme_id, $value ) = @_;
+	my $table       = $self->{'datastore'}->create_temp_scheme_status_table($scheme_id);
+	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+	my $scheme_locus_count =
+	  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM scheme_members WHERE scheme_id=?', $scheme_id );
+	my $view       = $self->{'system'}->{'view'};
+	my $status_qry = "($view.id IN (";
+	if ( $value eq 'good' ) {
+		my $threshold = $scheme_info->{'quality_metric_good_threshold'} // $scheme_locus_count;
+		$status_qry .= "(SELECT id FROM $table WHERE locus_count>=$threshold)";
+	} elsif ( $value eq 'bad' ) {
+		my $threshold = $scheme_info->{'quality_metric_bad_threshold'}
+		  // $scheme_info->{'quality_metric_good_threshold'} // $scheme_locus_count;
+		if ( $threshold == 1 && $scheme_locus_count == 1 ) {
+			my $min_genome_size = $self->{'system'}->{'min_genome_size'} // $self->{'config'}->{'min_genome_size'}
+			  // MIN_GENOME_SIZE;
+			$status_qry .= "(SELECT isolate_id FROM seqbin_stats ss LEFT JOIN $table ON "
+			  . "ss.isolate_id=$table.id WHERE ss.total_length>=$min_genome_size AND locus_count IS NULL)";
+		} else {
+			next if $threshold == 0;
+			$status_qry .= "(SELECT id FROM $table WHERE locus_count<$threshold)";
+		}
+	} else {
+		my $upper_threshold = $scheme_info->{'quality_metric_good_threshold'} // $scheme_locus_count;
+		my $lower_threshold = $scheme_info->{'quality_metric_bad_threshold'}
+		  // $scheme_info->{'quality_metric_good_threshold'} // $scheme_locus_count;
+		$status_qry .= "(SELECT id FROM $table WHERE locus_count<$upper_threshold AND locus_count>=$lower_threshold)";
+	}
+	$status_qry .= ')';
+	if ( $scheme_info->{'view'} ) {
+		$status_qry .= " AND $view.id IN (SELECT id FROM $scheme_info->{'view'})";
+	}
+	$status_qry .= ')';
+	return $status_qry;
+}
+
+sub _get_provenance_annotation_subquery {
+	my ( $self, $value ) = @_;
+	my $table         = $self->{'datastore'}->create_temp_provenance_completion_table;
+	my $min_threshold = $self->{'system'}->{'provenance_annotation_bad_threshold'}
+	  // $self->{'config'}->{'provenance_annotation_bad_threshold'} // 75;
+	my $att           = $self->{'xmlHandler'}->get_all_field_attributes;
+	my $fields        = $self->{'xmlHandler'}->get_field_list( { show_hidden => 1 } );
+	my $metric_fields = 0;
+	foreach my $field (@$fields) {
+		$metric_fields++ if ( $att->{$field}->{'annotation_metric'} // q() ) eq 'yes';
+	}
+	if ( !$metric_fields ) {
+		$logger->error('No provenance metric fields set. Query should not be called.');
+		return q();
+	}
+	my $view       = $self->{'system'}->{'view'};
+	my $status_qry = "($view.id IN (SELECT id FROM $table WHERE score";
+	if ( $value eq 'good' ) {
+		$status_qry .= '=100';
+	} elsif ( $value eq 'intermediate' ) {
+		$status_qry .= ">=$min_threshold AND score<100";
+	} else {
+		$status_qry .= "<=$min_threshold";
+	}
+	$status_qry .= '))';
+	return $status_qry;
 }
 
 sub _get_number_of_assembly_check_types {
