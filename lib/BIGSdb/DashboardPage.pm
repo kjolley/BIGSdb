@@ -2539,12 +2539,17 @@ DEFAULTS
 						}
 					});
 				} else {
+					
 					d3.selectAll("#chart_$element->{'id'} .bb-texts text").each(function(d) {
 						if (d.x == 0 && $dataset->{'count'} > 20){
 							const x = +this.getAttribute("x");
 							if (typeof labels[d.x] !== 'undefined'){
 								this.setAttribute("x", x + (labels[d.x].length * 3));
 							}
+						}						
+						if (d.x >= $dataset->{'count'} - 2){ //Dataset may include null values.
+							const x = +this.getAttribute("x");
+							this.setAttribute("x", x - 5);
 						}
 					});
 				}
