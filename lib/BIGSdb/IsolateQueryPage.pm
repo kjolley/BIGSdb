@@ -1599,7 +1599,7 @@ sub _print_annotation_status_fields {
 	my $fields         = [];
 	my $labels         = {};
 	if ($provenance_metrics) {
-		push @$fields, 'provenance completion';
+		push @$fields, 'provenance';
 	}
 	my $set_id  = $self->get_set_id;
 	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
@@ -3517,7 +3517,7 @@ sub _modify_query_for_annotation_status {
 				next;
 			}
 			$status_qry = $self->_get_scheme_annotation_subquery( $scheme_id, $value );
-		} elsif ( $field eq 'provenance completion' ) {
+		} elsif ( $field eq 'provenance' ) {
 			$status_qry = $self->_get_provenance_annotation_subquery($value);
 		} else {
 			push @$errors_ref, 'Invalid field selected.';
