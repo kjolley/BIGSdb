@@ -3600,7 +3600,7 @@ sub _get_provenance_annotation_subquery {
 	} elsif ( $value eq 'intermediate' ) {
 		$status_qry .= ">=$min_threshold AND score<100";
 	} else {
-		$status_qry .= "<=$min_threshold";
+		$status_qry .= "<$min_threshold";
 	}
 	$status_qry .= '))';
 	return $status_qry;

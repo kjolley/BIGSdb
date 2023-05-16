@@ -336,14 +336,14 @@ sub create_temp_tables {
 				if ( $qry =~ /temp_lincode_${scheme_id}_field_values/x ) {
 					$self->{'datastore'}->create_temp_lincode_prefix_values_table($scheme_id);
 				}
-				if ( $qry =~ /temp_provenance_completion/x){
-					$self->{'datastore'}->create_temp_provenance_completion_table;
-				}
 			}
 			foreach my $cscheme_id (@$cschemes) {
 				if ( $qry =~ /temp_cscheme_$cscheme_id\D/x ) {
 					$self->{'datastore'}->create_temp_cscheme_table($cscheme_id);
 				}
+			}
+			if ( $qry =~ /temp_provenance_completion/x){
+				$self->{'datastore'}->create_temp_provenance_completion_table;
 			}
 		} catch {
 			if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
@@ -1468,6 +1468,10 @@ sub _get_annotation_status_fields {
 	my ($self) = @_;
 	if ( !$self->{'cache'}->{'annotation_status_fields'} ) {
 		my $list                 = [];
+		if ($self->{'datastore'}->provenance_metrics_exist){
+			push @$list, 'as_provenance';
+			$self->{'cache'}->{'labels'}->{'as_provenance'} = 'provenance';
+		}
 		my $set_id               = $self->get_set_id;
 		my $schemes              = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 		my $schemes_with_metrics = $self->{'datastore'}

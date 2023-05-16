@@ -348,7 +348,7 @@ sub _get_field_type {
 		my $att = $self->{'datastore'}->get_scheme_field_info( $1, $2 );
 		return $att->{'type'};
 	}
-	if ( $element->{'field'} =~ /^as_(?:\d+)$/x ) {
+	if ( $element->{'field'} =~ /^as_(?:\d+|provenance)$/x ) {
 		return 'text';
 	}
 	return;
@@ -885,6 +885,7 @@ sub _ajax_new {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by di
 	if ( defined $options->{'qry_file'} ) {
 		$self->{'no_query_link'} = 1 if $self->{'dashboard_type'} eq 'query';
 		my $qry = $self->get_query_from_temp_file( $options->{'qry_file'} );
+		$self->create_temp_tables( \$qry );
 		$qry =~ s/ORDER\sBY.*$//gx;
 		$self->{'db'}->do("CREATE TEMP VIEW dashboard_view AS $qry");
 		$self->{'view'} = 'dashboard_view';
@@ -929,6 +930,9 @@ sub get_display_field {
 		} else {
 			$display_field = "$scheme_field ($desc)";
 		}
+	}
+	if ( $field eq 'as_provenance' ) {
+		$display_field = 'annotation (provenance)';
 	}
 	return $display_field;
 }
@@ -1240,8 +1244,7 @@ sub _get_default_elements {
 		next if $element->{'genomes'} && !$genomes_exists;
 		next
 		  if $element->{'display'} eq 'field'
-		  && !$self->_field_exists( $element->{'field'} )
-		  && $element->{'field'} !~ /^as_/x;
+		  && !$self->_field_exists( $element->{'field'} );
 		next
 		  if ( $element->{'visualisation_type'} // 'breakdown' ) eq 'breakdown'
 		  && ( $element->{'breakdown_display'} // q() ) eq 'map'
@@ -1338,6 +1341,12 @@ sub _field_exists {
 	}
 	if ( $field =~ /^eav_(.*)$/x ) {
 		return $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM eav_fields WHERE field=?)', $1 );
+	}
+	if ( $field eq 'as_provenance' ) {
+		return $self->{'datastore'}->provenance_metrics_exist;
+	}
+	if ( $field =~ /^as_(\d+)$/x ) {
+		return $self->{'datastore'}->scheme_exists($1);
 	}
 	return;
 }
@@ -1710,6 +1719,9 @@ sub _get_specific_field_value_counts {
 	if ( $element->{'field'} =~ /^as_\d+$/x ) {
 		$data = $self->_get_scheme_annotation_status_field_counts($element);
 	}
+	if ( $element->{'field'} eq 'as_provenance' ) {
+		$data = $self->_get_provenance_annotation_status_field_counts($element);
+	}
 	return $data;
 }
 
@@ -1894,6 +1906,33 @@ sub _get_scheme_annotation_status_field_counts {
 	}
 }
 
+sub _get_provenance_annotation_status_field_counts {
+	my ( $self, $element ) = @_;
+	return if !$self->{'datastore'}->provenance_metrics_exist;
+	my $table   = $self->{'datastore'}->create_temp_provenance_completion_table;
+	my $filters = $self->_get_filters;
+	local $" = ' AND ';
+	my $min_threshold = $self->{'system'}->{'provenance_annotation_bad_threshold'}
+	  // $self->{'config'}->{'provenance_annotation_bad_threshold'} // 75;
+	if ( !$self->{'datastore'}->provenance_metrics_exist ) {
+		$logger->error('Provenance metric fields are not defined.');
+		return { count => 0 };
+	}
+	my $filter_clause = @$filters ? " AND @$filters" : q();
+	my $qry           = "SELECT COUNT(*) FROM $self->{'view'} v JOIN temp_provenance_completion v2 ON v.id=v2.id ";
+	local $" = ' AND ';
+	$qry .= @$filters ? "WHERE @$filters AND" : 'AND';
+	my $good         = $self->{'datastore'}->run_query("$qry v2.score=100");
+	my $intermediate = $self->{'datastore'}->run_query( "$qry v2.score>=? AND v2.score<100", $min_threshold );
+	my $bad          = $self->{'datastore'}->run_query( "$qry v2.score<?",                   $min_threshold );
+	my $values       = [
+		{ label => 'good',         value => $good },
+		{ label => 'intermediate', value => $intermediate },
+		{ label => 'bad',          value => $bad }
+	];
+	return $values;
+}
+
 sub _get_field_breakdown_values {
 	my ( $self, $element ) = @_;
 	if ( $element->{'field'} =~ /^f_/x ) {
@@ -1915,6 +1954,9 @@ sub _get_field_breakdown_values {
 	if ( $element->{'field'} =~ /^as_(\d+)$/x ) {
 		my $scheme_id = $1;
 		return $self->_get_scheme_annotation_values($scheme_id);
+	}
+	if ( $element->{'field'} eq 'as_provenance' ) {
+		return $self->_get_provenance_annotation_status_field_counts;
 	}
 	return [];
 }
@@ -2091,21 +2133,22 @@ sub _get_scheme_annotation_values {
 	}
 	my $max_threshold = $scheme_info->{'quality_metric_good_threshold'} // @$loci;
 	$max_threshold = $scheme_info->{'loci'} if $max_threshold > @$loci;
-	my $min_threshold = $scheme_info->{'quality_metric_bad_threshold'} // 0;
+	my $min_threshold = $scheme_info->{'quality_metric_bad_threshold'} // @$loci;
 	$min_threshold = 0 if $min_threshold < 0;
 	my $filter_clause = @$filters ? " AND @$filters" : q();
+	my $table         = $self->{'datastore'}->create_temp_scheme_status_table($scheme_id);
 	my $good          = $self->{'datastore'}->run_query(
-		"SELECT COUNT(*) FROM $self->{'view'} v$view_clause JOIN temp_isolates_scheme_completion_$scheme_id "
+		"SELECT COUNT(*) FROM $self->{'view'} v$view_clause JOIN $table "
 		  . "v3 ON v.id=v3.id WHERE locus_count>=?$filter_clause",
 		$max_threshold
 	);
 	my $bad = $self->{'datastore'}->run_query(
-		"SELECT COUNT(*) FROM $self->{'view'} v$view_clause JOIN temp_isolates_scheme_completion_$scheme_id "
+		"SELECT COUNT(*) FROM $self->{'view'} v$view_clause JOIN $table "
 		  . "v3 ON v.id=v3.id WHERE locus_count<?$filter_clause",
 		$min_threshold
 	);
 	my $intermediate = $self->{'datastore'}->run_query(
-		"SELECT COUNT(*) FROM $self->{'view'} v$view_clause JOIN temp_isolates_scheme_completion_$scheme_id "
+		"SELECT COUNT(*) FROM $self->{'view'} v$view_clause JOIN $table "
 		  . "v3 ON v.id=v3.id WHERE locus_count<? AND locus_count>=?$filter_clause",
 		[ $max_threshold, $min_threshold ]
 	);
@@ -3942,7 +3985,10 @@ sub _get_query_url {
 	if ( $element->{'field'} =~ /^as_(\d+)$/x ) {
 		my %no_url = map { $_ => 1 } ( 'not%20started', 'not%20applicable' );
 		return q() if $no_url{$value};
-		$url .= "&amp;annotation_status_field1=$1&amp;annotation_status_value1=$value";
+		$url .= "&amp;annotation_status_field1=s_$1&amp;annotation_status_value1=$value";
+	}
+	if ( $element->{'field'} eq 'as_provenance' ) {
+		$url .= "&amp;annotation_status_field1=provenance&amp;annotation_status_value1=$value";
 	}
 	if ( $self->{'prefs'}->{'include_old_versions'} ) {
 		$url .= '&amp;include_old=on';
