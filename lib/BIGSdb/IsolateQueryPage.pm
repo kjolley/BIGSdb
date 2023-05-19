@@ -409,12 +409,13 @@ sub _print_designations_fieldset_contents {
 	my $q = $self->{'cgi'};
 	my ( $locus_list, $locus_labels ) = $self->get_field_selection_list(
 		{
-			loci                  => 1,
-			scheme_fields         => 1,
-			lincodes              => 1,
-			lincode_fields        => 1,
-			classification_groups => 1,
-			sort_labels           => 1
+			loci                      => 1,
+			locus_extended_attributes => 1,
+			scheme_fields             => 1,
+			lincodes                  => 1,
+			lincode_fields            => 1,
+			classification_groups     => 1,
+			sort_labels               => 1
 		}
 	);
 	if (@$locus_list) {
@@ -2600,7 +2601,9 @@ sub _modify_query_for_designations {
 	my $view  = $self->{'system'}->{'view'};
 	my $andor = ( $q->param('designation_andor') // '' ) eq 'AND' ? ' AND ' : ' OR ';
 	my ( $queries_by_locus, $locus_null_queries ) = $self->_get_allele_designations( $errors, $andor );
-	my @null_queries = @$locus_null_queries;
+	my @null_queries                = @$locus_null_queries;
+	my $queries_by_locus_attributes = $self->_get_allele_designations_by_locus_attributes($errors);
+	push @null_queries, @$queries_by_locus_attributes;
 	my ( $scheme_queries, $scheme_null_queries ) = $self->_get_scheme_designations($errors);
 	push @null_queries, @$scheme_null_queries;
 	my ( $cgroup_queries, $cgroup_null_queries ) = $self->_get_classification_group_designations($errors);
@@ -2742,6 +2745,95 @@ sub _get_allele_designations {
 		}
 	}
 	return ( \%lqry, \@lqry_blank );
+}
+
+sub _get_allele_designations_by_locus_attributes {
+	my ( $self, $errors_ref ) = @_;
+	my $q    = $self->{'cgi'};
+	my $view = $self->{'system'}->{'view'};
+	my $qry  = [];
+	foreach my $i ( 1 .. MAX_ROWS ) {
+		if ( defined $q->param("designation_value$i") && $q->param("designation_value$i") ne q() ) {
+			if ( $q->param("designation_field$i") =~ /^lex_(['\w]+)\|\|(.*)/x ) {
+				my ( $locus, $field ) = ( $1, $2 );
+				my $att_table = $self->{'datastore'}->create_temp_locus_extended_attribute_table;
+				my $table     = $self->{'datastore'}->create_temp_sequence_extended_attributes_table( $locus, $field );
+				if ( !$table ) {
+					push @$errors_ref, 'Invalid locus attribute selected.';
+					last;
+				}
+				my $type = $self->{'datastore'}
+				  ->run_query( "SELECT type FROM $att_table WHERE (locus,field)=(?,?)", [ $locus, $field ] );
+				my $operator = $q->param("designation_operator$i") // '=';
+				my $text     = $q->param("designation_value$i");
+				$self->process_value( \$text );
+				if (   lc($text) ne 'null'
+					&& ( $type eq 'integer' )
+					&& !BIGSdb::Utils::is_int($text) )
+				{
+					push @$errors_ref, "$field is an integer field.";
+					next;
+				} elsif ( !$self->is_valid_operator($operator) ) {
+					push @$errors_ref, BIGSdb::Utils::escape_html("$operator is not a valid operator.");
+					next;
+				}
+				$locus =~ s/'/\\'/gx;
+				my $temp_qry = "SELECT isolate_id FROM allele_designations LEFT JOIN $table ON "
+				  . "allele_designations.allele_id=$table.allele_id WHERE allele_designations.locus=E'$locus'";
+				my %methods = (
+					'NOT' => sub {
+						if ( lc($text) eq 'null' ) {
+							push @$qry, "($view.id IN ($temp_qry AND value IS NOT NULL))";
+						} else {
+							push @$qry, $type eq 'text'
+							  ? "($view.id IN ($temp_qry AND UPPER(value)!=UPPER(E'$text')))"
+							  : "($view.id IN ($temp_qry AND value!=E'$text'))";
+						}
+					},
+					'contains' => sub {
+						push @$qry, $type eq 'text'
+						  ? "($view.id IN ($temp_qry AND value LIKE E'\%$text\%'))"
+						  : "($view.id IN ($temp_qry AND CAST(value AS text) LIKE E'\%$text\%'))";
+					},
+					'starts with' => sub {
+						push @$qry, $type eq 'text'
+						  ? "($view.id IN ($temp_qry AND value LIKE E'$text\%'))"
+						  : "($view.id IN ($temp_qry AND CAST(value AS text) LIKE E'$text\%'))";
+					},
+					'ends with' => sub {
+						push @$qry, $type eq 'text'
+						  ? "($view.id IN ($temp_qry AND value LIKE E'\%$text'))"
+						  : "($view.id IN ($temp_qry AND CAST(value AS text) LIKE E'\%$text'))";
+					},
+					'NOT contain' => sub {
+						push @$qry, $type eq 'text'
+						  ? "($view.id IN ($temp_qry AND value NOT LIKE E'\%$text\%'))"
+						  : "($view.id IN ($temp_qry AND CAST(value AS text) NOT LIKE E'\%$text\%'))";
+					},
+					'=' => sub {
+						if ( lc($text) eq 'null' ) {
+							push @$qry, "($view.id IN ($temp_qry AND value IS NULL))";
+						} else {
+							push @$qry, $type eq 'text'
+							  ? "($view.id IN ($temp_qry AND UPPER(value)=UPPER(E'$text')))"
+							  : "($view.id IN ($temp_qry AND value=E'$text'))";
+						}
+					}
+				);
+				if ( $methods{$operator} ) {
+					$methods{$operator}->();
+				} else {
+					if ( lc($text) eq 'null' ) {
+						push @$errors_ref,
+						  BIGSdb::Utils::escape_html("$operator is not a valid operator for comparing null values.");
+						next;
+					}
+					push @$qry, "($view.id IN ($temp_qry AND value $operator E'$text'))";
+				}
+			}
+		}
+	}
+	return $qry;
 }
 
 sub _get_scheme_designations {

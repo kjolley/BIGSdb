@@ -1552,6 +1552,89 @@ sub _delete_temp_tables {
 	return;
 }
 
+sub create_temp_locus_extended_attribute_table {
+	my ( $self, $options ) = @_;
+	my $distinct_locus_dbs = $self->run_query( 'SELECT DISTINCT dbase_name FROM loci WHERE dbase_name IS NOT NULL',
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	my @attributes;
+	foreach my $db (@$distinct_locus_dbs) {
+		my ($example_locus) = $self->run_query( 'SELECT id FROM loci WHERE dbase_name=? LIMIT 1', $db->{'dbase_name'} );
+		my $db = $self->get_locus($example_locus)->{'db'};
+		my $values =
+		  $self->run_query( 'SELECT locus,field,value_format FROM locus_extended_attributes ORDER BY locus,field_order',
+			undef, { db => $db, fetch => 'all_arrayref' } );
+		push @attributes, @$values;
+	}
+	my $table_type = 'TEMP TABLE';
+	my $table      = 'temp_locus_extended_attributes';
+	my $table_exists =
+	  $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
+	if ( $options->{'cache'} ) {
+		$table_type = 'TABLE';
+	} elsif ($table_exists) {
+		return $table;
+	}
+	eval {
+		if ($table_exists) {
+			$self->{'db'}->do("TRUNCATE $table");
+		} else {
+			$self->{'db'}->do( "CREATE $table_type $table (locus text NOT NULL,field text "
+				  . 'NOT NULL,type text NOT NULL,PRIMARY KEY(locus,field));' );
+		}
+		$self->{'db'}->do("COPY $table(locus,field,type) FROM STDIN");
+		foreach my $values (@attributes) {
+			local $" = qq(\t);
+			$self->{'db'}->pg_putcopydata("@$values\n");
+		}
+		$self->{'db'}->pg_putcopyend;
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+	return $table;
+}
+
+sub create_temp_sequence_extended_attributes_table {
+	my ( $self, $locus, $field ) = @_;
+	my $table = "temp_seq_att_l_${locus}_f_${field}";
+	$table =~ s/'/_PRIME_/gx;
+	my $table_exists =
+	  $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=LOWER(?))', $table );
+	return $table if $table_exists;
+	my $att_table = $self->create_temp_locus_extended_attribute_table;
+	my $type      = $self->run_query( "SELECT type FROM $att_table WHERE (locus,field)=(?,?)", [ $locus, $field ] );
+	if ( !$type ) {
+		$logger->error("Locus: $locus; Field: $field is not defined");
+		return;
+	}
+	my $locus_obj = $self->get_locus($locus);
+	my $values    = $self->run_query(
+		'SELECT allele_id,value FROM sequence_extended_attributes WHERE (locus,field)=(?,?)',
+		[ $locus, $field ],
+		{ db => $locus_obj->{'db'}, fetch => 'all_arrayref' }
+	);
+	eval {
+		$self->{'db'}
+		  ->do("CREATE TEMP TABLE $table (allele_id text NOT NULL,value $type NOT NULL,PRIMARY KEY(allele_id))");
+		$self->{'db'}->do("COPY $table(allele_id,value) FROM STDIN");
+		local $" = qq(\t);
+		foreach my $value (@$values) {
+			$self->{'db'}->pg_putcopydata("@$value\n");
+		}
+		$self->{'db'}->pg_putcopyend;
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+	return $table;
+}
+
 sub create_temp_provenance_completion_table {
 	my ( $self, $options ) = @_;
 	my $att    = $self->{'xmlHandler'}->get_all_field_attributes;
@@ -1576,10 +1659,8 @@ sub create_temp_provenance_completion_table {
 		if ($table_exists) {
 			$self->{'db'}->do("TRUNCATE $table");
 		} else {
-			$self->{'db'}->do(
-					"CREATE $table_type $table (id int NOT NULL,field_count int "
-				  . 'NOT NULL,score int NOT NULL,PRIMARY KEY(id));'
-			);
+			$self->{'db'}->do( "CREATE $table_type $table (id int NOT NULL,field_count int "
+				  . 'NOT NULL,score int NOT NULL,PRIMARY KEY(id));' );
 			$create_index = 1;    #Do this after adding data otherwise as it will be quicker.
 		}
 		local $" = q(,);

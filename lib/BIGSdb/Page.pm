@@ -342,8 +342,16 @@ sub create_temp_tables {
 					$self->{'datastore'}->create_temp_cscheme_table($cscheme_id);
 				}
 			}
-			if ( $qry =~ /temp_provenance_completion/x){
+			if ( $qry =~ /temp_provenance_completion/x ) {
 				$self->{'datastore'}->create_temp_provenance_completion_table;
+			}
+			if ($qry =~ /temp_locus_extended_attributes/x){
+				$self->{'datastore'}->create_temp_locus_extended_attribute_table;
+			}
+			if ($qry =~ /temp_seq_att_l_(.+?)_f_(\S+)/x){
+				my ($locus, $field) = ($1,$2);
+				$locus =~ s/_PRIME_/'/gx;
+				$self->{'datastore'}->create_temp_sequence_extended_attributes_table($locus,$field);
 			}
 		} catch {
 			if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
@@ -1180,6 +1188,7 @@ sub get_field_selection_list {
 #eav_fields: include EAV fields, prefix with eav_
 #extended_attributes: include isolate field extended attributes, named e_FIELDNAME||EXTENDED-FIELDNAME
 #loci: include loci, prefix with either l_ or cn_ (common name)
+#locus_extended_attributes: locus extended attributes, prefixed with lex_
 #locus_limit: don't include loci if there are more than the set value
 #query_pref: only the loci for which the user has a query field preference selected will be returned
 #analysis_pref: only the loci for which the user has an analysis preference selected will be returned
@@ -1203,6 +1212,10 @@ sub get_field_selection_list {
 	if ( $options->{'loci'} ) {
 		my $loci = $self->_get_loci_list($options);
 		push @$values, @$loci;
+	}
+	if ( $options->{'locus_extended_attributes'} ) {
+		my $ext = $self->_get_locus_extended_attributes($options);
+		push @$values, @$ext;
 	}
 	if ( $options->{'scheme_fields'} ) {
 		my $scheme_fields = $self->_get_scheme_fields($options);
@@ -1303,6 +1316,22 @@ sub _get_loci_list {
 		push @$values, @{ $self->{'cache'}->{'loci'} };
 	}
 	return $values;
+}
+
+sub _get_locus_extended_attributes {
+	my ( $self, $options ) = @_;
+	if ( !$self->{'cache'}->{'locus_extended_attributes'} ) {
+		my $table = $self->{'datastore'}->create_temp_locus_extended_attribute_table;
+		my $data =
+		  $self->{'datastore'}->run_query( "SELECT * FROM $table", undef, { fetch => 'all_arrayref', slice => {} } );
+		$self->{'cache'}->{'locus_extended_attributes'} = [];
+		foreach my $att (@$data) {
+			push @{ $self->{'cache'}->{'locus_extended_attributes'} },"lex_$att->{'locus'}||$att->{'field'}";
+			$self->{'cache'}->{'labels'}->{"lex_$att->{'locus'}||$att->{'field'}"} = "$att->{'locus'} $att->{'field'}";
+		}
+		
+	}
+	return $self->{'cache'}->{'locus_extended_attributes'};
 }
 
 sub _get_provenance_fields {
@@ -1467,8 +1496,8 @@ sub _get_classification_groups_fields {
 sub _get_annotation_status_fields {
 	my ($self) = @_;
 	if ( !$self->{'cache'}->{'annotation_status_fields'} ) {
-		my $list                 = [];
-		if ($self->{'datastore'}->provenance_metrics_exist){
+		my $list = [];
+		if ( $self->{'datastore'}->provenance_metrics_exist ) {
 			push @$list, 'as_provenance';
 			$self->{'cache'}->{'labels'}->{'as_provenance'} = 'provenance';
 		}
