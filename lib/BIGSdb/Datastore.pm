@@ -1554,17 +1554,6 @@ sub _delete_temp_tables {
 
 sub create_temp_locus_extended_attribute_table {
 	my ( $self, $options ) = @_;
-	my $distinct_locus_dbs = $self->run_query( 'SELECT DISTINCT dbase_name FROM loci WHERE dbase_name IS NOT NULL',
-		undef, { fetch => 'all_arrayref', slice => {} } );
-	my @attributes;
-	foreach my $db (@$distinct_locus_dbs) {
-		my ($example_locus) = $self->run_query( 'SELECT id FROM loci WHERE dbase_name=? LIMIT 1', $db->{'dbase_name'} );
-		my $db = $self->get_locus($example_locus)->{'db'};
-		my $values =
-		  $self->run_query( 'SELECT locus,field,value_format FROM locus_extended_attributes ORDER BY locus,field_order',
-			undef, { db => $db, fetch => 'all_arrayref' } );
-		push @attributes, @$values;
-	}
 	my $table_type = 'TEMP TABLE';
 	my $table      = 'temp_locus_extended_attributes';
 	my $table_exists =
@@ -1574,17 +1563,39 @@ sub create_temp_locus_extended_attribute_table {
 	} elsif ($table_exists) {
 		return $table;
 	}
+	my $distinct_locus_dbs = $self->run_query( 'SELECT DISTINCT dbase_name FROM loci WHERE dbase_name IS NOT NULL',
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	my $attributes = {};
+	foreach my $db (@$distinct_locus_dbs) {
+		my ($example_locus) = $self->run_query( 'SELECT id FROM loci WHERE dbase_name=? LIMIT 1', $db->{'dbase_name'} );
+		my $db = $self->get_locus($example_locus)->{'db'};
+		my $values =
+		  $self->run_query( 'SELECT locus,field,value_format FROM locus_extended_attributes ORDER BY locus,field_order',
+			undef, { db => $db, fetch => 'all_arrayref', slice => {} } );
+		foreach my $value (@$values) {
+			push @{ $attributes->{ $value->{'locus'} } },
+			  {
+				field => $value->{'field'},
+				type  => $value->{'value_format'}
+			  };
+		}
+	}
+	my $loci = $self->run_query( 'SELECT id,dbase_id FROM loci WHERE dbase_id IS NOT NULL',
+		undef, { fetch => 'all_arrayref', slice => {} } );
 	eval {
 		if ($table_exists) {
 			$self->{'db'}->do("TRUNCATE $table");
 		} else {
 			$self->{'db'}->do( "CREATE $table_type $table (locus text NOT NULL,field text "
-				  . 'NOT NULL,type text NOT NULL,PRIMARY KEY(locus,field));' );
+				  . 'NOT NULL,type text NOT NULL,PRIMARY KEY(locus,field))' );
 		}
 		$self->{'db'}->do("COPY $table(locus,field,type) FROM STDIN");
-		foreach my $values (@attributes) {
-			local $" = qq(\t);
-			$self->{'db'}->pg_putcopydata("@$values\n");
+		foreach my $locus (@$loci) {
+			next if !defined $attributes->{ $locus->{'dbase_id'} };
+			foreach my $attribute ( @{ $attributes->{ $locus->{'dbase_id'} } } ) {
+				$self->{'db'}->pg_putcopydata("$locus->{'id'}\t$attribute->{'field'}\t$attribute->{'type'}\n")
+				  ;
+			}
 		}
 		$self->{'db'}->pg_putcopyend;
 	};
@@ -1601,6 +1612,8 @@ sub create_temp_sequence_extended_attributes_table {
 	my ( $self, $locus, $field ) = @_;
 	my $table = "temp_seq_att_l_${locus}_f_${field}";
 	$table =~ s/'/_PRIME_/gx;
+	$table =~ s/-/_DASH_/gx;
+	$table =~ s/\s/_SPACE_/gx;
 	my $table_exists =
 	  $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=LOWER(?))', $table );
 	return $table if $table_exists;
@@ -2865,7 +2878,9 @@ sub get_citation_hash {
 			} else {
 				$citation_ref->{$pmid} .= 'Pubmed id#';
 				$citation_ref->{$pmid} .=
-				  $options->{'link_pubmed'} ? "<a href=\"https://www.ncbi.nlm.nih.gov/pubmed/$pmid\">$pmid</a>" : $pmid;
+				  $options->{'link_pubmed'}
+				  ? "<a href=\"https://www.ncbi.nlm.nih.gov/pubmed/$pmid\">$pmid</a>"
+				  : $pmid;
 			}
 		}
 	}
@@ -2895,7 +2910,8 @@ sub create_temp_ref_table {
 		}
 	};
 	return if !$continue;
-	my $create = 'CREATE TEMP TABLE temp_refs (pmid int, year int, journal text, volume text, pages text, title text, '
+	my $create =
+		'CREATE TEMP TABLE temp_refs (pmid int, year int, journal text, volume text, pages text, title text, '
 	  . 'abstract text, authors text, isolates int)';
 	eval { $self->{'db'}->do($create); };
 	if ($@) {

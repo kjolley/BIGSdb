@@ -351,6 +351,10 @@ sub create_temp_tables {
 			if ($qry =~ /temp_seq_att_l_(.+?)_f_(\S+)/x){
 				my ($locus, $field) = ($1,$2);
 				$locus =~ s/_PRIME_/'/gx;
+				$locus =~ s/_DASH_/-/gx;
+				$field =~ s/_PRIME_/'/gx;
+				$field =~ s/_DASH_/-/gx;
+				$field =~ s/_SPACE_/ /gx;
 				$self->{'datastore'}->create_temp_sequence_extended_attributes_table($locus,$field);
 			}
 		} catch {
