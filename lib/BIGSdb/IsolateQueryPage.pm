@@ -2752,11 +2752,12 @@ sub _get_allele_designations_by_locus_attributes {
 	my $q    = $self->{'cgi'};
 	my $view = $self->{'system'}->{'view'};
 	my $qry  = [];
+	my $set_id = $self->get_set_id;
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		if ( defined $q->param("designation_value$i") && $q->param("designation_value$i") ne q() ) {
 			if ( $q->param("designation_field$i") =~ /^lex_([\-_'\w]+)\|\|(.*)/x ) {
 				my ( $locus, $field ) = ( $1, $2 );
-				my $att_table = $self->{'datastore'}->create_temp_locus_extended_attribute_table;
+				my $att_table = $self->{'datastore'}->create_temp_locus_extended_attribute_table({set_id=>$set_id});
 				my $table     = $self->{'datastore'}->create_temp_sequence_extended_attributes_table( $locus, $field );
 				if ( !$table ) {
 					push @$errors_ref, 'Invalid locus attribute selected.';

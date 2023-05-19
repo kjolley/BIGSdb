@@ -1564,11 +1564,12 @@ sub create_temp_locus_extended_attribute_table {
 		return $table;
 	}
 	my $distinct_locus_dbs = $self->run_query( 'SELECT DISTINCT dbase_name FROM loci WHERE dbase_name IS NOT NULL',
-		undef, { fetch => 'all_arrayref', slice => {} } );
+		undef, { fetch => 'col_arrayref', slice => {} } );
 	my $attributes = {};
-	foreach my $db (@$distinct_locus_dbs) {
-		my ($example_locus) = $self->run_query( 'SELECT id FROM loci WHERE dbase_name=? LIMIT 1', $db->{'dbase_name'} );
-		my $db = $self->get_locus($example_locus)->{'db'};
+	foreach my $db_name (@$distinct_locus_dbs) {
+		my ($example_locus) = $self->run_query( 'SELECT id FROM loci WHERE dbase_name=? LIMIT 1', $db_name );
+		my $locus_obj = $self->get_locus($example_locus);
+		my $db = $locus_obj->{'db'};
 		next if !defined $db;
 		my $values;
 		eval {
@@ -2340,7 +2341,13 @@ sub get_locus {
 				}
 			};
 		}
-		$self->{'locus'}->{$id} = BIGSdb::Locus->new(%$attributes);
+		if (!defined $attributes->{'id'}){
+			$logger->error("No locus info retrieved for locus $id");
+		}
+		eval { $self->{'locus'}->{$id} = BIGSdb::Locus->new(%$attributes); };
+		if ($@) {
+			$logger->error("Cannot initiate locus $id");
+		}
 	}
 	return $self->{'locus'}->{$id};
 }
