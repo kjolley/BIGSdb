@@ -345,17 +345,17 @@ sub create_temp_tables {
 			if ( $qry =~ /temp_provenance_completion/x ) {
 				$self->{'datastore'}->create_temp_provenance_completion_table;
 			}
-			if ($qry =~ /temp_locus_extended_attributes/x){
+			if ( $qry =~ /temp_locus_extended_attributes/x ) {
 				$self->{'datastore'}->create_temp_locus_extended_attribute_table;
 			}
-			if ($qry =~ /temp_seq_att_l_(.+?)_f_(\S+)/x){
-				my ($locus, $field) = ($1,$2);
+			if ( $qry =~ /temp_seq_att_l_(.+?)_f_(\S+)/x ) {
+				my ( $locus, $field ) = ( $1, $2 );
 				$locus =~ s/_PRIME_/'/gx;
 				$locus =~ s/_DASH_/-/gx;
 				$field =~ s/_PRIME_/'/gx;
 				$field =~ s/_DASH_/-/gx;
 				$field =~ s/_SPACE_/ /gx;
-				$self->{'datastore'}->create_temp_sequence_extended_attributes_table($locus,$field);
+				$self->{'datastore'}->create_temp_sequence_extended_attributes_table( $locus, $field );
 			}
 		} catch {
 			if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
@@ -1325,15 +1325,23 @@ sub _get_loci_list {
 sub _get_locus_extended_attributes {
 	my ( $self, $options ) = @_;
 	if ( !$self->{'cache'}->{'locus_extended_attributes'} ) {
-		my $table = $self->{'datastore'}->create_temp_locus_extended_attribute_table;
-		my $data =
-		  $self->{'datastore'}->run_query( "SELECT * FROM $table", undef, { fetch => 'all_arrayref', slice => {} } );
-		$self->{'cache'}->{'locus_extended_attributes'} = [];
-		foreach my $att (@$data) {
-			push @{ $self->{'cache'}->{'locus_extended_attributes'} },"lex_$att->{'locus'}||$att->{'field'}";
-			$self->{'cache'}->{'labels'}->{"lex_$att->{'locus'}||$att->{'field'}"} = "$att->{'locus'} $att->{'field'}";
+		eval {
+			my $table = $self->{'datastore'}->create_temp_locus_extended_attribute_table;
+			return [] if !defined $table;
+			my $data =
+			  $self->{'datastore'}
+			  ->run_query( "SELECT * FROM $table", undef, { fetch => 'all_arrayref', slice => {} } );
+			$self->{'cache'}->{'locus_extended_attributes'} = [];
+			foreach my $att (@$data) {
+				push @{ $self->{'cache'}->{'locus_extended_attributes'} }, "lex_$att->{'locus'}||$att->{'field'}";
+				$self->{'cache'}->{'labels'}->{"lex_$att->{'locus'}||$att->{'field'}"} =
+				  "$att->{'locus'} $att->{'field'}";
+			}
+		};
+		if ($@) {
+			$logger->error($@);
+			return [];
 		}
-		
 	}
 	return $self->{'cache'}->{'locus_extended_attributes'};
 }

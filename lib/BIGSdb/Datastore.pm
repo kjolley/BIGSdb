@@ -1569,9 +1569,18 @@ sub create_temp_locus_extended_attribute_table {
 	foreach my $db (@$distinct_locus_dbs) {
 		my ($example_locus) = $self->run_query( 'SELECT id FROM loci WHERE dbase_name=? LIMIT 1', $db->{'dbase_name'} );
 		my $db = $self->get_locus($example_locus)->{'db'};
-		my $values =
-		  $self->run_query( 'SELECT locus,field,value_format FROM locus_extended_attributes ORDER BY locus,field_order',
-			undef, { db => $db, fetch => 'all_arrayref', slice => {} } );
+		next if !defined $db;
+		my $values;
+		eval {
+			$values =
+			  $self->run_query(
+				'SELECT locus,field,value_format FROM locus_extended_attributes ORDER BY locus,field_order',
+				undef, { db => $db, fetch => 'all_arrayref', slice => {} } );
+		};
+		if ($@) {
+			$logger->error($@);
+			next;
+		}
 		foreach my $value (@$values) {
 			push @{ $attributes->{ $value->{'locus'} } },
 			  {
@@ -1593,8 +1602,7 @@ sub create_temp_locus_extended_attribute_table {
 		foreach my $locus (@$loci) {
 			next if !defined $attributes->{ $locus->{'dbase_id'} };
 			foreach my $attribute ( @{ $attributes->{ $locus->{'dbase_id'} } } ) {
-				$self->{'db'}->pg_putcopydata("$locus->{'id'}\t$attribute->{'field'}\t$attribute->{'type'}\n")
-				  ;
+				$self->{'db'}->pg_putcopydata("$locus->{'id'}\t$attribute->{'field'}\t$attribute->{'type'}\n");
 			}
 		}
 		$self->{'db'}->pg_putcopyend;
@@ -1619,6 +1627,7 @@ sub create_temp_sequence_extended_attributes_table {
 	return $table if $table_exists;
 	my $att_table = $self->create_temp_locus_extended_attribute_table;
 	my $type      = $self->run_query( "SELECT type FROM $att_table WHERE (locus,field)=(?,?)", [ $locus, $field ] );
+
 	if ( !$type ) {
 		$logger->error("Locus: $locus; Field: $field is not defined");
 		return;
