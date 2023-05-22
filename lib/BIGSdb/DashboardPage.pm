@@ -944,16 +944,21 @@ sub _ajax_get {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by di
 		my $attribute_data = $self->get_list_attribute_data( $options->{'list_attribute'} );
 		$self->{'datastore'}->create_temp_list_table( $attribute_data->{'data_type'}, $options->{'list_file'} );
 	}
+	my $json = JSON->new->allow_nonref;
 	if ( defined $options->{'qry_file'} ) {
 		$self->{'no_query_link'} = 1 if $self->{'dashboard_type'} eq 'query';
 		my $qry = $self->get_query_from_temp_file( $options->{'qry_file'} );
+		if ( !$qry ) {
+			$logger->error("No qry retrieved from qry_file $options->{'qry_file'}.");
+			say q({});
+			return;
+		}
 		$qry =~ s/ORDER\sBY.*$//gx;
 		$self->create_temp_tables( \$qry );
 		$self->{'db'}->do("CREATE TEMP VIEW dashboard_view AS $qry");
 		$self->{'view'} = 'dashboard_view';
 	}
 	my $elements = $self->_get_elements;
-	my $json     = JSON->new->allow_nonref;
 	if ( $elements->{$id} ) {
 		say $json->encode(
 			{
