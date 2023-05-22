@@ -771,7 +771,8 @@ sub get_users {
 sub scheme_exists {
 	my ( $self, $id ) = @_;
 	return 0 if !BIGSdb::Utils::is_int($id);
-	return $self->run_query( 'SELECT EXISTS(SELECT * FROM schemes WHERE id=?)', $id, { fetch => 'row_array' } );
+	return $self->run_query( 'SELECT EXISTS(SELECT * FROM schemes WHERE id=?)',
+		$id, { fetch => 'row_array', cache => 'scheme_exists' } );
 }
 
 sub get_scheme_info {
@@ -1568,8 +1569,8 @@ sub create_temp_locus_extended_attribute_table {
 	my $attributes = {};
 	foreach my $db_name (@$distinct_locus_dbs) {
 		my ($example_locus) = $self->run_query( 'SELECT id FROM loci WHERE dbase_name=? LIMIT 1', $db_name );
-		my $locus_obj = $self->get_locus($example_locus);
-		my $db = $locus_obj->{'db'};
+		my $locus_obj       = $self->get_locus($example_locus);
+		my $db              = $locus_obj->{'db'};
 		next if !defined $db;
 		my $values;
 		eval {
@@ -2341,7 +2342,7 @@ sub get_locus {
 				}
 			};
 		}
-		if (!defined $attributes->{'id'}){
+		if ( !defined $attributes->{'id'} ) {
 			$logger->error("No locus info retrieved for locus $id");
 		}
 		eval { $self->{'locus'}->{$id} = BIGSdb::Locus->new(%$attributes); };

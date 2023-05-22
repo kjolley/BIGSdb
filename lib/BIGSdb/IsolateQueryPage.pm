@@ -1835,6 +1835,7 @@ sub print_dashboard_panel {
 	my $qry_file;
 	if ( !$args->{'passed_query_file'} ) {
 		( my $dashboard_qry = $args->{'query'} ) =~ s/ORDER\sBY.*$//gx;
+		return if !$dashboard_qry;
 		my $empty_dataset = $self->{'datastore'}->run_query("SELECT NOT EXISTS($dashboard_qry)");
 		return if $empty_dataset;
 		$qry_file = $self->make_temp_file($dashboard_qry);
