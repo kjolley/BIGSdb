@@ -30,10 +30,10 @@ my $logger = get_logger('BIGSdb.Page');
 
 sub _calculate_totals {
 	my ( $self, $args ) = @_;
-	my ( $table, $qry, $count, $passed_qry_file ) =
-	  @{$args}{qw (table query count passed_qry_file)};
-	my $q = $self->{'cgi'};
-	$count //= $q->param('records');
+	my ( $table, $qry, $passed_qry_file ) =
+	  @{$args}{qw (table query passed_qry_file)};
+	my $q     = $self->{'cgi'};
+	my $count = BIGSdb::Utils::is_int( scalar $q->param('records') ) ? $q->param('records') : undef;
 	my $passed_qry;
 	if ($passed_qry_file) {
 		$passed_qry = $self->get_query_from_temp_file($passed_qry_file);
@@ -86,8 +86,8 @@ sub paged_display {
 	# efficient algorithm, so if it has already been calculated prior to passing to this subroutine
 	# it is better to not recalculate it.
 	my ( $self, $args ) = @_;
-	my ( $table, $qry, $message, $hidden_attributes, $count, $passed_qry_file ) =
-	  @{$args}{qw (table query message hidden_attributes count passed_qry_file)};
+	my ( $table, $qry, $message, $hidden_attributes, $passed_qry_file ) =
+	  @{$args}{qw (table query message hidden_attributes passed_qry_file)};
 	my $q = $self->{'cgi'};
 	my ($record_calcs) = $self->_calculate_totals($args);
 	return if !ref $record_calcs;
@@ -1669,6 +1669,7 @@ sub _print_record_table {
 	my $table_info = $self->_get_record_table_info($table);
 	my ( $headers, $html_table_headers1, $html_table_headers2, $display, $extended_attributes ) =
 	  @{$table_info}{qw(headers html_table_headers1 html_table_headers2 display extended_attributes)};
+
 	if ( $self->{'curate'} ) {
 		my $rowspan = @$html_table_headers2 ? q( rowspan="2") : q();
 		print qq(<th$rowspan>Delete</th>);
@@ -1822,8 +1823,8 @@ sub _print_sequences_extended_fields {
 			[ $data->{'locus'}, $data->{'allele_id'}, $mutation->{'id'} ],
 			{ fetch => 'row_hashref', cache => 'ResultsTablePage:get_sequences_dna_mutations' }
 		);
-		my @wt = split /;/x, $mutation->{'wild_type_nuc'};
-		my %wt = map { $_ => 1 } @wt;
+		my @wt      = split /;/x, $mutation->{'wild_type_nuc'};
+		my %wt      = map { $_ => 1 } @wt;
 		my @variant = split /;/x, $mutation->{'variant_nuc'};
 		my %variant = map { $_ => 1 } @variant;
 		if ( $result && !$wt{ $result->{'nucleotide'} } && $variant{ $result->{'nucleotide'} } ) {
