@@ -1,3 +1,6 @@
+v1.42.1: *Upgrade to FontAwesome 6.
+         *Added provenance completeness metrics - include fields in metric by
+          setting annotation_metric="yes" for a specific field in config.xml.
 v1.42.0: *Option to define schemes that can include locus presence in profile
           definitions.
          *Mutation and SNP detection tools added to annotate allele 
