@@ -184,7 +184,7 @@ sub _save_options {
 	my $guid   = $self->get_guid;
 	return if !$guid;
 	foreach my $attribute (
-		qw (provenance phenotypic allele_designations allele_count allele_status annotation_status
+		qw (provenance phenotypic allele_designations sequence_variation allele_count allele_status annotation_status
 		seqbin assembly_checks tag_count tags list filters)
 	  )
 	{
@@ -257,6 +257,7 @@ sub _print_interface {
 	$self->_print_provenance_fields_fieldset;
 	$self->_print_phenotypic_fields_fieldset;
 	$self->_print_designations_fieldset;
+	$self->_print_sequence_variation_fieldset;
 	$self->_print_allele_count_fieldset;
 	$self->_print_allele_status_fieldset;
 	$self->_print_annotation_status_fieldset;
@@ -437,9 +438,23 @@ sub _print_designations_fieldset_contents {
 	return;
 }
 
+sub _print_sequence_variation_fieldset {
+	my ($self) = @_;
+	return if ( $self->{'system'}->{'search_sequence_variation'} // q() ) ne 'yes';
+	my ( $peptide_table, $dna_table ) =
+	  $self->{'datastore'}->create_temp_locus_sequence_variation_tables( { cache => 1 } );
+	my $peptide_mutations_exist = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM $peptide_table)");
+	my $dna_mutations_exist     = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM $dna_table)");
+	return if !$peptide_mutations_exist && !$dna_mutations_exist;
+	say q(<fieldset id="sequence_variation_fieldset" style="float:left;display:none">);
+	say q(<legend>Sequence variation</legend><div>);
+	say q(</div></fieldset>);
+	$self->{'sequence_variation_fieldset_exists'} = 1;
+	return;
+}
+
 sub _print_allele_count_fieldset {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
 	say q(<fieldset id="allele_count_fieldset" style="float:left;display:none">);
 	say q(<legend>Allele designation counts</legend><div>);
 
@@ -963,13 +978,17 @@ sub _print_modify_search_fieldset {
 	my $allele_designations_fieldset_display = $self->_should_display_fieldset('allele_designations') ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_allele_designations">$allele_designations_fieldset_display</a>);
 	say q(Allele designations/scheme field values</li>);
+	if ( $self->{'sequence_variation_fieldset_exists'} ) {
+		my $sequence_variation_fieldset_display = $self->_should_display_fieldset('sequence_variation') ? HIDE : SHOW;
+		say qq(<li><a href="" class="button" id="show_sequence_variation">$sequence_variation_fieldset_display</a>);
+		say q(Sequence variation</li>);
+	}
 	my $allele_count_fieldset_display = $self->_should_display_fieldset('allele_count') ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_allele_count">$allele_count_fieldset_display</a>);
 	say q(Allele designation counts</li>);
 	my $allele_status_fieldset_display = $self->_should_display_fieldset('allele_status') ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_allele_status">$allele_status_fieldset_display</a>);
 	say q(Allele designation status</li>);
-
 	if ( $self->{'annotation_status_fieldset_exists'} ) {
 		my $annotation_status_fieldset_display = $self->_should_display_fieldset('annotation_status') ? HIDE : SHOW;
 		say qq(<li><a href="" class="button" id="show_annotation_status">$annotation_status_fieldset_display</a>);
@@ -2750,16 +2769,17 @@ sub _get_allele_designations {
 
 sub _get_allele_designations_by_locus_attributes {
 	my ( $self, $errors_ref ) = @_;
-	my $q    = $self->{'cgi'};
-	my $view = $self->{'system'}->{'view'};
-	my $qry  = [];
+	my $q      = $self->{'cgi'};
+	my $view   = $self->{'system'}->{'view'};
+	my $qry    = [];
 	my $set_id = $self->get_set_id;
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		if ( defined $q->param("designation_value$i") && $q->param("designation_value$i") ne q() ) {
 			if ( $q->param("designation_field$i") =~ /^lex_([\-_'\w]+)\|\|(.*)/x ) {
 				my ( $locus, $field ) = ( $1, $2 );
-				my $att_table = $self->{'datastore'}->create_temp_locus_extended_attribute_table({set_id=>$set_id});
-				my $table     = $self->{'datastore'}->create_temp_sequence_extended_attributes_table( $locus, $field );
+				my $att_table =
+				  $self->{'datastore'}->create_temp_locus_extended_attribute_table( { set_id => $set_id } );
+				my $table = $self->{'datastore'}->create_temp_sequence_extended_attributes_table( $locus, $field );
 				if ( !$table ) {
 					push @$errors_ref, 'Invalid locus attribute selected.';
 					last;
@@ -3814,6 +3834,7 @@ sub _should_display_fieldset {
 		provenance          => 'provenance',
 		phenotypic          => 'phenotypic',
 		allele_designations => 'loci',
+		sequence_variation  => 'sequence_variation',
 		allele_count        => 'allele_count',
 		allele_status       => 'allele_status',
 		seqbin              => 'seqbin',
@@ -3833,7 +3854,7 @@ sub _get_fieldset_display {
 	my ($self) = @_;
 	my $fieldset_display;
 	foreach my $term (
-		qw(phenotypic allele_designations annotation_status seqbin assembly_checks
+		qw(phenotypic allele_designations sequence_variation annotation_status seqbin assembly_checks
 		allele_count allele_status tag_count tags)
 	  )
 	{
@@ -3850,7 +3871,7 @@ sub get_javascript {
 	  $self->{'prefs'}->{'filters_fieldset'} || $self->filters_selected ? 'inline' : 'none';
 	my $buffer   = $self->SUPER::get_javascript;
 	my $panel_js = $self->get_javascript_panel(
-		qw(provenance phenotypic allele_designations allele_count allele_status
+		qw(provenance phenotypic allele_designations sequence_variation allele_count allele_status
 		  annotation_status seqbin assembly_checks tag_count tags list filters)
 	);
 	my $ajax_load = q(var script_path = $(location).attr('href');script_path = script_path.split('?')[0];)
@@ -3858,6 +3879,7 @@ sub get_javascript {
 	my %fields = (
 		phenotypic          => 'phenotypic',
 		allele_designations => 'loci',
+		sequence_variation  => 'sequence_variation',
 		allele_count        => 'allele_count',
 		allele_status       => 'allele_status',
 		annotation_status   => 'annotation_status',
@@ -3887,6 +3909,7 @@ sub get_javascript {
   	\$('#query_modifier').css({display:"block"});
   	\$('#phenotypic_fieldset').css({display:"$fieldset_display->{'phenotypic'}"});
    	\$('#allele_designations_fieldset').css({display:"$fieldset_display->{'allele_designations'}"});
+   	\$('#sequence_variation_fieldset').css({display:"$fieldset_display->{'sequence_variation'}"});
   	\$('#allele_count_fieldset').css({display:"$fieldset_display->{'allele_count'}"});
    	\$('#allele_status_fieldset').css({display:"$fieldset_display->{'allele_status'}"});
    	\$('#annotation_status_fieldset').css({display:"$fieldset_display->{'annotation_status'}"});
@@ -4097,16 +4120,17 @@ sub _get_select_items {
 sub _highest_entered_fields {
 	my ( $self, $type ) = @_;
 	my %param_name = (
-		provenance        => 'prov_value',
-		phenotypic        => 'phenotypic_value',
-		loci              => 'designation_value',
-		allele_count      => 'allele_count_value',
-		allele_status     => 'allele_status_value',
-		annotation_status => 'annotation_status_value',
-		seqbin            => 'seqbin_value',
-		assembly_checks   => 'assembly_checks_value',
-		tag_count         => 'tag_count_value',
-		tags              => 'tag_value'
+		provenance         => 'prov_value',
+		phenotypic         => 'phenotypic_value',
+		loci               => 'designation_value',
+		sequence_variation => 'sequence_variation_value',
+		allele_count       => 'allele_count_value',
+		allele_status      => 'allele_status_value',
+		annotation_status  => 'annotation_status_value',
+		seqbin             => 'seqbin_value',
+		assembly_checks    => 'assembly_checks_value',
+		tag_count          => 'tag_count_value',
+		tags               => 'tag_value'
 	);
 	my $q = $self->{'cgi'};
 	my $highest;
@@ -4136,7 +4160,7 @@ sub initiate {
 		my $guid = $self->get_guid;
 		if ($guid) {
 			foreach my $attribute (
-				qw (phenotypic allele_designations allele_count allele_status annotation_status
+				qw (phenotypic allele_designations sequence_variation allele_count allele_status annotation_status
 				seqbin assembly_checks tag_count tags list filters)
 			  )
 			{
