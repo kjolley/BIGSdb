@@ -45,6 +45,7 @@ sub _ajax_content {
 		my %method = (
 			phenotypic          => sub { $self->_print_phenotypic_fieldset_contents },
 			allele_designations => sub { $self->_print_designations_fieldset_contents },
+			sequence_variation  => sub { $self->_print_sequence_variation_fieldset_contents },
 			allele_count        => sub { $self->_print_allele_count_fieldset_contents },
 			allele_status       => sub { $self->_print_allele_status_fieldset_contents },
 			annotation_status   => sub { $self->_print_annotation_status_fieldset_contents },
@@ -75,6 +76,9 @@ sub _ajax_content {
 			  $self->get_field_selection_list(
 				{ loci => 1, scheme_fields => 1, classification_groups => 1, sort_labels => 1 } );
 			$self->_print_loci_fields( $row, 0, $locus_list, $locus_labels );
+		},
+		sequence_variation => sub {
+			$self->_print_sequence_variation_fields( $row, 0 );
 		},
 		allele_count => sub {
 			my ( $locus_list, $locus_labels ) =
@@ -238,7 +242,7 @@ sub print_content {
 	}
 	$self->_run_query if $q->param('submit') || defined $q->param('query_file');
 	$self->print_modify_dashboard_fieldset( { no_filters => 1 } )
-	  if $self->dashboard_enabled( { query_dashboard => 1 } );
+	  if $self->dashboard_enabled( { query_dashboard => 1 } ) && !$self->{'no_dashboard'};
 	return;
 }
 
@@ -441,15 +445,106 @@ sub _print_designations_fieldset_contents {
 sub _print_sequence_variation_fieldset {
 	my ($self) = @_;
 	return if ( $self->{'system'}->{'search_sequence_variation'} // q() ) ne 'yes';
-	my ( $peptide_table, $dna_table ) =
-	  $self->{'datastore'}->create_temp_locus_sequence_variation_tables( { cache => 1 } );
+	my ( $peptide_table, $dna_table ) = $self->{'datastore'}->create_temp_locus_sequence_variation_tables;
 	my $peptide_mutations_exist = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM $peptide_table)");
 	my $dna_mutations_exist     = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM $dna_table)");
 	return if !$peptide_mutations_exist && !$dna_mutations_exist;
 	say q(<fieldset id="sequence_variation_fieldset" style="float:left;display:none">);
 	say q(<legend>Sequence variation</legend><div>);
+
+	if ( $self->_highest_entered_fields('sequence_variation') ) {
+		$self->_print_sequence_variation_fieldset_contents;
+	}
 	say q(</div></fieldset>);
 	$self->{'sequence_variation_fieldset_exists'} = 1;
+	return;
+}
+
+sub _print_sequence_variation_fieldset_contents {
+	my ($self)                     = @_;
+	my $q                          = $self->{'cgi'};
+	my $sequence_variation_fields  = $self->_highest_entered_fields('sequence_variation') || 1;
+	my $sequence_variation_heading = $sequence_variation_fields == 1 ? 'none' : 'inline';
+	say qq(<span id="sequence_variation_field_heading" style="display:$sequence_variation_heading">)
+	  . q(<label for="annotation_status_andor">Combine with: </label>);
+	say $q->popup_menu(
+		-name   => 'sequence_variation_andor',
+		-id     => 'sequence_variation_andor',
+		-values => [qw (AND OR)]
+	);
+	say q(</span><ul id="sequence_variation">);
+	for ( 1 .. $sequence_variation_fields ) {
+		say q(<li>);
+		$self->_print_sequence_variation_fields( $_, $sequence_variation_fields );
+		say q(</li>);
+	}
+	say q(</ul>);
+	return;
+}
+
+sub _print_sequence_variation_fields {
+	my ( $self, $row, $max_rows ) = @_;
+	my @values;
+	my $labels = {};
+	my ( $peptide_table, $dna_table ) = $self->{'datastore'}->create_temp_locus_sequence_variation_tables;
+	my $peptide_mutations =
+	  $self->{'datastore'}->run_query( "SELECT * FROM $peptide_table ORDER BY locus,reported_position",
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	foreach my $mutation (@$peptide_mutations) {
+		my @wt  = split /;/x, $mutation->{'wild_type_aa'};
+		my @mut = split /;/x, $mutation->{'variant_aa'};
+		foreach my $wt (@wt) {
+			push @values, "pm_$mutation->{'locus'}_p_$mutation->{'reported_position'}_${wt}_wt";
+			$labels->{"pm_$mutation->{'locus'}_p_$mutation->{'reported_position'}_${wt}_wt"} =
+			  "$mutation->{'locus'} $wt$mutation->{'reported_position'} wild-type";
+			if ( @mut > 1 ) {
+				push @values, "pm_$mutation->{'locus'}_p_$mutation->{'reported_position'}_${wt}_variant";
+				$labels->{"pm_$mutation->{'locus'}_p_$mutation->{'reported_position'}_${wt}_variant"} =
+				  "$mutation->{'locus'} $wt$mutation->{'reported_position'} variant";
+			}
+			foreach my $mut (@mut) {
+				push @values, "pm_$mutation->{'locus'}_p_$mutation->{'reported_position'}_${wt}_$mut";
+				$labels->{"pm_$mutation->{'locus'}_p_$mutation->{'reported_position'}_${wt}_$mut"} =
+				  "$mutation->{'locus'} $wt$mutation->{'reported_position'}$mut";
+			}
+		}
+	}
+	my $dna_mutations = $self->{'datastore'}->run_query( "SELECT * FROM $dna_table ORDER BY locus,reported_position",
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	foreach my $mutation (@$dna_mutations) {
+		my @wt  = split /;/x, $mutation->{'wild_type_nuc'};
+		my @mut = split /;/x, $mutation->{'variant_nuc'};
+		foreach my $wt (@wt) {
+			push @values, "dm_$mutation->{'locus'}_p_$mutation->{'reported_position'}_${wt}_wt";
+			$labels->{"dm_$mutation->{'locus'}_p_$mutation->{'reported_position'}_${wt}_wt"} =
+			  "$mutation->{'locus'} $wt$mutation->{'reported_position'} wild-type";
+			if ( @mut > 1 ) {
+				push @values, "dm_$mutation->{'locus'}_p_$mutation->{'reported_position'}_${wt}_variant";
+				$labels->{"dm_$mutation->{'locus'}_p_$mutation->{'reported_position'}_${wt}_variant"} =
+				  "$mutation->{'locus'} $wt$mutation->{'reported_position'} polymorphism";
+			}
+			foreach my $mut (@mut) {
+				push @values, "dm_$mutation->{'locus'}_p_$mutation->{'reported_position'}_${wt}_$mut";
+				$labels->{"dm_$mutation->{'locus'}_p_$mutation->{'reported_position'}_${wt}_$mut"} =
+				  "$mutation->{'locus'} $wt$mutation->{'reported_position'}$mut";
+			}
+		}
+	}
+	say q(<span style="white-space:nowrap">);
+	say $self->popup_menu(
+		-name   => "sequence_variation$row",
+		-id     => "sequence_variation$row",
+		-values => [ q(), @values ],
+		-labels => $labels,
+		-class  => 'fieldlist'
+	);
+	if ( $row == 1 ) {
+		my $next_row = $max_rows ? $max_rows + 1 : 2;
+		say qq(<a id="add_sequence_variation_fields" href="$self->{'system'}->{'script_name'}?)
+		  . qq(db=$self->{'instance'}&amp;page=query&amp;fields=sequence_variation&amp;row=$next_row)
+		  . q(&amp;no_header=1" data-rel="ajax" class="add_button"><span class="fa fas fa-plus"></span></a>);
+	}
+	say q(</span>);
 	return;
 }
 
@@ -1848,7 +1943,7 @@ sub _run_query {
 
 sub print_dashboard_panel {
 	my ( $self, $args ) = @_;
-	return if !$self->dashboard_enabled( { query_dashboard => 1 } );
+	return if !$self->dashboard_enabled( { query_dashboard => 1 } ) || $self->{'no_dashboard'};
 	return if !$self->{'prefs'}->{'query_dashboard'};
 	my $q = $self->{'cgi'};
 	my $qry_file;
@@ -4058,7 +4153,7 @@ function set_autocomplete_values(element){
 }
 END
 	}
-	if ( $self->dashboard_enabled( { query_dashboard => 1 } ) ) {
+	if ( $self->dashboard_enabled( { query_dashboard => 1 } ) && !$self->{'no_dashboard'} ) {
 		my $elements         = $self->_get_elements;
 		my $json_elements    = $json->encode($elements);
 		my $qry_file         = $q->param('query_file');
@@ -4123,7 +4218,7 @@ sub _highest_entered_fields {
 		provenance         => 'prov_value',
 		phenotypic         => 'phenotypic_value',
 		loci               => 'designation_value',
-		sequence_variation => 'sequence_variation_value',
+		sequence_variation => 'sequence_variation',
 		allele_count       => 'allele_count_value',
 		allele_status      => 'allele_status_value',
 		annotation_status  => 'annotation_status_value',
@@ -4147,7 +4242,9 @@ sub initiate {
 	my $q = $self->{'cgi'};
 	$self->{$_} = 1 foreach qw(noCache addProjects addBookmarks);
 	$self->SUPER::initiate;
-	if ( $self->dashboard_enabled( { query_dashboard => 1 } ) ) {
+	if ( $self->dashboard_enabled( { query_dashboard => 1 } )
+		&& ( $q->param('submit') || defined $q->param('query_file') ) )
+	{
 		$self->{$_} = 1 foreach qw(muuri modal fitty bigsdb.dashboard jQuery.fonticonpicker billboard d3.layout.cloud);
 		$self->{'geomap'}         = 1 if $self->has_country_optlist;
 		$self->{'ol'}             = 1 if $self->need_openlayers;
@@ -4155,6 +4252,8 @@ sub initiate {
 		$self->get_or_set_dashboard_prefs;
 		$self->{'prefs'}->{'record_age'}           = 0;
 		$self->{'prefs'}->{'include_old_versions'} = 0;
+	} else {
+		$self->{'no_dashboard'} = 1;
 	}
 	if ( !$self->{'cgi'}->param('save_options') ) {
 		my $guid = $self->get_guid;
