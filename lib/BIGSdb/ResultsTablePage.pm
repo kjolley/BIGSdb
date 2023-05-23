@@ -81,10 +81,6 @@ sub _calculate_totals {
 }
 
 sub paged_display {
-
-	# $count is optional - if not provided it will be calculated, but this may not be the most
-	# efficient algorithm, so if it has already been calculated prior to passing to this subroutine
-	# it is better to not recalculate it.
 	my ( $self, $args ) = @_;
 	my ( $table, $qry, $message, $hidden_attributes, $passed_qry_file ) =
 	  @{$args}{qw (table query message hidden_attributes passed_qry_file)};
