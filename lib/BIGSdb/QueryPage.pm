@@ -122,7 +122,7 @@ sub get_javascript {
 \$(function () {
 	\$('div#queryform').on('click', 'a[data-rel=ajax]',function(){
   		\$(this).attr('href', function(){
-    		return(this.href.replace(/(.*)/, "javascript:loadContent\('\$1\'\)"));
+     		return(this.href.replace(/(.*)/, "javascript:loadContent\('\$1\'\)"));
     	});
   	});
 	$close_panel_js

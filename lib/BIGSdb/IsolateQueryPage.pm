@@ -466,7 +466,7 @@ sub _print_sequence_variation_fieldset_contents {
 	my $sequence_variation_fields  = $self->_highest_entered_fields('sequence_variation') || 1;
 	my $sequence_variation_heading = $sequence_variation_fields == 1 ? 'none' : 'inline';
 	say qq(<span id="sequence_variation_field_heading" style="display:$sequence_variation_heading">)
-	  . q(<label for="annotation_status_andor">Combine with: </label>);
+	  . q(<label for="sequence_variation_andor">Combine with: </label>);
 	say $q->popup_menu(
 		-name   => 'sequence_variation_andor',
 		-id     => 'sequence_variation_andor',
@@ -540,9 +540,10 @@ sub _print_sequence_variation_fields {
 	);
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
-		say qq(<a id="add_sequence_variation_fields" href="$self->{'system'}->{'script_name'}?)
+		say qq(<a id="add_sequence_variation" href="$self->{'system'}->{'script_name'}?)
 		  . qq(db=$self->{'instance'}&amp;page=query&amp;fields=sequence_variation&amp;row=$next_row)
 		  . q(&amp;no_header=1" data-rel="ajax" class="add_button"><span class="fa fas fa-plus"></span></a>);
+		 say $self->get_tooltip( '', { id => 'sequence_variation_tooltip' } );
 	}
 	say q(</span>);
 	return;
@@ -1973,12 +1974,12 @@ sub get_hidden_attributes {
 	my @hidden_attributes;
 	push @hidden_attributes,
 	  qw (prov_andor phenotypic_andor designation_andor tag_andor status_andor annotation_status_andor
-	  seqbin_andor assembly_checks_andor);
+	  seqbin_andor assembly_checks_andor sequence_variation_andor);
 	for my $row ( 1 .. MAX_ROWS ) {
 		push @hidden_attributes, "prov_field$row", "prov_value$row", "prov_operator$row", "phenotypic_field$row",
-		  "phenotypic_value$row", "phenotypic_operator$row", "designation_field$row",
-		  "designation_operator$row", "designation_value$row", "tag_field$row", "tag_value$row",
-		  "allele_status_field$row",
+		  "phenotypic_value$row",        "phenotypic_operator$row", "designation_field$row",
+		  "designation_operator$row",    "designation_value$row",   "tag_field$row", "tag_value$row",
+		  "sequence_variation$row",      "allele_status_field$row",
 		  "allele_status_value$row",     "allele_count_field$row", "allele_count_operator$row",
 		  "allele_count_value$row",      "tag_count_field$row",    "tag_count_operator$row", "tag_count_value$row",
 		  "annotation_status_field$row", "annotation_status_value$row",
@@ -4037,7 +4038,8 @@ function setTooltips() {
   	    + "fields by clicking the '+' button."
   		+ "</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, "
   		+ "'OR' to match ANY of these terms.</p>" });
-  	\$('#tag_tooltip,#tag_count_tooltip,#allele_count_tooltip,#allele_status_tooltip,#annotation_status_tooltip,#seqbin_tooltip,#assembly_checks_tooltip').tooltip({ 
+  	\$('#tag_tooltip,#tag_count_tooltip,#allele_count_tooltip,#allele_status_tooltip,#annotation_status_tooltip,'
+  	 + '#seqbin_tooltip,#assembly_checks_tooltip,#sequence_variation_tooltip').tooltip({ 
   		content: "<h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p>"
   		+ "</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, "
   		+ "'OR' to match ANY of these terms.</p>"  });	
@@ -4045,13 +4047,15 @@ function setTooltips() {
  
 function loadContent(url) {
 	var row = parseInt(url.match(/row=(\\d+)/)[1]);
-	var fields = url.match(/fields=([provenance|phenotypic|loci|allele_count|allele_status|annotation_status|seqbin|assembly_checks|table_fields|tag_count|tags]+)/)[1];
+	var fields = url.match(/fields=([provenance|phenotypic|loci|sequence_variation|allele_count|allele_status|annotation_status|seqbin|assembly_checks|table_fields|tag_count|tags]+)/)[1];
 	if (fields == 'provenance'){			
 		add_rows(url,fields,'fields',row,'prov_field_heading','add_fields');
 	} else if (fields == 'phenotypic'){
 		add_rows(url,fields,'phenotypic',row,'phenotypic_field_heading','add_phenotypic_fields');	
 	} else if (fields == 'loci'){
 		add_rows(url,fields,'locus',row,'loci_field_heading','add_loci');
+	} else if (fields == 'sequence_variation'){
+		add_rows(url,fields,'sequence_variation',row,'sequence_variation_field_heading','add_sequence_variation');
 	} else if (fields == 'allele_count'){
 		add_rows(url,fields,'allele_count',row,'allele_count_field_heading','add_allele_count');	
 	} else if (fields == 'allele_status'){
