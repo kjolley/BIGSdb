@@ -1553,6 +1553,120 @@ sub _delete_temp_tables {
 	return;
 }
 
+sub create_temp_locus_sequence_variation_tables {
+	my ( $self, $options ) = @_;
+	my $peptide_variation_table = $self->_create_temp_locus_variation_table( 'peptide', $options );
+	my $dna_variation_table     = $self->_create_temp_locus_variation_table( 'dna',     $options );
+	return ( $peptide_variation_table, $dna_variation_table );
+}
+
+sub _create_temp_locus_variation_table {
+	my ( $self, $type, $options ) = @_;
+	my $table_type   = 'TEMP TABLE';
+	my $table        = "temp_${type}_mutations";
+	my $remote_table = "${type}_mutations";
+	my $table_exists =
+	  $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
+	if ( $options->{'cache'} ) {
+		$table_type = 'TABLE';
+	} elsif ($table_exists) {
+		return $table;
+	}
+	my $distinct_locus_dbs = $self->run_query( 'SELECT DISTINCT dbase_name FROM loci WHERE dbase_name IS NOT NULL',
+		undef, { fetch => 'col_arrayref', slice => {} } );
+	my $fields = {
+		peptide => [qw(locus reported_position wild_type_aa variant_aa)],
+		dna     => [qw(locus reported_position wild_type_nuc variant_nuc)]
+	};
+	my $attributes = {};
+	foreach my $db_name (@$distinct_locus_dbs) {
+		my ($example_locus) = $self->run_query( 'SELECT id FROM loci WHERE dbase_name=? LIMIT 1', $db_name );
+		my $locus_obj       = $self->get_locus($example_locus);
+		my $db              = $locus_obj->{'db'};
+		next if !defined $db;
+		my $values;
+		eval {
+			local $" = q(,);
+			$values = $self->run_query( "SELECT @{$fields->{$type}} FROM $remote_table",
+				undef, { db => $db, fetch => 'all_arrayref' } );
+		};
+		if ($@) {
+			$logger->error($@);
+			next;
+		}
+		foreach my $value (@$values) {
+			push @{ $attributes->{ $value->[0] } }, $value;
+		}
+	}
+	my $loci = $self->run_query( 'SELECT id,dbase_id FROM loci WHERE dbase_id IS NOT NULL',
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	eval {
+		if ($table_exists) {
+			$self->{'db'}->do("TRUNCATE $table");
+		} else {
+			$self->{'db'}->do( "CREATE $table_type $table (locus text NOT NULL,reported_position int "
+				  . "NOT NULL,$fields->{$type}->[2] text NOT NULL, $fields->{$type}->[3] text NOT NULL)" );
+		}
+		local $" = q(,);
+		$self->{'db'}->do("COPY $table(@{$fields->{$type}}) FROM STDIN");
+		foreach my $locus (@$loci) {
+			next if !defined $attributes->{ $locus->{'dbase_id'} };
+			foreach my $attribute ( @{ $attributes->{ $locus->{'dbase_id'} } } ) {
+				local $" = qq(\t);
+				$self->{'db'}->pg_putcopydata("$locus->{'id'}\t@$attribute[1,2,3]\n");
+			}
+		}
+		$self->{'db'}->pg_putcopyend;
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+	return $table;
+}
+
+sub create_temp_variation_table {
+	my ( $self, $type, $locus, $position ) = @_;
+	my $table = "temp_${type}_${locus}_p_${position}";
+	$table =~ s/'/_PRIME_/gx;
+	$table =~ s/\s/_DASH_/gx;
+	my $table_exists =
+	  $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=LOWER(?))', $table );
+	return $table if $table_exists;
+	my ( $char_field, $remote_table, $join_table ) =
+	  $type eq 'pm'
+	  ? ( 'amino_acid', 'sequences_peptide_mutations', 'peptide_mutations' )
+	  : ( 'nucleotide', 'sequences_dna_mutations', 'dna_mutations' );
+	my $locus_obj = $self->get_locus($locus);
+	my $values    = $self->run_query(
+		"SELECT allele_id,$char_field,is_wild_type,is_mutation FROM $remote_table JOIN $join_table ON "
+		  . "$remote_table.mutation_id=$join_table.id WHERE ($remote_table.locus,$join_table.reported_position)=(?,?)",
+		[ $locus, $position ],
+		{ db => $locus_obj->{'db'}, fetch => 'all_arrayref' }
+	);
+	eval {
+		$self->{'db'}->do(
+			"CREATE TEMP TABLE $table (allele_id text NOT NULL,$char_field text NOT NULL,is_wild_type boolean "
+			  . 'NOT NULL,is_mutation boolean NOT NULL,PRIMARY KEY(allele_id))'
+		);
+		$self->{'db'}->do("COPY $table(allele_id,$char_field,is_wild_type,is_mutation) FROM STDIN");
+		local $" = qq(\t);
+		foreach my $value (@$values) {
+			$self->{'db'}->pg_putcopydata("@$value\n");
+		}
+		$self->{'db'}->pg_putcopyend;
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+	return $table;
+}
+
 sub create_temp_locus_extended_attribute_table {
 	my ( $self, $options ) = @_;
 	my $table_type = 'TEMP TABLE';

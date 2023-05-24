@@ -45,6 +45,7 @@ sub _ajax_content {
 		my %method = (
 			phenotypic          => sub { $self->_print_phenotypic_fieldset_contents },
 			allele_designations => sub { $self->_print_designations_fieldset_contents },
+			sequence_variation  => sub { $self->_print_sequence_variation_fieldset_contents },
 			allele_count        => sub { $self->_print_allele_count_fieldset_contents },
 			allele_status       => sub { $self->_print_allele_status_fieldset_contents },
 			annotation_status   => sub { $self->_print_annotation_status_fieldset_contents },
@@ -75,6 +76,9 @@ sub _ajax_content {
 			  $self->get_field_selection_list(
 				{ loci => 1, scheme_fields => 1, classification_groups => 1, sort_labels => 1 } );
 			$self->_print_loci_fields( $row, 0, $locus_list, $locus_labels );
+		},
+		sequence_variation => sub {
+			$self->_print_sequence_variation_fields( $row, 0 );
 		},
 		allele_count => sub {
 			my ( $locus_list, $locus_labels ) =
@@ -184,7 +188,7 @@ sub _save_options {
 	my $guid   = $self->get_guid;
 	return if !$guid;
 	foreach my $attribute (
-		qw (provenance phenotypic allele_designations allele_count allele_status annotation_status
+		qw (provenance phenotypic allele_designations sequence_variation allele_count allele_status annotation_status
 		seqbin assembly_checks tag_count tags list filters)
 	  )
 	{
@@ -238,7 +242,7 @@ sub print_content {
 	}
 	$self->_run_query if $q->param('submit') || defined $q->param('query_file');
 	$self->print_modify_dashboard_fieldset( { no_filters => 1 } )
-	  if $self->dashboard_enabled( { query_dashboard => 1 } );
+	  if $self->dashboard_enabled( { query_dashboard => 1 } ) && !$self->{'no_dashboard'};
 	return;
 }
 
@@ -257,6 +261,7 @@ sub _print_interface {
 	$self->_print_provenance_fields_fieldset;
 	$self->_print_phenotypic_fields_fieldset;
 	$self->_print_designations_fieldset;
+	$self->_print_sequence_variation_fieldset;
 	$self->_print_allele_count_fieldset;
 	$self->_print_allele_status_fieldset;
 	$self->_print_annotation_status_fieldset;
@@ -437,9 +442,115 @@ sub _print_designations_fieldset_contents {
 	return;
 }
 
+sub _print_sequence_variation_fieldset {
+	my ($self) = @_;
+	return if ( $self->{'system'}->{'search_sequence_variation'} // q() ) ne 'yes';
+	my ( $peptide_table, $dna_table ) = $self->{'datastore'}->create_temp_locus_sequence_variation_tables;
+	my $peptide_mutations_exist = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM $peptide_table)");
+	my $dna_mutations_exist     = $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM $dna_table)");
+	return if !$peptide_mutations_exist && !$dna_mutations_exist;
+	say q(<fieldset id="sequence_variation_fieldset" style="float:left;display:none">);
+	say q(<legend>Sequence variation</legend><div>);
+
+	if ( $self->_highest_entered_fields('sequence_variation') ) {
+		$self->_print_sequence_variation_fieldset_contents;
+	}
+	say q(</div></fieldset>);
+	$self->{'sequence_variation_fieldset_exists'} = 1;
+	return;
+}
+
+sub _print_sequence_variation_fieldset_contents {
+	my ($self)                     = @_;
+	my $q                          = $self->{'cgi'};
+	my $sequence_variation_fields  = $self->_highest_entered_fields('sequence_variation') || 1;
+	my $sequence_variation_heading = $sequence_variation_fields == 1 ? 'none' : 'inline';
+	say qq(<span id="sequence_variation_field_heading" style="display:$sequence_variation_heading">)
+	  . q(<label for="sequence_variation_andor">Combine with: </label>);
+	say $q->popup_menu(
+		-name   => 'sequence_variation_andor',
+		-id     => 'sequence_variation_andor',
+		-values => [qw (AND OR)]
+	);
+	say q(</span><ul id="sequence_variation">);
+	for ( 1 .. $sequence_variation_fields ) {
+		say q(<li>);
+		$self->_print_sequence_variation_fields( $_, $sequence_variation_fields );
+		say q(</li>);
+	}
+	say q(</ul>);
+	return;
+}
+
+sub _print_sequence_variation_fields {
+	my ( $self, $row, $max_rows ) = @_;
+	my @values;
+	my $labels = {};
+	my ( $peptide_table, $dna_table ) = $self->{'datastore'}->create_temp_locus_sequence_variation_tables;
+	my $peptide_mutations =
+	  $self->{'datastore'}->run_query( "SELECT * FROM $peptide_table ORDER BY locus,reported_position",
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	foreach my $mutation (@$peptide_mutations) {
+		my @wt  = split /;/x, $mutation->{'wild_type_aa'};
+		my @mut = split /;/x, $mutation->{'variant_aa'};
+		foreach my $wt (@wt) {
+			push @values, "pm_$mutation->{'locus'}_p_$mutation->{'reported_position'}_${wt}_wt";
+			$labels->{"pm_$mutation->{'locus'}_p_$mutation->{'reported_position'}_${wt}_wt"} =
+			  "$mutation->{'locus'} $wt$mutation->{'reported_position'} wild-type";
+			if ( @mut > 1 ) {
+				push @values, "pm_$mutation->{'locus'}_p_$mutation->{'reported_position'}_${wt}_variant";
+				$labels->{"pm_$mutation->{'locus'}_p_$mutation->{'reported_position'}_${wt}_variant"} =
+				  "$mutation->{'locus'} $wt$mutation->{'reported_position'} variant";
+			}
+			foreach my $mut (@mut) {
+				push @values, "pm_$mutation->{'locus'}_p_$mutation->{'reported_position'}_${wt}_$mut";
+				$labels->{"pm_$mutation->{'locus'}_p_$mutation->{'reported_position'}_${wt}_$mut"} =
+				  "$mutation->{'locus'} $wt$mutation->{'reported_position'}$mut";
+			}
+		}
+	}
+	my $dna_mutations = $self->{'datastore'}->run_query( "SELECT * FROM $dna_table ORDER BY locus,reported_position",
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	foreach my $mutation (@$dna_mutations) {
+		my @wt  = split /;/x, $mutation->{'wild_type_nuc'};
+		my @mut = split /;/x, $mutation->{'variant_nuc'};
+		foreach my $wt (@wt) {
+			push @values, "dm_$mutation->{'locus'}_p_$mutation->{'reported_position'}_${wt}_wt";
+			$labels->{"dm_$mutation->{'locus'}_p_$mutation->{'reported_position'}_${wt}_wt"} =
+			  "$mutation->{'locus'} $wt$mutation->{'reported_position'} wild-type";
+			if ( @mut > 1 ) {
+				push @values, "dm_$mutation->{'locus'}_p_$mutation->{'reported_position'}_${wt}_variant";
+				$labels->{"dm_$mutation->{'locus'}_p_$mutation->{'reported_position'}_${wt}_variant"} =
+				  "$mutation->{'locus'} $wt$mutation->{'reported_position'} polymorphism";
+			}
+			foreach my $mut (@mut) {
+				push @values, "dm_$mutation->{'locus'}_p_$mutation->{'reported_position'}_${wt}_$mut";
+				$labels->{"dm_$mutation->{'locus'}_p_$mutation->{'reported_position'}_${wt}_$mut"} =
+				  "$mutation->{'locus'} $wt$mutation->{'reported_position'}$mut";
+			}
+		}
+	}
+	say q(<span style="white-space:nowrap">);
+	say $self->popup_menu(
+		-name   => "sequence_variation$row",
+		-id     => "sequence_variation$row",
+		-values => [ q(), @values ],
+		-labels => $labels,
+		-class  => 'fieldlist'
+	);
+	if ( $row == 1 ) {
+		my $next_row = $max_rows ? $max_rows + 1 : 2;
+		say qq(<a id="add_sequence_variation" href="$self->{'system'}->{'script_name'}?)
+		  . qq(db=$self->{'instance'}&amp;page=query&amp;fields=sequence_variation&amp;row=$next_row)
+		  . q(&amp;no_header=1" data-rel="ajax" class="add_button"><span class="fa fas fa-plus"></span></a>);
+		say $self->get_tooltip( '', { id => 'sequence_variation_tooltip' } );
+	}
+	say q(</span>);
+	return;
+}
+
 sub _print_allele_count_fieldset {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
 	say q(<fieldset id="allele_count_fieldset" style="float:left;display:none">);
 	say q(<legend>Allele designation counts</legend><div>);
 
@@ -963,13 +1074,17 @@ sub _print_modify_search_fieldset {
 	my $allele_designations_fieldset_display = $self->_should_display_fieldset('allele_designations') ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_allele_designations">$allele_designations_fieldset_display</a>);
 	say q(Allele designations/scheme field values</li>);
+	if ( $self->{'sequence_variation_fieldset_exists'} ) {
+		my $sequence_variation_fieldset_display = $self->_should_display_fieldset('sequence_variation') ? HIDE : SHOW;
+		say qq(<li><a href="" class="button" id="show_sequence_variation">$sequence_variation_fieldset_display</a>);
+		say q(Sequence variation</li>);
+	}
 	my $allele_count_fieldset_display = $self->_should_display_fieldset('allele_count') ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_allele_count">$allele_count_fieldset_display</a>);
 	say q(Allele designation counts</li>);
 	my $allele_status_fieldset_display = $self->_should_display_fieldset('allele_status') ? HIDE : SHOW;
 	say qq(<li><a href="" class="button" id="show_allele_status">$allele_status_fieldset_display</a>);
 	say q(Allele designation status</li>);
-
 	if ( $self->{'annotation_status_fieldset_exists'} ) {
 		my $annotation_status_fieldset_display = $self->_should_display_fieldset('annotation_status') ? HIDE : SHOW;
 		say qq(<li><a href="" class="button" id="show_annotation_status">$annotation_status_fieldset_display</a>);
@@ -1757,6 +1872,7 @@ sub _run_query {
 		$qry = $self->_modify_query_by_list($qry);
 		$qry = $self->_modify_query_for_filters( $qry, $extended );
 		$qry = $self->_modify_query_for_designations( $qry, $errors );
+		$qry = $self->_modify_query_for_sequence_variation( $qry, $errors );
 		$qry = $self->_modify_query_for_designation_counts( $qry, $errors );
 		$qry = $self->_modify_query_for_tags( $qry, $errors );
 		$qry = $self->_modify_query_for_tag_counts( $qry, $errors );
@@ -1829,7 +1945,7 @@ sub _run_query {
 
 sub print_dashboard_panel {
 	my ( $self, $args ) = @_;
-	return if !$self->dashboard_enabled( { query_dashboard => 1 } );
+	return if !$self->dashboard_enabled( { query_dashboard => 1 } ) || $self->{'no_dashboard'};
 	return if !$self->{'prefs'}->{'query_dashboard'};
 	my $q = $self->{'cgi'};
 	my $qry_file;
@@ -1859,12 +1975,12 @@ sub get_hidden_attributes {
 	my @hidden_attributes;
 	push @hidden_attributes,
 	  qw (prov_andor phenotypic_andor designation_andor tag_andor status_andor annotation_status_andor
-	  seqbin_andor assembly_checks_andor);
+	  seqbin_andor assembly_checks_andor sequence_variation_andor);
 	for my $row ( 1 .. MAX_ROWS ) {
 		push @hidden_attributes, "prov_field$row", "prov_value$row", "prov_operator$row", "phenotypic_field$row",
-		  "phenotypic_value$row", "phenotypic_operator$row", "designation_field$row",
-		  "designation_operator$row", "designation_value$row", "tag_field$row", "tag_value$row",
-		  "allele_status_field$row",
+		  "phenotypic_value$row",        "phenotypic_operator$row", "designation_field$row",
+		  "designation_operator$row",    "designation_value$row",   "tag_field$row", "tag_value$row",
+		  "sequence_variation$row",      "allele_status_field$row",
 		  "allele_status_value$row",     "allele_count_field$row", "allele_count_operator$row",
 		  "allele_count_value$row",      "tag_count_field$row",    "tag_count_operator$row", "tag_count_value$row",
 		  "annotation_status_field$row", "annotation_status_value$row",
@@ -2750,16 +2866,17 @@ sub _get_allele_designations {
 
 sub _get_allele_designations_by_locus_attributes {
 	my ( $self, $errors_ref ) = @_;
-	my $q    = $self->{'cgi'};
-	my $view = $self->{'system'}->{'view'};
-	my $qry  = [];
+	my $q      = $self->{'cgi'};
+	my $view   = $self->{'system'}->{'view'};
+	my $qry    = [];
 	my $set_id = $self->get_set_id;
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		if ( defined $q->param("designation_value$i") && $q->param("designation_value$i") ne q() ) {
 			if ( $q->param("designation_field$i") =~ /^lex_([\-_'\w]+)\|\|(.*)/x ) {
 				my ( $locus, $field ) = ( $1, $2 );
-				my $att_table = $self->{'datastore'}->create_temp_locus_extended_attribute_table({set_id=>$set_id});
-				my $table     = $self->{'datastore'}->create_temp_sequence_extended_attributes_table( $locus, $field );
+				my $att_table =
+				  $self->{'datastore'}->create_temp_locus_extended_attribute_table( { set_id => $set_id } );
+				my $table = $self->{'datastore'}->create_temp_sequence_extended_attributes_table( $locus, $field );
 				if ( !$table ) {
 					push @$errors_ref, 'Invalid locus attribute selected.';
 					last;
@@ -3635,6 +3752,47 @@ sub _modify_query_for_annotation_status {
 	return $qry;
 }
 
+sub _modify_query_for_sequence_variation {
+	my ( $self, $qry, $errors_ref ) = @_;
+	my $q    = $self->{'cgi'};
+	my $view = $self->{'system'}->{'view'};
+	my @queries;
+	foreach my $i ( 1 .. MAX_ROWS ) {
+		my $value = $q->param("sequence_variation$i") // q();
+		next if $value eq q();
+		my ( $type, $locus, $position, $wt, $variant );
+		if ( $value =~ /^(pm|dm)_([A-z0-9_\-\']+?)_p_(\d+)_([A-Z])_([A-z]|wt|variant)$/x ) {
+			( $type, $locus, $position, $wt, $variant ) = ( $1, $2, $3, $4, $5 );
+		} else {
+			push @$errors_ref, 'Invalid sequence variation term selected.';
+			next;
+		}
+		my $table      = $self->{'datastore'}->create_temp_variation_table( $type, $locus, $position );
+		my $char_field = $type eq 'pm' ? 'amino_acid' : 'nucleotide';
+		$locus =~ s/'/\\'/gx;
+		my $var_qry = "SELECT isolate_id FROM allele_designations JOIN $table ON allele_designations.locus=E'$locus' "
+		  . "AND allele_designations.allele_id=$table.allele_id WHERE ";
+		if ( $variant eq 'wt' ) {
+			$var_qry .= "$table.is_wild_type";
+		} elsif ( $variant eq 'variant' ) {
+			$var_qry .= "$table.is_mutation";
+		} else {
+			$var_qry .= "$table.$char_field='$variant'";
+		}
+		push @queries, "($view.id IN ($var_qry))";
+	}
+	if (@queries) {
+		my $andor = ( $q->param('sequence_variation_andor') // '' ) eq 'AND' ? ' AND ' : ' OR ';
+		local $" = $andor;
+		if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
+			$qry .= " AND (@queries)";
+		} else {
+			$qry = "SELECT * FROM $view WHERE (@queries)";
+		}
+	}
+	return $qry;
+}
+
 sub _get_scheme_annotation_subquery {
 	my ( $self, $scheme_id, $value ) = @_;
 	my $table       = $self->{'datastore'}->create_temp_scheme_status_table($scheme_id);
@@ -3814,6 +3972,7 @@ sub _should_display_fieldset {
 		provenance          => 'provenance',
 		phenotypic          => 'phenotypic',
 		allele_designations => 'loci',
+		sequence_variation  => 'sequence_variation',
 		allele_count        => 'allele_count',
 		allele_status       => 'allele_status',
 		seqbin              => 'seqbin',
@@ -3833,7 +3992,7 @@ sub _get_fieldset_display {
 	my ($self) = @_;
 	my $fieldset_display;
 	foreach my $term (
-		qw(phenotypic allele_designations annotation_status seqbin assembly_checks
+		qw(phenotypic allele_designations sequence_variation annotation_status seqbin assembly_checks
 		allele_count allele_status tag_count tags)
 	  )
 	{
@@ -3850,7 +4009,7 @@ sub get_javascript {
 	  $self->{'prefs'}->{'filters_fieldset'} || $self->filters_selected ? 'inline' : 'none';
 	my $buffer   = $self->SUPER::get_javascript;
 	my $panel_js = $self->get_javascript_panel(
-		qw(provenance phenotypic allele_designations allele_count allele_status
+		qw(provenance phenotypic allele_designations sequence_variation allele_count allele_status
 		  annotation_status seqbin assembly_checks tag_count tags list filters)
 	);
 	my $ajax_load = q(var script_path = $(location).attr('href');script_path = script_path.split('?')[0];)
@@ -3858,6 +4017,7 @@ sub get_javascript {
 	my %fields = (
 		phenotypic          => 'phenotypic',
 		allele_designations => 'loci',
+		sequence_variation  => 'sequence_variation',
 		allele_count        => 'allele_count',
 		allele_status       => 'allele_status',
 		annotation_status   => 'annotation_status',
@@ -3887,6 +4047,7 @@ sub get_javascript {
   	\$('#query_modifier').css({display:"block"});
   	\$('#phenotypic_fieldset').css({display:"$fieldset_display->{'phenotypic'}"});
    	\$('#allele_designations_fieldset').css({display:"$fieldset_display->{'allele_designations'}"});
+   	\$('#sequence_variation_fieldset').css({display:"$fieldset_display->{'sequence_variation'}"});
   	\$('#allele_count_fieldset').css({display:"$fieldset_display->{'allele_count'}"});
    	\$('#allele_status_fieldset').css({display:"$fieldset_display->{'allele_status'}"});
    	\$('#annotation_status_fieldset').css({display:"$fieldset_display->{'annotation_status'}"});
@@ -3919,7 +4080,8 @@ function setTooltips() {
   	    + "fields by clicking the '+' button."
   		+ "</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, "
   		+ "'OR' to match ANY of these terms.</p>" });
-  	\$('#tag_tooltip,#tag_count_tooltip,#allele_count_tooltip,#allele_status_tooltip,#annotation_status_tooltip,#seqbin_tooltip,#assembly_checks_tooltip').tooltip({ 
+  	\$('#tag_tooltip,#tag_count_tooltip,#allele_count_tooltip,#allele_status_tooltip,#annotation_status_tooltip,'
+  	 + '#seqbin_tooltip,#assembly_checks_tooltip,#sequence_variation_tooltip').tooltip({ 
   		content: "<h3>Number of fields</h3><p>Add more fields by clicking the '+' button.</p>"
   		+ "</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, "
   		+ "'OR' to match ANY of these terms.</p>"  });	
@@ -3927,13 +4089,15 @@ function setTooltips() {
  
 function loadContent(url) {
 	var row = parseInt(url.match(/row=(\\d+)/)[1]);
-	var fields = url.match(/fields=([provenance|phenotypic|loci|allele_count|allele_status|annotation_status|seqbin|assembly_checks|table_fields|tag_count|tags]+)/)[1];
+	var fields = url.match(/fields=([provenance|phenotypic|loci|sequence_variation|allele_count|allele_status|annotation_status|seqbin|assembly_checks|table_fields|tag_count|tags]+)/)[1];
 	if (fields == 'provenance'){			
 		add_rows(url,fields,'fields',row,'prov_field_heading','add_fields');
 	} else if (fields == 'phenotypic'){
 		add_rows(url,fields,'phenotypic',row,'phenotypic_field_heading','add_phenotypic_fields');	
 	} else if (fields == 'loci'){
 		add_rows(url,fields,'locus',row,'loci_field_heading','add_loci');
+	} else if (fields == 'sequence_variation'){
+		add_rows(url,fields,'sequence_variation',row,'sequence_variation_field_heading','add_sequence_variation');
 	} else if (fields == 'allele_count'){
 		add_rows(url,fields,'allele_count',row,'allele_count_field_heading','add_allele_count');	
 	} else if (fields == 'allele_status'){
@@ -4035,7 +4199,7 @@ function set_autocomplete_values(element){
 }
 END
 	}
-	if ( $self->dashboard_enabled( { query_dashboard => 1 } ) ) {
+	if ( $self->dashboard_enabled( { query_dashboard => 1 } ) && !$self->{'no_dashboard'} ) {
 		my $elements         = $self->_get_elements;
 		my $json_elements    = $json->encode($elements);
 		my $qry_file         = $q->param('query_file');
@@ -4097,16 +4261,17 @@ sub _get_select_items {
 sub _highest_entered_fields {
 	my ( $self, $type ) = @_;
 	my %param_name = (
-		provenance        => 'prov_value',
-		phenotypic        => 'phenotypic_value',
-		loci              => 'designation_value',
-		allele_count      => 'allele_count_value',
-		allele_status     => 'allele_status_value',
-		annotation_status => 'annotation_status_value',
-		seqbin            => 'seqbin_value',
-		assembly_checks   => 'assembly_checks_value',
-		tag_count         => 'tag_count_value',
-		tags              => 'tag_value'
+		provenance         => 'prov_value',
+		phenotypic         => 'phenotypic_value',
+		loci               => 'designation_value',
+		sequence_variation => 'sequence_variation',
+		allele_count       => 'allele_count_value',
+		allele_status      => 'allele_status_value',
+		annotation_status  => 'annotation_status_value',
+		seqbin             => 'seqbin_value',
+		assembly_checks    => 'assembly_checks_value',
+		tag_count          => 'tag_count_value',
+		tags               => 'tag_value'
 	);
 	my $q = $self->{'cgi'};
 	my $highest;
@@ -4123,7 +4288,9 @@ sub initiate {
 	my $q = $self->{'cgi'};
 	$self->{$_} = 1 foreach qw(noCache addProjects addBookmarks);
 	$self->SUPER::initiate;
-	if ( $self->dashboard_enabled( { query_dashboard => 1 } ) ) {
+	if ( $self->dashboard_enabled( { query_dashboard => 1 } )
+		&& ( $q->param('submit') || defined $q->param('query_file') ) )
+	{
 		$self->{$_} = 1 foreach qw(muuri modal fitty bigsdb.dashboard jQuery.fonticonpicker billboard d3.layout.cloud);
 		$self->{'geomap'}         = 1 if $self->has_country_optlist;
 		$self->{'ol'}             = 1 if $self->need_openlayers;
@@ -4131,12 +4298,14 @@ sub initiate {
 		$self->get_or_set_dashboard_prefs;
 		$self->{'prefs'}->{'record_age'}           = 0;
 		$self->{'prefs'}->{'include_old_versions'} = 0;
+	} else {
+		$self->{'no_dashboard'} = 1;
 	}
 	if ( !$self->{'cgi'}->param('save_options') ) {
 		my $guid = $self->get_guid;
 		if ($guid) {
 			foreach my $attribute (
-				qw (phenotypic allele_designations allele_count allele_status annotation_status
+				qw (phenotypic allele_designations sequence_variation allele_count allele_status annotation_status
 				seqbin assembly_checks tag_count tags list filters)
 			  )
 			{
