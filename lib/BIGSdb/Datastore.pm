@@ -1627,6 +1627,46 @@ sub _create_temp_locus_variation_table {
 	return $table;
 }
 
+sub create_temp_variation_table {
+	my ( $self, $type, $locus, $position ) = @_;
+	my $table = "temp_${type}_${locus}_p_${position}";
+	$table =~ s/'/_PRIME_/gx;
+	$table =~ s/\s/_DASH_/gx;
+	my $table_exists =
+	  $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=LOWER(?))', $table );
+	return $table if $table_exists;
+	my ( $char_field, $remote_table, $join_table ) =
+	  $type eq 'pm'
+	  ? ( 'amino_acid', 'sequences_peptide_mutations', 'peptide_mutations' )
+	  : ( 'nucleotide', 'sequences_dna_mutations', 'dna_mutations' );
+	my $locus_obj = $self->get_locus($locus);
+	my $values    = $self->run_query(
+		"SELECT allele_id,$char_field,is_wild_type,is_mutation FROM $remote_table JOIN $join_table ON "
+		  . "$remote_table.mutation_id=$join_table.id WHERE ($remote_table.locus,$join_table.reported_position)=(?,?)",
+		[ $locus, $position ],
+		{ db => $locus_obj->{'db'}, fetch => 'all_arrayref' }
+	);
+	eval {
+		$self->{'db'}->do(
+			"CREATE TEMP TABLE $table (allele_id text NOT NULL,$char_field text NOT NULL,is_wild_type boolean "
+			  . 'NOT NULL,is_mutation boolean NOT NULL,PRIMARY KEY(allele_id))'
+		);
+		$self->{'db'}->do("COPY $table(allele_id,$char_field,is_wild_type,is_mutation) FROM STDIN");
+		local $" = qq(\t);
+		foreach my $value (@$values) {
+			$self->{'db'}->pg_putcopydata("@$value\n");
+		}
+		$self->{'db'}->pg_putcopyend;
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+	return $table;
+}
+
 sub create_temp_locus_extended_attribute_table {
 	my ( $self, $options ) = @_;
 	my $table_type = 'TEMP TABLE';

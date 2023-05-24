@@ -543,7 +543,7 @@ sub _print_sequence_variation_fields {
 		say qq(<a id="add_sequence_variation" href="$self->{'system'}->{'script_name'}?)
 		  . qq(db=$self->{'instance'}&amp;page=query&amp;fields=sequence_variation&amp;row=$next_row)
 		  . q(&amp;no_header=1" data-rel="ajax" class="add_button"><span class="fa fas fa-plus"></span></a>);
-		 say $self->get_tooltip( '', { id => 'sequence_variation_tooltip' } );
+		say $self->get_tooltip( '', { id => 'sequence_variation_tooltip' } );
 	}
 	say q(</span>);
 	return;
@@ -1872,6 +1872,7 @@ sub _run_query {
 		$qry = $self->_modify_query_by_list($qry);
 		$qry = $self->_modify_query_for_filters( $qry, $extended );
 		$qry = $self->_modify_query_for_designations( $qry, $errors );
+		$qry = $self->_modify_query_for_sequence_variation( $qry, $errors );
 		$qry = $self->_modify_query_for_designation_counts( $qry, $errors );
 		$qry = $self->_modify_query_for_tags( $qry, $errors );
 		$qry = $self->_modify_query_for_tag_counts( $qry, $errors );
@@ -3746,6 +3747,47 @@ sub _modify_query_for_annotation_status {
 			$qry .= " AND (@status_queries)";
 		} else {
 			$qry = "SELECT * FROM $view WHERE (@status_queries)";
+		}
+	}
+	return $qry;
+}
+
+sub _modify_query_for_sequence_variation {
+	my ( $self, $qry, $errors_ref ) = @_;
+	my $q    = $self->{'cgi'};
+	my $view = $self->{'system'}->{'view'};
+	my @queries;
+	foreach my $i ( 1 .. MAX_ROWS ) {
+		my $value = $q->param("sequence_variation$i") // q();
+		next if $value eq q();
+		my ( $type, $locus, $position, $wt, $variant );
+		if ( $value =~ /^(pm|dm)_([A-z0-9_\-\']+?)_p_(\d+)_([A-Z])_([A-z]|wt|variant)$/x ) {
+			( $type, $locus, $position, $wt, $variant ) = ( $1, $2, $3, $4, $5 );
+		} else {
+			push @$errors_ref, 'Invalid sequence variation term selected.';
+			next;
+		}
+		my $table      = $self->{'datastore'}->create_temp_variation_table( $type, $locus, $position );
+		my $char_field = $type eq 'pm' ? 'amino_acid' : 'nucleotide';
+		$locus =~ s/'/\\'/gx;
+		my $var_qry = "SELECT isolate_id FROM allele_designations JOIN $table ON allele_designations.locus=E'$locus' "
+		  . "AND allele_designations.allele_id=$table.allele_id WHERE ";
+		if ( $variant eq 'wt' ) {
+			$var_qry .= "$table.is_wild_type";
+		} elsif ( $variant eq 'variant' ) {
+			$var_qry .= "$table.is_mutation";
+		} else {
+			$var_qry .= "$table.$char_field='$variant'";
+		}
+		push @queries, "($view.id IN ($var_qry))";
+	}
+	if (@queries) {
+		my $andor = ( $q->param('sequence_variation_andor') // '' ) eq 'AND' ? ' AND ' : ' OR ';
+		local $" = $andor;
+		if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
+			$qry .= " AND (@queries)";
+		} else {
+			$qry = "SELECT * FROM $view WHERE (@queries)";
 		}
 	}
 	return $qry;

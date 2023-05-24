@@ -357,6 +357,12 @@ sub create_temp_tables {
 				$field =~ s/_SPACE_/ /gx;
 				$self->{'datastore'}->create_temp_sequence_extended_attributes_table( $locus, $field );
 			}
+			while ( $qry =~ /temp_(pm|dm)_(.+?)_p_(\d+)/gx ) {
+				my ( $type, $locus, $position ) = ( $1, $2, $3 );
+				$locus =~ s/_PRIME_/'/gx;
+				$locus =~ s/_DASH_/-/gx;
+				$self->{'datastore'}->create_temp_variation_table( $type, $locus, $position );
+			}
 		} catch {
 			if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
 				if ( $format ne 'text' ) {
