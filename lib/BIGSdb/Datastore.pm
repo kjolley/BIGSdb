@@ -3445,8 +3445,15 @@ sub initiate_view {
 			#Simplify view definition by only looking for private/project isolates if the user has any.
 			my $has_private_isolates =
 			  $self->run_query( 'SELECT EXISTS(SELECT * FROM private_isolates WHERE user_id=?)', $user_info->{'id'} );
-			push @user_terms, OWN_PRIVATE_ISOLATES       if $has_private_isolates;
-			push @user_terms, ISOLATES_FROM_USER_PROJECT if $has_user_project;
+			if ($has_private_isolates){
+				push @user_terms, OWN_PRIVATE_ISOLATES ;
+				$self->{'ajax_load_counts'} = 1;
+			}
+			if ($has_user_project){
+				push @user_terms, ISOLATES_FROM_USER_PROJECT ;
+				$self->{'ajax_load_counts'} = 1;
+			}
+
 		}
 		local $" = q( OR );
 		$qry .= qq(@user_terms);

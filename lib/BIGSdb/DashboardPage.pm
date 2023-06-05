@@ -1085,14 +1085,13 @@ sub print_dashboard {
 	}
 	say q(</div>);
 	say q(<div id="dashboard" class="grid" style="margin:auto;max-width:90vw">);
-	my %display_immediately = map { $_ => 1 } qw(setup record_count);
-	my $already_loaded      = [];
-	my $ajax_load           = [];
-	my $page                = $q->param('page');
+	my $already_loaded = [];
+	my $ajax_load      = [];
+	my $page           = $q->param('page');
 	foreach my $element ( sort { $elements->{$a}->{'order'} <=> $elements->{$b}->{'order'} } keys %$elements ) {
 		my $display = $elements->{$element}->{'display'};
 		next if !$display;
-		if ( $display_immediately{$display} ) {
+		if ( $display eq 'setup' || ( $display eq 'record_count' && !$self->{'datastore'}->{'ajax_load_counts'} ) ) {
 			if ( $options->{'qry_file'} && !$self->{'view_set_up'} ) {
 				my $qry = $self->get_query_from_temp_file( $options->{'qry_file'} );
 				$qry =~ s/ORDER\sBY.*$//gx;
