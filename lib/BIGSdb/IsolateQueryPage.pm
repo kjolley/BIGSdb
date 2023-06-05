@@ -1947,6 +1947,7 @@ sub print_dashboard_panel {
 	my ( $self, $args ) = @_;
 	return if !$self->dashboard_enabled( { query_dashboard => 1 } ) || $self->{'no_dashboard'};
 	return if !$self->{'prefs'}->{'query_dashboard'};
+	$logger->error('here');
 	my $q = $self->{'cgi'};
 	my $qry_file;
 	if ( !$args->{'passed_query_file'} ) {
@@ -4289,7 +4290,7 @@ sub initiate {
 	$self->{$_} = 1 foreach qw(noCache addProjects addBookmarks);
 	$self->SUPER::initiate;
 	if ( $self->dashboard_enabled( { query_dashboard => 1 } )
-		&& ( $q->param('submit') || defined $q->param('query_file') ) )
+		&& ( $q->param('submit') || $q->param('sent') || defined $q->param('query_file') ) )
 	{
 		$self->{$_} = 1 foreach qw(muuri modal fitty bigsdb.dashboard jQuery.fonticonpicker billboard d3.layout.cloud);
 		$self->{'geomap'}         = 1 if $self->has_country_optlist;
