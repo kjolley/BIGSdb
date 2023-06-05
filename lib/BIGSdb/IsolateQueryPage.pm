@@ -1947,7 +1947,6 @@ sub print_dashboard_panel {
 	my ( $self, $args ) = @_;
 	return if !$self->dashboard_enabled( { query_dashboard => 1 } ) || $self->{'no_dashboard'};
 	return if !$self->{'prefs'}->{'query_dashboard'};
-	$logger->error('here');
 	my $q = $self->{'cgi'};
 	my $qry_file;
 	if ( !$args->{'passed_query_file'} ) {
