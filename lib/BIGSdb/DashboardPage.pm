@@ -4193,6 +4193,7 @@ sub get_or_set_dashboard_prefs {
 	if ( defined $dashboard_id ) {
 		my $dashboard = $self->{'prefstore'}->get_dashboard($dashboard_id);
 		$self->{'prefs'}->{$_} = $dashboard->{$_} foreach ( keys %$dashboard );
+		$self->{'dashboard_id'} = $dashboard_id;
 	}
 	return;
 }
@@ -4739,10 +4740,8 @@ sub get_javascript {
 	my $datestamps = $json->encode($duration_datestamps);
 
 	if ( $self->{'user_dashboard_loaded'} && !defined $self->{'prefs'}->{'version'} ) {
-		
 		my $guid = $self->get_guid;
 		$self->{'prefs'}->{'version'} = time();
-		$logger->error("$self->{'dashboard_id'}: $self->{'prefs'}->{'version'}");
 		if ($guid) {
 			$self->{'prefstore'}->update_dashboard_attribute( $self->{'dashboard_id'},
 				$guid, $self->{'instance'}, 'version', $self->{'prefs'}->{'version'} );
