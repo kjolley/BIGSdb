@@ -1130,6 +1130,13 @@ sub _print_ajax_load_code {
 	my $list_file_clause =
 	  defined $list_file && defined $list_attribute ? qq(&list_file=$list_file&list_attribute=$list_attribute) : q();
 	my $filter_clause = $self->{'no_filters'} ? '&no_filters=1' : q();
+	my $version       = $self->{'prefs'}->{'version'} // 0;
+	my $user_id       = 0;
+
+	if ( $self->{'username'} ) {
+		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+		$user_id = $user_info->{'id'} // 0;
+	}
 	local $" = q(,);
 	say q[<script>];
 	say q[$(function () {];
@@ -1151,6 +1158,7 @@ sub _print_ajax_load_code {
 			\$.ajax({
 		    	url:"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=dashboard$qry_file_clause"
 		    	+ "$list_file_clause$filter_clause&type=$self->{'dashboard_type'}$project_clause&element=" + value
+		    	+ "&v=$version&u=$user_id"
 		    }).done(function(json){
 		       	try {
 		       	    \$("div#element_" + value + " > .item-content > .ajax_content").html(JSON.parse(json).html);
@@ -4121,6 +4129,9 @@ sub initiate {
 	$self->process_breadcrumbs;
 	my $q = $self->{'cgi'};
 
+	if ( $q->param('element') ) {
+		$self->{'noCache'} = 0;
+	}
 	foreach my $ajax_param (
 		qw(updateGeneralPrefs updateDashboard updateDashboardName newDashboard setActiveDashboard control
 		resetDefaults new setup element seqbin_range)
@@ -4231,7 +4242,7 @@ sub _update_dashboard_prefs {    ## no critic (ProhibitUnusedPrivateSubroutines)
 	return if !defined $value;
 	my %allowed_attributes =
 	  map { $_ => 1 }
-	  qw(fill_gaps order elements include_old_versions open_new name record_age palette
+	  qw(fill_gaps order elements include_old_versions open_new name record_age palette version
 	  );
 
 	if ( !$allowed_attributes{$attribute} ) {
@@ -4726,7 +4737,19 @@ sub get_javascript {
 		{ fetch => 'row_arrayref' }
 	);
 	my $datestamps = $json->encode($duration_datestamps);
-	my $buffer     = << "END";
+
+	if ( $self->{'user_dashboard_loaded'} && !defined $self->{'prefs'}->{'version'} ) {
+		
+		my $guid = $self->get_guid;
+		$self->{'prefs'}->{'version'} = time();
+		$logger->error("$self->{'dashboard_id'}: $self->{'prefs'}->{'version'}");
+		if ($guid) {
+			$self->{'prefstore'}->update_dashboard_attribute( $self->{'dashboard_id'},
+				$guid, $self->{'instance'}, 'version', $self->{'prefs'}->{'version'} );
+		}
+	}
+	my $version = $self->{'prefs'}->{'version'} // 0;
+	my $buffer  = << "END";
 var url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}";
 var elements = $json_elements;
 var order = '$order';
@@ -4738,6 +4761,7 @@ var loadedElements = {};
 var recordAgeLabels = $record_age_labels;
 var recordAge = $record_age;
 var datestamps = $datestamps;
+var version = $version;
 var qryFile;
 var listFile;
 var listAttribute;

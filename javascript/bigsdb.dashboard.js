@@ -69,6 +69,7 @@ $(function() {
 				$("#delete_dashboard").css("display", "inline");
 				$("#filter_age").html(recordAgeLabels[ui.value]);
 				reloadAllElements();
+				bumpVersion();
 			});
 		}
 	});
@@ -143,6 +144,7 @@ $(function() {
 			updateDashboardName(JSON.parse(json).dashboard_name);
 			$("#filter_versions").html(include_old_versions ? 'all' : 'current');
 			reloadAllElements();
+			bumpVersion();
 		});
 	});
 	$("#dashboard_palette").change(function() {
@@ -156,6 +158,7 @@ $(function() {
 			url: change_dashboard_url
 		}).done(function(json){
 			updateDashboardName(JSON.parse(json).dashboard_name);
+			bumpVersion();
 			reloadAllElements();
 		});
 	});
@@ -334,6 +337,23 @@ function getDataExplorerParams(id) {
 		params['project_id'] = projectId;
 	}
 	return params;
+}
+
+function bumpVersion(){
+	version = Date.now();
+	$.ajax({
+		url: url,
+		type: 'POST',
+		data: {
+			db: instance,
+			page: "dashboard",
+			updateDashboard: 1,
+			type: dashboard_type,
+			project_id: (typeof projectId !== 'undefined' ? projectId : null),
+			attribute: "version",
+			value: version
+		},
+	});
 }
 
 function updateDashboardName(name) {
@@ -644,7 +664,7 @@ function checkAndShowVisualisation(grid, id) {
 }
 
 function reloadElement(id) {
-	var reload_url = url + "&page=dashboard&type=" + dashboard_type;
+	var reload_url = url + "&page=dashboard&type=" + dashboard_type + "&v=" + version;
 	if (typeof projectId !== 'undefined') {
 		reload_url += "&project_id=" + projectId;
 	}
@@ -755,8 +775,9 @@ function saveAndReloadElement(grid, id) {
 				setGridMargins(grid);
 			}
 			updateDashboardName(JSON.parse(json).dashboard_name);
+			bumpVersion();
 		}
-	});
+	});	
 }
 
 function serializeLayout(grid) {
