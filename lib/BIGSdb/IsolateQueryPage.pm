@@ -4216,6 +4216,7 @@ END
 		my $enable_drag = $self->{'prefs'}->{'enable_drag'} ? 'true' : 'false';
 		my $guid        = $self->get_guid;
 		my $empty       = $self->_get_dashboard_empty_message;
+		my $version = $self->{'prefs'}->{'version'} // 0;
 
 		if ($order) {
 			$order = $json->encode($order);
@@ -4230,6 +4231,7 @@ var instance = "$self->{'instance'}";
 var empty='$empty';
 var enable_drag=$enable_drag;
 var dashboard_type='query';
+var version = $version;
 $qry_file_init
 $list_file_init
 $list_attribute_init
