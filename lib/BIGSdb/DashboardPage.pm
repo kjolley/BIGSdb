@@ -1132,6 +1132,8 @@ sub _print_ajax_load_code {
 	my $filter_clause = $self->{'no_filters'} ? '&no_filters=1' : q();
 	my $version       = $self->{'prefs'}->{'version'} // 0;
 	my $user_id       = 0;
+	my $set_id = $self->get_set_id;
+	my $set_clause = defined $set_id ? qq(s=$set_id) : q();
 
 	if ( $self->{'username'} ) {
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
@@ -1158,7 +1160,7 @@ sub _print_ajax_load_code {
 			\$.ajax({
 		    	url:"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=dashboard$qry_file_clause"
 		    	+ "$list_file_clause$filter_clause&type=$self->{'dashboard_type'}$project_clause&element=" + value
-		    	+ "&v=$version&u=$user_id"
+		    	+ "&v=$version&u=$user_id$set_clause"
 		    }).done(function(json){
 		       	try {
 		       	    \$("div#element_" + value + " > .item-content > .ajax_content").html(JSON.parse(json).html);
