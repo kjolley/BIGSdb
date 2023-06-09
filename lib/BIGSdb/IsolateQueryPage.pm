@@ -4216,7 +4216,7 @@ END
 		my $enable_drag = $self->{'prefs'}->{'enable_drag'} ? 'true' : 'false';
 		my $guid        = $self->get_guid;
 		my $empty       = $self->_get_dashboard_empty_message;
-		my $version = $self->{'prefs'}->{'version'} // 0;
+		my $version     = $self->{'prefs'}->{'version'} // 0;
 
 		if ($order) {
 			$order = $json->encode($order);
@@ -4289,6 +4289,9 @@ sub initiate {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	$self->{$_} = 1 foreach qw(noCache addProjects addBookmarks);
+	if ( $q->param('no_header') ) {
+		$self->{'noCache'} = 0;
+	}
 	$self->SUPER::initiate;
 	if ( $self->dashboard_enabled( { query_dashboard => 1 } )
 		&& ( $q->param('submit') || $q->param('sent') || defined $q->param('query_file') ) )
