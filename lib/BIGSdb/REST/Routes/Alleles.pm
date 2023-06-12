@@ -20,6 +20,7 @@ package BIGSdb::REST::Routes::Alleles;
 use strict;
 use warnings;
 use 5.010;
+use JSON;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
 #Allele routes
@@ -43,6 +44,7 @@ sub _get_alleles {
 	my $set_id          = $self->get_set_id;
 	my $locus_name      = $locus;
 	my $set_name        = $locus;
+
 	if ($set_id) {
 		$locus_name = $self->{'datastore'}->get_set_locus_real_id( $locus, $set_id );
 	}
@@ -59,9 +61,9 @@ sub _get_alleles {
 	$qry .= q( ORDER BY ) . ( $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS int)' : 'allele_id' );
 	$qry .= qq( LIMIT $self->{'page_size'} OFFSET $offset) if !param('return_all');
 	my $allele_ids = $self->{'datastore'}->run_query( $qry, $locus_name, { fetch => 'col_arrayref' } );
-	my $values = { records => int($allele_count) };
+	my $values     = { records => int($allele_count) };
 	$values->{'last_updated'} = $last_updated if defined $last_updated;
-	my $path = $self->get_full_path( "$subdir/db/$db/loci/$locus_name/alleles", $allowed_filters );
+	my $path   = $self->get_full_path( "$subdir/db/$db/loci/$locus_name/alleles", $allowed_filters );
 	my $paging = $self->get_paging( $path, $pages, $page, $offset );
 	$values->{'paging'} = $paging if %$paging;
 	my $allele_links = [];
@@ -126,9 +128,65 @@ sub _get_allele {
 	my $client_data = $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $allele_id );
 	$values->{'linked_data'} = $client_data->{'detailed_values'}
 	  if defined $client_data->{'detailed_values'};
+	my $savs = _get_peptide_mutations( $locus, $allele_id );
+	$values->{'SAVs'} = $savs if @$savs;
+	my $snps = _get_nucleotide_mutations( $locus, $allele_id );
+	$values->{'SNPs'} = $snps if @$snps;
 
 	#TODO scheme members
 	return $values;
+}
+
+sub _get_peptide_mutations {
+	my ( $locus, $allele_id ) = @_;
+	my $self = setting('self');
+	my $list = [];
+	my $peptide_mutations =
+	  $self->{'datastore'}->run_query( 'SELECT * FROM peptide_mutations WHERE locus=? ORDER BY reported_position,id',
+		$locus, { fetch => 'all_arrayref', slice => {}, cache => 'Alleles::get_peptide_mutations' } );
+	return $list if !@$peptide_mutations;
+	foreach my $mutation (@$peptide_mutations) {
+		my $data = $self->{'datastore'}->run_query(
+			'SELECT * FROM sequences_peptide_mutations WHERE (locus,allele_id,mutation_id)=(?,?,?)',
+			[ $locus, $allele_id, $mutation->{'id'} ],
+			{ fetch => 'row_hashref', cache => 'Alleles::get_sequence_peptide_mutation' }
+		);
+		if ($data) {
+			push @$list,
+			  {
+				position   => int( $mutation->{'reported_position'} ),
+				amino_acid => $data->{'amino_acid'},
+				wild_type  => $data->{'is_wild_type'} ? JSON::true : JSON::false
+			  };
+		}
+	}
+	return $list;
+}
+
+sub _get_nucleotide_mutations {
+	my ( $locus, $allele_id ) = @_;
+	my $self = setting('self');
+	my $list = [];
+	my $dna_mutations =
+	  $self->{'datastore'}->run_query( 'SELECT * FROM dna_mutations WHERE locus=? ORDER BY reported_position,id',
+		$locus, { fetch => 'all_arrayref', slice => {}, cache => 'Alleles::get_dna_mutations' } );
+	return $list if !@$dna_mutations;
+	foreach my $mutation (@$dna_mutations) {
+		my $data = $self->{'datastore'}->run_query(
+			'SELECT * FROM sequences_dna_mutations WHERE (locus,allele_id,mutation_id)=(?,?,?)',
+			[ $locus, $allele_id, $mutation->{'id'} ],
+			{ fetch => 'row_hashref', cache => 'Alleles::get_sequence_dna_mutation' }
+		);
+		if ($data) {
+			push @$list,
+			  {
+				position   => int( $mutation->{'reported_position'} ),
+				nucleotide => $data->{'nucleotide'},
+				wild_type  => $data->{'is_wild_type'} ? JSON::true : JSON::false
+			  };
+		}
+	}
+	return $list;
 }
 
 sub _get_alleles_fasta {
@@ -140,6 +198,7 @@ sub _get_alleles_fasta {
 	my $set_id          = $self->get_set_id;
 	my $locus_name      = $locus;
 	my $set_name        = $locus;
+
 	if ($set_id) {
 		$locus_name = $self->{'datastore'}->get_set_locus_real_id( $locus, $set_id );
 	}
@@ -148,7 +207,8 @@ sub _get_alleles_fasta {
 		send_error( "Locus $locus does not exist.", 404 );
 	}
 	my $qry =
-	  $self->add_filters( q(SELECT allele_id,sequence FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N', 'P')),
+	  $self->add_filters(
+		q(SELECT allele_id,sequence FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N', 'P')),
 		$allowed_filters );
 	$qry .= q( ORDER BY ) . ( $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS int)' : 'allele_id' );
 	my $alleles = $self->{'datastore'}->run_query( $qry, $locus_name, { fetch => 'all_arrayref', slice => {} } );
