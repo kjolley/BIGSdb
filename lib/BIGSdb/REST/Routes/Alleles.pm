@@ -219,6 +219,9 @@ sub _get_alleles_fasta {
 	foreach my $allele (@$alleles) {
 		$buffer .= ">$locus\_$allele->{'allele_id'}\n$allele->{'sequence'}\n";
 	}
+	my $last_modified =
+	  $self->{'datastore'}->run_query( 'SELECT datestamp FROM locus_stats WHERE locus=?', $locus_name );
+	response->push_header( LAST_MODIFIED => $last_modified );
 	send_file( \$buffer, content_type => 'text/plain; charset=UTF-8' );
 	return;
 }
