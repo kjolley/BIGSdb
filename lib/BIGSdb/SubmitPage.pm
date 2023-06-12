@@ -1954,9 +1954,17 @@ sub _presubmit_isolates {
 		$submission_id = $self->_start_submission($type);
 		$self->_start_isolate_submission( $submission_id, $isolates, $positions );
 	}
-	my $isolate_submit_message = "$self->{'dbase_config_dir'}/$self->{'instance'}/isolate_submit.html";
-	if ( -e $isolate_submit_message && !$options->{'genomes'} ) {
-		$self->print_file($isolate_submit_message);
+	if ( !$options->{'genomes'} ) {
+		if ( !$self->_are_any_alleles_designated($submission_id) ) {
+			say q(<div class="box statuswarn"><p>Your isolate submission does not include any allele designations. )
+			  . q(Please make sure that this is your intent. If it is not, then please abort the submission and )
+			  . q(restart.</p></div>);
+		} else {
+			my $isolate_submit_message = "$self->{'dbase_config_dir'}/$self->{'instance'}/isolate_submit.html";
+			if ( -e $isolate_submit_message ) {
+				$self->print_file($isolate_submit_message);
+			}
+		}
 	}
 	say q(<div class="box" id="resultstable"><div class="scrollable">);
 	$self->_print_abort_form($submission_id);
@@ -1981,6 +1989,23 @@ sub _presubmit_isolates {
 	say $q->hidden($_) foreach qw(db page submit finalize submission_id);
 	say $q->end_form;
 	say q(</div></div>);
+	return;
+}
+
+sub _are_any_alleles_designated {
+	my ( $self, $submission_id ) = @_;
+	my $fields =
+	  $self->{'datastore'}->run_query( 'SELECT DISTINCT(field) FROM isolate_submission_isolates WHERE submission_id=?',
+		$submission_id, { fetch => 'col_arrayref' } );
+	my $set_id = $self->get_set_id;
+	foreach my $field (@$fields) {
+		if ($set_id) {
+			$field = $self->{'datastore'}->get_set_locus_real_id( $field, $set_id );
+		}
+		if ( $self->{'datastore'}->is_locus( $field, { set_id => $set_id } ) ) {
+			return 1;
+		}
+	}
 	return;
 }
 
