@@ -2076,6 +2076,7 @@ sub _print_assembly_warnings {
 	return;
 }
 
+#TODO Merge this with _print_advisories.
 sub _print_finalised_assembly_warning {
 	my ( $self, $submission_id, $options ) = @_;
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
@@ -2100,6 +2101,19 @@ sub _print_finalised_assembly_warning {
 			}
 		}
 		say q(</fieldset>);
+	}
+	return;
+}
+
+sub _print_advisories {
+	my ( $self, $submission_id, $options ) = @_;
+	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
+	if ( $submission->{'type'} eq 'isolates' ) {
+		if ( !$self->_are_any_alleles_designated($submission_id) ) {
+			say q(<fieldset style="float:left;max-width:300px"><legend>Advisories</legend>);
+			say q(<p class="warning">This isolate submission does not include any allele designations.</p>);
+			say q(</fieldset>);
+		}
 	}
 	return;
 }
@@ -3283,6 +3297,7 @@ sub _curate_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 	$self->_print_isolate_table_fieldset( $submission_id, { curate => $curate } );
 	$self->_print_assembly_table_fieldset( $submission_id, { curate => $curate } );
 	$self->_print_finalised_assembly_warning( $submission_id, { curate => $curate } );
+	$self->_print_advisories( $submission_id, { curate => $curate } );
 	$self->_print_file_fieldset($submission_id);
 	$self->_print_message_fieldset($submission_id);
 	$self->_print_archive_fieldset($submission_id);
@@ -3315,6 +3330,7 @@ sub _view_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Calle
 	  if $submission->{'type'} ne 'isolates';
 	$self->_print_assembly_table_fieldset( $submission_id, { download_link => 1 } );
 	$self->_print_finalised_assembly_warning( $submission_id, { view => 1 } );
+	$self->_print_advisories($submission_id);
 	$self->_print_isolate_table_fieldset($submission_id);
 	$self->_print_message_fieldset( $submission_id, { no_add => $submission->{'status'} eq 'closed' ? 1 : 0 } );
 	$self->_print_archive_fieldset($submission_id);
