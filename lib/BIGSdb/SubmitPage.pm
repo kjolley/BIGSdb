@@ -2076,35 +2076,6 @@ sub _print_assembly_warnings {
 	return;
 }
 
-#TODO Merge this with _print_advisories.
-sub _print_finalised_assembly_warning {
-	my ( $self, $submission_id, $options ) = @_;
-	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
-	return if $submission->{'type'} ne 'assemblies';
-	my $checks       = $self->_get_assembly_wrong_sender($submission_id);
-	my $wrong_sender = $checks->{'wrong_sender'};
-	my $invalid_ids  = $checks->{'invalid_ids'};
-	if ( @$wrong_sender || @$invalid_ids ) {
-		say q(<fieldset style="float:left;max-width:300px"><legend>Advisories</legend>);
-		if (@$wrong_sender) {
-			local $" = q(, );
-			my $record_term = @$wrong_sender == 1 ? q(this record) : q(these records);
-			if ( $options->{'view'} ) {
-				say qq(<p class="warning">You are not the original sender for isolate ids: @$wrong_sender.</p>);
-				print qq(<p>Please ensure that you should be modifying $record_term and add a message to the<br /> )
-				  . q(curator to confirm why you should.</p>);
-			}
-			if ( $options->{'curate'} ) {
-				say
-				  qq(<p class="warning">The submitter is not the original sender for isolate ids: @$wrong_sender.</p>)
-				  . qq(<p>This may be ok, but please check that the submitter should be modifying $record_term.</p>);
-			}
-		}
-		say q(</fieldset>);
-	}
-	return;
-}
-
 sub _print_advisories {
 	my ( $self, $submission_id, $options ) = @_;
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
@@ -2113,6 +2084,31 @@ sub _print_advisories {
 			say q(<fieldset style="float:left;max-width:300px"><legend>Advisories</legend>);
 			say q(<p class="warning">This isolate submission does not include any allele designations.</p>);
 			say q(</fieldset>);
+		}
+	}
+	if ( $submission->{'type'} eq 'assemblies' ) {
+		my $checks       = $self->_get_assembly_wrong_sender($submission_id);
+		my $wrong_sender = $checks->{'wrong_sender'};
+		my $invalid_ids  = $checks->{'invalid_ids'};
+		if ( @$wrong_sender || @$invalid_ids ) {
+			if (@$wrong_sender) {
+				local $" = q(, );
+				my $record_term = @$wrong_sender == 1 ? q(this record) : q(these records);
+				if ( $options->{'view'} ) {
+					say q(<fieldset style="float:left;max-width:300px"><legend>Advisories</legend>);
+					say qq(<p class="warning">You are not the original sender for isolate ids: @$wrong_sender.</p>);
+					print qq(<p>Please ensure that you should be modifying $record_term and add a message to the<br /> )
+					  . q(curator to confirm why you should.</p>);
+					say q(</fieldset>);
+				}
+				if ( $options->{'curate'} ) {
+					say q(<fieldset style="float:left;max-width:300px"><legend>Advisories</legend>);
+					say q(<p class="warning">The submitter is not the original sender for )
+					  . qq(isolate ids: @$wrong_sender.</p>)
+					  . qq(<p>This may be ok, but please check that the submitter should be modifying $record_term.</p>);
+					say q(</fieldset>);
+				}
+			}
 		}
 	}
 	return;
@@ -3296,7 +3292,6 @@ sub _curate_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 	$self->_print_profile_table_fieldset( $submission_id, { curate => $curate } );
 	$self->_print_isolate_table_fieldset( $submission_id, { curate => $curate } );
 	$self->_print_assembly_table_fieldset( $submission_id, { curate => $curate } );
-	$self->_print_finalised_assembly_warning( $submission_id, { curate => $curate } );
 	$self->_print_advisories( $submission_id, { curate => $curate } );
 	$self->_print_file_fieldset($submission_id);
 	$self->_print_message_fieldset($submission_id);
@@ -3329,8 +3324,7 @@ sub _view_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Calle
 	$self->_print_file_upload_fieldset( $submission_id, { no_add => $submission->{'status'} eq 'closed' ? 1 : 0 } )
 	  if $submission->{'type'} ne 'isolates';
 	$self->_print_assembly_table_fieldset( $submission_id, { download_link => 1 } );
-	$self->_print_finalised_assembly_warning( $submission_id, { view => 1 } );
-	$self->_print_advisories($submission_id);
+	$self->_print_advisories( $submission_id, { view => 1 } );
 	$self->_print_isolate_table_fieldset($submission_id);
 	$self->_print_message_fieldset( $submission_id, { no_add => $submission->{'status'} eq 'closed' ? 1 : 0 } );
 	$self->_print_archive_fieldset($submission_id);
