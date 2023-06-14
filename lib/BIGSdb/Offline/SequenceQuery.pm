@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2021, University of Oxford
+#Copyright (c) 2017-2023, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -27,6 +27,7 @@ use BIGSdb::Utils;
 use BIGSdb::Constants qw(:interface);
 use Try::Tiny;
 use Storable qw(dclone);
+use Encode;
 use constant MAX_RESULTS_SHOW => 20;
 
 sub run {
@@ -62,7 +63,7 @@ sub _single_query {
 	my ( $buffer, $displayed );
 	my $qry_type      = BIGSdb::Utils::sequence_type($seq_ref);
 	my $return_buffer = q();
-	my $file          = $q->param('fasta_upload');
+	my $file          = decode( 'UTF-8', $q->param('fasta_upload') );
 
 	if ( keys %$exact_matches ) {
 		if ( $options->{'select_type'} eq 'locus' ) {
@@ -277,7 +278,7 @@ sub _batch_query {
 	my $q = $self->{'cgi'};
 	if ( $q->param('fasta_upload') ) {
 		$buffer = q(<div class="box" id="resultsheader"><p>);
-		my $file = $q->param('fasta_upload');
+		my $file = decode( 'UTF-8', $q->param('fasta_upload') );
 		$buffer .= qq(<p><b>Uploaded file:</b> $file</p></div>);
 	}
 	$buffer .= q(<div class="box" id="resultstable">);
