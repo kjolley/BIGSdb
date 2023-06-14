@@ -1172,12 +1172,19 @@ sub _submit_isolates {
 	say q(</ul>);
 	my $contig_file_clause = $options->{'genomes'} ? '&amp;addCols=assembly_filename,sequence_method&noLoci=1' : q();
 	my ( $text, $excel ) = ( TEXT_FILE, EXCEL_FILE );
+	say q(<h2>Templates</h2>);
 	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;)
 	  . qq(table=isolates&amp;order=scheme$set_clause$contig_file_clause" title="Download tab-delimited )
 	  . qq(header for your spreadsheet">$text</a>)
 	  . qq[<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;]
 	  . qq[table=isolates&amp;order=scheme$set_clause$contig_file_clause" title="Download submission template ]
 	  . qq[(xlsx format)">$excel</a></p>];
+	my $plugins = $self->{'pluginManager'}->get_installed_plugins;
+	if ( $plugins->{'DatabaseFields'} ) {
+		say qq(<p>Check the <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;)
+		  . q(name=DatabaseFields" target="_blank">description of database fields</a> for help with filling in )
+		  . q(the template.</p>);
+	}
 	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Please paste in tab-delimited text <b>)
 	  . q((include a field header as the first line)</b></legend>);
