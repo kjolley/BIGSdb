@@ -1562,7 +1562,7 @@ sub _print_assembly_table_fieldset {
 	my $status = $self->_print_assembly_table( $submission_id, $options );
 	say q(<p><span style="color:red">Missing contig assembly files are shown in red.</span>)
 	  if $self->{'contigs_missing'};
-	$self->_print_update_button( { record_status => 1, no_accepted => 1 } ) if $options->{'curate'};
+	$self->_print_update_button( { record_status => 1 } ) if $options->{'curate'};
 	say $q->hidden($_) foreach qw(db page submission_id curate);
 	say $q->end_form;
 
@@ -1587,6 +1587,7 @@ sub _print_assembly_table_fieldset {
 		$q->param( page => $page );
 	}
 	say q(</fieldset>);
+	say q(<div id="dialog"></div>);
 	$self->{'all_assigned_or_rejected'} = $submission->{'outcome'} ? 1 : 0;
 	return;
 }
@@ -2182,15 +2183,17 @@ sub _update_isolate_submission_isolate_status {
 	my ( $self, $submission_id ) = @_;
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	return if !$submission;
+	my $type    = $submission->{'type'};
 	my $q       = $self->{'cgi'};
 	my %outcome = ( accepted => 'good', rejected => 'bad' );
 	$self->{'submissionHandler'}->update_submission_outcome( $submission_id, $outcome{ $q->param('record_status') } );
 	if ( $q->param('record_status') eq 'accepted' ) {
 		say q[<script>$(function(){]
-		  . q[$("#dialog").html("<p>Please note that changing the status of an isolate submission to ]
+		  . qq[\$("#dialog").html("<p>Please note that changing the status of an $type submission to ]
 		  . q['accepted' does not automatically upload the records to the database. You need to 'Batch curate' ]
-		  . q[the submission in order to upload the records. Change the staus back to 'pending' if you need ]
-		  . q[to re-enable the 'Batch curate' button.</p>");$("#dialog").dialog({title:"Uploading isolates"});]
+		  . q[the submission in order to upload the records. Change the status back to 'pending' if you need ]
+		  . q[to re-enable the 'Batch curate' button.</p>");]
+		  . qq[\$("#dialog").dialog({title:"Uploading ${type}"});]
 		  . q[});</script>];
 	}
 	return;
