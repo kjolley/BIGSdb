@@ -2884,6 +2884,9 @@ function getColour$id(label){
 		unique_labels${id}.push(label);
 		used_label${id}[label] = 1;
 	}
+	if (label === 'No value'){
+		return '#ddd';
+	}
 	return d3.scaleOrdinal().domain(unique_labels$id).range($scale)(label);
 }
 JS
