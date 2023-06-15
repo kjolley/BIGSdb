@@ -1132,8 +1132,8 @@ sub _print_ajax_load_code {
 	my $filter_clause = $self->{'no_filters'} ? '&no_filters=1' : q();
 	my $version       = $self->{'prefs'}->{'version'} // 0;
 	my $user_id       = 0;
-	my $set_id = $self->get_set_id;
-	my $set_clause = defined $set_id ? qq(s=$set_id) : q();
+	my $set_id        = $self->get_set_id;
+	my $set_clause    = defined $set_id ? qq(s=$set_id) : q();
 
 	if ( $self->{'username'} ) {
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
@@ -2363,8 +2363,15 @@ sub _get_bar_dataset {
 	my $max       = 0;
 	my $data      = $self->_get_field_breakdown_values($element);
 	my %values;
+	my $total = 0;
+	my $no_value;
+
 	foreach my $value (@$data) {
-		next if !defined $value->{'label'};
+		$total += $value->{'value'};
+		if ( !defined $value->{'label'} ) {
+			$no_value = $value->{'value'};
+			next;
+		}
 		$values{ $value->{'label'} } = $value;
 	}
 	my @ordered;
@@ -2421,7 +2428,9 @@ sub _get_bar_dataset {
 		max       => $max,
 		labels    => $labels,
 		values    => $values,
-		local_max => $local_max
+		local_max => $local_max,
+		no_value  => $no_value,
+		total     => $total
 	};
 	local $" = q(,);
 	return $dataset;
@@ -2483,6 +2492,11 @@ DEFAULTS
 	my $buffer     = $self->_get_title($element);
 	my $vert_class = $is_vertical ? q( vertical) : q();
 	$buffer .= qq(<div id="chart_$element->{'id'}" class="bar$vert_class" style="margin-top:-20px"></div>);
+	if ( $dataset->{'no_value'} && $dataset->{'total'} ) {
+		my $no_value = BIGSdb::Utils::commify( $dataset->{'no_value'} );
+		my $percent  = BIGSdb::Utils::decimal_place( 100 * ( $dataset->{'no_value'} / $dataset->{'total'} ), 1 );
+		$buffer .= qq(<div class="dashboard_bar_note"><p>No value: $no_value (${percent}%)</p></div>);
+	}
 	$buffer .= $self->_get_data_explorer_link($element);
 	local $" = q(,);
 	$buffer .= << "JS";

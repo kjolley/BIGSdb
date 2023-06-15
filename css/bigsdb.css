@@ -1,4 +1,4 @@
-/*Version: 20230428*/
+/*Version: 20230615*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -1680,6 +1680,14 @@ div#dashboard .item-content div.treemap rect:hover {
 
 div#dashboard .item-content div .map svg {
 	overflow: visible;
+}
+
+div.dashboard_bar_note {
+	margin-top: -25px
+}
+
+div.dashboard_bar_note p {
+	font-size: 0.7rem
 }
 
 span.palette_item {
