@@ -56,23 +56,110 @@ sub _get_alleles {
 	my ( $allele_count, $last_updated ) = $self->{'datastore'}->run_query( $qry, $locus_name );
 	my $page_values = $self->get_page_values($allele_count);
 	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
-	$qry = $self->add_filters( q(SELECT allele_id FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N', 'P')),
-		$allowed_filters );
-	$qry .= q( ORDER BY ) . ( $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS int)' : 'allele_id' );
-	$qry .= qq( LIMIT $self->{'page_size'} OFFSET $offset) if !param('return_all');
-	my $allele_ids = $self->{'datastore'}->run_query( $qry, $locus_name, { fetch => 'col_arrayref' } );
-	my $values     = { records => int($allele_count) };
+	my $values = { records => int($allele_count) };
 	$values->{'last_updated'} = $last_updated if defined $last_updated;
 	my $path   = $self->get_full_path( "$subdir/db/$db/loci/$locus_name/alleles", $allowed_filters );
 	my $paging = $self->get_paging( $path, $pages, $page, $offset );
 	$values->{'paging'} = $paging if %$paging;
-	my $allele_links = [];
+	my $ext_attributes = [];
 
-	foreach my $allele_id (@$allele_ids) {
-		push @$allele_links, request->uri_for("$subdir/db/$db/loci/$set_name/alleles/$allele_id");
+	if ( $params->{'extended'} ) {
+		$ext_attributes = $self->{'datastore'}->run_query(
+			'SELECT field,value_format FROM locus_extended_attributes WHERE locus=?',
+			$locus_name,
+			{
+				fetch => 'all_arrayref',
+				slice => {},
+				cache => 'Alleles::get_alleles::locus_extended_attributes'
+			}
+		);
 	}
-	$values->{'alleles'} = $allele_links;
+	my $dna_mutations_exist;
+	my $peptide_mutations_exist;
+	if ( $params->{'variation'} ) {
+		$dna_mutations_exist =
+		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM dna_mutations WHERE locus=?)',
+			$locus_name, { cache => 'Alleles::get_alleles::dna_mutations_exist' } );
+		$peptide_mutations_exist =
+		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM peptide_mutations WHERE locus=?)',
+			$locus_name, { cache => 'Alleles::get_alleles::peptide_mutations_exist' } );
+	}
+	my $records = [];
+	my $fields =
+	  $params->{'include_records'}
+	  ? 'allele_id,sequence,status,comments,date_entered,datestamp,sender,curator'
+	  : 'allele_id';
+	$qry = $self->add_filters( qq(SELECT $fields FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N', 'P')),
+		$allowed_filters );
+	$qry .= q( ORDER BY ) . ( $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS int)' : 'allele_id' );
+	$qry .= qq( LIMIT $self->{'page_size'} OFFSET $offset) if !param('return_all');
+	if ( $params->{'include_records'} ) {
+		my $alleles = $self->{'datastore'}->run_query( $qry, $locus_name, { fetch => 'all_arrayref', slice => {} } );
+		foreach my $allele (@$alleles) {
+			my $record = {
+				allele_id => $locus_info->{'allele_id_format'} eq 'integer'
+				? int( $allele->{'allele_id'} )
+				: $allele->{'allele_id'},
+			};
+			$record->{'sender'}  = request->uri_for("$subdir/db/$db/users/$allele->{'sender'}") if $allele->{'sender'};
+			$record->{'curator'} = request->uri_for("$subdir/db/$db/users/$allele->{'curator'}")
+			  if $allele->{'curator'};
+			foreach my $field (qw(sequence status comments date_entered datestamp)) {
+				$record->{$field} = $allele->{$field} if defined $allele->{$field};
+			}
+			if (@$ext_attributes) {
+				my $attributes = _get_allele_extended_attributes( $ext_attributes, $locus_name, $allele );
+				$record->{$_} = $attributes->{$_} foreach keys %$attributes;
+			}
+			if ( $params->{'variation'} ) {
+				if ($peptide_mutations_exist) {
+					my $peptide_mutations = _get_peptide_mutations( $locus_name, $allele->{'allele_id'} );
+					if (@$peptide_mutations) {
+						$record->{'SAVs'} = $peptide_mutations;
+					}
+				}
+				if ($dna_mutations_exist) {
+					my $dna_mutations = _get_nucleotide_mutations( $locus_name, $allele->{'allele_id'} );
+					if (@$dna_mutations) {
+						$record->{'SNPs'} = $dna_mutations;
+					}
+				}
+			}
+			push @$records, $record;
+		}
+	} else {
+		my $allele_ids = $self->{'datastore'}->run_query( $qry, $locus_name, { fetch => 'col_arrayref' } );
+		foreach my $allele_id (@$allele_ids) {
+			push @$records, request->uri_for("$subdir/db/$db/loci/$set_name/alleles/$allele_id");
+		}
+	}
+	$values->{'alleles'} = $records;
 	return $values;
+}
+
+sub _get_allele_extended_attributes {
+	my ( $ext_attributes, $locus_name, $allele ) = @_;
+	my $self       = setting('self');
+	my $attributes = {};
+	my $att_values = $self->{'datastore'}->run_query(
+		'SELECT field,value FROM sequence_extended_attributes WHERE (locus,allele_id)=(?,?)',
+		[ $locus_name, $allele->{'allele_id'} ],
+		{
+			fetch => 'all_arrayref',
+			slice => {},
+			cache => 'Alleles::get_alleles::sequence_extended_attributes'
+		}
+	);
+	my %values = map { $_->{'field'} => $_->{'value'} } @$att_values;
+	foreach my $att (@$ext_attributes) {
+		if ( defined $values{ $att->{'field'} } ) {
+			$attributes->{ $att->{'field'} } =
+			  $att->{'value_format'} eq 'integer'
+			  ? int( $values{ $att->{'field'} } )
+			  : $values{ $att->{'field'} };
+		}
+	}
+	return $attributes;
 }
 
 sub _get_allele {
@@ -141,9 +228,17 @@ sub _get_peptide_mutations {
 	my ( $locus, $allele_id ) = @_;
 	my $self = setting('self');
 	my $list = [];
-	my $peptide_mutations =
-	  $self->{'datastore'}->run_query( 'SELECT * FROM peptide_mutations WHERE locus=? ORDER BY reported_position,id',
-		$locus, { fetch => 'all_arrayref', slice => {}, cache => 'Alleles::get_peptide_mutations' } );
+
+	#Using $self->{'cache'} would be persistent between calls even when calling another database.
+	#Datastore is destroyed after call so $self->{'datastore'}->{'peptide_mutation_cache'} is safe to
+	#cache only for duration of call.
+	if ( !defined $self->{'datastore'}->{'peptide_mutation_cache'} ) {
+		$self->{'datastore'}->{'peptide_mutation_cache'} =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT * FROM peptide_mutations WHERE locus=? ORDER BY reported_position,id',
+			$locus, { fetch => 'all_arrayref', slice => {}, cache => 'Alleles::get_peptide_mutations' } );
+	}
+	my $peptide_mutations = $self->{'datastore'}->{'peptide_mutation_cache'};
 	return $list if !@$peptide_mutations;
 	foreach my $mutation (@$peptide_mutations) {
 		my $data = $self->{'datastore'}->run_query(
@@ -167,9 +262,16 @@ sub _get_nucleotide_mutations {
 	my ( $locus, $allele_id ) = @_;
 	my $self = setting('self');
 	my $list = [];
-	my $dna_mutations =
-	  $self->{'datastore'}->run_query( 'SELECT * FROM dna_mutations WHERE locus=? ORDER BY reported_position,id',
-		$locus, { fetch => 'all_arrayref', slice => {}, cache => 'Alleles::get_dna_mutations' } );
+
+	#Using $self->{'cache'} would be persistent between calls even when calling another database.
+	#Datastore is destroyed after call so $self->{'datastore'}->{'dna_mutation_cache'} is safe to
+	#cache only for duration of call.
+	if ( !defined $self->{'datastore'}->{'dna_mutation_cache'} ) {
+		$self->{'datastore'}->{'dna_mutation_cache'} =
+		  $self->{'datastore'}->run_query( 'SELECT * FROM dna_mutations WHERE locus=? ORDER BY reported_position,id',
+			$locus, { fetch => 'all_arrayref', slice => {}, cache => 'Alleles::get_dna_mutations' } );
+	}
+	my $dna_mutations = $self->{'datastore'}->{'dna_mutation_cache'};
 	return $list if !@$dna_mutations;
 	foreach my $mutation (@$dna_mutations) {
 		my $data = $self->{'datastore'}->run_query(
