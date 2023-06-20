@@ -95,6 +95,7 @@ sub run_script {
 	}
 	my %used_for_metrics = map { $_ => 1 } @$scheme_status;
 	foreach my $scheme_id (@$schemes) {
+		last if $method eq 'completion_metrics';
 		$scheme_id =~ s/\s//gx;
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 		if ( !$scheme_info ) {
@@ -123,6 +124,11 @@ sub run_script {
 			}
 		);
 	}
+	my $status_only;
+	if ($method eq 'completion_metrics'){
+		$method = 'full';
+		$status_only = 1;
+	}
 	foreach my $scheme_id (@$scheme_status) {
 		$scheme_id =~ s/\s//gx;
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
@@ -145,6 +151,7 @@ sub run_script {
 				status_file => $self->{'options'}->{'status_file'}
 			}
 		);
+		next if $status_only;
 		if ( $self->{'datastore'}->are_lincodes_defined($scheme_id) ) {
 			say "Updating scheme $scheme_id LINcodes cache ($scheme_info->{'name'})"
 			  if !$self->{'options'}->{'q'};
@@ -157,6 +164,7 @@ sub run_script {
 		}
 	}
 	foreach my $cscheme_id (@$cschemes) {
+		last if $status_only;
 		my $stage = "Cluster scheme $cscheme_id";
 		$self->update_job( $job_id, { temp_init => 1, status => { stage => $stage } } );
 		$status->{'stage'} = $stage;

@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20230110
+#Version: 20230620
 use strict;
 use warnings;
 use 5.010;
@@ -55,7 +55,7 @@ if ( !$opts{'d'} ) {
 	exit;
 }
 if ( $opts{'method'} ) {
-	my %allowed = map { $_ => 1 } qw(full incremental daily daily_replace);
+	my %allowed = map { $_ => 1 } qw(full incremental daily daily_replace completion_metrics);
 	die "$opts{'method'} is not a valid method.\n" if !$allowed{ $opts{'method'} };
 }
 my $script = BIGSdb::Offline::Script->new(
@@ -144,6 +144,7 @@ ${bold}--method$norm ${under}METHOD$norm
     incremental: Only add values for records not in cache.
     daily: Only add values for records not in cache updated today.
     daily_replace: Refresh values only for records updated today.
+    completion_metrics: Only update completion metrics.
        
 ${bold}--quiet$norm
     Don't output progress messages.

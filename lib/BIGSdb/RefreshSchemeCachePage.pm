@@ -49,7 +49,8 @@ sub _print_interface {
 	say q(<li>incremental - check and add cache values for records which currently lack values. You will also have )
 	  . q(the option to update the cache only for recently modified records.</li>);
 	say q(<li>daily - add cache values for records that currently lack scheme values and were added today.</li>);
-	say q(<li>daily_replace - delete and re-create cache values for records that were added today.</li></ul>);
+	say q(<li>daily_replace - delete and re-create cache values for records that were added today.</li>);
+	say q(<li>completion_metrics - only update the completion metrics.</li></ul>);
 
 	if ( $self->{'system'}->{'cache_schemes'} ) {
 		say q(<p>This database is also set to automatically refresh scheme caches when isolates are added using the )
@@ -61,7 +62,7 @@ sub _print_interface {
 	say $q->popup_menu( -name => 'scheme', -values => [ 0, @$schemes ], -labels => \%desc );
 	say q(</fieldset>);
 	say q(<fieldset style="float:left"><legend>Select method</legend>);
-	say $q->popup_menu( -name => 'method', -id => 'method', -values => [qw(full incremental daily daily_replace)] );
+	say $q->popup_menu( -name => 'method', -id => 'method', -values => [qw(full incremental daily daily_replace completion_metrics)] );
 	say q(</fieldset>);
 	say q(<fieldset style="float:left;display:none" id="options"><legend>Options</legend>);
 	say q(Refresh records modified in past );
@@ -221,7 +222,7 @@ sub _refresh_caches {
 	if ( !$reldate || !BIGSdb::Utils::is_int($reldate) ) {
 		undef $reldate;
 	}
-	my %allowed_methods = map { $_ => 1 } qw(full incremental daily daily_replace);
+	my %allowed_methods = map { $_ => 1 } qw(full incremental daily daily_replace completion_metrics);
 	if ( !$allowed_methods{$method} ) {
 		$method = 'full';
 	}
