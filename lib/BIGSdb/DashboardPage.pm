@@ -2618,7 +2618,7 @@ DEFAULTS
 								this.setAttribute("x", x + (labels[d.x].length * 3));
 							}
 						}						
-						if (d.x >= $dataset->{'count'} - 2 && $dataset->{'count'} > 10){ //Dataset may include null values.
+						if (d.x >= $dataset->{'count'} - 2 && $dataset->{'count'} > 14){ //Dataset may include null values.
 							const x = +this.getAttribute("x");
 							this.setAttribute("x", x - 5);
 						}
