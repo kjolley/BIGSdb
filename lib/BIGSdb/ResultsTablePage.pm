@@ -1371,7 +1371,7 @@ sub _print_profile_table {
 					[ $scheme_id, $field ] );
 				my $order  = $type eq 'integer' ? 'CAST(value AS integer)' : 'value';
 				my $values = $self->{'datastore'}->run_query(
-					"SELECT DISTINCT(value) FROM $join_table WHERE "
+					"SELECT DISTINCT($order) FROM $join_table WHERE "
 					  . '(lincodes.scheme_id,lincode_prefixes.field,lincodes.lincode)='
 					  . "(?,?,?) ORDER BY $order",
 					[ $scheme_id, $field, $lincode ],
