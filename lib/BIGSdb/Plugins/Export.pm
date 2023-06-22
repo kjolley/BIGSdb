@@ -841,6 +841,7 @@ sub _write_lincode {
 	  @{$args}{qw(fh scheme_id data first params )};
 	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 	my $lincode     = $self->{'datastore'}->get_lincode_value( $data->{'id'}, $scheme_id );
+
 	#LINcode fields are always calculated after the LINcode itself, so
 	#we can just cache the last LINcode value rather than re-calculating it.
 	$self->{'cache'}->{'current_lincode'} = $lincode;
@@ -878,14 +879,15 @@ sub _write_lincode_field {
 	foreach my $prefix (@prefixes) {
 
 		#LINcode is always calculated immediately before LINcode fields so we have cached the
-		#LINcode value(s) in $self->{'cache'}->{'current_lincode'}.
-		foreach my $lincode ( @{ $self->{'cache'}->{'current_lincode'} } ) {
-			if (   $lincode eq $prefix
-				|| $lincode =~ /^${prefix}_/x && !$used{ $prefix_values->{$field}->{$prefix} } )
-			{
-				push @values, $prefix_values->{$field}->{$prefix};
-				$used{ $prefix_values->{$field}->{$prefix} } = 1;
-			}
+		#LINcode value in $self->{'cache'}->{'current_lincode'}.
+		local $" = q(_);
+		my $lincode = qq(@{ $self->{'cache'}->{'current_lincode'}});
+		$logger->error($lincode);
+		if (   $lincode eq $prefix
+			|| $lincode =~ /^${prefix}_/x && !$used{ $prefix_values->{$field}->{$prefix} } )
+		{
+			push @values, $prefix_values->{$field}->{$prefix};
+			$used{ $prefix_values->{$field}->{$prefix} } = 1;
 		}
 	}
 	@values = sort @values;
