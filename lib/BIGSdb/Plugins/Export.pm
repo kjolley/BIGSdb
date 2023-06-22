@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext => 'Dataset',
 		menutext   => 'Dataset',
 		module     => 'Export',
-		version    => '1.9.3',
+		version    => '1.9.4',
 		dbtype     => 'isolates',
 		section    => 'export,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
@@ -882,7 +882,6 @@ sub _write_lincode_field {
 		#LINcode value in $self->{'cache'}->{'current_lincode'}.
 		local $" = q(_);
 		my $lincode = qq(@{ $self->{'cache'}->{'current_lincode'}});
-		$logger->error($lincode);
 		if (   $lincode eq $prefix
 			|| $lincode =~ /^${prefix}_/x && !$used{ $prefix_values->{$field}->{$prefix} } )
 		{
