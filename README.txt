@@ -1,3 +1,7 @@
+v1.42.2: *Search isolates by SAVs or SNPs defined in typing database.
+         *Use caching for dashboard AJAX calls where possible.
+         *Add option to batch download full allele records via API.
+         *Fix for export of LINcode field values.
 v1.42.1: *Upgrade to FontAwesome 6.
          *Added provenance completeness metrics - include fields in metric by
           setting annotation_metric="yes" for a specific field in config.xml.
