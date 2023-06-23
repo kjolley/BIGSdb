@@ -53,7 +53,7 @@ sub get_attributes {
 		menutext    => 'Sequence bin breakdown',
 		module      => 'SeqbinBreakdown',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/seqbin_breakdown.html",
-		version     => '1.7.2',
+		version     => '1.7.3',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -269,7 +269,7 @@ sub _print_interface {
 		$selected_ids = [];
 	}
 	my $seqbin_exists =
-	  $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM sequence_bin WHERE isolate_id IN ($qry))");
+	  $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM seqbin_stats WHERE isolate_id IN ($qry))");
 	if ( !$seqbin_exists ) {
 		$self->print_bad_status(
 			{
