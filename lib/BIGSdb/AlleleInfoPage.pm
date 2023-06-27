@@ -117,9 +117,9 @@ sub print_content {
 				email       => !$self->{'system'}->{'privacy'}
 			}
 		);
-		push @$data, { title => 'sender', data => $sender };
+		push @$data, { title => 'sender', data => $sender } if $sender;
 		my $curator = $self->{'datastore'}->get_user_string( $seq_ref->{'curator'}, { affiliation => 1, email => 1 } );
-		push @$data, { title => 'curator', data => $curator };
+		push @$data, { title => 'curator', data => $curator } if $curator;
 	}
 	push @$data, { title => 'comments', data => $seq_ref->{'comments'} } if $seq_ref->{'comments'};
 	my $flags = $self->_get_flags( $locus, $allele_id );

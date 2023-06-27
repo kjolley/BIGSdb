@@ -420,10 +420,10 @@ sub _print_profile {
 					email       => !$self->{'system'}->{'privacy'}
 				}
 			);
-			say qq(<dt>sender</dt><dd>$sender</dd>);
+			say qq(<dt>sender</dt><dd>$sender</dd>) if $sender;
 		} elsif ( $field eq 'curator' ) {
 			my $curator = $self->{'datastore'}->get_user_string( $data->{'curator'}, { affiliation => 1, email => 1 } );
-			say qq(<dt>curator</dt><dd>$curator</dd>);
+			say qq(<dt>curator</dt><dd>$curator</dd>) if $curator;
 			my ( $history, $num_changes ) = $self->_get_history( $scheme_id, $profile_id, 10 );
 			if ($num_changes) {
 				my $plural = $num_changes == 1 ? '' : 's';
