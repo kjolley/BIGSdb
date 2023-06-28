@@ -567,6 +567,7 @@ sub _update_users {
 			next if $user_id == $user_info->{'id'};
 			my ( $modify, $admin ) =
 			  ( $q->param("user_${user_id}_modify") ? 1 : 0, $q->param("user_${user_id}_admin") ? 1 : 0 );
+			$modify = 1 if $admin;
 			if ( ( $modify || $admin ) && !$explicit_permissions->{$user_id} ) {
 				$self->{'db'}->do(
 					'INSERT INTO project_users (project_id,user_id,admin,modify,curator,datestamp) '
