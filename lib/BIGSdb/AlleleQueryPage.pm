@@ -620,7 +620,12 @@ sub _generate_query {
 		$qry2 .= $q->param('order');
 	}
 	my $dir = ( $q->param('direction') // '' ) eq 'descending' ? 'desc' : 'asc';
-	$qry2 .= " $dir;";
+	$qry2 .= " $dir";
+	if ( $q->param('order') ne 'allele_id' ) {
+		$qry2 .= ',';
+		$qry2 .= $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS integer)' : 'allele_id';
+	}
+	$qry2 .= ';';
 	$qry2 =~ s/sequence_length/length(sequence)/g;
 	return ( $qry2, $list_file, $errors );
 }
