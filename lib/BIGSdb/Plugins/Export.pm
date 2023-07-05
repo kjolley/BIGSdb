@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext => 'Dataset',
 		menutext   => 'Dataset',
 		module     => 'Export',
-		version    => '1.9.4',
+		version    => '1.9.5',
 		dbtype     => 'isolates',
 		section    => 'export,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
@@ -880,6 +880,7 @@ sub _write_lincode_field {
 
 		#LINcode is always calculated immediately before LINcode fields so we have cached the
 		#LINcode value in $self->{'cache'}->{'current_lincode'}.
+		last if !ref $self->{'cache'}->{'current_lincode'};
 		local $" = q(_);
 		my $lincode = qq(@{ $self->{'cache'}->{'current_lincode'}});
 		if (   $lincode eq $prefix
