@@ -1,3 +1,4 @@
+v1.42.3: *Fix LINcode field export.
 v1.42.2: *Search isolates by SAVs or SNPs defined in typing database.
          *Use caching for dashboard AJAX calls where possible.
          *Add option to batch download full allele records via API.
