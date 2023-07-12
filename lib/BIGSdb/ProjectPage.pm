@@ -53,11 +53,11 @@ sub initiate {
 	$self->SUPER::initiate;
 	my $q          = $self->{'cgi'};
 	my $project_id = $q->param('project_id');
-	if ( BIGSdb::Utils::is_int($project_id) ) {
-		my $filename = "BIGSdb_$self->{'instance'}_p$project_id";
+	if ( $project_id =~ /^(\d+)$/x ) {    #untaint
+		my $filename = "BIGSdb_$self->{'instance'}_p$1";
 		my $qry_file = "$self->{'config'}->{'secure_tmp_dir'}/$filename";
 		if ( !-e $qry_file || -M $qry_file > 1 )
-		{    #Rewrite if over 1 day old in case of file corruption/changes to system.
+		{                                 #Rewrite if over 1 day old in case of file corruption/changes to system.
 			my $qry = "SELECT * FROM $self->{'system'}->{'view'} v WHERE id IN "
 			  . "(SELECT isolate_id FROM project_members WHERE project_id=$project_id)";
 			open( my $fh, '>', $qry_file ) || $logger->error("Cannot open $qry_file for writing.");
