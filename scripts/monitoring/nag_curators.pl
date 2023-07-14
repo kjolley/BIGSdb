@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20230511
+#Version: 20230714
 use strict;
 use warnings;
 use Carp;
@@ -179,6 +179,9 @@ sub is_allowed_to_curate {
 		},
 		genomes => sub {
 			$is_allowed = is_isolate_curator( $dbase, $user_id );
+		},
+		assemblies => sub {
+			$is_allowed = is_isolate_curator( $dbase, $user_id );
 		}
 	);
 	if ( $method{ $submission->{'type'} } ) {
@@ -264,6 +267,9 @@ sub get_submission_details {
 		genomes => sub {
 			add_isolate_submission_details( $dbase, $submission );
 		},
+		assemblies => sub {
+			add_assembly_submission_details( $dbase, $submission );
+		}
 	);
 	if ( $method{ $submission->{'type'} } ) {
 		$method{ $submission->{'type'} }->();
@@ -283,6 +289,17 @@ sub add_isolate_submission_details {
 	my $type   = $submission->{'type'};
 	$type =~ s/s$//x;
 	$submission->{'description'} = "$isolate_count $type$plural";
+	return;
+}
+
+sub add_assembly_submission_details {
+	my ( $dbase, $submission ) = @_;
+	my $db = db_connect($dbase);
+	my $assembly_count =
+	  $db->selectrow_array( q(SELECT COUNT(DISTINCT index) FROM assembly_submissions WHERE submission_id=?),
+		undef, $submission->{'id'} );
+	my $plural = $assembly_count == 1 ? q(y) : q(ies);
+	$submission->{'description'} = "$assembly_count assembl$plural";
 	return;
 }
 
