@@ -1647,10 +1647,9 @@ sub create_temp_variation_table {
 		{ db => $locus_obj->{'db'}, fetch => 'all_arrayref' }
 	);
 	eval {
-		$self->{'db'}->do(
-			"CREATE TEMP TABLE $table (allele_id text NOT NULL,$char_field text NOT NULL,is_wild_type boolean "
-			  . 'NOT NULL,is_mutation boolean NOT NULL,PRIMARY KEY(allele_id))'
-		);
+		$self->{'db'}
+		  ->do( "CREATE TEMP TABLE $table (allele_id text NOT NULL,$char_field text NOT NULL,is_wild_type boolean "
+			  . 'NOT NULL,is_mutation boolean NOT NULL,PRIMARY KEY(allele_id))' );
 		$self->{'db'}->do("COPY $table(allele_id,$char_field,is_wild_type,is_mutation) FROM STDIN");
 		local $" = qq(\t);
 		foreach my $value (@$values) {
@@ -2726,8 +2725,8 @@ sub get_next_allele_id {
 	my ( $self, $locus, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $existing_alleles = $self->run_query(
-		q[SELECT CAST(allele_id AS int) FROM sequences WHERE locus=? AND ]
-		  . q[allele_id !='N' UNION SELECT CAST(allele_id AS int) FROM retired_allele_ids ]
+			q[SELECT CAST(allele_id AS int) FROM sequences WHERE locus=? AND ]
+		  . q[allele_id !='N' AND allele_id !='P' UNION SELECT CAST(allele_id AS int) FROM retired_allele_ids ]
 		  . q[WHERE locus=? ORDER BY allele_id],
 		[ $locus, $locus ],
 		{ db => $options->{'db'} // $self->{'db'}, fetch => 'col_arrayref', cache => 'get_next_allele_id' }
@@ -3445,15 +3444,14 @@ sub initiate_view {
 			#Simplify view definition by only looking for private/project isolates if the user has any.
 			my $has_private_isolates =
 			  $self->run_query( 'SELECT EXISTS(SELECT * FROM private_isolates WHERE user_id=?)', $user_info->{'id'} );
-			if ($has_private_isolates){
-				push @user_terms, OWN_PRIVATE_ISOLATES ;
+			if ($has_private_isolates) {
+				push @user_terms, OWN_PRIVATE_ISOLATES;
 				$self->{'ajax_load_counts'} = 1;
 			}
-			if ($has_user_project){
-				push @user_terms, ISOLATES_FROM_USER_PROJECT ;
+			if ($has_user_project) {
+				push @user_terms, ISOLATES_FROM_USER_PROJECT;
 				$self->{'ajax_load_counts'} = 1;
 			}
-
 		}
 		local $" = q( OR );
 		$qry .= qq(@user_terms);
