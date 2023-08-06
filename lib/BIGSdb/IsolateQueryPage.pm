@@ -3685,7 +3685,8 @@ sub _modify_query_for_seqbin {
 			$seqbin_qry = "($view.id IN (SELECT isolate_id FROM seqbin_stats WHERE $db_field{$field} $operator $value)";
 			if ( $operator eq '<' || $operator eq '<=' || ( ( $operator eq '=' || $operator eq '>=' ) && $value == 0 ) )
 			{
-				$seqbin_qry .= " OR $view.id NOT IN (SELECT isolate_id FROM seqbin_stats)";
+				$seqbin_qry .= " OR $view.id IN (SELECT $view.id FROM $view LEFT JOIN seqbin_stats ON "
+				  . "$view.id=seqbin_stats.isolate_id WHERE $db_field{$field} IS NULL)";
 			}
 			$seqbin_qry .= ')';
 		}
