@@ -26,7 +26,6 @@ use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any);
 my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Constants qw(SEQ_FLAGS ALLELE_FLAGS DATABANKS SCHEME_FLAGS);
-use constant MAX_DROPDOWN => 200;
 
 sub initiate {
 	my ($self) = @_;
@@ -184,8 +183,8 @@ sub _get_form_fields {
 
 sub _show_field {
 	my ( $self, $showing_required, $att ) = @_;
-	if (   ( $att->{'required'} && $showing_required && !$att->{'group_with_optional'} )
-		|| ( ( !$att->{'required'} || $att->{'group_with_optional'} ) && !$showing_required ) )
+	if (   ( $att->{'required'} && $showing_required && !$att->{'group_with_optional'})
+		|| (( !$att->{'required'} || $att->{'group_with_optional'}) && !$showing_required  ) )
 	{
 		return 1;
 	}
@@ -411,16 +410,6 @@ sub _get_foreign_key_dropdown_field {
 	$values = [] if ref $values ne 'ARRAY';
 	my $default = @$values == 1 ? $values->[0] : undef;
 	my $q       = $self->{'cgi'};
-	if ( @$values > MAX_DROPDOWN ) {
-		return $self->datalist(
-			name          => $name,
-			id            => $name,
-			values        => $values,
-			labels        => $desc,
-			class         => 'fieldlist',
-			datalist_name => "${name}_list",
-		);
-	}
 	return $q->popup_menu(
 		-name    => $name,
 		-id      => $name,
@@ -1154,7 +1143,7 @@ sub _check_is_missing {
 
 sub _check_integer {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $att, $newdata ) = @_;
-	if ( defined $newdata->{ $att->{'name'} }
+	if (  defined $newdata->{ $att->{'name'} }
 		&& $att->{'type'} eq 'int' )
 	{
 		if ( !BIGSdb::Utils::is_int( $newdata->{ $att->{'name'} } ) ) {
