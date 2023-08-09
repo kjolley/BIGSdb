@@ -825,7 +825,7 @@ sub _show_results {
 		say q(<div class="scrollable"><table class="resultstable"><tr><th>Isolate</th><th>Match</th>)
 		  . q(<th>Locus</th><th>Allele</th><th>% identity</th><th>Alignment length</th><th>Allele length</th>)
 		  . q(<th>E-value</th><th>Sequence bin id</th><th>Start</th><th>End</th><th>Predicted start</th>)
-		  . q(<th>Predicted end</th><th>First stop codon</th><th>Orientation</th><th>Designate allele</th>)
+		  . q(<th>Predicted end</th><th>Orientation</th><th>First stop codon</th><th>Designate allele</th>)
 		  . q(<th>Tag sequence</th>)
 		  . q(<th>Flag);
 		say $self->get_tooltip(

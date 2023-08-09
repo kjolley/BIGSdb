@@ -1090,6 +1090,9 @@ sub _get_row {
 		qq($match->{'predicted_end'} <a target="_blank" class="extract_tooltip" )
 	  . qq(href="$url" style="white-space:nowrap">)
 	  . qq(extract <span class="fas fa-arrow-circle-right"></span></a>$hunter->{'complete_tooltip'}</td>);
+	my $arrow = $self->_get_dir_arrow( $match->{'reverse'} );
+	$buffer .= qq(<td>$arrow</td>);
+
 	if ( $match->{'first_stop'} ) {
 		my $max = $match->{'first_stop'};
 		$max = $match->{'length'} if $match->{'length'} > $max;
@@ -1102,8 +1105,7 @@ sub _get_row {
 	} else {
 		$buffer .= $locus_info->{'complete_cds'} ? q(<td>-</td>) : q(<td>N/A</td>);
 	}
-	my $arrow = $self->_get_dir_arrow( $match->{'reverse'} );
-	$buffer .= qq(<td>$arrow</td><td>);
+	$buffer .= q(<td>);
 	my $seq_disabled = 0;
 	$cleaned_locus = $self->clean_checkbox_id($locus);
 	$cleaned_locus =~ s/\\/\\\\/gx;
