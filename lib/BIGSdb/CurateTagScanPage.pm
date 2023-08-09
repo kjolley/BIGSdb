@@ -106,7 +106,7 @@ sub initiate {
 	$self->set_level1_breadcrumbs;
 	my $q = $self->{'cgi'};
 	if ( $q->param('submit') ) {
-		my $loci = $self->_get_selected_loci;
+		my $loci        = $self->_get_selected_loci;
 		my @isolate_ids = split( "\0", ( $q->param('isolate_id') // '' ) );
 		my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list( { dont_clear => 1 } );
 		push @isolate_ids, @$pasted_cleaned_ids;
@@ -116,7 +116,7 @@ sub initiate {
 	if ( $q->param('submit') || $q->param('results') ) {
 		$self->{'scan_job'} = $q->param('scan') || BIGSdb::Utils::get_random();
 		my $scan_job = $self->{'scan_job'} =~ /^(BIGSdb_[0-9_]+)$/x ? $1 : undef;
-		my $status = $self->_read_status($scan_job);
+		my $status   = $self->_read_status($scan_job);
 		return if $status->{'server_busy'};
 		if ( !$status->{'stop_time'} ) {
 			if ( $status->{'start_time'} ) {
@@ -476,8 +476,8 @@ sub _get_selected_loci {
 }
 
 sub _scan {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my ($self)     = @_;
+	my $q          = $self->{'cgi'};
 	my $time_limit = ( int( $q->param('limit_time') ) || 5 ) * 60;
 	my $loci       = $self->_get_selected_loci;
 	my @ids        = $q->multi_param('isolate_id');
@@ -571,8 +571,7 @@ sub _scan {
 					}
 				);
 				$scan->db_disconnect;
-			}
-			catch {
+			} catch {
 				if ( $_->isa('BIGSdb::Exception::Server::Busy') ) {
 					my $status_file = "$self->{'config'}->{'secure_tmp_dir'}/$scan_job\_status.txt";
 					open( my $fh, '>', $status_file ) || $logger->error("Can't open $status_file for writing");
@@ -600,8 +599,8 @@ sub _tag {
 	my $scan_job          = $q->param('scan');
 	my $match_list        = $self->_read_matches($scan_job);
 	my $designation_added = {};
-	foreach my $match (@$match_list) {
 
+	foreach my $match (@$match_list) {
 		if ( $match =~ /^(\d+):(.+):(\d+)$/x ) {
 			my ( $isolate_id, $locus, $id ) = ( $1, $2, $3 );
 			next if !$self->is_allowed_to_view_isolate($isolate_id);
@@ -610,7 +609,7 @@ sub _tag {
 			if ( $q->param("id_$isolate_id\_$locus\_allele_$id")
 				&& defined $q->param("id_$isolate_id\_$locus\_allele_id_$id") )
 			{
-				my $allele_id = $q->param("id_$isolate_id\_$locus\_allele_id_$id");
+				my $allele_id      = $q->param("id_$isolate_id\_$locus\_allele_id_$id");
 				my $set_allele_ids = $self->{'datastore'}->get_allele_ids( $isolate_id, $locus );
 				my $seqbin_sender;
 				if ($seqbin_id) {    #Seqbin id may not exist if scanning for missing alleles.
@@ -764,7 +763,7 @@ sub _add_intron_updates {
 	my ( $self, $args ) = @_;
 	my ( $isolate_id, $locus, $id, $seqbin_id, $start, $end, $updates ) =
 	  @{$args}{qw(isolate_id locus id seqbin_id start end updates)};
-	my $q = $self->{'cgi'};
+	my $q       = $self->{'cgi'};
 	my $introns = $q->param("id_${isolate_id}_${locus}_introns_$id") // q();
 	return if !$introns;
 	my @introns = split /,/x, $introns;
@@ -826,7 +825,8 @@ sub _show_results {
 		say q(<div class="scrollable"><table class="resultstable"><tr><th>Isolate</th><th>Match</th>)
 		  . q(<th>Locus</th><th>Allele</th><th>% identity</th><th>Alignment length</th><th>Allele length</th>)
 		  . q(<th>E-value</th><th>Sequence bin id</th><th>Start</th><th>End</th><th>Predicted start</th>)
-		  . q(<th>Predicted end</th><th>Orientation</th><th>Designate allele</th><th>Tag sequence</th>)
+		  . q(<th>Predicted end</th><th>First stop codon</th><th>Orientation</th><th>Designate allele</th>)
+		  . q(<th>Tag sequence</th>)
 		  . q(<th>Flag);
 		say $self->get_tooltip(
 			q(Flag - Set a status flag for the sequence.  You need to also )
@@ -931,11 +931,11 @@ sub _add_scheme_loci {
 	  $self->{'datastore'}->run_query( 'SELECT id FROM schemes ORDER BY id', undef, { fetch => 'col_arrayref' } );
 	push @$scheme_ids, 0;    #loci not belonging to a scheme.
 	my %locus_selected = map { $_ => 1 } @$loci_ref;
-	my $set_id = $self->get_set_id;
+	my $set_id         = $self->get_set_id;
 	foreach (@$scheme_ids) {
 		next if !$q->param("s_$_");
 		my $scheme_loci =
-		    $_
+			$_
 		  ? $self->{'datastore'}->get_scheme_loci($_)
 		  : $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
 		foreach my $locus (@$scheme_loci) {
