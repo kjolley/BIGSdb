@@ -1788,7 +1788,8 @@ sub get_project_filter {
 	my ( @project_ids, %labels );
 	foreach my $project (@$projects) {
 		push @project_ids, $project->{'id'};
-		$labels{ $project->{'id'} } = $project->{'short_description'};
+		my $label = BIGSdb::Utils::unescape_html( $project->{'short_description'} );
+		$labels{ $project->{'id'} } = $label;
 	}
 	if ( @project_ids && $options->{'any'} ) {
 		unshift @project_ids, 'none';
