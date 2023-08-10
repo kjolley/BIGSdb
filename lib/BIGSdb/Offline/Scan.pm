@@ -1195,7 +1195,7 @@ sub _get_position_of_first_stop_codon {
 	for ( my $i = 0 ; $i < length $$seq_ref ; $i += 3 ) {
 		my $codon = substr( $$seq_ref, $i, 3 );
 		if ( $stop_codons{$codon} ) {
-			return $i;
+			return $i + 1;
 		}
 	}
 	return;
