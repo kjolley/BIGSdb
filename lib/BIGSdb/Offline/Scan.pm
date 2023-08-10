@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -637,7 +637,7 @@ sub run_script {
 	if ($match) {
 		open( my $fh, '>>', $table_file ) || $logger->error("Can't open $table_file for appending");
 		local $" = ';';
-		say $fh q(<tr class="td">) . ( q(<td></td>) x 14 ) . q(<td style="white-space:nowrap">);
+		say $fh q(<tr class="td">) . ( q(<td></td>) x 15 ) . q(<td style="white-space:nowrap">);
 		say $fh qq(<input type="button" value="All" onclick='@js' class="small_submit" />) if @js;
 		say $fh qq(<input type="button" value="None" onclick='@js2' class="small_submit" />)
 		  if @js2;
