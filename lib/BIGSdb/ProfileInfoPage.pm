@@ -399,6 +399,7 @@ sub _print_profile {
 		}
 		say qq(<dl class="profile"><dt>$cleaned</dt>);
 		$data->{ lc($field) } //= q(&nbsp;);
+		$data->{ lc($field) } = q(&nbsp;) if $data->{ lc($field) }  eq q();
 		say qq(<dd>$data->{lc($field)}</dd></dl>);
 	}
 	say q(</div>);
