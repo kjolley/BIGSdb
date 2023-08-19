@@ -110,7 +110,7 @@ sub _username_reminder {
 	my $transport = Email::Sender::Transport::SMTP->new(
 		{ host => $self->{'config'}->{'smtp_server'} // 'localhost', port => $self->{'config'}->{'smtp_port'} // 25, }
 	);
-	my $domain = $self->{'config'}->{'domain'} // DEFAULT_DOMAIN;
+	my $domain      = $self->{'config'}->{'domain'} // DEFAULT_DOMAIN;
 	my $user_domain = $self->_get_user_domain;
 	my $message = qq(A user name reminder has been requested for the address $email_address (domain: $user_domain).\n);
 	$message .= qq(The request came from IP address: $ENV{'REMOTE_ADDR'}.\n\n);
@@ -146,7 +146,7 @@ sub _username_reminder {
 	}
 	foreach my $reg (@$registrations) {
 		my $value = qq($reg->{'dbase_config'} ($reg->{'description'}));
-		$value .= qq( - Username: $reg->{'user_name'}) if @$usernames > 1;
+		$value   .= qq( - Username: $reg->{'user_name'}) if @$usernames > 1;
 		$message .= qq($value\t\n);    #Terminal tab prevents Outlook removing newlines.
 	}
 	if ( $self->{'config'}->{'registration_address'} ) {
@@ -155,7 +155,7 @@ sub _username_reminder {
 		  . qq($self->{'config'}->{'registration_address'}.);
 	}
 	my $sender_address = $self->{'config'}->{'automated_email_address'} // "no_reply\@$domain";
-	my $email = Email::MIME->create(
+	my $email          = Email::MIME->create(
 		attributes => {
 			encoding => 'quoted-printable',
 			charset  => 'UTF-8',
@@ -189,7 +189,7 @@ sub _get_user_domain {
 
 sub _reset_password {
 	my ( $self, $username, $email_address ) = @_;
-	$username =~ s/^\s+|\s+$//gx;
+	$username      =~ s/^\s+|\s+$//gx;
 	$email_address =~ s/^\s+|\s+$//gx;
 	my $address = Email::Valid->address($email_address);
 	if ( !$address ) {
@@ -406,7 +406,6 @@ sub _register {
 		return;
 	}
 	$self->{'db'}->commit;
-	$self->_send_email($data);
 	say q(<div class="box" id="resultspanel">);
 	say q(<span class="main_icon far fa-address-card fa-3x fa-pull-left"></span>);
 	say q(<h2>New account</h2>);
@@ -427,7 +426,17 @@ sub _register {
 	say q(<p>Once you log in you will be able to register for specific resources on the site.</p>);
 	say qq(<p><a href="$self->{'system'}->{'script_name'}" class="submit">Log in</a></p>);
 	say q(</div>);
-	$logger->info("User $data->{'user_name'} ($data->{'first_name'} $data->{'surname'}) has registered for the site.");
+
+	#Log files indicate form spamming using random registration details that contain random alphanumeric strings
+	#for names. This is a very crude and simple means of blocking these. May need something more sophisticated.
+	if ( $data->{'first_name'} =~ /\d/x || $data->{'surname'} =~ /\d/x ) {
+		$logger->error(
+			"Attemped form spam blocked - User $data->{'user_name'} ($data->{'first_name'} $data->{'surname'})");
+	} else {
+		$self->_send_email($data);
+		$logger->info(
+			"User $data->{'user_name'} ($data->{'first_name'} $data->{'surname'}) has registered for the site.");
+	}
 	return;
 }
 
@@ -491,7 +500,7 @@ sub _bad_username {
 sub _send_email {
 	my ( $self, $data ) = @_;
 	my $message =
-	    qq(An account has been set up for you on $self->{'config'}->{'domain'}\n\n)
+		qq(An account has been set up for you on $self->{'config'}->{'domain'}\n\n)
 	  . qq(Please log in with the following details in the next $self->{'validate_time'} minutes. The account )
 	  . qq(will be removed if you do not log in within this time - if this happens you will need to re-register.\n\n)
 	  . qq(You will be required to change your password when you first log in.\n\n)
