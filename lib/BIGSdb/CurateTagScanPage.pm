@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -38,7 +38,8 @@ my $LIMIT_TIME         = 5;
 my $PARTIAL_WHEN_EXACT = 'off';
 my $LOCI_TOGETHER      = 'off';
 my $TBLASTX            = 'off';
-my $HUNT               = 'off';
+my $HUNT_START         = 'off';
+my $HUNT_STOP          = 'off';
 my $OVERRIDE_VIEW      = 'off';
 my $RESCAN_ALLELES     = 'off';
 my $RESCAN_SEQS        = 'off';
@@ -67,7 +68,8 @@ function use_defaults() {
 	\$("#limit_time").val($LIMIT_TIME);
 	\$("#loci_together").prop(\"checked\",$check_values{$LOCI_TOGETHER});
 	\$("#tblastx").prop(\"checked\",$check_values{$TBLASTX});
-	\$("#hunt").prop(\"checked\",$check_values{$HUNT});
+	\$("#hunt_start").prop(\"checked\",$check_values{$HUNT_START});
+	\$("#hunt_stop").prop(\"checked\",$check_values{$HUNT_STOP});
 	\$("#partial_when_exact").prop(\"checked\",$check_values{$PARTIAL_WHEN_EXACT});
 	\$("#override_view").prop(\"checked\",$check_values{$OVERRIDE_VIEW});
 	\$("#rescan_alleles").prop(\"checked\",$check_values{$RESCAN_ALLELES});
@@ -386,15 +388,37 @@ sub _print_parameter_fieldset {
 	}
 	say q(<li>);
 	say $q->checkbox(
-		-name    => 'hunt',
-		-id      => 'hunt',
-		-label   => 'Hunt for nearby start and stop codons',
-		-checked => ( $general_prefs->{'scan_hunt'} && $general_prefs->{'scan_hunt'} eq 'on' ) ? 'checked' : ''
+		-name    => 'hunt_start',
+		-id      => 'hunt_start',
+		-label   => 'Hunt for nearby start codons',
+		-checked => ( $general_prefs->{'scan_hunt_start'} && $general_prefs->{'scan_hunt_start'} eq 'on' )
+		? 'checked'
+		: ''
 	);
-	say $self->get_tooltip( q(Hunt for start/stop codons - If the aligned sequence is not an )
+	say $self->get_tooltip( q(Hunt for start codons - If the aligned sequence is not an )
 		  . q(exact match to an existing allele and is not a complete coding sequence with start and stop )
-		  . q(codons at the ends, selecting this option will hunt for these by walking in and out from the )
-		  . q(ends in complete codons for up to 6 amino acids.) );
+		  . q(codons at the ends, selecting this option will hunt for a start codon by walking in and out from the )
+		  . q(end in complete codons for up to 6 amino acids.) );
+	say q(</li><li>);
+	say $q->checkbox(
+		-name    => 'hunt_stop',
+		-id      => 'hunt_stop',
+		-label   => 'Hunt for stop codons within ',
+		-checked => ( $general_prefs->{'scan_hunt_stop'} && $general_prefs->{'scan_hunt_stop'} eq 'on' )
+		? 'checked'
+		: ''
+	);
+	say $q->popup_menu(
+		-name    => 'hunt_stop_percent',
+		-id      => 'hunt_stop_percent',
+		-values  => [ 1 .. 25 ],
+		-default => $general_prefs->{'scan_hunt_stop_percent'} // 5
+	);
+	say q(% length difference of match);
+	say $self->get_tooltip( q(Hunt for stop codons - If the aligned sequence is not an )
+		  . q(exact match to an existing allele and is not a complete coding sequence with start and stop )
+		  . q(codons at the ends, selecting this option will hunt for an in-frame stop codon within the )
+		  . q(specified %distance (either longer or shorter) of the matched allele length.) );
 	say q(</li><li>);
 	say $q->checkbox(
 		-name    => 'partial_when_exact',
@@ -405,6 +429,7 @@ sub _print_parameter_fieldset {
 		: q()
 	);
 	say q(</li><li>);
+
 	if ( $self->{'system'}->{'views'} ) {
 		say $q->checkbox(
 			-name    => 'override_view',
@@ -503,7 +528,8 @@ sub _scan {
 		my $dbname = $self->{'system'}->{'db'};
 		foreach (
 			qw (identity alignment word_size partial_matches limit_matches limit_time
-			tblastx hunt override_view rescan_alleles rescan_seqs type_alleles mark_missing loci_together)
+			tblastx hunt_start hunt_stop hunt_stop_percent override_view rescan_alleles
+			rescan_seqs type_alleles mark_missing loci_together)
 		  )
 		{
 			my $value = ( defined $q->param($_) && $q->param($_) ne '' ) ? $q->param($_) : 'off';

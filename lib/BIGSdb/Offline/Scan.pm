@@ -1031,19 +1031,22 @@ sub _get_row {
 	} elsif ( $match->{'allele'} && @$existing_alleles && !$existing{ $match->{'allele'} } ) {
 		$tooltip = $self->_get_designation_tooltip( $isolate_id, $locus, 'clashing' );
 	}
-	my $hunt_for_start_end = ( !$exact && $params->{'hunt'} ) ? 1 : 0;
-	my $original_start     = $match->{'predicted_start'};
-	my $original_end       = $match->{'predicted_end'};
-	my $buffer             = q();
-	my $hunter             = $self->_hunt_for_start_and_stop_codons(
+	my $hunt_for_start = ( !$exact && $params->{'hunt_start'} ) ? 1 : 0;
+	my $hunt_for_stop  = ( !$exact && $params->{'hunt_stop'} )  ? 1 : 0;
+	my $original_start = $match->{'predicted_start'};
+	my $original_end   = $match->{'predicted_end'};
+	my $buffer         = q();
+	my $hunter         = $self->_hunt_for_start_and_stop_codons(
 		{
-			hunt_for_start_end => $hunt_for_start_end,
-			isolate_id         => $isolate_id,
-			locus              => $locus,
-			match              => $match,
-			original_start     => $original_start,
-			original_end       => $original_end,
-			exact_ref          => \$exact
+			hunt_for_start        => $hunt_for_start,
+			hunt_for_stop         => $hunt_for_stop,
+			hunt_for_stop_percent => $params->{'hunt_stop_percent'} // 5,
+			isolate_id            => $isolate_id,
+			locus                 => $locus,
+			match                 => $match,
+			original_start        => $original_start,
+			original_end          => $original_end,
+			exact_ref             => \$exact
 		}
 	);
 	my $cleaned_locus = $self->clean_locus($locus);
@@ -1242,8 +1245,14 @@ sub _get_dir_arrow {
 
 sub _hunt_for_start_and_stop_codons {
 	my ( $self, $args ) = @_;
-	my ( $hunt_for_start_end, $locus, $match, $original_start, $original_end, $exact_ref, $isolate_id ) =
-	  @{$args}{qw(hunt_for_start_end locus match original_start original_end exact_ref isolate_id)};
+	my (
+		$hunt_for_start, $hunt_for_stop, $hunt_for_stop_percent, $locus, $match,
+		$original_start, $original_end,  $exact_ref,             $isolate_id
+	  )
+	  = @{$args}{
+		qw(hunt_for_start hunt_for_stop hunt_for_stop_percent locus match original_start original_end
+		  exact_ref isolate_id)
+	  };
 	my ( $off_end, $predicted_start, $predicted_end, $complete_gene );
 	my $complete_tooltip = q();
 	my $seqbin_length    = $self->{'datastore'}->run_query(
@@ -1259,19 +1268,19 @@ sub _hunt_for_start_and_stop_codons {
 	my %stop_codons  = map { $_ => 1 } @$stop_codons;
 
 	#Hunt for nearby start and stop codons.  Walk in from each end by 3 bases, then out by 3 bases, then in by 6 etc.
-	my @runs = $hunt_for_start_end ? qw (-3 3 -6 6 -9 9 -12 12 -15 15 -18 18) : ();
+	my @runs = $hunt_for_start ? qw (-3 3 -6 6 -9 9 -12 12 -15 15 -18 18) : ();
   RUN: foreach my $offset ( 0, @runs ) {
-		my @end_to_adjust = $hunt_for_start_end ? ( 1, 2 ) : (0);
+		my @end_to_adjust = $hunt_for_start ? ( 1, 2 ) : (0);
 		foreach my $end (@end_to_adjust) {
 
 			#Don't change start position if already start codon
 			if ( $end == 1 ) {
-				next if $match->{'reverse'}  && $first_codon_is_start;
-				next if !$match->{'reverse'} && $last_codon_is_stop;
+				next if $match->{'reverse'} && $first_codon_is_start;
+				next if !$match->{'reverse'};                           # && $last_codon_is_stop;
 				$match->{'predicted_end'} = $original_end + $offset;
 			} elsif ( $end == 2 ) {
 				next if !$match->{'reverse'} && $first_codon_is_start;
-				next if $match->{'reverse'}  && $last_codon_is_stop;
+				next if $match->{'reverse'};                             #  && $last_codon_is_stop;
 				$match->{'predicted_start'} = $original_start + $offset;
 			}
 			$off_end         = 1 if $self->_is_off_end( $match, $seqbin_length );
@@ -1305,7 +1314,36 @@ sub _hunt_for_start_and_stop_codons {
 			}
 		}
 	}
-	if ( $hunt_for_start_end && !$complete_gene ) {
+	if ($hunt_for_stop) {
+		my $length_diff    = int( $match->{'length'} * $hunt_for_stop_percent / 100 );
+		my $extended_match = {%$match};
+		if ( $match->{'reverse'} ) {
+			$extended_match->{'predicted_start'} = $match->{'predicted_start'} - $length_diff;
+		} else {
+			$extended_match->{'predicted_end'} = $match->{'predicted_end'} + $length_diff;
+		}
+		my $seq = $self->extract_seq_from_match($extended_match);
+		for ( my $i = 0 ; $i <= ( $match->{'length'} + $length_diff ) ; $i += 3 ) {
+			next if $i < $match->{'length'} - $length_diff;
+			if ( $stop_codons{ substr( $seq, $i, 3 ) } ) {
+				if ( $match->{'reverse'} ) {
+					$predicted_start = $predicted_end - $i - 2;
+					$match->{'predicted_start'} = $predicted_start;
+				} else {
+					$predicted_end = $predicted_start + $i + 2;
+					$match->{'predicted_end'} = $predicted_end;
+				}
+				$seq = $self->extract_seq_from_match($match);
+				($complete_gene) = $self->is_complete_gene( $seq, { locus => $locus, isolate_id => $isolate_id } );
+				if ($complete_gene) {
+					$complete_tooltip = q(<a class="cds" title="CDS - this is a complete coding sequence )
+					  . q(including start and terminating stop codons with no internal stop codons.">CDS</a>);
+				}
+				last;
+			}
+		}
+	}
+	if ( ( $hunt_for_start || $hunt_for_stop ) && !$complete_gene ) {
 		$match->{'predicted_end'}   = $original_end;
 		$predicted_end              = $original_end;
 		$match->{'predicted_start'} = $original_start;
