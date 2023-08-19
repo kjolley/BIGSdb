@@ -429,7 +429,11 @@ sub _register {
 
 	#Log files indicate form spamming using random registration details that contain random alphanumeric strings
 	#for names. This is a very crude and simple means of blocking these. May need something more sophisticated.
-	if ( $data->{'first_name'} =~ /\d/x || $data->{'surname'} =~ /\d/x ) {
+	#These also use a long random string without spaces for the affiliation so we can check for this.
+	if (   $data->{'first_name'} =~ /\d/x
+		|| $data->{'surname'} =~ /\d/x
+		|| ( length $data->{'affiliation'} > 30 && $data->{'affiliation'} !~ /\s/x ) )
+	{
 		$logger->error(
 			"Attemped form spam blocked - User $data->{'user_name'} ($data->{'first_name'} $data->{'surname'})");
 	} else {
