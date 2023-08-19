@@ -40,12 +40,12 @@ my $LOCI_TOGETHER      = 'off';
 my $TBLASTX            = 'off';
 my $HUNT_START         = 'off';
 my $HUNT_STOP          = 'off';
+my $HUNT_STOP_PERCENT  = 5;
 my $OVERRIDE_VIEW      = 'off';
 my $RESCAN_ALLELES     = 'off';
 my $RESCAN_SEQS        = 'off';
 my $TYPE_ALLELES       = 'off';
 my $MARK_MISSING       = 'off';
-
 sub get_javascript {
 	my ($self) = @_;
 	my %check_values = ( on => 'true', off => 'false' );
@@ -70,6 +70,7 @@ function use_defaults() {
 	\$("#tblastx").prop(\"checked\",$check_values{$TBLASTX});
 	\$("#hunt_start").prop(\"checked\",$check_values{$HUNT_START});
 	\$("#hunt_stop").prop(\"checked\",$check_values{$HUNT_STOP});
+	\$("#hunt_stop_percent").val($HUNT_STOP_PERCENT);
 	\$("#partial_when_exact").prop(\"checked\",$check_values{$PARTIAL_WHEN_EXACT});
 	\$("#override_view").prop(\"checked\",$check_values{$OVERRIDE_VIEW});
 	\$("#rescan_alleles").prop(\"checked\",$check_values{$RESCAN_ALLELES});
