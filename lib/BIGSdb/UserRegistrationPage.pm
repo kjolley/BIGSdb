@@ -435,7 +435,7 @@ sub _register {
 		|| ( length $data->{'affiliation'} > 30 && $data->{'affiliation'} !~ /\s/x ) )
 	{
 		$logger->error(
-			"Attemped form spam blocked - User $data->{'user_name'} ($data->{'first_name'} $data->{'surname'})");
+			"Attempted form spam blocked - User $data->{'user_name'} ($data->{'first_name'} $data->{'surname'})");
 	} else {
 		$self->_send_email($data);
 		$logger->info(
