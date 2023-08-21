@@ -1,3 +1,7 @@
+v1.42.4: *Improve web-based sequence-scanning:
+          - Show position of first stop codon for complete CDS loci
+          - Optionally extract sequence to first stop codon if within a 
+            specified percentage of the length of the closest allele.
 v1.42.3: *Fix LINcode field export.
 v1.42.2: *Search isolates by SAVs or SNPs defined in typing database.
          *Use caching for dashboard AJAX calls where possible.
