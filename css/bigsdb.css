@@ -2617,7 +2617,7 @@ span.export_align {
 	text-shadow: 3px 3px 3px #999
 }
 
-span.export_code {
+span.export_code,span.export_pdf {
 	color: #903;
 	text-shadow: 3px 3px 3px #999
 }
