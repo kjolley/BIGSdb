@@ -92,7 +92,7 @@ sub _check_helpers {
 		ipcress            => $self->{'config'}->{'ipcress_path'},
 		GrapeTree          => $self->{'config'}->{'grapetree_path'} . '/grapetree.py',
 		blat               => $self->{'config'}->{'blat_path'},
-		wkhtmltopdf        => $self->{'config'}->{'wkhtmltopdf_path'}
+		weasyprint         => $self->{'config'}->{'weasyprint_path'}
 	);
 	my $td = 1;
 	say q(<h2>Helper applications</h2>);

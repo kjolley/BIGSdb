@@ -308,7 +308,7 @@ sub _has_required_item {
 		phyloviz_passwd        => 'phyloviz_passwd',
 		microreact_token       => 'microreact_token',
 		kleborate_path         => 'Kleborate',
-		wkhtmltopdf_path       => 'wkhtmltopdf'
+		weasyprint_path        => 'weasyprint'
 	);
 	return 1 if !$required_attr;
 	foreach my $config_param ( keys %requires ) {

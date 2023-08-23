@@ -24,6 +24,7 @@ use 5.010;
 use parent qw(BIGSdb::Plugin);
 use BIGSdb::Constants qw(:interface);
 use TOML;
+use Template;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 
@@ -56,7 +57,7 @@ sub get_attributes {
 		explicit_enable => 1,
 
 		#		url         => "$self->{'config'}->{'doclink'}/data_analysis/reports.html",
-		requires => 'wkhtmltopdf',
+		requires => 'weasyprint',
 
 		#		image       => '/images/plugins/Reports/screenshot.png'
 	);
@@ -74,32 +75,14 @@ sub run {
 	my $q      = $self->{'cgi'};
 	my $title  = $self->get_title;
 	if ( $q->param('isolate_id') && $q->param('report') ) {
-		my $error;
 		my $isolate_id = $q->param('isolate_id');
-		if ( !BIGSdb::Utils::is_int($isolate_id) ) {
-			$error = 'Isolate id must be an integer.';
-		} elsif ( !$self->isolate_exists($isolate_id) ) {
-			$error = 'No record exists for passed isolate id.';
-		}
-		my $report = $q->param('report');
-		if ( !$error ) {
-			if ( !BIGSdb::Utils::is_int($report) ) {
-				$error = 'Report id must be an integer.';
-			} else {
-				my $template_list = $self->_get_templates;
-				if ( $template_list->{'error'} ) {
-					$error = $template_list->{'error'};
-				} else {
-					my %report_ids = map { $_->{'index'} => 1 } @{ $template_list->{'templates'} };
-					$error = 'Passed report id does not exist' if !$report_ids{$report};
-				}
-			}
-		}
-		if ($error) {
+		my $report     = $q->param('report');
+		my $check      = $self->_check_params( $isolate_id, $report );
+		if ( $check->{'error'} ) {
 			say qq(<h1>$title</h1>);
 			$self->print_bad_status(
 				{
-					message => $error
+					message => $check->{'error'}
 				}
 			);
 			return;
@@ -112,8 +95,57 @@ sub run {
 	return;
 }
 
-sub _generate_report {
+sub _check_params {
 	my ( $self, $isolate_id, $report ) = @_;
+	my $error;
+	if ( !BIGSdb::Utils::is_int($isolate_id) ) {
+		$error = 'Isolate id must be an integer.';
+	} elsif ( !$self->isolate_exists($isolate_id) ) {
+		$error = 'No record exists for passed isolate id.';
+	}
+	if ( !$error ) {
+		if ( !BIGSdb::Utils::is_int($report) ) {
+			$error = 'Report id must be an integer.';
+		} else {
+			my $template_list = $self->_get_templates;
+			if ( $template_list->{'error'} ) {
+				$error = $template_list->{'error'};
+			} else {
+				my %report_ids = map { $_->{'index'} => 1 } @{ $template_list->{'templates'} };
+				$error = 'Passed report id does not exist' if !$report_ids{$report};
+			}
+		}
+	}
+	return {
+		passed => !defined $error,
+		error  => $error
+	};
+}
+
+sub _generate_report {
+	my ( $self, $isolate_id, $report_id ) = @_;
+	my $template_info = $self->_get_template_info($report_id);
+	my $dir           = $self->_get_template_dir;
+	my $template      = Template->new(
+		{
+			INCLUDE_PATH => $dir
+		}
+	);
+	my $template_output = q();
+	my $data;    #Hash of possible isolate values;
+	$template->process( $template_info->{'template_file'}, $data, \$template_output )
+	  || $logger->error( $template->error );
+	if ( $self->{'format'} eq 'html' ) {
+		say $template_output;
+		return;
+	}
+
+	#Convert to PDF.
+	open( my $make_pdf, '|-', $self->{'config'}->{'weasyprint_path'}, '-', '-' )
+	  || $logger->error("Cannot convert PDF. $!");
+	say $make_pdf $template_output;
+	close $make_pdf;
+	return;
 }
 
 sub _print_interface {
@@ -143,12 +175,14 @@ sub _print_interface {
 	say q(<h2>Available reports</h2>);
 	say q(<div class="grid scrollable">);
 	foreach my $template ( @{ $templates->{'templates'} } ) {
-		my $icon = PDF_FILE;
+		my $pdf  = PDF_FILE;
+		my $html = HTML_FILE;
 		my $url  = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;"
 		  . "name=Reports&amp;isolate_id=$isolate_id&amp;report=$template->{'index'}";
-		say qq(<div class="file_output"><a href="$url">)
-		  . qq(<span style="float:left;margin-right:1em">$icon</span></a>)
-		  . qq(<div style="width:90%;margin-top:1em"><a href="$url">$template->{'name'}</a> - $template->{'comments'});
+		say qq(<div class="file_output"><a href="$url&amp;format=html">)
+		  . qq(<span style="float:left;margin-right:0.2em">$html</span></a>)
+		  . qq(<a href="$url&amp;format=pdf"><span style="float:left;margin-right:1em">$pdf</span></a>)
+		  . qq(<div style="width:90%;margin-top:0.2em">$template->{'name'} - $template->{'comments'});
 		say q(</div></div>);
 	}
 	say q(<div style="clear:both"></div>);
@@ -168,12 +202,38 @@ END
 }
 
 sub get_initiation_values {
-	return { packery => 1 };
+	my ($self) = @_;
+	my $values = {
+		noCache => 1,
+		packery => 1
+	};
+	my $q          = $self->{'cgi'};
+	my $isolate_id = $q->param('isolate_id');
+	my $report     = $q->param('report');
+	my $format     = $q->param('format');
+	$format //= 'html';
+	$format = 'html' if $format ne 'pdf';
+	$self->{'format'} = $format;
+	my $check = $self->_check_params( $isolate_id, $report );
+
+	if ( $check->{'passed'} ) {
+		my $template_info = $self->_get_template_info($report);
+		( my $name = lc( $template_info->{'name'} ) ) =~ s/\s/_/gx;
+		my $filename = "id_${isolate_id}_${name}.$format";
+		$values->{'attachment'} = $filename;
+		$values->{'type'}       = $format;
+	}
+	return $values;
+}
+
+sub _get_template_dir {
+	my ($self) = @_;
+	return "$self->{'dbase_config_dir'}/$self->{'instance'}/Reports";
 }
 
 sub _get_templates {
 	my ($self) = @_;
-	my $dir = "$self->{'dbase_config_dir'}/$self->{'instance'}/Reports";
+	my $dir = $self->_get_template_dir;
 	if ( !-e $dir ) {
 		$logger->error("Report template directory $dir does not exist.");
 		return { error => q(Report template directory does not exist.) };
@@ -195,18 +255,18 @@ sub _get_templates {
 		return { error => q(Report template configuration file does not exist.) };
 	}
 	my $i = 0;
-	foreach my $report ( @{ $data->{'reports'} } ) {
+  REPORT: foreach my $report ( @{ $data->{'reports'} } ) {
 		$i++;
 		foreach my $attribute (qw(name template_file comments)) {
 			if ( !defined $report->{$attribute} ) {
 				$logger->error("$attribute attribute is not defined for template $i in $filename");
-				next;
+				next REPORT;
 			}
 		}
 		my $full_path = "$dir/$report->{'template_file'}";
 		if ( !-e $full_path ) {
 			$logger->error("Report template file $full_path does not exist.");
-			next;
+			next REPORT;
 		}
 		$report->{'index'} = $i;
 		push @$templates, $report;
@@ -216,5 +276,15 @@ sub _get_templates {
 		return { error => q(No template files found.) };
 	}
 	return { templates => $templates };
+}
+
+sub _get_template_info {
+	my ( $self, $report_id ) = @_;
+	my $templates = $self->_get_templates;
+	return if !defined $templates->{'templates'};
+	foreach my $template ( @{ $templates->{'templates'} } ) {
+		return $template if $template->{'index'} == $report_id;
+	}
+	return;
 }
 1;
