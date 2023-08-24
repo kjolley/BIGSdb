@@ -132,9 +132,13 @@ sub _generate_report {
 		}
 	);
 	my $template_output = q();
-	my $data;    #Hash of possible isolate values;
+	my $data            = $self->_get_isolate_data($isolate_id);
+	$data->{'date'} = BIGSdb::Utils::get_datestamp();
+#	use Data::Dumper;
+#	$logger->error( Dumper $data);
 	$template->process( $template_info->{'template_file'}, $data, \$template_output )
 	  || $logger->error( $template->error );
+
 	if ( $self->{'format'} eq 'html' ) {
 		say $template_output;
 		return;
@@ -146,6 +150,71 @@ sub _generate_report {
 	say $make_pdf $template_output;
 	close $make_pdf;
 	return;
+}
+
+sub _get_isolate_data {
+	my ( $self, $isolate_id ) = @_;
+	my $data = {};
+	$data->{'fields'}   = $self->_get_field_values($isolate_id);
+	$data->{'aliases'}  = $self->{'datastore'}->get_isolate_aliases($isolate_id);
+	$data->{'alleles'}  = $self->_get_allele_data($isolate_id);
+	$data->{'schemes'}  = $self->_get_scheme_values($isolate_id);
+	$data->{'analysis'} = $self->_get_analysis_results($isolate_id);
+	return $data;
+}
+
+sub _get_field_values {
+	my ( $self, $isolate_id ) = @_;
+	my $data = $self->{'datastore'}->get_isolate_field_values($isolate_id);
+	my $ext_attributes =
+	  $self->{'datastore'}->run_query( 'SELECT attribute,isolate_field FROM isolate_field_extended_attributes',
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	foreach my $att (@$ext_attributes) {
+		my $value = $self->{'datastore'}->run_query(
+			'SELECT value FROM isolate_value_extended_attributes WHERE (attribute,isolate_field,field_value)=(?,?,?)',
+			[ $att->{'attribute'}, $att->{'isolate_field'}, $data->{ lc $att->{'isolate_field'} } ],
+			{ cache => 'Reports::get_extended_attributes' }
+		);
+		$data->{ $att->{'attribute'} } = $value if defined $value;
+	}
+	my $eav_fields = $self->{'datastore'}->get_eav_fieldnames;
+	foreach my $eav_field (@$eav_fields) {
+		my $value = $self->{'datastore'}->get_eav_field_value( $isolate_id, $eav_field );
+		$data->{$eav_field} = $value if defined $value;
+	}
+	return $data;
+}
+
+sub _get_scheme_values {
+	my ( $self, $isolate_id ) = @_;
+	my $scheme_list = $self->{'datastore'}->get_scheme_list( { with_pk => 1 } );
+	my $data        = {};
+	foreach my $scheme (@$scheme_list) {
+		my $values = $self->{'datastore'}
+		  ->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme->{'id'}, { no_status => 1 } );
+		$data->{ $scheme->{'id'} } = $values;
+	}
+	return $data;
+}
+
+sub _get_allele_data {
+	my ( $self, $isolate_id ) = @_;
+	return $self->{'datastore'}->run_query( 'SELECT locus,allele_id FROM allele_designations WHERE isolate_id=?',
+		$isolate_id, { fetch => 'all_arrayref', slice => {} } );
+}
+
+sub _get_analysis_results {
+	my ( $self, $isolate_id ) = @_;
+	my $data = $self->{'datastore'}->run_query( 'SELECT * FROM analysis_results WHERE isolate_id=?',
+		$isolate_id, { fetch => 'all_arrayref', slice => {} } );
+	my $results = {};
+	foreach my $analysis (@$data){
+		$results->{$analysis->{'name'}} = {
+			results => $analysis->{'results'},
+			datestamp => $analysis->{'datestamp'}
+		};
+	}
+	return $results;
 }
 
 sub _print_interface {
