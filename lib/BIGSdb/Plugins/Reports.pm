@@ -25,6 +25,7 @@ use parent qw(BIGSdb::Plugin);
 use BIGSdb::Constants qw(:interface);
 use TOML;
 use Template;
+use JSON;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 
@@ -134,11 +135,11 @@ sub _generate_report {
 	my $template_output = q();
 	my $data            = $self->_get_isolate_data($isolate_id);
 	$data->{'date'} = BIGSdb::Utils::get_datestamp();
-#	use Data::Dumper;
-#	$logger->error( Dumper $data);
+
+#		use Data::Dumper;
+#		$logger->error( Dumper $data);
 	$template->process( $template_info->{'template_file'}, $data, \$template_output )
 	  || $logger->error( $template->error );
-
 	if ( $self->{'format'} eq 'html' ) {
 		say $template_output;
 		return;
@@ -199,8 +200,13 @@ sub _get_scheme_values {
 
 sub _get_allele_data {
 	my ( $self, $isolate_id ) = @_;
-	return $self->{'datastore'}->run_query( 'SELECT locus,allele_id FROM allele_designations WHERE isolate_id=?',
+	my $alleles = $self->{'datastore'}->run_query( 'SELECT locus,allele_id FROM allele_designations WHERE isolate_id=?',
 		$isolate_id, { fetch => 'all_arrayref', slice => {} } );
+	my $data = {};
+	foreach my $allele (@$alleles) {
+		push @{ $data->{ $allele->{'locus'} } }, $allele->{'allele_id'};
+	}
+	return $data;
 }
 
 sub _get_analysis_results {
@@ -208,9 +214,9 @@ sub _get_analysis_results {
 	my $data = $self->{'datastore'}->run_query( 'SELECT * FROM analysis_results WHERE isolate_id=?',
 		$isolate_id, { fetch => 'all_arrayref', slice => {} } );
 	my $results = {};
-	foreach my $analysis (@$data){
-		$results->{$analysis->{'name'}} = {
-			results => $analysis->{'results'},
+	foreach my $analysis (@$data) {
+		$results->{ $analysis->{'name'} } = {
+			results   => decode_json($analysis->{'results'}),
 			datestamp => $analysis->{'datestamp'}
 		};
 	}
