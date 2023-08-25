@@ -251,6 +251,34 @@ sub _get_javascript_paths {
 				$used{$lib} = 1;
 			}
 		}
+		my $config_features = {
+			'tour'                 => { src => [qw(shepherd.min.js)],                 defer => 0, version => '20230825' },
+		};
+		foreach my $feature (keys %$config_features){
+			next if ($self->{'system'}->{$feature} // q()) ne 'yes';
+			my $libs = $config_features->{$feature}->{'src'};
+			foreach my $lib (@$libs) {
+				next if $used{$lib};
+				my $version = $config_features->{$feature}->{'version'} ? "?v=$config_features->{$feature}->{'version'}" : q();
+				if ( $self->{'config'}->{'relative_js_dir'} ) {
+					push @$js,
+					  {
+						src   => "$self->{'config'}->{'relative_js_dir'}/$lib$version",
+						defer => $config_features->{$feature}->{'defer'}
+					  };
+				} elsif ( -e "$ENV{'DOCUMENT_ROOT'}/javascript/$lib" ) {
+					push @$js, { src => "/javascript/$lib$version", defer => $config_features->{$feature}->{'defer'} };
+				} else {
+					$logger->error("/javascript/$lib file not installed.");
+				}
+				$used{$lib} = 1;
+			}
+		}
+		my $tour_js_filename = "$self->{'dbase_config_dir'}/$self->{'instance'}/tour.js";
+		if (-e $tour_js_filename){
+			my $tour_js_ref = BIGSdb::Utils::slurp($tour_js_filename);
+			$page_js .= $$tour_js_ref;
+		}
 		push @$js, { code => $page_js } if $page_js;
 	}
 	return $js;
@@ -709,6 +737,9 @@ sub _get_stylesheets {
 		push @filenames, q(cookieconsent.min.css);
 	}
 	push @filenames, qw(jquery-ui.min.css fontawesome-all.min.css bigsdb.min.css);
+	if (($self->{'system'}->{'tour'} // q()) eq 'yes'){
+		push @filenames, qw(shepherd.css)
+	}
 	my @paths;
 	foreach my $filename (@filenames) {
 		my $stylesheet;
