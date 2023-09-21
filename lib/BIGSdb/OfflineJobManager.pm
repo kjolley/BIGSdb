@@ -233,7 +233,12 @@ sub _make_job_fingerprint {
 	$buffer .= "profiles:@{ $params->{'profiles'} };"
 	  if defined $params->{'profiles'} && ref $params->{'profiles'} eq 'ARRAY';
 	$buffer .= "loci:@{ $params->{'loci'} };" if defined $params->{'loci'} && ref $params->{'loci'} eq 'ARRAY';
-	my $fingerprint = Digest::MD5::md5_hex($buffer);
+	my $fingerprint;
+	eval { $fingerprint = Digest::MD5::md5_hex($buffer); };
+	if ($@) {
+		$logger->error("$@ - Job fingerprint error. Buffer used: $buffer.");
+		$fingerprint = BIGSdb::Utils::random_string(32);
+	}
 	return $fingerprint;
 }
 
