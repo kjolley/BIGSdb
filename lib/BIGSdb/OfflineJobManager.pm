@@ -47,6 +47,8 @@ sub new {
 	$self->_initiate( $options->{'config_dir'} );
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
 	$self->_db_connect;
+	my $local_tz = $self->_run_query(q(SELECT current_setting('TIMEZONE')));
+	$self->{'local_tz'} = $local_tz;
 	return $self;
 }
 
@@ -554,6 +556,16 @@ sub get_job_temporal_data {
 		undef,
 		{ fetch => 'all_arrayref', slice => {} }
 	);
+}
+
+sub get_initial_queued {
+	my ( $self, $past_mins ) = @_;
+	my $qry =
+		qq[SET timezone TO '$self->{'local_tz'}';]
+	  . qq[SELECT COUNT(*) FROM jobs WHERE submit_time < now()-interval '$past_mins min' AND ]
+	  . qq[(start_time IS NULL OR start_time > now()-interval '$past_mins min') AND ]
+	  . q[(status NOT LIKE '%rejected%' AND status NOT IN ('cancelled','failed','terminated'))];
+	return $self->_run_query($qry);
 }
 
 sub get_period_timestamp {
