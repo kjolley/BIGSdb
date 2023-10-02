@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2022, University of Oxford
+#Copyright (c) 2014-2023, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -22,7 +22,7 @@ use warnings;
 use 5.010;
 use JSON;
 use MIME::Base64;
-use Dancer2 appname        => 'BIGSdb::REST::Interface';
+use Dancer2 appname => 'BIGSdb::REST::Interface';
 use constant MAX_QUERY_SEQ => 5000;
 
 #Scheme routes
@@ -73,8 +73,8 @@ sub _get_schemes_breakdown {
 		{ fetch => 'all_arrayref', slice => {} }
 	);
 	if ($set_id) {
-		my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
-		my %scheme_name = map { $_->{'id'} => $_->{'name'} } @$schemes;
+		my $schemes         = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+		my %scheme_name     = map { $_->{'id'} => $_->{'name'} } @$schemes;
 		my $filtered_values = [];
 		foreach my $value (@$values) {
 			next if !$scheme_name{ $value->{'scheme_id'} };
@@ -185,8 +185,8 @@ sub _get_scheme_loci {
 	my $qry =
 	  $self->add_filters( 'SELECT locus FROM scheme_members WHERE scheme_id=?', $allowed_filters, { id => 'locus' } );
 	$qry .= ' ORDER BY field_order,locus';
-	my $loci = $self->{'datastore'}->run_query( $qry, $scheme_id, { fetch => 'col_arrayref' } );
-	my $values = { records => int(@$loci) };
+	my $loci        = $self->{'datastore'}->run_query( $qry, $scheme_id, { fetch => 'col_arrayref' } );
+	my $values      = { records => int(@$loci) };
 	my $locus_links = [];
 
 	foreach my $locus (@$loci) {
@@ -202,7 +202,7 @@ sub _get_scheme_field {
 	my $params = params;
 	my ( $db, $scheme_id, $field ) = @{$params}{qw(db scheme field)};
 	$self->check_scheme($scheme_id);
-	my $values = {};
+	my $values     = {};
 	my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 	if ( !$field_info ) {
 		send_error( "Scheme field $field does not exist in scheme $scheme_id.", 404 );
@@ -227,6 +227,12 @@ sub _query_scheme_sequence {
 
 	if ( !$sequence ) {
 		send_error( 'Required field missing: sequence.', 400 );
+	}
+	if ($base64) {
+		eval { BIGSdb::Utils::read_fasta( \$sequence, { allow_peptide => 1 } ); };
+		if ($@) {
+			send_error( 'Sequence is not a valid FASTA file.', 400 );
+		}
 	}
 	my $num_sequences = ( $sequence =~ tr/>// );
 	if ( $num_sequences > MAX_QUERY_SEQ ) {
@@ -281,7 +287,7 @@ sub _process_matches {
 		$exacts->{$locus_name}  = $alleles;
 		$designations->{$locus} = $alleles;    #Don't use set name for scheme field lookup.
 	}
-	my $values = { exact_matches => $exacts };
+	my $values       = { exact_matches => $exacts };
 	my $field_values = _get_scheme_fields( $scheme_id, $designations );
 	if ( keys %$field_values ) {
 		$values->{'fields'} = $field_values;
