@@ -153,6 +153,9 @@ function get_status(poll_time){
 			} else if (status == 'cancelled'){
 				\$("div#cancel_refresh").css('display','none');
 			}
+			status = status.replace(/(BIGSdb_\\d+_\\d+_\\d+)/,
+			'<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=job&id=\$1">\$1</a>');
+				
 			if (json.status == 'finished'){				 
 				window.location.href = "$reload_url";							
 			}

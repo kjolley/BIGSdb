@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2022, University of Oxford
+#Copyright (c) 2014-2023, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -57,11 +57,11 @@ sub _get_loci {
 	my $qry = $self->add_filters( "SELECT id FROM loci$set_clause", $allowed_filters );
 	$qry .= ' ORDER BY id';
 	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !params->{'return_all'};
-	my $loci = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
+	my $loci   = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	my $values = { records => int($locus_count) };
 
 	if (@$loci) {
-		my $path = $self->get_full_path( "$subdir/db/$db/loci", $allowed_filters );
+		my $path   = $self->get_full_path( "$subdir/db/$db/loci", $allowed_filters );
 		my $paging = $self->get_paging( $path, $pages, $page, $offset );
 		$values->{'paging'} = $paging if %$paging;
 		my @links;
@@ -88,7 +88,7 @@ sub _get_locus {
 	if ( !$locus_info ) {
 		send_error( "Locus $locus does not exist.", 404 );
 	}
-	my $values = {};
+	my $values        = {};
 	my %boolean_field = map { $_ => 1 } qw(length_varies coding_sequence);
 	foreach my $field (
 		qw(data_type allele_id_format allele_id_regex common_name length length_varies min_length max_length
@@ -119,7 +119,7 @@ sub _get_locus {
 			$values->{'seqdef_definition'} = request->uri_for($seqdef_definition);
 		}
 	}
-	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+	my $schemes            = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	my $scheme_member_list = [];
 	foreach my $scheme (@$schemes) {
 		my $is_member = $self->{'datastore'}->run_query(
@@ -169,6 +169,12 @@ sub _query_locus_sequence {
 	}
 	if ( !$sequence ) {
 		send_error( 'Required field missing: sequence.', 400 );
+	}
+	if ($base64) {
+		eval { BIGSdb::Utils::read_fasta( \$sequence, { allow_peptide => 1 } ); };
+		if ($@) {
+			send_error( 'Sequence is not a valid FASTA file.', 400 );
+		}
 	}
 	my $blast_obj = $self->get_blast_object( [$locus] );
 	$blast_obj->blast( \$sequence );
@@ -223,10 +229,16 @@ sub _query_sequence {
 	if ( !$sequence ) {
 		send_error( 'Required field missing: sequence.', 400 );
 	}
+	if ($base64) {
+		eval { BIGSdb::Utils::read_fasta( \$sequence, { allow_peptide => 1 } ); };
+		if ($@) {
+			send_error( 'Sequence is not a valid FASTA file.', 400 );
+		}
+	}
 	my $blast_obj = $self->get_blast_object( [] );
 	$blast_obj->blast( \$sequence );
 	my $matches = $blast_obj->get_exact_matches( { details => $details } );
-	my $exacts = {};
+	my $exacts  = {};
 	foreach my $locus ( keys %$matches ) {
 		my $locus_name = $locus;
 		if ($set_id) {
@@ -269,7 +281,7 @@ sub _get_seqdef_definition {
 		if (
 			   $locus_info->{$url}
 			&& $locus_info->{$url} =~ /page=(?:locusInfo|alleleInfo)/x
-			&& $locus_info->{$url} =~ /^\//x    #Relative URL so on same server
+			&& $locus_info->{$url} =~ /^\//x                             #Relative URL so on same server
 			&& $locus_info->{$url} =~ /locus=(\w+)/x
 		  )
 		{

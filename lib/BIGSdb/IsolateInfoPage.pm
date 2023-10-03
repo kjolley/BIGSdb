@@ -627,6 +627,7 @@ sub _get_classification_group_data {
 	foreach my $cscheme (@$classification_schemes) {
 		my ( $cg_buffer, $cgf_buffer );
 		my $scheme_id = $cscheme->{'scheme_id'};
+		next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$scheme_id};
 		my $cache_table_exists =
 		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
 			["temp_isolates_scheme_fields_$scheme_id"] );
