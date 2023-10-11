@@ -158,16 +158,19 @@ sub get_remote_user_info {
 sub get_user_info_from_username {
 	my ( $self, $user_name ) = @_;
 	return if !defined $user_name;
-	my $user_info = $self->run_query( 'SELECT * FROM users WHERE user_name=?',
-		$user_name, { fetch => 'row_hashref', cache => 'get_user_info_from_username' } );
-	if ( $user_info && $user_info->{'user_db'} ) {
-		my $remote_user = $self->get_remote_user_info( $user_name, $user_info->{'user_db'} );
-		if ( $remote_user->{'user_name'} ) {
-			$user_info->{$_} = $remote_user->{$_}
-			  foreach qw(first_name surname email affiliation submission_digests submission_email_cc absent_until);
+	if ( !defined $self->{'cache'}->{'user_name'}->{$user_name} ) {
+		my $user_info = $self->run_query( 'SELECT * FROM users WHERE user_name=?',
+			$user_name, { fetch => 'row_hashref', cache => 'get_user_info_from_username' } );
+		if ( $user_info && $user_info->{'user_db'} ) {
+			my $remote_user = $self->get_remote_user_info( $user_name, $user_info->{'user_db'} );
+			if ( $remote_user->{'user_name'} ) {
+				$user_info->{$_} = $remote_user->{$_}
+				  foreach qw(first_name surname email affiliation submission_digests submission_email_cc absent_until);
+			}
 		}
+		$self->{'cache'}->{'user_name'}->{$user_name} = $user_info;
 	}
-	return $user_info;
+	return $self->{'cache'}->{'user_name'}->{$user_name};
 }
 
 sub get_permissions {
@@ -2725,7 +2728,7 @@ sub get_next_allele_id {
 	my ( $self, $locus, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $existing_alleles = $self->run_query(
-			q[SELECT CAST(allele_id AS int) FROM sequences WHERE locus=? AND ]
+		q[SELECT CAST(allele_id AS int) FROM sequences WHERE locus=? AND ]
 		  . q[allele_id !='N' AND allele_id !='P' UNION SELECT CAST(allele_id AS int) FROM retired_allele_ids ]
 		  . q[WHERE locus=? ORDER BY allele_id],
 		[ $locus, $locus ],
