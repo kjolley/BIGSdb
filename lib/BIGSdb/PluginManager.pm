@@ -307,7 +307,8 @@ sub _has_required_item {
 		phyloviz_user          => 'phyloviz_user',
 		phyloviz_passwd        => 'phyloviz_passwd',
 		microreact_token       => 'microreact_token',
-		kleborate_path         => 'Kleborate'
+		kleborate_path         => 'Kleborate',
+		reportree_path         => 'ReporTree'
 	);
 	return 1 if !$required_attr;
 	foreach my $config_param ( keys %requires ) {
