@@ -194,12 +194,93 @@ sub run_job {
 			params   => $params
 		}
 	);
+	my %allowed_analysis = map { $_ => 1 } qw(grapetree HC);
+	if ( !$allowed_analysis{ $params->{'analysis'} } ) {
+		$logger->error("Invalid analysis: $params->{'analysis'}");
+		$params->{'analysis'} = 'grapetree';
+	}
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Running ReporTree', percent_complete => 70 } );
-	my $cmd = "$self->{'config'}->{'reportree_path'} --allele-profile $profile_file --metadata $metadata_file "
-	  . "--missing-code '-' --analysis grapetree --out $self->{'config'}->{'tmp_dir'}/$job_id";
+	my $partitions2report = q();
+	my $threshold         = q();
+	if ( $params->{'partitions'} && $params->{'partitions'} =~ /^\s*\d+(\s*,\s*\d+\s*)*$/x ) {
+		( my $partitions = $params->{'partitions'} ) =~ s/\s//gx;
+		$partitions2report = qq( --partitions2report $partitions);
+		if ( $params->{'analysis'} eq 'grapetree' ) {
+			$threshold = qq( --threshold $partitions);
+		} elsif ( $params->{'analysis'} eq 'HC' ) {
+			my @partitions = split /,/x, $partitions;
+			local $" = q(,single-);
+			$threshold = qq( --HC-threshold single-@partitions);
+		}
+	}
+	my $cmd =
+		"$self->{'config'}->{'reportree_path'} --allele-profile $profile_file --metadata $metadata_file "
+	  . "--missing-code '-' --analysis $params->{'analysis'} --out $self->{'config'}->{'tmp_dir'}/$job_id$partitions2report"
+	  . "$threshold";
 	eval { system($cmd); };
 	if ($?) {
 		BIGSdb::Exception::Plugin->throw('ReporTree analysis failed.');
+	}
+	$self->_update_output_files($job_id);
+	return;
+}
+
+sub _update_output_files {
+	my ( $self, $job_id ) = @_;
+	opendir( my $dh, $self->{'config'}->{'tmp_dir'} );
+	my @files = grep { /$job_id/x } readdir($dh);
+	close $dh;
+	my $i      = 50;
+	my %format = (
+		tsv => 'TSV',
+		log => 'text',
+		nwk => 'Newick',
+		txt => 'text'
+	);
+	my %format_desc = (
+		nwk => 'tree',
+		log => 'log'
+	);
+	my $tree_file;
+
+	foreach my $filename ( sort @files ) {
+		next if $filename =~ /profiles.txt$/x || $filename =~ /metadata.txt/x;
+		$tree_file = $filename if $filename =~ /\.nwk$/x;
+		my ( $desc, $format );
+		if ( $filename =~ /${job_id}_?([\w\d_]*)\.(\w+)$/x ) {
+			( $desc, my $file_suffix ) = ( $1, $2 );
+			$desc   = $1;
+			$format = $format{$file_suffix} // $file_suffix;
+
+			#			$logger->error("$desc $format");
+			$desc ||= $format_desc{$file_suffix};
+		}
+		$self->{'jobManager'}->update_job_output(
+			$job_id,
+			{
+				filename    => $filename,
+				description => "${i}_$desc" . ( defined $format ? " ($format format)" : q() ),
+			}
+		);
+		$i++;
+	}
+	if (
+		$self->{'config'}->{'MSTree_holder_rel_path'}
+		&& defined $tree_file
+
+		#		&& -e "$self->{'config'}->{'tmp_dir'}/${job_id}.nwk"
+		&& -e "$self->{'config'}->{'tmp_dir'}/${job_id}_metadata_w_partitions.tsv"
+	  )
+	{
+		$self->{'jobManager'}->update_job_status(
+			$job_id,
+			{
+					message_html => q(<p style="margin-top:2em;margin-bottom:2em">)
+				  . qq(<a href="$self->{'config'}->{'MSTree_holder_rel_path'}?tree=/tmp/$tree_file&amp;)
+				  . qq(metadata=/tmp/${job_id}_metadata_w_partitions.tsv" target="_blank" )
+				  . q(class="launchbutton">Launch GrapeTree</a></p>)
+			}
+		);
 	}
 	return;
 }
@@ -228,15 +309,13 @@ sub _print_interface {
 			description              => 'Select fields to include in ReporTree metadata.',
 			isolate_fields           => 1,
 			nosplit_geography_points => 1,
-
-			#			hide                     => "f_$self->{'system'}->{'labelfield'}",
-			extended_attributes   => 1,
-			scheme_fields         => 1,
-			eav_fields            => 1,
-			classification_groups => 1,
-			lincodes              => 1,
-			lincode_fields        => 1,
-			size                  => 8
+			extended_attributes      => 1,
+			scheme_fields            => 1,
+			eav_fields               => 1,
+			classification_groups    => 1,
+			lincodes                 => 1,
+			lincode_fields           => 1,
+			size                     => 8
 		}
 	);
 	$self->_print_parameters_fieldset;
@@ -249,6 +328,25 @@ sub _print_interface {
 }
 
 sub _print_parameters_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say q(<fieldset style="float:left;height:12em"><legend>Options</legend>);
+	say q(Analysis:);
+	say q(<ul><li>);
+	say $q->radio_group(
+		-name      => 'analysis',
+		-values    => [qw (grapetree HC)],
+		-default   => 'grapetree',
+		-linebreak => 'true',
+	);
+	say q(</li><li>);
+	say q(Partitions to report: );
+	say $q->textfield( -id => 'partitions', -name => 'partitions', -placeholder => 'list e.g. 4,7,15' );
+	say $self->get_tooltip( q(Partitions - Comma-separated list of locus difference thresholds to report. )
+		  . q(If this is left blank then all possible thresholds will be included.) );
+	say q(</li></ul>);
+	say q(</fieldset>);
+	return;
 }
 
 sub print_info_panel {

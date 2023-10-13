@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2021, University of Oxford
+#Copyright (c) 2011-2023, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -401,6 +401,7 @@ sub _print_output {
 		$link_text =~ s/^\d{2}_//x;    #Descriptions can start with 2 digit number for ordering
 		my %icons = (
 			txt   => TEXT_FILE,
+			tsv   => TEXT_FILE,
 			xlsx  => EXCEL_FILE,
 			png   => IMAGE_FILE,
 			svg   => IMAGE_FILE,
