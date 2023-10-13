@@ -216,7 +216,7 @@ sub run_job {
 	my $cmd =
 		"$self->{'config'}->{'reportree_path'} --allele-profile $profile_file --metadata $metadata_file "
 	  . "--missing-code '-' --analysis $params->{'analysis'} --out $self->{'config'}->{'tmp_dir'}/$job_id$partitions2report"
-	  . "$threshold > /dev/null";
+	  . "$threshold > /dev/null 2>&1";
 	eval { system($cmd); };
 	if ($?) {
 		BIGSdb::Exception::Plugin->throw('ReporTree analysis failed.');
