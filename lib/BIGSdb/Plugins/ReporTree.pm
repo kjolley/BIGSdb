@@ -65,8 +65,7 @@ sub get_attributes {
 		min                 => 2,
 		max                 => $self->_get_limit,
 		always_show_in_menu => 1,
-
-		#		image               => '/images/plugins/ReporTree/screenshot.png'
+		image               => '/images/plugins/ReporTree/screenshot.png'
 	);
 	return \%att;
 }
