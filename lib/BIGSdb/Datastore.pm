@@ -368,7 +368,17 @@ sub get_scheme_field_values_by_designations {
 	#$designations is a hashref containing arrayref of allele_designations for each locus
 	my ( $self, $scheme_id, $designations, $options ) = @_;
 	my $field_data = [];
-	my $scheme     = $self->get_scheme($scheme_id);
+	my $scheme;
+	try {
+		$scheme = $self->get_scheme($scheme_id);
+	} catch {
+		if ( $_->isa('BIGSdb::Exception::Database::Configuration') ) {
+			$logger->warn("Scheme $scheme_id database is not configured correctly");
+		} else {
+			$logger->logdie($_);
+		}
+	};
+	return                                                                     if !defined $scheme;
 	$self->_convert_designations_to_profile_names( $scheme_id, $designations ) if !$options->{'no_convert'};
 	{
 		try {
