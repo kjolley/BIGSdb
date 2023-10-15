@@ -23,7 +23,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugins::GrapeTree);
-use List::MoreUtils qw(uniq all);
+use List::MoreUtils qw(uniq);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_RECORDS => 10_000;
@@ -53,7 +53,7 @@ sub get_attributes {
 		buttontext => 'ReporTree',
 		menutext   => 'ReporTree',
 		module     => 'ReporTree',
-		version    => '1.0.0',
+		version    => '0.9.0 beta',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
@@ -250,8 +250,6 @@ sub _update_output_files {
 			( $desc, my $file_suffix ) = ( $1, $2 );
 			$desc   = $1;
 			$format = $format{$file_suffix} // $file_suffix;
-
-			#			$logger->error("$desc $format");
 			$desc ||= $format_desc{$file_suffix};
 		}
 		$self->{'jobManager'}->update_job_output(
@@ -266,8 +264,6 @@ sub _update_output_files {
 	if (
 		$self->{'config'}->{'MSTree_holder_rel_path'}
 		&& defined $tree_file
-
-		#		&& -e "$self->{'config'}->{'tmp_dir'}/${job_id}.nwk"
 		&& -e "$self->{'config'}->{'tmp_dir'}/${job_id}_metadata_w_partitions.tsv"
 	  )
 	{
