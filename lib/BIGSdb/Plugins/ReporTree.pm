@@ -201,7 +201,10 @@ sub run_job {
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Running ReporTree', percent_complete => 70 } );
 	my $partitions2report = q();
 	my $threshold         = q();
-	if ( $params->{'partitions'} && $params->{'partitions'} =~ /^\s*\d+(\s*,\s*\d+\s*)*$/x ) {
+	if ($params->{'stability_regions'}){
+		$partitions2report = q( --partitions2report stability_regions);
+	}
+	elsif ( $params->{'partitions'} && $params->{'partitions'} =~ /^\s*\d+(\s*,\s*\d+\s*)*$/x ) {
 		( my $partitions = $params->{'partitions'} ) =~ s/\s//gx;
 		$partitions2report = qq( --partitions2report $partitions);
 		if ( $params->{'analysis'} eq 'grapetree' ) {
@@ -261,11 +264,9 @@ sub _update_output_files {
 		);
 		$i++;
 	}
-	if (
-		$self->{'config'}->{'MSTree_holder_rel_path'}
+	if (   $self->{'config'}->{'MSTree_holder_rel_path'}
 		&& defined $tree_file
-		&& -e "$self->{'config'}->{'tmp_dir'}/${job_id}_metadata_w_partitions.tsv"
-	  )
+		&& -e "$self->{'config'}->{'tmp_dir'}/${job_id}_metadata_w_partitions.tsv" )
 	{
 		$self->{'jobManager'}->update_job_status(
 			$job_id,
@@ -335,13 +336,34 @@ sub _print_parameters_fieldset {
 		-linebreak => 'true',
 	);
 	say q(</li><li>);
-	say q(Partitions to report: );
+	say q(Report:</li><li>);
+	say $q->checkbox( -id => 'stability_regions', -name => 'stability_regions', -label => 'Stability regions' );
+	say q(</li><li>);
+	say q(<span id="partitions_label">Partitions:</span> );
 	say $q->textfield( -id => 'partitions', -name => 'partitions', -placeholder => 'list e.g. 4,7,15' );
 	say $self->get_tooltip( q(Partitions - Comma-separated list of locus difference thresholds to report. )
 		  . q(If this is left blank then all possible thresholds will be included.) );
 	say q(</li></ul>);
 	say q(</fieldset>);
 	return;
+}
+
+sub get_plugin_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+function enable_partitions(){
+	\$("#partitions").prop("disabled", \$("#stability_regions").prop("checked") ? true : false);
+	\$("#partitions_label").css("color", \$("#stability_regions").prop("checked") ? '#888' : '#000');
+}
+	
+\$(function () {
+	enable_partitions();
+	\$("#stability_regions").bind("input propertychange", function () {
+		enable_partitions();
+	});
+});
+END
+	return $buffer;
 }
 
 sub print_info_panel {
