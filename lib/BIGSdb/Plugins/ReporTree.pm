@@ -201,10 +201,9 @@ sub run_job {
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Running ReporTree', percent_complete => 70 } );
 	my $partitions2report = q();
 	my $threshold         = q();
-	if ($params->{'stability_regions'}){
+	if ( $params->{'stability_regions'} ) {
 		$partitions2report = q( --partitions2report stability_regions);
-	}
-	elsif ( $params->{'partitions'} && $params->{'partitions'} =~ /^\s*\d+(\s*,\s*\d+\s*)*$/x ) {
+	} elsif ( $params->{'partitions'} && $params->{'partitions'} =~ /^\s*\d+(\s*,\s*\d+\s*)*$/x ) {
 		( my $partitions = $params->{'partitions'} ) =~ s/\s//gx;
 		$partitions2report = qq( --partitions2report $partitions);
 		if ( $params->{'analysis'} eq 'grapetree' ) {
@@ -325,13 +324,15 @@ sub _print_interface {
 
 sub _print_parameters_fieldset {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my $q      = $self->{'cgi'};
+	my $labels = { grapetree => 'GrapeTree' };
 	say q(<fieldset style="float:left;height:12em"><legend>Options</legend>);
 	say q(Analysis:);
 	say q(<ul><li>);
 	say $q->radio_group(
 		-name      => 'analysis',
 		-values    => [qw (grapetree HC)],
+		-labels    => $labels,
 		-default   => 'grapetree',
 		-linebreak => 'true',
 	);
