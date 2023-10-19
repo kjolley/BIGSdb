@@ -53,7 +53,7 @@ sub get_attributes {
 		buttontext          => 'ReporTree',
 		menutext            => 'ReporTree',
 		module              => 'ReporTree',
-		version             => '0.9.0 beta',
+		version             => '1.0.0',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
