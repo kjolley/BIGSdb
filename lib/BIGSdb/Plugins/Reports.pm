@@ -136,8 +136,8 @@ sub _generate_report {
 	my $data            = $self->_get_isolate_data($isolate_id);
 	$data->{'date'} = BIGSdb::Utils::get_datestamp();
 
-#		use Data::Dumper;
-#		$logger->error( Dumper $data);
+	#	use Data::Dumper;
+	#	$logger->error( Dumper $data->{'assembly_checks'} );
 	$template->process( $template_info->{'template_file'}, $data, \$template_output )
 	  || $logger->error( $template->error );
 	if ( $self->{'format'} eq 'html' ) {
@@ -156,12 +156,41 @@ sub _generate_report {
 sub _get_isolate_data {
 	my ( $self, $isolate_id ) = @_;
 	my $data = {};
-	$data->{'fields'}   = $self->_get_field_values($isolate_id);
-	$data->{'aliases'}  = $self->{'datastore'}->get_isolate_aliases($isolate_id);
-	$data->{'alleles'}  = $self->_get_allele_data($isolate_id);
-	$data->{'schemes'}  = $self->_get_scheme_values($isolate_id);
-	$data->{'analysis'} = $self->_get_analysis_results($isolate_id);
+	$data->{'fields'}          = $self->_get_field_values($isolate_id);
+	$data->{'aliases'}         = $self->{'datastore'}->get_isolate_aliases($isolate_id);
+	$data->{'alleles'}         = $self->_get_allele_data($isolate_id);
+	$data->{'schemes'}         = $self->_get_scheme_values($isolate_id);
+	$data->{'analysis'}        = $self->_get_analysis_results($isolate_id);
+	$data->{'assembly'}        = $self->_get_assembly_details($isolate_id);
+	$data->{'assembly_checks'} = $self->_get_assembly_checks($isolate_id);
 	return $data;
+}
+
+sub _get_assembly_details {
+	my ( $self, $isolate_id ) = @_;
+	return $self->{'datastore'}->run_query( 'SELECT contigs,total_length,n50,l50 FROM seqbin_stats WHERE isolate_id=?',
+		$isolate_id, { fetch => 'row_hashref' } );
+}
+
+sub _get_assembly_checks {
+	my ( $self, $isolate_id ) = @_;
+	my $checks   = {};
+	my $last_run = $self->{'datastore'}
+	  ->run_query( 'SELECT timestamp FROM last_run WHERE (name,isolate_id)=(?,?)', [ 'AssemblyChecks', $isolate_id ] );
+	$checks->{'last_run'} = $last_run if $last_run;
+	my $warn = $self->{'datastore'}->run_query(
+		'SELECT name FROM assembly_checks WHERE (isolate_id,status)=(?,?)',
+		[ $isolate_id, 'warn' ],
+		{ fetch => 'col_arrayref' }
+	);
+	$checks->{'warn'} = $warn if @$warn;
+	my $fail = $self->{'datastore'}->run_query(
+		'SELECT name FROM assembly_checks WHERE (isolate_id,status)=(?,?)',
+		[ $isolate_id, 'fail' ],
+		{ fetch => 'col_arrayref' }
+	);
+	$checks->{'fail'} = $fail if @$fail;
+	return $checks;
 }
 
 sub _get_field_values {
@@ -216,7 +245,7 @@ sub _get_analysis_results {
 	my $results = {};
 	foreach my $analysis (@$data) {
 		$results->{ $analysis->{'name'} } = {
-			results   => decode_json($analysis->{'results'}),
+			results   => decode_json( $analysis->{'results'} ),
 			datestamp => $analysis->{'datestamp'}
 		};
 	}
