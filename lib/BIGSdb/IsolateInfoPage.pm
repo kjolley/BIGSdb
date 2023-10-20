@@ -948,6 +948,7 @@ sub _get_analysis {
 	$template->process( $template_file, $data, \$template_output ) || $logger->error( $template->error );
 	return q() if ( $template_output // q() ) =~ /^\s*$/x;
 	$buffer .= $template_output;
+	$buffer .= q(</div>);
 	return $buffer;
 }
 

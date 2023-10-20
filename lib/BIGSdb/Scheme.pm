@@ -36,7 +36,11 @@ sub new {    ## no critic (RequireArgUnpacking)
 
 sub _initiate {
 	my ($self) = @_;
-	my $sql = $self->{'db'}->prepare('SELECT locus,index FROM scheme_warehouse_indices WHERE scheme_id=?');
+	my $sql;
+	eval { $sql = $self->{'db'}->prepare('SELECT locus,index FROM scheme_warehouse_indices WHERE scheme_id=?'); };
+	if ($@) {
+		BIGSdb::Exception::Database::Configuration->throw("Scheme configuration error. $@");
+	}
 	if ( $self->{'dbase_id'} ) {
 		eval { $sql->execute( $self->{'dbase_id'} ); };
 		$logger->error($@) if $@;
@@ -112,7 +116,7 @@ sub get_field_values_by_designations {
 			#on an incomplete set of designations.
 			$values->{$locus}->{'allele_ids'}   = [-999];
 			$values->{$locus}->{'allele_count'} = 1;
-			$missing_loci{$locus} = 1
+			$missing_loci{$locus}               = 1;
 		} else {
 			next if $options->{'dont_match_missing_loci'} && $designations->{$locus}->[0]->{'allele_id'} eq 'N';
 
@@ -132,11 +136,11 @@ sub get_field_values_by_designations {
 	local $" = ',';
 	my @locus_terms;
 	foreach my $locus (@used_loci) {
-		if (!defined $options->{'dont_match_missing_loci'} || $options->{'dont_match_missing_loci'} ){
-			if ( $self->{'allow_missing_loci'}){
+		if ( !defined $options->{'dont_match_missing_loci'} || $options->{'dont_match_missing_loci'} ) {
+			if ( $self->{'allow_missing_loci'} ) {
 				push @{ $values->{$locus}->{'allele_ids'} }, 'N';
 			}
-			if ( $self->{'allow_presence'} && !$missing_loci{$locus} ){
+			if ( $self->{'allow_presence'} && !$missing_loci{$locus} ) {
 				push @{ $values->{$locus}->{'allele_ids'} }, 'P';
 			}
 		}
