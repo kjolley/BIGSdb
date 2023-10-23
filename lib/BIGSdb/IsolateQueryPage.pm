@@ -1894,7 +1894,7 @@ sub _run_query {
 		{
 			$qry .= "l_$1";
 		} else {
-			$qry .= $order_by || 'id';
+			$qry .= $order_by || 'f_id';
 		}
 		my $dir =
 		  ( defined $q->param('direction') && $q->param('direction') eq 'descending' ) ? 'desc' : 'asc';
