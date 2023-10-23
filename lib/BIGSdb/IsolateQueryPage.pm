@@ -352,6 +352,7 @@ sub _print_display_fieldset {
 	say q(<fieldset id="display_fieldset" style="float:left"><legend>Display/sort options</legend>);
 	my ( $order_list, $labels ) = $self->get_field_selection_list(
 		{ isolate_fields => 1, loci => 1, scheme_fields => 1, locus_limit => MAX_LOCUS_ORDER_BY } );
+	$self->{'allowed_order_by'} = $order_list;
 	my @group_list = split /,/x, ( $self->{'system'}->{'field_groups'} // q() );
 	push @group_list, qw(Loci Schemes);
 	my $group_members = {};
@@ -1881,13 +1882,18 @@ sub _run_query {
 		$qry = $self->_modify_query_for_annotation_status( $qry, $errors );
 		$qry = $self->_modify_query_for_assembly_checks( $qry, $errors );
 		$qry .= ' ORDER BY ';
+		my %allowed  = map { $_ => 1 } @{ $self->{'allowed_order_by'} };
+		my $order_by = $q->param('order');
 
-		if ( defined $q->param('order')
-			&& ( $q->param('order') =~ /^la_(.+)\|\|/x || $q->param('order') =~ /^cn_(.+)/x ) )
+		if ( defined $order_by && !$allowed{$order_by} ) {
+			push @$errors, 'Invalid order by field selected.';
+		}
+		if ( defined $order_by
+			&& ( $order_by =~ /^la_(.+)\|\|/x || $order_by =~ /^cn_(.+)/x ) )
 		{
 			$qry .= "l_$1";
 		} else {
-			$qry .= $q->param('order') || 'id';
+			$qry .= $order_by || 'id';
 		}
 		my $dir =
 		  ( defined $q->param('direction') && $q->param('direction') eq 'descending' ) ? 'desc' : 'asc';
