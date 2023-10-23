@@ -1886,6 +1886,7 @@ sub _run_query {
 		my $order_by = $q->param('order');
 
 		if ( defined $order_by && !$allowed{$order_by} ) {
+			$logger->error("Invalid order by field selected: $order_by");
 			push @$errors, 'Invalid order by field selected.';
 		}
 		if ( defined $order_by
