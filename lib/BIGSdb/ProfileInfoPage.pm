@@ -217,7 +217,7 @@ sub _print_client_db_links {
 					designation_field1    => "s_$c_scheme_id\_$primary_key",
 					designation_operator1 => '=',
 					designation_value1    => $profile_id,
-					order                 => 'id',
+					order                 => 'f_id',
 					set_id                => 0,
 					submit                => 1
 				);
