@@ -129,7 +129,8 @@ sub _generate_report {
 	my $dir           = $self->_get_template_dir;
 	my $template      = Template->new(
 		{
-			INCLUDE_PATH => $dir
+			INCLUDE_PATH => $dir,
+			EVAL_PERL    => 1
 		}
 	);
 	my $template_output = q();
@@ -137,7 +138,7 @@ sub _generate_report {
 	$data->{'date'} = BIGSdb::Utils::get_datestamp();
 
 	#	use Data::Dumper;
-	#	$logger->error( Dumper $data->{'assembly_checks'} );
+	#	$logger->error( Dumper $data->{'lincodes'} );
 	$template->process( $template_info->{'template_file'}, $data, \$template_output )
 	  || $logger->error( $template->error );
 	if ( $self->{'format'} eq 'html' ) {
@@ -160,6 +161,7 @@ sub _get_isolate_data {
 	$data->{'aliases'}         = $self->{'datastore'}->get_isolate_aliases($isolate_id);
 	$data->{'alleles'}         = $self->_get_allele_data($isolate_id);
 	$data->{'schemes'}         = $self->_get_scheme_values($isolate_id);
+	$data->{'lincodes'}        = $self->_get_lincodes($isolate_id);
 	$data->{'analysis'}        = $self->_get_analysis_results($isolate_id);
 	$data->{'assembly'}        = $self->_get_assembly_details($isolate_id);
 	$data->{'assembly_checks'} = $self->_get_assembly_checks($isolate_id);
@@ -223,6 +225,53 @@ sub _get_scheme_values {
 		my $values = $self->{'datastore'}
 		  ->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme->{'id'}, { no_status => 1 } );
 		$data->{ $scheme->{'id'} } = $values;
+	}
+	return $data;
+}
+
+sub _get_lincodes {
+	my ( $self, $isolate_id ) = @_;
+	my $scheme_list = $self->{'datastore'}->get_scheme_list( { with_pk => 1 } );
+	my $data        = {};
+	foreach my $scheme (@$scheme_list) {
+		if ( $self->{'datastore'}->are_lincodes_defined( $scheme->{'id'} ) ) {
+			my $lincode = $self->{'datastore'}->get_lincode_value( $isolate_id, $scheme->{'id'} );
+			if ( ref $lincode && @$lincode ) {
+				local $" = q(_);
+				my $lincode_string = qq(@$lincode);
+				$data->{ $scheme->{'id'} }->{'lincode'} = $lincode_string;
+				my $prefix_table =
+				  $self->{'datastore'}->create_temp_lincode_prefix_values_table( $scheme->{'id'} );
+				my $prefix_data = $self->{'datastore'}
+				  ->run_query( "SELECT * FROM $prefix_table", undef, { fetch => 'all_arrayref', slice => {} } );
+				my $prefix_values = {};
+				foreach my $record (@$prefix_data) {
+					$prefix_values->{ $record->{'field'} }->{ $record->{'prefix'} } = $record->{'value'};
+				}
+				my $prefix_fields =
+				  $self->{'datastore'}
+				  ->run_query( 'SELECT field FROM lincode_fields WHERE scheme_id=? ORDER BY display_order,field',
+					$scheme->{'id'}, { fetch => 'col_arrayref' } );
+				foreach my $field (@$prefix_fields) {
+					my %used;
+					my @prefixes = keys %{ $prefix_values->{$field} };
+					my @values;
+					foreach my $prefix (@prefixes) {
+						if (   $lincode_string eq $prefix
+							|| $lincode_string =~ /^${prefix}_/x && !$used{ $prefix_values->{$field}->{$prefix} } )
+						{
+							push @values, $prefix_values->{$field}->{$prefix};
+							$used{ $prefix_values->{$field}->{$prefix} } = 1;
+						}
+					}
+					@values = sort @values;
+					local $" = q(; );
+					next if !@values;
+					$field =~ tr/ /_/;
+					$data->{ $scheme->{'id'} }->{ lc $field } = [@values];
+				}
+			}
+		}
 	}
 	return $data;
 }
