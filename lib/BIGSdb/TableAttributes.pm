@@ -2084,10 +2084,9 @@ sub get_projects_table_attributes {
 		{
 			name    => 'restrict_user',
 			type    => 'bool',
-			tooltip => q(restrict_user - Only allow isolates submitted by sender to be added to the project. )
-			  . q(This can be used in combination with restrict_usergroup. This is only relevant for private )
-			  . q(projects and only affects adding records following a query - where it is easy to accidentally )
-			  . q(add more than intended.),
+			tooltip => q(restrict_user - Only allow isolates submitted by the user to be added to or removed from)
+			  . q(the project unless the user is a project admin. This can be used in combination with restrict_usergroup. )
+			  . q(This is only relevant for private projects.),
 			required => 1,
 			default  => 'false'
 		},
@@ -2095,9 +2094,8 @@ sub get_projects_table_attributes {
 			name    => 'restrict_usergroup',
 			type    => 'bool',
 			tooltip => q(restrict_usergroup - Only allow isolates submitted by sender's usergroup to be added )
-			  . q(to the project. This can be used in combination with restrict_user. This is only relevant for )
-			  . q(private projects and only affects adding records following a query - where it is easy to )
-			  . q(accidentally add more than intended.),
+			  . q(to or removed from the project unless the user is a project admin. This can be used in combination with )
+			  . q(restrict_user. This is only relevant for private projects.),
 			required => 1,
 			default  => 'false'
 		},
