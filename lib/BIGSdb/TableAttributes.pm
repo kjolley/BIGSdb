@@ -2084,7 +2084,7 @@ sub get_projects_table_attributes {
 		{
 			name    => 'restrict_user',
 			type    => 'bool',
-			tooltip => q(restrict_user - Only allow isolates submitted by the user to be added to or removed from)
+			tooltip => q(restrict_user - Only allow isolates submitted by the user to be added to or removed from )
 			  . q(the project unless the user is a project admin. This can be used in combination with restrict_usergroup. )
 			  . q(This is only relevant for private projects.),
 			required => 1,
