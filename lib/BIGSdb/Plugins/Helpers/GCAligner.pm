@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2019-2022, University of Oxford
+#Copyright (c) 2019-2023, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -64,6 +64,7 @@ sub run {
 	my $ids                    = $self->{'ids'};
 	my $loci                   = $self->{'params'}->{'align_all'} ? $scan_data->{'loci'} : $scan_data->{'variable'};
 	my $filtered_loci          = [];
+
 	if ( $self->{'no_paralogous'} ) {
 		my %paralogous = map { $_ => 1 } keys %{ $scan_data->{'paralogous'} };
 		foreach my $locus (@$loci) {
@@ -142,6 +143,10 @@ sub _process_alignment {
 
 	if ( -e $aligned_out ) {
 		my $align = Bio::AlignIO->new( -format => 'clustalw', -file => $aligned_out )->next_aln;
+		if ( !defined $align ) {
+			$self->{'logger'}->error("Job $job_id: No alignment generated for $locus.");
+			return;
+		}
 		my ( %id_has_seq, $seq_length );
 		my $xmfa_buffer;
 		my $clean_locus = $self->{'clean_loci'}->{$locus}->{'no_common'};
@@ -215,7 +220,7 @@ sub _run_alignment {
 	foreach my $id (@$ids) {
 		push @$ids_to_align, $id;
 		my $identifier = $self->{'name_map'}->{$id} // $id;
-		my $seq = $scan_data->{'isolate_data'}->{$id}->{'sequences'}->{$locus};
+		my $seq        = $scan_data->{'isolate_data'}->{$id}->{'sequences'}->{$locus};
 		if ($seq) {
 			$seq_count++;
 			say $fasta_fh ">$identifier";
