@@ -247,6 +247,10 @@ sub _get_group_scheme_tables {
 		foreach my $scheme_id (@$schemes) {
 			next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$scheme_id};
 			next if none { $scheme_id eq $_ } @$scheme_ids_ref;
+			my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+			if ( $scheme_info->{'view'} ) {
+				next if !$self->{'datastore'}->is_isolate_in_view( $scheme_info->{'view'}, $isolate_id );
+			}
 			if ( !$self->{'scheme_shown'}->{$scheme_id} ) {
 				$buffer .= $self->_get_scheme( $scheme_id, $isolate_id, $self->{'curate'}, $options );
 				$self->{'scheme_shown'}->{$scheme_id} = 1;
@@ -323,12 +327,20 @@ sub _should_display_items {
 				{ fetch => 'col_arrayref' }
 			);
 			foreach my $scheme_id (@$scheme_ids) {
+				my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+				if ( $scheme_info->{'view'} ) {
+					next if !$self->{'datastore'}->is_isolate_in_view( $scheme_info->{'view'}, $isolate_id );
+				}
 				$items += $self->_get_display_items_in_scheme( $isolate_id, $scheme_id );
 				return if $items > MAX_DISPLAY;
 			}
-		} else {                   #Scheme group
+		} else {    #Scheme group
 			my $schemes = $self->{'datastore'}->get_schemes_in_group($group_id);
 			foreach my $scheme_id (@$schemes) {
+				my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+				if ( $scheme_info->{'view'} ) {
+					next if !$self->{'datastore'}->is_isolate_in_view( $scheme_info->{'view'}, $isolate_id );
+				}
 				$items += $self->_get_display_items_in_scheme( $isolate_id, $scheme_id );
 				return if $items > MAX_DISPLAY;
 			}
@@ -339,6 +351,10 @@ sub _should_display_items {
 			my $set_id  = $self->get_set_id;
 			my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 			foreach my $scheme (@$schemes) {
+				my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme->{'id'} );
+				if ( $scheme_info->{'view'} ) {
+					next if !$self->{'datastore'}->is_isolate_in_view( $scheme_info->{'view'}, $isolate_id );
+				}
 				$items += $self->_get_display_items_in_scheme( $isolate_id, $scheme->{'id'} );
 				return if $items > MAX_DISPLAY;
 			}
@@ -777,6 +793,9 @@ sub _print_other_schemes {
 	foreach my $scheme_id (@$scheme_ids) {
 		next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$scheme_id};
 		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+		if ( $scheme_info->{'view'} ) {
+			next if !$self->{'datastore'}->is_isolate_in_view( $scheme_info->{'view'}, $isolate_id );
+		}
 		say $self->_get_scheme( $scheme_id, $isolate_id, $self->{'curate'}, $options );
 	}
 	return;
@@ -806,9 +825,13 @@ sub _print_all_loci {
 		my $schemes =
 		  $self->{'datastore'}
 		  ->run_query( 'SELECT id FROM schemes ORDER BY display_order,id', undef, { fetch => 'col_arrayref' } );
-		foreach (@$schemes) {
-			next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$_};
-			say $self->_get_scheme( $_, $isolate_id, $self->{'curate'} );
+		foreach my $scheme_id (@$schemes) {
+			next if !$self->{'prefs'}->{'isolate_display_schemes'}->{$scheme_id};
+			my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+			if ( $scheme_info->{'view'} ) {
+				next if !$self->{'datastore'}->is_isolate_in_view( $scheme_info->{'view'}, $isolate_id );
+			}
+			say $self->_get_scheme( $scheme_id, $isolate_id, $self->{'curate'} );
 		}
 	}
 	my $no_scheme_data = $self->_get_scheme( 0, $isolate_id, $self->{'curate'}, $options );
@@ -2328,7 +2351,6 @@ sub _get_annotation_metrics {
 		  . qq(<div style="margin-top:0.2em;background-color:\#$colour;)
 		  . qq(border:1px solid #ccc;height:0.8em;width:$score%"></div></td><td>$quality</td></tr>);
 		$prov_buffer .= qq(</table></div>\n);
-
 		if (@missing) {
 			local $" = q(, );
 			$prov_buffer .= qq(<p>Missing field values for: @missing</p>);
