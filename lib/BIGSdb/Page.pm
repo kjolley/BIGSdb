@@ -205,7 +205,7 @@ sub _get_javascript_paths {
 			'billboard' => {
 				src     => [qw(d3.v6.min.js billboard.min.js jquery.ui.touch-punch.min.js)],
 				defer   => 1,
-				version => '20210510'
+				version => '20231101'
 			},
 			'd3.layout.cloud' => { src => [qw(d3.layout.cloud.min.js)], defer => 1, version => '20210729' },
 			'pivot'           => {
@@ -693,7 +693,7 @@ sub _get_meta_data {
 sub _get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20230615';
+	my $version = '20231101';
 	my @filenames;
 	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
 	push @filenames, q(billboard.min.css)                                     if $self->{'billboard'};

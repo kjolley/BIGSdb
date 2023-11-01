@@ -1,4 +1,4 @@
-/*Version: 20230615*/
+/*Version: 20231101*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -2905,6 +2905,8 @@ a.slide_trigger {
 .widetable.expanded {
 	display: block
 }
+
+.bb-xgrid-line line,.bb-ygrid-line line {stroke-dasharray: 8 4; stroke-width: 2px}
 
 /* SLIMBOX */
 #lbOverlay {
