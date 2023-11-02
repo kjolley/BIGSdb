@@ -1251,6 +1251,10 @@ sub get_field_selection_list {
 
 sub _get_loci_list {
 	my ( $self, $options ) = @_;
+	if ( $options->{'locus_limit'} ) {
+		my $count = $self->{'datastore'}->run_query('SELECT COUNT(*) FROM loci');
+		return [] if $count > $options->{'locus_limit'};
+	}
 	if ( !$self->{'cache'}->{'loci'} ) {
 		my @locus_list;
 		my $cn_sql = $self->{'db'}->prepare('SELECT id,common_name FROM loci WHERE common_name IS NOT NULL');
@@ -1321,11 +1325,7 @@ sub _get_loci_list {
 		@locus_list = uniq @locus_list;
 		$self->{'cache'}->{'loci'} = \@locus_list;
 	}
-	my $values = [];
-	if ( !$options->{'locus_limit'} || @{ $self->{'cache'}->{'loci'} } < $options->{'locus_limit'} ) {
-		push @$values, @{ $self->{'cache'}->{'loci'} };
-	}
-	return $values;
+	return $self->{'cache'}->{'loci'};
 }
 
 sub _get_locus_extended_attributes {
