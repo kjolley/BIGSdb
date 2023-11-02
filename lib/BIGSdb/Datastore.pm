@@ -2974,6 +2974,7 @@ sub get_citation_hash {
 		undef,
 		{ db => $dbr, fetch => 'all_hashref', key => 'id' }
 	);
+
 	foreach my $pmid (@$pmids) {
 		if ( !defined $citation_info->{$pmid}->{'year'} && !defined $citation_info->{$pmid}->{'journal'} ) {
 			$citation_ref->{$pmid} .= "<a href=\"https://www.ncbi.nlm.nih.gov/pubmed/$pmid\">"
@@ -2992,7 +2993,7 @@ sub get_citation_hash {
 			local $" = ', ';
 			$author = "@author_list";
 		} else {
-			if ( @{ $ref_authors->{$pmid}->{'authors'} } ) {
+			if ( defined $ref_authors->{$pmid}->{'authors'} && @{ $ref_authors->{$pmid}->{'authors'} } ) {
 				my $surname = $author_info->{ $ref_authors->{$pmid}->{'authors'}->[0] }->{'surname'};
 				$author .= ( $surname || 'Unknown' );
 				if ( @{ $ref_authors->{$pmid}->{'authors'} } > 1 ) {
