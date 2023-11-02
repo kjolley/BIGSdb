@@ -900,12 +900,8 @@ sub get_loci_in_no_scheme {
 #modify returned values then you MUST make a local copy.
 sub get_scheme_fields {
 	my ( $self, $scheme_id ) = @_;
-	if ( !$self->{'cache'}->{'scheme_fields'}->{$scheme_id} ) {
-		$self->{'cache'}->{'scheme_fields'}->{$scheme_id} =
-		  $self->run_query( 'SELECT field FROM scheme_fields WHERE scheme_id=? ORDER BY field_order,field',
-			$scheme_id, { fetch => 'col_arrayref', cache => 'get_scheme_fields' } );
-	}
-	return $self->{'cache'}->{'scheme_fields'}->{$scheme_id};
+	my $fields = $self->get_all_scheme_fields;
+	return $fields->{$scheme_id} // [];
 }
 
 #NOTE: Data are returned in a cached reference that may be needed more than once.  If calling code needs to
@@ -913,7 +909,7 @@ sub get_scheme_fields {
 sub get_all_scheme_fields {
 	my ($self) = @_;
 	if ( !$self->{'cache'}->{'all_scheme_fields'} ) {
-		my $data = $self->run_query( 'SELECT scheme_id,field FROM scheme_fields ORDER BY field_order',
+		my $data = $self->run_query( 'SELECT scheme_id,field FROM scheme_fields ORDER BY field_order,field',
 			undef, { fetch => 'all_arrayref' } );
 		foreach (@$data) {
 			push @{ $self->{'cache'}->{'all_scheme_fields'}->{ $_->[0] } }, $_->[1];
@@ -2189,11 +2185,11 @@ sub create_temp_list_table_from_array {
 	my $table = $options->{'table'} // ( 'temp_list' . int( rand(99999999) ) );
 	my $db    = $options->{'db'}    // $self->{'db'};
 	return
-	  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
+	  if !$options->{'no_check_exists'}
+	  && $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
 		$table, { db => $db } );
 	eval {
-		$db->do("CREATE TEMP TABLE $table (value $pg_data_type)");
-		$db->do("COPY $table FROM STDIN");
+		$db->do("CREATE TEMP TABLE $table (value $pg_data_type);COPY $table FROM STDIN");
 		foreach (@$list) {
 			s/\t/    /gx;
 			$db->pg_putcopydata("$_\n");
@@ -2958,7 +2954,7 @@ sub get_citation_hash {
 	return $citation_ref if !$self->{'config'}->{'ref_db'};
 	my $dbr = $self->_get_ref_db;
 	return $citation_ref if !$dbr;
-	my $list_table = $self->create_temp_list_table_from_array( 'int', $pmids, { db => $dbr } );
+	my $list_table = $self->create_temp_list_table_from_array( 'int', $pmids, { db => $dbr, no_check_exists => 1 } );
 	my $citation_info =
 	  $self->run_query( "SELECT pmid,year,journal,title,volume,pages FROM refs JOIN $list_table l ON refs.pmid=l.value",
 		undef, { db => $dbr, fetch => 'all_hashref', key => 'pmid' } );
