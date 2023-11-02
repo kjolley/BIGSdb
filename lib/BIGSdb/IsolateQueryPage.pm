@@ -4318,18 +4318,17 @@ sub initiate {
 	if ( !$self->{'cgi'}->param('save_options') ) {
 		my $guid = $self->get_guid;
 		if ($guid) {
+			my $general_prefs = $self->{'prefstore'}->get_all_general_prefs( $guid, $self->{'system'}->{'db'} );
 			foreach my $attribute (
 				qw (phenotypic allele_designations sequence_variation allele_count allele_status annotation_status
 				seqbin assembly_checks tag_count tags list filters)
 			  )
 			{
-				my $value =
-				  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, "${attribute}_fieldset" );
-				$self->{'prefs'}->{"${attribute}_fieldset"} = ( $value // '' ) eq 'on' ? 1 : 0;
+				$self->{'prefs'}->{"${attribute}_fieldset"} =
+				  ( $general_prefs->{"${attribute}_fieldset"} // '' ) eq 'on' ? 1 : 0;
 			}
-			my $value =
-			  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'provenance_fieldset' );
-			$self->{'prefs'}->{'provenance_fieldset'} = ( $value // '' ) eq 'off' ? 0 : 1;
+			$self->{'prefs'}->{'provenance_fieldset'} =
+			  ( $general_prefs->{'provenance_fieldset'} // '' ) eq 'off' ? 0 : 1;
 		} else {
 			$self->{'prefs'}->{'provenance_fieldset'} = 1;
 		}
