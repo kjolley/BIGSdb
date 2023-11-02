@@ -4132,8 +4132,7 @@ function refresh_filters(){
 		list_values[\$(this).attr('id')] =  \$(this).val();
 	});
 	\$("fieldset#filters_fieldset div")
-	.load(url, function(){
-			
+	.load(url, function(){			
 		reloadTooltips();
 		for (key in list_values){
 			\$("#" + key).val(list_values[key]);				
@@ -4297,7 +4296,7 @@ sub initiate {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	$self->{$_} = 1 foreach qw(noCache addProjects addBookmarks);
-	if ( $q->param('no_header') ) {
+	if ( $q->param('no_header') && !(($q->param('fieldset') // q() ) eq 'filters')) {
 		$self->{'noCache'} = 0;
 	}
 	$self->SUPER::initiate;
