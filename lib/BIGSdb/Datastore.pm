@@ -2186,22 +2186,23 @@ sub create_temp_list_table_from_array {
 	my ( $self, $data_type, $list, $options ) = @_;
 	my $pg_data_type = $data_type;
 	$pg_data_type = 'geography(POINT, 4326)' if $data_type eq 'geography_point';
-	$options      = {}                       if ref $options ne 'HASH';
 	my $table = $options->{'table'} // ( 'temp_list' . int( rand(99999999) ) );
+	my $db    = $options->{'db'}    // $self->{'db'};
 	return
-	  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
+	  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
+		$table, { db => $db } );
 	eval {
-		$self->{'db'}->do("CREATE TEMP TABLE $table (value $pg_data_type)");
-		$self->{'db'}->do("COPY $table FROM STDIN");
+		$db->do("CREATE TEMP TABLE $table (value $pg_data_type)");
+		$db->do("COPY $table FROM STDIN");
 		foreach (@$list) {
 			s/\t/    /gx;
-			$self->{'db'}->pg_putcopydata("$_\n");
+			$db->pg_putcopydata("$_\n");
 		}
-		$self->{'db'}->pg_putcopyend;
+		$db->pg_putcopyend;
 	};
 	if ($@) {
 		$logger->error("Can't put data into temp table: $@");
-		$self->{'db'}->rollback;
+		$db->rollback;
 		BIGSdb::Exception::Database::Connection->throw('Cannot put data into temp table');
 	}
 	return $table;
@@ -2957,11 +2958,24 @@ sub get_citation_hash {
 	return $citation_ref if !$self->{'config'}->{'ref_db'};
 	my $dbr = $self->_get_ref_db;
 	return $citation_ref if !$dbr;
+	my $list_table = $self->create_temp_list_table_from_array( 'int', $pmids, { db => $dbr } );
+	my $citation_info =
+	  $self->run_query( "SELECT pmid,year,journal,title,volume,pages FROM refs JOIN $list_table l ON refs.pmid=l.value",
+		undef, { db => $dbr, fetch => 'all_hashref', key => 'pmid' } );
+	my $ref_authors = $self->run_query(
+		'SELECT pmid,ARRAY_AGG(author ORDER BY position) AS authors FROM refauthors ra '
+		  . "JOIN $list_table l ON ra.pmid=l.value GROUP BY pmid",
+		undef,
+		{ db => $dbr, fetch => 'all_hashref', key => 'pmid' }
+	);
+	my $author_info = $self->run_query(
+		'SELECT id,surname,initials FROM authors a JOIN refauthors ra ON '
+		  . "a.id=ra.author JOIN $list_table l ON ra.pmid=l.value",
+		undef,
+		{ db => $dbr, fetch => 'all_hashref', key => 'id' }
+	);
 	foreach my $pmid (@$pmids) {
-		my ( $year, $journal, $title, $volume, $pages ) =
-		  $self->run_query( 'SELECT year,journal,title,volume,pages FROM refs WHERE pmid=?',
-			$pmid, { db => $dbr, fetch => 'row_array', cache => 'get_citation_hash_paper' } );
-		if ( !defined $year && !defined $journal ) {
+		if ( !defined $citation_info->{$pmid}->{'year'} && !defined $citation_info->{$pmid}->{'journal'} ) {
 			$citation_ref->{$pmid} .= "<a href=\"https://www.ncbi.nlm.nih.gov/pubmed/$pmid\">"
 			  if $options->{'link_pubmed'};
 			$citation_ref->{$pmid} .= "Pubmed id#$pmid";
@@ -2969,47 +2983,40 @@ sub get_citation_hash {
 			$citation_ref->{$pmid} .= ': No details available.' if $options->{'state_if_unavailable'};
 			next;
 		}
-		my $authors = $self->run_query(
-			'SELECT author FROM refauthors WHERE pmid=? ORDER BY position',
-			$pmid,
-			{ db => $dbr, fetch => 'col_arrayref' },
-			cache => 'get_citation_hash_author_id'
-		);
 		my ( $author, @author_list );
 		if ( $options->{'all_authors'} ) {
-			foreach my $author_id (@$authors) {
-				my ( $surname, $initials ) = $self->run_query( 'SELECT surname,initials FROM authors WHERE id=?',
-					$author_id, { db => $dbr, cache => 'get_citation_hash_paper_author_name' } );
-				$author = "$surname $initials";
+			foreach my $author_id ( @{ $ref_authors->{$pmid}->{'authors'} } ) {
+				$author = "$author_info->{$author_id}->{'surname'} $author_info->{$author_id}->{'initials'}";
 				push @author_list, $author;
 			}
 			local $" = ', ';
 			$author = "@author_list";
 		} else {
-			if (@$authors) {
-				my ( $surname, undef ) = $self->run_query( 'SELECT surname,initials FROM authors WHERE id=?',
-					$authors->[0], { db => $dbr, cache => 'get_citation_hash_paper_author_name' } );
+			if ( @{ $ref_authors->{$pmid}->{'authors'} } ) {
+				my $surname = $author_info->{ $ref_authors->{$pmid}->{'authors'}->[0] }->{'surname'};
 				$author .= ( $surname || 'Unknown' );
-				if ( @$authors > 1 ) {
+				if ( @{ $ref_authors->{$pmid}->{'authors'} } > 1 ) {
 					$author .= ' et al.';
 				}
 			}
 		}
 		$author ||= 'No authors listed';
-		$volume .= ':' if $volume;
+		$citation_info->{$pmid}->{'volume'} .= ':' if $citation_info->{$pmid}->{'volume'};
 		my $citation;
 		{
 			no warnings 'uninitialized';
 			if ( $options->{'formatted'} ) {
-				$citation = "$author ($year). ";
-				$citation .= "$title "                                                if !$options->{'no_title'};
+				$citation = "$author ($citation_info->{$pmid}->{'year'}). ";
+				$citation .= "$citation_info->{$pmid}->{'title'} "                    if !$options->{'no_title'};
 				$citation .= "<a href=\"https://www.ncbi.nlm.nih.gov/pubmed/$pmid\">" if $options->{'link_pubmed'};
-				$citation .= "<i>$journal</i> <b>$volume</b>$pages";
+				$citation .= "<i>$citation_info->{$pmid}->{'journal'}</i> "
+				  . "<b>$citation_info->{$pmid}->{'volume'}</b>$citation_info->{$pmid}->{'pages'}";
 				$citation .= '</a>' if $options->{'link_pubmed'};
 			} else {
-				$citation = "$author $year ";
+				$citation = "$author $citation_info->{$pmid}->{'year'} ";
 				$citation .= "<a href=\"https://www.ncbi.nlm.nih.gov/pubmed/$pmid\">" if $options->{'link_pubmed'};
-				$citation .= "$journal $volume$pages";
+				$citation .= "$citation_info->{$pmid}->{'journal'} "
+				  . "$citation_info->{$pmid}->{'volume'}$citation_info->{$pmid}->{'pages'}";
 				$citation .= '</a>' if $options->{'link_pubmed'};
 			}
 		}
