@@ -1741,7 +1741,6 @@ sub get_old_version_filter {
 
 sub get_isolate_publication_filter {
 	my ( $self, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
 	if ( $self->{'config'}->{'ref_db'} ) {
 		my $view = $self->{'system'}->{'view'};
 		my $pmid =

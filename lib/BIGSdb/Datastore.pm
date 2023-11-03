@@ -2291,7 +2291,6 @@ sub get_classification_group_fields {
 #{ query_pref => 1, analysis_pref => 1, seq_defined => 1, do_not_order => 1 }
 sub get_loci {
 	my ( $self, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
 	my $defined_clause =
 	  $options->{'seq_defined'} ? 'WHERE dbase_name IS NOT NULL OR reference_sequence IS NOT NULL' : '';
 	my $set_clause = '';
