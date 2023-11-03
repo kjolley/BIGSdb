@@ -101,6 +101,7 @@ sub initiate {
 	my $q = $self->{'cgi'};
 	$self->SUPER::initiate;
 	$self->{'noCache'} = 1;
+	$self->set_level1_breadcrumbs;
 	if ( !$self->{'cgi'}->param('save_options') ) {
 		my $guid = $self->get_guid;
 		return if !$guid;
@@ -112,7 +113,6 @@ sub initiate {
 		my $value = $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'scheme_fieldset' );
 		$self->{'prefs'}->{'scheme_fieldset'} = ( $value // '' ) eq 'off' ? 0 : 1;
 	}
-	$self->set_level1_breadcrumbs;
 	return;
 }
 
@@ -393,6 +393,7 @@ sub _generate_query {
 		}
 	}
 	$qry .= ' ORDER BY' . ( $order ne $primary_key ? " $order $dir,$profile_id_field;" : " $profile_id_field $dir;" );
+
 	#TODO Ordering is not working for presence schemes.
 	return ( $qry, $list_file, $errors );
 }
@@ -490,6 +491,7 @@ sub _generate_query_from_main_form {
 		  && $self->check_format( { field => $field, text => $text, type => $type, operator => $operator }, \@$errors );
 		my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : '';
 		$first_value = 0;
+
 		if ( $field =~ /(.*)\ \(id\)$/x
 			&& !BIGSdb::Utils::is_int($text) )
 		{

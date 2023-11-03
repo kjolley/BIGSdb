@@ -28,12 +28,22 @@ use BIGSdb::Constants qw(SEQ_FLAGS ALLELE_FLAGS OPERATORS :interface);
 
 sub initiate {
 	my ($self) = @_;
-	if ( $self->{'cgi'}->param('no_header') ) {
+	my $q = $self->{'cgi'};
+	if ( $q->param('no_header') ) {
 		$self->{'type'} = 'no_header';
 		return;
 	}
-	$self->{$_} = 1 foreach (qw (tooltips jQuery jQuery.coolfieldset jQuery.multiselect));
 	$self->set_level1_breadcrumbs;
+	my $table = $q->param('table');
+	$self->{$_} = 1 foreach (qw (noCache tooltips jQuery jQuery.coolfieldset jQuery.multiselect));
+	if ( !$q->param('save_options') ) {
+		my $guid = $self->get_guid;
+		return if !$guid;
+		return if !$self->{'datastore'}->is_table($table);
+		my $value =
+		  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, "${table}_list_fieldset" );
+		$self->{'prefs'}->{"${table}_list_fieldset"} = ( $value // '' ) eq 'on' ? 1 : 0;
+	}
 	return;
 }
 
@@ -72,6 +82,9 @@ sub print_content {
 	my $table  = $q->param('table') || '';
 	if ( $q->param('no_header') ) {
 		$self->_ajax_content($table);
+		return;
+	} elsif ( $q->param('save_options') ) {
+		$self->_save_options;
 		return;
 	}
 	if ( $table eq 'isolates'
@@ -123,6 +136,7 @@ sub get_title {
 sub get_javascript {
 	my ($self)          = @_;
 	my $filter_collapse = $self->filters_selected ? 'false' : 'true';
+	my $panel_js        = $self->get_javascript_panel(qw(list));
 	my $buffer          = $self->SUPER::get_javascript;
 	$buffer .= << "END";
 \$(function () {
@@ -133,6 +147,7 @@ sub get_javascript {
   		+ "values can be searched using the term 'null'. </p><h3>Number of fields</h3><p>Add more fields by clicking the '+' button."
   		+ "</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms."
   		+ "</p>" );
+  	$panel_js
 });
   	
 function loadContent(url) {
@@ -276,49 +291,10 @@ sub _print_interface {
 	say $self->get_number_records_control;
 	say q(</li></ul></fieldset>);
 	say q(<div style="clear:both"></div>);
-	my @filters;
-
-	foreach my $att (@$attributes) {
-		( my $tooltip = $att->{'tooltip'} ) =~ tr/_/ /;
-		my $sub = 'Select a value to filter your search to only those with the selected attribute.';
-		$tooltip =~ s/ - / filter - $sub/x;
-		if ( $att->{'dropdown_query'} ) {
-			my $dropdown_filter = $self->_get_dropdown_filter( $table, $att );
-			push @filters, $dropdown_filter if $dropdown_filter;
-		} elsif ( $att->{'optlist'} ) {
-			my @options = split /;/x, $att->{'optlist'};
-			push @filters, $self->get_filter( $att->{'name'}, \@options );
-		} elsif ( $att->{'type'} eq 'bool' ) {
-			push @filters, $self->get_filter( $att->{'name'}, [qw(true false)], { tooltip => $tooltip } );
-		}
-	}
-	my $filter_method = {
-		loci                => sub { return $self->get_scheme_filter },
-		allele_designations => sub { return $self->get_scheme_filter },
-		schemes             => sub { return $self->get_scheme_filter },
-		isolate_aliases     => sub { return $self->get_project_filter },
-		sequences           => sub { return $self->_get_sequence_filters },
-		locus_descriptions  => sub { return $self->_get_locus_description_filter },
-		allele_sequences    => sub { return $self->_get_allele_sequences_filters }
-	};
-	if ( $filter_method->{$table} ) {
-		my $table_filters = $filter_method->{$table}->();
-		if ($table_filters) {
-			push @filters, ref $table_filters ? @$table_filters : $table_filters;
-		}
-	}
-	if (@filters) {
-		if ( @filters > 2 ) {
-			say q(<fieldset id="filters_fieldset" style="float:left;display:none" class="coolfieldset">)
-			  . q(<legend>Filter query by</legend>);
-		} else {
-			say q(<fieldset style="float:left"><legend>Filter query by</legend>);
-		}
-		say q(<div><ul>);
-		say qq(<li><span style="white-space:nowrap">$_</span></li>) foreach @filters;
-		say q(</ul></div></fieldset>);
-	}
+	$self->_print_filter_fieldset( $table, $attributes );
+	$self->_print_list_fieldset( $table, $attributes );
 	$self->print_action_fieldset( { page => 'tableQuery', table => $table, submit_label => 'Search' } );
+	$self->_print_modify_search_fieldset;
 	say $q->end_form;
 	say q(</div></div>);
 	return;
@@ -1266,5 +1242,123 @@ sub _highest_entered_fields {
 		$highest = $_ if defined $q->param("t$_") && $q->param("t$_") ne '';
 	}
 	return $highest;
+}
+
+sub _print_modify_search_fieldset {
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $table  = $q->param('table');
+	say q(<div id="modify_panel" class="panel">);
+	say q(<a class="trigger" id="close_trigger" href="#"><span class="fas fa-lg fa-times"></span></a>);
+	say q(<h2>Modify form parameters</h2>);
+	say q(<p style="white-space:nowrap">Click to add or remove additional query terms:</p>)
+	  . q(<ul style="list-style:none;margin-left:-2em">);
+	my $list_fieldset_display = $self->{'prefs'}->{"${table}_list_fieldset"}
+	  || $q->param('list') ? HIDE : SHOW;
+	say qq(<li><a href="" class="button" id="show_list">$list_fieldset_display</a>);
+	say q(Attribute values list</li>);
+	say q(</ul>);
+	my $save = SAVE;
+	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . qq(page=tableQuery&amp;table=$table&amp;save_options=1" style="display:none">$save</a> <span id="saving">)
+	  . q(</span><br />);
+	say q(</div>);
+	return;
+}
+
+sub print_panel_buttons {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if (   !defined $q->param('currentpage')
+		|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
+		|| $q->param('First') )
+	{
+		say q(<span class="icon_button"><a class="trigger_button" id="panel_trigger" style="display:none">)
+		  . q(<span class="fas fa-lg fa-wrench"></span><span class="icon_label">Modify form</span></a></span>);
+	}
+	return;
+}
+
+sub _print_filter_fieldset {
+	my ( $self, $table, $attributes ) = @_;
+	my @filters;
+	foreach my $att (@$attributes) {
+		( my $tooltip = $att->{'tooltip'} ) =~ tr/_/ /;
+		my $sub = 'Select a value to filter your search to only those with the selected attribute.';
+		$tooltip =~ s/ - / filter - $sub/x;
+		if ( $att->{'dropdown_query'} ) {
+			my $dropdown_filter = $self->_get_dropdown_filter( $table, $att );
+			push @filters, $dropdown_filter if $dropdown_filter;
+		} elsif ( $att->{'optlist'} ) {
+			my @options = split /;/x, $att->{'optlist'};
+			push @filters, $self->get_filter( $att->{'name'}, \@options );
+		} elsif ( $att->{'type'} eq 'bool' ) {
+			push @filters, $self->get_filter( $att->{'name'}, [qw(true false)], { tooltip => $tooltip } );
+		}
+	}
+	my $filter_method = {
+		loci                => sub { return $self->get_scheme_filter },
+		allele_designations => sub { return $self->get_scheme_filter },
+		schemes             => sub { return $self->get_scheme_filter },
+		isolate_aliases     => sub { return $self->get_project_filter },
+		sequences           => sub { return $self->_get_sequence_filters },
+		locus_descriptions  => sub { return $self->_get_locus_description_filter },
+		allele_sequences    => sub { return $self->_get_allele_sequences_filters }
+	};
+	if ( $filter_method->{$table} ) {
+		my $table_filters = $filter_method->{$table}->();
+		if ($table_filters) {
+			push @filters, ref $table_filters ? @$table_filters : $table_filters;
+		}
+	}
+	if (@filters) {
+		if ( @filters > 2 ) {
+			say q(<fieldset id="filters_fieldset" style="float:left;display:none" class="coolfieldset">)
+			  . q(<legend>Filter query by</legend>);
+		} else {
+			say q(<fieldset style="float:left"><legend>Filter query by</legend>);
+		}
+		say q(<div><ul>);
+		say qq(<li><span style="white-space:nowrap">$_</span></li>) foreach @filters;
+		say q(</ul></div></fieldset>);
+	}
+	return;
+}
+
+sub _print_list_fieldset {
+	my ( $self, $table, $attributes ) = @_;
+	my $field_list = [];
+	foreach my $att (@$attributes) {
+		next if $att->{'hide_query'};
+		push @$field_list, $att->{'name'};
+	}
+	my $q       = $self->{'cgi'};
+	my $display = $self->{'prefs'}->{"${table}_list_fieldset"}
+	  || $q->param('list') ? 'inline' : 'none';
+	say qq(<fieldset id="list_fieldset" style="float:left;display:$display"><legend>Attribute values list</legend>);
+	say q(Field:);
+	say $q->popup_menu( -name => 'attribute', -values => $field_list );
+	say q(<br />);
+	say $q->textarea(
+		-name        => 'list',
+		-id          => 'list',
+		-rows        => 6,
+		-style       => 'width:100%',
+		-placeholder => 'Enter list of values (one per line)...'
+	);
+	say q(</fieldset>);
+	return;
+}
+
+sub _save_options {
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $guid   = $self->get_guid;
+	my $table  = $q->param('table');
+	return if !$self->{'datastore'}->is_table($table);
+	return if !$guid;
+	my $value = $q->param('list') ? 'on' : 'off';
+	$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, "${table}_list_fieldset", $value );
+	return;
 }
 1;
