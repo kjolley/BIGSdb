@@ -811,8 +811,11 @@ sub get_scheme_info {
 
 sub get_all_scheme_info {
 	my ($self) = @_;
-	return $self->run_query( 'SELECT * FROM schemes',
-		undef, { fetch => 'all_hashref', key => 'id', cache => 'get_all_scheme_info' } );
+	if ( !defined $self->{'cache'}->{'all_scheme_info'} ) {
+		$self->{'cache'}->{'all_scheme_info'} =
+		  $self->run_query( 'SELECT * FROM schemes', undef, { fetch => 'all_hashref', key => 'id' } );
+	}
+	return $self->{'cache'}->{'all_scheme_info'}
 }
 
 sub get_scheme_loci {
@@ -3608,7 +3611,11 @@ sub is_codon_table_valid {
 
 sub are_lincodes_defined {
 	my ( $self, $scheme_id ) = @_;
-	return $self->run_query( 'SELECT EXISTS(SELECT * FROM lincode_schemes WHERE scheme_id=?)', $scheme_id );
+	if ( !$self->{'cache'}->{'lincodes_defined'} ) {
+		my $schemes = $self->run_query( 'SELECT scheme_id FROM lincode_schemes', undef, { fetch => 'col_arrayref' } );
+		$self->{'cache'}->{'lincodes_defined'}->{$_} = 1 foreach @$schemes;
+	}
+	return $self->{'cache'}->{'lincodes_defined'}->{$scheme_id};
 }
 
 sub get_geography_coordinates {

@@ -1180,15 +1180,18 @@ sub add_existing_eav_data_to_hashref {
 
 sub get_extended_attributes {
 	my ($self) = @_;
-	my $data =
-	  $self->{'datastore'}
-	  ->run_query( 'SELECT isolate_field,attribute FROM isolate_field_extended_attributes ORDER BY field_order',
-		undef, { fetch => 'all_arrayref', slice => {}, cache => 'Page::get_extended_attributes' } );
-	my $extended;
-	foreach (@$data) {
-		push @{ $extended->{ $_->{'isolate_field'} } }, $_->{'attribute'};
+	if ( !defined $self->{'cache'}->{'extended_attributes'} ) {
+		my $data =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT isolate_field,attribute FROM isolate_field_extended_attributes ORDER BY field_order',
+			undef, { fetch => 'all_arrayref', slice => {} } );
+		my $extended;
+		foreach (@$data) {
+			push @{ $extended->{ $_->{'isolate_field'} } }, $_->{'attribute'};
+		}
+		$self->{'cache'}->{'extended_attributes'} = $extended;
 	}
-	return $extended;
+	return $self->{'cache'}->{'extended_attributes'};
 }
 
 sub get_field_selection_list {
