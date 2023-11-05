@@ -815,7 +815,7 @@ sub get_all_scheme_info {
 		$self->{'cache'}->{'all_scheme_info'} =
 		  $self->run_query( 'SELECT * FROM schemes', undef, { fetch => 'all_hashref', key => 'id' } );
 	}
-	return $self->{'cache'}->{'all_scheme_info'}
+	return $self->{'cache'}->{'all_scheme_info'};
 }
 
 sub get_scheme_loci {
@@ -983,7 +983,12 @@ sub get_scheme_list {
 			$qry = qq[SELECT id,name,display_order FROM schemes$submission_clause ORDER BY display_order,name];
 		}
 	}
-	my $list          = $self->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
+	my $qry_fingerprint = Digest::MD5::md5_hex($qry);
+	if ( !defined $self->{'cache'}->{'scheme_list'}->{$qry_fingerprint} ) {
+		$self->{'cache'}->{'scheme_list'}->{$qry_fingerprint} =
+		  $self->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
+	}
+	my $list          = $self->{'cache'}->{'scheme_list'}->{$qry_fingerprint};
 	my $filtered_list = [];
 	foreach my $scheme (@$list) {
 		$scheme->{'name'} = $scheme->{'set_name'} if $scheme->{'set_name'};
