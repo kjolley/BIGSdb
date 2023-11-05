@@ -149,13 +149,17 @@ sub _filter_schemes {
 	my ( $self, $scheme_data, $plugin ) = @_;
 	my $filtered = [];
 	my $attr     = $self->{'attributes'}->{$plugin};
+	if ( !defined $self->{'cache'}->{'scheme_locus_counts'} ) {
+		$self->{'cache'}->{'scheme_locus_counts'} =
+		  $self->{'datastore'}->run_query( 'SELECT scheme_id,COUNT(*) AS count FROM scheme_members GROUP BY scheme_id',
+			undef, { fetch => 'all_hashref', key => 'scheme_id' } );
+	}
 	foreach my $scheme (@$scheme_data) {
 		if ( !defined $attr->{'max_scheme_loci'} && !defined $attr->{'min_scheme_loci'} ) {
 			push @$filtered, $scheme;
 			next;
 		}
-		my $locus_count =
-		  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM scheme_members WHERE scheme_id=?', $scheme->{'id'} );
+		my $locus_count = $self->{'cache'}->{'scheme_locus_counts'}->{ $scheme->{'id'} }->{'count'};
 		next if defined $attr->{'max_scheme_loci'} && $locus_count > $attr->{'max_scheme_loci'};
 		next if defined $attr->{'min_scheme_loci'} && $locus_count < $attr->{'min_scheme_loci'};
 		push @$filtered, $scheme;
