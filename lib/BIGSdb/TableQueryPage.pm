@@ -1330,6 +1330,7 @@ sub _print_list_fieldset {
 	my $field_list = [];
 	foreach my $att (@$attributes) {
 		next if $att->{'hide_query'};
+		next if $att->{'type'} eq 'bool';
 		push @$field_list, $att->{'name'};
 	}
 	my $q       = $self->{'cgi'};
