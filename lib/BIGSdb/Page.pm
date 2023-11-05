@@ -2354,8 +2354,11 @@ sub is_admin {
 	my ($self) = @_;
 	return if $self->{'system'}->{'dbtype'} eq 'user';
 	if ( $self->{'username'} ) {
-		my $status = $self->{'datastore'}->run_query( 'SELECT status FROM users WHERE user_name=?',
-			$self->{'username'}, { cache => 'Page::is_admin' } );
+		if ( !defined $self->{'cache'}->{'is_admin'}->{ $self->{'username'} } ) {
+			$self->{'cache'}->{'is_admin'}->{ $self->{'username'} } =
+			  $self->{'datastore'}->run_query( 'SELECT status FROM users WHERE user_name=?', $self->{'username'} );
+		}
+		my $status = $self->{'cache'}->{'is_admin'}->{ $self->{'username'} };
 		return   if !$status;
 		return 1 if $status eq 'admin';
 	}
@@ -3414,13 +3417,16 @@ sub get_user_db_name {
 	if ( $self->{'system'}->{'dbtype'} eq 'user' ) {
 		return $self->{'system'}->{'db'};
 	}
-	my $db_name = $self->{'datastore'}->run_query(
-		'SELECT user_dbases.dbase_name FROM user_dbases JOIN users '
-		  . 'ON user_dbases.id=users.user_db WHERE users.user_name=?',
-		$user_name
-	);
-	$db_name //= $self->{'system'}->{'db'};
-	return $db_name;
+	if ( !defined $self->{'cache'}->{'user_db_name'}->{$user_name} ) {
+		my $db_name = $self->{'datastore'}->run_query(
+			'SELECT user_dbases.dbase_name FROM user_dbases JOIN users '
+			  . 'ON user_dbases.id=users.user_db WHERE users.user_name=?',
+			$user_name
+		);
+		$db_name //= $self->{'system'}->{'db'};
+		$self->{'cache'}->{'user_db_name'}->{$user_name} = $db_name;
+	}
+	return $self->{'cache'}->{'user_db_name'}->{$user_name};
 }
 
 sub get_tooltip {
