@@ -719,7 +719,7 @@ sub _add_new_project {
 	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM projects WHERE short_description=?)', $short_desc );
 	if ($desc_exists) {
 		$self->print_bad_status(
-			{ message => q(There is already a project defined with this name. ) . q(Please choose a different name.) }
+			{ message => q(There is already a project defined with this name. Please choose a different name.) }
 		);
 		return;
 	}
@@ -929,7 +929,7 @@ sub _project_info {
 			-name   => 'full_description',
 			-id     => 'full_description',
 			-cols   => 40,
-			default => $project->{'full_description'}
+			default => BIGSdb::Utils::unescape_html($project->{'full_description'})
 		);
 		say q(</li></ul>);
 		say q(</fieldset>);
