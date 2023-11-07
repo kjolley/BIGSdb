@@ -862,6 +862,7 @@ sub unescape_html {
 	$string =~ s/\&quot;/"/gx;
 	$string =~ s/\&lt;/</gx;
 	$string =~ s/\&gt;/>/gx;
+	$string =~ s/\&\#39;/'/gx;
 	$string =~ s/\&amp;/\&/gx;
 	return $string;
 }
