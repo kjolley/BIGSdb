@@ -3399,30 +3399,28 @@ sub initiate_view {
 			$self->{'system'}->{'view'} = $set_view if $set_view;
 		}
 	}
-	my $qry = "CREATE TEMPORARY VIEW temp_view AS SELECT * FROM $self->{'system'}->{'view'} v WHERE ";
+	my $qry = "CREATE TEMPORARY VIEW temp_view AS SELECT v.* FROM $self->{'system'}->{'view'} v LEFT JOIN "
+	  . 'private_isolates p ON v.id=p.isolate_id WHERE ';
 	my @args;
-	use constant OWN_SUBMITTED_ISOLATES => 'v.sender=?';
-	use constant OWN_PRIVATE_ISOLATES   => 'EXISTS(SELECT 1 FROM private_isolates WHERE (isolate_id,user_id)=(v.id,?))';
-	use constant PUBLIC_ISOLATES_FROM_SAME_USER_GROUP =>    #(where co_curate option set)
+	use constant OWN_SUBMITTED_ISOLATES               => 'v.sender=?';
+	use constant OWN_PRIVATE_ISOLATES                 => 'p.user_id=?';
+	use constant PUBLIC_ISOLATES_FROM_SAME_USER_GROUP =>                  #(where co_curate option set)
 	  '(EXISTS(SELECT 1 FROM user_group_members ugm JOIN user_groups ug ON ugm.user_group=ug.id '
 	  . 'WHERE ug.co_curate AND ugm.user_id=v.sender AND EXISTS(SELECT 1 FROM user_group_members '
-	  . 'WHERE (user_group,user_id)=(ug.id,?))) AND NOT EXISTS(SELECT 1 FROM private_isolates '
-	  . 'WHERE isolate_id=v.id))';
-	use constant PRIVATE_ISOLATES_FROM_SAME_USER_GROUP =>    #(where co_curate_private option set)
+	  . 'WHERE (user_group,user_id)=(ug.id,?))) AND p.user_id IS NULL)';
+	use constant PRIVATE_ISOLATES_FROM_SAME_USER_GROUP =>                 #(where co_curate_private option set)
 	  '(EXISTS(SELECT 1 FROM user_group_members ugm JOIN user_groups ug ON ugm.user_group=ug.id '
 	  . 'WHERE ug.co_curate_private AND ugm.user_id=v.sender AND EXISTS(SELECT 1 FROM user_group_members '
-	  . 'WHERE (user_group,user_id)=(ug.id,?))) AND EXISTS(SELECT 1 FROM private_isolates '
-	  . 'WHERE isolate_id=v.id))';
-	use constant PUBLIC_ISOLATES            => 'NOT EXISTS(SELECT 1 FROM private_isolates WHERE isolate_id=v.id)';
+	  . 'WHERE (user_group,user_id)=(ug.id,?))) AND p.user_id IS NOT NULL)';
+	use constant PUBLIC_ISOLATES            => 'p.user_id IS NULL';
 	use constant ISOLATES_FROM_USER_PROJECT =>
 	  'EXISTS(SELECT 1 FROM project_members pm JOIN merged_project_users mpu ON '
 	  . 'pm.project_id=mpu.project_id WHERE (mpu.user_id,pm.isolate_id)=(?,v.id))';
-	use constant PUBLICATION_REQUESTED =>
-	  'EXISTS(SELECT 1 FROM private_isolates pi WHERE pi.isolate_id=v.id AND request_publish)';
-	use constant ALL_ISOLATES => 'EXISTS(SELECT 1)';
+	use constant PUBLICATION_REQUESTED => 'p.request_publish';
+	use constant ALL_ISOLATES          => 'EXISTS(SELECT 1)';
 	my $user_info = $self->get_user_info_from_username($username);
 
-	if ( !$user_info ) {    #Not logged in
+	if ( !$user_info ) {                                                  #Not logged in
 		$qry .= PUBLIC_ISOLATES;
 	} else {
 		my @user_terms;
