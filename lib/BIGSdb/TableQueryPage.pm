@@ -459,6 +459,7 @@ sub _run_query {
 		$self->_modify_seqbin_for_view( $table, \$qry );
 		$self->_modify_loci_for_sets( $table, \$qry );
 		$self->_modify_schemes_for_sets( $table, \$qry );
+		$self->_modify_by_list( $table, \$qry );
 		$self->_filter_query_by_scheme( $table, \$qry );
 		$self->_filter_query_by_project( $table, \$qry );
 		$self->_filter_query_by_common_name( $table, \$qry );
@@ -1196,6 +1197,35 @@ sub _modify_schemes_for_sets {
 		$$qry_ref .= " ($table.$identifier IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id))";
 	}
 	return;
+}
+
+sub _modify_by_list {
+	my ( $self, $table, $qry_ref ) = @_;
+	my $q = $self->{'cgi'};
+	return if !$q->param('list');
+	my $field      = $q->param('attribute');
+	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
+	if ( !defined $attributes ) {
+		$logger->error("No attributes found for $table $field");
+		return;
+	}
+	my $type;
+	foreach my $att (@$attributes) {
+		next if $att->{'name'} ne $field;
+		$type = $att->{'type'};
+	}
+	if ( !defined $type ) {
+		$logger->error("No type defined for $table $field");
+		return;
+	}
+	my @list = split /\n/x, $q->param('list');
+	@list = uniq @list;
+	BIGSdb::Utils::remove_trailing_spaces_from_list( \@list );
+	my $cleaned_list = $self->clean_list( $type, \@list );
+	if ( !@$cleaned_list ) {
+		$$qry_ref .= ' AND FALSE';
+	}
+	$logger->error($$qry_ref);
 }
 
 sub print_additional_headerbar_functions {
