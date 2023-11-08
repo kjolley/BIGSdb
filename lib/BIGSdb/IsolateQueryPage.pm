@@ -1215,8 +1215,10 @@ sub _get_private_data_filter {
 	my $private =
 		$self->{'curate'}
 	  ? $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM private_isolates)')
-	  : $self->{'datastore'}
-	  ->run_query( 'SELECT EXISTS(SELECT * FROM private_isolates WHERE user_id=?)', $user_info->{'id'} );
+	  : $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM private_isolates WHERE user_id=?) OR '
+	  .'EXISTS(SELECT * FROM private_isolates i JOIN project_members m ON i.isolate_id=m.isolate_id JOIN '
+	  .'merged_project_users mp ON m.project_id=mp.project_id JOIN isolates v ON i.isolate_id=v.id WHERE '
+	  .'mp.user_id=?)', [$user_info->{'id'}, $user_info->{'id'}]);
 	my $q = $self->{'cgi'};
 	return if !$private && !$q->param('private_records_list');
 	my $labels = {
