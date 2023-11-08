@@ -1778,8 +1778,9 @@ sub get_project_filter {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $args = [];
-	my $qry  = 'SELECT id,short_description FROM projects WHERE id IN (SELECT project_id FROM project_members WHERE '
-	  . "isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})) AND (NOT private";
+	my $qry  = 'SELECT id,short_description FROM projects p WHERE '
+	  . "EXISTS(SELECT 1 FROM project_members pm JOIN $self->{'system'}->{'view'} v ON "
+	  . 'pm.isolate_id=v.id JOIN projects ON p.id=pm.project_id) AND (NOT private';
 	if ( $self->{'username'} ) {
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 		$qry .= ' OR id IN (SELECT project_id FROM merged_project_users WHERE user_id=?)';
