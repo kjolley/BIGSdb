@@ -1222,15 +1222,16 @@ sub _get_private_data_filter {
 	my $q = $self->{'cgi'};
 	return if !$private && !$q->param('private_records_list');
 	my $labels = {
-		1 => 'my private records only',
-		2 => 'private records (in quota)',
-		3 => 'private records (excluded from quota)',
-		4 => 'private records (requesting publication)',
-		5 => 'public records only'
+		1 => 'any private records',
+		2 => 'my private records',
+		3 => 'my private records (in quota)',
+		4 => 'my private records (excluded from quota)',
+		5 => 'private records (requesting publication)',
+		6 => 'public records only'
 	};
 	return $self->get_filter(
 		'private_records',
-		[ 1 .. 5 ],
+		[ 1 .. 6 ],
 		{
 			labels  => $labels,
 			text    => 'Private records',
@@ -2555,15 +2556,17 @@ sub _modify_query_by_private_status {
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	return if !$user_info;
 	my $clause;
-	my $my_private   = "$view.id IN (SELECT isolate_id FROM private_isolates WHERE user_id=$user_info->{'id'})";
+	my $any_private = "EXISTS(SELECT 1 FROM private_isolates p WHERE p.isolate_id=$view.id)";
+	my $my_private   = "EXISTS(SELECT 1 FROM private_isolates p WHERE p.isolate_id=$view.id AND p.user_id=$user_info->{'id'})";
 	my $not_in_quota = 'EXISTS(SELECT 1 FROM projects p JOIN project_members pm ON '
 	  . "p.id=pm.project_id WHERE no_quota AND pm.isolate_id=$view.id)";
 	my $term = {
-		1 => sub { $clause = "($my_private)" },
-		2 => sub { $clause = "($my_private AND NOT $not_in_quota)" },
-		3 => sub { $clause = "($my_private AND $not_in_quota)" },
-		4 => sub { $clause = "(EXISTS(SELECT 1 FROM private_isolates WHERE request_publish AND isolate_id=$view.id))" },
-		5 => sub { $clause = "(NOT EXISTS(SELECT 1 FROM private_isolates WHERE isolate_id=$view.id))" }
+		1 => sub { $clause = "($any_private)" },
+		2 => sub { $clause = "($my_private)" },
+		3 => sub { $clause = "($my_private AND NOT $not_in_quota)" },
+		4 => sub { $clause = "($my_private AND $not_in_quota)" },
+		5 => sub { $clause = "(EXISTS(SELECT 1 FROM private_isolates WHERE request_publish AND isolate_id=$view.id))" },
+		6 => sub { $clause = "(NOT EXISTS(SELECT 1 FROM private_isolates WHERE isolate_id=$view.id))" }
 	};
 
 	if ( $term->{ $q->param('private_records_list') } ) {
