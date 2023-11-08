@@ -449,6 +449,7 @@ sub _run_query {
 	my $attributes = $self->{'datastore'}->get_table_field_attributes($table);
 	my $set_id     = $self->get_set_id;
 	$self->_sanitize_order_field($table);
+	my ( $list_file, $data_type );
 
 	if ( !defined $q->param('query_file') ) {
 		( $qry, $errors ) = $self->_generate_query($table);
@@ -459,7 +460,7 @@ sub _run_query {
 		$self->_modify_seqbin_for_view( $table, \$qry );
 		$self->_modify_loci_for_sets( $table, \$qry );
 		$self->_modify_schemes_for_sets( $table, \$qry );
-		$self->_modify_by_list( $table, \$qry );
+		( $list_file, $data_type ) = $self->_modify_by_list( $table, \$qry );
 		$self->_filter_query_by_scheme( $table, \$qry );
 		$self->_filter_query_by_project( $table, \$qry );
 		$self->_filter_query_by_common_name( $table, \$qry );
@@ -506,14 +507,19 @@ sub _run_query {
 		$qry2 .= ';';
 	} else {
 		$qry2 = $self->get_query_from_temp_file( scalar $q->param('query_file') );
+		if ( $q->param('list_file') && $q->param('list_type') ) {
+			$self->{'datastore'}->create_temp_list_table( $q->param('list_type'), scalar $q->param('list_file') );
+		}
 	}
+	$q->param( list_file => $list_file ) if $list_file;
+	$q->param( datatype  => $data_type ) if $data_type;
 	my @hidden_attributes;
 	push @hidden_attributes, 'c0';
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		push @hidden_attributes, "s$i", "t$i", "y$i";
 	}
 	push @hidden_attributes, $_->{'name'} . '_list' foreach (@$attributes);
-	push @hidden_attributes, qw (sequence_flag_list duplicates_list common_name_list scheme_id_list);
+	push @hidden_attributes, qw (sequence_flag_list duplicates_list common_name_list scheme_id_list list_file datatype);
 	if (@$errors) {
 		local $" = q(<br />);
 		$self->print_bad_status( { message => q(Problem with search criteria:), detail => qq(@$errors) } );
@@ -1222,10 +1228,24 @@ sub _modify_by_list {
 	@list = uniq @list;
 	BIGSdb::Utils::remove_trailing_spaces_from_list( \@list );
 	my $cleaned_list = $self->clean_list( $type, \@list );
-	if ( !@$cleaned_list ) {
+	if ( !@$cleaned_list ) {    #List exists but there is nothing valid in there. Return no results.
 		$$qry_ref .= ' AND FALSE';
+		return;
 	}
-	$logger->error($$qry_ref);
+	my $temp_table =
+	  $self->{'datastore'}->create_temp_list_table_from_array( $type, $cleaned_list, { table => 'temp_list' } );
+	my $list_file = BIGSdb::Utils::get_random() . '.list';
+	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$list_file";
+	open( my $fh, '>:encoding(utf8)', $full_path ) || $logger->error("Cannot open $full_path for writing");
+	say $fh $_ foreach @$cleaned_list;
+	close $fh;
+	if ( $$qry_ref ) {
+		$$qry_ref .= ' AND ';
+	}
+	$$qry_ref .= $type eq 'text'
+	  ? "(UPPER($field) IN (SELECT value FROM $temp_table))"
+	  : "($field IN (SELECT value FROM $temp_table))";
+	return $list_file, $type;
 }
 
 sub print_additional_headerbar_functions {
