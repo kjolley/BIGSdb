@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2022, University of Oxford
+#Copyright (c) 2017-2023, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -707,7 +707,7 @@ sub _create_blast_database {
 	}
 	my $list_table = $self->{'datastore'}->create_temp_list_table_from_array( 'text', $loci );
 	my $qry        = q(SELECT locus,allele_id,sequence from sequences WHERE locus IN )
-	  . qq((SELECT value FROM $list_table) AND allele_id NOT IN ('N','0'));
+	  . qq((SELECT value FROM $list_table) AND allele_id NOT IN ('N','0','P'));
 	if ($exemplar) {
 		my $exemplars_defined = $self->{'datastore'}
 		  ->run_query("SELECT EXISTS(SELECT * FROM sequences s JOIN $list_table l ON s.locus=l.value WHERE exemplar)");
