@@ -1222,7 +1222,7 @@ sub _get_private_data_filter {
 	my $q = $self->{'cgi'};
 	return if !$private && !$q->param('private_records_list');
 	my $labels = {
-		1 => 'any private records',
+		1 => 'any private records (owned or shared)',
 		2 => 'my private records',
 		3 => 'my private records (in quota)',
 		4 => 'my private records (excluded from quota)',
