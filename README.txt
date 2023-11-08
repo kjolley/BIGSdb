@@ -1,3 +1,6 @@
+v1.42.6: *Add list query to all table queries.
+         *N50 gridlines added to seqbin cumulative length display.
+         *Query and initialization optimizations to improve performance.
 v1.42.5: *New ReporTree plugin.
 v1.42.4: *Improve web-based sequence-scanning:
           - Show position of first stop codon for complete CDS loci
