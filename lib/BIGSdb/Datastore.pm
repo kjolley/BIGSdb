@@ -3440,7 +3440,7 @@ sub initiate_view {
 					);
 				},
 				private_submitter => sub {
-					@user_terms = ( OWN_PRIVATE_ISOLATES, );
+					@user_terms = ( OWN_PRIVATE_ISOLATES, PRIVATE_ISOLATES_FROM_SAME_USER_GROUP );
 				},
 				curator => sub {
 					@user_terms = ( PUBLIC_ISOLATES, OWN_PRIVATE_ISOLATES, PUBLICATION_REQUESTED );
