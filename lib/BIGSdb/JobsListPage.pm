@@ -97,8 +97,8 @@ sub print_content {
 			}
 			if ( $field eq 'module' ) {
 				foreach my $param (qw(title description)) {
-					$params->{$param} //= q();
-					say qq(<td>$params->{$param}</td>);
+					my $value = BIGSdb::Utils::escape_html( $params->{$param} // q() );
+					say qq(<td>$value</td>);
 				}
 			}
 		}

@@ -236,14 +236,16 @@ sub _print_status {
 		$job->{'status'} =~ s/(BIGSdb_\d+_\d+_\d+)/
 		<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$1">$1<\/a>/x;
 	}
+	my $title       = BIGSdb::Utils::escape_html( $params->{'title'}       // q() );
+	my $description = BIGSdb::Utils::escape_html( $params->{'description'} // q() );
 	say q(<div class="box" id="resultspanel"><div class="scrollable">);
 	say q(<div style="float:left;margin-right:2em">);
 	say q(<span class="main_icon fas fa-flag fa-3x fa-pull-left"></span>);
 	say q(<h2>Status</h2>);
 	say q(<dl class="data">);
 	say qq(<dt>Job id</dt><dd>$job->{'id'}</dd>);
-	say qq(<dt>Title</dt><dd>$params->{'title'}</dd>)             if $params->{'title'};
-	say qq(<dt>Description</dt><dd>$params->{'description'}</dd>) if $params->{'description'};
+	say qq(<dt>Title</dt><dd>$title</dd>)             if $title;
+	say qq(<dt>Description</dt><dd>$description</dd>) if $description;
 	say qq(<dt>Submit time</dt><dd>$submit_time</dd>);
 	say qq(<dt>Status</dt><dd id="status">$job->{'status'}</dd>);
 	say qq(<dt>Start time</dt><dd>$start_time</dd>) if $start_time;
