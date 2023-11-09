@@ -53,7 +53,7 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.5.4',
+		version             => '1.5.5',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -406,7 +406,7 @@ sub _generate_mstree {
 
 sub generate_metadata_file {
 	my ( $self, $args ) = @_;
-	my ( $job_id, $tsv_file, $params ) = @{$args}{qw(job_id tsv_file params)};
+	my ( $job_id, $tsv_file, $params, $options ) = @{$args}{qw(job_id tsv_file params options)};
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Generating metadata file' } );
 	my $isolate_ids = $self->{'jobManager'}->get_job_isolates($job_id);
 	my $temp_table  = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $isolate_ids );
@@ -450,7 +450,14 @@ sub generate_metadata_file {
 			push @header_fields, $cs->{'name'};
 		}
 	}
+	if ( $options->{'remove_non_alphanumerics'} ) {
+		s/[^a-zA-Z0-9]/_/gx && s/__/_/gx && s/_$//x foreach @header_fields;
+	}
 	local $" = qq(\t);
+	my %headers = map { $_ => 1 } @header_fields;
+	if ( $options->{'add_date_field'} ) {
+		push @header_fields, 'date' if !$headers{'date'};
+	}
 	say $fh "@header_fields";
 	foreach my $record (@$data) {
 		my @record_values;
@@ -510,6 +517,9 @@ sub generate_metadata_file {
 				my $value = $self->get_cscheme_value( $record->{'id'}, $cs->{'id'} );
 				push @record_values, $value;
 			}
+		}
+		if ( $options->{'add_date_field'} ) {
+			push @record_values, $self->get_field_value( $record, $options->{'add_date_field'} );
 		}
 		say $fh "@record_values";
 	}
