@@ -271,7 +271,7 @@ push @EXPORT_OK, qw(DATABANKS);
 
 #Permissions
 use constant SUBMITTER_ALLOWED_PERMISSIONS => qw(modify_isolates modify_sequences tag_sequences designate_alleles
-  only_private disable_access);
+  only_private disable_access delete_all);
 push @EXPORT_OK, qw(SUBMITTER_ALLOWED_PERMISSIONS);
 
 #Submissions
