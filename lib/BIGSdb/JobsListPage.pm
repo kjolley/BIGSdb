@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2022, University of Oxford
+#Copyright (c) 2014-2023, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -45,9 +45,9 @@ JS
 }
 
 sub print_content {
-	my ($self) = @_;
-	my $desc = $self->get_db_description;
-	my $days = $self->{'config'}->{'results_deleted_days'} // 7;
+	my ($self)      = @_;
+	my $desc        = $self->get_db_description;
+	my $days        = $self->{'config'}->{'results_deleted_days'} // 7;
 	my $days_plural = $days == 1 ? '' : 's';
 	say qq(<h1>Jobs - $desc database</h1>);
 	my $jobs = $self->{'jobManager'}->get_user_jobs( $self->{'instance'}, $self->{'username'}, $days );
@@ -61,11 +61,12 @@ sub print_content {
 	say qq(<h2>User: $user->{'first_name'} $user->{'surname'}</h2>);
 	say q(<p>Click on the job id to see results. You can also cancel queued and running jobs.</p>);
 	say q(<table class="tablesorter" id="sortTable"><thead><tr><th class="sorter-false">Job</th>)
-	  . q(<th>Analysis</th><th class="sorter-false">Size</th><th>Submitted</th><th>Started</th>)
+	  . q(<th>Analysis</th><th class="sorter-false">Title</th><th class="sorter-false">Description</th>)
+	  . q(<th class="sorter-false">Size</th><th>Submitted</th><th>Started</th>)
 	  . q(<th>Finished</th><th>Duration (seconds)</th><th class="sorter-false">Duration (description)</th>)
 	  . q(<th>Status</th><th>Progress (%)</th><th>Stage</th></tr></thead><tbody>);
 	foreach my $job (@$jobs) {
-
+		my $params = $self->{'jobManager'}->get_job_params( $job->{'id'} );
 		if ( $job->{'total_time'} ) {
 			$job->{'duration_s'} = int( $job->{'total_time'} );
 		} elsif ( $job->{'elapsed'} ) {
@@ -93,6 +94,12 @@ sub print_content {
 				  . qq(id=$job->{'id'}">$job->{'id'}</a></td>);
 			} else {
 				say qq(<td>$job->{$field}</td>);
+			}
+			if ( $field eq 'module' ) {
+				foreach my $param (qw(title description)) {
+					$params->{$param} //= q();
+					say qq(<td>$params->{$param}</td>);
+				}
 			}
 		}
 		say q(</tr>);
