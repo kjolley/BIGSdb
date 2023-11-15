@@ -108,6 +108,7 @@ sub run {
 				  if !defined $new_args->{'file_header_pos'}->{'allele_id'};
 				$self->_check_data_sequences($new_args);
 				$pk_combination = $new_args->{'pk_combination'} // $pk_combination;
+
 				#Display field - highlight in red if invalid.
 				$rowbuffer .= $self->format_display_value(
 					{
@@ -276,8 +277,8 @@ sub _check_data_sequences {
 	my $buffer = $self->_check_sequence_allele_id( $locus, $args );
 	$buffer .= $self->_check_sequence_length( $locus, $args );
 	$buffer .= $self->_check_sequence_already_exists( $locus, $args ) if !$buffer;
-	$buffer .= $self->_check_sequence_CDS( $locus, $args )            ;
-	$buffer .= $self->_check_sequence_field( $locus, $args )          if !$buffer;
+	$buffer .= $self->_check_sequence_CDS( $locus, $args );
+	$buffer .= $self->_check_sequence_field( $locus, $args ) if !$buffer;
 	$buffer .= $self->_check_sequence_extended_attributes( $locus, $args );
 	$buffer .= $self->_check_sequence_flags( $locus, $args );
 	$buffer .= $self->_check_super_sequence( $locus, $args );
@@ -386,6 +387,10 @@ sub _check_sequence_length {
 		&& $locus_info->{'length'} != $length
 		&& !$self->{'options'}->{'ignore_length'} )
 	{
+		if ( $self->{'options'}->{'reject_invalid_length'} ) {
+			${ $args->{'continue'} } = 0;
+			return q();
+		}
 		my $problem_text =
 			"Sequence is $length $units long but this locus is set as a standard length of "
 		  . "$locus_info->{'length'} $units.<br />";
@@ -398,16 +403,18 @@ sub _check_sequence_length {
 		&& $length < $locus_info->{'min_length'}
 		&& !$self->{'options'}->{'ignore_length'} )
 	{
-		my $problem_text = "Sequence is $length $units long but this locus is set with a minimum length of "
+		$buffer .= "Sequence is $length $units long but this locus is set with a minimum length of "
 		  . "$locus_info->{'min_length'} $units.<br />";
-		$buffer .= $problem_text;
 	} elsif ( $locus_info->{'max_length'}
 		&& $length > $locus_info->{'max_length'}
 		&& !$self->{'options'}->{'ignore_length'} )
 	{
-		my $problem_text = "Sequence is $length $units long but this locus is set with a maximum length of "
+		$buffer .= "Sequence is $length $units long but this locus is set with a maximum length of "
 		  . "$locus_info->{'max_length'} $units.<br />";
-		$buffer .= $problem_text;
+	}
+	if ( $buffer && $self->{'options'}->{'reject_invalid_length'} ) {
+		${ $args->{'continue'} } = 0;
+		return q();
 	}
 	return $buffer;
 }
@@ -491,6 +498,10 @@ sub _check_sequence_field {
 	{
 		my $check = $self->check_sequence_similarity( $locus, $args->{'value'} );
 		if ( !$check->{'similar'} ) {
+			if ( $self->{'options'}->{'reject_dissimilar'} ) {
+				${ $args->{'continue'} } = 0;
+				return;
+			}
 			my $id_threshold =
 			  BIGSdb::Utils::is_float( $locus_info->{'id_check_threshold'} )
 			  ? $locus_info->{'id_check_threshold'}
@@ -680,7 +691,7 @@ sub _report_check {
 		$buffer .= q(<p>No obvious problems identified so far.</p>);
 		$buffer .= $q->start_form;
 		$buffer .= $q->hidden($_) foreach qw (page table db sender locus ignore_existing ignore_non_DNA
-		  complete_CDS ignore_similarity ignore_length);
+		  complete_CDS ignore_similarity ignore_length reject_dissimilar reject_invalid_length);
 		$buffer .= $q->hidden( checked_file => $results_file );
 		$buffer .= $self->print_action_fieldset(
 			{ submit_label => 'Import data', no_reset => 1, get_only => 1, page => 'batchAddSequences' } );
