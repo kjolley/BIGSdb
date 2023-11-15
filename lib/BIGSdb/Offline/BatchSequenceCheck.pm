@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2019-2022, University of Oxford
+#Copyright (c) 2019-2023, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -48,7 +48,7 @@ sub run {
 	my $table_buffer =
 	  qq(<div class="scrollable"><table class="tablesorter"><thead><tr>$table_header</tr></thead><tbody>);
 	my @records = split /\n/x, $self->{'options'}->{'data'};
-	my $td = 1;
+	my $td      = 1;
 	my ( $file_header_fields, $file_header_pos ) = $self->get_file_header_data( \@records );
 	my $primary_keys = [qw(locus allele_id)];
 	my $record_count;
@@ -108,7 +108,6 @@ sub run {
 				  if !defined $new_args->{'file_header_pos'}->{'allele_id'};
 				$self->_check_data_sequences($new_args);
 				$pk_combination = $new_args->{'pk_combination'} // $pk_combination;
-
 				#Display field - highlight in red if invalid.
 				$rowbuffer .= $self->format_display_value(
 					{
@@ -276,10 +275,13 @@ sub _check_data_sequences {
 	}
 	my $buffer = $self->_check_sequence_allele_id( $locus, $args );
 	$buffer .= $self->_check_sequence_length( $locus, $args );
-	$buffer .= $self->_check_sequence_field( $locus, $args );
+	$buffer .= $self->_check_sequence_already_exists( $locus, $args ) if !$buffer;
+	$buffer .= $self->_check_sequence_CDS( $locus, $args )            ;
+	$buffer .= $self->_check_sequence_field( $locus, $args )          if !$buffer;
 	$buffer .= $self->_check_sequence_extended_attributes( $locus, $args );
 	$buffer .= $self->_check_sequence_flags( $locus, $args );
 	$buffer .= $self->_check_super_sequence( $locus, $args );
+
 	if ($buffer) {
 		$args->{'problems'}->{$pk_combination} .= $buffer;
 		${ $args->{'special_problem'} } = 1;
@@ -373,7 +375,8 @@ sub _check_sequence_length {
 	${ $args->{'value'} } //= '';
 	${ $args->{'value'} } =~ s/ //g;
 	my $length = length( ${ $args->{'value'} } );
-	my $units = ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' ) ? 'bp' : 'residues';
+	my $units  = ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' ) ? 'bp' : 'residues';
+
 	if ( $length == 0 ) {
 		${ $args->{'continue'} } = 0;
 		return $buffer;
@@ -384,7 +387,7 @@ sub _check_sequence_length {
 		&& !$self->{'options'}->{'ignore_length'} )
 	{
 		my $problem_text =
-		    "Sequence is $length $units long but this locus is set as a standard length of "
+			"Sequence is $length $units long but this locus is set as a standard length of "
 		  . "$locus_info->{'length'} $units.<br />";
 		$buffer .= $problem_text
 		  if !$buffer || $buffer !~ /$problem_text/x;
@@ -405,44 +408,59 @@ sub _check_sequence_length {
 		my $problem_text = "Sequence is $length $units long but this locus is set with a maximum length of "
 		  . "$locus_info->{'max_length'} $units.<br />";
 		$buffer .= $problem_text;
-	} elsif ( defined $locus ) {
-		${ $args->{'value'} } = uc( ${ $args->{'value'} } );
-		if ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' ) {
-			${ $args->{'value'} } =~ s/[\W]//gx;
+	}
+	return $buffer;
+}
+
+sub _check_sequence_already_exists {
+	my ( $self,  $locus,           $args ) = @_;
+	my ( $field, $file_header_pos, $data ) = @{$args}{qw(field file_header_pos data)};
+	return q() if !( defined $locus && $field eq 'sequence' );
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	my $buffer     = q();
+	${ $args->{'value'} } = uc( ${ $args->{'value'} } );
+	if ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' ) {
+		${ $args->{'value'} } =~ s/[\W]//gx;
+	} else {
+		${ $args->{'value'} } =~ s/[^GPAVLIMCFYWHKRQNEDST\*]//gx;
+	}
+	my $md5_seq = md5( ${ $args->{'value'} } );
+	$self->{'unique_values'}->{$locus}->{$md5_seq}++;
+	if ( $self->{'unique_values'}->{$locus}->{$md5_seq} > 1 ) {
+		if ( $self->{'options'}->{'ignore_existing'} ) {
+			${ $args->{'continue'} } = 0;
 		} else {
-			${ $args->{'value'} } =~ s/[^GPAVLIMCFYWHKRQNEDST\*]//gx;
+			$buffer .= 'Sequence appears more than once in this submission.<br />';
 		}
-		my $md5_seq = md5( ${ $args->{'value'} } );
-		$self->{'unique_values'}->{$locus}->{$md5_seq}++;
-		if ( $self->{'unique_values'}->{$locus}->{$md5_seq} > 1 ) {
-			if ( $self->{'options'}->{'ignore_existing'} ) {
-				${ $args->{'continue'} } = 0;
-			} else {
-				$buffer .= 'Sequence appears more than once in this submission.<br />';
-			}
-		}
-		my $existing_allele = $self->{'datastore'}->run_query(
-			'SELECT allele_id FROM sequences WHERE (locus,md5(sequence))=(?,md5(?))',
-			[ $locus, ${ $args->{'value'} } ],
-			{ cache => 'CurateBatchAddPage::sequence_exists' }
-		);
-		if ( defined $existing_allele ) {
-			if ( $self->{'options'}->{'complete_CDS'} || $self->{'options'}->{'ignore_existing'} ) {
-				${ $args->{'continue'} } = 0;
-			} else {
-				$buffer .= "Sequence already exists in the database ($locus: $existing_allele).<br />";
-			}
-		}
-		if ( $self->{'options'}->{'complete_CDS'} ) {
-			my $start_codons = $self->{'datastore'}->get_start_codons( { locus => $locus } );
-			my $stop_codons =
-			  $self->{'datastore'}->get_stop_codons( { codon_table => $self->{'options'}->{'codon_table'} } );
-			my $cds_check = BIGSdb::Utils::is_complete_cds( $args->{'value'},
-				{ start_codons => $start_codons, stop_codons => $stop_codons } );
-			${ $args->{'continue'} } = 0 if !$cds_check->{'cds'};
+	}
+	my $existing_allele = $self->{'datastore'}->run_query(
+		'SELECT allele_id FROM sequences WHERE (locus,md5(sequence))=(?,md5(?))',
+		[ $locus, ${ $args->{'value'} } ],
+		{ cache => 'CurateBatchAddPage::sequence_exists' }
+	);
+	if ( defined $existing_allele ) {
+		if ( $self->{'options'}->{'complete_CDS'} || $self->{'options'}->{'ignore_existing'} ) {
+			${ $args->{'continue'} } = 0;
+		} else {
+			$buffer .= "Sequence already exists in the database ($locus: $existing_allele).<br />";
 		}
 	}
 	return $buffer;
+}
+
+sub _check_sequence_CDS {
+	my ( $self,  $locus,           $args ) = @_;
+	my ( $field, $file_header_pos, $data ) = @{$args}{qw(field file_header_pos data)};
+	return q() if !( defined $locus && $field eq 'sequence' );
+	if ( $self->{'options'}->{'complete_CDS'} ) {
+		my $start_codons = $self->{'datastore'}->get_start_codons( { locus => $locus } );
+		my $stop_codons =
+		  $self->{'datastore'}->get_stop_codons( { codon_table => $self->{'options'}->{'codon_table'} } );
+		my $cds_check = BIGSdb::Utils::is_complete_cds( $args->{'value'},
+			{ start_codons => $start_codons, stop_codons => $stop_codons } );
+		${ $args->{'continue'} } = 0 if !$cds_check->{'cds'};
+	}
+	return;
 }
 
 sub _check_sequence_field {
@@ -479,19 +497,19 @@ sub _check_sequence_field {
 			  : IDENTITY_THRESHOLD;
 			my $type = $locus_info->{'id_check_type_alleles'} ? q( type) : q();
 			$buffer .=
-			    qq[Sequence is too dissimilar to existing$type alleles (less than $id_threshold% identical or an ]
+				qq[Sequence is too dissimilar to existing$type alleles (less than $id_threshold% identical or an ]
 			  . q[alignment of less than 90% its length).  Similarity is determined by the output of the best ]
 			  . q[match from the BLAST algorithm - this may be conservative.  This check will also fail if the ]
 			  . q[best match is in the reverse orientation. If you're sure you want to add this sequence then make ]
 			  . q[sure that the 'Override sequence similarity check' box is ticked.<br />];
 		} elsif ( $check->{'subsequence_of'} ) {
 			$buffer .=
-			    qq[Sequence is a sub-sequence of allele-$check->{'subsequence_of'}, i.e. it is identical over its ]
+				qq[Sequence is a sub-sequence of allele-$check->{'subsequence_of'}, i.e. it is identical over its ]
 			  . q[complete length but is shorter. If you're sure you want to add this sequence then make ]
 			  . q[sure that the 'Override sequence similarity check' box is ticked.<br />];
 		} elsif ( $check->{'supersequence_of'} ) {
 			$buffer .=
-			    qq[Sequence is a super-sequence of allele $check->{'supersequence_of'}, i.e. it is identical over the ]
+				qq[Sequence is a super-sequence of allele $check->{'supersequence_of'}, i.e. it is identical over the ]
 			  . q[complete length of this allele but is longer. If you're sure you want to add this sequence then ]
 			  . q[make sure that the 'Override sequence similarity check' box is ticked.<br />];
 		}
@@ -626,7 +644,7 @@ sub _report_check {
 	my ( $table_buffer, $checked, $problems, $record_count ) =
 	  @{$results}{qw (table_buffer checked problems record_count)};
 	my $sender_message = $self->get_sender_message( { has_sender_field => 1 } );
-	my $buffer = q();
+	my $buffer         = q();
 	if ( !$record_count ) {
 		return $self->print_bad_status(
 			{
