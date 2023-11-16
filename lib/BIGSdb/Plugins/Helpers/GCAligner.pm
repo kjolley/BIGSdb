@@ -281,7 +281,7 @@ sub _run_infoalign {
 		my $outfile = "$self->{'config'}->{'secure_tmp_dir'}/$prefix.infoalign";
 		system( "$self->{'config'}->{'emboss_path'}/infoalign -sequence $alignment -outfile $outfile -nousa "
 			  . '-nosimcount -noweight -nodescription 2> /dev/null' );
-		open( my $fh_stats, '>>', $align_stats_file )
+		open( my $fh_stats, '>>:encoding(utf8)', $align_stats_file )
 		  or $self->{'logger'}->error("Cannot open output file $align_stats_file for appending");
 		my $heading_locus = $self->{'clean_loci'}->{$locus}->{'common'};
 		print $fh_stats "$heading_locus\n";
