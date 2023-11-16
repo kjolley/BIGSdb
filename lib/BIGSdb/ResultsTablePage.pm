@@ -1904,7 +1904,8 @@ sub _print_record_field {
 	}
 	if ( $user_field{$field} ) {
 		my $user_info = $self->{'datastore'}->get_user_info( $data->{ lc($field) } );
-		print qq(<td>$user_info->{'first_name'} $user_info->{'surname'}</td>);
+		print qq(<td>$user_info->{'id'} <span class="minor">[$user_info->{'first_name'} )
+		  . qq($user_info->{'surname'}]</span></td>);
 		return;
 	}
 	if ( $table_info->{'foreign_key'}->{$field} && $table_info->{'labels'}->{$field} ) {
@@ -2282,11 +2283,10 @@ sub add_to_project {
 	my $project_id = $q->param('project');
 	return if !$project_id || !BIGSdb::Utils::is_int($project_id);
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	my $can_add   = $self->{'datastore'}->run_query(
-		'SELECT EXISTS(SELECT * FROM merged_project_users WHERE (project_id,user_id)=(?,?) AND (admin OR modify))'
-		,
-		[ $project_id, $user_info->{'id'} ]
-	);
+	my $can_add =
+	  $self->{'datastore'}->run_query(
+		'SELECT EXISTS(SELECT * FROM merged_project_users WHERE (project_id,user_id)=(?,?) AND (admin OR modify))',
+		[ $project_id, $user_info->{'id'} ] );
 	if ( !$can_add ) {
 		$logger->error( "User $self->{'username'} attempted to add isolates to project "
 			  . "$project_id for which they do not have sufficient privileges." );
