@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 
-Version 2.5.5.
+Version 2.6.0.
 */
 
 var prefs_loaded;
@@ -27,6 +27,7 @@ var selected_field;
 var selected_type;
 var marker_colour;
 var marker_size;
+var geography_map;
 
 $(function() {
 	$.ajax({
@@ -911,10 +912,24 @@ function load_geography(url, field) {
 				vectorLayer = get_marker_layer(jsonData);
 				map.addLayer(vectorLayer);
 			});
+
 		});
 		$("#marker_size").slider({ min: 0, max: 10, value: marker_size });
-
+		map.on('rendercomplete', function(e) {
+			var exportOptions = {
+				filter: function(element) {
+					return element.className ? element.className.indexOf('ol-control') === -1 : true;
+				}
+			};
+			htmlToImage.toPng(document.querySelector("canvas"), exportOptions)
+				.then(function(dataURL) {
+					$("#export_map_image").off("click").click(function() {
+						download(dataURL,selected_field + '_map.png');
+					});
+				});
+		});
 	});
+
 }
 
 function get_marker_layer(jsonData) {
@@ -980,6 +995,7 @@ function show_export_options() {
 	$("a#export_fasta").attr("href", url + "&export=" + field + "&format=fasta");
 	$("a#export_fasta").css("display", fasta ? "inline" : "none");
 	$("a#export_image").css("display", selected_type == 'geography_point' || geography_point_lookup_fields.includes(selected_field) ? "none" : "inline");
+	$("a#export_map_image").css("display", selected_type == 'geography_point' || geography_point_lookup_fields.includes(selected_field) ? "inline" : "none");
 	$("#export").css("display", "block");
 }
 

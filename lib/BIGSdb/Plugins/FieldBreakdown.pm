@@ -368,7 +368,7 @@ sub run {
 sub _print_export_buttons {
 	my ($self) = @_;
 	say $self->get_export_buttons(
-		{ table => 1, excel => 1, text => 1, fasta => 1, image => 1, hide_div => 1, hide => ['fasta'] } );
+		{ table => 1, excel => 1, text => 1, fasta => 1, image => 1,map_image=>1, hide_div => 1, hide => ['fasta','map_image'] } );
 	return;
 }
 
