@@ -27,7 +27,6 @@ var selected_field;
 var selected_type;
 var marker_colour;
 var marker_size;
-var geography_map;
 
 $(function() {
 	$.ajax({
@@ -916,17 +915,10 @@ function load_geography(url, field) {
 		});
 		$("#marker_size").slider({ min: 0, max: 10, value: marker_size });
 		map.on('rendercomplete', function(e) {
-			var exportOptions = {
-				filter: function(element) {
-					return element.className ? element.className.indexOf('ol-control') === -1 : true;
-				}
-			};
-			htmlToImage.toPng(document.querySelector("canvas"), exportOptions)
-				.then(function(dataURL) {
-					$("#export_map_image").off("click").click(function() {
-						download(dataURL,selected_field + '_map.png');
-					});
-				});
+			let canvas = document.querySelector("canvas");
+			let link = document.getElementById('export_map_image');
+			link.setAttribute('download', selected_field + '_map.png');
+			link.setAttribute('href', canvas.toDataURL("image/png"));
 		});
 	});
 

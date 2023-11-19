@@ -48,7 +48,7 @@ sub get_attributes {
 		buttontext => 'Fields',
 		menutext   => 'Field breakdown',
 		module     => 'FieldBreakdown',
-		version    => '2.5.5',
+		version    => '2.6.0',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
