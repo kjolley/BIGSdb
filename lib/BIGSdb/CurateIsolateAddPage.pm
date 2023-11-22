@@ -74,7 +74,7 @@ sub print_content {
 	if ( $self->{'permissions'}->{'only_private'} ) {
 		$self->print_bad_status(
 			{
-				    message => q(Your user account is not allowed to add records )
+					message => q(Your user account is not allowed to add records )
 				  . q(to the isolates table using this interface. You can only upload private data using )
 				  . q(the batch upload page.)
 			}
@@ -190,7 +190,7 @@ sub check_codon_table {
 	my $bad_buffer = [];
 	return $bad_buffer
 	  if ( $self->{'system'}->{'alternative_codon_tables'} // q() ) ne 'yes' || !$q->param('codon_table');
-	my $tables = Bio::Tools::CodonTable->tables;
+	my $tables  = Bio::Tools::CodonTable->tables;
 	my %allowed = map { $_ => 1 } keys %$tables;
 	if ( !$allowed{ $q->param('codon_table') } ) {
 		push @$bad_buffer, q(Invalid codon table);
@@ -206,7 +206,7 @@ sub check_provenance_fields {
 	my $user_info        = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	my $bad_field_buffer = [];
 	foreach my $field (@$field_list) {
-		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+		my $thisfield      = $self->{'xmlHandler'}->get_field_attributes($field);
 		my $value_expected = ( $thisfield->{'required'} // q() ) eq 'expected';
 		if ( $field eq 'curator' ) {
 			$newdata->{$field} = $self->get_curator_id;
@@ -277,11 +277,11 @@ sub alias_duplicates_name {
 	my ($self)       = @_;
 	my $q            = $self->{'cgi'};
 	my $isolate_name = $q->param( $self->{'system'}->{'labelfield'} );
-	my @aliases = split /\r?\n/x, $q->param('aliases');
+	my @aliases      = split /\r?\n/x, $q->param('aliases');
 	foreach my $alias (@aliases) {
 		$alias =~ s/\s+$//x;
 		$alias =~ s/^\s+//x;
-		next if $alias eq q();
+		next     if $alias eq q();
 		return 1 if $alias eq $isolate_name;
 	}
 	return;
@@ -291,12 +291,12 @@ sub alias_null_term {
 	my ($self)       = @_;
 	my $q            = $self->{'cgi'};
 	my $isolate_name = $q->param( $self->{'system'}->{'labelfield'} );
-	my @aliases = split /\r?\n/x, $q->param('aliases');
-	my %null_terms = map { lc($_) => 1 } NULL_TERMS;
+	my @aliases      = split /\r?\n/x, $q->param('aliases');
+	my %null_terms   = map { lc($_) => 1 } NULL_TERMS;
 	foreach my $alias (@aliases) {
 		$alias =~ s/\s+$//x;
 		$alias =~ s/^\s+//x;
-		next if $alias eq q();
+		next     if $alias eq q();
 		return 1 if $null_terms{ lc($alias) };
 	}
 	return;
@@ -416,7 +416,7 @@ sub _prepare_codon_table_inserts {
 sub _prepare_locus_inserts {
 	my ( $self, $inserts, $newdata ) = @_;
 	my $set_id = $self->get_set_id;
-	my $loci = $self->{'datastore'}->get_loci( { query_pref => 1, set_id => $set_id } );
+	my $loci   = $self->{'datastore'}->get_loci( { query_pref => 1, set_id => $set_id } );
 	@$loci = uniq @$loci;
 	my $q = $self->{'cgi'};
 	foreach my $locus (@$loci) {
@@ -606,8 +606,8 @@ sub _get_html5_args {
 			$html5_args->{'type'} = 'number';
 		}
 		$html5_args->{'step'} = $thisfield->{'type'} =~ /^int/x ? 1 : 'any';
-		$html5_args->{'min'} = $thisfield->{'min'} if defined $thisfield->{'min'};
-		$html5_args->{'max'} = $thisfield->{'max'} if defined $thisfield->{'max'};
+		$html5_args->{'min'}  = $thisfield->{'min'} if defined $thisfield->{'min'};
+		$html5_args->{'max'}  = $thisfield->{'max'} if defined $thisfield->{'max'};
 	}
 	$html5_args->{'pattern'} = $thisfield->{'regex'} if $thisfield->{'regex'};
 	return $html5_args;
@@ -661,7 +661,8 @@ sub print_provenance_form_elements {
 			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 			next if ( $thisfield->{'no_curate'} // '' ) eq 'yes';
 			next if ( $thisfield->{'prefixes'} );
-			my $required_field = !( ( $thisfield->{'required'} // '' ) eq 'no' );
+			my $this_field_required = lc( $thisfield->{'required'} // '' );
+			my $required_field      = $this_field_required eq 'yes' || $this_field_required eq 'expected';
 			if ( $required_field == $required ) {
 				if ( $thisfield->{'prefixed_by'} ) {
 					$self->_print_field(
@@ -688,7 +689,7 @@ sub print_provenance_form_elements {
 						width        => $width,
 						update       => $options->{'update'},
 						user_info    => $user_info,
-						postfix      => $thisfield->{'prefixed_by'} ? 1 : 0,
+						postfix      => $thisfield->{'prefixed_by'} ? 1   : 0,
 						display_name => $thisfield->{'prefixed_by'} ? q() : $field
 					}
 				);
@@ -765,8 +766,8 @@ sub _print_field {
 	( my $cleaned_name = $display_name ) =~ tr/_/ /;
 	my ( $label, $title ) = $self->get_truncated_label( $cleaned_name, 25 );
 	my $title_attribute = $title ? qq( title="$title") : q();
-	my %no_label_field = map { $_ => 1 } qw (curator date_entered datestamp);
-	my $for = $no_label_field{$field} ? q() : qq( for="field_$field");
+	my %no_label_field  = map { $_ => 1 } qw (curator date_entered datestamp);
+	my $for             = $no_label_field{$field} ? q() : qq( for="field_$field");
 	print q(<li>) if !$postfix;
 
 	if ( defined $display_name && $display_name ne q() ) {
@@ -849,7 +850,7 @@ sub _print_id_no_update {    ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 	return;
 }
 
-sub _print_optlist {         ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _print_optlist {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $args ) = @_;
 	my ( $field, $newdata, $thisfield, $html5_args ) = @{$args}{qw(field newdata thisfield html5_args)};
 	if ( $thisfield->{'optlist'} ) {
@@ -857,13 +858,13 @@ sub _print_optlist {         ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 		my $optlist  = $thisfield->{'option_list_values'} // $self->{'xmlHandler'}->get_field_option_list($field);
 		my $multiple = ( $thisfield->{'multiple'} // q() ) eq 'yes';
 		my %args     = (
-			-name   => $field,
-			-id     => "field_$field",
-			-values => $multiple ? $optlist : [ '', @$optlist ],
-			-labels => { '' => ' ' },
-			-default => $newdata->{ lc $field } // $thisfield->{'default'},
-			-multiple => $multiple ? 'true' : 'false',
-			-style => $multiple ? q(border:1px solid #008) : q()
+			-name     => $field,
+			-id       => "field_$field",
+			-values   => $multiple ? $optlist : [ '', @$optlist ],
+			-labels   => { '' => ' ' },
+			-default  => $newdata->{ lc $field } // $thisfield->{'default'},
+			-multiple => $multiple ? 'true'                   : 'false',
+			-style    => $multiple ? q(border:1px solid #008) : q()
 		);
 		if ( $multiple && @$optlist ) {
 			my $size = @$optlist <= 10 ? @$optlist : 10;
@@ -885,7 +886,7 @@ sub _print_bool {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by 
 	my ( $field, $newdata, $thisfield ) = @{$args}{qw(field newdata thisfield )};
 	return if $thisfield->{'type'} !~ /^bool/x;
 	my $default = $newdata->{ lc($field) } // $thisfield->{'default'};
-	my $q = $self->{'cgi'};
+	my $q       = $self->{'cgi'};
 	if ( defined $default ) {
 		$default = 'true'  if $default eq '1';
 		$default = 'false' if $default eq '0';
@@ -1003,11 +1004,11 @@ sub _print_long_text_field {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 	my $q = $self->{'cgi'};
 	say q(<div style="display:inline-block">);
 	say $q->textarea(
-		-name => $field,
-		-id   => "field_$field",
-		-rows => 3,
-		-cols => $thisfield->{'length'} < 60 ? $thisfield->{'length'} : 60,
-		-default => ( $newdata->{ lc($field) } // $thisfield->{'default'} ),
+		-name        => $field,
+		-id          => "field_$field",
+		-rows        => 3,
+		-cols        => $thisfield->{'length'} < 60 ? $thisfield->{'length'} : 60,
+		-default     => ( $newdata->{ lc($field) } // $thisfield->{'default'} ),
 		-placeholder => $multiple ? q(Enter one per line...) : q(),
 		-style       => $multiple ? q(border:1px solid #008) : q(),
 		%$html5_args
@@ -1088,7 +1089,7 @@ sub print_sparse_field_form_elements {
 				regex  => $field->{'value_regex'}
 			};
 			if ( defined $field->{'option_list'} ) {
-				$thisfield->{'optlist'} = 1;
+				$thisfield->{'optlist'}            = 1;
 				$thisfield->{'option_list_values'} = [ split /;/x, $field->{'option_list'} ];
 			}
 			my $html5_args = $self->_get_html5_args(
@@ -1101,7 +1102,7 @@ sub print_sparse_field_form_elements {
 			( my $cleaned_name = $field->{'field'} ) =~ tr/_/ /;
 			my ( $label, $title ) = $self->get_truncated_label( $cleaned_name, 25 );
 			my $title_attribute = $title ? qq( title="$title") : q();
-			my $for = qq( for="field_$field->{'field'}");
+			my $for             = qq( for="field_$field->{'field'}");
 			print qq(<li><label$for class="form" style="width:${width}em"$title_attribute>);
 			print $label;
 			print ':';
@@ -1142,7 +1143,7 @@ sub _print_allele_designation_form_elements {
 	my $q      = $self->{'cgi'};
 	my $loci   = $self->{'datastore'}->get_loci( { set_id => $set_id } );
 	@$loci = uniq @$loci;
-	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+	my $schemes                    = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	my $schemes_with_display_order = any { defined $_->{'display_order'} } @$schemes;
 
 	if ( @$loci <= 100 ) {
@@ -1175,10 +1176,10 @@ sub _print_scheme_form_elements {
 	my $buffer = '';
 	if ($scheme_id) {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-		$loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+		$loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
 		$buffer = @$loci ? qq(<h3 class="scheme" style="clear:both">$scheme_info->{'name'}</h3>\n) : '';
 	} else {
-		$loci = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
+		$loci   = $self->{'datastore'}->get_loci_in_no_scheme( { set_id => $set_id } );
 		$buffer = @$loci ? qq(<h3 class="scheme" style="clear:both">Loci not in a scheme</h3>\n) : '';
 	}
 	foreach my $locus (@$loci) {
