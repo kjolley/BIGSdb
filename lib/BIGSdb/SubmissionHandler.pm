@@ -1334,9 +1334,9 @@ sub _check_isolate_regex {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 	}
 	my @values = ref $value ? @$value : ($value);
 	foreach my $this_value (@values) {
-		if ( $this_value !~ /^$thisfield->{'regex'}$/x ) {
+		if ( $this_value !~ /$thisfield->{'regex'}/x ) {
 			if ( !( $thisfield->{'required'} eq 'no' && $value eq q() ) ) {
-				return 'does not conform to the required formatting.';
+				return "does not conform to the required formatting (Regex is: $thisfield->{'regex'}).";
 			}
 		}
 	}
@@ -1689,9 +1689,9 @@ sub _check_other_sender {    ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 sub _check_other_regex {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $thisfield, $value ) = @_;
 	return if !$thisfield->{'regex'};
-	if ( $value !~ /^$thisfield->{regex}$/x ) {
+	if ( $value !~ /$thisfield->{regex}/x ) {
 		if ( $thisfield->{'required'} && $value ne q() ) {
-			return 'does not conform to the required formatting.';
+			return "does not conform to the required formatting. Regex is: $thisfield->{regex}";
 		}
 	}
 	return;
