@@ -117,10 +117,9 @@ sub _get_isolate {
 	my $subdir = setting('subdir');
 	$self->check_isolate_database;
 	$self->check_isolate_is_valid($id);
-	my $values = {};
-	my $field_values =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $id, { fetch => 'row_hashref' } );
+	my $values       = {};
+	my $field_values = $self->{'datastore'}->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?",
+		$id, { fetch => 'row_hashref', cache => 'Isolates::get_isolate::provenance' } );
 	my $field_list =
 	  $self->{'xmlHandler'}->get_field_list( { no_curate_only => $self->is_curator ? 0 : 1 } );
 	my $provenance = {};
@@ -145,6 +144,9 @@ sub _get_isolate {
 	_get_extended_attributes( $provenance, $id );
 	$values->{'provenance'} = $provenance;
 	return $values if $params->{'provenance_only'};
+	my $aliases = $self->{'datastore'}
+	  ->run_query( 'SELECT alias FROM isolate_aliases WHERE isolate_id=?', $id, { fetch => 'col_arrayref' } );
+	$values->{'aliases'} = $aliases if @$aliases;
 	my $phenotypic = _get_phenotypic_values($id);
 	$values->{'phenotypic'} = $phenotypic if %$phenotypic;
 	my $has_history = $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM history WHERE isolate_id=?)', $id );
