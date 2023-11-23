@@ -42,7 +42,7 @@ sub get_attributes {
 		  . 'the field is compulsory or optional and the maximum length of values is displayed.',
 		menutext => 'Description of database fields',
 		module   => 'DatabaseFields',
-		version  => '1.1.6',
+		version  => '1.1.7',
 		section  => 'miscellaneous',
 		order    => 10,
 		dbtype   => 'isolates',
@@ -120,6 +120,7 @@ sub _provenance_print_fields {
 		say qq(<td>$length</td>);
 		say q(</tr>);
 		$td = $td == 1 ? 2 : 1;
+
 		if ( $field eq $self->{'system'}->{'labelfield'} ) {
 			say qq(<tr class="td$td"><td>aliases</td><td>alternative names for $self->{'system'}->{'labelfield'}</td>)
 			  . q(<td>text (multiple)</td><td>-</td><td>no</td><td>-</td></tr>);
@@ -243,6 +244,11 @@ sub _print_allowed_values {
 	}
 	if ( ( $thisfield->{'type'} // q() ) eq 'geography_point' ) {
 		say q(latitude [min: -90; max: 90], longitude [min: -180; max: 180]);
+		return;
+	}
+	if ( ( $thisfield->{'regex'} ) ) {
+		say q(Must match <a target="_blank" href="https://en.wikipedia.org/wiki/Regular_expression">)
+		  . qq(regular expression</a>: $thisfield->{'regex'});
 		return;
 	}
 	print q(-);
