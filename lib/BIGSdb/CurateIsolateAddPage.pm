@@ -746,7 +746,8 @@ sub _print_field {
 	  @{$values}{qw (field required newdata width update user_info display_name prefix postfix)};
 	my $q              = $self->{'cgi'};
 	my $thisfield      = $self->{'xmlHandler'}->get_field_attributes($field);
-	my $required_field = !( ( $thisfield->{'required'} // '' ) eq 'no' );
+	my $thisfield_required = ( $thisfield->{'required'} // 'yes' );
+	my $required_field = !( $thisfield_required eq 'no' || $thisfield_required =~ /genome/x);
 	my $html5_args     = $self->_get_html5_args(
 		{
 			required_field => $required_field,
