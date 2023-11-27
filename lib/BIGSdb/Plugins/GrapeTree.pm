@@ -1,6 +1,6 @@
 #GrapeTree.pm - MST visualization plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2017-2022, University of Oxford
+#Copyright (c) 2017-2023, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -53,7 +53,7 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.5.3',
+		version             => '1.5.5',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -274,7 +274,7 @@ sub run_job {
 		);
 		return;
 	}
-	$self->_generate_profile_file(
+	$self->generate_profile_file(
 		{
 			job_id   => $job_id,
 			file     => $profile_file,
@@ -291,7 +291,7 @@ sub run_job {
 			tree     => $tree_file
 		}
 	);
-	$self->_generate_tsv_file(
+	$self->generate_metadata_file(
 		{
 			job_id   => $job_id,
 			tsv_file => $tsv_file,
@@ -310,7 +310,7 @@ sub run_job {
 	return;
 }
 
-sub _generate_profile_file {
+sub generate_profile_file {
 	my ( $self, $args ) = @_;
 	my ( $job_id, $filename, $isolates, $loci, $params ) = @{$args}{qw(job_id file isolates loci params)};
 	my $ids = $self->{'jobManager'}->get_job_isolates($job_id);
@@ -404,9 +404,9 @@ sub _generate_mstree {
 	return;
 }
 
-sub _generate_tsv_file {
+sub generate_metadata_file {
 	my ( $self, $args ) = @_;
-	my ( $job_id, $tsv_file, $params ) = @{$args}{qw(job_id tsv_file params)};
+	my ( $job_id, $tsv_file, $params, $options ) = @{$args}{qw(job_id tsv_file params options)};
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Generating metadata file' } );
 	my $isolate_ids = $self->{'jobManager'}->get_job_isolates($job_id);
 	my $temp_table  = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $isolate_ids );
@@ -450,7 +450,14 @@ sub _generate_tsv_file {
 			push @header_fields, $cs->{'name'};
 		}
 	}
+	if ( $options->{'remove_non_alphanumerics'} ) {
+		s/[^a-zA-Z0-9]/_/gx && s/__/_/gx && s/_$//x foreach @header_fields;
+	}
 	local $" = qq(\t);
+	my %headers = map { $_ => 1 } @header_fields;
+	if ( $options->{'add_date_field'} ) {
+		push @header_fields, 'date' if !$headers{'date'};
+	}
 	say $fh "@header_fields";
 	foreach my $record (@$data) {
 		my @record_values;
@@ -510,6 +517,9 @@ sub _generate_tsv_file {
 				my $value = $self->get_cscheme_value( $record->{'id'}, $cs->{'id'} );
 				push @record_values, $value;
 			}
+		}
+		if ( $options->{'add_date_field'} ) {
+			push @record_values, $self->get_field_value( $record, $options->{'add_date_field'} );
 		}
 		say $fh "@record_values";
 	}

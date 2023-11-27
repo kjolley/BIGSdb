@@ -977,6 +977,13 @@ sub get_export_buttons {
 			q(<a id="export_image" title="Export SVG image file" )
 		  . qq(style="cursor:pointer;display:$display">$image</a>);
 	}
+	if ( $options->{'map_image'} ) {
+		my $display = $hide{'map_image'} ? 'none' : 'inline';
+		my $image   = IMAGE_FILE;
+		$buffer .=
+			q(<a id="export_map_image" title="Export PNG image file" )
+		  . qq(style="cursor:pointer;display:$display">$image</a>);
+	}
 	$buffer .= q(</div>);
 	return $buffer;
 }

@@ -37,7 +37,7 @@ use constant MAX_SPLITS_TAXA           => 150;
 use constant MAX_MUSCLE_MB             => 4 * 1024;    #4GB
 use constant MAX_ISOLATES_DROPDOWN     => 1000;
 use constant MAX_EAV_FIELD_LIST        => 100;
-use constant MAX_LOCUS_ORDER_BY        => 2000;
+use constant MAX_LOCUS_ORDER_BY        => 500;
 use constant MAX_LOCI_NON_CACHE_SCHEME => 30;
 use constant MIN_CONTIG_LENGTH         => 100;
 use constant MIN_GENOME_SIZE           => 1_000_000;
@@ -271,7 +271,7 @@ push @EXPORT_OK, qw(DATABANKS);
 
 #Permissions
 use constant SUBMITTER_ALLOWED_PERMISSIONS => qw(modify_isolates modify_sequences tag_sequences designate_alleles
-  only_private disable_access);
+  only_private disable_access delete_all);
 push @EXPORT_OK, qw(SUBMITTER_ALLOWED_PERMISSIONS);
 
 #Submissions

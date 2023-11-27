@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2021, University of Oxford
+#Copyright (c) 2011-2023, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -153,6 +153,9 @@ function get_status(poll_time){
 			} else if (status == 'cancelled'){
 				\$("div#cancel_refresh").css('display','none');
 			}
+			status = status.replace(/(BIGSdb_\\d+_\\d+_\\d+)/,
+			'<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=job&id=\$1">\$1</a>');
+				
 			if (json.status == 'finished'){				 
 				window.location.href = "$reload_url";							
 			}
@@ -216,9 +219,10 @@ END
 
 sub _print_status {
 	my ( $self, $job ) = @_;
-	( my $submit_time = $job->{'submit_time'} ) =~ s/\.\d+$//x;                              #remove fractions of second
-	( my $start_time  = $job->{'start_time'} ? $job->{'start_time'} : q() ) =~ s/\.\d+$//x;
-	( my $stop_time   = $job->{'stop_time'} ? $job->{'stop_time'} : q() ) =~ s/\.\d+$//x;
+	my $params = $self->{'jobManager'}->get_job_params( $job->{'id'} );
+	( my $submit_time = $job->{'submit_time'} ) =~ s/\.\d+$//x;    #remove fractions of second
+	( my $start_time = $job->{'start_time'} ? $job->{'start_time'} : q() ) =~ s/\.\d+$//x;
+	( my $stop_time  = $job->{'stop_time'}  ? $job->{'stop_time'}  : q() ) =~ s/\.\d+$//x;
 	$job->{'percent_complete'} = 'indeterminate ' if $job->{'percent_complete'} == -1;
 	if ( $job->{'status'} eq 'submitted' ) {
 		my $jobs_in_queue = $self->{'jobManager'}->get_jobs_ahead_in_queue( $job->{'id'} );
@@ -232,12 +236,16 @@ sub _print_status {
 		$job->{'status'} =~ s/(BIGSdb_\d+_\d+_\d+)/
 		<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=job&amp;id=$1">$1<\/a>/x;
 	}
+	my $title       = BIGSdb::Utils::escape_html( $params->{'title'}       // q() );
+	my $description = BIGSdb::Utils::escape_html( $params->{'description'} // q() );
 	say q(<div class="box" id="resultspanel"><div class="scrollable">);
 	say q(<div style="float:left;margin-right:2em">);
 	say q(<span class="main_icon fas fa-flag fa-3x fa-pull-left"></span>);
 	say q(<h2>Status</h2>);
 	say q(<dl class="data">);
 	say qq(<dt>Job id</dt><dd>$job->{'id'}</dd>);
+	say qq(<dt>Title</dt><dd>$title</dd>)             if $title;
+	say qq(<dt>Description</dt><dd>$description</dd>) if $description;
 	say qq(<dt>Submit time</dt><dd>$submit_time</dd>);
 	say qq(<dt>Status</dt><dd id="status">$job->{'status'}</dd>);
 	say qq(<dt>Start time</dt><dd>$start_time</dd>) if $start_time;
@@ -285,7 +293,7 @@ sub _print_notification_form {
 	say $q->start_form;
 	say q(<dl class="data">);
 	say q(<dt>E-mail address</dt><dd>);
-	my $params = $self->{'jobManager'}->get_job_params( $job->{'id'} );
+	my $params        = $self->{'jobManager'}->get_job_params( $job->{'id'} );
 	my $default_email = $params->{'email'} // $job->{'email'};
 	say $q->textfield( -id => 'email', -name => 'email', -default => $default_email, -size => 30 );
 	say q(</dd>);
@@ -324,7 +332,7 @@ sub _update_notifications {
 			title                => scalar $q->param('title'),
 			description          => scalar $q->param('description'),
 			enable_notifications => $q->param('enable_notifications') ? 1 : 0,
-			job_url => $q->url( -full => 1 ) . "?db=$self->{'instance'}&page=job&id=$job_id"
+			job_url              => $q->url( -full => 1 ) . "?db=$self->{'instance'}&page=job&id=$job_id"
 		}
 	);
 	return;
@@ -398,6 +406,7 @@ sub _print_output {
 		$link_text =~ s/^\d{2}_//x;    #Descriptions can start with 2 digit number for ordering
 		my %icons = (
 			txt   => TEXT_FILE,
+			tsv   => TEXT_FILE,
 			xlsx  => EXCEL_FILE,
 			png   => IMAGE_FILE,
 			svg   => IMAGE_FILE,
@@ -414,7 +423,7 @@ sub _print_output {
 		}
 		my $icon = $icons{$file_type} // MISC_FILE;
 		my $text =
-		    qq(<div class="file_output"><a href="$url">)
+			qq(<div class="file_output"><a href="$url">)
 		  . qq(<span style="float:left;margin-right:1em">$icon</span></a>)
 		  . qq(<div style="width:90%;margin-top:1em"><a href="$url">$link_text</a>);
 		$text .= qq( - $comments) if $comments;
@@ -426,7 +435,7 @@ sub _print_output {
 		$include_in_tar++ if $size < ( 10 * 1024 * 1024 );    #10MB
 		if ( $output->{$description} =~ /\.png$/x || $output->{$description} =~ /\.svg$/x ) {
 			$text .=
-			    q(<div style="margin-top:1em;text-align:center">)
+				q(<div style="margin-top:1em;text-align:center">)
 			  . qq(<a href="/tmp/$output->{$description}" data-rel="lightbox-1" class="lightbox" )
 			  . qq(title="$link_text"><img src="/tmp/$output->{$description}" alt="" )
 			  . q(style="max-width:200px;border:1px dashed black" /></a><p>(click to enlarge)</p></div>);
@@ -442,7 +451,7 @@ sub _print_output {
 	my $url  = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . qq(page=job&amp;id=$job->{'id'}&amp;output=archive);
 	push @buffer,
-	    qq(<div class="file_output"><a href="$url"><span style="float:left;margin-right:1em">$icon</span></a>)
+		qq(<div class="file_output"><a href="$url"><span style="float:left;margin-right:1em">$icon</span></a>)
 	  . q(<div style="width:90%;margin-top:1em">)
 	  . qq(<a href="$url">Tar file containing all output files</a>$tar_msg</div></div>)
 	  if $job->{'status'} eq 'finished' && $include_in_tar > 1;

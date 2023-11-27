@@ -201,11 +201,11 @@ sub _get_javascript_paths {
 			'dropzone'     => { src => [qw(dropzone.js)],    defer => 0, version => '20200308' },
 
 			#See https://dolmenweb.it/viewers/openlayer/doc/tutorials/custom-builds.html
-			'ol'        => { src => [qw(ol-custom.js)], defer => 0, version => '6.14.1#20220517' },
+			'ol'        => { src => [qw(ol-custom.js)], defer => 0, version => '8.20.0#20231117' },
 			'billboard' => {
 				src     => [qw(d3.v6.min.js billboard.min.js jquery.ui.touch-punch.min.js)],
 				defer   => 1,
-				version => '20210510'
+				version => '20231101'
 			},
 			'd3.layout.cloud' => { src => [qw(d3.layout.cloud.min.js)], defer => 1, version => '20210729' },
 			'pivot'           => {
@@ -693,7 +693,7 @@ sub _get_meta_data {
 sub _get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20230615';
+	my $version = '20231101';
 	my @filenames;
 	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
 	push @filenames, q(billboard.min.css)                                     if $self->{'billboard'};
@@ -1180,15 +1180,18 @@ sub add_existing_eav_data_to_hashref {
 
 sub get_extended_attributes {
 	my ($self) = @_;
-	my $data =
-	  $self->{'datastore'}
-	  ->run_query( 'SELECT isolate_field,attribute FROM isolate_field_extended_attributes ORDER BY field_order',
-		undef, { fetch => 'all_arrayref', slice => {}, cache => 'Page::get_extended_attributes' } );
-	my $extended;
-	foreach (@$data) {
-		push @{ $extended->{ $_->{'isolate_field'} } }, $_->{'attribute'};
+	if ( !defined $self->{'cache'}->{'extended_attributes'} ) {
+		my $data =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT isolate_field,attribute FROM isolate_field_extended_attributes ORDER BY field_order',
+			undef, { fetch => 'all_arrayref', slice => {} } );
+		my $extended;
+		foreach (@$data) {
+			push @{ $extended->{ $_->{'isolate_field'} } }, $_->{'attribute'};
+		}
+		$self->{'cache'}->{'extended_attributes'} = $extended;
 	}
-	return $extended;
+	return $self->{'cache'}->{'extended_attributes'};
 }
 
 sub get_field_selection_list {
@@ -1251,6 +1254,10 @@ sub get_field_selection_list {
 
 sub _get_loci_list {
 	my ( $self, $options ) = @_;
+	if ( $options->{'locus_limit'} ) {
+		my $count = $self->{'datastore'}->run_query('SELECT COUNT(*) FROM loci');
+		return [] if $count > $options->{'locus_limit'};
+	}
 	if ( !$self->{'cache'}->{'loci'} ) {
 		my @locus_list;
 		my $cn_sql = $self->{'db'}->prepare('SELECT id,common_name FROM loci WHERE common_name IS NOT NULL');
@@ -1321,11 +1328,7 @@ sub _get_loci_list {
 		@locus_list = uniq @locus_list;
 		$self->{'cache'}->{'loci'} = \@locus_list;
 	}
-	my $values = [];
-	if ( !$options->{'locus_limit'} || @{ $self->{'cache'}->{'loci'} } < $options->{'locus_limit'} ) {
-		push @$values, @{ $self->{'cache'}->{'loci'} };
-	}
-	return $values;
+	return $self->{'cache'}->{'loci'};
 }
 
 sub _get_locus_extended_attributes {
@@ -1738,7 +1741,6 @@ sub get_old_version_filter {
 
 sub get_isolate_publication_filter {
 	my ( $self, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
 	if ( $self->{'config'}->{'ref_db'} ) {
 		my $view = $self->{'system'}->{'view'};
 		my $pmid =
@@ -1776,8 +1778,9 @@ sub get_project_filter {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $args = [];
-	my $qry  = 'SELECT id,short_description FROM projects WHERE id IN (SELECT project_id FROM project_members WHERE '
-	  . "isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})) AND (NOT private";
+	my $qry  = 'SELECT id,short_description FROM projects p WHERE '
+	  . "EXISTS(SELECT 1 FROM project_members pm JOIN $self->{'system'}->{'view'} v ON "
+	  . 'pm.isolate_id=v.id JOIN projects ON p.id=pm.project_id) AND (NOT private';
 	if ( $self->{'username'} ) {
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 		$qry .= ' OR id IN (SELECT project_id FROM merged_project_users WHERE user_id=?)';
@@ -2352,8 +2355,11 @@ sub is_admin {
 	my ($self) = @_;
 	return if $self->{'system'}->{'dbtype'} eq 'user';
 	if ( $self->{'username'} ) {
-		my $status = $self->{'datastore'}->run_query( 'SELECT status FROM users WHERE user_name=?',
-			$self->{'username'}, { cache => 'Page::is_admin' } );
+		if ( !defined $self->{'cache'}->{'is_admin'}->{ $self->{'username'} } ) {
+			$self->{'cache'}->{'is_admin'}->{ $self->{'username'} } =
+			  $self->{'datastore'}->run_query( 'SELECT status FROM users WHERE user_name=?', $self->{'username'} );
+		}
+		my $status = $self->{'cache'}->{'is_admin'}->{ $self->{'username'} };
 		return   if !$status;
 		return 1 if $status eq 'admin';
 	}
@@ -3412,13 +3418,16 @@ sub get_user_db_name {
 	if ( $self->{'system'}->{'dbtype'} eq 'user' ) {
 		return $self->{'system'}->{'db'};
 	}
-	my $db_name = $self->{'datastore'}->run_query(
-		'SELECT user_dbases.dbase_name FROM user_dbases JOIN users '
-		  . 'ON user_dbases.id=users.user_db WHERE users.user_name=?',
-		$user_name
-	);
-	$db_name //= $self->{'system'}->{'db'};
-	return $db_name;
+	if ( !defined $self->{'cache'}->{'user_db_name'}->{$user_name} ) {
+		my $db_name = $self->{'datastore'}->run_query(
+			'SELECT user_dbases.dbase_name FROM user_dbases JOIN users '
+			  . 'ON user_dbases.id=users.user_db WHERE users.user_name=?',
+			$user_name
+		);
+		$db_name //= $self->{'system'}->{'db'};
+		$self->{'cache'}->{'user_db_name'}->{$user_name} = $db_name;
+	}
+	return $self->{'cache'}->{'user_db_name'}->{$user_name};
 }
 
 sub get_tooltip {

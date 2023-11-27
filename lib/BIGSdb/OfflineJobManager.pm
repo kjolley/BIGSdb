@@ -47,6 +47,8 @@ sub new {
 	$self->_initiate( $options->{'config_dir'} );
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
 	$self->_db_connect;
+	my $local_tz = $self->_run_query(q(SELECT current_setting('TIMEZONE')));
+	$self->{'local_tz'} = $local_tz;
 	return $self;
 }
 
@@ -233,7 +235,12 @@ sub _make_job_fingerprint {
 	$buffer .= "profiles:@{ $params->{'profiles'} };"
 	  if defined $params->{'profiles'} && ref $params->{'profiles'} eq 'ARRAY';
 	$buffer .= "loci:@{ $params->{'loci'} };" if defined $params->{'loci'} && ref $params->{'loci'} eq 'ARRAY';
-	my $fingerprint = Digest::MD5::md5_hex($buffer);
+	my $fingerprint;
+	eval { $fingerprint = Digest::MD5::md5_hex($buffer); };
+	if ($@) {
+		$logger->error("$@ - Job fingerprint error. Buffer used: $buffer.");
+		$fingerprint = BIGSdb::Utils::random_string(32);
+	}
 	return $fingerprint;
 }
 
@@ -549,6 +556,16 @@ sub get_job_temporal_data {
 		undef,
 		{ fetch => 'all_arrayref', slice => {} }
 	);
+}
+
+sub get_initial_queued {
+	my ( $self, $past_mins ) = @_;
+	my $qry =
+		qq[SET timezone TO '$self->{'local_tz'}';]
+	  . qq[SELECT COUNT(*) FROM jobs WHERE submit_time < now()-interval '$past_mins min' AND ]
+	  . qq[(start_time IS NULL OR start_time > now()-interval '$past_mins min') AND ]
+	  . q[(status NOT LIKE '%rejected%' AND status NOT IN ('cancelled','failed','terminated'))];
+	return $self->_run_query($qry);
 }
 
 sub get_period_timestamp {

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2019, University of Oxford
+#Copyright (c) 2019-2023, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -34,14 +34,14 @@ sub initiate {
 }
 
 sub print_content {
-	my ($self)  = @_;
-	my $q       = $self->{'cgi'};
-	if ($q->param('summary')){
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if ( $q->param('summary') ) {
 		$self->_summary_stats;
 		return;
 	}
 	my $minutes = $q->param('minutes');
-	my $time = $minutes // DEFAULT_TIME;
+	my $time    = $minutes // DEFAULT_TIME;
 	if ( !BIGSdb::Utils::is_int($time) ) {
 		$logger->error('Invalid time passed - should be an integer (minutes)');
 		$time = DEFAULT_TIME;
@@ -49,12 +49,11 @@ sub print_content {
 	my $temporal_data   = $self->{'jobManager'}->get_job_temporal_data($time);
 	my $times           = {};
 	my $begin_time      = $self->{'jobManager'}->get_period_timestamp($time);
-	my $initial_queued  = 0;
+	my $initial_queued  = $self->{'jobManager'}->get_initial_queued($time);
 	my $initial_running = 0;
 	foreach my $t (@$temporal_data) {
 		if ( $t->{'submit_time'} lt $begin_time ) {
 			if ( !$t->{'start_time'} || $t->{'start_time'} gt $begin_time ) {
-				$initial_queued++;
 				$times->{ $self->_trimmed_time( $t->{'start_time'} ) }->{'start'}++ if $t->{'start_time'};
 			} else {
 				$initial_running++;
@@ -76,7 +75,7 @@ sub print_content {
 			$queued += $times->{$time}->{'submit'};
 		}
 		if ( $times->{$time}->{'start'} ) {
-			$queued -= $times->{$time}->{'start'};
+			$queued  -= $times->{$time}->{'start'};
 			$running += $times->{$time}->{'start'};
 		}
 		if ( $times->{$time}->{'stop'} ) {

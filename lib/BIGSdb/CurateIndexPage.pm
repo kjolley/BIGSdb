@@ -2351,6 +2351,13 @@ sub _get_publication_requests {
 	my $requests =
 	  $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM private_isolates WHERE request_publish)');
 	return q() if !$requests;
+	my $users = $self->{'datastore'}->run_query(
+		"SELECT DISTINCT(i.sender) FROM $self->{'system'}->{'view'} i JOIN private_isolates p ON i.id=p.isolate_id "
+		  . 'WHERE p.request_publish ORDER BY i.sender',
+		undef,
+		{ fetch => 'col_arrayref' }
+	);
+	return if !@$users;
 	my $buffer    = q(<h2>Publication requests</h2>);
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 
@@ -2360,12 +2367,6 @@ sub _get_publication_requests {
 		  . q(below to see these records and to choose whether to publish them. The user will be notified automatically )
 		  . q(if you accept or deny the request.</p>);
 	}
-	my $users = $self->{'datastore'}->run_query(
-		"SELECT DISTINCT(i.sender) FROM $self->{'system'}->{'view'} i JOIN private_isolates p ON i.id=p.isolate_id "
-		  . 'WHERE p.request_publish ORDER BY i.sender',
-		undef,
-		{ fetch => 'col_arrayref' }
-	);
 	$buffer .= q(<table class="resultstable"><tr><th>Deny request</th><th>Sender</th><th>Isolates</th>)
 	  . q(<th>Display</th><th>Accept request</tr>);
 	my $td = 1;

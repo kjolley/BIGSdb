@@ -43,7 +43,7 @@ sub initiate {
 		push @{ $self->{'breadcrumbs'} },
 		  {
 			label => $self->{'system'}->{'webroot_label'} // 'Organism',
-			href => $self->{'system'}->{'webroot'}
+			href  => $self->{'system'}->{'webroot'}
 		  };
 	}
 	push @{ $self->{'breadcrumbs'} },
@@ -52,10 +52,10 @@ sub initiate {
 }
 
 sub print_content {
-	my ($self)      = @_;
-	my $script_name = $self->{'system'}->{'script_name'};
-	my $q           = $self->{'cgi'};
-	my $desc = $self->get_db_description( { formatted => 1 } );
+	my ($self)                = @_;
+	my $script_name           = $self->{'system'}->{'script_name'};
+	my $q                     = $self->{'cgi'};
+	my $desc                  = $self->get_db_description( { formatted => 1 } );
 	my $max_width             = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
 	my $index_panel_max_width = $max_width - 300;
 	my $title_max_width       = $max_width - 15;
@@ -145,7 +145,7 @@ sub print_query_menu_item {
 		}
 	];
 	my $set_id = $self->get_set_id;
-	my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id, do_not_order => 1 } );
+	my $loci   = $self->{'datastore'}->get_loci( { set_id => $set_id, do_not_order => 1 } );
 
 	if (@$loci) {
 		push @$links,
@@ -194,7 +194,7 @@ sub _print_downloads_menu_item {
 			}
 		];
 	}
-	my $set_id = $self->get_set_id;
+	my $set_id      = $self->get_set_id;
 	my $scheme_data = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
 	if ( @$scheme_data == 1 ) {
 		push @$links,
@@ -239,22 +239,26 @@ sub print_login_menu_item {
 		);
 	}
 	if ( ( $self->{'system'}->{'authentication'} // q() ) eq 'builtin' && $self->{'username'} ) {
+		my $links = [];
+		if ( defined $user_info->{'user_db'} ) {
+			push @$links,
+			  {
+				href => "$self->{'system'}->{'script_name'}",
+				text => 'Modify profile'
+			  };
+		}
+		push @$links,
+		  {
+			href => "$self->{'system'}->{'script_name'}?${instance_clause}page=changePassword",
+			text => 'Change password'
+		  };
 		$self->_print_menu_item(
 			{
 				icon  => 'fas fa-sign-out-alt',
 				label => 'LOG OUT',
 				href  => "$self->{'system'}->{'script_name'}?${instance_clause}page=logout",
 				class => 'menu_item_login',
-				links => [
-					{
-						href => "$self->{'system'}->{'script_name'}",
-						text => 'Modify profile'
-					},
-					{
-						href => "$self->{'system'}->{'script_name'}?${instance_clause}page=changePassword",
-						text => 'Change password'
-					}
-				]
+				links => $links
 			}
 		);
 	}
@@ -272,7 +276,7 @@ sub _print_plugin_menu_item {
 	  $self->{'pluginManager'}->get_appropriate_plugin_names( $args->{'sections'}, $self->{'system'}->{'dbtype'},
 		undef, { set_id => $set_id, order => 'menutext' } );
 	return if !@$plugins;
-	my $links = [];
+	my $links       = [];
 	my $scheme_data = $self->get_scheme_data( { with_pk => 1 } );
 
 	foreach my $plugin (@$plugins) {
@@ -355,6 +359,7 @@ sub _print_jobs_menu_item {
 	return if !@$jobs;
 	my $job_count   = @$jobs;
 	my $number_icon = q();
+
 	if ($job_count) {
 		$job_count = '99+' if $job_count > 99;
 		$number_icon .= q(<span class="fa-stack" style="font-size:0.7em;margin:-0.5em 0 -0.2em 0.5em">);
@@ -481,8 +486,8 @@ sub _print_main_section {
 		my $scheme_data = $self->get_scheme_data( { with_pk => 1 } );
 
 		if (@$scheme_data) {
-			my $scheme_arg = @$scheme_data == 1 ? "&amp;scheme_id=$scheme_data->[0]->{'id'}" : '';
-			my $scheme_desc = @$scheme_data == 1 ? $scheme_data->[0]->{'name'} : '';
+			my $scheme_arg  = @$scheme_data == 1 ? "&amp;scheme_id=$scheme_data->[0]->{'id'}" : '';
+			my $scheme_desc = @$scheme_data == 1 ? $scheme_data->[0]->{'name'}                : '';
 			say q(<div class="flex_container index_panel_sequences">);
 			say q(<h2 style="text-align:center">Search for allelic profiles</h2>);
 			$self->_print_large_button_link(
@@ -524,7 +529,7 @@ sub _print_large_button_link {
 
 sub _get_label {
 	my ( $self, $number ) = @_;
-	return $number if $number < 100;
+	return $number                                          if $number < 100;
 	return qq(<span style="font-size:0.8em">$number</span>) if $number < 1000;
 	my $label = int( $number / 1000 );
 	$label = 9 if $label > 9;

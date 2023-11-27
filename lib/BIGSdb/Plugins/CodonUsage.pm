@@ -1,6 +1,6 @@
 #CodonUsage.pm - Codon usage plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2011-2022, University of Oxford
+#Copyright (c) 2011-2023, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -137,7 +137,7 @@ sub get_attributes {
 		menutext    => 'Codon usage',
 		module      => 'CodonUsage',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/codon_usage.html",
-		version     => '1.2.14',
+		version     => '1.2.15',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -308,13 +308,13 @@ sub run_job {
 	if ( $params->{'codonorder'} eq 'alphabetical' ) {
 		@codons = sort @codons;
 	}
-	open( my $fh_rscu_by_isolate, '>', $rscu_by_isolate )
+	open( my $fh_rscu_by_isolate, '>:encoding(utf8)', $rscu_by_isolate )
 	  or $logger->error("Can't open output file $rscu_by_isolate for writing");
-	open( my $fh_number_by_isolate, '>', $number_by_isolate )
+	open( my $fh_number_by_isolate, '>:encoding(utf8)', $number_by_isolate )
 	  or $logger->error("Can't open output file $rscu_by_isolate for writing");
-	open( my $fh_rscu_by_locus, '>', $rscu_by_locus )
+	open( my $fh_rscu_by_locus, '>:encoding(utf8)', $rscu_by_locus )
 	  or $logger->error("Can't open output file $rscu_by_locus for writing");
-	open( my $fh_number_by_locus, '>', $number_by_locus )
+	open( my $fh_number_by_locus, '>:encoding(utf8)', $number_by_locus )
 	  or $logger->error("Can't open output file $number_by_isolate for writing");
 	print $fh_rscu_by_isolate "Isolate\t@codons\n";
 	print $fh_number_by_isolate "Isolate\t@codons\n";

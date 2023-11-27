@@ -306,7 +306,7 @@ sub _print_project_add_function {
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	return if !$user_info;
 	my $projects = $self->{'datastore'}->run_query(
-		'SELECT p.id,p.short_description FROM project_users AS pu JOIN projects '
+		'SELECT p.id,p.short_description FROM merged_project_users AS pu JOIN projects '
 		  . 'AS p ON p.id=pu.project_id WHERE user_id=? AND (admin OR modify) ORDER BY UPPER(short_description)',
 		$user_info->{'id'},
 		{ fetch => 'all_arrayref', slice => {} }
@@ -1904,7 +1904,8 @@ sub _print_record_field {
 	}
 	if ( $user_field{$field} ) {
 		my $user_info = $self->{'datastore'}->get_user_info( $data->{ lc($field) } );
-		print qq(<td>$user_info->{'first_name'} $user_info->{'surname'}</td>);
+		print qq(<td>$user_info->{'id'} <span class="minor">[$user_info->{'first_name'} )
+		  . qq($user_info->{'surname'}]</span></td>);
 		return;
 	}
 	if ( $table_info->{'foreign_key'}->{$field} && $table_info->{'labels'}->{$field} ) {
@@ -2283,8 +2284,8 @@ sub add_to_project {
 	return if !$project_id || !BIGSdb::Utils::is_int($project_id);
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	my $can_add =
-	  $self->{'datastore'}
-	  ->run_query( 'SELECT EXISTS(SELECT * FROM project_users WHERE (project_id,user_id)=(?,?) AND (admin OR modify))',
+	  $self->{'datastore'}->run_query(
+		'SELECT EXISTS(SELECT * FROM merged_project_users WHERE (project_id,user_id)=(?,?) AND (admin OR modify))',
 		[ $project_id, $user_info->{'id'} ] );
 	if ( !$can_add ) {
 		$logger->error( "User $self->{'username'} attempted to add isolates to project "

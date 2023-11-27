@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2022, University of Oxford
+#Copyright (c) 2014-2023, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -47,7 +47,7 @@ sub _get_isolates {
 	my $allowed_filters =
 	  [qw(added_after added_reldate added_on updated_after updated_reldate updated_on include_old_versions)];
 	my $old_versions = params->{'include_old_versions'} ? q() : q( WHERE new_version IS NULL);
-	my $qry = $self->add_filters(
+	my $qry          = $self->add_filters(
 		"SELECT COUNT(*),MAX(date_entered),MAX(datestamp) FROM $self->{'system'}->{'view'}$old_versions",
 		$allowed_filters );
 	my ( $isolate_count, $last_added, $last_updated ) = $self->{'datastore'}->run_query($qry);
@@ -56,11 +56,11 @@ sub _get_isolates {
 	$qry = $self->add_filters( "SELECT id FROM $self->{'system'}->{'view'}$old_versions", $allowed_filters );
 	$qry .= ' ORDER BY id';
 	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
-	my $ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
+	my $ids    = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	my $values = { records => int($isolate_count) };
 	$values->{'last_added'}   = $last_added   if $last_added;
 	$values->{'last_updated'} = $last_updated if $last_updated;
-	my $path = $self->get_full_path( "$subdir/db/$db/isolates", $allowed_filters );
+	my $path   = $self->get_full_path( "$subdir/db/$db/isolates", $allowed_filters );
 	my $paging = $self->get_paging( $path, $pages, $page, $offset );
 	$values->{'paging'} = $paging if %$paging;
 	my @links;
@@ -82,7 +82,7 @@ sub _get_genomes {
 	  ? params->{'genome_size'}
 	  : $self->{'system'}->{'min_genome_size'} // $self->{'config'}->{'min_genome_size'} // MIN_GENOME_SIZE;
 	my $old_versions = params->{'include_old_versions'} ? q() : q( AND v.new_version IS NULL);
-	my $qry = $self->add_filters(
+	my $qry          = $self->add_filters(
 		"SELECT COUNT(*),MAX(date_entered),MAX(datestamp) FROM $self->{'system'}->{'view'} v JOIN seqbin_stats s "
 		  . "ON v.id=s.isolate_id WHERE s.total_length>=$genome_size$old_versions",
 		$allowed_filters
@@ -97,11 +97,11 @@ sub _get_genomes {
 	);
 	$qry .= ' ORDER BY id';
 	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
-	my $ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
+	my $ids    = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 	my $values = { records => int($isolate_count) };
 	$values->{'last_added'}   = $last_added   if $last_added;
 	$values->{'last_updated'} = $last_updated if $last_updated;
-	my $path = $self->get_full_path( "$subdir/db/$db/genomes", $allowed_filters );
+	my $path   = $self->get_full_path( "$subdir/db/$db/genomes", $allowed_filters );
 	my $paging = $self->get_paging( $path, $pages, $page, $offset );
 	$values->{'paging'} = $paging if %$paging;
 	my @links;
@@ -117,9 +117,8 @@ sub _get_isolate {
 	my $subdir = setting('subdir');
 	$self->check_isolate_database;
 	$self->check_isolate_is_valid($id);
-	my $values = {};
-	my $field_values =
-	  $self->{'datastore'}
+	my $values       = {};
+	my $field_values = $self->{'datastore'}
 	  ->run_query( "SELECT * FROM $self->{'system'}->{'view'} WHERE id=?", $id, { fetch => 'row_hashref' } );
 	my $field_list =
 	  $self->{'xmlHandler'}->get_field_list( { no_curate_only => $self->is_curator ? 0 : 1 } );
@@ -136,8 +135,8 @@ sub _get_isolate {
 				} else {
 					$provenance->{$field} = $field_values->{ lc $field };
 				}
-				if ($self->{'datastore'}->field_needs_conversion($field)){
-					$provenance->{$field} = $self->{'datastore'}->convert_field_value($field,$provenance->{$field});
+				if ( $self->{'datastore'}->field_needs_conversion($field) ) {
+					$provenance->{$field} = $self->{'datastore'}->convert_field_value( $field, $provenance->{$field} );
 				}
 			}
 		}
@@ -145,6 +144,10 @@ sub _get_isolate {
 	_get_extended_attributes( $provenance, $id );
 	$values->{'provenance'} = $provenance;
 	return $values if $params->{'provenance_only'};
+	my $aliases =
+	  $self->{'datastore'}->run_query( 'SELECT alias FROM isolate_aliases WHERE isolate_id=? ORDER BY alias',
+		$id, { fetch => 'col_arrayref' } );
+	$values->{'aliases'} = $aliases if @$aliases;
 	my $phenotypic = _get_phenotypic_values($id);
 	$values->{'phenotypic'} = $phenotypic if %$phenotypic;
 	my $has_history = $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM history WHERE isolate_id=?)', $id );
@@ -303,20 +306,23 @@ sub _get_scheme_data {
 	my $db           = params->{'db'};
 	my $subdir       = setting('subdir');
 	my $set_id       = $self->get_set_id;
-	my $scheme_list = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+	my $scheme_list  = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	my $scheme_links = [];
 	foreach my $scheme (@$scheme_list) {
 		my $allele_designations =
 		  $self->{'datastore'}->get_scheme_allele_designations( $isolate_id, $scheme->{'id'}, { set_id => $set_id } );
 		next if !$allele_designations;
+		my $scheme_info =
+		  $self->{'datastore'}->get_scheme_info( $scheme->{'id'}, { set_id => $set_id, get_pk => 1 } );
+		next
+		  if $scheme_info->{'view'} && !$self->{'datastore'}->is_isolate_in_view( $scheme_info->{'view'}, $isolate_id );
 		my $scheme_object = {
 			description           => $scheme->{'name'},
 			loci_designated_count => scalar keys %$allele_designations,
-			full_designations =>
+			full_designations     =>
 			  request->uri_for("$subdir/db/$db/isolates/$isolate_id/schemes/$scheme->{'id'}/allele_designations"),
 			allele_ids => request->uri_for("$subdir/db/$db/isolates/$isolate_id/schemes/$scheme->{'id'}/allele_ids")
 		};
-		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme->{'id'}, { set_id => $set_id, get_pk => 1 } );
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $scheme->{'id'} );
 		if ( defined $scheme_info->{'primary_key'} ) {
 			my $scheme_field_values =
@@ -324,7 +330,7 @@ sub _get_scheme_data {
 			my $field_values = {};
 			foreach my $field (@$scheme_fields) {
 				next if !defined $scheme_field_values->{ lc $field };
-				my @field_values = keys %{ $scheme_field_values->{ lc $field } };
+				my @field_values      = keys %{ $scheme_field_values->{ lc $field } };
 				my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme->{'id'}, $field );
 				if ( $scheme_field_info->{'type'} eq 'integer' ) {
 					foreach my $value (@field_values) {
@@ -436,6 +442,7 @@ sub _query_isolates {
 	my $count_qry = "SELECT COUNT(*) FROM $self->{'system'}->{'view'}";
 	my $qry       = "SELECT id FROM $self->{'system'}->{'view'}";
 	my $params    = _unflatten_params();
+
 	if ( !keys %$params ) {
 		send_error( 'No query passed', 400 );
 	}
@@ -462,11 +469,11 @@ sub _query_isolates {
 		$count_qry .= qq( WHERE (@clauses));
 	}
 	my $isolate_count = $self->{'datastore'}->run_query( $count_qry, \@values );
-	my $page_values = $self->get_page_values($isolate_count);
+	my $page_values   = $self->get_page_values($isolate_count);
 	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
 	$qry .= ' ORDER BY id';
 	$qry .= " OFFSET $offset LIMIT $self->{'page_size'}" if !param('return_all');
-	my $ids = $self->{'datastore'}->run_query( $qry, \@values, { fetch => 'col_arrayref' } );
+	my $ids    = $self->{'datastore'}->run_query( $qry, \@values, { fetch => 'col_arrayref' } );
 	my $values = { records => int($isolate_count) };
 	my $path   = $self->get_full_path("$subdir/db/$db/isolates");
 	my $paging = $self->get_paging( $path, $pages, $page, $offset );
@@ -576,7 +583,7 @@ sub _get_field_query {
 	foreach my $ext_field (@extended_fields) {
 		$qry .= q( AND ) if $qry;
 		$qry .=
-		    qq[($extended_primary_field{$ext_field} IN ]
+			qq[($extended_primary_field{$ext_field} IN ]
 		  . q[(SELECT field_value FROM isolate_value_extended_attributes WHERE ]
 		  . q[(isolate_field,attribute,UPPER(value))=(?,?,UPPER(?))))];
 		push @$values, $extended_primary_field{$ext_field}, $ext_field, $extended_value{$ext_field};
@@ -591,7 +598,7 @@ sub _modify_for_subvalues {
 	my $qry    = q();
 	my $values = [];
 	if ( ( $att->{'optlist'} // q() ) eq 'yes' ) {
-		my $optlist = $self->{'xmlHandler'}->get_field_option_list($field);
+		my $optlist    = $self->{'xmlHandler'}->get_field_option_list($field);
 		my $sub_values = _get_sub_values( $value, $optlist );
 		if ( ref $sub_values ) {
 			foreach my $subvalue (@$sub_values) {

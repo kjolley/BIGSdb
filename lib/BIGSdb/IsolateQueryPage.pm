@@ -352,6 +352,7 @@ sub _print_display_fieldset {
 	say q(<fieldset id="display_fieldset" style="float:left"><legend>Display/sort options</legend>);
 	my ( $order_list, $labels ) = $self->get_field_selection_list(
 		{ isolate_fields => 1, loci => 1, scheme_fields => 1, locus_limit => MAX_LOCUS_ORDER_BY } );
+	$self->{'allowed_order_by'} = $order_list;
 	my @group_list = split /,/x, ( $self->{'system'}->{'field_groups'} // q() );
 	push @group_list, qw(Loci Schemes);
 	my $group_members = {};
@@ -1214,20 +1215,23 @@ sub _get_private_data_filter {
 	my $private =
 		$self->{'curate'}
 	  ? $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM private_isolates)')
-	  : $self->{'datastore'}
-	  ->run_query( 'SELECT EXISTS(SELECT * FROM private_isolates WHERE user_id=?)', $user_info->{'id'} );
+	  : $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM private_isolates WHERE user_id=?) OR '
+	  .'EXISTS(SELECT * FROM private_isolates i JOIN project_members m ON i.isolate_id=m.isolate_id JOIN '
+	  .'merged_project_users mp ON m.project_id=mp.project_id JOIN isolates v ON i.isolate_id=v.id WHERE '
+	  .'mp.user_id=?)', [$user_info->{'id'}, $user_info->{'id'}]);
 	my $q = $self->{'cgi'};
 	return if !$private && !$q->param('private_records_list');
 	my $labels = {
-		1 => 'my private records only',
-		2 => 'private records (in quota)',
-		3 => 'private records (excluded from quota)',
-		4 => 'private records (requesting publication)',
-		5 => 'public records only'
+		1 => 'any private records (owned or shared)',
+		2 => 'my private records',
+		3 => 'my private records (in quota)',
+		4 => 'my private records (excluded from quota)',
+		5 => 'private records (requesting publication)',
+		6 => 'public records only'
 	};
 	return $self->get_filter(
 		'private_records',
-		[ 1 .. 5 ],
+		[ 1 .. 6 ],
 		{
 			labels  => $labels,
 			text    => 'Private records',
@@ -1881,13 +1885,19 @@ sub _run_query {
 		$qry = $self->_modify_query_for_annotation_status( $qry, $errors );
 		$qry = $self->_modify_query_for_assembly_checks( $qry, $errors );
 		$qry .= ' ORDER BY ';
+		my %allowed  = map { $_ => 1 } @{ $self->{'allowed_order_by'} };
+		my $order_by = $q->param('order');
 
-		if ( defined $q->param('order')
-			&& ( $q->param('order') =~ /^la_(.+)\|\|/x || $q->param('order') =~ /^cn_(.+)/x ) )
+		if ( defined $order_by && !$allowed{$order_by} ) {
+			$logger->error("Invalid order by field selected: $order_by");
+			push @$errors, 'Invalid order by field selected.';
+		}
+		if ( defined $order_by
+			&& ( $order_by =~ /^la_(.+)\|\|/x || $order_by =~ /^cn_(.+)/x ) )
 		{
 			$qry .= "l_$1";
 		} else {
-			$qry .= $q->param('order') || 'id';
+			$qry .= $order_by || 'f_id';
 		}
 		my $dir =
 		  ( defined $q->param('direction') && $q->param('direction') eq 'descending' ) ? 'desc' : 'asc';
@@ -2546,15 +2556,17 @@ sub _modify_query_by_private_status {
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	return if !$user_info;
 	my $clause;
-	my $my_private   = "$view.id IN (SELECT isolate_id FROM private_isolates WHERE user_id=$user_info->{'id'})";
+	my $any_private = "EXISTS(SELECT 1 FROM private_isolates p WHERE p.isolate_id=$view.id)";
+	my $my_private   = "EXISTS(SELECT 1 FROM private_isolates p WHERE p.isolate_id=$view.id AND p.user_id=$user_info->{'id'})";
 	my $not_in_quota = 'EXISTS(SELECT 1 FROM projects p JOIN project_members pm ON '
 	  . "p.id=pm.project_id WHERE no_quota AND pm.isolate_id=$view.id)";
 	my $term = {
-		1 => sub { $clause = "($my_private)" },
-		2 => sub { $clause = "($my_private AND NOT $not_in_quota)" },
-		3 => sub { $clause = "($my_private AND $not_in_quota)" },
-		4 => sub { $clause = "(EXISTS(SELECT 1 FROM private_isolates WHERE request_publish AND isolate_id=$view.id))" },
-		5 => sub { $clause = "(NOT EXISTS(SELECT 1 FROM private_isolates WHERE isolate_id=$view.id))" }
+		1 => sub { $clause = "($any_private)" },
+		2 => sub { $clause = "($my_private)" },
+		3 => sub { $clause = "($my_private AND NOT $not_in_quota)" },
+		4 => sub { $clause = "($my_private AND $not_in_quota)" },
+		5 => sub { $clause = "(EXISTS(SELECT 1 FROM private_isolates WHERE request_publish AND isolate_id=$view.id))" },
+		6 => sub { $clause = "(NOT EXISTS(SELECT 1 FROM private_isolates WHERE isolate_id=$view.id))" }
 	};
 
 	if ( $term->{ $q->param('private_records_list') } ) {
@@ -4125,8 +4137,7 @@ function refresh_filters(){
 		list_values[\$(this).attr('id')] =  \$(this).val();
 	});
 	\$("fieldset#filters_fieldset div")
-	.load(url, function(){
-			
+	.load(url, function(){			
 		reloadTooltips();
 		for (key in list_values){
 			\$("#" + key).val(list_values[key]);				
@@ -4290,7 +4301,7 @@ sub initiate {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	$self->{$_} = 1 foreach qw(noCache addProjects addBookmarks);
-	if ( $q->param('no_header') ) {
+	if ( $q->param('no_header') && !(($q->param('fieldset') // q() ) eq 'filters')) {
 		$self->{'noCache'} = 0;
 	}
 	$self->SUPER::initiate;
@@ -4311,18 +4322,17 @@ sub initiate {
 	if ( !$self->{'cgi'}->param('save_options') ) {
 		my $guid = $self->get_guid;
 		if ($guid) {
+			my $general_prefs = $self->{'prefstore'}->get_all_general_prefs( $guid, $self->{'system'}->{'db'} );
 			foreach my $attribute (
 				qw (phenotypic allele_designations sequence_variation allele_count allele_status annotation_status
 				seqbin assembly_checks tag_count tags list filters)
 			  )
 			{
-				my $value =
-				  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, "${attribute}_fieldset" );
-				$self->{'prefs'}->{"${attribute}_fieldset"} = ( $value // '' ) eq 'on' ? 1 : 0;
+				$self->{'prefs'}->{"${attribute}_fieldset"} =
+				  ( $general_prefs->{"${attribute}_fieldset"} // '' ) eq 'on' ? 1 : 0;
 			}
-			my $value =
-			  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'provenance_fieldset' );
-			$self->{'prefs'}->{'provenance_fieldset'} = ( $value // '' ) eq 'off' ? 0 : 1;
+			$self->{'prefs'}->{'provenance_fieldset'} =
+			  ( $general_prefs->{'provenance_fieldset'} // '' ) eq 'off' ? 0 : 1;
 		} else {
 			$self->{'prefs'}->{'provenance_fieldset'} = 1;
 		}

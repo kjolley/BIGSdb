@@ -273,7 +273,8 @@ sub _edit_user {
 		  . q(submissions.</p>);
 	}
 	my $user_info = $self->{'datastore'}->get_user_info_from_username($username);
-	$q->param( $_ => $q->param($_) // $user_info->{$_} ) foreach qw(first_name surname email affiliation);
+	$q->param( $_ => $q->param($_) // BIGSdb::Utils::unescape_html( $user_info->{$_} ) )
+	  foreach qw(first_name surname email affiliation);
 	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Edit details</legend>);
 	say q(<ul><li>);
@@ -391,7 +392,7 @@ sub _registrations {
 	$buffer .= q(<span class="main_icon far fa-list-alt fa-3x fa-pull-left"></span>);
 	$buffer .= q(<h2>Registrations</h2>);
 	$buffer .=
-	    q(<p>Use this page to register your account with specific databases. )
+		q(<p>Use this page to register your account with specific databases. )
 	  . q(<strong><em>You only need to do this if you want to submit data to a specific database, )
 	  . q(access a password-protected resource, or create a user project.</em></strong></p>);
 	my $registered_configs =
@@ -685,7 +686,7 @@ sub _import_dbase_config {
 	$buffer .= q(<h2>Database configurations</h2>);
 	if ( !@$registered_configs && !@$available_configs ) {
 		$buffer .=
-		    q(<p>There are no configurations available or registered. Please run the sync_user_dbase_users.pl )
+			q(<p>There are no configurations available or registered. Please run the sync_user_dbase_users.pl )
 		  . q(script to populate the available configurations.</p>);
 		return $buffer;
 	}
@@ -716,7 +717,7 @@ sub _import_dbase_config {
 	);
 	$buffer .= q(</td></tr>);
 	$buffer .=
-	    q(<tr><td style="text-align:center"><input type="button" onclick='listbox_selectall("available",true)' )
+		q(<tr><td style="text-align:center"><input type="button" onclick='listbox_selectall("available",true)' )
 	  . qq(value="All" style="margin-top:1em" class="small_submit" />\n);
 	$buffer .= q(<input type="button" onclick='listbox_selectall("available",false)' value="None" )
 	  . q(style="margin-top:1em" class="small_submit" /></td><td></td>);
@@ -737,7 +738,7 @@ sub _get_users {
 		'SELECT user_name,first_name,surname FROM users WHERE status=? ORDER BY surname, first_name, user_name',
 		'validated', { fetch => 'all_arrayref', slice => {} } );
 	my $usernames = [''];
-	my $labels = { '' => 'Select user...' };
+	my $labels    = { '' => 'Select user...' };
 	foreach my $user (@$users) {
 		push @$usernames, $user->{'user_name'};
 		$labels->{ $user->{'user_name'} } = "$user->{'surname'}, $user->{'first_name'} ($user->{'user_name'})";
@@ -826,7 +827,7 @@ sub _select_merge_users {
 		foreach my $possible (@$possible_accounts) {
 			push @$accounts, "$possible->{'dbase_config'}|$possible->{'user_name'}";
 			$labels->{"$possible->{'dbase_config'}|$possible->{'user_name'}"} =
-			    "$possible->{'dbase_config'}: $possible->{'first_name'} $possible->{'surname'} "
+				"$possible->{'dbase_config'}: $possible->{'first_name'} $possible->{'surname'} "
 			  . "($possible->{'user_name'}) - $possible->{'email'} - $possible->{'affiliation'}";
 		}
 		say q(<p>The following accounts have been found by exact matches to first+last name or E-mail address.</p>);
@@ -1000,7 +1001,6 @@ sub _notify_db_admin {
 		{ db => $db, fetch => 'all_arrayref', slice => {} }
 	);
 	foreach my $recipient (@$recipients) {
-
 		if ( $recipient->{'user_db'} ) {
 			my $user_dbname =
 			  $self->{'datastore'}
@@ -1024,8 +1024,9 @@ sub _notify_db_admin {
 			return;
 		}
 	}
+	$sender->{$_} = BIGSdb::Utils::unescape_html( $sender->{$_} ) foreach qw(first_name surname affiliation email);
 	my $message =
-	    qq(The following user has requested access to the $system->{'description'} database.\n\n)
+		qq(The following user has requested access to the $system->{'description'} database.\n\n)
 	  . qq(Username: $self->{'username'}\n)
 	  . qq(First name: $sender->{'first_name'}\n)
 	  . qq(Surname: $sender->{'surname'}\n)
@@ -1033,7 +1034,7 @@ sub _notify_db_admin {
 	  . qq(E-mail: $sender->{'email'}\n\n);
 	$message .=
 	  qq(Please log in to the $system->{'description'} database curation system to accept or reject this user.);
-	my $domain = $self->{'config'}->{'domain'} // DEFAULT_DOMAIN;
+	my $domain         = $self->{'config'}->{'domain'}                  // DEFAULT_DOMAIN;
 	my $sender_address = $self->{'config'}->{'automated_email_address'} // "no_reply\@$domain";
 	foreach my $recipient (@$recipients) {
 		next if !$recipient->{'account_request_emails'};
@@ -1090,7 +1091,7 @@ sub _read_config_xml {
 		$self->{'xmlHandler'} = BIGSdb::Parser->new;
 	}
 	my $parser = XML::Parser::PerlSAX->new( Handler => $self->{'xmlHandler'} );
-	my $path = "$self->{'dbase_config_dir'}/$config/config.xml";
+	my $path   = "$self->{'dbase_config_dir'}/$config/config.xml";
 	eval { $parser->parse( Source => { SystemId => $path } ) };
 	if ($@) {
 		$logger->fatal("Invalid XML description: $@");
@@ -1105,8 +1106,8 @@ sub _read_config_xml {
 		  || $logger->error("Cannot open $override_file for reading");
 		while ( my $line = <$fh> ) {
 			next if $line =~ /^\#/x;
-			$line =~ s/^\s+//x;
-			$line =~ s/\s+$//x;
+			$line         =~ s/^\s+//x;
+			$line         =~ s/\s+$//x;
 			if ( $line =~ /^([^=\s]+)\s*=\s*"([^"]+)"$/x ) {
 				$system->{$1} = $2;
 			}
@@ -1120,9 +1121,9 @@ sub _get_db_connection_args {
 	my ( $self, $system ) = @_;
 	my $args = {
 		dbase_name => $system->{'db'},
-		host       => $system->{'host'} // $self->{'system'}->{'host'},
-		port       => $system->{'port'} // $self->{'system'}->{'port'},
-		user       => $system->{'user'} // $self->{'system'}->{'user'},
+		host       => $system->{'host'}     // $self->{'system'}->{'host'},
+		port       => $system->{'port'}     // $self->{'system'}->{'port'},
+		user       => $system->{'user'}     // $self->{'system'}->{'user'},
 		password   => $system->{'password'} // $self->{'system'}->{'password'},
 	};
 	return $args;

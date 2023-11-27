@@ -14,5 +14,5 @@
 [% END %]
 </dl></div>
 <p style="font-size:0.8em"><em>Analysis performed: [% Kleborate.datestamp %]</em>; [% Kleborate.results.version %]</p>
-[% END %]
 </div>
+[% END %]

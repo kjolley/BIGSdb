@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2022, University of Oxford
+#Copyright (c) 2015-2023, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -23,7 +23,7 @@ use 5.010;
 use Bio::SeqIO;
 use File::Path qw(make_path remove_tree);
 use List::Util qw(max);
-use List::MoreUtils qw(any uniq);
+use List::MoreUtils qw(uniq);
 use Log::Log4perl qw(get_logger);
 use Email::Sender::Transport::SMTP;
 use Email::Sender::Simple qw(try_to_sendmail);
@@ -828,22 +828,40 @@ sub _check_codon_table {
 	return;
 }
 
+sub _get_required_genome_fields {
+	my ($self) = @_;
+	if ( !$self->{'cache'}->{'required_genome_fields'} ) {
+		my $fields      = [];
+		my $prov_fields = $self->{'xmlHandler'}->get_field_list;
+		my $atts        = $self->{'xmlHandler'}->get_all_field_attributes;
+		foreach my $field (@$prov_fields) {
+			push @$fields, $field if ( $atts->{$field}->{'required'} // q() ) eq 'genome_required';
+		}
+		push @$fields, REQUIRED_GENOME_FIELDS;
+		$self->{'cache'}->{'required_genome_fields'} = $fields;
+	}
+	return $self->{'cache'}->{'required_genome_fields'};
+}
+
 sub _check_isolate_record {
 	my ( $self, $set_id, $positions, $values, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $fields = $self->{'xmlHandler'}->get_field_list;
+	my $provenance_fields = $self->{'xmlHandler'}->get_field_list;
+	my $fields            = [@$provenance_fields];
 	push @$fields, @{ $self->{'datastore'}->get_eav_fieldnames };
 	push @$fields, REQUIRED_GENOME_FIELDS if $options->{'genomes'};
 	my %do_not_include = map { $_ => 1 } qw(id sender curator date_entered datestamp);
 	my ( @missing, @error );
 	my $isolate = {};
 	$self->_strip_trailing_spaces($values);
+	my $required_genome_fields = $self->_get_required_genome_fields;
+	my %required_genome_fields = map { $_ => 1 } @$required_genome_fields;
 
 	foreach my $field (@$fields) {
 		next if $do_not_include{$field};
 		next if !defined $positions->{$field};
 		my $att = $self->{'xmlHandler'}->get_field_attributes($field);
-		$att->{'required'} = 'yes' if ( any { $field eq $_ } REQUIRED_GENOME_FIELDS ) && $options->{'genomes'};
+		$att->{'required'} = 'yes' if $required_genome_fields{$field} && $options->{'genomes'};
 		$att->{'required'} = 'no'  if $self->{'datastore'}->is_eav_field($field);
 		if (  !( ( $att->{'required'} // 'yes' ) ne 'yes' )
 			&& ( !defined $values->[ $positions->{$field} ] || $values->[ $positions->{$field} ] eq '' ) )
@@ -851,7 +869,7 @@ sub _check_isolate_record {
 			push @missing, $field;
 		} else {
 			my $value  = $values->[ $positions->{$field} ] // '';
-			my $status = $self->is_field_bad( 'isolates', $field, $value, undef, $set_id );
+			my $status = $self->is_field_bad( 'isolates', $field, $value, undef, $set_id, $options );
 			push @error, "$field: $status" if $status;
 		}
 	}
@@ -884,16 +902,16 @@ sub _check_isolate_record {
 }
 
 sub is_field_bad {
-	my ( $self, $table, $fieldname, $value, $flag, $set_id ) = @_;
+	my ( $self, $table, $fieldname, $value, $flag, $set_id, $options ) = @_;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
-		return $self->_is_field_bad_isolates( $fieldname, $value, $flag, $set_id );
+		return $self->_is_field_bad_isolates( $fieldname, $value, $flag, $set_id, $options );
 	} else {
 		return $self->_is_field_bad_other( $table, $fieldname, $value, $flag, $set_id );
 	}
 }
 
 sub _is_field_bad_isolates {
-	my ( $self, $fieldname, $value, $flag, $set_id ) = @_;
+	my ( $self, $fieldname, $value, $flag, $set_id, $options ) = @_;
 	$value //= q();
 	$flag  //= q();
 	if ( $flag eq 'update' ) {
@@ -928,9 +946,16 @@ sub _is_field_bad_isolates {
 	$thisfield->{'required'} //= 'yes';
 	my %optional_fields = map { $_ => 1 } qw(aliases codon_table references assembly_filename sequence_method);
 	if ( $value eq '' ) {
-		if ( $optional_fields{$fieldname} || ( $thisfield->{'required'} eq 'no' ) ) {
+		if (
+			$optional_fields{$fieldname}
+			|| ( $thisfield->{'required'} eq 'no'
+				|| ( $thisfield->{'required'} =~ /^genome/x && !$options->{'genomes'} ) )
+		  )
+		{
 			return;
-		} elsif ( $thisfield->{'required'} eq 'expected' ) {
+		} elsif ( $thisfield->{'required'} eq 'expected'
+			|| ( $thisfield->{'required'} eq 'genome_expected' && $options->{'genomes'} ) )
+		{
 			return q(is an expected field and cannot be left blank. Enter 'null' if value is unknown.);
 		} else {
 			return 'is a required field and cannot be left blank.';
@@ -1309,9 +1334,11 @@ sub _check_isolate_regex {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 	}
 	my @values = ref $value ? @$value : ($value);
 	foreach my $this_value (@values) {
-		if ( $this_value !~ /^$thisfield->{'regex'}$/x ) {
+		$this_value =~ s/^\s+|\s+$//gx;
+		next if $thisfield->{'required'} =~ /expected/x && lc($value) eq 'null';
+		if ( $this_value !~ /$thisfield->{'regex'}/x ) {
 			if ( !( $thisfield->{'required'} eq 'no' && $value eq q() ) ) {
-				return 'does not conform to the required formatting.';
+				return "does not conform to the required formatting (Regex is: $thisfield->{'regex'}).";
 			}
 		}
 	}
@@ -1664,9 +1691,9 @@ sub _check_other_sender {    ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 sub _check_other_regex {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $thisfield, $value ) = @_;
 	return if !$thisfield->{'regex'};
-	if ( $value !~ /^$thisfield->{regex}$/x ) {
+	if ( $value !~ /$thisfield->{regex}/x ) {
 		if ( $thisfield->{'required'} && $value ne q() ) {
-			return 'does not conform to the required formatting.';
+			return "does not conform to the required formatting. Regex is: $thisfield->{regex}";
 		}
 	}
 	return;

@@ -157,13 +157,36 @@ sub _edit_members {
 	my $project_id = $q->param('project_id');
 	return if $self->_fails_project_check($project_id);
 	return if $self->_fails_add_remove_check($project_id);
-	my $view        = $self->{'system'}->{'view'};
-	my $current_ids = $self->{'datastore'}->run_query(
-		"SELECT pm.isolate_id FROM project_members AS pm JOIN $view AS i ON pm.isolate_id=i.id "
-		  . 'WHERE pm.project_id=? ORDER BY pm.isolate_id',
-		$project_id,
-		{ fetch => 'col_arrayref' }
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	return if !$user_info->{'id'};
+	my $project = $self->{'datastore'}->run_query(
+		'SELECT short_description,full_description,restrict_user,restrict_usergroup,admin FROM projects p LEFT JOIN '
+		  . 'merged_project_users m ON p.id=m.project_id WHERE (p.id,m.user_id)=(?,?)',
+		[ $project_id, $user_info->{'id'} ],
+		{ fetch => 'row_hashref' }
 	);
+	my $view = $self->{'system'}->{'view'};
+	my $qry  = "SELECT pm.isolate_id FROM project_members AS pm JOIN $view AS i ON pm.isolate_id=i.id "
+	  . 'WHERE pm.project_id=? ';
+	my @clauses;
+
+	if ( !$project->{'admin'} ) {
+		if ( $project->{'restrict_user'} ) {
+			push @clauses, "i.sender=$user_info->{'id'}";
+		}
+		if ( $project->{'restrict_usergroup'} ) {
+			push @clauses,
+				'i.sender IN (SELECT user_id FROM user_group_members WHERE user_group '
+			  . 'IN (SELECT id FROM user_groups ug JOIN user_group_members ugm ON ug.id=ugm.user_group '
+			  . "WHERE ugm.user_id=$user_info->{'id'}))";
+		}
+		if (@clauses) {
+			local $" = q( OR );
+			$qry .= "AND (@clauses) ";
+		}
+	}
+	$qry .= 'ORDER BY pm.isolate_id';
+	my $current_ids = $self->{'datastore'}->run_query( $qry, $project_id, { fetch => 'col_arrayref' } );
 	if ( $q->param('update') ) {
 		my $new_ids = [];
 		my @invalid;
@@ -198,13 +221,23 @@ sub _edit_members {
 		}
 	}
 	say q(<div class="box" id="queryform"><div class="scrollable">);
-	my $project = $self->{'datastore'}->run_query( 'SELECT short_description,full_description FROM projects WHERE id=?',
-		$project_id, { fetch => 'row_hashref' } );
 	say qq(<h2>Project: $project->{'short_description'}</h2>);
 	say qq(<p>$project->{'full_description'}</p>) if $project->{'full_description'};
-	say q(<p>The list below contains id numbers for isolate records belonging to this project. You can add and remove )
-	  . q(records to this project by modifying the list of isolate ids. This only affects which records belong to the )
-	  . q(project - you will not remove isolate records from the database by removing them from this list.</p>);
+	my @restrictions;
+	if ( !$project->{'admin'} ) {
+		push @restrictions, 'you'            if $project->{'restrict_user'};
+		push @restrictions, 'your usergroup' if $project->{'restrict_usergroup'};
+	}
+	print q(<ul><li>The list below contains id numbers for isolate records belonging to this project);
+	local $" = q( or );
+	print qq( that have been submitted by @restrictions) if @restrictions;
+	say q(.</li>);
+	say q(<li>You can add and remove records to this project by modifying the list of isolate ids.</li>);
+	say qq(<li>You can only add records that have been submitted by @restrictions - )
+	  . q(any others added here will be ignored.</li>)
+	  if @restrictions;
+	say q(<li>This only affects which records belong to the project - you will not remove isolate records from the )
+	  . q(database by removing them from this list.</li></ul>);
 	say q(<fieldset style="float:left"><legend>Isolate ids</legend>);
 	local $" = qq(\n);
 	say $q->start_form;
@@ -223,21 +256,50 @@ sub _edit_members {
 
 sub _update_project_members {
 	my ( $self, $project_id, $current_ids, $new_ids ) = @_;
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	return if !$user_info->{'id'};
+	my $project = $self->{'datastore'}->run_query(
+		'SELECT restrict_user,restrict_usergroup,admin FROM projects p LEFT JOIN '
+		  . 'merged_project_users m ON p.id=m.project_id WHERE (p.id,m.user_id)=(?,?)',
+		[ $project_id, $user_info->{'id'} ],
+		{ fetch => 'row_hashref' }
+	);
+	my @restrictions;
+	my %allowed_to_modify;
+	if ( !$project->{'admin'} ) {
+		if ( $project->{'restrict_user'} ) {
+			push @restrictions, "sender=$user_info->{'id'}";
+		}
+		if ( $project->{'restrict_usergroup'} ) {
+			push @restrictions,
+				'sender IN (SELECT user_id FROM user_group_members WHERE user_group '
+			  . 'IN (SELECT id FROM user_groups ug JOIN user_group_members ugm ON ug.id=ugm.user_group '
+			  . "WHERE ugm.user_id=$user_info->{'id'}))";
+		}
+		if (@restrictions) {
+			local $" = q( OR );
+			my $isolate_ids =
+			  $self->{'datastore'}->run_query( "SELECT id FROM $self->{'system'}->{'view'} WHERE @restrictions",
+				undef, { fetch => 'col_arrayref' } );
+			%allowed_to_modify = map { $_ => 1 } @$isolate_ids;
+		}
+	}
 	my %new    = map { $_ => 1 } @$new_ids;
 	my %old    = map { $_ => 1 } @$current_ids;
 	my $add    = [];
 	my $remove = [];
 	foreach my $new_id (@$new_ids) {
 		next if $old{$new_id};
+		next if @restrictions && !$allowed_to_modify{$new_id};
 		push @$add, $new_id;
 	}
 	foreach my $old_id (@$current_ids) {
 		next if $new{$old_id};
+		next if @restrictions && !$allowed_to_modify{$old_id};
 		push @$remove, $old_id;
 	}
 	local $" = q(, );
 	my @results;
-	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 
 	#Populate temp tables with new and old to do batch add and remove with a single call.
 	if (@$add) {
@@ -259,10 +321,9 @@ sub _update_project_members {
 	if (@$remove) {
 		my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $remove );
 		eval {
-			$self->{'db'}->do(
-				'DELETE FROM project_members WHERE project_id=? AND isolate_id IN ' . "(SELECT value FROM $temp_table)",
-				undef, $project_id
-			);
+			$self->{'db'}
+			  ->do( "DELETE FROM project_members WHERE project_id=? AND isolate_id IN (SELECT value FROM $temp_table)",
+				undef, $project_id );
 		};
 		if ($@) {
 			$logger->error($@);
@@ -658,7 +719,7 @@ sub _add_new_project {
 	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM projects WHERE short_description=?)', $short_desc );
 	if ($desc_exists) {
 		$self->print_bad_status(
-			{ message => q(There is already a project defined with this name. ) . q(Please choose a different name.) }
+			{ message => q(There is already a project defined with this name. Please choose a different name.) }
 		);
 		return;
 	}
@@ -868,7 +929,7 @@ sub _project_info {
 			-name   => 'full_description',
 			-id     => 'full_description',
 			-cols   => 40,
-			default => $project->{'full_description'}
+			default => BIGSdb::Utils::unescape_html($project->{'full_description'})
 		);
 		say q(</li></ul>);
 		say q(</fieldset>);

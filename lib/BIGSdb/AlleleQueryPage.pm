@@ -463,7 +463,7 @@ sub _run_query {
 	$locus =~ s/%27/'/gx;    #Web-escaped locus
 
 	if ( !$self->{'datastore'}->is_locus($locus) ) {
-		$logger->error("Invalid locus $locus");
+		$logger->error("$self->{'instance'}: Invalid locus $locus");
 		$self->print_bad_status( { message => q(Invalid locus selected.) } );
 		return;
 	}
