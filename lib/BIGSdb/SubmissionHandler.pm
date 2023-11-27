@@ -1334,6 +1334,7 @@ sub _check_isolate_regex {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 	}
 	my @values = ref $value ? @$value : ($value);
 	foreach my $this_value (@values) {
+		$this_value =~ s/^\s+|\s+$//gx;
 		next if $thisfield->{'required'} =~ /expected/x && lc($value) eq 'null';
 		if ( $this_value !~ /$thisfield->{'regex'}/x ) {
 			if ( !( $thisfield->{'required'} eq 'no' && $value eq q() ) ) {
