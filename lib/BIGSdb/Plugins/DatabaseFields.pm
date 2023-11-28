@@ -110,8 +110,8 @@ sub _provenance_print_fields {
 		my %required_allowed = map { $_ => 1 } qw(yes no expected genome_required genome_expected);
 		my $required         = $required_allowed{ $thisfield->{'required'} } ? $thisfield->{'required'} : 'yes';
 		my %required_label   = (
-			genome_required => q(only if submitting a genome assembly),
-			genome_expected => q(expected only if submitting a genome assembly)
+			genome_required => q(if submitting a genome assembly),
+			genome_expected => q(expected if submitting a genome assembly)
 		);
 		my $value = $required_label{$required} // $required;
 		say qq(<td>$value</td>);
