@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2022, University of Oxford
+#Copyright (c) 2014-2023, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -33,15 +33,14 @@ sub initiate {
 
 sub print_content {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	my $desc = $self->get_db_description( { formatted => 1 } );
+	my $q      = $self->{'cgi'};
+	my $desc   = $self->get_db_description( { formatted => 1 } );
 	say "<h1>Main projects defined in the $desc database</h1>";
-	my $projects = $self->{'datastore'}->run_query(
-		'SELECT * FROM projects WHERE list AND id IN (SELECT project_id FROM project_members WHERE isolate_id IN '
-		  . "(SELECT id FROM $self->{'system'}->{'view'})) ORDER BY id",
-		undef,
-		{ fetch => 'all_arrayref', slice => {} }
-	);
+	my $qry =
+		'SELECT * FROM projects p WHERE '
+	  . "EXISTS(SELECT 1 FROM project_members pm JOIN $self->{'system'}->{'view'} v ON "
+	  . 'pm.isolate_id=v.id JOIN projects ON p.id=pm.project_id) AND list ORDER BY id';
+	my $projects = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 	if ( !@$projects ) {
 		$self->print_bad_status(
 			{ message => q(There are no listable projects defined in this database.), navbar => 1 } );
