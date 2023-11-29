@@ -53,8 +53,8 @@ sub print_content {
 	my $td = 1;
 	foreach my $project (@$projects) {
 		my $isolates = $self->{'datastore'}->run_query(
-			'SELECT COUNT(*) FROM project_members WHERE project_id=? AND isolate_id IN '
-			  . "(SELECT id FROM $self->{'system'}->{'view'} WHERE new_version IS NULL)",
+			"SELECT COUNT(*) FROM project_members pm JOIN $self->{'system'}->{'view'} v "
+			  . 'ON pm.isolate_id=v.id WHERE pm.project_id=? AND new_version IS NULL',
 			$project->{'id'},
 			{ cache => 'ProjectsPage::print_content' }
 		);
