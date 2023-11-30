@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2020-2021, University of Oxford
+#Copyright (c) 2020-2023, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -92,7 +92,7 @@ sub _sequences {
 	my ($self) = @_;
 	my $allele_count = $self->_get_allele_count;
 	say q(<h2>Sequences</h2>);
-	my $list = [ { title => 'Total', data => BIGSdb::Utils::commify($allele_count) } ];
+	my $list        = [ { title => 'Total', data => BIGSdb::Utils::commify($allele_count) } ];
 	my $last_update = $self->{'datastore'}->run_query('SELECT MAX(datestamp) FROM locus_stats');
 	if ($last_update) {
 		push @$list, { title => 'Last updated', data => $last_update };
@@ -108,27 +108,27 @@ sub _sequences {
 }
 
 sub _schemes {
-	my ($self) = @_;
-	my $set_id = $self->get_set_id;
+	my ($self)  = @_;
+	my $set_id  = $self->get_set_id;
 	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	return if !@$schemes;
 	say q(<h2>Schemes</h2>);
 	say q(<p>Schemes are collections of loci. They may be indexed, in which case they have a primary key )
 	  . q(field that identifies unique combinations of alleles.</p>);
-	say $self->get_tree( undef, { schemes_only => 1 } );
+	say $self->get_tree( undef, { schemes_only => 1, no_disabled => 1 } );
 	return;
 }
 
 sub _loci {
 	my ($self) = @_;
 	my $set_id = $self->get_set_id;
-	my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
+	my $loci   = $self->{'datastore'}->get_loci( { set_id => $set_id } );
 	say q(<h2>Loci</h2>);
 	if ( !@$loci ) {
 		say q(<p>No loci have been defined.</p>);
 		return;
 	}
-	my $plural = @$loci == 1 ? q(us) : q(i);
+	my $plural      = @$loci == 1 ? q(us) : q(i);
 	my $locus_count = @$loci;
 	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;)
 	  . qq(table=loci&amp;submit=1">$locus_count loc$plural</a> defined.</p>);
@@ -231,15 +231,17 @@ sub initiate {
 
 sub set_pref_requirements {
 	my ($self) = @_;
+
+	#query_field prefs needed to check for disabled schemes.
 	$self->{'pref_requirements'} =
-	  { general => 0, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
+	  { general => 0, main_display => 0, isolate_display => 0, analysis => 0, query_field => 1 };
 	return;
 }
 
 sub get_javascript {
 	my ($self) = @_;
-	my $url = $self->{'ajax_url'} // "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=status&ajax=1";
-	my $js = << "JS";
+	my $url    = $self->{'ajax_url'} // "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=status&ajax=1";
+	my $js     = << "JS";
 var values;
 var fields;
 var date_chart;
