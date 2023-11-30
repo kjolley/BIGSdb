@@ -798,7 +798,7 @@ sub _generate_query {
 	my $q = $self->{'cgi'};
 	my $qry;
 	my $errors      = [];
-	my $andor       = $q->param('c0');
+	my $andor       = $q->param('c0') // 'AND';
 	my $first_value = 1;
 	my $set_id      = $self->get_set_id;
 	foreach my $i ( 1 .. MAX_ROWS ) {
