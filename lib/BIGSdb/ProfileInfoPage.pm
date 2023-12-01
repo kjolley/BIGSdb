@@ -92,7 +92,12 @@ sub print_content {
 		);
 	} else {
 		say q(<div class="box" id="resultspanel">);
+		say q(<div style="margin-bottom:1em">);
+		say $self->get_show_common_names_button();
+		say q(</div>);
 		say q(<div class="scrollable">);
+				
+		
 		$self->_print_profile( $scheme_id, $profile_id );
 		say $self->_get_ref_links( $scheme_id, $profile_id );
 		$self->_print_client_db_links( $scheme_id, $profile_id );
@@ -382,7 +387,7 @@ sub _print_profile {
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $indices       = $self->{'datastore'}->get_scheme_locus_indices( $scheme_info->{'id'} );
 	foreach my $locus (@$loci) {
-		my $cleaned = $self->clean_locus($locus);
+		my $cleaned = $self->clean_locus($locus, { common_name_class => 'locus_common_name' });
 		my $value   = $data->{'profile'}->[ $indices->{$locus} ];
 		say qq(<dl class="profile"><dt class="locus">$cleaned</dt><dd><a href="$self->{'system'}->{'script_name'}?)
 		  . qq(db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$value">)
@@ -573,6 +578,20 @@ sub get_javascript {
 	  	});	    
 	  }
 	});
+	\$( "#show_common_names" ).click(function() {
+		if (\$("span#show_common_names_text").css('display') == 'none'){
+			\$("span#show_common_names_text").css('display', 'inline');
+			\$("span#hide_common_names_text").css('display', 'none');
+		} else {
+			\$("span#show_common_names_text").css('display', 'none');
+			\$("span#hide_common_names_text").css('display', 'inline');
+		}
+		\$("span.locus_common_name").toggle();
+		set_profile_widths();
+	});
+	if (\$("span").hasClass('locus_common_name')){
+		\$("span#common_names_button").css('display', 'inline');
+	} 
 	set_profile_widths();
 });
 
@@ -583,7 +602,6 @@ function set_profile_widths(){
 	}).get() );
 	\$("dl.profile dt.locus,dl.profile dt.pk").css("width",'calc(' + maxWidth + 'px - 1em)')
 		.css("max-width",'calc(' + maxWidth + 'px - 1em)');	
-	console.log(maxWidth);
 }
 
 END

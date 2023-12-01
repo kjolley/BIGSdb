@@ -435,8 +435,8 @@ sub _print_separate_scheme_data {
 	if ( BIGSdb::Utils::is_int( scalar $q->param('group_id') ) ) {
 		say q(<div class="box resultspanel">);
 		say q(<div id="profile" style="overflow:hidden;min-height:30em" class="expandable_retracted">);
-		say $self->_get_show_aliases_button( 'inline', { show_aliases => 0 } );
-		say $self->_get_show_common_names_button('inline');
+		say $self->get_show_aliases_button( 'inline', { show_aliases => 0 } );
+		say $self->get_show_common_names_button('inline');
 		$self->_print_group_data( $isolate_id, scalar $q->param('group_id'), { show_aliases => 0, no_render => 1 } );
 		say q(</div>);
 		say q(<div class="expand_link" id="expand_profile"><span class="fas fa-chevron-down"></span></div>);
@@ -444,8 +444,8 @@ sub _print_separate_scheme_data {
 	} elsif ( BIGSdb::Utils::is_int( scalar $q->param('scheme_id') ) ) {
 		say q(<div class="box resultspanel">);
 		say q(<div id="profile" style="overflow:hidden;min-height:30em" class="expandable_retracted">);
-		say $self->_get_show_aliases_button( 'inline', { show_aliases => 0 } );
-		say $self->_get_show_common_names_button('inline');
+		say $self->get_show_aliases_button( 'inline', { show_aliases => 0 } );
+		say $self->get_show_common_names_button('inline');
 		$self->_print_scheme_data( $isolate_id, scalar $q->param('scheme_id'), { show_aliases => 0, no_render => 0 } );
 		say q(</div>);
 		say q(<div class="expand_link" id="expand_profile"><span class="fas fa-chevron-down"></span></div>);
@@ -531,8 +531,8 @@ sub print_content {
 	  . q(<span id="show_tree_text" style="display:none"><span class="fa fas fa-eye"></span> Show</span>)
 	  . q(<span id="hide_tree_text" style="display:inline">)
 	  . q(<span class="fa fas fa-eye-slash"></span> Hide</span> tree</a></span>);
-	my $common_names_button = $self->_get_show_common_names_button;
-	my $aliases_button      = $self->_get_show_aliases_button;
+	my $common_names_button = $self->get_show_common_names_button;
+	my $aliases_button      = $self->get_show_aliases_button;
 	my $loci                = $self->{'datastore'}->get_loci( { set_id => $set_id } );
 	if ( @$loci && $self->_should_show_schemes($isolate_id) ) {
 		my $classification_data = $self->_get_classification_group_data($isolate_id);
@@ -578,7 +578,7 @@ sub _should_show_schemes {
 	return;
 }
 
-sub _get_show_aliases_button {
+sub get_show_aliases_button {
 	my ( $self, $display, $options ) = @_;
 	$display //= 'none';
 	my $show_aliases = $options->{'show_aliases'} // $self->{'prefs'}->{'locus_alias'} ? 'none'   : 'inline';
@@ -592,11 +592,10 @@ sub _get_show_aliases_button {
 	  . q(aliases</a></span>);
 }
 
-sub _get_show_common_names_button {
+sub get_show_common_names_button {
 	my ( $self, $display ) = @_;
 	$display //= 'none';
-	return
-		q(<span id="common_names_button" style="margin-left:1em;display:$display">)
+	return qq(<span id="common_names_button" style="margin-left:1em;display:$display">)
 	  . q(<a id="show_common_names" class="small_submit" style="cursor:pointer">)
 	  . q(<span id="show_common_names_text" style="display:inline"><span class="fa fas fa-eye"></span> )
 	  . q(Show</span><span id="hide_common_names_text" style="display:none">)
