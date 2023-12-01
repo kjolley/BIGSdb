@@ -2431,17 +2431,6 @@ span.data_title {
 	padding-right: 1em
 }
 
-div.large_scheme dl.profile {
-	width: 10em;
-	white-space: nowrap;
-}
-
-div.large_scheme dl.profile dt,
-div.large_scheme dl.profile dd {
-	overflow-x: hidden;
-	text-overflow: ellipsis;
-}
-
 .projects dt {
 	background-color: #666;
 	color: white;

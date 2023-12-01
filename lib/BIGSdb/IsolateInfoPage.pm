@@ -179,6 +179,7 @@ sub get_javascript {
 		\$("#hide_metric_fields").hide();
 		\$("#metric_fields").hide();
 	})
+	set_profile_widths();
 });
 
 function enable_slide_triggers(){
@@ -195,7 +196,6 @@ function set_profile_widths(){
 	var maxWidth = Math.max.apply( null, \$("dl.profile dt.locus").map( function () {
     	return \$(this).outerWidth(true);
 	}).get() );
-	console.log(maxWidth);
 	\$("dl.profile dt.locus").css("width",'calc(' + maxWidth + 'px - 1em)')
 		.css("max-width",'calc(' + maxWidth + 'px - 1em)');	
 }
@@ -433,7 +433,7 @@ sub _print_separate_scheme_data {
 	my ( $self, $isolate_id ) = @_;
 	my $q = $self->{'cgi'};
 	if ( BIGSdb::Utils::is_int( scalar $q->param('group_id') ) ) {
-		say q(<div class="box resultspanel large_scheme">);
+		say q(<div class="box resultspanel">);
 		say q(<div id="profile" style="overflow:hidden;min-height:30em" class="expandable_retracted">);
 		say $self->_get_show_aliases_button( 'inline', { show_aliases => 0 } );
 		say $self->_get_show_common_names_button('inline');
@@ -442,11 +442,11 @@ sub _print_separate_scheme_data {
 		say q(<div class="expand_link" id="expand_profile"><span class="fas fa-chevron-down"></span></div>);
 		say q(</div>);
 	} elsif ( BIGSdb::Utils::is_int( scalar $q->param('scheme_id') ) ) {
-		say q(<div class="box resultspanel large_scheme">);
+		say q(<div class="box resultspanel">);
 		say q(<div id="profile" style="overflow:hidden;min-height:30em" class="expandable_retracted">);
 		say $self->_get_show_aliases_button( 'inline', { show_aliases => 0 } );
 		say $self->_get_show_common_names_button('inline');
-		$self->_print_scheme_data( $isolate_id, scalar $q->param('scheme_id'), { show_aliases => 0, no_render => 1 } );
+		$self->_print_scheme_data( $isolate_id, scalar $q->param('scheme_id'), { show_aliases => 0, no_render => 0 } );
 		say q(</div>);
 		say q(<div class="expand_link" id="expand_profile"><span class="fas fa-chevron-down"></span></div>);
 		say q(</div>);
