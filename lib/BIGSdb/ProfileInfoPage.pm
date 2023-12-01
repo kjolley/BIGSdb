@@ -378,13 +378,13 @@ sub _print_profile {
 		$tooltip =
 		  $self->get_tooltip( qq($primary_key - $scheme_field_info->{'description'}), { style => 'color:white' } );
 	}
-	say qq(<dl class="profile"><dt>$primary_key$tooltip</dt><dd>$profile_id</dd></dl>);
+	say qq(<dl class="profile"><dt class="pk">$primary_key$tooltip</dt><dd>$profile_id</dd></dl>);
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $indices       = $self->{'datastore'}->get_scheme_locus_indices( $scheme_info->{'id'} );
 	foreach my $locus (@$loci) {
 		my $cleaned = $self->clean_locus($locus);
 		my $value   = $data->{'profile'}->[ $indices->{$locus} ];
-		say qq(<dl class="profile"><dt>$cleaned</dt><dd><a href="$self->{'system'}->{'script_name'}?)
+		say qq(<dl class="profile"><dt class="locus">$cleaned</dt><dd><a href="$self->{'system'}->{'script_name'}?)
 		  . qq(db=$self->{'instance'}&amp;page=alleleInfo&amp;locus=$locus&amp;allele_id=$value">)
 		  . qq($value</a></dd></dl>);
 	}
@@ -541,7 +541,7 @@ sub _get_update_history {
 	my ( $history, undef ) = $self->_get_history( $scheme_id, $profile_id );
 	my $buffer;
 	if (@$history) {
-		$buffer .= qq(<table class=\"resultstable\"><tr><th>Timestamp</th><th>Curator</th><th>Action</th></tr>\n);
+		$buffer .= qq(<table class="resultstable"><tr><th>Timestamp</th><th>Curator</th><th>Action</th></tr>\n);
 		my $td = 1;
 		foreach (@$history) {
 			my $curator_info = $self->{'datastore'}->get_user_info( $_->{'curator'} );
@@ -570,11 +570,21 @@ sub get_javascript {
 	  } else {
 	  	\$('#profile').switchClass('expandable_retracted','expandable_expanded',1000, "easeInOutQuad", function(){
 	  		\$('#expand_profile').html('<span class="fas fa-chevron-up"></span>');
-	  	});
-	    
+	  	});	    
 	  }
 	});
+	set_profile_widths();
 });
+
+function set_profile_widths(){
+	\$("dl.profile dt.locus,dl.profile dt.pk").css("width","auto").css("max-width","none");
+	var maxWidth = Math.max.apply( null, \$("dl.profile dt.locus,dl.profile dt.pk").map( function () {
+    	return \$(this).outerWidth(true);
+	}).get() );
+	\$("dl.profile dt.locus,dl.profile dt.pk").css("width",'calc(' + maxWidth + 'px - 1em)')
+		.css("max-width",'calc(' + maxWidth + 'px - 1em)');	
+	console.log(maxWidth);
+}
 
 END
 	return $buffer;
