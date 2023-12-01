@@ -693,7 +693,7 @@ sub _get_meta_data {
 sub _get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20231101';
+	my $version = '20231201';
 	my @filenames;
 	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
 	push @filenames, q(billboard.min.css)                                     if $self->{'billboard'};
@@ -1778,7 +1778,8 @@ sub get_project_filter {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $args = [];
-	my $qry  = 'SELECT id,short_description FROM projects p WHERE '
+	my $qry =
+		'SELECT id,short_description FROM projects p WHERE '
 	  . "EXISTS(SELECT 1 FROM project_members pm JOIN $self->{'system'}->{'view'} v ON "
 	  . 'pm.isolate_id=v.id JOIN projects ON p.id=pm.project_id) AND (NOT private';
 	if ( $self->{'username'} ) {
@@ -1874,10 +1875,10 @@ sub get_scheme_flags {
 sub clean_locus {
 	my ( $self, $locus, $options ) = @_;
 	return if !defined $locus;
-	$options = {} if ref $options ne 'HASH';
 	my $set_id     = $self->get_set_id;
 	my $locus_info = $self->{'datastore'}->get_locus_info( $locus, { set_id => $set_id } );
 	my $formatting_defined;
+	my $common_name;
 	if ( $set_id && $locus_info->{'set_name'} ) {
 		$locus = $locus_info->{'set_name'};
 		if ( !$options->{'text_output'} && $locus_info->{'formatted_set_name'} ) {
@@ -1885,13 +1886,11 @@ sub clean_locus {
 			$formatting_defined = 1;
 		}
 		if ( !$options->{'no_common_name'} ) {
-			my $common_name = '';
-			$common_name = " ($locus_info->{'set_common_name'})" if $locus_info->{'set_common_name'};
+			$common_name = $locus_info->{'set_common_name'} if $locus_info->{'set_common_name'};
 			if ( !$options->{'text_output'} && $locus_info->{'formatted_set_common_name'} ) {
-				$common_name        = " ($locus_info->{'formatted_set_common_name'})";
+				$common_name        = $locus_info->{'formatted_set_common_name'};
 				$formatting_defined = 1;
 			}
-			$locus .= $common_name;
 		}
 	} else {
 		if ( !$options->{'text_output'} && $locus_info->{'formatted_name'} ) {
@@ -1899,14 +1898,23 @@ sub clean_locus {
 			$formatting_defined = 1;
 		}
 		if ( !$options->{'no_common_name'} ) {
-			my $common_name = '';
-			$common_name = " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
+			if ( $locus_info->{'common_name'} ) {
+				$common_name = $locus_info->{'common_name'};
+			}
 			if ( !$options->{'text_output'} && $locus_info->{'formatted_common_name'} ) {
-				$common_name        = " ($locus_info->{'formatted_common_name'})";
+				$common_name        = $locus_info->{'formatted_common_name'};
 				$formatting_defined = 1;
 			}
-			$locus .= $common_name;
 		}
+	}
+	if ($common_name) {
+		my $common_name_class =
+		  ( !$options->{'text_output'} && $options->{'common_name_class'} )
+		  ? $options->{'common_name_class'}
+		  : undef;
+		$locus .= qq(<span class="$options->{'common_name_class'}">) if $common_name_class;
+		$locus .= qq( ($common_name));
+		$locus .= q(</span>) if $common_name_class;
 	}
 	if ( !$options->{'text_output'} ) {
 		if ( !$formatting_defined ) {

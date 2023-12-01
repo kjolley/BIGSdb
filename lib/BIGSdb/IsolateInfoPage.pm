@@ -78,11 +78,18 @@ sub get_javascript {
 		reloadTooltips();
 		\$("span#show_aliases_text").css('display', '$show_aliases');
 		\$("span#hide_aliases_text").css('display', '$hide_aliases');
+		\$("span#show_common_names_text").css('display', 'inline');
+		\$("span#hide_common_names_text").css('display', 'none');
 		\$("span#tree_button").css('display', 'inline');
 		if (\$("span").hasClass('aliases')){
 			\$("span#aliases_button").css('display', 'inline');
 		} else {
 			\$("span#aliases_button").css('display', 'none');
+		}
+		if (\$("span").hasClass('locus_common_name')){
+			\$("span#common_names_button").css('display', 'inline');
+		} else {
+			\$("span#common_names_button").css('display', 'none');
 		}
 	});
 
@@ -98,7 +105,16 @@ sub get_javascript {
 		  	});	    
 	  }
 	});	
-	
+	\$( "#show_common_names" ).click(function() {
+		if (\$("span#show_common_names_text").css('display') == 'none'){
+			\$("span#show_common_names_text").css('display', 'inline');
+			\$("span#hide_common_names_text").css('display', 'none');
+		} else {
+			\$("span#show_common_names_text").css('display', 'none');
+			\$("span#hide_common_names_text").css('display', 'inline');
+		}
+		\$("span.locus_common_name").toggle();
+	});
 	\$( "#show_aliases" ).click(function() {
 		if (\$("span#show_aliases_text").css('display') == 'none'){
 			\$("span#show_aliases_text").css('display', 'inline');
@@ -406,7 +422,8 @@ sub _print_separate_scheme_data {
 	if ( BIGSdb::Utils::is_int( scalar $q->param('group_id') ) ) {
 		say q(<div class="box resultspanel large_scheme">);
 		say q(<div id="profile" style="overflow:hidden;min-height:30em" class="expandable_retracted">);
-		say $self->_get_show_aliases_button( 'block', { show_aliases => 0 } );
+		say $self->_get_show_aliases_button( 'inline', { show_aliases => 0 } );
+		say $self->_get_show_common_names_button('inline');
 		$self->_print_group_data( $isolate_id, scalar $q->param('group_id'), { show_aliases => 0, no_render => 1 } );
 		say q(</div>);
 		say q(<div class="expand_link" id="expand_profile"><span class="fas fa-chevron-down"></span></div>);
@@ -414,7 +431,8 @@ sub _print_separate_scheme_data {
 	} elsif ( BIGSdb::Utils::is_int( scalar $q->param('scheme_id') ) ) {
 		say q(<div class="box resultspanel large_scheme">);
 		say q(<div id="profile" style="overflow:hidden;min-height:30em" class="expandable_retracted">);
-		say $self->_get_show_aliases_button( 'block', { show_aliases => 0, show_aliases => 0 } );
+		say $self->_get_show_aliases_button( 'inline', { show_aliases => 0 } );
+		say $self->_get_show_common_names_button('inline');
 		$self->_print_scheme_data( $isolate_id, scalar $q->param('scheme_id'), { show_aliases => 0, no_render => 1 } );
 		say q(</div>);
 		say q(<div class="expand_link" id="expand_profile"><span class="fas fa-chevron-down"></span></div>);
@@ -500,13 +518,15 @@ sub print_content {
 	  . q(<span id="show_tree_text" style="display:none"><span class="fa fas fa-eye"></span> Show</span>)
 	  . q(<span id="hide_tree_text" style="display:inline">)
 	  . q(<span class="fa fas fa-eye-slash"></span> Hide</span> tree</a></span>);
-	my $aliases_button = $self->_get_show_aliases_button;
-	my $loci           = $self->{'datastore'}->get_loci( { set_id => $set_id } );
+	my $common_names_button = $self->_get_show_common_names_button;
+	my $aliases_button      = $self->_get_show_aliases_button;
+	my $loci                = $self->{'datastore'}->get_loci( { set_id => $set_id } );
 	if ( @$loci && $self->_should_show_schemes($isolate_id) ) {
 		my $classification_data = $self->_get_classification_group_data($isolate_id);
 		say $self->_format_classification_data($classification_data);
 		say q(<div><span class="info_icon fas fa-2x fa-fw fa-table fa-pull-left" style="margin-top:0.3em"></span>);
-		say qq(<h2 style="display:inline-block">Schemes and loci</h2>$tree_button$aliases_button<div>);
+		say
+qq(<h2 style="display:inline-block">Schemes and loci</h2>$tree_button$common_names_button$aliases_button<div>);
 		if ( @$scheme_data < 3 && @$loci <= 100 ) {
 			my $schemes =
 			  $self->{'datastore'}
@@ -554,9 +574,21 @@ sub _get_show_aliases_button {
 		qq(<span id="aliases_button" style="margin-left:1em;display:$display">)
 	  . q(<a id="show_aliases" class="small_submit" style="cursor:pointer">)
 	  . qq(<span id="show_aliases_text" style="display:$show_aliases"><span class="fa fas fa-eye"></span> )
-	  . qq(show</span><span id="hide_aliases_text" style="display:$hide_aliases">)
-	  . q(<span class="fa fas fa-eye-slash"></span> hide</span> )
-	  . q(locus aliases</a></span>);
+	  . qq(Show</span><span id="hide_aliases_text" style="display:$hide_aliases">)
+	  . q(<span class="fa fas fa-eye-slash"></span> Hide</span> )
+	  . q(aliases</a></span>);
+}
+
+sub _get_show_common_names_button {
+	my ( $self, $display ) = @_;
+	$display //= 'none';
+	return
+		q(<span id="common_names_button" style="margin-left:1em;display:$display">)
+	  . q(<a id="show_common_names" class="small_submit" style="cursor:pointer">)
+	  . q(<span id="show_common_names_text" style="display:inline"><span class="fa fas fa-eye"></span> )
+	  . q(Show</span><span id="hide_common_names_text" style="display:none">)
+	  . q(<span class="fa fas fa-eye-slash"></span> Hide</span> )
+	  . q(common names</a></span>);
 }
 
 sub _print_plugin_buttons {
@@ -1851,7 +1883,7 @@ sub _get_locus_value {
 	my ( $self, $args ) = @_;
 	my ( $isolate_id, $locus, $designations, $summary_view, $no_render, $show_aliases ) =
 	  @{$args}{qw(isolate_id locus designations summary_view no_render show_aliases)};
-	my $cleaned    = $self->clean_locus($locus);
+	my $cleaned    = $self->clean_locus( $locus, { common_name_class => 'locus_common_name' } );
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	if ( $locus_info->{'description_url'} ) {
 		$locus_info->{'description_url'} =~ s/\&/\&amp;/gx;
@@ -1861,7 +1893,7 @@ sub _get_locus_value {
 	local $" = ';&nbsp;';
 	my $alias_display = $show_aliases // $self->{'prefs'}->{'locus_alias'} ? 'inline' : 'none';
 	my $display_title = $cleaned;
-	$display_title .= qq(&nbsp;<span class="aliases" style="display:$alias_display">(@$locus_aliases)</span>)
+	$display_title .= qq(<span class="aliases" style="display:$alias_display">&nbsp;(@$locus_aliases)</span>)
 	  if @$locus_aliases;
 	my $display_value = q();
 	my $first         = 1;
