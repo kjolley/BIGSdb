@@ -91,6 +91,7 @@ sub get_javascript {
 		} else {
 			\$("span#common_names_button").css('display', 'none');
 		}
+		set_profile_widths();
 	});
 
 	\$('.expand_link').on('click', function(){	
@@ -114,6 +115,7 @@ sub get_javascript {
 			\$("span#hide_common_names_text").css('display', 'inline');
 		}
 		\$("span.locus_common_name").toggle();
+		set_profile_widths();
 	});
 	\$( "#show_aliases" ).click(function() {
 		if (\$("span#show_aliases_text").css('display') == 'none'){
@@ -130,6 +132,7 @@ sub get_javascript {
 			\$(".data dd").css({"margin":"initial"});			
 		}
 		\$( "span.aliases" ).toggle();
+		set_profile_widths();
 		return false;
 	});
 	\$( "#show_tree" ).click(function() {		
@@ -185,6 +188,16 @@ function enable_slide_triggers(){
 		\$(".slide_panel:not(#" + panel +")").hide("slide",{direction:"right"},"fast");
 		\$("#" + panel).toggle("slide",{direction:"right"},"fast");
 	});
+}
+
+function set_profile_widths(){
+	\$("dl.profile dt.locus").css("width","auto").css("max-width","none");
+	var maxWidth = Math.max.apply( null, \$("dl.profile dt.locus").map( function () {
+    	return \$(this).outerWidth(true);
+	}).get() );
+	console.log(maxWidth);
+	\$("dl.profile dt.locus").css("width",'calc(' + maxWidth + 'px - 1em)')
+		.css("max-width",'calc(' + maxWidth + 'px - 1em)');	
 }
 
 END
@@ -1969,7 +1982,7 @@ sub _get_locus_value {
 	my $buffer =
 	  $no_render
 	  ? qq(<dt>$display_title</dt><dd>$display_value</dd>)
-	  : qq(<dl class="profile"><dt>$display_title</dt><dd>$display_value</dd></dl>);
+	  : qq(<dl class="profile"><dt class="locus">$display_title</dt><dd>$display_value</dd></dl>);
 	return $buffer;
 }
 
