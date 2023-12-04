@@ -129,8 +129,7 @@ sub get_remote_contig {
 	my $length = length $contig->{'sequence'};
 	if ( $options->{'length'} ) {
 		if ( $length != $options->{'length'} ) {
-			$logger->error("$self->{'instance'}: Remote contig $uri length has changed!");
-			return;
+			$logger->error("Contig $uri length has changed!");
 		}
 	} else {
 		$self->{'logger'}->error("$self->{'instance'}: Remote contig $uri is zero length.");
