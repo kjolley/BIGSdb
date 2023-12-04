@@ -1,6 +1,6 @@
 /**
  * Written by Keith Jolley 
- * Copyright (c) 2010-2021, University of Oxford 
+ * Copyright (c) 2010-2023, University of Oxford 
  * E-mail: keith.jolley@biology.ox.ac.uk
  * 
  * This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,67 +18,74 @@
  * BIGSdb. If not, see <http://www.gnu.org/licenses/>.
  */
 
-$(function () {
-	$('div.content a:not(.lightbox)').tooltip({ 
-	    track: false, 
-	    show: {delay: 250}, 
-	    showURL: false, 
-	    showBody: " - ", 
-	    fade: 250 
+$(function() {
+	$('div.content a:not(.lightbox)').tooltip({
+		track: false,
+		show: { delay: 250 },
+		showURL: false,
+		showBody: " - ",
+		fade: 250
 	});
 	$('.showhide').show();
 	$("#hidefromnonJS").removeClass("hiddenbydefault");
 	$(".hideonload").slideUp("normal");
 	$('.hideshow').hide();
-	$('#toggle1,#toggle2').click(function(){
-      $('.showhide').toggle();
-      $('.hideshow').toggle();
-    });	
-	$('.flash_message').effect('highlight',{},2000).hide('fade',{},1000);
-	
+	$('#toggle1,#toggle2').click(function() {
+		$('.showhide').toggle();
+		$('.hideshow').toggle();
+	});
+	$('.flash_message').effect('highlight', {}, 2000).hide('fade', {}, 1000);
+
 	$('a#toggle_tooltips,span#toggle').show();
-	$('a#toggle_tooltips').click(function(event){		
+	$('a#toggle_tooltips').click(function(event) {
 		event.preventDefault();
-		if ($('a#toggle_tooltips').hasClass('tooltips_enabled')){
+		if ($('a#toggle_tooltips').hasClass('tooltips_enabled')) {
 			$('a#toggle_tooltips').removeClass('tooltips_enabled');
 			$('a#toggle_tooltips').addClass('tooltips_disabled');
-			$('a#toggle_tooltips').prop('title','Enable tooltips');
+			$('a#toggle_tooltips').prop('title', 'Enable tooltips');
 		} else {
 			$('a#toggle_tooltips').removeClass('tooltips_disabled');
 			$('a#toggle_tooltips').addClass('tooltips_enabled');
-			$('a#toggle_tooltips').prop('title','Disable tooltips');
+			$('a#toggle_tooltips').prop('title', 'Disable tooltips');
 		}
 		$('.tooltip').toggle();
-	  	$(this).attr('href', function(){  		
-	  		$.ajax({
-	  			url: this.href,
-	  			cache: false,
-	  		});
-	   	});
+		$(this).attr('href', function() {
+			$.ajax({
+				url: this.href,
+				cache: false,
+			});
+		});
 	});
 
 	show_expand_trigger();
-	$('a#expand_trigger').click(function(event){
-		if ($('span#expand').is(":visible")){
-			$('div.main_content').css({"max-width":"calc(100vw - 40px)"});
+	$('a#expand_trigger').click(function(event) {
+		event.preventDefault();
+		let expand = $('span#expand').is(":visible") ? 'on' : 'off';
+		
+		if ($('span#expand').is(":visible")) {
 			$('span#expand, span#expand_label_expand').hide();
 			$('span#contract, span#expand_label_contract').show();
 		} else {
-			$('div.main_content').css({"max-width":max_width + 'px'});
 			$('span#expand, span#expand_label_expand').show();
 			$('span#contract, span#expand_label_contract').hide();
 		}
+		set_page_width();	
+
+		$.ajax({
+			url: this.href + "&update=1&attribute=expandPage&value=" + expand,
+			cache: false,
+		});
 	});
-	
-	
+
+
 	//Tooltips
 	reloadTooltips();
-	$('a#toggle_tooltips').prop('title',$('a#toggle_tooltips')
-			.hasClass('tooltips_enabled') ? 'Disable tooltips' : 'Enable tooltips');
-	
+	$('a#toggle_tooltips').prop('title', $('a#toggle_tooltips')
+		.hasClass('tooltips_enabled') ? 'Disable tooltips' : 'Enable tooltips');
+
 	//Add tooltip to truncated definition list titles
-	$('dt').each(function(){
-		if( this.offsetWidth + 1 < this.scrollWidth){
+	$('dt').each(function() {
+		if (this.offsetWidth + 1 < this.scrollWidth) {
 			$(this).prop('title', $(this).text());
 			$(this).tooltip();
 			$(this).css('cursor', 'pointer');
@@ -87,21 +94,29 @@ $(function () {
 	$(window).resize(function() {
 		show_expand_trigger();
 	});
-	
+
 });
 
-$.urlParam = function(name){
-    var results = new RegExp('[\?&]' + name + '=([^&#]*)').exec(window.location.href);
-    if (results==null){
-       return null;
-    }
-    else{
-       return results[1] || 0;
-    }
+$.urlParam = function(name) {
+	var results = new RegExp('[\?&]' + name + '=([^&#]*)').exec(window.location.href);
+	if (results == null) {
+		return null;
+	}
+	else {
+		return results[1] || 0;
+	}
+}
+
+function set_page_width() {
+	if ($('span#expand').is(":visible")) {
+		$('div.main_content').css({ "max-width": max_width + 'px' });		
+	} else {
+		$('div.main_content').css({ "max-width": "calc(100vw - 40px)" });
+	}
 }
 
 function show_expand_trigger() {
-	if ($(window).width() > max_width + 100){
+	if ($(window).width() > max_width + 100) {
 		$("a#expand_trigger").show();
 	} else {
 		$('a#expand_trigger').hide();
@@ -109,30 +124,30 @@ function show_expand_trigger() {
 }
 
 function reloadTooltips() {
-	var title = $("a[title],span[title]" ).not('.lightbox');
+	var title = $("a[title],span[title]").not('.lightbox');
 	$.each(title, function(index, value) {
 		var value = $(this).attr('title');
-		value = value.replace(/^([^<h3>].+?) - /,"<h3>$1</h3>");
-		$(this).tooltip({content: value});
+		value = value.replace(/^([^<h3>].+?) - /, "<h3>$1</h3>");
+		$(this).tooltip({ content: value });
 	});
-	title = $("label[title]" ).not('.lightbox');
+	title = $("label[title]").not('.lightbox');
 	$.each(title, function(index, value) {
 		var value = $(this).attr('title');
-		$(this).tooltip({content: value});
+		$(this).tooltip({ content: value });
 	});
 }
-		
+
 function getCookie(name) {
-  var dc = document.cookie;
-  var prefix = name + "=";
-  var begin = dc.indexOf("; " + prefix);
-  if (begin == -1) {
-    begin = dc.indexOf(prefix);
-    if (begin != 0) return null;
-  } else
-    begin += 2;
-  var end = document.cookie.indexOf(";", begin);
-  if (end == -1)
-    end = dc.length;
-  return unescape(dc.substring(begin + prefix.length, end));
+	var dc = document.cookie;
+	var prefix = name + "=";
+	var begin = dc.indexOf("; " + prefix);
+	if (begin == -1) {
+		begin = dc.indexOf(prefix);
+		if (begin != 0) return null;
+	} else
+		begin += 2;
+	var end = document.cookie.indexOf(";", begin);
+	if (end == -1)
+		end = dc.length;
+	return unescape(dc.substring(begin + prefix.length, end));
 }

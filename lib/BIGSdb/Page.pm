@@ -603,6 +603,9 @@ sub print_page_content {
 		);
 		my $max_width            = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
 		my $main_max_width       = $max_width - 15;
+		my $main_max_width_style = $self->{'prefs'}->{'expandPage'}
+		  ? q(calc(100vw - 40px))
+		  : qq(${main_max_width}px);
 		my $main_container_class = $self->{'login'} ? q( main_container_login) : q();
 		my $main_content_class   = $self->{'login'} ? q( main_content_login)   : q();
 
@@ -610,7 +613,7 @@ sub print_page_content {
 			$self->_print_header;
 			$self->_print_breadcrumbs;
 			say qq(<div class="main_container$main_container_class">);
-			say qq(<div class="main_content$main_content_class" style="max-width:${main_max_width}px">);
+			say qq(<div class="main_content$main_content_class" style="max-width:${main_max_width_style}">);
 			$self->_print_button_panel;
 			say qq(<script>var max_width=${main_max_width}</script>);
 			$self->print_content;
@@ -1100,11 +1103,14 @@ sub _print_help_button {
 sub _print_expand_trigger {
 	my ($self) = @_;
 	return if !$self->{'allowExpand'};
-	say q(<span class="icon_button"><a id="expand_trigger" class="trigger_button" style="display:none">)
-	  . q(<span id="expand" class="fas fa-lg fa-expand" title="Expand width"></span>)
-	  . q(<span id="contract" class="fas fa-lg fa-compress" style="display:none" title="Contract width">)
-	  . q(</span><span class="icon_label"><span id="expand_label_expand">Expand</span>)
-	  . q(<span id="expand_label_contract" style="display:none">Contract</span></span></a></span>);
+	my $page_expand   = $self->{'prefs'}->{'expandPage'} ? 'none'   : 'inline';
+	my $page_contract = $self->{'prefs'}->{'expandPage'} ? 'inline' : 'none';
+	say q(<span class="icon_button"><a id="expand_trigger" class="trigger_button" style="display:none" )
+	  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=ajaxPrefs">)
+	  . qq(<span id="expand" class="fas fa-lg fa-expand" style="display:$page_expand" title="Expand width"></span>)
+	  . qq(<span id="contract" class="fas fa-lg fa-compress" style="display:$page_contract" title="Contract width">)
+	  . qq(</span><span class="icon_label"><span id="expand_label_expand" style="display:$page_expand">Expand</span>)
+	  . qq(<span id="expand_label_contract" style="display:$page_contract">Contract</span></span></a></span>);
 	return;
 }
 
@@ -2618,7 +2624,7 @@ sub _initiate_general_prefs {
 	}
 
 	#default off
-	foreach (qw (hyperlink_loci )) {
+	foreach (qw (hyperlink_loci expandPage)) {
 		$general_prefs->{$_} //= 'off';
 		$self->{'prefs'}->{$_} = $general_prefs->{$_} eq 'on' ? 1 : 0;
 	}
