@@ -245,8 +245,7 @@ sub _get_protected_route {
 	BIGSdb::Exception::Authentication->throw('Cannot verify signature') unless $request->verify;
 	my $res = $self->{'ua'}->get( $request->to_url );
 	if ( $res->code == 429 ) {
-		$logger->error('API reponded with error 429 - Too many requests. Reduce the number of concurrent connections');
-		return;
+		BIGSdb::Exception::Server->throw('Server 429 error - Too many requests to API!')
 	}
 	if ( $options->{'non_json'} ) {
 		return $res->content;
