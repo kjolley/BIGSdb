@@ -99,7 +99,7 @@ sub update_remote_contig_length {
 sub update_isolate_remote_contig_lengths {
 	my ( $self, $isolate_id ) = @_;
 	my $seqbin = $self->{'seqbin_table'} // 'sequence_bin';
-	my $qry    = "SELECT r.uri,r.length FROM $seqbin s JOIN remote_contigs r ON "
+	my $qry = "SELECT r.uri,r.length FROM $seqbin s JOIN remote_contigs r ON "
 	  . 's.id=r.seqbin_id WHERE s.isolate_id=? AND remote_contig';
 	my $remote_contigs = $self->{'datastore'}->run_query( $qry, $isolate_id,
 		{ fetch => 'all_arrayref', slice => {}, cache => 'ContigManager::update_isolate_remote_contig_lengths' } );
@@ -131,8 +131,6 @@ sub get_remote_contig {
 		if ( $length != $options->{'length'} ) {
 			$logger->error("Contig $uri length has changed!");
 		}
-	} else {
-		$self->{'logger'}->error("$self->{'instance'}: Remote contig $uri is zero length.");
 	}
 	my $checksum = Digest::MD5::md5_hex( $contig->{'sequence'} );
 	if ( $options->{'checksum'} ) {
@@ -298,7 +296,7 @@ sub _get_session_token {
 	);
 	$request->sign;
 	BIGSdb::Exception::Authentication->throw('Cannot verify signature') unless $request->verify;
-	my $res          = $self->{'ua'}->request( GET $request->to_url, Content_Type => 'application/json' );
+	my $res = $self->{'ua'}->request( GET $request->to_url, Content_Type => 'application/json' );
 	my $decoded_json = decode_json( $res->content );
 	if ( $res->is_success ) {
 		my $session_response = Net::OAuth->response('access token')->from_hash($decoded_json);
@@ -325,7 +323,7 @@ sub _get_session_token {
 sub get_contig_fragment {
 	my ( $self, $args ) = @_;
 	$args->{'start'} = 1 if $args->{'start'} < 1;
-	my $seqbin      = $self->{'seqbin_table'} // 'sequence_bin';
+	my $seqbin = $self->{'seqbin_table'} // 'sequence_bin';
 	my $contig_info = $self->{'datastore'}->run_query(
 		"SELECT GREATEST(r.length,length(s.sequence)) AS length,s.remote_contig FROM $seqbin s LEFT JOIN "
 		  . 'remote_contigs r ON s.id=r.seqbin_id WHERE s.id=?',
@@ -333,7 +331,7 @@ sub get_contig_fragment {
 		{ fetch => 'row_hashref', cache => "ContigManager::get_contig_fragment::$seqbin" }
 	);
 	$args->{'contig_length'} = $contig_info->{'length'};
-	$args->{'end'}           = $args->{'contig_length'} if $args->{'end'} > $args->{'contig_length'};
+	$args->{'end'} = $args->{'contig_length'} if $args->{'end'} > $args->{'contig_length'};
 	$args->{'flanking'} =
 	  ( BIGSdb::Utils::is_int( $args->{'flanking'} ) && $args->{'flanking'} >= 0 ) ? $args->{'flanking'} : 100;
 	my $seq_ref;
@@ -372,7 +370,7 @@ sub _get_remote_contig_fragment {
 	my $upstream_start    = $args->{'start'} - 1 - $flanking;
 	if ( $upstream_start < 0 ) {
 		$upstream_flanking += $upstream_start;
-		$upstream_start    = 0;
+		$upstream_start = 0;
 		$upstream_flanking = 0 if $upstream_flanking < 0;
 	}
 	return {
@@ -392,17 +390,15 @@ sub _get_local_contig_fragment {
 
 	#Error appearing in log - need to track down what's causing this
 	if ( $start =~ /\*/x ) {
-
-		#		$logger->logcarp( Dumper $args);
+#		$logger->logcarp( Dumper $args);
 		$start =~ s/\*//x;
 	}
 	if ( $end =~ /\*/x ) {
-
-		#		$logger->logcarp( Dumper $args);
+#		$logger->logcarp( Dumper $args);
 		$end =~ s/\*//x;
 	}
 	my $qry =
-		"SELECT substring(sequence FROM $start FOR $length) AS seq,substring(sequence "
+	    "SELECT substring(sequence FROM $start FOR $length) AS seq,substring(sequence "
 	  . "FROM ($start-$flanking) FOR $flanking) AS upstream,substring(sequence FROM "
 	  . "($end+1) FOR $flanking) AS downstream FROM $seqbin WHERE id=?";
 	return $self->{'datastore'}->run_query( $qry, $args->{'seqbin_id'}, { fetch => 'row_hashref' } );
@@ -448,9 +444,9 @@ sub get_contig_length {
 sub get_contigs_by_list {
 	my ( $self, $seqbin_ids ) = @_;
 	my $temp_table = 'temp_seqbin_list';
-	$self->{'datastore'}->create_temp_list_table_from_array( 'int', $seqbin_ids, { table => $temp_table } );
+	$self->{'datastore'}->create_temp_list_table_from_array( 'int', $seqbin_ids, {table=>$temp_table} );
 	my $seqbin = $self->{'seqbin_table'} // 'sequence_bin';
-	my $data   = $self->{'datastore'}->run_query(
+	my $data = $self->{'datastore'}->run_query(
 		"SELECT s.id,s.remote_contig,r.uri,r.checksum,s.sequence FROM $seqbin s LEFT JOIN "
 		  . "remote_contigs r ON s.id=r.seqbin_id JOIN $temp_table t ON s.id=t.value",
 		undef,
