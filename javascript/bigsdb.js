@@ -110,8 +110,10 @@ $.urlParam = function(name) {
 function set_page_width() {
 	if ($('span#expand').is(":visible")) {
 		$('div.main_content').css({ "max-width": max_width + 'px' });		
+		$('div#title_container').css({"max-width": (max_width-15) + 'px'})
 	} else {
 		$('div.main_content').css({ "max-width": "calc(100vw - 40px)" });
+		$('div#title_container').css({"max-width": "calc(100vw - 15px)"})
 	}
 }
 
