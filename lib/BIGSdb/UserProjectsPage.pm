@@ -719,8 +719,7 @@ sub _add_new_project {
 	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM projects WHERE short_description=?)', $short_desc );
 	if ($desc_exists) {
 		$self->print_bad_status(
-			{ message => q(There is already a project defined with this name. Please choose a different name.) }
-		);
+			{ message => q(There is already a project defined with this name. Please choose a different name.) } );
 		return;
 	}
 	my $id        = $self->next_id('projects');
@@ -880,10 +879,10 @@ sub _get_project_row {
 	}
 	$project->{'full_description'} //= q();
 	my $edit = EDIT;
-	$buffer .=
-		qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=userProjects&amp;)
+	$buffer .= q(<td style="text-align:left">)
+	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=userProjects&amp;)
 	  . qq(project_info=$project->{'id'}">$project->{'short_description'}</a></td>)
-	  . qq(<td>$project->{'full_description'}</td><td>$admin</td>);
+	  . qq(<td style="text-align:left">$project->{'full_description'}</td><td>$admin</td>);
 	if ( $project->{'admin'} || $project->{'modify'} ) {
 		$buffer .= qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=userProjects&amp;edit=1&amp;project_id=$project->{'id'}" class="action">$edit</a></td>);
@@ -929,7 +928,7 @@ sub _project_info {
 			-name   => 'full_description',
 			-id     => 'full_description',
 			-cols   => 40,
-			default => BIGSdb::Utils::unescape_html($project->{'full_description'})
+			default => BIGSdb::Utils::unescape_html( $project->{'full_description'} )
 		);
 		say q(</li></ul>);
 		say q(</fieldset>);

@@ -59,8 +59,9 @@ sub print_content {
 			{ cache => 'ProjectsPage::print_content' }
 		);
 		$project->{'full_description'} //= q();
-		say qq(<tr class="td$td"><td>$project->{'id'}</td><td>$project->{'short_description'}</td>)
-		  . qq(<td>$project->{'full_description'}</td><td>$isolates</td><td>);
+		say qq(<tr class="td$td"><td>$project->{'id'}</td>)
+		  . qq(<td style="text-align:left">$project->{'short_description'}</td>)
+		  . qq(<td style="text-align:left">$project->{'full_description'}</td><td>$isolates</td><td>);
 		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=project&amp;)
 		  . qq(project_id=$project->{'id'}"><span class="fas fa-th action browse">)
 		  . q(</span></a></td><td>);
