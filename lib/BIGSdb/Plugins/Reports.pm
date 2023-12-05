@@ -25,6 +25,7 @@ use parent qw(BIGSdb::Plugin);
 use BIGSdb::Constants qw(:interface);
 use TOML;
 use Template;
+use Template::Stash;
 use JSON;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -127,18 +128,22 @@ sub _generate_report {
 	my ( $self, $isolate_id, $report_id ) = @_;
 	my $template_info = $self->_get_template_info($report_id);
 	my $dir           = $self->_get_template_dir;
-	my $template      = Template->new(
+	$Template::Stash::LIST_OPS->{'format_list'} = sub {
+		my ( $list, $separator, $empty_term ) = @_;
+		@$list = grep { defined $_ && $_ ne q() } @$list;
+		$separator //= q(, );
+		local $" = $separator;
+		return $empty_term if !@$list;
+		return qq(@$list);
+	};
+	my $template = Template->new(
 		{
 			INCLUDE_PATH => $dir,
-			EVAL_PERL    => 1
 		}
 	);
 	my $template_output = q();
 	my $data            = $self->_get_isolate_data($isolate_id);
 	$data->{'date'} = BIGSdb::Utils::get_datestamp();
-
-	#	use Data::Dumper;
-	#	$logger->error( Dumper $data->{'lincodes'} );
 	$template->process( $template_info->{'template_file'}, $data, \$template_output )
 	  || $logger->error( $template->error );
 	if ( $self->{'format'} eq 'html' ) {
