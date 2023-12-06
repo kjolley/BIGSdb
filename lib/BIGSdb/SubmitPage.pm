@@ -118,6 +118,15 @@ END
         	});
     	}
 	});
+	//Note that bigsdb.min,js contains a click event for the expand trigger. This also relies on the 
+	//visibility of span#expand. The below should always run first because bigsdb.min.js is loaded
+	//with 'defer'.
+	\$('a#expand_trigger').click(function(event) {
+		event.preventDefault();
+		let expand = \$('span#expand').is(":visible");		
+		let max_width_term = expand ? "calc(100vw - 100px)" : "min(" + (max_width - 100) + "px, 100vw - 100px)";
+		\$("div#isolate_table,div#profile_table").css("max-width",max_width_term);
+	});
 	\$("form#file_upload_form").addClass("dropzone");
 	$db_trigger
 	resize_rmlst_cell();
@@ -2339,7 +2348,9 @@ sub _print_profile_table {
 	my $loci             = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $max_width        = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
 	my $main_max_width   = $max_width - 100;
-	say qq(<div style="max-width:min(${main_max_width}px, 100vw - 100px)"><div class="scrollable">)
+	my $max_width_style =
+	  $self->{'prefs'}->{'expandPage'} ? q(calc(100vw - 100px)) : qq(min(${main_max_width}px, 100vw - 100px));
+	say qq(<div id="profile_table" style="max-width:$max_width_style"><div class="scrollable">)
 	  . q(<table class="resultstable" style="margin-bottom:0">);
 	say q(<tr><th>Identifier</th>);
 
@@ -2484,7 +2495,9 @@ sub _print_isolate_table {
 	}
 	my $max_width      = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
 	my $main_max_width = $max_width - 100;
-	say qq(<div style="max-width:min(${main_max_width}px, 100vw - 100px)"><div class="scrollable">)
+	my $max_width_style =
+	  $self->{'prefs'}->{'expandPage'} ? q(calc(100vw - 100px)) : qq(min(${main_max_width}px, 100vw - 100px));
+	say qq(<div id="isolate_table" style="max-width:$max_width_style"><div class="scrollable">)
 	  . q(<table class="resultstable" style="margin-bottom:0"><tr>);
 	say qq(<th>$_</th>) foreach @$fields;
 	my $rmlst_analysis;
