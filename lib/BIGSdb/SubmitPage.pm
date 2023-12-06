@@ -164,7 +164,7 @@ sub initiate {
 		$self->{'noCache'}    = 1;
 		return;
 	}
-	$self->{$_} = 1 foreach qw (jQuery jQuery.jstree noCache tooltips dropzone);
+	$self->{$_} = 1 foreach qw (jQuery jQuery.jstree noCache tooltips dropzone allowExpand);
 	if ( $q->param('curate') ) {
 		$self->set_level2_breadcrumbs('Curate submission');
 	} elsif ( $q->param('alleles') || $q->param('profiles') || $q->param('isolate') || $q->param('genomes') ) {
