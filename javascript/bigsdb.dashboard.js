@@ -286,17 +286,23 @@ $(function() {
 			window.location = url;
 		});
 	});
-	$(window).resize(function() {		
+	$(window).resize(function() {
 		showOrHideElements();
 		setGridMargins(grid)
 		loadNewElements();
 	});
 	$('a#expand_trigger').click(function(event) {
+		//It takes slightly longer to re-organise elements when page width is very large,
+		//so add a longer delay.
+		let delay = 250;
+		if ($("#main_container").width() > 2000) {
+			delay = 500;
+		}
 		setTimeout(
 			function() {
 				setGridMargins(grid);
 				grid.refreshItems().layout();
-			}, 250);
+			}, delay);
 	});
 	setGridMargins(grid);
 	window.dispatchEvent(new Event('resize'));
