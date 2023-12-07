@@ -152,11 +152,11 @@ $(function() {
 		var change_dashboard_url = url + "&page=dashboard&updateDashboard=1&type=" + dashboard_type;
 		if (typeof projectId !== 'undefined') {
 			change_dashboard_url += "&project_id=" + projectId;
-		}		
+		}
 		change_dashboard_url += "&attribute=palette&value=" + name;
 		$.ajax({
 			url: change_dashboard_url
-		}).done(function(json){
+		}).done(function(json) {
 			updateDashboardName(JSON.parse(json).dashboard_name);
 			bumpVersion();
 			reloadAllElements();
@@ -291,6 +291,19 @@ $(function() {
 		setGridMargins(grid)
 		loadNewElements();
 	});
+	$('a#expand_trigger').click(function(event) {
+		//It takes slightly longer to re-organise elements when page width is very large,
+		//so add a longer delay.
+		let delay = 250;
+		if ($("#main_container").width() > 2000) {
+			delay = 500;
+		}
+		setTimeout(
+			function() {
+				setGridMargins(grid);
+				grid.refreshItems().layout();
+			}, delay);
+	});
 	setGridMargins(grid);
 	window.dispatchEvent(new Event('resize'));
 });
@@ -339,7 +352,7 @@ function getDataExplorerParams(id) {
 	return params;
 }
 
-function bumpVersion(){
+function bumpVersion() {
 	version = Date.now();
 	$.ajax({
 		url: url,
@@ -777,7 +790,7 @@ function saveAndReloadElement(grid, id) {
 			updateDashboardName(JSON.parse(json).dashboard_name);
 			bumpVersion();
 		}
-	});	
+	});
 }
 
 function serializeLayout(grid) {

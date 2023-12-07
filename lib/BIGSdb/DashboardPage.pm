@@ -83,14 +83,20 @@ sub print_content {
 	}
 	my $max_width             = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
 	my $index_panel_max_width = $max_width - 250;
-	my $title_max_width       = $max_width - 15;
+	my $index_panel_max_width_style =
+	  $self->{'prefs'}->{'expandPage'}
+	  ? q(calc(100vw - 250px))
+	  : qq(${index_panel_max_width}px);
+	my $title_max_width = $max_width - 15;
+	my $title_max_width_style =
+	  $self->{'prefs'}->{'expandPage'}
+	  ? q(calc(100vw - 15px))
+	  : qq(${title_max_width}px);
 	say q(<div class="flex_container" style="flex-direction:column;align-items:center">);
 	say q(<div>);
-	say qq(<div style="width:95vw;max-width:${title_max_width}px"></div>);
-	say qq(<div id="title_container" style="max-width:${title_max_width}px">);
+	say qq(<div id="title_container" style="width:95vw;max-width:$title_max_width_style">);
 	say qq(<h1>$heading</h1>);
 	$self->print_general_announcement;
-
 	if ( $options->{'banner_text'} ) {
 		say q(<div class="box banner">);
 		say $self->_format_banner( $options->{'banner_text'} );
@@ -102,8 +108,8 @@ sub print_content {
 		$self->print_set_section;
 	}
 	say q(</div>);
-	say qq(<div id="main_container" class="flex_container" style="max-width:${max_width}px">);
-	say qq(<div id="dashboard_panel" class="dashboard_panel" style="max-width:${index_panel_max_width}px">);
+	say q(<div id="main_container" class="flex_container">);
+	say qq(<div id="dashboard_panel" class="dashboard_panel" style="max-width:$index_panel_max_width_style">);
 	$self->print_dashboard( { filter_display => 1, qry_file => $self->{'qry_file'} } );
 	say q(</div>);
 	say q(<div class="menu_panel" style="width:250px">);
@@ -4141,7 +4147,8 @@ sub initiate {
 	$self->{'dashboard_type'} = 'primary';
 	$self->{$_} = 1
 	  foreach
-	  qw (jQuery noCache muuri modal fitty bigsdb.dashboard tooltips jQuery.fonticonpicker billboard d3.layout.cloud);
+	  qw (jQuery noCache muuri modal fitty bigsdb.dashboard tooltips jQuery.fonticonpicker billboard d3.layout.cloud
+	  allowExpand);
 	$self->{'geomap'} = 1 if $self->has_country_optlist;
 	$self->{'ol'}     = 1 if $self->need_openlayers;
 	$self->choose_set;

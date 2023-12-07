@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -137,7 +137,7 @@ sub _print_description {
 sub _get_allele_count {
 	my ( $self, $locus ) = @_;
 	return $self->{'datastore'}
-	  ->run_query( q(SELECT COUNT(*) FROM sequences WHERE locus=? AND allele_id NOT IN ('N','0')), $locus );
+	  ->run_query( q(SELECT COUNT(*) FROM sequences WHERE locus=? AND allele_id NOT IN ('N','0','P')), $locus );
 }
 
 sub _print_aliases {

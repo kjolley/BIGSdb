@@ -290,7 +290,7 @@ sub _print_registration_form {
 	say q(<li>are case-sensitive</li>);
 	say q(</ul>);
 	say q(<p><strong><em>Please fill in your details completely with proper first letter capitalization of names and )
-	  . q(full affiliation details (avoiding acronyms). This information will appear with any data that you submit.)
+	  . q(full affiliation details (avoiding abbreviations). This information will appear with any data that you submit.)
 	  . q(</em></strong></p>);
 	say $q->start_form;
 	say q(<fieldset class="form" style="float:left"><legend>Please enter your details</legend>);

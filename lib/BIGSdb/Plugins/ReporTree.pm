@@ -53,7 +53,7 @@ sub get_attributes {
 		buttontext          => 'ReporTree',
 		menutext            => 'ReporTree',
 		module              => 'ReporTree',
-		version             => '1.0.0',
+		version             => '1.1.0',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -189,7 +189,11 @@ sub run_job {
 		{
 			job_id   => $job_id,
 			tsv_file => $metadata_file,
-			params   => $params
+			params   => $params,
+			options  => {
+				remove_non_alphanumerics => 1,
+				add_date_field           => $params->{'date_field'}
+			}
 		}
 	);
 	my %allowed_analysis = map { $_ => 1 } qw(grapetree HC);
@@ -213,16 +217,50 @@ sub run_job {
 			$threshold = qq( --HC-threshold single-@partitions);
 		}
 	}
+	my $metadata_fields = $self->_get_metadata_fields_from_tsv($metadata_file);
+	my @summary_columns;
+	if ( $params->{'date_field'} ) {
+		push @summary_columns, qw(first_seq_date last_seq_date timespan_days);
+	}
+	foreach my $field (@$metadata_fields) {
+		push @summary_columns, ( "n_$field", $field );
+	}
+	local $" = q(,);
+	my $col_summary_arg = @summary_columns ? qq( --columns_summary_report @summary_columns) : q();
 	my $cmd =
 		"$self->{'config'}->{'reportree_path'} --allele-profile $profile_file --metadata $metadata_file "
 	  . "--missing-code '-' --analysis $params->{'analysis'} --out $self->{'config'}->{'tmp_dir'}/$job_id$partitions2report"
-	  . "$threshold > /dev/null 2>&1";
+	  . "$threshold$col_summary_arg > /dev/null 2>&1";
 	eval { system($cmd); };
 	if ($?) {
 		BIGSdb::Exception::Plugin->throw('ReporTree analysis failed.');
 	}
 	$self->_update_output_files($job_id);
 	return;
+}
+
+sub _get_date_fields {
+	my ($self)      = @_;
+	my $fields      = $self->{'xmlHandler'}->get_all_field_attributes;
+	my $date_fields = [];
+	foreach my $field ( sort keys %$fields ) {
+		push @$date_fields, $field if lc( $fields->{$field}->{'type'} ) eq 'date';
+	}
+	return $date_fields;
+}
+
+sub _get_metadata_fields_from_tsv {
+	my ( $self, $tsv_file ) = @_;
+	if ( !-e $tsv_file ) {
+		$logger->error("$tsv_file does not exist.");
+		return;
+	}
+	open( my $fh, '<:encoding(utf8)', $tsv_file ) || $logger->error("Cannot open $tsv_file for reading");
+	my $header = <$fh>;
+	close $fh;
+	chomp $header;
+	my @fields = split /\t/x, $header;
+	return \@fields;
 }
 
 sub _update_output_files {
@@ -326,7 +364,12 @@ sub _print_parameters_fieldset {
 	my $q      = $self->{'cgi'};
 	my $labels = { grapetree => 'GrapeTree' };
 	say q(<fieldset style="float:left;height:12em"><legend>Options</legend>);
-	say q(Analysis:);
+	say q(<ul><li>);
+	my $date_fields = $self->_get_date_fields;
+	say q(Cluster date field: );
+	say $q->popup_menu( -name => 'date_field', -values => [ '', @$date_fields ] );
+	say q(</li></ul>);
+	say q(<b>Analysis:</b>);
 	say q(<ul><li>);
 	say $q->radio_group(
 		-name      => 'analysis',
@@ -335,8 +378,9 @@ sub _print_parameters_fieldset {
 		-default   => 'grapetree',
 		-linebreak => 'true',
 	);
-	say q(</li><li>);
-	say q(Report:</li><li>);
+	say q(</li></ul>);
+	say q(<b>Report:</b>);
+	say q(<ul><li>);
 	say $q->checkbox( -id => 'stability_regions', -name => 'stability_regions', -label => 'Stability regions' );
 	say q(</li><li>);
 	say q(<span id="partitions_label">Partitions:</span> );

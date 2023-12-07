@@ -73,7 +73,7 @@ sub _get {
 	}
 	if ( $q->param('scheme_fields') ) {
 		my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, analysis_pref => 1, with_pk => 1 } );
-		my $fields = [];
+		my $fields  = [];
 		foreach my $scheme (@$schemes) {
 			my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $scheme->{'id'} );
 			foreach my $scheme_field (@$scheme_fields) {
@@ -100,7 +100,7 @@ sub _update {
 		return;
 	}
 	my $dbase = $self->{'system'}->{'db'};
-	foreach my $param (qw(attribute value plugin)) {
+	foreach my $param (qw(attribute value)) {
 		my $value = $q->param($param);
 		if ( !defined $value ) {
 			say encode_json( { error => 1, message => "No $param set." } );
@@ -108,12 +108,18 @@ sub _update {
 		}
 	}
 	eval {
-		$self->{'prefstore'}->set_plugin_attribute(
-			$guid, $dbase,
-			scalar $q->param('plugin'),
-			scalar $q->param('attribute'),
-			scalar $q->param('value')
-		);
+		if ( $q->param('plugin') ) {
+			$self->{'prefstore'}->set_plugin_attribute(
+				$guid, $dbase,
+				scalar $q->param('plugin'),
+				scalar $q->param('attribute'),
+				scalar $q->param('value')
+			);
+		} else {
+			$self->{'prefstore'}->set_general(
+				$guid, $dbase, scalar $q->param('attribute'), scalar $q->param('value')
+			);
+		}
 	};
 	if ($@) {
 		say encode_json( { error => 1, message => 'Update failed.' } );

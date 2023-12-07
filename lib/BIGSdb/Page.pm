@@ -177,7 +177,7 @@ sub _get_javascript_paths {
 	if ( $self->{'jQuery'} ) {
 		push @$js, { src => "$relative_js_path/jquery.min.js",    version => '3.6.0' };
 		push @$js, { src => "$relative_js_path/jquery-ui.min.js", defer   => 1, version => '1.12.1' };
-		push @$js, { src => "$relative_js_path/bigsdb.min.js",    defer   => 1, version => '20230217' };
+		push @$js, { src => "$relative_js_path/bigsdb.min.js",    defer   => 1, version => '20231205' };
 		if ( !$self->{'config'}->{'no_cookie_consent'} && !$self->{'curate'} && $self->{'instance'} ) {
 			push @$js, { src => "$relative_js_path/cookieconsent.min.js", defer => 1 };
 		}
@@ -201,11 +201,11 @@ sub _get_javascript_paths {
 			'dropzone'     => { src => [qw(dropzone.js)],    defer => 0, version => '20200308' },
 
 			#See https://dolmenweb.it/viewers/openlayer/doc/tutorials/custom-builds.html
-			'ol'        => { src => [qw(ol-custom.js)], defer => 0, version => '6.14.1#20220517' },
+			'ol'        => { src => [qw(ol-custom.js)], defer => 0, version => '8.20.0#20231117' },
 			'billboard' => {
 				src     => [qw(d3.v6.min.js billboard.min.js jquery.ui.touch-punch.min.js)],
 				defer   => 1,
-				version => '20210510'
+				version => '20231101'
 			},
 			'd3.layout.cloud' => { src => [qw(d3.layout.cloud.min.js)], defer => 1, version => '20210729' },
 			'pivot'           => {
@@ -223,7 +223,7 @@ sub _get_javascript_paths {
 				version => '20200308'
 			},
 			'igv'                 => { src => [qw(igv.min.js)],              defer => 1, version => '20200308' },
-			'bigsdb.dashboard'    => { src => [qw(bigsdb.dashboard.min.js)], defer => 1, version => '20230606' },
+			'bigsdb.dashboard'    => { src => [qw(bigsdb.dashboard.min.js)], defer => 1, version => '20231206' },
 			'bigsdb.dataexplorer' =>
 			  { src => [qw(bigsdb.dataexplorer.min.js d3.v6.min.js)], defer => 1, version => '20230310' }
 		};
@@ -603,6 +603,9 @@ sub print_page_content {
 		);
 		my $max_width            = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
 		my $main_max_width       = $max_width - 15;
+		my $main_max_width_style = $self->{'prefs'}->{'expandPage'}
+		  ? q(calc(100vw - 40px))
+		  : qq(${main_max_width}px);
 		my $main_container_class = $self->{'login'} ? q( main_container_login) : q();
 		my $main_content_class   = $self->{'login'} ? q( main_content_login)   : q();
 
@@ -610,7 +613,7 @@ sub print_page_content {
 			$self->_print_header;
 			$self->_print_breadcrumbs;
 			say qq(<div class="main_container$main_container_class">);
-			say qq(<div class="main_content$main_content_class" style="max-width:${main_max_width}px">);
+			say qq(<div class="main_content$main_content_class" style="max-width:${main_max_width_style}">);
 			$self->_print_button_panel;
 			say qq(<script>var max_width=${main_max_width}</script>);
 			$self->print_content;
@@ -693,7 +696,7 @@ sub _get_meta_data {
 sub _get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20230615';
+	my $version = '20231201';
 	my @filenames;
 	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
 	push @filenames, q(billboard.min.css)                                     if $self->{'billboard'};
@@ -1100,11 +1103,14 @@ sub _print_help_button {
 sub _print_expand_trigger {
 	my ($self) = @_;
 	return if !$self->{'allowExpand'};
-	say q(<span class="icon_button"><a id="expand_trigger" class="trigger_button" style="display:none">)
-	  . q(<span id="expand" class="fas fa-lg fa-expand" title="Expand width"></span>)
-	  . q(<span id="contract" class="fas fa-lg fa-compress" style="display:none" title="Contract width">)
-	  . q(</span><span class="icon_label"><span id="expand_label_expand">Expand</span>)
-	  . q(<span id="expand_label_contract" style="display:none">Contract</span></span></a></span>);
+	my $page_expand   = $self->{'prefs'}->{'expandPage'} ? 'none'   : 'inline';
+	my $page_contract = $self->{'prefs'}->{'expandPage'} ? 'inline' : 'none';
+	say q(<span class="icon_button"><a id="expand_trigger" class="trigger_button" style="display:none" )
+	  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=ajaxPrefs">)
+	  . qq(<span id="expand" class="fas fa-lg fa-expand" style="display:$page_expand" title="Expand width"></span>)
+	  . qq(<span id="contract" class="fas fa-lg fa-compress" style="display:$page_contract" title="Contract width">)
+	  . qq(</span><span class="icon_label"><span id="expand_label_expand" style="display:$page_expand">Expand</span>)
+	  . qq(<span id="expand_label_contract" style="display:$page_contract">Contract</span></span></a></span>);
 	return;
 }
 
@@ -1180,15 +1186,18 @@ sub add_existing_eav_data_to_hashref {
 
 sub get_extended_attributes {
 	my ($self) = @_;
-	my $data =
-	  $self->{'datastore'}
-	  ->run_query( 'SELECT isolate_field,attribute FROM isolate_field_extended_attributes ORDER BY field_order',
-		undef, { fetch => 'all_arrayref', slice => {}, cache => 'Page::get_extended_attributes' } );
-	my $extended;
-	foreach (@$data) {
-		push @{ $extended->{ $_->{'isolate_field'} } }, $_->{'attribute'};
+	if ( !defined $self->{'cache'}->{'extended_attributes'} ) {
+		my $data =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT isolate_field,attribute FROM isolate_field_extended_attributes ORDER BY field_order',
+			undef, { fetch => 'all_arrayref', slice => {} } );
+		my $extended;
+		foreach (@$data) {
+			push @{ $extended->{ $_->{'isolate_field'} } }, $_->{'attribute'};
+		}
+		$self->{'cache'}->{'extended_attributes'} = $extended;
 	}
-	return $extended;
+	return $self->{'cache'}->{'extended_attributes'};
 }
 
 sub get_field_selection_list {
@@ -1251,6 +1260,10 @@ sub get_field_selection_list {
 
 sub _get_loci_list {
 	my ( $self, $options ) = @_;
+	if ( $options->{'locus_limit'} ) {
+		my $count = $self->{'datastore'}->run_query('SELECT COUNT(*) FROM loci');
+		return [] if $count > $options->{'locus_limit'};
+	}
 	if ( !$self->{'cache'}->{'loci'} ) {
 		my @locus_list;
 		my $cn_sql = $self->{'db'}->prepare('SELECT id,common_name FROM loci WHERE common_name IS NOT NULL');
@@ -1321,11 +1334,7 @@ sub _get_loci_list {
 		@locus_list = uniq @locus_list;
 		$self->{'cache'}->{'loci'} = \@locus_list;
 	}
-	my $values = [];
-	if ( !$options->{'locus_limit'} || @{ $self->{'cache'}->{'loci'} } < $options->{'locus_limit'} ) {
-		push @$values, @{ $self->{'cache'}->{'loci'} };
-	}
-	return $values;
+	return $self->{'cache'}->{'loci'};
 }
 
 sub _get_locus_extended_attributes {
@@ -1738,7 +1747,6 @@ sub get_old_version_filter {
 
 sub get_isolate_publication_filter {
 	my ( $self, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
 	if ( $self->{'config'}->{'ref_db'} ) {
 		my $view = $self->{'system'}->{'view'};
 		my $pmid =
@@ -1776,8 +1784,10 @@ sub get_project_filter {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $args = [];
-	my $qry  = 'SELECT id,short_description FROM projects WHERE id IN (SELECT project_id FROM project_members WHERE '
-	  . "isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})) AND (NOT private";
+	my $qry =
+		'SELECT id,short_description FROM projects p WHERE '
+	  . "EXISTS(SELECT 1 FROM project_members pm JOIN $self->{'system'}->{'view'} v ON "
+	  . 'pm.isolate_id=v.id JOIN projects ON p.id=pm.project_id) AND (NOT private';
 	if ( $self->{'username'} ) {
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 		$qry .= ' OR id IN (SELECT project_id FROM merged_project_users WHERE user_id=?)';
@@ -1871,10 +1881,10 @@ sub get_scheme_flags {
 sub clean_locus {
 	my ( $self, $locus, $options ) = @_;
 	return if !defined $locus;
-	$options = {} if ref $options ne 'HASH';
 	my $set_id     = $self->get_set_id;
 	my $locus_info = $self->{'datastore'}->get_locus_info( $locus, { set_id => $set_id } );
 	my $formatting_defined;
+	my $common_name;
 	if ( $set_id && $locus_info->{'set_name'} ) {
 		$locus = $locus_info->{'set_name'};
 		if ( !$options->{'text_output'} && $locus_info->{'formatted_set_name'} ) {
@@ -1882,13 +1892,11 @@ sub clean_locus {
 			$formatting_defined = 1;
 		}
 		if ( !$options->{'no_common_name'} ) {
-			my $common_name = '';
-			$common_name = " ($locus_info->{'set_common_name'})" if $locus_info->{'set_common_name'};
+			$common_name = $locus_info->{'set_common_name'} if $locus_info->{'set_common_name'};
 			if ( !$options->{'text_output'} && $locus_info->{'formatted_set_common_name'} ) {
-				$common_name        = " ($locus_info->{'formatted_set_common_name'})";
+				$common_name        = $locus_info->{'formatted_set_common_name'};
 				$formatting_defined = 1;
 			}
-			$locus .= $common_name;
 		}
 	} else {
 		if ( !$options->{'text_output'} && $locus_info->{'formatted_name'} ) {
@@ -1896,14 +1904,23 @@ sub clean_locus {
 			$formatting_defined = 1;
 		}
 		if ( !$options->{'no_common_name'} ) {
-			my $common_name = '';
-			$common_name = " ($locus_info->{'common_name'})" if $locus_info->{'common_name'};
+			if ( $locus_info->{'common_name'} ) {
+				$common_name = $locus_info->{'common_name'};
+			}
 			if ( !$options->{'text_output'} && $locus_info->{'formatted_common_name'} ) {
-				$common_name        = " ($locus_info->{'formatted_common_name'})";
+				$common_name        = $locus_info->{'formatted_common_name'};
 				$formatting_defined = 1;
 			}
-			$locus .= $common_name;
 		}
+	}
+	if ($common_name) {
+		my $common_name_class =
+		  ( !$options->{'text_output'} && $options->{'common_name_class'} )
+		  ? $options->{'common_name_class'}
+		  : undef;
+		$locus .= qq(<span class="$options->{'common_name_class'}">) if $common_name_class;
+		$locus .= qq( ($common_name));
+		$locus .= q(</span>) if $common_name_class;
 	}
 	if ( !$options->{'text_output'} ) {
 		if ( !$formatting_defined ) {
@@ -2352,8 +2369,11 @@ sub is_admin {
 	my ($self) = @_;
 	return if $self->{'system'}->{'dbtype'} eq 'user';
 	if ( $self->{'username'} ) {
-		my $status = $self->{'datastore'}->run_query( 'SELECT status FROM users WHERE user_name=?',
-			$self->{'username'}, { cache => 'Page::is_admin' } );
+		if ( !defined $self->{'cache'}->{'is_admin'}->{ $self->{'username'} } ) {
+			$self->{'cache'}->{'is_admin'}->{ $self->{'username'} } =
+			  $self->{'datastore'}->run_query( 'SELECT status FROM users WHERE user_name=?', $self->{'username'} );
+		}
+		my $status = $self->{'cache'}->{'is_admin'}->{ $self->{'username'} };
 		return   if !$status;
 		return 1 if $status eq 'admin';
 	}
@@ -2604,7 +2624,7 @@ sub _initiate_general_prefs {
 	}
 
 	#default off
-	foreach (qw (hyperlink_loci )) {
+	foreach (qw (hyperlink_loci expandPage)) {
 		$general_prefs->{$_} //= 'off';
 		$self->{'prefs'}->{$_} = $general_prefs->{$_} eq 'on' ? 1 : 0;
 	}
@@ -3412,13 +3432,16 @@ sub get_user_db_name {
 	if ( $self->{'system'}->{'dbtype'} eq 'user' ) {
 		return $self->{'system'}->{'db'};
 	}
-	my $db_name = $self->{'datastore'}->run_query(
-		'SELECT user_dbases.dbase_name FROM user_dbases JOIN users '
-		  . 'ON user_dbases.id=users.user_db WHERE users.user_name=?',
-		$user_name
-	);
-	$db_name //= $self->{'system'}->{'db'};
-	return $db_name;
+	if ( !defined $self->{'cache'}->{'user_db_name'}->{$user_name} ) {
+		my $db_name = $self->{'datastore'}->run_query(
+			'SELECT user_dbases.dbase_name FROM user_dbases JOIN users '
+			  . 'ON user_dbases.id=users.user_db WHERE users.user_name=?',
+			$user_name
+		);
+		$db_name //= $self->{'system'}->{'db'};
+		$self->{'cache'}->{'user_db_name'}->{$user_name} = $db_name;
+	}
+	return $self->{'cache'}->{'user_db_name'}->{$user_name};
 }
 
 sub get_tooltip {

@@ -108,10 +108,16 @@ sub _ajax {
 			push @$cumulative,
 			  {
 				contig     => $contig,
-				cumulative => $total_length
+				cumulative => $total_length,
 			  };
 		}
-		say encode_json($cumulative);
+		say encode_json(
+			{
+				values       => $cumulative,
+				total_length => $seqbin_stats->{'total_length'},
+				l50          => $seqbin_stats->{'l50'}
+			}
+		);
 	}
 	return;
 }
@@ -336,18 +342,35 @@ sub get_javascript {
 	});
 	
 	d3.json("$url" + "&ajax=cumulative").then (function(jsonData) {
+		console.log(jsonData);
 		chart['cumulative'] = bb.generate({
 			bindto: '#cumulative',
 			title: {
 				text: 'Cumulative contig length'
 			},
 			data: {
-				json: jsonData,
+				json: jsonData.values,
 				keys: {
 					x: 'contig',
 					value: ['cumulative']
 				}
 			},	
+			grid: {
+				x: {
+					lines: jsonData.values[0].cumulative > jsonData.total_length / 2 
+					? []
+					: [{
+						value: jsonData.l50 - 1,
+						text: 'Contig ' + jsonData.l50
+					}]
+				},
+				y: {
+					lines: [{
+						value: jsonData.total_length / 2,
+						text: (parseInt(jsonData.total_length / 2)).toLocaleString() + ' bp'
+					}]
+				}
+			},
 			axis: {
 				x: {
 					label: {
@@ -412,6 +435,7 @@ var delay = (function(){
     timer = setTimeout(callback, ms);
   };
 })();
+
 END
 	return $buffer;
 }

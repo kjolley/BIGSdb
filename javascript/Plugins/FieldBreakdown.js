@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 
-Version 2.5.5.
+Version 2.6.0.
 */
 
 var prefs_loaded;
@@ -911,10 +911,17 @@ function load_geography(url, field) {
 				vectorLayer = get_marker_layer(jsonData);
 				map.addLayer(vectorLayer);
 			});
+
 		});
 		$("#marker_size").slider({ min: 0, max: 10, value: marker_size });
-
+		map.on('rendercomplete', function(e) {
+			let canvas = document.querySelector("canvas");
+			let link = document.getElementById('export_map_image');
+			link.setAttribute('download', selected_field + '_map.png');
+			link.setAttribute('href', canvas.toDataURL("image/png"));
+		});
 	});
+
 }
 
 function get_marker_layer(jsonData) {
@@ -980,6 +987,7 @@ function show_export_options() {
 	$("a#export_fasta").attr("href", url + "&export=" + field + "&format=fasta");
 	$("a#export_fasta").css("display", fasta ? "inline" : "none");
 	$("a#export_image").css("display", selected_type == 'geography_point' || geography_point_lookup_fields.includes(selected_field) ? "none" : "inline");
+	$("a#export_map_image").css("display", selected_type == 'geography_point' || geography_point_lookup_fields.includes(selected_field) ? "inline" : "none");
 	$("#export").css("display", "block");
 }
 

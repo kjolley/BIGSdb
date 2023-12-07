@@ -149,13 +149,17 @@ sub _filter_schemes {
 	my ( $self, $scheme_data, $plugin ) = @_;
 	my $filtered = [];
 	my $attr     = $self->{'attributes'}->{$plugin};
+	if ( !defined $self->{'cache'}->{'scheme_locus_counts'} ) {
+		$self->{'cache'}->{'scheme_locus_counts'} =
+		  $self->{'datastore'}->run_query( 'SELECT scheme_id,COUNT(*) AS count FROM scheme_members GROUP BY scheme_id',
+			undef, { fetch => 'all_hashref', key => 'scheme_id' } );
+	}
 	foreach my $scheme (@$scheme_data) {
 		if ( !defined $attr->{'max_scheme_loci'} && !defined $attr->{'min_scheme_loci'} ) {
 			push @$filtered, $scheme;
 			next;
 		}
-		my $locus_count =
-		  $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM scheme_members WHERE scheme_id=?', $scheme->{'id'} );
+		my $locus_count = $self->{'cache'}->{'scheme_locus_counts'}->{ $scheme->{'id'} }->{'count'};
 		next if defined $attr->{'max_scheme_loci'} && $locus_count > $attr->{'max_scheme_loci'};
 		next if defined $attr->{'min_scheme_loci'} && $locus_count < $attr->{'min_scheme_loci'};
 		push @$filtered, $scheme;
@@ -201,15 +205,6 @@ sub get_appropriate_plugin_names {
 			next
 			  if (!( ( $self->{'system'}->{'all_plugins'} // q() ) eq 'yes' )
 				&& ( $self->{'system'}->{ $attr->{'system_flag'} } // q() ) ne 'yes' );
-		}
-		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-			if ( !$self->_is_isolate_count_ok($attr) ) {
-				if ( $sections->[0] eq 'postquery' ) {
-					next;
-				} else {
-					next if !$attr->{'always_show_in_menu'};
-				}
-			}
 		}
 		next if !$self->_section_matches_plugin( $sections, $attr->{'section'} );
 		next if $attr->{'dbtype'} !~ /$dbtype/x;
@@ -274,20 +269,6 @@ sub _has_required_genome {
 		return $self->{'cache'}->{'has_required_genome_all'};
 	}
 	return;
-}
-
-sub _is_isolate_count_ok {
-	my ( $self, $attr ) = @_;
-	my $q = $self->{'cgi'};
-	if ( !$q->param('page') || $q->param('page') eq 'index' ) {
-		if ( !$self->{'cache'}->{'isolate_count'} ) {
-			$self->{'cache'}->{'isolate_count'} =
-			  $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}");
-		}
-		return if $attr->{'max'} && $self->{'cache'}->{'isolate_count'} > $attr->{'max'};
-		return if $attr->{'min'} && $self->{'cache'}->{'isolate_count'} < $attr->{'min'};
-	}
-	return 1;
 }
 
 sub _has_required_item {

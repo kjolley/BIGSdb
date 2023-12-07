@@ -230,7 +230,7 @@ sub _print_client_database_data {
 					designation_field1    => 'l_' . ( $client->{'locus_alias'} || $locus ),
 					designation_operator1 => '=',
 					designation_value1    => $allele_id,
-					order                 => 'id',
+					order                 => 'f_id',
 					set_id                => 0,
 					submit                => 1
 				);

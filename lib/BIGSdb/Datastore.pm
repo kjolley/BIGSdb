@@ -811,8 +811,11 @@ sub get_scheme_info {
 
 sub get_all_scheme_info {
 	my ($self) = @_;
-	return $self->run_query( 'SELECT * FROM schemes',
-		undef, { fetch => 'all_hashref', key => 'id', cache => 'get_all_scheme_info' } );
+	if ( !defined $self->{'cache'}->{'all_scheme_info'} ) {
+		$self->{'cache'}->{'all_scheme_info'} =
+		  $self->run_query( 'SELECT * FROM schemes', undef, { fetch => 'all_hashref', key => 'id' } );
+	}
+	return $self->{'cache'}->{'all_scheme_info'};
 }
 
 sub get_scheme_loci {
@@ -900,12 +903,8 @@ sub get_loci_in_no_scheme {
 #modify returned values then you MUST make a local copy.
 sub get_scheme_fields {
 	my ( $self, $scheme_id ) = @_;
-	if ( !$self->{'cache'}->{'scheme_fields'}->{$scheme_id} ) {
-		$self->{'cache'}->{'scheme_fields'}->{$scheme_id} =
-		  $self->run_query( 'SELECT field FROM scheme_fields WHERE scheme_id=? ORDER BY field_order,field',
-			$scheme_id, { fetch => 'col_arrayref', cache => 'get_scheme_fields' } );
-	}
-	return $self->{'cache'}->{'scheme_fields'}->{$scheme_id};
+	my $fields = $self->get_all_scheme_fields;
+	return $fields->{$scheme_id} // [];
 }
 
 #NOTE: Data are returned in a cached reference that may be needed more than once.  If calling code needs to
@@ -913,7 +912,7 @@ sub get_scheme_fields {
 sub get_all_scheme_fields {
 	my ($self) = @_;
 	if ( !$self->{'cache'}->{'all_scheme_fields'} ) {
-		my $data = $self->run_query( 'SELECT scheme_id,field FROM scheme_fields ORDER BY field_order',
+		my $data = $self->run_query( 'SELECT scheme_id,field FROM scheme_fields ORDER BY field_order,field',
 			undef, { fetch => 'all_arrayref' } );
 		foreach (@$data) {
 			push @{ $self->{'cache'}->{'all_scheme_fields'}->{ $_->[0] } }, $_->[1];
@@ -984,7 +983,12 @@ sub get_scheme_list {
 			$qry = qq[SELECT id,name,display_order FROM schemes$submission_clause ORDER BY display_order,name];
 		}
 	}
-	my $list          = $self->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
+	my $qry_fingerprint = Digest::MD5::md5_hex($qry);
+	if ( !defined $self->{'cache'}->{'scheme_list'}->{$qry_fingerprint} ) {
+		$self->{'cache'}->{'scheme_list'}->{$qry_fingerprint} =
+		  $self->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
+	}
+	my $list          = $self->{'cache'}->{'scheme_list'}->{$qry_fingerprint};
 	my $filtered_list = [];
 	foreach my $scheme (@$list) {
 		$scheme->{'name'} = $scheme->{'set_name'} if $scheme->{'set_name'};
@@ -2186,22 +2190,23 @@ sub create_temp_list_table_from_array {
 	my ( $self, $data_type, $list, $options ) = @_;
 	my $pg_data_type = $data_type;
 	$pg_data_type = 'geography(POINT, 4326)' if $data_type eq 'geography_point';
-	$options      = {}                       if ref $options ne 'HASH';
 	my $table = $options->{'table'} // ( 'temp_list' . int( rand(99999999) ) );
+	my $db    = $options->{'db'}    // $self->{'db'};
 	return
-	  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
+	  if !$options->{'no_check_exists'}
+	  && $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
+		$table, { db => $db } );
 	eval {
-		$self->{'db'}->do("CREATE TEMP TABLE $table (value $pg_data_type)");
-		$self->{'db'}->do("COPY $table FROM STDIN");
+		$db->do("CREATE TEMP TABLE $table (value $pg_data_type);COPY $table FROM STDIN");
 		foreach (@$list) {
 			s/\t/    /gx;
-			$self->{'db'}->pg_putcopydata("$_\n");
+			$db->pg_putcopydata("$_\n");
 		}
-		$self->{'db'}->pg_putcopyend;
+		$db->pg_putcopyend;
 	};
 	if ($@) {
 		$logger->error("Can't put data into temp table: $@");
-		$self->{'db'}->rollback;
+		$db->rollback;
 		BIGSdb::Exception::Database::Connection->throw('Cannot put data into temp table');
 	}
 	return $table;
@@ -2291,7 +2296,6 @@ sub get_classification_group_fields {
 #{ query_pref => 1, analysis_pref => 1, seq_defined => 1, do_not_order => 1 }
 sub get_loci {
 	my ( $self, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
 	my $defined_clause =
 	  $options->{'seq_defined'} ? 'WHERE dbase_name IS NOT NULL OR reference_sequence IS NOT NULL' : '';
 	my $set_clause = '';
@@ -2957,11 +2961,25 @@ sub get_citation_hash {
 	return $citation_ref if !$self->{'config'}->{'ref_db'};
 	my $dbr = $self->_get_ref_db;
 	return $citation_ref if !$dbr;
+	my $list_table = $self->create_temp_list_table_from_array( 'int', $pmids, { db => $dbr, no_check_exists => 1 } );
+	my $citation_info =
+	  $self->run_query( "SELECT pmid,year,journal,title,volume,pages FROM refs JOIN $list_table l ON refs.pmid=l.value",
+		undef, { db => $dbr, fetch => 'all_hashref', key => 'pmid' } );
+	my $ref_authors = $self->run_query(
+		'SELECT pmid,ARRAY_AGG(author ORDER BY position) AS authors FROM refauthors ra '
+		  . "JOIN $list_table l ON ra.pmid=l.value GROUP BY pmid",
+		undef,
+		{ db => $dbr, fetch => 'all_hashref', key => 'pmid' }
+	);
+	my $author_info = $self->run_query(
+		'SELECT id,surname,initials FROM authors a JOIN refauthors ra ON '
+		  . "a.id=ra.author JOIN $list_table l ON ra.pmid=l.value",
+		undef,
+		{ db => $dbr, fetch => 'all_hashref', key => 'id' }
+	);
+
 	foreach my $pmid (@$pmids) {
-		my ( $year, $journal, $title, $volume, $pages ) =
-		  $self->run_query( 'SELECT year,journal,title,volume,pages FROM refs WHERE pmid=?',
-			$pmid, { db => $dbr, fetch => 'row_array', cache => 'get_citation_hash_paper' } );
-		if ( !defined $year && !defined $journal ) {
+		if ( !defined $citation_info->{$pmid}->{'year'} && !defined $citation_info->{$pmid}->{'journal'} ) {
 			$citation_ref->{$pmid} .= "<a href=\"https://www.ncbi.nlm.nih.gov/pubmed/$pmid\">"
 			  if $options->{'link_pubmed'};
 			$citation_ref->{$pmid} .= "Pubmed id#$pmid";
@@ -2969,47 +2987,40 @@ sub get_citation_hash {
 			$citation_ref->{$pmid} .= ': No details available.' if $options->{'state_if_unavailable'};
 			next;
 		}
-		my $authors = $self->run_query(
-			'SELECT author FROM refauthors WHERE pmid=? ORDER BY position',
-			$pmid,
-			{ db => $dbr, fetch => 'col_arrayref' },
-			cache => 'get_citation_hash_author_id'
-		);
 		my ( $author, @author_list );
 		if ( $options->{'all_authors'} ) {
-			foreach my $author_id (@$authors) {
-				my ( $surname, $initials ) = $self->run_query( 'SELECT surname,initials FROM authors WHERE id=?',
-					$author_id, { db => $dbr, cache => 'get_citation_hash_paper_author_name' } );
-				$author = "$surname $initials";
+			foreach my $author_id ( @{ $ref_authors->{$pmid}->{'authors'} } ) {
+				$author = "$author_info->{$author_id}->{'surname'} $author_info->{$author_id}->{'initials'}";
 				push @author_list, $author;
 			}
 			local $" = ', ';
 			$author = "@author_list";
 		} else {
-			if (@$authors) {
-				my ( $surname, undef ) = $self->run_query( 'SELECT surname,initials FROM authors WHERE id=?',
-					$authors->[0], { db => $dbr, cache => 'get_citation_hash_paper_author_name' } );
+			if ( defined $ref_authors->{$pmid}->{'authors'} && @{ $ref_authors->{$pmid}->{'authors'} } ) {
+				my $surname = $author_info->{ $ref_authors->{$pmid}->{'authors'}->[0] }->{'surname'};
 				$author .= ( $surname || 'Unknown' );
-				if ( @$authors > 1 ) {
+				if ( @{ $ref_authors->{$pmid}->{'authors'} } > 1 ) {
 					$author .= ' et al.';
 				}
 			}
 		}
 		$author ||= 'No authors listed';
-		$volume .= ':' if $volume;
+		$citation_info->{$pmid}->{'volume'} .= ':' if $citation_info->{$pmid}->{'volume'};
 		my $citation;
 		{
 			no warnings 'uninitialized';
 			if ( $options->{'formatted'} ) {
-				$citation = "$author ($year). ";
-				$citation .= "$title "                                                if !$options->{'no_title'};
+				$citation = "$author ($citation_info->{$pmid}->{'year'}). ";
+				$citation .= "$citation_info->{$pmid}->{'title'} "                    if !$options->{'no_title'};
 				$citation .= "<a href=\"https://www.ncbi.nlm.nih.gov/pubmed/$pmid\">" if $options->{'link_pubmed'};
-				$citation .= "<i>$journal</i> <b>$volume</b>$pages";
+				$citation .= "<i>$citation_info->{$pmid}->{'journal'}</i> "
+				  . "<b>$citation_info->{$pmid}->{'volume'}</b>$citation_info->{$pmid}->{'pages'}";
 				$citation .= '</a>' if $options->{'link_pubmed'};
 			} else {
-				$citation = "$author $year ";
+				$citation = "$author $citation_info->{$pmid}->{'year'} ";
 				$citation .= "<a href=\"https://www.ncbi.nlm.nih.gov/pubmed/$pmid\">" if $options->{'link_pubmed'};
-				$citation .= "$journal $volume$pages";
+				$citation .= "$citation_info->{$pmid}->{'journal'} "
+				  . "$citation_info->{$pmid}->{'volume'}$citation_info->{$pmid}->{'pages'}";
 				$citation .= '</a>' if $options->{'link_pubmed'};
 			}
 		}
@@ -3388,30 +3399,28 @@ sub initiate_view {
 			$self->{'system'}->{'view'} = $set_view if $set_view;
 		}
 	}
-	my $qry = "CREATE TEMPORARY VIEW temp_view AS SELECT * FROM $self->{'system'}->{'view'} v WHERE ";
+	my $qry = "CREATE TEMPORARY VIEW temp_view AS SELECT v.* FROM $self->{'system'}->{'view'} v LEFT JOIN "
+	  . 'private_isolates p ON v.id=p.isolate_id WHERE ';
 	my @args;
-	use constant OWN_SUBMITTED_ISOLATES => 'v.sender=?';
-	use constant OWN_PRIVATE_ISOLATES   => 'EXISTS(SELECT 1 FROM private_isolates WHERE (isolate_id,user_id)=(v.id,?))';
-	use constant PUBLIC_ISOLATES_FROM_SAME_USER_GROUP =>    #(where co_curate option set)
+	use constant OWN_SUBMITTED_ISOLATES               => 'v.sender=?';
+	use constant OWN_PRIVATE_ISOLATES                 => 'p.user_id=?';
+	use constant PUBLIC_ISOLATES_FROM_SAME_USER_GROUP =>                  #(where co_curate option set)
 	  '(EXISTS(SELECT 1 FROM user_group_members ugm JOIN user_groups ug ON ugm.user_group=ug.id '
 	  . 'WHERE ug.co_curate AND ugm.user_id=v.sender AND EXISTS(SELECT 1 FROM user_group_members '
-	  . 'WHERE (user_group,user_id)=(ug.id,?))) AND NOT EXISTS(SELECT 1 FROM private_isolates '
-	  . 'WHERE isolate_id=v.id))';
-	use constant PRIVATE_ISOLATES_FROM_SAME_USER_GROUP =>    #(where co_curate_private option set)
+	  . 'WHERE (user_group,user_id)=(ug.id,?))) AND p.user_id IS NULL)';
+	use constant PRIVATE_ISOLATES_FROM_SAME_USER_GROUP =>                 #(where co_curate_private option set)
 	  '(EXISTS(SELECT 1 FROM user_group_members ugm JOIN user_groups ug ON ugm.user_group=ug.id '
 	  . 'WHERE ug.co_curate_private AND ugm.user_id=v.sender AND EXISTS(SELECT 1 FROM user_group_members '
-	  . 'WHERE (user_group,user_id)=(ug.id,?))) AND EXISTS(SELECT 1 FROM private_isolates '
-	  . 'WHERE isolate_id=v.id))';
-	use constant PUBLIC_ISOLATES            => 'NOT EXISTS(SELECT 1 FROM private_isolates WHERE isolate_id=v.id)';
+	  . 'WHERE (user_group,user_id)=(ug.id,?))) AND p.user_id IS NOT NULL)';
+	use constant PUBLIC_ISOLATES            => 'p.user_id IS NULL';
 	use constant ISOLATES_FROM_USER_PROJECT =>
 	  'EXISTS(SELECT 1 FROM project_members pm JOIN merged_project_users mpu ON '
 	  . 'pm.project_id=mpu.project_id WHERE (mpu.user_id,pm.isolate_id)=(?,v.id))';
-	use constant PUBLICATION_REQUESTED =>
-	  'EXISTS(SELECT 1 FROM private_isolates pi WHERE pi.isolate_id=v.id AND request_publish)';
-	use constant ALL_ISOLATES => 'EXISTS(SELECT 1)';
+	use constant PUBLICATION_REQUESTED => 'p.request_publish';
+	use constant ALL_ISOLATES          => 'EXISTS(SELECT 1)';
 	my $user_info = $self->get_user_info_from_username($username);
 
-	if ( !$user_info ) {    #Not logged in
+	if ( !$user_info ) {                                                  #Not logged in
 		$qry .= PUBLIC_ISOLATES;
 	} else {
 		my @user_terms;
@@ -3431,7 +3440,7 @@ sub initiate_view {
 					);
 				},
 				private_submitter => sub {
-					@user_terms = ( OWN_PRIVATE_ISOLATES, );
+					@user_terms = ( OWN_PRIVATE_ISOLATES, PRIVATE_ISOLATES_FROM_SAME_USER_GROUP );
 				},
 				curator => sub {
 					@user_terms = ( PUBLIC_ISOLATES, OWN_PRIVATE_ISOLATES, PUBLICATION_REQUESTED );
@@ -3604,7 +3613,11 @@ sub is_codon_table_valid {
 
 sub are_lincodes_defined {
 	my ( $self, $scheme_id ) = @_;
-	return $self->run_query( 'SELECT EXISTS(SELECT * FROM lincode_schemes WHERE scheme_id=?)', $scheme_id );
+	if ( !$self->{'cache'}->{'lincodes_defined'} ) {
+		my $schemes = $self->run_query( 'SELECT scheme_id FROM lincode_schemes', undef, { fetch => 'col_arrayref' } );
+		$self->{'cache'}->{'lincodes_defined'}->{$_} = 1 foreach @$schemes;
+	}
+	return $self->{'cache'}->{'lincodes_defined'}->{$scheme_id};
 }
 
 sub get_geography_coordinates {

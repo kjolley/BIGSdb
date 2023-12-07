@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -181,6 +181,7 @@ sub _print_interface_sequence_switches {
 	say q(<ul style="list-style-type:none"><li>);
 	my $ignore_existing = $q->param('ignore_existing') // 'checked';
 	say $q->checkbox(
+		-id      => 'ignore_existing',
 		-name    => 'ignore_existing',
 		-label   => 'Ignore existing or duplicate sequences',
 		-checked => $ignore_existing
@@ -189,16 +190,32 @@ sub _print_interface_sequence_switches {
 	say $q->checkbox( -name => 'ignore_non_DNA', -label => 'Ignore sequences containing non-nucleotide characters' );
 	say q(</li><li>);
 	say $q->checkbox(
-		-name => 'complete_CDS',
+		-id    => 'complete_CDS',
+		-name  => 'complete_CDS',
 		-label =>
 		  'Silently reject all sequences that are not complete reading frames - these must have a start and in-frame '
 		  . 'stop codon at the ends and no internal stop codons.  Existing sequences are also ignored.'
 	);
+	say q(</li><li id="reject_dissimilar_label">);
+	say $q->checkbox(
+		-id    => 'reject_dissimilar',
+		-name  => 'reject_dissimilar',
+		-label => 'Silently reject sequences that fail similarity check'
+	);
 	say q(</li><li>);
-	say $q->checkbox( -name => 'ignore_similarity', -label => 'Override sequence similarity check' );
+	say $q->checkbox(
+		-id    => 'ignore_similarity',
+		-name  => 'ignore_similarity',
+		-label => 'Override sequence similarity check'
+	);
+	say q(</li><li id="reject_invalid_length_label">);
+	say $q->checkbox(
+		-id    => 'reject_invalid_length',
+		-name  => 'reject_invalid_length',
+		-label => 'Silently reject sequences that fail length check'
+	);
 	say q(</li><li>);
-	say $q->checkbox( -name => 'ignore_length', -label => 'Override sequence length check' );
-
+	say $q->checkbox( -id => 'ignore_length', -name => 'ignore_length', -label => 'Override sequence length check' );
 	if ( ( $self->{'system'}->{'alternative_codon_tables'} // q() ) eq 'yes' ) {
 		say q(</li></li>);
 		my $tables = Bio::Tools::CodonTable->tables;
@@ -239,18 +256,20 @@ sub _run_helper {
 			user             => $self->{'system'}->{'user'},
 			password         => $self->{'system'}->{'password'},
 			options          => {
-				always_run        => 1,
-				set_id            => $set_id,
-				script_name       => $self->{'system'}->{'script_name'},
-				locus             => $locus,
-				data              => scalar $q->param('data'),
-				ignore_existing   => $q->param('ignore_existing') ? 1 : 0,
-				complete_CDS      => $q->param('complete_CDS') ? 1 : 0,
-				ignore_non_DNA    => $q->param('ignore_non_DNA') ? 1 : 0,
-				ignore_similarity => $q->param('ignore_similarity') ? 1 : 0,
-				ignore_length     => $q->param('ignore_length') ? 1 : 0,
-				codon_table       => $codon_table,
-				username          => $self->{'username'}
+				always_run            => 1,
+				set_id                => $set_id,
+				script_name           => $self->{'system'}->{'script_name'},
+				locus                 => $locus,
+				data                  => scalar $q->param('data'),
+				ignore_existing       => $q->param('ignore_existing')       ? 1 : 0,
+				complete_CDS          => $q->param('complete_CDS')          ? 1 : 0,
+				ignore_non_DNA        => $q->param('ignore_non_DNA')        ? 1 : 0,
+				reject_dissimilar     => $q->param('reject_dissimilar')     ? 1 : 0,
+				ignore_similarity     => $q->param('ignore_similarity')     ? 1 : 0,
+				reject_invalid_length => $q->param('reject_invalid_length') ? 1 : 0,
+				ignore_length         => $q->param('ignore_length')         ? 1 : 0,
+				codon_table           => $codon_table,
+				username              => $self->{'username'}
 			},
 			instance => $self->{'instance'},
 			logger   => $logger
@@ -362,8 +381,7 @@ sub _upload_data {
 	my $continue = 1;
 	try {
 		$json_ref = BIGSdb::Utils::slurp($full_path);
-	}
-	catch {
+	} catch {
 		if ( $_->isa('BIGSdb::Exception::File::CannotOpen') ) {
 			$self->print_bad_status(
 				{
@@ -446,11 +464,11 @@ sub _report_upload_error {
 		$detail = qq(The contig file '$failed_file' was not in valid FASTA format.);
 	} elsif ( $err eq 'Invalid characters' ) {
 		$detail =
-		    qq(The contig file '$failed_file' contains invalid characters. )
+			qq(The contig file '$failed_file' contains invalid characters. )
 		  . q(Allowed IUPAC nucleotide codes are GATCUBDHVRYKMSWN.');
 	} elsif ( $err =~ /duplicate/ && $err =~ /unique/ ) {
 		$detail =
-		    q(Data entry would have resulted in records with either duplicate ids or another )
+			q(Data entry would have resulted in records with either duplicate ids or another )
 		  . q(unique field with duplicate values. This can result from pressing the upload button twice )
 		  . q(or another curator adding data at the same time. Try pressing the browser back button twice )
 		  . q(and then re-submit the records.);
@@ -517,7 +535,7 @@ sub _prepare_extra_inserts {
 		&& defined $record->{'flags'} )
 	{
 		my @flags = split /;/x, $record->{'flags'};
-		my $qry = 'INSERT INTO allele_flags (locus,allele_id,flag,datestamp,curator) VALUES (?,?,?,?,?)';
+		my $qry   = 'INSERT INTO allele_flags (locus,allele_id,flag,datestamp,curator) VALUES (?,?,?,?,?)';
 		foreach my $flag (@flags) {
 			push @inserts,
 			  {
@@ -552,17 +570,20 @@ sub _get_nav_data {
 		$self->_update_submission_database($submission_id);
 	}
 	my $more_url;
-	my $sender            = $q->param('sender');
-	my $ignore_existing   = $q->param('ignore_existing') ? 'on' : 'off';
-	my $ignore_non_DNA    = $q->param('ignore_non_DNA') ? 'on' : 'off';
-	my $complete_CDS      = $q->param('complete_CDS') ? 'on' : 'off';
-	my $ignore_similarity = $q->param('ignore_similarity') ? 'on' : 'off';
-	my $ignore_length     = $q->param('ignore_length') ? 'on' : 'off';
+	my $sender                = $q->param('sender');
+	my $ignore_existing       = $q->param('ignore_existing')       ? 'on' : 'off';
+	my $ignore_non_DNA        = $q->param('ignore_non_DNA')        ? 'on' : 'off';
+	my $complete_CDS          = $q->param('complete_CDS')          ? 'on' : 'off';
+	my $ignore_similarity     = $q->param('ignore_similarity')     ? 'on' : 'off';
+	my $reject_dissimilar     = $q->param('reject_dissimilar')     ? 'on' : 'off';
+	my $ignore_length         = $q->param('ignore_length')         ? 'on' : 'off';
+	my $reject_invalid_length = $q->param('reject_invalid_length') ? 'on' : 'off';
 	$more_url =
-	    qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSequences&amp;)
+		qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSequences&amp;)
 	  . qq(sender=$sender&amp;ignore_existing=$ignore_existing&amp;)
 	  . qq(ignore_non_DNA=$ignore_non_DNA&amp;complete_CDS=$complete_CDS&amp;)
-	  . qq(ignore_similarity=$ignore_similarity&amp;ignore_length=$ignore_length);
+	  . qq(ignore_similarity=$ignore_similarity&amp;&amp;reject_dissimilar=$reject_dissimilar&amp;)
+	  . qq(ignore_length=$ignore_length&amp;reject_invalid_length=$reject_invalid_length);
 
 	if ( $q->param('locus') ) {
 		my $locus = $q->param('locus');
@@ -576,5 +597,25 @@ sub initiate {
 	$self->{$_} = 1 foreach qw (jQuery jQuery.tablesort noCache);
 	$self->set_level1_breadcrumbs;
 	return;
+}
+
+sub get_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+\$(function () {
+	\$('#ignore_similarity,#ignore_length').change(function(){
+		enable_options();
+	});
+	enable_options();
+});
+function enable_options(){
+	\$("#reject_dissimilar").prop("disabled",\$("#ignore_similarity").prop("checked") ? true : false); 
+	\$("li#reject_dissimilar_label label").css("color",\$("#ignore_similarity").prop("checked") ? '#888' : '#000');
+	\$("#reject_invalid_length").prop("disabled",\$("#ignore_length").prop("checked") ? true : false); 
+	\$("li#reject_invalid_length_label label").css("color",\$("#ignore_length").prop("checked") ? '#888' : '#000');
+}
+
+END
+	return $buffer;
 }
 1;
