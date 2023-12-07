@@ -217,8 +217,8 @@ sub _get_scheme_field {
 sub _query_scheme_sequence {
 	my $self   = setting('self');
 	my $params = params;
-	my ( $db, $scheme_id, $sequence, $details, $base64 ) =
-	  @{$params}{qw(db scheme sequence details base64)};
+	my ( $db, $scheme_id, $sequence, $details, $partial_matches, $base64 ) =
+	  @{$params}{qw(db scheme sequence details partial_matches base64)};
 	$self->check_post_payload;
 	$self->check_load_average;
 	$self->check_seqdef_database;
@@ -243,26 +243,25 @@ sub _query_scheme_sequence {
 	$self->{'dataConnector'}->drop_all_connections;    #Don't keep connections open while waiting for BLAST.
 	my $blast_obj = $self->get_blast_object($loci);
 	$blast_obj->blast( \$sequence );
-	my $matches = $blast_obj->get_exact_matches( { details => $details } );
 	$self->reconnect;
-	return _process_matches( $db, $scheme_id, $matches, $details );
+	return _process_matches( $db, $scheme_id, $blast_obj, $details, undef, $partial_matches );
 }
 
 sub _process_matches {
-	my ( $db, $scheme_id, $matches, $details, $options ) = @_;
-	my $self         = setting('self');
-	my $set_id       = $self->get_set_id;
-	my $subdir       = setting('subdir');
-	my $exacts       = {};
-	my $designations = {};
-	return {} if ref $matches ne 'HASH';
-	foreach my $locus ( keys %$matches ) {
+	my ( $db, $scheme_id, $blast_obj, $details, $options, $check_partials ) = @_;
+	my $self          = setting('self');
+	my $set_id        = $self->get_set_id;
+	my $subdir        = setting('subdir');
+	my $exacts        = {};
+	my $designations  = {};
+	my $exact_matches = $blast_obj->get_exact_matches( { details => $details } );
+	foreach my $locus ( keys %$exact_matches ) {
 		my $locus_name = $locus;
 		if ($set_id) {
 			$locus_name = $self->{'datastore'}->get_set_locus_real_id( $locus, $set_id );
 		}
 		my $alleles       = [];
-		my $locus_matches = $matches->{$locus};
+		my $locus_matches = $exact_matches->{$locus};
 		if ($details) {
 			foreach my $match (@$locus_matches) {
 				my $filtered =
@@ -287,7 +286,21 @@ sub _process_matches {
 		$exacts->{$locus_name}  = $alleles;
 		$designations->{$locus} = $alleles;    #Don't use set name for scheme field lookup.
 	}
-	my $values       = { exact_matches => $exacts };
+	my $partials = {};
+	if ($check_partials) {
+		my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+		foreach my $locus (@$loci) {
+			if ( !defined $exact_matches->{$locus} ) {
+				my $partial = $blast_obj->get_best_partial_match($locus);
+				if ($partial) {
+					$partials->{$locus} = $partial;
+				}
+			}
+		}
+	}
+	my $values = {};
+	$values->{'exact_matches'}   = $exacts   if keys %$exacts;
+	$values->{'partial_matches'} = $partials if keys %$partials;
 	my $field_values = _get_scheme_fields( $scheme_id, $designations );
 	if ( keys %$field_values ) {
 		$values->{'fields'} = $field_values;
