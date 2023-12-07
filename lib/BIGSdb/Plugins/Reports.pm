@@ -129,12 +129,17 @@ sub _generate_report {
 	my $template_info = $self->_get_template_info($report_id);
 	my $dir           = $self->_get_template_dir;
 	$Template::Stash::LIST_OPS->{'format_list'} = sub {
-		my ( $list, $separator, $empty_term ) = @_;
+		my ( $list, $separator, $empty_term, $final_term ) = @_;
 		@$list = grep { defined $_ && $_ ne q() } @$list;
 		$separator //= q(, );
 		local $" = $separator;
 		return $empty_term if !@$list;
-		return qq(@$list);
+		my $value = qq(@$list);
+		if ( $final_term && @$list > 1 ) {
+			#Term may contain spaces so don't use /x
+			$value =~ s/$separator$list->[-1]$/$final_term$list->[-1]/;  ##no critic(RequireExtendedFormatting)
+		}
+		return $value;
 	};
 	my $template = Template->new(
 		{
