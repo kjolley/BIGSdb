@@ -244,10 +244,10 @@ sub _query_scheme_sequence {
 	my $blast_obj = $self->get_blast_object($loci);
 	$blast_obj->blast( \$sequence );
 	$self->reconnect;
-	return _process_matches( $db, $scheme_id, $blast_obj, $details, undef, $partial_matches );
+	return _process_sequence_matches( $db, $scheme_id, $blast_obj, $details, undef, $partial_matches );
 }
 
-sub _process_matches {
+sub _process_sequence_matches {
 	my ( $db, $scheme_id, $blast_obj, $details, $options, $check_partials ) = @_;
 	my $self          = setting('self');
 	my $set_id        = $self->get_set_id;
@@ -315,6 +315,60 @@ sub _process_matches {
 	return $values;
 }
 
+sub _process_designation_matches {
+	my ( $db, $scheme_id, $matches, $details, $options ) = @_;
+	my $self         = setting('self');
+	my $set_id       = $self->get_set_id;
+	my $subdir       = setting('subdir');
+	my $exacts       = {};
+	my $designations = {};
+	return {} if ref $matches ne 'HASH';
+	foreach my $locus ( keys %$matches ) {
+		my $locus_name = $locus;
+		if ($set_id) {
+			$locus_name = $self->{'datastore'}->get_set_locus_real_id( $locus, $set_id );
+		}
+		my $alleles       = [];
+		my $locus_matches = $matches->{$locus};
+		if ($details) {
+			foreach my $match (@$locus_matches) {
+				my $filtered =
+				  $options->{'designations_only'}
+				  ? { allele_id => $match->{'allele'} }
+				  : $self->filter_match( $match, { exact => 1 } );
+				my $field_values =
+				  $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $match->{'allele'} );
+				$filtered->{'linked_data'} = $field_values->{'detailed_values'}
+				  if $field_values->{'detailed_values'};
+				push @$alleles, $filtered;
+			}
+		} else {
+			foreach my $allele_id (@$locus_matches) {
+				push @$alleles,
+				  {
+					allele_id => $allele_id,
+					href      => request->uri_for("$subdir/db/$db/loci/$locus_name/alleles/$allele_id")
+				  };
+			}
+		}
+		$exacts->{$locus_name}  = $alleles;
+		$designations->{$locus} = $alleles;    #Don't use set name for scheme field lookup.
+	}
+	my $values       = { exact_matches => $exacts };
+	my $field_values = _get_scheme_fields( $scheme_id, $designations );
+	if ( keys %$field_values ) {
+		$values->{'fields'} = $field_values;
+	}
+	if ($details) {
+		my $analysis = _run_seq_query_script($values);
+		if ($analysis) {
+			my $heading = $self->{'system'}->{'rest_hook_seq_query_heading'} // 'analysis';
+			$values->{$heading} = $analysis;
+		}
+	}
+	return $values;
+}
+
 sub _query_scheme_designations {
 	my $self   = setting('self');
 	my $params = params;
@@ -327,7 +381,7 @@ sub _query_scheme_designations {
 	if ( !$designations ) {
 		send_error( 'Required field missing: designations.', 400 );
 	}
-	return _process_matches( $db, $scheme_id, $designations, 1, { designations_only => 1 } );
+	return _process_designation_matches( $db, $scheme_id, $designations, 1, { designations_only => 1 } );
 }
 
 sub _run_seq_query_script {
