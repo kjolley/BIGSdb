@@ -252,40 +252,16 @@ sub _process_sequence_matches {
 	my $self          = setting('self');
 	my $set_id        = $self->get_set_id;
 	my $subdir        = setting('subdir');
-	my $exacts        = {};
-	my $designations  = {};
 	my $exact_matches = $blast_obj->get_exact_matches( { details => $details } );
-	foreach my $locus ( keys %$exact_matches ) {
-		my $locus_name = $locus;
-		if ($set_id) {
-			$locus_name = $self->{'datastore'}->get_set_locus_real_id( $locus, $set_id );
+	my ( $exacts, $designations ) = _process_exact_matches(
+		{
+			db      => $db,
+			set_id  => $set_id,
+			matches => $exact_matches,
+			details => $details,
+			options => $options
 		}
-		my $alleles       = [];
-		my $locus_matches = $exact_matches->{$locus};
-		if ($details) {
-			foreach my $match (@$locus_matches) {
-				my $filtered =
-				  $options->{'designations_only'}
-				  ? { allele_id => $match->{'allele'} }
-				  : $self->filter_match( $match, { exact => 1 } );
-				my $field_values =
-				  $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $match->{'allele'} );
-				$filtered->{'linked_data'} = $field_values->{'detailed_values'}
-				  if $field_values->{'detailed_values'};
-				push @$alleles, $filtered;
-			}
-		} else {
-			foreach my $allele_id (@$locus_matches) {
-				push @$alleles,
-				  {
-					allele_id => $allele_id,
-					href      => request->uri_for("$subdir/db/$db/loci/$locus_name/alleles/$allele_id")
-				  };
-			}
-		}
-		$exacts->{$locus_name}  = $alleles;
-		$designations->{$locus} = $alleles;    #Don't use set name for scheme field lookup.
-	}
+	);
 	my $partials = {};
 	if ($check_partials) {
 		my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
@@ -317,12 +293,42 @@ sub _process_sequence_matches {
 
 sub _process_designation_matches {
 	my ( $db, $scheme_id, $matches, $details, $options ) = @_;
+	my $self   = setting('self');
+	my $set_id = $self->get_set_id;
+	my $subdir = setting('subdir');
+	return {} if ref $matches ne 'HASH';
+	my ( $exacts, $designations ) = _process_exact_matches(
+		{
+			db      => $db,
+			set_id  => $set_id,
+			matches => $matches,
+			details => $details,
+			options => $options
+		}
+	);
+	my $values       = { exact_matches => $exacts };
+	my $field_values = _get_scheme_fields( $scheme_id, $designations );
+
+	if ( keys %$field_values ) {
+		$values->{'fields'} = $field_values;
+	}
+	if ($details) {
+		my $analysis = _run_seq_query_script($values);
+		if ($analysis) {
+			my $heading = $self->{'system'}->{'rest_hook_seq_query_heading'} // 'analysis';
+			$values->{$heading} = $analysis;
+		}
+	}
+	return $values;
+}
+
+sub _process_exact_matches {
+	my ($args) = @_;
+	my ( $db, $set_id, $matches, $details, $options ) = @$args{qw(db set_id matches details options)};
 	my $self         = setting('self');
-	my $set_id       = $self->get_set_id;
 	my $subdir       = setting('subdir');
 	my $exacts       = {};
 	my $designations = {};
-	return {} if ref $matches ne 'HASH';
 	foreach my $locus ( keys %$matches ) {
 		my $locus_name = $locus;
 		if ($set_id) {
@@ -354,19 +360,7 @@ sub _process_designation_matches {
 		$exacts->{$locus_name}  = $alleles;
 		$designations->{$locus} = $alleles;    #Don't use set name for scheme field lookup.
 	}
-	my $values       = { exact_matches => $exacts };
-	my $field_values = _get_scheme_fields( $scheme_id, $designations );
-	if ( keys %$field_values ) {
-		$values->{'fields'} = $field_values;
-	}
-	if ($details) {
-		my $analysis = _run_seq_query_script($values);
-		if ($analysis) {
-			my $heading = $self->{'system'}->{'rest_hook_seq_query_heading'} // 'analysis';
-			$values->{$heading} = $analysis;
-		}
-	}
-	return $values;
+	return ( $exacts, $designations );
 }
 
 sub _query_scheme_designations {
