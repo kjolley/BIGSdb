@@ -136,8 +136,9 @@ sub _generate_report {
 		return $empty_term if !@$list;
 		my $value = qq(@$list);
 		if ( $final_term && @$list > 1 ) {
+
 			#Term may contain spaces so don't use /x
-			$value =~ s/$separator$list->[-1]$/$final_term$list->[-1]/;  ##no critic(RequireExtendedFormatting)
+			$value =~ s/$separator$list->[-1]$/$final_term$list->[-1]/;    ##no critic(RequireExtendedFormatting)
 		}
 		return $value;
 	};
@@ -147,7 +148,7 @@ sub _generate_report {
 		}
 	);
 	my $template_output = q();
-	my $data            = $self->_get_isolate_data($isolate_id);
+	my $data            = $self->_get_isolate_data( $isolate_id, $report_id );
 	$data->{'date'} = BIGSdb::Utils::get_datestamp();
 	$template->process( $template_info->{'template_file'}, $data, \$template_output )
 	  || $logger->error( $template->error );
@@ -165,13 +166,13 @@ sub _generate_report {
 }
 
 sub _get_isolate_data {
-	my ( $self, $isolate_id ) = @_;
+	my ( $self, $isolate_id, $report_id ) = @_;
 	my $data = {};
 	$data->{'fields'}          = $self->_get_field_values($isolate_id);
 	$data->{'aliases'}         = $self->{'datastore'}->get_isolate_aliases($isolate_id);
 	$data->{'alleles'}         = $self->_get_allele_data($isolate_id);
-	$data->{'schemes'}         = $self->_get_scheme_values($isolate_id);
-	$data->{'lincodes'}        = $self->_get_lincodes($isolate_id);
+	$data->{'schemes'}         = $self->_get_scheme_values( $isolate_id, $report_id );
+	$data->{'lincodes'}        = $self->_get_lincodes( $isolate_id, $report_id );
 	$data->{'analysis'}        = $self->_get_analysis_results($isolate_id);
 	$data->{'assembly'}        = $self->_get_assembly_details($isolate_id);
 	$data->{'assembly_checks'} = $self->_get_assembly_checks($isolate_id);
@@ -228,61 +229,88 @@ sub _get_field_values {
 }
 
 sub _get_scheme_values {
-	my ( $self, $isolate_id ) = @_;
-	my $scheme_list = $self->{'datastore'}->get_scheme_list( { with_pk => 1 } );
-	my $data        = {};
-	foreach my $scheme (@$scheme_list) {
-		my $values = $self->{'datastore'}
-		  ->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme->{'id'}, { no_status => 1 } );
-		$data->{ $scheme->{'id'} } = $values;
+	my ( $self, $isolate_id, $report_id ) = @_;
+	my $template   = $self->_get_template_info($report_id);
+	my $scheme_ids = $template->{'requires'}->{'schemes'};
+	my $data       = {};
+	return $data if !ref $scheme_ids || !@$scheme_ids;
+	foreach my $scheme_id (@$scheme_ids) {
+		my $values =
+		  $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id, { no_status => 1 } );
+		$data->{$scheme_id} = $values;
 	}
 	return $data;
 }
 
 sub _get_lincodes {
-	my ( $self, $isolate_id ) = @_;
-	my $scheme_list = $self->{'datastore'}->get_scheme_list( { with_pk => 1 } );
-	my $data        = {};
-	foreach my $scheme (@$scheme_list) {
-		if ( $self->{'datastore'}->are_lincodes_defined( $scheme->{'id'} ) ) {
-			my $lincode = $self->{'datastore'}->get_lincode_value( $isolate_id, $scheme->{'id'} );
-			if ( ref $lincode && @$lincode ) {
-				local $" = q(_);
-				my $lincode_string = qq(@$lincode);
-				$data->{ $scheme->{'id'} }->{'lincode'} = $lincode_string;
-				my $prefix_table =
-				  $self->{'datastore'}->create_temp_lincode_prefix_values_table( $scheme->{'id'} );
-				my $prefix_data = $self->{'datastore'}
-				  ->run_query( "SELECT * FROM $prefix_table", undef, { fetch => 'all_arrayref', slice => {} } );
-				my $prefix_values = {};
-				foreach my $record (@$prefix_data) {
-					$prefix_values->{ $record->{'field'} }->{ $record->{'prefix'} } = $record->{'value'};
-				}
-				my $prefix_fields =
-				  $self->{'datastore'}
-				  ->run_query( 'SELECT field FROM lincode_fields WHERE scheme_id=? ORDER BY display_order,field',
-					$scheme->{'id'}, { fetch => 'col_arrayref' } );
-				foreach my $field (@$prefix_fields) {
-					my %used;
-					my @prefixes = keys %{ $prefix_values->{$field} };
-					my @values;
-					foreach my $prefix (@prefixes) {
-						if (   $lincode_string eq $prefix
-							|| $lincode_string =~ /^${prefix}_/x && !$used{ $prefix_values->{$field}->{$prefix} } )
-						{
-							push @values, $prefix_values->{$field}->{$prefix};
-							$used{ $prefix_values->{$field}->{$prefix} } = 1;
-						}
-					}
-					@values = sort @values;
-					local $" = q(; );
-					next if !@values;
-					$field =~ tr/ /_/;
-					$data->{ $scheme->{'id'} }->{ lc $field } = [@values];
+	my ( $self, $isolate_id, $report_id ) = @_;
+	my $template  = $self->_get_template_info($report_id);
+	my $scheme_id = $template->{'requires'}->{'lincodes'}->{'scheme'};
+	my $data      = {};
+	return $data if !BIGSdb::Utils::is_int($scheme_id) || !$self->{'datastore'}->are_lincodes_defined($scheme_id);
+	my $lincode = $self->{'datastore'}->get_lincode_value( $isolate_id, $scheme_id );
+	if ( ref $lincode && @$lincode ) {
+		my $clusters = $self->_get_lincode_clusters( $lincode, $report_id );
+		$data->{'clusters'} = $clusters if keys %$clusters;
+		local $" = q(_);
+		my $lincode_string = qq(@$lincode);
+		$data->{'lincode'} = $lincode_string;
+		my $prefix_table = $self->{'datastore'}->create_temp_lincode_prefix_values_table($scheme_id);
+		my $prefix_data  = $self->{'datastore'}
+		  ->run_query( "SELECT * FROM $prefix_table", undef, { fetch => 'all_arrayref', slice => {} } );
+		my $prefix_values = {};
+
+		foreach my $record (@$prefix_data) {
+			$prefix_values->{ $record->{'field'} }->{ $record->{'prefix'} } = $record->{'value'};
+		}
+		my $prefix_fields =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT field FROM lincode_fields WHERE scheme_id=? ORDER BY display_order,field',
+			$scheme_id, { fetch => 'col_arrayref' } );
+		foreach my $field (@$prefix_fields) {
+			my %used;
+			my @prefixes = keys %{ $prefix_values->{$field} };
+			my @values;
+			foreach my $prefix (@prefixes) {
+				if (   $lincode_string eq $prefix
+					|| $lincode_string =~ /^${prefix}_/x && !$used{ $prefix_values->{$field}->{$prefix} } )
+				{
+					push @values, $prefix_values->{$field}->{$prefix};
+					$used{ $prefix_values->{$field}->{$prefix} } = 1;
 				}
 			}
+			@values = sort @values;
+			local $" = q(; );
+			next if !@values;
+			$field =~ tr/ /_/;
+			$data->{ lc $field } = [@values];
 		}
 	}
+	return $data;
+}
+
+sub _get_lincode_clusters {
+	my ( $self, $lincode, $report_id ) = @_;
+	my $template   = $self->_get_template_info($report_id);
+	my $scheme_id  = $template->{'requires'}->{'lincodes'}->{'scheme'};
+	my $thresholds = $template->{'requires'}->{'lincodes'}->{'cluster_thresholds'};
+	my $data       = {};
+	return $data if !defined $thresholds || !defined $scheme_id;
+	my $cache_table_exists =
+	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
+		["temp_isolates_scheme_fields_$scheme_id"] );
+	if ( !$cache_table_exists ) {
+		$logger->warn( "$self->{'instance'}: Scheme $scheme_id is not cached for this database.  "
+			  . 'Display of similar isolates is disabled. You need to run the update_scheme_caches.pl script '
+			  . 'regularly against this database to create these caches.' );
+		return $data;
+	}
+	my $scheme_info        = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $primary_key        = $scheme_info->{'primary_key'};
+	my $scheme_field_table = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+	my $lincode_table      = $self->{'datastore'}->create_temp_lincodes_table($scheme_id);
+	my $temp_qry           = "SELECT $scheme_field_table.id FROM $scheme_field_table JOIN $lincode_table "
+	  . "ON CAST($scheme_field_table.$primary_key AS text)=$lincode_table.profile_id";
 	return $data;
 }
 
@@ -401,39 +429,43 @@ sub _get_templates {
 		$logger->error("Report template directory $dir does not exist.");
 		return { error => q(Report template directory does not exist.) };
 	}
-	my $templates = [];
-	my $filename  = "$dir/reports.toml";
-	my $data;
-	my $error;
-	if ( -e $filename ) {
-		my $toml = BIGSdb::Utils::slurp($filename);
-		my $err;
-		( $data, $err ) = from_toml($$toml);
-		if ( !$data->{'reports'} ) {
-			$logger->error("Error parsing $filename: $err");
-			return { error => qq(Error parsing $filename: $err) };
+	my $filename = "$dir/reports.toml";
+	if ( !defined $self->{'cache'}->{'reports'} ) {
+		my $templates = [];
+		my $data;
+		my $error;
+		if ( -e $filename ) {
+			my $toml = BIGSdb::Utils::slurp($filename);
+			my $err;
+			( $data, $err ) = from_toml($$toml);
+			if ( !$data->{'reports'} ) {
+				$logger->error("Error parsing $filename: $err");
+				return { error => qq(Error parsing $filename: $err) };
+			}
+		} else {
+			$logger->error("Report template configuration file $filename does not exist.");
+			return { error => q(Report template configuration file does not exist.) };
 		}
-	} else {
-		$logger->error("Report template configuration file $filename does not exist.");
-		return { error => q(Report template configuration file does not exist.) };
-	}
-	my $i = 0;
-  REPORT: foreach my $report ( @{ $data->{'reports'} } ) {
-		$i++;
-		foreach my $attribute (qw(name template_file comments)) {
-			if ( !defined $report->{$attribute} ) {
-				$logger->error("$attribute attribute is not defined for template $i in $filename");
+		my $i = 0;
+	  REPORT: foreach my $report ( @{ $data->{'reports'} } ) {
+			$i++;
+			foreach my $attribute (qw(name template_file comments)) {
+				if ( !defined $report->{$attribute} ) {
+					$logger->error("$attribute attribute is not defined for template $i in $filename");
+					next REPORT;
+				}
+			}
+			my $full_path = "$dir/$report->{'template_file'}";
+			if ( !-e $full_path ) {
+				$logger->error("Report template file $full_path does not exist.");
 				next REPORT;
 			}
+			$report->{'index'} = $i;
+			push @$templates, $report;
 		}
-		my $full_path = "$dir/$report->{'template_file'}";
-		if ( !-e $full_path ) {
-			$logger->error("Report template file $full_path does not exist.");
-			next REPORT;
-		}
-		$report->{'index'} = $i;
-		push @$templates, $report;
+		$self->{'cache'}->{'reports'} = $templates;
 	}
+	my $templates = $self->{'cache'}->{'reports'};
 	if ( !@$templates ) {
 		$logger->error("No template files described in $filename exist.");
 		return { error => q(No template files found.) };
