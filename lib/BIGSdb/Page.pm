@@ -2977,6 +2977,7 @@ sub textfield {
 	my $args_string;
 	foreach ( keys %args ) {
 		$args{$_} //= '';
+		$args{$_} =~ s/"/&quot;/gx;
 		$args_string .= qq($_="$args{$_}" );
 	}
 	my $buffer = "<input $args_string/>";

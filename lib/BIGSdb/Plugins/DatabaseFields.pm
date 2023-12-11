@@ -42,7 +42,7 @@ sub get_attributes {
 		  . 'the field is compulsory or optional and the maximum length of values is displayed.',
 		menutext => 'Description of database fields',
 		module   => 'DatabaseFields',
-		version  => '1.1.7',
+		version  => '1.1.8',
 		section  => 'miscellaneous',
 		order    => 10,
 		dbtype   => 'isolates',
@@ -101,7 +101,7 @@ sub _provenance_print_fields {
 		if ( $thisfield->{'warning'} ) {
 			$thisfield->{'comments'} .= qq(<div class="field_warning">$thisfield->{'warning'}</div>);
 		}
-		say qq(<tr class="td$td"><td>$field</td><td class="field_comment">$thisfield->{'comments'}</td>);
+		say qq(<tr class="td$td"><td>$field</td><td style="text-align:left">$thisfield->{'comments'}</td>);
 		my $multiple = ( $thisfield->{'multiple'} // q() ) eq 'yes' ? q( (multiple)) : q();
 		say qq(<td>$thisfield->{'type'}$multiple</td>);
 		say q(<td>);
@@ -122,11 +122,12 @@ sub _provenance_print_fields {
 		$td = $td == 1 ? 2 : 1;
 
 		if ( $field eq $self->{'system'}->{'labelfield'} ) {
-			say qq(<tr class="td$td"><td>aliases</td><td>alternative names for $self->{'system'}->{'labelfield'}</td>)
+			say qq(<tr class="td$td"><td>aliases</td>)
+			  . qq(<td style="text-align:left">alternative names for $self->{'system'}->{'labelfield'}</td>)
 			  . q(<td>text (multiple)</td><td>-</td><td>no</td><td>-</td></tr>);
 			$td = $td == 1 ? 2 : 1;
 			say qq(<tr class="td$td"><td>references</td>)
-			  . q(<td>PubMed ids that link to publications that describe or include record</td>)
+			  . q(<td style="text-align:left">PubMed ids that link to publications that describe or include record</td>)
 			  . q(<td>integer (multiple)</td><td>-</td><td>no</td><td>-</td></tr>);
 			$td = $td == 1 ? 2 : 1;
 		}
@@ -169,8 +170,9 @@ sub _print_eav_fields {
 			} else {
 				next if $cat;
 			}
-			$field->{'description'} //= q(-);
-			say qq(<tr class="td$td"><td>$field->{'field'}</td><td>$field->{'description'}</td>);
+			$field->{'description'} //= q();
+			say qq(<tr class="td$td"><td>$field->{'field'}</td>)
+			  . qq(<td style="text-align:left">$field->{'description'}</td>);
 			say qq(<td>$field->{'value_format'}</td>);
 			if ( $field->{'option_list'} ) {
 				my @values = split /;/x, $field->{'option_list'};
