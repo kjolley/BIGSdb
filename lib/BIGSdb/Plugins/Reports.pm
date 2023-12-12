@@ -149,9 +149,12 @@ sub _generate_report {
 	);
 	my $template_output = q();
 	my $data            = $self->_get_isolate_data( $isolate_id, $report_id );
+	use Data::Dumper;
+	$logger->error( Dumper $data->{'lincodes'} );
 	$data->{'date'} = BIGSdb::Utils::get_datestamp();
 	$template->process( $template_info->{'template_file'}, $data, \$template_output )
 	  || $logger->error( $template->error );
+
 	if ( $self->{'format'} eq 'html' ) {
 		say $template_output;
 		return;
@@ -250,7 +253,7 @@ sub _get_lincodes {
 	return $data if !BIGSdb::Utils::is_int($scheme_id) || !$self->{'datastore'}->are_lincodes_defined($scheme_id);
 	my $lincode = $self->{'datastore'}->get_lincode_value( $isolate_id, $scheme_id );
 	if ( ref $lincode && @$lincode ) {
-		my $clusters = $self->_get_lincode_clusters( $lincode, $report_id );
+		my $clusters = $self->_get_lincode_clusters( $isolate_id, $lincode, $report_id );
 		$data->{'clusters'} = $clusters if keys %$clusters;
 		local $" = q(_);
 		my $lincode_string = qq(@$lincode);
@@ -290,12 +293,12 @@ sub _get_lincodes {
 }
 
 sub _get_lincode_clusters {
-	my ( $self, $lincode, $report_id ) = @_;
+	my ( $self, $isolate_id, $lincode, $report_id ) = @_;
 	my $template   = $self->_get_template_info($report_id);
 	my $scheme_id  = $template->{'requires'}->{'lincodes'}->{'scheme'};
-	my $thresholds = $template->{'requires'}->{'lincodes'}->{'cluster_thresholds'};
+	my $thresholds = $template->{'requires'}->{'lincodes'}->{'thresholds'};
 	my $data       = {};
-	return $data if !defined $thresholds || !defined $scheme_id;
+	return $data if !defined $thresholds || !defined $scheme_id || !BIGSdb::Utils::is_int($scheme_id);
 	my $cache_table_exists =
 	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
 		["temp_isolates_scheme_fields_$scheme_id"] );
@@ -309,8 +312,22 @@ sub _get_lincode_clusters {
 	my $primary_key        = $scheme_info->{'primary_key'};
 	my $scheme_field_table = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 	my $lincode_table      = $self->{'datastore'}->create_temp_lincodes_table($scheme_id);
-	my $temp_qry           = "SELECT $scheme_field_table.id FROM $scheme_field_table JOIN $lincode_table "
-	  . "ON CAST($scheme_field_table.$primary_key AS text)=$lincode_table.profile_id";
+	foreach my $threshold (@$thresholds) {
+		next if !BIGSdb::Utils::is_int($threshold);
+		next if $threshold > @$lincode;
+		my @prefix = @$lincode[ 0 .. $threshold - 1 ];
+		my $qry =
+			"SELECT DISTINCT(sf.id) FROM $scheme_field_table sf JOIN $lincode_table "
+		  . "ON CAST(sf.$primary_key AS text)=$lincode_table.profile_id JOIN "
+		  . "$self->{'system'}->{'view'} v ON v.id=sf.id WHERE sf.id!=?";
+		for ( my $i = 1 ; $i <= $threshold ; $i++ ) {    #PostgreSQL uses 1-based index
+			$qry .= ' AND ';
+			$qry .= "lincode[$i]=?";
+		}
+		my $isolate_ids =
+		  $self->{'datastore'}->run_query( $qry, [ $isolate_id, @prefix ], { fetch => 'col_arrayref' } );
+		$data->{'clusters'}->{$threshold}->{'ids'} = $isolate_ids;
+	}
 	return $data;
 }
 
