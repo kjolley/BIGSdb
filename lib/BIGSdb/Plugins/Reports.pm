@@ -296,12 +296,14 @@ sub _get_lincode_clusters {
 	my ( $self, $isolate_id, $lincode, $report_id ) = @_;
 	my $template   = $self->_get_template_info($report_id);
 	my $scheme_id  = $template->{'requires'}->{'lincodes'}->{'scheme'};
-	my $thresholds = $template->{'requires'}->{'lincodes'}->{'thresholds'};
+	my $thresholds = $template->{'requires'}->{'lincodes'}->{'clusters'}->{'thresholds'};
+	my $fields     = $template->{'requires'}->{'lincodes'}->{'clusters'}->{'fields'};
 	my $data       = {};
 	return $data if !defined $thresholds || !defined $scheme_id || !BIGSdb::Utils::is_int($scheme_id);
 	my $cache_table_exists =
 	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
 		["temp_isolates_scheme_fields_$scheme_id"] );
+
 	if ( !$cache_table_exists ) {
 		$logger->warn( "$self->{'instance'}: Scheme $scheme_id is not cached for this database.  "
 			  . 'Display of similar isolates is disabled. You need to run the update_scheme_caches.pl script '
@@ -312,21 +314,33 @@ sub _get_lincode_clusters {
 	my $primary_key        = $scheme_info->{'primary_key'};
 	my $scheme_field_table = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 	my $lincode_table      = $self->{'datastore'}->create_temp_lincodes_table($scheme_id);
+	my @prov_fields;
+	foreach my $field (@$fields) {
+		next if $field eq 'id';
+		next if !$self->{'xmlHandler'}->is_field($field);
+		push @prov_fields, $field;
+	}
 	foreach my $threshold (@$thresholds) {
 		next if !BIGSdb::Utils::is_int($threshold);
 		next if $threshold > @$lincode;
 		my @prefix = @$lincode[ 0 .. $threshold - 1 ];
+		local $" = q(,v.);
+		my $prov_field_string = @prov_fields ? qq(,v.@prov_fields) : q();
 		my $qry =
-			"SELECT DISTINCT(sf.id) FROM $scheme_field_table sf JOIN $lincode_table "
-		  . "ON CAST(sf.$primary_key AS text)=$lincode_table.profile_id JOIN "
-		  . "$self->{'system'}->{'view'} v ON v.id=sf.id WHERE sf.id!=?";
+			"SELECT v.id$prov_field_string,l.lincode FROM $scheme_field_table sf JOIN $lincode_table l "
+		  . "ON CAST(sf.$primary_key AS text)=l.profile_id JOIN "
+		  . "$self->{'system'}->{'view'} v ON v.id=sf.id WHERE ";
 		for ( my $i = 1 ; $i <= $threshold ; $i++ ) {    #PostgreSQL uses 1-based index
-			$qry .= ' AND ';
-			$qry .= "lincode[$i]=?";
+			$qry .= ' AND ' if $i > 1;
+			$qry .= "lincode[$i]=? ";
 		}
-		my $isolate_ids =
-		  $self->{'datastore'}->run_query( $qry, [ $isolate_id, @prefix ], { fetch => 'col_arrayref' } );
-		$data->{'clusters'}->{$threshold}->{'ids'} = $isolate_ids;
+		$qry .= "GROUP BY v.id$prov_field_string,l.lincode ORDER BY l.lincode";
+		my $isolate_records =
+		  $self->{'datastore'}->run_query( $qry, [ @prefix ], { fetch => 'all_arrayref', slice => {} } );
+		$data->{$threshold}->{'isolates'} = $isolate_records;
+		$data->{$threshold}->{'similar'} =  @$isolate_records - 1;
+		local $" = q(_);
+		$data->{$threshold}->{'prefix'} = qq(@$lincode[0 .. $threshold - 1]);
 	}
 	return $data;
 }
