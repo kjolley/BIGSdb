@@ -121,15 +121,9 @@ sub get_javascript {
 		if (\$("span#show_aliases_text").css('display') == 'none'){
 			\$("span#show_aliases_text").css('display', 'inline');
 			\$("span#hide_aliases_text").css('display', 'none');
-			if (\$(window).width() >= 600){			
-				\$(".data dt").css({"float":"left","clear":"left","width":"12em","text-align":"right"});
-				\$(".data dd").css({"margin":"0 0 0 13em"});
-			}
 		} else {
 			\$("span#show_aliases_text").css('display', 'none');
-			\$("span#hide_aliases_text").css('display', 'inline');
-			\$(".data dt").css({"float":"none","clear":"both","width":"initial","text-align":"initial"});
-			\$(".data dd").css({"margin":"initial"});			
+			\$("span#hide_aliases_text").css('display', 'inline');		
 		}
 		\$( "span.aliases" ).toggle();
 		set_profile_widths();
