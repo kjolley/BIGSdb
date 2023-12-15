@@ -91,7 +91,8 @@ sub _check_helpers {
 		clustalw           => $self->{'config'}->{'clustalw_path'},
 		ipcress            => $self->{'config'}->{'ipcress_path'},
 		GrapeTree          => $self->{'config'}->{'grapetree_path'} . '/grapetree.py',
-		blat               => $self->{'config'}->{'blat_path'}
+		blat               => $self->{'config'}->{'blat_path'},
+		weasyprint         => $self->{'config'}->{'weasyprint_path'}
 	);
 	my $td = 1;
 	say q(<h2>Helper applications</h2>);
@@ -147,7 +148,7 @@ sub _check_locus_databases {
 			my $cleaned  = $self->clean_locus($locus);
 			my $locus_db = $self->{'datastore'}->get_locus($locus)->{'db'};
 			my $buffer =
-			    qq(<tr class="td$td"><td>$cleaned</td><td>$locus_info->{'dbase_name'}</td><td>)
+				qq(<tr class="td$td"><td>$cleaned</td><td>$locus_info->{'dbase_name'}</td><td>)
 			  . ( $locus_info->{'dbase_host'} // $self->{'system'}->{'host'} )
 			  . q(</td><td>)
 			  . ( $locus_info->{'dbase_port'} // $self->{'system'}->{'port'} )
@@ -198,7 +199,7 @@ sub _check_scheme_databases {
 	my ($self) = @_;
 	say q(<div class="box resultstable">);
 	say q(<h2>Scheme databases</h2>);
-	my $set_id = $self->get_set_id;
+	my $set_id     = $self->get_set_id;
 	my $set_clause = $set_id ? "AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)" : '';
 	my $schemes =
 	  $self->{'datastore'}->run_query( "SELECT id FROM schemes WHERE dbase_name IS NOT NULL $set_clause ORDER BY id",
@@ -264,7 +265,7 @@ sub _check_classification_scheme_databases {
 			my $cscheme_info = $self->{'datastore'}->get_classification_scheme_info($cscheme_id);
 			my $scheme_info  = $self->{'datastore'}->get_scheme_info( $cscheme_info->{'scheme_id'} );
 			$cscheme_info->{'name'} =~ s/&/&amp;/gx;
-			$scheme_info->{'name'} =~ s/&/&amp;/gx;
+			$scheme_info->{'name'}  =~ s/&/&amp;/gx;
 			print qq(<tr class="td$td"><td>$cscheme_info->{'id'}: $cscheme_info->{'name'}</td><td>)
 			  . ("$scheme_info->{'id'}: $scheme_info->{'name'}")
 			  . q(</td><td>)
@@ -335,7 +336,7 @@ sub _check_client_databases {
 		my $client      = $self->{'datastore'}->get_client_db($_);
 		my $client_info = $self->{'datastore'}->get_client_db_info($_);
 		$buffer .=
-		    qq(<tr class="td$td"><td>$client_info->{'name'}</td><td>$client_info->{'description'}</td>)
+			qq(<tr class="td$td"><td>$client_info->{'name'}</td><td>$client_info->{'description'}</td>)
 		  . qq(<td>$client_info->{'dbase_name'}</td><td>)
 		  . ( $client_info->{'dbase_host'} // $self->{'system'}->{'host'} )
 		  . q(</td><td>)

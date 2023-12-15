@@ -289,6 +289,7 @@ sub _has_required_item {
 		phyloviz_passwd        => 'phyloviz_passwd',
 		microreact_token       => 'microreact_token',
 		kleborate_path         => 'Kleborate',
+		weasyprint_path        => 'weasyprint',
 		reportree_path         => 'ReporTree'
 	);
 	return 1 if !$required_attr;

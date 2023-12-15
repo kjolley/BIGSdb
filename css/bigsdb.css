@@ -2043,6 +2043,8 @@ div.file_output {
 	background-image: linear-gradient(#eee, #bce)
 }
 
+
+
 div#curatetools {
 	background: #e5e5f0;
 	float: right;
@@ -2690,7 +2692,7 @@ span.export_archive {
 	text-shadow: 3px 3px 3px #999
 }
 
-span.export_image {
+span.export_image,span.export_html {
 	color: #47f;
 	text-shadow: 3px 3px 3px #999
 }
@@ -2700,7 +2702,7 @@ span.export_align {
 	text-shadow: 3px 3px 3px #999
 }
 
-span.export_code {
+span.export_code,span.export_pdf {
 	color: #903;
 	text-shadow: 3px 3px 3px #999
 }
