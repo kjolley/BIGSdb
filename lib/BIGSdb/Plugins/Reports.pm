@@ -57,11 +57,9 @@ sub get_attributes {
 		help            => 'tooltips',
 		system_flag     => 'Reports',
 		explicit_enable => 1,
-
-		#		url         => "$self->{'config'}->{'doclink'}/data_analysis/reports.html",
-		requires => 'weasyprint',
-
-		#		image       => '/images/plugins/Reports/screenshot.png'
+		url             => "$self->{'config'}->{'doclink'}/data_analysis/reports.html",
+		requires        => 'weasyprint',
+		image           => '/images/plugins/Reports/screenshot.png'
 	);
 	return \%att;
 }
@@ -149,12 +147,9 @@ sub _generate_report {
 	);
 	my $template_output = q();
 	my $data            = $self->_get_isolate_data( $isolate_id, $report_id );
-	use Data::Dumper;
-	$logger->error( Dumper $data->{'lincodes'} );
 	$data->{'date'} = BIGSdb::Utils::get_datestamp();
 	$template->process( $template_info->{'template_file'}, $data, \$template_output )
 	  || $logger->error( $template->error );
-
 	if ( $self->{'format'} eq 'html' ) {
 		say $template_output;
 		return;
@@ -327,7 +322,8 @@ sub _get_lincode_clusters {
 		local $" = q(,v.);
 		my $prov_field_string = @prov_fields ? qq(,v.@prov_fields) : q();
 		my $qry =
-			"SELECT v.id$prov_field_string,l.lincode FROM $scheme_field_table sf JOIN $lincode_table l "
+			"SELECT v.id$prov_field_string,array_to_string(l.lincode,'_') AS lincode "
+		  . "FROM $scheme_field_table sf JOIN $lincode_table l "
 		  . "ON CAST(sf.$primary_key AS text)=l.profile_id JOIN "
 		  . "$self->{'system'}->{'view'} v ON v.id=sf.id WHERE ";
 		for ( my $i = 1 ; $i <= $threshold ; $i++ ) {    #PostgreSQL uses 1-based index
@@ -336,9 +332,9 @@ sub _get_lincode_clusters {
 		}
 		$qry .= "GROUP BY v.id$prov_field_string,l.lincode ORDER BY l.lincode";
 		my $isolate_records =
-		  $self->{'datastore'}->run_query( $qry, [ @prefix ], { fetch => 'all_arrayref', slice => {} } );
+		  $self->{'datastore'}->run_query( $qry, [@prefix], { fetch => 'all_arrayref', slice => {} } );
 		$data->{$threshold}->{'isolates'} = $isolate_records;
-		$data->{$threshold}->{'similar'} =  @$isolate_records - 1;
+		$data->{$threshold}->{'similar'}  = @$isolate_records - 1;
 		local $" = q(_);
 		$data->{$threshold}->{'prefix'} = qq(@$lincode[0 .. $threshold - 1]);
 	}
