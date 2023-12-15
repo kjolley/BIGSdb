@@ -1,3 +1,13 @@
+v1.42.7: *Add new Reports plugin - this is used to generate customized genome
+          reports. See https://github.com/kjolley/Klebsiella_reports for
+          examples.
+         *Added option to silently reject alleles that fail similarity check
+          when batch uploading.
+         *Added option to make some fields expected for genome assemblies.
+         *Make the 'expand width' view persistent and allow its use for the
+          front-end dashboard.
+         *Add option to return partial sequence matches for scheme queries
+          using the API.
 v1.42.6: *Add list query to all table queries.
          *N50 gridlines added to seqbin cumulative length display.
          *Query and initialization optimizations to improve performance.
