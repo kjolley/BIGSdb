@@ -275,7 +275,7 @@ sub _check {
 		$id2[$i] //= q();
 		$id2[$i] =~ s/^\s*|\s*$//gx;
 		$id2[$i] =~ s/%20/ /gx;
-		$value[$i] =~ s/\s*$//gx if defined $value[$i];
+		$value[$i] =~ s/^\s*|\s*$//gx if defined $value[$i];
 		my $display_new_value = $value[$i];
 		my $display_field     = $field[$i];
 		my $is_locus          = $self->_is_locus( $field[$i] );
