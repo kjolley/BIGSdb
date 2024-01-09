@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -2378,7 +2378,7 @@ sub _get_publication_requests {
 			$user_id
 		);
 		my $link = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;"
-		  . "prov_field1=f_sender%20%28id%29&amp;prov_value1=$user_id&amp;private_records_list=4&amp;submit=1";
+		  . "prov_field1=f_sender%20%28id%29&amp;prov_value1=$user_id&amp;private_records_list=5&amp;submit=1";
 		$buffer .=
 			qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(reject_publication=$user_id"><span class="statusbad fas fa-times action"></span></a></td>)
