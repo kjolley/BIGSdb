@@ -29,6 +29,8 @@ GRANT SELECT ON groups,resources,group_resources TO apache;
 CREATE UNLOGGED TABLE log (
 timestamp timestamp NOT NULL,
 ip_address text NOT NULL,
+client text,
+user_name text,
 method text NOT NULL,
 route text NOT NULL,
 duration float NOT NULL

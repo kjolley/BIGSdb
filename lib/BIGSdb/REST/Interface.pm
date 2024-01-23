@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2023, University of Oxford
+#Copyright (c) 2014-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -234,10 +234,12 @@ sub _log_call {
 	my $ip_address = _get_ip_address();
 	eval {
 		$self->{'log_db'}->do(
-			'INSERT INTO log (timestamp,ip_address,method,route,duration) VALUES (?,?,?,?,?)',
+			'INSERT INTO log (timestamp,ip_address,client,user_name,method,route,duration) VALUES (?,?,?,?,?,?,?)',
 			undef,
 			'now',
 			$ip_address,
+			$self->{'client_name'},
+			$self->{'username'},
 			$self->{'request_method'},
 			$self->{'request_path'},
 			int( 1000 * tv_interval( $self->{'start_time'} ) )
@@ -359,6 +361,7 @@ sub _after {
 	my $self = setting('self');
 	$self->_log_call;
 	undef $self->{'username'};
+	undef $self->{'client_name'};
 	if ( $self->{'time_since_last_call_ms'} > IDLE_DROP_CONNECTION_MS ) {
 		$self->{'dataConnector'}->drop_all_connections;
 		undef $self->{'log_db'};
