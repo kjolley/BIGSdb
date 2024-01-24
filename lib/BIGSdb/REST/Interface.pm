@@ -375,6 +375,7 @@ sub _after_error {
 	my $self = setting('self');
 	$self->_log_call;
 	undef $self->{'username'};
+	undef $self->{'client_name'};
 	$self->{'dataConnector'}->drop_all_connections( $self->{'do_not_drop'} );
 	return;
 }
@@ -389,7 +390,7 @@ sub _is_authorized {
 	my $client = $self->{'datastore'}->run_query(
 		'SELECT * FROM clients WHERE client_id=?',
 		param('oauth_consumer_key'),
-		{ db => $self->{'auth_db'}, fetch => 'row_hashref', cache => 'REST::get_client_secret' }
+		{ db => $self->{'auth_db'}, fetch => 'row_hashref', cache => 'REST::get_client' }
 	);
 	if ( !$client->{'client_secret'} ) {
 		send_error( 'Unrecognized client', 403 );

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2019, University of Oxford
+#Copyright (c) 2015-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -22,7 +22,7 @@ use warnings;
 use 5.010;
 use Net::OAuth;
 $Net::OAuth::PROTOCOL_VERSION = Net::OAuth::PROTOCOL_VERSION_1_0A;
-use Dancer2 appname                => 'BIGSdb::REST::Interface';
+use Dancer2 appname => 'BIGSdb::REST::Interface';
 use constant REQUEST_TOKEN_EXPIRES => 3600;
 use constant REQUEST_TOKEN_TIMEOUT => 600;
 use constant ACCESS_TOKEN_TIMEOUT  => 600;
@@ -32,7 +32,7 @@ sub setup_routes {
 	foreach my $dir ( @{ setting('api_dirs') } ) {
 		get "$dir/db/:db/oauth/get_request_token" => sub { _get_request_token() };
 		get "$dir/db/:db/oauth/get_access_token"  => sub { _get_access_token() };
-		get "$dir/db/:db/oauth/get_session_token"     => sub { _get_session_token() };
+		get "$dir/db/:db/oauth/get_session_token" => sub { _get_session_token() };
 	}
 	return;
 }
@@ -45,14 +45,7 @@ sub _get_request_token {
 	if ( !param('oauth_consumer_key') ) {
 		send_error( 'No consumer key submitted', 403 );
 	}
-	my $consumer_secret = $self->{'datastore'}->run_query(
-		'SELECT client_secret FROM clients WHERE client_id=?',
-		param('oauth_consumer_key'),
-		{ db => $self->{'auth_db'}, cache => 'REST::get_client_secret' }
-	);
-	if ( !$consumer_secret ) {
-		send_error( 'Unrecognized client', 403 );
-	}
+	my $client         = _get_client();
 	my $request_params = {};
 	$request_params->{$_} = param($_) foreach qw(
 	  oauth_callback
@@ -68,10 +61,9 @@ sub _get_request_token {
 			$request_params,
 			request_method  => request->method,
 			request_url     => uri_for("$subdir/db/$db/oauth/get_request_token"),
-			consumer_secret => $consumer_secret
+			consumer_secret => $client->{'client_secret'}
 		);
 	};
-
 	if ($@) {
 		if ( $@ =~ /Missing\ required\ parameter\ \'(\w+?)\'/x ) {
 			send_error( "Invalid token request. Missing required parameter: $1", 400 );
@@ -122,14 +114,7 @@ sub _get_access_token {
 	if ( !param('oauth_consumer_key') ) {
 		send_error( 'No consumer key submitted', 403 );
 	}
-	my $consumer_secret = $self->{'datastore'}->run_query(
-		'SELECT client_secret FROM clients WHERE client_id=?',
-		param('oauth_consumer_key'),
-		{ db => $self->{'auth_db'}, cache => 'REST::get_client_secret' }
-	);
-	if ( !$consumer_secret ) {
-		send_error( 'Unrecognized client', 403 );
-	}
+	my $client        = _get_client();
 	my $request_token = $self->{'datastore'}->run_query( 'SELECT * FROM request_tokens WHERE token=?',
 		param('oauth_token'), { fetch => 'row_hashref', db => $self->{'auth_db'} } );
 	if ( !$request_token->{'secret'} ) {
@@ -160,11 +145,10 @@ sub _get_access_token {
 			$request_params,
 			request_method  => request->method,
 			request_url     => uri_for("$subdir/db/$db/oauth/get_access_token"),
-			consumer_secret => $consumer_secret,
+			consumer_secret => $client->{'client_secret'},
 			token_secret    => $request_token->{'secret'},
 		);
 	};
-
 	if ($@) {
 		if ( $@ =~ /Missing\ required\ parameter\ \'(\w+?)\'/x ) {
 			send_error( "Invalid token request. Missing required parameter: $1.", 400 );
@@ -208,6 +192,23 @@ sub _get_access_token {
 	return { oauth_token => $access_token, oauth_token_secret => $access_token_secret };
 }
 
+sub _get_client {
+	my $self   = setting('self');
+	my $params = params;
+	my $client = $self->{'datastore'}->run_query(
+		'SELECT * FROM clients WHERE client_id=?',
+		param('oauth_consumer_key'),
+		{ db => $self->{'auth_db'}, fetch => 'row_hashref', cache => 'REST::Routes::OAuth::get_client' }
+	);
+	my $client_name = $client->{'application'};
+	$client_name .= " version $client->{'version'}" if $client->{'version'};
+	$self->{'client_name'} = $client_name;
+	if ( !$client->{'client_secret'} ) {
+		send_error( 'Unrecognized client', 403 );
+	}
+	return $client;
+}
+
 sub _get_session_token {
 	my $self   = setting('self');
 	my $params = params;
@@ -216,14 +217,7 @@ sub _get_session_token {
 	if ( !param('oauth_consumer_key') ) {
 		send_error( 'No consumer key submitted', 403 );
 	}
-	my $consumer_secret = $self->{'datastore'}->run_query(
-		'SELECT client_secret FROM clients WHERE client_id=?',
-		param('oauth_consumer_key'),
-		{ db => $self->{'auth_db'}, cache => 'REST::get_client_secret' }
-	);
-	if ( !$consumer_secret ) {
-		send_error( 'Unrecognized client', 403 );
-	}
+	my $client       = _get_client();
 	my $access_token = $self->{'datastore'}->run_query(
 		'SELECT * FROM access_tokens WHERE token=?',
 		param('oauth_token'),
@@ -251,11 +245,10 @@ sub _get_session_token {
 			$request_params,
 			request_method  => request->method,
 			request_url     => uri_for("$subdir/db/$db/oauth/get_session_token"),
-			consumer_secret => $consumer_secret,
+			consumer_secret => $client->{'client_secret'},
 			token_secret    => $access_token->{'secret'},
 		);
 	};
-
 	if ($@) {
 		if ( $@ =~ /Missing\ required\ parameter\ \'(\w+?)\'/x ) {
 			send_error( "Invalid token request. Missing required parameter: $1.", 400 );
