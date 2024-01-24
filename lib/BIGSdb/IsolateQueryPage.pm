@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -1215,10 +1215,13 @@ sub _get_private_data_filter {
 	my $private =
 		$self->{'curate'}
 	  ? $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM private_isolates)')
-	  : $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM private_isolates WHERE user_id=?) OR '
-	  .'EXISTS(SELECT * FROM private_isolates i JOIN project_members m ON i.isolate_id=m.isolate_id JOIN '
-	  .'merged_project_users mp ON m.project_id=mp.project_id JOIN isolates v ON i.isolate_id=v.id WHERE '
-	  .'mp.user_id=?)', [$user_info->{'id'}, $user_info->{'id'}]);
+	  : $self->{'datastore'}->run_query(
+		'SELECT EXISTS(SELECT * FROM private_isolates WHERE user_id=?) OR '
+		  . 'EXISTS(SELECT * FROM private_isolates i JOIN project_members m ON i.isolate_id=m.isolate_id JOIN '
+		  . 'merged_project_users mp ON m.project_id=mp.project_id JOIN isolates v ON i.isolate_id=v.id WHERE '
+		  . 'mp.user_id=?)',
+		[ $user_info->{'id'}, $user_info->{'id'} ]
+	  );
 	my $q = $self->{'cgi'};
 	return if !$private && !$q->param('private_records_list');
 	my $labels = {
@@ -2557,7 +2560,8 @@ sub _modify_query_by_private_status {
 	return if !$user_info;
 	my $clause;
 	my $any_private = "EXISTS(SELECT 1 FROM private_isolates p WHERE p.isolate_id=$view.id)";
-	my $my_private   = "EXISTS(SELECT 1 FROM private_isolates p WHERE p.isolate_id=$view.id AND p.user_id=$user_info->{'id'})";
+	my $my_private =
+	  "EXISTS(SELECT 1 FROM private_isolates p WHERE p.isolate_id=$view.id AND p.user_id=$user_info->{'id'})";
 	my $not_in_quota = 'EXISTS(SELECT 1 FROM projects p JOIN project_members pm ON '
 	  . "p.id=pm.project_id WHERE no_quota AND pm.isolate_id=$view.id)";
 	my $term = {
@@ -2729,7 +2733,7 @@ sub _modify_query_for_designations {
 	my $q     = $self->{'cgi'};
 	my $view  = $self->{'system'}->{'view'};
 	my $andor = ( $q->param('designation_andor') // '' ) eq 'AND' ? ' AND ' : ' OR ';
-	my ( $queries_by_locus, $locus_null_queries ) = $self->_get_allele_designations( $errors, $andor );
+	my ( $locus_queries, $locus_null_queries ) = $self->_get_allele_designations( $errors, $andor );
 	my @null_queries                = @$locus_null_queries;
 	my $queries_by_locus_attributes = $self->_get_allele_designations_by_locus_attributes($errors);
 	push @null_queries, @$queries_by_locus_attributes;
@@ -2741,17 +2745,16 @@ sub _modify_query_for_designations {
 	my $lincode_field_queries = $self->_get_lincode_fields($errors);
 	my @designation_queries;
 
-	if ( keys %$queries_by_locus ) {
+	if (@$locus_queries) {
 		local $" = ' OR ';
 		my $modify = '';
 		if ( ( $q->param('designation_andor') // '' ) eq 'AND' ) {
-			my $locus_count = keys %$queries_by_locus;
-			$modify = "GROUP BY $view.id HAVING count(DISTINCT($view.id,allele_designations.locus))=$locus_count";
+			my $locus_count = @$locus_queries;
+			$modify = "GROUP BY $view.id HAVING count($view.id)=$locus_count";
 		}
-		my @allele_queries = values %$queries_by_locus;
 		my $combined_allele_queries =
 			"$view.id IN (select distinct($view.id) FROM $view JOIN allele_designations ON $view.id="
-		  . "allele_designations.isolate_id WHERE @allele_queries $modify)";
+		  . "allele_designations.isolate_id WHERE @$locus_queries $modify)";
 		push @designation_queries, "$combined_allele_queries";
 	}
 	local $" = $andor;
@@ -2772,10 +2775,11 @@ sub _modify_query_for_designations {
 
 sub _get_allele_designations {
 	my ( $self, $errors_ref, $andor ) = @_;
-	my $q       = $self->{'cgi'};
-	my $pattern = LOCUS_PATTERN;
-	my ( %lqry, @lqry_blank );
-	my $view = $self->{'system'}->{'view'};
+	my $q          = $self->{'cgi'};
+	my $pattern    = LOCUS_PATTERN;
+	my $lqry       = [];
+	my $lqry_blank = [];
+	my $view       = $self->{'system'}->{'view'};
 	my %combo;
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		if ( defined $q->param("designation_value$i") && $q->param("designation_value$i") ne '' ) {
@@ -2806,46 +2810,41 @@ sub _get_allele_designations {
 				}
 				my %methods = (
 					'NOT' => sub {
-						$lqry{$locus} .= $andor if $lqry{$locus};
-						$lqry{$locus} .= (
+						push @$lqry,
+						  (
 							( lc($text) eq 'null' )
 							? "(EXISTS (SELECT 1 WHERE allele_designations.locus=E'$locus'))"
 							: "(allele_designations.locus=E'$locus' AND NOT upper(allele_designations.allele_id)="
 							  . "upper(E'$text'))"
-						);
+						  );
 					},
 					'contains' => sub {
-						$lqry{$locus} .= $andor if $lqry{$locus};
-						$lqry{$locus} .=
-							"(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id) "
+						push @$lqry,
+						  "(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id) "
 						  . "LIKE upper(E'\%$text\%'))";
 					},
 					'starts with' => sub {
-						$lqry{$locus} .= $andor if $lqry{$locus};
-						$lqry{$locus} .=
-							"(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id) "
+						push @$lqry,
+						  "(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id) "
 						  . "LIKE upper(E'$text\%'))";
 					},
 					'ends with' => sub {
-						$lqry{$locus} .= $andor if $lqry{$locus};
-						$lqry{$locus} .=
-							"(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id) "
+						push @$lqry,
+						  "(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id) "
 						  . "LIKE upper(E'\%$text'))";
 					},
 					'NOT contain' => sub {
-						$lqry{$locus} .= $andor if $lqry{$locus};
-						$lqry{$locus} .=
-							"(allele_designations.locus=E'$locus' AND NOT upper(allele_designations.allele_id) "
+						push @$lqry,
+						  "(allele_designations.locus=E'$locus' AND NOT upper(allele_designations.allele_id) "
 						  . "LIKE upper(E'\%$text\%'))";
 					},
 					'=' => sub {
 						if ( lc($text) eq 'null' ) {
-							push @lqry_blank,
+							push @$lqry_blank,
 							  '(NOT EXISTS (SELECT 1 FROM allele_designations WHERE allele_designations.isolate_id='
 							  . "$view.id AND locus=E'$locus'))";
 						} else {
-							$lqry{$locus} .= $andor if $lqry{$locus};
-							$lqry{$locus} .=
+							push @$lqry,
 							  $locus_info->{'allele_id_format'} eq 'text'
 							  ? "(allele_designations.locus=E'$locus' AND upper(allele_designations.allele_id)="
 							  . "upper(E'$text'))"
@@ -2861,19 +2860,18 @@ sub _get_allele_designations {
 						  BIGSdb::Utils::escape_html("$operator is not a valid operator for comparing null values.");
 						next;
 					}
-					$lqry{$locus} .= $andor if $lqry{$locus};
 					if ( $locus_info->{'allele_id_format'} eq 'integer' ) {
-						$lqry{$locus} .= "(allele_designations.locus=E'$locus' AND "
+						push @$lqry, "(allele_designations.locus=E'$locus' AND "
 						  . "CAST(allele_designations.allele_id AS int) $operator E'$text')";
 					} else {
-						$lqry{$locus} .= "(allele_designations.locus=E'$locus' AND "
+						push @$lqry, "(allele_designations.locus=E'$locus' AND "
 						  . "allele_designations.allele_id $operator E'$text')";
 					}
 				}
 			}
 		}
 	}
-	return ( \%lqry, \@lqry_blank );
+	return ( $lqry, $lqry_blank );
 }
 
 sub _get_allele_designations_by_locus_attributes {
@@ -4301,7 +4299,7 @@ sub initiate {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	$self->{$_} = 1 foreach qw(noCache addProjects addBookmarks);
-	if ( $q->param('no_header') && !(($q->param('fieldset') // q() ) eq 'filters')) {
+	if ( $q->param('no_header') && !( ( $q->param('fieldset') // q() ) eq 'filters' ) ) {
 		$self->{'noCache'} = 0;
 	}
 	$self->SUPER::initiate;
