@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -694,7 +694,6 @@ sub _print_private_data_menu_item {
 	return if !$self->{'username'};
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	return if !$user_info;
-	return if $user_info->{'status'} eq 'user' || !$self->can_modify_table('isolates');
 	my $limit                         = $self->{'datastore'}->get_user_private_isolate_limit( $user_info->{'id'} );
 	my $is_member_of_no_quota_project = $self->{'datastore'}->run_query(
 		'SELECT EXISTS(SELECT * FROM merged_project_users m JOIN projects p '

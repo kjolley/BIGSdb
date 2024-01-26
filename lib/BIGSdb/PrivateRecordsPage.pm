@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2020, University of Oxford
+#Copyright (c) 2017-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -46,15 +46,6 @@ sub print_content {
 		$self->print_bad_status( { message => q(You are not a recognized user.), navbar => 1 } );
 		return;
 	}
-	if ( $user_info->{'status'} eq 'user' || !$self->can_modify_table('isolates') ) {
-		$self->print_bad_status(
-			{
-				message => q(Your account does not have permission to upload private records.),
-				navbar  => 1
-			}
-		);
-		return;
-	}
 	$self->_print_limits( $user_info->{'id'} );
 	$self->_print_projects( $user_info->{'id'} );
 	return;
@@ -81,13 +72,13 @@ sub _print_limits {
 			title => 'Records (total)',
 			data  => BIGSdb::Utils::commify($total_private),
 			href  => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . q(page=query&amp;private_records_list=1&amp;include_old=on&amp;submit=1)
+			  . q(page=query&amp;private_records_list=2&amp;include_old=on&amp;submit=1)
 		},
 		{
 			title => 'Records (quota)',
 			data  => BIGSdb::Utils::commify($private),
 			href  => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			  . q(page=query&amp;private_records_list=2&amp;include_old=on&amp;submit=1)
+			  . q(page=query&amp;private_records_list=3&amp;include_old=on&amp;submit=1)
 		},
 		{ title => 'Quota',          data => BIGSdb::Utils::commify($limit) },
 		{ title => 'You can upload', data => BIGSdb::Utils::commify($available) }
@@ -114,7 +105,8 @@ sub _print_limits {
 		say q(</ul>);
 	}
 	my $private_isolates = $self->{'datastore'}->get_user_private_isolate_limit($user_id);
-	if ($user_id) {
+	my $user_info        = $self->{'datastore'}->get_user_info($user_id);
+	if ( $user_id && $user_info->{'status'} ne 'user' && $self->can_modify_table('isolates') ) {
 		say q(<span class="main_icon fas fa-pencil-alt fa-3x fa-pull-left"></span>);
 		say q(<h2>Curate</h2>);
 		say q(<ul style="margin-left:25px;list-style:none">)
@@ -163,7 +155,9 @@ sub _print_projects {
 	}
 	say q(<div class="scrollable"><table class="resultstable"><tr><th>Project</th><th>Description</th><th>Users</th>)
 	  . q(<th>Isolates</th><th>Quota free</th><th>Browse</th><th>Upload</th></tr>);
-	my $td = 1;
+	my $td         = 1;
+	my $user_info  = $self->{'datastore'}->get_user_info($user_id);
+	my $can_modify = $self->can_modify_table('isolates');
 	foreach my $project (@$projects) {
 		$project->{'full_description'} //= q();
 		my $users = $self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM merged_project_users WHERE project_id=?',
@@ -182,12 +176,13 @@ sub _print_projects {
 		  . qq(project_list=$project->{'id'}&amp;submit=1"><span class="fas fa-binoculars action browse">)
 		  . q(</span></a></td>)
 		  : q(<td></td>);
-		my $can_upload = $project->{'no_quota'} || $available > 0;
+		my $can_upload =
+		  ( $project->{'no_quota'} || $available > 0 ) && $user_info->{'status'} ne 'user' && $can_modify;
 		my ( $BAN, $UPLOAD, $UPLOAD_CHANGE_CONFIG ) = ( BAN, UPLOAD, UPLOAD_CHANGE_CONFIG );
-		my $switch_config = $project->{'curate_config'} && $project->{'curate_config'} ne $self->{'instance'};
-		my $upload_icon = $switch_config ? UPLOAD_CHANGE_CONFIG : UPLOAD;
+		my $switch_config    = $project->{'curate_config'} && $project->{'curate_config'} ne $self->{'instance'};
+		my $upload_icon      = $switch_config ? UPLOAD_CHANGE_CONFIG : UPLOAD;
 		my $upload_link_root = $self->_get_upload_link( { instance => $project->{'curate_config'} } );
-		my $comment = $switch_config ? q(<br />[switch config]) : q();
+		my $comment          = $switch_config ? q(<br />[switch config]) : q();
 		say $can_upload
 		  ? qq(<td><a href="$upload_link_root&amp;project_id=$project->{'id'}" class="action">$upload_icon</a>$comment</td>)
 		  : qq(<td>$BAN</td>);
