@@ -1,6 +1,6 @@
 #FieldBreakdown.pm - FieldBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2018-2023, University of Oxford
+#Copyright (c) 2018-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -48,7 +48,7 @@ sub get_attributes {
 		buttontext => 'Fields',
 		menutext   => 'Field breakdown',
 		module     => 'FieldBreakdown',
-		version    => '2.6.0',
+		version    => '2.6.1',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
@@ -685,8 +685,8 @@ sub get_plugin_javascript {
 	local $" = q(&);
 	my $url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=plugin&name=FieldBreakdown);
 	my $plugin_prefs_ajax_url =
-	  qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=ajaxPrefs&plugin=FieldBreakdown);
-	my $prefs_ajax_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=ajaxPrefs);
+	  qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=ajaxPrefs&plugin=FieldBreakdown&ajax=1);
+	my $prefs_ajax_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=ajaxPrefs&ajax=1);
 	my $param_string = @$query_params ? qq(&@$query_params) : q();
 	$url .= $param_string;
 	my $types_js     = $self->_get_fields_js;

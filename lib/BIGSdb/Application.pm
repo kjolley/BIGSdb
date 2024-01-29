@@ -593,11 +593,16 @@ sub _log_call {
 	return if !$self->{'config'}->{'web_log_to_db'};
 	my $q = $self->{'cgi'};
 	return if $q->param('ajax');    #We don't want to log every AJAX update on dashboard for instance.
+	my $page = $self->{'page'};
+	if ($page eq 'plugin' && defined $q->param('name')){
+		my $name = $q->param('name');
+		$page = "plugin [$name]";
+	}
 	eval {
 		$self->{'auth_db'}
 		  ->do( 'INSERT INTO log (timestamp,ip_address,user_name,curate,method,instance,page) VALUES (?,?,?,?,?,?,?)',
 			undef, 'now', $ENV{'REMOTE_ADDR'}, $self->{'username'}, 'false', $q->request_method, $self->{'instance'},
-			$self->{'page'} );
+			$page );
 	};
 	if ($@) {
 		$logger->error("Cannot log page access. $@");
