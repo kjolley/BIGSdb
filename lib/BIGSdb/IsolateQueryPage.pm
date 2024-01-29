@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -4045,7 +4045,7 @@ sub get_javascript {
 				qq(if (\$('fieldset#${fieldset}_fieldset').length){\n)
 			  . qq(\$('fieldset#${fieldset}_fieldset div').)
 			  . q(html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...').)
-			  . qq(load(fieldset_url + '&fieldset=$fieldset')};);
+			  . qq(load(fieldset_url + '&fieldset=$fieldset&ajax=1')};);
 		}
 	}
 	if ( !$q->param('list') ) {
@@ -4053,7 +4053,7 @@ sub get_javascript {
 			qq(if (\$('fieldset#list_fieldset').length){\n)
 		  . q($('fieldset#list_fieldset div').)
 		  . q(html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...').)
-		  . q(load(fieldset_url + '&fieldset=list')};);
+		  . q(load(fieldset_url + '&fieldset=list&ajax=1')};);
 	}
 	$buffer .= << "END";
 \$(function () {
