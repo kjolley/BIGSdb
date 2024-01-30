@@ -284,9 +284,7 @@ sub _print_interface {
 sub print_panel_buttons {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	if (   !defined $q->param('currentpage')
-		|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
-		|| $q->param('First') )
+	if ( $self->_showing_first_page )
 	{
 		say q(<span class="icon_button">)
 		  . q(<a class="trigger_button" id="panel_trigger" style="display:none">)
@@ -1938,9 +1936,9 @@ sub _run_query {
 			hidden_attributes => $hidden_attributes
 		};
 		$args->{'passed_qry_file'} = $q->param('query_file') if defined $q->param('query_file');
-		if (   !defined $q->param('currentpage')
-			|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
-			|| $q->param('First') )
+		if (   $self->dashboard_enabled( { query_dashboard => 1 } )
+			&& !$q->param('publish')
+			&& $self->_showing_first_page )
 		{
 			$self->{'no_filters'} = 1;
 			$self->print_dashboard_panel($args);
@@ -4043,7 +4041,7 @@ sub get_javascript {
 				qq(if (\$('fieldset#${fieldset}_fieldset').length){\n)
 			  . qq(\$('fieldset#${fieldset}_fieldset div').)
 			  . q(html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...').)
-			  . qq(load(fieldset_url + '&fieldset=$fieldset')};);
+			  . qq(load(fieldset_url + '&fieldset=$fieldset&ajax=1')};);
 		}
 	}
 	if ( !$q->param('list') ) {
@@ -4051,7 +4049,7 @@ sub get_javascript {
 			qq(if (\$('fieldset#list_fieldset').length){\n)
 		  . q($('fieldset#list_fieldset div').)
 		  . q(html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...').)
-		  . q(load(fieldset_url + '&fieldset=list')};);
+		  . q(load(fieldset_url + '&fieldset=list&ajax=1')};);
 	}
 	$buffer .= << "END";
 \$(function () {
@@ -4295,6 +4293,20 @@ sub _highest_entered_fields {
 	return $highest;
 }
 
+sub _showing_first_page {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if (   ( $q->param('submit') || $q->param('sent') || defined $q->param('query_file') )
+		&& !$q->param('pagejump')
+		&& !$q->param('Last')
+		&& !$q->param('>')
+		&& !( $q->param('<') && ( $q->param('currentpage') // q() ) ne '2' ) )
+	{
+		return 1;
+	}
+	return;
+}
+
 sub initiate {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
@@ -4304,8 +4316,8 @@ sub initiate {
 	}
 	$self->SUPER::initiate;
 	if (   $self->dashboard_enabled( { query_dashboard => 1 } )
-		&& ( $q->param('submit') || $q->param('sent') || defined $q->param('query_file') )
-		&& !$q->param('publish') )
+		&& !$q->param('publish')
+		&& $self->_showing_first_page )
 	{
 		$self->{$_} = 1 foreach qw(muuri modal fitty bigsdb.dashboard jQuery.fonticonpicker billboard d3.layout.cloud);
 		$self->{'geomap'}         = 1 if $self->has_country_optlist;

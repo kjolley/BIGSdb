@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#(c) 2010-2023, University of Oxford
+#(c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -188,9 +188,9 @@ sub new {
 }
 
 sub _private_project_passed {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	my $page = $q->param('page') // q();
+	my ($self)     = @_;
+	my $q          = $self->{'cgi'};
+	my $page       = $q->param('page') // q();
 	my $project_id = $q->param('project_id');
 	return if $page ne 'project';
 	return if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
@@ -283,7 +283,7 @@ sub _initiate {
 		$self->{'system'}->{'labelfield'} //= 'isolate';
 		if ( !$self->{'xmlHandler'}->is_field( $self->{'system'}->{'labelfield'} ) ) {
 			$logger->error(
-				    qq(The defined labelfield '$self->{'system'}->{'labelfield'}' does not exist in the database. )
+					qq(The defined labelfield '$self->{'system'}->{'labelfield'}' does not exist in the database. )
 				  . q(Please set the labelfield attribute in the system tag of the database XML file.) );
 		}
 	}
@@ -305,16 +305,15 @@ sub _setup_prefstore {
 	my ($self) = @_;
 	my %att = (
 		dbase_name => $self->{'config'}->{'prefs_db'},
-		host       => $self->{'config'}->{'dbhost'} // $self->{'system'}->{'host'},
-		port       => $self->{'config'}->{'dbport'} // $self->{'system'}->{'port'},
-		user       => $self->{'config'}->{'dbuser'} // $self->{'system'}->{'user'},
+		host       => $self->{'config'}->{'dbhost'}     // $self->{'system'}->{'host'},
+		port       => $self->{'config'}->{'dbport'}     // $self->{'system'}->{'port'},
+		user       => $self->{'config'}->{'dbuser'}     // $self->{'system'}->{'user'},
 		password   => $self->{'config'}->{'dbpassword'} // $self->{'system'}->{'password'},
 	);
 	my $pref_db;
 	try {
 		$pref_db = $self->{'dataConnector'}->get_connection( \%att );
-	}
-	catch {
+	} catch {
 		if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
 			$logger->fatal("Cannot connect to preferences database '$self->{'config'}->{'prefs_db'}'");
 		} else {
@@ -347,8 +346,8 @@ sub _check_kiosk_page {
 
 #This is not for the REST interface, just web pages that are used to monitor the REST interface.
 sub _is_rest_page {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my ($self)    = @_;
+	my $q         = $self->{'cgi'};
 	my %rest_page = map { $_ => 1 } qw(ajaxRest restMonitor);
 	if ( $rest_page{ $q->param('page') } ) {
 		$self->{'system'}->{'dbtype'} = 'rest';
@@ -360,8 +359,8 @@ sub _is_rest_page {
 }
 
 sub _is_job_page {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my ($self)   = @_;
+	my $q        = $self->{'cgi'};
 	my %job_page = map { $_ => 1 } qw(ajaxJobs jobMonitor);
 	if ( $job_page{ $q->param('page') } ) {
 		$self->{'system'}->{'dbtype'} = 'job';
@@ -436,7 +435,7 @@ sub print_page {
 	my $set_options = 0;
 	my $cookies;
 	my $query_page = ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ? 'IsolateQueryPage' : 'ProfileQueryPage';
-	my %classes = (
+	my %classes    = (
 		ajaxAnalysis       => 'AjaxAnalysis',
 		ajaxJobs           => 'AjaxJobs',
 		ajaxPrefs          => 'AjaxPrefs',
@@ -585,12 +584,45 @@ sub print_page {
 	if ( $page_attributes{'error'} ) {
 		$self->{'handled_error'} = 1;
 	}
+	$self->log_call;
+	return;
+}
+
+sub log_call {
+	my ( $self, $options ) = @_;
+	return if !$self->{'config'}->{'web_log_to_db'};
+	my $q = $self->{'cgi'};
+	return if $q->param('ajax');    #We don't want to log every AJAX update on dashboard for instance.
+	return if $q->param('no_header'); 
+	my $page   = $self->{'page'};
+	my %ignore = map { $_ => 1 } qw(ajaxAnalysis);
+	return if $ignore{$page};
+	if ( $page eq 'plugin' && defined $q->param('name') ) {
+		my $name = $q->param('name');
+		$page = "plugin [$name]";
+	} elsif ($q->param('table')){
+		my $table = $q->param('table');
+		$page = "$page [$table]";
+	}
+	eval {
+		$self->{'auth_db'}->do(
+			'INSERT INTO log (timestamp,ip_address,user_name,curate,method,instance,page) VALUES (?,?,?,?,?,?,?)',
+			undef, 'now', $ENV{'REMOTE_ADDR'}, $self->{'username'}, ( $options->{'curate'} ? 'true' : 'false' ),
+			$q->request_method, $self->{'instance'}, $page
+		);
+	};
+	if ($@) {
+		$logger->error("Cannot log page access. $@");
+		$self->{'auth_db'}->rollback;
+	} else {
+		$self->{'auth_db'}->commit;
+	}
 	return;
 }
 
 sub app_specific_initiation {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my ($self)     = @_;
+	my $q          = $self->{'cgi'};
 	my %no_plugins = map { $_ => 1 } PAGES_NOT_NEEDING_PLUGINS;
 	return if $no_plugins{ $q->param('page') };
 	$self->initiate_plugins;
@@ -636,9 +668,8 @@ sub authenticate {
 			try {
 				BIGSdb::Exception::Authentication->throw('logging out') if $logging_out;
 				$page_attributes->{'username'} = $page->login_from_cookie;
-				$self->{'page'} = 'changePassword' if $self->{'system'}->{'password_update_required'};
-			}
-			catch {
+				$self->{'page'}                = 'changePassword' if $self->{'system'}->{'password_update_required'};
+			} catch {
 				if ( $_->isa('BIGSdb::Exception::Authentication') ) {
 					$logger->debug('No cookie set - asking for log in');
 					if (   $login_requirement == REQUIRED
@@ -655,8 +686,7 @@ sub authenticate {
 							try {
 								( $page_attributes->{'username'}, $auth_cookies_ref, $reset_password ) =
 								  $page->secure_login($args);
-							}
-							catch {    #failed again
+							} catch {    #failed again
 								$authenticated = 0;
 							};
 						}
