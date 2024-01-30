@@ -30,10 +30,3 @@ CREATE OR REPLACE FUNCTION update_locus_stats() RETURNS TRIGGER AS $update_locus
 		RETURN NULL;
 	END;
 $update_locus_stats$ LANGUAGE plpgsql;
-
-DELETE FROM locus_stats;
-INSERT INTO locus_stats(locus,datestamp,allele_count,min_length,max_length) 
-SELECT loci.id,MAX(sequences.datestamp),COUNT(sequences.allele_id),MIN(LENGTH(sequence)),MAX(LENGTH(sequence)) 
-FROM loci LEFT JOIN sequences ON loci.id=sequences.locus 
-WHERE allele_id NOT IN ('N','0','P') OR allele_id IS NULL 
-GROUP BY loci.id;
