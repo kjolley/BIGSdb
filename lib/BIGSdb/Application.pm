@@ -600,7 +600,7 @@ sub log_call {
 	if ( $page eq 'plugin' && defined $q->param('name') ) {
 		my $name = $q->param('name');
 		$page = "plugin [$name]";
-	} elsif ($q->param('table')){
+	} elsif ($page eq 'tableQuery' && $q->param('table')){
 		my $table = $q->param('table');
 		$page = "$page [$table]";
 	}
