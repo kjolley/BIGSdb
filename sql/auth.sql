@@ -128,7 +128,7 @@ ip_address text NOT NULL,
 user_name text,
 curate boolean NOT NULL,
 method text NOT NULL,
-instance text NOT NULL,
+dbase_config text,
 page text NOT NULL
 );
 

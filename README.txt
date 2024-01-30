@@ -1,3 +1,5 @@
+v1.43.0: *Added optional web logging to record user accesses.
+         *Improved API logging to include client and usernames.
 v1.42.7: *Add new Reports plugin - this is used to generate customized genome
           reports. See https://github.com/kjolley/Klebsiella_reports for
           examples.

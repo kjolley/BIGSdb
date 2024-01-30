@@ -607,7 +607,7 @@ sub log_call {
 	}
 	eval {
 		$self->{'auth_db'}->do(
-			'INSERT INTO log (timestamp,ip_address,user_name,curate,method,instance,page) VALUES (?,?,?,?,?,?,?)',
+			'INSERT INTO log (timestamp,ip_address,user_name,curate,method,dbase_config,page) VALUES (?,?,?,?,?,?,?)',
 			undef, 'now', $ENV{'REMOTE_ADDR'}, $self->{'username'}, ( $options->{'curate'} ? 'true' : 'false' ),
 			$q->request_method, $self->{'instance'}, $page
 		);
