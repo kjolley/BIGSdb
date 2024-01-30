@@ -605,6 +605,7 @@ sub log_call {
 		my $table = $q->param('table');
 		$page = "$page [$table]";
 	}
+	return if !$self->{'auth_db'}->ping;    #Connection dropped because of forked process.
 	eval {
 		$self->{'auth_db'}->do(
 			'INSERT INTO log (timestamp,ip_address,user_name,curate,method,dbase_config,page) VALUES (?,?,?,?,?,?,?)',
