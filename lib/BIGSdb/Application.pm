@@ -584,25 +584,32 @@ sub print_page {
 	if ( $page_attributes{'error'} ) {
 		$self->{'handled_error'} = 1;
 	}
-	$self->_log_call;
+	$self->log_call;
 	return;
 }
 
-sub _log_call {
-	my ($self) = @_;
+sub log_call {
+	my ( $self, $options ) = @_;
 	return if !$self->{'config'}->{'web_log_to_db'};
 	my $q = $self->{'cgi'};
 	return if $q->param('ajax');    #We don't want to log every AJAX update on dashboard for instance.
-	my $page = $self->{'page'};
-	if ($page eq 'plugin' && defined $q->param('name')){
+	return if $q->param('no_header'); 
+	my $page   = $self->{'page'};
+	my %ignore = map { $_ => 1 } qw(ajaxAnalysis);
+	return if $ignore{$page};
+	if ( $page eq 'plugin' && defined $q->param('name') ) {
 		my $name = $q->param('name');
 		$page = "plugin [$name]";
+	} elsif ($q->param('table')){
+		my $table = $q->param('table');
+		$page = "$page [$table]";
 	}
 	eval {
-		$self->{'auth_db'}
-		  ->do( 'INSERT INTO log (timestamp,ip_address,user_name,curate,method,instance,page) VALUES (?,?,?,?,?,?,?)',
-			undef, 'now', $ENV{'REMOTE_ADDR'}, $self->{'username'}, 'false', $q->request_method, $self->{'instance'},
-			$page );
+		$self->{'auth_db'}->do(
+			'INSERT INTO log (timestamp,ip_address,user_name,curate,method,instance,page) VALUES (?,?,?,?,?,?,?)',
+			undef, 'now', $ENV{'REMOTE_ADDR'}, $self->{'username'}, ( $options->{'curate'} ? 'true' : 'false' ),
+			$q->request_method, $self->{'instance'}, $page
+		);
 	};
 	if ($@) {
 		$logger->error("Cannot log page access. $@");
