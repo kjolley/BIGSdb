@@ -592,15 +592,16 @@ sub log_call {
 	my ( $self, $options ) = @_;
 	return if !$self->{'config'}->{'web_log_to_db'};
 	my $q = $self->{'cgi'};
-	return if $q->param('ajax');    #We don't want to log every AJAX update on dashboard for instance.
-	return if $q->param('no_header'); 
+	return if $q->param('ajax');        #We don't want to log every AJAX update on dashboard for instance.
+	return if $q->param('no_header');
 	my $page   = $self->{'page'};
 	my %ignore = map { $_ => 1 } qw(ajaxAnalysis);
 	return if $ignore{$page};
+
 	if ( $page eq 'plugin' && defined $q->param('name') ) {
 		my $name = $q->param('name');
 		$page = "plugin [$name]";
-	} elsif ($page eq 'tableQuery' && $q->param('table')){
+	} elsif ( $page eq 'tableQuery' && $q->param('table') ) {
 		my $table = $q->param('table');
 		$page = "$page [$table]";
 	}
@@ -613,7 +614,7 @@ sub log_call {
 	};
 	if ($@) {
 		$logger->error("Cannot log page access. $@");
-		$self->{'auth_db'}->rollback;
+		eval { $self->{'auth_db'}->rollback };
 	} else {
 		$self->{'auth_db'}->commit;
 	}
