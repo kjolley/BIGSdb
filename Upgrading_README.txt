@@ -48,6 +48,7 @@ Version 1.39: Change of isolate and preference database structures.
 Version 1.40: Change of isolate database structure.
 Version 1.41: Change of isolate database structure.
 Version 1.42: Change of seqdef and isolate database structures.
+Version 1.43: Change of seqdef, REST, and authentication database structures.
 
 Details can be found below.
 
@@ -616,3 +617,15 @@ that can be used to annotate allelic variants.
 
 Please run the isolatedb_v1.42.sql script against isolate databases and the
 seqdefdb_v1.42.sql script against sequence definition databases.
+
+Version 1.43
+------------
+There are changes to the sequence definition, REST, and authentication database
+structures. These are for:
+seqdef:   fixed the locus stats function needed for when schemes include locus
+          presence/absence in their definitions.
+rest_db:  improved logging to include client and usernames.
+auth_db:  new log table to record web access.
+
+Please run the seqdefdb_v1.43.sql script against sequence definition databases;
+the rest_v1.43.sql against bigsdb_rest and auth_v1.43.sql against bigsdb_auth.
