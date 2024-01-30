@@ -615,7 +615,7 @@ sub log_call {
 	};
 	if ($@) {
 		$logger->error("Cannot log page access. $@");
-		eval { $self->{'auth_db'}->rollback };
+		$self->{'auth_db'}->rollback;
 	} else {
 		$self->{'auth_db'}->commit;
 	}
