@@ -284,7 +284,11 @@ sub _print_interface {
 sub print_panel_buttons {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	if ( $self->_showing_first_page )
+	if (
+		!defined $q->param('currentpage')
+		|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
+		|| $q->param('First')
+	  )
 	{
 		say q(<span class="icon_button">)
 		  . q(<a class="trigger_button" id="panel_trigger" style="display:none">)
