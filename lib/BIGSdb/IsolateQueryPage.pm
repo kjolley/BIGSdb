@@ -286,7 +286,8 @@ sub print_panel_buttons {
 	my $q = $self->{'cgi'};
 	if (
 		!defined $q->param('currentpage')
-		|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
+		|| ( ( $q->param('pagejump') // q() ) eq '1' )
+		|| ( $q->param('<') && ( $q->param('currentpage') // q() ) eq '2' )
 		|| $q->param('First')
 	  )
 	{
