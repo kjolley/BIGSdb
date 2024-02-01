@@ -348,6 +348,8 @@ sub get_selected_fields {
 	my $set_id        = $self->get_set_id;
 	my $loci          = $self->{'datastore'}->get_loci( { set_id => $set_id } );
 	my $selected_loci = $self->get_selected_loci;
+	my ( $pasted_cleaned_loci, $invalid_loci ) = $self->get_loci_from_pasted_list( { dont_clear => 1 } );
+	push @$selected_loci, @$pasted_cleaned_loci;
 	my %selected_loci = map { $_ => 1 } @$selected_loci;
 	my %locus_seen;
 

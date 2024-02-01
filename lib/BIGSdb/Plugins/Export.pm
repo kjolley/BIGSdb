@@ -1,6 +1,6 @@
 #Export.pm - Export plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext => 'Dataset',
 		menutext   => 'Dataset',
 		module     => 'Export',
-		version    => '1.9.5',
+		version    => '1.10.0',
 		dbtype     => 'isolates',
 		section    => 'export,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
@@ -300,6 +300,7 @@ sub run {
 		say q(<p class="hideonload"><span class="wait_icon fas fa-sync-alt fa-spin fa-4x"></span></p>);
 		print q(<p>Output files being generated ...);
 		my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
+		use Data::Dumper;$logger->error(Dumper $selected_fields);
 		$self->_write_tab_text(
 			{
 				ids      => $ids,
@@ -364,7 +365,7 @@ sub _print_interface {
 	$self->print_composite_fields_fieldset;
 	$self->_print_ref_fields;
 	$self->_print_private_fieldset;
-	$self->print_isolates_locus_fieldset;
+	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
 	$self->print_scheme_fieldset( { fields_or_loci => 1 } );
 	$self->_print_classification_scheme_fields;
 	$self->_print_options;

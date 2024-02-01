@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -3208,7 +3208,6 @@ sub get_ids_from_pasted_list {
 
 sub print_isolates_locus_fieldset {
 	my ( $self, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
 	say q(<fieldset id="locus_fieldset" style="float:left"><legend>Loci</legend>);
 	my $analysis_pref = $options->{'analysis_pref'} // 1;
@@ -3265,7 +3264,6 @@ sub print_isolates_locus_fieldset {
 
 sub get_loci_from_pasted_list {
 	my ( $self, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
 	my ( @cleaned_loci, @invalid_loci );
 	if ( $q->param('locus_paste_list') ) {
