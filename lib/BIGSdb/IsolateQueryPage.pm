@@ -284,12 +284,10 @@ sub _print_interface {
 sub print_panel_buttons {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	if (
-		!defined $q->param('currentpage')
+	if (   !defined $q->param('currentpage')
 		|| ( ( $q->param('pagejump') // q() ) eq '1' )
 		|| ( $q->param('<') && ( $q->param('currentpage') // q() ) eq '2' )
-		|| $q->param('First')
-	  )
+		|| $q->param('First') )
 	{
 		say q(<span class="icon_button">)
 		  . q(<a class="trigger_button" id="panel_trigger" style="display:none">)
@@ -4301,11 +4299,16 @@ sub _highest_entered_fields {
 sub _showing_first_page {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	if (   ( $q->param('submit') || $q->param('sent') || defined $q->param('query_file') )
+	if (
+		(      $q->param('submit')
+			|| $q->param('genomes')
+			|| $q->param('sent')
+			|| defined $q->param('query_file') )
 		&& !$q->param('pagejump')
 		&& !$q->param('Last')
 		&& !$q->param('>')
-		&& !( $q->param('<') && ( $q->param('currentpage') // q() ) ne '2' ) )
+		&& !( $q->param('<') && ( $q->param('currentpage') // q() ) ne '2' )
+	  )
 	{
 		return 1;
 	}
