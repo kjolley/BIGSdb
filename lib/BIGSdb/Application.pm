@@ -597,13 +597,34 @@ sub log_call {
 	my $page   = $self->{'page'};
 	my %ignore = map { $_ => 1 } qw(ajaxAnalysis);
 	return if $ignore{$page};
-
-	if ( $page eq 'plugin' && defined $q->param('name') ) {
-		my $name = $q->param('name');
-		$page = "plugin [$name]";
-	} elsif ( $page eq 'tableQuery' && $q->param('table') ) {
-		my $table = $q->param('table');
-		$page = "$page [$table]";
+	my $method = {
+		plugin => sub {
+			if ( defined $q->param('name') ) {
+				my $name = $q->param('name');
+				$page = "plugin [$name]";
+			}
+		},
+		tableQuery => sub {
+			if ( defined $q->param('table') ) {
+				my $table = $q->param('table');
+				$page = "$page [$table]";
+			}
+		},
+		downloadAlleles => sub {
+			if ( defined $q->param('locus') ) {
+				my $locus = $q->param('locus');
+				$page = "$page [$locus]";
+			}
+		},
+		downloadProfiles => sub {
+			if ( defined $q->param('scheme_id') ) {
+				my $scheme_id = $q->param('scheme_id');
+				$page = "$page [scheme $scheme_id]";
+			}
+		}
+	};
+	if ( $method->{$page} ) {
+		$method->{$page}->();
 	}
 	return if !$self->{'auth_db'}->ping;    #Connection dropped because of forked process.
 	eval {
