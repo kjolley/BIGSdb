@@ -300,7 +300,6 @@ sub run {
 		say q(<p class="hideonload"><span class="wait_icon fas fa-sync-alt fa-spin fa-4x"></span></p>);
 		print q(<p>Output files being generated ...);
 		my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
-		use Data::Dumper;$logger->error(Dumper $selected_fields);
 		$self->_write_tab_text(
 			{
 				ids      => $ids,
