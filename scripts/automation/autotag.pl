@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Automatically tag scan genomes for exactly matching alleles
 #Written by Keith Jolley
-#Copyright (c) 2011-2023, University of Oxford
+#Copyright (c) 2011-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20230210
+#Version: 20240202
 use strict;
 use warnings;
 use 5.010;
@@ -99,6 +99,8 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 			instance         => $opts{'d'},
 		}
 	);
+	die "This script can only be run against an isolate database.\n"
+	  if ( $script->{'system'}->{'dbtype'} // '' ) ne 'isolates';
 	local @SIG{qw (INT TERM HUP)} =
 	  ( sub { $script->{'logger'}->info("$opts{'d'}:Autotagger kill signal detected.  Waiting for child processes.") } )
 	  x 3;
