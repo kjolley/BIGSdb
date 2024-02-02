@@ -589,7 +589,8 @@ sub get_show_aliases_button {
 sub get_show_common_names_button {
 	my ( $self, $display ) = @_;
 	$display //= 'none';
-	return qq(<span id="common_names_button" style="margin-left:1em;display:$display">)
+	return
+		qq(<span id="common_names_button" style="margin-left:1em;display:$display">)
 	  . q(<a id="show_common_names" class="small_submit" style="cursor:pointer">)
 	  . q(<span id="show_common_names_text" style="display:inline"><span class="fa fas fa-eye"></span> )
 	  . q(Show</span><span id="hide_common_names_text" style="display:none">)
@@ -1822,7 +1823,32 @@ sub _get_scheme_values {
 			  $self->get_tooltip( qq($field - $scheme_field_info->{'description'}), { style => 'color:white' } );
 		}
 		local $" = ', ';
+		my @lowest_missing_profiles;
+		my $min_missing;
+		if ( $field eq $scheme_info->{'primary_key'} && $scheme_info->{'allow_missing_loci'} ) {
+			my @pk_values =
+			  ref $field_values->{$field}->{'unformatted'} ? @{ $field_values->{$field}->{'unformatted'} } : ();
+			my %missing_count;
+			if ( @pk_values > 1 ) {
+				foreach my $profile_id (@pk_values) {
+					my $profile = $self->{'datastore'}->get_profile_by_primary_key( $scheme_id, $profile_id );
+					$min_missing //= @$profile;
+					my $missing = grep { $_ eq 'N' } @$profile;
+					if ( $missing < $min_missing ) {
+						$min_missing = $missing;
+					}
+					$missing_count{$profile_id} = $missing;
+				}
+				foreach my $profile_id (@pk_values) {
+					push @lowest_missing_profiles, $profile_id if $missing_count{$profile_id} == $min_missing;
+				}
+			}
+		}
 		my $values = qq(@{$field_values->{$field}->{'formatted'}}) // q(-);
+		foreach my $profile_id (@lowest_missing_profiles) {
+			my $title = "This profile has the fewest ($min_missing) missing loci";
+			$values =~ s/>$profile_id</><span class="highlightvalue" title="$title">$profile_id<\/span></x;
+		}
 		if ( $args->{'no_render'} ) {
 			$buffer .= qq(<dt>$cleaned</dt><dd>$values</dd>);
 		} else {

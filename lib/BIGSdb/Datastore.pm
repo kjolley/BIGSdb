@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -336,7 +336,6 @@ sub get_ambiguous_loci {
 #For use only with isolate databases
 sub get_profile_by_primary_key {
 	my ( $self, $scheme_id, $profile_id, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
 	my $loci_values;
 	try {
 		$loci_values = $self->get_scheme($scheme_id)->get_profile_by_primary_keys( [$profile_id] );
