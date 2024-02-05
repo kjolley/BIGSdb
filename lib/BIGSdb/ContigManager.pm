@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2020, University of Oxford
+#Copyright (c) 2017-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -126,6 +126,9 @@ sub get_remote_contig {
 		return $self->{'cache'}->{'remote_contig'}->{$uri};
 	}
 	my $contig = $self->_get_remote_record( $base_uri, $uri );
+	if (!length $contig->{'sequence'}){
+		$logger->error("$self->{'instance'}: Contig from $uri has no sequence.");
+	}
 	my $length = length $contig->{'sequence'};
 	if ( $options->{'length'} ) {
 		if ( $length != $options->{'length'} ) {
@@ -362,6 +365,10 @@ sub _get_remote_contig_fragment {
 	eval { $contig = $self->get_remote_contig( $uri, { checksum => $checksum } ) };
 	if ($@) {
 		$logger->error($@);
+		return {};
+	}
+	if (!$contig->{'sequence'}){
+		$logger->error("$self->{'instance'}: $uri remote contig has no sequence");
 		return {};
 	}
 	if ( $args->{'start'} < 1 ) {
