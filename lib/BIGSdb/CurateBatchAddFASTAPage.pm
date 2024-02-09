@@ -96,16 +96,15 @@ sub _print_interface {
 	  $self->{'datastore'}->run_query('SELECT EXISTS(SELECT locus FROM locus_extended_attributes WHERE required)');
 	say q(<p>Please note that you can not use this page to upload sequences for loci with required )
 	  . q(extended attributes.</p>)
-
 	  if $extended_attributes;
 	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Enter parameters</legend><ul>);
 	my ( $values, $desc ) = $self->{'datastore'}->get_locus_list(
 		{
-			set_id                 => $set_id,
-			no_list_by_common_name => 1,
-			no_extended_attributes => 1,
-			locus_curator          => ( $self->is_admin ? undef : $self->get_curator_id )
+			set_id                          => $set_id,
+			no_list_by_common_name          => 1,
+			no_required_extended_attributes => 1,
+			locus_curator                   => ( $self->is_admin ? undef : $self->get_curator_id )
 		}
 	);
 	say q(<li><label for="locus" class="form" style="width:5em">locus:!</label>);

@@ -2340,7 +2340,6 @@ sub get_locus_list {
 	#options passed as hashref:
 	#analysis_pref: only the loci for which the user has an analysis preference selected will be returned
 	my ( $self, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
 	my %only_include;
 	if ( $options->{'only_include'} ) {
 		%only_include = map { $_ => 1 } @{ $options->{'only_include'} };
@@ -2359,9 +2358,9 @@ sub get_locus_list {
 		$qry .= ( $qry =~ /loci$/x ) ? ' WHERE ' : ' AND ';
 		$qry .= "loci.id IN (SELECT locus from locus_curators WHERE curator_id = $options->{'locus_curator'})";
 	}
-	if ( $options->{'no_extended_attributes'} ) {
+	if ( $options->{'no_required_extended_attributes'} ) {
 		$qry .= ( $qry =~ /loci$/x ) ? ' WHERE ' : ' AND ';
-		$qry .= 'loci.id NOT IN (SELECT locus from locus_extended_attributes)';
+		$qry .= 'loci.id NOT IN (SELECT locus from locus_extended_attributes WHERE required)';
 	}
 	if ( $options->{'submissions'} ) {
 		$qry .= ( $qry =~ /loci$/x ) ? ' WHERE ' : ' AND ';
