@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2013-2020, University of Oxford
+#Copyright (c) 2013-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -93,8 +93,10 @@ sub _print_interface {
 	  . q(available id (loci with integer ids only). Do not include the locus name in the identifier )
 	  . q(in the FASTA file.</p>);
 	my $extended_attributes =
-	  $self->{'datastore'}->run_query('SELECT EXISTS(SELECT locus FROM locus_extended_attributes)');
-	say q(<p>Please note that you can not use this page to upload sequences for loci with extended attributes.</p>)
+	  $self->{'datastore'}->run_query('SELECT EXISTS(SELECT locus FROM locus_extended_attributes WHERE required)');
+	say q(<p>Please note that you can not use this page to upload sequences for loci with required )
+	  . q(extended attributes.</p>)
+
 	  if $extended_attributes;
 	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Enter parameters</legend><ul>);
@@ -176,8 +178,7 @@ sub _check {
 			$seq = uc($seq);
 			push @seq_data, { id => $seq_object->id, seq => $seq };
 		}
-	}
-	catch {
+	} catch {
 		$self->print_bad_status( { message => q(Sequence is not in valid FASTA format.), navbar => 1 } );
 		$continue = 0;    #Can't return from inside catch block
 	};
@@ -290,10 +291,10 @@ sub _run_helper {
 				script_name       => $self->{'system'}->{'script_name'},
 				locus             => scalar $q->param('locus'),
 				seq_data          => $seq_data,
-				ignore_existing   => $q->param('ignore_existing') ? 1 : 0,
-				complete_CDS      => $q->param('complete_CDS') ? 1 : 0,
+				ignore_existing   => $q->param('ignore_existing')   ? 1 : 0,
+				complete_CDS      => $q->param('complete_CDS')      ? 1 : 0,
 				ignore_similarity => $q->param('ignore_similarity') ? 1 : 0,
-				ignore_length     => $q->param('ignore_length') ? 1 : 0,
+				ignore_length     => $q->param('ignore_length')     ? 1 : 0,
 				username          => $self->{'username'},
 				status            => scalar $q->param('status'),
 				sender            => scalar $q->param('sender')
@@ -328,7 +329,7 @@ sub _upload {
 			$sql->execute(
 				scalar $q->param('locus'),
 				$seq_object->id, $seq_object->seq, scalar $q->param('status'),
-				'now', 'now', scalar $q->param('sender'),
+				'now',           'now',            scalar $q->param('sender'),
 				$self->get_curator_id
 			);
 			if ( $allele_submission && $allele_submission->{'locus'} eq $q->param('locus') ) {
@@ -350,7 +351,7 @@ sub _upload {
 	my $detail;
 	if ($submission_id) {
 		my $url =
-		    qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
+			qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
 		  . qq(submission_id=$submission_id&amp;curate=1);
 		$detail = qq(Don't forget to <a href="$url">close the submission</a>!);
 	}
