@@ -4300,10 +4300,13 @@ sub _showing_first_page {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	if (
-		(      $q->param('submit')
+		(
+			   $q->param('submit')
 			|| $q->param('genomes')
 			|| $q->param('sent')
-			|| defined $q->param('query_file') )
+			|| $q->param('bookmark')
+			|| defined $q->param('query_file')
+		)
 		&& !$q->param('pagejump')
 		&& !$q->param('Last')
 		&& !$q->param('>')
