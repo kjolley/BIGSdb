@@ -594,6 +594,7 @@ sub log_call {
 	my $q = $self->{'cgi'};
 	return if $q->param('ajax');        #We don't want to log every AJAX update on dashboard for instance.
 	return if $q->param('no_header');
+	return if $q->param('results');
 	my $page   = $self->{'page'};
 	my %ignore = map { $_ => 1 } qw(ajaxAnalysis idList);
 	return if $ignore{$page};
