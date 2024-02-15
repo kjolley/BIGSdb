@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -207,7 +207,7 @@ sub blast {
 	my %params        = (
 		-num_threads     => $blast_threads,
 		-max_target_seqs =>
-		  1000,    #Set high for longer alleles that partially match and score higher than exact short alleles
+		  1500,    #Set high for longer alleles that partially match and score higher than exact short alleles
 		-word_size => $word_size,
 		-db        => $temp_fastafile,
 		-query     => $temp_infile,
