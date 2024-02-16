@@ -1,6 +1,6 @@
 #PCR.pm - In silico PCR plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2019-2022, University of Oxford
+#Copyright (c) 2019-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -57,13 +57,13 @@ sub get_attributes {
 		buttontext  => 'PCR',
 		menutext    => 'In silico PCR',
 		module      => 'PCR',
-		version     => '1.0.10',
+		version     => '1.0.11',
 		dbtype      => 'isolates',
 		section     => 'isolate_info,analysis,postquery',
 		input       => 'query',
 		help        => 'tooltips',
 		system_flag => 'PCR',
-		requires    => 'seqbin,ipcress',
+		requires    => 'seqbin,ipcress,offline_jobs',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/in_silico_pcr.html",
 		order       => 45,
 		priority    => 0,

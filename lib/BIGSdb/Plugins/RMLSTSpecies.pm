@@ -1,6 +1,6 @@
 #RMLSTSpecies.pm - rMLST species identification plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2018-2022, University of Oxford
+#Copyright (c) 2018-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -54,13 +54,13 @@ sub get_attributes {
 		buttontext  => 'rMLST species id',
 		menutext    => 'Species identification',
 		module      => 'RMLSTSpecies',
-		version     => '2.2.1',
+		version     => '2.2.2',
 		dbtype      => 'isolates',
 		section     => 'isolate_info,analysis,postquery',
 		input       => 'query',
 		help        => 'tooltips',
 		system_flag => 'rMLSTSpecies',
-		requires    => 'seqbin',
+		requires    => 'offline_jobs,seqbin',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/rMLST.html",
 		order       => 40,
 		priority    => 0,

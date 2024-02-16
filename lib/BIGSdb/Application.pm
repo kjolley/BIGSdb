@@ -653,6 +653,20 @@ sub app_specific_initiation {
 	return;
 }
 
+sub _plugin_requires_authentication {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	return if ( $self->{'page'}                           // q() ) ne 'plugin';
+	return if ( $self->{'system'}->{'jobs_require_login'} // q() ) eq 'no';
+	return
+	  if !( $self->{'config'}->{'jobs_require_login'}
+		|| ( $self->{'system'}->{'jobs_require_login'} // q() ) eq 'yes' );
+	my $plugin_name = $q->param('name');
+	return   if !defined $plugin_name;
+	return 1 if ( $self->{'pluginManager'}->{'attributes'}->{$plugin_name}->{'requires'} // q() ) =~ /offline_jobs/x;
+	return;
+}
+
 sub authenticate {
 	my ( $self, $page_attributes ) = @_;
 	my $auth_cookies_ref;
@@ -685,9 +699,11 @@ sub authenticate {
 			$self->{'page'} = 'index';
 			$logging_out = 1;
 		}
-		my $login_requirement = $self->{'datastore'}->get_login_requirement;
+		my $login_requirement              = $self->{'datastore'}->get_login_requirement;
+		my $plugin_requires_authentication = $self->_plugin_requires_authentication;
 		if (   $login_requirement != NOT_ALLOWED
-			|| $self->{'pages_needing_authentication'}->{ $self->{'page'} } )
+			|| $self->{'pages_needing_authentication'}->{ $self->{'page'} }
+			|| $plugin_requires_authentication )
 		{
 			try {
 				BIGSdb::Exception::Authentication->throw('logging out') if $logging_out;
@@ -697,7 +713,8 @@ sub authenticate {
 				if ( $_->isa('BIGSdb::Exception::Authentication') ) {
 					$logger->debug('No cookie set - asking for log in');
 					if (   $login_requirement == REQUIRED
-						|| $self->{'pages_needing_authentication'}->{ $self->{'page'} } )
+						|| $self->{'pages_needing_authentication'}->{ $self->{'page'} }
+						|| $plugin_requires_authentication )
 					{
 						if ( $q->param('no_header') ) {
 							$page_attributes->{'error'} = 'ajaxLoggedOut';
