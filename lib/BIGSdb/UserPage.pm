@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2016-2023, University of Oxford
+#Copyright (c) 2016-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -393,8 +393,9 @@ sub _registrations {
 	$buffer .= q(<h2>Registrations</h2>);
 	$buffer .=
 		q(<p>Use this page to register your account with specific databases. )
-	  . q(<strong><em>You only need to do this if you want to submit data to a specific database, )
-	  . q(access a password-protected resource, or create a user project.</em></strong></p>);
+	  . q(<strong><em>You need to do this if you want to submit data to a specific database, )
+	  . q(access a password-protected resource, create a user project, or run jobs.</em>)
+	  . q(</strong></p>);
 	my $registered_configs =
 	  $self->{'datastore'}->run_query( 'SELECT dbase_config FROM registered_users WHERE user_name=?',
 		$self->{'username'}, { fetch => 'col_arrayref' } );
