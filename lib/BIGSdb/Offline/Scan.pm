@@ -1142,13 +1142,17 @@ sub _get_row {
 			-name    => "id_${isolate_id}_${locus}_sequence_$id",
 			-id      => "id_${isolate_id}_${cleaned_locus}_sequence_$id",
 			-label   => '',
-			-checked => $exact || ( $hunter->{'off_end'} && $match->{'identity'} == 100 )
+			-checked => $exact
+			  || ( $hunter->{'off_end'}
+				&& ( $params->{'check_incomplete'} // 'off' ) eq 'on'
+				&& $match->{'identity'} >= ( $params->{'check_incomplete_percent'} // 100 ) )
 		);
 		push @$js3, qq(\$("#id_${isolate_id}_${cleaned_locus}_sequence_$id").prop("checked",true));
 		push @$js4, qq(\$("#id_${isolate_id}_${cleaned_locus}_sequence_$id").prop("checked",false));
 		$new_designation = 1;
 		$buffer .= q(</td><td>);
 		my $default_flags = $self->_get_match_flags( $locus, $match, $exact );
+
 		if (@$default_flags) {
 			$buffer .= $self->popup_menu(
 				-name     => "id_${isolate_id}_${locus}_sequence_${id}_flag",

@@ -41,11 +41,14 @@ my $TBLASTX            = 'off';
 my $HUNT_START         = 'off';
 my $HUNT_STOP          = 'off';
 my $HUNT_STOP_PERCENT  = 5;
+my $CHECK_INCOMPLETE   = 'on';
+my $CHECK_INCOMPLETE_PERCENT = 100;
 my $OVERRIDE_VIEW      = 'off';
 my $RESCAN_ALLELES     = 'off';
 my $RESCAN_SEQS        = 'off';
 my $TYPE_ALLELES       = 'off';
 my $MARK_MISSING       = 'off';
+
 sub get_javascript {
 	my ($self) = @_;
 	my %check_values = ( on => 'true', off => 'false' );
@@ -71,6 +74,8 @@ function use_defaults() {
 	\$("#hunt_start").prop(\"checked\",$check_values{$HUNT_START});
 	\$("#hunt_stop").prop(\"checked\",$check_values{$HUNT_STOP});
 	\$("#hunt_stop_percent").val($HUNT_STOP_PERCENT);
+	\$("#check_incomplete").prop(\"checked\",$check_values{$CHECK_INCOMPLETE});
+	\$("#check_incomplete_percent").val($CHECK_INCOMPLETE_PERCENT);
 	\$("#partial_when_exact").prop(\"checked\",$check_values{$PARTIAL_WHEN_EXACT});
 	\$("#override_view").prop(\"checked\",$check_values{$OVERRIDE_VIEW});
 	\$("#rescan_alleles").prop(\"checked\",$check_values{$RESCAN_ALLELES});
@@ -422,15 +427,30 @@ sub _print_parameter_fieldset {
 		  . q(specified %distance (either longer or shorter) of the matched allele length.) );
 	say q(</li><li>);
 	say $q->checkbox(
+		-name    => 'check_incomplete',
+		-id      => 'check_incomplete',
+		-label   => q(Check 'tag sequence' box for incomplete alleles matching at ),
+		-checked => ( ($general_prefs->{'scan_check_incomplete'} // 'on') eq 'on' )
+		? 'checked'
+		: ''
+	);
+	say $q->popup_menu(
+		-name    => 'check_incomplete_percent',
+		-id      => 'check_incomplete_percent',
+		-values  => [ 90 .. 100 ],
+		-default => $general_prefs->{'scan_check_incomplete_percent'} // 100
+	);
+	say q(% identity to closest allele);
+	say q(</li><li>);
+	say $q->checkbox(
 		-name    => 'partial_when_exact',
 		-id      => 'partial_when_exact',
 		-label   => 'Return partial matches even when exact matches are found',
-		-checked => ( $general_prefs->{'partial_when_exact'} && $general_prefs->{'partial_when_exact'} eq 'on' )
+		-checked => ( $general_prefs->{'scan_partial_when_exact'} && $general_prefs->{'scan_partial_when_exact'} eq 'on' )
 		? 'checked'
 		: q()
 	);
 	say q(</li><li>);
-
 	if ( $self->{'system'}->{'views'} ) {
 		say $q->checkbox(
 			-name    => 'override_view',
@@ -529,8 +549,9 @@ sub _scan {
 		my $dbname = $self->{'system'}->{'db'};
 		foreach (
 			qw (identity alignment word_size partial_matches limit_matches limit_time
-			tblastx hunt_start hunt_stop hunt_stop_percent override_view rescan_alleles
-			rescan_seqs type_alleles mark_missing loci_together)
+			tblastx hunt_start hunt_stop hunt_stop_percent partial_when_exact check_incomplete 
+			check_incomplete_percent override_view rescan_alleles rescan_seqs type_alleles 
+			mark_missing loci_together)
 		  )
 		{
 			my $value = ( defined $q->param($_) && $q->param($_) ne '' ) ? $q->param($_) : 'off';
