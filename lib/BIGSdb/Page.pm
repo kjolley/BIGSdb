@@ -601,9 +601,10 @@ sub print_page_content {
 				script => $javascript
 			}
 		);
-		my $max_width            = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
-		my $main_max_width       = $max_width - 15;
-		my $main_max_width_style = $self->{'prefs'}->{'expandPage'}
+		my $max_width      = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
+		my $main_max_width = $max_width - 15;
+		my $main_max_width_style =
+		  $self->{'prefs'}->{'expandPage'}
 		  ? q(calc(100vw - 40px))
 		  : qq(${main_max_width}px);
 		my $main_container_class = $self->{'login'} ? q( main_container_login) : q();
@@ -2048,7 +2049,15 @@ sub get_isolates_with_seqbin {
 		my ( $id, $isolate, $new_version ) = @$_;
 		$isolate //= '';    #One database on PubMLST uses a restricted view that hides some isolate names.
 		push @ids, $id;
-		$labels{$id} = $new_version ? "$id) $isolate [old version]" : "$id) $isolate";
+		if ( $options->{'hyperlink'} ) {
+			my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&id=$id";
+			$labels{$id} =
+			  $new_version
+			  ? qq[<a href="$url">$id</a>) $isolate [old version]]
+			  : qq[<a href="$url">$id</a>) $isolate];
+		} else {
+			$labels{$id} = $new_version ? "$id) $isolate [old version]" : "$id) $isolate";
+		}
 	}
 	return ( \@ids, \%labels );
 }

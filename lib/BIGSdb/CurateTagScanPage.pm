@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -567,7 +567,7 @@ sub _scan {
 	my $project_id   = $q->param('project_list');
 	my $curator_name = $self->get_curator_name;
 	my $user_info    = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	my ( undef, $labels ) = $self->get_isolates_with_seqbin;
+	my ( undef, $labels ) = $self->get_isolates_with_seqbin({hyperlink=>1});
 
 	#Use double fork to prevent zombie processes on apache2-mpm-worker
 	defined( my $kid = fork ) or $logger->error('cannot fork');
