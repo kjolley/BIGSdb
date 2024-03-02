@@ -1051,9 +1051,12 @@ sub _get_row {
 	);
 	my $cleaned_locus = $self->clean_locus($locus);
 	my $locus_info    = $self->{'datastore'}->get_locus_info($locus);
+	my $seq           = $self->extract_seq_from_match($match);
 
+	if ( $seq =~ /[^GATCU]/ix ) {
+		$match->{'ambiguous'} = 1;
+	}
 	if ( $locus_info->{'complete_cds'} ) {
-		my $seq = $self->extract_seq_from_match($match);
 		$match->{'first_stop'} = $self->_get_position_of_first_stop_codon( $isolate_id, \$seq );
 	}
 	my $translate = ( $locus_info->{'coding_sequence'} || $locus_info->{'data_type'} eq 'peptide' ) ? 1 : 0;
@@ -1146,13 +1149,13 @@ sub _get_row {
 			  || ( $hunter->{'off_end'}
 				&& ( $params->{'check_incomplete'} // 'off' ) eq 'on'
 				&& $match->{'identity'} >= ( $params->{'check_incomplete_percent'} // 100 ) )
+			  || ( $match->{'ambiguous'} && $locus_info->{'complete_cds'} && $hunter->{'CDS'} )
 		);
 		push @$js3, qq(\$("#id_${isolate_id}_${cleaned_locus}_sequence_$id").prop("checked",true));
 		push @$js4, qq(\$("#id_${isolate_id}_${cleaned_locus}_sequence_$id").prop("checked",false));
 		$new_designation = 1;
 		$buffer .= q(</td><td>);
 		my $default_flags = $self->_get_match_flags( $locus, $match, $exact );
-
 		if (@$default_flags) {
 			$buffer .= $self->popup_menu(
 				-name     => "id_${isolate_id}_${locus}_sequence_${id}_flag",
@@ -1216,6 +1219,9 @@ sub _get_match_flags {
 	}
 	if ( $match->{'introns'} && @{ $match->{'introns'} } ) {
 		push @$flags, 'introns';
+	}
+	if ( $match->{'ambiguous'} ) {
+		push @$flags, 'ambiguous read';
 	}
 	return $flags;
 }
@@ -1367,7 +1373,8 @@ sub _hunt_for_start_and_stop_codons {
 		off_end          => $off_end,
 		predicted_start  => $predicted_start,
 		predicted_end    => $predicted_end,
-		complete_tooltip => $complete_tooltip
+		complete_tooltip => $complete_tooltip,
+		CDS              => $complete_gene
 	};
 }
 
@@ -1893,7 +1900,6 @@ sub _write_match {
 	#Write matches to a file in secure_tmp that can be read by tagging page.
 	my ( $self, $scan_job, $data, $options ) = @_;
 	$data //= '';
-	$options = {} if ref $options ne 'HASH';
 	my $match_file = "$self->{'config'}->{'secure_tmp_dir'}/$scan_job\_matches.txt";
 	unlink $match_file if $options->{'reset'};
 	open( my $fh, '>>', $match_file ) || $logger->error("Can't open $match_file for appending");

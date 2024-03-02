@@ -29,25 +29,25 @@ use Time::Duration;
 use BIGSdb::Constants qw(:interface SEQ_METHODS SEQ_FLAGS LOCUS_PATTERN);
 use BIGSdb::Offline::Scan;
 ##DEFAUT SCAN PARAMETERS#############
-my $MIN_IDENTITY       = 70;
-my $MIN_ALIGNMENT      = 50;
-my $WORD_SIZE          = 20;
-my $PARTIAL_MATCHES    = 1;
-my $LIMIT_MATCHES      = 200;
-my $LIMIT_TIME         = 5;
-my $PARTIAL_WHEN_EXACT = 'off';
-my $LOCI_TOGETHER      = 'off';
-my $TBLASTX            = 'off';
-my $HUNT_START         = 'off';
-my $HUNT_STOP          = 'off';
-my $HUNT_STOP_PERCENT  = 5;
-my $CHECK_INCOMPLETE   = 'on';
+my $MIN_IDENTITY             = 70;
+my $MIN_ALIGNMENT            = 50;
+my $WORD_SIZE                = 20;
+my $PARTIAL_MATCHES          = 1;
+my $LIMIT_MATCHES            = 200;
+my $LIMIT_TIME               = 5;
+my $PARTIAL_WHEN_EXACT       = 'off';
+my $LOCI_TOGETHER            = 'off';
+my $TBLASTX                  = 'off';
+my $HUNT_START               = 'off';
+my $HUNT_STOP                = 'off';
+my $HUNT_STOP_PERCENT        = 5;
+my $CHECK_INCOMPLETE         = 'on';
 my $CHECK_INCOMPLETE_PERCENT = 100;
-my $OVERRIDE_VIEW      = 'off';
-my $RESCAN_ALLELES     = 'off';
-my $RESCAN_SEQS        = 'off';
-my $TYPE_ALLELES       = 'off';
-my $MARK_MISSING       = 'off';
+my $OVERRIDE_VIEW            = 'off';
+my $RESCAN_ALLELES           = 'off';
+my $RESCAN_SEQS              = 'off';
+my $TYPE_ALLELES             = 'off';
+my $MARK_MISSING             = 'off';
 
 sub get_javascript {
 	my ($self) = @_;
@@ -430,7 +430,7 @@ sub _print_parameter_fieldset {
 		-name    => 'check_incomplete',
 		-id      => 'check_incomplete',
 		-label   => q(Check 'tag sequence' box for incomplete alleles matching at ),
-		-checked => ( ($general_prefs->{'scan_check_incomplete'} // 'on') eq 'on' )
+		-checked => ( ( $general_prefs->{'scan_check_incomplete'} // 'on' ) eq 'on' )
 		? 'checked'
 		: ''
 	);
@@ -446,11 +446,13 @@ sub _print_parameter_fieldset {
 		-name    => 'partial_when_exact',
 		-id      => 'partial_when_exact',
 		-label   => 'Return partial matches even when exact matches are found',
-		-checked => ( $general_prefs->{'scan_partial_when_exact'} && $general_prefs->{'scan_partial_when_exact'} eq 'on' )
+		-checked =>
+		  ( $general_prefs->{'scan_partial_when_exact'} && $general_prefs->{'scan_partial_when_exact'} eq 'on' )
 		? 'checked'
 		: q()
 	);
 	say q(</li><li>);
+
 	if ( $self->{'system'}->{'views'} ) {
 		say $q->checkbox(
 			-name    => 'override_view',
@@ -549,8 +551,8 @@ sub _scan {
 		my $dbname = $self->{'system'}->{'db'};
 		foreach (
 			qw (identity alignment word_size partial_matches limit_matches limit_time
-			tblastx hunt_start hunt_stop hunt_stop_percent partial_when_exact check_incomplete 
-			check_incomplete_percent override_view rescan_alleles rescan_seqs type_alleles 
+			tblastx hunt_start hunt_stop hunt_stop_percent partial_when_exact check_incomplete
+			check_incomplete_percent override_view rescan_alleles rescan_seqs type_alleles
 			mark_missing loci_together)
 		  )
 		{
@@ -567,8 +569,7 @@ sub _scan {
 	my $project_id   = $q->param('project_list');
 	my $curator_name = $self->get_curator_name;
 	my $user_info    = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	my ( undef, $labels ) = $self->get_isolates_with_seqbin({hyperlink=>1});
-
+	my ( undef, $labels ) = $self->get_isolates_with_seqbin( { hyperlink => 1 } );
 	#Use double fork to prevent zombie processes on apache2-mpm-worker
 	defined( my $kid = fork ) or $logger->error('cannot fork');
 	if ($kid) {
