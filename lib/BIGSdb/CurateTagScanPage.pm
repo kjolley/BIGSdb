@@ -56,12 +56,12 @@ sub get_javascript {
 	if ( !$self->{'cgi'}->param('tag') ) {
 		$buffer .= << "END";
 \$(function () {	
-		\$("html, body").animate({ scrollTop: \$(document).height()-\$(window).height() });
 		\$('.multiselect').multiselect({
 			selectedList: 1,
 			header: false,
 			noneSelectedText: ''	
-		})	
+		})
+		\$("html, body").animate({ scrollTop: \$(document).height()-\$(window).height() });	
 });			
 END
 	}
