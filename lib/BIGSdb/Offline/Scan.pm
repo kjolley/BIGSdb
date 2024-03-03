@@ -1177,22 +1177,14 @@ sub _get_tag_checkbox {
 		$new_designation = 1;
 		$buffer .= q(</td><td>);
 		my $default_flags = $self->_get_match_flags( $locus, $match, $exact );
-		if (@$default_flags) {
-			$buffer .= $self->popup_menu(
-				-name     => "id_${isolate_id}_${locus}_sequence_${id}_flag",
-				-id       => "id_${isolate_id}_${cleaned_locus}_sequence_${id}_flag",
-				-values   => [SEQ_FLAGS],
-				-default  => $default_flags,
-				-multiple => 'true',
-			);
-		} else {
-			$buffer .= $q->popup_menu(
-				-name    => "id_${isolate_id}_${locus}_sequence_${id}_flag",
-				-id      => "id_${isolate_id}_${cleaned_locus}_sequence_${id}_flag",
-				-values  => [ '', SEQ_FLAGS ],
-				-default => $default_flags,
-			);
-		}
+		$buffer .= $self->popup_menu(
+			-name     => "id_${isolate_id}_${locus}_sequence_${id}_flag",
+			-id       => "id_${isolate_id}_${cleaned_locus}_sequence_${id}_flag",
+			-values   => [SEQ_FLAGS],
+			-default  => $default_flags,
+			-multiple => 'true',
+			-class    => 'multiselect'
+		);
 	} else {
 		$buffer .=
 		  $q->checkbox( -name => "id_${isolate_id}_${locus}_sequence_$id", -label => '', disabled => 'disabled' );
