@@ -1183,7 +1183,8 @@ sub _get_tag_checkbox {
 			-values   => [SEQ_FLAGS],
 			-default  => $default_flags,
 			-multiple => 'true',
-			-class    => 'multiselect'
+			-class    => 'multiselect',
+			-style    => 'height:1.5em;display:none'
 		);
 	} else {
 		$buffer .=
