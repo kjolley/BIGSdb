@@ -1112,7 +1112,7 @@ sub _get_row {
 		$buffer .= $locus_info->{'complete_cds'} ? q(<td>-</td>) : q(<td>N/A</td>);
 	}
 	$buffer .= q(<td>);
-	my $seq_disabled = 0;
+
 	$cleaned_locus = $self->clean_checkbox_id($locus);
 	$cleaned_locus =~ s/\\/\\\\/gx;
 	if (   $exact
@@ -1135,6 +1135,27 @@ sub _get_row {
 		  $q->checkbox( -name => "id_${isolate_id}_${locus}_allele_$id", -label => '', disabled => 'disabled' );
 	}
 	$buffer .= q(</td><td>);
+	$buffer .= $self->_get_tag_checkbox(
+		{
+			%$args,
+			locus_info      => $locus_info,
+			cleaned_locus   => $cleaned_locus,
+			hunter          => $hunter,
+			new_designation => $new_designation
+		}
+	);
+	$buffer .= q(</td></tr>);
+	return ( $buffer, $hunter->{'off_end'}, $new_designation );
+}
+
+sub _get_tag_checkbox {
+	my ( $self, $args ) = @_;
+	my ( $isolate_id, $locus, $locus_info, $cleaned_locus, $id, $match, $hunter, $exact, $js3, $js4, $new_designation )
+	  = @{$args}{qw (isolate_id locus locus_info cleaned_locus id match hunter exact js3 js4 new_designation)};
+	my $params = $self->{'params'};
+	my $buffer;
+	my $seq_disabled             = 0;
+	my $q                        = $self->{'cgi'};
 	my $existing_allele_sequence = $self->{'datastore'}->run_query(
 		'SELECT id FROM allele_sequences WHERE (seqbin_id,locus,start_pos,end_pos)=(?,?,?,?)',
 		[ $match->{'seqbin_id'}, $locus, $hunter->{'predicted_start'}, $hunter->{'predicted_end'} ],
@@ -1188,13 +1209,12 @@ sub _get_row {
 		$buffer .= $q->hidden( "id_${isolate_id}_${locus}_reverse_$id"   => $match->{'reverse'} );
 		$buffer .= $q->hidden( "id_${isolate_id}_${locus}_complete_$id"  => 1 ) if !$hunter->{'off_end'};
 		$buffer .= $q->hidden( "id_${isolate_id}_${locus}_seqbin_id_$id" => $match->{'seqbin_id'} );
-		$intron_arg = $self->_get_intron_arg( $match, { hidden => 1 } );
+		my $intron_arg = $self->_get_intron_arg( $match, { hidden => 1 } );
 		if ($intron_arg) {
 			$buffer .= $q->hidden( "id_${isolate_id}_${locus}_introns_$id" => $intron_arg );
 		}
 	}
-	$buffer .= q(</td></tr>);
-	return ( $buffer, $hunter->{'off_end'}, $new_designation );
+	return $buffer;
 }
 
 sub _get_position_of_first_stop_codon {
