@@ -303,7 +303,7 @@ sub _print_parameter_fieldset {
 		-name    => 'identity',
 		-id      => 'identity',
 		-values  => [ 50 .. 100 ],
-		-default => $general_prefs->{'scan_identity'} || $MIN_IDENTITY
+		-default => $general_prefs->{'scan_identity'} // $MIN_IDENTITY
 	);
 	say $self->get_tooltip(q(Minimum % identity - Match required for partial matching.));
 	say q(</li><li><label for="alignment" class="parameter">Min % alignment:</label>);
@@ -311,7 +311,7 @@ sub _print_parameter_fieldset {
 		-name    => 'alignment',
 		-id      => 'alignment',
 		-values  => [ 30 .. 100 ],
-		-default => $general_prefs->{'scan_alignment'} || $MIN_ALIGNMENT
+		-default => $general_prefs->{'scan_alignment'} // $MIN_ALIGNMENT
 	);
 	say $self->get_tooltip( q(Minimum % alignment - Percentage of allele sequence length )
 		  . q(required to be aligned for partial matching.) );
@@ -320,7 +320,7 @@ sub _print_parameter_fieldset {
 		-name    => 'word_size',
 		-id      => 'word_size',
 		-values  => [ 7 .. 30 ],
-		-default => $general_prefs->{'scan_word_size'} || $WORD_SIZE
+		-default => $general_prefs->{'scan_word_size'} // $WORD_SIZE
 	);
 	say $self->get_tooltip( q(BLASTN word size - This is the length of an exact match required )
 		  . q(to initiate an extension. Larger values increase speed at the expense of sensitivity.) );
@@ -329,14 +329,14 @@ sub _print_parameter_fieldset {
 		-name    => 'partial_matches',
 		-id      => 'partial_matches',
 		-values  => [ 1 .. 10 ],
-		-default => $general_prefs->{'scan_partial_matches'} || $PARTIAL_MATCHES
+		-default => $general_prefs->{'scan_partial_matches'} // $PARTIAL_MATCHES
 	);
 	say q( partial match(es)</li><li><label for="limit_matches" class="parameter">Stop after:</label>);
 	say $q->popup_menu(
 		-name    => 'limit_matches',
 		-id      => 'limit_matches',
 		-values  => [qw(10 20 30 40 50 100 200 500 1000 2000 5000 10000 20000)],
-		-default => $general_prefs->{'scan_limit_matches'} || $LIMIT_MATCHES
+		-default => $general_prefs->{'scan_limit_matches'} // $LIMIT_MATCHES
 	);
 	say q( new matches);
 	say $self->get_tooltip( q(Stop after matching - Limit the number of previously )
@@ -350,7 +350,7 @@ sub _print_parameter_fieldset {
 		-name    => 'limit_time',
 		-id      => 'limit_time',
 		-values  => [qw(1 2 5 10 15 30 60 120 180 240 300)],
-		-default => $general_prefs->{'scan_limit_time'} || $LIMIT_TIME
+		-default => $general_prefs->{'scan_limit_time'} // $LIMIT_TIME
 	);
 	say q( minute(s));
 	say $self->get_tooltip( q(Stop after time - Searches against lots of loci or for )
@@ -364,7 +364,7 @@ sub _print_parameter_fieldset {
 			-name    => 'loci_together',
 			-id      => 'loci_together',
 			-label   => 'Scan selected loci together',
-			-checked => ( $general_prefs->{'scan_loci_together'} && $general_prefs->{'scan_loci_together'} eq 'on' )
+			-checked => ( ( $general_prefs->{'scan_loci_together'} // q() ) eq 'on' )
 			? 'checked'
 			: ''
 		);
@@ -373,13 +373,13 @@ sub _print_parameter_fieldset {
 			  . q(the search space. This is less sensitive than scanning all alleles, so it may miss some matches.) );
 		say q(</li><li>);
 	}
-	if ( $self->{'system'}->{'tblastx_tagging'} && $self->{'system'}->{'tblastx_tagging'} eq 'yes' ) {
+	if ( ( $self->{'system'}->{'tblastx_tagging'} // q() ) eq 'yes' ) {
 		say q(<li><span class="warning">);
 		say $q->checkbox(
 			-name    => 'tblastx',
 			-id      => 'tblastx',
 			-label   => 'Use TBLASTX',
-			-checked => ( $general_prefs->{'scan_tblastx'} && $general_prefs->{'scan_tblastx'} eq 'on' )
+			-checked => ( ( $general_prefs->{'scan_tblastx'} // q() ) eq 'on' )
 			? 'checked'
 			: ''
 		);
@@ -397,7 +397,7 @@ sub _print_parameter_fieldset {
 		-name    => 'hunt_start',
 		-id      => 'hunt_start',
 		-label   => 'Hunt for nearby start codons',
-		-checked => ( $general_prefs->{'scan_hunt_start'} && $general_prefs->{'scan_hunt_start'} eq 'on' )
+		-checked => ( ( $general_prefs->{'scan_hunt_start'} // q() ) eq 'on' )
 		? 'checked'
 		: ''
 	);
@@ -410,7 +410,7 @@ sub _print_parameter_fieldset {
 		-name    => 'hunt_stop',
 		-id      => 'hunt_stop',
 		-label   => 'Hunt for stop codons within ',
-		-checked => ( $general_prefs->{'scan_hunt_stop'} && $general_prefs->{'scan_hunt_stop'} eq 'on' )
+		-checked => ( ( $general_prefs->{'scan_hunt_stop'} // q() ) eq 'on' )
 		? 'checked'
 		: ''
 	);
@@ -446,8 +446,7 @@ sub _print_parameter_fieldset {
 		-name    => 'partial_when_exact',
 		-id      => 'partial_when_exact',
 		-label   => 'Return partial matches even when exact matches are found',
-		-checked =>
-		  ( $general_prefs->{'scan_partial_when_exact'} && $general_prefs->{'scan_partial_when_exact'} eq 'on' )
+		-checked => ( ( $general_prefs->{'scan_partial_when_exact'} // q() ) eq 'on' )
 		? 'checked'
 		: q()
 	);
@@ -458,7 +457,7 @@ sub _print_parameter_fieldset {
 			-name    => 'override_view',
 			-id      => 'override_view',
 			-label   => 'Override locus view restrictions',
-			-checked => ( $general_prefs->{'scan_override_view'} && $general_prefs->{'scan_override_view'} eq 'on' )
+			-checked => ( ( $general_prefs->{'scan_override_view'} // q() ) eq 'on' )
 			? 'checked'
 			: q()
 		);
@@ -471,7 +470,7 @@ sub _print_parameter_fieldset {
 		-name    => 'rescan_alleles',
 		-id      => 'rescan_alleles',
 		-label   => 'Rescan even if allele designations are already set',
-		-checked => ( $general_prefs->{'scan_rescan_alleles'} && $general_prefs->{'scan_rescan_alleles'} eq 'on' )
+		-checked => ( ( $general_prefs->{'scan_rescan_alleles'} // q() ) eq 'on' )
 		? 'checked'
 		: q()
 	);
@@ -480,7 +479,7 @@ sub _print_parameter_fieldset {
 		-name    => 'rescan_seqs',
 		-id      => 'rescan_seqs',
 		-label   => 'Rescan even if allele sequences are tagged',
-		-checked => ( $general_prefs->{'scan_rescan_seqs'} && $general_prefs->{'scan_rescan_seqs'} eq 'on' )
+		-checked => ( ( $general_prefs->{'scan_rescan_seqs'} // q() ) eq 'on' )
 		? 'checked'
 		: q()
 	);
@@ -489,7 +488,7 @@ sub _print_parameter_fieldset {
 		-name    => 'type_alleles',
 		-id      => 'type_alleles',
 		-label   => 'Use only type alleles to identify locus',
-		-checked => ( $general_prefs->{'scan_type_alleles'} && $general_prefs->{'scan_type_alleles'} eq 'on' )
+		-checked => ( ( $general_prefs->{'scan_type_alleles'} // q() ) eq 'on' )
 		? 'checked'
 		: q()
 	);
@@ -503,7 +502,7 @@ sub _print_parameter_fieldset {
 		-name    => 'mark_missing',
 		-id      => 'mark_missing',
 		-label   => q(Mark missing sequences as provisional allele '0'),
-		-checked => ( $general_prefs->{'scan_mark_missing'} && $general_prefs->{'scan_mark_missing'} eq 'on' )
+		-checked => ( ( $general_prefs->{'scan_mark_missing'} // q() ) eq 'on' )
 		? 'checked'
 		: q()
 	);
@@ -570,6 +569,7 @@ sub _scan {
 	my $curator_name = $self->get_curator_name;
 	my $user_info    = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	my ( undef, $labels ) = $self->get_isolates_with_seqbin( { hyperlink => 1 } );
+
 	#Use double fork to prevent zombie processes on apache2-mpm-worker
 	defined( my $kid = fork ) or $logger->error('cannot fork');
 	if ($kid) {
