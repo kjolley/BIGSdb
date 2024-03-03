@@ -863,7 +863,8 @@ sub _analyse_blast_results {
 		}
 	}
 	if ($row_buffer) {
-		open( my $fh, '>>', $table_file ) || $logger->error("Can't open $table_file for appending");
+		open( my $fh, '>>:encoding(utf8)', $table_file )
+		  || $logger->error("Cannot open $table_file for appending");
 		say $fh $row_buffer;
 		close $fh;
 	}
@@ -1112,7 +1113,6 @@ sub _get_row {
 		$buffer .= $locus_info->{'complete_cds'} ? q(<td>-</td>) : q(<td>N/A</td>);
 	}
 	$buffer .= q(<td>);
-
 	$cleaned_locus = $self->clean_checkbox_id($locus);
 	$cleaned_locus =~ s/\\/\\\\/gx;
 	if (   $exact

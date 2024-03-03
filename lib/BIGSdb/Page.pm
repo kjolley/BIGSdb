@@ -1588,7 +1588,7 @@ sub print_file {
 	my $buffer;
 	if ( -e $file ) {
 		my $system = $self->{'system'};
-		open( my $fh, '<', $file ) or return;
+		open( my $fh, '<:encoding(utf8)', $file ) or return;
 		while (<$fh>) {
 			next if /^\#/x && $options->{'ignore_hashlines'};
 			if ( !$options->{'no_substitutions'} ) {
