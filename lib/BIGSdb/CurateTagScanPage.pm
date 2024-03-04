@@ -56,8 +56,26 @@ sub get_javascript {
 	if ( !$self->{'cgi'}->param('tag') ) {
 		$buffer .= << "END";
 \$(function () {	
-		\$("html, body").animate({ scrollTop: \$(document).height()-\$(window).height() });	
-});			
+	\$("html, body").animate({ scrollTop: \$(document).height()-\$(window).height() });	
+	\$(window).on('resize scroll', function() {
+		\$('.multiselect:inViewport').multiselect({
+			selectedList: 1,
+			header: false,
+			noneSelectedText: ''	
+		});
+	});
+});	
+
+\$.expr[':'].inViewport = function (el) {
+	el.style.display = '';
+    var rect = el.getBoundingClientRect();
+    return (
+        rect.top >= 0 &&
+        rect.left >= 0 &&
+        rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+        rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+    );
+};		
 END
 	}
 	$buffer .= $self->get_list_javascript;
@@ -110,7 +128,7 @@ sub _get_refresh_time {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (tooltips jQuery jQuery.jstree noCache);
+	$self->{$_} = 1 foreach qw (tooltips jQuery jQuery.jstree jQuery.multiselect noCache);
 	$self->set_level1_breadcrumbs;
 	my $q = $self->{'cgi'};
 	if ( $q->param('submit') ) {

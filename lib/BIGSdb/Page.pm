@@ -193,7 +193,7 @@ sub _get_javascript_paths {
 			'jQuery.multiselect'    => {
 				src     => [qw(jquery.multiselect.min.js jquery.multiselect.filter.min.js)],
 				defer   => 1,
-				version => '2020308'
+				version => '20240303'
 			},
 			'CryptoJS.MD5' => { src => [qw(md5.js)],         defer => 1, version => '20200308' },
 			'packery'      => { src => [qw(packery.min.js)], defer => 1, version => '20210620' },
@@ -697,7 +697,7 @@ sub _get_meta_data {
 sub _get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20231201';
+	my $version = '20240303';
 	my @filenames;
 	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
 	push @filenames, q(billboard.min.css)                                     if $self->{'billboard'};
