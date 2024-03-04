@@ -1184,7 +1184,7 @@ sub _get_tag_checkbox {
 			-default  => $default_flags,
 			-multiple => 'true',
 			-class    => 'multiselect',
-			-style    => 'height:1.5em;display:none'
+			-style    => 'height:1px;visibility:hidden'
 		);
 	} else {
 		$buffer .=
