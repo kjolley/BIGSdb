@@ -58,8 +58,6 @@ sub get_javascript {
 \$(function () {	
 	\$("html, body").animate({ scrollTop: \$(document).height()-\$(window).height() });	
 	\$(window).on('resize scroll', function() {
-		var visibleElements = \$('.multiselect:inViewport').length;
-		console.log('Number of multiselect boxes visible:', visibleElements);
 		\$('.multiselect:inViewport').multiselect({
 			selectedList: 1,
 			header: false,
