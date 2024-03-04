@@ -545,7 +545,8 @@ sub run_job {
 					if ( $_ =~ /(MSG.+)\n/x ) {
 						$error = $1;
 					}
-					BIGSdb::Exception::Plugin->throw("Invalid data in uploaded reference FASTA file. $error");
+					$logger->error($error);
+					BIGSdb::Exception::Plugin->throw("Invalid data in uploaded reference FASTA file.");
 				};
 				$ref_upload =~ s/\.(fas|fasta)$/\.gb/x;
 			}
