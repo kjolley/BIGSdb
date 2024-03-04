@@ -622,6 +622,12 @@ sub log_call {
 				my $scheme_id = $q->param('scheme_id');
 				$page = "$page [scheme $scheme_id]";
 			}
+		},
+		downloadSeqbin => sub {
+			if ( defined $q->param('isolate_id') ) {
+				my $isolate_id = $q->param('isolate_id');
+				$page = "$page [id: $isolate_id]";
+			}
 		}
 	};
 	if ( $method->{$page} ) {
