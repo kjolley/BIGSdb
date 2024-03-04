@@ -548,7 +548,7 @@ sub run_job {
 					$logger->error($error);
 					BIGSdb::Exception::Plugin->throw('Invalid data in uploaded reference FASTA file.');
 				};
-				$ref_upload =~ s/\.(fas|fasta)$/\.gb/x;
+				$ref_upload =~ s/\.(fa|fas|fasta)$/\.gb/x;
 			}
 			eval {
 				my $seqio_object = Bio::SeqIO->new( -file => "$self->{'config'}->{'tmp_dir'}/$ref_upload" );
