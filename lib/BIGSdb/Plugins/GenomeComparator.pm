@@ -66,7 +66,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.7.7',
+		version     => '2.7.8',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -535,7 +535,7 @@ sub run_job {
 				};
 			}
 		} else {
-			if ( $ref_upload =~ /fas$/x || $ref_upload =~ /fasta$/x ) {
+			if ( $ref_upload =~ /fa$/x || $ref_upload =~ /fas$/x || $ref_upload =~ /fasta$/x ) {
 				try {
 					BIGSdb::Utils::fasta2genbank("$self->{'config'}->{'tmp_dir'}/$ref_upload");
 				}
@@ -757,7 +757,6 @@ sub _analyse_by_reference {
 	eval {
 		%att = (
 			accession   => $accession,
-			version     => $seq_obj->seq_version,
 			type        => $seq_obj->alphabet,
 			length      => $seq_obj->length,
 			description => $seq_obj->description,
@@ -765,6 +764,7 @@ sub _analyse_by_reference {
 		);
 	};
 	if ($@) {
+		$logger->error("Invalid data in reference genomes: $@");
 		BIGSdb::Exception::Plugin->throw('Invalid data in reference genome.');
 	}
 	if ( !@cds ) {
