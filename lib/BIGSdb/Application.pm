@@ -628,7 +628,13 @@ sub log_call {
 				my $isolate_id = $q->param('isolate_id');
 				$page = "$page [id: $isolate_id]";
 			}
-		}
+		},
+		info => sub {
+			if ( defined $q->param('id') ) {
+				my $isolate_id = $q->param('id');
+				$page = "$page [id: $isolate_id]";
+			}
+		},
 	};
 	if ( $method->{$page} ) {
 		$method->{$page}->();
