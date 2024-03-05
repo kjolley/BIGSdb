@@ -1166,11 +1166,13 @@ sub _get_tag_checkbox {
 			-name    => "id_${isolate_id}_${locus}_sequence_$id",
 			-id      => "id_${isolate_id}_${cleaned_locus}_sequence_$id",
 			-label   => '',
-			-checked => $exact
-			  || ( $hunter->{'off_end'}
-				&& ( $params->{'check_incomplete'} // 'off' ) eq 'on'
-				&& $match->{'identity'} >= ( $params->{'check_incomplete_percent'} // 100 ) )
-			  || ( $match->{'ambiguous'} && $locus_info->{'complete_cds'} && $hunter->{'CDS'} )
+			-checked => (
+				$exact
+				  || ( $hunter->{'off_end'}
+					&& ( $params->{'check_incomplete'} // 'off' ) eq 'on'
+					&& $match->{'identity'} >= ( $params->{'check_incomplete_percent'} // 100 ) )
+				  || ( $match->{'ambiguous'} && $locus_info->{'complete_cds'} && $hunter->{'CDS'} )
+			)
 		);
 		push @$js3, qq(\$("#id_${isolate_id}_${cleaned_locus}_sequence_$id").prop("checked",true));
 		push @$js4, qq(\$("#id_${isolate_id}_${cleaned_locus}_sequence_$id").prop("checked",false));
