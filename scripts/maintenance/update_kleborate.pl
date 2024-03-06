@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Perform/update Kleborate analyses and store results in isolate database.
 #Written by Keith Jolley
-#Copyright (c) 2023, University of Oxford
+#Copyright (c) 2023-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20230301
+#Version: 20240306
 use strict;
 use warnings;
 use 5.010;
@@ -151,7 +151,7 @@ sub check_db {
 	my $plural = @$ids == 1 ? q() : q(s);
 	my $count  = @$ids;
 	return if !$count;
-	my $job_id = $script->add_job( 'Kleborate (offline)', { temp_init => 1 } );
+	my $job_id = $script->add_job( 'Kleborate (offline)', { temp_init => 1 } ) // BIGSdb::Utils::get_random();
 	say qq(\n$config: $count genome$plural to analyse) if !$opts{'quiet'};
 	my $i = 0;
 
