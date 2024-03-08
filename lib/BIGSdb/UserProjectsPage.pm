@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2023, University of Oxford
+#Copyright (c) 2017-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -849,8 +849,8 @@ sub _get_project_users {
 sub _get_isolate_count {
 	my ( $self, $project_id ) = @_;
 	return $self->{'datastore'}->run_query(
-		'SELECT COUNT(*) FROM project_members WHERE project_id=? '
-		  . "AND isolate_id IN (SELECT id FROM $self->{'system'}->{'view'})",
+		"SELECT COUNT(*) FROM project_members pm JOIN $self->{'system'}->{'view'} v "
+		  . 'ON pm.isolate_id=v.id WHERE pm.project_id=?',
 		$project_id,
 		{ cache => 'UserProjectsPage::isolate_count' }
 	);
@@ -879,7 +879,8 @@ sub _get_project_row {
 	}
 	$project->{'full_description'} //= q();
 	my $edit = EDIT;
-	$buffer .= q(<td style="text-align:left">)
+	$buffer .=
+		q(<td style="text-align:left">)
 	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=userProjects&amp;)
 	  . qq(project_info=$project->{'id'}">$project->{'short_description'}</a></td>)
 	  . qq(<td style="text-align:left">$project->{'full_description'}</td><td>$admin</td>);
