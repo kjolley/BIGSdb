@@ -4305,6 +4305,7 @@ sub _showing_first_page {
 			|| $q->param('genomes')
 			|| $q->param('sent')
 			|| $q->param('bookmark')
+			|| ( $q->param('page') eq 'pubquery' && $q->param('pmid') )
 			|| defined $q->param('query_file')
 		)
 		&& !$q->param('pagejump')
