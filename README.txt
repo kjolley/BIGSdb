@@ -1,3 +1,15 @@
+v1.43.2: *Added additional logging information.
+         *cgST with fewest missing loci is now highlighted when isolate has 
+          multiple cgSTs.
+         *Dashboard now shown for bookmarked and publication queries.
+         *Added option for users to have to log-in to run offline jobs.
+         *Added option to tag incomplete loci at specified identity thresholds.
+         *Automatically set 'ambiguous read' flag on tags if sequence contains
+          non-A,G,T,C characters.
+         *JQuery.UI.multiselect now used for flag dropdown box on tag scan page. 
+          Only rows in current viewport are rendered as needed for performance.
+         
+v1.43.1: *Hotfix for isolate query modification trigger.
 v1.43.0: *Added optional web logging to record user accesses.
          *Improved API logging to include client and usernames.
 v1.42.7: *Add new Reports plugin - this is used to generate customized genome
