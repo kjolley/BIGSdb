@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -99,9 +99,9 @@ sub _check_helpers {
 	say q(<div class="scrollable"><table class="resultstable"><tr><th>Program</th>)
 	  . q(<th>Path</th><th>Installed</th><th>Executable</th></tr>);
 	foreach my $program ( sort { $a cmp $b } keys %helpers ) {
-		say qq(<tr class="td$td"><td>$program</td><td>$helpers{$program}</td><td>)
-		  . ( -e ( $helpers{$program} ) ? GOOD : BAD )
-		  . q(</td><td>);
+		my $status = defined $helpers{$program} && -e ( $helpers{$program} ) ? GOOD : BAD ;
+		$helpers{$program} //= 'PATH NOT DEFINED';
+		say qq(<tr class="td$td"><td>$program</td><td>$helpers{$program}</td><td>$status</td><td>);
 		if ( $program ne 'GrapeTree' ) {    #Python script doesn't need to be executable
 			say -x ( $helpers{$program} ) ? GOOD : BAD;
 		}

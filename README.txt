@@ -7,8 +7,7 @@ v1.43.2: *Added additional logging information.
          *Automatically set 'ambiguous read' flag on tags if sequence contains
           non-A,G,T,C characters.
          *JQuery.UI.multiselect now used for flag dropdown box on tag scan page. 
-          Only rows in current viewport are rendered as needed for performance.
-         
+          Only rows in current viewport are rendered as needed for performance.        
 v1.43.1: *Hotfix for isolate query modification trigger.
 v1.43.0: *Added optional web logging to record user accesses.
          *Improved API logging to include client and usernames.
