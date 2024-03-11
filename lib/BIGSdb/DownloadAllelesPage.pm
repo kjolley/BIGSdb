@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -174,7 +174,9 @@ sub print_content {
 			}
 		}
 		if ( $q->param('render') ) {
-			say q(<h1>Download allele sequences</h1><div class="box" id="resultstable"><div class="scrollable">);
+			say q(<h1>Download allele sequences</h1>);
+			$self->_print_api_message;
+			say q(<div class="box" id="resultstable"><div class="scrollable">);
 		}
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 		$self->_print_scheme_table($scheme_id);
@@ -222,6 +224,7 @@ sub print_content {
 		$self->print_bad_status( { message => q(No loci have been defined for this database.), navbar => 1 } );
 		return;
 	}
+	$self->_print_api_message;
 	say q(<div class="box" id="resultstable">);
 	if ( $q->param('tree') ) {
 		say qq(<p>Select loci by scheme | <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
@@ -243,6 +246,26 @@ sub print_content {
 		$self->_print_all_loci_by_scheme;
 	}
 	say q(</div>);
+	return;
+}
+
+sub _print_api_message {
+	my ($self) = @_;
+	if ( $self->{'config'}->{'rest_url'} ) {
+		my $url = "$self->{'config'}->{'rest_url'}/db/$self->{'instance'}";
+		say q(<div class="box" id="message">);
+		say q(<h2>Programmatic access</h2>);
+		say q(<p>Please note that if you are scripting downloads of alleles then you should use the )
+		  . qq(<a href="$url" target="_blank">application programming interface (API)</a> to do this.</p>);
+		my $doc_url = 'https://bigsdb.readthedocs.io/en/latest/rest.html';
+		my $fasta_url =
+			'https://bigsdb.readthedocs.io/en/latest/rest.html#'
+		  . 'get-db-database-loci-locus-alleles-fasta-download-alleles-in-fasta-format';
+		say qq(<p>See the API <a href="$doc_url" target="_blank">documentation</a> for more details - in particular, )
+		  . qq(the method call for <a href="$fasta_url" target="_blank">downloading a FASTA file</a> for a specified )
+		  . q(locus.</p>);
+		say q(</div>);
+	}
 	return;
 }
 
@@ -626,9 +649,8 @@ sub _get_loci_by_letter {
 		{ fetch => 'all_arrayref', slice => {}, cache => 'DownloadAllelePage::get_loci_by_letter::common' } );
 	$set_clause =~ s/ id IN/ locus IN/g;
 	my $aliases = $self->{'datastore'}->run_query(
-			'SELECT locus,alias FROM locus_aliases la JOIN loci l ON la.locus=l.id WHERE locus!=alias '
-		  . "AND common_name!=alias AND alias ILIKE ? $set_clause"
-		,
+		'SELECT locus,alias FROM locus_aliases la JOIN loci l ON la.locus=l.id WHERE locus!=alias '
+		  . "AND common_name!=alias AND alias ILIKE ? $set_clause",
 		"$letter%",
 		{ fetch => 'all_arrayref', slice => {}, cache => 'DownloadAllelePage::get_loci_by_letter::aliases' }
 	);

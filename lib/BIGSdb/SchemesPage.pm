@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2020, University of Oxford
+#Copyright (c) 2020-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -27,7 +27,16 @@ my $logger = get_logger('BIGSdb.Page');
 sub print_content {
 	my ($self) = @_;
 	say q(<h1>Download scheme profiles</h1>);
-	my $set_id = $self->get_set_id;
+	if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
+		$self->print_bad_status(
+			{
+				message => q(This function is only available for sequence definition databases),
+				navbar  => 1
+			}
+		);
+		return;
+	}
+	my $set_id  = $self->get_set_id;
 	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => 1 } );
 	if ( !@$schemes ) {
 		$self->print_bad_status(
@@ -37,6 +46,7 @@ sub print_content {
 		);
 		return;
 	}
+	$self->_print_api_message;
 	say q(<div class="box" id="resultstable">);
 	say q(<p>Schemes are collections of loci. They may be indexed, in which case they have a primary key )
 	  . q(field that identifies unique combinations of alleles. The following schemes are indexed.</p>);
@@ -45,11 +55,12 @@ sub print_content {
 	say q(<tr><th>Name</th><th>Download</th><th>Profiles</th><th>Description</th>)
 	  . q(<th>Curator(s)</th><th>Last updated</th></tr>);
 	my $td = 1;
+
 	foreach my $scheme (@$schemes) {
 		my $scheme_info   = $self->{'datastore'}->get_scheme_info( $scheme->{'id'} );
 		my $profile_count = BIGSdb::Utils::commify(
 			$self->{'datastore'}->run_query( 'SELECT COUNT(*) FROM profiles WHERE scheme_id=?', $scheme->{'id'} ) );
-		my $desc = $scheme_info->{'description'} // q();
+		my $desc     = $scheme_info->{'description'} // q();
 		my $curators = $self->_get_curator_string( $scheme->{'id'} );
 		my $updated =
 		  $self->{'datastore'}->run_query( 'SELECT MAX(datestamp) FROM profiles WHERE scheme_id=?', $scheme->{'id'} );
@@ -63,6 +74,24 @@ sub print_content {
 	}
 	say q(</table>);
 	say q(</div></div>);
+	return;
+}
+
+sub _print_api_message {
+	my ($self) = @_;
+	if ( $self->{'config'}->{'rest_url'} ) {
+		my $url = "$self->{'config'}->{'rest_url'}/db/$self->{'instance'}";
+		say q(<div class="box" id="message">);
+		say q(<h2>Programmatic access</h2>);
+		say q(<p>Please note that if you are scripting downloads of allelic profiles then you should use the )
+		  . qq(<a href="$url" target="_blank">application programming interface (API)</a> to do this.</p>);
+		my $doc_url   = 'https://bigsdb.readthedocs.io/en/latest/rest.html';
+		my $fasta_url = 'https://bigsdb.readthedocs.io/en/latest/rest.html#' . 'db-schemes-scheme-id-profiles-csv';
+		say qq(<p>See the API <a href="$doc_url" target="_blank">documentation</a> for more details - in particular, )
+		  . qq(the method call for <a href="$fasta_url" target="_blank">downloading a list of profiles</a> for a specified )
+		  . q(scheme.</p>);
+		say q(</div>);
+	}
 	return;
 }
 
