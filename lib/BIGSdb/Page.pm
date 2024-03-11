@@ -1869,7 +1869,9 @@ sub get_scheme_flags {
 			  . qq(page=schemeInfo&amp;scheme_id=$scheme_id">);
 		}
 		foreach my $flag (@$flags) {
-			$buffer .= qq(<span class="flag" style="color:$colours->{$flag}">$flag</span>\n);
+			$buffer .=
+			  qq(<span class="flag" style="color:$colours->{$flag};background:$colours->{$flag}15">$flag</span>\n)
+			  ;
 		}
 		if ( $options->{'link'} ) {
 			$buffer .= q(</a>);
