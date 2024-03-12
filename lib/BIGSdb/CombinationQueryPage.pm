@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -104,6 +104,56 @@ sub print_content {
 	return;
 }
 
+sub _loci_have_common_names {
+	my ( $self, $scheme_id ) = @_;
+	if ($scheme_id) {
+		return $self->{'datastore'}->run_query(
+			'SELECT EXISTS(SELECT id FROM loci l JOIN scheme_members sm ON l.id=sm.locus '
+			  . 'WHERE scheme_id=? AND common_name IS NOT NULL)',
+			$scheme_id
+		);
+	}
+	return $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM loci WHERE common_name IS NOT NULL)');
+}
+
+sub _get_show_common_names_button {
+	my ($self) = @_;
+	return
+		q(<span id="common_names_button" style="margin-left:1em;margin-bottom:1em;display:block">)
+	  . q(<a id="show_common_names" class="small_submit" style="cursor:pointer">)
+	  . q(<span id="show_common_names_text" style="display:inline"><span class="fa fas fa-eye"></span> )
+	  . q(Show</span><span id="hide_common_names_text" style="display:none">)
+	  . q(<span class="fa fas fa-eye-slash"></span> Hide</span> )
+	  . q(common names</a></span>);
+}
+
+sub get_javascript {
+	my $buffer = << "END";
+\$(function () {
+	\$( "#show_common_names" ).click(function() {
+		if (\$("span#show_common_names_text").css('display') == 'none'){
+			\$("span#show_common_names_text").css('display', 'inline');
+			\$("span#hide_common_names_text").css('display', 'none');
+		} else {
+			\$("span#show_common_names_text").css('display', 'none');
+			\$("span#hide_common_names_text").css('display', 'inline');
+		}
+		\$("span.locus_common_name").toggle();
+		set_profile_widths();
+	});
+});
+function set_profile_widths(){
+	\$("dl.profile dt").css("width","auto").css("max-width","none");
+	var maxWidth = Math.max.apply( null, \$("dl.profile dt").map( function () {
+    	return \$(this).outerWidth(true);
+	}).get() );
+	\$("dl.profile dt").css("width",'calc(' + maxWidth + 'px - 1em)')
+		.css("max-width",'calc(' + maxWidth + 'px - 1em)');	
+}
+END
+	return $buffer;
+}
+
 sub _autofill {
 	my ( $self, $scheme_id ) = @_;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
@@ -155,11 +205,13 @@ sub _print_interface {
 	my $loci =
 		$scheme_id
 	  ? $self->{'datastore'}->get_scheme_loci($scheme_id)
-	  : $self->{'datastore'}->get_loci( { query_pref => 1, set_id => $set_id } );
+	  : $self->{'datastore'}->get_loci( { query_pref => 1, set_id => $set_id, do_not_order => 1 } );
+	if ( !$scheme_id ) {
+		@$loci = sort @$loci;    #Otherwise it's sorted by scheme order.
+	}
 	my $scheme_fields;
 	$scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id) if $scheme_id;
 	my $errors = [];
-
 	if ( $primary_key && $q->param('Autofill') ) {
 		$errors = $self->_autofill( $scheme_id, $loci );
 	}
@@ -264,6 +316,9 @@ sub _print_profile_table_fieldset {
 	my $q           = $self->{'cgi'};
 	say q(<fieldset id="profile_fieldset" style="float:left"><legend>Please enter your )
 	  . q(allelic profile below. Blank loci will be ignored.</legend>);
+	if ( $self->_loci_have_common_names($scheme_id) ) {
+		say $self->_get_show_common_names_button;
+	}
 	my $all_integers = 1;
 	foreach my $locus (@$loci) {
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
@@ -276,17 +331,8 @@ sub _print_profile_table_fieldset {
 	my (%label);
 	foreach my $locus (@$loci) {
 		push @display_loci, "l_$locus";
-		my $cleaned_locus = $self->clean_locus($locus);
+		my $cleaned_locus = $self->clean_locus( $locus, { common_name_class => 'locus_common_name' } );
 		$label{"l_$locus"} = $cleaned_locus;
-		if ( !$scheme_id && $self->{'prefs'}->{'locus_alias'} && $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-			my $locus_aliases = $self->{'datastore'}->get_locus_aliases($locus);
-			foreach my $alias (@$locus_aliases) {
-				my $value = "la_$locus||$alias";
-				push @display_loci, $value;
-				$alias =~ tr/_/ /;
-				$label{$value} = qq($alias<br /><span class="comment">[$cleaned_locus]</span>);
-			}
-		}
 	}
 	my $class = $all_integers ? 'int_entry' : 'allele_entry';
 	foreach my $locus (@display_loci) {
