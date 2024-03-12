@@ -141,6 +141,7 @@ sub get_javascript {
 		\$("span.locus_common_name").toggle();
 		set_profile_widths();
 	});
+	\$("dl.profile input").css("border","0");
 });
 function set_profile_widths(){
 	\$("dl.profile dt").css("width","auto").css("max-width","none");
@@ -149,7 +150,6 @@ function set_profile_widths(){
 	}).get() );
 	\$("dl.profile dt").css("width",'calc(' + maxWidth + 'px - 1em)')
 		.css("max-width",'calc(' + maxWidth + 'px - 1em)');	
-	\$("dl.profile input").css("border","0");
 }
 END
 	return $buffer;
