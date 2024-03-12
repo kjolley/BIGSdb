@@ -654,6 +654,7 @@ sub _get_profile_fields {
 	my $curator_id = $self->get_curator_id;
 	foreach my $scheme_id ( sort { $desc{$a} cmp $desc{$b} } @$schemes ) {
 		next if $set_id && !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id );
+		next if $self->{'prefs'}->{'disable_schemes'}->{$scheme_id};
 		my $class   = q(default_show_curator);
 		my $display = q();
 		if ( !$self->{'datastore'}->is_scheme_curator( $scheme_id, $curator_id ) ) {
