@@ -48,7 +48,7 @@ sub get_attributes {
 		buttontext => 'Fields',
 		menutext   => 'Field breakdown',
 		module     => 'FieldBreakdown',
-		version    => '2.6.1',
+		version    => '2.6.2',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
@@ -675,7 +675,7 @@ sub _get_schemes_js {
 		}
 	}
 	@$fields = sort { lc( $a->{'label'} ) cmp lc( $b->{'label'} ) } @$fields;
-	return q(var scheme_list=) . encode_json($fields);
+	return q(var scheme_list=) . JSON->new->encode($fields);
 }
 
 sub get_plugin_javascript {
