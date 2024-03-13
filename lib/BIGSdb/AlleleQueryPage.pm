@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -67,7 +67,13 @@ sub get_javascript {
   	  var url = '$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=alleleQuery&locus=' + locus_name;
  	  location.href=url;
     });
-
+	\$("#locus").multiselect({
+		header: "Please select...",
+		noneSelectedText: "Please select...",
+		selectedList: 1
+	}).multiselectfilter({
+		placeholder: 'Search'
+	})
     $panel_js
  });
 
@@ -231,10 +237,9 @@ sub _print_interface {
 	my ( $select_items, $labels, $order_by ) = $self->_get_select_items($locus);
 	say q(<div class="box" id="queryform"><div class="scrollable">);
 	my $set_id = $self->get_set_id;
-	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
-	unshift @$display_loci, '';
+	my ( $display_loci, $cleaned ) =
+	  $self->{'datastore'}->get_locus_list( { set_id => $set_id, no_list_by_common_name => 1 } );
 	print $q->start_form;
-	$cleaned->{''} = 'Please select ...';
 	say q(<p><b>Locus: </b>);
 	say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $display_loci, -labels => $cleaned );
 	say q( <span class="comment">Page will reload when changed</span></p>);
