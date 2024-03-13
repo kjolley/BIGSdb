@@ -1297,17 +1297,21 @@ sub _get_loci_list {
 					$self->{'cache'}->{'labels'}->{"l_$locus"} = $set_locus->{'set_name'};
 					if ( $set_locus->{'set_common_name'} ) {
 						$self->{'cache'}->{'labels'}->{"l_$locus"} .= " ($set_locus->{'set_common_name'})";
-						push @locus_list, "cn_$locus";
-						$self->{'cache'}->{'labels'}->{"cn_$locus"} =
-						  "$set_locus->{'set_common_name'} ($set_locus->{'set_name'})";
+						if ( !$options->{'no_list_by_common_name'} ) {
+							push @locus_list, "cn_$locus";
+							$self->{'cache'}->{'labels'}->{"cn_$locus"} =
+							  "$set_locus->{'set_common_name'} ($set_locus->{'set_name'})";
+						}
 					}
 					$set_name_is_set = 1;
 				}
 			}
 			if ( !$set_name_is_set && $common_names->{$locus}->{'common_name'} ) {
 				$self->{'cache'}->{'labels'}->{"l_$locus"} .= " ($common_names->{$locus}->{'common_name'})";
-				push @locus_list, "cn_$locus";
-				$self->{'cache'}->{'labels'}->{"cn_$locus"} = "$common_names->{$locus}->{'common_name'} ($locus)";
+				if ( !$options->{'no_list_by_common_name'} ) {
+					push @locus_list, "cn_$locus";
+					$self->{'cache'}->{'labels'}->{"cn_$locus"} = "$common_names->{$locus}->{'common_name'} ($locus)";
+				}
 			}
 		}
 		if ( $self->{'prefs'}->{'locus_alias'} ) {

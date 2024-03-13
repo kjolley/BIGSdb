@@ -82,12 +82,14 @@ sub _ajax_content {
 		},
 		allele_count => sub {
 			my ( $locus_list, $locus_labels ) =
-			  $self->get_field_selection_list( { loci => 1, scheme_fields => 0, sort_labels => 1 } );
+			  $self->get_field_selection_list(
+				{ loci => 1, no_list_by_common_name => 1, scheme_fields => 0, sort_labels => 1 } );
 			$self->_print_allele_count_fields( $row, 0, $locus_list, $locus_labels );
 		},
 		allele_status => sub {
 			my ( $locus_list, $locus_labels ) =
-			  $self->get_field_selection_list( { loci => 1, scheme_fields => 0, sort_labels => 1 } );
+			  $self->get_field_selection_list(
+				{ loci => 1, no_list_by_common_name => 1, scheme_fields => 0, sort_labels => 1 } );
 			$self->_print_allele_status_fields( $row, 0, $locus_list, $locus_labels );
 		},
 		annotation_status => sub {
@@ -101,12 +103,14 @@ sub _ajax_content {
 		},
 		tag_count => sub {
 			my ( $locus_list, $locus_labels ) =
-			  $self->get_field_selection_list( { loci => 1, scheme_fields => 0, sort_labels => 1 } );
+			  $self->get_field_selection_list(
+				{ loci => 1, no_list_by_common_name => 1, scheme_fields => 0, sort_labels => 1 } );
 			$self->_print_tag_count_fields( $row, 0, $locus_list, $locus_labels );
 		},
 		tags => sub {
 			my ( $locus_list, $locus_labels ) =
-			  $self->get_field_selection_list( { loci => 1, scheme_fields => 0, sort_labels => 1 } );
+			  $self->get_field_selection_list(
+				{ loci => 1, no_list_by_common_name => 1, scheme_fields => 0, sort_labels => 1 } );
 			$self->_print_locus_tag_fields( $row, 0, $locus_list, $locus_labels );
 		}
 	);
@@ -352,7 +356,14 @@ sub _print_display_fieldset {
 	my $prefs  = $self->{'prefs'};
 	say q(<fieldset id="display_fieldset" style="float:left"><legend>Display/sort options</legend>);
 	my ( $order_list, $labels ) = $self->get_field_selection_list(
-		{ isolate_fields => 1, loci => 1, scheme_fields => 1, locus_limit => MAX_LOCUS_ORDER_BY } );
+		{
+			isolate_fields         => 1,
+			loci                   => 1,
+			no_list_by_common_name => 1,
+			scheme_fields          => 1,
+			locus_limit            => MAX_LOCUS_ORDER_BY
+		}
+	);
 	$self->{'allowed_order_by'} = $order_list;
 	my @group_list = split /,/x, ( $self->{'system'}->{'field_groups'} // q() );
 	push @group_list, qw(Loci Schemes);
@@ -417,6 +428,7 @@ sub _print_designations_fieldset_contents {
 	my ( $locus_list, $locus_labels ) = $self->get_field_selection_list(
 		{
 			loci                      => 1,
+			no_list_by_common_name    => 1,
 			locus_extended_attributes => 1,
 			scheme_fields             => 1,
 			lincodes                  => 1,
@@ -568,7 +580,8 @@ sub _print_allele_count_fieldset_contents {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	my ( $locus_list, $locus_labels ) =
-	  $self->get_field_selection_list( { loci => 1, scheme_fields => 0, sort_labels => 1 } );
+	  $self->get_field_selection_list(
+		{ loci => 1, no_list_by_common_name => 1, scheme_fields => 0, sort_labels => 1 } );
 	if (@$locus_list) {
 		my $locus_fields    = $self->_highest_entered_fields('allele_count') || 1;
 		my $heading_display = $locus_fields == 1 ? 'none' : 'inline';
@@ -606,7 +619,8 @@ sub _print_allele_status_fieldset_contents {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	my ( $locus_list, $locus_labels ) =
-	  $self->get_field_selection_list( { loci => 1, scheme_fields => 0, sort_labels => 1 } );
+	  $self->get_field_selection_list(
+		{ loci => 1, no_list_by_common_name => 1, scheme_fields => 0, sort_labels => 1 } );
 	if (@$locus_list) {
 		my $locus_fields    = $self->_highest_entered_fields('allele_status') || 1;
 		my $heading_display = $locus_fields == 1 ? 'none' : 'inline';
@@ -643,7 +657,8 @@ sub _print_tag_count_fieldset_contents {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	my ( $locus_list, $locus_labels ) =
-	  $self->get_field_selection_list( { loci => 1, scheme_fields => 0, sort_labels => 1 } );
+	  $self->get_field_selection_list(
+		{ loci => 1, no_list_by_common_name => 1, scheme_fields => 0, sort_labels => 1 } );
 	if (@$locus_list) {
 		my $tag_count_fields  = $self->_highest_entered_fields('tag_count') || 1;
 		my $tag_count_heading = $tag_count_fields == 1 ? 'none' : 'inline';
@@ -787,7 +802,8 @@ sub _print_tags_fieldset_contents {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	my ( $locus_list, $locus_labels ) =
-	  $self->get_field_selection_list( { loci => 1, scheme_fields => 0, sort_labels => 1 } );
+	  $self->get_field_selection_list(
+		{ loci => 1, no_list_by_common_name => 1, scheme_fields => 0, sort_labels => 1 } );
 	if (@$locus_list) {
 		my $locus_tag_fields   = $self->_highest_entered_fields('tags') || 1;
 		my $locus_tags_heading = $locus_tag_fields == 1 ? 'none' : 'inline';
@@ -4070,7 +4086,9 @@ sub get_javascript {
    	\$('#filters_fieldset').css({display:"$fieldset_display->{'filters'}"});
  	setTooltips();
  	\$('.multiselect').multiselect({
- 		classes: 'filter'
+ 		classes: 'filter',
+ 		menuHeight: 250,
+ 		menuWidth: 400
  	}).multiselectfilter();
 $panel_js
 	$ajax_load

@@ -71,6 +71,7 @@ sub get_javascript {
 		header: "Please select...",
 		noneSelectedText: "Please select...",
 		selectedList: 1,
+		menuHeight: 250,
 		classes: 'filter'
 	}).multiselectfilter({
 		placeholder: 'Search'

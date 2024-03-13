@@ -1031,6 +1031,7 @@ sub get_javascript {
 	my $buffer = << "END";
 \$(function () {
   	\$('.multiselect').multiselect({
+  		menuHeight: 250,
   		classes: 'filter'
   	});
   	\$("#sortTable").tablesorter({widgets:['zebra']}); 

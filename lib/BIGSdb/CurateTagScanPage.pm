@@ -62,6 +62,7 @@ sub get_javascript {
 			selectedList: 1,
 			header: false,
 			noneSelectedText: '',
+			menuHeight: 250,
 			classes: 'filter'	
 		});
 	});
@@ -69,6 +70,7 @@ sub get_javascript {
 		selectedList: 1,
 		header: false,
 		noneSelectedText: '',
+		menuHeight: 250,
 		classes: 'filter'	
 	});
 });	
