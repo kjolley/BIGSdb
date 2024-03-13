@@ -64,6 +64,11 @@ sub get_javascript {
 			noneSelectedText: ''	
 		});
 	});
+	\$('.multiselect:inViewport').multiselect({
+		selectedList: 1,
+		header: false,
+		noneSelectedText: ''	
+	});
 });	
 
 \$.expr[':'].inViewport = function (el) {
