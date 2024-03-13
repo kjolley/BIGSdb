@@ -145,7 +145,7 @@ th a:hover {
 }
 
 select.filter {
-	max-width: 20em;
+	width: 20em;
 	border: 1px solid #999;
 }
 

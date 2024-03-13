@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -148,6 +148,14 @@ sub get_javascript {
   		+ "</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms."
   		+ "</p>" );
   	$panel_js
+  	\$("select.filter").multiselect({
+		header: "Please select...",
+		noneSelectedText: "Please select...",
+		selectedList: 1
+	});
+	\$("select.filter.search").multiselectfilter({
+		placeholder: 'Search'
+	})
 });
   	
 function loadContent(url) {
@@ -1369,7 +1377,7 @@ sub _print_filter_fieldset {
 			say q(<fieldset style="float:left"><legend>Filter query by</legend>);
 		}
 		say q(<div><ul>);
-		say qq(<li><span style="white-space:nowrap">$_</span></li>) foreach @filters;
+		say qq(<li>$_</li>) foreach @filters;
 		say q(</ul></div></fieldset>);
 	}
 	return;

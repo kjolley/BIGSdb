@@ -1624,7 +1624,7 @@ sub get_filter {
 	my ( $self, $name, $values, $options ) = @_;
 	my $q = $self->{'cgi'};
 	$options = {} if ref $options ne 'HASH';
-	my $class = $options->{'class'} || 'filter';
+	my $class = $options->{'class'} // 'filter';
 	( my $text = $options->{'text'} || $name ) =~ tr/_/ /;
 	my $length = $options->{'remove_id'} ? 23 : 25;
 	my ( $label, $title ) =
@@ -1678,6 +1678,7 @@ sub get_user_filter {
 		$field, $users,
 		{
 			labels  => $labels,
+			class   => 'filter search',
 			tooltip => qq($field filter - Select $a_or_an $field to filter your search to only )
 			  . qq(those records that match the selected $field.),
 			%$args
@@ -1721,6 +1722,7 @@ sub get_scheme_filter {
 		$self->{'cache'}->{'schemes'},
 		{
 			text    => 'scheme',
+			class   => 'filter search',
 			labels  => $self->{'cache'}->{'scheme_labels'},
 			tooltip => 'scheme filter - Select a scheme to filter your search to '
 			  . 'only those belonging to the selected scheme.'
@@ -1732,10 +1734,15 @@ sub get_scheme_filter {
 sub get_locus_filter {
 	my ($self) = @_;
 	my $set_id = $self->get_set_id;
-	my ( $loci, $labels ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
-	my $buffer =
-	  $self->get_filter( 'locus', $loci,
-		{ labels => $labels, tooltip => 'locus filter - Select a locus to filter your search by.' } );
+	my ( $loci, $labels ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id, no_list_by_common_name => 1 } );
+	my $buffer = $self->get_filter(
+		'locus', $loci,
+		{
+			labels  => $labels,
+			class   => 'filter search',
+			tooltip => 'locus filter - Select a locus to filter your search by.'
+		}
+	);
 	return $buffer;
 }
 
@@ -1870,8 +1877,7 @@ sub get_scheme_flags {
 		}
 		foreach my $flag (@$flags) {
 			$buffer .=
-			  qq(<span class="flag" style="color:$colours->{$flag};background:$colours->{$flag}15">$flag</span>\n)
-			  ;
+			  qq(<span class="flag" style="color:$colours->{$flag};background:$colours->{$flag}15">$flag</span>\n);
 		}
 		if ( $options->{'link'} ) {
 			$buffer .= q(</a>);
