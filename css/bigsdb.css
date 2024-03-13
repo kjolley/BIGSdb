@@ -1,4 +1,4 @@
-/*Version: 20231201*/
+/*Version: 20240313*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -147,6 +147,11 @@ th a:hover {
 select.filter {
 	width: 20em;
 	border: 1px solid #999;
+}
+
+.ui-multiselect.filter {
+	color: #000;
+	background: #fff;
 }
 
 select.fieldlist {

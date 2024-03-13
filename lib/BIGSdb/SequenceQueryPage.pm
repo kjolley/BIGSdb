@@ -78,10 +78,17 @@ sub get_javascript {
 \$(function () {
 	\$(document).ajaxComplete(function() {
 		initiate();
-		
 	});
 	initiate();
-
+	\$("select#locus").multiselect({
+		header: "Please select...",
+		noneSelectedText: "Please select...",
+		selectedList: 1,
+		buttonWidth: '>=200',
+		classes: 'filter'
+	}).multiselectfilter({
+		placeholder: 'Search'
+	});
 });
 
 function initiate() {
@@ -147,7 +154,8 @@ sub _print_interface {
 
 	if ( !$q->param('simple') ) {
 		say q(<fieldset><legend>Please select locus/scheme</legend>);
-		my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
+		my ( $display_loci, $cleaned ) =
+		  $self->{'datastore'}->get_locus_list( { set_id => $set_id, no_list_by_common_name => 1 } );
 		my $scheme_list = $self->get_scheme_data;
 		my %order;
 		my @schemes_and_groups;
@@ -173,7 +181,7 @@ sub _print_interface {
 		unshift @$display_loci, @schemes_and_groups;
 		unshift @$display_loci, 0;
 		$cleaned->{0} = 'All loci';
-		say $q->popup_menu( -name => 'locus', -values => $display_loci, -labels => $cleaned );
+		say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $display_loci, -labels => $cleaned );
 		say q(</fieldset>);
 		say q(<fieldset><legend>Order results by</legend>);
 		say $q->popup_menu( -name => 'order', -values => [ ( 'locus', 'best match' ) ] );
@@ -631,7 +639,7 @@ sub _get_selected_loci {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (jQuery);
+	$self->{$_} = 1 foreach qw (jQuery jQuery.multiselect);
 	if ( $self->{'system'}->{'kiosk'} ) {
 		$self->set_level0_breadcrumbs;
 	} else {

@@ -151,11 +151,12 @@ sub get_javascript {
   	\$("select.filter").multiselect({
 		header: "Please select...",
 		noneSelectedText: "Please select...",
-		selectedList: 1
+		selectedList: 1,
+		classes: 'filter'
 	});
 	\$("select.filter.search").multiselectfilter({
 		placeholder: 'Search'
-	})
+	});
 });
   	
 function loadContent(url) {

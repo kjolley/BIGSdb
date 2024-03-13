@@ -1030,7 +1030,9 @@ sub get_javascript {
 	my ($self) = @_;
 	my $buffer = << "END";
 \$(function () {
-  	\$('.multiselect').multiselect();
+  	\$('.multiselect').multiselect({
+  		classes: 'filter'
+  	});
   	\$("#sortTable").tablesorter({widgets:['zebra']}); 
 });	
 END

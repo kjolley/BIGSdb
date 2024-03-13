@@ -61,13 +61,15 @@ sub get_javascript {
 		\$('.multiselect:inViewport').multiselect({
 			selectedList: 1,
 			header: false,
-			noneSelectedText: ''	
+			noneSelectedText: '',
+			classes: 'filter'	
 		});
 	});
 	\$('.multiselect:inViewport').multiselect({
 		selectedList: 1,
 		header: false,
-		noneSelectedText: ''	
+		noneSelectedText: '',
+		classes: 'filter'	
 	});
 });	
 

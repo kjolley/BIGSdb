@@ -70,7 +70,8 @@ sub get_javascript {
 	\$("#locus").multiselect({
 		header: "Please select...",
 		noneSelectedText: "Please select...",
-		selectedList: 1
+		selectedList: 1,
+		classes: 'filter'
 	}).multiselectfilter({
 		placeholder: 'Search'
 	})

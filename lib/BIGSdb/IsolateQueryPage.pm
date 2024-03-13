@@ -4069,7 +4069,9 @@ sub get_javascript {
    	\$('#tags_fieldset').css({display:"$fieldset_display->{'tags'}"});
    	\$('#filters_fieldset').css({display:"$fieldset_display->{'filters'}"});
  	setTooltips();
- 	\$('.multiselect').multiselect().multiselectfilter();
+ 	\$('.multiselect').multiselect({
+ 		classes: 'filter'
+ 	}).multiselectfilter();
 $panel_js
 	$ajax_load
 	\$(document).ajaxComplete(function() {
@@ -4141,7 +4143,9 @@ function refresh_filters(){
 		for (key in list_values){
 			\$("#" + key).val(list_values[key]);				
 		}
-		\$('.multiselect').multiselect().multiselectfilter();
+		\$('.multiselect').multiselect({
+			classes: 'filter'
+		}).multiselectfilter();
 	});
 }
 END
