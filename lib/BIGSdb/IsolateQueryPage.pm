@@ -72,9 +72,15 @@ sub _ajax_content {
 			$self->_print_phenotypic_fields( $row, 0, $phenotypic_items, $phenotypic_labels );
 		},
 		loci => sub {
-			my ( $locus_list, $locus_labels ) =
-			  $self->get_field_selection_list(
-				{ loci => 1, scheme_fields => 1, classification_groups => 1, sort_labels => 1 } );
+			my ( $locus_list, $locus_labels ) = $self->get_field_selection_list(
+				{
+					loci                   => 1,
+					no_list_by_common_name => 1,
+					scheme_fields          => 1,
+					classification_groups  => 1,
+					sort_labels            => 1
+				}
+			);
 			$self->_print_loci_fields( $row, 0, $locus_list, $locus_labels );
 		},
 		sequence_variation => sub {
@@ -443,7 +449,7 @@ sub _print_designations_fieldset_contents {
 		say qq(<span id="loci_field_heading" style="display:$loci_field_heading">)
 		  . q(<label for="c1">Combine with: </label>);
 		say $q->popup_menu( -name => 'designation_andor', -id => 'designation_andor', -values => [qw (AND OR)], );
-		say q(</span><ul id="loci">);
+		say q(</span><ul id="loci" style="white-space:normal">);
 		for ( 1 .. $locus_fields ) {
 			say q(<li>);
 			$self->_print_loci_fields( $_, $locus_fields, $locus_list, $locus_labels );
@@ -1491,31 +1497,19 @@ sub _print_phenotypic_fieldset_contents {
 
 sub _print_allele_status_fields {
 	my ( $self, $row, $max_rows, $locus_list, $locus_labels ) = @_;
-	unshift @$locus_list, 'any locus';
-	unshift @$locus_list, '';
+	my $list = [@$locus_list];
+	unshift @$list, 'any locus';
+	unshift @$list, '';
 	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
 	my $q = $self->{'cgi'};
 	say q(<span style="white-space:nowrap">);
-	if ( @$locus_list > MAX_LOCI_DROPDOWN ) {
-		say $self->datalist(
-			name            => "allele_status_field$row",
-			id              => "allele_status_field$row",
-			values          => $locus_list,
-			labels          => $locus_labels,
-			class           => 'fieldlist',
-			invalid_value   => 'l_INVALID',
-			datalist_name   => 'allele_status_list',
-			datalist_exists => $row == 1 ? 0 : 1
-		);
-	} else {
-		say $self->popup_menu(
-			-name   => "allele_status_field$row",
-			-id     => "allele_status_field$row",
-			-values => $locus_list,
-			-labels => $locus_labels,
-			-class  => 'fieldlist'
-		);
-	}
+	say $self->popup_menu(
+		-name   => "allele_status_field$row",
+		-id     => "allele_status_field$row",
+		-values => $list,
+		-labels => $locus_labels,
+		-class  => 'locuslist'
+	);
 	print ' is ';
 	my $values = [ '', 'provisional', 'confirmed' ];
 	my %labels = ( '' => ' ' );                        #Required for HTML5 validation.
@@ -1525,6 +1519,7 @@ sub _print_allele_status_fields {
 		-values => $values,
 		-labels => \%labels
 	);
+
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_allele_status" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
@@ -1538,31 +1533,19 @@ sub _print_allele_status_fields {
 
 sub _print_allele_count_fields {
 	my ( $self, $row, $max_rows, $locus_list, $locus_labels ) = @_;
-	unshift @$locus_list, 'any locus';
-	unshift @$locus_list, 'total designations';
+	my $list = [@$locus_list];
+	unshift @$list, 'any locus';
+	unshift @$list, 'total designations';
 	my $q = $self->{'cgi'};
 	say q(<span style="white-space:nowrap">);
 	say q(Count of );
-	if ( @$locus_list > MAX_LOCI_DROPDOWN ) {
-		say $self->datalist(
-			name            => "allele_count_field$row",
-			id              => "allele_count_field$row",
-			values          => $locus_list,
-			labels          => $locus_labels,
-			class           => 'fieldlist',
-			invalid_value   => 'l_INVALID',
-			datalist_name   => 'allele_count_list',
-			datalist_exists => $row == 1 ? 0 : 1
-		);
-	} else {
-		say $self->popup_menu(
-			-name   => "allele_count_field$row",
-			-id     => "allele_count_field$row",
-			-values => $locus_list,
-			-labels => $locus_labels,
-			-class  => 'fieldlist'
-		);
-	}
+	say $self->popup_menu(
+		-name   => "allele_count_field$row",
+		-id     => "allele_count_field$row",
+		-values => $list,
+		-labels => $locus_labels,
+		-class  => 'locuslist'
+	);
 	my $values = [ '>', '<', '=' ];
 	say $q->popup_menu( -name => "allele_count_operator$row", -id => "allele_count_operator$row", -values => $values );
 	my %args = (
@@ -1575,6 +1558,7 @@ sub _print_allele_count_fields {
 	);
 	$args{'-value'} = $q->param("allele_count_value$row") if defined $q->param("allele_count_value$row");
 	say $self->textfield(%args);
+
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_allele_count" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
@@ -1588,43 +1572,30 @@ sub _print_allele_count_fields {
 
 sub _print_loci_fields {
 	my ( $self, $row, $max_rows, $locus_list, $locus_labels ) = @_;
-	unshift @$locus_list, '';
-	if ( @$locus_list <= MAX_LOCI_DROPDOWN ) {
-		$locus_labels->{''} = ' ';    #Required for HTML5 validation.
-	}
+	unshift @$locus_list, '' if ( $locus_list->[0] // q() ) ne q();
+	$locus_labels->{''} = q( );    #Required for HTML5 validation.
 	my $q = $self->{'cgi'};
-	say q(<span style="white-space:nowrap">);
-	if ( @$locus_list > MAX_LOCI_DROPDOWN ) {
-		say $self->datalist(
-			name            => "designation_field$row",
-			id              => "designation_field$row",
-			values          => $locus_list,
-			labels          => $locus_labels,
-			class           => 'fieldlist',
-			invalid_value   => 'l_INVALID',
-			datalist_name   => 'designation_field_list',
-			datalist_exists => $row == 1 ? 0 : 1
-		);
-	} else {
-		say $self->popup_menu(
-			-name   => "designation_field$row",
-			-id     => "designation_field$row",
-			-values => $locus_list,
-			-labels => $locus_labels,
-			-class  => 'fieldlist'
-		);
-	}
+	say q(<span>);
+	say $self->popup_menu(
+		-name   => "designation_field$row",
+		-id     => "designation_field$row",
+		-values => $locus_list,
+		-labels => $locus_labels,
+		-class  => 'locuslist',
+	);
 	say $q->popup_menu(
 		-name   => "designation_operator$row",
 		-id     => "designation_operator$row",
-		-values => [OPERATORS]
+		-values => [OPERATORS],
+		-class  => 'operator_list'
 	);
 	say $q->textfield(
 		-name        => "designation_value$row",
 		-id          => "designation_value$row",
 		-class       => 'value_entry',
-		-placeholder => 'Enter value...'
+		-placeholder => 'Enter value...',
 	);
+
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_loci" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
@@ -1638,36 +1609,25 @@ sub _print_loci_fields {
 
 sub _print_locus_tag_fields {
 	my ( $self, $row, $max_rows, $locus_list, $locus_labels ) = @_;
-	unshift @$locus_list, 'any locus';
-	unshift @$locus_list, '';
+	my $list = [@$locus_list];
+	unshift @$list, 'any locus';
+	unshift @$list, '';
 	my $q = $self->{'cgi'};
 	say q(<span style="white-space:nowrap">);
-	if ( @$locus_list > MAX_LOCI_DROPDOWN ) {
-		say $self->datalist(
-			name            => "tag_field$row",
-			id              => "tag_field$row",
-			values          => $locus_list,
-			labels          => $locus_labels,
-			class           => 'fieldlist',
-			invalid_value   => 'l_INVALID',
-			datalist_name   => 'tag_list',
-			datalist_exists => $row == 1 ? 0 : 1
-		);
-	} else {
-		say $self->popup_menu(
-			-name   => "tag_field$row",
-			-id     => "tag_field$row",
-			-values => $locus_list,
-			-labels => $locus_labels,
-			-class  => 'fieldlist'
-		);
-	}
+	say $self->popup_menu(
+		-name   => "tag_field$row",
+		-id     => "tag_field$row",
+		-values => $list,
+		-labels => $locus_labels,
+		-class  => 'locuslist'
+	);
 	print ' is ';
 	my @values = qw(untagged tagged complete incomplete);
 	push @values, "flagged: $_" foreach ( 'any', 'none', SEQ_FLAGS );
 	unshift @values, '';
 	my %labels = ( '' => ' ' );    #Required for HTML5 validation.
 	say $q->popup_menu( -name => "tag_value$row", -id => "tag_value$row", values => \@values, -labels => \%labels );
+
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_tags" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
@@ -1681,31 +1641,19 @@ sub _print_locus_tag_fields {
 
 sub _print_tag_count_fields {
 	my ( $self, $row, $max_rows, $locus_list, $locus_labels ) = @_;
-	unshift @$locus_list, 'any locus';
-	unshift @$locus_list, 'total tags';
+	my $list = [@$locus_list];
+	unshift @$list, 'any locus';
+	unshift @$list, 'total tags';
 	my $q = $self->{'cgi'};
 	say q(<span style="white-space:nowrap">);
 	say q(Count of );
-	if ( @$locus_list > MAX_LOCI_DROPDOWN ) {
-		say $self->datalist(
-			name            => "tag_count_field$row",
-			id              => "tag_count_field$row",
-			values          => $locus_list,
-			labels          => $locus_labels,
-			class           => 'fieldlist',
-			invalid_value   => 'l_INVALID',
-			datalist_name   => 'tag_count_list',
-			datalist_exists => $row == 1 ? 0 : 1
-		);
-	} else {
-		say $self->popup_menu(
-			-name   => "tag_count_field$row",
-			-id     => "tag_count_field$row",
-			-values => $locus_list,
-			-labels => $locus_labels,
-			-class  => 'fieldlist'
-		);
-	}
+	say $self->popup_menu(
+		-name   => "tag_count_field$row",
+		-id     => "tag_count_field$row",
+		-values => $list,
+		-labels => $locus_labels,
+		-class  => 'locuslist'
+	);
 	my $values = [ '>', '<', '=' ];
 	say $q->popup_menu( -name => "tag_count_operator$row", -id => "tag_count_operator$row", -values => $values );
 	my %args = (
@@ -4096,6 +4044,7 @@ $panel_js
         setTooltips();
         initiate_autocomplete();
         \$('.ajax_script').each(function (index, element) { eval(element.innerHTML); })
+        render_locuslists();
 	});
 	\$('.ajax_script').each(function (index, element) { eval(element.innerHTML); })
 	
@@ -4147,6 +4096,19 @@ function loadContent(url) {
 	} else if (fields == 'tags'){
 		add_rows(url,fields,'tag',row,'locus_tags_heading','add_tags');
 	}
+}
+
+function render_locuslists(){
+	\$("select.locuslist").multiselect({
+		noneSelectedText: "Please select...",
+		selectedList: 1,
+		menuHeight: 250,
+		menuWidth: 300,
+		classes: 'filter',
+	}).multiselectfilter({
+		placeholder: 'Search'
+	});
+	\$("select.locuslist").multiselect("refresh");	
 }
 
 function refresh_filters(){

@@ -130,7 +130,7 @@ sub get_javascript {
  
 function add_rows(url,list_name,row_name,row,field_heading,button_id){
 	var new_row = row+1;
-	\$("ul#"+list_name).append('<li id="' + row_name + row + '" />');
+	\$("ul#"+list_name).append('<li id="' + row_name + row + '"></li>');
 	\$("li#"+row_name+row).html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...').load(url);
 	url = url.replace(/row=\\d+/,'row='+new_row);
 	\$("#"+button_id).attr('href',url);
