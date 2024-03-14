@@ -58,14 +58,15 @@ sub get_javascript {
 \$(function () {	
 	\$("html, body").animate({ scrollTop: \$(document).height()-\$(window).height() });	
 	\$(window).on('resize scroll', function() {
-		\$('.multiselect:inViewport').multiselect({
-			selectedList: 1,
-			header: false,
-			noneSelectedText: '',
-			menuHeight: 250,
-			classes: 'filter'	
-		});
+		render_multiselect();
 	});
+	\$("div.scrollable").on('scroll', function() {
+		render_multiselect();
+	});
+	render_multiselect();
+});	
+
+function render_multiselect(){
 	\$('.multiselect:inViewport').multiselect({
 		selectedList: 1,
 		header: false,
@@ -73,7 +74,8 @@ sub get_javascript {
 		menuHeight: 250,
 		classes: 'filter'	
 	});
-});	
+	\$('.multiselect:inViewport').multiselect("refresh");
+}
 
 \$.expr[':'].inViewport = function (el) {
 	el.style.display = '';
@@ -137,7 +139,7 @@ sub _get_refresh_time {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (tooltips jQuery jQuery.jstree jQuery.multiselect noCache);
+	$self->{$_} = 1 foreach qw (tooltips jQuery jQuery.jstree jQuery.multiselect noCache allowExpand);
 	$self->set_level1_breadcrumbs;
 	my $q = $self->{'cgi'};
 	if ( $q->param('submit') ) {
