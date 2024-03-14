@@ -170,8 +170,8 @@ JS
 
 sub _get_javascript_paths {
 	my ($self) = @_;
-	my $page_js = $self->get_javascript;
-	$page_js .= $self->_get_cookie_js;
+#	my $page_js = $self->get_javascript;
+#	$page_js .= $self->_get_cookie_js;
 	my $js               = [];
 	my $relative_js_path = $self->{'config'}->{'relative_js_dir'} // '/javascript';
 	if ( $self->{'jQuery'} ) {
@@ -251,7 +251,7 @@ sub _get_javascript_paths {
 				$used{$lib} = 1;
 			}
 		}
-		push @$js, { code => $page_js } if $page_js;
+#		push @$js, { code => $page_js } if $page_js;
 	}
 	return $js;
 }
@@ -631,7 +631,14 @@ sub print_page_content {
 			$self->_print_site_footer;
 		}
 		$self->_debug if $q->param('debug') && $self->{'config'}->{'debug'};
+		my $page_js = $self->get_javascript;
+		if ($page_js){
+			say q(<script>);
+			say $page_js;
+			say q(</script>);
+		}
 		say q(</body>);
+
 		say q(</html>);
 	}
 	return;
