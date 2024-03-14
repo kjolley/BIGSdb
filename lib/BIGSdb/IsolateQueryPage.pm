@@ -864,7 +864,8 @@ sub _print_list_fieldset_contents {
 		( $labels->{"f_$_"} = $_ ) =~ tr/_/ /;
 	}
 	say q(Field:);
-	say $self->popup_menu( -name => 'attribute', -values => $field_list, -labels => $labels );
+	say $self->popup_menu( -name => 'attribute', -values => $field_list, -labels => $labels, -class => 'locuslist' )
+	  ;
 	say q(<br />);
 	say $q->textarea(
 		-name        => 'list',
