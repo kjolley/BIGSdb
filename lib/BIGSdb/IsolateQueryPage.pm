@@ -853,6 +853,7 @@ sub _print_list_fieldset_contents {
 			include_unsplit_geography_point => 1,
 			eav_fields                      => 1,
 			loci                            => 1,
+			no_list_by_common_name          => 1,
 			scheme_fields                   => 1,
 			sender_attributes               => 0,
 			extended_attributes             => 1
@@ -864,8 +865,13 @@ sub _print_list_fieldset_contents {
 		( $labels->{"f_$_"} = $_ ) =~ tr/_/ /;
 	}
 	say q(Field:);
-	say $self->popup_menu( -name => 'attribute', -values => $field_list, -labels => $labels, -class => 'locuslist' )
-	  ;
+	say $self->popup_menu(
+		-name   => 'attribute',
+		-id     => 'attribute',
+		-values => $field_list,
+		-labels => $labels,
+		-class  => 'locuslist'
+	);
 	say q(<br />);
 	say $q->textarea(
 		-name        => 'list',
@@ -1033,7 +1039,7 @@ sub _print_filters_fieldset_contents {
 	if (@$list) {
 		unshift @$list, q();
 		say q(<span style="display:flex">);
-		say q(Add filter:);
+		say q(Add filter:&nbsp;);
 		say $self->popup_menu(
 			-name   => 'new_filter',
 			-id     => 'new_filter',
@@ -4044,16 +4050,54 @@ sub get_javascript {
  		menuHeight: 250,
  		menuWidth: 400
  	}).multiselectfilter();
+ 	render_loaded_locuslists();
 $panel_js
 	$ajax_load
-	\$(document).ajaxComplete(function() {
+	\$(document).on("ajaxComplete", function(event, xhr, settings) {
         setTooltips();
         initiate_autocomplete();
-        \$('.ajax_script').each(function (index, element) { eval(element.innerHTML); })
-        render_locuslists();
+        //Need to limit rendering only to the element that has been loaded.
+        if (settings.url.indexOf("dashboard") === -1){
+         	let params = new URLSearchParams(settings.url);
+         	let fieldset = params.get("fieldset");
+         	let fields = params.get("fields");
+         	let row = params.get("row");
+	       	if (row == null){
+	       		row = 1;
+	        }
+	        
+         	if (fieldset != null){
+         		let element_names = {
+         			allele_designations: "designation_field",
+         			allele_status: "allele_status_field",
+         			allele_count: "allele_count_field",
+         			tags: "tag_field",
+         			tag_count: "tag_count_field",
+         			list: "attribute"
+         		};
+         		if (element_names[fieldset]){
+         			if (fieldset === 'list'){
+         				render_locuslists("#attribute");
+         			} else {
+			        	render_locuslists("#" + element_names[fieldset] + row);
+         			}
+	         	}
+         	} else if (fields != null){
+         		let element_names = {
+         			loci: "designation_field",
+         			allele_status: "allele_status_field",
+         			allele_count: "allele_count_field",
+         			tags: "tag_field",
+         			tag_count: "tag_count_field"
+         		};
+         		if (element_names[fields]){
+		        	render_locuslists("#" + element_names[fields] + row);
+         		}
+         	} 
+        	
+        }
 	});
-	\$('.ajax_script').each(function (index, element) { eval(element.innerHTML); })
-	
+
 	\$("#bookmark_trigger,#close_bookmark").click(function(){		
 		\$("#bookmark_panel").toggle("slide",{direction:"right"},"fast");
 		return false;
@@ -4104,8 +4148,12 @@ function loadContent(url) {
 	}
 }
 
-function render_locuslists(){
-	\$("select.locuslist").multiselect({
+function render_loaded_locuslists() {
+	render_locuslists("select.locuslist");
+}
+
+function render_locuslists(selector){
+	\$(selector).multiselect({
 		noneSelectedText: "Please select...",
 		selectedList: 1,
 		menuHeight: 250,
@@ -4114,7 +4162,7 @@ function render_locuslists(){
 	}).multiselectfilter({
 		placeholder: 'Search'
 	});
-	\$("select.locuslist").multiselect("refresh");	
+	\$(selector).multiselect("refresh");	
 }
 
 function refresh_filters(){
