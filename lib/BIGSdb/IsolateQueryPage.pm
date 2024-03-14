@@ -1702,7 +1702,7 @@ sub _print_annotation_status_fields {
 		push @$fields, "s_$scheme->{'id'}";
 		$labels->{"s_$scheme->{'id'}"} = $scheme->{'name'};
 	}
-	say q(<span style="white-space:nowrap">);
+	say q(<span style="display:flex">);
 	say $self->popup_menu(
 		-name   => "annotation_status_field$row",
 		-id     => "annotation_status_field$row",
