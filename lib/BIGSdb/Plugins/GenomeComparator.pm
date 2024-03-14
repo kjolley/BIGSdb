@@ -1,6 +1,6 @@
 #GenomeComparator.pm - Genome comparison plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -66,7 +66,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.7.8',
+		version     => '2.7.9',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -175,6 +175,7 @@ sub run {
 			my $params = $q->Vars;
 			my $set_id = $self->get_set_id;
 			$params->{'set_id'} = $set_id if $set_id;
+			$params->{'curate'} = 1       if $self->{'curate'};
 			local $" = q(,);
 			$params->{'cite_schemes'} = "@{$self->{'cite_schemes'}}";
 			my $att    = $self->get_attributes;
@@ -223,8 +224,7 @@ sub _print_interface {
 			  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'GenomeComparator', 'use_all' );
 		}
 		$use_all = ( defined $pref && $pref eq 'true' ) ? 1 : 0;
-	}
-	catch {
+	} catch {
 		if ( $_->isa('BIGSdb::Exception::Database::NoRecord') ) {
 			$use_all = 0;
 		} elsif ( $_->isa('BIGSdb::Exception::Prefstore::NoGUID') ) {
@@ -301,7 +301,7 @@ sub _print_parameters_fieldset {
 		-label => 'Rescan undesignated loci',
 	);
 	say $self->get_tooltip(
-		    q(Rescan undesignated - By default, if a genome has >= 50% of the selected loci designated, it will not )
+			q(Rescan undesignated - By default, if a genome has >= 50% of the selected loci designated, it will not )
 		  . q(be rescanned. Selecting this option will perform a BLAST query for each genome to attempt to fill in )
 		  . q(any missing annotations. Please note that this will take <b>much longer</b> to run.) );
 	say q(</li></ul></fieldset>);
@@ -324,8 +324,8 @@ sub _print_reference_genome_fieldset {
 	  : q();
 
 	if ( $self->{'system'}->{'annotation'} || $set_annotation ) {
-		my @annotations = $self->{'system'}->{'annotation'} ? split /;/x, $self->{'system'}->{'annotation'} : ();
-		my @set_annotations = $set_annotation ? split /;/x, $set_annotation : ();
+		my @annotations     = $self->{'system'}->{'annotation'} ? split /;/x, $self->{'system'}->{'annotation'} : ();
+		my @set_annotations = $set_annotation                   ? split /;/x, $set_annotation                   : ();
 		push @annotations, @set_annotations;
 		my @names = ('');
 		my %labels;
@@ -481,6 +481,7 @@ sub run_job {
 	my $accession    = $params->{'accession'} || $params->{'annotation'};
 	my $ref_upload   = $params->{'ref_upload'};
 	my $user_genomes = $self->process_uploaded_genomes( $job_id, $isolate_ids, $params );
+
 	if ( !@$isolate_ids && !keys %$user_genomes ) {
 		$self->{'jobManager'}->update_job_status(
 			$job_id,
@@ -511,8 +512,7 @@ sub run_job {
 				try {
 					my $seqio_obj = Bio::SeqIO->new( -file => $local_annotations[0] );
 					$seq_obj = $seqio_obj->next_seq;
-				}
-				catch {
+				} catch {
 					BIGSdb::Exception::Plugin->throw("Invalid data in local annotation $local_annotations[0].");
 				};
 			} else {
@@ -528,8 +528,7 @@ sub run_job {
 						$seq_obj = $seq_db->get_Seq_by_acc($accession);
 					}
 					close $fh;
-				}
-				catch {
+				} catch {
 					$logger->debug($_);
 					BIGSdb::Exception::Plugin->throw("No data returned for accession number $accession.");
 				};
@@ -538,8 +537,7 @@ sub run_job {
 			if ( $ref_upload =~ /fa$/x || $ref_upload =~ /fas$/x || $ref_upload =~ /fasta$/x ) {
 				try {
 					BIGSdb::Utils::fasta2genbank("$self->{'config'}->{'tmp_dir'}/$ref_upload");
-				}
-				catch {
+				} catch {
 					$logger->debug($_);
 					my $error = q();
 					if ( $_ =~ /(MSG.+)\n/x ) {
@@ -612,8 +610,7 @@ sub process_uploaded_genomes {
 					$fasta .= $buff;
 				}
 				$stringfh_in = IO::String->new($fasta);
-			}
-			catch {
+			} catch {
 				BIGSdb::Exception::Plugin->throw('There is a problem with the contents of the zip file.');
 			};
 			try {
@@ -624,8 +621,7 @@ sub process_uploaded_genomes {
 					push @{ $user_genomes->{$genome_name} }, { id => $seq_object->id, seq => $seq };
 					$self->{'user_genomes'}->{$genome_name} = $seq_object->id;
 				}
-			}
-			catch {
+			} catch {
 				BIGSdb::Exception::Plugin->throw("File $fasta_file in uploaded zip is not valid FASTA format.");
 			};
 			last if $status < 0;
@@ -641,8 +637,7 @@ sub process_uploaded_genomes {
 				push @{ $user_genomes->{$genome_name} }, { id => $seq_object->id, seq => $seq };
 				$self->{'user_genomes'}->{$genome_name} = $seq_object->id;
 			}
-		}
-		catch {
+		} catch {
 			BIGSdb::Exception::Plugin->throw('User genome file is not valid FASTA format.');
 		};
 	}
@@ -694,7 +689,7 @@ sub _analyse_by_loci {
 		$self->{'jobManager'}->update_job_status(
 			$job_id,
 			{
-				    message_html => q(<p class="statusbad">You must select at least two isolates for comparison )
+					message_html => q(<p class="statusbad">You must select at least two isolates for comparison )
 				  . q(against defined loci. Make sure your selected isolates haven't been filtered to fewer )
 				  . q(than two by selecting a project.</p>)
 			}
@@ -704,7 +699,7 @@ sub _analyse_by_loci {
 	my $file_buffer = qq(Analysis against defined loci\n);
 	$file_buffer .= q(Time: ) . ( localtime(time) ) . qq(\n\n);
 	$file_buffer .=
-	    q(Allele numbers are used where these have been defined, otherwise sequences will be )
+		q(Allele numbers are used where these have been defined, otherwise sequences will be )
 	  . qq(marked as 'New#1, 'New#2' etc.\n)
 	  . q(Missing alleles are marked as 'X'. Incomplete alleles (located at end of contig) )
 	  . qq(are marked as 'I'.\n\n);
@@ -771,10 +766,10 @@ sub _analyse_by_reference {
 	if ( !@cds ) {
 		BIGSdb::Exception::Plugin->throw('No loci defined in reference genome.');
 	}
-	my %abb = ( cds => 'coding regions' );
+	my %abb         = ( cds => 'coding regions' );
 	my $html_buffer = q(<h3>Analysis by reference genome</h3>);
 	$html_buffer .= q(<dl class="data">);
-	my $td = 1;
+	my $td          = 1;
 	my $file_buffer = qq(Analysis by reference genome\n\nTime: ) . ( localtime(time) ) . qq(\n\n);
 	foreach my $field (qw (accession version type length description cds)) {
 		if ( $att{$field} ) {
@@ -847,7 +842,7 @@ sub _get_text_output {
 	$buffer .= $self->_get_text_underlined('All loci');
 	if ($by_ref) {
 		$buffer .=
-		    qq(Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X'. \n)
+			qq(Each unique allele is defined a number starting at 1. Missing alleles are marked as 'X'. \n)
 		  . qq(Incomplete alleles (located at end of contig) are marked as 'I'.\n\n);
 	}
 	$buffer .= $self->_get_text_table( $by_ref, $ids, $scan_data, $scan_data->{'loci'} );
@@ -906,13 +901,13 @@ sub _get_html_output {
 	$buffer .= q(<h3>All loci</h3>);
 	if ($by_ref) {
 		$buffer .=
-		    q(<p>Each unique allele is defined a number starting at 1. Missing alleles are marked as )
+			q(<p>Each unique allele is defined a number starting at 1. Missing alleles are marked as )
 		  . q(<span style="background:black; color:white; padding: 0 0.5em">'X'</span>. Incomplete alleles )
 		  . q((located at end of contig) are marked as )
 		  . q(<span style="background:green; color:white; padding: 0 0.5em">'I'</span>.</p>);
 	} else {
 		$buffer .=
-		    q(<p>Allele numbers are used where these have been defined, otherwise sequences )
+			q(<p>Allele numbers are used where these have been defined, otherwise sequences )
 		  . q(will be marked as 'New#1, 'New#2' etc. Missing alleles are marked as )
 		  . q(<span style="background:black; color:white; padding: 0 0.5em">'X'</span>. Incomplete alleles )
 		  . q((located at end of contig) are marked as )
@@ -1013,7 +1008,7 @@ sub _get_text_table {
 			$buffer .= qq($locus_data->{'full_name'}\t$locus_data->{'description'}\t$length\t$locus_data->{'start'});
 		} else {
 			my $locus_name = $self->clean_locus( $locus, { text_output => 1 } );
-			my $desc = $self->{'datastore'}->get_locus($locus)->get_description;
+			my $desc       = $self->{'datastore'}->get_locus($locus)->get_description;
 			$desc->{$_} //= q() foreach (qw(full_name product));
 			$buffer .= qq($locus_name\t$desc->{'full_name'}\t$desc->{'product'});
 		}
@@ -1069,7 +1064,7 @@ sub _get_unique_strain_html_table {
 		foreach my $isolate (@mapped_isolates) {
 			if ( $isolate =~ /^(-\d+)/x ) {
 				my $isolate_id = $1;
-				my $mapped_id = $self->{'name_map'}->{$isolate_id} // $isolate_id;
+				my $mapped_id  = $self->{'name_map'}->{$isolate_id} // $isolate_id;
 				$isolate =~ s/$isolate_id/$mapped_id/x;
 			}
 		}
@@ -1119,7 +1114,7 @@ sub _get_unique_strain_text_table {
 		foreach my $isolate (@mapped_isolates) {
 			if ( $isolate =~ /^(-\d+)/x ) {
 				my $isolate_id = $1;
-				my $mapped_id = $self->{'name_map'}->{$isolate_id} // $isolate_id;
+				my $mapped_id  = $self->{'name_map'}->{$isolate_id} // $isolate_id;
 				$isolate =~ s/$isolate_id/$mapped_id/x;
 			}
 		}
@@ -1160,7 +1155,7 @@ sub _get_isolate_table_header {
 		push @header, ( 'Full name', 'Product' );
 	}
 	foreach my $id (@$ids) {
-		my $isolate = $self->_get_isolate_name($id);
+		my $isolate   = $self->_get_isolate_name($id);
 		my $mapped_id = $self->{'name_map'}->{$id} // $id;
 		$isolate =~ s/^$id/$mapped_id/x;
 		push @header, $isolate;
@@ -1204,7 +1199,7 @@ sub _get_identifier {
 			if ( $field =~ /s_(\d+)_([\w_]+)/x ) {
 				my ( $scheme_id, $scheme_field ) = ( $1, $2 );
 				my $scheme_values = $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $id, $scheme_id );
-				my @field_values = keys %{ $scheme_values->{ lc $scheme_field } };
+				my @field_values  = keys %{ $scheme_values->{ lc $scheme_field } };
 				local $" = q(_);
 				$field_value = qq(@field_values);
 			} elsif ( $field =~ /^f_(.+)/x ) {
@@ -1272,7 +1267,6 @@ sub _generate_distance_matrix {
 	push @$ignore_loci, @{ $data->{'paralogous_in_all'} } if $self->{'params'}->{'exclude_paralogous_all'};
 	my %ignore_loci = map { $_ => 1 } @$ignore_loci;
 	if ( $data->{'by_ref'} ) {
-
 		foreach my $locus ( @{ $data->{'loci'} } ) {
 			$isolate_data->{0}->{'designations'}->{$locus} = '1';
 		}
@@ -1328,7 +1322,7 @@ sub _make_nexus_file {
 	my ( $self, $job_id, $dismat, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $timestamp = scalar localtime;
-	my @ids = sort { $a <=> $b } keys %$dismat;
+	my @ids       = sort { $a <=> $b } keys %$dismat;
 	my %labels;
 	foreach my $id (@ids) {
 		if ( $id == 0 ) {
@@ -1349,7 +1343,7 @@ sub _make_nexus_file {
 	my $paralogous = '';
 	if ( $options->{'by_reference'} ) {
 		$paralogous =
-		    '[Paralogous loci '
+			'[Paralogous loci '
 		  . ( $options->{'exclude_paralogous_all'} ? 'excluded from' : 'included in' )
 		  . ' analysis]';
 	}
@@ -1392,7 +1386,7 @@ sub _run_splitstree {
 	my ( $self, $nexus_file, $output_file, $format ) = @_;
 	if ( $self->{'config'}->{'splitstree_path'} && -x $self->{'config'}->{'splitstree_path'} ) {
 		my $cmd =
-		    qq($self->{'config'}->{'splitstree_path'} -g true -S true -x )
+			qq($self->{'config'}->{'splitstree_path'} -g true -S true -x )
 		  . qq('EXECUTE FILE=$nexus_file;EXPORTGRAPHICS format=$format file=$output_file REPLACE=yes;QUIT' )
 		  . q(> /dev/null 2>&1);
 		system($cmd);
@@ -1513,8 +1507,7 @@ sub align {
 					}
 				);
 			}
-		}
-		catch {
+		} catch {
 			if ( $_->isa('BIGSdb::Exception::File::CannotOpen') ) {
 				$logger->error('Cannot create FASTA file from XMFA.');
 			} else {
@@ -1547,8 +1540,7 @@ sub align {
 					}
 				);
 			}
-		}
-		catch {
+		} catch {
 			if ( $_->isa('BIGSdb::Exception::File::CannotOpen') ) {
 				$logger->error('Cannot create core FASTA file from XMFA.');
 			} else {
@@ -1653,7 +1645,7 @@ sub _write_excel_table_worksheet {
 		push @header, ( 'Full name', 'Product' );
 	}
 	foreach my $id (@$ids) {
-		my $isolate = $self->_get_isolate_name($id);
+		my $isolate   = $self->_get_isolate_name($id);
 		my $mapped_id = $self->{'name_map'}->{$id} // $id;
 		$isolate =~ s/^$id/$mapped_id/x;
 		push @header, $isolate;
@@ -1762,7 +1754,6 @@ sub _write_excel_unique_strains {
 	my $num_strains = @strain_hashes;
 	my $worksheet   = $workbook->add_worksheet('unique strains');
 	my $col         = 0;
-
 	foreach ( 1 .. $num_strains ) {
 		$worksheet->write( 0, $col, "Strain $_", $formats->{'header'} );
 		$col++;
@@ -1782,7 +1773,7 @@ sub _write_excel_unique_strains {
 		foreach my $isolate (@mapped_isolates) {
 			if ( $isolate =~ /^(-\d+)/x ) {
 				my $isolate_id = $1;
-				my $mapped_id = $self->{'name_map'}->{$isolate_id} // $isolate_id;
+				my $mapped_id  = $self->{'name_map'}->{$isolate_id} // $isolate_id;
 				$isolate =~ s/$isolate_id/$mapped_id/x;
 			}
 		}
@@ -1942,15 +1933,15 @@ sub _write_excel_parameters {
 	my $loci      = $scan_data->{'loci'};
 	my $worksheet = $workbook->add_worksheet('parameters');
 	my $row       = 0;
-	$formats->{'heading'} = $workbook->add_format( size  => 14,      align => 'left', bold => 1 );
-	$formats->{'key'}     = $workbook->add_format( align => 'right', bold  => 1 );
+	$formats->{'heading'} = $workbook->add_format( size => 14, align => 'left', bold => 1 );
+	$formats->{'key'}     = $workbook->add_format( align => 'right', bold => 1 );
 	$formats->{'value'}   = $workbook->add_format( align => 'left' );
 	my $job        = $self->{'jobManager'}->get_job($job_id);
 	my $total_time = duration( $job->{'elapsed'} );
 	$total_time = '<1 second' if $total_time eq 'just now';
 	( my $submit_time = $job->{'submit_time'} ) =~ s/\..*?$//x;
-	( my $start_time  = $job->{'start_time'} ) =~ s/\..*?$//x;
-	( my $stop_time   = $job->{'query_time'} ) =~ s/\..*?$//x;
+	( my $start_time  = $job->{'start_time'} )  =~ s/\..*?$//x;
+	( my $stop_time   = $job->{'query_time'} )  =~ s/\..*?$//x;
 
 	#Job attributes
 	my @parameters = (
@@ -1980,9 +1971,9 @@ sub _write_excel_parameters {
 	push @parameters,
 	  (
 		{ section => 'Parameters' },
-		{ label   => 'Min % identity', value => $params->{'identity'} },
-		{ label   => 'Min % alignment', value => $params->{'alignment'} },
-		{ label   => 'BLASTN word size', value => $params->{'word_size'} },
+		{ label   => 'Min % identity',      value => $params->{'identity'} },
+		{ label   => 'Min % alignment',     value => $params->{'alignment'} },
+		{ label   => 'BLASTN word size',    value => $params->{'word_size'} },
 		{ label   => 'Rescan undesignated', value => $params->{'rescan_missing'} ? 'yes' : 'no' }
 	  );
 
@@ -2017,7 +2008,7 @@ sub _write_excel_parameters {
 		push @parameters,
 		  (
 			{ label => 'Align all', value => $params->{'align_all'} ? 'yes' : 'no' },
-			{ label => 'Aligner', value => $params->{'aligner'} }
+			{ label => 'Aligner',   value => $params->{'aligner'} }
 		  );
 	}
 
@@ -2025,7 +2016,7 @@ sub _write_excel_parameters {
 	push @parameters,
 	  (
 		{ section => 'Core genome analysis' },
-		{ label   => 'Core threshold %', value => $params->{'core_threshold'} },
+		{ label   => 'Core threshold %',         value => $params->{'core_threshold'} },
 		{ label   => 'Calculate mean distances', value => $params->{'calc_distances'} ? 'yes' : 'no' }
 	  );
 	my $longest_length = 0;
@@ -2038,7 +2029,7 @@ sub _write_excel_parameters {
 			$worksheet->write( $row, 1, $parameter->{'value'},       $formats->{'value'} );
 		}
 		$row++;
-		next if !$parameter->{'label'};
+		next                                              if !$parameter->{'label'};
 		$longest_length = length( $parameter->{'label'} ) if length( $parameter->{'label'} ) > $longest_length;
 	}
 	$worksheet->set_column( 0, 0, $self->_excel_col_width($longest_length) );
@@ -2046,17 +2037,17 @@ sub _write_excel_parameters {
 }
 
 sub _write_excel_citations {
-	my ( $self,     $args )    = @_;
+	my ( $self, $args )        = @_;
 	my ( $workbook, $formats ) = @{$args}{qw(workbook formats)};
 	my $params    = $self->{'params'};
 	my $worksheet = $workbook->add_worksheet('citation');
 	my %excel_format;
-	$formats = $workbook->add_format( size => 12, align => 'left', bold => 1 );
+	$formats = $workbook->add_format( size  => 12, align => 'left', bold => 1 );
 	$formats = $workbook->add_format( align => 'left' );
 	$worksheet->write( 0, 0, 'Please cite the following:',                         $excel_format{'heading'} );
 	$worksheet->write( 2, 0, q(BIGSdb Genome Comparator),                          $excel_format{'heading'} );
 	$worksheet->write( 3, 0, q(Jolley & Maiden (2010). BMC Bioinformatics 11:595), $excel_format{'value'} );
-	my $row = 5;
+	my $row     = 5;
 	my @schemes = split /,/x, ( $params->{'cite_schemes'} // q() );
 
 	foreach my $scheme_id (@schemes) {
@@ -2109,7 +2100,7 @@ sub assemble_data_for_defined_loci {
 	};
 	$params->{'user_genomes'} = $user_genomes if $user_genomes;
 	$params->{$_} = $self->{'params'}->{$_} foreach keys %{ $self->{'params'} };
-	delete $params->{'datatype'};    #This interferes with Script::get_selected_loci.
+	delete $params->{'datatype'};              #This interferes with Script::get_selected_loci.
 	my $data = $self->_run_helper($params);
 	$self->_touch_output_files("$job_id*");    #Prevents premature deletion by cleanup scripts
 	unlink $locus_list;
@@ -2139,7 +2130,7 @@ sub _assemble_data_for_reference_genome {
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Scanning isolate record 1' } );
 	my $isolate_list = $self->create_list_file( $job_id, 'isolates', $ids );
 	my $ref_seq_file = $self->_create_reference_FASTA_file( $job_id, $locus_data );
-	my $params = {
+	my $params       = {
 		database          => $self->{'params'}->{'db'},
 		isolate_list_file => $isolate_list,
 		reference_file    => $ref_seq_file,
@@ -2180,7 +2171,7 @@ sub _run_helper {
 	return {} if $self->{'exit'};
 	my $data = $scanner->run($params);
 	$self->{'dataConnector'}->set_forks(0);
-	my $by_ref = $params->{'reference_file'} ? 1 : 0;
+	my $by_ref           = $params->{'reference_file'} ? 1 : 0;
 	my $locus_attributes = $self->_get_locus_attributes( $by_ref, $data );
 	my $unique_strains   = $self->_get_unique_strains($data);
 	my $paralogous       = $self->_get_potentially_paralogous_loci($data);
@@ -2190,7 +2181,7 @@ sub _run_helper {
 	$results->{'unique_strains'} = $unique_strains;
 	$results->{'paralogous'}     = $paralogous;
 	$results->{'locus_data'}     = $params->{'locus_data'} if $params->{'locus_data'};
-	$results->{'loci'}           = $params->{'loci'} if $params->{'loci'};
+	$results->{'loci'}           = $params->{'loci'}       if $params->{'loci'};
 	return $results;
 }
 
@@ -2209,6 +2200,7 @@ sub _get_locus_attributes {
 	my $incomplete_in_some   = [];
 	my %not_counted          = map { $_ => 1 } qw(missing incomplete);
 	my $frequency            = {};
+
 	foreach my $locus ( sort keys %loci ) {
 		my $paralogous_in_all = 1;
 		my $missing_in_all    = 1;
@@ -2250,9 +2242,9 @@ sub _get_locus_attributes {
 				push @$identical, $locus;
 			}
 		}
-		push @$paralogous, $locus if $paralogous_in_all && !$missing_in_all;
-		push @$missing,    $locus if $missing_in_all;
-		push @$variable,   $locus if keys %variants_not_ref > 1;
+		push @$paralogous,         $locus if $paralogous_in_all && !$missing_in_all;
+		push @$missing,            $locus if $missing_in_all;
+		push @$variable,           $locus if keys %variants_not_ref > 1;
 		push @$incomplete_in_some, $locus if $incomplete;
 		$frequency->{$locus} = $presence;
 	}
@@ -2324,8 +2316,7 @@ sub _extract_cds_details {
 	my $seq;
 	try {
 		$seq = $cds->seq->seq;
-	}
-	catch {
+	} catch {
 		if ( $_ =~ /MSG:([^\.]*\.)/x ) {
 			BIGSdb::Exception::Plugin->throw("Invalid data in annotation: $1");
 		} else {
@@ -2337,8 +2328,7 @@ sub _extract_cds_details {
 	my @tags;
 	try {
 		push @tags, $_ foreach ( $cds->each_tag_value('product') );
-	}
-	catch {
+	} catch {
 		push @tags, 'no product';
 	};
 	$start = $cds->start;
@@ -2398,8 +2388,8 @@ sub _core_analysis {
 		  defined $data->{'locus_data'}->{$locus}->{'sequence'}
 		  ? length( $data->{'locus_data'}->{$locus}->{'sequence'} )
 		  : q();
-		my $pos  = $data->{'locus_data'}->{$locus}->{'start'} // '';
-		my $freq = $data->{'frequency'}->{$locus}             // 0;
+		my $pos        = $data->{'locus_data'}->{$locus}->{'start'} // '';
+		my $freq       = $data->{'frequency'}->{$locus}             // 0;
 		my $percentage = BIGSdb::Utils::decimal_place( $freq * 100 / $isolate_count, 1 );
 		my $core;
 		if ( $percentage >= $threshold ) {
@@ -2506,7 +2496,7 @@ sub _core_mean_distance {
 	return if !@$core_loci;
 	my $file_buffer;
 	my $largest_distance = $self->_get_largest_distance( $core_loci, $loci );
-	my $chart_data = [];
+	my $chart_data       = [];
 	if ( !$largest_distance ) {
 		$file_buffer .= "All loci are identical.\n";
 	} else {
@@ -2633,7 +2623,7 @@ sub _get_largest_distance {
 	my ( $self, $core_loci, $loci ) = @_;
 	my $largest = 0;
 	foreach my $locus (@$core_loci) {
-		next if !defined $self->{'distances'}->{$locus};
+		next                                      if !defined $self->{'distances'}->{$locus};
 		$largest = $self->{'distances'}->{$locus} if $self->{'distances'}->{$locus} > $largest;
 	}
 	return $largest;
