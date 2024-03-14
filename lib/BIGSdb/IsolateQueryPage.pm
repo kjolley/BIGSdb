@@ -1050,38 +1050,6 @@ sub _print_filters_fieldset_contents {
 		say q( <a id="add_filter" class="small_submit">Add</a>);
 		say q(</span>);
 	}
-	say << "JS";
-<script>
-\$(function () {
-	\$("#add_filter").on('click',function(){
-		var filter = \$("#new_filter").val();
-		if (filter == ""){
-			return;
-		}
-		\$.ajax({
-			url: "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query&no_header=1&add_filter=" 
-			 + filter,
-			success: function(response){
-				refresh_filters();
-			}
-		})		
-	});
-	\$(".remove_filter").on('click',function(){
-		var filter = \$(this).attr('id').replace(/^remove_/,'');
-		if (filter == ""){
-			return;
-		}
-		\$.ajax({
-			url: "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query&no_header=1&remove_filter=" 
-			 + filter,
-			success: function(response){
-				refresh_filters();
-			}
-		})		
-	});
-});	
-</script>
-JS
 	return;
 }
 
@@ -4096,6 +4064,32 @@ $panel_js
          	} 
         	
         }
+	});
+	\$("#add_filter").on('click',function(){
+		var filter = \$("#new_filter").val();
+		if (filter == ""){
+			return;
+		}
+		\$.ajax({
+			url: "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query&no_header=1&add_filter=" 
+			 + filter,
+			success: function(response){
+				refresh_filters();
+			}
+		})		
+	});
+	\$(".remove_filter").on('click',function(){
+		var filter = \$(this).attr('id').replace(/^remove_/,'');
+		if (filter == ""){
+			return;
+		}
+		\$.ajax({
+			url: "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query&no_header=1&remove_filter=" 
+			 + filter,
+			success: function(response){
+				refresh_filters();
+			}
+		})		
 	});
 
 	\$("#bookmark_trigger,#close_bookmark").click(function(){		
