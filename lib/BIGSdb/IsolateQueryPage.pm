@@ -1536,6 +1536,8 @@ sub _print_allele_count_fields {
 	my $list = [@$locus_list];
 	unshift @$list, 'any locus';
 	unshift @$list, 'total designations';
+	unshift @$list, '';
+	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
 	my $q = $self->{'cgi'};
 	say q(<span style="white-space:nowrap">);
 	say q(Count of );
@@ -1666,6 +1668,7 @@ sub _print_tag_count_fields {
 	);
 	$args{'-value'} = $q->param("tag_count_value$row") if defined $q->param("tag_count_value$row");
 	say $self->textfield(%args);
+
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_tag_count" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
