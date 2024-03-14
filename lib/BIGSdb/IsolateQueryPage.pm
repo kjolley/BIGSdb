@@ -399,7 +399,7 @@ sub _print_display_fieldset {
 			push @$values, $q->optgroup( -name => $name, -values => $group_members->{$name}, -labels => $labels );
 		}
 	}
-	say q(<ul><li><span style="white-space:nowrap"><label for="order" class="display">Order by: </label>);
+	say q(<ul><li><span style="display:flex"><label for="order" class="display">Order by: </label>);
 	say $q->popup_menu(
 		-name   => 'order',
 		-id     => 'order',
@@ -550,7 +550,7 @@ sub _print_sequence_variation_fields {
 			}
 		}
 	}
-	say q(<span style="white-space:nowrap">);
+	say q(<span style="display:flex">);
 	say $self->popup_menu(
 		-name   => "sequence_variation$row",
 		-id     => "sequence_variation$row",
@@ -1032,7 +1032,7 @@ sub _print_filters_fieldset_contents {
 
 	if (@$list) {
 		unshift @$list, q();
-		say q(<span style="white-space:nowrap">);
+		say q(<span style="display:flex">);
 		say q(Add filter:);
 		say $self->popup_menu(
 			-name   => 'new_filter',
@@ -1392,7 +1392,7 @@ sub _print_provenance_fields {
 	} else {
 		$values = $select_items;
 	}
-	say q(<span style="white-space:nowrap">);
+	say q(<span style="display:flex">);
 	say $q->popup_menu(
 		-name   => "prov_field$row",
 		-id     => "prov_field$row",
@@ -1444,7 +1444,7 @@ sub _print_phenotypic_fields {
 	} else {
 		$values = $select_items;
 	}
-	say q(<span style="white-space:nowrap">);
+	say q(<span style="display:flex">);
 	unshift @$values, q();
 	say $q->popup_menu(
 		-name   => "phenotypic_field$row",
@@ -1503,7 +1503,7 @@ sub _print_allele_status_fields {
 	unshift @$list, '';
 	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
 	my $q = $self->{'cgi'};
-	say q(<span style="white-space:nowrap">);
+	say q(<span style="display:flex">);
 	say $self->popup_menu(
 		-name   => "allele_status_field$row",
 		-id     => "allele_status_field$row",
@@ -1511,7 +1511,7 @@ sub _print_allele_status_fields {
 		-labels => $locus_labels,
 		-class  => 'locuslist'
 	);
-	print ' is ';
+	print '&nbsp;is&nbsp;';
 	my $values = [ '', 'provisional', 'confirmed' ];
 	my %labels = ( '' => ' ' );                        #Required for HTML5 validation.
 	say $q->popup_menu(
@@ -1540,8 +1540,8 @@ sub _print_allele_count_fields {
 	unshift @$list, '';
 	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
 	my $q = $self->{'cgi'};
-	say q(<span style="white-space:nowrap">);
-	say q(Count of );
+	say q(<span style="display:flex">);
+	say q(Count of&nbsp;);
 	say $self->popup_menu(
 		-name   => "allele_count_field$row",
 		-id     => "allele_count_field$row",
@@ -1578,7 +1578,7 @@ sub _print_loci_fields {
 	unshift @$locus_list, '' if ( $locus_list->[0] // q() ) ne q();
 	$locus_labels->{''} = q( );    #Required for HTML5 validation.
 	my $q = $self->{'cgi'};
-	say q(<span>);
+	say q(<span style="display:flex">);
 	say $self->popup_menu(
 		-name   => "designation_field$row",
 		-id     => "designation_field$row",
@@ -1616,7 +1616,7 @@ sub _print_locus_tag_fields {
 	unshift @$list, 'any locus';
 	unshift @$list, '';
 	my $q = $self->{'cgi'};
-	say q(<span style="white-space:nowrap">);
+	say q(<span style="display:flex">);
 	say $self->popup_menu(
 		-name   => "tag_field$row",
 		-id     => "tag_field$row",
@@ -1624,7 +1624,7 @@ sub _print_locus_tag_fields {
 		-labels => $locus_labels,
 		-class  => 'locuslist'
 	);
-	print ' is ';
+	print '&nbsp;is&nbsp;';
 	my @values = qw(untagged tagged complete incomplete);
 	push @values, "flagged: $_" foreach ( 'any', 'none', SEQ_FLAGS );
 	unshift @values, '';
@@ -1647,9 +1647,11 @@ sub _print_tag_count_fields {
 	my $list = [@$locus_list];
 	unshift @$list, 'any locus';
 	unshift @$list, 'total tags';
+	unshift @$list, '';
+	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
 	my $q = $self->{'cgi'};
-	say q(<span style="white-space:nowrap">);
-	say q(Count of );
+	say q(<span style="display:flex">);
+	say q(Count of&nbsp;);
 	say $self->popup_menu(
 		-name   => "tag_count_field$row",
 		-id     => "tag_count_field$row",
