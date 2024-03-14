@@ -4050,7 +4050,8 @@ $panel_js
         setTooltips();
         initiate_autocomplete();
         \$('.ajax_script').each(function (index, element) { eval(element.innerHTML); })
- 	});
+        render_locuslists();
+	});
 	\$('.ajax_script').each(function (index, element) { eval(element.innerHTML); })
 	
 	\$("#bookmark_trigger,#close_bookmark").click(function(){		
