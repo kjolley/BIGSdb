@@ -1730,7 +1730,7 @@ sub _print_annotation_status_fields {
 sub _print_seqbin_fields {
 	my ( $self, $row, $max_rows ) = @_;
 	my $q = $self->{'cgi'};
-	say q(<span style="white-space:nowrap">);
+	say q(<span style="display:flex">);
 	my @values = qw(size contigs N50 L50);
 	if (
 		$self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM analysis_results WHERE name=?)', 'AssemblyStats' )
