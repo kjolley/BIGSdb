@@ -1,6 +1,6 @@
 #SeqbinBreakdown.pm - SeqbinBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -53,7 +53,7 @@ sub get_attributes {
 		menutext    => 'Sequence bin breakdown',
 		module      => 'SeqbinBreakdown',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/seqbin_breakdown.html",
-		version     => '1.7.3',
+		version     => '1.7.4',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -123,6 +123,7 @@ sub run {
 				my $set_id = $self->get_set_id;
 				$params->{'set_id'}      = $set_id if $set_id;
 				$params->{'script_name'} = $self->{'system'}->{'script_name'};
+				$params->{'curate'}      = 1 if $self->{'curate'};
 				my $att       = $self->get_attributes;
 				my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 				my $job_id    = $self->{'jobManager'}->add_job(
