@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -97,7 +97,7 @@ sub print_content {
 		}
 	);
 	say q(<h2>Sequence</h2>);
-	say q(<div class="resize_seq" style="padding-left:4em">);
+	say q(<div class="resize_seq" style="padding-left:4em;max-width:110ch">);
 	say $self->format_sequence_features($seq_features);
 	say q(</div>);
 
@@ -105,7 +105,7 @@ sub print_content {
 		say q(<p style="padding-left:5em;margin-top:1em">Key: <span class="flanking">Flanking</span>; )
 		  . q(<span class="exon">Exon</span>; <span class="intron">Intron</span></p>);
 		say q(<h2>Spliced sequence (exons only)</h2>);
-		say q(<div class="resize_seq" style="padding-left:4em">);
+		say q(<div class="resize_seq" style="padding-left:4em;max-width:110ch">);
 		say $self->format_sequence_features( $seq_features, { spliced => 1 } );
 		say q(</div>);
 	}
