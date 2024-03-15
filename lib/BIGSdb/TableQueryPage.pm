@@ -153,6 +153,7 @@ sub get_javascript {
 		noneSelectedText: "Please select...",
 		selectedList: 1,
 		menuHeight: 250,
+		menuWidth: 300,
 		classes: 'filter'
 	});
 	\$("select.filter.search").multiselectfilter({
