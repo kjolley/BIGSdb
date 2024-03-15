@@ -3968,8 +3968,10 @@ sub get_javascript {
 		qw(provenance phenotypic allele_designations sequence_variation allele_count allele_status
 		  annotation_status seqbin assembly_checks tag_count tags list filters)
 	);
-	my $ajax_load = q(var script_path = $(location).attr('href');script_path = script_path.split('?')[0];)
-	  . q(var fieldset_url=script_path + '?db=' + $.urlParam('db') + '&page=query&no_header=1';);
+	my $ajax_load = << "END";
+var script_path = \$(location).attr('href');script_path = script_path.split('?')[0];
+var fieldset_url=script_path + '?db=' + \$.urlParam('db') + '&page=query&no_header=1';
+END
 	my %fields = (
 		phenotypic          => 'phenotypic',
 		allele_designations => 'loci',
@@ -3984,19 +3986,23 @@ sub get_javascript {
 	);
 	foreach my $fieldset ( keys %fields ) {
 		if ( !$self->_highest_entered_fields( $fields{$fieldset} ) ) {
-			$ajax_load .=
-				qq(if (\$('fieldset#${fieldset}_fieldset').length){\n)
-			  . qq(\$('fieldset#${fieldset}_fieldset div').)
-			  . q(html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...').)
-			  . qq(load(fieldset_url + '&fieldset=$fieldset&ajax=1')};);
+			$ajax_load .= << "END";
+if (\$('fieldset#${fieldset}_fieldset').length){
+	\$('fieldset#${fieldset}_fieldset div')
+	.html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...')
+	.load(fieldset_url + '&fieldset=$fieldset&ajax=1')
+};
+END
 		}
 	}
 	if ( !$q->param('list') ) {
-		$ajax_load .=
-			qq(if (\$('fieldset#list_fieldset').length){\n)
-		  . q($('fieldset#list_fieldset div').)
-		  . q(html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...').)
-		  . q(load(fieldset_url + '&fieldset=list&ajax=1')};);
+		$ajax_load .= << "END";
+if (\$('fieldset#list_fieldset').length){
+  \$('fieldset#list_fieldset div')
+  .html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...')
+  .load(fieldset_url + '&fieldset=list&ajax=1')
+};
+END
 	}
 	$buffer .= << "END";
 \$(function () {
@@ -4146,8 +4152,10 @@ function render_loaded_locuslists() {
 	render_locuslists("select.locuslist");
 }
 
+//Delay rendering of hidden dropdown boxes to enable dashboard display
+//to render quicker.
 function render_locuslists(selector){
-	\$(selector).multiselect({
+	\$(selector).filter(':visible').multiselect({
 		noneSelectedText: "Please select...",
 		selectedList: 1,
 		menuHeight: 250,
@@ -4156,7 +4164,20 @@ function render_locuslists(selector){
 	}).multiselectfilter({
 		placeholder: 'Search'
 	});
-	\$(selector).multiselect("refresh");	
+	\$(selector).filter(':visible').multiselect("refresh");
+	setTimeout(function(){
+		\$(selector).filter(':hidden').multiselect({
+			noneSelectedText: "Please select...",
+			selectedList: 1,
+			menuHeight: 250,
+			menuWidth: 300,
+			classes: 'filter',
+		}).multiselectfilter({
+			placeholder: 'Search'
+		});
+		\$(selector).filter(':hidden').multiselect("refresh");
+	},3000);		
+		
 }
 
 function refresh_filters(){
