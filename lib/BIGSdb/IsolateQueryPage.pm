@@ -1061,17 +1061,18 @@ sub _print_modify_search_fieldset {
 	say q(<h2>Modify form parameters</h2>);
 	say q(<p>Click to add or remove additional query terms:</p><ul style="list-style:none;margin-left:-2em">);
 	my $provenance_fieldset_display = $self->_should_display_fieldset('provenance') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button" id="show_provenance">$provenance_fieldset_display</a>);
+	say qq(<li><a href="" class="button fieldset_trigger" id="show_provenance">$provenance_fieldset_display</a>);
 	say q(Provenance fields</li>);
 
 	if ( $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM eav_fields)') ) {
 		my $phenotypic_fieldset_display = $self->_should_display_fieldset('phenotypic') ? HIDE : SHOW;
 		my $field_name                  = ucfirst( $self->{'system'}->{'eav_fields'} // 'secondary metadata' );
-		say qq(<li><a href="" class="button" id="show_phenotypic">$phenotypic_fieldset_display</a>);
+		say qq(<li><a href="" class="button fieldset_trigger" id="show_phenotypic">$phenotypic_fieldset_display</a>);
 		say qq($field_name</li>);
 	}
 	my $allele_designations_fieldset_display = $self->_should_display_fieldset('allele_designations') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button" id="show_allele_designations">$allele_designations_fieldset_display</a>);
+	say q(<li><a href="" class="button fieldset_trigger" id="show_allele_designations">)
+	  . qq($allele_designations_fieldset_display</a>);
 	say q(Allele designations/scheme field values</li>);
 	if ( $self->{'sequence_variation_fieldset_exists'} ) {
 		my $sequence_variation_fieldset_display = $self->_should_display_fieldset('sequence_variation') ? HIDE : SHOW;
@@ -1079,41 +1080,42 @@ sub _print_modify_search_fieldset {
 		say q(Sequence variation</li>);
 	}
 	my $allele_count_fieldset_display = $self->_should_display_fieldset('allele_count') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button" id="show_allele_count">$allele_count_fieldset_display</a>);
+	say qq(<li><a href="" class="button fieldset_trigger" id="show_allele_count">$allele_count_fieldset_display</a>);
 	say q(Allele designation counts</li>);
 	my $allele_status_fieldset_display = $self->_should_display_fieldset('allele_status') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button" id="show_allele_status">$allele_status_fieldset_display</a>);
+	say qq(<li><a href="" class="button fieldset_trigger" id="show_allele_status">$allele_status_fieldset_display</a>);
 	say q(Allele designation status</li>);
 	if ( $self->{'annotation_status_fieldset_exists'} ) {
 		my $annotation_status_fieldset_display = $self->_should_display_fieldset('annotation_status') ? HIDE : SHOW;
-		say qq(<li><a href="" class="button" id="show_annotation_status">$annotation_status_fieldset_display</a>);
-		say q(Annotation status</li>);
+		say q(<li><a href="" class="button fieldset_trigger" id="show_annotation_status">)
+		  . qq($annotation_status_fieldset_display</a>Annotation status</li>);
 	}
 	if ( $self->{'seqbin_fieldset_exists'} ) {
 		my $seqbin_fieldset_display = $self->_should_display_fieldset('seqbin') ? HIDE : SHOW;
-		say qq(<li><a href="" class="button" id="show_seqbin">$seqbin_fieldset_display</a>);
+		say qq(<li><a href="" class="button fieldset_trigger" id="show_seqbin">$seqbin_fieldset_display</a>);
 		say q(Sequence bin</li>);
 	}
 	if ( $self->{'assembly_checks_fieldset_exists'} ) {
 		my $assembly_checks_fieldset_display = $self->_should_display_fieldset('assembly_checks') ? HIDE : SHOW;
-		say qq(<li><a href="" class="button" id="show_assembly_checks">$assembly_checks_fieldset_display</a>);
+		say q(<li><a href="" class="button fieldset_trigger" id="show_assembly_checks">)
+		  . qq($assembly_checks_fieldset_display</a>);
 		say q(Assembly checks</li>);
 	}
 	if ( $self->{'tags_fieldset_exists'} ) {
 		my $tag_count_fieldset_display = $self->_should_display_fieldset('tag_count') ? HIDE : SHOW;
-		say qq(<li><a href="" class="button" id="show_tag_count">$tag_count_fieldset_display</a>);
+		say qq(<li><a href="" class="button fieldset_trigger" id="show_tag_count">$tag_count_fieldset_display</a>);
 		say q(Tagged sequence counts</li>);
 		my $tags_fieldset_display = $self->_should_display_fieldset('tags') ? HIDE : SHOW;
-		say qq(<li><a href="" class="button" id="show_tags">$tags_fieldset_display</a>);
+		say qq(<li><a href="" class="button fieldset_trigger" id="show_tags">$tags_fieldset_display</a>);
 		say q(Tagged sequence status</li>);
 	}
 	my $list_fieldset_display = $self->{'prefs'}->{'list_fieldset'}
 	  || $q->param('list') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button" id="show_list">$list_fieldset_display</a>);
+	say qq(<li><a href="" class="button fieldset_trigger" id="show_list">$list_fieldset_display</a>);
 	say q(Attribute values list</li>);
 	my $filters_fieldset_display = $self->{'prefs'}->{'filters_fieldset'}
 	  || $self->filters_selected ? HIDE : SHOW;
-	say qq(<li><a href="" class="button" id="show_filters">$filters_fieldset_display</a>);
+	say qq(<li><a href="" class="button fieldset_trigger" id="show_filters">$filters_fieldset_display</a>);
 	say q(Filters</li>);
 	say q(</ul>);
 	my $save = SAVE;
@@ -3969,8 +3971,27 @@ sub get_javascript {
 		  annotation_status seqbin assembly_checks tag_count tags list filters)
 	);
 	my $ajax_load = << "END";
+//Render multiselect lists when fieldset first triggered.
+\$('.fieldset_trigger').on('click', function(){
+	console.log(this.id);
+	let query_fields = {
+		show_allele_designations: 'designation_field1',
+		show_allele_count: 'allele_count_field1',
+		show_allele_status: 'allele_status_field1',
+		show_tag_count: 'tag_count_field1',
+		show_tags: 'tag_field1',
+		show_list: 'attribute'
+	};
+	if (query_fields[this.id]){
+		render_locuslists('#' + query_fields[this.id]);	
+	}
+});
+
 var script_path = \$(location).attr('href');script_path = script_path.split('?')[0];
 var fieldset_url=script_path + '?db=' + \$.urlParam('db') + '&page=query&no_header=1';
+
+
+
 END
 	my %fields = (
 		phenotypic          => 'phenotypic',
@@ -3987,6 +4008,9 @@ END
 	foreach my $fieldset ( keys %fields ) {
 		if ( !$self->_highest_entered_fields( $fields{$fieldset} ) ) {
 			$ajax_load .= << "END";
+
+
+
 if (\$('fieldset#${fieldset}_fieldset').length){
 	\$('fieldset#${fieldset}_fieldset div').filter(':visible')
 	.html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...')
@@ -4174,20 +4198,7 @@ function render_locuslists(selector){
 	}).multiselectfilter({
 		placeholder: 'Search'
 	});
-	\$(selector).filter(':visible').multiselect("refresh");
-	setTimeout(function(){
-		\$(selector).filter(':hidden').multiselect({
-			noneSelectedText: "Please select...",
-			selectedList: 1,
-			menuHeight: 250,
-			menuWidth: 300,
-			classes: 'filter',
-		}).multiselectfilter({
-			placeholder: 'Search'
-		});
-		\$(selector).filter(':hidden').multiselect("refresh");
-	},3000);		
-		
+//	\$(selector).filter(':visible').multiselect("refresh");			
 }
 
 function refresh_filters(){
