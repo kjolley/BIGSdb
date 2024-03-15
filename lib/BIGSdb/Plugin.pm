@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -192,27 +192,49 @@ sub print_isolate_fields_fieldset {
 	my $fields         = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
 	my $display_fields = [];
 	my $labels         = {};
+	my @group_list     = split /,/x, ( $self->{'system'}->{'field_groups'} // q() );
+	my $group_members  = {};
+	my $attributes     = $self->{'xmlHandler'}->get_all_field_attributes;
+
 	foreach my $field (@$fields) {
-		push @$display_fields, $field;
+		if ( $attributes->{$field}->{'group'} ) {
+			push @{ $group_members->{ $attributes->{$field}->{'group'} } }, $field;
+		} else {
+			push @{ $group_members->{'General'} }, $field;
+		}
 		my $label = $field;
 		$label =~ tr/_/ /;
 		$labels->{$field} = $label;
 		if ( $field eq $self->{'system'}->{'labelfield'} && !$options->{'no_aliases'} ) {
-			push @$display_fields, 'aliases';
+			push @{ $group_members->{'General'} }, 'aliases';
 		}
 		if ( $options->{'extended_attributes'} ) {
 			my $extended = $self->get_extended_attributes;
 			my $extatt   = $extended->{$field};
 			if ( ref $extatt eq 'ARRAY' ) {
 				foreach my $extended_attribute (@$extatt) {
-					push @$display_fields, "${field}___$extended_attribute";
+					if ( $attributes->{$field}->{'group'} ) {
+						push @{ $group_members->{ $attributes->{$field}->{'group'} } },
+						  "${field}___$extended_attribute";
+					} else {
+						push @{ $group_members->{'General'} }, "${field}___$extended_attribute";
+					}
 					( $labels->{"${field}___$extended_attribute"} = $extended_attribute ) =~ tr/_/ /;
 				}
 			}
 		}
 	}
+	my $q = $self->{'cgi'};
+	foreach my $group ( undef, @group_list ) {
+		my $name = $group // 'General';
+		$name =~ s/\|.+$//x;
+		if ( ref $group_members->{$name} ) {
+			push @$display_fields,
+			  $q->optgroup( -name => $name, -values => $group_members->{$name}, -labels => $labels );
+		}
+	}
 	say q(<fieldset style="float:left"><legend>Provenance fields</legend>);
-	say $self->popup_menu(
+	say $q->scrolling_list(
 		-name     => 'fields',
 		-id       => 'fields',
 		-values   => $display_fields,
@@ -221,34 +243,63 @@ sub print_isolate_fields_fieldset {
 		-size     => $options->{'size'} // 8,
 		-default  => $options->{'default'}
 	);
-	say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("fields",true)' )
-	  . q(value="All" style="margin-top:1em" class="small_submit" /><input type="button" )
-	  . q(onclick='listbox_selectall("fields",false)' value="None" style="margin:1em 0 0 0.2em" class="small_submit" />)
-	  . q(</div>);
+	if ( !$options->{'no_all_none'} ) {
+		say q(<div style="text-align:center">);
+		say q(<input type="button" onclick='listbox_selectall("fields",true)' )
+		  . q(value="All" style="margin-top:1em" class="small_submit" /><input type="button" )
+		  . q(onclick='listbox_selectall("fields",false)' value="None" style="margin:1em 0 0 0.2em" class="small_submit" />);
+		say q(</div>);
+	}
 	say q(</fieldset>);
 	return;
 }
 
 sub print_eav_fields_fieldset {
 	my ( $self, $options ) = @_;
-	my $eav_fields = $self->{'datastore'}->get_eav_fieldnames;
+	my $eav_fields = $self->{'datastore'}->get_eav_fields;
 	return if !@$eav_fields;
-	my $labels = {};
-	( $labels->{$_} = $_ ) =~ tr/_/ / foreach @$eav_fields;
+	my @group_list = split /,/x, ( $self->{'system'}->{'eav_groups'} // q() );
+	my $values     = [];
+	my $labels     = {};
+	my $q          = $self->{'cgi'};
+	if (@group_list) {
+		my $eav_groups    = { map { $_->{'field'} => $_->{'category'} } @$eav_fields };
+		my $group_members = {};
+		foreach my $eav_field (@$eav_fields) {
+			my $fieldname = $eav_field->{'field'};
+			( $labels->{$fieldname} = $fieldname ) =~ tr/_/ /;
+			if ( $eav_groups->{$fieldname} ) {
+				push @{ $group_members->{ $eav_groups->{$fieldname} } }, $fieldname;
+			} else {
+				push @{ $group_members->{'General'} }, $fieldname;
+			}
+		}
+		foreach my $group ( undef, @group_list ) {
+			my $name = $group // 'General';
+			$name =~ s/\|.+$//x;
+			if ( ref $group_members->{$name} ) {
+				push @$values, $q->optgroup( -name => $name, -values => $group_members->{$name}, -labels => $labels );
+			}
+		}
+	} else {
+		$values = $self->{'datastore'}->get_eav_fieldnames;
+	}
 	my $legend = $self->{'system'}->{'eav_fields'} // 'Secondary metadata';
 	say qq(<fieldset style="float:left"><legend>$legend</legend>);
-	say $self->popup_menu(
+	say $q->scrolling_list(
 		-name     => 'eav_fields',
 		-id       => 'eav_fields',
-		-values   => $eav_fields,
+		-values   => $values,
 		-labels   => $labels,
 		-multiple => 'true',
 		-size     => $options->{'size'} // 8,
 	);
-	say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("eav_fields",true)' )
-	  . q(value="All" style="margin-top:1em" class="small_submit" /><input type="button" )
-	  . q(onclick='listbox_selectall("eav_fields",false)' value="None" style="margin:1em 0 0 0.2em" )
-	  . q(class="small_submit" /></div>);
+	if ( !$options->{'no_all_none'} ) {
+		say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("eav_fields",true)' )
+		  . q(value="All" style="margin-top:1em" class="small_submit" /><input type="button" )
+		  . q(onclick='listbox_selectall("eav_fields",false)' value="None" style="margin:1em 0 0 0.2em" )
+		  . q(class="small_submit" /></div>);
+	}
 	say q(</fieldset>);
 	return;
 }
@@ -263,11 +314,7 @@ sub print_composite_fields_fieldset {
 		foreach my $field (@$composites) {
 			( $labels->{$field} = $field ) =~ tr/_/ /;
 		}
-		say q(<fieldset style="float:left"><legend>Composite fields);
-		say $self->get_tooltip( q(Composite fields - These are constructed from combinations of )
-			  . q(other fields (some of which may come from external databases). Including composite fields )
-			  . q(will slow down the processing.) );
-		say q(</legend>);
+		say q(<fieldset style="float:left"><legend>Composite fields</legend>);
 		say $self->popup_menu(
 			-name     => 'composite_fields',
 			-id       => 'composite_fields',
@@ -276,6 +323,9 @@ sub print_composite_fields_fieldset {
 			-multiple => 'true',
 			-class    => 'multiselect'
 		);
+		say $self->get_tooltip( q(Composite fields - These are constructed from combinations of )
+			  . q(other fields (some of which may come from external databases). Including composite fields )
+			  . q(will slow down the processing.) );
 		say q(</fieldset>);
 	}
 	return;

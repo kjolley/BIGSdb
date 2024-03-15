@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext => 'Dataset',
 		menutext   => 'Dataset',
 		module     => 'Export',
-		version    => '1.10.1',
+		version    => '1.11.0',
 		dbtype     => 'isolates',
 		section    => 'export,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
@@ -65,7 +65,7 @@ sub get_attributes {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.jstree' => 1 };
+	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1 };
 }
 
 sub get_plugin_javascript {
@@ -85,6 +85,13 @@ function enable_private_controls(){
 \$(document).ready(function(){ 
 	enable_ref_controls();
 	enable_private_controls();
+	\$('#fields,#eav_fields,#composite_fields,#locus,#classification_schemes').multiselect({
+ 		classes: 'filter',
+ 		menuHeight: 250,
+ 		menuWidth: 400,
+ 		selectedList: 8
+  	});
+ 	\$('#locus').multiselectfilter();
 }); 
 END
 	return $js;
@@ -204,11 +211,6 @@ sub _print_classification_scheme_fields {
 		-multiple => 'true',
 		-style    => 'width:100%'
 	);
-	say
-	  q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("classification_schemes",true)' )
-	  . q(value="All" style="margin-top:1em" class="small_submit" /><input type="button" )
-	  . q(onclick='listbox_selectall("classification_schemes",false)' value="None" style="margin:1em 0 0 0.2em" )
-	  . q(class="small_submit" /></div>);
 	say q(</fieldset>);
 	return;
 }
@@ -359,12 +361,13 @@ sub _print_interface {
 	}
 	say $q->start_form;
 	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $selected_ids, isolate_paste_list => 1 } );
-	$self->print_isolate_fields_fieldset( { extended_attributes => 1, default => ['id'] } );
-	$self->print_eav_fields_fieldset;
+	$self->print_isolate_fields_fieldset(
+		{ extended_attributes => 1, default => [ 'id', $self->{'system'}->{'labelfield'} ], no_all_none => 1 } );
+	$self->print_eav_fields_fieldset( { no_all_none => 1 } );
 	$self->print_composite_fields_fieldset;
 	$self->_print_ref_fields;
 	$self->_print_private_fieldset;
-	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
+	$self->print_isolates_locus_fieldset( { locus_paste_list => 1, no_all_none => 1 } );
 	$self->print_scheme_fieldset( { fields_or_loci => 1 } );
 	$self->_print_classification_scheme_fields;
 	$self->_print_options;
