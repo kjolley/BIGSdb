@@ -3988,9 +3988,14 @@ END
 		if ( !$self->_highest_entered_fields( $fields{$fieldset} ) ) {
 			$ajax_load .= << "END";
 if (\$('fieldset#${fieldset}_fieldset').length){
-	\$('fieldset#${fieldset}_fieldset div')
+	\$('fieldset#${fieldset}_fieldset div').filter(':visible')
 	.html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...')
-	.load(fieldset_url + '&fieldset=$fieldset&ajax=1')
+	.load(fieldset_url + '&fieldset=$fieldset&ajax=1');
+	setTimeout(function(){
+		\$('fieldset#${fieldset}_fieldset div').filter(':hidden')
+		.html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...')
+		.load(fieldset_url + '&fieldset=$fieldset&ajax=1');
+	},100);	
 };
 END
 		}
@@ -3998,9 +4003,14 @@ END
 	if ( !$q->param('list') ) {
 		$ajax_load .= << "END";
 if (\$('fieldset#list_fieldset').length){
-  \$('fieldset#list_fieldset div')
+  \$('fieldset#list_fieldset div').filter(':visible')
   .html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...')
-  .load(fieldset_url + '&fieldset=list&ajax=1')
+  .load(fieldset_url + '&fieldset=list&ajax=1');
+  setTimeout(function(){
+	  \$('fieldset#list_fieldset div').filter(':hidden')
+	  .html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...')
+	  .load(fieldset_url + '&fieldset=list&ajax=1');  	
+  },100);	
 };
 END
 	}
