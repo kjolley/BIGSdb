@@ -3970,10 +3970,32 @@ sub get_javascript {
 		qw(provenance phenotypic allele_designations sequence_variation allele_count allele_status
 		  annotation_status seqbin assembly_checks tag_count tags list filters)
 	);
+	my %fields = (
+		phenotypic          => 'phenotypic',
+		allele_designations => 'loci',
+		sequence_variation  => 'sequence_variation',
+		allele_count        => 'allele_count',
+		allele_status       => 'allele_status',
+		annotation_status   => 'annotation_status',
+		seqbin              => 'seqbin',
+		assembly_checks     => 'assembly_checks',
+		tag_count           => 'tag_count',
+		tags                => 'tags'
+	);
+	my @fieldsets_with_no_entered_values;
+	foreach my $fieldset ( keys %fields ) {
+		push @fieldsets_with_no_entered_values, $fieldset if !$self->_highest_entered_fields( $fields{$fieldset} )
+	}
+	if ( !$q->param('list') ) {
+		push @fieldsets_with_no_entered_values,'list';
+	}
+	
+	local $" = q(',');
+	my $fieldsets_with_no_entered_values = qq('@fieldsets_with_no_entered_values');
+	$logger->error($fieldsets_with_no_entered_values);
 	my $ajax_load = << "END";
 //Render multiselect lists when fieldset first triggered.
 \$('.fieldset_trigger').on('click', function(){
-	console.log(this.id);
 	let query_fields = {
 		show_allele_designations: 'designation_field1',
 		show_allele_count: 'allele_count_field1',
@@ -3987,57 +4009,28 @@ sub get_javascript {
 	}
 });
 
+//Load fieldsets. Delay loading hidden fieldsets by 100ms to give the dashboard time
+//to render.
 var script_path = \$(location).attr('href');script_path = script_path.split('?')[0];
 var fieldset_url=script_path + '?db=' + \$.urlParam('db') + '&page=query&no_header=1';
-
-
-
-END
-	my %fields = (
-		phenotypic          => 'phenotypic',
-		allele_designations => 'loci',
-		sequence_variation  => 'sequence_variation',
-		allele_count        => 'allele_count',
-		allele_status       => 'allele_status',
-		annotation_status   => 'annotation_status',
-		seqbin              => 'seqbin',
-		assembly_checks     => 'assembly_checks',
-		tag_count           => 'tag_count',
-		tags                => 'tags'
-	);
-	foreach my $fieldset ( keys %fields ) {
-		if ( !$self->_highest_entered_fields( $fields{$fieldset} ) ) {
-			$ajax_load .= << "END";
-
-
-
-if (\$('fieldset#${fieldset}_fieldset').length){
-	\$('fieldset#${fieldset}_fieldset div').filter(':visible')
-	.html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...')
-	.load(fieldset_url + '&fieldset=$fieldset&ajax=1');
-	setTimeout(function(){
-		\$('fieldset#${fieldset}_fieldset div').filter(':hidden')
+let fieldsets_with_no_entered_values = [$fieldsets_with_no_entered_values];
+let i = 0;
+for (i = 0; i < fieldsets_with_no_entered_values.length; ++i) {
+    let fieldset = fieldsets_with_no_entered_values[i];
+    if (\$('fieldset#' + fieldset + '_fieldset').length){
+		\$('fieldset#' + fieldset + '_fieldset div').filter(':visible')
 		.html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...')
-		.load(fieldset_url + '&fieldset=$fieldset&ajax=1');
+		.load(fieldset_url + '&fieldset=' + fieldset + '&ajax=1');
+	setTimeout(function(){
+		\$('fieldset#' + fieldset + '_fieldset div').filter(':hidden')
+		.html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...')
+		.load(fieldset_url + '&fieldset=' + fieldset + '&ajax=1');
 	},100);	
 };
+}
+
 END
-		}
-	}
-	if ( !$q->param('list') ) {
-		$ajax_load .= << "END";
-if (\$('fieldset#list_fieldset').length){
-  \$('fieldset#list_fieldset div').filter(':visible')
-  .html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...')
-  .load(fieldset_url + '&fieldset=list&ajax=1');
-  setTimeout(function(){
-	  \$('fieldset#list_fieldset div').filter(':hidden')
-	  .html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...')
-	  .load(fieldset_url + '&fieldset=list&ajax=1');  	
-  },100);	
-};
-END
-	}
+
 	$buffer .= << "END";
 \$(function () {
   	\$('#query_modifier').css({display:"block"});
@@ -4186,8 +4179,6 @@ function render_loaded_locuslists() {
 	render_locuslists("select.locuslist");
 }
 
-//Delay rendering of hidden dropdown boxes to enable dashboard display
-//to render quicker.
 function render_locuslists(selector){
 	\$(selector).filter(':visible').multiselect({
 		noneSelectedText: "Please select...",
