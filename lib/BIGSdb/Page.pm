@@ -3158,7 +3158,8 @@ sub print_isolates_locus_fieldset {
 	my $analysis_pref = $options->{'analysis_pref'} // 1;
 	my ( $locus_list, $locus_labels ) =
 	  $self->get_field_selection_list(
-		{ loci => 1, analysis_pref => $analysis_pref, query_pref => 0, sort_labels => 1 } );
+		{ loci => 1, no_list_by_common_name => 1, analysis_pref => $analysis_pref, query_pref => 0, sort_labels => 1 }
+	  );
 	if (@$locus_list) {
 		say q(<div style="float:left">);
 		my $size          = $options->{'size'} // 8;
@@ -3187,19 +3188,21 @@ sub print_isolates_locus_fieldset {
 		}
 		say q(<div style="clear:both"></div>);
 		my $list_button = q();
+		say q(<div style="text-align:center">);
+		if ( !$options->{'no_all_none'} ) {
+			say q(<input type="button" onclick='listbox_selectall("locus",true)' )
+			  . q(value="All" style="margin-top:1em" class="small_submit" /><input type="button" )
+			  . q(onclick='listbox_selectall("locus",false)' value="None" style="margin:1em 0 0 0.2em" class="small_submit" />);
+		}
 		if ( $options->{'locus_paste_list'} ) {
 			my $show_button_display = $q->param('locus_paste_list') ? 'none'    : 'display';
 			my $hide_button_display = $q->param('locus_paste_list') ? 'display' : 'none';
-			$list_button =
-				q(<input type="button" id="locus_list_show_button" onclick='locus_list_show()' value="Paste list" )
+			say q(<input type="button" id="locus_list_show_button" onclick='locus_list_show()' value="Paste list" )
 			  . qq(style="margin:1em 0 0 0.2em;display:$show_button_display" class="small_submit" />)
 			  . q(<input type="button" id="locus_list_hide_button" onclick='locus_list_hide()' value="Hide list" )
 			  . qq(style="margin:1em 0 0 0.2em;display:$hide_button_display" class="small_submit" />);
 		}
-		say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("locus",true)' )
-		  . q(value="All" style="margin-top:1em" class="small_submit" /><input type="button" )
-		  . q(onclick='listbox_selectall("locus",false)' value="None" style="margin:1em 0 0 0.2em" class="small_submit" />)
-		  . qq($list_button</div>);
+		say q(</div>);
 	} else {
 		say q(No loci available<br />for analysis);
 	}
