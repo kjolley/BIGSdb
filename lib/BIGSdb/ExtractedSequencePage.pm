@@ -269,7 +269,7 @@ sub get_option_fieldset {
 	my $q      = $self->{'cgi'};
 	my $buffer = q(<fieldset style="float:right"><legend>Options</legend>);
 	$buffer .= $q->start_form;
-	$buffer .= q(<ul></li>);
+	$buffer .= q(<ul><li>);
 	$buffer .= q(<label for="flanking">Flanking sequence length: </label>);
 	$buffer .= $q->popup_menu( -name => 'flanking', -values => [FLANKING], -default => $self->{'prefs'}->{'flanking'} );
 	$buffer .= q(</li></ul>);
