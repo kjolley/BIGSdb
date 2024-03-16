@@ -3992,44 +3992,6 @@ sub get_javascript {
 	
 	local $" = q(',');
 	my $fieldsets_with_no_entered_values = qq('@fieldsets_with_no_entered_values');
-	$logger->error($fieldsets_with_no_entered_values);
-	my $ajax_load = << "END";
-//Render multiselect lists when fieldset first triggered.
-\$('.fieldset_trigger').on('click', function(){
-	let query_fields = {
-		show_allele_designations: 'designation_field1',
-		show_allele_count: 'allele_count_field1',
-		show_allele_status: 'allele_status_field1',
-		show_tag_count: 'tag_count_field1',
-		show_tags: 'tag_field1',
-		show_list: 'attribute'
-	};
-	if (query_fields[this.id]){
-		render_locuslists('#' + query_fields[this.id]);	
-	}
-});
-
-//Load fieldsets. Delay loading hidden fieldsets by 100ms to give the dashboard time
-//to render.
-var script_path = \$(location).attr('href');script_path = script_path.split('?')[0];
-var fieldset_url=script_path + '?db=' + \$.urlParam('db') + '&page=query&no_header=1';
-let fieldsets_with_no_entered_values = [$fieldsets_with_no_entered_values];
-let i = 0;
-for (i = 0; i < fieldsets_with_no_entered_values.length; ++i) {
-    let fieldset = fieldsets_with_no_entered_values[i];
-    if (\$('fieldset#' + fieldset + '_fieldset').length){
-		\$('fieldset#' + fieldset + '_fieldset div').filter(':visible')
-		.html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...')
-		.load(fieldset_url + '&fieldset=' + fieldset + '&ajax=1');
-	setTimeout(function(){
-		\$('fieldset#' + fieldset + '_fieldset div').filter(':hidden')
-		.html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...')
-		.load(fieldset_url + '&fieldset=' + fieldset + '&ajax=1');
-	},100);	
-};
-}
-
-END
 
 	$buffer .= << "END";
 \$(function () {
@@ -4053,7 +4015,41 @@ END
  	}).multiselectfilter();
  	render_loaded_locuslists();
 $panel_js
-	$ajax_load
+	//Render multiselect lists when fieldset first triggered.
+	\$('.fieldset_trigger').on('click', function(){
+		let query_fields = {
+			show_allele_designations: 'designation_field1',
+			show_allele_count: 'allele_count_field1',
+			show_allele_status: 'allele_status_field1',
+			show_tag_count: 'tag_count_field1',
+			show_tags: 'tag_field1',
+			show_list: 'attribute'
+		};
+		if (query_fields[this.id]){
+			render_locuslists('#' + query_fields[this.id]);	
+		}
+	});
+	
+	//Load fieldsets. Delay loading hidden fieldsets by 100ms to give the dashboard time
+	//to render.
+	var script_path = \$(location).attr('href');script_path = script_path.split('?')[0];
+	var fieldset_url=script_path + '?db=' + \$.urlParam('db') + '&page=query&no_header=1';
+	let fieldsets_with_no_entered_values = [$fieldsets_with_no_entered_values];
+	var i = 0;
+	for (i = 0; i < fieldsets_with_no_entered_values.length; ++i) {
+	    let fieldset = fieldsets_with_no_entered_values[i];
+	    if (\$('fieldset#' + fieldset + '_fieldset').length){
+			\$('fieldset#' + fieldset + '_fieldset div').filter(':visible')
+			.html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...')
+			.load(fieldset_url + '&fieldset=' + fieldset + '&ajax=1');
+			setTimeout(function(){
+				\$('fieldset#' + fieldset + '_fieldset div').filter(':hidden')
+				.html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...')
+				.load(fieldset_url + '&fieldset=' + fieldset + '&ajax=1');
+			},100);	
+		};
+	}
+	
 	\$(document).on("ajaxComplete", function(event, xhr, settings) {
         setTooltips();
         initiate_autocomplete();
@@ -4189,7 +4185,6 @@ function render_locuslists(selector){
 	}).multiselectfilter({
 		placeholder: 'Search'
 	});
-//	\$(selector).filter(':visible').multiselect("refresh");			
 }
 
 function refresh_filters(){

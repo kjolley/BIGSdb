@@ -116,7 +116,6 @@ END
 sub get_javascript {
 	my ($self)         = @_;
 	my $max_rows       = MAX_ROWS;
-	my $close_panel_js = $self->_get_close_panel_js;
 	my $buffer         = $self->SUPER::get_javascript;
 	$buffer .= << "END";
 \$(function () {
@@ -125,26 +124,8 @@ sub get_javascript {
      		return(this.href.replace(/(.*)/, "javascript:loadContent\('\$1\'\)"));
     	});
   	});
-	$close_panel_js
- });
- 
-function add_rows(url,list_name,row_name,row,field_heading,button_id){
-	var new_row = row+1;
-	\$("ul#"+list_name).append('<li id="' + row_name + row + '"></li>');
-	\$("li#"+row_name+row).html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...').load(url);
-	url = url.replace(/row=\\d+/,'row='+new_row);
-	\$("#"+button_id).attr('href',url);
-	\$("span#"+field_heading).show();
-	if (new_row > $max_rows){
-		\$("#"+button_id).hide();
-	}
-}
-END
-	return $buffer;
-}
-
-sub _get_close_panel_js {
-	return << "JS";
+  	
+  	//Close panel
 	\$(document).mouseup(function(e) {
 		// if the target of the click isn't the container nor a
 		// descendant of the container
@@ -161,7 +142,21 @@ sub _get_close_panel_js {
 			container.hide();
 		}
 	});
-JS
+ });
+ 
+function add_rows(url,list_name,row_name,row,field_heading,button_id){
+	var new_row = row+1;
+	\$("ul#"+list_name).append('<li id="' + row_name + row + '"></li>');
+	\$("li#"+row_name+row).html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...').load(url);
+	url = url.replace(/row=\\d+/,'row='+new_row);
+	\$("#"+button_id).attr('href',url);
+	\$("span#"+field_heading).show();
+	if (new_row > $max_rows){
+		\$("#"+button_id).hide();
+	}
+}
+END
+	return $buffer;
 }
 
 sub filters_selected {
