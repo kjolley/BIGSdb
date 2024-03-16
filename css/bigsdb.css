@@ -1,4 +1,4 @@
-/*Version: 20240313*/
+/*Version: 20240316*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -618,7 +618,8 @@ a.add_button {
 	border-radius: 3px;
 	color: #888;
 	padding: 0 0.5em;
-	font-size: 1em
+	font-size: 1em;
+	max-height: 1.4em;
 }
 
 a.add_button:hover {
