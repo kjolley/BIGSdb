@@ -1316,7 +1316,7 @@ sub _print_modify_search_fieldset {
 	  . q(<ul style="list-style:none;margin-left:-2em">);
 	my $list_fieldset_display = $self->{'prefs'}->{"${table}_list_fieldset"}
 	  || $q->param('list') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button" id="show_list">$list_fieldset_display</a>);
+	say qq(<li><a href="" class="button fieldset_trigger" id="show_list">$list_fieldset_display</a>);
 	say q(Attribute values list</li>);
 	say q(</ul>);
 	my $save = SAVE;

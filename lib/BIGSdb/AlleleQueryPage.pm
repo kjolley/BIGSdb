@@ -445,11 +445,11 @@ sub _print_modify_search_fieldset {
 	}
 	my $list_fieldset_display = $self->{'prefs'}->{'aq_list_fieldset'}
 	  || $q->param('list') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button" id="show_list">$list_fieldset_display</a>);
+	say qq(<li><a href="" class="button fieldset_trigger" id="show_list">$list_fieldset_display</a>);
 	say q(Allele id list box</li>);
 	my $filters_fieldset_display = $self->{'prefs'}->{'aq_filters_fieldset'}
 	  || $self->filters_selected ? HIDE : SHOW;
-	say qq(<li><a href="" class="button" id="show_filters">$filters_fieldset_display</a>);
+	say qq(<li><a href="" class="button fieldset_trigger" id="show_filters">$filters_fieldset_display</a>);
 	say q(Filters</li>);
 	say q(</ul>);
 	my $save = SAVE;

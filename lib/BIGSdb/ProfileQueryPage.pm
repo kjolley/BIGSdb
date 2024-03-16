@@ -959,23 +959,24 @@ sub _print_modify_search_fieldset {
 	  . q(<ul style="list-style:none;margin-left:-2em">);
 	my $scheme_fieldset_display = $self->{'prefs'}->{'scheme_fieldset'}
 	  || $self->_highest_entered_fields ? HIDE : SHOW;
-	say qq(<li><a href="" class="button" id="show_scheme">$scheme_fieldset_display</a>);
+	say qq(<li><a href="" class="button fieldset_trigger" id="show_scheme">$scheme_fieldset_display</a>);
 	say q(Locus/scheme field values</li>);
 	my $list_fieldset_display = $self->{'prefs'}->{'list_fieldset'}
 	  || $q->param('list') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button" id="show_list">$list_fieldset_display</a>);
+	say qq(<li><a href="" class="button fieldset_trigger" id="show_list">$list_fieldset_display</a>);
 	say q(Attribute values list</li>);
 
 	if ( $self->{'filters_present'} ) {
 		my $filter_fieldset_display = $self->{'prefs'}->{'filters_fieldset'}
 		  || $self->filters_selected ? HIDE : SHOW;
-		say qq(<li><a href="" class="button" id="show_filters">$filter_fieldset_display</a>);
+		say qq(<li><a href="" class="button fieldset_trigger" id="show_filters">$filter_fieldset_display</a>);
 		say q(Filters</li>);
 	}
 	say q(</ul>);
 	my $save = SAVE;
-	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . qq(page=query&amp;save_options=1" style="display:none">$save</a> <span id="saving"></span><br />);
+	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?)
+	  . qq(db=$self->{'instance'}&amp;page=query&amp;save_options=1" style="display:none">$save</a> )
+	  . q(<span id="saving"></span><br />);
 	say q(</div>);
 	return;
 }

@@ -71,20 +71,22 @@ q[$('[id^="designation_field"]').val(''),$('[id^="designation_operator"]').val('
 	);
 	my ( $show, $hide, $save, $saving ) = ( SHOW, HIDE, SAVE, SAVING );
 	foreach my $fieldset (@fieldsets) {
-		$button_text_js   .= qq(        var $fieldset = \$("#show_$fieldset").html() == '$show' ? 0 : 1;\n);
+		$button_text_js   .= qq(        var $fieldset = \$("#show_$fieldset").html() == show ? 0 : 1;\n);
 		$new_url          .= qq( + "\&$fieldset=" + $fieldset);
 		$button_toggle_js .= qq[    \$("#show_$fieldset").click(function(event) {\n];
 		$button_toggle_js .= qq[       event.preventDefault();\n];
-		$button_toggle_js .= qq[       if(\$(this).html() == '$hide'){\n];
+		$button_toggle_js .= qq[       if(\$(this).html() == hide){\n];
 		$button_toggle_js .= qq[          $clear_form{$fieldset};\n];
 		$button_toggle_js .= qq[       }\n];
 		$button_toggle_js .= qq[       \$("#${fieldset}_fieldset").toggle(100);\n];
-		$button_toggle_js .= qq[       \$(this).html(\$(this).html() == '$show' ? '$hide' : '$show');\n];
+		$button_toggle_js .= qq[       \$(this).html(\$(this).html() == show ? hide : show);\n];
 		$button_toggle_js .= qq[       \$("a#save_options").fadeIn();\n];
 		$button_toggle_js .= qq[       return false;\n];
 		$button_toggle_js .= qq[    });\n];
 	}
 	my $buffer = <<"END";
+	var show = '$show';
+	var hide = '$hide';
 	$button_toggle_js
 	\$("#panel_trigger,#close_trigger").click(function(){			
 		\$("#modify_panel").toggle("slide",{direction:"right"},"fast");
@@ -98,7 +100,7 @@ q[$('[id^="designation_field"]').val(''),$('[id^="designation_operator"]').val('
 	  		\$("a#save_options").html('$saving').animate({backgroundColor: "#99d"},100).animate({backgroundColor: "#f0f0f0"},100);
 	  		\$("span#saving").text('Saving...');
 	  		var new_url = $new_url;
-		  		\$.ajax({
+		  	\$.ajax({
 	  			url : new_url,
 	  			success: function () {	  				
 	  				\$("a#save_options").hide();
