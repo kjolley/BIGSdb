@@ -257,7 +257,7 @@ sub _print_scheme_fields {
 	say q(<span style="white-space:nowrap">);
 	say $q->popup_menu( -name => "s$row", -values => $selectitems, -labels => $labels, -class => 'fieldlist' );
 	say $q->popup_menu( -name => "y$row", -values => [OPERATORS] );
-	say $q->textfield( -name => "t$row", -class => 'value_entry' );
+	say $q->textfield( -name => "t$row", -id => "t$row", -class => 'value_entry' );
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		print qq(<a id="add_scheme_fields" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)

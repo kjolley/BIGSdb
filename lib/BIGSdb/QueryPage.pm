@@ -46,8 +46,9 @@ sub set_pref_requirements {
 
 sub get_javascript_panel {
 	my ( $self, @fieldsets ) = @_;
+	local $" = q(",");
+	my $fieldset_string = qq("@fieldsets");
 	my $button_text_js;
-	my $button_toggle_js;
 	my $new_url    = 'this.href';
 	my %clear_form = (
 		list       => q[$("#list").val('')],
@@ -55,39 +56,58 @@ sub get_javascript_panel {
 		provenance => q[$('[id^="prov_value"]').val('')],
 		phenotypic => q[$('[id^="phenotypic_value"]').val('')],
 		allele     => q[$('[id^="value"]').val('')],
-		mutations           => q[$('[id^="mutation_value"]').val('')],
-		scheme              => q[$('[id^="value"]').val('')],
-		allele_designations =>
-q[$('[id^="designation_field"]').val(''),$('[id^="designation_operator"]').val(''),$('[id^="designation_value"]').val('')],
+		mutations  => q[$('[id^="mutation_value"]').val('')],
+		scheme     => q[$('[id^="value"]').val('')],
+		allele_designations => q[$('select[id^="designation_field"]').multiselect("uncheckAll"),]
+		  . q[$('[id^="designation_operator"]').val(''),]
+		  . q[$('[id^="designation_value"]').val('')],
 		sequence_variation => q[$('[id^="sequence_variation"]').val('')],
-		allele_count      => q[$('[id^="allele_count"]').val('')],
-		allele_status     => q[$('[id^="allele_status"]').val('')],
-		tags              => q[$('[id^="tag"]').val('')],
-		tag_count         => q[$('[id^="tag_count"]').val('')],
+		allele_count       => q[$('select[id^="allele_count_field"]').multiselect("uncheckAll"),]
+		  . q[$('[id^="allele_count_operator"]').val(''),]
+		  . q[$('[id^="allele_count_value"]').val('')],
+		allele_status => q[$('select[id^="allele_status_field"]').multiselect("uncheckAll"),]
+		  . q[$('[id^="allele_status_value"]').val('')],
+		tags      => q[$('select[id^="tag_field"]').multiselect("uncheckAll"),] . q[$('[id^="tag_value"]').val('')],
+		tag_count => q[$('select[id^="tag_count_field"]').multiselect("uncheckAll"),]
+		  . q[$('[id^="tag_count_operator"]').val(''),]
+		  . q[$('[id^="tag_count_value"]').val('')],
+		,
 		seqbin            => q[$('[id^="seqbin_value"]').val('');$('[id^="seqbin_field"]').val('')],
 		assembly_checks   => q[$('[id^="assembly_checks_value"]').val('');$('[id^="assembly_checks_field"]').val('')],
 		annotation_status =>
-		  q[$('[id^="annotation_status_value"]').val('');$('[id^="annotation_status_field"]').val('')]
+		  q[$('[id^="annotation_status_value"]').val('');$('[id^="annotation_status_field"]').val('')],
+		scheme => q[$('[id^="t"]').val('')],
 	);
+	my @clear_form_directives;
+	foreach my $fieldset (@fieldsets) {
+		push @clear_form_directives, qq(        $fieldset: function(){$clear_form{$fieldset}});
+	}
+	local $" = qq(,\n);
+	my $clear_form_values = qq(@clear_form_directives);
 	my ( $show, $hide, $save, $saving ) = ( SHOW, HIDE, SAVE, SAVING );
 	foreach my $fieldset (@fieldsets) {
-		$button_text_js   .= qq(        var $fieldset = \$("#show_$fieldset").html() == show ? 0 : 1;\n);
-		$new_url          .= qq( + "\&$fieldset=" + $fieldset);
-		$button_toggle_js .= qq[    \$("#show_$fieldset").click(function(event) {\n];
-		$button_toggle_js .= qq[       event.preventDefault();\n];
-		$button_toggle_js .= qq[       if(\$(this).html() == hide){\n];
-		$button_toggle_js .= qq[          $clear_form{$fieldset};\n];
-		$button_toggle_js .= qq[       }\n];
-		$button_toggle_js .= qq[       \$("#${fieldset}_fieldset").toggle(100);\n];
-		$button_toggle_js .= qq[       \$(this).html(\$(this).html() == show ? hide : show);\n];
-		$button_toggle_js .= qq[       \$("a#save_options").fadeIn();\n];
-		$button_toggle_js .= qq[       return false;\n];
-		$button_toggle_js .= qq[    });\n];
+		$button_text_js .= qq(        var $fieldset = \$("#show_$fieldset").html() == show ? 0 : 1;\n);
+		$new_url        .= qq( + "\&$fieldset=" + $fieldset);
 	}
 	my $buffer = <<"END";
 	var show = '$show';
 	var hide = '$hide';
-	$button_toggle_js
+	var fieldsets = [$fieldset_string];
+	var clear_form = {
+$clear_form_values
+	};
+	\$(".fieldset_trigger").click(function(event) {
+		let fieldset = this.id.replace('show_','');
+		event.preventDefault();
+		if(\$(this).html() == hide){
+			clear_form[fieldset]();
+		}
+		\$("#" + fieldset + "_fieldset").toggle(100);
+		\$(this).html(\$(this).html() == show ? hide : show);
+		\$("a#save_options").fadeIn();
+		return false;
+	});
+	
 	\$("#panel_trigger,#close_trigger").click(function(){			
 		\$("#modify_panel").toggle("slide",{direction:"right"},"fast");
 		return false;
@@ -95,7 +115,7 @@ q[$('[id^="designation_field"]').val(''),$('[id^="designation_operator"]').val('
 	\$("#panel_trigger").show();
 	\$("a#save_options").click(function(event){		
 		event.preventDefault();
-		$button_text_js
+$button_text_js
 	  	\$(this).attr('href', function(){  	
 	  		\$("a#save_options").html('$saving').animate({backgroundColor: "#99d"},100).animate({backgroundColor: "#f0f0f0"},100);
 	  		\$("span#saving").text('Saving...');
@@ -116,9 +136,9 @@ END
 }
 
 sub get_javascript {
-	my ($self)         = @_;
-	my $max_rows       = MAX_ROWS;
-	my $buffer         = $self->SUPER::get_javascript;
+	my ($self)   = @_;
+	my $max_rows = MAX_ROWS;
+	my $buffer   = $self->SUPER::get_javascript;
 	$buffer .= << "END";
 \$(function () {
 	\$('div#queryform').on('click', 'a[data-rel=ajax]',function(){

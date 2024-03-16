@@ -426,7 +426,7 @@ sub _print_modify_search_fieldset {
 	  . q(<ul style="list-style:none;margin-left:-2em">);
 	my $allele_fieldset_display = $self->{'prefs'}->{'aq_allele_fieldset'}
 	  || $self->_highest_entered_fields('alleles') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button" id="show_allele">$allele_fieldset_display</a>);
+	say qq(<li><a href="" class="button fieldset_trigger" id="show_allele">$allele_fieldset_display</a>);
 	say q(Allele fields</li>);
 	my $locus = $q->param('locus');
 
@@ -439,7 +439,7 @@ sub _print_modify_search_fieldset {
 		if ($mutations) {
 			my $mutation_fieldset_display = $self->{'prefs'}->{'aq_mutations_fieldset'}
 			  || $self->_highest_entered_fields('mutations') ? HIDE : SHOW;
-			say qq(<li><a href="" class="button" id="show_mutations">$mutation_fieldset_display</a>);
+			say qq(<li><a href="" class="button fieldset_trigger" id="show_mutations">$mutation_fieldset_display</a>);
 			say q(Sequence variation</li>);
 		}
 	}

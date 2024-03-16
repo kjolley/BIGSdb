@@ -1076,7 +1076,8 @@ sub _print_modify_search_fieldset {
 	say q(Allele designations/scheme field values</li>);
 	if ( $self->{'sequence_variation_fieldset_exists'} ) {
 		my $sequence_variation_fieldset_display = $self->_should_display_fieldset('sequence_variation') ? HIDE : SHOW;
-		say qq(<li><a href="" class="button" id="show_sequence_variation">$sequence_variation_fieldset_display</a>);
+		say q(<li><a href="" class="button fieldset_trigger" id="show_sequence_variation">)
+		  . qq($sequence_variation_fieldset_display</a>);
 		say q(Sequence variation</li>);
 	}
 	my $allele_count_fieldset_display = $self->_should_display_fieldset('allele_count') ? HIDE : SHOW;
@@ -1088,7 +1089,8 @@ sub _print_modify_search_fieldset {
 	if ( $self->{'annotation_status_fieldset_exists'} ) {
 		my $annotation_status_fieldset_display = $self->_should_display_fieldset('annotation_status') ? HIDE : SHOW;
 		say q(<li><a href="" class="button fieldset_trigger" id="show_annotation_status">)
-		  . qq($annotation_status_fieldset_display</a>Annotation status</li>);
+		  . qq($annotation_status_fieldset_display</a>);
+		  say q(Annotation status</li>);
 	}
 	if ( $self->{'seqbin_fieldset_exists'} ) {
 		my $seqbin_fieldset_display = $self->_should_display_fieldset('seqbin') ? HIDE : SHOW;
@@ -3984,15 +3986,13 @@ sub get_javascript {
 	);
 	my @fieldsets_with_no_entered_values;
 	foreach my $fieldset ( keys %fields ) {
-		push @fieldsets_with_no_entered_values, $fieldset if !$self->_highest_entered_fields( $fields{$fieldset} )
+		push @fieldsets_with_no_entered_values, $fieldset if !$self->_highest_entered_fields( $fields{$fieldset} );
 	}
 	if ( !$q->param('list') ) {
-		push @fieldsets_with_no_entered_values,'list';
+		push @fieldsets_with_no_entered_values, 'list';
 	}
-	
 	local $" = q(',');
 	my $fieldsets_with_no_entered_values = qq('@fieldsets_with_no_entered_values');
-
 	$buffer .= << "END";
 \$(function () {
   	\$('#query_modifier').css({display:"block"});
