@@ -1,6 +1,6 @@
 #BLAST.pm - BLAST plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -115,7 +115,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.5.3',
+		version     => '1.6.0',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -131,6 +131,14 @@ sub get_attributes {
 
 sub get_plugin_javascript {
 	my $buffer = << "END";
+\$(document).ready(function(){ 
+	\$('#include_fields').multiselect({
+ 		classes: 'filter',
+ 		menuHeight: 250,
+ 		menuWidth: 400,
+ 		selectedList: 8
+  	}).multiselectfilter();
+}); 
 function listbox_selectall(listID, isSelect) {
 	var listbox = document.getElementById(listID);
 	for(var count=0; count < listbox.options.length; count++) {
@@ -138,8 +146,13 @@ function listbox_selectall(listID, isSelect) {
 	}
 }
 
+
 END
 	return $buffer;
+}
+
+sub get_initiation_values {
+	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1 };
 }
 
 sub run {
@@ -180,7 +193,7 @@ sub run {
 		$self->_print_interface;
 		return;
 	}
-	my @includes = $q->multi_param('includes');
+	my @includes = $q->multi_param('include_fields');
 	my $seq      = $q->param('sequence');
 	if ( @ids > MAX_INSTANT_RUN || $q->param('tblastx') ) {
 		my $att       = $self->get_attributes;
@@ -189,7 +202,7 @@ sub run {
 		$q->delete('isolate_id');
 		my $params = $q->Vars;
 		$params->{'script_name'} = $self->{'system'}->{'script_name'};
-		$params->{'curate'} = 1 if $self->{'curate'};
+		$params->{'curate'}      = 1 if $self->{'curate'};
 		my $job_id = $self->{'jobManager'}->add_job(
 			{
 				dbase_config => $self->{'instance'},
@@ -213,8 +226,8 @@ sub run {
 			ids            => \@ids,
 			includes       => \@includes,
 			seq_ref        => \$seq,
-			show_no_match  => ( $q->param('show_no_match') // 0 ),
-			flanking       => ( $q->param('flanking') // $self->{'prefs'}->{'flanking'} ),
+			show_no_match  => ( $q->param('show_no_match')  // 0 ),
+			flanking       => ( $q->param('flanking')       // $self->{'prefs'}->{'flanking'} ),
 			include_seqbin => ( $q->param('include_seqbin') // 0 )
 		}
 	);
@@ -224,8 +237,15 @@ sub run {
 sub _get_headers {
 	my ( $self, $includes ) = @_;
 	my %labels;
-	my ( $scheme_fields, $scheme_labels ) =
-	  $self->get_field_selection_list( { scheme_fields => 1, analysis_pref => 1, ignore_prefs => 1 } );
+	my ( $scheme_fields, $scheme_labels ) = $self->get_field_selection_list(
+		{
+			isolate_fields           => 1,
+			nosplit_geography_points => 1,
+			scheme_fields            => 1,
+			analysis_pref            => 1,
+			ignore_prefs             => 1
+		}
+	);
 	$labels{$_} = $scheme_labels->{$_} foreach @$scheme_fields;
 	my $html_buffer   = qq(<table class="resultstable">\n);
 	my $display_label = ucfirst( $self->{'system'}->{'labelfield'} );
@@ -258,7 +278,7 @@ sub _run_now {
 
 	foreach my $id (@$ids) {
 		my $matches = $self->_blast( $id, $seq_ref, $params );
-		next if !$show_no_match && ( ref $matches ne 'ARRAY' || !@$matches );
+		next               if !$show_no_match && ( ref $matches ne 'ARRAY' || !@$matches );
 		print $html_header if $first;
 		my $include_values = $self->_get_include_values( \@$includes, $id );
 		$some_results = 1;
@@ -298,7 +318,7 @@ sub _run_now {
 			$file_buffer .= $self->_get_prov_text_cells( { isolate_id => $id, include_values => $include_values } );
 			$file_buffer .= qq(\t0\n);
 		}
-		$td = $td == 1 ? 2 : 1;
+		$td    = $td == 1 ? 2 : 1;
 		$first = 0;
 		if ( $ENV{'MOD_PERL'} ) {
 			$self->{'mod_perl_request'}->rflush;
@@ -367,7 +387,7 @@ sub run_job {
 		$progress++;
 		next if !$self->isolate_exists( $id, { has_seqbin => 1 } );
 		my $complete = int( 100 * $progress / @$ids );
-		my $matches = $self->_blast( $id, \$params->{'sequence'}, $params );
+		my $matches  = $self->_blast( $id, \$params->{'sequence'}, $params );
 		if ( !$params->{'show_no_match'} && ( ref $matches ne 'ARRAY' || !@$matches ) ) {
 			$self->{'jobManager'}
 			  ->update_job_status( $job_id, { percent_complete => $complete, stage => "Checked id: $id" } );
@@ -421,7 +441,7 @@ sub run_job {
 			$self->{'jobManager'}
 			  ->update_job_status( $job_id, { percent_complete => $complete, stage => "Checked id: $id" } );
 		}
-		$td = $td == 1 ? 2 : 1;
+		$td    = $td == 1 ? 2 : 1;
 		$first = 0;
 		return if $self->{'exit'};
 	}
@@ -506,7 +526,7 @@ sub _get_match_attribute_html_cells {
 		if ( $attribute eq 'end' ) {
 			$match->{'reverse'} ||= 0;
 			$buffer .=
-			    qq( <a target="_blank" class="extract_tooltip" href="$self->{'system'}->{'script_name'}?)
+				qq( <a target="_blank" class="extract_tooltip" href="$self->{'system'}->{'script_name'}?)
 			  . qq(db=$self->{'instance'}&amp;page=extractedSequence&amp;translate=1&amp;no_highlight=1&amp;)
 			  . qq(seqbin_id=$match->{'seqbin_id'}&amp;start=$match->{'start'}&amp;end=$match->{'end'}&amp;)
 			  . qq(reverse=$match->{'reverse'}&amp;flanking=$flanking">extract&nbsp;&rarr;</a>);
@@ -553,7 +573,7 @@ sub _get_prov_html_cells {
 	if ($is_match) {
 		if ($first_match) {
 			$html_buffer =
-			    qq(<tr class="td$td"><td rowspan="$rows" style="vertical-align:top">)
+				qq(<tr class="td$td"><td rowspan="$rows" style="vertical-align:top">)
 			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;id=$isolate_id">)
 			  . qq($isolate_id</a></td><td rowspan="$rows" style=" vertical-align:top">$label</td>);
 			$html_buffer .= qq(<td rowspan="$rows" style="vertical-align:top">$_</td>) foreach @$include_values;
@@ -569,7 +589,7 @@ sub _get_prov_html_cells {
 }
 
 sub _get_prov_text_cells {
-	my ( $self,       $args )           = @_;
+	my ( $self, $args )                 = @_;
 	my ( $isolate_id, $include_values ) = @{$args}{qw(isolate_id include_values  )};
 	my $label  = $self->_get_isolate_label($isolate_id);
 	my $buffer = qq($isolate_id\t$label);
@@ -600,7 +620,8 @@ sub _get_include_values {
 				  keys %{ $scheme_field_values->{ lc($scheme_field) } };
 				local $" = q(,);
 				$value = "@values" // q();
-			} else {
+			} elsif ( $field =~ /^f_/x ) {
+				$field =~ s/^f_//x;
 				$value = $self->get_field_value( $include_data, $field );
 				if ( $self->{'datastore'}->field_needs_conversion($field) ) {
 					$value = $self->{'datastore'}->convert_field_value( $field, $value );
@@ -636,32 +657,15 @@ sub _print_interface {
 	say q(<fieldset style="float:left"><legend>Paste sequence</legend>);
 	say $q->textarea( -name => 'sequence', -rows => 9, -cols => 70 );
 	say q(</fieldset>);
-	say q(<fieldset style="float:left"><legend>Include in results table</legend>);
-	my @fields;
-	my $set_id     = $self->get_set_id;
-	my $is_curator = $self->is_curator;
-	my $field_list = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
-	my $labels     = {};
-
-	foreach my $field (@$field_list) {
-		next if $field eq $self->{'system'}->{'labelfield'};
-		next if any { $field eq $_ } qw (id datestamp date_entered curator sender);
-		push @fields, $field;
-		( $labels->{$field} = $field ) =~ tr/_/ /;
-	}
-	my ( $scheme_fields, $scheme_labels ) =
-	  $self->get_field_selection_list( { scheme_fields => 1, analysis_pref => 1 } );
-	push @fields, @$scheme_fields;
-	$labels->{$_} = $scheme_labels->{$_} foreach @$scheme_fields;
-	say $q->scrolling_list(
-		-name     => 'includes',
-		-id       => 'includes',
-		-values   => \@fields,
-		-labels   => $labels,
-		-size     => 10,
-		-multiple => 'true'
+	$self->print_includes_fieldset(
+		{
+			title                    => 'Include in results table',
+			isolate_fields           => 1,
+			nosplit_geography_points => 1,
+			scheme_fields            => 1,
+			hide                     => "f_$self->{'system'}->{'labelfield'}"
+		}
 	);
-	say q(</fieldset>);
 	say q(<fieldset style="float:left"><legend>Parameters</legend>);
 	say q(<ul><li><label for="word_size" class="parameter">BLASTN word size:</label>);
 	say $q->popup_menu( -name => 'word_size', -id => 'word_size', -values => [ 7 .. 28 ], -default => 11 );
@@ -752,7 +756,7 @@ sub _blast {
 
 	#create isolate FASTA database
 	my $qry =
-	    'SELECT DISTINCT s.id FROM sequence_bin s LEFT JOIN project_members p ON s.isolate_id = p.isolate_id '
+		'SELECT DISTINCT s.id FROM sequence_bin s LEFT JOIN project_members p ON s.isolate_id = p.isolate_id '
 	  . 'WHERE s.isolate_id=?';
 	my @criteria = ($isolate_id);
 	my $method   = $form_params->{'seq_method_list'};
@@ -793,8 +797,8 @@ sub _blast {
 	system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
 		( -in => $temp_fastafile, -logfile => '/dev/null', -dbtype => 'nucl' ) );
 	my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
-	my $filter = $program eq 'blastn' ? 'dust' : 'seg';
-	my %params = (
+	my $filter        = $program eq 'blastn' ? 'dust' : 'seg';
+	my %params        = (
 		-num_threads     => $blast_threads,
 		-max_target_seqs => $hits,
 		-word_size       => $word_size,
