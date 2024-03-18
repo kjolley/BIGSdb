@@ -151,7 +151,7 @@ sub get_attributes {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.jstree' => 1,'jQuery.multiselect' => 1 };
+	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1 };
 }
 
 sub set_pref_requirements {
@@ -195,10 +195,10 @@ sub run {
 		} else {
 			$self->set_scheme_param;
 			my $params = $q->Vars;
-			my @list = split /[\r\n]+/x, $q->param('list');
+			my @list   = split /[\r\n]+/x, $q->param('list');
 			@list = uniq @list;
 			if ( !@list ) {
-				my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
+				my $qry     = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
 				my $id_list = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 				@list = @$id_list;
 			}
@@ -238,13 +238,11 @@ sub _print_interface {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
-	my $list = $self->get_id_list( 'id', $query_file );
+	my $list       = $self->get_id_list( 'id', $query_file );
 	say $q->start_form;
 	say q(<div class="flex_container" style="justify-content:left">);
 	$self->print_id_fieldset( { fieldname => 'id', list => $list } );
-#	my ( $locus_list, $locus_labels ) =
-#	  $self->get_field_selection_list( { loci => 1, analysis_pref => 1, query_pref => 0, sort_labels => 1 } );
-	$self->print_isolates_locus_fieldset( { locus_paste_list => 1,no_all_none => 1  } );
+	$self->print_isolates_locus_fieldset( { locus_paste_list => 1, no_all_none => 1 } );
 	$self->print_scheme_fieldset;
 	say q(<fieldset style="float:left"><legend>Sequence retrieval</legend>);
 	say q(<p>If both allele designations and tagged sequences<br />)
@@ -308,6 +306,7 @@ sub run_job {
 	my $loci              = $self->{'jobManager'}->get_job_loci($job_id);
 	my $selected_loci     = $self->order_loci($loci);
 	my $limit             = $self->{'system'}->{'codon_usage_limit'} // DEFAULT_LIMIT;
+
 	if ( @$list > $limit ) {
 		my $message_html =
 		  qq(<p class="statusbad">Please note that output is limited to the first $limit records.</p>\n);
@@ -347,7 +346,7 @@ sub run_job {
 			my $aa = $translate{$codon};
 			$total_aa_count->{$id}->{$aa} ||= 0;
 			my $expected = $total_aa_count->{$id}->{$aa} / $codons_per_aa{$aa};
-			my $rscu = $expected ? ( $total_codon_count->{$id}->{$codon} / $expected ) : 1;    #test for divide by zero
+			my $rscu     = $expected ? ( $total_codon_count->{$id}->{$codon} / $expected ) : 1; #test for divide by zero
 			$rscu = BIGSdb::Utils::decimal_place( $rscu, 3 );
 			print $fh_rscu_by_isolate "\t$rscu";
 			print $fh_number_by_isolate "\t$total_codon_count->{$id}->{$codon}";
@@ -431,7 +430,7 @@ sub run_job {
 sub _calculate {
 	my ( $self, $job_id, $loci, $ids, $params ) = @_;
 	my $progress = 0;
-	my $limit = $self->{'system'}->{'codon_usage_limit'} // DEFAULT_LIMIT;
+	my $limit    = $self->{'system'}->{'codon_usage_limit'} // DEFAULT_LIMIT;
 	my %bad_ids;
 	my ( $locus_codon_count, $locus_aa_count, $total_codon_count, $total_aa_count );
 	foreach my $locus_name (@$loci) {
@@ -439,8 +438,7 @@ sub _calculate {
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
 		try {
 			$locus = $self->{'datastore'}->get_locus($locus_name);
-		}
-		catch {
+		} catch {
 			if ( $_->isa('BIGSdb::Exception::Data') ) {
 				$logger->warn("Invalid locus '$locus_name' passed.");
 			} else {
@@ -470,8 +468,8 @@ sub _calculate {
 					try {
 						my $seq = $locus->get_allele_sequence($allele_id);
 						$allele_seq .= BIGSdb::Utils::chop_seq( $$seq, $locus_info->{'orf'} // 1 );
-					}
-					catch {
+					} catch {
+
 						#do nothing
 					};
 				}
