@@ -1,6 +1,6 @@
 #Combinations.pm - Unique combinations plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -36,7 +36,7 @@ sub set_pref_requirements {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.jstree' => 1 };
+	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1 };
 }
 
 sub get_attributes {
@@ -59,7 +59,7 @@ sub get_attributes {
 		menutext   => 'Unique combinations',
 		module     => 'Combinations',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/unique_combinations.html",
-		version    => '1.4.7',
+		version    => '1.5.0',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		input      => 'query',
@@ -112,7 +112,7 @@ sub run {
 	my $params = {};
 	local $" = '||';
 	$params->{'selected_fields'} = "@$selected_fields";
-	$params->{'curate'} = 1 if $self->{'curate'};
+	$params->{'curate'}          = 1 if $self->{'curate'};
 	delete $params->{'isolate_paste_list'};
 	my $att       = $self->get_attributes;
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
@@ -151,7 +151,7 @@ sub run_job {
 			  if $scheme_info->{'name'};
 			$schemes{$1} = 1;
 		}
-		$field =~ s/^(s_\d+_l|s_\d+_f|f|l|c|eav)_//gx;    #strip off prefix for header row
+		$field =~ s/^(s_\d+_l|s_\d+_f|f|l|c|eav)_//gx;                  #strip off prefix for header row
 		$field =~ s/^.*___//x;
 		$field =~ tr/_/ / if !$self->{'datastore'}->is_locus($field);
 		push @$header, $field;
@@ -165,7 +165,7 @@ sub run_job {
 			$i++;
 		}
 	}
-	my $qry = "SELECT * FROM $self->{'system'}->{'view'} WHERE id IN (SELECT value FROM temp_list)";
+	my $qry     = "SELECT * FROM $self->{'system'}->{'view'} WHERE id IN (SELECT value FROM temp_list)";
 	my $dataset = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 	my $total;
 	my $values   = {};
@@ -253,7 +253,7 @@ sub _output_results {
 	my $td = 1;
 	foreach ( sort { $combs->{$b} <=> $combs->{$a} } keys %$combs ) {
 		my @values = split /_\|_/x, $_;
-		my $pc = BIGSdb::Utils::decimal_place( 100 * $combs->{$_} / $total, 2 );
+		my $pc     = BIGSdb::Utils::decimal_place( 100 * $combs->{$_} / $total, 2 );
 		local $" = q(</td><td>);
 		local $" = "\t";
 		say $fh qq(@values\t$combs->{$_}\t$pc);
@@ -307,7 +307,7 @@ sub _get_field_value {
 		return $value;
 	} else {
 		my $needs_conversion = $self->{'datastore'}->field_needs_conversion($field);
-		my $value = $self->get_field_value( $data, $field );
+		my $value            = $self->get_field_value( $data, $field );
 		if ($needs_conversion) {
 			$value = $self->{'datastore'}->convert_field_value( $field, $value );
 		}
@@ -339,12 +339,12 @@ sub _print_interface {
 	say $q->start_form;
 	say q(<div class="flex_container" style="justify-content:left">);
 	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $selected_ids, isolate_paste_list => 1 } );
-	$self->print_isolate_fields_fieldset( { extended_attributes => 1 } );
-	$self->print_eav_fields_fieldset;
+	$self->print_isolate_fields_fieldset( { extended_attributes => 1, no_all_none => 1 } );
+	$self->print_eav_fields_fieldset( { no_all_none => 1 } );
 	$self->print_composite_fields_fieldset;
-	$self->print_isolates_locus_fieldset;
+	$self->print_isolates_locus_fieldset( { locus_paste_list => 1, no_all_none => 1 } );
 	$self->print_scheme_fieldset( { fields_or_loci => 1 } );
-	$self->print_action_fieldset( { no_reset => 1 } );
+	$self->print_action_fieldset( { no_reset       => 1 } );
 	say q(<div style="clear:both"></div>);
 	$q->param( set_id => $set_id );
 	say $q->hidden($_) foreach qw (db page name set_id);
@@ -365,6 +365,21 @@ sub _calculate_combinations {
 		$combs->{$_}++ foreach @keys;
 	}
 	return $combs;
+}
+
+sub get_plugin_javascript {
+	my $js = << "END";
+\$(document).ready(function(){ 
+	\$('#fields,#eav_fields,#composite_fields,#locus').multiselect({
+ 		classes: 'filter',
+ 		menuHeight: 250,
+ 		menuWidth: 400,
+ 		selectedList: 8
+  	});
+ 	\$('#locus').multiselectfilter();
+}); 
+END
+	return $js;
 }
 
 sub _append_keys {
