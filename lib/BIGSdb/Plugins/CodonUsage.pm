@@ -1,6 +1,6 @@
 #CodonUsage.pm - Codon usage plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2011-2023, University of Oxford
+#Copyright (c) 2011-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -137,7 +137,7 @@ sub get_attributes {
 		menutext    => 'Codon usage',
 		module      => 'CodonUsage',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/codon_usage.html",
-		version     => '1.2.15',
+		version     => '1.3.0',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -151,7 +151,7 @@ sub get_attributes {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.jstree' => 1 };
+	return { 'jQuery.jstree' => 1,'jQuery.multiselect' => 1 };
 }
 
 sub set_pref_requirements {
@@ -159,6 +159,20 @@ sub set_pref_requirements {
 	$self->{'pref_requirements'} =
 	  { general => 1, main_display => 0, isolate_display => 0, analysis => 1, query_field => 0 };
 	return;
+}
+
+sub get_plugin_javascript {
+	my $js = << "END";
+\$(document).ready(function(){ 
+	\$('#locus').multiselect({
+ 		classes: 'filter',
+ 		menuHeight: 250,
+ 		menuWidth: 400,
+ 		selectedList: 8
+  	}).multiselectfilter();
+}); 
+END
+	return $js;
 }
 
 sub run {
@@ -228,9 +242,9 @@ sub _print_interface {
 	say $q->start_form;
 	say q(<div class="flex_container" style="justify-content:left">);
 	$self->print_id_fieldset( { fieldname => 'id', list => $list } );
-	my ( $locus_list, $locus_labels ) =
-	  $self->get_field_selection_list( { loci => 1, analysis_pref => 1, query_pref => 0, sort_labels => 1 } );
-	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
+#	my ( $locus_list, $locus_labels ) =
+#	  $self->get_field_selection_list( { loci => 1, analysis_pref => 1, query_pref => 0, sort_labels => 1 } );
+	$self->print_isolates_locus_fieldset( { locus_paste_list => 1,no_all_none => 1  } );
 	$self->print_scheme_fieldset;
 	say q(<fieldset style="float:left"><legend>Sequence retrieval</legend>);
 	say q(<p>If both allele designations and tagged sequences<br />)
