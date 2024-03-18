@@ -254,8 +254,14 @@ sub _print_order_fieldset {
 sub _print_scheme_fields {
 	my ( $self, $row, $max_rows, $scheme_id, $selectitems, $labels ) = @_;
 	my $q = $self->{'cgi'};
-	say q(<span style="white-space:nowrap">);
-	say $q->popup_menu( -name => "s$row", -values => $selectitems, -labels => $labels, -class => 'fieldlist' );
+	say q(<span style="display:flex">);
+	say $q->popup_menu(
+		-name   => "s$row",
+		-id     => "s$row",
+		-values => $selectitems,
+		-labels => $labels,
+		-class  => 'locuslist'
+	);
 	say $q->popup_menu( -name => "y$row", -values => [OPERATORS] );
 	say $q->textfield( -name => "t$row", -id => "t$row", -class => 'value_entry' );
 	if ( $row == 1 ) {
@@ -898,7 +904,13 @@ sub _print_list_fieldset {
 	  || $q->param('list') ? 'inline' : 'none';
 	say qq(<fieldset id="list_fieldset" style="float:left;display:$display"><legend>Attribute values list</legend>);
 	say q(Field:);
-	say $q->popup_menu( -name => 'attribute', -values => $field_list, -labels => $labels );
+	say $q->popup_menu(
+		-name   => 'attribute',
+		-id     => 'attribute',
+		-values => $field_list,
+		-labels => $labels,
+		-class  => 'locuslist'
+	);
 	say q(<br />);
 	say $q->textarea(
 		-name        => 'list',
@@ -926,6 +938,33 @@ sub get_javascript {
   		+ "<h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search "
   		+ "terms, 'OR' to match ANY of these terms.</p>");   	
    	$panel_js
+   	render_loaded_locuslists();
+   	//Render multiselect lists when fieldset first triggered
+	\$('.fieldset_trigger').on('click', function(){
+		let query_fields = {
+			show_scheme: 's1',
+			show_list: 'attribute'
+		};
+		if (query_fields[this.id]){
+			render_locuslists('#' + query_fields[this.id]);	
+		}
+	});
+   	\$(document).on("ajaxComplete", function(event, xhr, settings) {
+		let params = new URLSearchParams(settings.url);
+        let fields = params.get("fields");
+        let row = params.get("row");
+	    if (row == null){
+	    	row = 1;
+	    }
+		if (fields != null){
+        	let element_names = {
+         		scheme_fields: "s",
+          	};
+         	if (element_names[fields]){
+		       	render_locuslists("#" + element_names[fields] + row);
+         	}
+    	} 
+   	});
 });
  
 function loadContent(url) {
@@ -934,6 +973,22 @@ function loadContent(url) {
 	if (fields == 'scheme_fields'){
 		add_rows(url,fields,'scheme_field',row,'scheme_field_heading','add_scheme_fields');
 	}
+}
+
+function render_loaded_locuslists() {
+	render_locuslists("select.locuslist");
+}
+
+function render_locuslists(selector){
+	\$(selector).filter(':visible').multiselect({
+		noneSelectedText: "Please select...",
+		selectedList: 1,
+		menuHeight: 250,
+		menuWidth: 300,
+		classes: 'filter',
+	}).multiselectfilter({
+		placeholder: 'Search'
+	});
 }
 END
 	return $buffer;
