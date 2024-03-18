@@ -54,7 +54,7 @@ sub get_attributes {
 		menutext   => 'Gene presence',
 		module     => 'GenePresence',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/gene_presence.html",
-		version    => '2.1.0',
+		version    => '2.2.0',
 		dbtype     => 'isolates',
 		section    => 'analysis,postquery',
 		input      => 'query',
@@ -93,7 +93,7 @@ sub _print_interface {
 	say q(<div class="scrollable"><div class="flex_container" style="justify-content:left">);
 	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $selected_ids, isolate_paste_list => 1 } );
 	$self->print_user_genome_upload_fieldset;
-	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
+	$self->print_isolates_locus_fieldset( { locus_paste_list => 1, no_all_none => 1 } );
 	$self->print_recommended_scheme_fieldset;
 	$self->print_scheme_fieldset;
 	$self->_print_parameters_fieldset;
@@ -133,7 +133,7 @@ sub get_initiation_values {
 	if ( $q->param('heatmap') ) {
 		return { heatmap => 1, papaparse => 1, noCache => 1 };
 	}
-	return { 'jQuery.jstree' => 1 };
+	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1 };
 }
 
 sub _pivot_table {
@@ -528,14 +528,24 @@ sub _get_data {
 
 sub get_plugin_javascript {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my $q      = $self->{'cgi'};
+	my $js     = << "END";
+\$(document).ready(function(){ 
+	\$('#locus').multiselect({
+ 		classes: 'filter',
+ 		menuHeight: 250,
+ 		menuWidth: 400,
+ 		selectedList: 8
+  	}).multiselectfilter();
+}); 
+END
 	if ( $q->param('results') ) {
-		return $self->_get_pivot_table_js;
+		$js .= $self->_get_pivot_table_js;
 	}
 	if ( $q->param('heatmap') ) {
-		return $self->_get_heatmap_js;
+		$js .= $self->_get_heatmap_js;
 	}
-	return;
+	return $js;
 }
 
 sub _get_pivot_table_js {
