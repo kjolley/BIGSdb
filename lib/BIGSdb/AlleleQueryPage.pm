@@ -211,7 +211,7 @@ sub _print_allele_fields {
 	#split so single row can be added by AJAX call
 	my ( $self, $locus, $row, $max_rows, $select_items, $labels ) = @_;
 	my $q = $self->{'cgi'};
-	say q(<span style="white-space:nowrap">);
+	say q(<span style="display:flex">);
 	say $q->popup_menu( -name => "field$row", -values => $select_items, -labels => $labels, -class => 'fieldlist' );
 	say $q->popup_menu( -name => "operator$row", -values => [OPERATORS] );
 	say $q->textfield( -name => "value$row", -id => "value$row", -class => 'value_entry' );

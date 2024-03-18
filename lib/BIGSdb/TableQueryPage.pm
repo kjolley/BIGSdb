@@ -220,7 +220,7 @@ sub _get_select_items {
 sub _print_table_fields {
 	my ( $self, $table, $row, $max_rows, $select_items, $labels ) = @_;
 	my $q = $self->{'cgi'};
-	say q(<span style="white-space:nowrap">);
+	say q(<span style="display:flex">);
 	print $q->popup_menu( -name => "s$row", -values => $select_items, -labels => $labels, -class => 'fieldlist' );
 	print $q->popup_menu( -name => "y$row", -values => [OPERATORS] );
 	say $q->textfield( -name => "t$row", -class => 'value_entry' );
