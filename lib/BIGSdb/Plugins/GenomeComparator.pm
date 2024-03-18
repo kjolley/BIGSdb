@@ -66,7 +66,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.7.9',
+		version     => '2.8.0',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -82,7 +82,7 @@ sub get_attributes {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.jstree' => 1, billboard => 1 };
+	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1, billboard => 1 };
 }
 
 sub run {
@@ -251,7 +251,7 @@ sub _print_interface {
 	$self->print_seqbin_isolate_fieldset(
 		{ use_all => $use_all, selected_ids => $selected_ids, isolate_paste_list => 1, allow_empty_list => 1 } );
 	$self->print_user_genome_upload_fieldset;
-	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
+	$self->print_isolates_locus_fieldset( { locus_paste_list => 1, no_all_none => 1 } );
 	$self->print_includes_fieldset(
 		{
 			title                    => 'Include in identifiers',
@@ -259,7 +259,6 @@ sub _print_interface {
 			isolate_fields           => 1,
 			nosplit_geography_points => 1,
 			scheme_fields            => 1,
-			size                     => 9
 		}
 	);
 	$self->print_recommended_scheme_fieldset;
@@ -2681,6 +2680,12 @@ function enable_seqs(){
 	\$("#accession").bind("input propertychange", function () {
 		enable_seqs();
 	});
+	\$('#locus,#include_fields').multiselect({
+ 		classes: 'filter',
+ 		menuHeight: 250,
+ 		menuWidth: 400,
+ 		selectedList: 8
+  	}).multiselectfilter();
 });
 
 END
