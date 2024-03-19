@@ -1,6 +1,6 @@
 #Polymorphisms.pm - Plugin for BIGSdb (requires LocusExplorer plugin)
 #Written by Keith Jolley
-#Copyright (c) 2011-2022, University of Oxford
+#Copyright (c) 2011-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -28,6 +28,7 @@ use Try::Tiny;
 use List::MoreUtils qw(none);
 use Bio::SeqIO;
 use File::Copy;
+use List::MoreUtils qw(uniq);
 use constant MAX_INSTANT_RUN => 100;    #Number of sequences before we start an offline job
 use constant MAX_SEQUENCES   => 2000;
 
@@ -49,7 +50,7 @@ sub get_attributes {
 		category => 'Breakdown',
 		menutext => 'Polymorphic sites',
 		module   => 'Polymorphisms',
-		version  => '1.1.14',
+		version  => '1.2.0',
 		dbtype   => 'isolates',
 		url      => "$self->{'config'}->{'doclink'}/data_analysis/polymorphisms.html",
 		section  => 'breakdown,postquery',
@@ -69,7 +70,27 @@ sub set_pref_requirements {
 	  { general => 1, main_display => 0, isolate_display => 0, analysis => 1, query_field => 0 };
 	return;
 }
-sub get_plugin_javascript { }    #override version in LocusExplorer.pm
+
+sub get_initiation_values {
+	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1 };
+}
+
+sub get_plugin_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+
+\$(function () {
+	\$('#locus').multiselect({
+ 		classes: 'filter',
+ 		menuHeight: 250,
+ 		menuWidth: 400,
+ 		selectedList: 8
+  	}).multiselectfilter();
+});
+
+END
+	return $buffer;
+}    #override version in LocusExplorer.pm
 
 sub run {
 	my ($self)     = @_;
@@ -93,23 +114,35 @@ sub run {
 		$self->{'mod_perl_request'}->rflush;
 		return if $self->{'mod_perl_request'}->connection->aborted;
 	}
-	my $qry_ref = $self->get_query($query_file);
-	return if ref $qry_ref ne 'SCALAR';
-	my $ids = $self->get_ids_from_query($qry_ref);
+	my $isolate_ids = [];
+	my @list        = split /[\r\n]+/x, $q->param('list');
+	@list = uniq @list;
+	if ( !@list ) {
+		my $qry     = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
+		my $id_list = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
+		@list = @$id_list;
+	}
+	( $isolate_ids, my $invalid ) = $self->check_id_list( \@list );
+	if (@$invalid) {
+		local $" = ', ';
+		$self->print_bad_status(
+			{ message => qq(The following isolates in your pasted list are invalid: @$invalid.) } );
+		$self->_print_interface;
+		return;
+	}
 	my %options;
 	$options{'from_bin'}            = $q->param('chooseseq') eq 'seqbin' ? 1 : 0;
 	$options{'unique'}              = $q->param('unique');
 	$options{'exclude_incompletes'} = $q->param('exclude_incompletes');
 	$options{'count_only'}          = 1;
-	my $seq_count = $self->_get_seqs( $locus, $ids, \%options );
-
+	my $seq_count = $self->_get_seqs( $locus, $isolate_ids, \%options );
 	if ( $seq_count <= MAX_INSTANT_RUN ) {
 		$options{'count_only'} = 0;
 		if ( !$self->{'datastore'}->is_locus($locus) ) {
 			$self->print_bad_status( { message => q(Invalid locus selected.), navbar => 1 } );
 			return;
 		}
-		my $seqs = $self->_get_seqs( $locus, $ids, \%options );
+		my $seqs = $self->_get_seqs( $locus, $isolate_ids, \%options );
 		if ( !@$seqs ) {
 			$self->print_bad_status( { message => qq(There are no $locus alleles in your selection.), navbar => 1 } );
 			return;
@@ -142,7 +175,7 @@ sub run {
 		}
 		my $params = $q->Vars;
 		$params->{'alignwidth'} = $self->{'prefs'}->{'alignwidth'};
-		$params->{'curate'} = 1 if $self->{'curate'};
+		$params->{'curate'}     = 1 if $self->{'curate'};
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 		my $job_id    = $self->{'jobManager'}->add_job(
 			{
@@ -152,17 +185,17 @@ sub run {
 				parameters   => $params,
 				username     => $self->{'username'},
 				email        => $user_info->{'email'},
-				isolates     => $ids
+				isolates     => $isolate_ids
 			}
 		);
 		say $self->get_job_redirect($job_id);
 		return;
 	} else {
 		my $max      = MAX_SEQUENCES;
-		my $num_seqs = @$ids;
+		my $num_seqs = $isolate_ids;
 		$self->print_bad_status(
 			{
-				    message => q(This analysis relies are being able to produce )
+					message => q(This analysis relies are being able to produce )
 				  . q(an alignment of your sequences. This is a potentially processor- and memory-intensive operation )
 				  . qq(for large numbers of sequences and is consequently limited to $max records.  You have $num_seqs )
 				  . q(records in your analysis.)
@@ -217,8 +250,7 @@ sub _get_seqs {
 	my $locus;
 	try {
 		$locus = $self->{'datastore'}->get_locus($locus_name);
-	}
-	catch {
+	} catch {
 		$logger->error("Invalid locus '$locus_name'");
 		return;
 	};
@@ -239,8 +271,8 @@ sub _get_seqs {
 			if ( $allele_id ne '0' && $locus_info->{'data_type'} eq 'DNA' ) {
 				try {
 					$allele_seq{$allele_id} = $locus->get_allele_sequence($allele_id);
-				}
-				catch {
+				} catch {
+
 					#do nothing
 				};
 			}
@@ -265,7 +297,7 @@ sub _get_seqs {
 			foreach my $allele_id ( keys %allele_seq ) {
 				my $seq = ${ $allele_seq{$allele_id} };
 				next if $allele_id eq '0';
-				if (!defined $seq){
+				if ( !defined $seq ) {
 					$logger->error("$locus_name-$allele_id does not exit.");
 					next;
 				}
@@ -308,7 +340,7 @@ sub _get_seqs {
 sub _get_seqbin_fragment {
 	my ( $self, $isolate_id, $locus_name, $options ) = @_;
 	my $exclude_clause = $options->{'exclude_incompletes'} ? ' AND complete ' : '';
-	my $allele_tags = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus_name );
+	my $allele_tags    = $self->{'datastore'}->get_allele_sequence( $isolate_id, $locus_name );
 	my $seqbin_seq;
 	if (@$allele_tags) {
 		my $fragment_ref = $self->{'contigManager'}->get_contig_fragment(
@@ -332,10 +364,18 @@ sub _print_interface {
 	my $q      = $self->{'cgi'};
 	my $view   = $self->{'system'}->{'view'};
 	my $set_id = $self->get_set_id;
-	my ( $loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id, analysis_pref => 1 } );
+	my ( $loci, $cleaned ) =
+	  $self->{'datastore'}->get_locus_list( { set_id => $set_id, analysis_pref => 1, no_list_by_common_name => 1 } );
 	if ( !@$loci ) {
 		$self->print_bad_status( { message => q(No loci have been defined for this database.), navbar => 1 } );
 		return;
+	}
+	my $isolate_ids = [];
+	if ( $q->param('query_file') ) {
+		my $qry_ref = $self->get_query( scalar $q->param('query_file') );
+		if ($qry_ref) {
+			$isolate_ids = $self->get_ids_from_query($qry_ref);
+		}
 	}
 	my $max = MAX_INSTANT_RUN;
 	say q(<div class="box" id="queryform">);
@@ -345,13 +385,13 @@ sub _print_interface {
 	  . q(consequently need to be aligned which is a processor- and memory- intensive operation.</p>);
 	say q(<div class="scrollable">);
 	say $q->start_form;
-	say q(<fieldset style="float:left"><legend>Loci</legend>);
-	say $q->scrolling_list(
+	$self->print_id_fieldset( { list => $isolate_ids } );
+	say q(<fieldset style="float:left"><legend>Locus</legend>);
+	say $q->popup_menu(
 		-name     => 'locus',
 		-id       => 'locus',
 		-values   => $loci,
 		-labels   => $cleaned,
-		-size     => 8,
 		-required => 'required'
 	);
 	say q(</fieldset>);

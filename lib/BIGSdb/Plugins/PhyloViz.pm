@@ -1,8 +1,8 @@
 #PhyloViz.pm - phylogenetic inference and data visualization for sequence
 #based typing methods for BIGSdb
-#Written by Emmanuel Quevillon
-#Copyright (c) 2016-2023, Institut Pasteur, Paris
-#E-mail: tuco@pasteur.fr
+#Written by Emmanuel Quevillon and Keith Jolley
+#Copyright (c) 2016-2024, Institut Pasteur, Paris
+#E-mail: tuco@pasteur.fr; keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
 #
@@ -64,7 +64,7 @@ sub get_attributes {
 		  . '<a href="https://online.phyloviz.net/">PhyloViz Online</a> for visualisation. Datasets can include '
 		  . 'metadata which allows nodes in the resultant tree to be coloured interactively.',
 		module              => 'PhyloViz',
-		version             => '1.3.2',
+		version             => '1.4.0',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -82,7 +82,7 @@ sub get_attributes {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.jstree' => 1 };
+	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1 };
 }
 
 sub run {
@@ -94,7 +94,7 @@ sub run {
 		my @list = split /[\r\n]+/x, $q->param('list');
 		@list = uniq @list;
 		if ( !@list ) {
-			my $qry = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
+			my $qry     = "SELECT id FROM $self->{'system'}->{'view'} ORDER BY id";
 			my $id_list = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
 			@list = @$id_list;
 		}
@@ -179,8 +179,7 @@ sub run {
 		try {
 			$self->_generate_profile_file(
 				{ file => $profile_file, isolates => $isolate_ids, loci => $selected_loci } );
-		}
-		catch {
+		} catch {
 			if ( $_->isa('BIGSdb::Exception::Data') ) {
 				say q(</div>);
 				$self->print_bad_status( { message => $_ } );
@@ -223,9 +222,9 @@ sub run {
 }
 
 sub _get_selected_schemes {
-	my ($self) = @_;
-	my $q      = $self->{'cgi'};
-	my $set_id = $self->get_set_id;
+	my ($self)  = @_;
+	my $q       = $self->{'cgi'};
+	my $set_id  = $self->get_set_id;
 	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => 1 } );
 	my @scheme_ids;
 	foreach my $scheme (@$schemes) {
@@ -246,10 +245,11 @@ sub _print_interface {
 	say $q->start_form;
 	say q(<div class="flex_container" style="justify-content:left">);
 	$self->print_id_fieldset( { list => $isolate_ids } );
-	$self->print_isolate_fields_fieldset( { extended_attributes => 1, no_aliases => 1, default => ['id'] } );
-	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
+	$self->print_isolate_fields_fieldset(
+		{ extended_attributes => 1, no_aliases => 1, default => ['id'], no_all_none => 1 } );
+	$self->print_isolates_locus_fieldset( { locus_paste_list => 1, no_all_none => 1 } );
 	$self->print_scheme_fieldset( { fields_or_loci => 0 } );
-	$self->print_action_fieldset( { no_reset => 1 } );
+	$self->print_action_fieldset( { no_reset       => 1 } );
 	say $q->hidden($_) foreach qw (db page name query_file scheme_id set_id list_file datatype);
 	say q(</div>);
 	say $q->end_form;
@@ -465,5 +465,22 @@ sub _generate_auxiliary_file {
 	close $fh;
 	say GOOD . q(</p>);
 	return 0;
+}
+
+sub get_plugin_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+
+\$(function () {
+	\$('#locus,#fields').multiselect({
+ 		classes: 'filter',
+ 		menuHeight: 250,
+ 		menuWidth: 400,
+ 		selectedList: 8
+  	}).multiselectfilter();
+});
+
+END
+	return $buffer;
 }
 1;
