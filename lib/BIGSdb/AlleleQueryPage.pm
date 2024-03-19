@@ -211,7 +211,7 @@ sub _print_allele_fields {
 	#split so single row can be added by AJAX call
 	my ( $self, $locus, $row, $max_rows, $select_items, $labels ) = @_;
 	my $q = $self->{'cgi'};
-	say q(<span style="white-space:nowrap">);
+	say q(<span style="display:flex">);
 	say $q->popup_menu( -name => "field$row", -values => $select_items, -labels => $labels, -class => 'fieldlist' );
 	say $q->popup_menu( -name => "operator$row", -values => [OPERATORS] );
 	say $q->textfield( -name => "value$row", -id => "value$row", -class => 'value_entry' );
@@ -426,7 +426,7 @@ sub _print_modify_search_fieldset {
 	  . q(<ul style="list-style:none;margin-left:-2em">);
 	my $allele_fieldset_display = $self->{'prefs'}->{'aq_allele_fieldset'}
 	  || $self->_highest_entered_fields('alleles') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button" id="show_allele">$allele_fieldset_display</a>);
+	say qq(<li><a href="" class="button fieldset_trigger" id="show_allele">$allele_fieldset_display</a>);
 	say q(Allele fields</li>);
 	my $locus = $q->param('locus');
 
@@ -439,17 +439,17 @@ sub _print_modify_search_fieldset {
 		if ($mutations) {
 			my $mutation_fieldset_display = $self->{'prefs'}->{'aq_mutations_fieldset'}
 			  || $self->_highest_entered_fields('mutations') ? HIDE : SHOW;
-			say qq(<li><a href="" class="button" id="show_mutations">$mutation_fieldset_display</a>);
+			say qq(<li><a href="" class="button fieldset_trigger" id="show_mutations">$mutation_fieldset_display</a>);
 			say q(Sequence variation</li>);
 		}
 	}
 	my $list_fieldset_display = $self->{'prefs'}->{'aq_list_fieldset'}
 	  || $q->param('list') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button" id="show_list">$list_fieldset_display</a>);
+	say qq(<li><a href="" class="button fieldset_trigger" id="show_list">$list_fieldset_display</a>);
 	say q(Allele id list box</li>);
 	my $filters_fieldset_display = $self->{'prefs'}->{'aq_filters_fieldset'}
 	  || $self->filters_selected ? HIDE : SHOW;
-	say qq(<li><a href="" class="button" id="show_filters">$filters_fieldset_display</a>);
+	say qq(<li><a href="" class="button fieldset_trigger" id="show_filters">$filters_fieldset_display</a>);
 	say q(Filters</li>);
 	say q(</ul>);
 	my $save = SAVE;

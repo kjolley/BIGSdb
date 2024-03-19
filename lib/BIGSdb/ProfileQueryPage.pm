@@ -254,10 +254,16 @@ sub _print_order_fieldset {
 sub _print_scheme_fields {
 	my ( $self, $row, $max_rows, $scheme_id, $selectitems, $labels ) = @_;
 	my $q = $self->{'cgi'};
-	say q(<span style="white-space:nowrap">);
-	say $q->popup_menu( -name => "s$row", -values => $selectitems, -labels => $labels, -class => 'fieldlist' );
+	say q(<span style="display:flex">);
+	say $q->popup_menu(
+		-name   => "s$row",
+		-id     => "s$row",
+		-values => $selectitems,
+		-labels => $labels,
+		-class  => 'locuslist'
+	);
 	say $q->popup_menu( -name => "y$row", -values => [OPERATORS] );
-	say $q->textfield( -name => "t$row", -class => 'value_entry' );
+	say $q->textfield( -name => "t$row", -id => "t$row", -class => 'value_entry' );
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		print qq(<a id="add_scheme_fields" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
@@ -898,7 +904,13 @@ sub _print_list_fieldset {
 	  || $q->param('list') ? 'inline' : 'none';
 	say qq(<fieldset id="list_fieldset" style="float:left;display:$display"><legend>Attribute values list</legend>);
 	say q(Field:);
-	say $q->popup_menu( -name => 'attribute', -values => $field_list, -labels => $labels );
+	say $q->popup_menu(
+		-name   => 'attribute',
+		-id     => 'attribute',
+		-values => $field_list,
+		-labels => $labels,
+		-class  => 'locuslist'
+	);
 	say q(<br />);
 	say $q->textarea(
 		-name        => 'list',
@@ -926,6 +938,33 @@ sub get_javascript {
   		+ "<h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search "
   		+ "terms, 'OR' to match ANY of these terms.</p>");   	
    	$panel_js
+   	render_loaded_locuslists();
+   	//Render multiselect lists when fieldset first triggered
+	\$('.fieldset_trigger').on('click', function(){
+		let query_fields = {
+			show_scheme: 's1',
+			show_list: 'attribute'
+		};
+		if (query_fields[this.id]){
+			render_locuslists('#' + query_fields[this.id]);	
+		}
+	});
+   	\$(document).on("ajaxComplete", function(event, xhr, settings) {
+		let params = new URLSearchParams(settings.url);
+        let fields = params.get("fields");
+        let row = params.get("row");
+	    if (row == null){
+	    	row = 1;
+	    }
+		if (fields != null){
+        	let element_names = {
+         		scheme_fields: "s",
+          	};
+         	if (element_names[fields]){
+		       	render_locuslists("#" + element_names[fields] + row);
+         	}
+    	} 
+   	});
 });
  
 function loadContent(url) {
@@ -934,6 +973,22 @@ function loadContent(url) {
 	if (fields == 'scheme_fields'){
 		add_rows(url,fields,'scheme_field',row,'scheme_field_heading','add_scheme_fields');
 	}
+}
+
+function render_loaded_locuslists() {
+	render_locuslists("select.locuslist");
+}
+
+function render_locuslists(selector){
+	\$(selector).filter(':visible').multiselect({
+		noneSelectedText: "Please select...",
+		selectedList: 1,
+		menuHeight: 250,
+		menuWidth: 300,
+		classes: 'filter',
+	}).multiselectfilter({
+		placeholder: 'Search'
+	});
 }
 END
 	return $buffer;
@@ -959,23 +1014,24 @@ sub _print_modify_search_fieldset {
 	  . q(<ul style="list-style:none;margin-left:-2em">);
 	my $scheme_fieldset_display = $self->{'prefs'}->{'scheme_fieldset'}
 	  || $self->_highest_entered_fields ? HIDE : SHOW;
-	say qq(<li><a href="" class="button" id="show_scheme">$scheme_fieldset_display</a>);
+	say qq(<li><a href="" class="button fieldset_trigger" id="show_scheme">$scheme_fieldset_display</a>);
 	say q(Locus/scheme field values</li>);
 	my $list_fieldset_display = $self->{'prefs'}->{'list_fieldset'}
 	  || $q->param('list') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button" id="show_list">$list_fieldset_display</a>);
+	say qq(<li><a href="" class="button fieldset_trigger" id="show_list">$list_fieldset_display</a>);
 	say q(Attribute values list</li>);
 
 	if ( $self->{'filters_present'} ) {
 		my $filter_fieldset_display = $self->{'prefs'}->{'filters_fieldset'}
 		  || $self->filters_selected ? HIDE : SHOW;
-		say qq(<li><a href="" class="button" id="show_filters">$filter_fieldset_display</a>);
+		say qq(<li><a href="" class="button fieldset_trigger" id="show_filters">$filter_fieldset_display</a>);
 		say q(Filters</li>);
 	}
 	say q(</ul>);
 	my $save = SAVE;
-	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . qq(page=query&amp;save_options=1" style="display:none">$save</a> <span id="saving"></span><br />);
+	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?)
+	  . qq(db=$self->{'instance'}&amp;page=query&amp;save_options=1" style="display:none">$save</a> )
+	  . q(<span id="saving"></span><br />);
 	say q(</div>);
 	return;
 }

@@ -170,8 +170,8 @@ JS
 
 sub _get_javascript_paths {
 	my ($self) = @_;
-	my $page_js = $self->get_javascript;
-	$page_js .= $self->_get_cookie_js;
+#	my $page_js = $self->get_javascript;
+#	$page_js .= $self->_get_cookie_js;
 	my $js               = [];
 	my $relative_js_path = $self->{'config'}->{'relative_js_dir'} // '/javascript';
 	if ( $self->{'jQuery'} ) {
@@ -251,7 +251,7 @@ sub _get_javascript_paths {
 				$used{$lib} = 1;
 			}
 		}
-		push @$js, { code => $page_js } if $page_js;
+#		push @$js, { code => $page_js } if $page_js;
 	}
 	return $js;
 }
@@ -631,7 +631,14 @@ sub print_page_content {
 			$self->_print_site_footer;
 		}
 		$self->_debug if $q->param('debug') && $self->{'config'}->{'debug'};
+		my $page_js = $self->get_javascript;
+		if ($page_js){
+			say q(<script>);
+			say $page_js;
+			say q(</script>);
+		}
 		say q(</body>);
+
 		say q(</html>);
 	}
 	return;
@@ -697,7 +704,7 @@ sub _get_meta_data {
 sub _get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20240313';
+	my $version = '20240316';
 	my @filenames;
 	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
 	push @filenames, q(billboard.min.css)                                     if $self->{'billboard'};
@@ -3113,89 +3120,6 @@ sub popup_menu {
 		$buffer .= qq(<option value="$_"$select>$labels->{$_}</option>\n);
 	}
 	$buffer .= qq(</select>\n);
-	return $buffer;
-}
-
-sub datalist {
-	my ( $self, %args ) = @_;
-	my ( $name, $id, $values, $labels, $class, $size, $style, $invalid_value, $datalist_name, $datalist_exists ) =
-	  @args{qw ( name id values labels class size style invalid_value datalist_name datalist_exists)};
-	$id //= $name;
-	my $q          = $self->{'cgi'};
-	my $real_value = $q->param($name) // q();
-	$real_value =~ s/"/\\"/gx;
-	my $invalid = $invalid_value ? qq(\$("#$name").val('$invalid_value');) : q();
-	$datalist_name //= "${name}_list";
-	my $label_value = $q->param("${name}_label") // q();
-	$label_value =~ s/"/\\"/gx;
-	my $buffer = qq(<input type="text" name="${name}_label" id="${name}_label" value="$label_value" autocomplete="off");
-	$buffer .= qq( class="$class") if $class;
-	$buffer .= qq( style="$style") if $style;
-	$buffer .= qq( size="$size")   if $size;
-	$buffer .= qq( list="$datalist_name">\n);
-
-	if ( !$datalist_exists ) {
-		$buffer .= qq(<datalist id="$datalist_name">\n);
-		foreach my $value (@$values) {
-			my $label = $labels->{$value} // $value;
-			$value =~ s/"/\\"/gx;
-			$label =~ s/"/\\"/gx;
-			$buffer .= qq( <option data-value="$value">$label</option>\n);
-		}
-		$buffer .= qq(</datalist>\n);
-	}
-	$buffer .= qq(<input type="hidden" name="$name" id="$id">\n);
-	$buffer .= << "JS";
-<script class="ajax_script">
-var ${id}_options = \$('#$datalist_name' + ' option');
-var input_value = \$("#${id}_label").val();
-if (input_value == ''){
-	var real_value = "$real_value";
-	for(var i = 0; i < ${id}_options.length; i++) {
-		var option = ${name}_options[i];
-		if (real_value == option.getAttribute('data-value')){
-			\$("#${id}_label").val(option.innerText);
-			break;
-		}
-	}
-} else {
-	for(var i = 0; i < ${name}_options.length; i++) {
-		var option = ${name}_options[i];
-		if (input_value == option.innerText){
-			\$("#$id").val(option.getAttribute('data-value'));
-			break;
-		}	
-	}
-}
-\$("#${id}_label").off("change").change(function(){
-	var input_value = \$('#${name}_label').val();
-	if (input_value == ''){
-		\$("#$id").val('');
-		return;
-	}
-	//Start with exact case-insensitive matches
-	for(var i = 0, len = ${id}_options.length; i < len; i++) {
-        var option = ${id}_options[i];
-		if (option.innerText.toUpperCase() === input_value.toUpperCase()){
-        	\$("#$id").val(option.getAttribute('data-value'));
-        	\$('#${name}_label').val(option.innerText);
-        	return;
-        }
-    }  
-    //Then any matches that start with entered term
-	for(var i = 0, len = ${id}_options.length; i < len; i++) {
-        var option = ${id}_options[i];
-		if (option.innerText.toUpperCase().startsWith(input_value.toUpperCase())){
-        	\$("#$id").val(option.getAttribute('data-value'));
-        	\$('#${name}_label').val(option.innerText);
-        	return;
-        }
-    }    
-    $invalid
-});
-
-</script>
-JS
 	return $buffer;
 }
 

@@ -72,9 +72,15 @@ sub _ajax_content {
 			$self->_print_phenotypic_fields( $row, 0, $phenotypic_items, $phenotypic_labels );
 		},
 		loci => sub {
-			my ( $locus_list, $locus_labels ) =
-			  $self->get_field_selection_list(
-				{ loci => 1, scheme_fields => 1, classification_groups => 1, sort_labels => 1 } );
+			my ( $locus_list, $locus_labels ) = $self->get_field_selection_list(
+				{
+					loci                   => 1,
+					no_list_by_common_name => 1,
+					scheme_fields          => 1,
+					classification_groups  => 1,
+					sort_labels            => 1
+				}
+			);
 			$self->_print_loci_fields( $row, 0, $locus_list, $locus_labels );
 		},
 		sequence_variation => sub {
@@ -393,7 +399,7 @@ sub _print_display_fieldset {
 			push @$values, $q->optgroup( -name => $name, -values => $group_members->{$name}, -labels => $labels );
 		}
 	}
-	say q(<ul><li><span style="white-space:nowrap"><label for="order" class="display">Order by: </label>);
+	say q(<ul><li><span style="display:flex"><label for="order" class="display">Order by: </label>);
 	say $q->popup_menu(
 		-name   => 'order',
 		-id     => 'order',
@@ -443,7 +449,7 @@ sub _print_designations_fieldset_contents {
 		say qq(<span id="loci_field_heading" style="display:$loci_field_heading">)
 		  . q(<label for="c1">Combine with: </label>);
 		say $q->popup_menu( -name => 'designation_andor', -id => 'designation_andor', -values => [qw (AND OR)], );
-		say q(</span><ul id="loci">);
+		say q(</span><ul id="loci" style="white-space:normal">);
 		for ( 1 .. $locus_fields ) {
 			say q(<li>);
 			$self->_print_loci_fields( $_, $locus_fields, $locus_list, $locus_labels );
@@ -544,7 +550,7 @@ sub _print_sequence_variation_fields {
 			}
 		}
 	}
-	say q(<span style="white-space:nowrap">);
+	say q(<span style="display:flex">);
 	say $self->popup_menu(
 		-name   => "sequence_variation$row",
 		-id     => "sequence_variation$row",
@@ -847,6 +853,7 @@ sub _print_list_fieldset_contents {
 			include_unsplit_geography_point => 1,
 			eav_fields                      => 1,
 			loci                            => 1,
+			no_list_by_common_name          => 1,
 			scheme_fields                   => 1,
 			sender_attributes               => 0,
 			extended_attributes             => 1
@@ -858,7 +865,13 @@ sub _print_list_fieldset_contents {
 		( $labels->{"f_$_"} = $_ ) =~ tr/_/ /;
 	}
 	say q(Field:);
-	say $self->popup_menu( -name => 'attribute', -values => $field_list, -labels => $labels );
+	say $self->popup_menu(
+		-name   => 'attribute',
+		-id     => 'attribute',
+		-values => $field_list,
+		-labels => $labels,
+		-class  => 'locuslist'
+	);
 	say q(<br />);
 	say $q->textarea(
 		-name        => 'list',
@@ -1025,8 +1038,8 @@ sub _print_filters_fieldset_contents {
 
 	if (@$list) {
 		unshift @$list, q();
-		say q(<span style="white-space:nowrap">);
-		say q(Add filter:);
+		say q(<span style="display:flex">);
+		say q(Add filter:&nbsp;);
 		say $self->popup_menu(
 			-name   => 'new_filter',
 			-id     => 'new_filter',
@@ -1037,38 +1050,6 @@ sub _print_filters_fieldset_contents {
 		say q( <a id="add_filter" class="small_submit">Add</a>);
 		say q(</span>);
 	}
-	say << "JS";
-<script>
-\$(function () {
-	\$("#add_filter").on('click',function(){
-		var filter = \$("#new_filter").val();
-		if (filter == ""){
-			return;
-		}
-		\$.ajax({
-			url: "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query&no_header=1&add_filter=" 
-			 + filter,
-			success: function(response){
-				refresh_filters();
-			}
-		})		
-	});
-	\$(".remove_filter").on('click',function(){
-		var filter = \$(this).attr('id').replace(/^remove_/,'');
-		if (filter == ""){
-			return;
-		}
-		\$.ajax({
-			url: "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query&no_header=1&remove_filter=" 
-			 + filter,
-			success: function(response){
-				refresh_filters();
-			}
-		})		
-	});
-});	
-</script>
-JS
 	return;
 }
 
@@ -1080,59 +1061,63 @@ sub _print_modify_search_fieldset {
 	say q(<h2>Modify form parameters</h2>);
 	say q(<p>Click to add or remove additional query terms:</p><ul style="list-style:none;margin-left:-2em">);
 	my $provenance_fieldset_display = $self->_should_display_fieldset('provenance') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button" id="show_provenance">$provenance_fieldset_display</a>);
+	say qq(<li><a href="" class="button fieldset_trigger" id="show_provenance">$provenance_fieldset_display</a>);
 	say q(Provenance fields</li>);
 
 	if ( $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM eav_fields)') ) {
 		my $phenotypic_fieldset_display = $self->_should_display_fieldset('phenotypic') ? HIDE : SHOW;
 		my $field_name                  = ucfirst( $self->{'system'}->{'eav_fields'} // 'secondary metadata' );
-		say qq(<li><a href="" class="button" id="show_phenotypic">$phenotypic_fieldset_display</a>);
+		say qq(<li><a href="" class="button fieldset_trigger" id="show_phenotypic">$phenotypic_fieldset_display</a>);
 		say qq($field_name</li>);
 	}
 	my $allele_designations_fieldset_display = $self->_should_display_fieldset('allele_designations') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button" id="show_allele_designations">$allele_designations_fieldset_display</a>);
+	say q(<li><a href="" class="button fieldset_trigger" id="show_allele_designations">)
+	  . qq($allele_designations_fieldset_display</a>);
 	say q(Allele designations/scheme field values</li>);
 	if ( $self->{'sequence_variation_fieldset_exists'} ) {
 		my $sequence_variation_fieldset_display = $self->_should_display_fieldset('sequence_variation') ? HIDE : SHOW;
-		say qq(<li><a href="" class="button" id="show_sequence_variation">$sequence_variation_fieldset_display</a>);
+		say q(<li><a href="" class="button fieldset_trigger" id="show_sequence_variation">)
+		  . qq($sequence_variation_fieldset_display</a>);
 		say q(Sequence variation</li>);
 	}
 	my $allele_count_fieldset_display = $self->_should_display_fieldset('allele_count') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button" id="show_allele_count">$allele_count_fieldset_display</a>);
+	say qq(<li><a href="" class="button fieldset_trigger" id="show_allele_count">$allele_count_fieldset_display</a>);
 	say q(Allele designation counts</li>);
 	my $allele_status_fieldset_display = $self->_should_display_fieldset('allele_status') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button" id="show_allele_status">$allele_status_fieldset_display</a>);
+	say qq(<li><a href="" class="button fieldset_trigger" id="show_allele_status">$allele_status_fieldset_display</a>);
 	say q(Allele designation status</li>);
 	if ( $self->{'annotation_status_fieldset_exists'} ) {
 		my $annotation_status_fieldset_display = $self->_should_display_fieldset('annotation_status') ? HIDE : SHOW;
-		say qq(<li><a href="" class="button" id="show_annotation_status">$annotation_status_fieldset_display</a>);
-		say q(Annotation status</li>);
+		say q(<li><a href="" class="button fieldset_trigger" id="show_annotation_status">)
+		  . qq($annotation_status_fieldset_display</a>);
+		  say q(Annotation status</li>);
 	}
 	if ( $self->{'seqbin_fieldset_exists'} ) {
 		my $seqbin_fieldset_display = $self->_should_display_fieldset('seqbin') ? HIDE : SHOW;
-		say qq(<li><a href="" class="button" id="show_seqbin">$seqbin_fieldset_display</a>);
+		say qq(<li><a href="" class="button fieldset_trigger" id="show_seqbin">$seqbin_fieldset_display</a>);
 		say q(Sequence bin</li>);
 	}
 	if ( $self->{'assembly_checks_fieldset_exists'} ) {
 		my $assembly_checks_fieldset_display = $self->_should_display_fieldset('assembly_checks') ? HIDE : SHOW;
-		say qq(<li><a href="" class="button" id="show_assembly_checks">$assembly_checks_fieldset_display</a>);
+		say q(<li><a href="" class="button fieldset_trigger" id="show_assembly_checks">)
+		  . qq($assembly_checks_fieldset_display</a>);
 		say q(Assembly checks</li>);
 	}
 	if ( $self->{'tags_fieldset_exists'} ) {
 		my $tag_count_fieldset_display = $self->_should_display_fieldset('tag_count') ? HIDE : SHOW;
-		say qq(<li><a href="" class="button" id="show_tag_count">$tag_count_fieldset_display</a>);
+		say qq(<li><a href="" class="button fieldset_trigger" id="show_tag_count">$tag_count_fieldset_display</a>);
 		say q(Tagged sequence counts</li>);
 		my $tags_fieldset_display = $self->_should_display_fieldset('tags') ? HIDE : SHOW;
-		say qq(<li><a href="" class="button" id="show_tags">$tags_fieldset_display</a>);
+		say qq(<li><a href="" class="button fieldset_trigger" id="show_tags">$tags_fieldset_display</a>);
 		say q(Tagged sequence status</li>);
 	}
 	my $list_fieldset_display = $self->{'prefs'}->{'list_fieldset'}
 	  || $q->param('list') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button" id="show_list">$list_fieldset_display</a>);
+	say qq(<li><a href="" class="button fieldset_trigger" id="show_list">$list_fieldset_display</a>);
 	say q(Attribute values list</li>);
 	my $filters_fieldset_display = $self->{'prefs'}->{'filters_fieldset'}
 	  || $self->filters_selected ? HIDE : SHOW;
-	say qq(<li><a href="" class="button" id="show_filters">$filters_fieldset_display</a>);
+	say qq(<li><a href="" class="button fieldset_trigger" id="show_filters">$filters_fieldset_display</a>);
 	say q(Filters</li>);
 	say q(</ul>);
 	my $save = SAVE;
@@ -1385,7 +1370,7 @@ sub _print_provenance_fields {
 	} else {
 		$values = $select_items;
 	}
-	say q(<span style="white-space:nowrap">);
+	say q(<span style="display:flex">);
 	say $q->popup_menu(
 		-name   => "prov_field$row",
 		-id     => "prov_field$row",
@@ -1437,7 +1422,7 @@ sub _print_phenotypic_fields {
 	} else {
 		$values = $select_items;
 	}
-	say q(<span style="white-space:nowrap">);
+	say q(<span style="display:flex">);
 	unshift @$values, q();
 	say $q->popup_menu(
 		-name   => "phenotypic_field$row",
@@ -1491,32 +1476,20 @@ sub _print_phenotypic_fieldset_contents {
 
 sub _print_allele_status_fields {
 	my ( $self, $row, $max_rows, $locus_list, $locus_labels ) = @_;
-	unshift @$locus_list, 'any locus';
-	unshift @$locus_list, '';
+	my $list = [@$locus_list];
+	unshift @$list, 'any locus';
+	unshift @$list, '';
 	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
 	my $q = $self->{'cgi'};
-	say q(<span style="white-space:nowrap">);
-	if ( @$locus_list > MAX_LOCI_DROPDOWN ) {
-		say $self->datalist(
-			name            => "allele_status_field$row",
-			id              => "allele_status_field$row",
-			values          => $locus_list,
-			labels          => $locus_labels,
-			class           => 'fieldlist',
-			invalid_value   => 'l_INVALID',
-			datalist_name   => 'allele_status_list',
-			datalist_exists => $row == 1 ? 0 : 1
-		);
-	} else {
-		say $self->popup_menu(
-			-name   => "allele_status_field$row",
-			-id     => "allele_status_field$row",
-			-values => $locus_list,
-			-labels => $locus_labels,
-			-class  => 'fieldlist'
-		);
-	}
-	print ' is ';
+	say q(<span style="display:flex">);
+	say $self->popup_menu(
+		-name   => "allele_status_field$row",
+		-id     => "allele_status_field$row",
+		-values => $list,
+		-labels => $locus_labels,
+		-class  => 'locuslist'
+	);
+	print '&nbsp;is&nbsp;';
 	my $values = [ '', 'provisional', 'confirmed' ];
 	my %labels = ( '' => ' ' );                        #Required for HTML5 validation.
 	say $q->popup_menu(
@@ -1525,6 +1498,7 @@ sub _print_allele_status_fields {
 		-values => $values,
 		-labels => \%labels
 	);
+
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_allele_status" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
@@ -1538,31 +1512,21 @@ sub _print_allele_status_fields {
 
 sub _print_allele_count_fields {
 	my ( $self, $row, $max_rows, $locus_list, $locus_labels ) = @_;
-	unshift @$locus_list, 'any locus';
-	unshift @$locus_list, 'total designations';
+	my $list = [@$locus_list];
+	unshift @$list, 'any locus';
+	unshift @$list, 'total designations';
+	unshift @$list, '';
+	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
 	my $q = $self->{'cgi'};
-	say q(<span style="white-space:nowrap">);
-	say q(Count of );
-	if ( @$locus_list > MAX_LOCI_DROPDOWN ) {
-		say $self->datalist(
-			name            => "allele_count_field$row",
-			id              => "allele_count_field$row",
-			values          => $locus_list,
-			labels          => $locus_labels,
-			class           => 'fieldlist',
-			invalid_value   => 'l_INVALID',
-			datalist_name   => 'allele_count_list',
-			datalist_exists => $row == 1 ? 0 : 1
-		);
-	} else {
-		say $self->popup_menu(
-			-name   => "allele_count_field$row",
-			-id     => "allele_count_field$row",
-			-values => $locus_list,
-			-labels => $locus_labels,
-			-class  => 'fieldlist'
-		);
-	}
+	say q(<span style="display:flex">);
+	say q(Count of&nbsp;);
+	say $self->popup_menu(
+		-name   => "allele_count_field$row",
+		-id     => "allele_count_field$row",
+		-values => $list,
+		-labels => $locus_labels,
+		-class  => 'locuslist'
+	);
 	my $values = [ '>', '<', '=' ];
 	say $q->popup_menu( -name => "allele_count_operator$row", -id => "allele_count_operator$row", -values => $values );
 	my %args = (
@@ -1575,6 +1539,7 @@ sub _print_allele_count_fields {
 	);
 	$args{'-value'} = $q->param("allele_count_value$row") if defined $q->param("allele_count_value$row");
 	say $self->textfield(%args);
+
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_allele_count" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
@@ -1588,43 +1553,30 @@ sub _print_allele_count_fields {
 
 sub _print_loci_fields {
 	my ( $self, $row, $max_rows, $locus_list, $locus_labels ) = @_;
-	unshift @$locus_list, '';
-	if ( @$locus_list <= MAX_LOCI_DROPDOWN ) {
-		$locus_labels->{''} = ' ';    #Required for HTML5 validation.
-	}
+	unshift @$locus_list, '' if ( $locus_list->[0] // q() ) ne q();
+	$locus_labels->{''} = q( );    #Required for HTML5 validation.
 	my $q = $self->{'cgi'};
-	say q(<span style="white-space:nowrap">);
-	if ( @$locus_list > MAX_LOCI_DROPDOWN ) {
-		say $self->datalist(
-			name            => "designation_field$row",
-			id              => "designation_field$row",
-			values          => $locus_list,
-			labels          => $locus_labels,
-			class           => 'fieldlist',
-			invalid_value   => 'l_INVALID',
-			datalist_name   => 'designation_field_list',
-			datalist_exists => $row == 1 ? 0 : 1
-		);
-	} else {
-		say $self->popup_menu(
-			-name   => "designation_field$row",
-			-id     => "designation_field$row",
-			-values => $locus_list,
-			-labels => $locus_labels,
-			-class  => 'fieldlist'
-		);
-	}
+	say q(<span style="display:flex">);
+	say $self->popup_menu(
+		-name   => "designation_field$row",
+		-id     => "designation_field$row",
+		-values => $locus_list,
+		-labels => $locus_labels,
+		-class  => 'locuslist',
+	);
 	say $q->popup_menu(
 		-name   => "designation_operator$row",
 		-id     => "designation_operator$row",
-		-values => [OPERATORS]
+		-values => [OPERATORS],
+		-class  => 'operator_list'
 	);
 	say $q->textfield(
 		-name        => "designation_value$row",
 		-id          => "designation_value$row",
 		-class       => 'value_entry',
-		-placeholder => 'Enter value...'
+		-placeholder => 'Enter value...',
 	);
+
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_loci" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
@@ -1638,36 +1590,25 @@ sub _print_loci_fields {
 
 sub _print_locus_tag_fields {
 	my ( $self, $row, $max_rows, $locus_list, $locus_labels ) = @_;
-	unshift @$locus_list, 'any locus';
-	unshift @$locus_list, '';
+	my $list = [@$locus_list];
+	unshift @$list, 'any locus';
+	unshift @$list, '';
 	my $q = $self->{'cgi'};
-	say q(<span style="white-space:nowrap">);
-	if ( @$locus_list > MAX_LOCI_DROPDOWN ) {
-		say $self->datalist(
-			name            => "tag_field$row",
-			id              => "tag_field$row",
-			values          => $locus_list,
-			labels          => $locus_labels,
-			class           => 'fieldlist',
-			invalid_value   => 'l_INVALID',
-			datalist_name   => 'tag_list',
-			datalist_exists => $row == 1 ? 0 : 1
-		);
-	} else {
-		say $self->popup_menu(
-			-name   => "tag_field$row",
-			-id     => "tag_field$row",
-			-values => $locus_list,
-			-labels => $locus_labels,
-			-class  => 'fieldlist'
-		);
-	}
-	print ' is ';
+	say q(<span style="display:flex">);
+	say $self->popup_menu(
+		-name   => "tag_field$row",
+		-id     => "tag_field$row",
+		-values => $list,
+		-labels => $locus_labels,
+		-class  => 'locuslist'
+	);
+	print '&nbsp;is&nbsp;';
 	my @values = qw(untagged tagged complete incomplete);
 	push @values, "flagged: $_" foreach ( 'any', 'none', SEQ_FLAGS );
 	unshift @values, '';
 	my %labels = ( '' => ' ' );    #Required for HTML5 validation.
 	say $q->popup_menu( -name => "tag_value$row", -id => "tag_value$row", values => \@values, -labels => \%labels );
+
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_tags" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
@@ -1681,31 +1622,21 @@ sub _print_locus_tag_fields {
 
 sub _print_tag_count_fields {
 	my ( $self, $row, $max_rows, $locus_list, $locus_labels ) = @_;
-	unshift @$locus_list, 'any locus';
-	unshift @$locus_list, 'total tags';
+	my $list = [@$locus_list];
+	unshift @$list, 'any locus';
+	unshift @$list, 'total tags';
+	unshift @$list, '';
+	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
 	my $q = $self->{'cgi'};
-	say q(<span style="white-space:nowrap">);
-	say q(Count of );
-	if ( @$locus_list > MAX_LOCI_DROPDOWN ) {
-		say $self->datalist(
-			name            => "tag_count_field$row",
-			id              => "tag_count_field$row",
-			values          => $locus_list,
-			labels          => $locus_labels,
-			class           => 'fieldlist',
-			invalid_value   => 'l_INVALID',
-			datalist_name   => 'tag_count_list',
-			datalist_exists => $row == 1 ? 0 : 1
-		);
-	} else {
-		say $self->popup_menu(
-			-name   => "tag_count_field$row",
-			-id     => "tag_count_field$row",
-			-values => $locus_list,
-			-labels => $locus_labels,
-			-class  => 'fieldlist'
-		);
-	}
+	say q(<span style="display:flex">);
+	say q(Count of&nbsp;);
+	say $self->popup_menu(
+		-name   => "tag_count_field$row",
+		-id     => "tag_count_field$row",
+		-values => $list,
+		-labels => $locus_labels,
+		-class  => 'locuslist'
+	);
 	my $values = [ '>', '<', '=' ];
 	say $q->popup_menu( -name => "tag_count_operator$row", -id => "tag_count_operator$row", -values => $values );
 	my %args = (
@@ -1718,6 +1649,7 @@ sub _print_tag_count_fields {
 	);
 	$args{'-value'} = $q->param("tag_count_value$row") if defined $q->param("tag_count_value$row");
 	say $self->textfield(%args);
+
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
 		say qq(<a id="add_tag_count" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
@@ -1748,7 +1680,7 @@ sub _print_annotation_status_fields {
 		push @$fields, "s_$scheme->{'id'}";
 		$labels->{"s_$scheme->{'id'}"} = $scheme->{'name'};
 	}
-	say q(<span style="white-space:nowrap">);
+	say q(<span style="display:flex">);
 	say $self->popup_menu(
 		-name   => "annotation_status_field$row",
 		-id     => "annotation_status_field$row",
@@ -1776,7 +1708,7 @@ sub _print_annotation_status_fields {
 sub _print_seqbin_fields {
 	my ( $self, $row, $max_rows ) = @_;
 	my $q = $self->{'cgi'};
-	say q(<span style="white-space:nowrap">);
+	say q(<span style="display:flex">);
 	my @values = qw(size contigs N50 L50);
 	if (
 		$self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM analysis_results WHERE name=?)', 'AssemblyStats' )
@@ -4040,8 +3972,6 @@ sub get_javascript {
 		qw(provenance phenotypic allele_designations sequence_variation allele_count allele_status
 		  annotation_status seqbin assembly_checks tag_count tags list filters)
 	);
-	my $ajax_load = q(var script_path = $(location).attr('href');script_path = script_path.split('?')[0];)
-	  . q(var fieldset_url=script_path + '?db=' + $.urlParam('db') + '&page=query&no_header=1';);
 	my %fields = (
 		phenotypic          => 'phenotypic',
 		allele_designations => 'loci',
@@ -4054,22 +3984,15 @@ sub get_javascript {
 		tag_count           => 'tag_count',
 		tags                => 'tags'
 	);
+	my @fieldsets_with_no_entered_values;
 	foreach my $fieldset ( keys %fields ) {
-		if ( !$self->_highest_entered_fields( $fields{$fieldset} ) ) {
-			$ajax_load .=
-				qq(if (\$('fieldset#${fieldset}_fieldset').length){\n)
-			  . qq(\$('fieldset#${fieldset}_fieldset div').)
-			  . q(html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...').)
-			  . qq(load(fieldset_url + '&fieldset=$fieldset&ajax=1')};);
-		}
+		push @fieldsets_with_no_entered_values, $fieldset if !$self->_highest_entered_fields( $fields{$fieldset} );
 	}
 	if ( !$q->param('list') ) {
-		$ajax_load .=
-			qq(if (\$('fieldset#list_fieldset').length){\n)
-		  . q($('fieldset#list_fieldset div').)
-		  . q(html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...').)
-		  . q(load(fieldset_url + '&fieldset=list&ajax=1')};);
+		push @fieldsets_with_no_entered_values, 'list';
 	}
+	local $" = q(',');
+	my $fieldsets_with_no_entered_values = qq('@fieldsets_with_no_entered_values');
 	$buffer .= << "END";
 \$(function () {
   	\$('#query_modifier').css({display:"block"});
@@ -4090,15 +4013,114 @@ sub get_javascript {
  		menuHeight: 250,
  		menuWidth: 400
  	}).multiselectfilter();
+ 	render_loaded_locuslists();
 $panel_js
-	$ajax_load
-	\$(document).ajaxComplete(function() {
+	//Render multiselect lists when fieldset first triggered.
+	\$('.fieldset_trigger').on('click', function(){
+		let query_fields = {
+			show_allele_designations: 'designation_field1',
+			show_allele_count: 'allele_count_field1',
+			show_allele_status: 'allele_status_field1',
+			show_tag_count: 'tag_count_field1',
+			show_tags: 'tag_field1',
+			show_list: 'attribute'
+		};
+		if (query_fields[this.id]){
+			render_locuslists('#' + query_fields[this.id]);	
+		}
+	});
+	
+	//Load fieldsets. Delay loading hidden fieldsets by 100ms to give the dashboard time
+	//to render.
+	var script_path = \$(location).attr('href');script_path = script_path.split('?')[0];
+	var fieldset_url=script_path + '?db=' + \$.urlParam('db') + '&page=query&no_header=1';
+	let fieldsets_with_no_entered_values = [$fieldsets_with_no_entered_values];
+	var i = 0;
+	for (i = 0; i < fieldsets_with_no_entered_values.length; ++i) {
+	    let fieldset = fieldsets_with_no_entered_values[i];
+	    if (\$('fieldset#' + fieldset + '_fieldset').length){
+			\$('fieldset#' + fieldset + '_fieldset div').filter(':visible')
+			.html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...')
+			.load(fieldset_url + '&fieldset=' + fieldset + '&ajax=1');
+			setTimeout(function(){
+				\$('fieldset#' + fieldset + '_fieldset div').filter(':hidden')
+				.html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...')
+				.load(fieldset_url + '&fieldset=' + fieldset + '&ajax=1');
+			},100);	
+		};
+	}
+	
+	\$(document).on("ajaxComplete", function(event, xhr, settings) {
         setTooltips();
         initiate_autocomplete();
-        \$('.ajax_script').each(function (index, element) { eval(element.innerHTML); })
+        //Need to limit rendering only to the element that has been loaded.
+        if (settings.url.indexOf("dashboard") === -1){
+         	let params = new URLSearchParams(settings.url);
+         	let fieldset = params.get("fieldset");
+         	let fields = params.get("fields");
+         	let row = params.get("row");
+	       	if (row == null){
+	       		row = 1;
+	        }
+	        
+         	if (fieldset != null){
+         		let element_names = {
+         			allele_designations: "designation_field",
+         			allele_status: "allele_status_field",
+         			allele_count: "allele_count_field",
+         			tags: "tag_field",
+         			tag_count: "tag_count_field",
+         			list: "attribute"
+         		};
+         		if (element_names[fieldset]){
+         			if (fieldset === 'list'){
+         				render_locuslists("#attribute");
+         			} else {
+			        	render_locuslists("#" + element_names[fieldset] + row);
+         			}
+	         	}
+         	} else if (fields != null){
+         		let element_names = {
+         			loci: "designation_field",
+         			allele_status: "allele_status_field",
+         			allele_count: "allele_count_field",
+         			tags: "tag_field",
+         			tag_count: "tag_count_field"
+         		};
+         		if (element_names[fields]){
+		        	render_locuslists("#" + element_names[fields] + row);
+         		}
+         	} 
+        	
+        }
 	});
-	\$('.ajax_script').each(function (index, element) { eval(element.innerHTML); })
-	
+	\$("#add_filter").on('click',function(){
+		var filter = \$("#new_filter").val();
+		if (filter == ""){
+			return;
+		}
+		\$.ajax({
+			url: "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query&no_header=1&add_filter=" 
+			 + filter,
+			success: function(response){
+				refresh_filters();
+			}
+		})		
+	});
+	\$(".remove_filter").on('click',function(){
+		var filter = \$(this).attr('id').replace(/^remove_/,'');
+		if (filter == ""){
+			return;
+		}
+		\$.ajax({
+			url: "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query&no_header=1&remove_filter=" 
+			 + filter,
+			success: function(response){
+				refresh_filters();
+			}
+		})		
+	});
+
 	\$("#bookmark_trigger,#close_bookmark").click(function(){		
 		\$("#bookmark_panel").toggle("slide",{direction:"right"},"fast");
 		return false;
@@ -4147,6 +4169,22 @@ function loadContent(url) {
 	} else if (fields == 'tags'){
 		add_rows(url,fields,'tag',row,'locus_tags_heading','add_tags');
 	}
+}
+
+function render_loaded_locuslists() {
+	render_locuslists("select.locuslist");
+}
+
+function render_locuslists(selector){
+	\$(selector).filter(':visible').multiselect({
+		noneSelectedText: "Please select...",
+		selectedList: 1,
+		menuHeight: 250,
+		menuWidth: 300,
+		classes: 'filter',
+	}).multiselectfilter({
+		placeholder: 'Search'
+	});
 }
 
 function refresh_filters(){
