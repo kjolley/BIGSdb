@@ -53,7 +53,7 @@ sub get_attributes {
 		menutext    => 'Sequence bin breakdown',
 		module      => 'SeqbinBreakdown',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/seqbin_breakdown.html",
-		version     => '1.7.4',
+		version     => '1.8.0',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -66,7 +66,13 @@ sub get_attributes {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.jstree' => 1, 'jQuery.tablesort' => 1, billboard => 1, tooltips => 1 };
+	return {
+		'jQuery.jstree'      => 1,
+		'jQuery.tablesort'   => 1,
+		'jQuery.multiselect' => 1,
+		billboard            => 1,
+		tooltips             => 1
+	};
 }
 
 sub set_pref_requirements {
@@ -74,6 +80,23 @@ sub set_pref_requirements {
 	$self->{'pref_requirements'} =
 	  { general => 1, main_display => 0, isolate_display => 0, analysis => 1, query_field => 0 };
 	return;
+}
+
+sub get_plugin_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+
+\$(function () {
+	\$('#locus,#recommended_schemes').multiselect({
+ 		classes: 'filter',
+ 		menuHeight: 250,
+ 		menuWidth: 400,
+ 		selectedList: 8
+  	}).multiselectfilter();
+});
+
+END
+	return $buffer;
 }
 
 sub run {
@@ -285,9 +308,9 @@ sub _print_interface {
 	say q(<div class="scrollable">);
 	say $q->start_form;
 	say q(<div class="flex_container" style="justify-content:left">);
-	$self->print_seqbin_isolate_fieldset( { selected_ids     => $selected_ids, isolate_paste_list => 1 } );
-	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
-	$self->print_recommended_scheme_fieldset;
+	$self->print_seqbin_isolate_fieldset( { selected_ids => $selected_ids, isolate_paste_list => 1 } );
+	$self->print_isolates_locus_fieldset( { locus_paste_list => 1, no_all_none => 1 } );
+	$self->print_recommended_scheme_fieldset( { no_clear => 1 } ) ;
 	$self->print_scheme_fieldset;
 	$self->_print_options_fieldset;
 	$self->print_action_fieldset( { name => 'SeqbinBreakdown' } );
