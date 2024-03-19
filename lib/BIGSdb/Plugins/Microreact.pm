@@ -1,6 +1,6 @@
 #Microreact.pm - Phylogenetic tree/data visualization plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2017-2022, University of Oxford
+#Copyright (c) 2017-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -65,7 +65,7 @@ sub get_attributes {
 		buttontext => 'Microreact',
 		menutext   => 'Microreact',
 		module     => 'Microreact',
-		version    => '1.3.0',
+		version    => '1.4.0',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
@@ -415,5 +415,22 @@ sub print_info_panel {
 	  . q(<i>Microb Genom</i> <b>2:</b>e000093</a>.</p>);
 	say q(</div><div style="clear:both"></div></div>);
 	return;
+}
+
+sub get_plugin_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+
+\$(function () {
+	\$('#locus,#recommended_schemes,#include_fields').multiselect({
+ 		classes: 'filter',
+ 		menuHeight: 250,
+ 		menuWidth: 400,
+ 		selectedList: 8
+  	}).multiselectfilter();
+});
+
+END
+	return $buffer;
 }
 1;

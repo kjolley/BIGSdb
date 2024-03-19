@@ -261,7 +261,7 @@ sub _print_interface {
 			scheme_fields            => 1,
 		}
 	);
-	$self->print_recommended_scheme_fieldset;
+	$self->print_recommended_scheme_fieldset( { no_clear => 1 } );
 	$self->print_scheme_fieldset;
 	say q(<div style="clear:both"></div>);
 	$self->_print_reference_genome_fieldset;
@@ -2680,7 +2680,7 @@ function enable_seqs(){
 	\$("#accession").bind("input propertychange", function () {
 		enable_seqs();
 	});
-	\$('#locus,#include_fields').multiselect({
+	\$('#locus,#include_fields,#recommended_schemes').multiselect({
  		classes: 'filter',
  		menuHeight: 250,
  		menuWidth: 400,

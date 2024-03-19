@@ -1041,7 +1041,7 @@ sub get_export_buttons {
 }
 
 sub print_recommended_scheme_fieldset {
-	my ($self) = @_;
+	my ( $self, $options ) = @_;
 	my $schemes =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT id FROM schemes WHERE recommended ORDER BY name', undef, { fetch => 'col_arrayref' } );
@@ -1062,9 +1062,11 @@ sub print_recommended_scheme_fieldset {
 		-size     => 5,
 		-multiple => 'true'
 	);
-	say
-	  q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("recommended_schemes",false)' )
-	  . q(value="Clear" style="margin-top:1em" class="small_submit" /></div>);
+	if ( !$options->{'no_clear'} ) {
+		say q(<div style="text-align:center"><input type="button" )
+		  . q(onclick='listbox_selectall("recommended_schemes",false)' )
+		  . q(value="Clear" style="margin-top:1em" class="small_submit" /></div>);
+	}
 	say q(</fieldset>);
 	return;
 }

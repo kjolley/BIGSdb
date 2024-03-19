@@ -127,7 +127,7 @@ sub _print_interface {
 	say q(<div class="flex_container" style="justify-content:left">);
 	$self->print_seqbin_isolate_fieldset( { use_all          => 1, selected_ids => $list, isolate_paste_list => 1 } );
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
-	$self->print_recommended_scheme_fieldset;
+	$self->print_recommended_scheme_fieldset( { no_clear => 1 } );
 	$self->print_scheme_fieldset( { fields_or_loci => 0 } );
 	$self->print_includes_fieldset(
 		{
