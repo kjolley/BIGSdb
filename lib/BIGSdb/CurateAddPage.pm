@@ -1042,6 +1042,12 @@ sub get_javascript {
  	var url = '$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=add&table=sequences&locus=' + locus_name;
  	location.href=url;
   });
+  \$('#locus').multiselect({
+  	classes: 'filter',
+ 	menuHeight: 250,
+ 	menuWidth: 400,
+ 	selectedList: 1,
+  }).multiselectfilter();
 });
 END
 	return $buffer;
