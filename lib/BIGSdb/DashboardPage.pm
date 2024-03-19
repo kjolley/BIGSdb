@@ -2530,7 +2530,7 @@ DEFAULTS
 						if ($is_vertical && label_count<=$element->{'height'}*6){
 							return labels[i];
 						}
-						if (label_count<=$element->{'width'}*4){
+						if (label_count<=$element->{'width'}*3){
 							return labels[i];
 						}
 						if (v < max*0.05 || v == 1){
