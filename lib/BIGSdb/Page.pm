@@ -1256,7 +1256,79 @@ sub get_field_selection_list {
 	if ( $options->{'sort_labels'} ) {
 		$values = BIGSdb::Utils::dictionary_sort( $values, $self->{'cache'}->{'labels'} );
 	}
+	if ( $options->{'optgroups'} ) {
+		my $sorted_values = $self->_sort_field_list_into_optgroups($values);
+		return $sorted_values, $self->{'cache'}->{'labels'};
+	}
 	return $values, $self->{'cache'}->{'labels'};
+}
+
+sub _sort_field_list_into_optgroups {
+	my ( $self, $values ) = @_;
+	my $fields           = [];
+	my $group_members    = {};
+	my $attributes       = $self->{'xmlHandler'}->get_all_field_attributes;
+	my $eav_fields       = $self->{'datastore'}->get_eav_fields;
+	my $eav_field_groups = { map { $_->{'field'} => $_->{'category'} } @$eav_fields };
+	my @group_list       = split /,/x, ( $self->{'system'}->{'field_groups'} // q() );
+	my @eav_groups       = split /,/x, ( $self->{'system'}->{'eav_groups'}   // q() );
+	push @group_list, @eav_groups if @eav_groups;
+	push @group_list, ( 'Loci', 'Schemes', 'Annotation status' );
+	my $q = $self->{'cgi'};
+
+	foreach my $group ( undef, @group_list ) {
+		my $name = $group // 'General';
+		$name =~ s/\|.+$//x;
+		if ( ref $group_members->{$name} ) {
+			push @$fields,
+			  $q->optgroup(
+				-name   => $name,
+				-values => $group_members->{$name},
+				-labels => $self->{'cache'}->{'labels'}
+			  );
+		}
+	}
+	foreach my $field (@$values) {
+		if ( $field =~ /^(?:l|cn)_/x ) {
+			push @{ $group_members->{'Loci'} }, $field;
+		}
+		if ( $field =~ /^s_/x ) {
+			push @{ $group_members->{'Schemes'} }, $field;
+		}
+		if ( $field =~ /^as_/x ) {
+			push @{ $group_members->{'Annotation status'} }, $field;
+		}
+		if ( $field =~ /^[f|e]_/x ) {
+			( my $stripped_field = $field ) =~ s/^[f|e]_//x;
+			$stripped_field =~ s/[\|\||\s].+$//x;
+			if ( $attributes->{$stripped_field}->{'group'} ) {
+				push @{ $group_members->{ $attributes->{$stripped_field}->{'group'} } }, $field;
+			} else {
+				push @{ $group_members->{'General'} }, $field;
+			}
+		}
+		if ( $field =~ /^eav_/x ) {
+			( my $stripped_field = $field ) =~ s/^eav_//x;
+			if ( $eav_field_groups->{$stripped_field} ) {
+				push @{ $group_members->{ $eav_field_groups->{$stripped_field} } }, $field;
+			} else {
+				push @{ $group_members->{'General'} }, $field;
+			}
+		}
+	}
+	foreach my $group ( undef, @group_list ) {
+		my $name = $group // 'General';
+		$name =~ s/\|.+$//x;
+		if ( ref $group_members->{$name} ) {
+			push @$fields,
+			  $q->optgroup(
+				-name   => $name,
+				-values => $group_members->{$name},
+				-labels => $self->{'cache'}->{'labels'}
+			  );
+		}
+	}
+	return $fields;
 }
 
 sub _get_loci_list {

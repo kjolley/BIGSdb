@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext => 'Two Field',
 		menutext   => 'Two field breakdown',
 		module     => 'TwoFieldBreakdown',
-		version    => '1.7.2',
+		version    => '1.8.0',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/two_field_breakdown.html",
@@ -64,12 +64,30 @@ sub get_attributes {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.slimbox' => 1, 'jQuery.tablesort' => 1, billboard => 1 };
+	return { 'jQuery.slimbox' => 1, 'jQuery.tablesort' => 1, 'jQuery.multiselect' => 1, billboard => 1 };
 }
 
 sub get_hidden_attributes {
 	my @list = qw(field1 field2 display calcpc function);
 	return \@list;
+}
+
+sub get_plugin_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+
+\$(function () {
+	\$('#field1,#field2').multiselect({
+ 		classes: 'filter',
+ 		menuHeight: 350,
+ 		menuWidth: 400,
+ 		selectedList: 1,
+ 		groupsSelectable: false
+  	}).multiselectfilter();
+});
+
+END
+	return $buffer;
 }
 
 sub run {
@@ -171,8 +189,7 @@ sub run_job {
 	my $freq_hashes;
 	try {
 		$freq_hashes = $self->_get_value_frequency_hashes( $params->{'field1'}, $params->{'field2'}, $isolate_ids );
-	}
-	catch {
+	} catch {
 		if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
 			$continue = 0;
 		} else {
@@ -217,11 +234,11 @@ sub run_job {
 	my $html_field1 = $self->{'datastore'}->is_locus($print_field1) ? $self->clean_locus($print_field1) : $print_field1;
 	my $html_field2 = $self->{'datastore'}->is_locus($print_field2) ? $self->clean_locus($print_field2) : $print_field2;
 	my $text_field1 =
-	    $self->{'datastore'}->is_locus($print_field1)
+		$self->{'datastore'}->is_locus($print_field1)
 	  ? $self->clean_locus( $print_field1, { text_output => 1 } )
 	  : $print_field1;
 	my $text_field2 =
-	    $self->{'datastore'}->is_locus($print_field2)
+		$self->{'datastore'}->is_locus($print_field2)
 	  ? $self->clean_locus( $print_field2, { text_output => 1 } )
 	  : $print_field2;
 	my $html_buffer;
@@ -316,16 +333,18 @@ sub _print_interface {
 			eav_fields               => 1,
 			extended_attributes      => 1,
 			loci                     => 1,
+			no_list_by_common_name   => 1,
 			query_pref               => 0,
 			analysis_pref            => 1,
 			scheme_fields            => 1,
-			set_id                   => $set_id
+			set_id                   => $set_id,
+			optgroups                => 1
 		}
 	);
 
-	#Remove id and isolate fields - this are either unique or nearly unique so can
+	#Remove id and isolate fields - these are either unique or nearly unique so can
 	#result in very large matrices with little value.
-	my $valid_fields = [];
+	my $valid_fields   = [];
 	my %invalid_fields = map { $_ => 1 } ( 'f_id', "f_$self->{'system'}->{'labelfield'}" );
 	foreach my $field (@$headings) {
 		next if $invalid_fields{$field};
@@ -439,8 +458,7 @@ sub _breakdown {
 	my $freq_hashes;
 	try {
 		$freq_hashes = $self->_get_value_frequency_hashes( $field1, $field2, $id_list );
-	}
-	catch {
+	} catch {
 		if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
 			$self->print_bad_status(
 				{
@@ -510,11 +528,11 @@ sub _breakdown {
 	my $html_field1 = $self->{'datastore'}->is_locus($print_field1) ? $self->clean_locus($print_field1) : $print_field1;
 	my $html_field2 = $self->{'datastore'}->is_locus($print_field2) ? $self->clean_locus($print_field2) : $print_field2;
 	my $text_field1 =
-	    $self->{'datastore'}->is_locus($print_field1)
+		$self->{'datastore'}->is_locus($print_field1)
 	  ? $self->clean_locus( $print_field1, { text_output => 1 } )
 	  : $print_field1;
 	my $text_field2 =
-	    $self->{'datastore'}->is_locus($print_field2)
+		$self->{'datastore'}->is_locus($print_field2)
 	  ? $self->clean_locus( $print_field2, { text_output => 1 } )
 	  : $print_field2;
 	if ( !$disable_html_table ) {
@@ -1000,8 +1018,8 @@ sub _get_values {
 			options      => $options
 		};
 		my $method = {
-			field     => sub { return [ $self->_get_field_value($sub_args) ] },
-			eav_field => sub { return [ $self->_get_eav_field_value($sub_args) ] },
+			field        => sub { return [ $self->_get_field_value($sub_args) ] },
+			eav_field    => sub { return [ $self->_get_eav_field_value($sub_args) ] },
 			locus        => sub { return $self->_get_locus_values($sub_args) },
 			scheme_field => sub {
 				return $self->get_scheme_field_values(
