@@ -1,6 +1,6 @@
 #ReporTree.pm - Wrapper for ReporTree pipeline
 #Written by Keith Jolley
-#Copyright (c) 2023, University of Oxford
+#Copyright (c) 2023-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -53,7 +53,7 @@ sub get_attributes {
 		buttontext          => 'ReporTree',
 		menutext            => 'ReporTree',
 		module              => 'ReporTree',
-		version             => '1.1.0',
+		version             => '1.2.0',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -317,6 +317,10 @@ sub _update_output_files {
 	return;
 }
 
+sub get_initiation_values {
+	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1 };
+}
+
 sub _print_interface {
 	my ( $self, $isolate_ids ) = @_;
 	my $q = $self->{'cgi'};
@@ -332,9 +336,9 @@ sub _print_interface {
 	my $query_file = $q->param('query_file');
 	my $list       = $self->get_id_list( 'id', $query_file );
 	say q(<div class="flex_container" style="justify-content:left">);
-	$self->print_seqbin_isolate_fieldset( { use_all          => 1, selected_ids => $list, isolate_paste_list => 1 } );
-	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
-	$self->print_recommended_scheme_fieldset;
+	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $list, isolate_paste_list => 1 } );
+	$self->print_isolates_locus_fieldset( { locus_paste_list => 1, no_all_none => 1 } );
+	$self->print_recommended_scheme_fieldset( { no_clear => 1 } );
 	$self->print_scheme_fieldset( { fields_or_loci => 0 } );
 	$self->print_includes_fieldset(
 		{
@@ -405,6 +409,12 @@ function enable_partitions(){
 	\$("#stability_regions").bind("input propertychange", function () {
 		enable_partitions();
 	});
+	\$('#locus,#recommended_schemes,#include_fields').multiselect({
+ 		classes: 'filter',
+ 		menuHeight: 250,
+ 		menuWidth: 400,
+ 		selectedList: 8
+  	}).multiselectfilter();
 });
 END
 	return $buffer;
