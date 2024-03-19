@@ -596,7 +596,7 @@ sub log_call {
 	return if $q->param('no_header');
 	return if $q->param('results');
 	my $page   = $self->{'page'};
-	my %ignore = map { $_ => 1 } qw(ajaxAnalysis idList);
+	my %ignore = map { $_ => 1 } qw(ajaxAnalysis ajaxJobs ajaxRest idList);
 	return if $ignore{$page};
 	my $method = {
 		plugin => sub {
