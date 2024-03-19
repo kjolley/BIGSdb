@@ -251,7 +251,7 @@ sub _print_interface {
 	say q(<fieldset><legend>Schemes</legend>);
 	say q(<noscript><p class="highlight">Enable Javascript to select schemes.</p></noscript>);
 	say q(<div id="tree" class="tree" style="height:220px; width:20em">);
-	say $self->get_tree( undef, { no_link_out => 1, select_schemes => 1 } );
+	say $self->get_tree( undef, { no_link_out => 1, select_schemes => 1, analysis_pref => 1 } );
 	say q(</div></fieldset>);
 	$self->_print_parameter_fieldset($general_prefs);
 
