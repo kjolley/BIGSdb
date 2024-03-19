@@ -1,6 +1,6 @@
 #LocusExplorer.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -47,7 +47,7 @@ sub get_attributes {
 		menutext   => 'Locus Explorer',
 		module     => 'LocusExplorer',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/locus_explorer.html",
-		version    => '1.3.16',
+		version    => '1.4.0',
 		dbtype     => 'sequences',
 		seqdb_type => 'sequences',
 		input      => 'query',
@@ -60,7 +60,7 @@ sub get_attributes {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.tablesort' => 1 };
+	return { 'jQuery.tablesort' => 1,'jQuery.multiselect' => 1 };
 }
 
 sub get_plugin_javascript {
@@ -73,6 +73,12 @@ sub get_plugin_javascript {
  	var url = '$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=plugin&name=LocusExplorer&locus=' + locus_name;
  	location.href=url;
   });
+  \$('#locus').multiselect({
+ 		classes: 'filter',
+ 		menuHeight: 350,
+ 		menuWidth: 400,
+ 		selectedList: 1,
+  	}).multiselectfilter();
 });
 function listbox_selectall(listID, isSelect) {
 	var listbox = document.getElementById(listID);
@@ -88,7 +94,7 @@ sub get_html_header {
 	my ($self) = @_;
 	my $stylesheet = $self->{'config'}->{'stylesheet'} // STYLESHEET;
 	my $buffer =
-	    qq(<!DOCTYPE html>\n)
+		qq(<!DOCTYPE html>\n)
 	  . qq(<html><head><title>Polymorphic site analysis</title>\n)
 	  . qq(<meta name="viewport" content="width=device-width" />\n)
 	  . qq(<link rel="stylesheet" type="text/css" href="$stylesheet" media="Screen" />\n)
@@ -100,7 +106,8 @@ sub run {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $set_id = $self->get_set_id;
-	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
+	my ( $display_loci, $cleaned ) =
+	  $self->{'datastore'}->get_locus_list( { set_id => $set_id, no_list_by_common_name => 1 } );
 	my $query_file = $q->param('query_file');
 	my $list_file  = $q->param('list_file');
 	my $list       = $self->get_allele_id_list( $query_file, $list_file );
@@ -141,7 +148,7 @@ sub run {
 	if ($analysis) {
 		if ( $analysis eq 'snp' ) {
 			$self->_snp( $locus, \@allele_ids ) if $q->param('function') eq 'snp';
-			$self->_site_explorer($locus) if $q->param('function') eq 'siteExplorer';
+			$self->_site_explorer($locus)       if $q->param('function') eq 'siteExplorer';
 			return;
 		} else {
 			if ( $analysis eq 'codon' ) {
@@ -186,7 +193,7 @@ sub run_job {
 		  ->update_job_output( $job_id, { filename => "$temp.html", description => 'Locus schematic (HTML format)' } );
 		$self->delete_temp_files("$prefix*");
 	} elsif ( $params->{'analysis'} eq 'translate' ) {
-		my $orf = $locus_info->{'orf'} // 1;
+		my $orf        = $locus_info->{'orf'} // 1;
 		my $final_file = $self->_run_translate( $locus, \@allele_ids, { alignwidth => $params->{'alignwidth'} } );
 		if ( -e $final_file ) {
 			( my $rel_file_path = $final_file ) =~ s/.*\///x;
@@ -217,7 +224,7 @@ sub _print_interface {
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	return if !$locus_info;
-	my $order = $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST (allele_id AS integer)' : 'allele_id';
+	my $order         = $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST (allele_id AS integer)' : 'allele_id';
 	my $max_sequences = MAX_SEQUENCES;
 	my $allele_ids =
 	  $self->{'datastore'}
@@ -244,7 +251,7 @@ sub _print_interface {
 	say q(</fieldset>);
 	say q(<fieldset style="float:left"><legend>Select analysis</legend>);
 	my $aligner_available = ( $self->{'config'}->{'muscle_path'} || $self->{'config'}->{'mafft_path'} ) ? 1 : 0;
-	my $labels = {
+	my $labels            = {
 		snp       => 'Polymorphic Sites - Display polymorphic site frequencies and sequence schematic',
 		codon     => 'Codon - Calculate G+C content and codon usage',
 		translate => 'Translate - Translate DNA to peptide sequences'
@@ -340,6 +347,7 @@ sub _snp {
 	my $max_sequences = MAX_SEQUENCES;
 	my $allele_count  = @$allele_ids;
 	my $length_varies = $self->_does_seq_length_vary( $locus, $allele_ids );
+
 	if ( $seq_count <= MAX_INSTANT_RUN || !$length_varies ) {
 		say q(<div class="box" id="resultspanel">);
 		my $cleaned = $self->clean_locus($locus);
@@ -358,7 +366,7 @@ sub _snp {
 				message => q(This locus is variable length and will therefore require )
 				  . qq(real-time alignment. Consequently this function is limited to $max_sequences sequences or )
 				  . qq(fewer - you have selected $allele_count.),
-				navbar => 1,
+				navbar   => 1,
 				back_url =>
 				  qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=LocusExplorer)
 			}
@@ -412,7 +420,6 @@ sub get_snp_schematic {
 	my $std_length = length( $seqs->[0] );
 	my $freqs;
 	for my $i ( 0 .. $std_length - 1 ) {
-
 		if ( $i % $align_width == 0 ) {
 			my $length;
 			if ( ( $i + $align_width ) > $std_length ) {
@@ -435,7 +442,7 @@ sub get_snp_schematic {
 			$nuc{ uc($base) }++;
 		}
 		$freqs->{ $i + 1 } = \%nuc if keys %nuc > 1;
-		$ps++ if keys %nuc > 1;
+		$ps++                      if keys %nuc > 1;
 		my $linenumber = 0;
 		foreach my $base ( sort { $nuc{$b} <=> $nuc{$a} } ( keys(%nuc) ) ) {
 			my $prop  = $nuc{$base} / $seq_count;
@@ -443,7 +450,7 @@ sub get_snp_schematic {
 			if ($seq_file) {
 				my $pos = $i + 1;
 				$linebuffer[$linenumber] .=
-				    qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+					qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 				  . q(page=plugin&amp;name=LocusExplorer&amp;analysis=snp&amp;function=siteExplorer&amp;)
 				  . qq(file=$seq_file&amp;locus=$locus&amp;pos=$pos" class="$class">$base</a>);
 			} else {
@@ -460,13 +467,13 @@ sub get_snp_schematic {
 		next if $test eq q();
 		$pagebuffer .= q(&nbsp;) x 7 . qq($line<br />\n);
 	}
-	my $pluralps = $ps != 1        ? 's' : '';
-	my $plural   = $seq_count != 1 ? 's' : '';
+	my $pluralps          = $ps != 1        ? 's' : '';
+	my $plural            = $seq_count != 1 ? 's' : '';
 	my $locus_info        = $self->{'datastore'}->get_locus_info($locus);
 	my $nuc_or_pep        = $locus_info->{'data_type'} eq 'peptide' ? 'amino acid' : 'nucleotide';
-	my $allele_or_variant = $locus_info->{'data_type'} eq 'peptide' ? 'variant' : 'allele';
+	my $allele_or_variant = $locus_info->{'data_type'} eq 'peptide' ? 'variant'    : 'allele';
 	my $buffer =
-	    q(<div class="results">)
+		q(<div class="results">)
 	  . qq(<p>The colour codes represent the percentage of ${allele_or_variant}s that have )
 	  . qq(a particular $nuc_or_pep at each position. Click anywhere within )
 	  . q(the sequence to drill down to allele and profile information. )
@@ -476,7 +483,7 @@ sub get_snp_schematic {
 	  . qq($ps polymorphic site$pluralps found.</p><p><b>Key: </b>);
 	foreach my $low (qw (0 10 20 30 40 50 60 70 80 90)) {
 		my $high = $low + 10;
-		$buffer .= q( | )  if $low;
+		$buffer .= q( | ) if $low;
 		$buffer .= qq(<span class="pc$high">);
 		$buffer .= q(&gt;) if $low;
 		$buffer .= qq($low - $high</span>);
@@ -612,7 +619,7 @@ sub _site_explorer {
 sub _get_selected_alleles {
 	my ( $self, $locus, $allele_ids ) = @_;
 	my %selected = map { $_ => 1 } @$allele_ids;
-	my $alleles = $self->{'datastore'}->run_query( 'SELECT allele_id,sequence FROM sequences WHERE locus=?',
+	my $alleles  = $self->{'datastore'}->run_query( 'SELECT allele_id,sequence FROM sequences WHERE locus=?',
 		$locus, { fetch => 'all_arrayref', slice => {} } );
 	my @seqs;
 	foreach my $allele (@$alleles) {
@@ -631,7 +638,7 @@ sub _codon {
 		return;
 	}
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	my $orf = $locus_info->{'orf'} // 1;
+	my $orf        = $locus_info->{'orf'} // 1;
 	say q(<div class="box" id="resultspanel"><div class="scrollable">);
 	my $cleaned = $self->clean_locus($locus);
 	say qq(<h2>$cleaned</h2>);
@@ -731,7 +738,7 @@ sub _translate {
 				message => q(This locus is variable length and will therefore )
 				  . qq(require real-time alignment. Consequently this function is limited to $max_sequences )
 				  . qq(sequences or fewer - you have selected $allele_count.),
-				navbar => 1,
+				navbar   => 1,
 				back_url =>
 				  qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=LocusExplorer)
 			}
@@ -747,7 +754,7 @@ sub _run_translate {
 	$options = {} if ref $options ne 'HASH';
 	my %seqs_hash;
 	my %selected = map { $_ => 1 } @$allele_ids;
-	my $alleles = $self->{'datastore'}->run_query( 'SELECT allele_id,sequence FROM sequences WHERE locus=?',
+	my $alleles  = $self->{'datastore'}->run_query( 'SELECT allele_id,sequence FROM sequences WHERE locus=?',
 		$locus, { fetch => 'all_arrayref', slice => {} } );
 	foreach my $allele (@$alleles) {
 		next if !$selected{ $allele->{'allele_id'} };
@@ -821,7 +828,7 @@ sub get_freq_table {
 	say $fh "$heading frequencies";
 	say $fh '-' x length("$heading frequencies");
 	my @chars = $locus_info->{'data_type'} eq 'DNA' ? qw(A C G T -) : qw (G A L M F W K Q E S P V I C Y H R N D T -);
-	my $cols = @chars * 2;
+	my $cols  = @chars * 2;
 	$buffer .= q(<div class="scrollable">);
 	$buffer .= q(<table class="tablesorter" id="sortTable"><thead><tr><th rowspan="2">Position</th>)
 	  . qq(<th colspan="$cols" class="sorter-false">$heading</th></tr>);
@@ -854,7 +861,7 @@ sub get_freq_table {
 		}
 		$buffer .= qq(</tr>\n);
 		print $fh qq(\n);
-		$td = $td == 1 ? 2 : 1;
+		$td    = $td == 1 ? 2 : 1;
 		$first = 0;
 	}
 	$buffer .= q(</tbody></table></div></div>);
