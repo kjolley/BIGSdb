@@ -337,7 +337,7 @@ sub _print_profile_table_fieldset {
 	}
 	my $class = $all_integers ? 'int_entry' : 'allele_entry';
 	foreach my $locus (@display_loci) {
-		say q(<dl class="profile" style="float:left">);
+		say q(<dl class="locus_combinations" style="float:left">);
 		say qq(<dt>$label{$locus}</dt>);
 		say q(<dd style="min-height:initial">);
 		say $q->textfield( -name => $locus, -class => $class, -style => 'text-align:center' );

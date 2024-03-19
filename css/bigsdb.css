@@ -1,4 +1,4 @@
-/*Version: 20240316*/
+/*Version: 20240319*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -2414,14 +2414,14 @@ div.scheme_tree {
 	word-break: break-word
 }
 
-dl.profile {
+dl.profile,dl.locus_combinations {
 	margin: 0;
 	display: inline-block;
 	border: 1px solid #ccc;
 	text-align: center;
 }
 
-.profile dt {
+.profile dt,.locus_combinations dt {
 	margin: 0;
 	padding: 0 0.5em;
 	height: 1.2em;
@@ -2439,7 +2439,7 @@ dl.profile {
 	text-decoration: none
 }
 
-.profile dd {
+.profile dd,.locus_combinations dd {
 	min-height: 1.7em;
 	padding: 0;
 	margin: 0;
