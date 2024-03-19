@@ -1,6 +1,6 @@
 #SequenceComparison.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -41,10 +41,9 @@ sub get_attributes {
 		category         => 'Analysis',
 		menutext         => 'Sequence comparison',
 		module           => 'SequenceComparison',
-		url =>
-		  "$self->{'config'}->{'doclink'}/data_query/0050_investigating_allele_differences.html#sequence-comparison"
-		,
-		version    => '1.0.11',
+		url              =>
+		  "$self->{'config'}->{'doclink'}/data_query/0050_investigating_allele_differences.html#sequence-comparison",
+		version    => '1.1.0',
 		dbtype     => 'sequences',
 		seqdb_type => 'sequences',
 		section    => 'analysis',
@@ -55,12 +54,17 @@ sub get_attributes {
 	return \%att;
 }
 
+sub get_initiation_values {
+	return { 'jQuery.tablesort' => 1, 'jQuery.multiselect' => 1 };
+}
+
 sub run {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<h1>Allele sequence comparison</h1>);
 	my $set_id = $self->get_set_id;
-	my ( $display_loci, $cleaned ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
+	my ( $display_loci, $cleaned ) =
+	  $self->{'datastore'}->get_locus_list( { set_id => $set_id, no_list_by_common_name => 1 } );
 	if ( !@$display_loci ) {
 		$self->print_bad_status( { message => q(No loci have been defined for this database.), navbar => 1 } );
 		return;
@@ -163,7 +167,7 @@ sub run {
 			}
 		}
 		my $numdiffs = scalar @results;
-		my $ident = BIGSdb::Utils::decimal_place( 100 - ( ( $numdiffs / ( length $$seq1_ref ) ) * 100 ), 2 );
+		my $ident    = BIGSdb::Utils::decimal_place( 100 - ( ( $numdiffs / ( length $$seq1_ref ) ) * 100 ), 2 );
 		$buffer .= qq(<p>Identity: $ident %</p>\n);
 		$buffer .= qq(<div class="scrollable">\n);
 		$buffer .= $self->get_alignment( $outfile, $temp );
@@ -223,6 +227,12 @@ sub get_plugin_javascript {
     		return(this.href.replace(/(.*)/, "javascript:loadContent\('\$1\'\)"));
     	});
   	});
+  	\$('#locus').multiselect({
+ 		classes: 'filter',
+ 		menuHeight: 350,
+ 		menuWidth: 400,
+ 		selectedList: 1,
+  	}).multiselectfilter();
 });
 
 function loadContent(url) {
