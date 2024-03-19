@@ -529,8 +529,7 @@ sub print_content {
 	my $aliases_button      = $self->get_show_aliases_button;
 	my $loci                = $self->{'datastore'}->get_loci( { set_id => $set_id } );
 	if ( @$loci && $self->_should_show_schemes($isolate_id) ) {
-		my $classification_data = $self->_get_classification_group_data($isolate_id);
-		say $self->_format_classification_data($classification_data);
+		$self->_show_classification_schemes($isolate_id);
 		say q(<div><span class="info_icon fas fa-2x fa-fw fa-table fa-pull-left" style="margin-top:0.3em"></span>);
 		say
 qq(<h2 style="display:inline-block">Schemes and loci</h2>$tree_button$common_names_button$aliases_button<div>);
@@ -668,6 +667,14 @@ sub _close_divs {
 		}
 		$self->{'open_divs'} = 0;
 	}
+	return;
+}
+
+sub _show_classification_schemes {
+	my ( $self, $isolate_id ) = @_;
+	return if ($self->{'system'}->{'show_classification_schemes'} // 'yes') eq 'no';
+	my $classification_data = $self->_get_classification_group_data($isolate_id);
+	say $self->_format_classification_data($classification_data);
 	return;
 }
 

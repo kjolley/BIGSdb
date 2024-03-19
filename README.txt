@@ -1,3 +1,11 @@
+v1.43.3: *Added optional message to users to use API on the allele and profile
+          download page.
+         *Searchable dropdown boxes are now used for lists with large number 
+          of values.
+         *Dropdown lists of checkboxes now used for fields requiring 
+          multiselect.
+         *Javascript performance tweaks for background loading of isolate query
+          form elements.
 v1.43.2: *Added additional logging information.
          *cgST with fewest missing loci is now highlighted when isolate has 
           multiple cgSTs.
