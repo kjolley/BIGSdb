@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2023, University of Oxford
+#Copyright (c) 2015-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -2632,13 +2632,13 @@ sub _print_genome_stat_fields {
 				$class = 'warning';
 			}
 			say qq(<td class="$class">) . BIGSdb::Utils::commify( $assembly_stats->{$index}->{'contigs'} ) . q(</td>);
-			my $warn_min_total_length = $self->{'config'}->{'warn_min_total_length'}
-			  // $self->{'system'}->{'warn_min_total_length'} // WARN_MIN_TOTAL_LENGTH;
-			my $warn_max_total_length = $self->{'config'}->{'warn_max_total_length'}
-			  // $self->{'system'}->{'warn_max_total_length'} // WARN_MAX_TOTAL_LENGTH;
-			my $min_total_length = $self->{'config'}->{'min_total_length'} // $self->{'system'}->{'min_total_length'}
+			my $warn_min_total_length = $self->{'system'}->{'warn_min_total_length'}
+			  // $self->{'config'}->{'warn_min_total_length'} // WARN_MIN_TOTAL_LENGTH;
+			my $warn_max_total_length = $self->{'system'}->{'warn_max_total_length'}
+			  // $self->{'config'}->{'warn_max_total_length'} // WARN_MAX_TOTAL_LENGTH;
+			my $min_total_length = $self->{'system'}->{'min_total_length'} // $self->{'config'}->{'min_total_length'}
 			  // MIN_TOTAL_LENGTH;
-			my $max_total_length = $self->{'config'}->{'max_total_length'} // $self->{'system'}->{'max_total_length'}
+			my $max_total_length = $self->{'system'}->{'max_total_length'} // $self->{'config'}->{'max_total_length'}
 			  // MAX_TOTAL_LENGTH;
 			$class = q();
 			if (   $assembly_stats->{$index}->{'total_length'} < $min_total_length
