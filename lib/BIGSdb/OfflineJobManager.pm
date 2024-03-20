@@ -513,7 +513,7 @@ sub get_next_job_id {
 		  $module_per_user->{'count'};
 	}
 	my $jobs = $self->_run_query(
-		'SELECT id,module FROM jobs WHERE status=? ORDER BY priority asc,submit_time asc',
+		'SELECT id,module,username FROM jobs WHERE status=? ORDER BY priority asc,submit_time asc',
 		'submitted', { fetch => 'all_arrayref', slice => {} }
 	);
 	foreach my $job (@$jobs) {
