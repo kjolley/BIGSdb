@@ -481,8 +481,17 @@ sub _read_job_limits_file {
 		$logger->fatal( 'Unable to read or parse job_limits.conf file. Reason: ' . Config::Tiny->errstr );
 		$config = Config::Tiny->new();
 	}
+
+	#The conf file did not used to have sections, so support global limits if
+	#set in root.
 	foreach my $param ( keys %{ $config->{_} } ) {
-		$self->{'limits'}->{$param} = $config->{_}->{$param};
+		$self->{'limits'}->{'global'}->{$param} = $config->{_}->{$param};
+	}
+	foreach my $param ( keys %{ $config->{'global'} } ) {
+		$self->{'limits'}->{'global'}->{$param} = $config->{'global'}->{$param};
+	}
+	foreach my $param ( keys %{ $config->{'user'} } ) {
+		$self->{'limits'}->{'user'}->{$param} = $config->{'user'}->{$param};
 	}
 	return;
 }
@@ -491,16 +500,35 @@ sub get_next_job_id {
 	my ($self) = @_;
 	my $running = $self->_run_query( 'SELECT module,COUNT(*) AS count FROM jobs WHERE status=? GROUP BY module',
 		'started', { fetch => 'all_arrayref', slice => {} } );
-	my %running = map { $_->{'module'} => $_->{'count'} } @$running;
-	my $jobs    = $self->_run_query( 'SELECT id,module FROM jobs WHERE status=? ORDER BY priority asc,submit_time asc',
-		'submitted', { fetch => 'all_arrayref', slice => {} } );
+	my %total_running     = map { $_->{'module'} => $_->{'count'} } @$running;
+	my $running_user_jobs = $self->_run_query(
+		'SELECT module,username,COUNT(*) AS count FROM jobs WHERE '
+		  . 'status=? AND username IS NOT NULL GROUP BY module,username',
+		'started',
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	my $running_jobs_per_user;
+	foreach my $module_per_user (@$running_user_jobs) {
+		$running_jobs_per_user->{ $module_per_user->{'username'} }->{ $module_per_user->{'module'} } =
+		  $module_per_user->{'count'};
+	}
+	my $jobs = $self->_run_query(
+		'SELECT id,module FROM jobs WHERE status=? ORDER BY priority asc,submit_time asc',
+		'submitted', { fetch => 'all_arrayref', slice => {} }
+	);
 	foreach my $job (@$jobs) {
-		if ( defined $self->{'limits'}->{ $job->{'module'} }
-			&& BIGSdb::Utils::is_int( $self->{'limits'}->{ $job->{'module'} } ) )
+		if ( defined $self->{'limits'}->{'global'}->{ $job->{'module'} }
+			&& BIGSdb::Utils::is_int( $self->{'limits'}->{'global'}->{ $job->{'module'} } ) )
 		{
 			next
-			  if defined $running{ $job->{'module'} }
-			  && $running{ $job->{'module'} } >= $self->{'limits'}->{ $job->{'module'} };
+			  if defined $total_running{ $job->{'module'} }
+			  && $total_running{ $job->{'module'} } >= $self->{'limits'}->{'global'}->{ $job->{'module'} };
+		}
+		if ( defined $job->{'username'} && defined $self->{'limits'}->{'user'}->{ $job->{'module'} } ) {
+			next
+			  if defined $running_jobs_per_user->{ $job->{'username'} }->{ $job->{'module'} }
+			  && $running_jobs_per_user->{ $job->{'username'} }->{ $job->{'module'} } >=
+			  $self->{'limits'}->{'user'}->{ $job->{'module'} };
 		}
 		return $job->{'id'};
 	}
