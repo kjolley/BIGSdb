@@ -6,6 +6,8 @@ v1.43.3: *Added optional message to users to use API on the allele and profile
           multiselect.
          *Javascript performance tweaks for background loading of isolate query
           form elements.
+         *Optionally set a limit to the number of offline jobs that any single
+          user can run for individual plugins.
 v1.43.2: *Added additional logging information.
          *cgST with fewest missing loci is now highlighted when isolate has 
           multiple cgSTs.
