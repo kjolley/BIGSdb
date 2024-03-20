@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Perform/update species id check and store results in isolate database.
 #Written by Keith Jolley
-#Copyright (c) 2021-2022, University of Oxford
+#Copyright (c) 2021-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20220913
+#Version: 20240320
 use strict;
 use warnings;
 use 5.010;
@@ -137,6 +137,7 @@ sub check_db {
 			options          => { mark_job => 1 }
 		}
 	);
+	die "Script initialization failed.\n" if !defined $script->{'db'};
 	if ( ( $script->{'system'}->{'dbtype'} // q() ) ne 'isolates' ) {
 		$logger->error("$config is not an isolate database.");
 		return;
