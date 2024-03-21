@@ -1366,6 +1366,7 @@ sub create_temp_cscheme_table {
 		}
 		$self->{'db'}->pg_putcopyend;
 		$self->{'db'}->do("CREATE INDEX ON $table(group_id)");
+		$self->{'db'}->do("CREATE INDEX ON $table(profile_id)");
 	};
 	if ($@) {
 		$logger->error($@);
