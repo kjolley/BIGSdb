@@ -10,3 +10,7 @@ DROP INDEX i_pm3;	--profile_members(allele_id)
 
 CREATE INDEX i_s4 ON sequences(sender);
 CREATE INDEX i_pm4 ON profile_members(locus,allele_id,scheme_id);
+
+--Replace sequence exemplar index
+DROP INDEX i_s2;	--sequences(exemplar)
+CREATE INDEX i_s2 ON sequences(exemplar,locus);
