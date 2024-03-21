@@ -7,3 +7,5 @@ DROP INDEX i_sr1;	--sequence_refs(pubmed_id)
 
 --Rarely used scans with high writes
 DROP INDEX i_pm3;	--profile_members(allele_id)
+
+CREATE INDEX i_s4 ON sequences(sender);
