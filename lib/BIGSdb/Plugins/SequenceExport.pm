@@ -56,7 +56,7 @@ sub get_attributes {
 		buttontext => 'Sequences',
 		menutext   => $seqdef ? 'Profile sequences' : 'Sequences',
 		module     => 'SequenceExport',
-		version    => '1.7.6',
+		version    => '1.7.7',
 		dbtype     => 'isolates,sequences',
 		seqdb_type => 'schemes',
 		section    => 'isolate_info,profile_info,export,postquery',
@@ -131,6 +131,7 @@ sub run {
 			my $params = $q->Vars;
 			$params->{'pk'}     = $pk;
 			$params->{'set_id'} = $self->get_set_id;
+			$params->{'curate'} = 1 if $self->{'curate'};
 			my @list = split /[\r\n]+/x, $q->param('list');
 			@list = uniq @list;
 			if ( !@list ) {
