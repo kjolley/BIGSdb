@@ -696,6 +696,7 @@ ON UPDATE CASCADE
 CREATE INDEX i_pm1 ON profile_members (scheme_id,profile_id);
 --CREATE INDEX i_pm2 ON profile_members (scheme_id,locus) removed as not necessary (covered by pkey index)
 --CREATE INDEX i_pm3 ON profile_members (allele_id);
+CREATE INDEX i_pm4 ON profile_members(locus,allele_id,scheme_id);
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON profile_members TO apache;
 ALTER TABLE profile_members OWNER TO apache;
