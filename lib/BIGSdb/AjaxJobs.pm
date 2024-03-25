@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2019-2023, University of Oxford
+#Copyright (c) 2019-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -81,6 +81,8 @@ sub print_content {
 		if ( $times->{$time}->{'stop'} ) {
 			$running -= $times->{$time}->{'stop'};
 		}
+		$queued  = 0 if $queued < 0;
+		$running = 0 if $running < 0;
 		push @$status, { time => $time, queued => $queued, running => $running };
 	}
 	my $now = $self->_trimmed_time( $self->{'jobManager'}->get_period_timestamp(0) );
