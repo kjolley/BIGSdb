@@ -338,8 +338,8 @@ ON UPDATE CASCADE
 );
 
 CREATE INDEX i_sb_isolate_id on sequence_bin (isolate_id);
-CREATE INDEX i_sb_sender ON sequence_bin(sender);
-CREATE INDEX i_sb_curator ON sequence_bin(curator);
+--CREATE INDEX i_sb_sender ON sequence_bin(sender);
+--CREATE INDEX i_sb_curator ON sequence_bin(curator);
 GRANT SELECT,UPDATE,INSERT,DELETE ON sequence_bin TO apache;
 GRANT USAGE,SELECT ON SEQUENCE sequence_bin_id_seq TO apache;
 --Allow apache user to disable triggers on sequence_bin.
@@ -359,8 +359,8 @@ ON UPDATE CASCADE
 );
 CREATE INDEX ON seqbin_stats(contigs);
 CREATE INDEX ON seqbin_stats(total_length);
-CREATE INDEX ON seqbin_stats(n50);
-CREATE INDEX ON seqbin_stats(l50);
+--CREATE INDEX ON seqbin_stats(n50);
+--CREATE INDEX ON seqbin_stats(l50);
 
 GRANT SELECT,INSERT,UPDATE,DELETE ON seqbin_stats TO apache;
 
@@ -880,9 +880,9 @@ ON UPDATE CASCADE
 );
 
 CREATE INDEX i_as1 ON allele_sequences (locus);
-CREATE INDEX i_as2 ON allele_sequences (datestamp);
+--CREATE INDEX i_as2 ON allele_sequences (datestamp);
 CREATE INDEX i_as3 ON allele_sequences (isolate_id);
-CREATE INDEX i_as_curator ON allele_sequences(curator);
+--CREATE INDEX i_as_curator ON allele_sequences(curator);
 
 -- Set isolate_id in allele_sequences table when adding or updating allele_sequences.
 CREATE OR REPLACE FUNCTION set_allele_sequences_isolate_id_field() RETURNS TRIGGER AS $set_allele_sequences_isolate_id_field$
@@ -974,10 +974,10 @@ ON UPDATE CASCADE
 -- Index i_ad1 (isolate_id) removed as not necessary (covered by pkey index)
 -- Index i_ad2 (locus) removed as not necessary (covered by i_ad3)
 CREATE INDEX i_ad3 ON allele_designations (locus,allele_id);
-CREATE INDEX i_ad4 ON allele_designations (datestamp);
+--CREATE INDEX i_ad4 ON allele_designations (datestamp);
 CREATE INDEX i_ad5 ON allele_designations (UPPER(locus));
-CREATE INDEX i_ad_sender ON allele_designations(sender);
-CREATE INDEX i_ad_curator ON allele_designations(curator);
+--CREATE INDEX i_ad_sender ON allele_designations(sender);
+--CREATE INDEX i_ad_curator ON allele_designations(curator);
 GRANT USAGE, SELECT ON SEQUENCE allele_designations_id_seq TO apache;
 GRANT SELECT,UPDATE,INSERT,DELETE ON allele_designations TO apache;
 
@@ -1505,8 +1505,8 @@ RETURNS VOID AS $$
 			modify_qry:=' ';
 		END IF;
 		EXECUTE('CREATE TEMP TABLE ad AS SELECT isolate_id,locus,allele_id FROM allele_designations '
-		|| 'WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id=$1) AND status!=$2'||modify_qry
-		|| ';CREATE INDEX ON ad(isolate_id,locus)') USING _scheme_id,'ignore';
+		|| 'WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id=$1)'||modify_qry
+		|| ';CREATE INDEX ON ad(isolate_id,locus)') USING _scheme_id;
 		EXECUTE('SELECT ARRAY(SELECT locus FROM scheme_warehouse_indices WHERE scheme_id=$1 ORDER BY index)') 
 		INTO loci USING _scheme_id;
 		scheme_locus_count:=array_length(loci,1);
@@ -1627,8 +1627,8 @@ RETURNS VOID AS $$
 			modify_qry:=' ';
 		END IF;
 		EXECUTE('CREATE TEMP TABLE ad AS SELECT isolate_id,locus,allele_id FROM allele_designations '
-		|| 'WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id=$1) AND status!=$2'||modify_qry
-		|| ';CREATE INDEX ON ad(isolate_id,locus)') USING _scheme_id,'ignore';
+		|| 'WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id=$1)'||modify_qry
+		|| ';CREATE INDEX ON ad(isolate_id,locus)') USING _scheme_id;
 		EXECUTE(FORMAT('CREATE %s %s AS SELECT %I.id, COUNT(DISTINCT locus) AS locus_count FROM %I JOIN ad '
 		||'ON %I.id=ad.isolate_id AND locus IN (SELECT locus FROM scheme_members WHERE scheme_id=%s) GROUP BY %I.id;'
 	  	,table_type,cache_table_temp,_view,_view,_view,_scheme_id,_view));
@@ -1730,7 +1730,7 @@ ON DELETE CASCADE
 ON UPDATE CASCADE
 );
 
-CREATE INDEX i_eavi1 ON eav_int(field,value);
+--CREATE INDEX i_eavi1 ON eav_int(field,value);
 GRANT SELECT,UPDATE,INSERT,DELETE ON eav_int TO apache;
 
 CREATE TABLE eav_float (
@@ -1746,7 +1746,7 @@ ON DELETE CASCADE
 ON UPDATE CASCADE
 );
 
-CREATE INDEX i_eavf1 ON eav_float(field,value);
+--CREATE INDEX i_eavf1 ON eav_float(field,value);
 GRANT SELECT,UPDATE,INSERT,DELETE ON eav_float TO apache;
 
 CREATE TABLE eav_text (
@@ -1762,7 +1762,7 @@ ON DELETE CASCADE
 ON UPDATE CASCADE
 );
 
-CREATE INDEX i_eavt1 ON eav_text(field,value);
+--CREATE INDEX i_eavt1 ON eav_text(field,value);
 GRANT SELECT,UPDATE,INSERT,DELETE ON eav_text TO apache;
 
 CREATE TABLE eav_date (
@@ -1778,7 +1778,7 @@ ON DELETE CASCADE
 ON UPDATE CASCADE
 );
 
-CREATE INDEX i_eavd1 ON eav_date(field,value);
+--CREATE INDEX i_eavd1 ON eav_date(field,value);
 GRANT SELECT,UPDATE,INSERT,DELETE ON eav_date TO apache;
 
 CREATE TABLE eav_boolean (
@@ -1794,7 +1794,7 @@ ON DELETE CASCADE
 ON UPDATE CASCADE
 );
 
-CREATE INDEX i_eavb1 ON eav_boolean(field,value);
+--CREATE INDEX i_eavb1 ON eav_boolean(field,value);
 GRANT SELECT,UPDATE,INSERT,DELETE ON eav_boolean TO apache;
 
 CREATE TABLE validation_conditions (
@@ -2060,8 +2060,7 @@ RETURNS SETOF record AS $$
 			END IF;
 			qry:=qry || 'profile[' || i || '] IN (''N''';
 			is_missing:=TRUE;
-			FOR designation IN SELECT allele_id FROM allele_designations WHERE (isolate_id,locus)=(_isolate_id,loci[i])	
-			 AND status!='ignore'		
+			FOR designation IN SELECT allele_id FROM allele_designations WHERE (isolate_id,locus)=(_isolate_id,loci[i])			
 			LOOP
 				is_missing:=FALSE;
 				designation=REPLACE(designation,'''','''''');

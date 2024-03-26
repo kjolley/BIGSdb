@@ -1164,7 +1164,7 @@ sub get_allele_designations_table_attributes {
 			name     => 'status',
 			type     => 'text',
 			required => 1,
-			optlist  => 'confirmed;provisional;ignore',
+			optlist  => 'confirmed;provisional',
 			default  => 'confirmed'
 		},
 		{ name => 'method',       type => 'text', required => 1, optlist => 'manual;automatic', default => 'manual' },

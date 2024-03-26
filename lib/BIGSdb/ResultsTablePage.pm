@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -1097,7 +1097,7 @@ sub _initiate_isolate_cache {
 	}
 	if ( !$self->{'designations_retrieved'}->{$isolate_id} ) {
 		$self->{'designations'}->{$isolate_id} =
-		  $self->{'datastore'}->get_all_allele_designations( $isolate_id, { show_ignored => $self->{'curate'} } );
+		  $self->{'datastore'}->get_all_allele_designations($isolate_id);
 		$self->{'designations_retrieved'}->{$isolate_id} = 1;
 	}
 	return;
@@ -1109,9 +1109,6 @@ sub _get_designation_status {
 		&& $self->{'prefs'}->{'mark_provisional_main'} )
 	{
 		return 'provisional';
-	}
-	if ( ( $allele_designations->{$locus}->{$allele_id} // q() ) eq 'ignore' ) {
-		return 'ignore';
 	}
 	return;
 }

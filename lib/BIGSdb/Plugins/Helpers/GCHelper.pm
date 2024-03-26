@@ -321,7 +321,7 @@ sub _get_allele_designations_from_defined_loci {
 	my %loci = map { $_ => 1 } @$loci;
 	my $all_designations =
 	  $self->{'datastore'}
-	  ->run_query( q(SELECT locus,allele_id FROM allele_designations WHERE isolate_id=? AND status!='ignore'),
+	  ->run_query( q(SELECT locus,allele_id FROM allele_designations WHERE isolate_id=?),
 		$isolate_id, { fetch => 'all_arrayref', slice => {}, cache => 'GCHelper::get_allele_designations' } );
 	my $tagged_loci = [];
 	if ( $self->{'options'}->{'tag_status'} ) {

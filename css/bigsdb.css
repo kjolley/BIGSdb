@@ -1,4 +1,4 @@
-/*Version: 20240319*/
+/*Version: 20240326*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -354,11 +354,6 @@ a.update:hover {
 	border: 1px solid #c0c0c0;
 	background: #e0b5b5;
 	color: black
-}
-
-.ignore {
-	color: #aaa;
-	border: 1px solid #aaa
 }
 
 pre {
