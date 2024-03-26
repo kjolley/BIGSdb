@@ -8,12 +8,7 @@ DROP INDEX i_eavf1;					--eav_float(field,value)
 
 --Rarely used scans with high writes
 DROP INDEX i_ad4;					--allele_designations(datestamp)
-DROP INDEX i_ad_sender;				--allele_designations(sender)
-DROP INDEX i_ad_curator;			--allele_designations(curator)
 DROP INDEX i_as2;					--allele_sequences(datestamp)
-DROP INDEX i_as_curator;			--allele_sequences(curator)
-DROP INDEX i_sb_curator;			--sequence_bin(curator)
-DROP INDEX i_sb_sender;				--sequence_bin(sender)
 DROP INDEX seqbin_stats_n50_idx;	--seqbin_stats(n50)
 
 --The option to set allele_designations to 'ignore' has been removed.
