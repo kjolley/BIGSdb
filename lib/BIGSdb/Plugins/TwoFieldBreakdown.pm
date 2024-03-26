@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext => 'Two Field',
 		menutext   => 'Two field breakdown',
 		module     => 'TwoFieldBreakdown',
-		version    => '1.8.0',
+		version    => '1.8.1',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/two_field_breakdown.html",
@@ -1097,7 +1097,7 @@ sub _get_locus_values {
 	if ( $options->{'fetchall'} ) {
 		if ( !$self->{'cache'}->{$field} ) {
 			my $data = $self->{'datastore'}->run_query(
-				q(SELECT isolate_id, allele_id FROM allele_designations WHERE locus=? AND status != 'ignore'),
+				q(SELECT isolate_id, allele_id FROM allele_designations WHERE locus=?),
 				$clean_fields->{$field},
 				{ fetch => 'all_arrayref' }
 			);

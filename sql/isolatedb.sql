@@ -1505,8 +1505,8 @@ RETURNS VOID AS $$
 			modify_qry:=' ';
 		END IF;
 		EXECUTE('CREATE TEMP TABLE ad AS SELECT isolate_id,locus,allele_id FROM allele_designations '
-		|| 'WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id=$1) AND status!=$2'||modify_qry
-		|| ';CREATE INDEX ON ad(isolate_id,locus)') USING _scheme_id,'ignore';
+		|| 'WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id=$1)'||modify_qry
+		|| ';CREATE INDEX ON ad(isolate_id,locus)') USING _scheme_id;
 		EXECUTE('SELECT ARRAY(SELECT locus FROM scheme_warehouse_indices WHERE scheme_id=$1 ORDER BY index)') 
 		INTO loci USING _scheme_id;
 		scheme_locus_count:=array_length(loci,1);
@@ -1627,8 +1627,8 @@ RETURNS VOID AS $$
 			modify_qry:=' ';
 		END IF;
 		EXECUTE('CREATE TEMP TABLE ad AS SELECT isolate_id,locus,allele_id FROM allele_designations '
-		|| 'WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id=$1) AND status!=$2'||modify_qry
-		|| ';CREATE INDEX ON ad(isolate_id,locus)') USING _scheme_id,'ignore';
+		|| 'WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id=$1)'||modify_qry
+		|| ';CREATE INDEX ON ad(isolate_id,locus)') USING _scheme_id;
 		EXECUTE(FORMAT('CREATE %s %s AS SELECT %I.id, COUNT(DISTINCT locus) AS locus_count FROM %I JOIN ad '
 		||'ON %I.id=ad.isolate_id AND locus IN (SELECT locus FROM scheme_members WHERE scheme_id=%s) GROUP BY %I.id;'
 	  	,table_type,cache_table_temp,_view,_view,_view,_scheme_id,_view));
@@ -2060,8 +2060,7 @@ RETURNS SETOF record AS $$
 			END IF;
 			qry:=qry || 'profile[' || i || '] IN (''N''';
 			is_missing:=TRUE;
-			FOR designation IN SELECT allele_id FROM allele_designations WHERE (isolate_id,locus)=(_isolate_id,loci[i])	
-			 AND status!='ignore'		
+			FOR designation IN SELECT allele_id FROM allele_designations WHERE (isolate_id,locus)=(_isolate_id,loci[i])			
 			LOOP
 				is_missing:=FALSE;
 				designation=REPLACE(designation,'''','''''');

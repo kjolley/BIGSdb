@@ -2073,7 +2073,7 @@ sub create_temp_scheme_status_table {
 			}
 			my $count = $self->run_query(
 				q(SELECT COUNT(DISTINCT(locus)) FROM allele_designations WHERE locus )
-				  . q(IN (SELECT locus FROM scheme_members WHERE scheme_id=?) AND status!='ignore' AND )
+				  . q(IN (SELECT locus FROM scheme_members WHERE scheme_id=?) AND )
 				  . q(isolate_id=?),
 				[ $scheme_id, $isolate_id ],
 				{ cache => 'Datastore::create_temp_scheme_status_table::locus_count' }
@@ -2532,9 +2532,7 @@ sub get_allele_extended_attributes {
 sub get_all_allele_designations {
 	my ( $self, $isolate_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $ignore_clause = $options->{'show_ignored'} ? '' : q( AND status != 'ignore');
-	my $data =
-	  $self->run_query( "SELECT locus,allele_id,status FROM allele_designations WHERE isolate_id=?$ignore_clause",
+	my $data = $self->run_query( "SELECT locus,allele_id,status FROM allele_designations WHERE isolate_id=?",
 		$isolate_id, { fetch => 'all_arrayref', cache => 'get_all_allele_designations' } );
 	my $alleles = {};
 	foreach my $designation (@$data) {
@@ -2545,12 +2543,11 @@ sub get_all_allele_designations {
 
 sub get_scheme_allele_designations {
 	my ( $self, $isolate_id, $scheme_id, $options ) = @_;
-	my $ignore_clause = $options->{'show_ignored'} ? q() : q( AND status != 'ignore');
 	my $designations;
 	if ($scheme_id) {
 		my $data = $self->run_query(
-			'SELECT * FROM allele_designations WHERE isolate_id=? AND locus IN (SELECT locus FROM scheme_members '
-			  . "WHERE scheme_id=?)$ignore_clause ORDER BY status,(substring (allele_id, '^[0-9]+'))::int,allele_id",
+			q[SELECT * FROM allele_designations WHERE isolate_id=? AND locus IN (SELECT locus FROM scheme_members ]
+			  . q[WHERE scheme_id=?) ORDER BY status,(substring (allele_id, '^[0-9]+'))::int,allele_id],
 			[ $isolate_id, $scheme_id ],
 			{ fetch => 'all_arrayref', slice => {}, cache => 'get_scheme_allele_designations_scheme' }
 		);
@@ -2611,9 +2608,8 @@ sub get_allele_flags {
 sub get_allele_ids {
 	my ( $self, $isolate_id, $locus, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $ignore_clause = $options->{'show_ignored'} ? '' : q( AND status != 'ignore');
 	my $allele_ids    = $self->run_query(
-		"SELECT allele_id FROM allele_designations WHERE isolate_id=? AND locus=?$ignore_clause",
+		'SELECT allele_id FROM allele_designations WHERE isolate_id=? AND locus=?',
 		[ $isolate_id, $locus ],
 		{ fetch => 'col_arrayref', cache => 'get_allele_ids' }
 	);
@@ -2625,7 +2621,6 @@ sub get_all_allele_ids {
 	my ( $self, $isolate_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $allele_ids    = {};
-	my $ignore_clause = $options->{'show_ignored'} ? '' : q( AND status != 'ignore');
 	my $set_clause =
 	  $options->{'set_id'}
 	  ? q[AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes ]
@@ -2633,7 +2628,7 @@ sub get_all_allele_ids {
 	  . qq[set_id=$options->{'set_id'}))]
 	  : q[];
 	my $data = $self->run_query(
-		qq(SELECT locus,allele_id FROM allele_designations WHERE isolate_id=? $set_clause$ignore_clause),
+		qq(SELECT locus,allele_id FROM allele_designations WHERE isolate_id=? $set_clause),
 		$isolate_id, { fetch => 'all_arrayref', cache => 'get_all_allele_ids' } );
 	foreach (@$data) {
 		my ( $locus, $allele_id ) = @$_;

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -52,7 +52,7 @@ sub count_isolates_with_allele {
 		$self->{'sql'}->{'isolate_allele_count'} =
 		  $self->{'db'}
 		  ->prepare( "SELECT COUNT(*) FROM allele_designations ad RIGHT JOIN $view ON $view.id=ad.isolate_id "
-			  . "WHERE (locus,allele_id)=(?,?) AND status!='ignore' AND $view.new_version IS NULL AND "
+			  . "WHERE (locus,allele_id)=(?,?) AND $view.new_version IS NULL AND "
 			  . 'isolate_id NOT IN (SELECT isolate_id FROM private_isolates)' );
 	}
 	eval { $self->{'sql'}->{'isolate_allele_count'}->execute( $locus, $allele_id ) };
@@ -118,7 +118,7 @@ sub count_matching_profiles {
 	}
 	my $view = $self->{'dbase_view'} // 'isolates';
 	my $qry =
-	    'SELECT COUNT(distinct isolate_id) FROM allele_designations WHERE isolate_id IN '
+		'SELECT COUNT(distinct isolate_id) FROM allele_designations WHERE isolate_id IN '
 	  . "(SELECT isolate_id FROM allele_designations RIGHT JOIN $view ON $view.id=allele_designations.isolate_id "
 	  . "WHERE ($temp) AND $view.new_version IS NULL GROUP BY isolate_id HAVING COUNT(isolate_id)=$locus_count AND "
 	  . 'isolate_id NOT IN (SELECT isolate_id FROM private_isolates))';
@@ -136,12 +136,12 @@ sub get_fields {
 	my ( $self, $field, $locus, $allele_id ) = @_;
 	my $view = $self->{'dbase_view'} // 'isolates';
 	if ( !$self->{'sql'}->{$field} ) {
-		$self->{'sql'}->{$field} =
-		  $self->{'db'}
-		  ->prepare( "SELECT $field, count(*) AS frequency FROM $view JOIN allele_designations ON $view.id="
+		$self->{'sql'}->{$field} = $self->{'db'}->prepare(
+				"SELECT $field, count(*) AS frequency FROM $view JOIN allele_designations ON $view.id="
 			  . 'allele_designations.isolate_id WHERE (allele_designations.locus,allele_designations.allele_id)='
-			  . "(?,?) AND allele_designations.status!='ignore' AND $field IS NOT NULL AND new_version IS NULL "
-			  . "GROUP BY $field ORDER BY frequency desc,$field" );
+			  . "(?,?) AND $field IS NOT NULL AND new_version IS NULL "
+			  . "GROUP BY $field ORDER BY frequency desc,$field"
+		);
 	}
 	eval { $self->{'sql'}->{$field}->execute( $locus, $allele_id ) };
 	if ($@) {
@@ -178,7 +178,7 @@ sub count_isolates_belonging_to_classification_group {
 	BIGSdb::Exception::Database::Configuration->throw("No primary key set for scheme $scheme_id")
 	  if !$pk;
 	my $qry =
-	    "SELECT COUNT(DISTINCT id) FROM temp_isolates_scheme_fields_$scheme_id t JOIN temp_cscheme_$cscheme c "
+		"SELECT COUNT(DISTINCT id) FROM temp_isolates_scheme_fields_$scheme_id t JOIN temp_cscheme_$cscheme c "
 	  . "ON t.$pk=c.profile_id WHERE c.group_id=? AND t.id IN (SELECT id FROM $view WHERE new_version IS NULL) "
 	  . 'AND t.id NOT IN (SELECT isolate_id FROM private_isolates)';
 	my $sql = $self->{'db'}->prepare($qry);

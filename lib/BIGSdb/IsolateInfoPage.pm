@@ -672,7 +672,7 @@ sub _close_divs {
 
 sub _show_classification_schemes {
 	my ( $self, $isolate_id ) = @_;
-	return if ($self->{'system'}->{'show_classification_schemes'} // 'yes') eq 'no';
+	return if ( $self->{'system'}->{'show_classification_schemes'} // 'yes' ) eq 'no';
 	my $classification_data = $self->_get_classification_group_data($isolate_id);
 	say $self->_format_classification_data($classification_data);
 	return;
@@ -1780,8 +1780,7 @@ sub _get_scheme_values {
 	  @{$args}{qw ( isolate_id loci scheme_id scheme_fields_count summary_view )};
 	my $set_id = $self->get_set_id;
 	my $allele_designations =
-	  $self->{'datastore'}->get_scheme_allele_designations( $isolate_id, $scheme_id,
-		{ set_id => $set_id, show_ignored => $self->{'curate'} } );
+	  $self->{'datastore'}->get_scheme_allele_designations( $isolate_id, $scheme_id, { set_id => $set_id } );
 	my $scheme_info   = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	local $| = 1;
@@ -1942,8 +1941,6 @@ sub _get_locus_value {
 		my $status;
 		if ( $designation->{'status'} eq 'provisional' ) {
 			$status = 'provisional';
-		} elsif ( $designation->{'status'} eq 'ignore' ) {
-			$status = 'ignore';
 		}
 		$display_value .= qq(<span class="$status">) if $status;
 		my $url = '';
@@ -1953,7 +1950,7 @@ sub _get_locus_value {
 			$update_tooltip = $self->get_update_details_tooltip( $locus, $designation );
 			push @anchor_att, qq(title="$update_tooltip");
 		}
-		if ( $locus_info->{'url'} && $designation->{'allele_id'} ne 'deleted' && ( $status // '' ) ne 'ignore' ) {
+		if ( $locus_info->{'url'} && $designation->{'allele_id'} ne 'deleted' ) {
 			$url = $locus_info->{'url'};
 			$url =~ s/\[\?\]/$designation->{'allele_id'}/gx;
 			$url =~ s/\&/\&amp;/gx;

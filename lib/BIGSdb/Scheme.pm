@@ -126,7 +126,7 @@ sub get_field_values_by_designations {
 			foreach my $designation ( @{ $designations->{$locus} } ) {
 				$missing_loci{$locus} = 1 if $designation->{'allele_id'} eq '0';
 				$designation->{'allele_id'} =~ s/'/\\'/gx;
-				push @$allele_ids, $designation->{'status'} eq 'ignore' ? '-999' : $designation->{'allele_id'};
+				push @$allele_ids, $designation->{'allele_id'};
 			}
 			$values->{$locus}->{'allele_ids'} = $allele_ids;
 		}
