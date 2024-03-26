@@ -672,7 +672,7 @@ sub _close_divs {
 
 sub _show_classification_schemes {
 	my ( $self, $isolate_id ) = @_;
-	return if ($self->{'system'}->{'show_classification_schemes'} // 'yes') eq 'no';
+	return if ( $self->{'system'}->{'show_classification_schemes'} // 'yes' ) eq 'no';
 	my $classification_data = $self->_get_classification_group_data($isolate_id);
 	say $self->_format_classification_data($classification_data);
 	return;
@@ -717,8 +717,9 @@ sub _get_classification_group_data {
 				foreach my $group_id (@$groups) {
 					next if $group_displayed{$group_id};
 					my $isolate_count = $self->{'datastore'}->run_query(
-						"SELECT COUNT(*) FROM $view WHERE $view.id IN (SELECT id FROM $scheme_table WHERE $pk IN "
-						  . "(SELECT profile_id FROM $cscheme_table WHERE group_id=?)) AND new_version IS NULL",
+						"SELECT COUNT(DISTINCT $view.id) FROM $view LEFT JOIN $scheme_table t ON $view.id=t.id "
+						  . "LEFT JOIN $cscheme_table cs ON t.$pk=cs.profile_id WHERE group_id=? AND new_version "
+						  . 'IS NULL',
 						$group_id
 					);
 					next if !$isolate_count;
