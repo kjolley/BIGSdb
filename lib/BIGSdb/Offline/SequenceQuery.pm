@@ -747,34 +747,43 @@ sub _get_closest_matching_profile {
 	my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $pk_field );
 	my $order   = $pk_info->{'type'} eq 'integer' ? "CAST($pk_field AS int)" : $pk_field;
 	my $loci    = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my $profiles =
-	  $self->{'datastore'}->run_query( "SELECT $pk_field AS pk,profile FROM mv_scheme_$scheme_id ORDER BY $order",
-		undef, { fetch => 'all_arrayref', slice => {} } );
+	my $profile_sth =
+	  $self->{'db'}->prepare("SELECT $pk_field AS pk,profile FROM mv_scheme_$scheme_id ORDER BY $order");
+	eval { $profile_sth->execute };
+
+	if ($@) {
+		$self->{'logger'}->error($@);
+		return;
+	}
 	my $least_mismatches = @$loci;
 	my $best_matches     = [];
 	my @locus_list       = sort @$loci;   #Profile array is always stored in alphabetical order, scheme order may not be
-  PROFILE: foreach my $profile (@$profiles) {
+	my $rowcache;
+  PROFILE:                                
+	while ( my $profile = shift(@$rowcache)
+		|| shift( @{ $rowcache = $profile_sth->fetchall_arrayref( undef, 10_000 ) || [] } ) )
+	{
 		my $mismatches = 0;
 		my $index      = -1;
 	  LOCUS: foreach my $locus (@locus_list) {
 			$index++;
-			next LOCUS if $profile->{'profile'}->[$index] eq 'N';
+			next LOCUS if $profile->[1]->[$index] eq 'N';
 			if ( !$designations->{$locus} ) {
 				$mismatches++;
 				next LOCUS;
 			}
 			my $alleles = $designations->{$locus};
 			foreach my $allele (@$alleles) {
-				next LOCUS if $profile->{'profile'}->[$index] eq $allele;
+				next LOCUS if $profile->[1]->[$index] eq $allele;
 			}
 			$mismatches++;
 			next PROFILE if $mismatches > $least_mismatches;    #Shortcut out
 		}
 		if ( $mismatches < $least_mismatches ) {
 			$least_mismatches = $mismatches;
-			$best_matches     = [ $profile->{'pk'} ];
+			$best_matches     = [ $profile->[0] ];
 		} elsif ( $mismatches == $least_mismatches ) {
-			push @$best_matches, $profile->{'pk'};
+			push @$best_matches, $profile->[0];
 		}
 	}
 	return if !@$best_matches;
