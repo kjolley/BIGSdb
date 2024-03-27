@@ -755,11 +755,16 @@ sub _get_closest_matching_profile {
 		$self->{'logger'}->error($@);
 		return;
 	}
+
+	#TODO Extracting all cgMLST profiles from the database can take >5s for larger schemes.
+	#This is all due to moving data over the network as it can be a few hundred MB. It would
+	#be more efficient to write the following as an embedded plpgsql function within the
+	#database and pass the matching profile in.
 	my $least_mismatches = @$loci;
 	my $best_matches     = [];
 	my @locus_list       = sort @$loci;   #Profile array is always stored in alphabetical order, scheme order may not be
 	my $rowcache;
-  PROFILE:                                
+  PROFILE:
 	while ( my $profile = shift(@$rowcache)
 		|| shift( @{ $rowcache = $profile_sth->fetchall_arrayref( undef, 10_000 ) || [] } ) )
 	{
