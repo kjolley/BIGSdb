@@ -89,6 +89,8 @@ function render_multiselect(){
 };		
 END
 	}
+	my $q = $self->{'cgi'};
+	return $buffer if $q->param('submit');    #Process has forked - cannot make database calls.
 	$buffer .= $self->get_list_javascript;
 	$buffer .= << "END";
 function use_defaults() {
