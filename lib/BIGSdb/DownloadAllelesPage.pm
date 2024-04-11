@@ -382,7 +382,7 @@ sub _print_scheme_table {
 		$td = $td == 1 ? 2 : 1;
 		if ( $ENV{'MOD_PERL'} ) {
 			return if $self->{'mod_perl_request'}->connection->aborted;
-			$self->{'mod_perl_request'}->rflush;
+			eval { $self->{'mod_perl_request'}->rflush };
 		}
 	}
 	say q(</table></div>);
@@ -577,7 +577,7 @@ sub _print_alphabetical_list {
 	foreach my $letter ( 0 .. 9, 'A' .. 'Z', q('), q(_) ) {
 		if ( $ENV{'MOD_PERL'} ) {
 			return if $self->{'mod_perl_request'}->connection->aborted;
-			$self->{'mod_perl_request'}->rflush;
+			eval { $self->{'mod_perl_request'}->rflush };
 		}
 		my ( $main, $common, $aliases ) = $self->_get_loci_by_letter($letter);
 		if ( @$main || @$common || @$aliases ) {

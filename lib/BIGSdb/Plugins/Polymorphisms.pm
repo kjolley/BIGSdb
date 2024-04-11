@@ -50,7 +50,7 @@ sub get_attributes {
 		category => 'Breakdown',
 		menutext => 'Polymorphic sites',
 		module   => 'Polymorphisms',
-		version  => '1.2.0',
+		version  => '1.2.1',
 		dbtype   => 'isolates',
 		url      => "$self->{'config'}->{'doclink'}/data_analysis/polymorphisms.html",
 		section  => 'breakdown,postquery',
@@ -111,7 +111,7 @@ sub run {
 	say q(<div class="hideonload"><p>Please wait - checking sequences (do not refresh) ...</p>)
 	  . q(<p><span class="wait_icon fas fa-sync-alt fa-spin fa-4x"></span></p></div>);
 	if ( $ENV{'MOD_PERL'} ) {
-		$self->{'mod_perl_request'}->rflush;
+		eval { $self->{'mod_perl_request'}->rflush };
 		return if $self->{'mod_perl_request'}->connection->aborted;
 	}
 	my $isolate_ids = [];

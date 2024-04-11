@@ -47,7 +47,7 @@ sub get_attributes {
 		menutext   => 'Locus Explorer',
 		module     => 'LocusExplorer',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/locus_explorer.html",
-		version    => '1.4.0',
+		version    => '1.4.1',
 		dbtype     => 'sequences',
 		seqdb_type => 'sequences',
 		input      => 'query',
@@ -60,7 +60,7 @@ sub get_attributes {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.tablesort' => 1,'jQuery.multiselect' => 1 };
+	return { 'jQuery.tablesort' => 1, 'jQuery.multiselect' => 1 };
 }
 
 sub get_plugin_javascript {
@@ -310,7 +310,7 @@ sub _get_seqs {
 			say q(<div class="hideonload"><p>Please wait - aligning (do not refresh) ...</p>)
 			  . q(<p><span class="wait_icon fas fa-sync-alt fa-spin fa-4x"></span></p></div>);
 			if ( $ENV{'MOD_PERL'} ) {
-				$self->{'mod_perl_request'}->rflush;
+				eval { $self->{'mod_perl_request'}->rflush };
 				return if $self->{'mod_perl_request'}->connection->aborted;
 			}
 		}
@@ -582,7 +582,7 @@ sub _site_explorer {
 	say q(</tr>);
 	foreach my $base ( sort { $site{$b} <=> $site{$a} } ( keys(%site) ) ) {
 		if ( $ENV{'MOD_PERL'} ) {
-			$self->{'mod_perl_request'}->rflush;
+			eval { $self->{'mod_perl_request'}->rflush };
 			return if $self->{'mod_perl_request'}->connection->aborted;
 		}
 		my @allelelist    = @{ $allele{$base} };
@@ -716,7 +716,7 @@ sub _translate {
 		say q(<div class="hideonload"><p>Please wait - aligning (do not refresh) ...</p>)
 		  . q(<p><span class="wait_icon fas fa-sync-alt fa-spin fa-4x"></span></p></div>);
 		if ( $ENV{'MOD_PERL'} ) {
-			$self->{'mod_perl_request'}->rflush;
+			eval { $self->{'mod_perl_request'}->rflush };
 			return if $self->{'mod_perl_request'}->connection->aborted;
 		}
 		my $orf = $locus_info->{'orf'} // 1;

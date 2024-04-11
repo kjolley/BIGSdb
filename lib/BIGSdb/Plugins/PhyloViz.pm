@@ -64,7 +64,7 @@ sub get_attributes {
 		  . '<a href="https://online.phyloviz.net/">PhyloViz Online</a> for visualisation. Datasets can include '
 		  . 'metadata which allows nodes in the resultant tree to be coloured interactively.',
 		module              => 'PhyloViz',
-		version             => '1.4.0',
+		version             => '1.4.1',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -283,7 +283,9 @@ sub _print_info_panel {
 
 sub _upload_data_to_phyloviz {
 	my ( $self, $args ) = @_;
-	$self->{'mod_perl_request'}->rflush() if $ENV{'MOD_PERL'};
+	if ( $ENV{'MOD_PERL'} ) {
+		eval { $self->{'mod_perl_request'}->rflush };
+	}
 	say q(<p>Sending data to PhyloViz online ... );
 	my $uuid = 0;
 	my $msg  = 'No message';
@@ -353,7 +355,7 @@ sub _generate_profile_file {
 	my ( $filename, $isolates, $loci ) = @{$args}{qw(file isolates loci)};
 	print q(<p>Generating profile data file ... );
 	if ( $ENV{'MOD_PERL'} ) {
-		$self->{'mod_perl_request'}->rflush;
+		eval { $self->{'mod_perl_request'}->rflush };
 		return 1 if $self->{'mod_perl_request'}->connection->aborted;
 	}
 	my %profile_hash;
@@ -400,7 +402,7 @@ sub _generate_auxiliary_file {
 	@$fields = uniq @$fields;
 	print q(<p>Generating auxiliary file ... );
 	if ( $ENV{'MOD_PERL'} ) {
-		$self->{'mod_perl_request'}->rflush;
+		eval { $self->{'mod_perl_request'}->rflush };
 		return 1 if $self->{'mod_perl_request'}->connection->aborted;
 	}
 	local $" = q(,);

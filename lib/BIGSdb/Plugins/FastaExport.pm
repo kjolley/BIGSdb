@@ -1,6 +1,6 @@
 #FastaExport.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2012-2020, University of Oxford
+#Copyright (c) 2012-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -43,7 +43,7 @@ sub get_attributes {
 		menutext    => 'Locus sequences',
 		buttontext  => 'FASTA',
 		module      => 'FastaExport',
-		version     => '2.0.2',
+		version     => '2.0.3',
 		dbtype      => 'sequences',
 		seqdb_type  => 'sequences',
 		input       => 'query',
@@ -80,7 +80,7 @@ sub _create_fasta_file {
 			push @$invalid, $allele_id;
 			next;
 		}
-		my $header = qq(>${locus}_$seq_data->{'allele_id'});
+		my $header   = qq(>${locus}_$seq_data->{'allele_id'});
 		my %selected = map { $_ => 1 } $q->multi_param('extended');
 		foreach my $field (@$extended_fields) {
 			next if !$selected{$field};
@@ -141,8 +141,8 @@ sub _create_fasta_file {
 
 sub run {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	my $locus = $q->param('locus') // q();
+	my $q      = $self->{'cgi'};
+	my $locus  = $q->param('locus') // q();
 	if ( $q->param('get_extended') && $locus ) {
 		$self->_get_extended($locus);
 		return;
@@ -172,7 +172,9 @@ sub run {
 			local $| = 1;
 			say q(<div class="hideonload"><p>Please wait - calculating (do not refresh) ...</p>)
 			  . q(<p><span class="wait_icon fas fa-sync-alt fa-spin fa-4x"></span></p></div>);
-			$self->{'mod_perl_request'}->rflush if $ENV{'MOD_PERL'};
+			if ( $ENV{'MOD_PERL'} ) {
+				eval { $self->{'mod_perl_request'}->rflush };
+			}
 			( $filename, $invalid ) = $self->_create_fasta_file( $locus, scalar $q->param('allele_ids') );
 			if (@$invalid) {
 				local $" = q(, );
@@ -180,8 +182,7 @@ sub run {
 					{
 						message => q(Invalid ids in selection),
 						detail  => BIGSdb::Utils::escape_html(
-							qq(The following sequence ids do not exist and have been removed: @$invalid.)
-						)
+							qq(The following sequence ids do not exist and have been removed: @$invalid.))
 					}
 				);
 			}

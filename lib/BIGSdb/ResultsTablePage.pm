@@ -646,7 +646,7 @@ sub _print_isolate_table {
 		undef $self->{'designations'}->{$id};
 		undef $self->{'allele_sequence_flags'}->{$id};
 		if ( $ENV{'MOD_PERL'} ) {
-			$self->{'mod_perl_request'}->rflush;
+			eval { $self->{'mod_perl_request'}->rflush };
 			return if $self->{'mod_perl_request'}->connection->aborted;
 		}
 	}

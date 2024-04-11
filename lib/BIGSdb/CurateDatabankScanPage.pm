@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -90,8 +90,7 @@ sub _print_results {
 	my $seq_obj;
 	try {
 		$seq_obj = $seq_db->get_Seq_by_acc($accession);
-	}
-	catch {
+	} catch {
 		my $err = shift;
 		$logger->debug($err);
 	};
@@ -194,18 +193,17 @@ sub _print_results {
 			say $fh qq($locus\t@aliases\t$type_lookup{$att{'type'}}\tinteger\t$tags{'product'}\t$length\tTRUE\tTRUE\t)
 			  . qq(FALSE\tallele only\tTRUE\tTRUE\t$sequence);
 			say $fh_allele qq($locus\t1\t$sequence\tunchecked);
-		}
-		catch {
+		} catch {
 			my $err = shift;
 			$logger->debug($err);
 			push @locus_error, $locus;
 		};
 		if ( $ENV{'MOD_PERL'} ) {
-			$self->{'mod_perl_request'}->rflush;
+			eval { $self->{'mod_perl_request'}->rflush };
 			return if $self->{'mod_perl_request'}->connection->aborted;
 		}
 	}
-	print $fh_allele "\n";    #Seems to be needed for Excel conversion.
+	print $fh_allele "\n";                                   #Seems to be needed for Excel conversion.
 	close $fh;
 	close $fh_allele;
 	$table_buffer .= q(</table></div>);

@@ -1,6 +1,6 @@
 #BURST.pm - BURST plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -58,7 +58,7 @@ sub get_attributes {
 		buttontext          => 'BURST',
 		menutext            => 'BURST',
 		module              => 'BURST',
-		version             => '1.2.1',
+		version             => '1.2.2',
 		dbtype              => 'isolates,sequences',
 		seqdb_type          => 'schemes',
 		section             => 'postquery,analysis',
@@ -227,7 +227,9 @@ sub _run_burst {
 	local $| = 1;
 	say q(<div class="hideonload"><p>Please wait - calculating (do not refresh) ...</p>)
 	  . q(<p><span class="wait_icon fas fa-sync-alt fa-spin fa-4x"></span></p></div>);
-	$self->{'mod_perl_request'}->rflush if $ENV{'MOD_PERL'};
+	if ( $ENV{'MOD_PERL'} ) {
+		eval { $self->{'mod_perl_request'}->rflush };
+	}
 	my ( $locus_count, $profiles_ref, $profile_freq_ref, $num_profiles ) =
 	  $self->_get_profile_array( $scheme_id, $pk, $list );
 	my ( $matrix_ref, $error ) = $self->_generate_distance_matrix( $locus_count, $num_profiles, $profiles_ref );

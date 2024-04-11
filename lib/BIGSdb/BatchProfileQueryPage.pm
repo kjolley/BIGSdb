@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -52,9 +52,9 @@ sub get_help_url {
 }
 
 sub print_content {
-	my ($self) = @_;
+	my ($self)  = @_;
 	my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1 } );
-	my $q = $self->{'cgi'};
+	my $q       = $self->{'cgi'};
 	if ( ( $q->param('function') // q() ) eq 'examples' ) {
 		$self->_print_examples;
 		return;
@@ -139,7 +139,7 @@ sub _run_query {
 	foreach my $locus (@$loci) {
 		push @cleaned_loci_db, $self->{'datastore'}->get_scheme_warehouse_locus_name( $scheme_id, $locus );
 	}
-	my $set_id = $self->get_set_id;
+	my $set_id      = $self->get_set_id;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 	local $" = $scheme_info->{'allow_missing_loci'} ? q[ IN (?, 'N')) AND (] : q[=?) AND (];
 	$qry .= $scheme_info->{'allow_missing_loci'} ? qq[(@cleaned_loci_db IN (?, 'N'))] : qq[(@cleaned_loci_db=?)];
@@ -205,7 +205,7 @@ sub _run_query {
 		$text_buffer .= qq(\n);
 		$td = $td == 1 ? 2 : 1;
 		if ( $ENV{'MOD_PERL'} ) {
-			$self->{'mod_perl_request'}->rflush;
+			eval { $self->{'mod_perl_request'}->rflush };
 			return if $self->{'mod_perl_request'}->connection->aborted;
 		}
 	}

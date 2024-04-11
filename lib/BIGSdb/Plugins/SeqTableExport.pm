@@ -1,6 +1,6 @@
 #SeqTableExport.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2014-2023, University of Oxford
+#Copyright (c) 2014-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -41,7 +41,7 @@ sub get_attributes {
 		menutext    => 'Export table',
 		buttontext  => 'Table',
 		module      => 'SeqTableExport',
-		version     => '1.2.0',
+		version     => '1.2.1',
 		dbtype      => 'sequences',
 		seqdb_type  => 'sequences',
 		input       => 'query',
@@ -105,8 +105,10 @@ sub _create_table {
 	local $| = 1;
 	say q(<div class="hideonload"><p>Please wait - calculating (do not refresh) ...</p>)
 	  . q(<p><span class="wait_icon fas fa-sync-alt fa-spin fa-4x"></span></p></div>);
-	$self->{'mod_perl_request'}->rflush if $ENV{'MOD_PERL'};
 
+	if ( $ENV{'MOD_PERL'} ) {
+		eval { $self->{'mod_perl_request'}->rflush };
+	}
 	foreach my $allele_id (@$list) {
 		my @results;
 		my $attributes = $self->_get_allele_attributes( $locus, $allele_id );
@@ -275,13 +277,13 @@ sub _get_headers {
 		push @$headers, $attribute->{'name'};
 		push @$headers, 'sequence length' if $attribute->{'name'} eq 'sequence';
 	}
-	my $prefix              = BIGSdb::Utils::get_random();
-	my $filename            = "$prefix.txt";
-	my $full_path           = "$self->{'config'}->{'tmp_dir'}/$filename";
-	my $extended_attributes = $self->{'datastore'}->run_query(
-		'SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order,field',
-		$locus, { fetch => 'col_arrayref' }
-	);
+	my $prefix    = BIGSdb::Utils::get_random();
+	my $filename  = "$prefix.txt";
+	my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
+	my $extended_attributes =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT field FROM locus_extended_attributes WHERE locus=? ORDER BY field_order,field',
+		$locus, { fetch => 'col_arrayref' } );
 	push @$headers, @$extended_attributes;
 	my $peptide_mutations =
 	  $self->{'datastore'}->run_query( 'SELECT * FROM peptide_mutations WHERE locus=? ORDER BY reported_position,id',

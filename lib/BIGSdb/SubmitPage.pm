@@ -2299,7 +2299,9 @@ sub _print_sequence_table {
 		}
 		say q(</tr>);
 		$td = $td == 1 ? 2 : 1;
-		$self->{'mod_perl_request'}->rflush if $ENV{'MOD_PERL'};
+		if ( $ENV{'MOD_PERL'} ) {
+			eval { $self->{'mod_perl_request'}->rflush };
+		}
 	}
 	say q(</table></div></div>);
 	if ( $options->{'curate'} ) {

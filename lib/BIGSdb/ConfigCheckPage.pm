@@ -99,7 +99,7 @@ sub _check_helpers {
 	say q(<div class="scrollable"><table class="resultstable"><tr><th>Program</th>)
 	  . q(<th>Path</th><th>Installed</th><th>Executable</th></tr>);
 	foreach my $program ( sort { $a cmp $b } keys %helpers ) {
-		my $status = defined $helpers{$program} && -e ( $helpers{$program} ) ? GOOD : BAD ;
+		my $status = defined $helpers{$program} && -e ( $helpers{$program} ) ? GOOD : BAD;
 		$helpers{$program} //= 'PATH NOT DEFINED';
 		say qq(<tr class="td$td"><td>$program</td><td>$helpers{$program}</td><td>$status</td><td>);
 		if ( $program ne 'GrapeTree' ) {    #Python script doesn't need to be executable
@@ -140,7 +140,7 @@ sub _check_locus_databases {
 		  . q(<th>Sequence query</th><th>Sequences assigned</th></tr>);
 	  LOCUS: foreach my $locus (@$loci) {
 			if ( $ENV{'MOD_PERL'} ) {
-				$self->{'mod_perl_request'}->rflush;
+				eval { $self->{'mod_perl_request'}->rflush };
 				return if $self->{'mod_perl_request'}->connection->aborted;
 			}
 			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
