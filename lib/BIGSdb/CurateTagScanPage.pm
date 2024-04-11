@@ -89,8 +89,12 @@ function render_multiselect(){
 };		
 END
 	}
-	my $q = $self->{'cgi'};
-	return $buffer if $q->param('submit');    #Process has forked - cannot make database calls.
+	my $q    = $self->{'cgi'};
+	my $loci = $self->_get_selected_loci;
+	my @ids  = $q->multi_param('isolate_id');
+	my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list;
+	push @ids, @$pasted_cleaned_ids;
+	return $buffer if $q->param('submit') && @ids && @$loci;  #Process has forked - cannot make database calls.
 	$buffer .= $self->get_list_javascript;
 	$buffer .= << "END";
 function use_defaults() {
