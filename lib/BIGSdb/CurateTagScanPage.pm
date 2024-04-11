@@ -90,7 +90,7 @@ function render_multiselect(){
 END
 	}
 	my $q = $self->{'cgi'};
-	return $buffer if $q->param('submit');    #Process has forked - cannot make database calls.
+	return $buffer if !$self->{'db'}->ping;    #Connection dropped because of forked process.
 	$buffer .= $self->get_list_javascript;
 	$buffer .= << "END";
 function use_defaults() {
@@ -606,6 +606,7 @@ sub _scan {
 	if ($kid) {
 		waitpid( $kid, 0 );
 	} else {
+		$self->{'forked'} = 1;
 		defined( my $grandkid = fork ) or $logger->error('Kid cannot fork');
 		if ($grandkid) {
 			CORE::exit(0);
