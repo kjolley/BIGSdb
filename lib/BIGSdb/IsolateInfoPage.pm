@@ -739,7 +739,6 @@ sub _show_lincode_matches {
 		$default_show = @thresholds if $default_show > @thresholds;
 		my @filtered;
 		my @unfiltered;
-		$logger->error( "Default: $default_show; Thresholds: " . scalar @thresholds );
 
 		foreach my $threshold (@thresholds) {
 			my @prefix = @$lincode[ 0 .. $i ];
