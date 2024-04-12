@@ -3134,6 +3134,7 @@ sub _get_submission_files {
 		push @files, { filename => $filename, size => BIGSdb::Utils::get_nice_size( -s "$dir/$filename" ) };
 	}
 	closedir $dh;
+	@files = sort @files;
 	return \@files;
 }
 
