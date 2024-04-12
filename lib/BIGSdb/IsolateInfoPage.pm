@@ -705,8 +705,8 @@ sub _show_lincode_matches {
 				  . 'regularly against this database to create these caches.' );
 			next;
 		}
-		my $lincode_table      = $self->{'datastore'}->create_temp_lincodes_table( $scheme->{'id'} );
-		my $lincode            = $self->{'datastore'}->get_lincode_value( $isolate_id, $scheme->{'id'} );
+		my $lincode_table = $self->{'datastore'}->create_temp_lincodes_table( $scheme->{'id'} );
+		my $lincode       = $self->{'datastore'}->get_lincode_value( $isolate_id, $scheme->{'id'} );
 		next if !defined $lincode;
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme->{'id'}, { get_pk => 1 } );
 		my $pk_info     = $self->{'datastore'}->get_scheme_field_info( $scheme->{'id'}, $scheme_info->{'primary_key'} );
@@ -773,8 +773,9 @@ sub _show_lincode_matches {
 		if ( @unfiltered > @filtered ) {
 			$buffer .=
 				qq(<p><a id="show_lcgroups_$scheme->{'id'}" class="show_lincode small_submit" )
-			  . qq(style="display:inline">Show all thresholds</a><a id="hide_lcgroups_$scheme->{'id'}" )
-			  . q(class="hide_lincode small_submit" style="display:none">Hide larger thresholds</a></p>);
+			  . q(style="display:inline"><span class="fa fas fa-eye"></span> Show all thresholds</a>)
+			  . qq(<a id="hide_lcgroups_$scheme->{'id'}" class="hide_lincode small_submit" style="display:none">)
+			  . q(<span class="fa fas fa-eye-slash"></span> Hide larger thresholds</a></p>);
 		}
 		$buffer .=
 			q(<table class="resultstable $hide_table_class" style="display:$filtered_display">)
@@ -911,13 +912,17 @@ sub _format_classification_data {
 	if ( !@filtered ) {
 		$buffer .=
 			q(<p>No similar isolates at any threshold. )
-		  . q(<a id="show_csgroups" class="small_submit" style="display:inline">Show groups</a>)
-		  . q(<a id="hide_csgroups" class="small_submit" style="display:none">Hide groups</a></p>);
+		  . q(<a id="show_csgroups" class="small_submit" style="display:inline">)
+		  . q(<span class="fa fas fa-eye"></span> Show groups</a>)
+		  . q(<a id="hide_csgroups" class="small_submit" style="display:none">)
+		  . q(<span class="fa fas fa-eye-slash"></span> Hide groups</a></p>);
 	} elsif ( @unfiltered > @filtered ) {
 		$buffer .=
 			q(<p>Some groups only contain this isolate. )
-		  . q(<a id="show_csgroups" class="small_submit" style="display:inline">Show single groups</a>)
-		  . q(<a id="hide_csgroups" class="small_submit" style="display:none">Hide single groups</a></p>);
+		  . q(<a id="show_csgroups" class="small_submit" style="display:inline">)
+		  . q(<span class="fa fas fa-eye"></span> Show single groups</a>)
+		  . q(<a id="hide_csgroups" class="small_submit" style="display:none">)
+		  . q(<span class="fa fas fa-eye-slash"></span> Hide single groups</a></p>);
 	}
 	$buffer .=
 	  qq(<p class="$hide_table_class" style="display:$filtered_display">Experimental schemes are subject to change and )
