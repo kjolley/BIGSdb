@@ -726,15 +726,20 @@ sub _show_lincode_matches {
 		my $lincode_scheme =
 		  $self->{'datastore'}
 		  ->run_query( 'SELECT * FROM lincode_schemes WHERE scheme_id=?', $scheme->{'id'}, { fetch => 'row_hashref' } );
-		my $lincode_pk   = $pk_info->{'type'} eq 'integer' ? 'CAST(l.profile_id AS int)' : 'l.profile_id';
-		my @thresholds   = split /\s*;\s*/x, $lincode_scheme->{'thresholds'};
-		my $i            = 0;
-		my $tdf          = 1;
-		my $tdu          = 1;
-		my $td           = 1;
-		my $default_show = $self->{'system'}->{'show_lincode_thresholds'} // 5;
+		my $lincode_pk = $pk_info->{'type'} eq 'integer' ? 'CAST(l.profile_id AS int)' : 'l.profile_id';
+		my @thresholds = split /\s*;\s*/x, $lincode_scheme->{'thresholds'};
+		my $i          = 0;
+		my $tdf        = 1;
+		my $tdu        = 1;
+		my $td         = 1;
+		my $default_show =
+		  BIGSdb::Utils::is_int( $self->{'system'}->{'show_lincode_thresholds'} )
+		  ? $self->{'system'}->{'show_lincode_thresholds'}
+		  : 5;
+		$default_show = @thresholds if $default_show > @thresholds;
 		my @filtered;
 		my @unfiltered;
+		$logger->error( "Default: $default_show; Thresholds: " . scalar @thresholds );
 
 		foreach my $threshold (@thresholds) {
 			my @prefix = @$lincode[ 0 .. $i ];
@@ -753,7 +758,7 @@ sub _show_lincode_matches {
 			local $" = q(_);
 			my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;designation_field1="
 			  . "lin_$scheme->{'id'}&amp;amp;designation_operator1=starts%20with&amp;designation_value1=@prefix&submit=1";
-			if ( @thresholds > $default_show && $i >= ( @thresholds - $default_show ) ) {
+			if ( @thresholds >= $default_show && $i >= ( @thresholds - $default_show ) ) {
 				push @filtered,
 					qq(<tr class="td$tdf lc_filtered_$scheme->{'id'}">)
 				  . qq(<td style="text-align:left">@prefix</td>)
