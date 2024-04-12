@@ -296,7 +296,9 @@ sub _upload_fasta_file {
 	my $temp     = BIGSdb::Utils::get_random();
 	my $filename = "$self->{'config'}->{'secure_tmp_dir'}/${temp}_upload.fas";
 	my $buffer;
-	my $fh2 = $self->{'cgi'}->upload('fasta_upload');
+	my $q = $self->{'cgi'};
+	$q->cgi_error and $logger->error($q->cgi_error);
+	my $fh2 = $q->upload('fasta_upload');
 	binmode $fh2;
 	read( $fh2, $buffer, $self->{'config'}->{'max_upload_size'} );
 	my $ft        = File::Type->new;
