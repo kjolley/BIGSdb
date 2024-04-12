@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2023, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -296,18 +296,16 @@ sub _upload_fasta_file {
 	my $temp     = BIGSdb::Utils::get_random();
 	my $filename = "$self->{'config'}->{'secure_tmp_dir'}/${temp}_upload.fas";
 	my $buffer;
-	eval {
-		my $fh2 = $self->{'cgi'}->upload('fasta_upload');
-		binmode $fh2;
-		read( $fh2, $buffer, $self->{'config'}->{'max_upload_size'} );
-	};
-	$logger->error($@) if $@;
+	my $fh2 = $self->{'cgi'}->upload('fasta_upload');
+	binmode $fh2;
+	read( $fh2, $buffer, $self->{'config'}->{'max_upload_size'} );
 	my $ft        = File::Type->new;
 	my $file_type = $ft->checktype_contents($buffer);
 	my $method    = {
 		'application/x-gzip' => sub { gunzip \$buffer => $filename or $logger->error("gunzip failed: $GunzipError"); },
 		'application/zip'    => sub { unzip \$buffer  => $filename or $logger->error("unzip failed: $UnzipError"); }
 	};
+
 	if ( $method->{$file_type} ) {
 		$method->{$file_type}->();
 		return "${temp}_upload.fas";

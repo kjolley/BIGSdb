@@ -1109,16 +1109,13 @@ sub upload_file {
 	my $format   = $self->{'cgi'}->param($param) =~ /.+(\.\w+)$/x ? $1 : q();
 	my $filename = "$self->{'config'}->{'tmp_dir'}/${temp}_$suffix$format";
 	my $buffer;
-	eval {
-		open( my $fh, '>', $filename ) || $logger->error("Could not open $filename for writing.");
-		my $fh2 = $self->{'cgi'}->upload($param);
-		binmode $fh2;
-		binmode $fh;
-		read( $fh2, $buffer, $self->{'config'}->{'max_upload_size'} );
-		print $fh $buffer;
-		close $fh;
-	};
-	$logger->error($@) if $@;
+	open( my $fh, '>', $filename ) || $logger->error("Could not open $filename for writing.");
+	my $fh2 = $self->{'cgi'}->upload($param);
+	binmode $fh2;
+	binmode $fh;
+	read( $fh2, $buffer, $self->{'config'}->{'max_upload_size'} );
+	print $fh $buffer;
+	close $fh;
 	return "${temp}_$suffix$format";
 }
 
