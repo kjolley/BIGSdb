@@ -3133,6 +3133,7 @@ sub _get_submission_files {
 		next if $filename =~ /^\./x;
 		push @files, { filename => $filename, size => BIGSdb::Utils::get_nice_size( -s "$dir/$filename" ) };
 	}
+	@files = sort {$a->{'filename'} cmp $b->{'filename'}} @files;
 	closedir $dh;
 	return \@files;
 }
