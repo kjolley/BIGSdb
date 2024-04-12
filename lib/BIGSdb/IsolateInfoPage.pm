@@ -140,6 +140,22 @@ sub get_javascript {
 		\$( "div#tree" ).toggle( 'highlight', {} , 500 );
 		return false;
 	});
+	\$( ".show_lincode" ).click(function() {
+		let scheme_id = this.id.replace('show_lcgroups_','');
+		\$("#show_lcgroups_" + scheme_id).css('display','none');
+		\$("#hide_lcgroups_" + scheme_id).css('display','inline');
+		\$("#lc_table_" + scheme_id).css('display','block');
+		\$(".lc_filtered_" + scheme_id).css('visibility','collapse');
+		\$(".lc_unfiltered_" + scheme_id).css('visibility','visible');
+	});	
+	\$( ".hide_lincode" ).click(function() {
+		let scheme_id = this.id.replace('hide_lcgroups_','');
+		\$("#show_lcgroups_" + scheme_id).css('display','inline');
+		\$("#hide_lcgroups_" + scheme_id).css('display','none');
+		\$("#lc_table_" + scheme_id).css('display','none');
+		\$(".lc_filtered_" + scheme_id).css('visibility','visible');
+		\$(".lc_unfiltered_" + scheme_id).css('visibility','collapse');
+	});	
 	\$(".field_group").columnize({width:450});
 	\$(".sparse").columnize({width:450,lastNeverTallest: true,doneFunc:function(){enable_slide_triggers();}});
 	\$("#seqbin").columnize({width:300,lastNeverTallest: true});  
@@ -529,10 +545,11 @@ sub print_content {
 	my $aliases_button      = $self->get_show_aliases_button;
 	my $loci                = $self->{'datastore'}->get_loci( { set_id => $set_id } );
 	if ( @$loci && $self->_should_show_schemes($isolate_id) ) {
+		$self->_show_lincode_matches($isolate_id);
 		$self->_show_classification_schemes($isolate_id);
 		say q(<div><span class="info_icon fas fa-2x fa-fw fa-table fa-pull-left" style="margin-top:0.3em"></span>);
-		say
-qq(<h2 style="display:inline-block">Schemes and loci</h2>$tree_button$common_names_button$aliases_button<div>);
+		say q(<h2 style="display:inline-block">Schemes and loci</h2>)
+		  . qq($tree_button$common_names_button$aliases_button<div>);
 		if ( @$scheme_data < 3 && @$loci <= 100 ) {
 			my $schemes =
 			  $self->{'datastore'}
@@ -666,6 +683,109 @@ sub _close_divs {
 			say q(</div>);
 		}
 		$self->{'open_divs'} = 0;
+	}
+	return;
+}
+
+sub _show_lincode_matches {
+	my ( $self, $isolate_id ) = @_;
+	return if ( $self->{'system'}->{'show_lincode_matches'} // 'yes' ) eq 'no';
+	my $set_id  = $self->get_set_id;
+	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => 1 } );
+	my $buffer;
+	foreach my $scheme (@$schemes) {
+		next if !$self->{'datastore'}->are_lincodes_defined( $scheme->{'id'} );
+		my $scheme_field_table = "temp_isolates_scheme_fields_$scheme->{'id'}";
+		my $cache_table_exists =
+		  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)',
+			$scheme_field_table );
+		if ( !$cache_table_exists ) {
+			$logger->warn( "$self->{'instance'}: Scheme $scheme->{'id'} is not cached for this database.  "
+				  . 'Display of similar isolates is disabled. You need to run the update_scheme_caches.pl script '
+				  . 'regularly against this database to create these caches.' );
+			next;
+		}
+		my $lincode_table      = $self->{'datastore'}->create_temp_lincodes_table( $scheme->{'id'} );
+		my $lincode            = $self->{'datastore'}->get_lincode_value( $isolate_id, $scheme->{'id'} );
+		next if !defined $lincode;
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme->{'id'}, { get_pk => 1 } );
+		my $pk_info     = $self->{'datastore'}->get_scheme_field_info( $scheme->{'id'}, $scheme_info->{'primary_key'} );
+		local $" = q(_);
+		$buffer .= $self->get_list_block(
+			[
+				{
+					title => 'Scheme',
+					data  => $scheme->{'name'}
+				},
+				{
+					title => 'LIN code',
+					data  => qq(@$lincode)
+				}
+			]
+		);
+		my $lincode_scheme =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT * FROM lincode_schemes WHERE scheme_id=?', $scheme->{'id'}, { fetch => 'row_hashref' } );
+		my $lincode_pk   = $pk_info->{'type'} eq 'integer' ? 'CAST(l.profile_id AS int)' : 'l.profile_id';
+		my @thresholds   = split /\s*;\s*/x, $lincode_scheme->{'thresholds'};
+		my $i            = 0;
+		my $tdf          = 1;
+		my $tdu          = 1;
+		my $td           = 1;
+		my $default_show = $self->{'system'}->{'show_lincode_thresholds'} // 5;
+		my @filtered;
+		my @unfiltered;
+
+		foreach my $threshold (@thresholds) {
+			my @prefix = @$lincode[ 0 .. $i ];
+			my @lincode_query;
+			my $pos = 1;
+			foreach my $value (@prefix) {
+				push @lincode_query, "lincode[$pos]=$value";
+				$pos++;
+			}
+			local $" = q( AND );
+			my $isolates = $self->{'datastore'}->run_query(
+					"SELECT COUNT(DISTINCT v.id) FROM $self->{'system'}->{'view'} v JOIN $scheme_field_table sf ON "
+				  . "v.id=sf.id JOIN $lincode_table l ON sf.$scheme_info->{'primary_key'}=$lincode_pk WHERE "
+				  . "v.new_version IS NULL AND @lincode_query",
+			);
+			local $" = q(_);
+			my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;designation_field1="
+			  . "lin_$scheme->{'id'}&amp;amp;designation_operator1=starts%20with&amp;designation_value1=@prefix&submit=1";
+			if ( @thresholds > $default_show && $i >= ( @thresholds - $default_show ) ) {
+				push @filtered,
+					qq(<tr class="td$tdf lc_filtered_$scheme->{'id'}">)
+				  . qq(<td style="text-align:left">@prefix</td>)
+				  . qq(<td>$threshold</td><td><a href="$url">$isolates</a></td></tr>);
+				$tdf = $tdf == 1 ? 2 : 1;
+			}
+			push @unfiltered,
+				qq(<tr class="td$tdu lc_unfiltered_$scheme->{'id'}" style="visibility:collapse">)
+			  . qq(<td style="text-align:left">@prefix</td>)
+			  . qq(<td>$threshold</td><td><a href="$url">$isolates</a></td></tr>);
+			$tdu = $tdu == 1 ? 2 : 1;
+			$i++;
+		}
+		my $filtered_display = @filtered ? 'block' : 'none';
+		my $hide_table_class = @filtered ? ''      : "lc_table_$scheme->{'id'}";
+		local $" = q( );
+		if ( @unfiltered > @filtered ) {
+			$buffer .=
+				qq(<p><a id="show_lcgroups_$scheme->{'id'}" class="show_lincode small_submit" )
+			  . qq(style="display:inline">Show all thresholds</a><a id="hide_lcgroups_$scheme->{'id'}" )
+			  . q(class="hide_lincode small_submit" style="display:none">Hide larger thresholds</a></p>);
+		}
+		$buffer .=
+			q(<table class="resultstable $hide_table_class" style="display:$filtered_display">)
+		  . q(<tr><th>Prefix</th><th>Threshold</th>)
+		  . qq(<th>Matching isolates</th></tr>@filtered@unfiltered);
+		$buffer .= q(</table>);
+	}
+	if ($buffer) {
+		say q(<div><span class="info_icon fas fa-2x fa-fw fa-sitemap fa-pull-left" )
+		  . q(style="margin-top:-0.2em"></span><h2>Similar isolates (determined by LIN codes)</h2>)
+		  . qq($buffer</div>);
 	}
 	return;
 }
