@@ -783,10 +783,11 @@ sub _show_lincode_matches {
 			  . q(<span class="fa fas fa-eye-slash"></span> Hide larger thresholds</a></p>);
 		}
 		$buffer .=
-			q(<table class="resultstable $hide_table_class" style="display:$filtered_display">)
+			q(<div class="scrollable">)
+		  . q(<table class="resultstable $hide_table_class" style="display:$filtered_display">)
 		  . q(<tr><th>Prefix</th><th>Threshold</th>)
 		  . qq(<th>Matching isolates</th></tr>@filtered@unfiltered);
-		$buffer .= q(</table>);
+		$buffer .= q(</table></div>);
 	}
 	if ($buffer) {
 		say q(<div><span class="info_icon fas fa-2x fa-fw fa-sitemap fa-pull-left" )
