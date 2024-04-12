@@ -1431,7 +1431,7 @@ sub _get_missing_row {
 	$buffer .= q(<tr class="provisional">);
 	$buffer .= q(<td>) . ( $labels->{$isolate_id} || $isolate_id ) . qq(</td><td>missing</td><td>$cleaned_locus</td>);
 	$buffer .= q(<td>0</td>);
-	$buffer .= ( q(<td></td>) x 10 ) . q(<td>);
+	$buffer .= ( q(<td></td>) x 11 ) . q(<td>);
 	$cleaned_locus = $self->clean_checkbox_id($locus);
 	$cleaned_locus =~ s/\\/\\\\/gx;
 	$buffer .= $q->checkbox(
