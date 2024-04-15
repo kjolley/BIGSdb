@@ -49,6 +49,7 @@ Version 1.40: Change of isolate database structure.
 Version 1.41: Change of isolate database structure.
 Version 1.42: Change of seqdef and isolate database structures.
 Version 1.43: Change of seqdef, REST, and authentication database structures.
+Version 1.44: Change of seqdef and isolate database structures.
 
 Details can be found below.
 
@@ -629,3 +630,12 @@ auth_db:  new log table to record web access.
 
 Please run the seqdefdb_v1.43.sql script against sequence definition databases;
 the rest_v1.43.sql against bigsdb_rest and auth_v1.43.sql against bigsdb_auth.
+
+Version 1.44
+------------
+There are changes to the sequence definition and isolate database structures
+to modify database indexes and to remove support for the 'ignore' status for
+allele designations.
+
+Please run the isolatedb_v1.44.sql script against isolate databases and the
+seqdefdb_v1.44.sql script against sequence definition databases.
