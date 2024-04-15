@@ -1,3 +1,7 @@
+v1.44.0: *Database indexes have been revised following a performance review.
+         *'Ignore' option has been removed for allele designations.
+         *Matching isolates at different LINcode thresholds are now shown 
+          within an isolate record is LINcode has been assigned.
 v1.43.3: *Added optional message to users to use API on the allele and profile
           download page.
          *Searchable dropdown boxes are now used for lists with large number 
