@@ -862,9 +862,19 @@ sub _print_isolate_seqbin_values {
 	return;
 }
 
+sub _assembly_checks_defined {
+	my ($self) = @_;
+	return if !defined $self->{'assembly_checks'};
+	foreach my $key (keys %{$self->{'assembly_checks'}}){
+		return 1 if  keys %{$self->{'assembly_checks'}->{$key}};
+	}
+	return;
+}
+
 sub _print_assembly_checks {
 	my ( $self, $id ) = @_;
 	return if !$self->{'prefs'}->{'display_assembly_checks'};
+	return if !$self->_assembly_checks_defined;
 	my $seqbin = $self->{'datastore'}->run_query(
 		'SELECT EXISTS(SELECT * FROM seqbin_stats WHERE isolate_id=?)',
 		$id,
@@ -1006,6 +1016,7 @@ sub _print_isolate_table_header {
 		display_publications    => 'Publications'
 	);
 	foreach my $field (qw (display_seqbin_size display_contig_count display_assembly_checks display_publications)) {
+		next if $field eq 'display_assembly_checks' && !$self->_assembly_checks_defined;
 		$fieldtype_header .= qq(<th rowspan="2">$pref_fields{$field}</th>) if $self->{'prefs'}->{$field};
 	}
 	my ( $scheme_field_type_header, $scheme_header ) = $self->_get_isolate_header_scheme_fields( $schemes, $limit_qry );
