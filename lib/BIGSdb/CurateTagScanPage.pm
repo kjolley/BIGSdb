@@ -141,9 +141,12 @@ sub _get_refresh_time {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (tooltips jQuery jQuery.jstree jQuery.multiselect noCache allowExpand);
-	$self->set_level1_breadcrumbs;
 	my $q = $self->{'cgi'};
+	$self->{$_} = 1 foreach qw (tooltips jQuery jQuery.multiselect noCache allowExpand);
+	if ( !$q->param('results') ) {
+		$self->{$_} = 1 foreach qw (jQuery.jstree);
+	}
+	$self->set_level1_breadcrumbs;
 	if ( $q->param('submit') ) {
 		my $loci        = $self->_get_selected_loci;
 		my @isolate_ids = split( "\0", ( $q->param('isolate_id') // '' ) );
