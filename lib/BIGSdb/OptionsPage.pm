@@ -141,8 +141,8 @@ sub _set_isolate_options {
 	my $field_attributes = $self->{'xmlHandler'}->get_all_field_attributes;
 	$prefstore->delete_all_field_settings( $guid, $dbname );
 	foreach my $action (
-		qw (mark_provisional_main mark_provisional sequence_details_main display_seqbin_main
-		display_contig_count locus_alias update_details sequence_details allele_flags
+		qw (mark_provisional_main mark_provisional sequence_details_main display_seqbin_size
+		display_contig_count display_assembly_checks locus_alias update_details sequence_details allele_flags
 		display_publications query_dashboard)
 	  )
 	{
@@ -316,14 +316,19 @@ sub _print_main_results_options {
 			-label   => 'Display information about sequence bin records tagged with locus information (tooltip).'
 		},
 		{
-			-name    => 'display_seqbin_main',
-			-checked => $prefs->{'display_seqbin_main'},
+			-name    => 'display_seqbin_size',
+			-checked => $prefs->{'display_seqbin_size'},
 			-label   => 'Display sequence bin size.'
 		},
 		{
 			-name    => 'display_contig_count',
 			-checked => $prefs->{'display_contig_count'},
 			-label   => 'Display contig count.'
+		},
+		{
+			-name    => 'display_assembly_checks',
+			-checked => $prefs->{'display_assembly_checks'},
+			-label   => 'Display assembly checks.'
 		},
 		{
 			-name    => 'display_publications',

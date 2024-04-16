@@ -170,8 +170,9 @@ JS
 
 sub _get_javascript_paths {
 	my ($self) = @_;
-#	my $page_js = $self->get_javascript;
-#	$page_js .= $self->_get_cookie_js;
+
+	#	my $page_js = $self->get_javascript;
+	#	$page_js .= $self->_get_cookie_js;
 	my $js               = [];
 	my $relative_js_path = $self->{'config'}->{'relative_js_dir'} // '/javascript';
 	if ( $self->{'jQuery'} ) {
@@ -251,7 +252,8 @@ sub _get_javascript_paths {
 				$used{$lib} = 1;
 			}
 		}
-#		push @$js, { code => $page_js } if $page_js;
+
+		#		push @$js, { code => $page_js } if $page_js;
 	}
 	return $js;
 }
@@ -632,13 +634,12 @@ sub print_page_content {
 		}
 		$self->_debug if $q->param('debug') && $self->{'config'}->{'debug'};
 		my $page_js = $self->get_javascript;
-		if ($page_js){
+		if ($page_js) {
 			say q(<script>);
 			say $page_js;
 			say q(</script>);
 		}
 		say q(</body>);
-
 		say q(</html>);
 	}
 	return;
@@ -2800,8 +2801,8 @@ sub _set_isolatedb_options {
 	#Switches
 	foreach my $option (
 		qw ( update_details sequence_details allele_flags mark_provisional mark_provisional_main
-		sequence_details_main display_seqbin_main display_contig_count locus_alias scheme_members_alias
-		display_publications query_dashboard)
+		sequence_details_main display_seqbin_size display_contig_count display_assembly_checks
+		locus_alias scheme_members_alias display_publications query_dashboard)
 	  )
 	{
 		$self->{'prefs'}->{$option} = $params->{$option} ? 1 : 0;
@@ -2843,8 +2844,7 @@ sub _initiate_isolatedb_general_prefs {
 
 	#default off
 	foreach my $option (
-		qw (update_details allele_flags scheme_members_alias sequence_details_main
-		display_seqbin_main display_contig_count display_publications)
+		qw (update_details allele_flags scheme_members_alias sequence_details_main display_publications)
 	  )
 	{
 		$general_prefs->{$option} //= 'off';
@@ -2857,10 +2857,12 @@ sub _initiate_isolatedb_general_prefs {
 		$self->{'prefs'}->{$option} = $general_prefs->{$option} eq 'off' ? 0 : 1;
 	}
 
-	#Locus aliases - default off
-	my $default_locus_aliases = ( $self->{'system'}->{'locus_aliases'} // '' ) eq 'yes' ? 'on' : 'off';
-	$general_prefs->{'locus_alias'} //= $default_locus_aliases // 'off';
-	$self->{'prefs'}->{'locus_alias'} = $general_prefs->{'locus_alias'} eq 'on' ? 1 : 0;
+	#Default off with options in config.xml
+	foreach my $att (qw(locus_aliases display_seqbin_size display_contig_count display_assembly_checks)) {
+		my $default = ( $self->{'system'}->{$att} // '' ) eq 'yes' ? 'on' : 'off';
+		$general_prefs->{$att} //= $default // 'off';
+		$self->{'prefs'}->{$att} = $general_prefs->{$att} eq 'on' ? 1 : 0;
+	}
 	return;
 }
 

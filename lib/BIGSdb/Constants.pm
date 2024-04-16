@@ -82,6 +82,7 @@ use constant UPLOAD               => q(<span class="fas fa-upload" style="color:
 use constant UPLOAD_CHANGE_CONFIG => q(<span class="fas fa-upload" style="color:#800"></span>);
 use constant QUERY                => q(<span class="fas fa-search" style="color:#44a"></span>);
 use constant USERS                => q(<span class="fas fa-users" style="color:#a4a"></span>);
+use constant PENDING              => q(<span class="fa fa-hourglass-half" style="color:#888"></span>);
 use constant GOOD                 => q(<span class="statusgood fas fa-check"></span>);
 use constant BAD                  => q(<span class="statusbad fas fa-times"></span>);
 use constant MEH                  => q(<span class="statusmeh fas fa-minus"></span>);
@@ -206,7 +207,7 @@ use constant WARNING_TOOLTIP => q(<span class="fa-stack">)
 use constant FLANKING => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
 use constant MAX_ROWS => 20;
 @values = qw(FACE_STYLE SHOW HIDE SAVE SAVING UP DOWN LEFT RIGHT
-  EDIT DELETE ADD COMPARE UPLOAD UPLOAD_CHANGE_CONFIG QUERY USERS GOOD BAD MEH TRUE FALSE BAN DOWNLOAD
+  EDIT DELETE ADD COMPARE UPLOAD UPLOAD_CHANGE_CONFIG QUERY USERS PENDING GOOD BAD MEH TRUE FALSE BAN DOWNLOAD
   BACK QUERY_MORE EDIT_MORE UPLOAD_CONTIGS LINK_CONTIGS MORE HOME RELOAD KEY EYE_SHOW EYE_HIDE
   CURATE EXPORT_TABLE EXCEL_FILE TEXT_FILE FASTA_FILE FASTA_FLANKING_FILE PDF_FILE HTML_FILE
   EMBL_FILE GBK_FILE GFF3_FILE MISC_FILE ARCHIVE_FILE IMAGE_FILE ALIGN_FILE CODE_FILE FLANKING
@@ -302,8 +303,7 @@ use constant MIN_N50                  => 10_000;
 use constant MIN_TOTAL_LENGTH         => 1_000_000;
 use constant MAX_TOTAL_LENGTH         => 15_000_000;
 use constant NULL_TERMS               =>
-  ( 'none', 'N/A', 'NA', '-', '.', 'not applicable', 'no value', 'unknown', 'unk', 'not known', 'null' )
-  ;
+  ( 'none', 'N/A', 'NA', '-', '.', 'not applicable', 'no value', 'unknown', 'unk', 'not known', 'null' );
 @values = qw (SUBMISSIONS_DELETED_DAYS COVERAGE READ_LENGTH ASSEMBLY REQUIRES_READ_LENGTH
   REQUIRES_COVERAGE REQUIRED_GENOME_FIELDS DAILY_REST_LIMIT TOTAL_PENDING_LIMIT DAILY_PENDING_LIMIT NULL_TERMS
   WARN_MAX_CONTIGS WARN_MIN_N50 WARN_MIN_TOTAL_LENGTH WARN_MAX_TOTAL_LENGTH MAX_CONTIGS MIN_N50 MIN_TOTAL_LENGTH

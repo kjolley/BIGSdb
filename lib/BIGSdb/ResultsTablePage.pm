@@ -636,6 +636,7 @@ sub _print_isolate_table {
 		}
 		$self->_print_isolate_eav_values($id);
 		$self->_print_isolate_seqbin_values($id);
+		$self->_print_assembly_checks($id);
 		$self->_print_isolate_publications($id);
 		$self->_print_isolate_scheme_values( $schemes, $id );
 		say q(</tr>);
@@ -850,14 +851,53 @@ sub _print_isolate_eav_values {
 
 sub _print_isolate_seqbin_values {
 	my ( $self, $id ) = @_;
-	if ( $self->{'prefs'}->{'display_seqbin_main'} || $self->{'prefs'}->{'display_contig_count'} ) {
+	if ( $self->{'prefs'}->{'display_seqbin_size'} || $self->{'prefs'}->{'display_contig_count'} ) {
 		my $stats = $self->_get_seqbin_stats($id);
-		if ( $self->{'prefs'}->{'display_seqbin_main'} ) {
+		if ( $self->{'prefs'}->{'display_seqbin_size'} ) {
 			my $nice_length = BIGSdb::Utils::commify( $stats->{'total_length'} );
-			print qq(<td>$nice_length</td>) if $self->{'prefs'}->{'display_seqbin_main'};
+			print qq(<td>$nice_length</td>) if $self->{'prefs'}->{'display_seqbin_size'};
 		}
 		print qq(<td>$stats->{'contigs'}</td>) if $self->{'prefs'}->{'display_contig_count'};
 	}
+	return;
+}
+
+sub _print_assembly_checks {
+	my ( $self, $id ) = @_;
+	return if !$self->{'prefs'}->{'display_assembly_checks'};
+	my $seqbin = $self->{'datastore'}->run_query(
+		'SELECT EXISTS(SELECT * FROM seqbin_stats WHERE isolate_id=?)',
+		$id,
+		{
+			cache => 'ResultsTablePage::seqbin_exists'
+		}
+	);
+	my $checks_run = $self->{'datastore'}->run_query(
+		'SELECT EXISTS(SELECT * FROM last_run WHERE (isolate_id,name)=(?,?))',
+		[ $id, 'AssemblyChecks' ],
+		{ cache => 'ResultsTablePage::last_run_assembly_checks' }
+	);
+	my $result;
+	if ($seqbin) {
+		if ($checks_run) {
+			my $status =
+			  $self->{'datastore'}->run_query( 'SELECT DISTINCT(status) FROM assembly_checks WHERE isolate_id=?',
+				$id, { fetch => 'col_arrayref', cache => 'ResultsTablePage::assembly_check_values' } );
+			my %values = map { $_ => 1 } @$status;
+			if ( $values{'fail'} ) {
+				$result = BAD;
+			} elsif ( $values{'warn'} ) {
+				$result = MEH;
+			} else {
+				$result = GOOD;
+			}
+		} else {
+			$result = PENDING;
+		}
+	} else {
+		$result = q();
+	}
+	print qq(<td>$result</td>);
 	return;
 }
 
@@ -960,11 +1000,12 @@ sub _print_isolate_table_header {
 	  . q(<span class="fas fa-wrench"></span></a>);
 	$fieldtype_header .= q(</th>);
 	my %pref_fields = (
-		display_seqbin_main  => 'Seqbin size (bp)',
-		display_contig_count => 'Contigs',
-		display_publications => 'Publications'
+		display_seqbin_size     => 'Seqbin size (bp)',
+		display_contig_count    => 'Contigs',
+		display_assembly_checks => 'Assembly checks',
+		display_publications    => 'Publications'
 	);
-	foreach my $field (qw (display_seqbin_main display_contig_count display_publications)) {
+	foreach my $field (qw (display_seqbin_size display_contig_count display_assembly_checks display_publications)) {
 		$fieldtype_header .= qq(<th rowspan="2">$pref_fields{$field}</th>) if $self->{'prefs'}->{$field};
 	}
 	my ( $scheme_field_type_header, $scheme_header ) = $self->_get_isolate_header_scheme_fields( $schemes, $limit_qry );
