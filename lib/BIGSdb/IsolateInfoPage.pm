@@ -2577,7 +2577,9 @@ sub _get_annotation_metrics {
 			$min_threshold = 0;
 			$max_threshold = $scheme->{'loci'};
 		}
-		$scheme_buffer .= qq(<tr class="td$td"><td>$scheme->{'name'}</td><td>$scheme->{'loci'}</td>)
+		$scheme_buffer .=
+		  qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'})
+		  . qq(&amp;page=schemeInfo&scheme_id=$scheme->{'id'}">$scheme->{'name'}</a></td><td>$scheme->{'loci'}</td>)
 		  . qq(<td>$scheme->{'designated'}</td>);
 		my $min    = 100 * $min_threshold / $scheme->{'loci'};
 		my $max    = 100 * $max_threshold / $scheme->{'loci'};
