@@ -715,7 +715,8 @@ sub _show_lincode_matches {
 			[
 				{
 					title => 'Scheme',
-					data  => $scheme->{'name'}
+					data  => qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'})
+					  . qq(&amp;page=schemeInfo&scheme_id=$scheme->{'id'}">$scheme->{'name'}</a>)
 				},
 				{
 					title => 'LIN code',
@@ -871,8 +872,9 @@ sub _get_classification_group_data {
 			my $plural = $cscheme->{'inclusion_threshold'} == 1 ? q() : q(es);
 			push @$data,
 			  {
-				cscheme       => qq($cscheme->{'name'}$tooltip),
-				scheme        => $scheme_info->{'name'},
+				cscheme => qq($cscheme->{'name'}$tooltip),
+				scheme  => qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'})
+				  . qq(&amp;page=schemeInfo&scheme_id=$scheme_id">$scheme_info->{'name'}</a>),
 				method        => 'Single-linkage',
 				threshold     => $cscheme->{'inclusion_threshold'},
 				status        => $cscheme->{'status'},
@@ -2578,7 +2580,7 @@ sub _get_annotation_metrics {
 			$max_threshold = $scheme->{'loci'};
 		}
 		$scheme_buffer .=
-		  qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'})
+			qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'})
 		  . qq(&amp;page=schemeInfo&scheme_id=$scheme->{'id'}">$scheme->{'name'}</a></td><td>$scheme->{'loci'}</td>)
 		  . qq(<td>$scheme->{'designated'}</td>);
 		my $min    = 100 * $min_threshold / $scheme->{'loci'};
