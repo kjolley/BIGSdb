@@ -27,9 +27,9 @@ my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Constants qw(DATABANKS :interface);
 
 sub print_content {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	my $table = $q->param('table') || '';
+	my ($self)      = @_;
+	my $q           = $self->{'cgi'};
+	my $table       = $q->param('table') || '';
 	my $record_name = $self->get_record_name($table) // q();
 	say qq(<h1>Delete $record_name</h1>);
 	if ( !$self->{'datastore'}->is_table($table) ) {
@@ -245,6 +245,23 @@ sub _display_record {
 		next if $att->{'hide_query'};
 		my ( $field, $value ) = $self->_get_display_values( $table, $primary_key, $data, $att );
 		$value = '&nbsp;' if $value eq q( );
+		if ( $att->{'coded_field'} ) {
+			my $set_id = $self->get_set_id;
+			my ( undef, $labels ) = $self->get_field_selection_list(
+				{
+					isolate_fields        => 1,
+					eav_fields            => 1,
+					extended_attributes   => 1,
+					lincodes              => 1,
+					scheme_fields         => 1,
+					classification_groups => 1,
+					annotation_status     => 1,
+					set_id                => $set_id,
+					ignore_prefs          => 1
+				}
+			);
+			$value = $labels->{$value} // $value;
+		}
 		$buffer .= qq(<dt>$field</dt><dd>$value</dd>);
 		if ( $table eq 'profiles' && $att->{'name'} eq 'profile_id' ) {
 			my $scheme_id = $q->param('scheme_id');
@@ -337,7 +354,7 @@ sub _delete {
 
 			#cascade deletion of validation rules
 			next if $table eq 'validation_rules' && $table_to_check eq 'validation_rule_conditions';
-			
+
 			#cascade deletion of scheme group
 			next
 			  if $table eq 'scheme_groups' && any { $table_to_check eq $_ }
@@ -348,7 +365,7 @@ sub _delete {
 				$data->{'id'} );
 			if ($num) {
 				my $record_name = $self->get_record_name($table);
-				my $plural = $num > 1 ? 's' : '';
+				my $plural      = $num > 1 ? 's' : '';
 				$data->{'id'} =~ s/'/\\'/gx;
 				$nogo_buffer .= qq($record_name '$data->{'id'}' is referenced by $num record$plural in table )
 				  . qq('$table_to_check' - cannot delete!<br />);
@@ -417,14 +434,14 @@ sub _delete_user {
 				if ($num) {
 					my $plural = $num > 1 ? 's' : '';
 					$$nogo_buffer_ref .=
-					    qq(User '$data->{'id'}' is the curator for $num record$plural )
+						qq(User '$data->{'id'}' is the curator for $num record$plural )
 					  . qq(in table '$table' - cannot delete!<br />)
 					  if $num;
 				}
 				if ($num_senders) {
 					my $plural = $num_senders > 1 ? 's' : '';
 					$$nogo_buffer_ref .=
-					    qq(User '$data->{'id'}' is the sender for $num_senders record$plural )
+						qq(User '$data->{'id'}' is the sender for $num_senders record$plural )
 					  . qq(in table '$table' - cannot delete!<br />)
 					  if $num_senders;
 				}
@@ -613,15 +630,15 @@ sub _get_profile_fields {
 
 sub get_title {
 	my ($self) = @_;
-	my $table = $self->{'cgi'}->param('table');
-	my $type = $self->get_record_name($table) || 'record';
+	my $table  = $self->{'cgi'}->param('table');
+	my $type   = $self->get_record_name($table) || 'record';
 	return "Delete $type";
 }
 
 sub _get_tables_which_reference_table {
 	my ( $self, $table ) = @_;
 	my %tables;
-	my %ignore_tables = map{$_ => 1}(qw(lincodes));
+	my %ignore_tables = map { $_ => 1 } (qw(lincodes));
 	foreach my $table2 ( $self->{'datastore'}->get_tables ) {
 		if (
 			!(

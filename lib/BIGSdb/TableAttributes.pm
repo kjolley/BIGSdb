@@ -2918,10 +2918,6 @@ sub get_query_interfaces_table_attributes {
 
 sub get_query_interface_fields_table_attributes {
 	my ($self) = @_;
-	my @list;
-	my $fields = $self->{'xmlHandler'}->get_field_list;
-	push @list, @$fields;
-	local $" = q(;);
 	my $attributes = [
 		{
 			name           => 'id',
@@ -2938,7 +2934,7 @@ sub get_query_interface_fields_table_attributes {
 			type           => 'text',
 			required       => 1,
 			primary_key    => 1,
-			dropdown_query => 1
+			coded_field    => 1
 		},
 		{ name => 'datestamp', type => 'date', required => 1 },
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 }

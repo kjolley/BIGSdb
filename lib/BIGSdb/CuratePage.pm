@@ -150,23 +150,23 @@ sub _get_form_fields {
 			my $label = $self->_get_label($args);
 			$buffer .= qq(<li>$label);
 			my %field_checks = (
-				primary_key     => sub { $self->_get_primary_key_field($args) },
-				no_user_update  => sub { $self->_get_no_update_field($args) },
-				sender          => sub { $self->_get_user_field($args) },
-				allele_id       => sub { $self->_get_allele_id_field($args) },
-				non_admin_loci  => sub { $self->_get_non_admin_locus_field($args) },
-				foreign_key     => sub { $self->_get_foreign_key_dropdown_field($args) },
-				datestamp       => sub { $self->_get_datestamp_field($args) },
-				date_entered    => sub { $self->_get_date_entered_field($args) },
-				curator         => sub { $self->_get_curator_field($args) },
-				boolean         => sub { $self->_get_boolean_field($args) },
-				optlist         => sub { $self->_get_optlist_field($args) },
-				interface_field => sub { $self->_get_interface_field($args) },
-				text_field      => sub { $self->_get_text_field($args) },
+				primary_key    => sub { $self->_get_primary_key_field($args) },
+				no_user_update => sub { $self->_get_no_update_field($args) },
+				sender         => sub { $self->_get_user_field($args) },
+				allele_id      => sub { $self->_get_allele_id_field($args) },
+				non_admin_loci => sub { $self->_get_non_admin_locus_field($args) },
+				foreign_key    => sub { $self->_get_foreign_key_dropdown_field($args) },
+				datestamp      => sub { $self->_get_datestamp_field($args) },
+				date_entered   => sub { $self->_get_date_entered_field($args) },
+				curator        => sub { $self->_get_curator_field($args) },
+				boolean        => sub { $self->_get_boolean_field($args) },
+				optlist        => sub { $self->_get_optlist_field($args) },
+				coded_field    => sub { $self->_get_coded_field($args) },
+				text_field     => sub { $self->_get_text_field($args) },
 			);
 		  FIELD_CHECK: foreach my $check (
 				qw(primary_key no_user_update sender allele_id non_admin_loci
-				foreign_key datestamp date_entered curator boolean optlist interface_field text_field)
+				foreign_key datestamp date_entered curator boolean optlist coded_field text_field)
 			  )
 			{
 				my $check_buffer = $field_checks{$check}->();
@@ -256,6 +256,22 @@ sub _get_primary_key_field {
 		$desc = $self->_get_foreign_key_label( $name, $newdata, $att );
 	} elsif ( $att->{'user_field'} ) {
 		$desc = $self->{'datastore'}->get_user_string( $newdata->{ $att->{'name'} } );
+	} elsif ( $att->{'coded_field'} ) {
+		my $set_id = $self->get_set_id;
+		my ( undef, $labels ) = $self->get_field_selection_list(
+			{
+				isolate_fields        => 1,
+				eav_fields            => 1,
+				extended_attributes   => 1,
+				lincodes              => 1,
+				scheme_fields         => 1,
+				classification_groups => 1,
+				annotation_status     => 1,
+				set_id                => $set_id,
+				ignore_prefs          => 1
+			}
+		);
+		$desc = $labels->{ $newdata->{ $att->{'name'} } } // $newdata->{ $att->{'name'} };
 	} else {
 		$desc = $newdata->{ $att->{'name'} };
 	}
@@ -309,10 +325,10 @@ sub _get_user_field {
 	);
 }
 
-sub _get_interface_field {
-	my ( $self, $args )  = @_;
-	my ( $name, $table ) = @$args{qw(name table)};
-	return q() if $name ne 'field' && $table ne 'query_interface_fields';
+sub _get_coded_field {
+	my ( $self, $args ) = @_;
+	my ( $name, $table, $att ) = @$args{qw(name table att)};
+	return q() if !$att->{'coded_field'};
 	my $set_id = $self->get_set_id;
 	my ( $values, $labels ) = $self->get_field_selection_list(
 		{
