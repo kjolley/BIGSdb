@@ -212,7 +212,8 @@ sub get_permissions_table_attributes {
 	  ? qw ( query_users modify_users modify_isolates modify_projects modify_sequences tag_sequences designate_alleles
 	  modify_usergroups set_user_passwords modify_loci modify_schemes modify_composites modify_field_attributes
 	  modify_value_attributes modify_sparse_fields modify_probes delete_all
-	  import_site_users modify_site_users modify_geopoints refresh_scheme_caches only_private disable_access)
+	  import_site_users modify_site_users modify_geopoints refresh_scheme_caches query_interfaces only_private
+	  disable_access)
 	  : qw( query_users modify_users modify_usergroups set_user_passwords modify_loci modify_locus_descriptions
 	  modify_schemes delete_all import_site_users modify_site_users disable_access );
 	local $" = ';';
@@ -2891,6 +2892,53 @@ sub get_dna_mutations_table_attributes {
 			default  => 20,
 			min      => 10,
 			max      => 50
+		},
+		{ name => 'datestamp', type => 'date', required => 1 },
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 }
+	];
+	return $attributes;
+}
+
+sub get_query_interfaces_table_attributes {
+	my ($self) = @_;
+	my $attributes = [
+		{ name => 'id', type => 'int', required => 1, primary_key => 1, length => 3 },
+		{
+			name     => 'name',
+			type     => 'text',
+			required => 1,
+			length   => 30,
+			tooltip  => 'name - This is what will appear under the Search entry on the database contents page.'
+		},
+		{ name => 'datestamp', type => 'date', required => 1 },
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 }
+	];
+	return $attributes;
+}
+
+sub get_query_interface_fields_table_attributes {
+	my ($self) = @_;
+	my @list;
+	my $fields = $self->{'xmlHandler'}->get_field_list;
+	push @list, @$fields;
+	local $" = q(;);
+	my $attributes = [
+		{
+			name           => 'id',
+			type           => 'int',
+			required       => 1,
+			primary_key    => 1,
+			length         => 3,
+			foreign_key    => 'query_interfaces',
+			labels         => '|$name|',
+			dropdown_query => 1
+		},
+		{
+			name           => 'field',
+			type           => 'text',
+			required       => 1,
+			primary_key    => 1,
+			dropdown_query => 1
 		},
 		{ name => 'datestamp', type => 'date', required => 1 },
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 }

@@ -1034,7 +1034,8 @@ sub _check_lincode_schemes {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 sub get_javascript {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	return if !defined $q->param('table') || $q->param('table') ne 'sequences';
+	my %allowed_tables = map {$_ => 1}qw(sequences query_interface_fields);
+	return if !defined $q->param('table') || !$allowed_tables{$q->param('table')};
 	my $buffer = << "END";
 \$(function () {
  \$("#locus").change(function(){
@@ -1042,7 +1043,7 @@ sub get_javascript {
  	var url = '$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=add&table=sequences&locus=' + locus_name;
  	location.href=url;
   });
-  \$('#locus').multiselect({
+  \$('#locus, #field').multiselect({
   	classes: 'filter',
  	menuHeight: 250,
  	menuWidth: 400,

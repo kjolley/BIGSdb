@@ -3209,7 +3209,7 @@ sub get_tables {
 		  isolates history sequence_attributes classification_schemes classification_group_fields
 		  retired_isolates user_dbases oauth_credentials eav_fields validation_rules validation_conditions
 		  validation_rule_conditions lincode_schemes lincode_fields codon_tables geography_point_lookup
-		  curator_configs);
+		  curator_configs query_interfaces query_interface_fields);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}
 		  : 'isolates';

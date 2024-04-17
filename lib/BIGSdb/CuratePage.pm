@@ -82,7 +82,7 @@ sub create_record_table {
 	$buffer .= q(<div class="box" id="queryform">) if !$options->{'nodiv'};
 	$buffer .= $options->{'icon'}                  if $options->{'icon'};
 	$buffer .= qq(<p>Please fill in the fields below - required fields are marked with an exclamation mark (!).</p>\n);
-	$buffer .= q(<div class="scrollable" style="white-space:nowrap">) if !$options->{'nodiv'};
+	$buffer .= q(<div class="scrollable">) if !$options->{'nodiv'};
 	$buffer .= q(<fieldset class="form" style="float:left"><legend>Record</legend><ul>);
 	my @field_names  = map { $_->{'name'} } @$attributes;
 	my $longest_name = BIGSdb::Utils::get_largest_string_length( \@field_names );
@@ -150,22 +150,23 @@ sub _get_form_fields {
 			my $label = $self->_get_label($args);
 			$buffer .= qq(<li>$label);
 			my %field_checks = (
-				primary_key    => sub { $self->_get_primary_key_field($args) },
-				no_user_update => sub { $self->_get_no_update_field($args) },
-				sender         => sub { $self->_get_user_field($args) },
-				allele_id      => sub { $self->_get_allele_id_field($args) },
-				non_admin_loci => sub { $self->_get_non_admin_locus_field($args) },
-				foreign_key    => sub { $self->_get_foreign_key_dropdown_field($args) },
-				datestamp      => sub { $self->_get_datestamp_field($args) },
-				date_entered   => sub { $self->_get_date_entered_field($args) },
-				curator        => sub { $self->_get_curator_field($args) },
-				boolean        => sub { $self->_get_boolean_field($args) },
-				optlist        => sub { $self->_get_optlist_field($args) },
-				text_field     => sub { $self->_get_text_field($args) },
+				primary_key     => sub { $self->_get_primary_key_field($args) },
+				no_user_update  => sub { $self->_get_no_update_field($args) },
+				sender          => sub { $self->_get_user_field($args) },
+				allele_id       => sub { $self->_get_allele_id_field($args) },
+				non_admin_loci  => sub { $self->_get_non_admin_locus_field($args) },
+				foreign_key     => sub { $self->_get_foreign_key_dropdown_field($args) },
+				datestamp       => sub { $self->_get_datestamp_field($args) },
+				date_entered    => sub { $self->_get_date_entered_field($args) },
+				curator         => sub { $self->_get_curator_field($args) },
+				boolean         => sub { $self->_get_boolean_field($args) },
+				optlist         => sub { $self->_get_optlist_field($args) },
+				interface_field => sub { $self->_get_interface_field($args) },
+				text_field      => sub { $self->_get_text_field($args) },
 			);
 		  FIELD_CHECK: foreach my $check (
 				qw(primary_key no_user_update sender allele_id non_admin_loci
-				foreign_key datestamp date_entered curator boolean optlist text_field)
+				foreign_key datestamp date_entered curator boolean optlist interface_field text_field)
 			  )
 			{
 				my $check_buffer = $field_checks{$check}->();
@@ -183,8 +184,8 @@ sub _get_form_fields {
 
 sub _show_field {
 	my ( $self, $showing_required, $att ) = @_;
-	if (   ( $att->{'required'} && $showing_required && !$att->{'group_with_optional'})
-		|| (( !$att->{'required'} || $att->{'group_with_optional'}) && !$showing_required  ) )
+	if (   ( $att->{'required'} && $showing_required && !$att->{'group_with_optional'} )
+		|| ( ( !$att->{'required'} || $att->{'group_with_optional'} ) && !$showing_required ) )
 	{
 		return 1;
 	}
@@ -305,6 +306,33 @@ sub _get_user_field {
 		-labels  => $user_names,
 		-default => $newdata->{ $att->{'name'} },
 		%$html5_args
+	);
+}
+
+sub _get_interface_field {
+	my ( $self, $args )  = @_;
+	my ( $name, $table ) = @$args{qw(name table)};
+	return q() if $name ne 'field' && $table ne 'query_interface_fields';
+	my $set_id = $self->get_set_id;
+	my ( $values, $labels ) = $self->get_field_selection_list(
+		{
+			isolate_fields        => 1,
+			eav_fields            => 1,
+			extended_attributes   => 1,
+			lincodes              => 1,
+			scheme_fields         => 1,
+			classification_groups => 1,
+			annotation_status     => 1,
+			set_id                => $set_id,
+			optgroups             => 1
+		}
+	);
+	my $q = $self->{'cgi'};
+	return $q->popup_menu(
+		-name   => $name,
+		-id     => $name,
+		-values => [ '', @$values ],
+		-labels => $labels
 	);
 }
 
@@ -1143,7 +1171,7 @@ sub _check_is_missing {
 
 sub _check_integer {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $att, $newdata ) = @_;
-	if (  defined $newdata->{ $att->{'name'} }
+	if ( defined $newdata->{ $att->{'name'} }
 		&& $att->{'type'} eq 'int' )
 	{
 		if ( !BIGSdb::Utils::is_int( $newdata->{ $att->{'name'} } ) ) {

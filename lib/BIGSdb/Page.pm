@@ -1277,7 +1277,7 @@ sub _sort_field_list_into_optgroups {
 	my @group_list       = split /,/x, ( $self->{'system'}->{'field_groups'} // q() );
 	my @eav_groups       = split /,/x, ( $self->{'system'}->{'eav_groups'}   // q() );
 	push @group_list, @eav_groups if @eav_groups;
-	push @group_list, ( 'Loci', 'Schemes', 'Annotation status' );
+	push @group_list, ( 'Loci', 'Schemes', 'LINcodes','Classification schemes','Annotation status' );
 	my $q = $self->{'cgi'};
 
 	foreach my $group ( undef, @group_list ) {
@@ -1298,6 +1298,12 @@ sub _sort_field_list_into_optgroups {
 		}
 		if ( $field =~ /^s_/x ) {
 			push @{ $group_members->{'Schemes'} }, $field;
+		}
+		if ( $field =~ /^lin_/x ) {
+			push @{ $group_members->{'LINcodes'} }, $field;
+		}
+		if ( $field =~ /^cg_/x ) {
+			push @{ $group_members->{'Classification schemes'} }, $field;
 		}
 		if ( $field =~ /^as_/x ) {
 			push @{ $group_members->{'Annotation status'} }, $field;
@@ -2225,7 +2231,9 @@ sub get_record_name {
 		geography_point_lookup            => 'geography point lookup value',
 		curator_configs                   => 'curator database configuration',
 		peptide_mutations                 => 'single amino acid variation definition',
-		dna_mutations                     => 'single nucleotide polymorphism definition'
+		dna_mutations                     => 'single nucleotide polymorphism definition',
+		query_interfaces                  => 'query interface',
+		query_interface_fields            => 'pre-selected interface field'
 	);
 	return $names{$table};
 }

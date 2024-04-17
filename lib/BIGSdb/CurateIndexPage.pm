@@ -40,7 +40,7 @@ sub set_pref_requirements {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (jQuery noCache packery tooltips);
+	$self->{$_} = 1 foreach qw (jQuery noCache packery tooltips allowExpand);
 	$self->choose_set;
 	$self->{'system'}->{'only_sets'} = 'no' if $self->is_admin;
 	my $guid = $self->get_guid;
@@ -191,6 +191,13 @@ END
      				gutter:10
      			});
     	}, 1000);
+ 	});
+ 	\$("#expand,#contract").click(function(){
+ 		delay(function(){
+     			\$grid.packery({
+     				gutter:10
+     			});
+    	}, 3000);
  	});
 	$db_trigger
 	\$(".curate_icon_link").on("mouseenter", function(){
@@ -367,6 +374,7 @@ sub _get_admin_links {
 		$buffer .= $self->_get_composite_fields;
 		$buffer .= $self->_get_validation_rules;
 		$buffer .= $self->_get_oauth_credentials;
+		$buffer .= $self->_get_query_interfaces;
 	}
 
 	#Only modify schemes/loci etc. when sets not selected.
@@ -1503,6 +1511,38 @@ sub _get_composite_fields {
 			query     => 1,
 			query_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=compositeQuery),
 			info      => 'Composite fields - Consist of a combination of different isolate, loci or scheme fields.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	return $buffer;
+}
+
+sub _get_query_interfaces {
+	my ($self) = @_;
+	my $buffer = q();
+	return $buffer if !$self->can_modify_table('query_interfaces');
+	$buffer .= q(<div class="curategroup curategroup_isolates grid-item misc_admin" )
+	  . qq(style="display:$self->{'optional_misc_admin_display'}"><h2>Query interfaces</h2>);
+	$buffer .= $self->_get_icon_group(
+		'query_interfaces',
+		'shapes',
+		{
+			add   => 1,
+			query => 1,
+			info  => 'Query interfaces - Define query interfaces with pre-selected fields.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	return $buffer if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM query_interfaces)');
+	$buffer .= q(<div class="curategroup curategroup_isolates grid-item misc_admin" )
+	  . qq(style="display:$self->{'optional_misc_admin_display'}"><h2>Query interface fields</h2>);
+	$buffer .= $self->_get_icon_group(
+		'query_interface_fields',
+		'cube',
+		{
+			add   => 1,
+			query => 1,
+			info  => 'Interface fields - Add pre-selected fields to query interfaces.'
 		}
 	);
 	$buffer .= qq(</div>\n);
