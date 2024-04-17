@@ -169,10 +169,7 @@ JS
 }
 
 sub _get_javascript_paths {
-	my ($self) = @_;
-
-	#	my $page_js = $self->get_javascript;
-	#	$page_js .= $self->_get_cookie_js;
+	my ($self)           = @_;
 	my $js               = [];
 	my $relative_js_path = $self->{'config'}->{'relative_js_dir'} // '/javascript';
 	if ( $self->{'jQuery'} ) {
@@ -252,8 +249,6 @@ sub _get_javascript_paths {
 				$used{$lib} = 1;
 			}
 		}
-
-		#		push @$js, { code => $page_js } if $page_js;
 	}
 	return $js;
 }
@@ -634,6 +629,7 @@ sub print_page_content {
 		}
 		$self->_debug if $q->param('debug') && $self->{'config'}->{'debug'};
 		my $page_js = $self->get_javascript;
+		$page_js .= $self->_get_cookie_js;
 		if ($page_js) {
 			say q(<script>);
 			say $page_js;
@@ -2843,9 +2839,8 @@ sub _initiate_isolatedb_general_prefs {
 	my ( $self, $general_prefs ) = @_;
 
 	#default off
-	foreach my $option (
-		qw (update_details allele_flags scheme_members_alias sequence_details_main display_publications)
-	  )
+	foreach
+	  my $option (qw (update_details allele_flags scheme_members_alias sequence_details_main display_publications))
 	{
 		$general_prefs->{$option} //= 'off';
 		$self->{'prefs'}->{$option} = $general_prefs->{$option} eq 'on' ? 1 : 0;
