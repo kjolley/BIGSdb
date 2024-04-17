@@ -39,6 +39,21 @@ sub get_javascript {
     }
     \$("#aliases").on('keyup paste',alias_change); 
     \$(".allow_null").on('change',allow_null_change);
+    \$('.single').multiselect({
+ 		classes: 'filter',
+ 		menuHeight: 250,
+ 		menuWidth: 400,
+ 		selectedList: 1,
+ 	}).multiselectfilter({
+		placeholder: 'Search'
+	});
+	\$('.multi').multiselect({
+		noneSelectedText: "",
+ 		classes: 'filter',
+ 		menuHeight: 250,
+ 		menuWidth: 400,
+ 		selectedList: 8
+  	});
 });
 function alias_change(){
 	console.log(\$("#aliases").val());

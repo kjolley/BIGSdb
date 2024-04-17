@@ -44,6 +44,21 @@ sub get_javascript {
   }
   \$("#aliases").on('keyup paste',alias_change);
   \$(".allow_null").on('change',allow_null_change);
+  \$('.single').multiselect({
+ 		classes: 'filter',
+ 		menuHeight: 250,
+ 		menuWidth: 400,
+ 		selectedList: 1,
+ 	}).multiselectfilter({
+		placeholder: 'Search'
+	});
+	\$('.multi').multiselect({
+		noneSelectedText: "",
+ 		classes: 'filter',
+ 		menuHeight: 250,
+ 		menuWidth: 400,
+ 		selectedList: 8
+  	});
 });
 function alias_change(){
   	if (\$("#aliases").val().indexOf(";") > -1 || \$("#aliases").val().indexOf(",") > -1){
@@ -744,11 +759,11 @@ sub _print_field {
 	my ( $self, $values ) = @_;
 	my ( $field, $required, $newdata, $width, $update, $user_info, $display_name, $prefix, $postfix ) =
 	  @{$values}{qw (field required newdata width update user_info display_name prefix postfix)};
-	my $q              = $self->{'cgi'};
-	my $thisfield      = $self->{'xmlHandler'}->get_field_attributes($field);
+	my $q                  = $self->{'cgi'};
+	my $thisfield          = $self->{'xmlHandler'}->get_field_attributes($field);
 	my $thisfield_required = ( $thisfield->{'required'} // 'yes' );
-	my $required_field = !( $thisfield_required eq 'no' || $thisfield_required =~ /genome/x);
-	my $html5_args     = $self->_get_html5_args(
+	my $required_field     = !( $thisfield_required eq 'no' || $thisfield_required =~ /genome/x );
+	my $html5_args         = $self->_get_html5_args(
 		{
 			required_field => $required_field,
 			field          => $field,
@@ -867,12 +882,12 @@ sub _print_optlist {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called 
 			-multiple => $multiple ? 'true'                   : 'false',
 			-style    => $multiple ? q(border:1px solid #008) : q()
 		);
-		if ( $multiple && @$optlist ) {
-			my $size = @$optlist <= 10 ? @$optlist : 10;
-			$args{'-size'} = $size;
+		say q(<div style="display:inline-block;white-space:normal">);
+		if ($multiple) {
+			say $q->scrolling_list( %args, %$html5_args, -class => 'multi' );
+		} else {
+			say $q->popup_menu( %args, %$html5_args, -class => 'single' );
 		}
-		say q(<div style="display:inline-block">);
-		say $self->popup_menu( %args, %$html5_args );
 		if ($multiple) {
 			say q(<br /><span class="comment" style="color:#008">Supports multiple values</span>);
 		}
