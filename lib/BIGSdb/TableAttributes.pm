@@ -2937,6 +2937,7 @@ sub get_query_interface_fields_table_attributes {
 			primary_key => 1,
 			coded_field => 1
 		},
+		{ name => 'display_order', type => 'int' },
 		{ name => 'datestamp', type => 'date', required => 1 },
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 }
 	];

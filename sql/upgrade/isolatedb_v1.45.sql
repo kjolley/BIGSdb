@@ -25,6 +25,7 @@ GRANT SELECT,UPDATE,INSERT,DELETE ON query_interfaces TO apache;
 CREATE TABLE query_interface_fields (
 id int NOT NULL,
 field text NOT NULL,
+display_order int,
 curator int NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY(id,field),

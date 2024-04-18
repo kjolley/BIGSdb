@@ -266,7 +266,7 @@ sub _print_interface {
 	say q(<p>Enter search criteria or leave blank to browse all records. Modify form parameters to filter or )
 	  . q(enter a list of values.</p>);
 	$q->param( table => $self->{'system'}->{'view'} );
-	say $q->hidden($_) foreach qw (db page table set_id);
+	say $q->hidden($_) foreach qw (db page table set_id interface);
 	say q(<div style="white-space:nowrap">);
 	$self->_print_provenance_fields_fieldset;
 	$self->_print_phenotypic_fields_fieldset;
@@ -319,13 +319,17 @@ sub print_panel_buttons {
 }
 
 sub _print_provenance_fields_fieldset {
-	my ($self)  = @_;
-	my $q       = $self->{'cgi'};
-	my $display = $self->{'prefs'}->{'provenance_fieldset'}
-	  || $self->_highest_entered_fields('provenance') ? 'inline' : 'none';
+	my ($self)      = @_;
+	my $q           = $self->{'cgi'};
+	my $prov_fields = $self->_highest_entered_fields('provenance') || 1;
+	my $preselected = $self->_get_preselected_provenance_fields;
+	$prov_fields = @$preselected if @$preselected;
+	my $display =
+	  ( $self->{'prefs'}->{'provenance_fieldset'} || $self->_highest_entered_fields('provenance') || @$preselected )
+	  ? 'inline'
+	  : 'none';
 	say qq(<fieldset id="provenance_fieldset" style="float:left;display:$display">)
 	  . q(<legend>Isolate provenance/primary metadata fields</legend>);
-	my $prov_fields           = $self->_highest_entered_fields('provenance') || 1;
 	my $display_field_heading = $prov_fields == 1 ? 'none' : 'inline';
 	say qq(<span id="prov_field_heading" style="display:$display_field_heading">)
 	  . q(<label for="prov_andor">Combine with: </label>);
@@ -333,13 +337,55 @@ sub _print_provenance_fields_fieldset {
 	say q(</span><ul id="provenance">);
 	my ( $select_items, $labels ) = $self->_get_select_items;
 
-	for ( 1 .. $prov_fields ) {
+	for my $i ( 1 .. $prov_fields ) {
+		if ( defined $preselected->[ $i - 1 ] ) {
+			$q->param( "prov_field$i" => $preselected->[ $i - 1 ] );
+		}
 		say q(<li>);
-		$self->_print_provenance_fields( $_, $prov_fields, $select_items, $labels );
+		$self->_print_provenance_fields( $i, $prov_fields, $select_items, $labels );
 		say q(</li>);
 	}
 	say q(</ul></fieldset>);
 	return;
+}
+
+sub _get_preselected_provenance_fields {
+	my ($self) = @_;
+	my $preselected = [];
+	if ( !$self->_highest_entered_fields('provenance') && ref $self->{'interface_fields'} ) {
+		foreach my $field ( @{ $self->{'interface_fields'} } ) {
+			if ( $field =~ /^f_/x || $field =~ /^e_/x ) {
+				push @$preselected, $field;
+			}
+		}
+	}
+	return $preselected;
+}
+
+sub _get_preselected_eav_fields {
+	my ($self) = @_;
+	my $preselected = [];
+	if ( !$self->_highest_entered_fields('phenotypic') && ref $self->{'interface_fields'} ) {
+		foreach my $field ( @{ $self->{'interface_fields'} } ) {
+			if ( $field =~ /^eav_/x ) {
+				push @$preselected, $field;
+			}
+		}
+	}
+	return $preselected;
+}
+
+sub _get_preselected_scheme_fields {
+	my ($self) = @_;
+	my $preselected = [];
+	if ( !$self->_highest_entered_fields('loci') && ref $self->{'interface_fields'} ) {
+		foreach my $field ( @{ $self->{'interface_fields'} } ) {
+			if ( $field =~ /^s_\d+_/x || $field =~ /^lin_/x || $field =~ /^cg_/x ) {
+				push @$preselected, $field;
+			}
+		}
+	}
+	return $preselected;
 }
 
 sub _print_phenotypic_fields_fieldset {
@@ -349,7 +395,8 @@ sub _print_phenotypic_fields_fieldset {
 	say q(<fieldset id="phenotypic_fieldset" style="float:left;display:none">);
 	my $field_name = ucfirst( $self->{'system'}->{'eav_fields'} // 'secondary metadata' );
 	say qq(<legend>$field_name</legend><div>);
-	if ( $self->_highest_entered_fields('phenotypic') ) {
+	my $preselected = $self->_get_preselected_eav_fields;
+	if ( $self->_highest_entered_fields('phenotypic') // @$preselected ) {
 		$self->_print_phenotypic_fieldset_contents;
 	}
 	say q(</div></fieldset>);
@@ -415,13 +462,14 @@ sub _print_display_fieldset {
 }
 
 sub _print_designations_fieldset {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my ($self)      = @_;
+	my $q           = $self->{'cgi'};
+	my $preselected = $self->_get_preselected_scheme_fields;
 	say q(<fieldset id="allele_designations_fieldset" style="float:left;display:none">);
 	say q(<legend>Allele designations/scheme fields</legend><div>);
 
 	#Get contents now if fieldset is visible, otherwise load via AJAX call
-	if ( $self->_highest_entered_fields('loci') ) {
+	if ( $self->_highest_entered_fields('loci') || @$preselected ) {
 		$self->_print_designations_fieldset_contents;
 	}
 	say q(</div></fieldset>);
@@ -443,16 +491,21 @@ sub _print_designations_fieldset_contents {
 			sort_labels               => 1
 		}
 	);
+	my $preselected = $self->_get_preselected_scheme_fields;
 	if (@$locus_list) {
-		my $locus_fields       = $self->_highest_entered_fields('loci') || 1;
+		my $locus_fields = $self->_highest_entered_fields('loci') || 1;
+		$locus_fields = @$preselected if @$preselected;
 		my $loci_field_heading = $locus_fields == 1 ? 'none' : 'inline';
 		say qq(<span id="loci_field_heading" style="display:$loci_field_heading">)
 		  . q(<label for="c1">Combine with: </label>);
 		say $q->popup_menu( -name => 'designation_andor', -id => 'designation_andor', -values => [qw (AND OR)], );
 		say q(</span><ul id="loci" style="white-space:normal">);
-		for ( 1 .. $locus_fields ) {
+		for my $row ( 1 .. $locus_fields ) {
+			if ( defined $preselected->[ $row - 1 ] ) {
+				$q->param( "designation_field$row" => $preselected->[ $row - 1 ] );
+			}
 			say q(<li>);
-			$self->_print_loci_fields( $_, $locus_fields, $locus_list, $locus_labels );
+			$self->_print_loci_fields( $row, $locus_fields, $locus_list, $locus_labels );
 			say q(</li>);
 		}
 		say q(</ul>);
@@ -1090,7 +1143,7 @@ sub _print_modify_search_fieldset {
 		my $annotation_status_fieldset_display = $self->_should_display_fieldset('annotation_status') ? HIDE : SHOW;
 		say q(<li><a href="" class="button fieldset_trigger" id="show_annotation_status">)
 		  . qq($annotation_status_fieldset_display</a>);
-		  say q(Annotation status</li>);
+		say q(Annotation status</li>);
 	}
 	if ( $self->{'seqbin_fieldset_exists'} ) {
 		my $seqbin_fieldset_display = $self->_should_display_fieldset('seqbin') ? HIDE : SHOW;
@@ -1455,14 +1508,19 @@ sub _print_phenotypic_fieldset_contents {
 	my $q = $self->{'cgi'};
 	my ( $list, $labels ) =
 	  $self->get_field_selection_list( { eav_fields => 1, sort_labels => 1 } );
+	my $preselected = $self->_get_preselected_eav_fields;
 	if (@$list) {
-		my $phenotypic_fields  = $self->_highest_entered_fields('phenotypic') || 1;
+		my $phenotypic_fields = $self->_highest_entered_fields('phenotypic') || 1;
+		$phenotypic_fields = @$preselected if @$preselected;
 		my $phenotypic_heading = $phenotypic_fields == 1 ? 'none' : 'inline';
 		say qq(<span id="phenotypic_field_heading" style="display:$phenotypic_heading">)
 		  . q(<label for="phenotypic_andor">Combine with: </label>);
 		say $q->popup_menu( -name => 'phenotypic_andor', -id => 'phenotypic_andor', -values => [qw (AND OR)] );
 		say q(</span><ul id="phenotypic">);
 		for my $row ( 1 .. $phenotypic_fields ) {
+			if ( defined $preselected->[ $row - 1 ] ) {
+				$q->param( "phenotypic_field$row" => $preselected->[ $row - 1 ] );
+			}
 			say q(<li>);
 			$self->_print_phenotypic_fields( $row, $phenotypic_fields, $list, $labels );
 			say q(</li>);
@@ -1959,7 +2017,7 @@ sub get_hidden_attributes {
 		}
 	}
 	push @hidden_attributes, qw(publication_list project_list private_records_list
-	  include_old list list_file attribute datatype);
+	  include_old list list_file attribute datatype interface);
 	my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
 	foreach my $scheme_id (@$schemes) {
 		push @hidden_attributes, "scheme_$scheme_id\_profile_status_list";
@@ -3942,6 +4000,18 @@ sub _should_display_fieldset {
 		annotation_status   => 'annotation_status'
 	);
 	return if !$fields{$fieldset};
+	if ( $fieldset eq 'provenance' ) {
+		my $preselected = $self->_get_preselected_provenance_fields;
+		return 1 if @$preselected;
+	}
+	if ( $fieldset eq 'phenotypic' ) {
+		my $preselected = $self->_get_preselected_eav_fields;
+		return 1 if @$preselected;
+	}
+	if ( $fieldset eq 'allele_designations' ) {
+		my $preselected = $self->_get_preselected_scheme_fields;
+		return 1 if @$preselected;
+	}
 	if ( $self->{'prefs'}->{"${fieldset}_fieldset"} || $self->_highest_entered_fields( $fields{$fieldset} ) ) {
 		return 1;
 	}
@@ -3985,7 +4055,13 @@ sub get_javascript {
 		tags                => 'tags'
 	);
 	my @fieldsets_with_no_entered_values;
+	my $preselected_provenance = $self->_get_preselected_provenance_fields;
+	my $preselected_eav        = $self->_get_preselected_eav_fields;
+	my $preselected_scheme     = $self->_get_preselected_scheme_fields;
 	foreach my $fieldset ( keys %fields ) {
+		next if $fieldset eq 'provenance'          && @$preselected_provenance;
+		next if $fieldset eq 'phenotypic'          && @$preselected_eav;
+		next if $fieldset eq 'allele_designations' && $preselected_scheme;
 		push @fieldsets_with_no_entered_values, $fieldset if !$self->_highest_entered_fields( $fields{$fieldset} );
 	}
 	if ( !$q->param('list') ) {
@@ -4435,6 +4511,19 @@ sub initiate {
 	if ( $q->param('sent') ) {
 		$q->param( submit => 1 );
 	}
+	$self->_initiate_interface_params;
+	return;
+}
+
+sub _initiate_interface_params {
+	my ($self)       = @_;
+	my $q            = $self->{'cgi'};
+	my $interface_id = $q->param('interface');
+	return if !BIGSdb::Utils::is_int($interface_id);
+	$self->{'interface_fields'} =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT field FROM query_interface_fields WHERE id=? ORDER BY display_order,field',
+		$interface_id, { fetch => 'col_arrayref' } );
 	return;
 }
 

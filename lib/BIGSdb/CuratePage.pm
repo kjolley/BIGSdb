@@ -327,7 +327,7 @@ sub _get_user_field {
 
 sub _get_coded_field {
 	my ( $self, $args ) = @_;
-	my ( $name, $table, $att ) = @$args{qw(name table att)};
+	my ( $name, $newdata, $table, $att ) = @$args{qw(name newdata table att)};
 	return q() if !$att->{'coded_field'};
 	my $set_id = $self->get_set_id;
 	my ( $values, $labels ) = $self->get_field_selection_list(
@@ -338,17 +338,18 @@ sub _get_coded_field {
 			lincodes              => 1,
 			scheme_fields         => 1,
 			classification_groups => 1,
-			annotation_status     => 1,
 			set_id                => $set_id,
 			optgroups             => 1
 		}
 	);
+	my $default = @$values == 1 ? $values->[0] : undef;
 	my $q = $self->{'cgi'};
 	return $q->popup_menu(
 		-name   => $name,
 		-id     => $name,
 		-values => [ '', @$values ],
-		-labels => $labels
+		-labels => $labels,
+		-default => $newdata->{ $att->{'name'} } // $default
 	);
 }
 

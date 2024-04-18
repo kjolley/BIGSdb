@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -198,7 +198,6 @@ sub is_bool {
 
 sub is_int {
 	my ( $N, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
 	return if ( !defined $N || $N eq '' );
 	return if $N =~ /[\x{ff10}-\x{ff19}]/x;    #Reject Unicode full width form
 	my ($sign) = '^\s* [-+]? \s*';
