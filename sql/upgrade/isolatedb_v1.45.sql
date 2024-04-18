@@ -12,6 +12,7 @@ INSERT INTO db_attributes (field,value) VALUES ('type','isolates');
 CREATE TABLE query_interfaces (
 id int NOT NULL,
 name text NOT NULL,
+display_order int,
 curator int NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY (id),

@@ -137,16 +137,25 @@ sub print_query_menu_item {
 	return if $self->{'system'}->{'dbtype'} ne 'isolates';
 	my $cache_string   = $self->get_cache_string;
 	my $url_root       = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}$cache_string&amp;";
-	my $project_clause = $options->{'project_id'} ? "&project_list=$options->{'project_id'}" : q();
+	my $project_clause = $options->{'project_id'} ? "&amp;project_list=$options->{'project_id'}" : q();
 	my $links          = [
 		{
 			href => "${url_root}page=query$project_clause",
 			text => 'Search database'
 		}
 	];
+	my $interfaces =
+	  $self->{'datastore'}->run_query( 'SELECT id,name,display_order FROM query_interfaces ORDER BY display_order,name',
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	foreach my $interface (@$interfaces) {
+		push @$links,
+		  {
+			href => "${url_root}page=query&amp;interface=$interface->{'id'}$project_clause",
+			text => $interface->{'name'}
+		  };
+	}
 	my $set_id = $self->get_set_id;
 	my $loci   = $self->{'datastore'}->get_loci( { set_id => $set_id, do_not_order => 1 } );
-
 	if (@$loci) {
 		push @$links,
 		  {
