@@ -2048,9 +2048,11 @@ sub _print_coded_field {
 	);
 	
 	}
-	
-	$value = $self->{'cache'}->{'field_labels'}->{$value} // $value;
-	print qq(<td>$value</td>);
+	my $display_value = $value;
+	if ($self->{'cache'}->{'field_labels'}->{$value} ne $value){
+		$display_value .= qq( <span class="minor">[$self->{'cache'}->{'field_labels'}->{$value}]</span>);
+	}
+	print qq(<td>$display_value</td>);
 	return;
 }
 
