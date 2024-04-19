@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20240202
+#Version: 20240419
 use strict;
 use warnings;
 use 5.010;
@@ -69,7 +69,6 @@ GetOptions(
 	'o|order'              => \$opts{'o'},
 	'only_already_tagged'  => \$opts{'only_already_tagged'},
 	'q|quiet'              => \$opts{'q'},
-	'r|random'             => \$opts{'r'},
 	'reuse_blast'          => \$opts{'reuse_blast'},
 	'seqbin_reldate=i'     => \$opts{'seqbin_reldate'},
 	'type_alleles'         => \$opts{'type_alleles'},
@@ -183,69 +182,81 @@ ${bold}NAME$norm
 ${bold}SYNOPSIS$norm
     ${bold}autotag.pl --database$norm ${under}NAME$norm [${under}options$norm]
 
-${bold}OPTIONS$norm
-${bold}-0, --missing$norm
-    Marks missing loci as provisional allele 0. Sets default word size to 15.
+${bold}OPTIONS$norm   
+${bold}--already_tagged, -T$norm
+    Scan even when sequence tagged (no designation).
     
 ${bold}--curator$norm ${under}CURATOR ID$norm
     Curator id to use for updates. By default -1 is used - there should be an
     autotagger account set with this id number.
            
-${bold}-d, --database$norm ${under}NAME$norm
+${bold}--database, -d$norm ${under}NAME$norm
     Database configuration name.
     
-${bold}-e, --exemplar$norm
+${bold}--exclude_isolates, -I$norm ${under}LIST$norm
+    Comma-separated list of isolate ids to ignore.
+    
+${bold}--exclude_loci, -L$norm ${under}LIST$norm
+    Comma-separated list of loci to exclude
+    
+${bold}--exclude_projects, -P$norm ${under}LIST$norm
+    Comma-separated list of projects whose isolates will be excluded.
+    
+${bold}--exemplar, -e$norm
     Only use alleles with the 'exemplar' flag set in BLAST searches to identify
     locus within genome. Specific allele is then identified using a database 
     lookup. This may be quicker than using all alleles for the BLAST search, 
     but will be at the expense of sensitivity. If no exemplar alleles are set 
     for a locus then all alleles will be used. Sets default word size to 15.
-${bold}-f --fast$norm
+    
+${bold}--fast, -f$norm
     Perform single BLAST query against all selected loci together. This will
     take longer to return any results but the overall scan should finish 
     quicker. This method will also use more memory - this can be used with
     --exemplar to mitigate against this.
 
-${bold}-h, --help$norm
+${bold}--help, -h$norm
     This help page.
 
-${bold}-i, --isolates$norm ${under}LIST$norm  
+${bold}--isolates, -i$norm ${under}LIST$norm  
     Comma-separated list of isolate ids to scan (ignored if -p used).
     
 ${bold}--isolate_list_file$norm ${under}FILE$norm  
     File containing list of isolate ids (ignored if -i or -p used).
            
-${bold}-I, --exclude_isolates$norm ${under}LIST$norm
-    Comma-separated list of isolate ids to ignore.
-
-${bold}-l, --loci$norm ${under}LIST$norm
+${bold}--loci, -l$norm ${under}LIST$norm
     Comma-separated list of loci to scan (ignored if -s used).
+    
+${bold}--locus_regex -R$norm ${under}REGEX$norm
+    Regex for locus names.
+ 
+${bold}--max, -y$norm ${under}ID$norm
+    Maximum isolate id.   
 
-${bold}-L, --exclude_loci$norm ${under}LIST$norm
-    Comma-separated list of loci to exclude
+${bold}--min, -x$norm ${under}ID$norm
+    Minimum isolate id.
 
-${bold}-m, --min_size$norm ${under}SIZE$norm
+${bold}--min_size, -m$norm ${under}SIZE$norm
     Minimum size of seqbin (bp) - limit search to isolates with at least this
     much sequence.
+    
+${bold}--missing, -0$norm
+    Marks missing loci as provisional allele 0. Sets default word size to 15.
     
 ${bold}--missing_alignment$norm ${under}PERCENTAGE$norm
     Minimum alignment threshold to use when tagging missing loci (default 30)
     
 ${bold}--missing_identity$norm ${under}PERCENTAGE$norm
-    Minimum identity threshold to use when tagging missing loci (default 50)   
-           
-${bold}-n, --new_only$norm
-    New (previously untagged) isolates only.  Combine with --new_max_alleles
-    if required.
+    Minimum identity threshold to use when tagging missing loci (default 50)  
     
 ${bold}--new_max_alleles$norm ${under}ALLELES$norm
     Set the maximum number of alleles that can be designated or sequences
     tagged before an isolate is not considered new when using the --new_only
-    option.    
-
-${bold}-o, --order$norm
-    Order so that isolates last tagged the longest time ago get scanned first
-    (ignored if -r used).
+    option.   
+           
+${bold}--new_only, -n$norm
+    New (previously untagged) isolates only.  Combine with --new_max_alleles
+    if required.  
     
 ${bold}--only_already_tagged$norm
     Only check loci that already have a tag present (but no allele designation).
@@ -253,18 +264,15 @@ ${bold}--only_already_tagged$norm
     match. This option is used to perform a catch-up scan where a curator has
     previously tagged sequence regions prior to alleles being defined, without
     the need to scan all missing loci.
+    
+${bold}--order, -o$norm
+    Order so that isolates last tagged the longest time ago get scanned first.
            
-${bold}-p, --projects$norm ${under}LIST$norm
+${bold}--projects, -p$norm ${under}LIST$norm
     Comma-separated list of project isolates to scan.
-
-${bold}-P, --exclude_projects$norm ${under}LIST$norm
-    Comma-separated list of projects whose isolates will be excluded.
-        
-${bold}-q, --quiet$norm
+       
+${bold}--quiet, -q$norm
     Only error messages displayed.
-
-${bold}-r, --random$norm
-    Shuffle order of isolate ids to scan.
     
 ${bold}--reuse_blast$norm
     Reuse the BLAST database for every isolate (when running --fast option). 
@@ -275,42 +283,31 @@ ${bold}--reuse_blast$norm
     BLAST database can take a significant amount of time, so this may be 
     quicker. This option is always selected if --new_only is used.
 
-${bold}-R, --locus_regex$norm ${under}REGEX$norm
-    Regex for locus names.
-
-${bold}-s, --schemes$norm ${under}LIST$norm
+${bold}--schemes, -s$norm ${under}LIST$norm
     Comma-separated list of scheme loci to scan.
     
 ${bold}--seqbin_reldate$norm ${under}DAYS$norm
     Filter to only include isolates for which the sequence bin was last
     modified within the specified number of days (set 1 for today).
-
-${bold}-t, --time$norm ${under}MINS$norm
-    Stop after t minutes.
-
+    
 ${bold}--threads$norm ${under}THREADS$norm
     Maximum number of threads to use.
+
+${bold}--time, -t$norm ${under}MINS$norm
+    Stop after t minutes.
     
 ${bold}--type_alleles$norm
     Only use alleles with the 'type_allele' flag set to identify locus.
     Note that this is only used when combined with the --missing (-0) flag.
     You must have at least one allele defined as a type allele for a locus
     if you use this option otherwise you will not find any matches!
-
-${bold}-T, --already_tagged$norm
-    Scan even when sequence tagged (no designation).
     
-${bold}-v, --view$norm ${under}VIEW$norm
+${bold}--view, -v$norm ${under}VIEW$norm
     Isolate database view (overrides value set in config.xml).
 
-${bold}-w, --word_size$norm ${under}SIZE$norm
+${bold}--word_size, -w$norm ${under}SIZE$norm
     BLASTN word size.
 
-${bold}-x, --min$norm ${under}ID$norm
-    Minimum isolate id.
-
-${bold}-y, --max$norm ${under}ID$norm
-    Maximum isolate id.
 HELP
 	return;
 }

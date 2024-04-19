@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Scan genomes for new alleles
 #Written by Keith Jolley
-#Copyright (c) 2013-2023, University of Oxford
+#Copyright (c) 2013-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20230210
+#Version: 20240419
 use strict;
 use warnings;
 use 5.010;
@@ -43,7 +43,7 @@ my %opts;
 GetOptions(
 	'A|alignment=i'        => \$opts{'A'},
 	'B|identity=i'         => \$opts{'B'},
-	'curator=i'          => \$opts{'curator_id'},
+	'curator=i'            => \$opts{'curator_id'},
 	'd|database=s'         => \$opts{'d'},
 	'e|exemplar'           => \$opts{'exemplar'},
 	'f|fast'               => \$opts{'fast'},
@@ -66,18 +66,19 @@ GetOptions(
 	'a|assign'             => \$opts{'a'},
 	'allow_frameshift'     => \$opts{'allow_frameshift'},
 	'allow_subsequences'   => \$opts{'allow_subsequences'},
-	'c|coding_sequences'   => \$opts{'c'},
-	'h|help'               => \$opts{'h'},
-	'n|new_only'           => \$opts{'n'},
-	'new_max_alleles=i'    => \$opts{'new_max_alleles'},
-	'o|order'              => \$opts{'o'},
-	'q|quiet'              => \$opts{'q'},
-	'r|random'             => \$opts{'r'},
-	'seqbin_reldate=i'     => \$opts{'seqbin_reldate'},
-	'reuse_blast'          => \$opts{'reuse_blast'},
-	'type_alleles'         => \$opts{'type_alleles'},
-	'T|already_tagged'     => \$opts{'T'},
-	'v|view=s'             => \$opts{'v'}
+	'assembly_checks'      => \$opts{'assembly_checks'},
+	'c|coding_sequences' => \$opts{'c'},
+	'h|help'             => \$opts{'h'},
+	'n|new_only'         => \$opts{'n'},
+	'new_max_alleles=i'  => \$opts{'new_max_alleles'},
+	'no_private'         => \$opts{'no_private'},
+	'o|order'            => \$opts{'o'},
+	'q|quiet'            => \$opts{'q'},
+	'seqbin_reldate=i'   => \$opts{'seqbin_reldate'},
+	'reuse_blast'        => \$opts{'reuse_blast'},
+	'type_alleles'       => \$opts{'type_alleles'},
+	'T|already_tagged'   => \$opts{'T'},
+	'v|view=s'           => \$opts{'v'}
 ) or die("Error in command line arguments\n");
 if ( $opts{'h'} ) {
 	show_help();
@@ -131,7 +132,7 @@ if ( BIGSdb::Utils::is_int( $opts{'threads'} ) && $opts{'threads'} > 1 ) {
 
 		#Prevent race condition where threads all try to get new OAuth session token
 		sleep 5 if $uses_remote_contigs;
-		$pm->start and next;                          #Forks
+		$pm->start and next;    #Forks
 		local $" = ',';
 		BIGSdb::Offline::ScanNew->new(
 			{
@@ -182,7 +183,7 @@ sub show_help {
 	my $termios = POSIX::Termios->new;
 	$termios->getattr;
 	my $ospeed = $termios->getospeed;
-	my $t = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
+	my $t      = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
 	my ( $norm, $bold, $under ) = map { $t->Tputs( $_, 1 ) } qw/me md us/;
 	say << "HELP";
 ${bold}NAME$norm
@@ -192,9 +193,9 @@ ${bold}SYNOPSIS$norm
     ${bold}scannew.pl --database$norm ${under}NAME$norm [${under}options$norm]
 
 ${bold}OPTIONS$norm
-${bold}-a, --assign$norm
-    Assign new alleles in definitions database.
-    
+${bold}--alignment, -A$norm ${under}INT$norm
+    Percentage alignment (default: 100).
+
 ${bold}--allow_frameshift$norm
     Allow sequences to contain a frameshift so that the length is not a 
     multiple of 3, or an internal stop codon. To be used with 
@@ -203,86 +204,100 @@ ${bold}--allow_frameshift$norm
     codon' if appropriate.  Essentially, combining these two options only 
     checks that the sequence starts with a start codon and ends with a stop
     codon.  
-    
+
 ${bold}--allow_subsequences$norm
     Allow definition of sub- or super-sequences. By default these will not
     be assigned.  
+   
+${bold}--already_tagged, -T$norm
+    Scan even when sequence tagged (no designation).    
+    
+${bold}--assembly_checks$norm
+    Only run against isolates that have passed all assembly checks.
+    
+${bold}--assign, -a$norm
+    Assign new alleles in definitions database.
 
-${bold}-A, --alignment$norm ${under}INT$norm
-    Percentage alignment (default: 100).
-
-${bold}-B, --identity$norm ${under}INT$norm
-    Percentage identity (default: 99).
-
-${bold}-c, --coding_sequences$norm
+${bold}--coding_sequences, -c$norm
     Only return complete coding sequences.
     
 ${bold}--curator$norm ${under}CURATOR ID$norm
     Curator id to use for updates. By default -1 is used - there should be an
     autodefiner account set with this id number.
 
-${bold}-d, --database$norm ${under}NAME$norm
+${bold}--database, -d$norm ${under}NAME$norm
     Database configuration name.
     
-${bold}-e, --exemplar$norm
+${bold}--exclude_isolates, -I$norm ${under}LIST$norm
+    Comma-separated list of isolate ids to ignore.
+    
+${bold}--exclude_loci, -L$norm ${under}LIST$norm
+    Comma-separated list of loci to exclude.
+    
+${bold}--exclude_projects, -P$norm ${under}LIST$norm
+    Comma-separated list of projects whose isolates will be excluded.
+    
+${bold}--exemplar, -e$norm
     Only use alleles with the 'exemplar' flag set in BLAST searches to identify
     locus within genome. Specific allele is then identified using a database 
     lookup. This may be quicker than using all alleles for the BLAST search, 
     but will be at the expense of sensitivity. If no exemplar alleles are set 
     for a locus then all alleles will be used. Sets default word size to 15.
 
-${bold}-f --fast$norm
+${bold}--fast, -f$norm
     Perform single BLAST query against all selected loci together. This will
     take longer to return any results but the overall scan should finish 
     quicker. This method will also use more memory - this can be used with
     --exemplar to mitigate against this.
 
-${bold}-h, --help$norm
+${bold}--help, -h$norm
     This help page.
-
-${bold}-i, --isolates$norm ${under}LIST$norm
-    Comma-separated list of isolate ids to scan (ignored if -p used).
     
+${bold}--identity, -B$norm ${under}INT$norm
+    Percentage identity (default: 99).
+   
 ${bold}--isolate_list_file$norm ${under}FILE$norm  
     File containing list of isolate ids (ignored if -i or -p used).
+    
+${bold}--isolates, -i$norm ${under}LIST$norm
+    Comma-separated list of isolate ids to scan (ignored if -p used).
            
-${bold}-I, --exclude_isolates$norm ${under}LIST$norm
-    Comma-separated list of isolate ids to ignore.
-
-${bold}-l, --loci$norm ${under}LIST$norm
+${bold}--loci, -l$norm ${under}LIST$norm
     Comma-separated list of loci to scan (ignored if -s used).
+    
+${bold}--locus_regex, -R$norm ${under}REGEX$norm
+    Regex for locus names.
+    
+${bold}--max, -y$norm ${under}ID$norm
+    Maximum isolate id.
+    
+${bold}--min, -x$norm ${under}ID$norm
+    Minimum isolate id.
 
-${bold}-L, --exclude_loci$norm ${under}LIST$norm
-    Comma-separated list of loci to exclude.
-
-${bold}-m, --min_size$norm ${under}SIZE$norm
+${bold}--min_size, -m$norm ${under}SIZE$norm
     Minimum size of seqbin (bp) - limit search to isolates with at least this
     much sequence.
            
-${bold}-n, --new_only$norm
+${bold}--new_only, -n$norm
     New (previously untagged) isolates only.
     
 ${bold}--new_max_alleles$norm ${under}ALLELES$norm
     Set the maximum number of alleles that can be designated or sequences
     tagged before an isolate is not considered new when using the --new_only
     option.
+    
+${bold}--no_private$norm
+    Do not include private isolate records in scan.
 
-${bold}-o, --order$norm
-    Order so that isolates last tagged the longest time ago get scanned first
-    (ignored if -r used).
+${bold}--order, -o$norm
+    Order so that isolates last tagged the longest time ago get scanned first.
            
-${bold}-p, --projects$norm ${under}LIST$norm
+${bold}--projects, -p$norm ${under}LIST$norm
     Comma-separated list of project isolates to scan.
-
-${bold}-P, --exclude_projects$norm ${under}LIST$norm
-    Comma-separated list of projects whose isolates will be excluded.
-    
-${bold}-q, --quiet$norm
+   
+${bold}--quiet, -q$norm
     Only error messages displayed.
-           
-${bold}-r, --random$norm
-    Shuffle order of isolate ids to scan.
-    
+              
 ${bold}--reuse_blast$norm
     Reuse the BLAST database for every isolate (when running --fast option). 
     All loci will be scanned rather than just those missing from an isolate. 
@@ -292,17 +307,14 @@ ${bold}--reuse_blast$norm
     BLAST database can take a significant amount of time, so this may be 
     quicker.
 
-${bold}-R, --locus_regex$norm ${under}REGEX$norm
-    Regex for locus names.
-
-${bold}-s, --schemes$norm ${under}LIST$norm
+${bold}--schemes, -s$norm ${under}LIST$norm
     Comma-separated list of scheme loci to scan.
     
 ${bold}--seqbin_reldate$norm ${under}DAYS$norm
     Filter to only include isolates for which the sequence bin was last
     modified within the specified number of days (set 1 for today).
 
-${bold}-t, --time$norm ${under}MINS$norm
+${bold}--time, -t$norm ${under}MINS$norm
     Stop after t minutes.
 
 ${bold}--threads$norm ${under}THREADS$norm
@@ -315,21 +327,13 @@ ${bold}--type_alleles$norm
     space so that allele definitions don't become more variable over time. Note
     that you must have at least one allele defined as a type allele for a locus
     if you use this option otherwise you will not find any matches!
-
-${bold}-T, --already_tagged$norm
-    Scan even when sequence tagged (no designation).
     
-${bold}-v, --view$norm ${under}VIEW$norm
+${bold}--view, -v$norm ${under}VIEW$norm
     Isolate database view (overrides value set in config.xml).
 
-${bold}-w, --word_size$norm ${under}SIZE$norm
+${bold}--word_size, -w$norm ${under}SIZE$norm
     BLASTN word size.
 
-${bold}-x, --min$norm ${under}ID$norm
-    Minimum isolate id.
-
-${bold}-y, --max$norm ${under}ID$norm
-    Maximum isolate id.
 HELP
 	return;
 }

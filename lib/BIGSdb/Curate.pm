@@ -174,12 +174,12 @@ sub print_page {
 		contigManager     => $self->{'contigManager'},
 		dataConnector     => $self->{'dataConnector'},
 		mod_perl_request  => $self->{'mod_perl_request'},
+		assembly_checks   => $self->{'assembly_checks'},
 		curate            => 1
 	);
 	my $page;
 	my $continue = 1;
 	my $auth_cookies_ref;
-
 	if ( $self->{'error'} ) {
 		$page_attributes{'error'}              = $self->{'error'};
 		$page_attributes{'max_upload_size_mb'} = $self->{'max_upload_size_mb'};
@@ -268,7 +268,6 @@ sub print_page {
 	if ( $page_attributes{'error'} ) {
 		$self->{'handled_error'} = 1;
 	}
-	
 	return;
 }
 1;

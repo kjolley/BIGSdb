@@ -1,6 +1,6 @@
 #DatabaseFields.pm - Database field description plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -42,7 +42,7 @@ sub get_attributes {
 		  . 'the field is compulsory or optional and the maximum length of values is displayed.',
 		menutext => 'Description of database fields',
 		module   => 'DatabaseFields',
-		version  => '1.1.8',
+		version  => '1.1.9',
 		section  => 'miscellaneous',
 		order    => 10,
 		dbtype   => 'isolates',
@@ -108,8 +108,9 @@ sub _provenance_print_fields {
 		$self->_print_allowed_values($field);
 		say q(</td>);
 		my %required_allowed = map { $_ => 1 } qw(yes no expected genome_required genome_expected);
-		my $required         = $required_allowed{ $thisfield->{'required'} } ? $thisfield->{'required'} : 'yes';
-		my %required_label   = (
+		$thisfield->{'required'} //= 'yes';
+		my $required       = $required_allowed{ $thisfield->{'required'} } ? $thisfield->{'required'} : 'yes';
+		my %required_label = (
 			genome_required => q(if submitting a genome assembly),
 			genome_expected => q(expected if submitting a genome assembly)
 		);
