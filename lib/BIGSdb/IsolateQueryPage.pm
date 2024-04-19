@@ -4061,7 +4061,7 @@ sub get_javascript {
 	foreach my $fieldset ( keys %fields ) {
 		next if $fieldset eq 'provenance'          && @$preselected_provenance;
 		next if $fieldset eq 'phenotypic'          && @$preselected_eav;
-		next if $fieldset eq 'allele_designations' && $preselected_scheme;
+		next if $fieldset eq 'allele_designations' && @$preselected_scheme;
 		push @fieldsets_with_no_entered_values, $fieldset if !$self->_highest_entered_fields( $fields{$fieldset} );
 	}
 	if ( !$q->param('list') ) {
