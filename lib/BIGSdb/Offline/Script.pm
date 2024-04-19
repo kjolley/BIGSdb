@@ -26,7 +26,6 @@ use DBI;
 use Try::Tiny;
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any uniq);
-use List::Util qw(shuffle);
 use Carp;
 use BIGSdb::Dataconnector;
 use BIGSdb::Datastore;
@@ -256,13 +255,15 @@ sub filter_and_sort_isolates {
 		push @exclude_isolates, @{ $self->_get_private_isolates };
 		@exclude_isolates = uniq(@exclude_isolates);
 	}
+	if ( $self->{'options'}->{'assembly_checks'} ) {
+		push @exclude_isolates, @{ $self->_get_isolates_not_passed_assembly_checks };
+		@exclude_isolates = uniq(@exclude_isolates);
+	}
 	if ( $self->{'options'}->{'P'} ) {
 		push @exclude_isolates, @{ $self->_get_isolates_excluded_by_project };
 		@exclude_isolates = uniq(@exclude_isolates);
 	}
-	if ( $self->{'options'}->{'r'} ) {
-		@$isolates = shuffle(@$isolates);
-	} elsif ( $self->{'options'}->{'o'} ) {
+	if ( $self->{'options'}->{'o'} ) {
 		my $tag_date = $self->_get_last_tagged_date($isolates);
 		@$isolates = sort { $tag_date->{$a} cmp $tag_date->{$b} } @$isolates;
 	}
@@ -325,6 +326,15 @@ sub _get_private_isolates {
 	my ($self) = @_;
 	return $self->{'datastore'}
 	  ->run_query( 'SELECT DISTINCT(isolate_id) FROM private_isolates', undef, { fetch => 'col_arrayref' } );
+}
+
+sub _get_isolates_not_passed_assembly_checks {
+	my ($self) = @_;
+	return $self->{'datastore'}->run_query(
+		'SELECT isolate_id FROM seqbin_stats WHERE isolate_id NOT IN (SELECT isolate_id FROM last_run WHERE name=?) '
+		  . 'OR isolate_id IN (SELECT isolate_id FROM assembly_checks WHERE status=?)',
+		[ 'AssemblyChecks', 'fail' ], { fetch => 'col_arrayref' }
+	);
 }
 
 sub _get_last_tagged_date {

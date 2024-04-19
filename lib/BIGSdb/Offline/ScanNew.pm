@@ -59,6 +59,8 @@ sub run_script {
 	}
 	my $isolates      = $self->get_isolates_with_linked_seqs;
 	my $isolate_list  = $self->filter_and_sort_isolates($isolates);
+	
+	use Data::Dumper;say Dumper ($isolate_list); exit;
 	my $isolate_count = @$isolate_list;
 	my $plural        = $isolate_count == 1 ? '' : 's';
 	my $job_id        = $self->add_job( 'ScanNew', { temp_init => 1 } );
