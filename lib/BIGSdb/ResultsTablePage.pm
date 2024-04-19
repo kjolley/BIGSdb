@@ -1961,12 +1961,14 @@ sub _print_record_field {
 		$self->_print_fk_field_with_label($args);
 		return;
 	}
+	if ($table eq 'query_interface_fields' && $field eq 'field'){
+		$self->_print_coded_field( $field, $data->{'field'} );
+		return;
+	}
 	my $special_fields = {
 		isolate_id => sub { $self->_print_isolate_id( $data->{'isolate_id'} ) },
 		pubmed_id  => sub { $self->_print_pubmed_id( $data->{'pubmed_id'} ) },
 		timestamp  => sub { $self->_print_timestamp( $data->{'timestamp'} ) },
-		,
-		field => sub { $table eq 'query_interface_fields' && $self->_print_coded_field( $field, $data->{'field'} ) }
 	};
 	if ( $special_fields->{$field} ) {
 		$special_fields->{$field}->();
@@ -2031,25 +2033,23 @@ sub _print_timestamp {
 sub _print_coded_field {
 	my ( $self, $field, $value ) = @_;
 	my $set_id = $self->get_set_id;
-	if (!$self->{'cache'}->{'field_labels'}){
-		(undef, $self->{'cache'}->{'field_labels'} ) = $self->get_field_selection_list(
-		{
-			isolate_fields        => 1,
-			eav_fields            => 1,
-			extended_attributes   => 1,
-			lincodes              => 1,
-			scheme_fields         => 1,
-			classification_groups => 1,
-			annotation_status     => 1,
-			set_id                => $set_id,
-			ignore_prefs => 1
-		}
-		
-	);
-	
+	if ( !$self->{'cache'}->{'field_labels'} ) {
+		( undef, $self->{'cache'}->{'field_labels'} ) = $self->get_field_selection_list(
+			{
+				isolate_fields        => 1,
+				eav_fields            => 1,
+				extended_attributes   => 1,
+				lincodes              => 1,
+				scheme_fields         => 1,
+				classification_groups => 1,
+				annotation_status     => 1,
+				set_id                => $set_id,
+				ignore_prefs          => 1
+			}
+		);
 	}
 	my $display_value = $value;
-	if ($self->{'cache'}->{'field_labels'}->{$value} ne $value){
+	if ( $self->{'cache'}->{'field_labels'}->{$value} ne $value ) {
 		$display_value .= qq( <span class="minor">[$self->{'cache'}->{'field_labels'}->{$value}]</span>);
 	}
 	print qq(<td>$display_value</td>);
