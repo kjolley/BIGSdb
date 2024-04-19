@@ -264,6 +264,7 @@ sub _get_primary_key_field {
 				eav_fields            => 1,
 				extended_attributes   => 1,
 				lincodes              => 1,
+				lincode_fields        => 1,
 				scheme_fields         => 1,
 				classification_groups => 1,
 				annotation_status     => 1,
@@ -336,6 +337,7 @@ sub _get_coded_field {
 			eav_fields            => 1,
 			extended_attributes   => 1,
 			lincodes              => 1,
+			lincode_fields        => 1,
 			scheme_fields         => 1,
 			classification_groups => 1,
 			set_id                => $set_id,
@@ -343,12 +345,12 @@ sub _get_coded_field {
 		}
 	);
 	my $default = @$values == 1 ? $values->[0] : undef;
-	my $q = $self->{'cgi'};
+	my $q       = $self->{'cgi'};
 	return $q->popup_menu(
-		-name   => $name,
-		-id     => $name,
-		-values => [ '', @$values ],
-		-labels => $labels,
+		-name    => $name,
+		-id      => $name,
+		-values  => [ '', @$values ],
+		-labels  => $labels,
 		-default => $newdata->{ $att->{'name'} } // $default
 	);
 }

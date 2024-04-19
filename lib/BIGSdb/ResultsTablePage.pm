@@ -1961,7 +1961,7 @@ sub _print_record_field {
 		$self->_print_fk_field_with_label($args);
 		return;
 	}
-	if ($table eq 'query_interface_fields' && $field eq 'field'){
+	if ( $table eq 'query_interface_fields' && $field eq 'field' ) {
 		$self->_print_coded_field( $field, $data->{'field'} );
 		return;
 	}
@@ -2040,6 +2040,7 @@ sub _print_coded_field {
 				eav_fields            => 1,
 				extended_attributes   => 1,
 				lincodes              => 1,
+				lincode_fields        => 1,
 				scheme_fields         => 1,
 				classification_groups => 1,
 				annotation_status     => 1,

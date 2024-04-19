@@ -253,6 +253,7 @@ sub _display_record {
 					eav_fields            => 1,
 					extended_attributes   => 1,
 					lincodes              => 1,
+					lincode_fields        => 1,
 					scheme_fields         => 1,
 					classification_groups => 1,
 					annotation_status     => 1,
