@@ -2907,7 +2907,7 @@ sub get_query_interfaces_table_attributes {
 			name     => 'name',
 			type     => 'text',
 			required => 1,
-			length   => 30,
+			length   => 32,
 			tooltip  => 'name - This is what will appear under the Search entry on the database contents page.'
 		},
 		{ name => 'display_order', type => 'int' },
