@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2023, University of Oxford
+#Copyright (c) 2011-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -252,6 +252,10 @@ sub filter_and_sort_isolates {
 	if ( $self->{'options'}->{'I'} ) {
 		@exclude_isolates = split /\s*,\*/x, $self->{'options'}->{'I'};
 	}
+	if ( $self->{'options'}->{'no_private'} ) {
+		push @exclude_isolates, @{ $self->_get_private_isolates };
+		@exclude_isolates = uniq(@exclude_isolates);
+	}
 	if ( $self->{'options'}->{'P'} ) {
 		push @exclude_isolates, @{ $self->_get_isolates_excluded_by_project };
 		@exclude_isolates = uniq(@exclude_isolates);
@@ -315,6 +319,12 @@ sub _get_isolates_excluded_by_project {
 	}
 	@isolates = uniq(@isolates);
 	return \@isolates;
+}
+
+sub _get_private_isolates {
+	my ($self) = @_;
+	return $self->{'datastore'}
+	  ->run_query( 'SELECT DISTINCT(isolate_id) FROM private_isolates', undef, { fetch => 'col_arrayref' } );
 }
 
 sub _get_last_tagged_date {
@@ -449,7 +459,7 @@ sub add_job {
 	( my $hostname = `hostname -s` ) =~ s/\s.*$//x;
 	my $job_id = $self->{'jobManager'}->add_job(
 		{
-			job_id => $options->{'job_id'},
+			job_id       => $options->{'job_id'},
 			dbase_config => $self->{'instance'},
 			ip_address   => $options->{'ip_address'} // $hostname,
 			module       => $module,
@@ -513,7 +523,7 @@ sub set_last_run_time {
 
 sub make_assembly_file {
 	my ( $self, $job_id, $isolate_id ) = @_;
-	if (!defined $self->{'contigManager'}){
+	if ( !defined $self->{'contigManager'} ) {
 		$self->{'logger'}->fatal('Contig manager is not set up.');
 	}
 	my $filename   = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}_$isolate_id.fas";

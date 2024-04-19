@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Scan genomes for new alleles
 #Written by Keith Jolley
-#Copyright (c) 2013-2023, University of Oxford
+#Copyright (c) 2013-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20230210
+#Version: 20240419
 use strict;
 use warnings;
 use 5.010;
@@ -43,7 +43,7 @@ my %opts;
 GetOptions(
 	'A|alignment=i'        => \$opts{'A'},
 	'B|identity=i'         => \$opts{'B'},
-	'curator=i'          => \$opts{'curator_id'},
+	'curator=i'            => \$opts{'curator_id'},
 	'd|database=s'         => \$opts{'d'},
 	'e|exemplar'           => \$opts{'exemplar'},
 	'f|fast'               => \$opts{'fast'},
@@ -70,6 +70,7 @@ GetOptions(
 	'h|help'               => \$opts{'h'},
 	'n|new_only'           => \$opts{'n'},
 	'new_max_alleles=i'    => \$opts{'new_max_alleles'},
+	'no_private'           => \$opts{'no_private'},
 	'o|order'              => \$opts{'o'},
 	'q|quiet'              => \$opts{'q'},
 	'r|random'             => \$opts{'r'},
@@ -131,7 +132,7 @@ if ( BIGSdb::Utils::is_int( $opts{'threads'} ) && $opts{'threads'} > 1 ) {
 
 		#Prevent race condition where threads all try to get new OAuth session token
 		sleep 5 if $uses_remote_contigs;
-		$pm->start and next;                          #Forks
+		$pm->start and next;    #Forks
 		local $" = ',';
 		BIGSdb::Offline::ScanNew->new(
 			{
@@ -182,7 +183,7 @@ sub show_help {
 	my $termios = POSIX::Termios->new;
 	$termios->getattr;
 	my $ospeed = $termios->getospeed;
-	my $t = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
+	my $t      = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
 	my ( $norm, $bold, $under ) = map { $t->Tputs( $_, 1 ) } qw/me md us/;
 	say << "HELP";
 ${bold}NAME$norm
@@ -266,6 +267,9 @@ ${bold}--new_max_alleles$norm ${under}ALLELES$norm
     Set the maximum number of alleles that can be designated or sequences
     tagged before an isolate is not considered new when using the --new_only
     option.
+    
+${bold}--no_private$norm
+    Do not include private isolate records in scan.
 
 ${bold}-o, --order$norm
     Order so that isolates last tagged the longest time ago get scanned first
