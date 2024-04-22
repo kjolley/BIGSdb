@@ -2124,7 +2124,12 @@ sub get_isolates_with_seqbin {
 	$options = {} if ref $options ne 'HASH';
 	my $view = $self->{'system'}->{'view'};
 	my $qry;
-	if ( $options->{'use_all'} ) {
+	if ( $options->{'id_list'} ) {
+		my $list_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $options->{'id_list'} );
+		$qry = "SELECT v.id,v.$self->{'system'}->{'labelfield'},new_version FROM $view v JOIN $list_table l "
+		  . 'ON v.id=l.value WHERE EXISTS(SELECT * FROM seqbin_stats WHERE v.id=seqbin_stats.isolate_id) ORDER '
+		  . 'BY v.id'
+	} elsif ( $options->{'use_all'} ) {
 		$qry = "SELECT $view.id,$view.$self->{'system'}->{'labelfield'},new_version FROM $view ORDER BY $view.id";
 	} else {
 		$qry = "SELECT $view.id,$view.$self->{'system'}->{'labelfield'},new_version FROM $view WHERE EXISTS "
@@ -3123,7 +3128,7 @@ sub popup_menu {
 sub print_seqbin_isolate_fieldset {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $q = $self->{'cgi'};
+	my $q            = $self->{'cgi'};
 	my $seqbin_count = $self->{'datastore'}->get_seqbin_count;
 	say q(<fieldset style="float:left"><legend>Isolates</legend>);
 	if ($seqbin_count) {

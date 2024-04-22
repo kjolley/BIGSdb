@@ -209,8 +209,8 @@ sub _request_stop {
 }
 
 sub _print_interface {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my ($self)       = @_;
+	my $q            = $self->{'cgi'};
 	my $seqbin_count = $self->{'datastore'}->get_seqbin_count;
 	if ( !$seqbin_count ) {
 		$self->print_bad_status( { message => q(This database view contains no genomes.) } );
@@ -602,7 +602,7 @@ sub _scan {
 	my $project_id   = $q->param('project_list');
 	my $curator_name = $self->get_curator_name;
 	my $user_info    = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	my ( undef, $labels ) = $self->get_isolates_with_seqbin( { hyperlink => 1 } );
+	my ( undef, $labels ) = $self->get_isolates_with_seqbin( { id_list => \@ids, hyperlink => 1 } );
 
 	#Use double fork to prevent zombie processes on apache2-mpm-worker
 	defined( my $kid = fork ) or $logger->error('cannot fork');
@@ -633,7 +633,6 @@ sub _scan {
 			$params->{'username'}   = $self->{'username'};
 			$params->{'email'}      = $user_info->{'email'};
 			$params->{'scannew'}    = 1;
-
 			if ( $params->{'loci_together'} ) {
 				$params->{'exemplar'}             = 1;
 				$params->{'scan_partial_matches'} = 100;
