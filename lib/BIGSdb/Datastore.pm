@@ -2608,7 +2608,7 @@ sub get_allele_flags {
 sub get_allele_ids {
 	my ( $self, $isolate_id, $locus, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $allele_ids    = $self->run_query(
+	my $allele_ids = $self->run_query(
 		'SELECT allele_id FROM allele_designations WHERE isolate_id=? AND locus=?',
 		[ $isolate_id, $locus ],
 		{ fetch => 'col_arrayref', cache => 'get_allele_ids' }
@@ -2620,15 +2620,14 @@ sub get_allele_ids {
 sub get_all_allele_ids {
 	my ( $self, $isolate_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $allele_ids    = {};
+	my $allele_ids = {};
 	my $set_clause =
 	  $options->{'set_id'}
 	  ? q[AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes ]
 	  . qq[WHERE set_id=$options->{'set_id'})) OR locus IN (SELECT locus FROM set_loci WHERE ]
 	  . qq[set_id=$options->{'set_id'}))]
 	  : q[];
-	my $data = $self->run_query(
-		qq(SELECT locus,allele_id FROM allele_designations WHERE isolate_id=? $set_clause),
+	my $data = $self->run_query( qq(SELECT locus,allele_id FROM allele_designations WHERE isolate_id=? $set_clause),
 		$isolate_id, { fetch => 'all_arrayref', cache => 'get_all_allele_ids' } );
 	foreach (@$data) {
 		my ( $locus, $allele_id ) = @$_;
@@ -3721,5 +3720,16 @@ sub define_missing_allele {
 	}
 	$self->{'db'}->commit;
 	return;
+}
+
+sub get_seqbin_count {
+	my ($self) = @_;
+	if ( defined $self->{'cache'}->{'seqbin_count'} ) {
+		return $self->{'cache'}->{'seqbin_count'};
+	}
+	$self->{'cache'}->{'seqbin_count'} =
+	  $self->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'} v JOIN seqbin_stats s ON v.id=s.isolate_id")
+	  ;
+	return $self->{'cache'}->{'seqbin_count'};
 }
 1;

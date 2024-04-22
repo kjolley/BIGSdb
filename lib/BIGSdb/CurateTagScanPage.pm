@@ -211,8 +211,8 @@ sub _request_stop {
 sub _print_interface {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my ( $ids, $labels ) = $self->get_isolates_with_seqbin;
-	if ( !@$ids ) {
+	my $seqbin_count = $self->{'datastore'}->get_seqbin_count;
+	if ( !$seqbin_count ) {
 		$self->print_bad_status( { message => q(This database view contains no genomes.) } );
 		return;
 	} elsif ( !$self->can_modify_table('allele_sequences') ) {
