@@ -764,7 +764,7 @@ sub get_retired_allele_ids_table_attributes {
 			foreign_key    => 'loci',
 			dropdown_query => 1
 		},
-		{ name => 'allele_id', type => 'string', required => 1, primary_key    => 1 },
+		{ name => 'allele_id', type => 'text', required => 1, primary_key    => 1 },
 		{ name => 'curator',   type => 'int',    required => 1, dropdown_query => 1 },
 		{ name => 'datestamp', type => 'date',   required => 1 }
 	];
