@@ -129,6 +129,11 @@ sub _print_ref_fields {
 
 sub _print_private_fieldset {
 	my ($self) = @_;
+	return if !defined $self->{'username'};
+	my $private =
+	  $self->{'datastore'}->run_query(
+		"SELECT EXISTS(SELECT * FROM private_isolates p JOIN $self->{'system'}->{'view'} v ON p.isolate_id=v.id)");
+	return if !$private;
 	my $bg_private_colour;
 	my $fg_private_colour;
 	eval {
@@ -143,12 +148,8 @@ sub _print_private_fieldset {
 		}
 	};
 	my $bg = $bg_private_colour // '#cc3956';
-	my $fg = $fg_private_colour // '#000000';
+	my $fg = $fg_private_colour // '#ffffff';
 	my $q  = $self->{'cgi'};
-	my $private =
-	  $self->{'datastore'}->run_query(
-		"SELECT EXISTS(SELECT * FROM private_isolates p JOIN $self->{'system'}->{'view'} v ON p.isolate_id=v.id)");
-	return if !$private;
 	say q(<fieldset style="float:left"><legend>Private records</legend><ul><li>);
 	say $q->checkbox(
 		-name     => 'private_record',
@@ -183,7 +184,8 @@ sub _print_private_fieldset {
 	say qq(<input type="color" name="private_bg" id="private_bg" value="$bg" )
 	  . q(style="width:30px;height:15px"> Background colour);
 	say q(</li></li>);
-	say qq(<span id="example_private" style="border:1px solid #aaa;background:$bg;color:$fg;padding:0 0.2em">example private record</span>);
+	say
+qq(<span id="example_private" style="border:1px solid #aaa;background:$bg;color:$fg;padding:0 0.2em">example private record</span>);
 	say q(</li></ul></fieldset>);
 	return;
 }
