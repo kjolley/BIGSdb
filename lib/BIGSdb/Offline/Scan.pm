@@ -1524,8 +1524,10 @@ sub _parse_blast_exact {
 				$match->{'e-value'}         = $record->[10];
 				$match->{'length'}          = abs( $match->{'predicted_end'} - $match->{'predicted_start'} ) + 1;
 				next RECORD
-				  if $matched_already->{$locus}->{ $match->{'allele'} }->{ $match->{'predicted_start'} };
-				$matched_already->{$locus}->{ $match->{'allele'} }->{ $match->{'predicted_start'} }           = 1;
+				  if $matched_already->{$locus}->{ $match->{'allele'} }->{ $match->{'seqbin_id'} }
+				  ->{ $match->{'predicted_start'} };
+				$matched_already->{$locus}->{ $match->{'allele'} }->{ $match->{'seqbin_id'} }
+				  ->{ $match->{'predicted_start'} } = 1;
 				$region_matched_already->{$locus}->{ $match->{'seqbin_id'} }->{ $match->{'predicted_start'} } = 1;
 
 				if ( $locus_info->{$locus}->{'match_longest'} && @{ $matches->{$locus} } ) {
