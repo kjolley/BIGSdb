@@ -1,3 +1,8 @@
+v1.44.1: *Added option to show if assembly checks have passed in isolate 
+          results table.
+         *Added option to scannew.pl to only scan records that have passed
+          assembly checks.
+         *Added option to scannew.pl to not check private records.         
 v1.44.0: *Database indexes have been revised following a performance review.
          *'Ignore' option has been removed for allele designations.
          *Matching isolates at different LINcode thresholds are now shown 
