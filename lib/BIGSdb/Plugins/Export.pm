@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext => 'Dataset',
 		menutext   => 'Dataset',
 		module     => 'Export',
-		version    => '1.11.1',
+		version    => '1.12.0',
 		dbtype     => 'isolates',
 		section    => 'export,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
@@ -132,6 +132,7 @@ sub _print_private_fieldset {
 		-id       => 'private_record',
 		-value    => 'checked',
 		-label    => 'Indicate private records',
+		-checked  => 1,
 		-onChange => 'enable_private_controls()'
 	);
 	say q(</li><li>);
@@ -140,6 +141,7 @@ sub _print_private_fieldset {
 		-id       => 'private_owner',
 		-value    => 'checked',
 		-label    => 'List owner',
+		-checked => 1,
 		-onChange => 'enable_private_controls()'
 	);
 	say q(</li><li>);
@@ -148,7 +150,7 @@ sub _print_private_fieldset {
 		-id        => 'private_name',
 		-values    => [ 'user_id', 'name' ],
 		-labels    => { user_id => 'user id', name => 'name/affiliation' },
-		-default   => 'user_id',
+		-default   => 'name',
 		-linebreak => 'true'
 	);
 	say q(</li></ul></fieldset>);
@@ -314,12 +316,14 @@ sub run {
 		say q( done</p>);
 		my ( $excel_file, $text_file ) = ( EXCEL_FILE, TEXT_FILE );
 		print qq(<p><a href="/tmp/$filename" target="_blank" title="Tab-delimited text file">$text_file</a>);
-		my $excel = BIGSdb::Utils::text2excel(
+		my $format = $self->_get_excel_formatting;
+		my $excel  = BIGSdb::Utils::text2excel(
 			$full_path,
 			{
-				worksheet   => 'Export',
-				tmp_dir     => $self->{'config'}->{'secure_tmp_dir'},
-				text_fields => $self->{'system'}->{'labelfield'}
+				worksheet              => 'Export',
+				tmp_dir                => $self->{'config'}->{'secure_tmp_dir'},
+				text_fields            => $self->{'system'}->{'labelfield'},
+				conditional_formatting => $format
 			}
 		);
 		say qq(<a href="/tmp/$prefix.xlsx" target="_blank" title="Excel file">$excel_file</a>)
@@ -330,6 +334,24 @@ sub run {
 	}
 	$self->_print_interface;
 	return;
+}
+
+sub _get_excel_formatting {
+	my ($self) = @_;
+	my $format = [];
+	if ( $self->{'private_col'} ) {
+		push @$format,
+		  {
+			col    => $self->{'private_col'},
+			value  => 'true',
+			format => {
+				bg_color => '#cc3956',
+				color    => '#ffffff'
+			},
+			apply_to_row => 1
+		  };
+	}
+	return $format;
 }
 
 sub _print_interface {
@@ -429,12 +451,14 @@ sub run_job {
 		);
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Creating Excel file' } );
 		$self->{'db'}->commit;                               #prevent idle in transaction table locks
+		my $format     = $self->_get_excel_formatting;
 		my $excel_file = BIGSdb::Utils::text2excel(
 			$filename,
 			{
-				worksheet   => 'Export',
-				tmp_dir     => $self->{'config'}->{'secure_tmp_dir'},
-				text_fields => $self->{'system'}->{'labelfield'}
+				worksheet              => 'Export',
+				tmp_dir                => $self->{'config'}->{'secure_tmp_dir'},
+				text_fields            => $self->{'system'}->{'labelfield'},
+				conditional_formatting => $format
 			}
 		);
 		if ( -e $excel_file ) {
@@ -595,6 +619,7 @@ sub _get_header {
 	} else {
 		my $first = 1;
 		my %schemes;
+		my $i = 0;
 		foreach (@$fields) {
 			my $field = $_;    #don't modify @$fields
 			if ( $field =~ /^s_(\d+)_f/x || $field =~ /^lin_(\d+)$/x || $field =~ /^lin_(\d+)_(.+)$/x ) {
@@ -646,6 +671,8 @@ sub _get_header {
 				$buffer .= $field;
 			}
 			$first = 0;
+			$self->{'private_col'} = $i if $field eq 'private_record';
+			$i++;
 		}
 		if ($first) {
 			$buffer .= 'Make sure you select an option for locus export.';
