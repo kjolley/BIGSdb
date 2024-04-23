@@ -92,6 +92,14 @@ function enable_private_controls(){
  		selectedList: 8
   	});
  	\$('#locus').multiselectfilter();
+ 	\$("span#example_private").css("background",\$('#private_bg').val());
+ 	\$("span#example_private").css("color",\$('#private_fg').val());
+ 	\$('#private_bg').on('change',function(){
+ 		\$("span#example_private").css("background",\$('#private_bg').val());
+ 	});
+ 	\$('#private_fg').on('change',function(){
+ 		\$("span#example_private").css("color",\$('#private_fg').val());
+ 	});
 }); 
 END
 	return $js;
@@ -121,7 +129,22 @@ sub _print_ref_fields {
 
 sub _print_private_fieldset {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my $bg_private_colour;
+	my $fg_private_colour;
+	eval {
+		my $guid = $self->get_guid;
+		if ($guid) {
+			$bg_private_colour =
+			  $self->{'prefstore'}
+			  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'Export', 'bg_private_colour' );
+			$fg_private_colour =
+			  $self->{'prefstore'}
+			  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'Export', 'fg_private_colour' );
+		}
+	};
+	my $bg = $bg_private_colour // '#cc3956';
+	my $fg = $fg_private_colour // '#000000';
+	my $q  = $self->{'cgi'};
 	my $private =
 	  $self->{'datastore'}->run_query(
 		"SELECT EXISTS(SELECT * FROM private_isolates p JOIN $self->{'system'}->{'view'} v ON p.isolate_id=v.id)");
@@ -141,7 +164,7 @@ sub _print_private_fieldset {
 		-id       => 'private_owner',
 		-value    => 'checked',
 		-label    => 'List owner',
-		-checked => 1,
+		-checked  => 1,
 		-onChange => 'enable_private_controls()'
 	);
 	say q(</li><li>);
@@ -153,6 +176,14 @@ sub _print_private_fieldset {
 		-default   => 'name',
 		-linebreak => 'true'
 	);
+	say q(</li></li>);
+	say qq(<input type="color" name="private_fg" id="private_fg" value="$fg" )
+	  . q(style="width:30px;height:15px"> Text colour);
+	say q(</li><li>);
+	say qq(<input type="color" name="private_bg" id="private_bg" value="$bg" )
+	  . q(style="width:30px;height:15px"> Background colour);
+	say q(</li></li>);
+	say qq(<span id="example_private" style="border:1px solid #aaa;background:$bg;color:$fg;padding:0 0.2em">example private record</span>);
 	say q(</li></ul></fieldset>);
 	return;
 }
@@ -233,12 +264,26 @@ sub _print_molwt_options {
 	return;
 }
 
+sub _update_prefs {
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $guid   = $self->get_guid;
+	eval {
+		$self->{'prefstore'}->set_plugin_attribute( $guid, $self->{'system'}->{'db'},
+			'Export', 'bg_private_colour', scalar $q->param('private_bg') );
+		$self->{'prefstore'}->set_plugin_attribute( $guid, $self->{'system'}->{'db'},
+			'Export', 'fg_private_colour', scalar $q->param('private_fg') );
+	};
+	return;
+}
+
 sub run {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<h1>Export dataset</h1>);
 	return if $self->has_set_changed;
 	if ( $q->param('submit') ) {
+		$self->_update_prefs;
 		my $selected_fields = $self->get_selected_fields( { lincodes => 1, lincode_fields => 1 } );
 		$q->delete('classification_schemes');
 		push @$selected_fields, 'm_references'   if $q->param('m_references');
@@ -316,8 +361,13 @@ sub run {
 		say q( done</p>);
 		my ( $excel_file, $text_file ) = ( EXCEL_FILE, TEXT_FILE );
 		print qq(<p><a href="/tmp/$filename" target="_blank" title="Tab-delimited text file">$text_file</a>);
-		my $format = $self->_get_excel_formatting;
-		my $excel  = BIGSdb::Utils::text2excel(
+		my $format = $self->_get_excel_formatting(
+			{
+				private_bg => scalar $q->param('private_bg'),
+				private_fg => scalar $q->param('private_fg')
+			}
+		);
+		my $excel = BIGSdb::Utils::text2excel(
 			$full_path,
 			{
 				worksheet              => 'Export',
@@ -337,16 +387,18 @@ sub run {
 }
 
 sub _get_excel_formatting {
-	my ($self) = @_;
+	my ( $self, $args ) = @_;
 	my $format = [];
+	use Data::Dumper;
+	$logger->error( Dumper $args);
 	if ( $self->{'private_col'} ) {
 		push @$format,
 		  {
 			col    => $self->{'private_col'},
 			value  => 'true',
 			format => {
-				bg_color => '#cc3956',
-				color    => '#ffffff'
+				bg_color => $args->{'private_bg'} // '#cc3956',
+				color    => $args->{'private_fg'} // '#ffffff'
 			},
 			apply_to_row => 1
 		  };
@@ -451,7 +503,12 @@ sub run_job {
 		);
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Creating Excel file' } );
 		$self->{'db'}->commit;                               #prevent idle in transaction table locks
-		my $format     = $self->_get_excel_formatting;
+		my $format = $self->_get_excel_formatting(
+			{
+				private_bg => $params->{'private_bg'},
+				private_fg => $params->{'private_fg'}
+			}
+		);
 		my $excel_file = BIGSdb::Utils::text2excel(
 			$filename,
 			{
