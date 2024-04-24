@@ -181,8 +181,10 @@ sub new {
 
 	#Prevent apache appending its own error pages.
 	if ( $self->{'handled_error'} && $ENV{'MOD_PERL'} ) {
-		$self->{'mod_perl_request'}->rflush;
-		$self->{'mod_perl_request'}->status(200);
+		eval {
+			$self->{'mod_perl_request'}->rflush;
+			$self->{'mod_perl_request'}->status(200);
+		};
 	}
 	return $self;
 }

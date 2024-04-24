@@ -58,7 +58,7 @@ sub get_attributes {
 		buttontext          => 'BURST',
 		menutext            => 'BURST',
 		module              => 'BURST',
-		version             => '1.2.2',
+		version             => '1.2.3',
 		dbtype              => 'isolates,sequences',
 		seqdb_type          => 'schemes',
 		section             => 'postquery,analysis',
@@ -402,7 +402,7 @@ sub _recursive_search {
 		my $noancestor    = 0;
 		my $ancestor      = 0;
 		if ( $ENV{'MOD_PERL'} ) {
-			$self->{'mod_perl_request'}->rflush;
+			eval { $self->{'mod_perl_request'}->rflush };
 			if ( $self->{'mod_perl_request'}->connection->aborted ) {
 				return;
 			}
