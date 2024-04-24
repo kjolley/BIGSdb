@@ -127,13 +127,18 @@ sub _print_ref_fields {
 	return;
 }
 
-sub _print_private_fieldset {
+sub _may_access_private_records {
 	my ($self) = @_;
 	return if !defined $self->{'username'};
 	my $private =
 	  $self->{'datastore'}->run_query(
 		"SELECT EXISTS(SELECT * FROM private_isolates p JOIN $self->{'system'}->{'view'} v ON p.isolate_id=v.id)");
-	return if !$private;
+	return $private;
+}
+
+sub _print_private_fieldset {
+	my ($self) = @_;
+	return if !$self->_may_access_private_records;
 	my $bg_private_colour;
 	my $fg_private_colour;
 	eval {
@@ -268,6 +273,7 @@ sub _print_molwt_options {
 
 sub _update_prefs {
 	my ($self) = @_;
+	return if !$self->_may_access_private_records;
 	my $q      = $self->{'cgi'};
 	my $guid   = $self->get_guid;
 	eval {
@@ -391,8 +397,6 @@ sub run {
 sub _get_excel_formatting {
 	my ( $self, $args ) = @_;
 	my $format = [];
-	use Data::Dumper;
-	$logger->error( Dumper $args);
 	if ( $self->{'private_col'} ) {
 		push @$format,
 		  {
