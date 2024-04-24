@@ -132,8 +132,6 @@ sub new {
 	foreach my $page (qw(downloadAlleles downloadProfiles)) {
 		$self->{'pages_needing_authentication'}->{$page} = 1 if $self->_download_requires_authentication($page);
 	}
-	use Data::Dumper;
-	$logger->error( Dumper $self->{'pages_needing_authentication'} );
 	my $q = $self->{'cgi'};
 	$self->initiate_authdb
 	  if $self->{'config'}->{'site_user_dbs'} || ( $self->{'system'}->{'authentication'} // q() ) eq 'builtin';
