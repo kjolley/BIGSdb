@@ -128,11 +128,14 @@ sub new {
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
 	$self->{'pages_needing_authentication'} = { map { $_ => 1 } PAGES_NEEDING_AUTHENTICATION };
 	$self->{'pages_needing_authentication'}->{'user'} = 1 if $self->{'config'}->{'site_user_dbs'};
+
+	foreach my $page (qw(downloadAlleles downloadProfiles)) {
+		$self->{'pages_needing_authentication'}->{$page} = 1 if $self->_download_requires_authentication($page);
+	}
 	my $q = $self->{'cgi'};
 	$self->initiate_authdb
 	  if $self->{'config'}->{'site_user_dbs'} || ( $self->{'system'}->{'authentication'} // q() ) eq 'builtin';
 	my %job_manager_pages = map { $_ => 1 } PAGES_NEEDING_JOB_MANAGER;
-
 	if ( $self->{'instance'} && !$self->{'error'} ) {
 		$self->db_connect;
 		if ( $self->{'db'} ) {
@@ -181,8 +184,10 @@ sub new {
 
 	#Prevent apache appending its own error pages.
 	if ( $self->{'handled_error'} && $ENV{'MOD_PERL'} ) {
-		$self->{'mod_perl_request'}->rflush;
-		$self->{'mod_perl_request'}->status(200);
+		eval {
+			$self->{'mod_perl_request'}->rflush;
+			$self->{'mod_perl_request'}->status(200);
+		};
 	}
 	return $self;
 }
@@ -677,6 +682,27 @@ sub _plugin_requires_authentication {
 	return   if !defined $plugin_name;
 	return 1 if ( $self->{'pluginManager'}->{'attributes'}->{$plugin_name}->{'requires'} // q() ) =~ /offline_jobs/x;
 	return;
+}
+
+sub _download_requires_authentication {
+	my ( $self, $page ) = @_;
+	my $q              = $self->{'cgi'};
+	my %download_pages = map { $_ => 1 } qw(downloadAlleles downloadProfiles);
+	return if !$download_pages{$page};
+	my $attributes = {
+		downloadAlleles  => 'allele_downloads_require_login',
+		downloadProfiles => 'profile_downloads_require_login'
+	};
+	my $additional_param = {
+		downloadAlleles  => 'locus',
+		downloadProfiles => 'scheme_id'
+	};
+	return if !$q->param( $additional_param->{$page} );
+	return if ( $self->{'system'}->{ $attributes->{$page} } // q() ) eq 'no';
+	return
+	  if !( $self->{'config'}->{ $attributes->{$page} }
+		|| ( $self->{'system'}->{ $attributes->{$page} } // q() ) eq 'yes' );
+	return 1;
 }
 
 sub authenticate {

@@ -438,6 +438,7 @@ sub text2excel {
 	my %widths;
 	my $first_line     = 1;
 	my %special_values = map { $_ => 1 } ('=');    #We may need to add to this later.
+	my $max_col        = 1;
 
 	while ( my $line = <$text_fh> ) {
 		$line =~ s/\r?\n$//x;                      #Remove terminal newline
@@ -458,6 +459,7 @@ sub text2excel {
 				}
 			}
 			$widths{$col} = length $value if length $value > ( $widths{$col} // 0 );
+			$max_col      = $col          if $col > $max_col;
 			$col++;
 		}
 		$col = 0;
@@ -472,8 +474,50 @@ sub text2excel {
 		$worksheet->set_column( $col, $col, $width );
 	}
 	$worksheet->freeze_panes( 1, 0 ) if !$options->{'no_header'};
+	if ( $options->{'conditional_formatting'} ) {
+		foreach my $formatting ( @{ $options->{'conditional_formatting'} } ) {
+			my $format     = $workbook->add_format( %{ $formatting->{'format'} } );
+			my $col_letter = get_excel_col_letter( $formatting->{'col'} + 1 );
+			if ( $formatting->{'apply_to_row'} ) {
+				$worksheet->conditional_formatting(
+					1, 0,
+					$row - 1,
+					$max_col,
+					{
+						type     => 'formula',
+						criteria => qq(=\$${col_letter}2="$formatting->{'value'}"),    #Don't anchor row
+						format   => $format
+					}
+				);
+			} else {
+				$worksheet->conditional_formatting(
+					1,
+					$formatting->{'col'},
+					$row,
+					$formatting->{'col'},
+					{
+						type     => 'cell',
+						criteria => 'equal to',
+						value    => $formatting->{'value'},
+						format   => $format
+					}
+				);
+			}
+		}
+	}
 	close $text_fh;
 	return $excel_file;
+}
+
+sub get_excel_col_letter {
+	my ($col_num) = @_;
+	my $col_letter = q();
+	while ($col_num) {
+		my $remainder = ( $col_num - 1 ) % 26;
+		$col_letter = chr( 65 + $remainder ) . $col_letter;
+		$col_num    = int( ( $col_num - $remainder ) / 26 );
+	}
+	return $col_letter;
 }
 
 sub fasta2genbank {

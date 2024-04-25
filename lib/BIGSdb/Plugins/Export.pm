@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext => 'Dataset',
 		menutext   => 'Dataset',
 		module     => 'Export',
-		version    => '1.11.1',
+		version    => '1.12.0',
 		dbtype     => 'isolates',
 		section    => 'export,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
@@ -92,6 +92,14 @@ function enable_private_controls(){
  		selectedList: 8
   	});
  	\$('#locus').multiselectfilter();
+ 	\$("span#example_private").css("background",\$('#private_bg').val());
+ 	\$("span#example_private").css("color",\$('#private_fg').val());
+ 	\$('#private_bg').on('change',function(){
+ 		\$("span#example_private").css("background",\$('#private_bg').val());
+ 	});
+ 	\$('#private_fg').on('change',function(){
+ 		\$("span#example_private").css("color",\$('#private_fg').val());
+ 	});
 }); 
 END
 	return $js;
@@ -119,19 +127,41 @@ sub _print_ref_fields {
 	return;
 }
 
-sub _print_private_fieldset {
+sub _may_access_private_records {
 	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	return if !defined $self->{'username'};
 	my $private =
 	  $self->{'datastore'}->run_query(
 		"SELECT EXISTS(SELECT * FROM private_isolates p JOIN $self->{'system'}->{'view'} v ON p.isolate_id=v.id)");
-	return if !$private;
+	return $private;
+}
+
+sub _print_private_fieldset {
+	my ($self) = @_;
+	return if !$self->_may_access_private_records;
+	my $bg_private_colour;
+	my $fg_private_colour;
+	eval {
+		my $guid = $self->get_guid;
+		if ($guid) {
+			$bg_private_colour =
+			  $self->{'prefstore'}
+			  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'Export', 'bg_private_colour' );
+			$fg_private_colour =
+			  $self->{'prefstore'}
+			  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'Export', 'fg_private_colour' );
+		}
+	};
+	my $bg = $bg_private_colour // '#cc3956';
+	my $fg = $fg_private_colour // '#ffffff';
+	my $q  = $self->{'cgi'};
 	say q(<fieldset style="float:left"><legend>Private records</legend><ul><li>);
 	say $q->checkbox(
 		-name     => 'private_record',
 		-id       => 'private_record',
 		-value    => 'checked',
 		-label    => 'Indicate private records',
+		-checked  => 1,
 		-onChange => 'enable_private_controls()'
 	);
 	say q(</li><li>);
@@ -140,6 +170,7 @@ sub _print_private_fieldset {
 		-id       => 'private_owner',
 		-value    => 'checked',
 		-label    => 'List owner',
+		-checked  => 1,
 		-onChange => 'enable_private_controls()'
 	);
 	say q(</li><li>);
@@ -148,9 +179,18 @@ sub _print_private_fieldset {
 		-id        => 'private_name',
 		-values    => [ 'user_id', 'name' ],
 		-labels    => { user_id => 'user id', name => 'name/affiliation' },
-		-default   => 'user_id',
+		-default   => 'name',
 		-linebreak => 'true'
 	);
+	say q(</li></li>);
+	say qq(<input type="color" name="private_fg" id="private_fg" value="$fg" )
+	  . q(style="width:30px;height:15px"> Text colour);
+	say q(</li><li>);
+	say qq(<input type="color" name="private_bg" id="private_bg" value="$bg" )
+	  . q(style="width:30px;height:15px"> Background colour);
+	say q(</li></li>);
+	say
+qq(<span id="example_private" style="border:1px solid #aaa;background:$bg;color:$fg;padding:0 0.2em">example private record</span>);
 	say q(</li></ul></fieldset>);
 	return;
 }
@@ -231,12 +271,27 @@ sub _print_molwt_options {
 	return;
 }
 
+sub _update_prefs {
+	my ($self) = @_;
+	return if !$self->_may_access_private_records;
+	my $q      = $self->{'cgi'};
+	my $guid   = $self->get_guid;
+	eval {
+		$self->{'prefstore'}->set_plugin_attribute( $guid, $self->{'system'}->{'db'},
+			'Export', 'bg_private_colour', scalar $q->param('private_bg') );
+		$self->{'prefstore'}->set_plugin_attribute( $guid, $self->{'system'}->{'db'},
+			'Export', 'fg_private_colour', scalar $q->param('private_fg') );
+	};
+	return;
+}
+
 sub run {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<h1>Export dataset</h1>);
 	return if $self->has_set_changed;
 	if ( $q->param('submit') ) {
+		$self->_update_prefs;
 		my $selected_fields = $self->get_selected_fields( { lincodes => 1, lincode_fields => 1 } );
 		$q->delete('classification_schemes');
 		push @$selected_fields, 'm_references'   if $q->param('m_references');
@@ -314,12 +369,19 @@ sub run {
 		say q( done</p>);
 		my ( $excel_file, $text_file ) = ( EXCEL_FILE, TEXT_FILE );
 		print qq(<p><a href="/tmp/$filename" target="_blank" title="Tab-delimited text file">$text_file</a>);
+		my $format = $self->_get_excel_formatting(
+			{
+				private_bg => scalar $q->param('private_bg'),
+				private_fg => scalar $q->param('private_fg')
+			}
+		);
 		my $excel = BIGSdb::Utils::text2excel(
 			$full_path,
 			{
-				worksheet   => 'Export',
-				tmp_dir     => $self->{'config'}->{'secure_tmp_dir'},
-				text_fields => $self->{'system'}->{'labelfield'}
+				worksheet              => 'Export',
+				tmp_dir                => $self->{'config'}->{'secure_tmp_dir'},
+				text_fields            => $self->{'system'}->{'labelfield'},
+				conditional_formatting => $format
 			}
 		);
 		say qq(<a href="/tmp/$prefix.xlsx" target="_blank" title="Excel file">$excel_file</a>)
@@ -330,6 +392,24 @@ sub run {
 	}
 	$self->_print_interface;
 	return;
+}
+
+sub _get_excel_formatting {
+	my ( $self, $args ) = @_;
+	my $format = [];
+	if ( $self->{'private_col'} ) {
+		push @$format,
+		  {
+			col    => $self->{'private_col'},
+			value  => 'true',
+			format => {
+				bg_color => $args->{'private_bg'} // '#cc3956',
+				color    => $args->{'private_fg'} // '#ffffff'
+			},
+			apply_to_row => 1
+		  };
+	}
+	return $format;
 }
 
 sub _print_interface {
@@ -429,12 +509,19 @@ sub run_job {
 		);
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Creating Excel file' } );
 		$self->{'db'}->commit;                               #prevent idle in transaction table locks
+		my $format = $self->_get_excel_formatting(
+			{
+				private_bg => $params->{'private_bg'},
+				private_fg => $params->{'private_fg'}
+			}
+		);
 		my $excel_file = BIGSdb::Utils::text2excel(
 			$filename,
 			{
-				worksheet   => 'Export',
-				tmp_dir     => $self->{'config'}->{'secure_tmp_dir'},
-				text_fields => $self->{'system'}->{'labelfield'}
+				worksheet              => 'Export',
+				tmp_dir                => $self->{'config'}->{'secure_tmp_dir'},
+				text_fields            => $self->{'system'}->{'labelfield'},
+				conditional_formatting => $format
 			}
 		);
 		if ( -e $excel_file ) {
@@ -595,6 +682,7 @@ sub _get_header {
 	} else {
 		my $first = 1;
 		my %schemes;
+		my $i = 0;
 		foreach (@$fields) {
 			my $field = $_;    #don't modify @$fields
 			if ( $field =~ /^s_(\d+)_f/x || $field =~ /^lin_(\d+)$/x || $field =~ /^lin_(\d+)_(.+)$/x ) {
@@ -646,6 +734,8 @@ sub _get_header {
 				$buffer .= $field;
 			}
 			$first = 0;
+			$self->{'private_col'} = $i if $field eq 'private_record';
+			$i++;
 		}
 		if ($first) {
 			$buffer .= 'Make sure you select an option for locus export.';
