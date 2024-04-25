@@ -282,7 +282,7 @@ sub _print_interface {
 	$self->_print_list_fieldset;
 	$self->_print_filters_fieldset;
 	$self->_print_display_fieldset;
-	$self->print_action_fieldset( { id => 'search', submit_label => 'Search' } );
+	$self->print_action_fieldset( { id => 'search', submit_label => 'Search', interface => scalar $q->param('interface') } );
 	$self->_print_modify_search_fieldset;
 	$self->_print_bookmark_fieldset;
 	say q(</div>);
