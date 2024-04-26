@@ -34,3 +34,6 @@ ON DELETE NO ACTION
 ON UPDATE CASCADE
 );
 GRANT SELECT,UPDATE,INSERT,DELETE ON query_interface_fields TO apache;
+
+--Preparation for adding private record quotas to projects
+ALTER TABLE projects ADD quota int;
