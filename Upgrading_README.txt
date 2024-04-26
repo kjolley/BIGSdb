@@ -50,6 +50,7 @@ Version 1.41: Change of isolate database structure.
 Version 1.42: Change of seqdef and isolate database structures.
 Version 1.43: Change of seqdef, REST, and authentication database structures.
 Version 1.44: Change of seqdef and isolate database structures.
+Version 1.45: Change of seqdef and isolate database structures.
 
 Details can be found below.
 
@@ -639,3 +640,13 @@ allele designations.
 
 Please run the isolatedb_v1.44.sql script against isolate databases and the
 seqdefdb_v1.44.sql script against sequence definition databases.
+
+Version 1.45
+------------
+There are changes to the sequence definition and isolate database structures
+to add a db_attributes table for future possible automated version updating.
+New tables have also been added to the isolate database to support defining
+alternative isolate query forms with specific fields pre-selected.
+
+Please run the isolatedb_v1.45.sql script against isolate databases and the
+seqdefdb_v1.45.sql script against sequence definition databases.

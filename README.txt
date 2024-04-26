@@ -1,3 +1,8 @@
+v1.45.0: *Added option to highlight private data in isolate exports.
+         *Added option for an admin to create customized isolate query forms
+          with pre-selected fields shown.
+         *Added separate options to require a user to be logged in to download
+          alleles and profiles using the web interface.
 v1.44.1: *Added option to show if assembly checks have passed in isolate 
           results table.
          *Added option to scannew.pl to only scan records that have passed
