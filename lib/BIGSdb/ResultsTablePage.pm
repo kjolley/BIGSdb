@@ -402,11 +402,9 @@ sub _print_publish_function {
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	return if !$user_info;
 	if ( $self->{'curate'} && $user_info->{'status'} ne 'submitter' ) {
-		my $matched = $self->_get_query_private_records;
-		return if !@$matched && !$q->param('publish');
+		return if !$self->_private_records_in_qry && !$q->param('publish');
 	} else {
-		my $matched = $self->_get_query_private_records( $user_info->{'id'} );
-		return if !@$matched && !$q->param('publish');
+		return if !$self->_private_records_in_qry( { user_id => $user_info->{'id'} } ) && !$q->param('publish');
 	}
 	say q(<fieldset><legend>Private records</legend>);
 	my $label =
@@ -427,7 +425,7 @@ sub _print_publish_function {
 
 sub _get_query_private_records {
 	my ( $self, $user_id ) = @_;
-	my $ids        = $self->get_query_ids;
+	my $ids        = $self->_get_query_ids;
 	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $ids );
 	if ( !defined $user_id ) {
 		return $self->{'datastore'}
@@ -440,6 +438,21 @@ sub _get_query_private_records {
 			{ fetch => 'col_arrayref' }
 		);
 	}
+}
+
+sub _private_records_in_qry {
+	my ( $self, $options ) = @_;
+	my $qry = $self->_get_query_id_sql;
+	return if !$qry;
+	if ( $options->{'user_id'} ) {
+		return $self->{'datastore'}->run_query(
+			"WITH query_ids AS ($qry) SELECT EXISTS(SELECT * FROM private_isolates p "
+			  . 'JOIN query_ids q ON p.isolate_id=q.id WHERE p.user_id=?)',
+			$options->{'user_id'}
+		);
+	}
+	return $self->{'datastore'}->run_query( "WITH query_ids AS ($qry) SELECT EXISTS(SELECT * FROM private_isolates p "
+		  . 'JOIN query_ids q ON p.isolate_id=q.id)' );
 }
 
 #Override in subclasses
@@ -2372,7 +2385,7 @@ sub add_to_project {
 			  . "$project_id for which they do not have sufficient privileges." );
 		return;
 	}
-	my $ids        = $self->get_query_ids;
+	my $ids        = $self->_get_query_ids;
 	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $ids );
 	my @restrict_clauses;
 	my $project = $self->{'datastore'}->run_query( 'SELECT restrict_user,restrict_usergroup FROM projects WHERE id=?',
@@ -2490,10 +2503,18 @@ sub publish {
 	return;
 }
 
-sub get_query_ids {
+sub _get_query_ids {
+	my ($self) = @_;
+	my $qry = $self->_get_query_id_sql;
+	return [] if !$qry;
+	my $ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
+	return $ids;
+}
+
+sub _get_query_id_sql {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	return [] if !$q->param('query_file');
+	return if !$q->param('query_file');
 	my $qry  = $self->get_query_from_temp_file( scalar $q->param('query_file') );
 	my $view = $self->{'system'}->{'view'};
 	$qry =~ s/ORDER\ BY.*$//gx;
@@ -2503,7 +2524,6 @@ sub get_query_ids {
 	if ( $q->param('list_file') && $q->param('datatype') ) {
 		$self->{'datastore'}->create_temp_list_table( scalar $q->param('datatype'), scalar $q->param('list_file') );
 	}
-	my $ids = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
-	return $ids;
+	return $qry;
 }
 1;
