@@ -530,7 +530,8 @@ sub _run_query {
 		push @hidden_attributes, "s$i", "t$i", "y$i";
 	}
 	push @hidden_attributes, $_->{'name'} . '_list' foreach (@$attributes);
-	push @hidden_attributes, qw (sequence_flag_list duplicates_list common_name_list scheme_id_list list_file datatype);
+	push @hidden_attributes,
+	  qw (sequence_flag_list duplicates_list common_name_list scheme_id_list list_file datatype list);
 	if (@$errors) {
 		local $" = q(<br />);
 		$self->print_bad_status( { message => q(Problem with search criteria:), detail => qq(@$errors) } );
@@ -1250,10 +1251,11 @@ sub _modify_by_list {
 	open( my $fh, '>:encoding(utf8)', $full_path ) || $logger->error("Cannot open $full_path for writing");
 	say $fh $_ foreach @$cleaned_list;
 	close $fh;
-	if ( $$qry_ref ) {
+	if ($$qry_ref) {
 		$$qry_ref .= ' AND ';
 	}
-	$$qry_ref .= $type eq 'text'
+	$$qry_ref .=
+	  $type eq 'text'
 	  ? "(UPPER($field) IN (SELECT value FROM $temp_table))"
 	  : "($field IN (SELECT value FROM $temp_table))";
 	return $list_file, $type;
