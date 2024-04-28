@@ -22,7 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Page);
 use Try::Tiny;
-use List::MoreUtils qw(any);
+use List::MoreUtils qw(any uniq);
 use JSON;
 use BIGSdb::Constants qw(:interface DATABANKS);
 use Log::Log4perl qw(get_logger);
@@ -211,7 +211,7 @@ sub _get_pagebar {
 		$buffer .= $q->hidden( message => $message ) if $message;
 
 		#Make sure hidden_attributes don't duplicate the above
-		$buffer .= $q->hidden($_) foreach @$hidden_attributes;
+		$buffer .= $q->hidden($_) foreach uniq @$hidden_attributes;
 		my ( $first_link, $previous_link, $next_link, $last_link ) = ( FIRST, PREVIOUS, NEXT, LAST );
 		my $disabled = $currentpage > 1 ? q() : q( disabled);
 		$buffer .= qq(<button type="submit" value="First" name="First" class="pagebar"$disabled>$first_link</button>\n);

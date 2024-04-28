@@ -518,8 +518,8 @@ sub _run_query {
 		$qry2 .= ';';
 	} else {
 		$qry2 = $self->get_query_from_temp_file( scalar $q->param('query_file') );
-		if ( $q->param('list_file') && $q->param('list_type') ) {
-			$self->{'datastore'}->create_temp_list_table( $q->param('list_type'), scalar $q->param('list_file') );
+		if ( $q->param('list_file') && $q->param('datatype') ) {
+			$self->{'datastore'}->create_temp_list_table( scalar $q->param('datatype'), scalar $q->param('list_file') );
 		}
 	}
 	$q->param( list_file => $list_file ) if $list_file;
