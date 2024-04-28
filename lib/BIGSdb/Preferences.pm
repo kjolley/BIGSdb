@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -872,10 +872,12 @@ sub delete_scheme {
 
 sub update_datestamp {
 	my ( $self, $guid ) = @_;
+	my $datestamp = BIGSdb::Utils::get_datestamp();
 	if ( !$self->{'sql'}->{'update_datestamp'} ) {
-		$self->{'sql'}->{'update_datestamp'} = $self->{'db'}->prepare('UPDATE guid SET last_accessed=? WHERE guid=?');
+		$self->{'sql'}->{'update_datestamp'} =
+		  $self->{'db'}->prepare('UPDATE guid SET last_accessed=? WHERE guid=? AND last_accessed <> ?');
 	}
-	eval { $self->{'sql'}->{'update_datestamp'}->execute( 'now', $guid ) };
+	eval { $self->{'sql'}->{'update_datestamp'}->execute( 'now', $guid, $datestamp ) };
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
