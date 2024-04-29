@@ -87,7 +87,7 @@ sub print_content {
 sub print_menu {
 	my ( $self, $options ) = @_;
 	$self->print_login_menu_item;
-	$self->print_query_menu_item if $options->{'dashboard'};
+	$self->print_query_menu_item;
 	$self->_print_submissions_menu_item;
 	$self->_print_private_data_menu_item;
 	$self->print_projects_menu_item;
