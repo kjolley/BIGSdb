@@ -4164,6 +4164,7 @@ $panel_js
 					 		menuHeight: 250,
 					 		menuWidth: 400
 					 	}).multiselectfilter();
+					 	setFilterTriggers();
          			} else {
 			        	render_locuslists("#" + element_names[fieldset] + row);
          			}
@@ -4183,6 +4184,15 @@ $panel_js
         	
         }
 	});
+	setFilterTriggers();
+	\$("#bookmark_trigger,#close_bookmark").click(function(){		
+		\$("#bookmark_panel").toggle("slide",{direction:"right"},"fast");
+		return false;
+	});
+	\$("#bookmark_trigger").show();
+ });
+
+function setFilterTriggers(){
 	\$("#add_filter").on('click',function(){
 		var filter = \$("#new_filter").val();
 		if (filter == ""){
@@ -4208,14 +4218,8 @@ $panel_js
 				refresh_filters();
 			}
 		})		
-	});
-
-	\$("#bookmark_trigger,#close_bookmark").click(function(){		
-		\$("#bookmark_panel").toggle("slide",{direction:"right"},"fast");
-		return false;
-	});
-	\$("#bookmark_trigger").show();
- });
+	});	
+}
  
 function setTooltips() {
 	\$('#prov_tooltip,#phenotypic_tooltip,#loci_tooltip').tooltip({ content: "<h3>Search values</h3><p>Empty field "
