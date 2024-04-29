@@ -3135,11 +3135,10 @@ sub popup_menu {
 
 sub print_seqbin_isolate_fieldset {
 	my ( $self, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
 	my $q            = $self->{'cgi'};
 	my $seqbin_count = $self->{'datastore'}->get_seqbin_count;
 	say q(<fieldset style="float:left"><legend>Isolates</legend>);
-	if ($seqbin_count) {
+	if ($seqbin_count || $options->{'use_all'}) {
 		my $size          = $options->{'size'} // 8;
 		my $list_box_size = $size - 0.2;
 		say q(<div style="float:left">);
