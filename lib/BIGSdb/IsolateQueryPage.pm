@@ -282,7 +282,8 @@ sub _print_interface {
 	$self->_print_list_fieldset;
 	$self->_print_filters_fieldset;
 	$self->_print_display_fieldset;
-	$self->print_action_fieldset( { id => 'search', submit_label => 'Search', interface => scalar $q->param('interface') } );
+	$self->print_action_fieldset(
+		{ id => 'search', submit_label => 'Search', interface => scalar $q->param('interface') } );
 	$self->_print_modify_search_fieldset;
 	$self->_print_bookmark_fieldset;
 	say q(</div>);
@@ -1014,7 +1015,11 @@ sub _print_filters_fieldset {
 	my ($self) = @_;
 	say q(<fieldset id="filters_fieldset" style="float:left;display:none"><legend>Filters</legend>);
 	say q(<div>);
-	$self->_print_filters_fieldset_contents;
+
+	#Get contents now if fieldset is visible, otherwise load via AJAX call
+	if ( $self->filters_selected ) {
+		$self->_print_filters_fieldset_contents;
+	}
 	say q(</div>);
 	say q(</fieldset>);
 	return;
@@ -4064,6 +4069,7 @@ sub get_javascript {
 		next if $fieldset eq 'allele_designations' && @$preselected_scheme;
 		push @fieldsets_with_no_entered_values, $fieldset if !$self->_highest_entered_fields( $fields{$fieldset} );
 	}
+	push @fieldsets_with_no_entered_values,'filters' if !$self->filters_selected;
 	if ( !$q->param('list') ) {
 		push @fieldsets_with_no_entered_values, 'list';
 	}
@@ -4146,11 +4152,18 @@ $panel_js
          			allele_count: "allele_count_field",
          			tags: "tag_field",
          			tag_count: "tag_count_field",
-         			list: "attribute"
+         			list: "attribute",
+         			filters: "filters"
          		};
          		if (element_names[fieldset]){
          			if (fieldset === 'list'){
          				render_locuslists("#attribute");
+         			} else if (fieldset === 'filters'){
+         				\$('.multiselect').multiselect({
+					 		classes: 'filter',
+					 		menuHeight: 250,
+					 		menuWidth: 400
+					 	}).multiselectfilter();
          			} else {
 			        	render_locuslists("#" + element_names[fieldset] + row);
          			}
