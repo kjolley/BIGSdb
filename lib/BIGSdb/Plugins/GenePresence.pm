@@ -54,11 +54,11 @@ sub get_attributes {
 		menutext   => 'Gene presence',
 		module     => 'GenePresence',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/gene_presence.html",
-		version    => '2.2.0',
+		version    => '2.2.1',
 		dbtype     => 'isolates',
 		section    => 'analysis,postquery',
 		input      => 'query',
-		requires   => 'offline_jobs',
+		requires   => 'offline_jobs,seqbin',
 		help       => 'tooltips',
 		order      => 16,
 		image      => '/images/plugins/GenePresence/screenshot.png'
