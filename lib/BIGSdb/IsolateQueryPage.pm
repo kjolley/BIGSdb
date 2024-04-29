@@ -4201,6 +4201,7 @@ function setFilterTriggers(){
 		\$.ajax({
 			url: "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query&no_header=1&add_filter=" 
 			 + filter,
+			cache: false,
 			success: function(response){
 				refresh_filters();
 			}
@@ -4214,6 +4215,7 @@ function setFilterTriggers(){
 		\$.ajax({
 			url: "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query&no_header=1&remove_filter=" 
 			 + filter,
+			cache: false,
 			success: function(response){
 				refresh_filters();
 			}
