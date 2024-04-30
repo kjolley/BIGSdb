@@ -3236,7 +3236,8 @@ sub get_tables_with_curator {
 		  projects project_members isolate_field_extended_attributes
 		  isolate_value_extended_attributes scheme_groups scheme_group_scheme_members scheme_group_group_members
 		  pcr pcr_locus probes probe_locus accession sequence_flags sequence_attributes history classification_schemes
-		  isolates eav_fields validation_rules validation_conditions validation_rule_conditions project_users);
+		  isolates eav_fields validation_rules validation_conditions validation_rule_conditions project_users
+		  query_interfaces query_interface_fields);
 		push @tables, $self->{'system'}->{'view'}
 		  if $self->{'system'}->{'view'} && $self->{'system'}->{'view'} ne 'isolates';
 	} elsif ( $dbtype eq 'sequences' ) {
