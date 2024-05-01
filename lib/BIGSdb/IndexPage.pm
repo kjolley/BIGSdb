@@ -203,29 +203,33 @@ sub _print_downloads_menu_item {
 			}
 		];
 	}
-	my $set_id      = $self->get_set_id;
-	my $scheme_data = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
-	if ( @$scheme_data == 1 ) {
-		push @$links,
-		  {
-			href => "${url_root}page=downloadProfiles&amp;scheme_id=$scheme_data->[0]->{'id'}",
-			text => "$scheme_data->[0]->{'name'} profiles"
-		  };
-	} elsif ( @$scheme_data > 1 ) {
-		push @$links,
-		  {
-			href => "${url_root}page=schemes",
-			text => 'Allelic profiles'
-		  };
-	}
-	return if !@$links;
-	$self->_print_menu_item(
-		{
-			icon  => 'fas fa-download',
-			label => 'DOWNLOADS',
-			links => $links
+	if ( !( ( $self->{'system'}->{'disable_profile_downloads'} // q() ) eq 'yes' )
+		|| $self->is_admin )
+	{
+		my $set_id      = $self->get_set_id;
+		my $scheme_data = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id } );
+		if ( @$scheme_data == 1 ) {
+			push @$links,
+			  {
+				href => "${url_root}page=downloadProfiles&amp;scheme_id=$scheme_data->[0]->{'id'}",
+				text => "$scheme_data->[0]->{'name'} profiles"
+			  };
+		} elsif ( @$scheme_data > 1 ) {
+			push @$links,
+			  {
+				href => "${url_root}page=schemes",
+				text => 'Allelic profiles'
+			  };
 		}
-	);
+		return if !@$links;
+		$self->_print_menu_item(
+			{
+				icon  => 'fas fa-download',
+				label => 'DOWNLOADS',
+				links => $links
+			}
+		);
+	}
 	return;
 }
 

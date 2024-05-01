@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -32,6 +32,14 @@ sub initiate {
 	return;
 }
 
+sub _downloads_disabled {
+	my ($self) = @_;
+	return 1
+	  if ( $self->{'system'}->{'disable_profile_downloads'} // q() ) eq 'yes'
+	  && !$self->is_admin;
+	return;
+}
+
 sub print_content {
 	my ($self)    = @_;
 	my $q         = $self->{'cgi'};
@@ -39,6 +47,10 @@ sub print_content {
 	my $set_id    = $self->get_set_id;
 	if ( $self->{'system'}->{'dbtype'} ne 'sequences' ) {
 		say q(This is not a sequence definition database.);
+		return;
+	}
+	if ( $self->_downloads_disabled ) {
+		say 'Profile downloads are disabled for this database.';
 		return;
 	}
 	if ( !$scheme_id ) {

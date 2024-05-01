@@ -24,6 +24,14 @@ use parent qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
+sub _downloads_disabled {
+	my ($self) = @_;
+	return 1
+	  if ( $self->{'system'}->{'disable_profile_downloads'} // q() ) eq 'yes'
+	  && !$self->is_admin;
+	return;
+}
+
 sub print_content {
 	my ($self) = @_;
 	say q(<h1>Download scheme profiles</h1>);
@@ -47,13 +55,15 @@ sub print_content {
 		return;
 	}
 	$self->_print_api_message;
+	my $downloads_disabled = $self->_downloads_disabled;
 	say q(<div class="box" id="resultstable">);
 	say q(<p>Schemes are collections of loci. They may be indexed, in which case they have a primary key )
 	  . q(field that identifies unique combinations of alleles. The following schemes are indexed.</p>);
 	say q(<div class="scrollable">);
 	say q(<table class="resultstable">);
-	say q(<tr><th>Name</th><th>Download</th><th>Profiles</th><th>Description</th>)
-	  . q(<th>Curator(s)</th><th>Last updated</th></tr>);
+	say q(<tr><th>Name</th>);
+	say q(<th>Download</th>) if !$downloads_disabled;
+	say q(<th>Profiles</th><th>Description</th><th>Curator(s)</th><th>Last updated</th></tr>);
 	my $td = 1;
 
 	foreach my $scheme (@$schemes) {
@@ -66,10 +76,13 @@ sub print_content {
 		  $self->{'datastore'}->run_query( 'SELECT MAX(datestamp) FROM profiles WHERE scheme_id=?', $scheme->{'id'} );
 		$updated //= q();
 		say qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=schemeInfo&scheme_id=$scheme->{'id'}">$scheme_info->{'name'}</a></td>)
-		  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadProfiles&amp;)
-		  . qq(scheme_id=$scheme->{'id'}"><span class="file_icon fas fa-download"></span></a></td>)
-		  . qq(<td>$profile_count</td><td>$desc</td><td>$curators</td><td>$updated</td></tr>);
+		  . qq(page=schemeInfo&scheme_id=$scheme->{'id'}">$scheme_info->{'name'}</a></td>);
+		if ( !$downloads_disabled ) {
+			say
+			  qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=downloadProfiles&amp;)
+			  . qq(scheme_id=$scheme->{'id'}"><span class="file_icon fas fa-download"></span></a></td>);
+		}
+		say qq(<td>$profile_count</td><td>$desc</td><td>$curators</td><td>$updated</td></tr>);
 		$td = $td == 1 ? 2 : 1;
 	}
 	say q(</table>);
