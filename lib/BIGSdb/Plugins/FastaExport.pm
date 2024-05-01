@@ -43,13 +43,14 @@ sub get_attributes {
 		menutext    => 'Locus sequences',
 		buttontext  => 'FASTA',
 		module      => 'FastaExport',
-		version     => '2.0.3',
+		version     => '2.1.0',
 		dbtype      => 'sequences',
 		seqdb_type  => 'sequences',
 		input       => 'query',
 		section     => 'export,postquery',
 		order       => 10,
-		image       => '/images/plugins/FastaExport/screenshot.png'
+		image       => '/images/plugins/FastaExport/screenshot.png',
+		system_flag => 'FastaExport',
 	);
 	return \%att;
 }
@@ -152,6 +153,10 @@ sub run {
 		return;
 	}
 	say q(<h1>Export sequences in FASTA file</h1>);
+	if ( ( $self->{'system'}->{'FastaExport'} // q() ) eq 'no' ) {
+		$self->print_bad_status( { message => q(Allele downloads are disabled.) } );
+		return;
+	}
 	$locus =~ s/^cn_//x;
 	my $filename;
 	my $invalid = [];
