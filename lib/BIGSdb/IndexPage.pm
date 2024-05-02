@@ -221,15 +221,15 @@ sub _print_downloads_menu_item {
 				text => 'Allelic profiles'
 			  };
 		}
-		return if !@$links;
-		$self->_print_menu_item(
-			{
-				icon  => 'fas fa-download',
-				label => 'DOWNLOADS',
-				links => $links
-			}
-		);
 	}
+	return if !@$links;
+	$self->_print_menu_item(
+		{
+			icon  => 'fas fa-download',
+			label => 'DOWNLOADS',
+			links => $links
+		}
+	);
 	return;
 }
 

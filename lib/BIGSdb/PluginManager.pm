@@ -203,7 +203,7 @@ sub get_appropriate_plugin_names {
 			next if ( $self->{'system'}->{ $attr->{'system_flag'} } // q() ) eq 'no';
 			next if $attr->{'explicit_enable'} && ( $self->{'system'}->{ $attr->{'system_flag'} } // q() ) ne 'yes';
 			next
-			  if (!( ( $self->{'system'}->{'all_plugins'} // q() ) eq 'yes' )
+			  if (!( ( $self->{'system'}->{'all_plugins'} // q() ) eq 'yes' || $attr->{'enabled_by_default'} )
 				&& ( $self->{'system'}->{ $attr->{'system_flag'} } // q() ) ne 'yes' );
 		}
 		next if !$self->_section_matches_plugin( $sections, $attr->{'section'} );
