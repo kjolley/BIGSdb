@@ -28,6 +28,7 @@ use JSON;
 use BIGSdb::Constants qw(:interface :limits SEQ_FLAGS LOCUS_PATTERN OPERATORS MIN_GENOME_SIZE);
 use constant WARN_IF_TAKES_LONGER_THAN_X_SECONDS => 5;
 use constant MAX_LOCI_DROPDOWN                   => 200;
+use constant MAX_LIST_RENDER_SIZE                => 5000;
 
 sub _ajax_content {
 	my ($self) = @_;
@@ -918,13 +919,14 @@ sub _print_list_fieldset_contents {
 		push @grouped_fields, "f_$_";
 		( $labels->{"f_$_"} = $_ ) =~ tr/_/ /;
 	}
+	my $class = @$field_list > MAX_LIST_RENDER_SIZE ? q() : 'locuslist';
 	say q(Field:);
 	say $self->popup_menu(
 		-name   => 'attribute',
 		-id     => 'attribute',
 		-values => $field_list,
 		-labels => $labels,
-		-class  => 'locuslist'
+		-class  => $class
 	);
 	say q(<br />);
 	say $q->textarea(
@@ -1544,13 +1546,15 @@ sub _print_allele_status_fields {
 	unshift @$list, '';
 	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
 	my $q = $self->{'cgi'};
+	my $class = @$list > MAX_LIST_RENDER_SIZE ? q() : 'locuslist';
+	
 	say q(<span style="display:flex">);
 	say $self->popup_menu(
 		-name   => "allele_status_field$row",
 		-id     => "allele_status_field$row",
 		-values => $list,
 		-labels => $locus_labels,
-		-class  => 'locuslist'
+		-class  => $class
 	);
 	print '&nbsp;is&nbsp;';
 	my $values = [ '', 'provisional', 'confirmed' ];
@@ -1581,6 +1585,7 @@ sub _print_allele_count_fields {
 	unshift @$list, '';
 	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
 	my $q = $self->{'cgi'};
+	my $class = @$list > MAX_LIST_RENDER_SIZE ? q() : 'locuslist';
 	say q(<span style="display:flex">);
 	say q(Count of&nbsp;);
 	say $self->popup_menu(
@@ -1588,7 +1593,7 @@ sub _print_allele_count_fields {
 		-id     => "allele_count_field$row",
 		-values => $list,
 		-labels => $locus_labels,
-		-class  => 'locuslist'
+		-class  => $class
 	);
 	my $values = [ '>', '<', '=' ];
 	say $q->popup_menu( -name => "allele_count_operator$row", -id => "allele_count_operator$row", -values => $values );
@@ -1619,13 +1624,14 @@ sub _print_loci_fields {
 	unshift @$locus_list, '' if ( $locus_list->[0] // q() ) ne q();
 	$locus_labels->{''} = q( );    #Required for HTML5 validation.
 	my $q = $self->{'cgi'};
+	my $class = @$locus_list > MAX_LIST_RENDER_SIZE ? q() : 'locuslist';
 	say q(<span style="display:flex">);
 	say $self->popup_menu(
 		-name   => "designation_field$row",
 		-id     => "designation_field$row",
 		-values => $locus_list,
 		-labels => $locus_labels,
-		-class  => 'locuslist',
+		-class  => $class,
 	);
 	say $q->popup_menu(
 		-name   => "designation_operator$row",
@@ -1657,13 +1663,14 @@ sub _print_locus_tag_fields {
 	unshift @$list, 'any locus';
 	unshift @$list, '';
 	my $q = $self->{'cgi'};
+	my $class = @$list > MAX_LIST_RENDER_SIZE ? q() : 'locuslist';
 	say q(<span style="display:flex">);
 	say $self->popup_menu(
 		-name   => "tag_field$row",
 		-id     => "tag_field$row",
 		-values => $list,
 		-labels => $locus_labels,
-		-class  => 'locuslist'
+		-class  => $class
 	);
 	print '&nbsp;is&nbsp;';
 	my @values = qw(untagged tagged complete incomplete);
@@ -1691,6 +1698,7 @@ sub _print_tag_count_fields {
 	unshift @$list, '';
 	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
 	my $q = $self->{'cgi'};
+	my $class = @$list > MAX_LIST_RENDER_SIZE ? q() : 'locuslist';
 	say q(<span style="display:flex">);
 	say q(Count of&nbsp;);
 	say $self->popup_menu(
@@ -1698,7 +1706,7 @@ sub _print_tag_count_fields {
 		-id     => "tag_count_field$row",
 		-values => $list,
 		-labels => $locus_labels,
-		-class  => 'locuslist'
+		-class  => $class
 	);
 	my $values = [ '>', '<', '=' ];
 	say $q->popup_menu( -name => "tag_count_operator$row", -id => "tag_count_operator$row", -values => $values );
@@ -4069,12 +4077,13 @@ sub get_javascript {
 		next if $fieldset eq 'allele_designations' && @$preselected_scheme;
 		push @fieldsets_with_no_entered_values, $fieldset if !$self->_highest_entered_fields( $fields{$fieldset} );
 	}
-	push @fieldsets_with_no_entered_values,'filters' if !$self->filters_selected;
+	push @fieldsets_with_no_entered_values, 'filters' if !$self->filters_selected;
 	if ( !$q->param('list') ) {
 		push @fieldsets_with_no_entered_values, 'list';
 	}
 	local $" = q(',');
 	my $fieldsets_with_no_entered_values = qq('@fieldsets_with_no_entered_values');
+	my $max_list_render_size = MAX_LIST_RENDER_SIZE;
 	$buffer .= << "END";
 \$(function () {
   	\$('#query_modifier').css({display:"block"});
@@ -4108,7 +4117,9 @@ $panel_js
 			show_list: 'attribute'
 		};
 		if (query_fields[this.id]){
-			render_locuslists('#' + query_fields[this.id]);	
+			if (\$('#' + query_fields[this.id] + ' > option').length <= $max_list_render_size){
+				render_locuslists('#' + query_fields[this.id]);
+			}	
 		}
 	});
 	
@@ -4156,8 +4167,11 @@ $panel_js
          			filters: "filters"
          		};
          		if (element_names[fieldset]){
+         			
          			if (fieldset === 'list'){
-         				render_locuslists("#attribute");
+         				if (\$('#attribute > option').length <= $max_list_render_size){
+          					render_locuslists("#attribute");
+         				}
          			} else if (fieldset === 'filters'){
          				\$('.multiselect').multiselect({
 					 		classes: 'filter',
@@ -4166,7 +4180,9 @@ $panel_js
 					 	}).multiselectfilter();
 					 	setFilterTriggers();
          			} else {
-			        	render_locuslists("#" + element_names[fieldset] + row);
+         				if (\$('#' + element_names[fieldset] + row + ' > option').length <= $max_list_render_size){
+			        		render_locuslists("#" + element_names[fieldset] + row);
+         				}
          			}
 	         	}
          	} else if (fields != null){
