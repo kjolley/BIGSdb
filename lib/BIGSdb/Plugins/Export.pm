@@ -873,8 +873,8 @@ sub _write_allele {
 		foreach my $allele_id (@$allele_ids) {
 			if (
 				$params->{'indicate_tags'}
-				&& ( ( $allele_id eq q() && $params->{'indicate_tags_when'} eq 'no_designation' )
-					|| $params->{'indicate_tags_when'} eq 'always' )
+				&& (   ( $allele_id eq q() && ( $params->{'indicate_tags_when'} // q() ) eq 'no_designation' )
+					|| ( $params->{'indicate_tags_when'} // q() ) eq 'always' )
 			  )
 			{
 				my $tags = $self->{'datastore'}->run_query(
