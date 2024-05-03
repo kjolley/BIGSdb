@@ -886,7 +886,8 @@ sub _print_optlist {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called 
 		if ($multiple) {
 			say $q->scrolling_list( %args, %$html5_args, -class => 'multi' );
 		} else {
-			say $q->popup_menu( %args, %$html5_args, -class => 'single' );
+			my $class = @$optlist > 10 ? 'single' : q();
+			say $q->popup_menu( %args, %$html5_args, -class => $class );
 		}
 		if ($multiple) {
 			say q(<br /><span class="comment" style="color:#008">Supports multiple values</span>);
