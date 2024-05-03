@@ -996,6 +996,7 @@ sub _print_user {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by 
 			-values  => [ '', @$users ],
 			-labels  => $user_labels,
 			-default => ( $newdata->{ lc($field) } // $thisfield->{'default'} ),
+			-class   => 'single',
 			%$html5_args
 		);
 		return 1;
