@@ -47,19 +47,21 @@ sub get_attributes {
 		full_description => 'The Export plugin creates a download file of any primary metadata, secondary metadata, '
 		  . 'allele designations, scheme designations, or publications for isolates within a selected dataset or '
 		  . 'for the whole database. The output file is in Excel format.',
-		category   => 'Export',
-		buttontext => 'Dataset',
-		menutext   => 'Dataset',
-		module     => 'Export',
-		version    => '1.12.0',
-		dbtype     => 'isolates',
-		section    => 'export,postquery',
-		url        => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
-		input      => 'query',
-		requires   => 'ref_db,js_tree,offline_jobs',
-		help       => 'tooltips',
-		image      => '/images/plugins/Export/screenshot.png',
-		order      => 15
+		category           => 'Export',
+		buttontext         => 'Dataset',
+		menutext           => 'Dataset',
+		module             => 'Export',
+		version            => '1.13.0',
+		dbtype             => 'isolates',
+		section            => 'export,postquery',
+		url                => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
+		input              => 'query',
+		requires           => 'ref_db,js_tree,offline_jobs',
+		help               => 'tooltips',
+		image              => '/images/plugins/Export/screenshot.png',
+		order              => 15,
+		system_flag        => 'DatasetExport',
+		enabled_by_default => 1
 	);
 	return \%att;
 }
@@ -274,8 +276,8 @@ sub _print_molwt_options {
 sub _update_prefs {
 	my ($self) = @_;
 	return if !$self->_may_access_private_records;
-	my $q      = $self->{'cgi'};
-	my $guid   = $self->get_guid;
+	my $q    = $self->{'cgi'};
+	my $guid = $self->get_guid;
 	eval {
 		$self->{'prefstore'}->set_plugin_attribute( $guid, $self->{'system'}->{'db'},
 			'Export', 'bg_private_colour', scalar $q->param('private_bg') );
@@ -289,6 +291,10 @@ sub run {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<h1>Export dataset</h1>);
+	if ( ( $self->{'system'}->{'DatasetExport'} // q() ) eq 'no' ) {
+		$self->print_bad_status( { message => q(Dataset exports are disabled.) } );
+		return;
+	}
 	return if $self->has_set_changed;
 	if ( $q->param('submit') ) {
 		$self->_update_prefs;
