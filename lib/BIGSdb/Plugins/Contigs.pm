@@ -47,21 +47,22 @@ sub get_attributes {
 		  . 'downloaded in FASTA format. They can also be downloaded in batch mode as a TAR file. The contigs included '
 		  . 'in the download can be filtered based on the percentage of the sequence that has been tagged with a '
 		  . 'locus so that poorly annotated regions can be analysed specifically.',
-		category     => 'Export',
-		buttontext   => 'Contigs',
-		menutext     => 'Contigs',
-		module       => 'Contigs',
-		url          => "$self->{'config'}->{'doclink'}/data_export/contig_export.html",
-		version      => '1.1.14',
-		dbtype       => 'isolates',
-		section      => 'export,postquery',
-		input        => 'query',
-		help         => 'tooltips',
-		order        => 20,
-		system_flag  => 'ContigExport',
-		tar_filename => 'contigs.tar',
-		requires     => 'seqbin',
-		image        => '/images/plugins/Contigs/screenshot.png'
+		category           => 'Export',
+		buttontext         => 'Contigs',
+		menutext           => 'Contigs',
+		module             => 'Contigs',
+		url                => "$self->{'config'}->{'doclink'}/data_export/contig_export.html",
+		version            => '1.2.0',
+		dbtype             => 'isolates',
+		section            => 'export,postquery',
+		input              => 'query',
+		help               => 'tooltips',
+		order              => 20,
+		system_flag        => 'ContigExport',
+		enabled_by_default => 1,
+		tar_filename       => 'contigs.tar',
+		requires           => 'seqbin',
+		image              => '/images/plugins/Contigs/screenshot.png'
 	);
 	return \%att;
 }
@@ -116,6 +117,10 @@ sub run {
 		return;
 	}
 	say q(<h1>Contig analysis and export</h1>);
+	if ( ( $self->{'system'}->{'ContigExport'} // q() ) eq 'no' ) {
+		$self->print_bad_status( { message => q(Contig exports are disabled.) } );
+		return;
+	}
 	return if $self->has_set_changed;
 	if ( $q->param('submit') ) {
 		my $ids = $self->filter_list_to_ids( [ $q->multi_param('isolate_id') ] );

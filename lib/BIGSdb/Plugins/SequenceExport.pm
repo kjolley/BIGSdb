@@ -52,20 +52,22 @@ sub get_attributes {
 		full_description => 'This plugin creates concatenated XMFA and FASTA files of selected loci for a particular '
 		  . 'dataset. These sequences can optionally be aligned, using either MAFFT or MUSCLE, facilitating quick '
 		  . 'analysis of the outputs in third-party phylogenetic analysis packages.',
-		category   => 'Export',
-		buttontext => 'Sequences',
-		menutext   => $seqdef ? 'Profile sequences' : 'Sequences',
-		module     => 'SequenceExport',
-		version    => '1.7.7',
-		dbtype     => 'isolates,sequences',
-		seqdb_type => 'schemes',
-		section    => 'isolate_info,profile_info,export,postquery',
-		url        => "$self->{'config'}->{'doclink'}/data_export/sequence_export.html",
-		input      => 'query',
-		help       => 'tooltips',
-		requires   => 'aligner,offline_jobs,js_tree',
-		image      => '/images/plugins/SequenceExport/screenshot.png',
-		order      => 22,
+		category           => 'Export',
+		buttontext         => 'Sequences',
+		menutext           => $seqdef ? 'Profile sequences' : 'Sequences',
+		module             => 'SequenceExport',
+		version            => '1.8.0',
+		dbtype             => 'isolates,sequences',
+		seqdb_type         => 'schemes',
+		section            => 'isolate_info,profile_info,export,postquery',
+		url                => "$self->{'config'}->{'doclink'}/data_export/sequence_export.html",
+		input              => 'query',
+		help               => 'tooltips',
+		requires           => 'aligner,offline_jobs,js_tree',
+		image              => '/images/plugins/SequenceExport/screenshot.png',
+		order              => 22,
+		system_flag        => 'SequenceExport',
+		enabled_by_default => 1
 	);
 	return \%att;
 }
@@ -90,6 +92,10 @@ sub run {
 	my $max_seqs      = $self->{'system'}->{'seq_export_limit'} // DEFAULT_SEQ_LIMIT;
 	my $commified_max = BIGSdb::Utils::commify($max_seqs);
 	say q(<h1>Export allele sequences in XMFA/concatenated FASTA formats</h1>);
+	if ( ( $self->{'system'}->{'SequenceExport'} // q() ) eq 'no' ) {
+		$self->print_bad_status( { message => q(Sequence exports are disabled.) } );
+		return;
+	}
 	return if $self->has_set_changed;
 	my $pk;
 
