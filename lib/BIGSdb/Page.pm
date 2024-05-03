@@ -2375,10 +2375,15 @@ sub get_seq_detail_tooltips {
 		my $set_id         = $self->get_set_id;
 		my $set_clause     = $set_id   ? qq(&amp;set_id=$set_id) : q();
 		my $sequence_class = $complete ? 'sequence_tooltip'      : 'sequence_tooltip_incomplete';
+		my $counter = q();
+		if (@$allele_sequences > 1){
+			my $count = @$allele_sequences;
+			$counter = qq(<sub>$count</sub>);
+		}
 		$buffer .=
 			qq(<span style="font-size:0.2em"> </span><a class="$sequence_class" title="$sequence_tooltip" )
 		  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=alleleSequence$set_clause&amp;)
-		  . qq(id=$isolate_id&amp;locus=$locus">&nbsp;S&nbsp;</a>);
+		  . qq(id=$isolate_id&amp;locus=$locus">&nbsp;S$counter&nbsp;</a>);
 	}
 	if (@all_flags) {
 		my $text = 'Flags - ';

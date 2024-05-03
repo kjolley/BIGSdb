@@ -84,9 +84,24 @@ function enable_private_controls(){
 	\$("input:radio[name='private_name']").prop("disabled", !(\$("#private_owner").prop("checked") && \$("#private_record").prop("checked")));
 }
 
+function enable_tag_controls(){	
+	if (\$("#oneline").prop("checked")){
+		\$("#indicate_tags").prop("checked", false);
+		\$("#indicate_tags").prop("disabled", true);
+	} else {
+		\$("#indicate_tags").prop("disabled", false);
+	}
+	if (\$("#indicate_tags").prop("checked")){
+		\$("input:radio[name='indicate_tags_when']").prop("disabled", false);
+	} else {
+		\$("input:radio[name='indicate_tags_when']").prop("disabled", true);
+	}
+}
+
 \$(document).ready(function(){ 
 	enable_ref_controls();
 	enable_private_controls();
+	enable_tag_controls();
 	\$('#fields,#eav_fields,#composite_fields,#locus,#classification_schemes').multiselect({
  		classes: 'filter',
  		menuHeight: 250,
@@ -202,19 +217,36 @@ sub _print_options {
 	my $q = $self->{'cgi'};
 	say q(<fieldset style="float:left"><legend>Options</legend><ul></li>);
 	say $q->checkbox(
-		-name  => 'indicate_tags',
-		-id    => 'indicate_tags',
-		-label => 'Indicate sequence status if no allele defined'
+		-name     => 'indicate_tags',
+		-id       => 'indicate_tags',
+		-label    => 'Indicate sequence status',
+		-onChange => 'enable_tag_controls()'
 	);
 	say $self->get_tooltip( q(Indicate sequence status - Where alleles have not been designated but the )
 		  . q(sequence has been tagged in the sequence bin, [S] will be shown. If the tagged sequence is incomplete )
-		  . q(then [I] will also be shown.) );
+		  . q(then [I] will also be shown. if more than one sequence tag is found, the number of tags will be )
+		  . q(indicated with a number after the S or I.) );
+	say q(<ul><li>);
+	say $q->radio_group(
+		-name      => 'indicate_tags_when',
+		-id        => 'indicate_tags_when',
+		-values    => [ 'no_designation', 'always' ],
+		-labels    => { no_designation => 'if no allele defined', always => 'always' },
+		-default   => 'no_designation',
+		-linebreak => 'true'
+	);
+	say q(</li></ul>);
 	say q(</li><li>);
 	say $q->checkbox( -name => 'common_names', -id => 'common_names', -label => 'Include locus common names' );
 	say q(</li><li>);
 	say $q->checkbox( -name => 'alleles', -id => 'alleles', -label => 'Export allele numbers', -checked => 'checked' );
 	say q(</li><li>);
-	say $q->checkbox( -name => 'oneline', -id => 'oneline', -label => 'Use one row per field' );
+	say $q->checkbox(
+		-name     => 'oneline',
+		-id       => 'oneline',
+		-label    => 'Use one row per field',
+		-onChange => 'enable_tag_controls()'
+	);
 	say q(</li><li>);
 	say $q->checkbox(
 		-name  => 'labelfield',
@@ -837,18 +869,32 @@ sub _write_allele {
 	my $allele_ids          = $self->_sort_alleles( $locus, \@unsorted_allele_ids );
 	if ( $params->{'alleles'} ) {
 		my $first_allele = 1;
+		my $seq_tag      = q();
 		foreach my $allele_id (@$allele_ids) {
-			if ( $allele_id eq q() ) {
-				if ( $params->{'indicate_tags'} ) {
-					my $tag = $self->{'datastore'}->run_query(
-						'SELECT id,complete FROM allele_sequences WHERE (isolate_id,locus)=(?,?) '
-						  . 'ORDER BY complete desc LIMIT 1',
-						[ $data->{'id'}, $locus ],
-						{ fetch => 'row_hashref', cache => 'Export::write_allele::tag' }
-					);
-					if ($tag) {
-						$allele_id .= '[S]';
-						$allele_id .= '[I]' if !$tag->{'complete'};
+			if (
+				$params->{'indicate_tags'}
+				&& ( ( $allele_id eq q() && $params->{'indicate_tags_when'} eq 'no_designation' )
+					|| $params->{'indicate_tags_when'} eq 'always' )
+			  )
+			{
+				my $tags = $self->{'datastore'}->run_query(
+					'SELECT id,complete FROM allele_sequences WHERE (isolate_id,locus)=(?,?) '
+					  . 'ORDER BY complete desc',
+					[ $data->{'id'}, $locus ],
+					{ fetch => 'all_arrayref', slice => {}, cache => 'Export::write_allele::tag' }
+				);
+				my $seq_count        = 0;
+				my $incomplete_count = 0;
+				foreach my $tag (@$tags) {
+					$seq_count++;
+					$incomplete_count++ if !$tag->{'complete'};
+				}
+				if ($seq_count) {
+					$seq_count = q() if $seq_count <= 1;
+					$seq_tag   = "[S$seq_count]";
+					if ($incomplete_count) {
+						$incomplete_count = q() if $incomplete_count <= 1;
+						$seq_tag .= "[I$incomplete_count]";
 					}
 				}
 			}
@@ -882,6 +928,7 @@ sub _write_allele {
 			}
 			$first_allele = 0;
 		}
+		print $fh $seq_tag if !$params->{'oneline'};
 	}
 	if ( $params->{'molwt'} ) {
 		my $first_allele = 1;
