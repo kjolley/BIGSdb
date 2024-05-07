@@ -3415,6 +3415,13 @@ sub initiate_view {
 
 	if ( !$user_info ) {                                                  #Not logged in
 		$qry .= PUBLIC_ISOLATES;
+
+		#If login_to_show_after_date is set in bigsdb.conf or config.xml to a valid date, then only
+		#include isolates prior to that date unless user is logged in.
+		my $restrict_date = $self->_get_date_restriction;
+		if ( defined $restrict_date ) {
+			$qry .= qq( AND v.date_entered<='$restrict_date');
+		}
 	} else {
 		my @user_terms;
 		my $has_user_project =
@@ -3477,6 +3484,18 @@ sub initiate_view {
 	$logger->error($@) if $@;
 	$self->{'system'}->{'view'} = 'temp_view';
 	return;
+}
+
+sub _get_date_restriction {
+	my ($self) = @_;
+	my $date = $self->{'config'}->{'login_to_show_after_date'} // $self->{'system'}->{'login_to_show_after_date'};
+	return if !$date;
+	if ( !BIGSdb::Utils::is_date($date) ) {
+		$logger->error( 'Invalid login_to_show_after_date set. Date can be set in bigsdb.conf or in the database '
+			  . 'config.xml file. It must be in yyyy-mm-dd format.' );
+		return;
+	}
+	return $date;
 }
 
 sub get_seqbin_stats {
@@ -3728,8 +3747,7 @@ sub get_seqbin_count {
 		return $self->{'cache'}->{'seqbin_count'};
 	}
 	$self->{'cache'}->{'seqbin_count'} =
-	  $self->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'} v JOIN seqbin_stats s ON v.id=s.isolate_id")
-	  ;
+	  $self->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'} v JOIN seqbin_stats s ON v.id=s.isolate_id");
 	return $self->{'cache'}->{'seqbin_count'};
 }
 1;
