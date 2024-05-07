@@ -97,12 +97,15 @@ sub print_content {
 	say qq(<div id="title_container" style="width:95vw;max-width:$title_max_width_style">);
 	say qq(<h1>$heading</h1>);
 	$self->print_general_announcement;
+	my $date_restriction_message = $self->get_date_restriction_message;
+
 	if ( $options->{'banner_text'} ) {
 		say q(<div class="box banner">);
 		say $self->_format_banner( $options->{'banner_text'} );
+		say $date_restriction_message if $date_restriction_message;
 		say q(</div>);
 	} else {
-		$self->print_banner;
+		$self->print_banner( { additional_message => $date_restriction_message } );
 	}
 	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
 		$self->print_set_section;
@@ -2157,19 +2160,19 @@ sub _get_scheme_annotation_values {
 	$min_threshold = 0 if $min_threshold < 0;
 	my $filter_clause = @$filters ? " AND @$filters" : q();
 	my $table         = $self->{'datastore'}->create_temp_scheme_status_table($scheme_id);
-	my $good          = $self->{'datastore'}->run_query(
+	my $good = $self->{'datastore'}->run_query(
 		"SELECT COUNT(*) FROM $self->{'view'} v$view_clause JOIN $table "
-		  . "v3 ON v.id=v3.id WHERE locus_count>=?$filter_clause",
+		  . "v3 ON v.id=v3.id WHERE v3.locus_count>=?$filter_clause",
 		$max_threshold
 	);
 	my $bad = $self->{'datastore'}->run_query(
 		"SELECT COUNT(*) FROM $self->{'view'} v$view_clause JOIN $table "
-		  . "v3 ON v.id=v3.id WHERE locus_count<?$filter_clause",
+		  . "v3 ON v.id=v3.id WHERE v3.locus_count<?$filter_clause",
 		$min_threshold
 	);
 	my $intermediate = $self->{'datastore'}->run_query(
 		"SELECT COUNT(*) FROM $self->{'view'} v$view_clause JOIN $table "
-		  . "v3 ON v.id=v3.id WHERE locus_count<? AND locus_count>=?$filter_clause",
+		  . "v3 ON v.id=v3.id WHERE v3.locus_count<? AND v3.locus_count>=?$filter_clause",
 		[ $max_threshold, $min_threshold ]
 	);
 	my $values = [

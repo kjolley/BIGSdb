@@ -389,12 +389,30 @@ sub print_banner {
 	my ( $self, $options ) = @_;
 	my $bannerfile = "$self->{'dbase_config_dir'}/$self->{'instance'}/banner.html";
 	my $class      = $options->{'class'} // 'banner';
-	if ( -e $bannerfile ) {
+	if ( -e $bannerfile || $options->{'additional_message'} ) {
 		say qq(<div class="box $class">);
-		$self->print_file($bannerfile);
+		$self->print_file($bannerfile)       if -e $bannerfile;
+		say $options->{'additional_message'} if $options->{'additional_message'};
 		say q(</div>);
 	}
 	return;
+}
+
+sub get_date_restriction_message {
+	my ($self) = @_;
+	return if $self->{'username'};
+	my $date = $self->{'datastore'}->get_date_restriction;
+	return if !$date;
+	my $buffer;
+	my $date_restriction_file = "$self->{'config_dir'}/date_restriction.html";
+	if ( -e $date_restriction_file ) {
+		my $message_ref = BIGSdb::Utils::slurp($date_restriction_file);
+		$buffer = $$message_ref;
+	} else {
+		$buffer = q(<p><b>Restricted view:</b> Note that you are currently restricted to viewing data that was )
+		  . qq(submitted prior to $date. Please log in to see the full dataset.</p>);
+	}
+	return $buffer;
 }
 
 sub choose_set {
@@ -1277,7 +1295,7 @@ sub _sort_field_list_into_optgroups {
 	my @group_list       = split /,/x, ( $self->{'system'}->{'field_groups'} // q() );
 	my @eav_groups       = split /,/x, ( $self->{'system'}->{'eav_groups'}   // q() );
 	push @group_list, @eav_groups if @eav_groups;
-	push @group_list, ( 'Loci', 'Schemes', 'LINcodes','Classification schemes','Annotation status' );
+	push @group_list, ( 'Loci', 'Schemes', 'LINcodes', 'Classification schemes', 'Annotation status' );
 	my $q = $self->{'cgi'};
 
 	foreach my $group ( undef, @group_list ) {
@@ -2132,9 +2150,10 @@ sub get_isolates_with_seqbin {
 	my $qry;
 	if ( $options->{'id_list'} ) {
 		my $list_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $options->{'id_list'} );
-		$qry = "SELECT v.id,v.$self->{'system'}->{'labelfield'},new_version FROM $view v JOIN $list_table l "
+		$qry =
+			"SELECT v.id,v.$self->{'system'}->{'labelfield'},new_version FROM $view v JOIN $list_table l "
 		  . 'ON v.id=l.value WHERE EXISTS(SELECT * FROM seqbin_stats WHERE v.id=seqbin_stats.isolate_id) ORDER '
-		  . 'BY v.id'
+		  . 'BY v.id';
 	} elsif ( $options->{'use_all'} ) {
 		$qry = "SELECT $view.id,$view.$self->{'system'}->{'labelfield'},new_version FROM $view ORDER BY $view.id";
 	} else {
@@ -2375,8 +2394,8 @@ sub get_seq_detail_tooltips {
 		my $set_id         = $self->get_set_id;
 		my $set_clause     = $set_id   ? qq(&amp;set_id=$set_id) : q();
 		my $sequence_class = $complete ? 'sequence_tooltip'      : 'sequence_tooltip_incomplete';
-		my $counter = q();
-		if (@$allele_sequences > 1){
+		my $counter        = q();
+		if ( @$allele_sequences > 1 ) {
 			my $count = @$allele_sequences;
 			$counter = qq(<sub>$count</sub>);
 		}
@@ -3143,7 +3162,7 @@ sub print_seqbin_isolate_fieldset {
 	my $q            = $self->{'cgi'};
 	my $seqbin_count = $self->{'datastore'}->get_seqbin_count;
 	say q(<fieldset style="float:left"><legend>Isolates</legend>);
-	if ($seqbin_count || $options->{'use_all'}) {
+	if ( $seqbin_count || $options->{'use_all'} ) {
 		my $size          = $options->{'size'} // 8;
 		my $list_box_size = $size - 0.2;
 		say q(<div style="float:left">);

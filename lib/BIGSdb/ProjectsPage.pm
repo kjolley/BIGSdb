@@ -36,6 +36,10 @@ sub print_content {
 	my $q      = $self->{'cgi'};
 	my $desc   = $self->get_db_description( { formatted => 1 } );
 	say "<h1>Main projects defined in the $desc database</h1>";
+	my $date_restriction_message = $self->get_date_restriction_message;
+	if ( !$self->{'username'} && $date_restriction_message ) {
+		say qq(<div class="box banner">$date_restriction_message</div>);
+	}
 	my $qry =
 		'SELECT * FROM projects p WHERE '
 	  . "EXISTS(SELECT 1 FROM project_members pm JOIN $self->{'system'}->{'view'} v ON "

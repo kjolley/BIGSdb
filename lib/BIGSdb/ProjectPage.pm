@@ -58,8 +58,8 @@ sub initiate {
 		my $qry_file = "$self->{'config'}->{'secure_tmp_dir'}/$filename";
 		if ( !-e $qry_file || -M $qry_file > 1 )
 		{                                 #Rewrite if over 1 day old in case of file corruption/changes to system.
-			my $qry = "SELECT * FROM $self->{'system'}->{'view'} v WHERE id IN "
-			  . "(SELECT isolate_id FROM project_members WHERE project_id=$project_id)";
+			my $qry =
+			  "SELECT v.* FROM temp_view v JOIN project_members p ON v.id=p.isolate_id AND p.project_id=$project_id";
 			open( my $fh, '>', $qry_file ) || $logger->error("Cannot open $qry_file for writing.");
 			say $fh $qry;
 			close $fh;

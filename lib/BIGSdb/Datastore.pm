@@ -3419,7 +3419,7 @@ sub initiate_view {
 
 		#If login_to_show_after_date is set in bigsdb.conf or config.xml to a valid date, then only
 		#include isolates prior to that date unless user is logged in.
-		my $restrict_date = $self->_get_date_restriction;
+		my $restrict_date = $self->get_date_restriction;
 		if ( defined $restrict_date ) {
 			$qry .= qq( AND v.date_entered<='$restrict_date');
 		}
@@ -3487,7 +3487,7 @@ sub initiate_view {
 	return;
 }
 
-sub _get_date_restriction {
+sub get_date_restriction {
 	my ($self) = @_;
 	my $date = $self->{'config'}->{'login_to_show_after_date'} // $self->{'system'}->{'login_to_show_after_date'};
 	return if !$date;
