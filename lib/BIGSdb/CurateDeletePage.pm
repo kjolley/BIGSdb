@@ -355,6 +355,9 @@ sub _delete {
 
 			#cascade deletion of validation rules
 			next if $table eq 'validation_rules' && $table_to_check eq 'validation_rule_conditions';
+			
+			#cascade deletion of query interface fields
+			next if $table eq 'query_interfaces' && $table_to_check eq 'query_interface_fields';
 
 			#cascade deletion of scheme group
 			next

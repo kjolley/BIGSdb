@@ -2087,7 +2087,7 @@ PRIMARY KEY(field)
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON db_attributes TO apache;
 
-INSERT INTO db_attributes (field,value) VALUES ('version','45');
+INSERT INTO db_attributes (field,value) VALUES ('version','46');
 INSERT INTO db_attributes (field,value) VALUES ('type','isolates');
 
 CREATE TABLE query_interfaces (
@@ -2112,6 +2112,9 @@ datestamp date NOT NULL,
 PRIMARY KEY(id,field),
 CONSTRAINT qif_curator FOREIGN KEY (curator) REFERENCES users
 ON DELETE NO ACTION
+ON UPDATE CASCADE,
+CONSTRAINT qif_id FOREIGN KEY (id) REFERENCES query_interfaces
+ON DELETE CASCADE
 ON UPDATE CASCADE
 );
 GRANT SELECT,UPDATE,INSERT,DELETE ON query_interface_fields TO apache;
