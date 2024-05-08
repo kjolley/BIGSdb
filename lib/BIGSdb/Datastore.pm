@@ -2094,7 +2094,10 @@ sub create_temp_scheme_status_table {
 				}
 				next;
 			}
-			if ($options->{'method'} =~ /^daily/x && defined $existing{$isolate_id} && $existing{$isolate_id} == $count){
+			if (   $options->{'method'} =~ /^daily/x
+				&& defined $existing{$isolate_id}
+				&& $existing{$isolate_id} == $count )
+			{
 				next;
 			}
 			$insert_sql->execute( $isolate_id, $count, $count );
@@ -3395,6 +3398,20 @@ sub get_available_quota {
 sub initiate_view {
 	my ( $self, $args ) = @_;
 	my ( $username, $curate, $set_id ) = @{$args}{qw(username curate set_id)};
+	if ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'sequences' ) {
+		if ( !$self->{'username'} ) {
+			my $restrict_date = $self->get_date_restriction;
+			if ( defined $restrict_date ) {
+				my $qry = 'CREATE TEMPORARY VIEW temp_sequences_view AS SELECT * '
+				  . 'FROM sequences WHERE date_entered<=?';
+				eval { $self->{'db'}->do( $qry, undef, $restrict_date ) };
+				$logger->error($@) if $@;
+				$self->{'temp_sequences_view'} = 'temp_sequences_view';
+			}
+		}
+		$self->{'temp_sequences_view'} //= 'sequences';
+		return;
+	}
 	return if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
 	if ( defined $self->{'system'}->{'view'} && $set_id ) {
 		if ( $self->{'system'}->{'views'} && BIGSdb::Utils::is_int($set_id) ) {
