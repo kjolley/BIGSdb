@@ -2061,23 +2061,23 @@ sub create_temp_scheme_status_table {
 	$self->_write_status_file( $options->{'status_file'}, $options->{'status'} );
 	my $i             = 0;
 	my $last_progress = 0;
+	my ( $existing, %existing );
+	if ( $options->{'method'} =~ /^daily/x ) {
+		$existing = $self->run_query( "SELECT id,locus_count FROM $table", undef, { fetch => 'all_arrayref' } );
+		%existing = map { $_->[0] => $_->[1] } @$existing;
+	}
 	eval {
 		if ( $options->{'method'} eq 'full' ) {
 			$self->{'db'}->do("DELETE FROM $table");
 		}
 		my $insert_sql =
 		  $self->{'db'}
-		  ->prepare("INSERT INTO $table (id,locus_count) VALUES (?,?) ON CONFLICT (id) DO UPDATE SET locus_count=?")
-		  ;
+		  ->prepare("INSERT INTO $table (id,locus_count) VALUES (?,?) ON CONFLICT (id) DO UPDATE SET locus_count=?");
 		my $delete_sql = $self->{'db'}->prepare("DELETE FROM $table WHERE id=?");
 		foreach my $isolate_id (@$isolates) {
-			if ( $options->{'method'} =~ /^daily/x ) {
-				$delete_sql->execute($isolate_id);
-			}
 			my $count = $self->run_query(
-				q(SELECT COUNT(DISTINCT(locus)) FROM allele_designations WHERE locus )
-				  . q(IN (SELECT locus FROM scheme_members WHERE scheme_id=?) AND )
-				  . q(isolate_id=?),
+				q(SELECT COUNT(DISTINCT(ad.locus)) FROM allele_designations ad JOIN scheme_members sm )
+				  . q(ON ad.locus = sm.locus WHERE sm.scheme_id=? AND isolate_id=?),
 				[ $scheme_id, $isolate_id ],
 				{ cache => 'Datastore::create_temp_scheme_status_table::locus_count' }
 			);
@@ -2088,7 +2088,15 @@ sub create_temp_scheme_status_table {
 				$self->_write_status_file( $options->{'status_file'}, $options->{'status'} );
 				$last_progress = $progress;
 			}
-			next if !$count;
+			if ( !$count ) {
+				if ( $options->{'method'} =~ /^daily/x && $existing{$isolate_id} ) {
+					$delete_sql->execute($isolate_id);
+				}
+				next;
+			}
+			if ($options->{'method'} =~ /^daily/x && defined $existing{$isolate_id} && $existing{$isolate_id} == $count){
+				next;
+			}
 			$insert_sql->execute( $isolate_id, $count, $count );
 		}
 		if ( !$table_exists ) {
@@ -2533,7 +2541,7 @@ sub get_allele_extended_attributes {
 sub get_all_allele_designations {
 	my ( $self, $isolate_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $data = $self->run_query( "SELECT locus,allele_id,status FROM allele_designations WHERE isolate_id=?",
+	my $data = $self->run_query( 'SELECT locus,allele_id,status FROM allele_designations WHERE isolate_id=?',
 		$isolate_id, { fetch => 'all_arrayref', cache => 'get_all_allele_designations' } );
 	my $alleles = {};
 	foreach my $designation (@$data) {
