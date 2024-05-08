@@ -404,11 +404,18 @@ sub get_date_restriction_message {
 	my $date = $self->{'datastore'}->get_date_restriction;
 	return if !$date;
 	my $buffer;
-	my $date_restriction_file = "$self->{'config_dir'}/date_restriction.html";
-	if ( -e $date_restriction_file ) {
-		my $message_ref = BIGSdb::Utils::slurp($date_restriction_file);
-		$buffer = $$message_ref;
-	} else {
+	my @files = (
+		"$self->{'dbase_config_dir'}/$self->{'instance'}/date_restriction.html",
+		"$self->{'config_dir'}/date_restriction.html"
+	);
+	foreach my $date_restriction_file (@files) {
+		if ( -e $date_restriction_file ) {
+			my $message_ref = BIGSdb::Utils::slurp($date_restriction_file);
+			$buffer = $$message_ref;
+			last;
+		}
+	}
+	if ( !defined $buffer ) {
 		$buffer = q(<p><b>Restricted view:</b> Note that you are currently restricted to viewing data that was )
 		  . qq(submitted prior to $date. Please log in to see the full dataset.</p>);
 	}
