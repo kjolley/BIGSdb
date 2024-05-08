@@ -2089,9 +2089,7 @@ sub create_temp_scheme_status_table {
 			$insert_sql->execute( $isolate_id, $count );
 		}
 		if ( !$table_exists ) {
-			foreach my $field (qw(id locus_count)) {
-				$self->{'db'}->do("CREATE INDEX ON $table($field)");
-			}
+			$self->{'db'}->do("CREATE INDEX ON $table(locus_count)");
 			$self->{'db'}->do("GRANT SELECT ON $table TO apache");
 		}
 	};
