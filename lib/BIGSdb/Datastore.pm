@@ -3402,14 +3402,15 @@ sub initiate_view {
 		if ( !$self->{'username'} ) {
 			my $restrict_date = $self->get_date_restriction;
 			if ( defined $restrict_date ) {
-				my $qry = 'CREATE TEMPORARY VIEW temp_sequences_view AS SELECT * '
-				  . 'FROM sequences WHERE date_entered<=?';
+				my $qry =
+				  'CREATE TEMPORARY VIEW temp_sequences_view AS SELECT * FROM sequences WHERE date_entered<=?'
+				  ;
 				eval { $self->{'db'}->do( $qry, undef, $restrict_date ) };
 				$logger->error($@) if $@;
-				$self->{'temp_sequences_view'} = 'temp_sequences_view';
+				$self->{'system'}->{'temp_sequences_view'} = 'temp_sequences_view';
 			}
 		}
-		$self->{'temp_sequences_view'} //= 'sequences';
+		$self->{'system'}->{'temp_sequences_view'} //= 'sequences';
 		return;
 	}
 	return if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
