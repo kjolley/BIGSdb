@@ -2049,7 +2049,7 @@ sub create_temp_scheme_status_table {
 		{ method => $method, cache_type => 'completion', reldate => $options->{'reldate'} } );
 	my $scheme_fields = $self->get_scheme_fields($scheme_id);
 	if ( !$table_exists ) {
-		eval { $self->{'db'}->do("CREATE TABLE $table (id int,locus_count bigint)"); };
+		eval { $self->{'db'}->do("CREATE TABLE $table (id int,locus_count bigint, PRIMARY KEY(id))"); };
 		if ($@) {
 			$logger->error("Cannot create table $table. $@");
 			$self->{'db'}->rollback;
@@ -2065,7 +2065,10 @@ sub create_temp_scheme_status_table {
 		if ( $options->{'method'} eq 'full' ) {
 			$self->{'db'}->do("DELETE FROM $table");
 		}
-		my $insert_sql = $self->{'db'}->prepare("INSERT INTO $table (id,locus_count) VALUES (?,?)");
+		my $insert_sql =
+		  $self->{'db'}
+		  ->prepare("INSERT INTO $table (id,locus_count) VALUES (?,?) ON CONFLICT (id) DO UPDATE SET locus_count=?")
+		  ;
 		my $delete_sql = $self->{'db'}->prepare("DELETE FROM $table WHERE id=?");
 		foreach my $isolate_id (@$isolates) {
 			if ( $options->{'method'} =~ /^daily/x ) {
@@ -2086,7 +2089,7 @@ sub create_temp_scheme_status_table {
 				$last_progress = $progress;
 			}
 			next if !$count;
-			$insert_sql->execute( $isolate_id, $count );
+			$insert_sql->execute( $isolate_id, $count, $count );
 		}
 		if ( !$table_exists ) {
 			$self->{'db'}->do("CREATE INDEX ON $table(locus_count)");
