@@ -289,7 +289,8 @@ var date_chart;
                 		format: '%Y-%m-%d',
                 		count: 5,
                 		rotate: 90,
-                		fit: true 		
+                		fit: true,
+                		multiline: false 		
            			},
 					height: 100
 				},
