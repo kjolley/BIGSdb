@@ -64,7 +64,7 @@ sub _ajax {
 		  . "set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id)"
 		  : q();
 		my $data = $self->{'datastore'}->run_query(
-			"SELECT date_entered AS label,COUNT(*) AS value FROM $self->{'system'}->{'temp_sequences_view'}$set_clause "
+			"SELECT date_entered AS label,COUNT(*) AS value FROM sequences$set_clause "
 			  . 'GROUP BY date_entered ORDER BY date_entered',
 			undef,
 			{ fetch => 'all_arrayref', slice => {} }
