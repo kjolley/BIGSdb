@@ -3398,13 +3398,12 @@ sub get_available_quota {
 sub initiate_view {
 	my ( $self, $args ) = @_;
 	my ( $username, $curate, $set_id ) = @{$args}{qw(username curate set_id)};
+	my $user_info = $self->get_user_info_from_username($username);
 	if ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'sequences' ) {
-		if ( !$self->{'username'} ) {
+		if ( !$user_info ) {    #Not logged in.
 			my $restrict_date = $self->get_date_restriction;
 			if ( defined $restrict_date ) {
-				my $qry =
-				  'CREATE TEMPORARY VIEW temp_sequences_view AS SELECT * FROM sequences WHERE date_entered<=?'
-				  ;
+				my $qry = 'CREATE TEMPORARY VIEW temp_sequences_view AS SELECT * FROM sequences WHERE date_entered<=?';
 				eval { $self->{'db'}->do( $qry, undef, $restrict_date ) };
 				$logger->error($@) if $@;
 				$self->{'system'}->{'temp_sequences_view'} = 'temp_sequences_view';
@@ -3439,7 +3438,6 @@ sub initiate_view {
 	  . 'pm.project_id=mpu.project_id WHERE (mpu.user_id,pm.isolate_id)=(?,v.id))';
 	use constant PUBLICATION_REQUESTED => 'p.request_publish';
 	use constant ALL_ISOLATES          => 'EXISTS(SELECT 1)';
-	my $user_info = $self->get_user_info_from_username($username);
 
 	if ( !$user_info ) {                                                  #Not logged in
 		$qry .= PUBLIC_ISOLATES;
