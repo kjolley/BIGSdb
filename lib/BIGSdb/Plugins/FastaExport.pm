@@ -84,7 +84,7 @@ sub _create_fasta_file {
 			push @$invalid, $allele_id;
 			next;
 		}
-		if ( !$self->{'username'} && $date_restriction && $date_restriction le $seq_data->{'date_entered'} ) {
+		if ( !$self->{'username'} && $date_restriction && $date_restriction lt $seq_data->{'date_entered'} ) {
 			$filtered++;
 			next;
 		}

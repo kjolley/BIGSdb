@@ -42,7 +42,7 @@ sub get_attributes {
 		menutext           => 'Profiles',
 		buttontext         => 'Profiles',
 		module             => 'ProfileExport',
-		version            => '1.4.0',
+		version            => '1.5.0',
 		dbtype             => 'sequences',
 		seqdb_type         => 'schemes',
 		input              => 'query',
@@ -68,7 +68,11 @@ sub run {
 		return;
 	}
 	return if defined $scheme_id && $self->is_scheme_invalid( $scheme_id, { with_pk => 1 } );
+	my $date_restriction_message = $self->get_date_restriction_message;
 	if ( !$q->param('submit') ) {
+		if ($date_restriction_message) {
+			say qq(<div class="box banner">$date_restriction_message</div>);
+		}
 		$self->print_scheme_section( { with_pk => 1 } );
 		$scheme_id = $q->param('scheme_id');    #Will be set by scheme section method
 	}
@@ -182,8 +186,11 @@ sub run_job {
 	my $progress         = 0;
 	my $progress_max     = 50;
 	my @problem_ids;
-	my @header = ($pk);
-	my $loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my @restricted_ids;
+	my @header           = ($pk);
+	my $loci             = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $date_restriction = $self->{'datastore'}->get_date_restriction;
+	my $job              = $self->{'jobManager'}->get_job($job_id);
 
 	foreach my $locus (@$loci) {
 		my $locus_name = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
@@ -227,6 +234,10 @@ sub run_job {
 			$profile_id, { fetch => 'row_hashref', cache => 'ProfileExport::get_profile' } );
 		if ( !$data ) {
 			push @problem_ids, $profile_id;
+			next;
+		}
+		if ( !$job->{'username'} && $date_restriction && $date_restriction lt $data->{'date_entered'} ) {
+			push @restricted_ids, $profile_id;
 			next;
 		}
 		my $pk_value = $data->{ lc($pk) };
@@ -283,10 +294,17 @@ sub run_job {
 	  or $logger->error("Cannot open output file $filename for writing");
 	say $fh $buffer;
 	close $fh;
-	if (@problem_ids) {
+	if ( @problem_ids || @restricted_ids ) {
 		local $" = q(, );
-		my $html =
-		  qq(<p class="statusbad">The following profiles are not valid and have been excluded: @problem_ids.</p>);
+		my $html;
+		if (@problem_ids) {
+			$html = q(<p class="statusbad">The following profiles are not valid and have been excluded: )
+			  . qq(@problem_ids.</p>);
+		}
+		if (@restricted_ids) {
+			$html .= q(<p class="statusbad">The following profiles are restricted and have been excluded - )
+			  . qq(you need to log in to include these: @restricted_ids.</p>);
+		}
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html } );
 	}
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Creating Excel file' } );
