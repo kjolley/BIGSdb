@@ -92,6 +92,7 @@ sub print_content {
 
 sub _print_api_message {
 	my ($self) = @_;
+	my $date_restriction_message = $self->get_date_restriction_message;
 	if ( $self->{'config'}->{'rest_url'} ) {
 		my $url = "$self->{'config'}->{'rest_url'}/db/$self->{'instance'}";
 		say q(<div class="box" id="message">);
@@ -103,7 +104,10 @@ sub _print_api_message {
 		say qq(<p>See the API <a href="$doc_url" target="_blank">documentation</a> for more details - in particular, )
 		  . qq(the method call for <a href="$fasta_url" target="_blank">downloading a list of profiles</a> for a specified )
 		  . q(scheme.</p>);
+		say $date_restriction_message if $date_restriction_message;
 		say q(</div>);
+	} else {
+		say qq(<div class="box banner">$date_restriction_message</div>);
 	}
 	return;
 }
