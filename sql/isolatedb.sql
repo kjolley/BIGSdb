@@ -1214,6 +1214,7 @@ ON UPDATE CASCADE
 );
 
 --CREATE INDEX i_h1 ON history (isolate_id) removed as not necessary (covered by pkey index)
+CREATE INDEX ON history USING brin(timestamp);
 GRANT SELECT,UPDATE,INSERT,DELETE ON history TO apache;
 
 CREATE TABLE sets (

@@ -47,3 +47,4 @@ SELECT add_completion_cache_pks();
 
 DROP FUNCTION add_completion_cache_pks();
 
+CREATE INDEX ON history USING brin(timestamp);
