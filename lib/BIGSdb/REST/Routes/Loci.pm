@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2023, University of Oxford
+#Copyright (c) 2014-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -144,6 +144,8 @@ sub _get_locus {
 			$values->{'alleles_fasta'} = request->uri_for("$subdir/db/$db/loci/$set_name/alleles_fasta");
 		}
 	}
+	my $message = $self->get_date_restriction_message;
+	$values->{'message'} = $message if $message;
 	return $values;
 }
 

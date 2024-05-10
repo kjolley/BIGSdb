@@ -417,7 +417,7 @@ sub get_date_restriction_message {
 	}
 	if ( !defined $buffer ) {
 		$buffer = q(<p><b>Restricted view:</b> Note that you are currently restricted to viewing or downloading data )
-		  . qq(that was submitted prior to $date. Please log in to access the full dataset.</p>);
+		  . qq(that was submitted on or prior to $date. Please log in to access the full dataset.</p>);
 	}
 	return $buffer;
 }

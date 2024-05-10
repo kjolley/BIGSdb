@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2022, University of Oxford
+#Copyright (c) 2014-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -47,12 +47,17 @@ sub _get_profiles {
 	my $subdir           = setting('subdir');
 	my $scheme_info      = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
 	my $scheme_warehouse = "mv_scheme_$scheme_id";
-	my $qry = $self->add_filters( "SELECT COUNT(*),max(datestamp) FROM $scheme_warehouse", $allowed_filters );
+	my $date_restriction = $self->{'datastore'}->get_date_restriction;
+	my $date_restriction_clause =
+	  ( !$self->{'username'} && $date_restriction ) ? qq( WHERE date_entered<='$date_restriction') : q();
+	my $qry = $self->add_filters( "SELECT COUNT(*),max(datestamp) FROM $scheme_warehouse$date_restriction_clause",
+		$allowed_filters );
 	my ( $profile_count, $last_updated ) = $self->{'datastore'}->run_query($qry);
 	my $page_values = $self->get_page_values($profile_count);
 	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
 	my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $scheme_info->{'primary_key'} );
-	$qry = $self->add_filters( "SELECT $scheme_info->{'primary_key'} FROM $scheme_warehouse", $allowed_filters );
+	$qry = $self->add_filters( "SELECT $scheme_info->{'primary_key'} FROM $scheme_warehouse$date_restriction_clause",
+		$allowed_filters );
 	$qry .= ' ORDER BY '
 	  . (
 		$pk_info->{'type'} eq 'integer'
@@ -61,9 +66,9 @@ sub _get_profiles {
 	  );
 	$qry .= " LIMIT $self->{'page_size'} OFFSET $offset" if !param('return_all');
 	my $profiles = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
-	my $values = { records => int($profile_count) };
+	my $values   = { records => int($profile_count) };
 	$values->{'last_updated'} = $last_updated if defined $last_updated;
-	my $path = $self->get_full_path( "$subdir/db/$db/schemes/$scheme_id/profiles", $allowed_filters );
+	my $path   = $self->get_full_path( "$subdir/db/$db/schemes/$scheme_id/profiles", $allowed_filters );
 	my $paging = $self->get_paging( $path, $pages, $page, $offset );
 	$values->{'paging'} = $paging if %$paging;
 	my $profile_links = [];
@@ -72,6 +77,8 @@ sub _get_profiles {
 		push @$profile_links, request->uri_for("$subdir/db/$db/schemes/$scheme_id/profiles/$profile_id");
 	}
 	$values->{'profiles'} = $profile_links;
+	my $message = $self->get_date_restriction_message;
+	$values->{'message'} = $message if $message;
 	return $values;
 }
 
@@ -93,7 +100,7 @@ sub _get_profiles_csv {
 	my @order;
 
 	foreach my $locus (@$loci) {
-		my $locus_info = $self->{'datastore'}->get_locus_info( $locus, { set_id => $set_id } );
+		my $locus_info   = $self->{'datastore'}->get_locus_info( $locus, { set_id => $set_id } );
 		my $header_value = $locus_info->{'set_name'} // $locus;
 		push @heading, $header_value;
 		push @order,   $locus_indices->{$locus};
@@ -118,8 +125,10 @@ sub _get_profiles_csv {
 	my $buffer = "@heading\n";
 	local $" = ',';
 	my $scheme_warehouse = "mv_scheme_$scheme_id";
+	my $date_restriction = $self->{'datastore'}->get_date_restriction;
+	my $date_restriction_clause = (!$self->{'username'} && $date_restriction) ? qq( WHERE date_entered<='$date_restriction') : q();
 	my $pk_info          = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
-	my $qry              = $self->add_filters( "SELECT @fields FROM $scheme_warehouse", $allowed_filters );
+	my $qry              = $self->add_filters( "SELECT @fields FROM $scheme_warehouse$date_restriction_clause", $allowed_filters );
 	$qry .= ' ORDER BY ' . ( $pk_info->{'type'} eq 'integer' ? "CAST($primary_key AS int)" : $primary_key );
 	my $data = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref' } );
 	my $lincodes;
@@ -170,7 +179,7 @@ sub _print_lincode_fields {
 	my $buffer = q();
 	foreach my $field (@$fields) {
 		if ( !$lincode ) {
-			$buffer.= qq(\t);
+			$buffer .= qq(\t);
 			next;
 		}
 		my @prefixes = keys %{ $self->{'datastore'}->{'prefix_cache'}->{$field} };
@@ -182,7 +191,7 @@ sub _print_lincode_fields {
 		}
 		@values = sort @values;
 		local $" = q(; );
-		$buffer.= qq(\t@values);
+		$buffer .= qq(\t@values);
 	}
 	return $buffer;
 }
@@ -197,6 +206,7 @@ sub _get_profile {
 	my $set_id      = $self->get_set_id;
 	my $subdir      = setting('subdir');
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
+
 	if ( !$scheme_info->{'primary_key'} ) {
 		send_error( "Scheme $scheme_id does not have a primary key field.", 400 );
 	}
@@ -206,6 +216,11 @@ sub _get_profile {
 		$profile_id, { fetch => 'row_hashref' } );
 	if ( !$profile ) {
 		send_error( "Profile $scheme_info->{'primary_key'}-$profile_id does not exist.", 404 );
+	}
+	my $date_restriction = $self->{'datastore'}->get_date_restriction;
+	if ( !$self->{'username'} && $date_restriction && $date_restriction lt $profile->{'date_entered'} ) {
+		my $message = $self->get_date_restriction_message;
+		send_error( $message, 403 );
 	}
 	my $values        = {};
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
@@ -253,7 +268,7 @@ sub _get_profile {
 			{ cache => 'Profiles::get_profile::get_group' }
 		);
 		next if !defined $group;
-		my $obj = { href => request->uri_for("$subdir/db/$db/classification_schemes/$cs_scheme->{'id'}") };
+		my $obj           = { href => request->uri_for("$subdir/db/$db/classification_schemes/$cs_scheme->{'id'}") };
 		my $profile_count = $self->{'datastore'}->run_query(
 			'SELECT COUNT(*) FROM classification_group_profiles WHERE (cg_scheme_id, group_id)=(?,?)',
 			[ $cs_scheme->{'id'}, $group ],
@@ -296,14 +311,14 @@ sub _get_profile {
 			  ->run_query( 'SELECT field FROM lincode_fields WHERE scheme_id=? ORDER BY display_order,field',
 				$scheme_id, { fetch => 'col_arrayref' } );
 			my $join_table =
-			    q[lincodes LEFT JOIN lincode_prefixes ON lincodes.scheme_id=lincode_prefixes.scheme_id AND (]
+				q[lincodes LEFT JOIN lincode_prefixes ON lincodes.scheme_id=lincode_prefixes.scheme_id AND (]
 			  . q[array_to_string(lincodes.lincode,'_') LIKE (REPLACE(lincode_prefixes.prefix,'_','\_') || E'\_' || '%') ]
 			  . q[OR array_to_string(lincodes.lincode,'_') = lincode_prefixes.prefix)];
 			foreach my $field (@$lincode_fields) {
 				my $type =
 				  $self->{'datastore'}->run_query( 'SELECT type FROM lincode_fields WHERE (scheme_id,field)=(?,?)',
 					[ $scheme_id, $field ] );
-				my $order = $type eq 'integer' ? 'CAST(value AS integer)' : 'value';
+				my $order          = $type eq 'integer' ? 'CAST(value AS integer)' : 'value';
 				my $lincode_values = $self->{'datastore'}->run_query(
 					"SELECT value FROM $join_table WHERE (lincodes.scheme_id,lincode_prefixes.field,lincodes.lincode)="
 					  . "(?,?,?) ORDER BY $order",
