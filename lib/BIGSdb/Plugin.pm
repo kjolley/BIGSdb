@@ -589,7 +589,7 @@ sub print_includes_fieldset {
 }
 
 sub print_scheme_locus_fieldset {
-	my ( $self, $scheme_id ) = @_;
+	my ( $self, $scheme_id, $options ) = @_;
 	my $locus_list = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $set_id     = $self->get_set_id;
 	my %labels;
@@ -604,10 +604,12 @@ sub print_scheme_locus_fieldset {
 			-size     => 8,
 			-multiple => 'true'
 		);
-		say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("locus",true)' )
-		  . q(value="All" style="margin-top:1em" class="small_submit" /><input type="button" )
-		  . q(onclick='listbox_selectall("locus",false)' value="None" style="margin:1em 0 0 0.2em" )
-		  . q(class="small_submit" /></div>);
+		if ( !$options->{'no_all_none'} ) {
+			say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("locus",true)' )
+			  . q(value="All" style="margin-top:1em" class="small_submit" /><input type="button" )
+			  . q(onclick='listbox_selectall("locus",false)' value="None" style="margin:1em 0 0 0.2em" )
+			  . q(class="small_submit" /></div>);
+		}
 	} else {
 		say q(No loci available<br />for analysis);
 	}
