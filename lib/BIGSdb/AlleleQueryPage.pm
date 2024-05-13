@@ -243,10 +243,12 @@ sub _print_interface {
 	  $self->{'datastore'}->get_locus_list( { set_id => $set_id, no_list_by_common_name => 1 } );
 	print $q->start_form;
 	say q(<p><b>Locus: </b>);
-	say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $display_loci, -labels => $cleaned );
+
+	#Following is eval'd because it may take a while to populate when a very large number of loci are defined.
+	#If the user closes the connection while the page is loading it would otherwise lead to a 500 error.
+	eval { say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $display_loci, -labels => $cleaned ) };
 	say q( <span class="comment">Page will reload when changed</span></p>);
 	say $q->hidden($_) foreach qw (db page);
-
 	if ( $q->param('locus') ) {
 		say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;)
 		  . qq(locus=$locus">Further information</a> is available for this locus.</li></ul>);

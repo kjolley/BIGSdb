@@ -1277,7 +1277,7 @@ sub _sort_field_list_into_optgroups {
 	my @group_list       = split /,/x, ( $self->{'system'}->{'field_groups'} // q() );
 	my @eav_groups       = split /,/x, ( $self->{'system'}->{'eav_groups'}   // q() );
 	push @group_list, @eav_groups if @eav_groups;
-	push @group_list, ( 'Loci', 'Schemes', 'LINcodes','Classification schemes','Annotation status' );
+	push @group_list, ( 'Loci', 'Schemes', 'LINcodes', 'Classification schemes', 'Annotation status' );
 	my $q = $self->{'cgi'};
 
 	foreach my $group ( undef, @group_list ) {
@@ -2132,9 +2132,10 @@ sub get_isolates_with_seqbin {
 	my $qry;
 	if ( $options->{'id_list'} ) {
 		my $list_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $options->{'id_list'} );
-		$qry = "SELECT v.id,v.$self->{'system'}->{'labelfield'},new_version FROM $view v JOIN $list_table l "
+		$qry =
+			"SELECT v.id,v.$self->{'system'}->{'labelfield'},new_version FROM $view v JOIN $list_table l "
 		  . 'ON v.id=l.value WHERE EXISTS(SELECT * FROM seqbin_stats WHERE v.id=seqbin_stats.isolate_id) ORDER '
-		  . 'BY v.id'
+		  . 'BY v.id';
 	} elsif ( $options->{'use_all'} ) {
 		$qry = "SELECT $view.id,$view.$self->{'system'}->{'labelfield'},new_version FROM $view ORDER BY $view.id";
 	} else {
@@ -2375,8 +2376,8 @@ sub get_seq_detail_tooltips {
 		my $set_id         = $self->get_set_id;
 		my $set_clause     = $set_id   ? qq(&amp;set_id=$set_id) : q();
 		my $sequence_class = $complete ? 'sequence_tooltip'      : 'sequence_tooltip_incomplete';
-		my $counter = q();
-		if (@$allele_sequences > 1){
+		my $counter        = q();
+		if ( @$allele_sequences > 1 ) {
 			my $count = @$allele_sequences;
 			$counter = qq(<sub>$count</sub>);
 		}
@@ -3143,7 +3144,7 @@ sub print_seqbin_isolate_fieldset {
 	my $q            = $self->{'cgi'};
 	my $seqbin_count = $self->{'datastore'}->get_seqbin_count;
 	say q(<fieldset style="float:left"><legend>Isolates</legend>);
-	if ($seqbin_count || $options->{'use_all'}) {
+	if ( $seqbin_count || $options->{'use_all'} ) {
 		my $size          = $options->{'size'} // 8;
 		my $list_box_size = $size - 0.2;
 		say q(<div style="float:left">);
@@ -3251,15 +3252,20 @@ sub print_isolates_locus_fieldset {
 		say q(<div style="float:left">);
 		my $size          = $options->{'size'} // 8;
 		my $list_box_size = $size - 0.2;
-		say $self->popup_menu(
-			-name     => 'locus',
-			-id       => 'locus',
-			-values   => $locus_list,
-			-labels   => $locus_labels,
-			-style    => "height:${size}em",
-			-multiple => 'true',
-			-default  => $options->{'selected_loci'}
-		);
+
+		#Following is eval'd because it may take a while to populate when a very large number of loci are defined.
+		#If the user closes the connection while the page is loading it would otherwise lead to a 500 error.
+		eval {
+			say $self->popup_menu(
+				-name     => 'locus',
+				-id       => 'locus',
+				-values   => $locus_list,
+				-labels   => $locus_labels,
+				-style    => "height:${size}em",
+				-multiple => 'true',
+				-default  => $options->{'selected_loci'}
+			);
+		};
 		say q(</div>);
 		if ( $options->{'locus_paste_list'} ) {
 			my $display = $q->param('locus_paste_list') ? 'block' : 'none';

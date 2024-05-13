@@ -311,10 +311,14 @@ sub _update_prefs {
 	my $q    = $self->{'cgi'};
 	my $guid = $self->get_guid;
 	eval {
-		$self->{'prefstore'}->set_plugin_attribute( $guid, $self->{'system'}->{'db'},
-			'Export', 'bg_private_colour', scalar $q->param('private_bg') );
-		$self->{'prefstore'}->set_plugin_attribute( $guid, $self->{'system'}->{'db'},
-			'Export', 'fg_private_colour', scalar $q->param('private_fg') );
+		if ( $q->param('private_bg') ) {
+			$self->{'prefstore'}->set_plugin_attribute( $guid, $self->{'system'}->{'db'},
+				'Export', 'bg_private_colour', scalar $q->param('private_bg') );
+		}
+		if ( $q->param('private_fg') ) {
+			$self->{'prefstore'}->set_plugin_attribute( $guid, $self->{'system'}->{'db'},
+				'Export', 'fg_private_colour', scalar $q->param('private_fg') );
+		}
 	};
 	return;
 }

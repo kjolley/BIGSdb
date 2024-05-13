@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -182,7 +182,10 @@ sub _print_interface {
 		unshift @$display_loci, @schemes_and_groups;
 		unshift @$display_loci, 0;
 		$cleaned->{0} = 'All loci';
-		say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $display_loci, -labels => $cleaned );
+
+		#Following is eval'd because it may take a while to populate when a very large number of loci are defined.
+		#If the user closes the connection while the page is loading it would otherwise lead to a 500 error.
+		eval { say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $display_loci, -labels => $cleaned ) };
 		say q(</fieldset>);
 		say q(<fieldset><legend>Order results by</legend>);
 		say $q->popup_menu( -name => 'order', -values => [ ( 'locus', 'best match' ) ] );
@@ -297,7 +300,7 @@ sub _upload_fasta_file {
 	my $filename = "$self->{'config'}->{'secure_tmp_dir'}/${temp}_upload.fas";
 	my $buffer;
 	my $q = $self->{'cgi'};
-	$q->cgi_error and $logger->error($q->cgi_error);
+	$q->cgi_error and $logger->error( $q->cgi_error );
 	my $fh2 = $q->upload('fasta_upload');
 	binmode $fh2;
 	read( $fh2, $buffer, $self->{'config'}->{'max_upload_size'} );
