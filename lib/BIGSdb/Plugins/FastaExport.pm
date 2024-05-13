@@ -43,7 +43,7 @@ sub get_attributes {
 		menutext           => 'Locus sequences',
 		buttontext         => 'FASTA',
 		module             => 'FastaExport',
-		version            => '2.1.0',
+		version            => '2.2.0',
 		dbtype             => 'sequences',
 		seqdb_type         => 'sequences',
 		input              => 'query',
@@ -69,17 +69,23 @@ sub _create_fasta_file {
 		$locus, { fetch => 'col_arrayref' } );
 	my $invalid = [];
 	open( my $fh, '>:encoding(utf8)', $full_path ) or $logger->error("Cannot open $full_path for writing.");
+	my $date_restriction = $self->{'datastore'}->get_date_restriction;
+	my $filtered         = 0;
 
 	foreach my $allele_id (@list) {
 		$allele_id =~ s/^\s+|\s+$//gx;
 		next if !length($allele_id);
 		my $seq_data = $self->{'datastore'}->run_query(
-			'SELECT allele_id,sequence FROM sequences WHERE (locus,allele_id)=(?,?)',
+			'SELECT allele_id,sequence,date_entered FROM sequences WHERE (locus,allele_id)=(?,?)',
 			[ $locus, $allele_id ],
 			{ fetch => 'row_hashref', cache => 'FastaExport::run' }
 		);
 		if ( !defined $seq_data->{'allele_id'} ) {
 			push @$invalid, $allele_id;
+			next;
+		}
+		if ( !$self->{'username'} && $date_restriction && $date_restriction lt $seq_data->{'date_entered'} ) {
+			$filtered++;
 			next;
 		}
 		my $header   = qq(>${locus}_$seq_data->{'allele_id'});
@@ -134,6 +140,17 @@ sub _create_fasta_file {
 		say $fh $seq;
 	}
 	close $fh;
+	if ($filtered) {
+		say q(<div class="box statusbad"><p>);
+		if ( $filtered == 1 ) {
+			say qq($filtered allele was not included as it was submitted prior to $date_restriction. )
+			  . q(You will need to log in to include this.);
+		} else {
+			say qq($filtered alleles were not included as they were submitted prior to $date_restriction. )
+			  . q(You will need to log in to include these.);
+		}
+		say q(</p></div>);
+	}
 	if ( !-e $full_path ) {
 		$self->print_bad_status( { message => q(Sequence file could not be generated.) } );
 		$logger->error('Sequence file cannot be generated');
@@ -206,6 +223,10 @@ sub _print_interface {
 	my $list_file  = $q->param('list_file');
 	my $allele_ids = $self->get_allele_id_list( $query_file, $list_file );
 	my $set_id     = $self->get_set_id;
+	my $date_restriction_message = $self->get_date_restriction_message;
+	if ($date_restriction_message){
+		say qq(<div class="box banner">$date_restriction_message</div>);
+	}
 	say q(<div class="box" id="queryform"><div class="scrollable">);
 	my ( $display_loci, $labels ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
 	unshift @$display_loci, q();
@@ -362,10 +383,12 @@ sub _get_defined_alleles {
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	my $format     = $locus_info->{'allele_id_format'} // 'text';
 	my $cast       = $format eq 'integer' ? 'CAST(allele_id AS integer)' : 'allele_id';
-	my $defined =
-	  $self->{'datastore'}
-	  ->run_query( "SELECT $cast FROM sequences WHERE locus=? AND allele_id NOT IN ('0','N') ORDER BY allele_id",
-		$locus, { fetch => 'col_arrayref' } );
+	my $defined    = $self->{'datastore'}->run_query(
+		qq(SELECT $cast FROM $self->{'system'}->{'temp_sequences_view'} WHERE locus=? )
+		  . q(AND allele_id NOT IN ('0','N') ORDER BY allele_id),
+		$locus,
+		{ fetch => 'col_arrayref' }
+	);
 	say $_ foreach @$defined;
 	return;
 }

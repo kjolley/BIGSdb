@@ -67,9 +67,18 @@ sub print_content {
 		$self->print_bad_status( { message => q(This sequence does not exist.), navbar => 1 } );
 		return;
 	}
-	my $length = length( $seq_ref->{'sequence'} );
-	my $seq    = BIGSdb::Utils::split_line( $seq_ref->{'sequence'} );
-	my $data   = [];
+	my $length           = length( $seq_ref->{'sequence'} );
+	my $seq              = BIGSdb::Utils::split_line( $seq_ref->{'sequence'} );
+	my $data             = [];
+	my $date_restriction = $self->{'datastore'}->get_date_restriction;
+	my $restricted;
+	if ( $date_restriction && $date_restriction lt $seq_ref->{'date_entered'} ) {
+		$restricted = 1;
+		my $date_restriction_message = $self->get_date_restriction_message;
+		if ($date_restriction_message) {
+			say qq(<div class="box banner">$date_restriction_message</div>);
+		}
+	}
 	say q(<div class="box" id="resultspanel">);
 	say q(<div class="scrollable">);
 	say q(<div><span class="info_icon fas fa-2x fa-fw fa-globe fa-pull-left" style="margin-top:-0.2em"></span>);
@@ -81,7 +90,6 @@ sub print_content {
 		href  => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;locus=$locus)
 	  };
 	push @$data, { title => 'allele', data => $allele_id };
-
 	if ( $allele_id eq '0' ) {
 		push @$data,
 		  {
@@ -102,30 +110,40 @@ sub print_content {
 			  . q((it may or may not have an allele designated and it may be incomplete).)
 		  };
 	} else {
-		push @$data,
-		  (
-			{ title => 'sequence',     data => $seq, class => 'seq' },
-			{ title => 'length',       data => $length },
-			{ title => 'status',       data => $seq_ref->{'status'} },
-			{ title => 'date entered', data => $seq_ref->{'date_entered'} },
-			{ title => 'datestamp',    data => $seq_ref->{'datestamp'} }
-		  );
-		my $sender = $self->{'datastore'}->get_user_string(
-			$seq_ref->{'sender'},
-			{
-				affiliation => ( $seq_ref->{'sender'} != $seq_ref->{'curator'} ),
-				email       => !$self->{'system'}->{'privacy'}
-			}
-		);
-		push @$data, { title => 'sender', data => $sender } if $sender;
-		my $curator = $self->{'datastore'}->get_user_string( $seq_ref->{'curator'}, { affiliation => 1, email => 1 } );
-		push @$data, { title => 'curator', data => $curator } if $curator;
+		if ($restricted) {
+			push @$data,
+			  { title => 'sequence',     data => 'UNAVAILABLE' },
+			  { title => 'date entered', data => $seq_ref->{'date_entered'} },
+			  { title => 'datestamp',    data => $seq_ref->{'datestamp'} };
+		} else {
+			push @$data,
+			  (
+				{ title => 'sequence',     data => $seq, class => 'seq' },
+				{ title => 'length',       data => $length },
+				{ title => 'status',       data => $seq_ref->{'status'} },
+				{ title => 'date entered', data => $seq_ref->{'date_entered'} },
+				{ title => 'datestamp',    data => $seq_ref->{'datestamp'} }
+			  );
+			my $sender = $self->{'datastore'}->get_user_string(
+				$seq_ref->{'sender'},
+				{
+					affiliation => ( $seq_ref->{'sender'} != $seq_ref->{'curator'} ),
+					email       => !$self->{'system'}->{'privacy'}
+				}
+			);
+			push @$data, { title => 'sender', data => $sender } if $sender;
+			my $curator =
+			  $self->{'datastore'}->get_user_string( $seq_ref->{'curator'}, { affiliation => 1, email => 1 } );
+			push @$data, { title => 'curator', data => $curator } if $curator;
+		}
 	}
-	push @$data, { title => 'comments', data => $seq_ref->{'comments'} } if $seq_ref->{'comments'};
-	my $flags = $self->_get_flags( $locus, $allele_id );
-	push @$data, { title => 'flags', data => $flags } if $flags;
-	my $extended_attributes = $self->_get_extended_attributes( $locus, $allele_id );
-	push @$data, @$extended_attributes;
+	if ( !$restricted ) {
+		push @$data, { title => 'comments', data => $seq_ref->{'comments'} } if $seq_ref->{'comments'};
+		my $flags = $self->_get_flags( $locus, $allele_id );
+		push @$data, { title => 'flags', data => $flags } if $flags;
+		my $extended_attributes = $self->_get_extended_attributes( $locus, $allele_id );
+		push @$data, @$extended_attributes;
+	}
 	say $self->get_list_block($data);
 	say q(</div>);
 	$self->_print_nucleotide_mutations( $locus, $allele_id );

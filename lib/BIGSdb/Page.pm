@@ -389,12 +389,37 @@ sub print_banner {
 	my ( $self, $options ) = @_;
 	my $bannerfile = "$self->{'dbase_config_dir'}/$self->{'instance'}/banner.html";
 	my $class      = $options->{'class'} // 'banner';
-	if ( -e $bannerfile ) {
+	if ( -e $bannerfile || $options->{'additional_message'} ) {
 		say qq(<div class="box $class">);
-		$self->print_file($bannerfile);
+		$self->print_file($bannerfile)       if -e $bannerfile;
+		say $options->{'additional_message'} if $options->{'additional_message'};
 		say q(</div>);
 	}
 	return;
+}
+
+sub get_date_restriction_message {
+	my ($self) = @_;
+	return if $self->{'username'};
+	my $date = $self->{'datastore'}->get_date_restriction;
+	return if !$date;
+	my $buffer;
+	my @files = (
+		"$self->{'dbase_config_dir'}/$self->{'instance'}/date_restriction.html",
+		"$self->{'config_dir'}/date_restriction.html"
+	);
+	foreach my $date_restriction_file (@files) {
+		if ( -e $date_restriction_file ) {
+			my $message_ref = BIGSdb::Utils::slurp($date_restriction_file);
+			$buffer = $$message_ref;
+			last;
+		}
+	}
+	if ( !defined $buffer ) {
+		$buffer = q(<p><b>Restricted view:</b> Note that you are currently restricted to viewing or downloading data )
+		  . qq(that was submitted on or prior to $date. Please log in to access the full dataset.</p>);
+	}
+	return $buffer;
 }
 
 sub choose_set {

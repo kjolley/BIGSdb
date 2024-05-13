@@ -155,6 +155,7 @@ ON UPDATE CASCADE
 
 CREATE INDEX i_i1 ON isolates (datestamp);
 CREATE INDEX i_i2 ON isolates(new_version);
+CREATE INDEX i_i_date_entered ON isolates(date_entered);
 GRANT SELECT,UPDATE,INSERT,DELETE ON isolates TO apache;
 
 CREATE TABLE isolate_aliases (
@@ -1213,6 +1214,7 @@ ON UPDATE CASCADE
 );
 
 --CREATE INDEX i_h1 ON history (isolate_id) removed as not necessary (covered by pkey index)
+CREATE INDEX ON history USING brin(timestamp);
 GRANT SELECT,UPDATE,INSERT,DELETE ON history TO apache;
 
 CREATE TABLE sets (
@@ -2087,7 +2089,7 @@ PRIMARY KEY(field)
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON db_attributes TO apache;
 
-INSERT INTO db_attributes (field,value) VALUES ('version','45');
+INSERT INTO db_attributes (field,value) VALUES ('version','46');
 INSERT INTO db_attributes (field,value) VALUES ('type','isolates');
 
 CREATE TABLE query_interfaces (
@@ -2112,6 +2114,9 @@ datestamp date NOT NULL,
 PRIMARY KEY(id,field),
 CONSTRAINT qif_curator FOREIGN KEY (curator) REFERENCES users
 ON DELETE NO ACTION
+ON UPDATE CASCADE,
+CONSTRAINT qif_id FOREIGN KEY (id) REFERENCES query_interfaces
+ON DELETE CASCADE
 ON UPDATE CASCADE
 );
 GRANT SELECT,UPDATE,INSERT,DELETE ON query_interface_fields TO apache;

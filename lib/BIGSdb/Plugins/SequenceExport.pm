@@ -56,14 +56,14 @@ sub get_attributes {
 		buttontext         => 'Sequences',
 		menutext           => $seqdef ? 'Profile sequences' : 'Sequences',
 		module             => 'SequenceExport',
-		version            => '1.8.0',
+		version            => '1.9.0',
 		dbtype             => 'isolates,sequences',
 		seqdb_type         => 'schemes',
 		section            => 'isolate_info,profile_info,export,postquery',
 		url                => "$self->{'config'}->{'doclink'}/data_export/sequence_export.html",
 		input              => 'query',
 		help               => 'tooltips',
-		requires           => 'aligner,offline_jobs,js_tree',
+		requires           => $seqdef ? 'aligner,offline_jobs' : 'aligner,offline_jobs,js_tree',
 		image              => '/images/plugins/SequenceExport/screenshot.png',
 		order              => 22,
 		system_flag        => 'SequenceExport',
@@ -81,7 +81,7 @@ sub set_pref_requirements {
 
 sub get_initiation_values {
 	my ($self) = @_;
-	return { 'jQuery.jstree' => ( $self->{'system'}->{'dbtype'} eq 'isolates' ? 1 : 0 ) };
+	return { 'jQuery.jstree' => ( $self->{'system'}->{'dbtype'} eq 'isolates' ? 1 : 0 ), 'jQuery.multiselect' => 1 };
 }
 
 sub run {
@@ -98,7 +98,6 @@ sub run {
 	}
 	return if $self->has_set_changed;
 	my $pk;
-
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$pk = 'id';
 	} else {
@@ -236,10 +235,10 @@ sub _print_interface {
 	$self->_print_includes_fieldset($scheme_id);
 
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
+		$self->print_isolates_locus_fieldset( { no_all_none => 1 } );
 		$self->print_scheme_fieldset;
 	} else {
-		$self->print_scheme_locus_fieldset($scheme_id);
+		$self->print_scheme_locus_fieldset( $scheme_id, { no_all_none => 1 } );
 	}
 	say q(<fieldset style="float:left"><legend>Options</legend>);
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
@@ -387,8 +386,9 @@ sub _run_job_profiles {
 	my $filename  = "$self->{'config'}->{'tmp_dir'}/$job_id\.xmfa";
 	open( my $fh, '>', $filename )
 	  or $logger->error("Can't open output file $filename for writing");
-	my $includes = $self->_get_includes($params);
-	my @problem_ids;
+	my $includes       = $self->_get_includes($params);
+	my $problem_ids    = [];
+	my $restricted_ids = [];
 	my %problem_id_checked;
 	my $start = 1;
 	my $end;
@@ -397,6 +397,8 @@ sub _run_job_profiles {
 	my $selected_loci    = $self->order_loci( $loci, { scheme_id => $scheme_id } );
 	my $ids              = $self->{'jobManager'}->get_job_profiles( $job_id, $scheme_id );
 	my $scheme_warehouse = "mv_scheme_$scheme_id";
+	my $job              = $self->{'jobManager'}->get_job($job_id);
+	my $date_restriction = $self->{'datastore'}->get_date_restriction;
 	my $progress         = 0;
 
 	foreach my $locus_name (@$selected_loci) {
@@ -425,6 +427,12 @@ sub _run_job_profiles {
 			my $profile_id = $profile_data->{ lc($pk) };
 			my $header;
 			if ( defined $profile_id ) {
+				if ( !$job->{'username'} && $date_restriction && $date_restriction lt $profile_data->{'date_entered'} )
+				{
+					push @$restricted_ids, $profile_id if !$problem_id_checked{$id};
+					$problem_id_checked{$id} = 1;
+					next;
+				}
 				$header = ">$profile_id";
 				if (@$includes) {
 					foreach my $field (@$includes) {
@@ -433,8 +441,6 @@ sub _run_job_profiles {
 						$header .= "|$value";
 					}
 				}
-			}
-			if ($profile_id) {
 				my $allele_id =
 				  $self->{'datastore'}->get_profile_allele_designation( $scheme_id, $id, $locus_name )->{'allele_id'};
 				my $allele_seq_ref = $self->{'datastore'}->get_sequence( $locus_name, $allele_id );
@@ -447,7 +453,7 @@ sub _run_job_profiles {
 					say $fh_unaligned $seq;
 				}
 			} else {
-				push @problem_ids, $id if !$problem_id_checked{$id};
+				push @$problem_ids, $id if !$problem_id_checked{$id};
 				$problem_id_checked{$id} = 1;
 				next;
 			}
@@ -477,7 +483,16 @@ sub _run_job_profiles {
 		unlink $filename;
 		return;
 	}
-	$self->_output( $job_id, $params, \@problem_ids, $no_output, $filename );
+	$self->_output(
+		{
+			job_id         => $job_id,
+			params         => $params,
+			problem_ids    => $problem_ids,
+			restricted_ids => $restricted_ids,
+			no_output      => $no_output,
+			filename       => $filename
+		}
+	);
 	return;
 }
 
@@ -502,7 +517,15 @@ sub _run_job_isolates {
 		unlink $filename;
 		return;
 	}
-	$self->_output( $job_id, $params, $ret_val->{'problem_ids'}, $ret_val->{'no_output'}, $filename );
+	$self->_output(
+		{
+			job_id      => $job_id,
+			params      => $params,
+			problem_ids => $ret_val->{'problem_ids'},
+			no_output   => $ret_val->{'no_output'},
+			filename    => $filename
+		}
+	);
 	return;
 }
 
@@ -743,11 +766,18 @@ sub _get_tag_data {
 }
 
 sub _output {
-	my ( $self, $job_id, $params, $problem_ids, $no_output, $filename ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $job_id, $params, $problem_ids, $restricted_ids, $no_output, $filename ) =
+	  @{$args}{qw(job_id params problem_ids restricted_ids no_output filename)};
 	my $message_html;
 	if (@$problem_ids) {
 		local $" = ', ';
-		$message_html = "<p>The following ids could not be processed (they do not exist): @$problem_ids.</p>\n";
+		$message_html = qq(<p>The following ids could not be processed (they do not exist): @$problem_ids.</p>\n);
+	}
+	if (ref $restricted_ids && @$restricted_ids) {
+		local $" = ', ';
+		$message_html .= q(<p>The following profiles are restricted and have been excluded - )
+		  . qq(you need to log in to include these: @$restricted_ids.</p>\n);
 	}
 	if ($no_output) {
 		$message_html .=
@@ -870,6 +900,13 @@ function enable_aligner(){
 	\$("#align").change(function(e) {
 		enable_aligner();
 	});
+	\$('#locus,#include_fields').multiselect({
+		noneSelectedText: "",
+ 		classes: 'filter',
+ 		menuHeight: 250,
+ 		menuWidth: 400,
+ 		selectedList: 8
+  	});
 });
 END
 	return $buffer;

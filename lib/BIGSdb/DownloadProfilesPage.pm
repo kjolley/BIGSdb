@@ -112,7 +112,9 @@ sub print_content {
 	local $" = q(,);
 	my $scheme_warehouse = qq(mv_scheme_$scheme_id);
 	my $pk_info          = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
-	my $qry              = "SELECT @fields FROM $scheme_warehouse ORDER BY "
+	my $date_restriction = $self->{'datastore'}->get_date_restriction;
+	my $date_clause = $date_restriction ? qq(WHERE date_entered<='$date_restriction' ) : q();
+	my $qry              = "SELECT @fields FROM $scheme_warehouse ${date_clause}ORDER BY "
 	  . ( $pk_info->{'type'} eq 'integer' ? "CAST($primary_key AS int)" : $primary_key );
 	my $data = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref' } );
 	local $" = qq(\t);

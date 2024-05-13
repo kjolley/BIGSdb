@@ -1,3 +1,6 @@
+v1.46.0: *Option to filter alleles, profiles, and isolates for non-logged in
+          users to records added before a specified date.
+         *Improved AJAX loading of isolate query interface.
 v1.45.0: *Added option to highlight private data in isolate exports.
          *Added option for an admin to create customized isolate query forms
           with pre-selected fields shown.

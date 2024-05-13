@@ -2061,23 +2061,23 @@ sub create_temp_scheme_status_table {
 	$self->_write_status_file( $options->{'status_file'}, $options->{'status'} );
 	my $i             = 0;
 	my $last_progress = 0;
+	my ( $existing, %existing );
+	if ( $options->{'method'} =~ /^daily/x ) {
+		$existing = $self->run_query( "SELECT id,locus_count FROM $table", undef, { fetch => 'all_arrayref' } );
+		%existing = map { $_->[0] => $_->[1] } @$existing;
+	}
 	eval {
 		if ( $options->{'method'} eq 'full' ) {
 			$self->{'db'}->do("DELETE FROM $table");
 		}
 		my $insert_sql =
 		  $self->{'db'}
-		  ->prepare("INSERT INTO $table (id,locus_count) VALUES (?,?) ON CONFLICT (id) DO UPDATE SET locus_count=?")
-		  ;
+		  ->prepare("INSERT INTO $table (id,locus_count) VALUES (?,?) ON CONFLICT (id) DO UPDATE SET locus_count=?");
 		my $delete_sql = $self->{'db'}->prepare("DELETE FROM $table WHERE id=?");
 		foreach my $isolate_id (@$isolates) {
-			if ( $options->{'method'} =~ /^daily/x ) {
-				$delete_sql->execute($isolate_id);
-			}
 			my $count = $self->run_query(
-				q(SELECT COUNT(DISTINCT(locus)) FROM allele_designations WHERE locus )
-				  . q(IN (SELECT locus FROM scheme_members WHERE scheme_id=?) AND )
-				  . q(isolate_id=?),
+				q(SELECT COUNT(DISTINCT(ad.locus)) FROM allele_designations ad JOIN scheme_members sm )
+				  . q(ON ad.locus = sm.locus WHERE sm.scheme_id=? AND isolate_id=?),
 				[ $scheme_id, $isolate_id ],
 				{ cache => 'Datastore::create_temp_scheme_status_table::locus_count' }
 			);
@@ -2088,13 +2088,22 @@ sub create_temp_scheme_status_table {
 				$self->_write_status_file( $options->{'status_file'}, $options->{'status'} );
 				$last_progress = $progress;
 			}
-			next if !$count;
+			if ( !$count ) {
+				if ( $options->{'method'} =~ /^daily/x && $existing{$isolate_id} ) {
+					$delete_sql->execute($isolate_id);
+				}
+				next;
+			}
+			if (   $options->{'method'} =~ /^daily/x
+				&& defined $existing{$isolate_id}
+				&& $existing{$isolate_id} == $count )
+			{
+				next;
+			}
 			$insert_sql->execute( $isolate_id, $count, $count );
 		}
 		if ( !$table_exists ) {
-			foreach my $field (qw(id locus_count)) {
-				$self->{'db'}->do("CREATE INDEX ON $table($field)");
-			}
+			$self->{'db'}->do("CREATE INDEX ON $table(locus_count)");
 			$self->{'db'}->do("GRANT SELECT ON $table TO apache");
 		}
 	};
@@ -2535,7 +2544,7 @@ sub get_allele_extended_attributes {
 sub get_all_allele_designations {
 	my ( $self, $isolate_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $data = $self->run_query( "SELECT locus,allele_id,status FROM allele_designations WHERE isolate_id=?",
+	my $data = $self->run_query( 'SELECT locus,allele_id,status FROM allele_designations WHERE isolate_id=?',
 		$isolate_id, { fetch => 'all_arrayref', cache => 'get_all_allele_designations' } );
 	my $alleles = {};
 	foreach my $designation (@$data) {
@@ -3239,7 +3248,8 @@ sub get_tables_with_curator {
 		  projects project_members isolate_field_extended_attributes
 		  isolate_value_extended_attributes scheme_groups scheme_group_scheme_members scheme_group_group_members
 		  pcr pcr_locus probes probe_locus accession sequence_flags sequence_attributes history classification_schemes
-		  isolates eav_fields validation_rules validation_conditions validation_rule_conditions project_users);
+		  isolates eav_fields validation_rules validation_conditions validation_rule_conditions project_users
+		  query_interfaces query_interface_fields);
 		push @tables, $self->{'system'}->{'view'}
 		  if $self->{'system'}->{'view'} && $self->{'system'}->{'view'} ne 'isolates';
 	} elsif ( $dbtype eq 'sequences' ) {
@@ -3388,6 +3398,20 @@ sub get_available_quota {
 sub initiate_view {
 	my ( $self, $args ) = @_;
 	my ( $username, $curate, $set_id ) = @{$args}{qw(username curate set_id)};
+	my $user_info = $self->get_user_info_from_username($username);
+	if ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'sequences' ) {
+		if ( !$user_info ) {    #Not logged in.
+			my $restrict_date = $self->get_date_restriction;
+			if ( defined $restrict_date ) {
+				my $qry = 'CREATE TEMPORARY VIEW temp_sequences_view AS SELECT * FROM sequences WHERE date_entered<=?';
+				eval { $self->{'db'}->do( $qry, undef, $restrict_date ) };
+				$logger->error($@) if $@;
+				$self->{'system'}->{'temp_sequences_view'} = 'temp_sequences_view';
+			}
+		}
+		$self->{'system'}->{'temp_sequences_view'} //= 'sequences';
+		return;
+	}
 	return if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
 	if ( defined $self->{'system'}->{'view'} && $set_id ) {
 		if ( $self->{'system'}->{'views'} && BIGSdb::Utils::is_int($set_id) ) {
@@ -3414,10 +3438,16 @@ sub initiate_view {
 	  . 'pm.project_id=mpu.project_id WHERE (mpu.user_id,pm.isolate_id)=(?,v.id))';
 	use constant PUBLICATION_REQUESTED => 'p.request_publish';
 	use constant ALL_ISOLATES          => 'EXISTS(SELECT 1)';
-	my $user_info = $self->get_user_info_from_username($username);
 
 	if ( !$user_info ) {                                                  #Not logged in
 		$qry .= PUBLIC_ISOLATES;
+
+		#If login_to_show_after_date is set in bigsdb.conf or config.xml to a valid date, then only
+		#include isolates prior to that date unless user is logged in.
+		my $restrict_date = $self->get_date_restriction;
+		if ( defined $restrict_date ) {
+			$qry .= qq( AND v.date_entered<='$restrict_date');
+		}
 	} else {
 		my @user_terms;
 		my $has_user_project =
@@ -3480,6 +3510,18 @@ sub initiate_view {
 	$logger->error($@) if $@;
 	$self->{'system'}->{'view'} = 'temp_view';
 	return;
+}
+
+sub get_date_restriction {
+	my ($self) = @_;
+	my $date = $self->{'config'}->{'login_to_show_after_date'} // $self->{'system'}->{'login_to_show_after_date'};
+	return if !$date;
+	if ( !BIGSdb::Utils::is_date($date) ) {
+		$logger->error( 'Invalid login_to_show_after_date set. Date can be set in bigsdb.conf or in the database '
+			  . 'config.xml file. It must be in yyyy-mm-dd format.' );
+		return;
+	}
+	return $date;
 }
 
 sub get_seqbin_stats {

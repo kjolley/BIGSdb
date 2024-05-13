@@ -226,6 +226,16 @@ sub reconnect {
 	return;
 }
 
+sub get_date_restriction_message {
+	my $self = setting('self');
+	my $date_restriction = $self->{'datastore'}->get_date_restriction;
+	if ($date_restriction && !$self->{'username'}){
+		return 'Please note that you are currently restricted to accessing data that was submitted '
+		. "on or prior to $date_restriction. Please authenticate to access the full dataset."
+	}
+	return
+}
+
 sub _log_call {
 	my $self = setting('self');
 	return if !$self->{'config'}->{'rest_log_to_db'};
@@ -529,7 +539,6 @@ sub get_set_id {
 #Set view if defined in set.
 sub _initiate_view {
 	my ($self) = @_;
-	return if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
 	my $args = {};
 	$args->{'username'} = $self->{'username'} if $self->{'username'};
 	my $set_id = $self->get_set_id;

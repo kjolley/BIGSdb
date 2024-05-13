@@ -65,7 +65,8 @@ sub print_content {
 	say qq(<div id="title_container" style="max-width:${title_max_width}px">);
 	say qq(<h1 style="padding-top:0.3em">$desc database</h1>);
 	$self->print_general_announcement;
-	$self->print_banner;
+	my $date_restriction_message = $self->get_date_restriction_message;
+	$self->print_banner( { additional_message => $date_restriction_message } );
 
 	if ( ( $self->{'system'}->{'sets'} // '' ) eq 'yes' ) {
 		$self->print_set_section;

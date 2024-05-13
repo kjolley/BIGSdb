@@ -81,6 +81,8 @@ sub _get_db {
 	$routes->{'curators'}    = request->uri_for("$subdir/db/$db/curators");
 	$routes->{'submissions'} = request->uri_for("$subdir/db/$db/submissions")
 	  if ( $self->{'system'}->{'submissions'} // '' ) eq 'yes';
+	my $message = $self->get_date_restriction_message;
+	$routes->{'message'} = $message if $message;
 
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$routes->{'isolates'} = request->uri_for("$subdir/db/$db/isolates");

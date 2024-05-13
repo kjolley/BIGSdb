@@ -51,6 +51,7 @@ Version 1.42: Change of seqdef and isolate database structures.
 Version 1.43: Change of seqdef, REST, and authentication database structures.
 Version 1.44: Change of seqdef and isolate database structures.
 Version 1.45: Change of seqdef and isolate database structures.
+Version 1.46: Change of isolate database structure.
 
 Details can be found below.
 
@@ -650,3 +651,11 @@ alternative isolate query forms with specific fields pre-selected.
 
 Please run the isolatedb_v1.45.sql script against isolate databases and the
 seqdefdb_v1.45.sql script against sequence definition databases.
+
+Version 1.46
+------------
+There is a fix for missing primary and foreign keys in scheme status cache 
+tables and the query_interface_fields table respectively in the isolate 
+databases.
+
+Please run the isolatedb_v1.46.sql script against isolate databases.

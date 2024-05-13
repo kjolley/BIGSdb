@@ -251,6 +251,7 @@ sub print_content {
 
 sub _print_api_message {
 	my ($self) = @_;
+	my $date_restriction_message = $self->get_date_restriction_message;
 	if ( $self->{'config'}->{'rest_url'} ) {
 		my $url = "$self->{'config'}->{'rest_url'}/db/$self->{'instance'}";
 		say q(<div class="box" id="message">);
@@ -264,7 +265,10 @@ sub _print_api_message {
 		say qq(<p>See the API <a href="$doc_url" target="_blank">documentation</a> for more details - in particular, )
 		  . qq(the method call for <a href="$fasta_url" target="_blank">downloading a FASTA file</a> for a specified )
 		  . q(locus.</p>);
+		say $date_restriction_message if $date_restriction_message;
 		say q(</div>);
+	} elsif ($date_restriction_message) {
+		say qq(<div class="box banner">$date_restriction_message</div>);
 	}
 	return;
 }
@@ -400,9 +404,11 @@ sub _print_sequences {
 	my $locus_info = $self->{'datastore'}->get_locus_info( $locus, { set_id => $set_id } );
 	( my $cleaned = $locus_info->{'set_name'} // $locus ) =~ s/^_//x;
 	$cleaned =~ tr/ /_/;
-	my $qry = q(SELECT allele_id,sequence FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N', 'P') ORDER BY )
+	my $qry = qq(SELECT allele_id,sequence FROM $self->{'system'}->{'temp_sequences_view'} WHERE locus=? )
+	  . q(AND allele_id NOT IN ('0', 'N', 'P') ORDER BY )
 	  . ( $locus_info->{'allele_id_format'} eq 'integer' ? q(CAST(allele_id AS int)) : q(allele_id) );
 	my $alleles = $self->{'datastore'}->run_query( $qry, $locus, { fetch => 'all_arrayref' } );
+
 	if ( !@$alleles ) {
 		say 'Cannot retrieve sequences.';
 		return;

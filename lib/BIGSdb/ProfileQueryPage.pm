@@ -123,6 +123,10 @@ sub _print_interface {
 	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id');
 	return 1 if defined $scheme_id && $self->is_scheme_invalid( $scheme_id, { with_pk => 1 } );
+	my $date_restriction_message = $self->get_date_restriction_message;
+	if ($date_restriction_message) {
+		say qq(<div class="box banner">$date_restriction_message</div>);
+	}
 	$self->print_scheme_section( { with_pk => 1 } );
 	$scheme_id = $q->param('scheme_id');    #Will be set by scheme section method
 	say q(<div class="box" id="queryform"><div class="scrollable">);
@@ -345,7 +349,7 @@ sub _run_query {
 	}
 	my $browse;
 	if ( $qry =~ /\(\)/x ) {
-		$qry =~ s/\ WHERE\ \(\)//x;
+		$qry =~ s/\ (?:WHERE|AND)\ \(\)//x;
 		$browse = 1;
 	}
 	if (@$errors) {
@@ -445,11 +449,15 @@ sub _generate_query_from_main_form {
 	my $scheme_info      = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	my $scheme_warehouse = "mv_scheme_$scheme_id";
 	my $qry              = "SELECT * FROM $scheme_warehouse WHERE (";
-	my $andor            = $q->param('c0');
-	my $first_value      = 1;
-	my $cscheme_names    = $self->_get_classification_scheme_names($scheme_id);
-	my $cscheme_fields   = $self->_get_classification_scheme_fields($scheme_id);
-	my %standard_fields  = map { $_ => 1 } (
+	my $date_restriction = $self->{'datastore'}->get_date_restriction;
+	if ($date_restriction) {
+		$qry .= qq[date_entered<='$date_restriction') AND (];
+	}
+	my $andor           = $q->param('c0');
+	my $first_value     = 1;
+	my $cscheme_names   = $self->_get_classification_scheme_names($scheme_id);
+	my $cscheme_fields  = $self->_get_classification_scheme_fields($scheme_id);
+	my %standard_fields = map { $_ => 1 } (
 		'sender (id)',
 		'sender (surname)',
 		'sender (first_name)',

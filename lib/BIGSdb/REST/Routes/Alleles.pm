@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2023, University of Oxford
+#Copyright (c) 2014-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -52,7 +52,9 @@ sub _get_alleles {
 	if ( !$locus_info ) {
 		send_error( "Locus $locus does not exist.", 404 );
 	}
-	my $qry = $self->add_filters( 'SELECT COUNT(*),max(datestamp) FROM sequences WHERE locus=?', $allowed_filters );
+	my $qry = $self->add_filters(
+		"SELECT COUNT(*),max(datestamp) FROM $self->{'system'}->{'temp_sequences_view'} WHERE locus=?",
+		$allowed_filters );
 	my ( $allele_count, $last_updated ) = $self->{'datastore'}->run_query( $qry, $locus_name );
 	my $page_values = $self->get_page_values($allele_count);
 	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
@@ -89,8 +91,11 @@ sub _get_alleles {
 	  $params->{'include_records'}
 	  ? 'allele_id,sequence,status,comments,date_entered,datestamp,sender,curator'
 	  : 'allele_id';
-	$qry = $self->add_filters( qq(SELECT $fields FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N', 'P')),
-		$allowed_filters );
+	$qry = $self->add_filters(
+		qq(SELECT $fields FROM $self->{'system'}->{'temp_sequences_view'} )
+		  . q(WHERE locus=? AND allele_id NOT IN ('0', 'N', 'P')),
+		$allowed_filters
+	);
 	$qry .= q( ORDER BY ) . ( $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS int)' : 'allele_id' );
 	$qry .= qq( LIMIT $self->{'page_size'} OFFSET $offset) if !param('return_all');
 	if ( $params->{'include_records'} ) {
@@ -134,6 +139,8 @@ sub _get_alleles {
 		}
 	}
 	$values->{'alleles'} = $records;
+	my $message = $self->get_date_restriction_message;
+	$values->{'message'} = $message if $message;
 	return $values;
 }
 
@@ -184,6 +191,11 @@ sub _get_allele {
 	);
 	if ( !$allele ) {
 		send_error( "Allele $locus-$allele_id does not exist.", 404 );
+	}
+	my $date_restriction = $self->{'datastore'}->get_date_restriction;
+	if ( !$self->{'username'} && $date_restriction && $date_restriction lt $allele->{'date_entered'} ) {
+		my $message = $self->get_date_restriction_message;
+		send_error( $message, 403 );
 	}
 	my $values = {};
 	foreach my $attribute (qw(locus allele_id sequence status comments date_entered datestamp sender curator)) {
@@ -308,10 +320,11 @@ sub _get_alleles_fasta {
 	if ( !$locus_info ) {
 		send_error( "Locus $locus does not exist.", 404 );
 	}
-	my $qry =
-	  $self->add_filters(
-		q(SELECT allele_id,sequence FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N', 'P')),
-		$allowed_filters );
+	my $qry = $self->add_filters(
+		qq(SELECT allele_id,sequence FROM $self->{'system'}->{'temp_sequences_view'} WHERE locus=? AND )
+		  . q(allele_id NOT IN ('0', 'N', 'P')),
+		$allowed_filters
+	);
 	$qry .= q( ORDER BY ) . ( $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS int)' : 'allele_id' );
 	my $alleles = $self->{'datastore'}->run_query( $qry, $locus_name, { fetch => 'all_arrayref', slice => {} } );
 	if ( !@$alleles ) {

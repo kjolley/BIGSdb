@@ -39,6 +39,10 @@ sub print_content {
 	}
 	my $cache_string = $self->get_cache_string;
 	say q(<h1>Database status</h1>);
+	my $date_restriction_message = $self->get_date_restriction_message;
+	if ($date_restriction_message){
+		say qq(<div class="box banner">$date_restriction_message</div>);
+	}
 	say q(<div class="box" id="resultspanel">);
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		$self->_seqdef_db;
