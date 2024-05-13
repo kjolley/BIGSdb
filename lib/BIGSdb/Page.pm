@@ -2956,7 +2956,7 @@ sub _initiate_isolatedb_main_display_prefs {
 		my $extatt = $extended->{$field};
 		if ( ref $extatt eq 'ARRAY' ) {
 			foreach my $extended_attribute (@$extatt) {
-				if ( defined $field_prefs->{$field}->{'maindisplay'} ) {
+				if ( defined $field_prefs->{"${field}..$extended_attribute"}->{'maindisplay'} ) {
 					$self->{'prefs'}->{'maindisplayfields'}->{"${field}..$extended_attribute"} =
 					  $field_prefs->{"${field}..$extended_attribute"}->{'maindisplay'};
 				} else {
