@@ -20,7 +20,7 @@ package BIGSdb::Application;
 use strict;
 use warnings;
 use 5.010;
-use version; our $VERSION = version->declare('v1.45.0');
+use version; our $VERSION = version->declare('v1.46.0');
 use Apache2::Connection;
 use parent qw(BIGSdb::BaseApplication);
 use BIGSdb::AjaxAnalysis;
