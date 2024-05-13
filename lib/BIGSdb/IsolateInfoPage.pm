@@ -1254,7 +1254,7 @@ sub _get_provenance_fields {
 		}
 		my %ext_attribute_field = map { $_ => 1 } @$field_with_extended_attributes;
 		if ( $ext_attribute_field{$field} ) {
-			my $ext_list = $self->_get_field_extended_attributes( $field, $value );
+			my $ext_list = $self->_get_field_extended_attributes( $field, $data->{ lc($field) } );
 			push @$list, @$ext_list;
 		}
 		if ( $composites->{$field} ) {
