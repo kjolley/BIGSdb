@@ -130,6 +130,13 @@ END
 	\$("form#file_upload_form").addClass("dropzone");
 	$db_trigger
 	resize_rmlst_cell();
+	\$('#locus').multiselect({
+	  	classes: 'filter',
+	 	menuHeight: 250,
+	 	menuWidth: 400,
+	 	noneSelectedText: '',
+	 	selectedList: 1,
+	  }).multiselectfilter();
 });
 
 function resize_rmlst_cell(){
@@ -173,7 +180,7 @@ sub initiate {
 		$self->{'noCache'}    = 1;
 		return;
 	}
-	$self->{$_} = 1 foreach qw (jQuery jQuery.jstree noCache tooltips dropzone allowExpand);
+	$self->{$_} = 1 foreach qw (jQuery jQuery.jstree noCache tooltips dropzone allowExpand jQuery.multiselect);
 	if ( $q->param('curate') ) {
 		$self->set_level2_breadcrumbs('Curate submission');
 	} elsif ( $q->param('alleles') || $q->param('profiles') || $q->param('isolate') || $q->param('genomes') ) {
