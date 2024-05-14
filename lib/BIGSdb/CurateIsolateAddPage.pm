@@ -666,7 +666,7 @@ sub print_provenance_form_elements {
 	my $set_id     = $self->get_set_id;
 	my $field_list = $self->{'xmlHandler'}->get_field_list;
 	say q(<fieldset style="float:left"><legend>Primary metadata</legend>);
-	say q(<div style="white-space:nowrap">);
+	say q(<div>);
 	my $width = $self->_get_field_width($field_list);
 	say q(<ul>);
 
