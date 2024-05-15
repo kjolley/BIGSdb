@@ -958,6 +958,7 @@ sub slurp {
 sub remove_trailing_spaces_from_list {
 	my ($list) = @_;
 	foreach (@$list) {
+		next if !defined;
 		s/^\s*//x;
 		s/\s*$//x;
 	}
