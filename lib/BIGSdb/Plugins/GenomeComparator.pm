@@ -66,7 +66,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.8.0',
+		version     => '2.8.1',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -113,10 +113,10 @@ sub run {
 		}
 		my ( $ref_upload, $user_upload );
 		if ( $q->param('ref_upload') ) {
-			$ref_upload = $self->_upload_ref_file;
+			$ref_upload = $self->upload_ref_file;
 		}
 		if ( $q->param('user_upload') ) {
-			$user_upload = $self->_upload_user_file;
+			$user_upload = $self->upload_user_file;
 		}
 		my $filtered_ids = $self->filter_ids_by_project( $ids, scalar $q->param('project_list') );
 		if ( !@$filtered_ids && !$q->param('user_upload') ) {
@@ -264,7 +264,7 @@ sub _print_interface {
 	$self->print_recommended_scheme_fieldset( { no_clear => 1 } );
 	$self->print_scheme_fieldset;
 	say q(<div style="clear:both"></div>);
-	$self->_print_reference_genome_fieldset;
+	$self->print_reference_genome_fieldset;
 	$self->_print_parameters_fieldset;
 	$self->_print_distance_matrix_fieldset;
 	$self->_print_alignment_fieldset;
@@ -307,7 +307,7 @@ sub _print_parameters_fieldset {
 	return;
 }
 
-sub _print_reference_genome_fieldset {
+sub print_reference_genome_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<fieldset style="float:left; height:12em"><legend>Annotated reference genome</legend>);
@@ -2068,13 +2068,13 @@ sub _write_excel_citations {
 	return;
 }
 
-sub _upload_ref_file {
+sub upload_ref_file {
 	my ($self) = @_;
 	my $file = $self->upload_file( 'ref_upload', 'ref' );
 	return $file;
 }
 
-sub _upload_user_file {
+sub upload_user_file {
 	my ($self) = @_;
 	my $file = $self->upload_file( 'user_upload', 'user' );
 	return $file;

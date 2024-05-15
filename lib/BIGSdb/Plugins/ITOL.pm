@@ -58,7 +58,7 @@ sub get_attributes {
 		buttontext => 'iTOL',
 		menutext   => 'iTOL',
 		module     => 'ITOL',
-		version    => '1.6.0',
+		version    => '1.6.1',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
@@ -116,7 +116,7 @@ sub run {
 		$q->param( user_genome_filename => scalar $q->param('user_upload') );
 		my $user_upload;
 		if ( $q->param('user_upload') ) {
-			$user_upload = $self->_upload_user_file;
+			$user_upload = $self->upload_user_file;
 		}
 		if ( ( !@ids || @ids < 2 ) && !$user_upload ) {
 			push @errors, q(You must select at least two valid isolate ids.);
