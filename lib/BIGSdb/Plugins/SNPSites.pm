@@ -420,7 +420,7 @@ sub _print_interface {
 	say q(<p><span class="flag" style="color:#4c0099;background:#4c009915">BETA - test version</span></p>);
 	say q(<p>This tool will create alignments for each selected locus for the set of isolates chosen. The )
 	  . q(<a href="https://github.com/sanger-pathogens/snp-sites" target="_blank">snp-sites</a> tool will then )
-	  . q(be used to identify polymorphic sites. Please check the loci that you would like to include. Alternatively )
+	  . q(be used to identify polymorphic sites. Please select the loci that you would like to include. Alternatively )
 	  . q(select one or more schemes to include all loci that are members of the scheme.</p>);
 	say q(<p>The snp-sites algorithm and program are desribed in <a href="https://pubmed.ncbi.nlm.nih.gov/28348851/" )
 	  . q(target="_blank">Page <i>et al.</i> 2016. SNP-sites: rapid efficient extraction of SNPs from multi-FASTA )
