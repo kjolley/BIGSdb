@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -390,7 +390,7 @@ sub _print_interface {
 		say qq(<li><label for="locus:$locus" class="form" style="width:${width}em"$title_attribute>$label: !</label>);
 		say $self->textfield(
 			-name => "locus:$locus",
-			-id   => "locus:$locus",
+			-id   => "locus_$locus",
 			-size => $locus_info->{'allele_id_format'} eq 'integer' ? 10 : 20,
 			-value => $q->param("locus:$locus") // $allele_data->{$locus},
 			%html5_args
@@ -410,14 +410,14 @@ sub _print_interface {
 			unshift @optlist, q();
 			say $q->popup_menu(
 				-name   => "field:$field",
-				-id     => "field:$field",
+				-id     => "field_$field",
 				-values => \@optlist,
 				default => $q->param("field:$field") // $field_data->{$field}
 			);
 		} else {
 			say $q->textfield(
 				-name => "field:$field",
-				-id   => "field:$field",
+				-id   => "field_$field",
 				-size => $field_info->{'type'} eq 'integer' ? 10 : 50,
 				-value => $q->param("field:$field") // $field_data->{$field},
 				%html5_args
@@ -428,7 +428,7 @@ sub _print_interface {
 	say qq(<li><label for="field:sender" class="form" style="width:${width}em">sender: !</label>);
 	say $q->popup_menu(
 		-name    => 'field:sender',
-		-id      => 'field:sender',
+		-id      => 'field_sender',
 		-values  => [ '', @$users ],
 		-labels  => $usernames,
 		-default => $q->param('field:sender') // $profile_data->{'sender'}
