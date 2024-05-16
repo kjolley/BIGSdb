@@ -66,7 +66,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.8.1',
+		version     => '2.8.2',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -2456,7 +2456,7 @@ sub _core_analysis {
 			name     => 'locus_presence',
 			title    => 'Locus presence frequency',
 			'x-axis' => 'Present in % of isolates',
-			'y-axis' => 'Number of isolates'
+			'y-axis' => 'Number of loci'
 		}
 	);
 	my $chart_html = <<"JS";
