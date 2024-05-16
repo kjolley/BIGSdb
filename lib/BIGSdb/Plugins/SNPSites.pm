@@ -58,7 +58,7 @@ sub get_attributes {
 		section    => 'third_party,postquery',
 		input      => 'query',
 		help       => 'tooltips',
-		requires   => 'aligner,offline_jobs,js_tree',
+		requires   => 'aligner,offline_jobs,js_tree,snp_sites',
 		supports   => 'user_genomes',
 
 		#		url        => "$self->{'config'}->{'doclink'}/data_analysis/snp_sites.html",
@@ -78,6 +78,10 @@ sub run {
 	my $q      = $self->{'cgi'};
 	my $title  = $self->get_title;
 	say qq(<h1>$title</h1>);
+	if ( !$self->{'config'}->{'snp_sites_path'} ) {
+		$self->print_bad_status( { message => q(snp-sites is not installed.) } );
+		return;
+	}
 	return if $self->has_set_changed;
 	if ( !-x $self->{'config'}->{'muscle_path'} && !-x $self->{'config'}->{'mafft_path'} ) {
 		$logger->error( 'This plugin requires an aligner (MAFFT or MUSCLE) to be installed and one is not. '
@@ -235,8 +239,17 @@ sub run_job {
 	my $scan_data = $self->assemble_data_for_defined_loci(
 		{ job_id => $job_id, ids => $isolate_ids, user_genomes => $user_genomes, loci => $loci } );
 	my $alignment_zip = "$self->{'config'}->{'tmp_dir'}/${job_id}_align.zip";
+	my $vcf_zip       = "$self->{'config'}->{'tmp_dir'}/${job_id}_vcf.zip";
+	my $output_file   = "$self->{'config'}->{'tmp_dir'}/${job_id}.txt";
+	$self->_append( $output_file, "locus\tpresent\talleles\tSNPs" );
+	my $start_progress = 20;
+	my $i              = 0;
+
 	foreach my $locus (@$loci) {
 		last if $self->{'exit'};
+		my $progress = $start_progress + int( 80 * $i / @$loci );
+		$self->{'jobManager'}
+		  ->update_job_status( $job_id, { stage => "Checking $locus", percent_complete => $progress } );
 		( my $escaped_locus = $locus ) =~ s/[\/\|\']/_/gx;
 		$escaped_locus =~ tr/ /_/;
 		my $alignment = $self->_align_locus(
@@ -250,14 +263,60 @@ sub run_job {
 			}
 		);
 		if ( -e $alignment->{'alignment_file'} ) {
-			$self->_zip_append($alignment_zip, $alignment->{'alignment_file'}, "$escaped_locus.aln");
+			$self->_zip_append( $alignment_zip, $alignment->{'alignment_file'}, "$escaped_locus.aln" );
+			my $vcf_file = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}_$escaped_locus.vcf";
+			system("$self->{'config'}->{'snp_sites_path'} -v -o $vcf_file $alignment->{'alignment_file'}");
+			if ( -e $vcf_file ) {
+				$self->_zip_append( $vcf_zip, $vcf_file, "$escaped_locus.vcf" );
+			}
+			my $snps = $self->_count_snps($vcf_file);
+			$self->_append( $output_file, "$locus\t$alignment->{'sequences'}\t$alignment->{'alleles'}\t$snps" );
 			unlink $alignment->{'alignment_file'};
+			unlink $vcf_file;
 		}
+		$i++;
 	}
 	if ( -e $alignment_zip ) {
 		$self->{'jobManager'}
 		  ->update_job_output( $job_id, { filename => "${job_id}_align.zip", description => 'Alignments (ZIP file)' } );
 	}
+	if ( -e $vcf_zip ) {
+		$self->{'jobManager'}
+		  ->update_job_output( $job_id, { filename => "${job_id}_vcf.zip", description => 'VCF files (ZIP file)' } );
+	}
+	if ( -e $output_file ) {
+		$self->{'jobManager'}->update_job_output( $job_id,
+			{ filename => "${job_id}.txt", description => 'Summary output (Text format)' } );
+		my $excel_file = BIGSdb::Utils::text2excel($output_file);
+		if ( -e "$self->{'config'}->{'tmp_dir'}/${job_id}.xlsx" ) {
+			$self->{'jobManager'}->update_job_output( $job_id,
+				{ filename => "${job_id}.xlsx", description => 'Summary output (Excel format)' } );
+		}
+	}
+	return;
+}
+
+sub _count_snps {
+	my ( $self, $vcf ) = @_;
+	if ( !-e $vcf ) {
+		return 0;
+	}
+	my $count = 0;
+	open( my $fh, '<', $vcf ) || $logger->error("Cannot open $vcf for reading.");
+	while ( my $line = <$fh> ) {
+		next if $line =~ /^\#/x;
+		next if !$line;
+		$count++;
+	}
+	close $fh;
+	return $count;
+}
+
+sub _append {
+	my ( $self, $file, $line ) = @_;
+	open( my $fh, '>>:encoding(utf8)', $file ) || $logger->error("Cannot open $file for appending.");
+	say $fh $line;
+	close $fh;
 	return;
 }
 
@@ -317,7 +376,7 @@ sub _align_locus {
 			my $threads =
 			  BIGSdb::Utils::is_int( $self->{'config'}->{'mafft_threads'} ) ? $self->{'config'}->{'mafft_threads'} : 1;
 			system( "$self->{'config'}->{'mafft_path'} --thread $threads --quiet "
-				  . "--preservecase --clustalout $fasta_file > $aligned_out" );
+				  . "--preservecase $fasta_file > $aligned_out" );
 		} elsif ( $aligner eq 'MUSCLE'
 			&& $self->{'config'}->{'muscle_path'} )
 		{
@@ -326,7 +385,7 @@ sub _align_locus {
 				-in    => $fasta_file,
 				-out   => $aligned_out,
 				-maxmb => $max_mb,
-				'-quiet', '-clwstrict'
+				'-quiet'
 			);
 		} else {
 			$self->{'logger'}->error('No aligner selected');
@@ -358,10 +417,14 @@ sub _print_interface {
 	my $attr        = $self->get_attributes;
 	my $max_records = $attr->{'max'};
 	say q(<div class="box" id="queryform">);
+	say q(<p><span class="flag" style="color:#4c0099;background:#4c009915">BETA - test version</span></p>);
 	say q(<p>This tool will create alignments for each selected locus for the set of isolates chosen. The )
 	  . q(<a href="https://github.com/sanger-pathogens/snp-sites" target="_blank">snp-sites</a> tool will then )
 	  . q(be used to identify polymorphic sites. Please check the loci that you would like to include. Alternatively )
 	  . q(select one or more schemes to include all loci that are members of the scheme.</p>);
+	say q(<p>The snp-sites algorithm and program are desribed in <a href="https://pubmed.ncbi.nlm.nih.gov/28348851/" )
+	  . q(target="_blank">Page <i>et al.</i> 2016. SNP-sites: rapid efficient extraction of SNPs from multi-FASTA )
+	  . q(alignments. <i>Microb Gen</i> <b>2:</b>e000056</a>.</p>);
 	say qq(<p>Analysis is limited to $max_records isolates.</p>);
 	say $q->start_form;
 	say q(<div class="scrollable"><div class="flex_container" style="justify-content:left">);
@@ -399,6 +462,17 @@ sub _print_options_fieldset {
 		say $q->popup_menu( -name => 'aligner', -id => 'aligner', -values => $aligners );
 		say q(</li><li>);
 	}
+
+	#	say q(<span style="vertical-align:top">Output: </span>);
+	#	say $q->scrolling_list(
+	#		-name     => 'output',
+	#		-id       => 'output',
+	#		-values   => [qw(alignment vcf phylip)],
+	#		-labels   => { alignment => 'Multi Fasta alignment', vcf => 'VCF', phylip => 'Relaxed Phylip format' },
+	#		-size     => 4,
+	#		-default  => 'alignment',
+	#		-multiple => 'true'
+	#	);
 	say q(</ul></fieldset>);
 	return;
 }
@@ -407,12 +481,18 @@ sub get_plugin_javascript {
 	my ($self) = @_;
 	my $buffer = << "END";
 \$(function () {
-	\$('#locus,#recommended_schemes').multiselect({
+	\$('#locus').multiselect({
  		classes: 'filter',
  		menuHeight: 250,
  		menuWidth: 400,
  		selectedList: 8
   	}).multiselectfilter();
+  	\$('#recommended_schemes,#output').multiselect({
+ 		classes: 'filter',
+ 		menuHeight: 250,
+ 		menuWidth: 400,
+ 		selectedList: 8
+  	});
 });	
 END
 	return $buffer;
