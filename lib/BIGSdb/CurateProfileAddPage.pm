@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -375,7 +375,7 @@ sub _print_interface {
 	$html5_args{'type'} = 'number' if $pk_field_info->{'type'} eq 'integer';
 	say $self->textfield(
 		-name  => "field:$primary_key",
-		-id    => "field:$primary_key",
+		-id    => "field_$primary_key",
 		-size  => $pk_field_info->{'type'} eq 'integer' ? 10 : 30,
 		-value => $q->param("field:$primary_key") // $newdata->{$primary_key},
 		%html5_args
@@ -397,7 +397,7 @@ sub _print_interface {
 		say qq(<li><label for="locus:$locus" class="form" style="width:${width}em"$title_attribute>$label: !</label>);
 		say $self->textfield(
 			-name  => "locus:$locus",
-			-id    => "locus:$locus",
+			-id    => "locus_$locus",
 			-size  => 10,
 			-value => $q->param("locus:$locus") // $newdata->{"locus:$locus"},
 			%html5_args
@@ -408,7 +408,7 @@ sub _print_interface {
 	my ( $users, $user_names ) = $self->{'datastore'}->get_users;
 	say $self->popup_menu(
 		-name     => 'field:sender',
-		-id       => 'field:sender',
+		-id       => 'field_sender',
 		-values   => [ '', @$users ],
 		-labels   => $user_names,
 		-default  => $newdata->{'field:sender'},
@@ -428,13 +428,13 @@ sub _print_interface {
 			unshift @optlist, q();
 			say $self->popup_menu(
 				-name   => "field:$field",
-				-id     => "field:$field",
+				-id     => "field_$field",
 				-values => \@optlist
 			);
 		} else {
 			say $self->textfield(
 				-name  => "field:$field",
-				-id    => "field:$field",
+				-id    => "field_$field",
 				-size  => $scheme_field_info->{'type'} eq 'integer' ? 10 : 50,
 				-value => $newdata->{"field:$field"},
 				%html5_args
@@ -548,5 +548,21 @@ sub update_profile_history {
 		$self->{'db'}->commit;
 	}
 	return;
+}
+
+sub get_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+\$(function () {
+   \$('#field_sender').multiselect({
+  	classes: 'filter',
+ 	menuHeight: 250,
+ 	menuWidth: 400,
+ 	noneSelectedText: '',
+ 	selectedList: 1,
+  }).multiselectfilter();
+});
+END
+	return $buffer;
 }
 1;
