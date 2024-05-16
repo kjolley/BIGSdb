@@ -250,28 +250,7 @@ sub run_job {
 			}
 		);
 		if ( -e $alignment->{'alignment_file'} ) {
-			if ( -e $alignment_zip ) {
-				my $zip = Archive::Zip->new;
-				unless ( $zip->read($alignment_zip) == AZ_OK ) {
-					$logger->error("Error reading zip file $alignment_zip");
-					BIGSdb::Exception::Plugin->throw("Error reading zip file $alignment_zip");
-				}
-				my $file_member = $zip->addFile( $alignment->{'alignment_file'} );
-				$file_member->fileName("$escaped_locus.aln");
-				unless ( $zip->overwrite == AZ_OK ) {
-					$logger->error("Error writing zip file $alignment_zip");
-					BIGSdb::Exception::Plugin->throw("Error writing zip file $alignment_zip");
-				}
-			} else {
-				my $zip         = Archive::Zip->new;
-				my $file_member = $zip->addFile( $alignment->{'alignment_file'} );
-				$file_member->fileName("$escaped_locus.aln");
-				unless ( $zip->writeToFileNamed($alignment_zip) == AZ_OK ) {
-					$logger->error("Error creating zip file $alignment_zip");
-					BIGSdb::Exception::Plugin->throw("Error creating zip file $alignment_zip");
-				}
-			}
-			chmod oct('0664'), $alignment_zip;
+			$self->_zip_append($alignment_zip, $alignment->{'alignment_file'}, "$escaped_locus.aln");
 			unlink $alignment->{'alignment_file'};
 		}
 	}
@@ -279,6 +258,33 @@ sub run_job {
 		$self->{'jobManager'}
 		  ->update_job_output( $job_id, { filename => "${job_id}_align.zip", description => 'Alignments (ZIP file)' } );
 	}
+	return;
+}
+
+sub _zip_append {
+	my ( $self, $zip_file, $file_path, $renamed_file ) = @_;
+	if ( -e $zip_file ) {
+		my $zip = Archive::Zip->new;
+		unless ( $zip->read($zip_file) == AZ_OK ) {
+			$logger->error("Error reading zip file $zip_file");
+			BIGSdb::Exception::Plugin->throw("Error reading zip file $zip_file");
+		}
+		my $file_member = $zip->addFile($file_path);
+		$file_member->fileName($renamed_file);
+		unless ( $zip->overwrite == AZ_OK ) {
+			$logger->error("Error writing zip file $zip_file");
+			BIGSdb::Exception::Plugin->throw("Error writing zip file $zip_file");
+		}
+	} else {
+		my $zip         = Archive::Zip->new;
+		my $file_member = $zip->addFile($file_path);
+		$file_member->fileName($renamed_file);
+		unless ( $zip->writeToFileNamed($zip_file) == AZ_OK ) {
+			$logger->error("Error creating zip file $zip_file");
+			BIGSdb::Exception::Plugin->throw("Error creating zip file $zip_file");
+		}
+	}
+	chmod oct('0664'), $zip_file;
 	return;
 }
 
