@@ -26,13 +26,9 @@ use BIGSdb::Constants qw(:limits);
 use BIGSdb::Exceptions;
 use List::MoreUtils qw(uniq);
 use Digest::MD5;
+use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-
-#use Try::Tiny;
-#use List::MoreUtils qw(uniq);
-#use File::Copy;
-use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
 use constant MAX_RECORDS => 2000;
 
 sub get_attributes {
@@ -48,27 +44,27 @@ sub get_attributes {
 		],
 		description      => 'Find SNPs in selected loci',
 		full_description => 'The SNPSites plugin aligns sequences for specified loci for an isolate dataset. '
-		  . 'The alignment is then passed to snp-sites to identify SNP positions.',
+		  . 'The alignment is then passed to snp-sites to identify SNP positions. Output consists of a summary '
+		  . 'table including the number of alleles and polymorphic sites found for each locus, and ZIP files '
+		  . 'containing alignment FASTAs and VCF files for each locus.',
 		category   => 'Third party',
 		buttontext => 'SNPSites',
 		menutext   => 'SNPSites',
 		module     => 'SNPSites',
 		version    => '1.0.0',
 		dbtype     => 'isolates',
-		section    => 'third_party,postquery',
+		section    => 'analysis,postquery',
 		input      => 'query',
 		help       => 'tooltips',
 		requires   => 'aligner,offline_jobs,js_tree,snp_sites',
 		supports   => 'user_genomes',
-
-		#		url        => "$self->{'config'}->{'doclink'}/data_analysis/snp_sites.html",
-		order => 80,
-		min   => 2,
-		max   => $self->{'system'}->{'snpsites_record_limit'} // $self->{'config'}->{'snpsites_record_limit'}
+		url        => "$self->{'config'}->{'doclink'}/data_analysis/snp_sites.html",
+		order      => 80,
+		min        => 2,
+		max        => $self->{'system'}->{'snpsites_record_limit'} // $self->{'config'}->{'snpsites_record_limit'}
 		  // MAX_RECORDS,
 		always_show_in_menu => 1,
-
-		#		image               => '/images/plugins/SNPSites/screenshot.png'
+		image               => '/images/plugins/SNPSites/screenshot.png'
 	);
 	return \%att;
 }
@@ -265,7 +261,7 @@ sub run_job {
 		if ( -e $alignment->{'alignment_file'} ) {
 			$self->_zip_append( $alignment_zip, $alignment->{'alignment_file'}, "$escaped_locus.aln" );
 			my $vcf_file = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}_$escaped_locus.vcf";
-			system("$self->{'config'}->{'snp_sites_path'} -v -o $vcf_file $alignment->{'alignment_file'}");
+			system("$self->{'config'}->{'snp_sites_path'} -v -o $vcf_file $alignment->{'alignment_file'} 2> /dev/null");
 			if ( -e $vcf_file ) {
 				$self->_zip_append( $vcf_zip, $vcf_file, "$escaped_locus.vcf" );
 			}
@@ -417,7 +413,6 @@ sub _print_interface {
 	my $attr        = $self->get_attributes;
 	my $max_records = $attr->{'max'};
 	say q(<div class="box" id="queryform">);
-	say q(<p><span class="flag" style="color:#4c0099;background:#4c009915">BETA - test version</span></p>);
 	say q(<p>This tool will create alignments for each selected locus for the set of isolates chosen. The )
 	  . q(<a href="https://github.com/sanger-pathogens/snp-sites" target="_blank">snp-sites</a> tool will then )
 	  . q(be used to identify polymorphic sites. Please select the loci that you would like to include. Alternatively )
@@ -435,7 +430,7 @@ sub _print_interface {
 	$self->print_scheme_fieldset;
 	$self->print_recommended_scheme_fieldset( { no_clear => 1 } );
 	$self->_print_options_fieldset;
-	$self->print_action_fieldset( { name => 'GenomeComparator' } );
+	$self->print_action_fieldset;
 	say $q->hidden($_) foreach qw (page name db);
 	say q(</div></div>);
 	say $q->end_form;
@@ -462,17 +457,6 @@ sub _print_options_fieldset {
 		say $q->popup_menu( -name => 'aligner', -id => 'aligner', -values => $aligners );
 		say q(</li><li>);
 	}
-
-	#	say q(<span style="vertical-align:top">Output: </span>);
-	#	say $q->scrolling_list(
-	#		-name     => 'output',
-	#		-id       => 'output',
-	#		-values   => [qw(alignment vcf phylip)],
-	#		-labels   => { alignment => 'Multi Fasta alignment', vcf => 'VCF', phylip => 'Relaxed Phylip format' },
-	#		-size     => 4,
-	#		-default  => 'alignment',
-	#		-multiple => 'true'
-	#	);
 	say q(</ul></fieldset>);
 	return;
 }
