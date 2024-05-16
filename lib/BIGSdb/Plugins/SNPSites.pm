@@ -422,7 +422,7 @@ sub _print_interface {
 	  . q(<a href="https://github.com/sanger-pathogens/snp-sites" target="_blank">snp-sites</a> tool will then )
 	  . q(be used to identify polymorphic sites. Please select the loci that you would like to include. Alternatively )
 	  . q(select one or more schemes to include all loci that are members of the scheme.</p>);
-	say q(<p>The snp-sites algorithm and program are desribed in <a href="https://pubmed.ncbi.nlm.nih.gov/28348851/" )
+	say q(<p>The snp-sites algorithm and program are described in <a href="https://pubmed.ncbi.nlm.nih.gov/28348851/" )
 	  . q(target="_blank">Page <i>et al.</i> 2016. SNP-sites: rapid efficient extraction of SNPs from multi-FASTA )
 	  . q(alignments. <i>Microb Gen</i> <b>2:</b>e000056</a>.</p>);
 	say qq(<p>Analysis is limited to $max_records isolates.</p>);
