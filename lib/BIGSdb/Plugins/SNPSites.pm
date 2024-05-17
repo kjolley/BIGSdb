@@ -359,10 +359,14 @@ sub _align_locus {
 
 	foreach my $isolate_id (@$isolate_ids) {
 		my $seqs = $scan_data->{'isolate_data'}->{$isolate_id}->{'sequences'}->{$locus};
+		my $seq_id = 0;
 		foreach my $seq (@$seqs) {
+			$seq_id++;
 			my $seq_hash = Digest::MD5::md5_hex($seq);
 			$seen{$seq_hash} = 1;
-			say $fasta_fh ">$isolate_id";
+			my $header_name = $isolate_id;
+			$header_name .= "_$seq_id" if $seq_id > 1;
+			say $fasta_fh ">$header_name";
 			say $fasta_fh $seq;
 			$seq_count++;
 		}
