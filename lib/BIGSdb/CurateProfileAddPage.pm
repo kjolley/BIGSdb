@@ -366,7 +366,7 @@ sub _print_interface {
 	print $q->start_form;
 	$q->param( sent => 1 );
 	say $q->hidden($_) foreach qw (page db sent scheme_id submission_id);
-	say q(<ul style="white-space:no-wrap">);
+	say q(<ul>);
 	my ( $label, $title ) = $self->get_truncated_label( $primary_key, 24 );
 	my $title_attribute = $title ? qq( title="$title") : q();
 	say qq(<li><label for="field_$primary_key" class="form" style="width:${width}em"$title_attribute>$label: !</label>);
@@ -422,7 +422,7 @@ sub _print_interface {
 		$html5_args{'type'} = 'number' if $scheme_field_info->{'type'} eq 'integer';
 		( $label, $title ) = $self->get_truncated_label( $field, 24 );
 		$title_attribute = $title ? " title=\"$title\"" : '';
-		say qq(<li><label for="field_$field" class="form" style="width:${width}em;white-space:no-wrap")
+		say qq(<li><label for="field_$field" class="form" style="width:${width}em;white-space:nowrap")
 		  . qq($title_attribute>$label: </label>);
 		if ( defined $scheme_field_info->{'option_list'} ) {
 			my @optlist = split /\|/x, $scheme_field_info->{'option_list'};
@@ -446,17 +446,17 @@ sub _print_interface {
 		}
 		say q(</li>);
 	}
-	say qq(<li><label class="form" style="width:${width}em;white-space:no-wrap">curator: !</label><b>)
+	say qq(<li><label class="form" style="width:${width}em;white-space:nowrap">curator: !</label><b>)
 	  . $self->get_curator_name . q[ (]
 	  . $self->{'username'}
 	  . q[)</b></li>];
-	say qq(<li><label class="form" style="width:${width}em;white-space:no-wrap">date_entered: !</label><b>)
+	say qq(<li><label class="form" style="width:${width}em;white-space:nowrap">date_entered: !</label><b>)
 	  . BIGSdb::Utils::get_datestamp()
 	  . q(</b></li>);
-	say qq(<li><label class="form" style="width:${width}em;white-space:no-wrap">datestamp: !</label><b>)
+	say qq(<li><label class="form" style="width:${width}em;white-space:nowrap">datestamp: !</label><b>)
 	  . BIGSdb::Utils::get_datestamp()
 	  . q(</b></li>);
-	say qq(<li><label for="pubmed" class="form" style="width:${width}em;white-space:no-wrap">PubMed ids:</label>)
+	say qq(<li><label for="pubmed" class="form" style="width:${width}em;white-space:nowrap">PubMed ids:</label>)
 	  ;
 	say $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em' );
 	say q(</li></ul>);
