@@ -366,7 +366,7 @@ sub _print_interface {
 	print $q->start_form;
 	$q->param( sent => 1 );
 	say $q->hidden($_) foreach qw (page db sent scheme_id submission_id);
-	say q(<ul>);
+	say q(<ul style="white-space:no-wrap">);
 	my ( $label, $title ) = $self->get_truncated_label( $primary_key, 24 );
 	my $title_attribute = $title ? qq( title="$title") : q();
 	say qq(<li><label for="field_$primary_key" class="form" style="width:${width}em"$title_attribute>$label: !</label>);
@@ -422,7 +422,8 @@ sub _print_interface {
 		$html5_args{'type'} = 'number' if $scheme_field_info->{'type'} eq 'integer';
 		( $label, $title ) = $self->get_truncated_label( $field, 24 );
 		$title_attribute = $title ? " title=\"$title\"" : '';
-		say qq(<li><label for="field_$field" class="form" style="width:${width}em"$title_attribute>$label: </label>);
+		say qq(<li><label for="field_$field" class="form" style="width:${width}em;white-space:no-wrap")
+		  . qq($title_attribute>$label: </label>);
 		if ( defined $scheme_field_info->{'option_list'} ) {
 			my @optlist = split /\|/x, $scheme_field_info->{'option_list'};
 			unshift @optlist, q();
@@ -507,7 +508,7 @@ sub is_locus_field_bad {
 		}
 		return "$mapped value is invalid - this scheme does not allow missing (0) or arbitrary alleles (N) "
 		  . 'in the profile.';
-	} elsif ($value eq 'P'){
+	} elsif ( $value eq 'P' ) {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 		if ( $scheme_info->{'allow_presence'} ) {
 			if ( !$self->{'datastore'}->sequence_exists( $locus, $value ) ) {
