@@ -446,17 +446,18 @@ sub _print_interface {
 		}
 		say q(</li>);
 	}
-	say qq(<li><label class="form" style="width:${width}em">curator: !</label><b>)
+	say qq(<li><label class="form" style="width:${width}em;white-space:no-wrap">curator: !</label><b>)
 	  . $self->get_curator_name . q[ (]
 	  . $self->{'username'}
 	  . q[)</b></li>];
-	say qq(<li><label class="form" style="width:${width}em">date_entered: !</label><b>)
+	say qq(<li><label class="form" style="width:${width}em;white-space:no-wrap">date_entered: !</label><b>)
 	  . BIGSdb::Utils::get_datestamp()
 	  . q(</b></li>);
-	say qq(<li><label class="form" style="width:${width}em">datestamp: !</label><b>)
+	say qq(<li><label class="form" style="width:${width}em;white-space:no-wrap">datestamp: !</label><b>)
 	  . BIGSdb::Utils::get_datestamp()
 	  . q(</b></li>);
-	say qq(<li><label for="pubmed" class="form" style="width:${width}em">PubMed ids:</label>);
+	say qq(<li><label for="pubmed" class="form" style="width:${width}em;white-space:no-wrap">PubMed ids:</label>)
+	  ;
 	say $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em' );
 	say q(</li></ul>);
 	$self->print_action_fieldset( { scheme_id => $scheme_id } );
