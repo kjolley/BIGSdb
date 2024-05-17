@@ -232,15 +232,17 @@ sub run_job {
 		);
 		return;
 	}
+	$params->{'list_seqs_separately'} = 1;    #Don't concatenate alleles if more than one per locus.
 	my $scan_data = $self->assemble_data_for_defined_loci(
 		{ job_id => $job_id, ids => $isolate_ids, user_genomes => $user_genomes, loci => $loci } );
+
+	#		use Data::Dumper;$logger->error(Dumper $scan_data);
 	my $alignment_zip = "$self->{'config'}->{'tmp_dir'}/${job_id}_align.zip";
 	my $vcf_zip       = "$self->{'config'}->{'tmp_dir'}/${job_id}_vcf.zip";
 	my $output_file   = "$self->{'config'}->{'tmp_dir'}/${job_id}.txt";
 	$self->_append( $output_file, "locus\tpresent\talleles\tSNPs" );
 	my $start_progress = 20;
 	my $i              = 0;
-
 	foreach my $locus (@$loci) {
 		last if $self->{'exit'};
 		my $progress = $start_progress + int( 80 * $i / @$loci );
@@ -352,20 +354,20 @@ sub _align_locus {
 	my $alleles     = 0;
 	open( my $fasta_fh, '>:encoding(utf8)', $fasta_file )
 	  || $self->{'logger'}->error("Cannot open $fasta_file for writing");
-	my $seqs = 0;
+	my $seq_count = 0;
 	my %seen;
 
 	foreach my $isolate_id (@$isolate_ids) {
-		my $seq = $scan_data->{'isolate_data'}->{$isolate_id}->{'sequences'}->{$locus};
-		if ($seq) {
+		my $seqs = $scan_data->{'isolate_data'}->{$isolate_id}->{'sequences'}->{$locus};
+		foreach my $seq (@$seqs) {
 			my $seq_hash = Digest::MD5::md5_hex($seq);
 			$seen{$seq_hash} = 1;
 			say $fasta_fh ">$isolate_id";
 			say $fasta_fh $seq;
-			$seqs++;
+			$seq_count++;
 		}
 	}
-	if ( $seqs && -e $fasta_file ) {
+	if ( $seq_count && -e $fasta_file ) {
 		if (   $aligner eq 'MAFFT'
 			&& $self->{'config'}->{'mafft_path'} )
 		{
@@ -391,7 +393,7 @@ sub _align_locus {
 	unlink $fasta_file;
 	return {
 		alignment_file => $aligned_out,
-		sequences      => $seqs,
+		sequences      => $seq_count,
 		alleles        => scalar keys %seen
 	};
 }

@@ -125,7 +125,7 @@ sub _get_allele_designations_from_reference {
 sub _blast {
 	my ( $self, $params ) = @_;
 	my $blast_threads = $self->{'config'}->{'blast_threads'} // 1;
-	my %params = (
+	my %params        = (
 		-num_threads     => $blast_threads,
 		-max_target_seqs => $params->{'locus_count'} * 1000,
 		-word_size       => $params->{'word_size'},
@@ -145,7 +145,7 @@ sub _parse_blast {
 	#return best matches
 	my ( $self, $blast_file ) = @_;
 	my $params    = $self->{'params'};
-	my $identity  = BIGSdb::Utils::is_int( $params->{'identity'} ) ? $params->{'identity'} : 70;
+	my $identity  = BIGSdb::Utils::is_int( $params->{'identity'} )  ? $params->{'identity'}  : 70;
 	my $alignment = BIGSdb::Utils::is_int( $params->{'alignment'} ) ? $params->{'alignment'} : 50;
 	my $blast     = {};
 	open( my $blast_fh, '<', $blast_file )
@@ -161,7 +161,7 @@ sub _parse_blast {
 	my $locus_data   = $self->{'options'}->{'locus_data'};
 	foreach my $locus ( sort keys %{ $self->{'options'}->{'locus_data'} } ) {
 		my $final_match;
-		my $quality = 0;    #simple metric of alignment length x percentage identity
+		my $quality            = 0;    #simple metric of alignment length x percentage identity
 		my $required_alignment = length $locus_data->{$locus}->{'sequence'};
 		my $criteria_matches   = 0;
 		$blast->{$locus} //= [];
@@ -210,7 +210,7 @@ sub _is_paralogous {
 	foreach my $record (@$locus_blast_records) {
 		if ( $record->[3] >= $alignment * 0.01 * $required_alignment && $record->[2] >= $identity ) {
 			my $this_match = $self->_extract_match( $record, $required_alignment, $required_alignment );
-			my $match_seq = $self->_extract_sequence($this_match);
+			my $match_seq  = $self->_extract_sequence($this_match);
 			if ( !$existing_match_seqs{$match_seq} ) {
 				$existing_match_seqs{$match_seq} = 1;
 				$good_matches++;
@@ -288,8 +288,8 @@ sub _create_isolate_FASTA_db {
 
 sub _create_isolate_FASTA {
 	my ( $self, $isolate_id, $prefix ) = @_;
-	my $seqbin = $self->{'seqbin_table'} // 'sequence_bin';
-	my $qry = "SELECT DISTINCT id FROM $seqbin s WHERE s.isolate_id=?";
+	my $seqbin   = $self->{'seqbin_table'} // 'sequence_bin';
+	my $qry      = "SELECT DISTINCT id FROM $seqbin s WHERE s.isolate_id=?";
 	my @criteria = ($isolate_id);
 	my $method   = $self->{'params'}->{'seq_method_list'};
 	if ($method) {
@@ -320,8 +320,7 @@ sub _get_allele_designations_from_defined_loci {
 	my ( $self, $isolate_id, $loci ) = @_;
 	my %loci = map { $_ => 1 } @$loci;
 	my $all_designations =
-	  $self->{'datastore'}
-	  ->run_query( q(SELECT locus,allele_id FROM allele_designations WHERE isolate_id=?),
+	  $self->{'datastore'}->run_query( q(SELECT locus,allele_id FROM allele_designations WHERE isolate_id=?),
 		$isolate_id, { fetch => 'all_arrayref', slice => {}, cache => 'GCHelper::get_allele_designations' } );
 	my $tagged_loci = [];
 	if ( $self->{'options'}->{'tag_status'} ) {
@@ -368,7 +367,7 @@ sub _get_allele_designations_from_defined_loci {
 	}
 
 	#Only scan genome if <50% of selected loci are designated
-	my $rescan = (keys %$designations < ( 0.5 * @$loci ) || $self->{'options'}->{'rescan_missing'}) ? 1 : 0;
+	my $rescan = ( keys %$designations < ( 0.5 * @$loci ) || $self->{'options'}->{'rescan_missing'} ) ? 1 : 0;
 	my ( $scanned_designations, $scanned_sequences, $scanned_paralogous ) = ( {}, {}, {} );
 	if ($rescan) {
 		( $scanned_designations, $scanned_sequences, $scanned_paralogous ) =
@@ -469,7 +468,7 @@ sub _scan_by_loci {
 			next LOCUS;
 		}
 		$designations->{$locus} = $self->_get_new_allele_designation( $locus, \$seq );
-		$seqs->{$locus} = $seq;
+		$seqs->{$locus}         = $seq;
 	}
 	$self->delete_temp_files("$self->{'config'}->{'secure_tmp_dir'}/$_*") foreach ( $isolate_prefix, $locus_prefix );
 	return ( $designations, $seqs, $paralogous );
@@ -489,16 +488,21 @@ sub _sort_allele_list {
 
 sub _get_designation_seqs {
 	my ( $self, $designations ) = @_;
-	my $seqs = {};
+	my $seqs         = {};
 	my %null_alleles = map { $_ => 1 } qw (0 N);
 	foreach my $locus ( keys %$designations ) {
 		my @allele_ids = split /;/x, $designations->{$locus};
+		$seqs->{$locus} = [] if $self->{'options'}->{'list_seqs_separately'};
 		foreach my $allele_id (@allele_ids) {
 			if ( $null_alleles{$allele_id} ) {
 				next;
 			} else {
 				my $seq_ref = $self->{'datastore'}->get_locus($locus)->get_allele_sequence($allele_id);
-				$seqs->{$locus} .= $$seq_ref // q();
+				if ( $self->{'options'}->{'list_seqs_separately'} ) {
+					push @{ $seqs->{$locus} }, $$seq_ref;
+				} else {
+					$seqs->{$locus} .= $$seq_ref // q();
+				}
 			}
 		}
 	}
@@ -570,7 +574,7 @@ sub _get_new_allele_designation {
 	if ( $self->{'allele_lookup'}->{$locus}->{$hash} ) {
 		return $self->{'allele_lookup'}->{$locus}->{$hash};
 	}
-	my $i = $by_ref ? 2 : 1;
+	my $i    = $by_ref                            ? 2     : 1;
 	my $name = $self->{'options'}->{'global_new'} ? 'new' : 'local_new';
 	$i++ while $self->{'seq_lookup'}->{$locus}->{"$name#$i"};
 	$self->{'seq_lookup'}->{$locus}->{"$name#$i"} = $$seq_ref;
@@ -580,7 +584,7 @@ sub _get_new_allele_designation {
 
 sub _translate {
 	my ( $self, $seq_ref ) = @_;
-	my $seq_obj = Bio::Seq->new( -seq => $$seq_ref, -alphabet => 'dna' );
+	my $seq_obj        = Bio::Seq->new( -seq => $$seq_ref, -alphabet => 'dna' );
 	my $translated_seq = $seq_obj->translate->seq;
 	return \$translated_seq;
 }
