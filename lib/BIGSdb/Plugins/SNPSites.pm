@@ -361,6 +361,7 @@ sub _align_locus {
 		$seqs = [$seqs] if !ref $seqs;
 		my $seq_id = 0;
 		foreach my $seq (@$seqs) {
+			next if !defined $seq;
 			$seq_id++;
 			my $seq_hash = Digest::MD5::md5_hex($seq);
 			$seen{$seq_hash} = 1;
