@@ -2075,11 +2075,15 @@ sub create_temp_scheme_status_table {
 		  ->prepare("INSERT INTO $table (id,locus_count) VALUES (?,?) ON CONFLICT (id) DO UPDATE SET locus_count=?");
 		my $delete_sql = $self->{'db'}->prepare("DELETE FROM $table WHERE id=?");
 		foreach my $isolate_id (@$isolates) {
-			my $count = $self->run_query(
+			my $count_zero = $scheme_info->{'quality_metric_count_zero'} ? q() : q( AND ad.allele_id <> '0');
+			my $count      = $self->run_query(
 				q(SELECT COUNT(DISTINCT(ad.locus)) FROM allele_designations ad JOIN scheme_members sm )
-				  . q(ON ad.locus = sm.locus WHERE sm.scheme_id=? AND isolate_id=?),
+				  . qq(ON ad.locus = sm.locus WHERE sm.scheme_id=? AND isolate_id=?$count_zero),
 				[ $scheme_id, $isolate_id ],
-				{ cache => 'Datastore::create_temp_scheme_status_table::locus_count' }
+				{
+					cache => 'Datastore::create_temp_scheme_status_table::locus_count_'
+					  . ( $scheme_info->{'quality_metric_count_zero'} ? 'zero' : 'nozero' )
+				}
 			);
 			$i++;
 			my $progress = int( $i * 100 / @$isolates );

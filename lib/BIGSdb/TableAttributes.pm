@@ -1312,7 +1312,15 @@ sub get_schemes_table_attributes {
 				tooltip  => 'quality_metric_bad_threshold - Sets the threshold of number of loci in the scheme that '
 				  . 'must have alleles designated below which the annotation is to be considered bad. If left blank '
 				  . 'then the quality_metric_good threshold will be used.'
-			}
+			},
+			{
+				name     => 'quality_metric_count_zero',
+				type     => 'bool',
+				required => 1,
+				default  => 'false',
+				tooltip  => 'quality_metric_count_zero - Sets whether allele 0, signifying a missing locus, '
+				  . 'should be counted in completion stats.'
+			},
 		  );
 		if ( $self->{'system'}->{'views'} ) {
 			my @views = split /,/x, $self->{'system'}->{'views'};

@@ -1006,6 +1006,7 @@ recommended boolean NOT NULL DEFAULT FALSE,
 quality_metric boolean NOT NULL DEFAULT FALSE,
 quality_metric_good_threshold int,
 quality_metric_bad_threshold int,
+quality_metric_count_zero boolean NOT NULL DEFAULT FALSE,
 curator int NOT NULL,
 date_entered date NOT NULL,
 datestamp date NOT NULL,
@@ -1629,6 +1630,9 @@ RETURNS VOID AS $$
 		ELSE
 			modify_qry:=' ';
 		END IF;
+		IF scheme_info.quality_metric_count_zero IS FALSE THEN
+			modify_qry:='AND allele_id <> ''0''';
+		END IF;
 		EXECUTE('CREATE TEMP TABLE ad AS SELECT isolate_id,locus,allele_id FROM allele_designations '
 		|| 'WHERE locus IN (SELECT locus FROM scheme_members WHERE scheme_id=$1)'||modify_qry
 		|| ';CREATE INDEX ON ad(isolate_id,locus)') USING _scheme_id;
@@ -2089,7 +2093,7 @@ PRIMARY KEY(field)
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON db_attributes TO apache;
 
-INSERT INTO db_attributes (field,value) VALUES ('version','46');
+INSERT INTO db_attributes (field,value) VALUES ('version','47');
 INSERT INTO db_attributes (field,value) VALUES ('type','isolates');
 
 CREATE TABLE query_interfaces (

@@ -2660,11 +2660,16 @@ sub _get_scheme_annotation_metrics {
 		if ( $scheme_info->{'view'} ) {
 			next if !$self->{'datastore'}->is_isolate_in_view( $scheme_info->{'view'}, $isolate_id );
 		}
+		my $count_zero      = $scheme_info->{'quality_metric_count_zero'} ? q() : q( AND d.allele_id <> '0');
 		my $loci_designated = $self->{'datastore'}->run_query(
 			'SELECT COUNT(DISTINCT(d.locus)) FROM allele_designations d JOIN scheme_members m ON '
-			  . 'd.locus=m.locus WHERE (d.isolate_id,m.scheme_id)=(?,?)',
+			  . "d.locus=m.locus WHERE (d.isolate_id,m.scheme_id)=(?,?)$count_zero",
 			[ $isolate_id, $scheme->{'id'} ],
-			{ cache => 'IsolateInfo::annotation:metrics' }
+			{
+				cache => 'IsolateInfo::annotation:metrics_'
+				  . ( $scheme_info->{'quality_metric_count_zero'} ? 'zero' : 'nozero' )
+			}
+
 		);
 		my $data = {
 			id            => $scheme_info->{'id'},
