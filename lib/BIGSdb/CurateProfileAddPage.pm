@@ -369,7 +369,7 @@ sub _print_interface {
 	say q(<ul>);
 	my ( $label, $title ) = $self->get_truncated_label( $primary_key, 24 );
 	my $title_attribute = $title ? qq( title="$title") : q();
-	say qq(<li><label for="field:$primary_key" class="form" style="width:${width}em"$title_attribute>$label: !</label>);
+	say qq(<li><label for="field_$primary_key" class="form" style="width:${width}em"$title_attribute>$label: !</label>);
 	my $pk_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
 	my %html5_args    = ( required => 'required' );
 	$html5_args{'type'} = 'number' if $pk_field_info->{'type'} eq 'integer';
@@ -394,7 +394,7 @@ sub _print_interface {
 		my $cleaned = $self->clean_locus( $locus, { no_common_name => 1, strip_links => 1 } );
 		( $label, $title ) = $self->get_truncated_label( $cleaned, 24 );
 		$title_attribute = $title ? qq( title="$title") : q();
-		say qq(<li><label for="locus:$locus" class="form" style="width:${width}em"$title_attribute>$label: !</label>);
+		say qq(<li><label for="locus_$locus" class="form" style="width:${width}em"$title_attribute>$label: !</label>);
 		say $self->textfield(
 			-name  => "locus:$locus",
 			-id    => "locus_$locus",
@@ -404,7 +404,7 @@ sub _print_interface {
 		);
 		say q(</li>);
 	}
-	say qq(<li><label for="field:sender" class="form" style="width:${width}em">sender: !</label>);
+	say qq(<li><label for="field_sender" class="form" style="width:${width}em">sender: !</label>);
 	my ( $users, $user_names ) = $self->{'datastore'}->get_users;
 	say $self->popup_menu(
 		-name     => 'field:sender',
@@ -422,7 +422,7 @@ sub _print_interface {
 		$html5_args{'type'} = 'number' if $scheme_field_info->{'type'} eq 'integer';
 		( $label, $title ) = $self->get_truncated_label( $field, 24 );
 		$title_attribute = $title ? " title=\"$title\"" : '';
-		say qq(<li><label for="field:$field" class="form" style="width:${width}em"$title_attribute>$label: </label>);
+		say qq(<li><label for="field_$field" class="form" style="width:${width}em"$title_attribute>$label: </label>);
 		if ( defined $scheme_field_info->{'option_list'} ) {
 			my @optlist = split /\|/x, $scheme_field_info->{'option_list'};
 			unshift @optlist, q();
