@@ -362,7 +362,7 @@ sub _print_interface {
 	my $longest_name = BIGSdb::Utils::get_largest_string_length( [ @$loci, @$fields ] );
 	my $width        = int( 0.5 * $longest_name ) + 2;
 	$width = 15 if $width > 15;
-	$width = 6  if $width < 6;
+	$width = 7  if $width < 7;
 	print $q->start_form;
 	$q->param( sent => 1 );
 	say $q->hidden($_) foreach qw (page db sent scheme_id submission_id);
@@ -422,8 +422,7 @@ sub _print_interface {
 		$html5_args{'type'} = 'number' if $scheme_field_info->{'type'} eq 'integer';
 		( $label, $title ) = $self->get_truncated_label( $field, 24 );
 		$title_attribute = $title ? " title=\"$title\"" : '';
-		say qq(<li><label for="field_$field" class="form" style="width:${width}em;white-space:nowrap")
-		  . qq($title_attribute>$label: </label>);
+		say qq(<li><label for="field_$field" class="form" style="width:${width}em"$title_attribute>$label: </label>);
 		if ( defined $scheme_field_info->{'option_list'} ) {
 			my @optlist = split /\|/x, $scheme_field_info->{'option_list'};
 			unshift @optlist, q();
@@ -446,18 +445,17 @@ sub _print_interface {
 		}
 		say q(</li>);
 	}
-	say qq(<li><label class="form" style="width:${width}em;white-space:nowrap">curator: !</label><b>)
+	say qq(<li><label class="form" style="width:${width}em">curator: !</label><b>)
 	  . $self->get_curator_name . q[ (]
 	  . $self->{'username'}
 	  . q[)</b></li>];
-	say qq(<li><label class="form" style="width:${width}em;white-space:nowrap">date_entered: !</label><b>)
+	say qq(<li><label class="form" style="width:${width}em">date_entered: !</label><b>)
 	  . BIGSdb::Utils::get_datestamp()
 	  . q(</b></li>);
-	say qq(<li><label class="form" style="width:${width}em;white-space:nowrap">datestamp: !</label><b>)
+	say qq(<li><label class="form" style="width:${width}em">datestamp: !</label><b>)
 	  . BIGSdb::Utils::get_datestamp()
 	  . q(</b></li>);
-	say qq(<li><label for="pubmed" class="form" style="width:${width}em;white-space:nowrap">PubMed ids:</label>)
-	  ;
+	say qq(<li><label for="pubmed" class="form" style="width:${width}em">PubMed ids:</label>);
 	say $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em' );
 	say q(</li></ul>);
 	$self->print_action_fieldset( { scheme_id => $scheme_id } );
@@ -509,7 +507,7 @@ sub is_locus_field_bad {
 		}
 		return "$mapped value is invalid - this scheme does not allow missing (0) or arbitrary alleles (N) "
 		  . 'in the profile.';
-	} elsif ( $value eq 'P' ) {
+	} elsif ($value eq 'P'){
 		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 		if ( $scheme_info->{'allow_presence'} ) {
 			if ( !$self->{'datastore'}->sequence_exists( $locus, $value ) ) {
