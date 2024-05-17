@@ -241,6 +241,7 @@ sub run_job {
 	$self->_append( $output_file, "locus\tpresent\talleles\tSNPs" );
 	my $start_progress = 20;
 	my $i              = 0;
+
 	foreach my $locus (@$loci) {
 		last if $self->{'exit'};
 		my $progress = $start_progress + int( 80 * $i / @$loci );
@@ -357,6 +358,7 @@ sub _align_locus {
 
 	foreach my $isolate_id (@$isolate_ids) {
 		my $seqs = $scan_data->{'isolate_data'}->{$isolate_id}->{'sequences'}->{$locus};
+		$seqs = [$seqs] if !ref $seqs;
 		my $seq_id = 0;
 		foreach my $seq (@$seqs) {
 			$seq_id++;
