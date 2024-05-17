@@ -235,14 +235,13 @@ sub run_job {
 	$params->{'list_seqs_separately'} = 1;    #Don't concatenate alleles if more than one per locus.
 	my $scan_data = $self->assemble_data_for_defined_loci(
 		{ job_id => $job_id, ids => $isolate_ids, user_genomes => $user_genomes, loci => $loci } );
-
-	#		use Data::Dumper;$logger->error(Dumper $scan_data);
 	my $alignment_zip = "$self->{'config'}->{'tmp_dir'}/${job_id}_align.zip";
 	my $vcf_zip       = "$self->{'config'}->{'tmp_dir'}/${job_id}_vcf.zip";
 	my $output_file   = "$self->{'config'}->{'tmp_dir'}/${job_id}.txt";
 	$self->_append( $output_file, "locus\tpresent\talleles\tSNPs" );
 	my $start_progress = 20;
 	my $i              = 0;
+
 	foreach my $locus (@$loci) {
 		last if $self->{'exit'};
 		my $progress = $start_progress + int( 80 * $i / @$loci );
@@ -359,6 +358,7 @@ sub _align_locus {
 
 	foreach my $isolate_id (@$isolate_ids) {
 		my $seqs = $scan_data->{'isolate_data'}->{$isolate_id}->{'sequences'}->{$locus};
+		$seqs = [$seqs] if !ref $seqs;
 		my $seq_id = 0;
 		foreach my $seq (@$seqs) {
 			$seq_id++;
