@@ -670,8 +670,6 @@ sub _create_temp_tables {
 		$map_id--;
 		$id--;
 	}
-	my $data = $self->{'datastore'}
-	  ->run_query( "SELECT * FROM $isolate_table", undef, { fetch => 'all_arrayref', slice => {} } );
 	$self->{'db'}->do( "CREATE TEMP view $isolate_table_view AS (SELECT i.* FROM $self->{'system'}->{'view'} i "
 		  . "JOIN $temp_list_table t ON i.id=t.value) UNION SELECT * FROM $isolate_table" );
 	$self->{'system'}->{'view'} = $isolate_table_view;
