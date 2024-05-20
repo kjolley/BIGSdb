@@ -350,6 +350,8 @@ sub print_reference_genome_fieldset {
 	}
 	say q(or upload Genbank/EMBL/FASTA file:<br />);
 	say $q->filefield( -name => 'ref_upload', -id => 'ref_upload', -onChange => 'enable_seqs()' );
+	say q(<a id="clear_ref_upload" class="small_reset" title="Clear upload"><span>)
+	  . q(<span class="far fa-trash-can"></span></span></a>);
 	say $self->get_tooltip( q(Annotated reference upload - File format is recognised by the extension in the )
 		  . q(name. Make sure your file has a standard extension, e.g. .gb, .embl, .fas.</p><p>EMBL and Genbank files )
 		  . q(must contain locus annotations. Each sequence in a FASTA file is treated as a separate locus.) );
@@ -2679,6 +2681,13 @@ function enable_seqs(){
 	} else {
 		\$("#include_ref").prop("disabled", true);
 	}
+	\$("a#clear_ref_upload").on("click", function(){
+  		\$("input#ref_upload").val("");
+  		enable_seqs();
+  	});
+  	\$("a#clear_user_upload").on("click", function(){
+  		\$("input#user_upload").val("");
+  	});
 }
 
 \$(function () {

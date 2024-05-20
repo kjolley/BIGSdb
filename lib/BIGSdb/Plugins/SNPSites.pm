@@ -555,7 +555,28 @@ sub get_plugin_javascript {
  		menuWidth: 400,
  		selectedList: 8
   	});
+  	\$("a#clear_ref_upload").on("click", function(){
+  		\$("input#ref_upload").val("");
+  		enable_seqs();
+  	});
+  	\$("a#clear_user_upload").on("click", function(){
+  		\$("input#user_upload").val("");
+  	});
+  	enable_seqs();
 });	
+
+function enable_seqs(){
+	if (\$("#accession").val() || \$("#ref_upload").val() || \$("#annotation").val()){
+		\$("#scheme_fieldset").hide(500);
+		\$("#recommended_scheme_fieldset").hide(500);
+		\$("#locus_fieldset").hide(500);
+	} else {
+		\$("#scheme_fieldset").show(500);
+		\$("#recommended_scheme_fieldset").show(500);
+		\$("#locus_fieldset").show(500);
+		\$("#tblastx").prop("disabled", true);
+	}
+}
 END
 	return $buffer;
 }

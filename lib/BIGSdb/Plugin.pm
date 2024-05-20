@@ -1101,6 +1101,8 @@ sub print_user_genome_upload_fieldset {
 		  . qq(used as the name of the isolate(s) in the output. Maximum upload size is $upload_limit.) );
 	say q(</p>);
 	say $q->filefield( -name => 'user_upload', -id => 'user_upload' );
+	say q(<a id="clear_user_upload" class="small_reset" title="Clear upload">)
+	  . q(<span><span class="far fa-trash-can"></span></span></a>);
 	say q(</fieldset>);
 	return;
 }

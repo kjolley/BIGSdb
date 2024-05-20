@@ -58,7 +58,7 @@ sub get_attributes {
 		buttontext => 'iTOL',
 		menutext   => 'iTOL',
 		module     => 'ITOL',
-		version    => '1.6.1',
+		version    => '1.6.2',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
@@ -289,6 +289,9 @@ sub get_plugin_javascript {
  		menuWidth: 400,
  		selectedList: 8
   	}).multiselectfilter();
+  	\$("a#clear_user_upload").on("click", function(){
+  		\$("input#user_upload").val("");
+  	});
 });
 
 END
