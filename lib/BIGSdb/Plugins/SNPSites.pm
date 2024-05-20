@@ -203,7 +203,14 @@ sub run_job {
 	my $loci         = $self->{'jobManager'}->get_job_loci($job_id);
 	my $isolate_ids  = $self->{'jobManager'}->get_job_isolates($job_id);
 	my $user_genomes = $self->process_uploaded_genomes( $job_id, $isolate_ids, $params );
-	my $aligner      = $self->{'params'}->{'aligner'};
+	my $isolate_names =
+	  $self->{'datastore'}->run_query( "SELECT id,$self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'}",
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	foreach my $isolate (@$isolate_names) {
+		( my $name = $isolate->{ $self->{'system'}->{'labelfield'} } ) =~ s/\W/_/gx;
+		$self->{'names'}->{ $isolate->{'id'} } = $name;
+	}
+	my $aligner = $self->{'params'}->{'aligner'};
 	if ( !@$isolate_ids && !keys %$user_genomes ) {
 		$self->{'jobManager'}->update_job_status(
 			$job_id,
@@ -293,6 +300,18 @@ sub run_job {
 	return;
 }
 
+#User genomes here have -ve integer ids. We want to sort the list so that the database records are reported
+#first, followed by the uploaded records.
+sub _custom_sort {
+	if ( $a < 0 && $b < 0 ) {
+		return $a <=> $b;
+	} elsif ( $a >= 0 && $b >= 0 ) {
+		return $a <=> $b;
+	} else {
+		return $b <=> $a;
+	}
+}
+
 sub _count_snps {
 	my ( $self, $vcf ) = @_;
 	if ( !-e $vcf ) {
@@ -356,7 +375,7 @@ sub _align_locus {
 	my $seq_count = 0;
 	my %seen;
 
-	foreach my $isolate_id (@$isolate_ids) {
+	foreach my $isolate_id ( sort _custom_sort @$isolate_ids ) {
 		my $seqs = $scan_data->{'isolate_data'}->{$isolate_id}->{'sequences'}->{$locus};
 		$seqs = [$seqs] if !ref $seqs;
 		my $seq_id = 0;
@@ -365,7 +384,8 @@ sub _align_locus {
 			$seq_id++;
 			my $seq_hash = Digest::MD5::md5_hex($seq);
 			$seen{$seq_hash} = 1;
-			my $header_name = $isolate_id;
+			my $header_id   = $self->{'name_map'}->{$isolate_id} // $isolate_id;
+			my $header_name = $header_id . "|$self->{'names'}->{$isolate_id}";
 			$header_name .= "_$seq_id" if $seq_id > 1;
 			say $fasta_fh ">$header_name";
 			say $fasta_fh $seq;
