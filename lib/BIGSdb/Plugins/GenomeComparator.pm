@@ -66,7 +66,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.8.2',
+		version     => '2.8.3',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -503,58 +503,7 @@ sub run_job {
 	}
 	if ( $accession || $ref_upload ) {
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Retrieving reference genome' } );
-		my $seq_obj;
-		if ($accession) {
-			$accession =~ s/\s*//gx;
-			my @local_annotations = glob("$params->{'dbase_config_dir'}/$params->{'db'}/annotations/$accession*");
-			if (@local_annotations) {
-				try {
-					my $seqio_obj = Bio::SeqIO->new( -file => $local_annotations[0] );
-					$seq_obj = $seqio_obj->next_seq;
-				} catch {
-					BIGSdb::Exception::Plugin->throw("Invalid data in local annotation $local_annotations[0].");
-				};
-			} else {
-				my $seq_db = Bio::DB::GenBank->new;
-				$seq_db->verbose(2);    #convert warn to exception
-				try {
-					my $str;
-					open( my $fh, '>:encoding(utf8)', \$str ) || $logger->error('Cannot open file handle');
-
-					#Temporarily suppress messages to STDERR
-					{
-						local *STDERR = $fh;
-						$seq_obj = $seq_db->get_Seq_by_acc($accession);
-					}
-					close $fh;
-				} catch {
-					$logger->debug($_);
-					BIGSdb::Exception::Plugin->throw("No data returned for accession number $accession.");
-				};
-			}
-		} else {
-			if ( $ref_upload =~ /fa$/x || $ref_upload =~ /fas$/x || $ref_upload =~ /fasta$/x ) {
-				try {
-					BIGSdb::Utils::fasta2genbank("$self->{'config'}->{'tmp_dir'}/$ref_upload");
-				} catch {
-					$logger->debug($_);
-					my $error = q();
-					if ( $_ =~ /(MSG.+)\n/x ) {
-						$error = $1;
-					}
-					$logger->error($error);
-					BIGSdb::Exception::Plugin->throw('Invalid data in uploaded reference FASTA file.');
-				};
-				$ref_upload =~ s/\.(fa|fas|fasta)$/\.gb/x;
-			}
-			eval {
-				my $seqio_object = Bio::SeqIO->new( -file => "$self->{'config'}->{'tmp_dir'}/$ref_upload" );
-				$seq_obj = $seqio_object->next_seq;
-			};
-			if ($@) {
-				BIGSdb::Exception::Plugin->throw('Invalid data in uploaded reference file.');
-			}
-		}
+		my $seq_obj = $self->get_ref_seq_obj($params);
 		return if !$seq_obj;
 		$self->_analyse_by_reference(
 			{
@@ -576,6 +525,65 @@ sub run_job {
 		);
 	}
 	return;
+}
+
+sub get_ref_seq_obj {
+	my ( $self, $params ) = @_;
+	my $accession  = $params->{'accession'} || $params->{'annotation'};
+	my $ref_upload = $params->{'ref_upload'};
+	my $seq_obj;
+	if ($accession) {
+		$accession =~ s/\s*//gx;
+		my @local_annotations = glob("$params->{'dbase_config_dir'}/$params->{'db'}/annotations/$accession*");
+		if (@local_annotations) {
+			try {
+				my $seqio_obj = Bio::SeqIO->new( -file => $local_annotations[0] );
+				$seq_obj = $seqio_obj->next_seq;
+			} catch {
+				BIGSdb::Exception::Plugin->throw("Invalid data in local annotation $local_annotations[0].");
+			};
+		} else {
+			my $seq_db = Bio::DB::GenBank->new;
+			$seq_db->verbose(2);    #convert warn to exception
+			try {
+				my $str;
+				open( my $fh, '>:encoding(utf8)', \$str ) || $logger->error('Cannot open file handle');
+
+				#Temporarily suppress messages to STDERR
+				{
+					local *STDERR = $fh;
+					$seq_obj = $seq_db->get_Seq_by_acc($accession);
+				}
+				close $fh;
+			} catch {
+				$logger->debug($_);
+				BIGSdb::Exception::Plugin->throw("No data returned for accession number $accession.");
+			};
+		}
+	} else {
+		if ( $ref_upload =~ /fa$/x || $ref_upload =~ /fas$/x || $ref_upload =~ /fasta$/x ) {
+			try {
+				BIGSdb::Utils::fasta2genbank("$self->{'config'}->{'tmp_dir'}/$ref_upload");
+			} catch {
+				$logger->debug($_);
+				my $error = q();
+				if ( $_ =~ /(MSG.+)\n/x ) {
+					$error = $1;
+				}
+				$logger->error($error);
+				BIGSdb::Exception::Plugin->throw('Invalid data in uploaded reference FASTA file.');
+			};
+			$ref_upload =~ s/\.(fa|fas|fasta)$/\.gb/x;
+		}
+		eval {
+			my $seqio_object = Bio::SeqIO->new( -file => "$self->{'config'}->{'tmp_dir'}/$ref_upload" );
+			$seq_obj = $seqio_object->next_seq;
+		};
+		if ($@) {
+			BIGSdb::Exception::Plugin->throw('Invalid data in uploaded reference file.');
+		}
+	}
+	return $seq_obj;
 }
 
 sub signal_kill_job {
@@ -789,7 +797,7 @@ sub _analyse_by_reference {
 			  . qq(Your uploaded reference contains $cds_count loci.  Please note also that the uploaded )
 			  . qq(reference is limited to $nice_limit (larger uploads will be truncated).) );
 	}
-	my $scan_data = $self->_assemble_data_for_reference_genome(
+	my $scan_data = $self->assemble_data_for_reference_genome(
 		{ job_id => $job_id, ids => $ids, user_genomes => $user_genomes, cds => \@cds } );
 	if ( !$self->{'exit'} ) {
 		$self->align(
@@ -2105,7 +2113,7 @@ sub assemble_data_for_defined_loci {
 	return $data;
 }
 
-sub _assemble_data_for_reference_genome {
+sub assemble_data_for_reference_genome {
 	my ( $self, $args ) = @_;
 	my ( $job_id, $ids, $user_genomes, $cds ) = @{$args}{qw(job_id ids user_genomes cds )};
 	my $locus_data = {};

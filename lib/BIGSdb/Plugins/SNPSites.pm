@@ -27,6 +27,10 @@ use BIGSdb::Exceptions;
 use List::MoreUtils qw(uniq);
 use Digest::MD5;
 use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
+use Bio::DB::GenBank;
+use Bio::Seq;
+use Bio::SeqIO;
+use Try::Tiny;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_RECORDS => 2000;
@@ -108,6 +112,9 @@ sub run {
 			}
 		}
 		my ( $ref_upload, $user_upload );
+		if ( $q->param('ref_upload') ) {
+			$ref_upload = $self->upload_ref_file;
+		}
 		if ( $q->param('user_upload') ) {
 			$user_upload = $self->upload_user_file;
 		}
@@ -221,11 +228,14 @@ sub run_job {
 		);
 		return;
 	}
-	if ( !@$loci ) {
+	my $accession  = $params->{'accession'} || $params->{'annotation'};
+	my $ref_upload = $params->{'ref_upload'};
+	if ( !@$loci && !$accession && !$ref_upload ) {
 		$self->{'jobManager'}->update_job_status(
 			$job_id,
 			{
-				message_html => q(<p class="statusbad">You must either select one or more loci or schemes.</p>)
+				message_html => q(<p class="statusbad">You must either select one or more loci or schemes, )
+				  . q(provide a genome accession number, or upload an annotated genome.</p>)
 			}
 		);
 		return;
@@ -240,15 +250,23 @@ sub run_job {
 		return;
 	}
 	$params->{'list_seqs_separately'} = 1;    #Don't concatenate alleles if more than one per locus.
-	my $scan_data = $self->assemble_data_for_defined_loci(
-		{ job_id => $job_id, ids => $isolate_ids, user_genomes => $user_genomes, loci => $loci } );
+	my $scan_data;
+	if ( $accession || $ref_upload ) {
+		$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Retrieving reference genome' } );
+		my $cds = $self->_get_cds_from_reference($params);
+		$scan_data = $self->assemble_data_for_reference_genome(
+			{ job_id => $job_id, ids => $isolate_ids, user_genomes => $user_genomes, cds => $cds } );
+		$loci = $scan_data->{'loci'};
+	} else {
+		$scan_data = $self->assemble_data_for_defined_loci(
+			{ job_id => $job_id, ids => $isolate_ids, user_genomes => $user_genomes, loci => $loci } );
+	}
 	my $alignment_zip = "$self->{'config'}->{'tmp_dir'}/${job_id}_align.zip";
 	my $vcf_zip       = "$self->{'config'}->{'tmp_dir'}/${job_id}_vcf.zip";
 	my $output_file   = "$self->{'config'}->{'tmp_dir'}/${job_id}.txt";
 	$self->_append( $output_file, "locus\tpresent\talleles\tSNPs" );
 	my $start_progress = 20;
 	my $i              = 0;
-
 	foreach my $locus (@$loci) {
 		last if $self->{'exit'};
 		my $progress = $start_progress + int( 80 * $i / @$loci );
@@ -298,6 +316,35 @@ sub run_job {
 		}
 	}
 	return;
+}
+
+sub _get_cds_from_reference {
+	my ( $self, $params ) = @_;
+	my $seq_obj = $self->get_ref_seq_obj($params);
+	return [] if !$seq_obj;
+	my $cds = [];
+	foreach my $feature ( $seq_obj->get_SeqFeatures ) {
+		push @$cds, $feature if $feature->primary_tag eq 'CDS';
+	}
+	my $accession = $params->{'accession'} || $params->{'annotation'};
+	my %att;
+	eval {
+		%att = (
+			accession   => $accession,
+			type        => $seq_obj->alphabet,
+			length      => $seq_obj->length,
+			description => $seq_obj->description,
+			cds         => scalar @$cds,
+		);
+	};
+	if ($@) {
+		$logger->error("Invalid data in reference genomes: $@");
+		BIGSdb::Exception::Plugin->throw('Invalid data in reference genome.');
+	}
+	if ( !@$cds ) {
+		BIGSdb::Exception::Plugin->throw('No loci defined in reference genome.');
+	}
+	return $cds;
 }
 
 #User genomes here have -ve integer ids. We want to sort the list so that the database records are reported
@@ -397,7 +444,9 @@ sub _align_locus {
 			&& $self->{'config'}->{'mafft_path'} )
 		{
 			my $threads =
-			  BIGSdb::Utils::is_int( $self->{'config'}->{'mafft_threads'} ) ? $self->{'config'}->{'mafft_threads'} : 1;
+			  BIGSdb::Utils::is_int( $self->{'config'}->{'mafft_threads'} )
+			  ? $self->{'config'}->{'mafft_threads'}
+			  : 1;
 			system( "$self->{'config'}->{'mafft_path'} --thread $threads --quiet "
 				  . "--preservecase $fasta_file > $aligned_out" );
 		} elsif ( $aligner eq 'MUSCLE'
@@ -457,6 +506,7 @@ sub _print_interface {
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1, no_all_none => 1 } );
 	$self->print_scheme_fieldset;
 	$self->print_recommended_scheme_fieldset( { no_clear => 1 } );
+	$self->print_reference_genome_fieldset;
 	$self->_print_options_fieldset;
 	$self->print_action_fieldset;
 	say $q->hidden($_) foreach qw (page name db);
