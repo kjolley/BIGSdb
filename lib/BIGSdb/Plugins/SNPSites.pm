@@ -31,6 +31,7 @@ use Bio::DB::GenBank;
 use Bio::Seq;
 use Bio::SeqIO;
 use Try::Tiny;
+use JSON;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_RECORDS => 2000;
@@ -267,6 +268,8 @@ sub run_job {
 	$self->_append( $output_file, "locus\tpresent\talleles\tSNPs" );
 	my $start_progress = 20;
 	my $i              = 0;
+	my $chart_data     = [];
+
 	foreach my $locus (@$loci) {
 		last if $self->{'exit'};
 		my $progress = $start_progress + int( 80 * $i / @$loci );
@@ -295,6 +298,12 @@ sub run_job {
 			$self->_append( $output_file, "$locus\t$alignment->{'sequences'}\t$alignment->{'alleles'}\t$snps" );
 			unlink $alignment->{'alignment_file'};
 			unlink $vcf_file;
+			push @$chart_data, {
+				locus    => $escaped_locus,
+				presence => $alignment->{'sequences'},
+				alleles  => $alignment->{'alleles'},
+				SNPs     => $snps
+			};
 		}
 		$i++;
 	}
@@ -315,7 +324,110 @@ sub run_job {
 				{ filename => "${job_id}.xlsx", description => 'Summary output (Excel format)' } );
 		}
 	}
+	$self->_add_chart( $job_id, $chart_data );
 	return;
+}
+
+sub _add_chart {
+	my ( $self, $job_id, $chart_data ) = @_;
+	my $chart_js = $self->_get_billboard_chart(
+		$chart_data,
+		{
+			name     => 'snp_frequency',
+			title    => 'Locus presence, alleles, and polymorphisms',
+			'x-axis' => 'Loci',
+			'y-axis' => 'Frequency'
+		}
+	);
+	my $html = <<"JS";
+<script>
+var chart = [];
+\$(function () {
+	\$("a#expand_chart").click(function() {
+		\$("div#snp_frequency").css({width:'800px','height':'450px'});  
+		\$("a#expand_chart").css({display:'none'});
+		\$("a#shrink_chart").css({display:'inline'});
+		chart['snp_frequency'].resize();
+	});
+	\$("a#shrink_chart").click(function() {
+		\$("div#snp_frequency").css({width:'300px','height':'200px'});  
+		\$("a#expand_chart").css({display:'inline'});
+		\$("a#shrink_chart").css({display:'none'});
+		chart['snp_frequency'].resize();
+	});
+
+$chart_js
+});
+</script>
+<style>
+.bb-axis-x-label,.bb-axis-y-label { font-size: 14px}
+</style>
+<h3>Charts</h3>
+<div id="snp_frequency" class="embed_bb_chart" style="width:300px;max-width:95%;height:200px"></div>
+<div style="clear:both"></div>
+<p style="margin-top:1em"><a id="expand_chart" style="display:inline;color:#888;text-decoration:none;cursor:pointer">
+<span class="fas fa-expand fa-lg"></span> Expand chart</a>
+<a id="shrink_chart" style="display:none;color:#888;text-decoration:none;cursor:pointer">
+<span class="fas fa-compress fa-lg"></span> Shrink chart</a>
+</p>
+JS
+	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html } );
+	return;
+}
+
+sub _get_billboard_chart {
+	my ( $self, $data, $att ) = @_;
+
+	#Preserve key order so that it is displayed consistently.
+	my $json   = encode_json($data);
+	my $buffer = << "JS";
+chart['$att->{'name'}'] = bb.generate({
+		bindto: '#$att->{'name'}',
+		title: {
+			text: '$att->{'title'}'
+		},
+		data: {
+			json: $json,
+			keys: {
+				x: "locus",
+				value: ["presence", "alleles", "SNPs"]
+			},
+			type: 'scatter'
+		},	
+		axis: {
+			x: {
+				label: {
+					text: '$att->{'x-axis'}',
+					position: 'outer-center'
+				},
+				type: 'category',
+				tick: {
+					show: false,
+					text: {
+						show: false
+					}
+				},
+				height: 40,
+				padding: 0.5
+			},
+			y: {
+				label: {
+					text: '$att->{'y-axis'}',
+					position: 'outer-middle'
+				},
+				tick: {
+					culling: {
+						max: 8
+					}
+				}
+			}
+		},
+		padding: {
+			right: 10
+		}
+	});	
+JS
+	return $buffer;
 }
 
 sub _get_cds_from_reference {
