@@ -54,7 +54,7 @@ sub get_attributes {
 		menutext   => 'Gene presence',
 		module     => 'GenePresence',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/gene_presence.html",
-		version    => '2.2.1',
+		version    => '2.2.2',
 		dbtype     => 'isolates',
 		section    => 'analysis,postquery',
 		input      => 'query',
@@ -537,6 +537,9 @@ sub get_plugin_javascript {
  		menuWidth: 400,
  		selectedList: 8
   	}).multiselectfilter();
+  	\$("a#clear_user_upload").on("click", function(){
+  		\$("input#user_upload").val("");
+  	});
 }); 
 END
 	if ( $q->param('results') ) {
