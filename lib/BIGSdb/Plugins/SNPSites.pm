@@ -39,7 +39,7 @@ use constant MAX_RECORDS => 2000;
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name    => 'SNPSites',
+		name    => 'SNPsites',
 		authors => [
 			{
 				name        => 'Keith Jolley',
@@ -50,12 +50,13 @@ sub get_attributes {
 		description      => 'Find SNPs in selected loci',
 		full_description => 'The SNPSites plugin aligns sequences for specified loci for an isolate dataset. '
 		  . 'The alignment is then passed to snp-sites to identify SNP positions. Output consists of a summary '
-		  . 'table including the number of alleles and polymorphic sites found for each locus, and ZIP files '
-		  . 'containing alignment FASTAs and VCF files for each locus.',
+		  . 'table including the number of alleles and polymorphic sites found for each locus, an interactive '
+		  . 'D3 chart that displays the summary, and ZIP files containing alignment FASTAs and VCF files for '
+		  . 'each locus.',
 		category   => 'Third party',
-		buttontext => 'SNPSites',
-		menutext   => 'SNPSites',
-		module     => 'SNPSites',
+		buttontext => 'SNPsites',
+		menutext   => 'SNPsites',
+		module     => 'SNPsites',
 		version    => '1.0.0',
 		dbtype     => 'isolates',
 		section    => 'analysis,postquery',
@@ -298,12 +299,13 @@ sub run_job {
 			$self->_append( $output_file, "$locus\t$alignment->{'sequences'}\t$alignment->{'alleles'}\t$snps" );
 			unlink $alignment->{'alignment_file'};
 			unlink $vcf_file;
-			push @$chart_data, {
+			push @$chart_data,
+			  {
 				locus    => $escaped_locus,
 				presence => $alignment->{'sequences'},
 				alleles  => $alignment->{'alleles'},
 				SNPs     => $snps
-			};
+			  };
 		}
 		$i++;
 	}
