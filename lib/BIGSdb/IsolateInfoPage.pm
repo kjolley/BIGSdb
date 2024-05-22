@@ -1341,34 +1341,40 @@ sub _get_map_section {
 	$buffer .= @$maps > 1 ? qq(<h2>Maps</h2>\n) : qq(<h2>$maps->[0]->{'field'}</h2>\n);
 	my $i = 1;
 	my $layers;
-	my $bingmaps_api = $self->{'system'}->{'bingmaps_api'} // $self->{'config'}->{'bingmaps_api'};
-	if ($bingmaps_api) {
-		$layers = <<"JS";
-const styles = ['RoadOnDemand','AerialWithLabelsOnDemand'];
-const layers = [];
-let i, ii;
-for (i = 0, ii = styles.length; i < ii; ++i) {
-  layers.push(
-    new ol.layer.Tile({
-      visible: i == 0 ? true : false,
-      preload: Infinity,
-      source: new ol.source.BingMaps({
-        key: '$bingmaps_api',
-        imagerySet: styles[i]
-      }),
-    })
-  );
-}		
+	my $arcgis   = $self->{'system'}->{'use_arcgis_world_imagery'} // $self->{'config'}->{'use_arcgis_world_imagery'};
+	my $os_layer = << "JS";
+          new ol.layer.Tile({
+          	  visible: true,
+              source: new ol.source.OSM({
+                  crossOrigin: null,
+              })
+          })		
+JS
+	#https://gis.stackexchange.com/questions/316988/how-can-i-add-satellite-map-in-openlayers-5
+	my $arcgis_layer = << "JS";
+          new ol.layer.Tile({
+          	  visible: false,
+              source: new ol.source.XYZ({
+                  attributions: ['Powered by Esri;','Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'],
+                  attributionsCollapsible: true,
+                  url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                  maxZoom: 23          	
+              })
+          })
+JS
+
+	if ($arcgis) {
+		$layers = << "JS";
+	const layers = [
+		$os_layer,
+		$arcgis_layer
+	]	
 JS
 	} else {
-		$layers = <<"JS";
-	  const layers = [
-          new ol.layer.Tile({
-            source: new ol.source.OSM({
-            	crossOrigin: null
-            })
-          })
-        ];			
+		$layers = << "JS";
+	const layers = [
+		$os_layer
+	];
 JS
 	}
 	foreach my $map (@$maps) {
@@ -1461,7 +1467,7 @@ JS
 </script>
 MAP
 		$buffer .= q(<p style="margin-top:0.5em">);
-		if ( $self->{'config'}->{'bingmaps_api'} ) {
+		if ($arcgis) {
 			$buffer .=
 				q(<span style="vertical-align:0.4em">Aerial view </span>)
 			  . qq(<a class="toggle_satellite" id="toggle_satellite$i" style="cursor:pointer;margin-right:2em">)

@@ -724,12 +724,12 @@ sub _print_palette_control {
 
 sub _print_gps_map_control {
 	my ( $self, $id, $element ) = @_;
-	my $bingmaps_api = $self->{'system'}->{'bingmaps_api'} // $self->{'config'}->{'bingmaps_api'};
-	my $q            = $self->{'cgi'};
-	my $marker_size  = $element->{'marker_size'} // 2;
+	my $arcgis = $self->{'system'}->{'use_arcgis_world_imagery'} // $self->{'config'}->{'use_arcgis_world_imagery'};
+	my $q      = $self->{'cgi'};
+	my $marker_size = $element->{'marker_size'} // 2;
 	say q(<li id="gps_map_control" style="display:none">);
 	say q(<div style="margin-top:-0.5em"><ul>);
-	if ( defined $bingmaps_api ) {
+	if ( defined $arcgis ) {
 		say q(<li><label for="view">View:</label>);
 		say $q->radio_group(
 			-name    => "${id}_geography_view",
@@ -2160,7 +2160,7 @@ sub _get_scheme_annotation_values {
 	$min_threshold = 0 if $min_threshold < 0;
 	my $filter_clause = @$filters ? " AND @$filters" : q();
 	my $table         = $self->{'datastore'}->create_temp_scheme_status_table($scheme_id);
-	my $good = $self->{'datastore'}->run_query(
+	my $good          = $self->{'datastore'}->run_query(
 		"SELECT COUNT(*) FROM $self->{'view'} v$view_clause JOIN $table "
 		  . "v3 ON v.id=v3.id WHERE v3.locus_count>=?$filter_clause",
 		$max_threshold
@@ -3897,34 +3897,29 @@ sub _get_field_breakdown_gps_map_content {
 		next if !defined $value->{'label'};
 		push @$values, $value;
 	}
-	my $json     = JSON->new->allow_nonref;
-	my $dataset  = $json->encode($values);
-	my $height   = $element->{'height'} * 150 + ( $element->{'height'} - 1 ) * 4;
-	my $buffer   = qq(<div id="chart_$element->{'id'}" style="height:${height}px;"></div>);
-	my %map_type = (
-		Map    => 'RoadOnDemand',
-		Aerial => 'AerialWithLabelsOnDemand'
-	);
-	my $imagery_set   = $map_type{ $element->{'geography_view'} // 'Map' };
-	my $marker_colour = $element->{'marker_colour'} // 'red';
-	my $marker_size   = $element->{'marker_size'}   // 1;
-	$imagery_set //= 'RoadOnDemand';
-	my $id = $element->{'id'};
+	my $json          = JSON->new->allow_nonref;
+	my $dataset       = $json->encode($values);
+	my $height        = $element->{'height'} * 150 + ( $element->{'height'} - 1 ) * 4;
+	my $buffer        = qq(<div id="chart_$element->{'id'}" style="height:${height}px;"></div>);
+	my $marker_colour = $element->{'marker_colour'}              // 'red';
+	my $marker_size   = $element->{'marker_size'}                // 1;
+	my $arcgis = $self->{'system'}->{'use_arcgis_world_imagery'} // $self->{'config'}->{'use_arcgis_world_imagery'};
+	my $id     = $element->{'id'};
 	$buffer .= qq(<script>\n);
 
-	if ( $self->{'config'}->{'bingmaps_api'} ) {
+	if ( $arcgis && ( $element->{'geography_view'} // 'Map' ) eq 'Aerial' ) {
 		$buffer .= <<"JS";
 	\$(function() {
 		let layer = [
-			new ol.layer.Tile({
-				visible: true,
-				preload: Infinity,
-				source: new ol.source.BingMaps({
-					key: '$self->{'config'}->{'bingmaps_api'}',
-					imagerySet: '$imagery_set'
-				})
-			})
-		];
+          new ol.layer.Tile({
+              source: new ol.source.XYZ({
+                  attributions: ['Powered by Esri;','Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'],
+                  attributionsCollapsible: true,
+                  url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                  maxZoom: 23          	
+              })
+          })
+        ];
 JS
 	} else {
 		$buffer .= <<"JS";
@@ -3967,7 +3962,7 @@ JS
 	$buffer .= qq(</script>\n);
 	$buffer .=
 		q(<div class="title gps_map_title" )
-	  . qq(style="position:absolute;top:0;width:100%;color:#666">$element->{'name'}</div>);
+	  . qq(style="position:absolute;top:0;left:2em;width:calc(100% - 4em);color:#666">$element->{'name'}</div>);
 	if ( !@$data ) {
 		$buffer .= q(<div style="position:absolute;top:50px;width:100%;color:#666;font-size:2em">No values</div>);
 	}

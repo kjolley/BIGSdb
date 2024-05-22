@@ -48,7 +48,7 @@ sub get_attributes {
 		buttontext => 'Fields',
 		menutext   => 'Field breakdown',
 		module     => 'FieldBreakdown',
-		version    => '2.6.2',
+		version    => '2.7.0',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
@@ -438,7 +438,7 @@ sub _print_map_controls {
 
 sub _print_geography_controls {
 	my ($self) = @_;
-	my $bingmaps_api = $self->{'system'}->{'bingmaps_api'} // $self->{'config'}->{'bingmaps_api'};
+	my $arcgis   = $self->{'system'}->{'use_arcgis_world_imagery'} // $self->{'config'}->{'use_arcgis_world_imagery'};
 	my $q = $self->{'cgi'};
 	say q(<fieldset id="geography_controls" class="bb_controls" )
 	  . q(style="position:absolute;top:1em;right:1em;display:none"><legend>Controls</legend>);
@@ -456,7 +456,7 @@ sub _print_geography_controls {
 	if ( !defined $style || !$allowed{$style} ) {
 		$style = 'Map';
 	}
-	if ( defined $bingmaps_api ) {
+	if ( defined $arcgis ) {
 		say q(<li><label for="view">View:</label>);
 		say $q->radio_group(
 			-name    => 'geography_view',
@@ -692,7 +692,7 @@ sub get_plugin_javascript {
 	my $types_js     = $self->_get_fields_js;
 	my $loci_js      = $self->_get_loci_js;
 	my $schemes_js   = $self->_get_schemes_js;
-	my $bingmaps_api = $self->{'system'}->{'bingmaps_api'} // $self->{'config'}->{'bingmaps_api'};
+	my $arcgis   = $self->{'system'}->{'use_arcgis_world_imagery'} // $self->{'config'}->{'use_arcgis_world_imagery'} // 0;
 	my $buffer       = <<"JS";
 var height = 400;
 var segments = 20;
@@ -702,7 +702,7 @@ var line = 1;
 var fasta = 0;
 var url = "$url";
 var prefs_ajax_url = "$plugin_prefs_ajax_url";
-var bingmaps_api = "$bingmaps_api";
+var use_arcgis = $arcgis;
 
 $types_js	
 $loci_js

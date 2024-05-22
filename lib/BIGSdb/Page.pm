@@ -199,7 +199,7 @@ sub _get_javascript_paths {
 			'dropzone'     => { src => [qw(dropzone.js)],    defer => 0, version => '20200308' },
 
 			#See https://dolmenweb.it/viewers/openlayer/doc/tutorials/custom-builds.html
-			'ol'        => { src => [qw(ol-custom.js)], defer => 0, version => '8.20.0#20231117' },
+			'ol'        => { src => [qw(ol-custom.js)], defer => 0, version => '8.20.0#20240522' },
 			'billboard' => {
 				src     => [qw(d3.v6.min.js billboard.min.js jquery.ui.touch-punch.min.js)],
 				defer   => 1,

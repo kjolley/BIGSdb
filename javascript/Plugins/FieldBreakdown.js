@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 
-Version 2.6.2.
+Version 2.7.0.
 */
 
 var prefs_loaded;
@@ -829,30 +829,28 @@ function load_geography(url, field) {
 	const prefStyles = ['Map', 'Aerial'];
 	let layers = [];
 
-	if (bingmaps_api) {
-		let map_style = $("input[name='geography_view']:checked").val();
-		let i, ii;
-		for (i = 0, ii = styles.length; i < ii; ++i) {
-			layers.push(
-				new ol.layer.Tile({
-					visible: prefStyles[i] == map_style ? true : false,
-					preload: Infinity,
-					source: new ol.source.BingMaps({
-						key: bingmaps_api,
-						imagerySet: styles[i]
-					}),
-				})
-			);
-		}
-	} else {
-		layers.push(
-			new ol.layer.Tile({
-				source: new ol.source.OSM({
-					crossOrigin: null
-				})
-			})
-		);
+
+	let os_layer = new ol.layer.Tile({
+		visible: true,
+		source: new ol.source.OSM({
+			crossOrigin: null,
+		})
+	});
+	let arcgis_layer = new ol.layer.Tile({
+		visible: false,
+		source: new ol.source.XYZ({
+			attributions: ['Powered by Esri;', 'Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'],
+			attributionsCollapsible: true,
+			url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+			maxZoom: 23
+		})
+	});
+	layers.push(os_layer);
+	console.log(use_arcgis);
+	if (use_arcgis) {
+		layers.push(arcgis_layer);
 	}
+
 	d3.json(url).then(function(jsonData) {
 		let map = new ol.Map({
 			target: 'geography',
