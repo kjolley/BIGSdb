@@ -17,7 +17,7 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
-package BIGSdb::Plugins::SNPSites;
+package BIGSdb::Plugins::SNPsites;
 use strict;
 use warnings;
 use 5.010;
