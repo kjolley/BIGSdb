@@ -48,7 +48,7 @@ sub get_attributes {
 			}
 		],
 		description      => 'Find SNPs in selected loci',
-		full_description => 'The SNPSites plugin aligns sequences for specified loci for an isolate dataset. '
+		full_description => 'The SNPsites plugin aligns sequences for specified loci for an isolate dataset. '
 		  . 'The alignment is then passed to snp-sites to identify SNP positions. Output consists of a summary '
 		  . 'table including the number of alleles and polymorphic sites found for each locus, an interactive '
 		  . 'D3 chart that displays the summary, and ZIP files containing alignment FASTAs and VCF files for '
