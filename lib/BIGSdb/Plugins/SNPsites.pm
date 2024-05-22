@@ -1,4 +1,4 @@
-#SNPSites.pm - Wrapper for snp-sites plugin for BIGSdb
+#SNPsites.pm - Wrapper for snp-sites plugin for BIGSdb
 #Written by Keith Jolley
 #Copyright (c) 2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
@@ -603,7 +603,6 @@ sub _print_interface {
 	my $attr        = $self->get_attributes;
 	my $max_records = $attr->{'max'};
 	say q(<div class="box" id="queryform">);
-	say q(<p><span class="flag" style="color:#4c0099;background:#4c009915">BETA - test version</span></p>);
 	say q(<p>This tool will create alignments for each selected locus for the set of isolates chosen. The )
 	  . q(<a href="https://github.com/sanger-pathogens/snp-sites" target="_blank">snp-sites</a> tool will then )
 	  . q(be used to identify polymorphic sites. Please select the loci that you would like to include. Alternatively )
