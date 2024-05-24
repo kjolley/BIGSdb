@@ -22,6 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::TreeViewPage);
 use BIGSdb::Constants qw(:interface :limits COUNTRIES DEFAULT_CODON_TABLE NULL_TERMS);
+use BIGSdb::JSContent;
 use Log::Log4perl qw(get_logger);
 use Try::Tiny;
 use List::MoreUtils qw(none uniq);
@@ -1342,32 +1343,18 @@ sub _get_map_section {
 	my $i = 1;
 	my $layers;
 	my $arcgis   = $self->{'system'}->{'use_arcgis_world_imagery'} // $self->{'config'}->{'use_arcgis_world_imagery'};
-	my $os_layer = << "JS";
-          new ol.layer.Tile({
-          	  visible: true,
-              source: new ol.source.OSM({
-                  crossOrigin: null,
-              })
-          })		
-JS
-	#https://gis.stackexchange.com/questions/316988/how-can-i-add-satellite-map-in-openlayers-5
-	my $arcgis_layer = << "JS";
-          new ol.layer.Tile({
-          	  visible: false,
-              source: new ol.source.XYZ({
-                  attributions: ['Powered by Esri;','Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'],
-                  attributionsCollapsible: true,
-                  url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                  maxZoom: 23          	
-              })
-          })
-JS
-
+	my $os_layer = BIGSdb::JSContent::get_ol_osm_layer();
+	my $arcgis_layer = BIGSdb::JSContent::get_ol_arcgis_world_imagery_layer();
+	my $arcgis_ref_layer = q();
+	if ($arcgis){
+		$arcgis_ref_layer = BIGSdb::JSContent::get_ol_arcgis_hybdrid_ref_layer();
+	}
 	if ($arcgis) {
 		$layers = << "JS";
 	const layers = [
 		$os_layer,
-		$arcgis_layer
+		$arcgis_layer,
+		$arcgis_ref_layer
 	]	
 JS
 	} else {
@@ -1447,11 +1434,13 @@ JS
      	if (layers[0].getVisible()){
      		layers[0].setVisible(false);
      		layers[1].setVisible(true);
+     		layers[2].setVisible(true);
      		\$("span#satellite${i}_off").hide();
      		\$("span#satellite${i}_on").show();
      	} else {
      		layers[0].setVisible(true);
      		layers[1].setVisible(false);
+     		layers[2].setVisible(false);
      		\$("span#satellite${i}_on").hide();
      		\$("span#satellite${i}_off").show();
      	}
