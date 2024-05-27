@@ -199,7 +199,7 @@ sub _get_javascript_paths {
 			'dropzone'     => { src => [qw(dropzone.js)],    defer => 0, version => '20200308' },
 
 			#See https://dolmenweb.it/viewers/openlayer/doc/tutorials/custom-builds.html
-			'ol'        => { src => [qw(ol-custom.js)], defer => 0, version => '8.20.0#20240522' },
+			'ol'        => { src => [qw(ol.js)], defer => 0, version => '8.20.0#20240522' },
 			'billboard' => {
 				src     => [qw(d3.v6.min.js billboard.min.js jquery.ui.touch-punch.min.js)],
 				defer   => 1,
@@ -3803,5 +3803,12 @@ sub print_related_database_panel {
 	say q(</ul></div>);
 	say q(</div></div>);
 	return;
+}
+
+sub get_maptiler_api_key {
+	my ($self) = @_;
+	return if ( $self->{'system'}->{'use_maptiler'} // q() ) eq 'no';
+	return if !$self->{'config'}->{'use_maptiler'} && !( ( $self->{'system'}->{'use_maptiler'} // q() ) eq 'yes' );
+	return $self->{'system'}->{'maptiler_api_key'} // $self->{'config'}->{'maptiler_api_key'};
 }
 1;

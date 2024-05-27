@@ -1342,19 +1342,15 @@ sub _get_map_section {
 	$buffer .= @$maps > 1 ? qq(<h2>Maps</h2>\n) : qq(<h2>$maps->[0]->{'field'}</h2>\n);
 	my $i = 1;
 	my $layers;
-	my $arcgis   = $self->{'system'}->{'use_arcgis_world_imagery'} // $self->{'config'}->{'use_arcgis_world_imagery'};
-	my $os_layer = BIGSdb::JSContent::get_ol_osm_layer();
-	my $arcgis_layer = BIGSdb::JSContent::get_ol_arcgis_world_imagery_layer();
-	my $arcgis_ref_layer = q();
-	if ($arcgis){
-		$arcgis_ref_layer = BIGSdb::JSContent::get_ol_arcgis_hybdrid_ref_layer();
-	}
-	if ($arcgis) {
+	my $maptiler_key = $self->get_maptiler_api_key;
+	my $os_layer     = BIGSdb::JSContent::get_ol_osm_layer();
+
+	if ($maptiler_key) {
+		my $maptiler_map_layer = BIGSdb::JSContent::get_ol_maptiler_map_layer($maptiler_key);
 		$layers = << "JS";
 	const layers = [
 		$os_layer,
-		$arcgis_layer,
-		$arcgis_ref_layer
+		$maptiler_map_layer,
 	]	
 JS
 	} else {
@@ -1434,13 +1430,11 @@ JS
      	if (layers[0].getVisible()){
      		layers[0].setVisible(false);
      		layers[1].setVisible(true);
-     		layers[2].setVisible(true);
-     		\$("span#satellite${i}_off").hide();
+      		\$("span#satellite${i}_off").hide();
      		\$("span#satellite${i}_on").show();
      	} else {
      		layers[0].setVisible(true);
      		layers[1].setVisible(false);
-     		layers[2].setVisible(false);
      		\$("span#satellite${i}_on").hide();
      		\$("span#satellite${i}_off").show();
      	}
@@ -1456,7 +1450,7 @@ JS
 </script>
 MAP
 		$buffer .= q(<p style="margin-top:0.5em">);
-		if ($arcgis) {
+		if ($maptiler_key) {
 			$buffer .=
 				q(<span style="vertical-align:0.4em">Aerial view </span>)
 			  . qq(<a class="toggle_satellite" id="toggle_satellite$i" style="cursor:pointer;margin-right:2em">)
