@@ -1340,26 +1340,28 @@ sub _get_map_section {
 	return q() if !@$maps;
 	my $buffer = q(<div><span class="info_icon fa-2x fa-fw fas fa-map fa-pull-left" style="margin-top:-0.2em"></span>);
 	$buffer .= @$maps > 1 ? qq(<h2>Maps</h2>\n) : qq(<h2>$maps->[0]->{'field'}</h2>\n);
-	my $i = 1;
-	my $layers;
-	my $maptiler_key = $self->get_maptiler_api_key;
-	my $os_layer     = BIGSdb::JSContent::get_ol_osm_layer();
-
-	if ($maptiler_key) {
-		my $maptiler_map_layer = BIGSdb::JSContent::get_ol_maptiler_map_layer($maptiler_key);
-		$layers = << "JS";
-	const layers = [
-		$os_layer,
-		$maptiler_map_layer,
-	]	
-JS
-	} else {
-		$layers = << "JS";
-	const layers = [
-		$os_layer
-	];
-JS
-	}
+	my $i           = 1;
+	my $map_options = $self->get_mapping_options;
+	my @layers;
+	my $layer_selection = {
+		0 => sub { push @layers, BIGSdb::JSContent::get_ol_osm_layer() },
+		1 => sub {
+			push @layers, BIGSdb::JSContent::get_ol_osm_layer();
+			push @layers, BIGSdb::JSContent::get_ol_maptiler_map_layer( $map_options->{'maptiler_key'} );
+		},
+		2 => sub {
+			push @layers, BIGSdb::JSContent::get_ol_osm_layer();
+			push @layers, BIGSdb::JSContent::get_ol_arcgis_world_imagery_layer();
+			push @layers, BIGSdb::JSContent::get_ol_arcgis_hybdrid_ref_layer();
+		},
+		3 => sub {
+			push @layers, BIGSdb::JSContent::get_ol_arcgis_world_streetmap_layer();
+			push @layers, BIGSdb::JSContent::get_ol_arcgis_world_imagery_layer();
+			push @layers, BIGSdb::JSContent::get_ol_arcgis_hybdrid_ref_layer();
+		}
+	};
+	$layer_selection->{ $map_options->{'option'} }->();
+	local $" = q(,);
 	foreach my $map (@$maps) {
 		$buffer .= q(<div style="float:left;margin:0 1em">);
 		if ( @$maps > 1 ) {
@@ -1376,14 +1378,23 @@ JS
 				$buffer .= qq(<p>$map->{'latitude'}, $map->{'longitude'}</p>);
 			}
 		}
-		$buffer .= qq(<div id="map$i" class="ol_map"></div>);
+		$buffer .= qq(<div id="map$i" class="ol_map" style="position:relative">);
+		if ( $map_options->{'option'} == 1 ) {
+			$buffer .=
+				q(<a href="https://www.maptiler.com" id="maptiler_logo" )
+			  . q(style="display:none;position:absolute;left:10px;bottom:10px;z-index:10">)
+			  . q(<img src="https://api.maptiler.com/resources/logo.svg" alt="MapTiler logo"></a>);
+		}
+		$buffer .= q(</div>);
 		my $imprecise = $map->{'imprecise'} ? 1 : 0;
 		$buffer .= <<"MAP";
 
-<script>
+<script>	
 \$(document).ready(function() 	
     { 
-      $layers
+      const layers = [
+		@layers
+	  ];
       let map = new ol.Map({
         target: 'map$i',
         layers: layers,
@@ -1430,11 +1441,19 @@ JS
      	if (layers[0].getVisible()){
      		layers[0].setVisible(false);
      		layers[1].setVisible(true);
+     		if (typeof layers[2] !== 'undefined'){
+     			layers[2].setVisible(true);
+     		}
+     		\$("a#maptiler_logo").show();
       		\$("span#satellite${i}_off").hide();
      		\$("span#satellite${i}_on").show();
      	} else {
      		layers[0].setVisible(true);
      		layers[1].setVisible(false);
+     		if (typeof layers[2] !== 'undefined'){
+     			layers[2].setVisible(false);
+     		}
+     		\$("a#maptiler_logo").hide();
      		\$("span#satellite${i}_on").hide();
      		\$("span#satellite${i}_off").show();
      	}
@@ -1450,7 +1469,7 @@ JS
 </script>
 MAP
 		$buffer .= q(<p style="margin-top:0.5em">);
-		if ($maptiler_key) {
+		if ( $map_options->{'option'} > 0 ) {
 			$buffer .=
 				q(<span style="vertical-align:0.4em">Aerial view </span>)
 			  . qq(<a class="toggle_satellite" id="toggle_satellite$i" style="cursor:pointer;margin-right:2em">)

@@ -34,8 +34,7 @@ JS
 
 sub get_ol_maptiler_map_layer {
 	my ($api_key) = @_;
-	my $attributions = q(<img src="https://api.maptiler.com/resources/logo.svg" alt="MapTiler logo" style="margin-right:20px">)
-	. q(<a href="https://www.maptiler.com/copyright/" target="_blank">&copy; MapTiler</a>);
+	my $attributions = q(<a href="https://www.maptiler.com/copyright/" target="_blank">&copy; MapTiler</a>);
 	return << "JS";
 	new ol.layer.Tile({
     	visible: false,
@@ -45,6 +44,90 @@ sub get_ol_maptiler_map_layer {
             url: 'https://api.maptiler.com/maps/hybrid/tiles.json?key=$api_key',
             tileSize: 512,
             maxZoom: 20       	
+        })
+	})
+JS
+}
+
+sub get_ol_arcgis_world_imagery_layer {
+	return << "JS";
+	new ol.layer.Tile({
+    	visible: false,
+        source: new ol.source.XYZ({
+        	attributions: ['Powered by Esri;','Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'],
+            attributionsCollapsible: true,
+            url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            maxZoom: 23          	
+        })
+	})
+JS
+}
+
+sub get_ol_arcgis_hybdrid_ref_layer {
+	return << "JS";
+	new ol.layer.VectorTile({
+		visible: false,
+		source: new ol.source.VectorTile({
+			format: new ol.format.MVT({
+				layers: ['Boundary line','Admin0 point','City small scale','City large scale']
+			}),
+			url: 'https://basemaps.arcgis.com/arcgis/rest/services/World_Basemap_v2/VectorTileServer/tile/{z}/{y}/{x}.pbf',
+		}),
+		style: function(feature, resolution) {
+			var zoom = map.getView().getZoomForResolution(resolution);
+			if (feature.get('layer') == 'Admin0 point' && zoom <= 5){
+				return new ol.style.Style({
+					text: new ol.style.Text({
+						text: feature.get('_name'), 
+						font: '14px sans-serif',
+						fill: new ol.style.Fill({
+							color: '#aaa',
+						}),
+						stroke: new ol.style.Stroke({
+							color: '#000',
+							width: 3
+						})
+					})
+				});
+			}
+			if (feature.get('layer') == 'City small scale' || feature.get('layer') == 'City large scale'){
+				return new ol.style.Style({
+					text: new ol.style.Text({
+						text: feature.get('_name'), 
+						font: '11px sans-serif',
+						fill: new ol.style.Fill({
+							color: '#aaa',
+						}),
+						stroke: new ol.style.Stroke({
+							color: '#000',
+							width: 2
+						})
+					})
+				});
+			}
+			if (feature.get('layer') == 'Boundary line' ){
+				return new ol.style.Style({
+					stroke: new ol.style.Stroke({
+						color: '#aaa',
+						width: 1
+					})
+				});
+			}
+		}
+	})
+JS
+}
+
+sub get_ol_arcgis_world_streetmap_layer {
+	return << "JS";
+	new ol.layer.Tile({
+         source: new ol.source.XYZ({
+        	attributions: ['Powered by Esri;','Source: Esri, HERE, Garmin, USGS, Intermap, INCREMENT P, '
+        	+ 'NRCAN, Esri Japan, METI, Esri China (Hong Kong), NOSTRA, &copy; OpenStreetMap contributors, '
+        	+ 'and the GIS User Community'],
+            attributionsCollapsible: true,
+            url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+            maxZoom: 23          	
         })
 	})
 JS
