@@ -54,7 +54,7 @@ sub get_attributes {
 		menutext   => 'Gene presence',
 		module     => 'GenePresence',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/gene_presence.html",
-		version    => '2.2.2',
+		version    => '2.2.3',
 		dbtype     => 'isolates',
 		section    => 'analysis,postquery',
 		input      => 'query',
@@ -528,8 +528,10 @@ sub _get_data {
 
 sub get_plugin_javascript {
 	my ($self) = @_;
-	my $q      = $self->{'cgi'};
-	my $js     = << "END";
+	my $q = $self->{'cgi'};
+	my $js;
+	if ( !$q->param('heatmap') && !$q->param('results') ) {
+		$js = << "END";
 \$(document).ready(function(){ 
 	\$('#locus,#recommended_schemes').multiselect({
  		classes: 'filter',
@@ -542,6 +544,7 @@ sub get_plugin_javascript {
   	});
 }); 
 END
+	}
 	if ( $q->param('results') ) {
 		$js .= $self->_get_pivot_table_js;
 	}
@@ -643,7 +646,6 @@ var blur = $size->{'blur'};
 	        var wrapper = document.querySelector('#wrapper');
 			var tooltip = document.querySelector('#tooltip');
 			function updateTooltip(pageX, pageY, x, y, value) {
-				console.log("pageX:" + pageX + "; pageY:" + pageY + "; x:" + x + "; y:" + y);
 				var x_offset = (pageX > (\$(window).width() / 2)) ? -200 : 50;
 				var transl = 'translate(' + (x + x_offset) + 'px, ' + (y + 5) + 'px)';
 				tooltip.style.webkitTransform = transl;
