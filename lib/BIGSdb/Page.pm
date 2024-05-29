@@ -3805,11 +3805,39 @@ sub print_related_database_panel {
 	return;
 }
 
+sub get_ol_layer_selection {
+	my ($self) = @_;
+	my $map_options = $self->get_mapping_options;
+	my $layers = [];
+	my $layer_selection = {
+		0 => sub { push @$layers, BIGSdb::JSContent::get_ol_osm_layer() },
+		1 => sub {
+			push @$layers, BIGSdb::JSContent::get_ol_osm_layer();
+			push @$layers, BIGSdb::JSContent::get_ol_maptiler_map_layer( $map_options->{'maptiler_key'} );
+		},
+		2 => sub {
+			push @$layers, BIGSdb::JSContent::get_ol_osm_layer();
+			push @$layers, BIGSdb::JSContent::get_ol_arcgis_world_imagery_layer();
+			push @$layers, BIGSdb::JSContent::get_ol_arcgis_hybdrid_ref_layer();
+		},
+		3 => sub {
+			push @$layers, BIGSdb::JSContent::get_ol_arcgis_world_streetmap_layer();
+			push @$layers, BIGSdb::JSContent::get_ol_arcgis_world_imagery_layer();
+			push @$layers, BIGSdb::JSContent::get_ol_arcgis_hybdrid_ref_layer();
+		}
+	};
+	if ($layer_selection->{ $map_options->{'option'} }){
+		$layer_selection->{ $map_options->{'option'} }->();
+	}
+	return $layers;
+}
+
 sub get_mapping_options {
 	my ($self) = @_;
 	my $option = $self->{'system'}->{'mapping_option'} // $self->{'config'}->{'mapping_option'};
 	if ( defined $option && ( !BIGSdb::Utils::is_int($option) || $option > 3 || $option < 0 ) ) {
 		$logger->error("Invalid option $option set for mapping.");
+		$option = 0;
 	}
 	$option //= 0;
 	my $options = {};

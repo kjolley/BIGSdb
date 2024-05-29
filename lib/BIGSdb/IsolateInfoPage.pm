@@ -1341,26 +1341,8 @@ sub _get_map_section {
 	my $buffer = q(<div><span class="info_icon fa-2x fa-fw fas fa-map fa-pull-left" style="margin-top:-0.2em"></span>);
 	$buffer .= @$maps > 1 ? qq(<h2>Maps</h2>\n) : qq(<h2>$maps->[0]->{'field'}</h2>\n);
 	my $i           = 1;
+	my $layers = $self->get_ol_layer_selection;
 	my $map_options = $self->get_mapping_options;
-	my @layers;
-	my $layer_selection = {
-		0 => sub { push @layers, BIGSdb::JSContent::get_ol_osm_layer() },
-		1 => sub {
-			push @layers, BIGSdb::JSContent::get_ol_osm_layer();
-			push @layers, BIGSdb::JSContent::get_ol_maptiler_map_layer( $map_options->{'maptiler_key'} );
-		},
-		2 => sub {
-			push @layers, BIGSdb::JSContent::get_ol_osm_layer();
-			push @layers, BIGSdb::JSContent::get_ol_arcgis_world_imagery_layer();
-			push @layers, BIGSdb::JSContent::get_ol_arcgis_hybdrid_ref_layer();
-		},
-		3 => sub {
-			push @layers, BIGSdb::JSContent::get_ol_arcgis_world_streetmap_layer();
-			push @layers, BIGSdb::JSContent::get_ol_arcgis_world_imagery_layer();
-			push @layers, BIGSdb::JSContent::get_ol_arcgis_hybdrid_ref_layer();
-		}
-	};
-	$layer_selection->{ $map_options->{'option'} }->();
 	local $" = q(,);
 	foreach my $map (@$maps) {
 		$buffer .= q(<div style="float:left;margin:0 1em">);
@@ -1393,7 +1375,7 @@ sub _get_map_section {
 \$(document).ready(function() 	
     { 
       const layers = [
-		@layers
+		@$layers
 	  ];
       let map = new ol.Map({
         target: 'map$i',

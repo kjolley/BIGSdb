@@ -74,8 +74,7 @@ sub get_ol_arcgis_hybdrid_ref_layer {
 			url: 'https://basemaps.arcgis.com/arcgis/rest/services/World_Basemap_v2/VectorTileServer/tile/{z}/{y}/{x}.pbf',
 		}),
 		style: function(feature, resolution) {
-			var zoom = map.getView().getZoomForResolution(resolution);
-			if (feature.get('layer') == 'Admin0 point' && zoom <= 5){
+			if (feature.get('layer') == 'Admin0 point'){
 				return new ol.style.Style({
 					text: new ol.style.Text({
 						text: feature.get('_name'), 

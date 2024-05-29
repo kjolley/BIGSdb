@@ -48,7 +48,7 @@ sub get_attributes {
 		buttontext => 'Fields',
 		menutext   => 'Field breakdown',
 		module     => 'FieldBreakdown',
-		version    => '2.7.0',
+		version    => '2.8.0',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
@@ -353,7 +353,11 @@ sub run {
 	$self->print_loading_message;
 	say q(</div>);
 	say q(<div id="map" style="max-width:800px;margin-left:auto;margin-right:auto"></div>);
-	say q(<div id="geography" style="max-width:800px;margin-left:auto;margin-right:auto;max-height:100vw"></div>);
+	say q(<div id="geography" style="position:relative;max-width:800px;margin-left:auto;margin-right:auto;max-height:100vw">);
+	say q(<a href="https://www.maptiler.com" id="maptiler_logo" )
+	  . q(style="display:none;position:absolute;left:10px;bottom:10px;z-index:10">)
+	  . q(<img src="https://api.maptiler.com/resources/logo.svg" alt="MapTiler logo"></a>);
+	say q(</div>);
 	$self->_print_map_controls;
 	$self->_print_geography_controls;
 	$self->_print_pie_controls;
@@ -438,7 +442,7 @@ sub _print_map_controls {
 
 sub _print_geography_controls {
 	my ($self) = @_;
-	my $arcgis   = $self->{'system'}->{'use_arcgis_world_imagery'} // $self->{'config'}->{'use_arcgis_world_imagery'};
+	my $mapping_options = $self->get_mapping_options;
 	my $q = $self->{'cgi'};
 	say q(<fieldset id="geography_controls" class="bb_controls" )
 	  . q(style="position:absolute;top:1em;right:1em;display:none"><legend>Controls</legend>);
@@ -456,7 +460,7 @@ sub _print_geography_controls {
 	if ( !defined $style || !$allowed{$style} ) {
 		$style = 'Map';
 	}
-	if ( defined $arcgis ) {
+	if ( $mapping_options->{'option'} > 0 ) {
 		say q(<li><label for="view">View:</label>);
 		say $q->radio_group(
 			-name    => 'geography_view',
@@ -692,7 +696,8 @@ sub get_plugin_javascript {
 	my $types_js     = $self->_get_fields_js;
 	my $loci_js      = $self->_get_loci_js;
 	my $schemes_js   = $self->_get_schemes_js;
-	my $arcgis   = $self->{'system'}->{'use_arcgis_world_imagery'} // $self->{'config'}->{'use_arcgis_world_imagery'} // 0;
+	my $mapping_options = $self->get_mapping_options;
+	my $maptiler_key = $mapping_options->{'maptiler_key'} // q();
 	my $buffer       = <<"JS";
 var height = 400;
 var segments = 20;
@@ -702,7 +707,8 @@ var line = 1;
 var fasta = 0;
 var url = "$url";
 var prefs_ajax_url = "$plugin_prefs_ajax_url";
-var use_arcgis = $arcgis;
+var mapping_option = $mapping_options->{'option'};
+var maptiler_key = "$maptiler_key";
 
 $types_js	
 $loci_js
