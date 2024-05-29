@@ -1341,8 +1341,9 @@ sub _get_map_section {
 	my $buffer = q(<div><span class="info_icon fa-2x fa-fw fas fa-map fa-pull-left" style="margin-top:-0.2em"></span>);
 	$buffer .= @$maps > 1 ? qq(<h2>Maps</h2>\n) : qq(<h2>$maps->[0]->{'field'}</h2>\n);
 	my $i           = 1;
-	my $layers = $self->get_ol_layer_selection;
 	my $map_options = $self->get_mapping_options;
+	my $maptiler_key = $map_options->{'maptiler_key'} // q();
+	say qq(<script>const maptiler_key="$maptiler_key"</script>);
 	local $" = q(,);
 	foreach my $map (@$maps) {
 		$buffer .= q(<div style="float:left;margin:0 1em">);
@@ -1369,14 +1370,13 @@ sub _get_map_section {
 		}
 		$buffer .= q(</div>);
 		my $imprecise = $map->{'imprecise'} ? 1 : 0;
+		
 		$buffer .= <<"MAP";
 
-<script>	
+<script>
 \$(document).ready(function() 	
     { 
-      const layers = [
-		@$layers
-	  ];
+      const layers = get_ol_layers($map_options->{'option'},'Map');
       let map = new ol.Map({
         target: 'map$i',
         layers: layers,

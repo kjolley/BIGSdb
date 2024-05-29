@@ -199,7 +199,7 @@ sub _get_javascript_paths {
 			'dropzone'     => { src => [qw(dropzone.js)],    defer => 0, version => '20200308' },
 
 			#See https://dolmenweb.it/viewers/openlayer/doc/tutorials/custom-builds.html
-			'ol'        => { src => [qw(ol-custom.js)], defer => 0, version => '9.2.4#20240529' },
+			'ol'        => { src => [qw(ol-custom.js bigsdb.openlayers.min.js)], defer => 0, version => '9.2.4#20240529' },
 			'billboard' => {
 				src     => [qw(d3.v6.min.js billboard.min.js jquery.ui.touch-punch.min.js)],
 				defer   => 1,
@@ -3803,33 +3803,6 @@ sub print_related_database_panel {
 	say q(</ul></div>);
 	say q(</div></div>);
 	return;
-}
-
-sub get_ol_layer_selection {
-	my ($self) = @_;
-	my $map_options = $self->get_mapping_options;
-	my $layers = [];
-	my $layer_selection = {
-		0 => sub { push @$layers, BIGSdb::JSContent::get_ol_osm_layer() },
-		1 => sub {
-			push @$layers, BIGSdb::JSContent::get_ol_osm_layer();
-			push @$layers, BIGSdb::JSContent::get_ol_maptiler_map_layer( $map_options->{'maptiler_key'} );
-		},
-		2 => sub {
-			push @$layers, BIGSdb::JSContent::get_ol_osm_layer();
-			push @$layers, BIGSdb::JSContent::get_ol_arcgis_world_imagery_layer();
-			push @$layers, BIGSdb::JSContent::get_ol_arcgis_hybdrid_ref_layer();
-		},
-		3 => sub {
-			push @$layers, BIGSdb::JSContent::get_ol_arcgis_world_streetmap_layer();
-			push @$layers, BIGSdb::JSContent::get_ol_arcgis_world_imagery_layer();
-			push @$layers, BIGSdb::JSContent::get_ol_arcgis_hybdrid_ref_layer();
-		}
-	};
-	if ($layer_selection->{ $map_options->{'option'} }){
-		$layer_selection->{ $map_options->{'option'} }->();
-	}
-	return $layers;
 }
 
 sub get_mapping_options {

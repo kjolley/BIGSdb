@@ -724,12 +724,12 @@ sub _print_palette_control {
 
 sub _print_gps_map_control {
 	my ( $self, $id, $element ) = @_;
-	my $arcgis = $self->{'system'}->{'use_arcgis_world_imagery'} // $self->{'config'}->{'use_arcgis_world_imagery'};
+	my $mapping_option = $self->get_mapping_options;
 	my $q      = $self->{'cgi'};
 	my $marker_size = $element->{'marker_size'} // 2;
 	say q(<li id="gps_map_control" style="display:none">);
 	say q(<div style="margin-top:-0.5em"><ul>);
-	if ( defined $arcgis ) {
+	if ( $mapping_option->{'option'} > 0 ) {
 		say q(<li><label for="view">View:</label>);
 		say $q->radio_group(
 			-name    => "${id}_geography_view",
