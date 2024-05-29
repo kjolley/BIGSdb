@@ -101,8 +101,19 @@ sub get_ol_arcgis_hybdrid_ref_layer {
 						stroke: new ol.style.Stroke({
 							color: '#000',
 							width: 2
+						}),
+						offsetY: 10
+					}),
+					image: new ol.style.Circle({
+			            radius: 3,
+			            fill: new ol.style.Fill({
+			                color: '#fff'
+			            }),
+			            stroke: new ol.style.Stroke({
+							color: '#000',
+							width: 1
 						})
-					})
+	  		      	})
 				});
 			}
 			if (feature.get('layer') == 'Boundary line' ){

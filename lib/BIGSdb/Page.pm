@@ -199,7 +199,7 @@ sub _get_javascript_paths {
 			'dropzone'     => { src => [qw(dropzone.js)],    defer => 0, version => '20200308' },
 
 			#See https://dolmenweb.it/viewers/openlayer/doc/tutorials/custom-builds.html
-			'ol'        => { src => [qw(ol-custom.js)], defer => 0, version => '8.20.0#20240528' },
+			'ol'        => { src => [qw(ol-custom.js)], defer => 0, version => '9.2.4#20240529' },
 			'billboard' => {
 				src     => [qw(d3.v6.min.js billboard.min.js jquery.ui.touch-punch.min.js)],
 				defer   => 1,
@@ -3808,8 +3808,8 @@ sub print_related_database_panel {
 sub get_mapping_options {
 	my ($self) = @_;
 	my $option = $self->{'system'}->{'mapping_option'} // $self->{'config'}->{'mapping_option'};
-	if (defined $option && ( !BIGSdb::Utils::is_int($option) || $option > 3 || $option < 0)){
-		$logger->error("Invalid option $option set for mapping.")		
+	if ( defined $option && ( !BIGSdb::Utils::is_int($option) || $option > 3 || $option < 0 ) ) {
+		$logger->error("Invalid option $option set for mapping.");
 	}
 	$option //= 0;
 	my $options = {};

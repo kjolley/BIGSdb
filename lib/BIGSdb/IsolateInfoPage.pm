@@ -1443,7 +1443,7 @@ sub _get_map_section {
      		layers[1].setVisible(true);
      		if (typeof layers[2] !== 'undefined'){
      			layers[2].setVisible(true);
-     		}
+      		}
      		\$("a#maptiler_logo").show();
       		\$("span#satellite${i}_off").hide();
      		\$("span#satellite${i}_on").show();
