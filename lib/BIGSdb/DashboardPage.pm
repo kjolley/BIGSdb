@@ -725,8 +725,8 @@ sub _print_palette_control {
 sub _print_gps_map_control {
 	my ( $self, $id, $element ) = @_;
 	my $mapping_option = $self->get_mapping_options;
-	my $q      = $self->{'cgi'};
-	my $marker_size = $element->{'marker_size'} // 2;
+	my $q              = $self->{'cgi'};
+	my $marker_size    = $element->{'marker_size'} // 2;
 	say q(<li id="gps_map_control" style="display:none">);
 	say q(<div style="margin-top:-0.5em"><ul>);
 	if ( $mapping_option->{'option'} > 0 ) {
@@ -3897,47 +3897,30 @@ sub _get_field_breakdown_gps_map_content {
 		next if !defined $value->{'label'};
 		push @$values, $value;
 	}
-	my $json          = JSON->new->allow_nonref;
-	my $dataset       = $json->encode($values);
-	my $height        = $element->{'height'} * 150 + ( $element->{'height'} - 1 ) * 4;
-	my $buffer        = qq(<div id="chart_$element->{'id'}" style="height:${height}px;"></div>);
-	my $marker_colour = $element->{'marker_colour'}              // 'red';
-	my $marker_size   = $element->{'marker_size'}                // 1;
-	my $arcgis = $self->{'system'}->{'use_arcgis_world_imagery'} // $self->{'config'}->{'use_arcgis_world_imagery'};
-	my $id     = $element->{'id'};
+	my $json    = JSON->new->allow_nonref;
+	my $dataset = $json->encode($values);
+	my $height  = $element->{'height'} * 150 + ( $element->{'height'} - 1 ) * 4;
+	my $buffer  = qq(<div id="chart_$element->{'id'}" style="height:${height}px;">)
+	  . q(<a href="https://www.maptiler.com" id="maptiler_logo" )
+	  . q(style="display:none;position:absolute;left:10px;bottom:10px;z-index:10">)
+	  . q(<img src="https://api.maptiler.com/resources/logo.svg" alt="MapTiler logo"></a></div>);
+	my $marker_colour   = $element->{'marker_colour'} // 'red';
+	my $marker_size     = $element->{'marker_size'}   // 1;
+	my $mapping_options = $self->get_mapping_options;
+	my $maptiler_key    = $mapping_options->{'maptiler_key'} // q();
+	my $id              = $element->{'id'};
 	$buffer .= qq(<script>\n);
-
-	if ( $arcgis && ( $element->{'geography_view'} // 'Map' ) eq 'Aerial' ) {
-		$buffer .= <<"JS";
-	\$(function() {
-		let layer = [
-          new ol.layer.Tile({
-              source: new ol.source.XYZ({
-                  attributions: ['Powered by Esri;','Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'],
-                  attributionsCollapsible: true,
-                  url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                  maxZoom: 23          	
-              })
-          })
-        ];
-JS
-	} else {
-		$buffer .= <<"JS";
-	\$(function() {
-		let layer = [
-			new ol.layer.Tile({
-				source: new ol.source.OSM({
-					crossOrigin: null
-				})
-			})
-		];	
-JS
-	}
+	my $map_style = $element->{'geography_view'} // 'Map';
+	$map_style = 'Map' if $mapping_options->{'option'} == 0;
 	$buffer .= <<"JS";
+var maptiler_key = "$maptiler_key";
+var map_style = "$map_style";
+\$(function() {
+	let layers = get_ol_layers($mapping_options->{'option'},"$map_style");	
 	let data = $dataset;	
 	let map = new ol.Map({
 		target: 'chart_$element->{'id'}',
-		layers: layer,
+		layers: map_style == 'Map' ? [layers[0]] : layers.slice(1),
 		view: new ol.View({
 			center: ol.proj.fromLonLat([0, 20]),
 			zoom: 2,
@@ -3963,6 +3946,7 @@ JS
 	$buffer .=
 		q(<div class="title gps_map_title" )
 	  . qq(style="position:absolute;top:0;left:2em;width:calc(100% - 4em);color:#666">$element->{'name'}</div>);
+
 	if ( !@$data ) {
 		$buffer .= q(<div style="position:absolute;top:50px;width:100%;color:#666;font-size:2em">No values</div>);
 	}
