@@ -56,7 +56,7 @@ sub get_attributes {
 		buttontext         => 'Sequences',
 		menutext           => $seqdef ? 'Profile sequences' : 'Sequences',
 		module             => 'SequenceExport',
-		version            => '1.9.0',
+		version            => '1.9.1',
 		dbtype             => 'isolates,sequences',
 		seqdb_type         => 'schemes',
 		section            => 'isolate_info,profile_info,export,postquery',
@@ -235,7 +235,7 @@ sub _print_interface {
 	$self->_print_includes_fieldset($scheme_id);
 
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		$self->print_isolates_locus_fieldset( { no_all_none => 1 } );
+		$self->print_isolates_locus_fieldset( { no_all_none => 1, locus_paste_list => 1 } );
 		$self->print_scheme_fieldset;
 	} else {
 		$self->print_scheme_locus_fieldset( $scheme_id, { no_all_none => 1 } );
