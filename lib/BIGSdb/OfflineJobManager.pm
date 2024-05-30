@@ -270,10 +270,19 @@ sub _is_quota_exceeded {
 
 sub _get_duplicate_job_id {
 	my ( $self, $fingerprint, $username, $ip_address ) = @_;
-	my $qry = q(SELECT id FROM jobs WHERE fingerprint=? AND (status='started' OR status='submitted') AND );
-	$qry .= $self->{'system'}->{'read_access'} eq 'public' ? 'ip_address=?' : 'username=?';
-	return $self->_run_query( $qry,
-		[ $fingerprint, ( $self->{'system'}->{'read_access'} eq 'public' ? $ip_address : $username ) ] );
+	my $qry              = q(SELECT id FROM jobs WHERE fingerprint=? AND (status='started' OR status='submitted') AND );
+	my $check_ip_address = ( $self->{'system'}->{'read_access'} eq 'public' && !$self->_jobs_require_login );
+	$qry .= $check_ip_address ? 'ip_address=?' : 'username=?';
+	return $self->_run_query( $qry, [ $fingerprint, ( $check_ip_address ? $ip_address : $username ) ] );
+}
+
+sub _jobs_require_login {
+	my ($self) = @_;
+	return if ( $self->{'system'}->{'jobs_require_login'} // q() ) eq 'no';
+	return
+	  if !( $self->{'config'}->{'jobs_require_login'}
+		|| ( $self->{'system'}->{'jobs_require_login'} // q() ) eq 'yes' );
+	return 1;
 }
 
 sub cancel_job {
@@ -512,10 +521,9 @@ sub get_next_job_id {
 		$running_jobs_per_user->{ $module_per_user->{'username'} }->{ $module_per_user->{'module'} } =
 		  $module_per_user->{'count'};
 	}
-	my $jobs = $self->_run_query(
-		'SELECT id,module,username FROM jobs WHERE status=? ORDER BY priority asc,submit_time asc',
-		'submitted', { fetch => 'all_arrayref', slice => {} }
-	);
+	my $jobs =
+	  $self->_run_query( 'SELECT id,module,username FROM jobs WHERE status=? ORDER BY priority asc,submit_time asc',
+		'submitted', { fetch => 'all_arrayref', slice => {} } );
 	foreach my $job (@$jobs) {
 		if ( defined $self->{'limits'}->{'global'}->{ $job->{'module'} }
 			&& BIGSdb::Utils::is_int( $self->{'limits'}->{'global'}->{ $job->{'module'} } ) )
