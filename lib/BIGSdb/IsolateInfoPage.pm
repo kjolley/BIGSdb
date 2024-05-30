@@ -1340,11 +1340,12 @@ sub _get_map_section {
 	return q() if !@$maps;
 	my $buffer = q(<div><span class="info_icon fa-2x fa-fw fas fa-map fa-pull-left" style="margin-top:-0.2em"></span>);
 	$buffer .= @$maps > 1 ? qq(<h2>Maps</h2>\n) : qq(<h2>$maps->[0]->{'field'}</h2>\n);
-	my $i           = 1;
-	my $map_options = $self->get_mapping_options;
+	my $i            = 1;
+	my $map_options  = $self->get_mapping_options;
 	my $maptiler_key = $map_options->{'maptiler_key'} // q();
 	say qq(<script>const maptiler_key="$maptiler_key"</script>);
 	local $" = q(,);
+
 	foreach my $map (@$maps) {
 		$buffer .= q(<div style="float:left;margin:0 1em">);
 		if ( @$maps > 1 ) {
@@ -1370,15 +1371,19 @@ sub _get_map_section {
 		}
 		$buffer .= q(</div>);
 		my $imprecise = $map->{'imprecise'} ? 1 : 0;
-		
+		my $collapsible =
+		  $map_options->{'option'} < 3 ? 'false' : 'true';    #OSM should always show attributions.
 		$buffer .= <<"MAP";
 
 <script>
+const map_option = $map_options->{'option'};
 \$(document).ready(function() 	
     { 
       const layers = get_ol_layers($map_options->{'option'},'Map');
+      let attribution = new ol.control.Attribution({collapsible: $collapsible});
       let map = new ol.Map({
         target: 'map$i',
+        controls: ol.control.defaults({attribution: false}).extend([attribution]),
         layers: layers,
         view: new ol.View({
           center: ol.proj.fromLonLat([$map->{'longitude'}, $map->{'latitude'}]),
@@ -1429,6 +1434,8 @@ sub _get_map_section {
      		\$("a#maptiler_logo").show();
       		\$("span#satellite${i}_off").hide();
      		\$("span#satellite${i}_on").show();
+     		attribution.setCollapsible(true);
+     		attribution.setCollapsed(true);
      	} else {
      		layers[0].setVisible(true);
      		layers[1].setVisible(false);
@@ -1438,6 +1445,11 @@ sub _get_map_section {
      		\$("a#maptiler_logo").hide();
      		\$("span#satellite${i}_on").hide();
      		\$("span#satellite${i}_off").show();
+     		if (map_option < 3){ //OSM
+		     	attribution.setCollapsible(false);
+	    	 	attribution.setCollapsed(false);
+     		}
+  
      	}
      });
      \$("a#recentre$i").click(function(event){

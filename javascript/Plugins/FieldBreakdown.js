@@ -827,8 +827,6 @@ function load_bar(url, field, rotate) {
 function load_geography(url, field) {
 	$("#bb_chart").html("");
 	$("#geography").css("height", "400px");
-	//	const styles = ['RoadOnDemand', 'AerialWithLabelsOnDemand'];
-	//	const prefStyles = ['Map', 'Aerial'];
 	let map_style = $("input[name='geography_view']:checked").val();
 	if (typeof map_style == 'undefined') {
 		map_style = 'Map';
@@ -836,8 +834,10 @@ function load_geography(url, field) {
 	let layers = get_ol_layers(mapping_option, map_style);
 
 	d3.json(url).then(function(jsonData) {
+		let attribution = new ol.control.Attribution({ collapsible: mapping_option < 3 ? false : true });
 		let map = new ol.Map({
 			target: 'geography',
+			controls: ol.control.defaults({ attribution: false }).extend([attribution]),
 			layers: layers,
 			view: new ol.View({
 				center: ol.proj.fromLonLat([0, 20]),
@@ -876,21 +876,23 @@ function load_geography(url, field) {
 					if (typeof layers[2] !== 'undefined') {
 						layers[2].setVisible(true);
 					}
-					if (mapping_option == 1) {
-						$("a#maptiler_logo").show();
-					}
+					attribution.setCollapsible(true);
+					attribution.setCollapsed(true);
 				} else {
 					layers[0].setVisible(true);
 					layers[1].setVisible(false);
 					if (typeof layers[2] !== 'undefined') {
 						layers[2].setVisible(false);
 					}
-					if (mapping_option == 1) {
-						$("a#maptiler_logo").hide();
+					if (mapping_option < 3) { //OSM
+						attribution.setCollapsible(false);
+						attribution.setCollapsed(false);
 					}
 				}
+				display_maptiler_logo();
 				set_prefs('map_style', $("input[name='geography_view']:checked").val());
 			});
+			display_maptiler_logo();
 			$(".marker_colour").off("click").click(function() {
 				set_prefs('marker_colour', this.id);
 				marker_colour = this.id;
@@ -905,7 +907,6 @@ function load_geography(url, field) {
 				vectorLayer = get_marker_layer(jsonData);
 				map.addLayer(vectorLayer);
 			});
-
 		});
 		$("#marker_size").slider({ min: 0, max: 10, value: marker_size });
 		map.on('rendercomplete', function(e) {
@@ -914,8 +915,30 @@ function load_geography(url, field) {
 			link.setAttribute('download', selected_field + '_map.png');
 			link.setAttribute('href', canvas.toDataURL("image/png"));
 		});
+		if (mapping_option < 3) {
+			attribution.setCollapsible(map_style == 'Map' ? false : true);
+			attribution.setCollapsed(map_style == 'Map' ? false : true);
+		}
 	});
 
+}
+
+function display_maptiler_logo() {
+	if (mapping_option == 1) {
+		let map_style = $("input[name='geography_view']:checked").val();
+		if (!$("a#maptiler_logo").length) {
+			console.log('Adding logo');
+			$("div#geography").append(
+				'<a href="https://www.maptiler.com" id="maptiler_logo" '
+				+ 'style="display:none;position:absolute;left:10px;bottom:10px;z-index:10">'
+				+ '<img src="https://api.maptiler.com/resources/logo.svg" alt="MapTiler logo"></a>');
+		}
+		if (map_style == 'Map') {
+			$("a#maptiler_logo").hide()
+		} else {
+			$("a#maptiler_logo").show();
+		}
+	}
 }
 
 function get_marker_layer(jsonData) {
