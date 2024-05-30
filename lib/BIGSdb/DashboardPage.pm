@@ -3912,15 +3912,20 @@ sub _get_field_breakdown_gps_map_content {
 	$buffer .= qq(<script>\n);
 	my $map_style = $element->{'geography_view'} // 'Map';
 	$map_style = 'Map' if $mapping_options->{'option'} == 0;
+	#Attributions should not be collapsible on OSM maps - but if the map is very small we should collapse.
+	my $collapsible = ($map_style eq 'Map' && $mapping_options->{'option'} < 3) ? 'false': 'true'; 
+	my $collapse = $element->{'width'} == 1 ? q(attribution.setCollapsible(true);attribution.setCollapsed(true);) : q();
 	$buffer .= <<"JS";
 var maptiler_key = "$maptiler_key";
 var map_style = "$map_style";
 \$(function() {
 	let layers = get_ol_layers($mapping_options->{'option'},"$map_style");	
 	let data = $dataset;	
+	let attribution = new ol.control.Attribution({collapsible: $collapsible});
 	let map = new ol.Map({
 		target: 'chart_$element->{'id'}',
 		layers: map_style == 'Map' ? [layers[0]] : layers.slice(1),
+		controls: ol.control.defaults({attribution: false}).extend([attribution]),
 		view: new ol.View({
 			center: ol.proj.fromLonLat([0, 20]),
 			zoom: 2,
@@ -3928,6 +3933,7 @@ var map_style = "$map_style";
 			maxZoom: 16
 		})
 	});
+	$collapse
 	let vectorLayer = get_marker_layer(data, '$marker_colour', $marker_size);
 	map.addLayer(vectorLayer);
 	let features = vectorLayer.getSource().getFeatures();
