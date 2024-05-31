@@ -21,7 +21,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20240111
+#Version: 20240531
 use strict;
 use warnings;
 use 5.010;
@@ -274,15 +274,16 @@ ${bold}--field$norm ${under}FIELD$norm
     'yes' in config.xml.
     
 ${bold}--geodataset$norm ${under}DIR$norm
-    Directory containing the Geonames dataset.
+    Directory containing the Geonames dataset - this can be found in the
+    BIGSdb datasets directory.
     
 ${bold}--help$norm
     This help page.
     
 ${bold}--min_population$norm ${under}POPULATION$norm
-    Set the minimum population for town to assign. Note that all entries in the
-    Geonames database has population, so setting this attribute may result in 
-    some values not being assigned, but can ensure that only high-confidence 
+    Set the minimum population for town to assign. Note that not all entries in
+    the Geonames database has population, so setting this attribute may result 
+    in some values not being assigned, but can ensure that only high-confidence
     values are used.
     
 ${bold}--quiet$norm
