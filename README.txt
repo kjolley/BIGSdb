@@ -1,3 +1,9 @@
+v1.46.2: *BingMaps has been removed as an option for mapping as Microsoft are
+          retiring this service next year. It has been replaced with options
+          for MapTiler and ArcGIS maps.
+v1.46.1: *New SNPsites plugin - this provides a wrapper to the snp-sites tool
+          and can be applied across multiple loci to identify polymorphic sites
+          and allele counts within a dataset.
 v1.46.0: *Option to filter alleles, profiles, and isolates for non-logged in
           users to records added before a specified date.
          *Improved AJAX loading of isolate query interface.
