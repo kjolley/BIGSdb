@@ -909,12 +909,6 @@ function load_geography(url, field) {
 			});
 		});
 		$("#marker_size").slider({ min: 0, max: 10, value: marker_size });
-		map.on('rendercomplete', function(e) {
-			let canvas = document.querySelector("canvas");
-			let link = document.getElementById('export_map_image');
-			link.setAttribute('download', selected_field + '_map.png');
-			link.setAttribute('href', canvas.toDataURL("image/png"));
-		});
 		if (mapping_option < 3) {
 			attribution.setCollapsible(map_style == 'Map' ? false : true);
 			attribution.setCollapsed(map_style == 'Map' ? false : true);
@@ -1004,7 +998,6 @@ function show_export_options() {
 	$("a#export_fasta").attr("href", url + "&export=" + field + "&format=fasta");
 	$("a#export_fasta").css("display", fasta ? "inline" : "none");
 	$("a#export_image").css("display", selected_type == 'geography_point' || geography_point_lookup_fields.includes(selected_field) ? "none" : "inline");
-	$("a#export_map_image").css("display", selected_type == 'geography_point' || geography_point_lookup_fields.includes(selected_field) ? "inline" : "none");
 	$("#export").css("display", "block");
 }
 
