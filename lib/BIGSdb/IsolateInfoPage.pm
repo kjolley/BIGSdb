@@ -22,6 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::TreeViewPage);
 use BIGSdb::Constants qw(:interface :limits COUNTRIES DEFAULT_CODON_TABLE NULL_TERMS);
+use BIGSdb::JSContent;
 use Log::Log4perl qw(get_logger);
 use Try::Tiny;
 use List::MoreUtils qw(none uniq);
@@ -1339,38 +1340,12 @@ sub _get_map_section {
 	return q() if !@$maps;
 	my $buffer = q(<div><span class="info_icon fa-2x fa-fw fas fa-map fa-pull-left" style="margin-top:-0.2em"></span>);
 	$buffer .= @$maps > 1 ? qq(<h2>Maps</h2>\n) : qq(<h2>$maps->[0]->{'field'}</h2>\n);
-	my $i = 1;
-	my $layers;
-	my $bingmaps_api = $self->{'system'}->{'bingmaps_api'} // $self->{'config'}->{'bingmaps_api'};
-	if ($bingmaps_api) {
-		$layers = <<"JS";
-const styles = ['RoadOnDemand','AerialWithLabelsOnDemand'];
-const layers = [];
-let i, ii;
-for (i = 0, ii = styles.length; i < ii; ++i) {
-  layers.push(
-    new ol.layer.Tile({
-      visible: i == 0 ? true : false,
-      preload: Infinity,
-      source: new ol.source.BingMaps({
-        key: '$bingmaps_api',
-        imagerySet: styles[i]
-      }),
-    })
-  );
-}		
-JS
-	} else {
-		$layers = <<"JS";
-	  const layers = [
-          new ol.layer.Tile({
-            source: new ol.source.OSM({
-            	crossOrigin: null
-            })
-          })
-        ];			
-JS
-	}
+	my $i            = 1;
+	my $map_options  = $self->get_mapping_options;
+	my $maptiler_key = $map_options->{'maptiler_key'} // q();
+	say qq(<script>const maptiler_key="$maptiler_key"</script>);
+	local $" = q(,);
+
 	foreach my $map (@$maps) {
 		$buffer .= q(<div style="float:left;margin:0 1em">);
 		if ( @$maps > 1 ) {
@@ -1387,16 +1362,28 @@ JS
 				$buffer .= qq(<p>$map->{'latitude'}, $map->{'longitude'}</p>);
 			}
 		}
-		$buffer .= qq(<div id="map$i" class="ol_map"></div>);
+		$buffer .= qq(<div id="map$i" class="ol_map" style="position:relative">);
+		if ( $map_options->{'option'} == 1 ) {
+			$buffer .=
+				q(<a href="https://www.maptiler.com" id="maptiler_logo" )
+			  . q(style="display:none;position:absolute;left:10px;bottom:10px;z-index:10">)
+			  . q(<img src="https://api.maptiler.com/resources/logo.svg" alt="MapTiler logo"></a>);
+		}
+		$buffer .= q(</div>);
 		my $imprecise = $map->{'imprecise'} ? 1 : 0;
+		my $collapsible =
+		  $map_options->{'option'} < 3 ? 'false' : 'true';    #OSM should always show attributions.
 		$buffer .= <<"MAP";
 
 <script>
+const map_option = $map_options->{'option'};
 \$(document).ready(function() 	
     { 
-      $layers
+      const layers = get_ol_layers($map_options->{'option'},'Map');
+      let attribution = new ol.control.Attribution({collapsible: $collapsible});
       let map = new ol.Map({
         target: 'map$i',
+        controls: ol.control.defaults({attribution: false}).extend([attribution]),
         layers: layers,
         view: new ol.View({
           center: ol.proj.fromLonLat([$map->{'longitude'}, $map->{'latitude'}]),
@@ -1441,13 +1428,28 @@ JS
      	if (layers[0].getVisible()){
      		layers[0].setVisible(false);
      		layers[1].setVisible(true);
-     		\$("span#satellite${i}_off").hide();
+     		if (typeof layers[2] !== 'undefined'){
+     			layers[2].setVisible(true);
+      		}
+     		\$("a#maptiler_logo").show();
+      		\$("span#satellite${i}_off").hide();
      		\$("span#satellite${i}_on").show();
+     		attribution.setCollapsible(true);
+     		attribution.setCollapsed(true);
      	} else {
      		layers[0].setVisible(true);
      		layers[1].setVisible(false);
+     		if (typeof layers[2] !== 'undefined'){
+     			layers[2].setVisible(false);
+     		}
+     		\$("a#maptiler_logo").hide();
      		\$("span#satellite${i}_on").hide();
      		\$("span#satellite${i}_off").show();
+     		if (map_option < 3){ //OSM
+		     	attribution.setCollapsible(false);
+	    	 	attribution.setCollapsed(false);
+     		}
+  
      	}
      });
      \$("a#recentre$i").click(function(event){
@@ -1461,7 +1463,7 @@ JS
 </script>
 MAP
 		$buffer .= q(<p style="margin-top:0.5em">);
-		if ( $self->{'config'}->{'bingmaps_api'} ) {
+		if ( $map_options->{'option'} > 0 ) {
 			$buffer .=
 				q(<span style="vertical-align:0.4em">Aerial view </span>)
 			  . qq(<a class="toggle_satellite" id="toggle_satellite$i" style="cursor:pointer;margin-right:2em">)

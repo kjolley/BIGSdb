@@ -724,12 +724,12 @@ sub _print_palette_control {
 
 sub _print_gps_map_control {
 	my ( $self, $id, $element ) = @_;
-	my $bingmaps_api = $self->{'system'}->{'bingmaps_api'} // $self->{'config'}->{'bingmaps_api'};
-	my $q            = $self->{'cgi'};
-	my $marker_size  = $element->{'marker_size'} // 2;
+	my $mapping_option = $self->get_mapping_options;
+	my $q              = $self->{'cgi'};
+	my $marker_size    = $element->{'marker_size'} // 2;
 	say q(<li id="gps_map_control" style="display:none">);
 	say q(<div style="margin-top:-0.5em"><ul>);
-	if ( defined $bingmaps_api ) {
+	if ( $mapping_option->{'option'} > 0 ) {
 		say q(<li><label for="view">View:</label>);
 		say $q->radio_group(
 			-name    => "${id}_geography_view",
@@ -2160,7 +2160,7 @@ sub _get_scheme_annotation_values {
 	$min_threshold = 0 if $min_threshold < 0;
 	my $filter_clause = @$filters ? " AND @$filters" : q();
 	my $table         = $self->{'datastore'}->create_temp_scheme_status_table($scheme_id);
-	my $good = $self->{'datastore'}->run_query(
+	my $good          = $self->{'datastore'}->run_query(
 		"SELECT COUNT(*) FROM $self->{'view'} v$view_clause JOIN $table "
 		  . "v3 ON v.id=v3.id WHERE v3.locus_count>=?$filter_clause",
 		$max_threshold
@@ -3897,52 +3897,35 @@ sub _get_field_breakdown_gps_map_content {
 		next if !defined $value->{'label'};
 		push @$values, $value;
 	}
-	my $json     = JSON->new->allow_nonref;
-	my $dataset  = $json->encode($values);
-	my $height   = $element->{'height'} * 150 + ( $element->{'height'} - 1 ) * 4;
-	my $buffer   = qq(<div id="chart_$element->{'id'}" style="height:${height}px;"></div>);
-	my %map_type = (
-		Map    => 'RoadOnDemand',
-		Aerial => 'AerialWithLabelsOnDemand'
-	);
-	my $imagery_set   = $map_type{ $element->{'geography_view'} // 'Map' };
-	my $marker_colour = $element->{'marker_colour'} // 'red';
-	my $marker_size   = $element->{'marker_size'}   // 1;
-	$imagery_set //= 'RoadOnDemand';
-	my $id = $element->{'id'};
+	my $json    = JSON->new->allow_nonref;
+	my $dataset = $json->encode($values);
+	my $height  = $element->{'height'} * 150 + ( $element->{'height'} - 1 ) * 4;
+	my $buffer  = qq(<div id="chart_$element->{'id'}" style="height:${height}px;">)
+	  . q(<a href="https://www.maptiler.com" id="maptiler_logo" )
+	  . q(style="display:none;position:absolute;left:10px;bottom:10px;z-index:10">)
+	  . q(<img src="https://api.maptiler.com/resources/logo.svg" alt="MapTiler logo"></a></div>);
+	my $marker_colour   = $element->{'marker_colour'} // 'red';
+	my $marker_size     = $element->{'marker_size'}   // 1;
+	my $mapping_options = $self->get_mapping_options;
+	my $maptiler_key    = $mapping_options->{'maptiler_key'} // q();
+	my $id              = $element->{'id'};
 	$buffer .= qq(<script>\n);
-
-	if ( $self->{'config'}->{'bingmaps_api'} ) {
-		$buffer .= <<"JS";
-	\$(function() {
-		let layer = [
-			new ol.layer.Tile({
-				visible: true,
-				preload: Infinity,
-				source: new ol.source.BingMaps({
-					key: '$self->{'config'}->{'bingmaps_api'}',
-					imagerySet: '$imagery_set'
-				})
-			})
-		];
-JS
-	} else {
-		$buffer .= <<"JS";
-	\$(function() {
-		let layer = [
-			new ol.layer.Tile({
-				source: new ol.source.OSM({
-					crossOrigin: null
-				})
-			})
-		];	
-JS
-	}
+	my $map_style = $element->{'geography_view'} // 'Map';
+	$map_style = 'Map' if $mapping_options->{'option'} == 0;
+	#Attributions should not be collapsible on OSM maps - but if the map is very small we should collapse.
+	my $collapsible = ($map_style eq 'Map' && $mapping_options->{'option'} < 3) ? 'false': 'true'; 
+	my $collapse = $element->{'width'} == 1 ? q(attribution.setCollapsible(true);attribution.setCollapsed(true);) : q();
 	$buffer .= <<"JS";
+var maptiler_key = "$maptiler_key";
+var map_style = "$map_style";
+\$(function() {
+	let layers = get_ol_layers($mapping_options->{'option'},"$map_style");	
 	let data = $dataset;	
+	let attribution = new ol.control.Attribution({collapsible: $collapsible});
 	let map = new ol.Map({
 		target: 'chart_$element->{'id'}',
-		layers: layer,
+		layers: map_style == 'Map' ? [layers[0]] : layers.slice(1),
+		controls: ol.control.defaults({attribution: false}).extend([attribution]),
 		view: new ol.View({
 			center: ol.proj.fromLonLat([0, 20]),
 			zoom: 2,
@@ -3950,6 +3933,7 @@ JS
 			maxZoom: 16
 		})
 	});
+	$collapse
 	let vectorLayer = get_marker_layer(data, '$marker_colour', $marker_size);
 	map.addLayer(vectorLayer);
 	let features = vectorLayer.getSource().getFeatures();
@@ -3967,7 +3951,8 @@ JS
 	$buffer .= qq(</script>\n);
 	$buffer .=
 		q(<div class="title gps_map_title" )
-	  . qq(style="position:absolute;top:0;width:100%;color:#666">$element->{'name'}</div>);
+	  . qq(style="position:absolute;top:0;left:2em;width:calc(100% - 4em);color:#666">$element->{'name'}</div>);
+
 	if ( !@$data ) {
 		$buffer .= q(<div style="position:absolute;top:50px;width:100%;color:#666;font-size:2em">No values</div>);
 	}

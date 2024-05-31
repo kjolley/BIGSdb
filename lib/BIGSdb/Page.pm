@@ -199,7 +199,7 @@ sub _get_javascript_paths {
 			'dropzone'     => { src => [qw(dropzone.js)],    defer => 0, version => '20200308' },
 
 			#See https://dolmenweb.it/viewers/openlayer/doc/tutorials/custom-builds.html
-			'ol'        => { src => [qw(ol-custom.js)], defer => 0, version => '8.20.0#20231117' },
+			'ol'        => { src => [qw(ol-custom.js bigsdb.openlayers.min.js)], defer => 0, version => '9.2.4#20240530' },
 			'billboard' => {
 				src     => [qw(d3.v6.min.js billboard.min.js jquery.ui.touch-punch.min.js)],
 				defer   => 1,
@@ -226,7 +226,7 @@ sub _get_javascript_paths {
 			  { src => [qw(bigsdb.dataexplorer.min.js d3.v6.min.js)], defer => 1, version => '20230310' }
 		};
 		if ( $self->{'pluginJS'} ) {
-			$features->{'pluginJS'} = { src => ["Plugins/$self->{'pluginJS'}"], defer => 1, version => '20230426' };
+			$features->{'pluginJS'} = { src => ["Plugins/$self->{'pluginJS'}"], defer => 1, version => '20240530' };
 		}
 		my %used;
 		foreach my $feature ( keys %$features ) {
@@ -3803,5 +3803,27 @@ sub print_related_database_panel {
 	say q(</ul></div>);
 	say q(</div></div>);
 	return;
+}
+
+sub get_mapping_options {
+	my ($self) = @_;
+	my $option = $self->{'system'}->{'mapping_option'} // $self->{'config'}->{'mapping_option'};
+	if ( defined $option && ( !BIGSdb::Utils::is_int($option) || $option > 3 || $option < 0 ) ) {
+		$logger->error("Invalid option $option set for mapping.");
+		$option = 0;
+	}
+	$option //= 0;
+	my $options = {};
+	if ( $option == 1 ) {
+		my $maptiler_key = $self->{'system'}->{'maptiler_api_key'} // $self->{'config'}->{'maptiler_api_key'};
+		if ( defined $maptiler_key ) {
+			$options->{'maptiler_key'} = $maptiler_key;
+		} else {
+			$logger->error('No MapTiler API key defined - reverting to mapping option 0');
+			$option = 0;
+		}
+	}
+	$options->{'option'} = $option;
+	return $options;
 }
 1;

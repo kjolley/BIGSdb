@@ -48,7 +48,7 @@ sub get_attributes {
 		buttontext => 'Fields',
 		menutext   => 'Field breakdown',
 		module     => 'FieldBreakdown',
-		version    => '2.6.2',
+		version    => '2.8.0',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
@@ -256,7 +256,7 @@ sub _get_text_table {
 
 	foreach my $record (@$freqs) {
 		local $" = q(; );
-		my $label = ref $record->{'label'} ? qq(@{$record->{'label'}}) : $record->{'label'};
+		my $label      = ref $record->{'label'} ? qq(@{$record->{'label'}}) : $record->{'label'};
 		my $percentage = BIGSdb::Utils::decimal_place( ( $record->{'value'} / $total ) * 100, 2 );
 		$buffer .= qq($label\t$record->{'value'}\t$percentage\n);
 	}
@@ -310,7 +310,7 @@ sub _export_fasta {
 	foreach
 	  my $allele_id ( sort { $locus_info->{'allele_id_format'} eq 'integer' ? $a <=> $b : $a cmp $b } @filtered_ids )
 	{
-		my $seq_ref = $locus_obj->get_allele_sequence($allele_id);
+		my $seq_ref           = $locus_obj->get_allele_sequence($allele_id);
 		my $formatted_seq_ref = BIGSdb::Utils::break_line( $seq_ref, 60 );
 		$$formatted_seq_ref = q(-) if length $$formatted_seq_ref == 0;
 		say qq(>$allele_id);
@@ -353,7 +353,8 @@ sub run {
 	$self->print_loading_message;
 	say q(</div>);
 	say q(<div id="map" style="max-width:800px;margin-left:auto;margin-right:auto"></div>);
-	say q(<div id="geography" style="max-width:800px;margin-left:auto;margin-right:auto;max-height:100vw"></div>);
+	say q(<div id="geography" style="position:relative;max-width:800px;margin-left:auto;)
+	  . q(margin-right:auto;max-height:100vw"></div>);
 	$self->_print_map_controls;
 	$self->_print_geography_controls;
 	$self->_print_pie_controls;
@@ -368,7 +369,17 @@ sub run {
 sub _print_export_buttons {
 	my ($self) = @_;
 	say $self->get_export_buttons(
-		{ table => 1, excel => 1, text => 1, fasta => 1, image => 1,map_image=>1, hide_div => 1, hide => ['fasta','map_image'] } );
+		{
+			table     => 1,
+			excel     => 1,
+			text      => 1,
+			fasta     => 1,
+			image     => 1,
+			map_image => 1,
+			hide_div  => 1,
+			hide      => [ 'fasta', 'map_image' ]
+		}
+	);
 	return;
 }
 
@@ -437,14 +448,14 @@ sub _print_map_controls {
 }
 
 sub _print_geography_controls {
-	my ($self) = @_;
-	my $bingmaps_api = $self->{'system'}->{'bingmaps_api'} // $self->{'config'}->{'bingmaps_api'};
-	my $q = $self->{'cgi'};
+	my ($self)          = @_;
+	my $mapping_options = $self->get_mapping_options;
+	my $q               = $self->{'cgi'};
 	say q(<fieldset id="geography_controls" class="bb_controls" )
 	  . q(style="position:absolute;top:1em;right:1em;display:none"><legend>Controls</legend>);
 	say q(<ul>);
 	my %allowed = map { $_ => 1 } qw(Map Aerial);
-	my $guid = $self->get_guid;
+	my $guid    = $self->get_guid;
 	my $style;
 	eval {
 		if ($guid) {
@@ -456,7 +467,7 @@ sub _print_geography_controls {
 	if ( !defined $style || !$allowed{$style} ) {
 		$style = 'Map';
 	}
-	if ( defined $bingmaps_api ) {
+	if ( $mapping_options->{'option'} > 0 ) {
 		say q(<li><label for="view">View:</label>);
 		say $q->radio_group(
 			-name    => 'geography_view',
@@ -554,6 +565,7 @@ sub _get_fields {
 	my $labels         = {};
 	my $no_show        = $self->_get_no_show_fields;
 	my $extended       = $self->get_extended_attributes;
+
 	foreach my $field ( @$field_list, @$eav_field_list ) {
 		next if $no_show->{$field};
 		push @$expanded_list, $field;
@@ -595,9 +607,9 @@ sub _get_query_params {
 }
 
 sub _get_fields_js {
-	my ($self) = @_;
+	my ($self)           = @_;
 	my $field_attributes = $self->{'xmlHandler'}->get_all_field_attributes;
-	my %types = map { $field_attributes->{$_} => $field_attributes->{$_}->{'type'} } keys %$field_attributes;
+	my %types            = map { $field_attributes->{$_} => $field_attributes->{$_}->{'type'} } keys %$field_attributes;
 	my @type_values;
 	my @geography_lookup_values;
 	my %allowed_types = map { $_ => 1 } qw(integer text float date geography_point);
@@ -644,7 +656,7 @@ sub _get_loci_js {
 	#when the Javascript is being prepared as this goes in the header.
 	my ($self) = @_;
 	my $set_id = $self->get_set_id;
-	my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
+	my $loci   = $self->{'datastore'}->get_loci( { set_id => $set_id } );
 	my $buffer = q(var locus_list=) . encode_json($loci) . qq(\n);
 	if ($set_id) {
 		my $set_loci = $self->{'datastore'}->run_query( 'SELECT locus,set_name AS label FROM set_loci WHERE set_id=?',
@@ -660,10 +672,10 @@ sub _get_schemes_js {
 	#Get all schemes irrespective of whether analysis_prefs flag is set.
 	#The list will be updated by an AJAX call, but we cannot tell who is logged in
 	#when the Javascript is being prepared as this goes in the header.
-	my ($self) = @_;
-	my $set_id = $self->get_set_id;
+	my ($self)  = @_;
+	my $set_id  = $self->get_set_id;
 	my $schemes = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => 1 } );
-	my $fields = [];
+	my $fields  = [];
 	foreach my $scheme (@$schemes) {
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $scheme->{'id'} );
 		foreach my $scheme_field (@$scheme_fields) {
@@ -687,13 +699,14 @@ sub get_plugin_javascript {
 	my $plugin_prefs_ajax_url =
 	  qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=ajaxPrefs&plugin=FieldBreakdown&ajax=1);
 	my $prefs_ajax_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=ajaxPrefs&ajax=1);
-	my $param_string = @$query_params ? qq(&@$query_params) : q();
+	my $param_string   = @$query_params ? qq(&@$query_params) : q();
 	$url .= $param_string;
-	my $types_js     = $self->_get_fields_js;
-	my $loci_js      = $self->_get_loci_js;
-	my $schemes_js   = $self->_get_schemes_js;
-	my $bingmaps_api = $self->{'system'}->{'bingmaps_api'} // $self->{'config'}->{'bingmaps_api'};
-	my $buffer       = <<"JS";
+	my $types_js        = $self->_get_fields_js;
+	my $loci_js         = $self->_get_loci_js;
+	my $schemes_js      = $self->_get_schemes_js;
+	my $mapping_options = $self->get_mapping_options;
+	my $maptiler_key    = $mapping_options->{'maptiler_key'} // q();
+	my $buffer          = <<"JS";
 var height = 400;
 var segments = 20;
 var rotate = 0;
@@ -702,7 +715,8 @@ var line = 1;
 var fasta = 0;
 var url = "$url";
 var prefs_ajax_url = "$plugin_prefs_ajax_url";
-var bingmaps_api = "$bingmaps_api";
+var mapping_option = $mapping_options->{'option'};
+var maptiler_key = "$maptiler_key";
 
 $types_js	
 $loci_js
@@ -823,7 +837,7 @@ sub _get_eav_field_freqs {
 sub _get_extended_field_freqs {
 	my ( $self, $field, $extended, $options ) = @_;
 	my $qry =
-	    "SELECT e.value AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
+		"SELECT e.value AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
 	  . "JOIN id_list i ON v.id=i.value LEFT JOIN isolate_value_extended_attributes e ON v.$field=e.field_value "
 	  . 'AND (e.isolate_field,e.attribute)=(?,?) GROUP BY label';
 	my $order = $options->{'order'} ? $options->{'order'} : 'value DESC';
@@ -843,7 +857,7 @@ sub _get_extended_field_freqs {
 sub _get_allele_freqs {
 	my ( $self, $locus ) = @_;
 	my $qry =
-	    "SELECT a.allele_id AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
+		"SELECT a.allele_id AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
 	  . 'JOIN id_list i ON v.id=i.value LEFT JOIN allele_designations a ON a.isolate_id=v.id AND a.locus=? '
 	  . 'GROUP BY label ORDER BY value DESC';
 	my $values =
@@ -855,7 +869,7 @@ sub _get_scheme_field_freqs {
 	my ( $self, $scheme_id, $field ) = @_;
 	my $scheme_table = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 	my $qry =
-	    "SELECT s.$field AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
+		"SELECT s.$field AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
 	  . "JOIN $scheme_table s ON v.id=s.id JOIN id_list i ON v.id=i.value "
 	  . 'GROUP BY label ORDER BY value DESC';
 	my $values =
