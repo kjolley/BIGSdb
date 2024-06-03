@@ -126,24 +126,35 @@ sub _get_profiles_csv {
 	local $" = ',';
 	my $scheme_warehouse = "mv_scheme_$scheme_id";
 	my $date_restriction = $self->{'datastore'}->get_date_restriction;
-	my $date_restriction_clause = (!$self->{'username'} && $date_restriction) ? qq( WHERE date_entered<='$date_restriction') : q();
-	my $pk_info          = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
-	my $qry              = $self->add_filters( "SELECT @fields FROM $scheme_warehouse$date_restriction_clause", $allowed_filters );
+	my $date_restriction_clause =
+	  ( !$self->{'username'} && $date_restriction ) ? qq( WHERE date_entered<='$date_restriction') : q();
+	my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
+	my $qry = $self->add_filters( "SELECT @fields FROM $scheme_warehouse$date_restriction_clause", $allowed_filters );
 	$qry .= ' ORDER BY ' . ( $pk_info->{'type'} eq 'integer' ? "CAST($primary_key AS int)" : $primary_key );
-	my $data = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref' } );
-	my $lincodes;
+	my $profiles_exist =
+	  $self->{'datastore'}->run_query("SELECT EXISTS(SELECT COUNT(*) FROM $scheme_warehouse$date_restriction_clause)");
 
+	if ( !$profiles_exist ) {
+		send_error( "No profiles for scheme $scheme_id are defined.", 404 );
+	}
+	my $profile_sth = $self->{'db'}->prepare($qry);
+	eval { $profile_sth->execute };
+	if ($@) {
+		$self->{'logger'}->error($@);
+		return;
+	}
+	my $lincodes;
 	if ($lincodes_defined) {
 		$lincodes = $self->{'datastore'}->run_query( 'SELECT profile_id,lincode FROM lincodes WHERE scheme_id=?',
 			$scheme_id, { fetch => 'all_hashref', key => 'profile_id' } );
 	}
-	if ( !@$data ) {
-		send_error( "No profiles for scheme $scheme_id are defined.", 404 );
-	}
 	local $" = "\t";
+	my $rowcache;
 	{
 		no warnings 'uninitialized';    #scheme field values may be undefined
-		foreach my $definition (@$data) {
+		while ( my $definition = shift(@$rowcache)
+			|| shift( @{ $rowcache = $profile_sth->fetchall_arrayref( undef, 1000 ) || [] } ) )
+		{
 			my $pk      = shift @$definition;
 			my $profile = shift @$definition;
 			$buffer .= qq($pk\t@$profile[@order]);
