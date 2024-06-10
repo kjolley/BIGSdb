@@ -182,7 +182,8 @@ sub _print_projects {
 			$project_quota           = "$project_quota_remaining remaining ($project->{'quota'} total)";
 		}
 		my $quota_free = $project->{'no_quota'} ? GOOD : q();
-		say qq(<tr class="td$td"><td>$project->{'short_description'}</td><td>$project->{'full_description'}</td>)
+		say qq(<tr class="td$td"><td style="text-align:left">$project->{'short_description'}</td>)
+		  . qq(<td style="text-align:left">$project->{'full_description'}</td>)
 		  . qq(<td>$users</td><td>$isolates</td><td>$project_quota</td><td>$quota_free</td>);
 		say $isolates
 		  ? qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
