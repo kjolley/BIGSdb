@@ -766,8 +766,8 @@ sub get_retired_allele_ids_table_attributes {
 			dropdown_query => 1
 		},
 		{ name => 'allele_id', type => 'text', required => 1, primary_key    => 1 },
-		{ name => 'curator',   type => 'int',    required => 1, dropdown_query => 1 },
-		{ name => 'datestamp', type => 'date',   required => 1 }
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -2086,9 +2086,16 @@ sub get_projects_table_attributes {
 			name    => 'no_quota',
 			type    => 'bool',
 			tooltip => q(no_quota - Isolates added to this project will not count against a user's quota of )
-			  . q(private records (only relevant to private projects)),
+			  . q(private records (only relevant to private projects). If set, this value will override the )
+			  . q(entry in the quota field.),
 			required => 1,
 			default  => 'true'
+		},
+		{
+			name     => 'quota',
+			type     => 'int',
+			tooltip  => q(quota - Number of private records that can be uploaded to this project.),
+			required => 0
 		},
 		{
 			name    => 'restrict_user',
@@ -2946,8 +2953,8 @@ sub get_query_interface_fields_table_attributes {
 			coded_field => 1
 		},
 		{ name => 'display_order', type => 'int' },
-		{ name => 'datestamp', type => 'date', required => 1 },
-		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 }
+		{ name => 'datestamp',     type => 'date', required => 1 },
+		{ name => 'curator',       type => 'int',  required => 1, dropdown_query => 1 }
 	];
 	return $attributes;
 }

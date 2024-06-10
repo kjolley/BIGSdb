@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -221,6 +221,7 @@ sub _cannot_upload_private_data {
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	my $limit     = $self->{'datastore'}->get_user_private_isolate_limit( $user_info->{'id'} );
 	my $available = $self->{'datastore'}->get_available_quota( $user_info->{'id'} );
+	my $project_quota_available;
 	my $project;
 	if ($project_id) {
 		if ( !BIGSdb::Utils::is_int($project_id) ) {
@@ -228,7 +229,8 @@ sub _cannot_upload_private_data {
 			return 1;
 		}
 		$project =
-		  $self->{'datastore'}->run_query( 'SELECT short_description,no_quota,curate_config FROM projects WHERE id=?',
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT short_description,quota,no_quota,curate_config FROM projects WHERE id=?',
 			$project_id, { fetch => 'row_hashref' } );
 		if ( !$project ) {
 			$self->print_bad_status( { message => q(Invalid project id selected.) } );
@@ -247,9 +249,17 @@ sub _cannot_upload_private_data {
 			);
 			return 1;
 		}
-		if ( !$project->{'no_quota'} && !$limit ) {
-			$self->print_bad_status( { message => q(Your account cannot upload private data.) } );
-			return 1;
+		if ( !$project->{'no_quota'} ) {
+			if ( $project->{'quota'} ) {
+				$project_quota_available = $self->_get_project_quota_available( $project_id, $project->{'quota'} );
+				if ( !$project_quota_available ) {
+					$self->print_bad_status( { message => q(The quota for this project has been reached.) } );
+					return 1;
+				}
+			} elsif ( !$limit ) {
+				$self->print_bad_status( { message => q(Your account cannot upload private data.) } );
+				return 1;
+			}
 		}
 		if ( $project->{'curate_config'} && $project->{'curate_config'} ne $self->{'instance'} ) {
 			$self->print_bad_status(
@@ -272,18 +282,34 @@ sub _cannot_upload_private_data {
 			say q(<p>These isolates will be added to the private )
 			  . qq(<strong>$project->{'short_description'}</strong> project.</p>);
 			if ( $project->{'no_quota'} ) {
+				say q(<p>This project is quota-free (no limits to private data uploads).</p>);
 				say q(<p>These will not count against your quota of private data.</p>) if $limit;
+			} elsif ( $project->{'quota'} ) {
+				say q(<p>These will count against the project quota of private data.</p>);
+				say qq(<p>Project quota available: $project_quota_available</p>);
 			} else {
 				say q(<p>These will count against your quota of private data.</p>);
-				say qq(<p>Quota available: $available</p>);
+				say qq(<p>User quota available: $available</p>);
 			}
 		} else {
 			say q(<p>These isolates will count against your quota of private data.</p>);
-			say qq(<p>Quota available: $available</p>);
+			say qq(<p>User quota available: $available</p>);
 		}
 		say q(</div>);
 	}
 	return;
+}
+
+sub _get_project_quota_available {
+	my ( $self, $project_id, $project_quota ) = @_;
+	my $private_records = $self->{'datastore'}->run_query(
+		'SELECT COUNT(*) FROM project_members pm JOIN private_isolates pi ON '
+		  . 'pm.isolate_id=pi.isolate_id WHERE pm.project_id=?',
+		$project_id
+	);
+	my $project_quota_available = $project_quota - $private_records;
+	$project_quota_available = 0 if $project_quota_available < 0;
+	return $project_quota_available;
 }
 
 sub print_interface_sender_field {
@@ -640,8 +666,25 @@ sub _is_over_quota {
 	return if $table ne 'isolates' || !$q->param('private');
 	my $project_id = $q->param('project_id');
 	if ( BIGSdb::Utils::is_int($project_id) ) {
-		my $no_quota = $self->{'datastore'}->run_query( 'SELECT no_quota FROM projects WHERE id=?', $project_id );
-		return if $no_quota;
+		my $project = $self->{'datastore'}
+		  ->run_query( 'SELECT quota,no_quota FROM projects WHERE id=?', $project_id, { fetch => 'row_hashref' } );
+		return if $project->{'no_quota'};
+		if ( $project->{'quota'} ) {
+			my $project_quota_available = $self->_get_project_quota_available( $project_id, $project->{'quota'} );
+			if ( $record_count > $project_quota_available ) {
+				my $av_plural = $project_quota_available == 1 ? q() : q(s);
+				my $up_plural = $record_count == 1            ? q() : q(s);
+				$self->print_bad_status(
+					{
+						message => q(The available quota for private data for this project is )
+						  . qq($project_quota_available record$av_plural. )
+						  . qq(You are attempting to upload $record_count record$up_plural.)
+					}
+				);
+				return 1;
+			}
+			return;
+		}
 	}
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	my $available = $self->{'datastore'}->get_available_quota( $user_info->{'id'} );

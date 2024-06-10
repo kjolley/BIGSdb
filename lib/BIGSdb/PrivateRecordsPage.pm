@@ -135,7 +135,7 @@ sub _get_upload_link {
 sub _print_projects {
 	my ( $self, $user_id ) = @_;
 	my $projects = $self->{'datastore'}->run_query(
-		'SELECT p.id,p.short_description,p.full_description,p.no_quota,p.curate_config FROM projects p '
+		'SELECT p.id,p.short_description,p.full_description,p.quota,p.no_quota,p.curate_config FROM projects p '
 		  . 'JOIN merged_project_users m ON p.id=m.project_id WHERE m.user_id=? AND m.modify ORDER BY '
 		  . 'UPPER(short_description)',
 		$user_id,
@@ -154,7 +154,7 @@ sub _print_projects {
 		  . q(to projects that are excluded from the personal quota</p>);
 	}
 	say q(<div class="scrollable"><table class="resultstable"><tr><th>Project</th><th>Description</th><th>Users</th>)
-	  . q(<th>Isolates</th><th>Quota free</th><th>Browse</th><th>Upload</th></tr>);
+	  . q(<th>Isolates</th><th>Project quota</th><th>Quota free</th><th>Browse</th><th>Upload</th></tr>);
 	my $td         = 1;
 	my $user_info  = $self->{'datastore'}->get_user_info($user_id);
 	my $can_modify = $self->can_modify_table('isolates');
@@ -168,16 +168,31 @@ sub _print_projects {
 			$project->{'id'},
 			{ cache => 'PrivateRecordsPage::isolate_count' }
 		);
+		my $project_quota = q();
+		my $project_quota_remaining;
+		if ( $project->{'quota'} && !$project->{'no_quota'} ) {
+			my $private_records = $self->{'datastore'}->run_query(
+				'SELECT COUNT(*) FROM project_members pm JOIN private_isolates pi ON '
+				  . 'pm.isolate_id=pi.isolate_id WHERE pm.project_id=?',
+				$project->{'id'},
+				{ cache => 'PrivateRecordsPage::private_in_project_count' }
+			);
+			$project_quota_remaining = $project->{'quota'} - $private_records;
+			$project_quota_remaining = 0 if $project_quota_remaining < 0;
+			$project_quota           = "$project_quota_remaining remaining ($project->{'quota'} total)";
+		}
 		my $quota_free = $project->{'no_quota'} ? GOOD : q();
 		say qq(<tr class="td$td"><td>$project->{'short_description'}</td><td>$project->{'full_description'}</td>)
-		  . qq(<td>$users</td><td>$isolates</td><td>$quota_free</td>);
+		  . qq(<td>$users</td><td>$isolates</td><td>$project_quota</td><td>$quota_free</td>);
 		say $isolates
 		  ? qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;)
 		  . qq(project_list=$project->{'id'}&amp;submit=1"><span class="fas fa-binoculars action browse">)
 		  . q(</span></a></td>)
 		  : q(<td></td>);
 		my $can_upload =
-		  ( $project->{'no_quota'} || $available > 0 ) && $user_info->{'status'} ne 'user' && $can_modify;
+			 ( $project->{'no_quota'} || $available > 0 || $project_quota_remaining )
+		  && $user_info->{'status'} ne 'user'
+		  && $can_modify;
 		my ( $BAN, $UPLOAD, $UPLOAD_CHANGE_CONFIG ) = ( BAN, UPLOAD, UPLOAD_CHANGE_CONFIG );
 		my $switch_config    = $project->{'curate_config'} && $project->{'curate_config'} ne $self->{'instance'};
 		my $upload_icon      = $switch_config ? UPLOAD_CHANGE_CONFIG : UPLOAD;
