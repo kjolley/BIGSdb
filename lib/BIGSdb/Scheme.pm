@@ -125,7 +125,11 @@ sub get_field_values_by_designations {
 			my $allele_ids = [];
 			foreach my $designation ( @{ $designations->{$locus} } ) {
 				$missing_loci{$locus} = 1 if $designation->{'allele_id'} eq '0';
-				$designation->{'allele_id'} =~ s/'/\\'/gx;
+				if ( defined $designation->{'allele_id'} ) {
+					$designation->{'allele_id'} =~ s/'/\\'/gx;
+				} else {
+					$logger->error("$self->{'instance'}: Undefined allele for locus $locus");
+				}
 				push @$allele_ids, $designation->{'allele_id'};
 			}
 			$values->{$locus}->{'allele_ids'} = $allele_ids;
