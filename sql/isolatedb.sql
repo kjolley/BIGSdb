@@ -301,6 +301,7 @@ CREATE TABLE private_isolates (
 isolate_id integer NOT NULL,
 user_id integer NOT NULL,
 request_publish boolean NOT NULL DEFAULT FALSE,
+embargo date NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY (isolate_id),
 CONSTRAINT pi_isolate_id FOREIGN KEY (isolate_id) REFERENCES isolates
@@ -2124,3 +2125,22 @@ ON DELETE CASCADE
 ON UPDATE CASCADE
 );
 GRANT SELECT,UPDATE,INSERT,DELETE ON query_interface_fields TO apache;
+
+CREATE TABLE embargo_history (
+isolate_id int NOT NULL,
+timestamp timestamp NOT NULL,
+action text NOT NULL,
+embargo date,
+curator int NOT NULL,
+PRIMARY KEY(isolate_id, timestamp),
+CONSTRAINT eh_curator FOREIGN KEY (curator) REFERENCES users
+ON DELETE NO ACTION
+ON UPDATE CASCADE,
+CONSTRAINT eh_isolate FOREIGN KEY (isolate_id) REFERENCES isolates
+ON DELETE CASCADE
+ON UPDATE CASCADE
+);
+
+CREATE INDEX ON embargo_history USING brin(timestamp);
+GRANT SELECT,UPDATE,INSERT,DELETE ON embargo_history TO apache;
+

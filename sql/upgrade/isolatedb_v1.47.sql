@@ -3,6 +3,7 @@ UPDATE db_attributes SET value='47' WHERE field='version';
 ALTER TABLE schemes ADD quality_metric_count_zero boolean DEFAULT FALSE;
 UPDATE schemes SET quality_metric_count_zero=FALSE;
 ALTER TABLE schemes ALTER COLUMN quality_metric_count_zero SET NOT NULL;
+ALTER TABLE private_isolates ADD embargo date;
 
 CREATE OR REPLACE FUNCTION create_isolate_scheme_status_table(_scheme_id int,_view text,_temp_table boolean,_method text DEFAULT 'full') 
 RETURNS VOID AS $$
@@ -76,3 +77,21 @@ RETURNS VOID AS $$
 		DROP TABLE ad;
 	END;
 $$ LANGUAGE plpgsql;
+
+CREATE TABLE embargo_history (
+isolate_id int NOT NULL,
+timestamp timestamp NOT NULL,
+action text NOT NULL,
+embargo date,
+curator int NOT NULL,
+PRIMARY KEY(isolate_id, timestamp),
+CONSTRAINT eh_curator FOREIGN KEY (curator) REFERENCES users
+ON DELETE NO ACTION
+ON UPDATE CASCADE,
+CONSTRAINT eh_isolate FOREIGN KEY (isolate_id) REFERENCES isolates
+ON DELETE CASCADE
+ON UPDATE CASCADE
+);
+
+CREATE INDEX ON embargo_history USING brin(timestamp);
+GRANT SELECT,UPDATE,INSERT,DELETE ON embargo_history TO apache;
