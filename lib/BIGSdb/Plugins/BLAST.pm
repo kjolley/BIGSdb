@@ -115,7 +115,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.6.1',
+		version     => '1.6.2',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -576,7 +576,10 @@ sub _get_prov_html_cells {
 				qq(<tr class="td$td"><td rowspan="$rows" style="vertical-align:top">)
 			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;id=$isolate_id">)
 			  . qq($isolate_id</a></td><td rowspan="$rows" style=" vertical-align:top">$label</td>);
-			$html_buffer .= qq(<td rowspan="$rows" style="vertical-align:top">$_</td>) foreach @$include_values;
+			foreach my $value (@$include_values){
+				$value //= q();
+				$html_buffer .= qq(<td rowspan="$rows" style="vertical-align:top">$value</td>);
+			}
 		} else {
 			$html_buffer = qq(<tr class="td$td">);
 		}
