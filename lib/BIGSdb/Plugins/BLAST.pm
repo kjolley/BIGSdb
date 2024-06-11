@@ -278,8 +278,11 @@ sub _run_now {
 
 	foreach my $id (@$ids) {
 		my $matches = $self->_blast( $id, $seq_ref, $params );
-		next               if !$show_no_match && ( ref $matches ne 'ARRAY' || !@$matches );
-		print $html_header if $first;
+		next if !$show_no_match && ( ref $matches ne 'ARRAY' || !@$matches );
+		if ($first) {
+			say q(<div class="scrollable">);
+			print $html_header ;
+		}
 		my $include_values = $self->_get_include_values( \@$includes, $id );
 		$some_results = 1;
 		my $rows        = @$matches;
@@ -330,7 +333,7 @@ sub _run_now {
 	say $fh_output_table $file_buffer;
 	close $fh_output_table;
 	if ($some_results) {
-		say q(</table>);
+		say q(</table></div>);
 		my ( $fasta, $fasta_flanking, $text, $excel_file ) = ( FASTA_FILE, FASTA_FLANKING_FILE, TEXT_FILE, EXCEL_FILE );
 		say q(<p style="margin-top:1em"> );
 		if ( -e "$self->{'config'}->{'tmp_dir'}/$out_file" ) {
@@ -363,7 +366,7 @@ sub run_job {
 	#Terminate cleanly on kill signals
 	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3;
 	$self->{'system'}->{'script_name'} = $params->{'script_name'};
-	my @includes = split /\|\|/x, ( $params->{'includes'} // q() );
+	my @includes = split /\|\|/x, ( $params->{'include_fields'} // q() );
 	my ( $html_header, $text_header ) = $self->_get_headers( \@includes );
 	my $out_file                 = "$job_id.fas";
 	my $out_file_flanking        = "${job_id}_flanking.fas";
@@ -393,7 +396,10 @@ sub run_job {
 			  ->update_job_status( $job_id, { percent_complete => $complete, stage => "Checked id: $id" } );
 			next;
 		}
-		$html_buffer .= $html_header if $first;
+		if ($first){
+			$html_buffer.=q(<div class="scrollable">);
+			$html_buffer .= $html_header ;
+		}
 		my $include_values = $self->_get_include_values( \@includes, $id );
 		$some_results = 1;
 		my $rows        = @$matches;
@@ -433,7 +439,7 @@ sub run_job {
 			$file_buffer .= $self->_get_prov_text_cells( { isolate_id => $id, include_values => $include_values } );
 			$file_buffer .= qq(\t0\n);
 		}
-		my $message = "$html_buffer</table>";
+		my $message = "$html_buffer</table></div>";
 		if ( @$ids <= MAX_DISPLAY_TAXA ) {
 			$self->{'jobManager'}->update_job_status( $job_id,
 				{ percent_complete => $complete, message_html => $message, stage => "Checked id: $id" } );
@@ -576,7 +582,7 @@ sub _get_prov_html_cells {
 				qq(<tr class="td$td"><td rowspan="$rows" style="vertical-align:top">)
 			  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;id=$isolate_id">)
 			  . qq($isolate_id</a></td><td rowspan="$rows" style=" vertical-align:top">$label</td>);
-			foreach my $value (@$include_values){
+			foreach my $value (@$include_values) {
 				$value //= q();
 				$html_buffer .= qq(<td rowspan="$rows" style="vertical-align:top">$value</td>);
 			}
@@ -623,11 +629,11 @@ sub _get_include_values {
 				  keys %{ $scheme_field_values->{ lc($scheme_field) } };
 				local $" = q(,);
 				$value = "@values" // q();
-			} elsif ( $field =~ /^f_/x ) {
-				$field =~ s/^f_//x;
-				$value = $self->get_field_value( $include_data, $field );
-				if ( $self->{'datastore'}->field_needs_conversion($field) ) {
-					$value = $self->{'datastore'}->convert_field_value( $field, $value );
+			} elsif ( $field =~ /^f_(.+)/x ) {
+				my $field_name = $1;
+				$value = $self->get_field_value( $include_data, $field_name );
+				if ( $self->{'datastore'}->field_needs_conversion($field_name) ) {
+					$value = $self->{'datastore'}->convert_field_value( $field_name, $value );
 				}
 			}
 			push @$include_values, $value;
