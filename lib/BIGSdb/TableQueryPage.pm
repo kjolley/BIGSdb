@@ -851,6 +851,7 @@ sub _generate_query {
 		$self->_modify_query_standard_field($args);
 		$qry = $self->_modify_user_fields_in_remote_user_dbs( $qry, $field, $operator, $text );
 	}
+	$qry = qq(($qry)) if $qry;
 	return ( $qry, $errors );
 }
 
