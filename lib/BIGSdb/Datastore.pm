@@ -38,7 +38,7 @@ use BIGSdb::ClientDB;
 use BIGSdb::Locus;
 use BIGSdb::Scheme;
 use BIGSdb::TableAttributes;
-use BIGSdb::Constants qw(:login_requirements DEFAULT_CODON_TABLE COUNTRIES NULL_TERMS);
+use BIGSdb::Constants qw(:login_requirements :embargo DEFAULT_CODON_TABLE COUNTRIES NULL_TERMS);
 use IO::Handle;
 use Digest::MD5;
 use POSIX qw(ceil);
@@ -1181,7 +1181,7 @@ sub create_temp_isolate_scheme_fields_view {
 		return $table if $table_exists;
 		my $scheme_info = $self->get_scheme_info($scheme_id);
 		if ( $scheme_info->{'allow_presence'} ) {
-			$logger->error( "$self->{'instance'} scheme:$scheme_id uses locus presence/absence. Scheme caching must "
+			$logger->error( "scheme:$scheme_id uses locus presence/absence. Scheme caching must "
 				  . 'be enabled for this scheme to return reliable results.' );
 		}
 
@@ -3779,5 +3779,65 @@ sub get_seqbin_count {
 	$self->{'cache'}->{'seqbin_count'} =
 	  $self->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'} v JOIN seqbin_stats s ON v.id=s.isolate_id");
 	return $self->{'cache'}->{'seqbin_count'};
+}
+
+sub get_embargo_attributes {
+	my ($self) = @_;
+	my $embargo_enabled;
+	$embargo_enabled = 1 if ( $self->{'system'}->{'embargo_enabled'} // q() ) eq 'yes';
+	$embargo_enabled = 0 if ( $self->{'system'}->{'embargo_enabled'} // q() ) eq 'no';
+	$embargo_enabled //= $self->{'config'}->{'embargo_enabled'} // 0;
+	my $default_embargo = $self->{'system'}->{'default_embargo'} // $self->{'config'}->{'default_embargo'}
+	  // DEFAULT_EMBARGO;
+	if ( !BIGSdb::Utils::is_int($default_embargo) || $default_embargo <= 0 ) {
+		$logger->error("Invalid value set for default_embargo: $default_embargo (embargo disabled).");
+		$embargo_enabled = 0;
+		$default_embargo = 0;
+	}
+	my $max_total_embargo = $self->{'system'}->{'max_total_embargo'} // $self->{'config'}->{'max_total_embargo'}
+	  // MAX_TOTAL_EMBARGO;
+	if ( !BIGSdb::Utils::is_int($max_total_embargo) || $max_total_embargo < 0 ) {
+		$logger->error( 'Invalid value set for max_total_embargo: '
+			  . "$max_total_embargo (using default embargo value: $default_embargo)." );
+		$max_total_embargo = $default_embargo;
+	}
+	if ( $default_embargo > $max_total_embargo ) {
+		$logger->error( "default_embargo ($default_embargo) is larger than max_total_embargo "
+			  . "($max_total_embargo). Setting to max_total_embargo ($max_total_embargo)." );
+		$default_embargo = $max_total_embargo;
+	}
+	my $max_initial_embargo = $self->{'system'}->{'max_initial_embargo'} // $self->{'config'}->{'max_initial_embargo'}
+	  // MAX_INITIAL_EMBARGO;
+	if ( !BIGSdb::Utils::is_int($max_initial_embargo) || $max_initial_embargo < 0 ) {
+		$logger->error(
+			"Invalid value set for max_initial_embargo: $max_initial_embargo (using default embargo: $default_embargo)."
+		);
+		$max_initial_embargo = $default_embargo;
+	}
+	if ( $max_initial_embargo < $default_embargo ) {
+		$logger->error( "max_initial_embargo ($max_initial_embargo) is smaller than default embargo "
+			  . "($default_embargo). Setting to default embargo ($default_embargo)." );
+		$max_initial_embargo = $default_embargo;
+	}
+	if ( $max_initial_embargo > $max_total_embargo ) {
+		$logger->error( "max_initial_embargo ($max_initial_embargo) is larger than max total embargo "
+			  . "($max_total_embargo). Setting to max total embargo ($max_total_embargo)." );
+		$max_initial_embargo = $max_total_embargo;
+	}
+	my $max_embargo_extension = $self->{'system'}->{'max_embargo_extension'}
+	  // $self->{'config'}->{'max_embargo_extension'} // MAX_EMBARGO_EXTENSION;
+	if ( !BIGSdb::Utils::is_int($max_embargo_extension) || $max_embargo_extension < 0 ) {
+		my $default_max_embargo_extension = MAX_EMBARGO_EXTENSION;
+		$logger->error( 'Invalid value set for max_embargo_extension: '
+			  . "$max_embargo_extension (using default: $default_max_embargo_extension)" );
+		$max_embargo_extension = MAX_EMBARGO_EXTENSION;
+	}
+	return {
+		embargo_enabled       => $embargo_enabled,
+		default_embargo       => $default_embargo,
+		max_initial_embargo   => $max_initial_embargo,
+		max_embargo_extension => $max_embargo_extension,
+		max_total_embargo     => $max_total_embargo
+	};
 }
 1;

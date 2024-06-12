@@ -4,6 +4,7 @@ ALTER TABLE schemes ADD quality_metric_count_zero boolean DEFAULT FALSE;
 UPDATE schemes SET quality_metric_count_zero=FALSE;
 ALTER TABLE schemes ALTER COLUMN quality_metric_count_zero SET NOT NULL;
 ALTER TABLE private_isolates ADD embargo date;
+ALTER TABLE submissions ADD embargo int;
 
 CREATE OR REPLACE FUNCTION create_isolate_scheme_status_table(_scheme_id int,_view text,_temp_table boolean,_method text DEFAULT 'full') 
 RETURNS VOID AS $$

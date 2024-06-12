@@ -1305,6 +1305,7 @@ curator int,
 outcome text,
 email boolean,
 dataset text,
+embargo int,
 PRIMARY KEY(id),
 CONSTRAINT s_submitter FOREIGN KEY (submitter) REFERENCES users
 ON DELETE CASCADE
