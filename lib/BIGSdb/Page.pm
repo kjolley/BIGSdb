@@ -3173,7 +3173,7 @@ sub print_seqbin_isolate_fieldset {
 		my $size          = $options->{'size'} // 8;
 		my $list_box_size = $size - 0.2;
 		say q(<div style="float:left">);
-		if ( $seqbin_count <= MAX_ISOLATES_DROPDOWN || !$options->{'isolate_paste_list'} ) {
+		if ( ($seqbin_count <= MAX_ISOLATES_DROPDOWN && !$options->{'use_all'}) || !$options->{'isolate_paste_list'} ) {
 			my ( $ids, $labels ) = $self->get_isolates_with_seqbin($options);
 			say $self->popup_menu(
 				-name     => 'isolate_id',
