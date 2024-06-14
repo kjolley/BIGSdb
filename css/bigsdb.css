@@ -1,4 +1,4 @@
-/*Version: 20240326*/
+/*Version: 20240614*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -422,6 +422,12 @@ div.field_warning {
 	background: #fee;
 	border: 2px solid red;
 	color: red
+}
+
+div.private_record {
+	float: right;
+	padding: 0.5em 1em;
+	background: linear-gradient(to right, rgba(255, 255, 255, 0) 0%, rgba(255, 204, 204, 1) 15%, rgba(255, 204, 204, 1) 85%, rgba(255, 255, 255, 0) 100%)
 }
 
 p.note {

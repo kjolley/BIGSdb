@@ -199,7 +199,7 @@ sub _get_javascript_paths {
 			'dropzone'     => { src => [qw(dropzone.js)],    defer => 0, version => '20200308' },
 
 			#See https://dolmenweb.it/viewers/openlayer/doc/tutorials/custom-builds.html
-			'ol'        => { src => [qw(ol-custom.js bigsdb.openlayers.min.js)], defer => 0, version => '9.2.4#20240530' },
+			'ol' => { src => [qw(ol-custom.js bigsdb.openlayers.min.js)], defer => 0, version => '9.2.4#20240530' },
 			'billboard' => {
 				src     => [qw(d3.v6.min.js billboard.min.js jquery.ui.touch-punch.min.js)],
 				defer   => 1,
@@ -726,7 +726,7 @@ sub _get_meta_data {
 sub _get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20240326';
+	my $version = '20240614';
 	my @filenames;
 	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
 	push @filenames, q(billboard.min.css)                                     if $self->{'billboard'};
@@ -2264,7 +2264,8 @@ sub get_record_name {
 		peptide_mutations                 => 'single amino acid variation definition',
 		dna_mutations                     => 'single nucleotide polymorphism definition',
 		query_interfaces                  => 'query interface',
-		query_interface_fields            => 'pre-selected interface field'
+		query_interface_fields            => 'pre-selected interface field',
+		embargo_history                   => 'embargo history'
 	);
 	return $names{$table};
 }
@@ -2532,9 +2533,10 @@ sub can_modify_table {
 	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id');
 	my $locus     = $q->param('locus');
-	$locus =~ s/%27/'/gx if $locus;                                               #Web-escaped locus
-	return               if $table eq 'history' || $table eq 'profile_history';
-	return 1             if $self->is_admin;
+	$locus =~ s/%27/'/gx if $locus;    #Web-escaped locus
+	my %no_modify = map { $_ => 1 } qw(history profile_history embargo_history);
+	return   if $no_modify{$table};
+	return 1 if $self->is_admin;
 	my $curator_id = $self->get_curator_id;
 
 	if ( !defined $self->{'cache'}->{'curator_configs'} ) {

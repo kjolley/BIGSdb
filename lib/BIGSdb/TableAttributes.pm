@@ -244,6 +244,17 @@ sub get_history_table_attributes {
 	return $attributes;
 }
 
+sub get_embargo_history_table_attributes {
+	my $attributes = [
+		{ name => 'isolate_id', type => 'int',       required => 1, primary_key => 1, foreign_key     => 'isolates' },
+		{ name => 'timestamp',  type => 'timestamp', required => 1, primary_key => 1, query_datestamp => 1 },
+		{ name => 'action',     type => 'text',      required => 1 },
+		{ name => 'embargo',    type => 'date',      required => 1 },
+		{ name => 'curator',    type => 'int',       required => 1, dropdown_query => 1 },
+	];
+	return $attributes;
+}
+
 sub get_profile_history_table_attributes {
 	my $attributes = [
 		{

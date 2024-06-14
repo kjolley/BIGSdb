@@ -1164,13 +1164,16 @@ sub _show_private_owner {
 		my $user_string    = $self->{'datastore'}->get_user_string($private_owner);
 		my $request_string = $request_publish ? q( - publication requested.) : q(.);
 		my $message =
-			q(<div style="float:right"><span class="main_icon fas fa-2x fa-user-secret fa-pull-left" )
-		  . qq(style="margin-left:-1.2em"></span><p class="warning">Private record owned by $user_string$request_string);
+			q(<div class="private_record">)
+		  . q(<div style="display:inline-block;vertical-align:top">)
+		  . q(<span class="main_icon fas fa-2x fa-user-secret"></span></div>)
+		  . q(<div style="display:inline-block;margin-left:0.5em">Private record owned )
+		  . qq(by $user_string$request_string);
 		if ( defined $embargo ) {
 			$message .= qq(<br /><strong>Embargoed until $embargo.</strong>);
 			$self->{'embargo'} = $embargo;
 		}
-		$message .= q(</p></div>);
+		$message .= q(</div></div>);
 		return $message;
 	}
 }
@@ -1326,7 +1329,8 @@ sub _check_curator {
 		if ( $self->{'embargo'} ) {
 			my $set_id     = $self->get_set_id;
 			my $set_clause = $set_id ? qq(&amp;set_id=$set_id) : q();
-			my $data = qq($self->{'embargo'} <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			my $data =
+				qq($self->{'embargo'} <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . qq(page=tableQuery&amp;table=embargo_history&amp;s1=isolate_id&amp;t1=$isolate_id$set_clause&amp;)
 			  . qq(order=timestamp&amp;direction=descending">show details</a>\n);
 			push @$list, { title => 'embargoed until', data => $data };
