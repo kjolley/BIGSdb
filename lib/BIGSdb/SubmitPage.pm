@@ -965,17 +965,14 @@ sub _finalize_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 			$embargo_months = $q->param('embargo_months');
 		}
 		$self->{'db'}->do(
-			'UPDATE submissions SET (status,date_submitted,datestamp,email,embargo)=(?,?,?,?,?) '
-			  . 'WHERE (id,submitter)=(?,?)',
-			undef,
-			'pending',
-			'now',
-			'now',
-			$q->param('email') // undef,
-			$embargo_months,
-			$submission_id,
-			$user_info->{'id'}
+			'UPDATE submissions SET (status,date_submitted,datestamp,email)=(?,?,?,?) WHERE (id,submitter)=(?,?)',
+			undef, 'pending', 'now', 'now', $q->param('email') // undef,
+			$submission_id, $user_info->{'id'}
 		);
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $q->param('embargo') ) {
+			$self->{'db'}->do( 'UPDATE submissions SET embargo=? WHERE (id,submitter)=(?,?)',
+				undef, $embargo_months, $submission_id, $user_info->{'id'} );
+		}
 		$self->{'submissionHandler'}->write_db_file($submission_id);
 	};
 	if ($@) {
@@ -1573,6 +1570,12 @@ sub _print_isolate_table_fieldset {
 	my $isolates = $isolate_submission->{'isolates'};
 	my $order    = $isolate_submission->{'order'};
 	say q(<fieldset><legend>Isolates</legend>);
+
+	if ( $submission->{'embargo'} ) {
+		my $plural = $submission->{'embargo'} > 1 ? q(s) : q();
+		say qq(<p>Embargo requested: Records will be <strong>embargoed for $submission->{'embargo'} )
+		  . qq(month$plural</strong> after upload.</p>);
+	}
 	my $csv_icon = $self->get_file_icon('CSV');
 	my $plural   = @$isolates == 1 ? '' : 's';
 	say qq(<p>You are submitting the following isolate$plural: )

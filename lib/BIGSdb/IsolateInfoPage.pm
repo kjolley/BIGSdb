@@ -1157,16 +1157,21 @@ sub _get_analysis {
 
 sub _show_private_owner {
 	my ( $self, $isolate_id ) = @_;
-	my ( $private_owner, $request_publish ) =
+	my ( $private_owner, $request_publish, $embargo ) =
 	  $self->{'datastore'}
-	  ->run_query( 'SELECT user_id,request_publish FROM private_isolates WHERE isolate_id=?', $isolate_id );
+	  ->run_query( 'SELECT user_id,request_publish,embargo FROM private_isolates WHERE isolate_id=?', $isolate_id );
 	if ( defined $private_owner ) {
 		my $user_string    = $self->{'datastore'}->get_user_string($private_owner);
-		my $request_string = $request_publish ? q( - publication requested.) : q();
-		return
-			q(<p style="float:right"><span class="main_icon fas fa-2x fa-user-secret"></span> )
-		  . qq(<span class="warning" style="padding: 0.1em 0.5em">Private record owned by $user_string)
-		  . qq($request_string</span></p>);
+		my $request_string = $request_publish ? q( - publication requested.) : q(.);
+		my $message =
+			q(<div style="float:right"><span class="main_icon fas fa-2x fa-user-secret fa-pull-left" )
+		  . qq(style="margin-left:-1.2em"></span><p class="warning">Private record owned by $user_string$request_string);
+		if ( defined $embargo ) {
+			$message .= qq(<br /><strong>Embargoed until $embargo.</strong>);
+			$self->{'embargo'} = $embargo;
+		}
+		$message .= q(</p></div>);
+		return $message;
 	}
 }
 
@@ -1318,6 +1323,14 @@ sub _check_curator {
 	if ( $field eq 'curator' ) {
 		my $history = $self->_get_history_field($isolate_id);
 		push @$list, $history if $history;
+		if ( $self->{'embargo'} ) {
+			my $set_id     = $self->get_set_id;
+			my $set_clause = $set_id ? qq(&amp;set_id=$set_id) : q();
+			my $data = qq($self->{'embargo'} <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=tableQuery&amp;table=embargo_history&amp;s1=isolate_id&amp;t1=$isolate_id$set_clause&amp;)
+			  . qq(order=timestamp&amp;direction=descending">show details</a>\n);
+			push @$list, { title => 'embargoed until', data => $data };
+		}
 	}
 	return;
 }
@@ -1370,9 +1383,8 @@ sub _get_map_section {
 			  . q(<img src="https://api.maptiler.com/resources/logo.svg" alt="MapTiler logo"></a>);
 		}
 		$buffer .= q(</div>);
-		my $imprecise = $map->{'imprecise'} ? 1 : 0;
-		my $collapsible =
-		  $map_options->{'option'} < 3 ? 'false' : 'true';    #OSM should always show attributions.
+		my $imprecise   = $map->{'imprecise'}          ? 1       : 0;
+		my $collapsible = $map_options->{'option'} < 3 ? 'false' : 'true';    #OSM should always show attributions.
 		$buffer .= <<"MAP";
 
 <script>
@@ -2671,7 +2683,6 @@ sub _get_scheme_annotation_metrics {
 				cache => 'IsolateInfo::annotation:metrics_'
 				  . ( $scheme_info->{'quality_metric_count_zero'} ? 'zero' : 'nozero' )
 			}
-
 		);
 		my $data = {
 			id            => $scheme_info->{'id'},
