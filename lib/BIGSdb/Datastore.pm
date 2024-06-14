@@ -3436,6 +3436,7 @@ sub initiate_view {
 	  '(EXISTS(SELECT 1 FROM user_group_members ugm JOIN user_groups ug ON ugm.user_group=ug.id '
 	  . 'WHERE ug.co_curate_private AND ugm.user_id=v.sender AND EXISTS(SELECT 1 FROM user_group_members '
 	  . 'WHERE (user_group,user_id)=(ug.id,?))) AND p.user_id IS NOT NULL)';
+	use constant EMBARGOED_ISOLATES         => 'p.embargo IS NOT NULL';
 	use constant PUBLIC_ISOLATES            => 'p.user_id IS NULL';
 	use constant ISOLATES_FROM_USER_PROJECT =>
 	  'EXISTS(SELECT 1 FROM project_members pm JOIN merged_project_users mpu ON '
@@ -3473,7 +3474,7 @@ sub initiate_view {
 					@user_terms = ( OWN_PRIVATE_ISOLATES, PRIVATE_ISOLATES_FROM_SAME_USER_GROUP );
 				},
 				curator => sub {
-					@user_terms = ( PUBLIC_ISOLATES, OWN_PRIVATE_ISOLATES, PUBLICATION_REQUESTED );
+					@user_terms = ( PUBLIC_ISOLATES, OWN_PRIVATE_ISOLATES, EMBARGOED_ISOLATES, PUBLICATION_REQUESTED );
 					push @user_terms, ISOLATES_FROM_USER_PROJECT if $has_user_project;
 				}
 			};
