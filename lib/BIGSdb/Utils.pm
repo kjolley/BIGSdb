@@ -521,7 +521,7 @@ sub get_excel_col_letter {
 }
 
 sub fasta2genbank {
-	my ($fasta_file) = @_;
+	my ($fasta_file, $max_locus_length) = @_;
 	( my $genbank_file = $fasta_file ) =~ s/\.(fa|fas|fasta)$/.gb/x;
 	my $in         = Bio::SeqIO->new( -file => $fasta_file,      -format => 'fasta' );
 	my $out        = Bio::SeqIO->new( -file => ">$genbank_file", -format => 'genbank' );
@@ -534,6 +534,9 @@ sub fasta2genbank {
 		$seq =~ s/-//gx;
 		$concat_seq .= $seq;
 		my $length = length($seq);
+		if ($length > $max_locus_length){
+			BIGSdb::Exception::Data->throw("Locus too long - $length bp.");
+		}
 		my $end    = $start + $length - 1;
 		my $feat   = Bio::SeqFeature::Generic->new(
 			-start       => $start,
