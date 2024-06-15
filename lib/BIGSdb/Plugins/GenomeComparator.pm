@@ -43,6 +43,7 @@ my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_DISPLAY_CELLS => 100_000;
 use constant MAX_GENOMES       => 1000;
 use constant MAX_REF_LOCI      => 10000;
+use constant MAX_LOCUS_LENGTH  => 10_000;
 
 sub get_attributes {
 	my ($self) = @_;
@@ -66,7 +67,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.8.3',
+		version     => '2.8.4',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -565,15 +566,23 @@ sub get_ref_seq_obj {
 	} else {
 		if ( $ref_upload =~ /fa$/x || $ref_upload =~ /fas$/x || $ref_upload =~ /fasta$/x ) {
 			try {
-				BIGSdb::Utils::fasta2genbank("$self->{'config'}->{'tmp_dir'}/$ref_upload");
+				BIGSdb::Utils::fasta2genbank( "$self->{'config'}->{'tmp_dir'}/$ref_upload", MAX_LOCUS_LENGTH );
 			} catch {
-				$logger->debug($_);
-				my $error = q();
-				if ( $_ =~ /(MSG.+)\n/x ) {
-					$error = $1;
+				if ( $_->isa('BIGSdb::Exception::Data') ) {
+					if ( $_ =~ /Locus\stoo\slong/x ) {
+						BIGSdb::Exception::Plugin->throw(
+							"$_ Did you upload an assembly instead of a FASTA file of reference loci?");
+					}
+					BIGSdb::Exception::Plugin->throw($_);
+				} else {
+					$logger->debug($_);
+					my $error = q();
+					if ( $_ =~ /(MSG.+)\n/x ) {
+						$error = $1;
+					}
+					$logger->error($error);
+					BIGSdb::Exception::Plugin->throw('Invalid data in uploaded reference FASTA file.');
 				}
-				$logger->error($error);
-				BIGSdb::Exception::Plugin->throw('Invalid data in uploaded reference FASTA file.');
 			};
 			$ref_upload =~ s/\.(fa|fas|fasta)$/\.gb/x;
 		}
