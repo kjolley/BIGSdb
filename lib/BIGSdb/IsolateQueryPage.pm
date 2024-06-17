@@ -1292,11 +1292,12 @@ sub _get_private_data_filter {
 		3 => 'my private records (in quota)',
 		4 => 'my private records (excluded from quota)',
 		5 => 'private records (requesting publication)',
-		6 => 'public records only'
+		6 => 'private records (embargoed)',
+		7 => 'public records only'
 	};
 	return $self->get_filter(
 		'private_records',
-		[ 1 .. 6 ],
+		[ 1 .. 7 ],
 		{
 			labels  => $labels,
 			text    => 'Private records',
@@ -1545,9 +1546,8 @@ sub _print_allele_status_fields {
 	unshift @$list, 'any locus';
 	unshift @$list, '';
 	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
-	my $q = $self->{'cgi'};
+	my $q     = $self->{'cgi'};
 	my $class = @$list > MAX_LIST_RENDER_SIZE ? q() : 'locuslist';
-	
 	say q(<span style="display:flex">);
 	say $self->popup_menu(
 		-name   => "allele_status_field$row",
@@ -1584,7 +1584,7 @@ sub _print_allele_count_fields {
 	unshift @$list, 'total designations';
 	unshift @$list, '';
 	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
-	my $q = $self->{'cgi'};
+	my $q     = $self->{'cgi'};
 	my $class = @$list > MAX_LIST_RENDER_SIZE ? q() : 'locuslist';
 	say q(<span style="display:flex">);
 	say q(Count of&nbsp;);
@@ -1623,7 +1623,7 @@ sub _print_loci_fields {
 	my ( $self, $row, $max_rows, $locus_list, $locus_labels ) = @_;
 	unshift @$locus_list, '' if ( $locus_list->[0] // q() ) ne q();
 	$locus_labels->{''} = q( );    #Required for HTML5 validation.
-	my $q = $self->{'cgi'};
+	my $q     = $self->{'cgi'};
 	my $class = @$locus_list > MAX_LIST_RENDER_SIZE ? q() : 'locuslist';
 	say q(<span style="display:flex">);
 	say $self->popup_menu(
@@ -1662,7 +1662,7 @@ sub _print_locus_tag_fields {
 	my $list = [@$locus_list];
 	unshift @$list, 'any locus';
 	unshift @$list, '';
-	my $q = $self->{'cgi'};
+	my $q     = $self->{'cgi'};
 	my $class = @$list > MAX_LIST_RENDER_SIZE ? q() : 'locuslist';
 	say q(<span style="display:flex">);
 	say $self->popup_menu(
@@ -1697,7 +1697,7 @@ sub _print_tag_count_fields {
 	unshift @$list, 'total tags';
 	unshift @$list, '';
 	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
-	my $q = $self->{'cgi'};
+	my $q     = $self->{'cgi'};
 	my $class = @$list > MAX_LIST_RENDER_SIZE ? q() : 'locuslist';
 	say q(<span style="display:flex">);
 	say q(Count of&nbsp;);
@@ -2590,9 +2590,11 @@ sub _modify_query_by_private_status {
 		3 => sub { $clause = "($my_private AND NOT $not_in_quota)" },
 		4 => sub { $clause = "($my_private AND $not_in_quota)" },
 		5 => sub { $clause = "(EXISTS(SELECT 1 FROM private_isolates WHERE request_publish AND isolate_id=$view.id))" },
-		6 => sub { $clause = "(NOT EXISTS(SELECT 1 FROM private_isolates WHERE isolate_id=$view.id))" }
+		6 =>
+		  sub { $clause = "(EXISTS(SELECT 1 FROM private_isolates WHERE embargo IS NOT NULL AND isolate_id=$view.id))" }
+		,
+		7 => sub { $clause = "(NOT EXISTS(SELECT 1 FROM private_isolates WHERE isolate_id=$view.id))" }
 	};
-
 	if ( $term->{ $q->param('private_records_list') } ) {
 		$term->{ $q->param('private_records_list') }->();
 	} else {
@@ -4083,7 +4085,7 @@ sub get_javascript {
 	}
 	local $" = q(',');
 	my $fieldsets_with_no_entered_values = qq('@fieldsets_with_no_entered_values');
-	my $max_list_render_size = MAX_LIST_RENDER_SIZE;
+	my $max_list_render_size             = MAX_LIST_RENDER_SIZE;
 	$buffer .= << "END";
 \$(function () {
   	\$('#query_modifier').css({display:"block"});
