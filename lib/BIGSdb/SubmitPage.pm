@@ -28,8 +28,9 @@ use BIGSdb::Constants qw(SEQ_METHODS :submissions :interface :design);
 use List::MoreUtils qw(none);
 use POSIX;
 use JSON;
-use constant LIMIT => 500;
-use constant INF   => 9**99;
+use constant LIMIT       => 500;
+use constant INF         => 9**99;
+use constant MIN_EMBARGO => 3;
 
 sub get_help_url {
 	my ($self) = @_;
@@ -2217,7 +2218,7 @@ sub _print_embargo_fieldset {
 	say $q->checkbox( -name => 'embargo', label => 'Request embargo' );
 	say q(</li><li>);
 	say q(<label for="embargo_months">Time: </label>);
-	my $min = $embargo->{'default_embargo'} < 6 ? $embargo->{'default_embargo'} : 6;
+	my $min = $embargo->{'default_embargo'} < MIN_EMBARGO ? $embargo->{'default_embargo'} : MIN_EMBARGO;
 	say $self->textfield(
 		name  => 'embargo_months',
 		id    => 'embargo_months',

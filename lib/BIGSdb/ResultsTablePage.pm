@@ -291,8 +291,9 @@ sub _print_curate_headerbar_functions {
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		$self->_print_tag_scanning_function           if $self->can_modify_table('allele_sequences');
 		$self->_print_modify_project_members_function if $self->can_modify_table('project_members');
+		$q->param( page => $page );    #Reset - The above function modify page param.
+		$self->_print_embargo_function if $self->{'permissions'}->{'embargo'} || $self->is_admin;
 	}
-	$q->param( page => $page );    #reset
 	return;
 }
 
@@ -416,7 +417,7 @@ sub _print_publish_function {
 	say qq(<button type="submit" name="publish" value="publish" class="small_submit">$label</button>);
 	say qq(<span class="flash_message" style="margin-left:2em">$self->{'publish_message'}</span>)
 	  if $self->{'publish_message'};
-	say $q->hidden($_) foreach qw (db query_file datatype table page);
+	say $q->hidden($_) foreach qw (db query_file temp_table_file datatype table page);
 	say $q->hidden($_) foreach @$hidden_attributes;
 	say $q->end_form;
 	say q(</fieldset>);
@@ -557,6 +558,21 @@ sub _print_modify_project_members_function {
 		say q(</div>);
 		say q(</fieldset>);
 	}
+	return;
+}
+
+sub _print_embargo_function {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say q(<fieldset><legend>Embargo</legend>);
+	my $hidden_attributes = $self->get_hidden_attributes;
+	say $q->start_form;
+	say q(<button type="submit" name="embargo" value="embargo" class="small_submit">)
+	  . q(<span class="fas fa-user-secret"></span> Set/update embargo </button>);
+	say $q->hidden($_) foreach qw (db query_file temp_table_file datatype table page);
+	say $q->hidden($_) foreach @$hidden_attributes;
+	say $q->end_form;
+	say q(</fieldset>);
 	return;
 }
 
@@ -2437,19 +2453,109 @@ sub add_to_project {
 	return;
 }
 
+sub confirm_embargo {
+	my ($self) = @_;
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	return if !defined $user_info;
+	my $ids        = $self->_get_query_ids;
+	my $count      = @$ids;
+	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $ids );
+	my $public = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM $self->{'system'}->{'view'} v JOIN $temp_table "
+		  . 't ON v.id=t.value LEFT JOIN private_isolates pi ON v.id=pi.isolate_id WHERE pi.user_id IS NULL' );
+	my $nice_public             = BIGSdb::Utils::commify($public);
+	my $private_without_embargo = $self->{'datastore'}->run_query(
+		"SELECT pi.user_id, COUNT(*) AS count FROM $self->{'system'}->{'view'} v JOIN $temp_table "
+		  . 't ON v.id=t.value JOIN private_isolates pi ON v.id=pi.isolate_id WHERE pi.embargo IS NULL GROUP BY pi.user_id ORDER '
+		  . 'BY count DESC',
+		undef,
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	my $total_private_without_embargo = 0;
+	$total_private_without_embargo += $_->{'count'} foreach @$private_without_embargo;
+	my $nice_total_private_without_embargo = BIGSdb::Utils::commify($total_private_without_embargo);
+	my $already_embargoed                  = $self->{'datastore'}->run_query(
+		"SELECT embargo,COUNT(*) AS count FROM $self->{'system'}->{'view'} v JOIN $temp_table "
+		  . 't ON v.id=t.value JOIN private_isolates pi ON v.id=pi.isolate_id WHERE pi.embargo IS NOT NULL '
+		  . 'GROUP BY embargo ORDER BY embargo ASC',
+		undef,
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	my $total_private_with_embargo = 0;
+	$total_private_with_embargo += $_->{'count'} foreach @$already_embargoed;
+	my $nice_total_private_with_embargo = BIGSdb::Utils::commify($total_private_with_embargo);
+	say q(<h1>Set/update embargo</h1>);
+	say q(<div class="box" id="statusbad">);
+	say q(<span class="warning_icon fas fa-exclamation-triangle fa-5x fa-pull-left"></span>);
+	say q(<h2>Warning</h2>);
+
+	if ( $count == 1 ) {
+		say q(<p>There is 1 isolate in your query.</p>);
+	} else {
+		my $nice_count = BIGSdb::Utils::commify($count);
+		say qq(<p>There are $nice_count isolates in your query.</p>);
+	}
+	say q(<p>These are broken down as follows:</p>);
+	say q(<ul>);
+	say
+	  qq(<li><strong>Public: </strong>$nice_public - these will be hidden from public view if you set an embargo.</li>);
+	print qq(<li><strong>Private (with no current embargo): </strong>$nice_total_private_without_embargo);
+	if ($total_private_without_embargo) {
+		print $total_private_without_embargo == 1 ? q( - this) : q( - these);
+		print q( will be made public when the embargo date is reached. These are owned by the following users:);
+		say q(<ul>);
+		foreach my $user (@$private_without_embargo) {
+			my $user_count  = BIGSdb::Utils::commify( $user->{'count'} );
+			my $user_string = $self->{'datastore'}->get_user_string( $user->{'user_id'}, { affiliation => 1 } );
+			say qq(<li>$user_string: $user_count</li>);
+		}
+		say q(</ul>);
+	}
+	say q(</li>);
+	if ($nice_total_private_with_embargo) {
+		say qq(<li><strong>Private (with existing embargo): </strong>$nice_total_private_with_embargo - )
+		  . q(the embargo dates for these will updated:<ul>);
+		foreach my $embargo (@$already_embargoed) {
+			my $embargo_count = BIGSdb::Utils::commify( $embargo->{'count'} );
+			say qq(<li>$embargo->{'embargo'}: $embargo_count</li>);
+		}
+		say q(</ul></li>);
+	}
+	say q(</ul>);
+	say q(<p>If the above lists includes any isolates for which an embargo should not be set or updated, then please )
+	  . q(leave this page and repeat the query to only include records that should be updated!</p>);
+	say q(</div>);
+}
+
 sub confirm_publication {
 	my ($self) = @_;
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $matched;
+	my $owner_term = q();
+	if ( $self->{'curate'} && $user_info->{'status'} ne 'submitter' ) {
+		$matched = $self->_get_query_private_records;
+	} else {
+		$matched    = $self->_get_query_private_records( $user_info->{'id'} );
+		$owner_term = q( that you own);
+	}
+	my $count = @$matched;
 	say q(<h1>Confirm publication</h1>);
 	say q(<div class="box" id="statusbad">);
 	say q(<fieldset style="float:left"><legend>Warning</legend>);
 	say q(<span class="warning_icon fas fa-exclamation-triangle fa-5x fa-pull-left"></span>);
-	say q(<p>Please confirm that you wish to make these isolates public.</p>);
+	if ( $count == 1 ) {
+		say
+qq(<p>There is 1 private isolate$owner_term in your query. Please confirm that you wish to make this public.</p>);
+	} else {
+		my $nice_count = BIGSdb::Utils::commify($count);
+		say qq(<p>There are $nice_count private isolates$owner_term in your query. )
+		  . q(Please confirm that you wish to make them all public.</p>);
+	}
 	say q(</fieldset>);
 	my $q = $self->{'cgi'};
 	say $q->start_form;
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Confirm' } );
 	say $q->hidden( confirm_publish => 1 );
-	say $q->hidden($_) foreach qw(db page query_file list_file datatype);
+	say $q->hidden($_) foreach qw(db page query_file temp_table_file list_file datatype);
 	say $q->end_form;
 	my $query_file = $q->param('query_file');
 	$self->print_navigation_bar(

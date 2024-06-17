@@ -58,8 +58,15 @@ sub print_content {
 			$self->add_to_project;
 		}
 		if ( $q->param('publish') ) {
+			$self->confirm_publication;
+			return;
+		}
+		if ( $q->param('confirm_publish') ) {
 			$self->publish;
 		}
+#		if ( $q->param('publish') ) {
+#			$self->publish;
+#		}
 	}
 	my $title = $self->get_title;
 	say qq(<h1>$title</h1>);
@@ -128,7 +135,9 @@ sub _get_show_common_names_button {
 }
 
 sub get_javascript {
-	my $buffer = << "END";
+	my ($self) = @_;
+	my $buffer   = $self->SUPER::get_javascript;
+	$buffer .= << "END";
 \$(function () {
 	\$( "#show_common_names" ).click(function() {
 		if (\$("span#show_common_names_text").css('display') == 'none'){

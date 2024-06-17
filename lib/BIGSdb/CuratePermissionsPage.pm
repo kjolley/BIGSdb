@@ -64,11 +64,6 @@ sub print_content {
 		-default  => \@curator_list,
 		-size     => 8
 	);
-	say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("curators",true)' )
-	  . q(value="All" style="margin-top:1em" class="small_submit" />);
-	say q(<input type="button" )
-	  . q(onclick='listbox_selectall("curators",false)' value="None" style="margin-top:1em" )
-	  . q(class="small_submit" /></div>);
 	say q(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Select' } );
 	say $q->hidden($_) foreach qw(db page);
@@ -78,14 +73,44 @@ sub print_content {
 
 	if (@curator_list) {
 		my $curator_count = @curator_list;
-		my %selected = map { $_ => 1 } @curator_list;
-		say q(<div class="box" id="resultstable"><div class="scrollable">);
+		my %selected      = map { $_ => 1 } @curator_list;
+		my %description   = (
+			query_users  => 'Query and display registered users',
+			modify_users => 'Update user details and status'
+			  . ( $self->{'system'}->{'dbtype'} eq 'isolates' ? ' (including quotas)' : '' ),
+			modify_isolates         => 'Create, update, or remove isolate records',
+			modify_projects         => 'Create, update, or remove public projects',
+			modify_sequences        => 'Add genome assemblies to isolate records',
+			tag_sequences           => 'Scan and update locus positions in genome records',
+			designate_alleles       => 'Scan and designate allele identifiers in genome records',
+			modify_usergroups       => 'Add/remove user accounts to user groups',
+			set_user_passwords      => 'Set user passwords',
+			modify_loci             => 'Define and update new loci',
+			modify_schemes          => 'Define and update new schemes',
+			modify_composites       => 'Define composite fields that combine values from multiple existing fields',
+			modify_field_attributes => 'Define extended provenance field attributes, e.g. continent linked to country',
+			modify_value_attributes => 'Define lookup values for extended provenance fields',
+			modify_sparse_fields    => 'Define sparsely-populated fields',
+			modify_probes           => 'Define <i>in silico</i> PCR/hybridization reactions to constrain locus definitions',
+			delete_all              => 'Allow batch deletion of records returned from a query',
+			import_site_users       => 'Importation of new users from site-wide database',
+			modify_site_users       => 'Modification of user details in site-wide database',
+			modify_geopoints        => 'Add or update GPS coordinates for geographic point fields',
+			refresh_scheme_caches   => 'Allow refresh of scheme caches if necessary',
+			query_interfaces        => 'Define new pre-populated query interfaces',
+			set_embargo    => 'Embargo isolates or increase time limits on currently embargoed isolates',
+			only_private   => 'Can only modify own private data',
+			disable_access => 'Remove all access to database',
+			modify_locus_descriptions => 'Update locus descriptionf fields',
+		);
+		say q(<div class="box" id="resultstable">);
 		say q(<p>Check the boxes for the required permissions.  Users with a status of 'submitter' )
 		  . q(have a restricted list of allowed permissions that can be selected. Attributes with a )
 		  . q(<span class="warning">red background</span> add restrictions.</p>);
 		say $q->start_form;
+		say q(<div class="scrollable">);
 		say q(<fieldset style="float:left"><legend>Update permissions</legend>);
-		say q(<table class="resultstable"><tr><th rowspan="2">Permission</th>)
+		say q(<table class="resultstable"><tr><th rowspan="2">Permission</th><th rowspan="2">Description</th>)
 		  . qq(<th colspan="$curator_count">Curator</th><th rowspan="2">All/None</th></tr><tr>);
 		my $permissions = {};
 		my $user_info   = {};
@@ -98,12 +123,12 @@ sub print_content {
 			$permissions->{$user_id} = $self->{'datastore'}->get_permissions( $user_info->{$user_id}->{'user_name'} );
 		}
 		say q(</tr>);
-		my $td = 1;
+		my $td       = 1;
 		my %prohibit = map { $_ => 1 } qw(disable_access only_private);
 		foreach my $permission (@$permission_list) {
 			( my $cleaned_permission = $permission ) =~ tr/_/ /;
 			say $prohibit{$permission} ? q(<tr class="warning">) : qq(<tr class="td$td">);
-			say qq(<th>$cleaned_permission</th>);
+			say qq(<th>$cleaned_permission</th><td style="text-align:left">$description{$permission}</td>);
 			foreach my $user_id (@$curators) {
 				next if !$selected{$user_id};
 				print q(<td>);
@@ -126,7 +151,7 @@ sub print_content {
 			say q(</td></tr>);
 			$td = $td == 1 ? 2 : 1;
 		}
-		print qq(<tr class="td$td"><th>All/None</th>);
+		print qq(<tr class="td$td"><th>All/None</th><td style="text-align:left">Select/deselect all options</td>);
 		foreach my $user_id (@$curators) {
 			next if !$selected{$user_id};
 			print q(<td>);
@@ -134,12 +159,12 @@ sub print_content {
 		}
 		say q(</td><td></td></tr>);
 		say q(</table>);
-		say q(</fieldset>);
+		say q(</fieldset></div>);
 		$self->print_action_fieldset( { no_reset => 1, submit_label => 'Update' } );
 		$q->param( update => 1 );
 		say $q->hidden($_) foreach (qw(db page curators update));
 		say $q->end_form;
-		say q(</div></div>);
+		say q(</div>);
 	}
 	return;
 }
@@ -157,13 +182,19 @@ sub _get_permission_list {
 	return \@permission_list;
 }
 
+sub initiate {
+	my ($self) = @_;
+	$self->{$_} = 1 foreach qw (jQuery jQuery.multiselect noCache);
+	return;
+}
+
 sub _update {
-	my ($self)        = @_;
-	my $q             = $self->{'cgi'};
-	my @curator_list  = $q->multi_param('curators');
-	my $curator_count = @curator_list;
-	my $permissions   = {};
-	my %selected = map { $_ => 1 } @curator_list;
+	my ($self)          = @_;
+	my $q               = $self->{'cgi'};
+	my @curator_list    = $q->multi_param('curators');
+	my $curator_count   = @curator_list;
+	my $permissions     = {};
+	my %selected        = map { $_ => 1 } @curator_list;
 	my $permission_list = $self->_get_permission_list;
 	my ( @additions, @deletions );
 	my $curator_id = $self->get_curator_id;
@@ -203,7 +234,7 @@ sub _update {
 			$self->print_bad_status( { message => q(Update failed.) } );
 		} else {
 			$self->{'db'}->commit;
-			my $total = @additions + @deletions;
+			my $total  = @additions + @deletions;
 			my $plural = $total == 1 ? q() : q(s);
 			$self->print_good_status( { message => qq($total update$plural made.) } );
 		}
@@ -215,15 +246,8 @@ sub _update {
 
 sub get_javascript {
 	return <<"JS";
-function listbox_selectall(listID, isSelect) {
-	var listbox = document.getElementById(listID);
-	for(var count=0; count < listbox.options.length; count++) {
-		listbox.options[count].selected = isSelect;
-	}
-}
 \$(document).ready(function() { 
-    \$('input:checkbox').change(
-    function(){
+    \$('input:checkbox').change(function(){
         if (\$(this).attr('id').match("allnone\$") ) {
         	var permission = \$(this).attr('id').replace('_allnone','');
         	\$("[id^=" + permission + "]").prop('checked',\$(this).is(':checked') ? true : false);
@@ -234,8 +258,17 @@ function listbox_selectall(listID, isSelect) {
         	}
         }
     });     
-  } 
-); 	
+	\$("#curators").multiselect({
+		noneSelectedText: "Please select...",
+		menuHeight: 250,
+		menuWidth: 400,
+		selectedList: 8,
+		classes: 'filter'
+	}).multiselectfilter({
+		placeholder: 'Search'
+	});
+
+}); 	
 JS
 }
 

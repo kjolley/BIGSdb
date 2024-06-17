@@ -240,6 +240,10 @@ sub print_content {
 	if ( $q->param('confirm_publish') ) {
 		$self->publish;
 	}
+	if ($q->param('embargo')){
+		$self->confirm_embargo;
+		return;
+	}
 	my $title = $self->get_title;
 	say qq(<h1>$title</h1>);
 	my $qry;
