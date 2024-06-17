@@ -47,7 +47,7 @@ sub get_attributes {
 		menutext   => 'Locus Explorer',
 		module     => 'LocusExplorer',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/locus_explorer.html",
-		version    => '1.4.1',
+		version    => '1.4.2',
 		dbtype     => 'sequences',
 		seqdb_type => 'sequences',
 		input      => 'query',
@@ -228,7 +228,7 @@ sub _print_interface {
 	my $max_sequences = MAX_SEQUENCES;
 	my $allele_ids =
 	  $self->{'datastore'}
-	  ->run_query( "SELECT allele_id FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N') ORDER BY $order",
+	  ->run_query( "SELECT allele_id FROM sequences WHERE locus=? AND allele_id NOT IN ('0', 'N', 'P') ORDER BY $order",
 		$locus, { fetch => 'col_arrayref' } );
 	my $length_varies = $self->_does_seq_length_vary( $locus, $allele_ids );
 	say qq(<p>Polymorphic site analysis is limited to $max_sequences sequences )
