@@ -67,7 +67,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.8.4',
+		version     => '2.8.5',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -564,7 +564,11 @@ sub get_ref_seq_obj {
 			};
 		}
 	} else {
-		if ( $ref_upload =~ /fa$/x || $ref_upload =~ /fas$/x || $ref_upload =~ /fasta$/x ) {
+		if (   $ref_upload =~ /\.fa$/x
+			|| $ref_upload =~ /\.fas$/x
+			|| $ref_upload =~ /\.fasta$/x
+			|| $ref_upload =~ /\.fna$/x )
+		{
 			try {
 				BIGSdb::Utils::fasta2genbank( "$self->{'config'}->{'tmp_dir'}/$ref_upload", MAX_LOCUS_LENGTH );
 			} catch {
