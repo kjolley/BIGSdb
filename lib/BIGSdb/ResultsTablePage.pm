@@ -2453,16 +2453,13 @@ sub add_to_project {
 	return;
 }
 
-sub confirm_embargo {
-	my ($self) = @_;
-	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	return if !defined $user_info;
+sub _get_public_and_private_ids {
+	my ($self)     = @_;
 	my $ids        = $self->_get_query_ids;
 	my $count      = @$ids;
 	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $ids );
 	my $public = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM $self->{'system'}->{'view'} v JOIN $temp_table "
 		  . 't ON v.id=t.value LEFT JOIN private_isolates pi ON v.id=pi.isolate_id WHERE pi.user_id IS NULL' );
-	my $nice_public             = BIGSdb::Utils::commify($public);
 	my $private_without_embargo = $self->{'datastore'}->run_query(
 		"SELECT pi.user_id, COUNT(*) AS count FROM $self->{'system'}->{'view'} v JOIN $temp_table "
 		  . 't ON v.id=t.value JOIN private_isolates pi ON v.id=pi.isolate_id WHERE pi.embargo IS NULL GROUP BY pi.user_id ORDER '
@@ -2470,40 +2467,60 @@ sub confirm_embargo {
 		undef,
 		{ fetch => 'all_arrayref', slice => {} }
 	);
-	my $total_private_without_embargo = 0;
-	$total_private_without_embargo += $_->{'count'} foreach @$private_without_embargo;
-	my $nice_total_private_without_embargo = BIGSdb::Utils::commify($total_private_without_embargo);
-	my $already_embargoed                  = $self->{'datastore'}->run_query(
-		"SELECT embargo,COUNT(*) AS count FROM $self->{'system'}->{'view'} v JOIN $temp_table "
+	my $already_embargoed = $self->{'datastore'}->run_query(
+		"SELECT pi.user_id,pi.embargo,COUNT(*) AS count FROM $self->{'system'}->{'view'} v JOIN $temp_table "
 		  . 't ON v.id=t.value JOIN private_isolates pi ON v.id=pi.isolate_id WHERE pi.embargo IS NOT NULL '
-		  . 'GROUP BY embargo ORDER BY embargo ASC',
+		  . 'GROUP BY pi.user_id,pi.embargo ORDER BY embargo ASC',
 		undef,
 		{ fetch => 'all_arrayref', slice => {} }
 	);
-	my $total_private_with_embargo = 0;
-	$total_private_with_embargo += $_->{'count'} foreach @$already_embargoed;
+	return {
+		all                     => $ids,
+		count                   => $count,
+		public                  => $public,
+		private_without_embargo => $private_without_embargo,
+		already_embargoed       => $already_embargoed
+	};
+}
+
+sub confirm_embargo {
+	my ( $self, $error ) = @_;
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	return if !defined $user_info;
+	my $records                       = $self->_get_public_and_private_ids;
+	my $nice_public                   = BIGSdb::Utils::commify( $records->{'public'} );
+	my $total_private_without_embargo = 0;
+	$total_private_without_embargo += $_->{'count'} foreach @{ $records->{'private_without_embargo'} };
+	my $nice_total_private_without_embargo = BIGSdb::Utils::commify($total_private_without_embargo);
+	my $total_private_with_embargo         = 0;
+	$total_private_with_embargo += $_->{'count'} foreach @{ $records->{'already_embargoed'} };
 	my $nice_total_private_with_embargo = BIGSdb::Utils::commify($total_private_with_embargo);
 	say q(<h1>Set/update embargo</h1>);
+	say $error if $error;
 	say q(<div class="box" id="statusbad">);
 	say q(<span class="warning_icon fas fa-exclamation-triangle fa-5x fa-pull-left"></span>);
 	say q(<h2>Warning</h2>);
 
-	if ( $count == 1 ) {
-		say q(<p>There is 1 isolate in your query.</p>);
+	if ( $records->{'count'} == 1 ) {
+		say q(<p>There is 1 isolate in your query that will be affected.</p>);
+		say q(<p>This is broken down as follows:</p>);
 	} else {
-		my $nice_count = BIGSdb::Utils::commify($count);
-		say qq(<p>There are $nice_count isolates in your query.</p>);
+		my $nice_count = BIGSdb::Utils::commify( $records->{'count'} );
+		say qq(<p>There are $nice_count isolates in your query that will be affected.</p>);
+		say q(<p>These are broken down as follows:</p>);
 	}
-	say q(<p>These are broken down as follows:</p>);
 	say q(<ul>);
-	say
-	  qq(<li><strong>Public: </strong>$nice_public - these will be hidden from public view if you set an embargo.</li>);
+	print qq(<li><strong>Public: </strong>$nice_public);
+	if ( $records->{'public'} ) {
+		print q( - these will be hidden from public view if you set an embargo. The sender will be set as the owner.);
+	}
+	say q(</li>);
 	print qq(<li><strong>Private (with no current embargo): </strong>$nice_total_private_without_embargo);
 	if ($total_private_without_embargo) {
 		print $total_private_without_embargo == 1 ? q( - this) : q( - these);
 		print q( will be made public when the embargo date is reached. These are owned by the following users:);
 		say q(<ul>);
-		foreach my $user (@$private_without_embargo) {
+		foreach my $user ( @{ $records->{'private_without_embargo'} } ) {
 			my $user_count  = BIGSdb::Utils::commify( $user->{'count'} );
 			my $user_string = $self->{'datastore'}->get_user_string( $user->{'user_id'}, { affiliation => 1 } );
 			say qq(<li>$user_string: $user_count</li>);
@@ -2511,19 +2528,63 @@ sub confirm_embargo {
 		say q(</ul>);
 	}
 	say q(</li>);
+	my $user_id;
+	print qq(<li><strong>Private (with existing embargo): </strong>$nice_total_private_with_embargo);
 	if ($nice_total_private_with_embargo) {
-		say qq(<li><strong>Private (with existing embargo): </strong>$nice_total_private_with_embargo - )
-		  . q(the embargo dates for these will updated:<ul>);
-		foreach my $embargo (@$already_embargoed) {
+		say q( - the embargo dates for these will be updated:<ul>);
+		foreach my $embargo ( @{ $records->{'already_embargoed'} } ) {
+			if ( defined $user_id && $embargo->{'user_id'} != $user_id ) {
+				say q(</ul>);
+				my $user_string = $self->{'datastore'}->get_user_string( $embargo->{'user_id'}, { affiliation => 1 } );
+				say qq(<li>$user_string<ul>);
+			} elsif ( !defined $user_id || $embargo->{'user_id'} != $user_id ) {
+				my $user_string = $self->{'datastore'}->get_user_string( $embargo->{'user_id'}, { affiliation => 1 } );
+				say qq(<li>$user_string<ul>);
+			}
 			my $embargo_count = BIGSdb::Utils::commify( $embargo->{'count'} );
-			say qq(<li>$embargo->{'embargo'}: $embargo_count</li>);
+			say qq(<li>Current embargo - $embargo->{'embargo'}: $embargo_count</li>);
+			$user_id = $embargo->{'user_id'};
 		}
-		say q(</ul></li>);
+		say q(</ul></ul>);
 	}
-	say q(</ul>);
-	say q(<p>If the above lists includes any isolates for which an embargo should not be set or updated, then please )
-	  . q(leave this page and repeat the query to only include records that should be updated!</p>);
+	say q(</li></ul>);
+	say q(<p>If the above lists include any isolates for which an embargo should not be set or updated, then please )
+	  . q(leave this page and repeat the query to only include records that should be embargoed!</p>);
 	say q(</div>);
+	say q(<div class="box" id="queryform">);
+	my $q = $self->{'cgi'};
+	say $q->start_form;
+	my $datestamp          = BIGSdb::Utils::get_datestamp();
+	my $embargo_attributes = $self->{'datastore'}->get_embargo_attributes;
+	my $max_date           = BIGSdb::Utils::get_future_date( $embargo_attributes->{'max_total_embargo'} );
+	my $default_embargo    = BIGSdb::Utils::get_future_date( $embargo_attributes->{'default_embargo'} );
+	say q(<fieldset style="float:left"><legend>Select embargo date</legend>);
+	say qq(<input type="date" id="embargo_date" name="embargo_date" value="$default_embargo" )
+	  . qq(min="$datestamp" max="$max_date">);
+	say q(</fieldset>);
+	$self->print_action_fieldset( { submit_label => 'Set/update embargo date', no_reset => 1 } );
+	say $q->hidden( confirm_embargo => 1 );
+	say $q->hidden($_) foreach qw(db page query_file temp_table_file list_file datatype);
+	say $q->end_form;
+	say q(<div style="clear:both"></div>);
+	say q(</div>);
+	return;
+}
+
+sub embargo {
+	my ($self) = @_;
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	return if !defined $user_info;
+	my $ids                = $self->_get_query_ids;
+	my $embargo_attributes = $self->{'datastore'}->get_embargo_attributes;
+	my $q                  = $self->{'cgi'};
+	if ( !$q->param('embargo_date') ) {
+		$logger->error('Embargo date not passed.');
+		my $error = $self->print_bad_status( { message => q(Embargo date not passed.), get_only => 1 } );
+		$self->confirm_embargo($error);
+		return 1;
+	}
+	return;
 }
 
 sub confirm_publication {

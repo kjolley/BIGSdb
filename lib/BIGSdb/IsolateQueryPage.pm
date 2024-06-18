@@ -244,6 +244,9 @@ sub print_content {
 		$self->confirm_embargo;
 		return;
 	}
+	if ( $q->param('confirm_embargo') ) {
+		return if $self->embargo;
+	}
 	my $title = $self->get_title;
 	say qq(<h1>$title</h1>);
 	my $qry;
@@ -300,6 +303,8 @@ sub _print_interface {
 sub print_panel_buttons {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
+	return if $q->param('embargo');
+	return if $q->param('publish');
 	if (   !defined $q->param('currentpage')
 		|| ( ( $q->param('pagejump') // q() ) eq '1' )
 		|| ( $q->param('<') && ( $q->param('currentpage') // q() ) eq '2' )

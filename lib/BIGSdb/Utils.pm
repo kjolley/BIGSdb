@@ -973,6 +973,18 @@ sub get_datestamp {
 	return sprintf( '%d-%02d-%02d', $year, $mon, $day );
 }
 
+sub get_future_date {
+	my ( $months_to_add ) = @_;
+	my $datestamp = BIGSdb::Utils::get_datestamp();
+	my ( $year, $month, $day ) = split( '-', $datestamp );
+	$month += $months_to_add;
+	if ( $month > 12 ) {
+		$year += int( $month / 12 );
+		$month %= 12;
+	}
+	return sprintf( '%04d-%02d-%02d', $year, $month, $day );
+}
+
 sub get_timestamp {
 	return strftime( '%Y%m%d%H%M%S', localtime );
 }

@@ -3825,19 +3825,10 @@ sub get_embargo_attributes {
 			  . "($max_total_embargo). Setting to max total embargo ($max_total_embargo)." );
 		$max_initial_embargo = $max_total_embargo;
 	}
-	my $max_embargo_extension = $self->{'system'}->{'max_embargo_extension'}
-	  // $self->{'config'}->{'max_embargo_extension'} // MAX_EMBARGO_EXTENSION;
-	if ( !BIGSdb::Utils::is_int($max_embargo_extension) || $max_embargo_extension < 0 ) {
-		my $default_max_embargo_extension = MAX_EMBARGO_EXTENSION;
-		$logger->error( 'Invalid value set for max_embargo_extension: '
-			  . "$max_embargo_extension (using default: $default_max_embargo_extension)" );
-		$max_embargo_extension = MAX_EMBARGO_EXTENSION;
-	}
 	return {
 		embargo_enabled       => $embargo_enabled,
 		default_embargo       => $default_embargo,
 		max_initial_embargo   => $max_initial_embargo,
-		max_embargo_extension => $max_embargo_extension,
 		max_total_embargo     => $max_total_embargo
 	};
 }

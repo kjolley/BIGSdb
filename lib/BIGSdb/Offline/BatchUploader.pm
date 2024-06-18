@@ -237,7 +237,7 @@ sub _set_embargo {
 					$self->{'logger'}->error("Isolate id not integer - $isolate_id");
 					next;
 				}
-				my $embargo_date = $self->_get_future_date( $submission->{'embargo'} );
+				my $embargo_date = BIGSdb::Utils::get_future_date( $submission->{'embargo'} );
 				$self->{'db'}->do(
 					q[INSERT INTO private_isolates (isolate_id,user_id,datestamp,embargo) VALUES (?,?,?,?)],
 					undef, $isolate_id, $submission->{'submitter'},
@@ -256,18 +256,6 @@ sub _set_embargo {
 		} 
 	}
 	return;
-}
-
-sub _get_future_date {
-	my ( $self, $months_to_add ) = @_;
-	my $datestamp = BIGSdb::Utils::get_datestamp();
-	my ( $year, $month, $day ) = split( '-', $datestamp );
-	$month += $months_to_add;
-	if ( $month > 12 ) {
-		$year += int( $month / 12 );
-		$month %= 12;
-	}
-	return sprintf( '%04d-%02d-%02d', $year, $month, $day );
 }
 
 sub _get_error_message {
