@@ -2575,14 +2575,88 @@ sub embargo {
 	my ($self) = @_;
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	return if !defined $user_info;
-	my $ids                = $self->_get_query_ids;
-	my $embargo_attributes = $self->{'datastore'}->get_embargo_attributes;
-	my $q                  = $self->{'cgi'};
-	if ( !$q->param('embargo_date') ) {
+	my $q            = $self->{'cgi'};
+	my $embargo_date = $q->param('embargo_date');
+	if ( !$embargo_date ) {
 		$logger->error('Embargo date not passed.');
 		my $error = $self->print_bad_status( { message => q(Embargo date not passed.), get_only => 1 } );
 		$self->confirm_embargo($error);
 		return 1;
+	}
+	my $embargo_attributes = $self->{'datastore'}->get_embargo_attributes;
+	if ( $embargo_date gt BIGSdb::Utils::get_future_date( $embargo_attributes->{'max_total_embargo'} ) ) {
+		$logger->error("Embargo date later than max allowed passed - $embargo_date.");
+		my $error = $self->print_bad_status(
+			{
+				message  => q(Invalid embargo date passed.),
+				detail   => "$embargo_date is later than the maximum embargo period allowed.",
+				get_only => 1
+			}
+		);
+		$self->confirm_embargo($error);
+		return 1;
+	}
+	my $ids        = $self->_get_query_ids;
+	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $ids );
+	my $public     = $self->{'datastore'}->run_query(
+		"SELECT v.id FROM $self->{'system'}->{'view'} v JOIN $temp_table "
+		  . 't ON v.id=t.value LEFT JOIN private_isolates pi ON v.id=pi.isolate_id WHERE pi.user_id IS NULL ORDER BY v.id',
+		undef,
+		{ fetch => 'col_arrayref' }
+	);
+	my $private_without_embargo = $self->{'datastore'}->run_query(
+		"SELECT v.id FROM $self->{'system'}->{'view'} v JOIN $temp_table "
+		  . 't ON v.id=t.value JOIN private_isolates pi ON v.id=pi.isolate_id WHERE pi.embargo IS NULL ORDER BY v.id',
+		undef,
+		{ fetch => 'col_arrayref' }
+	);
+	my $already_embargoed = $self->{'datastore'}->run_query(
+		"SELECT v.id FROM $self->{'system'}->{'view'} v JOIN $temp_table "
+		  . 't ON v.id=t.value JOIN private_isolates pi ON v.id=pi.isolate_id WHERE pi.embargo IS NOT NULL '
+		  . 'ORDER BY v.id',
+		undef,
+		{ fetch => 'col_arrayref'}
+	);
+	my $curator = $self->get_curator_id;
+	eval {
+		foreach my $isolate_id (@$public) {
+			$self->{'db'}->do(
+				'INSERT INTO private_isolates (isolate_id,user_id,datestamp,embargo) '
+				  . "SELECT ?,sender,'now',? FROM $self->{'system'}->{'view'} WHERE id=?",
+				undef, $isolate_id, $embargo_date, $isolate_id
+			);
+			$self->{'db'}
+			  ->do( 'INSERT INTO embargo_history (isolate_id,timestamp,action,embargo,curator) VALUES (?,?,?,?,?)',
+				undef, $isolate_id, 'now', 'Embargo set', $embargo_date, $curator );
+		}
+		foreach my $isolate_id (@$private_without_embargo) {
+			$self->{'db'}->do(
+				'UPDATE private_isolates SET (embargo,datestamp)=(?,?) WHERE isolate_id=?',
+				undef, $embargo_date, 'now', $isolate_id
+			);
+			$self->{'db'}->do(
+				'INSERT INTO embargo_history (isolate_id,timestamp,action,embargo,curator) VALUES (?,?,?,?,?)',
+				undef, $isolate_id, 'now', 'Embargo set on private record',
+				$embargo_date, $curator
+			);
+		}
+		foreach my $isolate_id (@$already_embargoed) {
+			$self->{'db'}->do(
+				'UPDATE private_isolates SET (embargo,datestamp)=(?,?) WHERE isolate_id=?',
+				undef, $embargo_date, 'now', $isolate_id
+			);
+			$self->{'db'}->do(
+				'INSERT INTO embargo_history (isolate_id,timestamp,action,embargo,curator) VALUES (?,?,?,?,?)',
+				undef, $isolate_id, 'now', 'Embargo date changed',
+				$embargo_date, $curator
+			);
+		}
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
 	}
 	return;
 }
