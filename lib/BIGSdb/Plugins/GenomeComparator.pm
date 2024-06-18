@@ -588,7 +588,7 @@ sub get_ref_seq_obj {
 					BIGSdb::Exception::Plugin->throw('Invalid data in uploaded reference FASTA file.');
 				}
 			};
-			$ref_upload =~ s/\.(fa|fas|fasta)$/\.gb/x;
+			$ref_upload =~ s/\.(fa|fas|fasta|fna)$/\.gb/x;
 		}
 		eval {
 			my $seqio_object = Bio::SeqIO->new( -file => "$self->{'config'}->{'tmp_dir'}/$ref_upload" );
@@ -625,7 +625,7 @@ sub process_uploaded_genomes {
 			my ( $genome_name, $fasta_file );
 			try {
 				$fasta_file = $u->getHeaderInfo->{'Name'};
-				( $genome_name = $fasta_file ) =~ s/\.(?:fas|fasta)$//x;
+				( $genome_name = $fasta_file ) =~ s/\.(?:fa|fas|fasta|fna)$//x;
 				my $buff;
 				my $fasta;
 				while ( ( $status = $u->read($buff) ) > 0 ) {
@@ -651,7 +651,7 @@ sub process_uploaded_genomes {
 		BIGSdb::Exception::Plugin->throw("Error processing $filename: $!") if $status < 0;
 	} else {
 		try {
-			( my $genome_name = $params->{'user_genome_filename'} ) =~ s/\.(?:fas|fasta)$//x;
+			( my $genome_name = $params->{'user_genome_filename'} ) =~ s/\.(?:fa|fas|fasta|fna)$//x;
 			my $seqin = Bio::SeqIO->new( -file => $filename, -format => 'fasta' );
 			while ( my $seq_object = $seqin->next_seq ) {
 				my $seq = $seq_object->seq // '';
