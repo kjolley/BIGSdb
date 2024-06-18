@@ -522,7 +522,7 @@ sub get_excel_col_letter {
 
 sub fasta2genbank {
 	my ($fasta_file, $max_locus_length) = @_;
-	( my $genbank_file = $fasta_file ) =~ s/\.(fa|fas|fasta)$/.gb/x;
+	( my $genbank_file = $fasta_file ) =~ s/\.(fa|fas|fasta|fna)$/.gb/x;
 	my $in         = Bio::SeqIO->new( -file => $fasta_file,      -format => 'fasta' );
 	my $out        = Bio::SeqIO->new( -file => ">$genbank_file", -format => 'genbank' );
 	my $start      = 1;
