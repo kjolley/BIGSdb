@@ -240,7 +240,7 @@ sub print_content {
 	if ( $q->param('confirm_publish') ) {
 		$self->publish;
 	}
-	if ($q->param('embargo')){
+	if ( $q->param('embargo') ) {
 		$self->confirm_embargo;
 		return;
 	}
@@ -2593,15 +2593,14 @@ sub _modify_query_by_private_status {
 	  "EXISTS(SELECT 1 FROM private_isolates p WHERE p.isolate_id=$view.id AND p.user_id=$user_info->{'id'})";
 	my $not_in_quota = 'EXISTS(SELECT 1 FROM projects p JOIN project_members pm ON '
 	  . "p.id=pm.project_id WHERE no_quota AND pm.isolate_id=$view.id)";
-	my $term = {
+	my $embargoed = "EXISTS(SELECT 1 FROM private_isolates p WHERE p.isolate_id=$view.id AND p.embargo IS NOT NULL)";
+	my $term      = {
 		1 => sub { $clause = "($any_private)" },
 		2 => sub { $clause = "($my_private)" },
-		3 => sub { $clause = "($my_private AND NOT $not_in_quota)" },
+		3 => sub { $clause = "($my_private AND NOT $not_in_quota AND NOT $embargoed)" },
 		4 => sub { $clause = "($my_private AND $not_in_quota)" },
 		5 => sub { $clause = "(EXISTS(SELECT 1 FROM private_isolates WHERE request_publish AND isolate_id=$view.id))" },
-		6 =>
-		  sub { $clause = "(EXISTS(SELECT 1 FROM private_isolates WHERE embargo IS NOT NULL AND isolate_id=$view.id))" }
-		,
+		6 => sub { $clause = "($embargoed)" },
 		7 => sub { $clause = "(NOT EXISTS(SELECT 1 FROM private_isolates WHERE isolate_id=$view.id))" }
 	};
 	if ( $term->{ $q->param('private_records_list') } ) {

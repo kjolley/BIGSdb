@@ -3381,9 +3381,10 @@ sub get_user_private_isolate_limit {
 }
 
 sub get_private_isolate_count {
-	my ( $self, $user_id ) = @_;
+	my ( $self, $user_id, $options ) = @_;
+	my $embargo = $options->{'embargoed'} ? 'IS NOT NULL' : 'IS NULL';
 	return $self->run_query(
-		'SELECT COUNT(*) FROM private_isolates pi WHERE user_id=? AND NOT EXISTS'
+		"SELECT COUNT(*) FROM private_isolates pi WHERE user_id=? AND embargo $embargo AND NOT EXISTS"
 		  . '(SELECT 1 FROM project_members pm JOIN projects p ON pm.project_id=p.id WHERE '
 		  . 'pm.isolate_id=pi.isolate_id AND p.no_quota)',
 		$user_id

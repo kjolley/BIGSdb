@@ -173,12 +173,12 @@ sub _print_results_header {
 			}
 		}
 		print '.';
-		if ( !$self->{'curate'} || ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) ) {
+		if ( !$self->{'curate'} || ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'temp_view' ) ) {
 			say qq( Click the hyperlink$plural for detailed information.);
 		}
 		say q(</p>);
 		$self->_print_curate_headerbar_functions( $table, $passed_qry_file ) if $self->{'curate'};
-		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'temp_view' ) {
 			$self->_print_publish_function;
 			$self->_print_project_add_function;
 			$self->_print_add_bookmark_function;
