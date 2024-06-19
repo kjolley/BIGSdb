@@ -273,7 +273,8 @@ sub _print_interface {
 		}
 	}
 	say q(<p>Please enter your search criteria below (or leave blank and submit to return all records).);
-	if ( !$self->{'curate'} ) {
+	my %customisable = map { $_ => 1 } qw(loci schemes scheme_fields);
+	if ( !$self->{'curate'} && $customisable{$table} ) {
 		say qq( Matching $cleaned will be returned and you will then be )
 		  . q(able to update their display and query settings.);
 	}

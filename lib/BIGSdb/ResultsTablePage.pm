@@ -2725,7 +2725,11 @@ sub publish {
 			  . qq(WHERE isolate_id IN (SELECT value FROM $temp_table));
 			$message = "Publication requested for $count record$plural.";
 		} else {
-			$qry     = "DELETE FROM private_isolates WHERE isolate_id IN (SELECT value FROM $temp_table)";
+			my $curator_id = $self->get_curator_id;
+			$qry =
+				"DELETE FROM private_isolates WHERE isolate_id IN (SELECT value FROM $temp_table);"
+			  . 'INSERT INTO embargo_history (isolate_id,timestamp,action,embargo,curator) '
+			  . "SELECT value,'now','Record made public',null,$curator_id FROM $temp_table";
 			$message = "$count record$plural now public.";
 		}
 		eval { $self->{'db'}->do($qry); };

@@ -91,7 +91,7 @@ sub _publish {
 			if ( defined $embargo ) {
 				$self->{'db'}->do(
 					'INSERT INTO embargo_history (isolate_id,timestamp,action,embargo,curator) VALUES (?,?,?,?,?)',
-					undef, $isolate_id, 'now', 'Isolate published', undef, $curator_id
+					undef, $isolate_id, 'now', 'Record made public', undef, $curator_id
 				);
 			}
 		};
