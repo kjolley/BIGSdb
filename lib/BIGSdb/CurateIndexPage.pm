@@ -2330,14 +2330,20 @@ sub _accept_publication {
 	my $to_publish = $self->{'datastore'}
 	  ->run_query( 'SELECT COUNT(*) FROM private_isolates WHERE request_publish AND user_id=?', $user_id );
 	return if !$to_publish;
-	eval { $self->{'db'}->do( 'DELETE FROM private_isolates WHERE request_publish AND user_id=?', undef, $user_id ); };
-
+	my $curator_id = $self->get_curator_id;
+	eval {
+		$self->{'db'}->do(
+			'INSERT INTO embargo_history (isolate_id,timestamp,action,embargo,curator) '
+			  . 'SELECT isolate_id,?,?,?,? FROM private_isolates WHERE request_publish AND user_id=?',
+			undef, 'now', 'Record made public', undef, $curator_id, $user_id
+		);
+		$self->{'db'}->do( 'DELETE FROM private_isolates WHERE request_publish AND user_id=?', undef, $user_id );
+	};
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
 	} else {
 		$self->{'db'}->commit;
-		my $curator_id = $self->get_curator_id;
 		my $curator_string =
 		  $self->{'datastore'}->get_user_string( $curator_id, { email => 1, text_email => 1, affiliation => 1 } );
 		my $plural         = $to_publish == 1 ? q() : q(s);

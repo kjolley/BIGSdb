@@ -1326,14 +1326,23 @@ sub _check_curator {
 	if ( $field eq 'curator' ) {
 		my $history = $self->_get_history_field($isolate_id);
 		push @$list, $history if $history;
-		if ( $self->{'embargo'} ) {
-			my $set_id     = $self->get_set_id;
-			my $set_clause = $set_id ? qq(&amp;set_id=$set_id) : q();
-			my $data =
-				qq($self->{'embargo'} <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		my $set_id     = $self->get_set_id;
+		my $set_clause = $set_id ? qq(&amp;set_id=$set_id) : q();
+		if (   $self->{'embargo'}
+			|| $self->{'datastore'}
+			->run_query( 'SELECT EXISTS(SELECT * FROM embargo_history WHERE isolate_id=?)', $isolate_id ) )
+		{
+			my $url =
+				qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . qq(page=tableQuery&amp;table=embargo_history&amp;s1=isolate_id&amp;t1=$isolate_id$set_clause&amp;)
-			  . qq(order=timestamp&amp;direction=descending">show details</a>\n);
-			push @$list, { title => 'embargoed until', data => $data };
+			  . q(order=timestamp&amp;direction=descending);
+			if ( $self->{'embargo'} ) {
+				my $data = qq($self->{'embargo'} <a href="$url">show details</a>\n);
+				push @$list, { title => 'embargoed until', data => $data };
+			} else {
+				my $data = qq(<a href="$url">show details</a>\n);
+				push @$list, { title => 'embargo history', data => $data };
+			}
 		}
 	}
 	return;
@@ -2339,7 +2348,8 @@ sub _get_seqbin_link {
 		if ( $seqbin_stats->{'contigs'} > 1 ) {
 			my $n_stats = BIGSdb::Utils::get_N_stats( $seqbin_stats->{'total_length'}, $seqbin_stats->{'lengths'} );
 			if ( $seqbin_stats->{'n50'} != $n_stats->{'N50'} ) {
-				$logger->error( "$self->{'instance'} id-$isolate_id: N50 discrepancy with stored value. This should "
+				$logger->error(
+						"$self->{'instance'} id-$isolate_id: N50 discrepancy with stored value. This should "
 					  . 'not happen - has the seqbin_stats table been modified?' );
 			}
 			push @$list, { title => 'total length', data => "$commify{'total_length'} bp" };
@@ -2375,7 +2385,8 @@ sub _get_seqbin_link {
 					  {
 						title => $labels{$key} // $key,
 						data  => $stats->{$key}
-					  } if defined $stats->{$key};
+					  }
+					  if defined $stats->{$key};
 				}
 			} else {
 				$logger->error( "$self->{'instance'} id-$isolate_id: "
@@ -2658,8 +2669,12 @@ sub _get_provenance_annotation_metrics {
 			push @$field_results, { $field => 0 };
 		}
 	}
-	$results =
-	  { total_fields => $total_fields, annotated => $count, field_list => $metric_fields, fields => $field_results };
+	$results = {
+		total_fields => $total_fields,
+		annotated    => $count,
+		field_list   => $metric_fields,
+		fields       => $field_results
+	};
 	return $results;
 }
 

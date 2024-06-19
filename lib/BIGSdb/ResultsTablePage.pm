@@ -2615,7 +2615,7 @@ sub embargo {
 		  . 't ON v.id=t.value JOIN private_isolates pi ON v.id=pi.isolate_id WHERE pi.embargo IS NOT NULL '
 		  . 'ORDER BY v.id',
 		undef,
-		{ fetch => 'col_arrayref'}
+		{ fetch => 'col_arrayref' }
 	);
 	my $curator = $self->get_curator_id;
 	eval {
@@ -2630,10 +2630,8 @@ sub embargo {
 				undef, $isolate_id, 'now', 'Embargo set', $embargo_date, $curator );
 		}
 		foreach my $isolate_id (@$private_without_embargo) {
-			$self->{'db'}->do(
-				'UPDATE private_isolates SET (embargo,datestamp)=(?,?) WHERE isolate_id=?',
-				undef, $embargo_date, 'now', $isolate_id
-			);
+			$self->{'db'}->do( 'UPDATE private_isolates SET (embargo,datestamp)=(?,?) WHERE isolate_id=?',
+				undef, $embargo_date, 'now', $isolate_id );
 			$self->{'db'}->do(
 				'INSERT INTO embargo_history (isolate_id,timestamp,action,embargo,curator) VALUES (?,?,?,?,?)',
 				undef, $isolate_id, 'now', 'Embargo set on private record',
@@ -2641,10 +2639,8 @@ sub embargo {
 			);
 		}
 		foreach my $isolate_id (@$already_embargoed) {
-			$self->{'db'}->do(
-				'UPDATE private_isolates SET (embargo,datestamp)=(?,?) WHERE isolate_id=?',
-				undef, $embargo_date, 'now', $isolate_id
-			);
+			$self->{'db'}->do( 'UPDATE private_isolates SET (embargo,datestamp)=(?,?) WHERE isolate_id=?',
+				undef, $embargo_date, 'now', $isolate_id );
 			$self->{'db'}->do(
 				'INSERT INTO embargo_history (isolate_id,timestamp,action,embargo,curator) VALUES (?,?,?,?,?)',
 				undef, $isolate_id, 'now', 'Embargo date changed',
@@ -2678,8 +2674,8 @@ sub confirm_publication {
 	say q(<fieldset style="float:left"><legend>Warning</legend>);
 	say q(<span class="warning_icon fas fa-exclamation-triangle fa-5x fa-pull-left"></span>);
 	if ( $count == 1 ) {
-		say
-qq(<p>There is 1 private isolate$owner_term in your query. Please confirm that you wish to make this public.</p>);
+		say qq(<p>There is 1 private isolate$owner_term in your query. )
+		  . q(Please confirm that you wish to make this public.</p>);
 	} else {
 		my $nice_count = BIGSdb::Utils::commify($count);
 		say qq(<p>There are $nice_count private isolates$owner_term in your query. )
