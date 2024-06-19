@@ -249,7 +249,7 @@ sub get_embargo_history_table_attributes {
 		{ name => 'isolate_id', type => 'int',       required => 1, primary_key => 1, foreign_key     => 'isolates' },
 		{ name => 'timestamp',  type => 'timestamp', required => 1, primary_key => 1, query_datestamp => 1 },
 		{ name => 'action',     type => 'text',      required => 1 },
-		{ name => 'embargo',    type => 'date',      required => 1 },
+		{ name => 'embargo',    type => 'date',      required => 0 },
 		{ name => 'curator',    type => 'int',       required => 1, dropdown_query => 1 },
 	];
 	return $attributes;

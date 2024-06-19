@@ -2171,20 +2171,22 @@ sub _print_pk_field {
 		$value = $data->{ lc($field) };
 	}
 	$value = $self->clean_locus( $value, { strip_links => 1 } );
+	my $isolate_history_sub = sub {
+		if ( $field eq 'isolate_id' ) {
+			print qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=info&amp;id=$data->{'isolate_id'}">$value</a></td>);
+		} else {
+			$value =~ s/\..*$//x;    #Remove fractions of second from output
+			print qq(<td>$value</td>);
+		}
+	};
 	my %methods = (
 		sequences => sub {
 			print qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . qq(page=alleleInfo&amp;@$query_values">$value</a></td>);
 		},
-		history => sub {
-			if ( $field eq 'isolate_id' ) {
-				print qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-				  . qq(page=info&amp;id=$data->{'isolate_id'}">$value</a></td>);
-			} else {
-				$value =~ s/\..*$//x;    #Remove fractions of second from output
-				print qq(<td>$value</td>);
-			}
-		},
+		history         => $isolate_history_sub,
+		embargo_history => $isolate_history_sub,
 		profile_history => sub {
 			if ( $field eq 'profile_id' ) {
 				print qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
