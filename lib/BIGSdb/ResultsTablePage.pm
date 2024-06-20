@@ -1982,8 +1982,12 @@ sub _print_record_field {
 	}
 	if ( $user_field{$field} ) {
 		my $user_info = $self->{'datastore'}->get_user_info( $data->{ lc($field) } );
-		print qq(<td>$user_info->{'id'} <span class="minor">[$user_info->{'first_name'} )
-		  . qq($user_info->{'surname'}]</span></td>);
+		if ( $user_info->{'id'} == 0 ) {
+			print q(<td>0 <span class="minor">[Automated]</span></td>);
+		} else {
+			print qq(<td>$user_info->{'id'} <span class="minor">[$user_info->{'first_name'} )
+			  . qq($user_info->{'surname'}]</span></td>);
+		}
 		return;
 	}
 	if ( $table_info->{'foreign_key'}->{$field} && $table_info->{'labels'}->{$field} ) {
