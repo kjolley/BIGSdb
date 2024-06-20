@@ -120,6 +120,7 @@ sub check_db {
 				'now', 'Record made public (embargo date reached)',
 				undef, 0
 			);
+			$current_user = $record->{'user_id'};
 		}
 	};
 	if ($@) {
