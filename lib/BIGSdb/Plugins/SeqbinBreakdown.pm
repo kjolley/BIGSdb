@@ -23,7 +23,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugin BIGSdb::SeqbinPage);
 use Log::Log4perl qw(get_logger);
-use POSIX qw(ceil lround);
+use POSIX qw(ceil);
 use JSON;
 my $logger = get_logger('BIGSdb.Plugins');
 use BIGSdb::Constants qw(SEQ_METHODS :interface);
@@ -53,7 +53,7 @@ sub get_attributes {
 		menutext    => 'Sequence bin breakdown',
 		module      => 'SeqbinBreakdown',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/seqbin_breakdown.html",
-		version     => '1.8.1',
+		version     => '1.8.2',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -505,7 +505,7 @@ sub _get_isolate_contig_data {
 	if ( $options->{'contig_analysis'} ) {
 		$data->{'min'}     = $lengths->[-1];
 		$data->{'max'}     = $lengths->[0];
-		$data->{'mean'}    = lround( $length / @$contig_ids );
+		$data->{'mean'}    = BIGSdb::Utils::round( $length / @$contig_ids );
 		$data->{'stddev'}  = $self->_get_stddev($lengths);
 		$data->{'n_stats'} = BIGSdb::Utils::get_N_stats( $length, $lengths );
 		$data->{'lengths'} = $lengths;
@@ -676,6 +676,6 @@ sub _get_stddev {
 		$sqtotal += ( $mean - $value )**2;
 	}
 	my $std = ( $sqtotal / ( @$values - 1 ) )**0.5;
-	return lround($std);
+	return BIGSdb::Utils::round($std);
 }
 1;

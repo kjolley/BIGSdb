@@ -534,11 +534,11 @@ sub fasta2genbank {
 		$seq =~ s/-//gx;
 		$concat_seq .= $seq;
 		my $length = length($seq);
-		if ($length > $max_locus_length){
+		if ( $length > $max_locus_length ) {
 			BIGSdb::Exception::Data->throw("Locus too long - $length bp.");
 		}
-		my $end    = $start + $length - 1;
-		my $feat   = Bio::SeqFeature::Generic->new(
+		my $end  = $start + $length - 1;
+		my $feat = Bio::SeqFeature::Generic->new(
 			-start       => $start,
 			-end         => $end,
 			-strand      => 1,
@@ -1065,5 +1065,10 @@ sub is_homopolymer {
 		return if uc( substr( $seq, $i - 1, 1 ) ) ne uc( substr( $seq, $i, 1 ) );
 	}
 	return 1;
+}
+
+sub round {
+	my ($number) = @_;
+	return int( $number + 0.5 * ( $number <=> 0 ) );
 }
 1;
