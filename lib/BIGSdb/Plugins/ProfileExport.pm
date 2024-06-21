@@ -42,7 +42,7 @@ sub get_attributes {
 		menutext           => 'Profiles',
 		buttontext         => 'Profiles',
 		module             => 'ProfileExport',
-		version            => '1.5.0',
+		version            => '1.5.1',
 		dbtype             => 'sequences',
 		seqdb_type         => 'schemes',
 		input              => 'query',
@@ -52,6 +52,7 @@ sub get_attributes {
 		order              => 15,
 		image              => '/images/plugins/ProfileExport/screenshot.png',
 		system_flag        => 'ProfileExport',
+		profile_download   => 1,
 		enabled_by_default => 1
 	);
 	return \%att;

@@ -673,14 +673,29 @@ sub app_specific_initiation {
 sub _plugin_requires_authentication {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	return if ( $self->{'page'}                           // q() ) ne 'plugin';
+	return if ( $self->{'page'} // q() ) ne 'plugin';
+	my $plugin_name = $q->param('name');
+	return if !defined $plugin_name;
+	return 1
+	  if $self->{'pluginManager'}->{'attributes'}->{$plugin_name}->{'allele_download'}
+	  && (
+		( $self->{'system'}->{'allele_downloads_require_login'} // q() ) eq 'yes'
+		|| ( $self->{'config'}->{'allele_downloads_require_login'}
+			&& ( $self->{'system'}->{'allele_downloads_require_login'} // q() ) ne 'no' )
+	  );
+	return 1
+	  if $self->{'pluginManager'}->{'attributes'}->{$plugin_name}->{'profile_download'}
+	  && (
+		( $self->{'system'}->{'profile_downloads_require_login'} // q() ) eq 'yes'
+		|| ( $self->{'config'}->{'profile_downloads_require_login'}
+			&& ( $self->{'system'}->{'profile_downloads_require_login'} // q() ) ne 'no' )
+	  );
 	return if ( $self->{'system'}->{'jobs_require_login'} // q() ) eq 'no';
 	return
 	  if !( $self->{'config'}->{'jobs_require_login'}
 		|| ( $self->{'system'}->{'jobs_require_login'} // q() ) eq 'yes' );
-	my $plugin_name = $q->param('name');
-	return   if !defined $plugin_name;
-	return 1 if ( $self->{'pluginManager'}->{'attributes'}->{$plugin_name}->{'requires'} // q() ) =~ /offline_jobs/x;
+	return 1
+	  if ( $self->{'pluginManager'}->{'attributes'}->{$plugin_name}->{'requires'} // q() ) =~ /offline_jobs/x;
 	return;
 }
 
