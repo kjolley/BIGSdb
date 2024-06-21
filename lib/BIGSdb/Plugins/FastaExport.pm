@@ -43,7 +43,7 @@ sub get_attributes {
 		menutext           => 'Locus sequences',
 		buttontext         => 'FASTA',
 		module             => 'FastaExport',
-		version            => '2.2.0',
+		version            => '2.2.1',
 		dbtype             => 'sequences',
 		seqdb_type         => 'sequences',
 		input              => 'query',
@@ -51,6 +51,7 @@ sub get_attributes {
 		order              => 10,
 		image              => '/images/plugins/FastaExport/screenshot.png',
 		enabled_by_default => 1,
+		allele_download    => 1,
 		system_flag        => 'FastaExport',
 	);
 	return \%att;
