@@ -1424,6 +1424,9 @@ sub _print_provenance_fields {
 		foreach my $field (@$select_items) {
 			( my $stripped_field = $field ) =~ s/^[f|e]_//x;
 			$stripped_field =~ s/[\|\||\s].+$//x;
+
+			#Use same group as datestamp for management fields (currently just embargo_date).
+			$stripped_field = 'datestamp' if $field =~ /^mf_/x;
 			if ( $attributes->{$stripped_field}->{'group'} ) {
 				push @{ $group_members->{ $attributes->{$stripped_field}->{'group'} } }, $field;
 			} else {
@@ -2058,7 +2061,17 @@ sub _generate_query_for_provenance_fields {
 	my $first_value = 1;
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		if ( defined $q->param("prov_value$i") && $q->param("prov_value$i") ne '' ) {
-			my $field = $q->param("prov_field$i");
+			my $field    = $q->param("prov_field$i");
+			my $operator = $q->param("prov_operator$i") // '=';
+			my $text     = $q->param("prov_value$i");
+			$self->process_value( \$text );
+			my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : '';
+			$first_value = 0;
+			if ( $field eq 'mf_embargo_date' ) {
+				my $mf_qry = $self->_modify_query_for_embargo_date( $field, $operator, $text, $errors_ref );
+				$qry .= $modifier . $mf_qry;
+				next;
+			}
 			$field =~ s/^f_//x;
 			my @groupedfields = $self->get_grouped_fields($field);
 			my $thisfield     = $self->{'xmlHandler'}->get_field_attributes($field);
@@ -2088,15 +2101,10 @@ sub _generate_query_for_provenance_fields {
 				$field = $1;
 				$thisfield->{'type'} = "gp_$2";
 			}
-			my $operator = $q->param("prov_operator$i") // '=';
-			my $text     = $q->param("prov_value$i");
-			$self->process_value( \$text );
 			next
 			  if $self->check_format(
 				{ field => $field, text => $text, type => lc( $thisfield->{'type'} // '' ), operator => $operator },
 				$errors_ref );
-			my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : '';
-			$first_value = 0;
 			if ( $field =~ /(.*)\ \(id\)$/x
 				&& !BIGSdb::Utils::is_int($text) )
 			{
@@ -2603,6 +2611,7 @@ sub _modify_query_by_private_status {
 		6 => sub { $clause = "($embargoed)" },
 		7 => sub { $clause = "(NOT EXISTS(SELECT 1 FROM private_isolates WHERE isolate_id=$view.id))" }
 	};
+
 	if ( $term->{ $q->param('private_records_list') } ) {
 		$term->{ $q->param('private_records_list') }->();
 	} else {
@@ -3678,6 +3687,38 @@ sub _modify_query_for_designation_status {
 	return $qry;
 }
 
+sub _modify_query_for_embargo_date {
+	my ( $self, $field, $operator, $text, $errors_ref ) = @_;
+	return q()
+	  if $self->check_format( { field => 'embargo_date', text => $text, type => 'date', operator => $operator },
+		$errors_ref );
+	my %valid_null = map { $_ => 1 } ( '=', 'NOT' );
+	if ( $text eq 'null' && !$valid_null{$operator} ) {
+		push @$errors_ref, BIGSdb::Utils::escape_html("$operator is not a valid operator for comparing null values.");
+	}
+	my $qry;
+	my %method = (
+		'NOT' => sub {
+			$qry =
+			  $text eq 'null'
+			  ? 'id IN (SELECT isolate_id FROM private_isolates WHERE embargo IS NOT NULL)'
+			  : "id IN (SELECT isolate_id FROM private_isolates WHERE embargo != '$text')";
+		},
+		'=' => sub {
+			$qry =
+			  $text eq 'null'
+			  ? 'id IN (SELECT isolate_id FROM private_isolates WHERE embargo IS NULL)'
+			  : "id IN (SELECT isolate_id FROM private_isolates WHERE embargo = '$text')";
+		}
+	);
+	if ( $method{$operator} ) {
+		$method{$operator}->();
+	} else {
+		$qry = "id IN (SELECT isolate_id FROM private_isolates WHERE $operator E'$text')";
+	}
+	return $qry;
+}
+
 sub _modify_query_for_seqbin {
 	my ( $self, $qry, $errors_ref ) = @_;
 	my $q    = $self->{'cgi'};
@@ -4435,7 +4476,8 @@ END
 sub _get_select_items {
 	my ($self) = @_;
 	my ( $field_list, $labels ) =
-	  $self->get_field_selection_list( { isolate_fields => 1, sender_attributes => 1, extended_attributes => 1 } );
+	  $self->get_field_selection_list(
+		{ isolate_fields => 1, management_fields => 1, sender_attributes => 1, extended_attributes => 1 } );
 	my $grouped = $self->{'xmlHandler'}->get_grouped_fields;
 	my @grouped_fields;
 	foreach (@$grouped) {

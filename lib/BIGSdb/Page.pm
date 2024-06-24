@@ -1234,6 +1234,7 @@ sub get_field_selection_list {
 
 #options passed as hashref:
 #isolate_fields: include isolate fields, prefix with f_
+#management_fields: e.g. embargo_date, prefix with mf_
 #eav_fields: include EAV fields, prefix with eav_
 #extended_attributes: include isolate field extended attributes, named e_FIELDNAME||EXTENDED-FIELDNAME
 #loci: include loci, prefix with either l_ or cn_ (common name)
@@ -1252,6 +1253,10 @@ sub get_field_selection_list {
 	my $values = [];
 	if ( $options->{'isolate_fields'} ) {
 		my $isolate_fields = $self->_get_provenance_fields($options);
+		push @$values, @$isolate_fields;
+	}
+	if ($options->{'management_fields'} ) {
+		my $isolate_fields = $self->_get_management_fields($options);
 		push @$values, @$isolate_fields;
 	}
 	if ( $options->{'eav_fields'} ) {
@@ -1522,6 +1527,19 @@ sub _get_provenance_fields {
 		}
 	}
 	return \@isolate_list;
+}
+
+sub _get_management_fields {
+	my ($self) = @_;
+	my $list = [];
+	if ($self->{'username'}){
+		my $embargo_att = $self->{'datastore'}->get_embargo_attributes;
+		if ($embargo_att->{'embargo_enabled'}){
+			push @$list, 'mf_embargo_date';
+			$self->{'cache'}->{'labels'}->{'mf_embargo_date'} = 'embargo date';
+		}
+	}
+	return $list;
 }
 
 sub _get_eav_fields {
