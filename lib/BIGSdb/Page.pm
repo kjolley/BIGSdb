@@ -398,6 +398,50 @@ sub print_banner {
 	return;
 }
 
+sub get_embargo_message {
+	my ($self) = @_;
+	return q() if !$self->{'username'};
+	my $embargo_att = $self->{'datastore'}->get_embargo_attributes;
+	return q() if !$embargo_att->{'embargo_enabled'};
+	my $curator_id = $self->get_curator_id;
+	my $q          = $self->{'cgi'};
+	my $project_id = $q->param('project_id');
+	my $project_clause =
+	  BIGSdb::Utils::is_int($project_id)
+	  ? qq(JOIN project_members pm ON pm.isolate_id=v.id AND pm.project_id=$project_id)
+	  : q();
+	my $embargo_total = $self->{'datastore'}->run_query(
+		"SELECT COUNT(*) FROM private_isolates pi JOIN $self->{'system'}->{'view'} v ON pi.isolate_id=v.id "
+		  . "${project_clause}WHERE user_id=? AND embargo IS NOT NULL",
+		$curator_id
+	);
+	return q() if !$embargo_total;
+	my $soonest = $self->{'datastore'}->run_query(
+		"SELECT embargo, COUNT(*) AS count FROM private_isolates pi JOIN $self->{'system'}->{'view'} v ON "
+		  . "pi.isolate_id=v.id ${project_clause}WHERE user_id=? AND embargo IS NOT NULL "
+		  . 'GROUP BY embargo ORDER BY embargo ASC LIMIT 1',
+		$curator_id,
+		{ fetch => 'row_hashref' }
+	);
+	my $plural = $embargo_total == 1 ? q() : q(s);
+	$project_clause =
+	  BIGSdb::Utils::is_int($project_id)
+	  ? qq(&amp;project_list=$project_id)
+	  : q();
+	my $msg =
+		qq(<p><b>Note: </b>You currently have <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . qq(page=query&amp;private_records_list=6$project_clause&amp;submit=1">$embargo_total record$plural embargoed</a>. );
+	$msg .=
+	  $soonest->{'count'} == 1
+	  ? q(This )
+	  : qq($soonest->{'count'} of these );
+	$msg .=
+		qq(will be made public on <a href="$self->{'system'}->{'script_name'}?)
+	  . qq(db=$self->{'instance'}&amp;page=query&amp;prov_field1=mf_embargo_date&amp;prov_value1=$soonest->{'embargo'})
+	  . qq($project_clause&amp;submit=1">$soonest->{'embargo'}</a>.</p>);
+	return $msg;
+}
+
 sub get_date_restriction_message {
 	my ($self) = @_;
 	return if $self->{'username'};
@@ -1255,7 +1299,7 @@ sub get_field_selection_list {
 		my $isolate_fields = $self->_get_provenance_fields($options);
 		push @$values, @$isolate_fields;
 	}
-	if ($options->{'management_fields'} ) {
+	if ( $options->{'management_fields'} ) {
 		my $isolate_fields = $self->_get_management_fields($options);
 		push @$values, @$isolate_fields;
 	}
@@ -1532,9 +1576,9 @@ sub _get_provenance_fields {
 sub _get_management_fields {
 	my ($self) = @_;
 	my $list = [];
-	if ($self->{'username'}){
+	if ( $self->{'username'} ) {
 		my $embargo_att = $self->{'datastore'}->get_embargo_attributes;
-		if ($embargo_att->{'embargo_enabled'}){
+		if ( $embargo_att->{'embargo_enabled'} ) {
 			push @$list, 'mf_embargo_date';
 			$self->{'cache'}->{'labels'}->{'mf_embargo_date'} = 'embargo date';
 		}

@@ -57,7 +57,7 @@ sub _print_limits {
 	say q(<span class="main_icon fas fa-lock fa-3x fa-pull-left"></span>);
 	say q(<h2>Limits</h2>);
 	my $private       = $self->{'datastore'}->get_private_isolate_count($user_id);
-	my $embargoed     = $self->{'datastore'}->get_private_isolate_count( $user_id, { embargoed => 1 } );
+	my $embargoed     = $self->{'datastore'}->get_embargoed_isolate_count( $user_id );
 	my $total_private = $self->{'datastore'}->run_query(
 		'SELECT COUNT(*) FROM private_isolates pi WHERE user_id=? AND EXISTS(SELECT 1 '
 		  . "FROM $self->{'system'}->{'view'} v WHERE v.id=pi.isolate_id)",

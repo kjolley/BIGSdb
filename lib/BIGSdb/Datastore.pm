@@ -3380,11 +3380,17 @@ sub get_user_private_isolate_limit {
 	return $limit;
 }
 
+sub get_embargoed_isolate_count {
+	my ( $self, $user_id ) = @_;
+	return $self->run_query( 'SELECT COUNT(*) FROM private_isolates pi WHERE user_id=? AND embargo  IS NOT NULL',
+		$user_id );
+}
+
+#Don't count embargoed isolates
 sub get_private_isolate_count {
-	my ( $self, $user_id, $options ) = @_;
-	my $embargo = $options->{'embargoed'} ? 'IS NOT NULL' : 'IS NULL';
+	my ( $self, $user_id ) = @_;
 	return $self->run_query(
-		"SELECT COUNT(*) FROM private_isolates pi WHERE user_id=? AND embargo $embargo AND NOT EXISTS"
+		'SELECT COUNT(*) FROM private_isolates pi WHERE user_id=? AND embargo IS NULL AND NOT EXISTS'
 		  . '(SELECT 1 FROM project_members pm JOIN projects p ON pm.project_id=p.id WHERE '
 		  . 'pm.isolate_id=pi.isolate_id AND p.no_quota)',
 		$user_id
@@ -3827,10 +3833,10 @@ sub get_embargo_attributes {
 		$max_initial_embargo = $max_total_embargo;
 	}
 	return {
-		embargo_enabled       => $embargo_enabled,
-		default_embargo       => $default_embargo,
-		max_initial_embargo   => $max_initial_embargo,
-		max_total_embargo     => $max_total_embargo
+		embargo_enabled     => $embargo_enabled,
+		default_embargo     => $default_embargo,
+		max_initial_embargo => $max_initial_embargo,
+		max_total_embargo   => $max_total_embargo
 	};
 }
 1;
