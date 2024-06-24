@@ -3714,7 +3714,7 @@ sub _modify_query_for_embargo_date {
 	if ( $method{$operator} ) {
 		$method{$operator}->();
 	} else {
-		$qry = "id IN (SELECT isolate_id FROM private_isolates WHERE $operator E'$text')";
+		$qry = "id IN (SELECT isolate_id FROM private_isolates WHERE embargo $operator E'$text')";
 	}
 	return $qry;
 }
