@@ -1157,16 +1157,24 @@ sub _get_analysis {
 
 sub _show_private_owner {
 	my ( $self, $isolate_id ) = @_;
-	my ( $private_owner, $request_publish ) =
+	my ( $private_owner, $request_publish, $embargo ) =
 	  $self->{'datastore'}
-	  ->run_query( 'SELECT user_id,request_publish FROM private_isolates WHERE isolate_id=?', $isolate_id );
+	  ->run_query( 'SELECT user_id,request_publish,embargo FROM private_isolates WHERE isolate_id=?', $isolate_id );
 	if ( defined $private_owner ) {
 		my $user_string    = $self->{'datastore'}->get_user_string($private_owner);
-		my $request_string = $request_publish ? q( - publication requested.) : q();
-		return
-			q(<p style="float:right"><span class="main_icon fas fa-2x fa-user-secret"></span> )
-		  . qq(<span class="warning" style="padding: 0.1em 0.5em">Private record owned by $user_string)
-		  . qq($request_string</span></p>);
+		my $request_string = $request_publish ? q( - publication requested.) : q(.);
+		my $message =
+			q(<div class="private_record">)
+		  . q(<div style="display:inline-block;vertical-align:top">)
+		  . q(<span class="main_icon fas fa-2x fa-user-secret"></span></div>)
+		  . q(<div style="display:inline-block;margin-left:0.5em">Private record owned )
+		  . qq(by $user_string$request_string);
+		if ( defined $embargo ) {
+			$message .= qq(<br /><strong>Embargoed until $embargo.</strong>);
+			$self->{'embargo'} = $embargo;
+		}
+		$message .= q(</div></div>);
+		return $message;
 	}
 }
 
@@ -1318,6 +1326,24 @@ sub _check_curator {
 	if ( $field eq 'curator' ) {
 		my $history = $self->_get_history_field($isolate_id);
 		push @$list, $history if $history;
+		my $set_id     = $self->get_set_id;
+		my $set_clause = $set_id ? qq(&amp;set_id=$set_id) : q();
+		if (   $self->{'embargo'}
+			|| $self->{'datastore'}
+			->run_query( 'SELECT EXISTS(SELECT * FROM embargo_history WHERE isolate_id=?)', $isolate_id ) )
+		{
+			my $url =
+				qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=tableQuery&amp;table=embargo_history&amp;s1=isolate_id&amp;t1=$isolate_id$set_clause&amp;)
+			  . q(order=timestamp&amp;direction=descending);
+			if ( $self->{'embargo'} ) {
+				my $data = qq($self->{'embargo'} <a href="$url">show details</a>\n);
+				push @$list, { title => 'embargoed until', data => $data };
+			} else {
+				my $data = qq(<a href="$url">show details</a>\n);
+				push @$list, { title => 'embargo history', data => $data };
+			}
+		}
 	}
 	return;
 }
@@ -1370,9 +1396,8 @@ sub _get_map_section {
 			  . q(<img src="https://api.maptiler.com/resources/logo.svg" alt="MapTiler logo"></a>);
 		}
 		$buffer .= q(</div>);
-		my $imprecise = $map->{'imprecise'} ? 1 : 0;
-		my $collapsible =
-		  $map_options->{'option'} < 3 ? 'false' : 'true';    #OSM should always show attributions.
+		my $imprecise   = $map->{'imprecise'}          ? 1       : 0;
+		my $collapsible = $map_options->{'option'} < 3 ? 'false' : 'true';    #OSM should always show attributions.
 		$buffer .= <<"MAP";
 
 <script>
@@ -2323,7 +2348,8 @@ sub _get_seqbin_link {
 		if ( $seqbin_stats->{'contigs'} > 1 ) {
 			my $n_stats = BIGSdb::Utils::get_N_stats( $seqbin_stats->{'total_length'}, $seqbin_stats->{'lengths'} );
 			if ( $seqbin_stats->{'n50'} != $n_stats->{'N50'} ) {
-				$logger->error( "$self->{'instance'} id-$isolate_id: N50 discrepancy with stored value. This should "
+				$logger->error(
+						"$self->{'instance'} id-$isolate_id: N50 discrepancy with stored value. This should "
 					  . 'not happen - has the seqbin_stats table been modified?' );
 			}
 			push @$list, { title => 'total length', data => "$commify{'total_length'} bp" };
@@ -2359,7 +2385,8 @@ sub _get_seqbin_link {
 					  {
 						title => $labels{$key} // $key,
 						data  => $stats->{$key}
-					  } if defined $stats->{$key};
+					  }
+					  if defined $stats->{$key};
 				}
 			} else {
 				$logger->error( "$self->{'instance'} id-$isolate_id: "
@@ -2642,8 +2669,12 @@ sub _get_provenance_annotation_metrics {
 			push @$field_results, { $field => 0 };
 		}
 	}
-	$results =
-	  { total_fields => $total_fields, annotated => $count, field_list => $metric_fields, fields => $field_results };
+	$results = {
+		total_fields => $total_fields,
+		annotated    => $count,
+		field_list   => $metric_fields,
+		fields       => $field_results
+	};
 	return $results;
 }
 
@@ -2671,7 +2702,6 @@ sub _get_scheme_annotation_metrics {
 				cache => 'IsolateInfo::annotation:metrics_'
 				  . ( $scheme_info->{'quality_metric_count_zero'} ? 'zero' : 'nozero' )
 			}
-
 		);
 		my $data = {
 			id            => $scheme_info->{'id'},

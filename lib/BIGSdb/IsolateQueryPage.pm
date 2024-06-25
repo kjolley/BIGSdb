@@ -240,6 +240,13 @@ sub print_content {
 	if ( $q->param('confirm_publish') ) {
 		$self->publish;
 	}
+	if ( $q->param('embargo') ) {
+		$self->confirm_embargo;
+		return;
+	}
+	if ( $q->param('confirm_embargo') ) {
+		return if $self->embargo;
+	}
 	my $title = $self->get_title;
 	say qq(<h1>$title</h1>);
 	my $qry;
@@ -296,6 +303,8 @@ sub _print_interface {
 sub print_panel_buttons {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
+	return if $q->param('embargo');
+	return if $q->param('publish');
 	if (   !defined $q->param('currentpage')
 		|| ( ( $q->param('pagejump') // q() ) eq '1' )
 		|| ( $q->param('<') && ( $q->param('currentpage') // q() ) eq '2' )
@@ -1292,11 +1301,12 @@ sub _get_private_data_filter {
 		3 => 'my private records (in quota)',
 		4 => 'my private records (excluded from quota)',
 		5 => 'private records (requesting publication)',
-		6 => 'public records only'
+		6 => 'private records (embargoed)',
+		7 => 'public records only'
 	};
 	return $self->get_filter(
 		'private_records',
-		[ 1 .. 6 ],
+		[ 1 .. 7 ],
 		{
 			labels  => $labels,
 			text    => 'Private records',
@@ -1414,6 +1424,9 @@ sub _print_provenance_fields {
 		foreach my $field (@$select_items) {
 			( my $stripped_field = $field ) =~ s/^[f|e]_//x;
 			$stripped_field =~ s/[\|\||\s].+$//x;
+
+			#Use same group as datestamp for management fields (currently just embargo_date).
+			$stripped_field = 'datestamp' if $field =~ /^mf_/x;
 			if ( $attributes->{$stripped_field}->{'group'} ) {
 				push @{ $group_members->{ $attributes->{$stripped_field}->{'group'} } }, $field;
 			} else {
@@ -1545,9 +1558,8 @@ sub _print_allele_status_fields {
 	unshift @$list, 'any locus';
 	unshift @$list, '';
 	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
-	my $q = $self->{'cgi'};
+	my $q     = $self->{'cgi'};
 	my $class = @$list > MAX_LIST_RENDER_SIZE ? q() : 'locuslist';
-	
 	say q(<span style="display:flex">);
 	say $self->popup_menu(
 		-name   => "allele_status_field$row",
@@ -1584,7 +1596,7 @@ sub _print_allele_count_fields {
 	unshift @$list, 'total designations';
 	unshift @$list, '';
 	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
-	my $q = $self->{'cgi'};
+	my $q     = $self->{'cgi'};
 	my $class = @$list > MAX_LIST_RENDER_SIZE ? q() : 'locuslist';
 	say q(<span style="display:flex">);
 	say q(Count of&nbsp;);
@@ -1623,7 +1635,7 @@ sub _print_loci_fields {
 	my ( $self, $row, $max_rows, $locus_list, $locus_labels ) = @_;
 	unshift @$locus_list, '' if ( $locus_list->[0] // q() ) ne q();
 	$locus_labels->{''} = q( );    #Required for HTML5 validation.
-	my $q = $self->{'cgi'};
+	my $q     = $self->{'cgi'};
 	my $class = @$locus_list > MAX_LIST_RENDER_SIZE ? q() : 'locuslist';
 	say q(<span style="display:flex">);
 	say $self->popup_menu(
@@ -1662,7 +1674,7 @@ sub _print_locus_tag_fields {
 	my $list = [@$locus_list];
 	unshift @$list, 'any locus';
 	unshift @$list, '';
-	my $q = $self->{'cgi'};
+	my $q     = $self->{'cgi'};
 	my $class = @$list > MAX_LIST_RENDER_SIZE ? q() : 'locuslist';
 	say q(<span style="display:flex">);
 	say $self->popup_menu(
@@ -1697,7 +1709,7 @@ sub _print_tag_count_fields {
 	unshift @$list, 'total tags';
 	unshift @$list, '';
 	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
-	my $q = $self->{'cgi'};
+	my $q     = $self->{'cgi'};
 	my $class = @$list > MAX_LIST_RENDER_SIZE ? q() : 'locuslist';
 	say q(<span style="display:flex">);
 	say q(Count of&nbsp;);
@@ -2049,7 +2061,17 @@ sub _generate_query_for_provenance_fields {
 	my $first_value = 1;
 	foreach my $i ( 1 .. MAX_ROWS ) {
 		if ( defined $q->param("prov_value$i") && $q->param("prov_value$i") ne '' ) {
-			my $field = $q->param("prov_field$i");
+			my $field    = $q->param("prov_field$i");
+			my $operator = $q->param("prov_operator$i") // '=';
+			my $text     = $q->param("prov_value$i");
+			$self->process_value( \$text );
+			my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : '';
+			$first_value = 0;
+			if ( $field eq 'mf_embargo_date' ) {
+				my $mf_qry = $self->_modify_query_for_embargo_date( $field, $operator, $text, $errors_ref );
+				$qry .= $modifier . $mf_qry;
+				next;
+			}
 			$field =~ s/^f_//x;
 			my @groupedfields = $self->get_grouped_fields($field);
 			my $thisfield     = $self->{'xmlHandler'}->get_field_attributes($field);
@@ -2079,15 +2101,10 @@ sub _generate_query_for_provenance_fields {
 				$field = $1;
 				$thisfield->{'type'} = "gp_$2";
 			}
-			my $operator = $q->param("prov_operator$i") // '=';
-			my $text     = $q->param("prov_value$i");
-			$self->process_value( \$text );
 			next
 			  if $self->check_format(
 				{ field => $field, text => $text, type => lc( $thisfield->{'type'} // '' ), operator => $operator },
 				$errors_ref );
-			my $modifier = ( $i > 1 && !$first_value ) ? " $andor " : '';
-			$first_value = 0;
 			if ( $field =~ /(.*)\ \(id\)$/x
 				&& !BIGSdb::Utils::is_int($text) )
 			{
@@ -2584,13 +2601,15 @@ sub _modify_query_by_private_status {
 	  "EXISTS(SELECT 1 FROM private_isolates p WHERE p.isolate_id=$view.id AND p.user_id=$user_info->{'id'})";
 	my $not_in_quota = 'EXISTS(SELECT 1 FROM projects p JOIN project_members pm ON '
 	  . "p.id=pm.project_id WHERE no_quota AND pm.isolate_id=$view.id)";
-	my $term = {
+	my $embargoed = "EXISTS(SELECT 1 FROM private_isolates p WHERE p.isolate_id=$view.id AND p.embargo IS NOT NULL)";
+	my $term      = {
 		1 => sub { $clause = "($any_private)" },
 		2 => sub { $clause = "($my_private)" },
-		3 => sub { $clause = "($my_private AND NOT $not_in_quota)" },
+		3 => sub { $clause = "($my_private AND NOT $not_in_quota AND NOT $embargoed)" },
 		4 => sub { $clause = "($my_private AND $not_in_quota)" },
 		5 => sub { $clause = "(EXISTS(SELECT 1 FROM private_isolates WHERE request_publish AND isolate_id=$view.id))" },
-		6 => sub { $clause = "(NOT EXISTS(SELECT 1 FROM private_isolates WHERE isolate_id=$view.id))" }
+		6 => sub { $clause = "($embargoed)" },
+		7 => sub { $clause = "(NOT EXISTS(SELECT 1 FROM private_isolates WHERE isolate_id=$view.id))" }
 	};
 
 	if ( $term->{ $q->param('private_records_list') } ) {
@@ -3668,6 +3687,38 @@ sub _modify_query_for_designation_status {
 	return $qry;
 }
 
+sub _modify_query_for_embargo_date {
+	my ( $self, $field, $operator, $text, $errors_ref ) = @_;
+	return q()
+	  if $self->check_format( { field => 'embargo_date', text => $text, type => 'date', operator => $operator },
+		$errors_ref );
+	my %valid_null = map { $_ => 1 } ( '=', 'NOT' );
+	if ( $text eq 'null' && !$valid_null{$operator} ) {
+		push @$errors_ref, BIGSdb::Utils::escape_html("$operator is not a valid operator for comparing null values.");
+	}
+	my $qry;
+	my %method = (
+		'NOT' => sub {
+			$qry =
+			  $text eq 'null'
+			  ? 'id IN (SELECT isolate_id FROM private_isolates WHERE embargo IS NOT NULL)'
+			  : "id IN (SELECT isolate_id FROM private_isolates WHERE embargo != '$text')";
+		},
+		'=' => sub {
+			$qry =
+			  $text eq 'null'
+			  ? 'id IN (SELECT isolate_id FROM private_isolates WHERE embargo IS NULL)'
+			  : "id IN (SELECT isolate_id FROM private_isolates WHERE embargo = '$text')";
+		}
+	);
+	if ( $method{$operator} ) {
+		$method{$operator}->();
+	} else {
+		$qry = "id IN (SELECT isolate_id FROM private_isolates WHERE embargo $operator E'$text')";
+	}
+	return $qry;
+}
+
 sub _modify_query_for_seqbin {
 	my ( $self, $qry, $errors_ref ) = @_;
 	my $q    = $self->{'cgi'};
@@ -4083,7 +4134,7 @@ sub get_javascript {
 	}
 	local $" = q(',');
 	my $fieldsets_with_no_entered_values = qq('@fieldsets_with_no_entered_values');
-	my $max_list_render_size = MAX_LIST_RENDER_SIZE;
+	my $max_list_render_size             = MAX_LIST_RENDER_SIZE;
 	$buffer .= << "END";
 \$(function () {
   	\$('#query_modifier').css({display:"block"});
@@ -4425,7 +4476,8 @@ END
 sub _get_select_items {
 	my ($self) = @_;
 	my ( $field_list, $labels ) =
-	  $self->get_field_selection_list( { isolate_fields => 1, sender_attributes => 1, extended_attributes => 1 } );
+	  $self->get_field_selection_list(
+		{ isolate_fields => 1, management_fields => 1, sender_attributes => 1, extended_attributes => 1 } );
 	my $grouped = $self->{'xmlHandler'}->get_grouped_fields;
 	my @grouped_fields;
 	foreach (@$grouped) {

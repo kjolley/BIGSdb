@@ -273,7 +273,8 @@ sub _print_interface {
 		}
 	}
 	say q(<p>Please enter your search criteria below (or leave blank and submit to return all records).);
-	if ( !$self->{'curate'} ) {
+	my %customisable = map { $_ => 1 } qw(loci schemes scheme_fields);
+	if ( !$self->{'curate'} && $customisable{$table} ) {
 		say qq( Matching $cleaned will be returned and you will then be )
 		  . q(able to update their display and query settings.);
 	}
@@ -488,10 +489,10 @@ sub _run_query {
 		}
 		$qry2 .= " ORDER BY $table.";
 		my $default_order;
-		if    ( $table eq 'sequences' )       { $default_order = 'locus' }
-		elsif ( $table eq 'history' )         { $default_order = 'timestamp' }
-		elsif ( $table eq 'profile_history' ) { $default_order = 'timestamp' }
-		else                                  { $default_order = 'id' }
+		my %history_tables = map { $_ => 1 } qw(history profile_history embargo_history);
+		if    ( $table eq 'sequences' )   { $default_order = 'locus' }
+		elsif ( $history_tables{$table} ) { $default_order = 'timestamp' }
+		else                              { $default_order = 'id' }
 		my $order = $q->param('order') || $default_order;
 		$qry2 .= $order;
 		$qry2 =~ s/sequences.sequence_length/length(sequences.sequence)/gx if $table eq 'sequences';
@@ -787,6 +788,7 @@ sub _check_invalid_fieldname {
 		refs                => [ $self->{'system'}->{'labelfield'} ],
 		user_group_members  => [@user_fields],
 		profile_history     => ['timestamp (date)'],
+		embargo_history     => ['timestamp (date)'],
 		history             => [ $self->{'system'}->{'labelfield'}, 'timestamp (date)' ]
 	};
 	if ( $additional->{$table} ) {

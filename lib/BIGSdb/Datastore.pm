@@ -38,7 +38,7 @@ use BIGSdb::ClientDB;
 use BIGSdb::Locus;
 use BIGSdb::Scheme;
 use BIGSdb::TableAttributes;
-use BIGSdb::Constants qw(:login_requirements DEFAULT_CODON_TABLE COUNTRIES NULL_TERMS);
+use BIGSdb::Constants qw(:login_requirements :embargo DEFAULT_CODON_TABLE COUNTRIES NULL_TERMS);
 use IO::Handle;
 use Digest::MD5;
 use POSIX qw(ceil);
@@ -1181,7 +1181,7 @@ sub create_temp_isolate_scheme_fields_view {
 		return $table if $table_exists;
 		my $scheme_info = $self->get_scheme_info($scheme_id);
 		if ( $scheme_info->{'allow_presence'} ) {
-			$logger->error( "$self->{'instance'} scheme:$scheme_id uses locus presence/absence. Scheme caching must "
+			$logger->error( "scheme:$scheme_id uses locus presence/absence. Scheme caching must "
 				  . 'be enabled for this scheme to return reliable results.' );
 		}
 
@@ -3224,7 +3224,7 @@ sub get_tables {
 		  isolates history sequence_attributes classification_schemes classification_group_fields
 		  retired_isolates user_dbases oauth_credentials eav_fields validation_rules validation_conditions
 		  validation_rule_conditions lincode_schemes lincode_fields codon_tables geography_point_lookup
-		  curator_configs query_interfaces query_interface_fields);
+		  curator_configs query_interfaces query_interface_fields embargo_history);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}
 		  : 'isolates';
@@ -3380,10 +3380,17 @@ sub get_user_private_isolate_limit {
 	return $limit;
 }
 
+sub get_embargoed_isolate_count {
+	my ( $self, $user_id ) = @_;
+	return $self->run_query( 'SELECT COUNT(*) FROM private_isolates pi WHERE user_id=? AND embargo  IS NOT NULL',
+		$user_id );
+}
+
+#Don't count embargoed isolates
 sub get_private_isolate_count {
 	my ( $self, $user_id ) = @_;
 	return $self->run_query(
-		'SELECT COUNT(*) FROM private_isolates pi WHERE user_id=? AND NOT EXISTS'
+		'SELECT COUNT(*) FROM private_isolates pi WHERE user_id=? AND embargo IS NULL AND NOT EXISTS'
 		  . '(SELECT 1 FROM project_members pm JOIN projects p ON pm.project_id=p.id WHERE '
 		  . 'pm.isolate_id=pi.isolate_id AND p.no_quota)',
 		$user_id
@@ -3436,6 +3443,7 @@ sub initiate_view {
 	  '(EXISTS(SELECT 1 FROM user_group_members ugm JOIN user_groups ug ON ugm.user_group=ug.id '
 	  . 'WHERE ug.co_curate_private AND ugm.user_id=v.sender AND EXISTS(SELECT 1 FROM user_group_members '
 	  . 'WHERE (user_group,user_id)=(ug.id,?))) AND p.user_id IS NOT NULL)';
+	use constant EMBARGOED_ISOLATES         => 'p.embargo IS NOT NULL';
 	use constant PUBLIC_ISOLATES            => 'p.user_id IS NULL';
 	use constant ISOLATES_FROM_USER_PROJECT =>
 	  'EXISTS(SELECT 1 FROM project_members pm JOIN merged_project_users mpu ON '
@@ -3473,7 +3481,7 @@ sub initiate_view {
 					@user_terms = ( OWN_PRIVATE_ISOLATES, PRIVATE_ISOLATES_FROM_SAME_USER_GROUP );
 				},
 				curator => sub {
-					@user_terms = ( PUBLIC_ISOLATES, OWN_PRIVATE_ISOLATES, PUBLICATION_REQUESTED );
+					@user_terms = ( PUBLIC_ISOLATES, OWN_PRIVATE_ISOLATES, EMBARGOED_ISOLATES, PUBLICATION_REQUESTED );
 					push @user_terms, ISOLATES_FROM_USER_PROJECT if $has_user_project;
 				}
 			};
@@ -3779,5 +3787,56 @@ sub get_seqbin_count {
 	$self->{'cache'}->{'seqbin_count'} =
 	  $self->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'} v JOIN seqbin_stats s ON v.id=s.isolate_id");
 	return $self->{'cache'}->{'seqbin_count'};
+}
+
+sub get_embargo_attributes {
+	my ($self) = @_;
+	my $embargo_enabled;
+	$embargo_enabled = 1 if ( $self->{'system'}->{'embargo_enabled'} // q() ) eq 'yes';
+	$embargo_enabled = 0 if ( $self->{'system'}->{'embargo_enabled'} // q() ) eq 'no';
+	$embargo_enabled //= $self->{'config'}->{'embargo_enabled'} // 0;
+	my $default_embargo = $self->{'system'}->{'default_embargo'} // $self->{'config'}->{'default_embargo'}
+	  // DEFAULT_EMBARGO;
+	if ( !BIGSdb::Utils::is_int($default_embargo) || $default_embargo <= 0 ) {
+		$logger->error("Invalid value set for default_embargo: $default_embargo (embargo disabled).");
+		$embargo_enabled = 0;
+		$default_embargo = 0;
+	}
+	my $max_total_embargo = $self->{'system'}->{'max_total_embargo'} // $self->{'config'}->{'max_total_embargo'}
+	  // MAX_TOTAL_EMBARGO;
+	if ( !BIGSdb::Utils::is_int($max_total_embargo) || $max_total_embargo < 0 ) {
+		$logger->error( 'Invalid value set for max_total_embargo: '
+			  . "$max_total_embargo (using default embargo value: $default_embargo)." );
+		$max_total_embargo = $default_embargo;
+	}
+	if ( $default_embargo > $max_total_embargo ) {
+		$logger->error( "default_embargo ($default_embargo) is larger than max_total_embargo "
+			  . "($max_total_embargo). Setting to max_total_embargo ($max_total_embargo)." );
+		$default_embargo = $max_total_embargo;
+	}
+	my $max_initial_embargo = $self->{'system'}->{'max_initial_embargo'} // $self->{'config'}->{'max_initial_embargo'}
+	  // MAX_INITIAL_EMBARGO;
+	if ( !BIGSdb::Utils::is_int($max_initial_embargo) || $max_initial_embargo < 0 ) {
+		$logger->error(
+			"Invalid value set for max_initial_embargo: $max_initial_embargo (using default embargo: $default_embargo)."
+		);
+		$max_initial_embargo = $default_embargo;
+	}
+	if ( $max_initial_embargo < $default_embargo ) {
+		$logger->error( "max_initial_embargo ($max_initial_embargo) is smaller than default embargo "
+			  . "($default_embargo). Setting to default embargo ($default_embargo)." );
+		$max_initial_embargo = $default_embargo;
+	}
+	if ( $max_initial_embargo > $max_total_embargo ) {
+		$logger->error( "max_initial_embargo ($max_initial_embargo) is larger than max total embargo "
+			  . "($max_total_embargo). Setting to max total embargo ($max_total_embargo)." );
+		$max_initial_embargo = $max_total_embargo;
+	}
+	return {
+		embargo_enabled     => $embargo_enabled,
+		default_embargo     => $default_embargo,
+		max_initial_embargo => $max_initial_embargo,
+		max_total_embargo   => $max_total_embargo
+	};
 }
 1;

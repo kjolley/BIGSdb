@@ -173,12 +173,12 @@ sub _print_results_header {
 			}
 		}
 		print '.';
-		if ( !$self->{'curate'} || ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) ) {
+		if ( !$self->{'curate'} || ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'temp_view' ) ) {
 			say qq( Click the hyperlink$plural for detailed information.);
 		}
 		say q(</p>);
 		$self->_print_curate_headerbar_functions( $table, $passed_qry_file ) if $self->{'curate'};
-		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'temp_view' ) {
 			$self->_print_publish_function;
 			$self->_print_project_add_function;
 			$self->_print_add_bookmark_function;
@@ -291,8 +291,9 @@ sub _print_curate_headerbar_functions {
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		$self->_print_tag_scanning_function           if $self->can_modify_table('allele_sequences');
 		$self->_print_modify_project_members_function if $self->can_modify_table('project_members');
+		$q->param( page => $page );    #Reset - The above function modify page param.
+		$self->_print_embargo_function if $self->{'permissions'}->{'embargo'} || $self->is_admin;
 	}
-	$q->param( page => $page );    #reset
 	return;
 }
 
@@ -416,7 +417,7 @@ sub _print_publish_function {
 	say qq(<button type="submit" name="publish" value="publish" class="small_submit">$label</button>);
 	say qq(<span class="flash_message" style="margin-left:2em">$self->{'publish_message'}</span>)
 	  if $self->{'publish_message'};
-	say $q->hidden($_) foreach qw (db query_file datatype table page);
+	say $q->hidden($_) foreach qw (db query_file temp_table_file datatype table page);
 	say $q->hidden($_) foreach @$hidden_attributes;
 	say $q->end_form;
 	say q(</fieldset>);
@@ -557,6 +558,21 @@ sub _print_modify_project_members_function {
 		say q(</div>);
 		say q(</fieldset>);
 	}
+	return;
+}
+
+sub _print_embargo_function {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say q(<fieldset><legend>Embargo</legend>);
+	my $hidden_attributes = $self->get_hidden_attributes;
+	say $q->start_form;
+	say q(<button type="submit" name="embargo" value="embargo" class="small_submit">)
+	  . q(<span class="fas fa-user-secret"></span> Set/update embargo </button>);
+	say $q->hidden($_) foreach qw (db query_file temp_table_file datatype table page);
+	say $q->hidden($_) foreach @$hidden_attributes;
+	say $q->end_form;
+	say q(</fieldset>);
 	return;
 }
 
@@ -768,13 +784,18 @@ sub _print_isolate_id_links {
 			  . q(</a></td>);
 		}
 	}
-	my $private_owner = $self->{'datastore'}->run_query( 'SELECT user_id FROM private_isolates WHERE isolate_id=?',
-		$id, { cache => 'ResultsTablePage::print_isolate_id_links' } );
+	my $private =
+	  $self->{'datastore'}->run_query( 'SELECT user_id,embargo FROM private_isolates WHERE isolate_id=?',
+		$id, { fetch => 'row_hashref', cache => 'ResultsTablePage::print_isolate_id_links' } );
 	my ( $private_title, $private_class ) = ( q(), q() );
-	if ($private_owner) {
+	if (defined $private->{'user_id'}) {
 		$private_class = q( class="private_record");
-		my $user_string = $self->{'datastore'}->get_user_string($private_owner);
-		$private_title = qq( title="Private record - owned by $user_string");
+		my $user_string = $self->{'datastore'}->get_user_string( $private->{'user_id'} );
+		my $title_msg   = "Private record - Owned by $user_string.";
+		if ( $private->{'embargo'} ) {
+			$title_msg .= qq(<br />Embargoed until $private->{'embargo'}.);
+		}
+		$private_title = qq( title="$title_msg");
 	}
 	my $set_id     = $self->get_set_id;
 	my $set_clause = $set_id ? qq(&amp;set_id=$set_id) : q();
@@ -1966,8 +1987,12 @@ sub _print_record_field {
 	}
 	if ( $user_field{$field} ) {
 		my $user_info = $self->{'datastore'}->get_user_info( $data->{ lc($field) } );
-		print qq(<td>$user_info->{'id'} <span class="minor">[$user_info->{'first_name'} )
-		  . qq($user_info->{'surname'}]</span></td>);
+		if ( $user_info->{'id'} == 0 ) {
+			print q(<td>0 <span class="minor">[Automated]</span></td>);
+		} else {
+			print qq(<td>$user_info->{'id'} <span class="minor">[$user_info->{'first_name'} )
+			  . qq($user_info->{'surname'}]</span></td>);
+		}
 		return;
 	}
 	if ( $table_info->{'foreign_key'}->{$field} && $table_info->{'labels'}->{$field} ) {
@@ -2155,20 +2180,22 @@ sub _print_pk_field {
 		$value = $data->{ lc($field) };
 	}
 	$value = $self->clean_locus( $value, { strip_links => 1 } );
+	my $isolate_history_sub = sub {
+		if ( $field eq 'isolate_id' ) {
+			print qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=info&amp;id=$data->{'isolate_id'}">$value</a></td>);
+		} else {
+			$value =~ s/\..*$//x;    #Remove fractions of second from output
+			print qq(<td>$value</td>);
+		}
+	};
 	my %methods = (
 		sequences => sub {
 			print qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . qq(page=alleleInfo&amp;@$query_values">$value</a></td>);
 		},
-		history => sub {
-			if ( $field eq 'isolate_id' ) {
-				print qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-				  . qq(page=info&amp;id=$data->{'isolate_id'}">$value</a></td>);
-			} else {
-				$value =~ s/\..*$//x;    #Remove fractions of second from output
-				print qq(<td>$value</td>);
-			}
-		},
+		history         => $isolate_history_sub,
+		embargo_history => $isolate_history_sub,
 		profile_history => sub {
 			if ( $field eq 'profile_id' ) {
 				print qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
@@ -2437,19 +2464,240 @@ sub add_to_project {
 	return;
 }
 
+sub _get_public_and_private_ids {
+	my ($self)     = @_;
+	my $ids        = $self->_get_query_ids;
+	my $count      = @$ids;
+	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $ids );
+	my $public = $self->{'datastore'}->run_query( "SELECT COUNT(*) FROM $self->{'system'}->{'view'} v JOIN $temp_table "
+		  . 't ON v.id=t.value LEFT JOIN private_isolates pi ON v.id=pi.isolate_id WHERE pi.user_id IS NULL' );
+	my $private_without_embargo = $self->{'datastore'}->run_query(
+		"SELECT pi.user_id, COUNT(*) AS count FROM $self->{'system'}->{'view'} v JOIN $temp_table "
+		  . 't ON v.id=t.value JOIN private_isolates pi ON v.id=pi.isolate_id WHERE pi.embargo IS NULL GROUP BY pi.user_id ORDER '
+		  . 'BY count DESC',
+		undef,
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	my $already_embargoed = $self->{'datastore'}->run_query(
+		"SELECT pi.user_id,pi.embargo,COUNT(*) AS count FROM $self->{'system'}->{'view'} v JOIN $temp_table "
+		  . 't ON v.id=t.value JOIN private_isolates pi ON v.id=pi.isolate_id WHERE pi.embargo IS NOT NULL '
+		  . 'GROUP BY pi.user_id,pi.embargo ORDER BY embargo ASC',
+		undef,
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	return {
+		all                     => $ids,
+		count                   => $count,
+		public                  => $public,
+		private_without_embargo => $private_without_embargo,
+		already_embargoed       => $already_embargoed
+	};
+}
+
+sub confirm_embargo {
+	my ( $self, $error ) = @_;
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	return if !defined $user_info;
+	my $records                       = $self->_get_public_and_private_ids;
+	my $nice_public                   = BIGSdb::Utils::commify( $records->{'public'} );
+	my $total_private_without_embargo = 0;
+	$total_private_without_embargo += $_->{'count'} foreach @{ $records->{'private_without_embargo'} };
+	my $nice_total_private_without_embargo = BIGSdb::Utils::commify($total_private_without_embargo);
+	my $total_private_with_embargo         = 0;
+	$total_private_with_embargo += $_->{'count'} foreach @{ $records->{'already_embargoed'} };
+	my $nice_total_private_with_embargo = BIGSdb::Utils::commify($total_private_with_embargo);
+	say q(<h1>Set/update embargo</h1>);
+	say $error if $error;
+	say q(<div class="box" id="statusbad">);
+	say q(<span class="warning_icon fas fa-exclamation-triangle fa-5x fa-pull-left"></span>);
+	say q(<h2>Warning</h2>);
+
+	if ( $records->{'count'} == 1 ) {
+		say q(<p>There is 1 isolate in your query that will be affected.</p>);
+		say q(<p>This is broken down as follows:</p>);
+	} else {
+		my $nice_count = BIGSdb::Utils::commify( $records->{'count'} );
+		say qq(<p>There are $nice_count isolates in your query that will be affected.</p>);
+		say q(<p>These are broken down as follows:</p>);
+	}
+	say q(<ul>);
+	print qq(<li><strong>Public: </strong>$nice_public);
+	if ( $records->{'public'} ) {
+		print q( - these will be hidden from public view if you set an embargo. The sender will be set as the owner.);
+	}
+	say q(</li>);
+	print qq(<li><strong>Private (with no current embargo): </strong>$nice_total_private_without_embargo);
+	if ($total_private_without_embargo) {
+		print $total_private_without_embargo == 1 ? q( - this) : q( - these);
+		print q( will be made public when the embargo date is reached. These are owned by the following users:);
+		say q(<ul>);
+		foreach my $user ( @{ $records->{'private_without_embargo'} } ) {
+			my $user_count  = BIGSdb::Utils::commify( $user->{'count'} );
+			my $user_string = $self->{'datastore'}->get_user_string( $user->{'user_id'}, { affiliation => 1 } );
+			say qq(<li>$user_string: $user_count</li>);
+		}
+		say q(</ul>);
+	}
+	say q(</li>);
+	my $user_id;
+	print qq(<li><strong>Private (with existing embargo): </strong>$nice_total_private_with_embargo);
+	if ($nice_total_private_with_embargo) {
+		say q( - the embargo dates for these will be updated:<ul>);
+		foreach my $embargo ( @{ $records->{'already_embargoed'} } ) {
+			if ( defined $user_id && $embargo->{'user_id'} != $user_id ) {
+				say q(</ul>);
+				my $user_string = $self->{'datastore'}->get_user_string( $embargo->{'user_id'}, { affiliation => 1 } );
+				say qq(<li>$user_string<ul>);
+			} elsif ( !defined $user_id || $embargo->{'user_id'} != $user_id ) {
+				my $user_string = $self->{'datastore'}->get_user_string( $embargo->{'user_id'}, { affiliation => 1 } );
+				say qq(<li>$user_string<ul>);
+			}
+			my $embargo_count = BIGSdb::Utils::commify( $embargo->{'count'} );
+			say qq(<li>Current embargo - $embargo->{'embargo'}: $embargo_count</li>);
+			$user_id = $embargo->{'user_id'};
+		}
+		say q(</ul></ul>);
+	}
+	say q(</li></ul>);
+	say q(<p>If the above lists include any isolates for which an embargo should not be set or updated, then please )
+	  . q(leave this page and repeat the query to only include records that should be embargoed!</p>);
+	say q(</div>);
+	say q(<div class="box" id="queryform">);
+	my $q = $self->{'cgi'};
+	say $q->start_form;
+	my $datestamp          = BIGSdb::Utils::get_datestamp();
+	my $embargo_attributes = $self->{'datastore'}->get_embargo_attributes;
+	my $max_date           = BIGSdb::Utils::get_future_date( $embargo_attributes->{'max_total_embargo'} );
+	my $default_embargo    = BIGSdb::Utils::get_future_date( $embargo_attributes->{'default_embargo'} );
+	say q(<fieldset style="float:left"><legend>Select embargo date</legend>);
+	say qq(<input type="date" id="embargo_date" name="embargo_date" value="$default_embargo" )
+	  . qq(min="$datestamp" max="$max_date">);
+	say q(</fieldset>);
+	$self->print_action_fieldset( { submit_label => 'Set/update embargo date', no_reset => 1 } );
+	say $q->hidden( confirm_embargo => 1 );
+	say $q->hidden($_) foreach qw(db page query_file temp_table_file list_file datatype);
+	say $q->end_form;
+	say q(<div style="clear:both"></div>);
+	say q(</div>);
+	return;
+}
+
+sub embargo {
+	my ($self) = @_;
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	return if !defined $user_info;
+	my $q            = $self->{'cgi'};
+	my $embargo_date = $q->param('embargo_date');
+	if ( !$embargo_date ) {
+		$logger->error('Embargo date not passed.');
+		my $error = $self->print_bad_status( { message => q(Embargo date not passed.), get_only => 1 } );
+		$self->confirm_embargo($error);
+		return 1;
+	}
+	my $embargo_attributes = $self->{'datastore'}->get_embargo_attributes;
+	if ( $embargo_date gt BIGSdb::Utils::get_future_date( $embargo_attributes->{'max_total_embargo'} ) ) {
+		$logger->error("Embargo date later than max allowed passed - $embargo_date.");
+		my $error = $self->print_bad_status(
+			{
+				message  => q(Invalid embargo date passed.),
+				detail   => "$embargo_date is later than the maximum embargo period allowed.",
+				get_only => 1
+			}
+		);
+		$self->confirm_embargo($error);
+		return 1;
+	}
+	my $ids        = $self->_get_query_ids;
+	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $ids );
+	my $public     = $self->{'datastore'}->run_query(
+		"SELECT v.id FROM $self->{'system'}->{'view'} v JOIN $temp_table "
+		  . 't ON v.id=t.value LEFT JOIN private_isolates pi ON v.id=pi.isolate_id WHERE pi.user_id IS NULL ORDER BY v.id',
+		undef,
+		{ fetch => 'col_arrayref' }
+	);
+	my $private_without_embargo = $self->{'datastore'}->run_query(
+		"SELECT v.id FROM $self->{'system'}->{'view'} v JOIN $temp_table "
+		  . 't ON v.id=t.value JOIN private_isolates pi ON v.id=pi.isolate_id WHERE pi.embargo IS NULL ORDER BY v.id',
+		undef,
+		{ fetch => 'col_arrayref' }
+	);
+	my $already_embargoed = $self->{'datastore'}->run_query(
+		"SELECT v.id FROM $self->{'system'}->{'view'} v JOIN $temp_table "
+		  . 't ON v.id=t.value JOIN private_isolates pi ON v.id=pi.isolate_id WHERE pi.embargo IS NOT NULL '
+		  . 'ORDER BY v.id',
+		undef,
+		{ fetch => 'col_arrayref' }
+	);
+	my $curator = $self->get_curator_id;
+	eval {
+		foreach my $isolate_id (@$public) {
+			$self->{'db'}->do(
+				'INSERT INTO private_isolates (isolate_id,user_id,datestamp,embargo) '
+				  . "SELECT ?,sender,'now',? FROM $self->{'system'}->{'view'} WHERE id=?",
+				undef, $isolate_id, $embargo_date, $isolate_id
+			);
+			$self->{'db'}
+			  ->do( 'INSERT INTO embargo_history (isolate_id,timestamp,action,embargo,curator) VALUES (?,?,?,?,?)',
+				undef, $isolate_id, 'now', 'Embargo set', $embargo_date, $curator );
+		}
+		foreach my $isolate_id (@$private_without_embargo) {
+			$self->{'db'}->do( 'UPDATE private_isolates SET (embargo,datestamp)=(?,?) WHERE isolate_id=?',
+				undef, $embargo_date, 'now', $isolate_id );
+			$self->{'db'}->do(
+				'INSERT INTO embargo_history (isolate_id,timestamp,action,embargo,curator) VALUES (?,?,?,?,?)',
+				undef, $isolate_id, 'now', 'Embargo set on private record',
+				$embargo_date, $curator
+			);
+		}
+		foreach my $isolate_id (@$already_embargoed) {
+			$self->{'db'}->do( 'UPDATE private_isolates SET (embargo,datestamp)=(?,?) WHERE isolate_id=?',
+				undef, $embargo_date, 'now', $isolate_id );
+			$self->{'db'}->do(
+				'INSERT INTO embargo_history (isolate_id,timestamp,action,embargo,curator) VALUES (?,?,?,?,?)',
+				undef, $isolate_id, 'now', 'Embargo date changed',
+				$embargo_date, $curator
+			);
+		}
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+	return;
+}
+
 sub confirm_publication {
 	my ($self) = @_;
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $matched;
+	my $owner_term = q();
+	if ( $self->{'curate'} && $user_info->{'status'} ne 'submitter' ) {
+		$matched = $self->_get_query_private_records;
+	} else {
+		$matched    = $self->_get_query_private_records( $user_info->{'id'} );
+		$owner_term = q( that you own);
+	}
+	my $count = @$matched;
 	say q(<h1>Confirm publication</h1>);
 	say q(<div class="box" id="statusbad">);
 	say q(<fieldset style="float:left"><legend>Warning</legend>);
 	say q(<span class="warning_icon fas fa-exclamation-triangle fa-5x fa-pull-left"></span>);
-	say q(<p>Please confirm that you wish to make these isolates public.</p>);
+	if ( $count == 1 ) {
+		say qq(<p>There is 1 private isolate$owner_term in your query. )
+		  . q(Please confirm that you wish to make this public.</p>);
+	} else {
+		my $nice_count = BIGSdb::Utils::commify($count);
+		say qq(<p>There are $nice_count private isolates$owner_term in your query. )
+		  . q(Please confirm that you wish to make them all public.</p>);
+	}
 	say q(</fieldset>);
 	my $q = $self->{'cgi'};
 	say $q->start_form;
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Confirm' } );
 	say $q->hidden( confirm_publish => 1 );
-	say $q->hidden($_) foreach qw(db page query_file list_file datatype);
+	say $q->hidden($_) foreach qw(db page query_file temp_table_file list_file datatype);
 	say $q->end_form;
 	my $query_file = $q->param('query_file');
 	$self->print_navigation_bar(
@@ -2486,7 +2734,11 @@ sub publish {
 			  . qq(WHERE isolate_id IN (SELECT value FROM $temp_table));
 			$message = "Publication requested for $count record$plural.";
 		} else {
-			$qry     = "DELETE FROM private_isolates WHERE isolate_id IN (SELECT value FROM $temp_table)";
+			my $curator_id = $self->get_curator_id;
+			$qry =
+				"DELETE FROM private_isolates WHERE isolate_id IN (SELECT value FROM $temp_table);"
+			  . 'INSERT INTO embargo_history (isolate_id,timestamp,action,embargo,curator) '
+			  . "SELECT value,'now','Record made public',null,$curator_id FROM $temp_table";
 			$message = "$count record$plural now public.";
 		}
 		eval { $self->{'db'}->do($qry); };

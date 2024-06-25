@@ -199,7 +199,7 @@ sub _get_javascript_paths {
 			'dropzone'     => { src => [qw(dropzone.js)],    defer => 0, version => '20200308' },
 
 			#See https://dolmenweb.it/viewers/openlayer/doc/tutorials/custom-builds.html
-			'ol'        => { src => [qw(ol-custom.js bigsdb.openlayers.min.js)], defer => 0, version => '9.2.4#20240530' },
+			'ol' => { src => [qw(ol-custom.js bigsdb.openlayers.min.js)], defer => 0, version => '9.2.4#20240530' },
 			'billboard' => {
 				src     => [qw(d3.v6.min.js billboard.min.js jquery.ui.touch-punch.min.js)],
 				defer   => 1,
@@ -396,6 +396,50 @@ sub print_banner {
 		say q(</div>);
 	}
 	return;
+}
+
+sub get_embargo_message {
+	my ($self) = @_;
+	return q() if !$self->{'username'};
+	my $embargo_att = $self->{'datastore'}->get_embargo_attributes;
+	return q() if !$embargo_att->{'embargo_enabled'};
+	my $curator_id = $self->get_curator_id;
+	my $q          = $self->{'cgi'};
+	my $project_id = $q->param('project_id');
+	my $project_clause =
+	  BIGSdb::Utils::is_int($project_id)
+	  ? qq(JOIN project_members pm ON pm.isolate_id=v.id AND pm.project_id=$project_id)
+	  : q();
+	my $embargo_total = $self->{'datastore'}->run_query(
+		"SELECT COUNT(*) FROM private_isolates pi JOIN $self->{'system'}->{'view'} v ON pi.isolate_id=v.id "
+		  . "${project_clause}WHERE user_id=? AND embargo IS NOT NULL",
+		$curator_id
+	);
+	return q() if !$embargo_total;
+	my $soonest = $self->{'datastore'}->run_query(
+		"SELECT embargo, COUNT(*) AS count FROM private_isolates pi JOIN $self->{'system'}->{'view'} v ON "
+		  . "pi.isolate_id=v.id ${project_clause}WHERE user_id=? AND embargo IS NOT NULL "
+		  . 'GROUP BY embargo ORDER BY embargo ASC LIMIT 1',
+		$curator_id,
+		{ fetch => 'row_hashref' }
+	);
+	my $plural = $embargo_total == 1 ? q() : q(s);
+	$project_clause =
+	  BIGSdb::Utils::is_int($project_id)
+	  ? qq(&amp;project_list=$project_id)
+	  : q();
+	my $msg =
+		qq(<p><b>Note: </b>You currently have <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . qq(page=query&amp;private_records_list=6$project_clause&amp;submit=1">$embargo_total record$plural embargoed</a>. );
+	$msg .=
+	  $soonest->{'count'} == 1
+	  ? q(This )
+	  : qq($soonest->{'count'} of these );
+	$msg .=
+		qq(will be made public on <a href="$self->{'system'}->{'script_name'}?)
+	  . qq(db=$self->{'instance'}&amp;page=query&amp;prov_field1=mf_embargo_date&amp;prov_value1=$soonest->{'embargo'})
+	  . qq($project_clause&amp;submit=1">$soonest->{'embargo'}</a>.</p>);
+	return $msg;
 }
 
 sub get_date_restriction_message {
@@ -726,7 +770,7 @@ sub _get_meta_data {
 sub _get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20240326';
+	my $version = '20240614';
 	my @filenames;
 	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
 	push @filenames, q(billboard.min.css)                                     if $self->{'billboard'};
@@ -1234,6 +1278,7 @@ sub get_field_selection_list {
 
 #options passed as hashref:
 #isolate_fields: include isolate fields, prefix with f_
+#management_fields: e.g. embargo_date, prefix with mf_
 #eav_fields: include EAV fields, prefix with eav_
 #extended_attributes: include isolate field extended attributes, named e_FIELDNAME||EXTENDED-FIELDNAME
 #loci: include loci, prefix with either l_ or cn_ (common name)
@@ -1252,6 +1297,10 @@ sub get_field_selection_list {
 	my $values = [];
 	if ( $options->{'isolate_fields'} ) {
 		my $isolate_fields = $self->_get_provenance_fields($options);
+		push @$values, @$isolate_fields;
+	}
+	if ( $options->{'management_fields'} ) {
+		my $isolate_fields = $self->_get_management_fields($options);
 		push @$values, @$isolate_fields;
 	}
 	if ( $options->{'eav_fields'} ) {
@@ -1522,6 +1571,19 @@ sub _get_provenance_fields {
 		}
 	}
 	return \@isolate_list;
+}
+
+sub _get_management_fields {
+	my ($self) = @_;
+	my $list = [];
+	if ( $self->{'username'} ) {
+		my $embargo_att = $self->{'datastore'}->get_embargo_attributes;
+		if ( $embargo_att->{'embargo_enabled'} ) {
+			push @$list, 'mf_embargo_date';
+			$self->{'cache'}->{'labels'}->{'mf_embargo_date'} = 'embargo date';
+		}
+	}
+	return $list;
 }
 
 sub _get_eav_fields {
@@ -2264,7 +2326,8 @@ sub get_record_name {
 		peptide_mutations                 => 'single amino acid variation definition',
 		dna_mutations                     => 'single nucleotide polymorphism definition',
 		query_interfaces                  => 'query interface',
-		query_interface_fields            => 'pre-selected interface field'
+		query_interface_fields            => 'pre-selected interface field',
+		embargo_history                   => 'embargo history'
 	);
 	return $names{$table};
 }
@@ -2532,9 +2595,10 @@ sub can_modify_table {
 	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id');
 	my $locus     = $q->param('locus');
-	$locus =~ s/%27/'/gx if $locus;                                               #Web-escaped locus
-	return               if $table eq 'history' || $table eq 'profile_history';
-	return 1             if $self->is_admin;
+	$locus =~ s/%27/'/gx if $locus;    #Web-escaped locus
+	my %no_modify = map { $_ => 1 } qw(history profile_history embargo_history);
+	return   if $no_modify{$table};
+	return 1 if $self->is_admin;
 	my $curator_id = $self->get_curator_id;
 
 	if ( !defined $self->{'cache'}->{'curator_configs'} ) {

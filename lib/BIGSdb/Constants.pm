@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2023, University of Oxford
+#Copyright (c) 2015-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -59,6 +59,14 @@ push @EXPORT_OK, qw(SEQ_METHODS);
 #Codons
 use constant DEFAULT_CODON_TABLE => 11;
 push @EXPORT_OK, qw(DEFAULT_CODON_TABLE);
+
+#Isolate embargoes
+use constant DEFAULT_EMBARGO       => 12;
+use constant MAX_INITIAL_EMBARGO   => 24;
+use constant MAX_TOTAL_EMBARGO     => 48;
+@values = qw(DEFAULT_EMBARGO MAX_INITIAL_EMBARGO MAX_TOTAL_EMBARGO);
+push @EXPORT_OK, @values;
+$EXPORT_TAGS{'embargo'} = [@values];
 
 #Interface
 use constant FACE_STYLE => (

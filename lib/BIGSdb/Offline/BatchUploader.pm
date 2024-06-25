@@ -47,6 +47,7 @@ sub upload {
 	my $status_filepath = qq($self->{'config'}->{'tmp_dir'}/$status_file);
 	my $i               = 0;
 	my %allow_null_term = map { $_ => 1 } qw(validation_conditions);
+	my $isolate_ids     = [];
 
 	foreach my $record (@$records) {
 		$self->_update_status(
@@ -60,12 +61,14 @@ sub upload {
 		$record =~ s/\r//gx;
 		next if !$record;
 		my $data = [ split /\t/x, $record ];
+		if ( $table eq 'isolates' ) {
+			push @$isolate_ids, $data->[0];
+		}
 		@$data = $self->_process_fields( $data, { allow_null => $allow_null_term{$table} } );
 		my @value_list;
 		my ( @extras, @ref_extras, $codon_table );
 		my $id;
 		my $sender = $self->_get_sender( $field_order, $data, $user_info->{'status'} );
-
 		foreach my $field (@$fields_to_include) {
 			$id = $data->[ $field_order->{$field} ] if $field eq 'id';
 			$self->_process_multivalues( $field_att, $field_order, $field, $data );
@@ -138,8 +141,7 @@ sub upload {
 					}
 				);
 				push @inserts, @$contigs_extra_inserts;
-			}
-			catch {
+			} catch {
 				if ( $_->isa('BIGSdb::Exception::Data') ) {
 					if ( $_ =~ 'Not valid DNA' ) {
 						$upload_err = 'Invalid characters';
@@ -213,10 +215,45 @@ sub upload {
 	);
 	if ($submission_id) {
 		$self->_update_submission_database($submission_id);
+		if ( $table eq 'isolates' ) {
+			$self->_set_embargo( $submission_id, $isolate_ids );
+		}
 	}
 	$self->{'db'}->commit;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 		$self->_update_scheme_caches if ( $self->{'system'}->{'cache_schemes'} // q() ) eq 'yes';
+	}
+	return;
+}
+
+sub _set_embargo {
+	my ( $self, $submission_id, $isolate_ids ) = @_;
+	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
+	return if !$submission->{'embargo'};
+	if ( $submission->{'embargo'} ) {
+		eval {
+			foreach my $isolate_id (@$isolate_ids) {
+				if ( !BIGSdb::Utils::is_int($isolate_id) ) {
+					$self->{'logger'}->error("Isolate id not integer - $isolate_id");
+					next;
+				}
+				my $embargo_date = BIGSdb::Utils::get_future_date( $submission->{'embargo'} );
+				$self->{'db'}->do(
+					q[INSERT INTO private_isolates (isolate_id,user_id,datestamp,embargo) VALUES (?,?,?,?)],
+					undef, $isolate_id, $submission->{'submitter'},
+					'now', $embargo_date
+				);
+				$self->{'db'}->do(
+					q[INSERT INTO embargo_history (isolate_id,timestamp,action,embargo,curator) VALUES (?,?,?,?,?)],
+					undef, $isolate_id, 'now', 'Initial embargo',
+					$embargo_date, $self->{'curator_id'}
+				);
+			}
+		};
+		if ($@) {
+			$self->{'logger'}->error($@);
+			$self->{'db'}->rollback;
+		} 
 	}
 	return;
 }
@@ -228,11 +265,11 @@ sub _get_error_message {
 		$detail = qq(The contig file '$failed_file' was not in valid FASTA format.);
 	} elsif ( $error eq 'Invalid characters' ) {
 		$detail =
-		    qq(The contig file '$failed_file' contains invalid characters. )
+			qq(The contig file '$failed_file' contains invalid characters. )
 		  . q(Allowed IUPAC nucleotide codes are GATCUBDHVRYKMSWN.');
 	} elsif ( $error =~ /duplicate/ && $error =~ /unique/ ) {
 		$detail =
-		    q(Data entry would have resulted in records with either duplicate ids or another )
+			q(Data entry would have resulted in records with either duplicate ids or another )
 		  . q(unique field with duplicate values. This can result from pressing the upload button twice )
 		  . q(or another curator adding data at the same time. Try pressing the browser back button twice )
 		  . q(and then re-submit the records.);
@@ -360,7 +397,7 @@ sub _prepare_isolate_extra_inserts {
 		$value =~ s/^\s+|\s+$//gx;
 		next if $value eq q();
 		my $qry =
-		    'INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,'
+			'INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,'
 		  . 'date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?,?)';
 		push @inserts,
 		  {
@@ -457,7 +494,7 @@ sub _prepare_contigs_extra_inserts {
 		$file_was_compressed = ' uncompressed';
 	} else {
 		$seq_ref = BIGSdb::Utils::read_fasta( $fasta_ref, { keep_comments => 1 } );
-		$size = BIGSdb::Utils::get_nice_size( -s $filename );
+		$size    = BIGSdb::Utils::get_nice_size( -s $filename );
 	}
 	my @inserts;
 	$self->{'submission_message'} .=
@@ -499,12 +536,12 @@ sub _prepare_loci_extra_inserts {
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $full_name = defined $field_order->{'full_name'} ? $data->[ $field_order->{'full_name'} ] : undef;
-		my $product = defined $field_order->{'product'}
+		my $product   = defined $field_order->{'product'}
 		  && $data->[ $field_order->{'product'} ] ? $data->[ $field_order->{'product'} ] : undef;
 		my $description =
 		  defined $field_order->{'description'} ? $data->[ $field_order->{'description'} ] : undef;
 		my $qry =
-		    'INSERT INTO locus_descriptions (locus,curator,datestamp,full_name,product,description) '
+			'INSERT INTO locus_descriptions (locus,curator,datestamp,full_name,product,description) '
 		  . 'VALUES (?,?,?,?,?,?)';
 		push @inserts, { statement => $qry, arguments => [ $id, $curator, 'now', $full_name, $product, $description ] };
 	}
@@ -515,7 +552,7 @@ sub _prepare_projects_extra_inserts {
 	my ( $self, $args ) = @_;
 	my ( $id, $curator, $data, $field_order ) = @{$args}{qw(id curator data field_order )};
 	my $private = $data->[ $field_order->{'private'} ];
-	my %true = map { $_ => 1 } qw(1 true);
+	my %true    = map { $_ => 1 } qw(1 true);
 	my @inserts;
 	if ( $true{ lc $private } ) {
 		my $project_id = $data->[ $field_order->{'id'} ];

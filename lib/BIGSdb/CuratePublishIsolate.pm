@@ -83,7 +83,18 @@ sub _publish {
 	my $isolate_accessible = $self->{'datastore'}
 	  ->run_query( "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE id=?)", $isolate_id );
 	if ( $self->_is_owner($isolate_id) || ( $self->can_modify_table('isolates') && $isolate_accessible ) ) {
-		eval { $self->{'db'}->do( 'DELETE FROM private_isolates WHERE isolate_id=?', undef, $isolate_id ); };
+		my $embargo =
+		  $self->{'datastore'}->run_query( 'SELECT embargo FROM private_isolates WHERE isolate_id=?', $isolate_id );
+		my $curator_id = $self->get_curator_id;
+		eval {
+			$self->{'db'}->do( 'DELETE FROM private_isolates WHERE isolate_id=?', undef, $isolate_id );
+			if ( defined $embargo ) {
+				$self->{'db'}->do(
+					'INSERT INTO embargo_history (isolate_id,timestamp,action,embargo,curator) VALUES (?,?,?,?,?)',
+					undef, $isolate_id, 'now', 'Record made public', undef, $curator_id
+				);
+			}
+		};
 		if ($@) {
 			$logger->error($@);
 			$self->{'db'}->rollback;

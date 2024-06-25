@@ -57,13 +57,20 @@ sub _print_limits {
 	say q(<span class="main_icon fas fa-lock fa-3x fa-pull-left"></span>);
 	say q(<h2>Limits</h2>);
 	my $private       = $self->{'datastore'}->get_private_isolate_count($user_id);
+	my $embargoed     = $self->{'datastore'}->get_embargoed_isolate_count( $user_id );
 	my $total_private = $self->{'datastore'}->run_query(
 		'SELECT COUNT(*) FROM private_isolates pi WHERE user_id=? AND EXISTS(SELECT 1 '
 		  . "FROM $self->{'system'}->{'view'} v WHERE v.id=pi.isolate_id)",
 		$user_id
 	);
-	my $limit = $self->{'datastore'}->get_user_private_isolate_limit($user_id);
-	say q(<p>Accounts have a quota for the number of private records that they can upload. )
+	my $limit              = $self->{'datastore'}->get_user_private_isolate_limit($user_id);
+	my $embargo_attributes = $self->{'datastore'}->get_embargo_attributes;
+	my $embargo_clause =
+	  $embargo_attributes->{'embargo_enabled'}
+	  ? 'Isolates with an embargo set are private but do not count against the quota as they will be made '
+	  . 'public when the embargo date is reached. '
+	  : q();
+	say qq(<p>Accounts have a quota for the number of private records that they can upload. $embargo_clause)
 	  . q(Uploading of private data to some registered projects may not count against your quota.<p>);
 	my $available = $limit - $private;
 	$available = 0 if $available < 0;
@@ -73,7 +80,20 @@ sub _print_limits {
 			data  => BIGSdb::Utils::commify($total_private),
 			href  => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . q(page=query&amp;private_records_list=2&amp;include_old=on&amp;submit=1)
-		},
+		}
+	];
+
+	if ( $embargo_attributes->{'embargo_enabled'} ) {
+		push @$list,
+		  {
+			title => 'Records (embargoed)',
+			data  => BIGSdb::Utils::commify($embargoed),
+			href  => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . q(page=query&amp;private_records_list=6&amp;include_old=on&amp;submit=1)
+		  };
+	}
+	push @$list,
+	  (
 		{
 			title => 'Records (quota)',
 			data  => BIGSdb::Utils::commify($private),
@@ -82,7 +102,7 @@ sub _print_limits {
 		},
 		{ title => 'Quota',          data => BIGSdb::Utils::commify($limit) },
 		{ title => 'You can upload', data => BIGSdb::Utils::commify($available) }
-	];
+	  );
 	say $self->get_list_block($list);
 	my $projects = $self->{'datastore'}->run_query(
 		'SELECT p.id,p.short_description,p.full_description,p.no_quota FROM projects p JOIN merged_project_users m ON '
@@ -90,7 +110,6 @@ sub _print_limits {
 		$user_id,
 		{ fetch => 'all_arrayref', slice => {} }
 	);
-
 	if ($available) {
 		say q(<span class="main_icon fas fa-upload fa-3x fa-pull-left"></span>);
 		say q(<h2>Upload</h2>);

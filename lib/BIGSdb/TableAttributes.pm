@@ -212,8 +212,8 @@ sub get_permissions_table_attributes {
 	  ? qw ( query_users modify_users modify_isolates modify_projects modify_sequences tag_sequences designate_alleles
 	  modify_usergroups set_user_passwords modify_loci modify_schemes modify_composites modify_field_attributes
 	  modify_value_attributes modify_sparse_fields modify_probes delete_all
-	  import_site_users modify_site_users modify_geopoints refresh_scheme_caches query_interfaces only_private
-	  disable_access)
+	  import_site_users modify_site_users modify_geopoints refresh_scheme_caches query_interfaces set_embargo 
+	  only_private disable_access)
 	  : qw( query_users modify_users modify_usergroups set_user_passwords modify_loci modify_locus_descriptions
 	  modify_schemes delete_all import_site_users modify_site_users disable_access );
 	local $" = ';';
@@ -239,6 +239,17 @@ sub get_history_table_attributes {
 		{ name => 'isolate_id', type => 'int',       required => 1, primary_key => 1, foreign_key     => 'isolates' },
 		{ name => 'timestamp',  type => 'timestamp', required => 1, primary_key => 1, query_datestamp => 1 },
 		{ name => 'action',     type => 'text',      required => 1 },
+		{ name => 'curator',    type => 'int',       required => 1, dropdown_query => 1 },
+	];
+	return $attributes;
+}
+
+sub get_embargo_history_table_attributes {
+	my $attributes = [
+		{ name => 'isolate_id', type => 'int',       required => 1, primary_key => 1, foreign_key     => 'isolates' },
+		{ name => 'timestamp',  type => 'timestamp', required => 1, primary_key => 1, query_datestamp => 1 },
+		{ name => 'action',     type => 'text',      required => 1 },
+		{ name => 'embargo',    type => 'date',      required => 0 },
 		{ name => 'curator',    type => 'int',       required => 1, dropdown_query => 1 },
 	];
 	return $attributes;

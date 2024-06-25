@@ -28,8 +28,9 @@ use BIGSdb::Constants qw(SEQ_METHODS :submissions :interface :design);
 use List::MoreUtils qw(none);
 use POSIX;
 use JSON;
-use constant LIMIT => 500;
-use constant INF   => 9**99;
+use constant LIMIT       => 500;
+use constant INF         => 9**99;
+use constant MIN_EMBARGO => 3;
 
 sub get_help_url {
 	my ($self) = @_;
@@ -269,12 +270,12 @@ sub print_content {
 		say q(</div>);
 	}
 	if ($submissions_to_show) {
-		say q(<div class="box resultstable"><div class="scrollable">);
+		say q(<div class="box resultstable">);
 		$self->_print_pending_submissions;
 		$self->print_submissions_for_curation;
 		$self->_print_closed_submissions;
 		$self->print_navigation_bar( { closed_submissions => $closed_buffer ? 1 : 0 } );
-		say q(</div></div>);
+		say q(</div>);
 	}
 	if ($closed_buffer) {
 		say q(<div class="box resultstable" id="closed" style="display:none"><div class="scrollable">);
@@ -542,6 +543,7 @@ sub _get_own_submissions {
 	$options = {} if ref $options ne 'HASH';
 	my $submissions = $self->_get_submissions_by_status( $status, { get_all => 0 } );
 	my $buffer;
+	my $embargo = $self->{'datastore'}->get_embargo_attributes;
 	if (@$submissions) {
 		my $td     = 1;
 		my $set_id = $self->get_set_id;
@@ -564,8 +566,11 @@ sub _get_own_submissions {
 			$table_buffer .=
 				qq(<tr class="td$td"><td><a href="$url">$submission->{'id'}</a></td>)
 			  . qq(<td>$submission->{'date_submitted'}</td><td>$submission->{'datestamp'}</td>)
-			  . qq(<td>$submission->{'type'}</td>);
-			$table_buffer .= qq(<td>$details</td>);
+			  . qq(<td>$submission->{'type'}</td><td>$details</td>);
+			if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $embargo->{'embargo_enabled'} ) {
+				my $embargo_months = $submission->{'embargo'} // '-';
+				$table_buffer .= qq(<td>$embargo_months</td>);
+			}
 			if ( $options->{'show_outcome'} ) {
 				my %style = FACE_STYLE;
 				$table_buffer .= qq(<td><span $style{$submission->{'outcome'}}></span></td>);
@@ -580,13 +585,15 @@ sub _get_own_submissions {
 			$td = $td == 1 ? 2 : 1;
 		}
 		if ($table_buffer) {
-			$buffer .= q(<table class="resultstable"><tr><th>Submission id</th><th>Submitted</th><th>Updated</th>)
-			  . q(<th>Type</th><th>Details</th>);
+			$buffer .= q(<div class="scrollable"><table class="resultstable"><tr><th>Submission id</th>)
+			  . q(<th>Submitted</th><th>Updated</th><th>Type</th><th>Details</th>);
+			$buffer .= q(<th>Embargo requested (months)</th>)
+			  if $self->{'system'}->{'dbtype'} eq 'isolates' && $embargo->{'embargo_enabled'};
 			$buffer .= q(<th>Outcome</th>) if $options->{'show_outcome'};
 			$buffer .= q(<th>Remove</th>)  if $options->{'allow_remove'};
 			$buffer .= q(</tr>);
 			$buffer .= $table_buffer;
-			$buffer .= q(</table>);
+			$buffer .= q(</table></div>);
 		}
 	}
 	return $buffer;
@@ -639,7 +646,9 @@ sub _print_pending_submissions {
 	if ($buffer) {
 		say q(<h2>Pending submissions</h2>);
 		say q(<p>You have submitted the following submissions that are pending curation:</p>);
+		say q(<div class="scrollable">);
 		say $buffer;
+		say q(</div>);
 	}
 	return;
 }
@@ -764,12 +773,12 @@ sub _get_profile_submissions_for_curation {
 			$return_buffer .= $self->print_file( $profile_curate_message, { get_only => 1 } )
 			  if -e $profile_curate_message;
 		}
-		$return_buffer .= q(<table class="resultstable"><tr><th>Submission id</th><th>Submitted</th><th>Updated</th>)
-		  . q(<th>Submitter</th><th>Scheme</th><th>Profiles</th>);
+		$return_buffer .= q(<div class="scrollable"><table class="resultstable"><tr><th>Submission id</th>)
+		  . q(<th>Submitted</th><th>Updated</th><th>Submitter</th><th>Scheme</th><th>Profiles</th>);
 		$return_buffer .= q(<th>Outcome</th>) if $status eq 'closed';
 		$return_buffer .= qq(</tr>\n);
 		$return_buffer .= $buffer;
-		$return_buffer .= qq(</table>\n);
+		$return_buffer .= qq(</table></div>\n);
 	}
 	return $return_buffer;
 }
@@ -780,7 +789,8 @@ sub _get_isolate_submissions_for_curation {
 	return q() if !$self->can_modify_table('isolates');
 	my $submissions = $self->_get_submissions_by_status( $status, { get_all => 1 } );
 	my $buffer;
-	my $td = 1;
+	my $td      = 1;
+	my $embargo = $self->{'datastore'}->get_embargo_attributes;
 	foreach my $submission (@$submissions) {
 		next if $submission->{'type'} ne 'isolates' && $submission->{'type'} ne 'genomes';
 		next if $submission->{'type'} eq 'genomes'  && !$self->can_modify_table('sequence_bin');
@@ -792,6 +802,10 @@ sub _get_isolate_submissions_for_curation {
 		  . qq(page=submit&amp;submission_id=$submission->{'id'}&amp;curate=1">$submission->{'id'}</a></td>)
 		  . qq(<td>$submission->{'date_submitted'}</td><td>$submission->{'datestamp'}</td><td>$submitter_string</td>)
 		  . qq(<td>$isolate_count</td>);
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $embargo->{'embargo_enabled'} ) {
+			my $embargo_months = $submission->{'embargo'} // '-';
+			$buffer .= qq(<td>$embargo_months</td>);
+		}
 		if ( $status eq 'closed' ) {
 			my %style = FACE_STYLE;
 			$buffer .= qq(<td><span $style{$submission->{'outcome'}}></span></td>);
@@ -810,12 +824,14 @@ sub _get_isolate_submissions_for_curation {
 			$return_buffer .= $self->print_file( $isolate_curate_message, { get_only => 1 } )
 			  if -e $isolate_curate_message;
 		}
-		$return_buffer .= q(<table class="resultstable"><tr><th>Submission id</th><th>Submitted</th><th>Updated</th>)
-		  . q(<th>Submitter</th><th>Isolates</th>);
+		$return_buffer .= q(<div class="scrollable"><table class="resultstable"><tr><th>Submission id</th>)
+		  . q(<th>Submitted</th><th>Updated</th><th>Submitter</th><th>Isolates</th>);
+		$return_buffer .= q(<th>Embargo requested (months)</th>)
+		  if $self->{'system'}->{'dbtype'} eq 'isolates' && $embargo->{'embargo_enabled'};
 		$return_buffer .= q(<th>Outcome</th>) if $status eq 'closed';
 		$return_buffer .= qq(</tr>\n);
 		$return_buffer .= $buffer;
-		$return_buffer .= qq(</table>\n);
+		$return_buffer .= qq(</table></div>\n);
 	}
 	return $return_buffer;
 }
@@ -856,12 +872,12 @@ sub _get_assembly_submissions_for_curation {
 			$return_buffer .= $self->print_file( $isolate_curate_message, { get_only => 1 } )
 			  if -e $isolate_curate_message;
 		}
-		$return_buffer .= q(<table class="resultstable"><tr><th>Submission id</th><th>Submitted</th><th>Updated</th>)
-		  . q(<th>Submitter</th><th>Assemblies</th>);
+		$return_buffer .= q(<div class="scrollable"><table class="resultstable"><tr><th>Submission id</th>)
+		  . q(<th>Submitted</th><th>Updated</th><th>Submitter</th><th>Assemblies</th>);
 		$return_buffer .= q(<th>Outcome</th>) if $status eq 'closed';
 		$return_buffer .= qq(</tr>\n);
 		$return_buffer .= $buffer;
-		$return_buffer .= qq(</table>\n);
+		$return_buffer .= qq(</table></div>\n);
 	}
 	return $return_buffer;
 }
@@ -926,8 +942,10 @@ sub _finalize_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 	my $q          = $self->{'cgi'};
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	return if !$submission || $submission->{'status'} ne 'started';
+	$self->_check_invalid_embargo;
 	$logger->info("$self->{'instance'}: New $submission->{'type'} submission");
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	my $embargo   = $self->{'datastore'}->get_embargo_attributes;
 	eval {
 		if ( $submission->{'type'} eq 'alleles' ) {
 			$self->{'db'}->do(
@@ -943,11 +961,19 @@ sub _finalize_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 				$user_info->{'id'}
 			);
 		}
+		my $embargo_months;
+		if ( $q->param('embargo') && BIGSdb::Utils::is_int( scalar $q->param('embargo_months') ) ) {
+			$embargo_months = $q->param('embargo_months');
+		}
 		$self->{'db'}->do(
 			'UPDATE submissions SET (status,date_submitted,datestamp,email)=(?,?,?,?) WHERE (id,submitter)=(?,?)',
 			undef, 'pending', 'now', 'now', $q->param('email') // undef,
 			$submission_id, $user_info->{'id'}
 		);
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $q->param('embargo') ) {
+			$self->{'db'}->do( 'UPDATE submissions SET embargo=? WHERE (id,submitter)=(?,?)',
+				undef, $embargo_months, $submission_id, $user_info->{'id'} );
+		}
 		$self->{'submissionHandler'}->write_db_file($submission_id);
 	};
 	if ($@) {
@@ -1215,6 +1241,23 @@ sub _submit_isolates {
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say $q->end_form;
 	say q(</div></div>);
+	return;
+}
+
+sub _check_invalid_embargo {
+	my ($self)         = @_;
+	my $q              = $self->{'cgi'};
+	my $embargo        = $self->{'datastore'}->get_embargo_attributes;
+	my $embargo_months = $q->param('embargo_months');
+	if ( $q->param('embargo') && BIGSdb::Utils::is_int($embargo_months) ) {
+		if ( !$embargo->{'embargo_enabled'} || $embargo_months > $embargo->{'max_initial_embargo'} ) {
+			$logger->error(
+				"Invalid embargo requested: $embargo_months months. Setting to default ($embargo->{'default_embargo'})."
+			);
+			$q->param( embargo_months => $embargo->{'default_embargo'} );
+			return 1;
+		}
+	}
 	return;
 }
 
@@ -1528,6 +1571,12 @@ sub _print_isolate_table_fieldset {
 	my $isolates = $isolate_submission->{'isolates'};
 	my $order    = $isolate_submission->{'order'};
 	say q(<fieldset><legend>Isolates</legend>);
+
+	if ( $submission->{'embargo'} ) {
+		my $plural = $submission->{'embargo'} > 1 ? q(s) : q();
+		say qq(<p>Embargo requested: Records will be <strong>embargoed for $submission->{'embargo'} )
+		  . qq(month$plural</strong> after upload.</p>);
+	}
 	my $csv_icon = $self->get_file_icon('CSV');
 	my $plural   = @$isolates == 1 ? '' : 's';
 	say qq(<p>You are submitting the following isolate$plural: )
@@ -1999,6 +2048,7 @@ sub _presubmit_isolates {
 	$self->_print_message_fieldset($submission_id);
 	say $q->start_form;
 	$self->_print_email_fieldset($submission_id);
+	$self->_print_embargo_fieldset($submission_id);
 
 	if ( $self->{'failed_validation'} ) {
 		say q(<div style="clear:both"></div><div><p>One or more of your assemblies has <span class="fail">)
@@ -2121,7 +2171,7 @@ sub _print_advisories {
 				if ( $options->{'view'} ) {
 					say q(<fieldset style="float:left;max-width:300px"><legend>Advisories</legend>);
 					say qq(<p class="warning">You are not the original sender for isolate ids: @$wrong_sender.</p>);
-					print qq(<p>Please ensure that you should be modifying $record_term and add a message to the<br /> )
+					print qq(<p>Please ensure that you should be modifying $record_term and add a message to the )
 					  . q(curator to confirm why you should.</p>);
 					say q(</fieldset>);
 				}
@@ -2151,6 +2201,34 @@ sub _print_email_fieldset {
 	my %checked;
 	$checked{'checked'} = 'checked' if $self->{'prefs'}->{'submit_email'};
 	say $q->checkbox( -name => 'email', label => 'E-mail submission updates', %checked );
+	say q(</fieldset>);
+	return;
+}
+
+sub _print_embargo_fieldset {
+	my ( $self, $submission_id ) = @_;
+	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
+	return if !$submission;
+	my $embargo = $self->{'datastore'}->get_embargo_attributes;
+	return if !$embargo->{'embargo_enabled'};
+	my $q = $self->{'cgi'};
+	say q(<fieldset style="float:left;max-width:300px"><legend>Embargo</legend>);
+	say q(<p>This submission can be embargoed, otherwise it will be made public immediately after it is processed.</p>);
+	say q(<ul><li>);
+	say $q->checkbox( -name => 'embargo', label => 'Request embargo' );
+	say q(</li><li>);
+	say q(<label for="embargo_months">Time: </label>);
+	my $min = $embargo->{'default_embargo'} < MIN_EMBARGO ? $embargo->{'default_embargo'} : MIN_EMBARGO;
+	say $self->textfield(
+		name  => 'embargo_months',
+		id    => 'embargo_months',
+		style => 'width:4em',
+		type  => 'number',
+		min   => $min,
+		max   => $embargo->{'max_initial_embargo'},
+		value => $embargo->{'default_embargo'}
+	);
+	say q(months</li></ul>);
 	say q(</fieldset>);
 	return;
 }
@@ -3140,7 +3218,7 @@ sub _get_submission_files {
 		next if $filename =~ /^\./x;
 		push @files, { filename => $filename, size => BIGSdb::Utils::get_nice_size( -s "$dir/$filename" ) };
 	}
-	@files = sort {$a->{'filename'} cmp $b->{'filename'}} @files;
+	@files = sort { $a->{'filename'} cmp $b->{'filename'} } @files;
 	closedir $dh;
 	return \@files;
 }
