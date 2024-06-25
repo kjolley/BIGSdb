@@ -401,6 +401,7 @@ sub print_banner {
 sub get_embargo_message {
 	my ($self) = @_;
 	return q() if !$self->{'username'};
+	return q() if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
 	my $embargo_att = $self->{'datastore'}->get_embargo_attributes;
 	return q() if !$embargo_att->{'embargo_enabled'};
 	my $curator_id = $self->get_curator_id;
@@ -3237,7 +3238,8 @@ sub print_seqbin_isolate_fieldset {
 		my $size          = $options->{'size'} // 8;
 		my $list_box_size = $size - 0.2;
 		say q(<div style="float:left">);
-		if ( ($seqbin_count <= MAX_ISOLATES_DROPDOWN && !$options->{'use_all'}) || !$options->{'isolate_paste_list'} ) {
+		if ( ( $seqbin_count <= MAX_ISOLATES_DROPDOWN && !$options->{'use_all'} ) || !$options->{'isolate_paste_list'} )
+		{
 			my ( $ids, $labels ) = $self->get_isolates_with_seqbin($options);
 			say $self->popup_menu(
 				-name     => 'isolate_id',
