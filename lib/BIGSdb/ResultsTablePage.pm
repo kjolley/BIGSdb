@@ -292,7 +292,9 @@ sub _print_curate_headerbar_functions {
 		$self->_print_tag_scanning_function           if $self->can_modify_table('allele_sequences');
 		$self->_print_modify_project_members_function if $self->can_modify_table('project_members');
 		$q->param( page => $page );    #Reset - The above function modify page param.
-		$self->_print_embargo_function if $self->{'permissions'}->{'embargo'} || $self->is_admin;
+		my $embargo_att = $self->{'datastore'}->get_embargo_attributes;
+		$self->_print_embargo_function
+		  if $embargo_att->{'embargo_enabled'} && ( $self->{'permissions'}->{'embargo'} || $self->is_admin );
 	}
 	return;
 }
@@ -784,11 +786,10 @@ sub _print_isolate_id_links {
 			  . q(</a></td>);
 		}
 	}
-	my $private =
-	  $self->{'datastore'}->run_query( 'SELECT user_id,embargo FROM private_isolates WHERE isolate_id=?',
+	my $private = $self->{'datastore'}->run_query( 'SELECT user_id,embargo FROM private_isolates WHERE isolate_id=?',
 		$id, { fetch => 'row_hashref', cache => 'ResultsTablePage::print_isolate_id_links' } );
 	my ( $private_title, $private_class ) = ( q(), q() );
-	if (defined $private->{'user_id'}) {
+	if ( defined $private->{'user_id'} ) {
 		$private_class = q( class="private_record");
 		my $user_string = $self->{'datastore'}->get_user_string( $private->{'user_id'} );
 		my $title_msg   = "Private record - Owned by $user_string.";
