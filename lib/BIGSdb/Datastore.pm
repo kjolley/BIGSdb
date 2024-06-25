@@ -3802,17 +3802,16 @@ sub get_embargo_attributes {
 		$embargo_enabled = 0;
 		$default_embargo = 0;
 	}
-	my $max_total_embargo = $self->{'system'}->{'max_total_embargo'} // $self->{'config'}->{'max_total_embargo'}
-	  // MAX_TOTAL_EMBARGO;
-	if ( !BIGSdb::Utils::is_int($max_total_embargo) || $max_total_embargo < 0 ) {
-		$logger->error( 'Invalid value set for max_total_embargo: '
-			  . "$max_total_embargo (using default embargo value: $default_embargo)." );
-		$max_total_embargo = $default_embargo;
+	my $max_embargo = $self->{'system'}->{'max_embargo'} // $self->{'config'}->{'max_embargo'} // MAX_EMBARGO;
+	if ( !BIGSdb::Utils::is_int($max_embargo) || $max_embargo < 0 ) {
+		$logger->error(
+			'Invalid value set for max_embargo: ' . "$max_embargo (using default embargo value: $default_embargo)." );
+		$max_embargo = $default_embargo;
 	}
-	if ( $default_embargo > $max_total_embargo ) {
-		$logger->error( "default_embargo ($default_embargo) is larger than max_total_embargo "
-			  . "($max_total_embargo). Setting to max_total_embargo ($max_total_embargo)." );
-		$default_embargo = $max_total_embargo;
+	if ( $default_embargo > $max_embargo ) {
+		$logger->error( "default_embargo ($default_embargo) is larger than max_embargo "
+			  . "($max_embargo). Setting to max_embargo ($max_embargo)." );
+		$default_embargo = $max_embargo;
 	}
 	my $max_initial_embargo = $self->{'system'}->{'max_initial_embargo'} // $self->{'config'}->{'max_initial_embargo'}
 	  // MAX_INITIAL_EMBARGO;
@@ -3827,16 +3826,16 @@ sub get_embargo_attributes {
 			  . "($default_embargo). Setting to default embargo ($default_embargo)." );
 		$max_initial_embargo = $default_embargo;
 	}
-	if ( $max_initial_embargo > $max_total_embargo ) {
-		$logger->error( "max_initial_embargo ($max_initial_embargo) is larger than max total embargo "
-			  . "($max_total_embargo). Setting to max total embargo ($max_total_embargo)." );
-		$max_initial_embargo = $max_total_embargo;
+	if ( $max_initial_embargo > $max_embargo ) {
+		$logger->error( "max_initial_embargo ($max_initial_embargo) is larger than max embargo "
+			  . "($max_embargo). Setting to max embargo ($max_embargo)." );
+		$max_initial_embargo = $max_embargo;
 	}
 	return {
 		embargo_enabled     => $embargo_enabled,
 		default_embargo     => $default_embargo,
 		max_initial_embargo => $max_initial_embargo,
-		max_total_embargo   => $max_total_embargo
+		max_embargo         => $max_embargo
 	};
 }
 1;

@@ -2568,7 +2568,7 @@ sub confirm_embargo {
 	say $q->start_form;
 	my $datestamp          = BIGSdb::Utils::get_datestamp();
 	my $embargo_attributes = $self->{'datastore'}->get_embargo_attributes;
-	my $max_date           = BIGSdb::Utils::get_future_date( $embargo_attributes->{'max_total_embargo'} );
+	my $max_date           = BIGSdb::Utils::get_future_date( $embargo_attributes->{'max_embargo'} );
 	my $default_embargo    = BIGSdb::Utils::get_future_date( $embargo_attributes->{'default_embargo'} );
 	say q(<fieldset style="float:left"><legend>Select embargo date</legend>);
 	say qq(<input type="date" id="embargo_date" name="embargo_date" value="$default_embargo" )
@@ -2596,7 +2596,7 @@ sub embargo {
 		return 1;
 	}
 	my $embargo_attributes = $self->{'datastore'}->get_embargo_attributes;
-	if ( $embargo_date gt BIGSdb::Utils::get_future_date( $embargo_attributes->{'max_total_embargo'} ) ) {
+	if ( $embargo_date gt BIGSdb::Utils::get_future_date( $embargo_attributes->{'max_embargo'} ) ) {
 		$logger->error("Embargo date later than max allowed passed - $embargo_date.");
 		my $error = $self->print_bad_status(
 			{

@@ -61,10 +61,10 @@ use constant DEFAULT_CODON_TABLE => 11;
 push @EXPORT_OK, qw(DEFAULT_CODON_TABLE);
 
 #Isolate embargoes
-use constant DEFAULT_EMBARGO       => 12;
-use constant MAX_INITIAL_EMBARGO   => 24;
-use constant MAX_TOTAL_EMBARGO     => 48;
-@values = qw(DEFAULT_EMBARGO MAX_INITIAL_EMBARGO MAX_TOTAL_EMBARGO);
+use constant DEFAULT_EMBARGO     => 12;
+use constant MAX_INITIAL_EMBARGO => 24;
+use constant MAX_EMBARGO         => 48;
+@values = qw(DEFAULT_EMBARGO MAX_INITIAL_EMBARGO MAX_EMBARGO);
 push @EXPORT_OK, @values;
 $EXPORT_TAGS{'embargo'} = [@values];
 

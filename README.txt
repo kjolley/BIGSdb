@@ -1,3 +1,5 @@
+v1.47.0: *Added optional private data quotas to projects.
+         *Added embargoing for isolate submissions.
 v1.46.2: *BingMaps has been removed as an option for mapping as Microsoft are
           retiring this service next year. It has been replaced with options
           for MapTiler and ArcGIS maps.
