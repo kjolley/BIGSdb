@@ -97,8 +97,9 @@ sub print_content {
 	say qq(<div id="title_container" style="width:95vw;max-width:$title_max_width_style">);
 	say qq(<h1>$heading</h1>);
 	$self->print_general_announcement;
-#	my $date_restriction_message = $self->get_date_restriction_message;
-my $additional_message = $self->get_date_restriction_message;
+
+	#	my $date_restriction_message = $self->get_date_restriction_message;
+	my $additional_message = $self->get_date_restriction_message;
 	$additional_message .= $self->get_embargo_message;
 	if ( $options->{'banner_text'} ) {
 		say q(<div class="box banner">);
@@ -3705,7 +3706,9 @@ sub _get_field_breakdown_map_content {
 	my $countries = dclone(COUNTRIES);
 	foreach my $value (@$data) {
 		if ( $element->{'field'} eq 'f_country' ) {
-			$value->{'iso3'} = $countries->{ $value->{'label'} }->{'iso3'} // q(XXX);
+			$value->{'iso3'} = defined $value->{'label'}
+			  ? $countries->{ $value->{'label'} }->{'iso3'} // q(XXX)
+			  : q(XXX);
 		} else {
 			$value->{'continent'} = $value->{'label'} // q(XXX);
 			$value->{'continent'} =~ s/\s/_/gx;
@@ -3903,7 +3906,8 @@ sub _get_field_breakdown_gps_map_content {
 	my $json    = JSON->new->allow_nonref;
 	my $dataset = $json->encode($values);
 	my $height  = $element->{'height'} * 150 + ( $element->{'height'} - 1 ) * 4;
-	my $buffer  = qq(<div id="chart_$element->{'id'}" style="height:${height}px;">)
+	my $buffer =
+		qq(<div id="chart_$element->{'id'}" style="height:${height}px;">)
 	  . q(<a href="https://www.maptiler.com" id="maptiler_logo" )
 	  . q(style="display:none;position:absolute;left:10px;bottom:10px;z-index:10">)
 	  . q(<img src="https://api.maptiler.com/resources/logo.svg" alt="MapTiler logo"></a></div>);
@@ -3915,8 +3919,9 @@ sub _get_field_breakdown_gps_map_content {
 	$buffer .= qq(<script>\n);
 	my $map_style = $element->{'geography_view'} // 'Map';
 	$map_style = 'Map' if $mapping_options->{'option'} == 0;
+
 	#Attributions should not be collapsible on OSM maps - but if the map is very small we should collapse.
-	my $collapsible = ($map_style eq 'Map' && $mapping_options->{'option'} < 3) ? 'false': 'true'; 
+	my $collapsible = ( $map_style eq 'Map' && $mapping_options->{'option'} < 3 ) ? 'false' : 'true';
 	my $collapse = $element->{'width'} == 1 ? q(attribution.setCollapsible(true);attribution.setCollapsed(true);) : q();
 	$buffer .= <<"JS";
 var maptiler_key = "$maptiler_key";
@@ -3955,7 +3960,6 @@ JS
 	$buffer .=
 		q(<div class="title gps_map_title" )
 	  . qq(style="position:absolute;top:0;left:2em;width:calc(100% - 4em);color:#666">$element->{'name'}</div>);
-
 	if ( !@$data ) {
 		$buffer .= q(<div style="position:absolute;top:50px;width:100%;color:#666;font-size:2em">No values</div>);
 	}
