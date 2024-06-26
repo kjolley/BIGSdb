@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20240619
+#Version: 20240626
 use strict;
 use warnings;
 use 5.010;
@@ -44,7 +44,8 @@ GetOptions(
 	'database=s' => \$opts{'d'},
 	'exclude=s'  => \$opts{'exclude'},
 	'help'       => \$opts{'help'},
-	'quiet'      => \$opts{'quiet'}
+	'quiet'      => \$opts{'quiet'},
+	'verbose'    => \$opts{'verbose'}
 );
 
 #Direct all library logging calls to screen
@@ -56,6 +57,7 @@ if ( $opts{'help'} ) {
 	show_help();
 	exit;
 }
+undef $opts{'verbose'} if $opts{'quiet'};
 main();
 
 sub main {
@@ -90,7 +92,7 @@ sub check_db {
 	return if !$embargo_attributes->{'embargo_enabled'};
 	return
 	  if !$script->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM private_isolates WHERE embargo IS NOT NULL)');
-	print qq(\nChecking $config ... ) if !$opts{'quiet'};
+	
 	my $to_make_public = $script->{'datastore'}->run_query(
 		"SELECT p.isolate_id,i.$script->{'system'}->{'labelfield'} AS name,p.user_id "
 		  . 'FROM private_isolates p JOIN isolates i ON p.isolate_id=i.id WHERE p.embargo<=? '
@@ -99,20 +101,20 @@ sub check_db {
 		{ fetch => 'all_arrayref', slice => {} }
 	);
 	if ( !@$to_make_public ) {
-		say q(done (no action)) if !$opts{'quiet'};
+		say qq(Checking $config ... done (no action)) if $opts{'verbose'};
 		return;
 	}
 	my $count  = @$to_make_public;
 	my $plural = $count > 1 ? q(s) : q();
-	say qq(making $count record$plural public:);
+	say qq(Checking $config ... making $count record$plural public:) if !$opts{'quiet'};
 	my $current_user;
 	eval {
 		foreach my $record (@$to_make_public) {
 			if ( !defined $current_user || $record->{'user_id'} != $current_user ) {
 				my $user_string = $script->{'datastore'}->get_user_string( $record->{'user_id'}, { affiliation => 1 } );
-				say qq(\t$user_string:);
+				say qq(\t$user_string:) if !$opts{'quiet'};
 			}
-			say qq[\t\tid-$record->{'isolate_id'}) $record->{'name'}];
+			say qq[\t\tid-$record->{'isolate_id'}) $record->{'name'}] if !$opts{'quiet'};
 			$script->{'db'}->do( 'DELETE FROM private_isolates WHERE isolate_id=?', undef, $record->{'isolate_id'} );
 			$script->{'db'}->do(
 				'INSERT INTO embargo_history (isolate_id,timestamp,action,embargo,curator) VALUES (?,?,?,?,?)',
@@ -138,9 +140,10 @@ sub get_dbs {
 	closedir DIR;
 	my $configs = [];
 	my %exclude = map { $_ => 1 } split /,/x, ( $opts{'exclude'} // q() );
-	print 'Retrieving list of isolate databases ... ' if !$opts{'quiet'};
+	print 'Retrieving list of isolate databases ... ' if $opts{'verbose'};
 	foreach my $dir ( sort @config_dirs ) {
 		next if !-e "$config_dir/$dir/config.xml" || -l "$config_dir/$dir/config.xml";
+		next if $exclude{$dir};
 		my $script = BIGSdb::Offline::Script->new(
 			{
 				config_dir       => CONFIG_DIR,
@@ -156,10 +159,10 @@ sub get_dbs {
 			$logger->error("Skipping $dir ... database does not exist.");
 			next;
 		}
-		next if $exclude{$dir};
+		
 		push @$configs, $dir;
 	}
-	say scalar @$configs . ' found.' if !$opts{'quiet'};
+	say scalar @$configs . ' found.' if $opts{'verbose'};
 	return $configs;
 }
 
@@ -190,6 +193,10 @@ ${bold}--help$norm
     
 ${bold}--quiet$norm
     Only show errors.
+    
+${bold}--verbose$norm
+	Show more information about which databases are being checked even if they
+	have no new isolates to publish. Ignored if --quiet is set.
 HELP
 	return;
 }
