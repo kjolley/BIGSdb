@@ -195,8 +195,8 @@ ${bold}--quiet$norm
     Only show errors.
     
 ${bold}--verbose$norm
-	Show more information about which databases are being checked even if they
-	have no new isolates to publish. Ignored if --quiet is set.
+    Show more information about which databases are being checked even if they
+    have no new isolates to publish. Ignored if --quiet is set.
 HELP
 	return;
 }
