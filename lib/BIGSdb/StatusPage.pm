@@ -268,6 +268,9 @@ var date_chart;
 		if (last_date == null){
 			return;
 		}
+		if (!\$("#date_entered_chart").length){
+			return;
+		}
 		
 		date_chart = bb.generate({
 			bindto: '#date_entered_chart',
