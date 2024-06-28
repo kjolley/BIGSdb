@@ -1,6 +1,5 @@
 #!/usr/bin/env perl
 #Publish embargoed records when embargo date is reached
-#Notify users of embargoed records and when they are published.
 #Written by Keith Jolley
 #Copyright (c) 2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
@@ -20,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20240626
+#Version: 20240628
 use strict;
 use warnings;
 use 5.010;
