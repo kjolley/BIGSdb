@@ -1228,7 +1228,7 @@ sub _get_provenance_fields {
 			next;    #Do not print row
 		}
 		my ( $web, $value );
-		if ( $thisfield->{'web'} ) {
+		if ( $thisfield->{'web'} || $thisfield->{'web_regex'} ) {
 			$web = $self->_get_web_links( $data, $field );
 		} else {
 			$value = $self->_get_field_value( $data, $field );
@@ -1515,23 +1515,79 @@ sub _get_web_links {
 	my $web;
 	my @values = ref $data->{ lc($field) } ? @{ $data->{ lc($field) } } : ( $data->{ lc($field) } );
 	my @links;
-	my $domain;
-	if ( ( lc( $thisfield->{'web'} ) =~ /https?:\/\/(.*?)\/+/x ) ) {
-		$domain = $1;
+	my %domains;
+	my $invalid_link;
+  VALUE: foreach my $value (@values) {
+		my $link_defined;
+		my $domain;
+		if ( defined $thisfield->{'web_regex'} ) {
+			my @regexes = split /;/x, $thisfield->{'web_regex'};
+		  REGEX: foreach my $regex_term (@regexes) {
+				my ( $pattern, $url ) = split /\|/x, $regex_term;
+				if ( defined $url && $url =~ /https?:\/\/(.*?)\/+/x ) {
+					$domain = $1;
+					if ( $value =~ /$pattern/x ) {
+						$url =~ s/\[\\*\?\]/$value/x;
+						$url =~ s/\&/\&amp;/gx;
+						push @links,
+						  {
+							link   => qq(<a href="$url">$value</a>),
+							domain => $domain
+						  };
+						$link_defined = 1;
+						$domains{$domain} = 1;
+						last REGEX;
+					}
+				} else {
+					$logger->error( "Invalid web_regex set for $field. Delimit pattern and URL with | "
+						  . 'and address must be begin with http:// or https://.' );
+					last REGEX;
+				}
+			}
+		}
+		if ( !$link_defined && defined $thisfield->{'web'} ) {
+			my $url = $thisfield->{'web'};
+			if ( defined $url && $url =~ /https?:\/\/(.*?)\/+/x ) {
+				$domain = $1;
+				$domains{$domain} = 1;
+				$url =~ s/\[\\*\?\]/$value/x;
+				$url =~ s/\&/\&amp;/gx;
+				push @links,
+				  {
+					link   => qq(<a href="$url">$value</a>),
+					domain => $domain
+				  };
+				$link_defined = 1;
+			} else {
+				$logger->error("Invalid web value URL set for $field. Address must be begin with http:// or https://.");
+			}
+		}
+		if ( !$link_defined ) {
+			$logger->error("No valid web link for $field - value: $value.");
+			$invalid_link = 1;
+			push @links, { link => $value };
+		}
 	}
-	foreach my $value (@values) {
-		my $url = $thisfield->{'web'};
-		$url =~ s/\[\\*\?\]/$value/x;
-		$url =~ s/\&/\&amp;/gx;
-		push @links, qq(<a href="$url">$value</a>);
+	my $first = 1;
+	foreach my $link (@links) {
+		$web .= q(; ) if !$first;
+		$first = 0;
+		$web .= $link->{'link'};
+		if ( $link->{'domain'} && ( keys %domains > 1 || $invalid_link ) ) {
+			if ( $link->{'domain'} ne $q->virtual_host ) {
+				$web .= qq( <span class="link">$link->{'domain'})
+				  . q(<span class="fa fas fa-external-link-alt" style="margin-left:0.5em"></span></span>);
+			}
+		}
 	}
-	if (@links) {
-		local $" = q(; );
-		$web = qq(@links);
-	}
-	if ( $domain && $domain ne $q->virtual_host ) {
-		$web .= qq( <span class="link">$domain)
-		  . q(<span class="fa fas fa-external-link-alt" style="margin-left:0.5em"></span></span>);
+
+	#Only indicate domain once if all links have the same domain.
+	if ( !$invalid_link && keys %domains == 1 ) {
+		my ($domain) = keys %domains;
+		if ( $domain ne $q->virtual_host ) {
+			$web .= qq( <span class="link">$domain)
+			  . q(<span class="fa fas fa-external-link-alt" style="margin-left:0.5em"></span></span>);
+		}
 	}
 	return $web;
 }
