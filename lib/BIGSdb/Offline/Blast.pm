@@ -291,7 +291,6 @@ sub _run_blast {
 			-$filter     => 'no'
 		);
 		$options->{'num_results'} = $args->{'num_results'} if $args->{'num_results'};
-$self->{logger}->error($options->{'num_results'});
 		if ( $args->{'alignment'} ) {
 			$params{'-num_alignments'} = $options->{'num_results'};
 		} else {
