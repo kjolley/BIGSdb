@@ -451,12 +451,11 @@ sub _parse_blast_partial {
 			$record->[3] *= 3;
 		}
 		if ( $record->[2] >= $identity || ( !@$locus_match && $return_best_poor_identity ) ) {
-			if ( !$length_cache->{$locus}->{$allele_id} ) {
-				$length_cache->{$locus}->{$allele_id} = $self->{'datastore'}->run_query(
-					'SELECT length(sequence) FROM sequences WHERE (locus,allele_id)=(?,?)',
-					[ $locus, $allele_id ],
-					{ cache => 'Blast::get_seq_length' }
-				);
+			if ( !defined $length_cache->{$locus} ) {
+				my $locus_lengths =
+				  $self->{'datastore'}->run_query( 'SELECT allele_id,length(sequence) FROM sequences WHERE locus=?',
+					$locus, { fetch => 'all_arrayref', cache => 'Blast::get_locus_seq_length' } );
+				$length_cache->{$locus}->{ $_->[0] } = $_->[1] foreach @$locus_lengths;
 			}
 			my $length = $length_cache->{$locus}->{$allele_id} // 0;
 			if ( $record->[3] >= $alignment * 0.01 * $length || ( !@$locus_match && $return_best_poor_alignment ) ) {
