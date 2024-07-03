@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2023, University of Oxford
+#Copyright (c) 2017-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -642,8 +642,7 @@ sub _read_blast_file_into_structure {
 		open( my $blast_fh, '<:encoding(utf8)', $blast_file )
 		  || ( $self->{'logger'}->error("Cannot open BLAST output file $blast_file. $!"), return \$; );
 		$self->{'records'} = [];
-		my @lines = <$blast_fh>;
-		foreach my $line (@lines) {
+		while (my $line = <$blast_fh>){
 			my @record = split /\s+/x, $line;
 			push @{ $self->{'records'} }, \@record;
 		}
