@@ -328,7 +328,7 @@ sub _get_best_partial_match {
 	my ( $self, $seq_ref ) = @_;
 	my $best_match = $self->get_best_partial_match;
 	return {} if !keys %$best_match;
-	if ( ( $self->{'system'}->{'exemplars'} // q() ) ne 'yes' ) {    #Not using exemplars so this is best match
+	if ( !$self->{'options'}->{'exemplar'} ) {    #Not using exemplars so this is best match
 		return $best_match;
 	}
 	my $loci = $self->get_selected_loci;    #Get locus list so that we can restore object after BLASTing single locus
