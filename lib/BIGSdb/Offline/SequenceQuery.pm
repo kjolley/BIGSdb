@@ -58,7 +58,8 @@ sub _single_query {
 	my ( $self, $seq_ref, $data ) = @_;
 	my $q       = $self->{'cgi'};
 	my $options = $self->{'options'};
-	$self->blast($seq_ref);
+	my $loci    = $self->get_selected_loci;
+	$self->blast( $seq_ref, { num_results => ( @$loci == 1 ? 1000 : 1_000_000 ) } );
 	my $exact_matches = $self->get_exact_matches( { details => 1 } );
 	my ( $buffer, $displayed );
 	my $qry_type      = BIGSdb::Utils::sequence_type($seq_ref);
@@ -200,7 +201,7 @@ sub _batch_query {
 	my $loci  = $self->get_selected_loci;
   CONTIG: foreach my $name (@$contig_names) {
 		my $contig_seq = $contigs->{$name};
-		$self->blast( \$contig_seq );
+		$self->blast( \$contig_seq, { num_results => ( @$loci == 1 ? 1000 : 1_000_000 ) } );
 		my $exact_matches = $self->get_exact_matches( { details => 1 } );
 		my $contig_buffer;
 	  LOCUS: foreach my $locus (@$loci) {

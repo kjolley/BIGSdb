@@ -279,6 +279,7 @@ sub _run_blast {
 		my $word_size     = $program eq 'blastn' ? ( $options->{'word_size'} // 15 ) : 3;
 		my $format        = $args->{'alignment'} ? 0                                 : 6;
 		$options->{'num_results'} //= 1_000_000;    #effectively return all results
+		
 		my $fasta_file = "$path/sequences.fas";
 		my %params     = (
 			-num_threads => $blast_threads,
@@ -290,7 +291,7 @@ sub _run_blast {
 			-$filter     => 'no'
 		);
 		$options->{'num_results'} = $args->{'num_results'} if $args->{'num_results'};
-
+$self->{logger}->error($options->{'num_results'});
 		if ( $args->{'alignment'} ) {
 			$params{'-num_alignments'} = $options->{'num_results'};
 		} else {
