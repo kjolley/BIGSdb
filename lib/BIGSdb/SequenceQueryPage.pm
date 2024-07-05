@@ -45,7 +45,12 @@ sub get_title {
 
 sub _get_text {
 	my ($self) = @_;
-	return $self->{'system'}->{'kiosk_text'} if $self->{'system'}->{'kiosk_text'};
+	if ( $self->{'system'}->{'kiosk_text'} ) {
+		my $text = $self->{'system'}->{'kiosk_text'};
+		$text =~ s/\*\*(.*?)\*\*/<strong>$1\<\/strong>/gx;
+		$text =~ s/\*(.*?)\*/<em>$1\<\/em>/gx;
+		return $text;
+	}
 	my $q    = $self->{'cgi'};
 	my $page = $q->param('page');
 	my $buffer =
