@@ -209,7 +209,7 @@ sub _is_private_record {
 	if ($private_project) {
 		my $project_info = $self->{'datastore'}
 		  ->run_query( 'SELECT * FROM projects WHERE id=?', $private_project, { fetch => 'row_hashref' } );
-		return 1 if $project_info->{'no_quota'};
+		return 1 if $project_info->{'no_quota'} || $project_info->{'quota'};
 	}
 	return 1 if $limit;
 	return;
