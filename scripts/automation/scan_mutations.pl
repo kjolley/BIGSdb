@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 #Written by Keith Jolley
-#Copyright (c) 2023, University of Oxford
+#Copyright (c) 2023-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,7 +18,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20230426
+#Version: 20240710
 use strict;
 use warnings;
 use 5.010;
@@ -33,10 +33,13 @@ use lib (LIB_DIR);
 use BIGSdb::Offline::Script;
 use BIGSdb::Constants qw(LOG_TO_SCREEN :limits);
 use BIGSdb::Utils;
+use Carp;
 use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
 use POSIX;
 use Bio::Seq;
+use Bio::Tools::Run::Alignment::Clustalw;
+use Bio::AlignIO;
 use Try::Tiny;
 use Data::Dumper;    #TODO Remove after testing.
 use constant EVALUE_THRESHOLD => 0.001;
@@ -167,8 +170,9 @@ sub process_peptide_mutation {
 		my $alleles_to_check = get_alleles_to_check_peptide_mutations( $locus, $mutation->{'id'} );
 		next if !@$alleles_to_check;
 		my $most_common_length;
+		my $wt_seq;
 		if ( defined $mutation->{'wild_type_allele_id'} ) {
-			my $wt_seq = extract_allele( $sequences, $mutation->{'wild_type_allele_id'} );
+			$wt_seq = extract_allele( $sequences, $mutation->{'wild_type_allele_id'} );
 			if ( !defined $wt_seq ) {
 				die "Wild type allele defined for $locus (allele $mutation->{'wild_type_allele_id'}) does not exist.\n";
 			}
@@ -195,7 +199,8 @@ sub process_peptide_mutation {
 		}
 		my $flanking = $opts{'flanking'} // $mutation->{'flanking_length'};
 		my $motifs   = define_motifs(
-			$sequences, $flanking, $most_common_length,
+			( defined $mutation->{'wild_type_allele_id'} ? [$wt_seq] : $sequences ),
+			$flanking, $most_common_length,
 			$mutation->{'locus_position'},
 			$mutation->{'wild_type_aa'},
 			$mutation->{'variant_aa'}
@@ -303,7 +308,6 @@ sub annotate_alleles_with_peptide_mutations {
 	my $db_type     = 'prot';
 	create_blast_database( $job_id, $db_type, $motifs->{'motifs'} );
 	my $flanking = $opts{'flanking'} // $mutation->{'flanking_length'};
-	my $pos      = $flanking - $motifs->{'offset'};
 	my $insert_sql =
 	  $script->{'db'}->prepare( 'INSERT INTO sequences_peptide_mutations '
 		  . '(locus,allele_id,mutation_id,amino_acid,is_wild_type,is_mutation,curator,datestamp) '
@@ -312,29 +316,108 @@ sub annotate_alleles_with_peptide_mutations {
 	foreach my $allele (@$alleles) {
 		my $best_match = run_blast( $job_id, $db_type, $locus, \$allele->{'sequence'} );
 		if ( !$best_match || !keys %$best_match || $best_match->{'evalue'} > EVALUE_THRESHOLD ) {
-			say "$locus-$allele->{'allele_id'}: motif not found" if !$opts{'quiet'};
+			if ( !$opts{'quiet'} ) {
+				print "$locus-$allele->{'allele_id'}: motif not found";
+				if ( $best_match->{'sseqid'} ) {
+					say " - best match e-value: $best_match->{'evalue'}.";
+				} else {
+					say '.';
+				}
+			}
 			next;
 		}
 		my $seq_ref = extract_seq_from_match( $locus, $flanking, 'prot', \$allele->{'sequence'}, $best_match );
+		my $pos     = $flanking - $motifs->{'offset'};
 		if ( $pos >= length $$seq_ref || length $$seq_ref < ( 2 * $flanking + 1 ) ) {
-			say "$locus-$allele->{'allele_id'}: extracted motif too short." if !$opts{'quiet'};
-			next;
+			my $closest_motif = get_motif( $motifs->{'motifs'}, $best_match->{'sseqid'} ) // 'NO VALUE';
+			my $buffer        = "$locus-$allele->{'allele_id'}: extracted motif too short "
+			  . "($$seq_ref - closest: $closest_motif). Creating alignment.\n";
+			if ( $best_match->{'gapopen'} == 1 ) {
+				my ( $gap_position, $gap_length ) = find_gap_position( $seq_ref, \$closest_motif, 'protein' );
+				if ( !defined $gap_position ) {
+					$buffer .= "No gap found.\n";
+					say $buffer if !$opts{'quiet'};
+					next;
+				}
+				$buffer .= "Gap at position $gap_position (length: $gap_length)";
+				if ( $gap_position < $flanking ) {
+					$pos = $pos - $gap_length;
+					$buffer .= ' - modifying offset.';
+				} else {
+					$buffer .= ' - offset unchanged.';
+				}
+				say $buffer if !$opts{'quiet'};
+			} else {
+				$buffer .= "No gap found.\n";
+				say $buffer if !$opts{'quiet'};
+				next;
+			}
 		}
 		my $aa = substr( $$seq_ref, $pos, 1 );
 
 		#TODO Define curator_id.
 		my $is_wt  = $wt_aas{$aa}      ? 1 : 0;
 		my $is_mut = $variant_aas{$aa} ? 1 : 0;
-		eval { $insert_sql->execute( $locus, $allele->{'allele_id'}, $mutation_id, $aa, $is_wt, $is_mut, 0, 'now' ); };
-		if ($@) {
-			$logger->error($@);
-			$script->{'db'}->rollback;
-			exit;
+		if ( !$opts{'quiet'} ) {
+			say "$allele->{'allele_id'}: $$seq_ref\t$aa - WT:$is_wt; Mutation:$is_mut.";
+			if ( !$is_wt && !$is_mut ) {
+				say 'Neither WT or recognized mutation found - not updating.';
+			}
 		}
-		say "$allele->{'allele_id'}: $$seq_ref\t$aa - WT:$is_wt; Mutation:$is_mut" if !$opts{'quiet'};
+		if ( $is_wt || $is_mut ) {
+			eval {
+				$insert_sql->execute( $locus, $allele->{'allele_id'}, $mutation_id, $aa, $is_wt, $is_mut, 0, 'now' );
+			};
+			if ($@) {
+				$logger->error($@);
+				$script->{'db'}->rollback;
+				exit;
+			} else {
+				$script->{'db'}->commit;
+			}
+		}
 	}
-	$script->{'db'}->commit;
 	$script->delete_temp_files("$script->{'config'}->{'secure_tmp_dir'}/$job_id*");
+	return;
+}
+
+sub find_gap_position {
+	my ( $qry_seq_ref, $ref_seq_ref, $alphabet ) = @_;
+	my $seq1    = Bio::Seq->new( -seq => $$qry_seq_ref, -alphabet => $alphabet, -id => 'qry' );
+	my $seq2    = Bio::Seq->new( -seq => $$ref_seq_ref, -alphabet => $alphabet, -id => 'ref' );
+	my $factory = Bio::Tools::Run::Alignment::Clustalw->new;
+
+	# Save the original STDOUT and STDERR
+	open my $oldout, '>&STDOUT' or croak "Cannot duplicate STDOUT: $!";
+	open my $olderr, '>&', \*STDERR or croak "Cannot duplicate STDERR: $!";
+
+	# Redirect STDOUT and STDERR to /dev/null
+	open STDOUT, '>', '/dev/null' or croak "Cannot redirect STDOUT to /dev/null: $!";
+	open STDERR, '>', '/dev/null' or croak "Cannot redirect STDERR to /dev/null: $!";
+	my $aln = $factory->align( [ $seq1, $seq2 ] );
+
+	# Restore the original STDOUT and STDERR
+	open STDOUT, '>&', $oldout or croak "Cannot restore STDOUT: $!";
+	open STDERR, '>&', $olderr or croak "Cannot restore STDERR: $!";
+	my ( $gap_pos, $gap_length );
+	for my $seq ( $aln->each_seq ) {
+		my $string = $seq->seq;
+		if ( $string =~ /(\.+)/x ) {
+			$gap_pos    = index( $string, $1 );
+			$gap_length = length $1;
+			last;
+		}
+	}
+	return ( $gap_pos, $gap_length );
+}
+
+sub get_motif {
+	my ( $motifs, $id ) = @_;
+	foreach my $motif (@$motifs) {
+		if ( $motif->{'id'} == $id ) {
+			return $motif->{'motif'};
+		}
+	}
 	return;
 }
 
