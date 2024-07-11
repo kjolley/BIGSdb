@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -31,7 +31,8 @@ sub initiate {
 	  BIGSdb::Utils::is_int( scalar $q->param('isolate_id') )
 	  ? ( 'id-' . $q->param('isolate_id') . '.fas' )
 	  : 'isolate.fas';
-	$self->{'type'} = 'text';
+	$self->{'type'}    = 'text';
+	$self->{'noCache'} = 1;
 	return;
 }
 
