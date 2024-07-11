@@ -129,7 +129,7 @@ sub new {
 	$self->{'pages_needing_authentication'} = { map { $_ => 1 } PAGES_NEEDING_AUTHENTICATION };
 	$self->{'pages_needing_authentication'}->{'user'} = 1 if $self->{'config'}->{'site_user_dbs'};
 
-	foreach my $page (qw(downloadAlleles downloadProfiles downloadSeqbin)) {
+	foreach my $page (qw(downloadAlleles downloadProfiles downloadSeqbin embl)) {
 		$self->{'pages_needing_authentication'}->{$page} = 1 if $self->_download_requires_authentication($page);
 	}
 	my $q = $self->{'cgi'};
@@ -702,17 +702,19 @@ sub _plugin_requires_authentication {
 sub _download_requires_authentication {
 	my ( $self, $page ) = @_;
 	my $q              = $self->{'cgi'};
-	my %download_pages = map { $_ => 1 } qw(downloadAlleles downloadProfiles downloadSeqbin);
+	my %download_pages = map { $_ => 1 } qw(downloadAlleles downloadProfiles downloadSeqbin embl);
 	return if !$download_pages{$page};
 	my $attributes = {
 		downloadAlleles  => 'allele_downloads_require_login',
 		downloadProfiles => 'profile_downloads_require_login',
-		downloadSeqbin   => 'seqbin_downloads_require_login'
+		downloadSeqbin   => 'seqbin_downloads_require_login',
+		embl             => 'seqbin_downloads_require_login'
 	};
 	my $additional_param = {
 		downloadAlleles  => 'locus',
 		downloadProfiles => 'scheme_id',
-		downloadSeqbin   => 'isolate_id'
+		downloadSeqbin   => 'isolate_id',
+		embl             => 'isolate_id'
 	};
 	return if !$q->param( $additional_param->{$page} );
 	return if ( $self->{'system'}->{ $attributes->{$page} } // q() ) eq 'no';
