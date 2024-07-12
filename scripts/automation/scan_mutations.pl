@@ -18,7 +18,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20240710
+#Version: 20240712
 use strict;
 use warnings;
 use 5.010;
@@ -41,7 +41,6 @@ use Bio::Seq;
 use Bio::Tools::Run::Alignment::Clustalw;
 use Bio::AlignIO;
 use Try::Tiny;
-use Data::Dumper;    #TODO Remove after testing.
 use constant EVALUE_THRESHOLD => 0.001;
 my %opts;
 GetOptions(
@@ -193,8 +192,8 @@ sub process_peptide_mutation {
 		say "$locus - $wt$mutation->{'reported_position'}$variant:"
 		  if !$opts{'quiet'};
 		if ( !$most_common_length ) {
-			$logger->error( "$locus: No sequences found with WT amino acid '$mutation->{'wild_type_aa'}' "
-				  . "at position $mutation->{'locus_position'}." );
+			say "$locus: No sequences found with WT amino acid '$mutation->{'wild_type_aa'}' "
+			  . "at position $mutation->{'locus_position'}.";
 			next;
 		}
 		my $flanking = $opts{'flanking'} // $mutation->{'flanking_length'};
@@ -246,8 +245,8 @@ sub process_dna_mutation {
 		say "$locus - $wt$mutation->{'reported_position'}$variant:"
 		  if !$opts{'quiet'};
 		if ( !$most_common_length ) {
-			$logger->error( "$locus: No sequences found with WT nucleotide '$mutation->{'wild_type_nuc'}' "
-				  . "at position $mutation->{'locus_position'}." );
+			say "$locus: No sequences found with WT nucleotide '$mutation->{'wild_type_nuc'}' "
+			  . "at position $mutation->{'locus_position'}.";
 			next;
 		}
 		my $flanking = $opts{'flanking'} // $mutation->{'flanking_length'};
