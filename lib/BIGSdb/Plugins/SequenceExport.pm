@@ -230,8 +230,6 @@ sub _print_interface {
 	say $q->start_form;
 	say q(<div class="flex_container" style="justify-content:left">);
 	$self->print_id_fieldset( { fieldname => $pk, list => $list } );
-	my ( $locus_list, $locus_labels ) =
-	  $self->get_field_selection_list( { loci => 1, analysis_pref => 1, query_pref => 0, sort_labels => 1 } );
 	$self->_print_includes_fieldset($scheme_id);
 
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
