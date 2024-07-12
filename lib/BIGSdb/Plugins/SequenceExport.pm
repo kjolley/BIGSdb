@@ -56,7 +56,7 @@ sub get_attributes {
 		buttontext         => 'Sequences',
 		menutext           => $seqdef ? 'Profile sequences' : 'Sequences',
 		module             => 'SequenceExport',
-		version            => '1.9.1',
+		version            => '1.9.2',
 		dbtype             => 'isolates,sequences',
 		seqdb_type         => 'schemes',
 		section            => 'isolate_info,profile_info,export,postquery',
@@ -906,7 +906,9 @@ function enable_aligner(){
  		menuHeight: 250,
  		menuWidth: 400,
  		selectedList: 8
-  	});
+  	}).multiselectfilter({
+		placeholder: 'Search'
+	});
 });
 END
 	return $buffer;
