@@ -717,12 +717,13 @@ sub _get_allele_submissions_for_curation {
 			$return_buffer .= $self->print_file( $allele_curate_message, { get_only => 1 } )
 			  if -e $allele_curate_message;
 		}
-		$return_buffer .= q(<table class="resultstable"><tr><th>Submission id</th><th>Submitted</th><th>Updated</th>)
-		  . q(<th>Submitter</th><th>Locus</th><th>Technology</th><th>Sequences</th>);
+		$return_buffer .= q(<div class="scrollable"><table class="resultstable"><tr><th>Submission id</th>)
+		  . q(<th>Submitted</th><th>Updated</th><th>Submitter</th><th>Locus</th><th>Technology</th><th>Sequences</th>)
+		  ;
 		$return_buffer .= q(<th>Outcome</th>) if $status eq 'closed';
 		$return_buffer .= qq(</tr>\n);
 		$return_buffer .= $buffer;
-		$return_buffer .= qq(</table>\n);
+		$return_buffer .= qq(</table></div>\n);
 	}
 	return $return_buffer;
 }
