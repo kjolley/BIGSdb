@@ -296,6 +296,7 @@ sub _print_curate_headerbar_functions {
 		$self->_print_embargo_function
 		  if $embargo_att->{'embargo_enabled'} && ( $self->{'permissions'}->{'embargo'} || $self->is_admin );
 	}
+	$q->param( page => $page );
 	return;
 }
 
@@ -1485,6 +1486,7 @@ sub _print_plugin_buttons {
 	my ( $self, $records ) = @_;
 	my $q       = $self->{'cgi'};
 	my %no_show = map { $_ => 1 } qw(customize tableQuery);
+	$logger->error( $q->param('page') );
 	return if $no_show{ $q->param('page') };
 	my $seqdb_type = $q->param('page') eq 'alleleQuery' ? 'sequences' : 'schemes';
 	return if !$self->{'pluginManager'};
