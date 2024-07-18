@@ -1486,7 +1486,6 @@ sub _print_plugin_buttons {
 	my ( $self, $records ) = @_;
 	my $q       = $self->{'cgi'};
 	my %no_show = map { $_ => 1 } qw(customize tableQuery);
-	$logger->error( $q->param('page') );
 	return if $no_show{ $q->param('page') };
 	my $seqdb_type = $q->param('page') eq 'alleleQuery' ? 'sequences' : 'schemes';
 	return if !$self->{'pluginManager'};
