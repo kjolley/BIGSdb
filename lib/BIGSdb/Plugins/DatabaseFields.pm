@@ -42,8 +42,8 @@ sub get_attributes {
 		  . 'the field is compulsory or optional and the maximum length of values is displayed.',
 		menutext => 'Description of database fields',
 		module   => 'DatabaseFields',
-		version  => '1.1.9',
-		section  => 'miscellaneous',
+		version  => '1.1.10',
+		section  => 'info',
 		order    => 10,
 		dbtype   => 'isolates',
 		image    => '/images/plugins/FieldDescription/screenshot.png'

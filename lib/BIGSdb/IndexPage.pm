@@ -754,16 +754,16 @@ sub print_info_menu_item {
 			text => 'Database status'
 		}
 	];
-	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
-		my $plugins = $self->{'pluginManager'}->get_installed_plugins;
-		if ( $plugins->{'DatabaseFields'} ) {
-			push @$links,
-			  {
-				href =>
-				  "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=DatabaseFields",
-				text => 'Description of database fields'
-			  };
-		}
+	my $set_id  = $self->get_set_id;
+	my $plugins = $self->{'pluginManager'}->get_appropriate_plugin_names( [qw(info)], $self->{'system'}->{'dbtype'},
+		undef, { set_id => $set_id, order => 'menutext' } );
+	foreach my $plugin_name (@$plugins) {
+		my $att = $self->{'pluginManager'}->get_plugin_attributes($plugin_name);
+		push @$links,
+		  {
+			href => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;name=$plugin_name",
+			text => $att->{'menutext'}
+		  };
 	}
 	$self->_print_menu_item(
 		{
