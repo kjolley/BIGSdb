@@ -756,7 +756,7 @@ sub print_info_menu_item {
 	];
 	my $set_id  = $self->get_set_id;
 	my $plugins = $self->{'pluginManager'}->get_appropriate_plugin_names( [qw(info)], $self->{'system'}->{'dbtype'},
-		undef, { set_id => $set_id, order => 'menutext' } );
+		undef, { set_id => $set_id, order => 'order' } );
 	foreach my $plugin_name (@$plugins) {
 		my $att = $self->{'pluginManager'}->get_plugin_attributes($plugin_name);
 		push @$links,

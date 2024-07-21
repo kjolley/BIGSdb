@@ -42,6 +42,8 @@ sub get_javascript {
 	my ($self) = @_;
 	my $plugin_name = $self->{'cgi'}->param('name');
 	my ( $js, $tree_js );
+	my $att = $self->{'pluginManager'}->get_plugin_attributes($plugin_name);
+	return if $att->{'language'} eq 'Python';
 	try {
 		$js = $self->{'pluginManager'}->get_plugin($plugin_name)->get_plugin_javascript;
 		my $requires = $self->{'pluginManager'}->get_plugin($plugin_name)->get_attributes->{'requires'};
@@ -154,10 +156,8 @@ sub print_content {
 		$self->print_bad_status( { message => q(Invalid (or no) plugin called.), navbar => 1 } );
 		return;
 	}
-	my $plugin = $self->{'pluginManager'}->get_plugin($plugin_name);
-	my $att    = $plugin->get_attributes;
-	$plugin->{'username'} = $self->{'username'};
-	my $dbtype = $self->{'system'}->{'dbtype'};
+	my $att = $self->{'pluginManager'}->get_plugin_attributes($plugin_name);
+		my $dbtype = $self->{'system'}->{'dbtype'};
 	if ( $att->{'dbtype'} !~ /$dbtype/x ) {
 		say q(<h1>Incompatible plugin</h1>);
 		$self->print_bad_status(
@@ -168,6 +168,15 @@ sub print_content {
 		);
 		return;
 	}
+	if ( $att->{'language'} eq 'Python' ) {
+		my $command = "$self->{'config'}->{'python_plugin_runner_path'} --database $self->{'instance'} "
+		  . "--module $plugin_name --module_dir $self->{'config'}->{'python_plugin_dir'}";
+		say `$command`;
+		return;
+	}
+	my $plugin = $self->{'pluginManager'}->get_plugin($plugin_name);
+	$plugin->{'username'} = $self->{'username'};
+
 	$plugin->initiate_prefs;
 	$plugin->initiate_view( $self->{'username'} );
 	$plugin->run;
@@ -1170,7 +1179,7 @@ sub get_field_value {
 
 sub get_breadcrumbs {
 	my ($self)      = @_;
-	my $att         = $self->get_attributes;
+	my $att  = $self->get_attributes;
 	my $breadcrumbs = [];
 	return $breadcrumbs if !$self->{'instance'};
 	if ( $self->{'system'}->{'webroot'} ) {

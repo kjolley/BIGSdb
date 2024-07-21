@@ -499,8 +499,10 @@ sub _initiate_plugin {
 	my $q = $self->{'cgi'};
 	$q->param( format => 'html' ) if !defined $q->param('format');
 	try {
-		my $plugin  = $self->{'pluginManager'}->get_plugin($plugin_name);
-		my $att     = $plugin->get_attributes;
+		my $att = $self->{'pluginManager'}->get_plugin_attributes($plugin_name);
+		if ($att->{'language'} eq 'Python'){
+			return;
+		}
 		my $formats = {
 			text => sub {
 				$self->{'type'}       = 'text';
@@ -526,6 +528,7 @@ sub _initiate_plugin {
 		} else {
 			$self->{$_} = 1 foreach qw(jQuery);
 		}
+		my $plugin  = $self->{'pluginManager'}->get_plugin($plugin_name);
 		my $init_values = $plugin->get_initiation_values;
 		$self->{'breadcrumbs'} = $plugin->get_breadcrumbs;
 		foreach my $key ( keys %$init_values ) {

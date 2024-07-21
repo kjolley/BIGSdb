@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use BIGSdb::Exceptions;
 use List::MoreUtils qw(any none);
+use JSON;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 
@@ -69,11 +70,32 @@ sub initiate {
 				max_upload_size_mb => $self->{'config'}->{'max_upload_size'},
 				curate             => $self->{'curate'}
 			);
-			$self->{'plugins'}->{$plugin_name}    = $plugin;
-			$self->{'attributes'}->{$plugin_name} = $plugin->get_attributes;
+			$self->{'plugins'}->{$plugin_name}                  = $plugin;
+			$self->{'attributes'}->{$plugin_name}               = $plugin->get_attributes;
+			$self->{'attributes'}->{$plugin_name}->{'language'} = 'Perl';
 		}
 	}
+	
+	if ( $self->_python_plugins_enabled ) {
+		my $python_config = "$self->{'config_dir'}/python_plugins.json";
+		eval {
+			my $json_ref       = BIGSdb::Utils::slurp($python_config);
+			my $python_plugins = decode_json($$json_ref);
+			foreach my $plugin (@$python_plugins) {
+				push @{$self->{'python_plugins'}}, $plugin->{'module'};
+				$self->{'attributes'}->{$plugin->{'module'}} = $plugin;
+				$self->{'attributes'}->{$plugin->{'module'}}->{'language'} = 'Python';
+			}
+		};
+		$logger->error($@) if $@;
+	}
 	return;
+}
+
+sub _python_plugins_enabled {
+	my ($self) = @_;
+	my $python_config = "$self->{'config_dir'}/python_plugins.json";
+	return  $self->{'config'}->{'python_plugin_runner_path'} && $self->{'config'}->{'python_plugin_dir'} && -e $python_config
 }
 
 sub get_plugin {
@@ -81,6 +103,7 @@ sub get_plugin {
 	if ( $plugin_name && $self->{'plugins'}->{$plugin_name} ) {
 		return $self->{'plugins'}->{$plugin_name};
 	}
+	$logger->logcarp('Plugin does not exist');
 	BIGSdb::Exception::Plugin::Invalid->throw('Plugin does not exist');
 	return;
 }
@@ -89,6 +112,7 @@ sub get_plugin_attributes {
 	my ( $self, $plugin_name ) = @_;
 	return if !$plugin_name;
 	my $att = $self->{'attributes'}->{$plugin_name};
+	delete $self->{'attributes'}->{$plugin_name} if !keys %$att;
 	return $att;
 }
 
