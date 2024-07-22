@@ -132,7 +132,8 @@ sub _print_plugins {
 	my ( $enabled_buffer, $disabled_buffer, %disabled_reason );
 	my $etd = 1;
 	my $dtd = 1;
-	foreach my $plugin ( sort { $a cmp $b } keys %{$plugins} ) {
+	foreach my $plugin ( sort { lc $plugins->{$a}->{'name'} cmp lc $plugins->{$b}->{'name'} } keys %{$plugins} )
+	{
 		my $attr = $plugins->{$plugin};
 		$disabled_reason{$plugin} = $self->_reason_plugin_disabled($attr);
 		foreach my $att (qw(min max)) {
@@ -220,10 +221,8 @@ sub _reason_plugin_disabled {
 	  if (
 		   !( ( $self->{'system'}->{'all_plugins'} // '' ) eq 'yes' )
 		&& $attr->{'system_flag'}
-		&& (
-			  !$self->{'system'}->{ $attr->{'system_flag'} }
-			|| $self->{'system'}->{ $attr->{'system_flag'} } eq 'no'
-		)
+		&& (  !$self->{'system'}->{ $attr->{'system_flag'} }
+			|| $self->{'system'}->{ $attr->{'system_flag'} } eq 'no' )
 		|| ( $attr->{'explicit_enable'} && ( $self->{'system'}->{ $attr->{'system_flag'} } // q() ) ne 'yes' )
 	  );
 	return;
