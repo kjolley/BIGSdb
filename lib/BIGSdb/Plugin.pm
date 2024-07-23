@@ -25,6 +25,7 @@ use BIGSdb::Exceptions;
 use Try::Tiny;
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any uniq);
+use JSON;
 use BIGSdb::Constants qw(LOCUS_PATTERN :interface);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant SEQ_SOURCE => 'seqbin id + position';
@@ -156,8 +157,8 @@ sub print_content {
 		$self->print_bad_status( { message => q(Invalid (or no) plugin called.), navbar => 1 } );
 		return;
 	}
-	my $att = $self->{'pluginManager'}->get_plugin_attributes($plugin_name);
-		my $dbtype = $self->{'system'}->{'dbtype'};
+	my $att    = $self->{'pluginManager'}->get_plugin_attributes($plugin_name);
+	my $dbtype = $self->{'system'}->{'dbtype'};
 	if ( $att->{'dbtype'} !~ /$dbtype/x ) {
 		say q(<h1>Incompatible plugin</h1>);
 		$self->print_bad_status(
@@ -169,18 +170,35 @@ sub print_content {
 		return;
 	}
 	if ( $att->{'language'} eq 'Python' ) {
+		my $args    = { username => $self->{'username'} };
+		my $set_id = $self->get_set_id;
+		$args->{'set_id'} = $set_id if defined $set_id;
+		my $arg_file = $self->_make_arg_file($args);
 		my $command = "$self->{'config'}->{'python_plugin_runner_path'} --database $self->{'instance'} "
-		  . "--module $plugin_name --module_dir $self->{'config'}->{'python_plugin_dir'}";
+		  . "--module $plugin_name --module_dir $self->{'config'}->{'python_plugin_dir'} --arg_file $arg_file";
 		say `$command`;
 		return;
 	}
 	my $plugin = $self->{'pluginManager'}->get_plugin($plugin_name);
 	$plugin->{'username'} = $self->{'username'};
-
 	$plugin->initiate_prefs;
 	$plugin->initiate_view( $self->{'username'} );
 	$plugin->run;
 	return;
+}
+
+sub _make_arg_file {
+	my ( $self, $data ) = @_;
+	my ( $filename, $full_file_path );
+	do {
+		$filename       = BIGSdb::Utils::get_random();
+		$full_file_path = "$self->{'config'}->{'secure_tmp_dir'}/$filename";
+	} while ( -e $full_file_path );
+	my $json = encode_json($data);
+	open( my $fh, '>:encoding(utf8)', $full_file_path ) || $logger->error("Can't open $full_file_path for writing");
+	say $fh $json;
+	close $fh;
+	return $filename;
 }
 
 sub get_title {
@@ -1175,34 +1193,5 @@ sub get_field_value {
 		$field_value = q();
 	}
 	return $field_value;
-}
-
-sub get_breadcrumbs {
-	my ($self)      = @_;
-	my $att  = $self->get_attributes;
-	my $breadcrumbs = [];
-	return $breadcrumbs if !$self->{'instance'};
-	if ( $self->{'system'}->{'webroot'} ) {
-		push @$breadcrumbs,
-		  {
-			label => $self->{'system'}->{'webroot_label'} // 'Organism',
-			href  => $self->{'system'}->{'webroot'}
-		  };
-	}
-	push @$breadcrumbs,
-	  (
-		{
-			label => $self->{'system'}->{'formatted_description'} // $self->{'system'}->{'description'},
-			href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}"
-		},
-		{
-			label => 'Plugins',
-			href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=pluginSummary"
-		},
-		{
-			label => $att->{'menutext'}
-		}
-	  );
-	return $breadcrumbs;
 }
 1;

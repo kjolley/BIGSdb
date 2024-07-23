@@ -42,7 +42,7 @@ sub get_attributes {
 		  . 'the field is compulsory or optional and the maximum length of values is displayed.',
 		menutext => 'Description of database fields',
 		module   => 'DatabaseFields',
-		version  => '1.1.10',
+		version  => '1.1.11',
 		section  => 'info',
 		order    => 10,
 		dbtype   => 'isolates',
@@ -85,7 +85,6 @@ sub run {
 sub _provenance_print_fields {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
-	my $set_id     = $self->get_set_id;
 	my $is_curator = $self->is_curator;
 	my $field_list = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
 	my $td         = 1;

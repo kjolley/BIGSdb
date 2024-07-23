@@ -87,7 +87,7 @@ sub initiate {
 				$self->{'attributes'}->{$plugin->{'module'}}->{'language'} = 'Python';
 			}
 		};
-		$logger->error($@) if $@;
+		$logger->error("$self->{'config_dir'}/python_plugins.json: $@") if $@;
 	}
 	return;
 }

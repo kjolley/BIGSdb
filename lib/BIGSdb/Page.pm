@@ -500,7 +500,13 @@ sub _initiate_plugin {
 	$q->param( format => 'html' ) if !defined $q->param('format');
 	try {
 		my $att = $self->{'pluginManager'}->get_plugin_attributes($plugin_name);
-		if ($att->{'language'} eq 'Python'){
+		$self->{'breadcrumbs'} = $self->_get_plugin_breadcrumbs($att);
+		if ( $att->{'language'} eq 'Python' ) {
+			if ( $att->{'init'} ) {
+				foreach my $key ( keys %{ $att->{'init'} } ) {
+					$self->{$key} = $att->{'init'}->{$key};
+				}
+			}
 			return;
 		}
 		my $formats = {
@@ -528,9 +534,8 @@ sub _initiate_plugin {
 		} else {
 			$self->{$_} = 1 foreach qw(jQuery);
 		}
-		my $plugin  = $self->{'pluginManager'}->get_plugin($plugin_name);
+		my $plugin      = $self->{'pluginManager'}->get_plugin($plugin_name);
 		my $init_values = $plugin->get_initiation_values;
-		$self->{'breadcrumbs'} = $plugin->get_breadcrumbs;
 		foreach my $key ( keys %$init_values ) {
 			$self->{$key} = $init_values->{$key};
 		}
@@ -542,6 +547,34 @@ sub _initiate_plugin {
 		#ignore
 	};
 	return;
+}
+
+sub _get_plugin_breadcrumbs {
+	my ( $self, $att ) = @_;
+	my $breadcrumbs = [];
+	return $breadcrumbs if !$self->{'instance'};
+	if ( $self->{'system'}->{'webroot'} ) {
+		push @$breadcrumbs,
+		  {
+			label => $self->{'system'}->{'webroot_label'} // 'Organism',
+			href  => $self->{'system'}->{'webroot'}
+		  };
+	}
+	push @$breadcrumbs,
+	  (
+		{
+			label => $self->{'system'}->{'formatted_description'} // $self->{'system'}->{'description'},
+			href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}"
+		},
+		{
+			label => 'Plugins',
+			href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=pluginSummary"
+		},
+		{
+			label => $att->{'menutext'}
+		}
+	  );
+	return $breadcrumbs;
 }
 
 sub get_file_icon {
