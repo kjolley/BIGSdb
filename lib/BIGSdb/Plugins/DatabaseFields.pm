@@ -213,7 +213,7 @@ sub _print_eav_fields {
 sub _print_allowed_values {
 	my ( $self, $field ) = @_;
 	my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
-	if ( $thisfield->{'optlist'} ) {
+	if ( ($thisfield->{'optlist'} // q() ) eq 'yes') {
 		my $option_list = $self->{'xmlHandler'}->get_field_option_list($field);
 		my $hide        = @$option_list > HIDE_VALUES;
 		my $class       = $hide ? q(expandable_retracted) : q();

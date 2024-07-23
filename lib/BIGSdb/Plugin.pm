@@ -42,12 +42,16 @@ sub run_job               { }              #used to run offline job
 sub get_javascript {
 	my ($self) = @_;
 	my $plugin_name = $self->{'cgi'}->param('name');
-	my ( $js, $tree_js );
+	my ( $js, $tree_js, $requires );
 	my $att = $self->{'pluginManager'}->get_plugin_attributes($plugin_name);
-	return if $att->{'language'} eq 'Python';
 	try {
-		$js = $self->{'pluginManager'}->get_plugin($plugin_name)->get_plugin_javascript;
-		my $requires = $self->{'pluginManager'}->get_plugin($plugin_name)->get_attributes->{'requires'};
+		if ( $att->{'language'} eq 'Python' ) {
+			$js       = $att->{'javascript'} // q();
+			$requires = $att->{'requires'}   // q();
+		} else {
+			$js       = $self->{'pluginManager'}->get_plugin($plugin_name)->get_plugin_javascript;
+			$requires = $self->{'pluginManager'}->get_plugin($plugin_name)->get_attributes->{'requires'};
+		}
 		if ($requires) {
 			$tree_js =
 				$requires =~ /js_tree/x || $self->{'jQuery.jstree'}
@@ -170,11 +174,11 @@ sub print_content {
 		return;
 	}
 	if ( $att->{'language'} eq 'Python' ) {
-		my $args    = { username => $self->{'username'} };
+		my $args   = { username => $self->{'username'} };
 		my $set_id = $self->get_set_id;
 		$args->{'set_id'} = $set_id if defined $set_id;
 		my $arg_file = $self->_make_arg_file($args);
-		my $command = "$self->{'config'}->{'python_plugin_runner_path'} --database $self->{'instance'} "
+		my $command  = "$self->{'config'}->{'python_plugin_runner_path'} --database $self->{'instance'} "
 		  . "--module $plugin_name --module_dir $self->{'config'}->{'python_plugin_dir'} --arg_file $arg_file";
 		say `$command`;
 		return;
