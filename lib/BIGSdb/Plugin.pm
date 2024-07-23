@@ -26,6 +26,7 @@ use Try::Tiny;
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any uniq);
 use JSON;
+use Encode;
 use BIGSdb::Constants qw(LOCUS_PATTERN :interface);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant SEQ_SOURCE => 'seqbin id + position';
@@ -180,7 +181,10 @@ sub print_content {
 		my $arg_file = $self->_make_arg_file($args);
 		my $command  = "$self->{'config'}->{'python_plugin_runner_path'} --database $self->{'instance'} "
 		  . "--module $plugin_name --module_dir $self->{'config'}->{'python_plugin_dir'} --arg_file $arg_file";
-		say `$command`;
+		
+		my $output =  `$command`;
+		$output = Encode::decode('utf8',$output);
+		say $output;
 		return;
 	}
 	my $plugin = $self->{'pluginManager'}->get_plugin($plugin_name);
