@@ -1,3 +1,6 @@
+v1.47.1: *Added option to hyperlink to a different URL depending on regex of
+          field value.
+         *More efficient batch sequence queries when exemplars used.        
 v1.47.0: *Added optional private data quotas to projects.
          *Added embargoing for isolate submissions.
 v1.46.2: *BingMaps has been removed as an option for mapping as Microsoft are
