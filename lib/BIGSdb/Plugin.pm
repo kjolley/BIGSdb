@@ -178,6 +178,7 @@ sub print_content {
 		my $args   = { username => $self->{'username'} };
 		my $set_id = $self->get_set_id;
 		$args->{'set_id'} = $set_id if defined $set_id;
+		$args->{'curate'} = $self->{'curate'} if $self->{'curate'};
 		$args->{'cgi_params'} = $q->Vars; 
 		my $arg_file = $self->_make_arg_file($args);
 		my $command  = "$self->{'config'}->{'python_plugin_runner_path'} --database $self->{'instance'} "
