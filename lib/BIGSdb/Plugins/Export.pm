@@ -199,7 +199,7 @@ sub _print_private_fieldset {
 		-default   => 'name',
 		-linebreak => 'true'
 	);
-	say q(</li></li>);
+	say q(</li><li>);
 	say qq(<input type="color" name="private_fg" id="private_fg" value="$fg" )
 	  . q(style="width:30px;height:15px"> Text colour);
 	say q(</li><li>);
