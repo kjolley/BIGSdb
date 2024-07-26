@@ -58,7 +58,7 @@ sub get_attributes {
 		buttontext          => 'BURST',
 		menutext            => 'BURST',
 		module              => 'BURST',
-		version             => '1.2.3',
+		version             => '1.2.4',
 		dbtype              => 'isolates,sequences',
 		seqdb_type          => 'schemes',
 		section             => 'postquery,analysis',
@@ -82,7 +82,15 @@ sub run {
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
 	my $scheme_id  = $q->param('scheme_id');
-	my $attr       = $self->get_attributes;
+	my $set_id     = $self->get_set_id;
+	if ( !defined $scheme_id ) {
+		my $scheme_data      = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => 1 } );
+		my $filtered_schemes = $self->_filter_schemes($scheme_data);
+		if ( @$filtered_schemes == 1 ) {
+			$scheme_id = $filtered_schemes->[0]->{'id'};
+		}
+	}
+	my $attr = $self->get_attributes;
 	say q(<h1>BURST analysis</h1>);
 	my $pk;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' && defined $scheme_id ) {
@@ -160,7 +168,6 @@ sub run {
 	my $locus_count;
 	$self->print_id_fieldset( { fieldname => $pk, list => $list, no_leave_blank => 1 } );
 	say q(<fieldset style="float:left"><legend>Options</legend>);
-	my $set_id           = $self->get_set_id;
 	my $scheme_data      = $self->{'datastore'}->get_scheme_list( { set_id => $set_id, with_pk => 1 } );
 	my $filtered_schemes = $self->_filter_schemes($scheme_data);
 
