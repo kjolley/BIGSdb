@@ -177,15 +177,25 @@ sub print_content {
 	if ( $att->{'language'} eq 'Python' ) {
 		my $args   = { username => $self->{'username'} };
 		my $set_id = $self->get_set_id;
-		$args->{'set_id'} = $set_id if defined $set_id;
-		$args->{'curate'} = $self->{'curate'} if $self->{'curate'};
-		$args->{'cgi_params'} = $q->Vars; 
+		$args->{'set_id'}     = $set_id           if defined $set_id;
+		$args->{'curate'}     = $self->{'curate'} if $self->{'curate'};
+		$args->{'cgi_params'} = { %{ $q->Vars } };    #Shallow copy
+		foreach my $key ( keys %{ $args->{'cgi_params'} } ) {
+			if ( $args->{'cgi_params'}->{$key} =~ /\x{0000}/x ) {
+				my $value_string = $args->{'cgi_params'}->{$key};
+				$args->{'cgi_params'}->{$key} = [ split /\x{0000}/x, $value_string ];
+				foreach my $value ( @{ $args->{'cgi_params'}->{$key} } ) {
+					if ( BIGSdb::Utils::is_int($value) ) {
+						$value = int($value);
+					}
+				}
+			}
+		}
 		my $arg_file = $self->_make_arg_file($args);
 		my $command  = "$self->{'config'}->{'python_plugin_runner_path'} --database $self->{'instance'} "
 		  . "--module $plugin_name --module_dir $self->{'config'}->{'python_plugin_dir'} --arg_file $arg_file";
-		
-		my $output =  `$command`;
-		$output = Encode::decode('utf8',$output);
+		my $output = `$command`;
+		$output = Encode::decode( 'utf8', $output );
 		say $output;
 		return;
 	}
