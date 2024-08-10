@@ -75,16 +75,15 @@ sub initiate {
 			$self->{'attributes'}->{$plugin_name}->{'language'} = 'Perl';
 		}
 	}
-	
 	if ( $self->_python_plugins_enabled ) {
 		my $python_config = "$self->{'config_dir'}/python_plugins.json";
 		eval {
 			my $json_ref       = BIGSdb::Utils::slurp($python_config);
 			my $python_plugins = decode_json($$json_ref);
 			foreach my $plugin (@$python_plugins) {
-				push @{$self->{'python_plugins'}}, $plugin->{'module'};
-				$self->{'attributes'}->{$plugin->{'module'}} = $plugin;
-				$self->{'attributes'}->{$plugin->{'module'}}->{'language'} = 'Python';
+				push @{ $self->{'python_plugins'} }, $plugin->{'module'};
+				$self->{'attributes'}->{ $plugin->{'module'} }                        = $plugin;
+				$self->{'attributes'}->{ $plugin->{'module'} }->{'language'}          = 'Python';
 			}
 		};
 		$logger->error("$self->{'config_dir'}/python_plugins.json: $@") if $@;
@@ -95,7 +94,10 @@ sub initiate {
 sub _python_plugins_enabled {
 	my ($self) = @_;
 	my $python_config = "$self->{'config_dir'}/python_plugins.json";
-	return  $self->{'config'}->{'python_plugin_runner_path'} && $self->{'config'}->{'python_plugin_dir'} && -e $python_config
+	return
+		 $self->{'config'}->{'python_plugin_runner_path'}
+	  && $self->{'config'}->{'python_plugin_dir'}
+	  && -e $python_config;
 }
 
 sub get_plugin {

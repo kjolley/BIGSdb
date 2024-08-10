@@ -176,10 +176,13 @@ sub print_content {
 	}
 	if ( $att->{'language'} eq 'Python' ) {
 		my $args   = { username => $self->{'username'} };
+		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+		$args->{'email'} = $user_info->{'email'} if defined $user_info->{'email'};
 		my $set_id = $self->get_set_id;
 		$args->{'set_id'}     = $set_id           if defined $set_id;
 		$args->{'curate'}     = $self->{'curate'} if $self->{'curate'};
 		$args->{'cgi_params'} = { %{ $q->Vars } };    #Shallow copy
+		$args->{'cgi_params'}->{'remote_host'} = $q->remote_host;
 		foreach my $key ( keys %{ $args->{'cgi_params'} } ) {
 			if ( $args->{'cgi_params'}->{$key} =~ /\x{0000}/x ) {
 				my $value_string = $args->{'cgi_params'}->{$key};

@@ -74,8 +74,14 @@ sub initiate {
 	return if !defined $id;
 	my $job = $self->{'jobManager'}->get_job($id);
 	if ( defined $job->{'module'} && $self->{'pluginManager'}->is_plugin( $job->{'module'} ) ) {
-		my $plugin = $self->{'pluginManager'}->get_plugin( $job->{'module'} );
-		my $reqs   = $plugin->get_initiation_values;
+		my $attributes = $self->{'pluginManager'}->get_plugin_attributes( $job->{'module'} );
+		my $reqs;
+		if ( ( $attributes->{'language'} // q() ) eq 'Python' ) {
+			$reqs = $attributes->{'init'} // {};
+		} else {
+			my $plugin = $self->{'pluginManager'}->get_plugin( $job->{'module'} );
+			$reqs = $plugin->get_initiation_values;
+		}
 		$self->{$_} = $reqs->{$_} foreach keys %$reqs;
 	}
 	return if !$job->{'status'};

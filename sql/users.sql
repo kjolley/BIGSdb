@@ -50,7 +50,7 @@ ON UPDATE CASCADE
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON registered_resources TO apache;
 
-CREATE OR REPLACE LANGUAGE 'plpgsql';
+CREATE OR REPLACE LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION update_auto_registration() RETURNS TRIGGER AS $update_auto_registration$
 	BEGIN
