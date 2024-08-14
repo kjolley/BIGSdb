@@ -1,3 +1,4 @@
+v1.47.3: *Potential fix for https://github.com/kjolley/BIGSdb/issues/970.
 v1.47.2: *Functionality added to support plugins written in Python using the
           BIGSdb Python Toolkit (https://github.com/kjolley/BIGSdb_Python_Toolkit)
 v1.47.1: *Added option to hyperlink to a different URL depending on regex of
