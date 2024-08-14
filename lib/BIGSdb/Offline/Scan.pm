@@ -1134,6 +1134,7 @@ sub _get_row {
 		$buffer .=
 		  $q->checkbox( -name => "id_${isolate_id}_${locus}_allele_$id", -label => '', disabled => 'disabled' );
 	}
+	$args->{'exact'} = $exact;    #This may have been modified since args passed in.
 	$buffer .= q(</td><td>);
 	$buffer .= $self->_get_tag_checkbox(
 		{
