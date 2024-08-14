@@ -76,7 +76,7 @@ sub _db_connect {
 		password   => $self->{'password'},
 	);
 	if ( $options->{'reconnect'} ) {
-		$self->{'db'} = $self->{'dataConnector'}->drop_all_connections;
+		$self->{'dataConnector'}->drop_all_connections;
 	}
 	try {
 		$self->{'db'} = $self->{'dataConnector'}->get_connection( \%att );
@@ -302,8 +302,8 @@ sub cancel_job {
 sub update_job_output {
 	my ( $self, $job_id, $output_hash ) = @_;
 	if ( ref $output_hash ne 'HASH' ) {
-		$logger->error('status hash not passed as a ref');
-		BIGSdb::Exception::Data->throw('status hash not passed as a ref');
+		$logger->error('output hash not passed as a ref');
+		BIGSdb::Exception::Data->throw('output hash not passed as a ref');
 	}
 	if ( !$self->{'db'}->ping ) {
 		$self->_db_connect( { reconnect => 1 } );
