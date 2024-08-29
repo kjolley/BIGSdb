@@ -102,11 +102,13 @@ sub run_script {
 
 	if ( ( $attributes->{'language'} // q() ) eq 'Python' ) {
 		if ( $self->_python_plugins_enabled ) {
-			my $command = "$self->{'config'}->{'python_plugin_runner_path'} --run_job $job_id "
+			my $appender     = Log::Log4perl->appender_by_name('A1');
+			my $log_filename = $appender->{'filename'} // '/var/log/bigsdb_jobs.log';
+			my $command =
+				"$self->{'config'}->{'python_plugin_runner_path'} --run_job $job_id "
 			  . "--database $job->{'dbase_config'} --module $job->{'module'} "
-			  ."--module_dir $self->{'config'}->{'python_plugin_dir'}";
+			  . "--module_dir $self->{'config'}->{'python_plugin_dir'} --log_file $log_filename";
 			system($command);
-			
 		} else {
 			$self->{'logger'}->logdie('Python plugins are not enabled');
 		}

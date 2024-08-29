@@ -196,9 +196,12 @@ sub print_content {
 				}
 			}
 		}
-		my $arg_file = $self->_make_arg_file($args);
-		my $command  = "$self->{'config'}->{'python_plugin_runner_path'} --database $self->{'instance'} "
-		  . "--module $plugin_name --module_dir $self->{'config'}->{'python_plugin_dir'} --arg_file $arg_file";
+		my $arg_file     = $self->_make_arg_file($args);
+		my $appender     = Log::Log4perl->appender_by_name('A1');
+		my $log_filename = $appender->{'filename'} // '/var/log/bigsdb.log';
+		my $command = "$self->{'config'}->{'python_plugin_runner_path'} --database $self->{'instance'} "
+		  . "--module $plugin_name --module_dir $self->{'config'}->{'python_plugin_dir'} --arg_file $arg_file "
+		  . "--log_file $log_filename";
 		my $output = `$command`;
 		$output = Encode::decode( 'utf8', $output );
 		say $output;
