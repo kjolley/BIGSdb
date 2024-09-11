@@ -212,7 +212,7 @@ sub get_permissions_table_attributes {
 	  ? qw ( query_users modify_users modify_isolates modify_projects modify_sequences tag_sequences designate_alleles
 	  modify_usergroups set_user_passwords modify_loci modify_schemes modify_composites modify_field_attributes
 	  modify_value_attributes modify_sparse_fields modify_probes delete_all
-	  import_site_users modify_site_users modify_geopoints refresh_scheme_caches query_interfaces set_embargo 
+	  import_site_users modify_site_users modify_geopoints refresh_scheme_caches query_interfaces set_embargo
 	  only_private disable_access)
 	  : qw( query_users modify_users modify_usergroups set_user_passwords modify_loci modify_locus_descriptions
 	  modify_schemes delete_all import_site_users modify_site_users disable_access );
@@ -2011,10 +2011,16 @@ sub get_isolate_field_extended_attributes_table_attributes {
 			tooltip => 'url - The URL used to hyperlink values in the isolate information page.  '
 			  . 'Instances of [?] within the URL will be substituted with the value.'
 		},
-		{ name => 'length',      type => 'integer' },
-		{ name => 'field_order', type => 'int',  length   => 4 },
-		{ name => 'curator',     type => 'int',  required => 1, dropdown_query => 1 },
-		{ name => 'datestamp',   type => 'date', required => 1 }
+		{ name => 'length', type => 'integer' },
+		{ name => 'field_order', type => 'int', length => 4 },
+		{
+			name    => 'placeholder',
+			type    => 'text',
+			length  => 20,
+			tooltip => 'placeholder - Helpful text that will appear within the search box when empty.'
+		},
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -2420,8 +2426,7 @@ sub get_eav_fields_table_attributes {
 		local $" = q(;);
 		push @$attributes, { name => 'category', type => 'text', optlist => "@groups", dropdown_query => 1 };
 	}
-	push @$attributes,
-	  (
+	push @$attributes, (
 		{ name => 'description', type => 'text', length  => 128 },
 		{ name => 'length',      type => 'int',  tooltip => 'length - Valid for text fields only' },
 		{
@@ -2463,6 +2468,12 @@ sub get_eav_fields_table_attributes {
 		{ name => 'max_value',   type => 'int', tooltip => 'max_value - Valid for number fields only' },
 		{ name => 'field_order', type => 'int' },
 		{
+			name    => 'placeholder',
+			type    => 'text',
+			length  => 20,
+			tooltip => 'placeholder - Helpful text that will appear within the search box when empty.'
+		},
+		{
 			name     => 'no_curate',
 			type     => 'bool',
 			required => 1,
@@ -2478,7 +2489,7 @@ sub get_eav_fields_table_attributes {
 		},
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 }
-	  );
+	);
 	return $attributes;
 }
 

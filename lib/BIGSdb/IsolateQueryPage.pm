@@ -4197,6 +4197,7 @@ $panel_js
 	\$(document).on("ajaxComplete", function(event, xhr, settings) {
         setTooltips();
         initiate_autocomplete();
+        initiate_placeholders();
         //Need to limit rendering only to the element that has been loaded.
         if (settings.url.indexOf("dashboard") === -1){
          	let params = new URLSearchParams(settings.url);
@@ -4368,12 +4369,18 @@ function refresh_filters(){
 }
 END
 	my $fields       = $self->{'xmlHandler'}->get_field_list;
+	my $attributes   = $self->{'xmlHandler'}->get_all_field_attributes;
 	my $autocomplete = {};
+	my $placeholders = {};
+
 	if (@$fields) {
 		foreach my $field (@$fields) {
 			my $options = $self->{'xmlHandler'}->get_field_option_list($field);
 			if (@$options) {
 				$autocomplete->{"f_$field"} = $options;
+			}
+			if ( $attributes->{$field}->{'placeholder'} ) {
+				$placeholders->{"f_$field"} = $attributes->{$field}->{'placeholder'};
 			}
 		}
 		my $ext_att = $self->get_extended_attributes;
@@ -4386,6 +4393,14 @@ END
 					{ fetch => 'col_arrayref', cache => 'IsolateQuery::extended_attribute_values' }
 				);
 				$autocomplete->{"e_$field||$attribute"} = $values;
+				my $placeholder = $self->{'datastore'}->run_query(
+					'SELECT placeholder FROM isolate_field_extended_attributes WHERE '
+					  . '(isolate_field,attribute)=(?,?)',
+					[ $field, $attribute ]
+				);
+				if ($placeholder) {
+					$placeholders->{"e_$field||$attribute"} = $placeholder;
+				}
 			}
 		}
 		my $eav_fields = $self->{'datastore'}->get_eav_fields;
@@ -4393,6 +4408,9 @@ END
 			if ( $eav_field->{'option_list'} ) {
 				my @options = split /\s*;\s*/x, $eav_field->{'option_list'};
 				$autocomplete->{"eav_$eav_field->{'field'}"} = [@options];
+			}
+			if ( $eav_field->{'placeholder'} ) {
+				$placeholders->{"eav_$eav_field->{'field'}"} = $eav_field->{'placeholder'};
 			}
 		}
 	}
@@ -4430,9 +4448,23 @@ function set_autocomplete_values(element){
 		});
 	}		
 }
+
+
 END
+	} else {
+		$buffer .= 'function initiate_autocomplete() {}';
 	}
+	$buffer .= $self->_get_placeholder_js($placeholders);
+	$buffer .= $self->_get_dashboard_js;
+	return $buffer;
+}
+
+sub _get_dashboard_js {
+	my ($self) = @_;
+	my $buffer = q();
 	if ( $self->dashboard_enabled( { query_dashboard => 1 } ) && !$self->{'no_dashboard'} ) {
+		my $json             = JSON->new->allow_nonref;
+		my $q                = $self->{'cgi'};
 		my $elements         = $self->_get_elements;
 		my $json_elements    = $json->encode($elements);
 		my $qry_file         = $q->param('query_file');
@@ -4470,6 +4502,43 @@ $list_file_init
 $list_attribute_init
 END
 	}
+	return $buffer;
+}
+
+sub _get_placeholder_js {
+	my ( $self, $placeholders ) = @_;
+	return q(function initiate_placeholders()) if !%$placeholders;
+	my $json             = JSON->new->allow_nonref;
+	my $placeholder_json = $json->encode($placeholders);
+	my $buffer = <<"JS";
+var placeholders = $placeholder_json;
+\$(function() {	
+	initiate_placeholders();
+});	
+function initiate_placeholders() {
+	\$("#provenance").on("change", "[name^='prov_field']", function () {
+		set_placeholder_values(\$(this));
+	});
+	\$("[name^='prov_field']").each(function (i){
+		set_placeholder_values(\$(this));
+	});
+	\$("#phenotypic").on("change", "[name^='phenotypic_field']", function () {
+		set_placeholder_values(\$(this));
+	});
+	\$("[name^='phenotypic_field']").each(function (i){
+		set_placeholder_values(\$(this));
+	});
+}
+function set_placeholder_values(element){
+	var valueField = element.attr('name').replace("field","value");	
+	field = element.val();
+	if (placeholders[field]){
+		\$("#" + valueField).attr("placeholder",placeholders[field])
+	} else {
+		\$("#" + valueField).attr("placeholder","Enter value...")
+	}
+}
+JS
 	return $buffer;
 }
 
