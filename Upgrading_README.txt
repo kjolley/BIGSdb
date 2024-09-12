@@ -53,6 +53,7 @@ Version 1.44: Change of seqdef and isolate database structures.
 Version 1.45: Change of seqdef and isolate database structures.
 Version 1.46: Change of isolate database structure.
 Version 1.47: Change of isolate database structure.
+Version 1.48: Change of isolate database structure.
 
 Details can be found below.
 
@@ -668,3 +669,10 @@ records. There is also an update to the method that counts the number of loci
 defined for a scheme so that it optionally will not count allele '0'.
 
 Please run the isolatedb_v1.47.sql script against isolate databases.
+
+Version 1.48
+------------
+There is are new fields to support adding placeholder text to form query boxes
+for scheme and LINcode fields.
+
+Please run the isolatedb_v1.48.sql script against isolate databases.

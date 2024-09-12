@@ -1,3 +1,9 @@
+v1.48.0: *Add support for placeholder text on isolate query forms. Placeholders
+          can be defined for provenance fields in config.xml or for scheme/LIN
+          code fields by adding a placeholder value in the appropriate table.
+         *Setting of GrapeTree path in bigsdb.conf is now consistent with other
+          Python scripts called by plugins (the old method of defining 
+          python3_path and grapetree_path separately still works).
 v1.47.3: *Potential fix for https://github.com/kjolley/BIGSdb/issues/970.
 v1.47.2: *Functionality added to support plugins written in Python using the
           BIGSdb Python Toolkit (https://github.com/kjolley/BIGSdb_Python_Toolkit)
