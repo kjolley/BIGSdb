@@ -4542,7 +4542,6 @@ sub _get_placeholder_js {
 	return q(function initiate_placeholders(){}) if !%$placeholders;
 	my $json             = JSON->new->allow_nonref;
 	my $placeholder_json = $json->encode($placeholders);
-	$logger->error($placeholder_json);
 	my $buffer = <<"JS";
 var placeholders = $placeholder_json;
 \$(function() {	
