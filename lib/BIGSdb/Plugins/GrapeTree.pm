@@ -53,7 +53,7 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.5.5',
+		version             => '1.5.6',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -376,13 +376,20 @@ sub _generate_mstree {
 	my ( $self, $args ) = @_;
 	my ( $job_id, $profiles_file, $tree_file ) = @{$args}{qw(job_id profiles tree)};
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Generating minimum spanning tree' } );
-	my $python     = $self->{'config'}->{'python3_path'};
+	
 	my $prefix     = BIGSdb::Utils::get_random();
 	my $error_file = "$self->{'config'}->{'secure_tmp_dir'}/${prefix}_grapetree";
-	my $cmd =
-	  "$python $self->{'config'}->{'grapetree_path'}/grapetree.py --profile $profiles_file 2>$error_file > $tree_file ";
+	my $cmd;
+	if ( !defined  $self->{'config'}->{'python3_path'} && $self->{'config'}->{'grapetree_path'} =~ /python/x) {
+		#Path includes full command for running GrapeTree (recommended)
+		$cmd = "$self->{'config'}->{'grapetree_path'} --profile $profiles_file 2>$error_file > $tree_file ";
+	} else {
+		#Separate variables for GrapeTree directory and Python path (legacy)
+		my $python     = $self->{'config'}->{'python3_path'} // '/usr/bin/python3';
+		$cmd = "$python $self->{'config'}->{'grapetree_path'}/grapetree.py --profile "
+		  . "$profiles_file 2>$error_file > $tree_file ";
+	}
 	eval { system($cmd); };
-
 	if ($?) {
 		BIGSdb::Exception::Plugin->throw('Tree generation failed.');
 	}
