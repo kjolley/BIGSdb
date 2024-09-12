@@ -212,7 +212,7 @@ sub get_permissions_table_attributes {
 	  ? qw ( query_users modify_users modify_isolates modify_projects modify_sequences tag_sequences designate_alleles
 	  modify_usergroups set_user_passwords modify_loci modify_schemes modify_composites modify_field_attributes
 	  modify_value_attributes modify_sparse_fields modify_probes delete_all
-	  import_site_users modify_site_users modify_geopoints refresh_scheme_caches query_interfaces set_embargo 
+	  import_site_users modify_site_users modify_geopoints refresh_scheme_caches query_interfaces set_embargo
 	  only_private disable_access)
 	  : qw( query_users modify_users modify_usergroups set_user_passwords modify_loci modify_locus_descriptions
 	  modify_schemes delete_all import_site_users modify_site_users disable_access );
@@ -1491,6 +1491,12 @@ sub get_scheme_fields_table_attributes {
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		push @$attributes,
 		  (
+			{
+				name    => 'placeholder',
+				type    => 'text',
+				length  => 30,
+				tooltip => 'placeholder - Placeholder text that will appear within the search box when empty.'
+			},
 			{ name => 'url', type => 'text', required => 0, length => 120, hide_public => 1 },
 			{
 				name     => 'isolate_display',
@@ -2011,10 +2017,16 @@ sub get_isolate_field_extended_attributes_table_attributes {
 			tooltip => 'url - The URL used to hyperlink values in the isolate information page.  '
 			  . 'Instances of [?] within the URL will be substituted with the value.'
 		},
-		{ name => 'length',      type => 'integer' },
-		{ name => 'field_order', type => 'int',  length   => 4 },
-		{ name => 'curator',     type => 'int',  required => 1, dropdown_query => 1 },
-		{ name => 'datestamp',   type => 'date', required => 1 }
+		{ name => 'length', type => 'integer' },
+		{ name => 'field_order', type => 'int', length => 4 },
+		{
+			name    => 'placeholder',
+			type    => 'text',
+			length  => 30,
+			tooltip => 'placeholder - Placeholder text that will appear within the search box when empty.'
+		},
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
+		{ name => 'datestamp', type => 'date', required => 1 }
 	];
 	return $attributes;
 }
@@ -2463,6 +2475,12 @@ sub get_eav_fields_table_attributes {
 		{ name => 'max_value',   type => 'int', tooltip => 'max_value - Valid for number fields only' },
 		{ name => 'field_order', type => 'int' },
 		{
+			name    => 'placeholder',
+			type    => 'text',
+			length  => 30,
+			tooltip => 'placeholder - Placeholder text that will appear within the search box when empty.'
+		},
+		{
 			name     => 'no_curate',
 			type     => 'bool',
 			required => 1,
@@ -2613,6 +2631,12 @@ sub get_lincode_schemes_table_attributes {
 			comments => q(Show in main results table.),
 			tooltip  => q(Maindisplay - Note that setting maindisplay to false for )
 			  . q(the scheme will override this setting.)
+		  },
+		  {
+			name    => 'placeholder',
+			type    => 'text',
+			length  => 30,
+			tooltip => 'placeholder - Placeholder text that will appear within the search box when empty.'
 		  };
 	}
 	push @$attributes,
@@ -2660,6 +2684,12 @@ sub get_lincode_fields_table_attributes {
 			comments => q(Show in main results table.),
 			tooltip  => q(Maindisplay - Note that setting maindisplay to false for )
 			  . q(the scheme will override this setting.)
+		  },
+		  {
+			name    => 'placeholder',
+			type    => 'text',
+			length  => 30,
+			tooltip => 'placeholder - Placeholder text that will appear within the search box when empty.'
 		  };
 	}
 	push @$attributes,
