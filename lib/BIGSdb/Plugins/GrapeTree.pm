@@ -380,7 +380,7 @@ sub _generate_mstree {
 	my $prefix     = BIGSdb::Utils::get_random();
 	my $error_file = "$self->{'config'}->{'secure_tmp_dir'}/${prefix}_grapetree";
 	my $cmd;
-	if ( !defined  $self->{'config'}->{'python3_path'} && $self->{'config'}->{'grapetree_path'} =~ /python/x) {
+	if ( !defined $self->{'config'}->{'python3_path'} && $self->{'config'}->{'grapetree_path'} =~ /python/x) {
 		#Path includes full command for running GrapeTree (recommended)
 		$cmd = "$self->{'config'}->{'grapetree_path'} --profile $profiles_file 2>$error_file > $tree_file ";
 	} else {
