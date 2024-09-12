@@ -4368,11 +4368,19 @@ function refresh_filters(){
 	});
 }
 END
+	my ( $autocomplete, $placeholders ) = $self->_get_autocomplete_and_placeholders;
+	$buffer .= $self->_get_autocomplete_js($autocomplete);
+	$buffer .= $self->_get_placeholder_js($placeholders);
+	$buffer .= $self->_get_dashboard_js;
+	return $buffer;
+}
+
+sub _get_autocomplete_and_placeholders {
+	my ($self)       = @_;
 	my $fields       = $self->{'xmlHandler'}->get_field_list;
 	my $attributes   = $self->{'xmlHandler'}->get_all_field_attributes;
 	my $autocomplete = {};
 	my $placeholders = {};
-
 	if (@$fields) {
 		foreach my $field (@$fields) {
 			my $options = $self->{'xmlHandler'}->get_field_option_list($field);
@@ -4403,19 +4411,45 @@ END
 				}
 			}
 		}
-		my $eav_fields = $self->{'datastore'}->get_eav_fields;
-		foreach my $eav_field (@$eav_fields) {
-			if ( $eav_field->{'option_list'} ) {
-				my @options = split /\s*;\s*/x, $eav_field->{'option_list'};
-				$autocomplete->{"eav_$eav_field->{'field'}"} = [@options];
-			}
-			if ( $eav_field->{'placeholder'} ) {
-				$placeholders->{"eav_$eav_field->{'field'}"} = $eav_field->{'placeholder'};
+	}
+	my $eav_fields = $self->{'datastore'}->get_eav_fields;
+	foreach my $eav_field (@$eav_fields) {
+		if ( $eav_field->{'option_list'} ) {
+			my @options = split /\s*;\s*/x, $eav_field->{'option_list'};
+			$autocomplete->{"eav_$eav_field->{'field'}"} = [@options];
+		}
+		if ( $eav_field->{'placeholder'} ) {
+			$placeholders->{"eav_$eav_field->{'field'}"} = $eav_field->{'placeholder'};
+		}
+	}
+	my $scheme_fields = $self->{'datastore'}->get_all_scheme_field_info;
+	foreach my $scheme_id ( keys %$scheme_fields ) {
+		foreach my $field ( keys %{ $scheme_fields->{$scheme_id} } ) {
+			if ( $scheme_fields->{$scheme_id}->{$field}->{'placeholder'} ) {
+				$placeholders->{"s_${scheme_id}_${field}"} =
+				  $scheme_fields->{$scheme_id}->{$field}->{'placeholder'};
 			}
 		}
 	}
-	my $json = JSON->new->allow_nonref;
+	my $lincode_schemes = $self->{'datastore'}->run_query( 'SELECT scheme_id,placeholder FROM lincode_schemes',
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	foreach my $scheme (@$lincode_schemes) {
+		$placeholders->{"lin_$scheme->{'scheme_id'}"} = $scheme->{'placeholder'} if $scheme->{'placeholder'};
+	}
+	my $lincode_fields = $self->{'datastore'}->run_query( 'SELECT scheme_id,field,placeholder FROM lincode_fields',
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	foreach my $field (@$lincode_fields) {
+		$placeholders->{"lin_$field->{'scheme_id'}_$field->{'field'}"} = $field->{'placeholder'}
+		  if $field->{'placeholder'};
+	}
+	return ( $autocomplete, $placeholders );
+}
+
+sub _get_autocomplete_js {
+	my ( $self, $autocomplete ) = @_;
+	my $buffer;
 	if ($autocomplete) {
+		my $json              = JSON->new->allow_nonref;
 		my $autocomplete_json = $json->encode($autocomplete);
 		$buffer .= << "END";
 var fieldLists = $autocomplete_json;		
@@ -4454,8 +4488,6 @@ END
 	} else {
 		$buffer .= 'function initiate_autocomplete() {}';
 	}
-	$buffer .= $self->_get_placeholder_js($placeholders);
-	$buffer .= $self->_get_dashboard_js;
 	return $buffer;
 }
 
@@ -4510,6 +4542,7 @@ sub _get_placeholder_js {
 	return q(function initiate_placeholders()) if !%$placeholders;
 	my $json             = JSON->new->allow_nonref;
 	my $placeholder_json = $json->encode($placeholders);
+	$logger->error($placeholder_json);
 	my $buffer = <<"JS";
 var placeholders = $placeholder_json;
 \$(function() {	
@@ -4526,6 +4559,12 @@ function initiate_placeholders() {
 		set_placeholder_values(\$(this));
 	});
 	\$("[name^='phenotypic_field']").each(function (i){
+		set_placeholder_values(\$(this));
+	});
+	\$("#loci").on("change", "[name^='designation_field']", function () {
+		set_placeholder_values(\$(this));
+	});
+	\$("[name^='designation_field']").each(function (i){
 		set_placeholder_values(\$(this));
 	});
 }

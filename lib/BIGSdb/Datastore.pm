@@ -936,7 +936,7 @@ sub get_all_scheme_field_info {
 	if ( !$self->{'cache'}->{'all_scheme_field_info'} ) {
 		my @fields =
 		  $self->{'system'}->{'dbtype'} eq 'isolates'
-		  ? qw(main_display isolate_display query_field dropdown url)
+		  ? qw(placeholder main_display isolate_display query_field dropdown url)
 		  : 'dropdown';
 		local $" = ',';
 		my $data =

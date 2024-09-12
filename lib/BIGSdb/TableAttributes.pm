@@ -1491,6 +1491,12 @@ sub get_scheme_fields_table_attributes {
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		push @$attributes,
 		  (
+			{
+				name    => 'placeholder',
+				type    => 'text',
+				length  => 30,
+				tooltip => 'placeholder - Placeholder text that will appear within the search box when empty.'
+			},
 			{ name => 'url', type => 'text', required => 0, length => 120, hide_public => 1 },
 			{
 				name     => 'isolate_display',
@@ -2016,8 +2022,8 @@ sub get_isolate_field_extended_attributes_table_attributes {
 		{
 			name    => 'placeholder',
 			type    => 'text',
-			length  => 20,
-			tooltip => 'placeholder - Helpful text that will appear within the search box when empty.'
+			length  => 30,
+			tooltip => 'placeholder - Placeholder text that will appear within the search box when empty.'
 		},
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 }
@@ -2426,7 +2432,8 @@ sub get_eav_fields_table_attributes {
 		local $" = q(;);
 		push @$attributes, { name => 'category', type => 'text', optlist => "@groups", dropdown_query => 1 };
 	}
-	push @$attributes, (
+	push @$attributes,
+	  (
 		{ name => 'description', type => 'text', length  => 128 },
 		{ name => 'length',      type => 'int',  tooltip => 'length - Valid for text fields only' },
 		{
@@ -2470,8 +2477,8 @@ sub get_eav_fields_table_attributes {
 		{
 			name    => 'placeholder',
 			type    => 'text',
-			length  => 20,
-			tooltip => 'placeholder - Helpful text that will appear within the search box when empty.'
+			length  => 30,
+			tooltip => 'placeholder - Placeholder text that will appear within the search box when empty.'
 		},
 		{
 			name     => 'no_curate',
@@ -2489,7 +2496,7 @@ sub get_eav_fields_table_attributes {
 		},
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 }
-	);
+	  );
 	return $attributes;
 }
 
@@ -2624,6 +2631,12 @@ sub get_lincode_schemes_table_attributes {
 			comments => q(Show in main results table.),
 			tooltip  => q(Maindisplay - Note that setting maindisplay to false for )
 			  . q(the scheme will override this setting.)
+		  },
+		  {
+			name    => 'placeholder',
+			type    => 'text',
+			length  => 30,
+			tooltip => 'placeholder - Placeholder text that will appear within the search box when empty.'
 		  };
 	}
 	push @$attributes,
@@ -2671,6 +2684,12 @@ sub get_lincode_fields_table_attributes {
 			comments => q(Show in main results table.),
 			tooltip  => q(Maindisplay - Note that setting maindisplay to false for )
 			  . q(the scheme will override this setting.)
+		  },
+		  {
+			name    => 'placeholder',
+			type    => 'text',
+			length  => 30,
+			tooltip => 'placeholder - Placeholder text that will appear within the search box when empty.'
 		  };
 	}
 	push @$attributes,
