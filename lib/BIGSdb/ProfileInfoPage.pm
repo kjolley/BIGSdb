@@ -483,7 +483,7 @@ sub _get_lincode_values {
 			$scheme_id, { fetch => 'col_arrayref' } );
 		my $join_table =
 		    q[lincodes LEFT JOIN lincode_prefixes ON lincodes.scheme_id=lincode_prefixes.scheme_id AND (]
-		  . q[array_to_string(lincodes.lincode,'_') LIKE (REPLACE(lincode_prefixes.prefix,'_','\_') || E'\_' || '%') ]
+		  . q[array_to_string(lincodes.lincode,'_') LIKE (REPLACE(lincode_prefixes.prefix,'_','\_') || E'\\\_' || '%') ]
 		  . q[OR array_to_string(lincodes.lincode,'_') = lincode_prefixes.prefix)];
 		foreach my $field (@$lincode_fields) {
 			my $type =
