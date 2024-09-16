@@ -2,7 +2,7 @@
 #Define LINcodes from cgMLST profiles
 #Written by Keith Jolley
 #Based on code by Melanie Hennart (https://gitlab.pasteur.fr/BEBP/LINcoding).
-#Copyright (c) 2022-2023, University of Oxford
+#Copyright (c) 2022-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20230222
+#Version: 20240916
 use strict;
 use warnings;
 use 5.010;
@@ -202,7 +202,7 @@ sub get_lincode_definitions {
 	my $scheme_info = $script->{'datastore'}->get_scheme_info( $opts{'scheme_id'}, { get_pk => 1 } );
 	my $pk          = $scheme_info->{'primary_key'};
 	my $data        = $script->{'datastore'}->run_query(
-		"SELECT profile_id,lincode,profile FROM lincodes l JOIN mv_scheme_$opts{'scheme_id'} s ON "
+		"SELECT l.profile_id,lincode,profile FROM lincodes l JOIN mv_scheme_$opts{'scheme_id'} s ON "
 		  . "l.profile_id=s.$pk WHERE scheme_id=? ORDER BY lincode",
 		$opts{'scheme_id'},
 		{ fetch => 'all_arrayref', slice => {} }
