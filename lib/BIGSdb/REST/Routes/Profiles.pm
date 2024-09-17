@@ -26,8 +26,11 @@ use Dancer2 appname => 'BIGSdb::REST::Interface';
 sub setup_routes {
 	my $self = setting('self');
 	foreach my $dir ( @{ setting('api_dirs') } ) {
-		get "$dir/db/:db/schemes/:scheme_id/profiles"             => sub { _get_profiles() };
-		get "$dir/db/:db/schemes/:scheme_id/profiles_csv"         => sub { _get_profiles_csv() };
+		get "$dir/db/:db/schemes/:scheme_id/profiles"     => sub { _get_profiles() };
+		get "$dir/db/:db/schemes/:scheme_id/profiles_csv" => sub {
+			header content_type => 'text/plain; charset=UTF-8';
+			delayed { _get_profiles_csv(); done };
+		};
 		get "$dir/db/:db/schemes/:scheme_id/profiles/:profile_id" => sub { _get_profile() };
 	}
 	return;
@@ -84,6 +87,7 @@ sub _get_profiles {
 
 sub _get_profiles_csv {
 	my $self = setting('self');
+	$self->reconnect;
 	$self->check_seqdef_database;
 	my $params = params;
 	my ( $db, $scheme_id ) = @{$params}{qw(db scheme_id)};
@@ -98,6 +102,7 @@ sub _get_profiles_csv {
 	my @fields        = ( $scheme_info->{'primary_key'}, 'profile' );
 	my $locus_indices = $self->{'datastore'}->get_scheme_locus_indices($scheme_id);
 	my @order;
+	my $limit = 10000;
 
 	foreach my $locus (@$loci) {
 		my $locus_info   = $self->{'datastore'}->get_locus_info( $locus, { set_id => $set_id } );
@@ -122,7 +127,7 @@ sub _get_profiles_csv {
 		push @heading, @$lincode_fields;
 	}
 	local $" = "\t";
-	my $buffer = "@heading\n";
+	content "@heading\n";
 	local $" = ',';
 	my $scheme_warehouse = "mv_scheme_$scheme_id";
 	my $date_restriction = $self->{'datastore'}->get_date_restriction;
@@ -131,17 +136,12 @@ sub _get_profiles_csv {
 	my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
 	my $qry = $self->add_filters( "SELECT @fields FROM $scheme_warehouse$date_restriction_clause", $allowed_filters );
 	$qry .= ' ORDER BY ' . ( $pk_info->{'type'} eq 'integer' ? "CAST($primary_key AS int)" : $primary_key );
+	$qry .= " LIMIT $limit OFFSET ?";
 	my $profiles_exist =
 	  $self->{'datastore'}->run_query("SELECT EXISTS(SELECT COUNT(*) FROM $scheme_warehouse$date_restriction_clause)");
 
 	if ( !$profiles_exist ) {
 		send_error( "No profiles for scheme $scheme_id are defined.", 404 );
-	}
-	my $profile_sth = $self->{'db'}->prepare($qry);
-	eval { $profile_sth->execute };
-	if ($@) {
-		$self->{'logger'}->error($@);
-		return;
 	}
 	my $lincodes;
 	if ($lincodes_defined) {
@@ -149,26 +149,28 @@ sub _get_profiles_csv {
 			$scheme_id, { fetch => 'all_hashref', key => 'profile_id' } );
 	}
 	local $" = "\t";
-	my $rowcache;
-	{
+	my $continue = 1;
+	my $offset   = 0;
+	while ($continue) {
 		no warnings 'uninitialized';    #scheme field values may be undefined
-		while ( my $definition = shift(@$rowcache)
-			|| shift( @{ $rowcache = $profile_sth->fetchall_arrayref( undef, 1000 ) || [] } ) )
-		{
+		my $definitions = $self->{'datastore'}->run_query( $qry, $offset,
+			{ fetch => 'all_arrayref', cache => 'Profiles::get_profiles_csv::get_profiles' } );
+		foreach my $definition (@$definitions) {
 			my $pk      = shift @$definition;
 			my $profile = shift @$definition;
-			$buffer .= qq($pk\t@$profile[@order]);
-			$buffer .= qq(\t@$definition) if @$scheme_fields > 1;
+			content qq($pk\t@$profile[@order]);
+			content qq(\t@$definition) if @$scheme_fields > 1;
 			if ($lincodes_defined) {
 				my $lincode = $lincodes->{$pk}->{'lincode'} // [];
 				local $" = q(_);
-				$buffer .= qq(\t@$lincode);
-				$buffer .= _print_lincode_fields( $scheme_id, $lincode_fields, qq(@$lincode) );
+				content qq(\t@$lincode);
+				content _print_lincode_fields( $scheme_id, $lincode_fields, qq(@$lincode) );
 			}
-			$buffer .= qq(\n);
+			content qq(\n);
 		}
+		$offset += $limit;
+		$continue = 0 if !@$definitions;
 	}
-	send_file( \$buffer, content_type => 'text/plain; charset=UTF-8' );
 	return;
 }
 
