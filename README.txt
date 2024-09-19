@@ -1,3 +1,6 @@
+v1.48.1: *Fix for LIN code prefix field lookup on web/REST profile pages.
+         *Fix for LIN code assignment when scheme has field called profile_id.
+         *Performance improvement for API cgMLST profile download.
 v1.48.0: *Add support for placeholder text on isolate query forms. Placeholders
           can be defined for provenance fields in config.xml or for scheme/LIN
           code fields by adding a placeholder value in the appropriate table.
