@@ -1083,4 +1083,21 @@ sub round {
 	my ($number) = @_;
 	return int( $number + 0.5 * ( $number <=> 0 ) );
 }
+
+#Pad multi-dimensional arrayref so that all inner arrays have the same length.
+sub pad_arrayref {
+    my ($array_ref, $pad_value) = @_;
+    
+    # Find the maximum length of the inner arrays
+    my $max_length = 0;
+    foreach my $inner_array (@$array_ref) {
+        $max_length = @$inner_array if @$inner_array > $max_length;
+    }
+
+    # Pad each inner array to the maximum length
+    foreach my $inner_array (@$array_ref) {
+        push @$inner_array, ($pad_value) x ($max_length - @$inner_array) if @$inner_array < $max_length;
+    }
+    return;
+}
 1;
