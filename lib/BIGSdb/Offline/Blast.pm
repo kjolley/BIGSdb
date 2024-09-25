@@ -381,8 +381,9 @@ sub _parse_blast_exact {
 	  @{$args}{qw (params loci blast_file options)};
 	my $matches = {};
 	$self->_read_blast_file_into_structure($blast_file);
-	my $matched_already = {};
-	my $length_cache    = {};
+	my $matched_already  = {};
+	my $length_cache     = {};
+	my $locus_info_cache = {};
   RECORD: foreach my $record ( @{ $self->{'records'} } ) {
 		my $match;
 		if ( $record->[2] == 100 ) {    #identity
@@ -390,7 +391,6 @@ sub _parse_blast_exact {
 			my ( $locus, $match_allele_id ) = split( /\|/x, $record->[1], 2 );
 			$locus =~ s/__prime__/'/gx;
 			my $locus_match = $matches->{$locus} // [];
-			my $locus_info  = $self->{'datastore'}->get_locus_info($locus);
 			$allele_id = $match_allele_id;
 			if ( !$length_cache->{$locus}->{$allele_id} ) {
 				$length_cache->{$locus}->{$allele_id} = $self->{'datastore'}->run_query(
@@ -413,7 +413,10 @@ sub _parse_blast_exact {
 				next RECORD if $matched_already->{$locus}->{ $match->{'allele'} }->{ $match->{'start'} };
 				$matched_already->{$locus}->{ $match->{'allele'} }->{ $match->{'start'} } = 1;
 
-				if ( $locus_info->{'match_longest'} && @$locus_match ) {
+				if ( !defined $locus_info_cache->{$locus} ) {
+					$locus_info_cache->{$locus} = $self->{'datastore'}->get_locus_info($locus);
+				}
+				if ( $locus_info_cache->{$locus}->{'match_longest'} && @$locus_match ) {
 					if ( $match->{'length'} > $locus_match->[0]->{'length'} ) {
 						@$locus_match = ($match);
 					}
@@ -510,21 +513,36 @@ sub _lookup_partial_matches {
 	my $locus_info              = $self->{'datastore'}->get_locus_info($locus);
 	my $qry_type                = BIGSdb::Utils::sequence_type($seq_ref);
 	my $length_cache            = {};
+	my %cache;
+
 	foreach my $match (@$locus_matches) {
 		my $seq = $self->_extract_match_seq_from_query( $seq_ref, $match );
 		if ( $locus_info->{'data_type'} eq 'peptide' && $qry_type eq 'DNA' ) {
 			my $seq_obj = Bio::Seq->new( -seq => $seq, -alphabet => 'dna' );
 			$seq = $seq_obj->translate->seq;
 		}
-		my $allele_id = $self->{'datastore'}
-		  ->run_query( 'SELECT allele_id FROM sequences WHERE (locus,md5(sequence))=(?,md5(?))', [ $locus, $seq ] );
+		my $hash = Digest::MD5::md5_hex($seq);
+		if ( !defined $cache{$hash} ) {
+			$cache{$hash} = $self->{'datastore'}->run_query(
+				'SELECT allele_id FROM sequences WHERE (locus,md5(sequence))=(?,?)',
+				[ $locus, $hash ],
+				{ cache => 'Blast::lookup_partial_matches::check_md5' }
+			);
+		}
+		my $allele_id = $cache{$hash};
 
 		#Check for RNA/DNA versions
 		if ( !defined $allele_id && $qry_type eq 'DNA' ) {
 			( my $new_seq = $seq ) =~ tr/UT/TU/;
-			$allele_id =
-			  $self->{'datastore'}->run_query( 'SELECT allele_id FROM sequences WHERE (locus,md5(sequence))=(?,md5(?))',
-				[ $locus, $new_seq ] );
+			$hash = Digest::MD5::md5_hex($new_seq);
+			if ( !defined $cache{$hash} ) {
+				$cache{$hash} = $self->{'datastore'}->run_query(
+					'SELECT allele_id FROM sequences WHERE (locus,md5(sequence))=(?,?)',
+					[ $locus, $hash ],
+					{ cache => 'Blast::lookup_partial_matches::check_md5' }
+				);
+			}
+			$allele_id = $cache{$hash};
 		}
 		if ( defined $allele_id && !$already_matched_alleles{$allele_id} ) {
 			$match->{'from_partial'}         = 1;
