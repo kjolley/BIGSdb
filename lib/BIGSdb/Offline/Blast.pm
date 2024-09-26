@@ -511,10 +511,13 @@ sub _lookup_partial_matches {
 	return if !@$locus_matches;
 	my %already_matched_alleles = map { $_->{'allele'} => 1 } @{ $exact_matches->{$locus} };
 	my $locus_info              = $self->{'datastore'}->get_locus_info($locus);
-	my $qry_type                = BIGSdb::Utils::sequence_type($seq_ref);
-	my $length_cache            = {};
+	my $qry_type;
+	if ( !$self->{'cache'}->{'sequence_type'}->{$seq_ref} ) {
+		$self->{'cache'}->{'sequence_type'}->{$seq_ref} = BIGSdb::Utils::sequence_type($seq_ref);
+	}
+	$qry_type = $self->{'cache'}->{'sequence_type'}->{$seq_ref};
+	my $length_cache = {};
 	my %cache;
-
 	foreach my $match (@$locus_matches) {
 		my $seq = $self->_extract_match_seq_from_query( $seq_ref, $match );
 		if ( $locus_info->{'data_type'} eq 'peptide' && $qry_type eq 'DNA' ) {
