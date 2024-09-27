@@ -388,18 +388,23 @@ sub _parse_blast_exact {
 		my $match;
 		if ( $record->[2] == 100 ) {    #identity
 			my $allele_id;
-			my ( $locus, $match_allele_id ) = split( /\|/x, $record->[1], 2 );
+			my ( $locus, $match_allele_id, $length ) = split( /\|/x, $record->[1], 3 );
 			$locus =~ s/__prime__/'/gx;
 			my $locus_match = $matches->{$locus} // [];
 			$allele_id = $match_allele_id;
-			if ( !$length_cache->{$locus}->{$allele_id} ) {
+
+			#Allele length is now recorded in FASTA header used to create BLAST db.
+			#If old cache is still in use without this then we need to calculate it here.
+			#The following length lookup can be removed in future versions once all old
+			#BLAST caches have expired.
+			if ( !defined $length && !defined $length_cache->{$locus}->{$allele_id} ) {
 				$length_cache->{$locus}->{$allele_id} = $self->{'datastore'}->run_query(
 					'SELECT length(sequence) FROM sequences WHERE (locus,allele_id)=(?,?)',
 					[ $locus, $allele_id ],
 					{ cache => 'Blast::get_seq_length' }
 				);
 			}
-			my $ref_length = $length_cache->{$locus}->{$allele_id};
+			my $ref_length = $length // $length_cache->{$locus}->{$allele_id} // 0;
 			next if !defined $ref_length;
 			if ( $self->_does_blast_record_match( $record, $ref_length ) ) {
 				$match->{'query'}     = $record->[0];
@@ -454,6 +459,7 @@ sub _parse_blast_partial {
 			$record->[3] *= 3;
 		}
 		if ( $record->[2] >= $identity || ( !@$locus_match && $return_best_poor_identity ) ) {
+
 			#Allele length is now recorded in FASTA header used to create BLAST db.
 			#If old cache is still in use without this then we need to calculate it here.
 			#The following length lookup can be removed in future versions once all old
@@ -726,8 +732,8 @@ sub _create_blast_database {
 		return;
 	}
 	my $list_table = $self->{'datastore'}->create_temp_list_table_from_array( 'text', $loci );
-	my $qry        = q(SELECT locus,allele_id,sequence from sequences WHERE locus IN )
-	  . qq((SELECT value FROM $list_table) AND allele_id NOT IN ('N','0','P'));
+	my $qry        = qq(SELECT locus,allele_id,sequence from sequences s JOIN $list_table l ON )
+	  . q(s.locus=l.value AND allele_id NOT IN ('N','0','P'));
 	if ($exemplar) {
 		my $exemplars_defined = $self->{'datastore'}
 		  ->run_query("SELECT EXISTS(SELECT * FROM sequences s JOIN $list_table l ON s.locus=l.value WHERE exemplar)");
