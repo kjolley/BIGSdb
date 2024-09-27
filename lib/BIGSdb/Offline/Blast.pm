@@ -518,7 +518,13 @@ sub _lookup_partial_matches {
 	$qry_type = $self->{'cache'}->{'sequence_type'}->{$seq_ref};
 	my $length_cache = {};
 	my %cache;
+
+	#Only check top 20 matches for each length.
+	my %length_count;
 	foreach my $match (@$locus_matches) {
+		my $allele_id;
+		$length_count{ $match->{'length'} }++;
+		next if $length_count{ $match->{'length'} } >= 20;
 		my $seq = $self->_extract_match_seq_from_query( $seq_ref, $match );
 		if ( $locus_info->{'data_type'} eq 'peptide' && $qry_type eq 'DNA' ) {
 			my $seq_obj = Bio::Seq->new( -seq => $seq, -alphabet => 'dna' );
@@ -526,27 +532,17 @@ sub _lookup_partial_matches {
 		}
 		my $hash = Digest::MD5::md5_hex($seq);
 		if ( !defined $cache{$hash} ) {
+
+			#Also check for RNA/DNA versions
+			( my $new_seq = $seq ) =~ tr/UT/TU/;
+			my $new_hash = Digest::MD5::md5_hex($new_seq);
 			$cache{$hash} = $self->{'datastore'}->run_query(
-				'SELECT allele_id FROM sequences WHERE (locus,md5(sequence))=(?,?)',
-				[ $locus, $hash ],
+				'SELECT allele_id FROM sequences WHERE locus=? AND md5(sequence) IN (?,?)',
+				[ $locus, $hash, $new_hash ],
 				{ cache => 'Blast::lookup_partial_matches::check_md5' }
 			);
 		}
-		my $allele_id = $cache{$hash};
-
-		#Check for RNA/DNA versions
-		if ( !defined $allele_id && $qry_type eq 'DNA' ) {
-			( my $new_seq = $seq ) =~ tr/UT/TU/;
-			$hash = Digest::MD5::md5_hex($new_seq);
-			if ( !defined $cache{$hash} ) {
-				$cache{$hash} = $self->{'datastore'}->run_query(
-					'SELECT allele_id FROM sequences WHERE (locus,md5(sequence))=(?,?)',
-					[ $locus, $hash ],
-					{ cache => 'Blast::lookup_partial_matches::check_md5' }
-				);
-			}
-			$allele_id = $cache{$hash};
-		}
+		$allele_id = $cache{$hash};
 		if ( defined $allele_id && !$already_matched_alleles{$allele_id} ) {
 			$match->{'from_partial'}         = 1;
 			$match->{'partial_match_allele'} = $match->{'allele'};
