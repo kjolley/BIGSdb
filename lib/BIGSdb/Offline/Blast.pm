@@ -446,7 +446,7 @@ sub _parse_blast_partial {
 	my $length_cache = {};
   RECORD: foreach my $record ( @{ $self->{'records'} } ) {
 		my $allele_id;
-		my ( $locus, $match_allele_id ) = split( /\|/x, $record->[1], 2 );
+		my ( $locus, $match_allele_id, $length ) = split( /\|/x, $record->[1], 3 );
 		next if $exact_matches->{$locus} && !$self->{'options'}->{'exemplar'} && !$self->{'options'}->{'find_similar'};
 		my $locus_match = $partial_matches->{$locus} // [];
 		$allele_id = $match_allele_id;
@@ -454,13 +454,18 @@ sub _parse_blast_partial {
 			$record->[3] *= 3;
 		}
 		if ( $record->[2] >= $identity || ( !@$locus_match && $return_best_poor_identity ) ) {
-			if ( !defined $length_cache->{$locus} ) {
+			#Allele length is now recorded in FASTA header used to create BLAST db.
+			#If old cache is still in use without this then we need to calculate it here.
+			#The following length lookup can be removed in future versions once all old
+			#BLAST caches have expired.
+			if ( !defined $length && !defined $length_cache->{$locus} ) {
 				my $locus_lengths =
 				  $self->{'datastore'}->run_query( 'SELECT allele_id,length(sequence) FROM sequences WHERE locus=?',
 					$locus, { fetch => 'all_arrayref', cache => 'Blast::get_locus_seq_length' } );
 				$length_cache->{$locus}->{ $_->[0] } = $_->[1] foreach @$locus_lengths;
+				$length = $length_cache->{$locus}->{$allele_id} // 0;
 			}
-			my $length = $length_cache->{$locus}->{$allele_id} // 0;
+			$length //= $length_cache->{$locus}->{$allele_id} // 0;
 			if ( $record->[3] >= $alignment * 0.01 * $length || ( !@$locus_match && $return_best_poor_alignment ) ) {
 				my $match;
 				$match->{'query'}      = $record->[0];
@@ -743,7 +748,8 @@ sub _create_blast_database {
 	}
 	flock( $fasta_fh, LOCK_EX ) or $self->{'logger'}->error("Cannot flock $fasta_file: $!");
 	foreach my $allele (@$data) {
-		say $fasta_fh ">$allele->[0]|$allele->[1]\n$allele->[2]";
+		my $length = length( $allele->[2] );
+		say $fasta_fh ">$allele->[0]|$allele->[1]|$length\n$allele->[2]";
 	}
 	close $fasta_fh;
 	chmod 0666, $fasta_file;
