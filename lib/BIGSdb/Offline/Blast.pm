@@ -276,7 +276,7 @@ sub _run_blast {
 		$self->{'program'} = $program;
 		my $blast_threads = $options->{'threads'} // $self->{'config'}->{'blast_threads'} // 1;
 		my $filter        = $program eq 'blastn' ? 'dust'                            : 'seg';
-		my $word_size     = $program eq 'blastn' ? ( $options->{'word_size'} // 15 ) : 3;
+		my $word_size     = $program eq 'blastn' ? ( $options->{'word_size'} // 20 ) : 3;
 		my $format        = $args->{'alignment'} ? 0                                 : 6;
 		$options->{'num_results'} //= 1_000_000;    #effectively return all results
 		my $fasta_file = "$path/sequences.fas";
