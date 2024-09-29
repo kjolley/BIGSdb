@@ -37,7 +37,9 @@ BEGIN
 
     -- The following query returns any profile that has at least min_matches position match with
     -- the query array
-    sql_query := format('SELECT %I AS pk, %I AS profile FROM %I WHERE (SELECT COUNT(*) FROM unnest_2d_1d($1) WITH ORDINALITY AS sub_array(value,pos) WHERE pos <= array_length(profile::text[],1) AND profile[pos]=ANY(value)) >= ' ||min_matches, primary_key, field_name, table_name, query_array );
+    -- sql_query := format('SELECT %I AS pk, %I AS profile FROM %I WHERE (SELECT COUNT(*) FROM unnest_2d_1d($1) WITH ORDINALITY AS sub_array(value,pos) WHERE pos <= array_length(profile::text[],1) AND profile[pos]=ANY(value)) >= ' ||min_matches, primary_key, field_name, table_name, query_array );
+    sql_query := format('SELECT %I AS pk, %I AS profile FROM %I', primary_key, field_name, table_name);
+    
     RAISE NOTICE '% SQL query: %', clock_timestamp(),sql_query;
     RAISE NOTICE '% Query array: %', clock_timestamp(),query_array;
     

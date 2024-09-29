@@ -771,10 +771,9 @@ sub _get_closest_matching_profile {
 	}
 	$self->{logger}->error('Running best match function');
 	BIGSdb::Utils::pad_arrayref( $query_array, 'N' );
-	my $min_match = int(0.5 * @locus_list); #Only check profiles that match at >=50% loci.
 	my $best_match = $self->{'datastore'}->run_query(
-		'SELECT profile_id,mismatches FROM get_best_match(?,?,?,?,?)',
-		[ "mv_scheme_$scheme_id", lc($pk_field), 'profile', $query_array, $min_match ],
+		'SELECT profile_id,mismatches FROM get_best_match(?,?,?,?)',
+		[ "mv_scheme_$scheme_id", lc($pk_field), 'profile', $query_array ],
 		{ fetch => 'all_arrayref', slice => {} }
 	);
 	use Data::Dumper;
