@@ -338,15 +338,14 @@ sub _parse_blast_exact_diploid {
 	my $fasta           = BIGSdb::Utils::read_fasta( $self->{'seq_ref'}, { allow_peptide => 1 } );
   RECORD: foreach my $record ( @{ $self->{'records'} } ) {
 		my $match;
-		my $allele_id;
-		my ( $locus, $match_allele_id ) = split( /\|/x, $record->[1], 2 );
+		my $separator = index( $record->[1], '||' ) != -1 ? '\|\|' : '\|';
+		my ( $locus, $allele_id, $length ) = split( /$separator/x, $record->[1], 3 );
 		$locus =~ s/__prime__/'/gx;
 		my $locus_match = $matches->{$locus} // [];
 		my $locus_info  = $self->{'datastore'}->get_locus_info($locus);
-		$allele_id = $match_allele_id;
-		my $allele_seq = $self->{'datastore'}->get_sequence( $locus, $allele_id );
+		my $allele_seq  = $self->{'datastore'}->get_sequence( $locus, $allele_id );
 		next if !$allele_seq;
-		my $length = length $$allele_seq;
+		$length //= length $$allele_seq;    #Pre v1.48.1, the length was not written to FASTA header.
 		$match->{'query'} = $record->[0];
 		my $qry_seq        = $fasta->{ $match->{'query'} };
 		my $rev_allele_seq = BIGSdb::Utils::reverse_complement( $$allele_seq, { diploid => 1 } );
@@ -386,12 +385,14 @@ sub _parse_blast_exact {
 	my $locus_info_cache = {};
   RECORD: foreach my $record ( @{ $self->{'records'} } ) {
 		my $match;
-		if ( $record->[2] == 100 ) {    #identity
-			my $allele_id;
-			my ( $locus, $match_allele_id, $length ) = split( /\|/x, $record->[1], 3 );
+		if ( $record->[2] == 100 ) {
+
+			#Divider in FASTA header changed to || after v1.48.1 to allow '|' in allele id.
+			#Need to check in case old BLAST cache is being used.
+			my $separator = index( $record->[1], '||' ) != -1 ? '\|\|' : '\|';
+			my ( $locus, $allele_id, $length ) = split( /$separator/x, $record->[1], 3 );
 			$locus =~ s/__prime__/'/gx;
 			my $locus_match = $matches->{$locus} // [];
-			$allele_id = $match_allele_id;
 
 			#Allele length is now recorded in FASTA header used to create BLAST db.
 			#If old cache is still in use without this then we need to calculate it here.
@@ -450,11 +451,13 @@ sub _parse_blast_partial {
 	$self->_read_blast_file_into_structure($blast_file);
 	my $length_cache = {};
   RECORD: foreach my $record ( @{ $self->{'records'} } ) {
-		my $allele_id;
-		my ( $locus, $match_allele_id, $length ) = split( /\|/x, $record->[1], 3 );
+
+		#Divider in FASTA header changed to || after v1.48.1 to allow '|' in allele id.
+		#Need to check in case old BLAST cache is being used.
+		my $separator = index( $record->[1], '||' ) != -1 ? '\|\|' : '\|';
+		my ( $locus, $allele_id, $length ) = split( /$separator/x, $record->[1], 3 );
 		next if $exact_matches->{$locus} && !$self->{'options'}->{'exemplar'} && !$self->{'options'}->{'find_similar'};
 		my $locus_match = $partial_matches->{$locus} // [];
-		$allele_id = $match_allele_id;
 		if ( $self->{'program'} =~ /tblast/x ) {
 			$record->[3] *= 3;
 		}
@@ -755,7 +758,7 @@ sub _create_blast_database {
 	flock( $fasta_fh, LOCK_EX ) or $self->{'logger'}->error("Cannot flock $fasta_file: $!");
 	foreach my $allele (@$data) {
 		my $length = length( $allele->[2] );
-		say $fasta_fh ">$allele->[0]|$allele->[1]|$length\n$allele->[2]";
+		say $fasta_fh ">$allele->[0]||$allele->[1]||$length\n$allele->[2]";
 	}
 	close $fasta_fh;
 	chmod 0666, $fasta_file;
