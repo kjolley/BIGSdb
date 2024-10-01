@@ -332,6 +332,7 @@ sub _update {
 	);
 	local $" = q(<br />);
 	$self->update_profile_history( $scheme_id, $profile_id, "@$updated_field" );
+	$self->mark_profile_cache_stale($scheme_id);
 	return;
 }
 

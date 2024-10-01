@@ -533,6 +533,8 @@ sub _confirm {
 	} elsif ( $table eq 'sequences' ) {
 		$self->mark_locus_caches_stale( [ $data->{'locus'} ] );
 		$self->update_blast_caches;
+	} elsif ($table eq 'profiles'){
+		$self->mark_profile_cache_stale($data->{'scheme_id'});
 	}
 	return;
 }

@@ -248,4 +248,14 @@ sub _get_cache_dir {
 	}
 	return $dir;
 }
+
+sub mark_profile_cache_stale {
+	my ( $self, $scheme_id ) = @_;
+	my $dir             = $self->_get_cache_dir($scheme_id);
+	return if !-e $dir;
+	my $stale_flag_file = "$dir/stale";
+	open( my $fh, '>', $stale_flag_file ) || $self->{'logger'}->error("Cannot mark scheme $scheme_id stale.");
+	close $fh;
+	return;
+}
 1;

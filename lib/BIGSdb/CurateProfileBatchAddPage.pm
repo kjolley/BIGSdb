@@ -632,6 +632,7 @@ sub _upload {
 	foreach my $profile_id (@profile_ids) {
 		$self->update_profile_history( $scheme_id, $profile_id, 'Profile added' );
 	}
+	$self->mark_profile_cache_stale($scheme_id);
 	return;
 }
 

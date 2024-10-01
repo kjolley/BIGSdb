@@ -325,6 +325,7 @@ sub _upload {
 					}
 				);
 				$self->update_profile_history( $scheme_id, $newdata->{"field:$primary_key"}, 'Profile added' );
+				$self->mark_profile_cache_stale($scheme_id);
 				return SUCCESS;
 			}
 		}
@@ -507,7 +508,7 @@ sub is_locus_field_bad {
 		}
 		return "$mapped value is invalid - this scheme does not allow missing (0) or arbitrary alleles (N) "
 		  . 'in the profile.';
-	} elsif ($value eq 'P'){
+	} elsif ( $value eq 'P' ) {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 		if ( $scheme_info->{'allow_presence'} ) {
 			if ( !$self->{'datastore'}->sequence_exists( $locus, $value ) ) {

@@ -233,6 +233,11 @@ sub _delete {
 	if ( $table eq 'sequences' ) {
 		$self->mark_locus_caches_stale($loci);
 		$self->update_blast_caches;
+	} elsif ($table eq 'profiles'){
+		my $scheme_id = $q->param('scheme_id');
+		if (BIGSdb::Utils::is_int($scheme_id)){
+			$self->mark_profile_cache_stale($scheme_id);
+		}
 	}
 	return;
 }

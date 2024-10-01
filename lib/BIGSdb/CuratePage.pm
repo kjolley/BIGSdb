@@ -1558,6 +1558,21 @@ sub mark_locus_caches_stale {
 	return;
 }
 
+sub mark_profile_cache_stale {
+	my ( $self, $scheme_id ) = @_;
+	my $profile_cache = BIGSdb::Offline::ProfileCache->new(
+		{
+			config_dir       => $self->{'config_dir'},
+			lib_dir          => $self->{'lib_dir'},
+			dbase_config_dir => $self->{'dbase_config_dir'},
+			instance         => $self->{'instance'},
+			logger           => $logger
+		}
+	);
+	$profile_cache->mark_profile_cache_stale($scheme_id);
+	return;
+}
+
 #This should only be called once all databases accesses have completed.
 sub update_blast_caches {
 	my ($self) = @_;
