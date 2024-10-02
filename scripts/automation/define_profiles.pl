@@ -2,7 +2,7 @@
 #Define scheme profiles found in isolate database.
 #Designed for uploading cgMLST profiles to the seqdef database.
 #Written by Keith Jolley
-#Copyright (c) 2016-2022, University of Oxford
+#Copyright (c) 2016-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20221102
+#Version: 20241002
 use strict;
 use warnings;
 use 5.010;
@@ -127,7 +127,7 @@ sub main {
 		my $field_values =
 		  $scheme->get_field_values_by_designations( $designations,
 			{ dont_match_missing_loci => $opts{'match_missing'} ? 0 : 1 } );
-		next if @$field_values;                                   #Already defined
+		next if @$field_values;    #Already defined
 		my $retval = define_new_profile($designations);
 
 		if ( $retval->{'status'} == 1 ) {
@@ -159,7 +159,25 @@ sub main {
 			}
 		}
 	}
-	refresh_caches() if $need_to_refresh_cache && !$EXIT;
+	if ($need_to_refresh_cache && !$EXIT){
+		refresh_caches() ;
+		mark_profile_cache_stale( $opts{'scheme_id'} );
+	}
+	return;
+}
+
+sub mark_profile_cache_stale {
+	my ($scheme_id) = @_;
+	my $scheme_info = $script->{'datastore'}->get_scheme_info($scheme_id);
+	if ( defined $scheme_info->{'dbase_name'} && defined $scheme_info->{'dbase_id'} ) {
+		my $dir =
+		  "$script->{'config'}->{'secure_tmp_dir'}/$scheme_info->{'dbase_name'}/scheme_$scheme_info->{'dbase_id'}"
+		  ;
+		return if !-e $dir;
+		my $stale_flag_file = "$dir/stale";
+		open( my $fh, '>', $stale_flag_file ) || $logger->error("Cannot mark scheme $scheme_id stale.");
+		close $fh;
+	}
 	return;
 }
 
@@ -202,11 +220,10 @@ sub define_new_profile {
 		my @allele_data;
 		foreach my $locus (@$loci) {
 			my $locus_name = $locus->{'profile_name'} // $locus->{'locus'};
-			my $allele_id = $designations->{$locus_name}->[0]->{'allele_id'};
+			my $allele_id  = $designations->{$locus_name}->[0]->{'allele_id'};
 			$allele_id = 'N' if $allele_id eq '0';
 			if ( allele_exists( $locus_name, $allele_id ) ) {
-				push @allele_data,
-				  [ $locus_name, $scheme_id, $next_pk, $allele_id, DEFINER_USER, 'now' ];
+				push @allele_data, [ $locus_name, $scheme_id, $next_pk, $allele_id, DEFINER_USER, 'now' ];
 			} else {
 				$message = "Allele $locus->{'locus'}-$allele_id has not been defined.";
 				$failed  = 1;
@@ -289,7 +306,7 @@ sub get_next_pk {
 	my $db        = get_seqdef_db();
 	my $scheme_id = get_remote_scheme_id();
 	my $qry =
-	    'SELECT CAST(profile_id AS int) FROM profiles WHERE scheme_id=? AND '
+		'SELECT CAST(profile_id AS int) FROM profiles WHERE scheme_id=? AND '
 	  . 'CAST(profile_id AS int)>0 UNION SELECT CAST(profile_id AS int) FROM retired_profiles '
 	  . 'WHERE scheme_id=? ORDER BY profile_id';
 	my $test = 0;
@@ -414,7 +431,7 @@ sub check_caches_defined {
 }
 
 sub get_remote_scheme_id {
-	my $db = get_seqdef_db();
+	my $db          = get_seqdef_db();
 	my $scheme_info = $script->{'datastore'}->get_scheme_info( $opts{'scheme_id'}, { get_pk => 1 } );
 	return $scheme_info->{'dbase_id'} if $scheme_info->{'dbase_id'};
 	die "The scheme id in the seqdef database is not properly set for this scheme in the isolate database.\n";
@@ -453,7 +470,7 @@ sub check_scheme_properly_defined {
 	my $remote_pk = $script->{'datastore'}->run_query( 'SELECT * FROM scheme_fields WHERE scheme_id=? AND primary_key',
 		$remote_scheme_id, { db => $db, fetch => 'row_hashref' } );
 	die "No primary key field is set for the scheme in the seqdef database.\n" if !$remote_pk;
-	die "Remote primary key is not an integer field.\n" if $remote_pk->{'type'} ne 'integer';
+	die "Remote primary key is not an integer field.\n"                        if $remote_pk->{'type'} ne 'integer';
 	die "The primary key fields do not match in the isolate and seqdef databases.\n"
 	  if $scheme_info->{'primary_key'} ne $remote_pk->{'field'};
 	return;
@@ -487,8 +504,7 @@ sub get_seqdef_db {
 				dbase_name => $scheme_info->{'dbase_name'}
 			}
 		);
-	}
-	catch {
+	} catch {
 		if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
 			$script->{'logger'}->error('Cannot connect to seqdef database');
 			say 'Cannot connect to seqdef database';
@@ -501,7 +517,7 @@ sub get_seqdef_db {
 }
 
 sub refresh_caches {
-	return if !$opts{'cache'};
+	return                     if !$opts{'cache'};
 	say 'Refreshing caches...' if !$opts{'quiet'};
 	$script->{'datastore'}
 	  ->create_temp_isolate_scheme_fields_view( $opts{'scheme_id'}, { cache => 1, method => 'incremental' } );
@@ -515,8 +531,8 @@ sub defined_in_cache {
 	my $cache_tables       = get_cache_table_names();
 	my $scheme_loci        = $script->{'datastore'}->get_scheme_loci( $opts{'scheme_id'} );
 	my $scheme_locus_count = scalar @$scheme_loci;
-	my $scheme_info = $script->{'datastore'}->get_scheme_info( $opts{'scheme_id'}, { get_pk => 1 } );
-	my $pk = $scheme_info->{'primary_key'};
+	my $scheme_info        = $script->{'datastore'}->get_scheme_info( $opts{'scheme_id'}, { get_pk => 1 } );
+	my $pk                 = $scheme_info->{'primary_key'};
 	if ( $opts{'match_missing'} ) {
 
 		#Determine if a profile is cached that has the same number of missing loci as the isolate
@@ -580,7 +596,7 @@ sub show_help {
 	my $termios = POSIX::Termios->new;
 	$termios->getattr;
 	my $ospeed = $termios->getospeed;
-	my $t = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
+	my $t      = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
 	my ( $norm, $bold, $under ) = map { $t->Tputs( $_, 1 ) } qw(me md us);
 	say << "HELP";
 ${bold}NAME$norm
