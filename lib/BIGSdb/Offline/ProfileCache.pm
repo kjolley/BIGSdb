@@ -24,6 +24,7 @@ use parent qw(BIGSdb::Offline::Script);
 use File::Path qw(make_path remove_tree);
 use Fcntl qw(:flock);
 use Text::CSV;
+use JSON;
 
 sub get_profiles {
 	my ( $self, $scheme_id, $options ) = @_;
@@ -42,37 +43,46 @@ sub get_profiles {
 		flock( $lock_fh, LOCK_SH ) or $self->{'logger'}->error("Cannot flock $lock_file: $!");
 		close $lock_fh;
 	}
-	my $filename = "$path/profiles.tsv";
-	if ( !-e $filename ) {
-		$self->{'logger'}->error("Cache file $filename does not exist.");
-		return;
-	}
 	my $scheme_info =
 	  $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $options->{'set_id'}, get_pk => 1 } );
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $profiles      = [];
-	my $non_pk_fields = @$scheme_fields - 1;
-	open( my $fh, '<:encoding(utf8)', $filename ) || $self->{'logger'}->error("Cannot open $filename for reading.");
-	my $tsv    = Text::CSV->new( { sep_char => "\t" } );
-	my $header = 1;
-
-	while ( my $row = $tsv->getline($fh) ) {
-		if ($header) {
-			$header = 0;
-			next;
-		}
-		my $pk = shift @$row;
-		for ( 0 .. $non_pk_fields - 1 ) {
-			pop @$row;
-		}
-		push @$profiles,
-		  {
-			pk      => $pk,
-			profile => $row
-		  };
+	my $filename      = "$path/profiles.dump";
+	if ( !-e $filename ) {
+		$self->{'logger'}->error("Cache file $filename does not exist.");
+		return;
 	}
-	close;
+	open( my $fh, '<:encoding(utf8)', $filename ) || $self->{'logger'}->error("Cannot open $filename for reading.");
+	my $parse_needed = -e "$path/PARSE_NEEDED";
+	if ( !$parse_needed ) {    #No double quotes - can just split on comma.
+		while ( my $row = <$fh> ) {
+			my ( $pk, $profile ) = split /\t/x, $row;
+			$profile =~ s/^\{//x;    # Remove the curly braces (separate statements is quicker)
+			$profile =~ s/\}$//x;
+			my @profile = split( ',', $profile );
+			push @$profiles,
+			  {
+				pk      => $pk,
+				profile => \@profile
+			  };
+		}
+	} else {
+		my $array_parser = Text::CSV->new( { binary => 1, sep_char => ',', quote_char => '"' } );
+		eval {
+			while ( my $row = <$fh> ) {
+				my ( $pk, $profile ) = split /\t/x, $row;
+				$profile =~ s/^\{//x;
+				$profile =~ s/\}$//x;
+				$array_parser->parse($profile);
+				my @profile = $array_parser->fields;
+				eval { push @$profiles, { pk => $pk, profile => \@profile } };
+				$self->{'logger'}->error($@) if $@;
+			}
+		};
+		$self->{'logger'}->error($@) if $@;
+	}
+	close $fh;
 	unlink $read_file;
 	return $profiles;
 }
@@ -95,65 +105,45 @@ sub _create_profile_cache {
 		$self->{'logger'}->error("Cannot flock $lock_file: $!");
 		return;
 	}
-	my $tsv_file = "$path/profiles.tsv";
-	unlink $tsv_file;    #Recreate rather than overwrite to ensure both apache and bigsdb users can write
 	my $scheme_info =
 	  $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $options->{'set_id'}, get_pk => 1 } );
-	my $primary_key   = $scheme_info->{'primary_key'};
-	my @heading       = ( $scheme_info->{'primary_key'} );
-	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-	my @fields        = ( $scheme_info->{'primary_key'}, 'profile' );
-	my $locus_indices = $self->{'datastore'}->get_scheme_locus_indices($scheme_id);
-	my @order;
-	my $limit = 10000;
-
-	foreach my $locus (@$loci) {
-		my $locus_info   = $self->{'datastore'}->get_locus_info( $locus, { set_id => $options->{'set_id'} } );
-		my $header_value = $locus_info->{'set_name'} // $locus;
-		push @heading, $header_value;
-		push @order,   $locus_indices->{$locus};
-	}
-	foreach my $field (@$scheme_fields) {
-		next if $field eq $scheme_info->{'primary_key'};
-		push @heading, $field;
-		push @fields,  $field;
-	}
 	my $scheme_warehouse = "mv_scheme_$scheme_id";
-	my $pk_info          = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
-	local $" = ',';
-	my $qry = "SELECT @fields FROM $scheme_warehouse";
-	$qry .= ' ORDER BY ' . ( $pk_info->{'type'} eq 'integer' ? "CAST($primary_key AS int)" : $primary_key );
-	$qry .= " LIMIT $limit OFFSET ?";
-	local $" = "\t";
+	my $dump_file        = "$path/profiles.dump";
 	my $profile_fh;
-	make_path($path);    #In case directory has since been deleted.
-
-	if ( !open( $profile_fh, '>:encoding(utf8)', $tsv_file ) ) {
-		$self->{'logger'}->error("Cannot open $tsv_file for writing");
+	if ( !open( $profile_fh, '>:encoding(utf8)', $dump_file ) ) {
+		$self->{'logger'}->error("Cannot open $dump_file for writing");
 		return;
 	}
-	local $" = "\t";
-	say $profile_fh "@heading";
-	my $offset = 0;
-	while (1) {
-		no warnings 'uninitialized';    #scheme field values may be undefined
-		my $definitions = $self->{'datastore'}
-		  ->run_query( $qry, $offset, { fetch => 'all_arrayref', cache => 'ProfileCache::create_profile_cache' } );
-		foreach my $definition (@$definitions) {
-			my $pk      = shift @$definition;
-			my $profile = shift @$definition;
-			print $profile_fh qq($pk\t@$profile[@order]);
-			print $profile_fh qq(\t@$definition) if @$scheme_fields > 1;
-			print $profile_fh qq(\n);
+	my @fields = ( lc( $scheme_info->{'primary_key'} ), 'profile' );
+	local $" = q(,);
+	$self->{'db'}->do("COPY $scheme_warehouse(@fields) TO STDOUT");
+	my $row;
+	my $array_parser = Text::CSV->new( { binary => 1, sep_char => ',', quote_char => '"' } );
+	my $quotes_found;
+	while ( $self->{'db'}->pg_getcopydata($row) >= 0 ) {
+		print $profile_fh $row;
+		my ( $pk, $profile ) = split /\t/x, $row;
+		$profile =~ s/^\{//x;                    # Remove the curly braces
+		$profile =~ s/\}$//x;
+		if ( index( $profile, '"' ) == -1 ) {    #No double quotes - can just split on comma.
+			my @profile = split( ',', $profile );
 			push @$profiles,
 			  {
 				pk      => $pk,
-				profile => [ @$profile[@order] ]
+				profile => \@profile
 			  };
+		} else {
+			$array_parser->parse($profile);
+			eval { push @$profiles, { pk => $pk, profile => [ $array_parser->fields ] }; };
+			$self->{'logger'}->error($@) if $@;
+			$quotes_found = 1;
 		}
-		$offset += $limit;
-		last unless @$definitions;
+	}
+	close $profile_fh;
+	if ($quotes_found) {
+		my $flag_file = "$path/PARSE_NEEDED";
+		open( my $read_fh, '>', $flag_file ) || $self->{'logger'}->error("Cannot write $flag_file file");
+		close $read_fh;
 	}
 	if ($lock_fh) {
 		close $lock_fh;
@@ -173,7 +163,7 @@ sub _cache_exists {
 sub _delete_cache_if_stale {
 	my ( $self, $scheme_id ) = @_;
 	my $path           = $self->_get_cache_dir($scheme_id);
-	my $cache_is_stale = -e "$path/stale" || !-s "$path/profiles.tsv";
+	my $cache_is_stale = -e "$path/stale" || !-s "$path/profiles.dump";
 	my $cache_age      = $self->_get_cache_age($scheme_id);
 	if ( $cache_age > $self->{'config'}->{'cache_days'} || $cache_is_stale ) {
 		return $self->_delete_cache($scheme_id);
@@ -209,7 +199,7 @@ sub _delete_cache {
 		$self->{'logger'}->debug("Profile query running - cannot delete cache $path.");
 		return;
 	}
-	my $tsv_file  = "$path/profiles.tsv";
+	my $tsv_file  = "$path/profiles.dump";
 	my $lock_file = "$path/LOCK";
 	if ( -e $lock_file ) {
 		$self->{'logger'}->error("Cannot delete cache as lock file exists - $lock_file.");
@@ -235,7 +225,7 @@ sub _delete_cache {
 sub _get_cache_age {
 	my ( $self, $scheme_id ) = @_;
 	my $path       = $self->_get_cache_dir($scheme_id);
-	my $fasta_file = "$path/profiles.tsv";
+	my $fasta_file = "$path/profiles.dump";
 	return 0 if !-e $fasta_file;
 	return -M $fasta_file;
 }
@@ -251,7 +241,7 @@ sub _get_cache_dir {
 
 sub mark_profile_cache_stale {
 	my ( $self, $scheme_id ) = @_;
-	my $dir             = $self->_get_cache_dir($scheme_id);
+	my $dir = $self->_get_cache_dir($scheme_id);
 	return if !-e $dir;
 	my $stale_flag_file = "$dir/stale";
 	open( my $fh, '>', $stale_flag_file ) || $self->{'logger'}->error("Cannot mark scheme $scheme_id stale.");

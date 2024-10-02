@@ -749,95 +749,47 @@ sub _get_closest_matching_profile {
 	my $pk_info          = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $pk_field );
 	my $order            = $pk_info->{'type'} eq 'integer' ? "CAST($pk_field AS int)" : $pk_field;
 	my $loci             = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my $USE_CACHE        = 1;
 	my $least_mismatches = @$loci;
 	my $best_matches     = [];
-
-	if ($USE_CACHE) {
-		my $profile_cache = BIGSdb::Offline::ProfileCache->new(
-			{
-				config_dir       => $self->{'config_dir'},
-				lib_dir          => $self->{'lib_dir'},
-				dbase_config_dir => $self->{'dbase_config_dir'},
-				instance         => $self->{'instance'},
-				logger           => $self->{'logger'}
-			}
-		);
-		my $profiles = $profile_cache->get_profiles( $scheme_id, { set_id => $self->{'options'}->{'set_id'} } );
-	  PROFILE:
-		foreach my $profile (@$profiles) {
-			my $mismatches = 0;
-			my $index      = -1;
-		  LOCUS: foreach my $locus (@$loci) {
-				$index++;
-				next LOCUS if $profile->{'profile'}->[$index] eq 'N';
-				if ( !$designations->{$locus} ) {
-					$mismatches++;
-					next LOCUS;
-				}
-				my $alleles = $designations->{$locus};
-				foreach my $allele (@$alleles) {
-					next LOCUS if $profile->{'profile'}->[$index] eq $allele;
-				}
-				$mismatches++;
-				next PROFILE if $mismatches > $least_mismatches;    #Shortcut out
-			}
-			if ( $mismatches < $least_mismatches ) {
-				$least_mismatches = $mismatches;
-				$best_matches     = [ $profile->{'pk'} ];
-			} elsif ( $mismatches == $least_mismatches ) {
-				push @$best_matches, $profile->{'pk'};
-			}
-		}
-		use Data::Dumper;
-		$self->{logger}->error( Dumper $best_matches);
-		$self->{logger}->error( Dumper $least_mismatches);
-	} else {
-
-		#TODO Extracting all cgMLST profiles from the database can take >5s for larger schemes.
-		#This is all due to moving data over the network as it can be a few hundred MB. It would
-		#be more efficient to write the following as an embedded plpgsql function within the
-		#database and pass the matching profile in.
-		my $profile_sth =
-		  $self->{'db'}->prepare("SELECT $pk_field AS pk,profile FROM mv_scheme_$scheme_id ORDER BY $order");
-		eval { $profile_sth->execute };
-		if ($@) {
-			$self->{'logger'}->error($@);
-			return;
-		}
-		my @locus_list =
-		  sort @$loci;    #Profile array is always stored in alphabetical order, scheme order may not be
-		my $rowcache;
-	  PROFILE:
-		while ( my $profile = shift(@$rowcache)
-			|| shift( @{ $rowcache = $profile_sth->fetchall_arrayref( undef, 10_000 ) || [] } ) )
+	my $profile_cache    = BIGSdb::Offline::ProfileCache->new(
 		{
-			my $mismatches = 0;
-			my $index      = -1;
-		  LOCUS: foreach my $locus (@locus_list) {
-				$index++;
-				next LOCUS if $profile->[1]->[$index] eq 'N';
-				if ( !$designations->{$locus} ) {
-					$mismatches++;
-					next LOCUS;
-				}
-				my $alleles = $designations->{$locus};
-				foreach my $allele (@$alleles) {
-					next LOCUS if $profile->[1]->[$index] eq $allele;
-				}
-				$mismatches++;
-				next PROFILE if $mismatches > $least_mismatches;    #Shortcut out
-			}
-			if ( $mismatches < $least_mismatches ) {
-				$least_mismatches = $mismatches;
-				$best_matches     = [ $profile->[0] ];
-			} elsif ( $mismatches == $least_mismatches ) {
-				push @$best_matches, $profile->[0];
-			}
+			config_dir       => $self->{'config_dir'},
+			lib_dir          => $self->{'lib_dir'},
+			dbase_config_dir => $self->{'dbase_config_dir'},
+			instance         => $self->{'instance'},
+			logger           => $self->{'logger'}
 		}
-		$self->{logger}->error( Dumper $best_matches);
-		$self->{logger}->error( Dumper $least_mismatches);
+	);
+	my $profiles = $profile_cache->get_profiles( $scheme_id, { set_id => $self->{'options'}->{'set_id'} } );
+  PROFILE:
+
+	foreach my $profile (@$profiles) {
+		my $mismatches = 0;
+		my $index      = -1;
+	  LOCUS: foreach my $locus ( sort @$loci ) {    #Scheme cache orders loci alphabetically
+			$index++;
+			next LOCUS if $profile->{'profile'}->[$index] eq 'N';
+			if ( !$designations->{$locus} ) {
+				$mismatches++;
+				next LOCUS;
+			}
+			my $alleles = $designations->{$locus};
+			foreach my $allele (@$alleles) {
+				next LOCUS if $profile->{'profile'}->[$index] eq $allele;
+			}
+			$mismatches++;
+			next PROFILE if $mismatches > $least_mismatches;    #Shortcut out
+		}
+		if ( $mismatches < $least_mismatches ) {
+			$least_mismatches = $mismatches;
+			$best_matches     = [ $profile->{'pk'} ];
+		} elsif ( $mismatches == $least_mismatches ) {
+			push @$best_matches, $profile->{'pk'};
+		}
 	}
+	use Data::Dumper;
+	$self->{logger}->error( Dumper $best_matches);
+	$self->{logger}->error( Dumper $least_mismatches);
 	return if !@$best_matches;
 	return { profiles => $best_matches, mismatches => $least_mismatches };
 }
