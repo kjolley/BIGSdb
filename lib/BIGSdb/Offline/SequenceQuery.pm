@@ -211,7 +211,7 @@ sub _batch_query {
 				push @exact_alleles, $self->_get_allele_link( $locus, $match->{'allele'} );
 			}
 			local $" = q(, );
-			my $cleaned_locus = $self->clean_locus( $locus, { strip_links => 1 } );
+			my $cleaned_locus = $self->clean_locus( $locus, { no_common_name => 1, strip_links => 1 } );
 			if (@exact_alleles) {
 				$contig_buffer .= qq(<tr class="td$td"><td>$name</td>);
 				$contig_buffer .= qq(<td>exact</td><td>$cleaned_locus</td><td>@exact_alleles</td><td></td></tr>);
@@ -227,7 +227,7 @@ sub _batch_query {
 				my $locus_info = $self->{'datastore'}->get_locus_info( $match->{'locus'} );
 				my $qry_type   = BIGSdb::Utils::sequence_type($contig_seq);
 				$contig_buffer .= qq(<tr class="td$td"><td>$name</td>);
-				my $cleaned_locus = $self->clean_locus( $match->{'locus'}, { strip_links => 1 } );
+				my $cleaned_locus = $self->clean_locus( $match->{'locus'}, { no_common_name => 1, strip_links => 1 } );
 				my $allele_link   = $self->_get_allele_link( $match->{'locus'}, $match->{'allele'} );
 				$contig_buffer .= qq(<td>partial</td><td>$cleaned_locus</td><td>$allele_link</td>);
 				if ( $locus_info->{'data_type'} ne $qry_type ) {
@@ -466,7 +466,7 @@ sub _get_locus_matches {
 		my %existing_alleles = map { $_ => 1 } @{ $designations->{$locus} };
 		push @{ $designations->{$locus} }, $match->{'allele'} if !$existing_alleles{ $match->{'allele'} };
 		my $allele_link   = $self->_get_allele_link( $locus, $match->{'allele'} );
-		my $cleaned_locus = $self->clean_locus( $locus, { strip_links => 1 } );
+		my $cleaned_locus = $self->clean_locus( $locus, { no_common_name => 1, strip_links => 1 } );
 		$buffer .= qq(<tr class="td$$td_ref"><td>$cleaned_locus</td><td>$allele_link</td>);
 		$field_values =
 		  $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $match->{'allele'}, { table_format => 1 } );
