@@ -28,6 +28,7 @@ use BIGSdb::Constants qw(:interface);
 use Try::Tiny;
 use Storable qw(dclone);
 use Encode;
+use Text::CSV;
 use constant MAX_RESULTS_SHOW => 20;
 
 sub run {
@@ -748,51 +749,58 @@ sub _get_closest_matching_profile {
 	my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $pk_field );
 	my $order   = $pk_info->{'type'} eq 'integer' ? "CAST($pk_field AS int)" : $pk_field;
 	my $loci    = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my $profile_sth =
-	  $self->{'db'}->prepare("SELECT $pk_field AS pk,profile FROM mv_scheme_$scheme_id ORDER BY $order");
-	eval { $profile_sth->execute };
-
 	if ($@) {
 		$self->{'logger'}->error($@);
 		return;
 	}
-
-	#TODO Extracting all cgMLST profiles from the database can take >5s for larger schemes.
-	#This is all due to moving data over the network as it can be a few hundred MB. It would
-	#be more efficient to write the following as an embedded plpgsql function within the
-	#database and pass the matching profile in.
 	my $least_mismatches = @$loci;
 	my $best_matches     = [];
 	my @locus_list       = sort @$loci;   #Profile array is always stored in alphabetical order, scheme order may not be
-	my $rowcache;
-  PROFILE:
-	while ( my $profile = shift(@$rowcache)
-		|| shift( @{ $rowcache = $profile_sth->fetchall_arrayref( undef, 10_000 ) || [] } ) )
-	{
+	my $scheme_warehouse = "mv_scheme_$scheme_id";
+	$self->{'db'}->do("COPY $scheme_warehouse($pk_field,profile) TO STDOUT");
+	my $row;
+	my $array_parser = Text::CSV->new( { binary => 1, sep_char => ',', quote_char => '"' } );
+
+	while ( $self->{'db'}->pg_getcopydata($row) >= 0 ) {
+		chomp $row;
+		my ( $pk, $profile_string ) = split /\t/x, $row;
+		$profile_string =~ s/^\{//x;    # Remove the curly braces
+		$profile_string =~ s/\}$//x;    #Using 2 separate substitutions is benchmarked to much quicker.
+		my @profile;
+		if ( index( $profile_string, '"' ) == -1 ) {    #No double quotes - can just split on comma.
+			@profile = split( ',', $profile_string );
+		} else {
+			$array_parser->parse($profile_string);
+			eval { @profile = $array_parser->fields; };
+			$self->{'logger'}->error($@) if $@;
+		}
 		my $mismatches = 0;
 		my $index      = -1;
 	  LOCUS: foreach my $locus (@locus_list) {
 			$index++;
-			next LOCUS if $profile->[1]->[$index] eq 'N';
+			next LOCUS if $profile[$index] eq 'N';
 			if ( !$designations->{$locus} ) {
 				$mismatches++;
 				next LOCUS;
 			}
 			my $alleles = $designations->{$locus};
 			foreach my $allele (@$alleles) {
-				next LOCUS if $profile->[1]->[$index] eq $allele;
+				next LOCUS if $profile[$index] eq $allele;
 			}
 			$mismatches++;
-			next PROFILE if $mismatches > $least_mismatches;    #Shortcut out
+			last LOCUS if $mismatches > $least_mismatches;    #Shortcut out
 		}
 		if ( $mismatches < $least_mismatches ) {
 			$least_mismatches = $mismatches;
-			$best_matches     = [ $profile->[0] ];
+			$best_matches     = [$pk];
 		} elsif ( $mismatches == $least_mismatches ) {
-			push @$best_matches, $profile->[0];
+			push @$best_matches, $pk;
 		}
 	}
 	return if !@$best_matches;
+	use Data::Dumper;
+	$self->{'logger'}->error( Dumper $best_matches);
+	$self->{'logger'}->error($least_mismatches);
 	return { profiles => $best_matches, mismatches => $least_mismatches };
 }
 
