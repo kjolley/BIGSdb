@@ -749,10 +749,6 @@ sub _get_closest_matching_profile {
 	my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $pk_field );
 	my $order   = $pk_info->{'type'} eq 'integer' ? "CAST($pk_field AS int)" : $pk_field;
 	my $loci    = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	if ($@) {
-		$self->{'logger'}->error($@);
-		return;
-	}
 	my $least_mismatches = @$loci;
 	my $best_matches     = [];
 	my @locus_list       = sort @$loci;   #Profile array is always stored in alphabetical order, scheme order may not be
