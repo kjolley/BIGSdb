@@ -122,6 +122,7 @@ sub _create_profile_cache {
 	my $quotes_found;
 	while ( $self->{'db'}->pg_getcopydata($row) >= 0 ) {
 		print $profile_fh $row;
+		chomp $row;
 		my ( $pk, $profile ) = split /\t/x, $row;
 		$profile =~ s/^\{//x;                    # Remove the curly braces
 		$profile =~ s/\}$//x;
