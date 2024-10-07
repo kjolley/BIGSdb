@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -23,7 +23,6 @@ use 5.010;
 use parent qw(BIGSdb::CurateAddPage BIGSdb::SeqbinPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
-use Bio::DB::GenBank;
 use Try::Tiny;
 use File::Type;
 use IO::Uncompress::Gunzip qw(gunzip $GunzipError);
@@ -67,27 +66,6 @@ sub print_content {
 			unlink $full_path;
 			$self->_check_data($seq_ref);
 		}
-	} elsif ( $q->param('accession') ) {
-		try {
-			my $acc_seq_ref = $self->_upload_accession;
-			if ($acc_seq_ref) {
-				$self->_check_data($acc_seq_ref);
-			}
-		}
-		catch {
-			if ( $_->isa('BIGSdb::Exception::Data') ) {
-				$logger->debug($_);
-				if ( $_ eq 'INVALID_ACCESSION' ) {
-					$self->print_bad_status( { message => q(Accession is invalid.) } );
-				} elsif ( $_ eq 'NO_DATA' ) {
-					$self->print_bad_status(
-						{ message => q(The accession is valid but it contains no sequence data.) } );
-				}
-				$self->_print_interface;
-			} else {
-				$logger->logdie($_);
-			}
-		};
 	} else {
 		$self->_print_interface;
 	}
@@ -256,12 +234,6 @@ sub _print_interface {
 	say q(<div class="fakefile"><input id='fakefile' placeholder="Click to select or drag and drop..." /></div>);
 	say q(</div>);
 	say q(</fieldset>);
-
-	if ( !$self->{'config'}->{'intranet'} ) {
-		say q(<fieldset style="float:left"><legend>or enter Genbank accession</legend>);
-		say $q->textfield( -name => 'accession' );
-		say q(</fieldset>);
-	}
 	my %args =
 	  defined $q->param('isolate_id') ? ( isolate_id => scalar $q->param('isolate_id') ) : ();
 	$self->print_action_fieldset( \%args );
@@ -322,8 +294,7 @@ sub _check_data {
 		try {
 			my $data = $q->param('data');
 			$seq_ref = BIGSdb::Utils::read_fasta( $passed_seq_ref // \$data, { keep_comments => 1 } );
-		}
-		catch {
+		} catch {
 			if ( $_->isa('BIGSdb::Exception::Data') ) {
 				if ( $_ =~ /DNA/x ) {
 					my $header;
@@ -402,7 +373,7 @@ sub _check_records {
 			$num++;
 		}
 		@lengths = sort { $b <=> $a } @lengths;
-		$mean = int $total / $num if $num;
+		$mean    = int $total / $num if $num;
 		my $n_stats = BIGSdb::Utils::get_N_stats( $total, \@lengths );
 		say q(<fieldset style="float:left"><legend>Summary</legend>);
 		say $self->get_list_block(
@@ -458,8 +429,7 @@ sub _upload {
 	my $continue = 1;
 	try {
 		$seq_ref = BIGSdb::Utils::read_fasta( $fasta_ref, { keep_comments => 1 } );
-	}
-	catch {
+	} catch {
 		if ( $_->isa('BIGSdb::Exception::Data') ) {
 			$logger->error('Invalid FASTA file');
 			$continue = 0;
@@ -485,14 +455,13 @@ sub _upload {
 	}
 	my $qry = 'INSERT INTO sequence_bin (isolate_id,sequence,method,run_id,assembly_id,original_designation,'
 	  . 'comments,sender,curator,date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?,?,?,?)';
-	my $sql     = $self->{'db'}->prepare($qry);
-	my $curator = $self->get_curator_id;
-	my $sender  = $q->param('sender');
+	my $sql            = $self->{'db'}->prepare($qry);
+	my $curator        = $self->get_curator_id;
+	my $sender         = $q->param('sender');
 	my $seq_attributes = $self->{'datastore'}->run_query( 'SELECT key,type FROM sequence_attributes ORDER BY key',
 		undef, { fetch => 'all_arrayref', slice => {} } );
 	my @attribute_sql;
 	if (@$seq_attributes) {
-
 		foreach my $attribute (@$seq_attributes) {
 			if ( $q->param( $attribute->{'key'} ) ) {
 				( my $value = $q->param( $attribute->{'key'} ) ) =~ s/'/\\'/gx;
@@ -578,27 +547,6 @@ sub _upload_fasta_file {
 	print $fh $buffer;
 	close $fh;
 	return "${temp}_upload.fas";
-}
-
-sub _upload_accession {
-	my ($self)    = @_;
-	my $accession = $self->{'cgi'}->param('accession');
-	my $seq_db    = Bio::DB::GenBank->new;
-	$seq_db->retrieval_type('tempfile');    #prevent forking resulting in duplicate error message on fail.
-	my $sequence;
-	try {
-		my $seq_obj = $seq_db->get_Seq_by_acc($accession);
-		$sequence = $seq_obj->seq;
-	}
-	catch {
-		my $err = shift;
-		$logger->debug($err);
-		BIGSdb::Exception::Data->throw('INVALID_ACCESSION');
-	};
-	if ( !length($sequence) ) {
-		BIGSdb::Exception::Data->throw('NO_DATA');
-	}
-	return \">$accession\n$sequence";
 }
 
 sub get_title {
