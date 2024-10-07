@@ -756,7 +756,7 @@ sub _show_merge_user_accounts {
 	my $q      = $self->{'cgi'};
 	$buffer .= $q->start_form;
 	$buffer .= q(<fieldset style="float:left"><legend>Select site account</legend>);
-	$buffer .= $self->popup_menu( -name => 'user', -id => 'marge_user', -values => $usernames, -labels => $labels );
+	$buffer .= $self->popup_menu( -name => 'user', -id => 'merge_user', -values => $usernames, -labels => $labels );
 	$buffer .= $q->submit( -label => 'Select user', -class => 'small_submit' );
 	$buffer .= q(</fieldset>);
 	$buffer .= $q->hidden( merge_user => 1 );
