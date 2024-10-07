@@ -306,6 +306,8 @@ sub _run_blast {
 		my $shortest_seq = $self->_get_shortest_seq_length($loci_by_type);
 		if ( $shortest_seq <= 20 ) {
 			$params{'-evalue'} = 1000;
+		} elsif ($program eq 'blastn'){
+			$params{'-evalue'} = 0.001;
 		}
 		$self->{'dataConnector'}->drop_all_connections;    #Don't keep connections open while waiting for BLAST.
 		system( "$self->{'config'}->{'blast+_path'}/$program", %params );
