@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2020, University of Oxford
+#Copyright (c) 2014-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -189,7 +189,7 @@ sub _create_new_version {
 		return ERROR;
 	}
 	my $is_private   = $self->_is_private($existing_id);
-	my $fields       = $self->{'xmlHandler'}->get_field_list;
+	my $fields       = $self->{'xmlHandler'}->get_field_list( { show_hidden => 1 } );
 	my $field_values = $self->{'datastore'}->get_isolate_field_values($existing_id);
 	my (@values);
 	my $curator_id = $self->get_curator_id;

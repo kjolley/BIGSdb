@@ -28,11 +28,21 @@ sub setup_routes {
 	foreach my $dir ( @{ setting('api_dirs') } ) {
 		get "$dir/db/:db/schemes/:scheme_id/profiles"     => sub { _get_profiles() };
 		get "$dir/db/:db/schemes/:scheme_id/profiles_csv" => sub {
+			_check_scheme();    #Need to do this before setting header.
 			header content_type => 'text/plain; charset=UTF-8';
 			delayed { _get_profiles_csv(); done };
 		};
 		get "$dir/db/:db/schemes/:scheme_id/profiles/:profile_id" => sub { _get_profile() };
 	}
+	return;
+}
+
+sub _check_scheme {
+	my $self = setting('self');
+	$self->check_seqdef_database;
+	my $params = params;
+	my ( $db, $scheme_id ) = @{$params}{qw(db scheme_id)};
+	$self->check_scheme( $scheme_id, { pk => 1 } );
 	return;
 }
 
@@ -92,15 +102,14 @@ sub _get_profiles_csv {
 	my $params = params;
 	my ( $db, $scheme_id ) = @{$params}{qw(db scheme_id)};
 	my $allowed_filters = [qw(added_after added_reldate added_on updated_after updated_reldate updated_on)];
-	$self->check_scheme( $scheme_id, { pk => 1 } );
-	my $set_id        = $self->get_set_id;
-	my $scheme_info   = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
-	my $primary_key   = $scheme_info->{'primary_key'};
-	my @heading       = ( $scheme_info->{'primary_key'} );
-	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-	my @fields        = ( $scheme_info->{'primary_key'}, 'profile' );
-	my $locus_indices = $self->{'datastore'}->get_scheme_locus_indices($scheme_id);
+	my $set_id          = $self->get_set_id;
+	my $scheme_info     = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
+	my $primary_key     = $scheme_info->{'primary_key'};
+	my @heading         = ( $scheme_info->{'primary_key'} );
+	my $loci            = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $scheme_fields   = $self->{'datastore'}->get_scheme_fields($scheme_id);
+	my @fields          = ( $scheme_info->{'primary_key'}, 'profile' );
+	my $locus_indices   = $self->{'datastore'}->get_scheme_locus_indices($scheme_id);
 	my @order;
 	my $limit = 10000;
 
@@ -214,19 +223,16 @@ sub _get_profile {
 	$self->check_seqdef_database;
 	my $params = params;
 	my ( $db, $scheme_id, $profile_id ) = @{$params}{qw(db scheme_id profile_id)};
-	$self->check_scheme($scheme_id);
-	my $page        = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
-	my $set_id      = $self->get_set_id;
-	my $subdir      = setting('subdir');
-	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
-
-	if ( !$scheme_info->{'primary_key'} ) {
-		send_error( "Scheme $scheme_id does not have a primary key field.", 400 );
-	}
+	$self->check_scheme( $scheme_id, { pk => 1 } );
+	my $page             = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
+	my $set_id           = $self->get_set_id;
+	my $subdir           = setting('subdir');
+	my $scheme_info      = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
 	my $scheme_warehouse = "mv_scheme_$scheme_id";
 	my $profile =
 	  $self->{'datastore'}->run_query( "SELECT * FROM $scheme_warehouse WHERE $scheme_info->{'primary_key'}=?",
 		$profile_id, { fetch => 'row_hashref' } );
+
 	if ( !$profile ) {
 		send_error( "Profile $scheme_info->{'primary_key'}-$profile_id does not exist.", 404 );
 	}

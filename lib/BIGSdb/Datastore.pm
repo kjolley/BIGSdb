@@ -3526,7 +3526,7 @@ sub initiate_view {
 
 sub get_date_restriction {
 	my ($self) = @_;
-	my $date = $self->{'config'}->{'login_to_show_after_date'} // $self->{'system'}->{'login_to_show_after_date'};
+	my $date = $self->{'system'}->{'login_to_show_after_date'} // $self->{'config'}->{'login_to_show_after_date'};
 	return if !$date;
 	if ( !BIGSdb::Utils::is_date($date) ) {
 		$logger->error( 'Invalid login_to_show_after_date set. Date can be set in bigsdb.conf or in the database '

@@ -73,7 +73,7 @@ sub _set_field_overrides {
 	my ($self) = @_;
 	return if !$self->{'instance'};
 	my $override_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/field.overrides";
-	my %allowed_att = map { $_ => 1 } qw(required maindisplay curate_only allow_submissions default hide);
+	my %allowed_att = map { $_ => 1 } qw(required maindisplay curate_only allow_submissions default hide optlist_values);
 	if ( -e $override_file ) {
 		my $config = Config::Tiny->new();
 		$config = Config::Tiny->read($override_file);
@@ -89,7 +89,12 @@ sub _set_field_overrides {
 			}
 			my $value = $config->{_}->{$param};
 			$value =~ s/^"|"$//gx;    #Remove quotes around value
-			$self->{'xmlHandler'}->{'attributes'}->{$field}->{$attribute} = $value;
+			if ($attribute eq 'optlist_values'){
+				my @values = split('\|',$value);
+				$self->{'xmlHandler'}->{'options'}->{$field} = \@values;
+			} else {
+				$self->{'xmlHandler'}->{'attributes'}->{$field}->{$attribute} = $value;
+			}
 		}
 	}
 	return;
