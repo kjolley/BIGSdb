@@ -265,10 +265,14 @@ sub print_content {
 }
 
 sub _print_interface {
-	my ($self) = @_;
-	my $system = $self->{'system'};
-	my $prefs  = $self->{'prefs'};
-	my $q      = $self->{'cgi'};
+	my ($self)                   = @_;
+	my $system                   = $self->{'system'};
+	my $prefs                    = $self->{'prefs'};
+	my $q                        = $self->{'cgi'};
+	my $date_restriction_message = $self->get_date_restriction_message;
+	if ($date_restriction_message) {
+		say qq(<div class="box banner">$date_restriction_message</div>);
+	}
 	say q(<div class="box" id="queryform"><div class="scrollable">);
 	say $q->start_form;
 	say q(<p>Enter search criteria or leave blank to browse all records. Modify form parameters to filter or )
@@ -4542,7 +4546,7 @@ sub _get_placeholder_js {
 	return q(function initiate_placeholders(){}) if !%$placeholders;
 	my $json             = JSON->new->allow_nonref;
 	my $placeholder_json = $json->encode($placeholders);
-	my $buffer = <<"JS";
+	my $buffer           = <<"JS";
 var placeholders = $placeholder_json;
 \$(function() {	
 	initiate_placeholders();
