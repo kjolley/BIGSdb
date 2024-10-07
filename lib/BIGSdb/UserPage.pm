@@ -75,7 +75,7 @@ sub print_content {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw(jQuery noCache);
+	$self->{$_} = 1 foreach qw(jQuery noCache jQuery.multiselect);
 	return if !$self->{'config'}->{'site_user_dbs'};
 	$self->use_correct_user_database;
 	my $q = $self->{'cgi'};
@@ -756,7 +756,7 @@ sub _show_merge_user_accounts {
 	my $q      = $self->{'cgi'};
 	$buffer .= $q->start_form;
 	$buffer .= q(<fieldset style="float:left"><legend>Select site account</legend>);
-	$buffer .= $self->popup_menu( -name => 'user', -id => 'user', -values => $usernames, -labels => $labels );
+	$buffer .= $self->popup_menu( -name => 'user', -id => 'merge_user', -values => $usernames, -labels => $labels );
 	$buffer .= $q->submit( -label => 'Select user', -class => 'small_submit' );
 	$buffer .= q(</fieldset>);
 	$buffer .= $q->hidden( merge_user => 1 );
@@ -773,7 +773,7 @@ sub _show_modify_users {
 	my $q      = $self->{'cgi'};
 	$buffer .= $q->start_form;
 	$buffer .= q(<fieldset><legend>Select site account</legend>);
-	$buffer .= $self->popup_menu( -name => 'user', -id => 'user', -values => $usernames, -labels => $labels );
+	$buffer .= $self->popup_menu( -name => 'user', -id => 'modify_user', -values => $usernames, -labels => $labels );
 	$buffer .= $q->submit( -label => 'Update user', -class => 'small_submit' );
 	$buffer .= q(</fieldset>);
 	$buffer .= $q->hidden( update_user => 1 );
@@ -1078,6 +1078,16 @@ sub get_javascript {
 	    	\$("#digest_interval").prop("disabled", true);
 	    }
 	});
+	\$("#merge_user,#modify_user").multiselect({
+		noneSelectedText: "Please select...",
+		selectedList: 1,
+		menuHeight: 250,
+		menuWidth: 300,
+		classes: 'filter',
+	}).multiselectfilter({
+		placeholder: 'Search'
+	});
+	
 });
 function listbox_selectall(listID, isSelect) {
 	\$("#" + listID + " option").prop("selected",isSelect);

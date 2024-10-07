@@ -25,7 +25,6 @@ use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any uniq none);
 use BIGSdb::Constants qw(:interface);
 use BIGSdb::Offline::SequenceQuery;
-use Bio::DB::GenBank;
 use File::Type;
 use IO::Uncompress::Gunzip qw(gunzip $GunzipError);
 use IO::Uncompress::Unzip qw(unzip $UnzipError);
@@ -223,11 +222,6 @@ sub _print_interface {
 		say q(</div>);
 		say q(</fieldset>);
 	}
-	if ( $page eq 'sequenceQuery' && !$self->{'config'}->{'intranet'} && !$q->param('no_genbank') ) {
-		say q(<fieldset style="float:left"><legend>or enter Genbank accession</legend>);
-		say $q->textfield( -name => 'accession' );
-		say q(</fieldset>);
-	}
 	my $action_args;
 	$action_args->{'simple'} = 1       if $q->param('simple');
 	$action_args->{'set_id'} = $set_id if $set_id;
@@ -275,25 +269,6 @@ sub print_content {
 				$self->_run_query($seq_ref);
 				unlink $full_path;
 			}
-		} elsif ( $q->param('accession') ) {
-			try {
-				my $acc_seq = $self->_upload_accession;
-				if ($acc_seq) {
-					$self->_run_query( \$acc_seq );
-				}
-			} catch {
-				if ( $_->isa('BIGSdb::Exception::Data') ) {
-					$logger->debug($_);
-					if ( $_ =~ /INVALID_ACCESSION/x ) {
-						$self->print_bad_status( { message => q(Accession is invalid.) } );
-					} elsif ( $_ =~ /NO_DATA/x ) {
-						$self->print_bad_status(
-							{ message => q(The accession is valid but it contains no sequence data.) } );
-					}
-				} else {
-					$logger->logdie($_);
-				}
-			};
 		}
 	}
 	return;
@@ -325,26 +300,6 @@ sub _upload_fasta_file {
 	print $fh $buffer;
 	close $fh;
 	return "${temp}_upload.fas";
-}
-
-sub _upload_accession {
-	my ($self)    = @_;
-	my $accession = $self->{'cgi'}->param('accession');
-	my $seq_db    = Bio::DB::GenBank->new;
-	$seq_db->retrieval_type('tempfile');    #prevent forking resulting in duplicate error message on fail.
-	my $sequence;
-	try {
-		my $seq_obj = $seq_db->get_Seq_by_acc($accession);
-		$sequence = $seq_obj->seq;
-	} catch {
-		my $err = shift;
-		$logger->debug($err);
-		BIGSdb::Exception::Data->throw('INVALID_ACCESSION');
-	};
-	if ( !length($sequence) ) {
-		BIGSdb::Exception::Data->throw('NO_DATA');
-	}
-	return $sequence;
 }
 
 sub _run_query {
