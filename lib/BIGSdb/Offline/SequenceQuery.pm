@@ -568,6 +568,7 @@ sub _get_classification_groups {
 	  ->run_query( 'SELECT EXISTS(SELECT * FROM classification_schemes WHERE scheme_id=?)', $scheme_id );
 	my $must_match = $self->_how_many_loci_must_match($scheme_id);
 	return $buffer if $matched_loci < $must_match;
+	use Data::Dumper;$self->{logger}->error(Dumper $exact_match);
 	my $ret_val = $self->_get_closest_matching_profile( $scheme_id, $designations );
 	return $buffer if !$ret_val;
 	my $scheme_info   = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
@@ -746,11 +747,21 @@ sub _get_closest_matching_profile {
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	my $pk_field    = $scheme_info->{'primary_key'};
 	return if !$pk_field;
+	my $best_matches     = [];
+	if (defined $self->{'matching_scheme_fields'}->{$scheme_id}){
+		foreach my $match (@{$self->{'matching_scheme_fields'}->{$scheme_id}}){
+			push @$best_matches, $match->{lc($pk_field)};
+			
+		}
+		return { profiles => $best_matches, mismatches => 0 };
+	} 
+	
+	
 	my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $pk_field );
 	my $order   = $pk_info->{'type'} eq 'integer' ? "CAST($pk_field AS int)" : $pk_field;
 	my $loci    = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $least_mismatches = @$loci;
-	my $best_matches     = [];
+	
 	my @locus_list       = sort @$loci;   #Profile array is always stored in alphabetical order, scheme order may not be
 	my $scheme_warehouse = "mv_scheme_$scheme_id";
 	$self->{'db'}->do("COPY $scheme_warehouse($pk_field,profile) TO STDOUT");
@@ -794,9 +805,6 @@ sub _get_closest_matching_profile {
 		}
 	}
 	return if !@$best_matches;
-	use Data::Dumper;
-	$self->{'logger'}->error( Dumper $best_matches);
-	$self->{'logger'}->error($least_mismatches);
 	return { profiles => $best_matches, mismatches => $least_mismatches };
 }
 
@@ -849,6 +857,7 @@ sub _get_scheme_table {
 		  $self->{'datastore'}->run_query( "SELECT @$scheme_fields FROM mv_scheme_$scheme_id WHERE ($temp_qry_string)",
 			undef, { fetch => 'all_arrayref', slice => {} } );
 		return q() if !@$all_values;
+		$self->{'matching_scheme_fields'}->{$scheme_id} = $all_values;
 		my $buffer;
 		$buffer .=
 		  q(<span class="info_icon fas fa-2x fa-fw fa-fingerprint fa-pull-left" style="margin-top:-0.2em"></span>);
