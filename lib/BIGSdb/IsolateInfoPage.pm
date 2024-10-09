@@ -733,7 +733,6 @@ sub _show_lincode_matches {
 		my $i          = 0;
 		my $tdf        = 1;
 		my $tdu        = 1;
-		my $td         = 1;
 		my $default_show =
 		  BIGSdb::Utils::is_int( $self->{'system'}->{'show_lincode_thresholds'} )
 		  ? $self->{'system'}->{'show_lincode_thresholds'}
