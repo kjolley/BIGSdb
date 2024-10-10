@@ -306,7 +306,7 @@ sub _run_blast {
 		my $shortest_seq = $self->_get_shortest_seq_length($loci_by_type);
 		if ( $shortest_seq <= 20 ) {
 			$params{'-evalue'} = 1000;
-		} elsif ($program eq 'blastn'){
+		} elsif ( $program eq 'blastn' ) {
 			$params{'-evalue'} = 0.001;
 		}
 		$self->{'dataConnector'}->drop_all_connections;    #Don't keep connections open while waiting for BLAST.
@@ -748,7 +748,6 @@ sub _create_blast_database {
 			$self->{'logger'}->error('Exemplars not yet defined - using all alleles for BLAST cache.');
 		}
 	}
-	my $data       = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref' } );
 	my $fasta_file = "$path/sequences.fas";
 	unlink $fasta_file;    #Recreate rather than overwrite to ensure both apache and bigsdb users can write
 	make_path($path);      #In case directory has since been deleted.
@@ -758,9 +757,12 @@ sub _create_blast_database {
 		return;
 	}
 	flock( $fasta_fh, LOCK_EX ) or $self->{'logger'}->error("Cannot flock $fasta_file: $!");
-	foreach my $allele (@$data) {
-		my $length = length( $allele->[2] );
-		say $fasta_fh ">$allele->[0]||$allele->[1]||$length\n$allele->[2]";
+	my $row;
+	$self->{'db'}->do("COPY ($qry) TO STDOUT");
+	while ( $self->{'db'}->pg_getcopydata($row) >= 0 ) {
+		my @allele = split( "\t", $row );
+		my $length = length( $allele[2] ) - 1;
+		print $fasta_fh ">$allele[0]||$allele[1]||$length\n$allele[2]";
 	}
 	close $fasta_fh;
 	chmod 0666, $fasta_file;
