@@ -404,7 +404,7 @@ sub get_embargo_message {
 	return q() if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
 	my $embargo_att = $self->{'datastore'}->get_embargo_attributes;
 	return q() if !$embargo_att->{'embargo_enabled'};
-	my $curator_id = $self->get_curator_id;
+	my $user_info  = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	my $q          = $self->{'cgi'};
 	my $project_id = $q->param('project_id');
 	my $project_clause =
@@ -414,14 +414,14 @@ sub get_embargo_message {
 	my $embargo_total = $self->{'datastore'}->run_query(
 		"SELECT COUNT(*) FROM private_isolates pi JOIN $self->{'system'}->{'view'} v ON pi.isolate_id=v.id "
 		  . "${project_clause}WHERE user_id=? AND embargo IS NOT NULL",
-		$curator_id
+		$user_info->{'id'}
 	);
 	return q() if !$embargo_total;
 	my $soonest = $self->{'datastore'}->run_query(
 		"SELECT embargo, COUNT(*) AS count FROM private_isolates pi JOIN $self->{'system'}->{'view'} v ON "
 		  . "pi.isolate_id=v.id ${project_clause}WHERE user_id=? AND embargo IS NOT NULL "
 		  . 'GROUP BY embargo ORDER BY embargo ASC LIMIT 1',
-		$curator_id,
+		$user_info->{'id'},
 		{ fetch => 'row_hashref' }
 	);
 	my $plural = $embargo_total == 1 ? q() : q(s);
