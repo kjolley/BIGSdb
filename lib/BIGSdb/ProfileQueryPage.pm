@@ -450,7 +450,7 @@ sub _generate_query_from_main_form {
 	my $scheme_warehouse = "mv_scheme_$scheme_id";
 	my $qry              = "SELECT * FROM $scheme_warehouse WHERE (";
 	my $date_restriction = $self->{'datastore'}->get_date_restriction;
-	if ($date_restriction) {
+	if ($date_restriction && !$self->{'username'}) {
 		$qry .= qq[date_entered<='$date_restriction') AND (];
 	}
 	my $andor           = $q->param('c0');
