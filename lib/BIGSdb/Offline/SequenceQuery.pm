@@ -535,7 +535,7 @@ sub _get_scheme_fields {
 				my $exact_match   = $scheme_buffer ? 1 : 0;
 				$scheme_buffer .= $self->_get_closest_match_output( $scheme->{'id'}, $designations, $exact_match );
 				$scheme_buffer .= $self->_get_classification_groups( $scheme->{'id'}, $designations, $exact_match );
-				$scheme_buffer .= $self->_get_lincode_classification( $scheme->{'id'}, $designations, $exact_match );
+				$scheme_buffer .= $self->_get_lincode_classification( $scheme->{'id'}, $designations );
 				if ($scheme_buffer) {
 					my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme->{'id'} );
 					$buffer .= qq(<h2>$scheme_info->{'name'}</h2>);
@@ -551,7 +551,7 @@ sub _get_scheme_fields {
 			my $exact_match   = $scheme_buffer ? 1 : 0;
 			$scheme_buffer .= $self->_get_closest_match_output( $scheme_id, $designations, $exact_match );
 			$scheme_buffer .= $self->_get_classification_groups( $scheme_id, $designations, $exact_match );
-			$scheme_buffer .= $self->_get_lincode_classification( $scheme_id, $designations, $exact_match );
+			$scheme_buffer .= $self->_get_lincode_classification( $scheme_id, $designations );
 			if ($scheme_buffer) {
 				my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 				$buffer .= qq(<h2>$scheme_info->{'name'}</h2>);
@@ -744,39 +744,43 @@ sub _get_classification_groups {
 	return $buffer;
 }
 
-sub _get_lincode_classification {
-	my ( $self, $scheme_id, $designations, $exact_match ) = @_;
-	my $buffer = q();
-	return $buffer if ( $self->{'system'}->{'show_lincode_matches'} // 'yes' ) eq 'no';
-	return $buffer if !$self->is_page_allowed('profileInfo');
-	return $buffer
-	  if !$self->{'datastore'}
-	  ->run_query( 'SELECT EXISTS(SELECT * FROM lincode_schemes WHERE scheme_id=?)', $scheme_id );
-	my $scheme_loci  = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my $must_match   = int( 0.5 * @$scheme_loci );
-	my $matched_loci = keys %$designations;
-	return $buffer if $matched_loci < $must_match;
-	my $ret_val = $self->_get_closest_matching_profile( $scheme_id, $designations );
-	return $buffer if !$ret_val;
-	my $profiles = $ret_val->{'profiles'};
-	my $thresholds =
-	  $self->{'datastore'}->run_query( 'SELECT thresholds FROM lincode_schemes WHERE scheme_id=?', $scheme_id );
-	my @thresholds = split( ';', $thresholds );
-	my @lincodes;
-
-	foreach my $profile_id (@$profiles) {
+sub _get_lincodes_for_profiles {
+	my ( $self, $scheme_id, $profile_ids ) = @_;
+	my $lincodes = [];
+	foreach my $profile_id (@$profile_ids) {
 		my $lincode = $self->{'datastore'}->run_query(
 			'SELECT lincode FROM lincodes WHERE (scheme_id,profile_id)=(?,?)',
 			[ $scheme_id, $profile_id ],
 			{ cache => 'SequenceQuery::get_lincode' }
 		);
-		push @lincodes, $lincode if defined $lincode;
+		push @$lincodes, $lincode if defined $lincode;
 	}
-	return $buffer if !@lincodes;
+	return $lincodes;
+}
+
+sub _get_lincode_from_designations {
+	my ( $self, $scheme_id, $designations ) = @_;
+	return if ( $self->{'system'}->{'show_lincode_matches'} // 'yes' ) eq 'no';
+	return if !$self->is_page_allowed('profileInfo');
+	return
+	  if !$self->{'datastore'}
+	  ->run_query( 'SELECT EXISTS(SELECT * FROM lincode_schemes WHERE scheme_id=?)', $scheme_id );
+	my $scheme_loci  = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $must_match   = int( 0.5 * @$scheme_loci );
+	my $matched_loci = keys %$designations;
+	return if $matched_loci < $must_match;
+	my $ret_val = $self->_get_closest_matching_profile( $scheme_id, $designations );
+	return if !$ret_val;
+	my $profiles = $ret_val->{'profiles'};
+	my $thresholds =
+	  $self->{'datastore'}->run_query( 'SELECT thresholds FROM lincode_schemes WHERE scheme_id=?', $scheme_id );
+	my @thresholds = split( ';', $thresholds );
+	my $lincodes   = $self->_get_lincodes_for_profiles( $scheme_id, $profiles );
+	return if !@$lincodes;
 	my @identical;
   POS: foreach my $pos ( 0 .. @thresholds - 1 ) {
 		my $last;
-	  LINCODE: foreach my $lincode (@lincodes) {
+	  LINCODE: foreach my $lincode (@$lincodes) {
 			if ( defined $last && $lincode->[$pos] != $last ) {
 				last POS;
 			}
@@ -792,22 +796,35 @@ sub _get_lincode_classification {
 			last;
 		}
 	}
-	return $buffer if !@this_lincode;
+	return if !@this_lincode;
+	return \@this_lincode;
+}
+
+sub _get_lincode_classification {
+	my ( $self, $scheme_id, $designations ) = @_;
+	my $buffer       = q();
+	my $this_lincode = $self->_get_lincode_from_designations( $scheme_id, $designations );
+	return if !$this_lincode;
+	my $thresholds =
+	  $self->{'datastore'}->run_query( 'SELECT thresholds FROM lincode_schemes WHERE scheme_id=?', $scheme_id )
+	  ;
+	my @thresholds = split( ';', $thresholds );
 	$buffer .=
 		q(<div><span class="info_icon fas fa-2x fa-fw fa-sitemap fa-pull-left" )
 	  . q(style="margin-top:-0.2em"></span>)
 	  . q(<h3>Similar profiles (determined by LIN codes)</h3>);
 	local $" = q(_);
-	if ( @this_lincode == @thresholds ) {
-		$buffer .= qq(<p>Full length LIN code determined: @this_lincode</p>);
+
+	if ( @$this_lincode == @thresholds ) {
+		$buffer .= qq(<p>Full length LIN code determined: @$this_lincode</p>);
 	} else {
-		$buffer .= qq(<p>Partial LIN code determined: @this_lincode</p>);
+		$buffer .= qq(<p>Partial LIN code determined: @$this_lincode</p>);
 	}
 	my $default_show =
 	  BIGSdb::Utils::is_int( $self->{'system'}->{'show_lincode_thresholds'} )
 	  ? $self->{'system'}->{'show_lincode_thresholds'}
 	  : 5;
-	$default_show = @this_lincode if $default_show > @this_lincode;
+	$default_show = @$this_lincode if $default_show > @$this_lincode;
 	my $client_dbs = $self->{'datastore'}->run_query(
 		'SELECT * FROM client_dbase_schemes cds JOIN '
 		  . 'client_dbases cd ON cds.client_dbase_id=cd.id WHERE scheme_id=? ORDER BY cd.name',
@@ -821,9 +838,9 @@ sub _get_lincode_classification {
 	my $tdu = 1;
 	my @lincode_query;
 
-	foreach my $threshold ( @thresholds[ 0 .. @this_lincode - 1 ] ) {
+	foreach my $threshold ( @thresholds[ 0 .. @$this_lincode - 1 ] ) {
 		my $isolate_buffer = q();
-		my @prefix         = @this_lincode[ 0 .. $i ];
+		my @prefix         = @$this_lincode[ 0 .. $i ];
 		my $pg_pos         = $i + 1;
 		push @lincode_query, "lincode[$pg_pos]=$prefix[$i]";
 		local $" = q( AND );
@@ -861,7 +878,7 @@ sub _get_lincode_classification {
 			local $" = q(<br />);
 			$isolate_buffer .= qq(<td style="text-align:left">@client_links</td>);
 		}
-		if ( @this_lincode >= $default_show && $i >= ( @this_lincode - $default_show ) ) {
+		if ( @$this_lincode >= $default_show && $i >= ( @$this_lincode - $default_show ) ) {
 			my $row =
 				qq(<tr class="td$tdf lc_filtered_$scheme_id">)
 			  . qq(<td style="text-align:left">@prefix</td>)
