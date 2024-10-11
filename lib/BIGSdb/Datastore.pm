@@ -2614,6 +2614,18 @@ sub get_all_sequence_flags {
 
 sub get_allele_flags {
 	my ( $self, $locus, $allele_id ) = @_;
+	$self->{'allele_flag_count'}++;
+	if ( $self->{'allele_flag_count'} > 10 ) {
+		if ( !defined $self->{'cache'}->{'allele_flags'} ) {
+			my $flags = $self->run_query( 'SELECT locus,allele_id,flag FROM allele_flags ORDER BY flag',
+				undef, { fetch => 'all_arrayref', slice => {} } );
+			foreach my $flag (@$flags) {
+				push @{ $self->{'cache'}->{'allele_flags'}->{ $flag->{'locus'} }->{ $flag->{'allele_id'} } },
+				  $flag->{'flag'};
+			}
+		}
+		return $self->{'cache'}->{'allele_flags'}->{$locus}->{$allele_id} // [];
+	}
 	return $self->run_query(
 		'SELECT flag FROM allele_flags WHERE (locus,allele_id)=(?,?) ORDER BY flag',
 		[ $locus, $allele_id ],
