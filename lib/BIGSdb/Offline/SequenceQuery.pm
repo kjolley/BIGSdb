@@ -459,7 +459,7 @@ sub _get_locus_matches {
 	my $locus_info  = $self->{'datastore'}->get_locus_info($locus);
 	my $locus_count = 0;
 	foreach my $match ( @{ $exact_matches->{$locus} } ) {
-		my ( $field_values, $attributes, $allele_info, $flags );
+		my ( $field_values, $attributes, $flags );
 		$$match_count_ref++;
 		next if $locus_info->{'match_longest'} && $locus_count > 1;
 		$designations->{$locus} //= [];
@@ -471,13 +471,8 @@ sub _get_locus_matches {
 		$field_values =
 		  $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $match->{'allele'}, { table_format => 1 } );
 		$self->{'linked_data'}->{$locus}->{ $match->{'allele'} } = $field_values->{'values'};
-		$attributes  = $self->{'datastore'}->get_allele_attributes( $locus, [ $match->{'allele'} ] );
-		$allele_info = $self->{'datastore'}->run_query(
-			'SELECT * FROM sequences WHERE (locus,allele_id)=(?,?)',
-			[ $locus, $match->{'allele'} ],
-			{ fetch => 'row_hashref' }
-		);
-		$flags = $self->{'datastore'}->get_allele_flags( $locus, $match->{'allele'} );
+		$attributes = $self->{'datastore'}->get_allele_attributes( $locus, [ $match->{'allele'} ] );
+		$flags      = $self->{'datastore'}->get_allele_flags( $locus, $match->{'allele'} );
 		$buffer .= qq(<td>$match->{'length'}</td><td>$match->{'query'}</td><td>$match->{'start'}</td>)
 		  . qq(<td>$match->{'end'}</td>);
 		$buffer .=
@@ -492,7 +487,12 @@ sub _get_locus_matches {
 			  @$flags ? qq(<td style="text-align:left"><a class="seqflag_tooltip">@$flags</a></td>) : q(<td></td>);
 		}
 		if ( ( $self->{'system'}->{'allele_comments'} // '' ) eq 'yes' ) {
-			$buffer .= $allele_info->{'comments'} ? qq(<td>$allele_info->{'comments'}</td>) : q(<td></td>);
+			my $comments = $self->{'datastore'}->run_query(
+				'SELECT comments FROM sequences WHERE (locus,allele_id)=(?,?)',
+				[ $locus, $match->{'allele'} ],
+				{ cache => 'SequenceQuery::_get_locus_matches::comments' }
+			);
+			$buffer .= $comments ? qq(<td>$comments</td>) : q(<td></td>);
 		}
 		$buffer .= qq(</tr>\n);
 		$$td_ref = $$td_ref == 1 ? 2 : 1;
@@ -828,10 +828,9 @@ sub _get_lincode_classification {
 			data  => qq(@$this_lincode)
 		  };
 	}
-	
 	my $prefix_field_values = $self->_get_lincode_prefix_field_values( $scheme_id, $this_lincode );
 	push @$lincode_fields, @$prefix_field_values;
-	$buffer .= $self->get_list_block($lincode_fields, { width => 8 });
+	$buffer .= $self->get_list_block( $lincode_fields, { width => 8 } );
 	my $default_show =
 	  BIGSdb::Utils::is_int( $self->{'system'}->{'show_lincode_thresholds'} )
 	  ? $self->{'system'}->{'show_lincode_thresholds'}

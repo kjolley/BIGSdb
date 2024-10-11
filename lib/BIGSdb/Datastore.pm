@@ -2857,8 +2857,18 @@ sub _format_list_values {
 sub get_allele_attributes {
 	my ( $self, $locus, $allele_ids ) = @_;
 	return [] if ref $allele_ids ne 'ARRAY';
-	my $fields = $self->run_query( 'SELECT field FROM locus_extended_attributes WHERE locus=?',
-		$locus, { fetch => 'col_arrayref' } );
+	if (!$self->{'cache'}->{'locus_attribute_fields'}){
+		my $locus_attributes = $self->run_query( 'SELECT locus,field FROM locus_extended_attributes',
+		undef, { fetch => 'all_arrayref', slice => {} } );
+		foreach my $att (@$locus_attributes){
+			if (!defined $self->{'cache'}->{'locus_attribute_fields'}->{$att->{'locus'}}){
+				$self->{'cache'}->{'locus_attribute_fields'}->{$att->{'locus'}} = [$att->{'field'}]
+			} else {
+				push @{$self->{'cache'}->{'locus_attribute_fields'}->{$att->{'locus'}}},$att->{'field'};
+			}
+		}
+	}
+	my $fields = $self->{'cache'}->{'locus_attribute_fields'}->{$locus} // [];
 	my $values;
 	return if !@$fields;
 	foreach my $field (@$fields) {

@@ -761,7 +761,7 @@ sub _create_blast_database {
 	$self->{'db'}->do("COPY ($qry) TO STDOUT");
 	while ( $self->{'db'}->pg_getcopydata($row) >= 0 ) {
 		my @allele = split( "\t", $row );
-		my $length = length( $allele[2] ) - 1;
+		my $length = length( $allele[2] ) - 1;    #Benchmarked quicker than having Pg calculate
 		print $fasta_fh ">$allele[0]||$allele[1]||$length\n$allele[2]";
 	}
 	close $fasta_fh;
