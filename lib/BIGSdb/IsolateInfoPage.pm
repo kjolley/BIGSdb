@@ -712,19 +712,14 @@ sub _show_lincode_matches {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme->{'id'}, { get_pk => 1 } );
 		my $pk_info     = $self->{'datastore'}->get_scheme_field_info( $scheme->{'id'}, $scheme_info->{'primary_key'} );
 		local $" = q(_);
-		$buffer .= $self->get_list_block(
-			[
-				{
-					title => 'Scheme',
-					data  => qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'})
-					  . qq(&amp;page=schemeInfo&scheme_id=$scheme->{'id'}">$scheme->{'name'}</a>)
-				},
-				{
-					title => 'LIN code',
-					data  => qq(@$lincode)
-				}
-			]
-		);
+		my $lincode_values = $self->_get_lincode_values( $isolate_id, $scheme->{'id'}, { listbox_values => 1 } );
+		unshift @$lincode_values,
+		  {
+			title => 'Scheme',
+			data  => qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'})
+			  . qq(&amp;page=schemeInfo&scheme_id=$scheme->{'id'}">$scheme->{'name'}</a>)
+		  };
+		$buffer .= $self->get_list_block($lincode_values);
 		my $lincode_scheme =
 		  $self->{'datastore'}
 		  ->run_query( 'SELECT * FROM lincode_schemes WHERE scheme_id=?', $scheme->{'id'}, { fetch => 'row_hashref' } );
@@ -2090,13 +2085,20 @@ sub _get_lincode_values {
 	my ( $self, $isolate_id, $scheme_id, $args ) = @_;
 	my $lincode = $self->{'datastore'}->get_lincode_value( $isolate_id, $scheme_id );
 	my $buffer  = q();
+	my $values  = [];
 	if ( defined $lincode ) {
 		local $" = q(_);
 		my $lincode_string = qq(@$lincode);
-		$buffer .=
-		  $args->{'no_render'}
-		  ? qq(<dt>LINcode</dt><dd>$lincode_string</dd>)
-		  : qq(<dl class="profile"><dt>LINcode</dt><dd>$lincode_string</dd></dl>);
+		if ( $args->{'no_render'} ) {
+			$buffer .= qq(<dt>LIN code</dt><dd>$lincode_string</dd>);
+		} else {
+			$buffer .= qq(<dl class="profile"><dt>LIN code</dt><dd>$lincode_string</dd></dl>);
+		}
+		push @$values,
+		  {
+			title => 'LIN code',
+			data  => $lincode_string
+		  };
 		my $prefix_table = $self->{'datastore'}->create_temp_lincode_prefix_values_table($scheme_id);
 		my $data         = $self->{'datastore'}
 		  ->run_query( "SELECT * FROM $prefix_table", undef, { fetch => 'all_arrayref', slice => {} } );
@@ -2123,11 +2125,20 @@ sub _get_lincode_values {
 			@values = sort @values;
 			local $" = q(; );
 			next if !@values;
-			$buffer .=
-			  $args->{'no_render'}
-			  ? qq(<dt>$field</dt><dd>@values</dd>)
-			  : qq(<dl class="profile"><dt>$field</dt><dd>@values</dd></dl>);
+			if ( $args->{'no_render'} ) {
+				$buffer .= qq(<dt>$field</dt><dd>@values</dd>);
+			} else {
+				$buffer .= qq(<dl class="profile"><dt>$field</dt><dd>@values</dd></dl>);
+			}
+			push @$values,
+			  {
+				title => $field,
+				data  => qq(@values)
+			  };
 		}
+	}
+	if ( $args->{'listbox_values'} ) {
+		return $values;
 	}
 	return $buffer;
 }
