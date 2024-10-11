@@ -1010,7 +1010,6 @@ sub _get_closest_matching_profile {
 	$self->{'db'}->do("COPY $scheme_warehouse($pk_field,profile) TO STDOUT");
 	my $row;
 	my $array_parser = Text::CSV->new( { binary => 1, sep_char => ',', quote_char => '"' } );
-
 	while ( $self->{'db'}->pg_getcopydata($row) >= 0 ) {
 		chomp $row;
 		my ( $pk, $profile_string ) = split /\t/x, $row;
@@ -1027,6 +1026,7 @@ sub _get_closest_matching_profile {
 		my $mismatches = 0;
 		my $index      = -1;
 	  LOCUS: foreach my $locus (@locus_list) {
+			last LOCUS if $mismatches > $least_mismatches;    #Shortcut out
 			$index++;
 			next LOCUS if $profile[$index] eq 'N';
 			if ( !$designations->{$locus} ) {
@@ -1038,7 +1038,6 @@ sub _get_closest_matching_profile {
 				next LOCUS if $profile[$index] eq $allele;
 			}
 			$mismatches++;
-			last LOCUS if $mismatches > $least_mismatches;    #Shortcut out
 		}
 		if ( $mismatches < $least_mismatches ) {
 			$least_mismatches = $mismatches;
