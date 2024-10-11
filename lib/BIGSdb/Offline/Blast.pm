@@ -686,12 +686,10 @@ sub _read_blast_file_into_structure {
 
 sub _get_shortest_seq_length {
 	my ( $self, $loci ) = @_;
-	my $shortest = INF;
-	foreach my $locus (@$loci) {
-		my $min_length = $self->{'datastore'}->run_query( 'SELECT min_length FROM locus_stats WHERE locus=?', $locus );
-		next                    if !defined $min_length;
-		$shortest = $min_length if $min_length < $shortest;
-	}
+	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'text', $loci );
+	my $shortest   = $self->{'datastore'}
+	  ->run_query("SELECT min(min_length) FROM locus_stats l JOIN $temp_table t ON l.locus=t.value");
+	$shortest //= INF;
 	return $shortest;
 }
 
