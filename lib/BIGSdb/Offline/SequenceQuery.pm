@@ -806,20 +806,32 @@ sub _get_lincode_classification {
 	my $this_lincode = $self->_get_lincode_from_designations( $scheme_id, $designations );
 	return if !$this_lincode;
 	my $thresholds =
-	  $self->{'datastore'}->run_query( 'SELECT thresholds FROM lincode_schemes WHERE scheme_id=?', $scheme_id )
-	  ;
+	  $self->{'datastore'}->run_query( 'SELECT thresholds FROM lincode_schemes WHERE scheme_id=?', $scheme_id );
 	my @thresholds = split( ';', $thresholds );
 	$buffer .=
 		q(<div><span class="info_icon fas fa-2x fa-fw fa-sitemap fa-pull-left" )
 	  . q(style="margin-top:-0.2em"></span>)
 	  . q(<h3>Similar profiles (determined by LIN codes)</h3>);
 	local $" = q(_);
+	my $lincode_fields = [];
 
 	if ( @$this_lincode == @thresholds ) {
-		$buffer .= qq(<p>Full length LIN code determined: @$this_lincode</p>);
+		push @$lincode_fields,
+		  {
+			title => 'Full LIN code',
+			data  => qq(@$this_lincode)
+		  };
 	} else {
-		$buffer .= qq(<p>Partial LIN code determined: @$this_lincode</p>);
+		push @$lincode_fields,
+		  {
+			title => 'Partial LIN code',
+			data  => qq(@$this_lincode)
+		  };
 	}
+	
+	my $prefix_field_values = $self->_get_lincode_prefix_field_values( $scheme_id, $this_lincode );
+	push @$lincode_fields, @$prefix_field_values;
+	$buffer .= $self->get_list_block($lincode_fields, { width => 8 });
 	my $default_show =
 	  BIGSdb::Utils::is_int( $self->{'system'}->{'show_lincode_thresholds'} )
 	  ? $self->{'system'}->{'show_lincode_thresholds'}
@@ -917,6 +929,45 @@ sub _get_lincode_classification {
 	$buffer .= qq(</tr>@filtered@unfiltered);
 	$buffer .= q(</table></div>);
 	return $buffer;
+}
+
+sub _get_lincode_prefix_field_values {
+	my ( $self, $scheme_id, $lincode ) = @_;
+	my $data = $self->{'datastore'}->run_query( 'SELECT * FROM lincode_prefixes WHERE scheme_id=?',
+		$scheme_id, { fetch => 'all_arrayref', slice => {} } );
+	my $prefix_values = {};
+	foreach my $record (@$data) {
+		$prefix_values->{ $record->{'field'} }->{ $record->{'prefix'} } = $record->{'value'};
+	}
+	my $prefix_fields =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT field FROM lincode_fields WHERE scheme_id=? ORDER BY display_order,field',
+		$scheme_id, { fetch => 'col_arrayref' } );
+	local $" = q(_);
+	my $lincode_string = qq(@$lincode);
+	my $field_values   = [];
+	foreach my $field (@$prefix_fields) {
+		my %used;
+		my @prefixes = keys %{ $prefix_values->{$field} };
+		my @values;
+		foreach my $prefix (@prefixes) {
+			if (   $lincode_string eq $prefix
+				|| $lincode_string =~ /^${prefix}_/x && !$used{ $prefix_values->{$field}->{$prefix} } )
+			{
+				push @values, $prefix_values->{$field}->{$prefix};
+				$used{ $prefix_values->{$field}->{$prefix} } = 1;
+			}
+		}
+		@values = sort @values;
+		local $" = q(; );
+		next if !@values;
+		push @$field_values,
+		  {
+			title => $field,
+			data  => qq(@values)
+		  };
+	}
+	return $field_values;
 }
 
 sub _get_field_values {

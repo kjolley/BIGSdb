@@ -712,7 +712,7 @@ sub _show_lincode_matches {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme->{'id'}, { get_pk => 1 } );
 		my $pk_info     = $self->{'datastore'}->get_scheme_field_info( $scheme->{'id'}, $scheme_info->{'primary_key'} );
 		local $" = q(_);
-		my $lincode_values = $self->_get_lincode_values( $isolate_id, $scheme->{'id'}, { listbox_values => 1 } );
+		my $lincode_values = $self->_get_lincode_values( $isolate_id, $scheme->{'id'}, { listblock_values => 1 } );
 		unshift @$lincode_values,
 		  {
 			title => 'Scheme',
@@ -2137,7 +2137,7 @@ sub _get_lincode_values {
 			  };
 		}
 	}
-	if ( $args->{'listbox_values'} ) {
+	if ( $args->{'listblock_values'} ) {
 		return $values;
 	}
 	return $buffer;
