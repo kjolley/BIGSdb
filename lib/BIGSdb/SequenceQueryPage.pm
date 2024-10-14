@@ -129,6 +129,22 @@ function initiate() {
 		return false;
 	});
 	reloadTooltips();
+	\$( ".show_lincode" ).click(function() {
+		let scheme_id = this.id.replace('show_lcgroups_','');
+		\$("#show_lcgroups_" + scheme_id).css('display','none');
+		\$("#hide_lcgroups_" + scheme_id).css('display','inline');
+		\$("#lc_table_" + scheme_id).css('display','block');
+		\$(".lc_filtered_" + scheme_id).css('visibility','collapse');
+		\$(".lc_unfiltered_" + scheme_id).css('visibility','visible');
+	});	
+	\$( ".hide_lincode" ).click(function() {
+		let scheme_id = this.id.replace('hide_lcgroups_','');
+		\$("#show_lcgroups_" + scheme_id).css('display','inline');
+		\$("#hide_lcgroups_" + scheme_id).css('display','none');
+		\$("#lc_table_" + scheme_id).css('display','none');
+		\$(".lc_filtered_" + scheme_id).css('visibility','visible');
+		\$(".lc_unfiltered_" + scheme_id).css('visibility','collapse');
+	});	
 }
 
 function loadContent(url) {

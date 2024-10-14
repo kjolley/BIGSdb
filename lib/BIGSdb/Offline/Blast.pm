@@ -276,7 +276,7 @@ sub _run_blast {
 		$self->{'program'} = $program;
 		my $blast_threads = $options->{'threads'} // $self->{'config'}->{'blast_threads'} // 1;
 		my $filter        = $program eq 'blastn' ? 'dust'                            : 'seg';
-		my $word_size     = $program eq 'blastn' ? ( $options->{'word_size'} // 15 ) : 3;
+		my $word_size     = $program eq 'blastn' ? ( $options->{'word_size'} // 20 ) : 3;
 		my $format        = $args->{'alignment'} ? 0                                 : 6;
 		$options->{'num_results'} //= 1_000_000;    #effectively return all results
 		my $fasta_file = "$path/sequences.fas";
@@ -306,6 +306,8 @@ sub _run_blast {
 		my $shortest_seq = $self->_get_shortest_seq_length($loci_by_type);
 		if ( $shortest_seq <= 20 ) {
 			$params{'-evalue'} = 1000;
+		} elsif ( $program eq 'blastn' ) {
+			$params{'-evalue'} = 0.001;
 		}
 		$self->{'dataConnector'}->drop_all_connections;    #Don't keep connections open while waiting for BLAST.
 		system( "$self->{'config'}->{'blast+_path'}/$program", %params );
@@ -338,15 +340,14 @@ sub _parse_blast_exact_diploid {
 	my $fasta           = BIGSdb::Utils::read_fasta( $self->{'seq_ref'}, { allow_peptide => 1 } );
   RECORD: foreach my $record ( @{ $self->{'records'} } ) {
 		my $match;
-		my $allele_id;
-		my ( $locus, $match_allele_id ) = split( /\|/x, $record->[1], 2 );
+		my $separator = index( $record->[1], '||' ) != -1 ? '\|\|' : '\|';
+		my ( $locus, $allele_id, $length ) = split( /$separator/x, $record->[1], 3 );
 		$locus =~ s/__prime__/'/gx;
 		my $locus_match = $matches->{$locus} // [];
 		my $locus_info  = $self->{'datastore'}->get_locus_info($locus);
-		$allele_id = $match_allele_id;
-		my $allele_seq = $self->{'datastore'}->get_sequence( $locus, $allele_id );
+		my $allele_seq  = $self->{'datastore'}->get_sequence( $locus, $allele_id );
 		next if !$allele_seq;
-		my $length = length $$allele_seq;
+		$length //= length $$allele_seq;    #Pre v1.48.1, the length was not written to FASTA header.
 		$match->{'query'} = $record->[0];
 		my $qry_seq        = $fasta->{ $match->{'query'} };
 		my $rev_allele_seq = BIGSdb::Utils::reverse_complement( $$allele_seq, { diploid => 1 } );
@@ -381,25 +382,32 @@ sub _parse_blast_exact {
 	  @{$args}{qw (params loci blast_file options)};
 	my $matches = {};
 	$self->_read_blast_file_into_structure($blast_file);
-	my $matched_already = {};
-	my $length_cache    = {};
+	my $matched_already  = {};
+	my $length_cache     = {};
+	my $locus_info_cache = {};
   RECORD: foreach my $record ( @{ $self->{'records'} } ) {
 		my $match;
-		if ( $record->[2] == 100 ) {    #identity
-			my $allele_id;
-			my ( $locus, $match_allele_id ) = split( /\|/x, $record->[1], 2 );
+		if ( $record->[2] == 100 ) {
+
+			#Divider in FASTA header changed to || after v1.48.1 to allow '|' in allele id.
+			#Need to check in case old BLAST cache is being used.
+			my $separator = index( $record->[1], '||' ) != -1 ? '\|\|' : '\|';
+			my ( $locus, $allele_id, $length ) = split( /$separator/x, $record->[1], 3 );
 			$locus =~ s/__prime__/'/gx;
 			my $locus_match = $matches->{$locus} // [];
-			my $locus_info  = $self->{'datastore'}->get_locus_info($locus);
-			$allele_id = $match_allele_id;
-			if ( !$length_cache->{$locus}->{$allele_id} ) {
+
+			#Allele length is now recorded in FASTA header used to create BLAST db.
+			#If old cache is still in use without this then we need to calculate it here.
+			#The following length lookup can be removed in future versions once all old
+			#BLAST caches have expired.
+			if ( !defined $length && !defined $length_cache->{$locus}->{$allele_id} ) {
 				$length_cache->{$locus}->{$allele_id} = $self->{'datastore'}->run_query(
 					'SELECT length(sequence) FROM sequences WHERE (locus,allele_id)=(?,?)',
 					[ $locus, $allele_id ],
 					{ cache => 'Blast::get_seq_length' }
 				);
 			}
-			my $ref_length = $length_cache->{$locus}->{$allele_id};
+			my $ref_length = $length // $length_cache->{$locus}->{$allele_id} // 0;
 			next if !defined $ref_length;
 			if ( $self->_does_blast_record_match( $record, $ref_length ) ) {
 				$match->{'query'}     = $record->[0];
@@ -413,7 +421,10 @@ sub _parse_blast_exact {
 				next RECORD if $matched_already->{$locus}->{ $match->{'allele'} }->{ $match->{'start'} };
 				$matched_already->{$locus}->{ $match->{'allele'} }->{ $match->{'start'} } = 1;
 
-				if ( $locus_info->{'match_longest'} && @$locus_match ) {
+				if ( !defined $locus_info_cache->{$locus} ) {
+					$locus_info_cache->{$locus} = $self->{'datastore'}->get_locus_info($locus);
+				}
+				if ( $locus_info_cache->{$locus}->{'match_longest'} && @$locus_match ) {
 					if ( $match->{'length'} > $locus_match->[0]->{'length'} ) {
 						@$locus_match = ($match);
 					}
@@ -442,22 +453,30 @@ sub _parse_blast_partial {
 	$self->_read_blast_file_into_structure($blast_file);
 	my $length_cache = {};
   RECORD: foreach my $record ( @{ $self->{'records'} } ) {
-		my $allele_id;
-		my ( $locus, $match_allele_id ) = split( /\|/x, $record->[1], 2 );
+
+		#Divider in FASTA header changed to || after v1.48.1 to allow '|' in allele id.
+		#Need to check in case old BLAST cache is being used.
+		my $separator = index( $record->[1], '||' ) != -1 ? '\|\|' : '\|';
+		my ( $locus, $allele_id, $length ) = split( /$separator/x, $record->[1], 3 );
 		next if $exact_matches->{$locus} && !$self->{'options'}->{'exemplar'} && !$self->{'options'}->{'find_similar'};
 		my $locus_match = $partial_matches->{$locus} // [];
-		$allele_id = $match_allele_id;
 		if ( $self->{'program'} =~ /tblast/x ) {
 			$record->[3] *= 3;
 		}
 		if ( $record->[2] >= $identity || ( !@$locus_match && $return_best_poor_identity ) ) {
-			if ( !defined $length_cache->{$locus} ) {
+
+			#Allele length is now recorded in FASTA header used to create BLAST db.
+			#If old cache is still in use without this then we need to calculate it here.
+			#The following length lookup can be removed in future versions once all old
+			#BLAST caches have expired.
+			if ( !defined $length && !defined $length_cache->{$locus} ) {
 				my $locus_lengths =
 				  $self->{'datastore'}->run_query( 'SELECT allele_id,length(sequence) FROM sequences WHERE locus=?',
 					$locus, { fetch => 'all_arrayref', cache => 'Blast::get_locus_seq_length' } );
 				$length_cache->{$locus}->{ $_->[0] } = $_->[1] foreach @$locus_lengths;
+				$length = $length_cache->{$locus}->{$allele_id} // 0;
 			}
-			my $length = $length_cache->{$locus}->{$allele_id} // 0;
+			$length //= $length_cache->{$locus}->{$allele_id} // 0;
 			if ( $record->[3] >= $alignment * 0.01 * $length || ( !@$locus_match && $return_best_poor_alignment ) ) {
 				my $match;
 				$match->{'query'}      = $record->[0];
@@ -508,24 +527,38 @@ sub _lookup_partial_matches {
 	return if !@$locus_matches;
 	my %already_matched_alleles = map { $_->{'allele'} => 1 } @{ $exact_matches->{$locus} };
 	my $locus_info              = $self->{'datastore'}->get_locus_info($locus);
-	my $qry_type                = BIGSdb::Utils::sequence_type($seq_ref);
-	my $length_cache            = {};
+	my $qry_type;
+	if ( !$self->{'cache'}->{'sequence_type'}->{$seq_ref} ) {
+		$self->{'cache'}->{'sequence_type'}->{$seq_ref} = BIGSdb::Utils::sequence_type($seq_ref);
+	}
+	$qry_type = $self->{'cache'}->{'sequence_type'}->{$seq_ref};
+	my $length_cache = {};
+	my %cache;
+
+	#Only check top 20 matches for each length.
+	my %length_count;
 	foreach my $match (@$locus_matches) {
+		my $allele_id;
+		$length_count{ $match->{'length'} }++;
+		next if $length_count{ $match->{'length'} } >= 20;
 		my $seq = $self->_extract_match_seq_from_query( $seq_ref, $match );
 		if ( $locus_info->{'data_type'} eq 'peptide' && $qry_type eq 'DNA' ) {
 			my $seq_obj = Bio::Seq->new( -seq => $seq, -alphabet => 'dna' );
 			$seq = $seq_obj->translate->seq;
 		}
-		my $allele_id = $self->{'datastore'}
-		  ->run_query( 'SELECT allele_id FROM sequences WHERE (locus,md5(sequence))=(?,md5(?))', [ $locus, $seq ] );
+		my $hash = Digest::MD5::md5_hex($seq);
+		if ( !defined $cache{$hash} ) {
 
-		#Check for RNA/DNA versions
-		if ( !defined $allele_id && $qry_type eq 'DNA' ) {
+			#Also check for RNA/DNA versions
 			( my $new_seq = $seq ) =~ tr/UT/TU/;
-			$allele_id =
-			  $self->{'datastore'}->run_query( 'SELECT allele_id FROM sequences WHERE (locus,md5(sequence))=(?,md5(?))',
-				[ $locus, $new_seq ] );
+			my $new_hash = Digest::MD5::md5_hex($new_seq);
+			$cache{$hash} = $self->{'datastore'}->run_query(
+				'SELECT allele_id FROM sequences WHERE locus=? AND md5(sequence) IN (?,?)',
+				[ $locus, $hash, $new_hash ],
+				{ cache => 'Blast::lookup_partial_matches::check_md5' }
+			);
 		}
+		$allele_id = $cache{$hash};
 		if ( defined $allele_id && !$already_matched_alleles{$allele_id} ) {
 			$match->{'from_partial'}         = 1;
 			$match->{'partial_match_allele'} = $match->{'allele'};
@@ -653,12 +686,10 @@ sub _read_blast_file_into_structure {
 
 sub _get_shortest_seq_length {
 	my ( $self, $loci ) = @_;
-	my $shortest = INF;
-	foreach my $locus (@$loci) {
-		my $min_length = $self->{'datastore'}->run_query( 'SELECT min_length FROM locus_stats WHERE locus=?', $locus );
-		next                    if !defined $min_length;
-		$shortest = $min_length if $min_length < $shortest;
-	}
+	my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'text', $loci );
+	my $shortest   = $self->{'datastore'}
+	  ->run_query("SELECT min(min_length) FROM locus_stats l JOIN $temp_table t ON l.locus=t.value");
+	$shortest //= INF;
 	return $shortest;
 }
 
@@ -704,8 +735,8 @@ sub _create_blast_database {
 		return;
 	}
 	my $list_table = $self->{'datastore'}->create_temp_list_table_from_array( 'text', $loci );
-	my $qry        = q(SELECT locus,allele_id,sequence from sequences WHERE locus IN )
-	  . qq((SELECT value FROM $list_table) AND allele_id NOT IN ('N','0','P'));
+	my $qry        = qq(SELECT locus,allele_id,sequence from sequences s JOIN $list_table l ON )
+	  . q(s.locus=l.value AND allele_id NOT IN ('N','0','P'));
 	if ($exemplar) {
 		my $exemplars_defined = $self->{'datastore'}
 		  ->run_query("SELECT EXISTS(SELECT * FROM sequences s JOIN $list_table l ON s.locus=l.value WHERE exemplar)");
@@ -715,7 +746,6 @@ sub _create_blast_database {
 			$self->{'logger'}->error('Exemplars not yet defined - using all alleles for BLAST cache.');
 		}
 	}
-	my $data       = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref' } );
 	my $fasta_file = "$path/sequences.fas";
 	unlink $fasta_file;    #Recreate rather than overwrite to ensure both apache and bigsdb users can write
 	make_path($path);      #In case directory has since been deleted.
@@ -725,8 +755,12 @@ sub _create_blast_database {
 		return;
 	}
 	flock( $fasta_fh, LOCK_EX ) or $self->{'logger'}->error("Cannot flock $fasta_file: $!");
-	foreach my $allele (@$data) {
-		say $fasta_fh ">$allele->[0]|$allele->[1]\n$allele->[2]";
+	my $row;
+	$self->{'db'}->do("COPY ($qry) TO STDOUT");
+	while ( $self->{'db'}->pg_getcopydata($row) >= 0 ) {
+		my @allele = split( "\t", $row );
+		my $length = length( $allele[2] ) - 1;    #Benchmarked quicker than having Pg calculate
+		print $fasta_fh ">$allele[0]||$allele[1]||$length\n$allele[2]";
 	}
 	close $fasta_fh;
 	chmod 0666, $fasta_file;

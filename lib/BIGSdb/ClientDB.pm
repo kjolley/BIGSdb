@@ -136,12 +136,12 @@ sub get_fields {
 	my ( $self, $field, $locus, $allele_id ) = @_;
 	my $view = $self->{'dbase_view'} // 'isolates';
 	if ( !$self->{'sql'}->{$field} ) {
-		$self->{'sql'}->{$field} = $self->{'db'}->prepare(
-				"SELECT $field, count(*) AS frequency FROM $view JOIN allele_designations ON $view.id="
+		$self->{'sql'}->{$field} =
+		  $self->{'db'}
+		  ->prepare( "SELECT $field, count(*) AS frequency FROM $view JOIN allele_designations ON $view.id="
 			  . 'allele_designations.isolate_id WHERE (allele_designations.locus,allele_designations.allele_id)='
 			  . "(?,?) AND $field IS NOT NULL AND new_version IS NULL "
-			  . "GROUP BY $field ORDER BY frequency desc,$field"
-		);
+			  . "GROUP BY $field ORDER BY frequency desc,$field" );
 	}
 	eval { $self->{'sql'}->{$field}->execute( $locus, $allele_id ) };
 	if ($@) {
@@ -183,6 +183,39 @@ sub count_isolates_belonging_to_classification_group {
 	  . 'AND t.id NOT IN (SELECT isolate_id FROM private_isolates)';
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute($group) };
+	BIGSdb::Exception::Database::Configuration->throw($@) if $@;
+	return $sql->fetchrow_array;
+}
+
+sub count_isolates_with_lincode_prefix {
+	my ( $self, $scheme_id, $prefix_arrayref ) = @_;
+	my $view = $self->{'dbase_view'} // 'isolates';
+	if ( !$self->{'sql'}->{'lincode_scheme_exists'} ) {
+		$self->{'sql'}->{'lincode_scheme_exists'} =
+		  $self->{'db'}->prepare('SELECT EXISTS(SELECT * FROM lincode_schemes WHERE scheme_id=?)');
+	}
+	eval {
+		my $exists = $self->{'sql'}->{'lincode_scheme_exists'}->execute($scheme_id);
+		BIGSdb::Exception::Database::Configuration->throw("LIN codes not set for scheme-$scheme_id.")
+		  if !$exists;
+	};
+	BIGSdb::Exception::Database::Configuration->throw($@) if $@;
+	my $pk = $self->_get_pk_field($scheme_id);
+	BIGSdb::Exception::Database::Configuration->throw("No primary key set for scheme $scheme_id")
+	  if !$pk;
+	my @array_clause;
+	my $i = 1;
+	foreach my $value (@$prefix_arrayref) {
+		push @array_clause, "lincode[$i]=$value";
+		$i++;
+	}
+	local $" = ' AND ';
+	my $qry = "SELECT COUNT(DISTINCT v.id) FROM temp_isolates_scheme_fields_$scheme_id t JOIN "
+	  . "$view v ON t.id=v.id JOIN temp_lincodes_$scheme_id l ON l.profile_id=CAST(t.$pk AS text) "
+	  . "WHERE @array_clause AND t.id IN (SELECT id FROM $view WHERE new_version IS NULL) "
+	  . 'AND t.id NOT IN (SELECT isolate_id FROM private_isolates)';
+	my $sql = $self->{'db'}->prepare($qry);
+	eval { $sql->execute };
 	BIGSdb::Exception::Database::Configuration->throw($@) if $@;
 	return $sql->fetchrow_array;
 }

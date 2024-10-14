@@ -2614,6 +2614,18 @@ sub get_all_sequence_flags {
 
 sub get_allele_flags {
 	my ( $self, $locus, $allele_id ) = @_;
+	$self->{'allele_flag_count'}++;
+	if ( $self->{'allele_flag_count'} > 10 ) {
+		if ( !defined $self->{'cache'}->{'allele_flags'} ) {
+			my $flags = $self->run_query( 'SELECT locus,allele_id,flag FROM allele_flags ORDER BY flag',
+				undef, { fetch => 'all_arrayref', slice => {} } );
+			foreach my $flag (@$flags) {
+				push @{ $self->{'cache'}->{'allele_flags'}->{ $flag->{'locus'} }->{ $flag->{'allele_id'} } },
+				  $flag->{'flag'};
+			}
+		}
+		return $self->{'cache'}->{'allele_flags'}->{$locus}->{$allele_id} // [];
+	}
 	return $self->run_query(
 		'SELECT flag FROM allele_flags WHERE (locus,allele_id)=(?,?) ORDER BY flag',
 		[ $locus, $allele_id ],
@@ -2779,18 +2791,23 @@ sub get_next_allele_id {
 sub get_client_data_linked_to_allele {
 	my ( $self, $locus, $allele_id, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my $client_field_data = $self->run_query(
-		'SELECT client_dbase_id,isolate_field FROM client_dbase_loci_fields WHERE allele_query '
-		  . 'AND locus=? ORDER BY client_dbase_id,isolate_field',
-		$locus,
-		{ fetch => 'all_arrayref' }
-	);
+	if ( !defined $self->{'cache'}->{'client_field_data'} ) {
+		my $data = $self->run_query(
+			'SELECT locus,client_dbase_id,isolate_field FROM client_dbase_loci_fields WHERE allele_query '
+			  . 'ORDER BY client_dbase_id,isolate_field',
+			undef,
+			{ fetch => 'all_arrayref' }
+		);
+		foreach my $record (@$data) {
+			push @{ $self->{'cache'}->{'client_field_data'}->{ $record->[0] } }, [ $record->[1], $record->[2] ];
+		}
+	}
+	my $client_field_data = $self->{'cache'}->{'client_field_data'}->{$locus} // [];
 	my $field_values;
 	my $detailed_values;
 	my $dl_buffer = q();
 	my $td_buffer = q();
 	my $i         = 0;
-
 	foreach my $client_field (@$client_field_data) {
 		my $field          = $client_field->[1];
 		my $client         = $self->get_client_db( $client_field->[0] );
@@ -2857,8 +2874,18 @@ sub _format_list_values {
 sub get_allele_attributes {
 	my ( $self, $locus, $allele_ids ) = @_;
 	return [] if ref $allele_ids ne 'ARRAY';
-	my $fields = $self->run_query( 'SELECT field FROM locus_extended_attributes WHERE locus=?',
-		$locus, { fetch => 'col_arrayref' } );
+	if ( !$self->{'cache'}->{'locus_attribute_fields'} ) {
+		my $locus_attributes = $self->run_query( 'SELECT locus,field FROM locus_extended_attributes',
+			undef, { fetch => 'all_arrayref', slice => {} } );
+		foreach my $att (@$locus_attributes) {
+			if ( !defined $self->{'cache'}->{'locus_attribute_fields'}->{ $att->{'locus'} } ) {
+				$self->{'cache'}->{'locus_attribute_fields'}->{ $att->{'locus'} } = [ $att->{'field'} ];
+			} else {
+				push @{ $self->{'cache'}->{'locus_attribute_fields'}->{ $att->{'locus'} } }, $att->{'field'};
+			}
+		}
+	}
+	my $fields = $self->{'cache'}->{'locus_attribute_fields'}->{$locus} // [];
 	my $values;
 	return if !@$fields;
 	foreach my $field (@$fields) {
