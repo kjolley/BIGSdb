@@ -1,3 +1,5 @@
+v1.48.2: *Determine nearest matching genome using LIN codes in sequence query.
+         *Performance improvements to sequence query.
 v1.48.1: *Fix for LIN code prefix field lookup on web/REST profile pages.
          *Fix for LIN code assignment when scheme has field called profile_id.
          *Performance improvement for API cgMLST profile download.

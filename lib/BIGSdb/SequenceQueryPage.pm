@@ -124,8 +124,9 @@ function initiate() {
 		value = value.replace(/^([^<h3>].+?) - /,"<h3>\$1</h3>");
 		\$(this).tooltip({content: value});
 	});
-	\$( "#and_others" ).click(function() {
-		\$( "div#other_matches" ).toggle( 'blind', {} , 500 );
+	\$( ".and_others" ).click(function() {
+		let scheme_id = this.id.replace('and_others_','');
+		\$( "div#other_matches_" + scheme_id ).toggle( 'blind', {} , 500 );
 		return false;
 	});
 	reloadTooltips();

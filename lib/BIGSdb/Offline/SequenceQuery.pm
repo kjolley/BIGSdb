@@ -579,9 +579,9 @@ sub _get_closest_match_output {
 	$buffer .= q(<h3>Matching profiles</h3>);
 	my $other_profiles_count = @profiles - 1;
 	my $plural               = $other_profiles_count == 1 ? q() : q(s);
-	my $and_others =
-	  $other_profiles_count
-	  ? qq( and <a id="and_others" style="cursor:pointer">$other_profiles_count other$plural</a>)
+	my $and_others           = $other_profiles_count
+	  ? qq( and <a id="and_others_$scheme_id" class="and_others" style="cursor:pointer">)
+	  . qq($other_profiles_count other$plural</a>)
 	  : q();
 	my $values = $self->_get_field_values( $scheme_id, $first_profile );
 	my $loci_count =
@@ -609,7 +609,7 @@ sub _get_closest_match_output {
 
 	if ($other_profiles_count) {
 		$plural = $ret_val->{'mismatches'} == 1 ? q() : q(es);
-		$buffer .= q(<div id="other_matches" class="infopanel" style="display:none">);
+		$buffer .= qq(<div id="other_matches_$scheme_id" class="infopanel" style="display:none">);
 		$buffer .= qq(<h3>Other profiles that have $ret_val->{'mismatches'} mismatch$plural</h3>);
 		$buffer .= q(<ul>);
 		foreach my $profile ( @profiles[ 1 .. $#profiles ] ) {
@@ -998,8 +998,8 @@ sub _get_closest_matching_profile {
 		}
 		return { profiles => $best_matches, mismatches => 0 };
 	}
-	if ( defined $self->{'closest_matching_profiles'} ) {
-		return $self->{'closest_matching_profiles'};
+	if ( defined $self->{'closest_matching_profiles'}->{$scheme_id} ) {
+		return $self->{'closest_matching_profiles'}->{$scheme_id};
 	}
 	my $pk_info          = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $pk_field );
 	my $order            = $pk_info->{'type'} eq 'integer' ? "CAST($pk_field AS int)" : $pk_field;
@@ -1010,6 +1010,7 @@ sub _get_closest_matching_profile {
 	$self->{'db'}->do("COPY $scheme_warehouse($pk_field,profile) TO STDOUT");
 	my $row;
 	my $array_parser = Text::CSV->new( { binary => 1, sep_char => ',', quote_char => '"' } );
+
 	while ( $self->{'db'}->pg_getcopydata($row) >= 0 ) {
 		chomp $row;
 		my ( $pk, $profile_string ) = split /\t/x, $row;
@@ -1049,7 +1050,7 @@ sub _get_closest_matching_profile {
 	return if !@$best_matches;
 	no warnings 'numeric';
 	@$best_matches = sort { $a <=> $b || $a cmp $b } @$best_matches;
-	$self->{'closest_matching_profiles'} = { profiles => $best_matches, mismatches => $least_mismatches };
+	$self->{'closest_matching_profiles'}->{$scheme_id} = { profiles => $best_matches, mismatches => $least_mismatches };
 	return { profiles => $best_matches, mismatches => $least_mismatches };
 }
 
