@@ -1048,6 +1048,7 @@ sub _get_closest_matching_profile {
 		}
 	}
 	return if !@$best_matches;
+	return if $least_mismatches == @$loci;
 	no warnings 'numeric';
 	@$best_matches = sort { $a <=> $b || $a cmp $b } @$best_matches;
 	$self->{'closest_matching_profiles'}->{$scheme_id} = { profiles => $best_matches, mismatches => $least_mismatches };
