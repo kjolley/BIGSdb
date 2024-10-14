@@ -804,7 +804,7 @@ sub _get_lincode_classification {
 	my ( $self, $scheme_id, $designations ) = @_;
 	my $buffer       = q();
 	my $this_lincode = $self->_get_lincode_from_designations( $scheme_id, $designations );
-	return if !$this_lincode;
+	return $buffer if !$this_lincode;
 	my $thresholds =
 	  $self->{'datastore'}->run_query( 'SELECT thresholds FROM lincode_schemes WHERE scheme_id=?', $scheme_id );
 	my @thresholds = split( ';', $thresholds );
