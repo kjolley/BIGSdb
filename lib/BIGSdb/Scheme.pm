@@ -128,7 +128,7 @@ sub get_field_values_by_designations {
 				if ( defined $designation->{'allele_id'} ) {
 					$designation->{'allele_id'} =~ s/'/\\'/gx;
 				} else {
-					$logger->error("$self->{'instance'}: Undefined allele for locus $locus");
+					$logger->error("Undefined allele for locus $locus");
 				}
 				push @$allele_ids, $designation->{'allele_id'};
 			}
