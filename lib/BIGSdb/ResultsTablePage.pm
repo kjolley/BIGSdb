@@ -1247,7 +1247,7 @@ sub _print_isolate_table_scheme {
 			$formatted_value .= q(</span>) if $provisional;
 			push @values, $formatted_value;
 		}
-		local $" = ',';
+		local $" = q(, );
 		print qq(<td>@values</td>);
 	}
 	if ( $self->{'lincodes'}->{$scheme_id} ) {
