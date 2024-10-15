@@ -36,6 +36,7 @@ sub run {
 	my $options = $self->{'options'};
 	my $loci    = $self->get_selected_loci;
 	$self->{'system'}->{'set_id'} //= $self->{'options'}->{'set_id'};
+	$self->{'system'}->{'script_name'} = $self->{'options'}->{'script_name'};
 	my $linked_data = {
 		linked_data         => $self->_data_linked_to_loci( 'client_dbase_loci_fields',  $loci ),
 		extended_attributes => $self->_data_linked_to_loci( 'locus_extended_attributes', $loci ),
@@ -579,7 +580,8 @@ sub _get_closest_match_output {
 	$buffer .= q(<h3>Matching profiles</h3>);
 	my $other_profiles_count = @profiles - 1;
 	my $plural               = $other_profiles_count == 1 ? q() : q(s);
-	my $and_others           = $other_profiles_count
+	my $and_others =
+	  $other_profiles_count
 	  ? qq( and <a id="and_others_$scheme_id" class="and_others" style="cursor:pointer">)
 	  . qq($other_profiles_count other$plural</a>)
 	  : q();
