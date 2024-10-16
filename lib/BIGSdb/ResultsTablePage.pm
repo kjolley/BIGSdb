@@ -26,6 +26,7 @@ use List::MoreUtils qw(any uniq);
 use JSON;
 use BIGSdb::Constants qw(:interface DATABANKS);
 use Log::Log4perl qw(get_logger);
+use constant LOCUS_LIMIT_TO_USE_CACHE => 100;
 my $logger = get_logger('BIGSdb.Page');
 
 sub _calculate_totals {
@@ -1219,12 +1220,23 @@ sub _print_isolate_table_scheme {
 	  || !$self->{'prefs'}->{'main_display_schemes'}->{$scheme_id};
 	my $scheme_fields = $self->{'scheme_fields'}->{$scheme_id};
 	my $scheme_field_values;
+	if ( !defined $self->{'use_scheme_cache'}->{$scheme_id} ) {
+		my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+		$self->{'use_scheme_cache'}->{$scheme_id} =
+		  ( $self->{'system'}->{'cache_schemes'} // q() ) eq 'yes'
+		  && @$scheme_loci > LOCUS_LIMIT_TO_USE_CACHE;
+	}
 	foreach my $field (@$scheme_fields) {
 		next if !$self->{'prefs'}->{'main_display_scheme_fields'}->{$scheme_id}->{$field};
 		if ( !defined $scheme_field_values ) {
-			$scheme_field_values =
-			  $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id,
-				{ allow_presence => $self->{'scheme_info'}->{$scheme_id}->{'allow_presence'} } );
+			$scheme_field_values = $self->{'datastore'}->get_scheme_field_values_by_isolate_id(
+				$isolate_id,
+				$scheme_id,
+				{
+					allow_presence => $self->{'scheme_info'}->{$scheme_id}->{'allow_presence'},
+					use_cache      => $self->{'use_scheme_cache'}->{$scheme_id}
+				}
+			);
 		}
 		my @values;
 		my $field_values = $self->_sort_scheme_field_values( $scheme_field_values, $field );

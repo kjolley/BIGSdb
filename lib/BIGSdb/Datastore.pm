@@ -431,6 +431,39 @@ sub _convert_designations_to_profile_names {
 
 sub get_scheme_field_values_by_isolate_id {
 	my ( $self, $isolate_id, $scheme_id, $options ) = @_;
+	if ( $options->{'use_cache'} ) {
+		my $table = "temp_isolates_scheme_fields_$scheme_id";
+		if ( !defined $self->{'cache'}->{'scheme_table_exists'}->{$scheme_id} ) {
+			$self->{'cache'}->{'scheme_table_exists'}->{$scheme_id} =
+			  $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
+		}
+		if ( $self->{'cache'}->{'scheme_table_exists'}->{$scheme_id} ) {
+			my $scheme_values = $self->run_query(
+				"SELECT * FROM $table WHERE id=?",
+				$isolate_id,
+				{
+					fetch => 'all_arrayref',
+					slice => {},
+					cache => 'Datastore::get_scheme_field_values_by_isolate_id::cache_table'
+				}
+			);
+			my $fields      = $self->get_scheme_fields($scheme_id);
+			my $return_data = {};
+			foreach my $value (@$scheme_values) {
+				foreach my $field (@$fields) {
+					if ( defined $value->{ lc($field) } ) {
+
+						#Currently no check if any of the alleles are provisional.
+						$return_data->{ lc($field) }->{ $value->{ lc($field) } } = 'confirmed';
+					}
+				}
+			}
+			return $return_data;
+		} else {
+			$logger->error("$self->{'instance'}: Cache table for scheme $scheme_id does not exist.");
+			return {};
+		}
+	}
 	my $designations = $self->get_scheme_allele_designations( $isolate_id, $scheme_id );
 	if ( $options->{'allow_presence'} ) {
 		my $present = $self->run_query(
