@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2018-2020, University of Oxford
+#Copyright (c) 2018-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -57,7 +57,7 @@ sub print_content {
 		return;
 	}
 	if ( $q->param('filenames') ) {
-		my $filenames = $q->param('filenames');
+		my $filenames  = $q->param('filenames');
 		my $check_data = $self->_check( $field, \$filenames );
 		if ( $check_data->{'message'} ) {
 			$self->_print_interface;
@@ -99,6 +99,7 @@ sub _check {
 	my $number        = 0;
 	my $id_used       = {};
 	my $filename_used = {};
+
 	foreach my $row (@rows) {
 		$row =~ s/^\s+|\s+$//x;
 		next if !$row;
@@ -123,8 +124,11 @@ sub _check {
 			  { id => $id, problem => "$id_field is an integer field - you provided a non-integer value" };
 			next;
 		}
-		my $ids = $self->{'datastore'}->run_query( "SELECT id FROM $self->{'system'}->{'view'} WHERE $id_field=?",
-			$id, { fetch => 'col_arrayref', cache => 'CurateBatchAddSeqbin::check_id' } );
+		my $check_qry = ( $field_atts->{'multiple'} // q() ) eq 'yes'
+		  ? "SELECT id FROM $self->{'system'}->{'view'} WHERE ? = ANY($id_field)"
+		  : "SELECT id FROM $self->{'system'}->{'view'} WHERE $id_field=?";
+		my $ids = $self->{'datastore'}
+		  ->run_query( $check_qry, $id, { fetch => 'col_arrayref', cache => 'CurateBatchAddSeqbin::check_id' } );
 		my $matching_records = @$ids;
 		if ( !$matching_records ) {
 			$invalid->{$number} = { id => $id, problem => 'No matching record!' };
@@ -165,8 +169,7 @@ sub _validate {
 	my ( $validated, $failed );
 	try {
 		$validated = $self->_parse_validated_temp_file($temp_file);
-	}
-	catch {
+	} catch {
 		if ( $_->isa('BIGSdb::Exception::File::CannotOpen') ) {
 			$failed = 1;
 		} else {
@@ -211,8 +214,7 @@ sub _validate {
 			$seq_ref = $self->_get_seqref_from_fasta($filename);
 			say qq(<td><span class="statusbad">$good</td>);
 			$success++;
-		}
-		catch {
+		} catch {
 			if ( $_->isa('BIGSdb::Exception::File::CannotOpen') ) {
 				say q(<td><span class="statusbad">Cannot open file</td>);
 				$failure++;
@@ -408,8 +410,7 @@ sub _upload {
 	my ( $validated, $failed );
 	try {
 		$validated = $self->_parse_validated_temp_file($temp_file);
-	}
-	catch {
+	} catch {
 		if ( $_->isa('BIGSdb::Exception::File::CannotOpen') ) {
 			$failed = 1;
 		} else {
@@ -471,8 +472,7 @@ sub _upload {
 		my $failed_validation;
 		try {
 			$seq_ref = $self->_get_seqref_from_fasta($filename);
-		}
-		catch {
+		} catch {
 			$failed_validation = 1;
 		};
 		if ($failed_validation) {
@@ -611,8 +611,7 @@ sub _file_upload {
 	my $failed;
 	try {
 		$validated = $self->_parse_validated_temp_file($temp_file);
-	}
-	catch {
+	} catch {
 		if ( $_->isa('BIGSdb::Exception::File::CannotOpen') ) {
 			$failed = 1;
 		} else {
@@ -636,7 +635,7 @@ sub _file_upload {
 	if ( $q->param('file_upload') ) {
 		$self->_upload_files($allowed_files);
 	}
-	my $icon = $self->get_form_icon( 'sequence_bin', 'plus' );
+	my $icon   = $self->get_form_icon( 'sequence_bin', 'plus' );
 	my $buffer = qq(<div class="box resultstable"><div class="scrollable">$icon);
 	$buffer .= q(<p>Please upload the assembly contig files for each isolate record.<p>);
 	$buffer .= $q->start_form;
@@ -747,8 +746,7 @@ sub _remove_row {
 	my $validated;
 	try {
 		$validated = $self->_parse_validated_temp_file($temp_file);
-	}
-	catch {
+	} catch {
 		if ( $_->isa('BIGSdb::Exception::File::CannotOpen') ) {
 			$failed = 1;
 		} else {
@@ -913,8 +911,8 @@ sub _parse_validated_temp_file {
 
 sub _print_interface {
 	my ($self) = @_;
-	my $icon = $self->get_form_icon( 'sequence_bin', 'plus' );
-	my $q = $self->{'cgi'};
+	my $icon   = $self->get_form_icon( 'sequence_bin', 'plus' );
+	my $q      = $self->{'cgi'};
 	say q(<div class="box queryform"><div class="scrollable">);
 	say $icon;
 	say q(<p>This function allows you to upload assembly contig files for multiple records together.</p>);
@@ -969,10 +967,10 @@ sub initiate {
 }
 
 sub get_javascript {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	my $field = $q->param('field') // 'id';
-	my $max = $self->{'config'}->{'max_upload_size'} / ( 1024 * 1024 );
+	my ($self)    = @_;
+	my $q         = $self->{'cgi'};
+	my $field     = $q->param('field') // 'id';
+	my $max       = $self->{'config'}->{'max_upload_size'} / ( 1024 * 1024 );
 	my $max_files = LIMIT * 2;    #Allow more in case some wrong files are selected
 	my $buffer    = << "END";
 \$(function () {
