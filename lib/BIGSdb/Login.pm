@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#(c) 2010-2023, University of Oxford
+#(c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -216,10 +216,20 @@ sub _check_password {
 	if ( !$login_session_exists ) {
 		$self->_error_exit( 'The login window has expired - please resubmit credentials.', $options );
 	}
-	my $stored_hash = $self->get_password_hash( $self->{'vars'}->{'user'}, $options ) // '';
+	my $stored_hash           = $self->get_password_hash( $self->{'vars'}->{'user'}, $options ) // '';
+	my $invalid_login_message = q(Invalid username or password entered. Please try again.);
+	my $site_db               = $self->_get_site_database( $self->{'vars'}->{'user'} );
+	if ($site_db) {
+		$invalid_login_message .=
+		  q( Note that you need to register your account with each database that you wish to log in to.);
+		if ( $self->{'config'}->{'registration_address'} ) {
+			$invalid_login_message .= qq( You can do this at <a href="$self->{'config'}->{'registration_address'}">)
+			  . qq($self->{'config'}->{'registration_address'}</a>.);
+		}
+	}
 	if ( !$stored_hash || !$self->{'datastore'}->user_name_exists( $self->{'vars'}->{'user'} ) ) {
 		$self->_delete_session( scalar $self->{'cgi'}->param('session') );
-		$self->_error_exit( 'Invalid username or password entered.  Please try again.', $options );
+		$self->_error_exit( $invalid_login_message, $options );
 	}
 	$logger->debug("using session ID = $self->{'vars'}->{'session'}");
 	$logger->debug("Saved password hash for $self->{'vars'}->{'user'} = $stored_hash->{'password'}");
@@ -248,7 +258,7 @@ sub _check_password {
 	}
 	if ( !$password_matches ) {
 		$self->_delete_session( scalar $self->{'cgi'}->param('session') );
-		$self->_error_exit( 'Invalid username or password entered.  Please try again.', $options );
+		$self->_error_exit( $invalid_login_message, $options );
 	} else {
 		if ( $stored_hash->{'reset_password'} ) {
 			$logger->info('Password reset required.');
