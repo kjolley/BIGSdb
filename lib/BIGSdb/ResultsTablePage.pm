@@ -1212,7 +1212,8 @@ sub _print_isolate_table_scheme {
 		$self->_print_locus_value( $isolate_id, $allele_designations, $locus );
 	}
 	if ( !defined $self->{'scheme_info'}->{$scheme_id} && $scheme_id ) {
-		$self->{'scheme_info'}->{$scheme_id} = $self->{'datastore'}->get_scheme_info($scheme_id);
+		$self->{'scheme_info'}->{$scheme_id} =
+		  $self->{'datastore'}->get_scheme_info( $scheme_id, { primary_key => 1 } );
 	}
 	return
 		 if !$scheme_id
@@ -1222,8 +1223,7 @@ sub _print_isolate_table_scheme {
 	my $scheme_field_values;
 	if ( !defined $self->{'use_scheme_cache'}->{$scheme_id} ) {
 		my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
-		$self->{'use_scheme_cache'}->{$scheme_id} =
-		  ( $self->{'system'}->{'cache_schemes'} // q() ) eq 'yes'
+		$self->{'use_scheme_cache'}->{$scheme_id} = ( $self->{'system'}->{'cache_schemes'} // q() ) eq 'yes'
 		  && @$scheme_loci > LOCUS_LIMIT_TO_USE_CACHE;
 	}
 	foreach my $field (@$scheme_fields) {
@@ -1260,7 +1260,11 @@ sub _print_isolate_table_scheme {
 			push @values, $formatted_value;
 		}
 		local $" = q(, );
-		print qq(<td>@values</td>);
+		if ( $att->{'primary_key'} && @values > 1 ) {
+			$self->_print_multi_pk_value( $isolate_id, $scheme_id, \@values );
+		} else {
+			print qq(<td>@values</td>);
+		}
 	}
 	if ( $self->{'lincodes'}->{$scheme_id} ) {
 		my $lincode = $self->_get_lincode_value( $scheme_id, $isolate_id );
@@ -1269,6 +1273,42 @@ sub _print_isolate_table_scheme {
 	foreach my $lincode_field ( @{ $self->{'lincode_fields'}->{$scheme_id} } ) {
 		$self->_print_lincode_field_value( $scheme_id, $lincode_field, $isolate_id );
 	}
+	return;
+}
+
+sub _print_multi_pk_value {
+	my ( $self, $isolate_id, $scheme_id, $profile_ids ) = @_;
+	my $min_missing;
+	my %missing_count;
+	foreach my $profile_id (@$profile_ids) {
+		my $profile = $self->{'datastore'}->get_profile_by_primary_key( $scheme_id, $profile_id );
+		$min_missing //= @$profile;
+		my $missing = grep { $_ eq 'N' } @$profile;
+		if ( $missing < $min_missing ) {
+			$min_missing = $missing;
+		}
+		$missing_count{$profile_id} = $missing;
+	}
+	my @fewest_missing_loci;
+	my @others;
+	foreach my $profile_id (@$profile_ids) {
+		if ( $missing_count{$profile_id} == $min_missing ) {
+			push @fewest_missing_loci, $profile_id;
+		} else {
+			push @others, $profile_id;
+		}
+	}
+	my $text = qq(@fewest_missing_loci );
+	if (@others) {
+		$text .=
+			qq([+<a id="id_${isolate_id}_scheme_${scheme_id}" class="pk_trigger" )
+		  . q(style="cursor:pointer">)
+		  . scalar @others
+		  . q(&nbsp;more</a>])
+		  . qq(<br /><span id="id_${isolate_id}_${scheme_id}_pk" class="comment" )
+		  . qq(style="display:none">@others);
+	}
+	print qq(<td>$text</td>);
 	return;
 }
 
@@ -2130,6 +2170,14 @@ sub get_javascript {
 	});
 	\$("button#project_trigger").on('click', function(){	
 		\$("div#project_section").toggle(200);	
+	});
+	\$(".pk_trigger").on('click', function(){
+		let field = this.id;
+		let matches = field.match(/id_(\\d+)_scheme_(\\d+)/);
+		if (matches[2]){
+			\$("#id_" + matches[1] + "_" + matches[2] + "_pk").toggle();
+		}
+
 	});
 });
 
