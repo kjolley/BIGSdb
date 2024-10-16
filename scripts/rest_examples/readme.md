@@ -51,7 +51,7 @@ Available scripts
  
    Test client demonstrating the OAuth authentication process. To use this you
    will need to register for a [PubMLST account](https://pubmlst.org/site_accounts.shtml)
-   and [link this to the pubmlst_test_seqdef and pubmlst_test_isolates databases](https://pubmlst.org/site_accounts.shtml#registering_with_databases). 
+   and [link this to the pubmlst_test_seqdef and pubmlst_test_isolates databases](https://pubmlst.org/site-accounts). 
    
    A test sequence definition database (pubmlst_test_seqdef) is hard-coded
    in to the script. Calling the script without any route is the same as sending
