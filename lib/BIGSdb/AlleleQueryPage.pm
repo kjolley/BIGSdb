@@ -42,7 +42,7 @@ sub initiate {
 		my $value = $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'aq_allele_fieldset' );
 		$self->{'prefs'}->{'aq_allele_fieldset'} = ( $value // '' ) eq 'off' ? 0 : 1;
 	}
-	$self->{$_} = 1 foreach (qw (tooltips jQuery jQuery.coolfieldset jQuery.multiselect));
+	$self->{$_} = 1 foreach (qw (tooltips jQuery jQuery.multiselect));
 	$self->set_level1_breadcrumbs;
 	return;
 }
