@@ -1,3 +1,8 @@
+v1.48.4: *The scheme cache is now used for isolate query results if the scheme
+          has >100 loci and 'cache_schemes' is set.
+         *If there are multiple cgSTs for an isolate, these are now collapsed
+          with just the cgST with the fewest missing loci shown in the results
+          table (other matching cgSTs can be shown by clicking a link).
 v1.48.3: *Determine nearest matching genome using LIN codes in sequence query.
          *Performance improvements to sequence query.
 v1.48.2: *Hotfix for API downloads crashing if selected scheme did not have
