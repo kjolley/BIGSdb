@@ -33,6 +33,7 @@ use Try::Tiny;
 my $logger = get_logger('BIGSdb.Page');
 use constant INF                => 9**99;
 use constant RUN_OFFLINE_LENGTH => 10_000;
+use constant DEFAULT_WORD_SIZE  => 20;
 
 sub get_title {
 	my ($self) = @_;
@@ -240,7 +241,11 @@ sub _print_interface {
 		say q(</fieldset>);
 	}
 	my $action_args;
-	$action_args->{'simple'} = 1       if $q->param('simple');
+	if ( $q->param('simple') ) {
+		$action_args->{'simple'} = 1;
+	} else {
+		$self->_print_options_fieldset;
+	}
 	$action_args->{'set_id'} = $set_id if $set_id;
 	$self->print_action_fieldset($action_args);
 	say q(</div></div>);
@@ -250,10 +255,30 @@ sub _print_interface {
 	return;
 }
 
+sub _print_options_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say q(<fieldset id="options" style="float:left"><legend>Options</legend>);
+	say q(<ul><li>BLASTN word size: );
+	my $default =
+	  BIGSdb::Utils::is_int( scalar $q->param('word_size') ) ? scalar $q->param('word_size') : DEFAULT_WORD_SIZE;
+	say $self->textfield(
+		-ud    => 'word_size',
+		-name  => 'word_size',
+		-type  => 'number',
+		-min   => 11,
+		-max   => 50,
+		-value => $default
+	);
+	say q(</li></ul>);
+	say q(</fieldset>);
+	return;
+}
+
 sub _populate_kiosk_params {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	foreach my $param (qw(locus simple no_upload no_genbank)) {
+	foreach my $param (qw(locus simple no_upload)) {
 		$q->param( $param => $self->{'system'}->{"kiosk_$param"} eq 'yes' ? 1 : 0 )
 		  if $self->{'system'}->{"kiosk_$param"};
 	}
@@ -527,6 +552,11 @@ sub _run_blast {
 	my $batch_query   = $q->param('page') eq 'batchSequenceQuery' ? 1 : 0;
 	my $set_id        = $self->get_set_id;
 	local $" = q(,);
+	my $word_size =
+	  BIGSdb::Utils::is_int( scalar $q->param('word_size') )
+	  ? scalar $q->param('word_size')
+	  : DEFAULT_WORD_SIZE;
+	$word_size = 11 if $word_size < 11;
 	my $seq_qry_obj = BIGSdb::Offline::SequenceQuery->new(
 		{
 			config_dir       => $self->{'config_dir'},
@@ -547,7 +577,8 @@ sub _run_blast {
 				select_id            => $self->{'select_id'},
 				set_id               => $set_id,
 				script_name          => $self->{'system'}->{'script_name'},
-				align_width          => $self->{'prefs'}->{'alignwidth'}
+				align_width          => $self->{'prefs'}->{'alignwidth'},
+				word_size            => $word_size
 			},
 			instance => $self->{'instance'},
 			logger   => $logger
