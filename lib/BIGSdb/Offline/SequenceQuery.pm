@@ -381,7 +381,7 @@ sub _get_scheme_exact_results {
 			$scheme_members = $self->{'datastore'}->get_scheme_loci($scheme_id);
 			next if none { $exact_matches->{$_} } @$scheme_members;
 		} else {
-			$scheme_members = $self->{'datastore'}->get_loci( { set_id => $set_id } );
+			$scheme_members = $self->{'datastore'}->get_loci( { set_id => $set_id, data_type => $options->{'data_type'} } );
 		}
 		foreach my $locus (@$scheme_members) {
 			$scheme_buffer .= $self->_get_locus_matches(

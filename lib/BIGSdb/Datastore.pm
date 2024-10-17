@@ -2338,6 +2338,7 @@ sub get_classification_group_fields {
 }
 ##############LOCI#####################################################################
 #options passed as hashref:
+#data_type: only the loci of the specified data_type (DNA or peptide) will be returned
 #query_pref: only the loci for which the user has a query field preference selected will be returned
 #analysis_pref: only the loci for which the user has an analysis preference selected will be returned
 #seq_defined: only the loci for which a database or a reference sequence has been defined will be returned
@@ -2345,24 +2346,32 @@ sub get_classification_group_fields {
 #{ query_pref => 1, analysis_pref => 1, seq_defined => 1, do_not_order => 1 }
 sub get_loci {
 	my ( $self, $options ) = @_;
-	my $defined_clause =
-	  $options->{'seq_defined'} ? 'WHERE dbase_name IS NOT NULL OR reference_sequence IS NOT NULL' : '';
-	my $set_clause = '';
+	my @clauses;
+	if ( $options->{'seq_defined'} ) {
+		push @clauses, '(dbase_name IS NOT NULL OR reference_sequence IS NOT NULL)';
+	}
 	if ( $options->{'set_id'} ) {
-		$set_clause = $defined_clause ? 'AND' : 'WHERE';
-		$set_clause .=
-			' (id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE '
+		push @clauses,
+		  '(id IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE '
 		  . "set_id=$options->{'set_id'})) OR id IN (SELECT locus FROM set_loci WHERE set_id=$options->{'set_id'}))";
+	}
+	if ( $options->{'data_type'} ) {
+		push @clauses, "(data_type='$options->{'data_type'}')";
+	}
+	my $clause_string = q();
+	if (@clauses) {
+		local $" = ' AND ';
+		$clause_string = " WHERE @clauses";
 	}
 	my $qry;
 	if ( any { $options->{$_} } qw (query_pref analysis_pref) ) {
-		$qry = 'SELECT id,scheme_id FROM loci LEFT JOIN scheme_members ON loci.id = scheme_members.locus '
-		  . "$defined_clause $set_clause";
+		$qry =
+		  'SELECT id,scheme_id FROM loci LEFT JOIN scheme_members ON loci.id = scheme_members.locus' . $clause_string;
 		if ( !$options->{'do_not_order'} ) {
 			$qry .= ' ORDER BY scheme_members.scheme_id,scheme_members.field_order,id';
 		}
 	} else {
-		$qry = "SELECT id FROM loci $defined_clause $set_clause";
+		$qry = "SELECT id FROM loci$clause_string";
 		if ( !$options->{'do_not_order'} ) {
 			$qry .= ' ORDER BY id';
 		}

@@ -176,42 +176,7 @@ sub _print_interface {
 	say q(<div class="scrollable">);
 
 	if ( !$q->param('simple') ) {
-		say q(<fieldset><legend>Please select locus/scheme</legend>);
-		my ( $display_loci, $cleaned ) =
-		  $self->{'datastore'}->get_locus_list( { set_id => $set_id, no_list_by_common_name => 1 } );
-		my $scheme_list = $self->get_scheme_data;
-		my %order;
-		my @schemes_and_groups;
-		foreach my $scheme ( reverse @$scheme_list ) {
-			my $value = "SCHEME_$scheme->{'id'}";
-			push @schemes_and_groups, $value;
-			$order{$value} = $scheme->{'display_order'} if $scheme->{'display_order'};
-			$cleaned->{$value} = $scheme->{'name'};
-		}
-		my $group_list = $self->{'datastore'}->get_group_list( { seq_query => 1 } );
-		foreach my $group ( reverse @$group_list ) {
-			my $group_schemes = $self->{'datastore'}->get_schemes_in_group( $group->{'id'}, { set_id => $set_id } );
-			if (@$group_schemes) {
-				my $value = "GROUP_$group->{'id'}";
-				push @schemes_and_groups, $value;
-				$order{$value} = $group->{'display_order'} if $group->{'display_order'};
-				$cleaned->{$value} = $group->{'name'};
-			}
-		}
-		@schemes_and_groups =
-		  sort { ( $order{$a} // INF ) <=> ( $order{$b} // INF ) || $cleaned->{$a} cmp $cleaned->{$b} }
-		  @schemes_and_groups;
-		unshift @$display_loci, @schemes_and_groups;
-		unshift @$display_loci, 0;
-		$cleaned->{0} = 'All loci';
-
-		#Following is eval'd because it may take a while to populate when a very large number of loci are defined.
-		#If the user closes the connection while the page is loading it would otherwise lead to a 500 error.
-		eval { say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $display_loci, -labels => $cleaned ) };
-		say q(</fieldset>);
-		say q(<fieldset><legend>Order results by</legend>);
-		say $q->popup_menu( -name => 'order', -values => [ ( 'locus', 'best match' ) ] );
-		say q(</fieldset>);
+		$self->_print_scheme_loci_selector;
 	} else {
 		$q->param( order => 'locus' );
 		say $q->hidden($_) foreach qw(locus order simple debug);
@@ -252,6 +217,66 @@ sub _print_interface {
 	say $q->hidden($_) foreach qw (db page word_size no_ajax);
 	say $q->end_form;
 	say q(</div>);
+	return;
+}
+
+sub _print_scheme_loci_selector {
+	my ($self) = @_;
+	my $set_id = $self->get_set_id;
+	my $q      = $self->{'cgi'};
+	say q(<fieldset><legend>Please select locus/scheme</legend>);
+	my ( $display_loci, $cleaned ) =
+	  $self->{'datastore'}->get_locus_list( { set_id => $set_id, no_list_by_common_name => 1 } );
+	my $qry;
+	if ($set_id) {
+		$qry =
+			'SELECT EXISTS(SELECT 1 FROM loci LEFT JOIN set_loci ON loci.id='
+		  . "set_loci.locus AND set_loci.set_id=$set_id WHERE (id IN (SELECT locus FROM scheme_members "
+		  . "WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)) OR id IN "
+		  . "(SELECT locus FROM set_loci WHERE set_id=$set_id)) AND data_type=?)";
+	} else {
+		$qry = 'SELECT EXISTS(SELECT 1 FROM loci WHERE data_type=?)';
+	}
+	my $dna_loci     = $self->{'datastore'}->run_query( $qry, 'DNA' );
+	my $peptide_loci = $self->{'datastore'}->run_query( $qry, 'peptide' );
+	my $scheme_list  = $self->get_scheme_data;
+	my %order;
+	my @schemes_and_groups;
+	foreach my $scheme ( reverse @$scheme_list ) {
+		my $value = "SCHEME_$scheme->{'id'}";
+		push @schemes_and_groups, $value;
+		$order{$value} = $scheme->{'display_order'} if $scheme->{'display_order'};
+		$cleaned->{$value} = $scheme->{'name'};
+	}
+	my $group_list = $self->{'datastore'}->get_group_list( { seq_query => 1 } );
+	foreach my $group ( reverse @$group_list ) {
+		my $group_schemes = $self->{'datastore'}->get_schemes_in_group( $group->{'id'}, { set_id => $set_id } );
+		if (@$group_schemes) {
+			my $value = "GROUP_$group->{'id'}";
+			push @schemes_and_groups, $value;
+			$order{$value} = $group->{'display_order'} if $group->{'display_order'};
+			$cleaned->{$value} = $group->{'name'};
+		}
+	}
+	@schemes_and_groups =
+	  sort { ( $order{$a} // INF ) <=> ( $order{$b} // INF ) || $cleaned->{$a} cmp $cleaned->{$b} } @schemes_and_groups;
+	unshift @$display_loci, @schemes_and_groups;
+	unshift @$display_loci, 'ALL_LOCI';
+	$cleaned->{'ALL_LOCI'} = 'All loci';
+	if ( $dna_loci && $peptide_loci ) {
+		unshift @$display_loci, 'ALL_PEPTIDE';
+		$cleaned->{'ALL_PEPTIDE'} = 'All peptide loci';
+		unshift @$display_loci, 'ALL_DNA';
+		$cleaned->{'ALL_DNA'} = 'All DNA loci';
+	}
+
+	#Following is eval'd because it may take a while to populate when a very large number of loci are defined.
+	#If the user closes the connection while the page is loading it would otherwise lead to a 500 error.
+	eval { say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $display_loci, -labels => $cleaned ) };
+	say q(</fieldset>);
+	say q(<fieldset><legend>Order results by</legend>);
+	say $q->popup_menu( -name => 'order', -values => [ ( 'locus', 'best match' ) ] );
+	say q(</fieldset>);
 	return;
 }
 
@@ -578,7 +603,8 @@ sub _run_blast {
 				set_id               => $set_id,
 				script_name          => $self->{'system'}->{'script_name'},
 				align_width          => $self->{'prefs'}->{'alignwidth'},
-				word_size            => $word_size
+				word_size            => $word_size,
+				data_type            => $self->{'data_type'}
 			},
 			instance => $self->{'instance'},
 			logger   => $logger
@@ -622,9 +648,19 @@ sub _get_selected_loci {
 	my $q         = $self->{'cgi'};
 	my $selection = $self->{'system'}->{'kiosk_locus'} // $q->param('locus');
 	my $set_id    = $self->get_set_id;
-	if ( $selection eq '0' ) {
+	if ( $selection eq 'ALL_LOCI' ) {
 		$self->{'select_type'} = 'all';
 		return $self->{'datastore'}->get_loci( { set_id => $set_id } );
+	}
+	if ( $selection eq 'ALL_DNA' ) {
+		$self->{'select_type'} = 'all';
+		$self->{'data_type'}   = 'DNA';
+		return $self->{'datastore'}->get_loci( { set_id => $set_id, data_type => 'DNA' } );
+	}
+	if ( $selection eq 'ALL_PEPTIDE' ) {
+		$self->{'select_type'} = 'all';
+		$self->{'data_type'}   = 'peptide';
+		return $self->{'datastore'}->get_loci( { set_id => $set_id, data_type => 'peptide' } );
 	}
 	if ( $selection =~ /^SCHEME_(\d+)$/x ) {
 		my $scheme_id = $1;
