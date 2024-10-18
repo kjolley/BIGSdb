@@ -587,6 +587,10 @@ sub _run_blast {
 	  ? scalar $q->param('word_size')
 	  : DEFAULT_WORD_SIZE;
 	$word_size = 11 if $word_size < 11;
+
+	if ( $word_size =~ /(\d*)/x ) {
+		$word_size = $1;                   #untaint
+	}
 	my $seq_qry_obj = BIGSdb::Offline::SequenceQuery->new(
 		{
 			config_dir       => $self->{'config_dir'},
