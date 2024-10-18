@@ -1,4 +1,4 @@
-/*Version: 20240625*/
+/*Version: 20241018*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -1179,6 +1179,10 @@ a#related_db_trigger {
 }
 
 a#panel_trigger {
+	background: #8093f1;
+}
+
+a#options_trigger {
 	background: #8093f1;
 }
 

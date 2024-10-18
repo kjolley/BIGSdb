@@ -95,6 +95,11 @@ sub get_javascript {
 	}).multiselectfilter({
 		placeholder: 'Search'
 	});
+	\$("#options_trigger").click(function(){
+		\$("fieldset#options").css("display", \$("#options_off").is(":visible") ? "block" : "none");
+		\$("#options_off").toggle();
+		\$("#options_on").toggle();
+	});
 });
 
 function initiate() {
@@ -283,7 +288,7 @@ sub _print_scheme_loci_selector {
 sub _print_options_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say q(<fieldset id="options" style="float:left"><legend>Options</legend>);
+	say q(<fieldset id="options" style="float:left;display:none"><legend>Options</legend>);
 	say q(<ul><li>BLASTN word size: );
 	my $default =
 	  BIGSdb::Utils::is_int( scalar $q->param('word_size') ) ? scalar $q->param('word_size') : DEFAULT_WORD_SIZE;
@@ -696,6 +701,15 @@ sub initiate {
 		$self->{'tooltips'} = 1;
 		$self->set_level1_breadcrumbs;
 	}
+	return;
+}
+
+sub print_panel_buttons {
+	my ($self) = @_;
+	say q(<span class="icon_button"><a class="trigger_button" id="options_trigger">)
+	  . q(<span id="options_off" class="fas fa-lg fa-toggle-off"></span>)
+	  . q(<span id="options_on" class="fas fa-lg fa-toggle-on" style="display:none"></span>)
+	  . q(<span class="icon_label">Options</span></a></span>);
 	return;
 }
 1;
