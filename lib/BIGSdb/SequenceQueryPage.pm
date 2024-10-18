@@ -63,7 +63,7 @@ sub _get_text {
 		  . q(they do not need to be trimmed. The nearest partial matches will be identified if an exact )
 		  . q(match is not found. You can query using either DNA or peptide sequences. );
 		$buffer .= $self->get_tooltip( q(Query sequence - Your query sequence is assumed to be DNA if it contains )
-			  . q(90% or more G,A,T,C or N characters.) );
+			  . q(80% or more G,A,T,C or N characters.) );
 	}
 	return $buffer;
 }
