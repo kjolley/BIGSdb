@@ -706,7 +706,7 @@ sub initiate {
 
 sub print_panel_buttons {
 	my ($self) = @_;
-	say q(<span class="icon_button"><a class="trigger_button" id="options_trigger">)
+	say q(<span class="icon_button"><a class="trigger_button" id="options_trigger" title="Toggle options">)
 	  . q(<span id="options_off" class="fas fa-lg fa-toggle-off"></span>)
 	  . q(<span id="options_on" class="fas fa-lg fa-toggle-on" style="display:none"></span>)
 	  . q(<span class="icon_label">Options</span></a></span>);
