@@ -409,8 +409,8 @@ sub _batchDownload {
 			#Write out tar file except EOF block so that we can add additional files.
 			my $tf = $tar->write;
 			if ( $ENV{'MOD_PERL'} ) {
+				return if $self->{'mod_perl_request'}->connection->aborted;
 				eval {
-					return if $self->{'mod_perl_request'}->connection->aborted;
 					$self->{'mod_perl_request'}->print( substr $tf, 0, length($tf) - ( BLOCK * 2 ) );
 					$self->{'mod_perl_request'}->rflush;
 				};
