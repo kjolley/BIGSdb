@@ -27,7 +27,7 @@ my $logger = get_logger('BIGSdb.Plugins');
 use List::MoreUtils qw(any none);
 use Archive::Tar;
 use Archive::Tar::Constant;
-use constant MAX_ISOLATES => 1000;
+use constant MAX_ISOLATES => 100;
 use List::MoreUtils qw(uniq);
 use BIGSdb::Constants qw(:interface SEQ_METHODS);
 
