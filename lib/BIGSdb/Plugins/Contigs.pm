@@ -52,7 +52,7 @@ sub get_attributes {
 		menutext           => 'Contigs',
 		module             => 'Contigs',
 		url                => "$self->{'config'}->{'doclink'}/data_export/contig_export.html",
-		version            => '1.2.0',
+		version            => '1.2.1',
 		dbtype             => 'isolates',
 		section            => 'export,postquery',
 		input              => 'query',
@@ -410,6 +410,7 @@ sub _batchDownload {
 			my $tf = $tar->write;
 			if ( $ENV{'MOD_PERL'} ) {
 				eval {
+					return if $self->{'mod_perl_request'}->connection->aborted;
 					$self->{'mod_perl_request'}->print( substr $tf, 0, length($tf) - ( BLOCK * 2 ) );
 					$self->{'mod_perl_request'}->rflush;
 				};
