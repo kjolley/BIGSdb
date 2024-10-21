@@ -1095,6 +1095,7 @@ sub get_javascript {
 	render_selects();
 	\$(window).resize(function() {
     	delay(function(){
+    		\$("#auto_reg,#request_reg,#merge_user,#modify_user").multiselectfilter('destroy')
     		\$("#auto_reg,#request_reg,#merge_user,#modify_user").multiselect('destroy')
      		render_selects();
     	}, 1000);
