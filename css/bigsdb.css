@@ -817,13 +817,13 @@ div.registration_box {
 div.registered_configs {
 	background: #f6f6f6;
 	display: inline-block;
-	max-height: 15em;
+	max-height: 17em;
 	overflow-y: auto;
 	overflow-x: hidden
 }
 
-div.registered_configs li {
-	white-space: nowrap
+div.registered_configs ul {
+	list-style:disc inside none
 }
 
 div.flex_container {

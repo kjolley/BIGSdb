@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Synchronize user database users with details from client databases
 #Written by Keith Jolley
-#Copyright (c) 2016-2022, University of Oxford
+#Copyright (c) 2016-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20221219
+#Version: 20241021
 use strict;
 use warnings;
 use 5.010;
@@ -173,6 +173,7 @@ sub uses_this_user_db {
 	my ($config) = @_;
 	my $system   = read_config_xml($config);
 	my $db       = get_db($system);
+	return if !$db;
 	my $user_dbnames =
 	  $script->{'datastore'}
 	  ->run_query( 'SELECT DISTINCT(dbase_name) FROM user_dbases', undef, { fetch => 'col_arrayref', db => $db } );
@@ -191,7 +192,7 @@ sub uses_this_user_db {
 
 sub heading {
 	my ($heading) = @_;
-	my $buffer = qq(\n$heading\t\n);    #Trailing tab to prevent Outlook removing line breaks
+	my $buffer = qq(\n$heading\t\n);       #Trailing tab to prevent Outlook removing line breaks
 	$buffer .= q(-) x length($heading) . qq(\t);
 	return $buffer;
 }
@@ -226,7 +227,7 @@ sub read_config_xml {
 		$script->{'xmlHandler'} = BIGSdb::Parser->new;
 	}
 	my $parser = XML::Parser::PerlSAX->new( Handler => $script->{'xmlHandler'} );
-	my $path = "$script->{'dbase_config_dir'}/$config/config.xml";
+	my $path   = "$script->{'dbase_config_dir'}/$config/config.xml";
 	eval { $parser->parse( Source => { SystemId => $path } ) };
 	if ($@) {
 		$logger->fatal("Invalid XML description: $@");
@@ -241,8 +242,8 @@ sub read_config_xml {
 		  || $logger->error("Can't open $override_file for reading");
 		while ( my $line = <$fh> ) {
 			next if $line =~ /^\#/x;
-			$line =~ s/^\s+//x;
-			$line =~ s/\s+$//x;
+			$line         =~ s/^\s+//x;
+			$line         =~ s/\s+$//x;
 			if ( $line =~ /^([^=\s]+)\s*=\s*"([^"]+)"$/x ) {
 				$system->{$1} = $2;
 			}
@@ -254,8 +255,9 @@ sub read_config_xml {
 
 sub get_db {
 	my ($system) = @_;
-	my $args     = get_db_connection_args($system);
-	my $db       = $script->{'dataConnector'}->get_connection($args);
+	my $args = get_db_connection_args($system);
+	my $db;
+	eval { $db = $script->{'dataConnector'}->get_connection($args); };
 	return $db;
 }
 
@@ -270,9 +272,9 @@ sub get_db_connection_args {
 	my ($system) = @_;
 	my $args = {
 		dbase_name => $system->{'db'},
-		host       => $system->{'host'} // $script->{'host'} // HOST,
-		port       => $system->{'port'} // $script->{'port'} // PORT,
-		user       => $system->{'user'} // $script->{'user'} // USER,
+		host       => $system->{'host'}     // $script->{'host'}     // HOST,
+		port       => $system->{'port'}     // $script->{'port'}     // PORT,
+		user       => $system->{'user'}     // $script->{'user'}     // USER,
 		password   => $system->{'password'} // $script->{'password'} // PASSWORD,
 	};
 	return $args;
@@ -434,7 +436,7 @@ sub remove_unregistered_users {
 			  $script->{'datastore'}->run_query( 'SELECT user_name FROM users WHERE user_db=? ORDER BY surname',
 				$user_db_id, { fetch => 'col_arrayref', db => $db } );
 			my %client_user_names = map { $_ => 1 } @$client_db_user_names;
-			my $registered_users = get_registered_users($config);
+			my $registered_users  = get_registered_users($config);
 			foreach my $registered_user (@$registered_users) {
 				next if $client_user_names{$registered_user};
 				push @list, { config => $config, user_name => $registered_user };
@@ -476,7 +478,7 @@ sub remove_unregistered_curators {
 			  $script->{'datastore'}->run_query(
 				q(SELECT user_name FROM users WHERE user_db=? AND status IN ('admin','curator') ORDER BY surname),
 				$user_db_id, { fetch => 'col_arrayref', db => $db } );
-			my %client_user_names = map { $_ => 1 } @$client_db_user_names;
+			my %client_user_names   = map { $_ => 1 } @$client_db_user_names;
 			my $registered_curators = get_registered_curators($config);
 			foreach my $registered_curator (@$registered_curators) {
 				next if $client_user_names{$registered_curator};
@@ -781,7 +783,7 @@ sub show_help {
 	my $termios = POSIX::Termios->new;
 	$termios->getattr;
 	my $ospeed = $termios->getospeed;
-	my $t = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
+	my $t      = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
 	my ( $norm, $bold, $under ) = map { $t->Tputs( $_, 1 ) } qw(me md us);
 	say << "HELP";
 ${bold}NAME$norm

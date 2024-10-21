@@ -20,7 +20,7 @@ package BIGSdb::UserPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::VersionPage);
+use parent qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 use XML::Parser::PerlSAX;
 use Email::Sender::Transport::SMTP;
@@ -401,18 +401,18 @@ sub _registrations {
 		$self->{'username'}, { fetch => 'col_arrayref' } );
 	my $labels = $self->_get_config_labels;
 	@$registered_configs = sort { $labels->{$a} cmp $labels->{$b} } @$registered_configs;
-	$buffer .= q(<div class="scrollable">);
 	$buffer .= q(<fieldset style="float:left"><legend>Registered</legend>);
 	$buffer .= q(<p>Your account is registered for:</p>);
 
 	if (@$registered_configs) {
+		$buffer .= q(<div class="scrollable">);
 		$buffer .= q(<div class="registered_configs">);
 		$buffer .= q(<ul>);
 		foreach my $config (@$registered_configs) {
 			$buffer .= qq(<li>$labels->{$config}</li>);
 		}
 		$buffer .= q(</ul>);
-		$buffer .= q(</div>);
+		$buffer .= q(</div></div>);
 	} else {
 		$buffer .= q(<p>Nothing</p>);
 	}
@@ -453,9 +453,11 @@ sub _registrations {
 	if (@$request_reg) {
 		@$request_reg = sort { $labels->{$a} cmp $labels->{$b} } @$request_reg;
 		$buffer .= q(<fieldset style="float:left"><legend>Admin authorization</legend>);
-		$buffer .= q(<p>Access to the listed resources can be requested but requires authorization.<br />);
+		$buffer .= q(<p>Access to the listed resources can be requested but requires manual<br />) . q(authorization. );
 		$buffer .=
-		  q(<strong><em>Check respective web sites for licencing ) . q(and access conditions.</em></strong><br />);
+			q(<strong><em>Check respective web sites for licencing and access<br />)
+		  . q(conditions. Please ensure that you are registered with your real<br />)
+		  . q(name and full affiliation or authorization is likely to be rejected.</em></strong><br />);
 		$buffer .= q(Select from list and click 'Request' button.</p>);
 		$buffer .= $q->start_form;
 		$buffer .= q(<div style="float:left">);
@@ -497,7 +499,8 @@ sub _registrations {
 		$buffer .= q(<p>There are no other resources available to register for.</p>);
 		$buffer .= q(</fieldset>);
 	}
-	$buffer .= q(</div>);
+
+	#	$buffer .= q(</div>);
 	return $buffer;
 }
 
@@ -507,27 +510,35 @@ sub _register {
 	my @configs = $q->multi_param('auto_reg');
 	return if !@configs;
 	my $current_config;
-	eval {
-		foreach my $config (@configs) {
-			$current_config = $config;
-			my $auto_reg =
-			  $self->{'datastore'}
-			  ->run_query( 'SELECT auto_registration FROM registered_resources WHERE dbase_config=?',
-				$config, { cache => 'UserPage::register::check_auto_reg' } );
-			next if !$auto_reg;
-			my $already_registered_in_user_db = $self->{'datastore'}->run_query(
-				'SELECT EXISTS(SELECT * FROM registered_users WHERE (dbase_config,user_name)=(?,?))',
-				[ $config, $self->{'username'} ],
-				{ cache => 'UserPage::register::check_already_reg' }
-			);
+	my @fail;
+	my %reason;
+	foreach my $config (@configs) {
+		$current_config = $config;
+		my $auto_reg =
+		  $self->{'datastore'}->run_query( 'SELECT auto_registration FROM registered_resources WHERE dbase_config=?',
+			$config, { cache => 'UserPage::register::check_auto_reg' } );
+		next if !$auto_reg;
+		my $already_registered_in_user_db = $self->{'datastore'}->run_query(
+			'SELECT EXISTS(SELECT * FROM registered_users WHERE (dbase_config,user_name)=(?,?))',
+			[ $config, $self->{'username'} ],
+			{ cache => 'UserPage::register::check_already_reg' }
+		);
 
-			#Prevents refreshing page trying to register twice
-			next if $already_registered_in_user_db;
-			my $system  = $self->_read_config_xml($config);
-			my $db      = $self->_get_db($system);
-			my $id      = $self->_get_next_id($db);
-			my $user_db = $self->_get_user_db($db);
-			next if !$user_db;
+		#Prevents refreshing page trying to register twice
+		next if $already_registered_in_user_db;
+		my $system = $self->_read_config_xml($config);
+		my $db;
+		eval { $db = $self->_get_db($system); };
+		if ($@) {
+			$self->{'db'}->rollback;
+			push @fail, $config;
+			$reason{$config} = q( - cannot connect to database.);
+		}
+		next if !$db;
+		my $id      = $self->_get_next_id($db);
+		my $user_db = $self->_get_user_db($db);
+		next if !$user_db;
+		eval {
 			$self->{'db'}->do( 'INSERT INTO registered_users (dbase_config,user_name,datestamp) VALUES (?,?,?)',
 				undef, $config, $self->{'username'}, 'now' );
 			$db->do(
@@ -537,20 +548,23 @@ sub _register {
 			$db->commit;
 			$self->_drop_connection($system);
 			$logger->info("User $self->{'username'} registered for $config.");
-		}
-	};
-	if ($@) {
-		$self->{'db'}->rollback;
-		my $msg = q();
-		if ( $@ =~ /users_user_name_key/x ) {
-			$msg = qq( A user with the same username is already registered in the $current_config database.);
-			if ( $self->{'config'}->{'site_admin_email'} ) {
-				$msg .= qq( Please contact the <a href="mailto:$self->{'config'}->{'site_admin_email'}">)
-				  . q(site admin</a> for advice.);
+		};
+		if ($@) {
+			$self->{'db'}->rollback;
+			push @fail, $config;
+			if ( $@ =~ /users_user_name_key/x ) {
+				$reason{$config} = q( - username already registered.);
 			}
-		} else {
-			$logger->error($@);
 		}
+	}
+	if (@fail) {
+		my $msg = q(Registration failed for:<ul>);
+		foreach my $config (@fail) {
+			$msg .= qq(<li>$config);
+			$msg .= $reason{$config} if $reason{$config};
+			$msg .= q(</li>);
+		}
+		$msg .= q(</ul>);
 		$self->print_bad_status( { message => q(User registration failed.), detail => $msg } );
 	} else {
 		$self->{'db'}->commit;
@@ -1078,6 +1092,16 @@ sub get_javascript {
 	    	\$("#digest_interval").prop("disabled", true);
 	    }
 	});
+	render_selects();
+	\$(window).resize(function() {
+    	delay(function(){
+    		\$("#auto_reg,#request_reg,#merge_user,#modify_user").multiselect('destroy')
+     		render_selects();
+    	}, 1000);
+ 	});
+});
+
+function render_selects(){
 	\$("#merge_user,#modify_user").multiselect({
 		noneSelectedText: "Please select...",
 		selectedList: 1,
@@ -1087,11 +1111,28 @@ sub get_javascript {
 	}).multiselectfilter({
 		placeholder: 'Search'
 	});
-	
-});
+	\$("#auto_reg,#request_reg").multiselect({
+		noneSelectedText: "Please select...",
+		listbox:true,
+		menuHeight: 250,
+		menuWidth: 'auto',
+		classes: 'filter',
+	}).multiselectfilter({
+		placeholder: 'Search'
+	});
+}
+
 function listbox_selectall(listID, isSelect) {
 	\$("#" + listID + " option").prop("selected",isSelect);
 }
+
+var delay = (function(){
+  var timer = 0;
+  return function(callback, ms){
+    clearTimeout (timer);
+    timer = setTimeout(callback, ms);
+  };
+})();
 END
 	return $buffer;
 }

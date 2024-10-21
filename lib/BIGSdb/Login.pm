@@ -115,7 +115,8 @@ sub initiate {
 		$self->{'breadcrumbs'} = [
 			{ label => 'Home', href => '/' },
 			{
-				label => 'Log in'
+				label => 'Log in',
+				href  => $self->{'system'}->{'script_name'}
 			}
 		];
 	}
