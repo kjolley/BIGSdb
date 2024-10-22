@@ -1,3 +1,5 @@
+v1.48.5: *Improved formatting for user registration page.
+         *Option to select only DNA or only peptide loci in sequence query.
 v1.48.4: *The scheme cache is now used for isolate query results if the scheme
           has >100 loci and 'cache_schemes' is set.
          *If there are multiple cgSTs for an isolate, these are now collapsed
