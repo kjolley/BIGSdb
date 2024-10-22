@@ -346,7 +346,9 @@ sub get_profile_by_primary_key {
 			$logger->logdie($_);
 		}
 	};
-	return if !defined $loci_values;
+	if ( !defined $loci_values ) {
+		return $options->{'hashref'} ? {} : [];
+	}
 	if ( $options->{'hashref'} ) {
 		my $loci = $self->get_scheme_loci($scheme_id);
 		my %values;
