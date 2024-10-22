@@ -1967,7 +1967,6 @@ sub _run_query {
 		my $hidden_attributes = $self->get_hidden_attributes;
 		$qry =~ s/\ datestamp/\ $view\.datestamp/gx;
 		$qry =~ s/\(datestamp/\($view\.datestamp/gx;
-		$logger->error($qry);
 		my $args = {
 			table             => $self->{'system'}->{'view'},
 			query             => $qry,
