@@ -47,7 +47,7 @@ ON UPDATE CASCADE,
 CONSTRAINT c_default_permission CHECK (default_permission IN ( 'allow', 'deny'))
 );
 
-GRANT SELECT ON clients TO apache;
+GRANT SELECT,INSERT,DELETE,UPDATE ON clients TO apache;
 
 CREATE TABLE client_permissions (
 client_id text NOT NULL,
