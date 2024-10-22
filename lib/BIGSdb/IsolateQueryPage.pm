@@ -1967,6 +1967,7 @@ sub _run_query {
 		my $hidden_attributes = $self->get_hidden_attributes;
 		$qry =~ s/\ datestamp/\ $view\.datestamp/gx;
 		$qry =~ s/\(datestamp/\($view\.datestamp/gx;
+		$logger->error($qry);
 		my $args = {
 			table             => $self->{'system'}->{'view'},
 			query             => $qry,
@@ -3767,13 +3768,13 @@ sub _modify_query_for_seqbin {
 			my %db_field = ( size => 'total_length', contigs => 'contigs' );
 			$db_field{$field} //= $field;
 			$value *= 1_000_000 if $field eq 'size';
-			$seqbin_qry = "($view.id IN (SELECT isolate_id FROM seqbin_stats WHERE $db_field{$field} $operator $value)";
+			$seqbin_qry = "($view.id IN (SELECT $view.id FROM $view LEFT JOIN seqbin_stats ON "
+			  . "$view.id=seqbin_stats.isolate_id WHERE $db_field{$field} $operator $value";
 			if ( $operator eq '<' || $operator eq '<=' || ( ( $operator eq '=' || $operator eq '>=' ) && $value == 0 ) )
 			{
-				$seqbin_qry .= " OR $view.id IN (SELECT $view.id FROM $view LEFT JOIN seqbin_stats ON "
-				  . "$view.id=seqbin_stats.isolate_id WHERE $db_field{$field} IS NULL)";
+				$seqbin_qry .= " OR $db_field{$field} IS NULL";
 			}
-			$seqbin_qry .= ')';
+			$seqbin_qry .= '))';
 		}
 		push @seqbin_queries, $seqbin_qry;
 	}
