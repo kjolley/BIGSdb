@@ -38,7 +38,12 @@ default_permission text NOT NULL,
 default_submission bool NOT NULL,
 default_curation bool NOT NULL,
 datestamp date NOT NULL,
+dbase text,
+username text,
 PRIMARY KEY (application,version),
+CONSTRAINT c_dbase_user FOREIGN KEY (username,dbase) REFERENCES users(name,dbase)
+ON DELETE CASCADE
+ON UPDATE CASCADE,
 CONSTRAINT c_default_permission CHECK (default_permission IN ( 'allow', 'deny'))
 );
 
