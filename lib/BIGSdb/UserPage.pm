@@ -20,7 +20,7 @@ package BIGSdb::UserPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Page);
+use parent qw(BIGSdb::VersionPage);
 use Log::Log4perl qw(get_logger);
 use XML::Parser::PerlSAX;
 use Email::Sender::Transport::SMTP;
