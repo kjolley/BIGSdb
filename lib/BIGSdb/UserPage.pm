@@ -453,11 +453,13 @@ sub _registrations {
 	if (@$request_reg) {
 		@$request_reg = sort { $labels->{$a} cmp $labels->{$b} } @$request_reg;
 		$buffer .= q(<fieldset style="float:left"><legend>Admin authorization</legend>);
-		$buffer .= q(<p>Access to the listed resources can be requested but requires manual<br />) . q(authorization. );
+		$buffer .= q(<p>Access to the listed resources can be requested but requires manual<br />authorization. );
 		$buffer .=
 			q(<strong><em>Check respective web sites for licencing and access<br />)
 		  . q(conditions. Please ensure that you are registered with your real<br />)
-		  . q(name and full affiliation or authorization is likely to be rejected.</em></strong><br />);
+		  . q(name and full affiliation or authorization is likely to be rejected.<br />)
+		  . q(Affiliations should not use abbreviations unless these are<br />)
+		  . q(internationally recognized.</em></strong><br />);
 		$buffer .= q(Select from list and click 'Request' button.</p>);
 		$buffer .= $q->start_form;
 		$buffer .= q(<div style="float:left">);
@@ -483,15 +485,14 @@ sub _registrations {
 		$buffer .= q(<fieldset style="float:left"><legend>Pending</legend>);
 		$buffer .= q(<p>You have requested access to the following:<br />);
 		$buffer .= q(You will be E-mailed confirmation of registration.</p>);
-		$buffer .= $q->scrolling_list(
-			-name     => 'pending',
-			-id       => 'pending',
-			-values   => $pending,
-			-multiple => 'true',
-			-disabled => 'disabled',
-			-style    => 'min-width:10em; min-height:8em',
-			-labels   => $labels
-		);
+		$buffer .= q(<div class="scrollable">);
+		$buffer .= q(<div class="registered_configs">);
+		$buffer .= q(<ul>);
+		foreach my $config (@$pending) {
+			$buffer .= qq(<li>$labels->{$config}</li>);
+		}
+		$buffer .= q(</ul>);
+		$buffer .= q(</div></div>);
 		$buffer .= q(</fieldset>);
 	}
 	if ( !@$auto_reg && !@$request_reg && !@$pending ) {
@@ -499,8 +500,6 @@ sub _registrations {
 		$buffer .= q(<p>There are no other resources available to register for.</p>);
 		$buffer .= q(</fieldset>);
 	}
-
-	#	$buffer .= q(</div>);
 	return $buffer;
 }
 
