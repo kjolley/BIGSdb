@@ -509,8 +509,8 @@ sub _api_keys {
 	my $buffer =
 		q(<div class="box" id="resultstable"><span class="main_icon fas fa-key fa-3x fa-pull-left"></span>)
 	  . q(<h2>API keys</h2>)
-	  . q(<p>Here you can create keys that enable you to delegate your account access to scripts using the API )
-	  . q(without the need to share credentials. More details can be found at )
+	  . q(<p>Here you can create keys that enable you to delegate your account access to scripts or third-party )
+	  . q(applications using the API without the need to share credentials. More details can be found at )
 	  . q(<a href="https://bigsdb.readthedocs.io/en/latest/rest.html" target="_blank">)
 	  . q(https://bigsdb.readthedocs.io/en/latest/rest.html</a>.</p>);
 	$buffer .= q(<p>Note that these are personal keys - if you want to obtain a key for a platform or organisation, )
