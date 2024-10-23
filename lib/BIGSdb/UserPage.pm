@@ -529,13 +529,14 @@ sub _api_keys {
 		} else {
 			my $client_id     = BIGSdb::Utils::random_string(24);
 			my $client_secret = BIGSdb::Utils::random_string(42);
+			my $key_name      = $q->param('key_name');
 			eval {
 				$self->{'auth_db'}->do(
 					'INSERT INTO clients (application,version,client_id,client_secret,'
 					  . 'default_permission,datestamp,default_submission,default_curation,dbase,username) VALUES '
 					  . '(?,?,?,?,?,?,?,?,?,?)',
 					undef,
-					scalar $q->param('key_name'),
+					$key_name,
 					'',
 					$client_id,
 					$client_secret,
@@ -553,8 +554,10 @@ sub _api_keys {
 				  q(<div class="box statusbad_no_resize"><span class="statusbad">Error creating new key.</span></div>);
 				$self->{'auth_db'}->rollback;
 			} else {
+				$logger->info("User $self->{'username'} created a new API key - $key_name.");
 				$buffer .=
-				  q(<div class="box statusgood_no_resize"><span class="statusgood">New API key created.</span></div>);
+				  q(<div class="box statusgood_no_resize"><span class="statusgood">New API key created.</span></div>)
+				  ;
 				$self->{'auth_db'}->commit;
 			}
 		}
@@ -569,6 +572,7 @@ sub _api_keys {
 			$logger->error($@);
 			$self->{'auth_db'}->rollback;
 		} else {
+			$logger->info("User $self->{'username'} deleted API key.");
 			$self->{'auth_db'}->commit;
 		}
 		$buffer .= q(<script>$('html, body').animate({ scrollTop: $(document).height() }, 'slow');</script>);
