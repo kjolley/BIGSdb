@@ -514,8 +514,13 @@ sub _api_keys {
 	  . q(applications using the API without the need to share credentials. More details can be found at )
 	  . q(<a href="https://bigsdb.readthedocs.io/en/latest/rest.html" target="_blank">)
 	  . q(https://bigsdb.readthedocs.io/en/latest/rest.html</a>.</p>);
+	my $email  = $self->{'config'}->{'site_admin_email'};
+	my $admins = $email
+	  ? qq(<a href="mailto:$email">site administrators</a>)
+	  : q(site administrators);
 	$buffer .= q(<p>Note that these are personal keys - if you want to obtain a key for a platform or organisation, )
-	  . q(beyond for testing purposes, then please contact the site administrators.</p>);
+	  . qq(beyond for testing purposes, then please contact the $admins.</p>);
+
 	if ( $q->param('new_key') ) {
 		$buffer .= q(<script>$('html, body').animate({ scrollTop: $(document).height() }, 'slow');</script>);
 		my $key_exists = $self->{'datastore'}->run_query(
@@ -556,8 +561,7 @@ sub _api_keys {
 			} else {
 				$logger->info("User $self->{'username'} created a new API key - $key_name.");
 				$buffer .=
-				  q(<div class="box statusgood_no_resize"><span class="statusgood">New API key created.</span></div>)
-				  ;
+				  q(<div class="box statusgood_no_resize"><span class="statusgood">New API key created.</span></div>);
 				$self->{'auth_db'}->commit;
 			}
 		}
