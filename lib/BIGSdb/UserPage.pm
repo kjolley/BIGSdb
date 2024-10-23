@@ -31,6 +31,7 @@ use Time::Piece;
 use Time::Seconds;
 use BIGSdb::Parser;
 use BIGSdb::Login;
+use BIGSdb::Utils;
 use BIGSdb::Constants qw(:interface DEFAULT_DOMAIN);
 use constant SUBMISSION_INTERVAL => {
 	60   => '1 hour',
@@ -526,8 +527,8 @@ sub _api_keys {
 			$buffer .= q(<div class="box statusbad"><span class="statusbad">You already have )
 			  . q(a key with that name. Use a different name.</span></div>);
 		} else {
-			my $client_id     = $self->_get_random_string(24);
-			my $client_secret = $self->_get_random_string(42);
+			my $client_id     = BIGSdb::Utils::random_string(24);
+			my $client_secret = BIGSdb::Utils::random_string(42);
 			eval {
 				$self->{'auth_db'}->do(
 					'INSERT INTO clients (application,version,client_id,client_secret,'
@@ -612,16 +613,6 @@ sub _api_keys {
 	$buffer .= $q->end_form;
 	$buffer .= q(<div style="clear:both"></div></div>);
 	return $buffer;
-}
-
-sub _get_random_string {
-	my ( $self, $length ) = @_;
-	my @chars = ( 'a' .. 'z', 'A' .. 'Z', 0 .. 9 );
-	my $string;
-	for ( 1 .. $length ) {
-		$string .= $chars[ int( rand($#chars) ) ];
-	}
-	return $string;
 }
 
 sub _register {
