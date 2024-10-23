@@ -32,17 +32,22 @@ GRANT SELECT,UPDATE,DELETE,INSERT ON sessions TO apache;
 CREATE TABLE clients (
 application text NOT NULL,
 version text NOT NULL,
-client_id text NOT NULL UNIQUE,
+client_id text NOT NULL,
 client_secret text NOT NULL,
 default_permission text NOT NULL,
 default_submission bool NOT NULL,
 default_curation bool NOT NULL,
 datestamp date NOT NULL,
-PRIMARY KEY (application,version),
+dbase text,
+username text,
+PRIMARY KEY (client_id),
+CONSTRAINT c_dbase_user FOREIGN KEY (username,dbase) REFERENCES users(name,dbase)
+ON DELETE CASCADE
+ON UPDATE CASCADE,
 CONSTRAINT c_default_permission CHECK (default_permission IN ( 'allow', 'deny'))
 );
 
-GRANT SELECT ON clients TO apache;
+GRANT SELECT,INSERT,DELETE,UPDATE ON clients TO apache;
 
 CREATE TABLE client_permissions (
 client_id text NOT NULL,

@@ -31,6 +31,7 @@ use Time::Piece;
 use Time::Seconds;
 use BIGSdb::Parser;
 use BIGSdb::Login;
+use BIGSdb::Utils;
 use BIGSdb::Constants qw(:interface DEFAULT_DOMAIN);
 use constant SUBMISSION_INTERVAL => {
 	60   => '1 hour',
@@ -373,9 +374,8 @@ sub _show_user_roles {
 		say q(<div class="box" id="queryform">);
 		say $buffer;
 		say q(<div style="clear:both"></div></div>);
-	} else {
-		$self->print_about_bigsdb;
 	}
+	say $self->_api_keys;
 	return;
 }
 
@@ -500,6 +500,118 @@ sub _registrations {
 		$buffer .= q(<p>There are no other resources available to register for.</p>);
 		$buffer .= q(</fieldset>);
 	}
+	return $buffer;
+}
+
+sub _api_keys {
+	my ($self) = @_;
+	return q() if !( $self->{'config'}->{'automated_api_keys'} && $self->{'config'}->{'site_user_dbs'} );
+	my $q = $self->{'cgi'};
+	my $buffer =
+		q(<div class="box" id="resultstable"><span class="main_icon fas fa-key fa-3x fa-pull-left"></span>)
+	  . q(<h2>API keys</h2>)
+	  . q(<p>Here you can create keys that enable you to delegate your account access to scripts or third-party )
+	  . q(applications using the API without the need to share credentials. More details can be found at )
+	  . q(<a href="https://bigsdb.readthedocs.io/en/latest/rest.html" target="_blank">)
+	  . q(https://bigsdb.readthedocs.io/en/latest/rest.html</a>.</p>);
+	$buffer .= q(<p>Note that these are personal keys - if you want to obtain a key for a platform or organisation, )
+	  . q(beyond for testing purposes, then please contact the site administrators.</p>);
+	if ( $q->param('new_key') ) {
+		$buffer .= q(<script>$('html, body').animate({ scrollTop: $(document).height() }, 'slow');</script>);
+		my $key_exists = $self->{'datastore'}->run_query(
+			'SELECT EXISTS(SELECT * FROM clients WHERE (dbase,username,application)=(?,?,?))',
+			[ $self->{'system'}->{'db'}, $self->{'username'}, scalar $q->param('key_name') ],
+			{ db => $self->{'auth_db'} }
+		);
+		if ($key_exists) {
+			$buffer .= q(<div class="box statusbad"><span class="statusbad">You already have )
+			  . q(a key with that name. Use a different name.</span></div>);
+		} else {
+			my $client_id     = BIGSdb::Utils::random_string(24);
+			my $client_secret = BIGSdb::Utils::random_string(42);
+			eval {
+				$self->{'auth_db'}->do(
+					'INSERT INTO clients (application,version,client_id,client_secret,'
+					  . 'default_permission,datestamp,default_submission,default_curation,dbase,username) VALUES '
+					  . '(?,?,?,?,?,?,?,?,?,?)',
+					undef,
+					scalar $q->param('key_name'),
+					'',
+					$client_id,
+					$client_secret,
+					'allow',
+					'now',
+					'true',
+					'false',
+					$self->{'system'}->{'db'},
+					$self->{'username'}
+				);
+			};
+			if ($@) {
+				$logger->error($@);
+				$buffer .=
+				  q(<div class="box statusbad_no_resize"><span class="statusbad">Error creating new key.</span></div>);
+				$self->{'auth_db'}->rollback;
+			} else {
+				$buffer .=
+				  q(<div class="box statusgood_no_resize"><span class="statusgood">New API key created.</span></div>);
+				$self->{'auth_db'}->commit;
+			}
+		}
+	}
+	if ( $q->param('revoke') ) {
+		my $client_id = $q->param('revoke');
+		eval {
+			$self->{'auth_db'}
+			  ->do( 'DELETE FROM clients WHERE (client_id,username)=(?,?)', undef, $client_id, $self->{'username'} );
+		};
+		if ($@) {
+			$logger->error($@);
+			$self->{'auth_db'}->rollback;
+		} else {
+			$self->{'auth_db'}->commit;
+		}
+		$buffer .= q(<script>$('html, body').animate({ scrollTop: $(document).height() }, 'slow');</script>);
+	}
+	my $keys = $self->{'datastore'}->run_query(
+		'SELECT * FROM clients WHERE (dbase,username)=(?,?) ORDER BY application',
+		[ $self->{'system'}->{'db'}, $self->{'username'} ],
+		{ db => $self->{'auth_db'}, fetch => 'all_arrayref', slice => {} }
+	);
+	if (@$keys) {
+		$buffer .= q(<div class="scrollable"><table class="resultstable">);
+		$buffer .=
+		  q(<tr><th>Revoke</th><th>Key name</th><th>Client id</th><th>Client secret</th><th>Datestamp</th></tr>);
+		my $td = 1;
+		foreach my $key (@$keys) {
+			my $revoke = DELETE;
+			$buffer .=
+				qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?revoke=$key->{'client_id'}" )
+			  . qq(class="action">$revoke</a></td><td>$key->{'application'}</td>)
+			  . qq(<td style="font-family:monospace">$key->{'client_id'}</td>)
+			  . qq(<td style="font-family:monospace">$key->{'client_secret'}</td>)
+			  . qq(<td>$key->{'datestamp'}</tr>);
+			$td = $td == 1 ? 2 : 1;
+		}
+		$buffer .= q(</table></div>);
+	}
+	$buffer .= $q->start_form;
+	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+	$buffer .= q(<fieldset style="float:left"><legend>Create new API key</legend>);
+	$buffer .= q(<ul><li>);
+	$buffer .= q(<label for="key_name">Key name: </label>);
+	$buffer .= $q->textfield(
+		-name      => 'key_name',
+		-id        => 'key_name',
+		-size      => 30,
+		-maxlength => 50,
+		-default   => "$user_info->{'first_name'} $user_info->{'surname'} - Personal key",
+	);
+	$buffer .= q(</li></ul>);
+	$buffer .= q(</fieldset>);
+	$buffer .= $self->print_action_fieldset( { no_reset => 1, get_only => 1, submit_name => 'new_key' } );
+	$buffer .= $q->end_form;
+	$buffer .= q(<div style="clear:both"></div></div>);
 	return $buffer;
 }
 
