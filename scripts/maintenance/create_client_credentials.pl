@@ -2,7 +2,7 @@
 #Populate authentication database with third party application (API client)
 #credentials.
 #Written by Keith Jolley
-#Copyright (c) 2015-2022, University of Oxford
+#Copyright (c) 2015-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20220808
+#Version: 20241023
 use strict;
 use warnings;
 use 5.010;
@@ -96,8 +96,8 @@ sub main {
 		croak $@ if $@;
 		( $client_id, $client_secret ) = $sql->fetchrow_array;
 	} else {
-		$client_id = random_string(24);
-		$client_secret = random_string( 42, { extended_chars => 1 } );
+		$client_id     = random_string(24);
+		$client_secret = random_string(42);
 	}
 	if ( !$opts{'u'} ) {
 		say "Client id: $client_id";
@@ -108,7 +108,8 @@ sub main {
 		if ( $opts{'i'} && $exists ) {
 			$sql->finish;
 			$db->disconnect;
-			say "\nCredentials for this application/version already exist - shown above\n(use --update option to update).";
+			say
+"\nCredentials for this application/version already exist - shown above\n(use --update option to update).";
 			return;
 		}
 		if ( $opts{'u'} && !$exists ) {
@@ -178,7 +179,6 @@ sub random_string {
 	my ( $length, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my @chars = ( 'a' .. 'z', 'A' .. 'Z', 0 .. 9 );
-	push @chars, qw(! @ $ % ^ & * _ + ~) if $options->{'extended_chars'};
 	my $string;
 	for ( 1 .. $length ) {
 		$string .= $chars[ int( rand($#chars) ) ];
@@ -190,7 +190,7 @@ sub show_help {
 	my $termios = POSIX::Termios->new;
 	$termios->getattr;
 	my $ospeed = $termios->getospeed;
-	my $t = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
+	my $t      = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
 	my ( $norm, $bold, $under ) = map { $t->Tputs( $_, 1 ) } qw/me md us/;
 	say << "HELP";
 ${bold}NAME$norm
