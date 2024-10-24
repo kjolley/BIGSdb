@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2016-2020, University of Oxford
+#Copyright (c) 2016-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -90,7 +90,7 @@ sub _print_interface {
 		push @$user_names, $user->{'user_name'};
 		my ($truncated_affiliation) = $self->get_truncated_label( $user->{'affiliation'}, 80 );
 		$labels->{ $user->{'user_name'} } =
-		    qq($user->{'surname'}, $user->{'first_name'} ($user->{'user_name'}) - )
+			qq($user->{'surname'}, $user->{'first_name'} ($user->{'user_name'}) - )
 		  . qq($truncated_affiliation ($user->{'email'}));
 	}
 	if (@$possible_users) {
@@ -98,11 +98,13 @@ sub _print_interface {
 		say q(<fieldset style="float:left"><legend>Select user(s)</legend>);
 		say $self->popup_menu(
 			-name     => 'users',
+			-id       => 'users',
 			-values   => $user_names,
 			-labels   => $labels,
 			-size     => 10,
 			-multiple => 'true',
 			-default  => [ scalar $q->param('user_name') ],
+			-style    => 'visibility:hidden'
 		);
 		say q(</fieldset>);
 		$self->print_action_fieldset( { submit_label => 'Import', no_reset => 1 } );
@@ -125,7 +127,7 @@ sub _get_possible_users {
 	my $local_users =
 	  $self->{'datastore'}->run_query( 'SELECT * FROM users', undef, { fetch => 'all_arrayref', slice => {} } );
 	my %local_usernames = map { $_->{'user_name'} => 1 } @$local_users;
-	my $users = [];
+	my $users           = [];
 	foreach my $remote_user (@$remote_users) {
 		next if $local_usernames{ $remote_user->{'user_name'} };
 		push @$users, $remote_user;
@@ -212,5 +214,49 @@ sub _check_valid_import {
 
 sub get_title {
 	return 'Import user';
+}
+
+sub initiate {
+	my ($self) = @_;
+	$self->{$_} = 1 foreach qw(jQuery noCache jQuery.multiselect);
+	$self->set_level1_breadcrumbs;
+	return;
+}
+
+sub get_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+\$(function () {
+	render_selects();
+	\$(window).resize(function() {
+    	delay(function(){
+    		\$("#users").multiselectfilter('destroy')
+    		\$("#users").multiselect('destroy')
+     		render_selects();
+    	}, 1000);
+ 	});
+});
+
+function render_selects(){
+	\$("#users").multiselect({
+		noneSelectedText: "Please select...",
+		listbox:true,
+		menuHeight: 400,
+		menuWidth: 'auto',
+		classes: 'filter',
+	}).multiselectfilter({
+		placeholder: 'Search'
+	});
+}
+
+var delay = (function(){
+  var timer = 0;
+  return function(callback, ms){
+    clearTimeout (timer);
+    timer = setTimeout(callback, ms);
+  };
+})();
+END
+	return $buffer;
 }
 1;
