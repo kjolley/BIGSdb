@@ -530,6 +530,8 @@ sub _check_sequence_allele_id {
 	my ( $self, $newdata, $problems ) = @_;
 	if ( $newdata->{'allele_id'} =~ /\s/x ) {
 		push @$problems, 'Allele id must not contain spaces - try substituting with underscores (_).';
+	} elsif ( $newdata->{'allele_id'} =~ /\|/x ) {
+		push @$problems, 'Allele id must not contain | - try substituting with underscores (_).';
 	} else {
 		$newdata->{'sequence'} =~ s/\s//gx;
 		my $exists =

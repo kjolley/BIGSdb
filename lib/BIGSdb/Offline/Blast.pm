@@ -26,8 +26,8 @@ use BIGSdb::Constants qw(IDENTITY_THRESHOLD);
 use Digest::MD5;
 use File::Path qw(make_path remove_tree);
 use Fcntl qw(:flock);
-use constant INF             => 9**99;
-use constant FLANKING_LENGTH => 100;
+use constant INF                       => 9**99;
+use constant FLANKING_LENGTH           => 100;
 
 sub blast {
 	my ( $self, $seq_ref, $args ) = @_;
@@ -391,6 +391,7 @@ sub _parse_blast_exact {
 
 			#Divider in FASTA header changed to || after v1.48.1 to allow '|' in allele id.
 			#Need to check in case old BLAST cache is being used.
+			#Changed back in v1.49.0 due to inconsistency in how makeblastdb handles this.
 			my $separator = index( $record->[1], '||' ) != -1 ? '\|\|' : '\|';
 			my ( $locus, $allele_id, $length ) = split( /$separator/x, $record->[1], 3 );
 			$locus =~ s/__prime__/'/gx;
@@ -456,6 +457,7 @@ sub _parse_blast_partial {
 
 		#Divider in FASTA header changed to || after v1.48.1 to allow '|' in allele id.
 		#Need to check in case old BLAST cache is being used.
+		#Changed back in v1.49.0 due to inconsistency in how makeblastdb handles this.
 		my $separator = index( $record->[1], '||' ) != -1 ? '\|\|' : '\|';
 		my ( $locus, $allele_id, $length ) = split( /$separator/x, $record->[1], 3 );
 		next if $exact_matches->{$locus} && !$self->{'options'}->{'exemplar'} && !$self->{'options'}->{'find_similar'};
@@ -760,7 +762,7 @@ sub _create_blast_database {
 	while ( $self->{'db'}->pg_getcopydata($row) >= 0 ) {
 		my @allele = split( "\t", $row );
 		my $length = length( $allele[2] ) - 1;    #Benchmarked quicker than having Pg calculate
-		print $fasta_fh ">$allele[0]||$allele[1]||$length\n$allele[2]";
+		print $fasta_fh ">$allele[0]|$allele[1]|$length\n$allele[2]";
 	}
 	close $fasta_fh;
 	chmod 0666, $fasta_file;
@@ -769,8 +771,7 @@ sub _create_blast_database {
 		$self->{'logger'}->error("No data type defined; Cache: $cache_name; Loci; @$loci");
 	}
 	my $db_type = $data_type eq 'DNA' ? 'nucl' : 'prot';
-	system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
-		( -in => $fasta_file, -logfile => '/dev/null', -dbtype => $db_type ) );
+	system( "$self->{'config'}->{'blast+_path'}/makeblastdb -in $fasta_file -logfile /dev/null -dbtype $db_type -parse_seqids" );
 	my $locus_list_file = "$path/loci";
 	my $locus_fh;
 	if ( !open( $locus_fh, '>:encoding(utf8)', $locus_list_file ) ) {
