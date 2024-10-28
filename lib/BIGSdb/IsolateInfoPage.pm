@@ -2410,8 +2410,34 @@ sub _get_seqbin_link {
 		$buffer .= q(<span class="info_icon fas fa-2x fa-fw fa-dna fa-pull-left" style="margin-top:-0.1em"></span>);
 		$buffer .= qq(<h2>Sequence bin</h2>\n);
 		$buffer .= qq(<div id="$div_id">);
-		push @$list, { title => 'contigs', data => $commify{'contigs'} };
+		my $method = $self->{'datastore'}->run_query(
+			'SELECT method,count(*) AS count FROM sequence_bin WHERE isolate_id=? '
+			  . 'GROUP BY method ORDER BY count DESC',
+			$isolate_id,
+			{ fetch => 'all_arrayref', slice => {} }
+		);
 
+		if ( @$method == 1 ) {
+			push @$list,
+			  {
+				title => 'method',
+				data  => $method->[0]->{'method'} || 'Unknown'
+			  };
+		} else {
+			my @values;
+			foreach my $method (@$method) {
+				$plural = $method->{'count'} == 1 ? q() : q(s);
+				$method->{'method'} ||= 'Unknown';
+				push @values, qq($method->{'method'} ($method->{'count'} contig$plural));
+			}
+			local $" = q(<br />);
+			push @$list,
+			  {
+				title => 'method',
+				data  => qq(@values)
+			  };
+		}
+		push @$list, { title => 'contigs', data => $commify{'contigs'} };
 		if ( $seqbin_stats->{'contigs'} > 1 ) {
 			my $n_stats = BIGSdb::Utils::get_N_stats( $seqbin_stats->{'total_length'}, $seqbin_stats->{'lengths'} );
 			if ( $seqbin_stats->{'n50'} != $n_stats->{'N50'} ) {
@@ -2460,32 +2486,6 @@ sub _get_seqbin_link {
 					  . 'Offline assembly stats total length does not match realtime calculated value. '
 					  . 'Re-run update_assembly_stats.pl against this database to fix.' );
 			}
-		}
-		my $method = $self->{'datastore'}->run_query(
-			'SELECT method,count(*) AS count FROM sequence_bin WHERE isolate_id=? '
-			  . 'GROUP BY method ORDER BY count DESC',
-			$isolate_id,
-			{ fetch => 'all_arrayref', slice => {} }
-		);
-		if ( @$method == 1 ) {
-			push @$list,
-			  {
-				title => 'method',
-				data  => $method->[0]->{'method'} || 'Unknown'
-			  };
-		} else {
-			my @values;
-			foreach my $method (@$method) {
-				$plural = $method->{'count'} == 1 ? q() : q(s);
-				$method->{'method'} ||= 'Unknown';
-				push @values, qq($method->{'method'} ($method->{'count'} contig$plural));
-			}
-			local $" = q(<br />);
-			push @$list,
-			  {
-				title => 'method',
-				data  => qq(@values)
-			  };
 		}
 		my $set_id = $self->get_set_id;
 		my $set_clause =
