@@ -1423,13 +1423,16 @@ sub _print_provenance_fields {
 	my $values        = [];
 	my @group_list    = split /,/x, ( $self->{'system'}->{'field_groups'} // q() );
 	my $group_members = {};
+	my $is_curator    = $self->is_curator;
 	if (@group_list) {
 		my $attributes = $self->{'xmlHandler'}->get_all_field_attributes;
 		foreach my $field (@$select_items) {
 			( my $stripped_field = $field ) =~ s/^[f|e]_//x;
 			$stripped_field =~ s/[\|\||\s].+$//x;
-
-			#Use same group as datestamp for management fields (currently just embargo_date).
+			next
+			  if ( $attributes->{$stripped_field}->{'curate_only'} // q() ) eq 'yes'
+			  && ( !$is_curator || !$self->{'curate'} );
+				#Use same group as datestamp for management fields (currently just embargo_date).
 			$stripped_field = 'datestamp' if $field =~ /^mf_/x;
 			if ( $attributes->{$stripped_field}->{'group'} ) {
 				push @{ $group_members->{ $attributes->{$stripped_field}->{'group'} } }, $field;

@@ -1193,8 +1193,9 @@ sub _get_provenance_fields {
 	my $q          = $self->{'cgi'};
 	my $set_id     = $self->get_set_id;
 	my $is_curator = $self->is_curator;
-	my $field_list = $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
-	my $maps       = [];
+	my $field_list =
+	  $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator || !$self->{'curate'} } );
+	my $maps = [];
 	my ( $composites, $composite_display_pos ) = $self->_get_composites;
 	my $field_with_extended_attributes;
 
