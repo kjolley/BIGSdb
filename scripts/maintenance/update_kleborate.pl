@@ -144,6 +144,9 @@ sub check_db {
 	if ( $opts{'last_run_days'} ) {
 		$qry .= qq(AND (lr.timestamp IS NULL OR lr.timestamp < now()-interval '$opts{'last_run_days'} days') );
 	}
+	if ( $opts{'v'} ) {
+		$qry .= qq( AND ss.isolate_id IN (SELECT id FROM $opts{'v'}));
+	}
 	$qry .= q(ORDER BY ss.isolate_id);
 	my $agent = LWP::UserAgent->new( agent => 'BIGSdb', timeout => 600 );
 	my $ids =
