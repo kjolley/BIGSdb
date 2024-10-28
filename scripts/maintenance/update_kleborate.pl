@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20240306
+#Version: 20241028
 use strict;
 use warnings;
 use 5.010;
@@ -46,7 +46,8 @@ GetOptions(
 	'help'            => \$opts{'help'},
 	'last_run_days=i' => \$opts{'last_run_days'},
 	'quiet'           => \$opts{'quiet'},
-	'refresh_days=i'  => \$opts{'refresh_days'}
+	'refresh_days=i'  => \$opts{'refresh_days'},
+	'v|view=s'        => \$opts{'v'}
 );
 
 #Direct all library logging calls to screen
@@ -317,7 +318,11 @@ ${bold}--quiet$norm
     
 ${bold}--refresh_days$norm ${under}DAYS$norm
     Refresh records last analysed longer that the number of days set. By 
-    default, only records that have not been analysed will be checked.      
+    default, only records that have not been analysed will be checked. 
+    
+${bold}--view, -v$norm ${under}VIEW$norm
+    Isolate database view (overrides value set in config.xml).
+     
 HELP
 	return;
 }
