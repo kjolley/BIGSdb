@@ -48,7 +48,7 @@ sub get_attributes {
 		module   => 'SequenceSimilarity',
 		url      =>
 		  "$self->{'config'}->{'doclink'}/data_query/0050_investigating_allele_differences.html#sequence-similarity",
-		version    => '1.2.0',
+		version    => '1.2.1',
 		dbtype     => 'sequences',
 		seqdb_type => 'sequences',
 		section    => 'analysis',
@@ -128,13 +128,16 @@ sub run {
 	my $matches         = ref $partial_matches->{$locus} eq 'ARRAY' ? $partial_matches->{$locus} : [];
 	say q(<div class="box resultstable">);
 	say qq(<h2>$cleanlocus-$allele</h2>);
+	my %seen;
 
 	if ( @$matches > 1 ) {
 		say q(<table class="resultstable"><tr><th>Allele</th><th>% Identity</th><th>Mismatches</th>)
 		  . q(<th>Gaps</th><th>Alignment</th><th>Compare</th></tr>);
-		my $td = 1;
+		my $td          = 1;
+		my $match_count = 0;
 		foreach my $match (@$matches) {
 			next if $match->{'allele'} eq $allele;
+			next if $seen{ $match->{'allele'} };
 			my $length = length $$seq_ref;
 			say qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . qq(page=alleleInfo&amp;locus=$locus&amp;allele_id=$match->{'allele'}">)
@@ -152,6 +155,9 @@ sub run {
 			say $q->end_form;
 			say q(</td></tr>);
 			$td = $td == 1 ? 2 : 1;
+			$seen{ $match->{'allele'} } = 1;
+			$match_count++;
+			last if $match_count == $num_results;
 		}
 		say q(</table>);
 	} else {
