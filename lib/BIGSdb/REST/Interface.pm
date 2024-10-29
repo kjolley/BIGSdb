@@ -383,7 +383,6 @@ sub _after {
 
 sub _after_error {
 	my $self = setting('self');
-	$self->_log_call;
 	undef $self->{'username'};
 	undef $self->{'client_name'};
 	$self->{'dataConnector'}->drop_all_connections( $self->{'do_not_drop'} );
