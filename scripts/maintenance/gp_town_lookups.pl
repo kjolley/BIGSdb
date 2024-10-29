@@ -21,7 +21,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20240531
+#Version: 20241029
 use strict;
 use warnings;
 use 5.010;
@@ -84,7 +84,7 @@ my $script = BIGSdb::Offline::Script->new(
 		logger           => $logger
 	}
 );
-die "This script can only be run against a seqdef database.\n"
+die "This script can only be run against an isolate database.\n"
   if ( $script->{'system'}->{'dbtype'} // '' ) ne 'isolates';
 perform_sanity_checks();
 main();
