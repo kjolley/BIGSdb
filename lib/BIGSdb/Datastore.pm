@@ -3118,6 +3118,8 @@ sub get_citation_hash {
 			}
 		}
 	}
+	eval { $dbr->do("DROP TABLE $list_table"); };
+	$logger->error($@) if $@;
 	return $citation_ref;
 }
 
