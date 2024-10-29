@@ -24,7 +24,11 @@ use parent qw(BIGSdb::Page);
 use Try::Tiny;
 use List::MoreUtils qw(any uniq);
 use JSON;
-use BIGSdb::Constants qw(:interface DATABANKS);
+use Email::Valid;
+use Email::Sender::Transport::SMTP;
+use Email::Sender::Simple qw(try_to_sendmail);
+use Email::MIME;
+use BIGSdb::Constants qw(:interface DEFAULT_DOMAIN DATABANKS);
 use Log::Log4perl qw(get_logger);
 use constant LOCUS_LIMIT_TO_USE_CACHE => 100;
 my $logger = get_logger('BIGSdb.Page');
@@ -2795,6 +2799,7 @@ sub publish {
 				q(UPDATE private_isolates SET request_publish=TRUE,datestamp='now')
 			  . qq(WHERE isolate_id IN (SELECT value FROM $temp_table));
 			$message = "Publication requested for $count record$plural.";
+			$self->_notify_curators_publication_request( $self->{'username'}, $count );
 		} else {
 			my $curator_id = $self->get_curator_id;
 			$qry =
@@ -2813,6 +2818,62 @@ sub publish {
 		}
 	} else {
 		$q->delete('publish');
+	}
+	return;
+}
+
+sub _notify_curators_publication_request {
+	my ( $self, $user_name, $count ) = @_;
+	my $user_info   = $self->{'datastore'}->get_user_info_from_username($user_name);
+	my $user_string = $self->{'datastore'}->get_user_string( $user_info->{'id'}, { affiliation => 1 } );
+	my $transport   = Email::Sender::Transport::SMTP->new(
+		{ host => $self->{'config'}->{'smtp_server'} // 'localhost', port => $self->{'config'}->{'smtp_port'} // 25, }
+	);
+	my $curators =
+	  $self->{'datastore'}
+	  ->run_query( q[SELECT id,user_name FROM users WHERE status IN ('curator','admin') AND submission_emails],
+		undef, { fetch => 'all_arrayref', slice => {} } );
+  CURATOR: foreach my $curator (@$curators) {
+		my $user_db = $self->{'datastore'}->get_user_db( $user_info->{'user_db'} );
+		if ($user_db) {
+			next CURATOR
+			  if $self->{'datastore'}->run_query(
+				'SELECT EXISTS(SELECT * FROM curator_prefs WHERE user_name=? AND absent_until > now())',
+				$user_info->{'user_name'},
+				{ db => $user_db }
+			  );
+		}
+		my $curator_info = $self->{'datastore'}->get_user_info_from_username( $curator->{'user_name'} );
+		my $address      = Email::Valid->address( $curator_info->{'email'} );
+		if ( !$address ) {
+			$logger->error("Invalid E-mail address for curator $curator->{'user_name'} - $curator->{'email'}");
+			next CURATOR;
+		}
+		my $domain         = $self->{'config'}->{'domain'}                  // DEFAULT_DOMAIN;
+		my $sender_address = $self->{'config'}->{'automated_email_address'} // "no_reply\@$domain";
+		my $subject        = "$self->{'system'}->{'description'} - Request to publish private data";
+		my $header_params  = [
+			To      => $curator_info->{'email'},
+			From    => $sender_address,
+			Subject => $subject
+		];
+		my $plural        = $count == 1 ? q()     : q(s);
+		my $demonstrative = $count == 1 ? q(this) : q(these);
+		my $email         = Email::MIME->create(
+			attributes => {
+				encoding => 'quoted-printable',
+				charset  => 'UTF-8',
+			},
+			header_str => $header_params,
+			body_str   => "$user_string, has requested publication of $count private isolate$plural. "
+			  . "Please log in to the curator interface to process $demonstrative."
+		);
+		eval {
+			try_to_sendmail( $email, { transport => $transport } )
+			  || $logger->error("Cannot send E-mail to $curator_info->{'email'}");
+			$logger->info("Email to $curator_info->{'email'}: $subject");
+		};
+		$logger->error($@) if $@;
 	}
 	return;
 }
