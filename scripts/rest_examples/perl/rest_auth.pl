@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Script to test access to authenticated resources via REST interface.
 #Written by Keith Jolley
-#Copyright (c) 2015-2018, University of Oxford
+#Copyright (c) 2015-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,7 +20,7 @@
 #To use these, sign up for a PubMLST account (https://pubmlst.org/site_accounts.shtml)
 #and link this account with the pubmlst_test_seqdef and pubmlst_test_isolates
 #databases (https://pubmlst.org/site_accounts.shtml#registering_with_databases)
-#
+#Version 20241031
 use strict;
 use warnings;
 use 5.010;
@@ -100,7 +100,7 @@ sub _get_request_token {
 	die "COULDN'T VERIFY! Check OAuth parameters.\n" unless $request->verify;
 	say 'Getting request token...';
 	_prompt();
-	my $res = $ua->request( GET $request->to_url, Content_Type => 'application/json', );
+	my $res          = $ua->request( GET $request->to_url, Content_Type => 'application/json', );
 	my $decoded_json = decode_json( $res->content );
 	my $request_response;
 	if ( $res->is_success ) {
@@ -149,7 +149,7 @@ sub _get_access_token {
 	die "COULDN'T VERIFY! Check OAuth parameters.\n" unless $request->verify;
 	say "\nGetting access token...";
 	unlink 'request_token';    #Request tokens can only be redeemed once
-	my $res = $ua->request( GET $request->to_url, Content_Type => 'application/json' );
+	my $res          = $ua->request( GET $request->to_url, Content_Type => 'application/json' );
 	my $decoded_json = decode_json( $res->content );
 
 	if ( $res->is_success ) {
@@ -196,7 +196,7 @@ sub _get_session_token {
 	#say $request->signature_base_string;
 	die "COULDN'T VERIFY! Check OAuth parameters.\n" unless $request->verify;
 	say "\nGetting session token...";
-	my $res = $ua->request( GET $request->to_url, Content_Type => 'application/json' );
+	my $res          = $ua->request( GET $request->to_url, Content_Type => 'application/json' );
 	my $decoded_json = decode_json( $res->content );
 	if ( $res->is_success ) {
 		say 'Success:';
@@ -262,7 +262,7 @@ sub _get_route {
 	}
 	my $url = TEST_REST_URL . "$route";
 	say "\nAccessing authenticated resource ($url)...";
-	my $request = Net::OAuth->request('protected resource')->new(
+	my %args = (
 		consumer_key     => CONSUMER_KEY,
 		consumer_secret  => CONSUMER_SECRET,
 		token            => $session_token,
@@ -271,9 +271,10 @@ sub _get_route {
 		request_method   => $opts{'m'},
 		signature_method => 'HMAC-SHA1',
 		timestamp        => time,
-		nonce            => join( '', rand_chars( size => 16, set => 'alphanumeric' ) ),
-		extra_params     => $extra_params
+		nonce            => join( '', rand_chars( size => 16, set => 'alphanumeric' ) )
 	);
+	$args{'extra_params'} = $extra_params if $opts{'m'} eq 'GET';
+	my $request = Net::OAuth->request('protected resource')->new(%args);
 	$request->sign;
 
 	#say $request->signature_base_string;
@@ -285,7 +286,7 @@ sub _get_route {
 	}
 	my $method = lc( $opts{'m'} );
 	my $res =
-	    $opts{'m'} eq 'POST'
+		$opts{'m'} eq 'POST'
 	  ? $ua->post( $url, Content => encode_json \%all_params )
 	  : $ua->$method( $request->to_url );
 	my $decoded_json;
@@ -347,7 +348,7 @@ sub show_help {
 	my $termios = POSIX::Termios->new;
 	$termios->getattr;
 	my $ospeed = $termios->getospeed;
-	my $t = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
+	my $t      = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
 	my ( $norm, $bold, $under ) = map { $t->Tputs( $_, 1 ) } qw/me md us/;
 	say << "HELP";
 ${bold}NAME$norm
