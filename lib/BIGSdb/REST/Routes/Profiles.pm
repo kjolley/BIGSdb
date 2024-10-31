@@ -29,7 +29,7 @@ sub setup_routes {
 		get "$dir/db/:db/schemes/:scheme_id/profiles"     => sub { _get_profiles() };
 		get "$dir/db/:db/schemes/:scheme_id/profiles_csv" => sub {
 			_check_scheme();    #Need to do this before setting header.
-			header content_type => 'text/plain; charset=UTF-8';
+			response_header content_type => 'text/plain; charset=UTF-8';
 			delayed { _get_profiles_csv(); done };
 		};
 		get "$dir/db/:db/schemes/:scheme_id/profiles/:profile_id" => sub { _get_profile() };
