@@ -39,9 +39,11 @@ AUTHORIZE_URL = TEST_WEB_URL + "&page=authorizeClient"
 import argparse
 import re
 import os
+import sys
 import json
 import base64
 from rauth import OAuth1Service, OAuth1Session
+from urllib.parse import parse_qs
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -120,6 +122,15 @@ def retrieve_token(token_name):
     return (token, secret)
 
 
+def trim_url_args(url):
+    if not "?" in url:
+        return url, {}
+    trimmed_url, param_string = url.split("?")
+    params = parse_qs(param_string)
+    params = {k: int(v[0]) for k, v in params.items()}
+    return trimmed_url, params
+
+
 def get_route(route, token, secret):
     if route and not re.match(r"^/", route):
         route = "/" + route
@@ -132,28 +143,28 @@ def get_route(route, token, secret):
     if args.sequence_file:
         if not os.path.exists(args.sequence_file):
             print("Sequence file " + args.sequence_file + " does not exist.")
-            os._exit(1)
+            sys.exit(1)
         with open(args.sequence_file, "r") as seq_file:
             data = seq_file.read()
             extra_params["sequences"] = data
     if args.profiles_file:
         if not os.path.exists(args.profiles_file):
             print("Profiles file " + args.profiles_file + " does not exist.")
-            os._exit(1)
+            sys.exit(1)
         with open(args.profiles_file, "r") as profiles_file:
             data = profiles_file.read()
             extra_params["profiles"] = data
     if args.isolates_file:
         if not os.path.exists(args.isolates_file):
             print("Isolates file " + args.isolates_file + " does not exist.")
-            os._exit(1)
+            sys.exit(1)
         with open(args.isolates_file, "r") as isolates_file:
             data = isolates_file.read()
             extra_params["isolates"] = data
     if args.file:
         if not os.path.exists(args.file):
             print("File " + args.file + " does not exist.")
-            os._exit(1)
+            sys.exit(1)
         with open(args.file, mode="rb") as file:
             content = file.read()
             extra_params["upload"] = base64.b64encode(content)
@@ -162,10 +173,18 @@ def get_route(route, token, secret):
         for pa in p:
             ps = pa.split("=")
             extra_params[ps[0]] = ps[1]
+    trimmed_url, request_params = trim_url_args(url)
     if args.method == "GET":
-        r = session.get(url, params=extra_params)
+        r = session.get(trimmed_url, params=request_params)
     elif args.method == "POST":
-        r = session.post(url, data=extra_params)
+        r = session.post(
+            trimmed_url,
+            params=request_params,
+            data=json.dumps(extra_params),
+            headers={"Content-Type": "application/json"},
+            header_auth=True,
+        )
+
     elif args.method == "DELETE":
         r = session.delete(url)
     if r.status_code == 200 or r.status_code == 201:
