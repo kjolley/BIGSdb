@@ -1,3 +1,7 @@
+v1.49.0: *Automated generation of personal API keys.
+         *Use LINcodes to identify closest genome following sequence query.
+         *Include sequencing method on isolate info page.
+         *Fix to verification of POST signatures in the API.
 v1.48.5: *Improved formatting for user registration page.
          *Option to select only DNA or only peptide loci in sequence query.
 v1.48.4: *The scheme cache is now used for isolate query results if the scheme
