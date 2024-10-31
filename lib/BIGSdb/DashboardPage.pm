@@ -2156,9 +2156,11 @@ sub _get_scheme_annotation_values {
 	} else {
 		$view_count = $count;
 	}
-	my $max_threshold = $scheme_info->{'quality_metric_good_threshold'} // @$loci;
+	my $max_threshold = $scheme_info->{'quality_metric_good_threshold'}
+	  // $scheme_info->{'quality_metric_bad_threshold'} // @$loci;
 	$max_threshold = $scheme_info->{'loci'} if $max_threshold > @$loci;
-	my $min_threshold = $scheme_info->{'quality_metric_bad_threshold'} // @$loci;
+	my $min_threshold = $scheme_info->{'quality_metric_bad_threshold'}
+	  // $scheme_info->{'quality_metric_good_threshold'} // @$loci;
 	$min_threshold = 0 if $min_threshold < 0;
 	my $filter_clause = @$filters ? " AND @$filters" : q();
 	my $table         = $self->{'datastore'}->create_temp_scheme_status_table($scheme_id);
@@ -3706,7 +3708,8 @@ sub _get_field_breakdown_map_content {
 	my $countries = dclone(COUNTRIES);
 	foreach my $value (@$data) {
 		if ( $element->{'field'} eq 'f_country' ) {
-			$value->{'iso3'} = defined $value->{'label'}
+			$value->{'iso3'} =
+			  defined $value->{'label'}
 			  ? $countries->{ $value->{'label'} }->{'iso3'} // q(XXX)
 			  : q(XXX);
 		} else {
