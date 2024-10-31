@@ -72,7 +72,7 @@ sub print_content {
 	my $data             = [];
 	my $date_restriction = $self->{'datastore'}->get_date_restriction;
 	my $restricted;
-	if ( $date_restriction && $date_restriction lt $seq_ref->{'date_entered'} ) {
+	if ( $date_restriction && $date_restriction lt $seq_ref->{'date_entered'} && !$self->{'username'} ) {
 		$restricted = 1;
 		my $date_restriction_message = $self->get_date_restriction_message;
 		if ($date_restriction_message) {
