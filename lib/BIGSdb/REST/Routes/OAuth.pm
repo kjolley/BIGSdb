@@ -38,27 +38,18 @@ sub setup_routes {
 }
 
 sub _get_request_token {
-	my $self   = setting('self');
-	my $params = params;
-	my $db     = param('db');
-	my $subdir = setting('subdir');
-	if ( !param('oauth_consumer_key') ) {
+	my $self         = setting('self');
+	my $params       = params;
+	my $db           = param('db');
+	my $subdir       = setting('subdir');
+	my $oauth_params = $self->get_oauth_params( { oauth_callback => 1 } );
+	if ( !$oauth_params->{'oauth_consumer_key'} ) {
 		send_error( 'No consumer key submitted', 403 );
 	}
-	my $client         = _get_client();
-	my $request_params = {};
-	$request_params->{$_} = param($_) foreach qw(
-	  oauth_callback
-	  oauth_consumer_key
-	  oauth_signature
-	  oauth_signature_method
-	  oauth_nonce
-	  oauth_timestamp
-	  oauth_version
-	);
+	my $client  = _get_client();
 	my $request = eval {
 		Net::OAuth->request('request token')->from_hash(
-			$request_params,
+			$oauth_params,
 			request_method  => request->method,
 			request_url     => uri_for("$subdir/db/$db/oauth/get_request_token"),
 			consumer_secret => $client->{'client_secret'}
@@ -81,7 +72,7 @@ sub _get_request_token {
 	}
 	my $request_repeated = $self->{'datastore'}->run_query(
 		'SELECT EXISTS(SELECT * FROM request_tokens WHERE (nonce,timestamp)=(?,?))',
-		[ param('oauth_nonce'), param('oauth_timestamp') ],
+		[ $oauth_params->{'oauth_nonce'}, $oauth_params->{'oauth_timestamp'} ],
 		{ db => $self->{'auth_db'} }
 	);
 	if ($request_repeated) {
@@ -93,8 +84,10 @@ sub _get_request_token {
 		$self->{'auth_db'}->do( 'DELETE FROM request_tokens WHERE start_time<?', undef, time - REQUEST_TOKEN_EXPIRES );
 		$self->{'auth_db'}->do(
 			'INSERT INTO request_tokens (token,secret,client_id,nonce,timestamp,start_time) VALUES (?,?,?,?,?,?)',
-			undef, $token, $token_secret, param('oauth_consumer_key'),
-			param('oauth_nonce'), param('oauth_timestamp'), time
+			undef, $token, $token_secret,
+			$oauth_params->{'oauth_consumer_key'},
+			$oauth_params->{'oauth_nonce'},
+			$oauth_params->{'oauth_timestamp'}, time
 		);
 	};
 	if ($@) {
@@ -107,20 +100,24 @@ sub _get_request_token {
 }
 
 sub _get_access_token {
-	my $self   = setting('self');
-	my $params = params;
-	my $db     = param('db');
-	my $subdir = setting('subdir');
-	if ( !param('oauth_consumer_key') ) {
+	my $self         = setting('self');
+	my $params       = params;
+	my $db           = param('db');
+	my $subdir       = setting('subdir');
+	my $oauth_params = $self->get_oauth_params( { oauth_token => 1, oauth_verifier => 1 } );
+	if ( !$oauth_params->{'oauth_consumer_key'} ) {
 		send_error( 'No consumer key submitted', 403 );
 	}
 	my $client        = _get_client();
-	my $request_token = $self->{'datastore'}->run_query( 'SELECT * FROM request_tokens WHERE token=?',
-		param('oauth_token'), { fetch => 'row_hashref', db => $self->{'auth_db'} } );
+	my $request_token = $self->{'datastore'}->run_query(
+		'SELECT * FROM request_tokens WHERE token=?',
+		$oauth_params->{'oauth_token'},
+		{ fetch => 'row_hashref', db => $self->{'auth_db'} }
+	);
 	if ( !$request_token->{'secret'} ) {
 		send_error( 'Invalid request token.  Generate new request token (/get_request_token).', 401 );
 	}
-	if ( !$request_token->{'verifier'} || $request_token->{'verifier'} ne param('oauth_verifier') ) {
+	if ( !$request_token->{'verifier'} || $request_token->{'verifier'} ne $oauth_params->{'oauth_verifier'} ) {
 		send_error( 'Invalid verifier code.', 401 );
 	}
 	if ( $request_token->{'redeemed'} ) {
@@ -129,20 +126,9 @@ sub _get_access_token {
 	if ( abs( $request_token->{'timestamp'} - time ) > REQUEST_TOKEN_EXPIRES ) {
 		send_error( 'Request token has expired.  Generate new request token (/get_request_token).', 401 );
 	}
-	my $request_params = {};
-	$request_params->{$_} = param($_) foreach qw(
-	  oauth_consumer_key
-	  oauth_nonce
-	  oauth_signature
-	  oauth_signature_method
-	  oauth_timestamp
-	  oauth_token
-	  oauth_verifier
-	  oauth_version
-	);
 	my $request = eval {
 		Net::OAuth->request('access token')->from_hash(
-			$request_params,
+			$oauth_params,
 			request_method  => request->method,
 			request_url     => uri_for("$subdir/db/$db/oauth/get_access_token"),
 			consumer_secret => $client->{'client_secret'},
@@ -171,13 +157,16 @@ sub _get_access_token {
 		$self->{'auth_db'}->do(
 			'DELETE FROM access_tokens WHERE (client_id,username,dbase)=(?,?,?)',
 			undef,
-			param('oauth_consumer_key'),
+			$oauth_params->{'oauth_consumer_key'},
 			$request_token->{'username'},
 			$request_token->{'dbase'}
 		);
 		$self->{'auth_db'}->do(
 			'INSERT INTO access_tokens (token,secret,client_id,datestamp,username,dbase) VALUES (?,?,?,?,?,?)',
-			undef, $access_token, $access_token_secret, param('oauth_consumer_key'),
+			undef,
+			$access_token,
+			$access_token_secret,
+			$oauth_params->{'oauth_consumer_key'},
 			'now',
 			$request_token->{'username'},
 			$request_token->{'dbase'}
@@ -193,11 +182,12 @@ sub _get_access_token {
 }
 
 sub _get_client {
-	my $self   = setting('self');
-	my $params = params;
-	my $client = $self->{'datastore'}->run_query(
+	my $self         = setting('self');
+	my $params       = params;
+	my $oauth_params = $self->get_oauth_params();
+	my $client       = $self->{'datastore'}->run_query(
 		'SELECT * FROM clients WHERE client_id=?',
-		param('oauth_consumer_key'),
+		$oauth_params->{'oauth_consumer_key'},
 		{ db => $self->{'auth_db'}, fetch => 'row_hashref', cache => 'REST::Routes::OAuth::get_client' }
 	);
 	my $client_name = $client->{'application'};
@@ -210,17 +200,18 @@ sub _get_client {
 }
 
 sub _get_session_token {
-	my $self   = setting('self');
-	my $params = params;
-	my $db     = param('db');
-	my $subdir = setting('subdir');
-	if ( !param('oauth_consumer_key') ) {
+	my $self         = setting('self');
+	my $params       = params;
+	my $db           = param('db');
+	my $subdir       = setting('subdir');
+	my $oauth_params = $self->get_oauth_params( { oauth_token => 1 } );
+	if ( !$oauth_params->{'oauth_consumer_key'} ) {
 		send_error( 'No consumer key submitted', 403 );
 	}
 	my $client       = _get_client();
 	my $access_token = $self->{'datastore'}->run_query(
 		'SELECT * FROM access_tokens WHERE token=?',
-		param('oauth_token'),
+		$oauth_params->{'oauth_token'},
 		{
 			fetch => 'row_hashref',
 			db    => $self->{'auth_db'},
@@ -230,19 +221,9 @@ sub _get_session_token {
 	if ( !$access_token->{'secret'} ) {
 		send_error( 'Invalid access token.  Generate new access token (/get_access_token).', 401 );
 	}
-	my $request_params = {};
-	$request_params->{$_} = param($_) foreach qw(
-	  oauth_consumer_key
-	  oauth_nonce
-	  oauth_signature
-	  oauth_signature_method
-	  oauth_timestamp
-	  oauth_token
-	  oauth_version
-	);
 	my $request = eval {
 		Net::OAuth->request('protected resource')->from_hash(
-			$request_params,
+			$oauth_params,
 			request_method  => request->method,
 			request_url     => uri_for("$subdir/db/$db/oauth/get_session_token"),
 			consumer_secret => $client->{'client_secret'},
@@ -263,7 +244,7 @@ sub _get_session_token {
 	}
 	my $request_repeated = $self->{'datastore'}->run_query(
 		'SELECT EXISTS(SELECT * FROM api_sessions WHERE (nonce,timestamp)=(?,?))',
-		[ param('oauth_nonce'), param('oauth_timestamp') ],
+		[ $oauth_params->{'oauth_nonce'}, $oauth_params->{'oauth_timestamp'} ],
 		{ db => $self->{'auth_db'}, cache => 'REST::Routes::OAuth::get_session_token::session_exists' }
 	);
 	if ($request_repeated) {
@@ -281,18 +262,18 @@ sub _get_session_token {
 			undef,
 			$access_token->{'dbase'},
 			$access_token->{'username'},
-			param('oauth_consumer_key'),
+			$oauth_params->{'oauth_consumer_key'},
 			$session_token,
 			$session_token_secret,
-			param('oauth_nonce'),
-			param('oauth_timestamp'),
+			$oauth_params->{'oauth_nonce'},
+			$oauth_params->{'oauth_timestamp'},
 			time
 		);
 		my $ip_address = _get_ip_address();
 		$self->{'auth_db'}->do(
 			'UPDATE users SET (ip_address,last_login,interface,user_agent)=(?,?,?,?) WHERE (dbase,name)=(?,?)',
 			undef, $ip_address, 'now', 'REST API',
-			param('oauth_consumer_key'),
+			$oauth_params->{'oauth_consumer_key'},
 			$access_token->{'dbase'},
 			$access_token->{'username'}
 		);

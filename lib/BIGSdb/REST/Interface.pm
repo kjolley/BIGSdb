@@ -227,13 +227,13 @@ sub reconnect {
 }
 
 sub get_date_restriction_message {
-	my $self = setting('self');
+	my $self             = setting('self');
 	my $date_restriction = $self->{'datastore'}->get_date_restriction;
-	if ($date_restriction && !$self->{'username'}){
+	if ( $date_restriction && !$self->{'username'} ) {
 		return 'Please note that you are currently restricted to accessing data that was submitted '
-		. "on or prior to $date_restriction. Please authenticate to access the full dataset."
+		  . "on or prior to $date_restriction. Please authenticate to access the full dataset.";
 	}
-	return
+	return;
 }
 
 sub _log_call {
@@ -287,7 +287,9 @@ sub _check_authorization {
 		send_error( 'Unauthorized', 401 ) if !$self->_is_authorized;
 	}
 	my $login_requirement = $self->{'datastore'}->get_login_requirement;
-	if ( $login_requirement == OPTIONAL && param('oauth_consumer_key') && $request_path !~ /^$oauth_route/x ) {
+	my $oauth_params      = $self->get_oauth_params();
+	if ( $login_requirement == OPTIONAL && $oauth_params->{'oauth_consumer_key'} && $request_path !~ /^$oauth_route/x )
+	{
 		$self->_is_authorized;
 	}
 	return;
@@ -389,16 +391,54 @@ sub _after_error {
 	return;
 }
 
+sub get_oauth_params {
+	my ( $self, $options ) = @_;
+	my $auth_header         = request->header('Authorization');
+	my $header_oauth_params = {};
+	if ($auth_header) {
+		foreach my $param ( split( ',', $auth_header ) ) {
+			my ( $key, $value ) = split( '=', $param, 2 );
+			$value =~ s/^"//x;
+			$value =~ s/"$//x;
+			$header_oauth_params->{$key} = $value if $key =~ /^oauth/x;
+		}
+	}
+	my $oauth_params = {};
+	my @params       = qw(
+	  oauth_consumer_key
+	  oauth_signature
+	  oauth_signature_method
+	  oauth_version
+	  oauth_timestamp
+	  oauth_nonce
+	);
+	push @params, 'oauth_token'    if $options->{'oauth_token'};
+	push @params, 'oauth_callback' if $options->{'oauth_callback'};
+	push @params, 'oauth_verifier' if $options->{'oauth_verifier'};
+
+	foreach my $param (@params) {
+		$oauth_params->{$param} = param($param) || $header_oauth_params->{$param};
+	}
+
+	#POST signatures are base64 encoded - if they end in %3D, %2B or %2F, convert this back to =,+,/;
+	if ( $header_oauth_params->{'oauth_signature'} && request->method eq 'POST' ) {
+		$oauth_params->{'oauth_signature'} =~ s/\%3D/=/gx;
+		$oauth_params->{'oauth_signature'} =~ s/\%2B/+/gx;
+		$oauth_params->{'oauth_signature'} =~ s/\%2F/\//gx;
+	}
+	return $oauth_params;
+}
+
 sub _is_authorized {
-	my ($self) = @_;
-	my $params = params;
-	my $db     = param('db');
-	if ( !param('oauth_consumer_key') ) {
+	my ($self)       = @_;
+	my $db           = param('db');
+	my $oauth_params = $self->get_oauth_params( { oauth_token => 1 } );
+	if ( !$oauth_params->{'oauth_consumer_key'} ) {
 		send_error( 'Unauthorized - Generate new session token.', 401 );
 	}
 	my $client = $self->{'datastore'}->run_query(
 		'SELECT * FROM clients WHERE client_id=?',
-		param('oauth_consumer_key'),
+		$oauth_params->{'oauth_consumer_key'},
 		{ db => $self->{'auth_db'}, fetch => 'row_hashref', cache => 'REST::get_client' }
 	);
 	if ( !$client->{'client_secret'} ) {
@@ -410,7 +450,7 @@ sub _is_authorized {
 	$self->delete_old_sessions;
 	my $session_token = $self->{'datastore'}->run_query(
 		'SELECT * FROM api_sessions WHERE session=?',
-		param('oauth_token') // q(),
+		$oauth_params->{'oauth_token'} // q(),
 		{ fetch => 'row_hashref', db => $self->{'auth_db'}, cache => 'REST::Interface::is_authorized::api_sessions' }
 	);
 	if ( !$session_token->{'secret'} ) {
@@ -421,25 +461,14 @@ sub _is_authorized {
 		send_error( 'Invalid session token.  Generate new token (/get_session_token).', 401 );
 	}
 	my $query_params = params('query');
-	my $body_params  = params('body');
 	my $extra_params = {};
-	foreach my $param ( keys %$query_params, keys %$body_params ) {
+	foreach my $param ( keys %$query_params ) {
 		next if $param =~ /^oauth_/x;
-		$extra_params->{$param} = $query_params->{$param} // $body_params->{$param};
+		$extra_params->{$param} = $query_params->{$param};
 	}
-	my $request_params = {};
-	$request_params->{$_} = param($_) foreach qw(
-	  oauth_consumer_key
-	  oauth_signature
-	  oauth_signature_method
-	  oauth_version
-	  oauth_token
-	  oauth_timestamp
-	  oauth_nonce
-	);
 	my $request = eval {
 		Net::OAuth->request('protected resource')->from_hash(
-			$request_params,
+			$oauth_params,
 			request_method  => request->method,
 			request_url     => request->uri_base . request->path,
 			consumer_secret => $client->{'client_secret'},
@@ -455,6 +484,7 @@ sub _is_authorized {
 			send_error( 'Invalid token request.', 400 );
 		}
 	}
+	say 'Signature Base string: ' . $request->signature_base_string;
 	if ( !$request->verify ) {
 		$self->{'logger'}->debug( 'Request string: ' . $request->signature_base_string );
 		send_error( 'Signature verification failed.', 401 );
@@ -475,9 +505,10 @@ sub _check_user_authorization {
 
 sub _check_client_authorization {
 	my ( $self, $client ) = @_;
+	my $oauth_params = $self->get_oauth_params;
 	my ( $db_authorize, $db_submission, $db_curation ) = $self->{'datastore'}->run_query(
 		'SELECT authorize,submission,curation FROM client_permissions WHERE (client_id,dbase)=(?,?)',
-		[ param('oauth_consumer_key'), $self->{'system'}->{'db'} ],
+		[ $oauth_params->{'oauth_consumer_key'}, $self->{'system'}->{'db'} ],
 		{ db => $self->{'auth_db'}, cache => 'REST::Interface::is_authorized::client_permissions' }
 	);
 	my $client_authorized;
