@@ -2100,7 +2100,7 @@ PRIMARY KEY(field)
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON db_attributes TO apache;
 
-INSERT INTO db_attributes (field,value) VALUES ('version','47');
+INSERT INTO db_attributes (field,value) VALUES ('version','50');
 INSERT INTO db_attributes (field,value) VALUES ('type','isolates');
 
 CREATE TABLE query_interfaces (
@@ -2149,4 +2149,20 @@ ON UPDATE CASCADE
 
 CREATE INDEX ON embargo_history USING brin(timestamp);
 GRANT SELECT,UPDATE,INSERT,DELETE ON embargo_history TO apache;
+
+CREATE TABLE analysis_fields (
+analysis_name text NOT NULL,
+field_name text NOT NULL,
+description text,
+json_path text NOT NULL,
+data_type text NOT NULL,
+curator int NOT NULL,
+datestamp date NOT NULL,
+PRIMARY KEY (analysis_name,field_name),
+CONSTRAINT af_curator FOREIGN KEY (curator) REFERENCES users
+ON DELETE NO ACTION
+ON UPDATE CASCADE
+);
+GRANT SELECT,UPDATE,INSERT,DELETE ON analysis_fields TO apache;
+
 

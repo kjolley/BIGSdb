@@ -2999,4 +2999,47 @@ sub get_query_interface_fields_table_attributes {
 	];
 	return $attributes;
 }
+
+sub get_analysis_fields_table_attributes {
+	my ($self) = @_;
+	my $attributes = [
+		{
+			name        => 'analysis_name',
+			type        => 'text',
+			required    => 1,
+			primary_key => 1,
+			length      => 30
+		},
+		{
+			name        => 'field_name',
+			type        => 'text',
+			required    => 1,
+			primary_key => 1,
+			length      => 30
+		},
+		{
+			name   => 'description',
+			type   => 'text',
+			length => 100
+		},
+		{
+			name     => 'json_path',
+			type     => 'text',
+			required => 1,
+			length   => 100,
+			tooltip  => 'This is a value in the format $.fields.species. '
+			  . 'See https://en.wikipedia.org/wiki/JSONPath for more details.',
+			regex => '^\$((\.[a-zA-Z_][a-zA-Z0-9_]*)|(\[\d+\])|(\[\*\])|(\[\?\(.*?\)\]))*$'
+		},
+		{
+			name     => 'data_type',
+			type     => 'text',
+			required => 1,
+			optlist  => 'integer;text;float;date',
+		},
+		{ name => 'datestamp', type => 'date', required => 1 },
+		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 }
+	];
+	return $attributes;
+}
 1;

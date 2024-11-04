@@ -384,6 +384,7 @@ sub _get_admin_links {
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		$buffer .= $self->_get_genome_filtering;
 		$buffer .= $self->_get_sequence_attributes;
+		$buffer .= $self->_get_analysis_fields;
 	} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		$buffer .= $self->_get_locus_extended_attributes;
 		$buffer .= $self->_get_mutation_fields;
@@ -1491,6 +1492,29 @@ sub _get_eav_fields {
 			  . 'values, i.e. fields that only a minority of records will have values for. It is '
 			  . 'inefficient to define these as separate columns in the main isolates table. This is particularly '
 			  . 'appropriate if you have 10s-100s of such fields to define.'
+		}
+	);
+	$buffer .= qq(</div>\n);
+	return $buffer;
+}
+
+sub _get_analysis_fields {
+	my ($self) = @_;
+	my $buffer = q();
+	return $buffer if !$self->can_modify_table('analysis_fields');
+	$buffer .= q(<div class="curategroup curategroup_isolates grid-item field_admin" )
+	  . qq(style="display:$self->{'optional_field_admin_display'}"><h2>Analysis fields</h2>);
+	$buffer .= $self->_get_icon_group(
+		'analysis_fields',
+		'flask-vial',
+		{
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Analysis fields - Define fields that can appear in the output of arbitray '
+			  . 'analysis run by external tools, e.g. Kleborate, rMLST species id. These save analysis '
+			  . 'results as a JSON string within the analysis_results table. By registering particular '
+			  . 'fields you can allow BIGSdb to use these results for queries or further analysis.'
 		}
 	);
 	$buffer .= qq(</div>\n);

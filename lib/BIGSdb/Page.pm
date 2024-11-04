@@ -2364,7 +2364,8 @@ sub get_record_name {
 		dna_mutations                     => 'single nucleotide polymorphism definition',
 		query_interfaces                  => 'query interface',
 		query_interface_fields            => 'pre-selected interface field',
-		embargo_history                   => 'embargo history'
+		embargo_history                   => 'embargo history',
+		analysis_fields                   => 'analysis field'
 	);
 	return $names{$table};
 }
