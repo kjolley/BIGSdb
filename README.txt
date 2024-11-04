@@ -1,5 +1,6 @@
 v1.49.0: *Automated generation of personal API keys.
-         *Use LINcodes to identify closest genome following sequence query.
+         *Use LINcodes to identify closest profiles and genomes on profile 
+          info page.
          *Include sequencing method on isolate info page.
          *Fix to verification of POST signatures in the API.
 v1.48.5: *Improved formatting for user registration page.
