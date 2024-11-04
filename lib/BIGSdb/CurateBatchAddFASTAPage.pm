@@ -372,4 +372,20 @@ sub _upload {
 sub get_title {
 	return 'Batch insert sequences';
 }
+
+sub get_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+\$(function () {
+  \$('#sender,#locus').multiselect({
+  	classes: 'filter',
+ 	menuHeight: 250,
+ 	menuWidth: 400,
+ 	noneSelectedText: '',
+ 	selectedList: 1,
+  }).multiselectfilter();
+});
+END
+	return $buffer;
+}
 1;

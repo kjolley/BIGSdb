@@ -325,6 +325,7 @@ sub print_interface_sender_field {
 	$user_names->{-1} = 'Override with sender field';
 	say $q->popup_menu(
 		-name     => 'sender',
+		-id       => 'sender',
 		-values   => [ '', -1, @$users ],
 		-labels   => $user_names,
 		-required => 'required'
@@ -676,7 +677,7 @@ sub _is_over_quota {
 				my $up_plural = $record_count == 1            ? q() : q(s);
 				$self->print_bad_status(
 					{
-						message => q(The available quota for private data for this project is )
+							message => q(The available quota for private data for this project is )
 						  . qq($project_quota_available record$av_plural. )
 						  . qq(You are attempting to upload $record_count record$up_plural.)
 					}
