@@ -1506,7 +1506,7 @@ sub _get_analysis_fields {
 	  . qq(style="display:$self->{'optional_field_admin_display'}"><h2>Analysis fields</h2>);
 	$buffer .= $self->_get_icon_group(
 		'analysis_fields',
-		'flask-vial',
+		'chart-line',
 		{
 			add       => 1,
 			batch_add => 1,

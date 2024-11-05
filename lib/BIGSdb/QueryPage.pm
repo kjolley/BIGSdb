@@ -72,6 +72,9 @@ sub get_javascript_panel {
 		  . q[$('[id^="tag_count_operator"]').val(''),]
 		  . q[$('[id^="tag_count_value"]').val('')],
 		,
+		analysis => q[$('select[id^="analysis_field"]').val(''),]
+		  . q[$('[id^="analysis_operator"]').val(''),]
+		  . q[$('[id^="analysis_value"]').val('')],
 		seqbin            => q[$('[id^="seqbin_value"]').val('');$('[id^="seqbin_field"]').val('')],
 		assembly_checks   => q[$('[id^="assembly_checks_value"]').val('');$('[id^="assembly_checks_field"]').val('')],
 		annotation_status =>

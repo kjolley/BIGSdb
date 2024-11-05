@@ -3008,7 +3008,8 @@ sub get_analysis_fields_table_attributes {
 			type        => 'text',
 			required    => 1,
 			primary_key => 1,
-			length      => 30
+			length      => 30,
+			comments => 'Name analysis is stored under in analysis results table'
 		},
 		{
 			name        => 'field_name',
@@ -3018,7 +3019,13 @@ sub get_analysis_fields_table_attributes {
 			length      => 30
 		},
 		{
-			name   => 'description',
+			name   => 'analysis_display_name',
+			type   => 'text',
+			length => 30,
+			comments => 'Name of analysis used in interface - set if different from analysis_name'
+		},
+		{
+			name   => 'field_description',
 			type   => 'text',
 			length => 100
 		},

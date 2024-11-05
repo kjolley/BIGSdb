@@ -54,6 +54,7 @@ sub _ajax_content {
 			assembly_checks     => sub { $self->_print_assembly_checks_fieldset_contents },
 			tag_count           => sub { $self->_print_tag_count_fieldset_contents },
 			tags                => sub { $self->_print_tags_fieldset_contents },
+			analysis            => sub { $self->_print_analysis_fieldset_contents },
 			list                => sub { $self->_print_list_fieldset_contents },
 			filters             => sub { $self->_print_filters_fieldset_contents }
 		);
@@ -119,6 +120,9 @@ sub _ajax_content {
 			  $self->get_field_selection_list(
 				{ loci => 1, no_list_by_common_name => 1, scheme_fields => 0, sort_labels => 1 } );
 			$self->_print_locus_tag_fields( $row, 0, $locus_list, $locus_labels );
+		},
+		analysis => sub {
+			$self->_print_analysis_fields( $row, 0 );
 		}
 	);
 	$method{ $q->param('fields') }->() if $method{ $q->param('fields') };
@@ -200,7 +204,7 @@ sub _save_options {
 	return if !$guid;
 	foreach my $attribute (
 		qw (provenance phenotypic allele_designations sequence_variation allele_count allele_status annotation_status
-		seqbin assembly_checks tag_count tags list filters)
+		seqbin assembly_checks tag_count tags analysis list filters)
 	  )
 	{
 		my $value = $q->param($attribute) ? 'on' : 'off';
@@ -291,6 +295,7 @@ sub _print_interface {
 	$self->_print_assembly_checks_fieldset;
 	$self->_print_tag_count_fieldset;
 	$self->_print_tags_fieldset;
+	$self->_print_analysis_fieldset;
 	$self->_print_list_fieldset;
 	$self->_print_filters_fieldset;
 	$self->_print_display_fieldset;
@@ -699,7 +704,7 @@ sub _print_allele_status_fieldset_contents {
 		my $locus_fields    = $self->_highest_entered_fields('allele_status') || 1;
 		my $heading_display = $locus_fields == 1 ? 'none' : 'inline';
 		say qq(<span id="allele_status_field_heading" style="display:$heading_display">)
-		  . q(<label for="designation_andor">Combine with: </label>);
+		  . q(<label for="status_andor">Combine with: </label>);
 		say $q->popup_menu( -name => 'status_andor', -id => 'status_andor', -values => [qw (AND OR)] );
 		say q(</span><ul id="allele_status">);
 		for ( 1 .. $locus_fields ) {
@@ -882,7 +887,7 @@ sub _print_tags_fieldset_contents {
 		my $locus_tag_fields   = $self->_highest_entered_fields('tags') || 1;
 		my $locus_tags_heading = $locus_tag_fields == 1 ? 'none' : 'inline';
 		say qq(<span id="locus_tags_heading" style="display:$locus_tags_heading">)
-		  . q(<label for="designation_andor">Combine with: </label>);
+		  . q(<label for="tag_andor">Combine with: </label>);
 		say $q->popup_menu( -name => 'tag_andor', -id => 'tag_andor', -values => [qw (AND OR)] );
 		say q(</span><ul id="tags">);
 		for ( 1 .. $locus_tag_fields ) {
@@ -894,6 +899,88 @@ sub _print_tags_fieldset_contents {
 	} else {
 		say q(<p>No loci defined for query.</p>);
 	}
+	return;
+}
+
+sub _print_analysis_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	return if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM analysis_fields)');
+	say q(<fieldset id="analysis_fieldset" style="float:left;display:none">);
+	say q(<legend>Analysis results</legend><div>);
+	$self->_print_analysis_fieldset_contents;
+	say q(</div></fieldset>);
+	$self->{'analysis_fieldset_exists'} = 1;
+	return;
+}
+
+sub _get_analysis_list_and_labels {
+	my ($self) = @_;
+	my $fields = $self->{'datastore'}->run_query( 'SELECT * FROM analysis_fields ORDER BY field_name',
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	my $group_members = {};
+	my $labels        = {};
+	foreach my $field (@$fields) {
+		my $value    = "$field->{'analysis_name'}__$field->{'field_name'}";
+		my $analysis = $field->{'analysis_display_name'} // $field->{'analysis_name'};
+		$labels->{$value} = $field->{'field_name'};
+		push @{ $group_members->{$analysis} }, $value;
+	}
+	return ( $group_members, $labels );
+}
+
+sub _print_analysis_fieldset_contents {
+	my ($self)           = @_;
+	my $q                = $self->{'cgi'};
+	my $analysis_fields  = $self->_highest_entered_fields('analysis') || 1;
+	my $analysis_heading = $analysis_fields == 1 ? 'none' : 'inline';
+	say qq(<span id="analysis_heading" style="display:$analysis_heading">)
+	  . q(<label for="analysis_andor">Combine with: </label>);
+	say $q->popup_menu( -name => 'analysis_andor', -id => 'analysis_andor', -values => [qw (AND OR)] );
+	say q(</span><ul id="analysis">);
+	for ( 1 .. $analysis_fields ) {
+		say q(<li>);
+		$self->_print_analysis_fields( $_, $analysis_fields );
+		say q(</li>);
+	}
+	say q(</ul>);
+	return;
+}
+
+sub _print_analysis_fields {
+	my ( $self, $row, $max_rows ) = @_;
+	my $q = $self->{'cgi'};
+	my ( $group_members, $labels ) = $self->_get_analysis_list_and_labels;
+	my $values = [q()];
+	foreach my $group ( sort keys %$group_members ) {
+		if ( ref $group_members->{$group} ) {
+			push @$values, $q->optgroup( -name => $group, -values => $group_members->{$group}, -labels => $labels );
+		}
+	}
+	say q(<span style="display:flex">);
+	say $q->popup_menu(
+		-name   => "analysis_field$row",
+		-id     => "analysis_field$row",
+		-values => $values,
+		-labels => $labels,
+		-class  => 'fieldlist'
+	);
+	say $q->popup_menu( -name => "analysis_operator$row", -values => [OPERATORS] );
+	say $q->textfield(
+		-name        => "analysis_value$row",
+		-id          => "analysis_value$row",
+		-class       => 'value_entry',
+		-placeholder => 'Enter value...'
+	);
+	if ( $row == 1 ) {
+		my $next_row = $max_rows ? $max_rows + 1 : 2;
+		say qq(<a id="add_analysis" href="$self->{'system'}->{'script_name'}?)
+		  . qq(db=$self->{'instance'}&amp;page=query&amp;)
+		  . qq(fields=analysis&amp;row=$next_row&amp;no_header=1" data-rel="ajax" class="add_button">)
+		  . q(<span class="fa fas fa-plus"></span></a>);
+		say $self->get_tooltip( '', { id => 'analysis_tooltip' } );
+	}
+	say q(</span>);
 	return;
 }
 
@@ -1184,6 +1271,11 @@ sub _print_modify_search_fieldset {
 		say qq(<li><a href="" class="button fieldset_trigger" id="show_tags">$tags_fieldset_display</a>);
 		say q(Tagged sequence status</li>);
 	}
+	if ( $self->{'analysis_fieldset_exists'} ) {
+		my $analysis_fieldset_display = $self->_should_display_fieldset('analysis') ? HIDE : SHOW;
+		say qq(<li><a href="" class="button fieldset_trigger" id="show_analysis">$analysis_fieldset_display</a>);
+		say q(Analysis results</li>);
+	}
 	my $list_fieldset_display = $self->{'prefs'}->{'list_fieldset'}
 	  || $q->param('list') ? HIDE : SHOW;
 	say qq(<li><a href="" class="button fieldset_trigger" id="show_list">$list_fieldset_display</a>);
@@ -1432,7 +1524,8 @@ sub _print_provenance_fields {
 			next
 			  if ( $attributes->{$stripped_field}->{'curate_only'} // q() ) eq 'yes'
 			  && ( !$is_curator || !$self->{'curate'} );
-				#Use same group as datestamp for management fields (currently just embargo_date).
+
+			#Use same group as datestamp for management fields (currently just embargo_date).
 			$stripped_field = 'datestamp' if $field =~ /^mf_/x;
 			if ( $attributes->{$stripped_field}->{'group'} ) {
 				push @{ $group_members->{ $attributes->{$stripped_field}->{'group'} } }, $field;
@@ -4068,7 +4161,8 @@ sub _should_display_fieldset {
 		assembly_checks     => 'assembly_checks',
 		tag_count           => 'tag_count',
 		tags                => 'tags',
-		annotation_status   => 'annotation_status'
+		annotation_status   => 'annotation_status',
+		analysis            => 'analysis'
 	);
 	return if !$fields{$fieldset};
 	if ( $fieldset eq 'provenance' ) {
@@ -4094,7 +4188,7 @@ sub _get_fieldset_display {
 	my $fieldset_display;
 	foreach my $term (
 		qw(phenotypic allele_designations sequence_variation annotation_status seqbin assembly_checks
-		allele_count allele_status tag_count tags)
+		allele_count allele_status tag_count tags analysis)
 	  )
 	{
 		$fieldset_display->{$term} = $self->_should_display_fieldset($term) ? 'inline' : 'none';
@@ -4111,7 +4205,7 @@ sub get_javascript {
 	my $buffer   = $self->SUPER::get_javascript;
 	my $panel_js = $self->get_javascript_panel(
 		qw(provenance phenotypic allele_designations sequence_variation allele_count allele_status
-		  annotation_status seqbin assembly_checks tag_count tags list filters)
+		  annotation_status seqbin assembly_checks tag_count tags analysis list filters)
 	);
 	my %fields = (
 		phenotypic          => 'phenotypic',
@@ -4123,7 +4217,8 @@ sub get_javascript {
 		seqbin              => 'seqbin',
 		assembly_checks     => 'assembly_checks',
 		tag_count           => 'tag_count',
-		tags                => 'tags'
+		tags                => 'tags',
+		analysis            => 'analysis'
 	);
 	my @fieldsets_with_no_entered_values;
 	my $preselected_provenance = $self->_get_preselected_provenance_fields;
@@ -4155,6 +4250,7 @@ sub get_javascript {
    	\$('#assembly_checks_fieldset').css({display:"$fieldset_display->{'assembly_checks'}"});
    	\$('#tag_count_fieldset').css({display:"$fieldset_display->{'tag_count'}"});
    	\$('#tags_fieldset').css({display:"$fieldset_display->{'tags'}"});
+   	\$('#analysis_fieldset').css({display:"$fieldset_display->{'analysis'}"});
    	\$('#filters_fieldset').css({display:"$fieldset_display->{'filters'}"});
  	setTooltips();
  	\$('.multiselect').multiselect({
@@ -4172,6 +4268,7 @@ $panel_js
 			show_allele_status: 'allele_status_field1',
 			show_tag_count: 'tag_count_field1',
 			show_tags: 'tag_field1',
+			analysis: 'analysis_field1',
 			show_list: 'attribute'
 		};
 		if (query_fields[this.id]){
@@ -4222,7 +4319,7 @@ $panel_js
          			allele_count: "allele_count_field",
          			tags: "tag_field",
          			tag_count: "tag_count_field",
-         			list: "attribute",
+          			list: "attribute",
          			filters: "filters"
          		};
          		if (element_names[fieldset]){
@@ -4299,7 +4396,8 @@ function setFilterTriggers(){
 }
  
 function setTooltips() {
-	\$('#prov_tooltip,#phenotypic_tooltip,#loci_tooltip').tooltip({ content: "<h3>Search values</h3><p>Empty field "
+	\$('#prov_tooltip,#phenotypic_tooltip,#loci_tooltip,#analysis_tooltip')
+	.tooltip({ content: "<h3>Search values</h3><p>Empty field "
   		+ "values can be searched using the term 'null'. </p><h3>Number of fields</h3><p>Add more "
   	    + "fields by clicking the '+' button."
   		+ "</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, "
@@ -4313,7 +4411,7 @@ function setTooltips() {
  
 function loadContent(url) {
 	var row = parseInt(url.match(/row=(\\d+)/)[1]);
-	var fields = url.match(/fields=([provenance|phenotypic|loci|sequence_variation|allele_count|allele_status|annotation_status|seqbin|assembly_checks|table_fields|tag_count|tags]+)/)[1];
+	var fields = url.match(/fields=([provenance|phenotypic|loci|sequence_variation|allele_count|allele_status|annotation_status|seqbin|assembly_checks|table_fields|tag_count|tags|analysis]+)/)[1];
 	if (fields == 'provenance'){			
 		add_rows(url,fields,'fields',row,'prov_field_heading','add_fields');
 	} else if (fields == 'phenotypic'){
@@ -4338,6 +4436,8 @@ function loadContent(url) {
 		add_rows(url,fields,'tag_count',row,'tag_count_heading','add_tag_count');			
 	} else if (fields == 'tags'){
 		add_rows(url,fields,'tag',row,'locus_tags_heading','add_tags');
+	} else if (fields == 'analysis'){
+		add_rows(url,fields,'analysis',row,'analysis_field_heading','add_analysis');
 	}
 }
 
@@ -4621,7 +4721,8 @@ sub _highest_entered_fields {
 		seqbin             => 'seqbin_value',
 		assembly_checks    => 'assembly_checks_value',
 		tag_count          => 'tag_count_value',
-		tags               => 'tag_value'
+		tags               => 'tag_value',
+		analysis           => 'analysis_value'
 	);
 	my $q = $self->{'cgi'};
 	my $highest;
@@ -4684,7 +4785,7 @@ sub initiate {
 			my $general_prefs = $self->{'prefstore'}->get_all_general_prefs( $guid, $self->{'system'}->{'db'} );
 			foreach my $attribute (
 				qw (phenotypic allele_designations sequence_variation allele_count allele_status annotation_status
-				seqbin assembly_checks tag_count tags list filters)
+				seqbin assembly_checks tag_count tags analysis list filters)
 			  )
 			{
 				$self->{'prefs'}->{"${attribute}_fieldset"} =

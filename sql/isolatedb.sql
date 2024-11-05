@@ -2153,7 +2153,8 @@ GRANT SELECT,UPDATE,INSERT,DELETE ON embargo_history TO apache;
 CREATE TABLE analysis_fields (
 analysis_name text NOT NULL,
 field_name text NOT NULL,
-description text,
+analysis_display_name text,
+field_description text,
 json_path text NOT NULL,
 data_type text NOT NULL,
 curator int NOT NULL,
