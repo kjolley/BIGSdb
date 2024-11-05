@@ -2455,10 +2455,11 @@ sub _print_account_requests_section {
 		my $configs =
 		  $self->{'datastore'}->get_configs_using_same_database( $user_db->{'db'}, $self->{'system'}->{'db'} );
 		foreach my $config (@$configs) {
-			my $users =
-			  $self->{'datastore'}
-			  ->run_query( 'SELECT user_name,datestamp FROM pending_requests WHERE dbase_config=? ORDER BY datestamp',
-				$config, { db => $user_db->{'db'}, fetch => 'all_arrayref', slice => {} } );
+			my $users = $self->{'datastore'}->run_query(
+				'SELECT user_name,datestamp FROM pending_requests WHERE dbase_config=? '
+				  . 'ORDER BY datestamp,user_name',
+				$config, { db => $user_db->{'db'}, fetch => 'all_arrayref', slice => {} }
+			);
 			foreach my $user (@$users) {
 				my $user_info = $self->{'datastore'}->run_query( 'SELECT * FROM users WHERE user_name=?',
 					$user->{'user_name'}, { db => $user_db->{'db'}, fetch => 'row_hashref' } );
