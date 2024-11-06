@@ -3420,6 +3420,15 @@ sub get_eav_field_value {
 	);
 }
 
+sub get_analysis_field {
+	my ( $self, $analysis, $field ) = @_;
+	return $self->run_query(
+		'SELECT * FROM analysis_fields WHERE (analysis_name,field_name)=(?,?)',
+		[ $analysis, $field ],
+		{ fetch => 'row_hashref', cache => 'get_analysis_field' }
+	);
+}
+
 sub get_login_requirement {
 	my ($self) = @_;
 	$self->{'system'}->{'dbtype'} //= q();

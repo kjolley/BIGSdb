@@ -921,7 +921,7 @@ sub _get_analysis_list_and_labels {
 	my $group_members = {};
 	my $labels        = {};
 	foreach my $field (@$fields) {
-		my $value    = "$field->{'analysis_name'}__$field->{'field_name'}";
+		my $value    = "$field->{'analysis_name'}___$field->{'field_name'}";
 		my $analysis = $field->{'analysis_display_name'} // $field->{'analysis_name'};
 		$labels->{$value} = $field->{'field_name'};
 		push @{ $group_members->{$analysis} }, $value;
@@ -2019,6 +2019,7 @@ sub _run_query {
 		$qry = $self->_modify_query_for_seqbin( $qry, $errors );
 		$qry = $self->_modify_query_for_annotation_status( $qry, $errors );
 		$qry = $self->_modify_query_for_assembly_checks( $qry, $errors );
+		$qry = $self->_modify_query_for_analysis_results( $qry, $errors );
 		$qry .= ' ORDER BY ';
 		my %allowed  = map { $_ => 1 } @{ $self->{'allowed_order_by'} };
 		my $order_by = $q->param('order');
@@ -2120,7 +2121,7 @@ sub get_hidden_attributes {
 	my @hidden_attributes;
 	push @hidden_attributes,
 	  qw (prov_andor phenotypic_andor designation_andor tag_andor status_andor annotation_status_andor
-	  seqbin_andor assembly_checks_andor sequence_variation_andor);
+	  seqbin_andor assembly_checks_andor sequence_variation_andor analysis_andor);
 	for my $row ( 1 .. MAX_ROWS ) {
 		push @hidden_attributes, "prov_field$row", "prov_value$row", "prov_operator$row", "phenotypic_field$row",
 		  "phenotypic_value$row",        "phenotypic_operator$row", "designation_field$row",
@@ -2130,14 +2131,15 @@ sub get_hidden_attributes {
 		  "allele_count_value$row",      "tag_count_field$row",    "tag_count_operator$row", "tag_count_value$row",
 		  "annotation_status_field$row", "annotation_status_value$row",
 		  "seqbin_field$row",            "seqbin_operator$row", "seqbin_value$row",
-		  "assembly_checks_field$row",   "assembly_checks_value$row";
+		  "assembly_checks_field$row",   "assembly_checks_value$row", "analysis_field$row", "analysis_operator$row",
+		  "analysis_value$row";
 	}
 	foreach my $field ( @{ $self->{'xmlHandler'}->get_field_list } ) {
 		push @hidden_attributes, "${field}_list";
 		my $extatt = $extended->{$field};
 		if ( ref $extatt eq 'ARRAY' ) {
 			foreach my $extended_attribute (@$extatt) {
-				push @hidden_attributes, "${field}..$extended_attribute\_list";
+				push @hidden_attributes, "${field}..${extended_attribute}_list";
 			}
 		}
 	}
@@ -4148,6 +4150,100 @@ sub _modify_query_for_assembly_checks {
 	return $qry;
 }
 
+sub _modify_query_for_analysis_results {
+	my ( $self, $qry, $errors ) = @_;
+	my $q     = $self->{'cgi'};
+	my $view  = $self->{'system'}->{'view'};
+	my $andor = ( $q->param('analysis_andor') // '' ) eq 'AND' ? ' AND ' : ' OR ';
+	my %combo;
+	my @sub_qry;
+	foreach my $i ( 1 .. MAX_ROWS ) {
+		next if !defined $q->param("analysis_value$i") || $q->param("analysis_value$i") eq q();
+		my ( $analysis, $field ) = split( '___', scalar $q->param("analysis_field$i") );
+		my $field_info = $self->{'datastore'}->get_analysis_field( $analysis, $field );
+		if ( !$field_info ) {
+			push @$errors, 'Invalid analysis field name selected.';
+			next;
+		}
+		my $operator = $q->param("analysis_operator$i") // '=';
+		my $text     = $q->param("analysis_value$i");
+		next if $combo{"${field}_${operator}_$text"};    #prevent duplicates
+		$combo{"${field}_${operator}_$text"} = 1;
+		$self->process_value( \$text );
+		next
+		  if $self->check_format(
+			{ field => $field, text => $text, type => $field_info->{'data_type'}, operator => $operator }, $errors );
+		my $json_path = $field_info->{'json_path'};
+		my %methods   = (
+			'NOT' => sub {
+				if ( lc($text) eq 'null' ) {
+					push @sub_qry, "";    #TODO
+				} else {
+					push @sub_qry, $field_info->{'data_type'} eq 'text'
+					  ? ""                #TODO
+					  : "";               #TODO
+				}
+			},
+			'contains' => sub {
+				push @sub_qry, $field_info->{'data_type'} eq 'text'
+				  ? ""     #TODO
+				  : "";    #TODO
+			},
+			'starts with' => sub {
+				push @sub_qry, $field_info->{'data_type'} eq 'text'
+				  ? ""     #TODO
+				  : "";    #TODO
+			},
+			'ends with' => sub {
+				push @sub_qry, $field_info->{'data_type'} eq 'text'
+				  ? ""     #TODO
+				  : "";    #TODO
+			},
+			'NOT contain' => sub {
+				push @sub_qry, $field_info->{'data_type'} eq 'text'
+				  ? ""     #TODO
+				  : "";    #TODO
+			},
+			'=' => sub {
+				if ( lc($text) eq 'null' ) {
+					my $lc_value = push @sub_qry,
+					  qq[($view.id NOT IN (SELECT isolate_id FROM analysis_results WHERE ]
+					  . qq[jsonb_path_exists(results,'$json_path')))];
+				} else {
+					push @sub_qry,
+					  $field_info->{'data_type'} eq 'text'
+					  ? qq[($view.id IN (SELECT isolate_id FROM analysis_results ar,LATERAL ]
+					  . qq[jsonb_path_query(ar.results,'$json_path') AS analysis$i WHERE ]
+					  . qq[ar.name='$analysis' AND LOWER(analysis${i}::text)=LOWER(E'"$text"')))]
+					  : qq[($view.id IN (SELECT isolate_id FROM analysis_results ar,LATERAL ]
+					  . qq[jsonb_path_query(ar.results,'$json_path') AS analysis$i WHERE ]
+					  . qq[ar.name='$analysis' AND analysis${i}::text IN ('$text', '"$text"')))]
+				}
+			}
+		);
+		if ( $methods{$operator} ) {
+			$methods{$operator}->();
+		} else {
+			if ( lc($text) eq 'null' ) {
+				push @$errors,
+				  BIGSdb::Utils::escape_html("$operator is not a valid operator for comparing null values.");
+				next;
+			}
+			push @sub_qry, "";    #TODO
+		}
+	}
+	if (@sub_qry) {
+		local $" = $andor;
+		if ( $qry =~ /\(\)$/x ) {
+			$qry = "SELECT * FROM $view WHERE (@sub_qry)";
+		} else {
+			$qry .= " AND (@sub_qry)";
+		}
+	}
+	$logger->error($qry);
+	return $qry;
+}
+
 sub _should_display_fieldset {
 	my ( $self, $fieldset ) = @_;
 	my %fields = (
@@ -4437,7 +4533,7 @@ function loadContent(url) {
 	} else if (fields == 'tags'){
 		add_rows(url,fields,'tag',row,'locus_tags_heading','add_tags');
 	} else if (fields == 'analysis'){
-		add_rows(url,fields,'analysis',row,'analysis_field_heading','add_analysis');
+		add_rows(url,fields,'analysis',row,'analysis_heading','add_analysis');
 	}
 }
 
