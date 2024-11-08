@@ -4174,50 +4174,54 @@ sub _modify_query_for_analysis_results {
 		  if $self->check_format(
 			{ field => $field, text => $text, type => $field_info->{'data_type'}, operator => $operator }, $errors );
 		my $json_path = $field_info->{'json_path'};
-		my %methods   = (
+		$self->process_value( \$json_path );
+		my %methods = (
 			'NOT' => sub {
 				if ( lc($text) eq 'null' ) {
-					push @sub_qry, "";    #TODO
+					push @sub_qry,
+					  qq[($view.id IN (SELECT isolate_id FROM analysis_results_cache WHERE ]
+					  . qq[analysis_name='$analysis' AND json_path=E'$json_path'))];
 				} else {
-					push @sub_qry, $field_info->{'data_type'} eq 'text'
-					  ? ""                #TODO
-					  : "";               #TODO
+					push @sub_qry,
+						qq[($view.id NOT IN (SELECT isolate_id FROM analysis_results_cache WHERE ]
+					  . qq[analysis_name='$analysis' AND json_path=E'$json_path' AND LOWER(value)=]
+					  . qq[LOWER(E'$text')))];
 				}
 			},
 			'contains' => sub {
-				push @sub_qry, $field_info->{'data_type'} eq 'text'
-				  ? ""     #TODO
-				  : "";    #TODO
+				push @sub_qry,
+					qq[($view.id IN (SELECT isolate_id FROM analysis_results_cache WHERE ]
+				  . qq[analysis_name='$analysis' AND json_path=E'$json_path' AND LOWER(value) LIKE ]
+				  . qq[LOWER(E'\%$text\%')))];
 			},
 			'starts with' => sub {
-				push @sub_qry, $field_info->{'data_type'} eq 'text'
-				  ? ""     #TODO
-				  : "";    #TODO
+				push @sub_qry,
+					qq[($view.id IN (SELECT isolate_id FROM analysis_results_cache WHERE ]
+				  . qq[analysis_name='$analysis' AND json_path=E'$json_path' AND LOWER(value) LIKE ]
+				  . qq[LOWER(E'$text\%')))];
 			},
 			'ends with' => sub {
-				push @sub_qry, $field_info->{'data_type'} eq 'text'
-				  ? ""     #TODO
-				  : "";    #TODO
+				push @sub_qry,
+					qq[($view.id IN (SELECT isolate_id FROM analysis_results_cache WHERE ]
+				  . qq[analysis_name='$analysis' AND json_path=E'$json_path' AND LOWER(value) LIKE ]
+				  . qq[LOWER(E'\%$text')))];
 			},
 			'NOT contain' => sub {
-				push @sub_qry, $field_info->{'data_type'} eq 'text'
-				  ? ""     #TODO
-				  : "";    #TODO
+				push @sub_qry,
+					qq[($view.id NOT IN (SELECT isolate_id FROM analysis_results_cache WHERE ]
+				  . qq[analysis_name='$analysis' AND json_path=E'$json_path' AND LOWER(value) LIKE ]
+				  . qq[LOWER(E'\%$text\%')))];
 			},
 			'=' => sub {
 				if ( lc($text) eq 'null' ) {
-					my $lc_value = push @sub_qry,
-					  qq[($view.id NOT IN (SELECT isolate_id FROM analysis_results WHERE ]
-					  . qq[jsonb_path_exists(results,'$json_path')))];
+					push @sub_qry,
+					  qq[($view.id NOT IN (SELECT isolate_id FROM analysis_results_cache WHERE ]
+					  . qq[analysis_name='$analysis' AND json_path=E'$json_path'))];
 				} else {
 					push @sub_qry,
-					  $field_info->{'data_type'} eq 'text'
-					  ? qq[($view.id IN (SELECT isolate_id FROM analysis_results ar,LATERAL ]
-					  . qq[jsonb_path_query(ar.results,'$json_path') AS analysis$i WHERE ]
-					  . qq[ar.name='$analysis' AND LOWER(analysis${i}::text)=LOWER(E'"$text"')))]
-					  : qq[($view.id IN (SELECT isolate_id FROM analysis_results ar,LATERAL ]
-					  . qq[jsonb_path_query(ar.results,'$json_path') AS analysis$i WHERE ]
-					  . qq[ar.name='$analysis' AND analysis${i}::text IN ('$text', '"$text"')))]
+						qq[($view.id IN (SELECT isolate_id FROM analysis_results_cache WHERE ]
+					  . qq[analysis_name='$analysis' AND json_path=E'$json_path' AND LOWER(value)=]
+					  . qq[LOWER(E'$text')))];
 				}
 			}
 		);
@@ -4229,7 +4233,11 @@ sub _modify_query_for_analysis_results {
 				  BIGSdb::Utils::escape_html("$operator is not a valid operator for comparing null values.");
 				next;
 			}
-			push @sub_qry, "";    #TODO
+			push @sub_qry,
+			  qq[($view.id IN (SELECT isolate_id FROM analysis_results_cache WHERE ]
+			  . qq[analysis_name='$analysis' AND json_path=E'$json_path' AND ]
+			  . qq[(LOWER(value))::$field_info->{'data_type'}$operator]
+			  . qq[(LOWER(E'$text'))::$field_info->{'data_type'}))];
 		}
 	}
 	if (@sub_qry) {

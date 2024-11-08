@@ -1,3 +1,14 @@
+CREATE TABLE db_attributes (
+field text NOT NULL,
+value text NOT NULL,
+PRIMARY KEY(field)
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON db_attributes TO apache;
+
+INSERT INTO db_attributes (field,value) VALUES ('version','50');
+INSERT INTO db_attributes (field,value) VALUES ('type','isolates');
+
 CREATE TABLE users (
 id integer NOT NULL UNIQUE,
 user_name text NOT NULL UNIQUE,
@@ -2091,17 +2102,6 @@ RETURNS SETOF record AS $$
 		RETURN QUERY EXECUTE qry;	
  	END;
 $$ LANGUAGE plpgsql;
-
-CREATE TABLE db_attributes (
-field text NOT NULL,
-value text NOT NULL,
-PRIMARY KEY(field)
-);
-
-GRANT SELECT,UPDATE,INSERT,DELETE ON db_attributes TO apache;
-
-INSERT INTO db_attributes (field,value) VALUES ('version','50');
-INSERT INTO db_attributes (field,value) VALUES ('type','isolates');
 
 CREATE TABLE query_interfaces (
 id int NOT NULL,
