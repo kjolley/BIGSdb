@@ -32,23 +32,31 @@ CREATE INDEX ON analysis_results_cache(analysis_name,json_path,value);
 GRANT SELECT,UPDATE,INSERT,DELETE ON analysis_results_cache TO apache;
 
 
-CREATE OR REPLACE FUNCTION normalize_analysis_jsonb(isolate_id int,name text,json_data jsonb)
+CREATE OR REPLACE FUNCTION normalize_analysis_jsonb(isolate_id int,name text,json_data jsonb,_jsonpath text DEFAULT NULL)
 RETURNS VOID AS $$
 DECLARE
     field RECORD;
     val text;
 BEGIN
-    -- Iterate over each defined path in the analysis_fields table
-    FOR field IN SELECT json_path FROM analysis_fields WHERE analysis_name=name
-    LOOP
-        -- Extract the value using the JSONPath
- 		SELECT jsonb_path_query(json_data,field.json_path::jsonpath) INTO val;
-        -- Insert the key-value pair into the cache table if the value is not null
-        IF val IS NOT NULL THEN
+	IF _jsonpath IS NOT NULL THEN
+		SELECT jsonb_path_query(json_data,_jsonpath::jsonpath) INTO val;
+		IF val IS NOT NULL THEN
             INSERT INTO analysis_results_cache(isolate_id, analysis_name, json_path, value)
-            VALUES (isolate_id, name, field.json_path, trim(both '"' FROM val));
+            VALUES (isolate_id, name, _jsonpath, trim(both '"' FROM val));
         END IF;
-    END LOOP;
+	ELSE
+	    -- Iterate over each defined path in the analysis_fields table
+	    FOR field IN SELECT json_path FROM analysis_fields WHERE analysis_name=name
+	    LOOP
+	        -- Extract the value using the JSONPath
+	 		SELECT jsonb_path_query(json_data,field.json_path::jsonpath) INTO val;
+	        -- Insert the key-value pair into the cache table if the value is not null
+	        IF val IS NOT NULL THEN
+	            INSERT INTO analysis_results_cache(isolate_id, analysis_name, json_path, value)
+	            VALUES (isolate_id, name, field.json_path, trim(both '"' FROM val));
+	        END IF;
+	    END LOOP;
+	END IF;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -71,10 +79,10 @@ ON analysis_results
 FOR EACH ROW
 EXECUTE FUNCTION trigger_normalize_analysis_jsonb();
 
-CREATE OR REPLACE FUNCTION update_cache_on_analysis_fields_change()
+CREATE OR REPLACE FUNCTION insert_cache_on_new_analysis_field()
 RETURNS TRIGGER AS $$
 BEGIN
-    PERFORM normalize_analysis_jsonb(isolate_id,name,results)
+    PERFORM normalize_analysis_jsonb(isolate_id,name,results,NEW.json_path)
     FROM analysis_results ar
     WHERE ar.name = NEW.analysis_name;
 
@@ -82,9 +90,43 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER update_cache_on_analysis_fields
-AFTER INSERT OR UPDATE
+CREATE TRIGGER insert_cache_on_new_analysis_field
+AFTER INSERT
 ON analysis_fields
 FOR EACH ROW
-EXECUTE FUNCTION update_cache_on_analysis_fields_change();
+EXECUTE FUNCTION insert_cache_on_new_analysis_field();
+
+CREATE OR REPLACE FUNCTION update_cache_on_changed_analysis_field()
+RETURNS TRIGGER AS $$
+BEGIN
+	-- We use NEW.json_path below because this will have cascade updated if it changed.
+	DELETE FROM analysis_results_cache WHERE (analysis_name,json_path)=(OLD.analysis_name,NEW.json_path);
+
+    PERFORM normalize_analysis_jsonb(isolate_id,name,results,NEW.json_path)
+    FROM analysis_results ar
+    WHERE ar.name = NEW.analysis_name;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_cache_on_changed_analysis_field
+AFTER UPDATE
+ON analysis_fields
+FOR EACH ROW
+EXECUTE FUNCTION update_cache_on_changed_analysis_field();
+
+CREATE OR REPLACE FUNCTION refresh_analysis_cache()
+RETURNS VOID AS $$
+DECLARE
+	af RECORD;
+BEGIN
+	DELETE FROM analysis_results_cache;
+	FOR af IN SELECT DISTINCT(analysis_name) FROM analysis_fields ar
+	LOOP
+		PERFORM normalize_analysis_jsonb(isolate_id,af.analysis_name,results)
+	    FROM analysis_results;
+	END LOOP;
+END;
+$$ LANGUAGE plpgsql;
 
