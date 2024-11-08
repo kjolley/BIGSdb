@@ -22,7 +22,7 @@ CREATE TABLE analysis_results_cache (
     analysis_name text NOT NULL,
     json_path text NOT NULL,
     value text NOT NULL,
---    PRIMARY KEY(isolate_id, analysis_name, json_path),
+--  No primary key defined - there may be multiple values for some fields.
     CONSTRAINT arc_analysis_name_json_path FOREIGN KEY (analysis_name,json_path) REFERENCES 
     	analysis_fields(analysis_name,json_path)
     ON DELETE CASCADE
@@ -39,23 +39,33 @@ DECLARE
     val text;
 BEGIN
 	IF _jsonpath IS NOT NULL THEN
-		SELECT jsonb_path_query(json_data,_jsonpath::jsonpath) INTO val;
-		IF val IS NOT NULL THEN
-            INSERT INTO analysis_results_cache(isolate_id, analysis_name, json_path, value)
-            VALUES (isolate_id, name, _jsonpath, trim(both '"' FROM val));
-        END IF;
+		BEGIN
+            FOR val IN SELECT jsonb_path_query(json_data, _jsonpath::jsonpath)
+            LOOP
+                INSERT INTO analysis_results_cache(isolate_id, analysis_name, json_path, value)
+                VALUES (isolate_id, name, _jsonpath, trim(both '"' FROM val::text));
+            END LOOP;
+        EXCEPTION
+            WHEN others THEN
+                RAISE NOTICE 'Invalid JSONPath: %', _jsonpath;
+        END;       
 	ELSE
-	    -- Iterate over each defined path in the analysis_fields table
-	    FOR field IN SELECT json_path FROM analysis_fields WHERE analysis_name=name
-	    LOOP
-	        -- Extract the value using the JSONPath
-	 		SELECT jsonb_path_query(json_data,field.json_path::jsonpath) INTO val;
-	        -- Insert the key-value pair into the cache table if the value is not null
-	        IF val IS NOT NULL THEN
-	            INSERT INTO analysis_results_cache(isolate_id, analysis_name, json_path, value)
-	            VALUES (isolate_id, name, field.json_path, trim(both '"' FROM val));
-	        END IF;
-	    END LOOP;
+         FOR field IN SELECT json_path FROM analysis_fields WHERE analysis_name = name
+        LOOP
+            BEGIN
+                -- Extract the values using the JSONPath
+                FOR val IN SELECT jsonb_path_query(json_data, field.json_path::jsonpath)
+                LOOP
+                    IF val IS NOT NULL THEN
+                        INSERT INTO analysis_results_cache(isolate_id, analysis_name, json_path, value)
+                        VALUES (isolate_id, name, field.json_path, trim(both '"' FROM val::text));
+                    END IF;
+                END LOOP;
+            EXCEPTION
+                WHEN others THEN
+                    RAISE NOTICE 'Invalid JSONPath: %', field.json_path;
+            END;
+        END LOOP;
 	END IF;
 END;
 $$ LANGUAGE plpgsql;
