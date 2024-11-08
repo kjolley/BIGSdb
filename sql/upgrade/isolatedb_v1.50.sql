@@ -89,6 +89,20 @@ ON analysis_results
 FOR EACH ROW
 EXECUTE FUNCTION trigger_normalize_analysis_jsonb();
 
+CREATE OR REPLACE FUNCTION delete_analysis_cache_value()
+RETURNS TRIGGER AS $$
+BEGIN
+	DELETE FROM analysis_results_cache WHERE (isolate_id,analysis_name)=(OLD.isolate_id,OLD.name);
+	RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER delete_analysis_cache_value
+AFTER DELETE 
+ON analysis_results
+FOR EACH ROW
+EXECUTE FUNCTION delete_analysis_cache_value();
+
 CREATE OR REPLACE FUNCTION insert_cache_on_new_analysis_field()
 RETURNS TRIGGER AS $$
 BEGIN
