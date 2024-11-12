@@ -596,6 +596,9 @@ sub print_includes_fieldset {
 		if ( $field =~ /^(?:l|cn)_/x ) {
 			push @{ $group_members->{'Loci'} }, $field;
 		}
+		if ($field =~ /^af_/x){
+			push @{ $group_members->{'Analysis fields'} }, $field;
+		}
 		if ( $field =~ /^(?:f|e|gp)_/x ) {
 			( my $stripped_field = $field ) =~ s/^[f|e]_//x;
 			next if $skip_fields{$stripped_field};
@@ -621,6 +624,7 @@ sub print_includes_fieldset {
 	my @group_list = split /,/x, ( $self->{'system'}->{'field_groups'} // q() );
 	my @eav_groups = split /,/x, ( $self->{'system'}->{'eav_groups'}   // q() );
 	push @group_list, @eav_groups if @eav_groups;
+	push @group_list, 'Analysis fields' if defined $group_members->{'Analysis fields'};
 	push @group_list, ( 'Loci', 'Schemes', 'LINcodes', 'Classification schemes' );
 	foreach my $group ( undef, @group_list ) {
 		my $name = $group // 'General';

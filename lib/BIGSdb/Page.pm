@@ -1327,6 +1327,7 @@ sub get_field_selection_list {
 #lincodes: include scheme LINcode field, named lin_SCHEME-ID
 #lincode_fields: include fields linked to LINcode prefixes (must also select lincodes options), prefixed with lin_SCHEME_ID_
 #classification_groups: include classification group ids and field, prefix with cg_
+#analysis_fields: include analysis fields, prefix with af_
 #sort_labels: dictionary sort labels
 	my ( $self, $options ) = @_;
 	$options->{'query_pref'}    //= 1;
@@ -1367,6 +1368,10 @@ sub get_field_selection_list {
 	if ( $options->{'annotation_status'} ) {
 		my $annotation_status_fields = $self->_get_annotation_status_fields;
 		push @$values, @$annotation_status_fields;
+	}
+	if ( $options->{'analysis_fields'} ) {
+		my $analysis_fields = $self->_get_analysis_fields;
+		push @$values, @$analysis_fields;
 	}
 	if ( $options->{'sort_labels'} ) {
 		$values = BIGSdb::Utils::dictionary_sort( $values, $self->{'cache'}->{'labels'} );
@@ -1419,6 +1424,9 @@ sub _sort_field_list_into_optgroups {
 		if ( $field =~ /^as_/x ) {
 			push @{ $group_members->{'Annotation status'} }, $field;
 		}
+		if ($field =~ /^af_/x){
+			push @{ $group_members->{'Analysis fields'} }, $field;
+		}
 		if ( $field =~ /^[f|e]_/x ) {
 			( my $stripped_field = $field ) =~ s/^[f|e]_//x;
 			$stripped_field =~ s/[\|\||\s].+$//x;
@@ -1436,6 +1444,7 @@ sub _sort_field_list_into_optgroups {
 				push @{ $group_members->{'General'} }, $field;
 			}
 		}
+
 	}
 	foreach my $group ( undef, @group_list ) {
 		my $name = $group // 'General';
@@ -1752,6 +1761,22 @@ sub _get_annotation_status_fields {
 		$self->{'cache'}->{'annotation_status_fields'} = $list;
 	}
 	return $self->{'cache'}->{'annotation_status_fields'};
+}
+
+sub _get_analysis_fields {
+	my ($self) = @_;
+	if ( !$self->{'cache'}->{'analysis_fields'} ) {
+		my $list   = [];
+		my $fields = $self->{'datastore'}->get_analysis_fields;
+		foreach my $field (@$fields) {
+			my $value = "af_$field->{'analysis_name'}___$field->{'field_name'}";
+			my $analysis = $field->{'analysis_display_name'} // $field->{'analysis_name'};
+			push @$list, $value;
+			$self->{'cache'}->{'labels'}->{$value} = "$field->{'field_name'} ($analysis)";
+		}
+		$self->{'cache'}->{'analysis_fields'} = $list;
+	}
+	return $self->{'cache'}->{'analysis_fields'};
 }
 
 sub _print_footer {
@@ -3931,12 +3956,11 @@ sub get_mapping_options {
 }
 
 sub _get_analysis_groups_and_labels {
-	my ($self,$options) = @_;
-	my $fields = $self->{'datastore'}->run_query( 'SELECT * FROM analysis_fields ORDER BY field_name',
-		undef, { fetch => 'all_arrayref', slice => {} } );
+	my ( $self, $options ) = @_;
+	my $fields = $self->{'datastore'}->get_analysis_fields;
 	my $group_members = {};
 	my $labels        = {};
-	my $prefix = $options->{'prefix'} // q();
+	my $prefix        = $options->{'prefix'} // q();
 	foreach my $field (@$fields) {
 		my $value    = "$prefix$field->{'analysis_name'}___$field->{'field_name'}";
 		my $analysis = $field->{'analysis_display_name'} // $field->{'analysis_name'};

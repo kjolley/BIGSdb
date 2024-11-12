@@ -3420,6 +3420,14 @@ sub get_eav_field_value {
 	);
 }
 
+sub get_analysis_fields {
+	my ($self) = @_;
+	return $self->run_query(
+		'SELECT * FROM analysis_fields ORDER BY analysis_name,field_name',
+		undef, { fetch => 'all_arrayref', slice => {} }
+	);
+}
+
 sub get_analysis_field {
 	my ( $self, $analysis, $field ) = @_;
 	return $self->run_query(
