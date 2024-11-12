@@ -199,7 +199,8 @@ sub print_content {
 		my $arg_file     = $self->_make_arg_file($args);
 		my $appender     = Log::Log4perl->appender_by_name('A1');
 		my $log_filename = $appender->{'filename'} // '/var/log/bigsdb.log';
-		my $command = "$self->{'config'}->{'python_plugin_runner_path'} --database $self->{'instance'} "
+		my $command =
+			"$self->{'config'}->{'python_plugin_runner_path'} --database $self->{'instance'} "
 		  . "--module $plugin_name --module_dir $self->{'config'}->{'python_plugin_dir'} --arg_file $arg_file "
 		  . "--log_file $log_filename";
 		my $output = `$command`;
@@ -498,6 +499,10 @@ sub get_selected_fields {
 		foreach my $cs (@cschemes) {
 			push @$fields, "cs_$cs";
 		}
+	}
+	if ( $options->{'analysis_fields'} ) {
+		my @analysis_fields = $q->multi_param('analysis_fields');
+		push @$fields, @analysis_fields;
 	}
 	return $fields;
 }

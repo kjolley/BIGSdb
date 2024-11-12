@@ -3929,4 +3929,33 @@ sub get_mapping_options {
 	$options->{'option'} = $option;
 	return $options;
 }
+
+sub _get_analysis_groups_and_labels {
+	my ($self,$options) = @_;
+	my $fields = $self->{'datastore'}->run_query( 'SELECT * FROM analysis_fields ORDER BY field_name',
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	my $group_members = {};
+	my $labels        = {};
+	my $prefix = $options->{'prefix'} // q();
+	foreach my $field (@$fields) {
+		my $value    = "$prefix$field->{'analysis_name'}___$field->{'field_name'}";
+		my $analysis = $field->{'analysis_display_name'} // $field->{'analysis_name'};
+		$labels->{$value} = $field->{'field_name'};
+		push @{ $group_members->{$analysis} }, $value;
+	}
+	return ( $group_members, $labels );
+}
+
+sub get_analysis_field_values_and_labels {
+	my ( $self, $options ) = @_;
+	my $q = $self->{'cgi'};
+	my ( $group_members, $labels ) = $self->_get_analysis_groups_and_labels($options);
+	my $values = $options->{'no_blank_value'} ? [] : [q()];
+	foreach my $group ( sort keys %$group_members ) {
+		if ( ref $group_members->{$group} ) {
+			push @$values, $q->optgroup( -name => $group, -values => $group_members->{$group}, -labels => $labels );
+		}
+	}
+	return ( $values, $labels );
+}
 1;

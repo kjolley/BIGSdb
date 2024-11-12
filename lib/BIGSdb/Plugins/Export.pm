@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext         => 'Dataset',
 		menutext           => 'Dataset',
 		module             => 'Export',
-		version            => '1.13.0',
+		version            => '1.14.0',
 		dbtype             => 'isolates',
 		section            => 'export,postquery',
 		url                => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
@@ -102,7 +102,7 @@ function enable_tag_controls(){
 	enable_ref_controls();
 	enable_private_controls();
 	enable_tag_controls();
-	\$('#fields,#eav_fields,#composite_fields,#locus,#classification_schemes').multiselect({
+	\$('#fields,#eav_fields,#composite_fields,#locus,#classification_schemes,#analysis_fields').multiselect({
  		classes: 'filter',
  		menuHeight: 250,
  		menuWidth: 400,
@@ -289,6 +289,27 @@ sub _print_classification_scheme_fields {
 	return;
 }
 
+sub _print_analysis_fields {
+	my ($self) = @_;
+	my $fields = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM analysis_fields)');
+	return if !$fields;
+	my $q = $self->{'cgi'};
+	my ( $values, $labels ) =
+	  $self->get_analysis_field_values_and_labels( { prefix => 'af_', no_blank_value => 1 } );
+	say q(<fieldset style="float:left"><legend>Analysis results</legend>);
+	say $q->scrolling_list(
+		-name     => 'analysis_fields',
+		-id       => 'analysis_fields',
+		-values   => $values,
+		-labels   => $labels,
+		-size     => 8,
+		-multiple => 'true',
+		-style    => 'width:100%'
+	);
+	say q(</fieldset>);
+	return;
+}
+
 sub _print_molwt_options {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
@@ -334,7 +355,8 @@ sub run {
 	return if $self->has_set_changed;
 	if ( $q->param('submit') ) {
 		$self->_update_prefs;
-		my $selected_fields = $self->get_selected_fields( { lincodes => 1, lincode_fields => 1 } );
+		my $selected_fields =
+		  $self->get_selected_fields( { lincodes => 1, lincode_fields => 1, analysis_fields => 1 } );
 		$q->delete('classification_schemes');
 		push @$selected_fields, 'm_references'   if $q->param('m_references');
 		push @$selected_fields, 'private_record' if $q->param('private_record');
@@ -492,6 +514,7 @@ sub _print_interface {
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1, no_all_none => 1 } );
 	$self->print_scheme_fieldset( { fields_or_loci => 1 } );
 	$self->_print_classification_scheme_fields;
+	$self->_print_analysis_fields;
 	$self->_print_options;
 	$self->_print_molwt_options;
 	$self->print_action_fieldset( { no_reset => 1 } );
@@ -630,7 +653,8 @@ sub _write_tab_text {
 				classification_scheme => qr/^cs_(.*)/x,
 				reference             => qr/^m_references/x,
 				private_record        => qr/^private_record$/x,
-				private_owner         => qr/^private_owner$/x
+				private_owner         => qr/^private_owner$/x,
+				analysis_field        => qr/^af_(.*)___(.*)/x
 			};
 			my $methods = {
 				field     => sub { $self->_write_field( $fh, $1, \%data, $first, $params ) },
@@ -675,11 +699,23 @@ sub _write_tab_text {
 				},
 				private_owner => sub {
 					$self->_write_private_owner( $fh, \%data, $first, $params );
+				},
+				analysis_field => sub {
+					$self->_write_analysis_field(
+						{
+							fh            => $fh,
+							analysis_name => $1,
+							field_name    => $2,
+							data          => \%data,
+							first         => $first,
+							params        => $params
+						}
+					);
 				}
 			};
 			foreach my $field_type (
 				qw(field eav_field locus scheme_field lincode lincode_field composite_field
-				classification_scheme reference private_record private_owner)
+				classification_scheme reference private_record private_owner analysis_field)
 			  )
 			{
 				if ( $field =~ $regex->{$field_type} ) {
@@ -1170,6 +1206,31 @@ sub _write_private_owner {
 	} else {
 		print $fh "\t" if !$first;
 		print $fh $value;
+	}
+	return;
+}
+
+sub _write_analysis_field {
+	my ( $self, $args ) = @_;
+	my ( $analysis_name, $field_name, $fh, $data, $first, $params ) =
+	  @{$args}{qw(analysis_name field_name fh data first params)};
+	my $value = $self->{'datastore'}->run_query(
+		'SELECT value FROM analysis_fields af JOIN analysis_results_cache arc '
+		  . 'ON (af.analysis_name,af.json_path)=(arc.analysis_name,arc.json_path) '
+		  . 'WHERE (af.analysis_name,af.field_name,arc.isolate_id)'
+		  . '=(?,?,?)',
+		[ $analysis_name, $field_name, $data->{'id'} ],
+		{ fetch => 'col_arrayref', cache => 'Export::_write_analysis_field' }
+	);
+	local $" = q(; );
+	my $values = qq(@$value) // q();
+	if ( $params->{'oneline'} ) {
+		print $fh $self->_get_id_one_line( $data, $params );
+		print $fh "$field_name\t";
+		say $fh $values;
+	} else {
+		print $fh "\t" if !$first;
+		print $fh $values;
 	}
 	return;
 }

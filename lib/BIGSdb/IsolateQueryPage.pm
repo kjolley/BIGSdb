@@ -914,21 +914,6 @@ sub _print_analysis_fieldset {
 	return;
 }
 
-sub _get_analysis_list_and_labels {
-	my ($self) = @_;
-	my $fields = $self->{'datastore'}->run_query( 'SELECT * FROM analysis_fields ORDER BY field_name',
-		undef, { fetch => 'all_arrayref', slice => {} } );
-	my $group_members = {};
-	my $labels        = {};
-	foreach my $field (@$fields) {
-		my $value    = "$field->{'analysis_name'}___$field->{'field_name'}";
-		my $analysis = $field->{'analysis_display_name'} // $field->{'analysis_name'};
-		$labels->{$value} = $field->{'field_name'};
-		push @{ $group_members->{$analysis} }, $value;
-	}
-	return ( $group_members, $labels );
-}
-
 sub _print_analysis_fieldset_contents {
 	my ($self)           = @_;
 	my $q                = $self->{'cgi'};
@@ -950,13 +935,7 @@ sub _print_analysis_fieldset_contents {
 sub _print_analysis_fields {
 	my ( $self, $row, $max_rows ) = @_;
 	my $q = $self->{'cgi'};
-	my ( $group_members, $labels ) = $self->_get_analysis_list_and_labels;
-	my $values = [q()];
-	foreach my $group ( sort keys %$group_members ) {
-		if ( ref $group_members->{$group} ) {
-			push @$values, $q->optgroup( -name => $group, -values => $group_members->{$group}, -labels => $labels );
-		}
-	}
+	my ( $values, $labels ) = $self->get_analysis_field_values_and_labels;
 	say q(<span style="display:flex">);
 	say $q->popup_menu(
 		-name   => "analysis_field$row",
@@ -4234,7 +4213,7 @@ sub _modify_query_for_analysis_results {
 				next;
 			}
 			push @sub_qry,
-			  qq[($view.id IN (SELECT isolate_id FROM analysis_results_cache WHERE ]
+				qq[($view.id IN (SELECT isolate_id FROM analysis_results_cache WHERE ]
 			  . qq[analysis_name='$analysis' AND json_path=E'$json_path' AND ]
 			  . qq[(LOWER(value))::$field_info->{'data_type'}$operator]
 			  . qq[(LOWER(E'$text'))::$field_info->{'data_type'}))];
@@ -4248,7 +4227,6 @@ sub _modify_query_for_analysis_results {
 			$qry .= " AND (@sub_qry)";
 		}
 	}
-	$logger->error($qry);
 	return $qry;
 }
 
