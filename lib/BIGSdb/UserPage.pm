@@ -124,7 +124,7 @@ sub _site_account {
 sub _show_registration_details {
 	my ($self) = @_;
 	say q(<div class="box resultspanel"><div class="scrollable">);
-	say q(<span class="main_icon far fa-address-card fa-3x fa-pull-left"></span>);
+	say q(<span class="main_icon fas fa-address-card fa-3x fa-pull-left"></span>);
 	say q(<h2>User details</h2>);
 	say q(<p>You are registered with the following details. Please ensure that these are correct and use )
 	  . q(appropriate capitalization etc. These details will be linked to any data you submit to the )
@@ -153,7 +153,7 @@ sub _show_submission_options {
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT * FROM curator_prefs WHERE user_name=?', $self->{'username'}, { fetch => 'row_hashref' } );
 	say q(<div class="box queryform"><div class="scrollable">);
-	say q(<span class="main_icon far fa-envelope fa-3x fa-pull-left"></span>);
+	say q(<span class="main_icon fas fa-envelope fa-3x fa-pull-left"></span>);
 	say q(<h2>Submission notifications</h2>);
 	say q(<p>You are a curator for at least one of the databases on the system. If you receive automated submission )
 	  . q(messages, you may wish to modify how you receive these or mark yourself absent for a period of time so that )
@@ -389,7 +389,7 @@ sub _registrations {
 	  $self->{'datastore'}->run_query( 'SELECT dbase_config FROM registered_resources ORDER BY dbase_config',
 		undef, { fetch => 'col_arrayref' } );
 	return $buffer if !@$configs;
-	$buffer .= q(<span class="main_icon far fa-list-alt fa-3x fa-pull-left"></span>);
+	$buffer .= q(<span class="main_icon fas fa-list-alt fa-3x fa-pull-left"></span>);
 	$buffer .= q(<h2>Registrations</h2>);
 	$buffer .=
 		q(<p>Use this page to register your account with specific databases. )
