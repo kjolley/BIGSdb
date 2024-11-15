@@ -46,10 +46,13 @@ my $logger = get_logger('BIGSdb.User');
 sub _ajax {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	if ( $q->param('ajax') eq 'merge_users' ) {
-		say $self->_show_merge_user_accounts;
-	} elsif ( $q->param('ajax') eq 'modify_users' ) {
-		say $self->_show_modify_users;
+	if ( $q->param('ajax') eq 'admin_users' ) {
+		if ( $self->{'permissions'}->{'merge_users'} ) {
+			say $self->_show_merge_user_accounts;
+		}
+		if ( $self->{'permissions'}->{'modify_users'} ) {
+			say $self->_show_modify_users;
+		}
 	}
 	return;
 }
@@ -201,7 +204,7 @@ sub _show_submission_options {
 			-linebreak => 'true'
 		);
 		say q(<p style="margin-top:1em">Minimum digest interval: );
-		my $intervals = SUBMISSION_INTERVAL;
+		my $intervals       = SUBMISSION_INTERVAL;
 		my $digest_interval = $q->param('digest_interval');
 		say $self->popup_menu(
 			-id       => 'digest_interval',
@@ -226,7 +229,7 @@ sub _show_submission_options {
 	  . q(notifications.</p>);
 	my $datestamp = BIGSdb::Utils::get_datestamp;
 	say q(<p>Resume on: );
-	my $max_date = $self->_max_suspend_date;
+	my $max_date     = $self->_max_suspend_date;
 	my $absent_until = $q->param('absent_until');
 	say $self->textfield(
 		name  => 'absent_until',
@@ -1255,27 +1258,14 @@ sub get_javascript {
 	my ($self) = @_;
 	my $admin_js = q();
 	if ( $self->{'curate'} ) {
-		if ( $self->{'permissions'}->{'merge_users'} ) {
-			my $url = "$self->{'script_name'}?ajax=merge_users";
+		if ( $self->{'permissions'}->{'merge_users'} || $self->{'permissions'}->{'modify_users'} ) {
+			my $url = "$self->{'system'}->{'script_name'}?ajax=admin_users";
 			$admin_js .= <<"JS";
 			\$.ajax({
 				url: "$url",
 				type: "GET",
 				success: function(content){
 					\$("#accordion").append(content);
-					\$("#accordion").accordion("refresh");
-				}
-			});
-JS
-		}
-		if ( $self->{'permissions'}->{'modify_users'} ) {
-			my $url = "$self->{'system'}->{'script_name'}?ajax=modify_users";
-			$admin_js .= <<"JS";
-			\$.ajax({
-				url: "$url",
-				type: "GET",
-				success: function(content){
-					\$("#accordion").append(content);	
 					\$("#accordion").accordion("refresh");
 				}
 			});
@@ -1312,8 +1302,6 @@ JS
       		\$("#accordion").accordion("refresh");
     	}, 1000);
  	});
- 	
-	
 });
 
 function render_selects(){
