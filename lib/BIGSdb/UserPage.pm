@@ -1269,7 +1269,7 @@ sub get_javascript {
 JS
 		}
 		if ( $self->{'permissions'}->{'modify_users'} ) {
-			my $url = "$self->{'script_name'}?ajax=modify_users";
+			my $url = "$self->{'system'}->{'script_name'}?ajax=modify_users";
 			$admin_js .= <<"JS";
 			\$.ajax({
 				url: "$url",
