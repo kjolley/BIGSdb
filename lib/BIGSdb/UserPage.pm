@@ -535,7 +535,7 @@ sub _registrations {
 	if ( $q->param('register') || $q->param('request') ) {
 		$buffer .= qq(<script>var active_panel=$self->{'panel'};</script>);
 	}
-	$buffer .= q(</div>);
+	$buffer .= q(<div style="clear:both"></div></div>);
 	return $buffer;
 }
 
