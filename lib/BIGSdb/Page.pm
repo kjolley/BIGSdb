@@ -193,6 +193,7 @@ sub _get_javascript_paths {
 				defer   => 1,
 				version => '20240303'
 			},
+			'select2'      => { src => [qw(select2.min.js)], defer => 1, version => '4.1.0-rc.0' },
 			'CryptoJS.MD5' => { src => [qw(md5.js)],         defer => 1, version => '20200308' },
 			'packery'      => { src => [qw(packery.min.js)], defer => 1, version => '20210620' },
 			'muuri'        => { src => [qw(muuri.min.js)],   defer => 1, version => '20210620' },
@@ -813,6 +814,7 @@ sub _get_stylesheets {
 	push @filenames, q(billboard.min.css)                                     if $self->{'billboard'};
 	push @filenames, q(pivot.min.css)                                         if $self->{'pivot'};
 	push @filenames, qw(jquery.multiselect.css jquery.multiselect.filter.css) if $self->{'jQuery.multiselect'};
+	push @filenames, qw(select2.min.css)                                      if $self->{'select2'};
 	push @filenames, qw(d3.geomap.css)                                        if $self->{'geomap'};
 	push @filenames, qw(jquery.modal.min.css)                                 if $self->{'modal'};
 	push @filenames, qw(ol.css)                                               if $self->{'ol'};

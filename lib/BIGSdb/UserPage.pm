@@ -94,7 +94,7 @@ sub print_content {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw(jQuery noCache jQuery.multiselect);
+	$self->{$_} = 1 foreach qw(jQuery noCache jQuery.multiselect select2);
 	my $q = $self->{'cgi'};
 	if ( $q->param('ajax') ) {
 		$self->{'type'} = 'no_header';
@@ -1267,6 +1267,9 @@ sub get_javascript {
 				success: function(content){
 					\$("#accordion").append(content);
 					\$("#accordion").accordion("refresh");
+					\$("#merge_user,#modify_user").select2({
+						width: '300px'
+					});
 				}
 			});
 JS
