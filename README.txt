@@ -1,3 +1,7 @@
+v1.49.1: *Fix for lincodes.pl for use with latest version of PDL module.
+         *Improved layout of site user registration and admin pages.
+         *Users can now upload their own genomes using .tar.gz or .tar files
+          (not just .zip files) in Genome Comparator and related plugins. 
 v1.49.0: *Automated generation of personal API keys.
          *Use LINcodes to identify closest profiles and genomes on profile 
           info page.
