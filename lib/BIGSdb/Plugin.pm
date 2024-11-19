@@ -199,7 +199,8 @@ sub print_content {
 		my $arg_file     = $self->_make_arg_file($args);
 		my $appender     = Log::Log4perl->appender_by_name('A1');
 		my $log_filename = $appender->{'filename'} // '/var/log/bigsdb.log';
-		my $command = "$self->{'config'}->{'python_plugin_runner_path'} --database $self->{'instance'} "
+		my $command =
+			"$self->{'config'}->{'python_plugin_runner_path'} --database $self->{'instance'} "
 		  . "--module $plugin_name --module_dir $self->{'config'}->{'python_plugin_dir'} --arg_file $arg_file "
 		  . "--log_file $log_filename";
 		my $output = `$command`;
@@ -1150,7 +1151,7 @@ sub print_user_genome_upload_fieldset {
 	my $q = $self->{'cgi'};
 	say q(<fieldset style="float:left;height:12em"><legend>User genomes</legend>);
 	say q(<p>Optionally include data not in the<br />database.</p>);
-	say q(<p>Upload assembly FASTA file<br />(or zip file containing multiple<br />FASTA files - one per genome):);
+	say q(<p>Upload assembly FASTA file<br />(or zip/tar.gz/tar file containing multiple<br />FASTA files - one per genome):);
 	my $upload_limit = BIGSdb::Utils::get_nice_size( $self->{'max_upload_size_mb'} // 0 );
 	say $self->get_tooltip( q(User data - The name of the file(s) containing genome data will be )
 		  . qq(used as the name of the isolate(s) in the output. Maximum upload size is $upload_limit.) );
@@ -1164,8 +1165,14 @@ sub print_user_genome_upload_fieldset {
 
 sub upload_file {
 	my ( $self, $param, $suffix ) = @_;
-	my $temp     = BIGSdb::Utils::get_random();
-	my $format   = $self->{'cgi'}->param($param) =~ /.+(\.\w+)$/x ? $1 : q();
+	my $temp = BIGSdb::Utils::get_random();
+	my $q    = $self->{'cgi'};
+	my $format;
+	if ( $q->param($param) =~ /.+\.tar\.gz$/x ) {
+		$format = '.tar.gz';
+	} else {
+		$format = $q->param($param) =~ /.+(\.\w+)$/x ? $1 : q();
+	}
 	my $filename = "$self->{'config'}->{'tmp_dir'}/${temp}_$suffix$format";
 	my $buffer;
 	open( my $fh, '>', $filename ) || $logger->error("Could not open $filename for writing.");
