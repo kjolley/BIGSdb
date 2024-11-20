@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext         => 'Dataset',
 		menutext           => 'Dataset',
 		module             => 'Export',
-		version            => '1.13.0',
+		version            => '1.14.0',
 		dbtype             => 'isolates',
 		section            => 'export,postquery',
 		url                => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
@@ -67,10 +67,11 @@ sub get_attributes {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1 };
+	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1, 'modify_panel' => 1, 'noCache' => 1 };
 }
 
 sub get_plugin_javascript {
+	my ( $show, $hide, $save, $saving ) = ( SHOW, HIDE, SAVE, SAVING );
 	my $js = << "END";
 function enable_ref_controls(){
 	if (\$("#m_references").prop("checked")){
@@ -117,15 +118,100 @@ function enable_tag_controls(){
  	\$('#private_fg').on('change',function(){
  		\$("span#example_private").css("color",\$('#private_fg').val());
  	});
+ 	\$("#panel_trigger,#close_trigger").click(function(){			
+		\$("#modify_panel").toggle("slide",{direction:"right"},"fast");
+		return false;
+	});
+ 	\$("#panel_trigger").show();
+ 	//Close panel
+	\$(document).mouseup(function(e) {
+		// if the target of the click isn't the container nor a
+		// descendant of the container
+		var trigger = \$("#panel_trigger");
+ 		var container = \$("#modify_panel");
+		if (!container.is(e.target) && container.has(e.target).length === 0 && 
+		!trigger.is(e.target) && trigger.has(e.target).length === 0) {
+			container.hide();
+		}
+	});
+	\$(".fieldset_trigger").click(function(event) {
+		let show = '$show';
+		let hide = '$hide';
+		let fieldset = this.id.replace('show_','');
+		event.preventDefault();
+		if(\$(this).html() == hide){
+			clear_form(fieldset);
+		}
+		\$("#" + fieldset + "_fieldset").toggle(100);
+		\$(this).html(\$(this).html() == show ? hide : show);
+		\$("a#save_options").fadeIn();
+		return false;
+	});
+	\$("a#save_options").click(function(event){		
+		event.preventDefault();
+		let show = '$show';
+		let save_url = this.href;
+		let fieldsets = ['eav','composite','refs','private','classification','molwt','options'];
+		for (let i = 0; i < fieldsets.length; ++i) {			
+			let value = \$("#show_" + fieldsets[i]).html() == show ? 0 : 1;
+			save_url += "&" + fieldsets[i] + "=" + value;
+		}
+	  	\$(this).attr('href', function(){  	
+	  		\$("a#save_options").html('$saving').animate({backgroundColor: "#99d"},100)
+	  		.animate({backgroundColor: "#f0f0f0"},100);
+	  		\$("span#saving").text('Saving...');
+		  	\$.ajax({
+	  			url : save_url,
+	  			success: function () {	  				
+	  				\$("a#save_options").hide();
+	  				\$("span#saving").text('');
+	  				\$("a#save_options").html('$save');
+	  				\$("#modify_panel").toggle("slide",{direction:"right"},"fast");
+	  			}
+	  		});
+	   	});
+	});
 }); 
+
+function clear_form(fieldset){
+	if (fieldset == 'eav'){
+		\$("#eav_fields").multiselect("uncheckAll");
+	}
+	if (fieldset == 'composite'){
+		\$("#composite_fields").multiselect("uncheckAll");
+	}
+	if (fieldset == 'refs'){
+		\$("#m_references").prop("checked", false);
+		\$("input:radio[name='ref_type']").prop("disabled", true);
+	}
+	if (fieldset == 'private'){
+		\$("#private_record,#private_owner").prop("checked", true);
+		enable_private_controls();
+	}
+	if (fieldset == 'classification'){
+		\$("#classification_schemes").multiselect("uncheckAll");
+	}
+	if (fieldset == 'molwt'){
+		\$("#molwt").prop("checked", false);
+	}
+	if (fieldset == 'options'){
+		\$("#indicate_tags").prop("checked", false);
+		\$("#common_names").prop("checked", false);
+		\$("#alleles").prop("checked", true);
+		\$("#oneline").prop("checked", false);
+		\$("#labelfield").prop("checked", false);
+		\$("#info").prop("checked", false);
+	}
+}
 END
 	return $js;
 }
 
 sub _print_ref_fields {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	say q(<fieldset style="float:left"><legend>References</legend><ul><li>);
+	my ($self)  = @_;
+	my $display = $self->{'plugin_prefs'}->{'refs_fieldset'} ? 'block' : 'none';
+	my $q       = $self->{'cgi'};
+	say qq(<fieldset id="refs_fieldset" style="float:left;display:$display"><legend>References</legend><ul><li>);
 	say $q->checkbox(
 		-name     => 'm_references',
 		-id       => 'm_references',
@@ -169,10 +255,12 @@ sub _print_private_fieldset {
 			  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'Export', 'fg_private_colour' );
 		}
 	};
-	my $bg = $bg_private_colour // '#cc3956';
-	my $fg = $fg_private_colour // '#ffffff';
-	my $q  = $self->{'cgi'};
-	say q(<fieldset style="float:left"><legend>Private records</legend><ul><li>);
+	my $bg      = $bg_private_colour // '#cc3956';
+	my $fg      = $fg_private_colour // '#ffffff';
+	my $q       = $self->{'cgi'};
+	my $display = $self->{'plugin_prefs'}->{'private_fieldset'} ? 'block' : 'none';
+	say qq(<fieldset id="private_fieldset" style="float:left;display:$display">)
+	  . q(<legend>Private records</legend><ul><li>);
 	say $q->checkbox(
 		-name     => 'private_record',
 		-id       => 'private_record',
@@ -206,16 +294,19 @@ sub _print_private_fieldset {
 	say qq(<input type="color" name="private_bg" id="private_bg" value="$bg" )
 	  . q(style="width:30px;height:15px"> Background colour);
 	say q(</li></li>);
-	say
-qq(<span id="example_private" style="border:1px solid #aaa;background:$bg;color:$fg;padding:0 0.2em">example private record</span>);
+	say q(<span id="example_private" style="border:1px solid #aaa;)
+	  . qq(background:$bg;color:$fg;padding:0 0.2em">example private record</span>);
 	say q(</li></ul></fieldset>);
+	$self->{'private_fieldset'} = 1;
 	return;
 }
 
 sub _print_options {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say q(<fieldset style="float:left"><legend>Options</legend><ul></li>);
+	my $display = $self->{'plugin_prefs'}->{'options_fieldset'} ? 'block' : 'none';
+	say qq(<fieldset id="options_fieldset" style="float:left;display:$display">)
+	. q(<legend>Options</legend><ul></li>);
 	say $q->checkbox(
 		-name     => 'indicate_tags',
 		-id       => 'indicate_tags',
@@ -269,13 +360,15 @@ sub _print_classification_scheme_fields {
 	  $self->{'datastore'}->run_query( 'SELECT id,name FROM classification_schemes ORDER BY display_order,name',
 		undef, { fetch => 'all_arrayref', slice => {} } );
 	return if !@$classification_schemes;
-	my $ids    = [];
-	my $labels = {};
+	my $display = $self->{'plugin_prefs'}->{'classification_fieldset'} ? 'block' : 'none';
+	my $ids     = [];
+	my $labels  = {};
 	foreach my $cf (@$classification_schemes) {
 		push @$ids, $cf->{'id'};
 		$labels->{ $cf->{'id'} } = $cf->{'name'};
 	}
-	say q(<fieldset style="float:left"><legend>Classification schemes</legend>);
+	say qq(<fieldset id="classification_fieldset" style="float:left;display:$display">)
+	  . q(<legend>Classification schemes</legend>);
 	say $self->popup_menu(
 		-name     => 'classification_schemes',
 		-id       => 'classification_schemes',
@@ -286,13 +379,16 @@ sub _print_classification_scheme_fields {
 		-style    => 'width:100%'
 	);
 	say q(</fieldset>);
+	$self->{'classification_fieldset'} = 1;
 	return;
 }
 
 sub _print_molwt_options {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	say q(<fieldset style="float:left"><legend>Molecular weights</legend><ul></li>);
+	my ($self)  = @_;
+	my $display = $self->{'plugin_prefs'}->{'molwt_fieldset'} ? 'block' : 'none';
+	my $q       = $self->{'cgi'};
+	say qq(<fieldset id="molwt_fieldset" style="float:left;display:$display">)
+	  . q(<legend>Molecular weights</legend><ul></li>);
 	say $q->checkbox( -name => 'molwt', -id => 'molwt', -label => 'Export protein molecular weights' );
 	say q(</li><li>);
 	say $q->checkbox(
@@ -323,9 +419,24 @@ sub _update_prefs {
 	return;
 }
 
+sub _save_options {
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $guid   = $self->get_guid;
+	foreach my $fieldset (qw(eav composite refs private classification molwt options)) {
+		$self->{'prefstore'}->set_plugin_attribute( $guid, $self->{'system'}->{'db'},
+			'Export', "${fieldset}_fieldset", scalar $q->param($fieldset) // 0 );
+	}
+	return;
+}
+
 sub run {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
+	if ( $q->param('save_options') ) {
+		$self->_save_options;
+		return;
+	}
 	say q(<h1>Export dataset</h1>);
 	if ( ( $self->{'system'}->{'DatasetExport'} // q() ) eq 'no' ) {
 		$self->print_bad_status( { message => q(Dataset exports are disabled.) } );
@@ -481,12 +592,14 @@ sub _print_interface {
 			last;
 		}
 	}
+	my $guid = $self->get_guid;
+	$self->{'plugin_prefs'} = $self->{'prefstore'}->get_plugin_attributes( $guid, $self->{'system'}->{'db'}, 'Export' );
 	say $q->start_form;
 	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $selected_ids, isolate_paste_list => 1 } );
 	$self->print_isolate_fields_fieldset(
 		{ extended_attributes => 1, default => [ 'id', $self->{'system'}->{'labelfield'} ], no_all_none => 1 } );
-	$self->print_eav_fields_fieldset( { no_all_none => 1 } );
-	$self->print_composite_fields_fieldset;
+	$self->print_eav_fields_fieldset( { no_all_none => 1, hide => $self->{'plugin_prefs'}->{'eav_fieldset'} ? 0 : 1 } );
+	$self->print_composite_fields_fieldset( { hide => $self->{'plugin_prefs'}->{'composite_fieldset'} ? 0 : 1 } );
 	$self->_print_ref_fields;
 	$self->_print_private_fieldset;
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1, no_all_none => 1 } );
@@ -496,6 +609,7 @@ sub _print_interface {
 	$self->_print_molwt_options;
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say q(<div style="clear:both"></div>);
+	$self->_print_modify_search_fieldset;
 	$q->param( set_id => $set_id );
 	say $q->hidden($_) foreach qw (db page name set_id);
 	say $q->end_form;
@@ -1209,5 +1323,50 @@ sub _get_molwt {
 		$weight = q(-);
 	};
 	return $weight;
+}
+
+sub _print_modify_search_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say q(<div id="modify_panel" class="panel">);
+	say q(<a class="close_trigger" id="close_trigger"><span class="fas fa-lg fa-times"></span></a>);
+	say q(<h2>Modify form parameters</h2>);
+	say q(<p>Click to add or remove additional<br />export category selections:</p>)
+	  . q(<ul style="list-style:none;margin-left:-2em">);
+	if ( $self->{'eav_fieldset'} ) {
+		my $eav_fieldset_display = $self->{'plugin_prefs'}->{'eav_fieldset'} ? HIDE : SHOW;
+		say qq(<li><a href="" class="button fieldset_trigger" id="show_eav">$eav_fieldset_display</a>);
+		say q(Secondary metadata</li>);
+	}
+	if ( $self->{'composite_fieldset'} ) {
+		my $composite_fieldset_display = $self->{'plugin_prefs'}->{'composite_fieldset'} ? HIDE : SHOW;
+		say qq(<li><a href="" class="button fieldset_trigger" id="show_composite">$composite_fieldset_display</a>);
+		say q(Composite fields</li>);
+	}
+	my $refs_display = $self->{'plugin_prefs'}->{'refs_fieldset'} ? HIDE : SHOW;
+	say qq(<li><a href="" class="button fieldset_trigger" id="show_refs">$refs_display</a>);
+	say q(References</li>);
+	if ( $self->{'private_fieldset'} ) {
+		my $private_display = $self->{'plugin_prefs'}->{'private_fieldset'} ? HIDE : SHOW;
+		say qq(<li><a href="" class="button fieldset_trigger" id="show_private">$private_display</a>);
+		say q(Private records</li>);
+	}
+	if ( $self->{'classification_fieldset'} ) {
+		my $classification_display = $self->{'plugin_prefs'}->{'classification_fieldset'} ? HIDE : SHOW;
+		say qq(<li><a href="" class="button fieldset_trigger" id="show_classification">$classification_display</a>);
+		say q(Classification schemes</li>);
+	}
+	my $molwt_display = $self->{'plugin_prefs'}->{'molwt_fieldset'} ? HIDE : SHOW;
+		say qq(<li><a href="" class="button fieldset_trigger" id="show_molwt">$molwt_display</a>);
+		say q(Molecular weights</li>);
+	my $options_display = $self->{'plugin_prefs'}->{'options_fieldset'} ? HIDE : SHOW;
+		say qq(<li><a href="" class="button fieldset_trigger" id="show_options">$options_display</a>);
+		say q(General options</li>);
+	say q(</ul>);
+	my $save = SAVE;
+	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . qq(page=plugin&amp;name=Export&amp;save_options=1" style="display:none">$save</a> <span id="saving"></span><br />);
+	say q(</div>);
+	return;
 }
 1;

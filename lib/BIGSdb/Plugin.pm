@@ -340,15 +340,16 @@ sub print_eav_fields_fieldset {
 	} else {
 		$values = $self->{'datastore'}->get_eav_fieldnames;
 	}
-	my $legend = $self->{'system'}->{'eav_fields'} // 'Secondary metadata';
-	say qq(<fieldset style="float:left"><legend>$legend</legend>);
+	my $legend  = $self->{'system'}->{'eav_fields'} // 'Secondary metadata';
+	my $display = $options->{'hide'} ? 'none' : 'block';
+	say qq(<fieldset id="eav_fieldset" style="float:left;display:$display"><legend>$legend</legend>);
 	say $q->scrolling_list(
 		-name     => 'eav_fields',
 		-id       => 'eav_fields',
 		-values   => $values,
 		-labels   => $labels,
 		-multiple => 'true',
-		-size     => $options->{'size'} // 8,
+		-size     => $options->{'size'} // 8
 	);
 	if ( !$options->{'no_all_none'} ) {
 		say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("eav_fields",true)' )
@@ -357,33 +358,36 @@ sub print_eav_fields_fieldset {
 		  . q(class="small_submit" /></div>);
 	}
 	say q(</fieldset>);
+	$self->{'eav_fieldset'} = 1;
 	return;
 }
 
 sub print_composite_fields_fieldset {
-	my ($self) = @_;
+	my ( $self, $options ) = @_;
 	my $composites =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT id FROM composite_fields ORDER BY id', undef, { fetch => 'col_arrayref' } );
-	if (@$composites) {
-		my $labels = {};
-		foreach my $field (@$composites) {
-			( $labels->{$field} = $field ) =~ tr/_/ /;
-		}
-		say q(<fieldset style="float:left"><legend>Composite fields</legend>);
-		say $self->popup_menu(
-			-name     => 'composite_fields',
-			-id       => 'composite_fields',
-			-values   => $composites,
-			-labels   => $labels,
-			-multiple => 'true',
-			-class    => 'multiselect'
-		);
-		say $self->get_tooltip( q(Composite fields - These are constructed from combinations of )
-			  . q(other fields (some of which may come from external databases). Including composite fields )
-			  . q(will slow down the processing.) );
-		say q(</fieldset>);
+	return if !@$composites;
+	my $labels = {};
+	foreach my $field (@$composites) {
+		( $labels->{$field} = $field ) =~ tr/_/ /;
 	}
+	my $display = $options->{'hide'} ? 'none' : 'block';
+	say qq(<fieldset id="composite_fieldset" style="float:left;display:$display">)
+	  . q(<legend>Composite fields</legend>);
+	say $self->popup_menu(
+		-name     => 'composite_fields',
+		-id       => 'composite_fields',
+		-values   => $composites,
+		-labels   => $labels,
+		-multiple => 'true',
+		-class    => 'multiselect'
+	);
+	say $self->get_tooltip( q(Composite fields - These are constructed from combinations of )
+		  . q(other fields (some of which may come from external databases). Including composite fields )
+		  . q(will slow down the processing.) );
+	say q(</fieldset>);
+	$self->{'composite_fieldset'} = 1;
 	return;
 }
 
@@ -1151,7 +1155,8 @@ sub print_user_genome_upload_fieldset {
 	my $q = $self->{'cgi'};
 	say q(<fieldset style="float:left;height:12em"><legend>User genomes</legend>);
 	say q(<p>Optionally include data not in the<br />database.</p>);
-	say q(<p>Upload assembly FASTA file<br />(or zip/tar.gz/tar file containing multiple<br />FASTA files - one per genome):);
+	say
+q(<p>Upload assembly FASTA file<br />(or zip/tar.gz/tar file containing multiple<br />FASTA files - one per genome):);
 	my $upload_limit = BIGSdb::Utils::get_nice_size( $self->{'max_upload_size_mb'} // 0 );
 	say $self->get_tooltip( q(User data - The name of the file(s) containing genome data will be )
 		  . qq(used as the name of the isolate(s) in the output. Maximum upload size is $upload_limit.) );
@@ -1228,5 +1233,15 @@ sub get_field_value {
 		$field_value = q();
 	}
 	return $field_value;
+}
+
+sub print_panel_buttons {
+	my ($self) = @_;
+	if ( $self->{'modify_panel'} ) {
+		say q(<span class="icon_button">)
+		  . q(<a class="trigger_button" id="panel_trigger" style="display:none">)
+		  . q(<span class="fas fa-lg fa-wrench"></span><span class="icon_label">Modify form</span></a></span>);
+	}
+	return;
 }
 1;
