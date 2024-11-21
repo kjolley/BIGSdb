@@ -171,6 +171,15 @@ function enable_tag_controls(){
 	  		});
 	   	});
 	});
+	if (!localStorage.getItem('export_onboarding_202411')) {
+        \$('#onboarding').show();
+        localStorage.setItem('export_onboarding_202411', 'true');
+    }
+
+    \$('#close_onboarding').click(function() {
+        \$('#onboarding').hide();
+    });
+	
 }); 
 
 function clear_form(fieldset){
@@ -302,11 +311,10 @@ sub _print_private_fieldset {
 }
 
 sub _print_options {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my ($self)  = @_;
+	my $q       = $self->{'cgi'};
 	my $display = $self->{'plugin_prefs'}->{'options_fieldset'} ? 'block' : 'none';
-	say qq(<fieldset id="options_fieldset" style="float:left;display:$display">)
-	. q(<legend>Options</legend><ul></li>);
+	say qq(<fieldset id="options_fieldset" style="float:left;display:$display">) . q(<legend>Options</legend><ul></li>);
 	say $q->checkbox(
 		-name     => 'indicate_tags',
 		-id       => 'indicate_tags',
@@ -565,8 +573,18 @@ sub _get_excel_formatting {
 	return $format;
 }
 
+sub _print_onboarding {
+	my ($self) = @_;
+	say q(<div id="onboarding" style="max-width:300px"><h2 style="color:white">More options</h2>)
+	  . q(<p>Please note that some export options are now hidden by default but are available for )
+	  . q(selection by clicking the 'Modify Form' tab at the top-right of the page.</p>)
+	  . q(<button id="close_onboarding">Close</button></div>);
+	return;
+}
+
 sub _print_interface {
 	my ( $self, $default_select ) = @_;
+	$self->_print_onboarding;
 	my $q          = $self->{'cgi'};
 	my $set_id     = $self->get_set_id;
 	my $query_file = $q->param('query_file');
@@ -1357,11 +1375,11 @@ sub _print_modify_search_fieldset {
 		say q(Classification schemes</li>);
 	}
 	my $molwt_display = $self->{'plugin_prefs'}->{'molwt_fieldset'} ? HIDE : SHOW;
-		say qq(<li><a href="" class="button fieldset_trigger" id="show_molwt">$molwt_display</a>);
-		say q(Molecular weights</li>);
+	say qq(<li><a href="" class="button fieldset_trigger" id="show_molwt">$molwt_display</a>);
+	say q(Molecular weights</li>);
 	my $options_display = $self->{'plugin_prefs'}->{'options_fieldset'} ? HIDE : SHOW;
-		say qq(<li><a href="" class="button fieldset_trigger" id="show_options">$options_display</a>);
-		say q(General options</li>);
+	say qq(<li><a href="" class="button fieldset_trigger" id="show_options">$options_display</a>);
+	say q(General options</li>);
 	say q(</ul>);
 	my $save = SAVE;
 	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
