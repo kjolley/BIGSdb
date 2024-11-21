@@ -470,6 +470,15 @@ sub get_selected_fields {
 		}
 	}
 	my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
+	my $lincode_prefixes = {};
+	if ( $q->param('lincode_prefixes') ) {
+		my @prefixes = $q->multi_param('lincode_prefixes');
+		foreach my $prefix (@prefixes) {
+			if ( $prefix =~ /^linp_(\d+)_/x ) {
+				push @{ $lincode_prefixes->{$1} }, $prefix;
+			}
+		}
+	}
 	foreach my $scheme_id (@$schemes) {
 		my $scheme_info    = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 		my $scheme_members = $self->{'datastore'}->get_scheme_loci($scheme_id);
@@ -497,6 +506,8 @@ sub get_selected_fields {
 				}
 			}
 		}
+		push @$fields, @{ $lincode_prefixes->{$scheme_id} }
+		  if $options->{'lincode_prefixes'} && defined $lincode_prefixes->{$scheme_id};
 	}
 	if ( $q->param('classification_schemes') ) {
 		my @cschemes = $q->multi_param('classification_schemes');

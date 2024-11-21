@@ -82,7 +82,8 @@ function enable_ref_controls(){
 }
 function enable_private_controls(){
 	\$("#private_owner").prop("disabled", !\$("#private_record").prop("checked"));
-	\$("input:radio[name='private_name']").prop("disabled", !(\$("#private_owner").prop("checked") && \$("#private_record").prop("checked")));
+	\$("input:radio[name='private_name']").prop("disabled", !(\$("#private_owner")
+		.prop("checked") && \$("#private_record").prop("checked")));
 }
 
 function enable_tag_controls(){	
@@ -103,11 +104,11 @@ function enable_tag_controls(){
 	enable_ref_controls();
 	enable_private_controls();
 	enable_tag_controls();
-	\$('#fields,#eav_fields,#composite_fields,#locus,#classification_schemes').multiselect({
+	\$('#fields,#eav_fields,#composite_fields,#locus,#classification_schemes,#lincode_prefixes').multiselect({
  		classes: 'filter',
  		menuHeight: 250,
  		menuWidth: 400,
- 		selectedList: 8
+ 		selectedList: 8,
   	});
  	\$('#locus').multiselectfilter();
  	\$("span#example_private").css("background",\$('#private_bg').val());
@@ -151,7 +152,7 @@ function enable_tag_controls(){
 		event.preventDefault();
 		let show = '$show';
 		let save_url = this.href;
-		let fieldsets = ['eav','composite','refs','private','classification','molwt','options'];
+		let fieldsets = ['eav','composite','refs','private','classification','lincode','molwt','options'];
 		for (let i = 0; i < fieldsets.length; ++i) {			
 			let value = \$("#show_" + fieldsets[i]).html() == show ? 0 : 1;
 			save_url += "&" + fieldsets[i] + "=" + value;
@@ -199,6 +200,9 @@ function clear_form(fieldset){
 	}
 	if (fieldset == 'classification'){
 		\$("#classification_schemes").multiselect("uncheckAll");
+	}
+	if (fieldset == 'lincode'){
+		\$("#lincodes").multiselect("uncheckAll");
 	}
 	if (fieldset == 'molwt'){
 		\$("#molwt").prop("checked", false);
@@ -391,6 +395,44 @@ sub _print_classification_scheme_fields {
 	return;
 }
 
+sub _print_lincode_fieldset {
+	my ($self) = @_;
+	my $lincode_schemes =
+	  $self->{'datastore'}->run_query(
+		'SELECT s.id,ls.thresholds FROM lincode_schemes ls JOIN ' . 'schemes s ON ls.scheme_id=s.id ORDER BY s.name',
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	return if !@$lincode_schemes;
+	my $ids    = [];
+	my $labels = {};
+	my $set_id = $self->get_set_id;
+	foreach my $scheme (@$lincode_schemes) {
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme->{'id'}, { set_id => $set_id } );
+		my @thresholds  = split( ';', $scheme->{'thresholds'} );
+		foreach my $i ( 1 .. @thresholds - 1 ) {
+			my $id = "linp_$scheme->{'id'}_$i";
+			push @$ids, $id;
+			$labels->{$id} = "LINcode ($scheme_info->{'name'})[$i]";
+		}
+	}
+	my $display = $self->{'plugin_prefs'}->{'lincode_fieldset'} ? 'block' : 'none';
+	say qq(<fieldset id="lincode_fieldset" style="float:left;display:$display;max-width:400px">)
+	  . q(<legend>LIN code prefixes</legend><p>Selecting a scheme and all fields for it will include )
+	  . q(the full LIN code and prefix-linked fields. The following list just allows you to select )
+	  . q(LIN code prefixes of a specific length.</p><ul></li>);
+	say $self->popup_menu(
+		-name     => 'lincode_prefixes',
+		-id       => 'lincode_prefixes',
+		-values   => $ids,
+		-labels   => $labels,
+		-size     => 8,
+		-multiple => 'true',
+		-style    => 'width:100%'
+	);
+	say q(</li></ul></fieldset>);
+	$self->{'lincode_fieldset'} = 1;
+	return;
+}
+
 sub _print_molwt_options {
 	my ($self)  = @_;
 	my $display = $self->{'plugin_prefs'}->{'molwt_fieldset'} ? 'block' : 'none';
@@ -431,7 +473,7 @@ sub _save_options {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $guid   = $self->get_guid;
-	foreach my $fieldset (qw(eav composite refs private classification molwt options)) {
+	foreach my $fieldset (qw(eav composite refs private classification lincode molwt options)) {
 		$self->{'prefstore'}->set_plugin_attribute( $guid, $self->{'system'}->{'db'},
 			'Export', "${fieldset}_fieldset", scalar $q->param($fieldset) // 0 );
 	}
@@ -453,7 +495,8 @@ sub run {
 	return if $self->has_set_changed;
 	if ( $q->param('submit') ) {
 		$self->_update_prefs;
-		my $selected_fields = $self->get_selected_fields( { lincodes => 1, lincode_fields => 1 } );
+		my $selected_fields =
+		  $self->get_selected_fields( { lincodes => 1, lincode_fields => 1, lincode_prefixes => 1 } );
 		$q->delete('classification_schemes');
 		push @$selected_fields, 'm_references'   if $q->param('m_references');
 		push @$selected_fields, 'private_record' if $q->param('private_record');
@@ -623,6 +666,7 @@ sub _print_interface {
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1, no_all_none => 1 } );
 	$self->print_scheme_fieldset( { fields_or_loci => 1 } );
 	$self->_print_classification_scheme_fields;
+	$self->_print_lincode_fieldset;
 	$self->_print_options;
 	$self->_print_molwt_options;
 	$self->print_action_fieldset( { no_reset => 1 } );
@@ -736,6 +780,7 @@ sub _write_tab_text {
 	my $progress = 0;
 
 	while ( $sql->fetchrow_arrayref ) {
+		undef $self->{'cache'}->{'current_lincode'};
 		next
 		  if $id_used{ $data{'id'} }
 		  ;    #Ordering by scheme field/locus can result in multiple rows per isolate if multiple values defined.
@@ -757,6 +802,7 @@ sub _write_tab_text {
 				locus                 => qr/^(s_\d+_l_|l_)(.*)/x,
 				scheme_field          => qr/^s_(\d+)_f_(.*)/x,
 				lincode               => qr/^lin_(\d+)$/x,
+				lincode_prefix        => qr/^linp_(\d+)_(\d+)$/x,
 				lincode_field         => qr/^lin_(\d+)_(.+)$/x,
 				composite_field       => qr/^c_(.*)/x,
 				classification_scheme => qr/^cs_(.*)/x,
@@ -788,6 +834,18 @@ sub _write_tab_text {
 					$self->_write_lincode(
 						{ fh => $fh, scheme_id => $1, data => \%data, first => $first, params => $params } );
 				},
+				lincode_prefix => sub {
+					$self->_write_lincode_prefix_field(
+						{
+							fh        => $fh,
+							scheme_id => $1,
+							threshold => $2,
+							data      => \%data,
+							first     => $first,
+							params    => $params
+						}
+					);
+				},
 				lincode_field => sub {
 					$self->_write_lincode_field(
 						{ fh => $fh, scheme_id => $1, field => $2, data => \%data, first => $first, params => $params }
@@ -810,7 +868,7 @@ sub _write_tab_text {
 				}
 			};
 			foreach my $field_type (
-				qw(field eav_field locus scheme_field lincode lincode_field composite_field
+				qw(field eav_field locus scheme_field lincode lincode_prefix lincode_field composite_field
 				classification_scheme reference private_record private_owner)
 			  )
 			{
@@ -859,12 +917,18 @@ sub _get_header {
 		my $i = 0;
 		foreach (@$fields) {
 			my $field = $_;    #don't modify @$fields
-			if ( $field =~ /^s_(\d+)_f/x || $field =~ /^lin_(\d+)$/x || $field =~ /^lin_(\d+)_(.+)$/x ) {
+			if (   $field =~ /^s_(\d+)_f/x
+				|| $field =~ /^lin_(\d+)$/x
+				|| $field =~ /^lin_(\d+)_(.+)$/x
+				|| $field =~ /^linp_(\d+)_(\d+)$/x )
+			{
 				my $scheme_id = $1;
 				my $scheme_info =
 				  $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 				if ( $field =~ /^lin_(\d+)$/x ) {
 					$field = 'LINcode';
+				} elsif ( $field =~ /^linp_(\d+)_(\d+)/x ) {
+					$field = "LINcode[$2]";
 				} elsif ( defined $2 ) {    #Lincode prefix field
 					$field = $2;
 				}
@@ -1121,21 +1185,49 @@ sub _write_lincode {
 	my ( $self, $args ) = @_;
 	my ( $fh, $scheme_id, $data, $first_col, $params ) =
 	  @{$args}{qw(fh scheme_id data first params )};
-	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
-	my $lincode     = $self->{'datastore'}->get_lincode_value( $data->{'id'}, $scheme_id );
+	my $lincode = $self->{'datastore'}->get_lincode_value( $data->{'id'}, $scheme_id );
 
 	#LINcode fields are always calculated after the LINcode itself, so
 	#we can just cache the last LINcode value rather than re-calculating it.
 	$self->{'cache'}->{'current_lincode'} = $lincode;
 	local $" = q(_);
 	if ( $params->{'oneline'} ) {
-		print $fh $self->_get_id_one_line( $data, $params );
-		print $fh "LINcode ($scheme_info->{'name'})\t";
-		print $fh qq(@$lincode) if defined $lincode;
-		print $fh qq(\n);
+		if ( defined $lincode ) {
+			my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+			print $fh $self->_get_id_one_line( $data, $params );
+			print $fh "LINcode ($scheme_info->{'name'})\t";
+			print $fh qq(@$lincode) if defined $lincode;
+			print $fh qq(\n);
+		}
 	} else {
 		print $fh qq(\t)        if !$first_col;
 		print $fh qq(@$lincode) if defined $lincode;
+	}
+	return;
+}
+
+sub _write_lincode_prefix_field {
+	my ( $self, $args ) = @_;
+	my ( $fh, $scheme_id, $threshold, $data, $first_col, $params ) =
+	  @{$args}{qw(fh scheme_id threshold data first params )};
+	my $lincode;
+	if ( defined $self->{'cache'}->{'current_lincode'} ) {
+		$lincode = $self->{'cache'}->{'current_lincode'};
+	} else {
+		$lincode = $self->{'datastore'}->get_lincode_value( $data->{'id'}, $scheme_id );
+	}
+	my @prefix = defined $lincode ? @{$lincode}[ 0 .. $threshold - 1 ] : ();
+	local $" = q(_);
+	if ( $params->{'oneline'} ) {
+		if (@prefix) {
+			my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+			print $fh $self->_get_id_one_line( $data, $params );
+			print $fh "LINcode[$threshold] ($scheme_info->{'name'})\t";
+			say $fh qq(@prefix);
+		}
+	} else {
+		print $fh qq(\t) if !$first_col;
+		print $fh qq(@prefix);
 	}
 	return;
 }
@@ -1373,6 +1465,11 @@ sub _print_modify_search_fieldset {
 		my $classification_display = $self->{'plugin_prefs'}->{'classification_fieldset'} ? HIDE : SHOW;
 		say qq(<li><a href="" class="button fieldset_trigger" id="show_classification">$classification_display</a>);
 		say q(Classification schemes</li>);
+	}
+	if ( $self->{'lincode_fieldset'} ) {
+		my $lincode_display = $self->{'plugin_prefs'}->{'lincode_fieldset'} ? HIDE : SHOW;
+		say qq(<li><a href="" class="button fieldset_trigger" id="show_lincode">$lincode_display</a>);
+		say q(LIN code prefixes</li>);
 	}
 	my $molwt_display = $self->{'plugin_prefs'}->{'molwt_fieldset'} ? HIDE : SHOW;
 	say qq(<li><a href="" class="button fieldset_trigger" id="show_molwt">$molwt_display</a>);
