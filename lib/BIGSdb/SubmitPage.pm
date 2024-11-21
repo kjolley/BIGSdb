@@ -616,7 +616,7 @@ sub _get_profile_submission_details {    ## no critic (ProhibitUnusedPrivateSubr
 	my $profile_submission = $self->{'submissionHandler'}->get_profile_submission( $submission->{'id'} );
 	my $profile_count      = @{ $profile_submission->{'profiles'} };
 	my $plural             = $profile_count == 1 ? '' : 's';
-	next
+	return
 	  if $set_id
 	  && !$self->{'datastore'}->is_scheme_in_set( $profile_submission->{'scheme_id'}, $set_id );
 	my $scheme_info =
@@ -718,8 +718,7 @@ sub _get_allele_submissions_for_curation {
 			  if -e $allele_curate_message;
 		}
 		$return_buffer .= q(<div class="scrollable"><table class="resultstable"><tr><th>Submission id</th>)
-		  . q(<th>Submitted</th><th>Updated</th><th>Submitter</th><th>Locus</th><th>Technology</th><th>Sequences</th>)
-		  ;
+		  . q(<th>Submitted</th><th>Updated</th><th>Submitter</th><th>Locus</th><th>Technology</th><th>Sequences</th>);
 		$return_buffer .= q(<th>Outcome</th>) if $status eq 'closed';
 		$return_buffer .= qq(</tr>\n);
 		$return_buffer .= $buffer;
