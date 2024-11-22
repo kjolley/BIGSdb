@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext         => 'Dataset',
 		menutext           => 'Dataset',
 		module             => 'Export',
-		version            => '1.13.0',
+		version            => '1.14.0',
 		dbtype             => 'isolates',
 		section            => 'export,postquery',
 		url                => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
@@ -67,10 +67,11 @@ sub get_attributes {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1 };
+	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1, 'modify_panel' => 1, 'noCache' => 1 };
 }
 
 sub get_plugin_javascript {
+	my ( $show, $hide, $save, $saving ) = ( SHOW, HIDE, SAVE, SAVING );
 	my $js = << "END";
 function enable_ref_controls(){
 	if (\$("#m_references").prop("checked")){
@@ -81,7 +82,8 @@ function enable_ref_controls(){
 }
 function enable_private_controls(){
 	\$("#private_owner").prop("disabled", !\$("#private_record").prop("checked"));
-	\$("input:radio[name='private_name']").prop("disabled", !(\$("#private_owner").prop("checked") && \$("#private_record").prop("checked")));
+	\$("input:radio[name='private_name']").prop("disabled", !(\$("#private_owner")
+		.prop("checked") && \$("#private_record").prop("checked")));
 }
 
 function enable_tag_controls(){	
@@ -102,11 +104,11 @@ function enable_tag_controls(){
 	enable_ref_controls();
 	enable_private_controls();
 	enable_tag_controls();
-	\$('#fields,#eav_fields,#composite_fields,#locus,#classification_schemes').multiselect({
+	\$('#fields,#eav_fields,#composite_fields,#locus,#classification_schemes,#lincode_prefixes').multiselect({
  		classes: 'filter',
  		menuHeight: 250,
  		menuWidth: 400,
- 		selectedList: 8
+ 		selectedList: 8,
   	});
  	\$('#locus').multiselectfilter();
  	\$("span#example_private").css("background",\$('#private_bg').val());
@@ -117,15 +119,118 @@ function enable_tag_controls(){
  	\$('#private_fg').on('change',function(){
  		\$("span#example_private").css("color",\$('#private_fg').val());
  	});
+ 	\$("#panel_trigger,#close_trigger").click(function(){			
+		\$("#modify_panel").toggle("slide",{direction:"right"},"fast");
+		return false;
+	});
+ 	\$("#panel_trigger").show();
+ 	//Close panel
+	\$(document).mouseup(function(e) {
+		// if the target of the click isn't the container nor a
+		// descendant of the container
+		var trigger = \$("#panel_trigger");
+ 		var container = \$("#modify_panel");
+		if (!container.is(e.target) && container.has(e.target).length === 0 && 
+		!trigger.is(e.target) && trigger.has(e.target).length === 0) {
+			container.hide();
+		}
+	});
+	\$(".fieldset_trigger").click(function(event) {
+		let show = '$show';
+		let hide = '$hide';
+		let fieldset = this.id.replace('show_','');
+		event.preventDefault();
+		if(\$(this).html() == hide){
+			clear_form(fieldset);
+		}
+		\$("#" + fieldset + "_fieldset").toggle(100);
+		\$(this).html(\$(this).html() == show ? hide : show);
+		\$("a#save_options").fadeIn();
+		return false;
+	});
+	\$("a#save_options").click(function(event){		
+		event.preventDefault();
+		let show = '$show';
+		let save_url = this.href;
+		let fieldsets = ['eav','composite','refs','private','classification','lincode','molwt','options'];
+		for (let i = 0; i < fieldsets.length; ++i) {			
+			let value = \$("#show_" + fieldsets[i]).html() == show ? 0 : 1;
+			save_url += "&" + fieldsets[i] + "=" + value;
+		}
+	  	\$(this).attr('href', function(){  	
+	  		\$("a#save_options").html('$saving').animate({backgroundColor: "#99d"},100)
+	  		.animate({backgroundColor: "#f0f0f0"},100);
+	  		\$("span#saving").text('Saving...');
+		  	\$.ajax({
+	  			url : save_url,
+	  			success: function () {	  				
+	  				\$("a#save_options").hide();
+	  				\$("span#saving").text('');
+	  				\$("a#save_options").html('$save');
+	  				\$("#modify_panel").toggle("slide",{direction:"right"},"fast");
+	  			}
+	  		});
+	   	});
+	});
+	if (!localStorage.getItem('export_onboarding_202411')) {
+        \$('#onboarding').show();
+        localStorage.setItem('export_onboarding_202411', 'true');
+    }
+    \$('#close_onboarding').click(function() {
+        \$('#onboarding').hide();
+    });
+    //Reset form if not visible, e.g. after reloading.
+	let fieldsets = ['eav','composite','refs','private','classification','lincode','molwt','options'];
+	for (let i = 0; i < fieldsets.length; ++i) {		
+		let fieldset = fieldsets[i] + "_fieldset";
+		if (\$("#" + fieldset).is(":hidden")){
+			clear_form(fieldsets[i]);
+		}
+	}
 }); 
+
+function clear_form(fieldset){
+	if (fieldset == 'eav'){
+		\$("#eav_fields").multiselect("uncheckAll");
+	}
+	if (fieldset == 'composite'){
+		\$("#composite_fields").multiselect("uncheckAll");
+	}
+	if (fieldset == 'refs'){
+		\$("#m_references").prop("checked", false);
+		\$("input:radio[name='ref_type']").prop("disabled", true);
+	}
+	if (fieldset == 'private'){
+		\$("#private_record,#private_owner").prop("checked", true);
+		enable_private_controls();
+	}
+	if (fieldset == 'classification'){
+		\$("#classification_schemes").multiselect("uncheckAll");
+	}
+	if (fieldset == 'lincode'){
+		\$("#lincode_prefixes").multiselect("uncheckAll");
+	}
+	if (fieldset == 'molwt'){
+		\$("#molwt").prop("checked", false);
+	}
+	if (fieldset == 'options'){
+		\$("#indicate_tags").prop("checked", false);
+		\$("#common_names").prop("checked", false);
+		\$("#alleles").prop("checked", true);
+		\$("#oneline").prop("checked", false);
+		\$("#labelfield").prop("checked", false);
+		\$("#info").prop("checked", false);
+	}
+}
 END
 	return $js;
 }
 
 sub _print_ref_fields {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	say q(<fieldset style="float:left"><legend>References</legend><ul><li>);
+	my ($self)  = @_;
+	my $display = $self->{'plugin_prefs'}->{'refs_fieldset'} ? 'block' : 'none';
+	my $q       = $self->{'cgi'};
+	say qq(<fieldset id="refs_fieldset" style="float:left;display:$display"><legend>References</legend><ul><li>);
 	say $q->checkbox(
 		-name     => 'm_references',
 		-id       => 'm_references',
@@ -169,10 +274,12 @@ sub _print_private_fieldset {
 			  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, 'Export', 'fg_private_colour' );
 		}
 	};
-	my $bg = $bg_private_colour // '#cc3956';
-	my $fg = $fg_private_colour // '#ffffff';
-	my $q  = $self->{'cgi'};
-	say q(<fieldset style="float:left"><legend>Private records</legend><ul><li>);
+	my $bg      = $bg_private_colour // '#cc3956';
+	my $fg      = $fg_private_colour // '#ffffff';
+	my $q       = $self->{'cgi'};
+	my $display = $self->{'plugin_prefs'}->{'private_fieldset'} ? 'block' : 'none';
+	say qq(<fieldset id="private_fieldset" style="float:left;display:$display">)
+	  . q(<legend>Private records</legend><ul><li>);
 	say $q->checkbox(
 		-name     => 'private_record',
 		-id       => 'private_record',
@@ -206,16 +313,18 @@ sub _print_private_fieldset {
 	say qq(<input type="color" name="private_bg" id="private_bg" value="$bg" )
 	  . q(style="width:30px;height:15px"> Background colour);
 	say q(</li></li>);
-	say
-qq(<span id="example_private" style="border:1px solid #aaa;background:$bg;color:$fg;padding:0 0.2em">example private record</span>);
+	say q(<span id="example_private" style="border:1px solid #aaa;)
+	  . qq(background:$bg;color:$fg;padding:0 0.2em">example private record</span>);
 	say q(</li></ul></fieldset>);
+	$self->{'private_fieldset'} = 1;
 	return;
 }
 
 sub _print_options {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	say q(<fieldset style="float:left"><legend>Options</legend><ul></li>);
+	my ($self)  = @_;
+	my $q       = $self->{'cgi'};
+	my $display = $self->{'plugin_prefs'}->{'options_fieldset'} ? 'block' : 'none';
+	say qq(<fieldset id="options_fieldset" style="float:left;display:$display">) . q(<legend>Options</legend><ul></li>);
 	say $q->checkbox(
 		-name     => 'indicate_tags',
 		-id       => 'indicate_tags',
@@ -269,13 +378,15 @@ sub _print_classification_scheme_fields {
 	  $self->{'datastore'}->run_query( 'SELECT id,name FROM classification_schemes ORDER BY display_order,name',
 		undef, { fetch => 'all_arrayref', slice => {} } );
 	return if !@$classification_schemes;
-	my $ids    = [];
-	my $labels = {};
+	my $display = $self->{'plugin_prefs'}->{'classification_fieldset'} ? 'block' : 'none';
+	my $ids     = [];
+	my $labels  = {};
 	foreach my $cf (@$classification_schemes) {
 		push @$ids, $cf->{'id'};
 		$labels->{ $cf->{'id'} } = $cf->{'name'};
 	}
-	say q(<fieldset style="float:left"><legend>Classification schemes</legend>);
+	say qq(<fieldset id="classification_fieldset" style="float:left;display:$display">)
+	  . q(<legend>Classification schemes</legend>);
 	say $self->popup_menu(
 		-name     => 'classification_schemes',
 		-id       => 'classification_schemes',
@@ -286,13 +397,54 @@ sub _print_classification_scheme_fields {
 		-style    => 'width:100%'
 	);
 	say q(</fieldset>);
+	$self->{'classification_fieldset'} = 1;
+	return;
+}
+
+sub _print_lincode_fieldset {
+	my ($self) = @_;
+	my $lincode_schemes =
+	  $self->{'datastore'}->run_query(
+		'SELECT s.id,ls.thresholds FROM lincode_schemes ls JOIN ' . 'schemes s ON ls.scheme_id=s.id ORDER BY s.name',
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	return if !@$lincode_schemes;
+	my $ids    = [];
+	my $labels = {};
+	my $set_id = $self->get_set_id;
+	foreach my $scheme (@$lincode_schemes) {
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme->{'id'}, { set_id => $set_id } );
+		my @thresholds  = split( ';', $scheme->{'thresholds'} );
+		foreach my $i ( 1 .. @thresholds - 1 ) {
+			my $id = "linp_$scheme->{'id'}_$i";
+			push @$ids, $id;
+			$labels->{$id} = "LINcode ($scheme_info->{'name'})[$i]";
+		}
+	}
+	my $display = $self->{'plugin_prefs'}->{'lincode_fieldset'} ? 'block' : 'none';
+	say qq(<fieldset id="lincode_fieldset" style="float:left;display:$display;max-width:400px">)
+	  . q(<legend>LIN code prefixes</legend><p>Selecting a scheme and all fields for it will include )
+	  . q(the full LIN code and prefix-linked fields. The following list just allows you to select )
+	  . q(LIN code prefixes of a specific length.</p><ul></li>);
+	say $self->popup_menu(
+		-name     => 'lincode_prefixes',
+		-id       => 'lincode_prefixes',
+		-values   => $ids,
+		-labels   => $labels,
+		-size     => 8,
+		-multiple => 'true',
+		-style    => 'width:100%'
+	);
+	say q(</li></ul></fieldset>);
+	$self->{'lincode_fieldset'} = 1;
 	return;
 }
 
 sub _print_molwt_options {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	say q(<fieldset style="float:left"><legend>Molecular weights</legend><ul></li>);
+	my ($self)  = @_;
+	my $display = $self->{'plugin_prefs'}->{'molwt_fieldset'} ? 'block' : 'none';
+	my $q       = $self->{'cgi'};
+	say qq(<fieldset id="molwt_fieldset" style="float:left;display:$display">)
+	  . q(<legend>Molecular weights</legend><ul></li>);
 	say $q->checkbox( -name => 'molwt', -id => 'molwt', -label => 'Export protein molecular weights' );
 	say q(</li><li>);
 	say $q->checkbox(
@@ -323,9 +475,24 @@ sub _update_prefs {
 	return;
 }
 
+sub _save_options {
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $guid   = $self->get_guid;
+	foreach my $fieldset (qw(eav composite refs private classification lincode molwt options)) {
+		$self->{'prefstore'}->set_plugin_attribute( $guid, $self->{'system'}->{'db'},
+			'Export', "${fieldset}_fieldset", scalar $q->param($fieldset) // 0 );
+	}
+	return;
+}
+
 sub run {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
+	if ( $q->param('save_options') ) {
+		$self->_save_options;
+		return;
+	}
 	say q(<h1>Export dataset</h1>);
 	if ( ( $self->{'system'}->{'DatasetExport'} // q() ) eq 'no' ) {
 		$self->print_bad_status( { message => q(Dataset exports are disabled.) } );
@@ -334,7 +501,8 @@ sub run {
 	return if $self->has_set_changed;
 	if ( $q->param('submit') ) {
 		$self->_update_prefs;
-		my $selected_fields = $self->get_selected_fields( { lincodes => 1, lincode_fields => 1 } );
+		my $selected_fields =
+		  $self->get_selected_fields( { lincodes => 1, lincode_fields => 1, lincode_prefixes => 1 } );
 		$q->delete('classification_schemes');
 		push @$selected_fields, 'm_references'   if $q->param('m_references');
 		push @$selected_fields, 'private_record' if $q->param('private_record');
@@ -454,8 +622,18 @@ sub _get_excel_formatting {
 	return $format;
 }
 
+sub _print_onboarding {
+	my ($self) = @_;
+	say q(<div id="onboarding" style="max-width:300px"><h2 style="color:white">More options</h2>)
+	  . q(<p>Please note that some export options are now hidden by default but are available for )
+	  . q(selection by clicking the 'Modify Form' tab at the top-right of the page.</p>)
+	  . q(<button id="close_onboarding">Close</button></div>);
+	return;
+}
+
 sub _print_interface {
 	my ( $self, $default_select ) = @_;
+	$self->_print_onboarding;
 	my $q          = $self->{'cgi'};
 	my $set_id     = $self->get_set_id;
 	my $query_file = $q->param('query_file');
@@ -481,21 +659,25 @@ sub _print_interface {
 			last;
 		}
 	}
+	my $guid = $self->get_guid;
+	$self->{'plugin_prefs'} = $self->{'prefstore'}->get_plugin_attributes( $guid, $self->{'system'}->{'db'}, 'Export' );
 	say $q->start_form;
 	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $selected_ids, isolate_paste_list => 1 } );
 	$self->print_isolate_fields_fieldset(
 		{ extended_attributes => 1, default => [ 'id', $self->{'system'}->{'labelfield'} ], no_all_none => 1 } );
-	$self->print_eav_fields_fieldset( { no_all_none => 1 } );
-	$self->print_composite_fields_fieldset;
+	$self->print_eav_fields_fieldset( { no_all_none => 1, hide => $self->{'plugin_prefs'}->{'eav_fieldset'} ? 0 : 1 } );
+	$self->print_composite_fields_fieldset( { hide => $self->{'plugin_prefs'}->{'composite_fieldset'} ? 0 : 1 } );
 	$self->_print_ref_fields;
 	$self->_print_private_fieldset;
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1, no_all_none => 1 } );
 	$self->print_scheme_fieldset( { fields_or_loci => 1 } );
 	$self->_print_classification_scheme_fields;
+	$self->_print_lincode_fieldset;
 	$self->_print_options;
 	$self->_print_molwt_options;
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say q(<div style="clear:both"></div>);
+	$self->_print_modify_search_fieldset;
 	$q->param( set_id => $set_id );
 	say $q->hidden($_) foreach qw (db page name set_id);
 	say $q->end_form;
@@ -604,6 +786,7 @@ sub _write_tab_text {
 	my $progress = 0;
 
 	while ( $sql->fetchrow_arrayref ) {
+		undef $self->{'cache'}->{'current_lincode'};
 		next
 		  if $id_used{ $data{'id'} }
 		  ;    #Ordering by scheme field/locus can result in multiple rows per isolate if multiple values defined.
@@ -625,6 +808,7 @@ sub _write_tab_text {
 				locus                 => qr/^(s_\d+_l_|l_)(.*)/x,
 				scheme_field          => qr/^s_(\d+)_f_(.*)/x,
 				lincode               => qr/^lin_(\d+)$/x,
+				lincode_prefix        => qr/^linp_(\d+)_(\d+)$/x,
 				lincode_field         => qr/^lin_(\d+)_(.+)$/x,
 				composite_field       => qr/^c_(.*)/x,
 				classification_scheme => qr/^cs_(.*)/x,
@@ -656,6 +840,18 @@ sub _write_tab_text {
 					$self->_write_lincode(
 						{ fh => $fh, scheme_id => $1, data => \%data, first => $first, params => $params } );
 				},
+				lincode_prefix => sub {
+					$self->_write_lincode_prefix_field(
+						{
+							fh        => $fh,
+							scheme_id => $1,
+							threshold => $2,
+							data      => \%data,
+							first     => $first,
+							params    => $params
+						}
+					);
+				},
 				lincode_field => sub {
 					$self->_write_lincode_field(
 						{ fh => $fh, scheme_id => $1, field => $2, data => \%data, first => $first, params => $params }
@@ -678,7 +874,7 @@ sub _write_tab_text {
 				}
 			};
 			foreach my $field_type (
-				qw(field eav_field locus scheme_field lincode lincode_field composite_field
+				qw(field eav_field locus scheme_field lincode lincode_prefix lincode_field composite_field
 				classification_scheme reference private_record private_owner)
 			  )
 			{
@@ -727,12 +923,18 @@ sub _get_header {
 		my $i = 0;
 		foreach (@$fields) {
 			my $field = $_;    #don't modify @$fields
-			if ( $field =~ /^s_(\d+)_f/x || $field =~ /^lin_(\d+)$/x || $field =~ /^lin_(\d+)_(.+)$/x ) {
+			if (   $field =~ /^s_(\d+)_f/x
+				|| $field =~ /^lin_(\d+)$/x
+				|| $field =~ /^lin_(\d+)_(.+)$/x
+				|| $field =~ /^linp_(\d+)_(\d+)$/x )
+			{
 				my $scheme_id = $1;
 				my $scheme_info =
 				  $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 				if ( $field =~ /^lin_(\d+)$/x ) {
 					$field = 'LINcode';
+				} elsif ( $field =~ /^linp_(\d+)_(\d+)/x ) {
+					$field = "LINcode[$2]";
 				} elsif ( defined $2 ) {    #Lincode prefix field
 					$field = $2;
 				}
@@ -989,21 +1191,49 @@ sub _write_lincode {
 	my ( $self, $args ) = @_;
 	my ( $fh, $scheme_id, $data, $first_col, $params ) =
 	  @{$args}{qw(fh scheme_id data first params )};
-	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
-	my $lincode     = $self->{'datastore'}->get_lincode_value( $data->{'id'}, $scheme_id );
+	my $lincode = $self->{'datastore'}->get_lincode_value( $data->{'id'}, $scheme_id );
 
 	#LINcode fields are always calculated after the LINcode itself, so
 	#we can just cache the last LINcode value rather than re-calculating it.
 	$self->{'cache'}->{'current_lincode'} = $lincode;
 	local $" = q(_);
 	if ( $params->{'oneline'} ) {
-		print $fh $self->_get_id_one_line( $data, $params );
-		print $fh "LINcode ($scheme_info->{'name'})\t";
-		print $fh qq(@$lincode) if defined $lincode;
-		print $fh qq(\n);
+		if ( defined $lincode ) {
+			my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+			print $fh $self->_get_id_one_line( $data, $params );
+			print $fh "LINcode ($scheme_info->{'name'})\t";
+			print $fh qq(@$lincode) if defined $lincode;
+			print $fh qq(\n);
+		}
 	} else {
 		print $fh qq(\t)        if !$first_col;
 		print $fh qq(@$lincode) if defined $lincode;
+	}
+	return;
+}
+
+sub _write_lincode_prefix_field {
+	my ( $self, $args ) = @_;
+	my ( $fh, $scheme_id, $threshold, $data, $first_col, $params ) =
+	  @{$args}{qw(fh scheme_id threshold data first params )};
+	my $lincode;
+	if ( defined $self->{'cache'}->{'current_lincode'} ) {
+		$lincode = $self->{'cache'}->{'current_lincode'};
+	} else {
+		$lincode = $self->{'datastore'}->get_lincode_value( $data->{'id'}, $scheme_id );
+	}
+	my @prefix = defined $lincode ? @{$lincode}[ 0 .. $threshold - 1 ] : ();
+	local $" = q(_);
+	if ( $params->{'oneline'} ) {
+		if (@prefix) {
+			my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+			print $fh $self->_get_id_one_line( $data, $params );
+			print $fh "LINcode[$threshold] ($scheme_info->{'name'})\t";
+			say $fh qq(@prefix);
+		}
+	} else {
+		print $fh qq(\t) if !$first_col;
+		print $fh qq(@prefix);
 	}
 	return;
 }
@@ -1209,5 +1439,55 @@ sub _get_molwt {
 		$weight = q(-);
 	};
 	return $weight;
+}
+
+sub _print_modify_search_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say q(<div id="modify_panel" class="panel">);
+	say q(<a class="close_trigger" id="close_trigger"><span class="fas fa-lg fa-times"></span></a>);
+	say q(<h2>Modify form parameters</h2>);
+	say q(<p>Click to add or remove additional<br />export category selections:</p>)
+	  . q(<ul style="list-style:none;margin-left:-2em">);
+	if ( $self->{'eav_fieldset'} ) {
+		my $eav_fieldset_display = $self->{'plugin_prefs'}->{'eav_fieldset'} ? HIDE : SHOW;
+		say qq(<li><a href="" class="button fieldset_trigger" id="show_eav">$eav_fieldset_display</a>);
+		say q(Secondary metadata</li>);
+	}
+	if ( $self->{'composite_fieldset'} ) {
+		my $composite_fieldset_display = $self->{'plugin_prefs'}->{'composite_fieldset'} ? HIDE : SHOW;
+		say qq(<li><a href="" class="button fieldset_trigger" id="show_composite">$composite_fieldset_display</a>);
+		say q(Composite fields</li>);
+	}
+	my $refs_display = $self->{'plugin_prefs'}->{'refs_fieldset'} ? HIDE : SHOW;
+	say qq(<li><a href="" class="button fieldset_trigger" id="show_refs">$refs_display</a>);
+	say q(References</li>);
+	if ( $self->{'private_fieldset'} ) {
+		my $private_display = $self->{'plugin_prefs'}->{'private_fieldset'} ? HIDE : SHOW;
+		say qq(<li><a href="" class="button fieldset_trigger" id="show_private">$private_display</a>);
+		say q(Private records</li>);
+	}
+	if ( $self->{'classification_fieldset'} ) {
+		my $classification_display = $self->{'plugin_prefs'}->{'classification_fieldset'} ? HIDE : SHOW;
+		say qq(<li><a href="" class="button fieldset_trigger" id="show_classification">$classification_display</a>);
+		say q(Classification schemes</li>);
+	}
+	if ( $self->{'lincode_fieldset'} ) {
+		my $lincode_display = $self->{'plugin_prefs'}->{'lincode_fieldset'} ? HIDE : SHOW;
+		say qq(<li><a href="" class="button fieldset_trigger" id="show_lincode">$lincode_display</a>);
+		say q(LIN code prefixes</li>);
+	}
+	my $molwt_display = $self->{'plugin_prefs'}->{'molwt_fieldset'} ? HIDE : SHOW;
+	say qq(<li><a href="" class="button fieldset_trigger" id="show_molwt">$molwt_display</a>);
+	say q(Molecular weights</li>);
+	my $options_display = $self->{'plugin_prefs'}->{'options_fieldset'} ? HIDE : SHOW;
+	say qq(<li><a href="" class="button fieldset_trigger" id="show_options">$options_display</a>);
+	say q(General options</li>);
+	say q(</ul>);
+	my $save = SAVE;
+	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+	  . qq(page=plugin&amp;name=Export&amp;save_options=1" style="display:none">$save</a> <span id="saving"></span><br />);
+	say q(</div>);
+	return;
 }
 1;

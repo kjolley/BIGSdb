@@ -1,4 +1,4 @@
-/*Version: 20241018*/
+/*Version: 20241121*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -823,7 +823,7 @@ div.registered_configs {
 }
 
 div.registered_configs ul {
-	list-style:disc inside none
+	list-style: disc inside none
 }
 
 div.flex_container {
@@ -2050,6 +2050,21 @@ div#pluginbanner {
 	color: #006
 }
 
+div#onboarding {
+	display: none;
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	padding: 20px;
+	color: #ffffff;
+	background-color: #7879bf;
+	border: 2px solid #ccc;
+	border-radius: 15px;
+	box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+	z-index:10
+}
+
 div#message {
 	background: #e0d5d5
 }
@@ -2419,14 +2434,16 @@ div.scheme_tree {
 	word-break: break-word
 }
 
-dl.profile,dl.locus_combinations {
+dl.profile,
+dl.locus_combinations {
 	margin: 0;
 	display: inline-block;
 	border: 1px solid #ccc;
 	text-align: center;
 }
 
-.profile dt,.locus_combinations dt {
+.profile dt,
+.locus_combinations dt {
 	margin: 0;
 	padding: 0 0.5em;
 	height: 1.2em;
@@ -2444,7 +2461,8 @@ dl.profile,dl.locus_combinations {
 	text-decoration: none
 }
 
-.profile dd,.locus_combinations dd {
+.profile dd,
+.locus_combinations dd {
 	min-height: 1.7em;
 	padding: 0;
 	margin: 0;
@@ -2716,7 +2734,8 @@ span.export_archive {
 	text-shadow: 3px 3px 3px #999
 }
 
-span.export_image,span.export_html {
+span.export_image,
+span.export_html {
 	color: #47f;
 	text-shadow: 3px 3px 3px #999
 }
@@ -2726,7 +2745,8 @@ span.export_align {
 	text-shadow: 3px 3px 3px #999
 }
 
-span.export_code,span.export_pdf {
+span.export_code,
+span.export_pdf {
 	color: #903;
 	text-shadow: 3px 3px 3px #999
 }
