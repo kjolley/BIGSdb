@@ -176,11 +176,17 @@ function enable_tag_controls(){
         \$('#onboarding').show();
         localStorage.setItem('export_onboarding_202411', 'true');
     }
-
     \$('#close_onboarding').click(function() {
         \$('#onboarding').hide();
     });
-	
+    //Reset form if not visible, e.g. after reloading.
+	let fieldsets = ['eav','composite','refs','private','classification','lincode','molwt','options'];
+	for (let i = 0; i < fieldsets.length; ++i) {		
+		let fieldset = fieldsets[i] + "_fieldset";
+		if (\$("#" + fieldset).is(":hidden")){
+			clear_form(fieldsets[i]);
+		}
+	}
 }); 
 
 function clear_form(fieldset){
@@ -202,7 +208,7 @@ function clear_form(fieldset){
 		\$("#classification_schemes").multiselect("uncheckAll");
 	}
 	if (fieldset == 'lincode'){
-		\$("#lincodes").multiselect("uncheckAll");
+		\$("#lincode_prefixes").multiselect("uncheckAll");
 	}
 	if (fieldset == 'molwt'){
 		\$("#molwt").prop("checked", false);
