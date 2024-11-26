@@ -53,7 +53,7 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.6.0',
+		version             => '1.6.1',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -393,6 +393,8 @@ sub _generate_mstree {
 	}
 	eval { system($cmd); };
 	if ($?) {
+		my $error_ref = BIGSdb::Utils::slurp($error_file);
+		$logger->error($$error_ref);
 		BIGSdb::Exception::Plugin->throw('Tree generation failed.');
 	}
 	if ( -e $error_file ) {
