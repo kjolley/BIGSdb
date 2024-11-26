@@ -2131,12 +2131,28 @@ sub _set_submission_params {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (jQuery noCache allowExpand);
+	$self->{$_} = 1 foreach qw (jQuery noCache allowExpand jQuery.multiselect);
 	my $q = $self->{'cgi'};
 	if ( $q->param('query') || $q->param('data') || $q->param('checked_buffer') ) {
 		$self->{'processing'} = 1;
 	}
 	$self->set_level1_breadcrumbs;
 	return;
+}
+
+sub get_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+\$(function () {
+   \$('#sender').multiselect({
+  	classes: 'filter',
+ 	menuHeight: 250,
+ 	menuWidth: 400,
+ 	noneSelectedText: '',
+ 	selectedList: 1,
+  }).multiselectfilter();
+});
+END
+	return $buffer;
 }
 1;

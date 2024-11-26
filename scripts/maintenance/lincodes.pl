@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20240916
+#Version: 20241116
 use strict;
 use warnings;
 use 5.010;
@@ -121,7 +121,7 @@ sub adjust_prim_order {
 	my $locus_count      = @$loci;
 	my $closest_distance = 100;
 	my $closest_profile_index;
-	my $index = 0;
+	my $index   = 0;
 	my %missing = ( N => 0 );
 
 	foreach my $profile_id (@$new_profiles) {
@@ -132,15 +132,9 @@ sub adjust_prim_order {
 		my $profile = pdl($profile_array);
 		for my $i ( 0 .. @$assigned_profile_ids - 1 ) {
 			my $assigned_profile = $assigned_profiles->slice(",($i)");
-			my ($diffs) = dims(
-				where(
-					$assigned_profile, $profile,
-					( $assigned_profile != $profile ) & ( $assigned_profile != 0 ) & ( $profile != 0 )
-				)
-			);
-			my ($missing_in_either) =
-			  dims( where( $assigned_profile, $profile, ( $assigned_profile == 0 ) | ( $profile == 0 ) ) );
-			my $distance = 100 * $diffs / ( $locus_count - $missing_in_either );
+			my $diffs = sum( ( $assigned_profile != $profile ) & ( $assigned_profile != 0 ) & ( $profile != 0 ) );
+			my $missing_in_either = sum( ( $assigned_profile == 0 ) | ( $profile == 0 ) );
+			my $distance          = 100.0 * $diffs / ( $locus_count - $missing_in_either ); #100.0 - force float not int
 			if ( $distance < $closest_distance ) {
 				$closest_distance      = $distance;
 				$closest_profile_index = $index;
@@ -156,9 +150,9 @@ sub adjust_prim_order {
 }
 
 sub initiate_log_file {
-	my ($filename) = @_;
+	my ($filename)  = @_;
 	my $scheme_info = $script->{'datastore'}->get_scheme_info( $opts{'scheme_id'}, { get_pk => 1 } );
-	my $pk = $scheme_info->{'primary_key'};
+	my $pk          = $scheme_info->{'primary_key'};
 	open( my $fh, '>', $filename ) || die "Cannot write to log file $filename.\n";
 	say $fh qq($pk\tclosest $pk\tcommon alleles\tmissing alleles\tmissing in either\tidentity\tdistance\t)
 	  . qq(chosen prefix\tnew LINcode);
@@ -168,14 +162,15 @@ sub initiate_log_file {
 
 sub assign_lincodes {
 	my ($profiles_to_assign) = @_;
-	my $scheme_info = $script->{'datastore'}->get_scheme_info( $opts{'scheme_id'}, { get_pk => 1 } );
-	my $pk          = $scheme_info->{'primary_key'};
-	my $count       = @$profiles_to_assign;
-	my $plural      = $count == 1 ? q() : q(s);
+	my $scheme_info          = $script->{'datastore'}->get_scheme_info( $opts{'scheme_id'}, { get_pk => 1 } );
+	my $pk                   = $scheme_info->{'primary_key'};
+	my $count                = @$profiles_to_assign;
+	my $plural               = $count == 1 ? q() : q(s);
 	say "Assigning LINcodes for $count profile$plural." if !$opts{'quiet'};
 	my $definitions = get_lincode_definitions();
 	my $thresholds  = get_thresholds();
 	my %missing     = ( N => 0 );
+
 	foreach my $profile_id (@$profiles_to_assign) {
 		my $lincode;
 		my $profile = $script->{'datastore'}->run_query( "SELECT profile FROM mv_scheme_$opts{'scheme_id'} WHERE $pk=?",
@@ -236,17 +231,16 @@ sub get_new_lincode {
 	my $closest = {};
 
 	for my $i ( 0 .. @{ $definitions->{'profile_ids'} } - 1 ) {
-		my $prof1 = $definitions->{'profiles'}->slice(",($i)");
-		my ($diffs) =
-		  dims( where( $prof1, $prof2, ( $prof1 != $prof2 ) & ( $prof1 != 0 ) & ( $prof2 != 0 ) ) );
-		my ($missing_in_either) = dims( where( $prof1, $prof2, ( $prof1 == 0 ) | ( $prof2 == 0 ) ) );
-		my $distance = 100 * $diffs / ( $locus_count - $missing_in_either );
+		my $prof1             = $definitions->{'profiles'}->slice(",($i)");
+		my $diffs             = sum( ( $prof1 != $prof2 ) & ( $prof1 != 0 ) & ( $prof2 != 0 ) );
+		my $missing_in_either = sum( ( $prof1 == 0 ) | ( $prof2 == 0 ) );
+		my $distance          = 100.0 * $diffs / ( $locus_count - $missing_in_either );
 		if ( $distance < $min_distance ) {
 			$min_distance  = $distance;
 			$closest_index = $i;
 			if ( $opts{'log'} ) {
-				( $closest->{'common_alleles'} ) = dims( where( $prof1, $prof2, ( $prof1 == $prof2 ) ) );
-				( $closest->{'missing'} ) = dims( where( $prof2, ( $prof2 == 0 ) ) );
+				( $closest->{'common_alleles'} ) = sum( $prof1 == $prof2 );
+				( $closest->{'missing'} )        = sum( $prof2 == 0 );
 				$closest->{'missing_in_either'} = $missing_in_either;
 			}
 		}
@@ -346,7 +340,7 @@ sub get_profiles_without_lincodes {
 	}
 	$qry .= "ORDER BY $cast_pk LIMIT $opts{'batch_size'}";
 	my $profiles = $script->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
-	my $count = @$profiles;
+	my $count    = @$profiles;
 	say "$count retrieved." if !$opts{'quiet'};
 	return $profiles;
 }
@@ -371,7 +365,7 @@ sub get_prim_order {
 	}
 	my $ind = $dismat->flat->minimum_ind;
 	my ( $x, $y ) = ( int( $ind / @$index ), $ind - int( $ind / @$index ) * @$index );
-	my $index_order = [ $x, $y ];
+	my $index_order   = [ $x, $y ];
 	my $profile_order = [ $index->[$x], $index->[$y] ];
 	$dismat->set( $x, $y, 999 );
 	$dismat->set( $y, $x, 999 );
@@ -412,10 +406,10 @@ sub get_prim_order {
 
 sub get_distance_matrix {
 	my ($profile_ids) = @_;
-	my $scheme_info = $script->{'datastore'}->get_scheme_info( $opts{'scheme_id'}, { get_pk => 1 } );
-	my $pk          = $scheme_info->{'primary_key'};
-	my $loci        = $script->{'datastore'}->get_scheme_loci( $opts{'scheme_id'} );
-	my $locus_count = @$loci;
+	my $scheme_info   = $script->{'datastore'}->get_scheme_info( $opts{'scheme_id'}, { get_pk => 1 } );
+	my $pk            = $scheme_info->{'primary_key'};
+	my $loci          = $script->{'datastore'}->get_scheme_loci( $opts{'scheme_id'} );
+	my $locus_count   = @$loci;
 	die "Scheme has no loci.\n" if !$locus_count;
 	my $lincode_scheme = $script->{'datastore'}
 	  ->run_query( 'SELECT * FROM lincode_schemes WHERE scheme_id=?', $opts{'scheme_id'}, { fetch => 'row_hashref' } );
@@ -443,10 +437,10 @@ sub get_distance_matrix {
 	my $profile_matrix = pdl($matrix);
 	my $count          = @$index;
 	die "No profiles to assign.\n" if ( !$count );
-	return $index if @$index == 1;
+	return $index                  if @$index == 1;
 	my $msg = $count > 2000 ? ' (this will take a while)' : q();
 	print "Calculating distance matrix$msg ..." if !$opts{'quiet'};
-	print "\n" if $count >= 500;
+	print "\n"                                  if $count >= 500;
 	my $start_time = time;
 	my $prefix     = BIGSdb::Utils::get_random();
 	my $filename   = "$script->{'config'}->{'secure_tmp_dir'}/${prefix}.dismat";
@@ -467,12 +461,11 @@ sub get_distance_matrix {
 			}
 		}
 		for my $j ( $i + 1 .. $count - 1 ) {
-			my $prof1 = $profile_matrix->slice(",($i)");
-			my $prof2 = $profile_matrix->slice(",($j)");
-			my ($diffs) =
-			  dims( where( $prof1, $prof2, ( $prof1 != $prof2 ) & ( $prof1 != 0 ) & ( $prof2 != 0 ) ) );
-			my ($missing_in_either) = dims( where( $prof1, $prof2, ( $prof1 == 0 ) | ( $prof2 == 0 ) ) );
-			my $distance = 100 * $diffs / ( $locus_count - $missing_in_either );
+			my $prof1             = $profile_matrix->slice(",($i)");
+			my $prof2             = $profile_matrix->slice(",($j)");
+			my $diffs             = sum( ( $prof1 != $prof2 ) & ( $prof1 != 0 ) & ( $prof2 != 0 ) );
+			my $missing_in_either = sum( ( $prof1 == 0 ) | ( $prof2 == 0 ) );
+			my $distance = 100.0 * $diffs / ( $locus_count - $missing_in_either );    #100.0 - force float not int.
 			$dismat->set( $i, $j, $distance );
 			$dismat->set( $j, $i, $distance );
 		}
@@ -515,6 +508,7 @@ sub check_db {
 		exit;
 	}
 }
+
 sub check_if_script_already_running {
 	my $lock_file = get_lock_file();
 	if ( -e $lock_file ) {
@@ -554,7 +548,7 @@ sub show_help {
 	my $termios = POSIX::Termios->new;
 	$termios->getattr;
 	my $ospeed = $termios->getospeed;
-	my $t = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
+	my $t      = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
 	my ( $norm, $bold, $under ) = map { $t->Tputs( $_, 1 ) } qw/me md us/;
 	say << "HELP";
 ${bold}NAME$norm
