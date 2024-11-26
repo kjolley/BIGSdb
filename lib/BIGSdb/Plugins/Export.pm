@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext         => 'Dataset',
 		menutext           => 'Dataset',
 		module             => 'Export',
-		version            => '1.14.0',
+		version            => '1.15.0',
 		dbtype             => 'isolates',
 		section            => 'export,postquery',
 		url                => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
@@ -152,7 +152,7 @@ function enable_tag_controls(){
 		event.preventDefault();
 		let show = '$show';
 		let save_url = this.href;
-		let fieldsets = ['eav','composite','refs','private','classification','lincode','molwt','options'];
+		let fieldsets = ['eav','composite','refs','private','classification','analysis','lincode','molwt','options'];
 		for (let i = 0; i < fieldsets.length; ++i) {			
 			let value = \$("#show_" + fieldsets[i]).html() == show ? 0 : 1;
 			save_url += "&" + fieldsets[i] + "=" + value;
@@ -180,7 +180,7 @@ function enable_tag_controls(){
         \$('#onboarding').hide();
     });
     //Reset form if not visible, e.g. after reloading.
-	let fieldsets = ['eav','composite','refs','private','classification','lincode','molwt','options'];
+	let fieldsets = ['eav','composite','refs','private','classification','analysis','lincode','molwt','options'];
 	for (let i = 0; i < fieldsets.length; ++i) {		
 		let fieldset = fieldsets[i] + "_fieldset";
 		if (\$("#" + fieldset).is(":hidden")){
@@ -209,6 +209,9 @@ function clear_form(fieldset){
 	}
 	if (fieldset == 'lincode'){
 		\$("#lincode_prefixes").multiselect("uncheckAll");
+	}
+	if (fieldset == 'analysis'){
+		\$("#analysis_fields").multiselect("uncheckAll");
 	}
 	if (fieldset == 'molwt'){
 		\$("#molwt").prop("checked", false);
@@ -446,7 +449,9 @@ sub _print_analysis_fields {
 	my $q = $self->{'cgi'};
 	my ( $values, $labels ) =
 	  $self->get_analysis_field_values_and_labels( { prefix => 'af_', no_blank_value => 1 } );
-	say q(<fieldset style="float:left"><legend>Analysis results</legend>);
+	my $display = $self->{'plugin_prefs'}->{'analysis_fieldset'} ? 'block' : 'none';
+	say qq(<fieldset id="analysis_fieldset" style="float:left;display:$display">)
+	  . q(<legend>Analysis results</legend>);
 	say $q->scrolling_list(
 		-name     => 'analysis_fields',
 		-id       => 'analysis_fields',
@@ -457,6 +462,7 @@ sub _print_analysis_fields {
 		-style    => 'width:100%'
 	);
 	say q(</fieldset>);
+	$self->{'analysis_fieldset'} = 1;
 	return;
 }
 
@@ -500,7 +506,7 @@ sub _save_options {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $guid   = $self->get_guid;
-	foreach my $fieldset (qw(eav composite refs private classification lincode molwt options)) {
+	foreach my $fieldset (qw(eav composite refs private classification lincode analysis molwt options)) {
 		$self->{'prefstore'}->set_plugin_attribute( $guid, $self->{'system'}->{'db'},
 			'Export', "${fieldset}_fieldset", scalar $q->param($fieldset) // 0 );
 	}
@@ -1537,6 +1543,11 @@ sub _print_modify_search_fieldset {
 		my $lincode_display = $self->{'plugin_prefs'}->{'lincode_fieldset'} ? HIDE : SHOW;
 		say qq(<li><a href="" class="button fieldset_trigger" id="show_lincode">$lincode_display</a>);
 		say q(LIN code prefixes</li>);
+	}
+	if ( $self->{'analysis_fieldset'} ) {
+		my $analysis_display = $self->{'plugin_prefs'}->{'analysis_fieldset'} ? HIDE : SHOW;
+		say qq(<li><a href="" class="button fieldset_trigger" id="show_analysis">$analysis_display</a>);
+		say q(Analysis fields</li>);
 	}
 	my $molwt_display = $self->{'plugin_prefs'}->{'molwt_fieldset'} ? HIDE : SHOW;
 	say qq(<li><a href="" class="button fieldset_trigger" id="show_molwt">$molwt_display</a>);
