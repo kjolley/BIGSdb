@@ -457,19 +457,31 @@ sub get_selected_fields {
 	push @$fields, qq(c_$_) foreach @composite;
 	my $set_id        = $self->get_set_id;
 	my $loci          = $self->{'datastore'}->get_loci( { set_id => $set_id } );
-	my $selected_loci = $self->get_selected_loci;
+	my $selected_loci = $self->get_selected_loci($options);
 	my ( $pasted_cleaned_loci, $invalid_loci ) = $self->get_loci_from_pasted_list( { dont_clear => 1 } );
 	push @$selected_loci, @$pasted_cleaned_loci;
 	my %selected_loci = map { $_ => 1 } @$selected_loci;
 	my %locus_seen;
+	my $locus_extended_attributes = {};
 
+	if ( $options->{'locus_extended_attributes'} ) {
+		foreach my $selected (@$selected_loci) {
+			if ( $selected =~ /^lex_(.+)\|\|/x ) {
+				push @{ $locus_extended_attributes->{$1} }, $selected;
+			}
+		}
+	}
 	foreach my $locus (@$loci) {
 		if ( $selected_loci{$locus} ) {
 			push @$fields, "l_$locus";
 			$locus_seen{$locus} = 1;
 		}
+		if ( $options->{'locus_extended_attributes'} && defined $locus_extended_attributes->{$locus} ) {
+			push @$fields, @{ $locus_extended_attributes->{$locus} };
+		}
 	}
-	my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
+	my $schemes =
+	  $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
 	my $lincode_prefixes = {};
 	if ( $q->param('lincode_prefixes') ) {
 		my @prefixes = $q->multi_param('lincode_prefixes');
@@ -509,17 +521,30 @@ sub get_selected_fields {
 		push @$fields, @{ $lincode_prefixes->{$scheme_id} }
 		  if $options->{'lincode_prefixes'} && defined $lincode_prefixes->{$scheme_id};
 	}
+	$self->_process_selected_classification_schemes($fields);
+	$self->_process_selected_analysis_fields( $options, $fields );
+	return $fields;
+}
+
+sub _process_selected_classification_schemes {
+	my ( $self, $fields ) = @_;
+	my $q = $self->{'cgi'};
 	if ( $q->param('classification_schemes') ) {
 		my @cschemes = $q->multi_param('classification_schemes');
 		foreach my $cs (@cschemes) {
 			push @$fields, "cs_$cs";
 		}
 	}
-	if ( $options->{'analysis_fields'} ) {
-		my @analysis_fields = $q->multi_param('analysis_fields');
-		push @$fields, @analysis_fields;
-	}
-	return $fields;
+	return;
+}
+
+sub _process_selected_analysis_fields {
+	my ( $self, $options, $fields ) = @_;
+	return if !$options->{'analysis_fields'};
+	my $q               = $self->{'cgi'};
+	my @analysis_fields = $q->multi_param('analysis_fields');
+	push @$fields, @analysis_fields;
+	return;
 }
 
 sub check_id_list {
@@ -611,7 +636,7 @@ sub print_includes_fieldset {
 		if ( $field =~ /^(?:l|cn)_/x ) {
 			push @{ $group_members->{'Loci'} }, $field;
 		}
-		if ($field =~ /^af_/x){
+		if ( $field =~ /^af_/x ) {
 			push @{ $group_members->{'Analysis fields'} }, $field;
 		}
 		if ( $field =~ /^(?:f|e|gp)_/x ) {
@@ -638,7 +663,7 @@ sub print_includes_fieldset {
 	}
 	my @group_list = split /,/x, ( $self->{'system'}->{'field_groups'} // q() );
 	my @eav_groups = split /,/x, ( $self->{'system'}->{'eav_groups'}   // q() );
-	push @group_list, @eav_groups if @eav_groups;
+	push @group_list, @eav_groups       if @eav_groups;
 	push @group_list, 'Analysis fields' if defined $group_members->{'Analysis fields'};
 	push @group_list, ( 'Loci', 'Schemes', 'LINcodes', 'Classification schemes' );
 	foreach my $group ( undef, @group_list ) {
@@ -773,7 +798,7 @@ sub filter_ids_by_project {
 }
 
 sub get_selected_loci {
-	my ($self) = @_;
+	my ( $self, $options ) = @_;
 	$self->escape_params;
 	my @loci = $self->{'cgi'}->multi_param('locus');
 	my @loci_selected;
@@ -782,6 +807,9 @@ sub get_selected_loci {
 		foreach my $locus (@loci) {
 			my $locus_name = $locus =~ /$pattern/x ? $1 : undef;
 			push @loci_selected, $locus_name if defined $locus_name;
+			if ( $options->{'locus_extended_attributes'} ) {
+				push @loci_selected, $locus if $locus =~ /^lex_/x;
+			}
 		}
 	} else {
 		@loci_selected = @loci;

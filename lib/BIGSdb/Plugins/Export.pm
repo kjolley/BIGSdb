@@ -528,9 +528,15 @@ sub run {
 	return if $self->has_set_changed;
 	if ( $q->param('submit') ) {
 		$self->_update_prefs;
-		my $selected_fields =
-		  $self->get_selected_fields(
-			{ lincodes => 1, lincode_fields => 1, analysis_fields => 1 =>, lincode_prefixes => 1 } );
+		my $selected_fields = $self->get_selected_fields(
+			{
+				locus_extended_attributes => 1,
+				lincodes                  => 1,
+				lincode_fields            => 1,
+				analysis_fields           => 1 =>,
+				lincode_prefixes          => 1
+			}
+		);
 		$q->delete('classification_schemes');
 		push @$selected_fields, 'm_references'   if $q->param('m_references');
 		push @$selected_fields, 'private_record' if $q->param('private_record');
@@ -697,7 +703,7 @@ sub _print_interface {
 	$self->print_composite_fields_fieldset( { hide => $self->{'plugin_prefs'}->{'composite_fieldset'} ? 0 : 1 } );
 	$self->_print_ref_fields;
 	$self->_print_private_fieldset;
-	$self->print_isolates_locus_fieldset( { locus_paste_list => 1, no_all_none => 1 } );
+	$self->print_isolates_locus_fieldset( { locus_paste_list => 1, no_all_none => 1, locus_extended_attributes => 1 } );
 	$self->print_scheme_fieldset( { fields_or_loci => 1 } );
 	$self->_print_classification_scheme_fields;
 	$self->_print_analysis_fields;
@@ -832,19 +838,20 @@ sub _write_tab_text {
 		my $all_allele_ids = $self->{'datastore'}->get_all_allele_ids( $data{'id'} );
 		foreach my $field (@$fields) {
 			my $regex = {
-				field                 => qr/^f_(.*)/x,
-				eav_field             => qr/^eav_(.*)/x,
-				locus                 => qr/^(s_\d+_l_|l_)(.*)/x,
-				scheme_field          => qr/^s_(\d+)_f_(.*)/x,
-				lincode               => qr/^lin_(\d+)$/x,
-				lincode_prefix        => qr/^linp_(\d+)_(\d+)$/x,
-				lincode_field         => qr/^lin_(\d+)_(.+)$/x,
-				composite_field       => qr/^c_(.*)/x,
-				classification_scheme => qr/^cs_(.*)/x,
-				reference             => qr/^m_references/x,
-				private_record        => qr/^private_record$/x,
-				private_owner         => qr/^private_owner$/x,
-				analysis_field        => qr/^af_(.*)___(.*)/x
+				field                    => qr/^f_(.*)/x,
+				eav_field                => qr/^eav_(.*)/x,
+				locus                    => qr/^(s_\d+_l_|l_)(.*)/x,
+				locus_extended_attribute => qr/^lex_(.+)\|\|(.+)/x,
+				scheme_field             => qr/^s_(\d+)_f_(.*)/x,
+				lincode                  => qr/^lin_(\d+)$/x,
+				lincode_prefix           => qr/^linp_(\d+)_(\d+)$/x,
+				lincode_field            => qr/^lin_(\d+)_(.+)$/x,
+				composite_field          => qr/^c_(.*)/x,
+				classification_scheme    => qr/^cs_(.*)/x,
+				reference                => qr/^m_references/x,
+				private_record           => qr/^private_record$/x,
+				private_owner            => qr/^private_owner$/x,
+				analysis_field           => qr/^af_(.*)___(.*)/x
 			};
 			my $methods = {
 				field     => sub { $self->_write_field( $fh, $1, \%data, $first, $params ) },
@@ -858,6 +865,18 @@ sub _write_tab_text {
 							all_allele_ids => $all_allele_ids,
 							first          => $first,
 							params         => $params
+						}
+					);
+				},
+				locus_extended_attribute => sub {
+					$self->_write_locus_extended_attributes(
+						{
+							fh        => $fh,
+							locus     => $1,
+							attribute => $2,
+							data      => \%data,
+							first     => $first,
+							params    => $params
 						}
 					);
 				},
@@ -917,7 +936,7 @@ sub _write_tab_text {
 			};
 			foreach my $field_type (
 				qw(field eav_field locus scheme_field lincode lincode_prefix lincode_field composite_field
-				classification_scheme reference private_record private_owner analysis_field)
+				classification_scheme reference private_record private_owner analysis_field locus_extended_attribute)
 			  )
 			{
 				if ( $field =~ $regex->{$field_type} ) {
@@ -992,6 +1011,10 @@ sub _get_header {
 			}
 			$field =~ s/^(?:s_\d+_l|s_\d+_f|f|l|c|m|cs|eav)_//x;    #strip off prefix for header row
 			$field =~ s/^.*___//x;
+			if ( $field =~ /^lex_/x ) {
+				$field =~ s/^lex_//x;
+				$field =~ s/\|\|/ /x;
+			}
 			if ($is_locus) {
 				$field =
 				  $self->clean_locus( $field,
@@ -1196,6 +1219,31 @@ sub _write_allele {
 			}
 			$first_allele = 0;
 		}
+	}
+	return;
+}
+
+sub _write_locus_extended_attributes {
+	my ( $self, $args ) = @_;
+	my ( $fh, $locus, $attribute, $data, $first, $params ) =
+	  @{$args}{qw(fh locus attribute data first params)};
+	my $table  = $self->{'datastore'}->create_temp_sequence_extended_attributes_table( $locus, $attribute );
+	my $values = $self->{'datastore'}->run_query(
+		"SELECT value FROM $table a JOIN allele_designations ad ON (ad.isolate_id,ad.locus)=(?,?) "
+		  . 'WHERE ad.allele_id=a.allele_id::text ORDER BY value',
+		[ $data->{'id'}, $locus ],
+		{ fetch => 'col_arrayref', cache => "Export::write_locus_extended_attributes::$table" }
+	);
+	@$values = uniq @$values;
+	local $" = q(; );
+	if ( $params->{'oneline'} ) {
+		print $fh $self->_get_id_one_line( $data, $params );
+		print $fh "$locus $attribute\t";
+		print $fh "@$values";
+		print $fh "\n";
+	} else {
+		print $fh "\t" if !$first;
+		print $fh "@$values";
 	}
 	return;
 }

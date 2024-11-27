@@ -1352,7 +1352,7 @@ sub get_field_selection_list {
 		push @$values, @$loci;
 	}
 	if ( $options->{'locus_extended_attributes'} ) {
-		my $ext = $self->_get_locus_extended_attributes($options);
+		my $ext = $self->get_locus_extended_attributes_for_isolate_db($options);
 		push @$values, @$ext;
 	}
 	if ( $options->{'scheme_fields'} ) {
@@ -1426,7 +1426,7 @@ sub _sort_field_list_into_optgroups {
 		if ( $field =~ /^as_/x ) {
 			push @{ $group_members->{'Annotation status'} }, $field;
 		}
-		if ($field =~ /^af_/x){
+		if ( $field =~ /^af_/x ) {
 			push @{ $group_members->{'Analysis fields'} }, $field;
 		}
 		if ( $field =~ /^[f|e]_/x ) {
@@ -1446,7 +1446,6 @@ sub _sort_field_list_into_optgroups {
 				push @{ $group_members->{'General'} }, $field;
 			}
 		}
-
 	}
 	foreach my $group ( undef, @group_list ) {
 		my $name = $group // 'General';
@@ -1546,7 +1545,7 @@ sub _get_loci_list {
 	return $self->{'cache'}->{'loci'};
 }
 
-sub _get_locus_extended_attributes {
+sub get_locus_extended_attributes_for_isolate_db {
 	my ( $self, $options ) = @_;
 	if ( !$self->{'cache'}->{'locus_extended_attributes'} ) {
 		eval {
@@ -1771,7 +1770,7 @@ sub _get_analysis_fields {
 		my $list   = [];
 		my $fields = $self->{'datastore'}->get_analysis_fields;
 		foreach my $field (@$fields) {
-			my $value = "af_$field->{'analysis_name'}___$field->{'field_name'}";
+			my $value    = "af_$field->{'analysis_name'}___$field->{'field_name'}";
 			my $analysis = $field->{'analysis_display_name'} // $field->{'analysis_name'};
 			push @$list, $value;
 			$self->{'cache'}->{'labels'}->{$value} = "$field->{'field_name'} ($analysis)";
@@ -3399,10 +3398,16 @@ sub print_isolates_locus_fieldset {
 	my $q = $self->{'cgi'};
 	say q(<fieldset id="locus_fieldset" style="float:left"><legend>Loci</legend>);
 	my $analysis_pref = $options->{'analysis_pref'} // 1;
-	my ( $locus_list, $locus_labels ) =
-	  $self->get_field_selection_list(
-		{ loci => 1, no_list_by_common_name => 1, analysis_pref => $analysis_pref, query_pref => 0, sort_labels => 1 }
-	  );
+	my ( $locus_list, $locus_labels ) = $self->get_field_selection_list(
+		{
+			loci                      => 1,
+			no_list_by_common_name    => 1,
+			analysis_pref             => $analysis_pref,
+			query_pref                => 0,
+			sort_labels               => 1,
+			locus_extended_attributes => $options->{'locus_extended_attributes'}
+		}
+	);
 	if (@$locus_list) {
 		say q(<div style="float:left">);
 		my $size          = $options->{'size'} // 8;
@@ -3959,7 +3964,7 @@ sub get_mapping_options {
 
 sub _get_analysis_groups_and_labels {
 	my ( $self, $options ) = @_;
-	my $fields = $self->{'datastore'}->get_analysis_fields;
+	my $fields        = $self->{'datastore'}->get_analysis_fields;
 	my $group_members = {};
 	my $labels        = {};
 	my $prefix        = $options->{'prefix'} // q();
