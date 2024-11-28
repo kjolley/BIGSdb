@@ -4462,6 +4462,7 @@ sub print_modify_dashboard_fieldset {
 	say q(</li></ul>);
 	say q(</fieldset>);
 	$self->_print_dashboard_management_fieldset;
+	say q(</div>);
 	return;
 }
 
