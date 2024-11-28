@@ -120,7 +120,6 @@ sub run {
 		}
 		if ( $q->param('user_upload') ) {
 			$user_upload = $self->upload_user_file;
-			$logger->error($user_upload);
 		}
 		my $filtered_ids = $self->filter_ids_by_project( $ids, scalar $q->param('project_list') );
 		if ( !@$filtered_ids && !$q->param('user_upload') ) {
