@@ -4563,9 +4563,15 @@ sub _print_dashboard_management_fieldset {
 	}
 	say q(</li></ul>);
 	say q(</form>);
-	return if !$self->{'username'};
+	if (!$self->{'username'}){
+		say q(</fieldset>);
+		return;
+	}
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	return if $user_info->{'status'} ne 'curator' && $user_info->{'status'} ne 'admin';
+	if ($user_info->{'status'} ne 'curator' && $user_info->{'status'} ne 'admin'){
+		say q(</fieldset>);
+		return;
+	}
 	my $project_clause = $self->{'project_id'} ? qq(&amp;project_id=$self->{'project_id'}) : q();
 	say q(<div style="display:flex;margin-top:1em">)
 	  . q(<span class="icon_button"><a class="dashboard_file small_reset" )
