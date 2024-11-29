@@ -1329,6 +1329,7 @@ sub get_field_selection_list {
 #lincodes: include scheme LINcode field, named lin_SCHEME-ID
 #lincode_fields: include fields linked to LINcode prefixes (must also select lincodes options), prefixed with lin_SCHEME_ID_
 #classification_groups: include classification group ids and field, prefix with cg_
+#analysis_fields: include analysis fields, prefix with af_
 #sort_labels: dictionary sort labels
 	my ( $self, $options ) = @_;
 	$options->{'query_pref'}    //= 1;
@@ -1351,7 +1352,7 @@ sub get_field_selection_list {
 		push @$values, @$loci;
 	}
 	if ( $options->{'locus_extended_attributes'} ) {
-		my $ext = $self->_get_locus_extended_attributes($options);
+		my $ext = $self->get_locus_extended_attributes_for_isolate_db($options);
 		push @$values, @$ext;
 	}
 	if ( $options->{'scheme_fields'} ) {
@@ -1369,6 +1370,10 @@ sub get_field_selection_list {
 	if ( $options->{'annotation_status'} ) {
 		my $annotation_status_fields = $self->_get_annotation_status_fields;
 		push @$values, @$annotation_status_fields;
+	}
+	if ( $options->{'analysis_fields'} ) {
+		my $analysis_fields = $self->_get_analysis_fields;
+		push @$values, @$analysis_fields;
 	}
 	if ( $options->{'sort_labels'} ) {
 		$values = BIGSdb::Utils::dictionary_sort( $values, $self->{'cache'}->{'labels'} );
@@ -1420,6 +1425,9 @@ sub _sort_field_list_into_optgroups {
 		}
 		if ( $field =~ /^as_/x ) {
 			push @{ $group_members->{'Annotation status'} }, $field;
+		}
+		if ( $field =~ /^af_/x ) {
+			push @{ $group_members->{'Analysis fields'} }, $field;
 		}
 		if ( $field =~ /^[f|e]_/x ) {
 			( my $stripped_field = $field ) =~ s/^[f|e]_//x;
@@ -1537,7 +1545,7 @@ sub _get_loci_list {
 	return $self->{'cache'}->{'loci'};
 }
 
-sub _get_locus_extended_attributes {
+sub get_locus_extended_attributes_for_isolate_db {
 	my ( $self, $options ) = @_;
 	if ( !$self->{'cache'}->{'locus_extended_attributes'} ) {
 		eval {
@@ -1754,6 +1762,22 @@ sub _get_annotation_status_fields {
 		$self->{'cache'}->{'annotation_status_fields'} = $list;
 	}
 	return $self->{'cache'}->{'annotation_status_fields'};
+}
+
+sub _get_analysis_fields {
+	my ($self) = @_;
+	if ( !$self->{'cache'}->{'analysis_fields'} ) {
+		my $list   = [];
+		my $fields = $self->{'datastore'}->get_analysis_fields;
+		foreach my $field (@$fields) {
+			my $value    = "af_$field->{'analysis_name'}___$field->{'field_name'}";
+			my $analysis = $field->{'analysis_display_name'} // $field->{'analysis_name'};
+			push @$list, $value;
+			$self->{'cache'}->{'labels'}->{$value} = "$field->{'field_name'} ($analysis)";
+		}
+		$self->{'cache'}->{'analysis_fields'} = $list;
+	}
+	return $self->{'cache'}->{'analysis_fields'};
 }
 
 sub _print_footer {
@@ -2366,7 +2390,8 @@ sub get_record_name {
 		dna_mutations                     => 'single nucleotide polymorphism definition',
 		query_interfaces                  => 'query interface',
 		query_interface_fields            => 'pre-selected interface field',
-		embargo_history                   => 'embargo history'
+		embargo_history                   => 'embargo history',
+		analysis_fields                   => 'analysis field'
 	);
 	return $names{$table};
 }
@@ -3373,10 +3398,16 @@ sub print_isolates_locus_fieldset {
 	my $q = $self->{'cgi'};
 	say q(<fieldset id="locus_fieldset" style="float:left"><legend>Loci</legend>);
 	my $analysis_pref = $options->{'analysis_pref'} // 1;
-	my ( $locus_list, $locus_labels ) =
-	  $self->get_field_selection_list(
-		{ loci => 1, no_list_by_common_name => 1, analysis_pref => $analysis_pref, query_pref => 0, sort_labels => 1 }
-	  );
+	my ( $locus_list, $locus_labels ) = $self->get_field_selection_list(
+		{
+			loci                      => 1,
+			no_list_by_common_name    => 1,
+			analysis_pref             => $analysis_pref,
+			query_pref                => 0,
+			sort_labels               => 1,
+			locus_extended_attributes => $options->{'locus_extended_attributes'}
+		}
+	);
 	if (@$locus_list) {
 		say q(<div style="float:left">);
 		my $size          = $options->{'size'} // 8;
@@ -3929,5 +3960,33 @@ sub get_mapping_options {
 	}
 	$options->{'option'} = $option;
 	return $options;
+}
+
+sub _get_analysis_groups_and_labels {
+	my ( $self, $options ) = @_;
+	my $fields        = $self->{'datastore'}->get_analysis_fields;
+	my $group_members = {};
+	my $labels        = {};
+	my $prefix        = $options->{'prefix'} // q();
+	foreach my $field (@$fields) {
+		my $value    = "$prefix$field->{'analysis_name'}___$field->{'field_name'}";
+		my $analysis = $field->{'analysis_display_name'} // $field->{'analysis_name'};
+		$labels->{$value} = $field->{'field_name'};
+		push @{ $group_members->{$analysis} }, $value;
+	}
+	return ( $group_members, $labels );
+}
+
+sub get_analysis_field_values_and_labels {
+	my ( $self, $options ) = @_;
+	my $q = $self->{'cgi'};
+	my ( $group_members, $labels ) = $self->_get_analysis_groups_and_labels($options);
+	my $values = $options->{'no_blank_value'} ? [] : [q()];
+	foreach my $group ( sort keys %$group_members ) {
+		if ( ref $group_members->{$group} ) {
+			push @$values, $q->optgroup( -name => $group, -values => $group_members->{$group}, -labels => $labels );
+		}
+	}
+	return ( $values, $labels );
 }
 1;

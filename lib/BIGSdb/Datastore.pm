@@ -3297,7 +3297,7 @@ sub get_tables {
 		  isolates history sequence_attributes classification_schemes classification_group_fields
 		  retired_isolates user_dbases oauth_credentials eav_fields validation_rules validation_conditions
 		  validation_rule_conditions lincode_schemes lincode_fields codon_tables geography_point_lookup
-		  curator_configs query_interfaces query_interface_fields embargo_history);
+		  curator_configs query_interfaces query_interface_fields embargo_history analysis_fields);
 		push @tables, $self->{'system'}->{'view'}
 		  ? $self->{'system'}->{'view'}
 		  : 'isolates';
@@ -3417,6 +3417,23 @@ sub get_eav_field_value {
 		"SELECT value FROM $table WHERE (isolate_id,field)=(?,?)",
 		[ $isolate_id, $field ],
 		{ cache => "get_eav_field_value::$table" }
+	);
+}
+
+sub get_analysis_fields {
+	my ($self) = @_;
+	return $self->run_query(
+		'SELECT * FROM analysis_fields ORDER BY analysis_name,field_name',
+		undef, { fetch => 'all_arrayref', slice => {} }
+	);
+}
+
+sub get_analysis_field {
+	my ( $self, $analysis, $field ) = @_;
+	return $self->run_query(
+		'SELECT * FROM analysis_fields WHERE (analysis_name,field_name)=(?,?)',
+		[ $analysis, $field ],
+		{ fetch => 'row_hashref', cache => 'get_analysis_field' }
 	);
 }
 

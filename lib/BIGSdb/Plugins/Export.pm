@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext         => 'Dataset',
 		menutext           => 'Dataset',
 		module             => 'Export',
-		version            => '1.14.0',
+		version            => '1.15.0',
 		dbtype             => 'isolates',
 		section            => 'export,postquery',
 		url                => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
@@ -104,7 +104,7 @@ function enable_tag_controls(){
 	enable_ref_controls();
 	enable_private_controls();
 	enable_tag_controls();
-	\$('#fields,#eav_fields,#composite_fields,#locus,#classification_schemes,#lincode_prefixes').multiselect({
+	\$('#fields,#eav_fields,#composite_fields,#locus,#classification_schemes,#analysis_fields,#lincode_prefixes').multiselect({
  		classes: 'filter',
  		menuHeight: 250,
  		menuWidth: 400,
@@ -152,7 +152,7 @@ function enable_tag_controls(){
 		event.preventDefault();
 		let show = '$show';
 		let save_url = this.href;
-		let fieldsets = ['eav','composite','refs','private','classification','lincode','molwt','options'];
+		let fieldsets = ['eav','composite','refs','private','classification','analysis','lincode','molwt','options'];
 		for (let i = 0; i < fieldsets.length; ++i) {			
 			let value = \$("#show_" + fieldsets[i]).html() == show ? 0 : 1;
 			save_url += "&" + fieldsets[i] + "=" + value;
@@ -180,7 +180,7 @@ function enable_tag_controls(){
         \$('#onboarding').hide();
     });
     //Reset form if not visible, e.g. after reloading.
-	let fieldsets = ['eav','composite','refs','private','classification','lincode','molwt','options'];
+	let fieldsets = ['eav','composite','refs','private','classification','analysis','lincode','molwt','options'];
 	for (let i = 0; i < fieldsets.length; ++i) {		
 		let fieldset = fieldsets[i] + "_fieldset";
 		if (\$("#" + fieldset).is(":hidden")){
@@ -209,6 +209,9 @@ function clear_form(fieldset){
 	}
 	if (fieldset == 'lincode'){
 		\$("#lincode_prefixes").multiselect("uncheckAll");
+	}
+	if (fieldset == 'analysis'){
+		\$("#analysis_fields").multiselect("uncheckAll");
 	}
 	if (fieldset == 'molwt'){
 		\$("#molwt").prop("checked", false);
@@ -439,6 +442,30 @@ sub _print_lincode_fieldset {
 	return;
 }
 
+sub _print_analysis_fields {
+	my ($self) = @_;
+	my $fields = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM analysis_fields)');
+	return if !$fields;
+	my $q = $self->{'cgi'};
+	my ( $values, $labels ) =
+	  $self->get_analysis_field_values_and_labels( { prefix => 'af_', no_blank_value => 1 } );
+	my $display = $self->{'plugin_prefs'}->{'analysis_fieldset'} ? 'block' : 'none';
+	say qq(<fieldset id="analysis_fieldset" style="float:left;display:$display">)
+	  . q(<legend>Analysis results</legend>);
+	say $q->scrolling_list(
+		-name     => 'analysis_fields',
+		-id       => 'analysis_fields',
+		-values   => $values,
+		-labels   => $labels,
+		-size     => 8,
+		-multiple => 'true',
+		-style    => 'width:100%'
+	);
+	say q(</fieldset>);
+	$self->{'analysis_fieldset'} = 1;
+	return;
+}
+
 sub _print_molwt_options {
 	my ($self)  = @_;
 	my $display = $self->{'plugin_prefs'}->{'molwt_fieldset'} ? 'block' : 'none';
@@ -479,7 +506,7 @@ sub _save_options {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $guid   = $self->get_guid;
-	foreach my $fieldset (qw(eav composite refs private classification lincode molwt options)) {
+	foreach my $fieldset (qw(eav composite refs private classification lincode analysis molwt options)) {
 		$self->{'prefstore'}->set_plugin_attribute( $guid, $self->{'system'}->{'db'},
 			'Export', "${fieldset}_fieldset", scalar $q->param($fieldset) // 0 );
 	}
@@ -501,8 +528,15 @@ sub run {
 	return if $self->has_set_changed;
 	if ( $q->param('submit') ) {
 		$self->_update_prefs;
-		my $selected_fields =
-		  $self->get_selected_fields( { lincodes => 1, lincode_fields => 1, lincode_prefixes => 1 } );
+		my $selected_fields = $self->get_selected_fields(
+			{
+				locus_extended_attributes => 1,
+				lincodes                  => 1,
+				lincode_fields            => 1,
+				analysis_fields           => 1 =>,
+				lincode_prefixes          => 1
+			}
+		);
 		$q->delete('classification_schemes');
 		push @$selected_fields, 'm_references'   if $q->param('m_references');
 		push @$selected_fields, 'private_record' if $q->param('private_record');
@@ -669,9 +703,10 @@ sub _print_interface {
 	$self->print_composite_fields_fieldset( { hide => $self->{'plugin_prefs'}->{'composite_fieldset'} ? 0 : 1 } );
 	$self->_print_ref_fields;
 	$self->_print_private_fieldset;
-	$self->print_isolates_locus_fieldset( { locus_paste_list => 1, no_all_none => 1 } );
+	$self->print_isolates_locus_fieldset( { locus_paste_list => 1, no_all_none => 1, locus_extended_attributes => 1 } );
 	$self->print_scheme_fieldset( { fields_or_loci => 1 } );
 	$self->_print_classification_scheme_fields;
+	$self->_print_analysis_fields;
 	$self->_print_lincode_fieldset;
 	$self->_print_options;
 	$self->_print_molwt_options;
@@ -803,18 +838,20 @@ sub _write_tab_text {
 		my $all_allele_ids = $self->{'datastore'}->get_all_allele_ids( $data{'id'} );
 		foreach my $field (@$fields) {
 			my $regex = {
-				field                 => qr/^f_(.*)/x,
-				eav_field             => qr/^eav_(.*)/x,
-				locus                 => qr/^(s_\d+_l_|l_)(.*)/x,
-				scheme_field          => qr/^s_(\d+)_f_(.*)/x,
-				lincode               => qr/^lin_(\d+)$/x,
-				lincode_prefix        => qr/^linp_(\d+)_(\d+)$/x,
-				lincode_field         => qr/^lin_(\d+)_(.+)$/x,
-				composite_field       => qr/^c_(.*)/x,
-				classification_scheme => qr/^cs_(.*)/x,
-				reference             => qr/^m_references/x,
-				private_record        => qr/^private_record$/x,
-				private_owner         => qr/^private_owner$/x
+				field                    => qr/^f_(.*)/x,
+				eav_field                => qr/^eav_(.*)/x,
+				locus                    => qr/^(s_\d+_l_|l_)(.*)/x,
+				locus_extended_attribute => qr/^lex_(.+)\|\|(.+)/x,
+				scheme_field             => qr/^s_(\d+)_f_(.*)/x,
+				lincode                  => qr/^lin_(\d+)$/x,
+				lincode_prefix           => qr/^linp_(\d+)_(\d+)$/x,
+				lincode_field            => qr/^lin_(\d+)_(.+)$/x,
+				composite_field          => qr/^c_(.*)/x,
+				classification_scheme    => qr/^cs_(.*)/x,
+				reference                => qr/^m_references/x,
+				private_record           => qr/^private_record$/x,
+				private_owner            => qr/^private_owner$/x,
+				analysis_field           => qr/^af_(.*)___(.*)/x
 			};
 			my $methods = {
 				field     => sub { $self->_write_field( $fh, $1, \%data, $first, $params ) },
@@ -828,6 +865,18 @@ sub _write_tab_text {
 							all_allele_ids => $all_allele_ids,
 							first          => $first,
 							params         => $params
+						}
+					);
+				},
+				locus_extended_attribute => sub {
+					$self->_write_locus_extended_attributes(
+						{
+							fh        => $fh,
+							locus     => $1,
+							attribute => $2,
+							data      => \%data,
+							first     => $first,
+							params    => $params
 						}
 					);
 				},
@@ -871,11 +920,23 @@ sub _write_tab_text {
 				},
 				private_owner => sub {
 					$self->_write_private_owner( $fh, \%data, $first, $params );
+				},
+				analysis_field => sub {
+					$self->_write_analysis_field(
+						{
+							fh            => $fh,
+							analysis_name => $1,
+							field_name    => $2,
+							data          => \%data,
+							first         => $first,
+							params        => $params
+						}
+					);
 				}
 			};
 			foreach my $field_type (
 				qw(field eav_field locus scheme_field lincode lincode_prefix lincode_field composite_field
-				classification_scheme reference private_record private_owner)
+				classification_scheme reference private_record private_owner analysis_field locus_extended_attribute)
 			  )
 			{
 				if ( $field =~ $regex->{$field_type} ) {
@@ -950,6 +1011,10 @@ sub _get_header {
 			}
 			$field =~ s/^(?:s_\d+_l|s_\d+_f|f|l|c|m|cs|eav)_//x;    #strip off prefix for header row
 			$field =~ s/^.*___//x;
+			if ( $field =~ /^lex_/x ) {
+				$field =~ s/^lex_//x;
+				$field =~ s/\|\|/ /x;
+			}
 			if ($is_locus) {
 				$field =
 				  $self->clean_locus( $field,
@@ -1154,6 +1219,31 @@ sub _write_allele {
 			}
 			$first_allele = 0;
 		}
+	}
+	return;
+}
+
+sub _write_locus_extended_attributes {
+	my ( $self, $args ) = @_;
+	my ( $fh, $locus, $attribute, $data, $first, $params ) =
+	  @{$args}{qw(fh locus attribute data first params)};
+	my $table  = $self->{'datastore'}->create_temp_sequence_extended_attributes_table( $locus, $attribute );
+	my $values = $self->{'datastore'}->run_query(
+		"SELECT value FROM $table a JOIN allele_designations ad ON (ad.isolate_id,ad.locus)=(?,?) "
+		  . 'WHERE ad.allele_id=a.allele_id::text ORDER BY value',
+		[ $data->{'id'}, $locus ],
+		{ fetch => 'col_arrayref', cache => "Export::write_locus_extended_attributes::$table" }
+	);
+	@$values = uniq @$values;
+	local $" = q(; );
+	if ( $params->{'oneline'} ) {
+		print $fh $self->_get_id_one_line( $data, $params );
+		print $fh "$locus $attribute\t";
+		print $fh "@$values";
+		print $fh "\n";
+	} else {
+		print $fh "\t" if !$first;
+		print $fh "@$values";
 	}
 	return;
 }
@@ -1404,6 +1494,31 @@ sub _write_private_owner {
 	return;
 }
 
+sub _write_analysis_field {
+	my ( $self, $args ) = @_;
+	my ( $analysis_name, $field_name, $fh, $data, $first, $params ) =
+	  @{$args}{qw(analysis_name field_name fh data first params)};
+	my $value = $self->{'datastore'}->run_query(
+		'SELECT value FROM analysis_fields af JOIN analysis_results_cache arc '
+		  . 'ON (af.analysis_name,af.json_path)=(arc.analysis_name,arc.json_path) '
+		  . 'WHERE (af.analysis_name,af.field_name,arc.isolate_id)'
+		  . '=(?,?,?)',
+		[ $analysis_name, $field_name, $data->{'id'} ],
+		{ fetch => 'col_arrayref', cache => 'Export::_write_analysis_field' }
+	);
+	local $" = q(; );
+	my $values = qq(@$value) // q();
+	if ( $params->{'oneline'} ) {
+		print $fh $self->_get_id_one_line( $data, $params );
+		print $fh "$field_name\t";
+		say $fh $values;
+	} else {
+		print $fh "\t" if !$first;
+		print $fh $values;
+	}
+	return;
+}
+
 sub _get_molwt {
 	my ( $self, $locus_name, $allele, $met ) = @_;
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus_name);
@@ -1476,6 +1591,11 @@ sub _print_modify_search_fieldset {
 		my $lincode_display = $self->{'plugin_prefs'}->{'lincode_fieldset'} ? HIDE : SHOW;
 		say qq(<li><a href="" class="button fieldset_trigger" id="show_lincode">$lincode_display</a>);
 		say q(LIN code prefixes</li>);
+	}
+	if ( $self->{'analysis_fieldset'} ) {
+		my $analysis_display = $self->{'plugin_prefs'}->{'analysis_fieldset'} ? HIDE : SHOW;
+		say qq(<li><a href="" class="button fieldset_trigger" id="show_analysis">$analysis_display</a>);
+		say q(Analysis fields</li>);
 	}
 	my $molwt_display = $self->{'plugin_prefs'}->{'molwt_fieldset'} ? HIDE : SHOW;
 	say qq(<li><a href="" class="button fieldset_trigger" id="show_molwt">$molwt_display</a>);
