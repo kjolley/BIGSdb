@@ -1,3 +1,6 @@
+v1.50.0: *Field values from arbitrary analyses, e.g. Kleborate and rMLST
+          species id, stored as JSON can now be registered and included in
+          isolate queries, export, and analysis.
 v1.49.1: *Fix for lincodes.pl for use with latest version of PDL module.
          *Improved layout of site user registration and admin pages.
          *Users can now upload their own genomes using .tar.gz or .tar files

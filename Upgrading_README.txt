@@ -55,6 +55,7 @@ Version 1.46: Change of isolate database structure.
 Version 1.47: Change of isolate database structure.
 Version 1.48: Change of isolate database structure.
 Version 1.49: Change of authentication database structure.
+Version 1.50: Change of isolate database structure.
 
 Details can be found below.
 
@@ -684,3 +685,10 @@ There is a change to the  authentication database structure needed to support
 personal API keys.
 
 Please run auth_v1.49.sql against bigsdb_auth.
+
+Version 1.50
+------------
+There are new tables to support registering arbitrary analysis fields for data
+queries, export and analysis.
+
+Please run the isolatedb_v1.50.sql script against isolate databases.
