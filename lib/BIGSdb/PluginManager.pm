@@ -175,7 +175,7 @@ sub get_plugin_categories {
 	return if $section !~ /postquery|info/x;
 	my ( @categories, %done );
 	foreach (
-		sort { $self->{'attributes'}->{$a}->{'order'} <=> $self->{'attributes'}->{$b}->{'order'} }
+		sort { ( $self->{'attributes'}->{$a}->{'order'} // 100 ) <=> ( $self->{'attributes'}->{$b}->{'order'} // 100 ) }
 		keys %{ $self->{'attributes'} }
 	  )
 	{
@@ -257,7 +257,7 @@ sub get_appropriate_plugin_names {
 
 	foreach my $plugin (
 		sort {
-			$self->{'attributes'}->{$a}->{$order} <=> $self->{'attributes'}->{$b}->{$order}
+			( $self->{'attributes'}->{$a}->{$order} // 100 ) <=> ( $self->{'attributes'}->{$b}->{$order} // 100 )
 			  || lc( $self->{'attributes'}->{$a}->{$order} ) cmp lc( $self->{'attributes'}->{$b}->{$order} )
 		}
 		keys %{ $self->{'attributes'} }
