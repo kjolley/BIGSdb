@@ -1566,7 +1566,7 @@ sub _print_plugin_buttons {
 			'postquery',
 			$self->{'system'}->{'dbtype'},
 			$category || 'none',
-			{ set_id => $set_id, seqdb_type => $seqdb_type }
+			{ set_id => $set_id, seqdb_type => $seqdb_type, username=>$self->{'username'} }
 		);
 		if (@$plugin_names) {
 			my $plugin_buffer;

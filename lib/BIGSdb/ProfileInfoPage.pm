@@ -135,8 +135,12 @@ sub _print_plugin_buttons {
 	my $set_id = $self->get_set_id;
 	foreach my $category (@$plugin_categories) {
 		my $cat_buffer;
-		my $plugin_names = $self->{'pluginManager'}
-		  ->get_appropriate_plugin_names( 'profile_info', $self->{'system'}->{'dbtype'}, $category || 'none' );
+		my $plugin_names = $self->{'pluginManager'}->get_appropriate_plugin_names(
+			'profile_info',
+			$self->{'system'}->{'dbtype'},
+			$category || 'none',
+			{ username => $self->{'username'} }
+		);
 		if (@$plugin_names) {
 			my $plugin_buffer;
 			$q->param( calling_page => scalar $q->param('page') );

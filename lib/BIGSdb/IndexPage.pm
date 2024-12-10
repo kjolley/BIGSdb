@@ -289,7 +289,7 @@ sub _print_plugin_menu_item {
 	local $" = q(,);
 	my $plugins =
 	  $self->{'pluginManager'}->get_appropriate_plugin_names( $args->{'sections'}, $self->{'system'}->{'dbtype'},
-		undef, { set_id => $set_id, order => 'menutext' } );
+		undef, { set_id => $set_id, order => 'menutext', username => $self->{'username'} } );
 	return if !@$plugins;
 	my $links       = [];
 	my $scheme_data = $self->get_scheme_data( { with_pk => 1 } );
@@ -756,7 +756,7 @@ sub print_info_menu_item {
 	];
 	my $set_id  = $self->get_set_id;
 	my $plugins = $self->{'pluginManager'}->get_appropriate_plugin_names( [qw(info)], $self->{'system'}->{'dbtype'},
-		undef, { set_id => $set_id, order => 'order' } );
+		undef, { set_id => $set_id, order => 'order', username => $self->{'username'} } );
 	foreach my $plugin_name (@$plugins) {
 		my $att = $self->{'pluginManager'}->get_plugin_attributes($plugin_name);
 		push @$links,

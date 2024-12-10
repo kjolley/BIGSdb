@@ -174,6 +174,18 @@ sub print_content {
 		);
 		return;
 	}
+	my $blocked_plugins = $self->{'pluginManager'}->get_restricted_plugins( $self->{'username'} );
+	if ( $blocked_plugins->{$plugin_name} ) {
+		say q(<h1>Restricted plugin</h1>);
+		$self->print_bad_status(
+			{
+				message => q(This plugin has restricted access. Make sure you are logged )
+				  . q(in with an account that has appropriate permissions to access this plugin.),
+				navbar => 1
+			}
+		);
+		return;
+	}
 	if ( $att->{'language'} eq 'Python' ) {
 		my $args      = { username => $self->{'username'} };
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );

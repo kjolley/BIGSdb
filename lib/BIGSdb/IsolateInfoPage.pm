@@ -635,7 +635,7 @@ sub _print_plugin_buttons {
 			'isolate_info',
 			$self->{'system'}->{'dbtype'},
 			$category || 'none',
-			{ single_isolate => $isolate_id }
+			{ single_isolate => $isolate_id, username => $self->{'username'} }
 		);
 		if (@$plugin_names) {
 			my $plugin_buffer;

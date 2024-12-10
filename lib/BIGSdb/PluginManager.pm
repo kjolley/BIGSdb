@@ -22,6 +22,7 @@ use warnings;
 use BIGSdb::Exceptions;
 use List::MoreUtils qw(any none);
 use JSON;
+use Config::Tiny;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 
@@ -82,13 +83,63 @@ sub initiate {
 			my $python_plugins = decode_json($$json_ref);
 			foreach my $plugin (@$python_plugins) {
 				push @{ $self->{'python_plugins'} }, $plugin->{'module'};
-				$self->{'attributes'}->{ $plugin->{'module'} }                        = $plugin;
-				$self->{'attributes'}->{ $plugin->{'module'} }->{'language'}          = 'Python';
+				$self->{'attributes'}->{ $plugin->{'module'} } = $plugin;
+				$self->{'attributes'}->{ $plugin->{'module'} }->{'language'} = 'Python';
 			}
 		};
 		$logger->error("$self->{'config_dir'}/python_plugins.json: $@") if $@;
 	}
 	return;
+}
+
+sub get_restricted_plugins {
+	my ( $self, $username ) = @_;
+	my $file = "$self->{'config_dir'}/restrictions.conf";
+	return {} if !-e $file;
+	if ( !defined $self->{'cache'}->{'blocked_plugins'} ) {
+		my $config = Config::Tiny->read($file);
+		if ( !defined $config ) {
+			$logger->fatal( 'Unable to read or parse restrictions.conf file. Reason: ' . Config::Tiny->errstr );
+			$config = Config::Tiny->new();
+		}
+		my $q                   = $self->{'cgi'};
+		my @user_groups         = keys %{ $config->{'Usergroups'} // {} };
+		my @plugin_names        = keys %{ $self->{'attributes'} };
+		my $member_of_usergroup = {};
+		$self->{'cache'}->{'blocked_plugins'} = {};
+		if ( @user_groups && $username ) {
+			foreach my $group (@user_groups) {
+				my @members = split( /\s*,\s*/x, $config->{'Usergroups'}->{$group} );
+				foreach my $member (@members) {
+					next if $member ne $username;
+					$member_of_usergroup->{$group} = 1;
+					last;
+				}
+			}
+			my $db_usergroups = $self->{'datastore'}->run_query(
+				'SELECT ug.description FROM users u JOIN user_group_members ugm ON u.id=ugm.user_id '
+				  . 'JOIN user_groups ug ON ug.id=ugm.user_group where u.user_name=?',
+				$username,
+				{ fetch => 'col_arrayref' }
+			);
+			$member_of_usergroup->{$_} = 1 foreach @$db_usergroups;
+		}
+	  PLUGIN: foreach my $plugin (@plugin_names) {
+			next if ( $config->{$plugin}->{'default'} // 'allow' ) ne 'deny';
+			my @allowed_users      = split( /\s*,\s*/x, ( $config->{$plugin}->{'allowed_users'} // q() ) );
+			my %allowed_users      = map { $_ => 1 } @allowed_users;
+			my @allowed_usergroups = split( /\s*,\s*/x, ( $config->{$plugin}->{'allowed_usergroups'} // q() ) );
+			my %allowed_usergroups = map { $_ => 1 } @allowed_usergroups;
+			if ($username) {
+				next PLUGIN if $allowed_users{$username};
+				foreach my $usergroup ( keys %$member_of_usergroup ) {
+					next PLUGIN if $allowed_usergroups{$usergroup};
+				}
+			}
+			$self->{'cache'}->{'blocked_plugins'}->{$plugin} = 1;
+		}
+	}
+	return $self->{'cache'}->{'blocked_plugins'};
 }
 
 sub _python_plugins_enabled {
@@ -201,6 +252,7 @@ sub get_appropriate_plugin_names {
 	my $plugins        = [];
 	my $pk_scheme_list = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $options->{'set_id'} } );
 	my $order          = $options->{'order'} // 'order';
+	my $restricted     = $self->get_restricted_plugins( $options->{'username'} );
 	no warnings 'numeric';
 
 	foreach my $plugin (
@@ -211,6 +263,7 @@ sub get_appropriate_plugin_names {
 		keys %{ $self->{'attributes'} }
 	  )
 	{
+		next if $restricted->{$plugin};
 		my $attr = $self->{'attributes'}->{$plugin};
 		next if !$self->_has_required_item( $attr->{'requires'} );
 		next if !$self->_matches_required_fields( $attr->{'requires'} );

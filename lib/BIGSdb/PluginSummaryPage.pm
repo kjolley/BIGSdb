@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2020, University of Oxford
+#Copyright (c) 2020-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -26,10 +26,10 @@ my $logger = get_logger('BIGSdb.Page');
 use constant CAT_ORDER => qw(breakdown export analysis third_party miscellaneous);
 
 sub print_content {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my ($self)             = @_;
+	my $q                  = $self->{'cgi'};
 	my %allowed_categories = map { $_ => 1 } qw(analysis export);
-	my $cat = $q->param('category') // q(all);
+	my $cat                = $q->param('category') // q(all);
 	if ( $allowed_categories{$cat} ) {
 		my $display_cat = ucfirst($cat);
 		say qq(<h1>$display_cat plugins</h1>);
@@ -55,9 +55,8 @@ sub print_content {
 		if ( keys %$sub_cats > 1 ) {
 			say qq(<a name="$cat"></a><h2>$display_cat</h2>);
 		}
-		my $plugin_names =
-		  $self->{'pluginManager'}
-		  ->get_appropriate_plugin_names( $cat, $self->{'system'}->{'dbtype'}, undef, { set_id => $set_id } );
+		my $plugin_names = $self->{'pluginManager'}->get_appropriate_plugin_names( $cat, $self->{'system'}->{'dbtype'},
+			undef, { set_id => $set_id, username => $self->{'username'} } );
 		if ( @$plugin_names > 1 ) {
 			my @links;
 			foreach my $plugin_name (@$plugin_names) {
@@ -77,7 +76,7 @@ sub print_content {
 				if ( ( lc( $plugin->{'url'} ) =~ /https?:\/\/(.*?)\/+/x ) ) {
 					my $domain = $1;
 					$external_link =
-					    q( <span class="link">)
+						q( <span class="link">)
 					  . qq($domain<span class="fa fas fa-external-link-alt" style="margin-left:0.5em"></span></span>);
 				}
 				say qq(<p><a href="$plugin->{'url'}" target="_blank">Documentation</a>$external_link</p>);
@@ -117,9 +116,8 @@ sub _get_sub_cats {
 	my $set_id         = $self->get_set_id;
 	my $subcat_plugins = {};
 	foreach my $subcat ( @{ $subcats{$cat} } ) {
-		my $plugins =
-		  $self->{'pluginManager'}
-		  ->get_appropriate_plugin_names( $subcat, $self->{'system'}->{'dbtype'}, undef, { set_id => $set_id } );
+		my $plugins = $self->{'pluginManager'}->get_appropriate_plugin_names( $subcat, $self->{'system'}->{'dbtype'},
+			undef, { set_id => $set_id, username => $self->{'username'} } );
 		$subcat_plugins->{$subcat} = scalar @$plugins if @$plugins;
 	}
 	return $subcat_plugins;
