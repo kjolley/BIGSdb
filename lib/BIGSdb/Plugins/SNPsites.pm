@@ -57,7 +57,7 @@ sub get_attributes {
 		buttontext => 'SNPsites',
 		menutext   => 'SNPsites',
 		module     => 'SNPsites',
-		version    => '1.0.0',
+		version    => '1.0.1',
 		dbtype     => 'isolates',
 		section    => 'analysis,postquery',
 		input      => 'query',
@@ -553,6 +553,7 @@ sub _align_locus {
 			$seq_count++;
 		}
 	}
+	close $fasta_fh;
 	if ( $seq_count && -e $fasta_file ) {
 		if (   $aligner eq 'MAFFT'
 			&& $self->{'config'}->{'mafft_path'} )
@@ -577,7 +578,7 @@ sub _align_locus {
 			$self->{'logger'}->error('No aligner selected');
 		}
 	}
-	close $fasta_fh;
+	
 	unlink $fasta_file;
 	return {
 		alignment_file => $aligned_out,
