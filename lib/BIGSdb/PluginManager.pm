@@ -370,7 +370,8 @@ sub _has_required_item {
 		kleborate_path         => 'Kleborate',
 		weasyprint_path        => 'weasyprint',
 		reportree_path         => 'ReporTree',
-		snp_sites_path         => 'snp_sites'
+		snp_sites_path         => 'snp_sites',
+		caro_path              => 'caro'
 	);
 	return 1 if !$required_attr;
 	foreach my $config_param ( keys %requires ) {

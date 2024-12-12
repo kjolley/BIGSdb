@@ -29,7 +29,7 @@ use BIGSdb::Constants qw(:limits);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_RECORDS    => 2000;
-use constant MAX_SEQ_LENGTH => 20_000;
+use constant MAX_SEQ_LENGTH => 16_000;    #Excel has 16384 max columns.
 
 sub get_attributes {
 	my ($self) = @_;
@@ -54,18 +54,17 @@ sub get_attributes {
 		],
 		description      => 'Calculation of mutation rates and locations',
 		full_description => 'The plugin aligns sequences for a specified locus, or for a locus defined by an exemplar '
-		  . 'sequence, for an isolate dataset. The alignment is then passed to snp-sites to identify SNP positions and '
-		  . 'a mutation analysis performed.',
+		  . 'sequence, for an isolate dataset. A mutation analysis is then performed on the alignment.',
 		category   => 'Third party',
 		buttontext => 'CARO Project',
 		menutext   => 'CARO Project',
 		module     => 'Caro',
-		version    => '1.0.0',
+		version    => '0.0.1',
 		dbtype     => 'isolates',
 		section    => 'analysis,postquery',
 		input      => 'query',
 		help       => 'tooltips',
-		requires   => 'aligner,offline_jobs,snp_sites',
+		requires   => 'aligner,offline_jobs,caro',
 
 		#		supports   => 'user_genomes',
 		#		url        => "$self->{'config'}->{'doclink'}/data_analysis/snp_sites.html",
@@ -218,7 +217,16 @@ sub run_job {
 		$self->{'jobManager'}->update_job_output( $job_id,
 			{ filename => "${job_id}_aligned.fas", description => 'Aligned sequences', compress => 1 } );
 	}
-	$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => 95, stage => 'Running mutation analysis' } );
+	$self->{'jobManager'}
+	  ->update_job_status( $job_id, { percent_complete => 95, stage => 'Running mutation analysis' } );
+	my $analysis    = $params->{'analysis'} // 'n';
+	my $output_file = "$self->{'config'}->{'tmp_dir'}/${job_id}.xlsx";
+	eval { system("$self->{'config'}->{'caro_path'} -a $alignment_file -t $analysis -o $output_file > /dev/null"); };
+	$logger->error($@) if $@;
+	if ( -e $output_file ) {
+		$self->{'jobManager'}->update_job_output( $job_id,
+			{ filename => "${job_id}.xlsx", description => 'Analysis output', compress => 1 } );
+	}
 	$self->delete_temp_files("$job_id*");
 	return;
 }
@@ -313,13 +321,12 @@ sub _print_interface {
 	my $attr        = $self->get_attributes;
 	my $max_records = $attr->{'max'};
 	say q(<div class="box" id="queryform">);
+	say q(<p><span class="flag" style="color:#c40d13">BETA test version</span></p>);
 	say q(<p>This tool will create an alignment for a selected locus for the set of isolates chosen. Alternatively, )
-	  . q(you can enter an exemplar sequence to use rather than selecting a locus. The )
-	  . q(<a href="https://github.com/sanger-pathogens/snp-sites" target="_blank">snp-sites</a> tool will then )
-	  . q(be used to identify polymorphic sites followed by a mutation analysis</p>);
-	say q(<p>The snp-sites algorithm and program are described in <a href="https://pubmed.ncbi.nlm.nih.gov/28348851/" )
-	  . q(target="_blank">Page <i>et al.</i> 2016. SNP-sites: rapid efficient extraction of SNPs from multi-FASTA )
-	  . q(alignments. <i>Microb Gen</i> <b>2:</b>e000056</a>.</p>);
+	  . q(you can enter an exemplar sequence to use rather than selecting a locus. A mutation analysis will then be )
+	  . q(performed.</p>);
+	say q(<p>The mutation analysis code can be found at <a href="https://github.com/jeju2486/caro_project">)
+	  . q(https://github.com/jeju2486/caro_project</a>.</p>);
 	say qq(<p>Analysis is limited to $max_records isolates.</p>);
 	say $q->start_form;
 	say q(<div class="scrollable"><div class="flex_container" style="justify-content:left">);
@@ -376,16 +383,24 @@ sub _print_locus_fieldset {
 sub _print_options_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say q(<fieldset style="float:left;height:12em"><legend>Options</legend><ul><li>);
+	say q(<fieldset style="float:left;height:12em"><legend>Options</legend><ul>);
 	my $aligners = [];
 	foreach my $aligner (qw(mafft muscle)) {
 		push @$aligners, uc($aligner) if $self->{'config'}->{"${aligner}_path"};
 	}
 	if (@$aligners) {
-		say q(Aligner: );
+		say q(<li><label for="aligner" class="display">Aligner: </label>);
 		say $q->popup_menu( -name => 'aligner', -id => 'aligner', -values => $aligners );
-		say q(</li><li>);
+		say q(</li>);
 	}
+	say q(<li><label for="analysis" class="display">Analysis: </label>);
+	say $q->popup_menu(
+		-name   => 'analysis',
+		-id     => 'analysis',
+		-values => [qw(n p both)],
+		-labels => { n => 'nucleotide', p => 'protein' }
+	);
+	say q(</li>);
 	say q(</ul></fieldset>);
 	return;
 }
