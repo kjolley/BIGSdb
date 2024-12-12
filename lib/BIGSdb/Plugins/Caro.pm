@@ -216,16 +216,19 @@ sub run_job {
 	if ( -e $alignment_file ) {
 		$self->{'jobManager'}->update_job_output( $job_id,
 			{ filename => "${job_id}_aligned.fas", description => 'Aligned sequences', compress => 1 } );
-	}
-	$self->{'jobManager'}
-	  ->update_job_status( $job_id, { percent_complete => 95, stage => 'Running mutation analysis' } );
-	my $analysis    = $params->{'analysis'} // 'n';
-	my $output_file = "$self->{'config'}->{'tmp_dir'}/${job_id}.xlsx";
-	eval { system("$self->{'config'}->{'caro_path'} -a $alignment_file -t $analysis -o $output_file > /dev/null"); };
-	$logger->error($@) if $@;
-	if ( -e $output_file ) {
-		$self->{'jobManager'}->update_job_output( $job_id,
-			{ filename => "${job_id}.xlsx", description => 'Analysis output', compress => 1 } );
+		$self->{'jobManager'}
+		  ->update_job_status( $job_id, { percent_complete => 95, stage => 'Running mutation analysis' } );
+		my $analysis    = $params->{'analysis'} // 'n';
+		my $output_file = "$self->{'config'}->{'tmp_dir'}/${job_id}.xlsx";
+		eval { system("$self->{'config'}->{'caro_path'} -a $alignment_file -t $analysis -o $output_file > /dev/null"); };
+		$logger->error($@) if $@;
+		if ( -e $output_file ) {
+			$self->{'jobManager'}->update_job_output( $job_id,
+				{ filename => "${job_id}.xlsx", description => 'Analysis output', compress => 1 } );
+		}
+	} else {
+		$self->{'jobManager'}->update_job_status( $job_id, { message_html => 'No sequences found to align.' } )
+		  ;
 	}
 	$self->delete_temp_files("$job_id*");
 	return;
