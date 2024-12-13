@@ -851,7 +851,6 @@ sub _generate_query {
 		next if $self->_modify_query_search_by_users($args);
 		next if $self->_modify_query_search_timestamp_by_date($args);
 		$self->_modify_query_standard_field($args);
-		$qry = $self->_modify_user_fields_in_remote_user_dbs( $qry, $field, $operator, $text );
 	}
 	$qry = qq(($qry)) if $qry;
 	return ( $qry, $errors );
@@ -861,50 +860,51 @@ sub _modify_query_standard_field {
 	my ( $self, $args ) = @_;
 	my ( $table, $field, $text, $modifier, $operator, $thisfield, $qry_ref ) =
 	  @{$args}{qw(table field text modifier operator thisfield qry_ref)};
-	$$qry_ref .= $modifier;
+	my $sub_qry = q();
+	
 	my %methods = (
 		'NOT' => sub {
 			if ( lc($text) eq 'null' ) {
-				$$qry_ref .= "$table.$field is not null";
+				$sub_qry .= "$table.$field is not null";
 			} else {
-				$$qry_ref .=
+				$sub_qry .=
 				  $thisfield->{'type'} ne 'text'
 				  ? "(NOT $table.$field = '$text'"
 				  : "(NOT upper($table.$field) = upper(E'$text')";
-				$$qry_ref .= " OR $table.$field IS NULL)";
+				$sub_qry .= " OR $table.$field IS NULL)";
 			}
 		},
 		'contains' => sub {
-			$$qry_ref .=
+			$sub_qry .=
 			  $thisfield->{'type'} ne 'text'
 			  ? "CAST($table.$field AS text) LIKE '\%$text\%'"
 			  : "$table.$field ILIKE E'\%$text\%'";
 		},
 		'starts with' => sub {
-			$$qry_ref .=
+			$sub_qry .=
 			  $thisfield->{'type'} ne 'text'
 			  ? "CAST($table.$field AS text) LIKE '$text\%'"
 			  : "$table.$field ILIKE E'$text\%'";
 		},
 		'ends with' => sub {
-			$$qry_ref .=
+			$sub_qry .=
 			  $thisfield->{'type'} ne 'text'
 			  ? "CAST($table.$field AS text) LIKE '\%$text'"
 			  : "$table.$field ILIKE E'\%$text'";
 		},
 		'NOT contain' => sub {
-			$$qry_ref .=
+			$sub_qry .=
 			  $thisfield->{'type'} ne 'text'
 			  ? "(NOT CAST($table.$field AS text) LIKE '\%$text\%'"
 			  : "(NOT $table.$field ILIKE E'\%$text\%'";
-			$$qry_ref .= " OR $table.$field IS NULL)";
+			$sub_qry .= " OR $table.$field IS NULL)";
 		},
 		'=' => sub {
 			if ( $thisfield->{'type'} eq 'text' ) {
-				$$qry_ref .=
+				$sub_qry .=
 				  ( lc($text) eq 'null' ? "$table.$field is null" : "upper($table.$field) = upper(E'$text')" );
 			} else {
-				$$qry_ref .= ( lc($text) eq 'null' ? "$table.$field is null" : "$table.$field = '$text'" );
+				$sub_qry .= ( lc($text) eq 'null' ? "$table.$field is null" : "$table.$field = '$text'" );
 			}
 		}
 	);
@@ -913,15 +913,17 @@ sub _modify_query_standard_field {
 	} else {
 		if ( ( $table eq 'sequences' || $table eq 'allele_designations' ) && $field eq 'allele_id' ) {
 			if ( $self->_are_only_int_allele_ids_used && BIGSdb::Utils::is_int($text) ) {
-				$$qry_ref .= "CAST($table.$field AS integer)";
+				$sub_qry .= "CAST($table.$field AS integer)";
 			} else {
-				$$qry_ref .= "$table.$field";
+				$sub_qry .= "$table.$field";
 			}
-			$$qry_ref .= " $operator E'$text'";
+			$sub_qry .= " $operator E'$text'";
 		} else {
-			$$qry_ref .= "$table.$field $operator E'$text'";
+			$sub_qry .= "$table.$field $operator E'$text'";
 		}
 	}
+	$sub_qry = $self->_modify_user_fields_in_remote_user_dbs( $sub_qry, $field, $operator, $text );
+	$$qry_ref .= "$modifier$sub_qry";
 	return;
 }
 
