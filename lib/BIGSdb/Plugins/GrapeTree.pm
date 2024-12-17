@@ -53,7 +53,7 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.6.1',
+		version             => '1.7.0',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -168,6 +168,15 @@ sub _print_parameters_fieldset {
 			q(Rescan undesignated - By default, if a genome has >= 50% of the selected loci designated, it will not )
 		  . q(be rescanned. Selecting this option will perform a BLAST query for each genome to attempt to fill in )
 		  . q(any missing annotations. Please note that this will take <b>much longer</b> to run.) );
+	say q(</li><li>);
+	say q(<li><label for="method">Method: </label>);
+	say $q->popup_menu( -id => 'method', -name => 'method', -values => [qw(MSTreeV2 MSTree NJ RapidNJ)] );
+	say $self->get_tooltip(
+		q(method - <ul><li>MSTreeV2 (default)</li>)
+		  . q(<li>MSTree</li>)
+		  . q(<li>NJ - FastME V2 NJ tree</li>)
+		  . q(<li>RapidNJ - RapidNJ for very large datasets</li></ul>)
+	);
 	say q(</li></ul></fieldset>);
 	return;
 }
@@ -288,6 +297,7 @@ sub run_job {
 	$self->_generate_mstree(
 		{
 			job_id   => $job_id,
+			params   => $params,
 			profiles => $profile_file,
 			tree     => $tree_file
 		}
@@ -375,21 +385,23 @@ sub generate_profile_file {
 
 sub _generate_mstree {
 	my ( $self, $args ) = @_;
-	my ( $job_id, $profiles_file, $tree_file ) = @{$args}{qw(job_id profiles tree)};
+	my ( $job_id, $params, $profiles_file, $tree_file ) = @{$args}{qw(job_id params profiles tree)};
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Generating minimum spanning tree' } );
 	my $prefix     = BIGSdb::Utils::get_random();
 	my $error_file = "$self->{'config'}->{'secure_tmp_dir'}/${prefix}_grapetree";
 	my $cmd;
+	my $method = $params->{'method'} // 'MSTreeV2';
 	if ( !defined $self->{'config'}->{'python3_path'} && $self->{'config'}->{'grapetree_path'} =~ /python/x ) {
 
 		#Path includes full command for running GrapeTree (recommended)
-		$cmd = "$self->{'config'}->{'grapetree_path'} --profile $profiles_file 2>$error_file > $tree_file ";
+		$cmd = "$self->{'config'}->{'grapetree_path'} --profile $profiles_file "
+		  . "--method $method 2>$error_file > $tree_file ";
 	} else {
 
 		#Separate variables for GrapeTree directory and Python path (legacy)
 		my $python = $self->{'config'}->{'python3_path'} // '/usr/bin/python3';
 		$cmd = "$python $self->{'config'}->{'grapetree_path'}/grapetree.py --profile "
-		  . "$profiles_file 2>$error_file > $tree_file ";
+		  . "$profiles_file --method $method 2>$error_file > $tree_file ";
 	}
 	eval { system($cmd); };
 	if ($?) {
