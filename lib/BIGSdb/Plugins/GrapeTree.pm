@@ -172,7 +172,7 @@ sub _print_parameters_fieldset {
 	say q(<li><label for="method">Method: </label>);
 	say $q->popup_menu( -id => 'method', -name => 'method', -values => [qw(MSTreeV2 MSTree NJ RapidNJ)] );
 	say $self->get_tooltip(
-		q(method - <ul><li>MSTreeV2 (default)</li>)
+		q(Method - <ul><li>MSTreeV2 (default)</li>)
 		  . q(<li>MSTree</li>)
 		  . q(<li>NJ - FastME V2 NJ tree</li>)
 		  . q(<li>RapidNJ - RapidNJ for very large datasets</li></ul>)
