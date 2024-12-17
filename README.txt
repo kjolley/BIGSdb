@@ -1,3 +1,5 @@
+v1.50.1: *Added support for Neighbour-joining trees in GrapeTree.
+         *Added a means to restrict use of particular plugins to users/groups.
 v1.50.0: *Field values from arbitrary analyses, e.g. Kleborate and rMLST
           species id, stored as JSON can now be registered and included in
           isolate queries, export, and analysis.
