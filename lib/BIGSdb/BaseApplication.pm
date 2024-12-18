@@ -53,16 +53,36 @@ sub set_dbconnection_params {
 }
 
 sub set_system_overrides {
-	my ($self) = @_;
+	my ( $self, $options ) = @_;
 	return if !$self->{'instance'};
 	my $override_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/system.overrides";
 	if ( -e $override_file ) {
 		my $config = Config::Tiny->new();
 		$config = Config::Tiny->read($override_file);
-		foreach my $param ( keys %{ $config->{_} } ) {
-			my $value = $config->{_}->{$param};
-			$value =~ s/^"|"$//gx;    #Remove quotes around value
-			$self->{'system'}->{$param} = $value;
+		my %valid_section;
+		if ( $options->{'user'} ) {
+			if ( $self->{'username'} ) {
+				$valid_section{"user:$self->{'username'}"} = 1;
+				my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+				if ($user_info) {
+					my $usergroups = $self->{'datastore'}->run_query(
+						'SELECT ug.description FROM user_groups ug JOIN user_group_members '
+						  . 'ugm ON ug.id=ugm.user_group WHERE ugm.user_id=?', $user_info->{'id'},
+						{ fetch => 'col_arrayref' }
+					);
+					$valid_section{"usergroup:$_"} = 1 foreach @$usergroups;
+				}
+			}
+		} else {
+			$valid_section{'_'} = 1;
+		}
+		foreach my $section ( keys %$config ) {
+			next if !$valid_section{$section};
+			foreach my $param ( keys %{ $config->{$section} } ) {
+				my $value = $config->{$section}->{$param};
+				$value =~ s/^"|"$//gx;    #Remove quotes around value
+				$self->{'system'}->{$param} = $value;
+			}
 		}
 	}
 	$self->_set_field_overrides;
@@ -73,7 +93,8 @@ sub _set_field_overrides {
 	my ($self) = @_;
 	return if !$self->{'instance'};
 	my $override_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/field.overrides";
-	my %allowed_att = map { $_ => 1 } qw(required maindisplay curate_only allow_submissions default hide optlist_values);
+	my %allowed_att =
+	  map { $_ => 1 } qw(required maindisplay curate_only allow_submissions default hide optlist_values);
 	if ( -e $override_file ) {
 		my $config = Config::Tiny->new();
 		$config = Config::Tiny->read($override_file);
@@ -89,8 +110,8 @@ sub _set_field_overrides {
 			}
 			my $value = $config->{_}->{$param};
 			$value =~ s/^"|"$//gx;    #Remove quotes around value
-			if ($attribute eq 'optlist_values'){
-				my @values = split('\|',$value);
+			if ( $attribute eq 'optlist_values' ) {
+				my @values = split( '\|', $value );
 				$self->{'xmlHandler'}->{'options'}->{$field} = \@values;
 			} else {
 				$self->{'xmlHandler'}->{'attributes'}->{$field}->{$attribute} = $value;
@@ -104,16 +125,15 @@ sub initiate_authdb {
 	my ($self) = @_;
 	my %att = (
 		dbase_name => $self->{'config'}->{'auth_db'},
-		host       => $self->{'config'}->{'dbhost'} // $self->{'system'}->{'host'},
-		port       => $self->{'config'}->{'dbport'} // $self->{'system'}->{'port'},
-		user       => $self->{'config'}->{'dbuser'} // $self->{'system'}->{'user'},
+		host       => $self->{'config'}->{'dbhost'}     // $self->{'system'}->{'host'},
+		port       => $self->{'config'}->{'dbport'}     // $self->{'system'}->{'port'},
+		user       => $self->{'config'}->{'dbuser'}     // $self->{'system'}->{'user'},
 		password   => $self->{'config'}->{'dbpassword'} // $self->{'system'}->{'password'},
 	);
 	try {
 		$self->{'auth_db'} = $self->{'dataConnector'}->get_connection( \%att );
 		$logger->info("Connected to authentication database '$self->{'config'}->{'auth_db'}'");
-	}
-	catch {
+	} catch {
 		if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
 			$logger->error("Cannot connect to authentication database '$self->{'config'}->{'auth_db'}'");
 			$self->{'error'} = 'noAuth';
@@ -130,9 +150,9 @@ sub initiate_jobmanager {
 		{
 			config_dir       => $config_dir,
 			dbase_config_dir => $dbase_config_dir,
-			host             => $self->{'config'}->{'dbhost'} // $self->{'system'}->{'host'},
-			port             => $self->{'config'}->{'dbport'} // $self->{'system'}->{'port'},
-			user             => $self->{'config'}->{'dbuser'} // $self->{'system'}->{'user'},
+			host             => $self->{'config'}->{'dbhost'}     // $self->{'system'}->{'host'},
+			port             => $self->{'config'}->{'dbport'}     // $self->{'system'}->{'port'},
+			user             => $self->{'config'}->{'dbuser'}     // $self->{'system'}->{'user'},
 			password         => $self->{'config'}->{'dbpassword'} // $self->{'system'}->{'password'},
 			system           => $self->{'system'}
 		}
@@ -326,8 +346,7 @@ sub db_connect {
 	};
 	try {
 		$self->{'db'} = $self->{'dataConnector'}->get_connection($att);
-	}
-	catch {
+	} catch {
 		if ( $_->isa('BIGSdb::Exception::Database::Connection') ) {
 			$logger->error("Cannot connect to database '$self->{'system'}->{'db'}'");
 			$self->{'error'} = 'noConnect';
@@ -371,8 +390,8 @@ sub _is_name_in_file {
 	open( my $fh, '<', $filename ) || $logger->error("Can't open $filename for reading");
 	while ( my $line = <$fh> ) {
 		next if $line =~ /^\#/x;
-		$line =~ s/^\s+//x;
-		$line =~ s/\s+$//x;
+		$line         =~ s/^\s+//x;
+		$line         =~ s/\s+$//x;
 		if ( $line eq $name ) {
 			close $fh;
 			return 1;
@@ -389,13 +408,13 @@ sub _is_user_in_group_file {
 	open( my $fh, '<', $filename ) || $logger->error("Can't open $filename for reading");
 	while ( my $line = <$fh> ) {
 		next if $line =~ /^\#/x;
-		$line =~ s/^\s+//x;
-		$line =~ s/\s+$//x;
+		$line         =~ s/^\s+//x;
+		$line         =~ s/\s+$//x;
 		push @$group_names, $line;
 	}
 	close $fh;
 	my $list_table = $self->{'datastore'}->create_temp_list_table_from_array( 'text', $group_names );
-	my $user_info = $self->{'datastore'}->get_user_info_from_username($name);
+	my $user_info  = $self->{'datastore'}->get_user_info_from_username($name);
 	return if !$user_info;
 	return $self->{'datastore'}->run_query(
 		'SELECT EXISTS(SELECT * FROM user_groups g JOIN user_group_members m ON g.id=m.user_group WHERE '

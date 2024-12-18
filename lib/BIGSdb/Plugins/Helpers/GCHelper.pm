@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2021, University of Oxford
+#Copyright (c) 2017-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -343,7 +343,7 @@ sub _get_allele_designations_from_defined_loci {
 		my $locus_info = $self->{'datastore'}->get_locus_info( $designation->{'locus'} );
 
 		#Always BLAST if it is a peptide locus and we need the nucleotide sequence for alignment
-		next if $locus_info->{'data_type'} eq 'peptide' && $self->{'options'}->{'align'};
+		next if ( $locus_info->{'data_type'} // q() ) eq 'peptide' && $self->{'options'}->{'align'};
 		if ( $designations->{ $designation->{'locus'} } ) {
 
 			#Make sure allele ordering is consistent.

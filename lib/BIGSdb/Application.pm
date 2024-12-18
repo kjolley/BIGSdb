@@ -585,6 +585,9 @@ sub print_page {
 		$page_attributes{'error'} = 'unknown';
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
 	}
+
+	#Read system.overrides file again to set any user specific values.
+	$self->set_system_overrides( { user => 1 } );
 	$page->print_page_content;
 	if ( $page_attributes{'error'} ) {
 		$self->{'handled_error'} = 1;

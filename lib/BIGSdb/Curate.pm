@@ -180,6 +180,7 @@ sub print_page {
 	my $page;
 	my $continue = 1;
 	my $auth_cookies_ref;
+
 	if ( $self->{'error'} ) {
 		$page_attributes{'error'}              = $self->{'error'};
 		$page_attributes{'max_upload_size_mb'} = $self->{'max_upload_size_mb'};
@@ -258,6 +259,9 @@ sub print_page {
 			}
 		}
 		$page = "BIGSdb::$classes{$self->{'page'}}"->new(%page_attributes);
+
+		#Read system.overrides file again to set any user specific values.
+		$self->set_system_overrides( { user => 1 } );
 		$page->print_page_content;
 		$self->log_call( { curate => 1 } );
 		return;
