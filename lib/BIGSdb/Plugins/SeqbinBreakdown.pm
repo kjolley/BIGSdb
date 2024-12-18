@@ -53,7 +53,7 @@ sub get_attributes {
 		menutext    => 'Sequence bin breakdown',
 		module      => 'SeqbinBreakdown',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/seqbin_breakdown.html",
-		version     => '1.8.2',
+		version     => '1.9.0',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -327,7 +327,7 @@ sub _print_options_fieldset {
 	say q(<fieldset style="float:left"><legend>Options</legend><ul><li>);
 	say $q->checkbox( -name => 'contig_analysis', -label => 'Contig analysis (min, max, N50 etc.)' );
 	say q(</li><li>);
-	say $q->checkbox( -name => 'gc', -label => 'Calculate %GC' );
+	say $q->checkbox( -name => 'gc', -label => 'Calculate %GC, gaps, and Ns' );
 	say q(</li></ul></fieldset>);
 	return;
 }
@@ -402,7 +402,7 @@ sub _get_html_table_header {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $labelfield = ucfirst( $self->{'system'}->{'labelfield'} );
-	my $gc         = $options->{'gc'} ? q(<th>Mean %GC</th>) : q();
+	my $gc         = $options->{'gc'} ? q(<th>Mean %GC</th><th>Ns</th><th>Gaps</th>) : q();
 	my $buffer =
 		q(<table class="tablesorter" id="sortTable"><thead>)
 	  . qq(<tr><th>Isolate id</th><th>$labelfield</th><th>Contigs</th><th>Total length</th>);
@@ -414,7 +414,7 @@ sub _get_html_table_header {
 	$buffer .= $gc;
 	if ( $options->{'loci_selected'} ) {
 		$buffer .=
-		  q(<th>Alleles designated</th><th>% Alleles designated</th>) . q(<th>Loci tagged</th><th>% Loci tagged</th>);
+		  q(<th>Alleles designated</th><th>% Alleles designated</th><th>Loci tagged</th><th>% Loci tagged</th>);
 	}
 	$buffer .= q(<th>Sequence bin</th></tr></thead><tbody>);
 	return $buffer;
@@ -423,10 +423,10 @@ sub _get_html_table_header {
 sub _get_html_table_row {
 	my ( $self, $isolate_id, $contig_info, $td, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my ( $isolate_name, $contigs, $sum, $min, $max, $mean, $stddev, $single_isolate_lengths, $gc, $allele_designations,
-		$percent_alleles, $tagged, $percent_tagged, $n_stats )
+	my ( $isolate_name, $contigs, $sum, $min, $max, $mean, $stddev, $single_isolate_lengths, $gc, $Ns, $gaps,
+		$allele_designations, $percent_alleles, $tagged, $percent_tagged, $n_stats )
 	  = @{$contig_info}{
-		qw(isolate_name contigs sum min max mean stddev lengths gc
+		qw(isolate_name contigs sum min max mean stddev lengths gc Ns gaps
 		  allele_designations percent_alleles tagged percent_tagged n_stats)
 	  };
 	my $q      = $self->{'cgi'};
@@ -437,7 +437,7 @@ sub _get_html_table_row {
 		$buffer .= qq(<td>$n_stats->{'N50'}</td><td>$n_stats->{'L50'}</td><td>$n_stats->{'N90'}</td>)
 		  . qq(<td>$n_stats->{'L90'}</td><td>$n_stats->{'N95'}</td><td>$n_stats->{'L95'}</td>);
 	}
-	$buffer .= qq(<td>$gc</td>) if $options->{'gc'};
+	$buffer .= qq(<td>$gc</td><td>$Ns</td><td>$gaps</td>) if $options->{'gc'};
 	if ( $options->{'loci_selected'} ) {
 		$buffer .= qq(<td>$allele_designations</td><td>$percent_alleles</td><td>$tagged</td><td>$percent_tagged</td>);
 	}
@@ -450,7 +450,7 @@ sub _get_text_table_header {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $labelfield = ucfirst( $self->{'system'}->{'labelfield'} );
-	my $gc         = $options->{'gc'} ? "%GC\t" : '';
+	my $gc         = $options->{'gc'} ? "%GC\tNs\tgaps" : '';
 	my $header     = qq(Isolate id\t$labelfield\tContigs\tTotal length);
 	if ( $options->{'contig_analysis'} ) {
 		$header .= qq(\tMin\tMax\tMean\tStdDev\tN50\tL50\tN90\tL90\tN95\tL95);
@@ -465,10 +465,10 @@ sub _get_text_table_header {
 sub _get_text_table_row {
 	my ( $self, $isolate_id, $contig_info, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my ( $isolate_name, $contigs, $sum, $min, $max, $mean, $stddev, $single_isolate_lengths, $gc, $allele_designations,
-		$percent_alleles, $tagged, $percent_tagged, $n_stats )
+	my ( $isolate_name, $contigs, $sum, $min, $max, $mean, $stddev, $single_isolate_lengths, $gc, $Ns, $gaps,
+		$allele_designations, $percent_alleles, $tagged, $percent_tagged, $n_stats )
 	  = @{$contig_info}{
-		qw(isolate_name contigs sum min max mean stddev lengths gc allele_designations
+		qw(isolate_name contigs sum min max mean stddev lengths gc Ns gaps allele_designations
 		  percent_alleles tagged percent_tagged n_stats)
 	  };
 	my $buffer = qq($isolate_id\t$isolate_name\t$contigs\t$sum);
@@ -478,7 +478,7 @@ sub _get_text_table_row {
 		$buffer .= qq(\t$n_stats->{'N50'}\t$n_stats->{'L50'}\t$n_stats->{'N90'}\t$n_stats->{'L90'}\t)
 		  . qq($n_stats->{'N95'}\t$n_stats->{'L95'});
 	}
-	$buffer .= qq(\t$gc) if $options->{'gc'};
+	$buffer .= qq(\t$gc\t$Ns\t$gaps) if $options->{'gc'};
 	if ( $options->{'loci_selected'} ) {
 		$buffer .= qq(\t$allele_designations\t$percent_alleles\t$tagged\t$percent_tagged);
 	}
@@ -529,16 +529,25 @@ sub _get_isolate_contig_data {
 	if ( $options->{'gc'} ) {
 		my $gc = 0;
 		my $at = 0;
+		my $n = 0;
+		my $gaps =0;
 		foreach my $contig_id ( keys %$contigs ) {
 			$gc += () = $contigs->{$contig_id} =~ /[GCgc]/gx;
 			$at += () = $contigs->{$contig_id} =~ /[ATat]/gx;
+			$n += () = $contigs->{$contig_id} =~ /[Nn]/gx;
+			$gaps += () = $contigs->{$contig_id} =~ /[Nn]+/gx;
 		}
 		if ( $gc + $at ) {
 			my $gc_value = $gc / ( $gc + $at );
 			$data->{'gc'} = BIGSdb::Utils::decimal_place( ( $gc_value // 0 ) * 100, 2 );
+			$data->{'Ns'} = $n;
+			$data->{'gaps'} = $gaps;
+			
 		} else {
 			$logger->error("$self->{'instance'} id-$isolate_id reports no nucleotide characters in seqbin.");
 			$data->{'gc'} = q();
+			$data->{'Ns'} =q();
+			$data->{'gaps'} = q();
 		}
 	}
 	return $data;
