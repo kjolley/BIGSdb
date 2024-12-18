@@ -527,26 +527,25 @@ sub _get_isolate_contig_data {
 		$data->{'percent_tagged'} = BIGSdb::Utils::decimal_place( 100 * $data->{'tagged'} / @$loci, 1 );
 	}
 	if ( $options->{'gc'} ) {
-		my $gc = 0;
-		my $at = 0;
-		my $n = 0;
-		my $gaps =0;
+		my $gc   = 0;
+		my $at   = 0;
+		my $n    = 0;
+		my $gaps = 0;
 		foreach my $contig_id ( keys %$contigs ) {
-			$gc += () = $contigs->{$contig_id} =~ /[GCgc]/gx;
-			$at += () = $contigs->{$contig_id} =~ /[ATat]/gx;
-			$n += () = $contigs->{$contig_id} =~ /[Nn]/gx;
+			$gc   += () = $contigs->{$contig_id} =~ /[GCgc]/gx;
+			$at   += () = $contigs->{$contig_id} =~ /[ATat]/gx;
+			$n    += () = $contigs->{$contig_id} =~ /[Nn]/gx;
 			$gaps += () = $contigs->{$contig_id} =~ /[Nn]+/gx;
 		}
 		if ( $gc + $at ) {
 			my $gc_value = $gc / ( $gc + $at );
-			$data->{'gc'} = BIGSdb::Utils::decimal_place( ( $gc_value // 0 ) * 100, 2 );
-			$data->{'Ns'} = $n;
+			$data->{'gc'}   = BIGSdb::Utils::decimal_place( ( $gc_value // 0 ) * 100, 2 );
+			$data->{'Ns'}   = $n;
 			$data->{'gaps'} = $gaps;
-			
 		} else {
 			$logger->error("$self->{'instance'} id-$isolate_id reports no nucleotide characters in seqbin.");
-			$data->{'gc'} = q();
-			$data->{'Ns'} =q();
+			$data->{'gc'}   = q();
+			$data->{'Ns'}   = q();
 			$data->{'gaps'} = q();
 		}
 	}
