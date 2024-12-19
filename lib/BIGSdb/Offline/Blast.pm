@@ -537,12 +537,19 @@ sub _lookup_partial_matches {
 	my $length_cache = {};
 	my %cache;
 
-	#Only check top 20 matches for each length.
-	my %length_count;
+	#Only check top 20 matches for each length within each contig.
+	my $length_count = {};
 	foreach my $match (@$locus_matches) {
+		my $contig_id = $match->{'query'};
+		if (!defined $contig_id){ 
+			#Adding this as I'm not sure if match->{'query'} is always set, although I think it is.
+			#This is only used to limit the counts.
+			$self->{'logger'}->error('Contig id is not defined.');
+			$contig_id = 1;
+		}
 		my $allele_id;
-		$length_count{ $match->{'length'} }++;
-		next if $length_count{ $match->{'length'} } >= 20;
+		$length_count->{$contig_id}->{ $match->{'length'} }++;
+		next if $length_count->{$contig_id}->{$match->{'length'} } >= 20;
 		my $seq = $self->_extract_match_seq_from_query( $seq_ref, $match );
 		if ( $locus_info->{'data_type'} eq 'peptide' && $qry_type eq 'DNA' ) {
 			my $seq_obj = Bio::Seq->new( -seq => $seq, -alphabet => 'dna' );
