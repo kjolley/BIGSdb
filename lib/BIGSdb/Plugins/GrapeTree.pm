@@ -386,7 +386,7 @@ sub generate_profile_file {
 sub _generate_mstree {
 	my ( $self, $args ) = @_;
 	my ( $job_id, $params, $profiles_file, $tree_file ) = @{$args}{qw(job_id params profiles tree)};
-	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Generating minimum spanning tree' } );
+	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Generating tree' } );
 	my $prefix     = BIGSdb::Utils::get_random();
 	my $error_file = "$self->{'config'}->{'secure_tmp_dir'}/${prefix}_grapetree";
 	my $cmd;
