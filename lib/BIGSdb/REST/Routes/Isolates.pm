@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2023, University of Oxford
+#Copyright (c) 2014-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -154,6 +154,8 @@ sub _get_isolate {
 	$values->{'history'} = request->uri_for("$subdir/db/$db/isolates/$id/history") if $has_history;
 	my $publications = _get_publications($id);
 	$values->{'publications'} = $publications if @$publications;
+	my $analysis = _get_analysis_results($id);
+	$values->{'analysis_results'} = $analysis if %$analysis;
 	my $seqbin_stats =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT * FROM seqbin_stats WHERE isolate_id=?', $id, { fetch => 'row_hashref' } );
@@ -211,6 +213,25 @@ sub _get_publications {
 		  };
 	}
 	return $publications;
+}
+
+sub _get_analysis_results {
+	my ($isolate_id) = @_;
+	my $self         = setting('self');
+	my $results      = $self->{'datastore'}->run_query(
+		'SELECT af.analysis_name,af.analysis_display_name,af.field_name,af.data_type,arc.value FROM '
+		  . 'analysis_fields af JOIN analysis_results_cache arc ON (af.analysis_name,af.json_path)='
+		  . '(arc.analysis_name,arc.json_path) WHERE arc.isolate_id=?',
+		$isolate_id,
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	my $values = {};
+	foreach my $result (@$results) {
+		my $analysis = $result->{'analysis_display_name'} // $result->{'analysis_name'};
+		my $value    = $result->{'data_type'} eq 'integer' ? int( $result->{'value'} ) : $result->{'value'};
+		$values->{$analysis}->{ $result->{'field_name'} } = $value;
+	}
+	return $values;
 }
 
 sub _get_history {
