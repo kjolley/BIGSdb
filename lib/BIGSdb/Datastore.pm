@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -3422,10 +3422,8 @@ sub get_eav_field_value {
 
 sub get_analysis_fields {
 	my ($self) = @_;
-	return $self->run_query(
-		'SELECT * FROM analysis_fields ORDER BY analysis_name,field_name',
-		undef, { fetch => 'all_arrayref', slice => {} }
-	);
+	return $self->run_query( 'SELECT * FROM analysis_fields ORDER BY analysis_name,field_name',
+		undef, { fetch => 'all_arrayref', slice => {} } );
 }
 
 sub get_analysis_field {
@@ -3496,12 +3494,18 @@ sub get_available_quota {
 	return $available;
 }
 
+sub get_username {
+	my ($self) = @_;
+	return $self->{'username'};
+}
+
 sub initiate_view {
 	my ( $self, $args ) = @_;
 	my ( $username, $curate, $set_id ) = @{$args}{qw(username curate set_id)};
+	$self->{'username'} = $username;    #Store in datastore for delayed REST calls.
 	my $user_info = $self->get_user_info_from_username($username);
 	if ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'sequences' ) {
-		if ( !$user_info ) {    #Not logged in.
+		if ( !$user_info ) {            #Not logged in.
 			my $restrict_date = $self->get_date_restriction;
 			if ( defined $restrict_date ) {
 				my $qry = 'CREATE TEMPORARY VIEW temp_sequences_view AS SELECT * FROM sequences WHERE date_entered<=?';
