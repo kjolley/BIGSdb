@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2024, University of Oxford
+#Copyright (c) 2014-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -142,6 +142,7 @@ sub _get_profiles_csv {
 	my $date_restriction = $self->{'datastore'}->get_date_restriction;
 	my $date_restriction_clause =
 	  ( !$self->{'username'} && $date_restriction ) ? qq( WHERE date_entered<='$date_restriction') : q();
+	
 	my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
 	my $qry = $self->add_filters( "SELECT @fields FROM $scheme_warehouse$date_restriction_clause", $allowed_filters );
 	$qry .= ' ORDER BY ' . ( $pk_info->{'type'} eq 'integer' ? "CAST($primary_key AS int)" : $primary_key );
@@ -160,10 +161,11 @@ sub _get_profiles_csv {
 	local $" = "\t";
 	my $continue = 1;
 	my $offset   = 0;
+	my $date_restricted = $date_restriction ? '_restricted' : q();
 	while ($continue) {
 		no warnings 'uninitialized';    #scheme field values may be undefined
 		my $definitions = $self->{'datastore'}->run_query( $qry, $offset,
-			{ fetch => 'all_arrayref', cache => 'Profiles::get_profiles_csv::get_profiles' } );
+			{ fetch => 'all_arrayref', cache => "Profiles::get_profiles_csv::get_profiles$date_restricted" } );
 		foreach my $definition (@$definitions) {
 			my $pk      = shift @$definition;
 			my $profile = shift @$definition;
