@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2021-2024, University of Oxford
+#Copyright (c) 2021-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -97,8 +97,6 @@ sub print_content {
 	say qq(<div id="title_container" style="width:95vw;max-width:$title_max_width_style">);
 	say qq(<h1>$heading</h1>);
 	$self->print_general_announcement;
-
-	#	my $date_restriction_message = $self->get_date_restriction_message;
 	my $additional_message = $self->get_date_restriction_message;
 	$additional_message .= $self->get_embargo_message;
 	if ( $options->{'banner_text'} ) {
