@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -299,7 +299,7 @@ sub _print_curate_headerbar_functions {
 		$q->param( page => $page );    #Reset - The above function modify page param.
 		my $embargo_att = $self->{'datastore'}->get_embargo_attributes;
 		$self->_print_embargo_function
-		  if $embargo_att->{'embargo_enabled'} && ( $self->{'permissions'}->{'embargo'} || $self->is_admin );
+		  if $embargo_att->{'embargo_enabled'} && ( $self->{'permissions'}->{'set_embargo'} || $self->is_admin );
 	}
 	$q->param( page => $page );
 	return;

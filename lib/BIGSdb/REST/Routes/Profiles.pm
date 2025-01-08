@@ -140,9 +140,11 @@ sub _get_profiles_csv {
 	local $" = ',';
 	my $scheme_warehouse = "mv_scheme_$scheme_id";
 	my $date_restriction = $self->{'datastore'}->get_date_restriction;
+
+	#Get username stored in datastore as $self->{'username'} gets cleared because of delayed call.
+	my $username = $self->{'datastore'}->get_username;
 	my $date_restriction_clause =
-	  ( !$self->{'username'} && $date_restriction ) ? qq( WHERE date_entered<='$date_restriction') : q();
-	
+	  ( !$username && $date_restriction ) ? qq( WHERE date_entered<='$date_restriction') : q();
 	my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
 	my $qry = $self->add_filters( "SELECT @fields FROM $scheme_warehouse$date_restriction_clause", $allowed_filters );
 	$qry .= ' ORDER BY ' . ( $pk_info->{'type'} eq 'integer' ? "CAST($primary_key AS int)" : $primary_key );
@@ -159,13 +161,18 @@ sub _get_profiles_csv {
 			$scheme_id, { fetch => 'all_hashref', key => 'profile_id' } );
 	}
 	local $" = "\t";
-	my $continue = 1;
-	my $offset   = 0;
+	my $continue        = 1;
+	my $offset          = 0;
 	my $date_restricted = $date_restriction ? '_restricted' : q();
 	while ($continue) {
 		no warnings 'uninitialized';    #scheme field values may be undefined
-		my $definitions = $self->{'datastore'}->run_query( $qry, $offset,
-			{ fetch => 'all_arrayref', cache => "Profiles::get_profiles_csv::get_profiles$date_restricted" } );
+		my $definitions = $self->{'datastore'}->run_query(
+			$qry, $offset,
+			{
+				fetch => 'all_arrayref',
+				cache => "Profiles::get_profiles_csv::get_profiles_${scheme_id}_$date_restricted"
+			}
+		);
 		foreach my $definition (@$definitions) {
 			my $pk      = shift @$definition;
 			my $profile = shift @$definition;

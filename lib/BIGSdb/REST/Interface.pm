@@ -484,7 +484,6 @@ sub _is_authorized {
 			send_error( 'Invalid token request.', 400 );
 		}
 	}
-	say 'Signature Base string: ' . $request->signature_base_string;
 	if ( !$request->verify ) {
 		$self->{'logger'}->debug( 'Request string: ' . $request->signature_base_string );
 		send_error( 'Signature verification failed.', 401 );
