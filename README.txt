@@ -1,3 +1,5 @@
+v1.50.2: *Fix for API profile downloads restricted by date.
+         *Fix for set_embargo permissions.
 v1.50.1: *Added support for Neighbour-joining trees in GrapeTree.
          *Added a means to restrict use of particular plugins to users/groups.
          *Option to override system attributes for specific user/usergroups to
