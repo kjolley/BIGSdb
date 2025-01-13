@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2020-2023, University of Oxford
+#Copyright (c) 2020-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -107,6 +107,13 @@ sub _write_gff3 {
 					$tag->{'end_pos'} = $lengths{$seqbin_id};
 				}
 				my $locus_info = $self->{'datastore'}->get_locus_info( $tag->{'locus'} );
+				my @alternatives;
+				push @alternatives, $locus_info->{'common_name'} if $locus_info->{'common_name'};
+				my $aliases =
+				  $self->{'datastore'}->run_query( 'SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias',
+					$tag->{'locus'}, { fetch => 'col_arrayref', cache => 'SeqbinToGFF3::write_gff3::locus_aliases' } )
+				  ;
+				push @alternatives, @$aliases;
 				my $phase;
 
 				#BIGSdb stored ORF as 1-6.  GFF expects 0-2.
@@ -124,6 +131,8 @@ sub _write_gff3 {
 					if ( $locus_desc->{'product'} ) {
 						$locus_desc->{'product'} =~ tr/[;|=]/_/;
 						$att .= qq(;product=$locus_desc->{'product'}) if $locus_desc->{'product'};
+						local $" = q(,);
+						$att .= qq(;Alias=@alternatives) if @alternatives;
 					}
 				}
 				$att =~ s/\r?\n//x;
