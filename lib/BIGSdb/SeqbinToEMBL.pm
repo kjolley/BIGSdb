@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -130,7 +130,20 @@ sub _write_embl {
 				$desc .= ' - ' if $desc && $locus_desc->{'description'};
 				$desc .= $locus_desc->{'description'} // '';
 			}
-			$allele_sequence->{'locus'} = $self->clean_locus( $allele_sequence->{'locus'}, { text_output => 1 } );
+			my @alternatives;
+			push @alternatives, $locus_info->{'common_name'} if $locus_info->{'common_name'};
+			my $aliases = $self->{'datastore'}->run_query(
+				'SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias',
+				$allele_sequence->{'locus'},
+				{ fetch => 'col_arrayref', cache => 'SeqbinToEMBL::write_embl::locus_aliases' }
+			);
+			push @alternatives, @$aliases;
+			if (@alternatives) {
+				$desc .= '; ' if $desc;
+				local $" = q(, );
+				my $plural = @alternatives == 1 ? q() : q(s);
+				$desc .= "Alternative name$plural: @alternatives";
+			}
 			my $feature = Bio::SeqFeature::Generic->new(
 				-start       => $allele_sequence->{'start_pos'},
 				-end         => $allele_sequence->{'end_pos'},
