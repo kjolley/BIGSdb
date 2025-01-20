@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -410,7 +410,7 @@ sub get_embargo_message {
 	my $project_id = $q->param('project_id');
 	my $project_clause =
 	  BIGSdb::Utils::is_int($project_id)
-	  ? qq(JOIN project_members pm ON pm.isolate_id=v.id AND pm.project_id=$project_id)
+	  ? qq(JOIN project_members pm ON pm.isolate_id=v.id AND pm.project_id=$project_id )
 	  : q();
 	my $embargo_total = $self->{'datastore'}->run_query(
 		"SELECT COUNT(*) FROM private_isolates pi JOIN $self->{'system'}->{'view'} v ON pi.isolate_id=v.id "
