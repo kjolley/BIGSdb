@@ -275,7 +275,8 @@ use constant LOCUS_TYPES => (
 	'promoter region',
 	'pseudogene',
 	'complete protein',
-	'partial protein'
+	'partial protein',
+	'RNA gene'
 );
 use constant DIPLOID            => qw(A C G T R Y W S M K);
 use constant HAPLOID            => qw(A C G T);
