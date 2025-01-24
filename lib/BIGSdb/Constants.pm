@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2024, University of Oxford
+#Copyright (c) 2015-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -275,7 +275,8 @@ use constant LOCUS_TYPES => (
 	'promoter region',
 	'pseudogene',
 	'complete protein',
-	'partial protein'
+	'partial protein',
+	'RNA gene'
 );
 use constant DIPLOID            => qw(A C G T R Y W S M K);
 use constant HAPLOID            => qw(A C G T);

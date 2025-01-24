@@ -1,6 +1,6 @@
 #BLAST.pm - BLAST plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -115,7 +115,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.6.2',
+		version     => '1.6.3',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -396,9 +396,9 @@ sub run_job {
 			  ->update_job_status( $job_id, { percent_complete => $complete, stage => "Checked id: $id" } );
 			next;
 		}
-		if ($first){
-			$html_buffer.=q(<div class="scrollable">);
-			$html_buffer .= $html_header ;
+		if ($first) {
+			$html_buffer .= q(<div class="scrollable">);
+			$html_buffer .= $html_header;
 		}
 		my $include_values = $self->_get_include_values( \@includes, $id );
 		$some_results = 1;
@@ -758,9 +758,9 @@ sub _blast {
 	my $outfile_url    = "$file_prefix\_outfile.txt";
 
 	#create query FASTA file
-	open( my $queryfile_fh, '>', $temp_queryfile )
+	open( my $queryfile_fh, '>:encoding(utf8)', $temp_queryfile )
 	  or $logger->error("Can't open temp file $temp_queryfile for writing");
-	print $queryfile_fh ">query\n$$seq_ref\n";
+	say $queryfile_fh ">query\n$$seq_ref";
 	close $queryfile_fh;
 
 	#create isolate FASTA database
