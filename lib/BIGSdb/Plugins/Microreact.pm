@@ -291,7 +291,7 @@ sub _create_tsv_file {
 			} elsif ( $field =~ /^eav_(.+)$/x ) {
 				my $field_name = $1;
 				my $value      = $self->{'datastore'}->get_eav_field_value( $record->{'id'}, $field_name );
-				$logger->error("$field_name: $value");
+				$value //= q();
 				push @record_values, $value;
 			}
 		}
