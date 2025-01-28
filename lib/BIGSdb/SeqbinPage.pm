@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -223,8 +223,9 @@ sub _get_tracks_js {
 	  $self->{'datastore'}->run_query(
 		'SELECT DISTINCT locus_type FROM loci l JOIN allele_sequences a ON l.id=a.locus WHERE a.isolate_id=?',
 		$isolate_id, { fetch => 'col_arrayref' } );
-	my @palette = ( '#7570b3', '#1b9e77', '#d95f02', '#e7298a', '#66a61e', '#e6ab02', '#a6761d', '#666666' );
-	my @types   = ( LOCUS_TYPES, 'miscellaneous', );
+	my @palette =
+	  ( '#7570b3', '#1b9e77', '#d95f02', '#e7298a', '#66a61e', '#e6ab02', '#a6761d', '#008080', '#666666' );
+	my @types = ( LOCUS_TYPES, 'miscellaneous', );
 	my %locus_colours;
 	my $no_types_defined = @$locus_types == 1 && !defined $locus_types->[0];
 	if ($no_types_defined) {
