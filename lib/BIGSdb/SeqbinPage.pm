@@ -343,7 +343,6 @@ sub get_javascript {
 	});
 	
 	d3.json("$url" + "&ajax=cumulative").then (function(jsonData) {
-		console.log(jsonData);
 		chart['cumulative'] = bb.generate({
 			bindto: '#cumulative',
 			title: {
