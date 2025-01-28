@@ -213,7 +213,8 @@ sub _print_stats {
 	}
 	say q(</div>);
 	say q(<div style="clear:both"></div></div>);
-	say q(<div id="igv" class="box"></div>);
+	my $show_igv = ( !$self->_seqbin_requires_authentication || $self->{'username'} );
+	say q(<div id="igv" class="box"></div>) if $show_igv;
 	return;
 }
 
@@ -223,9 +224,8 @@ sub _get_tracks_js {
 	  $self->{'datastore'}->run_query(
 		'SELECT DISTINCT locus_type FROM loci l JOIN allele_sequences a ON l.id=a.locus WHERE a.isolate_id=?',
 		$isolate_id, { fetch => 'col_arrayref' } );
-	my @palette =
-	  ( '#7570b3', '#1b9e77', '#d95f02', '#e7298a', '#66a61e', '#e6ab02', '#a6761d', '#008080', '#666666' );
-	my @types = ( LOCUS_TYPES, 'miscellaneous', );
+	my @palette = ( '#7570b3', '#1b9e77', '#d95f02', '#e7298a', '#66a61e', '#e6ab02', '#a6761d', '#008080', '#666666' );
+	my @types   = ( LOCUS_TYPES, 'miscellaneous', );
 	my %locus_colours;
 	my $no_types_defined = @$locus_types == 1 && !defined $locus_types->[0];
 	if ($no_types_defined) {
@@ -261,16 +261,27 @@ TRACKS
 	return $buffer;
 }
 
+sub _seqbin_requires_authentication {
+	my ($self) = @_;
+	return if ( $self->{'system'}->{'seqbin_downloads_require_login'} // q() ) eq 'no';
+	return
+	  if !( $self->{'config'}->{'seqbin_downloads_require_login'}
+		|| ( $self->{'system'}->{'seqbin_downloads_require_login'} // q() ) eq 'yes' );
+	return 1;
+}
+
 sub get_javascript {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
 	my $isolate_id = $q->param('isolate_id');
 	return if !BIGSdb::Utils::is_int($isolate_id);
 	$self->_get_tracks_js($isolate_id);
-	my $url    = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=seqbin&isolate_id=$isolate_id";
-	my $tracks = $self->_get_tracks_js($isolate_id);
-	my $buffer = << "END";
+	my $url      = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=seqbin&isolate_id=$isolate_id";
+	my $tracks   = $self->_get_tracks_js($isolate_id);
+	my $show_igv = ( !$self->_seqbin_requires_authentication || $self->{'username'} ) ? 'true' : 'false';
+	my $buffer   = << "END";
 \$(function () {
+	const show_igv = $show_igv;
 	var \$grid = \$(".grid").packery({
     	itemSelector:'.grid-item',
   		gutter:5
@@ -415,17 +426,18 @@ sub get_javascript {
 	if (\$('#cumulative').length){
 		resizeObserver.observe( document.querySelector('#cumulative') ); 
 	}
-	
-	var igvDiv = \$("#igv");
-	var options = {
-  		reference: {
-  			fastaURL: "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=downloadSeqbin&isolate_id=$isolate_id",
-  			indexed: false,
-  			showAllChromosomes: true,
-  			$tracks
-  		}
-	};
-	igv.createBrowser(igvDiv, options);
+	if (show_igv){
+		var igvDiv = \$("#igv");
+		var options = {
+	  		reference: {
+	  			fastaURL: "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=downloadSeqbin&isolate_id=$isolate_id",
+	  			indexed: false,
+	  			showAllChromosomes: true,
+	  			$tracks
+	  		}
+		};
+		igv.createBrowser(igvDiv, options);
+	}
 
   });
 var delay = (function(){
