@@ -1,6 +1,6 @@
 #Contigs.pm - Contig export and analysis plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2013-2024, University of Oxford
+#Copyright (c) 2013-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -27,7 +27,8 @@ my $logger = get_logger('BIGSdb.Plugins');
 use List::MoreUtils qw(any none);
 use Archive::Tar;
 use Archive::Tar::Constant;
-use constant MAX_ISOLATES => 100;
+use IO::Compress::Gzip qw(gzip $GzipError);
+use constant MAX_ISOLATES => 1000;
 use List::MoreUtils qw(uniq);
 use BIGSdb::Constants qw(:interface SEQ_METHODS);
 
@@ -52,7 +53,7 @@ sub get_attributes {
 		menutext           => 'Contigs',
 		module             => 'Contigs',
 		url                => "$self->{'config'}->{'doclink'}/data_export/contig_export.html",
-		version            => '1.2.1',
+		version            => '2.0.0',
 		dbtype             => 'isolates',
 		section            => 'export,postquery',
 		input              => 'query',
@@ -60,9 +61,9 @@ sub get_attributes {
 		order              => 20,
 		system_flag        => 'ContigExport',
 		enabled_by_default => 1,
-		tar_filename       => 'contigs.tar',
-		requires           => 'seqbin',
-		image              => '/images/plugins/Contigs/screenshot.png'
+		tar_gz_filename    => 'contigs.tar.gz',
+		requires => 'seqbin,offline_jobs',                   #Offline jobs set to force log in if required for downloads
+		image    => '/images/plugins/Contigs/screenshot.png'
 	);
 	return \%att;
 }
@@ -79,27 +80,32 @@ sub set_pref_requirements {
 }
 
 sub _get_contigs {
-	my ( $self, $args ) = @_;
-	my ( $isolate_id, $pc_untagged, $match, $single ) = @{$args}{qw (isolate_id pc_untagged match single)};
+	my ( $self,       $args )   = @_;
+	my ( $isolate_id, $single ) = @{$args}{qw (isolate_id single)};
 	my $buffer = q();
 	if ( !defined $isolate_id || !BIGSdb::Utils::is_int($isolate_id) ) {
 		say q(Invalid isolate id passed.) if $single;
 		return \$buffer;
 	}
-	$pc_untagged //= 0;
-	if ( !defined $pc_untagged || !BIGSdb::Utils::is_int($pc_untagged) ) {
-		say q(Invalid percentage tagged threshold value passed.) if $single;
-		return \$buffer;
-	}
-	my $data       = $self->_calculate( $isolate_id, { pc_untagged => $pc_untagged, get_contigs => 1 } );
-	my $export_seq = $match ? $data->{'match_seq'} : $data->{'non_match_seq'};
-	if ( !@$export_seq ) {
+	my $contig_records =
+	  $self->{'datastore'}->run_query( 'SELECT id,original_designation FROM sequence_bin WHERE isolate_id=?',
+		$isolate_id, { fetch => 'all_hashref', key => 'id', cache => 'Contigs::get_contigs' } );
+	my $contig_ids = [ keys %$contig_records ];
+	if ( !@$contig_ids ) {
 		say q(No sequences matching selected criteria.) if $single;
 		return \$buffer;
 	}
-	foreach ( sort { length( $b->{'sequence'} ) <=> length( $a->{'sequence'} ) } @$export_seq ) {
-		$buffer .= qq(>$_->{'seqbin_id'}\n);
-		my $cleaned_seq = BIGSdb::Utils::break_line( $_->{'sequence'}, 60 ) || '';
+	my $contigs = $self->{'contigManager'}->get_contigs_by_list($contig_ids);
+	my $q       = $self->{'cgi'};
+	foreach
+	  my $contig_id ( sort { ( length( $contigs->{$b} ) <=> length( $contigs->{$a} ) ) || ( $a <=> $b ) } @$contig_ids )
+	{
+		my $header =
+			( $q->param('header') // 1 ) == 1
+		  ? ( $contig_records->{$contig_id}->{'original_designation'} || $contig_id )
+		  : $contig_id;
+		$buffer .= qq(>$header\n);
+		my $cleaned_seq = BIGSdb::Utils::break_line( $contigs->{$contig_id}, 60 ) || '';
 		$buffer .= qq($cleaned_seq\n);
 	}
 	return \$buffer;
@@ -112,8 +118,8 @@ sub run {
 		my $contigs = $self->_get_contigs( { $q->Vars, single => 1 } );
 		say $$contigs;
 		return;
-	} elsif ( $q->param('batchDownload') && ( $q->param('format') // '' ) eq 'tar' && !$self->{'no_archive'} ) {
-		$self->_batchDownload;
+	} elsif ( $q->param('batchDownload') && ( $q->param('format') // '' ) eq 'tar_gz' && !$self->{'no_archive'} ) {
+		$self->_batch_download;
 		return;
 	}
 	say q(<h1>Contig analysis and export</h1>);
@@ -127,7 +133,7 @@ sub run {
 		my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list( { dont_clear => 1 } );
 		push @$ids, @$pasted_cleaned_ids;
 		@$ids = uniq @$ids;
-		my $filtered_ids = $self->filter_ids_by_project( $ids, scalar $q->param('project_list') );
+		my $limit = $self->_get_limit;
 		if (@$invalid_ids) {
 			local $" = ', ';
 			$self->print_bad_status(
@@ -138,7 +144,7 @@ sub run {
 			$self->_print_interface;
 			return;
 		}
-		if ( !@$filtered_ids ) {
+		if ( !@$ids ) {
 			$self->print_bad_status(
 				{
 					message => q(You must include one or more isolates. Make sure your )
@@ -147,78 +153,85 @@ sub run {
 			);
 			$self->_print_interface;
 			return;
-		} elsif ( @$filtered_ids > MAX_ISOLATES ) {
-			my $max_isolates =
-			  ( $self->{'system'}->{'contig_analysis_limit'}
-				  && BIGSdb::Utils::is_int( $self->{'system'}->{'contig_analysis_limit'} ) )
-			  ? $self->{'system'}->{'contig_analysis_limit'}
-			  : MAX_ISOLATES;
-			my $selected_count = @$filtered_ids;
+		} elsif ( @$ids > $limit ) {
+			my $selected_count = @$ids;
+			my $nice_limit     = BIGSdb::Utils::commify($limit);
+			my $nice_selected  = BIGSdb::Utils::commify($selected_count);
 			$self->print_bad_status(
 				{
-					message => qq(Contig analysis is limited to $max_isolates )
-					  . qq(isolates. You have selected $selected_count.)
+					message => qq(Contig analysis is limited to $nice_limit )
+					  . qq(isolates. You have selected $nice_selected.)
 				}
 			);
 			$self->_print_interface;
 			return;
 		}
 		$self->_print_interface;
-		$self->_run_analysis($filtered_ids);
+		$self->_run_analysis($ids);
 	} else {
 		$self->_print_interface;
 	}
 	return;
 }
 
+sub _get_limit {
+	my ($self) = @_;
+	my $limit = $self->{'system'}->{'contig_export_limit'} // $self->{'config'}->{'contig_export_limit'}
+	  // MAX_ISOLATES;
+	if ( !BIGSdb::Utils::is_int($limit) ) {
+		$limit = MAX_ISOLATES;
+	}
+	return $limit;
+}
+
 sub _run_analysis {
-	my ( $self, $filtered_ids ) = @_;
-	my $list_file = $self->make_temp_file(@$filtered_ids);
+	my ( $self, $ids ) = @_;
+	my $list_file = $self->make_temp_file(@$ids);
 	my $q         = $self->{'cgi'};
 	say q(<div class="box" id="resultstable">);
-	my $pc_untagged = $q->param('pc_untagged');
-	$pc_untagged = 0 if !defined $pc_untagged || !BIGSdb::Utils::is_int($pc_untagged);
-	my $title = qq(Contigs with >=$pc_untagged\% sequence length untagged);
+	my $title = q(Sequence bin attributes for selected isolates);
 	say qq(<h2>$title</h2><table class="tablesorter" id="sortTable"><thead>)
-	  . qq(<tr><th rowspan="2">id</th><th rowspan="2">$self->{'system'}->{'labelfield'}</th>)
-	  . q(<th rowspan="2">contigs</th><th colspan="2" class="sorter-false">matching contigs</th>)
-	  . qq(<th colspan="2" class="sorter-false">non-matching contigs</th></tr>\n<tr><th>count</th>)
-	  . q(<th class="sorter-false">download</th><th>count</th>)
-	  . q(<th class="sorter-false">download</th></tr></thead><tbody>);
-	my $filebuffer  = qq(id\t$self->{'system'}->{'labelfield'}\tcontigs\tmatching contigs\tnon-matching contigs\n);
+	  . qq(<tr><th>id</th><th>$self->{'system'}->{'labelfield'}</th><th>contigs</th><th>total length</th>)
+	  . q(<th>N50</th><th>L50</th><th class="sorter-false">download</th></tr></thead><tbody>);
+	my $filebuffer  = qq(id\t$self->{'system'}->{'labelfield'}\tcontigs\ttotal length\tN50\tL50\n);
 	my $label_field = $self->{'system'}->{'labelfield'};
 	my $isolate_sql = $self->{'db'}->prepare("SELECT $label_field FROM $self->{'system'}->{'view'} WHERE id=?");
 	my $td          = 1;
 	local $| = 1;
+	my $list_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $ids );
+	my $contig_stats =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT s.* FROM seqbin_stats s JOIN $list_table l ON s.isolate_id=l.value ORDER BY s.isolate_id",
+		undef, { fetch => 'all_hashref', key => 'isolate_id' } );
+	my $show_archive_link;
 
-	foreach my $isolate_id (@$filtered_ids) {
+	foreach my $isolate_id (@$ids) {
 		my $isolate_values = $self->{'datastore'}->get_isolate_field_values($isolate_id);
 		my $isolate_name   = $isolate_values->{ lc($label_field) };
 		say qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=info&amp;id=$isolate_id">$isolate_id</a></td><td>$isolate_name</td>);
-		my $results = $self->_calculate( $isolate_id, { pc_untagged => $pc_untagged } );
-		say qq(<td>$results->{'total'}</td><td>$results->{'pc_untagged'}</td>);
-		my @attributes;
-		push @attributes, qq(pc_untagged=$pc_untagged);
-		push @attributes, q(min_length=) . ( $q->param('min_length_list') // 0 );
-		push @attributes, q(seq_method=) . $q->param('seq_method_list') if $q->param('seq_method_list');
-		push @attributes, q(header=) . $q->param('header_list') // 1;
-		local $" = q(&amp;);
-		say $results->{'pc_untagged'}
-		  ? qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;)
-		  . qq(name=Contigs&amp;format=text&amp;isolate_id=$isolate_id&amp;match=1&amp;@attributes">)
-		  . q(<span class="file_icon fas fa-download"></span></a></td>)
-		  : q(<td></td>);
-		my $non_match = $results->{'total'} - $results->{'pc_untagged'};
-		say $non_match
-		  ? qq(<td>$non_match</td><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=plugin&amp;name=Contigs&amp;format=text&amp;isolate_id=$isolate_id&amp;match=0&amp;@attributes">)
-		  . q(<span class="file_icon fas fa-download"></span></a></td>)
-		  : qq(<td>$non_match</td><td></td>);
-		say q(</tr>);
-		$filebuffer .= qq($isolate_id\t$isolate_name\t$results->{'total'}\t$results->{'pc_untagged'}\t$non_match\n);
-		$td = $td == 1 ? 2 : 1;
+		my $contigs      = $contig_stats->{$isolate_id}->{'contigs'} // 0;
+		my $nice_contigs = BIGSdb::Utils::commify($contigs);
+		my $length       = $contig_stats->{$isolate_id}->{'total_length'} // 0;
+		my $nice_length  = BIGSdb::Utils::commify($length);
+		my $n50          = $contig_stats->{$isolate_id}->{'n50'} // '-';
+		my $nice_n50     = BIGSdb::Utils::is_int($n50) ? BIGSdb::Utils::commify($n50) : '-';
+		my $l50          = $contig_stats->{$isolate_id}->{'l50'} // '-';
+		my $nice_l50     = BIGSdb::Utils::is_int($l50) ? BIGSdb::Utils::commify($l50) : '-';
+		my $header       = $q->param('header_list') // 1;
+		$header = 1 if !BIGSdb::Utils::is_int($header);
+		say qq(<td>$nice_contigs</td><td>$nice_length</td><td>$nice_n50</td><td>$nice_l50</td>);
 
+		if ($length) {
+			say qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;)
+			  . qq(name=Contigs&amp;format=text&amp;isolate_id=$isolate_id&amp;header=$header">)
+			  . q(<span class="file_icon fas fa-download"></span></a></td>);
+			$show_archive_link = 1;
+		} else {
+			say q(<td></td>);
+		}
+		$filebuffer .= qq($isolate_id\t$isolate_name\t$contigs\t$length\t$n50\t$l50\n);
+		$td = $td == 1 ? 2 : 1;
 		if ( $ENV{'MOD_PERL'} ) {
 			eval { $self->{'mod_perl_request'}->rflush };
 			return if $self->{'mod_perl_request'}->connection->aborted;
@@ -238,70 +251,14 @@ sub _run_analysis {
 	if ( -e $excel_file ) {
 		print qq(<a href="/tmp/$prefix.xlsx" title="Download table in Excel format">$excel</a>);
 	}
-	if ( !$self->{'no_archive'} ) {
+	if ( !$self->{'no_archive'} && $show_archive_link ) {
 		my $header = $q->param('header_list') // 1;
 		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;)
-		  . qq(name=Contigs&amp;batchDownload=$list_file&amp;format=tar&amp;header=$header" )
-		  . qq(title="Batch download all contigs from selected isolates (tar format)">$archive</a>);
+		  . qq(name=Contigs&amp;batchDownload=$list_file&amp;format=tar_gz&amp;header=$header" )
+		  . qq(title="Batch download all contigs from selected isolates (tar.gz format)">$archive</a>);
 	}
 	say q(</p></div>);
 	return;
-}
-
-sub _calculate {
-	my ( $self, $isolate_id, $options ) = @_;
-	my $q = $self->{'cgi'};
-	my $qry =
-		'SELECT id,GREATEST(r.length,length(s.sequence)) AS seq_length,original_designation FROM '
-	  . 'sequence_bin s LEFT JOIN remote_contigs r ON s.id=r.seqbin_id WHERE isolate_id=?';
-	my @criteria = ($isolate_id);
-	my $method   = $q->param('seq_method_list') // $q->param('seq_method');
-	if ($method) {
-		if ( !any { $_ eq $method } SEQ_METHODS ) {
-			$logger->error("Invalid method $method");
-			return;
-		}
-		$qry .= ' AND method=?';
-		push @criteria, $method;
-	}
-	$qry .= ' ORDER BY id';
-	my $dataset = $self->{'datastore'}->run_query( $qry, \@criteria, { fetch => 'all_arrayref' } );
-	my ( $total, $pc_untagged ) = ( 0, 0 );
-	my ( @match_seq, @non_match_seq );
-	foreach my $data (@$dataset) {
-		my ( $seqbin_id, $seq_length, $orig_designation ) = @$data;
-		my $min_length = $q->param('min_length_list') // $q->param('min_length');
-		next if ( $min_length && BIGSdb::Utils::is_int($min_length) && $seq_length < $min_length );
-		my $match = 1;
-		$total++;
-		my $tagged_length =
-		  $self->{'datastore'}->run_query( 'SELECT sum(abs(end_pos-start_pos)) FROM allele_sequences WHERE seqbin_id=?',
-			$seqbin_id, { cache => 'Contigs::tagged_length' } );
-		$tagged_length //= 0;
-		if ( $seq_length == 0 ) {
-			$logger->error(
-				"Seqbin id-$seqbin_id is zero length - this may be a remote contig that has not yet been processed.");
-			next;
-		}
-		$tagged_length = $seq_length if $tagged_length > $seq_length;
-		if ( ( ( $seq_length - $tagged_length ) * 100 / $seq_length ) >= $options->{'pc_untagged'} ) {
-			$pc_untagged++;
-		} else {
-			$match = 0;
-		}
-		if ( $options->{'get_contigs'} ) {
-			my $header  = ( $q->param('header') // 1 ) == 1 ? ( $orig_designation || $seqbin_id ) : $seqbin_id;
-			my $seq_ref = $self->{'contigManager'}->get_contig($seqbin_id);
-			if ($match) {
-				push @match_seq, { seqbin_id => $header, sequence => $$seq_ref };
-			} else {
-				push @non_match_seq, { seqbin_id => $header, sequence => $$seq_ref };
-			}
-		}
-	}
-	my %values =
-	  ( total => $total, pc_untagged => $pc_untagged, match_seq => \@match_seq, non_match_seq => \@non_match_seq );
-	return \%values;
 }
 
 sub _print_interface {
@@ -333,7 +290,6 @@ sub _print_interface {
 	say q(<div class="scrollable">);
 	$self->print_seqbin_isolate_fieldset( { selected_ids => $selected_ids, isolate_paste_list => 1 } );
 	$self->_print_options_fieldset;
-	$self->print_sequence_filter_fieldset( { min_length => 1 } );
 	$self->print_action_fieldset( { name => 'Contigs' } );
 	say $q->hidden($_) foreach qw (page name db set_id);
 	say q(</div>);
@@ -347,10 +303,7 @@ sub _print_options_fieldset {
 	my $q         = $self->{'cgi'};
 	my @pc_values = ( 0 .. 100 );
 	say q(<fieldset style="float:left"><legend>Options</legend>);
-	say q(<ul><li><label for="pc_untagged">Identify contigs with >= </label>);
-	say $q->popup_menu( -name => 'pc_untagged', -id => 'pc_untagged', -values => \@pc_values );
-	say q(% of sequence untagged</li>);
-	say q(<li><label for="header_list">FASTA header line: </label>);
+	say q(<ul><li><label for="header_list">FASTA header line: </label>);
 	say $q->popup_menu(
 		-name   => 'header_list',
 		-id     => 'header_list',
@@ -363,11 +316,11 @@ sub _print_options_fieldset {
 	return;
 }
 
-sub _batchDownload {
+sub _batch_download {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	binmode STDOUT;
-	my @list;
+	my $list     = [];
 	my $filename = "$self->{'config'}->{'secure_tmp_dir'}/" . $q->param('batchDownload');
 	local $| = 1;
 	if ( !-e $filename ) {
@@ -375,32 +328,33 @@ sub _batchDownload {
 		my $error_file = 'error.txt';
 		my $tar        = Archive::Tar->new;
 		$tar->add_data( $error_file, 'No record list passed. Please repeat query.' );
-		if ( $ENV{'MOD_PERL'} ) {
-			my $tf = $tar->write;
-			eval {
-				$self->{'mod_perl_request'}->print($tf);
-				$self->{'mod_perl_request'}->rflush;
-			};
-		} else {
-			$tar->write( \*STDOUT );
-		}
+		$tar->write( \*STDOUT );
 	} else {
 		open( my $fh, '<', $filename ) || $logger->error("Cannot open $filename for reading");
 		while (<$fh>) {
 			chomp;
-			push @list, $_ if BIGSdb::Utils::is_int($_);
+			push @$list, $_ if BIGSdb::Utils::is_int($_);
 		}
 		close $fh;
-		foreach my $id (@list) {
+		my $temp_list = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $list );
+		my $names =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT id,$self->{'system'}->{'labelfield'} FROM isolates i JOIN $temp_list t ON i.id=t.value",
+			undef, { fetch => 'all_arrayref' } );
+		my %names = map { $_->[0] => $_->[1] } @$names;
+		my $gz    = IO::Compress::Gzip->new( \*STDOUT )
+		  or $logger->error("IO::Compress::Gzip failed: $GzipError");
+		foreach my $id (@$list) {
 			if ( $id =~ /(\d+)/x ) {
 				$id = $1;
 			} else {
 				next;
 			}
-			my $isolate_name = $self->get_isolate_name_from_id($id);
+			my $data = $self->_get_contigs( { isolate_id => $id } );
+			next if !$$data;
+			my $isolate_name = $names{$id} // 'unknown';
 			$isolate_name =~ s/\W/_/gx;
 			my $contig_file = "${id}_$isolate_name.fas";
-			my $data        = $self->_get_contigs( { isolate_id => $id, pc_untagged => 0, match => 1 } );
 
 			#Modified from Archive::Tar::Streamed to allow mod_perl support.
 			my $tar = Archive::Tar->new;
@@ -408,26 +362,15 @@ sub _batchDownload {
 
 			#Write out tar file except EOF block so that we can add additional files.
 			my $tf = $tar->write;
+			syswrite $gz, $tf, length($tf) - ( BLOCK * 2 );
 			if ( $ENV{'MOD_PERL'} ) {
 				return if $self->{'mod_perl_request'}->connection->aborted;
-				eval {
-					$self->{'mod_perl_request'}->print( substr $tf, 0, length($tf) - ( BLOCK * 2 ) );
-					$self->{'mod_perl_request'}->rflush;
-				};
-			} else {
-				syswrite STDOUT, $tf, length($tf) - ( BLOCK * 2 );
 			}
 		}
 
 		#Add EOF block
-		if ( $ENV{'MOD_PERL'} ) {
-			eval {
-				$self->{'mod_perl_request'}->print(TAR_END);
-				$self->{'mod_perl_request'}->rflush;
-			};
-		} else {
-			syswrite STDOUT, TAR_END;
-		}
+		syswrite $gz, TAR_END;
+		$gz->close;
 	}
 	return;
 }

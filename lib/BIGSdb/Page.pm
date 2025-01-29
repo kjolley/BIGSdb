@@ -523,6 +523,10 @@ sub _initiate_plugin {
 				$self->{'type'}       = 'tar';
 				$self->{'attachment'} = $att->{'tar_filename'};
 			},
+			tar_gz => sub {
+				$self->{'type'}       = 'tar.gz';
+				$self->{'attachment'} = $att->{'tar_gz_filename'};
+			},
 			json => sub {
 				$self->{'type'} = 'json';
 			},
