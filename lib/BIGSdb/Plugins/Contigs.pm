@@ -281,11 +281,10 @@ sub _print_interface {
 		$self->print_bad_status( { message => q(This database view contains no genomes.), navbar => 1 } );
 		return;
 	}
+	my $limit      = $self->_get_limit;
+	my $nice_limit = BIGSdb::Utils::commify($limit);
 	say q(<div class="box" id="queryform"><p>Please select the required isolate ids from which contigs are )
-	  . q(associated - use Ctrl or Shift to make multiple selections.  Please note that the total length of )
-	  . q(tagged sequence is calculated by adding up the length of all loci tagged within the contig - if )
-	  . q(these loci overlap then the total tagged length will be reported as being longer than it really is )
-	  . q(but it won't exceed the length of the contig.</p>);
+	  . qq(associated. Export is limited to $nice_limit assemblies.</p>);
 	say $q->start_form;
 	say q(<div class="scrollable">);
 	$self->print_seqbin_isolate_fieldset( { selected_ids => $selected_ids, isolate_paste_list => 1 } );
