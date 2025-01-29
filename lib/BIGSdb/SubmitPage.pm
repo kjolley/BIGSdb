@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2024, University of Oxford
+#Copyright (c) 2015-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -605,7 +605,7 @@ sub _get_allele_submission_details {    ## no critic (ProhibitUnusedPrivateSubro
 	my $allele_submission = $self->{'submissionHandler'}->get_allele_submission( $submission->{'id'} );
 	my $allele_count      = @{ $allele_submission->{'seqs'} };
 	my $plural            = $allele_count == 1 ? '' : 's';
-	next if $set_id && !$self->{'datastore'}->is_locus_in_set( $allele_submission->{'locus'}, $set_id );
+	return if $set_id && !$self->{'datastore'}->is_locus_in_set( $allele_submission->{'locus'}, $set_id );
 	my $clean_locus = $self->clean_locus( $allele_submission->{'locus'} );
 	return "$allele_count $clean_locus sequence$plural";
 }
