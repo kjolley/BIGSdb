@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Example script to download alleles from a sequence definition database
 #Written by Keith Jolley
-#Copyright (c) 2017-2018, University of Oxford
+#Copyright (c) 2017-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -23,7 +23,7 @@ use REST::Client;
 use JSON;
 use File::Path qw(make_path);
 use Getopt::Long qw(:config no_ignore_case);
-use constant BASE_URI => 'http://rest.pubmlst.org';
+use constant BASE_URI => 'https://rest.pubmlst.org';
 
 #Term::Cap and POSIX are just used for formatting help page
 use Term::Cap;
