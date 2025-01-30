@@ -24,7 +24,7 @@
 # Please note that the consumer key below will only work for access to the
 # PubMLST test databases. Please contact keith.jolley@biology.ox.ac.uk to obtain your
 # own consumer key for use in your own projects.
-# Version 20241031
+# Version 20250130
 
 CONSUMER_KEY = "rUiQnMtLBZmCAEiCVFCEQeYu"
 CONSUMER_SECRET = "W0cCia9SYtHD^hHtWEnQ1iw&!SGg7gdQc8HmHgoMEP"

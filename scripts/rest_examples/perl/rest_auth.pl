@@ -20,7 +20,7 @@
 #To use these, sign up for a PubMLST account (https://pubmlst.org/site_accounts.shtml)
 #and link this account with the pubmlst_test_seqdef and pubmlst_test_isolates
 #databases (https://pubmlst.org/site_accounts.shtml#registering_with_databases)
-#Version 20241031
+#Version 20250130
 use strict;
 use warnings;
 use 5.010;
