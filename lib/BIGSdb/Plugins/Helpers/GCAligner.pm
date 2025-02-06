@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2019-2023, University of Oxford
+#Copyright (c) 2019-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -239,7 +239,7 @@ sub _run_alignment {
 	if ( !defined $aligner ) {
 		foreach my $program (qw(mafft muscle)) {
 			if ( $self->{'config'}->{"${program}_path"} ) {
-				$aligner = $program;
+				$aligner = uc($program);
 				last;
 			}
 		}
