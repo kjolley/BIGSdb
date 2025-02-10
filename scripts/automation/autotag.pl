@@ -38,6 +38,7 @@ use lib (LIB_DIR);
 use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
 use Parallel::ForkManager;
+use File::Temp qw(tempdir);
 use BIGSdb::Offline::AutoTag;
 my %opts;
 GetOptions(
@@ -125,7 +126,8 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 	$script->{'logger'}
 	  ->info("$opts{'d'}:Running Autotagger on $isolate_count isolate$plural ($threads thread$plural)");
 	my $job_id = $script->add_job( 'AutoTag', { temp_init => 1 } );
-	my $pm     = Parallel::ForkManager->new( $opts{'threads'} );
+        my $tmpdir = tempdir(DIR => $ENV{'TMPDIR'});
+        my $pm     = Parallel::ForkManager->new( $opts{'threads'} , $tmpdir);
 
 	foreach my $list (@$lists) {
 
