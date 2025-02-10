@@ -223,7 +223,7 @@ sub run_job {
 		eval {
 			system( "$self->{'config'}->{'caro_path'} -a $alignment_file -t $analysis -o $output_file "
 				  . "--mafft_path $self->{'config'}->{'mafft_path'} > /dev/null 2>&1" );
-			$self->{'logger'}->error( "$self->{'config'}->{'caro_path'} -a $alignment_file -t $analysis -o $output_file "
+			$logger->error( "$self->{'config'}->{'caro_path'} -a $alignment_file -t $analysis -o $output_file "
 				  . "--mafft_path $self->{'config'}->{'mafft_path'} > /dev/null 2>&1" );
 		};
 		$logger->error($@) if $@;
