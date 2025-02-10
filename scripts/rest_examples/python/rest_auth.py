@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Script to test access to authenticated resources via REST interface.
 # Written by Keith Jolley
-# Copyright (c) 2017-2024, University of Oxford
+# Copyright (c) 2017-2025, University of Oxford
 # E-mail: keith.jolley@biology.ox.ac.uk
 #
 # This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -24,11 +24,11 @@
 # Please note that the consumer key below will only work for access to the
 # PubMLST test databases. Please contact keith.jolley@biology.ox.ac.uk to obtain your
 # own consumer key for use in your own projects.
-# Version 20241031
+# Version 20250130
 
 CONSUMER_KEY = "rUiQnMtLBZmCAEiCVFCEQeYu"
 CONSUMER_SECRET = "W0cCia9SYtHD^hHtWEnQ1iw&!SGg7gdQc8HmHgoMEP"
-TEST_REST_URL = "http://rest.pubmlst.org/db/pubmlst_test_seqdef"
+TEST_REST_URL = "https://rest.pubmlst.org/db/pubmlst_test_seqdef"
 TEST_WEB_URL = "https://pubmlst.org/bigsdb?db=pubmlst_test_seqdef"
 
 REQUEST_TOKEN_URL = TEST_REST_URL + "/oauth/get_request_token"

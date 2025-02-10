@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Script to test access to authenticated resources via REST interface.
 #Written by Keith Jolley
-#Copyright (c) 2015-2024, University of Oxford
+#Copyright (c) 2015-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,7 +20,7 @@
 #To use these, sign up for a PubMLST account (https://pubmlst.org/site_accounts.shtml)
 #and link this account with the pubmlst_test_seqdef and pubmlst_test_isolates
 #databases (https://pubmlst.org/site_accounts.shtml#registering_with_databases)
-#Version 20241031
+#Version 20250130
 use strict;
 use warnings;
 use 5.010;
@@ -42,7 +42,7 @@ use MIME::Base64;
 #own consumer key for use in your own projects.
 use constant CONSUMER_KEY    => 'rUiQnMtLBZmCAEiCVFCEQeYu';
 use constant CONSUMER_SECRET => 'W0cCia9SYtHD^hHtWEnQ1iw&!SGg7gdQc8HmHgoMEP';
-use constant TEST_REST_URL   => 'http://rest.pubmlst.org/db/pubmlst_test_seqdef';
+use constant TEST_REST_URL   => 'https://rest.pubmlst.org/db/pubmlst_test_seqdef';
 use constant TEST_WEB_URL    => 'https://pubmlst.org/bigsdb?db=pubmlst_test_seqdef';
 ###
 my %opts;

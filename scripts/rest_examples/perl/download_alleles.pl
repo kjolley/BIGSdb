@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Example script to download alleles from a sequence definition database
 #Written by Keith Jolley
-#Copyright (c) 2017-2018, University of Oxford
+#Copyright (c) 2017-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -15,7 +15,7 @@
 #but WITHOUT ANY WARRANTY; without even the implied warranty of
 #MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #GNU General Public License for more details.
-#
+#Version 20250130
 use strict;
 use warnings;
 use 5.010;
@@ -23,7 +23,7 @@ use REST::Client;
 use JSON;
 use File::Path qw(make_path);
 use Getopt::Long qw(:config no_ignore_case);
-use constant BASE_URI => 'http://rest.pubmlst.org';
+use constant BASE_URI => 'https://rest.pubmlst.org';
 
 #Term::Cap and POSIX are just used for formatting help page
 use Term::Cap;
@@ -82,7 +82,7 @@ sub show_help {
 	my $termios = POSIX::Termios->new;
 	$termios->getattr;
 	my $ospeed = $termios->getospeed;
-	my $t = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
+	my $t      = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
 	my ( $norm, $bold, $under ) = map { $t->Tputs( $_, 1 ) } qw/me md us/;
 	say << "HELP";
 ${bold}NAME$norm
