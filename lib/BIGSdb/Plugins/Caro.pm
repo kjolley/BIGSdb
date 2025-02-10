@@ -221,7 +221,7 @@ sub run_job {
 		my $output_file = "$self->{'config'}->{'tmp_dir'}/${job_id}.xlsx";
 		eval {
 			system( "$self->{'config'}->{'caro_path'} -a $alignment_file -t $analysis -o $output_file "
-				  . "--mafft_path $self->{'config'}->{'mafft_path'} > /dev/null" );
+				  . "--mafft_path $self->{'config'}->{'mafft_path'} > /dev/null 2>&1" );
 		};
 		$logger->error($@) if $@;
 		if ( -e $output_file ) {
