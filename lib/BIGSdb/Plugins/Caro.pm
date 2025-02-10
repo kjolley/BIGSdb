@@ -1,6 +1,6 @@
 #Caro.pm - CARO project plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2024, University of Oxford
+#Copyright (c) 2024-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -59,12 +59,12 @@ sub get_attributes {
 		buttontext => 'CARO Project',
 		menutext   => 'CARO Project',
 		module     => 'Caro',
-		version    => '0.0.1',
+		version    => '0.0.2',
 		dbtype     => 'isolates',
 		section    => 'analysis,postquery',
 		input      => 'query',
 		help       => 'tooltips',
-		requires   => 'aligner,offline_jobs,caro',
+		requires   => 'aligner,mafft,offline_jobs,caro',
 
 		#		supports   => 'user_genomes',
 		#		url        => "$self->{'config'}->{'doclink'}/data_analysis/snp_sites.html",
@@ -88,10 +88,9 @@ sub run {
 		return;
 	}
 	return if $self->has_set_changed;
-	if ( !-x $self->{'config'}->{'muscle_path'} && !-x $self->{'config'}->{'mafft_path'} ) {
-		$logger->error( 'This plugin requires an aligner (MAFFT or MUSCLE) to be installed and one is not. '
-			  . 'Please install one of these or check the settings in bigsdb.conf.' );
-		$self->print_bad_status( { message => q(No aligner is defined.) } );
+	if ( !-x $self->{'config'}->{'mafft_path'} ) {
+		$logger->error('This plugin requires MAFFT to be installed and it is not.');
+		$self->print_bad_status( { message => q(mafft_path is not defined.) } );
 		return;
 	}
 	if ( $q->param('submit') ) {
@@ -220,15 +219,17 @@ sub run_job {
 		  ->update_job_status( $job_id, { percent_complete => 95, stage => 'Running mutation analysis' } );
 		my $analysis    = $params->{'analysis'} // 'n';
 		my $output_file = "$self->{'config'}->{'tmp_dir'}/${job_id}.xlsx";
-		eval { system("$self->{'config'}->{'caro_path'} -a $alignment_file -t $analysis -o $output_file > /dev/null"); };
+		eval {
+			system( "$self->{'config'}->{'caro_path'} -a $alignment_file -t $analysis -o $output_file "
+				  . "--mafft_path $self->{'config'}->{'mafft_path'} > /dev/null" );
+		};
 		$logger->error($@) if $@;
 		if ( -e $output_file ) {
 			$self->{'jobManager'}->update_job_output( $job_id,
 				{ filename => "${job_id}.xlsx", description => 'Analysis output', compress => 1 } );
 		}
 	} else {
-		$self->{'jobManager'}->update_job_status( $job_id, { message_html => 'No sequences found to align.' } )
-		  ;
+		$self->{'jobManager'}->update_job_status( $job_id, { message_html => 'No sequences found to align.' } );
 	}
 	$self->delete_temp_files("$job_id*");
 	return;

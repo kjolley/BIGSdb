@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -356,6 +356,7 @@ sub _has_required_item {
 		ref_db                 => 'ref_?db',
 		emboss_path            => 'emboss',
 		muscle_path            => 'muscle',
+		mafft_path             => 'mafft',
 		clustalw_path          => 'clustalw',
 		aligner                => 'aligner',
 		grapetree_path         => 'GrapeTree',
