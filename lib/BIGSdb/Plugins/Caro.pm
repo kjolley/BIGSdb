@@ -218,12 +218,9 @@ sub run_job {
 		$self->{'jobManager'}
 		  ->update_job_status( $job_id, { percent_complete => 95, stage => 'Running mutation analysis' } );
 		my $analysis = $params->{'analysis'} // 'n';
-		$logger->error("Analysis: $analysis");
 		my $output_file = "$self->{'config'}->{'tmp_dir'}/${job_id}.xlsx";
 		eval {
 			system( "$self->{'config'}->{'caro_path'} -a $alignment_file -t $analysis -o $output_file "
-				  . "--mafft_path $self->{'config'}->{'mafft_path'} > /dev/null 2>&1" );
-			$logger->error( "$self->{'config'}->{'caro_path'} -a $alignment_file -t $analysis -o $output_file "
 				  . "--mafft_path $self->{'config'}->{'mafft_path'} > /dev/null 2>&1" );
 		};
 		$logger->error($@) if $@;
