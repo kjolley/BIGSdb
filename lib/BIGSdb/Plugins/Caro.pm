@@ -217,11 +217,12 @@ sub run_job {
 			{ filename => "${job_id}_aligned.fas", description => 'Aligned sequences', compress => 1 } );
 		$self->{'jobManager'}
 		  ->update_job_status( $job_id, { percent_complete => 95, stage => 'Running mutation analysis' } );
-		my $analysis = $params->{'analysis'} // 'n';
+		my $analysis    = $params->{'analysis'} // 'n';
 		my $output_file = "$self->{'config'}->{'tmp_dir'}/${job_id}.xlsx";
 		eval {
 			system( "$self->{'config'}->{'caro_path'} -a $alignment_file -t $analysis -o $output_file "
-				  . "--mafft_path $self->{'config'}->{'mafft_path'} --job_id $job_id > /dev/null 2>&1" );
+				  . "--mafft_path $self->{'config'}->{'mafft_path'} --job_id $job_id --tmp_dir "
+				  . "$self->{'config'}->{'secure_tmp_dir'} > /dev/null 2>&1" );
 		};
 		$logger->error($@) if $@;
 		if ( -e $output_file ) {
