@@ -38,6 +38,7 @@ use lib (LIB_DIR);
 use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
 use Parallel::ForkManager;
+use File::Temp qw(tempdir);
 use BIGSdb::Offline::ScanNew;
 my %opts;
 GetOptions(
@@ -126,7 +127,8 @@ if ( BIGSdb::Utils::is_int( $opts{'threads'} ) && $opts{'threads'} > 1 ) {
 	$script->{'logger'}->info("$opts{'d'}:Running Autodefiner (up to $opts{'threads'} threads)");
 	my $job_id = $script->add_job( 'ScanNew', { temp_init => 1 } );
 	print_header();
-	my $pm = Parallel::ForkManager->new( $opts{'threads'} );
+        my $tmpdir = tempdir(DIR => $ENV{'TMPDIR'});
+        my $pm     = Parallel::ForkManager->new( $opts{'threads'} , $tmpdir);
 
 	foreach my $list (@$lists) {
 
