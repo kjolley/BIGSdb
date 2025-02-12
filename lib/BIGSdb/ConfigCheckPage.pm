@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -90,7 +90,7 @@ sub _check_helpers {
 		muscle             => $self->{'config'}->{'muscle_path'},
 		clustalw           => $self->{'config'}->{'clustalw_path'},
 		ipcress            => $self->{'config'}->{'ipcress_path'},
-		GrapeTree          => $self->{'config'}->{'grapetree_path'} . '/grapetree.py',
+		GrapeTree          => $self->{'config'}->{'grapetree_path'},
 		blat               => $self->{'config'}->{'blat_path'},
 		weasyprint         => $self->{'config'}->{'weasyprint_path'},
 		snp_sites          => $self->{'config'}->{'snp_sites_path'}
@@ -100,7 +100,27 @@ sub _check_helpers {
 	say q(<div class="scrollable"><table class="resultstable"><tr><th>Program</th>)
 	  . q(<th>Path</th><th>Installed</th><th>Executable</th></tr>);
 	foreach my $program ( sort { $a cmp $b } keys %helpers ) {
-		my $status = defined $helpers{$program} && -e ( $helpers{$program} ) ? GOOD : BAD;
+		my $status;
+		if ( defined $helpers{'GrapeTree'} && $program eq 'GrapeTree' ) {
+			my @files;
+			my $all_present = 1;
+			if ( !defined $self->{'config'}->{'python3_path'} && $self->{'config'}->{'grapetree_path'} =~ /python/x ) {
+
+				#Path includes full command for running GrapeTree (recommended)
+				@files = split( ' ', $self->{'config'}->{'grapetree_path'} );
+			} else {
+
+				#Separate variables for GrapeTree directory and Python path (legacy)
+				push @files, ( $self->{'config'}->{'python3_path'} // '/usr/bin/python3' );
+				push @files, "$self->{'config'}->{'grapetree_path'}/grapetree.py";
+			}
+			foreach my $file (@files) {    #Split Python interpreter and GrapeTree file
+				$all_present = 0 if !-e $file;
+			}
+			$status = $all_present ? GOOD : BAD;
+		} else {
+			$status = defined $helpers{$program} && -e ( $helpers{$program} ) ? GOOD : BAD;
+		}
 		$helpers{$program} //= 'PATH NOT DEFINED';
 		say qq(<tr class="td$td"><td>$program</td><td>$helpers{$program}</td><td>$status</td><td>);
 		if ( $program ne 'GrapeTree' ) {    #Python script doesn't need to be executable
