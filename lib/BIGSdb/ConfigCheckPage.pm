@@ -122,8 +122,9 @@ sub _check_helpers {
 			$status = defined $helpers{$program} && -e ( $helpers{$program} ) ? GOOD : BAD;
 		}
 		$helpers{$program} //= 'PATH NOT DEFINED';
-		say qq(<tr class="td$td"><td>$program</td><td>$helpers{$program}</td><td>$status</td><td>);
-		if ( $program ne 'GrapeTree' ) {    #Python script doesn't need to be executable
+		say qq(<tr class="td$td"><td>$program</td><td style="text-align:left">$helpers{$program}</td>)
+		  . qq(<td>$status</td><td>);
+		if ( $program ne 'GrapeTree' ) { #Python script doesn't need to be executable
 			say -x ( $helpers{$program} ) ? GOOD : BAD;
 		}
 		say q(</td></tr>);
