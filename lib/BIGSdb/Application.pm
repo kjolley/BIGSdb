@@ -552,6 +552,11 @@ sub print_page {
 		{
 			( $continue, $auth_cookies_ref ) = $self->authenticate( \%page_attributes );
 			return if !$continue;
+			my %no_plugins = map { $_ => 1 } PAGES_NOT_NEEDING_PLUGINS;
+
+			#Read system.overrides file again to set any user specific values.
+			$self->set_system_overrides( { user => 1 } );
+			$self->{'pluginManager'}->initiate if !$no_plugins{ $self->{'page'} };
 		}
 	}
 	if ( $self->{'page'} eq 'options'
@@ -585,9 +590,6 @@ sub print_page {
 		$page_attributes{'error'} = 'unknown';
 		$page = BIGSdb::ErrorPage->new(%page_attributes);
 	}
-
-	#Read system.overrides file again to set any user specific values.
-	$self->set_system_overrides( { user => 1 } );
 	$page->print_page_content;
 	if ( $page_attributes{'error'} ) {
 		$self->{'handled_error'} = 1;
