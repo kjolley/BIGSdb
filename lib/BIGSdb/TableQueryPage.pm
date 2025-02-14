@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -472,7 +472,7 @@ sub _run_query {
 		$self->_modify_seqbin_for_view( $table, \$qry );
 		$self->_modify_loci_for_sets( $table, \$qry );
 		$self->_modify_schemes_for_sets( $table, \$qry );
-		( $list_file, $data_type ) = $self->_modify_by_list( $table, \$qry );
+		( $list_file, $data_type ) = $self->_modify_by_list( $table, \$qry, $errors );
 		$self->_filter_query_by_scheme( $table, \$qry );
 		$self->_filter_query_by_project( $table, \$qry );
 		$self->_filter_query_by_common_name( $table, \$qry );
@@ -861,7 +861,6 @@ sub _modify_query_standard_field {
 	my ( $table, $field, $text, $modifier, $operator, $thisfield, $qry_ref ) =
 	  @{$args}{qw(table field text modifier operator thisfield qry_ref)};
 	my $sub_qry = q();
-	
 	my %methods = (
 		'NOT' => sub {
 			if ( lc($text) eq 'null' ) {
@@ -1223,7 +1222,7 @@ sub _modify_schemes_for_sets {
 }
 
 sub _modify_by_list {
-	my ( $self, $table, $qry_ref ) = @_;
+	my ( $self, $table, $qry_ref, $errors ) = @_;
 	my $q = $self->{'cgi'};
 	return if !$q->param('list');
 	my $field      = $q->param('attribute');
@@ -1246,7 +1245,7 @@ sub _modify_by_list {
 	BIGSdb::Utils::remove_trailing_spaces_from_list( \@list );
 	my $cleaned_list = $self->clean_list( $type, \@list );
 	if ( !@$cleaned_list ) {    #List exists but there is nothing valid in there. Return no results.
-		$$qry_ref .= ' AND FALSE';
+		$$qry_ref .= $$qry_ref =~ /\)$/x ? ' AND FALSE' : 'FALSE';
 		return;
 	}
 	my $temp_table =
