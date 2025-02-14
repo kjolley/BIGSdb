@@ -1,4 +1,4 @@
-/*Version: 20241121*/
+/*Version: 20250214*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -2369,6 +2369,13 @@ fieldset label.short_align {
 fieldset label.parameter {
 	float: left;
 	width: 10em;
+	margin-right: 0.5em;
+	text-align: right;
+}
+
+fieldset label.short_parameter {
+	float: left;
+	width: 7em;
 	margin-right: 0.5em;
 	text-align: right;
 }

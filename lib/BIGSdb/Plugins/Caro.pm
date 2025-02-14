@@ -415,11 +415,11 @@ sub _print_options_fieldset {
 		push @$aligners, uc($aligner) if $self->{'config'}->{"${aligner}_path"};
 	}
 	if (@$aligners) {
-		say q(<li><label for="aligner" class="parameter">Aligner: </label>);
+		say q(<li><label for="aligner" class="short_parameter">Aligner: </label>);
 		say $q->popup_menu( -name => 'aligner', -id => 'aligner', -values => $aligners );
 		say q(</li>);
 	}
-	say q(<li><label for="aligner" class="parameter">Reading frame: </label>);
+	say q(<li><label for="aligner" class="short_parameter">Reading frame: </label>);
 	say $q->popup_menu( -name => 'frame', -id => 'frame', -values => [ 1 .. 3 ] );
 	say q(</li>);
 	say q(</ul></fieldset>);
