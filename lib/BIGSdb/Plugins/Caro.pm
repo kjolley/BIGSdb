@@ -59,7 +59,7 @@ sub get_attributes {
 		buttontext => 'CARO Project',
 		menutext   => 'CARO Project',
 		module     => 'Caro',
-		version    => '0.0.2',
+		version    => '0.0.3',
 		dbtype     => 'isolates',
 		section    => 'analysis,postquery',
 		input      => 'query',
@@ -169,8 +169,12 @@ sub run_job {
 	  : 2;
 	$self->{'params'}->{'finish_progress'} = 70;
 	$self->{'params'}->{'align'}           = 1;
-	my $locus;
+	my $frame = $self->{'params'}->{'frame'};
 
+	if ( !( BIGSdb::Utils::is_int($frame) && $frame >= 1 && $frame <= 3 ) ) {
+		$frame = 1;
+	}
+	my $locus;
 	if ( $params->{'paste_seq'} ) {
 		$locus = 'seq';
 		my $seq        = $params->{'paste_seq'};
@@ -222,7 +226,7 @@ sub run_job {
 		eval {
 			system( "$self->{'config'}->{'caro_path'} -a $alignment_file -t $analysis -o $output_file "
 				  . "--mafft_path $self->{'config'}->{'mafft_path'} --job_id $job_id --tmp_dir "
-				  . "$self->{'config'}->{'secure_tmp_dir'} > /dev/null 2>&1" );
+				  . "$self->{'config'}->{'secure_tmp_dir'} --frame $frame > /dev/null 2>&1" );
 		};
 		$logger->error($@) if $@;
 		if ( -e $output_file ) {
@@ -338,6 +342,7 @@ sub _print_interface {
 	$self->print_seqbin_isolate_fieldset(
 		{ use_all => 0, selected_ids => $selected_ids, isolate_paste_list => 1, allow_empty_list => 0 } );
 	$self->_print_locus_fieldset;
+	$self->_print_analysis_fieldset;
 	$self->_print_options_fieldset;
 	$self->print_action_fieldset;
 	say $q->hidden($_) foreach qw (page name db);
@@ -385,6 +390,22 @@ sub _print_locus_fieldset {
 	return;
 }
 
+sub _print_analysis_fieldset {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say q(<fieldset style="float:left;height:12em"><legend>Analysis</legend><ul>);
+	say q(<li>);
+	say $q->radio_group(
+		-name      => 'analysis',
+		-id        => 'analysis',
+		-values    => [qw(n p both)],
+		-labels    => { n => 'nucleotide', p => 'protein' },
+		-linebreak => 'true'
+	);
+	say q(</li></ul></fieldset>);
+	return;
+}
+
 sub _print_options_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
@@ -394,17 +415,12 @@ sub _print_options_fieldset {
 		push @$aligners, uc($aligner) if $self->{'config'}->{"${aligner}_path"};
 	}
 	if (@$aligners) {
-		say q(<li><label for="aligner" class="display">Aligner: </label>);
+		say q(<li><label for="aligner" class="parameter">Aligner: </label>);
 		say $q->popup_menu( -name => 'aligner', -id => 'aligner', -values => $aligners );
 		say q(</li>);
 	}
-	say q(<li><label for="analysis" class="display">Analysis: </label>);
-	say $q->popup_menu(
-		-name   => 'analysis',
-		-id     => 'analysis',
-		-values => [qw(n p both)],
-		-labels => { n => 'nucleotide', p => 'protein' }
-	);
+	say q(<li><label for="aligner" class="parameter">Reading frame: </label>);
+	say $q->popup_menu( -name => 'frame', -id => 'frame', -values => [ 1 .. 3 ] );
 	say q(</li>);
 	say q(</ul></fieldset>);
 	return;
