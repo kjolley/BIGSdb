@@ -1495,10 +1495,11 @@ sub _print_sequence_details_fieldset {
 	);
 	say q(</li><li><label for="software" class="parameter">assembly software:!</label>);
 	say $q->textfield(
-		-name     => 'software',
-		-id       => 'software',
-		-required => 'required',
-		-default  => $allele_submission->{'software'} // $self->{'prefs'}->{'submit_allele_software'}
+		-name      => 'software',
+		-id        => 'software',
+		-required  => 'required',
+		-maxlength => 50,
+		-default   => $allele_submission->{'software'} // $self->{'prefs'}->{'submit_allele_software'}
 	);
 	say q(</li><li>);
 	say $q->checkbox( -name => 'ignore_length', -label => 'Sequence length outside usual range' );
