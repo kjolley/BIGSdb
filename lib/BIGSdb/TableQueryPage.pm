@@ -472,7 +472,7 @@ sub _run_query {
 		$self->_modify_seqbin_for_view( $table, \$qry );
 		$self->_modify_loci_for_sets( $table, \$qry );
 		$self->_modify_schemes_for_sets( $table, \$qry );
-		( $list_file, $data_type ) = $self->_modify_by_list( $table, \$qry, $errors );
+		( $list_file, $data_type ) = $self->_modify_by_list( $table, \$qry );
 		$self->_filter_query_by_scheme( $table, \$qry );
 		$self->_filter_query_by_project( $table, \$qry );
 		$self->_filter_query_by_common_name( $table, \$qry );
@@ -1222,7 +1222,7 @@ sub _modify_schemes_for_sets {
 }
 
 sub _modify_by_list {
-	my ( $self, $table, $qry_ref, $errors ) = @_;
+	my ( $self, $table, $qry_ref ) = @_;
 	my $q = $self->{'cgi'};
 	return if !$q->param('list');
 	my $field      = $q->param('attribute');
