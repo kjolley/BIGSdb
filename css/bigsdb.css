@@ -2345,6 +2345,37 @@ fieldset li {
 	padding-bottom: 0.2em
 }
 
+fieldset label.aligned {
+	float: left;
+	margin-right: 0.5em;
+	text-align: right;
+}
+
+fieldset label.width12 {
+	width: 12em;
+}
+fieldset label.width11 {
+	width: 11em;
+}
+fieldset label.width10 {
+	width: 10em;
+}
+fieldset label.width9 {
+	width: 9em;
+}
+fieldset label.width8 {
+	width: 8em;
+}
+fieldset label.width7 {
+	width: 7em;
+}
+fieldset label.width6 {
+	width: 6em;
+}
+fieldset label.width5 {
+	width: 5em;
+}
+
 fieldset label.filter {
 	float: left;
 	width: 12em;
@@ -2359,23 +2390,9 @@ fieldset label.form {
 	text-align: right;
 }
 
-fieldset label.short_align {
-	float: left;
-	width: 3em;
-	margin-right: 0.5em;
-	text-align: right;
-}
-
 fieldset label.parameter {
 	float: left;
 	width: 10em;
-	margin-right: 0.5em;
-	text-align: right;
-}
-
-fieldset label.short_parameter {
-	float: left;
-	width: 7em;
 	margin-right: 0.5em;
 	text-align: right;
 }
