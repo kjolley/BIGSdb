@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -2610,6 +2610,7 @@ sub get_lincode_schemes_table_attributes {
 			type     => 'text',
 			required => 1,
 			regex    => '^\d+(\s*;\s*\d+)*$',
+			length   => 100,
 			comments => q(Semi-colon separated list of thresholds)
 		}
 	];
