@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -285,7 +285,7 @@ sub _get_muscle_version {
 	my $version_output = BIGSdb::Utils::slurp($version_file);
 	unlink $version_file;
 
-	if ( $$version_output =~ /MUSCLE\sv([\d\.]+)/x ) {
+	if ( $$version_output =~ /MUSCLE\sv([\d\.]+)/x || $$version_output =~ /muscle\s([\d\.]+)/x ) {
 		return $1;
 	}
 	$logger->error('Cannot determine MUSCLE version');
