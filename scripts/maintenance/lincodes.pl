@@ -2,7 +2,7 @@
 #Define LINcodes from cgMLST profiles
 #Written by Keith Jolley
 #Based on code by Melanie Hennart (https://gitlab.pasteur.fr/BEBP/LINcoding).
-#Copyright (c) 2022-2024, University of Oxford
+#Copyright (c) 2022-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20241116
+#Version: 20250220
 use strict;
 use warnings;
 use 5.010;
@@ -357,6 +357,7 @@ sub get_prim_order {
 	my ($profiles) = @_;
 	my ( $filename, $index, $dismat ) = get_distance_matrix($profiles);
 	return $index                      if @$index == 1;
+	$script->{'dataConnector'}->drop_all_connections;    #Don't keep connections open while calculating order.
 	print 'Calculating PRIM order ...' if !$opts{'quiet'};
 	print "\n"                         if @$index >= 500;
 	my $start_time = time;
@@ -401,6 +402,7 @@ sub get_prim_order {
 	my $stop_time = time;
 	my $duration  = $stop_time - $start_time;
 	say "Time taken (calculating PRIM order): $duration second(s)." if !$opts{'quiet'};
+	$script->reconnect;
 	return $profile_order;
 }
 
@@ -421,6 +423,7 @@ sub get_distance_matrix {
 	  $script->{'datastore'}
 	  ->run_query( "SELECT $pk,profile FROM mv_scheme_$opts{'scheme_id'} s JOIN $list_table l ON s.$pk=l.value",
 		undef, { fetch => 'all_arrayref', slice => {} } );
+	$script->{'dataConnector'}->drop_all_connections;    #Don't keep connections open while calculating distance matrix.
 
 	foreach my $profile (@$profiles) {
 		my $Ns = 0;
@@ -475,6 +478,7 @@ sub get_distance_matrix {
 	my $stop_time = time;
 	my $duration  = $stop_time - $start_time;
 	say "Time taken (distance matrix): $duration second(s)." if !$opts{'quiet'};
+	$script->reconnect;
 	return ( $filename, $index, $dismat );
 }
 
