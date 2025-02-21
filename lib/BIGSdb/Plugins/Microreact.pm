@@ -65,7 +65,7 @@ sub get_attributes {
 		buttontext => 'Microreact',
 		menutext   => 'Microreact',
 		module     => 'Microreact',
-		version    => '1.5.0',
+		version    => '1.5.1',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
@@ -88,6 +88,7 @@ sub run_job {
 	my $ret_val = $self->generate_tree_files( $job_id, $params );
 	my ( $message_html, $newick_file, $failed ) = @{$ret_val}{qw(message_html newick_file failed)};
 	if ( !$failed ) {
+		$self->check_connection($job_id);
 		$self->_microreact_upload( $job_id, $params, $newick_file, \$message_html );
 	}
 	$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } ) if $message_html;

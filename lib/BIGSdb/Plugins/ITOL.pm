@@ -1,6 +1,6 @@
 #ITol.pm - Phylogenetic tree plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2016-2024, University of Oxford
+#Copyright (c) 2016-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -58,7 +58,7 @@ sub get_attributes {
 		buttontext => 'iTOL',
 		menutext   => 'iTOL',
 		module     => 'ITOL',
-		version    => '1.6.2',
+		version    => '1.6.3',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
@@ -303,6 +303,7 @@ sub run_job {
 	my $ret_val = $self->generate_tree_files( $job_id, $params );
 	my ( $message_html, $fasta_file, $failed ) = @{$ret_val}{qw(message_html fasta_file failed )};
 	if ( !$failed ) {
+		$self->check_connection($job_id);
 		my $identifiers = $self->_get_identifier_list($fasta_file);
 		my $itol_file   = $self->_itol_upload( $job_id, $params, $identifiers, \$message_html );
 		if ( $params->{'itol_dataset'} && -e $itol_file ) {
