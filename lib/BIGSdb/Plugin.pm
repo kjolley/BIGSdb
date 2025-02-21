@@ -1330,6 +1330,7 @@ sub _reconnect {
 		user       => $self->{'system'}->{'user'},
 		password   => $self->{'system'}->{'password'}
 	};
+	$self->{'db'} = $self->{'dataConnector'}->drop_connection($att);
 	$self->{'db'} = $self->{'dataConnector'}->get_connection($att);
 	$self->{'datastore'}->change_db( $self->{'db'} );
 	return;
