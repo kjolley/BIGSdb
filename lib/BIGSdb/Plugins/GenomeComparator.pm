@@ -1,6 +1,6 @@
 #GenomeComparator.pm - Genome comparison plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -69,7 +69,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.8.5',
+		version     => '2.8.6',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -1285,6 +1285,7 @@ sub _generate_splits {
 		exclude_paralogous_all => $self->{'params'}->{'exclude_paralogous_all'},
 		by_reference           => $data->{'by_ref'}
 	};
+	$self->check_connection($job_id);
 	my $nexus_file = $self->_make_nexus_file( $job_id, $dismat, $options );
 	$self->{'jobManager'}->update_job_output(
 		$job_id,

@@ -3501,7 +3501,7 @@ sub get_username {
 
 sub initiate_view {
 	my ( $self, $args ) = @_;
-	my ( $username, $curate, $set_id ) = @{$args}{qw(username curate set_id)};
+	my ( $username, $curate, $set_id, $original_view ) = @{$args}{qw(username curate set_id original_view)};
 	$self->{'username'} = $username;    #Store in datastore for delayed REST calls.
 	my $user_info = $self->get_user_info_from_username($username);
 	if ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'sequences' ) {
@@ -3517,7 +3517,8 @@ sub initiate_view {
 		$self->{'system'}->{'temp_sequences_view'} //= 'sequences';
 		return;
 	}
-	return if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
+	return                                       if ( $self->{'system'}->{'dbtype'} // '' ) ne 'isolates';
+	$self->{'system'}->{'view'} = $original_view if defined $original_view;
 	if ( defined $self->{'system'}->{'view'} && $set_id ) {
 		if ( $self->{'system'}->{'views'} && BIGSdb::Utils::is_int($set_id) ) {
 			my $set_view = $self->run_query( 'SELECT view FROM set_view WHERE set_id=?', $set_id );
