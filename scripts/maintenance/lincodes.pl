@@ -123,6 +123,9 @@ sub adjust_prim_order {
 	my $closest_profile_index;
 	my $index   = 0;
 	my %missing = ( N => 0 );
+	print 'Adjusting PRIM order ...' if !$opts{'quiet'};
+	print "\n"                       if @$new_profiles >= 500;
+	my $start_time = time;
 
 	foreach my $profile_id (@$new_profiles) {
 		my $profile_array =
@@ -141,11 +144,22 @@ sub adjust_prim_order {
 			}
 		}
 		$index++;
+		if ( $opts{'debug'} ) {
+			say "Profile $index ordered.";
+		} elsif ( $index % 500 == 0 ) {
+			if ( !$opts{'quiet'} ) {
+				say "Order adjusted for $index profiles.";
+			}
+		}
 	}
 	my $reordered_profiles = [ @$new_profiles[ $closest_profile_index .. @$new_profiles - 1 ] ];
 	if ( $closest_profile_index > 0 ) {
 		push @$reordered_profiles, reverse @$new_profiles[ 0 .. $closest_profile_index - 1 ];
 	}
+	say 'Done.' if !$opts{'quiet'};
+	my $stop_time = time;
+	my $duration  = $stop_time - $start_time;
+	say "Time taken (adjusting PRIM order): $duration second(s)." if !$opts{'quiet'};
 	return $reordered_profiles;
 }
 
@@ -356,7 +370,7 @@ sub get_profile_order_term {
 sub get_prim_order {
 	my ($profiles) = @_;
 	my ( $filename, $index, $dismat ) = get_distance_matrix($profiles);
-	return $index                      if @$index == 1;
+	return $index if @$index == 1;
 	$script->{'dataConnector'}->drop_all_connections;    #Don't keep connections open while calculating order.
 	print 'Calculating PRIM order ...' if !$opts{'quiet'};
 	print "\n"                         if @$index >= 500;
