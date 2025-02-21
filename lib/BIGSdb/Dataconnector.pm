@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -75,9 +75,11 @@ sub drop_connection {
 	$host = $self->{'config'}->{'host_map'}->{$host} || $host;
 	return if !$attributes->{'dbase_name'};
 	if ( $self->{'db'}->{"$host|$attributes->{'dbase_name'}"} ) {
-		$self->_finish_active_statement_handles( $self->{'db'}->{"$host|$attributes->{'dbase_name'}"}, 1 );
-		$self->{'db'}->{"$host|$attributes->{'dbase_name'}"}->disconnect
-		  and $logger->info("pid:$$ disconnected from database $attributes->{'dbase_name'}");
+		eval {
+			$self->_finish_active_statement_handles( $self->{'db'}->{"$host|$attributes->{'dbase_name'}"}, 1 );
+			$self->{'db'}->{"$host|$attributes->{'dbase_name'}"}->disconnect
+			  and $logger->info("pid:$$ disconnected from database $attributes->{'dbase_name'}");
+		};
 	}
 	delete $self->{'db'}->{"$host|$attributes->{'dbase_name'}"};
 	$logger->debug( 'Total connections: ' . scalar keys %{ $self->{'db'} } );
