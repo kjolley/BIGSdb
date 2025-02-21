@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -1301,6 +1301,37 @@ sub print_panel_buttons {
 		  . q(<a class="trigger_button" id="panel_trigger" style="display:none">)
 		  . q(<span class="fas fa-lg fa-wrench"></span><span class="icon_label">Modify form</span></a></span>);
 	}
+	return;
+}
+
+sub check_connection {
+	my ( $self, $job_id ) = @_;
+	return if $self->{'db'}->ping;
+	$self->_reconnect;
+	my $job    = $self->{'jobManager'}->get_job($job_id);
+	my $params = $self->{'jobManager'}->get_job_params($job_id);
+	$self->{'datastore'}->initiate_view(
+		{
+			username      => $job->{'username'},
+			curate        => $params->{'curate'},
+			original_view => $self->{'system'}->{'original_view'}
+		}
+	);
+	return;
+}
+
+sub _reconnect {
+	my ($self) = @_;
+	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
+	my $att = {
+		dbase_name => $self->{'system'}->{'db'},
+		host       => $self->{'system'}->{'host'},
+		port       => $self->{'system'}->{'port'},
+		user       => $self->{'system'}->{'user'},
+		password   => $self->{'system'}->{'password'}
+	};
+	$self->{'db'} = $self->{'dataConnector'}->get_connection($att);
+	$self->{'datastore'}->change_db( $self->{'db'} );
 	return;
 }
 1;
