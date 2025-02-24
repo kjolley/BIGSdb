@@ -86,8 +86,7 @@ sub run_script {
 				  . 'Scheme renewal cancelled. Run full refresh if necessary.' );
 			$status->{'status'} = 'failed';
 			my $nice_count = BIGSdb::Utils::commify($count);
-			$status->{'message'} =
-			  "Too many records for daily_replace ($nice_count) - re-run using method: full.";
+			$status->{'message'} = "Too many records for daily_replace ($nice_count) - re-run using method: full.";
 			$self->_write_status_file($status);
 			$self->stop_job( $job_id, { temp_init => 1 } );
 			return;
@@ -125,17 +124,18 @@ sub run_script {
 		);
 	}
 	my $status_only;
-	if ($method eq 'completion_metrics'){
-		$method = 'full';
+	if ( $method eq 'completion_metrics' ) {
+		$method      = 'full';
 		$status_only = 1;
 	}
 	foreach my $scheme_id (@$scheme_status) {
-		$self->reconnect;
+
 		$scheme_id =~ s/\s//gx;
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 		if ( !$scheme_info ) {
 			next;
 		}
+		$self->reconnect( { drop_all => 1 } );
 		say "Updating scheme $scheme_id completion status cache ($scheme_info->{'name'}) - method: $method"
 		  if !$self->{'options'}->{'q'};
 		my $stage = "Scheme $scheme_id ($scheme_info->{'name'}): completion status ($method)";
@@ -153,8 +153,9 @@ sub run_script {
 			}
 		);
 		next if $status_only;
+
 		if ( $self->{'datastore'}->are_lincodes_defined($scheme_id) ) {
-			$self->reconnect;
+			$self->reconnect( { drop_all => 1 } );
 			say "Updating scheme $scheme_id LINcodes cache ($scheme_info->{'name'})"
 			  if !$self->{'options'}->{'q'};
 			$stage = "Scheme $scheme_id ($scheme_info->{'name'}): LINcodes";
@@ -165,9 +166,10 @@ sub run_script {
 			$self->{'datastore'}->create_temp_lincode_prefix_values_table( $scheme_id, { cache => 1 } );
 		}
 	}
-	$self->reconnect;
+
 	foreach my $cscheme_id (@$cschemes) {
 		last if $status_only;
+		$self->reconnect( { drop_all => 1 } );
 		my $stage = "Cluster scheme $cscheme_id";
 		$self->update_job( $job_id, { temp_init => 1, status => { stage => $stage } } );
 		$status->{'stage'} = $stage;

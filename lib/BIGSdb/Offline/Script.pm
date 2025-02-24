@@ -120,7 +120,10 @@ sub initiate {
 }
 
 sub reconnect {
-	my ($self) = @_;
+	my ( $self, $options ) = @_;
+	if ( $options->{'drop_all'} ) {
+		$self->{'dataConnector'}->drop_all_connections;
+	}
 	return if $self->{'db'}->ping;
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
 	my $att = {
@@ -342,7 +345,8 @@ sub _get_isolates_not_passed_assembly_checks {
 	return $self->{'datastore'}->run_query(
 		'SELECT isolate_id FROM seqbin_stats WHERE isolate_id NOT IN (SELECT isolate_id FROM last_run WHERE name=?) '
 		  . 'OR isolate_id IN (SELECT isolate_id FROM assembly_checks WHERE status=?)',
-		[ 'AssemblyChecks', 'fail' ], { fetch => 'col_arrayref' }
+		[ 'AssemblyChecks', 'fail' ],
+		{ fetch => 'col_arrayref' }
 	);
 }
 
