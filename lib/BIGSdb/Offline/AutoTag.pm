@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2023, University of Oxford
+#Copyright (c) 2011-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -84,6 +84,7 @@ sub _scan_loci_together {
 	my $locus_prefix   = BIGSdb::Utils::get_random();
 	$self->{'options'}->{'reuse_blast'} = 1 if $self->{'options'}->{'n'};
   ISOLATE: foreach my $isolate_id (@$isolate_list) {
+		$self->reconnect;
 		$i++;
 		my $complete = BIGSdb::Utils::decimal_place( ( $i * 100 / @$isolate_list ), 1 );
 		$self->{'logger'}->info(
@@ -159,6 +160,7 @@ sub _scan_locus_by_locus {
 	my $locus_prefix   = BIGSdb::Utils::get_random();
 	my $i              = 0;
   ISOLATE: foreach my $isolate_id (@$isolate_list) {
+		$self->reconnect;
 		$i++;
 		my $complete = BIGSdb::Utils::decimal_place( ( $i * 100 / @$isolate_list ), 1 );
 		$self->{'logger'}->info(
