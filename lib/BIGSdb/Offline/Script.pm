@@ -123,6 +123,8 @@ sub reconnect {
 	my ( $self, $options ) = @_;
 	if ( $options->{'drop_all'} ) {
 		$self->{'dataConnector'}->drop_all_connections;
+		$self->{'datastore'}->finish_with_client_loci;
+		$self->{'datastore'}->finish_with_client_schemes;
 	}
 	return if $self->{'db'}->ping;
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );

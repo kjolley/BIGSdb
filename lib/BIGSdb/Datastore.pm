@@ -2550,6 +2550,18 @@ sub finish_with_locus {
 	return;
 }
 
+sub finish_with_client_loci {
+	my ( $self ) = @_;
+	delete $self->{'locus'};
+	return;
+}
+
+sub finish_with_client_schemes {
+	my ( $self ) = @_;
+	delete $self->{'scheme'};
+	return;
+}
+
 sub is_locus {
 	my ( $self, $id, $options ) = @_;
 	return if !defined $id;
