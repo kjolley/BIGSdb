@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2024, University of Oxford
+#Copyright (c) 2011-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -121,7 +121,16 @@ sub initiate {
 
 sub reconnect {
 	my ($self) = @_;
+	return if $self->{'db'}->ping;
 	$self->{'dataConnector'}->initiate( $self->{'system'}, $self->{'config'} );
+	my $att = {
+		dbase_name => $self->{'system'}->{'db'},
+		host       => $self->{'system'}->{'host'},
+		port       => $self->{'system'}->{'port'},
+		user       => $self->{'system'}->{'user'},
+		password   => $self->{'system'}->{'password'}
+	};
+	$self->{'dataConnector'}->drop_connection($att);
 	$self->db_connect;
 	$self->{'datastore'}->change_db( $self->{'db'} );
 	return;

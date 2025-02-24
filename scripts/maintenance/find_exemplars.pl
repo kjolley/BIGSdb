@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Find and mark exemplar alleles for use by tagging functions
 #Written by Keith Jolley
-#Copyright (c) 2016-2023, University of Oxford
+#Copyright (c) 2016-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20230308
+#Version: 20250224
 use strict;
 use warnings;
 use 5.010;
@@ -133,6 +133,7 @@ sub main {
 			#exemplar sequence.
 			push @{ $exemplars{$length} }, [ $allele_id, $seq ] if $allele_id ne $exemplars{$length}[0]->[0];
 		}
+		$script->reconnect;
 		foreach my $length ( sort { $a <=> $b } keys %exemplars ) {
 			foreach my $allele ( @{ $exemplars{$length} } ) {
 				my ( $allele_id, $seq ) = @$allele;
