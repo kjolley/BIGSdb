@@ -115,13 +115,18 @@ sub get_connection {
 	$host = $self->{'config'}->{'host_map'}->{$host} || $host;
 	BIGSdb::Exception::Database::Connection->throw('No database name passed') if !$attributes->{'dbase_name'};
 	state $pid = $$;
-
-	if ( !$self->{'db'}->{"$host|$attributes->{'dbase_name'}"} ) {
+	my $db_string = "$host|$attributes->{'dbase_name'}";
+	if ($self->{'db'}->{$db_string} ){
+		if (!$self->{'db'}->{$db_string}->ping){
+			delete $self->{'db'}->{$db_string};
+		}
+	}
+	if ( !$self->{'db'}->{$db_string} ) {
 		my $db;
 		eval {
 			$db = DBI->connect( "DBI:Pg:host=$host;port=$port;dbname=$attributes->{'dbase_name'}",
 				$user, $password, { AutoCommit => 0, RaiseError => 1, PrintError => 0, pg_enable_utf8 => 1 } );
-			$self->{'db'}->{"$host|$attributes->{'dbase_name'}"} = $db;
+			$self->{'db'}->{$db_string} = $db;
 		};
 		if ($@) {
 			$logger->logcarp("Cannot connect to database '$attributes->{'dbase_name'}' ($host). $@");
@@ -140,7 +145,7 @@ sub get_connection {
 	}
 
 	#Properly handle forked environment (used for scanning)
-	$self->{'db'}->{"$host|$attributes->{'dbase_name'}"}->{'InactiveDestroy'} = $pid == $$ ? 1 : 0;
-	return $self->{'db'}->{"$host|$attributes->{'dbase_name'}"};
+	$self->{'db'}->{$db_string}->{'InactiveDestroy'} = $pid == $$ ? 1 : 0;
+	return $self->{'db'}->{$db_string};
 }
 1;
