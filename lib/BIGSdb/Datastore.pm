@@ -1943,6 +1943,7 @@ sub create_temp_cscheme_field_values_table {
 
 sub create_temp_scheme_table {
 	my ( $self, $id, $options ) = @_;
+	$self->_check_connection;
 	$options = {} if ref $options ne 'HASH';
 	my $scheme_info = $self->get_scheme_info($id);
 	my $scheme      = $self->get_scheme($id);
@@ -2031,6 +2032,7 @@ sub create_temp_scheme_table {
 		$self->{'db'}->rollback;
 		BIGSdb::Exception::Database::Connection->throw('Cannot put data into temp table');
 	}
+	$self->_check_connection;
 	foreach my $field (@$fields) {
 		my $field_info = $self->get_scheme_field_info( $id, $field );
 		if ( $field_info->{'type'} eq 'integer' ) {
@@ -2049,6 +2051,7 @@ sub create_temp_scheme_table {
 
 	#Create new temp table, then drop old and rename the new - this
 	#should minimize the time that the table is unavailable.
+	$self->_check_connection;
 	if ( $options->{'cache'} ) {
 		eval { $self->{'db'}->do("DROP TABLE IF EXISTS $rename_table; ALTER TABLE $table RENAME TO $rename_table") };
 		$logger->error("$self->{'system'}->{'db'}: dropping $rename_table $@") if $@;
@@ -2056,6 +2059,14 @@ sub create_temp_scheme_table {
 		$table = $rename_table;
 	}
 	return $table;
+}
+
+sub _check_connection {
+	my ($self) = @_;
+	return if $self->{'db'} && $self->{'db'}->ping;
+	my $db_attributes = $self->{'db_attributes'};
+	$self->{'db'} = $self->{'dataConnector'}->get_connection($db_attributes);
+	return;
 }
 
 #Create table containing isolate_id and count of distinct loci
@@ -2551,13 +2562,13 @@ sub finish_with_locus {
 }
 
 sub finish_with_client_loci {
-	my ( $self ) = @_;
+	my ($self) = @_;
 	delete $self->{'locus'};
 	return;
 }
 
 sub finish_with_client_schemes {
-	my ( $self ) = @_;
+	my ($self) = @_;
 	delete $self->{'scheme'};
 	return;
 }
