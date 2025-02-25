@@ -298,7 +298,8 @@ sub setup_datastore {
 		system        => $self->{'system'},
 		config        => $self->{'config'},
 		xmlHandler    => $self->{'xmlHandler'},
-		curate        => $self->{'curate'}
+		curate        => $self->{'curate'},
+		db_attributes => $self->get_db_attributes
 	);
 	return;
 }
@@ -335,7 +336,7 @@ sub setup_remote_contig_manager {
 	return;
 }
 
-sub db_connect {
+sub get_db_attributes {
 	my ($self) = @_;
 	my $att = {
 		dbase_name => $self->{'system'}->{'db'},
@@ -344,6 +345,12 @@ sub db_connect {
 		user       => $self->{'system'}->{'user'},
 		password   => $self->{'system'}->{'password'}
 	};
+	return $att;
+}
+
+sub db_connect {
+	my ($self) = @_;
+	my $att = $self->get_db_attributes;
 	try {
 		$self->{'db'} = $self->{'dataConnector'}->get_connection($att);
 	} catch {
