@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -127,6 +127,7 @@ sub blast_multiple_loci {
 			$params{'-evalue'} = 1000;
 		}
 		system( "$self->{'config'}->{'blast+_path'}/$program", %params );
+		$self->reconnect( { drop_all => 1 } );
 		next DATATYPE if !-e $temp_outfile;
 		my $matched_regions;
 		( $datatype_exact_matches->{$data_type}, $matched_regions ) = $self->_parse_blast_exact(
