@@ -127,7 +127,7 @@ sub blast_multiple_loci {
 			$params{'-evalue'} = 1000;
 		}
 		system( "$self->{'config'}->{'blast+_path'}/$program", %params );
-		$self->reconnect( { drop_all => 1 } );
+		$self->reconnect;
 		next DATATYPE if !-e $temp_outfile;
 		my $matched_regions;
 		( $datatype_exact_matches->{$data_type}, $matched_regions ) = $self->_parse_blast_exact(
