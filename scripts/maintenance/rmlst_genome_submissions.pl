@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Perform/update species id check and store results in isolate database.
 #Written by Keith Jolley
-#Copyright (c) 2021-2024, University of Oxford
+#Copyright (c) 2021-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20240320
+#Version: 20250304
 use strict;
 use warnings;
 use 5.010;
@@ -112,7 +112,7 @@ sub get_dbs {
 				options          => {}
 			}
 		);
-		next if ( $script->{'system'}->{'dbtype'} // q() ) ne 'isolates';
+		next if ( $script->{'system'}->{'dbtype'}       // q() ) ne 'isolates';
 		next if ( $script->{'system'}->{'rMLSTSpecies'} // q() ) eq 'no';
 		if ( !$script->{'db'} ) {
 			$logger->error("Skipping $dir ... database does not exist.");
@@ -142,9 +142,9 @@ sub check_db {
 		$logger->error("$config is not an isolate database.");
 		return;
 	}
-	my $min_genome_size =
-	  $script->{'system'}->{'min_genome_size'} // $script->{'config'}->{'min_genome_size'} // MIN_GENOME_SIZE;
-	my $agent = LWP::UserAgent->new( agent => 'BIGSdb' );
+	my $min_genome_size = $script->{'system'}->{'min_genome_size'} // $script->{'config'}->{'min_genome_size'}
+	  // MIN_GENOME_SIZE;
+	my $agent               = LWP::UserAgent->new( agent => 'BIGSdb' );
 	my $pending_submissions = $script->{'datastore'}->run_query(
 		'SELECT id FROM submissions WHERE type IN (?,?) AND status=?',
 		[ 'genomes', 'assemblies', 'pending' ],
@@ -173,7 +173,7 @@ sub check_db {
 		push @submission_ids, $submission_id;
 	}
 	my $plural = @submission_ids == 1 ? q() : q(s);
-	my $count = @submission_ids;
+	my $count  = @submission_ids;
 	return if !$count;
 	my $job_id = $script->add_job( 'RMLSTSubmission', { temp_init => 1 } );
 	say qq(\n$config: $count submission$plural to analyse) if !$opts{'quiet'};
@@ -228,7 +228,10 @@ sub check_db {
 				next RECORD;
 			}
 			my $fasta_ref = get_fasta( $script, $submission_id, $index );
-			next if !ref $fasta_ref;
+			if ( !ref $fasta_ref ) {
+				say 'no FASTA.' if !$opts{'quiet'};
+				next;
+			}
 			my $payload = encode_json(
 				{
 					base64   => JSON::true(),
@@ -293,8 +296,7 @@ sub get_fasta {
 		} else {
 			$return_value = $fasta;
 		}
-	}
-	catch {
+	} catch {
 		$logger->error($_);
 	};
 	return $return_value;
@@ -349,7 +351,7 @@ sub get_lock_file {
 		$logger->fatal( 'Unable to read or parse bigsdb.conf file. Reason: ' . Config::Tiny->errstr );
 		$config = Config::Tiny->new();
 	}
-	my $lock_dir = $config->{_}->{'lock_dir'} // LOCK_DIR;
+	my $lock_dir  = $config->{_}->{'lock_dir'} // LOCK_DIR;
 	my $lock_file = "$lock_dir/rmlst_genome_submissions";
 	return $lock_file;
 }
@@ -396,7 +398,7 @@ sub show_help {
 	my $termios = POSIX::Termios->new;
 	$termios->getattr;
 	my $ospeed = $termios->getospeed;
-	my $t = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
+	my $t      = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
 	my ( $norm, $bold, $under ) = map { $t->Tputs( $_, 1 ) } qw/me md us/;
 	say << "HELP";
 ${bold}NAME$norm
