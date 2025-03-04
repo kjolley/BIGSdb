@@ -86,7 +86,6 @@ sub _scan_loci_together {
 	my $locus_prefix   = BIGSdb::Utils::get_random();
 	my $seqs           = {};
   ISOLATE: foreach my $isolate_id (@$isolate_list) {
-		$self->reconnect;
 		$i++;
 		my $complete = BIGSdb::Utils::decimal_place( ( $i * 100 / @$isolate_list ), 1 );
 		$self->{'logger'}->info("$self->{'options'}->{'d'}#pid$$:Checking isolate $isolate_id - $i/$total($complete%)");
@@ -107,6 +106,7 @@ sub _scan_loci_together {
 		}
 		my ( $exact_matches, $partial_matches ) =
 		  $self->blast_multiple_loci( $params, \@loci_to_scan, $isolate_id, $isolate_prefix, $locus_prefix );
+		$self->reconnect;
 	  LOCUS: foreach my $locus (@loci_to_check) {
 			my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 			next if ref $exact_matches->{$locus} && @{ $exact_matches->{$locus} };
