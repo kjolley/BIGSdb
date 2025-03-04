@@ -70,8 +70,8 @@ sub get_attributes {
 
 sub run {
 	my ($self) = @_;
-	my $q     = $self->{'cgi'};
-	my $title = $self->get_title;
+	my $q      = $self->{'cgi'};
+	my $title  = $self->get_title;
 	say qq(<h1>$title</h1>);
 	if ( $q->param('submit') ) {
 		if ( defined $q->param('method') ) {
@@ -221,7 +221,7 @@ sub run_job {
 				percent_complete => $progress
 			}
 		);
-		$self->_store_results( $isolate_id, $out_file ) if $params->{'method'} eq 'all';
+		$self->_store_results( $isolate_id, $out_file ) if $major_version > 2 || $params->{'method'} eq 'all';
 		$self->delete_temp_files("$assembly_file*");
 		unlink $out_file;
 		last if $self->{'exit'};
