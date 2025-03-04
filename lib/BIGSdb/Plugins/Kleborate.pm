@@ -1,6 +1,6 @@
 #Kleborate.pm - Kleborate wrapper for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2023, University of Oxford
+#Copyright (c) 2023-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext      => 'Kleborate',
 		menutext        => 'Kleborate',
 		module          => 'Kleborate',
-		version         => '1.0.1',
+		version         => '1.1.0',
 		dbtype          => 'isolates',
 		section         => 'third_party,isolate_info,postquery',
 		input           => 'query',
@@ -74,11 +74,13 @@ sub run {
 	my $title  = $self->get_title;
 	say qq(<h1>$title</h1>);
 	if ( $q->param('submit') ) {
-		my $guid = $self->get_guid;
-		eval {
-			$self->{'prefstore'}->set_plugin_attribute( $guid, $self->{'system'}->{'db'},
-				'Kleborate', 'method', scalar $q->param('method') );
-		};
+		if ( defined $q->param('method') ) {
+			my $guid = $self->get_guid;
+			eval {
+				$self->{'prefstore'}->set_plugin_attribute( $guid, $self->{'system'}->{'db'},
+					'Kleborate', 'method', scalar $q->param('method') );
+			};
+		}
 		my @ids = $q->multi_param('isolate_id');
 		my ( $pasted_cleaned_ids, $invalid_ids ) =
 		  $self->get_ids_from_pasted_list( { dont_clear => 1, has_seqbin => 1 } );
@@ -159,7 +161,7 @@ sub run_job {
 	my $i           = 0;
 	my $progress    = 0;
 	my $text_file   = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
-	my $out_file    = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}_kleborate.txt";
+
 	my $table_html;
 	my $td = 1;
 
@@ -167,15 +169,29 @@ sub run_job {
 		$logger->error("Kleborate not executable: Path is $self->{'config'}->{'kleborate_path'}");
 		return;
 	}
+	my $major_version = $self->_get_kleborate_major_version;
+
 	foreach my $isolate_id (@$isolate_ids) {
 		$i++;
 		$progress = int( $i / @$isolate_ids * 100 );
 		my $message = "Scanning isolate $i - id:$isolate_id";
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => $message } );
 		my $assembly_file = $self->_make_assembly_file( $job_id, $isolate_id );
-		my $method        = $params->{'method'} ne 'basic' ? " --$params->{'method'}" : q();
-		my $exit_code =
-		  system("$self->{'config'}->{'kleborate_path'}$method -o $out_file -a $assembly_file > /dev/null");
+		my $cmd;
+		my $out_file;
+		if ( $major_version == 2 ) {
+			$out_file = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}_kleborate.txt";
+			my $method = $params->{'method'} ne 'basic' ? " --$params->{'method'}" : q();
+			$cmd = "$self->{'config'}->{'kleborate_path'}$method -o $out_file -a $assembly_file > /dev/null";
+		} else {
+			local $ENV{'MPLCONFIGDIR'} = $self->{'config'}->{'secure_tmp_dir'};
+			my $dir = "$self->{'config'}->{'tmp_dir'}/$job_id";
+			mkdir $dir;
+			$cmd      = "$self->{'config'}->{'kleborate_path'} -o $dir -a $assembly_file -p kpsc --trim_headers";
+			$out_file = "$dir/klebsiella_pneumo_complex_output.txt";
+		}
+
+		my $exit_code = system($cmd);
 		if ( !-e $out_file ) {
 			$logger->error('Kleborate did not produce an output file.');
 			return;
@@ -251,7 +267,7 @@ sub _append_text_file {
 
 sub _make_assembly_file {
 	my ( $self, $job_id, $isolate_id ) = @_;
-	my $filename   = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}_$isolate_id.fas";
+	my $filename   = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}_$isolate_id.fasta";
 	my $seqbin_ids = $self->{'datastore'}->run_query( 'SELECT id FROM sequence_bin WHERE isolate_id=?',
 		$isolate_id, { fetch => 'col_arrayref', cache => 'make_assembly_file::get_seqbin_list' } );
 	my $contigs = $self->{'contigManager'}->get_contigs_by_list($seqbin_ids);
@@ -335,15 +351,31 @@ sub _get_kleborate_version {
 	my ($self) = @_;
 	return if !-e $self->{'config'}->{'kleborate_path'} || !-x $self->{'config'}->{'kleborate_path'};
 	my $out = "$self->{'config'}->{'secure_tmp_dir'}/kleborate_$$";
-	local $ENV{'TERM'} = 'dumb';
+	local $ENV{'TERM'}         = 'dumb';
+	local $ENV{'MPLCONFIGDIR'} = $self->{'config'}->{'secure_tmp_dir'};
 	my $version     = system("$self->{'config'}->{'kleborate_path'} --version > $out");
 	my $version_ref = BIGSdb::Utils::slurp($out);
 	unlink $out;
 	return $$version_ref;
 }
 
+sub _get_kleborate_major_version {
+	my ($self) = @_;
+	my $version = $self->_get_kleborate_version;
+	my $major_version;
+	if ( $version =~ /^Kleborate\s+v(\d+)\./x ) {
+		$major_version = $1;
+	} else {
+		$logger->error('Unknown Kleborate version');
+		$major_version = 2;
+	}
+	return $major_version;
+}
+
 sub _print_options_fieldset {
 	my ($self) = @_;
+	my $major_version = $self->_get_kleborate_major_version;
+	return if $major_version > 2;
 	my $default_method;
 	my $guid = $self->get_guid;
 	eval {
