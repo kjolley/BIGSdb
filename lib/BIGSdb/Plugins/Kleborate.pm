@@ -70,8 +70,8 @@ sub get_attributes {
 
 sub run {
 	my ($self) = @_;
-	my $q      = $self->{'cgi'};
-	my $title  = $self->get_title;
+	my $q     = $self->{'cgi'};
+	my $title = $self->get_title;
 	say qq(<h1>$title</h1>);
 	if ( $q->param('submit') ) {
 		if ( defined $q->param('method') ) {
@@ -187,7 +187,7 @@ sub run_job {
 			local $ENV{'MPLCONFIGDIR'} = $self->{'config'}->{'secure_tmp_dir'};
 			my $dir = "$self->{'config'}->{'tmp_dir'}/$job_id";
 			mkdir $dir;
-			$cmd      = "$self->{'config'}->{'kleborate_path'} -o $dir -a $assembly_file -p kpsc --trim_headers";
+			$cmd = "$self->{'config'}->{'kleborate_path'} -o $dir -a $assembly_file -p kpsc --trim_headers > /dev/null";
 			$out_file = "$dir/klebsiella_pneumo_complex_output.txt";
 		}
 
