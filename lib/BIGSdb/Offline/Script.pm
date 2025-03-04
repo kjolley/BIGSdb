@@ -547,11 +547,12 @@ sub set_last_run_time {
 }
 
 sub make_assembly_file {
-	my ( $self, $job_id, $isolate_id ) = @_;
+	my ( $self, $job_id, $isolate_id, $options ) = @_;
+	my $extension = $options->{'extension'} // 'fas';
 	if ( !defined $self->{'contigManager'} ) {
 		$self->{'logger'}->fatal('Contig manager is not set up.');
 	}
-	my $filename   = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}_$isolate_id.fas";
+	my $filename   = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}_$isolate_id.$extension";
 	my $seqbin_ids = $self->{'datastore'}->run_query( 'SELECT id FROM sequence_bin WHERE isolate_id=?',
 		$isolate_id, { fetch => 'col_arrayref', cache => 'make_assembly_file::get_seqbin_list' } );
 	my $contigs = $self->{'contigManager'}->get_contigs_by_list($seqbin_ids);

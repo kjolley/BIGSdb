@@ -157,7 +157,8 @@ sub check_db {
 	return if !$count;
 	my $job_id = $script->add_job( 'Kleborate (offline)', { temp_init => 1 } ) // BIGSdb::Utils::get_random();
 	say qq(\n$config: $count genome$plural to analyse) if !$opts{'quiet'};
-	my $i = 0;
+	my $i             = 0;
+	my $major_version = get_kleborate_major_version($script);
 
 	foreach my $isolate_id (@$ids) {
 		my $progress = int( $i * 100 / @$ids );
@@ -169,9 +170,23 @@ sub check_db {
 			}
 		);
 		print qq(Processing -id-$isolate_id ...) if !$opts{'quiet'};
-		my $assembly_file = $script->make_assembly_file( $job_id, $isolate_id );
-		my $out_file      = "$script->{'config'}->{'secure_tmp_dir'}/${job_id}_kleborate.txt";
-		system("$script->{'config'}->{'kleborate_path'} --all -o $out_file -a $assembly_file > /dev/null");
+		my $assembly_file = $script->make_assembly_file( $job_id, $isolate_id, { extension => 'fasta' } );
+		my $out_file;
+
+		if ( $major_version == 2 ) {
+			$out_file = "$script->{'config'}->{'secure_tmp_dir'}/${job_id}_kleborate.txt";
+			my $cmd = "$script->{'config'}->{'kleborate_path'} -all -o $out_file -a $assembly_file > /dev/null";
+			system($cmd);
+		} else {
+
+			my $dir = "$script->{'config'}->{'tmp_dir'}/$job_id";
+			mkdir $dir;
+			my $cmd =
+			  "$script->{'config'}->{'kleborate_path'} -o $dir -a $assembly_file -p kpsc --trim_headers > /dev/null";
+			$out_file = "$dir/klebsiella_pneumo_complex_output.txt";
+			system($cmd);
+		}
+
 		store_results( $script, $isolate_id, $out_file );
 		$script->set_last_run_time( MODULE_NAME, $isolate_id );
 		unlink $assembly_file;
@@ -234,6 +249,19 @@ sub store_results {
 		$script->{'db'}->commit;
 	}
 	return;
+}
+
+sub get_kleborate_major_version {
+	my ($script) = @_;
+	my $version = get_kleborate_version($script);
+	my $major_version;
+	if ( $version =~ /^Kleborate\s+v(\d+)\./x ) {
+		$major_version = $1;
+	} else {
+		$logger->error('Unknown Kleborate version');
+		$major_version = 2;
+	}
+	return $major_version;
 }
 
 sub get_kleborate_version {
