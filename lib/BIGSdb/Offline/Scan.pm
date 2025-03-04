@@ -322,6 +322,7 @@ sub _lookup_partial_matches {
 	return if !@{ $partial_matches->{$locus} };
 	my %already_matched_alleles = map { $_->{'allele'} => 1 } @{ $exact_matches->{$locus} };
 	my $locus_info              = $self->{'datastore'}->get_locus_info($locus);
+	$self->reconnect;
 	foreach my $match ( @{ $partial_matches->{$locus} } ) {
 		my $seq = $self->extract_seq_from_match($match);
 		if ( $locus_info->{'data_type'} eq 'peptide' ) {
