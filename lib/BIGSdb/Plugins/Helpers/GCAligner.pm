@@ -255,13 +255,35 @@ sub _run_alignment {
 		} elsif ( $aligner eq 'MUSCLE'
 			&& $self->{'config'}->{'muscle_path'} )
 		{
-			my $max_mb = $self->{'config'}->{'max_muscle_mb'} // MAX_MUSCLE_MB;
-			system( $self->{'config'}->{'muscle_path'},
-				-in    => $fasta_file,
-				-out   => $aligned_out,
-				-maxmb => $max_mb,
-				'-quiet', '-clwstrict'
-			);
+			my $version =
+			  $self->_get_muscle_version( $self->{'config'}->{'secure_tmp_dir'}, $self->{'config'}->{'muscle_path'} );
+
+			my $major_version;
+			if ( $version =~ /^(\d+)\./x ) {
+				$major_version = $1;
+			}
+			if ( !defined $major_version ) {
+				$self->{'logger'}->error('Cannot determine MUSCLE major version.');
+			}
+			if ( $major_version < 5 ) {
+				my $max_mb = $self->{'config'}->{'max_muscle_mb'} // MAX_MUSCLE_MB;
+				system( $self->{'config'}->{'muscle_path'},
+					-in    => $fasta_file,
+					-out   => $aligned_out,
+					-maxmb => $max_mb,
+					'-quiet', '-clwstrict'
+				);
+			} else {
+				my $threads =
+				  BIGSdb::Utils::is_int( $self->{'config'}->{'muscle_threads'} )
+				  ? $self->{'config'}->{'muscle_threads'}
+				  : 1;
+				system( $self->{'config'}->{'muscle_path'},
+					-align   => $fasta_file,
+					-output  => $aligned_out,
+					-threads => $threads
+				);
+			}
 		} else {
 			$self->{'logger'}->error('No aligner selected');
 		}
@@ -270,6 +292,22 @@ sub _run_alignment {
 	}
 	unlink $fasta_file;
 	return ( $aligned_out, $core_locus );
+}
+
+sub _get_muscle_version {
+	my ($self) = @_;
+	return if !defined $self->{'config'}->{'muscle_path'};
+	my $cmd          = "$self->{'config'}->{'muscle_path'} -version";
+	my $prefix       = BIGSdb::Utils::get_random();
+	my $version_file = "$self->{'config'}->{'secure_tmp_dir'}/$prefix";
+	system "$cmd > $version_file";
+	my $version_output = BIGSdb::Utils::slurp($version_file);
+	unlink $version_file;
+
+	if ( $$version_output =~ /MUSCLE\sv([\d\.]+)/x || $$version_output =~ /muscle\s([\d\.]+)/x ) {
+		return $1;
+	}
+	return;
 }
 
 #Returns mean distance
@@ -316,4 +354,5 @@ sub _is_job_cancelled {
 	return 1 if -e $signal_file;
 	return;
 }
+
 1;
