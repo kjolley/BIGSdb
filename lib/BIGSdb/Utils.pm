@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2025, University of Oxford
+#Copyright (c) 2010-2024, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -521,7 +521,7 @@ sub get_excel_col_letter {
 }
 
 sub fasta2genbank {
-	my ( $fasta_file, $max_locus_length ) = @_;
+	my ($fasta_file, $max_locus_length) = @_;
 	( my $genbank_file = $fasta_file ) =~ s/\.(fa|fas|fasta|fna)$/.gb/x;
 	my $in         = Bio::SeqIO->new( -file => $fasta_file,      -format => 'fasta' );
 	my $out        = Bio::SeqIO->new( -file => ">$genbank_file", -format => 'genbank' );
@@ -977,7 +977,7 @@ sub get_datestamp {
 }
 
 sub get_future_date {
-	my ($months_to_add) = @_;
+	my ( $months_to_add ) = @_;
 	my $datestamp = BIGSdb::Utils::get_datestamp();
 	my ( $year, $month, $day ) = split( '-', $datestamp );
 	$month += $months_to_add;
@@ -1083,5 +1083,4 @@ sub round {
 	my ($number) = @_;
 	return int( $number + 0.5 * ( $number <=> 0 ) );
 }
-
 1;
