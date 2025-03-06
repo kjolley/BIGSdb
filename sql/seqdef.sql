@@ -1740,6 +1740,8 @@ ON UPDATE CASCADE
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON sequences_dna_mutations TO apache;
 
+GRANT USAGE, CREATE ON SCHEMA public TO apache;
+
 CREATE TABLE db_attributes (
 field text NOT NULL,
 value text NOT NULL,
