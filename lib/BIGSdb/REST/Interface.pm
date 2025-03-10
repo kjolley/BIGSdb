@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2024, University of Oxford
+#Copyright (c) 2014-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -498,6 +498,10 @@ sub _check_user_authorization {
 	my ( $self, $username ) = @_;
 	if ( !$self->is_user_allowed_access($username) ) {
 		send_error( 'User is unauthorized to access this database.', 401 );
+	}
+	my $permissions = $self->{'datastore'}->get_permissions($username);
+	if ( $permissions->{'disable_access'} ) {
+		send_error( 'User account has been disabled.', 401 );
 	}
 	return;
 }
