@@ -24,6 +24,7 @@ use 5.010;
 use parent qw(BIGSdb::Plugin);
 use List::MoreUtils qw(uniq);
 use JSON;
+use File::Path qw(rmtree);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_RECORDS => 1000;
@@ -184,11 +185,23 @@ sub run_job {
 			my $method = $params->{'method'} ne 'basic' ? " --$params->{'method'}" : q();
 			$cmd = "$self->{'config'}->{'kleborate_path'}$method -o $out_file -a $assembly_file > /dev/null";
 		} else {
+			my %allowed_presets = map { $_ => 1 } qw(kpsc kosc escherichia);
+			my $preset          = $self->{'system'}->{'kleborate_preset'} // 'kpsc';
+			if ( !$allowed_presets{$preset} ) {
+				$logger->error(q('Invalid Kleborate preset option - using 'kpsc'.));
+				$preset = 'kpsc';
+			}
 			local $ENV{'MPLCONFIGDIR'} = $self->{'config'}->{'secure_tmp_dir'};
-			my $dir = "$self->{'config'}->{'tmp_dir'}/$job_id";
+			my $dir = "$self->{'config'}->{'secure_tmp_dir'}/$job_id";
 			mkdir $dir;
-			$cmd = "$self->{'config'}->{'kleborate_path'} -o $dir -a $assembly_file -p kpsc --trim_headers > /dev/null";
-			$out_file = "$dir/klebsiella_pneumo_complex_output.txt";
+			$cmd =
+			  "$self->{'config'}->{'kleborate_path'} -o $dir -a $assembly_file -p $preset --trim_headers > /dev/null";
+			my %out_files = (
+				kpsc        => "$dir/klebsiella_pneumo_complex_output.txt",
+				kosc        => "$dir/klebsiella_oxytoca_complex_output.txt",
+				escherichia => "$dir/escherichia_output.txt"
+			);
+			$out_file = $out_files{$preset};
 		}
 
 		my $exit_code = system($cmd);
@@ -222,8 +235,15 @@ sub run_job {
 			}
 		);
 		$self->_store_results( $isolate_id, $out_file ) if $major_version > 2 || $params->{'method'} eq 'all';
-		$self->delete_temp_files("$assembly_file*");
-		unlink $out_file;
+
+		if ( $major_version == 2 ) {
+			$self->delete_temp_files("$job_id*");
+			unlink $out_file;
+		} else {
+			unlink $assembly_file;
+			rmtree "$self->{'config'}->{'secure_tmp_dir'}/$job_id";
+		}
+
 		last if $self->{'exit'};
 	}
 	if ( -e $text_file ) {
