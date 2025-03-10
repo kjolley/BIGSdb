@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -749,7 +749,7 @@ sub _modify_by_list {
 	} else {
 		$qry = "SELECT * FROM $scheme_warehouse WHERE ";
 	}
-	$qry .= "($field IN (SELECT value FROM $temp_table))";
+	$qry .= "(UPPER($field) IN (SELECT value FROM $temp_table))";
 	return ( $qry, $list_file );
 }
 
