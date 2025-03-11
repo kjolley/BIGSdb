@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2024, University of Oxford
+#Copyright (c) 2015-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -241,6 +241,16 @@ sub get_profile_submission {
 	return $submission;
 }
 
+sub get_isolate_submission_count {
+	my ( $self, $submission_id ) = @_;
+	$logger->logcarp('No submission_id passed') if !$submission_id;
+	my $count =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT COUNT(DISTINCT(index)) FROM isolate_submission_isolates WHERE submission_id=?',
+		$submission_id, { cache => 'SubmissionHandler::get_isolate_submission_count' } );
+	return $count;
+}
+
 sub get_isolate_submission {
 	my ( $self, $submission_id ) = @_;
 	$logger->logcarp('No submission_id passed') if !$submission_id;
@@ -254,19 +264,17 @@ sub get_isolate_submission {
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT DISTINCT(index) FROM isolate_submission_isolates WHERE submission_id=? ORDER BY index',
 		$submission_id, { fetch => 'col_arrayref', cache => 'SubmissionHandler::get_isolate_submission:index' } );
-	my @isolates;
+	my $isolates = [];
+	my $isolate_values =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT index,field,value FROM isolate_submission_isolates WHERE submission_id=?',
+		$submission_id,
+		{ fetch => 'all_arrayref', cache => 'SubmissionHander::get_isolate_submission::isolate_values' } );
 
-	foreach my $index (@$indexes) {
-		my $values = $self->{'datastore'}->run_query(
-			'SELECT field,value FROM isolate_submission_isolates WHERE (submission_id,index)=(?,?)',
-			[ $submission_id, $index ],
-			{ fetch => 'all_arrayref', cache => 'SubmissionHandler::get_isolate_submission::isolates' }
-		);
-		my $isolate_values = {};
-		$isolate_values->{ $_->[0] } = $_->[1] foreach @$values;
-		push @isolates, $isolate_values;
+	foreach my $value (@$isolate_values) {
+		$isolates->[ $value->[0] - 1 ]->{ $value->[1] } = $value->[2];
 	}
-	my $submission = { order => $order, isolates => \@isolates };
+	my $submission = { order => $order, isolates => $isolates };
 	return $submission;
 }
 

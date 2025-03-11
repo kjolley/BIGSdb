@@ -794,9 +794,9 @@ sub _get_isolate_submissions_for_curation {
 	foreach my $submission (@$submissions) {
 		next if $submission->{'type'} ne 'isolates' && $submission->{'type'} ne 'genomes';
 		next if $submission->{'type'} eq 'genomes'  && !$self->can_modify_table('sequence_bin');
-		my $isolate_submission = $self->{'submissionHandler'}->get_isolate_submission( $submission->{'id'} );
-		my $submitter_string   = $self->{'datastore'}->get_user_string( $submission->{'submitter'}, { email => 1 } );
-		my $isolate_count      = @{ $isolate_submission->{'isolates'} };
+		my $submitter_string =
+		  $self->{'datastore'}->get_user_string( $submission->{'submitter'}, { email => 1 } );
+		my $isolate_count = $self->{'submissionHandler'}->get_isolate_submission_count( $submission->{'id'} );
 		$buffer .=
 			qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=submit&amp;submission_id=$submission->{'id'}&amp;curate=1">$submission->{'id'}</a></td>)
