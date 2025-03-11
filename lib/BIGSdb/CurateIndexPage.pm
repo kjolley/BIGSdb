@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -2288,8 +2288,8 @@ sub _print_submission_section {
 		say q(<h2>Submissions</h2>);
 		say q(<p>No pending submissions.</p>);
 	}
-	say $self->_get_publication_requests;
-	say $self->_get_closed_submission_section;
+	say $publish_buffer;
+	say $closed_buffer;
 	say q(</div></div>);
 	return;
 }
