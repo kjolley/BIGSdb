@@ -1,6 +1,6 @@
 #Export.pm - Export plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext         => 'Dataset',
 		menutext           => 'Dataset',
 		module             => 'Export',
-		version            => '1.15.0',
+		version            => '1.16.0',
 		dbtype             => 'isolates',
 		section            => 'export,postquery',
 		url                => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
@@ -834,8 +834,18 @@ sub _write_tab_text {
 			eval { $self->{'mod_perl_request'}->rflush };
 			return if $self->{'mod_perl_request'}->connection->aborted;
 		}
-		my $first          = 1;
-		my $all_allele_ids = $self->{'datastore'}->get_all_allele_ids( $data{'id'} );
+		my $first             = 1;
+		my $all_allele_ids    = $self->{'datastore'}->get_all_allele_ids( $data{'id'} );
+		my $allele_tag_counts = {};
+		if ( $params->{'indicate_tags'} ) {
+			my $counts =
+			  $self->{'datastore'}->run_query( 'SELECT locus,complete FROM allele_sequences WHERE isolate_id=?',
+				$data{'id'}, { fetch => 'all_arrayref', slice => {} } );
+			foreach my $tag (@$counts) {
+				$allele_tag_counts->{ $tag->{'locus'} }->{'count'}++;
+				$allele_tag_counts->{ $tag->{'locus'} }->{'incomplete'}++ if !$tag->{'complete'};
+			}
+		}
 		foreach my $field (@$fields) {
 			my $regex = {
 				field                    => qr/^f_(.*)/x,
@@ -859,12 +869,13 @@ sub _write_tab_text {
 				locus     => sub {
 					$self->_write_allele(
 						{
-							fh             => $fh,
-							locus          => $2,
-							data           => \%data,
-							all_allele_ids => $all_allele_ids,
-							first          => $first,
-							params         => $params
+							fh                => $fh,
+							locus             => $2,
+							data              => \%data,
+							all_allele_ids    => $all_allele_ids,
+							allele_tag_counts => $allele_tag_counts,
+							first             => $first,
+							params            => $params
 						}
 					);
 				},
@@ -1134,8 +1145,8 @@ sub _sort_alleles {
 
 sub _write_allele {
 	my ( $self, $args ) = @_;
-	my ( $fh, $locus, $data, $all_allele_ids, $first_col, $params ) =
-	  @{$args}{qw(fh locus data all_allele_ids first params)};
+	my ( $fh, $locus, $data, $all_allele_ids, $allele_tag_counts, $first_col, $params ) =
+	  @{$args}{qw(fh locus data all_allele_ids allele_tag_counts first params)};
 	my @unsorted_allele_ids = defined $all_allele_ids->{$locus} ? @{ $all_allele_ids->{$locus} } : (q());
 	my $allele_ids          = $self->_sort_alleles( $locus, \@unsorted_allele_ids );
 	if ( $params->{'alleles'} ) {
@@ -1148,18 +1159,8 @@ sub _write_allele {
 					|| ( $params->{'indicate_tags_when'} // q() ) eq 'always' )
 			  )
 			{
-				my $tags = $self->{'datastore'}->run_query(
-					'SELECT id,complete FROM allele_sequences WHERE (isolate_id,locus)=(?,?) '
-					  . 'ORDER BY complete desc',
-					[ $data->{'id'}, $locus ],
-					{ fetch => 'all_arrayref', slice => {}, cache => 'Export::write_allele::tag' }
-				);
-				my $seq_count        = 0;
-				my $incomplete_count = 0;
-				foreach my $tag (@$tags) {
-					$seq_count++;
-					$incomplete_count++ if !$tag->{'complete'};
-				}
+				my $seq_count        = $allele_tag_counts->{$locus}->{'count'};
+				my $incomplete_count = $allele_tag_counts->{$locus}->{'incomplete'};
 				if ($seq_count) {
 					$seq_count = q() if $seq_count <= 1;
 					$seq_tag   = "[S$seq_count]";
