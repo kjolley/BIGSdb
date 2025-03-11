@@ -1,3 +1,4 @@
+v1.50.3: *Added support for Kleborate v3 to plugin.
 v1.50.2: *Fix for API profile downloads restricted by date.
          *Fix for set_embargo permissions.
 v1.50.1: *Added support for Neighbour-joining trees in GrapeTree.
