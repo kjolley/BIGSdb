@@ -2641,7 +2641,7 @@ sub confirm_embargo {
 	say q(</fieldset>);
 	$self->print_action_fieldset( { submit_label => 'Set/update embargo date', no_reset => 1 } );
 	say $q->hidden( confirm_embargo => 1 );
-	say $q->hidden($_) foreach qw(db page query_file temp_table_file list_file datatype);
+	say $q->hidden($_) foreach qw(db page query_file temp_table_file list_file attribute datatype);
 	say $q->end_form;
 	say q(<div style="clear:both"></div>);
 	say q(</div>);
