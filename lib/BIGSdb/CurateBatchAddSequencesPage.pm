@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -23,6 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::CurateBatchAddPage);
 use BIGSdb::Offline::BatchSequenceCheck;
 use BIGSdb::Constants qw(:interface SEQ_STATUS );
+use BIGSdb::Exceptions;
 use JSON;
 use Try::Tiny;
 use Log::Log4perl qw(get_logger);
@@ -82,10 +83,41 @@ sub print_content {
 		$self->_upload_data( $locus, scalar $q->param('checked_file') );
 	} elsif ( $q->param('data') || $q->param('query') ) {
 		$self->_check_data($locus);
+	} elsif ( $q->param('file_upload') ) {
+		my $upload_file = $self->_upload_file;
+		if ( -e $upload_file ) {
+			if ( -B $upload_file ) {
+				$self->print_bad_status(
+					{
+						message => q(Uploaded file is an invalid format. This needs to be a tab-delimited text file.)
+					}
+				);
+				return;
+			}
+			my $contents_ref = BIGSdb::Utils::slurp($upload_file);
+			$q->param( data => $$contents_ref );
+			unlink $upload_file;
+			$self->_check_data($locus);
+		}
 	} else {
 		$self->_print_interface($locus);
 	}
 	return;
+}
+
+sub _upload_file {
+	my ($self)   = @_;
+	my $temp     = BIGSdb::Utils::get_random();
+	my $filename = "$self->{'config'}->{'secure_tmp_dir'}/${temp}_upload.tsv";
+	my $buffer;
+	my $fh2 = $self->{'cgi'}->upload('file_upload');
+	binmode $fh2;
+	read( $fh2, $buffer, $self->{'config'}->{'max_upload_size'} );
+	open( my $fh, '>', $filename ) || $logger->error("Cannot open $filename for writing.");
+	binmode $fh;
+	print $fh $buffer;
+	close $fh;
+	return $filename;
 }
 
 sub _print_interface {
@@ -106,6 +138,7 @@ sub _print_interface {
 	say q(<li>If the locus uses integer allele ids you can leave the allele_id )
 	  . q(field blank and the next available number will be used.</li>)
 	  . qq(<li>The status defines how the sequence was curated.  Allowed values are: '@status'.</li>);
+	local $" = q( );
 
 	if ( $self->{'system'}->{'allele_flags'} ) {
 		say q(<li>Sequence flags can be added as a semi-colon (;) separated list.</li>);
@@ -127,6 +160,21 @@ sub _print_interface {
 	say q(<fieldset style="float:left"><legend>Paste in tab-delimited text )
 	  . q((<strong>include a field header as the first line</strong>).</legend>);
 	say $q->textarea( -name => 'data', -rows => 20, -columns => 80 );
+	say q(</fieldset>);
+	say q(<fieldset style="float:left"><legend>Alternatively upload tab-delimited text file</legend>);
+	say q(Select TSV file: );
+	say q(<div class="file_upload">);
+
+	say $q->filefield(
+		-name     => 'file_upload',
+		-id       => 'file_upload',
+		-onchange => '$("input#fakefile").val(this.files[0].name)'
+	);
+	say q(<div class="fakefile"><input id='fakefile' placeholder="Click to select or drag and drop..." /></div>);
+	say q(<a id="clear_upload" class="small_reset" title="Clear upload" )
+	  . q(onclick="$('input#file_upload,input#fakefile').val('')"><span>)
+	  . q(<span class="far fa-trash-can"></span></span></a>);
+	say q(</div>);
 	say q(</fieldset>);
 	say $q->hidden($_) foreach qw (page db table locus);
 	$self->print_action_fieldset( { table => 'sequences' } );
@@ -216,6 +264,7 @@ sub _print_interface_sequence_switches {
 	);
 	say q(</li><li>);
 	say $q->checkbox( -id => 'ignore_length', -name => 'ignore_length', -label => 'Override sequence length check' );
+
 	if ( ( $self->{'system'}->{'alternative_codon_tables'} // q() ) eq 'yes' ) {
 		say q(</li></li>);
 		my $tables = Bio::Tools::CodonTable->tables;

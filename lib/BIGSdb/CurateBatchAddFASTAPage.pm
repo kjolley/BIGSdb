@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2013-2024, University of Oxford
+#Copyright (c) 2013-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -58,6 +58,27 @@ sub print_content {
 			return;
 		}
 		my @missing;
+		if ( !$q->param('sequence') && $q->param('fasta_upload') ) {
+			my $upload_file = $self->_upload_fasta;
+			if ( -e $upload_file ) {
+				$logger->error($upload_file);
+				if ( -B $upload_file ) {
+					$self->print_bad_status(
+						{
+							message =>
+							  q(Uploaded file is an invalid format. This needs to be a text file in FASTA format.)
+						}
+					);
+					$self->_print_interface;
+					unlink $upload_file;
+					return;
+				}
+				my $contents_ref = BIGSdb::Utils::slurp($upload_file);
+				$q->param( sequence => $$contents_ref );
+				unlink $upload_file;
+			}
+		}
+
 		foreach my $field (qw (locus status sender sequence)) {
 			push @missing, $field if !$q->param($field);
 		}
@@ -73,6 +94,9 @@ sub print_content {
 			return;
 		}
 		if ( $self->_check == FAILURE ) {
+			if ( $q->param('fasta_upload') ) {
+				$q->delete('sequence');
+			}
 			$self->_print_interface;
 			return;
 		}
@@ -80,6 +104,21 @@ sub print_content {
 	}
 	$self->_print_interface;
 	return;
+}
+
+sub _upload_fasta {
+	my ($self)   = @_;
+	my $temp     = BIGSdb::Utils::get_random();
+	my $filename = "$self->{'config'}->{'secure_tmp_dir'}/${temp}_upload.fasta";
+	my $buffer;
+	my $fh2 = $self->{'cgi'}->upload('fasta_upload');
+	binmode $fh2;
+	read( $fh2, $buffer, $self->{'config'}->{'max_upload_size'} );
+	open( my $fh, '>', $filename ) || $logger->error("Cannot open $filename for writing.");
+	binmode $fh;
+	print $fh $buffer;
+	close $fh;
+	return $filename;
 }
 
 sub _print_interface {
@@ -94,7 +133,7 @@ sub _print_interface {
 	  . q(in the FASTA file.</p>);
 	my $extended_attributes =
 	  $self->{'datastore'}->run_query('SELECT EXISTS(SELECT locus FROM locus_extended_attributes WHERE required)');
-	say q(<p>Please note that you can not use this page to upload sequences for loci with required )
+	say q(<p>Please note that you cannot use this page to upload sequences for loci with required )
 	  . q(extended attributes.</p>)
 	  if $extended_attributes;
 	say $q->start_form;
@@ -126,8 +165,6 @@ sub _print_interface {
 		-labels   => $user_names,
 		-required => 'required'
 	);
-	say q(<li><label for="sequence" class="form" style="width:5em">sequence<br />(FASTA):!</label>);
-	say $q->textarea( -name => 'sequence', -id => 'sequence', -rows => 10, -cols => 60, -required => 'required' );
 	say q(</li><li>);
 	say $q->checkbox(
 		-name  => 'complete_CDS',
@@ -145,6 +182,25 @@ sub _print_interface {
 		-checked => 'checked'
 	);
 	say q(</li></ul></fieldset>);
+	say q(<fieldset style="float:left"><legend>Paste in sequences in FASTA format</legend>);
+	say $q->textarea( -name => 'sequence', -id => 'sequence', -rows => 10, -cols => 60 );
+	say q(</fieldset>);
+	say q(<fieldset style="float:left"><legend>Alternatively upload FASTA file</legend>);
+	say q(Select FASTA file: );
+	say q(<div class="fasta_upload">);
+
+	say $q->filefield(
+		-name     => 'fasta_upload',
+		-id       => 'fasta_upload',
+		-onchange => '$("input#fakefile").val(this.files[0].name)'
+	);
+	say q(<div class="fakefile"><input id='fakefile' placeholder="Click to select or drag and drop..." /></div>);
+	say q(<a id="clear_upload" class="small_reset" title="Clear upload" )
+	  . q(onclick="$('input#file_upload,input#fakefile').val('')"><span>)
+	  . q(<span class="far fa-trash-can"></span></span></a>);
+	say q(</div>);
+	say q(</fieldset>);
+
 	$self->print_action_fieldset( { 'submit_label' => 'Check' } );
 	say $q->hidden($_) foreach qw(db page set_id submission_id);
 	say $q->end_form;
