@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2024, University of Oxford
+#Copyright (c) 2014-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -167,6 +167,8 @@ sub _get_isolate {
 			contigs       => request->uri_for("$subdir/db/$db/isolates/$id/contigs"),
 			contigs_fasta => request->uri_for("$subdir/db/$db/isolates/$id/contigs_fasta")
 		};
+		$seqbin->{'N50'} = $seqbin_stats->{'n50'} if defined $seqbin_stats->{'n50'};
+		$seqbin->{'L50'} = $seqbin_stats->{'l50'} if defined $seqbin_stats->{'l50'};
 		$values->{'sequence_bin'} = $seqbin;
 	}
 	my $set_id = $self->get_set_id;
