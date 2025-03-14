@@ -65,7 +65,15 @@ sub print_content {
 		return;
 	}
 	if ( $self->{'config'}->{'site_user_dbs'} ) {
-		say qq(<h1>$self->{'system'}->{'description'} site-wide settings</h1>);
+		if ( $self->{'system'}->{'dbtype'} eq 'user' ) {
+			say qq(<h1>$self->{'system'}->{'description'} site-wide settings</h1>);
+		} else {
+			my $user_db_name =
+			  $self->{'datastore'}
+			  ->run_query( 'SELECT name FROM user_dbases ud JOIN users u ON ud.id=u.user_db WHERE user_name=?',
+				$self->{'username'} );
+			say qq(<h1>$user_db_name site-wide settings</h1>);
+		}
 		if ( $self->{'config'}->{'disable_updates'} ) {
 			$self->print_bad_status(
 				{
@@ -299,13 +307,30 @@ sub _edit_user {
 	if ( $q->param('update') ) {
 		$self->_update_user($username);
 	}
+
 	say q(<div class="box" id="queryform"><div class="scrollable">);
 	say q(<span class="config_icon fas fa-edit fa-3x fa-pull-left"></span>);
 	say q(<h2>User account details</h2>);
 	if ( $username eq $self->{'username'} ) {
+		if ( $self->{'system'}->{'profile_update_required'} ) {
+			say q(<p>We need you to update your profile.</p>);
+		}
 		say q(<p>Please ensure that your details are correct - if you submit data to the database these will be )
 		  . q(associated with your record. The E-mail address will be used to send you notifications about your )
 		  . q(submissions.</p>);
+		my $user_db = $self->_get_user_db;
+		if (
+			$self->{'datastore'}->run_query(
+				'SELECT EXISTS(SELECT * FROM registered_resources where auto_registration IS NOT TRUE)',
+				undef, { db => $user_db }
+			)
+		  )
+		{
+			say q(<p>Some database registrations require manual authorization by an administrator. )
+			  . q(Access to these may be subject to licence restrictions that depend on your affiliated organisation )
+			  . q(so please ensure you provide this in full. Please avoid acronyms if these are not universally )
+			  . q(recognized.</p>);
+		}
 	}
 	my $user_info = $self->{'datastore'}->get_user_info_from_username($username);
 	$q->param( $_ => $q->param($_) // BIGSdb::Utils::unescape_html( $user_info->{$_} ) )
@@ -332,6 +357,18 @@ sub _edit_user {
 	say $q->end_form;
 	say q(</div></div>);
 	return;
+}
+
+sub _get_user_db {
+	my ($self) = @_;
+	my $user_db;
+	if ( $self->{system}->{'dbtype'} ne 'user' ) {
+		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+		$user_db = $self->{'datastore'}->get_user_db( $user_info->{'user_db'} );
+	} else {
+		$user_db = $self->{'db'};
+	}
+	return $user_db;
 }
 
 sub _update_user {
@@ -693,7 +730,7 @@ sub _register {
 		}
 		next if !$db;
 		my $id      = $self->_get_next_id($db);
-		my $user_db = $self->_get_user_db($db);
+		my $user_db = $self->_get_user_db_id($db);
 		next if !$user_db;
 		eval {
 			$self->{'db'}->do( 'INSERT INTO registered_users (dbase_config,user_name,datestamp) VALUES (?,?,?)',
@@ -1399,7 +1436,7 @@ sub _get_next_id {
 	return $next;
 }
 
-sub _get_user_db {
+sub _get_user_db_id {
 	my ( $self, $db ) = @_;
 	return $self->{'datastore'}
 	  ->run_query( 'SELECT id FROM user_dbases WHERE dbase_name=?', $self->{'system'}->{'db'}, { db => $db } );

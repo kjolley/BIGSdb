@@ -25,6 +25,7 @@ session text NOT NULL,
 state text NOT NULL,
 start_time int NOT NULL,
 reset_password boolean,
+update_profile boolean,
 PRIMARY KEY (dbase,session)
 );
 

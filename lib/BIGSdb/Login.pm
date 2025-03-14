@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#(c) 2010-2024, University of Oxford
+#(c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -142,9 +142,14 @@ sub secure_login {
 		$self->{'pass_cookie'}    => $setCookieString,
 		$self->{'user_cookie'}    => $user
 	);
-	$self->_create_session( $self->{'vars'}->{'session'}, 'active', $user, $self->{'reset_password'} );
+	$self->_create_session(
+		$self->{'vars'}->{'session'},
+		'active', $user,
+		$self->{'reset_password'},
+		$self->{'update_profile'}
+	);
 	my $cookies_ref = $self->_set_cookies( \@cookies, COOKIE_TIMEOUT );
-	return ( $user, $cookies_ref, $self->{'reset_password'} );    # SUCCESS, w/cookie header
+	return ( $user, $cookies_ref, $self->{'reset_password'}, $self->{'update_profile'} );    # SUCCESS, w/cookie header
 }
 
 sub login_from_cookie {
@@ -180,6 +185,13 @@ sub login_from_cookie {
 		  )
 		{
 			$self->{'system'}->{'password_update_required'} = 1;
+		} elsif (
+			$self->_profile_update_required(
+				$cookies{ $self->{'session_cookie'} }, $cookies{ $self->{'user_cookie'} }
+			)
+		  )
+		{
+			$self->{'system'}->{'profile_update_required'} = 1;
 		}
 
 		# good cookie, allow access
@@ -261,6 +273,10 @@ sub _check_password {
 		$self->_delete_session( scalar $self->{'cgi'}->param('session') );
 		$self->_error_exit( $invalid_login_message, $options );
 	} else {
+		if ( $stored_hash->{'update_profile'} ) {
+			$logger->info("User profile update required for $self->{'vars'}->{'user'}.");
+			$self->{'update_profile'} = 1;
+		}
 		if ( $stored_hash->{'reset_password'} ) {
 			$logger->info('Password reset required.');
 			$self->{'reset_password'} = 1;
@@ -467,6 +483,16 @@ sub _password_reset_required {
 	);
 }
 
+sub _profile_update_required {
+	my ( $self, $session, $username ) = @_;
+	my $dbase_name = $self->get_user_db_name($username);
+	return $self->{'datastore'}->run_query(
+		'SELECT EXISTS(SELECT * FROM sessions WHERE (dbase,session,state,username)=(?,md5(?),?,?) AND update_profile)',
+		[ $dbase_name, $session, 'active', $username ],
+		{ db => $self->{'auth_db'}, cache => 'Login::profile_update_required' }
+	);
+}
+
 sub _login_session_exists {
 	my ( $self, $session ) = @_;
 	return $self->{'datastore'}->run_query(
@@ -481,7 +507,7 @@ sub get_password_hash {
 	return if !$name;
 	my $dbase_name = $options->{'dbase_name'} // $self->get_user_db_name($name);
 	my $password   = $self->{'datastore'}->run_query(
-		'SELECT password,algorithm,salt,cost,reset_password FROM users WHERE dbase=? AND name=?',
+		'SELECT password,algorithm,salt,cost,reset_password,update_profile FROM users WHERE dbase=? AND name=?',
 		[ $dbase_name, $name ],
 		{ db => $self->{'auth_db'}, fetch => 'row_hashref' }
 	);
@@ -522,15 +548,17 @@ sub _create_session {
 
 	#Store session as a MD5 hash of passed session.  This should prevent someone with access to the auth database
 	#from easily using active session tokens.
-	my ( $self, $session, $state, $username, $reset_password ) = @_;
+	my ( $self, $session, $state, $username, $reset_password, $update_profile ) = @_;
 	my $exists = $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM sessions WHERE session=md5(?))',
 		$session, { db => $self->{'auth_db'} } );
 	return if $exists;
 	eval {
 		my $dbase_name = $username ? $self->get_user_db_name($username) : 'any';
 		$self->{'auth_db'}->do(
-			'INSERT INTO sessions (dbase,session,start_time,state,username,reset_password) VALUES (?,md5(?),?,?,?,?)',
-			undef, $dbase_name, $session, time, $state, $username, $reset_password );
+			'INSERT INTO sessions (dbase,session,start_time,state,username,reset_password,update_profile) '
+			  . 'VALUES (?,md5(?),?,?,?,?,?)',
+			undef, $dbase_name, $session, time, $state, $username, $reset_password, $update_profile
+		);
 	};
 	if ($@) {
 		$logger->error($@);
