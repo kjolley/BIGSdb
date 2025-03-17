@@ -313,7 +313,7 @@ sub _edit_user {
 	say q(<h2>User account details</h2>);
 	if ( $username eq $self->{'username'} ) {
 		if ( $self->{'system'}->{'profile_update_required'} ) {
-			say q(<p>We need you to update your profile.</p>);
+			say q(<p><strong>We need you to update your profile.</strong></p>);
 		}
 		say q(<p>Please ensure that your details are correct - if you submit data to the database these will be )
 		  . q(associated with your record. The E-mail address will be used to send you notifications about your )
@@ -402,6 +402,7 @@ sub _update_user {
 		$self->print_bad_status( { message => qq($error) } );
 		return;
 	}
+
 	my $user_info = $self->{'datastore'}->get_user_info_from_username($username);
 	my ( @changed_params, @new, %old );
 	foreach my $param (qw (first_name surname email affiliation)) {
@@ -412,9 +413,11 @@ sub _update_user {
 		}
 	}
 	if (@changed_params) {
+
 		local $" = q(,);
 		my @placeholders = ('?') x @changed_params;
 		my $qry          = "UPDATE users SET (@changed_params,datestamp)=(@placeholders,?) WHERE user_name=?";
+
 		eval {
 			$self->{'db'}->do( $qry, undef, @new, 'now', $username );
 			foreach my $param (@changed_params) {
@@ -430,7 +433,20 @@ sub _update_user {
 		} else {
 			$self->print_good_status( { message => q(Details successfully updated.) } );
 			$self->{'db'}->commit;
+			eval {
+				$self->{'auth_db'}->do( 'UPDATE users SET update_profile=FALSE WHERE (name,dbase)=(?,?)',
+					undef, $username, $self->{'system'}->{'db'} );
+				$self->{'auth_db'}->do( 'UPDATE sessions SET update_profile=FALSE WHERE (username,dbase)=(?,?)',
+					undef, $username, $self->{'system'}->{'db'} );
+			};
+			if ($@) {
+				$logger->error($@);
+				$self->{'auth_db'}->rollback;
+			} else {
+				$self->{'auth_db'}->commit;
+			}
 		}
+
 	} else {
 		$self->print_bad_status( { message => q(No changes made.) } );
 	}
