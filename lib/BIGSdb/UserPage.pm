@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2016-2024, University of Oxford
+#Copyright (c) 2016-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -32,7 +32,7 @@ use Time::Seconds;
 use BIGSdb::Parser;
 use BIGSdb::Login;
 use BIGSdb::Utils;
-use BIGSdb::Constants qw(:interface DEFAULT_DOMAIN);
+use BIGSdb::Constants qw(:interface DEFAULT_DOMAIN SECTORS COUNTRIES);
 use constant SUBMISSION_INTERVAL => {
 	60   => '1 hour',
 	120  => '2 hours',
@@ -328,8 +328,8 @@ sub _edit_user {
 		{
 			say q(<p>Some database registrations require manual authorization by an administrator. )
 			  . q(Access to these may be subject to licence restrictions that depend on your affiliated organisation )
-			  . q(so please ensure you provide this in full. Please avoid acronyms if these are not universally )
-			  . q(recognized.</p>);
+			  . q(so please ensure you provide this in full. <strong>Please avoid acronyms if these are not )
+			  . q(universally recognized</strong>.</p>);
 		}
 	}
 	my $user_info = $self->{'datastore'}->get_user_info_from_username($username);
@@ -349,6 +349,29 @@ sub _edit_user {
 	say q(</li><li>);
 	say q(<label for="affiliation" class="form">Affiliation/institute:</label>);
 	say $q->textarea( -name => 'affiliation', -id => 'affiliation', -required => 'required', -cols => 30 );
+
+	if ( $self->{'config'}->{'site_user_sector'} ) {
+		say q(</li><li>);
+		say q(<label for="sector" class="form">Sector:</label>);
+		my $values = [ '', SECTORS, 'other' ];
+		say $q->popup_menu( -name => 'sector', -id => 'sector', -values => $values, -required => 'required' );
+		say q(</li><li id="other" style="display:none">);
+		say q(<label for="other_sector" class="form">Other sector:</label>);
+		say $q->textfield(
+			-name       => 'other_sector',
+			-id         => 'other_sector',
+			size        => 30,
+			placeholder => 'Enter other sector...'
+		);
+	}
+	if ( $self->{'config'}->{'site_user_country'} ) {
+		say q(</li><li>);
+		say q(<label for="country" class="form">Country:</label>);
+		my $countries = COUNTRIES;
+		my $sorted    = BIGSdb::Utils::unicode_dictionary_sort( [ keys %$countries ] );
+		my $values    = [ '', @$sorted ];
+		say $q->popup_menu( -name => 'country', -id => 'country', -values => $values, -required => 'required' );
+	}
 	say q(</li></ul>);
 	say q(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Update' } );
@@ -390,6 +413,26 @@ sub _update_user {
 			$data->{$param} = BIGSdb::Utils::escape_html( $data->{$param} );
 		}
 	}
+	if ( $self->{'config'}->{'site_user_sector'} ) {
+		$data->{'sector'} = $q->param('sector');
+		if ( ( $data->{'sector'} // q() ) eq 'other' ) {
+			$data->{'sector'} = $q->param('other_sector');
+		}
+		$data->{'sector'} = $self->clean_value( $data->{'sector'}, { no_escape => 1 } );
+		$data->{'sector'} = BIGSdb::Utils::escape_html( $data->{'sector'} );
+		if ( !$data->{'sector'} || $data->{'sector'} eq q() ) {
+			push @missing, 'sector';
+		}
+	}
+	if ( $self->{'config'}->{'site_user_country'} ) {
+		$data->{'country'} = $q->param('country');
+		$data->{'country'} = $self->clean_value( $data->{'country'}, { no_escape => 1 } );
+		$data->{'country'} = BIGSdb::Utils::escape_html( $data->{'country'} );
+		if ( !$data->{'country'} || $data->{'country'} eq q() ) {
+			push @missing, 'country';
+		}
+	}
+
 	my $address = Email::Valid->address( scalar $q->param('email') );
 	my $error;
 	if (@missing) {
@@ -405,12 +448,15 @@ sub _update_user {
 
 	my $user_info = $self->{'datastore'}->get_user_info_from_username($username);
 	my ( @changed_params, @new, %old );
-	foreach my $param (qw (first_name surname email affiliation)) {
-		if ( $data->{$param} ne $user_info->{$param} ) {
+	foreach my $param (qw (first_name surname email affiliation sector country)) {
+		if ( $data->{$param} ne ( $user_info->{$param} // q() ) ) {
 			push @changed_params, $param;
 			push @new,            $data->{$param};
-			$old{$param} = $user_info->{$param};
+			$old{$param} = $user_info->{$param} // q();
 		}
+	}
+	if ( ( $data->{'sector'} // q() ) eq 'other' ) {
+		$data->{'sector'} = $q->param('other_sector') // q();
 	}
 	if (@changed_params) {
 
@@ -422,7 +468,7 @@ sub _update_user {
 			$self->{'db'}->do( $qry, undef, @new, 'now', $username );
 			foreach my $param (@changed_params) {
 				$self->{'db'}->do( 'INSERT INTO history (timestamp,user_name,field,old,new) VALUES (?,?,?,?,?)',
-					undef, 'now', $username, $param, $user_info->{$param}, $data->{$param} );
+					undef, 'now', $username, $param, $old{$param}, $data->{$param} );
 			}
 			$logger->info("$self->{'username'} updated user details for $username.");
 		};
@@ -1349,6 +1395,27 @@ JS
 	 	});
  	}
  	$admin_js
+ 	\$('li#other').css('display',\$('select#sector').val() == 'other' ? 'block' : 'none');
+ 	\$('select#sector').change(function() {
+ 		console.log(this.value);
+ 		\$('li#other').css('display',this.value == 'other' ? 'block' : 'none');
+ 	});
+ 	\$("#country").multiselect({
+		noneSelectedText: "Please select...",
+		selectedList: 1,
+		menuHeight: 250,
+		menuWidth: 300,
+		classes: 'filter',
+	}).multiselectfilter({
+		placeholder: 'Search'
+	});
+ 	
+ 	\$("#sector").multiselect({
+		selectedList: 1,
+		menuHeight: 250,
+		menuWidth: 300,
+		classes: 'filter',
+	});
 	
 	\$(window).resize(function() {
     	delay(function(){

@@ -1,6 +1,6 @@
 #Parser.pm
 #Written by Keith Jolley
-#Copyright (c) 2010-2021, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -33,7 +33,6 @@ use 5.010;
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(COUNTRIES);
 use XML::Parser::PerlSAX;
-use Unicode::Collate;
 use List::MoreUtils qw(any);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
@@ -53,7 +52,7 @@ sub get_field_list {
 		next
 		  if $options->{'multivalue_only'}
 		  && ( $self->{'attributes'}->{$field}->{'multiple'} // q() ) ne 'yes';
-		next if !$options->{'show_hidden'} && ($self->{'attributes'}->{$field}->{'hide'} // q()) eq 'yes';
+		next if !$options->{'show_hidden'} && ( $self->{'attributes'}->{$field}->{'hide'} // q() ) eq 'yes';
 		push @fields, $field;
 	}
 	return \@fields;
@@ -146,7 +145,7 @@ sub start_element {
 	my ( $self, $element ) = @_;
 	my %methods = (
 		system => sub { $self->{'_in_system'} = 1; $self->{'system'} = $element->{'Attributes'} },
-		field => sub {
+		field  => sub {
 			$self->{'_in_field'} = 1;
 			$self->{'these'}     = $element->{'Attributes'};
 		},
@@ -163,32 +162,21 @@ sub _add_special_optlist_values {
 	if ( $value_name eq 'COUNTRIES' ) {
 		my $countries = COUNTRIES;
 		my $values    = [ keys %$countries ];
-		$self->{'options'}->{$field_name} = $self->_dictionary_sort($values);
+		$self->{'options'}->{$field_name} = BIGSdb::Utils::unicode_dictionary_sort($values);
 	}
 	return;
-}
-
-sub _dictionary_sort {
-	my ( $self, $values ) = @_;
-	my $collator = Unicode::Collate->new( variable => 'non-ignorable' );
-	my $sort_key = {};
-	for my $value (@$values) {
-		$sort_key->{$value} = $collator->getSortKey($value);
-	}
-	my @sorted = sort { $sort_key->{$a} cmp $sort_key->{$b} } @$values;
-	return \@sorted;
 }
 
 sub end_element {
 	my ( $self, $element ) = @_;
 	my %methods = (
-		system => sub { $self->{'_in_system'} = 0 },
-		field  => sub { $self->{'_in_field'}  = 0 },
+		system  => sub { $self->{'_in_system'} = 0 },
+		field   => sub { $self->{'_in_field'}  = 0 },
 		optlist => sub {
 			$self->{'_in_optlist'} = 0;
 			if ( ( $self->{'attributes'}->{ $self->{'field_name'} }->{'sort'} // q() ) eq 'yes' ) {
 				$self->{'options'}->{ $self->{'field_name'} } =
-				  $self->_dictionary_sort( $self->{'options'}->{ $self->{'field_name'} } );
+				  BIGSdb::Utils::unicode_dictionary_sort( $self->{'options'}->{ $self->{'field_name'} } );
 			}
 		}
 	);
