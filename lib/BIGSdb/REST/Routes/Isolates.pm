@@ -174,7 +174,7 @@ sub _get_isolate {
 	my $set_id = $self->get_set_id;
 	my $set_clause =
 	  $set_id
-	  ? 'AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes '
+	  ? ' AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes '
 	  . "WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
 	  : '';
 	my $designations =
