@@ -167,7 +167,15 @@ sub _show_registration_details {
 	  . qq(<dt>First name</dt><dd>$user_info->{'first_name'}</dd>)
 	  . qq(<dt>Last name</dt><dd>$user_info->{'surname'}</dd>)
 	  . qq(<dt>E-mail address</dt><dd>$user_info->{'email'}</dd>)
-	  . qq(<dt>Affiliation/institute</dt><dd>$user_info->{'affiliation'}</dd></dl>);
+	  . qq(<dt>Affiliation/institute</dt><dd>$user_info->{'affiliation'}</dd>);
+
+	if ( $self->{'config'}->{'site_user_country'} && $user_info->{'country'} ) {
+		say qq(<dt>Country</dt><dd>$user_info->{'country'}</dd>);
+	}
+	if ( $self->{'config'}->{'site_user_sector'} && $user_info->{'sector'} ) {
+		say qq(<dt>Sector</dt><dd>$user_info->{'sector'}</dd>);
+	}
+	say q(</dl>);
 	say qq(<div class="registration_buttons"><a href="$self->{'system'}->{'script_name'}?edit=1" class="small_submit">)
 	  . q(<span><span class="fas fa-pencil-alt"></span> Edit details</span></a>)
 	  . qq(<a class="small_reset" style="margin-left:1em" href="$self->{'system'}->{'script_name'}?page=logout"><span>)
@@ -334,7 +342,13 @@ sub _edit_user {
 	}
 	my $user_info = $self->{'datastore'}->get_user_info_from_username($username);
 	$q->param( $_ => $q->param($_) // BIGSdb::Utils::unescape_html( $user_info->{$_} ) )
-	  foreach qw(first_name surname email affiliation);
+	  foreach qw(first_name surname email affiliation sector country);
+	my %allowed_sectors = map { $_ => 1 } SECTORS;
+	my $sector          = $q->param('sector');
+	if ( $sector && !$allowed_sectors{$sector} && $sector ne 'other' ) {
+		$q->param( sector       => 'other' );
+		$q->param( other_sector => $sector );
+	}
 	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Edit details</legend>);
 	say q(<ul><li>);
@@ -358,10 +372,10 @@ sub _edit_user {
 		say q(</li><li id="other" style="display:none">);
 		say q(<label for="other_sector" class="form">Other sector:</label>);
 		say $q->textfield(
-			-name       => 'other_sector',
-			-id         => 'other_sector',
-			size        => 30,
-			placeholder => 'Enter other sector...'
+			-name        => 'other_sector',
+			-id          => 'other_sector',
+			-size        => 30,
+			-placeholder => 'Enter other sector...'
 		);
 	}
 	if ( $self->{'config'}->{'site_user_country'} ) {
@@ -448,7 +462,10 @@ sub _update_user {
 
 	my $user_info = $self->{'datastore'}->get_user_info_from_username($username);
 	my ( @changed_params, @new, %old );
-	foreach my $param (qw (first_name surname email affiliation sector country)) {
+	my @fields = qw (first_name surname email affiliation);
+	push @fields, 'country' if $self->{'config'}->{'site_user_country'};
+	push @fields, 'sector'  if $self->{'config'}->{'site_user_sector'};
+	foreach my $param (@fields) {
 		if ( $data->{$param} ne ( $user_info->{$param} // q() ) ) {
 			push @changed_params, $param;
 			push @new,            $data->{$param};
@@ -1317,8 +1334,15 @@ sub _notify_db_admin {
 	  . qq(Username: $self->{'username'}\n)
 	  . qq(First name: $sender->{'first_name'}\n)
 	  . qq(Surname: $sender->{'surname'}\n)
-	  . qq(Affiliation: $sender->{'affiliation'}\n)
-	  . qq(E-mail: $sender->{'email'}\n\n);
+	  . qq(Affiliation: $sender->{'affiliation'}\n);
+	if ( $self->{'config'}->{'site_user_country'} && $sender->{'country'} ) {
+		$message .= qq(Country: $sender->{'country'}\n);
+	}
+	if ( $self->{'config'}->{'site_user_sector'} && $sender->{'sector'} ) {
+		$message .= qq(Sector: $sender->{'sector'}\n);
+	}
+	$message .= qq(E-mail: $sender->{'email'}\n\n);
+
 	$message .=
 	  qq(Please log in to the $system->{'description'} database curation system to accept or reject this user.);
 	my $domain         = $self->{'config'}->{'domain'}                  // DEFAULT_DOMAIN;
