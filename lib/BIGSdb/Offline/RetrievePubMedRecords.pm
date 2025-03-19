@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2019, University of Oxford
+#Copyright (c) 2019-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -54,8 +54,8 @@ sub run {
 	my $user_agent = LWP::UserAgent->new( agent => 'BIGSdb' );
 	local $" = q(,);
 	my $response = $user_agent->post( $url, content => "id=@$new_pmids" );
-	
-	if (!$response->is_success){
+
+	if ( !$response->is_success ) {
 		my $content = $response->content;
 		BIGSdb::Exception::Network->throw("Connection error: $content");
 	}
@@ -72,8 +72,11 @@ sub run {
 		my @author_names;
 		my @authors = ref $bibref->authors eq 'ARRAY' ? @{ $bibref->authors } : ();
 		foreach my $author (@authors) {
-			my $surname  = $author->lastname;
-			my $initials = $author->initials;
+			my ( $surname, $initials );
+			eval {
+				$surname  = $author->lastname;
+				$initials = $author->initials;
+			};
 			next if !defined $surname || !defined $initials;
 			push @author_names, "$surname,$initials";
 			if ( !$known_authors{"$surname|$initials"} ) {
@@ -90,6 +93,7 @@ sub run {
 		my $pages = $bibref->medline_page;
 		$pages = ' ' if !$pages;
 		my $year;
+
 		if (   ( defined $bibref->date && $bibref->date =~ /^(\d\d\d\d)/x )
 			|| ( defined $bibref->medline_date && $bibref->medline_date =~ /(\d\d\d\d)/x ) )
 		{
@@ -146,7 +150,7 @@ sub _get_new_pmids {
 	}
 	@pmids = uniq sort { $a <=> $b } @pmids;
 	my $downloaded_refs = $self->{'datastore'}->get_available_refs;
-	my %downloaded = map { $_ => 1 } @$downloaded_refs;
+	my %downloaded      = map { $_ => 1 } @$downloaded_refs;
 	my %new;
 	my %suspicious;
 	my $last_id;
