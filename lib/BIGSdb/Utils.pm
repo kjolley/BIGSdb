@@ -131,14 +131,14 @@ sub chop_seq {
 		$orf -= 3;
 		$seq = reverse_complement($seq);
 	}
-	eval {
-		$returnseq = substr( $seq, $orf - 1 ) // q();
+	if ( ( $orf - 1 ) < length $seq ) {
+		$returnseq = substr( $seq, $orf - 1 );
+	}
 
-		#make sure sequence length is a multiple of 3
-		while ( ( length $returnseq ) % 3 != 0 ) {
-			chop $returnseq;
-		}
-	};
+	#make sure sequence length is a multiple of 3
+	while ( ( length $returnseq ) % 3 != 0 ) {
+		chop $returnseq;
+	}
 	return $returnseq;
 }
 
