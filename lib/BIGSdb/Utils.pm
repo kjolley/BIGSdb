@@ -134,6 +134,7 @@ sub chop_seq {
 	if ( ( $orf - 1 ) < length $seq ) {
 		$returnseq = substr( $seq, $orf - 1 );
 	}
+	return '' if !defined $seq;
 
 	#make sure sequence length is a multiple of 3
 	while ( ( length $returnseq ) % 3 != 0 ) {
