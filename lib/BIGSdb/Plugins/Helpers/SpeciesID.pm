@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2020-2022, University of Oxford
+#Copyright (c) 2020-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -73,7 +73,7 @@ sub make_rest_call {
 	  ->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?",
 		$isolate_id, { cache => 'SpeciesID::get_isolate_name_from_id' } );
 	my %server_error = map { $_ => 1 } ( 500, 502, 503, 504 );
-	my $attempts = 0;
+	my $attempts     = 0;
 
 	#No need to keep these open while we wait for REST response.
 	$self->{'dataConnector'}->drop_all_connections if !$self->{'options'}->{'no_disconnect'};
@@ -84,8 +84,13 @@ sub make_rest_call {
 			Content_Type => 'application/json; charset=UTF-8',
 			Content      => $$payload_ref
 		);
-		if ( $server_error{ $response->code } ) {
-			my $code        = $response->code;
+		my $code = $response->code;
+		if ( $code == 429 ) {    #Too many requests
+			$unavailable = 1;
+			sleep 5;
+		}
+		if ( $server_error{$code} ) {
+
 			my $err_message = $response->message;
 			$self->{'logger'}->error("Error $code received from rMLST REST API. $err_message");
 			$self->initiate_job_manager if !$self->{'jobManager'};
@@ -124,7 +129,7 @@ sub make_rest_call {
 			}
 		}
 		if ( $data->{'fields'} ) {
-			$rST = $data->{'fields'}->{'rST'};
+			$rST     = $data->{'fields'}->{'rST'};
 			$species = $data->{'fields'}->{'species'} // q();
 		}
 	} elsif ( $response->code == 413 ) {

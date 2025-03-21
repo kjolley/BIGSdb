@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2020, University of Oxford
+#Copyright (c) 2017-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -360,7 +360,7 @@ sub _print_interface {
 	say q(<div class="box queryform"><div class="scrollable">);
 	say q(<p>This page allows you to link contigs stored in a remote BIGSdb database to an isolate record. Access )
 	  . q(to these contigs is via the BIGSdb RESTful API which must be running on the remote database.</p>);
-	say q(<p>Valid URIs are in the form 'http://rest.pubmlst.org/db/{database_config}/isolates/{isolate_id}'.)
+	say q(<p>Valid URIs are in the form 'https://rest.pubmlst.org/db/{database_config}/isolates/{isolate_id}'.)
 	  . q(</p>);
 	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Enter details</legend>);
