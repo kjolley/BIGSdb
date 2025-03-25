@@ -159,7 +159,7 @@ sub get_remote_user_info {
 			if ( defined $user_prefs->{ $user->{'user_name'} } ) {
 				my $this_user_prefs = $user_prefs->{ $user->{'user_name'} };
 				foreach my $key ( keys %$this_user_prefs ) {
-					$user_data->{ $user->{'user_name'} }->{$key} = $user_prefs->{$key};
+					$user_data->{ $user->{'user_name'} }->{$key} = $this_user_prefs->{$key};
 				}
 			}
 		}
