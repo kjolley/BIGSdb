@@ -20,7 +20,8 @@ package BIGSdb::TableAttributes;
 use strict;
 use warnings;
 use List::MoreUtils qw(any uniq);
-use BIGSdb::Constants qw(SEQ_METHODS SEQ_STATUS SEQ_FLAGS LOCUS_TYPES DATABANKS IDENTITY_THRESHOLD OPERATORS COUNTRIES);
+use BIGSdb::Constants qw(SEQ_METHODS SEQ_STATUS SEQ_FLAGS LOCUS_TYPES DATABANKS IDENTITY_THRESHOLD OPERATORS
+  COUNTRIES SECTORS);
 
 #Attributes
 #hide => 1: Do not display in results table and do not return field values in query
@@ -52,16 +53,39 @@ sub get_users_table_attributes {
 			dropdown_query => 1,
 			no_user_update => 1
 		},
-		{ name => 'surname',      type => 'text', required     => 1, length  => 40, dropdown_query => 1 },
-		{ name => 'first_name',   type => 'text', required     => 1, length  => 40, dropdown_query => 1 },
-		{ name => 'email',        type => 'text', required     => 1, length  => 50 },
-		{ name => 'affiliation',  type => 'text', required     => 1, length  => 255 },
+		{ name => 'surname',     type => 'text', required => 1, length => 40, dropdown_query => 1 },
+		{ name => 'first_name',  type => 'text', required => 1, length => 40, dropdown_query => 1 },
+		{ name => 'email',       type => 'text', required => 1, length => 50 },
+		{ name => 'affiliation', type => 'text', required => 1, length => 255 }
+	];
+	if ( $self->{'config'}->{'site_user_country'} ) {
+		push @$attributes,
+		  {
+			name           => 'country',
+			type           => 'text',
+			required       => 0,
+			length         => 40,
+			dropdown_query => 1
+		  };
+	}
+	if ( $self->{'config'}->{'site_user_sector'} ) {
+		push @$attributes,
+		  {
+			name           => 'sector',
+			type           => 'text',
+			required       => 0,
+			length         => 40,
+			dropdown_query => 1
+		  };
+	}
+	push @$attributes,
+	  (
 		{ name => 'status',       type => 'text', required     => 1, optlist => $status, default => 'user' },
 		{ name => 'date_entered', type => 'date', required     => 1 },
 		{ name => 'datestamp',    type => 'date', required     => 1 },
 		{ name => 'curator',      type => 'int',  required     => 1, dropdown_query => 1 },
 		{ name => 'user_db',      type => 'int',  hide_in_form => 1 }
-	];
+	  );
 	if ( ( $self->{'system'}->{'submissions'} // '' ) eq 'yes' && $self->{'config'}->{'submission_dir'} ) {
 		push @$attributes,
 		  {
@@ -3010,7 +3034,7 @@ sub get_analysis_fields_table_attributes {
 			required    => 1,
 			primary_key => 1,
 			length      => 30,
-			comments => 'Name analysis is stored under in analysis results table'
+			comments    => 'Name analysis is stored under in analysis results table'
 		},
 		{
 			name        => 'field_name',
@@ -3020,9 +3044,9 @@ sub get_analysis_fields_table_attributes {
 			length      => 30
 		},
 		{
-			name   => 'analysis_display_name',
-			type   => 'text',
-			length => 30,
+			name     => 'analysis_display_name',
+			type     => 'text',
+			length   => 30,
 			comments => 'Name of analysis used in interface - set if different from analysis_name'
 		},
 		{

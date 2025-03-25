@@ -389,7 +389,7 @@ sub _get_dropdown_filter {
 	}
 	my $desc;
 	my $values;
-	my %user_special_fields = map { $_ => 1 } qw(surname first_name);
+	my %user_special_fields = map { $_ => 1 } qw(surname first_name sector country);
 	if ( $att->{'foreign_key'} ) {
 		next if $att->{'name'} eq 'scheme_id';
 		my @order_fields;
@@ -412,7 +412,9 @@ sub _get_dropdown_filter {
 			undef, { fetch => 'col_arrayref' } );
 		@$values = uniq @$values;
 	}
-	return $self->get_filter( $att->{'name'}, $values, { labels => $desc } );
+	my $class = 'filter';
+	$class .= ' search' if @$values >= 10;
+	return $self->get_filter( $att->{'name'}, $values, { labels => $desc, class => $class } );
 }
 
 sub _get_user_table_values {
@@ -709,7 +711,7 @@ sub _filter_query_by_allele_definition_filters {
 sub _process_dropdown_filters {
 	my ( $self, $qry, $table, $attributes ) = @_;
 	my $q                 = $self->{'cgi'};
-	my %user_remote_field = map { $_ => 1 } qw(surname first_name);
+	my %user_remote_field = map { $_ => 1 } qw(surname first_name country sector);
 	foreach my $att (@$attributes) {
 		my $name  = $att->{'name'};
 		my $param = qq(${name}_list);
@@ -1054,7 +1056,7 @@ sub _modify_query_search_by_users {
 		any {
 			$field =~ /(.*)\ \($_\)$/x;
 		}
-		qw (id surname first_name affiliation)
+		qw (id surname first_name affiliation country sector)
 	  )
 	{
 		$$qry_ref .= $modifier . $self->search_users( $field, $operator, $text, $table );
@@ -1084,6 +1086,13 @@ sub _is_field_value_invalid {
 	my ( $self, $args ) = @_;
 	my ( $field, $thisfield, $clean_fieldname, $text, $operator, $errors ) =
 	  @{$args}{qw(field thisfield clean_fieldname text operator errors)};
+
+	my %invalid_null_operators = map { $_ => 1 } ( '<', '<=', '>', '>=' );
+	if ( lc($text) eq 'null' && $invalid_null_operators{$operator} ) {
+
+		push @$errors, "$operator is not a valid operator for comparing null values.";
+		return;
+	}
 
 	#Field may not actually exist in table (e.g. isolate_id in allele_sequences)
 	if ( $thisfield->{'type'} ) {
@@ -1116,7 +1125,7 @@ sub _modify_locus_in_sets {
 
 sub _modify_user_fields_in_remote_user_dbs {
 	my ( $self, $qry, $field, $operator, $text ) = @_;
-	my %remote_fields = map { $_ => 1 } qw(surname first_name affiliation email);
+	my %remote_fields = map { $_ => 1 } qw(surname first_name affiliation email country sector);
 	return $qry if !$remote_fields{$field};
 	my $and_or       = 'OR';
 	my %modify_term  = map { $_ => q(LIKE UPPER(?)) } ( 'contains', 'starts with', 'ends with', 'NOT', 'NOT contain' );
@@ -1126,8 +1135,21 @@ sub _modify_user_fields_in_remote_user_dbs {
 		'ends with'   => qq(\%$text),
 		'NOT contain' => qq(\%$text\%)
 	);
-	my $term  = $modify_term{$operator}  // qq($operator UPPER(?));
-	my $value = $modify_value{$operator} // $text;
+	my ( $term, $value );
+	if ( $text eq 'null' ) {
+		$value = undef;
+		if ( $operator eq '=' ) {
+			$term = 'IS NULL';
+		} elsif ( $operator eq 'NOT' ) {
+			$term = 'IS NOT NULL';
+		} else {
+			$term  = $modify_term{$operator} // qq($operator UPPER(?));
+			$value = 'null';
+		}
+	} else {
+		$term  = $modify_term{$operator}  // qq($operator UPPER(?));
+		$value = $modify_value{$operator} // $text;
+	}
 	my $remote_db_ids =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT DISTINCT user_db FROM users WHERE user_db IS NOT NULL', undef, { fetch => 'col_arrayref' } );
@@ -1147,6 +1169,7 @@ sub _modify_user_fields_in_remote_user_dbs {
 		my $user_qry = "SELECT user_name FROM users WHERE UPPER($field) $term";
 		my $remote_user_names =
 		  $self->{'datastore'}->run_query( $user_qry, $value, { db => $user_db, fetch => 'col_arrayref' } );
+
 		foreach my $user_name (@$remote_user_names) {
 			( my $cleaned = $user_name ) =~ s/'/\\'/gx;
 
@@ -1159,7 +1182,7 @@ sub _modify_user_fields_in_remote_user_dbs {
 	}
 	return $qry if !@user_names;
 	local $" = q(',E');
-	$and_or = 'AND NOT' if $operator =~ /NOT/;
+	$and_or = 'AND NOT' if $operator =~ /NOT/ && $text ne 'null';
 	$qry    = qq(($qry $and_or user_name IN (E'@user_names')));
 	return $qry;
 }
