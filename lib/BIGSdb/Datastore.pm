@@ -143,7 +143,7 @@ sub get_user_string {
 
 sub get_remote_user_info {
 	my ( $self, $user_name, $user_db_id ) = @_;
-	if ( !$self->{'cache'}->{'remote_user_info'} ) {
+	if ( !$self->{'cache'}->{'remote_user_info'}->{$user_db_id} ) {
 		my $user_db       = $self->get_user_db($user_db_id);
 		my $all_user_data = $self->run_query( 'SELECT user_name,first_name,surname,email,affiliation FROM users',
 			undef, { db => $user_db, fetch => 'all_arrayref', slice => {} } );
@@ -163,9 +163,9 @@ sub get_remote_user_info {
 				}
 			}
 		}
-		$self->{'cache'}->{'remote_user_info'} = $user_data;
+		$self->{'cache'}->{'remote_user_info'}->{$user_db_id} = $user_data;
 	}
-	return $self->{'cache'}->{'remote_user_info'}->{$user_name};
+	return $self->{'cache'}->{'remote_user_info'}->{$user_db_id}->{$user_name};
 }
 
 sub get_user_info_from_username {
