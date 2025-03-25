@@ -143,16 +143,29 @@ sub get_user_string {
 
 sub get_remote_user_info {
 	my ( $self, $user_name, $user_db_id ) = @_;
-	my $user_db = $self->get_user_db($user_db_id);
-	my $user_data =
-	  $self->run_query( 'SELECT user_name,first_name,surname,email,affiliation FROM users WHERE user_name=?',
-		$user_name, { db => $user_db, fetch => 'row_hashref', cache => "get_remote_user_info:$user_db_id" } );
-	my $user_prefs = $self->run_query( 'SELECT * FROM curator_prefs WHERE user_name=?',
-		$user_name, { db => $user_db, fetch => 'row_hashref' } );
-	foreach my $key ( keys %$user_prefs ) {
-		$user_data->{$key} = $user_prefs->{$key};
+	if ( !$self->{'cache'}->{'remote_user_info'} ) {
+		my $user_db       = $self->get_user_db($user_db_id);
+		my $all_user_data = $self->run_query( 'SELECT user_name,first_name,surname,email,affiliation FROM users',
+			undef, { db => $user_db, fetch => 'all_arrayref', slice => {} } );
+		my $all_user_prefs = $self->run_query( 'SELECT * FROM curator_prefs',
+			undef, { db => $user_db, fetch => 'all_arrayref', slice => {} } );
+		my $user_prefs = {};
+		foreach my $user_pref (@$all_user_prefs) {
+			$user_prefs->{ $user_pref->{'user_name'} } = $user_pref;
+		}
+		my $user_data = {};
+		foreach my $user (@$all_user_data) {
+			$user_data->{ $user->{'user_name'} } = $user;
+			if ( defined $user_prefs->{ $user->{'user_name'} } ) {
+				my $this_user_prefs = $user_prefs->{ $user->{'user_name'} };
+				foreach my $key ( keys %$this_user_prefs ) {
+					$user_data->{ $user->{'user_name'} }->{$key} = $user_prefs->{$key};
+				}
+			}
+		}
+		$self->{'cache'}->{'remote_user_info'} = $user_data;
 	}
-	return $user_data;
+	return $self->{'cache'}->{'remote_user_info'}->{$user_name};
 }
 
 sub get_user_info_from_username {
