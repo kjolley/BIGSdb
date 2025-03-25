@@ -774,9 +774,15 @@ sub authenticate {
 				if ( $self->{'system'}->{'password_update_required'} ) {
 					$self->{'page'} = 'changePassword';
 				} elsif ( $self->{'system'}->{'profile_update_required'} ) {
-					$self->{'page'} = 'user';
-					$q->param(edit => 1);
-				} 
+					my $user_info = $self->{'datastore'}->get_user_info_from_username( $page_attributes->{'username'} );
+
+					#Users can only update profile if we are using site-wide users database.
+					if ( defined $user_info->{'user_db'} ) {
+						$self->{'page'} = 'user';
+						$q->param( edit => 1 );
+					}
+
+				}
 
 			} catch {
 				if ( $_->isa('BIGSdb::Exception::Authentication') ) {
@@ -814,6 +820,7 @@ sub authenticate {
 		$self->{'system'}->{'password_update_required'} = 1;
 		$self->{'page'} = 'changePassword';
 	} elsif ($update_profile) {
+		$self->{logger}->error( $self->{'username'} );
 		$self->{'system'}->{'profile_update_required'} = 1;
 		$self->{'page'} = 'user';
 		$q->param( edit => 1 );

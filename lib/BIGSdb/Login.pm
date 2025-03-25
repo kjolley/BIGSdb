@@ -274,8 +274,12 @@ sub _check_password {
 		$self->_error_exit( $invalid_login_message, $options );
 	} else {
 		if ( $stored_hash->{'update_profile'} ) {
-			$logger->info("User profile update required for $self->{'vars'}->{'user'}.");
-			$self->{'update_profile'} = 1;
+
+			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'vars'}->{'user'} );
+			if ( defined $user_info->{'user_db'} ) {
+				$logger->info("User profile update required for $self->{'vars'}->{'user'}.");
+				$self->{'update_profile'} = 1;
+			}
 		}
 		if ( $stored_hash->{'reset_password'} ) {
 			$logger->info('Password reset required.');
@@ -486,6 +490,7 @@ sub _password_reset_required {
 sub _profile_update_required {
 	my ( $self, $session, $username ) = @_;
 	my $dbase_name = $self->get_user_db_name($username);
+	return if !defined $dbase_name;
 	return $self->{'datastore'}->run_query(
 		'SELECT EXISTS(SELECT * FROM sessions WHERE (dbase,session,state,username)=(?,md5(?),?,?) AND update_profile)',
 		[ $dbase_name, $session, 'active', $username ],
