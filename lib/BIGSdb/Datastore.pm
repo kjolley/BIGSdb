@@ -134,7 +134,6 @@ sub get_user_string {
 	$user .= q(</a>)                                if $use_email && !$options->{'text_email'};
 
 	if ( $options->{'affiliation'} && $info->{'affiliation'} ) {
-		$logger->error('here');
 		$info->{'affiliation'} =~ s/^\s*//x;
 		$user .= qq(, $info->{'affiliation'});
 		if (   $self->{'config'}->{'site_user_country'}
