@@ -342,7 +342,7 @@ $EXPORT_TAGS{'login_requirements'} = [qw(NOT_ALLOWED OPTIONAL REQUIRED)];
 #Account management
 use constant NEW_ACCOUNT_VALIDATION_TIMEOUT_MINS => 60;
 use constant INACTIVE_ACCOUNT_REMOVAL_DAYS       => 180;
-use constant SECTORS => ('commercial', 'healthcare', 'academic/non-profit');
+use constant SECTORS => ( 'academic/non-profit', 'commercial', 'healthcare', 'public health' );
 push @EXPORT_OK, qw (NEW_ACCOUNT_VALIDATION_TIMEOUT_MINS INACTIVE_ACCOUNT_REMOVAL_DAYS SECTORS);
 $EXPORT_TAGS{'accounts'} = [qw(NEW_ACCOUNT_VALIDATION_TIMEOUT_MINS INACTIVE_ACCOUNT_REMOVAL_DAYS SECTORS)];
 

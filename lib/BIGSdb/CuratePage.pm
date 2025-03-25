@@ -29,7 +29,7 @@ use BIGSdb::Constants qw(SEQ_FLAGS ALLELE_FLAGS DATABANKS SCHEME_FLAGS);
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (jQuery jQuery.multiselect noCache);
+	$self->{$_} = 1 foreach qw (jQuery jQuery.multiselect select2 noCache);
 	$self->set_level1_breadcrumbs;
 	return;
 }
@@ -498,7 +498,10 @@ sub _get_curator_field {
 
 sub _get_optlist_field {
 	my ( $self, $args ) = @_;
-	my ( $name, $newdata, $att, $options, $html5_args ) = @$args{qw(name newdata att options html5_args)};
+
+	my ( $name, $newdata, $att, $options, $html5_args, $disabled ) =
+	  @$args{qw(name newdata att options html5_args disabled)};
+
 	return q() if !$att->{'optlist'};
 	my @optlist;
 	if ( $att->{'optlist'} eq 'isolate_fields' ) {
@@ -507,20 +510,33 @@ sub _get_optlist_field {
 		@optlist = split /;/x, $att->{'optlist'};
 	}
 	my $single_value = @optlist == 1 ? $optlist[0] : undef;
+	if ( $att->{'allow_other'} && defined $newdata->{$name} ) {
+		my %listed_options = map { $_ => 1 } @optlist;
+		if ( !$listed_options{ $newdata->{$name} } ) {
+			push @optlist, $newdata->{$name};
+		}
+	}
 	unshift @optlist, '';
+
 	my $labels = $att->{'labels'} // {};
 	$labels->{''} = ' ';    #Required for HTML5 validation
-	my $q = $self->{'cgi'};
+	my %disabled = $disabled ? ( disabled => 'disabled' ) : ();
+	my $q        = $self->{'cgi'};
 	my $default =
 	  defined $att->{'default'} && $att->{'default'} ne q() ? $att->{'default'} : $single_value;
-	return $q->popup_menu(
+	my %class  = $att->{'allow_other'} ? ( class => 'dynamic' ) : ();
+	my $buffer = $q->popup_menu(
 		-name    => $name,
 		-id      => $name,
 		-values  => [@optlist],
 		-default => $options->{'update'} ? $newdata->{ $att->{'name'} } : $default,
 		-labels  => $labels,
+		%disabled,
+		%class,
 		%$html5_args
 	);
+
+	return $buffer;
 }
 
 sub _get_text_field {
@@ -1073,7 +1089,10 @@ sub check_record {
 			} else {
 				%allowed = map { $_ => 1 } split /;/x, $att->{'optlist'};
 			}
-			if ( defined $newdata->{ $att->{'name'} } && !$allowed{ $newdata->{ $att->{'name'} } } ) {
+			if (   defined $newdata->{ $att->{'name'} }
+				&& !$allowed{ $newdata->{ $att->{'name'} } }
+				&& !$att->{'allow_other'} )
+			{
 				push @problems, qq(Invalid value for $att->{'name'}.);
 			}
 		}

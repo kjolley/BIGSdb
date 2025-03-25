@@ -59,24 +59,31 @@ sub get_users_table_attributes {
 		{ name => 'affiliation', type => 'text', required => 1, length => 255 }
 	];
 	if ( $self->{'config'}->{'site_user_country'} ) {
+		my $countries = COUNTRIES;
+		my $optlist   = BIGSdb::Utils::unicode_dictionary_sort( [ keys %$countries ] );
+		local $" = q(;);
 		push @$attributes,
 		  {
 			name           => 'country',
 			type           => 'text',
 			required       => 0,
 			length         => 40,
-			dropdown_query => 1
+			dropdown_query => 1,
+			optlist        => qq(@$optlist)
 		  };
 	}
 	if ( $self->{'config'}->{'site_user_sector'} ) {
-		push @$attributes,
-		  {
+		my @optlist = SECTORS;
+		local $" = q(;);
+		push @$attributes, {
 			name           => 'sector',
 			type           => 'text',
 			required       => 0,
 			length         => 40,
-			dropdown_query => 1
-		  };
+			dropdown_query => 1,
+			optlist        => qq(@optlist),
+			allow_other    => 1
+		};
 	}
 	push @$attributes,
 	  (

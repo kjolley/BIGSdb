@@ -3578,7 +3578,8 @@ sub modify_dataset_if_needed {
 			next if !defined $user->{'user_db'};
 			my $remote_user = $self->{'datastore'}->get_remote_user_info( $user->{'user_name'}, $user->{'user_db'} );
 			if ( $remote_user->{'user_name'} ) {
-				$user->{$_} = $remote_user->{$_} foreach qw(first_name surname email affiliation);
+				$user->{$_} = $remote_user->{$_}
+				  foreach qw(first_name surname email affiliation country sector);
 			}
 		}
 	}

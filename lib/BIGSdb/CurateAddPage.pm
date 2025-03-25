@@ -31,7 +31,7 @@ use constant SUCCESS => 1;
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (jQuery jQuery.multiselect modernizr noCache tooltips);
+	$self->{$_} = 1 foreach qw (jQuery jQuery.multiselect select2 modernizr noCache tooltips);
 	$self->set_level1_breadcrumbs;
 	return;
 }
@@ -1036,7 +1036,7 @@ sub _check_lincode_schemes {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 sub get_javascript {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	my %allowed_tables = map {$_ => 1}qw(sequences query_interface_fields user_group_members);
+	my %allowed_tables = map {$_ => 1}qw(sequences query_interface_fields user_group_members users);
 	return if !defined $q->param('table') || !$allowed_tables{$q->param('table')};
 	my $buffer = << "END";
 \$(function () {
@@ -1045,13 +1045,16 @@ sub get_javascript {
  	var url = '$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=add&table=sequences&locus=' + locus_name;
  	location.href=url;
   });
-  \$('#locus,#field,#flags,#sender,#user_id').multiselect({
+  \$('#locus,#field,#flags,#sender,#user_id,#country').multiselect({
   	classes: 'filter',
  	menuHeight: 250,
  	menuWidth: 400,
  	noneSelectedText: '',
  	selectedList: 1,
   }).multiselectfilter();
+  \$('.dynamic').select2({
+  	tags: true
+  });
 });
 END
 	return $buffer;
