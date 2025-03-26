@@ -733,6 +733,7 @@ sub authenticate {
 	my ( $self, $page_attributes ) = @_;
 	my $auth_cookies_ref;
 	my $reset_password;
+	my $update_profile;
 	my $authenticated = 1;
 	my $q             = $self->{'cgi'};
 	$self->{'system'}->{'authentication'} //= 'builtin';
@@ -770,7 +771,19 @@ sub authenticate {
 			try {
 				BIGSdb::Exception::Authentication->throw('logging out') if $logging_out;
 				$page_attributes->{'username'} = $page->login_from_cookie;
-				$self->{'page'}                = 'changePassword' if $self->{'system'}->{'password_update_required'};
+				if ( $self->{'system'}->{'password_update_required'} ) {
+					$self->{'page'} = 'changePassword';
+				} elsif ( $self->{'system'}->{'profile_update_required'} ) {
+					my $user_info = $self->{'datastore'}->get_user_info_from_username( $page_attributes->{'username'} );
+
+					#Users can only update profile if we are using site-wide users database.
+					if ( defined $user_info->{'user_db'} ) {
+						$self->{'page'} = 'user';
+						$q->param( edit => 1 );
+					}
+
+				}
+
 			} catch {
 				if ( $_->isa('BIGSdb::Exception::Authentication') ) {
 					$logger->debug('No cookie set - asking for log in');
@@ -787,8 +800,8 @@ sub authenticate {
 							my $args = {};
 							$args->{'dbase_name'} = $q->param('db') if $q->param('page') eq 'user';
 							try {
-								( $page_attributes->{'username'}, $auth_cookies_ref, $reset_password ) =
-								  $page->secure_login($args);
+								( $page_attributes->{'username'}, $auth_cookies_ref, $reset_password, $update_profile )
+								  = $page->secure_login($args);
 							} catch {    #failed again
 								$authenticated = 0;
 							};
@@ -805,8 +818,12 @@ sub authenticate {
 	}
 	if ($reset_password) {
 		$self->{'system'}->{'password_update_required'} = 1;
-		$q->{'page'}                                    = 'changePassword';
-		$self->{'page'}                                 = 'changePassword';
+		$self->{'page'} = 'changePassword';
+	} elsif ($update_profile) {
+		$self->{logger}->error( $self->{'username'} );
+		$self->{'system'}->{'profile_update_required'} = 1;
+		$self->{'page'} = 'user';
+		$q->param( edit => 1 );
 	}
 	if ( $authenticated && $page_attributes->{'username'} ) {
 		my $config_access = $self->is_user_allowed_access( $page_attributes->{'username'} );

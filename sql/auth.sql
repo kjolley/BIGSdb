@@ -7,6 +7,7 @@ cost int,
 salt text,
 ip_address text,
 reset_password boolean,
+update_profile boolean,
 date_entered date,
 datestamp date,
 last_login date,
@@ -24,6 +25,7 @@ session text NOT NULL,
 state text NOT NULL,
 start_time int NOT NULL,
 reset_password boolean,
+update_profile boolean,
 PRIMARY KEY (dbase,session)
 );
 

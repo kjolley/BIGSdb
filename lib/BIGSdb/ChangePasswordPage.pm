@@ -34,6 +34,7 @@ sub get_title {
 sub initiate {
 	my ($self) = @_;
 	$self->SUPER::initiate;
+	$self->{'jQuery.multiselect'} = 1;
 	return if !$self->{'config'}->{'site_user_dbs'};
 	$self->use_correct_user_database;
 	return;
@@ -280,12 +281,12 @@ sub _print_interface {
 	say q(<fieldset style="border-top:0">);
 	say q(<ul>);
 	if ( $q->param('page') eq 'changePassword' || $self->{'system'}->{'password_update_required'} ) {
-		say q(<li><label for="existing" class="form" style="width:10em">Existing password:</label>);
+		say q(<li><label for="existing" class="aligned width8">Existing password:</label>);
 		say $q->password_field( -name => 'existing', -id => 'existing' );
 		say q(</li>);
 	} elsif ( $q->param('user') && $self->{'datastore'}->user_name_exists( scalar $q->param('user') ) ) {
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( scalar $q->param('user') );
-		say q(<li><label class="form" style="width:10em">Name:</label>);
+		say q(<li><label class="aligned width8">Name:</label>);
 		say qq(<span><strong>$user_info->{'surname'}, $user_info->{'first_name'} )
 		  . qq(($user_info->{'user_name'})</strong></span></li>);
 		if ( $self->{'datastore'}->user_dbs_defined ) {
@@ -296,7 +297,7 @@ sub _print_interface {
 			} else {
 				$domain = 'this database only';
 			}
-			say q(<li><label class="form" style="width:10em">Domain:</label>);
+			say q(<li><label class="aligned width8">Domain:</label>);
 			say qq(<span><strong>$domain</strong></span></li>);
 			say $q->hidden('user_db');
 		}
@@ -304,15 +305,15 @@ sub _print_interface {
 	} else {
 		my ( $user_names, $labels ) = $self->{'datastore'}->get_users( { identifier => 'user_name', format => 'sfu' } );
 		unshift @$user_names, '';
-		say q(<li><label for="user" class="form" style="width:10em">User:</label>);
+		say q(<li><label for="user" class="aligned width8">User:</label>);
 		say $q->popup_menu( -name => 'user', -id => 'user', -values => $user_names, -labels => $labels );
 		say $q->hidden( existing => '' );
 		say q(</li>);
 	}
-	say q(<li><label for="new1" class="form" style="width:10em">New password:</label>);
+	say q(<li><label for="new1" class="aligned width8">New password:</label>);
 	say $q->password_field( -name => 'new1', -id => 'new1' );
 	say q(</li>);
-	say q(<li><label for="new2" class="form" style="width:10em">Retype password:</label>);
+	say q(<li><label for="new2" class="aligned width8">Retype password:</label>);
 	say $q->password_field( -name => 'new2', -id => 'new2' );
 	say q(</li></ul></fieldset>);
 	say $q->submit( -name => 'submit', -label => 'Set password', -class => 'submit', -style => 'margin-top:1em' );
@@ -325,7 +326,8 @@ sub _print_interface {
 	say $q->end_form;
 
 	if ( $q->param('page') eq 'changePassword' ) {
-		say q(<p>You will be required to log in again with the new password once you have changed it.</p>);
+		say q(<p style="margin-top:1em">You will be required to log in again with the new password )
+		. q(once you have changed it.</p>);
 	}
 	say q(</div>);
 	return;
@@ -366,5 +368,26 @@ sub set_password_hash {
 		$self->{'auth_db'}->commit;
 		return 1;
 	}
+}
+
+sub get_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+\$(function () {
+ 	\$("#user").multiselect({
+		noneSelectedText: "Please select...",
+		selectedList: 1,
+		menuHeight: 250,
+		menuWidth: 300,
+		classes: 'filter',
+	}).multiselectfilter({
+		placeholder: 'Search'
+	});	
+ 
+});	
+
+
+END
+	return $buffer;
 }
 1;

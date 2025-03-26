@@ -5,6 +5,8 @@ surname text,
 first_name text,
 email text,
 affiliation text,
+country text,
+sector text,
 status text,
 submission_emails boolean,
 account_request_emails boolean,
@@ -18,8 +20,8 @@ ON DELETE NO ACTION
 ON UPDATE CASCADE
 );
 
-INSERT INTO users VALUES (0,'setup','','','','','user',FALSE,FALSE,null,'now','now',0);
-INSERT INTO users VALUES (-1,'autotagger','Tagger','Auto','','','curator',FALSE,FALSE,null,'now','now',0);
+INSERT INTO users VALUES (0,'setup','','','','','','','user',FALSE,FALSE,null,'now','now',0);
+INSERT INTO users VALUES (-1,'autotagger','Tagger','Auto','','','','','curator',FALSE,FALSE,null,'now','now',0);
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON users TO apache;
 

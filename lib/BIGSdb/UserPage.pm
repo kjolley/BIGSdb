@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2016-2024, University of Oxford
+#Copyright (c) 2016-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -32,7 +32,7 @@ use Time::Seconds;
 use BIGSdb::Parser;
 use BIGSdb::Login;
 use BIGSdb::Utils;
-use BIGSdb::Constants qw(:interface DEFAULT_DOMAIN);
+use BIGSdb::Constants qw(:interface DEFAULT_DOMAIN SECTORS COUNTRIES);
 use constant SUBMISSION_INTERVAL => {
 	60   => '1 hour',
 	120  => '2 hours',
@@ -65,7 +65,15 @@ sub print_content {
 		return;
 	}
 	if ( $self->{'config'}->{'site_user_dbs'} ) {
-		say qq(<h1>$self->{'system'}->{'description'} site-wide settings</h1>);
+		if ( $self->{'system'}->{'dbtype'} eq 'user' ) {
+			say qq(<h1>$self->{'system'}->{'description'} site-wide settings</h1>);
+		} else {
+			my $user_db_name =
+			  $self->{'datastore'}
+			  ->run_query( 'SELECT name FROM user_dbases ud JOIN users u ON ud.id=u.user_db WHERE user_name=?',
+				$self->{'username'} );
+			say qq(<h1>$user_db_name site-wide settings</h1>);
+		}
 		if ( $self->{'config'}->{'disable_updates'} ) {
 			$self->print_bad_status(
 				{
@@ -159,7 +167,15 @@ sub _show_registration_details {
 	  . qq(<dt>First name</dt><dd>$user_info->{'first_name'}</dd>)
 	  . qq(<dt>Last name</dt><dd>$user_info->{'surname'}</dd>)
 	  . qq(<dt>E-mail address</dt><dd>$user_info->{'email'}</dd>)
-	  . qq(<dt>Affiliation/institute</dt><dd>$user_info->{'affiliation'}</dd></dl>);
+	  . qq(<dt>Affiliation/institute</dt><dd>$user_info->{'affiliation'}</dd>);
+
+	if ( $self->{'config'}->{'site_user_country'} && $user_info->{'country'} ) {
+		say qq(<dt>Country</dt><dd>$user_info->{'country'}</dd>);
+	}
+	if ( $self->{'config'}->{'site_user_sector'} && $user_info->{'sector'} ) {
+		say qq(<dt>Sector</dt><dd>$user_info->{'sector'}</dd>);
+	}
+	say q(</dl>);
 	say qq(<div class="registration_buttons"><a href="$self->{'system'}->{'script_name'}?edit=1" class="small_submit">)
 	  . q(<span><span class="fas fa-pencil-alt"></span> Edit details</span></a>)
 	  . qq(<a class="small_reset" style="margin-left:1em" href="$self->{'system'}->{'script_name'}?page=logout"><span>)
@@ -299,17 +315,40 @@ sub _edit_user {
 	if ( $q->param('update') ) {
 		$self->_update_user($username);
 	}
+
 	say q(<div class="box" id="queryform"><div class="scrollable">);
 	say q(<span class="config_icon fas fa-edit fa-3x fa-pull-left"></span>);
 	say q(<h2>User account details</h2>);
 	if ( $username eq $self->{'username'} ) {
+		if ( $self->{'system'}->{'profile_update_required'} ) {
+			say q(<p><strong>We need you to update your profile.</strong></p>);
+		}
 		say q(<p>Please ensure that your details are correct - if you submit data to the database these will be )
 		  . q(associated with your record. The E-mail address will be used to send you notifications about your )
 		  . q(submissions.</p>);
+		my $user_db = $self->_get_user_db;
+		if (
+			$self->{'datastore'}->run_query(
+				'SELECT EXISTS(SELECT * FROM registered_resources where auto_registration IS NOT TRUE)',
+				undef, { db => $user_db }
+			)
+		  )
+		{
+			say q(<p>Some database registrations require manual authorization by an administrator. )
+			  . q(Access to these may be subject to licence restrictions that depend on your affiliated organisation )
+			  . q(so please ensure you provide this in full. <strong>Please avoid acronyms if these are not )
+			  . q(universally recognized</strong>.</p>);
+		}
 	}
 	my $user_info = $self->{'datastore'}->get_user_info_from_username($username);
 	$q->param( $_ => $q->param($_) // BIGSdb::Utils::unescape_html( $user_info->{$_} ) )
-	  foreach qw(first_name surname email affiliation);
+	  foreach qw(first_name surname email affiliation sector country);
+	my %allowed_sectors = map { $_ => 1 } SECTORS;
+	my $sector          = $q->param('sector');
+	if ( $sector && !$allowed_sectors{$sector} && $sector ne 'other' ) {
+		$q->param( sector       => 'other' );
+		$q->param( other_sector => $sector );
+	}
 	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Edit details</legend>);
 	say q(<ul><li>);
@@ -324,6 +363,29 @@ sub _edit_user {
 	say q(</li><li>);
 	say q(<label for="affiliation" class="form">Affiliation/institute:</label>);
 	say $q->textarea( -name => 'affiliation', -id => 'affiliation', -required => 'required', -cols => 30 );
+
+	if ( $self->{'config'}->{'site_user_sector'} ) {
+		say q(</li><li>);
+		say q(<label for="sector" class="form">Sector:</label>);
+		my $values = [ '', SECTORS, 'other' ];
+		say $q->popup_menu( -name => 'sector', -id => 'sector', -values => $values, -required => 'required' );
+		say q(</li><li id="other" style="display:none">);
+		say q(<label for="other_sector" class="form">Other sector:</label>);
+		say $q->textfield(
+			-name        => 'other_sector',
+			-id          => 'other_sector',
+			-size        => 30,
+			-placeholder => 'Enter other sector...'
+		);
+	}
+	if ( $self->{'config'}->{'site_user_country'} ) {
+		say q(</li><li>);
+		say q(<label for="country" class="form">Country:</label>);
+		my $countries = COUNTRIES;
+		my $sorted    = BIGSdb::Utils::unicode_dictionary_sort( [ keys %$countries ] );
+		my $values    = [ '', @$sorted ];
+		say $q->popup_menu( -name => 'country', -id => 'country', -values => $values, -required => 'required' );
+	}
 	say q(</li></ul>);
 	say q(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Update' } );
@@ -332,6 +394,18 @@ sub _edit_user {
 	say $q->end_form;
 	say q(</div></div>);
 	return;
+}
+
+sub _get_user_db {
+	my ($self) = @_;
+	my $user_db;
+	if ( $self->{system}->{'dbtype'} ne 'user' ) {
+		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+		$user_db = $self->{'datastore'}->get_user_db( $user_info->{'user_db'} );
+	} else {
+		$user_db = $self->{'db'};
+	}
+	return $user_db;
 }
 
 sub _update_user {
@@ -353,6 +427,26 @@ sub _update_user {
 			$data->{$param} = BIGSdb::Utils::escape_html( $data->{$param} );
 		}
 	}
+	if ( $self->{'config'}->{'site_user_sector'} ) {
+		$data->{'sector'} = $q->param('sector');
+		if ( ( $data->{'sector'} // q() ) eq 'other' ) {
+			$data->{'sector'} = $q->param('other_sector');
+		}
+		$data->{'sector'} = $self->clean_value( $data->{'sector'}, { no_escape => 1 } );
+		$data->{'sector'} = BIGSdb::Utils::escape_html( $data->{'sector'} );
+		if ( !$data->{'sector'} || $data->{'sector'} eq q() ) {
+			push @missing, 'sector';
+		}
+	}
+	if ( $self->{'config'}->{'site_user_country'} ) {
+		$data->{'country'} = $q->param('country');
+		$data->{'country'} = $self->clean_value( $data->{'country'}, { no_escape => 1 } );
+		$data->{'country'} = BIGSdb::Utils::escape_html( $data->{'country'} );
+		if ( !$data->{'country'} || $data->{'country'} eq q() ) {
+			push @missing, 'country';
+		}
+	}
+
 	my $address = Email::Valid->address( scalar $q->param('email') );
 	my $error;
 	if (@missing) {
@@ -365,24 +459,33 @@ sub _update_user {
 		$self->print_bad_status( { message => qq($error) } );
 		return;
 	}
+
 	my $user_info = $self->{'datastore'}->get_user_info_from_username($username);
 	my ( @changed_params, @new, %old );
-	foreach my $param (qw (first_name surname email affiliation)) {
-		if ( $data->{$param} ne $user_info->{$param} ) {
+	my @fields = qw (first_name surname email affiliation);
+	push @fields, 'country' if $self->{'config'}->{'site_user_country'};
+	push @fields, 'sector'  if $self->{'config'}->{'site_user_sector'};
+	foreach my $param (@fields) {
+		if ( $data->{$param} ne ( $user_info->{$param} // q() ) ) {
 			push @changed_params, $param;
 			push @new,            $data->{$param};
-			$old{$param} = $user_info->{$param};
+			$old{$param} = $user_info->{$param} // q();
 		}
 	}
+	if ( ( $data->{'sector'} // q() ) eq 'other' ) {
+		$data->{'sector'} = $q->param('other_sector') // q();
+	}
 	if (@changed_params) {
+
 		local $" = q(,);
 		my @placeholders = ('?') x @changed_params;
 		my $qry          = "UPDATE users SET (@changed_params,datestamp)=(@placeholders,?) WHERE user_name=?";
+
 		eval {
 			$self->{'db'}->do( $qry, undef, @new, 'now', $username );
 			foreach my $param (@changed_params) {
 				$self->{'db'}->do( 'INSERT INTO history (timestamp,user_name,field,old,new) VALUES (?,?,?,?,?)',
-					undef, 'now', $username, $param, $user_info->{$param}, $data->{$param} );
+					undef, 'now', $username, $param, $old{$param}, $data->{$param} );
 			}
 			$logger->info("$self->{'username'} updated user details for $username.");
 		};
@@ -393,7 +496,20 @@ sub _update_user {
 		} else {
 			$self->print_good_status( { message => q(Details successfully updated.) } );
 			$self->{'db'}->commit;
+			eval {
+				$self->{'auth_db'}->do( 'UPDATE users SET update_profile=FALSE WHERE (name,dbase)=(?,?)',
+					undef, $username, $self->{'system'}->{'db'} );
+				$self->{'auth_db'}->do( 'UPDATE sessions SET update_profile=FALSE WHERE (username,dbase)=(?,?)',
+					undef, $username, $self->{'system'}->{'db'} );
+			};
+			if ($@) {
+				$logger->error($@);
+				$self->{'auth_db'}->rollback;
+			} else {
+				$self->{'auth_db'}->commit;
+			}
 		}
+
 	} else {
 		$self->print_bad_status( { message => q(No changes made.) } );
 	}
@@ -693,7 +809,7 @@ sub _register {
 		}
 		next if !$db;
 		my $id      = $self->_get_next_id($db);
-		my $user_db = $self->_get_user_db($db);
+		my $user_db = $self->_get_user_db_id($db);
 		next if !$user_db;
 		eval {
 			$self->{'db'}->do( 'INSERT INTO registered_users (dbase_config,user_name,datestamp) VALUES (?,?,?)',
@@ -1218,8 +1334,15 @@ sub _notify_db_admin {
 	  . qq(Username: $self->{'username'}\n)
 	  . qq(First name: $sender->{'first_name'}\n)
 	  . qq(Surname: $sender->{'surname'}\n)
-	  . qq(Affiliation: $sender->{'affiliation'}\n)
-	  . qq(E-mail: $sender->{'email'}\n\n);
+	  . qq(Affiliation: $sender->{'affiliation'}\n);
+	if ( $self->{'config'}->{'site_user_country'} && $sender->{'country'} ) {
+		$message .= qq(Country: $sender->{'country'}\n);
+	}
+	if ( $self->{'config'}->{'site_user_sector'} && $sender->{'sector'} ) {
+		$message .= qq(Sector: $sender->{'sector'}\n);
+	}
+	$message .= qq(E-mail: $sender->{'email'}\n\n);
+
 	$message .=
 	  qq(Please log in to the $system->{'description'} database curation system to accept or reject this user.);
 	my $domain         = $self->{'config'}->{'domain'}                  // DEFAULT_DOMAIN;
@@ -1296,6 +1419,27 @@ JS
 	 	});
  	}
  	$admin_js
+ 	\$('li#other').css('display',\$('select#sector').val() == 'other' ? 'block' : 'none');
+ 	\$('select#sector').change(function() {
+ 		console.log(this.value);
+ 		\$('li#other').css('display',this.value == 'other' ? 'block' : 'none');
+ 	});
+ 	\$("#country").multiselect({
+		noneSelectedText: "Please select...",
+		selectedList: 1,
+		menuHeight: 250,
+		menuWidth: 300,
+		classes: 'filter',
+	}).multiselectfilter({
+		placeholder: 'Search'
+	});
+ 	
+ 	\$("#sector").multiselect({
+		selectedList: 1,
+		menuHeight: 250,
+		menuWidth: 300,
+		classes: 'filter',
+	});
 	
 	\$(window).resize(function() {
     	delay(function(){
@@ -1399,7 +1543,7 @@ sub _get_next_id {
 	return $next;
 }
 
-sub _get_user_db {
+sub _get_user_db_id {
 	my ( $self, $db ) = @_;
 	return $self->{'datastore'}
 	  ->run_query( 'SELECT id FROM user_dbases WHERE dbase_name=?', $self->{'system'}->{'db'}, { db => $db } );
