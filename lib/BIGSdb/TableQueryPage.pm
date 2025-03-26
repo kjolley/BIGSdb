@@ -1285,7 +1285,37 @@ sub _modify_by_list {
 	  $type eq 'text'
 	  ? "(UPPER($field) IN (SELECT value FROM $temp_table))"
 	  : "($field IN (SELECT value FROM $temp_table))";
+	if ( $table eq 'users' ) {
+		$self->_modify_list_query_for_remote_users( $field, $type, \@list, $qry_ref );
+	}
 	return $list_file, $type;
+}
+
+sub _modify_list_query_for_remote_users {
+	my ( $self, $field, $type, $list, $qry_ref ) = @_;
+	my %allowed_fields = map { $_ => 1 } qw (user_name first_name surname affiliation email sector country);
+	return if !$allowed_fields{$field};
+	my $remote_db_ids =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT DISTINCT user_db FROM users WHERE user_db IS NOT NULL', undef, { fetch => 'col_arrayref' } );
+	return if !@$remote_db_ids;
+
+	foreach my $user_db_id (@$remote_db_ids) {
+		my $user_db = $self->{'datastore'}->get_user_db($user_db_id);
+		my $temp_table =
+		  $self->{'datastore'}
+		  ->create_temp_list_table_from_array( $type, $list, { db => $user_db, table => 'temp_list' } );
+		my $qry =
+		  $type eq 'text'
+		  ? "SELECT user_name FROM users WHERE UPPER($field) IN (SELECT UPPER(value) FROM $temp_table)"
+		  : "SELECT user_name FROM users WHERE $field IN (SELECT value FROM $temp_table)";
+		my $user_names = $self->{'datastore'}->run_query( $qry, undef, { db => $user_db, fetch => 'col_arrayref' } );
+		if (@$user_names) {
+			local $" = q(',');
+			$$qry_ref .= qq( OR user_name IN ('@$user_names'));
+		}
+	}
+	return;
 }
 
 sub print_additional_headerbar_functions {
