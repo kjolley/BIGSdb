@@ -142,7 +142,20 @@ sub get_user_string {
 }
 
 sub get_remote_user_info {
-	my ( $self, $user_name, $user_db_id ) = @_;
+	my ( $self, $user_name, $user_db_id, $options ) = @_;
+	if ( $options->{'single_lookup'} ) {
+		my $user_db   = $self->get_user_db($user_db_id);
+		my $user_data = $self->run_query(
+			'SELECT user_name,first_name,surname,email,affiliation FROM users WHERE user_name=?',
+			$user_name, { db => $user_db, fetch => 'row_hashref', cache => "get_remote_user_info:$user_db_id" }
+		);
+		my $user_prefs = $self->run_query( 'SELECT * FROM curator_prefs WHERE user_name=?',
+			$user_name, { db => $user_db, fetch => 'row_hashref' } );
+		foreach my $key ( keys %$user_prefs ) {
+			$user_data->{$key} = $user_prefs->{$key};
+		}
+		return $user_data;
+	}
 	if ( !$self->{'cache'}->{'remote_user_info'}->{$user_db_id} ) {
 		my $user_db       = $self->get_user_db($user_db_id);
 		my $all_user_data = $self->run_query( 'SELECT user_name,first_name,surname,email,affiliation FROM users',
@@ -175,7 +188,8 @@ sub get_user_info_from_username {
 		my $user_info = $self->run_query( 'SELECT * FROM users WHERE user_name=?',
 			$user_name, { fetch => 'row_hashref', cache => 'get_user_info_from_username' } );
 		if ( $user_info && $user_info->{'user_db'} ) {
-			my $remote_user = $self->get_remote_user_info( $user_name, $user_info->{'user_db'} );
+			my $remote_user =
+			  $self->get_remote_user_info( $user_name, $user_info->{'user_db'}, { single_lookup => 1 } );
 			if ( $remote_user->{'user_name'} ) {
 				$user_info->{$_} = $remote_user->{$_}
 				  foreach qw(first_name surname email affiliation submission_digests submission_email_cc absent_until);
