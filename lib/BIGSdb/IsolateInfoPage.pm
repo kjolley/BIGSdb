@@ -1764,12 +1764,14 @@ sub _get_user_field {
 	if ( !$summary_view && !( $field eq 'sender' && $data->{'sender'} == $data->{'curator'} ) ) {
 		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 		if ( $value > 0 ) {
-			$person .= qq(, $userdata->{affiliation});
+			$person .= qq(, $userdata->{'affiliation'});
 			if (   $self->{'config'}->{'site_user_country'}
-				&& $userdata->{'country'}
-				&& $userdata->{'affiliation'} !~ /$userdata->{'country'}$/x )
+				&& $userdata->{'country'} )
 			{
-				$person .= qq(, $userdata->{'country'});
+				( my $stripped_user_county = $userdata->{'country'} ) =~ s/\s+\[.*?\]$//x;
+				if ( $userdata->{'affiliation'} !~ /$stripped_user_county$/ix ) {
+					$person .= qq(, $userdata->{'country'});
+				}
 			}
 		}
 		if (

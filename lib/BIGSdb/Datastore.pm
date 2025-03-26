@@ -137,10 +137,12 @@ sub get_user_string {
 		$info->{'affiliation'} =~ s/^\s*//x;
 		$user .= qq(, $info->{'affiliation'});
 		if (   $self->{'config'}->{'site_user_country'}
-			&& $info->{'country'}
-			&& $info->{'affiliation'} !~ /$info->{'country'}$/x )
+			&& $info->{'country'} )
 		{
-			$user .= qq(, $info->{'country'});
+			( my $stripped_user_country = $info->{'country'} ) =~ s/\s+\[.*?\]$//x;
+			if ( $info->{'affiliation'} !~ /$stripped_user_country$/ix ) {
+				$user .= qq(, $info->{'country'});
+			}
 		}
 	}
 	return $user;
@@ -161,11 +163,10 @@ sub get_remote_user_info {
 		return $user_data;
 	}
 	if ( !$self->{'cache'}->{'remote_user_info'}->{$user_db_id} ) {
-		my $user_db       = $self->get_user_db($user_db_id);
-		my $all_user_data = $self->run_query(
-			'SELECT user_name,first_name,surname,email,affiliation,country,sector FROM users',
-			undef, { db => $user_db, fetch => 'all_arrayref', slice => {} }
-		);
+		my $user_db = $self->get_user_db($user_db_id);
+		my $all_user_data =
+		  $self->run_query( 'SELECT user_name,first_name,surname,email,affiliation,country,sector FROM users',
+			undef, { db => $user_db, fetch => 'all_arrayref', slice => {} } );
 		my $all_user_prefs = $self->run_query( 'SELECT * FROM curator_prefs',
 			undef, { db => $user_db, fetch => 'all_arrayref', slice => {} } );
 		my $user_prefs = {};

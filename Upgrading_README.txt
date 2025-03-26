@@ -56,6 +56,7 @@ Version 1.47: Change of isolate database structure.
 Version 1.48: Change of isolate database structure.
 Version 1.49: Change of authentication database structure.
 Version 1.50: Change of isolate database structure.
+Version 1.51: Change of seqdef, isolate, auth, and users database structures.
 
 Details can be found below.
 
@@ -692,3 +693,12 @@ There are new tables to support registering arbitrary analysis fields for data
 queries, export and analysis.
 
 Please run the isolatedb_v1.50.sql script against isolate databases.
+
+Version 1.51
+------------
+There are new fields in the isolate, seqdef, auth, and site users databases to 
+support collection of user country and sector information.
+
+Please run the isolatedb_v1.51.sql script against isolate databases,
+seqdefdb_v1.51.sql against seqdef databases, auth_v1.51.sql against the auth 
+database, and users_v1.51.sql against site-wide users databases.
