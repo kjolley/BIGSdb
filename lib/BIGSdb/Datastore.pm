@@ -101,14 +101,13 @@ sub get_isolate_extended_field_attributes {
 sub get_user_info {
 	my ( $self, $id ) = @_;
 	my $user_info =
-	  $self->run_query( 'SELECT id,user_name,first_name,surname,affiliation,email,status,user_db FROM users WHERE id=?',
-		$id, { fetch => 'row_hashref', cache => 'get_user_info' } );
+	  $self->run_query( 'SELECT * FROM users WHERE id=?', $id, { fetch => 'row_hashref', cache => 'get_user_info' } );
 	if ( $user_info && $user_info->{'user_name'} ) {
 		if ( $user_info->{'user_db'} ) {
 			my $remote_user = $self->get_remote_user_info( $user_info->{'user_name'}, $user_info->{'user_db'} );
 			if ( $remote_user->{'user_name'} ) {
-				$user_info->{$_} = $remote_user->{$_}
-				  foreach qw(first_name surname email affiliation submission_digests submission_email_cc absent_until);
+				$user_info->{$_} = $remote_user->{$_} foreach qw(first_name surname email affiliation country sector
+				  submission_digests submission_email_cc absent_until);
 			}
 		} else {
 			$user_info->{'submission_email_cc'} = $self->{'config'}->{'submission_email_cc'};
@@ -137,22 +136,56 @@ sub get_user_string {
 	if ( $options->{'affiliation'} && $info->{'affiliation'} ) {
 		$info->{'affiliation'} =~ s/^\s*//x;
 		$user .= qq(, $info->{'affiliation'});
+		if (   $self->{'config'}->{'site_user_country'}
+			&& $info->{'country'} )
+		{
+			( my $stripped_user_country = $info->{'country'} ) =~ s/\s+\[.*?\]$//x;
+			if ( $info->{'affiliation'} !~ /$stripped_user_country$/ix ) {
+				$user .= qq(, $info->{'country'});
+			}
+		}
 	}
 	return $user;
 }
 
 sub get_remote_user_info {
-	my ( $self, $user_name, $user_db_id ) = @_;
-	my $user_db = $self->get_user_db($user_db_id);
-	my $user_data =
-	  $self->run_query( 'SELECT user_name,first_name,surname,email,affiliation FROM users WHERE user_name=?',
-		$user_name, { db => $user_db, fetch => 'row_hashref', cache => "get_remote_user_info:$user_db_id" } );
-	my $user_prefs = $self->run_query( 'SELECT * FROM curator_prefs WHERE user_name=?',
-		$user_name, { db => $user_db, fetch => 'row_hashref' } );
-	foreach my $key ( keys %$user_prefs ) {
-		$user_data->{$key} = $user_prefs->{$key};
+	my ( $self, $user_name, $user_db_id, $options ) = @_;
+	if ( $options->{'single_lookup'} ) {
+		my $user_db   = $self->get_user_db($user_db_id);
+		my $user_data = $self->run_query(
+			'SELECT user_name,first_name,surname,email,affiliation,country,sector FROM users WHERE user_name=?',
+			$user_name, { db => $user_db, fetch => 'row_hashref', cache => "get_remote_user_info:$user_db_id" } );
+		my $user_prefs = $self->run_query( 'SELECT * FROM curator_prefs WHERE user_name=?',
+			$user_name, { db => $user_db, fetch => 'row_hashref' } );
+		foreach my $key ( keys %$user_prefs ) {
+			$user_data->{$key} = $user_prefs->{$key};
+		}
+		return $user_data;
 	}
-	return $user_data;
+	if ( !$self->{'cache'}->{'remote_user_info'}->{$user_db_id} ) {
+		my $user_db = $self->get_user_db($user_db_id);
+		my $all_user_data =
+		  $self->run_query( 'SELECT user_name,first_name,surname,email,affiliation,country,sector FROM users',
+			undef, { db => $user_db, fetch => 'all_arrayref', slice => {} } );
+		my $all_user_prefs = $self->run_query( 'SELECT * FROM curator_prefs',
+			undef, { db => $user_db, fetch => 'all_arrayref', slice => {} } );
+		my $user_prefs = {};
+		foreach my $user_pref (@$all_user_prefs) {
+			$user_prefs->{ $user_pref->{'user_name'} } = $user_pref;
+		}
+		my $user_data = {};
+		foreach my $user (@$all_user_data) {
+			$user_data->{ $user->{'user_name'} } = $user;
+			if ( defined $user_prefs->{ $user->{'user_name'} } ) {
+				my $this_user_prefs = $user_prefs->{ $user->{'user_name'} };
+				foreach my $key ( keys %$this_user_prefs ) {
+					$user_data->{ $user->{'user_name'} }->{$key} = $this_user_prefs->{$key};
+				}
+			}
+		}
+		$self->{'cache'}->{'remote_user_info'}->{$user_db_id} = $user_data;
+	}
+	return $self->{'cache'}->{'remote_user_info'}->{$user_db_id}->{$user_name};
 }
 
 sub get_user_info_from_username {
@@ -162,10 +195,11 @@ sub get_user_info_from_username {
 		my $user_info = $self->run_query( 'SELECT * FROM users WHERE user_name=?',
 			$user_name, { fetch => 'row_hashref', cache => 'get_user_info_from_username' } );
 		if ( $user_info && $user_info->{'user_db'} ) {
-			my $remote_user = $self->get_remote_user_info( $user_name, $user_info->{'user_db'} );
+			my $remote_user =
+			  $self->get_remote_user_info( $user_name, $user_info->{'user_db'}, { single_lookup => 1 } );
 			if ( $remote_user->{'user_name'} ) {
-				$user_info->{$_} = $remote_user->{$_}
-				  foreach qw(first_name surname email affiliation submission_digests submission_email_cc absent_until);
+				$user_info->{$_} = $remote_user->{$_} foreach qw(first_name surname email affiliation country sector
+				  submission_digests submission_email_cc absent_until);
 			}
 		}
 		$self->{'cache'}->{'user_name'}->{$user_name} = $user_info;

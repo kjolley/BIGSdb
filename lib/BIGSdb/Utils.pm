@@ -29,6 +29,7 @@ use Bio::SeqIO;
 use Bio::SeqFeature::Generic;
 use Excel::Writer::XLSX;
 use List::MoreUtils qw(uniq);
+use Unicode::Collate;
 use autouse 'Time::Local' => qw(timelocal);
 use constant MAX_4BYTE_INT => 2147483647;
 use Log::Log4perl qw(get_logger);
@@ -134,7 +135,7 @@ sub chop_seq {
 	if ( ( $orf - 1 ) < length $seq ) {
 		$returnseq = substr( $seq, $orf - 1 );
 	}
-	return '' if !defined $seq;
+	return '' if !defined $returnseq;
 
 	#make sure sequence length is a multiple of 3
 	while ( ( length $returnseq ) % 3 != 0 ) {
@@ -1018,6 +1019,17 @@ sub dictionary_sort {
 		[ $_, $d ]
 	  } uniq @$values;
 	return \@ret_values;
+}
+
+sub unicode_dictionary_sort {
+	my ( $values ) = @_;
+	my $collator = Unicode::Collate->new( variable => 'non-ignorable' );
+	my $sort_key = {};
+	for my $value (@$values) {
+		$sort_key->{$value} = $collator->getSortKey($value);
+	}
+	my @sorted = sort { $sort_key->{$a} cmp $sort_key->{$b} } @$values;
+	return \@sorted;
 }
 
 sub get_nice_duration {

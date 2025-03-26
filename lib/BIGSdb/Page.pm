@@ -812,7 +812,7 @@ sub _get_meta_data {
 sub _get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20250312';
+	my $version = '20250318';
 	my @filenames;
 	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
 	push @filenames, q(billboard.min.css)                                     if $self->{'billboard'};
@@ -3578,7 +3578,8 @@ sub modify_dataset_if_needed {
 			next if !defined $user->{'user_db'};
 			my $remote_user = $self->{'datastore'}->get_remote_user_info( $user->{'user_name'}, $user->{'user_db'} );
 			if ( $remote_user->{'user_name'} ) {
-				$user->{$_} = $remote_user->{$_} foreach qw(first_name surname email affiliation);
+				$user->{$_} = $remote_user->{$_}
+				  foreach qw(first_name surname email affiliation country sector);
 			}
 		}
 	}

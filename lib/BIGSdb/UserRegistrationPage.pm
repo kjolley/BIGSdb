@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2016-2024, University of Oxford
+#Copyright (c) 2016-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::CuratePage BIGSdb::ChangePasswordPage);
-use BIGSdb::Constants qw(:accounts :interface DEFAULT_DOMAIN);
+use BIGSdb::Constants qw(:accounts :interface DEFAULT_DOMAIN SECTORS COUNTRIES);
 use Email::Sender::Transport::SMTP;
 use Email::Sender::Simple qw(try_to_sendmail);
 use Email::MIME;
@@ -303,7 +303,7 @@ sub _print_registration_form {
 		push @$values, $user_db->{'dbase'};
 		$labels->{ $user_db->{'dbase'} } = $user_db->{'name'};
 	}
-	say q(<label for="db" class="form">Domain: </label>);
+	say q(<label for="db" class="aligned width5">Domain: </label>);
 	if ( @$values == 1 ) {
 		say $q->popup_menu(
 			-name     => 'domain',
@@ -324,20 +324,43 @@ sub _print_registration_form {
 		);
 	}
 	say q(</li><li>);
-	say q(<label for="user_name" class="form">User name:</label>);
+	say q(<label for="user_name" class="aligned width5">User name:</label>);
 	say $q->textfield( -name => 'user_name', -id => 'user_name', -required => 'required', size => 25 );
 	say q(</li><li>);
-	say q(<label for="first_name" class="form">First name:</label>);
+	say q(<label for="first_name" class="aligned width5">First name:</label>);
 	say $q->textfield( -name => 'first_name', -id => 'first_name', -required => 'required', size => 25 );
 	say q(</li><li>);
-	say q(<label for="surname" class="form">Last name/surname:</label>);
+	say q(<label for="surname" class="aligned width5">Last name:</label>);
 	say $q->textfield( -name => 'surname', -id => 'surname', -required => 'required', size => 25 );
 	say q(</li><li>);
-	say q(<label for="email" class="form">E-mail:</label>);
-	say $q->textfield( -name => 'email', -id => 'email', -required => 'required', size => 25 );
+	say q(<label for="email" class="aligned width5">E-mail:</label>);
+	say $q->textfield( -name => 'email', -id => 'email', -required => 'required', size => 30 );
 	say q(</li><li>);
-	say q(<label for="affiliation" class="form">Affiliation (institute):</label>);
-	say $q->textarea( -name => 'affiliation', -id => 'affiliation', -required => 'required' );
+	say q(<label for="affiliation" class="aligned width5">Affiliation<br />(institute):</label>);
+	say $q->textarea( -name => 'affiliation', -id => 'affiliation', -required => 'required', -cols => 30 );
+
+	if ( $self->{'config'}->{'site_user_sector'} ) {
+		say q(</li><li>);
+		say q(<label for="sector" class="aligned width5">Sector:</label>);
+		$values = [ '', SECTORS, 'other' ];
+		say $q->popup_menu( -name => 'sector', -id => 'sector', -values => $values, -required => 'required' );
+		say q(</li><li id="other" style="display:none">);
+		say q(<label for="other_sector" class="aligned width5">Other:</label>);
+		say $q->textfield(
+			-name        => 'other_sector',
+			-id          => 'other_sector',
+			-size        => 30,
+			-placeholder => 'Enter other sector...'
+		);
+	}
+	if ( $self->{'config'}->{'site_user_country'} ) {
+		say q(</li><li>);
+		say q(<label for="country" class="aligned width5">Country:</label>);
+		my $countries = COUNTRIES;
+		my $sorted    = BIGSdb::Utils::unicode_dictionary_sort( [ keys %$countries ] );
+		$values = [ '', @$sorted ];
+		say $q->popup_menu( -name => 'country', -id => 'country', -values => $values, -required => 'required' );
+	}
 	say q(</li></ul>);
 	say q(</fieldset>);
 	$q->param( register => 1 );
@@ -375,18 +398,46 @@ sub _register {
 		$data->{$param} = $self->clean_value( $data->{$param}, { no_escape => 1 } );
 		$data->{$param} = BIGSdb::Utils::escape_html( $data->{$param} );
 	}
+	my @missing;
+	if ( $self->{'config'}->{'site_user_sector'} ) {
+		$data->{'sector'} = $q->param('sector');
+		if ( ( $data->{'sector'} // q() ) eq 'other' ) {
+			$data->{'sector'} = $q->param('other_sector');
+		}
+		$data->{'sector'} = $self->clean_value( $data->{'sector'}, { no_escape => 1 } );
+		$data->{'sector'} = BIGSdb::Utils::escape_html( $data->{'sector'} );
+		if ( !$data->{'sector'} || $data->{'sector'} eq q() ) {
+			push @missing, 'sector';
+		}
+	}
+	if ( $self->{'config'}->{'site_user_country'} ) {
+		$data->{'country'} = $q->param('country');
+		$data->{'country'} = $self->clean_value( $data->{'country'}, { no_escape => 1 } );
+		$data->{'country'} = BIGSdb::Utils::escape_html( $data->{'country'} );
+		if ( !$data->{'country'} || $data->{'country'} eq q() ) {
+			push @missing, 'country';
+		}
+	}
+	if (@missing) {
+		local $" = q(, );
+		$self->print_bad_status( { message => qq(The following fields are missing: @missing.) } );
+		$self->_print_registration_form;
+		return;
+	}
 	$self->format_data( 'users', $data );
 	$data->{'password'} = $self->_create_password;
 	eval {
 		$self->{'db'}->do(
-			'INSERT INTO users (user_name,first_name,surname,email,affiliation,date_entered,'
-			  . 'datestamp,status,validate_start) VALUES (?,?,?,?,?,?,?,?,?)',
+			'INSERT INTO users (user_name,first_name,surname,email,affiliation,country,sector,date_entered,'
+			  . 'datestamp,status,validate_start) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
 			undef,
 			$data->{'user_name'},
 			$data->{'first_name'},
 			$data->{'surname'},
 			$data->{'email'},
 			$data->{'affiliation'},
+			$data->{'country'},
+			$data->{'sector'},
 			'now',
 			'now',
 			'pending',
@@ -572,6 +623,27 @@ sub get_javascript {
 	    	}
 		});
 	});
+	\$('li#other').css('display',\$('select#sector').val() == 'other' ? 'block' : 'none');
+ 	\$('select#sector').change(function() {
+ 		console.log(this.value);
+ 		\$('li#other').css('display',this.value == 'other' ? 'block' : 'none');
+ 	});
+ 	\$("#country").multiselect({
+		noneSelectedText: "Please select...",
+		selectedList: 1,
+		menuHeight: 250,
+		menuWidth: 300,
+		classes: 'filter',
+	}).multiselectfilter({
+		placeholder: 'Search'
+	});
+ 	
+ 	\$("#sector").multiselect({
+		selectedList: 1,
+		menuHeight: 250,
+		menuWidth: 300,
+		classes: 'filter',
+	});
 });	
 function capitalize(textboxid, str) {
       // string with alteast one character
@@ -590,7 +662,7 @@ END
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw(jQuery noCache login);
+	$self->{$_} = 1 foreach qw(jQuery noCache login jQuery.multiselect);
 	$self->{'validate_time'} =
 	  BIGSdb::Utils::is_int( $self->{'config'}->{'new_account_validation_timeout_mins'} )
 	  ? $self->{'config'}->{'new_account_validation_timeout_mins'}
