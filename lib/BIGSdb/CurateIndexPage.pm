@@ -2482,7 +2482,8 @@ sub _print_account_requests_section {
 			my $users = $self->{'datastore'}->run_query(
 				'SELECT user_name,datestamp FROM pending_requests WHERE dbase_config=? '
 				  . 'ORDER BY datestamp,user_name',
-				$config, { db => $user_db->{'db'}, fetch => 'all_arrayref', slice => {} }
+				$config,
+				{ db => $user_db->{'db'}, fetch => 'all_arrayref', slice => {} }
 			);
 			foreach my $user (@$users) {
 				my $user_info = $self->{'datastore'}->run_query( 'SELECT * FROM users WHERE user_name=?',
@@ -2494,6 +2495,13 @@ sub _print_account_requests_section {
 		}
 	}
 	return if !@user_details;
+	my $extra_headings = q();
+	if ( $self->{'config'}->{'site_user_country'} ) {
+		$extra_headings .= q(<th>Country</th>);
+	}
+	if ( $self->{'config'}->{'site_user_sector'} ) {
+		$extra_headings .= q(<th>Sector</th>);
+	}
 	say q(<div class="box" id="account_requests">);
 	say q(<span class="main_icon fas fa-user fa-3x fa-pull-left"></span>);
 	say q(<h2>Account requests</h2>);
@@ -2501,16 +2509,25 @@ sub _print_account_requests_section {
 	say q(<div class="scrollable">);
 	say q(<table class="resultstable">);
 	say q(<tr><th>Reject</th><th>First name</th><th>Surname</th>)
-	  . q(<th>Affiliation</th><th>E-mail</th><th>Date requested</th><th>Accept</th></tr>);
+	  . qq(<th>Affiliation</th>$extra_headings<th>E-mail</th><th>Date requested</th><th>Accept</th></tr>);
 	my $td = 1;
 	my ( $good, $bad ) = ( GOOD, BAD );
 
 	foreach my $user (@user_details) {
+		my $extra_cols = q();
+		if ( $self->{'config'}->{'site_user_country'} ) {
+			$user->{'country'} //= q();
+			$extra_cols .= qq(<td>$user->{'country'}</td>);
+		}
+		if ( $self->{'config'}->{'site_user_sector'} ) {
+			$user->{'sector'} //= q();
+			$extra_cols .= qq(<td>$user->{'sector'}</td>);
+		}
 		say qq(<tr class="td$td">)
 		  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(reject=$user->{'user_name'}&amp;user_db=$user->{'user_db'}" class="action">$bad</a></td>)
-		  . qq(<td>$user->{'first_name'}</td><td>$user->{'surname'}</td>)
-		  . qq(<td>$user->{'affiliation'}</td><td><a href="mailto:$user->{'email'}">$user->{'email'}</a></td>)
+		  . qq(<td>$user->{'first_name'}</td><td>$user->{'surname'}</td><td>$user->{'affiliation'}</td>)
+		  . qq($extra_cols<td><a href="mailto:$user->{'email'}">$user->{'email'}</a></td>)
 		  . qq(<td>$user->{'request_date'}</td>)
 		  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(import=$user->{'user_name'}&amp;user_db=$user->{'user_db'}" class="action">$good</a></td></tr>);
