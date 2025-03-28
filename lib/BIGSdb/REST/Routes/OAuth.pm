@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2024, University of Oxford
+#Copyright (c) 2015-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -207,6 +207,9 @@ sub _get_session_token {
 	my $oauth_params = $self->get_oauth_params( { oauth_token => 1 } );
 	if ( !$oauth_params->{'oauth_consumer_key'} ) {
 		send_error( 'No consumer key submitted', 403 );
+	}
+	if ( !$oauth_params->{'oauth_token'} ) {
+		send_error( 'No access token submitted', 403 );
 	}
 	my $client       = _get_client();
 	my $access_token = $self->{'datastore'}->run_query(
