@@ -24,12 +24,13 @@ use parent qw(BIGSdb::Offline::Script);
 use JSON;
 use MIME::Base64;
 use LWP::UserAgent;
+use Try::Tiny;
 use BIGSdb::Exceptions;
+use BIGSdb::OAuth;
 use constant INITIAL_BUSY_DELAY   => 60;
 use constant ATTEMPTS_BEFORE_FAIL => 50;
 use constant MAX_DELAY            => 600;
-use constant SEQUENCE_URL         => 'https://rest.pubmlst.org/db/pubmlst_rmlst_seqdef_kiosk/schemes/1/sequence';
-use constant DESIGNATIONS_URL     => 'https://rest.pubmlst.org/db/pubmlst_rmlst_seqdef_kiosk/schemes/1/designations';
+use constant REST_URI             => 'https://rest.pubmlst.org/db/pubmlst_rmlst_seqdef';
 
 sub set_scan_genome {
 	my ( $self, $scan_genome ) = @_;
@@ -41,6 +42,9 @@ sub run {
 	my ( $self, $isolate_id ) = @_;
 	my $payload;
 	my $url;
+	my $sequence_uri     = REST_URI . '/schemes/1/sequence';
+	my $designations_uri = REST_URI . '/schemes/1/designations';
+
 	if ( $self->{'options'}->{'scan_genome'} ) {
 		my $fasta_ref = $self->_get_genome_fasta($isolate_id);
 		$payload = encode_json(
@@ -50,7 +54,7 @@ sub run {
 				sequence => encode_base64($$fasta_ref)
 			}
 		);
-		$url = SEQUENCE_URL;
+		$url = $sequence_uri;
 	} else {
 		my $designations = $self->_get_rmlst_designations($isolate_id);
 		$payload = encode_json(
@@ -58,7 +62,7 @@ sub run {
 				designations => $designations
 			}
 		);
-		$url = DESIGNATIONS_URL;
+		$url = $designations_uri;
 	}
 	return $self->make_rest_call( $isolate_id, $url, \$payload );
 }
@@ -68,24 +72,52 @@ sub make_rest_call {
 	my ( $response, $unavailable );
 	my $agent = LWP::UserAgent->new( agent => 'BIGSdb', timeout => 600 );
 	my $delay = INITIAL_BUSY_DELAY;
+	my $oauth;
+	my $error;
+	try {
+		$oauth = BIGSdb::OAuth->new(
+			base_uri      => REST_URI,
+			db            => $self->{'db'},
+			datastore     => $self->{'datastore'},
+			client_id     => $self->{'config'}->{'rmlst_client_key'},
+			client_secret => $self->{'config'}->{'rmlst_client_secret'},
+			access_token  => $self->{'config'}->{'rmlst_access_token'},
+			access_secret => $self->{'config'}->{'rmlst_access_secret'}
+		);
+	} catch {
+		if ( $_->isa('BIGSdb::Exception::Authentication') ) {
+			$self->{'logger'}->error("OAuth exception: $_");
+		} else {
+			$self->{'logger'}->error($_);
+		}
+	};
+	if ($error) {
+		BIGSdb::Exception::Plugin->throw('OAuth authentication to rMLST database has failed.');
+	}
 	my $isolate_name =
 	  $self->{'datastore'}
 	  ->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?",
 		$isolate_id, { cache => 'SpeciesID::get_isolate_name_from_id' } );
 	my %server_error = map { $_ => 1 } ( 500, 502, 503, 504 );
 	my $attempts     = 0;
-
-	#No need to keep these open while we wait for REST response.
-	$self->{'dataConnector'}->drop_all_connections if !$self->{'options'}->{'no_disconnect'};
+	$self->reconnect;
 	do {
 		$unavailable = 0;
-		$response    = $agent->post(
-			$url,
-			Content_Type => 'application/json; charset=UTF-8',
-			Content      => $$payload_ref
-		);
+		try {
+			$response = $oauth->get_route(
+				$url,
+				{
+					method  => 'POST',
+					payload => $$payload_ref
+				}
+			);
+		} catch {
+			$self->{'logger'}->error("OAuth exception: $_");
+		};
 		my $code = $response->code;
 		if ( $code == 429 ) {    #Too many requests
+			$self->{'logger'}
+			  ->error('Error 429 received from rMLST REST API. Too many requests. Waiting 5s to repeat.');
 			$unavailable = 1;
 			sleep 5;
 		}

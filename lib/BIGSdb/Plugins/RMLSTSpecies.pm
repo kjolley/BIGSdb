@@ -73,7 +73,6 @@ sub get_attributes {
 
 sub run {
 	my ($self) = @_;
-	$self->_check_oauth;    #TODO Move to run_job().
 	say q(<h1>rMLST species identification</h1>);
 	my $q = $self->{'cgi'};
 	if ( $q->param('submit') ) {
@@ -155,6 +154,10 @@ sub run {
 
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
+	if ($self->_check_oauth){
+		BIGSdb::Exception::Plugin->throw('OAuth authentication to rMLST database has failed.');
+	}
+	
 	$self->{'exit'} = 0;
 	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3;
 	my $isolate_ids  = $self->{'jobManager'}->get_job_isolates($job_id);
@@ -583,31 +586,18 @@ sub _check_oauth {
 		return 1;
 	}
 	my $error;
+	my $oauth;
 	try {
-		my $oauth = BIGSdb::OAuth->new(
+		$oauth = BIGSdb::OAuth->new(
 			base_uri      => REST_URI,
 			db            => $self->{'db'},
+			datastore     => $self->{'datastore'},
 			client_id     => $self->{'config'}->{'rmlst_client_key'},
 			client_secret => $self->{'config'}->{'rmlst_client_secret'},
 			access_token  => $self->{'config'}->{'rmlst_access_token'},
 			access_secret => $self->{'config'}->{'rmlst_access_secret'}
 		);
-		my $tokens = $self->{'datastore'}->run_query(
-			'SELECT * FROM oauth_credentials WHERE (base_uri,consumer_key,access_token)=(?,?,?)',
-			[ REST_URI, $self->{'config'}->{'rmlst_client_key'}, $self->{'config'}->{'rmlst_access_token'} ],
-			{ fetch => 'row_hashref' }
-		);
-		my $session;
-		if ( defined $tokens ) {                                                                     #Record exists
-			$session = {
-				token        => $tokens->{'session_token'},
-				token_secret => $tokens->{'session_secret'}
-			};
-		} else {
-			$session = $oauth->get_session_token;
-		}
-		use Data::Dumper;
-		$logger->error( Dumper $session);
+
 	} catch {
 		if ( $_->isa('BIGSdb::Exception::Authentication') ) {
 			$logger->error("OAuth exception: $_");
@@ -617,7 +607,10 @@ sub _check_oauth {
 		$error = 1;
 	};
 	return 1 if $error;
-	#Test session token works. If it fails get a new one and test again. If this fails then terminate.
+	if ( $oauth->test_authentication ) {
+		$logger->error('OAuth authentication failed for rMLST species id.');
+		return 1;
+	}
 	return;
 }
 
