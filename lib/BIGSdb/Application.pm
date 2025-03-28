@@ -820,7 +820,6 @@ sub authenticate {
 		$self->{'system'}->{'password_update_required'} = 1;
 		$self->{'page'} = 'changePassword';
 	} elsif ($update_profile) {
-		$self->{logger}->error( $self->{'username'} );
 		$self->{'system'}->{'profile_update_required'} = 1;
 		$self->{'page'} = 'user';
 		$q->param( edit => 1 );
