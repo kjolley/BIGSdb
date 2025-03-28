@@ -398,6 +398,7 @@ sub get_oauth_params {
 	if ($auth_header) {
 		foreach my $param ( split( ',', $auth_header ) ) {
 			my ( $key, $value ) = split( '=', $param, 2 );
+			$value //= q();
 			$value =~ s/^"//x;
 			$value =~ s/"$//x;
 			$header_oauth_params->{$key} = $value if $key =~ /^oauth/x;
