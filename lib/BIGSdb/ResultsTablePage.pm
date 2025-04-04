@@ -1566,7 +1566,7 @@ sub _print_plugin_buttons {
 			'postquery',
 			$self->{'system'}->{'dbtype'},
 			$category || 'none',
-			{ set_id => $set_id, seqdb_type => $seqdb_type, username=>$self->{'username'} }
+			{ set_id => $set_id, seqdb_type => $seqdb_type, username => $self->{'username'} }
 		);
 		if (@$plugin_names) {
 			my $plugin_buffer;
@@ -2428,6 +2428,10 @@ sub add_bookmark {
 	delete $params->{$_} foreach (qw(add_bookmark records currentpage lastpage table query_file bookmark db page));
 	foreach my $param ( keys %$params ) {
 		delete $params->{$param} if $params->{$param} eq q();
+		if ( $params->{$param} =~ /\0/x ) {    #Pg doesn't allow null characters
+			my @values = split( /\0/x, $params->{$param} );
+			$params->{$param} = \@values;
+		}
 	}
 	my $set_id = $self->get_set_id;
 	if ( ( $self->{'system'}->{'sets'} // q() ) eq 'yes' ) {

@@ -4925,7 +4925,12 @@ sub _initiate_bookmark {
 	my $q      = $self->{'cgi'};
 	my $params = decode_json( $bookmark->{'params'} );
 	foreach my $param ( keys %$params ) {
-		$q->param( $param => $params->{$param} );
+		my $value = $params->{$param};
+		if ( ref $value ) {
+			$q->param( $param => @$value );
+		} else {
+			$q->param( $param => $value );
+		}
 		if ( $param =~ /(.+)_list$/x ) {
 			$self->{'temp_prefs'}->{'dropdownfields'}->{$1} = 1;
 		}
