@@ -31,12 +31,13 @@ use Net::OAuth 0.20;
 $Net::OAuth::PROTOCOL_VERSION = Net::OAuth::PROTOCOL_VERSION_1_0A;
 
 use Log::Log4perl qw(get_logger);
-my $logger = get_logger('BIGSdb.Plugins');
+my $logger; 
 
 sub new {    ## no critic (RequireArgUnpacking)
 	my $class = shift;
 	my $self  = {@_};
 	bless( $self, $class );
+	$logger //= $self->{'logger'} // get_logger('BIGSdb.Plugins');
 	$self->_initiate;
 	return $self;
 }
