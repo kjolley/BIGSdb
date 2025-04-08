@@ -1,6 +1,6 @@
 #RMLSTSpecies.pm - rMLST species identification plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2018-2024, University of Oxford
+#Copyright (c) 2018-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -25,12 +25,14 @@ use parent qw(BIGSdb::Plugin);
 use BIGSdb::Constants qw(:interface);
 use BIGSdb::Plugins::Helpers::SpeciesIDFork;
 use BIGSdb::Exceptions;
+use BIGSdb::OAuth;
 use List::Util qw(max);
 use List::MoreUtils qw(uniq);
 use Try::Tiny;
 use JSON;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
+use constant REST_URI     => 'https://rest.pubmlst.org/db/pubmlst_rmlst_seqdef';
 use constant MAX_ISOLATES => 1000;
 use constant MAX_THREADS  => 4;
 
@@ -54,13 +56,13 @@ sub get_attributes {
 		buttontext  => 'rMLST species id',
 		menutext    => 'Species identification',
 		module      => 'RMLSTSpecies',
-		version     => '2.2.2',
+		version     => '2.3.0',
 		dbtype      => 'isolates',
 		section     => 'isolate_info,analysis,postquery',
 		input       => 'query',
 		help        => 'tooltips',
 		system_flag => 'rMLSTSpecies',
-		requires    => 'offline_jobs,seqbin',
+		requires    => 'offline_jobs,seqbin,rmlst_oauth',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/rMLST.html",
 		order       => 40,
 		priority    => 0,
@@ -92,11 +94,11 @@ sub run {
 			my $error = q(<p>);
 			if ( @$invalid_ids <= 10 ) {
 				$error .=
-				    q(The following isolates in your pasted list are invalid - they either do not exist or )
+					q(The following isolates in your pasted list are invalid - they either do not exist or )
 				  . qq(do not have sequence data available: @$invalid_ids.);
 			} else {
 				$error .=
-				    @$invalid_ids
+					@$invalid_ids
 				  . q( isolates are invalid - they either do not exist or )
 				  . q(do not have sequence data available.);
 			}
@@ -152,6 +154,10 @@ sub run {
 
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
+	if ($self->_check_oauth){
+		BIGSdb::Exception::Plugin->throw('OAuth authentication to rMLST database has failed.');
+	}
+	
 	$self->{'exit'} = 0;
 	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3;
 	my $isolate_ids  = $self->{'jobManager'}->get_job_isolates($job_id);
@@ -165,7 +171,7 @@ sub run_job {
 	my $text_file    = "$self->{'config'}->{'tmp_dir'}/$job_id.txt";
 	$self->_append_text_file( $text_file, "id\tisolate\trank\ttaxon\ttaxonomy\tsupport\trST\tspecies" );
 	$table_header .=
-	    q(<div class="scrollable"><table class="resultstable"><tr><th rowspan="2">id</th>)
+		q(<div class="scrollable"><table class="resultstable"><tr><th rowspan="2">id</th>)
 	  . qq(<th rowspan="2">$self->{'system'}->{'labelfield'}</th>)
 	  . qq(<th colspan="$colspan">Prediction from identified rMLST alleles linked to genomes</th>)
 	  . qq(<th colspan="2">Identified rSTs</th></tr>\n)
@@ -187,7 +193,7 @@ sub run_job {
 				$progress = int( $i / $total * 100 );
 			}
 		}
-		my $last = $i;
+		my $last    = $i;
 		my $message = ( $first == $last ) ? "Scanning isolate $first" : "Scanning isolates $first-$last";
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => $message } );
 		my $dataset = $self->_perform_rest_query( $job_id, $tranche, $scan_genome );
@@ -256,9 +262,9 @@ sub _format_row_html {
 	my ( $self, $params, $args ) = @_;
 	my ( $td, $values, $response_code, $isolate_id ) = @{$args}{qw(td values response_code isolate_id)};
 	my $allele_predictions = ref $values->[2] eq 'ARRAY' ? @{ $values->[2] } : 0;
-	my $rows = max( $allele_predictions, 1 );
-	my %italicised = map { $_ => 1 } ( 3, 4, 8 );
-	my %left_align = map { $_ => 1 } ( 4, 5 );
+	my $rows               = max( $allele_predictions, 1 );
+	my %italicised         = map { $_ => 1 } ( 3, 4, 8 );
+	my %left_align         = map { $_ => 1 } ( 4, 5 );
 	my $buffer;
 	my ( $show, $hide ) = ( SHOW, HIDE );
 
@@ -286,7 +292,7 @@ sub _format_row_html {
 				if ( $col == 5 ) {
 					my $colour = BIGSdb::Utils::get_percent_colour( $values->[$col]->[$row] );
 					$buffer .=
-					    q(<span style="position:absolute;margin-left:1em;font-size:0.8em">)
+						q(<span style="position:absolute;margin-left:1em;font-size:0.8em">)
 					  . qq($values->[$col]->[$row]%</span>)
 					  . qq(<div style="display:block-inline;margin-top:0.2em;background-color:\#$colour;)
 					  . qq(border:1px solid #ccc;height:0.8em;width:$values->[$col]->[$row]%"></div>);
@@ -305,11 +311,11 @@ sub _format_row_html {
 					if ( !$no_matches ) {
 						my $filename = $values->[$col];
 						$buffer .=
-						    qq(<a class="ajax_link" id="id_$isolate_id" href="$params->{'script_name'}?)
+							qq(<a class="ajax_link" id="id_$isolate_id" href="$params->{'script_name'}?)
 						  . qq(db=$self->{'instance'}&amp;)
 						  . qq(page=plugin&amp;name=RMLSTSpecies&amp;filename=$filename&amp;no_header=1">$show</a>);
 						$buffer .=
-						    qq(<a id="id_${isolate_id}_hide" class="row_hide" )
+							qq(<a id="id_${isolate_id}_hide" class="row_hide" )
 						  . qq(style="display:none;cursor:pointer">$hide</a>);
 					}
 				} else {
@@ -329,7 +335,7 @@ sub _format_row_text {
 	my ( $values, $response_code, $isolate_id ) = @{$args}{qw(values response_code isolate_id)};
 	my $buffer;
 	my $allele_predictions = ref $values->[2] eq 'ARRAY' ? @{ $values->[2] } : 0;
-	my $rows = max( $allele_predictions, 1 );
+	my $rows               = max( $allele_predictions, 1 );
 	foreach my $row ( 0 .. $rows - 1 ) {
 		my $no_matches;
 		if ( $row == 0 ) {
@@ -406,8 +412,7 @@ sub _perform_rest_query {
 			}
 		);
 		$results = $id_obj->run($isolate_ids);
-	}
-	catch {
+	} catch {
 		$error = $_;
 		$logger->error($error);
 	};
@@ -418,7 +423,7 @@ sub _perform_rest_query {
 		my $record_result = $results->{$id};
 		my ( $data, $result, $response ) = @{$record_result}{qw{data values response}};
 		my $json_link = $self->_write_row_json_file( $job_id, $id, $response );
-		my $values = [ @{$result}{qw{isolate_id isolate_name rank taxon taxonomy support}} ];
+		my $values    = [ @{$result}{qw{isolate_id isolate_name rank taxon taxonomy support}} ];
 		push @$values, $json_link;
 		push @$values, @{$result}{qw{rST species}};
 		push @$dataset, { data => $data, values => $values, response_code => $response->code };
@@ -548,7 +553,7 @@ sub _print_options_fieldset {
 		-values    => [ 'scan', 'use_alleles' ],
 		-labels    => { scan => 'Scan genomes', use_alleles => 'Use stored allele designations' },
 		-linebreak => 'true',
-		-default => $default_scan // 'use_alleles'
+		-default   => $default_scan // 'use_alleles'
 	);
 	say q(</fieldset>);
 	return;
@@ -566,6 +571,47 @@ sub _rmlst_scheme_exists {
 		return if $locus !~ /^BACT0000\d{2}$/x;
 	}
 	return 1;
+}
+
+sub _check_oauth {
+	my ($self) = @_;
+	my @required = qw(rmlst_client_key rmlst_client_secret rmlst_access_token rmlst_access_secret);
+	my @missing;
+	foreach my $param (@required) {
+		push @missing, $param if !defined $self->{'config'}->{$param};
+	}
+	if (@missing) {
+		local $" = q(, );
+		$logger->error("rMLST OAuth parameters missing in bigsdb.conf: @missing.");
+		return 1;
+	}
+	my $error;
+	my $oauth;
+	try {
+		$oauth = BIGSdb::OAuth->new(
+			base_uri      => REST_URI,
+			db            => $self->{'db'},
+			datastore     => $self->{'datastore'},
+			client_id     => $self->{'config'}->{'rmlst_client_key'},
+			client_secret => $self->{'config'}->{'rmlst_client_secret'},
+			access_token  => $self->{'config'}->{'rmlst_access_token'},
+			access_secret => $self->{'config'}->{'rmlst_access_secret'}
+		);
+
+	} catch {
+		if ( $_->isa('BIGSdb::Exception::Authentication') ) {
+			$logger->error("OAuth exception: $_");
+		} else {
+			$logger->error($_);
+		}
+		$error = 1;
+	};
+	return 1 if $error;
+	if ( $oauth->test_authentication ) {
+		$logger->error('OAuth authentication failed for rMLST species id.');
+		return 1;
+	}
+	return;
 }
 
 sub _get_javascript {

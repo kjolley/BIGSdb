@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -370,7 +370,11 @@ sub _has_required_item {
 		kleborate_path         => 'Kleborate',
 		weasyprint_path        => 'weasyprint',
 		reportree_path         => 'ReporTree',
-		snp_sites_path         => 'snp_sites'
+		snp_sites_path         => 'snp_sites',
+		rmlst_client_key       => 'rmlst_oauth',
+		rmlst_client_secret    => 'rmlst_oauth',
+		rmlst_access_token     => 'rmlst_oauth',
+		rmlst_access_secret    => 'rmlst_oauth'
 	);
 	return 1 if !$required_attr;
 	foreach my $config_param ( keys %requires ) {
