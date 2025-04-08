@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Perform/update species id check and store results in isolate database.
 #Written by Keith Jolley
-#Copyright (c) 2021-2023, University of Oxford
+#Copyright (c) 2021-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20230310
+#Version: 20250408
 use strict;
 use warnings;
 use 5.010;
@@ -36,13 +36,17 @@ use BIGSdb::Offline::Script;
 use BIGSdb::Constants qw(LOG_TO_SCREEN :limits);
 use BIGSdb::Plugins::Helpers::SpeciesID;
 use BIGSdb::Utils;
+use BIGSdb::OAuth;
+use BIGSdb::Exceptions;
 use Term::Cap;
 use POSIX;
 use MIME::Base64;
 use LWP::UserAgent;
 use Config::Tiny;
+use Try::Tiny;
 use JSON;
 use constant MODULE_NAME => 'RMLSTSpecies';
+use constant REST_URI    => 'https://rest.pubmlst.org/db/pubmlst_rmlst_seqdef';
 use Getopt::Long qw(:config no_ignore_case);
 my %opts;
 GetOptions(
@@ -83,6 +87,51 @@ sub main {
 	return;
 }
 
+sub check_oauth_params {
+	my ($self) = @_;
+	my @required = qw(rmlst_client_key rmlst_client_secret rmlst_access_token rmlst_access_secret);
+	my @missing;
+	foreach my $param (@required) {
+		push @missing, $param if !defined $self->{'config'}->{$param};
+	}
+	if (@missing) {
+		local $" = q(, );
+		$logger->fatal("rMLST OAuth parameters missing in bigsdb.conf: @missing.");
+		exit 1;
+	}
+	state $checked_oauth_works;
+	return if $checked_oauth_works;
+
+	my $error;
+	my $oauth;
+	try {
+		$oauth = BIGSdb::OAuth->new(
+			base_uri      => REST_URI,
+			db            => $self->{'db'},
+			datastore     => $self->{'datastore'},
+			client_id     => $self->{'config'}->{'rmlst_client_key'},
+			client_secret => $self->{'config'}->{'rmlst_client_secret'},
+			access_token  => $self->{'config'}->{'rmlst_access_token'},
+			access_secret => $self->{'config'}->{'rmlst_access_secret'},
+			logger        => $logger
+		);
+	} catch {
+		if ( $_->isa('BIGSdb::Exception::Authentication') ) {
+			$logger->error("OAuth exception: $_");
+		} else {
+			$logger->error($_);
+		}
+		$error = 1;
+	};
+	$checked_oauth_works = 1;
+	exit 1 if $error;
+	if ( $oauth->test_authentication ) {
+		$logger->error('OAuth authentication failed for rMLST species id.');
+		exit 1;
+	}
+
+}
+
 sub get_dbs {
 	opendir( DIR, DBASE_CONFIG_DIR ) or die "Unable to open dbase config directory! $!\n";
 	my $config_dir  = DBASE_CONFIG_DIR;
@@ -103,6 +152,7 @@ sub get_dbs {
 				options          => {}
 			}
 		);
+
 		next if ( $script->{'system'}->{'dbtype'}       // q() ) ne 'isolates';
 		next if ( $script->{'system'}->{'rMLSTSpecies'} // q() ) eq 'no';
 		if ( !$script->{'db'} ) {
@@ -132,6 +182,7 @@ sub check_db {
 		$logger->error("$config is not an isolate database.");
 		return;
 	}
+
 	my $min_genome_size = $script->{'system'}->{'min_genome_size'} // $script->{'config'}->{'min_genome_size'}
 	  // MIN_GENOME_SIZE;
 	my $qry =
@@ -153,6 +204,7 @@ sub check_db {
 	my $plural = @$ids == 1 ? q() : q(s);
 	my $count  = @$ids;
 	return if !$count;
+	check_oauth_params($script);
 	my $job_id = $script->add_job( 'RMLSTSpecies (offline)', { temp_init => 1 } );
 	say qq(\n$config: $count genome$plural to analyse) if !$opts{'quiet'};
 	my $id_obj = BIGSdb::Plugins::Helpers::SpeciesID->new(
@@ -184,8 +236,7 @@ sub check_db {
   ISOLATE: foreach my $isolate_id (@$ids) {
 		my $progress = int( ( $i * 100 ) / $count );
 		$script->update_job( $job_id,
-			{ status => { stage => "Checking id-$isolate_id", percent_complete => $progress }, temp_init => 1 } )
-		  ;
+			{ status => { stage => "Checking id-$isolate_id", percent_complete => $progress }, temp_init => 1 } );
 	  RUN: foreach my $run (@scan_genome) {
 			last ISOLATE                                      if $EXIT;
 			print "Scanning id-$isolate_id $label{$run} ... " if !$opts{'quiet'};

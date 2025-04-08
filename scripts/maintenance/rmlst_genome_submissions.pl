@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20250304
+#Version: 20250408
 use strict;
 use warnings;
 use 5.010;
@@ -54,7 +54,7 @@ GetOptions(
 	'help'       => \$opts{'help'},
 	'quiet'      => \$opts{'quiet'},
 );
-use constant URL => 'https://rest.pubmlst.org/db/pubmlst_rmlst_seqdef_kiosk/schemes/1/sequence';
+use constant URL => 'https://rest.pubmlst.org/db/pubmlst_rmlst_seqdef/schemes/1/sequence';
 
 #Direct all library logging calls to screen
 my $log_conf = LOG_TO_SCREEN;
