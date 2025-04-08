@@ -36,6 +36,8 @@ use BIGSdb::Offline::Script;
 use BIGSdb::Constants qw(LOG_TO_SCREEN :limits);
 use BIGSdb::Plugins::Helpers::SpeciesID;
 use BIGSdb::Utils;
+use BIGSdb::OAuth;
+use BIGSdb::Exceptions;
 use File::Type;
 use Term::Cap;
 use POSIX;
@@ -54,7 +56,8 @@ GetOptions(
 	'help'       => \$opts{'help'},
 	'quiet'      => \$opts{'quiet'},
 );
-use constant URL => 'https://rest.pubmlst.org/db/pubmlst_rmlst_seqdef/schemes/1/sequence';
+use constant BASE_URI => 'https://rest.pubmlst.org/db/pubmlst_rmlst_seqdef';
+use constant REST_URI => 'https://rest.pubmlst.org/db/pubmlst_rmlst_seqdef/schemes/1/sequence';
 
 #Direct all library logging calls to screen
 my $log_conf = LOG_TO_SCREEN;
@@ -90,6 +93,51 @@ sub main {
 		check_db($db);
 	}
 	return;
+}
+
+sub check_oauth_params {
+	my ($self) = @_;
+	my @required = qw(rmlst_client_key rmlst_client_secret rmlst_access_token rmlst_access_secret);
+	my @missing;
+	foreach my $param (@required) {
+		push @missing, $param if !defined $self->{'config'}->{$param};
+	}
+	if (@missing) {
+		local $" = q(, );
+		$logger->fatal("rMLST OAuth parameters missing in bigsdb.conf: @missing.");
+		exit 1;
+	}
+	state $checked_oauth_works;
+	return if $checked_oauth_works;
+
+	my $error;
+	my $oauth;
+	try {
+		$oauth = BIGSdb::OAuth->new(
+			base_uri      => BASE_URI,
+			db            => $self->{'db'},
+			datastore     => $self->{'datastore'},
+			client_id     => $self->{'config'}->{'rmlst_client_key'},
+			client_secret => $self->{'config'}->{'rmlst_client_secret'},
+			access_token  => $self->{'config'}->{'rmlst_access_token'},
+			access_secret => $self->{'config'}->{'rmlst_access_secret'},
+			logger        => $logger
+		);
+	} catch {
+		if ( $_->isa('BIGSdb::Exception::Authentication') ) {
+			$logger->error("OAuth exception: $_");
+		} else {
+			$logger->error($_);
+		}
+		$error = 1;
+	};
+	$checked_oauth_works = 1;
+	exit 1 if $error;
+	if ( $oauth->test_authentication ) {
+		$logger->error('OAuth authentication failed for rMLST species id.');
+		exit 1;
+	}
+
 }
 
 sub get_dbs {
@@ -175,6 +223,7 @@ sub check_db {
 	my $plural = @submission_ids == 1 ? q() : q(s);
 	my $count  = @submission_ids;
 	return if !$count;
+	check_oauth_params($script);
 	my $job_id = $script->add_job( 'RMLSTSubmission', { temp_init => 1 } );
 	say qq(\n$config: $count submission$plural to analyse) if !$opts{'quiet'};
 	my $id_obj = BIGSdb::Plugins::Helpers::SpeciesID->new(
@@ -239,7 +288,7 @@ sub check_db {
 					sequence => encode_base64($$fasta_ref)
 				}
 			);
-			my $result = $id_obj->make_rest_call( $index, URL, \$payload );
+			my $result = $id_obj->make_rest_call( $index, REST_URI, \$payload );
 			if ( $result->{'data'}->{'taxon_prediction'} ) {
 				my @predictions = @{ $result->{'data'}->{'taxon_prediction'} };
 				my @taxa;

@@ -122,7 +122,6 @@ sub make_rest_call {
 			sleep 5;
 		}
 		if ( $server_error{$code} ) {
-
 			my $err_message = $response->message;
 			$self->{'logger'}->error("Error $code received from rMLST REST API. $err_message");
 			$self->initiate_job_manager if !$self->{'jobManager'};
