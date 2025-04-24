@@ -65,7 +65,7 @@ sub get_attributes {
 		description      => 'Calculation of mutation rates and locations',
 		full_description => 'The plugin aligns sequences for a specified locus, or for a locus defined by an exemplar '
 		  . 'sequence, for an isolate dataset. A mutation analysis is then performed on the alignment.',
-		category   => 'Third party',
+		category   => 'Analysis',
 		buttontext => 'GeneScanner',
 		menutext   => 'GeneScanner',
 		module     => 'GeneScanner',
@@ -89,15 +89,85 @@ sub get_attributes {
 	return \%att;
 }
 
+sub _upload_group_file {
+	my ($self) = @_;
+	my $file = $self->upload_file( 'group_csv_upload', 'groups' );
+	return $file;
+}
+
+sub _validate_group_csv {
+	my ( $self, $filename, $valid_ids ) = @_;
+	my %valid_ids = map { $_ => 1 } @$valid_ids;
+	my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
+	if ( !-e $full_path ) {
+		return 'Group CSV file has not been uploaded.';
+	}
+	if ( !-s $full_path ) {
+		return 'Group CSV file has no contents.';
+	}
+
+	open my $fh, '<:encoding(utf8)', $full_path or $logger->error("Cannot open file $full_path: $!");
+	my $row = 0;
+	while ( my $line = <$fh> ) {
+		$line =~ s/^\s+|\s+$//x;
+		$row++;
+		if ( $row == 1 ) {
+			if ( $line ne 'Isolate,Category' ) {
+				return q(Header line of group CSV file should be 'Isolate,Category');
+			}
+			next;
+		}
+
+		next if !$line;
+		my @fields = split /\s*,\s*/x, $line;
+		if ( @fields != 2 ) {
+			return "Row $row of group CSV file does not have 2 values.";
+		}
+		if ( $fields[0] !~ /^\d+$/x ) {
+			return "Row $row id is not an integer.";
+		}
+		if ( !$valid_ids{ $fields[0] } ) {
+			return "Row $row id ($fields[0]) is not in the selected dataset.";
+		}
+	}
+	close $fh;
+	return;
+}
+
+sub _rewrite_group_csv {
+	my ( $self, $filename ) = @_;
+	my $names              = $self->_get_isolate_names;
+	my $temp               = BIGSdb::Utils::get_random();
+	my $full_path          = "$self->{'config'}->{'tmp_dir'}/$filename";
+	my $new_filename       = "${temp}_rewritten_groups.csv";
+	my $new_file_full_path = "$self->{'config'}->{'tmp_dir'}/$new_filename";
+	open my $fh,  '<:encoding(utf8)', $full_path or $logger->error("Cannot open file $full_path for reading: $!");
+	open my $fh2, '>:encoding(utf8)', $new_file_full_path
+	  or $logger->error("Cannot open file $new_file_full_path for writing: $!");
+	my $row = 0;
+
+	while ( my $line = <$fh> ) {
+
+		$line =~ s/^\s+|\s+$//x;
+		next if !$line;
+		my ( $id, $group ) = split /\s*,\s*/x, $line;
+		if ( $row == 0 ) {
+			say $fh2 $line;
+		} else {
+			say $fh2 "$id|$names->{$id},$group";
+		}
+		$row++;
+	}
+	close $fh;
+	close $fh2;
+	return $new_filename;
+}
+
 sub run {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $title  = $self->get_title;
 	say qq(<h1>$title</h1>);
-#	if ( !$self->{'config'}->{'snp_sites_path'} ) {
-#		$self->print_bad_status( { message => q(snp-sites is not installed.) } );
-#		return;
-#	}
 	return if $self->has_set_changed;
 	if ( !-x $self->{'config'}->{'mafft_path'} ) {
 		$logger->error('This plugin requires MAFFT to be installed and it is not.');
@@ -105,6 +175,7 @@ sub run {
 		return;
 	}
 	if ( $q->param('submit') ) {
+
 		my $ids = $self->filter_list_to_ids( [ $q->multi_param('isolate_id') ] );
 		my ( $pasted_cleaned_ids, $invalid_ids ) = $self->get_ids_from_pasted_list( { dont_clear => 1 } );
 		push @$ids, @$pasted_cleaned_ids;
@@ -130,6 +201,15 @@ sub run {
 		} elsif ( !$q->param('locus') ) {
 			push @errors, q(You must either select a locus or paste in an exemplar sequence.);
 		}
+		my $group_csv_file;
+		if ( $q->param('group_csv_upload') ) {
+			my $uploaded_csv_file = $self->_upload_group_file;
+			my $error             = $self->_validate_group_csv( $uploaded_csv_file, $ids );
+			push @errors, $error if $error;
+			if ( !@errors ) {
+				$group_csv_file = $self->_rewrite_group_csv($uploaded_csv_file);
+			}
+		}
 		if (@errors) {
 			if ( @errors == 1 ) {
 				$self->print_bad_status( { message => qq(@errors) } );
@@ -144,8 +224,9 @@ sub run {
 			$q->delete('isolate_id');
 			my $params = $q->Vars;
 			my $set_id = $self->get_set_id;
-			$params->{'set_id'} = $set_id if $set_id;
-			$params->{'curate'} = 1       if $self->{'curate'};
+			$params->{'set_id'}         = $set_id if $set_id;
+			$params->{'curate'}         = 1       if $self->{'curate'};
+			$params->{'group_csv_file'} = $group_csv_file;
 			my $att    = $self->get_attributes;
 			my $job_id = $self->{'jobManager'}->add_job(
 				{
@@ -232,12 +313,17 @@ sub run_job {
 			{ filename => "${job_id}_aligned.fas", description => 'Aligned sequences', compress => 1 } );
 		$self->{'jobManager'}
 		  ->update_job_status( $job_id, { percent_complete => 95, stage => 'Running mutation analysis' } );
-		my $analysis    = $params->{'analysis'} // 'n';
-		my $output_file = "$self->{'config'}->{'tmp_dir'}/${job_id}.xlsx";
+		my $analysis      = $params->{'analysis'} // 'n';
+		my $output_file   = "$self->{'config'}->{'tmp_dir'}/${job_id}.xlsx";
+		my $groups_clause = q();
+		if ( $params->{'group_csv_file'} ) {
+			my $file = $params->{'group_csv_file'};
+			$groups_clause = qq( --groups "$self->{'config'}->{'tmp_dir'}/$file");
+		}
 		eval {
 			system( "$self->{'config'}->{'genescanner_path'} -a $alignment_file -t $analysis -o $output_file "
 				  . "--mafft_path $self->{'config'}->{'mafft_path'} --job_id $job_id --tmp_dir "
-				  . "$self->{'config'}->{'secure_tmp_dir'} --frame $frame > /dev/null 2>&1" );
+				  . "$self->{'config'}->{'secure_tmp_dir'} --frame $frame$groups_clause > /dev/null 2>&1" );
 		};
 		$logger->error($@) if $@;
 		if ( -e $output_file ) {
@@ -251,6 +337,19 @@ sub run_job {
 	return;
 }
 
+sub _get_isolate_names {
+	my ($self) = @_;
+	my $names = {};
+	my $isolate_names =
+	  $self->{'datastore'}->run_query( "SELECT id,$self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'}",
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	foreach my $isolate (@$isolate_names) {
+		( my $name = $isolate->{ $self->{'system'}->{'labelfield'} } ) =~ s/\W/_/gx;
+		$names->{ $isolate->{'id'} } = $name;
+	}
+	return $names;
+}
+
 sub _align {
 	my ( $self, $args ) = @_;
 	my ( $aligner, $job_id, $isolate_ids, $locus, $scan_data ) =
@@ -260,25 +359,15 @@ sub _align {
 	open( my $fasta_fh, '>:encoding(utf8)', $fasta_file )
 	  || $self->{'logger'}->error("Cannot open $fasta_file for writing");
 	my $seq_count = 0;
-	my $isolate_names =
-	  $self->{'datastore'}->run_query( "SELECT id,$self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'}",
-		undef, { fetch => 'all_arrayref', slice => {} } );
-	foreach my $isolate (@$isolate_names) {
-		( my $name = $isolate->{ $self->{'system'}->{'labelfield'} } ) =~ s/\W/_/gx;
-		$self->{'names'}->{ $isolate->{'id'} } = $name;
-	}
+	my $names     = $self->_get_isolate_names;
 	foreach my $isolate_id ( sort @$isolate_ids ) {
 		my $seqs = $scan_data->{'isolate_data'}->{$isolate_id}->{'sequences'}->{$locus};
 		$seqs = [$seqs] if !ref $seqs;
 		my $seq_id = 0;
-		my $name =
-		  $self->{'datastore'}
-		  ->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?",
-			$isolate_id );
 		foreach my $seq (@$seqs) {
 			next if !defined $seq;
 			$seq_id++;
-			my $header_name = "$isolate_id|$name";
+			my $header_name = "$isolate_id|$names->{$isolate_id}";
 			$header_name .= "_$seq_id" if $seq_id > 1;
 			say $fasta_fh ">$header_name";
 			say $fasta_fh $seq;
@@ -355,6 +444,7 @@ sub _print_interface {
 	$self->_print_locus_fieldset;
 	$self->_print_analysis_fieldset;
 	$self->_print_options_fieldset;
+	$self->_print_group_fieldset;
 	$self->print_action_fieldset;
 	say $q->hidden($_) foreach qw (page name db);
 	say q(</div></div>);
@@ -417,6 +507,39 @@ sub _print_analysis_fieldset {
 	return;
 }
 
+sub _print_group_fieldset {
+	my ($self)       = @_;
+	my $q            = $self->{'cgi'};
+	my $tooltip_text = << "TOOLTIP";
+Groups - The dataset can be optionally divided into any number of groups which will be analysed separately. 
+The format for the comma-separated values (CSV) file is:
+<pre>
+[id],[group name]
+</pre>
+where the group name can be any string, e.g.
+<pre>
+Isolate,Category
+1,GroupA
+2,GroupA
+3,GroupB
+4,GroupB
+</pre>
+Note that if an isolate id is not included in the CSV file, it will not be included in any group.
+TOOLTIP
+	my $tooltip = $self->get_tooltip($tooltip_text);
+	say q(<fieldset style="float:left;max-width:350px"><legend>Groups</legend>);
+	say qq(<p>Optionally upload a CSV file to group isolates for separate analysis. $tooltip</p>);
+	say $q->filefield(
+		-name  => 'group_csv_upload',
+		-id    => 'group_csv_upload',
+		-style => 'max-width:300px'
+	);
+	say q(<a id="clear_group_csv_upload" class="small_reset" title="Clear upload">)
+	  . q(<span><span class="far fa-trash-can"></span></span></a>);
+	say q(</fieldset>);
+	return;
+}
+
 sub _print_options_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
@@ -455,6 +578,9 @@ sub get_plugin_javascript {
 	\$("#paste_seq").on('input',function() {
 		\$('#locus').prop('disabled', \$("#paste_seq").val().length ? true : false);
 	});
+	\$("a#clear_group_csv_upload").on("click", function(){
+  		\$("input#group_csv_upload").val("");
+  	});
 });	
 
 
