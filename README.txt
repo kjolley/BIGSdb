@@ -1,3 +1,4 @@
+v1.51.1: *Use OAuth authentication for rMLST species plugin and tools.
 v1.51.0: *Support for collecting user country and affiliation sector.
 v1.50.3: *Added support for Kleborate v3 to plugin.
 v1.50.2: *Fix for API profile downloads restricted by date.

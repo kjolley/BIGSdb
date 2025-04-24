@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Offline Job Manager for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2011-2018, University of Oxford
+#Copyright (c) 2011-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -40,6 +40,8 @@ use constant {
 };
 #######End Local configuration#############################################
 use lib (LIB_DIR);
+use File::Find;
+$File::Find::dont_use_nlink = 1;
 use Log::Log4perl qw(get_logger);
 use BIGSdb::Offline::RunJobs;
 Log::Log4perl->init_once( CONFIG_DIR . '/job_logging.conf' );

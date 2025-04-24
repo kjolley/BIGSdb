@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #bigsdb.pl
 #Written by Keith Jolley
-#Copyright (c) 2010-2018, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,12 +21,14 @@
 use strict;
 use warnings;
 use 5.010;
+use File::Find;
+$File::Find::dont_use_nlink = 1;
 
 ###########Local configuration################################
-use constant { 
-	CONFIG_DIR => '/etc/bigsdb', 
-	LIB_DIR => '/usr/local/lib', 
-	DBASE_CONFIG_DIR => '/etc/bigsdb/dbases' 
+use constant {
+	CONFIG_DIR       => '/etc/bigsdb',
+	LIB_DIR          => '/usr/local/lib',
+	DBASE_CONFIG_DIR => '/etc/bigsdb/dbases'
 };
 #######End Local configuration################################
 use Log::Log4perl qw(get_logger);    #Also need Log::Dispatch::File
