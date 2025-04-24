@@ -17,7 +17,7 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
-package BIGSdb::Plugins::Caro;
+package BIGSdb::Plugins::GeneScanner;
 use strict;
 use warnings;
 use 5.010;
@@ -34,7 +34,7 @@ use constant MAX_SEQ_LENGTH => 16_000;    #Excel has 16384 max columns.
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name    => 'CARO',
+		name    => 'GeneScanner',
 		authors => [
 			{
 				name        => 'Keith Jolley',
@@ -50,27 +50,38 @@ sub get_attributes {
 				name        => 'Seungwon Ko',
 				affiliation => 'University of Oxford, UK',
 				email       => 'seungwon.ko@kellogg.ox.ac.uk'
+			},
+			{
+				name        => 'Samuel Sheppard',
+				affiliation => 'University of Oxford, UK',
+				email       => 'samuel.sheppard@biology.ox.ac.uk'
+			},
+			{
+				name        => 'Carolin Kobras',
+				affiliation => 'University of Oxford, UK',
+				email       => 'carolin.kobras@path.ox.ac.uk'
 			}
 		],
 		description      => 'Calculation of mutation rates and locations',
 		full_description => 'The plugin aligns sequences for a specified locus, or for a locus defined by an exemplar '
 		  . 'sequence, for an isolate dataset. A mutation analysis is then performed on the alignment.',
 		category   => 'Third party',
-		buttontext => 'CARO Project',
-		menutext   => 'CARO Project',
-		module     => 'Caro',
-		version    => '0.0.3',
+		buttontext => 'GeneScanner',
+		menutext   => 'GeneScanner',
+		module     => 'GeneScanner',
+		version    => '0.0.4',
 		dbtype     => 'isolates',
 		section    => 'analysis,postquery',
 		input      => 'query',
 		help       => 'tooltips',
-		requires   => 'aligner,mafft,offline_jobs,caro',
+		requires   => 'aligner,mafft,offline_jobs,genescanner',
 
 		#		supports   => 'user_genomes',
 		#		url        => "$self->{'config'}->{'doclink'}/data_analysis/snp_sites.html",
 		order => 19,
 		min   => 2,
-		max   => $self->{'system'}->{'caro_record_limit'} // $self->{'config'}->{'caro_record_limit'} // MAX_RECORDS,
+		max   => $self->{'system'}->{'genescanner_record_limit'} // $self->{'config'}->{'genescanner_record_limit'}
+		  // MAX_RECORDS,
 		always_show_in_menu => 1,
 
 		#		image               => '/images/plugins/SNPSites/screenshot.png'
@@ -83,10 +94,10 @@ sub run {
 	my $q      = $self->{'cgi'};
 	my $title  = $self->get_title;
 	say qq(<h1>$title</h1>);
-	if ( !$self->{'config'}->{'snp_sites_path'} ) {
-		$self->print_bad_status( { message => q(snp-sites is not installed.) } );
-		return;
-	}
+#	if ( !$self->{'config'}->{'snp_sites_path'} ) {
+#		$self->print_bad_status( { message => q(snp-sites is not installed.) } );
+#		return;
+#	}
 	return if $self->has_set_changed;
 	if ( !-x $self->{'config'}->{'mafft_path'} ) {
 		$logger->error('This plugin requires MAFFT to be installed and it is not.');
@@ -224,7 +235,7 @@ sub run_job {
 		my $analysis    = $params->{'analysis'} // 'n';
 		my $output_file = "$self->{'config'}->{'tmp_dir'}/${job_id}.xlsx";
 		eval {
-			system( "$self->{'config'}->{'caro_path'} -a $alignment_file -t $analysis -o $output_file "
+			system( "$self->{'config'}->{'genescanner_path'} -a $alignment_file -t $analysis -o $output_file "
 				  . "--mafft_path $self->{'config'}->{'mafft_path'} --job_id $job_id --tmp_dir "
 				  . "$self->{'config'}->{'secure_tmp_dir'} --frame $frame > /dev/null 2>&1" );
 		};
@@ -429,7 +440,7 @@ sub _print_options_fieldset {
 sub get_title {
 	my ($self) = @_;
 	my $desc = $self->get_db_description( { formatted => 1 } );
-	return "Caro Project - $desc";
+	return "GeneScanner - $desc";
 }
 
 sub get_plugin_javascript {

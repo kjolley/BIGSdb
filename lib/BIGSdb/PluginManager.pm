@@ -372,7 +372,7 @@ sub _has_required_item {
 		weasyprint_path        => 'weasyprint',
 		reportree_path         => 'ReporTree',
 		snp_sites_path         => 'snp_sites',
-		caro_path              => 'caro',
+		genescanner_path       => 'genescanner',
 		rmlst_client_key       => 'rmlst_oauth',
 		rmlst_client_secret    => 'rmlst_oauth',
 		rmlst_access_token     => 'rmlst_oauth',
