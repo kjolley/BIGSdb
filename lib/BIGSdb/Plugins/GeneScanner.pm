@@ -124,13 +124,35 @@ sub _validate_group_csv {
 			return "Row $row of group CSV file does not have 2 values.";
 		}
 		if ( $fields[0] !~ /^\d+$/x ) {
-			return "Row $row id is not an integer.";
+			return "Row $row id of group CSV file is not an integer.";
 		}
 		if ( !$valid_ids{ $fields[0] } ) {
-			return "Row $row id ($fields[0]) is not in the selected dataset.";
+			return "Row $row id ($fields[0]) of group CSV file is not in the selected dataset.";
 		}
 	}
 	close $fh;
+	return;
+}
+
+sub _validate_group_list {
+	my ( $self, $valid_ids ) = @_;
+	my $q         = $self->{'cgi'};
+	my %valid_ids = map { $_ => 1 } @$valid_ids;
+	my @ids       = split /\r?\n/x, scalar $q->param('group_list');
+	my $row       = 0;
+	foreach my $id (@ids) {
+		$row++;
+		next if !$id;
+		$id =~ s/^\s+//x;
+		$id =~ s/\s+$//x;
+		if ( !BIGSdb::Utils::is_int($id) ) {
+			return "Row $row id in group list is not an integer.";
+		}
+		if ( !$valid_ids{$id} ) {
+			$logger->error(qq('$id'));
+			return "Row $row id in group list is not in the selected dataset.";
+		}
+	}
 	return;
 }
 
@@ -147,8 +169,8 @@ sub _rewrite_group_csv {
 	my $row = 0;
 
 	while ( my $line = <$fh> ) {
-
-		$line =~ s/^\s+|\s+$//x;
+		$line =~ s/^\s+//x;
+		$line =~ s/\s+$//x;
 		next if !$line;
 		my ( $id, $group ) = split /\s*,\s*/x, $line;
 		if ( $row == 0 ) {
@@ -161,6 +183,32 @@ sub _rewrite_group_csv {
 	close $fh;
 	close $fh2;
 	return $new_filename;
+}
+
+sub _write_group_csv_from_list {
+	my ( $self, $valid_ids ) = @_;
+	my $temp      = BIGSdb::Utils::get_random();
+	my $filename  = "${temp}_groups.csv";
+	my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
+	my $q         = $self->{'cgi'};
+	my @ids       = split /\r?\n/x, scalar $q->param('group_list');
+	my %group2;
+	my $names = $self->_get_isolate_names;
+
+	foreach my $id (@ids) {
+		next if !$id;
+		$id =~ s/^\s+//x;
+		$id =~ s/\s+$//x;
+		$group2{$id} = 1;
+	}
+	open my $fh, '>:encoding(utf8)', $full_path
+	  or $logger->error("Cannot open file $full_path for writing: $!");
+	say $fh 'Isolate,Category';
+	foreach my $id (@$valid_ids) {
+		say $fh $group2{$id} ? "$id|$names->{$id},Group 2" : "$id|$names->{$id},Group 1";
+	}
+	close $fh;
+	return $filename;
 }
 
 sub run {
@@ -208,6 +256,13 @@ sub run {
 			push @errors, $error if $error;
 			if ( !@errors ) {
 				$group_csv_file = $self->_rewrite_group_csv($uploaded_csv_file);
+			}
+		} elsif ( $q->param('group_list') ) {
+			my $error = $self->_validate_group_list($ids);
+			if ($error) {
+				push @errors, $error;
+			} else {
+				$group_csv_file = $self->_write_group_csv_from_list($ids);
 			}
 		}
 		if (@errors) {
@@ -514,6 +569,7 @@ sub _print_group_fieldset {
 Groups - The dataset can be optionally divided into any number of groups which will be analysed separately. 
 The format for the comma-separated values (CSV) file is:
 <pre>
+Isolate,Category
 [id],[group name]
 </pre>
 where the group name can be any string, e.g.
@@ -536,6 +592,15 @@ TOOLTIP
 	);
 	say q(<a id="clear_group_csv_upload" class="small_reset" title="Clear upload">)
 	  . q(<span><span class="far fa-trash-can"></span></span></a>);
+	say q(<p style="margin-top:1em">Alternatively, if you want to use just 2 groups you can enter id numbers for )
+	  . q(isolates to add to group 2. All other isolates will be placed in group 1.</p>);
+	say $q->textarea(
+		-id          => 'group_list',
+		-name        => 'group_list',
+		-width       => 6,
+		-rows        => 6,
+		-placeholder => 'Enter group 2 ids (one per line)...'
+	);
 	say q(</fieldset>);
 	return;
 }
