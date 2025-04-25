@@ -149,7 +149,6 @@ sub _validate_group_list {
 			return "Row $row id in group list is not an integer.";
 		}
 		if ( !$valid_ids{$id} ) {
-			$logger->error(qq('$id'));
 			return "Row $row id in group list is not in the selected dataset.";
 		}
 	}
