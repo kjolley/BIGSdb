@@ -42,15 +42,21 @@ sub get_attributes {
 				email       => 'keith.jolley@biology.ox.ac.uk',
 			},
 			{
-				name        => 'Priyanshu Raikwar',
+				name        => 'Broncio Aguilar-Sanjuan',
 				affiliation => 'University of Oxford, UK',
-				email       => 'priyanshu.raikwar@biology.ox.ac.uk'
+				email       => 'broncio.aguilarsanjuan@biology.ox.ac.uk',
 			},
 			{
 				name        => 'Seungwon Ko',
 				affiliation => 'University of Oxford, UK',
 				email       => 'seungwon.ko@kellogg.ox.ac.uk'
 			},
+			{
+				name        => 'Priyanshu Raikwar',
+				affiliation => 'University of Oxford, UK',
+				email       => 'priyanshu.raikwar@biology.ox.ac.uk'
+			},
+
 			{
 				name        => 'Samuel Sheppard',
 				affiliation => 'University of Oxford, UK',
@@ -151,6 +157,20 @@ sub _validate_group_list {
 		if ( !$valid_ids{$id} ) {
 			return "Row $row id in group list is not in the selected dataset.";
 		}
+	}
+	return;
+}
+
+sub _validate_reference_id {
+	my ( $self, $valid_ids ) = @_;
+	my $q         = $self->{'cgi'};
+	my %valid_ids = map { $_ => 1 } @$valid_ids;
+	my $ref_id    = $q->param('reference');
+	if ( !BIGSdb::Utils::is_int($ref_id) ) {
+		return 'Reference id is not an integer.';
+	}
+	if ( !$valid_ids{$ref_id} ) {
+		return 'Reference id is not in the selected dataset.';
 	}
 	return;
 }
@@ -264,6 +284,10 @@ sub run {
 				$group_csv_file = $self->_write_group_csv_from_list($ids);
 			}
 		}
+		if ( $q->param('reference') ) {
+			my $error = $self->_validate_reference_id($ids);
+			push @errors, $error if $error;
+		}
 		if (@errors) {
 			if ( @errors == 1 ) {
 				$self->print_bad_status( { message => qq(@errors) } );
@@ -374,10 +398,23 @@ sub run_job {
 			my $file = $params->{'group_csv_file'};
 			$groups_clause = qq( --groups "$self->{'config'}->{'tmp_dir'}/$file");
 		}
+		my $reference_clause = q();
+		if ( $params->{'reference'} ) {
+			my $ref_id = $params->{'reference'};
+			if ( BIGSdb::Utils::is_int($ref_id) ) {
+				my $name =
+				  $self->{'datastore'}
+				  ->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} WHERE id=?",
+					$ref_id );
+				$name =~ s/\W/_/gx;
+				$reference_clause = qq( --reference "$ref_id|$name");
+			}
+		}
 		eval {
 			system( "$self->{'config'}->{'genescanner_path'} -a $alignment_file -t $analysis -o $output_file "
 				  . "--mafft_path $self->{'config'}->{'mafft_path'} --job_id $job_id --tmp_dir "
-				  . "$self->{'config'}->{'secure_tmp_dir'} --frame $frame$groups_clause > /dev/null 2>&1" );
+				  . "$self->{'config'}->{'secure_tmp_dir'} --frame $frame$groups_clause$reference_clause "
+				  . '> /dev/null 2>&1' );
 		};
 		$logger->error($@) if $@;
 		if ( -e $output_file ) {
@@ -619,6 +656,22 @@ sub _print_options_fieldset {
 	}
 	say q(<li><label for="aligner" class="aligned width7">Reading frame: </label>);
 	say $q->popup_menu( -name => 'frame', -id => 'frame', -values => [ 1 .. 3 ] );
+	say q(</li></li>);
+	say q(<li><label for="reference" class="aligned width7">Reference id: </label>);
+	my $max = $self->{'datastore'}->run_query("SELECT MAX(id) FROM $self->{'system'}->{'view'}");
+	say $self->textfield(
+		-name  => 'reference',
+		id     => 'reference',
+		-type  => 'number',
+		-min   => 1,
+		-max   => $max,
+		-style => 'width:6em',
+		-value => scalar $q->param('reference')
+	);
+	my $tooltip =
+	  $self->get_tooltip( 'Reference id - Id of reference sequence to treat as the reference (otherwise the first '
+		  . 'sequence in the alignment is used by default)' );
+	say $tooltip;
 	say q(</li>);
 	say q(</ul></fieldset>);
 	return;
