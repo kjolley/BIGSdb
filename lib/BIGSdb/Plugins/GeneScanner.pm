@@ -677,7 +677,7 @@ sub _print_options_fieldset {
 		-value => scalar $q->param('reference')
 	);
 	my $tooltip =
-	  $self->get_tooltip( 'Reference id - Id of reference sequence to treat as the reference (otherwise the first '
+	  $self->get_tooltip( 'Reference id - Id of sequence to treat as the reference (otherwise the first '
 		  . 'sequence in the alignment is used by default)' );
 	say $tooltip;
 
