@@ -75,22 +75,21 @@ sub get_attributes {
 		buttontext => 'GeneScanner',
 		menutext   => 'GeneScanner',
 		module     => 'GeneScanner',
-		version    => '0.0.4',
+		version    => '0.9.0',
 		dbtype     => 'isolates',
 		section    => 'analysis,postquery',
 		input      => 'query',
 		help       => 'tooltips',
 		requires   => 'aligner,mafft,offline_jobs,genescanner',
 
-		#		supports   => 'user_genomes',
-		#		url        => "$self->{'config'}->{'doclink'}/data_analysis/snp_sites.html",
+		#		url        => "$self->{'config'}->{'doclink'}/data_analysis/genescanner.html",
 		order => 19,
 		min   => 2,
 		max   => $self->{'system'}->{'genescanner_record_limit'} // $self->{'config'}->{'genescanner_record_limit'}
 		  // MAX_RECORDS,
 		always_show_in_menu => 1,
 
-		#		image               => '/images/plugins/SNPSites/screenshot.png'
+		#		image               => '/images/plugins/genescanner/screenshot.png'
 	);
 	return \%att;
 }
@@ -410,16 +409,25 @@ sub run_job {
 				$reference_clause = qq( --reference "$ref_id|$name");
 			}
 		}
+		my $snp_sites_clause = q( );
+		if ( $params->{'snp_sites'} ) {
+			$snp_sites_clause = qq( --snp_sites_path $self->{'config'}->{'snp_sites_path'} --vcf);
+		}
 		eval {
 			system( "$self->{'config'}->{'genescanner_path'} -a $alignment_file -t $analysis -o $output_file "
 				  . "--mafft_path $self->{'config'}->{'mafft_path'} --job_id $job_id --tmp_dir "
-				  . "$self->{'config'}->{'secure_tmp_dir'} --frame $frame$groups_clause$reference_clause "
-				  . '> /dev/null 2>&1' );
+				  . "$self->{'config'}->{'secure_tmp_dir'} --frame $frame$groups_clause$reference_clause"
+				  . "$snp_sites_clause > /dev/null 2>&1" );
 		};
 		$logger->error($@) if $@;
 		if ( -e $output_file ) {
 			$self->{'jobManager'}->update_job_output( $job_id,
 				{ filename => "${job_id}.xlsx", description => 'Analysis output', compress => 1 } );
+		}
+		my $vcf_file = "$self->{'config'}->{'tmp_dir'}/${job_id}_aligned.vcf";
+		if ( -e $vcf_file ) {
+			$self->{'jobManager'}->update_job_output( $job_id,
+				{ filename => "${job_id}_aligned.vcf", description => 'VCF file', compress => 1 } );
 		}
 	} else {
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => 'No sequences found to align.' } );
@@ -672,6 +680,11 @@ sub _print_options_fieldset {
 	  $self->get_tooltip( 'Reference id - Id of reference sequence to treat as the reference (otherwise the first '
 		  . 'sequence in the alignment is used by default)' );
 	say $tooltip;
+
+	if ( $self->{'config'}->{'snp_sites_path'} ) {
+		say q(</li><li>);
+		say $q->checkbox( -name => 'snp_sites', -id => 'snp_sites', -label => 'Run SNP-sites' );
+	}
 	say q(</li>);
 	say q(</ul></fieldset>);
 	return;
