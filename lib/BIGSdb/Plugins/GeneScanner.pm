@@ -28,7 +28,7 @@ use Bio::SeqIO;
 use BIGSdb::Constants qw(:limits);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use constant MAX_RECORDS    => 2000;
+use constant MAX_RECORDS    => 5000;
 use constant MAX_SEQ_LENGTH => 16_000;    #Excel has 16384 max columns.
 
 sub get_attributes {
