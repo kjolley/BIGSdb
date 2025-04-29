@@ -3097,7 +3097,10 @@ sub _get_scheme_designations {
 	my ( @sqry, @sqry_blank );
 	my $view = $self->{'system'}->{'view'};
 	foreach my $i ( 1 .. MAX_ROWS ) {
-		if ( defined $q->param("designation_value$i") && $q->param("designation_value$i") ne '' ) {
+		if (   defined $q->param("designation_field$i")
+			&& defined $q->param("designation_value$i")
+			&& $q->param("designation_value$i") ne '' )
+		{
 			if ( $q->param("designation_field$i") =~ /^s_(\d+)_(.*)/x ) {
 				my ( $scheme_id, $field ) = ( $1, $2 );
 				my $operator          = $q->param("designation_operator$i") // '=';
@@ -3202,7 +3205,10 @@ sub _get_classification_group_designations {
 	my ( @qry, @null_qry );
 	my $view = $self->{'system'}->{'view'};
 	foreach my $i ( 1 .. MAX_ROWS ) {
-		if ( defined $q->param("designation_value$i") && $q->param("designation_value$i") ne '' ) {
+		if (   defined $q->param("designation_field$i")
+			&& defined $q->param("designation_value$i")
+			&& $q->param("designation_value$i") ne '' )
+		{
 			if ( $q->param("designation_field$i") =~ /^cg_(\d+)_group/x ) {
 				my $cscheme_id   = $1;
 				my $operator     = $q->param("designation_operator$i") // '=';
@@ -3294,7 +3300,10 @@ sub _get_lincodes {
 	my $qry  = [];
 	my $view = $self->{'system'}->{'view'};
 	foreach my $i ( 1 .. MAX_ROWS ) {
-		if ( defined $q->param("designation_value$i") && $q->param("designation_value$i") ne '' ) {
+		if (   defined $q->param("designation_field$i")
+			&& defined $q->param("designation_value$i")
+			&& $q->param("designation_value$i") ne '' )
+		{
 			next if $q->param("designation_field$i") !~ /^lin_\d+$/x;
 			( my $scheme_id = $q->param("designation_field$i") ) =~ s/^lin_//x;
 			my $operator = $q->param("designation_operator$i") // '=';
@@ -3393,7 +3402,10 @@ sub _get_lincode_fields {
 	my $qry  = [];
 	my $view = $self->{'system'}->{'view'};
 	foreach my $i ( 1 .. MAX_ROWS ) {
-		if ( defined $q->param("designation_value$i") && $q->param("designation_value$i") ne '' ) {
+		if (   defined $q->param("designation_field$i")
+			&& defined $q->param("designation_value$i")
+			&& $q->param("designation_value$i") ne '' )
+		{
 			my ( $scheme_id, $field );
 			if ( $q->param("designation_field$i") =~ /^lin_(\d+)_(.+)$/x ) {
 				( $scheme_id, $field ) = ( $1, $2 );
