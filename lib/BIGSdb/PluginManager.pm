@@ -156,7 +156,6 @@ sub get_plugin {
 	if ( $plugin_name && $self->{'plugins'}->{$plugin_name} ) {
 		return $self->{'plugins'}->{$plugin_name};
 	}
-	$logger->logcarp('Plugin does not exist');
 	BIGSdb::Exception::Plugin::Invalid->throw('Plugin does not exist');
 	return;
 }

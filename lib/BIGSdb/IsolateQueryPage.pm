@@ -2902,7 +2902,10 @@ sub _get_allele_designations {
 	my $view       = $self->{'system'}->{'view'};
 	my %combo;
 	foreach my $i ( 1 .. MAX_ROWS ) {
-		if ( defined $q->param("designation_value$i") && $q->param("designation_value$i") ne '' ) {
+		if (   defined $q->param("designation_field$i")
+			&& defined $q->param("designation_value$i")
+			&& $q->param("designation_value$i") ne '' )
+		{
 			if ( $q->param("designation_field$i") =~ /$pattern/x ) {
 				my $locus      = $1;
 				my $locus_info = $self->{'datastore'}->get_locus_info($locus);
