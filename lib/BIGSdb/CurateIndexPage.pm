@@ -2414,7 +2414,7 @@ sub _send_email {
 
 sub _get_publication_requests {
 	my ($self) = @_;
-	return     if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
+	return q() if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
 	return q() if !$self->can_modify_table('isolates');
 	my $q = $self->{'cgi'};
 	$self->_reject_publication if $q->param('reject_publication');
@@ -2428,7 +2428,7 @@ sub _get_publication_requests {
 		undef,
 		{ fetch => 'col_arrayref' }
 	);
-	return if !@$users;
+	return q() if !@$users;
 	my $buffer    = q(<h2>Publication requests</h2>);
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 
