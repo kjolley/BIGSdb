@@ -124,7 +124,7 @@ sub print_content {
 
 sub get_title {
 	my ($self) = @_;
-	my $table  = $self->{'cgi'}->param('table');
+	my $table  = $self->{'cgi'}->param('table') // q();
 	my %title  = ( sequences => 'Sequence attribute search' );
 	if ( $title{$table} ) {
 		return $title{$table};
