@@ -46,7 +46,7 @@ sub get_javascript {
 	my ( $js, $tree_js, $requires );
 	my $att = $self->{'pluginManager'}->get_plugin_attributes($plugin_name);
 	try {
-		if ( $att->{'language'} eq 'Python' ) {
+		if ( ( $att->{'language'} // q() ) eq 'Python' ) {
 			$js       = $att->{'javascript'} // q();
 			$requires = $att->{'requires'}   // q();
 		} else {
