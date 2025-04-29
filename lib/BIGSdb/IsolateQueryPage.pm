@@ -3004,7 +3004,10 @@ sub _get_allele_designations_by_locus_attributes {
 	my $qry    = [];
 	my $set_id = $self->get_set_id;
 	foreach my $i ( 1 .. MAX_ROWS ) {
-		if ( defined $q->param("designation_value$i") && $q->param("designation_value$i") ne q() ) {
+		if (   defined $q->param("designation_field$i")
+			&& defined $q->param("designation_value$i")
+			&& $q->param("designation_value$i") ne q() )
+		{
 			if ( $q->param("designation_field$i") =~ /^lex_([\-_'\w]+)\|\|(.*)/x ) {
 				my ( $locus, $field ) = ( $1, $2 );
 				my $att_table =
