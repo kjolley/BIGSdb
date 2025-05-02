@@ -588,7 +588,8 @@ sub _print_locus_fieldset {
 		say q(No defined loci available for analysis);
 	}
 	say q(</p>);
-	say q(<p style="margin-bottom:0">Alternatively, paste in an exemplar sequence to use:</p>);
+	say q(<p style="margin-bottom:0">Alternatively, paste in an exemplar sequence to use<br />)
+	  . q((this can be either a DNA or protein sequence):</p>);
 	say $q->textarea( -id => 'paste_seq', -name => 'paste_seq', -rows => 5, -columns => 40 );
 	say q(</fieldset>);
 	return;
