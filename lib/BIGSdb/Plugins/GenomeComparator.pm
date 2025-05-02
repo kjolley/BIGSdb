@@ -2169,7 +2169,8 @@ sub assemble_data_for_defined_loci {
 
 sub assemble_data_for_reference_genome {
 	my ( $self, $args ) = @_;
-	my ( $job_id, $ids, $user_genomes, $cds ) = @{$args}{qw(job_id ids user_genomes cds )};
+	my ( $job_id, $ids, $user_genomes, $cds, $seq_type ) = @{$args}{qw(job_id ids user_genomes cds seq_type)};
+	$seq_type //= 'DNA';
 	my $locus_data = {};
 	my $loci       = [];
 	my $locus_num  = 1;
@@ -2198,12 +2199,13 @@ sub assemble_data_for_reference_genome {
 		job_id            => $job_id,
 		user_params       => $self->{'params'},
 		locus_data        => $locus_data,
-		loci              => $loci
+		loci              => $loci,
+		seq_type          => $seq_type
 	};
 	$params->{$_} = $self->{'params'}->{$_} foreach keys %{ $self->{'params'} };
 	$params->{'user_genomes'} = $user_genomes if $user_genomes;
 	my $data = $self->_run_helper($params);
-	$self->_touch_output_files("$job_id*");    #Prevents premature deletion by cleanup scripts
+	$self->_touch_output_files("$job_id*");               #Prevents premature deletion by cleanup scripts
 	unlink $isolate_list;
 	return $data;
 }
@@ -2219,6 +2221,7 @@ sub _run_helper {
 			job_id             => $params->{'job_id'},
 			logger             => $logger,
 			config             => $self->{'config'},
+			seq_type => $params->{'seq_type'},
 			job_manager_params => {
 				host     => $self->{'jobManager'}->{'host'},
 				port     => $self->{'jobManager'}->{'port'},

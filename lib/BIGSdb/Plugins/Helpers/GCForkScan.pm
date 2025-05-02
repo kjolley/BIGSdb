@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2020, University of Oxford
+#Copyright (c) 2017-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -32,6 +32,7 @@ sub new {
 	$self->{'dbase_config_dir'} = $params->{'dbase_config_dir'};
 	$self->{'logger'}           = $params->{'logger'};
 	$self->{'config'}           = $params->{'config'};
+	$self->{'seq_type'}         = $params->{'seq_type'};
 	$self->{'jm_params'}        = $params->{'job_manager_params'};
 	bless( $self, $class );
 	return $self;
@@ -52,6 +53,7 @@ sub _get_job_manager {
 sub run {
 	my ( $self, $params ) = @_;
 	my $by_ref = $params->{'reference_file'} ? 1 : 0;
+	$params->{'user_params'}->{'seq_type'} = $self->{'seq_type'};
 	if ( $params->{'threads'} && $params->{'threads'} > 1 ) {
 		my $script;
 		$script =
@@ -72,7 +74,7 @@ sub run {
 		my $new_seqs = {};
 		my $pm =
 		  Parallel::ForkManager->new( $params->{'threads'}, $self->{'config'}->{'secure_tmp_dir'} );
-		my $isolate_count = 0;
+		my $isolate_count   = 0;
 		my $finish_progress = $params->{'finish_progress'} // ( $params->{'align'} ? 20 : 80 );
 		if ( $params->{'user_genomes'} ) {
 			my $id = -1;
@@ -94,7 +96,8 @@ sub run {
 						my $next_id     = $isolate_count + 1;
 						my $job_manager = $self->_get_job_manager;
 						$job_manager->update_job_status( $params->{'job_id'},
-							{ percent_complete => $percent_complete, stage => "Scanning isolate record $next_id" } );
+							{ percent_complete => $percent_complete, stage => "Scanning isolate record $next_id" } )
+						  ;
 					}
 				}
 			}

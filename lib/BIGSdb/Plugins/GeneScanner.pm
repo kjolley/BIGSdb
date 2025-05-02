@@ -75,7 +75,7 @@ sub get_attributes {
 		buttontext => 'GeneScanner',
 		menutext   => 'GeneScanner',
 		module     => 'GeneScanner',
-		version    => '0.9.0',
+		version    => '0.9.1',
 		dbtype     => 'isolates',
 		section    => 'analysis,postquery',
 		input      => 'query',
@@ -253,12 +253,15 @@ sub run {
 		}
 		if ( $q->param('paste_seq') ) {
 			my $seq       = $q->param('paste_seq');
-			my $valid_dna = BIGSdb::Utils::is_valid_DNA( \$seq, { allow_ambiguous => 1 } );
+			my $valid_seq = BIGSdb::Utils::is_valid_DNA( \$seq, { allow_ambiguous => 1 } )
+			  || BIGSdb::Utils::is_valid_peptide( \$seq );
 			$seq =~ s/[\-\.\s]//gx;
 			$q->param( paste_seq => $seq );
-			if ( !$valid_dna ) {
-				push @errors, q(The pasted sequence includes non-nucleotide characters. This field should )
-				  . q(just contain DNA sequence with no FASTA header etc. IUPAC ambiguity codes are allowed.);
+			if ( !$valid_seq ) {
+				push @errors,
+					q(The pasted sequence includes non-nucleotide or non-amino acid characters. )
+				  . q(This field should just contain DNA or protein sequence with no FASTA header. IUPAC )
+				  . q(nucleotide ambiguity codes are allowed.);
 			} elsif ( length $seq > MAX_SEQ_LENGTH ) {
 				my $length = BIGSdb::Utils::commify( length $seq );
 				my $max    = BIGSdb::Utils::commify(MAX_SEQ_LENGTH);
@@ -349,6 +352,7 @@ sub run_job {
 		my $seq        = $params->{'paste_seq'};
 		my $fasta_file = $self->_create_ref_fasta( $job_id, \$seq );
 		my $gb_file    = BIGSdb::Utils::fasta2genbank( $fasta_file, MAX_SEQ_LENGTH );
+		my $seq_type   = BIGSdb::Utils::sequence_type( \$seq );
 		my $seq_obj;
 		eval {
 			my $seqio_object = Bio::SeqIO->new( -file => $gb_file );
@@ -358,7 +362,7 @@ sub run_job {
 			BIGSdb::Exception::Plugin->throw('Invalid data in uploaded reference file.');
 		}
 		$scan_data = $self->assemble_data_for_reference_genome(
-			{ job_id => $job_id, ids => $isolate_ids, cds => [ $seq_obj->get_SeqFeatures ] } );
+			{ job_id => $job_id, ids => $isolate_ids, cds => [ $seq_obj->get_SeqFeatures ], seq_type => $seq_type } );
 		unlink $fasta_file;
 	} else {
 		$locus = $params->{'locus'};

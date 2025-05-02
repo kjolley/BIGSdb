@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2024, University of Oxford
+#Copyright (c) 2017-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -125,18 +125,22 @@ sub _get_allele_designations_from_reference {
 sub _blast {
 	my ( $self, $params ) = @_;
 	my $blast_threads = $self->{'config'}->{'blast_threads'} // 1;
-	my %params        = (
+	my $program       = $self->{'params'}->{'seq_type'} eq 'peptide' ? 'tblastn' : 'blastn';
+
+	my $filter = $program eq 'blastn' ? 'dust' : 'seg';
+	my %params = (
 		-num_threads     => $blast_threads,
 		-max_target_seqs => $params->{'locus_count'} * 1000,
-		-word_size       => $params->{'word_size'},
+		-word_size       => $program eq 'blastn' ? $params->{'word_size'} : 3,
 		-db              => $params->{'fasta_file'},
 		-query           => $params->{'in_file'},
 		-out             => $params->{'out_file'},
 		-outfmt          => 6,
-		-dust            => 'no'
+		-$filter         => 'no'
 	);
-	my $program = "$self->{'config'}->{'blast+_path'}/blastn";
-	system( $program, %params );
+
+	my $path = "$self->{'config'}->{'blast+_path'}/$program";
+	system( $path, %params );
 	return;
 }
 
@@ -162,7 +166,7 @@ sub _parse_blast {
 	foreach my $locus ( sort keys %{ $self->{'options'}->{'locus_data'} } ) {
 		my $final_match;
 		my $quality            = 0;    #simple metric of alignment length x percentage identity
-		my $required_alignment = length $locus_data->{$locus}->{'sequence'};
+		my $required_alignment = length $locus_data->{$locus}->{'sequence'};	
 		my $criteria_matches   = 0;
 		$blast->{$locus} //= [];
 		foreach my $record ( @{ $blast->{$locus} } ) {
@@ -236,6 +240,7 @@ sub _extract_match {
 	} else {
 		$match->{'reverse'} = 0;
 	}
+	
 	if ( $required_alignment > $match->{'alignment'} ) {
 		if ( $match->{'reverse'} ) {
 			$match->{'predicted_start'} = $match->{'start'} - $ref_length + $record->[6];
