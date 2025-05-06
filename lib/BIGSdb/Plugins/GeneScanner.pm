@@ -75,7 +75,7 @@ sub get_attributes {
 		buttontext => 'GeneScanner',
 		menutext   => 'GeneScanner',
 		module     => 'GeneScanner',
-		version    => '0.9.1',
+		version    => '0.9.2',
 		dbtype     => 'isolates',
 		section    => 'analysis,postquery',
 		input      => 'query',
@@ -394,9 +394,10 @@ sub run_job {
 			{ filename => "${job_id}_aligned.fas", description => 'Aligned sequences', compress => 1 } );
 		$self->{'jobManager'}
 		  ->update_job_status( $job_id, { percent_complete => 95, stage => 'Running mutation analysis' } );
-		my $analysis      = $params->{'analysis'} // 'n';
-		my $output_file   = "$self->{'config'}->{'tmp_dir'}/${job_id}.xlsx";
-		my $groups_clause = q();
+		my $analysis         = $params->{'analysis'} // 'n';
+		my $output_filename  = "${job_id}_nucleotide_mutation_analysis.xlsx";
+		my $output_full_path = "$self->{'config'}->{'tmp_dir'}/$output_filename";
+		my $groups_clause    = q();
 		if ( $params->{'group_csv_file'} ) {
 			my $file = $params->{'group_csv_file'};
 			$groups_clause = qq( --groups "$self->{'config'}->{'tmp_dir'}/$file");
@@ -418,20 +419,21 @@ sub run_job {
 			$snp_sites_clause = qq( --snp_sites_path $self->{'config'}->{'snp_sites_path'} --vcf);
 		}
 		eval {
-			system( "$self->{'config'}->{'genescanner_path'} -a $alignment_file -t $analysis -o $output_file "
+			system( "$self->{'config'}->{'genescanner_path'} -a $alignment_file -t $analysis "
+				  . "--output $self->{'config'}->{'tmp_dir'} --quiet "
 				  . "--mafft_path $self->{'config'}->{'mafft_path'} --job_id $job_id --tmp_dir "
 				  . "$self->{'config'}->{'secure_tmp_dir'} --frame $frame$groups_clause$reference_clause"
-				  . "$snp_sites_clause > /dev/null 2>&1" );
+				  . "$snp_sites_clause" );
 		};
 		$logger->error($@) if $@;
-		if ( -e $output_file ) {
+		if ( -e $output_full_path ) {
 			$self->{'jobManager'}->update_job_output( $job_id,
-				{ filename => "${job_id}.xlsx", description => 'Analysis output', compress => 1 } );
+				{ filename => $output_filename, description => 'Analysis output', compress => 1 } );
 		}
-		my $vcf_file = "$self->{'config'}->{'tmp_dir'}/${job_id}_aligned.vcf";
+		my $vcf_file = "$self->{'config'}->{'tmp_dir'}/${job_id}.vcf";
 		if ( -e $vcf_file ) {
-			$self->{'jobManager'}->update_job_output( $job_id,
-				{ filename => "${job_id}_aligned.vcf", description => 'VCF file', compress => 1 } );
+			$self->{'jobManager'}
+			  ->update_job_output( $job_id, { filename => "${job_id}.vcf", description => 'VCF file', compress => 1 } );
 		}
 	} else {
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => 'No sequences found to align.' } );
