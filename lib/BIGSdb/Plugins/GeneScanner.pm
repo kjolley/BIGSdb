@@ -394,10 +394,11 @@ sub run_job {
 			{ filename => "${job_id}_aligned.fas", description => 'Aligned sequences', compress => 1 } );
 		$self->{'jobManager'}
 		  ->update_job_status( $job_id, { percent_complete => 95, stage => 'Running mutation analysis' } );
-		my $analysis         = $params->{'analysis'} // 'n';
-		my $output_filename  = "${job_id}_nucleotide_mutation_analysis.xlsx";
-		my $output_full_path = "$self->{'config'}->{'tmp_dir'}/$output_filename";
-		my $groups_clause    = q();
+		my $analysis = $params->{'analysis'} // 'n';
+
+#		my $output_filename  = $analysis eq 'n' ? "${job_id}_nucleotide_mutation_analysis.xlsx" : "${job_id}_protein_mutation_analysis.xlsx";
+#		my $output_full_path = "$self->{'config'}->{'tmp_dir'}/$output_filename";
+		my $groups_clause = q();
 		if ( $params->{'group_csv_file'} ) {
 			my $file = $params->{'group_csv_file'};
 			$groups_clause = qq( --groups "$self->{'config'}->{'tmp_dir'}/$file");
@@ -426,9 +427,13 @@ sub run_job {
 				  . "$snp_sites_clause" );
 		};
 		$logger->error($@) if $@;
-		if ( -e $output_full_path ) {
-			$self->{'jobManager'}->update_job_output( $job_id,
-				{ filename => $output_filename, description => 'Analysis output', compress => 1 } );
+		foreach my $file_type (qw (nucleotide protein both)) {
+			my $filename  = "${job_id}_${file_type}_mutation_analysis.xlsx";
+			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
+			if ( -e $full_path ) {
+				$self->{'jobManager'}->update_job_output( $job_id,
+					{ filename => $filename, description => 'Analysis output', compress => 1 } );
+			}
 		}
 		my $vcf_file = "$self->{'config'}->{'tmp_dir'}/${job_id}.vcf";
 		if ( -e $vcf_file ) {
