@@ -395,9 +395,6 @@ sub run_job {
 		$self->{'jobManager'}
 		  ->update_job_status( $job_id, { percent_complete => 95, stage => 'Running mutation analysis' } );
 		my $analysis = $params->{'analysis'} // 'n';
-
-#		my $output_filename  = $analysis eq 'n' ? "${job_id}_nucleotide_mutation_analysis.xlsx" : "${job_id}_protein_mutation_analysis.xlsx";
-#		my $output_full_path = "$self->{'config'}->{'tmp_dir'}/$output_filename";
 		my $groups_clause = q();
 		if ( $params->{'group_csv_file'} ) {
 			my $file = $params->{'group_csv_file'};

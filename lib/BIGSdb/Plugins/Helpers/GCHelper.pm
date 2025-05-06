@@ -166,7 +166,7 @@ sub _parse_blast {
 	foreach my $locus ( sort keys %{ $self->{'options'}->{'locus_data'} } ) {
 		my $final_match;
 		my $quality            = 0;    #simple metric of alignment length x percentage identity
-		my $required_alignment = length $locus_data->{$locus}->{'sequence'};	
+		my $required_alignment = length $locus_data->{$locus}->{'sequence'};
 		my $criteria_matches   = 0;
 		$blast->{$locus} //= [];
 		foreach my $record ( @{ $blast->{$locus} } ) {
@@ -240,7 +240,7 @@ sub _extract_match {
 	} else {
 		$match->{'reverse'} = 0;
 	}
-	
+
 	if ( $required_alignment > $match->{'alignment'} ) {
 		if ( $match->{'reverse'} ) {
 			$match->{'predicted_start'} = $match->{'start'} - $ref_length + $record->[6];
@@ -267,7 +267,8 @@ sub _extract_sequence {
 	my $end   = $match->{'predicted_end'};
 	return if !defined $start || !defined $end;
 	if ( $end < $start ) {
-		$start = $end;
+		$start = $match->{'predicted_end'};
+		$end   = $match->{'predicted_start'};
 	}
 	my $seq_ref = $self->{'contigManager'}->get_contig_fragment(
 		{
