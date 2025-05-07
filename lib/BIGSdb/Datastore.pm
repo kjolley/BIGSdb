@@ -1817,12 +1817,27 @@ sub create_temp_locus_extended_attribute_table {
 	return $table;
 }
 
+sub _write_temp_file {
+	my ( $self, $filename, $text ) = @_;
+	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$filename";
+	if ( !-e $full_path ) {
+		open( my $fh, '>:encoding(utf8)', $full_path ) || $logger->error("Cannot open $full_path for writing");
+		say $fh $text;
+		close $fh;
+	}
+	return;
+}
+
 sub create_temp_sequence_extended_attributes_table {
 	my ( $self, $locus, $field ) = @_;
 	my $table = "temp_seq_att_l_${locus}_f_${field}";
 	$table =~ s/'/_PRIME_/gx;
 	$table =~ s/-/_DASH_/gx;
 	$table =~ s/\s/_SPACE_/gx;
+	if ( length $table > 60 ) {    #Pg label limit is 63 bytes.
+		$table = 'BIGSdb_temp_seq_att_' . Digest::MD5::md5_hex($table);
+		$self->_write_temp_file( $table, "$locus:$field" );
+	}
 	my $table_exists =
 	  $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=LOWER(?))', $table );
 	return $table if $table_exists;

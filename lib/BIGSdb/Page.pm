@@ -355,6 +355,24 @@ sub create_temp_tables {
 				$field =~ s/_SPACE_/ /gx;
 				$self->{'datastore'}->create_temp_sequence_extended_attributes_table( $locus, $field );
 			}
+			if ( $qry =~ /(BIGSdb_temp_seq_att_\w+)/x ) {    #Table name was too long to encode with locus+field
+				my $temp_file = $1;
+				my $path      = "$self->{'config'}->{'secure_tmp_dir'}/$temp_file";
+				if ( -e $path ) {
+					open( my $fh, '<:encoding(utf-8)', $path ) || $logger->error("Cannot open $path for reading.");
+					my $line = <$fh>;
+					close $fh;
+					chomp $line;
+					if ( $line =~ /([^:]+):([^:]+)/x ) {
+						my ( $locus, $field ) = ( $1, $2 );
+						$self->{'datastore'}->create_temp_sequence_extended_attributes_table( $locus, $field );
+					} else {
+						$logger->error("Field lookup table $temp_file has invalid format.");
+					}
+				} else {
+					$logger->error("File $path does not exist.");
+				}
+			}
 			while ( $qry =~ /temp_(pm|dm)_(.+?)_p_(\d+)/gx ) {
 				my ( $type, $locus, $position ) = ( $1, $2, $3 );
 				$locus =~ s/_PRIME_/'/gx;
@@ -3578,8 +3596,7 @@ sub modify_dataset_if_needed {
 			next if !defined $user->{'user_db'};
 			my $remote_user = $self->{'datastore'}->get_remote_user_info( $user->{'user_name'}, $user->{'user_db'} );
 			if ( $remote_user->{'user_name'} ) {
-				$user->{$_} = $remote_user->{$_}
-				  foreach qw(first_name surname email affiliation country sector);
+				$user->{$_} = $remote_user->{$_} foreach qw(first_name surname email affiliation country sector);
 			}
 		}
 	}
