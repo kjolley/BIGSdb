@@ -541,8 +541,8 @@ sub _print_interface {
 	say q(<p>This tool will create an alignment for a selected locus for the set of isolates chosen. Alternatively, )
 	  . q(you can enter an exemplar sequence to use rather than selecting a locus. A mutation analysis will then be )
 	  . q(performed.</p>);
-	say q(<p>The mutation analysis code can be found at <a href="https://github.com/jeju2486/caro_project">)
-	  . q(https://github.com/jeju2486/caro_project</a>.</p>);
+	say q(<p>The mutation analysis code can be found at <a href="https://github.com/jeju2486/GeneScanner">)
+	  . q(https://github.com/jeju2486/GeneScanner</a>.</p>);
 	say qq(<p>Analysis is limited to $max_records isolates.</p>);
 	say $q->start_form;
 	say q(<div class="scrollable"><div class="flex_container" style="justify-content:left">);
