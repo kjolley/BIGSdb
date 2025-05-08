@@ -113,7 +113,8 @@ sub _username_reminder {
 	my $domain      = $self->{'config'}->{'domain'} // DEFAULT_DOMAIN;
 	my $user_domain = $self->_get_user_domain;
 	my $message = qq(A user name reminder has been requested for the address $email_address (domain: $user_domain).\n);
-	$message .= qq(The request came from IP address: $ENV{'REMOTE_ADDR'}.\n\n);
+	$message .= qq(The request came from IP address: $ENV{'REMOTE_ADDR'}.\n\n)
+	  if !$self->{'config'}->{'no_client_ip_address'};
 	my $plural = @$usernames == 1 ? q() : q(s);
 	$message .= qq(This address is associated with the following user name$plural:\n\n);
 
@@ -229,7 +230,8 @@ sub _reset_password {
 	my $password = $self->_create_password;
 	my $message  = qq(A password reset has been requested for user '$username' with E-mail address '$email_address' )
 	  . qq((domain: $user_domain).\n);
-	$message .= qq(The request came from IP address: $ENV{'REMOTE_ADDR'}.\n\n);
+	$message .= qq(The request came from IP address: $ENV{'REMOTE_ADDR'}.\n\n)
+	  if !$self->{'config'}->{'no_client_ip_address'};
 	if (
 		$self->{'datastore'}->run_query(
 			'SELECT EXISTS(SELECT * FROM users WHERE (user_name,LOWER(email))=(?,LOWER(?)))',

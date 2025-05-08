@@ -114,10 +114,14 @@ sub add_job {
 	#Adjust for plugin level priority.
 	$priority += $params->{'priority'} if BIGSdb::Utils::is_int( $params->{'priority'} );
 
-	#If IP address already has jobs queued, i.e. not started, then lower the priority on any new
+	#If user or IP address already has jobs queued, i.e. not started, then lower the priority on any new
 	#jobs from them.  This will prevent a single user from flooding the queue and preventing other
 	#user jobs from running.
-	$priority += 2 if $self->_has_ip_address_got_queued_jobs( $params->{'ip_address'} );
+	if ( $params->{'username'} ) {
+		$priority += 2 if $self->_has_user_got_queued_jobs( $params->{'username'} );
+	} elsif ( !$self->{'config'}->{'no_client_ip_address'} ) {
+		$priority += 2 if $self->_has_ip_address_got_queued_jobs( $params->{'ip_address'} );
+	}
 	my $id         = $params->{'job_id'} // BIGSdb::Utils::get_random();
 	my $cgi_params = $params->{'parameters'};
 	$logger->logdie('CGI parameters not passed as a ref') if ref $cgi_params ne 'HASH';
@@ -242,6 +246,12 @@ sub _make_job_fingerprint {
 		$fingerprint = BIGSdb::Utils::random_string(32);
 	}
 	return $fingerprint;
+}
+
+sub _has_user_got_queued_jobs {
+	my ( $self, $user_name ) = @_;
+	return $self->_run_query( 'SELECT EXISTS(SELECT * FROM jobs WHERE (username,status)=(?,?))',
+		[ $user_name, 'submitted' ] );
 }
 
 sub _has_ip_address_got_queued_jobs {
