@@ -1808,7 +1808,8 @@ sub email {
 	foreach my $user ( $sender, $recipient ) {
 		my $address = Email::Valid->address( $user->{'email'} );
 		if ( !$address ) {
-			$logger->error("Invalid E-mail address for user $user->{'id'} - $user->{'email'}");
+			$logger->error("Invalid E-mail address for user $user->{'id'} - $user->{'email'}")
+			  if $user->{'id'} > 0;
 			return;
 		}
 	}
