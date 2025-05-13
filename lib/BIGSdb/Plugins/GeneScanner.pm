@@ -75,7 +75,7 @@ sub get_attributes {
 		buttontext => 'GeneScanner',
 		menutext   => 'GeneScanner',
 		module     => 'GeneScanner',
-		version    => '0.9.2',
+		version    => '0.9.3',
 		dbtype     => 'isolates',
 		section    => 'analysis,postquery',
 		input      => 'query',
@@ -424,7 +424,7 @@ sub run_job {
 				  . "$snp_sites_clause" );
 		};
 		$logger->error($@) if $@;
-		foreach my $file_type (qw (nucleotide protein both)) {
+		foreach my $file_type (qw (n p both)) {
 			my $filename  = "${job_id}_${file_type}_mutation_analysis.xlsx";
 			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
 			if ( -e $full_path ) {
