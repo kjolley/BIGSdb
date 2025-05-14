@@ -61,7 +61,6 @@ sub print_content {
 		if ( !$q->param('sequence') && $q->param('fasta_upload') ) {
 			my $upload_file = $self->_upload_fasta;
 			if ( -e $upload_file ) {
-				$logger->error($upload_file);
 				if ( -B $upload_file ) {
 					$self->print_bad_status(
 						{
