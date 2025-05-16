@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext         => 'Dataset',
 		menutext           => 'Dataset',
 		module             => 'Export',
-		version            => '1.16.0',
+		version            => '1.16.1',
 		dbtype             => 'isolates',
 		section            => 'export,postquery',
 		url                => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
@@ -851,7 +851,7 @@ sub _write_tab_text {
 				field                    => qr/^f_(.*)/x,
 				eav_field                => qr/^eav_(.*)/x,
 				locus                    => qr/^(s_\d+_l_|l_)(.*)/x,
-				locus_extended_attribute => qr/^lex_(.+)\|\|(.+)/x,
+				locus_extended_attribute => qr/^lex_(.+)\|_\|(.+)/x,
 				scheme_field             => qr/^s_(\d+)_f_(.*)/x,
 				lincode                  => qr/^lin_(\d+)$/x,
 				lincode_prefix           => qr/^linp_(\d+)_(\d+)$/x,
@@ -995,6 +995,7 @@ sub _get_header {
 		my $i = 0;
 		foreach (@$fields) {
 			my $field = $_;    #don't modify @$fields
+			$logger->error($field);
 			if (   $field =~ /^s_(\d+)_f/x
 				|| $field =~ /^lin_(\d+)$/x
 				|| $field =~ /^lin_(\d+)_(.+)$/x
@@ -1024,7 +1025,7 @@ sub _get_header {
 			$field =~ s/^.*___//x;
 			if ( $field =~ /^lex_/x ) {
 				$field =~ s/^lex_//x;
-				$field =~ s/\|\|/ /x;
+				$field =~ s/\|_\|/ /x;
 			}
 			if ($is_locus) {
 				$field =

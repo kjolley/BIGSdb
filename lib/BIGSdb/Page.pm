@@ -1578,8 +1578,8 @@ sub get_locus_extended_attributes_for_isolate_db {
 			  ->run_query( "SELECT * FROM $table", undef, { fetch => 'all_arrayref', slice => {} } );
 			$self->{'cache'}->{'locus_extended_attributes'} = [];
 			foreach my $att (@$data) {
-				push @{ $self->{'cache'}->{'locus_extended_attributes'} }, "lex_$att->{'locus'}||$att->{'field'}";
-				$self->{'cache'}->{'labels'}->{"lex_$att->{'locus'}||$att->{'field'}"} =
+				push @{ $self->{'cache'}->{'locus_extended_attributes'} }, "lex_$att->{'locus'}|_|$att->{'field'}";
+				$self->{'cache'}->{'labels'}->{"lex_$att->{'locus'}|_|$att->{'field'}"} =
 				  "$att->{'locus'} $att->{'field'}";
 			}
 		};

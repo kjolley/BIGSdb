@@ -478,7 +478,7 @@ sub get_selected_fields {
 
 	if ( $options->{'locus_extended_attributes'} ) {
 		foreach my $selected (@$selected_loci) {
-			if ( $selected =~ /^lex_(.+)\|\|/x ) {
+			if ( $selected =~ /^lex_(.+)\|_\|/x ) {
 				push @{ $locus_extended_attributes->{$1} }, $selected;
 			}
 		}
