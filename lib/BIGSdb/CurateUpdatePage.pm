@@ -192,17 +192,24 @@ sub _has_scheme_structure_changed {
 sub get_javascript {
 	my ($self)         = @_;
 	my $q              = $self->{'cgi'};
-	my %allowed_tables = map { $_ => 1 } qw(sequences query_interface_fields users);
+	my %allowed_tables = map { $_ => 1 } qw(sequences query_interface_fields users schemes);
 	return if !defined $q->param('table') || !$allowed_tables{ $q->param('table') };
 	my $buffer = << "END";
 \$(function () {
-  \$('#locus,#field,#flags,#sender,#country').multiselect({
+  \$('#locus,#field,#sender,#country').multiselect({
   	classes: 'filter',
  	menuHeight: 250,
  	menuWidth: 400,
  	noneSelectedText: '',
  	selectedList: 1,
   }).multiselectfilter();
+  \$('#flags').multiselect({
+  	classes: 'filter',
+ 	menuHeight: 250,
+ 	menuWidth: 400,
+ 	noneSelectedText: '',
+ 	selectedList: 1,
+  })
   \$('.dynamic').select2({
   	tags: true
   });
@@ -928,17 +935,18 @@ sub _prepare_extra_inserts_for_users {
 	if ( $newdata->{'user_db'} ) {
 		if ( $self->{'permissions'}->{'modify_site_users'} ) {
 			my $user_db = $self->{'datastore'}->get_user_db( $newdata->{'user_db'} );
-			push @$extra_transactions, {
+			push @$extra_transactions,
+			  {
 				statement =>
 				  'UPDATE users SET (surname,first_name,email,affiliation,country,sector,datestamp)=(?,?,?,?,?,?,?) '
 				  . 'WHERE user_name=?',
 				arguments => [
 					$newdata->{'surname'},     $newdata->{'first_name'}, $newdata->{'email'},
-					$newdata->{'affiliation'}, $newdata->{'country'},    $newdata->{'sector'}, 'now',
-					$newdata->{'user_name'}
+					$newdata->{'affiliation'}, $newdata->{'country'},    $newdata->{'sector'},
+					'now',                     $newdata->{'user_name'}
 				],
 				db => $user_db
-			};
+			  };
 		}
 		$newdata->{$_} = undef foreach qw(surname first_name email affiliation);
 	}

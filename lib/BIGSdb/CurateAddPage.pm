@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -731,8 +731,8 @@ sub _check_peptide_mutations {    ## no critic (ProhibitUnusedPrivateSubroutines
 
 sub _check_dna_mutations {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata, $problems ) = @_;
-	my $locus_info = $self->{'datastore'}->get_locus_info($newdata->{'locus'});
-	if ($locus_info->{'data_type'} eq 'peptide'){
+	my $locus_info = $self->{'datastore'}->get_locus_info( $newdata->{'locus'} );
+	if ( $locus_info->{'data_type'} eq 'peptide' ) {
 		push @$problems, 'You cannot define SNPs for peptide loci.';
 		return;
 	}
@@ -1034,10 +1034,10 @@ sub _check_lincode_schemes {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 }
 
 sub get_javascript {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	my %allowed_tables = map {$_ => 1}qw(sequences query_interface_fields user_group_members users);
-	return if !defined $q->param('table') || !$allowed_tables{$q->param('table')};
+	my ($self)         = @_;
+	my $q              = $self->{'cgi'};
+	my %allowed_tables = map { $_ => 1 } qw(sequences query_interface_fields user_group_members users schemes);
+	return if !defined $q->param('table') || !$allowed_tables{ $q->param('table') };
 	my $buffer = << "END";
 \$(function () {
  \$("#locus").change(function(){
@@ -1045,13 +1045,20 @@ sub get_javascript {
  	var url = '$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=add&table=sequences&locus=' + locus_name;
  	location.href=url;
   });
-  \$('#locus,#field,#flags,#sender,#user_id,#country').multiselect({
+  \$('#locus,#field,#sender,#user_id,#country').multiselect({
   	classes: 'filter',
  	menuHeight: 250,
  	menuWidth: 400,
  	noneSelectedText: '',
  	selectedList: 1,
   }).multiselectfilter();
+  \$('#flags').multiselect({
+  	classes: 'filter',
+ 	menuHeight: 250,
+ 	menuWidth: 400,
+ 	noneSelectedText: '',
+ 	selectedList: 1,
+  });
   \$('.dynamic').select2({
   	tags: true
   });

@@ -969,7 +969,7 @@ sub _create_extra_fields_for_schemes {    ## no critic (ProhibitUnusedPrivateSub
 		-id       => 'flags',
 		-values   => [SCHEME_FLAGS],
 		-multiple => 'multiple',
-		-default  => $current_flags
+		-default  => $current_flags,
 	);
 	$buffer .= q( <span class="comment">Use CTRL/SHIFT click to select or deselect values</span></li>);
 	$buffer .= qq(<li><label for="pubmed" class="form" style="width:${width}em">PubMed ids:&nbsp;</label>);
