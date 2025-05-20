@@ -995,7 +995,6 @@ sub _get_header {
 		my $i = 0;
 		foreach (@$fields) {
 			my $field = $_;    #don't modify @$fields
-			$logger->error($field);
 			if (   $field =~ /^s_(\d+)_f/x
 				|| $field =~ /^lin_(\d+)$/x
 				|| $field =~ /^lin_(\d+)_(.+)$/x
