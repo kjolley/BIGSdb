@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -205,7 +205,7 @@ sub _update {
 			if ( $field ne 'datestamp' && $field ne 'curator' && !$multiple ) {
 				local $" = q(; );
 				my $old = ref $data->{ lc($field) } ? qq(@{$data->{lc($field)}}) : $data->{ lc($field) } // q();
-				my $new = ref $newdata->{$field} ? qq(@{$newdata->{$field}}) : $newdata->{$field};
+				my $new = ref $newdata->{$field}    ? qq(@{$newdata->{$field}})  : $newdata->{$field};
 				$old //= q();
 				$new //= q();
 				if ( ( $atts->{$field}->{'type'} // q() ) eq 'geography_point' ) {
@@ -222,8 +222,8 @@ sub _update {
 		push @values, $data->{'id'};
 	}
 	my $codon_table_updates = $self->_prepare_codon_table_updates( $data->{'id'}, $newdata, $updated_field );
-	my $eav_updates = $self->_prepare_eav_updates( $data->{'id'}, $newdata, $updated_field );
-	my $alias_updates = $self->_prepare_alias_updates( $data->{'id'}, $newdata, $updated_field );
+	my $eav_updates         = $self->_prepare_eav_updates( $data->{'id'}, $newdata, $updated_field );
+	my $alias_updates       = $self->_prepare_alias_updates( $data->{'id'}, $newdata, $updated_field );
 	my ( $pubmed_updates, $error ) = $self->_prepare_pubmed_updates( $data->{'id'}, $newdata, $updated_field );
 	return if $error;
 	if ( $fields_updated || @$updated_field ) {
@@ -529,7 +529,7 @@ sub _print_allele_designations {
 	my $set_id = $self->get_set_id;
 	my ( $loci, $labels ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
 	say q(<label for="locus">Locus: </label>);
-	say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $loci, -labels => $labels );
+	say $q->popup_menu( -name => 'locus', -id => 'locus', -class => 'single', -values => $loci, -labels => $labels );
 	say $q->submit( -label => 'Add/update', -class => 'small_submit' );
 	$q->param( page       => 'alleleUpdate' );
 	$q->param( isolate_id => scalar $q->param('id') );

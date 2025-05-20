@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -170,16 +170,16 @@ sub _get_existing_designations {
 			my ( $edit, $delete ) = ( EDIT, DELETE );
 			my $des_id = $designation->{'id'};
 			$buffer .=
-			    qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . qq(page=alleleUpdate&amp;isolate_id=$isolate_id&amp;locus=$locus&amp;${des_id}_update=1" )
 			  . qq(class="action">$edit</a>);
 			$buffer .= q(</td><td>);
 			$buffer .=
-			    qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . qq(page=alleleUpdate&amp;isolate_id=$isolate_id&amp;locus=$locus&amp;${des_id}_delete=1&amp;)
 			  . qq(sent2=1" class="action">$delete</a>);
 			$buffer .=
-			    qq(</td><td>$designation->{'allele_id'}</td><td>$sender->{'first_name'} $sender->{'surname'}</td>)
+				qq(</td><td>$designation->{'allele_id'}</td><td>$sender->{'first_name'} $sender->{'surname'}</td>)
 			  . qq(<td>$designation->{'status'}</td><td>$designation->{'method'}</td><td>$designation->{'comments'}</td></tr>);
 			$td = $td == 1 ? 2 : 1;
 		}
@@ -222,7 +222,7 @@ sub get_javascript {
 	my ($self) = @_;
 	my $buffer = << "END";
 \$(function () {
-  \$('#allele_designations_sender').multiselect({
+  \$('#allele_designations_sender,#locus').multiselect({
   	classes: 'filter',
  	menuHeight: 250,
  	menuWidth: 400,
@@ -378,7 +378,7 @@ sub get_title {
 	return 'Update allele' if $options->{'breadcrumb'};
 	my $desc  = $self->{'system'}->{'description'} || 'BIGSdb';
 	my $q     = $self->{'cgi'};
-	my $locus = $q->param('locus') || $q->param('allele_designations_locus');
+	my $locus = $q->param('locus')      || $q->param('allele_designations_locus');
 	my $id    = $q->param('isolate_id') || $q->param('allele_designations_isolate_id');
 	$id    //= '';
 	$locus //= '';
