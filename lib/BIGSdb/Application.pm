@@ -114,9 +114,9 @@ sub new {
 	$self->{'dbase_config_dir'} = $dbase_config_dir;
 	bless( $self, $class );
 	$self->read_config_file($config_dir);
-	$self->{'config'}->{'version'}   = $VERSION;
-	$self->{'max_upload_size_mb'}    = $self->{'config'}->{'max_upload_size'};
-	$self->{'max_query_size'} = $self->{'config'}->{'max_query_size'};
+	$self->{'config'}->{'version'} = $VERSION;
+	$self->{'max_upload_size_mb'}  = $self->{'config'}->{'max_upload_size'};
+	$self->{'max_query_size'}      = $self->{'config'}->{'max_query_size'};
 	$ENV{'TMPDIR'} =    ## no critic (RequireLocalizedPunctuationVars)
 	  $self->{'config'}->{'secure_tmp_dir'};
 
@@ -224,10 +224,6 @@ sub _initiate {
 	$q->param( page => $cleaned_page );
 	$self->{'page'} = $q->param('page');
 	my %query_page = map { $_ => 1 } qw(sequenceQuery batchSequenceQuery);
-	$logger->error( $self->{'page'} );
-	$logger->error($content_length);
-	$logger->error( $self->{'max_query_size'} );
-
 	if ( $query_page{ $self->{'page'} } && $content_length > $self->{'max_query_size'} ) {
 		$self->{'error'} = 'tooBigQuery';
 		my $size = BIGSdb::Utils::get_nice_size($content_length);
@@ -544,10 +540,10 @@ sub print_page {
 	my $auth_cookies_ref;
 
 	if ( $self->{'error'} ) {
-		$page_attributes{'error'}                 = $self->{'error'};
-		$page_attributes{'max_upload_size_mb'}    = $self->{'max_upload_size_mb'};
-		$page_attributes{'max_query_size'} = $self->{'max_query_size'};
-		$page                                     = BIGSdb::ErrorPage->new(%page_attributes);
+		$page_attributes{'error'}              = $self->{'error'};
+		$page_attributes{'max_upload_size_mb'} = $self->{'max_upload_size_mb'};
+		$page_attributes{'max_query_size'}     = $self->{'max_query_size'};
+		$page                                  = BIGSdb::ErrorPage->new(%page_attributes);
 		$page->print_page_content;
 		if ( $page_attributes{'error'} ) {
 			$self->{'handled_error'} = 1;
