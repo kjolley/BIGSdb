@@ -2425,9 +2425,14 @@ sub add_bookmark {
 		return;
 	}
 	my $params = { %{ $q->Vars } };    #Don't nobble original contents
-	delete $params->{$_} foreach (qw(add_bookmark records currentpage lastpage table query_file bookmark db page));
+	delete $params->{$_}
+	  foreach (qw(add_bookmark records currentpage lastpage table query_file bookmark db page));
 	foreach my $param ( keys %$params ) {
-		delete $params->{$param} if $params->{$param} eq q();
+		if ( $params->{$param} eq q() ) {
+			delete $params->{$param};
+			next;
+		}
+
 		if ( $params->{$param} =~ /\0/x ) {    #Pg doesn't allow null characters
 			my @values = split( /\0/x, $params->{$param} );
 			$params->{$param} = \@values;
