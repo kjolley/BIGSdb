@@ -38,9 +38,10 @@ sub print_content {
 	say qq(<h1>$desc</h1>);
 	say q(<div class="box" id="statusbad">);
 	no warnings 'once';
-	my $upload_limit   = BIGSdb::Utils::get_nice_size( $self->{'max_upload_size_mb'} // 0 );
-	my $content_length = BIGSdb::Utils::get_nice_size( $ENV{'CONTENT_LENGTH'}        // 0 );
-	my %error          = (
+	my $upload_limit     = BIGSdb::Utils::get_nice_size( $self->{'max_upload_size_mb'} // 0 );
+	my $query_size_limit = BIGSdb::Utils::get_nice_size( $self->{'max_query_size'}     // 0 );
+	my $content_length   = BIGSdb::Utils::get_nice_size( $ENV{'CONTENT_LENGTH'}        // 0 );
+	my %error            = (
 		missingXML    => q(Database description file does not exist!),
 		invalidXML    => q(Invalid database description file specified!),
 		invalidDbType => q(Invalid database type specified! Please set dbtype to either 'isolates' )
@@ -59,7 +60,9 @@ sub print_content {
 		configAccessDenied => q(Your user account cannot access this database configuration.  If you believe )
 		  . q(this to be an error, please contact the system administrator.),
 		tooBig => q(You are attempting to upload too much data in one go.  )
-		  . qq(Uploads are limited to a size of $upload_limit - you attempted to upload $content_length.)
+		  . qq(Uploads are limited to a size of $upload_limit - you attempted to upload $content_length.),
+		tooBigQuery => q(You are attempting to query too much data in one go.  )
+		  . qq(Queries are limited to a size of $query_size_limit - you attempted to upload $content_length.)
 	);
 
 	if ( $self->{'error'} eq 'unknown' ) {
@@ -96,7 +99,7 @@ sub print_content {
 sub get_title {
 	my ( $self, $options ) = @_;
 	return 'Error' if $options->{'breadcrumb'};
-	my $desc = $self->{'system'}->{'description'} || 'BIGSdb';
+	my $desc  = $self->{'system'}->{'description'} || 'BIGSdb';
 	my %error = (
 		unknown                  => "Unknown function - $desc",
 		missingXML               => "Missing database configuration - $desc",

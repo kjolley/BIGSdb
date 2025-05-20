@@ -199,6 +199,8 @@ sub read_config_file {
 	$self->{'config'}->{'doclink'}         //= 'http://bigsdb.readthedocs.io/en/latest';
 	$self->{'config'}->{'max_upload_size'} //= 32;
 	$self->{'config'}->{'max_upload_size'} *= 1024 * 1024;
+	$self->{'config'}->{'max_query_size'} //= 20;
+	$self->{'config'}->{'max_query_size'} *= 1024 * 1024;
 	if ( $self->{'config'}->{'site_user_dbs'} ) {
 		my @user_dbs;
 		my @user_db_values = split /\s*,\s*/x, $self->{'config'}->{'site_user_dbs'};
