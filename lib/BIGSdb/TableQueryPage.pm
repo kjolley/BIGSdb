@@ -434,7 +434,8 @@ sub _get_user_table_values {
 			undef, { db => $user_db, fetch => 'all_arrayref', slice => {} } );
 		next if !@$remote_values;
 		foreach my $remote (@$remote_values) {
-			next if !$user{ $remote->{'user_name'} };
+			next if !defined $user{ $remote->{'user_name'} };
+			next if !defined $remote->{$field};
 			push @$values, $remote->{$field};
 		}
 	}
