@@ -252,7 +252,7 @@ sub _print_visualisation_type_controls {
 			-style => 'width:14em',
 			-value => ref $element->{'specific_values'}
 			? qq(@{$element->{'specific_values'}})
-			: $element->{'specific_values'},
+			: q(),
 			-placeholder => 'One value per line...',
 		);
 	}
@@ -1716,6 +1716,7 @@ sub _get_multiselect_field_subtitle {
 	my ( $self, $element ) = @_;
 	local $" = q(, );
 	my $value_count = ref $element->{'specific_values'} ? @{ $element->{'specific_values'} } : 0;
+	$element->{'specific_values'} = [] if !$value_count;
 	my $title =
 	  $value_count <= ( $element->{'width'} // 1 ) * 2
 	  ? qq(@{$element->{'specific_values'}})

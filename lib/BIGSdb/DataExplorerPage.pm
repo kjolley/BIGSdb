@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2021-2022, University of Oxford
+#Copyright (c) 2021-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -38,8 +38,8 @@ sub _ajax_table {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by 
 		project_id           => scalar $q->param('project_id')
 	};
 	my $values = $self->_get_values( $field, $params );
-	my $table = $self->_get_table( $field, $values, $params );
-	my $json = JSON->new->allow_nonref;
+	my $table  = $self->_get_table( $field, $values, $params );
+	my $json   = JSON->new->allow_nonref;
 	say $json->encode($table);
 	return;
 }
@@ -211,7 +211,7 @@ sub _get_field_names {
 sub _create_freq_table {
 	my ( $self, $params ) = @_;
 	my $list_table = $self->{'datastore'}->create_temp_list_table_from_array( 'text', $params->{'values'} );
-	my $check = $self->_check_fields($params);
+	my $check      = $self->_check_fields($params);
 	my (
 		$list_field,    $includes_null, $primary_fields, $extended_fields, $eav_fields,
 		$scheme_fields, $group_fields,  $multi_values,   $user_fields
@@ -357,7 +357,7 @@ sub _check_fields {
 			my $att = $self->{'xmlHandler'}->get_field_attributes($this_field);
 			push @$primary_fields, $this_field;
 			if ( $field eq $params->{'fields'}->[0] ) {
-				$list_field = lc( $att->{'type'} ) ne 'text' ? "CAST(v.$this_field AS text)" : "v.$this_field";
+				$list_field   = lc( $att->{'type'} ) ne 'text' ? "CAST(v.$this_field AS text)" : "v.$this_field";
 				$multi_values = 1 if ( $att->{'multiple'} // q() ) eq 'yes';
 			}
 			$user_fields{$this_field} = 1
@@ -403,7 +403,7 @@ sub _check_fields {
 				field     => $field_name
 			  };
 			my $cleaned_field_name = $self->_get_scheme_field_name( { scheme_id => $scheme_id, field => $field_name } );
-			my $table = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+			my $table              = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 			if ( $field eq $params->{'fields'}->[0] ) {
 				$list_field = $att->{'type'} ne 'text' ? qq(CAST($table.$field_name AS text)) : qq($table.$field_name);
 			}
@@ -476,7 +476,7 @@ sub _process_extended_fields {
 			push @$temp_fields, qq(COALESCE(CAST(e$i.value AS text),'No value') AS "_$field->{'attribute'}");
 		}
 		push @$tables,
-		    "isolate_value_extended_attributes e$i ON "
+			"isolate_value_extended_attributes e$i ON "
 		  . "(e$i.isolate_field,e$i.attribute,e$i.field_value)="
 		  . "('$field->{'isolate_field'}','$field->{'attribute'}',v.$field->{'isolate_field'})";
 		$i++;
@@ -543,9 +543,9 @@ sub _get_scheme_field_name {
 }
 
 sub print_content {
-	my ($self) = @_;
-	my $title  = $self->get_title;
-	my $q      = $self->{'cgi'};
+	my ($self)       = @_;
+	my $title        = $self->get_title;
+	my $q            = $self->{'cgi'};
 	my %ajax_methods = ( updateTable => '_ajax_table', analyse => '_ajax_analyse' );
 	foreach my $method ( sort keys %ajax_methods ) {
 		my $sub = $ajax_methods{$method};
@@ -675,7 +675,7 @@ sub _get_table {
 		return { html => q(<p>No values to display</p>) };
 	}
 	my %checked;
-	if ( $params->{'checked_values'} ) {
+	if ( $params->{'checked_values'} && ref $params->{'checked_values'} ) {
 		%checked = map { $_ => 1 } @{ $params->{'checked_values'} };
 	}
 	my $q             = $self->{'cgi'};
@@ -691,7 +691,7 @@ sub _get_table {
 	$table .= q(</th></tr></thead><tbody>);
 
 	foreach my $value ( sort { $values->{$b} <=> $values->{$a} } keys %$values ) {
-		my $url = $self->_get_url( $field, $value, $params );
+		my $url     = $self->_get_url( $field, $value, $params );
 		my $percent = BIGSdb::Utils::decimal_place( 100 * $values->{$value} / $total, 2 );
 		my $label;
 		if ($is_user_field) {
@@ -755,7 +755,7 @@ sub _get_url {
 		$url .= '&include_old=on';
 	}
 	if ( $params->{'record_age'} ) {
-		my $row = $url =~ /prov_field1/x ? 2 : 1;
+		my $row       = $url =~ /prov_field1/x ? 2 : 1;
 		my $datestamp = $self->get_record_age_datestamp( $params->{'record_age'} );
 		$url .= "&prov_field$row=f_date_entered&prov_operator$row=>=&prov_value$row=$datestamp";
 	}
@@ -820,7 +820,7 @@ sub _get_primary_metadata_values {
 sub _get_extended_field_values {
 	my ( $self, $field, $attribute, $params ) = @_;
 	my $qry =
-	    "SELECT COALESCE(e.value,'No value') AS label,COUNT(*) AS count FROM $self->{'system'}->{'view'} v "
+		"SELECT COALESCE(e.value,'No value') AS label,COUNT(*) AS count FROM $self->{'system'}->{'view'} v "
 	  . "LEFT JOIN isolate_value_extended_attributes e ON (v.$field,e.isolate_field,e.attribute)=(e.field_value,?,?) ";
 	my $filters = $self->_get_filters($params);
 	local $" = ' AND ';
@@ -847,7 +847,7 @@ sub _get_eav_field_values {
 	$qry .= " WHERE @$filters" if @$filters;
 	$qry .= ' GROUP BY label';
 	my $values = $self->{'datastore'}->run_query( $qry, $field, { fetch => 'all_arrayref', slice => {} } );
-	my $freqs = {};
+	my $freqs  = {};
 
 	foreach my $value (@$values) {
 		$freqs->{ $value->{'label'} } = $value->{'count'};
@@ -862,7 +862,7 @@ sub _get_scheme_field_values {
 	#We include the DISTINCT clause below because an isolate may have more than 1 row in the scheme
 	#cache table. This happens if the isolate has multiple STs (due to multiple allele hits).
 	my $qry =
-	    "SELECT COALESCE(CAST(s.$field AS text),'No value') AS label,COUNT(DISTINCT (v.id)) AS count FROM "
+		"SELECT COALESCE(CAST(s.$field AS text),'No value') AS label,COUNT(DISTINCT (v.id)) AS count FROM "
 	  . "$self->{'system'}->{'view'} v LEFT JOIN $scheme_table s ON v.id=s.id";
 	my $filters = $self->_get_filters($params);
 	local $" = ' AND ';
@@ -905,7 +905,7 @@ sub _print_filters {
 		-value => 'true',
 		-label => 'Include old record versions'
 	);
-	my $record_age = $q->param('record_age') // 0;
+	my $record_age        = $q->param('record_age') // 0;
 	my $record_age_labels = RECORD_AGE;
 	say qq(</li><li>Record age: <span id="record_age">$record_age_labels->{$record_age}</span>);
 	say q(<div id="record_age_slider" style="width:150px;margin-top:5px"></div>);
@@ -939,7 +939,7 @@ sub get_javascript {
 	my $json              = JSON->new->allow_nonref;
 	my $record_age_labels = $json->encode(RECORD_AGE);
 	my $q                 = $self->{'cgi'};
-	my $field             = $q->param('field') // q();
+	my $field             = $q->param('field')      // q();
 	my $record_age        = $q->param('record_age') // 0;
 	my $buffer            = << "END";
 	var url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}";
