@@ -520,7 +520,7 @@ sub _initiate_plugin {
 	try {
 		my $att = $self->{'pluginManager'}->get_plugin_attributes($plugin_name);
 		$self->{'breadcrumbs'} = $self->_get_plugin_breadcrumbs($att);
-		if ( $att->{'language'} eq 'Python' ) {
+		if ( ( $att->{'language'} // q() ) eq 'Python' ) {
 			if ( $att->{'init'} ) {
 				foreach my $key ( keys %{ $att->{'init'} } ) {
 					$self->{$key} = $att->{'init'}->{$key};
