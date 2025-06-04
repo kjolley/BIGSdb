@@ -707,7 +707,7 @@ sub print_page_content {
 		);
 		$header_options{'-type'}       = $mime_type{ $self->{'type'} }  // 'text/plain';
 		$header_options{'-attachment'} = $attachment{ $self->{'type'} } // $self->{'attachment'} // undef;
-		my %utf8_types = map { $_ => 1 } qw(no_header text json);
+		my %utf8_types = map { $_ => 1 } qw(no_header text json gff3);
 		binmode STDOUT, ':encoding(utf8)' if $utf8_types{ $self->{'type'} };
 		print $q->header( \%header_options );
 		$self->print_content;
