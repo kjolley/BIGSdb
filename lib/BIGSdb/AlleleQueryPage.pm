@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -149,7 +149,7 @@ sub print_content {
 		$self->_print_interface;
 	}
 	if ( defined $q->param('submit') || defined $q->param('query_file') || defined $q->param('t1') ) {
-		if ( $q->param('locus') eq q() ) {
+		if ( $locus eq q() ) {
 			$self->print_bad_status(
 				{
 						message => q(Please select locus or use the general )
