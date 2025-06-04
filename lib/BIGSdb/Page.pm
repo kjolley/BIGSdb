@@ -1288,8 +1288,12 @@ sub _print_breadcrumbs {
 			#Simple conversion of markdown (bold and italics) to HTML.
 			my $label = $crumb->{'label'};
 			if ( !defined $label ) {
-				$logger->error("$self->{'instance'}: Breadcrumb label not set.");
-				$label = q();
+				if ( $page eq 'plugin' ) {
+					$label = 'Invalid plugin';
+				} else {
+					$logger->error("$self->{'instance'}: Breadcrumb label not set.");
+					$label = q();
+				}
 			}
 			$label =~ s/\*\*(.*?)\*\*/<strong>$1\<\/strong>/gx;
 			$label =~ s/\*(.*?)\*/<em>$1\<\/em>/gx;
