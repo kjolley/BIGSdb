@@ -99,6 +99,7 @@ sub print_content {
 	$self->print_general_announcement;
 	my $additional_message = $self->get_date_restriction_message;
 	$additional_message .= $self->get_embargo_message;
+
 	if ( $options->{'banner_text'} ) {
 		say q(<div class="box banner">);
 		say $self->_format_banner( $options->{'banner_text'} );
@@ -1211,6 +1212,9 @@ sub _read_default_dashboard_toml {
 			"$self->{'config_dir'}/dashboard_primary.toml",
 			"$self->{'config_dir'}/dashboard.toml"
 		  );
+	}
+	if ( !defined $self->{'dashboard_type'} ) {
+		$logger->error("$self->{'instance'}: Dashboard_type not set.");
 	}
 	push @possible_files,
 	  (
@@ -4563,12 +4567,12 @@ sub _print_dashboard_management_fieldset {
 	}
 	say q(</li></ul>);
 	say q(</form>);
-	if (!$self->{'username'}){
+	if ( !$self->{'username'} ) {
 		say q(</fieldset>);
 		return;
 	}
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	if ($user_info->{'status'} ne 'curator' && $user_info->{'status'} ne 'admin'){
+	if ( $user_info->{'status'} ne 'curator' && $user_info->{'status'} ne 'admin' ) {
 		say q(</fieldset>);
 		return;
 	}
