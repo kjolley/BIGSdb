@@ -394,7 +394,7 @@ sub run_job {
 			{ filename => "${job_id}_aligned.fas", description => 'Aligned sequences', compress => 1 } );
 		$self->{'jobManager'}
 		  ->update_job_status( $job_id, { percent_complete => 95, stage => 'Running mutation analysis' } );
-		my $analysis = $params->{'analysis'} // 'n';
+		my $analysis      = $params->{'analysis'} // 'n';
 		my $groups_clause = q();
 		if ( $params->{'group_csv_file'} ) {
 			my $file = $params->{'group_csv_file'};
@@ -520,6 +520,23 @@ sub _create_ref_fasta {
 	return $filename;
 }
 
+sub _print_info_panel {
+	my ($self) = @_;
+	my $logo = '/images/plugins/GeneScanner/logo.png';
+	say q(<div class="box" id="resultspanel">);
+	say q(<div style="float:left">);
+	say qq(<img src="$logo" style="width:200px;margin-right:20px" />);
+	say q(</div>);
+	say q(<p><span class="flag" style="color:#c40d13">BETA test version</span></p>);
+	say q(<p>This tool will create an alignment for a selected locus for the set of isolates chosen. Alternatively, )
+	  . q(you can enter an exemplar sequence to use rather than selecting a locus. A mutation analysis will then be )
+	  . q(performed.</p>);
+	say q(<p>The mutation analysis code can be found at <a href="https://github.com/jeju2486/GeneScanner">)
+	  . q(https://github.com/jeju2486/GeneScanner</a>.</p>);
+	say q(</div>);
+	return;
+}
+
 sub _print_interface {
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
@@ -536,13 +553,9 @@ sub _print_interface {
 	}
 	my $attr        = $self->get_attributes;
 	my $max_records = $attr->{'max'};
+	$self->_print_info_panel;
 	say q(<div class="box" id="queryform">);
-	say q(<p><span class="flag" style="color:#c40d13">BETA test version</span></p>);
-	say q(<p>This tool will create an alignment for a selected locus for the set of isolates chosen. Alternatively, )
-	  . q(you can enter an exemplar sequence to use rather than selecting a locus. A mutation analysis will then be )
-	  . q(performed.</p>);
-	say q(<p>The mutation analysis code can be found at <a href="https://github.com/jeju2486/GeneScanner">)
-	  . q(https://github.com/jeju2486/GeneScanner</a>.</p>);
+
 	say qq(<p>Analysis is limited to $max_records isolates.</p>);
 	say $q->start_form;
 	say q(<div class="scrollable"><div class="flex_container" style="justify-content:left">);
