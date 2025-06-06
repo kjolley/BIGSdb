@@ -525,7 +525,7 @@ sub _print_info_panel {
 	my $logo = '/images/plugins/GeneScanner/logo.png';
 	say q(<div class="box" id="resultspanel">);
 	say q(<div style="float:left">);
-	say qq(<img src="$logo" style="width:200px;margin-right:20px" />);
+	say qq(<img src="$logo" style="width:200px;margin-right:20px;filter:drop-shadow(5px 5px 4px #888)" />);
 	say q(</div>);
 	say q(<p><span class="flag" style="color:#c40d13">BETA test version</span></p>);
 	say q(<p>This tool will create an alignment for a selected locus for the set of isolates chosen. Alternatively, )
