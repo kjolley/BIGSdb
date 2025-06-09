@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -30,8 +30,12 @@ sub print_content {
 	if ( $self->{'error'} eq 'ajaxLoggedOut' ) {
 		my $q    = $self->{'cgi'};
 		my $page = $q->param('page');
-		say qq(Logged out - please <a href="$self->{'system'}->{'script_name'}?)
-		  . qq(db=$self->{'instance'}&amp;page=$page">reload page</a>.);
+		if ( defined $self->{'instance'} ) {
+			say qq(Logged out - please <a href="$self->{'system'}->{'script_name'}?)
+			  . qq(db=$self->{'instance'}&amp;page=$page">reload page</a>.);
+		} else {
+			say q(Logged out);
+		}
 		return;
 	}
 	my $desc = $self->get_title;
