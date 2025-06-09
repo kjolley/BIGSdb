@@ -88,8 +88,7 @@ sub get_attributes {
 		max   => $self->{'system'}->{'genescanner_record_limit'} // $self->{'config'}->{'genescanner_record_limit'}
 		  // MAX_RECORDS,
 		always_show_in_menu => 1,
-
-		#		image               => '/images/plugins/genescanner/screenshot.png'
+		image => '/images/plugins/GeneScanner/screenshot.png'
 	);
 	return \%att;
 }
