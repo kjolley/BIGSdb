@@ -390,7 +390,7 @@ sub run_job {
 	);
 	if ( -e $alignment_file ) {
 		$self->{'jobManager'}->update_job_output( $job_id,
-			{ filename => "${job_id}_aligned.fas", description => 'Aligned sequences', compress => 1 } );
+			{ filename => "${job_id}_aligned.fasta", description => 'Aligned DNA sequences', compress => 1 } );
 		$self->{'jobManager'}
 		  ->update_job_status( $job_id, { percent_complete => 95, stage => 'Running mutation analysis' } );
 		my $analysis      = $params->{'analysis'} // 'n';
@@ -420,7 +420,7 @@ sub run_job {
 				  . "--output $self->{'config'}->{'tmp_dir'} --quiet "
 				  . "--mafft_path $self->{'config'}->{'mafft_path'} --job_id $job_id --tmp_dir "
 				  . "$self->{'config'}->{'secure_tmp_dir'} --frame $frame$groups_clause$reference_clause"
-				  . "$snp_sites_clause" );
+				  . "$snp_sites_clause --temp" );
 		};
 		$logger->error($@) if $@;
 		foreach my $file_type (qw (n p both)) {
@@ -436,6 +436,13 @@ sub run_job {
 			$self->{'jobManager'}
 			  ->update_job_output( $job_id, { filename => "${job_id}.vcf", description => 'VCF file', compress => 1 } );
 		}
+		
+		my $prot_align_file = "$self->{'config'}->{'tmp_dir'}/${job_id}_All_prot_aligned.fasta";
+		if (-e $prot_align_file){
+			$self->{'jobManager'}->update_job_output( $job_id,
+			{ filename => "${job_id}_All_prot_aligned.fasta", description => 'Aligned protein sequences', compress => 1 } );
+		}
+		
 	} else {
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => 'No sequences found to align.' } );
 	}
@@ -461,7 +468,7 @@ sub _align {
 	my ( $aligner, $job_id, $isolate_ids, $locus, $scan_data ) =
 	  @{$args}{qw(aligner job_id isolate_ids locus scan_data)};
 	my $fasta_file  = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}.fas";
-	my $aligned_out = "$self->{'config'}->{'tmp_dir'}/${job_id}_aligned.fas";
+	my $aligned_out = "$self->{'config'}->{'tmp_dir'}/${job_id}_aligned.fasta";
 	open( my $fasta_fh, '>:encoding(utf8)', $fasta_file )
 	  || $self->{'logger'}->error("Cannot open $fasta_file for writing");
 	my $seq_count = 0;
