@@ -367,6 +367,7 @@ sub _has_required_item {
 		phyloviz_passwd        => 'phyloviz_passwd',
 		microreact_token       => 'microreact_token',
 		kleborate_path         => 'Kleborate',
+		kaptive_path           => 'Kaptive',
 		weasyprint_path        => 'weasyprint',
 		reportree_path         => 'ReporTree',
 		snp_sites_path         => 'snp_sites',
