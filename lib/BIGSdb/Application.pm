@@ -648,6 +648,18 @@ sub log_call {
 				$page = "$page [id: $isolate_id]";
 			}
 		},
+		embl => sub {
+			if ( defined $q->param('isolate_id') ) {
+				my $isolate_id = $q->param('isolate_id');
+				$page = "$page [id: $isolate_id]";
+			}
+		},
+		gff => sub {
+			if ( defined $q->param('isolate_id') ) {
+				my $isolate_id = $q->param('isolate_id');
+				$page = "$page [id: $isolate_id]";
+			}
+		},
 		info => sub {
 			if ( defined $q->param('id') ) {
 				my $isolate_id = $q->param('id');
