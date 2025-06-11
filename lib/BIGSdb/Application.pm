@@ -130,7 +130,7 @@ sub new {
 	$self->{'pages_needing_authentication'} = { map { $_ => 1 } PAGES_NEEDING_AUTHENTICATION };
 	$self->{'pages_needing_authentication'}->{'user'} = 1 if $self->{'config'}->{'site_user_dbs'};
 
-	foreach my $page (qw(downloadAlleles downloadProfiles downloadSeqbin embl)) {
+	foreach my $page (qw(downloadAlleles downloadProfiles downloadSeqbin embl gff)) {
 		$self->{'pages_needing_authentication'}->{$page} = 1 if $self->_download_requires_authentication($page);
 	}
 	my $q = $self->{'cgi'};
