@@ -437,10 +437,10 @@ sub run_job {
 			  ->update_job_output( $job_id, { filename => "${job_id}.vcf", description => 'VCF file', compress => 1 } );
 		}
 		
-		my $prot_align_file = "$self->{'config'}->{'tmp_dir'}/${job_id}_All_prot_aligned.fasta";
+		my $prot_align_file = "$self->{'config'}->{'tmp_dir'}/${job_id}_prot_aligned.fasta";
 		if (-e $prot_align_file){
 			$self->{'jobManager'}->update_job_output( $job_id,
-			{ filename => "${job_id}_All_prot_aligned.fasta", description => 'Aligned protein sequences', compress => 1 } );
+			{ filename => "${job_id}_prot_aligned.fasta", description => 'Aligned protein sequences', compress => 1 } );
 		}
 		
 	} else {
