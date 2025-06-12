@@ -75,7 +75,7 @@ sub get_attributes {
 		buttontext => 'GeneScanner',
 		menutext   => 'GeneScanner',
 		module     => 'GeneScanner',
-		version    => '0.9.3',
+		version    => '0.9.4',
 		dbtype     => 'isolates',
 		section    => 'analysis,postquery',
 		input      => 'query',
@@ -301,6 +301,7 @@ sub run {
 			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 			$q->delete('isolate_paste_list');
 			$q->delete('isolate_id');
+			$q->delete('group_list');
 			my $params = $q->Vars;
 			my $set_id = $self->get_set_id;
 			$params->{'set_id'}         = $set_id if $set_id;
