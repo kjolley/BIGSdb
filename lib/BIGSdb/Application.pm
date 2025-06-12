@@ -728,19 +728,21 @@ sub _plugin_requires_authentication {
 sub _download_requires_authentication {
 	my ( $self, $page ) = @_;
 	my $q              = $self->{'cgi'};
-	my %download_pages = map { $_ => 1 } qw(downloadAlleles downloadProfiles downloadSeqbin embl);
+	my %download_pages = map { $_ => 1 } qw(downloadAlleles downloadProfiles downloadSeqbin embl gff);
 	return if !$download_pages{$page};
 	my $attributes = {
 		downloadAlleles  => 'allele_downloads_require_login',
 		downloadProfiles => 'profile_downloads_require_login',
 		downloadSeqbin   => 'seqbin_downloads_require_login',
-		embl             => 'seqbin_downloads_require_login'
+		embl             => 'seqbin_downloads_require_login',
+		gff              => 'seqbin_downloads_require_login'
 	};
 	my $additional_param = {
 		downloadAlleles  => 'locus',
 		downloadProfiles => 'scheme_id',
 		downloadSeqbin   => 'isolate_id',
-		embl             => 'isolate_id'
+		embl             => 'isolate_id',
+		gff              => 'isolate_id'
 	};
 	return if !$q->param( $additional_param->{$page} );
 	return if ( $self->{'system'}->{ $attributes->{$page} } // q() ) eq 'no';
