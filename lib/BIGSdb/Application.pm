@@ -741,10 +741,8 @@ sub _download_requires_authentication {
 		downloadAlleles  => 'locus',
 		downloadProfiles => 'scheme_id',
 		downloadSeqbin   => 'isolate_id',
-		embl             => 'isolate_id',
-		gff              => 'isolate_id'
 	};
-	return if !$q->param( $additional_param->{$page} );
+	return if defined $additional_param->{$page} && !$q->param( $additional_param->{$page} );
 	return if ( $self->{'system'}->{ $attributes->{$page} } // q() ) eq 'no';
 	return
 	  if !( $self->{'config'}->{ $attributes->{$page} }
