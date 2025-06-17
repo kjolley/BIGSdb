@@ -475,12 +475,21 @@ sub _print_separate_scheme_data {
 }
 
 sub print_content {
-	my ($self)      = @_;
-	my $q           = $self->{'cgi'};
-	my $isolate_id  = $q->param('id');
+	my ($self)     = @_;
+	my $q          = $self->{'cgi'};
+	my $isolate_id = $q->param('id');
+	if (   !$q->param('no_header')
+		&& !$q->param('function')
+		&& ( defined $q->param('scheme_id') || defined $q->param('group_id') ) )
+	{
+		say q(<h1>Isolate information</h1>);
+		$self->print_bad_status( { message => q(Invalid method call.) } );
+		return;
+	}
 	my $set_id      = $self->get_set_id;
 	my $scheme_data = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
 	return if $self->_handle_scheme_ajax($isolate_id);
+
 	if ( !defined $isolate_id || $isolate_id eq '' ) {
 		say q(<h1>Isolate information</h1>);
 		say q(<div class="box statusbad"><p>No isolate id provided.</p></div>);
