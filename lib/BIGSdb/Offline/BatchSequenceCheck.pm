@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2019-2023, University of Oxford
+#Copyright (c) 2019-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -146,7 +146,6 @@ sub run {
 			record_count => $record_count
 		}
 	);
-	$self->_update_status_file( $status_file, 'complete', 100 );
 	$self->_write_results_file(
 		$full_path,
 		encode_json(
@@ -158,6 +157,7 @@ sub run {
 			}
 		)
 	);
+	$self->_update_status_file( $status_file, 'complete', 100 );
 	return $data_file;
 }
 
