@@ -1047,9 +1047,6 @@ sub _get_closest_matching_profile {
 				next LOCUS if $profile[$index] eq $allele;
 			}
 			$mismatches++;
-			if ( $pk eq '76' ) {
-				$self->{'logger'}->error("Mismatch locus: $locus - $designations->{$locus}->[0] --> $profile[$index]");
-			}
 		}
 		if ( $mismatches < $least_mismatches ) {
 			$least_mismatches = $mismatches;
