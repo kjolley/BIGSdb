@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2024, University of Oxford
+#Copyright (c) 2017-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -381,7 +381,8 @@ sub _get_scheme_exact_results {
 			$scheme_members = $self->{'datastore'}->get_scheme_loci($scheme_id);
 			next if none { $exact_matches->{$_} } @$scheme_members;
 		} else {
-			$scheme_members = $self->{'datastore'}->get_loci( { set_id => $set_id, data_type => $options->{'data_type'} } );
+			$scheme_members =
+			  $self->{'datastore'}->get_loci( { set_id => $set_id, data_type => $options->{'data_type'} } );
 		}
 		foreach my $locus (@$scheme_members) {
 			$scheme_buffer .= $self->_get_locus_matches(
@@ -1003,11 +1004,16 @@ sub _get_closest_matching_profile {
 	if ( defined $self->{'closest_matching_profiles'}->{$scheme_id} ) {
 		return $self->{'closest_matching_profiles'}->{$scheme_id};
 	}
-	my $pk_info          = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $pk_field );
-	my $order            = $pk_info->{'type'} eq 'integer' ? "CAST($pk_field AS int)" : $pk_field;
-	my $loci             = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $pk_field );
+	my $order   = $pk_info->{'type'} eq 'integer' ? "CAST($pk_field AS int)" : $pk_field;
+
+	#Profile array is stored alphabetically. Don't use Datastore::get_scheme_loci because we need to ensure that the
+	#order is the same as Pg orders - this can vary depending on the collation set (either case-sensitive or
+	#insensitive), whereas Perl is case sensitive.
+	my $loci = $self->{'datastore'}->run_query( 'SELECT locus FROM scheme_members WHERE scheme_id=? ORDER BY locus',
+		$scheme_id, { fetch => 'col_arrayref' } );
 	my $least_mismatches = @$loci;
-	my @locus_list       = sort @$loci;   #Profile array is always stored in alphabetical order, scheme order may not be
+
 	my $scheme_warehouse = "mv_scheme_$scheme_id";
 	$self->{'db'}->do("COPY $scheme_warehouse($pk_field,profile) TO STDOUT");
 	my $row;
@@ -1016,7 +1022,7 @@ sub _get_closest_matching_profile {
 	while ( $self->{'db'}->pg_getcopydata($row) >= 0 ) {
 		chomp $row;
 		my ( $pk, $profile_string ) = split /\t/x, $row;
-		$profile_string =~ s/^\{//x;    # Remove the curly braces
+		$profile_string =~ s/^\{//x;    #Remove the curly braces
 		$profile_string =~ s/\}$//x;    #Using 2 separate substitutions is benchmarked to much quicker.
 		my @profile;
 		if ( index( $profile_string, '"' ) == -1 ) {    #No double quotes - can just split on comma.
@@ -1028,7 +1034,7 @@ sub _get_closest_matching_profile {
 		}
 		my $mismatches = 0;
 		my $index      = -1;
-	  LOCUS: foreach my $locus (@locus_list) {
+	  LOCUS: foreach my $locus (@$loci) {
 			last LOCUS if $mismatches > $least_mismatches;    #Shortcut out
 			$index++;
 			next LOCUS if $profile[$index] eq 'N';
@@ -1041,6 +1047,9 @@ sub _get_closest_matching_profile {
 				next LOCUS if $profile[$index] eq $allele;
 			}
 			$mismatches++;
+			if ( $pk eq '76' ) {
+				$self->{'logger'}->error("Mismatch locus: $locus - $designations->{$locus}->[0] --> $profile[$index]");
+			}
 		}
 		if ( $mismatches < $least_mismatches ) {
 			$least_mismatches = $mismatches;
