@@ -29,7 +29,26 @@ sub run_script {
 	my $isolates    = $self->_process_user_genomes;
 	my $merged_data = {};
 	if ( $self->{'options'}->{'reference_file'} ) {
+		my $i    = 0;
+		my $last_progress;
 		foreach my $isolate_id (@$isolates) {
+			if (   $self->{'options'}->{'update_progress'}
+				&& $self->{'options'}->{'job_manager'}
+				&& $self->{'options'}->{'job_id'} )
+			{
+				my $start_progress  = $self->{'options'}->{'start_progress'}  // 0;
+				my $finish_progress = $self->{'options'}->{'finish_progress'} // 100;
+				my $range           = $finish_progress - $start_progress;
+				my $progress        = $start_progress + ( int( $i * $range / @$isolates ) );
+				if ( !defined $last_progress || $progress != $last_progress ) {
+					$last_progress = $progress;
+					$self->{'options'}->{'job_manager'}->update_job_status(
+						$self->{'options'}->{'job_id'},
+						{ percent_complete => $progress, stage => "Scanning isolate record $i" }
+					);
+				}
+			}
+			$i++;
 			my $data = $self->_get_allele_designations_from_reference($isolate_id);
 			$merged_data->{$isolate_id} = $data;
 		}

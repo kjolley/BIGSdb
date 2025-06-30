@@ -149,8 +149,7 @@ sub run {
 						if ( $isolate_count < @$isolates ) {
 							my $next_id     = @$no_scan + $isolate_count + 1;
 							my $job_manager = $self->_get_job_manager;
-							$job_manager->update_job_status(
-								$params->{'job_id'},
+							$job_manager->update_job_status( $params->{'job_id'},
 								{ percent_complete => $percent_complete, stage => "Scanning isolate record $next_id" }
 							);
 						}
@@ -181,6 +180,9 @@ sub run {
 			$self->_correct_new_designations( $data, $new_seqs, $by_ref );
 
 		}
+		if ($by_ref) {
+			$self->_rename_ref_designations($data);
+		}
 		return $data;
 	}
 
@@ -200,7 +202,7 @@ sub run {
 	my $batch_data = $scan_helper->get_results;
 	my $new_seqs   = $scan_helper->get_new_sequences;
 	if ($by_ref) {
-		$self->_rename_ref_designations_from_single_thread($batch_data);
+		$self->_rename_ref_designations($batch_data);
 	}
 	return $batch_data;
 }
@@ -236,14 +238,15 @@ sub _correct_new_designations {
 			}
 		}
 	}
+
 	return;
 }
 
-sub _rename_ref_designations_from_single_thread {
+sub _rename_ref_designations {
 	my ( $self, $data ) = @_;
 	foreach my $isolate_id ( keys %$data ) {
 		foreach my $locus ( keys %{ $data->{$isolate_id}->{'designations'} } ) {
-			$data->{$isolate_id}->{'designations'}->{$locus} =~ s/^new#//x;
+			$data->{$isolate_id}->{'designations'}->{$locus} =~ s/^new\#//x;
 		}
 	}
 	return;
