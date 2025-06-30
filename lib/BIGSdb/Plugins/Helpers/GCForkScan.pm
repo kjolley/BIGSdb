@@ -51,7 +51,8 @@ sub _get_job_manager {
 
 sub run {
 	my ( $self, $params ) = @_;
-	my $by_ref = $params->{'reference_file'} ? 1 : 0;
+	my $by_ref          = $params->{'reference_file'} ? 1 : 0;
+	my $finish_progress = $params->{'finish_progress'} // ( $params->{'align'} ? 20 : 80 );
 	if ( $params->{'threads'} && $params->{'threads'} > 1 ) {
 		my $script;
 		$script =
@@ -89,9 +90,9 @@ sub run {
 		}
 		undef $script;
 
-		my $data                 = {};
-		my $new_seqs             = {};
-		my $finish_progress      = $params->{'finish_progress'} // ( $params->{'align'} ? 20 : 80 );
+		my $data     = {};
+		my $new_seqs = {};
+
 		my $scan_finish_progress = int( $finish_progress * @$no_scan / @$isolates );
 		if (@$no_scan) {
 
@@ -147,8 +148,7 @@ sub run {
 						if ( $isolate_count < @$isolates ) {
 							my $next_id     = @$no_scan + $isolate_count + 1;
 							my $job_manager = $self->_get_job_manager;
-							$job_manager->update_job_status(
-								$params->{'job_id'},
+							$job_manager->update_job_status( $params->{'job_id'},
 								{ percent_complete => $percent_complete, stage => "Scanning isolate record $next_id" }
 							);
 						}
@@ -179,6 +179,9 @@ sub run {
 			$self->_correct_new_designations( $data, $new_seqs, $by_ref );
 
 		}
+		if ($by_ref) {
+			$self->_rename_ref_designations($data);
+		}
 		return $data;
 	}
 
@@ -189,16 +192,26 @@ sub run {
 			lib_dir          => $self->{'lib_dir'},
 			dbase_config_dir => $self->{'dbase_config_dir'},
 			logger           => $self->{'logger'},
-			options          => { always_run => 1, fast => 1, global_new => 1, no_user_db_needed => 1, %$params },
-			instance         => $params->{'database'},
-			user_params      => $params->{'user_params'},
-			locus_data       => $params->{'locus_data'}
+			options          => {
+				always_run        => 1,
+				fast              => 1,
+				global_new        => 1,
+				no_user_db_needed => 1,
+				job_manager       => $self->_get_job_manager,
+				update_progress   => 1,
+				finish_progress   => $finish_progress,
+				%$params
+			},
+			instance    => $params->{'database'},
+			user_params => $params->{'user_params'},
+			locus_data  => $params->{'locus_data'}
+
 		}
 	);
 	my $batch_data = $scan_helper->get_results;
 	my $new_seqs   = $scan_helper->get_new_sequences;
 	if ($by_ref) {
-		$self->_rename_ref_designations_from_single_thread($batch_data);
+		$self->_rename_ref_designations($batch_data);
 	}
 	return $batch_data;
 }
@@ -234,14 +247,15 @@ sub _correct_new_designations {
 			}
 		}
 	}
+
 	return;
 }
 
-sub _rename_ref_designations_from_single_thread {
+sub _rename_ref_designations {
 	my ( $self, $data ) = @_;
 	foreach my $isolate_id ( keys %$data ) {
 		foreach my $locus ( keys %{ $data->{$isolate_id}->{'designations'} } ) {
-			$data->{$isolate_id}->{'designations'}->{$locus} =~ s/^new#//x;
+			$data->{$isolate_id}->{'designations'}->{$locus} =~ s/^new\#//x;
 		}
 	}
 	return;
