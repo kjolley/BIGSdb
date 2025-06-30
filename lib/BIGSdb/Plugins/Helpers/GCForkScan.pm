@@ -52,8 +52,9 @@ sub _get_job_manager {
 
 sub run {
 	my ( $self, $params ) = @_;
-	my $by_ref = $params->{'reference_file'} ? 1 : 0;
 	$params->{'user_params'}->{'seq_type'} = $self->{'seq_type'};
+	my $by_ref          = $params->{'reference_file'} ? 1 : 0;
+	my $finish_progress = $params->{'finish_progress'} // ( $params->{'align'} ? 20 : 80 );
 	if ( $params->{'threads'} && $params->{'threads'} > 1 ) {
 		my $script;
 		$script =
@@ -91,9 +92,9 @@ sub run {
 		}
 		undef $script;
 
-		my $data                 = {};
-		my $new_seqs             = {};
-		my $finish_progress      = $params->{'finish_progress'} // ( $params->{'align'} ? 20 : 80 );
+		my $data     = {};
+		my $new_seqs = {};
+
 		my $scan_finish_progress = int( $finish_progress * @$no_scan / @$isolates );
 		if (@$no_scan) {
 
@@ -126,7 +127,7 @@ sub run {
 
 		my $pm =
 		  Parallel::ForkManager->new( $params->{'threads'}, $self->{'config'}->{'secure_tmp_dir'} );
-		my $isolate_count   = 0;
+		my $isolate_count = 0;
 
 		if ( $params->{'user_genomes'} ) {
 			my $id = -1;
@@ -193,10 +194,20 @@ sub run {
 			lib_dir          => $self->{'lib_dir'},
 			dbase_config_dir => $self->{'dbase_config_dir'},
 			logger           => $self->{'logger'},
-			options          => { always_run => 1, fast => 1, global_new => 1, no_user_db_needed => 1, %$params },
-			instance         => $params->{'database'},
-			user_params      => $params->{'user_params'},
-			locus_data       => $params->{'locus_data'}
+			options          => {
+				always_run        => 1,
+				fast              => 1,
+				global_new        => 1,
+				no_user_db_needed => 1,
+				job_manager       => $self->_get_job_manager,
+				update_progress   => 1,
+				finish_progress   => $finish_progress,
+				%$params
+			},
+			instance    => $params->{'database'},
+			user_params => $params->{'user_params'},
+			locus_data  => $params->{'locus_data'}
+
 		}
 	);
 	my $batch_data = $scan_helper->get_results;
