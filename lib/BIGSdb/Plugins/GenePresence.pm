@@ -54,7 +54,7 @@ sub get_attributes {
 		menutext   => 'Gene presence',
 		module     => 'GenePresence',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/gene_presence.html",
-		version    => '2.2.4',
+		version    => '2.3.0',
 		dbtype     => 'isolates',
 		section    => 'analysis,postquery',
 		input      => 'query',
