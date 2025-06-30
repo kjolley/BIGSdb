@@ -1,6 +1,6 @@
 #SNPsites.pm - Wrapper for snp-sites plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2024, University of Oxford
+#Copyright (c) 2024-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -57,7 +57,7 @@ sub get_attributes {
 		buttontext => 'SNPsites',
 		menutext   => 'SNPsites',
 		module     => 'SNPsites',
-		version    => '1.0.0',
+		version    => '1.1.0',
 		dbtype     => 'isolates',
 		section    => 'analysis,postquery',
 		input      => 'query',

@@ -65,7 +65,7 @@ sub get_attributes {
 		buttontext => 'Microreact',
 		menutext   => 'Microreact',
 		module     => 'Microreact',
-		version    => '1.5.1',
+		version    => '1.6.0',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',

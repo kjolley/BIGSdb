@@ -58,7 +58,7 @@ sub get_attributes {
 		buttontext => 'iTOL',
 		menutext   => 'iTOL',
 		module     => 'ITOL',
-		version    => '1.6.3',
+		version    => '1.7.0',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
