@@ -53,7 +53,7 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.7.1',
+		version             => '1.8.0',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',

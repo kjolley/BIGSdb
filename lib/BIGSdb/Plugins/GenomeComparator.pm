@@ -69,7 +69,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.8.6',
+		version     => '2.9.0',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -2143,7 +2143,7 @@ sub upload_user_file {
 sub assemble_data_for_defined_loci {
 	my ( $self, $args ) = @_;
 	my ( $job_id, $ids, $user_genomes, $loci ) = @{$args}{qw(job_id ids user_genomes loci )};
-	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Scanning isolate record 1' } );
+	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Assembling data' } );
 	my $locus_list   = $self->create_list_file( $job_id, 'loci',     $loci );
 	my $isolate_list = $self->create_list_file( $job_id, 'isolates', $ids );
 	my $params       = {
@@ -2187,7 +2187,7 @@ sub assemble_data_for_reference_genome {
 		BIGSdb::Exception::Plugin->throw(
 			q(No valid loci found. Make sure your reference contains locus definitions with DNA sequences.));
 	}
-	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Scanning isolate record 1' } );
+	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Assembling data' } );
 	my $isolate_list = $self->create_list_file( $job_id, 'isolates', $ids );
 	my $ref_seq_file = $self->_create_reference_FASTA_file( $job_id, $locus_data );
 	my $params       = {
