@@ -140,7 +140,10 @@ sub run {
 			}
 		}
 		if (@$need_scan) {
-			my $range = $finish_progress - $scan_finish_progress;
+			my $range       = $finish_progress - $scan_finish_progress;
+			my $job_manager = $self->_get_job_manager;
+			my $next_id     = @$no_scan + 1;
+			$job_manager->update_job_status( $params->{'job_id'}, { stage => "Scanning isolate record $next_id" } );
 			$pm->run_on_finish(
 				sub {
 					my ( $pid, $exit_code, $ident, $exit_signal, $core_dump, $ret_data ) = @_;
@@ -151,9 +154,9 @@ sub run {
 					if ( $params->{'job_id'} ) {
 						my $percent_complete = int( $scan_finish_progress + ( $isolate_count * $range ) / @$isolates );
 						if ( $isolate_count < @$isolates ) {
-							my $next_id     = @$no_scan + $isolate_count + 1;
-							my $job_manager = $self->_get_job_manager;
-							$job_manager->update_job_status( $params->{'job_id'},
+							$next_id = @$no_scan + $isolate_count + 1;
+							$job_manager->update_job_status(
+								$params->{'job_id'},
 								{ percent_complete => $percent_complete, stage => "Scanning isolate record $next_id" }
 							);
 						}
