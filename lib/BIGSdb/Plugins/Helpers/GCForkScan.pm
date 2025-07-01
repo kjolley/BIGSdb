@@ -72,22 +72,25 @@ sub run {
 		my $isolates  = $script->get_isolates;
 		my $need_scan = [];
 		my $no_scan   = [];
-
-		my $locus_list_table =
-		  $script->{'datastore'}->create_temp_list_table_from_array( 'text', $params->{'loci'} );
-		foreach my $isolate_id (@$isolates) {
-			my $designated_locus_count = $script->{'datastore'}->run_query(
-				'SELECT COUNT(DISTINCT(locus)) FROM allele_designations ad JOIN '
-				  . "$locus_list_table l ON ad.locus=l.value WHERE ad.isolate_id=?",
-				$isolate_id,
-				{ cache => 'GCForkScan::locus_count' }
-			);
-			if ( $designated_locus_count == @{ $params->{'loci'} }
-				|| ( !$params->{'rescan_missing'} && $designated_locus_count >= 0.5 * @{ $params->{'loci'} } ) )
-			{
-				push @$no_scan, $isolate_id;
-			} else {
-				push @$need_scan, $isolate_id;
+		if ($by_ref) {
+			$need_scan = $isolates;
+		} else {
+			my $locus_list_table =
+			  $script->{'datastore'}->create_temp_list_table_from_array( 'text', $params->{'loci'} );
+			foreach my $isolate_id (@$isolates) {
+				my $designated_locus_count = $script->{'datastore'}->run_query(
+					'SELECT COUNT(DISTINCT(locus)) FROM allele_designations ad JOIN '
+					  . "$locus_list_table l ON ad.locus=l.value WHERE ad.isolate_id=?",
+					$isolate_id,
+					{ cache => 'GCForkScan::locus_count' }
+				);
+				if ( $designated_locus_count == @{ $params->{'loci'} }
+					|| ( !$params->{'rescan_missing'} && $designated_locus_count >= 0.5 * @{ $params->{'loci'} } ) )
+				{
+					push @$no_scan, $isolate_id;
+				} else {
+					push @$need_scan, $isolate_id;
+				}
 			}
 		}
 		undef $script;
