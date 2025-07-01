@@ -134,6 +134,7 @@ sub get_new_sequences {
 
 sub _get_allele_designations_from_reference {
 	my ( $self, $isolate_id ) = @_;
+	$self->{'params'}->{$_} = $self->{'options'}->{$_} foreach qw(identity alignment word_size);
 	my $isolate_fasta = $self->_create_isolate_FASTA_db($isolate_id);
 	my $word_size =
 	  BIGSdb::Utils::is_int( $self->{'params'}->{'word_size'} )
