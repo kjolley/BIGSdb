@@ -118,7 +118,7 @@ sub _process_user_genomes {
 		  . "JOIN $temp_list_table t ON s.isolate_id=t.value) UNION SELECT * FROM $seqbin_table" );
 	$self->{'seqbin_table'} = $merged_seqbin_view;
 	$self->{'contigManager'}->set_seqbin_table($merged_seqbin_view);
-	return [ $self->{'options'}->{'i'} ] if defined $self->{'options'}->{'i'};
+	return [ split /,/x, $self->{'options'}->{'i'} ] if defined $self->{'options'}->{'i'};
 	return $isolate_ids;
 }
 
