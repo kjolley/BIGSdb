@@ -32,7 +32,7 @@ sub run_script {
 		my $i = 0;
 		my $last_progress;
 		foreach my $isolate_id (@$isolates) {
-			
+
 			if (   $self->{'options'}->{'update_progress'}
 				&& $self->{'options'}->{'job_manager'}
 				&& $self->{'options'}->{'job_id'} )
@@ -56,7 +56,7 @@ sub run_script {
 		my $loci = $self->get_selected_loci;
 		my $i    = 0;
 		my $last_progress;
-		foreach my $isolate_id (@$isolates) {			
+		foreach my $isolate_id (@$isolates) {
 			if (   $self->{'options'}->{'update_progress'}
 				&& $self->{'options'}->{'job_manager'}
 				&& $self->{'options'}->{'job_id'} )
@@ -68,7 +68,7 @@ sub run_script {
 				if ( !defined $last_progress || $progress != $last_progress ) {
 					$last_progress = $progress;
 					my $verb = $self->{'options'}->{'no_scan'} ? 'Retrieving' : 'Scanning';
-					my $id = $i + 1;
+					my $id   = $i + 1;
 					$self->{'options'}->{'job_manager'}->update_job_status( $self->{'options'}->{'job_id'},
 						{ percent_complete => $progress, stage => "$verb isolate record $id" } );
 				}
@@ -118,7 +118,7 @@ sub _process_user_genomes {
 		  . "JOIN $temp_list_table t ON s.isolate_id=t.value) UNION SELECT * FROM $seqbin_table" );
 	$self->{'seqbin_table'} = $merged_seqbin_view;
 	$self->{'contigManager'}->set_seqbin_table($merged_seqbin_view);
-	return [ $self->{'options'}->{'i'} ] if defined $self->{'options'}->{'i'};
+	return [ split /,/x, $self->{'options'}->{'i'} ] if defined $self->{'options'}->{'i'};
 	return $isolate_ids;
 }
 

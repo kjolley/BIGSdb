@@ -133,7 +133,7 @@ sub run {
 		if ( $params->{'user_genomes'} ) {
 			my $id = -1;
 			foreach ( keys %{ $params->{'user_genomes'} } ) {
-				unshift @$isolates, $id;
+				unshift @$need_scan, $id;
 				$id--;
 			}
 		}
@@ -153,8 +153,7 @@ sub run {
 						my $percent_complete = int( $scan_finish_progress + ( $isolate_count * $range ) / @$isolates );
 						if ( $isolate_count < @$isolates ) {
 							$next_id = @$no_scan + $isolate_count + 1;
-							$job_manager->update_job_status(
-								$params->{'job_id'},
+							$job_manager->update_job_status( $params->{'job_id'},
 								{ percent_complete => $percent_complete, stage => "Scanning isolate record $next_id" }
 							);
 						}
