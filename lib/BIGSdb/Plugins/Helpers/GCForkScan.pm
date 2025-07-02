@@ -150,7 +150,10 @@ sub run {
 					  foreach keys %{ $ret_data->{'local_new_seqs'} };
 					$isolate_count++;
 					if ( $params->{'job_id'} ) {
-						my $percent_complete = int( $scan_finish_progress + ( $isolate_count * $range ) / @$isolates );
+						my $percent_complete =
+						  @$isolates
+						  ? int( $scan_finish_progress + ( $isolate_count * $range ) / @$isolates )
+						  : $scan_finish_progress;
 						if ( $isolate_count < @$isolates ) {
 							$next_id = @$no_scan + $isolate_count + 1;
 							$job_manager->update_job_status( $params->{'job_id'},
