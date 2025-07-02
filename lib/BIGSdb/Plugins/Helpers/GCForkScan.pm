@@ -95,6 +95,14 @@ sub run {
 
 		my $data     = {};
 		my $new_seqs = {};
+		if ( $params->{'user_genomes'} ) {
+			my $id = -1;
+			foreach ( keys %{ $params->{'user_genomes'} } ) {
+				unshift @$need_scan, $id;
+				unshift @$isolates,  $id;
+				$id--;
+			}
+		}
 
 		my $scan_finish_progress = @$isolates ? int( $finish_progress * @$no_scan / @$isolates ) : 0;
 		if (@$no_scan) {
@@ -130,13 +138,6 @@ sub run {
 		  Parallel::ForkManager->new( $params->{'threads'}, $self->{'config'}->{'secure_tmp_dir'} );
 		my $isolate_count = 0;
 
-		if ( $params->{'user_genomes'} ) {
-			my $id = -1;
-			foreach ( keys %{ $params->{'user_genomes'} } ) {
-				unshift @$need_scan, $id;
-				$id--;
-			}
-		}
 		if (@$need_scan) {
 			my $range       = $finish_progress - $scan_finish_progress;
 			my $job_manager = $self->_get_job_manager;
