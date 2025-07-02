@@ -22,12 +22,22 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugin);
+use BIGSdb::Utils;
 use List::MoreUtils qw(uniq);
+use Text::CSV;
+use JSON;
+use File::Copy;
 
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_RECORDS => 1000;
 use constant VALID_DBS   => (qw(kpsc_k kpsc_o ab_k ab_o));
+use constant DB_NAMES    => {
+	kpsc_k => 'Klebsiella K locus',
+	kpsc_o => 'Klebsiella O locus',
+	ab_k   => 'Acinetobacter baumannii K locus',
+	ab_o   => 'Acinetobacter baumannii OC locus'
+};
 
 sub get_attributes {
 	my ($self) = @_;
@@ -227,7 +237,12 @@ sub _print_interface {
 		my @dbs = split /\s*,\s*/x, $self->{'system'}->{'Kaptive_dbs'};
 		local $" = q(, );
 		my $plural = @dbs == 1 ? q() : q(s);
-		say qq(<li>Database$plural: @dbs</li></ul>);
+		my @db_names;
+		my $db_names = DB_NAMES;
+		foreach my $db (@dbs) {
+			push @db_names, "$db_names->{$db} ($db)";
+		}
+		say qq(<li>Database$plural: @db_names</li></ul>);
 	} else {
 		$logger->error('Kaptive version not determined. Check configuration.');
 	}
@@ -262,7 +277,7 @@ sub _print_interface {
 sub _print_info_panel {
 	my ($self) = @_;
 	say << "HTML";
-<div class="box" id="resultspanel">
+<div class="box" id="resultspanel" style="min-height:100px">
 <div style="float:right">
 <img src="/images/plugins/Kaptive/logo.png" style="height:100px;margin:0 2em" />
 </div>
@@ -281,8 +296,8 @@ sub _get_kaptive_version {
 	my ($self)  = @_;
 	my $command = "$self->{'config'}->{'kaptive_path'} --version";
 	my $version = `$command`;
+	chomp $version;
 	return $version;
-
 }
 
 sub run_job {
@@ -294,28 +309,39 @@ sub run_job {
 	my $html        = q();
 	my $i           = 0;
 	my $progress    = 0;
-
-	#	my $table_html;
-	my $td = 1;
+	my $td          = 1;
 
 	my $version    = $self->_get_kaptive_version;
 	my @dbs        = split /\s*,\s*/x, $self->{'system'}->{'Kaptive_dbs'};
-	my $temp_out   = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}_temp.tsv";
 	my $labelfield = ucfirst( $self->{'system'}->{'labelfield'} );
+	my $db_names   = DB_NAMES;
 
 	foreach my $isolate_id (@$isolate_ids) {
-		$i++;
+		my $isolate_data = {};
+
 		$progress = int( $i / @$isolate_ids * 100 );
 		my $message = "Scanning isolate $i - id:$isolate_id";
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => $message } );
 		my $assembly_file = $self->_make_assembly_file( $job_id, $isolate_id );
+		my $output_num    = 11;
 
 		foreach my $db (@dbs) {
-			my $tsv_file = "$self->{'config'}->{'tmp_dir'}/${job_id}_$db.tsv";
+			my $tsv_file = "$self->{'config'}->{'tmp_dir'}/${job_id}_$db.txt";
 			my $temp_out = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}_temp_${isolate_id}_$db.tsv";
-			my $cmd = "$self->{'config'}->{'kaptive_path'} assembly $db $assembly_file --out $temp_out 2> /dev/null";
+			my $cmd      = "$self->{'config'}->{'kaptive_path'} assembly $db $assembly_file --out $temp_out "
+			  . "--plot $self->{'config'}->{'secure_tmp_dir'} --plot-fmt svg 2> /dev/null";
+
 			system($cmd);
 			if ( -e $temp_out ) {
+				my $data = $self->_tsv2arrayref($temp_out);
+				if ( ref $data eq 'ARRAY' ) {
+					if ( @$data == 1 ) {
+						$isolate_data->{$db}->{'fields'} = $data->[0];
+						delete $isolate_data->{$db}->{'Assembly'};
+					} elsif ( @$data > 1 ) {
+						$logger->error("Multiple rows reported for id-$isolate_id $db - This is unexpected.");
+					}
+				}
 				open( my $fh_in, '<:encoding(utf8)', $temp_out )
 				  || $logger->error("Cannot open $temp_out for reading.");
 				open( my $fh_out, '>>:encoding(utf8)', $tsv_file )
@@ -324,59 +350,119 @@ sub run_job {
 				$header =~ s/^Assembly/Id\t$labelfield/x;
 				print $fh_out $header if !-s $tsv_file;
 				my $name = $self->{'datastore'}
-					  ->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM isolates WHERE id=?", $isolate_id );
+				  ->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM isolates WHERE id=?", $isolate_id );
 				my $results_found;
+
 				while ( my $results = <$fh_in> ) {
 					$results_found = 1;
-					
 					$results =~ s/^${job_id}_$isolate_id/$isolate_id\t$name/x;
 					print $fh_out $results;
 				}
-				if (!$results_found){
-					my $col_count = scalar split/\t/x,$header;
-					my $blank_values = "\t-" x ($col_count - 2);
+				if ( !$results_found ) {
+					my $col_count    = scalar split /\t/x, $header;
+					my $blank_values = "\t-" x ( $col_count - 2 );
 					say $fh_out "$isolate_id\t$name$blank_values";
 				}
 				close $fh_in;
 				close $fh_out;
-			}
-
-			#			unlink $temp_out;
-			$self->{'jobManager'}->update_job_status(
-				$job_id,
-				{
-			 #				message_html     => qq(<div class="scrollable"><table class="resultstable">$table_html</table></div>),
-					percent_complete => $progress
+				my $svg_filename = "${job_id}_${isolate_id}_kaptive_results.svg";
+				my $svg_path = "$self->{'config'}->{'secure_tmp_dir'}/$svg_filename";
+				if ( -e $svg_path ) {
+					my $svg_ref = BIGSdb::Utils::slurp($svg_path);
+					$isolate_data->{$db}->{'svg'} = $$svg_ref;
+					if ( @$isolate_ids == 1 ) {
+						move(
+							"$self->{'config'}->{'secure_tmp_dir'}/$svg_filename",
+							"$self->{'config'}->{'tmp_dir'}/${job_id}_${isolate_id}_${db}.svg"
+						);
+						$self->{'jobManager'}->update_job_output(
+							$job_id,
+							{
+								filename    => "${job_id}_${isolate_id}_${db}.svg",
+								description => "$db_names->{$db} (SVG format)"
+							}
+						);
+						$output_num++;
+					}
 				}
-			);
+			}
+			$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $progress } );
 		}
-
-		#		my ( $headers, $results ) = $self->_extract_results($out_file);
-		#		my $isolate = $self->get_isolate_name_from_id($isolate_id);
-		#		$headers->[0] = $self->{'system'}->{'labelfield'};
-		#		$results->[0] = $isolate;
-		#		unshift @$headers, 'id';
-		#		unshift @$results, $isolate_id;
-		#		if ( !$table_html ) {
-		#			local $" = q(</th><th>);
-		#			$table_html = qq(<tr><th>@$headers</th></tr>\n);
-		#			local $" = qq(\t);
-		#			my $text_headers = qq(@$headers);
-		#			$self->_append_text_file( $text_file, $text_headers );
-		#		}
-		#		local $" = q(</td><td>);
-		#		$table_html .= qq(<tr class="td$td"><td>@$results</td></tr>);
-		#		$td = $td == 1 ? 2 : 1;
-		#		local $" = qq(\t);
-		#		$self->_append_text_file( $text_file, qq(@$results) );
-		#		$self->{'jobManager'}->update_job_status(
-		#			$job_id,
-		#			{
-		#				message_html     => qq(<div class="scrollable"><table class="resultstable">$table_html</table></div>),
-		#				percent_complete => $progress
-		#			}
-		#		);
+		$i++;
+		if ( keys %$isolate_data ) {
+			$self->_store_results( $isolate_id, $isolate_data );
+		}
 	}
+	$i = 1;
+
+	foreach my $db (@dbs) {
+		my $tsv_file = "$self->{'config'}->{'tmp_dir'}/${job_id}_$db.txt";
+		if ( -e $tsv_file ) {
+			my $id   = sprintf( '%02d', $i );
+			my $desc = "${id}_$db_names->{$db} (TSV format)";
+			$self->{'jobManager'}
+			  ->update_job_output( $job_id, { filename => "${job_id}_$db.txt", description => $desc } );
+			my $excel_file = BIGSdb::Utils::text2excel(
+				$tsv_file,
+				{
+					worksheet => 'Kaptive',
+					tmp_dir   => $self->{'config'}->{'secure_tmp_dir'},
+				}
+
+			);
+			$i++;
+			if ( -e $excel_file ) {
+				$id   = sprintf( '%02d', $i );
+				$desc = "${id}_$db_names->{$db} (Excel format)";
+				$self->{'jobManager'}->update_job_output( $job_id,
+					{ filename => "${job_id}_$db.xlsx", description => $desc, compress => 1 } );
+				$i++;
+			}
+		}
+	}
+	$self->delete_temp_files("$job_id*");
+	return;
+}
+
+sub _store_results {
+	my ( $self, $isolate_id, $data ) = @_;
+	my %ignore = map { $_ => 1 }
+	  qw(strain contig_count N50 largest_contig total_size ambiguous_bases ST Chr_ST gapA infB mdh pgi phoE rpoB tonB);
+	my $version = $self->_get_kaptive_version;
+	my $json    = encode_json( { version => $version, data => $data } );
+	my $att     = $self->get_attributes;
+	eval {
+		$self->{'db'}
+		  ->do( 'DELETE FROM analysis_results WHERE (isolate_id,name)=(?,?)', undef, $isolate_id, $att->{'module'} );
+		$self->{'db'}->do( 'INSERT INTO analysis_results (name,isolate_id,results) VALUES (?,?,?)',
+			undef, $att->{'module'}, $isolate_id, $json );
+		$self->{'db'}->do(
+			'INSERT INTO last_run (name,isolate_id) VALUES (?,?) ON '
+			  . 'CONFLICT (name,isolate_id) DO UPDATE SET timestamp = now()',
+			undef, $att->{'module'}, $isolate_id
+		);
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
+	return;
+}
+
+sub _tsv2arrayref {
+	my ( $self, $tsv_file ) = @_;
+	open( my $fh, '<', $tsv_file ) || $logger->error("Could not open '$tsv_file': $!");
+	my $tsv    = Text::CSV->new( { sep_char => "\t", binary => 1, auto_diag => 1 } );
+	my $header = $tsv->getline($fh);
+	$tsv->column_names(@$header);
+	my $rows = [];
+	while ( my $row = $tsv->getline_hr($fh) ) {
+		push @$rows, $row;
+	}
+	close $fh;
+	return $rows;
 }
 
 sub _make_assembly_file {
