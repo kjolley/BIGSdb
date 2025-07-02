@@ -96,7 +96,7 @@ sub run {
 		my $data     = {};
 		my $new_seqs = {};
 
-		my $scan_finish_progress = int( $finish_progress * @$no_scan / @$isolates );
+		my $scan_finish_progress = @$isolates ? int( $finish_progress * @$no_scan / @$isolates ) : 0;
 		if (@$no_scan) {
 
 			local $" = q(,);
