@@ -1,3 +1,5 @@
+v1.51.2: *Faster dataset construction for Genome Comparator and GrapeTree where
+          allele designations already stored.
 v1.51.1: *Use OAuth authentication for rMLST species plugin and tools.
 v1.51.0: *Support for collecting user country and affiliation sector.
 v1.50.3: *Added support for Kleborate v3 to plugin.
