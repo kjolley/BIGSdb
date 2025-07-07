@@ -1319,61 +1319,75 @@ sub _generate_distance_matrix {
 	my ( $self, $data ) = @_;
 	my $dismat       = {};
 	my $isolate_data = $data->{'isolate_data'};
-	my $ignore_loci  = [];
-	push @$ignore_loci, @{ $data->{'incomplete_in_some'} }
+
+	# Build ignore loci list
+	my @ignore_loci;
+	push @ignore_loci, @{ $data->{'incomplete_in_some'} || [] }
 	  if ( $self->{'params'}->{'truncated'} // '' ) eq 'exclude';
-	push @$ignore_loci, @{ $data->{'paralogous_in_all'} } if $self->{'params'}->{'exclude_paralogous_all'};
-	my %ignore_loci = map { $_ => 1 } @$ignore_loci;
+	push @ignore_loci, @{ $data->{'paralogous_in_all'} || [] }
+	  if $self->{'params'}->{'exclude_paralogous_all'};
+	my %ignore_loci = map { $_ => 1 } @ignore_loci;
+
+	# If by_ref is set, set all loci to '1' for reference isolate
 	if ( $data->{'by_ref'} ) {
 		foreach my $locus ( @{ $data->{'loci'} } ) {
-			$isolate_data->{0}->{'designations'}->{$locus} = '1';
+			$isolate_data->{0}{'designations'}{$locus} = '1';
 		}
 	}
+
 	my @ids = sort { $a <=> $b } keys %$isolate_data;
-	foreach my $i ( 0 .. @ids - 1 ) {
-		foreach my $j ( 0 .. $i ) {
-			$dismat->{ $ids[$i] }->{ $ids[$j] } = 0;
-			foreach my $locus ( @{ $data->{'loci'} } ) {
-				next if $ignore_loci{$locus};
-				if ( $self->{'params'}->{'exclude_paralogous_pairwise'} ) {
-					my %pairwise_ignore = map { $_ => 1 } (
-						@{ $data->{'isolate_data'}->{ $ids[$i] }->{'paralogous'} },
-						@{ $data->{'isolate_data'}->{ $ids[$j] }->{'paralogous'} }
-					);
-					next if $pairwise_ignore{$locus};
-				}
-				my $i_value = $isolate_data->{ $ids[$i] }->{'designations'}->{$locus};
-				my $j_value = $isolate_data->{ $ids[$j] }->{'designations'}->{$locus};
-				if ( $self->{'params'}->{'exclude_missing_pairwise'} ) {
-					next if $i_value eq 'missing';
-					next if $j_value eq 'missing';
-				}
-				if ( $self->_is_different( $i_value, $j_value ) ) {
-					$dismat->{ $ids[$i] }->{ $ids[$j] }++;
-				}
+
+	for my $i ( 0 .. $#ids ) {
+		my $id_i         = $ids[$i];
+		my $i_design     = $isolate_data->{$id_i}{'designations'};
+		my $i_paralogous = $isolate_data->{$id_i}{'paralogous'} || [];
+
+		for my $j ( 0 .. $i ) {
+			my $id_j         = $ids[$j];
+			my $j_design     = $isolate_data->{$id_j}{'designations'};
+			my $j_paralogous = $isolate_data->{$id_j}{'paralogous'} || [];
+
+			my %pairwise_ignore;
+			if ( $self->{'params'}->{'exclude_paralogous_pairwise'} ) {
+				%pairwise_ignore = map { $_ => 1 } ( @$i_paralogous, @$j_paralogous );
 			}
+
+			my $distance = 0;
+		  LOCUS: foreach my $locus ( @{ $data->{'loci'} } ) {
+				next LOCUS if $ignore_loci{$locus};
+				next LOCUS if $pairwise_ignore{$locus};
+
+				my $i_val = $i_design->{$locus};
+				my $j_val = $j_design->{$locus};
+
+				if ( $self->{'params'}->{'exclude_missing_pairwise'} ) {
+					next LOCUS if $i_val eq 'missing' || $j_val eq 'missing';
+				}
+
+				$distance++ if $self->_is_different( $i_val, $j_val );
+			}
+
+			$dismat->{$id_i}{$id_j} = $distance;
 		}
 	}
+
 	return $dismat;
 }
 
 #Helper for distance matrix generation
 sub _is_different {
-	my ( $self, $i_value, $j_value ) = @_;
-	my $different;
-	if ( $i_value ne $j_value ) {
-		if ( ( $self->{'params'}->{'truncated'} // q() ) eq 'pairwise_same' ) {
-			if (   ( $i_value eq 'incomplete' && $j_value eq 'missing' )
-				|| ( $i_value eq 'missing' && $j_value eq 'incomplete' )
-				|| ( $i_value ne 'incomplete' && $j_value ne 'incomplete' ) )
-			{
-				$different = 1;
-			}
-		} else {
-			$different = 1;
-		}
+	my ( $self, $i_val, $j_val ) = @_;
+	return 0 if $i_val eq $j_val;
+
+	if ( ( $self->{'params'}->{'truncated'} // '' ) eq 'pairwise_same' ) {
+		return 1
+		  if ( ( $i_val eq 'incomplete' && $j_val eq 'missing' )
+			|| ( $i_val eq 'missing' && $j_val eq 'incomplete' )
+			|| ( $i_val ne 'incomplete' && $j_val ne 'incomplete' ) );
+		return 0;
 	}
-	return $different;
+
+	return 1;
 }
 
 sub _make_nexus_file {
