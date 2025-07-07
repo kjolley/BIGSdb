@@ -97,7 +97,7 @@ sub blast_multiple_loci {
 		next DATATYPE if !@locus_list;
 		my $program        = $self->_get_program( $data_type, $params );
 		my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/${locus_prefix}_fastafile_$data_type.txt";
-		$self->_create_fasta_index( \@locus_list, $temp_fastafile,
+		return if $self->_create_fasta_index( \@locus_list, $temp_fastafile,
 			{ exemplar => $params->{'exemplar'}, type_alleles => $params->{'type_alleles'}, multiple_loci => 1 } );
 		return if !-e $temp_fastafile || -z $temp_fastafile;
 		$self->{'db'}->commit;    #prevent idle in transaction table locks
@@ -172,18 +172,18 @@ sub blast {
 	my ( $self, $params, $locus, $isolate_id, $file_prefix, $locus_prefix ) = @_;
 	my $locus_info   = $self->{'datastore'}->get_locus_info($locus);
 	my $program      = $self->_get_program( $locus_info->{'data_type'}, $params );
-	my $temp_infile  = "$self->{'config'}->{'secure_tmp_dir'}/$file_prefix\_file.txt";
-	my $temp_outfile = "$self->{'config'}->{'secure_tmp_dir'}/$file_prefix\_$$\_outfile.txt";
+	my $temp_infile  = "$self->{'config'}->{'secure_tmp_dir'}/${file_prefix}_file.txt";
+	my $temp_outfile = "$self->{'config'}->{'secure_tmp_dir'}/${file_prefix}_${$}_outfile.txt";
 	my $clean_locus  = $locus;
 	$clean_locus =~ s/\W/_/gx;
 	if ( $clean_locus =~ /(\w*)/x ) {
 		$clean_locus = $1;    #untaint
 	}
-	my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/$locus_prefix\_fastafile_$clean_locus.txt";
+	my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/${locus_prefix}_fastafile_$clean_locus.txt";
 	$temp_fastafile =~ s/\\/\\\\/gx;
 	$temp_fastafile =~ s/'/__prime__/gx;
-	my $outfile_url = "$file_prefix\_$$\_outfile.txt";
-	$self->_create_fasta_index( [$locus], $temp_fastafile,
+	my $outfile_url = "${file_prefix}_${$}_outfile.txt";
+	return if $self->_create_fasta_index( [$locus], $temp_fastafile,
 		{ exemplar => $params->{'exemplar'}, type_alleles => $params->{'type_alleles'} } );
 	$self->_create_query_fasta_file( $isolate_id, $temp_infile, $params );
 	my ( $probe_matches, $pcr_products );
@@ -359,7 +359,6 @@ sub _lookup_partial_matches {
 #this should then be deleted by the calling function!
 sub _create_fasta_index {
 	my ( $self, $locus_list, $temp_fastafile, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
 	return if -e $temp_fastafile;
 	$self->{'no_exemplars'} = 1;
 	my $dbtype = $options->{'dbtype'};
@@ -384,7 +383,7 @@ sub _create_fasta_index {
 				} else {
 					undef $self->{'no_exemplars'};
 				}
-				return if !keys %$seqs_ref;
+				return 1 if !keys %$seqs_ref;
 				foreach my $allele_id ( keys %$seqs_ref ) {
 					next if !length $seqs_ref->{$allele_id};
 					if ( $options->{'multiple_loci'} ) {
@@ -406,9 +405,9 @@ sub _create_fasta_index {
 					$logger->logdie($_);
 				}
 			};
-			return if !$ok;
+			return 1 if !$ok;
 		} else {
-			return if !$locus_info->{'reference_sequence'};
+			return 1 if !$locus_info->{'reference_sequence'};
 			if ( $options->{'multiple_loci'} ) {
 				say $fasta_fh ">$locus_name|ref\n$locus_info->{'reference_sequence'}";
 			} else {
