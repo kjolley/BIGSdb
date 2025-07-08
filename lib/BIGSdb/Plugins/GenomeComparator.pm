@@ -47,109 +47,40 @@ use constant MAX_GENOMES       => 1000;
 use constant MAX_REF_LOCI      => 10000;
 use constant MAX_LOCUS_LENGTH  => 10_000;
 
-BEGIN {
-	my $config_file = '/etc/bigsdb/bigsdb.conf';
-	my $tmp_dir;
-	if ( -e $config_file ) {
-		if ( open my $fh, '<', $config_file ) {
-			while (<$fh>) {
-				if (/^secure_tmp_dir\s*=\s*(\S+)/x) {
-					$tmp_dir = "$1/.inline_cache";
-					last;
+#Legacy Perl Version of Inline C code.
+
+sub count_differences {
+	my ( $i_design, $j_design, $loci, $ignore_loci, $exclude_missing, $truncated_pairwise_same ) = @_;
+	my $count = 0;
+
+	foreach my $locus (@$loci) {
+		next if $ignore_loci->{$locus};
+
+		my $i_val = $i_design->{$locus};
+		my $j_val = $j_design->{$locus};
+
+		next unless defined $i_val && defined $j_val;
+
+		if ($exclude_missing) {
+			next if $i_val eq 'missing' || $j_val eq 'missing';
+		}
+
+		if ( $i_val ne $j_val ) {
+			if ($truncated_pairwise_same) {
+				if (   ( $i_val eq 'incomplete' && $j_val eq 'missing' )
+					|| ( $i_val eq 'missing' && $j_val eq 'incomplete' )
+					|| ( $i_val ne 'incomplete' && $j_val ne 'incomplete' ) )
+				{
+					$count++;
 				}
+			} else {
+				$count++;
 			}
-			close $fh;
 		}
 	}
 
-	#Fallback if not found
-	$tmp_dir //= '/tmp/.inline_cache';
-	mkdir $tmp_dir unless -d $tmp_dir;
-	$ENV{PERL_INLINE_DIRECTORY} = $tmp_dir;    ## no critic (RequireLocalizedPunctuationVars)
+	return $count;
 }
-use Inline C => <<'END_C';
-
-int count_differences(SV* i_design_ref, SV* j_design_ref, SV* loci_ref, SV* ignore_loci_ref, int exclude_missing, int truncated_pairwise_same) {
-    HV* i_design = (HV*)SvRV(i_design_ref);
-    HV* j_design = (HV*)SvRV(j_design_ref);
-    AV* loci = (AV*)SvRV(loci_ref);
-    HV* ignore_loci = (HV*)SvRV(ignore_loci_ref);
-
-    int count = 0;
-    int len = av_len(loci) + 1;
-
-    for (int i = 0; i < len; i++) {
-        SV** sv = av_fetch(loci, i, 0);
-        if (!sv) continue;
-        char* locus = SvPV_nolen(*sv);
-
-        if (hv_exists(ignore_loci, locus, strlen(locus))) continue;
-
-        SV** i_val_sv = hv_fetch(i_design, locus, strlen(locus), 0);
-        SV** j_val_sv = hv_fetch(j_design, locus, strlen(locus), 0);
-        if (!i_val_sv || !j_val_sv) continue;
-
-        char* i_val = SvPV_nolen(*i_val_sv);
-        char* j_val = SvPV_nolen(*j_val_sv);
-
-        if (exclude_missing && (strcmp(i_val, "missing") == 0 || strcmp(j_val, "missing") == 0)) continue;
-
-        if (strcmp(i_val, j_val) != 0) {
-            if (truncated_pairwise_same) {
-                if ((strcmp(i_val, "incomplete") == 0 && strcmp(j_val, "missing") == 0) ||
-                    (strcmp(i_val, "missing") == 0 && strcmp(j_val, "incomplete") == 0) ||
-                    (strcmp(i_val, "incomplete") != 0 && strcmp(j_val, "incomplete") != 0)) {
-                    count++;
-                }
-            } else {
-                count++;
-            }
-        }
-    }
-
-    return count;
-}
-
-END_C
-
-=for comment
-#Legacy Perl Version of Inline C code. 
-
-sub count_differences {
-    my ($i_design, $j_design, $loci, $ignore_loci, $exclude_missing, $truncated_pairwise_same) = @_;
-    my $count = 0;
-
-    foreach my $locus (@$loci) {
-        next if $ignore_loci->{$locus};
-
-        my $i_val = $i_design->{$locus};
-        my $j_val = $j_design->{$locus};
-
-        next unless defined $i_val && defined $j_val;
-
-        if ($exclude_missing) {
-            next if $i_val eq 'missing' || $j_val eq 'missing';
-        }
-
-        if ($i_val ne $j_val) {
-            if ($truncated_pairwise_same) {
-                if (
-                    ($i_val eq 'incomplete' && $j_val eq 'missing') ||
-                    ($i_val eq 'missing' && $j_val eq 'incomplete') ||
-                    ($i_val ne 'incomplete' && $j_val ne 'incomplete')
-                ) {
-                    $count++;
-                }
-            } else {
-                $count++;
-            }
-        }
-    }
-
-    return $count;
-}
-
-=cut
 
 sub get_attributes {
 	my ($self) = @_;
@@ -1451,25 +1382,17 @@ sub _generate_distance_matrix {
 			my $j_design     = $isolate_data->{$id_j}{'designations'};
 			my $j_paralogous = $isolate_data->{$id_j}{'paralogous'} || [];
 
-			my %pairwise_ignore;
+			# Combine pairwise paralogous loci if needed
+			my %pairwise_ignore = %ignore_loci;
 			if ( $self->{'params'}->{'exclude_paralogous_pairwise'} ) {
-				%pairwise_ignore = map { $_ => 1 } ( @$i_paralogous, @$j_paralogous );
+				%pairwise_ignore = map { $_ => 1 } ( @ignore_loci, @$i_paralogous, @$j_paralogous );
 			}
 
-			my $distance = 0;
-		  LOCUS: foreach my $locus ( @{ $data->{'loci'} } ) {
-				next LOCUS if $ignore_loci{$locus};
-				next LOCUS if $pairwise_ignore{$locus};
-
-				my $i_val = $i_design->{$locus};
-				my $j_val = $j_design->{$locus};
-
-				if ( $self->{'params'}->{'exclude_missing_pairwise'} ) {
-					next LOCUS if $i_val eq 'missing' || $j_val eq 'missing';
-				}
-
-				$distance++ if $self->_is_different( $i_val, $j_val );
-			}
+			my $distance = count_differences(
+				$i_design, $j_design, $data->{'loci'}, \%pairwise_ignore,
+				$self->{'params'}->{'exclude_missing_pairwise'}               ? 1 : 0,
+				( $self->{'params'}->{'truncated'} // '' ) eq 'pairwise_same' ? 1 : 0
+			);
 
 			$dismat->{$id_i}{$id_j} = $distance;
 		}
