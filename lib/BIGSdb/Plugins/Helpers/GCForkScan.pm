@@ -32,6 +32,7 @@ sub new {
 	$self->{'dbase_config_dir'} = $params->{'dbase_config_dir'};
 	$self->{'logger'}           = $params->{'logger'};
 	$self->{'config'}           = $params->{'config'};
+	$self->{'seq_type'}         = $params->{'seq_type'};
 	$self->{'jm_params'}        = $params->{'job_manager_params'};
 	bless( $self, $class );
 	return $self;
@@ -51,6 +52,7 @@ sub _get_job_manager {
 
 sub run {
 	my ( $self, $params ) = @_;
+	$params->{'user_params'}->{'seq_type'} = $self->{'seq_type'};
 	my $by_ref          = $params->{'reference_file'} ? 1 : 0;
 	my $finish_progress = $params->{'finish_progress'} // ( $params->{'align'} ? 20 : 80 );
 	if ( $params->{'threads'} && $params->{'threads'} > 1 ) {

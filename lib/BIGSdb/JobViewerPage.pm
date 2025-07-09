@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2024, University of Oxford
+#Copyright (c) 2011-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -417,6 +417,7 @@ sub _print_output {
 			png   => IMAGE_FILE,
 			svg   => IMAGE_FILE,
 			fas   => FASTA_FILE,
+			fasta => FASTA_FILE,
 			xmfa  => FASTA_FILE,
 			aln   => ALIGN_FILE,
 			align => ALIGN_FILE,
