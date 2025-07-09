@@ -47,6 +47,110 @@ use constant MAX_GENOMES       => 1000;
 use constant MAX_REF_LOCI      => 10000;
 use constant MAX_LOCUS_LENGTH  => 10_000;
 
+BEGIN {
+	my $config_file = '/etc/bigsdb/bigsdb.conf';
+	my $tmp_dir;
+	if ( -e $config_file ) {
+		if ( open my $fh, '<', $config_file ) {
+			while (<$fh>) {
+				if (/^secure_tmp_dir\s*=\s*(\S+)/x && -d $1) {
+					$tmp_dir = "$1/.inline_cache";
+					last;
+				}
+			}
+			close $fh;
+		}
+	}
+
+	#Fallback if not found
+	$tmp_dir //= '/tmp/.inline_cache';
+	mkdir $tmp_dir unless -d $tmp_dir;
+	$ENV{PERL_INLINE_DIRECTORY} = $tmp_dir;    ## no critic (RequireLocalizedPunctuationVars)
+}
+use Inline C => <<'END_C';
+
+int count_differences(SV* i_design_ref, SV* j_design_ref, SV* loci_ref, SV* ignore_loci_ref, int exclude_missing, int truncated_pairwise_same) {
+    HV* i_design = (HV*)SvRV(i_design_ref);
+    HV* j_design = (HV*)SvRV(j_design_ref);
+    AV* loci = (AV*)SvRV(loci_ref);
+    HV* ignore_loci = (HV*)SvRV(ignore_loci_ref);
+
+    int count = 0;
+    int len = av_len(loci) + 1;
+
+    for (int i = 0; i < len; i++) {
+        SV** sv = av_fetch(loci, i, 0);
+        if (!sv) continue;
+        char* locus = SvPV_nolen(*sv);
+
+        if (hv_exists(ignore_loci, locus, strlen(locus))) continue;
+
+        SV** i_val_sv = hv_fetch(i_design, locus, strlen(locus), 0);
+        SV** j_val_sv = hv_fetch(j_design, locus, strlen(locus), 0);
+        if (!i_val_sv || !j_val_sv) continue;
+
+        char* i_val = SvPV_nolen(*i_val_sv);
+        char* j_val = SvPV_nolen(*j_val_sv);
+
+        if (exclude_missing && (strcmp(i_val, "missing") == 0 || strcmp(j_val, "missing") == 0)) continue;
+
+        if (strcmp(i_val, j_val) != 0) {
+            if (truncated_pairwise_same) {
+                if ((strcmp(i_val, "incomplete") == 0 && strcmp(j_val, "missing") == 0) ||
+                    (strcmp(i_val, "missing") == 0 && strcmp(j_val, "incomplete") == 0) ||
+                    (strcmp(i_val, "incomplete") != 0 && strcmp(j_val, "incomplete") != 0)) {
+                    count++;
+                }
+            } else {
+                count++;
+            }
+        }
+    }
+
+    return count;
+}
+
+END_C
+
+=for comment
+#Legacy Perl Version of Inline C code. 
+
+sub count_differences {
+    my ($i_design, $j_design, $loci, $ignore_loci, $exclude_missing, $truncated_pairwise_same) = @_;
+    my $count = 0;
+
+    foreach my $locus (@$loci) {
+        next if $ignore_loci->{$locus};
+
+        my $i_val = $i_design->{$locus};
+        my $j_val = $j_design->{$locus};
+
+        next unless defined $i_val && defined $j_val;
+
+        if ($exclude_missing) {
+            next if $i_val eq 'missing' || $j_val eq 'missing';
+        }
+
+        if ($i_val ne $j_val) {
+            if ($truncated_pairwise_same) {
+                if (
+                    ($i_val eq 'incomplete' && $j_val eq 'missing') ||
+                    ($i_val eq 'missing' && $j_val eq 'incomplete') ||
+                    ($i_val ne 'incomplete' && $j_val ne 'incomplete')
+                ) {
+                    $count++;
+                }
+            } else {
+                $count++;
+            }
+        }
+    }
+
+    return $count;
+}
+
+=cut
+
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
@@ -69,7 +173,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.9.0',
+		version     => '2.10.0',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
@@ -1319,61 +1423,51 @@ sub _generate_distance_matrix {
 	my ( $self, $data ) = @_;
 	my $dismat       = {};
 	my $isolate_data = $data->{'isolate_data'};
-	my $ignore_loci  = [];
-	push @$ignore_loci, @{ $data->{'incomplete_in_some'} }
+
+	# Build ignore loci list
+	my @ignore_loci;
+	push @ignore_loci, @{ $data->{'incomplete_in_some'} || [] }
 	  if ( $self->{'params'}->{'truncated'} // '' ) eq 'exclude';
-	push @$ignore_loci, @{ $data->{'paralogous_in_all'} } if $self->{'params'}->{'exclude_paralogous_all'};
-	my %ignore_loci = map { $_ => 1 } @$ignore_loci;
+	push @ignore_loci, @{ $data->{'paralogous_in_all'} || [] }
+	  if $self->{'params'}->{'exclude_paralogous_all'};
+	my %ignore_loci = map { $_ => 1 } @ignore_loci;
+
+	# If by_ref is set, set all loci to '1' for reference isolate
 	if ( $data->{'by_ref'} ) {
 		foreach my $locus ( @{ $data->{'loci'} } ) {
-			$isolate_data->{0}->{'designations'}->{$locus} = '1';
+			$isolate_data->{0}{'designations'}{$locus} = '1';
 		}
 	}
-	my @ids = sort { $a <=> $b } keys %$isolate_data;
-	foreach my $i ( 0 .. @ids - 1 ) {
-		foreach my $j ( 0 .. $i ) {
-			$dismat->{ $ids[$i] }->{ $ids[$j] } = 0;
-			foreach my $locus ( @{ $data->{'loci'} } ) {
-				next if $ignore_loci{$locus};
-				if ( $self->{'params'}->{'exclude_paralogous_pairwise'} ) {
-					my %pairwise_ignore = map { $_ => 1 } (
-						@{ $data->{'isolate_data'}->{ $ids[$i] }->{'paralogous'} },
-						@{ $data->{'isolate_data'}->{ $ids[$j] }->{'paralogous'} }
-					);
-					next if $pairwise_ignore{$locus};
-				}
-				my $i_value = $isolate_data->{ $ids[$i] }->{'designations'}->{$locus};
-				my $j_value = $isolate_data->{ $ids[$j] }->{'designations'}->{$locus};
-				if ( $self->{'params'}->{'exclude_missing_pairwise'} ) {
-					next if $i_value eq 'missing';
-					next if $j_value eq 'missing';
-				}
-				if ( $self->_is_different( $i_value, $j_value ) ) {
-					$dismat->{ $ids[$i] }->{ $ids[$j] }++;
-				}
-			}
-		}
-	}
-	return $dismat;
-}
 
-#Helper for distance matrix generation
-sub _is_different {
-	my ( $self, $i_value, $j_value ) = @_;
-	my $different;
-	if ( $i_value ne $j_value ) {
-		if ( ( $self->{'params'}->{'truncated'} // q() ) eq 'pairwise_same' ) {
-			if (   ( $i_value eq 'incomplete' && $j_value eq 'missing' )
-				|| ( $i_value eq 'missing' && $j_value eq 'incomplete' )
-				|| ( $i_value ne 'incomplete' && $j_value ne 'incomplete' ) )
-			{
-				$different = 1;
+	my @ids = sort { $a <=> $b } keys %$isolate_data;
+
+	for my $i ( 0 .. $#ids ) {
+		my $id_i         = $ids[$i];
+		my $i_design     = $isolate_data->{$id_i}{'designations'};
+		my $i_paralogous = $isolate_data->{$id_i}{'paralogous'} || [];
+
+		for my $j ( 0 .. $i ) {
+			my $id_j         = $ids[$j];
+			my $j_design     = $isolate_data->{$id_j}{'designations'};
+			my $j_paralogous = $isolate_data->{$id_j}{'paralogous'} || [];
+
+			# Combine pairwise paralogous loci if needed
+			my %pairwise_ignore = %ignore_loci;
+			if ( $self->{'params'}->{'exclude_paralogous_pairwise'} ) {
+				%pairwise_ignore = map { $_ => 1 } ( @ignore_loci, @$i_paralogous, @$j_paralogous );
 			}
-		} else {
-			$different = 1;
+
+			my $distance = count_differences(
+				$i_design, $j_design, $data->{'loci'}, \%pairwise_ignore,
+				$self->{'params'}->{'exclude_missing_pairwise'}               ? 1 : 0,
+				( $self->{'params'}->{'truncated'} // '' ) eq 'pairwise_same' ? 1 : 0
+			);
+
+			$dismat->{$id_i}{$id_j} = $distance;
 		}
 	}
-	return $different;
+
+	return $dismat;
 }
 
 sub _make_nexus_file {
@@ -2761,4 +2855,5 @@ function enable_seqs(){
 END
 	return $buffer;
 }
+
 1;

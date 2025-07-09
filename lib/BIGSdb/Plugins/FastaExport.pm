@@ -1,6 +1,6 @@
 #FastaExport.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2012-2024, University of Oxford
+#Copyright (c) 2012-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -43,7 +43,7 @@ sub get_attributes {
 		menutext           => 'Locus sequences',
 		buttontext         => 'FASTA',
 		module             => 'FastaExport',
-		version            => '2.2.1',
+		version            => '2.2.2',
 		dbtype             => 'sequences',
 		seqdb_type         => 'sequences',
 		input              => 'query',
@@ -125,7 +125,7 @@ sub _create_fasta_file {
 				$header .= DIVIDER . qq(PubMed:@$values);
 			}
 		}
-		if ( ( $self->{'system'}->{'allele_flags'} // q() ) eq 'yes' ) {
+		if ( ( $self->{'system'}->{'allele_flags'} // q() ) eq 'yes' && $selected{'Flags'} ) {
 			my $values = $self->{'datastore'}->run_query(
 				'SELECT flag FROM allele_flags WHERE (locus,allele_id)=(?,?)',
 				[ $locus, $seq_data->{'allele_id'} ],
@@ -158,7 +158,6 @@ sub _create_fasta_file {
 	}
 	return ( $filename, $invalid );
 }
-
 sub run {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
@@ -219,13 +218,13 @@ sub run {
 
 sub _print_interface {
 	my ( $self, $locus ) = @_;
-	my $q          = $self->{'cgi'};
-	my $query_file = $q->param('query_file');
-	my $list_file  = $q->param('list_file');
-	my $allele_ids = $self->get_allele_id_list( $query_file, $list_file );
-	my $set_id     = $self->get_set_id;
+	my $q                        = $self->{'cgi'};
+	my $query_file               = $q->param('query_file');
+	my $list_file                = $q->param('list_file');
+	my $allele_ids               = $self->get_allele_id_list( $query_file, $list_file );
+	my $set_id                   = $self->get_set_id;
 	my $date_restriction_message = $self->get_date_restriction_message;
-	if ($date_restriction_message){
+	if ($date_restriction_message) {
 		say qq(<div class="box banner">$date_restriction_message</div>);
 	}
 	say q(<div class="box" id="queryform"><div class="scrollable">);
@@ -313,6 +312,12 @@ sub get_plugin_javascript {
 	\$("#locus").bind("input propertychange", function () {
 		populate_extended();
 	});
+	\$("#extended").multiselect({
+ 		classes: 'filter',
+ 		menuHeight: 250,
+ 		menuWidth: 400,
+ 		selectedList: 8
+  	});
 });
 
 function populate_extended(){
@@ -363,11 +368,12 @@ sub get_initiation_values {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	if ( $q->param('get_extended') && $q->param('locus') ) {
-		return { type => 'json' };
+		return { 'jQuery.multiselect' => 1, type => 'json' };
 	}
 	if ( $q->param('defined') && $q->param('locus') ) {
-		return { type => 'text' };
+		return { 'jQuery.multiselect' => 1, type => 'text' };
 	}
+	return { 'jQuery.multiselect' => 1 };
 }
 
 sub _get_extended {
