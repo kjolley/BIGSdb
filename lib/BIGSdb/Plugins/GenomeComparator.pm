@@ -53,7 +53,7 @@ BEGIN {
 	if ( -e $config_file ) {
 		if ( open my $fh, '<', $config_file ) {
 			while (<$fh>) {
-				if (/^secure_tmp_dir\s*=\s*(\S+)/x && -d $1) {
+				if ( /^secure_tmp_dir\s*=\s*(\S+)/x && -d $1 ) {
 					$tmp_dir = "$1/.inline_cache";
 					last;
 				}
@@ -514,6 +514,16 @@ sub _print_distance_matrix_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<fieldset style="float:left;height:12em"><legend>Distance matrix calculation</legend>);
+	say q(<ul><li>);
+	say $q->checkbox(
+		-name  => 'disable_dismat',
+		-id    => 'disable_dismat',
+		-label => 'Disable distance matrix calculation'
+	);
+	say $self->get_tooltip( q(Disable distance matrix - If you just want to generate alignments, )
+		  . q(or manually inspect allelic differences, and don't need a distance matrix, then you )
+		  . q(can disable its calculation to save time.) );
+	say q(</li></ul>);
 	say q(With incomplete loci:);
 	say q(<ul><li>);
 	my $labels = {
@@ -522,6 +532,7 @@ sub _print_distance_matrix_fieldset {
 		pairwise_same => 'Ignore in pairwise comparison'
 	};
 	say $q->radio_group(
+		-id        => 'truncated',
 		-name      => 'truncated',
 		-values    => [qw (exclude include_as_T pairwise_same)],
 		-labels    => $labels,
@@ -884,7 +895,7 @@ sub _analyse_by_loci {
 		  $self->_core_analysis( $scan_data, { ids => $ids, job_id => $job_id, by_reference => 0 } );
 		$html_buffer .= $core_html;
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
-		my $dismat = $self->_generate_splits( $job_id, $scan_data );
+		my $dismat = $self->{'params'}->{'disable_dismat'} ? {} : $self->_generate_splits( $job_id, $scan_data );
 		$self->_generate_excel_file(
 			{
 				job_id    => $job_id,
@@ -974,7 +985,7 @@ sub _analyse_by_reference {
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $html_buffer } );
 		$file_buffer .= $self->_get_text_output( 1, $ids, $scan_data );
 		$self->_output_file_buffer( $job_id, $file_buffer );
-		my $dismat = $self->_generate_splits( $job_id, $scan_data );
+		my $dismat = $self->{'params'}->{'disable_dismat'} ? {} : $self->_generate_splits( $job_id, $scan_data );
 		$self->_generate_excel_file(
 			{
 				job_id    => $job_id,
@@ -1766,7 +1777,7 @@ sub _generate_excel_file {
 	}
 	$self->_write_excel_unique_strains($args);
 	$self->_write_excel_paralogous_loci($args);
-	$self->_write_excel_distance_matrix( $dismat, $args );
+	$self->_write_excel_distance_matrix( $dismat, $args ) if !$self->{'params'}->{'disable_dismat'};
 	$self->_write_excel_core_analysis( $core, $args );
 	$self->_write_excel_parameters($args);
 	$self->_write_excel_citations($args);
@@ -2136,23 +2147,24 @@ sub _write_excel_parameters {
 		include_as_T  => 'Treat as distinct allele',
 		pairwise_same => 'Ignore in pairwise comparison'
 	};
-	push @parameters,
-	  (
-		{ section => 'Distance matrix calculation' },
-		{ label   => 'Incomplete loci', value => lc( $labels->{ $params->{'truncated'} } ) }
-	  );
-	push @parameters,
-	  (
-		{ label => 'Exclude loci paralogous in all', value => $params->{'exclude_paralogous_all'} ? 'yes' : 'no' },
-		{
-			label => 'Exclude pairwise paralogous loci',
-			value => $params->{'exclude_paralogous_pairwise'} ? 'yes' : 'no'
-		},
-		{
-			label => 'Exclude pairwise missing loci',
-			value => $params->{'exclude_missing_pairwise'} ? 'yes' : 'no'
-		}
-	  );
+	push @parameters, { section => 'Distance matrix calculation' };
+	if ( $params->{'disable_dismat'} ) {
+		push @parameters, { label => 'Calculation disabled', value => 'yes' };
+	} else {
+		push @parameters,
+		  (
+			{ label => 'Incomplete loci',                value => lc( $labels->{ $params->{'truncated'} } ) },
+			{ label => 'Exclude loci paralogous in all', value => $params->{'exclude_paralogous_all'} ? 'yes' : 'no' },
+			{
+				label => 'Exclude pairwise paralogous loci',
+				value => $params->{'exclude_paralogous_pairwise'} ? 'yes' : 'no'
+			},
+			{
+				label => 'Exclude pairwise missing loci',
+				value => $params->{'exclude_missing_pairwise'} ? 'yes' : 'no'
+			}
+		  );
+	}
 
 	#Alignments
 	push @parameters,
@@ -2839,10 +2851,22 @@ function enable_seqs(){
   	});
 }
 
+function disable_dismat(){
+	dismat_disabled = \$("#disable_dismat").prop("checked");
+	\$("input#truncated").prop("disabled", dismat_disabled);
+	\$("input#exclude_missing_pairwise").prop("disabled", dismat_disabled);
+	\$("input#exclude_paralogous_all").prop("disabled", dismat_disabled);
+	\$("input#exclude_paralogous_pairwise").prop("disabled", dismat_disabled);
+}
+
 \$(function () {
 	enable_seqs();
 	\$("#accession").bind("input propertychange", function () {
 		enable_seqs();
+	});
+	disable_dismat();
+	\$("#disable_dismat").bind("input propertychange", function () {
+		disable_dismat();
 	});
 	\$('#locus,#include_fields,#recommended_schemes').multiselect({
  		classes: 'filter',
