@@ -2212,6 +2212,7 @@ sub _write_excel_citations {
 	$worksheet->write( 0, 0, 'Please cite the following:',                         $excel_format{'heading'} );
 	$worksheet->write( 2, 0, q(BIGSdb Genome Comparator),                          $excel_format{'heading'} );
 	$worksheet->write( 3, 0, q(Jolley & Maiden (2010). BMC Bioinformatics 11:595), $excel_format{'value'} );
+	$worksheet->write( 4, 0, q(Jolley et al. (2018). Wellcome Open Res 3:124),     $excel_format{'value'} );
 	my $row     = 5;
 	my @schemes = split /,/x, ( $params->{'cite_schemes'} // q() );
 
