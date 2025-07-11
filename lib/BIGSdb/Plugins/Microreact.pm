@@ -65,7 +65,7 @@ sub get_attributes {
 		buttontext => 'Microreact',
 		menutext   => 'Microreact',
 		module     => 'Microreact',
-		version    => '1.6.0',
+		version    => '1.7.0',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
@@ -361,6 +361,7 @@ sub print_extra_form_elements {
 	say q(</fieldset>);
 	my $tooltip = $self->get_tooltip( q(Additional fields - These will appear in the Microreact data table. )
 		  . qq(Note that $self->{'system'}->{'labelfield'}, country and year are always included.) );
+	$self->print_tree_type_fieldset;
 	$self->print_includes_fieldset(
 		{
 			description              => qq(Select additional fields to include. $tooltip),

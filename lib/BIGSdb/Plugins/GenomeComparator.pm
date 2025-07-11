@@ -758,7 +758,7 @@ sub process_uploaded_genomes {
 					my $seq = $seq_object->seq // '';
 					$seq =~ s/[\-\.\s]//gx;
 					push @{ $user_genomes->{$genome_name} }, { id => $seq_object->id, seq => $seq };
-					$self->{'user_genomes'}->{$genome_name} = $seq_object->id;
+#					$self->{'user_genomes'}->{$genome_name} = $seq_object->id;
 				}
 			} catch {
 				BIGSdb::Exception::Plugin->throw("File $fasta_file in uploaded zip is not valid FASTA format.");
@@ -785,7 +785,6 @@ sub process_uploaded_genomes {
 					my $seq = $seq_object->seq // '';
 					$seq =~ s/[\-\.\s]//gx;
 					push @{ $user_genomes->{$genome_name} }, { id => $seq_object->id, seq => $seq };
-					$self->{'user_genomes'}->{$genome_name} = $seq_object->id;
 				}
 			} catch {
 				BIGSdb::Exception::Plugin->throw("File $fasta_file in uploaded $format is not valid FASTA format.");
@@ -809,7 +808,7 @@ sub process_uploaded_genomes {
 				my $seq = $seq_object->seq // '';
 				$seq =~ s/[\-\.\s]//gx;
 				push @{ $user_genomes->{$genome_name} }, { id => $seq_object->id, seq => $seq };
-				$self->{'user_genomes'}->{$genome_name} = $seq_object->id;
+#				$self->{'user_genomes'}->{$genome_name} = $seq_object->id;
 			}
 		} catch {
 			BIGSdb::Exception::Plugin->throw('User genome file is not valid FASTA format.');
