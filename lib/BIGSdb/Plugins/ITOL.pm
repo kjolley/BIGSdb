@@ -95,6 +95,13 @@ sub run {
 	}
 	my $attr = $self->get_attributes;
 	if ( $q->param('submit') ) {
+		if ($q->param('tree_gen')){
+			my $guid = $self->get_guid;
+			eval {
+				$self->{'prefstore'}->set_plugin_attribute( $guid, $self->{'system'}->{'db'},
+					$attr->{'module'}, 'tree_gen', scalar $q->param('tree_gen') );
+			};
+		}
 		my $loci_selected = $self->get_selected_loci;
 		my ( $pasted_cleaned_loci, $invalid_loci ) = $self->get_loci_from_pasted_list;
 		$q->delete('locus');
@@ -238,6 +245,14 @@ sub print_tree_type_fieldset {
 	my ($self) = @_;
 	return if !$self->{'config'}->{'grapetree_path'};
 	my $q = $self->{'cgi'};
+	my $guid = $self->get_guid;
+	my $default;
+	my $attr = $self->get_attributes;
+			eval {
+				$default = $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'},
+					$attr->{'module'}, 'tree_gen' );
+			};
+	
 	say q(<fieldset style="float:left"><legend>Tree generation</legend>);
 	say q(<p>Generate trees from:</p>);
 	say q(<ul><li>);
@@ -245,7 +260,7 @@ sub print_tree_type_fieldset {
 		-id        => 'tree_gen',
 		-name      => 'tree_gen',
 		-values    => [ 'profiles', 'sequences' ],
-		-default   => 'sequences',
+		-default   => $default // 'sequences',
 		-linebreak => 'true'
 	);
 	say q(</li></ul>);
@@ -657,7 +672,7 @@ sub _itol_upload {
 					$err .= $res_line;
 				}
 			}
-			if ($err) {
+			if ($err && $err !~ /Couldn't\sfind\sID/x) {
 				$$message_html .= q(<p class="statusbad">iTOL encountered an error but may have been )
 				  . qq(able to make a tree. iTOL returned the following error message:\n\n$err</p>);
 				$logger->error($err);
