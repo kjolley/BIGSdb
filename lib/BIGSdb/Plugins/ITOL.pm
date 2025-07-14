@@ -21,7 +21,7 @@ package BIGSdb::Plugins::ITOL;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugins::GenomeComparator);
+use parent qw(BIGSdb::Plugins::GrapeTree);
 use BIGSdb::Utils;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -58,7 +58,7 @@ sub get_attributes {
 		buttontext => 'iTOL',
 		menutext   => 'iTOL',
 		module     => 'ITOL',
-		version    => '1.6.3',
+		version    => '1.8.0',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
@@ -95,6 +95,13 @@ sub run {
 	}
 	my $attr = $self->get_attributes;
 	if ( $q->param('submit') ) {
+		if ($q->param('tree_gen')){
+			my $guid = $self->get_guid;
+			eval {
+				$self->{'prefstore'}->set_plugin_attribute( $guid, $self->{'system'}->{'db'},
+					$attr->{'module'}, 'tree_gen', scalar $q->param('tree_gen') );
+			};
+		}
 		my $loci_selected = $self->get_selected_loci;
 		my ( $pasted_cleaned_loci, $invalid_loci ) = $self->get_loci_from_pasted_list;
 		$q->delete('locus');
@@ -136,7 +143,7 @@ sub run {
 		my $commify_max_records = BIGSdb::Utils::commify($max_records);
 		my $commify_max_seqs    = BIGSdb::Utils::commify($max_seqs);
 		my $commify_total_seqs  = BIGSdb::Utils::commify($total_seqs);
-		if ( $total_seqs > $max_seqs ) {
+		if ( $total_seqs > $max_seqs && $q->param('tree_gen') eq 'sequences' ) {
 			push @errors, qq(Output is limited to a total of $commify_max_seqs sequences )
 			  . qq((records x loci). You have selected $commify_total_seqs.);
 		}
@@ -204,13 +211,16 @@ sub _print_interface {
 	my $commify_max_seqs    = BIGSdb::Utils::commify($max_seqs);
 	my $scheme_id           = $q->param('scheme_id');
 	my $query_file          = $q->param('query_file');
+	my $or_profiles         = $self->{'config'}->{'grapetree_path'} ? q( or allelic profiles) : q();
 	say q(<div class="box" id="queryform">);
-	say q(<p>This tool will generate neighbor-joining trees from concatenated nucleotide sequences. Only DNA )
-	  . q(loci that have a corresponding database containing allele sequence identifiers, )
+	say qq(<p>This tool will generate neighbor-joining trees from concatenated nucleotide sequences$or_profiles. )
+	  . q(For sequencr trees, only DNA loci that have a corresponding database containing allele sequence identifiers, )
 	  . q(or DNA and peptide loci with genome sequences, can be included. Please check the loci that you )
-	  . q(would like to include.  Alternatively select one or more schemes to include all loci that are members )
+	  . q(would like to include. Alternatively select one or more schemes to include all loci that are members )
 	  . q(of the scheme.</p>);
-	say qq(<p>Analysis is limited to $commify_max_records records or $commify_max_seqs sequences (records x loci).</p>);
+	say qq(<p>Analysis is limited to $commify_max_records records.</p>);
+	say qq(<p>If generating a tree by aligning sequences then it is also limited to $commify_max_seqs sequences )
+	  . q((records x loci).</p>);
 	my $list = $self->get_id_list( 'id', $query_file );
 	say $q->start_form;
 	say q(<div class="flex_container" style="justify-content:left">);
@@ -231,12 +241,40 @@ sub _print_interface {
 	return;
 }
 
+sub print_tree_type_fieldset {
+	my ($self) = @_;
+	return if !$self->{'config'}->{'grapetree_path'};
+	my $q = $self->{'cgi'};
+	my $guid = $self->get_guid;
+	my $default;
+	my $attr = $self->get_attributes;
+			eval {
+				$default = $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'},
+					$attr->{'module'}, 'tree_gen' );
+			};
+	
+	say q(<fieldset style="float:left"><legend>Tree generation</legend>);
+	say q(<p>Generate trees from:</p>);
+	say q(<ul><li>);
+	say $q->radio_group(
+		-id        => 'tree_gen',
+		-name      => 'tree_gen',
+		-values    => [ 'profiles', 'sequences' ],
+		-default   => $default // 'sequences',
+		-linebreak => 'true'
+	);
+	say q(</li></ul>);
+	say q(</fieldset>);
+	return;
+}
+
 sub print_extra_form_elements {
 	my ($self) = @_;
 	my $tooltip =
 	  $self->get_tooltip( q(Datasets - These are not available for uploaded genomes since they require )
 		  . q(metadata or designations to be tagged within the database.</p>)
 		  . q(<p>Use Shift/Ctrl to select multiple values (depending on your system).</p>) );
+	$self->print_tree_type_fieldset;
 	$self->print_includes_fieldset(
 		{
 			title                    => 'iTOL datasets',
@@ -265,19 +303,6 @@ sub print_extra_form_elements {
 	return;
 }
 
-sub _get_identifier_list {
-	my ( $self, $fasta_file ) = @_;
-	open( my $fh, '<:encoding(utf8)', $fasta_file ) || $logger->error("Cannot open $fasta_file for reading");
-	my @ids;
-	while ( my $line = <$fh> ) {
-		if ( $line =~ /^>(\S*)/x ) {
-			push @ids, $1;
-		}
-	}
-	close $fh;
-	return \@ids;
-}
-
 sub get_plugin_javascript {
 	my ($self) = @_;
 	my $buffer = << "END";
@@ -304,8 +329,10 @@ sub run_job {
 	my ( $message_html, $fasta_file, $failed ) = @{$ret_val}{qw(message_html fasta_file failed )};
 	if ( !$failed ) {
 		$self->check_connection($job_id);
-		my $identifiers = $self->_get_identifier_list($fasta_file);
-		my $itol_file   = $self->_itol_upload( $job_id, $params, $identifiers, \$message_html );
+		my $identifiers = $self->{'jobManager'}->get_job_isolates($job_id);
+		push @$identifiers, keys %{ $self->{'reverse_name_map'} }
+		  if ref $self->{'reverse_name_map'} eq 'HASH';
+		my $itol_file = $self->_itol_upload( $job_id, $params, $identifiers, \$message_html );
 		if ( $params->{'itol_dataset'} && -e $itol_file ) {
 			$self->{'jobManager'}->update_job_output( $job_id,
 				{ filename => "$job_id.zip", description => '30_iTOL datasets (Zip format)' } );
@@ -316,6 +343,77 @@ sub run_job {
 }
 
 sub generate_tree_files {
+	my ( $self, $job_id, $params ) = @_;
+	$params->{'tree_gen'} //= 'sequences';
+	if ( $params->{'tree_gen'} eq 'profiles' ) {
+		return $self->_generate_tree_files_from_profiles( $job_id, $params );
+	} else {
+		return $self->_generate_tree_files_from_sequences( $job_id, $params );
+	}
+}
+
+sub _generate_tree_files_from_profiles {
+	my ( $self, $job_id, $params ) = @_;
+	$self->set_offline_view($params);
+	$self->{'params'} = $params;
+	my $profiles_file = "$self->{'config'}->{'tmp_dir'}/${job_id}_profiles.txt";
+	my $ids           = $self->{'jobManager'}->get_job_isolates($job_id);
+	my $user_genomes  = $self->process_uploaded_genomes( $job_id, $ids, $params );
+	my $loci          = $self->{'jobManager'}->get_job_loci($job_id);
+	$self->generate_profile_file(
+		{
+			job_id              => $job_id,
+			file                => $profiles_file,
+			isolates            => $ids,
+			user_genomes        => $user_genomes,
+			loci                => $loci,
+			params              => $params,
+			rename_user_genomes => 1
+		}
+	);
+
+	my ( $message_html, $failed );
+	my $prefix     = BIGSdb::Utils::get_random();
+	my $error_file = "$self->{'config'}->{'secure_tmp_dir'}/${prefix}_grapetree";
+	my $tree_file  = "$self->{'config'}->{'tmp_dir'}/${job_id}.nwk";
+	my $cmd;
+
+	if ( !defined $self->{'config'}->{'python3_path'} && $self->{'config'}->{'grapetree_path'} =~ /python/x ) {
+
+		#Path includes full command for running GrapeTree (recommended)
+		$cmd = "$self->{'config'}->{'grapetree_path'} --profile $profiles_file --method NJ 2>$error_file > $tree_file ";
+	} else {
+
+		#Separate variables for GrapeTree directory and Python path (legacy)
+		my $python = $self->{'config'}->{'python3_path'} // '/usr/bin/python3';
+		$cmd = "$python $self->{'config'}->{'grapetree_path'}/grapetree.py --profile "
+		  . "$profiles_file --method NJ 2>$error_file > $tree_file ";
+	}
+	eval { system($cmd); };
+	if ( $? || -e $error_file ) {
+		my $error_ref = BIGSdb::Utils::slurp($error_file);
+		$logger->error($$error_ref) if $$error_ref;
+		$failed = 1                 if $?;
+		unlink $error_file;
+	}
+	if ( -e $tree_file ) {
+		$self->{'jobManager'}->update_job_output(
+			$job_id,
+			{
+				filename    => "${job_id}.nwk",
+				description => '20_Tree (Newick format)',
+			}
+		);
+	}
+
+	return {
+		message_html => $message_html,
+		newick_file  => $tree_file,
+		failed       => $failed
+	};
+}
+
+sub _generate_tree_files_from_sequences {
 	my ( $self, $job_id, $params ) = @_;
 	$self->set_offline_view($params);
 	$self->{'params'}                = $params;
@@ -521,7 +619,10 @@ sub _itol_upload {
 	my ( $self, $job_id, $params, $identifiers, $message_html ) = @_;
 	$self->{'jobManager'}
 	  ->update_job_status( $job_id, { stage => 'Uploading tree files to iTOL', percent_complete => 95 } );
-	my $tree_file          = "$self->{'config'}->{'tmp_dir'}/$job_id.ph";
+	my $tree_file =
+	  $params->{'tree_gen'} eq 'profiles'
+	  ? "$self->{'config'}->{'tmp_dir'}/$job_id.nwk"
+	  : "$self->{'config'}->{'tmp_dir'}/$job_id.ph";
 	my $itol_tree_filename = "$self->{'config'}->{'tmp_dir'}/$job_id.tree";
 	copy( $tree_file, $itol_tree_filename ) or $logger->error("Copy failed: $!");
 	chdir $self->{'config'}->{'tmp_dir'};
@@ -571,7 +672,7 @@ sub _itol_upload {
 					$err .= $res_line;
 				}
 			}
-			if ($err) {
+			if ($err && $err !~ /Couldn't\sfind\sID/x) {
 				$$message_html .= q(<p class="statusbad">iTOL encountered an error but may have been )
 				  . qq(able to make a tree. iTOL returned the following error message:\n\n$err</p>);
 				$logger->error($err);

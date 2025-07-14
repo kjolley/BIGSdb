@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2020, University of Oxford
+#Copyright (c) 2017-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -51,7 +51,8 @@ sub _get_job_manager {
 
 sub run {
 	my ( $self, $params ) = @_;
-	my $by_ref = $params->{'reference_file'} ? 1 : 0;
+	my $by_ref          = $params->{'reference_file'} ? 1 : 0;
+	my $finish_progress = $params->{'finish_progress'} // ( $params->{'align'} ? 20 : 80 );
 	if ( $params->{'threads'} && $params->{'threads'} > 1 ) {
 		my $script;
 		$script =
@@ -66,81 +67,160 @@ sub run {
 				params           => $params->{'user_params'}
 			}
 		  );
-		my $isolates = $script->get_isolates;
+		my $isolates  = $script->get_isolates;
+		my $need_scan = [];
+		my $no_scan   = [];
+		if ($by_ref) {
+			$need_scan = $isolates;
+		} else {
+			my $locus_list_table =
+			  $script->{'datastore'}->create_temp_list_table_from_array( 'text', $params->{'loci'} );
+			foreach my $isolate_id (@$isolates) {
+				my $designated_locus_count = $script->{'datastore'}->run_query(
+					'SELECT COUNT(DISTINCT(locus)) FROM allele_designations ad JOIN '
+					  . "$locus_list_table l ON ad.locus=l.value WHERE ad.isolate_id=?",
+					$isolate_id,
+					{ cache => 'GCForkScan::locus_count' }
+				);
+				if ( $designated_locus_count == @{ $params->{'loci'} }
+					|| ( !$params->{'rescan_missing'} && $designated_locus_count >= 0.5 * @{ $params->{'loci'} } ) )
+				{
+					push @$no_scan, $isolate_id;
+				} else {
+					push @$need_scan, $isolate_id;
+				}
+			}
+		}
 		undef $script;
+
 		my $data     = {};
 		my $new_seqs = {};
-		my $pm =
-		  Parallel::ForkManager->new( $params->{'threads'}, $self->{'config'}->{'secure_tmp_dir'} );
-		my $isolate_count = 0;
-		my $finish_progress = $params->{'finish_progress'} // ( $params->{'align'} ? 20 : 80 );
 		if ( $params->{'user_genomes'} ) {
 			my $id = -1;
 			foreach ( keys %{ $params->{'user_genomes'} } ) {
-				unshift @$isolates, $id;
+				unshift @$need_scan, $id;
+				unshift @$isolates,  $id;
 				$id--;
 			}
 		}
-		$pm->run_on_finish(
-			sub {
-				my ( $pid, $exit_code, $ident, $exit_signal, $core_dump, $ret_data ) = @_;
-				$data->{$_} = $ret_data->{'designations'}->{$_} foreach keys %{ $ret_data->{'designations'} };
-				$new_seqs->{ $ret_data->{'isolate_id'} }->{$_} = $ret_data->{'local_new_seqs'}->{$_}
-				  foreach keys %{ $ret_data->{'local_new_seqs'} };
-				$isolate_count++;
-				if ( $params->{'job_id'} ) {
-					my $percent_complete = int( ( $isolate_count * $finish_progress ) / @$isolates );
-					if ( $isolate_count < @$isolates ) {
-						my $next_id     = $isolate_count + 1;
-						my $job_manager = $self->_get_job_manager;
-						$job_manager->update_job_status( $params->{'job_id'},
-							{ percent_complete => $percent_complete, stage => "Scanning isolate record $next_id" } );
-					}
-				}
-			}
-		);
-		foreach my $isolate_id (@$isolates) {
-			last if $self->_is_job_cancelled( $params->{'job_id'} );
-			$pm->start and next;
-			my $helper = BIGSdb::Plugins::Helpers::GCHelper->new(
+
+		my $scan_finish_progress = @$isolates ? int( $finish_progress * @$no_scan / @$isolates ) : 0;
+		if (@$no_scan) {
+
+			local $" = q(,);
+			my $data_lookup_helper = BIGSdb::Plugins::Helpers::GCHelper->new(
 				{
 					config_dir       => $self->{'config_dir'},
 					lib_dir          => $self->{'lib_dir'},
 					dbase_config_dir => $self->{'dbase_config_dir'},
 					logger           => $self->{'logger'},
-					options    => { i => $isolate_id, always_run => 1, fast => 1, no_user_db_needed => 1, %$params },
-					instance   => $params->{'database'},
-					params     => $params->{'user_params'},
-					locus_data => $params->{'locus_data'}
+					options          => {
+						i                 => qq(@$no_scan),
+						always_run        => 1,
+						fast              => 1,
+						global_new        => 1,
+						no_user_db_needed => 1,
+						job_manager       => $self->_get_job_manager,
+						no_scan           => 1,
+						update_progress   => 1,
+						finish_progress   => $scan_finish_progress,
+						%$params
+					},
+					instance    => $params->{'database'},
+					user_params => $params->{'user_params'},
+					locus_data  => $params->{'locus_data'}
 				}
 			);
-			my $isolate_data   = $helper->get_results;
-			my $local_new_seqs = $helper->get_new_sequences;
-			$pm->finish( 0,
-				{ designations => $isolate_data, local_new_seqs => $local_new_seqs, isolate_id => $isolate_id } );
+			$data = $data_lookup_helper->get_results;
 		}
-		$pm->wait_all_children;
-		$self->_correct_new_designations( $data, $new_seqs, $by_ref );
+
+		my $pm =
+		  Parallel::ForkManager->new( $params->{'threads'}, $self->{'config'}->{'secure_tmp_dir'} );
+		my $isolate_count = 0;
+
+		if (@$need_scan) {
+			my $range       = $finish_progress - $scan_finish_progress;
+			my $job_manager = $self->_get_job_manager;
+			my $next_id     = @$no_scan + 1;
+			$job_manager->update_job_status( $params->{'job_id'}, { stage => "Scanning isolate record $next_id" } );
+			$pm->run_on_finish(
+				sub {
+					my ( $pid, $exit_code, $ident, $exit_signal, $core_dump, $ret_data ) = @_;
+					$data->{$_} = $ret_data->{'designations'}->{$_} foreach keys %{ $ret_data->{'designations'} };
+					$new_seqs->{ $ret_data->{'isolate_id'} }->{$_} = $ret_data->{'local_new_seqs'}->{$_}
+					  foreach keys %{ $ret_data->{'local_new_seqs'} };
+					$isolate_count++;
+					if ( $params->{'job_id'} ) {
+						my $percent_complete =
+						  @$isolates
+						  ? int( $scan_finish_progress + ( $isolate_count * $range ) / @$isolates )
+						  : $scan_finish_progress;
+						if ( $isolate_count < @$isolates ) {
+							$next_id = @$no_scan + $isolate_count + 1;
+							$job_manager->update_job_status( $params->{'job_id'},
+								{ percent_complete => $percent_complete, stage => "Scanning isolate record $next_id" }
+							);
+						}
+					}
+				}
+			);
+			foreach my $isolate_id (@$need_scan) {
+				last if $self->_is_job_cancelled( $params->{'job_id'} );
+				$pm->start and next;
+				my $scan_helper = BIGSdb::Plugins::Helpers::GCHelper->new(
+					{
+						config_dir       => $self->{'config_dir'},
+						lib_dir          => $self->{'lib_dir'},
+						dbase_config_dir => $self->{'dbase_config_dir'},
+						logger           => $self->{'logger'},
+						options  => { i => $isolate_id, always_run => 1, fast => 1, no_user_db_needed => 1, %$params },
+						instance => $params->{'database'},
+						params   => $params->{'user_params'},
+						locus_data => $params->{'locus_data'}
+					}
+				);
+				my $isolate_data   = $scan_helper->get_results;
+				my $local_new_seqs = $scan_helper->get_new_sequences;
+				$pm->finish( 0,
+					{ designations => $isolate_data, local_new_seqs => $local_new_seqs, isolate_id => $isolate_id } );
+			}
+			$pm->wait_all_children;
+			$self->_correct_new_designations( $data, $new_seqs, $by_ref );
+
+		}
+		if ($by_ref) {
+			$self->_rename_ref_designations($data);
+		}
 		return $data;
 	}
 
 	#Run non-threaded job
-	my $helper = BIGSdb::Plugins::Helpers::GCHelper->new(
+	my $scan_helper = BIGSdb::Plugins::Helpers::GCHelper->new(
 		{
 			config_dir       => $self->{'config_dir'},
 			lib_dir          => $self->{'lib_dir'},
 			dbase_config_dir => $self->{'dbase_config_dir'},
 			logger           => $self->{'logger'},
-			options          => { always_run => 1, fast => 1, global_new => 1, no_user_db_needed => 1, %$params },
-			instance         => $params->{'database'},
-			user_params      => $params->{'user_params'},
-			locus_data       => $params->{'locus_data'}
+			options          => {
+				always_run        => 1,
+				fast              => 1,
+				global_new        => 1,
+				no_user_db_needed => 1,
+				job_manager       => $self->_get_job_manager,
+				update_progress   => 1,
+				finish_progress   => $finish_progress,
+				%$params
+			},
+			instance    => $params->{'database'},
+			user_params => $params->{'user_params'},
+			locus_data  => $params->{'locus_data'}
+
 		}
 	);
-	my $batch_data = $helper->get_results;
-	my $new_seqs   = $helper->get_new_sequences;
+	my $batch_data = $scan_helper->get_results;
+	my $new_seqs   = $scan_helper->get_new_sequences;
 	if ($by_ref) {
-		$self->_rename_ref_designations_from_single_thread($batch_data);
+		$self->_rename_ref_designations($batch_data);
 	}
 	return $batch_data;
 }
@@ -176,14 +256,15 @@ sub _correct_new_designations {
 			}
 		}
 	}
+
 	return;
 }
 
-sub _rename_ref_designations_from_single_thread {
+sub _rename_ref_designations {
 	my ( $self, $data ) = @_;
 	foreach my $isolate_id ( keys %$data ) {
 		foreach my $locus ( keys %{ $data->{$isolate_id}->{'designations'} } ) {
-			$data->{$isolate_id}->{'designations'}->{$locus} =~ s/^new#//x;
+			$data->{$isolate_id}->{'designations'}->{$locus} =~ s/^new\#//x;
 		}
 	}
 	return;

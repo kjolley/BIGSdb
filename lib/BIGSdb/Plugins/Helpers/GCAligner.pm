@@ -200,7 +200,7 @@ sub _process_alignment {
 sub _run_alignment {
 	my ( $self, $params, $temp, $locus ) = @_;
 	my $scan_data = $self->{'scan_data'};
-	( my $escaped_locus = $locus ) =~ s/[\/\|\']/_/gx;
+	( my $escaped_locus = $locus ) =~ s/[\/\|\\(\)']/_/gx;
 	$escaped_locus =~ tr/ /_/;
 	my $fasta_file  = "$self->{'config'}->{'secure_tmp_dir'}/${temp}_$escaped_locus.fasta";
 	my $aligned_out = "$self->{'config'}->{'secure_tmp_dir'}/${temp}_$escaped_locus.aligned";

@@ -53,7 +53,7 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.7.1',
+		version             => '1.8.2',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -171,12 +171,10 @@ sub _print_parameters_fieldset {
 	say q(</li><li>);
 	say q(<li><label for="method">Method: </label>);
 	say $q->popup_menu( -id => 'method', -name => 'method', -values => [qw(MSTreeV2 MSTree NJ RapidNJ)] );
-	say $self->get_tooltip(
-		q(Method - <ul><li>MSTreeV2 (default)</li>)
+	say $self->get_tooltip( q(Method - <ul><li>MSTreeV2 (default)</li>)
 		  . q(<li>MSTree</li>)
 		  . q(<li>NJ - FastME V2 NJ tree</li>)
-		  . q(<li>RapidNJ - RapidNJ for very large datasets</li></ul>)
-	);
+		  . q(<li>RapidNJ - RapidNJ for very large datasets</li></ul>) );
 	say q(</li></ul></fieldset>);
 	return;
 }
@@ -324,7 +322,8 @@ sub run_job {
 
 sub generate_profile_file {
 	my ( $self, $args ) = @_;
-	my ( $job_id, $filename, $isolates, $loci, $params ) = @{$args}{qw(job_id file isolates loci params)};
+	my ( $job_id, $filename, $isolates, $user_genomes, $loci, $params, $rename_user_genomes ) =
+	  @{$args}{qw(job_id file isolates user_genomes loci params rename_user_genomes)};
 	my $ids = $self->{'jobManager'}->get_job_isolates($job_id);
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Generating profile data file' } );
 	$self->set_offline_view($params);
@@ -341,7 +340,10 @@ sub generate_profile_file {
 	my %profile_hash;
 	my $empty_profiles = 0;
 	my $scan_data;
-	eval { $scan_data = $self->assemble_data_for_defined_loci( { job_id => $job_id, ids => $ids, loci => $loci } ); };
+	eval {
+		$scan_data = $self->assemble_data_for_defined_loci(
+			{ job_id => $job_id, ids => $ids, user_genomes => $user_genomes, loci => $loci } );
+	};
 	return if $self->{'exit'};
 	local $" = qq(\t);
 	open( my $fh, '>:encoding(utf8)', $filename )
@@ -349,6 +351,7 @@ sub generate_profile_file {
 	say $fh qq(#isolate\t@$loci);
 
 	foreach my $isolate_id (@$isolates) {
+		
 		my @profile;
 		foreach my $locus (@$loci) {
 			my @values = split /;/x, $scan_data->{'isolate_data'}->{$isolate_id}->{'designations'}->{$locus};
@@ -360,7 +363,12 @@ sub generate_profile_file {
 		}
 		$profile_hash{ Digest::MD5::md5_hex(qq(@profile)) } = 1;
 		$empty_profiles = 1 if all { $_ eq q(-) } @profile;
-		unshift @profile, $isolate_id;
+		if ($rename_user_genomes && $isolate_id < 0){
+			my $user_genome_id = 'u' . abs($isolate_id);
+			unshift @profile, $user_genome_id;
+		} else {
+			unshift @profile, $isolate_id;
+		}
 		say $fh qq(@profile);
 	}
 	close $fh;
@@ -421,7 +429,7 @@ sub _generate_mstree {
 		$job_id,
 		{
 			filename    => "${job_id}_tree.nwk",
-			description => '20_MS Tree (Newick format)',
+			description => '20_Tree (Newick format)',
 		}
 	);
 	$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => 80 } );

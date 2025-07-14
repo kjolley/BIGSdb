@@ -20,7 +20,7 @@ package BIGSdb::Application;
 use strict;
 use warnings;
 use 5.010;
-use version; our $VERSION = version->declare('v1.51.1');
+use version; our $VERSION = version->declare('v1.51.3');
 use Apache2::Connection;
 use parent qw(BIGSdb::BaseApplication);
 use BIGSdb::AjaxAnalysis;
@@ -130,7 +130,7 @@ sub new {
 	$self->{'pages_needing_authentication'} = { map { $_ => 1 } PAGES_NEEDING_AUTHENTICATION };
 	$self->{'pages_needing_authentication'}->{'user'} = 1 if $self->{'config'}->{'site_user_dbs'};
 
-	foreach my $page (qw(downloadAlleles downloadProfiles downloadSeqbin embl)) {
+	foreach my $page (qw(downloadAlleles downloadProfiles downloadSeqbin embl gff)) {
 		$self->{'pages_needing_authentication'}->{$page} = 1 if $self->_download_requires_authentication($page);
 	}
 	my $q = $self->{'cgi'};
@@ -648,6 +648,18 @@ sub log_call {
 				$page = "$page [id: $isolate_id]";
 			}
 		},
+		embl => sub {
+			if ( defined $q->param('isolate_id') ) {
+				my $isolate_id = $q->param('isolate_id');
+				$page = "$page [id: $isolate_id]";
+			}
+		},
+		gff => sub {
+			if ( defined $q->param('isolate_id') ) {
+				my $isolate_id = $q->param('isolate_id');
+				$page = "$page [id: $isolate_id]";
+			}
+		},
 		info => sub {
 			if ( defined $q->param('id') ) {
 				my $isolate_id = $q->param('id');
@@ -716,21 +728,21 @@ sub _plugin_requires_authentication {
 sub _download_requires_authentication {
 	my ( $self, $page ) = @_;
 	my $q              = $self->{'cgi'};
-	my %download_pages = map { $_ => 1 } qw(downloadAlleles downloadProfiles downloadSeqbin embl);
+	my %download_pages = map { $_ => 1 } qw(downloadAlleles downloadProfiles downloadSeqbin embl gff);
 	return if !$download_pages{$page};
 	my $attributes = {
 		downloadAlleles  => 'allele_downloads_require_login',
 		downloadProfiles => 'profile_downloads_require_login',
 		downloadSeqbin   => 'seqbin_downloads_require_login',
-		embl             => 'seqbin_downloads_require_login'
+		embl             => 'seqbin_downloads_require_login',
+		gff              => 'seqbin_downloads_require_login'
 	};
 	my $additional_param = {
 		downloadAlleles  => 'locus',
 		downloadProfiles => 'scheme_id',
 		downloadSeqbin   => 'isolate_id',
-		embl             => 'isolate_id'
 	};
-	return if !$q->param( $additional_param->{$page} );
+	return if defined $additional_param->{$page} && !$q->param( $additional_param->{$page} );
 	return if ( $self->{'system'}->{ $attributes->{$page} } // q() ) eq 'no';
 	return
 	  if !( $self->{'config'}->{ $attributes->{$page} }

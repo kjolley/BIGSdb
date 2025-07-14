@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2024, University of Oxford
+#Copyright (c) 2017-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -29,13 +29,51 @@ sub run_script {
 	my $isolates    = $self->_process_user_genomes;
 	my $merged_data = {};
 	if ( $self->{'options'}->{'reference_file'} ) {
+		my $i = 0;
+		my $last_progress;
 		foreach my $isolate_id (@$isolates) {
+
+			if (   $self->{'options'}->{'update_progress'}
+				&& $self->{'options'}->{'job_manager'}
+				&& $self->{'options'}->{'job_id'} )
+			{
+				my $start_progress  = $self->{'options'}->{'start_progress'}  // 0;
+				my $finish_progress = $self->{'options'}->{'finish_progress'} // 100;
+				my $range           = $finish_progress - $start_progress;
+				my $progress        = $start_progress + ( int( $i * $range / @$isolates ) );
+				if ( !defined $last_progress || $progress != $last_progress ) {
+					$last_progress = $progress;
+					my $id = $i + 1;
+					$self->{'options'}->{'job_manager'}->update_job_status( $self->{'options'}->{'job_id'},
+						{ percent_complete => $progress, stage => "Scanning isolate record $id" } );
+				}
+			}
+			$i++;
 			my $data = $self->_get_allele_designations_from_reference($isolate_id);
 			$merged_data->{$isolate_id} = $data;
 		}
 	} else {
 		my $loci = $self->get_selected_loci;
+		my $i    = 0;
+		my $last_progress;
 		foreach my $isolate_id (@$isolates) {
+			if (   $self->{'options'}->{'update_progress'}
+				&& $self->{'options'}->{'job_manager'}
+				&& $self->{'options'}->{'job_id'} )
+			{
+				my $start_progress  = $self->{'options'}->{'start_progress'}  // 0;
+				my $finish_progress = $self->{'options'}->{'finish_progress'} // 100;
+				my $range           = $finish_progress - $start_progress;
+				my $progress        = $start_progress + ( int( $i * $range / @$isolates ) );
+				if ( !defined $last_progress || $progress != $last_progress ) {
+					$last_progress = $progress;
+					my $verb = $self->{'options'}->{'no_scan'} ? 'Retrieving' : 'Scanning';
+					my $id   = $i + 1;
+					$self->{'options'}->{'job_manager'}->update_job_status( $self->{'options'}->{'job_id'},
+						{ percent_complete => $progress, stage => "$verb isolate record $id" } );
+				}
+			}
+			$i++;
 			my $data = $self->_get_allele_designations_from_defined_loci( $isolate_id, $loci );
 			$merged_data->{$isolate_id} = $data;
 		}
@@ -80,7 +118,7 @@ sub _process_user_genomes {
 		  . "JOIN $temp_list_table t ON s.isolate_id=t.value) UNION SELECT * FROM $seqbin_table" );
 	$self->{'seqbin_table'} = $merged_seqbin_view;
 	$self->{'contigManager'}->set_seqbin_table($merged_seqbin_view);
-	return [ $self->{'options'}->{'i'} ] if defined $self->{'options'}->{'i'};
+	return [ split /,/x, $self->{'options'}->{'i'} ] if defined $self->{'options'}->{'i'};
 	return $isolate_ids;
 }
 
@@ -96,6 +134,7 @@ sub get_new_sequences {
 
 sub _get_allele_designations_from_reference {
 	my ( $self, $isolate_id ) = @_;
+	$self->{'params'}->{$_} = $self->{'options'}->{$_} foreach qw(identity alignment word_size);
 	my $isolate_fasta = $self->_create_isolate_FASTA_db($isolate_id);
 	my $word_size =
 	  BIGSdb::Utils::is_int( $self->{'params'}->{'word_size'} )
