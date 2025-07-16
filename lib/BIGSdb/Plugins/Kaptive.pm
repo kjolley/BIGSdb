@@ -66,15 +66,13 @@ sub get_attributes {
 		requires        => 'offline_jobs,Kaptive,seqbin',
 		system_flag     => 'Kaptive',
 		explicit_enable => 1,
-
-		#		url             => "$self->{'config'}->{'doclink'}/data_analysis/kaptive.html",
-		order => 34,
-		min   => 1,
-		max   => $self->{'system'}->{'kaptive_record_limit'} // $self->{'config'}->{'kaptive_record_limit'}
+		url             => "$self->{'config'}->{'doclink'}/data_analysis/kaptive.html",
+		order           => 37,
+		min             => 1,
+		max             => $self->{'system'}->{'kaptive_record_limit'} // $self->{'config'}->{'kaptive_record_limit'}
 		  // MAX_RECORDS,
 		always_show_in_menu => 1,
-
-		#		image               => '/images/plugins/Kaptive/screenshot.png'
+		image               => '/images/plugins/Kaptive/screenshot.png'
 	};
 	return $att;
 }
