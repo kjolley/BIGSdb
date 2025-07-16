@@ -368,8 +368,8 @@ sub run_job {
 
 	foreach my $isolate_id (@$isolate_ids) {
 		my $isolate_data = {};
-
 		$progress = int( $i / @$isolate_ids * 100 );
+		$i++;
 		my $message = "Scanning isolate $i - id:$isolate_id";
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => $message } );
 		my $assembly_file = $self->_make_assembly_file( $job_id, $isolate_id );
@@ -438,7 +438,6 @@ sub run_job {
 			}
 			$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $progress } );
 		}
-		$i++;
 		if ( keys %$isolate_data ) {
 			$self->_store_results( $isolate_id, $isolate_data );
 		}
