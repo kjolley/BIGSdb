@@ -25,6 +25,7 @@ use parent qw(BIGSdb::Plugin);
 use BIGSdb::Utils;
 use List::MoreUtils qw(uniq);
 use Text::CSV;
+use File::Path qw(make_path rmtree);
 use JSON;
 use File::Copy;
 
@@ -86,14 +87,14 @@ sub get_title {
 
 sub _check_dbs {
 	my ($self) = @_;
-	if ( !defined $self->{'system'}->{'Kaptive_dbs'} ) {
+	if ( !defined $self->{'system'}->{'kaptive_dbs'} ) {
 		$self->print_bad_status( { message => 'No Kaptive dbs have been specified in database configuration.' } );
-		$logger->error( "$self->{'instance'}: Kaptive_dbs have not been set in config.xml - "
+		$logger->error( "$self->{'instance'}: kaptive_dbs have not been set in config.xml - "
 			  . 'this should be a comma-separated list containing one or more of: '
 			  . 'kpsc_k, kpsc_o, ab_k, and ab_o.' );
 		return 1;
 	}
-	my @dbs   = split( /\s*,\s*/x, $self->{'system'}->{'Kaptive_dbs'} );
+	my @dbs   = split( /\s*,\s*/x, $self->{'system'}->{'kaptive_dbs'} );
 	my %valid = map { $_ => 1 } VALID_DBS;
 	foreach my $db (@dbs) {
 		if ( !$valid{$db} ) {
@@ -103,7 +104,7 @@ sub _check_dbs {
 					  'Invalid databases specified in Kaptive configuration. Please contact site administrator.'
 				}
 			);
-			$logger->error("$self->{'instance'}: Kaptive_dbs setting in config.xml contains invalid database: $db");
+			$logger->error("$self->{'instance'}: kaptive_dbs setting in config.xml contains invalid database: $db");
 			return 1;
 		}
 	}
@@ -130,19 +131,27 @@ sub run {
 		  $self->get_ids_from_pasted_list( { dont_clear => 1, has_seqbin => 1 } );
 		push @ids, @$pasted_cleaned_ids;
 		@ids = uniq @ids;
+		my ( $filtered_ids, $view_invalid ) = $self->_filter_ids_by_kaptive_view( \@ids );
+		use Data::Dumper;
+		$logger->error( Dumper $filtered_ids);
+		$logger->error( Dumper $view_invalid);
+		@ids = @$filtered_ids;
+		push @$invalid_ids, @$view_invalid if @$view_invalid;
 		my $message_html;
+
 		if (@$invalid_ids) {
 			local $" = ', ';
 			my $error = q(<p>);
 			if ( @$invalid_ids <= 10 ) {
 				$error .=
-					q(The following isolates in your pasted list are invalid - they either do not exist or )
-				  . qq(do not have sequence data available: @$invalid_ids.);
+					q(The following isolates in your pasted list are invalid - they either do not exist, )
+				  . q(do not have sequence data available, or have been filtered out as not suitable to run )
+				  . q(Kaptive against: @$invalid_ids.);
 			} else {
 				$error .=
 					@$invalid_ids
-				  . q( isolates are invalid - they either do not exist or )
-				  . q(do not have sequence data available.);
+				  . q( isolates are invalid - they either do not exist, do not have sequence data available, )
+				  . q(or have been filtererd out as not suitable to run Kaptive against.);
 			}
 			if (@ids) {
 				$error .= q( These have been removed from the analysis.</p>);
@@ -190,9 +199,49 @@ sub run {
 		say $self->get_job_redirect($job_id);
 		return;
 	}
+	if ( $self->{'system'}->{'kaptive_view'} ) {
+		if ( $q->param('single_isolate') ) {
+			my $valid_id =
+			  $self->{'datastore'}
+			  ->run_query( "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'kaptive_view'} WHERE id=?)",
+				scalar $q->param('single_isolate') );
+			if ( !$valid_id ) {
+				my $detail =
+				  $self->{'system'}->{'kaptive_view_desc'} ? ": $self->{'system'}->{'kaptive_view_desc'}" : q();
+				$self->print_bad_status(
+					{
+						message => 'Kaptive cannot be run against this isolate.',
+						detail  => "Use of Kaptive is restricted to a specific database view$detail"
+					}
+				);
+				return;
+			}
+		}
+
+	}
 	$self->_print_info_panel;
 	$self->_print_interface;
 	return;
+}
+
+sub _filter_ids_by_kaptive_view {
+	my ( $self, $ids ) = @_;
+	my $filtered = [];
+	my $invalid  = [];
+	if ( !$self->{'system'}->{'kaptive_view'} ) {
+		$filtered = $ids;
+	} else {
+		my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $ids );
+		$filtered =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT v.id FROM $self->{'system'}->{'kaptive_view'} v JOIN $temp_table t ON v.id=t.value",
+			undef, { fetch => 'col_arrayref' } );
+		my %valid = map { $_ => 1 } @$filtered;
+		foreach my $id (@$ids) {
+			push @$invalid, $id if !$valid{$id};
+		}
+	}
+	return ( $filtered, $invalid );
 }
 
 sub _print_interface {
@@ -234,7 +283,7 @@ sub _print_interface {
 	  . q(and produce the results in tabular form.</p>);
 	if ($version) {
 		say qq(<ul><li>Kaptive version: $version</li>);
-		my @dbs = split /\s*,\s*/x, $self->{'system'}->{'Kaptive_dbs'};
+		my @dbs = split /\s*,\s*/x, $self->{'system'}->{'kaptive_dbs'};
 		local $" = q(, );
 		my $plural = @dbs == 1 ? q() : q(s);
 		my @db_names;
@@ -249,6 +298,9 @@ sub _print_interface {
 	if ( !$q->param('single_isolate') ) {
 		say q(<p>Please select the required isolate ids to run the analysis for. )
 		  . q(These isolate records must include genome sequences.</p>);
+		if ( $self->{'system'}->{'kaptive_view'} && $self->{'system'}->{'kaptive_view_desc'} ) {
+			print qq(<p>$self->{'system'}->{'kaptive_view_desc'}</p>);
+		}
 	}
 	say $q->start_form;
 	say q(<div class="scrollable">);
@@ -264,8 +316,6 @@ sub _print_interface {
 		$self->print_seqbin_isolate_fieldset(
 			{ selected_ids => $selected_ids, isolate_paste_list => 1, only_genomes => 1 } );
 	}
-
-	#	$self->_print_options_fieldset;
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say $q->hidden($_) foreach qw (page name db);
 	say q(</div>);
@@ -312,7 +362,7 @@ sub run_job {
 	my $td          = 1;
 
 	my $version    = $self->_get_kaptive_version;
-	my @dbs        = split /\s*,\s*/x, $self->{'system'}->{'Kaptive_dbs'};
+	my @dbs        = split /\s*,\s*/x, $self->{'system'}->{'kaptive_dbs'};
 	my $labelfield = ucfirst( $self->{'system'}->{'labelfield'} );
 	my $db_names   = DB_NAMES;
 
@@ -327,9 +377,9 @@ sub run_job {
 
 		foreach my $db (@dbs) {
 			my $tsv_file = "$self->{'config'}->{'tmp_dir'}/${job_id}_$db.txt";
-			my $temp_out = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}_temp_${isolate_id}_$db.tsv";
+			my $temp_out = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}/temp_${isolate_id}_$db.tsv";
 			my $cmd      = "$self->{'config'}->{'kaptive_path'} assembly $db $assembly_file --out $temp_out "
-			  . "--plot $self->{'config'}->{'secure_tmp_dir'} --plot-fmt svg 2> /dev/null";
+			  . "--plot $self->{'config'}->{'secure_tmp_dir'}/$job_id --plot-fmt svg 2> /dev/null";
 
 			system($cmd);
 			if ( -e $temp_out ) {
@@ -365,14 +415,14 @@ sub run_job {
 				}
 				close $fh_in;
 				close $fh_out;
-				my $svg_filename = "${job_id}_${isolate_id}_kaptive_results.svg";
-				my $svg_path = "$self->{'config'}->{'secure_tmp_dir'}/$svg_filename";
+				my $svg_filename = "id-${isolate_id}_kaptive_results.svg";
+				my $svg_path     = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}/$svg_filename";
 				if ( -e $svg_path ) {
 					my $svg_ref = BIGSdb::Utils::slurp($svg_path);
 					$isolate_data->{$db}->{'svg'} = $$svg_ref;
 					if ( @$isolate_ids == 1 ) {
 						move(
-							"$self->{'config'}->{'secure_tmp_dir'}/$svg_filename",
+							"$self->{'config'}->{'secure_tmp_dir'}/${job_id}/$svg_filename",
 							"$self->{'config'}->{'tmp_dir'}/${job_id}_${isolate_id}_${db}.svg"
 						);
 						$self->{'jobManager'}->update_job_output(
@@ -420,7 +470,7 @@ sub run_job {
 			}
 		}
 	}
-	$self->delete_temp_files("$job_id*");
+	rmtree("$self->{'config'}->{'secure_tmp_dir'}/$job_id");
 	return;
 }
 
@@ -467,10 +517,11 @@ sub _tsv2arrayref {
 
 sub _make_assembly_file {
 	my ( $self, $job_id, $isolate_id ) = @_;
-	my $filename   = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}_$isolate_id.fasta";
+	my $filename   = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}/id-$isolate_id.fasta";
 	my $seqbin_ids = $self->{'datastore'}->run_query( 'SELECT id FROM sequence_bin WHERE isolate_id=?',
 		$isolate_id, { fetch => 'col_arrayref', cache => 'make_assembly_file::get_seqbin_list' } );
 	my $contigs = $self->{'contigManager'}->get_contigs_by_list($seqbin_ids);
+	make_path("$self->{'config'}->{'secure_tmp_dir'}/${job_id}");
 	open( my $fh, '>', $filename ) || $logger->error("Cannot open $filename for writing.");
 	foreach my $contig_id ( sort { $a <=> $b } keys %$contigs ) {
 		say $fh ">$contig_id";

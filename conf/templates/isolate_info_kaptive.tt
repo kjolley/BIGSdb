@@ -1,7 +1,7 @@
 [% # Template file for outputting formatted Kaptive analysis in the isolate information page. %]
 [% IF Kaptive %]
 <style>
-svg {max-width:100%;height:auto}
+svg {max-width:100%;min-width:800px;height:auto}
 </style>
 <h3>Kaptive</h3>
 [% db_names = {
@@ -34,7 +34,9 @@ svg {max-width:100%;height:auto}
 [% FOREACH db IN Kaptive.results.data.keys.sort %]
 	[% IF Kaptive.results.data.$db.svg %]
 		<h4>[% db_names.$db %]</h4>
+		<div style="min-width:400px;overflow-x:auto">
 		[% Kaptive.results.data.$db.svg %]
+		</div>
 	[% END %]
 [% END %]
 
