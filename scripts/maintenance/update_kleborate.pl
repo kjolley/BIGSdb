@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20250310
+#Version: 20250716
 use strict;
 use warnings;
 use 5.010;
@@ -251,11 +251,6 @@ sub store_results {
 		  ->do( 'DELETE FROM analysis_results WHERE (isolate_id,name)=(?,?)', undef, $isolate_id, MODULE_NAME );
 		$script->{'db'}->do( 'INSERT INTO analysis_results (name,isolate_id,results) VALUES (?,?,?)',
 			undef, MODULE_NAME, $isolate_id, $json );
-		$script->{'db'}->do(
-			'INSERT INTO last_run (name,isolate_id) VALUES (?,?) ON '
-			  . 'CONFLICT (name,isolate_id) DO UPDATE SET timestamp = now()',
-			undef, MODULE_NAME, $isolate_id
-		);
 	};
 	if ($@) {
 		$logger->error($@);
