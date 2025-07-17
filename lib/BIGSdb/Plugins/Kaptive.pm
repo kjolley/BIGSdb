@@ -130,9 +130,6 @@ sub run {
 		push @ids, @$pasted_cleaned_ids;
 		@ids = uniq @ids;
 		my ( $filtered_ids, $view_invalid ) = $self->_filter_ids_by_kaptive_view( \@ids );
-		use Data::Dumper;
-		$logger->error( Dumper $filtered_ids);
-		$logger->error( Dumper $view_invalid);
 		@ids = @$filtered_ids;
 		push @$invalid_ids, @$view_invalid if @$view_invalid;
 		my $message_html;
