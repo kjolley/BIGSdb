@@ -495,7 +495,10 @@ sub add_job {
 			no_progress  => 1
 		}
 	);
-	undef $self->{'jobManager'} if $options->{'temp_init'};
+	if ($options->{'temp_init'}){
+		$self->{'jobManager'}->{'dataConnector'}->drop_all_connections;
+		undef $self->{'jobManager'};
+	}
 	return $job_id;
 }
 
