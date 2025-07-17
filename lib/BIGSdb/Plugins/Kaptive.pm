@@ -431,8 +431,8 @@ sub run_job {
 					}
 				}
 			}
-			$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $progress } );
 		}
+		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $progress } );
 		if ( keys %$isolate_data ) {
 			$self->_store_results( $isolate_id, $isolate_data );
 		}
