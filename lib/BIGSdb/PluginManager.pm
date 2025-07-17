@@ -304,6 +304,7 @@ sub get_appropriate_plugin_names {
 
 sub _matches_view {
 	my ( $self, $requires, $options ) = @_;
+	return 1 if !defined $requires;
 	if ( $requires =~ /Kaptive/x ) {
 		if ( $self->{'system'}->{'kaptive_view'} && $options->{'single_isolate'} ) {
 			return 0
