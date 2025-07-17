@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
-#Perform/update Kleborate analyses and store results in isolate database.
+#Perform/update Kaptive analyses and store results in isolate database.
 #Written by Keith Jolley
-#Copyright (c) 2023-2025, University of Oxford
+#Copyright (c) 2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -37,21 +37,28 @@ use BIGSdb::Constants qw(LOG_TO_SCREEN :limits);
 use JSON;
 use Term::Cap;
 use POSIX;
-use File::Path qw(rmtree);
-use constant MODULE_NAME => 'Kleborate';
+use File::Path qw(make_path rmtree);
+use Text::CSV;
+use constant MODULE_NAME => 'Kaptive';
+use constant VALID_DBS   => (qw(kpsc_k kpsc_o ab_k ab_o));
+use constant DB_NAMES    => {
+	kpsc_k => 'Klebsiella K locus',
+	kpsc_o => 'Klebsiella O locus',
+	ab_k   => 'Acinetobacter baumannii K locus',
+	ab_o   => 'Acinetobacter baumannii OC locus'
+};
 use Getopt::Long qw(:config no_ignore_case);
+
 my %opts;
 GetOptions(
 	'database=s'      => \$opts{'d'},
 	'exclude=s'       => \$opts{'exclude'},
 	'help'            => \$opts{'help'},
 	'last_run_days=i' => \$opts{'last_run_days'},
-	'preset=s'        => \$opts{'preset'},
 	'quiet'           => \$opts{'quiet'},
 	'refresh_days=i'  => \$opts{'refresh_days'},
 	'v|view=s'        => \$opts{'v'}
 );
-$opts{'preset'} //= 'kpsc';
 
 #Direct all library logging calls to screen
 my $log_conf = LOG_TO_SCREEN;
@@ -68,11 +75,6 @@ local @SIG{qw (INT TERM HUP)} = ( sub { $EXIT = 1 } ) x 3;    #Capture kill sign
 main();
 remove_lock_file();
 local $| = 1;
-my %allowed_presets = map { $_ => 1 } qw(kpsc kosc escherichia);
-
-if ( !$allowed_presets{ $opts{'preset'} } ) {
-	die "Invalid --preset option - use either kpsc, kosc, or escherichia.\n";
-}
 
 sub main {
 	if ( $opts{'d'} ) {
@@ -104,14 +106,15 @@ sub get_dbs {
 				dbase_config_dir => DBASE_CONFIG_DIR,
 				instance         => $dir,
 				logger           => $logger,
-				options          => {}
+				options          => { no_user_db_needed => 1 }
 			}
 		);
-		if ( !defined $script->{'config'}->{'kleborate_path'} ) {
-			die "kleborate_path is not set in bigsdb.conf.\n";
+		if ( !defined $script->{'config'}->{'kaptive_path'} ) {
+			die "kaptive_path is not set in bigsdb.conf.\n";
 		}
-		next if ( $script->{'system'}->{'dbtype'}    // q() ) ne 'isolates';
-		next if ( $script->{'system'}->{'Kleborate'} // q() ) ne 'yes';
+		next if ( $script->{'system'}->{'dbtype'}  // q() ) ne 'isolates';
+		next if ( $script->{'system'}->{'Kaptive'} // q() ) ne 'yes';
+		next if !defined $script->{'system'}->{'kaptive_dbs'};
 		if ( !$script->{'db'} ) {
 			$logger->error("Skipping $dir ... database does not exist.");
 			next;
@@ -145,11 +148,11 @@ sub check_db {
 		q[SELECT ss.isolate_id FROM seqbin_stats ss LEFT JOIN analysis_results ar ON ss.isolate_id=ar.isolate_id ]
 	  . q[AND ar.name=? LEFT JOIN last_run lr ON ss.isolate_id=lr.isolate_id AND lr.name=? ]
 	  . q[WHERE ss.total_length>=? AND (ar.datestamp IS NULL ];
-	if ( $opts{'refresh_days'} ) {
+	if ( defined $opts{'refresh_days'} ) {
 		$qry .= qq(OR ar.datestamp < now()-interval '$opts{'refresh_days'} days' );
 	}
 	$qry .= q[) ];
-	if ( $opts{'last_run_days'} ) {
+	if ( defined $opts{'last_run_days'} ) {
 		$qry .= qq(AND (lr.timestamp IS NULL OR lr.timestamp < now()-interval '$opts{'last_run_days'} days') );
 	}
 	if ( $opts{'v'} ) {
@@ -157,19 +160,23 @@ sub check_db {
 	}
 	$qry .= q(ORDER BY ss.isolate_id);
 	my $agent = LWP::UserAgent->new( agent => 'BIGSdb', timeout => 600 );
-	my $ids =
+	my $genome_ids =
 	  $script->{'datastore'}
-	  ->run_query( $qry, [ 'Kleborate', 'Kleborate', $min_genome_size ], { fetch => 'col_arrayref' } );
+	  ->run_query( $qry, [ 'Kaptive', 'Kaptive', $min_genome_size ], { fetch => 'col_arrayref' } );
+	my $ids    = filter_ids_by_kaptive_view( $script, $genome_ids );
 	my $plural = @$ids == 1 ? q() : q(s);
 	my $count  = @$ids;
 	return if !$count;
-	my $job_id = $script->add_job( 'Kleborate (offline)', { temp_init => 1 } ) // BIGSdb::Utils::get_random();
+	my $job_id = $script->add_job( 'Kaptive (offline)', { temp_init => 1 } ) // BIGSdb::Utils::get_random();
 	say qq(\n$config: $count genome$plural to analyse) if !$opts{'quiet'};
-	my $i             = 0;
-	my $major_version = get_kleborate_major_version($script);
+	my $i          = 0;
+	my $db_names   = DB_NAMES;
+	my @dbs        = split /\s*,\s*/x, $script->{'system'}->{'kaptive_dbs'};
+	my $labelfield = ucfirst( $script->{'system'}->{'labelfield'} );
 
 	foreach my $isolate_id (@$ids) {
-		my $progress = int( $i * 100 / @$ids );
+		my $isolate_data = {};
+		my $progress     = int( $i * 100 / @$ids );
 		$script->update_job(
 			$job_id,
 			{
@@ -178,30 +185,47 @@ sub check_db {
 			}
 		);
 		print qq(Processing -id-$isolate_id ...) if !$opts{'quiet'};
-		my $assembly_file = $script->make_assembly_file( $job_id, $isolate_id, { extension => 'fasta' } );
-		my $out_file;
+		my $assembly_file = make_assembly_file( $script, $job_id, $isolate_id );
+		foreach my $db (@dbs) {
+			last if $EXIT;
+			my $temp_out = "$script->{'config'}->{'secure_tmp_dir'}/${job_id}/temp_${isolate_id}_$db.tsv";
+			my $cmd      = "$script->{'config'}->{'kaptive_path'} assembly $db $assembly_file --out $temp_out "
+			  . "--plot $script->{'config'}->{'secure_tmp_dir'}/$job_id --plot-fmt svg 2> /dev/null";
 
-		if ( $major_version == 2 ) {
-			$out_file = "$script->{'config'}->{'secure_tmp_dir'}/${job_id}_kleborate.txt";
-			my $cmd = "$script->{'config'}->{'kleborate_path'} -all -o $out_file -a $assembly_file > /dev/null";
 			system($cmd);
-		} else {
+			if ( -e $temp_out ) {
+				my $data = tsv2arrayref($temp_out);
+				if ( ref $data eq 'ARRAY' ) {
+					if ( @$data == 1 ) {
+						$isolate_data->{$db}->{'fields'} = $data->[0];
+						delete $isolate_data->{$db}->{'Assembly'};
+					} elsif ( @$data > 1 ) {
+						$logger->error("Multiple rows reported for id-$isolate_id $db - This is unexpected.");
+					}
+				}
+				open( my $fh_in, '<:encoding(utf8)', $temp_out )
+				  || $logger->error("Cannot open $temp_out for reading.");
+				my $name = $script->{'datastore'}
+				  ->run_query( "SELECT $script->{'system'}->{'labelfield'} FROM isolates WHERE id=?", $isolate_id );
+				close $fh_in;
+				my $svg_filename = "id-${isolate_id}_kaptive_results.svg";
+				my $svg_path     = "$script->{'config'}->{'secure_tmp_dir'}/${job_id}/$svg_filename";
+				if ( -e $svg_path ) {
+					my $svg_ref = BIGSdb::Utils::slurp($svg_path);
+					$isolate_data->{$db}->{'svg'} = $$svg_ref;
+					unlink $svg_path;
+				}
 
-			my $dir = "$script->{'config'}->{'secure_tmp_dir'}/$job_id";
-			mkdir $dir;
-			my $cmd = "$script->{'config'}->{'kleborate_path'} -o $dir -a $assembly_file "
-			  . "-p $opts{'preset'} --trim_headers > /dev/null";
-			$out_file = "$dir/klebsiella_pneumo_complex_output.txt";
-			system($cmd);
+			}
+			$script->update_job( $job_id, { percent_complete => $progress } );
+		}
+		if ( keys %$isolate_data ) {
+			store_results( $script, $isolate_id, $isolate_data );
 		}
 
-		store_results( $script, $isolate_id, $out_file );
 		$script->set_last_run_time( MODULE_NAME, $isolate_id );
-		if ( $major_version > 2 ) {
-			rmtree "$script->{'config'}->{'secure_tmp_dir'}/$job_id";
-		}
-		unlink $assembly_file;
-		unlink $out_file;
+		rmtree "$script->{'config'}->{'secure_tmp_dir'}/$job_id";
+
 		say q(done.) if !$opts{'quiet'};
 		$i++;
 		last if $EXIT;
@@ -210,79 +234,77 @@ sub check_db {
 	return;
 }
 
-sub extract_results {
-	my ($filename) = @_;
-	open( my $fh, '<', $filename ) || $logger->error("Cannot open $filename for reading");
-	my $header_line = <$fh>;
-	chomp $header_line;
-	my $results_line = <$fh>;
-	chomp $results_line;
-	close $fh;
-	my $headers = [ split /\t/x, $header_line ];
-	my $results = [ split /\t/x, $results_line ];
-	return ( $headers, $results );
-}
-
 sub store_results {
-	my ( $script, $isolate_id, $output_file ) = @_;
-	my $cleaned_results = [];
-	my ( $headers, $results ) = extract_results($output_file);
-	if ( !@$headers || !@$results ) {
-		$logger->error("No valid results for id-$isolate_id");
-		return;
-	}
-	my %ignore = map { $_ => 1 }
-	  qw(strain contig_count N50 largest_contig total_size ambiguous_bases ST Chr_ST gapA infB mdh pgi phoE rpoB tonB);
-	for my $i ( 0 .. @$headers - 1 ) {
-		next if $ignore{ $headers->[$i] };
-		next
-		  if !defined $results->[$i]
-		  || $results->[$i] eq '-'
-		  || $results->[$i] eq ''
-		  || $results->[$i] eq 'Not Tested';
-		push @$cleaned_results,
-		  { $headers->[$i] => BIGSdb::Utils::is_int( $results->[$i] ) ? int( $results->[$i] ) : $results->[$i] };
-	}
-	my $version = get_kleborate_version($script);
-	chomp $version;
-	my $json = encode_json( { version => $version, fields => $cleaned_results } );
+	my ( $self, $isolate_id, $data ) = @_;
+	my $version = get_kaptive_version($self);
+	my $json    = encode_json( { version => $version, data => $data } );
 	eval {
-		$script->{'db'}
+		$self->{'db'}
 		  ->do( 'DELETE FROM analysis_results WHERE (isolate_id,name)=(?,?)', undef, $isolate_id, MODULE_NAME );
-		$script->{'db'}->do( 'INSERT INTO analysis_results (name,isolate_id,results) VALUES (?,?,?)',
+		$self->{'db'}->do( 'INSERT INTO analysis_results (name,isolate_id,results) VALUES (?,?,?)',
 			undef, MODULE_NAME, $isolate_id, $json );
 	};
 	if ($@) {
 		$logger->error($@);
-		$script->{'db'}->rollback;
+		$self->{'db'}->rollback;
 	} else {
-		$script->{'db'}->commit;
+		$self->{'db'}->commit;
 	}
 	return;
 }
 
-sub get_kleborate_major_version {
-	my ($script) = @_;
-	my $version = get_kleborate_version($script);
-	my $major_version;
-	if ( $version =~ /^Kleborate\s+v(\d+)\./x ) {
-		$major_version = $1;
+sub filter_ids_by_kaptive_view {
+	my ( $self, $ids ) = @_;
+	my $filtered = [];
+	if ( !$self->{'system'}->{'kaptive_view'} ) {
+		$filtered = $ids;
 	} else {
-		$logger->error('Unknown Kleborate version');
-		$major_version = 2;
+		my $temp_table = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $ids );
+		$filtered =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT v.id FROM $self->{'system'}->{'kaptive_view'} v JOIN $temp_table t ON v.id=t.value",
+			undef, { fetch => 'col_arrayref' } );
+
 	}
-	return $major_version;
+	return $filtered;
 }
 
-sub get_kleborate_version {
-	my ($script) = @_;
-	return if !-x $script->{'config'}->{'kleborate_path'};
-	my $out = "$script->{'config'}->{'secure_tmp_dir'}/kleborate_$$";
-	local $ENV{'TERM'} = 'dumb';
-	my $version     = system("$script->{'config'}->{'kleborate_path'} --version > $out");
-	my $version_ref = BIGSdb::Utils::slurp($out);
-	unlink $out;
-	return $$version_ref;
+sub tsv2arrayref {
+	my ($tsv_file) = @_;
+	open( my $fh, '<', $tsv_file ) || $logger->error("Could not open '$tsv_file': $!");
+	my $tsv    = Text::CSV->new( { sep_char => "\t", binary => 1, auto_diag => 1 } );
+	my $header = $tsv->getline($fh);
+	$tsv->column_names(@$header);
+	my $rows = [];
+	while ( my $row = $tsv->getline_hr($fh) ) {
+		push @$rows, $row;
+	}
+	close $fh;
+	return $rows;
+}
+
+sub make_assembly_file {
+	my ( $self, $job_id, $isolate_id ) = @_;
+	my $filename   = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}/id-$isolate_id.fasta";
+	my $seqbin_ids = $self->{'datastore'}->run_query( 'SELECT id FROM sequence_bin WHERE isolate_id=?',
+		$isolate_id, { fetch => 'col_arrayref', cache => 'make_assembly_file::get_seqbin_list' } );
+	my $contigs = $self->{'contigManager'}->get_contigs_by_list($seqbin_ids);
+	make_path("$self->{'config'}->{'secure_tmp_dir'}/${job_id}");
+	open( my $fh, '>', $filename ) || $logger->error("Cannot open $filename for writing.");
+	foreach my $contig_id ( sort { $a <=> $b } keys %$contigs ) {
+		say $fh ">$contig_id";
+		say $fh $contigs->{$contig_id};
+	}
+	close $fh;
+	return $filename;
+}
+
+sub get_kaptive_version {
+	my ($self)  = @_;
+	my $command = "$self->{'config'}->{'kaptive_path'} --version";
+	my $version = `$command`;
+	chomp $version;
+	return $version;
 }
 
 sub check_if_script_already_running {
@@ -333,10 +355,10 @@ sub show_help {
 	my ( $norm, $bold, $under ) = map { $t->Tputs( $_, 1 ) } qw/me md us/;
 	say << "HELP";
 ${bold}NAME$norm
-    ${bold}update_kleborate.pl$norm - Perform/update Kleborate analysis
+    ${bold}update_kaptive.pl$norm - Perform/update Kaptive analysis
 
 ${bold}SYNOPSIS$norm
-    ${bold}update_kleborate.pl$norm [${under}options$norm]
+    ${bold}update_kaptive.pl$norm [${under}options$norm]
 
 ${bold}OPTIONS$norm
 
@@ -353,14 +375,7 @@ ${bold}--help$norm
 ${bold}--last_run_days$norm ${under}DAYS$norm
     Only run for a particular isolate when the analysis was last performed
     at least the specified number of days ago.
-    
-${bold}--preset$norm ${under}PRESET$norm
-    Preset list of modules to run (only for Kleborate v3). Available options
-    are:
-      kpsc [for Klebsiella pneumoniae species complex - default],
-      kosc [for Klebsiella oxytoca species complex],
-      escherichia [for Escherichia coli]
-    
+       
 ${bold}--quiet$norm
     Only show errors.
     
@@ -369,7 +384,7 @@ ${bold}--refresh_days$norm ${under}DAYS$norm
     default, only records that have not been analysed will be checked. 
     
 ${bold}--view, -v$norm ${under}VIEW$norm
-    Isolate database view (overrides value set in config.xml).
+    Isolate database view (overrides the view set in config.xml).
      
 HELP
 	return;

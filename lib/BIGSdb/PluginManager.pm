@@ -267,6 +267,7 @@ sub get_appropriate_plugin_names {
 		next if !$self->_has_required_item( $attr->{'requires'} );
 		next if !$self->_matches_required_fields( $attr->{'requires'} );
 		next if !$self->_has_required_genome( $attr->{'requires'}, $options );
+		next if !$self->_matches_view( $attr->{'requires'}, $options );
 
 		#must be a scheme with primary key and loci defined
 		my $filtered_scheme_list = $self->_filter_schemes( $pk_scheme_list, $plugin );
@@ -299,6 +300,18 @@ sub get_appropriate_plugin_names {
 		}
 	}
 	return $plugins;
+}
+
+sub _matches_view {
+	my ( $self, $requires, $options ) = @_;
+	if ( $requires =~ /Kaptive/x ) {
+		if ( $self->{'system'}->{'kaptive_view'} && $options->{'single_isolate'} ) {
+			return 0
+			  if !$self->{'datastore'}
+			  ->is_isolate_in_view( $self->{'system'}->{'kaptive_view'}, $options->{'single_isolate'} );
+		}
+	}
+	return 1;
 }
 
 #Check if isolate database contains fields with appropriate characteristics
@@ -368,6 +381,7 @@ sub _has_required_item {
 		phyloviz_passwd        => 'phyloviz_passwd',
 		microreact_token       => 'microreact_token',
 		kleborate_path         => 'Kleborate',
+		kaptive_path           => 'Kaptive',
 		weasyprint_path        => 'weasyprint',
 		reportree_path         => 'ReporTree',
 		snp_sites_path         => 'snp_sites',

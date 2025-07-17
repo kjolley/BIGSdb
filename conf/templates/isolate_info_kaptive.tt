@@ -1,0 +1,45 @@
+[% # Template file for outputting formatted Kaptive analysis in the isolate information page. %]
+[% IF Kaptive %]
+<style>
+svg {max-width:100%;min-width:800px;height:auto}
+</style>
+<h3>Kaptive</h3>
+[% db_names = {
+	kpsc_k => 'Klebsiella K locus',
+	kpsc_o => 'Klebsiella O locus',
+	ab_k   => 'Acinetobacter baumannii K locus',
+	ab_o   => 'Acinetobacter baumannii OC locus'
+} %]
+[% fields = ['Best match locus','Best match type','Match confidence','Problems','Identity','Coverage',
+'Length discrepancy','Expected genes in locus','Missing expected genes',
+'Other genes in locus','Other genes in locus, details','Expected genes outside locus',
+'Expected genes outside locus, details','Other genes outside locus','Other genes outside locus, details',
+'Truncated genes, details','Extra genes, details' ] %]
+
+<div class="scrollable"><table class="resultstable">
+<tr class="th"><th>Database</th>
+[% FOREACH field IN fields %]<th>[% field %]</th>[% END %]
+</tr>
+[% td = 1 %]
+
+[% FOREACH db IN Kaptive.results.data.keys.sort %]
+	<tr class="td[% td %]"><td>[% db_names.$db %]</td>
+	[% FOREACH field IN fields %]
+		<td>[% Kaptive.results.data.$db.fields.$field %]</td>		
+	[% END %]
+	</tr>
+	[% IF td==1 %][% td=2 %][% ELSE %][% td=1 %][% END %]
+[% END %]
+</table></div>
+[% FOREACH db IN Kaptive.results.data.keys.sort %]
+	[% IF Kaptive.results.data.$db.svg %]
+		<h4>[% db_names.$db %]</h4>
+		<div style="min-width:400px;overflow-x:auto">
+		[% Kaptive.results.data.$db.svg %]
+		</div>
+	[% END %]
+[% END %]
+
+<p style="font-size:0.8em"><em>Analysis performed: [% Kaptive.datestamp %]; Version [% Kaptive.results.version %]</em></p>
+
+[% END %]
