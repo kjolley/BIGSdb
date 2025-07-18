@@ -42,6 +42,6 @@ svg {max-width:100%;min-width:800px;height:auto}
 
 <p style="font-size:0.8em"><em>Analysis performed: [% Kaptive.datestamp %]; Kaptive Version [% Kaptive.results.version %]</em>. 
 Citation: <a href="https://www.biorxiv.org/content/10.1101/2025.02.05.636613v1" target="_blank">Stanton <i>et al.</i> 
-(2025) bioRxiv (2025) 2025.02.05.636613</a>.</p>
+(2025) bioRxiv 2025.02.05.636613</a>.</p>
 
 [% END %]
