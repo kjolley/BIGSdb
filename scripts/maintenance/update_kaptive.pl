@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20250716
+#Version: 20250717
 use strict;
 use warnings;
 use 5.010;
@@ -184,7 +184,7 @@ sub check_db {
 				temp_init => 1
 			}
 		);
-		print qq(Processing -id-$isolate_id ...) if !$opts{'quiet'};
+		print qq(Processing id-$isolate_id ...) if !$opts{'quiet'};
 		my $assembly_file = make_assembly_file( $script, $job_id, $isolate_id );
 		foreach my $db (@dbs) {
 			last if $EXIT;
