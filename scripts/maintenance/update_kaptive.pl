@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20250717
+#Version: 20250811
 use strict;
 use warnings;
 use 5.010;
@@ -308,7 +308,7 @@ sub get_kaptive_version {
 }
 
 sub check_if_script_already_running {
-	my $lock_file = get_lock_file('update_kleborate');
+	my $lock_file = get_lock_file('update_kaptive');
 	if ( -e $lock_file ) {
 		open( my $fh, '<', $lock_file ) || $logger->error("Cannot open lock file $lock_file for reading");
 		my $pid = <$fh>;
@@ -337,7 +337,7 @@ sub get_lock_file {
 		$config = Config::Tiny->new();
 	}
 	my $lock_dir  = $config->{_}->{'lock_dir'} // LOCK_DIR;
-	my $lock_file = "$lock_dir/update_kleborate";
+	my $lock_file = "$lock_dir/update_kaptive";
 	return $lock_file;
 }
 
