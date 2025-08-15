@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20250721
+#Version: 20250815
 use strict;
 use warnings;
 use 5.010;
@@ -29,31 +29,32 @@ use Carp;
 use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
 use POSIX;
-use constant DBASE      => 'bigsdb_auth';
-use constant SUBMISSION => 'true';
-use constant CURATION   => 'false';
+use constant DBASE  => 'bigsdb_auth';
+use constant ACCESS => 'allow';
+use constant SUBMIT => 'allow';
+use constant CURATE => 'deny';
 binmode( STDOUT, ':encoding(UTF-8)' );
 my %opts;
 
 GetOptions(
-	'allow_curation'         => \$opts{'allow_curation'},
-	'allow_submissions'      => \$opts{'allow_submissions'},
-	'c|clear'                => \$opts{'clear'},
-	'clear_dbs=s'            => \$opts{'clear_dbs'},
-	'dbuser=s'               => \$opts{'dbuser'},
-	'dbpass=s'               => \$opts{'dbpass'},
-	'dbhost=s'               => \$opts{'dbhost'},
-	'dbport=i'               => \$opts{'dbport'},
-	'f|filter=s'             => \$opts{'filter'},
-	'h|help'                 => \$opts{'help'},
-	'k|key=s'                => \$opts{'key'},
-	'l|list'                 => \$opts{'list'},
-	'p|permissions'          => \$opts{'permissions'},
-	's|set_default_access=s' => \$opts{'set_default_access'},
-	'set_dbs=s'              => \$opts{'set_dbs'},
-	'set_db_access=s'        => \$opts{'set_db_access'},
-	'set_db_curate=s'        => \$opts{'set_db_curate'},
-	'set_db_submit=s'        => \$opts{'set_db_submit'},
+	'c|clear'              => \$opts{'clear'},
+	'clear_dbs=s'          => \$opts{'clear_dbs'},
+	'dbuser=s'             => \$opts{'dbuser'},
+	'dbpass=s'             => \$opts{'dbpass'},
+	'dbhost=s'             => \$opts{'dbhost'},
+	'dbport=i'             => \$opts{'dbport'},
+	'f|filter=s'           => \$opts{'filter'},
+	'h|help'               => \$opts{'help'},
+	'k|key=s'              => \$opts{'key'},
+	'l|list'               => \$opts{'list'},
+	'p|permissions'        => \$opts{'permissions'},
+	'set_default_access=s' => \$opts{'set_default_access'},
+	'set_default_curate=s' => \$opts{'set_default_curate'},
+	'set_default_submit=s' => \$opts{'set_default_submit'},
+	'set_dbs=s'            => \$opts{'set_dbs'},
+	'set_db_access=s'      => \$opts{'set_db_access'},
+	'set_db_curate=s'      => \$opts{'set_db_curate'},
+	'set_db_submit=s'      => \$opts{'set_db_submit'},
 ) or die("Error in command line arguments\n");
 
 $opts{'dbuser'} //= 'postgres';
@@ -97,7 +98,7 @@ sub main {
 		clear_db_permissions();
 	}
 	if ( $opts{'set_dbs'} ) {
-		set_db_permissions('set_db_allow');
+		set_db_permissions();
 	}
 	return;
 }
@@ -143,8 +144,8 @@ sub list_permissions {
 	say qq(\nDefault permissions:);
 	say qq(Access:       $client->{'default_permission'});
 	my $deny_overridden = $client->{'default_permission'} eq 'deny' ? q( [overridden by default access]) : q();
-	say q(Curation:     ) . ( $client->{'default_permission'} ? qq(allow$deny_overridden) : q(deny) );
-	say q(Submission:   ) . ( $client->{'default_permission'} ? qq(allow$deny_overridden) : q(deny) );
+	say q(Curation:     ) . ( $client->{'default_curation'}   ? qq(allow$deny_overridden) : q(deny) );
+	say q(Submission:   ) . ( $client->{'default_submission'} ? qq(allow$deny_overridden) : q(deny) );
 	$sql = $db->prepare('SELECT * FROM client_permissions WHERE client_id=? ORDER BY authorize,dbase');
 	eval { $sql->execute($key) };
 	croak $@ if $@;
@@ -240,13 +241,23 @@ sub clear_db_permissions {
 }
 
 sub set_db_permissions {
-	my ($permission) = @_;
 	my $key = $opts{'key'};
 	check_key();
-	( my $value = $permission ) =~ s/set_db_//x;
-	my @dbases     = split /\s*,\s*/x, $opts{$permission};
-	my $submission = SUBMISSION;
-	my $curation   = CURATION;
+	my @dbases  = split /\s*,\s*/x, $opts{'set_dbs'};
+	my $access  = $opts{'set_db_access'} // $opts{'set_default_access'} // ACCESS;
+	my $submit  = $opts{'set_db_submit'} // $opts{'set_default_submit'} // SUBMIT;
+	my %allowed = map { $_ => 1 } qw(allow deny);
+	if ( !$allowed{$submit} ) {
+		say 'Invalid submit value - can be only allow or deny.';
+		exit;
+	}
+	my $submit_value = $submit eq 'allow' ? 'true' : 'false';
+	my $curate       = $opts{'set_db_curate'} // $opts{'set_default_curate'} // CURATE;
+	if ( !$allowed{$curate} ) {
+		say 'Invalid curate value - can be only allow or deny.';
+		exit;
+	}
+	my $curate_value = $curate eq 'allow' ? 'true' : 'false';
 
 	my @results;
 	eval {
@@ -254,11 +265,10 @@ sub set_db_permissions {
 			$db->do(
 				'INSERT INTO client_permissions (client_id,dbase,authorize,submission,curation) VALUES '
 				  . '(?,?,?,?,?) ON CONFLICT(client_id,dbase) DO UPDATE SET '
-				  . '(authorize,curation,submission)=(?,?,?)',
-				undef, $key, $dbase, $value, $submission, $curation, $value, $submission, $curation
+				  . '(authorize,submission,curation)=(?,?,?)',
+				undef, $key, $dbase, $access, $submit_value, $curate_value, $access, $submit_value, $curate_value
 			);
-			push @results,
-			  qq(Permission set for $dbase: authorize: $value; submission: $submission; curation: $curation.);
+			push @results, qq(Permission set for $dbase: authorize: $access; submit: $submit; curate: $curate.);
 		}
 		$db->commit;
 	};
@@ -276,18 +286,13 @@ sub show_help {
 	my ( $norm, $bold, $under ) = map { $t->Tputs( $_, 1 ) } qw/me md us/;
 	say << "HELP";
 ${bold}NAME$norm
-    ${bold}create_client_credentials.pl$norm - Update authentication database 
+    ${bold}update_clients.pl$norm - Update authentication database 
     with permissions for third party applications (API clients) .
 
 ${bold}SYNOPSIS$norm
     ${bold}update_clients.pl$norm ${under}options$norm
 
-${bold}OPTIONS$norm
-
-${bold}--allow_curation$norm
-
-${bold}--allow_submission$norm
-    
+${bold}OPTIONS$norm 
 
 ${bold}-c, --clear$norm
     Clear explicit permissions (default permission is unchanged).
@@ -311,9 +316,22 @@ ${bold}-p, --permissions$norm
     
 ${bold}-s, --set_dbs$norm ${under}LIST$norm
 	Comma-separated list of databases to set permissions for.
+	
+${bold}-s, --set_db_access$norm ${under}approve|deny$norm
+    Set access permission for databases defined by --set_dbs. This will
+    override the default permission.
+
+${bold}-s, --set_db_curate$norm ${under}approve|deny$norm
+    Set curation permission for databases defined by --set_dbs. This will
+    override the default permission.
+
+${bold}-s, --set_db_submit$norm ${under}approve|deny$norm
+    Set submission permission for databases defined by --set_dbs. This will
+    override the default permission.
 	  
 ${bold}-s, --set_default_access$norm ${under}approve|deny$norm
-    Set default permission for client
+    Set default access permission for client. If set to deny then this will
+    also override the default_curate and default_submit permissions.
     
 ${bold}-s, --set_default_curate$norm ${under}approve|deny$norm
     Set default curation permission for client. Client curation is not
