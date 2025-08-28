@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20250815
+#Version: 20250828
 use strict;
 use warnings;
 use 5.010;
@@ -85,10 +85,6 @@ sub main {
 		list_clients();
 		exit;
 	}
-	if ( $opts{'permissions'} ) {
-		list_permissions();
-		exit;
-	}
 	if ( $opts{'set_default_access'} ) {
 		set_default_access();
 	}
@@ -99,6 +95,9 @@ sub main {
 	}
 	if ( $opts{'set_dbs'} ) {
 		set_db_permissions();
+	}
+	if ( $opts{'permissions'} ) {
+		list_permissions();
 	}
 	return;
 }
@@ -247,28 +246,58 @@ sub set_db_permissions {
 	my $access  = $opts{'set_db_access'} // $opts{'set_default_access'} // ACCESS;
 	my $submit  = $opts{'set_db_submit'} // $opts{'set_default_submit'} // SUBMIT;
 	my %allowed = map { $_ => 1 } qw(allow deny);
+	if ( !$allowed{$access} ) {
+		say 'Invalid access value - can be only allow or deny.';
+		exit;
+	}
 	if ( !$allowed{$submit} ) {
 		say 'Invalid submit value - can be only allow or deny.';
 		exit;
 	}
-	my $submit_value = $submit eq 'allow' ? 'true' : 'false';
-	my $curate       = $opts{'set_db_curate'} // $opts{'set_default_curate'} // CURATE;
+
+	my $curate = $opts{'set_db_curate'} // $opts{'set_default_curate'} // CURATE;
 	if ( !$allowed{$curate} ) {
 		say 'Invalid curate value - can be only allow or deny.';
 		exit;
 	}
-	my $curate_value = $curate eq 'allow' ? 'true' : 'false';
-
 	my @results;
 	eval {
+		my $sql = $db->prepare('SELECT * FROM client_permissions WHERE (client_id,dbase)=(?,?)');
 		foreach my $dbase (@dbases) {
+			eval { $sql->execute( $key, $dbase ); };
+			if ($@) {
+				say $@;
+				exit 1;
+			}
+			my $current     = $sql->fetchrow_hashref;
+			my $this_access = $opts{'set_db_access'} // $current->{'authorize'} // $opts{'set_default_access'}
+			  // ACCESS;
+
+			my $this_submit = $opts{'set_db_submit'} // $current->{'submission'} // $opts{'set_default_submit'}
+			  // SUBMIT;
+			$this_submit = 'true'  if $this_submit eq 'allow';
+			$this_submit = 'false' if $this_submit eq 'deny';
+			my $this_curate = $opts{'set_db_curate'} // $current->{'curation'} // $opts{'set_default_curate'} // SUBMIT;
+			$this_curate = 'true'  if $this_curate eq 'allow';
+			$this_curate = 'false' if $this_curate eq 'deny';
 			$db->do(
 				'INSERT INTO client_permissions (client_id,dbase,authorize,submission,curation) VALUES '
 				  . '(?,?,?,?,?) ON CONFLICT(client_id,dbase) DO UPDATE SET '
 				  . '(authorize,submission,curation)=(?,?,?)',
-				undef, $key, $dbase, $access, $submit_value, $curate_value, $access, $submit_value, $curate_value
+				undef,
+				$key,
+				$dbase,
+				$this_access,
+				$this_submit,
+				$this_curate,
+				$this_access,
+				$this_submit,
+				$this_curate
 			);
-			push @results, qq(Permission set for $dbase: authorize: $access; submit: $submit; curate: $curate.);
+			my $this_submit_display = $this_submit eq 'true' ? 'allow' : 'deny';
+			my $this_curate_display = $this_curate eq 'true' ? 'allow' : 'deny';
+			push @results,
+qq(Permission set for $dbase: authorize: $this_access; submit: $this_submit_display; curate: $this_curate_display.);
 		}
 		$db->commit;
 	};
