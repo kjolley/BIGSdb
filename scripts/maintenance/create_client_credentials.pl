@@ -2,7 +2,7 @@
 #Populate authentication database with third party application (API client)
 #credentials.
 #Written by Keith Jolley
-#Copyright (c) 2015-2024, University of Oxford
+#Copyright (c) 2015-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20241023
+#Version: 20250721
 use strict;
 use warnings;
 use 5.010;
@@ -216,7 +216,7 @@ ${bold}-i, --insert$norm
     application version already exists (use --update in this case to overwrite
     existing credentials).
    
-${bold}-p, --permission$norm
+${bold}-p, --permission$norm ${under}allow|deny$norm 
     Set default permission (default is 'allow'). Allowed values are 'allow' 
     or 'deny'.
     
@@ -226,23 +226,23 @@ ${bold}-s, --submit$norm
 ${bold}-u, --update$norm
     Update existing credentials in the authentication database.
     
-${bold}-v, --version ${under}VERSION$norm  
+${bold}-v, --version$norm ${under}VERSION$norm  
     Version of application (optional).
 
 ${bold}DATABASE CONNECTION OPTIONS$norm
 
-${bold}-U, --dbuser$norm
+${bold}-U, --dbuser$norm ${under}USER$norm 
    Database user used to connect to database server [DEFAULT 'postgres'].
 
-${bold}-P, --dbpass$norm
+${bold}-P, --dbpass$norm ${under}PASSWORD$norm 
    Database user password used to connect to database server.
 
-${bold}-H, --dbhost$norm
+${bold}-H, --dbhost$norm ${under}HOST$norm
    Database server hostname [DEFAULT 'localhost' if port set]. If neither 
    dbhost or dbport are set then UNIX domain sockets will be used for the 
    connection.
 
-${bold}-N, --dbport$norm
+${bold}-N, --dbport$norm ${under}PORT$norm 
    Database server port connection number [DEFAULT 5432 if host set].
 HELP
 	return;
