@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2024, University of Oxford
+#Copyright (c) 2014-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -29,6 +29,15 @@ use constant ERROR => 1;
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (jQuery noCache jQuery.columnizer);
+	my $field_attributes = $self->{'xmlHandler'}->get_all_field_attributes;
+	foreach my $field ( keys %$field_attributes ) {
+		if ( $field_attributes->{$field}->{'type'} eq 'geography_point'
+			|| ( $field_attributes->{$field}->{'geography_point_lookup'} // q() ) eq 'yes' )
+		{
+			$self->{'ol'} = 1;
+			last;
+		}
+	}
 	$self->set_level1_breadcrumbs;
 	return;
 }
@@ -234,8 +243,11 @@ sub _create_new_version {
 		  foreach @$refs;
 		$self->{'db'}->do( 'UPDATE isolates SET new_version=? WHERE id=?', undef, $new_id, $existing_id );
 		if ($is_private) {
-			$self->{'db'}->do( 'INSERT INTO private_isolates (isolate_id,user_id,datestamp) VALUES (?,?,?)',
-				undef, $new_id, $curator_id, 'now' );
+			my ( $owner, $embargo ) =
+			  $self->{'datastore'}->run_query( 'SELECT user_id,embargo FROM private_isolates WHERE isolate_id=?',
+				$existing_id, { fetch => 'row_array' } );
+			$self->{'db'}->do( 'INSERT INTO private_isolates (isolate_id,user_id,datestamp,embargo) VALUES (?,?,?,?)',
+				undef, $new_id, $owner, 'now', $embargo );
 		}
 		foreach my $field (@$eav_fields) {
 			my $eav_att = $self->{'datastore'}->get_eav_field($field);
