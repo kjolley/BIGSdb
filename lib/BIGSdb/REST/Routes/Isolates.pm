@@ -297,6 +297,7 @@ sub _get_similar {
 					$pk_value, { fetch => 'col_arrayref' } );
 				foreach my $group_id (@$groups) {
 					next if $group_displayed{$group_id};
+					$group_displayed{$group_id} = 1;
 					my $isolate_count = $self->{'datastore'}->run_query(
 						"SELECT COUNT(*) FROM $view WHERE $view.id IN (SELECT id FROM $scheme_table WHERE $pk IN "
 						  . "(SELECT profile_id FROM $cscheme_table WHERE group_id=?)) AND new_version IS NULL",
