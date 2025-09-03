@@ -1,6 +1,6 @@
 #FieldBreakdown.pm - FieldBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2018-2024, University of Oxford
+#Copyright (c) 2018-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -48,7 +48,7 @@ sub get_attributes {
 		buttontext => 'Fields',
 		menutext   => 'Field breakdown',
 		module     => 'FieldBreakdown',
-		version    => '2.8.0',
+		version    => '2.8.1',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
@@ -488,7 +488,7 @@ sub _print_geography_controls {
 	  . q(<span id="marker_orange" style="color:#fa5502" class="marker_colour fas fa-square"></span>)
 	  . q(<span id="marker_yellow" style="color:#fccf03" class="marker_colour fas fa-square"></span>)
 	  . q(<span id="marker_grey" style="color:#303030" class="marker_colour fas fa-square"></span>);
-	say q(<li><li><label for="segments">Marker size:</label>);
+	say q(</li><li><label for="segments">Marker size:</label>);
 	say q(<div id="marker_size" style="display:inline-block;width:8em;margin-left:0.5em"></div>);
 	say q(</li></ul></fieldset>);
 	return;
@@ -706,6 +706,7 @@ sub get_plugin_javascript {
 	my $schemes_js      = $self->_get_schemes_js;
 	my $mapping_options = $self->get_mapping_options;
 	my $maptiler_key    = $mapping_options->{'maptiler_key'} // q();
+	my $js_dir = $self->{'config'}->{'relative_js_dir'} // '/javascript';
 	my $buffer          = <<"JS";
 var height = 400;
 var segments = 20;
@@ -717,6 +718,7 @@ var url = "$url";
 var prefs_ajax_url = "$plugin_prefs_ajax_url";
 var mapping_option = $mapping_options->{'option'};
 var maptiler_key = "$maptiler_key";
+var js_dir = "$js_dir";
 
 $types_js	
 $loci_js
