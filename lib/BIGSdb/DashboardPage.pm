@@ -2677,7 +2677,6 @@ sub _get_field_breakdown_cumulative_content {
 		let values = [$value_string];
 		let days_span = Math.round(( Date.parse("$dataset->{'labels'}->[-1]") - Date.parse("$dataset->{'labels'}->[0]") ) / 86400000);
 		let ms_span = 1000*60*60*24*days_span; 
-		console.log(ms_span);
 		bb.generate({
 			data: {
 				x: "x",
