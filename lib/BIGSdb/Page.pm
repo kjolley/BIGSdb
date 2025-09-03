@@ -876,7 +876,11 @@ sub _get_stylesheets {
 		push @paths, @css;
 	}
 	if ( $self->{'jQuery.jstree'} ) {
-		push @paths, "/javascript/themes/default/style.min.css?v=$version";
+		if ( $self->{'config'}->{'relative_js_dir'} ) {
+			push @paths, "$self->{'config'}->{'relative_js_dir'}/themes/default/style.min.css?v=$version";
+		} else {
+			push @paths, "/javascript/themes/default/style.min.css?v=$version";
+		}
 	}
 	return \@paths;
 }
