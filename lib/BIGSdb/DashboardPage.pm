@@ -3741,10 +3741,11 @@ sub _get_field_breakdown_map_content {
 	my $top_margin = $element->{'height'} == 1 && $element->{'width'} == 1 ? '-10px' : '-10px';
 	my $json       = JSON->new->allow_nonref;
 	my $dataset    = $json->encode($data);
+	my $js_dir = $self->{'config'}->{'relative_js_dir'} // '/javascript';
 	my $geo_file =
 	  $element->{'field'} eq 'f_country'
-	  ? '/javascript/topojson/countries.json'
-	  : '/javascript/topojson/continents.json';
+	  ? "$js_dir/topojson/countries.json"
+	  : "$js_dir/topojson/continents.json";
 	my $freq_key          = $element->{'field'} eq 'f_country' ? 'iso3' : 'name';
 	my $palettes          = $self->_get_map_palettes;
 	my $dashboard_palette = $self->_get_palette_name;

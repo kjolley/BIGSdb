@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 
-Version 2.8.0.
+Version 2.8.1.
 */
 
 var prefs_loaded;
@@ -252,7 +252,9 @@ function load_map(url, field) {
 	$("#bb_chart").html("");
 	var unit_id = field == 'country' ? 'iso3' : 'continent';
 	var units = field == 'country' ? 'units' : 'continents';
-	var geo_file = field == 'country' ? '/javascript/topojson/countries.json' : '/javascript/topojson/continents.json';
+	var geo_file = field == 'country' 
+		? (js_dir + '/topojson/countries.json') 
+		: (js_dir + '/topojson/continents.json');
 	var theme_colours = {
 		theme_grey: colorbrewer.Greys[5],
 		theme_blue: colorbrewer.Blues[5],
