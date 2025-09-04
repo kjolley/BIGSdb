@@ -739,8 +739,9 @@ sub print_page_content {
 		if ( $self->{'system'}->{'db'} && $self->{'instance'} ) {
 			$self->_print_header;
 			$self->_print_breadcrumbs;
-			say qq(<div class="main_container$main_container_class">);
-			say qq(<div class="main_content$main_content_class" style="max-width:${main_max_width_style}">);
+			say qq(<div id="main_container" class="main_container$main_container_class">);
+			say qq(<div id="main_content" class="main_content$main_content_class" )
+			  . qq(style="max-width:${main_max_width_style}">);
 			$self->_print_button_panel;
 			say qq(<script>var max_width=${main_max_width}</script>);
 			$self->print_content;
@@ -749,8 +750,9 @@ sub print_page_content {
 		} else {
 			$self->_print_site_header;
 			$self->_print_breadcrumbs;
-			say qq(<div class="main_container$main_container_class">);
-			say qq(<div class="main_content $main_content_class" style="max-width:${main_max_width}px">);
+			say qq(<div id="main_container" class="main_container$main_container_class">);
+			say qq(<div id="main_content" class="main_content $main_content_class" )
+			  . qq(style="max-width:${main_max_width}px">);
 			say qq(<script>var max_width=${main_max_width}</script>);
 			$self->print_content;
 			say q(</div></div>);
