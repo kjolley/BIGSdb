@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 #Written by Keith Jolley
-#Copyright (c) 2023-2024, University of Oxford
+#Copyright (c) 2023-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,7 +18,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20240712
+#Version: 20250909
 use strict;
 use warnings;
 use 5.010;
@@ -279,7 +279,11 @@ sub get_alleles_to_check_peptide_mutations {
 		  . '(SELECT allele_id FROM sequences_peptide_mutations m WHERE (m.locus,m.mutation_id)=(s.locus,?)) ORDER '
 		  . "BY $order",
 		[ $locus, 0, 'N', $mutation_id ],
-		{ fetch => 'all_arrayref', slice => {}, cache => 'get_alleles_to_check_peptide_mutations' }
+		{
+			fetch => 'all_arrayref',
+			slice => {},
+			cache => "get_alleles_to_check_peptide_mutations:$locus_info->{'allele_id_format'}"
+		}
 	);
 }
 
