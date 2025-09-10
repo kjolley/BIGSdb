@@ -44,13 +44,20 @@ use File::Find;
 $File::Find::dont_use_nlink = 1;
 use Log::Log4perl qw(get_logger);
 use BIGSdb::Offline::RunJobs;
+use Getopt::Long qw(:config no_ignore_case);
 Log::Log4perl->init_once( CONFIG_DIR . '/job_logging.conf' );
 my $logger = get_logger('BIGSdb.Job');
+
+my %opts;
+GetOptions(
+	config_dir       => \$opts{'config_dir'},
+	dbase_config_dir => \$opts{'dbase_config_dir'}
+) or die("Error in command line arguments\n");
 BIGSdb::Offline::RunJobs->new(
 	{
-		config_dir       => CONFIG_DIR,
+		config_dir       => $opts{'config_dir'} // CONFIG_DIR,
 		lib_dir          => LIB_DIR,
-		dbase_config_dir => DBASE_CONFIG_DIR,
+		dbase_config_dir => $opts{'dbase_config_dir'} // DBASE_CONFIG_DIR,
 		host             => HOST,
 		port             => PORT,
 		user             => USER,
