@@ -80,6 +80,9 @@ sub _initiate_db {
 
 sub run_script {
 	my ($self) = @_;
+	if ( !defined $self->{'jobManager'} ) {
+		die "Job Manager is not configured.\n";
+	}
 	my $job_id = $self->{'jobManager'}->get_next_job_id;
 	if ( !$job_id ) {
 		$self->_purge;
