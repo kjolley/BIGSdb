@@ -379,7 +379,7 @@ sub update_job_status {
 		$logger->logcarp($@);
 		local $" = q(;);
 		$self->{'db'}->rollback;
-		return 1;
+		return $@;
 	} else {
 		$self->{'db'}->commit;
 	}
