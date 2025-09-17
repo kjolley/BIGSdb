@@ -157,6 +157,7 @@ sub get_remote_user_info {
 			$user_name, { db => $user_db, fetch => 'row_hashref', cache => "get_remote_user_info:$user_db_id" } );
 		my $user_prefs = $self->run_query( 'SELECT * FROM curator_prefs WHERE user_name=?',
 			$user_name, { db => $user_db, fetch => 'row_hashref' } );
+		$user_db->commit;
 		foreach my $key ( keys %$user_prefs ) {
 			$user_data->{$key} = $user_prefs->{$key};
 		}
