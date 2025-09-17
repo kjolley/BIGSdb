@@ -94,6 +94,13 @@ sub run_script {
 		$self->{'jobManager'}->update_job_status( $job_id, { status => 'cancelled' } );
 		exit;
 	}
+	my $err =
+	  $self->{'jobManager'}->update_job_status( $job_id, { status => 'started', start_time => 'now', pid => $$ } )
+	  ;
+	if ($err) {
+		$self->{'logger'}->error($err);
+		exit;
+	}
 	my $params = $self->{'jobManager'}->get_job_params($job_id);
 	$params->{$_} = $self->{$_} foreach qw(lib_dir config_dir dbase_config_dir);
 	my $instance = $job->{'dbase_config'};
@@ -101,13 +108,6 @@ sub run_script {
 	$self->{'system'}->{'set_id'} = $params->{'set_id'};
 	$self->{'curate'} = 1 if $params->{'curate'};
 	$self->initiate_view( $job->{'username'} );
-	my $err =
-	  $self->{'jobManager'}->update_job_status( $job_id, { status => 'started', start_time => 'now', pid => $$ } );
-
-	if ($err) {
-		$self->{'logger'}->error($err);
-		exit;
-	}
 
 	my $attributes = $self->{'pluginManager'}->get_plugin_attributes( $job->{'module'} );
 
