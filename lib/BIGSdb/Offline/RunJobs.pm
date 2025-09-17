@@ -101,7 +101,9 @@ sub run_script {
 	$self->{'system'}->{'set_id'} = $params->{'set_id'};
 	$self->{'curate'} = 1 if $params->{'curate'};
 	$self->initiate_view( $job->{'username'} );
-	$self->{'jobManager'}->update_job_status( $job_id, { status => 'started', start_time => 'now', pid => $$ } );
+	exit
+	  if $self->{'jobManager'}->update_job_status( $job_id, { status => 'started', start_time => 'now', pid => $$ } )
+	  ;
 	my $attributes = $self->{'pluginManager'}->get_plugin_attributes( $job->{'module'} );
 
 	if ( ( $attributes->{'language'} // q() ) eq 'Python' ) {
