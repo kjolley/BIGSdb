@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Synchronize user database users with details from client databases
 #Written by Keith Jolley
-#Copyright (c) 2016-2024, University of Oxford
+#Copyright (c) 2016-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -37,8 +37,8 @@ use constant {
 use lib (LIB_DIR);
 use BIGSdb::Offline::Script;
 use BIGSdb::Constants qw(:accounts LOG_TO_SCREEN);
-use List::MoreUtils qw(uniq);
-use Getopt::Long qw(:config no_ignore_case);
+use List::MoreUtils   qw(uniq);
+use Getopt::Long      qw(:config no_ignore_case);
 use Term::Cap;
 binmode( STDOUT, ':encoding(UTF-8)' );
 
@@ -366,7 +366,7 @@ sub add_registered_users {
 				$script->{'db'}->rollback;
 				if ( $@ =~ /ru_user_name/x ) {
 					print ' - Site-wide user but not in users table!';
-				} else {
+				} elsif ( $@ !~ /duplicate/x ) {
 					$script->{'logger'}->error($@);
 				}
 			} else {
