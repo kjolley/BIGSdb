@@ -65,7 +65,7 @@ sub get_attributes {
 		buttontext => 'Microreact',
 		menutext   => 'Microreact',
 		module     => 'Microreact',
-		version    => '1.7.0',
+		version    => '1.7.1',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
@@ -252,6 +252,7 @@ sub _create_tsv_file {
 	say $fh "@header_fields";
 	my $iso_lookup = dclone(COUNTRIES);
 	foreach my $record (@$data) {
+		$record->{ $self->{'system'}->{'labelfield'} } //= q();
 		$record->{ $self->{'system'}->{'labelfield'} } =~ s/[\(\)]//gx;
 		$record->{ $self->{'system'}->{'labelfield'} } =~ tr/[:,. ]/_/;
 		$record->{'country'} //= q();
