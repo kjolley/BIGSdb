@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -984,11 +984,9 @@ sub get_future_date {
 	my ($months_to_add) = @_;
 	my $datestamp = BIGSdb::Utils::get_datestamp();
 	my ( $year, $month, $day ) = split( '-', $datestamp );
-	$month += $months_to_add;
-	if ( $month > 12 ) {
-		$year += int( $month / 12 );
-		$month %= 12;
-	}
+	$month += $months_to_add;	
+	$year += int(($month - 1) / 12);
+    $month = (($month - 1) % 12) + 1;
 	return sprintf( '%04d-%02d-%02d', $year, $month, $day );
 }
 
