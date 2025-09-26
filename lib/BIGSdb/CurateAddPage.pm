@@ -1034,9 +1034,10 @@ sub _check_lincode_schemes {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 }
 
 sub get_javascript {
-	my ($self)         = @_;
-	my $q              = $self->{'cgi'};
-	my %allowed_tables = map { $_ => 1 } qw(sequences query_interface_fields user_group_members users schemes);
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	my %allowed_tables =
+	  map { $_ => 1 } qw(sequences query_interface_fields user_group_members users schemes curator_configs);
 	return if !defined $q->param('table') || !$allowed_tables{ $q->param('table') };
 	my $buffer = << "END";
 \$(function () {
@@ -1183,7 +1184,7 @@ sub _copy_locus_config {
 	foreach my $field ( keys %$locus_info ) {
 		next
 		  if any { $field eq $_ }
-		qw (id reference_sequence genome_position length orf common_name formatted_name formatted_common_name);
+		  qw (id reference_sequence genome_position length orf common_name formatted_name formatted_common_name);
 		my $value = $locus_info->{$field} || '';
 		$value =~ s/$locus/PUT_LOCUS_NAME_HERE/x
 		  if any { $field eq $_ } qw(dbase_id description_url url);
