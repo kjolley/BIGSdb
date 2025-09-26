@@ -29,6 +29,7 @@ use Bio::SeqIO;
 use Bio::SeqFeature::Generic;
 use Excel::Writer::XLSX;
 use List::MoreUtils qw(uniq);
+use DateTime;
 use Unicode::Collate;
 use autouse 'Time::Local' => qw(timelocal);
 use constant MAX_4BYTE_INT => 2147483647;
@@ -984,10 +985,16 @@ sub get_future_date {
 	my ($months_to_add) = @_;
 	my $datestamp = BIGSdb::Utils::get_datestamp();
 	my ( $year, $month, $day ) = split( '-', $datestamp );
-	$month += $months_to_add;	
-	$year += int(($month - 1) / 12);
-    $month = (($month - 1) % 12) + 1;
-	return sprintf( '%04d-%02d-%02d', $year, $month, $day );
+
+	my $dt = DateTime->new(
+		year  => $year,
+		month => $month,
+		day   => $day,
+	);
+
+	$dt->add( months => $months_to_add );
+
+	return $dt->ymd;                                          # returns 'YYYY-MM-DD'
 }
 
 sub get_timestamp {
@@ -1020,7 +1027,7 @@ sub dictionary_sort {
 }
 
 sub unicode_dictionary_sort {
-	my ( $values ) = @_;
+	my ($values) = @_;
 	my $collator = Unicode::Collate->new( variable => 'non-ignorable' );
 	my $sort_key = {};
 	for my $value (@$values) {
