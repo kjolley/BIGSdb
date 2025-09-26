@@ -1,6 +1,7 @@
-v1.51.4: *Script to update API client database permissions. 
+v1.51.5: *Script to update API client database permissions. 
          *More robust date embargo date calculation - note new Perl module 
           dependency: DateTime.
+v1.51.4: *New Kaptive plugin.
 v1.51.3: *Faster distance matrix calculation for Genome Comparator.
          *Option to disable distance matrix calculation in Genome Comparator.
          *Option to use profiles to generate trees in iTOL and Microreact.
