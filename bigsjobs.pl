@@ -50,8 +50,8 @@ my $logger = get_logger('BIGSdb.Job');
 
 my %opts;
 GetOptions(
-	config_dir       => \$opts{'config_dir'},
-	dbase_config_dir => \$opts{'dbase_config_dir'}
+	'config_dir=s'       => \$opts{'config_dir'},
+	'dbase_config_dir=s' => \$opts{'dbase_config_dir'}
 ) or die("Error in command line arguments\n");
 BIGSdb::Offline::RunJobs->new(
 	{
