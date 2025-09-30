@@ -195,8 +195,10 @@ sub _get_profiles_csv {
 sub _print_lincode_fields {
 	my ( $scheme_id, $fields, $lincode ) = @_;
 	my $self = setting('self');
-
-	# Cache prefix data only once per call
+	
+	#Using $self->{'cache'} would be persistent between calls even when calling another database.
+	#Datastore is destroyed after call so $self->{'datastore'}->{'prefix_cache'} is safe to
+	#cache only for duration of call.
 	unless ( $self->{'datastore'}->{'prefix_cache'} ) {
 		my $data = $self->{'datastore'}->run_query( 'SELECT * FROM lincode_prefixes WHERE scheme_id=?',
 			$scheme_id, { fetch => 'all_arrayref', slice => {} } );
