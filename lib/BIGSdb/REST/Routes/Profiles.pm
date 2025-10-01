@@ -19,6 +19,7 @@
 package BIGSdb::REST::Routes::Profiles;
 use strict;
 use warnings;
+use List::MoreUtils qw(uniq);
 use 5.010;
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 
@@ -194,35 +195,55 @@ sub _get_profiles_csv {
 
 sub _print_lincode_fields {
 	my ( $scheme_id, $fields, $lincode ) = @_;
+	my $self = setting('self');
 
 	#Using $self->{'cache'} would be persistent between calls even when calling another database.
 	#Datastore is destroyed after call so $self->{'datastore'}->{'prefix_cache'} is safe to
 	#cache only for duration of call.
-	my $self = setting('self');
-	if ( !$self->{'datastore'}->{'prefix_cache'} ) {
+	unless ( $self->{'datastore'}->{'prefix_cache'} ) {
 		my $data = $self->{'datastore'}->run_query( 'SELECT * FROM lincode_prefixes WHERE scheme_id=?',
 			$scheme_id, { fetch => 'all_arrayref', slice => {} } );
+		my $cache = {};
 		foreach my $record (@$data) {
-			$self->{'datastore'}->{'prefix_cache'}->{ $record->{'field'} }->{ $record->{'prefix'} } =
-			  $record->{'value'};
+			if ( !defined $cache->{ $record->{'field'} }->{ $record->{'value'} } ) {
+				$cache->{ $record->{'field'} }->{ $record->{'value'} } = [];
+			}
+			push @{ $cache->{ $record->{'field'} }->{ $record->{'prefix'} } }, $record->{'value'};
 		}
+		$self->{'datastore'}->{'prefix_cache'} = $cache;
 	}
+
 	my $buffer = q();
+	my $cache  = $self->{'datastore'}->{'prefix_cache'};
+
+	my @prefixes_for_this_lincode;
+	my @bin_values = split /_/, $lincode;
+	my $prefix     = shift @bin_values;
+	push @prefixes_for_this_lincode, $prefix;
+	foreach my $bin_value (@bin_values) {
+		$prefix .= "_$bin_value";
+		push @prefixes_for_this_lincode, $prefix;
+	}
 	foreach my $field (@$fields) {
-		if ( !$lincode ) {
-			$buffer .= qq(\t);
+		unless ($lincode) {
+			$buffer .= "\t";
 			next;
 		}
-		my @prefixes = keys %{ $self->{'datastore'}->{'prefix_cache'}->{$field} };
-		my @values;
-		foreach my $prefix (@prefixes) {
-			if ( $lincode eq $prefix || $lincode =~ /^${prefix}_/x ) {
-				push @values, $self->{'datastore'}->{'prefix_cache'}->{$field}->{$prefix};
-			}
+		my $prefixes = $cache->{$field};
+		unless ($prefixes) {
+			$buffer .= "\t";
+			next;
 		}
-		@values = sort @values;
-		local $" = q(; );
-		$buffer .= qq(\t@values);
+
+		my @values;
+		foreach my $prefix (@prefixes_for_this_lincode) {
+			next if !defined $cache->{$field}->{$prefix};
+			push @values, @{ $cache->{$field}->{$prefix} };
+		}
+		@values = uniq @values;
+		@values = sort @values if @values > 1;
+		local $" = '; ';
+		$buffer .= "\t@values";
 	}
 	return $buffer;
 }
