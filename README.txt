@@ -1,6 +1,7 @@
 v1.51.5: *Script to update API client database permissions. 
          *More robust date embargo date calculation - note new Perl module 
           dependency: DateTime.
+         *Faster API call to get profiles which include LIN code nicknames.
 v1.51.4: *New Kaptive plugin.
 v1.51.3: *Faster distance matrix calculation for Genome Comparator.
          *Option to disable distance matrix calculation in Genome Comparator.
