@@ -25,6 +25,7 @@ use BIGSdb::Exceptions;
 use Try::Tiny;
 use Config::Tiny;
 use Digest::MD5;
+use Time::HiRes   qw(sleep);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Job');
 use constant DBASE_QUOTA_EXCEEDED => 1;
@@ -568,14 +569,40 @@ sub _run_query {
 	}
 	my $sql = $self->{'db'}->prepare($qry);
 	$options->{'fetch'} //= 'row_array';
+	my $max_attempts = 5;
+	my $attempt      = 0;
 	if ( $options->{'fetch'} eq 'col_arrayref' ) {
 		my $data;
-		eval { $data = $self->{'db'}->selectcol_arrayref( $sql, undef, @$values ) };
-		$logger->logcarp($@) if $@;
+		while ( $attempt < $max_attempts ) {
+			eval { $data = $self->{'db'}->selectcol_arrayref( $sql, undef, @$values ) };
+			if ($@) {
+				if ( $@ =~ /SSL\s+error/x ) {
+					$logger->error("Query attempt $attempt failed: $@");
+					$attempt++;
+					sleep( 0.5 * ( 2**$attempt ) );    # exponential backoff
+					next;
+				} else {
+					$logger->logcarp("$@ Query: $qry");
+				}
+			}
+			last;    # success or non-SSL error
+		}
 		return $data;
 	}
-	eval { $sql->execute(@$values) };
-	$logger->logcarp($@) if $@;
+	while ( $attempt < $max_attempts ) {
+		eval { $sql->execute(@$values) };
+		if ($@) {
+			if ( $@ =~ /SSL\s+error/x ) {
+				$logger->error("Query attempt $attempt failed: $@");
+				$attempt++;
+				sleep( 0.5 * ( 2**$attempt ) );
+				next;
+			} else {
+				$logger->logcarp("$@ Query: $qry");
+			}
+		}
+		last;
+	}
 	if ( $options->{'fetch'} eq 'row_array' ) {    #returns () when no rows, (undef-scalar context)
 		return $sql->fetchrow_array;
 	}

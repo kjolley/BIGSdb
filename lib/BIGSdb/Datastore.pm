@@ -21,14 +21,15 @@ use strict;
 use warnings;
 use 5.010;
 use List::MoreUtils qw(any uniq);
-use List::Util qw(min max sum);
+use List::Util      qw(min max sum);
 use Try::Tiny;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Datastore');
 use Unicode::Collate;
 use JSON;
-use File::Path qw(make_path);
-use Fcntl qw(:flock);
+use File::Path  qw(make_path);
+use Fcntl       qw(:flock);
+use Time::HiRes qw(sleep);
 use Memoize;
 memoize('get_geography_coordinates');
 memoize('convert_coordinates_to_geography');
@@ -3288,15 +3289,44 @@ sub run_query {
 	} else {
 		$sql = $db->prepare($qry);
 	}
+
 	$options->{'fetch'} //= 'row_array';
+	my $max_attempts = 5;
+	my $attempt      = 0;
 	if ( $options->{'fetch'} eq 'col_arrayref' ) {
 		my $data;
-		eval { $data = $db->selectcol_arrayref( $sql, undef, @$values ) };
-		$logger->logcarp("$@ Query:$qry") if $@;
+		while ( $attempt < $max_attempts ) {
+			eval { $data = $db->selectcol_arrayref( $sql, undef, @$values ) };
+			if ($@) {
+				if ( $@ =~ /SSL\ error/x ) {
+					$logger->error("Query attempt $attempt failed: $@");
+					$attempt++;
+					sleep( 0.5 * ( 2**$attempt ) );    # exponential backoff
+					next;
+				} else {
+					$logger->logcarp("$@ Query:$qry");
+				}
+			}
+			last;    # success or non-SSL error
+		}
 		return $data;
 	}
-	eval { $sql->execute(@$values) };
-	$logger->logcarp("$@ Query:$qry") if $@;
+
+	while ( $attempt < $max_attempts ) {
+		eval { $sql->execute(@$values); };
+		if ($@) {
+			if ( $@ =~ /SSL\ error/x ) {
+				$logger->error("Query attempt $attempt failed: $@");
+				$attempt++;
+				sleep( 0.5 * ( 2**$attempt ) );    # exponential backoff
+				next;
+			} else {
+				$logger->logcarp("$@ Query:$qry");
+			}
+		}
+		last;    # success or non-SSL error
+	}
+
 	if ( $options->{'fetch'} eq 'row_arrayref' ) {    #returns undef when no rows
 		return $sql->fetchrow_arrayref;
 	}
@@ -3601,25 +3631,25 @@ sub initiate_view {
 	my $qry = "CREATE TEMPORARY VIEW temp_view AS SELECT v.* FROM $self->{'system'}->{'view'} v LEFT JOIN "
 	  . 'private_isolates p ON v.id=p.isolate_id WHERE ';
 	my @args;
-	use constant OWN_SUBMITTED_ISOLATES               => 'v.sender=?';
-	use constant OWN_PRIVATE_ISOLATES                 => 'p.user_id=?';
-	use constant PUBLIC_ISOLATES_FROM_SAME_USER_GROUP =>                  #(where co_curate option set)
+	use constant OWN_SUBMITTED_ISOLATES => 'v.sender=?';
+	use constant OWN_PRIVATE_ISOLATES   => 'p.user_id=?';
+	use constant PUBLIC_ISOLATES_FROM_SAME_USER_GROUP =>    #(where co_curate option set)
 	  '(EXISTS(SELECT 1 FROM user_group_members ugm JOIN user_groups ug ON ugm.user_group=ug.id '
 	  . 'WHERE ug.co_curate AND ugm.user_id=v.sender AND EXISTS(SELECT 1 FROM user_group_members '
 	  . 'WHERE (user_group,user_id)=(ug.id,?))) AND p.user_id IS NULL)';
-	use constant PRIVATE_ISOLATES_FROM_SAME_USER_GROUP =>                 #(where co_curate_private option set)
+	use constant PRIVATE_ISOLATES_FROM_SAME_USER_GROUP =>    #(where co_curate_private option set)
 	  '(EXISTS(SELECT 1 FROM user_group_members ugm JOIN user_groups ug ON ugm.user_group=ug.id '
 	  . 'WHERE ug.co_curate_private AND ugm.user_id=v.sender AND EXISTS(SELECT 1 FROM user_group_members '
 	  . 'WHERE (user_group,user_id)=(ug.id,?))) AND p.user_id IS NOT NULL)';
-	use constant EMBARGOED_ISOLATES         => 'p.embargo IS NOT NULL';
-	use constant PUBLIC_ISOLATES            => 'p.user_id IS NULL';
+	use constant EMBARGOED_ISOLATES => 'p.embargo IS NOT NULL';
+	use constant PUBLIC_ISOLATES    => 'p.user_id IS NULL';
 	use constant ISOLATES_FROM_USER_PROJECT =>
 	  'EXISTS(SELECT 1 FROM project_members pm JOIN merged_project_users mpu ON '
 	  . 'pm.project_id=mpu.project_id WHERE (mpu.user_id,pm.isolate_id)=(?,v.id))';
 	use constant PUBLICATION_REQUESTED => 'p.request_publish';
 	use constant ALL_ISOLATES          => 'EXISTS(SELECT 1)';
 
-	if ( !$user_info ) {                                                  #Not logged in
+	if ( !$user_info ) {                                     #Not logged in
 		$qry .= PUBLIC_ISOLATES;
 
 		#If login_to_show_after_date is set in bigsdb.conf or config.xml to a valid date, then only
