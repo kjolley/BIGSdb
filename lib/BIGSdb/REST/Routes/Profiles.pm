@@ -215,6 +215,15 @@ sub _print_lincode_fields {
 
 	my $buffer = q();
 	my $cache  = $self->{'datastore'}->{'prefix_cache'};
+
+	my @prefixes_for_this_lincode;
+	my @bin_values = split /_/, $lincode;
+	my $prefix     = shift @bin_values;
+	push @prefixes_for_this_lincode, $prefix;
+	foreach my $bin_value (@bin_values) {
+		$prefix .= "_$bin_value";
+		push @prefixes_for_this_lincode, $prefix;
+	}
 	foreach my $field (@$fields) {
 		unless ($lincode) {
 			$buffer .= "\t";
@@ -224,14 +233,6 @@ sub _print_lincode_fields {
 		unless ($prefixes) {
 			$buffer .= "\t";
 			next;
-		}
-		my @prefixes_for_this_lincode;
-		my @bin_values = split /_/, $lincode;
-		my $prefix     = shift @bin_values;
-		push @prefixes_for_this_lincode, $prefix;
-		foreach my $bin_value (@bin_values) {
-			$prefix .= "_$bin_value";
-			push @prefixes_for_this_lincode, $prefix;
 		}
 
 		my @values;
