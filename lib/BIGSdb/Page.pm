@@ -1431,7 +1431,7 @@ sub _sort_field_list_into_optgroups {
 	my @group_list       = split /,/x, ( $self->{'system'}->{'field_groups'} // q() );
 	my @eav_groups       = split /,/x, ( $self->{'system'}->{'eav_groups'}   // q() );
 	push @group_list, @eav_groups if @eav_groups;
-	push @group_list, ( 'Loci', 'Schemes', 'LINcodes', 'Classification schemes', 'Annotation status' );
+	push @group_list, ( 'Loci', 'Schemes', 'LINcodes', 'Classification schemes', 'Annotation status', 'Analysis fields' );
 	my $q = $self->{'cgi'};
 
 	foreach my $group ( undef, @group_list ) {
