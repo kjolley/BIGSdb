@@ -80,7 +80,7 @@ sub run {
 		$self->_print_interface;
 		return;
 	}
-	my $selected_fields = $self->get_selected_fields;
+	my $selected_fields = $self->get_selected_fields( { analysis_fields => 1 } );
 	if ( !@$selected_fields ) {
 		$self->print_bad_status( { message => q(No fields have been selected!) } );
 		$self->_print_interface;
@@ -151,6 +151,10 @@ sub run_job {
 			  if $scheme_info->{'name'};
 			$schemes{$1} = 1;
 		}
+        if ( $field =~ /^af_([^_]+)___([^_]+)/ ) {
+            my ( $analysis_name, $field_name ) = ( $1, $2 );
+            $field = "$field_name ($analysis_name)"
+		}
 		$field =~ s/^(s_\d+_l|s_\d+_f|f|l|c|eav)_//gx;                  #strip off prefix for header row
 		$field =~ s/^.*___//x;
 		$field =~ tr/_/ / if !$self->{'datastore'}->is_locus($field);
@@ -207,6 +211,29 @@ sub run_job {
 				}
 				if (@$scheme_field_values) {
 					my @field_values = sort @{$scheme_field_values};
+					local $" = q(; );
+					$values->{ $data->{'id'} }->{$field} = qq(@field_values);
+				} else {
+					$values->{ $data->{'id'} }->{$field} = q(-);
+				}
+				next;
+			}
+			if ( $field =~ /^af_([^_]+)___([^_]+)/ ) {
+				my $analysis_name   = $1;
+				my $field_name      = $2;
+				my $analysis_field_values = $self->{'datastore'}->run_query(
+                     'SELECT value FROM analysis_fields af JOIN analysis_results_cache arc '
+                     . 'ON (af.analysis_name,af.json_path)=(arc.analysis_name,arc.json_path) '
+                     . 'WHERE (af.analysis_name,af.field_name,arc.isolate_id)'
+                     . '=(?,?,?)',
+                   [ $analysis_name, $field_name, $data->{'id'} ],
+                   { fetch => 'col_arrayref' }
+                );
+				foreach my $value (@$analysis_field_values) {
+					$value //= '-';
+				}
+				if (@$analysis_field_values) {
+					my @field_values = sort @{$analysis_field_values};
 					local $" = q(; );
 					$values->{ $data->{'id'} }->{$field} = qq(@field_values);
 				} else {
@@ -341,6 +368,7 @@ sub _print_interface {
 	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $selected_ids, isolate_paste_list => 1 } );
 	$self->print_isolate_fields_fieldset( { extended_attributes => 1, no_all_none => 1 } );
 	$self->print_eav_fields_fieldset( { no_all_none => 1 } );
+	$self->print_analysis_fields_fieldset( { no_all_none => 1 } );
 	$self->print_composite_fields_fieldset;
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1, no_all_none => 1 } );
 	$self->print_scheme_fieldset( { fields_or_loci => 1 } );
@@ -370,7 +398,7 @@ sub _calculate_combinations {
 sub get_plugin_javascript {
 	my $js = << "END";
 \$(document).ready(function(){ 
-	\$('#fields,#eav_fields,#composite_fields,#locus').multiselect({
+	\$('#fields,#eav_fields,#analysis_fields,#composite_fields,#locus').multiselect({
  		classes: 'filter',
  		menuHeight: 250,
  		menuWidth: 400,
