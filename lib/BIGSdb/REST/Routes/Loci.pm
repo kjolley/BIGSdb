@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2024, University of Oxford
+#Copyright (c) 2014-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -91,8 +91,9 @@ sub _get_locus {
 	my $values        = {};
 	my %boolean_field = map { $_ => 1 } qw(length_varies coding_sequence);
 	foreach my $field (
-		qw(data_type allele_id_format allele_id_regex common_name length length_varies min_length max_length
-		coding_sequence genome_position orf reference_sequence)
+		qw(data_type allele_id_format allele_id_regex formatted_name common_name formatted_common_name 
+		locus_type allele_id_regex length length_varies min_length max_length coding_sequence start_codons
+		genome_position orf match_longest id_check_type_alleles reference_sequence)
 	  )
 	{
 		if ( $boolean_field{$field} ) {
