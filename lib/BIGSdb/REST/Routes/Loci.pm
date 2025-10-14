@@ -89,7 +89,7 @@ sub _get_locus {
 		send_error( "Locus $locus does not exist.", 404 );
 	}
 	my $values        = {};
-	my %boolean_field = map { $_ => 1 } qw(length_varies coding_sequence);
+	my %boolean_field = map { $_ => 1 } qw(length_varies coding_sequence match_longest);
 	foreach my $field (
 		qw(data_type allele_id_format allele_id_regex formatted_name common_name formatted_common_name 
 		locus_type allele_id_regex length length_varies min_length max_length coding_sequence start_codons
