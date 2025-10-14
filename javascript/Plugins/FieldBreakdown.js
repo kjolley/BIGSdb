@@ -162,7 +162,7 @@ $(function() {
 			.node().parentNode.innerHTML;
 		svg = svg.replace(/<\/svg>.*$/, "</svg>");
 		var blob = new Blob([svg], { type: "image/svg+xml" });
-		var filename = $("#field").val().replace(/^.+\.\./, "") + ".svg";
+		var filename = $("#field").val().replace(/^.+\.\./, "").replace(/^af_/, "").replace(/___/g, "_") + ".svg";
 		saveAs(blob, filename);
 	});
 
@@ -469,6 +469,13 @@ function load_pie(url, field, max_segments) {
 	}
 
 	title = title.replace(/^s_\d+_/, "");
+    if (field.startsWith('af_')) {
+        let rest = field.slice(3);
+        let parts = rest.split('_');
+        let field_name = parts[0];
+        let analysis_name = parts[parts.length - 1];
+        title = `${field_name} (${analysis_name})`;
+    }
 	var f = d3.format(".1f");
 	d3.json(url).then(function(jsonData) {
 		var data = pie_json_to_cols(jsonData, max_segments);
