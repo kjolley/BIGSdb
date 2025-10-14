@@ -28,8 +28,8 @@ use Dancer2 appname => 'BIGSdb::REST::Interface';
 sub setup_routes {
 	my $self = setting('self');
 	foreach my $dir ( @{ setting('api_dirs') } ) {
-		get "$dir/db/:db/loci"                  => sub { _get_loci() };
-		get "$dir/db/:db/loci/:locus"           => sub { _get_locus() };
+		get "$dir/db/:db/loci"        => sub { _get_loci() };
+		get "$dir/db/:db/loci/:locus" => sub { _get_locus() };
 		post "$dir/db/:db/loci/:locus/sequence" => sub { _query_locus_sequence() };
 		post "$dir/db/:db/sequence"             => sub { _query_sequence() };
 	}
@@ -89,9 +89,9 @@ sub _get_locus {
 		send_error( "Locus $locus does not exist.", 404 );
 	}
 	my $values        = {};
-	my %boolean_field = map { $_ => 1 } qw(length_varies coding_sequence match_longest);
+	my %boolean_field = map { $_ => 1 } qw(length_varies coding_sequence match_longest id_check_type_alleles);
 	foreach my $field (
-		qw(data_type allele_id_format allele_id_regex formatted_name common_name formatted_common_name 
+		qw(data_type allele_id_format allele_id_regex formatted_name common_name formatted_common_name
 		locus_type allele_id_regex length length_varies min_length max_length coding_sequence start_codons
 		genome_position orf match_longest id_check_type_alleles reference_sequence)
 	  )
