@@ -309,7 +309,7 @@ sub _get_extended_attributes {
 	my @attributes;
 	foreach my $attribute (@$extended_attributes) {
 		my $attribute_list = {};
-		foreach (qw(field value_format value_regex description length)) {
+		foreach (qw(field value_format value_regex description length field_order)) {
 			$attribute_list->{$_} = $attribute->{$_} if defined $attribute->{$_};
 		}
 		$attribute_list->{'required'} = $attribute->{'required'} ? JSON::true : JSON::false;
