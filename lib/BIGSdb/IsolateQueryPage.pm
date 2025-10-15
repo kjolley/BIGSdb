@@ -20,7 +20,7 @@ package BIGSdb::IsolateQueryPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::QueryPage BIGSdb::DashboardPage);
+use parent        qw(BIGSdb::QueryPage BIGSdb::DashboardPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use List::MoreUtils qw(any none uniq);
@@ -79,6 +79,8 @@ sub _ajax_content {
 					loci                   => 1,
 					no_list_by_common_name => 1,
 					scheme_fields          => 1,
+					lincodes               => 1,
+					lincode_fields         => 1,
 					classification_groups  => 1,
 					sort_labels            => 1
 				}
@@ -4462,6 +4464,10 @@ $panel_js
 		return false;
 	});
 	\$("#bookmark_trigger").show();
+	// hack to fix jquery 3.6 focus security patch that bugs auto search in select-2
+	\$(document).on('select2:open', () => {
+   	   document.querySelector('.select2-search__field').focus();
+	});
  });
 
 function setFilterTriggers(){
@@ -4546,14 +4552,10 @@ function render_loaded_locuslists() {
 }
 
 function render_locuslists(selector){
-	\$(selector).filter(':visible').multiselect({
-		noneSelectedText: "Please select...",
-		selectedList: 1,
-		menuHeight: 250,
-		menuWidth: 300,
-		classes: 'filter',
-	}).multiselectfilter({
-		placeholder: 'Search'
+	\$(selector).filter(':visible').select2({
+		width: '300px',
+		placeholder: '',
+		allowClear: true
 	});
 }
 

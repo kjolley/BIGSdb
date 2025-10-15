@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -33,7 +33,7 @@ sub initiate {
 		$self->{'type'} = 'no_header';
 		return;
 	}
-	$self->{$_} = 1 foreach qw (tooltips jQuery jQuery.multiselect allowExpand);
+	$self->{$_} = 1 foreach qw (tooltips jQuery jQuery.multiselect allowExpands select2);
 	return;
 }
 
@@ -58,17 +58,17 @@ sub get_javascript_panel {
 		allele     => q[$('[id^="value"]').val('')],
 		mutations  => q[$('[id^="mutation_value"]').val('')],
 		scheme     => q[$('[id^="value"]').val('')],
-		allele_designations => q[$('select[id^="designation_field"]').multiselect("uncheckAll"),]
+		allele_designations => q[$('select[id^="designation_field"]').val('').change(),]
 		  . q[$('[id^="designation_operator"]').val(''),]
 		  . q[$('[id^="designation_value"]').val('')],
 		sequence_variation => q[$('[id^="sequence_variation"]').val('')],
-		allele_count       => q[$('select[id^="allele_count_field"]').multiselect("uncheckAll"),]
+		allele_count       => q[$('select[id^="allele_count_field"]').val('').change(),]
 		  . q[$('[id^="allele_count_operator"]').val(''),]
 		  . q[$('[id^="allele_count_value"]').val('')],
-		allele_status => q[$('select[id^="allele_status_field"]').multiselect("uncheckAll"),]
+		allele_status => q[$('select[id^="allele_status_field"]').val('').change(),]
 		  . q[$('[id^="allele_status_value"]').val('')],
-		tags      => q[$('select[id^="tag_field"]').multiselect("uncheckAll"),] . q[$('[id^="tag_value"]').val('')],
-		tag_count => q[$('select[id^="tag_count_field"]').multiselect("uncheckAll"),]
+		tags      => q[$('select[id^="tag_field"]').val('').change(),] . q[$('[id^="tag_value"]').val('')],
+		tag_count => q[$('select[id^="tag_count_field"]').val('').change(),]
 		  . q[$('[id^="tag_count_operator"]').val(''),]
 		  . q[$('[id^="tag_count_value"]').val('')],
 		,

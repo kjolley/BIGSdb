@@ -3204,6 +3204,27 @@ a.slide_trigger {
 	background-image: linear-gradient(to right, #f0f2f0 0em, #000c40 18em);
 }
 
+/* When dropdown is open */
+.select2-results__option {
+  white-space: normal !important; /* allow wrapping in the dropdown list */
+  word-break: break-word;         /* split long tokens if needed */
+}
+
+/* In the closed (selected) state */
+.select2-selection__rendered {
+  display: block !important; 
+  white-space: normal !important;
+  word-break: break-word;
+  line-height: 1.2em;
+  height: auto;
+}
+
+.select2-selection {
+  height: auto !important;
+  min-height: 30px;                 /* keep a reasonable default height */
+  align-items: flex-start;          /* if selection uses flexbox inside */
+}
+
 /* Responsive design */
 @media only screen and (max-width:1450px) {
 	.form_icon {

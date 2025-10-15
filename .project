@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<projectDescription>
+	<name>BIGSdb</name>
+	<comment></comment>
+	<projects>
+	</projects>
+	<buildSpec>
+	        <buildCommand>
+			<name>org.python.pydev.PyDevBuilder</name>
+			<arguments>
+			</arguments>
+		</buildCommand>		
+		<buildCommand>
+			<name>org.epic.perleditor.perlbuilder</name>
+			<arguments>
+			</arguments>
+		</buildCommand>
+		<buildCommand>
+			<name>org.jdrupes.eclipse.minify.plugin.minifyBuilder</name>
+			<arguments>
+			</arguments>
+		</buildCommand>
+
+	</buildSpec>
+	<natures>
+	  <nature>org.epic.perleditor.perlnature</nature>
+	  <nature>org.python.pydev.pythonNature</nature>
+	  <nature>org.jdrupes.eclipse.minify.plugin.minifyNature</nature>
+		
+	</natures>
+</projectDescription>
