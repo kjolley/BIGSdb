@@ -517,8 +517,8 @@ sub _print_designations_fieldset_contents {
 		$locus_fields = @$preselected if @$preselected;
 		my $loci_field_heading = $locus_fields == 1 ? 'none' : 'inline';
 		say qq(<span id="loci_field_heading" style="display:$loci_field_heading">)
-		  . q(<label for="c1">Combine with: </label>);
-		say $q->popup_menu( -name => 'designation_andor', -id => 'designation_andor', -values => [qw (AND OR)], );
+		  . q(<label for="designation_andor">Combine with: </label>);
+		say $q->popup_menu( -name => 'designation_andor', -id => 'designation_andor', -values => [qw (AND OR)] );
 		say q(</span><ul id="loci" style="white-space:normal">);
 		for my $row ( 1 .. $locus_fields ) {
 			if ( defined $preselected->[ $row - 1 ] ) {
