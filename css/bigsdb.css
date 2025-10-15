@@ -1,4 +1,4 @@
-/*Version: 20250318*/
+/*Version: 20251015*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -153,10 +153,6 @@ select.filter {
 	color: #000;
 	background: #fff;
 	vertical-align: bottom;
-}
-
-select.operator_list {
-	height: 24px
 }
 
 .value_entry {

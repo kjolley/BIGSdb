@@ -1730,12 +1730,10 @@ sub _print_loci_fields {
 		-name   => "designation_operator$row",
 		-id     => "designation_operator$row",
 		-values => [OPERATORS],
-		-class  => 'operator_list'
 	);
 	say $q->textfield(
 		-name        => "designation_value$row",
 		-id          => "designation_value$row",
-		-class       => 'value_entry',
 		-placeholder => 'Enter value...',
 	);
 
