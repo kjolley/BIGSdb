@@ -1,6 +1,6 @@
 #FieldBreakdown.pm - TwoFieldBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext => 'Two Field',
 		menutext   => 'Two field breakdown',
 		module     => 'TwoFieldBreakdown',
-		version    => '1.8.1',
+		version    => '1.9.0',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/two_field_breakdown.html",
@@ -924,7 +924,7 @@ sub _get_value_frequency_hashes {
 					$print{$field} .= " ($scheme_info->{'name'})";
 				}
 			}
-			elsif ( $field =~ /^af_([^_]+)___([^_]+)/ ) {
+			elsif ( $field =~ /^af_(.+)___(.+)/x ) {
                 my $analysis_name = $1;
                 my $field_name    = $2;
                 if ( $self->{'datastore'}->is_analysis_field( $analysis_name, $field_name ) ) {
