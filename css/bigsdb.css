@@ -3200,6 +3200,10 @@ a.slide_trigger {
 	background-image: linear-gradient(to right, #f0f2f0 0em, #000c40 18em);
 }
 
+.select2-selection--single {
+	border-radius:0 !important;
+}
+
 /* When dropdown is open */
 .select2-results__option {
   white-space: normal !important; /* allow wrapping in the dropdown list */
@@ -3212,15 +3216,25 @@ a.slide_trigger {
   white-space: normal !important;
   word-break: break-word;
   line-height: 1.2em !important;
-  padding-top: 4px !important;
-  padding-bottom: 4px !important;
   height: auto;
+  padding-top: 2px;
   color: #000 !important;
+}
+
+.select2-container .select2-selection__arrow {
+  height: 100% !important;
+  align-self: center;
+}
+
+.select2-container .select2-selection__clear {
+	
+  height: 100% !important;
+  align-self: center;
 }
 
 .select2-selection {
   height: auto !important;
-  min-height: 30px;                 /* keep a reasonable default height */
+  min-height: 27px;                 /* keep a reasonable default height */
   align-items: flex-start;          /* if selection uses flexbox inside */
 }
 
