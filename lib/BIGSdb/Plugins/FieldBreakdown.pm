@@ -48,7 +48,7 @@ sub get_attributes {
 		buttontext => 'Fields',
 		menutext   => 'Field breakdown',
 		module     => 'FieldBreakdown',
-		version    => '2.8.1',
+		version    => '2.9.0',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
@@ -139,7 +139,7 @@ sub _get_field_type {
 	if ( $self->{'datastore'}->is_locus($field) ) {
 		return 'locus';
 	}
-	if ( $field =~ /^af_([^_]+)___([^_]+)/ ) {
+	if ( $field =~ /^af_.+___.+$/x ) {
 		return 'analysis_field';
 	}
 	return;
@@ -188,7 +188,7 @@ sub _get_field_values {
 			}
 		},
 		analysis_field => sub {
-			if ( $field =~ /^af_([^_]+)___([^_]+)/ ) {
+			if ( $field =~ /^af_(.+)___(.+)/x ) {
 				my ( $field_name, $analysis_name ) = ( $1, $2 );
                 my $att = $self->{'datastore'}->get_analysis_field( $analysis_name, $field_name );
 				$freqs = $self->_get_analysis_field_freqs( $analysis_name, $field_name,
@@ -227,7 +227,7 @@ sub _get_display_field {
 		}
 	}
 	if ( $field_type eq 'analysis_field') {
-        my ($field_name, $analysis_name) = $field =~ /^af_([^_]+)___([^_]+)/;
+        my ($field_name, $analysis_name) = $field =~ /^af_(.+)___(.+)/x;
         $display_field = "$field_name ($analysis_name)";
     }
 	return $display_field;
@@ -908,17 +908,14 @@ sub _get_scheme_field_freqs {
 sub _get_analysis_field_freqs {
     my ( $self, $analysis_name, $field_name, $options ) = @_;
     my $qry =
-       "WITH matching_values AS "
-      . "(SELECT arc.isolate_id, arc.value "
-      . "FROM analysis_results_cache arc "
-      . "JOIN analysis_fields af ON (af.analysis_name,af.json_path) = (arc.analysis_name,arc.json_path) "
-      . "WHERE (af.analysis_name,af.field_name) = (?,?)), "
-      . "isolates_values AS "
-      . "(SELECT i.value AS isolates_id, array_agg(mv.value) AS label "
-      . "FROM id_list i "
-      . "LEFT JOIN matching_values mv ON i.value=mv.isolate_id "
-      . "GROUP BY i.value) "
-      . "SELECT label, COUNT(*) AS value FROM isolates_values GROUP BY label";
+       'WITH matching_values AS '
+      . '(SELECT arc.isolate_id, arc.value FROM analysis_results_cache arc '
+      . 'JOIN analysis_fields af ON (af.analysis_name,af.json_path) = (arc.analysis_name,arc.json_path) '
+      . 'WHERE (af.analysis_name,af.field_name) = (?,?)),isolates_values AS '
+      . '(SELECT i.value AS isolates_id, array_agg(mv.value) AS label FROM id_list i '
+      . 'LEFT JOIN matching_values mv ON i.value=mv.isolate_id '
+      . 'GROUP BY i.value) '
+      . 'SELECT label, COUNT(*) AS value FROM isolates_values GROUP BY label';
     my $order = $options->{'order'} ? $options->{'order'} : 'value DESC';
 	$qry .= " ORDER BY $order";
     my $values =
