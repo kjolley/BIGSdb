@@ -1,6 +1,6 @@
 #Combinations.pm - Unique combinations plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,10 +21,10 @@ package BIGSdb::Plugins::Combinations;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugin);
+use parent            qw(BIGSdb::Plugin);
 use BIGSdb::Constants qw(:interface);
-use List::MoreUtils qw(uniq);
-use Log::Log4perl qw(get_logger);
+use List::MoreUtils   qw(uniq);
+use Log::Log4perl     qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_FIELDS => 100;
 
@@ -59,7 +59,7 @@ sub get_attributes {
 		menutext   => 'Unique combinations',
 		module     => 'Combinations',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/unique_combinations.html",
-		version    => '1.5.0',
+		version    => '1.6.0',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		input      => 'query',
@@ -151,9 +151,9 @@ sub run_job {
 			  if $scheme_info->{'name'};
 			$schemes{$1} = 1;
 		}
-        if ( $field =~ /^af_([^_]+)___([^_]+)/ ) {
-            my ( $analysis_name, $field_name ) = ( $1, $2 );
-            $field = "$field_name ($analysis_name)"
+		if ( $field =~ /^af_(.+)___(.+)$/x ) {
+			my ( $analysis_name, $field_name ) = ( $1, $2 );
+			$field = "$field_name ($analysis_name)";
 		}
 		$field =~ s/^(s_\d+_l|s_\d+_f|f|l|c|eav)_//gx;                  #strip off prefix for header row
 		$field =~ s/^.*___//x;
@@ -218,19 +218,19 @@ sub run_job {
 				}
 				next;
 			}
-			if ( $field =~ /^af_([^_]+)___([^_]+)/ ) {
-				my $analysis_name   = $1;
-				my $field_name      = $2;
+			if ( $field =~ /^af_(.+)___(.+)/x ) {
+				my $analysis_name         = $1;
+				my $field_name            = $2;
 				my $analysis_field_values = $self->{'datastore'}->run_query(
-                     'SELECT value FROM analysis_fields af JOIN analysis_results_cache arc '
-                     . 'ON (af.analysis_name,af.json_path)=(arc.analysis_name,arc.json_path) '
-                     . 'WHERE (af.analysis_name,af.field_name,arc.isolate_id)'
-                     . '=(?,?,?)',
-                   [ $analysis_name, $field_name, $data->{'id'} ],
-                   { fetch => 'col_arrayref' }
-                );
+					'SELECT value FROM analysis_fields af JOIN analysis_results_cache arc '
+					  . 'ON (af.analysis_name,af.json_path)=(arc.analysis_name,arc.json_path) '
+					  . 'WHERE (af.analysis_name,af.field_name,arc.isolate_id)'
+					  . '=(?,?,?)',
+					[ $analysis_name, $field_name, $data->{'id'} ],
+					{ fetch => 'col_arrayref' }
+				);
 				foreach my $value (@$analysis_field_values) {
-					$value //= '-';
+					$value //= q(-);
 				}
 				if (@$analysis_field_values) {
 					my @field_values = sort @{$analysis_field_values};
