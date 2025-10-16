@@ -369,21 +369,36 @@ sub update_job_status {
 		push @values, $status_hash->{$key};
 	}
 	local $" = '=?,';
-	my $qry = "UPDATE jobs SET @keys=? WHERE id=?";
-	if ( !$self->{'sql'}->{$qry} ) {
+	my $qry          = "UPDATE jobs SET @keys=? WHERE id=?";
+	my $max_attempts = 5;
+	my $attempt      = 0;
+	while ( $attempt < $max_attempts ) {
+		if ( !$self->{'sql'}->{$qry} ) {
 
-		#Prepare and cache statement handle.  Previously, using DBI::do resulted in continuously increasing memory use.
-		$self->{'sql'}->{$qry} = $self->{'db'}->prepare($qry);
+		 #Prepare and cache statement handle.  Previously, using DBI::do resulted in continuously increasing memory use.
+			$self->{'sql'}->{$qry} = $self->{'db'}->prepare($qry);
+		}
+		eval { $self->{'sql'}->{$qry}->execute( @values, $job_id ) };
+		if ($@) {
+			if ( $@ =~ /SSL\ error/x ) {
+				$logger->error("Query attempt $attempt failed: $@");
+				$attempt++;
+				sleep( 0.5 * ( 2**$attempt ) );    # exponential backoff
+				next;
+			} else {
+				$logger->logcarp($@);
+				local $" = q(;);
+				$self->{'db'}->rollback;
+				return $@;
+			}
+
+		} else {
+			$self->{'db'}->commit;
+			last;
+		}
+		last;    #Success
 	}
-	eval { $self->{'sql'}->{$qry}->execute( @values, $job_id ) };
-	if ($@) {
-		$logger->logcarp($@);
-		local $" = q(;);
-		$self->{'db'}->rollback;
-		return $@;
-	} else {
-		$self->{'db'}->commit;
-	}
+
 	return if ( $status_hash->{'status'} // '' ) eq 'failed';
 	my $job = $self->get_job_status($job_id);
 	if ( $job->{'status'} && $job->{'status'} eq 'cancelled' || $job->{'cancel'} ) {
