@@ -3213,6 +3213,7 @@ a.slide_trigger {
   word-break: break-word;
   line-height: 1.2em;
   height: auto;
+  color: #000 !important
 }
 
 .select2-selection {

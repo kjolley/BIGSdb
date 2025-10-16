@@ -4551,7 +4551,7 @@ function render_loaded_locuslists() {
 
 function render_locuslists(selector){
 	\$(selector).filter(':visible').select2({
-		width: '300px',
+		width: '240px',
 		placeholder: '',
 		allowClear: true
 	});
