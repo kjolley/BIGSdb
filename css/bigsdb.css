@@ -3211,9 +3211,11 @@ a.slide_trigger {
   display: block !important; 
   white-space: normal !important;
   word-break: break-word;
-  line-height: 1.2em;
+  line-height: 1.2em !important;
+  padding-top: 4px !important;
+  padding-bottom: 4px !important;
   height: auto;
-  color: #000 !important
+  color: #000 !important;
 }
 
 .select2-selection {
