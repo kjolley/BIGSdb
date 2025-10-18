@@ -112,38 +112,12 @@ sub _get_alleles {
 	return $values;
 }
 
-sub _get_allele_extended_attributes {
-	my ( $ext_attributes, $locus_name, $allele ) = @_;
-	my $self       = setting('self');
-	my $attributes = {};
-	my $att_values = $self->{'datastore'}->run_query(
-		'SELECT field,value FROM sequence_extended_attributes WHERE (locus,allele_id)=(?,?)',
-		[ $locus_name, $allele->{'allele_id'} ],
-		{
-			fetch => 'all_arrayref',
-			slice => {},
-			cache => 'Alleles::get_alleles::sequence_extended_attributes'
-		}
-	);
-	my %values = map { $_->{'field'} => $_->{'value'} } @$att_values;
-	foreach my $att (@$ext_attributes) {
-		if ( defined $values{ $att->{'field'} } ) {
-			$attributes->{ $att->{'field'} } =
-			  $att->{'value_format'} eq 'integer'
-			  ? int( $values{ $att->{'field'} } )
-			  : $values{ $att->{'field'} };
-		}
-	}
-	return $attributes;
-}
-
 sub _get_allele {
 	my ( $db, $locus, $allele_id ) = @_;
 	my $self = setting('self');
 	$self->check_seqdef_database;
 	my $params = params;
 	if ( !defined $db ) {
-
 		( $db, $locus, $allele_id ) = @{$params}{qw(db locus allele_id)};
 	}
 	my $set_id     = $self->get_set_id;
