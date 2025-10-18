@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2024, University of Oxford
+#Copyright (c) 2014-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -87,57 +87,25 @@ sub _get_alleles {
 			$locus_name, { cache => 'Alleles::get_alleles::peptide_mutations_exist' } );
 	}
 	my $records = [];
-	my $fields =
-	  $params->{'include_records'}
-	  ? 'allele_id,sequence,status,comments,date_entered,datestamp,sender,curator'
-	  : 'allele_id';
 	$qry = $self->add_filters(
-		qq(SELECT $fields FROM $self->{'system'}->{'temp_sequences_view'} )
+		qq(SELECT allele_id FROM $self->{'system'}->{'temp_sequences_view'} )
 		  . q(WHERE locus=? AND allele_id NOT IN ('0', 'N', 'P')),
 		$allowed_filters
 	);
 	$qry .= q( ORDER BY ) . ( $locus_info->{'allele_id_format'} eq 'integer' ? 'CAST(allele_id AS int)' : 'allele_id' );
 	$qry .= qq( LIMIT $self->{'page_size'} OFFSET $offset) if !param('return_all');
-	if ( $params->{'include_records'} ) {
-		my $alleles = $self->{'datastore'}->run_query( $qry, $locus_name, { fetch => 'all_arrayref', slice => {} } );
-		foreach my $allele (@$alleles) {
-			my $record = {
-				allele_id => $locus_info->{'allele_id_format'} eq 'integer'
-				? int( $allele->{'allele_id'} )
-				: $allele->{'allele_id'},
-			};
-			$record->{'sender'}  = request->uri_for("$subdir/db/$db/users/$allele->{'sender'}") if $allele->{'sender'};
-			$record->{'curator'} = request->uri_for("$subdir/db/$db/users/$allele->{'curator'}")
-			  if $allele->{'curator'};
-			foreach my $field (qw(sequence status comments date_entered datestamp)) {
-				$record->{$field} = $allele->{$field} if defined $allele->{$field};
-			}
-			if (@$ext_attributes) {
-				my $attributes = _get_allele_extended_attributes( $ext_attributes, $locus_name, $allele );
-				$record->{$_} = $attributes->{$_} foreach keys %$attributes;
-			}
-			if ( $params->{'variation'} ) {
-				if ($peptide_mutations_exist) {
-					my $peptide_mutations = _get_peptide_mutations( $locus_name, $allele->{'allele_id'} );
-					if (@$peptide_mutations) {
-						$record->{'SAVs'} = $peptide_mutations;
-					}
-				}
-				if ($dna_mutations_exist) {
-					my $dna_mutations = _get_nucleotide_mutations( $locus_name, $allele->{'allele_id'} );
-					if (@$dna_mutations) {
-						$record->{'SNPs'} = $dna_mutations;
-					}
-				}
-			}
+
+	my $allele_ids = $self->{'datastore'}->run_query( $qry, $locus_name, { fetch => 'col_arrayref' } );
+
+	foreach my $allele_id (@$allele_ids) {
+		if ( params->{'include_records'} ) {
+			my $record = _get_allele( $db, $locus, $allele_id );
 			push @$records, $record;
-		}
-	} else {
-		my $allele_ids = $self->{'datastore'}->run_query( $qry, $locus_name, { fetch => 'col_arrayref' } );
-		foreach my $allele_id (@$allele_ids) {
+		} else {
 			push @$records, request->uri_for("$subdir/db/$db/loci/$set_name/alleles/$allele_id");
 		}
 	}
+
 	$values->{'alleles'} = $records;
 	my $message = $self->get_date_restriction_message;
 	$values->{'message'} = $message if $message;
@@ -170,10 +138,14 @@ sub _get_allele_extended_attributes {
 }
 
 sub _get_allele {
+	my ( $db, $locus, $allele_id ) = @_;
 	my $self = setting('self');
 	$self->check_seqdef_database;
 	my $params = params;
-	my ( $db, $locus, $allele_id ) = @{$params}{qw(db locus allele_id)};
+	if ( !defined $db ) {
+
+		( $db, $locus, $allele_id ) = @{$params}{qw(db locus allele_id)};
+	}
 	my $set_id     = $self->get_set_id;
 	my $subdir     = setting('subdir');
 	my $locus_name = $locus;
@@ -198,8 +170,13 @@ sub _get_allele {
 		send_error( $message, 403 );
 	}
 	my $values = {};
-	foreach my $attribute (qw(locus allele_id sequence status comments date_entered datestamp sender curator)) {
-		if ( $attribute eq 'locus' ) {
+	foreach
+	  my $attribute (qw(locus allele_id sequence status comments type_allele date_entered datestamp sender curator))
+	{
+		my %boolean = map { $_ => 1 } qw(type_allele);
+		if ( $boolean{$attribute} ) {
+			$values->{$attribute} = $allele->{$attribute} ? JSON::true : JSON::false;
+		} elsif ( $attribute eq 'locus' ) {
 			$values->{$attribute} = request->uri_for("$subdir/db/$db/loci/$locus");
 		} elsif ( $attribute eq 'sender' || $attribute eq 'curator' ) {
 
@@ -224,9 +201,11 @@ sub _get_allele {
 	}
 	my $flags = $self->{'datastore'}->get_allele_flags( $locus_name, $allele_id );
 	$values->{'flags'} = $flags if @$flags;
-	my $client_data = $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $allele_id );
-	$values->{'linked_data'} = $client_data->{'detailed_values'}
-	  if defined $client_data->{'detailed_values'};
+	if ( $params->{'linked_data'} ) {
+		my $client_data = $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $allele_id );
+		$values->{'linked_data'} = $client_data->{'detailed_values'}
+		  if defined $client_data->{'detailed_values'};
+	}
 	my $savs = _get_peptide_mutations( $locus, $allele_id );
 	$values->{'SAVs'} = $savs if @$savs;
 	my $snps = _get_nucleotide_mutations( $locus, $allele_id );
