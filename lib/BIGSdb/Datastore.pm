@@ -3523,6 +3523,12 @@ sub get_eav_field_value {
 	);
 }
 
+sub is_analysis_field {
+	my ( $self, $analysis, $field ) = @_;
+	return $self->run_query( 'SELECT EXISTS(SELECT * FROM analysis_fields WHERE (analysis_name,field_name)=(?,?))',
+	[ $analysis, $field ] );
+}
+
 sub get_analysis_fields {
 	my ($self) = @_;
 	return $self->run_query( 'SELECT * FROM analysis_fields ORDER BY analysis_name,field_name',

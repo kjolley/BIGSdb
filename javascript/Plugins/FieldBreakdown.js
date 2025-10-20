@@ -1,6 +1,6 @@
 /*FieldBreakdown.js - FieldBreakdown plugin for BIGSdb
 Written by Keith Jolley
-Copyright (c) 2018-2024, University of Oxford
+Copyright (c) 2018-2025, University of Oxford
 E-mail: keith.jolley@biology.ox.ac.uk
 
 This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 
-Version 2.8.1.
+Version 2.9.0.
 */
 
 var prefs_loaded;
@@ -162,7 +162,7 @@ $(function() {
 			.node().parentNode.innerHTML;
 		svg = svg.replace(/<\/svg>.*$/, "</svg>");
 		var blob = new Blob([svg], { type: "image/svg+xml" });
-		var filename = $("#field").val().replace(/^.+\.\./, "") + ".svg";
+		var filename = $("#field").val().replace(/^.+\.\./, "").replace(/^af_/, "").replace(/___/g, "_") + ".svg";
 		saveAs(blob, filename);
 	});
 
@@ -469,6 +469,12 @@ function load_pie(url, field, max_segments) {
 	}
 
 	title = title.replace(/^s_\d+_/, "");
+    if (field.startsWith('af_')) {
+		let parts = field.split('___',2);
+		let field_name = parts[0].replace(/^af_/,"");
+		let analysis_name = parts[1]		
+        title = `${field_name} (${analysis_name})`;
+    }
 	var f = d3.format(".1f");
 	d3.json(url).then(function(jsonData) {
 		var data = pie_json_to_cols(jsonData, max_segments);
