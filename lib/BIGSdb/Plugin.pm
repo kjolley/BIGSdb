@@ -374,6 +374,35 @@ sub print_eav_fields_fieldset {
 	return;
 }
 
+sub print_analysis_fields_fieldset {
+	my ( $self, $options ) = @_;
+	my $analysis_fields = $self->{'datastore'}->get_analysis_fields;
+	return if !@$analysis_fields;
+    my $q = $self->{'cgi'};
+	my ( $values, $labels ) =
+	  $self->get_analysis_field_values_and_labels( { prefix => 'af_', no_blank_value => 1 } );
+	my $legend = 'Analysis fields';
+	my $display = $options->{'hide'} ? 'none' : 'block';
+	say qq(<fieldset id="analysis_fieldset" style="float:left;display:$display"><legend>$legend</legend>);
+	say $q->scrolling_list(
+		-name     => 'analysis_fields',
+		-id       => 'analysis_fields',
+		-values   => $values,
+		-labels   => $labels,
+		-multiple => 'true',
+		-size     => $options->{'size'} // 8
+	);
+    if ( !$options->{'no_all_none'} ) {
+        say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("analysis_fields",true)' )
+          . q(value="All" style="margin-top:1em" class="small_submit" /><input type="button" )
+          . q(onclick='listbox_selectall("analysis_fields",false)' value="None" style="margin:1em 0 0 0.2em" )
+          . q(class="small_submit" /></div>);
+	}
+	say q(</fieldset>);
+	$self->{'analysis_fieldset'} = 1;
+	return;
+}
+
 sub print_composite_fields_fieldset {
 	my ( $self, $options ) = @_;
 	my $composites =

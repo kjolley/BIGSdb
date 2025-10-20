@@ -1,6 +1,6 @@
 #FieldBreakdown.pm - TwoFieldBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext => 'Two Field',
 		menutext   => 'Two field breakdown',
 		module     => 'TwoFieldBreakdown',
-		version    => '1.8.1',
+		version    => '1.9.0',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/two_field_breakdown.html",
@@ -331,6 +331,7 @@ sub _print_interface {
 			isolate_fields           => 1,
 			nosplit_geography_points => 1,
 			eav_fields               => 1,
+			analysis_fields          => 1,
 			extended_attributes      => 1,
 			loci                     => 1,
 			no_list_by_common_name   => 1,
@@ -892,6 +893,7 @@ sub _get_value_frequency_hashes {
 	( $clean{$field1} = $field1 ) =~ s/^[f|l]_//x;
 	( $clean{$field2} = $field2 ) =~ s/^[f|l]_//x;
 	my %scheme_id;
+	my %analysis_name;
 
 	foreach my $field ( $field1, $field2 ) {
 		if ( $field =~ /^la_(.+)\|\|/x || $field =~ /^cn_(.+)/x || $field =~ /^eav_(.+)/x ) {
@@ -921,18 +923,30 @@ sub _get_value_frequency_hashes {
 					my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 					$print{$field} .= " ($scheme_info->{'name'})";
 				}
+			} elsif ( $field =~ /^af_(.+)___(.+)/x ) {
+				my $analysis_name = $1;
+				my $field_name    = $2;
+				if ( $self->{'datastore'}->is_analysis_field( $analysis_name, $field_name ) ) {
+					$clean{$field}         = $field_name;
+					$print{$field}         = "$field_name ($analysis_name)";
+					$field_type{$field}    = 'analysis_field';
+					$analysis_name{$field} = $analysis_name;
+					$field_type{$field}    = 'analysis_field';
+					$analysis_name{$field} = $analysis_name;
+				}
 			}
 		}
 	}
 	foreach my $id ( uniq @$id_list ) {
 		my @values = $self->_get_values(
 			{
-				isolate_id   => $id,
-				fields       => [ $field1, $field2 ],
-				clean_fields => \%clean,
-				field_type   => \%field_type,
-				scheme_id    => \%scheme_id,
-				options      => { fetchall => ( @$id_list / $total_isolates >= 0.5 ? 1 : 0 ) }
+				isolate_id    => $id,
+				fields        => [ $field1, $field2 ],
+				clean_fields  => \%clean,
+				field_type    => \%field_type,
+				scheme_id     => \%scheme_id,
+				analysis_name => \%analysis_name,
+				options       => { fetchall => ( @$id_list / $total_isolates >= 0.5 ? 1 : 0 ) }
 			}
 		);
 		foreach (qw (0 1)) {
@@ -1005,17 +1019,18 @@ sub _is_field_multivalue {
 #Values are arrayref in an array representing field1 and field2.
 sub _get_values {
 	my ( $self, $args ) = @_;
-	my ( $isolate_id, $fields, $clean_fields, $field_type, $scheme_id, $options ) =
-	  @{$args}{qw(isolate_id fields clean_fields field_type scheme_id options)};
+	my ( $isolate_id, $fields, $clean_fields, $field_type, $scheme_id, $analysis_name, $options ) =
+	  @{$args}{qw(isolate_id fields clean_fields field_type scheme_id analysis_name options)};
 	$options = {} if ref $options ne 'HASH';
 	my @values;
 	foreach my $field (@$fields) {
 		my $sub_args = {
-			isolate_id   => $isolate_id,
-			field        => $field,
-			clean_fields => $clean_fields,
-			scheme_id    => $scheme_id,
-			options      => $options
+			isolate_id    => $isolate_id,
+			field         => $field,
+			clean_fields  => $clean_fields,
+			scheme_id     => $scheme_id,
+			analysis_name => $analysis_name,
+			options       => $options
 		};
 		my $method = {
 			field        => sub { return [ $self->_get_field_value($sub_args) ] },
@@ -1025,7 +1040,8 @@ sub _get_values {
 				return $self->get_scheme_field_values(
 					{ isolate_id => $isolate_id, scheme_id => $scheme_id->{$field}, field => $clean_fields->{$field} }
 				);
-			}
+			},
+			analysis_field => sub { return [ $self->_get_analysis_field_values($sub_args) ] }
 		};
 		if ( $method->{ $field_type->{$field} } ) {
 			push @values, $method->{ $field_type->{$field} }->();
@@ -1109,6 +1125,41 @@ sub _get_locus_values {
 	} else {
 		$values = $self->{'datastore'}->get_allele_ids( $isolate_id, $clean_fields->{$field} );
 	}
+	return $values;
+}
+
+sub _get_analysis_field_values {
+	my ( $self, $args ) = @_;
+	my ( $isolate_id, $field, $clean_fields, $analysis_name, $options ) =
+	  @{$args}{qw(isolate_id field clean_fields analysis_name options)};
+	my $values;
+	if ( $options->{'fetchall'} ) {
+		if ( !$self->{'cache'}->{$field} ) {
+			my $data = $self->{'datastore'}->run_query(
+				'SELECT isolate_id, value FROM analysis_fields af JOIN analysis_results_cache arc '
+				  . 'ON (af.analysis_name,af.json_path)=(arc.analysis_name,arc.json_path) '
+				  . 'WHERE (af.analysis_name,af.field_name)'
+				  . '=(?,?)',
+				[ $analysis_name->{$field}, $clean_fields->{$field} ],
+				{ fetch => 'all_arrayref' }
+			);
+			foreach (@$data) {
+				push @{ $self->{'cache'}->{$field}->{ $_->[0] } }, $_->[1];
+			}
+		}
+		$values = $self->{'cache'}->{$field}->{$isolate_id} // [];
+	} else {
+		$values = $self->{'datastore'}->run_query(
+			'SELECT value FROM analysis_fields af JOIN analysis_results_cache arc '
+			  . 'ON (af.analysis_name,af.json_path)=(arc.analysis_name,arc.json_path) '
+			  . 'WHERE (af.analysis_name,af.field_name,arc.isolate_id)'
+			  . '=(?,?,?)',
+			[ $analysis_name->{$field}, $clean_fields->{$field}, $isolate_id ],
+			{ fetch => 'col_arrayref', cache => "TwoFieldBreakdown::get_field_value::$field" }
+		);
+	}
+	local $" = q(; );
+	$values = qq(@$values) // q();
 	return $values;
 }
 

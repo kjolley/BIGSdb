@@ -1,3 +1,9 @@
+v1.51.6: *Update to various plugins to support analysis fields (third-party 
+          results stored as JSON within the database).
+         *Improved performance for searchable locus lists.
+         *Added retries on database queries if network error encountered.
+         *Included more locus information in API to facilite database 
+          synchronisation/cloning via the API.
 v1.51.5: *Script to update API client database permissions. 
          *More robust date embargo date calculation - note new Perl module 
           dependency: DateTime.

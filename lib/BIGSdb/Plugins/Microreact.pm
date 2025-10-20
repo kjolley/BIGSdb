@@ -65,7 +65,7 @@ sub get_attributes {
 		buttontext => 'Microreact',
 		menutext   => 'Microreact',
 		module     => 'Microreact',
-		version    => '1.7.1',
+		version    => '1.8.0',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
@@ -215,6 +215,7 @@ sub _create_tsv_file {
 	$include_fields{"f_$self->{'system'}->{'labelfield'}"} = 1;
 	my $extended    = $self->get_extended_attributes;
 	my $prov_fields = $self->{'xmlHandler'}->get_field_list;
+	my $analysis_fields = $self->{'datastore'}->get_analysis_fields;
 	my @header_fields;
 
 	foreach my $field (@$prov_fields) {
@@ -239,6 +240,11 @@ sub _create_tsv_file {
 			( my $field_name = $1 ) =~ tr/_/ /;
 			push @header_fields, $field_name;
 		}
+	}
+	foreach my $field (@$analysis_fields) {
+		my $analysis = $field->{'analysis_display_name'} // $field->{'analysis_name'};
+		push @header_fields, "$field->{'field_name'} ($analysis)"
+		  if $include_fields{"af_$field->{'analysis_name'}___$field->{'field_name'}"};
 	}
 	push @header_fields, 'iso3166' if defined $country_field;
 	my $geo_field = $self->_get_geo_field($params);
@@ -295,6 +301,20 @@ sub _create_tsv_file {
 				my $value      = $self->{'datastore'}->get_eav_field_value( $record->{'id'}, $field_name );
 				$value //= q();
 				push @record_values, $value;
+			}
+		}
+		foreach my $field (@$analysis_fields) {
+			if ( $include_fields{"af_$field->{'analysis_name'}___$field->{'field_name'}"} ) {
+				my $value = $self->{'datastore'}->run_query(
+					'SELECT value FROM analysis_fields af JOIN analysis_results_cache arc '
+					  . 'ON (af.analysis_name,af.json_path)=(arc.analysis_name,arc.json_path) '
+					  . 'WHERE (af.analysis_name,af.field_name,arc.isolate_id)'
+					  . '=(?,?,?)',
+					[ $field->{'analysis_name'}, $field->{'field_name'}, $record->{'id'} ],
+					{ fetch => 'col_arrayref', cache => 'Microreact::analysis_field' }
+				);
+				local $" = q(; );
+				push @record_values, qq(@$value) // q();
 			}
 		}
 		push @record_values, $iso2 if defined $country_field;
@@ -371,6 +391,7 @@ sub print_extra_form_elements {
 			nosplit_geography_points => 1,
 			extended_attributes      => 1,
 			scheme_fields            => 1,
+			analysis_fields          => 1,
 			hide                     => "f_$self->{'system'}->{'labelfield'},f_country,f_year"
 		}
 	);

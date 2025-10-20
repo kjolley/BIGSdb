@@ -48,7 +48,7 @@ sub get_attributes {
 		buttontext => 'Fields',
 		menutext   => 'Field breakdown',
 		module     => 'FieldBreakdown',
-		version    => '2.8.1',
+		version    => '2.9.0',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
@@ -77,7 +77,8 @@ sub get_initiation_values {
 		$values->{'type'} = 'json';
 	}
 	if ( $q->param('export') && $q->param('format') ) {
-		( my $field_name = $q->param('export') ) =~ s/^s_\d+_//x;
+		( my $field_name = $q->param('export') ) =~ s/^(af_|s_\d+_)//x;
+		$field_name =~ s/___/_/g;
 		my $format = {
 			text  => 'txt',
 			xlsx  => 'xlsx',
@@ -138,6 +139,9 @@ sub _get_field_type {
 	if ( $self->{'datastore'}->is_locus($field) ) {
 		return 'locus';
 	}
+	if ( $field =~ /^af_.+___.+$/x ) {
+		return 'analysis_field';
+	}
 	return;
 }
 
@@ -182,6 +186,16 @@ sub _get_field_values {
 				my ( $scheme_id, $scheme_field ) = ( $1, $2 );
 				$freqs = $self->_get_scheme_field_freqs( $scheme_id, $scheme_field );
 			}
+		},
+		analysis_field => sub {
+			if ( $field =~ /^af_(.+)___(.+)/x ) {
+				my ( $field_name, $analysis_name ) = ( $1, $2 );
+                my $att = $self->{'datastore'}->get_analysis_field( $analysis_name, $field_name );
+				$freqs = $self->_get_analysis_field_freqs( $analysis_name, $field_name,
+				  $att->{'data_type'} =~ /^(?:int|float|date)/x
+				  ? { order => 'label ASC' }
+				  : undef );
+			}
 		}
 	};
 	if ( $methods->{$field_type} ) {
@@ -212,6 +226,10 @@ sub _get_display_field {
 			$display_field = $set_name // $field;
 		}
 	}
+	if ( $field_type eq 'analysis_field') {
+        my ($field_name, $analysis_name) = $field =~ /^af_(.+)___(.+)/x;
+        $display_field = "$field_name ($analysis_name)";
+    }
 	return $display_field;
 }
 
@@ -565,6 +583,7 @@ sub _get_fields {
 	my $labels         = {};
 	my $no_show        = $self->_get_no_show_fields;
 	my $extended       = $self->get_extended_attributes;
+	my $analysis_fields = $self->{'datastore'}->get_analysis_fields;
 
 	foreach my $field ( @$field_list, @$eav_field_list ) {
 		next if $no_show->{$field};
@@ -579,6 +598,13 @@ sub _get_fields {
 			$label =~ tr/_/ /;
 			$labels->{$field} = $label;
 		}
+	}
+
+	foreach my $field ( @$analysis_fields) {
+	    my $new_field = "af_$field->{'field_name'}___$field->{'analysis_name'}";
+	    push @$expanded_list, $new_field;
+	    my $label = "$field->{'field_name'} ($field->{'analysis_name'})";
+	    $labels->{$new_field} = $label;
 	}
 	return ( $expanded_list, $labels );
 }
@@ -877,6 +903,37 @@ sub _get_scheme_field_freqs {
 	my $values =
 	  $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
 	return $values;
+}
+
+sub _get_analysis_field_freqs {
+    my ( $self, $analysis_name, $field_name, $options ) = @_;
+    my $qry =
+       'WITH matching_values AS '
+      . '(SELECT arc.isolate_id, arc.value FROM analysis_results_cache arc '
+      . 'JOIN analysis_fields af ON (af.analysis_name,af.json_path) = (arc.analysis_name,arc.json_path) '
+      . 'WHERE (af.analysis_name,af.field_name) = (?,?)),isolates_values AS '
+      . '(SELECT i.value AS isolates_id, array_agg(mv.value) AS label FROM id_list i '
+      . 'LEFT JOIN matching_values mv ON i.value=mv.isolate_id '
+      . 'GROUP BY i.value) '
+      . 'SELECT label, COUNT(*) AS value FROM isolates_values GROUP BY label';
+    my $order = $options->{'order'} ? $options->{'order'} : 'value DESC';
+	$qry .= " ORDER BY $order";
+    my $values =
+      $self->{'datastore'}->run_query( $qry, [ $analysis_name, $field_name ], { fetch => 'all_arrayref', slice => {} } );
+    my $new_values = [];
+    foreach my $value (@$values) {
+        my $label = $value->{'label'};
+        if (!@$label || !grep { defined $_ } @$label) {
+            $label = ['No value'];
+        }
+        local $" = q(; );
+        my $new_label = @$label ? "@$label" : 'No value';
+		push @$new_values, {
+            label => $new_label,
+            value => $value->{'value'}
+        };
+    }
+    return $new_values;
 }
 
 sub _create_id_table {
