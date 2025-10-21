@@ -42,7 +42,7 @@ sub initiate {
 		my $value = $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'aq_allele_fieldset' );
 		$self->{'prefs'}->{'aq_allele_fieldset'} = ( $value // '' ) eq 'off' ? 0 : 1;
 	}
-	$self->{$_} = 1 foreach (qw (tooltips jQuery jQuery.multiselect));
+	$self->{$_} = 1 foreach (qw (tooltips jQuery select2));
 	$self->set_level1_breadcrumbs;
 	return;
 }
@@ -67,15 +67,15 @@ sub get_javascript {
   	  var url = '$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=alleleQuery&locus=' + locus_name;
  	  location.href=url;
     });
-	\$("#locus").multiselect({
-		header: "Please select...",
-		noneSelectedText: "Please select...",
-		selectedList: 1,
-		menuHeight: 250,
-		classes: 'filter'
-	}).multiselectfilter({
-		placeholder: 'Search'
-	})
+    \$("select#locus").select2({
+		width: '240px',
+		dropdownAutoWidth: true,
+		minimumResultsForSearch: 20
+	});
+	// hack to fix jquery 3.6 focus security patch that bugs auto search in select-2
+	\$(document).on('select2:open', () => {
+   	   document.querySelector('.select2-search__field').focus();
+	});
     $panel_js
  });
 
