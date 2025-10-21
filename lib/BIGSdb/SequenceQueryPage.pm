@@ -88,7 +88,7 @@ sub get_javascript {
 	
 	\$("select#locus").select2({
 		width: '240px',
-		 dropdownAutoWidth: true,
+		dropdownAutoWidth: true,
 		minimumResultsForSearch: 20
 	});
 	\$("select#order").select2({

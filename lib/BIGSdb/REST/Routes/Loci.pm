@@ -110,6 +110,8 @@ sub _get_locus {
 	$values->{'aliases'} = $aliases if @$aliases;
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		_get_extended_attributes( $values, $locus_name );
+		_get_peptide_mutations( $values, $locus_name );
+		_get_snps( $values, $locus_name );
 		_get_description( $values, $locus_name );
 		_get_curators( $values, $locus_name );
 	} else {
@@ -320,6 +322,43 @@ sub _get_extended_attributes {
 		push @attributes, $attribute_list;
 	}
 	$values->{'extended_attributes'} = \@attributes if @attributes;
+	return;
+}
+
+sub _get_peptide_mutations {
+	my ( $values, $locus_name ) = @_;
+	my $self    = setting('self');
+	my $db      = params->{'db'};
+	my $records = $self->{'datastore'}->run_query( 'SELECT * FROM peptide_mutations WHERE locus=?',
+		$locus_name, { fetch => 'all_arrayref', slice => {} } );
+	my $mutations = [];
+	foreach my $record (@$records) {
+		my $mutation = { map { $_ => int( $record->{$_} ) } qw( reported_position locus_position flanking_length) };
+		$mutation->{'wild_type_allele_id'} = $record->{'wild_type_allele_id'};
+		$mutation->{'wild_type_aa'}        = [ split /\s*;\s*/x, $record->{'wild_type_aa'} ];
+		$mutation->{'variant_aa'}          = [ split /\s*;\s*/x, $record->{'variant_aa'} ];
+		push @$mutations, $mutation;
+
+	}
+	$values->{'SAVs'} = $mutations if @$mutations;
+	return;
+}
+
+sub _get_snps {
+	my ( $values, $locus_name ) = @_;
+	my $self    = setting('self');
+	my $db      = params->{'db'};
+	my $records = $self->{'datastore'}
+	  ->run_query( 'SELECT * FROM dna_mutations WHERE locus=?', $locus_name, { fetch => 'all_arrayref', slice => {} } );
+	my $mutations = [];
+	foreach my $record (@$records) {
+		my $mutation = { map { $_ => int( $record->{$_} ) } qw( reported_position locus_position flanking_length) };
+		$mutation->{'wild_type_allele_id'} = $record->{'wild_type_allele_id'};
+		$mutation->{'wild_type_nuc'}       = [ split /\s*;\s*/x, $record->{'wild_type_nuc'} ];
+		$mutation->{'variant_nuc'}         = [ split /\s*;\s*/x, $record->{'variant_nuc'} ];
+		push @$mutations, $mutation;
+	}
+	$values->{'SNPs'} = $mutations if @$mutations;
 	return;
 }
 
