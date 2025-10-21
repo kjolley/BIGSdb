@@ -216,7 +216,8 @@ sub _get_peptide_mutations {
 			  {
 				position   => int( $mutation->{'reported_position'} ),
 				amino_acid => $data->{'amino_acid'},
-				wild_type  => $data->{'is_wild_type'} ? JSON::true : JSON::false
+				wild_type  => $data->{'is_wild_type'} ? JSON::true : JSON::false,
+				mutation   => $data->{'is_mutation'}  ? JSON::true : JSON::false
 			  };
 		}
 	}
@@ -245,12 +246,12 @@ sub _get_nucleotide_mutations {
 			{ fetch => 'row_hashref', cache => 'Alleles::get_sequence_dna_mutation' }
 		);
 		if ($data) {
-			push @$list,
-			  {
+			push @$list, {
 				position   => int( $mutation->{'reported_position'} ),
 				nucleotide => $data->{'nucleotide'},
-				wild_type  => $data->{'is_wild_type'} ? JSON::true : JSON::false
-			  };
+				wild_type  => $data->{'is_wild_type'} ? JSON::true : JSON::false,
+				mutation   => $data->{'is_mutation'}  ? JSON::true : JSON::false
+			};
 		}
 	}
 	return $list;
