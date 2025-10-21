@@ -20,14 +20,14 @@ package BIGSdb::SequenceQueryPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Page);
-use Log::Log4perl qw(get_logger);
-use List::MoreUtils qw(any uniq none);
+use parent            qw(BIGSdb::Page);
+use Log::Log4perl     qw(get_logger);
+use List::MoreUtils   qw(any uniq none);
 use BIGSdb::Constants qw(:interface);
 use BIGSdb::Offline::SequenceQuery;
 use File::Type;
 use IO::Uncompress::Gunzip qw(gunzip $GunzipError);
-use IO::Uncompress::Unzip qw(unzip $UnzipError);
+use IO::Uncompress::Unzip  qw(unzip $UnzipError);
 use JSON;
 use Try::Tiny;
 my $logger = get_logger('BIGSdb.Page');
@@ -85,20 +85,25 @@ sub get_javascript {
 		initiate();
 	});
 	initiate();
-	\$("select#locus").multiselect({
-		header: "Please select...",
-		noneSelectedText: "Please select...",
-		selectedList: 1,
-		buttonWidth: '>=200',
-		menuHeight: 250,
-		classes: 'filter'
-	}).multiselectfilter({
-		placeholder: 'Search'
+	
+	\$("select#locus").select2({
+		width: '240px',
+		 dropdownAutoWidth: true,
+		minimumResultsForSearch: 20
 	});
+	\$("select#order").select2({
+		minimumResultsForSearch: -1
+	});
+	
+
 	\$("#options_trigger").click(function(){
 		\$("fieldset#options").css("display", \$("#options_off").is(":visible") ? "block" : "none");
 		\$("#options_off").toggle();
 		\$("#options_on").toggle();
+	});
+	// hack to fix jquery 3.6 focus security patch that bugs auto search in select-2
+	\$(document).on('select2:open', () => {
+   	   document.querySelector('.select2-search__field').focus();
 	});
 });
 
@@ -280,7 +285,7 @@ sub _print_scheme_loci_selector {
 	eval { say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $display_loci, -labels => $cleaned ) };
 	say q(</fieldset>);
 	say q(<fieldset><legend>Order results by</legend>);
-	say $q->popup_menu( -name => 'order', -values => [ ( 'locus', 'best match' ) ] );
+	say $q->popup_menu( -name => 'order', -id => 'order', -values => [ ( 'locus', 'best match' ) ] );
 	say q(</fieldset>);
 	return;
 }
@@ -589,7 +594,7 @@ sub _run_blast {
 	$word_size = 11 if $word_size < 11;
 
 	if ( $word_size =~ /(\d*)/x ) {
-		$word_size = $1;                   #untaint
+		$word_size = $1;    #untaint
 	}
 	my $seq_qry_obj = BIGSdb::Offline::SequenceQuery->new(
 		{
@@ -698,7 +703,7 @@ sub _get_selected_loci {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (jQuery jQuery.multiselect);
+	$self->{$_} = 1 foreach qw (jQuery select2);
 	if ( $self->{'system'}->{'kiosk'} ) {
 		$self->set_level0_breadcrumbs;
 	} else {
