@@ -381,7 +381,6 @@ sub update_job_status {
 		eval {
 			$self->{'sql'}->{$qry}->execute( @values, $job_id );
 			$self->{'db'}->commit;
-			last;
 		};
 		if ($@) {
 			$self->{'db'}->rollback;
