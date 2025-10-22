@@ -378,8 +378,13 @@ sub update_job_status {
 		 #Prepare and cache statement handle.  Previously, using DBI::do resulted in continuously increasing memory use.
 			$self->{'sql'}->{$qry} = $self->{'db'}->prepare($qry);
 		}
-		eval { $self->{'sql'}->{$qry}->execute( @values, $job_id ) };
+		eval {
+			$self->{'sql'}->{$qry}->execute( @values, $job_id );
+			$self->{'db'}->commit;
+			last;
+		};
 		if ($@) {
+			$self->{'db'}->rollback;
 			if ( $@ =~ /SSL\ error/x ) {
 				$logger->error("Query attempt $attempt failed: $@");
 				$attempt++;
@@ -388,15 +393,11 @@ sub update_job_status {
 			} else {
 				$logger->logcarp($@);
 				local $" = q(;);
-				$self->{'db'}->rollback;
 				return $@;
 			}
 
-		} else {
-			$self->{'db'}->commit;
-			last;
 		}
-		last;    #Success
+		last;
 	}
 
 	return if ( $status_hash->{'status'} // '' ) eq 'failed';
