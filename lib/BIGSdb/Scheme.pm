@@ -97,6 +97,7 @@ sub get_field_values_by_designations {
 
 	#$designations is a hashref containing arrayref of allele_designations for each locus
 	my ( $self, $designations, $options ) = @_;
+	$logger->error($self->{'allow_missing_loci'});
 	my $loci   = $self->{'loci'};
 	my $fields = $self->{'fields'};
 	my @used_loci;
@@ -150,7 +151,8 @@ sub get_field_values_by_designations {
 			}
 		}
 		local $" = q(',E');
-		push @locus_terms, "profile[$self->{'locus_index'}->{$locus}] IN (E'@{ $values->{$locus}->{'allele_ids'} }')";
+		push @locus_terms,
+		  "profile[$self->{'locus_index'}->{$locus}] IN (E'@{ $values->{$locus}->{'allele_ids'} }')";
 	}
 	local $" = ' AND ';
 	my $locus_term_string = "@locus_terms";
@@ -160,6 +162,9 @@ sub get_field_values_by_designations {
 	#The query varies depending on whether or not there are missing or multiple alleles for loci,
 	#or differing numbers of allele designations at loci.
 	#Note that long queries cause memory to increase over time.
+	if ( $options->{'fewest_missing'} && $self->{'allow_missing_loci'} ) {
+		push @$fields, q((SELECT COUNT(*) FROM unnest(profile) AS x WHERE x='N') AS n_count);
+	}
 	my $qry = "SELECT @$fields FROM $table WHERE $locus_term_string";
 	my $sql = $self->{'db'}->prepare($qry);
 	eval { $sql->execute };
@@ -171,6 +176,20 @@ sub get_field_values_by_designations {
 	}
 	my $field_data = $sql->fetchall_arrayref( {} );
 	$self->{'db'}->commit;    #Prevent IDLE in transaction locks in long-running REST process.
+	if ( $options->{'fewest_missing'} && $self->{'allow_missing_loci'} ) {
+		my $fewest_missing = @$loci;
+		foreach my $record (@$field_data) {
+			if ( $record->{'n_count'} < $fewest_missing ) {
+				$fewest_missing = $record->{'n_count'};
+			}
+		}
+		my $filtered = [];
+		foreach my $record (@$field_data) {
+			next if $record->{'n_count'} > $fewest_missing;
+			push @$filtered, $record;
+		}
+		return $filtered;
+	}
 	return $field_data;
 }
 

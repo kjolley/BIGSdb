@@ -131,7 +131,7 @@ sub _generate_report {
 		my ( $separator, $prefix, $empty_term, $final_term ) =
 		  @{$args}{qw(separator prefix empty_term final_term)};
 		$separator //= q(, );
-		$prefix //= q();
+		$prefix    //= q();
 		@$list = grep { defined $_ && $_ ne q() } @$list;
 		$separator //= q(, );
 		local $" = qq($separator$prefix);
@@ -148,6 +148,7 @@ sub _generate_report {
 	my $template = Template->new(
 		{
 			INCLUDE_PATH => $dir,
+			TRIM         => 1
 		}
 	);
 	my $template_output = q();
@@ -156,6 +157,7 @@ sub _generate_report {
 	$data->{'css'}  = ${ BIGSdb::Utils::slurp("$dir/style.css") };
 	$template->process( $template_info->{'template_file'}, $data, \$template_output )
 	  || $logger->error( $template->error );
+
 	if ( $self->{'format'} eq 'html' ) {
 		say $template_output;
 		return;
@@ -240,7 +242,9 @@ sub _get_scheme_values {
 	return $data if !ref $scheme_ids || !@$scheme_ids;
 	foreach my $scheme_id (@$scheme_ids) {
 		my $values =
-		  $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id, { no_status => 1 } );
+		  $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id,
+			{ fewest_missing => 1, no_status => 1 } )
+		  ;
 		$data->{$scheme_id} = $values;
 	}
 	return $data;

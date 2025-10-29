@@ -419,7 +419,7 @@ sub get_scheme_field_values_by_designations {
 	$self->_convert_designations_to_profile_names( $scheme_id, $designations ) if !$options->{'no_convert'};
 	{
 		try {
-			$field_data = $scheme->get_field_values_by_designations($designations);
+			$field_data = $scheme->get_field_values_by_designations( $designations, $options );
 		} catch {
 			if ( $_->isa('BIGSdb::Exception::Database::Configuration') ) {
 				$logger->warn("Scheme $scheme_id database is not configured correctly");
@@ -3526,7 +3526,7 @@ sub get_eav_field_value {
 sub is_analysis_field {
 	my ( $self, $analysis, $field ) = @_;
 	return $self->run_query( 'SELECT EXISTS(SELECT * FROM analysis_fields WHERE (analysis_name,field_name)=(?,?))',
-	[ $analysis, $field ] );
+		[ $analysis, $field ] );
 }
 
 sub get_analysis_fields {
