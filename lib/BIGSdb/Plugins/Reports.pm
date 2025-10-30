@@ -26,6 +26,7 @@ use BIGSdb::Constants qw(:interface);
 use TOML;
 use Template;
 use Template::Stash;
+use MIME::Base64 qw(encode_base64);
 use JSON;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -122,6 +123,24 @@ sub _check_params {
 	};
 }
 
+sub _encode_image_dir {
+	my ( $self, $dir ) = @_;
+	my $images = {};
+	opendir( my $dh, $dir ) or $logger->error("Cannot open $dir: $!");
+	while ( my $file = readdir $dh ) {
+		next if $file =~ /^\./x;    # skip . and ..
+		my $path = "$dir/$file";
+		next unless -f $path;      # only files
+		my $contents = BIGSdb::Utils::slurp($path);
+		my $b64 = encode_base64($$contents);
+		(my $key = $file) =~ s/\s/_/gx;
+		$key =~ s/\.(?:png|jpg)$//x;
+		$images->{$key} = $b64;
+	}
+	closedir $dh;
+	return $images;
+}
+
 sub _generate_report {
 	my ( $self, $isolate_id, $report_id ) = @_;
 	my $template_info = $self->_get_template_info($report_id);
@@ -145,6 +164,7 @@ sub _generate_report {
 		}
 		return $value;
 	};
+	my $images   = $self->_encode_image_dir("$dir/images");
 	my $template = Template->new(
 		{
 			INCLUDE_PATH => $dir,
@@ -155,6 +175,7 @@ sub _generate_report {
 	my $data            = $self->_get_isolate_data( $isolate_id, $report_id );
 	$data->{'date'} = BIGSdb::Utils::get_datestamp();
 	$data->{'css'}  = ${ BIGSdb::Utils::slurp("$dir/style.css") };
+	$data->{'images'} = $images;
 	$template->process( $template_info->{'template_file'}, $data, \$template_output )
 	  || $logger->error( $template->error );
 
@@ -242,9 +263,8 @@ sub _get_scheme_values {
 	return $data if !ref $scheme_ids || !@$scheme_ids;
 	foreach my $scheme_id (@$scheme_ids) {
 		my $values =
-		  $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id,
-			{ fewest_missing => 1, no_status => 1 } )
-		  ;
+		  $self->{'datastore'}
+		  ->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id, { fewest_missing => 1, no_status => 1 } );
 		$data->{$scheme_id} = $values;
 	}
 	return $data;

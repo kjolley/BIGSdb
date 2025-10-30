@@ -97,7 +97,6 @@ sub get_field_values_by_designations {
 
 	#$designations is a hashref containing arrayref of allele_designations for each locus
 	my ( $self, $designations, $options ) = @_;
-	$logger->error($self->{'allow_missing_loci'});
 	my $loci   = $self->{'loci'};
 	my $fields = $self->{'fields'};
 	my @used_loci;
