@@ -130,10 +130,10 @@ sub _encode_image_dir {
 	while ( my $file = readdir $dh ) {
 		next if $file =~ /^\./x;    # skip . and ..
 		my $path = "$dir/$file";
-		next unless -f $path;      # only files
+		next unless -f $path;       # only files
 		my $contents = BIGSdb::Utils::slurp($path);
-		my $b64 = encode_base64($$contents);
-		(my $key = $file) =~ s/\s/_/gx;
+		my $b64      = encode_base64($$contents);
+		( my $key = $file ) =~ s/\s/_/gx;
 		$key =~ s/\.(?:png|jpg)$//x;
 		$images->{$key} = $b64;
 	}
@@ -173,9 +173,11 @@ sub _generate_report {
 	);
 	my $template_output = q();
 	my $data            = $self->_get_isolate_data( $isolate_id, $report_id );
-	$data->{'date'} = BIGSdb::Utils::get_datestamp();
-	$data->{'css'}  = ${ BIGSdb::Utils::slurp("$dir/style.css") };
+	$data->{'date'}   = BIGSdb::Utils::get_datestamp();
+	$data->{'css'}    = ${ BIGSdb::Utils::slurp("$dir/style.css") };
 	$data->{'images'} = $images;
+	use Data::Dumper;
+	$logger->error( Dumper $data->{assembly} );
 	$template->process( $template_info->{'template_file'}, $data, \$template_output )
 	  || $logger->error( $template->error );
 
@@ -208,8 +210,27 @@ sub _get_isolate_data {
 
 sub _get_assembly_details {
 	my ( $self, $isolate_id ) = @_;
-	return $self->{'datastore'}->run_query( 'SELECT contigs,total_length,n50,l50 FROM seqbin_stats WHERE isolate_id=?',
+	my $data =
+	  $self->{'datastore'}->run_query( 'SELECT contigs,total_length,n50,l50 FROM seqbin_stats WHERE isolate_id=?',
 		$isolate_id, { fetch => 'row_hashref' } );
+	my $method = $self->{'datastore'}->run_query(
+		'SELECT method,count(*) AS count FROM sequence_bin WHERE isolate_id=? ' . 'GROUP BY method ORDER BY count DESC',
+		$isolate_id,
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	if ( @$method == 1 ) {
+		$data->{'method'} = $method->[0]->{'method'} || 'Unknown';
+	} else {
+		my @values;
+		foreach my $method (@$method) {
+			my $plural = $method->{'count'} == 1 ? q() : q(s);
+			$method->{'method'} ||= 'Unknown';
+			push @values, $method->{'method'};
+		}
+		local $" = q(; );
+		$data->{'method'} = qq(@values);
+	}
+	return $data;
 }
 
 sub _get_assembly_checks {
