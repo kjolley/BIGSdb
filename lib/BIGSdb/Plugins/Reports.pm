@@ -1,6 +1,6 @@
 #Reports.pm - Isolate report plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2023, University of Oxford
+#Copyright (c) 2023-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,11 +21,12 @@ package BIGSdb::Plugins::Reports;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugin);
+use parent            qw(BIGSdb::Plugin);
 use BIGSdb::Constants qw(:interface);
 use TOML;
 use Template;
 use Template::Stash;
+use MIME::Base64 qw(encode_base64);
 use JSON;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -49,7 +50,7 @@ sub get_attributes {
 		buttontext      => 'Reports',
 		menutext        => 'Reports',
 		module          => 'Reports',
-		version         => '1.0.0',
+		version         => '1.1.0',
 		dbtype          => 'isolates',
 		section         => 'isolate_info',
 		input           => '',
@@ -122,17 +123,40 @@ sub _check_params {
 	};
 }
 
+sub _encode_image_dir {
+	my ( $self, $dir ) = @_;
+	my $images = {};
+	opendir( my $dh, $dir ) or $logger->error("Cannot open $dir: $!");
+	while ( my $file = readdir $dh ) {
+		next if $file =~ /^\./x;    # skip . and ..
+		my $path = "$dir/$file";
+		next unless -f $path;      # only files
+		my $contents = BIGSdb::Utils::slurp($path);
+		my $b64 = encode_base64($$contents);
+		(my $key = $file) =~ s/\s/_/gx;
+		$key =~ s/\.(?:png|jpg)$//x;
+		$images->{$key} = $b64;
+	}
+	closedir $dh;
+	return $images;
+}
+
 sub _generate_report {
 	my ( $self, $isolate_id, $report_id ) = @_;
 	my $template_info = $self->_get_template_info($report_id);
 	my $dir           = $self->_get_template_dir;
 	$Template::Stash::LIST_OPS->{'format_list'} = sub {
-		my ( $list, $separator, $empty_term, $final_term ) = @_;
+		my ( $list, $args ) = @_;
+		my ( $separator, $prefix, $empty_term, $final_term ) =
+		  @{$args}{qw(separator prefix empty_term final_term)};
+		$separator //= q(, );
+		$prefix    //= q();
 		@$list = grep { defined $_ && $_ ne q() } @$list;
 		$separator //= q(, );
-		local $" = $separator;
+		local $" = qq($separator$prefix);
 		return $empty_term if !@$list;
-		my $value = qq(@$list);
+		my $value = qq($prefix@$list);
+
 		if ( $final_term && @$list > 1 ) {
 
 			#Term may contain spaces so don't use /x
@@ -140,16 +164,21 @@ sub _generate_report {
 		}
 		return $value;
 	};
+	my $images   = $self->_encode_image_dir("$dir/images");
 	my $template = Template->new(
 		{
 			INCLUDE_PATH => $dir,
+			TRIM         => 1
 		}
 	);
 	my $template_output = q();
 	my $data            = $self->_get_isolate_data( $isolate_id, $report_id );
 	$data->{'date'} = BIGSdb::Utils::get_datestamp();
+	$data->{'css'}  = ${ BIGSdb::Utils::slurp("$dir/style.css") };
+	$data->{'images'} = $images;
 	$template->process( $template_info->{'template_file'}, $data, \$template_output )
 	  || $logger->error( $template->error );
+
 	if ( $self->{'format'} eq 'html' ) {
 		say $template_output;
 		return;
@@ -234,7 +263,8 @@ sub _get_scheme_values {
 	return $data if !ref $scheme_ids || !@$scheme_ids;
 	foreach my $scheme_id (@$scheme_ids) {
 		my $values =
-		  $self->{'datastore'}->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id, { no_status => 1 } );
+		  $self->{'datastore'}
+		  ->get_scheme_field_values_by_isolate_id( $isolate_id, $scheme_id, { fewest_missing => 1, no_status => 1 } );
 		$data->{$scheme_id} = $values;
 	}
 	return $data;
@@ -397,10 +427,12 @@ sub _print_interface {
 		my $html = HTML_FILE;
 		my $url  = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;"
 		  . "name=Reports&amp;isolate_id=$isolate_id&amp;report=$template->{'index'}";
-		say qq(<div class="file_output"><a href="$url&amp;format=html">)
+		my $desc = $template->{'name'};
+		$desc .= qq( - $template->{'comments'}) if $template->{'comments'};
+		say qq(<div class="file_output"><a href="$url&amp;format=html" target="_blank">)
 		  . qq(<span style="float:left;margin-right:0.2em">$html</span></a>)
 		  . qq(<a href="$url&amp;format=pdf"><span style="float:left;margin-right:1em">$pdf</span></a>)
-		  . qq(<div style="width:90%;margin-top:0.2em">$template->{'name'} - $template->{'comments'});
+		  . qq(<div style="width:90%;margin-top:0.2em">$desc);
 		say q(</div></div>);
 	}
 	say q(<div style="clear:both"></div>);
@@ -438,8 +470,10 @@ sub get_initiation_values {
 		my $template_info = $self->_get_template_info($report);
 		( my $name = lc( $template_info->{'name'} ) ) =~ s/\s/_/gx;
 		my $filename = "id_${isolate_id}_${name}.$format";
-		$values->{'attachment'} = $filename;
-		$values->{'type'}       = $format;
+		if ( $format eq 'pdf' ) {
+			$values->{'attachment'} = $filename;
+		}
+		$values->{'type'} = $format;
 	}
 	return $values;
 }
@@ -476,7 +510,7 @@ sub _get_templates {
 		my $i = 0;
 	  REPORT: foreach my $report ( @{ $data->{'reports'} } ) {
 			$i++;
-			foreach my $attribute (qw(name template_file comments)) {
+			foreach my $attribute (qw(name template_file)) {
 				if ( !defined $report->{$attribute} ) {
 					$logger->error("$attribute attribute is not defined for template $i in $filename");
 					next REPORT;

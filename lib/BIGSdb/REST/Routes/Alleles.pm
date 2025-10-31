@@ -184,6 +184,10 @@ sub _get_allele {
 	$values->{'SAVs'} = $savs if @$savs;
 	my $snps = _get_nucleotide_mutations( $locus, $allele_id );
 	$values->{'SNPs'} = $snps if @$snps;
+	my $publications = _get_citations( $locus, $allele_id );
+	$values->{'publications'} = $publications if @$publications;
+	my $accessions = _get_accessions( $locus, $allele_id );
+	$values->{'accessions'} = $accessions if @$accessions;
 
 	#TODO scheme members
 	return $values;
@@ -246,15 +250,93 @@ sub _get_nucleotide_mutations {
 			{ fetch => 'row_hashref', cache => 'Alleles::get_sequence_dna_mutation' }
 		);
 		if ($data) {
-			push @$list, {
+			push @$list,
+			  {
 				position   => int( $mutation->{'reported_position'} ),
 				nucleotide => $data->{'nucleotide'},
 				wild_type  => $data->{'is_wild_type'} ? JSON::true : JSON::false,
 				mutation   => $data->{'is_mutation'}  ? JSON::true : JSON::false
-			};
+			  };
 		}
 	}
 	return $list;
+}
+
+sub _get_citations {
+	my ( $locus, $allele_id ) = @_;
+	my $self       = setting('self');
+	my $pubmed_ids = [];
+	if ( !params->{'include_records'} ) {
+		$pubmed_ids = $self->{'datastore'}->run_query(
+			'SELECT pubmed_id FROM sequence_refs WHERE (locus,allele_id)=(?,?) ORDER BY pubmed_id',
+			[ $locus, $allele_id ],
+			{ fetch => 'col_arrayref' }
+		);
+	} else {
+
+		#Datastore is destroyed after call so $self->{'datastore'}->{'allele_pubmed_cache'} is safe to
+		#cache only for duration of call.
+		if ( !defined $self->{'datastore'}->{'allele_pubmed_cache'} ) {
+			my $data = $self->{'datastore'}->run_query( 'SELECT * FROM sequence_refs WHERE locus=? ORDER BY pubmed_id',
+				$locus, { fetch => 'all_arrayref', slice => {} } );
+			my $cache = {};
+			foreach my $record (@$data) {
+				push @{ $cache->{ $record->{'allele_id'} } }, $record->{'pubmed_id'};
+			}
+			$self->{'datastore'}->{'allele_pubmed_cache'} = $cache;
+		}
+		$pubmed_ids = $self->{'datastore'}->{'allele_pubmed_cache'}->{$allele_id} // [];
+	}
+	my $publications = [];
+	foreach my $pmid (@$pubmed_ids) {
+		push @$publications,
+		  {
+			pubmed_id     => int($pmid),
+			citation_link => qq(https://www.ncbi.nlm.nih.gov/pubmed/$pmid)
+		  };
+	}
+	return $publications;
+}
+
+sub _get_accessions {
+	my ( $locus, $allele_id ) = @_;
+	my $self       = setting('self');
+	my $accessions = [];
+	if ( !params->{'include_records'} ) {
+		$accessions = $self->{'datastore'}->run_query(
+			'SELECT databank,databank_id FROM accession WHERE (locus,allele_id)=(?,?) ORDER BY databank,databank_id',
+			[ $locus, $allele_id ],
+			{ fetch => 'all_arrayref', slice => {} }
+		);
+	} else {
+
+		#Datastore is destroyed after call so $self->{'datastore'}->{'allele_accession_cache'} is safe to
+		#cache only for duration of call.
+		if ( !defined $self->{'datastore'}->{'allele_accession_cache'} ) {
+			my $data =
+			  $self->{'datastore'}->run_query( 'SELECT * FROM accession WHERE locus=? ORDER BY databank,databank_id',
+				$locus, { fetch => 'all_arrayref', slice => {} } );
+			my $cache = {};
+			foreach my $record (@$data) {
+				push @{ $cache->{ $record->{'allele_id'} } },
+				  {
+					databank    => $record->{'databank'},
+					databank_id => $record->{'databank_id'}
+				  };
+			}
+			$self->{'datastore'}->{'allele_accession_cache'} = $cache;
+		}
+		$accessions = $self->{'datastore'}->{'allele_accession_cache'}->{$allele_id} // [];
+	}
+	my $accession_list = [];
+	foreach my $accession (@$accessions) {
+		push @$accession_list,
+		  {
+			databank  => $accession->{'databank'},
+			accession => $accession->{'databank_id'}
+		  };
+	}
+	return $accession_list;
 }
 
 sub _get_alleles_fasta {
