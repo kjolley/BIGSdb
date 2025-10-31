@@ -553,7 +553,8 @@ sub _print_info_panel {
 	say q(<p>GeneScanner has been developed by Carolin Kobras, Seungwon Ko, Priyanshu Singh Raikwar, )
 	  . q(Broncio Aguilar-Sanjuan, Keith Jolley, and Samuel Sheppard at the University of Oxford, UK. )
 	  . q(The mutation analysis code can be found at )
-	  . q(<a href="https://github.com/jeju2486/GeneScanner">https://github.com/jeju2486/GeneScanner</a>.</p>);
+	  . q(<a href="https://github.com/jeju2486/GeneScanner" target="_blank">)
+	  . q(https://github.com/jeju2486/GeneScanner</a>.</p>);
 	say q(</div>);
 	return;
 }
