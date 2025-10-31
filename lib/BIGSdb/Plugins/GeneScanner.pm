@@ -21,12 +21,12 @@ package BIGSdb::Plugins::GeneScanner;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugins::GenomeComparator);
+use parent          qw(BIGSdb::Plugins::GenomeComparator);
 use List::MoreUtils qw(uniq);
 use BIGSdb::Exceptions;
 use Bio::SeqIO;
 use BIGSdb::Constants qw(:limits);
-use Log::Log4perl qw(get_logger);
+use Log::Log4perl     qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_RECORDS    => 5000;
 use constant MAX_SEQ_LENGTH => 16_000;    #Excel has 16384 max columns.
@@ -37,14 +37,9 @@ sub get_attributes {
 		name    => 'GeneScanner',
 		authors => [
 			{
-				name        => 'Keith Jolley',
+				name        => 'Carolin Kobras',
 				affiliation => 'University of Oxford, UK',
-				email       => 'keith.jolley@biology.ox.ac.uk',
-			},
-			{
-				name        => 'Broncio Aguilar-Sanjuan',
-				affiliation => 'University of Oxford, UK',
-				email       => 'broncio.aguilarsanjuan@biology.ox.ac.uk',
+				email       => 'carolin.kobras@path.ox.ac.uk'
 			},
 			{
 				name        => 'Seungwon Ko',
@@ -56,17 +51,23 @@ sub get_attributes {
 				affiliation => 'University of Oxford, UK',
 				email       => 'priyanshu.raikwar@biology.ox.ac.uk'
 			},
+			{
+				name        => 'Broncio Aguilar-Sanjuan',
+				affiliation => 'University of Oxford, UK',
+				email       => 'broncio.aguilarsanjuan@biology.ox.ac.uk',
+			},
+			{
+				name        => 'Keith Jolley',
+				affiliation => 'University of Oxford, UK',
+				email       => 'keith.jolley@biology.ox.ac.uk',
+			},
 
 			{
 				name        => 'Samuel Sheppard',
 				affiliation => 'University of Oxford, UK',
 				email       => 'samuel.sheppard@biology.ox.ac.uk'
 			},
-			{
-				name        => 'Carolin Kobras',
-				affiliation => 'University of Oxford, UK',
-				email       => 'carolin.kobras@path.ox.ac.uk'
-			}
+
 		],
 		description      => 'Calculation of mutation rates and locations',
 		full_description => 'The plugin aligns sequences for a specified locus, or for a locus defined by an exemplar '
@@ -75,20 +76,19 @@ sub get_attributes {
 		buttontext => 'GeneScanner',
 		menutext   => 'GeneScanner',
 		module     => 'GeneScanner',
-		version    => '0.9.4',
+		version    => '1.0.0',
 		dbtype     => 'isolates',
 		section    => 'analysis,postquery',
 		input      => 'query',
 		help       => 'tooltips',
-		requires   => 'aligner,mafft,offline_jobs,genescanner',
-
-		#		url        => "$self->{'config'}->{'doclink'}/data_analysis/genescanner.html",
-		order => 19,
-		min   => 2,
-		max   => $self->{'system'}->{'genescanner_record_limit'} // $self->{'config'}->{'genescanner_record_limit'}
+		requires   => 'aligner,mafft,offline_jobs,genescanner,seqbin',
+		url        => "$self->{'config'}->{'doclink'}/data_analysis/genescanner.html",
+		order      => 19,
+		min        => 2,
+		max        => $self->{'system'}->{'genescanner_record_limit'} // $self->{'config'}->{'genescanner_record_limit'}
 		  // MAX_RECORDS,
 		always_show_in_menu => 1,
-		image => '/images/plugins/GeneScanner/screenshot.png'
+		image               => '/images/plugins/GeneScanner/screenshot.png'
 	);
 	return \%att;
 }
@@ -180,7 +180,7 @@ sub _rewrite_group_csv {
 	my $full_path          = "$self->{'config'}->{'tmp_dir'}/$filename";
 	my $new_filename       = "${temp}_rewritten_groups.csv";
 	my $new_file_full_path = "$self->{'config'}->{'tmp_dir'}/$new_filename";
-	open my $fh,  '<:encoding(utf8)', $full_path or $logger->error("Cannot open file $full_path for reading: $!");
+	open my $fh, '<:encoding(utf8)', $full_path or $logger->error("Cannot open file $full_path for reading: $!");
 	open my $fh2, '>:encoding(utf8)', $new_file_full_path
 	  or $logger->error("Cannot open file $new_file_full_path for writing: $!");
 	my $row = 0;
@@ -250,6 +250,12 @@ sub run {
 			local $" = ', ';
 			push @errors, qq(The following isolates in your pasted list are invalid: @$invalid_ids.);
 		}
+		if ( @$ids > MAX_RECORDS ) {
+			my $limit    = BIGSdb::Utils::commify(MAX_RECORDS);
+			my $selected = BIGSdb::Utils::commify( scalar @$ids );
+			push @errors, qq(Analysis is restricted to $limit records. You have selected $selected.);
+		}
+
 		if ( $q->param('paste_seq') ) {
 			my $seq       = $q->param('paste_seq');
 			my $valid_seq = BIGSdb::Utils::is_valid_DNA( \$seq, { allow_ambiguous => 1 } )
@@ -437,13 +443,19 @@ sub run_job {
 			$self->{'jobManager'}
 			  ->update_job_output( $job_id, { filename => "${job_id}.vcf", description => 'VCF file', compress => 1 } );
 		}
-		
+
 		my $prot_align_file = "$self->{'config'}->{'tmp_dir'}/${job_id}_prot_aligned.fasta";
-		if (-e $prot_align_file){
-			$self->{'jobManager'}->update_job_output( $job_id,
-			{ filename => "${job_id}_prot_aligned.fasta", description => 'Aligned protein sequences', compress => 1 } );
+		if ( -e $prot_align_file ) {
+			$self->{'jobManager'}->update_job_output(
+				$job_id,
+				{
+					filename    => "${job_id}_prot_aligned.fasta",
+					description => 'Aligned protein sequences',
+					compress    => 1
+				}
+			);
 		}
-		
+
 	} else {
 		$self->{'jobManager'}->update_job_status( $job_id, { message_html => 'No sequences found to align.' } );
 	}
@@ -503,7 +515,8 @@ sub _align {
 			&& $self->{'config'}->{'muscle_path'} )
 		{
 			my $max_mb = $self->{'config'}->{'max_muscle_mb'} // MAX_MUSCLE_MB;
-			system( $self->{'config'}->{'muscle_path'},
+			system(
+				$self->{'config'}->{'muscle_path'},
 				-in    => $fasta_file,
 				-out   => $aligned_out,
 				-maxmb => $max_mb,
@@ -534,12 +547,13 @@ sub _print_info_panel {
 	say q(<div style="float:left">);
 	say qq(<img src="$logo" style="width:200px;margin-right:20px;filter:drop-shadow(5px 5px 4px #888)" />);
 	say q(</div>);
-	say q(<p><span class="flag" style="color:#c40d13">BETA test version</span></p>);
 	say q(<p>This tool will create an alignment for a selected locus for the set of isolates chosen. Alternatively, )
 	  . q(you can enter an exemplar sequence to use rather than selecting a locus. A mutation analysis will then be )
 	  . q(performed.</p>);
-	say q(<p>The mutation analysis code can be found at <a href="https://github.com/jeju2486/GeneScanner">)
-	  . q(https://github.com/jeju2486/GeneScanner</a>.</p>);
+	say q(<p>GeneScanner has been developed by Carolin Kobras, Seungwon Ko, Priyanshu Singh Raikwar, )
+	  . q(Broncio Aguilar-Sanjuan, Keith Jolley, and Samuel Sheppard at the University of Oxford, UK. )
+	  . q(The mutation analysis code can be found at )
+	  . q(<a href="https://github.com/jeju2486/GeneScanner">https://github.com/jeju2486/GeneScanner</a>.</p>);
 	say q(</div>);
 	return;
 }
@@ -567,7 +581,14 @@ sub _print_interface {
 	say $q->start_form;
 	say q(<div class="scrollable"><div class="flex_container" style="justify-content:left">);
 	$self->print_seqbin_isolate_fieldset(
-		{ use_all => 0, selected_ids => $selected_ids, isolate_paste_list => 1, allow_empty_list => 0 } );
+		{
+			use_all            => 0,
+			only_genomes       => 1,
+			selected_ids       => $selected_ids,
+			isolate_paste_list => 1,
+			allow_empty_list   => 0
+		}
+	);
 	$self->_print_locus_fieldset;
 	$self->_print_analysis_fieldset;
 	$self->_print_options_fieldset;
@@ -740,9 +761,11 @@ sub get_plugin_javascript {
 	\$("a#clear_group_csv_upload").on("click", function(){
   		\$("input#group_csv_upload").val("");
   	});
+  	// hack to fix jquery 3.6 focus security patch that bugs auto search in select-2
+	\$(document).on('select2:open', () => {
+   	   document.querySelector('.select2-search__field').focus();
+	});
 });	
-
-
 
 END
 	return $buffer;
