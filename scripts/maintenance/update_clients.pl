@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20250828
+#Version: 20251103
 use strict;
 use warnings;
 use 5.010;
@@ -87,6 +87,12 @@ sub main {
 	}
 	if ( $opts{'set_default_access'} ) {
 		set_default_access();
+	}
+	if ( $opts{'set_default_curate'} ) {
+		set_default_curate();
+	}
+	if ( $opts{'set_default_submit'} ) {
+		set_default_submit();
 	}
 	if ( $opts{'clear'} ) {
 		clear_permissions();
@@ -206,6 +212,50 @@ sub set_default_access {
 	};
 	croak $@ if $@;
 	say qq(Default permission '$default' set.);
+	return;
+}
+
+sub set_default_curate {
+	my $key     = $opts{'key'};
+	my $default = $opts{'set_default_curate'};
+	check_key();
+	my %allowed = map { $_ => 1 } qw(allow deny);
+	if ( !$allowed{$default} ) {
+		say q(Invalid default curate permission passed - can only be 'allow' or 'deny'.);
+		exit;
+	}
+	my %mapped = (
+		allow => 1, deny => 0
+	);
+	eval {
+		$db->do( 'UPDATE clients SET (default_curation,datestamp)=(?,?) WHERE client_id=?',
+			undef, $mapped{$default}, 'now', $key );
+		$db->commit;
+	};
+	croak $@ if $@;
+	say qq(Default curate permission '$default' set.);
+	return;
+}
+
+sub set_default_submit {
+	my $key     = $opts{'key'};
+	my $default = $opts{'set_default_submit'};
+	check_key();
+	my %allowed = map { $_ => 1 } qw(allow deny);
+	if ( !$allowed{$default} ) {
+		say q(Invalid default submit permission passed - can only be 'allow' or 'deny'.);
+		exit;
+	}
+	my %mapped = (
+		allow => 1, deny => 0
+	);
+	eval {
+		$db->do( 'UPDATE clients SET (default_submission,datestamp)=(?,?) WHERE client_id=?',
+			undef, $mapped{$default}, 'now', $key );
+		$db->commit;
+	};
+	croak $@ if $@;
+	say qq(Default submit permission '$default' set.);
 	return;
 }
 
@@ -346,27 +396,27 @@ ${bold}-p, --permissions$norm
 ${bold}-s, --set_dbs$norm ${under}LIST$norm
 	Comma-separated list of databases to set permissions for.
 	
-${bold}-s, --set_db_access$norm ${under}approve|deny$norm
+${bold}-s, --set_db_access$norm ${under}allow|deny$norm
     Set access permission for databases defined by --set_dbs. This will
     override the default permission.
 
-${bold}-s, --set_db_curate$norm ${under}approve|deny$norm
+${bold}-s, --set_db_curate$norm ${under}allow|deny$norm
     Set curation permission for databases defined by --set_dbs. This will
     override the default permission.
 
-${bold}-s, --set_db_submit$norm ${under}approve|deny$norm
+${bold}-s, --set_db_submit$norm ${under}allow|deny$norm
     Set submission permission for databases defined by --set_dbs. This will
     override the default permission.
 	  
-${bold}-s, --set_default_access$norm ${under}approve|deny$norm
+${bold}-s, --set_default_access$norm ${under}allow|deny$norm
     Set default access permission for client. If set to deny then this will
     also override the default_curate and default_submit permissions.
     
-${bold}-s, --set_default_curate$norm ${under}approve|deny$norm
+${bold}-s, --set_default_curate$norm ${under}allow|deny$norm
     Set default curation permission for client. Client curation is not
     currently supported but the permission can be set for future compatability.
   
-${bold}-s, --set_default_submit$norm ${under}approve|deny$norm
+${bold}-s, --set_default_submit$norm ${under}allow|deny$norm
     Set default submission permission for client
     
 ${bold}DATABASE CONNECTION OPTIONS$norm
