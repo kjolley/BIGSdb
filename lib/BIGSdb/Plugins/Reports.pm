@@ -164,6 +164,10 @@ sub _generate_report {
 		}
 		return $value;
 	};
+	$Template::Stash::SCALAR_OPS->{'commify'} = sub {
+		my ($integer) = @_;
+		return BIGSdb::Utils::commify($integer);
+	};
 	my $images   = $self->_encode_image_dir("$dir/images");
 	my $template = Template->new(
 		{
@@ -176,8 +180,6 @@ sub _generate_report {
 	$data->{'date'}   = BIGSdb::Utils::get_datestamp();
 	$data->{'css'}    = ${ BIGSdb::Utils::slurp("$dir/style.css") };
 	$data->{'images'} = $images;
-	use Data::Dumper;
-	$logger->error( Dumper $data->{assembly} );
 	$template->process( $template_info->{'template_file'}, $data, \$template_output )
 	  || $logger->error( $template->error );
 
@@ -220,7 +222,7 @@ sub _get_assembly_details {
 	);
 	if ( @$method == 1 ) {
 		$data->{'method'} = $method->[0]->{'method'} || 'Unknown';
-	} else {
+	} elsif (@$method > 1){
 		my @values;
 		foreach my $method (@$method) {
 			my $plural = $method->{'count'} == 1 ? q() : q(s);
