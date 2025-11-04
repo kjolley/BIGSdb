@@ -140,8 +140,25 @@ sub _get_allele_designations_from_reference {
 	  BIGSdb::Utils::is_int( $self->{'params'}->{'word_size'} )
 	  ? $self->{'params'}->{'word_size'}
 	  : 15;
+	my $reward =
+	  BIGSdb::Utils::is_int( $self->{'params'}->{'reward'} )
+	  ? $self->{'params'}->{'reward'}
+	  : 2;
+	my $penalty =
+	  BIGSdb::Utils::is_int( $self->{'params'}->{'penalty'} )
+	  ? $self->{'params'}->{'penalty'}
+	  : -3;
+	my $gapopen =
+	  BIGSdb::Utils::is_int( $self->{'params'}->{'gapopen'} )
+	  ? $self->{'params'}->{'gapopen'}
+	  : 5;
+	my $gapextend =
+	  BIGSdb::Utils::is_int( $self->{'params'}->{'gapextend'} )
+	  ? $self->{'params'}->{'gapextend'}
+	  : 2;
 	my $out_file =
 	  "$self->{'config'}->{'secure_tmp_dir'}/$self->{'options'}->{'job_id'}_isolate_${isolate_id}_outfile.txt";
+
 	if ( !$self->_does_isolate_have_sequence_data($isolate_id) ) {
 
 		#Don't bother with BLAST but we do need an empty results file.
@@ -151,6 +168,10 @@ sub _get_allele_designations_from_reference {
 		$self->_blast(
 			{
 				word_size   => $word_size,
+				reward      => $reward,
+				penalty     => $penalty,
+				gapopen     => $gapopen,
+				gapextend   => $gapextend,
 				fasta_file  => $isolate_fasta,
 				in_file     => $self->{'options'}->{'reference_file'},
 				locus_count => $self->{'options'}->{'locus_count'},
@@ -164,18 +185,26 @@ sub _get_allele_designations_from_reference {
 sub _blast {
 	my ( $self, $params ) = @_;
 	my $blast_threads = $self->{'config'}->{'blast_threads'} // 1;
-	my %params        = (
+	my $program       = ( $self->{'params'}->{'seq_type'} // q() ) eq 'peptide' ? 'tblastn' : 'blastn';
+
+	my $filter = $program eq 'blastn' ? 'dust' : 'seg';
+	my %params = (
 		-num_threads     => $blast_threads,
 		-max_target_seqs => $params->{'locus_count'} * 1000,
-		-word_size       => $params->{'word_size'},
+		-word_size       => $program eq 'blastn' ? $params->{'word_size'} : 3,
 		-db              => $params->{'fasta_file'},
 		-query           => $params->{'in_file'},
 		-out             => $params->{'out_file'},
 		-outfmt          => 6,
-		-dust            => 'no'
+		-reward          => $params->{'reward'},
+		-penalty         => $params->{'penalty'},
+		-gapopen         => $params->{'gapopen'},
+		-gapextend       => $params->{'gapextend'},
+		-$filter         => 'no'
 	);
-	my $program = "$self->{'config'}->{'blast+_path'}/blastn";
-	system( $program, %params );
+
+	my $path = "$self->{'config'}->{'blast+_path'}/$program";
+	system( $path, %params );
 	return;
 }
 
@@ -275,6 +304,7 @@ sub _extract_match {
 	} else {
 		$match->{'reverse'} = 0;
 	}
+
 	if ( $required_alignment > $match->{'alignment'} ) {
 		if ( $match->{'reverse'} ) {
 			$match->{'predicted_start'} = $match->{'start'} - $ref_length + $record->[6];
@@ -301,7 +331,8 @@ sub _extract_sequence {
 	my $end   = $match->{'predicted_end'};
 	return if !defined $start || !defined $end;
 	if ( $end < $start ) {
-		$start = $end;
+		$start = $match->{'predicted_end'};
+		$end   = $match->{'predicted_start'};
 	}
 	my $seq_ref = $self->{'contigManager'}->get_contig_fragment(
 		{

@@ -2083,7 +2083,6 @@ sub create_temp_scheme_table {
 		$self->{'db'}->rollback;
 		BIGSdb::Exception::Database::Connection->throw('Cannot put data into temp table');
 	}
-	$self->_check_connection;
 	foreach my $field (@$fields) {
 		my $field_info = $self->get_scheme_field_info( $id, $field );
 		if ( $field_info->{'type'} eq 'integer' ) {
@@ -2102,7 +2101,6 @@ sub create_temp_scheme_table {
 
 	#Create new temp table, then drop old and rename the new - this
 	#should minimize the time that the table is unavailable.
-	$self->_check_connection;
 	if ( $options->{'cache'} ) {
 		eval { $self->{'db'}->do("DROP TABLE IF EXISTS $rename_table; ALTER TABLE $table RENAME TO $rename_table") };
 		$logger->error("$self->{'system'}->{'db'}: dropping $rename_table $@") if $@;

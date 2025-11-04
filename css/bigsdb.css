@@ -2388,13 +2388,6 @@ fieldset label.form {
 	text-align: right;
 }
 
-fieldset label.short_align {
-	float: left;
-	width: 3em;
-	margin-right: 0.5em;
-	text-align: right;
-}
-
 fieldset label.parameter {
 	float: left;
 	width: 10em;
