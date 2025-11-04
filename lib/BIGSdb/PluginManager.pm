@@ -390,7 +390,9 @@ sub _has_required_item {
 		rmlst_client_key       => 'rmlst_oauth',
 		rmlst_client_secret    => 'rmlst_oauth',
 		rmlst_access_token     => 'rmlst_oauth',
-		rmlst_access_secret    => 'rmlst_oauth'
+		rmlst_access_secret    => 'rmlst_oauth',
+		plasmidfinder          => 'PlasmidFinder',
+		plasmidfinder_db_path  => 'PlasmidFinder'
 	);
 	return 1 if !$required_attr;
 	foreach my $config_param ( keys %requires ) {
