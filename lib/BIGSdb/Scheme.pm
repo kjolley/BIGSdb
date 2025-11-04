@@ -137,7 +137,8 @@ sub get_field_values_by_designations {
 		}
 		push @used_loci, $locus;
 	}
-	return {} if !$values;
+	
+	return [] if !@used_loci;
 	local $" = ',';
 	my @locus_terms;
 	foreach my $locus (@used_loci) {
