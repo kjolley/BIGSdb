@@ -21,8 +21,9 @@ package BIGSdb::Plugins::PlasmidFinder;
 use strict;
 use warnings;
 use 5.010;
-use parent        qw(BIGSdb::Plugin);
-use Log::Log4perl qw(get_logger);
+use parent          qw(BIGSdb::Plugin);
+use List::MoreUtils qw(uniq);
+use Log::Log4perl   qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_RECORDS => 1000;
 
@@ -72,6 +73,70 @@ sub run {
 	say qq(<h1>$title</h1>);
 
 	if ( $q->param('submit') ) {
+		my @ids = $q->multi_param('isolate_id');
+		my ( $pasted_cleaned_ids, $invalid_ids ) =
+		  $self->get_ids_from_pasted_list( { dont_clear => 1, has_seqbin => 1 } );
+		push @ids, @$pasted_cleaned_ids;
+		@ids = uniq @ids;
+		my $message_html;
+		if (@$invalid_ids) {
+			local $" = ', ';
+			my $error = q(<p>);
+			if ( @$invalid_ids <= 10 ) {
+				$error .=
+					q(The following isolates in your pasted list are invalid - they either do not exist or )
+				  . qq(do not have sequence data available: @$invalid_ids.);
+			} else {
+				$error .=
+					@$invalid_ids
+				  . q( isolates are invalid - they either do not exist or )
+				  . q(do not have sequence data available.);
+			}
+			if (@ids) {
+				$error .= q( These have been removed from the analysis.</p>);
+				$message_html = $error;
+			} else {
+				$error .= q(</p><p>There are no valid ids in your selection to analyse.<p>);
+				say qq(<div class="box statusbad">$error</div>);
+				$self->_print_interface;
+				return;
+			}
+		}
+		if ( !@ids ) {
+			say q(<div class="box statusbad"><p>You have not selected any records.</p></div>);
+			$self->_print_interface;
+			return;
+		}
+		if ( @ids > MAX_RECORDS ) {
+			my $count  = BIGSdb::Utils::commify( scalar @ids );
+			my $max    = BIGSdb::Utils::commify(MAX_RECORDS);
+			my $plural = @ids == 1 ? q() : q(s);
+			say qq(<div class="box statusbad"><p>You have selected $count record$plural. )
+			  . qq(This analysis is limited to $max records.</p></div>);
+			$self->_print_interface;
+			return;
+		}
+		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
+		$q->delete('isolate_paste_list');
+		$q->delete('isolate_id');
+		my $params = $q->Vars;
+		$params->{'script_name'} = $self->{'system'}->{'script_name'};
+		my $att    = $self->get_attributes;
+		my $job_id = $self->{'jobManager'}->add_job(
+			{
+				dbase_config => $self->{'instance'},
+				ip_address   => $q->remote_host,
+				module       => $att->{'module'},
+				priority     => $att->{'priority'},
+				parameters   => $params,
+				username     => $self->{'username'},
+				email        => $user_info->{'email'},
+				isolates     => \@ids,
+			}
+		);
+		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $message_html } ) if $message_html;
+		say $self->get_job_redirect($job_id);
+		return;
 	}
 	$self->_print_info_panel;
 	$self->_print_interface;
@@ -154,8 +219,6 @@ sub _print_interface {
 		$self->print_seqbin_isolate_fieldset(
 			{ selected_ids => $selected_ids, isolate_paste_list => 1, only_genomes => 1 } );
 	}
-
-	#	$self->_print_options_fieldset;
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say $q->hidden($_) foreach qw (page name db);
 	say q(</div>);
