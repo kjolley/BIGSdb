@@ -23,7 +23,9 @@ use warnings;
 use 5.010;
 use parent          qw(BIGSdb::Plugin);
 use List::MoreUtils qw(uniq);
-use Log::Log4perl   qw(get_logger);
+use File::Copy;
+use File::Path    qw(rmtree);
+use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_RECORDS => 1000;
 
@@ -140,6 +142,65 @@ sub run {
 	}
 	$self->_print_info_panel;
 	$self->_print_interface;
+	return;
+}
+
+sub run_job {
+	my ( $self, $job_id, $params ) = @_;
+	$self->{'exit'} = 0;
+	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3;
+	my $isolate_ids = $self->{'jobManager'}->get_job_isolates($job_id);
+	my $job         = $self->{'jobManager'}->get_job($job_id);
+	my $html        = q();
+	my $i           = 0;
+	my $progress    = 0;
+
+	my $td = 1;
+
+	if ( !$self->{'config'}->{'plasmidfinder'} ) {
+		$logger->error('PlasmidFinder is not enabled.');
+		return;
+	}
+	if ( !$self->{'config'}->{'plasmidfinder_db_path'} ) {
+		$logger->error('plasmidfinder_db_path has not been set.');
+		return;
+	}
+	if ( !-e $self->{'config'}->{'plasmidfinder_db_path'} ) {
+		$logger->error("plasmidfinder_db_path $self->{'config'}->{'plasmidfinder_db_path'} does not exist.");
+		return;
+	}
+
+	my $version = $self->_get_version;
+
+	foreach my $isolate_id (@$isolate_ids) {
+		$i++;
+		$progress = int( $i / @$isolate_ids * 100 );
+		my $message = "Scanning isolate $i - id:$isolate_id";
+		$self->{'jobManager'}->update_job_status( $job_id, { stage => $message } );
+		my $assembly_file_path = $self->make_assembly_file( $job_id, $isolate_id );
+		( my $assembly_filename = $assembly_file_path ) =~ s/.+\///x;
+
+		my $tmp_dir = "$self->{'config'}->{'secure_tmp_dir'}/$job_id";
+		mkdir $tmp_dir;
+		move( $assembly_file_path, $tmp_dir );
+		my $json_file = "${isolate_id}.json";
+		eval {
+			system(
+				qq(docker run -u "\$(id -u):\$(id -g)" --rm -v plasmidfinder_db_path:/database -v ${tmp_dir}:/workdir )
+				  . qq(-w /workdir plasmidfinder -i $assembly_filename -o /workdir -j $json_file) );
+		};
+		if ($@) {
+			$logger->error($@);
+			next;
+		}
+
+		rmtree("$tmp_dir/tmp");
+		unlink $assembly_file_path;
+
+		$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $progress } );
+		last if $self->{'exit'};
+	}
+
 	return;
 }
 
