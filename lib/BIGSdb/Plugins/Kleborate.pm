@@ -21,10 +21,10 @@ package BIGSdb::Plugins::Kleborate;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugin);
+use parent          qw(BIGSdb::Plugin);
 use List::MoreUtils qw(uniq);
 use JSON;
-use File::Path qw(rmtree);
+use File::Path    qw(rmtree);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_RECORDS => 1000;
@@ -46,23 +46,22 @@ sub get_attributes {
 		  . 'loci; virulence plasmid associated loci; antimicrobial resistance determinants; and K (capsule) and O '
 		  . 'antigen (LPS) serotype prediction (<a href="https://pubmed.ncbi.nlm.nih.gov/34234121/">'
 		  . 'Lam <i>et al.</i> 2021 <i>Nat Commun</i> <b>12:</b>4188</a>).',
-		category        => 'Third party',
-		buttontext      => 'Kleborate',
-		menutext        => 'Kleborate',
-		module          => 'Kleborate',
-		version         => '1.1.0',
-		dbtype          => 'isolates',
-		section         => 'third_party,isolate_info,postquery',
-		input           => 'query',
-		help            => 'tooltips',
-		requires        => 'offline_jobs,Kleborate,seqbin',
-		system_flag     => 'Kleborate',
-		explicit_enable => 1,
-		url             => "$self->{'config'}->{'doclink'}/data_analysis/kleborate.html",
-		order           => 36,
-		min             => 1,
-		max => $self->{'system'}->{'kleborate_record_limit'} // $self->{'config'}->{'kleborate_record_limit'}
-		  // MAX_RECORDS,
+		category            => 'Third party',
+		buttontext          => 'Kleborate',
+		menutext            => 'Kleborate',
+		module              => 'Kleborate',
+		version             => '1.1.1',
+		dbtype              => 'isolates',
+		section             => 'third_party,isolate_info,postquery',
+		input               => 'query',
+		help                => 'tooltips',
+		requires            => 'offline_jobs,Kleborate,seqbin',
+		system_flag         => 'Kleborate',
+		explicit_enable     => 1,
+		url                 => "$self->{'config'}->{'doclink'}/data_analysis/kleborate.html",
+		order               => 36,
+		min                 => 1,
+		max                 => $self->_get_max_records,
 		always_show_in_menu => 1,
 		image               => '/images/plugins/Kleborate/screenshot.png'
 	};
@@ -116,9 +115,10 @@ sub run {
 			$self->_print_interface;
 			return;
 		}
-		if ( @ids > MAX_RECORDS ) {
+		my $max_records = $self->_get_max_records;
+		if ( @ids > $max_records ) {
 			my $count  = BIGSdb::Utils::commify( scalar @ids );
-			my $max    = BIGSdb::Utils::commify(MAX_RECORDS);
+			my $max    = BIGSdb::Utils::commify($max_records);
 			my $plural = @ids == 1 ? q() : q(s);
 			say qq(<div class="box statusbad"><p>You have selected $count record$plural. )
 			  . qq(This analysis is limited to $max records.</p></div>);
@@ -150,6 +150,12 @@ sub run {
 	$self->_print_info_panel;
 	$self->_print_interface;
 	return;
+}
+
+sub _get_max_records {
+	my ($self) = @_;
+	return $self->{'system'}->{'kleborate_record_limit'} // $self->{'config'}->{'kleborate_record_limit'}
+	  // MAX_RECORDS;
 }
 
 sub run_job {
@@ -266,7 +272,7 @@ sub run_job {
 
 sub _extract_results {
 	my ( $self, $filename ) = @_;
-	open( my $fh, '<', $filename ) || $logger->error("Cannot open $filename for reading");
+	open( my $fh, '<:encoding(utf8)', $filename ) || $logger->error("Cannot open $filename for reading");
 	my $header_line = <$fh>;
 	chomp $header_line;
 	my $results_line = <$fh>;
@@ -341,7 +347,9 @@ sub _print_interface {
 		say qq(<p>Version: $version</p>);
 	}
 	if ( !$q->param('single_isolate') ) {
-		say q(<p>Please select the required isolate ids to run the analysis for. )
+		my $max = $self->_get_max_records;
+		my $nice_max = BIGSdb::Utils::commify($max);
+		say qq(<p>Please select the required isolate ids to run the analysis for (maximum $nice_max records). )
 		  . q(These isolate records must include genome sequences.</p>);
 	}
 	say $q->start_form;

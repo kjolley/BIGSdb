@@ -33,7 +33,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_RECORDS => 1000;
 use constant VALID_DBS   => (qw(kpsc_k kpsc_o ab_k ab_o));
-use constant DB_NAMES    => {
+use constant DB_NAMES => {
 	kpsc_k => 'Klebsiella K locus',
 	kpsc_o => 'Klebsiella O locus',
 	ab_k   => 'Acinetobacter baumannii K locus',
@@ -58,7 +58,7 @@ sub get_attributes {
 		buttontext      => 'Kaptive',
 		menutext        => 'Kaptive',
 		module          => 'Kaptive',
-		version         => '1.0.0',
+		version         => '1.0.1',
 		dbtype          => 'isolates',
 		section         => 'third_party,isolate_info,postquery',
 		input           => 'query',
@@ -69,8 +69,7 @@ sub get_attributes {
 		url             => "$self->{'config'}->{'doclink'}/data_analysis/kaptive.html",
 		order           => 37,
 		min             => 1,
-		max             => $self->{'system'}->{'kaptive_record_limit'} // $self->{'config'}->{'kaptive_record_limit'}
-		  // MAX_RECORDS,
+		max             => $self->_get_max_records,
 		always_show_in_menu => 1,
 		image               => '/images/plugins/Kaptive/screenshot.png'
 	};
@@ -81,6 +80,12 @@ sub get_title {
 	my ($self) = @_;
 	my $desc = $self->get_db_description( { formatted => 1 } );
 	return "Kaptive - $desc";
+}
+
+sub _get_max_records {
+	my ($self) = @_;
+	return $self->{'system'}->{'kaptive_record_limit'} // $self->{'config'}->{'kaptive_record_limit'}
+	  // MAX_RECORDS;
 }
 
 sub _check_dbs {
@@ -291,7 +296,9 @@ sub _print_interface {
 		$logger->error('Kaptive version not determined. Check configuration.');
 	}
 	if ( !$q->param('single_isolate') ) {
-		say q(<p>Please select the required isolate ids to run the analysis for. )
+		my $max = $self->_get_max_records;
+		my $nice_max = BIGSdb::Utils::commify($max);
+		say qq(<p>Please select the required isolate ids to run the analysis for (maximum $nice_max records). )
 		  . q(These isolate records must include genome sequences.</p>);
 		if ( $self->{'system'}->{'kaptive_view'} && $self->{'system'}->{'kaptive_view_desc'} ) {
 			print qq(<p>$self->{'system'}->{'kaptive_view_desc'}</p>);
