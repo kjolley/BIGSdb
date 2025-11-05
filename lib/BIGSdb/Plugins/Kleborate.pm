@@ -21,10 +21,10 @@ package BIGSdb::Plugins::Kleborate;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugin);
+use parent          qw(BIGSdb::Plugin);
 use List::MoreUtils qw(uniq);
 use JSON;
-use File::Path qw(rmtree);
+use File::Path    qw(rmtree);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_RECORDS => 1000;
@@ -177,7 +177,7 @@ sub run_job {
 		$progress = int( $i / @$isolate_ids * 100 );
 		my $message = "Scanning isolate $i - id:$isolate_id";
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => $message } );
-		my $assembly_file = $self->_make_assembly_file( $job_id, $isolate_id );
+		my $assembly_file = $self->make_assembly_file( $job_id, $isolate_id );
 		my $cmd;
 		my $out_file;
 		if ( $major_version == 2 ) {
@@ -283,21 +283,6 @@ sub _append_text_file {
 	say $fh $line;
 	close $fh;
 	return;
-}
-
-sub _make_assembly_file {
-	my ( $self, $job_id, $isolate_id ) = @_;
-	my $filename   = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}_$isolate_id.fasta";
-	my $seqbin_ids = $self->{'datastore'}->run_query( 'SELECT id FROM sequence_bin WHERE isolate_id=?',
-		$isolate_id, { fetch => 'col_arrayref', cache => 'make_assembly_file::get_seqbin_list' } );
-	my $contigs = $self->{'contigManager'}->get_contigs_by_list($seqbin_ids);
-	open( my $fh, '>', $filename ) || $logger->error("Cannot open $filename for writing.");
-	foreach my $contig_id ( sort { $a <=> $b } keys %$contigs ) {
-		say $fh ">$contig_id";
-		say $fh $contigs->{$contig_id};
-	}
-	close $fh;
-	return $filename;
 }
 
 sub _print_interface {

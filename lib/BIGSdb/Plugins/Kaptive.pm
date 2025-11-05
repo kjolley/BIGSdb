@@ -33,7 +33,7 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_RECORDS => 1000;
 use constant VALID_DBS   => (qw(kpsc_k kpsc_o ab_k ab_o));
-use constant DB_NAMES    => {
+use constant DB_NAMES => {
 	kpsc_k => 'Klebsiella K locus',
 	kpsc_o => 'Klebsiella O locus',
 	ab_k   => 'Acinetobacter baumannii K locus',
@@ -367,7 +367,7 @@ sub run_job {
 		$i++;
 		my $message = "Scanning isolate $i - id:$isolate_id";
 		$self->{'jobManager'}->update_job_status( $job_id, { stage => $message } );
-		my $assembly_file = $self->_make_assembly_file( $job_id, $isolate_id );
+		my $assembly_file = $self->make_assembly_file( $job_id, $isolate_id );
 		my $output_num    = 11;
 
 		foreach my $db (@dbs) {
@@ -509,19 +509,4 @@ sub _tsv2arrayref {
 	return $rows;
 }
 
-sub _make_assembly_file {
-	my ( $self, $job_id, $isolate_id ) = @_;
-	my $filename   = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}/id-$isolate_id.fasta";
-	my $seqbin_ids = $self->{'datastore'}->run_query( 'SELECT id FROM sequence_bin WHERE isolate_id=?',
-		$isolate_id, { fetch => 'col_arrayref', cache => 'make_assembly_file::get_seqbin_list' } );
-	my $contigs = $self->{'contigManager'}->get_contigs_by_list($seqbin_ids);
-	make_path("$self->{'config'}->{'secure_tmp_dir'}/${job_id}");
-	open( my $fh, '>', $filename ) || $logger->error("Cannot open $filename for writing.");
-	foreach my $contig_id ( sort { $a <=> $b } keys %$contigs ) {
-		say $fh ">$contig_id";
-		say $fh $contigs->{$contig_id};
-	}
-	close $fh;
-	return $filename;
-}
 1;

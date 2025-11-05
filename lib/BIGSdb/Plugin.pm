@@ -25,6 +25,7 @@ use BIGSdb::Exceptions;
 use Try::Tiny;
 use Log::Log4perl qw(get_logger);
 use List::MoreUtils qw(any uniq);
+use File::Path qw(make_path);
 use JSON;
 use Encode;
 use BIGSdb::Constants qw(LOCUS_PATTERN :interface);
@@ -98,6 +99,22 @@ setTimeout(function(){
 </script>
 REDIRECT
 	return $buffer;
+}
+
+sub make_assembly_file {
+	my ( $self, $job_id, $isolate_id ) = @_;
+	my $filename   = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}/id-$isolate_id.fasta";
+	my $seqbin_ids = $self->{'datastore'}->run_query( 'SELECT id FROM sequence_bin WHERE isolate_id=?',
+		$isolate_id, { fetch => 'col_arrayref', cache => 'make_assembly_file::get_seqbin_list' } );
+	my $contigs = $self->{'contigManager'}->get_contigs_by_list($seqbin_ids);
+	make_path("$self->{'config'}->{'secure_tmp_dir'}/${job_id}");
+	open( my $fh, '>', $filename ) || $logger->error("Cannot open $filename for writing.");
+	foreach my $contig_id ( sort { $a <=> $b } keys %$contigs ) {
+		say $fh ">$contig_id";
+		say $fh $contigs->{$contig_id};
+	}
+	close $fh;
+	return $filename;
 }
 
 sub get_query {
