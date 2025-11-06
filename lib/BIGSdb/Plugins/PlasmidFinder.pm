@@ -25,6 +25,7 @@ use parent qw(BIGSdb::Plugin);
 use BIGSdb::Exceptions;
 use List::MoreUtils qw(uniq);
 use JSON;
+use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
 use File::Copy;
 use File::Path    qw(rmtree);
 use Log::Log4perl qw(get_logger);
@@ -147,12 +148,40 @@ sub run {
 	return;
 }
 
+sub _zip_append {
+	my ( $self, $zip_file, $file_path, $renamed_file ) = @_;
+	if ( -e $zip_file ) {
+		my $zip = Archive::Zip->new;
+		unless ( $zip->read($zip_file) == AZ_OK ) {
+			$logger->error("Error reading zip file $zip_file");
+			BIGSdb::Exception::Plugin->throw("Error reading zip file $zip_file");
+		}
+		my $file_member = $zip->addFile($file_path);
+		$file_member->fileName($renamed_file);
+		unless ( $zip->overwrite == AZ_OK ) {
+			$logger->error("Error writing zip file $zip_file");
+			BIGSdb::Exception::Plugin->throw("Error writing zip file $zip_file");
+		}
+	} else {
+		my $zip         = Archive::Zip->new;
+		my $file_member = $zip->addFile($file_path);
+		$file_member->fileName($renamed_file);
+		unless ( $zip->writeToFileNamed($zip_file) == AZ_OK ) {
+			$logger->error("Error creating zip file $zip_file");
+			BIGSdb::Exception::Plugin->throw("Error creating zip file $zip_file");
+		}
+	}
+	chmod oct('0664'), $zip_file;
+	return;
+}
+
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	$self->{'exit'} = 0;
 	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3;
 	my $isolate_ids = $self->{'jobManager'}->get_job_isolates($job_id);
 	my $job         = $self->{'jobManager'}->get_job($job_id);
+	my $zip         = "$self->{'config'}->{'tmp_dir'}/${job_id}.zip";
 	my $i           = 0;
 	my $progress    = 0;
 
@@ -221,8 +250,18 @@ sub run_job {
 			if ( -e $json_path ) {
 				$self->_store_results( $isolate_id, $json_path );
 			}
+			$self->_zip_append( $zip, $json_path, $json_file );
 		}
 		last if $self->{'exit'};
+	}
+	if ( -e $zip ) {
+		$self->{'jobManager'}->update_job_output(
+			$job_id,
+			{
+				filename    => "${job_id}.zip",
+				description => 'Zipped output files (JSON format)'
+			}
+		);
 	}
 	rmtree($tmp_dir);
 	return;
