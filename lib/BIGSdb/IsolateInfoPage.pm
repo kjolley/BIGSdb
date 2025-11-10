@@ -20,7 +20,7 @@ package BIGSdb::IsolateInfoPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::TreeViewPage);
+use parent            qw(BIGSdb::TreeViewPage);
 use BIGSdb::Constants qw(:interface :limits COUNTRIES DEFAULT_CODON_TABLE NULL_TERMS);
 use BIGSdb::JSContent;
 use Log::Log4perl qw(get_logger);
@@ -28,6 +28,7 @@ use Try::Tiny;
 use List::MoreUtils qw(none uniq);
 use JSON;
 use Template;
+use Template::Stash;
 use Bio::Tools::CodonTable;
 my $logger = get_logger('BIGSdb.Page');
 use constant ISOLATE_SUMMARY     => 1;
@@ -754,11 +755,11 @@ sub _show_lincode_matches {
 				$pos++;
 			}
 			local $" = q( AND );
-			my $isolates = $self->{'datastore'}->run_query(
+			my $isolates =
+			  $self->{'datastore'}->run_query(
 					"SELECT COUNT(DISTINCT v.id) FROM $self->{'system'}->{'view'} v JOIN $scheme_field_table sf ON "
 				  . "v.id=sf.id JOIN $lincode_table l ON sf.$scheme_info->{'primary_key'}=$lincode_pk WHERE "
-				  . "v.new_version IS NULL AND @lincode_query",
-			);
+				  . "v.new_version IS NULL AND @lincode_query", );
 			local $" = q(_);
 			my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;designation_field1="
 			  . "lin_$scheme->{'id'}&amp;amp;designation_operator1=starts%20with&amp;designation_value1=@prefix&submit=1";
@@ -1120,8 +1121,58 @@ sub get_isolate_record {
 	return $buffer;
 }
 
+sub _setup_template_functions {
+	$Template::Stash::HASH_OPS->{'deep_sort'} = sub {
+		my ( $h, @args ) = @_;
+		return [] unless $h && ref $h eq 'HASH';
+
+		# parse args into ordered [ { field => 'a.b', op => 'cmp' }, ... ]
+		my @specs;
+		while (@args) {
+			my $field = shift @args;
+			my $op    = ( @args && $args[0] =~ /^(?:cmp|<=?>?)$/x ) ? shift @args : 'cmp';
+			push @specs, { fields => [ split '\.', $field ], op => $op };
+		}
+
+		my $resolve = sub {
+			my ( $key, $fields ) = @_;
+			my $v = $h->{$key};
+			foreach my $f (@$fields) {
+				return unless defined $v && ref $v eq 'HASH';
+				$v = $v->{$f};
+			}
+			return $v;
+		};
+
+		my $cmp_sub = sub {
+			my ( $ka, $kb ) = @_;
+			for my $spec (@specs) {
+				my $va = $resolve->( $ka, $spec->{fields} );
+				my $vb = $resolve->( $kb, $spec->{fields} );
+				my $op = $spec->{op} || 'cmp';
+
+				if ( $op eq '<=>' ) {
+					$va = 0 unless defined $va;
+					$vb = 0 unless defined $vb;
+					my $r = $va <=> $vb;
+					return $r if $r;
+				} else {    # default to string compare
+					$va = '' unless defined $va;
+					$vb = '' unless defined $vb;
+					my $r = $va cmp $vb;
+					return $r if $r;
+				}
+			}
+			return 0;
+		};
+		return [ sort { $cmp_sub->( $a, $b ) } keys %$h ];
+	};
+	return;
+}
+
 sub _get_analysis {
 	my ( $self, $isolate_id ) = @_;
+	$self->_setup_template_functions;
 	my $analysis =
 	  $self->{'datastore'}->run_query( 'SELECT name,results,datestamp FROM analysis_results WHERE isolate_id=?',
 		$isolate_id, { fetch => 'all_arrayref', slice => {} } );
@@ -1143,7 +1194,9 @@ sub _get_analysis {
 	}
 	my $template = Template->new(
 		{
-			INCLUDE_PATH => "$self->{'config_dir'}/dbases/$self->{'instance'}/templates:$self->{'config_dir'}/templates"
+			INCLUDE_PATH =>
+			  "$self->{'config_dir'}/dbases/$self->{'instance'}/templates:$self->{'config_dir'}/templates",
+			TRIM => 1
 		}
 	);
 	$data->{'get_colour'} = sub { BIGSdb::Utils::get_percent_colour(@_) };

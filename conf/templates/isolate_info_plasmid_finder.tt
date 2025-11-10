@@ -1,0 +1,27 @@
+[% # Template file for outputting formatted PlasmidFinder analysis in the isolate information page. %]
+[% IF PlasmidFinder %]
+<h3>PlasmidFinder</h3>
+
+[% IF PlasmidFinder.results.seq_regions %]
+[% td = 1 %]
+<div class="scrollable"><table class="resultstable">
+<tr class="th"><th>Name</th><th>Accession</th><th>% Identity</th><th>Ref gene length</th><th>Alignment length</th>
+<th>% Coverage</th></tr>
+[% FOREACH key IN PlasmidFinder.results.seq_regions.deep_sort('query_id','<=>','name','cmp') %]
+[% match = PlasmidFinder.results.seq_regions.$key %]
+<tr class="td[% td %]"><td>[% match.name %]</td>
+<td>[% IF match.ref_acc %]<a href="https://www.ncbi.nlm.nih.gov/nuccore/[% match.ref_acc %]" target="_blank">
+[% match.ref_acc %]</a>[% END %]</td>
+<td>[% match.identity %]</td><td>[% match.ref_gene_length || match.ref_gene_lenght %]</td>
+<td>[% match.alignment_length %]</td><td>[% match.coverage %]</td></tr>
+
+[% IF td==1 %][% td=2 %][% ELSE %][% td=1 %][% END %]
+[% END %]
+</table></div>
+[% ELSE %]
+<p>No plasmids detected.</p>
+[% END %]
+<p style="font-size:0.8em"><em>Analysis performed: [% PlasmidFinder.datestamp %]; PlasmidFinder v[% PlasmidFinder.results.software_version %]</em>. 
+Citation: <a href="https://pubmed.ncbi.nlm.nih.gov/31584170/" target="_blank">Carattoli <i>et al.</i> 
+(2020) Methods Mol Biol 2075:285-294</a>.</p>
+[% END %]

@@ -4,3 +4,4 @@
 [% INCLUDE isolate_info_rmlst_species.tt %]
 [% INCLUDE isolate_info_kaptive.tt %]
 [% INCLUDE isolate_info_kleborate.tt %]
+[% INCLUDE isolate_info_plasmid_finder.tt %]
