@@ -30,7 +30,7 @@ use File::Copy;
 use File::Path    qw(rmtree);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
-use constant MAX_RECORDS => 100;
+use constant MAX_RECORDS => 1000;
 
 sub get_attributes {
 	my ($self) = @_;
@@ -118,7 +118,7 @@ sub run {
 			return;
 		}
 		my $max_records = $self->_get_max_records;
-		if ( @ids > MAX_RECORDS ) {
+		if ( @ids > $max_records ) {
 			my $count  = BIGSdb::Utils::commify( scalar @ids );
 			my $max    = BIGSdb::Utils::commify($max_records);
 			my $plural = @ids == 1 ? q() : q(s);
@@ -423,7 +423,7 @@ sub _print_interface {
 		my $max_records = $self->_get_max_records;
 		my $limit = BIGSdb::Utils::commify($max_records);
 		say q(<p>Please select the required isolate ids to run the analysis for. )
-		  . q(These isolate records must include genome sequences. Analysis is limited to $limit records.</p>);
+		  . qq(These isolate records must include genome sequences. Analysis is limited to $limit records.</p>);
 	}
 	say $q->start_form;
 	say q(<div class="scrollable">);
