@@ -54,22 +54,22 @@ sub get_attributes {
 		description      => 'Wrapper for Kaptive',
 		full_description => 'Kaptive reports information about surface polysaccharide loci for <i>Klebsiella '
 		  . 'pneumoniae</i> species complex and <i>Acinetobacter baumannii</i> genome assemblies.',
-		category        => 'Third party',
-		buttontext      => 'Kaptive',
-		menutext        => 'Kaptive',
-		module          => 'Kaptive',
-		version         => '1.0.1',
-		dbtype          => 'isolates',
-		section         => 'third_party,isolate_info,postquery',
-		input           => 'query',
-		help            => 'tooltips',
-		requires        => 'offline_jobs,Kaptive,seqbin',
-		system_flag     => 'Kaptive',
-		explicit_enable => 1,
-		url             => "$self->{'config'}->{'doclink'}/data_analysis/kaptive.html",
-		order           => 37,
-		min             => 1,
-		max             => $self->_get_max_records,
+		category            => 'Third party',
+		buttontext          => 'Kaptive',
+		menutext            => 'Kaptive',
+		module              => 'Kaptive',
+		version             => '1.0.1',
+		dbtype              => 'isolates',
+		section             => 'third_party,isolate_info,postquery',
+		input               => 'query',
+		help                => 'tooltips',
+		requires            => 'offline_jobs,Kaptive,seqbin',
+		system_flag         => 'Kaptive',
+		explicit_enable     => 1,
+		url                 => "$self->{'config'}->{'doclink'}/data_analysis/kaptive.html",
+		order               => 37,
+		min                 => 1,
+		max                 => $self->_get_max_records,
 		always_show_in_menu => 1,
 		image               => '/images/plugins/Kaptive/screenshot.png'
 	};
@@ -84,8 +84,7 @@ sub get_title {
 
 sub _get_max_records {
 	my ($self) = @_;
-	return $self->{'system'}->{'kaptive_record_limit'} // $self->{'config'}->{'kaptive_record_limit'}
-	  // MAX_RECORDS;
+	return $self->{'system'}->{'kaptive_record_limit'} // $self->{'config'}->{'kaptive_record_limit'} // MAX_RECORDS;
 }
 
 sub _check_dbs {
@@ -168,9 +167,10 @@ sub run {
 			$self->_print_interface;
 			return;
 		}
-		if ( @ids > MAX_RECORDS ) {
+		my $max_records = $self->_get_max_records;
+		if ( @ids > $max_records ) {
 			my $count  = BIGSdb::Utils::commify( scalar @ids );
-			my $max    = BIGSdb::Utils::commify(MAX_RECORDS);
+			my $max    = BIGSdb::Utils::commify($max_records);
 			my $plural = @ids == 1 ? q() : q(s);
 			say qq(<div class="box statusbad"><p>You have selected $count record$plural. )
 			  . qq(This analysis is limited to $max records.</p></div>);
@@ -296,7 +296,7 @@ sub _print_interface {
 		$logger->error('Kaptive version not determined. Check configuration.');
 	}
 	if ( !$q->param('single_isolate') ) {
-		my $max = $self->_get_max_records;
+		my $max      = $self->_get_max_records;
 		my $nice_max = BIGSdb::Utils::commify($max);
 		say qq(<p>Please select the required isolate ids to run the analysis for (maximum $nice_max records). )
 		  . q(These isolate records must include genome sequences.</p>);
