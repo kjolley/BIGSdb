@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20250717
+#Version: 20251110
 use strict;
 use warnings;
 use 5.010;
@@ -88,10 +88,10 @@ sub main {
 }
 
 sub get_dbs {
-	opendir( DIR, DBASE_CONFIG_DIR ) or die "Unable to open dbase config directory! $!\n";
+	opendir( my $dir, DBASE_CONFIG_DIR ) or die "Unable to open dbase config directory! $!\n";
 	my $config_dir  = DBASE_CONFIG_DIR;
-	my @config_dirs = readdir(DIR);
-	closedir DIR;
+	my @config_dirs = readdir($dir);
+	closedir $dir;
 	my $configs = [];
 	my %exclude = map { $_ => 1 } split /,/x, ( $opts{'exclude'} // q() );
 	print 'Retrieving list of isolate databases ... ' if !$opts{'quiet'};
