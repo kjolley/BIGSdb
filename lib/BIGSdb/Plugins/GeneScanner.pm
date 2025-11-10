@@ -72,25 +72,30 @@ sub get_attributes {
 		description      => 'Calculation of mutation rates and locations',
 		full_description => 'The plugin aligns sequences for a specified locus, or for a locus defined by an exemplar '
 		  . 'sequence, for an isolate dataset. A mutation analysis is then performed on the alignment.',
-		category   => 'Analysis',
-		buttontext => 'GeneScanner',
-		menutext   => 'GeneScanner',
-		module     => 'GeneScanner',
-		version    => '1.0.0',
-		dbtype     => 'isolates',
-		section    => 'analysis,postquery',
-		input      => 'query',
-		help       => 'tooltips',
-		requires   => 'aligner,mafft,offline_jobs,genescanner,seqbin',
-		url        => "$self->{'config'}->{'doclink'}/data_analysis/genescanner.html",
-		order      => 19,
-		min        => 2,
-		max        => $self->{'system'}->{'genescanner_record_limit'} // $self->{'config'}->{'genescanner_record_limit'}
-		  // MAX_RECORDS,
+		category            => 'Analysis',
+		buttontext          => 'GeneScanner',
+		menutext            => 'GeneScanner',
+		module              => 'GeneScanner',
+		version             => '1.0.0',
+		dbtype              => 'isolates',
+		section             => 'analysis,postquery',
+		input               => 'query',
+		help                => 'tooltips',
+		requires            => 'aligner,mafft,offline_jobs,genescanner,seqbin',
+		url                 => "$self->{'config'}->{'doclink'}/data_analysis/genescanner.html",
+		order               => 19,
+		min                 => 2,
+		max                 => $self->_get_limit,
 		always_show_in_menu => 1,
 		image               => '/images/plugins/GeneScanner/screenshot.png'
 	);
 	return \%att;
+}
+
+sub _get_max_records {
+	my ($self) = @_;
+	return $self->{'system'}->{'genescanner_record_limit'} // $self->{'config'}->{'genescanner_record_limit'}
+	  // MAX_RECORDS;
 }
 
 sub _upload_group_file {
@@ -250,10 +255,11 @@ sub run {
 			local $" = ', ';
 			push @errors, qq(The following isolates in your pasted list are invalid: @$invalid_ids.);
 		}
-		if ( @$ids > MAX_RECORDS ) {
-			my $limit    = BIGSdb::Utils::commify(MAX_RECORDS);
+		my $limit = $self->_get_max_records;
+		if ( @$ids > $limit ) {
+			my $nice_limit    = BIGSdb::Utils::commify($limit);
 			my $selected = BIGSdb::Utils::commify( scalar @$ids );
-			push @errors, qq(Analysis is restricted to $limit records. You have selected $selected.);
+			push @errors, qq(Analysis is restricted to $nice_limit records. You have selected $selected.);
 		}
 
 		if ( $q->param('paste_seq') ) {
@@ -550,9 +556,11 @@ sub _print_info_panel {
 	say q(<p>This tool will create an alignment for a selected locus for the set of isolates chosen. Alternatively, )
 	  . q(you can enter an exemplar sequence to use rather than selecting a locus. A mutation analysis will then be )
 	  . q(performed.</p>);
-	say q(<p>GeneScanner has been developed by Carolin Kobras, Seungwon Ko, Priyanshu Singh Raikwar, )
+	say q(<p>GeneScanner was developed by Carolin Kobras, Seungwon Ko, Priyanshu Singh Raikwar, )
 	  . q(Broncio Aguilar-Sanjuan, Keith Jolley, and Samuel Sheppard at the University of Oxford, UK. )
-	  . q(The mutation analysis code can be found at )
+	  . q(It is described in <a href="https://www.biorxiv.org/content/10.1101/2025.11.02.685864v1" target="_blank">)
+	  . q(Kobras <i>et al.</i> 2025 bioRxiv 2025.11.02.685864</a>.</p> )
+	  . q(<p>The mutation analysis code can be found at )
 	  . q(<a href="https://github.com/jeju2486/GeneScanner" target="_blank">)
 	  . q(https://github.com/jeju2486/GeneScanner</a>.</p>);
 	say q(</div>);

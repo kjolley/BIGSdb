@@ -184,6 +184,7 @@ sub _generate_report {
 	  || $logger->error( $template->error );
 
 	if ( $self->{'format'} eq 'html' ) {
+		binmode STDOUT, ':encoding(utf8)';
 		say $template_output;
 		return;
 	}
