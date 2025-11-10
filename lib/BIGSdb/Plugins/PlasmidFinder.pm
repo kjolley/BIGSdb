@@ -60,15 +60,20 @@ sub get_attributes {
 		system_flag => 'PlasmidFinder',
 
 		#		url             => "$self->{'config'}->{'doclink'}/data_analysis/PlasmidFinder.html",
-		order => 50,
-		min   => 1,
-		max   => $self->{'system'}->{'plasmidfinder_record_limit'} // $self->{'config'}->{'plasmidfinder_record_limit'}
-		  // MAX_RECORDS,
+		order               => 50,
+		min                 => 1,
+		max                 => $self->_get_max_records,
 		always_show_in_menu => 1,
 
 		#		image               => '/images/plugins/PlasmidFinder/screenshot.png'
 	};
 	return $att;
+}
+
+sub _get_max_records {
+	my ($self) = @_;
+	return $self->{'system'}->{'plasmidfinder_record_limit'} // $self->{'config'}->{'plasmidfinder_record_limit'}
+	  // MAX_RECORDS;
 }
 
 sub run {
@@ -112,9 +117,10 @@ sub run {
 			$self->_print_interface;
 			return;
 		}
+		my $max_records = $self->_get_max_records;
 		if ( @ids > MAX_RECORDS ) {
 			my $count  = BIGSdb::Utils::commify( scalar @ids );
-			my $max    = BIGSdb::Utils::commify(MAX_RECORDS);
+			my $max    = BIGSdb::Utils::commify($max_records);
 			my $plural = @ids == 1 ? q() : q(s);
 			say qq(<div class="box statusbad"><p>You have selected $count record$plural. )
 			  . qq(This analysis is limited to $max records.</p></div>);
@@ -203,9 +209,14 @@ sub run_job {
 	mkdir $tmp_dir;
 	my @fields = qw(name ref_acc query_id original_designation query_start_pos query_end_pos identity ref_gene_length
 	  alignment_length coverage);
-	my %renamed_fields =
-	  ( query_id => 'contig id', query_start_pos => 'start_pos', query_end_pos => 'end_pos', ref_acc => 'accession', 
-	  identity => '% identity', coverage => '% coverage' );
+	my %renamed_fields = (
+		query_id        => 'contig id',
+		query_start_pos => 'start_pos',
+		query_end_pos   => 'end_pos',
+		ref_acc         => 'accession',
+		identity        => '% identity',
+		coverage        => '% coverage'
+	);
 	my %alternatives = ( ref_gene_length => 'ref_gene_lenght' );    #Typo in PlasmidFinder JSON output.
 	my $table_rows;
 	my $html;
@@ -257,19 +268,19 @@ sub run_job {
 					  $self->{'datastore'}
 					  ->run_query( 'SELECT original_designation FROM sequence_bin WHERE id=?', $region->{'query_id'} );
 					$region->{'original_designation'} = $orig_designation // q();
-					
+
 					if ( $region->{'ref_acc'} ) {
 						$region->{'ref_acc'} =
 							qq(<a href="https://www.ncbi.nlm.nih.gov/nuccore/$region->{'ref_acc'}" target="blank_">)
-						  . qq($region->{'ref_acc'}</a>)
-						  ;
+						  . qq($region->{'ref_acc'}</a>);
 					}
 					my @row;
 					push @row, $region->{$_} // $region->{ $alternatives{$_} } foreach @fields;
 					local $" = q(</td><td>);
-					$table_rows .= qq(<tr class="td$td"><td>)
-					. qq(<a href="$params->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;)
-					. qq(id=$isolate_id" target="blank_">$isolate_id</a></td><td>$isolate</td><td>@row</td></tr>);
+					$table_rows .=
+						qq(<tr class="td$td"><td>)
+					  . qq(<a href="$params->{'script_name'}?db=$self->{'instance'}&amp;page=info&amp;)
+					  . qq(id=$isolate_id" target="blank_">$isolate_id</a></td><td>$isolate</td><td>@row</td></tr>);
 
 					if ( @$isolate_ids == 1 ) {
 						$td = $td == 1 ? 2 : 1;
@@ -409,8 +420,10 @@ sub _print_interface {
 		}
 	}
 	if ( !$q->param('single_isolate') ) {
+		my $max_records = $self->_get_max_records;
+		my $limit = BIGSdb::Utils::commify($max_records);
 		say q(<p>Please select the required isolate ids to run the analysis for. )
-		  . q(These isolate records must include genome sequences.</p>);
+		  . q(These isolate records must include genome sequences. Analysis is limited to $limit records.</p>);
 	}
 	say $q->start_form;
 	say q(<div class="scrollable">);
