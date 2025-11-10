@@ -85,7 +85,7 @@ sub get_attributes {
 		url                 => "$self->{'config'}->{'doclink'}/data_analysis/genescanner.html",
 		order               => 19,
 		min                 => 2,
-		max                 => $self->_get_limit,
+		max                 => $self->_get_max_records,
 		always_show_in_menu => 1,
 		image               => '/images/plugins/GeneScanner/screenshot.png'
 	);
