@@ -3488,7 +3488,11 @@ sub get_eav_field {
 
 sub is_eav_field {
 	my ( $self, $field ) = @_;
-	return $self->run_query( 'SELECT EXISTS(SELECT * FROM eav_fields WHERE field=?)', $field );
+	if ( !defined $self->{'cache'}->{'is_eav_field'} ) {
+		my $eav_fields = $self->run_query( 'SELECT field FROM eav_fields', undef, { fetch => 'col_arrayref' } );
+		$self->{'cache'}->{'is_eav_field'}->{$_} = 1 foreach @$eav_fields;
+	}
+	return $self->{'cache'}->{'is_eav_field'}->{$field};
 }
 
 sub get_eav_field_table {
