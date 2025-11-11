@@ -247,8 +247,6 @@ sub run_job {
 		rmtree("$tmp_dir/tmp");
 		my $isolate    = $self->get_isolate_name_from_id($isolate_id);
 		my $labelfield = $self->{'system'}->{'labelfield'};
-
-		unlink $assembly_file_path;
 		my $json_path = "$tmp_dir/$json_file";
 		eval {
 			my $json_results = BIGSdb::Utils::slurp($json_path);
