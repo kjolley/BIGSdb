@@ -53,7 +53,7 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.8.2',
+		version             => '1.8.3',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -351,19 +351,23 @@ sub generate_profile_file {
 	say $fh qq(#isolate\t@$loci);
 
 	foreach my $isolate_id (@$isolates) {
-		
+
 		my @profile;
 		foreach my $locus (@$loci) {
-			my @values = split /;/x, $scan_data->{'isolate_data'}->{$isolate_id}->{'designations'}->{$locus};
-
-			#Just pick lowest value
-			$values[0] = q(-) if $values[0] eq 'missing';
-			$values[0] = q(I) if $values[0] eq 'incomplete';
-			push @profile, $values[0] // q(-);
+			my $alleles = $scan_data->{'isolate_data'}->{$isolate_id}->{'designations'}->{$locus};
+			if (defined $alleles){
+				my @values  =  split /;/x, $alleles;
+				#Just pick lowest value
+				$values[0] = q(-) if $values[0] eq 'missing';
+				$values[0] = q(I) if $values[0] eq 'incomplete';
+				push @profile, $values[0];
+			} else {
+				push @profile, '-';
+			}
 		}
 		$profile_hash{ Digest::MD5::md5_hex(qq(@profile)) } = 1;
 		$empty_profiles = 1 if all { $_ eq q(-) } @profile;
-		if ($rename_user_genomes && $isolate_id < 0){
+		if ( $rename_user_genomes && $isolate_id < 0 ) {
 			my $user_genome_id = 'u' . abs($isolate_id);
 			unshift @profile, $user_genome_id;
 		} else {
