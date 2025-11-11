@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -1383,7 +1383,6 @@ sub _check_data_aliases {
 		my $isolate_name = $arg_ref->{'data'}->[ $arg_ref->{'file_header_pos'}->{ $self->{'system'}->{'labelfield'} } ];
 		my %null_terms   = map { lc($_) => 1 } NULL_TERMS;
 		if ( defined $value ) {
-			$value =~ s/\s//gx;
 			my @aliases = split /;/x, $value;
 			my %used;
 			foreach my $alias (@aliases) {

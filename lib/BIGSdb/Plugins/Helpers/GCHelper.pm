@@ -20,7 +20,7 @@ package BIGSdb::Plugins::Helpers::GCHelper;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Offline::Scan);
+use parent            qw(BIGSdb::Offline::Scan);
 use BIGSdb::Constants qw(SEQ_METHODS);
 
 sub run_script {
@@ -204,7 +204,18 @@ sub _blast {
 	);
 
 	my $path = "$self->{'config'}->{'blast+_path'}/$program";
-	system( $path, %params );
+	eval {
+		system( $path, %params );
+		if ( $? == -1 ) {
+			$self->{'logger'}->error("blastn failed to execute: $!");
+		} elsif ( $? & 127 ) {
+			$self->{'logger'}->error( 'blastn killed by signal: ' . ( $? & 127 ) );
+		} elsif ( $? >> 8 != 0 ) {
+			my $exit_code = $? >> 8;
+			$self->{'logger'}->error("blastn exited with code $exit_code.");
+		}
+	};
+	$self->{'logger'}->error($@) if $@;
 	return;
 }
 
