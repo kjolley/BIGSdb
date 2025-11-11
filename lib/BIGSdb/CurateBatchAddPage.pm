@@ -1383,7 +1383,6 @@ sub _check_data_aliases {
 		my $isolate_name = $arg_ref->{'data'}->[ $arg_ref->{'file_header_pos'}->{ $self->{'system'}->{'labelfield'} } ];
 		my %null_terms   = map { lc($_) => 1 } NULL_TERMS;
 		if ( defined $value ) {
-			$value =~ s/\s//gx;
 			my @aliases = split /;/x, $value;
 			my %used;
 			foreach my $alias (@aliases) {
