@@ -3193,6 +3193,17 @@ a.slide_trigger {
 	background-image: linear-gradient(to right, #f0f2f0 0em, #000c40 18em);
 }
 
+select {
+  appearance: none;
+  -webkit-appearance: none; /* Safari and Chrome */
+  -moz-appearance: none;    /* Firefox */
+  background-color: #fff;
+  border-radius: 0;
+  border: 1px solid #ccc;
+  padding: 4px 8px;
+  color: #000;
+}
+
 .select2-selection--single {
 	border-radius:0 !important;
 }
