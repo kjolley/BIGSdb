@@ -177,8 +177,10 @@ sub _generate_report {
 	);
 	my $template_output = q();
 	my $data            = $self->_get_isolate_data( $isolate_id, $report_id );
-	$data->{'date'}   = BIGSdb::Utils::get_datestamp();
-	$data->{'css'}    = ${ BIGSdb::Utils::slurp("$dir/style.css") };
+	$data->{'date'} = BIGSdb::Utils::get_datestamp();
+	if ( $template_info->{'css'} ) {
+		$data->{'css'} = ${ BIGSdb::Utils::slurp("$dir/$template_info->{'css'}") };
+	}
 	$data->{'images'} = $images;
 	$template->process( $template_info->{'template_file'}, $data, \$template_output )
 	  || $logger->error( $template->error );
@@ -223,7 +225,7 @@ sub _get_assembly_details {
 	);
 	if ( @$method == 1 ) {
 		$data->{'method'} = $method->[0]->{'method'} || 'Unknown';
-	} elsif (@$method > 1){
+	} elsif ( @$method > 1 ) {
 		my @values;
 		foreach my $method (@$method) {
 			my $plural = $method->{'count'} == 1 ? q() : q(s);
