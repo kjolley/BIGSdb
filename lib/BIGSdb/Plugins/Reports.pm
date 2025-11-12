@@ -23,6 +23,7 @@ use warnings;
 use 5.010;
 use parent            qw(BIGSdb::Plugin);
 use BIGSdb::Constants qw(:interface);
+use List::MoreUtils qw(uniq);
 use TOML;
 use Template;
 use Template::Stash;
@@ -147,11 +148,12 @@ sub _generate_report {
 	my $dir           = $self->_get_template_dir;
 	$Template::Stash::LIST_OPS->{'format_list'} = sub {
 		my ( $list, $args ) = @_;
-		my ( $separator, $prefix, $empty_term, $final_term ) =
-		  @{$args}{qw(separator prefix empty_term final_term)};
+		my ( $separator, $prefix, $empty_term, $final_term, $remove_dups ) =
+		  @{$args}{qw(separator prefix empty_term final_term remove_dups)};
 		$separator //= q(, );
 		$prefix    //= q();
 		@$list = grep { defined $_ && $_ ne q() } @$list;
+		@$list = uniq(@$list) if $remove_dups;
 		$separator //= q(, );
 		local $" = qq($separator$prefix);
 		return $empty_term if !@$list;
