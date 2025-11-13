@@ -585,17 +585,22 @@ sub _run_query {
 	my $sql = $self->{'db'}->prepare($qry);
 	$options->{'fetch'} //= 'row_array';
 	my $max_attempts = 5;
-	my $attempt      = 0;
+	my $attempt      = $options->{'attempt'} // 0;
 	if ( $options->{'fetch'} eq 'col_arrayref' ) {
 		my $data;
 		while ( $attempt < $max_attempts ) {
+			$attempt++;
 			eval { $data = $self->{'db'}->selectcol_arrayref( $sql, undef, @$values ) };
 			if ($@) {
 				if ( $@ =~ /SSL\s+error/x ) {
 					$logger->error("Query attempt $attempt failed: $@");
-					$attempt++;
 					sleep( 0.5 * ( 2**$attempt ) );    # exponential backoff
 					next;
+				} elsif ( $@ =~ /no\sconnection/x ) {
+					$logger->error("Query attempt $attempt failed: $@");
+					sleep( 0.5 * ( 2**$attempt ) );
+					$options->{'attempt'} = $attempt;
+					return $self->_run_query( $qry, $values, $options );
 				} else {
 					$logger->logcarp("$@ Query: $qry");
 				}
@@ -605,13 +610,18 @@ sub _run_query {
 		return $data;
 	}
 	while ( $attempt < $max_attempts ) {
+		$attempt++;
 		eval { $sql->execute(@$values) };
 		if ($@) {
 			if ( $@ =~ /SSL\s+error/x ) {
 				$logger->error("Query attempt $attempt failed: $@");
-				$attempt++;
 				sleep( 0.5 * ( 2**$attempt ) );
 				next;
+			} elsif ( $@ =~ /no\sconnection/x ) {
+				$logger->error("Query attempt $attempt failed: $@");
+				sleep( 0.5 * ( 2**$attempt ) );
+				$options->{'attempt'} = $attempt;
+				return $self->_run_query( $qry, $values, $options );
 			} else {
 				$logger->logcarp("$@ Query: $qry");
 			}
