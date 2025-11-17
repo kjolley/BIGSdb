@@ -1551,7 +1551,7 @@ sub _get_web_links {
 		}
 		if ( !$link_defined && defined $thisfield->{'web'} ) {
 			my $url = $thisfield->{'web'};
-			if ( defined $url && $url =~ /https?:\/\/(.*?)\/+/x ) {
+			if ( defined $url && $url =~ /https?:\/\/([^\/]+)/x ) {
 				$domain = $1;
 				$domains{$domain} = 1;
 				$url =~ s/\[\\*\?\]/$value/x;
