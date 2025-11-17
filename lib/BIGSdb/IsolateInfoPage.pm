@@ -20,7 +20,7 @@ package BIGSdb::IsolateInfoPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::TreeViewPage);
+use parent            qw(BIGSdb::TreeViewPage);
 use BIGSdb::Constants qw(:interface :limits COUNTRIES DEFAULT_CODON_TABLE NULL_TERMS);
 use BIGSdb::JSContent;
 use Log::Log4perl qw(get_logger);
@@ -754,11 +754,11 @@ sub _show_lincode_matches {
 				$pos++;
 			}
 			local $" = q( AND );
-			my $isolates = $self->{'datastore'}->run_query(
+			my $isolates =
+			  $self->{'datastore'}->run_query(
 					"SELECT COUNT(DISTINCT v.id) FROM $self->{'system'}->{'view'} v JOIN $scheme_field_table sf ON "
 				  . "v.id=sf.id JOIN $lincode_table l ON sf.$scheme_info->{'primary_key'}=$lincode_pk WHERE "
-				  . "v.new_version IS NULL AND @lincode_query",
-			);
+				  . "v.new_version IS NULL AND @lincode_query", );
 			local $" = q(_);
 			my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query&amp;designation_field1="
 			  . "lin_$scheme->{'id'}&amp;amp;designation_operator1=starts%20with&amp;designation_value1=@prefix&submit=1";
@@ -1550,8 +1550,20 @@ sub _get_web_links {
 			}
 		}
 		if ( !$link_defined && defined $thisfield->{'web'} ) {
-			my $url = $thisfield->{'web'};
-			if ( defined $url && $url =~ /https?:\/\/([^\/]+)/x ) {
+			my $url = $thisfield->{'web'} // q();
+			if ( $url eq '[?]' ) {
+				$url = $value;
+				if ( $url =~ /https?:\/\/([^\/]+)/x ) {
+					$domain = $1;
+					$domains{$domain} = 1;
+					push @links,
+					  {
+						link   => qq(<a href="$url">$value</a>),
+						domain => $domain
+					  };
+					$link_defined = 1;
+				}
+			} elsif ( $url =~ /https?:\/\/([^\/]+)/x ) {
 				$domain = $1;
 				$domains{$domain} = 1;
 				$url =~ s/\[\\*\?\]/$value/x;
@@ -1563,7 +1575,8 @@ sub _get_web_links {
 				  };
 				$link_defined = 1;
 			} else {
-				$logger->error("Invalid web value URL set for $field. Address must be begin with http:// or https://.");
+				$logger->error( "Invalid web value URL set for $self->{'instance'} field: $field. "
+					  . 'Address must be begin with http:// or https://.' );
 			}
 		}
 		if ( !$link_defined ) {
