@@ -371,7 +371,7 @@ sub update_job_status {
 	local $" = '=?,';
 	my $qry          = "UPDATE jobs SET @keys=? WHERE id=?";
 	my $max_attempts = 5;
-	my $attempt      = 0;
+	my $attempt      = $status_hash->{'attempt'} // 0;
 	while ( $attempt < $max_attempts ) {
 		if ( !$self->{'sql'}->{$qry} ) {
 
@@ -383,18 +383,23 @@ sub update_job_status {
 			$self->{'db'}->commit;
 		};
 		if ($@) {
-			$self->{'db'}->rollback;
 			if ( $@ =~ /SSL\ error/x ) {
 				$logger->error("Query attempt $attempt failed: $@");
 				$attempt++;
 				sleep( 0.5 * ( 2**$attempt ) );    # exponential backoff
 				next;
+			} elsif ( $@ =~ /no\sconnection/x ) {
+				$logger->error("Query attempt $attempt failed: $@");
+				$attempt++;
+				sleep( 0.5 * ( 2**$attempt ) );
+				$status_hash->{'attempt'} = $attempt;
+				return $self->update_job_status( $job_id, $status_hash );
 			} else {
+				$self->{'db'}->rollback;
 				$logger->logcarp($@);
 				local $" = q(;);
 				return $@;
 			}
-
 		}
 		last;
 	}
