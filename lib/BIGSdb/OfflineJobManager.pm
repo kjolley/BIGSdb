@@ -354,7 +354,7 @@ sub update_job_output {
 }
 
 sub update_job_status {
-	my ( $self, $job_id, $status_hash ) = @_;
+	my ( $self, $job_id, $status_hash, $options ) = @_;
 	if ( ref $status_hash ne 'HASH' ) {
 		$logger->error('status hash not passed as a ref');
 		BIGSdb::Exception::Data->throw('status hash not passed as a ref');
@@ -371,7 +371,7 @@ sub update_job_status {
 	local $" = '=?,';
 	my $qry          = "UPDATE jobs SET @keys=? WHERE id=?";
 	my $max_attempts = 5;
-	my $attempt      = $status_hash->{'attempt'} // 0;
+	my $attempt      = $options->{'attempt'} // 0;
 	while ( $attempt < $max_attempts ) {
 		if ( !$self->{'sql'}->{$qry} ) {
 
@@ -392,8 +392,8 @@ sub update_job_status {
 				$logger->error("Query attempt $attempt failed: $@");
 				$attempt++;
 				sleep( 0.5 * ( 2**$attempt ) );
-				$status_hash->{'attempt'} = $attempt;
-				return $self->update_job_status( $job_id, $status_hash );
+				$options->{'attempt'} = $attempt;
+				return $self->update_job_status( $job_id, $status_hash, $options );
 			} else {
 				$self->{'db'}->rollback;
 				$logger->logcarp($@);
