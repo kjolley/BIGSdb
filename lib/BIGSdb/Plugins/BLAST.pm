@@ -21,13 +21,14 @@ package BIGSdb::Plugins::BLAST;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugin);
+use parent        qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use List::MoreUtils qw(any uniq);
 use constant MAX_INSTANT_RUN  => 10;
 use constant MAX_DISPLAY_TAXA => 1000;
 use constant MAX_TAXA         => 10_000;
+use constant MAX_TAXA_TBLASTX => 500;
 use constant MAX_QUERY_LENGTH => 100_000;
 use BIGSdb::Constants qw(:interface SEQ_METHODS FLANKING);
 {
@@ -115,7 +116,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.6.3',
+		version     => '1.7.0',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -155,6 +156,16 @@ sub get_initiation_values {
 	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1 };
 }
 
+sub _get_max_records {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if ( $q->param('tblastx') ) {
+		return $self->{'system'}->{'max_blast_records_tblastx'} // $self->{'config'}->{'max_blast_records_tblastx'}
+		  // MAX_TAXA_TBLASTX;
+	}
+	return $self->{'system'}->{'max_blast_records'} // $self->{'config'}->{'max_blast_records'} // MAX_TAXA;
+}
+
 sub run {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
@@ -179,11 +190,17 @@ sub run {
 		$self->_print_interface;
 		return;
 	}
-	if ( @ids > MAX_TAXA ) {
-		my $selected = BIGSdb::Utils::commify( scalar @ids );
-		my $limit    = BIGSdb::Utils::commify(MAX_TAXA);
+	my $max_taxa = $self->_get_max_records;
+	if ( @ids > $max_taxa ) {
+		my $selected        = BIGSdb::Utils::commify( scalar @ids );
+		my $limit           = BIGSdb::Utils::commify($max_taxa);
+		my $tblastx_message = q();
+		if ( $q->param('tblastx') ) {
+			$tblastx_message = q( Limit is set lower when running TBLASTX as this is slow.);
+		}
 		$self->print_bad_status(
-			{ message => qq(Analysis is restricted to $limit isolates. You have selected $selected.) } );
+			{ message => qq(Analysis is restricted to $limit isolates. You have selected $selected.$tblastx_message) }
+		);
 		$self->_print_interface;
 		return;
 	}
