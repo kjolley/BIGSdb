@@ -160,10 +160,10 @@ sub _get_max_records {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	if ( $q->param('tblastx') ) {
-		return $self->{'system'}->{'max_blast_records_tblastx'} // $self->{'config'}->{'max_blast_records_tblastx'}
+		return $self->{'system'}->{'tblastx_record_limit'} // $self->{'config'}->{'tblastx_record_limit'}
 		  // MAX_TAXA_TBLASTX;
 	}
-	return $self->{'system'}->{'max_blast_records'} // $self->{'config'}->{'max_blast_records'} // MAX_TAXA;
+	return $self->{'system'}->{'blast_record_limit'} // $self->{'config'}->{'blast_record_limit'} // MAX_TAXA;
 }
 
 sub run {
