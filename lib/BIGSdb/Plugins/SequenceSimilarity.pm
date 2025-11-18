@@ -1,7 +1,7 @@
 #SequenceSimilarity.pm - Plugin for BIGSdb
 #This requires the SequenceComparison plugin
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -48,7 +48,7 @@ sub get_attributes {
 		module   => 'SequenceSimilarity',
 		url      =>
 		  "$self->{'config'}->{'doclink'}/data_query/0050_investigating_allele_differences.html#sequence-similarity",
-		version    => '1.2.1',
+		version    => '1.2.2',
 		dbtype     => 'sequences',
 		seqdb_type => 'sequences',
 		section    => 'analysis',
@@ -68,6 +68,8 @@ sub run {
 	my $locus  = $q->param('locus') || '';
 	$locus =~ s/^cn_//x;
 	my $allele = $q->param('allele');
+	$allele =~ s/^\s+//x;
+	$allele =~ s/\s+$//x;
 	say q(<h1>Find most similar alleles</h1>);
 	my $set_id = $self->get_set_id;
 	my ( $display_loci, $cleaned ) =
