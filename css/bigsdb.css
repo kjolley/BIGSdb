@@ -1,4 +1,4 @@
-/*Version: 20251111*/
+/*Version: 20251118*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -3198,6 +3198,11 @@ select {
   border: 1px solid #ccc;
   padding: 4px 8px;
   color: #000;
+  padding: 4px 32px 4px 8px; /* space for custom arrow */
+  background-image: url("data:image/svg+xml;utf8,<svg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2010%206'><path%20fill='%23888'%20d='M0%200l5%206%205-6z'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 6px bottom 40%;
+  background-size: 8px 8px;
 }
 
 .select2-selection--single {
