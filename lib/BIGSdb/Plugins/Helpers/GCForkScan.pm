@@ -73,7 +73,7 @@ sub run {
 		my $need_scan = [];
 		my $no_scan   = [];
 		if ($by_ref) {
-			$need_scan = $isolates;
+			@$need_scan = @$isolates;
 		} else {
 			my $locus_list_table =
 			  $script->{'datastore'}->create_temp_list_table_from_array( 'text', $params->{'loci'} );
