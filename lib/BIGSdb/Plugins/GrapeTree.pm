@@ -53,7 +53,7 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.8.3',
+		version             => '1.9.0',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -355,8 +355,9 @@ sub generate_profile_file {
 		my @profile;
 		foreach my $locus (@$loci) {
 			my $alleles = $scan_data->{'isolate_data'}->{$isolate_id}->{'designations'}->{$locus};
-			if (defined $alleles){
-				my @values  =  split /;/x, $alleles;
+			if ( defined $alleles ) {
+				my @values = split /;/x, $alleles;
+
 				#Just pick lowest value
 				$values[0] = q(-) if $values[0] eq 'missing';
 				$values[0] = q(I) if $values[0] eq 'incomplete';
@@ -594,28 +595,22 @@ sub generate_metadata_file {
 
 sub _get_lincode_values {
 	my ( $self, $isolate_id, $scheme_id, $lincode_threshold_counts ) = @_;
-	my $lincodes = $self->get_lincode( $isolate_id, $scheme_id );
-	$self->{'cache'}->{'current_lincode'} = $lincodes;
-	my @display_values;
+	my $lincode = $self->{'datastore'}->get_lincode_value( $isolate_id, $scheme_id ) // [];
+
+	$self->{'cache'}->{'current_lincode'} = $lincode;
 	my $record_values = [];
-	foreach my $lincode (@$lincodes) {
-		local $" = q(_);
-		push @display_values, qq(@$lincode);
-	}
-	local $" = q(; );
-	push @$record_values, qq(@display_values) // q();
+
+	local $" = q(_);
+	push @$record_values, qq(@$lincode) // q();
 	if ( $lincode_threshold_counts->{$scheme_id} > 1 ) {
 		for my $i ( 0 .. $lincode_threshold_counts->{$scheme_id} - 2 ) {
-			@display_values = ();
-			my %used;
-			foreach my $lincode (@$lincodes) {
+			if (@$lincode) {
 				my @lincode_prefix = @$lincode[ 0 .. $i ];
 				local $" = q(_);
-				push @display_values, qq(@lincode_prefix) if !$used{qq(@lincode_prefix)};
-				$used{qq(@lincode_prefix)} = 1;
+				push @$record_values, qq(@lincode_prefix);
+			} else {
+				push @$record_values, q();
 			}
-			local $" = q(; );
-			push @$record_values, qq(@display_values) // q();
 		}
 	}
 	return $record_values;
@@ -623,7 +618,8 @@ sub _get_lincode_values {
 
 sub _get_lincode_field_values {
 	my ( $self, $isolate_id, $scheme_id, $field ) = @_;
-	my $lincodes = $self->{'cache'}->{'current_lincode'} // $self->get_lincode( $isolate_id, $scheme_id );
+	my $lincode = $self->{'cache'}->{'current_lincode'}
+	  // $self->{'datastore'}->get_lincode_value( $isolate_id, $scheme_id ) // [];
 	if ( !$self->{'cache'}->{'lincode_prefixes'}->{$scheme_id} ) {
 		my $prefix_table = $self->{'datastore'}->create_temp_lincode_prefix_values_table($scheme_id);
 		my $prefix_data  = $self->{'datastore'}
@@ -638,14 +634,12 @@ sub _get_lincode_field_values {
 	my @prefixes = keys %{ $prefix_values->{$field} };
 	my $values   = [];
 	foreach my $prefix (@prefixes) {
-		foreach my $lincode (@$lincodes) {
-			local $" = q(_);
-			if (   "@$lincode" eq $prefix
-				|| "@$lincode" =~ /^${prefix}_/x && !$used{ $prefix_values->{$field}->{$prefix} } )
-			{
-				push @$values, $prefix_values->{$field}->{$prefix};
-				$used{ $prefix_values->{$field}->{$prefix} } = 1;
-			}
+		local $" = q(_);
+		if (   "@$lincode" eq $prefix
+			|| "@$lincode" =~ /^${prefix}_/x && !$used{ $prefix_values->{$field}->{$prefix} } )
+		{
+			push @$values, $prefix_values->{$field}->{$prefix};
+			$used{ $prefix_values->{$field}->{$prefix} } = 1;
 		}
 	}
 	@$values = sort @$values;
