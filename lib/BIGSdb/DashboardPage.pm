@@ -4654,7 +4654,8 @@ sub print_field_selector {
 		extended_attributes      => 1,
 		eav_fields               => 1,
 		annotation_status        => 1,
-		nosplit_geography_points => 1
+		nosplit_geography_points => 1,
+		analysis_fields          => 1
 	};
 	my $q = $self->{'cgi'};
 	my ( $fields, $labels ) = $self->get_field_selection_list($select_options);
@@ -4682,6 +4683,9 @@ sub print_field_selector {
 		if ( $field =~ /^as_/x ) {
 			push @{ $group_members->{'Annotation status'} }, $field;
 		}
+		if ( $field =~ /^af_/x ) {
+			push @{ $group_members->{'Analysis fields'} }, $field;
+		}
 		if ( $field =~ /^[f|e]_/x ) {
 			( my $stripped_field = $field ) =~ s/^[f|e]_//x;
 			$stripped_field =~ s/[\|\||\s].+$//x;
@@ -4708,6 +4712,7 @@ sub print_field_selector {
 	$labels->{'sp_seqbin_size'} = 'sequence bin size';
 	my @eav_groups = split /,/x, ( $self->{'system'}->{'eav_groups'} // q() );
 	push @group_list, @eav_groups if @eav_groups;
+	push @group_list, 'Analysis fields' if defined $group_members->{'Analysis fields'};
 	push @group_list, ( 'Loci', 'Schemes', 'Annotation status' );
 
 	foreach my $group ( 'Special', undef, @group_list ) {
