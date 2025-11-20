@@ -3,7 +3,7 @@ v1.51.6: *New GeneScanner plugin.
           results stored as JSON within the database).
          *Improved performance for searchable locus lists.
          *Added retries on database queries if network error encountered.
-         *Included more locus information in API to facilite database 
+         *Included more locus information in API to facilitate database 
           synchronisation/cloning via the API.
 v1.51.5: *Script to update API client database permissions. 
          *More robust date embargo date calculation - note new Perl module 
