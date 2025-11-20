@@ -1,4 +1,4 @@
-/*Version: 20251118*/
+/*Version: 20251120*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -2076,7 +2076,12 @@ div.file_output {
 	background-image: linear-gradient(#eee, #bce)
 }
 
-
+div.disabled {
+    opacity: 0.4;    
+    filter: grayscale(100%);
+    cursor: not-allowed; 
+    pointer-events: none; 
+}
 
 div#curatetools {
 	background: #e5e5f0;
@@ -2765,11 +2770,12 @@ span.export_align {
 
 span.export_code,
 span.export_pdf {
-	color: #903;
+	color: #e64b73;
 	text-shadow: 3px 3px 3px #999
 }
 
 span.export:hover .fa-square,
+
 span.upload:hover .fa-square {
 	text-shadow: 3px 3px 3px #444
 }

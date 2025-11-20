@@ -23,7 +23,7 @@ use warnings;
 use 5.010;
 use parent            qw(BIGSdb::Plugin);
 use BIGSdb::Constants qw(:interface);
-use List::MoreUtils qw(uniq);
+use List::MoreUtils   qw(uniq);
 use TOML;
 use Template;
 use Template::Stash;
@@ -142,51 +142,88 @@ sub _encode_image_dir {
 	return $images;
 }
 
-sub _generate_report {
+sub _get_disabled_report {
 	my ( $self, $isolate_id, $report_id ) = @_;
 	my $template_info = $self->_get_template_info($report_id);
-	my $dir           = $self->_get_template_dir;
-	$Template::Stash::LIST_OPS->{'format_list'} = sub {
-		my ( $list, $args ) = @_;
-		my ( $separator, $prefix, $empty_term, $final_term, $remove_dups ) =
-		  @{$args}{qw(separator prefix empty_term final_term remove_dups)};
-		$separator //= q(, );
-		$prefix    //= q();
-		@$list = grep { defined $_ && $_ ne q() } @$list;
-		@$list = uniq(@$list) if $remove_dups;
-		$separator //= q(, );
-		local $" = qq($separator$prefix);
-		return $empty_term if !@$list;
-		my $value = qq($prefix@$list);
+	my $status        = $self->_check_template_status( $template_info, $isolate_id );
+	my $reasons       = $self->_reason_lookup;
+	my @reasons;
+	push @reasons, ( $reasons->{$_} // $_ ) foreach @{ $status->{'reasons'} };
+	local $" = q(</li><li>);
+	return <<"HTML";
+<!DOCTYPE html>
+<head>
+<meta name="viewport" content="width=device-width" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<style>
+body {
+	font-family: Arial, sans-serif;
+	background: #fff;
+	max-width: 800px;
+	margin: 20px auto;
+}
+</style>
+<title>Report disabled - checks failed</title>
+</head>
+<body>
+<h1>Report disabled</h1>
+<p>The $template_info->{'name'} for isolate id-$isolate_id has been disabled as it failed the following checks:</p>
+<ul><li>@reasons</li></ul>
+</body>
+HTML
+}
 
-		if ( $final_term && @$list > 1 ) {
-
-			#Term may contain spaces so don't use /x
-			$value =~ s/$separator$list->[-1]$/$final_term$list->[-1]/;    ##no critic(RequireExtendedFormatting)
-		}
-		return $value;
-	};
-	$Template::Stash::SCALAR_OPS->{'commify'} = sub {
-		my ($integer) = @_;
-		return BIGSdb::Utils::commify($integer);
-	};
-	my $images   = $self->_encode_image_dir("$dir/images");
-	my $template = Template->new(
-		{
-			INCLUDE_PATH => $dir,
-			TRIM         => 1
-		}
-	);
+sub _generate_report {
+	my ( $self, $isolate_id, $report_id ) = @_;
+	my $template_info   = $self->_get_template_info($report_id);
+	my $status          = $self->_check_template_status( $template_info, $isolate_id );
 	my $template_output = q();
-	my $data            = $self->_get_isolate_data( $isolate_id, $report_id );
-	$data->{'date'} = BIGSdb::Utils::get_datestamp();
-	if ( $template_info->{'css'} ) {
-		$data->{'css'} = ${ BIGSdb::Utils::slurp("$dir/$template_info->{'css'}") };
-	}
-	$data->{'images'} = $images;
-	$template->process( $template_info->{'template_file'}, $data, \$template_output )
-	  || $logger->error( $template->error );
+	if ( !$status->{'show'} ) {
+		$template_output = $self->_get_disabled_report( $isolate_id, $report_id );
+	} else {
 
+		my $dir = $self->_get_template_dir;
+		$Template::Stash::LIST_OPS->{'format_list'} = sub {
+			my ( $list, $args ) = @_;
+			my ( $separator, $prefix, $empty_term, $final_term, $remove_dups ) =
+			  @{$args}{qw(separator prefix empty_term final_term remove_dups)};
+			$separator //= q(, );
+			$prefix    //= q();
+			@$list = grep { defined $_ && $_ ne q() } @$list;
+			@$list = uniq(@$list) if $remove_dups;
+			$separator //= q(, );
+			local $" = qq($separator$prefix);
+			return $empty_term if !@$list;
+			my $value = qq($prefix@$list);
+
+			if ( $final_term && @$list > 1 ) {
+
+				#Term may contain spaces so don't use /x
+				$value =~ s/$separator$list->[-1]$/$final_term$list->[-1]/;    ##no critic(RequireExtendedFormatting)
+			}
+			return $value;
+		};
+		$Template::Stash::SCALAR_OPS->{'commify'} = sub {
+			my ($integer) = @_;
+			return BIGSdb::Utils::commify($integer);
+		};
+		my $images   = $self->_encode_image_dir("$dir/images");
+		my $template = Template->new(
+			{
+				INCLUDE_PATH => $dir,
+				TRIM         => 1
+			}
+		);
+
+		my $data = $self->_get_isolate_data( $isolate_id, $report_id );
+		$data->{'date'} = BIGSdb::Utils::get_datestamp();
+		if ( $template_info->{'css'} ) {
+			$data->{'css'} = ${ BIGSdb::Utils::slurp("$dir/$template_info->{'css'}") };
+		}
+		$data->{'images'} = $images;
+		$template->process( $template_info->{'template_file'}, $data, \$template_output )
+		  || $logger->error( $template->error );
+	}
 	if ( $self->{'format'} eq 'html' ) {
 		binmode STDOUT, ':encoding(utf8)';
 		say $template_output;
@@ -450,13 +487,29 @@ sub _print_interface {
 	  . q(link to generate and download the report.</p>);
 	say q(<h2>Available reports</h2>);
 	say q(<div class="grid scrollable">);
+	my $reasons = $self->_reason_lookup;
 	foreach my $template ( @{ $templates->{'templates'} } ) {
-		my $pdf  = PDF_FILE;
-		my $html = HTML_FILE;
-		my $url  = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;"
-		  . "name=Reports&amp;isolate_id=$isolate_id&amp;report=$template->{'index'}";
 		my $desc = $template->{'name'};
 		$desc .= qq( - $template->{'comments'}) if $template->{'comments'};
+		my $pdf    = PDF_FILE;
+		my $html   = HTML_FILE;
+		my $status = $self->_check_template_status( $template, $isolate_id );
+		if ( !$status->{'show'} ) {
+			local $" = q(</li><li>);
+			my @reasons;
+			push @reasons, ( $reasons->{$_} // $_ ) foreach @{ $status->{'reasons'} };
+			say q(<div class="file_output disabled">)
+			  . qq(<span style="float:left;margin-right:0.2em">$html</span>)
+			  . qq(<span style="float:left;margin-right:1em">$pdf</span>)
+			  . qq(<div style="width:90%;margin-top:0.2em">$desc</div>)
+			  . qq(<div style="margin-top:2em">Disabled due to: <ul><li>@reasons</li></ul></div>);
+			say q(</div>);
+			next;
+		}
+
+		my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;"
+		  . "name=Reports&amp;isolate_id=$isolate_id&amp;report=$template->{'index'}";
+
 		say qq(<div class="file_output"><a href="$url&amp;format=html" target="_blank">)
 		  . qq(<span style="float:left;margin-right:0.2em">$html</span></a>)
 		  . qq(<a href="$url&amp;format=pdf"><span style="float:left;margin-right:1em">$pdf</span></a>)
@@ -466,6 +519,98 @@ sub _print_interface {
 	say q(<div style="clear:both"></div>);
 	say q(</div></div>);
 	return;
+}
+
+sub _reason_lookup {
+	return {
+		min_seqbin_size => 'Minimum assembly length',
+		max_seqbin_size => 'Maximum assembly length',
+		min_assembly_qc => 'Assembly check fail/warning',
+		analysis        => 'Required analyses run'
+	};
+
+}
+
+sub _check_template_status {
+	my ( $self, $template, $isolate_id ) = @_;
+	return { show => 1 } if !defined $template->{'show_if'};
+	my $mode       = $template->{'show_if'}->{'mode'}       // 'all';
+	my $predicates = $template->{'show_if'}->{'predicates'} // {};
+	my $all        = 1;
+	my $none       = 1;
+	my $any        = 0;
+	my %checks     = (
+		min_seqbin_size => '_check_min_seqbin_size',
+		max_seqbin_size => '_check_max_seqbin_size',
+		min_assembly_qc => '_check_assembly',
+		analysis        => '_check_analysis_run'
+	);
+	my $reasons = [];
+
+	foreach my $predicate ( sort keys %$predicates ) {
+		if ( $checks{$predicate} ) {
+			my $method = $checks{$predicate};
+			my $pass   = $self->$method( $isolate_id, $predicates->{$predicate} );
+			if ($pass) {
+				$none = 0;
+				$any  = 1;
+			} else {
+				$all = 0;
+				push @$reasons, $predicate;
+			}
+		} else {
+			$logger->error("Template predicate $predicate is not defined.");
+			next;
+		}
+	}
+	if ( ( $mode eq 'all' && $all ) || ( $mode eq 'any' && $any ) || ( $mode eq 'none' && $none ) ) {
+		return { show => 1 };
+	} else {
+		return { show => 0, reasons => $reasons };
+	}
+}
+
+sub _check_min_seqbin_size {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $isolate_id, $value ) = @_;
+	my $seqbin_size =
+	  $self->{'datastore'}->run_query( 'SELECT total_length FROM seqbin_stats WHERE isolate_id=?', $isolate_id );
+	$seqbin_size //= 0;
+	return $seqbin_size >= $value ? 1 : 0;
+}
+
+sub _check_max_seqbin_size {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $isolate_id, $value ) = @_;
+	my $seqbin_size =
+	  $self->{'datastore'}->run_query( 'SELECT total_length FROM seqbin_stats WHERE isolate_id=?', $isolate_id );
+	$seqbin_size //= 0;
+	return $seqbin_size <= $value ? 1 : 0;
+}
+
+sub _check_assembly {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $isolate_id, $value ) = @_;
+	my $checks = $self->_get_assembly_checks($isolate_id);
+	return 1 if !defined $checks->{'warn'} && !defined $checks->{'fail'};
+	return 1 if $value eq 'warn'           && !defined $checks->{'fail'};
+	return 1 if $value eq 'fail';    #Same as not setting a value for this check.
+	return 0;
+}
+
+sub _check_analysis_run {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $isolate_id, $value ) = @_;
+	return if !$value;
+	use Data::Dumper;
+	$logger->error( Dumper $value);
+	my $analyses = $self->{'datastore'}
+	  ->run_query( 'SELECT name FROM last_run WHERE isolate_id=?', $isolate_id, { fetch => 'col_arrayref' } );
+	my %analyses = map { $_ => 1 } @$analyses;
+	if ( ref $value eq 'SCALAR' ) {
+		$value = [$value];
+	}
+	foreach my $analysis (@$value) {
+		return 0 if !$analyses{$analysis};
+	}
+	return 1;
+
 }
 
 sub get_plugin_javascript {
