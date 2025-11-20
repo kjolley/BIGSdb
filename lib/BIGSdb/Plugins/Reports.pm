@@ -598,12 +598,10 @@ sub _check_assembly {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called
 sub _check_analysis_run {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $isolate_id, $value ) = @_;
 	return if !$value;
-	use Data::Dumper;
-	$logger->error( Dumper $value);
 	my $analyses = $self->{'datastore'}
 	  ->run_query( 'SELECT name FROM last_run WHERE isolate_id=?', $isolate_id, { fetch => 'col_arrayref' } );
 	my %analyses = map { $_ => 1 } @$analyses;
-	if ( ref $value eq 'SCALAR' ) {
+	if ( !ref $value ) {
 		$value = [$value];
 	}
 	foreach my $analysis (@$value) {
