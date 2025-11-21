@@ -37,6 +37,7 @@ use BIGSdb::ChangePasswordPage;
 use BIGSdb::CGI::as_utf8;
 use BIGSdb::CombinationQueryPage;
 use BIGSdb::Constants qw(:login_requirements);
+use BIGSdb::ContigPage;
 use BIGSdb::CookiesPage;
 use BIGSdb::CurateSubmissionExcelPage;
 use BIGSdb::CustomizePage;
@@ -462,6 +463,7 @@ sub print_page {
 		bookmarks          => 'BookmarksPage',
 		browse             => $query_page,
 		changePassword     => 'ChangePasswordPage',
+		contig             => 'ContigPage',
 		cookies            => 'CookiesPage',
 		customize          => 'CustomizePage',
 		dashboard          => 'DashboardPage',

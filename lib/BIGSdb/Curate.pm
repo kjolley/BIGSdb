@@ -25,6 +25,7 @@ use BIGSdb::AjaxPrefs;
 use BIGSdb::BookmarksPage;
 use BIGSdb::ConfigCheckPage;
 use BIGSdb::ConfigRepairPage;
+use BIGSdb::ContigPage;
 use BIGSdb::CurateAddPage;
 use BIGSdb::CurateAddSeqbinPage;
 use BIGSdb::CurateAlleleUpdatePage;
@@ -106,6 +107,7 @@ sub print_page {
 		compositeUpdate       => 'CurateCompositeUpdatePage',
 		configCheck           => 'ConfigCheckPage',
 		configRepair          => 'ConfigRepairPage',
+		contig                => 'ContigPage',
 		curatorPermissions    => 'CuratePermissionsPage',
 		dashboard             => 'DashboardPage',
 		databankScan          => 'CurateDatabankScanPage',
