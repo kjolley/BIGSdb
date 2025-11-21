@@ -1,7 +1,7 @@
 [% # Template file for outputting formatted PlasmidFinder analysis in the isolate information page. %]
 [% IF PlasmidFinder %]
 <h3>PlasmidFinder</h3>
-[% IF PlasmidFinder.results.seq_regions %]
+[% IF PlasmidFinder.results.seq_regions.keys.size %]
 [% td = 1 %]
 <div class="scrollable"><table class="resultstable">
 <tr class="th"><th>Name</th><th>Accession</th><th>Contig</th><th>% Identity</th><th>Ref gene length</th>
