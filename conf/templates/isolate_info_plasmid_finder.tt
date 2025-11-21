@@ -1,7 +1,6 @@
 [% # Template file for outputting formatted PlasmidFinder analysis in the isolate information page. %]
 [% IF PlasmidFinder %]
 <h3>PlasmidFinder</h3>
-
 [% IF PlasmidFinder.results.seq_regions %]
 [% td = 1 %]
 <div class="scrollable"><table class="resultstable">
@@ -11,7 +10,9 @@
 [% match = PlasmidFinder.results.seq_regions.$key %]
 <tr class="td[% td %]"><td>[% match.name %]</td>
 <td>[% IF match.ref_acc %]<a href="https://www.ncbi.nlm.nih.gov/nuccore/[% match.ref_acc %]" target="_blank">
-[% match.ref_acc %]</a>[% END %]</td><td>[% match.query_id %]</td>
+[% match.ref_acc %]</a>[% END %]</td><td>
+<a href="[% variables.script_name %]?db=[% variables.instance %]&amp;page=contig&amp;id=[% match.query_id %]">
+[% match.query_id %]</a></td>
 <td>[% match.identity %]</td><td>[% match.ref_gene_length || match.ref_gene_lenght %]</td>
 <td>[% match.alignment_length %]</td><td>[% match.coverage %]</td></tr>
 

@@ -1192,6 +1192,10 @@ sub _get_analysis {
 			results   => decode_json( $module->{'results'} )
 		};
 	}
+	$data->{'variables'} = {
+		script_name => "$self->{'system'}->{'script_name'}",
+		instance    => $self->{'instance'}
+	};
 	my $template = Template->new(
 		{
 			INCLUDE_PATH =>
