@@ -1,6 +1,6 @@
 #SequenceComparison.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,7 +21,7 @@ package BIGSdb::Plugins::SequenceComparison;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugin);
+use parent        qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 
@@ -43,7 +43,7 @@ sub get_attributes {
 		module           => 'SequenceComparison',
 		url              =>
 		  "$self->{'config'}->{'doclink'}/data_query/0050_investigating_allele_differences.html#sequence-comparison",
-		version    => '1.1.0',
+		version    => '1.1.1',
 		dbtype     => 'sequences',
 		seqdb_type => 'sequences',
 		section    => 'analysis',
@@ -99,6 +99,10 @@ sub run {
 	my $displaylocus = $self->clean_locus($locus);
 	my $allele1      = $q->param('allele1');
 	my $allele2      = $q->param('allele2');
+	foreach ( $allele1, $allele2 ) {
+		s/^\s+//x;
+		s/\s+$//x;
+	}
 
 	if ( !defined $allele1 || !defined $allele2 ) {
 		$self->print_bad_status( { message => q(Please enter two allele identifiers.) } );

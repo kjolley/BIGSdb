@@ -686,7 +686,7 @@ sub print_provenance_form_elements {
 			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
 			next if ( $thisfield->{'no_curate'} // '' ) eq 'yes';
 			next if ( $thisfield->{'prefixes'} );
-			my $this_field_required = lc( $thisfield->{'required'} // '' );
+			my $this_field_required = lc( $thisfield->{'required'} // 'yes' );
 			my $required_field      = $this_field_required eq 'yes' || $this_field_required eq 'expected';
 			if ( $required_field == $required ) {
 				if ( $thisfield->{'prefixed_by'} ) {

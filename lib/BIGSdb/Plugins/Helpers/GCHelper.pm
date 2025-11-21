@@ -20,7 +20,9 @@ package BIGSdb::Plugins::Helpers::GCHelper;
 use strict;
 use warnings;
 use 5.010;
-use parent            qw(BIGSdb::Offline::Scan);
+use parent qw(BIGSdb::Offline::Scan);
+use IPC::Open3;
+use Symbol            qw(gensym);
 use BIGSdb::Constants qw(SEQ_METHODS);
 
 sub run_script {
@@ -203,16 +205,20 @@ sub _blast {
 		-$filter         => 'no'
 	);
 
+	my $err_fh = gensym;
+
 	my $path = "$self->{'config'}->{'blast+_path'}/$program";
 	eval {
-		system( $path, %params );
-		if ( $? == -1 ) {
-			$self->{'logger'}->error("blastn failed to execute: $!");
-		} elsif ( $? & 127 ) {
-			$self->{'logger'}->error( 'blastn killed by signal: ' . ( $? & 127 ) );
-		} elsif ( $? >> 8 != 0 ) {
-			my $exit_code = $? >> 8;
-			$self->{'logger'}->error("blastn exited with code $exit_code.");
+		my $pid = open3( my $in_fh, my $out_fh, $err_fh, $path, %params );
+		close $in_fh;
+		local $/ = undef;
+		my $out = <$out_fh>;
+		my $err = <$err_fh>;
+		waitpid( $pid, 0 );
+		my $exit_code = $? >> 8;
+		if ($exit_code) {
+			$self->{'logger'}->error($err) if $err;
+			$self->{'logger'}->error($out) if $out;
 		}
 	};
 	$self->{'logger'}->error($@) if $@;
@@ -360,10 +366,27 @@ sub _extract_sequence {
 
 sub _create_isolate_FASTA_db {
 	my ( $self, $isolate_id ) = @_;
-	my $temp_infile = $self->_create_isolate_FASTA( $isolate_id, $self->{'options'}->{'job_id'} );
+	my $temp_infile = $self->_create_isolate_FASTA( $isolate_id, "$self->{'options'}->{'job_id'}_$$" );
 	return if !$temp_infile;
-	system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
-		( -in => $temp_infile, -logfile => '/dev/null', -dbtype => 'nucl' ) );
+	my $err_fh = gensym;
+
+	eval {
+		my $path = "$self->{'config'}->{'blast+_path'}/makeblastdb";
+		my $pid  = open3(
+			my $in_fh, my $out_fh, $err_fh, $path,
+			-in      => $temp_infile,
+			-logfile => '/dev/null',
+			-dbtype  => 'nucl'
+		);
+		close $in_fh;
+		local $/ = undef;
+		my $out = <$out_fh>;
+		my $err = <$err_fh>;
+		waitpid( $pid, 0 );
+		my $exit_code = $? >> 8;
+		$self->{'logger'}->error($err) if $err;
+		$self->{'logger'}->error($out) if $out;
+	};
 	return $temp_infile;
 }
 

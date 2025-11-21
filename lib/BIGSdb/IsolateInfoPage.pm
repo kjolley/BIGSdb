@@ -1607,8 +1607,20 @@ sub _get_web_links {
 			}
 		}
 		if ( !$link_defined && defined $thisfield->{'web'} ) {
-			my $url = $thisfield->{'web'};
-			if ( defined $url && $url =~ /https?:\/\/(.*?)\/+/x ) {
+			my $url = $thisfield->{'web'} // q();
+			if ( $url eq '[?]' ) {
+				$url = $value;
+				if ( $url =~ /https?:\/\/([^\/]+)/x ) {
+					$domain = $1;
+					$domains{$domain} = 1;
+					push @links,
+					  {
+						link   => qq(<a href="$url">$value</a>),
+						domain => $domain
+					  };
+					$link_defined = 1;
+				}
+			} elsif ( $url =~ /https?:\/\/([^\/]+)/x ) {
 				$domain = $1;
 				$domains{$domain} = 1;
 				$url =~ s/\[\\*\?\]/$value/x;
@@ -1620,7 +1632,8 @@ sub _get_web_links {
 				  };
 				$link_defined = 1;
 			} else {
-				$logger->error("Invalid web value URL set for $field. Address must be begin with http:// or https://.");
+				$logger->error( "Invalid web value URL set for $self->{'instance'} field: $field. "
+					  . 'Address must be begin with http:// or https://.' );
 			}
 		}
 		if ( !$link_defined ) {

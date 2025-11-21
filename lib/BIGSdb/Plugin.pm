@@ -1103,33 +1103,6 @@ sub get_cscheme_field_value {
 	return qq(@values);
 }
 
-sub get_lincode {
-	my ( $self, $isolate_id, $scheme_id ) = @_;
-	return if !BIGSdb::Utils::is_int($isolate_id);
-	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-	my $profile_ids = $self->get_scheme_field_values(
-		{
-			isolate_id => $isolate_id,
-			scheme_id  => $scheme_id,
-			field      => $scheme_info->{'primary_key'}
-		}
-	);
-	my $lincode_table = $self->{'datastore'}->create_temp_lincodes_table($scheme_id);
-	my $lincodes      = [];
-	my %used;
-	foreach my $profile_id (@$profile_ids) {
-		my $lincode =
-		  $self->{'datastore'}->run_query( "SELECT lincode FROM $lincode_table WHERE profile_id=?", $profile_id );
-		if ($lincode) {
-			local $" = q(_);
-			next if $used{"@$lincode"};
-			push @$lincodes, $lincode;
-			$used{"@$lincode"} = 1;
-		}
-	}
-	return $lincodes;
-}
-
 sub attempted_spam {
 	my ( $self, $str ) = @_;
 	return   if !$str || !ref $str;
