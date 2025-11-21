@@ -383,14 +383,13 @@ sub update_job_status {
 			$self->{'db'}->commit;
 		};
 		if ($@) {
+			$attempt++;
 			if ( $@ =~ /SSL\ error/x ) {
 				$logger->error("Query attempt $attempt failed: $@");
-				$attempt++;
 				sleep( 0.5 * ( 2**$attempt ) );    # exponential backoff
 				next;
 			} elsif ( $@ =~ /no\sconnection/x ) {
 				$logger->error("Query attempt $attempt failed: $@");
-				$attempt++;
 				sleep( 0.5 * ( 2**$attempt ) );
 				$options->{'attempt'} = $attempt;
 				return $self->update_job_status( $job_id, $status_hash, $options );
