@@ -247,7 +247,8 @@ sub run_job {
 		rmtree("$tmp_dir/tmp");
 		my $isolate    = $self->get_isolate_name_from_id($isolate_id);
 		my $labelfield = $self->{'system'}->{'labelfield'};
-		my $json_path = "$tmp_dir/$json_file";
+		my $json_path  = "$tmp_dir/$json_file";
+		my $matches_found;
 		eval {
 			my $json_results = BIGSdb::Utils::slurp($json_path);
 			my $results      = decode_json($$json_results);
@@ -260,7 +261,7 @@ sub run_job {
 					} keys %$regions
 				  )
 				{
-
+					$matches_found = 1;
 					my $region = $regions->{$key};
 					my $orig_designation =
 					  $self->{'datastore'}
@@ -301,7 +302,11 @@ sub run_job {
 		  ->update_job_status( $job_id, { message_html => $table_html, percent_complete => $progress } );
 		if ( @$isolate_ids == 1 ) {
 			if ( -e $json_path ) {
-				$self->_store_results( $isolate_id, $json_path );
+				if ($matches_found) {
+					$self->_store_results( $isolate_id, $json_path );
+				} else {
+					$self->_update_last_run($isolate_id);
+				}
 				move( $json_path, "$self->{'config'}->{'tmp_dir'}/$json_file" );
 				$self->{'jobManager'}->update_job_output(
 					$job_id,
@@ -316,7 +321,11 @@ sub run_job {
 			}
 		} else {
 			if ( -e $json_path ) {
-				$self->_store_results( $isolate_id, $json_path );
+				if ($matches_found) {
+					$self->_store_results( $isolate_id, $json_path );
+				} else {
+					$self->_update_last_run($isolate_id);
+				}
 			}
 			$self->_zip_append( $zip, $json_path, $json_file );
 		}
@@ -354,8 +363,28 @@ sub _store_results {
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
 	}
-	$self->{'db'}->commit;
+	return;
+}
+
+sub _update_last_run {
+	my ( $self, $isolate_id ) = @_;
+	my $att = $self->get_attributes;
+	eval {
+		$self->{'db'}->do(
+			'INSERT INTO last_run (name,isolate_id) VALUES (?,?) ON '
+			  . 'CONFLICT (name,isolate_id) DO UPDATE SET timestamp = now()',
+			undef, $att->{'module'}, $isolate_id
+		);
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
 	return;
 }
 
@@ -419,7 +448,7 @@ sub _print_interface {
 	}
 	if ( !$q->param('single_isolate') ) {
 		my $max_records = $self->_get_max_records;
-		my $limit = BIGSdb::Utils::commify($max_records);
+		my $limit       = BIGSdb::Utils::commify($max_records);
 		say q(<p>Please select the required isolate ids to run the analysis for. )
 		  . qq(These isolate records must include genome sequences. Analysis is limited to $limit records.</p>);
 	}

@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20251111
+#Version: 20251121
 use strict;
 use warnings;
 use 5.010;
@@ -186,7 +186,7 @@ sub check_db {
 		if ($@) {
 			$logger->error($@);
 		}
-		if ( keys %$results ) {
+		if ( keys %$results && $results->{'seq_regions'} && keys %{$results->{'seq_regions'}} ) {
 			store_results( $script, $isolate_id, $results );
 		}
 		$script->set_last_run_time( MODULE_NAME, $isolate_id );
