@@ -51,6 +51,15 @@ sub print_content {
 		return;
 	}
 	say qq(<h1>Contig record - id: $id</h1>);
+	my $date_restriction = $self->{'datastore'}->get_date_restriction;
+	my $restricted;
+		if ( $date_restriction && $date_restriction lt $contig->{'date_entered'} && !$self->{'username'} ) {
+		$restricted = 1;
+		my $date_restriction_message = $self->get_date_restriction_message;
+		if ($date_restriction_message) {
+			say qq(<div class="box banner">$date_restriction_message</div>);
+		}
+	}
 	say q(<div class="box resultspanel">);
 	my $labelfield = $self->{'system'}->{'labelfield'} // 'isolate';
 	my $seq_ref    = $self->{'contigManager'}->get_contig($id);
@@ -65,7 +74,7 @@ sub print_content {
 			},
 			{
 				title => "$labelfield name",
-				data  => $self->get_isolate_name_from_id( $contig->{'isolate_id'} )
+				data  => $self->get_isolate_name_from_id( $contig->{'isolate_id'} ) || q(-)
 			},
 			{
 				title => 'method',
@@ -105,7 +114,7 @@ sub print_content {
 			},
 			{
 				title => 'sequence',
-				data  => $seq,
+				data  => $restricted ? 'UNAVAILABLE' : $seq,
 				class => 'seq'
 			}
 		]
