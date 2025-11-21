@@ -124,9 +124,9 @@ sub check_db {
 	my $qry =
 		q[SELECT ss.isolate_id FROM seqbin_stats ss LEFT JOIN analysis_results ar ON ss.isolate_id=ar.isolate_id ]
 	  . q[AND ar.name=? LEFT JOIN last_run lr ON ss.isolate_id=lr.isolate_id AND lr.name=? ]
-	  . q[WHERE ss.total_length>=? AND (ar.datestamp IS NULL ];
+	  . q[WHERE ss.total_length>=? AND (lr.timestamp IS NULL ];
 	if ( defined $opts{'refresh_days'} ) {
-		$qry .= qq(OR ar.datestamp < now()-interval '$opts{'refresh_days'} days' );
+		$qry .= qq(OR lr.timestamp < now()-interval '$opts{'refresh_days'} days' );
 	}
 	$qry .= q[) ];
 	if ( defined $opts{'last_run_days'} ) {
