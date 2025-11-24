@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20251121
+#Version: 20251124
 use strict;
 use warnings;
 use 5.010;
@@ -308,7 +308,7 @@ ${bold}OPTIONS$norm
 
 ${bold}--database$norm ${under}DATABASE CONFIG$norm
     Database configuration name. If not included then all isolate databases
-    with the Kleborate flag set on their configuration will be checked.
+    with the PlasmidFinder flag set on their configuration will be checked.
     
 ${bold}--exclude$norm ${under}CONFIG NAMES $norm
     Comma-separated list of config names to exclude.
