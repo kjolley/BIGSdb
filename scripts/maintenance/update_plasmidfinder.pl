@@ -82,7 +82,7 @@ sub main {
 }
 
 sub check_if_script_already_running {
-	my $lock_file = get_lock_file('update_plasmidfinder');
+	my $lock_file = get_lock_file();
 	if ( -e $lock_file ) {
 		open( my $fh, '<', $lock_file ) || $logger->error("Cannot open lock file $lock_file for reading");
 		my $pid = <$fh>;
@@ -281,7 +281,8 @@ sub get_lock_file {
 		$config = Config::Tiny->new();
 	}
 	my $lock_dir  = $config->{_}->{'lock_dir'} // LOCK_DIR;
-	my $lock_file = "$lock_dir/update_plasmidfinder";
+	my $dbase = $opts{'d'} // 'all';
+	my $lock_file = "$lock_dir/update_plasmidfinder_$dbase";
 	return $lock_file;
 }
 
