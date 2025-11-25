@@ -47,25 +47,23 @@ sub get_attributes {
 		full_description => 'PlasmidFinder is an in silico detection and typing tool for plasmids '
 		  . '(<a href="https://pubmed.ncbi.nlm.nih.gov/24777092/">'
 		  . 'Carattoli <i>et al.</i> 2014 <i>Antimicrob Agents Chemothe</i> <b>58:</b>3895-903</a>).',
-		category    => 'Third party',
-		buttontext  => 'PlasmidFinder',
-		menutext    => 'PlasmidFinder',
-		module      => 'PlasmidFinder',
-		version     => '1.0.0',
-		dbtype      => 'isolates',
-		section     => 'third_party,isolate_info,postquery',
-		input       => 'query',
-		help        => 'tooltips',
-		requires    => 'offline_jobs,PlasmidFinder,seqbin',
-		system_flag => 'PlasmidFinder',
-
-		#		url             => "$self->{'config'}->{'doclink'}/data_analysis/PlasmidFinder.html",
+		category            => 'Third party',
+		buttontext          => 'PlasmidFinder',
+		menutext            => 'PlasmidFinder',
+		module              => 'PlasmidFinder',
+		version             => '1.0.0',
+		dbtype              => 'isolates',
+		section             => 'third_party,isolate_info,postquery',
+		input               => 'query',
+		help                => 'tooltips',
+		requires            => 'offline_jobs,PlasmidFinder,seqbin',
+		system_flag         => 'PlasmidFinder',
+		url                 => "$self->{'config'}->{'doclink'}/data_analysis/PlasmidFinder.html",
 		order               => 50,
 		min                 => 1,
 		max                 => $self->_get_max_records,
 		always_show_in_menu => 1,
-
-		#		image               => '/images/plugins/PlasmidFinder/screenshot.png'
+		image               => '/images/plugins/PlasmidFinder/screenshot.png'
 	};
 	return $att;
 }
