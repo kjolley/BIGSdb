@@ -58,7 +58,7 @@ sub get_attributes {
 		help                => 'tooltips',
 		requires            => 'offline_jobs,PlasmidFinder,seqbin',
 		system_flag         => 'PlasmidFinder',
-		url                 => "$self->{'config'}->{'doclink'}/data_analysis/PlasmidFinder.html",
+		url                 => "$self->{'config'}->{'doclink'}/data_analysis/plasmidfinder.html",
 		order               => 50,
 		min                 => 1,
 		max                 => $self->_get_max_records,
