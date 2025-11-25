@@ -1,4 +1,5 @@
 v1.51.6: *New GeneScanner plugin.
+         *New PlasmidFinder plugin.
          *Update to various plugins to support analysis fields (third-party 
           results stored as JSON within the database).
          *Improved performance for searchable locus lists.
