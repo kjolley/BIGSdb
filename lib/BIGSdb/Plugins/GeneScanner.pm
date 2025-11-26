@@ -446,7 +446,10 @@ sub run_job {
 			waitpid( $pid, 0 );
 			my $exit_code = $? >> 8;
 			if ($exit_code) {
-				$logger->error($err) if $err;
+				if ($err) {
+					$logger->error($err);
+					$self->{'jobManager'}->update_job_status( $job_id, { message_html => $err } );
+				}
 				$logger->error($out) if $out;
 			}
 		};
