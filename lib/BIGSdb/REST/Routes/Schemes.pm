@@ -115,7 +115,12 @@ sub _get_scheme {
 		$values->{'records'}      = $profile_count;
 		$values->{'last_updated'} = $last_updated if $last_updated;
 		$values->{'last_added'}   = $last_added;
+		$values->{'max_missing'}  = $scheme_info->{'max_missing'} if defined $scheme_info->{'max_missing'};
 	}
+	my @boolean = qw(allow_missing_loci allow_presence);
+	$values->{$_} = ($scheme_info->{$_} ? JSON::true : JSON::false) foreach @boolean;
+	$values->{'display_order'} = $scheme_info->{'display_order'} if defined $scheme_info->{'display_order'};
+	
 	$values->{'fields'} = $scheme_field_links if @$scheme_field_links;
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	$values->{'locus_count'} = scalar @$loci;
