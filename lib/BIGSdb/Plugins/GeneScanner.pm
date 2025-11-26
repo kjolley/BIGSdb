@@ -1,4 +1,4 @@
-#Caro.pm - CARO project plugin for BIGSdb
+#GeneScanner.pm - GeneScanner plugin for BIGSdb
 #Written by Keith Jolley
 #Copyright (c) 2024-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
@@ -25,6 +25,8 @@ use parent          qw(BIGSdb::Plugins::GenomeComparator);
 use List::MoreUtils qw(uniq);
 use BIGSdb::Exceptions;
 use Bio::SeqIO;
+use IPC::Open3;
+use Symbol            qw(gensym);
 use BIGSdb::Constants qw(:limits);
 use Log::Log4perl     qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -76,7 +78,7 @@ sub get_attributes {
 		buttontext          => 'GeneScanner',
 		menutext            => 'GeneScanner',
 		module              => 'GeneScanner',
-		version             => '1.0.0',
+		version             => '1.0.1',
 		dbtype              => 'isolates',
 		section             => 'analysis,postquery',
 		input               => 'query',
@@ -257,8 +259,8 @@ sub run {
 		}
 		my $limit = $self->_get_max_records;
 		if ( @$ids > $limit ) {
-			my $nice_limit    = BIGSdb::Utils::commify($limit);
-			my $selected = BIGSdb::Utils::commify( scalar @$ids );
+			my $nice_limit = BIGSdb::Utils::commify($limit);
+			my $selected   = BIGSdb::Utils::commify( scalar @$ids );
 			push @errors, qq(Analysis is restricted to $nice_limit records. You have selected $selected.);
 		}
 
@@ -428,14 +430,27 @@ sub run_job {
 		if ( $params->{'snp_sites'} ) {
 			$snp_sites_clause = qq( --snp_sites_path $self->{'config'}->{'snp_sites_path'} --vcf);
 		}
+		my $cmd =
+			"$self->{'config'}->{'genescanner_path'} -a $alignment_file -t $analysis "
+		  . "--output $self->{'config'}->{'tmp_dir'} --quiet "
+		  . "--mafft_path $self->{'config'}->{'mafft_path'} --job_id $job_id --tmp_dir "
+		  . "$self->{'config'}->{'secure_tmp_dir'} --frame $frame$groups_clause$reference_clause"
+		  . "$snp_sites_clause --temp";
+		my $err_fh = gensym;
 		eval {
-			system( "$self->{'config'}->{'genescanner_path'} -a $alignment_file -t $analysis "
-				  . "--output $self->{'config'}->{'tmp_dir'} --quiet "
-				  . "--mafft_path $self->{'config'}->{'mafft_path'} --job_id $job_id --tmp_dir "
-				  . "$self->{'config'}->{'secure_tmp_dir'} --frame $frame$groups_clause$reference_clause"
-				  . "$snp_sites_clause --temp" );
+			my $pid = open3( my $in_fh, my $out_fh, $err_fh, $cmd );
+			close $in_fh;
+			local $/ = undef;
+			my $out = <$out_fh>;
+			my $err = <$err_fh>;
+			waitpid( $pid, 0 );
+			my $exit_code = $? >> 8;
+			if ($exit_code) {
+				$logger->error($err) if $err;
+				$logger->error($out) if $out;
+			}
 		};
-		$logger->error($@) if $@;
+
 		foreach my $file_type (qw (n p both)) {
 			my $filename  = "${job_id}_${file_type}_mutation_analysis.xlsx";
 			my $full_path = "$self->{'config'}->{'tmp_dir'}/$filename";
