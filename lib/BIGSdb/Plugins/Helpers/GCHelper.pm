@@ -205,6 +205,11 @@ sub _blast {
 		-$filter         => 'no'
 	);
 
+	#Rewards/penalties only defined for blastn.
+	if ( $program eq 'tblastn' ) {
+		delete $params{$_} foreach ( '-reward', '-penalty', '-gapopen', '-gapextend' );
+	}
+
 	my $err_fh = gensym;
 
 	my $path = "$self->{'config'}->{'blast+_path'}/$program";
