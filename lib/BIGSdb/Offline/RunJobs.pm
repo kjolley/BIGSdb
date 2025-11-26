@@ -141,7 +141,7 @@ sub run_script {
 					}
 				);
 			} else {
-				$self->{'logger'}->logdie($_);
+				$self->{'logger'}->logdie("$self->{'instance'}: $_");
 			}
 		};
 	}
