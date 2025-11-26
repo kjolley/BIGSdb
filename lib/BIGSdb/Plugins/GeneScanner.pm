@@ -447,6 +447,7 @@ sub run_job {
 			my $exit_code = $? >> 8;
 			if ($exit_code) {
 				if ($err) {
+					$err =~ s/\s+$//x;
 					$logger->error($err);
 					$self->{'jobManager'}->update_job_status( $job_id, { message_html => $err } );
 				}
