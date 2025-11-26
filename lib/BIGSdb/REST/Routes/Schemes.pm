@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2024, University of Oxford
+#Copyright (c) 2014-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -214,10 +214,12 @@ sub _get_scheme_field {
 	if ( !$field_info ) {
 		send_error( "Scheme field $field does not exist in scheme $scheme_id.", 404 );
 	}
-	foreach my $attribute (qw(field type description)) {
+	foreach my $attribute (qw(field type description value_regex option_list field_order)) {
 		$values->{$attribute} = $field_info->{$attribute} if defined $field_info->{$attribute};
 	}
-	$values->{'primary_key'} = $field_info->{'primary_key'} ? JSON::true : JSON::false;
+	foreach my $attribute (qw(primary_key index dropdown)) {
+		$values->{$attribute} = $field_info->{$attribute} ? JSON::true : JSON::false;
+	}
 	return $values;
 }
 
