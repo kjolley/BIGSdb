@@ -20,7 +20,7 @@ package BIGSdb::UserRegistrationPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::CuratePage BIGSdb::ChangePasswordPage);
+use parent            qw(BIGSdb::CuratePage BIGSdb::ChangePasswordPage);
 use BIGSdb::Constants qw(:accounts :interface DEFAULT_DOMAIN SECTORS COUNTRIES);
 use Email::Sender::Transport::SMTP;
 use Email::Sender::Simple qw(try_to_sendmail);
@@ -93,6 +93,7 @@ sub _username_reminder {
 		return;
 	}
 
+
 	#Only send E-mail if we find an account but don't tell user if we don't (to stop this being used
 	#to check if specific addresses have registered accounts).
 	my $usernames =
@@ -107,6 +108,10 @@ sub _username_reminder {
 		}
 	);
 	return if !@$usernames;
+	if ($self->{'datastore'}->is_blocked_email($email_address)){
+		$logger->error("Email address $email_address is blocked.");
+		return;
+	}
 	my $transport = Email::Sender::Transport::SMTP->new(
 		{ host => $self->{'config'}->{'smtp_server'} // 'localhost', port => $self->{'config'}->{'smtp_port'} // 25, }
 	);
@@ -504,6 +509,11 @@ sub _bad_email {
 		$self->print_bad_status( { message => q(The provided E-mail address is not valid.) } );
 		return 1;
 	}
+	if ($self->{'datastore'}->is_blocked_email($email)){
+		$self->print_bad_status( { message => q(The provided E-mail address has been blocked.) } );
+		$logger->error("Email address $email is blocked.");
+		return 1;
+	}
 	my $registration_exists =
 	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM users WHERE UPPER(email)=UPPER(?))', $email );
 	if ($registration_exists) {
@@ -556,6 +566,10 @@ sub _bad_username {
 
 sub _send_email {
 	my ( $self, $data ) = @_;
+	if ($self->{'datastore'}->is_blocked_email($data->{'email'})){
+		$logger->error("Email address $data->{'email'} is blocked.");
+		return;
+	}
 	my $message =
 		qq(An account has been set up for you on $self->{'config'}->{'domain'}\n\n)
 	  . qq(Please log in with the following details in the next $self->{'validate_time'} minutes. The account )

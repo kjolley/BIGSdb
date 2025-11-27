@@ -67,7 +67,8 @@ sub set_system_overrides {
 				if ($user_info) {
 					my $usergroups = $self->{'datastore'}->run_query(
 						'SELECT ug.description FROM user_groups ug JOIN user_group_members '
-						  . 'ugm ON ug.id=ugm.user_group WHERE ugm.user_id=?', $user_info->{'id'},
+						  . 'ugm ON ug.id=ugm.user_group WHERE ugm.user_id=?',
+						$user_info->{'id'},
 						{ fetch => 'col_arrayref' }
 					);
 					$valid_section{"usergroup:$_"} = 1 foreach @$usergroups;
@@ -201,6 +202,7 @@ sub read_config_file {
 	$self->{'config'}->{'max_upload_size'} *= 1024 * 1024;
 	$self->{'config'}->{'max_query_size'} //= 20;
 	$self->{'config'}->{'max_query_size'} *= 1024 * 1024;
+
 	if ( $self->{'config'}->{'site_user_dbs'} ) {
 		my @user_dbs;
 		my @user_db_values = split /\s*,\s*/x, $self->{'config'}->{'site_user_dbs'};
@@ -299,6 +301,7 @@ sub setup_datastore {
 		dataConnector => $self->{'dataConnector'},
 		system        => $self->{'system'},
 		config        => $self->{'config'},
+		config_dir    => $self->{'config_dir'},
 		xmlHandler    => $self->{'xmlHandler'},
 		curate        => $self->{'curate'},
 		db_attributes => $self->get_db_attributes

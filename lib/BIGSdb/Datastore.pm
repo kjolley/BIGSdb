@@ -4054,4 +4054,24 @@ sub get_embargo_attributes {
 		max_embargo         => $max_embargo
 	};
 }
+
+sub is_blocked_email {
+	my ($self, $address) = @_;
+	my $block_file = "$self->{'config_dir'}/email_blocklist.txt";
+	return if !-e $block_file;
+	if (!defined $self->{'cache'}->{'block_list'}){
+		my $block = {};
+		open( my $fh, '<:encoding(utf8)', $block_file )
+		  || $logger->error("Cannot open $block_file for reading.");
+		while (my $line = <$fh>){
+			$line =~ s/^\s*//x;
+			$line =~ s/\s*$//x;
+			next if !$line;
+			$block->{$line} = 1;
+		}
+		close $fh;
+		$self->{'cache'}->{'block_list'} = $block;
+	}
+	return $self->{'cache'}->{'block_list'}->{$address};
+}
 1;
