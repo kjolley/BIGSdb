@@ -223,6 +223,11 @@ sub _reset_password {
 		$logger->error("Invalid username '$username' passed.");
 		return;
 	}
+	if ($self->{'datastore'}->is_blocked_email($email_address)){
+		$self->print_bad_status( { message => q(The provided E-mail address has been blocked.) } );
+		$logger->error("Email address $email_address is blocked.");
+		return;
+	}
 	my $user_domain = $self->_get_user_domain;
 	$self->print_good_status(
 		{
@@ -519,7 +524,7 @@ sub _bad_email {
 	if ($registration_exists) {
 		my $detail;
 		if ( $self->{'config'}->{'site_admin_email'} ) {
-			$detail = qq(Contact the <a href="mailto:$self->{'config'}->{'site_admin_email'}">site administrator</a> )
+			$detail = qq[Contact the <a href="mailto:$self->{'config'}->{'site_admin_email'}">site administrator</a> ]
 			  . q(if you need to reset your password.);
 		}
 		$self->print_bad_status(
