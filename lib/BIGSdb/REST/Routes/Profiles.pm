@@ -85,12 +85,17 @@ sub _get_profiles {
 	my $path   = $self->get_full_path( "$subdir/db/$db/schemes/$scheme_id/profiles", $allowed_filters );
 	my $paging = $self->get_paging( $path, $pages, $page, $offset );
 	$values->{'paging'} = $paging if %$paging;
-	my $profile_links = [];
+	my $records = [];
 
 	foreach my $profile_id (@$profiles) {
-		push @$profile_links, request->uri_for("$subdir/db/$db/schemes/$scheme_id/profiles/$profile_id");
+		if ( params->{'include_records'} ) {
+			my $record = _get_profile( $db, $scheme_id, $profile_id );
+			push @$records, $record;
+		} else {
+			push @$records, request->uri_for("$subdir/db/$db/schemes/$scheme_id/profiles/$profile_id");
+		}
 	}
-	$values->{'profiles'} = $profile_links;
+	$values->{'profiles'} = $records;
 	my $message = $self->get_date_restriction_message;
 	$values->{'message'} = $message if $message;
 	return $values;
@@ -249,19 +254,30 @@ sub _print_lincode_fields {
 }
 
 sub _get_profile {
+	my ( $db, $scheme_id, $profile_id ) = @_;
 	my $self = setting('self');
 	$self->check_seqdef_database;
 	my $params = params;
-	my ( $db, $scheme_id, $profile_id ) = @{$params}{qw(db scheme_id profile_id)};
-	$self->check_scheme( $scheme_id, { pk => 1 } );
-	my $page             = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
-	my $set_id           = $self->get_set_id;
-	my $subdir           = setting('subdir');
-	my $scheme_info      = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
+	if ( !defined $db ) {
+		( $db, $scheme_id, $profile_id ) = @{$params}{qw(db scheme_id profile_id)};
+	}
+	if ( !$self->{'datastore'}->{'scheme_checked'}->{$scheme_id} ) {
+		$self->check_scheme( $scheme_id, { pk => 1 } );
+		$self->{'datastore'}->{'scheme_checked'}->{$scheme_id} = 1;
+	}
+
+	my $page   = ( BIGSdb::Utils::is_int( param('page') ) && param('page') > 0 ) ? param('page') : 1;
+	my $set_id = $self->get_set_id;
+	my $subdir = setting('subdir');
+	if ( !defined $self->{'datastore'}->{'scheme_info_cache_pk'}->{$scheme_id} ) {
+		$self->{'datastore'}->{'scheme_info_cache_pk'}->{$scheme_id} =
+		  $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
+	}
+	my $scheme_info      = $self->{'datastore'}->{'scheme_info_cache_pk'}->{$scheme_id};
 	my $scheme_warehouse = "mv_scheme_$scheme_id";
 	my $profile =
 	  $self->{'datastore'}->run_query( "SELECT * FROM $scheme_warehouse WHERE $scheme_info->{'primary_key'}=?",
-		$profile_id, { fetch => 'row_hashref' } );
+		$profile_id, { fetch => 'row_hashref', cache => "Profiles::get_profile::$scheme_warehouse" } );
 
 	if ( !$profile ) {
 		send_error( "Profile $scheme_info->{'primary_key'}-$profile_id does not exist.", 404 );
@@ -271,20 +287,30 @@ sub _get_profile {
 		my $message = $self->get_date_restriction_message;
 		send_error( $message, 403 );
 	}
-	my $values        = {};
-	my $loci          = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my $allele_links  = [];
-	my $locus_indices = $self->{'datastore'}->get_scheme_locus_indices($scheme_id);
+	my $values       = {};
+	my $loci         = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $allele_links = [];
+	if ( !defined $self->{'datastore'}->{'locus_indices'}->{$scheme_id} ) {
+		$self->{'datastore'}->{'locus_indices'}->{$scheme_id} =
+		  $self->{'datastore'}->get_scheme_locus_indices($scheme_id);
+	}
+	my $locus_indices = $self->{'datastore'}->{'locus_indices'}->{$scheme_id};
 	foreach my $locus (@$loci) {
 		my $cleaned_locus = $self->clean_locus($locus);
 		my $allele_id     = $profile->{'profile'}->[ $locus_indices->{$locus} ];
-		push @$allele_links, request->uri_for("$subdir/db/$db/loci/$cleaned_locus/alleles/$allele_id");
+		push @$allele_links, params->{'allele_ids_only'}
+		  ? { locus => $cleaned_locus, allele_id => $allele_id }
+		  : request->uri_for("$subdir/db/$db/loci/$cleaned_locus/alleles/$allele_id");
 	}
 	$values->{'alleles'} = $allele_links;
 	my $fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	foreach my $field (@$fields) {
 		next if !defined $profile->{ lc($field) };
-		my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+		if ( !defined $self->{'datastore'}->{'scheme_field_info_cache'}->{$scheme_id}->{$field} ) {
+			$self->{'datastore'}->{'scheme_field_info_cache'}->{$scheme_id}->{$field} =
+			  $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+		}
+		my $field_info = $self->{'datastore'}->{'scheme_field_info_cache'}->{$scheme_id}->{$field};
 		if ( $field_info->{'type'} eq 'integer' ) {
 			$values->{$field} = int( $profile->{ lc($field) } );
 		} else {
@@ -294,7 +320,7 @@ sub _get_profile {
 	my $profile_info = $self->{'datastore'}->run_query(
 		'SELECT * FROM profiles WHERE scheme_id=? AND profile_id=?',
 		[ $scheme_id, $profile_id ],
-		{ fetch => 'row_hashref' }
+		{ fetch => 'row_hashref', cache => 'Profiles::get_profile::profile_info' }
 	);
 	foreach my $attribute (qw(sender curator date_entered datestamp)) {
 		if ( $attribute eq 'sender' || $attribute eq 'curator' ) {
@@ -306,9 +332,13 @@ sub _get_profile {
 			$values->{$attribute} = $profile_info->{$attribute};
 		}
 	}
+	if ( !defined $self->{'datastore'}->{'classification_schemes_cache'}->{$scheme_id} ) {
+		$self->{'datastore'}->{'classification_schemes_cache'}->{$scheme_id} =
+		  $self->{'datastore'}->run_query( 'SELECT * FROM classification_schemes WHERE scheme_id=?',
+			$scheme_id, { fetch => 'all_arrayref', slice => {} } );
+	}
 	my $classification_schemes =
-	  $self->{'datastore'}->run_query( 'SELECT * FROM classification_schemes WHERE scheme_id=?',
-		$scheme_id, { fetch => 'all_arrayref', slice => {} } );
+	  $self->{'datastore'}->{'classification_schemes_cache'}->{$scheme_id};
 	my $cs_values = {};
 	foreach my $cs_scheme (@$classification_schemes) {
 		my $group = $self->{'datastore'}->run_query(
