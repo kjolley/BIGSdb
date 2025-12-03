@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -554,13 +554,15 @@ sub get_javascript {
 	my ($self) = @_;
 	my $buffer = << "END";
 \$(function () {
-   \$('#field_sender').multiselect({
-  	classes: 'filter',
- 	menuHeight: 250,
- 	menuWidth: 400,
- 	noneSelectedText: '',
- 	selectedList: 1,
-  }).multiselectfilter();
+  \$("select#field_sender").select2({
+		width: '240px',
+		dropdownAutoWidth: true,
+		minimumResultsForSearch: 20
+	});
+	// hack to fix jquery 3.6 focus security patch that bugs auto search in select-2
+	\$(document).on('select2:open', () => {
+   	   document.querySelector('.select2-search__field').focus();
+	}); 
 });
 END
 	return $buffer;
