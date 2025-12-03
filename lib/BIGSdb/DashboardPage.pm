@@ -361,6 +361,11 @@ sub _get_field_type {
 	if ( $element->{'field'} =~ /^as_(?:\d+|provenance)$/x ) {
 		return 'text';
 	}
+	if ( $element->{'field'} =~ /^af_(.+)___(.+)/x ) {
+	    my ( $analysis_name, $field_name ) = ( $1, $2 );
+	    my $att = $self->{'datastore'}->get_analysis_field( $analysis_name, $field_name );
+	    return $att->{'data_type'};
+	}
 	return;
 }
 
@@ -944,6 +949,12 @@ sub get_display_field {
 	if ( $field eq 'as_provenance' ) {
 		$display_field = 'annotation (provenance)';
 	}
+	if ( $field =~ /^af_(.+)___(.+)/x ) {
+	    my ( $analysis_name, $field_name ) = ( $1, $2 );
+	    my $att = $self->{'datastore'}->get_analysis_field( $analysis_name, $field_name );
+	    my $analysis = $att->{'analysis_display_name'} || $att->{'analysis_name'};
+	    $display_field = "$field_name ($analysis)";
+	}
 	return $display_field;
 }
 
@@ -1033,6 +1044,14 @@ sub get_list_attribute_data {
 		$field      = $1;
 		$field_type = "geography_point_$2";
 		$data_type  = 'float';
+	} elsif ( $attribute =~ /^af_(.+)___(.+)/x ) {
+	    my $analysis   = $1;
+	    my $field_name = $2;
+	    $field      = $attribute;
+	    $field_type = 'analysis_field';
+	    my $field_info = $self->{'datastore'}->get_analysis_field($analysis, $field_name);
+		return if !$field_info;
+		$data_type = $field_info->{'data_type'};
 	}
 	$_ //= q() foreach ( $eav_table, $extended_field );
 	return {
@@ -1374,6 +1393,10 @@ sub _field_exists {
 	}
 	if ( $field =~ /^as_(\d+)$/x ) {
 		return $self->{'datastore'}->scheme_exists($1);
+	}
+	if ( $field =~ /^af_(.+)___(.+)/x ) {
+	    my ($analysis_name, $field_name) = ($1, $2);
+	    return $self->{'datastore'}->is_analysis_field( $analysis_name, $field_name );
 	}
 	return;
 }
@@ -1750,6 +1773,9 @@ sub _get_specific_field_value_counts {
 	if ( $element->{'field'} eq 'as_provenance' ) {
 		$data = $self->_get_provenance_annotation_status_field_counts($element);
 	}
+	if ( $element->{'field'} =~ /^af_(.+)___(.+)/x ) {
+	    $data = $self->_get_analysis_field_counts($element);
+	}
 	return $data;
 }
 
@@ -1961,6 +1987,42 @@ sub _get_provenance_annotation_status_field_counts {
 	return $values;
 }
 
+sub _get_analysis_field_counts {
+    my ( $self, $element ) = @_;
+    if ( $element->{'field'} =~ /^af_(.+)___(.+)/x ) {
+        my ( $analysis_name, $field_name ) = ( $1, $2 );
+        my $att         = $self->{'datastore'}->get_analysis_field($analysis_name, $field_name);
+        my $type        = $att->{'data_type'};
+        my $values      = $self->_filter_list( $type, $element->{'specific_values'} );
+	    my $temp_table  = $self->{'datastore'}->create_temp_list_table_from_array( $type, $values );
+	    my $view        = $self->{'system'}->{'view'};
+        my $qry          = "SELECT COUNT(*) FROM analysis_results_cache t JOIN analysis_fields af "
+        . "ON (af.analysis_name,af.json_path) = (t.analysis_name,t.json_path) "
+        . "RIGHT JOIN $view v ON t.isolate_id = v.id AND (t.analysis_name,af.field_name) = (?,?) WHERE ";
+
+        if ( $type eq 'text' ) {
+            $qry .= "UPPER(t.value) IN (SELECT UPPER(value) FROM $temp_table)";
+        } else {
+            $qry .= "t.value IN (SELECT value FROM $temp_table)";
+        }
+        my $filters = $self->_get_filters;
+        local $" = ' AND ';
+        $qry .= " AND @$filters" if @$filters;
+        my $count = $self->{'datastore'}->run_query( $qry, [ $analysis_name, $field_name ] );
+        my $data  = { count => $count };
+        if ( $element->{'change_duration'} && $count > 0 ) {
+            my %allowed = map { $_ => 1 } qw(week month year);
+            if ( $allowed{ $element->{'change_duration'} } ) {
+                $data->{'change_duration'} = $element->{'change_duration'};
+                $qry .= " AND v.date_entered <= now()-interval '1 $element->{'change_duration'}'";
+                my $past_count = $self->{'datastore'}->run_query( $qry, [ $analysis_name, $field_name ] );
+                $data->{'increase'} = $count - ( $past_count // 0 );
+            }
+        }
+        return $data;
+    }
+}
+
 sub _get_field_breakdown_values {
 	my ( $self, $element ) = @_;
 	if ( $element->{'field'} =~ /^f_/x ) {
@@ -1985,6 +2047,11 @@ sub _get_field_breakdown_values {
 	}
 	if ( $element->{'field'} eq 'as_provenance' ) {
 		return $self->_get_provenance_annotation_status_field_counts;
+	}
+	if ( $element->{'field'} =~ /^af_(.+)___(.+)/x ) {
+	    my $analysis_name = $1;
+	    my $field_name    = $2;
+	    return $self->_get_analysis_field_breakdown_values( $analysis_name, $field_name );
 	}
 	return [];
 }
@@ -2190,6 +2257,49 @@ sub _get_scheme_annotation_values {
 		{ label => 'not started',    value => $view_count - $good - $bad - $intermediate }
 	];
 	return $values;
+}
+
+sub _get_analysis_field_breakdown_values {
+    my ( $self, $analysis_name, $field_name ) = @_;
+    my $att = $self->{'datastore'}->get_analysis_field( $analysis_name, $field_name );
+    my $filters = $self->_get_filters;
+    local $" = ' AND ';
+    my $filter_clause = @$filters ? "WHERE @$filters" : q();
+    my $qry =
+        "WITH matching_values AS "
+      . "(SELECT arc.isolate_id, arc.value FROM analysis_results_cache arc "
+      . "JOIN analysis_fields af ON (af.analysis_name,af.json_path) = (arc.analysis_name,arc.json_path) "
+      . "WHERE (af.analysis_name,af.field_name) = (?,?)),isolates_values AS "
+      . "(SELECT v.id AS isolates_id, array_agg(mv.value) AS label FROM $self->{'view'} v "
+      . "LEFT JOIN matching_values mv ON v.id=mv.isolate_id "
+      . "$filter_clause "
+      . "GROUP BY v.id) "
+      . "SELECT label, COUNT(*) AS value FROM isolates_values";
+	$qry .= ' GROUP BY label ORDER BY ';
+	if (   $att->{'data_type'} eq 'integer'
+		|| $att->{'data_type'} eq 'date'
+		|| $att->{'data_type'} eq 'float' )
+	{
+		$qry .= 'label';
+	} else {
+		$qry .= 'value DESC';
+	}
+	my $values =
+	    $self->{'datastore'}->run_query( $qry, [ $analysis_name, $field_name ], { fetch => 'all_arrayref', slice => {} } );
+	my $new_values = [];
+    foreach my $value (@$values) {
+        my $label = $value->{'label'};
+        if (!@$label || !grep { defined $_ } @$label) {
+            $label = ['No value'];
+        }
+        local $" = q(; );
+        my $new_label = @$label ? "@$label" : 'No value';
+		push @$new_values, {
+            label => $new_label,
+            value => $value->{'value'}
+        };
+    }
+    return $new_values;
 }
 
 sub _rewrite_user_field_values {
@@ -4028,6 +4138,15 @@ sub _get_query_url {
 	if ( $element->{'field'} eq 'as_provenance' ) {
 		$url .= "&amp;annotation_status_field1=provenance&amp;annotation_status_value1=$value";
 	}
+    if ($element->{'field'} =~ /^af_(.+)/x) {
+        my $url_field = $1;
+        my $i = 1;
+        my @parts = split(/;%20/, $value);
+        foreach my $part (@parts) {
+            $url .= "&amp;analysis_field$i=$url_field&amp;analysis_value$i=$part";
+            $i++;
+        }
+    }
 	if ( $self->{'prefs'}->{'include_old_versions'} ) {
 		$url .= '&amp;include_old=on';
 	}
@@ -4654,7 +4773,8 @@ sub print_field_selector {
 		extended_attributes      => 1,
 		eav_fields               => 1,
 		annotation_status        => 1,
-		nosplit_geography_points => 1
+		nosplit_geography_points => 1,
+		analysis_fields          => 1
 	};
 	my $q = $self->{'cgi'};
 	my ( $fields, $labels ) = $self->get_field_selection_list($select_options);
@@ -4682,6 +4802,9 @@ sub print_field_selector {
 		if ( $field =~ /^as_/x ) {
 			push @{ $group_members->{'Annotation status'} }, $field;
 		}
+		if ( $field =~ /^af_/x ) {
+			push @{ $group_members->{'Analysis fields'} }, $field;
+		}
 		if ( $field =~ /^[f|e]_/x ) {
 			( my $stripped_field = $field ) =~ s/^[f|e]_//x;
 			$stripped_field =~ s/[\|\||\s].+$//x;
@@ -4708,6 +4831,7 @@ sub print_field_selector {
 	$labels->{'sp_seqbin_size'} = 'sequence bin size';
 	my @eav_groups = split /,/x, ( $self->{'system'}->{'eav_groups'} // q() );
 	push @group_list, @eav_groups if @eav_groups;
+	push @group_list, 'Analysis fields' if defined $group_members->{'Analysis fields'};
 	push @group_list, ( 'Loci', 'Schemes', 'Annotation status' );
 
 	foreach my $group ( 'Special', undef, @group_list ) {

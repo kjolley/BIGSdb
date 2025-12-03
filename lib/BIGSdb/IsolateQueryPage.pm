@@ -992,7 +992,8 @@ sub _print_list_fieldset_contents {
 			no_list_by_common_name          => 1,
 			scheme_fields                   => 1,
 			sender_attributes               => 0,
-			extended_attributes             => 1
+			extended_attributes             => 1,
+			analysis_fields                 => 1
 		}
 	);
 	my $grouped = $self->{'xmlHandler'}->get_grouped_fields;
@@ -1055,9 +1056,14 @@ sub _modify_query_by_list {
 	say qq(<script>listFile="$list_file";listAttribute="$attribute;"</script>);
 	my $view                      = $self->{'system'}->{'view'};
 	my $isolate_scheme_field_view = q();
+	my ( $analysis_name, $field_name, $json_path ) = q();
 
 	if ( $field_type eq 'scheme_field' ) {
 		$isolate_scheme_field_view = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
+	} elsif ( $field_type eq 'analysis_field' ) {
+	    ($analysis_name, $field_name) = $field =~ /^af_(.+)___(.+)/x;
+	    my $field_info = $self->{'datastore'}->get_analysis_field( $analysis_name, $field_name );
+		$json_path = $field_info->{'json_path'};
 	}
 	$field_type = 'provenance_multiple' if $field_type eq 'provenance' && $multiple;
 	my %sql = (
@@ -1083,7 +1089,11 @@ sub _modify_query_by_list {
 		  . ' IN (SELECT value FROM temp_list))',
 		geography_point           => "$view.$field IN (SELECT value FROM temp_list)",
 		geography_point_latitude  => "ST_Y($view.${field}::geometry) IN (SELECT value FROM temp_list)",
-		geography_point_longitude => "ST_X($view.${field}::geometry) IN (SELECT value FROM temp_list)"
+		geography_point_longitude => "ST_X($view.${field}::geometry) IN (SELECT value FROM temp_list)",
+		analysis_field => "$view.id IN (SELECT isolate_id FROM analysis_results_cache "
+		                . "WHERE analysis_name='$analysis_name' AND json_path=E'$json_path' AND "
+		                . ( $data_type eq 'text' ? 'UPPER(value)' : 'value' )
+		                . "IN (SELECT value FROM temp_list))"
 	);
 	return $qry if !$sql{$field_type};
 	if ( $qry !~ /WHERE\ \(\)\s*$/x ) {

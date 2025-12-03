@@ -200,6 +200,13 @@ sub _get_field_names {
 			$mapped->{$cleaned_field_name} = $field;
 			$reverse_mapped->{$field}      = $cleaned_field_name;
 		}
+		if ( $field =~ /^af_(.+)___(.+)/x ) {
+		    my ( $analysis_name, $field_name ) = ( $1, $2 );
+		    my $cleaned_field_name = "$field_name ($analysis_name)";
+		    push @$cleaned, $cleaned_field_name;
+		    $mapped->{$cleaned_field_name} = $field;
+		    $reverse_mapped->{$field}      = $cleaned_field_name;
+		}
 	}
 	return {
 		cleaned        => $cleaned,
@@ -214,11 +221,11 @@ sub _create_freq_table {
 	my $check      = $self->_check_fields($params);
 	my (
 		$list_field,    $includes_null, $primary_fields, $extended_fields, $eav_fields,
-		$scheme_fields, $group_fields,  $multi_values,   $user_fields
+		$scheme_fields, $group_fields,  $multi_values,   $user_fields,  $analysis_fields
 	  )
 	  = @{$check}{
 		qw(list_field includes_null primary_fields extended_fields eav_fields scheme_fields group_fields
-		  multi_values user_fields)
+		  multi_values user_fields analysis_fields)
 	  };
 	my @tables;
 	my @fields;
@@ -246,6 +253,12 @@ sub _create_freq_table {
 		push @fields, @{ $processed->{'fields'} };
 		push @tables, @{ $processed->{'tables'} };
 	}
+	if (@$analysis_fields) {
+		my $processed = $self->_process_analysis_fields($analysis_fields);
+		local $" = q(,);
+		push @fields, @{ $processed->{'fields'} };
+		push @tables, @{ $processed->{'tables'} };
+	}
 	local $" = q(,);
 	$qry .= qq(@fields,COUNT(*) AS count );
 	local $" = q( LEFT JOIN );
@@ -254,7 +267,7 @@ sub _create_freq_table {
 	my $filters = $self->_get_filters($params);
 	if (@$filters) {
 		local $" = q( AND );
-		$qry .= $qry =~ /WHERE/x ? 'AND ' : 'WHERE ';
+		$qry .= 'WHERE ';
 		$qry .= qq(@$filters );
 	}
 	$qry .= $qry =~ /WHERE/x ? 'AND ' : 'WHERE ';
@@ -297,6 +310,7 @@ sub _create_freq_table {
 		my $prov         = 1;
 		my $eav          = 1;
 		my $scheme_field = 1;
+		my $analysis_field = 1;
 		foreach my $key ( @{ $field_names->{'cleaned'} } ) {
 			if ( $field_names->{'mapped'}->{$key} ) {
 				my $field = $field_names->{'mapped'}->{$key};
@@ -325,6 +339,19 @@ sub _create_freq_table {
 					];
 					$scheme_field++;
 				}
+				if ( $field =~ /^af_(.+)/x ) {
+                    my @parts = split(/;%20/, $value);
+                    foreach my $part (@parts) {
+                        push @{ $search_terms->{$key} }, {
+                            form => "analysis_field$analysis_field",
+                            value => $1
+                        }, {
+                            form => "analysis_value$analysis_field",
+                            value => $part
+                        };
+                        $analysis_field++;
+                    }
+                }
 			}
 		}
 		$record->{'search_terms'} = $search_terms;
@@ -341,6 +368,7 @@ sub _check_fields {
 	my $eav_fields      = [];
 	my $scheme_fields   = [];
 	my $group_fields    = [];
+	my $analysis_fields = [];
 	my $multi_values;
 	my %user_fields;
 	my $list_field;
@@ -410,6 +438,23 @@ sub _check_fields {
 			push @$group_fields, $cleaned_field_name;
 			$used{$field} = 1;
 		}
+	    if ( $field =~ /^af_(.+)___(.+)/x ) {
+			my ( $analysis_name, $field_name ) = ( $1, $2 );
+			next if $used{$field};
+			my $att = $self->{'datastore'}->get_analysis_field( $analysis_name, $field_name);
+			next if !$att;
+			push @$analysis_fields,
+			  {
+				analysis => $analysis_name,
+				field    => $field_name
+			  };
+			if ( $field eq $params->{'fields'}->[0] ) {
+				$list_field   = 'arc1.values_array';
+				$multi_values = 1;
+			}
+			push @$group_fields, "$field_name ($analysis_name)";
+			$used{$field} = 1;
+		}
 	}
 	return {
 		list_field      => $list_field,
@@ -419,6 +464,7 @@ sub _check_fields {
 		eav_fields      => $eav_fields,
 		scheme_fields   => $scheme_fields,
 		group_fields    => $group_fields,
+		analysis_fields => $analysis_fields,
 		multi_values    => $multi_values,
 		user_fields     => [ keys %user_fields ]
 	};
@@ -533,6 +579,33 @@ sub _process_scheme_fields {
 	};
 }
 
+sub _process_analysis_fields {
+    my ( $self, $analysis_fields ) = @_;
+    my $tables      = [];
+    my $temp_fields = [];
+    my $i           = 1;
+    foreach my $field (@$analysis_fields) {
+        my $att = $self->{'datastore'}->get_analysis_field( $field->{'analysis'}, $field->{'field'} );
+        my $val = 'value';
+        if ( $att->{'value_format'} ne 'text' ) {
+            $val = 'CAST(value AS text)';
+        }
+        push @$temp_fields, qq(COALESCE(arc$i.value_string,'No value') AS "_$field->{'field'} ($field->{'analysis'})");
+        push @$tables,
+              "(SELECT isolate_id, array_agg($val) as values_array, "
+            . "array_to_string(array_agg($val ORDER BY value),'; ') as value_string "
+            . "FROM analysis_results_cache t "
+            . "JOIN analysis_fields af ON (af.analysis_name,af.json_path)=(t.analysis_name,t.json_path) "
+            . "WHERE af.analysis_name='$field->{'analysis'}' AND af.field_name='$field->{'field'}' "
+            . "GROUP BY isolate_id) arc$i ON arc$i.isolate_id=v.id";
+        $i++;
+    }
+    return {
+        fields => $temp_fields,
+        tables => $tables
+    };
+}
+
 sub _get_scheme_field_name {
 	my ( $self, $field ) = @_;
 	my $set_id = $self->get_set_id;
@@ -591,7 +664,7 @@ sub print_content {
 	say qq(<p>Total records: <span id="total_records" style="font-weight:600">$nice_records</span>; )
 	  . qq(Unique values: <span id="unique_values" style="font-weight:600">$nice_count</span></p>);
 
-	if ( $self->_is_multi_field($field) ) {
+	if ( $self->_is_multi_field($field) || $field =~ /^af_/x ) {
 		say q(<p>Field allows multiple values - totals may be >100%</p>);
 	}
 	say q(</div><div style="clear:both"></div>);
@@ -643,6 +716,7 @@ sub _print_field_controls {
 				scheme_fields       => 1,
 				extended_attributes => 1,
 				eav_fields          => 1,
+				analysis_fields     => 1
 			},
 			{
 				no_special    => 1,
@@ -751,6 +825,10 @@ sub _get_url {
 	if ( $field =~ /^s_\d+_/x ) {
 		$url .= "&designation_field1=$field&designation_value1=$value";
 	}
+    if ( $field =~ /^af_(.+)/x ) {
+	    my $url_field = $1;
+	    $url .= "&analysis_field1=$url_field&analysis_value1=$value";
+	}
 	if ( $params->{'include_old_versions'} ) {
 		$url .= '&include_old=on';
 	}
@@ -783,6 +861,10 @@ sub _get_values {
 	if ( $field =~ /^s_(\d+)_(.*)/x ) {
 		( my $scheme_id, $field ) = ( $1, $2 );
 		return $self->_get_scheme_field_values( $scheme_id, $field, $params );
+	}
+	if ( $field =~ /^af_(.+)___(.+)/x) {
+		my ( $analysis_name, $field_name ) = ( $1, $2 );
+		return $self->_get_analysis_field_values( $analysis_name, $field_name, $params );
 	}
 	return {};
 }
@@ -876,6 +958,25 @@ sub _get_scheme_field_values {
 		$freqs->{ $value->{'label'} } = $value->{'count'};
 	}
 	return $freqs;
+}
+
+sub _get_analysis_field_values {
+	my ( $self, $analysis_name, $field_name, $params ) = @_;
+	my $qry = "SELECT COALESCE(t.value, 'No value') AS label, COUNT(*) AS count FROM analysis_results_cache t "
+	    . "JOIN analysis_fields af ON (af.analysis_name,af.json_path) = (t.analysis_name,t.json_path) "
+        . "RIGHT JOIN $self->{'system'}->{'view'} v ON t.isolate_id = v.id AND (t.analysis_name,af.field_name) = (?,?)";
+	my $filters = $self->_get_filters($params);
+	local $" = ' AND ';
+	$qry .= " WHERE @$filters" if @$filters;
+	$qry .= ' GROUP BY label';
+    my $values =
+      $self->{'datastore'}->run_query( $qry, [ $analysis_name, $field_name ], { fetch => 'all_arrayref', slice => {} } );
+    my $freqs = {};
+
+    foreach my $value (@$values) {
+        $freqs->{ $value->{'label'} } = $value->{'count'};
+    }
+    return $freqs;
 }
 
 sub _get_filters {
