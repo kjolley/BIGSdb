@@ -54,7 +54,7 @@ sub _get_alleles {
 	}
 	my $qry = $self->add_filters(
 		qq(SELECT COUNT(*),max(datestamp) FROM $self->{'system'}->{'temp_sequences_view'} )
-		  . q(WHERE locus=? AND allele_id NOT IN ('0','N')),
+		  . q(WHERE locus=? AND allele_id NOT IN ('0','N','P')),
 		$allowed_filters
 	);
 	my ( $allele_count, $last_updated ) = $self->{'datastore'}->run_query( $qry, $locus_name );
