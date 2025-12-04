@@ -53,8 +53,10 @@ sub _get_alleles {
 		send_error( "Locus $locus does not exist.", 404 );
 	}
 	my $qry = $self->add_filters(
-		"SELECT COUNT(*),max(datestamp) FROM $self->{'system'}->{'temp_sequences_view'} WHERE locus=?",
-		$allowed_filters );
+		qq(SELECT COUNT(*),max(datestamp) FROM $self->{'system'}->{'temp_sequences_view'} )
+		  . q(WHERE locus=? AND allele_id NOT IN ('0','N')),
+		$allowed_filters
+	);
 	my ( $allele_count, $last_updated ) = $self->{'datastore'}->run_query( $qry, $locus_name );
 	my $page_values = $self->get_page_values($allele_count);
 	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
