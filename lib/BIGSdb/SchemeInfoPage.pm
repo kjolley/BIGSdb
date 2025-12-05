@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2016-2021, University of Oxford
+#Copyright (c) 2016-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -65,6 +65,7 @@ sub print_content {
 	$self->_print_fields($scheme_id);
 	$self->_print_loci($scheme_id);
 	$self->_print_profiles($scheme_id);
+	$self->_print_lincodes($scheme_id);
 	$self->_print_links($scheme_id);
 	say q(</div>);
 	return;
@@ -126,7 +127,7 @@ sub _print_scheme_curators {
 sub _print_fields {
 	my ( $self, $scheme_id ) = @_;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-	my $pk = $scheme_info->{'primary_key'};
+	my $pk          = $scheme_info->{'primary_key'};
 	return if !defined $pk;
 	say q(<h2>Fields</h2>);
 	say q(<p>The primary key field indexes unique combinations of alleles at the member loci.</p>);
@@ -156,7 +157,7 @@ sub _print_loci {
 	my ( $self, $scheme_id ) = @_;
 	my $scheme_loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	say q(<h2>Loci</h2>);
-	my $count = @$scheme_loci;
+	my $count  = @$scheme_loci;
 	my $plural = @$scheme_loci == 1 ? q(us) : q(i);
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		say qq(<p>This scheme consists of alleles from <a href="$self->{'system'}->{'script_name'}?)
@@ -183,7 +184,7 @@ sub _print_profiles {
 	return if $self->{'system'}->{'dbtype'} ne 'sequences';
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 	return if !$scheme_info->{'primary_key'};
-	my $count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM mv_scheme_$scheme_id");
+	my $count  = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM mv_scheme_$scheme_id");
 	my $plural = $count == 1 ? q() : q(s);
 	say q(<h2>Profiles</h2>);
 	my $nice_count = BIGSdb::Utils::commify($count);
@@ -205,6 +206,32 @@ sub _print_profiles {
 		  . qq(submit=1$cache_string">Profile update history</a></li></ul>);
 	}
 	return;
+}
+
+sub _print_lincodes {
+	my ( $self, $scheme_id ) = @_;
+	my $q = $self->{'cgi'};
+	my $lincodes =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT * FROM lincode_schemes WHERE scheme_id=?', $scheme_id, { fetch => 'row_hashref' } );
+	return if !$lincodes;
+	my @thresholds = split /\s*;\s*/x, $lincodes->{'thresholds'};
+	my $bin        = 1;
+	say q(<h2>LIN codes</h2);
+	say q(<p>This scheme has LIN codes defined. See )
+	  . q(<a href="https://www.biorxiv.org/content/10.1101/2024.03.11.584534v2" target="_blank">)
+	  . q(Palma <i>et al.</i> bioRxiv 2024.03.11.584534</a>.</p>);
+	say q(<div class="scrollable"><table class="resultstable">);
+	say q(<tr><th>Bin</th><th>Threshold (allelic differences)</th></tr>);
+	my $td = 1;
+
+	foreach my $threshold (@thresholds) {
+		say qq(<tr class="td$td"><td>$bin</td><td>$threshold</td></tr>);
+		$td = $td == 1 ? 2 : 1;
+		$bin++;
+	}
+	say q(</table></div>);
+
 }
 
 sub _print_links {
