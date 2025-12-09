@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#(c) 2010-2021, University of Oxford
+#(c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -95,7 +95,7 @@ sub _set_field_overrides {
 	return if !$self->{'instance'};
 	my $override_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/field.overrides";
 	my %allowed_att =
-	  map { $_ => 1 } qw(required maindisplay curate_only allow_submissions default hide optlist_values);
+	  map { $_ => 1 } qw(required maindisplay curate_only allow_submissions default hide no_curate optlist_values);
 	if ( -e $override_file ) {
 		my $config = Config::Tiny->new();
 		$config = Config::Tiny->read($override_file);
