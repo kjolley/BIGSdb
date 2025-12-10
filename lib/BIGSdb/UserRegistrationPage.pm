@@ -234,6 +234,14 @@ sub _reset_password {
 	  . qq((domain: $user_domain).\n);
 	$message .= qq(The request came from IP address: $ENV{'REMOTE_ADDR'}.\n\n)
 	  if !$self->{'config'}->{'no_client_ip_address'};
+	$self->print_good_status(
+		{
+			message => qq(A temporary password has been sent to $email_address for $username (domain: $user_domain) )
+			  . q(if an account with these details exists.),
+			navbar   => 1,
+			back_url => qq($self->{'system'}->{'script_name'})
+		}
+	);
 	if (
 		$self->{'datastore'}->run_query(
 			'SELECT EXISTS(SELECT * FROM users WHERE (user_name,LOWER(email))=(?,LOWER(?)))',
@@ -241,15 +249,7 @@ sub _reset_password {
 		)
 	  )
 	{
-		$self->print_good_status(
-			{
-				message =>
-				  qq(A temporary password has been sent to $email_address for $username (domain: $user_domain) )
-				  . q(if an account with these details exists.),
-				navbar   => 1,
-				back_url => qq($self->{'system'}->{'script_name'})
-			}
-		);
+
 		$self->set_password_hash( $username, Digest::MD5::md5_hex( $password . $username ), { reset_password => 1 } );
 		$logger->info("Password reset request for $email_address ($user_domain).");
 		if ( $self->{'config'}->{'registration_address'} ) {
@@ -263,13 +263,6 @@ sub _reset_password {
 		$message .= qq(You will be required to then change your password.\n\n);
 	} else {
 		$logger->error("Password reset request for $username ($email_address). Address does not match user.");
-		$self->print_bad_status(
-			{
-				message  => q(There is no account with that username registered to this address.),
-				navbar   => 1,
-				back_url => $self->{'system'}->{'script_name'}
-			}
-		);
 		return;
 	}
 	my $transport = Email::Sender::Transport::SMTP->new(
