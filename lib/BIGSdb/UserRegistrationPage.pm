@@ -93,7 +93,6 @@ sub _username_reminder {
 		return;
 	}
 
-
 	#Only send E-mail if we find an account but don't tell user if we don't (to stop this being used
 	#to check if specific addresses have registered accounts).
 	my $usernames =
@@ -108,7 +107,7 @@ sub _username_reminder {
 		}
 	);
 	return if !@$usernames;
-	if ($self->{'datastore'}->is_blocked_email($email_address)){
+	if ( $self->{'datastore'}->is_blocked_email($email_address) ) {
 		$logger->error("Email address $email_address is blocked.");
 		return;
 	}
@@ -223,20 +222,13 @@ sub _reset_password {
 		$logger->error("Invalid username '$username' passed.");
 		return;
 	}
-	if ($self->{'datastore'}->is_blocked_email($email_address)){
+	if ( $self->{'datastore'}->is_blocked_email($email_address) ) {
 		$self->print_bad_status( { message => q(The provided E-mail address has been blocked.) } );
 		$logger->error("Email address $email_address is blocked.");
 		return;
 	}
 	my $user_domain = $self->_get_user_domain;
-	$self->print_good_status(
-		{
-			message => qq(A temporary password has been sent to $email_address for $username (domain: $user_domain) )
-			  . q(if an account with these details exists.),
-			navbar   => 1,
-			back_url => qq($self->{'system'}->{'script_name'})
-		}
-	);
+
 	my $password = $self->_create_password;
 	my $message  = qq(A password reset has been requested for user '$username' with E-mail address '$email_address' )
 	  . qq((domain: $user_domain).\n);
@@ -249,6 +241,15 @@ sub _reset_password {
 		)
 	  )
 	{
+		$self->print_good_status(
+			{
+				message =>
+				  qq(A temporary password has been sent to $email_address for $username (domain: $user_domain) )
+				  . q(if an account with these details exists.),
+				navbar   => 1,
+				back_url => qq($self->{'system'}->{'script_name'})
+			}
+		);
 		$self->set_password_hash( $username, Digest::MD5::md5_hex( $password . $username ), { reset_password => 1 } );
 		$logger->info("Password reset request for $email_address ($user_domain).");
 		if ( $self->{'config'}->{'registration_address'} ) {
@@ -262,7 +263,14 @@ sub _reset_password {
 		$message .= qq(You will be required to then change your password.\n\n);
 	} else {
 		$logger->error("Password reset request for $username ($email_address). Address does not match user.");
-		$message .= q(There is no account with that username registered to this address.);
+		$self->print_bad_status(
+			{
+				message  => q(There is no account with that username registered to this address.),
+				navbar   => 1,
+				back_url => $self->{'system'}->{'script_name'}
+			}
+		);
+		return;
 	}
 	my $transport = Email::Sender::Transport::SMTP->new(
 		{ host => $self->{'config'}->{'smtp_server'} // 'localhost', port => $self->{'config'}->{'smtp_port'} // 25, }
@@ -514,7 +522,7 @@ sub _bad_email {
 		$self->print_bad_status( { message => q(The provided E-mail address is not valid.) } );
 		return 1;
 	}
-	if ($self->{'datastore'}->is_blocked_email($email)){
+	if ( $self->{'datastore'}->is_blocked_email($email) ) {
 		$self->print_bad_status( { message => q(The provided E-mail address has been blocked.) } );
 		$logger->error("Email address $email is blocked.");
 		return 1;
@@ -571,7 +579,7 @@ sub _bad_username {
 
 sub _send_email {
 	my ( $self, $data ) = @_;
-	if ($self->{'datastore'}->is_blocked_email($data->{'email'})){
+	if ( $self->{'datastore'}->is_blocked_email( $data->{'email'} ) ) {
 		$logger->error("Email address $data->{'email'} is blocked.");
 		return;
 	}
