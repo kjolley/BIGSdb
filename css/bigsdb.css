@@ -1,4 +1,4 @@
-/*Version: 20251120*/
+/*Version: 20251210*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -3406,7 +3406,7 @@ select {
 	}
 
 	.data dd {
-		margin: initial
+		margin: initial !important
 	}
 
 	button.pagebar_adjacentplus1 {

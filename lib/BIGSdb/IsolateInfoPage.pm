@@ -158,7 +158,7 @@ sub get_javascript {
 		\$(".lc_filtered_" + scheme_id).css('visibility','visible');
 		\$(".lc_unfiltered_" + scheme_id).css('visibility','collapse');
 	});	
-	\$(".field_group").columnize({width:450});
+	\$(".field_group").columnize({width:600});
 	\$(".sparse").columnize({width:450,lastNeverTallest: true,doneFunc:function(){enable_slide_triggers();}});
 	\$("#seqbin").columnize({width:300,lastNeverTallest: true});  
 	if (!(\$("span").hasClass('aliases'))){
@@ -1256,6 +1256,7 @@ sub _get_provenance_fields {
 	$buffer .= qq(<h2>$heading</h2>\n);
 	$buffer .= qq(<div id="$div_id" class="field_group">);
 	my $list       = [];
+	
 	my $q          = $self->{'cgi'};
 	my $set_id     = $self->get_set_id;
 	my $is_curator = $self->is_curator;
@@ -1336,7 +1337,16 @@ sub _get_provenance_fields {
 		$self->_check_aliases( $isolate_id, $list, $field );
 	}
 	return q() if !@$list;
-	$buffer .= $self->get_list_block( $list, { columnize => 1 } );
+	my $longest_title = 0;
+	foreach my $pair (@$list){
+		if (length($pair->{'title'}) > $longest_title){
+			$longest_title = length($pair->{'title'});
+		}
+	}
+	my $width = ($longest_title / 2) + 2;
+	$width = 12 if $width < 12;
+	$width = 25 if $width > 25;
+	$buffer .= $self->get_list_block( $list, { columnize => 1, width => $width} );
 	$buffer .= q(</div></div>);
 	$buffer .= $self->_get_map_section($maps);
 	return $buffer;
