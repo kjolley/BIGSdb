@@ -34,7 +34,7 @@ use BIGSdb::Utils;
 use BIGSdb::Constants qw(COUNTRIES);
 use XML::Parser::PerlSAX;
 use List::MoreUtils qw(any);
-use Log::Log4perl qw(get_logger);
+use Log::Log4perl   qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
 sub get_system_hash {
@@ -126,17 +126,21 @@ sub characters {
 	my ( $self, $element ) = @_;
 	chomp( $element->{'Data'} );
 	$element->{'Data'} =~ s/^\s*//x;
-	if ( $self->{'_in_field'} ) {
-		$self->{'field_name'} = $element->{'Data'};
-		push @{ $self->{'fields'} }, $self->{'field_name'};
-		$self->_process_special_values( $self->{'these'} );
-		$self->{'attributes'}->{ $self->{'field_name'} } = $self->{'these'};
-		if ( ( $self->{'these'}->{'optlist'} // q() ) eq 'yes' && $self->{'these'}->{'values'} ) {
-			$self->_add_special_optlist_values( $self->{'field_name'}, $self->{'these'}->{'values'} );
-		}
-		$self->{'_in_field'} = 0;
-	} elsif ( $self->{'_in_optlist'} ) {
-		push @{ $self->{'options'}->{ $self->{'field_name'} } }, $element->{'Data'} if $element->{'Data'} ne '';
+
+	# Accumulate text for field elements (SAX may call characters() multiple times)
+	if ( $self->{'_in_field'} && !$self->{'_in_optlist'} && !$self->{'_in_option'} ) {
+		$self->{'_char_buffer'} .= $element->{'Data'};    # append, do not overwrite
+	}
+
+	# Accumulate text for option elements
+	elsif ( $self->{'_in_option'} ) {
+		$self->{'_option_buffer'} .= $element->{'Data'};
+	}
+
+	# fallback: existing behaviour for optlist children (if any other text)
+	elsif ( $self->{'_in_optlist'} ) {
+		push @{ $self->{'options'}->{ $self->{'field_name'} } }, $element->{'Data'}
+		  if $element->{'Data'} ne '';
 	}
 	return;
 }
@@ -146,8 +150,9 @@ sub start_element {
 	my %methods = (
 		system => sub { $self->{'_in_system'} = 1; $self->{'system'} = $element->{'Attributes'} },
 		field  => sub {
-			$self->{'_in_field'} = 1;
-			$self->{'these'}     = $element->{'Attributes'};
+			$self->{'_in_field'}    = 1;
+			$self->{'these'}        = $element->{'Attributes'};
+			$self->{'_char_buffer'} = '';
 		},
 		optlist => sub {
 			$self->{'_in_optlist'} = 1;
@@ -170,8 +175,25 @@ sub _add_special_optlist_values {
 sub end_element {
 	my ( $self, $element ) = @_;
 	my %methods = (
-		system  => sub { $self->{'_in_system'} = 0 },
-		field   => sub { $self->{'_in_field'}  = 0 },
+		system => sub { $self->{'_in_system'} = 0 },
+		field  => sub {
+			$self->{'_in_field'} = 0;
+
+			# get full text accumulated across characters() calls
+			my $text = $self->{'_char_buffer'} // q();
+
+			# original logic (moved here)
+			$self->{'field_name'} = $text;
+			push @{ $self->{'fields'} }, $self->{'field_name'};
+			$self->_process_special_values( $self->{'these'} );
+			$self->{'attributes'}->{ $self->{'field_name'} } = $self->{'these'};
+
+			if ( ( $self->{'these'}->{'optlist'} // q() ) eq 'yes' && $self->{'these'}->{'values'} ) {
+				$self->_add_special_optlist_values( $self->{'field_name'}, $self->{'these'}->{'values'} );
+			}
+
+			delete $self->{'_char_buffer'};    # clear buffer for next field
+		},
 		optlist => sub {
 			$self->{'_in_optlist'} = 0;
 			if ( ( $self->{'attributes'}->{ $self->{'field_name'} }->{'sort'} // q() ) eq 'yes' ) {
