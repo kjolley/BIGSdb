@@ -118,9 +118,9 @@ sub _get_scheme {
 		$values->{'max_missing'}  = $scheme_info->{'max_missing'} if defined $scheme_info->{'max_missing'};
 	}
 	my @boolean = qw(allow_missing_loci allow_presence);
-	$values->{$_} = ($scheme_info->{$_} ? JSON::true : JSON::false) foreach @boolean;
+	$values->{$_} = ( $scheme_info->{$_} ? JSON::true : JSON::false ) foreach @boolean;
 	$values->{'display_order'} = $scheme_info->{'display_order'} if defined $scheme_info->{'display_order'};
-	
+
 	$values->{'fields'} = $scheme_field_links if @$scheme_field_links;
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	$values->{'locus_count'} = scalar @$loci;
@@ -174,6 +174,17 @@ sub _get_scheme {
 			  };
 		}
 		$values->{'classification_schemes'} = $c_schemes;
+	}
+	my $lincode_scheme =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT * FROM lincode_schemes WHERE scheme_id=?', $scheme_id, { fetch => 'row_hashref' } );
+	if ($lincode_scheme) {
+		my $lc = { thresholds => $lincode_scheme->{'thresholds'} };
+		$lc->{'max_missing'} = $lincode_scheme->{'max_missing'} if defined $lincode_scheme->{'max_missing'};
+		if ( defined $lincode_scheme->{'maindisplay'} ) {
+			$lc->{'maindisplay'} = $lincode_scheme->{'maindisplay'} ? JSON::true : JSON::false;
+		}
+		$values->{'lincodes'} = $lc;
 	}
 	my $message = $self->get_date_restriction_message;
 	$values->{'message'} = $message if $message;
