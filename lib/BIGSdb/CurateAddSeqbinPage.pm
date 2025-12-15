@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2025, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,20 +20,38 @@ package BIGSdb::CurateAddSeqbinPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::CurateAddPage BIGSdb::SeqbinPage);
+use parent        qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use Try::Tiny;
 use File::Type;
 use IO::Uncompress::Gunzip qw(gunzip $GunzipError);
-use IO::Uncompress::Unzip qw(unzip $UnzipError);
-use BIGSdb::Constants qw(SEQ_METHODS :interface :limits);
+use IO::Uncompress::Unzip  qw(unzip $UnzipError);
+use BIGSdb::Constants      qw(SEQ_METHODS :interface :limits);
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (tooltips jQuery jQuery.multiselect modernizr noCache);
+	$self->{$_} = 1 foreach qw (tooltips jQuery select2 modernizr noCache);
 	$self->set_level1_breadcrumbs;
 	return;
+}
+
+sub get_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+\$(function () {
+  \$("select#sender").select2({
+		width: '240px',
+		dropdownAutoWidth: true,
+		minimumResultsForSearch: 20
+	});
+	// hack to fix jquery 3.6 focus security patch that bugs auto search in select-2
+	\$(document).on('select2:open', () => {
+   	   document.querySelector('.select2-search__field').focus();
+	}); 
+});
+END
+	return $buffer;
 }
 
 sub print_content {
