@@ -20,10 +20,10 @@ package BIGSdb::CurateBatchAddPage;
 use strict;
 use warnings;
 use 5.010;
-use Digest::MD5 qw(md5);
+use Digest::MD5     qw(md5);
 use List::MoreUtils qw(any none uniq);
-use parent qw(BIGSdb::CurateAddPage);
-use Log::Log4perl qw(get_logger);
+use parent          qw(BIGSdb::CurateAddPage);
+use Log::Log4perl   qw(get_logger);
 use Bio::Tools::CodonTable;
 use BIGSdb::Constants qw(:submissions :interface :limits);
 use BIGSdb::Utils;
@@ -1513,7 +1513,8 @@ sub _check_data_primary_key {
 		}
 		my ($exists) = $self->{'sql'}->{'primary_key_check'}->fetchrow_array;
 		if ($exists) {
-			my %warn_tables = map { $_ => 1 } qw(codon_tables project_members refs isolate_aliases locus_aliases);
+			my %warn_tables = map { $_ => 1 } qw(codon_tables project_members refs isolate_aliases locus_aliases
+			  scheme_members profile_refs sequence_refs);
 			if ( $warn_tables{ $arg_ref->{'table'} } ) {
 				my $warning_text = 'Primary key already exists in the database - upload will be skipped.<br />';
 				if ( !defined $arg_ref->{'problems'}->{$pk_combination}
