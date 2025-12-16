@@ -29,10 +29,10 @@ use constant MAX_QUERY_SEQ => 5000;
 sub setup_routes {
 	my $self = setting('self');
 	foreach my $dir ( @{ setting('api_dirs') } ) {
-		get "$dir/db/:db/schemes"                       => sub { _get_schemes() };
-		get "$dir/db/:db/schemes/breakdown/:field"      => sub { _get_schemes_breakdown() };
-		get "$dir/db/:db/schemes/:scheme"               => sub { _get_scheme() };
-		get "$dir/db/:db/schemes/:scheme/loci"          => sub { _get_scheme_loci() };
+		get "$dir/db/:db/schemes"                  => sub { _get_schemes() };
+		get "$dir/db/:db/schemes/breakdown/:field" => sub { _get_schemes_breakdown() };
+		get "$dir/db/:db/schemes/:scheme"          => sub { _get_scheme() };
+		get "$dir/db/:db/schemes/:scheme/loci"     => sub { _get_scheme_loci() };
 		get "$dir/db/:db/schemes/:scheme/fields/:field" => sub { _get_scheme_field() };
 		post "$dir/db/:db/schemes/:scheme/sequence"     => sub { _query_scheme_sequence() };
 		post "$dir/db/:db/schemes/:scheme/designations" => sub { _query_scheme_designations() };
@@ -90,9 +90,9 @@ sub _get_scheme {
 	my $self = setting('self');
 	my ( $db, $scheme_id ) = ( params->{'db'}, params->{'scheme'} );
 	$self->check_scheme($scheme_id);
+	my $subdir      = setting('subdir');
 	my $values      = {};
 	my $set_id      = $self->get_set_id;
-	my $subdir      = setting('subdir');
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
 	$values->{'id'}                    = int($scheme_id);
 	$values->{'description'}           = $scheme_info->{'name'};
@@ -183,6 +183,9 @@ sub _get_scheme {
 		$lc->{'max_missing'} = $lincode_scheme->{'max_missing'} if defined $lincode_scheme->{'max_missing'};
 		if ( defined $lincode_scheme->{'maindisplay'} ) {
 			$lc->{'maindisplay'} = $lincode_scheme->{'maindisplay'} ? JSON::true : JSON::false;
+		}
+		if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+			$lc->{'definitions'} = request->uri_for("$subdir/db/$db/schemes/$scheme_id/lincodes");
 		}
 		$values->{'lincodes'} = $lc;
 	}

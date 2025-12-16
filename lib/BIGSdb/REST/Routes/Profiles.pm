@@ -28,6 +28,7 @@ sub setup_routes {
 	my $self = setting('self');
 	foreach my $dir ( @{ setting('api_dirs') } ) {
 		get "$dir/db/:db/schemes/:scheme_id/profiles"     => sub { _get_profiles() };
+		get "$dir/db/:db/schemes/:scheme_id/lincodes"     => sub { _get_lincodes() };
 		get "$dir/db/:db/schemes/:scheme_id/profiles_csv" => sub {
 			_check_scheme();    #Need to do this before setting header.
 			response_header content_type => 'text/plain; charset=UTF-8';
@@ -96,6 +97,68 @@ sub _get_profiles {
 		}
 	}
 	$values->{'profiles'} = $records;
+	my $message = $self->get_date_restriction_message;
+	$values->{'message'} = $message if $message;
+	return $values;
+}
+
+sub _get_lincodes {
+	my $self = setting('self');
+	$self->check_seqdef_database;
+	my $params = params;
+	my ( $db, $scheme_id ) = @{$params}{qw(db scheme_id)};
+
+	my $allowed_filters = [qw(added_after added_reldate added_on updated_after updated_reldate updated_on)];
+	$self->check_scheme( $scheme_id, { pk => 1 } );
+	my $exists =
+	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM lincode_schemes WHERE scheme_id=?)', $scheme_id );
+	if ( !$exists ) {
+		send_error( "Scheme $scheme_id does not have a LIN code scheme.", 404 );
+	}
+	my $subdir           = setting('subdir');
+	my $date_restriction = $self->{'datastore'}->get_date_restriction;
+	my $date_restriction_clause =
+	  ( !$self->{'username'} && $date_restriction ) ? qq( AND datestamp<='$date_restriction') : q();
+	my $set_id           = $self->get_set_id;
+	my $scheme_info      = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
+	my $pk_info          = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $scheme_info->{'primary_key'} );
+	my $scheme_warehouse = "mv_scheme_$scheme_id";
+	my $qry              = $self->add_filters(
+		"SELECT COUNT(*),max(datestamp) FROM lincodes WHERE scheme_id=$scheme_id$date_restriction_clause",
+		$allowed_filters );
+	my ( $profile_count, $last_updated ) = $self->{'datastore'}->run_query($qry);
+
+	my $page_values = $self->get_page_values($profile_count);
+	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
+
+	$qry = $self->add_filters(
+		"SELECT profile_id,lincode,datestamp FROM lincodes WHERE scheme_id=$scheme_id$date_restriction_clause",
+		$allowed_filters );
+	$qry .= ' ORDER BY '
+	  . (
+		$pk_info->{'type'} eq 'integer'
+		? 'CAST(profile_id AS int)'
+		: 'profile_id'
+	  );
+	$qry .= " LIMIT $self->{'page_size'} OFFSET $offset" if !param('return_all');
+	my $lincodes = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
+	my $values   = { records => int($profile_count) };
+	$values->{'last_updated'} = $last_updated if defined $last_updated;
+	my $path   = $self->get_full_path( "$subdir/db/$db/schemes/$scheme_id/lincodes", $allowed_filters );
+	my $paging = $self->get_paging( $path, $pages, $page, $offset );
+	$values->{'paging'} = $paging if %$paging;
+	my $records = [];
+
+	foreach my $lincode (@$lincodes) {
+		push @$records,
+		  {
+			$scheme_info->{'primary_key'} =>
+			  ( $pk_info->{'type'} eq 'integer' ? int( $lincode->{'profile_id'} ) : $lincode->{'profile_id'} ),
+			lincode   => $lincode->{'lincode'},
+			datestamp => $lincode->{'datestamp'}
+		  };
+	}
+	$values->{'lincodes'} = $records;
 	my $message = $self->get_date_restriction_message;
 	$values->{'message'} = $message if $message;
 	return $values;
