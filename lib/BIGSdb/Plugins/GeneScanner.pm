@@ -78,7 +78,7 @@ sub get_attributes {
 		buttontext          => 'GeneScanner',
 		menutext            => 'GeneScanner',
 		module              => 'GeneScanner',
-		version             => '1.0.1',
+		version             => '1.0.2',
 		dbtype              => 'isolates',
 		section             => 'analysis,postquery',
 		input               => 'query',
@@ -348,6 +348,9 @@ sub run_job {
 	$self->{'params'} = $params;
 	my $aligner     = $self->{'params'}->{'aligner'} //= ( $self->{'config'}->{'mafft_path'} ? 'MAFFT' : 'MUSCLE' );
 	my $isolate_ids = $self->{'jobManager'}->get_job_isolates($job_id);
+	if ( !@$isolate_ids ) {
+		BIGSdb::Exception::Plugin->throw('No valid isolate records to analyse.');
+	}
 	my $scan_data;
 	$self->{'threads'} =
 	  BIGSdb::Utils::is_int( $self->{'config'}->{'genome_comparator_threads'} )
