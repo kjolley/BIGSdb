@@ -118,27 +118,33 @@ sub _get_lincodes {
 	my $subdir           = setting('subdir');
 	my $date_restriction = $self->{'datastore'}->get_date_restriction;
 	my $date_restriction_clause =
-	  ( !$self->{'username'} && $date_restriction ) ? qq( AND datestamp<='$date_restriction') : q();
-	my $set_id           = $self->get_set_id;
-	my $scheme_info      = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
-	my $pk_info          = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $scheme_info->{'primary_key'} );
+	  ( !$self->{'username'} && $date_restriction ) ? qq( AND p.date_entered<='$date_restriction') : q();
+	my $set_id      = $self->get_set_id;
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
+	my $pk_info     = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $scheme_info->{'primary_key'} );
 	my $scheme_warehouse = "mv_scheme_$scheme_id";
 	my $qry              = $self->add_filters(
-		"SELECT COUNT(*),max(datestamp) FROM lincodes WHERE scheme_id=$scheme_id$date_restriction_clause",
-		$allowed_filters );
+		'SELECT COUNT(*),max(p.datestamp) FROM lincodes l JOIN profiles p ON '
+		  . '(l.scheme_id,l.profile_id)=(p.scheme_id,p.profile_id) WHERE '
+		  . "p.scheme_id=$scheme_id$date_restriction_clause",
+		$allowed_filters
+	);
 	my ( $profile_count, $last_updated ) = $self->{'datastore'}->run_query($qry);
 
 	my $page_values = $self->get_page_values($profile_count);
 	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
 
 	$qry = $self->add_filters(
-		"SELECT profile_id,lincode,datestamp FROM lincodes WHERE scheme_id=$scheme_id$date_restriction_clause",
-		$allowed_filters );
+		'SELECT l.profile_id,l.lincode,l.datestamp FROM lincodes l JOIN profiles p ON '
+		  . '(l.scheme_id,l.profile_id)=(p.scheme_id,p.profile_id) '
+		  . "WHERE p.scheme_id=$scheme_id$date_restriction_clause",
+		$allowed_filters
+	);
 	$qry .= ' ORDER BY '
 	  . (
 		$pk_info->{'type'} eq 'integer'
-		? 'CAST(profile_id AS int)'
-		: 'profile_id'
+		? 'CAST(l.profile_id AS int)'
+		: 'l.profile_id'
 	  );
 	$qry .= " LIMIT $self->{'page_size'} OFFSET $offset" if !param('return_all');
 	my $lincodes = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
@@ -148,13 +154,14 @@ sub _get_lincodes {
 	my $paging = $self->get_paging( $path, $pages, $page, $offset );
 	$values->{'paging'} = $paging if %$paging;
 	my $records = [];
+	local $" = q(_);
 
 	foreach my $lincode (@$lincodes) {
 		push @$records,
 		  {
 			$scheme_info->{'primary_key'} =>
 			  ( $pk_info->{'type'} eq 'integer' ? int( $lincode->{'profile_id'} ) : $lincode->{'profile_id'} ),
-			lincode   => $lincode->{'lincode'},
+			lincode   => qq(@{$lincode->{'lincode'}}),
 			datestamp => $lincode->{'datestamp'}
 		  };
 	}
