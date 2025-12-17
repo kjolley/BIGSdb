@@ -231,6 +231,20 @@ sub _print_lincodes {
 		$bin++;
 	}
 	say q(</table></div>);
+	my $fields = $self->{'datastore'}->run_query( 'SELECT * FROM lincode_fields ORDER BY display_order,field',
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	if (@$fields){
+		say q(<p>The following nickname fields have been defined. These are used to search specific LIN code prefixes )
+		. q(using human-readable names.</p>);
+		say q(<div class="scrollable"><table class="resultstable">);
+		$td = 1;
+		say q(<tr><th>Field</th><th>Type</th></tr>);
+		foreach my $field (@$fields){
+			say qq(<tr class="td$td"><td>$field->{'field'}</td><td>$field->{'type'}</td></tr>);
+			$td = $td == 1 ? 2 : 1;
+		}
+		say q(</table></div>);
+	}
 
 }
 
