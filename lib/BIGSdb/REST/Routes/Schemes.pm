@@ -29,10 +29,10 @@ use constant MAX_QUERY_SEQ => 5000;
 sub setup_routes {
 	my $self = setting('self');
 	foreach my $dir ( @{ setting('api_dirs') } ) {
-		get "$dir/db/:db/schemes"                  => sub { _get_schemes() };
-		get "$dir/db/:db/schemes/breakdown/:field" => sub { _get_schemes_breakdown() };
-		get "$dir/db/:db/schemes/:scheme"          => sub { _get_scheme() };
-		get "$dir/db/:db/schemes/:scheme/loci"     => sub { _get_scheme_loci() };
+		get "$dir/db/:db/schemes"                       => sub { _get_schemes() };
+		get "$dir/db/:db/schemes/breakdown/:field"      => sub { _get_schemes_breakdown() };
+		get "$dir/db/:db/schemes/:scheme"               => sub { _get_scheme() };
+		get "$dir/db/:db/schemes/:scheme/loci"          => sub { _get_scheme_loci() };
 		get "$dir/db/:db/schemes/:scheme/fields/:field" => sub { _get_scheme_field() };
 		post "$dir/db/:db/schemes/:scheme/sequence"     => sub { _query_scheme_sequence() };
 		post "$dir/db/:db/schemes/:scheme/designations" => sub { _query_scheme_designations() };
@@ -187,6 +187,19 @@ sub _get_scheme {
 		if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 			$lc->{'definitions'} = request->uri_for("$subdir/db/$db/schemes/$scheme_id/lincodes");
 		}
+		my @fields = qw(field type display_order);
+		push @fields, 'maindisplay' if $self->{'system'}->{'dbtype'} eq 'isolates';
+		local $" = q(,);
+		my $fields =
+		  $self->{'datastore'}
+		  ->run_query( "SELECT @fields FROM lincode_fields WHERE scheme_id=? ORDER BY display_order,field",
+			$scheme_id, { fetch => 'all_arrayref', slice => {} } );
+		foreach my $field (@$fields) {
+			if ( defined $field->{'maindisplay'} ) {
+				$field->{'maindisplay'} = $field->{'maindisplay'} ? JSON::true : JSON::false;
+			}
+		}
+		$lc->{'fields'}       = $fields if $fields;
 		$values->{'lincodes'} = $lc;
 	}
 	my $message = $self->get_date_restriction_message;
