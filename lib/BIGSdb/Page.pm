@@ -664,22 +664,23 @@ sub print_page_content {
 			}
 			$self->choose_set;
 		}
-	} else {
+	} elsif ( !$self->{'error'} ) {
 		$self->initiate_prefs;
 		$self->initiate_view( $self->{'username'} );
-	}
-	$q->charset('UTF-8');
-	if ( !$q->cookie( -name => 'guid' ) && $self->{'prefstore'} ) {
-		my $guid = $self->{'prefstore'}->get_new_guid;
-		push @{ $self->{'cookies'} },
-		  $q->cookie(
-			-name     => 'guid',
-			-value    => $guid,
-			-expires  => '+10y',
-			-httponly => 1,
-			-secure   => $self->{'config'}->{'secure_cookies'} ? 1 : 0
-		  );
-		$self->{'setOptions'} = 1;
+
+		$q->charset('UTF-8');
+		if ( !$q->cookie( -name => 'guid' ) && $self->{'prefstore'} ) {
+			my $guid = $self->{'prefstore'}->get_new_guid;
+			push @{ $self->{'cookies'} },
+			  $q->cookie(
+				-name     => 'guid',
+				-value    => $guid,
+				-expires  => '+10y',
+				-httponly => 1,
+				-secure   => $self->{'config'}->{'secure_cookies'} ? 1 : 0
+			  );
+			$self->{'setOptions'} = 1;
+		}
 	}
 	my %header_options;
 	$header_options{'-cookie'}  = $self->{'cookies'} if $self->{'cookies'};
@@ -1431,7 +1432,8 @@ sub _sort_field_list_into_optgroups {
 	my @group_list       = split /,/x, ( $self->{'system'}->{'field_groups'} // q() );
 	my @eav_groups       = split /,/x, ( $self->{'system'}->{'eav_groups'}   // q() );
 	push @group_list, @eav_groups if @eav_groups;
-	push @group_list, ( 'Loci', 'Schemes', 'LINcodes', 'Classification schemes', 'Annotation status', 'Analysis fields' );
+	push @group_list,
+	  ( 'Loci', 'Schemes', 'LINcodes', 'Classification schemes', 'Annotation status', 'Analysis fields' );
 	my $q = $self->{'cgi'};
 
 	foreach my $group ( undef, @group_list ) {
