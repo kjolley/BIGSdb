@@ -119,9 +119,9 @@ sub _get_lincodes {
 	my $date_restriction = $self->{'datastore'}->get_date_restriction;
 	my $date_restriction_clause =
 	  ( !$self->{'username'} && $date_restriction ) ? qq( AND p.date_entered<='$date_restriction') : q();
-	my $set_id      = $self->get_set_id;
-	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
-	my $pk_info     = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $scheme_info->{'primary_key'} );
+	my $set_id           = $self->get_set_id;
+	my $scheme_info      = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
+	my $pk_info          = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $scheme_info->{'primary_key'} );
 	my $scheme_warehouse = "mv_scheme_$scheme_id";
 	my $qry              = $self->add_filters(
 		'SELECT COUNT(*),max(p.datestamp) FROM lincodes l JOIN profiles p ON '

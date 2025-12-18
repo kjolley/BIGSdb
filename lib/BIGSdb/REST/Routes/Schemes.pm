@@ -29,11 +29,12 @@ use constant MAX_QUERY_SEQ => 5000;
 sub setup_routes {
 	my $self = setting('self');
 	foreach my $dir ( @{ setting('api_dirs') } ) {
-		get "$dir/db/:db/schemes"                       => sub { _get_schemes() };
-		get "$dir/db/:db/schemes/breakdown/:field"      => sub { _get_schemes_breakdown() };
-		get "$dir/db/:db/schemes/:scheme"               => sub { _get_scheme() };
-		get "$dir/db/:db/schemes/:scheme/loci"          => sub { _get_scheme_loci() };
-		get "$dir/db/:db/schemes/:scheme/fields/:field" => sub { _get_scheme_field() };
+		get "$dir/db/:db/schemes"                           => sub { _get_schemes() };
+		get "$dir/db/:db/schemes/breakdown/:field"          => sub { _get_schemes_breakdown() };
+		get "$dir/db/:db/schemes/:scheme"                   => sub { _get_scheme() };
+		get "$dir/db/:db/schemes/:scheme/loci"              => sub { _get_scheme_loci() };
+		get "$dir/db/:db/schemes/:scheme/fields/:field"     => sub { _get_scheme_field() };
+		get "$dir/db/:db/schemes/:scheme/lincode_nicknames" => sub { _get_lincode_nicknames() };
 		post "$dir/db/:db/schemes/:scheme/sequence"     => sub { _query_scheme_sequence() };
 		post "$dir/db/:db/schemes/:scheme/designations" => sub { _query_scheme_designations() };
 	}
@@ -199,7 +200,12 @@ sub _get_scheme {
 				$field->{'maindisplay'} = $field->{'maindisplay'} ? JSON::true : JSON::false;
 			}
 		}
-		$lc->{'fields'}       = $fields if $fields;
+		$lc->{'fields'} = $fields if $fields;
+		my $prefixes_exist = $self->{'datastore'}
+		  ->run_query( 'SELECT EXISTS(SELECT * FROM lincode_prefixes WHERE scheme_id=?)', $scheme_id );
+		if ($prefixes_exist) {
+			$lc->{'nicknames'} = request->uri_for("$subdir/db/$db/schemes/$scheme_id/lincode_nicknames");
+		}
 		$values->{'lincodes'} = $lc;
 	}
 	my $message = $self->get_date_restriction_message;
@@ -515,5 +521,53 @@ sub _get_scheme_fields {
 		$results->{$field} = qq(@ordered);
 	}
 	return $results;
+}
+
+sub _get_lincode_nicknames {
+	my $self = setting('self');
+	$self->check_seqdef_database;
+	my $params = params;
+	my ( $db, $scheme_id ) = @{$params}{qw(db scheme)};
+
+	my $allowed_filters = [qw(added_after added_reldate added_on updated_after updated_reldate updated_on)];
+	$self->check_scheme( $scheme_id, { pk => 1 } );
+	my $exists =
+	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM lincode_schemes WHERE scheme_id=?)', $scheme_id );
+	if ( !$exists ) {
+		send_error( "Scheme $scheme_id does not have a LIN code scheme.", 404 );
+	}
+	my $subdir           = setting('subdir');
+	my $date_restriction = $self->{'datastore'}->get_date_restriction;
+	my $date_restriction_clause =
+	  ( !$self->{'username'} && $date_restriction ) ? qq( AND datestamp<='$date_restriction') : q();
+
+	my $qry = $self->add_filters(
+		'SELECT COUNT(*),max(datestamp) FROM lincode_prefixes WHERE ' . "scheme_id=$scheme_id$date_restriction_clause",
+		$allowed_filters
+	);
+	my ( $prefix_count, $last_updated ) = $self->{'datastore'}->run_query($qry);
+
+	my $page_values = $self->get_page_values($prefix_count);
+	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
+
+	$qry = $self->add_filters(
+		'SELECT prefix,field,value AS nickname,datestamp FROM lincode_prefixes '
+		  . "WHERE scheme_id=$scheme_id$date_restriction_clause",
+		$allowed_filters
+	);
+	$qry .= ' ORDER BY prefix,field';
+	$qry .= " LIMIT $self->{'page_size'} OFFSET $offset" if !param('return_all');
+	my $nicknames = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
+	my $values    = { records => int($prefix_count) };
+	$values->{'last_updated'} = $last_updated if defined $last_updated;
+	my $path   = $self->get_full_path( "$subdir/db/$db/schemes/$scheme_id/lincode_nicknames", $allowed_filters );
+	my $paging = $self->get_paging( $path, $pages, $page, $offset );
+	$values->{'paging'} = $paging if %$paging;
+	local $" = q(_);
+
+	$values->{'nicknames'} = $nicknames;
+	my $message = $self->get_date_restriction_message;
+	$values->{'message'} = $message if $message;
+	return $values;
 }
 1;
