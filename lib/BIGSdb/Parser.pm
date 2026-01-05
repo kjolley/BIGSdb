@@ -1,6 +1,6 @@
 #Parser.pm
 #Written by Keith Jolley
-#Copyright (c) 2010-2025, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -34,7 +34,7 @@ use BIGSdb::Utils;
 use BIGSdb::Constants qw(COUNTRIES);
 use XML::Parser::PerlSAX;
 use List::MoreUtils qw(any);
-use Log::Log4perl   qw(get_logger);
+use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
 sub get_system_hash {
@@ -123,87 +123,88 @@ sub new {    ## no critic (RequireArgUnpacking)
 }
 
 sub characters {
-	my ( $self, $element ) = @_;
-
-	return unless defined $element->{'Data'};
-
-	# Normalise whitespace and skip empty-only chunks
-	my $data = $element->{'Data'};
-	$data =~ s/\r?\n/ /gx;
-	$data =~ s/\s+/ /gx;
-	$data =~ s/^\s+|\s+$//gx;
-	return unless length $data;
-
-	# look at top-of-stack context (if any)
-	my $stack = $self->{'_field_stack'} // [];
-	my $ctx   = @$stack ? $stack->[-1] : undef;
-
-	# If inside an <option>, append into option_buffer
-	if ( $self->{'_in_option'} ) {
-		$self->{'_option_buffer'} .= $data;
-		return;
-	}
-
-	# If inside a <field> but not inside optlist/option, append to this field's char_buffer
-	if ( $self->{'_in_field'} && !$self->{'_in_optlist'} && !$self->{'_in_option'} ) {
-		if ($ctx) {
-			$ctx->{'char_buffer'} .= $data;
-		} else {
-
-			# defensive fallback: accumulate into global buffer if context missing
-			$self->{'_char_buffer'} .= $data;
-		}
-		return;
-	}
-
-	# otherwise ignore stray text inside optlist or elsewhere
-
-	return;
+    my ( $self, $element ) = @_;
+    return unless defined $element->{'Data'};
+    # normalize whitespace
+    my $data = $element->{'Data'};
+    $data =~ s/\r?\n/ /gx;
+    $data =~ s/\s+/ /gx;
+    $data =~ s/^\s+|\s+$//gx;
+    return unless length $data;
+    my $stack = $self->{'_field_stack'} // [];
+    my $ctx = @$stack ? $stack->[-1] : undef;
+    if ( $self->{'_in_option'} ) {
+        $self->{'_option_buffer'} .= $data;
+        return;
+    }
+    if ( $self->{'_in_field'} && ! $self->{'_in_optlist'} && ! $self->{'_in_option'} ) {
+        if ($ctx) {
+            $ctx->{'char_buffer'} .= $data;
+        } else {
+            $self->{'_char_buffer'} .= $data;
+        }
+        return;
+    }
+    # if inside optlist but not option, ignore
+    return;
 }
 
 sub start_element {
-	my ( $self, $element ) = @_;
+    my ( $self, $element ) = @_;
 
-	# ensure stack exists
-	$self->{'_field_stack'} ||= [];
+    $self->{'_field_stack'} ||= [];
 
-	my %methods = (
+    my %methods = (
+        system => sub { $self->{'_in_system'} = 1; $self->{'system'} = $element->{'Attributes'} },
+        field  => sub {
+            $self->{'_in_field'} = 1;
+            my $ctx = {
+                these       => $element->{'Attributes'} || {},
+                char_buffer => '',
+                options     => [],
+            };
+            push @{ $self->{_field_stack} }, $ctx;
+        },
+        optlist => sub {
+            $self->{'_in_optlist'} = 1;
+        },
+        option => sub {
+            $self->{'_in_option'} = 1;
+            $self->{'_option_buffer'} = '';
 
-		system => sub {
-			$self->{'_in_system'} = 1;
-			$self->{'system'}     = $element->{'Attributes'};
-
-		},
-
-		# When a <field> starts push a new context on the stack
-		field => sub {
-			$self->{'_in_field'} = 1;
-			my $ctx = {
-				these       => $element->{'Attributes'} || {},
-				char_buffer => '',                               # accumulate field text
-				options     => [],                               # accumulate option values for this field
-			};
-			push @{ $self->{_field_stack} }, $ctx;
-		},
-
-		optlist => sub {
-			$self->{'_in_optlist'} = 1;
-
-			# make sure we have a stack to operate on
-			$self->{'_field_stack'} ||= [];
-		},
-
-		option => sub {
-			$self->{'_in_option'}     = 1;
-			$self->{'_option_buffer'} = '';
-
-			# ensure top context exists (defensive)
-			$self->{'_field_stack'} ||= [];
-		},
-	);
-
-	$methods{ $element->{'Name'} }->() if $methods{ $element->{'Name'} };
-	return;
+            # also accept attribute values on option start
+            my $attrs = $element->{'Attributes'} || {};
+            my $val;
+            # Attributes may be in different forms; try to extract any value-like attribute
+            for my $k ( keys %$attrs ) {
+                my $v;
+                if ( ref $attrs->{$k} eq 'HASH' ) {
+                    $v = $attrs->{$k}{'Value'} // $attrs->{$k}{'value'} // q();
+                } else {
+                    $v = $attrs->{$k} // q();
+                }
+                $v =~ s/^\s+|\s+$//gx if defined $v;
+                next unless defined $v and length $v;
+                $val = $v;
+                last;
+            }
+            if ( defined $val ) {
+                $self->{'_field_stack'} ||= [];
+                if ( @{ $self->{'_field_stack'} } ) {
+                    push @{ $self->{'_field_stack'}->[-1]{'options'} }, $val;
+                    $self->{'_option_from_attr'} = 1;
+                } else {
+                    $self->{'options'}{ $self->{'field_name'} // '_unknown' } ||= [];
+                    push @{ $self->{'options'}{ $self->{'field_name'} // '_unknown' } }, $val;
+                    $self->{'_option_from_attr'} = 1;
+                }
+            } else {
+                $self->{'_option_from_attr'} = 0;
+            }
+        },
+    );
+    $methods{ $element->{'Name'} }->() if $methods{ $element->{'Name'} };
+    return;
 }
 
 sub _add_special_optlist_values {
@@ -217,90 +218,92 @@ sub _add_special_optlist_values {
 }
 
 sub end_element {
-	my ( $self, $element ) = @_;
-
-	my %methods = (
-
-		system => sub { $self->{'_in_system'} = 0 },
-
-		# end of an <option> — push into top context's options array
-		option => sub {
-			$self->{'_in_option'} = 0;
-			my $opt = $self->{'_option_buffer'} // q();
-			$opt =~ s/^\s+|\s+$//gx;
-			if ( $self->{'_field_stack'} && @{ $self->{'_field_stack'} } ) {
-				push @{ $self->{'_field_stack'}->[-1]{'options'} }, $opt if length $opt;
-			} else {
-
-				# defensive fallback: push into global options keyed by last known field_name
-				push @{ $self->{'options'}{ $self->{'field_name'} // '_unknown' } }, $opt if length $opt;
-			}
-			delete $self->{'_option_buffer'};
-		},
-
-		# end of <optlist> — we don't commit until field closes, but we clear the in-optlist flag
-		optlist => sub {
-			$self->{'_in_optlist'} = 0;
-
-			# leave options in the top context; sort later when committing at field end if needed
-		},
-
-		# end of <field> — pop the context, commit name, attributes and options
-		field => sub {
-			$self->{'_in_field'} = 0;
-
-			# pop top context
-			my $ctx;
-			$ctx = pop @{ $self->{'_field_stack'} } if $self->{'_field_stack'} && @{ $self->{'_field_stack'} };
-
-			# if no context (defensive) fall back to global buffers
-			unless ($ctx) {
-				$ctx = {
-					these       => $self->{'these'} || {},
-					char_buffer => $self->{'_char_buffer'} // q(),
-					options     => $self->{'_options_temp'} ? [ @{ $self->{'_options_temp'} } ] : [],
-				};
-			}
-
-			my $text = $ctx->{'char_buffer'} // q();
-
-			# field name is the text content
-			$self->{'field_name'} = $text;
-			push @{ $self->{fields} }, $self->{'field_name'};
-
-			# store attributes for this field
-			$self->_process_special_values( $ctx->{'these'} );
-			$self->{'attributes'}{ $self->{'field_name'} } = $ctx->{'these'};
-
-			# normalize options: trim, remove blank and dedupe
-			my @opts = @{ $ctx->{options} // [] };
-			my %seen;
-			@opts = map  { s/^\s+|\s+$//rx } grep { defined && length } @opts;
-			@opts = grep { !$seen{$_}++ } @opts;
-
-			if (@opts) {
-				$self->{'options'}{ $self->{'field_name'} } = \@opts;
-			}
-
-			# preserve existing special optlist handling
-			if ( ( $ctx->{'these'}{'optlist'} // q() ) eq 'yes' && $ctx->{'these'}{'values'} ) {
-				$self->_add_special_optlist_values( $self->{'field_name'}, $ctx->{'these'}{'values'} );
-			}
-
-			# optional: if sorting requested, do it now
-			if ( ( $self->{'attributes'}{ $self->{'field_name'} }{'sort'} // q() ) eq 'yes' ) {
-				$self->{'options'}{ $self->{'field_name'} } =
-				  BIGSdb::Utils::unicode_dictionary_sort( $self->{'options'}{ $self->{'field_name'} } || [] );
-			}
-
-			# cleanup any global fallback buffers
-			delete $self->{'_char_buffer'};
-			delete $self->{'_options_temp'};
-		},
-	);
-
-	$methods{ $element->{'Name'} }->() if $methods{ $element->{'Name'} };
-	return;
+    my ( $self, $element ) = @_;
+    my %methods = (
+        system => sub { $self->{'_in_system'} = 0 },
+        option => sub {
+            $self->{'_in_option'} = 0;
+            # if attribute provided value already pushed, skip char buffer
+            if ( $self->{'_option_from_attr'} ) {
+                $self->{'_option_from_attr'} = 0;
+                delete $self->{'_option_buffer'};
+                return;
+            }
+            my $opt = $self->{'_option_buffer'} // q();
+            $opt =~ s/^\s+|\s+$//gx;
+            if ( length $opt ) {
+                if ( $self->{'_field_stack'} && @{ $self->{'_field_stack'} } ) {
+                    push @{ $self->{'_field_stack'}->[-1]{'options'} }, $opt;
+                } else {
+                    push @{ $self->{'options'}{ $self->{'field_name'} // '_unknown' } }, $opt;
+                }
+            }
+            delete $self->{'_option_buffer'};
+        },
+        optlist => sub {
+            $self->{'_in_optlist'} = 0;
+            # do nothing; commit at field end
+        },
+        field => sub {
+            $self->{'_in_field'} = 0;
+            my $ctx;
+            $ctx = pop @{ $self->{_field_stack} } if $self->{'_field_stack'} && @{ $self->{'_field_stack'} };
+            unless ($ctx) {
+                $ctx = {
+                    these => $self->{'these'} || {},
+                    char_buffer => $self->{'_char_buffer'} // q(),
+                    options => $self->{'_options_temp'} ? [ @{ $self->{'_options_temp'} } ] : [],
+                };
+            }
+            my $text = $ctx->{'char_buffer'} // q();
+            $self->{'field_name'} = $text;
+            push @{ $self->{fields} }, $self->{'field_name'};
+            $self->_process_special_values( $ctx->{'these'} );
+            $self->{'attributes'}{ $self->{'field_name'} } = $ctx->{'these'};
+            # Clean explicit options
+            my @explicit = @{ $ctx->{options} // [] };
+            @explicit = map { s/^\s+|\s+$//rx } grep { defined && length } @explicit;
+            # If special-values exist, generate and merge (special first), then append explicit options
+            if ( ( $ctx->{'these'}{'optlist'} // q() ) eq 'yes' && $ctx->{'these'}{'values'} ) {
+                my $tmp = '__SPECIAL__' . int(rand(1000000));
+                $self->_add_special_optlist_values( $tmp, $ctx->{'these'}{'values'} );
+                my @special = @{ $self->{options}{$tmp} // [] };
+                delete $self->{'options'}{$tmp};
+                # clean special and dedupe preserving order
+                my %seen;
+                my @clean_special;
+                for my $o (@special) {
+                    next unless defined $o;
+                    $o =~ s/^\s+|\s+$//gx;
+                    next unless length $o;
+                    push @clean_special, $o unless $seen{$o}++;
+                }
+                # optional sort of special values
+                if ( ( $self->{'attributes'}{ $self->{'field_name'} }{'sort'} // q() ) eq 'yes' ) {
+                    @clean_special = @{ BIGSdb::Utils::unicode_dictionary_sort( \@clean_special ) };
+                }
+                # append explicit options at end, skipping duplicates
+                for my $o (@explicit) {
+                    push @clean_special, $o unless $seen{$o}++;
+                }
+                $self->{'options'}{ $self->{'field_name'} } = \@clean_special if @clean_special;
+            } else {
+                # no special values: use explicit options cleaned and deduped
+                my %s2;
+                my @clean = grep { !$s2{$_}++ } @explicit;
+                $self->{'options'}{ $self->{'field_name'} } = \@clean if @clean;
+            }
+            # special-values helper for values in attributes (legacy)
+            if ( ( $ctx->{'these'}{'optlist'} // q() ) eq 'yes' && $ctx->{'these'}{'values'} ) {
+                # already handled above
+            }
+            # clear buffers
+            delete $self->{'_char_buffer'};
+            delete $self->{'_options_temp'};
+        },
+    );
+    $methods{ $element->{'Name'} }->() if $methods{ $element->{'Name'} };
+    return;
 }
 
 sub _process_special_values {
