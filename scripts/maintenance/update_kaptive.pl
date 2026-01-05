@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Perform/update Kaptive analyses and store results in isolate database.
 #Written by Keith Jolley
-#Copyright (c) 2025, University of Oxford
+#Copyright (c) 2025-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20251110
+#Version: 20260105
 use strict;
 use warnings;
 use 5.010;
@@ -154,6 +154,8 @@ sub check_db {
 	$qry .= q[) ];
 	if ( defined $opts{'last_run_days'} ) {
 		$qry .= qq(AND (lr.timestamp IS NULL OR lr.timestamp < now()-interval '$opts{'last_run_days'} days') );
+	} else {
+		$qry .= q(AND (lr.timestamp IS NULL) );
 	}
 	if ( $opts{'v'} ) {
 		$qry .= qq( AND ss.isolate_id IN (SELECT id FROM $opts{'v'}));
