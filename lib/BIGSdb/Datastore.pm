@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2025, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -1483,7 +1483,8 @@ sub create_temp_lincodes_table {
 		my $timestamp = BIGSdb::Utils::get_timestamp();
 		$table = "${table}_$timestamp";
 	}
-	my $seqdef_scheme_id = $self->get_scheme_info($scheme_id)->{'dbase_id'};
+	my $scheme_info      = $self->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $seqdef_scheme_id = $scheme_info->{'dbase_id'};
 	my $scheme           = $self->get_scheme($scheme_id);
 	my $db               = $scheme->get_db;
 	my $lincodes         = $self->run_query( 'SELECT profile_id,lincode FROM lincodes WHERE scheme_id=?',
@@ -1498,7 +1499,13 @@ sub create_temp_lincodes_table {
 			$self->{'db'}->pg_putcopydata("$profile_id\t{@$lincode}\n");
 		}
 		$self->{'db'}->pg_putcopyend;
-		$self->{'db'}->do("CREATE INDEX ON $table(profile_id)");
+		my $pk      = $scheme_info->{'primary_key'};
+		my $pk_info = $self->get_scheme_field_info( $scheme_id, $pk );
+		if ( $pk_info->{'type'} eq 'integer' ) {
+			$self->{'db'}->do("CREATE INDEX ON $table(CAST(profile_id AS int))");
+		} else {
+			$self->{'db'}->do("CREATE INDEX ON $table(profile_id)");
+		}
 	};
 	if ($@) {
 		$logger->error($@);
@@ -4056,14 +4063,14 @@ sub get_embargo_attributes {
 }
 
 sub is_blocked_email {
-	my ($self, $address) = @_;
+	my ( $self, $address ) = @_;
 	my $block_file = "$self->{'config_dir'}/email_blocklist.txt";
 	return if !-e $block_file;
-	if (!defined $self->{'cache'}->{'block_list'}){
+	if ( !defined $self->{'cache'}->{'block_list'} ) {
 		my $block = {};
 		open( my $fh, '<:encoding(utf8)', $block_file )
 		  || $logger->error("Cannot open $block_file for reading.");
-		while (my $line = <$fh>){
+		while ( my $line = <$fh> ) {
 			$line =~ s/^\s*//x;
 			$line =~ s/\s*$//x;
 			next if !$line;
