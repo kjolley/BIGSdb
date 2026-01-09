@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#(c) 2010-2025, University of Oxford
+#(c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,7 +20,7 @@ package BIGSdb::Application;
 use strict;
 use warnings;
 use 5.010;
-use version; our $VERSION = version->declare('v1.51.6');
+use version; our $VERSION = version->declare('v1.51.7');
 use Apache2::Connection;
 use parent qw(BIGSdb::BaseApplication);
 use BIGSdb::AjaxAnalysis;
