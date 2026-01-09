@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2025, University of Oxford
+#Copyright (c) 2014-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -201,10 +201,12 @@ sub _get_scheme {
 			}
 		}
 		$lc->{'fields'} = $fields if $fields;
-		my $prefixes_exist = $self->{'datastore'}
-		  ->run_query( 'SELECT EXISTS(SELECT * FROM lincode_prefixes WHERE scheme_id=?)', $scheme_id );
-		if ($prefixes_exist) {
-			$lc->{'nicknames'} = request->uri_for("$subdir/db/$db/schemes/$scheme_id/lincode_nicknames");
+		if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+			my $prefixes_exist = $self->{'datastore'}
+			  ->run_query( 'SELECT EXISTS(SELECT * FROM lincode_prefixes WHERE scheme_id=?)', $scheme_id );
+			if ($prefixes_exist) {
+				$lc->{'nicknames'} = request->uri_for("$subdir/db/$db/schemes/$scheme_id/lincode_nicknames");
+			}
 		}
 		$values->{'lincodes'} = $lc;
 	}
