@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2020-2024, University of Oxford
+#Copyright (c) 2020-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -40,7 +40,7 @@ sub print_content {
 	my $cache_string = $self->get_cache_string;
 	say q(<h1>Database status</h1>);
 	my $date_restriction_message = $self->get_date_restriction_message;
-	if ($date_restriction_message){
+	if ($date_restriction_message) {
 		say qq(<div class="box banner">$date_restriction_message</div>);
 	}
 	say q(<div class="box" id="resultspanel">);
@@ -88,6 +88,7 @@ sub _seqdef_db {
 	my $cache_string = $self->get_cache_string;
 	$self->_sequences;
 	$self->_schemes;
+	$self->_lincodes;
 	$self->_loci;
 	return;
 }
@@ -121,6 +122,40 @@ sub _schemes {
 	  . q(field that identifies unique combinations of alleles.</p>);
 	say $self->get_tree( undef, { schemes_only => 1, no_disabled => 1 } );
 	return;
+}
+
+sub _lincodes {
+	my ($self) = @_;
+	my $lincode_schemes = $self->{'datastore'}->run_query(
+		'SELECT ls.* FROM lincode_schemes ls JOIN schemes s ON ls.scheme_id=s.id ORDER BY name',
+		undef,
+		{
+			fetch => 'all_arrayref',
+			slice => {}
+		}
+	);
+	return if !@$lincode_schemes;
+	say q(<h2>LIN codes</h2>);
+	say q(<p>LIN codes are defined for the following schemes:</p>);
+	say q(<table class="resultstable"><tr><th>Scheme</th><th>thresholds</th><th>Nickname fields</th></tr>);
+	my $td = 1;
+
+	foreach my $ls (@$lincode_schemes) {
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $ls->{'scheme_id'} );
+		my $fields      = $self->{'datastore'}->run_query(
+			'SELECT field FROM lincode_fields WHERE scheme_id=? ORDER BY display_order,field',
+			$ls->{'scheme_id'},
+			{
+				fetch => 'col_arrayref'
+			}
+		);
+		local $" = q(<br />);
+		say qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=schemeInfo&amp;scheme_id=$ls->{'scheme_id'}" target="_blank">$scheme_info->{'name'}</a></td>)
+		  . qq(<td>$ls->{'thresholds'}</td><td>@$fields</td></tr>);
+		$td = $td == 1 ? 2 : 1;
+	}
+	say q(</table>);
 }
 
 sub _loci {
@@ -186,6 +221,7 @@ sub _isolate_db {
 	my $cache_string = $self->get_cache_string;
 	$self->_isolates;
 	$self->_schemes;
+	$self->_lincodes;
 	$self->_loci;
 	$self->_fields;
 	return;
