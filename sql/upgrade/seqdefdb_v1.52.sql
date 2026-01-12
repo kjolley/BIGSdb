@@ -12,3 +12,4 @@ ALTER TABLE peptide_mutations ADD CONSTRAINT pm_locus
  ON DELETE CASCADE
  ON UPDATE CASCADE;
  
+ALTER TABLE scheme_curators ADD hide_public bool;

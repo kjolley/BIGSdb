@@ -381,12 +381,14 @@ sub _get_description {
 
 sub _get_curators {
 	my ( $values, $locus_name ) = @_;
-	my $self   = setting('self');
-	my $db     = params->{'db'};
-	my $subdir = setting('subdir');
-	my $curators =
-	  $self->{'datastore'}->run_query( 'SELECT curator_id FROM locus_curators WHERE locus=? ORDER BY curator_id',
-		$locus_name, { fetch => 'col_arrayref' } );
+	my $self     = setting('self');
+	my $db       = params->{'db'};
+	my $subdir   = setting('subdir');
+	my $curators = $self->{'datastore'}->run_query(
+		'SELECT curator_id FROM locus_curators WHERE locus=? AND hide_public '
+		  . 'IS NOT TRUE ORDER BY curator_id',
+		$locus_name, { fetch => 'col_arrayref' }
+	);
 	my @curator_links;
 	foreach my $user_id (@$curators) {
 		push @curator_links, request->uri_for("$subdir/db/$db/users/$user_id");

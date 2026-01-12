@@ -470,6 +470,7 @@ scheme_id int NOT NULL,
 curator_id int NOT NULL,
 curator int NOT NULL,
 datestamp date NOT NULL,
+hide_public bool,
 PRIMARY KEY(scheme_id,curator_id),
 CONSTRAINT sc_scheme_id FOREIGN KEY (scheme_id) REFERENCES schemes
 ON DELETE CASCADE

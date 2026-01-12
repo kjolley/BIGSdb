@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2016-2025, University of Oxford
+#Copyright (c) 2016-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,6 +20,8 @@ package BIGSdb::SchemeInfoPage;
 use strict;
 use warnings;
 use 5.010;
+use Log::Log4perl qw(get_logger);
+my $logger = get_logger('BIGSdb.Page');
 use parent qw(BIGSdb::StatusPage);
 use BIGSdb::Utils;
 use JSON;
@@ -107,7 +109,7 @@ sub _print_scheme_curators {
 	return if $self->{'system'}->{'dbtype'} ne 'sequences';
 	my $scheme_curators = $self->{'datastore'}->run_query(
 		'SELECT curator_id FROM scheme_curators JOIN users ON users.id=scheme_curators.curator_id '
-		  . 'WHERE scheme_id=? ORDER BY surname',
+		  . 'WHERE scheme_id=? AND hide_public IS NOT TRUE',
 		$scheme_id,
 		{ fetch => 'col_arrayref' }
 	);
@@ -115,9 +117,18 @@ sub _print_scheme_curators {
 		my $plural = @$scheme_curators == 1 ? q() : q(s);
 		say qq(<h2>Curator$plural</h2>);
 		say q(<p>This scheme is curated by:</p><ul>);
+		my $users = {};
 		foreach my $user_id (@$scheme_curators) {
+			my $user_info   = $self->{'datastore'}->get_user_info($user_id);
 			my $user_string = $self->{'datastore'}->get_user_string( $user_id, { email => 1, affiliation => 1 } );
-			say qq(<li>$user_string</li>);
+			$users->{$user_id} = {
+				surname => $user_info->{'surname'},
+				string  => $user_string
+			};
+		}
+		foreach my $user_id ( sort { $users->{$a}->{'surname'} cmp $users->{$b}->{'surname'} } keys %$users )
+		{
+			say qq(<li>$users->{$user_id}->{'string'}</li>);
 		}
 		say q(</ul>);
 	}
@@ -233,13 +244,13 @@ sub _print_lincodes {
 	say q(</table></div>);
 	my $fields = $self->{'datastore'}->run_query( 'SELECT * FROM lincode_fields ORDER BY display_order,field',
 		undef, { fetch => 'all_arrayref', slice => {} } );
-	if (@$fields){
+	if (@$fields) {
 		say q(<p>The following nickname fields have been defined. These are used to search specific LIN code prefixes )
-		. q(using human-readable names.</p>);
+		  . q(using human-readable names.</p>);
 		say q(<div class="scrollable"><table class="resultstable">);
 		$td = 1;
 		say q(<tr><th>Field</th><th>Type</th></tr>);
-		foreach my $field (@$fields){
+		foreach my $field (@$fields) {
 			say qq(<tr class="td$td"><td>$field->{'field'}</td><td>$field->{'type'}</td></tr>);
 			$td = $td == 1 ? 2 : 1;
 		}

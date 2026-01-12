@@ -1904,6 +1904,12 @@ sub get_scheme_curators_table_attributes {
 			user_field      => 1,
 			dropdown_query  => 1
 		},
+		{
+			name     => 'hide_public',
+			type     => 'bool',
+			comments => 'set to true to not list curator in lists',
+			default  => 'false'
+		},
 		{ name => 'curator',   type => 'int',  required => 1, dropdown_query => 1 },
 		{ name => 'datestamp', type => 'date', required => 1 }
 	];
