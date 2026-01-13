@@ -2721,8 +2721,7 @@ sub get_allele_extended_attributes {
 }
 
 sub get_all_allele_designations {
-	my ( $self, $isolate_id, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
+	my ( $self, $isolate_id ) = @_;
 	my $data = $self->run_query( 'SELECT locus,allele_id,status FROM allele_designations WHERE isolate_id=?',
 		$isolate_id, { fetch => 'all_arrayref', cache => 'get_all_allele_designations' } );
 	my $alleles = {};
