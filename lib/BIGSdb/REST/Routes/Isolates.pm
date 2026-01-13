@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2025, University of Oxford
+#Copyright (c) 2014-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -33,7 +33,7 @@ sub setup_routes {
 		get "$dir/db/:db/genomes"              => sub { _get_genomes() };
 		get "$dir/db/:db/isolates/:id"         => sub { _get_isolate() };
 		get "$dir/db/:db/isolates/:id/history" => sub { _get_history() };
-		post "$dir/db/:db/isolates/search"     => sub { _query_isolates() };
+		post "$dir/db/:db/isolates/search" => sub { _query_isolates() };
 	}
 	return;
 }
@@ -167,8 +167,8 @@ sub _get_isolate {
 			contigs       => request->uri_for("$subdir/db/$db/isolates/$id/contigs"),
 			contigs_fasta => request->uri_for("$subdir/db/$db/isolates/$id/contigs_fasta")
 		};
-		$seqbin->{'N50'} = $seqbin_stats->{'n50'} if defined $seqbin_stats->{'n50'};
-		$seqbin->{'L50'} = $seqbin_stats->{'l50'} if defined $seqbin_stats->{'l50'};
+		$seqbin->{'N50'}          = $seqbin_stats->{'n50'} if defined $seqbin_stats->{'n50'};
+		$seqbin->{'L50'}          = $seqbin_stats->{'l50'} if defined $seqbin_stats->{'l50'};
 		$values->{'sequence_bin'} = $seqbin;
 	}
 	my $set_id = $self->get_set_id;
@@ -367,10 +367,25 @@ sub _get_scheme_data {
 					$field_values->{$field} = \@field_values;
 				}
 			}
-			$scheme_object->{'fields'} = $field_values if keys %$field_values;
-			my $similar_isolates = _get_similar( $scheme->{'id'}, $isolate_id );
-			if ( keys %$similar_isolates ) {
-				$scheme_object->{'classification_schemes'} = $similar_isolates;
+			if ( keys %$field_values ) {
+				$scheme_object->{'fields'} = $field_values;
+				my $similar_isolates = _get_similar( $scheme->{'id'}, $isolate_id );
+				if ( keys %$similar_isolates ) {
+					$scheme_object->{'classification_schemes'} = $similar_isolates;
+				}
+
+				my $lincode = $self->{'datastore'}->get_lincode_value( $isolate_id, $scheme->{'id'} );
+				if ( defined $lincode ) {
+					local $" = q(_);
+					my $lincode_string = qq(@$lincode);
+					$scheme_object->{'LINcode'} = $lincode_string;
+					my $lincode_field_values =
+					  $self->{'datastore'}->get_lincode_field_values( $scheme->{'id'}, $lincode_string );
+					
+					if (@$lincode_field_values) {
+						$scheme_object->{'LINcode_fields'} = $lincode_field_values;
+					}
+				}
 			}
 		}
 		push @$scheme_links, $scheme_object;

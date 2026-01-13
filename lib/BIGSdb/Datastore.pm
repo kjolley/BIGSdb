@@ -1539,6 +1539,7 @@ sub get_lincode_value {
 	if ( !$self->{'lincode_table'}->{$scheme_id} ) {
 		$self->{'lincode_table'}->{$scheme_id} = $self->create_temp_lincodes_table($scheme_id);
 	}
+	return if !defined $self->{'lincode_table'}->{$scheme_id};
 	if ( !$self->{'scheme_table'}->{$scheme_id} ) {
 		$self->{'scheme_table'}->{$scheme_id} = $self->create_temp_scheme_table($scheme_id);
 	}
@@ -1566,6 +1567,57 @@ sub get_lincode_value {
 		{ fetch => 'row_array', cache => "Datastore::get_lincode_value::$scheme_id" }
 	);
 	return $lincode;
+}
+
+sub get_lincode_field_values {
+	my ( $self, $scheme_id, $lincode_string ) = @_;
+	my $prefix_fields =
+	  $self->run_query( 'SELECT field,type FROM lincode_fields WHERE scheme_id=? ORDER BY display_order,field',
+		$scheme_id, { fetch => 'all_arrayref', slice => {} } );
+	return [] if !@$prefix_fields;
+
+	my $prefix_table = $self->create_temp_lincode_prefix_values_table($scheme_id);
+	my $data =
+	  $self->run_query( "SELECT * FROM $prefix_table", undef, { fetch => 'all_arrayref', slice => {} } );
+	my $prefix_values = {};
+	foreach my $record (@$data) {
+		$prefix_values->{ $record->{'field'} }->{ $record->{'prefix'} } = $record->{'value'};
+	}
+	my $field_values = [];
+	foreach my $field (@$prefix_fields) {
+		my %used;
+		my @prefixes = keys %{ $prefix_values->{ $field->{'field'} } };
+		my $values   = [];
+		foreach my $prefix (@prefixes) {
+			if (   $lincode_string eq $prefix
+				|| $lincode_string =~ /^${prefix}_/x && !$used{ $prefix_values->{ $field->{'field'} }->{$prefix} } )
+			{
+				push @$values, $prefix_values->{ $field->{'field'} }->{$prefix};
+				$used{ $prefix_values->{ $field->{'field'} }->{$prefix} } = 1;
+			}
+		}
+
+		@$values = sort @$values;
+		next if !@$values;
+		my $data_value;
+
+		if ( $field->{'type'} eq 'integer' ) {
+			if ( @$values == 1 ) {
+				$data_value = int( $values->[0] );
+			} else {
+				$data_value = [ map { defined $_ ? int($_) : $_ } @{$values} ];
+			}
+		} else {
+			$data_value = @$values == 1 ? $values->[0] : $values;
+		}
+
+		push @$field_values,
+		  {
+			title => $field->{'field'},
+			data  => $data_value
+		  };
+	}
+	return $field_values;
 }
 
 sub create_temp_lincode_prefix_values_table {

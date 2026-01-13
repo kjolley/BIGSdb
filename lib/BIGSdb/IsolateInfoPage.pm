@@ -1255,8 +1255,8 @@ sub _get_provenance_fields {
 	$buffer .= qq(<div><span class="info_icon fa-2x fa-fw $icon fa-pull-left" style="margin-top:-0.2em"></span>);
 	$buffer .= qq(<h2>$heading</h2>\n);
 	$buffer .= qq(<div id="$div_id" class="field_group">);
-	my $list       = [];
-	
+	my $list = [];
+
 	my $q          = $self->{'cgi'};
 	my $set_id     = $self->get_set_id;
 	my $is_curator = $self->is_curator;
@@ -1338,15 +1338,15 @@ sub _get_provenance_fields {
 	}
 	return q() if !@$list;
 	my $longest_title = 0;
-	foreach my $pair (@$list){
-		if (length($pair->{'title'}) > $longest_title){
-			$longest_title = length($pair->{'title'});
+	foreach my $pair (@$list) {
+		if ( length( $pair->{'title'} ) > $longest_title ) {
+			$longest_title = length( $pair->{'title'} );
 		}
 	}
-	my $width = ($longest_title / 2) + 2;
+	my $width = ( $longest_title / 2 ) + 2;
 	$width = 12 if $width < 12;
 	$width = 25 if $width > 25;
-	$buffer .= $self->get_list_block( $list, { columnize => 1, width => $width} );
+	$buffer .= $self->get_list_block( $list, { columnize => 1, width => $width } );
 	$buffer .= q(</div></div>);
 	$buffer .= $self->_get_map_section($maps);
 	return $buffer;
@@ -2199,42 +2199,13 @@ sub _get_lincode_values {
 			title => 'LIN code',
 			data  => $lincode_string
 		  };
-		my $prefix_table = $self->{'datastore'}->create_temp_lincode_prefix_values_table($scheme_id);
-		my $data         = $self->{'datastore'}
-		  ->run_query( "SELECT * FROM $prefix_table", undef, { fetch => 'all_arrayref', slice => {} } );
-		my $prefix_values = {};
-		foreach my $record (@$data) {
-			$prefix_values->{ $record->{'field'} }->{ $record->{'prefix'} } = $record->{'value'};
-		}
-		my $prefix_fields =
-		  $self->{'datastore'}
-		  ->run_query( 'SELECT field FROM lincode_fields WHERE scheme_id=? ORDER BY display_order,field',
-			$scheme_id, { fetch => 'col_arrayref' } );
-		foreach my $field (@$prefix_fields) {
-			my %used;
-			my @prefixes = keys %{ $prefix_values->{$field} };
-			my @values;
-			foreach my $prefix (@prefixes) {
-				if (   $lincode_string eq $prefix
-					|| $lincode_string =~ /^${prefix}_/x && !$used{ $prefix_values->{$field}->{$prefix} } )
-				{
-					push @values, $prefix_values->{$field}->{$prefix};
-					$used{ $prefix_values->{$field}->{$prefix} } = 1;
-				}
-			}
-			@values = sort @values;
+		my $lincode_fields = $self->{'datastore'}->get_lincode_field_values( $scheme_id, $lincode_string );
+		foreach my $lf (@$lincode_fields) {
 			local $" = q(; );
-			next if !@values;
-			if ( $args->{'no_render'} ) {
-				$buffer .= qq(<dt>$field</dt><dd>@values</dd>);
-			} else {
-				$buffer .= qq(<dl class="profile"><dt>$field</dt><dd>@values</dd></dl>);
-			}
-			push @$values,
-			  {
-				title => $field,
-				data  => qq(@values)
-			  };
+			push @$values, {
+				title => $lf->{'title'},
+				data  => ref $lf->{'data'} eq 'ARRAY' ? qq(@{$lf->{'data'}}) : $lf->{'data'}
+			};
 		}
 	}
 	if ( $args->{'listblock_values'} ) {

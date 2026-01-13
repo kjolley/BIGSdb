@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2025, University of Oxford
+#Copyright (c) 2014-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -475,6 +475,9 @@ sub _get_profile {
 					{ fetch => 'col_arrayref' }
 				);
 				next if !@$lincode_values;
+				if ( $type eq 'integer' ) {
+					@$lincode_values = int($_) foreach @$lincode_values;
+				}
 				( my $cleaned = $field ) =~ tr/_/ /;
 				$values->{$cleaned} = @$lincode_values == 1 ? $lincode_values->[0] : $lincode_values;
 			}
