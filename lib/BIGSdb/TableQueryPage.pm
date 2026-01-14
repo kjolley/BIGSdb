@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2025, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,9 +20,9 @@ package BIGSdb::TableQueryPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::QueryPage);
+use parent          qw(BIGSdb::QueryPage);
 use List::MoreUtils qw(none any uniq);
-use Log::Log4perl qw(get_logger);
+use Log::Log4perl   qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Constants qw(SEQ_FLAGS ALLELE_FLAGS OPERATORS :interface);
 
@@ -43,6 +43,11 @@ sub initiate {
 		my $value =
 		  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, "${table}_list_fieldset" );
 		$self->{'prefs'}->{"${table}_list_fieldset"} = ( $value // '' ) eq 'on' ? 1 : 0;
+		if ( $table eq 'loci' ) {
+			$value =
+			  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'allele_properties_fieldset' );
+			$self->{'prefs'}->{'allele_properties_fieldset'} = ( $value // '' ) eq 'on' ? 1 : 0;
+		}
 	}
 	return;
 }
@@ -136,14 +141,14 @@ sub get_title {
 sub get_javascript {
 	my ($self)          = @_;
 	my $filter_collapse = $self->filters_selected ? 'false' : 'true';
-	my $panel_js        = $self->get_javascript_panel(qw(list));
+	my $panel_js        = $self->get_javascript_panel(qw(list allele_properties));
 	my $buffer          = $self->SUPER::get_javascript;
 	$buffer .= << "END";
 \$(function () {
   	\$('#filters_fieldset').coolfieldset({speed:"fast", collapsed:$filter_collapse});
   	\$('#filters_fieldset').show();
   	
-  	\$('#field_tooltip').attr("title", "<h3>Search values</h3><p>Empty field "
+  	\$('#field_tooltip, #ap_tooltip').attr("title", "<h3>Search values</h3><p>Empty field "
   		+ "values can be searched using the term 'null'. </p><h3>Number of fields</h3><p>Add more fields by clicking the '+' button."
   		+ "</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms."
   		+ "</p>" );
@@ -163,9 +168,11 @@ sub get_javascript {
   	
 function loadContent(url) {
 	var row = parseInt(url.match(/row=(\\d+)/)[1]);
-	var fields = url.match(/fields=([table_fields]+)/)[1];
+	var fields = url.match(/fields=([table_fields|allele_properties]+)/)[1];
 	if (fields == 'table_fields'){
 		add_rows(url,fields,'table_field',row,'table_field_heading','add_table_fields');
+	} else if (fields == 'allele_properties'){
+		add_rows(url,fields,'ap_field',row,'ap_heading','add_allele_properties');
 	}
 }
  
@@ -240,9 +247,15 @@ sub _ajax_content {
 	my $system = $self->{'system'};
 	my $q      = $self->{'cgi'};
 	my $row    = $q->param('row');
+	my $fields = $q->param('fields');
 	return if !BIGSdb::Utils::is_int($row) || $row > MAX_ROWS || $row < 2;
-	my ( $select_items, $labels ) = $self->_get_select_items($table);
-	$self->_print_table_fields( $table, $row, 0, $select_items, $labels );
+
+	if ( $fields eq 'table_fields' ) {
+		my ( $select_items, $labels ) = $self->_get_select_items($table);
+		$self->_print_table_fields( $table, $row, 0, $select_items, $labels );
+	} elsif ( $fields eq 'allele_properties' ) {
+		$self->_print_allele_properties_fields( $row, 0 );
+	}
 	return;
 }
 
@@ -254,7 +267,7 @@ sub _print_interface {
 	my $table  = $q->param('table');
 	my ( $select_items, $labels, $order_by, $attributes ) = $self->_get_select_items($table);
 	say q(<div class="box" id="queryform"><div class="scrollable">);
-	my $table_fields = $self->_highest_entered_fields || 1;
+	my $table_fields = $self->_highest_entered_fields('general') || 1;
 	my $cleaned      = $table;
 	$cleaned =~ tr/_/ /;
 
@@ -304,7 +317,9 @@ sub _print_interface {
 	say q(</li></ul></fieldset>);
 	say q(<div style="clear:both"></div>);
 	$self->_print_filter_fieldset( $table, $attributes );
+
 	$self->_print_list_fieldset( $table, $attributes );
+	$self->_print_table_specific_fieldset( $table, $attributes );
 	$self->print_action_fieldset( { page => 'tableQuery', table => $table, submit_label => 'Search' } );
 	$self->_print_modify_search_fieldset;
 	say $q->end_form;
@@ -1053,13 +1068,7 @@ sub _modify_query_search_by_users {
 	my ( $self, $args ) = @_;
 	my ( $table, $field, $text, $modifier, $operator, $qry_ref ) =
 	  @{$args}{qw(table field text modifier operator qry_ref)};
-	if (
-		any {
-			$field =~ /(.*)\ \($_\)$/x;
-		}
-		qw (id surname first_name affiliation country sector)
-	  )
-	{
+	if ( any { $field =~ /(.*)\ \($_\)$/x; } qw (id surname first_name affiliation country sector) ) {
 		$$qry_ref .= $modifier . $self->search_users( $field, $operator, $text, $table );
 		return 1;
 	}
@@ -1356,11 +1365,17 @@ sub _are_only_int_allele_ids_used {
 }
 
 sub _highest_entered_fields {
-	my ($self) = @_;
+	my ( $self, $type ) = @_;
+	my %param_name = (
+		general           => 't',
+		allele_properties => 'ap_value'
+	);
 	my $q = $self->{'cgi'};
 	my $highest;
-	for ( 1 .. MAX_ROWS ) {
-		$highest = $_ if defined $q->param("t$_") && $q->param("t$_") ne '';
+	for my $row ( 1 .. MAX_ROWS ) {
+		my $param = "$param_name{$type}$row";
+		$highest = $row
+		  if defined $q->param($param) && $q->param($param) ne '';
 	}
 	return $highest;
 }
@@ -1378,6 +1393,14 @@ sub _print_modify_search_fieldset {
 	  || $q->param('list') ? HIDE : SHOW;
 	say qq(<li><a href="" class="button fieldset_trigger" id="show_list">$list_fieldset_display</a>);
 	say q(Attribute values list</li>);
+
+	if ( $table eq 'loci' ) {
+		my $allele_properties_fieldset_display = $self->{'prefs'}->{'allele_properties_fieldset'}
+		  || $q->param('allele_properties') ? HIDE : SHOW;
+		say q(<li><a href="" class="button fieldset_trigger" id="show_allele_properties">)
+		  . qq($allele_properties_fieldset_display</a>);
+		say q(Allele properties</li>);
+	}
 	say q(</ul>);
 	my $save = SAVE;
 	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
@@ -1472,6 +1495,85 @@ sub _print_list_fieldset {
 	return;
 }
 
+sub _print_table_specific_fieldset {
+	my ( $self, $table, $attributes ) = @_;
+	my $methods = { loci => '_print_loci_table_fieldsets' };
+	if ( $methods->{$table} ) {
+		my $method = $methods->{$table};
+		$self->$method;
+	}
+	return;
+}
+
+sub _print_loci_table_fieldsets {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ($self)  = @_;
+	my $q       = $self->{'cgi'};
+	my $display = $self->{'prefs'}->{'allele_properties_fieldset'}
+	  || $q->param('allele_properties') ? 'inline' : 'none';
+	say qq(<fieldset id="allele_properties_fieldset" style="float:left;display:$display">);
+	say q(<legend>Allele properties</legend><div>);
+	$self->_print_allele_properties_fieldset_contents;
+
+	say q(</div></fieldset>);
+	return;
+}
+
+sub _print_allele_properties_fieldset_contents {
+	my ($self)     = @_;
+	my $q          = $self->{'cgi'};
+	my $ap_fields  = $self->_highest_entered_fields('allele_properties') || 1;
+	my $ap_heading = $ap_fields == 1 ? 'none' : 'inline';
+	say qq(<span id="ap_heading" style="display:$ap_heading"><label for="ap_andor">Combine with: </label>);
+	say $q->popup_menu( -name => 'ap_andor', -id => 'ap_andor', -values => [qw (AND OR)] );
+	say q(</span><ul id="allele_properties">);
+	for ( 1 .. $ap_fields ) {
+		say q(<li>);
+		$self->_print_allele_properties_fields( $_, $ap_fields );
+		say q(</li>);
+	}
+	say q(</ul>);
+	return;
+}
+
+sub _print_allele_properties_fields {
+	my ( $self, $row, $max_rows ) = @_;
+	my $q = $self->{'cgi'};
+	say q(<span style="display:flex">);
+	my @values = qw(alleles min_length max_length);
+
+	say $self->popup_menu(
+		-name   => "ap_field$row",
+		-id     => "ap_field$row",
+		-values => [ q(), @values ],
+		-labels => { alleles => 'allele count', min_length => 'minimum length', max_length => 'maximum length' }
+		,
+		-class => 'fieldlist'
+	);
+	my $values = [ '>', '>=', '<', '<=', '=' ];
+	say $q->popup_menu( -name => "ap_operator$row", -id => "ap_operator$row", -values => $values );
+	my %args = (
+		-name        => "ap_value$row",
+		-id          => "ap_value$row",
+		-class       => 'int_entry',
+		-type        => 'number',
+		-min         => 0,
+		-step        => 'any',
+		-placeholder => 'Enter...',
+	);
+	$args{'-value'} = $q->param("ap_value$row") if defined $q->param("ap_value$row");
+	say $self->textfield(%args);
+
+	if ( $row == 1 ) {
+		my $next_row = $max_rows ? $max_rows + 1 : 2;
+		say qq(<a id="add_allele_properties" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+		  . qq(page=tableQuery&amp;fields=allele_properties&amp;row=$next_row&amp;no_header=1" data-rel="ajax" )
+		  . q(class="add_button"><span class="fa fas fa-plus"></span></a>);
+		say $self->get_tooltip( '', { id => 'ap_tooltip' } );
+	}
+	say q(</span>);
+	return;
+}
+
 sub _save_options {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
@@ -1481,6 +1583,11 @@ sub _save_options {
 	return if !$guid;
 	my $value = $q->param('list') ? 'on' : 'off';
 	$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, "${table}_list_fieldset", $value );
+
+	if ( $table eq 'loci' ) {
+		$value = $q->param('allele_properties') ? 'on' : 'off';
+		$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, 'allele_properties_fieldset', $value );
+	}
 	return;
 }
 1;
