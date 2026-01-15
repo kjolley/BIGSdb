@@ -215,6 +215,8 @@ sub _get_select_items {
 				( my $label = $key ) =~ tr/_/ /;
 				$labels{"ext_$key"} = $label;
 			}
+		} elsif ( $table eq 'loci' && $att->{'name'} eq 'id' ) {
+			push @select_items, 'aliases';
 		}
 	}
 	foreach my $item (@select_items) {
@@ -848,7 +850,8 @@ sub _check_invalid_fieldname {
 		user_group_members  => [@user_fields],
 		profile_history     => ['timestamp (date)'],
 		embargo_history     => ['timestamp (date)'],
-		history             => [ $self->{'system'}->{'labelfield'}, 'timestamp (date)' ]
+		history             => [ $self->{'system'}->{'labelfield'}, 'timestamp (date)' ],
+		loci                => ['aliases']
 	};
 	if ( $additional->{$table} ) {
 		foreach my $field ( @{ $additional->{$table} } ) {
@@ -909,6 +912,7 @@ sub _generate_query {
 		next if $self->_modify_query_search_by_isolate($args);
 		next if $self->_modify_query_search_by_users($args);
 		next if $self->_modify_query_search_timestamp_by_date($args);
+		next if $self->_modify_query_by_locus_attributes($args);
 		$self->_modify_query_standard_field($args);
 	}
 	$qry = qq(($qry)) if $qry;
@@ -994,7 +998,8 @@ sub _modify_query_extended_attributes {
 		$field =~ s/^ext_//x;
 		if ( lc($text) eq 'null' ) {
 			my $inv_not = $operator =~ /NOT/x ? q() : ' NOT';
-			return "sequence_bin.id$inv_not IN (SELECT seqbin_id FROM sequence_attribute_values WHERE key='$field')";
+			$$qry_ref .=
+			  "sequence_bin.id$inv_not IN (SELECT seqbin_id FROM sequence_attribute_values WHERE key='$field')";
 		}
 		my $not = $operator =~ /NOT/x ? ' NOT' : '';
 		$$qry_ref .= "sequence_bin.id$not IN (SELECT seqbin_id FROM sequence_attribute_values WHERE key='$field' AND ";
@@ -1018,6 +1023,38 @@ sub _modify_query_extended_attributes {
 			}
 		}
 		$$qry_ref .= ')';
+		return 1;
+	}
+	return;
+}
+
+sub _modify_query_by_locus_attributes {
+	my ( $self, $args ) = @_;
+	my ( $table, $field, $text, $modifier, $operator, $thisfield, $qry_ref ) =
+	  @{$args}{qw(table field text modifier operator thisfield qry_ref)};
+	return if $table ne 'loci';
+
+	if ( $field eq 'aliases' ) {
+		my %terms = (
+			'contains'    => "alias ILIKE E'%$text%'",
+			'NOT contain' => "alias ILIKE E'%$text%'",
+			'starts with' => "alias ILIKE E'$text%'",
+			'ends with'   => "alias ILIKE E'%$text'",
+			'NOT'         => "UPPER(alias) = UPPER(E'$text')",
+			'='           => "UPPER(alias) = UPPER(E'$text')"
+		);
+		$$qry_ref .= $modifier;
+		my $not = $operator =~ /NOT/x ? ' NOT' : '';
+		if ( lc($text) eq 'null' ) {
+			my $inv_not = $operator =~ /NOT/x ? q() : ' NOT';
+			$$qry_ref .= qq(id$inv_not IN (SELECT locus FROM locus_aliases));
+		} else {
+			if ( $terms{$operator} ) {
+				$$qry_ref .= qq(id$not IN (SELECT locus FROM locus_aliases WHERE $terms{$operator}));
+			} else {
+				$$qry_ref .= qq(id IN (SELECT locus FROM locus_aliases WHERE UPPER(alias) $operator UPPER(E'$text')));
+			}
+		}
 		return 1;
 	}
 	return;
