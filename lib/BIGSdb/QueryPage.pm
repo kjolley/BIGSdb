@@ -20,9 +20,9 @@ package BIGSdb::QueryPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::ResultsTablePage);
-use List::MoreUtils qw(any);
-use Log::Log4perl qw(get_logger);
+use parent            qw(BIGSdb::ResultsTablePage);
+use List::MoreUtils   qw(any);
+use Log::Log4perl     qw(get_logger);
 use BIGSdb::Constants qw(:interface OPERATORS);
 my $logger = get_logger('BIGSdb.Page');
 use constant MAX_INT => 2147483647;
@@ -79,9 +79,13 @@ sub get_javascript_panel {
 		assembly_checks   => q[$('[id^="assembly_checks_value"]').val('');$('[id^="assembly_checks_field"]').val('')],
 		annotation_status =>
 		  q[$('[id^="annotation_status_value"]').val('');$('[id^="annotation_status_field"]').val('')],
-		scheme => q[$('[id^="t"]').val('')],
+		scheme            => q[$('[id^="t"]').val('')],
+		allele_properties => q[$('select[id^="ap_field"]').val('').change(),]
+		  . q[$('[id^="ap_operator"]').val(''),]
+		  . q[$('[id^="ap_value"]').val('')],
 	);
 	my @clear_form_directives;
+
 	foreach my $fieldset (@fieldsets) {
 		push @clear_form_directives, qq(        $fieldset: function(){$clear_form{$fieldset}});
 	}

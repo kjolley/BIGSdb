@@ -496,6 +496,7 @@ sub _run_query {
 		$self->_filter_query_by_common_name( $table, \$qry );
 		$self->_filter_query_by_sequence_filters( $table, \$qry );
 		$self->_filter_query_by_allele_definition_filters( $table, \$qry );
+		$self->_filter_query_by_allele_properties( $table, \$qry );
 		$qry //= '1=1';    #So that we always have a WHERE clause even with no arguments selected.
 		$qry2 = "SELECT * FROM $table WHERE ($qry)";
 		$qry2 = $self->_process_dropdown_filters( $qry2, $table, $attributes );
@@ -721,6 +722,42 @@ sub _filter_query_by_allele_definition_filters {
 	} else {
 		$$qry_ref = "($sub_qry)";
 	}
+	return;
+}
+
+sub _filter_query_by_allele_properties {
+	my ( $self, $table, $qry_ref ) = @_;
+	return if $table ne 'loci' && $self->{'system'}->{'dbtype'} ne 'sequences';
+	my $q              = $self->{'cgi'};
+	my %allowed_fields = map { $_ => 1 } qw(allele_count min_length max_length);
+	my %types          = (
+		allele_count => 'int',
+		min_length   => 'int',
+		max_length   => 'int'
+	);
+	my @qry;
+	for my $row ( 1 .. MAX_ROWS ) {
+		my $field    = $q->param("ap_field$row");
+		my $operator = $q->param("ap_operator$row") // q(=);
+		my $value    = $q->param("ap_value$row");
+		next if !defined $value || $value eq q();
+		next if !defined $field || $field eq q();
+		if ( !$allowed_fields{$field} ) {
+			$logger->error("Attempt to modify allele property field name: $field");
+			next;
+		}
+		next if $types{$field} eq 'int' && !BIGSdb::Utils::is_int($value);
+		push @qry, qq(id IN (SELECT locus FROM locus_stats WHERE $field$operator$value));
+	}
+	my %allowed_andor = map { $_ => 1 } qw(AND OR);
+	my $andor         = $q->param('ap_andor') // 'AND';
+	return if !$allowed_andor{$andor};
+	if (@qry) {
+		local $" = qq[) $andor (];
+		$$qry_ref .= ' AND ' if $$qry_ref;
+		$$qry_ref .= qq[((@qry))];
+	}
+	$logger->error($$qry_ref);
 	return;
 }
 
@@ -1394,9 +1431,9 @@ sub _print_modify_search_fieldset {
 	say qq(<li><a href="" class="button fieldset_trigger" id="show_list">$list_fieldset_display</a>);
 	say q(Attribute values list</li>);
 
-	if ( $table eq 'loci' ) {
+	if ( $table eq 'loci' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $allele_properties_fieldset_display = $self->{'prefs'}->{'allele_properties_fieldset'}
-		  || $q->param('allele_properties') ? HIDE : SHOW;
+		  || $self->_highest_entered_fields('allele_properties') ? HIDE : SHOW;
 		say q(<li><a href="" class="button fieldset_trigger" id="show_allele_properties">)
 		  . qq($allele_properties_fieldset_display</a>);
 		say q(Allele properties</li>);
@@ -1506,14 +1543,16 @@ sub _print_table_specific_fieldset {
 }
 
 sub _print_loci_table_fieldsets {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ($self)  = @_;
-	my $q       = $self->{'cgi'};
-	my $display = $self->{'prefs'}->{'allele_properties_fieldset'}
-	  || $q->param('allele_properties') ? 'inline' : 'none';
+	my ($self) = @_;
+	return if $self->{'system'}->{'dbtype'} ne 'sequences';
+	my $q = $self->{'cgi'};
+	my $display =
+		 $self->{'prefs'}->{'allele_properties_fieldset'}
+	  || $q->param('allele_properties')
+	  || $self->_highest_entered_fields('allele_properties') ? 'inline' : 'none';
 	say qq(<fieldset id="allele_properties_fieldset" style="float:left;display:$display">);
 	say q(<legend>Allele properties</legend><div>);
 	$self->_print_allele_properties_fieldset_contents;
-
 	say q(</div></fieldset>);
 	return;
 }
@@ -1539,15 +1578,14 @@ sub _print_allele_properties_fields {
 	my ( $self, $row, $max_rows ) = @_;
 	my $q = $self->{'cgi'};
 	say q(<span style="display:flex">);
-	my @values = qw(alleles min_length max_length);
+	my @values = qw(allele_count min_length max_length);
 
 	say $self->popup_menu(
 		-name   => "ap_field$row",
 		-id     => "ap_field$row",
 		-values => [ q(), @values ],
-		-labels => { alleles => 'allele count', min_length => 'minimum length', max_length => 'maximum length' }
-		,
-		-class => 'fieldlist'
+		-labels => { allele_count => 'allele count', min_length => 'minimum length', max_length => 'maximum length' },
+		-class  => 'fieldlist'
 	);
 	my $values = [ '>', '>=', '<', '<=', '=' ];
 	say $q->popup_menu( -name => "ap_operator$row", -id => "ap_operator$row", -values => $values );
