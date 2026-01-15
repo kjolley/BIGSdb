@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2025, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,10 +20,10 @@ package BIGSdb::ProfileQueryPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::QueryPage);
+use parent            qw(BIGSdb::QueryPage);
 use BIGSdb::Constants qw(:interface OPERATORS);
-use List::MoreUtils qw(any uniq);
-use Log::Log4perl qw(get_logger);
+use List::MoreUtils   qw(any uniq);
+use Log::Log4perl     qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
 sub _ajax_content {
@@ -383,14 +383,20 @@ sub _is_locus_in_scheme {
 
 sub _generate_query {
 	my ( $self, $scheme_id ) = @_;
-	my $q           = $self->{'cgi'};
-	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
+	my $q = $self->{'cgi'};
+
 	my ( $qry, $errors ) = $self->_generate_query_from_main_form($scheme_id);
 	( $qry, my $list_file ) = $self->_modify_by_list( $scheme_id, $qry );
 	$q->param( datatype => 'text' );
 	$qry = $self->_modify_query_for_filters( $scheme_id, $qry );
-	my $primary_key   = $scheme_info->{'primary_key'};
+
+	my ( $primary_key, $selectitems, $orderitems, $cleaned ) = $self->_get_select_items($scheme_id);
 	my $order         = $q->param('order') || $primary_key;
+	my %allowed_order = map { $_ => 1 } @$orderitems;
+	if ( !$allowed_order{$order} ) {
+		push @$errors, 'Invalid order by field.';
+		$logger->error("Attempt to modify order field: $order");
+	}
 	my $dir           = ( defined $q->param('direction') && $q->param('direction') eq 'descending' ) ? 'desc' : 'asc';
 	my $pk_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
 	my $profile_id_field = $pk_field_info->{'type'} eq 'integer' ? "lpad($primary_key,20,'0')" : $primary_key;
@@ -450,7 +456,7 @@ sub _generate_query_from_main_form {
 	my $scheme_warehouse = "mv_scheme_$scheme_id";
 	my $qry              = "SELECT * FROM $scheme_warehouse WHERE (";
 	my $date_restriction = $self->{'datastore'}->get_date_restriction;
-	if ($date_restriction && !$self->{'username'}) {
+	if ( $date_restriction && !$self->{'username'} ) {
 		$qry .= qq[date_entered<='$date_restriction') AND (];
 	}
 	my $andor           = $q->param('c0');
