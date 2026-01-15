@@ -757,7 +757,6 @@ sub _filter_query_by_allele_properties {
 		$$qry_ref .= ' AND ' if $$qry_ref;
 		$$qry_ref .= qq[((@qry))];
 	}
-	$logger->error($$qry_ref);
 	return;
 }
 
