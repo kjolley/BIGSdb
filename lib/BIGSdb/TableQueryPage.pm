@@ -728,9 +728,10 @@ sub _filter_query_by_allele_definition_filters {
 sub _filter_query_by_allele_properties {
 	my ( $self, $table, $qry_ref ) = @_;
 	return if $table ne 'loci' && $self->{'system'}->{'dbtype'} ne 'sequences';
-	my $q              = $self->{'cgi'};
-	my %allowed_fields = map { $_ => 1 } qw(allele_count min_length max_length);
-	my %types          = (
+	my $q                 = $self->{'cgi'};
+	my %allowed_fields    = map { $_ => 1 } qw(allele_count min_length max_length);
+	my %allowed_operators = map { $_ => 1 } ( '>', '>=', '<', '<=', '=' );
+	my %types             = (
 		allele_count => 'int',
 		min_length   => 'int',
 		max_length   => 'int'
@@ -744,6 +745,10 @@ sub _filter_query_by_allele_properties {
 		next if !defined $field || $field eq q();
 		if ( !$allowed_fields{$field} ) {
 			$logger->error("Attempt to modify allele property field name: $field");
+			next;
+		}
+		if ( !$allowed_operators{$operator} ) {
+			$logger->error("Attempt to modify allele property operator: $operator");
 			next;
 		}
 		next if $types{$field} eq 'int' && !BIGSdb::Utils::is_int($value);
