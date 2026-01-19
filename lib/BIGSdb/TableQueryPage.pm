@@ -217,6 +217,9 @@ sub _get_select_items {
 			}
 		} elsif ( $table eq 'loci' && $att->{'name'} eq 'id' ) {
 			push @select_items, 'aliases';
+			if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+				push @select_items, qw(full_name description product);
+			}
 		}
 	}
 	foreach my $item (@select_items) {
@@ -521,7 +524,6 @@ sub _run_query {
 		my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
 		local $" = ",$table.";
 		$qry2 .= " $dir";
-
 		foreach my $pk (@primary_keys) {
 			next if $pk eq $order;
 			if ( $pk eq 'allele_id' ) {
@@ -853,6 +855,7 @@ sub _check_invalid_fieldname {
 		history             => [ $self->{'system'}->{'labelfield'}, 'timestamp (date)' ],
 		loci                => ['aliases']
 	};
+	push @{ $additional->{'loci'} }, qw(full_name description product) if $self->{'system'}->{'dbtype'} eq 'sequences';
 	if ( $additional->{$table} ) {
 		foreach my $field ( @{ $additional->{$table} } ) {
 			$allowed{$field} = 1;
@@ -1053,6 +1056,35 @@ sub _modify_query_by_locus_attributes {
 				$$qry_ref .= qq(id$not IN (SELECT locus FROM locus_aliases WHERE $terms{$operator}));
 			} else {
 				$$qry_ref .= qq(id IN (SELECT locus FROM locus_aliases WHERE UPPER(alias) $operator UPPER(E'$text')));
+			}
+		}
+		return 1;
+	}
+	my %locus_description_fields = map { $_ => 1 } qw(full_name description product);
+	if ( $locus_description_fields{$field} && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		my %terms = (
+			'contains'    => "$field ILIKE E'%$text%'",
+			'NOT contain' => "$field ILIKE E'%$text%'",
+			'starts with' => "$field ILIKE E'$text%'",
+			'ends with'   => "$field ILIKE E'%$text'",
+			'NOT'         => "UPPER($field) = UPPER(E'$text')",
+			'='           => "UPPER($field) = UPPER(E'$text')"
+		);
+		$$qry_ref .= $modifier;
+		my $not = $operator =~ /NOT/x ? ' NOT' : '';
+		if ( lc($text) eq 'null' ) {
+			if ($not) {
+				$$qry_ref .= qq[id IN (SELECT locus FROM locus_descriptions WHERE $field IS NOT NULL AND $field != '')];
+			} else {
+				$$qry_ref .= qq[(id IN (SELECT locus FROM locus_descriptions WHERE $field IS NULL OR $field = '') OR ]
+				  . q[id NOT IN (SELECT locus FROM locus_descriptions))];
+			}
+		} else {
+			if ( $terms{$operator} ) {
+				$$qry_ref .= qq(id$not IN (SELECT locus FROM locus_descriptions WHERE $terms{$operator}));
+			} else {
+				$$qry_ref .=
+				  qq(id IN (SELECT locus FROM locus_descriptions WHERE UPPER(alias) $operator UPPER(E'$text')));
 			}
 		}
 		return 1;
