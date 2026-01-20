@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2025, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 package BIGSdb::TableAttributes;
 use strict;
 use warnings;
-use List::MoreUtils qw(any uniq);
+use List::MoreUtils   qw(any uniq);
 use BIGSdb::Constants qw(SEQ_METHODS SEQ_STATUS SEQ_FLAGS LOCUS_TYPES DATABANKS IDENTITY_THRESHOLD OPERATORS
   COUNTRIES SECTORS);
 
@@ -75,7 +75,8 @@ sub get_users_table_attributes {
 	if ( $self->{'config'}->{'site_user_sector'} ) {
 		my @optlist = SECTORS;
 		local $" = q(;);
-		push @$attributes, {
+		push @$attributes,
+		  {
 			name           => 'sector',
 			type           => 'text',
 			required       => 0,
@@ -83,7 +84,7 @@ sub get_users_table_attributes {
 			dropdown_query => 1,
 			optlist        => qq(@optlist),
 			allow_other    => 1
-		};
+		  };
 	}
 	push @$attributes,
 	  (
@@ -1563,8 +1564,7 @@ sub get_scheme_fields_table_attributes {
 			}
 		  );
 	} else {
-		push @$attributes,
-		  (
+		push @$attributes, (
 			{
 				name     => 'index',
 				type     => 'bool',
@@ -1590,8 +1590,17 @@ sub get_scheme_fields_table_attributes {
 				type    => 'text',
 				length  => 128,
 				tooltip => q(option list - '|' separated list of allowed values.)
+			},
+			{
+				name     => 'submissions',
+				type     => 'bool',
+				required => 1,
+				default  => 'false',
+				tooltip  => 'submissions - Include field in the profile submission form so that submitters can '
+				  . 'include it. This should not be used for primary key fields as these are usually defined '
+				  . 'by the system rather than being provided by the submitter.'
 			}
-		  );
+		);
 	}
 	push @$attributes,
 	  (
