@@ -524,6 +524,7 @@ sub _run_query {
 		my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
 		local $" = ",$table.";
 		$qry2 .= " $dir";
+
 		foreach my $pk (@primary_keys) {
 			next if $pk eq $order;
 			if ( $pk eq 'allele_id' ) {
@@ -569,16 +570,16 @@ sub _run_query {
 
 sub _filter_query_by_scheme {
 	my ( $self, $table, $qry_ref ) = @_;
-	my $q = $self->{'cgi'};
-	return if ( $q->param('scheme_id_list') // '' ) eq '';
-	return if !BIGSdb::Utils::is_int( scalar $q->param('scheme_id_list') );
+	my $q         = $self->{'cgi'};
+	my $scheme_id = $q->param('scheme_id_list');
+	return if !BIGSdb::Utils::is_int($scheme_id);
 	my %allowed_tables =
 	  map { $_ => 1 } qw (loci scheme_fields schemes scheme_members client_dbase_schemes allele_designations sequences);
 	return if !$allowed_tables{$table};
 	my $sub_qry;
 
 	#Don't do this for allele_sequences as this has its own method
-	my $scheme_id = $q->param('scheme_id_list');
+
 	my ( $identifier, $field );
 	my %set_id_and_field = (
 		loci                => sub { ( $identifier, $field ) = ( 'id',    'locus' ) },
@@ -592,7 +593,7 @@ sub _filter_query_by_scheme {
 		( $identifier, $field ) = ( 'scheme_id', 'scheme_id' );
 	}
 	my $set_id = $self->get_set_id;
-	if ( $q->param('scheme_id_list') eq '0' ) {
+	if ( $scheme_id eq '0' ) {
 		my $set_clause = $set_id ? "WHERE scheme_id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)" : '';
 		$sub_qry = "$identifier NOT IN (SELECT $field FROM scheme_members $set_clause)";
 	} else {
@@ -680,12 +681,13 @@ sub _filter_query_by_sequence_filters {
 			  . "locus,isolate_id FROM allele_sequences GROUP BY locus,isolate_id HAVING count(*)>=$match))";
 			push @clauses, $dup_qry;
 		}
-		if ( $q->param('scheme_id_list') ne '' ) {
+		my $scheme_id = $q->param('scheme_id_list');
+		if ( BIGSdb::Utils::is_int($scheme_id) ) {
 			my $scheme_qry;
-			if ( $q->param('scheme_id_list') eq '0' || !BIGSdb::Utils::is_int( scalar $q->param('scheme_id_list') ) ) {
+			if ( $scheme_id eq '0' ) {
 				$scheme_qry = 'allele_sequences.locus NOT IN (SELECT locus FROM scheme_members)';
 			} else {
-				my $scheme_id = $q->param('scheme_id_list');
+
 				$scheme_qry =
 					'allele_sequences.locus IN (SELECT DISTINCT allele_sequences.locus FROM '
 				  . 'allele_sequences JOIN scheme_members ON allele_sequences.locus = scheme_members.locus '
@@ -782,6 +784,10 @@ sub _process_dropdown_filters {
 				( $value = $q->param('locus_list') ) =~ s/^cn_//x;
 			} else {
 				$value = $q->param($param);
+			}
+			if ( $att->{'type'} eq 'int' && !BIGSdb::Utils::is_int($value) ) {
+				$logger->error("Invalid value for $param: $value");
+				next;
 			}
 			my $field = qq($table.$name);
 			if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
