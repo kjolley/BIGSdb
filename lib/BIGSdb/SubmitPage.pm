@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2025, University of Oxford
+#Copyright (c) 2015-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,12 +20,12 @@ package BIGSdb::SubmitPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::TreeViewPage BIGSdb::CurateProfileAddPage);
+use parent        qw(BIGSdb::TreeViewPage BIGSdb::CurateProfileAddPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Submissions');
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(SEQ_METHODS :submissions :interface :design);
-use List::MoreUtils qw(none);
+use List::MoreUtils   qw(none);
 use POSIX;
 use JSON;
 use constant LIMIT       => 500;
@@ -1136,10 +1136,10 @@ sub _submit_profiles {
 	say q(<h2>Templates</h2>);
 	my ( $text, $excel ) = ( TEXT_FILE, EXCEL_FILE );
 	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;)
-	  . qq(table=profiles&amp;scheme_id=$scheme_id&amp;no_fields=1&amp;id_field=1" title="Download tab-delimited )
+	  . qq(table=profiles&amp;scheme_id=$scheme_id&amp;submission=1&amp;id_field=1" title="Download tab-delimited )
 	  . qq(header for your spreadsheet">$text</a>)
 	  . qq[<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;]
-	  . qq[table=profiles&amp;scheme_id=$scheme_id&amp;no_fields=1&amp;id_field=1" title="Download submission template ]
+	  . qq[table=profiles&amp;scheme_id=$scheme_id&amp;submission=1&amp;id_field=1" title="Download submission template ]
 	  . qq[(xlsx format)">$excel</a></p>];
 	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Please paste in tab-delimited text <b>)

@@ -20,9 +20,9 @@ package BIGSdb::CurateTableHeaderPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Page);
-use List::MoreUtils qw(none);
-use Log::Log4perl qw(get_logger);
+use parent            qw(BIGSdb::Page);
+use List::MoreUtils   qw(none);
+use Log::Log4perl     qw(get_logger);
 use BIGSdb::Constants qw(:limits);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -39,10 +39,10 @@ sub print_content {
 		say "Table $table does not exist!";
 		return;
 	}
-	my $q         = $self->{'cgi'};
-	my $no_fields = $q->param('no_fields') ? 1 : 0;    #For profile submissions
-	my $id_field  = $q->param('id_field') ? 1 : 0;     #Ditto
-	my $headers = $self->get_headers( $table, { no_fields => $no_fields, id_field => $id_field } );
+	my $q          = $self->{'cgi'};
+	my $submission = $q->param('submission') ? 1 : 0;    #For profile submissions
+	my $id_field   = $q->param('id_field')   ? 1 : 0;    #Ditto
+	my $headers    = $self->get_headers( $table, { submission => $submission, id_field => $id_field } );
 	if ( $table eq 'isolates' && $q->param('addCols') ) {
 		my @cols = split /,/x, $q->param('addCols');
 		push @$headers, @cols;
@@ -93,27 +93,29 @@ sub _get_profile_table_headers {
 		return ['Scheme id must be an integer.'];
 	}
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-	my $set_id = $self->get_set_id;
+	my $set_id      = $self->get_set_id;
 	push @$headers, 'id' if $options->{'id_field'};
-	push @$headers, $scheme_info->{'primary_key'} if ( !$options->{'no_fields'} );
+	my $pk_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $scheme_info->{'primary_key'} );
+	push @$headers, $scheme_info->{'primary_key'} if ( !$options->{'submission'} || $pk_field_info->{'submissions'} );
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	foreach my $locus (@$loci) {
 		my $label = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
 		push @$headers, $label // $locus;
 	}
-	if ( !$options->{'no_fields'} ) {
-		my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
-		foreach my $field (@$scheme_fields) {
-			my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
-			push @$headers, $field if !$scheme_field_info->{'primary_key'};
-		}
+
+	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+	foreach my $field (@$scheme_fields) {
+		my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+		push @$headers, $field
+		  if !$scheme_field_info->{'primary_key'}
+		  && ( !$options->{'submission'} || $scheme_field_info->{'submissions'} );
 	}
 	return $headers;
 }
 
 sub _get_lincode_table_headers {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my ($self)    = @_;
+	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id') // 0;
 	if ( !BIGSdb::Utils::is_int($scheme_id) ) {
 		return ['Scheme id must be an integer.'];
@@ -197,7 +199,7 @@ sub get_isolate_loci {
 	my %include;
 
 	if ( BIGSdb::Utils::is_int( scalar $q->param('scheme') ) ) {
-		$loci = $self->{'datastore'}->get_scheme_loci( scalar $q->param('scheme') );
+		$loci    = $self->{'datastore'}->get_scheme_loci( scalar $q->param('scheme') );
 		%include = map { $_ => 1 } @$loci;
 	} else {
 		$loci =
