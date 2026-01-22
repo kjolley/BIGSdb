@@ -236,6 +236,21 @@ sub get_profile_submission {
 			}
 		);
 		$profile->{'designations'}->{ $_->{'locus'} } = $_->{'allele_id'} foreach @$designations;
+		
+		my $field_values = $self->{'datastore'}->run_query(
+			'SELECT field,value FROM profile_submission_fields WHERE (submission_id,profile_id)=(?,?)',
+			[ $submission_id, $profile->{'profile_id'} ],
+			{
+				fetch => 'all_arrayref',
+				slice => {},
+				cache => 'SubmissionHandler::get_profile_submission::fields'
+			}
+		);
+		my $values = {};
+		foreach my $value (@$field_values) {
+			$values->{ $value->{'field'} } = $value->{'value'};
+		}
+		$profile->{'fields'} = $values;
 		push @{ $submission->{'profiles'} }, $profile;
 	}
 	return $submission;
@@ -612,7 +627,7 @@ sub check_new_profiles {
 				$values[$i] =~ s/\s*$//x;
 				$values[$i] =~ s/"//gx;
 				next if !$field_by_pos{$i} || $field_by_pos{$i} eq 'id';
-				if ($self->{'datastore'}->is_locus($field_by_pos{$i})){
+				if ( $self->{'datastore'}->is_locus( $field_by_pos{$i} ) ) {
 					if ( $values[$i] eq q() ) {
 						push @err, "$row_id: No value for locus $field_by_pos{$i}.";
 						next;
@@ -634,7 +649,7 @@ sub check_new_profiles {
 						push @err, "$row_id: $field_by_pos{$i}: $values[$i] has not been defined." if !$allele_exists;
 					}
 					$designations->{ $field_by_pos{$i} } = $values[$i];
-				} elsif ($self->{'datastore'}->is_scheme_field($scheme_id,$field_by_pos{$i})){
+				} elsif ( $self->{'datastore'}->is_scheme_field( $scheme_id, $field_by_pos{$i} ) ) {
 					$designations->{ $field_by_pos{$i} } = $values[$i];
 				}
 			}

@@ -944,6 +944,19 @@ ON UPDATE CASCADE
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON profile_submission_designations TO apache;
 
+CREATE TABLE profile_submission_fields (
+submission_id text NOT NULL,
+profile_id text NOT NULL,
+field text NOT NULL,
+value text NOT NULL,
+PRIMARY KEY(submission_id,profile_id,field),
+CONSTRAINT psf_submission_id FOREIGN KEY (submission_id,profile_id) REFERENCES profile_submission_profiles(submission_id,profile_id)
+ON DELETE CASCADE
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON profile_submission_fields TO apache;
+
 CREATE TABLE retired_allele_ids (
 locus text NOT NULL,
 allele_id text NOT NULL,
