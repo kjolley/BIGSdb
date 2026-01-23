@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -23,8 +23,8 @@ use 5.010;
 use parent qw(BIGSdb::CurateProfileAddPage);
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(:interface);
-use Log::Log4perl qw(get_logger);
-use List::MoreUtils qw(none);
+use Log::Log4perl     qw(get_logger);
+use List::MoreUtils   qw(none);
 my $logger = get_logger('BIGSdb.Page');
 
 sub print_content {
@@ -720,19 +720,30 @@ sub _set_submission_params {
 	return if !$submission;
 	my $profile_submission = $self->{'submissionHandler'}->get_profile_submission($submission_id);
 	return if !$profile_submission;
-	my $q    = $self->{'cgi'};
-	my $loci = $self->{'datastore'}->get_scheme_loci( $profile_submission->{'scheme_id'} );
+	my $q      = $self->{'cgi'};
+	my $loci   = $self->{'datastore'}->get_scheme_loci( $profile_submission->{'scheme_id'} );
+	my $fields = $self->{'datastore'}->run_query(
+		'SELECT field FROM scheme_fields WHERE scheme_id=? AND submissions ORDER BY field_order,field',
+		$profile_submission->{'scheme_id'},
+		{ fetch => 'col_arrayref' }
+	);
+
 	$q->param( sender => $submission->{'submitter'} );
 	local $" = qq(\t);
-	my $buffer   = "@$loci\n";
+	my @headings = ( @$loci, @$fields );
+	my $buffer   = "@headings\n";
 	my $profiles = $profile_submission->{'profiles'};
-	my @pending  = $q->param('profile_indexes') ? split /,/x, $q->param('profile_indexes') : ();
-	my %pending  = map { $_ => 1 } @pending;
+
+	my @pending = $q->param('profile_indexes') ? split /,/x, $q->param('profile_indexes') : ();
+	my %pending = map { $_ => 1 } @pending;
 
 	foreach my $profile (@$profiles) {
 		next if !$pending{ $profile->{'index'} };
 		my @temp_profile;
 		push @temp_profile, $profile->{'designations'}->{$_} foreach @$loci;
+		my $field_values = $profile->{'fields'} // {};
+		push @temp_profile, ( $field_values->{$_} // q() ) foreach @$fields;
+
 		$buffer .= "@temp_profile\n";
 	}
 	$q->param( data => $buffer );
