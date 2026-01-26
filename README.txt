@@ -1,3 +1,8 @@
+v1.52.0: *Option to hide scheme curators on information page.
+         *LIN code section added to database status page.
+         *LIN code output now included in API isolate record.
+         *Search loci by descriptions of gene product.
+         *Optionally include scheme fields in profile submissions.
 v1.51.7: *Option to include third-party analysis fields in dashboards.
          *LIN code information now included in scheme info pages.
          *Fixed XML parsing for very large database config files.
