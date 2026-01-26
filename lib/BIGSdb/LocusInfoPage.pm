@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -201,7 +201,7 @@ sub _print_curators {
 	return if $self->{'system'}->{'dbtype'} ne 'sequences';
 	my $curators = $self->{'datastore'}->run_query(
 		'SELECT curator_id FROM locus_curators WHERE locus=? AND '
-		  . '(NOT hide_public OR hide_public IS NULL) ORDER BY curator_id',
+		  . 'hide_public IS NOT TRUE ORDER BY curator_id',
 		$locus_info->{'id'},
 		{ fetch => 'col_arrayref' }
 	);
@@ -210,9 +210,17 @@ sub _print_curators {
 		say qq(<h2>Curator$plural</h2>);
 		say q(<p>This locus is curated by:</p>);
 		say q(<ul>);
+		my $users = {};
 		foreach my $user_id (@$curators) {
-			my $curator_info = $self->{'datastore'}->get_user_string( $user_id, { affiliation => 1, email => 1 } );
-			say qq(<li>$curator_info</li>);
+			my $user_info   = $self->{'datastore'}->get_user_info($user_id);
+			my $user_string = $self->{'datastore'}->get_user_string( $user_id, { email => 1, affiliation => 1 } );
+			$users->{$user_id} = {
+				surname => $user_info->{'surname'},
+				string  => $user_string
+			};
+		}
+		foreach my $user_id ( sort { $users->{$a}->{'surname'} cmp $users->{$b}->{'surname'} } keys %$users ) {
+			say qq(<li>$users->{$user_id}->{'string'}</li>);
 		}
 		say q(</ul>);
 	}

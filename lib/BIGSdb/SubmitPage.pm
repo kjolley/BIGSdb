@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2025, University of Oxford
+#Copyright (c) 2015-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,12 +20,12 @@ package BIGSdb::SubmitPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::TreeViewPage BIGSdb::CurateProfileAddPage);
+use parent        qw(BIGSdb::TreeViewPage BIGSdb::CurateProfileAddPage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Submissions');
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(SEQ_METHODS :submissions :interface :design);
-use List::MoreUtils qw(none);
+use List::MoreUtils   qw(none);
 use POSIX;
 use JSON;
 use constant LIMIT       => 500;
@@ -1136,10 +1136,10 @@ sub _submit_profiles {
 	say q(<h2>Templates</h2>);
 	my ( $text, $excel ) = ( TEXT_FILE, EXCEL_FILE );
 	say qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableHeader&amp;)
-	  . qq(table=profiles&amp;scheme_id=$scheme_id&amp;no_fields=1&amp;id_field=1" title="Download tab-delimited )
+	  . qq(table=profiles&amp;scheme_id=$scheme_id&amp;submission=1&amp;id_field=1" title="Download tab-delimited )
 	  . qq(header for your spreadsheet">$text</a>)
 	  . qq[<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=excelTemplate&amp;]
-	  . qq[table=profiles&amp;scheme_id=$scheme_id&amp;no_fields=1&amp;id_field=1" title="Download submission template ]
+	  . qq[table=profiles&amp;scheme_id=$scheme_id&amp;submission=1&amp;id_field=1" title="Download submission template ]
 	  . qq[(xlsx format)">$excel</a></p>];
 	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Please paste in tab-delimited text <b>)
@@ -1796,6 +1796,7 @@ sub _start_profile_submission {
 		return;
 	}
 	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	if (@$profiles) {
 		my $index = 1;
 		foreach my $profile (@$profiles) {
@@ -1809,6 +1810,14 @@ sub _start_profile_submission {
 						'INSERT INTO profile_submission_designations (submission_id,profile_id,locus,'
 						  . 'allele_id) VALUES (?,?,?,?)',
 						undef, $submission_id, $profile->{'id'}, $locus, $profile->{$locus}
+					);
+				}
+				foreach my $field(@$fields){
+					next if !defined $profile->{$field};
+					$self->{'db'}->do(
+						'INSERT INTO profile_submission_fields (submission_id,profile_id,field,'
+						  . 'value) VALUES (?,?,?,?)',
+						undef, $submission_id, $profile->{'id'}, $field, $profile->{$field}
 					);
 				}
 			};
@@ -2434,6 +2443,7 @@ sub _print_profile_table {
 	my ( $all_assigned, $all_rejected, $all_assigned_or_rejected ) = ( 1, 1, 1 );
 	my $pending_profiles = [];
 	my $loci             = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $max_width        = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
 	my $main_max_width   = $max_width - 100;
 	my $max_width_style =
@@ -2441,7 +2451,12 @@ sub _print_profile_table {
 	say qq(<div id="profile_table" style="max-width:$max_width_style"><div class="scrollable">)
 	  . q(<table class="resultstable" style="margin-bottom:0">);
 	say q(<tr><th>Identifier</th>);
-
+	my $field_info = {};
+	foreach my $field (@$fields){
+		$field_info->{$field} = $self->{'datastore'}->get_scheme_field_info($scheme_id,$field);
+		next if !$field_info->{$field}->{'submissions'};
+		print qq(<th>$field</th>);
+	}
 	foreach my $locus (@$loci) {
 		my $clean_locus = $self->clean_locus($locus);
 		print qq(<th>$clean_locus</th>);
@@ -2451,6 +2466,11 @@ sub _print_profile_table {
 	my $index = 1;
 	foreach my $profile ( @{ $profile_submission->{'profiles'} } ) {
 		say qq(<tr class="td$td"><td>$profile->{'profile_id'}</td>);
+		foreach my $field (@$fields){
+			next if !$field_info->{$field}->{'submissions'};
+			my $field_value = $profile->{'fields'}->{$field} // q();
+			say qq(<td>$field_value</td>);
+		}
 		foreach my $locus (@$loci) {
 			say qq(<td>$profile->{'designations'}->{$locus}</td>);
 		}

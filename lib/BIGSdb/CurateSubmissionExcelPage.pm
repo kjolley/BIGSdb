@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2022, University of Oxford
+#Copyright (c) 2014-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -55,11 +55,13 @@ sub print_content {
 	if ( $table eq 'profiles' ) {
 		if ( $self->{'system'}->{'dbtype'} eq 'sequences' && BIGSdb::Utils::is_int($scheme_id) ) {
 			my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-			my $set_id = $self->get_set_id;
+			my $set_id      = $self->get_set_id;
 			if ($scheme_info) {
 				push @$headers, 'id' if $q->param('id_field');
+				my $pk_field_info =
+				  $self->{'datastore'}->get_scheme_field_info( $scheme_id, $scheme_info->{'primary_key'} );
 				push @$headers, $scheme_info->{'primary_key'}
-				  if $scheme_info->{'primary_key'} && !$q->param('no_fields');
+				  if ( !$q->param('submission') || $pk_field_info->{'submissions'} );
 				my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
 				foreach my $locus (@$loci) {
 					my $label = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
@@ -67,7 +69,11 @@ sub print_content {
 				}
 				my $fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 				foreach my $field (@$fields) {
-					push @$headers, $field if $field ne $scheme_info->{'primary_key'} && !$q->param('no_fields');
+					my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+					push @$headers, $field
+					  if $field ne $scheme_info->{'primary_key'}
+					  && ( !$q->param('submission') || $scheme_field_info->{'submissions'} );
+
 				}
 			} else {
 				$worksheet->write( 'A1', 'Invalid scheme!' );
@@ -192,13 +198,13 @@ sub _print_isolate_allowed_values {
 		$option_list = $self->{'xmlHandler'}->get_field_option_list($field);
 		$option_list = [SEQ_METHODS] if $field eq 'sequence_method';
 	}
-	my $col_width = 5;
+	my $col_width    = 5;
 	my $field_length = int( 0.9 * ( length $field ) + 2 );
 	$col_width = $field_length if $field_length > $col_width;
 	if (@$option_list) {
 		$worksheet->write( 0, $col, $field, $self->{'header_format'} );
 		my $row = 1;
-		
+
 		foreach my $value (@$option_list) {
 			$worksheet->write_string( $row, $col, $value );
 			push @{ $self->{'values'}->{$field} }, $value;    #used for calculating column width
@@ -216,13 +222,14 @@ sub _print_isolate_allowed_values {
 
 sub _print_isolate_allowed_loci {
 	my ( $self, $worksheet, $field ) = @_;
-	my $set_id = $self->get_set_id;
+	my $set_id         = $self->get_set_id;
 	my @col_max_length = ( 13, 13, 7 );
 	$worksheet->write( 0, 0, 'primary name', $self->{'header_format'} );
 	$worksheet->write( 0, 1, 'common name',  $self->{'header_format'} );
 	$worksheet->write( 0, 2, 'aliases',      $self->{'header_format'} );
 	my $loci = $self->{'datastore'}->get_loci( { set_id => $set_id } );
-	my $row = 1;
+	my $row  = 1;
+
 	foreach my $locus ( sort { lc($a) cmp lc($b) } @$loci ) {
 		my $locus_info = $self->{'datastore'}->get_locus_info( $locus, { set_id => $set_id } );
 		my $aliases    = $self->{'datastore'}->get_locus_aliases($locus);

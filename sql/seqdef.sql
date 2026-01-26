@@ -452,6 +452,7 @@ field_order int,
 index boolean,
 dropdown boolean NOT NULL,
 primary_key boolean NOT NULL,
+submissions boolean NOT NULL,
 curator int NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY(scheme_id,field),
@@ -470,6 +471,7 @@ scheme_id int NOT NULL,
 curator_id int NOT NULL,
 curator int NOT NULL,
 datestamp date NOT NULL,
+hide_public bool,
 PRIMARY KEY(scheme_id,curator_id),
 CONSTRAINT sc_scheme_id FOREIGN KEY (scheme_id) REFERENCES schemes
 ON DELETE CASCADE
@@ -941,6 +943,19 @@ ON UPDATE CASCADE
 );
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON profile_submission_designations TO apache;
+
+CREATE TABLE profile_submission_fields (
+submission_id text NOT NULL,
+profile_id text NOT NULL,
+field text NOT NULL,
+value text NOT NULL,
+PRIMARY KEY(submission_id,profile_id,field),
+CONSTRAINT psf_submission_id FOREIGN KEY (submission_id,profile_id) REFERENCES profile_submission_profiles(submission_id,profile_id)
+ON DELETE CASCADE
+ON UPDATE CASCADE
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON profile_submission_fields TO apache;
 
 CREATE TABLE retired_allele_ids (
 locus text NOT NULL,
@@ -1672,6 +1687,9 @@ ON DELETE NO ACTION
 ON UPDATE CASCADE,
 CONSTRAINT pm_curator FOREIGN KEY (curator) REFERENCES users
 ON DELETE NO ACTION
+ON UPDATE CASCADE,
+CONSTRAINT pm_locus FOREIGN KEY (locus) REFERENCES loci
+ON DELETE CASCADE
 ON UPDATE CASCADE
 );
 
@@ -1712,8 +1730,14 @@ flanking_length int NOT NULL,
 curator integer NOT NULL,
 datestamp date NOT NULL,
 PRIMARY KEY (id),
+CONSTRAINT dm_wild_type_allele_id FOREIGN KEY (locus,wild_type_allele_id) REFERENCES sequences(locus,allele_id)
+ON DELETE NO ACTION
+ON UPDATE CASCADE,
 CONSTRAINT dm_curator FOREIGN KEY (curator) REFERENCES users
 ON DELETE NO ACTION
+ON UPDATE CASCADE,
+CONSTRAINT dm_locus FOREIGN KEY (locus) REFERENCES loci
+ON DELETE CASCADE
 ON UPDATE CASCADE
 );
 
@@ -1752,5 +1776,5 @@ PRIMARY KEY(field)
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON db_attributes TO apache;
 
-INSERT INTO db_attributes (field,value) VALUES ('version','45');
+INSERT INTO db_attributes (field,value) VALUES ('version','52');
 INSERT INTO db_attributes (field,value) VALUES ('type','seqdef');

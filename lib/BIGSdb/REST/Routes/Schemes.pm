@@ -151,10 +151,11 @@ sub _get_scheme {
 		$values->{'profiles_csv'} = request->uri_for("$subdir/db/$db/schemes/$scheme_id/profiles_csv");
 
 		#Curators
-		my $curators =
-		  $self->{'datastore'}
-		  ->run_query( 'SELECT curator_id FROM scheme_curators WHERE scheme_id=? ORDER BY curator_id',
-			$scheme_id, { fetch => 'col_arrayref' } );
+		my $curators = $self->{'datastore'}->run_query(
+			'SELECT curator_id FROM scheme_curators WHERE scheme_id=? AND hide_public '
+			  . 'IS NOT TRUE ORDER BY curator_id',
+			$scheme_id, { fetch => 'col_arrayref' }
+		);
 		my @curator_links;
 		foreach my $user_id (@$curators) {
 			push @curator_links, request->uri_for("$subdir/db/$db/users/$user_id");

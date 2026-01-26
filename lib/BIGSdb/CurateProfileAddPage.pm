@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2025, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -90,6 +90,9 @@ sub print_content {
 	my $pk_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
 	my $q             = $self->{'cgi'};
 	my $scheme_fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+	if ( $q->param('submission_id') ) {
+		$self->_set_submission_params( scalar $q->param('submission_id') );
+	}
 	foreach my $field (@$scheme_fields) {
 		my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 		$newdata{"field:$field"} = $q->param("field:$field");
@@ -97,9 +100,7 @@ sub print_content {
 			$newdata{$primary_key} = $self->next_id( 'profiles', $scheme_id );
 		}
 	}
-	if ( $q->param('submission_id') ) {
-		$self->_set_submission_params( scalar $q->param('submission_id') );
-	}
+
 	if ( $q->param('sent') ) {
 		return if $self->_upload( $scheme_id, \%newdata );
 	}
@@ -122,6 +123,8 @@ sub _set_submission_params {
 		if ( $q->param('index') == $profile_index ) {
 			my $designations = $profile->{'designations'};
 			$q->param( "locus:$_" => $designations->{$_} ) foreach keys %$designations;
+			my $fields = $profile->{'fields'} // {};
+			$q->param("field:$_" => $fields->{$_}) foreach keys %$fields;
 			last;
 		}
 		$profile_index++;

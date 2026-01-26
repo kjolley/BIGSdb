@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2025, University of Oxford
+#Copyright (c) 2015-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,10 +21,10 @@ use strict;
 use warnings;
 use 5.010;
 use Bio::SeqIO;
-use File::Path qw(make_path remove_tree);
-use List::Util qw(max);
+use File::Path      qw(make_path remove_tree);
+use List::Util      qw(max);
 use List::MoreUtils qw(uniq);
-use Log::Log4perl qw(get_logger);
+use Log::Log4perl   qw(get_logger);
 use Email::Sender::Transport::SMTP;
 use Email::Sender::Simple qw(try_to_sendmail);
 use Email::MIME;
@@ -32,7 +32,7 @@ use Email::Valid;
 use Try::Tiny;
 use File::Type;
 use IO::Uncompress::Gunzip qw(gunzip $GunzipError);
-use IO::Uncompress::Unzip qw(unzip $UnzipError);
+use IO::Uncompress::Unzip  qw(unzip $UnzipError);
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(:submissions SEQ_METHODS DEFAULT_DOMAIN);
 use constant EMAIL_FLOOD_PROTECTION_TIME => 60 * 2;    #2 minutes
@@ -236,6 +236,21 @@ sub get_profile_submission {
 			}
 		);
 		$profile->{'designations'}->{ $_->{'locus'} } = $_->{'allele_id'} foreach @$designations;
+		
+		my $field_values = $self->{'datastore'}->run_query(
+			'SELECT field,value FROM profile_submission_fields WHERE (submission_id,profile_id)=(?,?)',
+			[ $submission_id, $profile->{'profile_id'} ],
+			{
+				fetch => 'all_arrayref',
+				slice => {},
+				cache => 'SubmissionHandler::get_profile_submission::fields'
+			}
+		);
+		my $values = {};
+		foreach my $value (@$field_values) {
+			$values->{ $value->{'field'} } = $value->{'value'};
+		}
+		$profile->{'fields'} = $values;
 		push @{ $submission->{'profiles'} }, $profile;
 	}
 	return $submission;
@@ -612,27 +627,31 @@ sub check_new_profiles {
 				$values[$i] =~ s/\s*$//x;
 				$values[$i] =~ s/"//gx;
 				next if !$field_by_pos{$i} || $field_by_pos{$i} eq 'id';
-				if ( $values[$i] eq q() ) {
-					push @err, "$row_id: No value for locus $field_by_pos{$i}.";
-					next;
-				}
-				my $allele_exists = $self->{'datastore'}->sequence_exists( $field_by_pos{$i}, $values[$i] );
-				if ( !$scheme_info->{'allow_missing_loci'} ) {
-					if ( $values[$i] eq q(N) ) {
-						push @err, "$row_id: Arbitrary values (N) are not allowed for locus $field_by_pos{$i}.";
-						next;
-					} elsif ( $values[$i] eq q(0) ) {
-						push @err, "$row_id: Missing values (0) are not allowed for locus $field_by_pos{$i}.";
+				if ( $self->{'datastore'}->is_locus( $field_by_pos{$i} ) ) {
+					if ( $values[$i] eq q() ) {
+						push @err, "$row_id: No value for locus $field_by_pos{$i}.";
 						next;
 					}
-				} elsif ( !$allele_exists && ( $values[$i] eq q(N) || $values[$i] eq q(0) ) ) {
-					$self->{'datastore'}->define_missing_allele( $field_by_pos{$i}, $values[$i] );
-					$allele_exists = 1;
+					my $allele_exists = $self->{'datastore'}->sequence_exists( $field_by_pos{$i}, $values[$i] );
+					if ( !$scheme_info->{'allow_missing_loci'} ) {
+						if ( $values[$i] eq q(N) ) {
+							push @err, "$row_id: Arbitrary values (N) are not allowed for locus $field_by_pos{$i}.";
+							next;
+						} elsif ( $values[$i] eq q(0) ) {
+							push @err, "$row_id: Missing values (0) are not allowed for locus $field_by_pos{$i}.";
+							next;
+						}
+					} elsif ( !$allele_exists && ( $values[$i] eq q(N) || $values[$i] eq q(0) ) ) {
+						$self->{'datastore'}->define_missing_allele( $field_by_pos{$i}, $values[$i] );
+						$allele_exists = 1;
+					}
+					if ( !$allele_exists ) {
+						push @err, "$row_id: $field_by_pos{$i}: $values[$i] has not been defined." if !$allele_exists;
+					}
+					$designations->{ $field_by_pos{$i} } = $values[$i];
+				} elsif ( $self->{'datastore'}->is_scheme_field( $scheme_id, $field_by_pos{$i} ) ) {
+					$designations->{ $field_by_pos{$i} } = $values[$i];
 				}
-				if ( !$allele_exists ) {
-					push @err, "$row_id: $field_by_pos{$i}:$values[$i] has not been defined." if !$allele_exists;
-				}
-				$designations->{ $field_by_pos{$i} } = $values[$i];
 			}
 			if ( !@err ) {
 				my $profile_status = $self->{'datastore'}->check_new_profile( $scheme_id, $designations );
@@ -664,6 +683,18 @@ sub _get_profile_header_positions {
 			}
 		}
 	}
+	my $fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+	foreach my $field (@$fields) {
+		my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
+		next if !$field_info->{'submissions'};
+		for my $i ( 0 .. @header - 1 ) {
+			if ( $field eq $header[$i] ) {
+				push @duplicates, $field if defined $positions{$field};
+				$positions{$field} = $i;
+			}
+		}
+	}
+
 	for my $i ( 0 .. @header - 1 ) {
 		$positions{'id'} = $i if $header[$i] eq 'id';
 	}
