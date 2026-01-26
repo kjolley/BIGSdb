@@ -280,6 +280,7 @@ sub set_pref_requirements {
 
 sub get_javascript {
 	my ($self) = @_;
+	return if $self->{'system'}->{'dbtype'} ne 'sequences';
 	my $url    = $self->{'ajax_url'} // "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=status&ajax=1";
 	my $js     = << "JS";
 var values;

@@ -25,6 +25,7 @@ my $logger = get_logger('BIGSdb.Page');
 use parent qw(BIGSdb::StatusPage);
 use BIGSdb::Utils;
 use JSON;
+use constant MAX_LOCI_SHOW => 20;
 
 sub get_title {
 	my ( $self, $options ) = @_;
@@ -126,8 +127,7 @@ sub _print_scheme_curators {
 				string  => $user_string
 			};
 		}
-		foreach my $user_id ( sort { $users->{$a}->{'surname'} cmp $users->{$b}->{'surname'} } keys %$users )
-		{
+		foreach my $user_id ( sort { $users->{$a}->{'surname'} cmp $users->{$b}->{'surname'} } keys %$users ) {
 			say qq(<li>$users->{$user_id}->{'string'}</li>);
 		}
 		say q(</ul>);
@@ -176,8 +176,9 @@ sub _print_loci {
 		  . qq($count loc$plural</a>.</p>);
 	} else {
 		say qq(<p>This scheme consists of alleles from $count loc$plural.</p>);
-	}
-	if ( @$scheme_loci <= 20 ) {
+		my $hide  = @$scheme_loci > MAX_LOCI_SHOW;
+		my $class = $hide ? q(expandable_retracted) : q();
+		say qq(<div id="loci" style="overflow:hidden" class="$class">);
 		say q(<ul>);
 		foreach my $locus (@$scheme_loci) {
 			say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
@@ -186,6 +187,10 @@ sub _print_loci {
 			say qq($locus</a></li>);
 		}
 		say q(</ul>);
+		say q(</div>);
+		if ($hide) {
+			say q(<div class="expand_link" id="expand_loci"><span class="fas fa-chevron-down"></span></div>);
+		}
 	}
 	return;
 }
@@ -306,5 +311,26 @@ sub set_pref_requirements {
 	$self->{'pref_requirements'} =
 	  { general => 0, main_display => 0, isolate_display => 0, analysis => 0, query_field => 0 };
 	return;
+}
+
+sub get_javascript {
+	my ($self) = @_;
+	my $buffer = $self->SUPER::get_javascript;
+	$buffer .= << "END";
+\$(function () {
+	\$('#expand_loci').on('click', function(){	  
+	  if (\$('#loci').hasClass('expandable_expanded')) {
+	  	\$('#loci').switchClass('expandable_expanded','expandable_retracted',1000, "easeInOutQuad", function(){
+	  		\$('#expand_loci').html('<span class="fas fa-chevron-down"></span>');
+	  	});
+	  } else {
+	  	\$('#loci').switchClass('expandable_retracted','expandable_expanded',1000, "easeInOutQuad", function(){
+	  		\$('#expand_loci').html('<span class="fas fa-chevron-up"></span>');
+	  	});	    
+	  }
+	});
+});	
+END
+	return $buffer;
 }
 1;
