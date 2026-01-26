@@ -57,6 +57,7 @@ Version 1.48: Change of isolate database structure.
 Version 1.49: Change of authentication database structure.
 Version 1.50: Change of isolate database structure.
 Version 1.51: Change of seqdef, isolate, auth, and users database structures.
+Version 1.52: Change of seqdef database structure.
 
 Details can be found below.
 
@@ -702,3 +703,11 @@ support collection of user country and sector information.
 Please run the isolatedb_v1.51.sql script against isolate databases,
 seqdefdb_v1.51.sql against seqdef databases, auth_v1.51.sql against the auth 
 database, and users_v1.51.sql against site-wide users databases.
+
+Version 1.52
+------------
+There are changes to the seqdef databases to support including profile fields
+in submissions, optionally hiding scheme curators, and to add missing foreign
+keys to the dna_mutations and peptide_mutations tables.
+
+Please run the seqdefdb_v1.52.sql against seqdef databases.
