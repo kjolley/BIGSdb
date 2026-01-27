@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2025, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -4347,6 +4347,7 @@ sub get_javascript {
 	local $" = q(',');
 	my $fieldsets_with_no_entered_values = qq('@fieldsets_with_no_entered_values');
 	my $max_list_render_size             = MAX_LIST_RENDER_SIZE;
+	my $no_cache = $q->cookie('no_cache_loci_schemes') ? ('&v=' . time) : q();
 	$buffer .= << "END";
 \$(function () {
   	\$('#query_modifier').css({display:"block"});
@@ -4399,11 +4400,11 @@ $panel_js
 	    if (\$('fieldset#' + fieldset + '_fieldset').length){
 			\$('fieldset#' + fieldset + '_fieldset div').filter(':visible')
 			.html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...')
-			.load(fieldset_url + '&fieldset=' + fieldset + '&ajax=1');
+			.load(fieldset_url + '&fieldset=' + fieldset + '&ajax=1$no_cache');
 			setTimeout(function(){
 				\$('fieldset#' + fieldset + '_fieldset div').filter(':hidden')
 				.html('<span class="fas fa-spinner fa-spin fa-lg fa-fw"></span> Loading ...')
-				.load(fieldset_url + '&fieldset=' + fieldset + '&ajax=1');
+				.load(fieldset_url + '&fieldset=' + fieldset + '&ajax=1$no_cache');
 			},100);	
 		};
 	}

@@ -447,7 +447,6 @@ sub _get_guid {
 sub print_page {
 	my ($self) = @_;
 	my $set_options = 0;
-	my $cookies;
 	my $query_page = ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ? 'IsolateQueryPage' : 'ProfileQueryPage';
 	my %classes    = (
 		ajaxAnalysis       => 'AjaxAnalysis',
@@ -588,7 +587,7 @@ sub print_page {
 		$page_attributes{'fatal'} = $self->{'fatal'};
 		$page                     = BIGSdb::ErrorPage->new(%page_attributes);
 	} elsif ( $classes{ $self->{'page'} } ) {
-		$page_attributes{'cookies'} = $cookies;
+		undef $page_attributes{'cookies'};
 		if ( ref $auth_cookies_ref eq 'ARRAY' ) {
 			foreach (@$auth_cookies_ref) {
 				push @{ $page_attributes{'cookies'} }, $_;

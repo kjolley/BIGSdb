@@ -681,6 +681,16 @@ sub print_page_content {
 			  );
 			$self->{'setOptions'} = 1;
 		}
+		if ( $self->{'no_cache_loci_schemes'} || ( ( scalar $q->param('page') // q() ) eq 'index' && $q->param('reset') ) ) {
+			my $guid = $self->get_guid;
+			push @{ $self->{'cookies'} }, $q->cookie(
+				-name     => 'no_cache_loci_schemes',
+				-value    => 1,
+				-expires  => '+1h',
+				-httponly => 1,
+				-secure   => $self->{'config'}->{'secure_cookies'} ? 1 : 0
+			);
+		}
 	}
 	my %header_options;
 	$header_options{'-cookie'}  = $self->{'cookies'} if $self->{'cookies'};
@@ -714,9 +724,9 @@ sub print_page_content {
 		$self->print_content;
 	} else {
 		binmode STDOUT, ':encoding(utf8)';
-		$header_options{'-status'} = $self->{'status'} if $self->{'status'};
+		$header_options{'-status'}  = $self->{'status'} if $self->{'status'};
 		$header_options{'-charset'} = 'utf-8';
-		print $q->header(\%header_options);
+		print $q->header( \%header_options );
 		my $title        = $self->get_title;
 		my $javascript   = $self->_get_javascript_paths;
 		my $meta_content = $self->_get_meta_data;

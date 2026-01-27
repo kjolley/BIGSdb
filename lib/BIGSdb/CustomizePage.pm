@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,15 +20,28 @@ package BIGSdb::CustomizePage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Page);
+use parent          qw(BIGSdb::Page);
 use List::MoreUtils qw(any);
-use Log::Log4perl qw(get_logger);
+use Log::Log4perl   qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (jQuery tooltips noCache);
 	$self->set_level1_breadcrumbs;
+	my $q = $self->{'cgi'};
+	foreach my $param (
+		qw(isolate_display_change main_display_change query_field_change analysis_change
+		isolate_display_default main_display_default query_field_default analysis_default)
+	  )
+
+	{
+		if ( $q->param($param) ) {
+			$self->{'no_cache_loci_schemes'} = 1;
+			last;
+		}
+	}
+
 	return;
 }
 
@@ -107,12 +120,12 @@ sub print_content {
 	say qq(<tr><th>Select</th><th>@cleaned_headers</th></tr>);
 	my $td = 1;
 	local $" = q(&amp;);
-	my ( @js, @js2 );
+	my ( @js,      @js2 );
 	my ( $updated, $not_default ) = ( 0, 0 );
 
 	foreach my $data (@$results) {
 		say qq(<tr class="td$td"><td>);
-		my $id = $table eq 'scheme_fields' ? "field_$data->{'scheme_id'}_$data->{'field'}" : "id_$data->{'id'}";
+		my $id         = $table eq 'scheme_fields' ? "field_$data->{'scheme_id'}_$data->{'field'}" : "id_$data->{'id'}";
 		my $cleaned_id = $self->clean_checkbox_id($id);
 		print $q->checkbox( -name => $id, -id => $cleaned_id, -label => '', -checked => 'checked' );
 		push @js,  qq(\$("#$cleaned_id").prop("checked",true));
@@ -308,7 +321,7 @@ sub _process_schemes {
 			&& $q->param("id_$data->{'id'}") )
 		{
 			my $scheme_info = $self->{'datastore'}->get_scheme_info( $data->{'id'} );
-			my $value = $scheme_info->{$field} ? 'true' : 'false';
+			my $value       = $scheme_info->{$field} ? 'true' : 'false';
 			$prefstore->delete_scheme( $guid, $self->{'system'}->{'db'}, $data->{'id'}, $field );
 			print qq(<td>$value</td>);
 		} else {
@@ -336,7 +349,7 @@ sub _process_schemes {
 
 sub _get_tooltip {
 	my ( $self, $action ) = @_;
-	my $table = $self->{'cgi'}->param('table');
+	my $table  = $self->{'cgi'}->param('table');
 	my $record = $table eq 'schemes' ? 'scheme fields and loci' : $self->get_record_name($table);
 	my $value;
 	my %tooltip = (
