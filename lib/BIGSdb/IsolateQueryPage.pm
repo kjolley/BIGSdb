@@ -4347,7 +4347,7 @@ sub get_javascript {
 	local $" = q(',');
 	my $fieldsets_with_no_entered_values = qq('@fieldsets_with_no_entered_values');
 	my $max_list_render_size             = MAX_LIST_RENDER_SIZE;
-	my $no_cache = $q->cookie('no_cache_loci_schemes') ? ('&v=' . time) : q();
+	my $no_cache = $q->cookie("$self->{'instance'}_no_cache_loci_schemes") ? ('&v=' . time) : q();
 	$buffer .= << "END";
 \$(function () {
   	\$('#query_modifier').css({display:"block"});

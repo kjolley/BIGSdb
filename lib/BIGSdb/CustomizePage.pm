@@ -37,7 +37,7 @@ sub initiate {
 
 	{
 		if ( $q->param($param) ) {
-			$self->{'no_cache_loci_schemes'} = 1;
+			$self->{"$self->{'instance'}_no_cache_loci_schemes"} = 1;
 			last;
 		}
 	}

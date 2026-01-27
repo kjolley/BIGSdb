@@ -681,10 +681,10 @@ sub print_page_content {
 			  );
 			$self->{'setOptions'} = 1;
 		}
-		if ( $self->{'no_cache_loci_schemes'} || ( ( scalar $q->param('page') // q() ) eq 'index' && $q->param('reset') ) ) {
+		if ( $self->{"$self->{'instance'}_no_cache_loci_schemes"} || ( ( scalar $q->param('page') // q() ) eq 'index' && $q->param('reset') ) ) {
 			my $guid = $self->get_guid;
 			push @{ $self->{'cookies'} }, $q->cookie(
-				-name     => 'no_cache_loci_schemes',
+				-name     => "$self->{'instance'}_no_cache_loci_schemes",
 				-value    => 1,
 				-expires  => '+1h',
 				-httponly => 1,
