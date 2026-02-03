@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20260105
+#Version: 20260203
 use strict;
 use warnings;
 use 5.010;
@@ -131,8 +131,6 @@ sub check_db {
 	$qry .= q[) ];
 	if ( defined $opts{'last_run_days'} ) {
 		$qry .= qq(AND (lr.timestamp IS NULL OR lr.timestamp < now()-interval '$opts{'last_run_days'} days') );
-	} else {
-		$qry .= q(AND (lr.timestamp IS NULL) );
 	}
 	if ( $opts{'v'} ) {
 		$qry .= qq( AND ss.isolate_id IN (SELECT id FROM $opts{'v'}));
@@ -169,10 +167,15 @@ sub check_db {
 
 		move( $assembly_file_path, $tmp_dir );
 		my $json_file = "${isolate_id}.json";
-		my $cmd =
-			qq(docker run -u "\$(id -u):\$(id -g)" --rm -v plasmidfinder_db_path:/database -v ${tmp_dir}:/workdir )
-		  . qq(-w /workdir plasmidfinder -i $assembly_filename -o /workdir -j $json_file);
-		eval { system(qq($cmd 1>/dev/null 2>$error_file)); };
+                my $cmd;
+                if ($script->{'config'}->{'plasmidfinder_docker'} == 1) {
+                    $cmd = qq(docker run -u "\$(id -u):\$(id -g)" --rm -v plasmidfinder_db_path:/database -v ${tmp_dir}:/workdir)
+                          . qq(-w /workdir plasmidfinder -i $assembly_filename -o /workdir -j $json_file);
+                } else {
+                   $cmd = qq($script->{'config'}->{'plasmidfinder_path'} -i ${tmp_dir}/$assembly_filename -o ${tmp_dir} -j ${tmp_dir}/$json_file);
+                }
+
+                eval { system(qq($cmd 1>/dev/null 2>$error_file)); };
 
 		my $error_ref = BIGSdb::Utils::slurp($error_file);
 		if ( $! || $$error_ref ) {
