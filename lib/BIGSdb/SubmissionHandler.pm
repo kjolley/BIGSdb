@@ -236,7 +236,7 @@ sub get_profile_submission {
 			}
 		);
 		$profile->{'designations'}->{ $_->{'locus'} } = $_->{'allele_id'} foreach @$designations;
-		
+
 		my $field_values = $self->{'datastore'}->run_query(
 			'SELECT field,value FROM profile_submission_fields WHERE (submission_id,profile_id)=(?,?)',
 			[ $submission_id, $profile->{'profile_id'} ],
@@ -329,15 +329,28 @@ sub write_profile_csv {
 	my $dir = $self->get_submission_dir($submission_id);
 	$dir = $dir =~ /^($self->{'config'}->{'submission_dir'}\/BIGSdb[^\/]+$)/x ? $1 : undef;    #Untaint
 	$self->mkpath($dir);
-	my $filename  = 'profiles.txt';
-	my $scheme_id = $self->{'datastore'}->get_scheme_info( $profile_submission->{'scheme_id'} );
-	my $loci      = $self->{'datastore'}->get_scheme_loci( $profile_submission->{'scheme_id'} );
+	my $filename        = 'profiles.txt';
+	my $scheme_id       = $self->{'datastore'}->get_scheme_info( $profile_submission->{'scheme_id'} );
+	my $fields          = $self->{'datastore'}->get_scheme_fields( $profile_submission->{'scheme_id'} );
+	my $filtered_fields = [];
+
+	foreach my $field (@$fields) {
+		my $field_info = $self->{'datastore'}->get_scheme_field_info( $profile_submission->{'scheme_id'}, $field );
+		next if !$field_info->{'submissions'};
+		push @$filtered_fields, $field;
+	}
+	my $loci = $self->{'datastore'}->get_scheme_loci( $profile_submission->{'scheme_id'} );
 	open( my $fh, '>', "$dir/$filename" ) || $logger->error("Can't open $dir/$filename for writing");
 	local $" = qq(\t);
-	say $fh qq(id\t@$loci);
+	my @headings = ( @$filtered_fields, @$loci );
+	say $fh qq(id\t@headings);
 
 	foreach my $profile (@$profiles) {
 		print $fh $profile->{'profile_id'};
+		foreach my $field (@$filtered_fields) {
+			$profile->{'fields'}->{$field} //= q();
+			print $fh qq(\t$profile->{'fields'}->{$field});
+		}
 		foreach my $locus (@$loci) {
 			$profile->{'designations'}->{$locus} //= q();
 			print $fh qq(\t$profile->{'designations'}->{$locus});
