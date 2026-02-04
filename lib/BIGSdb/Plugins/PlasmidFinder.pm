@@ -457,7 +457,9 @@ sub _print_interface {
 
 	say q(<div class="box" id="queryform"><p>This tool will run PlasmidFinder against selected genome assembles )
 	  . q(and produce the results in JSON format.</p>);
-	if ( !$self->{'config'}->{'plasmidfinder_noweb'} ) {
+	if ( !$self->{'config'}->{'plasmidfinder_noweb'}
+		&& ( $self->{'config'}->{'plasmidfinder_docker'} || $self->{'config'}->{'plasmidfinder_path'} ) )
+	{
 		my $version = $self->_get_version;
 		if ($version) {
 			say qq(<p>PlasmidFinder Version: $version</p>);
