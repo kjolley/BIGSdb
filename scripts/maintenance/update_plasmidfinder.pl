@@ -131,6 +131,8 @@ sub check_db {
 	$qry .= q[) ];
 	if ( defined $opts{'last_run_days'} ) {
 		$qry .= qq(AND (lr.timestamp IS NULL OR lr.timestamp < now()-interval '$opts{'last_run_days'} days') );
+	} else {
+		$qry .= q(AND (lr.timestamp IS NULL) );
 	}
 	if ( $opts{'v'} ) {
 		$qry .= qq( AND ss.isolate_id IN (SELECT id FROM $opts{'v'}));
@@ -167,15 +169,17 @@ sub check_db {
 
 		move( $assembly_file_path, $tmp_dir );
 		my $json_file = "${isolate_id}.json";
-                my $cmd;
-                if ($script->{'config'}->{'plasmidfinder_docker'} == 1) {
-                    $cmd = qq(docker run -u "\$(id -u):\$(id -g)" --rm -v plasmidfinder_db_path:/database -v ${tmp_dir}:/workdir)
-                          . qq(-w /workdir plasmidfinder -i $assembly_filename -o /workdir -j $json_file);
-                } else {
-                   $cmd = qq($script->{'config'}->{'plasmidfinder_path'} -i ${tmp_dir}/$assembly_filename -o ${tmp_dir} -j ${tmp_dir}/$json_file);
-                }
+		my $cmd;
+		if ( $script->{'config'}->{'plasmidfinder_docker'} == 1 ) {
+			$cmd =
+				qq(docker run -u "\$(id -u):\$(id -g)" --rm -v plasmidfinder_db_path:/database -v ${tmp_dir}:/workdir)
+			  . qq(-w /workdir plasmidfinder -i $assembly_filename -o /workdir -j $json_file);
+		} else {
+			$cmd = qq($script->{'config'}->{'plasmidfinder_path'} -i ${tmp_dir}/$assembly_filename )
+			  . qq(-o ${tmp_dir} -j ${tmp_dir}/$json_file);
+		}
 
-                eval { system(qq($cmd 1>/dev/null 2>$error_file)); };
+		eval { system(qq($cmd 1>/dev/null 2>$error_file)); };
 
 		my $error_ref = BIGSdb::Utils::slurp($error_file);
 		if ( $! || $$error_ref ) {
@@ -191,7 +195,7 @@ sub check_db {
 		if ($@) {
 			$logger->error($@);
 		}
-		if ( keys %$results && $results->{'seq_regions'} && keys %{$results->{'seq_regions'}} ) {
+		if ( keys %$results && $results->{'seq_regions'} && keys %{ $results->{'seq_regions'} } ) {
 			store_results( $script, $isolate_id, $results );
 		}
 		$script->set_last_run_time( MODULE_NAME, $isolate_id );
@@ -286,7 +290,7 @@ sub get_lock_file {
 		$config = Config::Tiny->new();
 	}
 	my $lock_dir  = $config->{_}->{'lock_dir'} // LOCK_DIR;
-	my $dbase = $opts{'d'} // 'all';
+	my $dbase     = $opts{'d'}                 // 'all';
 	my $lock_file = "$lock_dir/update_plasmidfinder_$dbase";
 	return $lock_file;
 }

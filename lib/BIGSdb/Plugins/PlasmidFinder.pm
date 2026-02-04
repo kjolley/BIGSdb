@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext          => 'PlasmidFinder',
 		menutext            => 'PlasmidFinder',
 		module              => 'PlasmidFinder',
-		version             => '1.0.0',
+		version             => '1.1.0',
 		dbtype              => 'isolates',
 		section             => 'third_party,isolate_info,postquery',
 		input               => 'query',
@@ -189,22 +189,21 @@ sub run_job {
 	my $i           = 0;
 	my $progress    = 0;
 
-
-	if (!$self->{'config'}->{'plasmidfinder'} ) {
+	if ( !$self->{'config'}->{'plasmidfinder'} ) {
 		$logger->error('PlasmidFinder is not enabled.');
 		return;
 	}
-        if (!$self->{'config'}->{'plasmidfinder_docker'}  ) {
-                  if (!$self->{'config'}->{'plasmidfinder_path'}) {
-                        $logger->error('PlasmidFinder_path and plasmidfinder_docker had not been set.');
-                        return;
-                }else{
-                        if ( !-e $self->{'config'}->{'plasmidfinder_path'} ) {
-                        	$logger->error("plasmidfinder_path $self->{'config'}->{'plasmidfinder_path'} does not exist.");
-                        	return;
-				}
-                }
-        }
+	if ( !$self->{'config'}->{'plasmidfinder_docker'} ) {
+		if ( !$self->{'config'}->{'plasmidfinder_path'} ) {
+			$logger->error('PlasmidFinder_path and plasmidfinder_docker had not been set.');
+			return;
+		} else {
+			if ( !-e $self->{'config'}->{'plasmidfinder_path'} ) {
+				$logger->error("plasmidfinder_path $self->{'config'}->{'plasmidfinder_path'} does not exist.");
+				return;
+			}
+		}
+	}
 
 	if ( !$self->{'config'}->{'plasmidfinder_db_path'} ) {
 		$logger->error('plasmidfinder_db_path has not been set.');
@@ -245,12 +244,15 @@ sub run_job {
 
 		move( $assembly_file_path, $tmp_dir );
 		my $json_file = "${isolate_id}.json";
-                my $cmd;
-		if ($self->{'config'}->{'plasmidfinder_docker'} == 1) {
-		    $cmd = qq(docker run -u "\$(id -u):\$(id -g)" --rm -v plasmidfinder_db_path:/database -v ${tmp_dir}:/workdir)
-		          . qq(-w /workdir plasmidfinder -i $assembly_filename -o /workdir -j $json_file);
+		my $cmd;
+		if ( $self->{'config'}->{'plasmidfinder_docker'} == 1 ) {
+			$cmd =
+				qq(docker run -u "\$(id -u):\$(id -g)" --rm -v plasmidfinder_db_path:/database -v ${tmp_dir}:/workdir)
+			  . qq(-w /workdir plasmidfinder -i $assembly_filename -o /workdir -j $json_file);
 		} else {
-		    $cmd = qq($self->{'config'}->{'plasmidfinder_path'} -i ${tmp_dir}/$assembly_filename -o ${tmp_dir} -j ${tmp_dir}/$json_file);
+			$cmd =
+				qq($self->{'config'}->{'plasmidfinder_path'} -i ${tmp_dir}/$assembly_filename )
+			  . qq(-o ${tmp_dir} -j ${tmp_dir}/$json_file);
 		}
 		eval { system(qq($cmd 1>/dev/null 2>$error_file)); };
 
@@ -492,13 +494,13 @@ sub _print_interface {
 sub _get_version {
 	my ($self) = @_;
 	my $temp_file = "$self->{'config'}->{'secure_tmp_dir'}/${$}_version";
-        my $cmd;
-        if ($self->{'config'}->{'plasmidfinder_docker'} == 1) {
-             $cmd = qq(docker run plasmidfinder -v > $temp_file 2>&1);
-        } else {
-             $cmd = qq($self->{'config'}->{'plasmidfinder_path'}  -v > $temp_file 2>&1);
-        }
-        eval { system(($cmd))};
+	my $cmd;
+	if ( $self->{'config'}->{'plasmidfinder_docker'} == 1 ) {
+		$cmd = qq(docker run plasmidfinder -v > $temp_file 2>&1);
+	} else {
+		$cmd = qq($self->{'config'}->{'plasmidfinder_path'}  -v > $temp_file 2>&1);
+	}
+	eval { system( ($cmd) ) };
 
 	my $out = BIGSdb::Utils::slurp($temp_file);
 	unlink $temp_file;
