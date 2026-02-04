@@ -195,7 +195,7 @@ sub run_job {
 	}
 	if ( !$self->{'config'}->{'plasmidfinder_docker'} ) {
 		if ( !$self->{'config'}->{'plasmidfinder_path'} ) {
-			$logger->error('PlasmidFinder_path and plasmidfinder_docker had not been set.');
+			$logger->error('PlasmidFinder_path and plasmidfinder_docker have not been set.');
 			return;
 		} else {
 			if ( !-e $self->{'config'}->{'plasmidfinder_path'} ) {
