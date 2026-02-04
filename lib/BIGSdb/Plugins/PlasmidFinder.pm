@@ -247,7 +247,7 @@ sub run_job {
 		my $cmd;
 		if ( $self->{'config'}->{'plasmidfinder_docker'} == 1 ) {
 			$cmd =
-				qq(docker run -u "\$(id -u):\$(id -g)" --rm -v plasmidfinder_db_path:/database -v ${tmp_dir}:/workdir)
+				qq(docker run -u "\$(id -u):\$(id -g)" --rm -v plasmidfinder_db_path:/database -v ${tmp_dir}:/workdir )
 			  . qq(-w /workdir plasmidfinder -i $assembly_filename -o /workdir -j $json_file);
 		} else {
 			$cmd =
