@@ -21,19 +21,23 @@ package BIGSdb::Plugins::LINtree;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugin);
+use parent qw(BIGSdb::Plugins::ITOL);
 use BIGSdb::Exceptions;
 use List::MoreUtils qw(uniq);
+use Archive::Zip    qw( :ERROR_CODES :CONSTANTS );
 
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 
-use constant MAX_RECORDS => 10_000;
+use constant MAX_RECORDS     => 10_000;
+use constant ITOL_UPLOAD_URL => 'https://itol.embl.de/batch_uploader.cgi';
+use constant ITOL_DOMAIN     => 'itol.embl.de';
+use constant ITOL_TREE_URL   => 'https://itol.embl.de/tree';
 
 sub get_attributes {
 	my ($self) = @_;
 	my $att = {
-		name    => 'Kaptive',
+		name    => 'LINtree',
 		authors => [
 			{
 				name        => 'Keith Jolley',
@@ -125,7 +129,11 @@ sub run {
 			my $params = $q->Vars;
 			$params->{'set_id'} = $self->get_set_id;
 			$params->{'curate'} = 1 if $self->{'curate'};
-			$q->delete($_) foreach qw(list isolate_paste_list name db);
+			$q->delete($_) foreach qw(list isolate_paste_list);
+			my @dataset = $q->multi_param('itol_dataset');
+			$q->delete('itol_dataset');
+			local $" = '|_|';
+			$params->{'itol_dataset'} = "@dataset";
 
 			my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 			my $job_id    = $self->{'jobManager'}->add_job(
@@ -153,7 +161,8 @@ sub _print_info_panel {
 	say q(<div class="box" id="resultspanel">);
 	say q(<p>This plugin is a wrapper for LINtree, a tool to infer prefix trees with branch lengths from sets )
 	  . q(of Life Identification Number (LIN) codes. Such LIN-based prefix trees are very useful to reflect the )
-	  . q(phylogenetic relationships among genomes typed by cgMLST where LIN codes have been assigned.</p>);
+	  . q(phylogenetic relationships among genomes typed by cgMLST where LIN codes have been assigned. Only isolates )
+	  . q(with an assigned LIN code can be included in the tree.</p>);
 	if ( $self->{'config'}->{'itol_api_key'} ) {
 		say q(<p>Once the tree has been generated it is uploaded to the Interactive Tree of Life online service:</p>);
 	}
@@ -161,8 +170,8 @@ sub _print_info_panel {
 	  . q(<a href="https://gitlab.pasteur.fr/GIPhy/LINtree" target="_blank">)
 	  . q(https://gitlab.pasteur.fr/GIPhy/LINtree</a>.</p>);
 	say q(<ol>);
-	say
-q(<li>Genome Informatics & Phylogenetics (GIPhy), Centre de Ressources Biologiques de l'Institut Pasteur (CRBIP), Institut Pasteur, Paris, France</li>);
+	say q(<li>Genome Informatics & Phylogenetics (GIPhy), Centre de Ressources Biologiques )
+	  . q(de l'Institut Pasteur (CRBIP), Institut Pasteur, Paris, France</li>);
 	say q(</ol>);
 	if ( $self->{'config'}->{'itol_api_key'} ) {
 		say q(<p>iTOL is developed by: Ivica Letunic (1) and Peer Bork (2,3,4).</p>);
@@ -194,6 +203,33 @@ sub _print_interface {
 	say q(<div class="flex_container" style="justify-content:left">);
 	$self->print_seqbin_isolate_fieldset( { only_genomes => 1, selected_ids => $list, isolate_paste_list => 1 } );
 	$self->_print_lincode_scheme_fieldset;
+	my $lincode_schemes =
+	  $self->{'datastore'}->run_query( 'SELECT scheme_id FROM lincode_schemes', undef, { fetch => 'col_arrayref' } );
+	my $selected_fields = ["f_$self->{'system'}->{'labelfield'}"];
+
+	foreach my $scheme_id (@$lincode_schemes) {
+		push @$selected_fields, "lin_$scheme_id";
+	}
+	if ( $self->{'config'}->{'itol_api_key'} ) {
+		my $tooltip = $self->print_includes_fieldset(
+			{
+				title                    => 'iTOL datasets',
+				description              => 'Select to create data overlays',
+				name                     => 'itol_dataset',
+				isolate_fields           => 1,
+				nosplit_geography_points => 1,
+				extended_attributes      => 1,
+				scheme_fields            => 1,
+				lincodes                 => 1,
+				classification_groups    => 1,
+				eav_fields               => 1,
+				size                     => 8,
+				preselect                => $selected_fields
+			}
+		);
+		$self->print_itol_datatype_fieldset;
+	}
+
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say $q->hidden($_) foreach qw (page name db);
 	say q(</div>);
@@ -252,7 +288,8 @@ sub get_title {
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	my $in_file          = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}.in";
-	my $out_file         = "$self->{'config'}->{'tmp_dir'}/${job_id}.nwk";
+	my $out_file         = "$self->{'config'}->{'tmp_dir'}/${job_id}.tree";
+	my $err_file         = "$self->{'config'}->{'secure_tmp_dir'}/${job_id}.err";
 	my $isolate_ids      = $self->{'jobManager'}->get_job_isolates($job_id);
 	my $locus_thresholds = $self->{'datastore'}
 	  ->run_query( 'SELECT thresholds FROM lincode_schemes WHERE scheme_id=?', $params->{'scheme_id'} );
@@ -276,15 +313,50 @@ sub run_job {
 	my $count = 0;
 	foreach my $isolate_id (@$isolate_ids) {
 		my $lincode = $self->{'datastore'}->get_lincode_value( $isolate_id, $params->{'scheme_id'} );
-		next if !@$lincode;
+		next if !defined $lincode || !@$lincode;
 		local $" = q(_);
 		say $fh qq($isolate_id\t@$lincode);
 		$count++;
 	}
-	if ( $count < 3 ) {
-		BIGSdb::Exception::Plugin->throw("Tree could not be generated. $count isolates have LIN codes assigned.");
+	if ( $count < 2 ) {
+		my $message =
+		  $count == 1 ? q(Only 1 isolate has LIN codes assigned) : qq($count isolates have LIN codes assigned);
+		BIGSdb::Exception::Plugin->throw("Tree could not be generated. $message.");
 	}
 	close $fh;
+	eval { system("$self->{'config'}->{'lintree_path'} $in_file > $out_file 2>$err_file") };
+	if ( -s $err_file ) {
+		my $error_ref = BIGSdb::Utils::slurp($err_file);
+		$logger->error($$error_ref);
+		BIGSdb::Exception::Plugin->throw('Error running LINtree.');
+	}
+	if ( -e $out_file ) {
+		$self->{'jobManager'}->update_job_output(
+			$job_id,
+			{
+				filename    => "${job_id}.tree",
+				description => '10_Tree (Newick format)',
+			}
+		);
+
+		my $message_html;
+		if ( $self->{'config'}->{'itol_api_key'} ) {
+			my $itol_file = $self->itol_upload(
+				{
+					job_id           => $job_id,
+					params           => $params,
+					identifiers      => $isolate_ids,
+					message_html_ref => \$message_html
+				}
+			);
+			if ( $params->{'itol_dataset'} && -e $itol_file ) {
+				$self->{'jobManager'}->update_job_output( $job_id,
+					{ filename => "$job_id.zip", description => '20_iTOL datasets (Zip format)' } );
+			}
+		}
+	}
+	$self->delete_temp_files("$job_id*");
+	return;
 }
 
 1;

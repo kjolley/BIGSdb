@@ -58,7 +58,7 @@ sub get_attributes {
 		buttontext => 'iTOL',
 		menutext   => 'iTOL',
 		module     => 'ITOL',
-		version    => '1.8.0',
+		version    => '1.9.0',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
@@ -95,7 +95,7 @@ sub run {
 	}
 	my $attr = $self->get_attributes;
 	if ( $q->param('submit') ) {
-		if ($q->param('tree_gen')){
+		if ( $q->param('tree_gen') ) {
 			my $guid = $self->get_guid;
 			eval {
 				$self->{'prefstore'}->set_plugin_attribute( $guid, $self->{'system'}->{'db'},
@@ -244,15 +244,15 @@ sub _print_interface {
 sub print_tree_type_fieldset {
 	my ($self) = @_;
 	return if !$self->{'config'}->{'grapetree_path'};
-	my $q = $self->{'cgi'};
+	my $q    = $self->{'cgi'};
 	my $guid = $self->get_guid;
 	my $default;
 	my $attr = $self->get_attributes;
-			eval {
-				$default = $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'},
-					$attr->{'module'}, 'tree_gen' );
-			};
-	
+	eval {
+		$default =
+		  $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, $attr->{'module'}, 'tree_gen' );
+	};
+
 	say q(<fieldset style="float:left"><legend>Tree generation</legend>);
 	say q(<p>Generate trees from:</p>);
 	say q(<ul><li>);
@@ -284,12 +284,19 @@ sub print_extra_form_elements {
 			nosplit_geography_points => 1,
 			extended_attributes      => 1,
 			scheme_fields            => 1,
+			lincodes                 => 1,
 			classification_groups    => 1,
 			eav_fields               => 1,
 			size                     => 8,
 			preselect                => ["f_$self->{'system'}->{'labelfield'}"]
 		}
 	);
+	$self->print_itol_datatype_fieldset;
+	return;
+}
+
+sub print_itol_datatype_fieldset {
+	my ($self) = @_;
 	say q(<fieldset style="float:left"><legend>iTOL data type</legend>);
 	my $q      = $self->{'cgi'};
 	my $labels = { text_label => 'text labels', colour_strips => 'coloured strips' };
@@ -332,7 +339,17 @@ sub run_job {
 		my $identifiers = $self->{'jobManager'}->get_job_isolates($job_id);
 		push @$identifiers, keys %{ $self->{'reverse_name_map'} }
 		  if ref $self->{'reverse_name_map'} eq 'HASH';
-		my $itol_file = $self->_itol_upload( $job_id, $params, $identifiers, \$message_html );
+		my $files_to_delete = [];
+		$self->_move_tree_file( $job_id, $params, $files_to_delete );
+		my $itol_file = $self->itol_upload(
+			{
+				job_id           => $job_id,
+				params           => $params,
+				identifiers      => $identifiers,
+				message_html_ref => \$message_html,
+				files_to_delete  => $files_to_delete
+			}
+		);
 		if ( $params->{'itol_dataset'} && -e $itol_file ) {
 			$self->{'jobManager'}->update_job_output( $job_id,
 				{ filename => "$job_id.zip", description => '30_iTOL datasets (Zip format)' } );
@@ -615,20 +632,30 @@ sub _find_isolates_with_no_seq {
 	return \@no_seqs;
 }
 
-sub _itol_upload {
-	my ( $self, $job_id, $params, $identifiers, $message_html ) = @_;
-	$self->{'jobManager'}
-	  ->update_job_status( $job_id, { stage => 'Uploading tree files to iTOL', percent_complete => 95 } );
+sub _move_tree_file {
+	my ( $self, $job_id, $params, $files_to_delete ) = @_;
 	my $tree_file =
 	  $params->{'tree_gen'} eq 'profiles'
 	  ? "$self->{'config'}->{'tmp_dir'}/$job_id.nwk"
 	  : "$self->{'config'}->{'tmp_dir'}/$job_id.ph";
 	my $itol_tree_filename = "$self->{'config'}->{'tmp_dir'}/$job_id.tree";
+
 	copy( $tree_file, $itol_tree_filename ) or $logger->error("Copy failed: $!");
+	push @$files_to_delete, $itol_tree_filename;
+	return;
+}
+
+sub itol_upload {
+	my ( $self, $args ) = @_;
+	my ( $job_id, $params, $identifiers, $message_html_ref, $files_to_delete ) =
+	  @{$args}{qw(job_id params identifiers message_html_ref files_to_delete)};
+	$files_to_delete //= [];
+	$self->{'jobManager'}
+	  ->update_job_status( $job_id, { stage => 'Uploading tree files to iTOL', percent_complete => 95 } );
+
 	chdir $self->{'config'}->{'tmp_dir'};
 	my $zip = Archive::Zip->new;
 	$zip->addFile("$job_id.tree");
-	my @files_to_delete = ($itol_tree_filename);
 
 	if ( $params->{'itol_dataset'} ) {
 		my @itol_dataset_fields = split /\|_\|/x, $params->{'itol_dataset'};
@@ -640,13 +667,13 @@ sub _itol_upload {
 			next if !$file;
 			( my $new_name = $field ) =~ s/\|\|/_/x;
 			$zip->addFile( $file, $new_name );
-			push @files_to_delete, $file;
+			push @$files_to_delete, $file;
 		}
 	}
 	unless ( $zip->writeToFileNamed("$job_id.zip") == AZ_OK ) {
 		$logger->error("Cannot write $job_id.zip");
 	}
-	unlink @files_to_delete;
+	unlink @$files_to_delete;
 	my $desc     = $self->get_db_description;
 	my $uploader = LWP::UserAgent->new( agent => 'BIGSdb' );
 	my $response = $uploader->post(
@@ -661,7 +688,7 @@ sub _itol_upload {
 	);
 	if ( $response->is_success ) {
 		if ( !$response->content ) {
-			$$message_html .= q(<p class="statusbad">iTOL upload failed. iTOL returned no tree link.</p>);
+			$$message_html_ref .= q(<p class="statusbad">iTOL upload failed. iTOL returned no tree link.</p>);
 		} else {
 			my @res = split /\n/x, $response->content;
 			my $err;
@@ -672,8 +699,8 @@ sub _itol_upload {
 					$err .= $res_line;
 				}
 			}
-			if ($err && $err !~ /Couldn't\sfind\sID/x) {
-				$$message_html .= q(<p class="statusbad">iTOL encountered an error but may have been )
+			if ( $err && $err !~ /Couldn't\sfind\sID/x ) {
+				$$message_html_ref .= q(<p class="statusbad">iTOL encountered an error but may have been )
 				  . qq(able to make a tree. iTOL returned the following error message:\n\n$err</p>);
 				$logger->error($err);
 			}
@@ -681,17 +708,17 @@ sub _itol_upload {
 				if ( $res_line =~ /^SUCCESS:\ (\S+)/x ) {
 					my $url    = ITOL_TREE_URL . "/$1";
 					my $domain = ITOL_DOMAIN;
-					$$message_html .= q(<p style="margin-top:2em;margin-bottom:2em">)
+					$$message_html_ref .= q(<p style="margin-top:2em;margin-bottom:2em">)
 					  . qq(<a href="$url" target="_blank" class="launchbutton">Launch iTOL</a></p>);
 					last;
 				}
 			}
 		}
-		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$message_html } );
+		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$message_html_ref } );
 	} else {
 		$logger->error( $response->as_string );
-		$$message_html .= q(<p class="statusbad">iTOL upload failed.</p>);
-		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$message_html } );
+		$$message_html_ref .= q(<p class="statusbad">iTOL upload failed.</p>);
+		$self->{'jobManager'}->update_job_status( $job_id, { message_html => $$message_html_ref } );
 	}
 	return "$self->{'config'}->{'tmp_dir'}/$job_id.zip";
 }
@@ -705,7 +732,8 @@ sub _create_itol_dataset {
 	$name           //= q();
 	( my $cleaned_ext_field = $extended_field ) =~ s/'/\\'/gx;
 	my $scheme_field_desc;
-	my $scheme_temp_table = q();
+	my $scheme_temp_table  = q();
+	my $lincode_temp_table = q();
 	my @ids;
 
 	foreach my $identifier (@$identifiers) {
@@ -718,6 +746,12 @@ sub _create_itol_dataset {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 		$scheme_field_desc = "$name ($scheme_info->{'name'})";
 		$scheme_temp_table = $self->_create_scheme_field_temp_table( \@ids, $scheme_id, $name );
+	}
+	if ( $type eq 'lincode' ) {
+		my $set_id      = $self->get_set_id;
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
+		$scheme_field_desc  = "LINcode ($scheme_info->{'name'})";
+		$lincode_temp_table = $self->_create_lincode_temp_table( \@ids, $scheme_id );
 	}
 	my $eav_table         = q();
 	my $cleaned_eav_field = q();
@@ -736,12 +770,14 @@ sub _create_itol_dataset {
 		$pk_field          = $scheme_info->{'primary_key'};
 		$scheme_temp_table = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 	}
+
 	return if !$type;
 	my %dataset_label = (
 		field                => $name,
 		extended_field       => $extended_field,
 		eav_field            => $name,
 		scheme_field         => $scheme_field_desc,
+		lincode              => $scheme_field_desc,
 		classification_group => $cleaned_cscheme_name
 	);
 	my $filename = "${job_id}_$field";
@@ -764,6 +800,7 @@ sub _create_itol_dataset {
 		$self->{'datastore'}->create_temp_list_table_from_array( 'int', \@ids, { table => $job_id } );
 		$self->{'temp_list_created'} = 1;
 	}
+
 	my $distinct_qry = {
 		field => "SELECT DISTINCT($name) FROM $self->{'system'}->{'view'} "
 		  . "WHERE id IN (SELECT value FROM $job_id) AND $name IS NOT NULL ORDER BY $name",
@@ -774,10 +811,12 @@ sub _create_itol_dataset {
 		eav_field => "SELECT DISTINCT(eav.value) FROM $eav_table AS eav JOIN $self->{'system'}->{'view'} AS i "
 		  . "ON eav.isolate_id=i.id AND eav.field=E'$cleaned_eav_field' WHERE i.id IN (SELECT value FROM $job_id) "
 		  . 'AND eav.value IS NOT NULL ORDER BY eav.value',
-		scheme_field         => "SELECT DISTINCT(value) FROM $scheme_temp_table WHERE value IS NOT NULL ORDER BY value",
+		scheme_field => "SELECT DISTINCT(value) FROM $scheme_temp_table WHERE value IS NOT NULL ORDER BY value",
+		lincode      => "SELECT DISTINCT(value) FROM $lincode_temp_table WHERE value IS NOT NULL ORDER BY value",
 		classification_group => "SELECT DISTINCT(group_id) FROM $cscheme_temp_table c JOIN $scheme_temp_table s ON "
 		  . "c.profile_id=s.$pk_field WHERE s.id IN (SELECT value FROM $job_id) ORDER BY group_id"
 	};
+
 	my $distinct_values =
 	  $self->{'datastore'}->run_query( $distinct_qry->{$type}, undef, { fetch => 'col_arrayref' } );
 	if ( !$self->{'cache'}->{'attributes'}->{$name} ) {
@@ -831,6 +870,7 @@ sub _create_itol_dataset {
 		  . "e.attribute=E'$cleaned_ext_field' AND e.field_value=i.$name WHERE i.id=?",
 		eav_field            => "SELECT value FROM $eav_table WHERE isolate_id=? AND field=E'$cleaned_eav_field'",
 		scheme_field         => "SELECT value FROM $scheme_temp_table WHERE id=?",
+		lincode              => "SELECT value FROM $lincode_temp_table WHERE id=?",
 		classification_group => "SELECT group_id FROM $cscheme_temp_table c JOIN $scheme_temp_table s "
 		  . "ON c.profile_id=s.$pk_field WHERE s.id=?"
 	};
@@ -915,6 +955,22 @@ sub _create_scheme_field_temp_table {
 	return $temp_table;
 }
 
+sub _create_lincode_temp_table {
+	my ( $self, $ids, $scheme_id ) = @_;
+	my $temp_table = "temp_dataset_lincodes_$scheme_id";
+	eval {
+		$self->{'db'}->do("CREATE TEMP table $temp_table (id int, value text,PRIMARY KEY (id))");
+		foreach my $id (@$ids) {
+			my $value = $self->{'datastore'}->get_lincode_value( $id, $scheme_id ) // [];
+			local $" = q(_);
+			no warnings 'uninitialized';    #Values may be null
+			$self->{'db'}->do( "INSERT INTO $temp_table VALUES (?,?)", undef, $id, "@$value" );
+		}
+	};
+	$logger->error($@) if $@;
+	return $temp_table;
+}
+
 sub _get_field_type {
 	my ( $self, $field ) = @_;
 	if ( $field =~ /^f_(.+)/x ) {
@@ -940,6 +996,14 @@ sub _get_field_type {
 			return { type => 'scheme_field', scheme_id => $1, field => $2 };
 		}
 	}
+	if ( $field =~ /^lin_(\d+)$/x ) {
+		my $scheme_id = $1;
+		if ( $self->{'datastore'}
+			->run_query( 'SELECT EXISTS(SELECT * FROM lincode_schemes WHERE scheme_id=?)', $scheme_id ) )
+		{
+			return { type => 'lincode', scheme_id => $scheme_id };
+		}
+	}
 	if ( $field =~ /^eav_(.+)/x ) {
 		if ( $self->{'datastore'}->is_eav_field($1) ) {
 			return { type => 'eav_field', field => $1 };
@@ -948,6 +1012,7 @@ sub _get_field_type {
 	if ( $field =~ /^cg_(\d+)_group$/x ) {
 		return { type => 'classification_group', cscheme_id => $1 };
 	}
+
 	return;
 }
 
