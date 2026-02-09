@@ -24,7 +24,7 @@ use 5.010;
 use parent qw(BIGSdb::Plugins::ITOL);
 use BIGSdb::Exceptions;
 use List::MoreUtils qw(uniq);
-use Archive::Zip    qw( :ERROR_CODES :CONSTANTS );
+use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
 
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -247,7 +247,8 @@ sub _print_lincode_scheme_fieldset {
 		say qq(<p><strong>$scheme_list->{'labels'}->{$scheme_list->{'scheme_ids'}->[0]}</strong></p>);
 		say $q->hidden( scheme_id => $scheme_list->{'scheme_ids'}->[0] );
 	} else {
-		unshift @{ $scheme_list->{'scheme_ids'} }, '';
+		unshift @{ $scheme_list->{'scheme_ids'} }, q();
+		$scheme_list->{'labels'}->{''} = 'Select scheme...';
 		say $self->popup_menu(
 			-id       => 'scheme_id',
 			-name     => 'scheme_id',
