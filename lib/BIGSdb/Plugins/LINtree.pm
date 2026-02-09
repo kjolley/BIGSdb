@@ -60,8 +60,7 @@ sub get_attributes {
 		help        => 'tooltips',
 		requires    => 'offline_jobs,LINtree,seqbin,lincode_scheme',
 		system_flag => 'LINtree',
-
-		#		url                 => "$self->{'config'}->{'doclink'}/data_analysis/lintree.html",
+		url                 => "$self->{'config'}->{'doclink'}/data_analysis/lintree.html",
 		order               => 39,
 		min                 => 1,
 		max                 => $self->_get_max_records,
