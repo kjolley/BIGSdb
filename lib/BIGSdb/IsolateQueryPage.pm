@@ -1061,8 +1061,8 @@ sub _modify_query_by_list {
 	if ( $field_type eq 'scheme_field' ) {
 		$isolate_scheme_field_view = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 	} elsif ( $field_type eq 'analysis_field' ) {
-	    ($analysis_name, $field_name) = $field =~ /^af_(.+)___(.+)/x;
-	    my $field_info = $self->{'datastore'}->get_analysis_field( $analysis_name, $field_name );
+		( $analysis_name, $field_name ) = $field =~ /^af_(.+)___(.+)/x;
+		my $field_info = $self->{'datastore'}->get_analysis_field( $analysis_name, $field_name );
 		$json_path = $field_info->{'json_path'};
 	}
 	$field_type = 'provenance_multiple' if $field_type eq 'provenance' && $multiple;
@@ -1090,10 +1090,10 @@ sub _modify_query_by_list {
 		geography_point           => "$view.$field IN (SELECT value FROM temp_list)",
 		geography_point_latitude  => "ST_Y($view.${field}::geometry) IN (SELECT value FROM temp_list)",
 		geography_point_longitude => "ST_X($view.${field}::geometry) IN (SELECT value FROM temp_list)",
-		analysis_field => "$view.id IN (SELECT isolate_id FROM analysis_results_cache "
-		                . "WHERE analysis_name='$analysis_name' AND json_path=E'$json_path' AND "
-		                . ( $data_type eq 'text' ? 'UPPER(value)' : 'value' )
-		                . "IN (SELECT value FROM temp_list))"
+		analysis_field            => "$view.id IN (SELECT isolate_id FROM analysis_results_cache "
+		  . "WHERE analysis_name='$analysis_name' AND json_path=E'$json_path' AND "
+		  . ( $data_type eq 'text' ? 'UPPER(value)' : 'value' )
+		  . "IN (SELECT value FROM temp_list))"
 	);
 	return $qry if !$sql{$field_type};
 	if ( $qry !~ /WHERE\ \(\)\s*$/x ) {
@@ -3344,10 +3344,15 @@ sub _get_lincodes {
 			}
 			my $scheme_info        = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 			my $primary_key        = $scheme_info->{'primary_key'};
+			my $pk_field_info      = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
 			my $scheme_field_table = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
 			my $lincode_table      = $self->{'datastore'}->create_temp_lincodes_table($scheme_id);
-			my $temp_qry           = "SELECT $scheme_field_table.id FROM $scheme_field_table JOIN $lincode_table "
-			  . "ON CAST($scheme_field_table.$primary_key AS text)=$lincode_table.profile_id";
+			my $temp_qry =
+			  $pk_field_info->{'type'} eq 'integer'
+			  ? "SELECT $scheme_field_table.id FROM $scheme_field_table JOIN $lincode_table "
+			  . "ON $scheme_field_table.$primary_key=CAST($lincode_table.profile_id AS int)"
+			  : "SELECT $scheme_field_table.id FROM $scheme_field_table JOIN $lincode_table "
+			  . "ON $scheme_field_table.$primary_key=$lincode_table.profile_id";
 			my $modify = {
 				'=' => sub {
 					if ( lc($text) eq 'null' ) {
@@ -3403,6 +3408,8 @@ sub _get_lincodes {
 			}
 		}
 	}
+	use Data::Dumper;
+	$logger->error( Dumper $qry);
 	return ($qry);
 }
 
@@ -4347,7 +4354,7 @@ sub get_javascript {
 	local $" = q(',');
 	my $fieldsets_with_no_entered_values = qq('@fieldsets_with_no_entered_values');
 	my $max_list_render_size             = MAX_LIST_RENDER_SIZE;
-	my $no_cache = $q->cookie("$self->{'instance'}_no_cache_loci_schemes") ? ('&v=' . time) : q();
+	my $no_cache = $q->cookie("$self->{'instance'}_no_cache_loci_schemes") ? ( '&v=' . time ) : q();
 	$buffer .= << "END";
 \$(function () {
   	\$('#query_modifier').css({display:"block"});
