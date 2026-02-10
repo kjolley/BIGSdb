@@ -24,7 +24,7 @@ use 5.010;
 use parent qw(BIGSdb::Plugins::ITOL);
 use BIGSdb::Exceptions;
 use List::MoreUtils qw(uniq);
-use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
+use Archive::Zip    qw( :ERROR_CODES :CONSTANTS );
 
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -49,17 +49,17 @@ sub get_attributes {
 		full_description => 'LINtree is a tool to infer prefix trees with branch lengths from sets of '
 		  . 'Life Identification Number (LIN) codes. Such LIN-based prefix trees are very useful to '
 		  . 'reflect the (phylogenetic) relationships among genomes typed using cgMLST with LIN codes assigned.',
-		category    => 'Third party',
-		buttontext  => 'LINtree',
-		menutext    => 'LINtree',
-		module      => 'LINtree',
-		version     => '1.0.0',
-		dbtype      => 'isolates',
-		section     => 'third_party,isolate_info,postquery',
-		input       => 'query',
-		help        => 'tooltips',
-		requires    => 'offline_jobs,LINtree,seqbin,lincode_scheme',
-		system_flag => 'LINtree',
+		category            => 'Third party',
+		buttontext          => 'LINtree',
+		menutext            => 'LINtree',
+		module              => 'LINtree',
+		version             => '1.0.0',
+		dbtype              => 'isolates',
+		section             => 'third_party,isolate_info,postquery',
+		input               => 'query',
+		help                => 'tooltips',
+		requires            => 'offline_jobs,LINtree,seqbin,lincode_scheme',
+		system_flag         => 'LINtree',
 		url                 => "$self->{'config'}->{'doclink'}/data_analysis/lintree.html",
 		order               => 39,
 		min                 => 1,
@@ -318,9 +318,11 @@ sub run_job {
 		say $fh qq($isolate_id\t@$lincode);
 		$count++;
 	}
-	if ( $count < 2 ) {
+	if ( $count < 3 ) {
 		my $message =
-		  $count == 1 ? q(Only 1 isolate has LIN codes assigned) : qq($count isolates have LIN codes assigned);
+		  $count == 1
+		  ? q(Only 1 isolate has LIN codes assigned)
+		  : qq(Only $count isolates have LIN codes assigned);
 		BIGSdb::Exception::Plugin->throw("Tree could not be generated. $message.");
 	}
 	close $fh;
