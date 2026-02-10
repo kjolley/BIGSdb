@@ -318,11 +318,15 @@ sub run_job {
 		say $fh qq($isolate_id\t@$lincode);
 		$count++;
 	}
+	my $message;
 	if ( $count < 3 ) {
-		my $message =
-		  $count == 1
-		  ? q(Only 1 isolate has LIN codes assigned)
-		  : qq(Only $count isolates have LIN codes assigned);
+		if ( $count == 0 ) {
+			$message = q(No isolates have LIN codes assigned);
+		} elsif ( $count == 1 ) {
+			$message = q(Only 1 isolate has LIN codes assigned);
+		} else {
+			$message = qq(Only $count isolates have LIN codes assigned);
+		}
 		BIGSdb::Exception::Plugin->throw("Tree could not be generated. $message.");
 	}
 	close $fh;
