@@ -172,7 +172,7 @@ sub check_db {
 		my $cmd;
 		if ( $script->{'config'}->{'plasmidfinder_docker'} == 1 ) {
 			$cmd =
-				qq(docker run -u "\$(id -u):\$(id -g)" --rm -v plasmidfinder_db_path:/database -v ${tmp_dir}:/workdir)
+				qq(docker run -u "\$(id -u):\$(id -g)" --rm -v plasmidfinder_db_path:/database -v ${tmp_dir}:/workdir )
 			  . qq(-w /workdir plasmidfinder -i $assembly_filename -o /workdir -j $json_file);
 		} else {
 			$cmd = qq($script->{'config'}->{'plasmidfinder_path'} -i ${tmp_dir}/$assembly_filename )
