@@ -3408,8 +3408,6 @@ sub _get_lincodes {
 			}
 		}
 	}
-	use Data::Dumper;
-	$logger->error( Dumper $qry);
 	return ($qry);
 }
 
