@@ -267,6 +267,7 @@ sub get_appropriate_plugin_names {
 		next if !$self->_has_required_item( $attr->{'requires'} );
 		next if !$self->_matches_required_fields( $attr->{'requires'} );
 		next if !$self->_has_required_genome( $attr->{'requires'}, $options );
+		next if !$self->_has_required_lincode_scheme( $attr->{'requires'}, $options );
 		next if !$self->_matches_view( $attr->{'requires'}, $options );
 
 		#must be a scheme with primary key and loci defined
@@ -363,6 +364,18 @@ sub _has_required_genome {
 	return;
 }
 
+sub _has_required_lincode_scheme {
+	my ( $self, $requires, $options ) = @_;
+	return 1 if $self->{'system'}->{'dbtype'} ne 'isolates';
+	my %require_items = map { $_ => 1 } split /,/x, ( $requires // q() );
+	return 1 if !$require_items{'lincode_scheme'};
+	if ( !defined $self->{'cache'}->{'has_required_lincode_scheme'} ) {
+		$self->{'cache'}->{'has_required_lincode_scheme'} =
+		  $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM lincode_schemes)');
+	}
+	return $self->{'cache'}->{'has_required_lincode_scheme'};
+}
+
 sub _has_required_item {
 	my ( $self, $required_attr ) = @_;
 	my %requires = (
@@ -392,7 +405,8 @@ sub _has_required_item {
 		rmlst_access_token     => 'rmlst_oauth',
 		rmlst_access_secret    => 'rmlst_oauth',
 		plasmidfinder          => 'PlasmidFinder',
-		plasmidfinder_db_path  => 'PlasmidFinder'
+		plasmidfinder_db_path  => 'PlasmidFinder',
+		lintree_path           => 'LINtree'
 	);
 	return 1 if !$required_attr;
 	foreach my $config_param ( keys %requires ) {
