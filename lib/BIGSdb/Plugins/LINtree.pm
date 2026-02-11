@@ -47,7 +47,8 @@ sub get_attributes {
 		],
 		description      => 'Wrapper for LINtree',
 		full_description => 'LINtree is a tool to infer prefix trees with branch lengths from sets of '
-		  . 'Life Identification Number (LIN) codes. Such LIN-based prefix trees are very useful to '
+		  . 'Life Identification Number (LIN) &reg; (trademark registered by This Genomic Life, Inc., '
+		  . 'Floyd, VA, USA) codes. Such LIN-based prefix trees are very useful to '
 		  . 'reflect the (phylogenetic) relationships among genomes typed using cgMLST with LIN codes assigned.',
 		category            => 'Third party',
 		buttontext          => 'LINtree',
@@ -159,7 +160,8 @@ sub _print_info_panel {
 	my ($self) = @_;
 	say q(<div class="box" id="resultspanel">);
 	say q(<p>This plugin is a wrapper for LINtree, a tool to infer prefix trees with branch lengths from sets )
-	  . q(of Life Identification Number (LIN) codes. Such LIN-based prefix trees are very useful to reflect the )
+	  . q(of Life Identification Number (LIN) &reg; (trademark registered by This Genomic Life, Inc, Floyd, VA, USA) )
+	  . q(codes. Such LIN-based prefix trees are very useful to reflect the )
 	  . q(phylogenetic relationships among genomes typed by cgMLST where LIN codes have been assigned. Only isolates )
 	  . q(with an assigned LIN code can be included in the tree.</p>);
 	if ( $self->{'config'}->{'itol_api_key'} ) {
@@ -311,19 +313,20 @@ sub run_job {
 	local $" = qq(\t);
 	open( my $fh, '>:encoding(utf8)', $in_file ) || BIGSdb::Exception::Plugin->throw('Cannot write input file.');
 	say $fh qq(@pc_thresholds);
-	my $count = 0;
-	my $progress= 0;
+	my $count         = 0;
+	my $progress      = 0;
 	my $last_progress = 0;
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Calculating LIN codes', percent_complete => 0 } );
+
 	foreach my $isolate_id (@$isolate_ids) {
 		my $lincode = $self->{'datastore'}->get_lincode_value( $isolate_id, $params->{'scheme_id'} );
 		next if !defined $lincode || !@$lincode;
 		local $" = q(_);
 		say $fh qq($isolate_id\t@$lincode);
 		$count++;
-		$progress = int(50 * ($count/@$isolate_ids));
-		if ($progress > $last_progress){
-			$self->{'jobManager'}->update_job_status( $job_id, {  percent_complete => $progress } );
+		$progress = int( 50 * ( $count / @$isolate_ids ) );
+		if ( $progress > $last_progress ) {
+			$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $progress } );
 			$last_progress = $progress;
 		}
 	}
@@ -339,8 +342,7 @@ sub run_job {
 		BIGSdb::Exception::Plugin->throw("Tree could not be generated. $message.");
 	}
 	close $fh;
-	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Running LINtree', percent_complete => 50 } )
-	  ;
+	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Running LINtree', percent_complete => 50 } );
 	eval { system("$self->{'config'}->{'lintree_path'} $in_file > $out_file 2>$err_file") };
 	if ( -s $err_file ) {
 		my $error_ref = BIGSdb::Utils::slurp($err_file);
