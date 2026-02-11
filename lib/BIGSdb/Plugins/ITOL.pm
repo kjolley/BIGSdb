@@ -1,6 +1,6 @@
 #ITol.pm - Phylogenetic tree plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2016-2025, University of Oxford
+#Copyright (c) 2016-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -58,7 +58,7 @@ sub get_attributes {
 		buttontext => 'iTOL',
 		menutext   => 'iTOL',
 		module     => 'ITOL',
-		version    => '1.9.0',
+		version    => '1.9.1',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
@@ -285,6 +285,7 @@ sub print_extra_form_elements {
 			extended_attributes      => 1,
 			scheme_fields            => 1,
 			lincodes                 => 1,
+			lincode_fields           => 1,
 			classification_groups    => 1,
 			eav_fields               => 1,
 			size                     => 8,
@@ -650,14 +651,13 @@ sub itol_upload {
 	my ( $job_id, $params, $identifiers, $message_html_ref, $files_to_delete ) =
 	  @{$args}{qw(job_id params identifiers message_html_ref files_to_delete)};
 	$files_to_delete //= [];
-	$self->{'jobManager'}
-	  ->update_job_status( $job_id, { stage => 'Uploading tree files to iTOL', percent_complete => 95 } );
 
 	chdir $self->{'config'}->{'tmp_dir'};
 	my $zip = Archive::Zip->new;
 	$zip->addFile("$job_id.tree");
 
 	if ( $params->{'itol_dataset'} ) {
+		$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Compiling metadata', percent_complete => 80 } );
 		my @itol_dataset_fields = split /\|_\|/x, $params->{'itol_dataset'};
 		my $i = 1;
 		foreach my $field (@itol_dataset_fields) {
@@ -670,6 +670,8 @@ sub itol_upload {
 			push @$files_to_delete, $file;
 		}
 	}
+	$self->{'jobManager'}
+	  ->update_job_status( $job_id, { stage => 'Uploading tree files to iTOL', percent_complete => 95 } );
 	unless ( $zip->writeToFileNamed("$job_id.zip") == AZ_OK ) {
 		$logger->error("Cannot write $job_id.zip");
 	}
@@ -734,6 +736,7 @@ sub _create_itol_dataset {
 	my $scheme_field_desc;
 	my $scheme_temp_table  = q();
 	my $lincode_temp_table = q();
+	my $prefix_table       = q();
 	my @ids;
 
 	foreach my $identifier (@$identifiers) {
@@ -752,6 +755,12 @@ sub _create_itol_dataset {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
 		$scheme_field_desc  = "LINcode ($scheme_info->{'name'})";
 		$lincode_temp_table = $self->_create_lincode_temp_table( \@ids, $scheme_id );
+	}
+	if ( $type eq 'lincode_field' ) {
+		my $set_id      = $self->get_set_id;
+		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
+		$scheme_field_desc = "$name ($scheme_info->{'name'})";
+		$prefix_table      = $self->_create_lincode_field_temp_table( \@ids, $scheme_id, $name );
 	}
 	my $eav_table         = q();
 	my $cleaned_eav_field = q();
@@ -778,6 +787,7 @@ sub _create_itol_dataset {
 		eav_field            => $name,
 		scheme_field         => $scheme_field_desc,
 		lincode              => $scheme_field_desc,
+		lincode_field        => $scheme_field_desc,
 		classification_group => $cleaned_cscheme_name
 	);
 	my $filename = "${job_id}_$field";
@@ -813,6 +823,8 @@ sub _create_itol_dataset {
 		  . 'AND eav.value IS NOT NULL ORDER BY eav.value',
 		scheme_field => "SELECT DISTINCT(value) FROM $scheme_temp_table WHERE value IS NOT NULL ORDER BY value",
 		lincode      => "SELECT DISTINCT(value) FROM $lincode_temp_table WHERE value IS NOT NULL ORDER BY value",
+
+		lincode_field        => "SELECT DISTINCT(value) FROM $prefix_table WHERE value IS NOT NULL ORDER BY value",
 		classification_group => "SELECT DISTINCT(group_id) FROM $cscheme_temp_table c JOIN $scheme_temp_table s ON "
 		  . "c.profile_id=s.$pk_field WHERE s.id IN (SELECT value FROM $job_id) ORDER BY group_id"
 	};
@@ -871,6 +883,7 @@ sub _create_itol_dataset {
 		eav_field            => "SELECT value FROM $eav_table WHERE isolate_id=? AND field=E'$cleaned_eav_field'",
 		scheme_field         => "SELECT value FROM $scheme_temp_table WHERE id=?",
 		lincode              => "SELECT value FROM $lincode_temp_table WHERE id=?",
+		lincode_field        => "SELECT value FROM $prefix_table WHERE id=?",
 		classification_group => "SELECT group_id FROM $cscheme_temp_table c JOIN $scheme_temp_table s "
 		  . "ON c.profile_id=s.$pk_field WHERE s.id=?"
 	};
@@ -879,7 +892,8 @@ sub _create_itol_dataset {
 		if ( $identifier =~ /^(u?\d+)/x ) {
 			my $id = $self->{'reverse_name_map'}->{$1} // $1;
 			my $data =
-			  $self->{'datastore'}->run_query( $qry->{$type}, $id, { cache => "ITol::itol_dataset::$field" } );
+			  $self->{'datastore'}
+			  ->run_query( $qry->{$type}, $id, { cache => "ITol::itol_dataset::$dataset_label{$type}" } );
 			next if !defined $data;
 			if ( $self->{'datastore'}->field_needs_conversion($name) ) {
 				$data = $self->{'datastore'}->convert_field_value( $name, $data );
@@ -971,6 +985,38 @@ sub _create_lincode_temp_table {
 	return $temp_table;
 }
 
+sub _create_lincode_field_temp_table {
+	my ( $self, $ids, $scheme_id, $field ) = @_;
+	my $temp_table = "temp_dataset_lincodes_${scheme_id}_$field";
+	$temp_table =~ s/\s/_/gx;
+	eval {
+		$self->{'db'}->do("CREATE TEMP table $temp_table (id int, value text,PRIMARY KEY (id))");
+		foreach my $id (@$ids) {
+			my $lincode = $self->{'datastore'}->get_lincode_value( $id, $scheme_id ) // [];
+			local $" = q(_);
+
+			my $field_values;
+			if ($lincode) {
+				$field_values = $self->{'datastore'}->get_lincode_field_values( $scheme_id, qq(@$lincode) );
+			}
+
+			my $value;
+			if (@$field_values) {
+				foreach my $field_value (@$field_values) {
+					if ( $field_value->{'title'} eq $field ) {
+						$value = $field_value->{'data'};
+						last;
+					}
+				}
+			}
+			no warnings 'uninitialized';    #Values may be null
+			$self->{'db'}->do( "INSERT INTO $temp_table VALUES (?,?)", undef, $id, $value );
+		}
+	};
+	$logger->error($@) if $@;
+	return $temp_table;
+}
+
 sub _get_field_type {
 	my ( $self, $field ) = @_;
 	if ( $field =~ /^f_(.+)/x ) {
@@ -1002,6 +1048,18 @@ sub _get_field_type {
 			->run_query( 'SELECT EXISTS(SELECT * FROM lincode_schemes WHERE scheme_id=?)', $scheme_id ) )
 		{
 			return { type => 'lincode', scheme_id => $scheme_id };
+		}
+	}
+	if ( $field =~ /^lin_(\d+)_(.+)$/x ) {
+		my ( $scheme_id, $lin_field ) = ( $1, $2 );
+		if (
+			$self->{'datastore'}->run_query(
+				'SELECT EXISTS(SELECT * FROM lincode_fields WHERE (scheme_id,field)=(?,?))',
+				[ $scheme_id, $lin_field ]
+			)
+		  )
+		{
+			return { type => 'lincode_field', scheme_id => $scheme_id, field => $lin_field };
 		}
 	}
 	if ( $field =~ /^eav_(.+)/x ) {

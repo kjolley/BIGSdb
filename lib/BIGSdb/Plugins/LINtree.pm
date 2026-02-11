@@ -24,7 +24,7 @@ use 5.010;
 use parent qw(BIGSdb::Plugins::ITOL);
 use BIGSdb::Exceptions;
 use List::MoreUtils qw(uniq);
-use Archive::Zip    qw( :ERROR_CODES :CONSTANTS );
+use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
 
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -220,6 +220,7 @@ sub _print_interface {
 				extended_attributes      => 1,
 				scheme_fields            => 1,
 				lincodes                 => 1,
+				lincode_fields           => 1,
 				classification_groups    => 1,
 				eav_fields               => 1,
 				size                     => 8,
@@ -311,6 +312,7 @@ sub run_job {
 	open( my $fh, '>:encoding(utf8)', $in_file ) || BIGSdb::Exception::Plugin->throw('Cannot write input file.');
 	say $fh qq(@pc_thresholds);
 	my $count = 0;
+	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Calculating LIN codes', percent_complete => 0 } );
 	foreach my $isolate_id (@$isolate_ids) {
 		my $lincode = $self->{'datastore'}->get_lincode_value( $isolate_id, $params->{'scheme_id'} );
 		next if !defined $lincode || !@$lincode;
@@ -330,6 +332,8 @@ sub run_job {
 		BIGSdb::Exception::Plugin->throw("Tree could not be generated. $message.");
 	}
 	close $fh;
+	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Running LINtree', percent_complete => 20 } )
+	  ;
 	eval { system("$self->{'config'}->{'lintree_path'} $in_file > $out_file 2>$err_file") };
 	if ( -s $err_file ) {
 		my $error_ref = BIGSdb::Utils::slurp($err_file);
