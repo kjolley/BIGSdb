@@ -312,6 +312,8 @@ sub run_job {
 	open( my $fh, '>:encoding(utf8)', $in_file ) || BIGSdb::Exception::Plugin->throw('Cannot write input file.');
 	say $fh qq(@pc_thresholds);
 	my $count = 0;
+	my $progress= 0;
+	my $last_progress = 0;
 	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Calculating LIN codes', percent_complete => 0 } );
 	foreach my $isolate_id (@$isolate_ids) {
 		my $lincode = $self->{'datastore'}->get_lincode_value( $isolate_id, $params->{'scheme_id'} );
@@ -319,6 +321,11 @@ sub run_job {
 		local $" = q(_);
 		say $fh qq($isolate_id\t@$lincode);
 		$count++;
+		$progress = int(50 * ($count/@$isolate_ids));
+		if ($progress > $last_progress){
+			$self->{'jobManager'}->update_job_status( $job_id, {  percent_complete => $progress } );
+			$last_progress = $progress;
+		}
 	}
 	my $message;
 	if ( $count < 3 ) {
@@ -332,7 +339,7 @@ sub run_job {
 		BIGSdb::Exception::Plugin->throw("Tree could not be generated. $message.");
 	}
 	close $fh;
-	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Running LINtree', percent_complete => 20 } )
+	$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Running LINtree', percent_complete => 50 } )
 	  ;
 	eval { system("$self->{'config'}->{'lintree_path'} $in_file > $out_file 2>$err_file") };
 	if ( -s $err_file ) {
