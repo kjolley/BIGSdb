@@ -1,6 +1,6 @@
 /*FieldBreakdown.js - FieldBreakdown plugin for BIGSdb
 Written by Keith Jolley
-Copyright (c) 2018-2025, University of Oxford
+Copyright (c) 2018-2026, University of Oxford
 E-mail: keith.jolley@biology.ox.ac.uk
 
 This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 
-Version 2.9.0.
+Version 2.10.0.
 */
 
 var prefs_loaded;
@@ -74,7 +74,7 @@ $(function() {
 	$("#field").on("change", function() {
 
 		$("#bb_chart").css("min-height", "400px");
-		d3.selectAll('svg').remove();
+		d3.selectAll('#map svg, #bb_charts svg').remove();
 		$("div#waiting").css("display", "block");
 		$(".bb_controls").css("display", "none");
 		$("#geography").css("height", 0);
@@ -157,7 +157,7 @@ $(function() {
 		d3.select("#map").selectAll("path").attr("fill", "none");
 		d3.select("#map").selectAll("path").attr("stroke", "#444");
 		d3.select("#map").selectAll(".background").attr("fill", "none");
-		var svg = d3.select("svg")
+		var svg = d3.select("#charts svg")
 			.attr("xmlns", "http://www.w3.org/2000/svg")
 			.node().parentNode.innerHTML;
 		svg = svg.replace(/<\/svg>.*$/, "</svg>");
@@ -339,7 +339,7 @@ function load_map(url, field) {
 		});
 
 		$("#projection").off("change").change(function() {
-			d3.selectAll('svg').remove();
+			d3.selectAll('#map svg, #bb_charts svg').remove();
 			projection = $("#projection").val()
 			map.projection(projections[projection]).draw(selection);
 			set_prefs('projection', projection);
@@ -430,21 +430,29 @@ function finished_map(url, field) {
 	$("#pie_controls").css("display", "none");
 	$(".transform_to_pie").css("display", "inline");
 	$(".transform_to_donut").css("display", "inline");
+	$(".transform_to_treemap").css("display", "inline");
 	$(".transform_to_bar").css("display", "none");
 	$(".transform_to_line").css("display", "none");
 	$("#map_controls").css("display", "block");
 	$(".transform_to_donut").off("click").click(function() {
 		$("div#waiting").css("display", "block");
-		d3.selectAll("svg").remove();
+		d3.selectAll("#map svg, #bb_charts svg").remove();
 		load_pie(url, field, segments);
 		pie = 0;
 		$("#bb_chart").css("min-height", "400px");
 	});
 	$(".transform_to_pie").off("click").click(function() {
 		$("div#waiting").css("display", "block");
-		d3.selectAll("svg").remove();
+		d3.selectAll("#map svg, #bb_charts svg").remove();
 		load_pie(url, field, segments);
 		pie = 1;
+		$("#bb_chart").css("min-height", "400px");
+	});
+	$(".transform_to_treemap").off("click").click(function() {
+		$("div#waiting").css("display", "block");
+		d3.selectAll("#map svg, #bb_charts svg").remove();
+		load_treemap(url, field, segments);
+		pie = 0;
 		$("#bb_chart").css("min-height", "400px");
 	});
 	show_export_options();
@@ -560,6 +568,7 @@ function load_pie(url, field, max_segments) {
 		$(".transform_to_donut").off("click").click(function() {
 			$(".transform_to_donut").css("display", "none");
 			$(".transform_to_pie").css("display", "inline");
+			$(".transform_to_treemap").css("display", "inline");
 			pie = 0;
 			set_prefs('pie', 0);
 			chart.unload();
@@ -568,16 +577,24 @@ function load_pie(url, field, max_segments) {
 		$(".transform_to_pie").off("click").click(function() {
 			$(".transform_to_pie").css("display", "none");
 			$(".transform_to_donut").css("display", "inline");
+			$(".transform_to_treemap").css("display", "inline");
 			pie = 1;
 			set_prefs('pie', 1);
 			chart.unload();
 			load_pie(url, field, max_segments)
+		});
+		$(".transform_to_treemap").off("click").click(function() {
+			$("div#waiting").css("display", "block");
+			d3.selectAll("#map svg, #bb_charts svg").remove();
+			load_treemap(url, field, segments);
+			pie = 0;
 		});
 		$(".transform_to_map").off("click").click(function() {
 			$(".transform_to_map").css("display", "none");
 			load_map(url, field);
 			$(".transform_to_pie").css("display", "inline");
 			$(".transform_to_donut").css("display", "inline");
+			$(".transform_to_treemap").css("display","inline");
 			pie = 1;
 			set_prefs('pie', 1);
 		});
@@ -587,6 +604,7 @@ function load_pie(url, field, max_segments) {
 		$(".transform_to_map").css("display", map_fields.includes(field) ? "inline" : "none");
 		$(".transform_to_pie").css("display", pie ? "none" : "inline");
 		$(".transform_to_donut").css("display", pie ? "inline" : "none");
+		$(".transform_to_treemap").css("display","inline");
 		$(".transform_to_bar").css("display", "none");
 		$(".transform_to_line").css("display", "none");
 		$("#pie_controls").css("display", "block");
@@ -630,6 +648,10 @@ function pie_json_to_cols(jsonData, segments) {
 		columns.push(['Others', others]);
 	}
 	return { columns: columns, names: names, count: count };
+}
+
+function load_treemap(url, field){
+
 }
 
 function load_line(url, field, cumulative) {
@@ -718,6 +740,7 @@ function load_line(url, field, cumulative) {
 		$(".transform_to_bar").css("display", line ? "inline" : "none");
 		$(".transform_to_pie").css("display", "none");
 		$(".transform_to_donut").css("display", "none");
+		$(".transform_to_treemap").css("display","none");
 
 		$("#line_controls").css("display", "block");
 		$("#line_height").slider({ min: 300, max: 800, value: height });

@@ -212,6 +212,16 @@ use constant TOOLTIP => q(<span class="fa-stack">)
 use constant WARNING_TOOLTIP => q(<span class="fa-stack">)
   . q(<span class="far fa-circle fa-stack-2x"></span>)
   . q(<span class="fas fa-exclamation fa-stack-1x"></span></span>);
+use constant TREEMAP_ICON => q(<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" )
+  . q(class="svg-inline--fa" aria-label="Treemap icon" width="32" height="32" fill="currentColor">)
+  . q(<g transform="translate(0,48)">)
+  . q(<rect x="16" y="16" width="240" height="480" rx="24" ry="24"/>)
+  . q(<rect x="272" y="16" width="224" height="200" rx="20" ry="20"/>)
+  . q(<rect x="272" y="232" width="136" height="120" rx="16" ry="16"/>)
+  . q(<rect x="424" y="232" width="72"  height="120" rx="16" ry="16"/>)
+  . q(<rect x="272" y="368" width="56" height="128" rx="16" ry="16"/>)
+  . q(<rect x="347" y="368" width="56" height="128" rx="16" ry="16"/>)
+  . q(<rect x="422" y="368" width="56" height="128" rx="16" ry="16"/></g></svg>);
 use constant FLANKING => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
 use constant MAX_ROWS => 20;
 @values = qw(FACE_STYLE SHOW HIDE SAVE SAVING UP DOWN LEFT RIGHT
@@ -219,7 +229,7 @@ use constant MAX_ROWS => 20;
   BACK QUERY_MORE EDIT_MORE UPLOAD_CONTIGS LINK_CONTIGS MORE HOME RELOAD KEY EYE_SHOW EYE_HIDE
   CURATE EXPORT_TABLE EXCEL_FILE TEXT_FILE FASTA_FILE FASTA_FLANKING_FILE PDF_FILE HTML_FILE
   EMBL_FILE GBK_FILE GFF3_FILE MISC_FILE ARCHIVE_FILE IMAGE_FILE ALIGN_FILE CODE_FILE FLANKING
-  SUBMIT_BUTTON MAX_ROWS LOCK UNLOCK FIRST PREVIOUS NEXT LAST TOOLTIP WARNING_TOOLTIP);
+  SUBMIT_BUTTON MAX_ROWS LOCK UNLOCK FIRST PREVIOUS NEXT LAST TOOLTIP WARNING_TOOLTIP TREEMAP_ICON);
 push @EXPORT_OK, @values;
 $EXPORT_TAGS{'interface'} = [@values];
 
