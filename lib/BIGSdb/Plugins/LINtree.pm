@@ -56,7 +56,7 @@ sub get_attributes {
 		module              => 'LINtree',
 		version             => '1.0.0',
 		dbtype              => 'isolates',
-		section             => 'third_party,isolate_info,postquery',
+		section             => 'third_party,postquery',
 		input               => 'query',
 		help                => 'tooltips',
 		requires            => 'offline_jobs,LINtree,seqbin,lincode_scheme',
