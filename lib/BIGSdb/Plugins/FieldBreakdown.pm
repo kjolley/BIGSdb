@@ -367,8 +367,10 @@ sub run {
 	say q(</li></ul></fieldset>);
 	say q(<div id="waiting" style="position:absolute;top:15em;left:1em;display:none">)
 	  . q(<span class="wait_icon fas fa-sync-alt fa-spin fa-2x"></span></div>);
-	say q(<div id="bb_chart" style="min-height:400px">);
+	say q(<div id="bb_chart" style="min-height:400px;display:flex;justify-content:center">);
+	say q(<div>);
 	$self->print_loading_message;
+	say q(</div>);
 	say q(</div>);
 	say q(<div id="map" style="max-width:800px;margin-left:auto;margin-right:auto"></div>);
 	say q(<div id="geography" style="position:relative;max-width:800px;margin-left:auto;)
