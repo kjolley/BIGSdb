@@ -2829,6 +2829,10 @@ span.chart_icon {
 	cursor: pointer
 }
 
+span.chart_icon svg {
+	filter: drop-shadow(2px 2px 2px #aaa);
+}
+
 span.file_icon {
 	color: #66a;
 	text-shadow: 2px 2px 2px #aaa
@@ -2853,6 +2857,10 @@ span.form_warning {
 	font-weight: 600;
 	color: #c44;
 	background: #ff0
+}
+
+.svg-inline--fa {
+  vertical-align: -0.125em;
 }
 
 button.main {

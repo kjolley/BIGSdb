@@ -22,7 +22,7 @@ use strict;
 use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugin);
-use BIGSdb::Constants qw(COUNTRIES);
+use BIGSdb::Constants qw(COUNTRIES TREEMAP_ICON);
 use Storable qw(dclone);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -48,7 +48,7 @@ sub get_attributes {
 		buttontext => 'Fields',
 		menutext   => 'Field breakdown',
 		module     => 'FieldBreakdown',
-		version    => '2.9.0',
+		version    => '2.10.0',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
@@ -367,8 +367,10 @@ sub run {
 	say q(</li></ul></fieldset>);
 	say q(<div id="waiting" style="position:absolute;top:15em;left:1em;display:none">)
 	  . q(<span class="wait_icon fas fa-sync-alt fa-spin fa-2x"></span></div>);
-	say q(<div id="bb_chart" style="min-height:400px">);
+	say q(<div id="bb_chart" style="min-height:400px;display:flex;justify-content:center">);
+	say q(<div>);
 	$self->print_loading_message;
+	say q(</div>);
 	say q(</div>);
 	say q(<div id="map" style="max-width:800px;margin-left:auto;margin-right:auto"></div>);
 	say q(<div id="geography" style="position:relative;max-width:800px;margin-left:auto;)
@@ -529,11 +531,14 @@ sub _print_pie_controls {
 sub _print_chart_types {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
+	my $treemap = TREEMAP_ICON;
 	say q(<li>);
 	say q(<a class="chart_icon transform_to_pie" title="Pie chart" style="display:none">)
 	  . q(<span class="chart_icon fas fa-2x fa-chart-pie" style="color:#448"></span></a>);
 	say q(<a class="chart_icon transform_to_donut" title="Donut chart" style="display:none">)
 	  . q(<span class="chart_icon fas fa-2x fa-dot-circle" style="color:#848"></span></a>);
+	say q(<a class="chart_icon transform_to_treemap" title="Treemap chart" style="display:none">)
+	  . qq(<span class="chart_icon" style="color:#3182bd">$treemap</span></a>); 
 	say q(<a class="chart_icon transform_to_map" title="Map chart" style="display:none">)
 	  . q(<span class="chart_icon fas fa-2x fa-globe-africa" style="color:#484"></span></a>);
 	say q(<a class="chart_icon transform_to_bar" title="Bar chart (discrete values)" style="display:none">)
