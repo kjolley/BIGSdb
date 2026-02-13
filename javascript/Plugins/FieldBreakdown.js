@@ -758,6 +758,7 @@ function load_treemap(url, field){
 		$(".transform_to_map").css("display", map_fields.includes(field) ? "inline" : "none");
 		$(".transform_to_pie").css("display", "inline");
 		$(".transform_to_donut").css("display", "inline");
+		$(".transform_to_treemap").css("display", "none");
 		$(".transform_to_bar").css("display", "none");
 		$(".transform_to_line").css("display", "none");
 		$("#pie_controls").css("display", "block");
