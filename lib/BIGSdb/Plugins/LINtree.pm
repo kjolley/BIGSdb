@@ -63,7 +63,7 @@ sub get_attributes {
 		system_flag         => 'LINtree',
 		url                 => "$self->{'config'}->{'doclink'}/data_analysis/lintree.html",
 		order               => 39,
-		min                 => 1,
+		min                 => 3,
 		max                 => $self->_get_max_records,
 		always_show_in_menu => 1,
 		image               => '/images/plugins/LINtree/screenshot.png'
