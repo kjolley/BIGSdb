@@ -124,13 +124,13 @@ sub _export {
 
 sub _get_field_type {
 	my ( $self, $field ) = @_;
-	if ( $self->{'xmlHandler'}->is_field($field) ) {
+	if ( $field =~ /^f_(.+)$/x && $self->{'xmlHandler'}->is_field($1) ) {
 		return 'field';
 	}
-	if ( $self->{'datastore'}->is_eav_field($field) ) {
+	if ( $field =~ /^eav_(.+)$/x && $self->{'datastore'}->is_eav_field($1) ) {
 		return 'eav_field';
 	}
-	if ( $field =~ /^(.+)\.\.(.+)$/x ) {
+	if ( $field =~ /^(.+)\|\|(.+)$/x ) {
 		return 'extended_field';
 	}
 	if ( $field =~ /^s_\d+_.+$/x ) {
@@ -151,9 +151,10 @@ sub _get_field_values {
 	my $freqs      = [];
 	my $methods    = {
 		field => sub {
-			my $att = $self->{'xmlHandler'}->get_field_attributes($field);
+			( my $stripped_field = $field ) =~ s/^f_//x;
+			my $att = $self->{'xmlHandler'}->get_field_attributes($stripped_field);
 			$freqs = $self->_get_field_freqs(
-				$field,
+				$stripped_field,
 				$att->{'type'} =~ /^(?:int|float|date)/x
 				? {
 					order => 'label ASC'
@@ -165,16 +166,18 @@ sub _get_field_values {
 			);
 		},
 		eav_field => sub {
-			my $att = $self->{'datastore'}->get_eav_field($field);
+			( my $stripped_field = $field ) =~ s/^eav_//x;
+			my $att = $self->{'datastore'}->get_eav_field($stripped_field);
 			$freqs =
-			  $self->_get_eav_field_freqs( $field,
+			  $self->_get_eav_field_freqs( $stripped_field,
 				$att->{'value_format'} =~ /^(?:int|float|date)/x
 				? { order => 'label ASC' }
 				: undef );
 		},
 		extended_field => sub {
-			if ( $field =~ /^(.+)\.\.(.+)$/x ) {
+			if ( $field =~ /^(.+)\|\|(.+)$/x ) {
 				my ( $std_field, $extended ) = ( $1, $2 );
+				$std_field =~ s/^e_//x;
 				$freqs = $self->_get_extended_field_freqs( $std_field, $extended );
 			}
 		},
@@ -189,12 +192,13 @@ sub _get_field_values {
 		},
 		analysis_field => sub {
 			if ( $field =~ /^af_(.+)___(.+)/x ) {
-				my ( $field_name, $analysis_name ) = ( $1, $2 );
-                my $att = $self->{'datastore'}->get_analysis_field( $analysis_name, $field_name );
-				$freqs = $self->_get_analysis_field_freqs( $analysis_name, $field_name,
-				  $att->{'data_type'} =~ /^(?:int|float|date)/x
-				  ? { order => 'label ASC' }
-				  : undef );
+				my ( $analysis_name, $field_name ) = ( $1, $2 );
+				my $att = $self->{'datastore'}->get_analysis_field( $analysis_name, $field_name );
+				$freqs =
+				  $self->_get_analysis_field_freqs( $analysis_name, $field_name,
+					$att->{'data_type'} =~ /^(?:int|float|date)/x
+					? { order => 'label ASC' }
+					: undef );
 			}
 		}
 	};
@@ -226,10 +230,10 @@ sub _get_display_field {
 			$display_field = $set_name // $field;
 		}
 	}
-	if ( $field_type eq 'analysis_field') {
-        my ($field_name, $analysis_name) = $field =~ /^af_(.+)___(.+)/x;
-        $display_field = "$field_name ($analysis_name)";
-    }
+	if ( $field_type eq 'analysis_field' ) {
+		my ( $field_name, $analysis_name ) = $field =~ /^af_(.+)___(.+)/x;
+		$display_field = "$field_name ($analysis_name)";
+	}
 	return $display_field;
 }
 
@@ -529,8 +533,8 @@ sub _print_pie_controls {
 }
 
 sub _print_chart_types {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my ($self)  = @_;
+	my $q       = $self->{'cgi'};
 	my $treemap = TREEMAP_ICON;
 	say q(<li>);
 	say q(<a class="chart_icon transform_to_pie" title="Pie chart" style="display:none">)
@@ -538,7 +542,7 @@ sub _print_chart_types {
 	say q(<a class="chart_icon transform_to_donut" title="Donut chart" style="display:none">)
 	  . q(<span class="chart_icon fas fa-2x fa-dot-circle" style="color:#848"></span></a>);
 	say q(<a class="chart_icon transform_to_treemap" title="Treemap chart" style="display:none">)
-	  . qq(<span class="chart_icon" style="color:#3182bd">$treemap</span></a>); 
+	  . qq(<span class="chart_icon" style="color:#3182bd">$treemap</span></a>);
 	say q(<a class="chart_icon transform_to_map" title="Map chart" style="display:none">)
 	  . q(<span class="chart_icon fas fa-2x fa-globe-africa" style="color:#484"></span></a>);
 	say q(<a class="chart_icon transform_to_bar" title="Bar chart (discrete values)" style="display:none">)
@@ -578,48 +582,65 @@ sub _print_line_controls {
 }
 
 sub _get_fields {
-	my ($self)     = @_;
-	my $set_id     = $self->get_set_id;
-	my $is_curator = $self->is_curator;
-	my $field_list =
-	  $self->{'xmlHandler'}->get_field_list( { no_curate_only => !$is_curator } );
-	my $eav_field_list = $self->{'datastore'}->get_eav_fieldnames;
-	my $expanded_list  = [];
-	my $labels         = {};
-	my $no_show        = $self->_get_no_show_fields;
-	my $extended       = $self->get_extended_attributes;
-	my $analysis_fields = $self->{'datastore'}->get_analysis_fields;
-
-	foreach my $field ( @$field_list, @$eav_field_list ) {
-		next if $no_show->{$field};
-		push @$expanded_list, $field;
-		if ( ref $extended->{$field} eq 'ARRAY' ) {
-			foreach my $attribute ( @{ $extended->{$field} } ) {
-				push @$expanded_list, "${field}..$attribute";
-				( $labels->{"${field}..$attribute"} = $attribute ) =~ tr/_/ /;
-			}
-		} else {
-			my $label = $field;
-			$label =~ tr/_/ /;
-			$labels->{$field} = $label;
-		}
-	}
-
-	foreach my $field ( @$analysis_fields) {
-	    my $new_field = "af_$field->{'field_name'}___$field->{'analysis_name'}";
-	    push @$expanded_list, $new_field;
-	    my $label = "$field->{'field_name'} ($field->{'analysis_name'})";
-	    $labels->{$new_field} = $label;
-	}
-	return ( $expanded_list, $labels );
-}
-
-sub _get_no_show_fields {
 	my ($self) = @_;
-	my %no_show = map { $_ => 1 } split /,/x, ( $self->{'system'}->{'noshow'} // q() );
-	$no_show{$_} = 1 foreach qw(id sender curator);
-	$no_show{ $self->{'system'}->{'labelfield'} } = 1;
-	return \%no_show;
+	my $q = $self->{'cgi'};
+	my ( $select_items, $labels ) =
+	  $self->get_field_selection_list(
+		{ isolate_fields => 1, extended_attributes => 1, eav_fields => 1, analysis_fields => 1 } );
+	my %no_show          = map { $_ => 1 } qw(f_id f_sender f_curator);
+	my $values           = [];
+	my @group_list       = split /,/x, ( $self->{'system'}->{'field_groups'} // q() );
+	my $eav_fields       = $self->{'datastore'}->get_eav_fields;
+	my $eav_field_groups = { map { $_->{'field'} => $_->{'category'} } @$eav_fields };
+	my $group_members    = {};
+	my $is_curator       = $self->is_curator;
+
+	if (@group_list) {
+		my $attributes = dclone( $self->{'xmlHandler'}->get_all_field_attributes );
+		foreach my $field (@$select_items) {
+			next if $no_show{$field};
+			next if $field eq "f_$self->{'system'}->{'labelfield'}";
+			( my $stripped_field = $field ) =~ s/^[f|e]_//x;
+			$stripped_field =~ s/[\|\||\s].+$//x;
+			next
+			  if ( $attributes->{$stripped_field}->{'curate_only'} // q() ) eq 'yes'
+			  && ( !$is_curator || !$self->{'curate'} );
+
+			if ( $field =~ /^af_/x ) {
+				push @{ $group_members->{'Analysis fields'} }, $field;
+			}
+			if ( $field =~ /^(?:f|e|gp)_/x ) {
+				( my $stripped_field = $field ) =~ s/^[f|e]_//x;
+				$stripped_field =~ s/[\|\||\s].+$//x;
+				if ( $attributes->{$stripped_field}->{'group'} ) {
+					push @{ $group_members->{ $attributes->{$stripped_field}->{'group'} } }, $field;
+				} else {
+					push @{ $group_members->{'General'} }, $field;
+				}
+			}
+			if ( $field =~ /^eav_/x ) {
+				( my $stripped_field = $field ) =~ s/^eav_//x;
+				if ( $eav_field_groups->{$stripped_field} ) {
+					push @{ $group_members->{ $eav_field_groups->{$stripped_field} } }, $field;
+				} else {
+					push @{ $group_members->{'General'} }, $field;
+				}
+			}
+		}
+		my @eav_groups = split /,/x, ( $self->{'system'}->{'eav_groups'} // q() );
+		push @group_list, @eav_groups       if @eav_groups;
+		push @group_list, 'Analysis fields' if defined $group_members->{'Analysis fields'};
+		foreach my $group ( undef, @group_list ) {
+			my $name = $group // 'General';
+			$name =~ s/\|.+$//x;
+			if ( ref $group_members->{$name} ) {
+				push @$values, $q->optgroup( -name => $name, -values => $group_members->{$name}, -labels => $labels );
+			}
+		}
+	} else {
+		$values = $select_items;
+	}
+	return ( $values, $labels );
 }
 
 sub _get_id_count {
@@ -645,6 +666,7 @@ sub _get_fields_js {
 	my @geography_lookup_values;
 	my %allowed_types = map { $_ => 1 } qw(integer text float date geography_point);
 	foreach my $field ( keys %$field_attributes ) {
+
 		my $type = lc( $field_attributes->{$field}->{'type'} );
 		$type = 'integer' if $type eq 'int';
 		$type = 'text'    if $type =~ /^bool/x;
@@ -655,17 +677,17 @@ sub _get_fields_js {
 			$logger->error("Field $field has an unrecognized type: $type");
 			$type = 'text';
 		}
-		push @type_values, qq('$field':'$type');
+		push @type_values, qq('f_$field':'$type');
 		if ( ( $field_attributes->{$field}->{'geography_point_lookup'} // q() ) eq 'yes' ) {
-			push @geography_lookup_values, $field;
+			push @geography_lookup_values, "f_$field";
 		}
 	}
 	local $" = qq(,\n\t);
-	my ($fields) = $self->_get_fields;
+	my ( $fields, $labels ) = $self->_get_fields;
 	my $buffer = q(var field_list=) . encode_json($fields) . qq(;\n);
 	$buffer .= qq(\tvar field_types = {@type_values};\n);
 	if ( $self->_has_country_optlist ) {
-		my @map_fields = qw(country country..continent);
+		my @map_fields = qw(f_country e_country||continent);
 		local $" = q(',');
 		$buffer .= qq(var map_fields = ['@map_fields'];\n);
 	} else {
@@ -736,8 +758,8 @@ sub get_plugin_javascript {
 	my $loci_js         = $self->_get_loci_js;
 	my $schemes_js      = $self->_get_schemes_js;
 	my $mapping_options = $self->get_mapping_options;
-	my $maptiler_key    = $mapping_options->{'maptiler_key'} // q();
-	my $js_dir = $self->{'config'}->{'relative_js_dir'} // '/javascript';
+	my $maptiler_key    = $mapping_options->{'maptiler_key'}     // q();
+	my $js_dir          = $self->{'config'}->{'relative_js_dir'} // '/javascript';
 	my $buffer          = <<"JS";
 var height = 400;
 var segments = 20;
@@ -911,34 +933,36 @@ sub _get_scheme_field_freqs {
 }
 
 sub _get_analysis_field_freqs {
-    my ( $self, $analysis_name, $field_name, $options ) = @_;
-    my $qry =
-       'WITH matching_values AS '
-      . '(SELECT arc.isolate_id, arc.value FROM analysis_results_cache arc '
-      . 'JOIN analysis_fields af ON (af.analysis_name,af.json_path) = (arc.analysis_name,arc.json_path) '
-      . 'WHERE (af.analysis_name,af.field_name) = (?,?)),isolates_values AS '
-      . '(SELECT i.value AS isolates_id, array_agg(mv.value) AS label FROM id_list i '
-      . 'LEFT JOIN matching_values mv ON i.value=mv.isolate_id '
-      . 'GROUP BY i.value) '
-      . 'SELECT label, COUNT(*) AS value FROM isolates_values GROUP BY label';
-    my $order = $options->{'order'} ? $options->{'order'} : 'value DESC';
+	my ( $self, $analysis_name, $field_name, $options ) = @_;
+	my $qry =
+		'WITH matching_values AS '
+	  . '(SELECT arc.isolate_id, arc.value FROM analysis_results_cache arc '
+	  . 'JOIN analysis_fields af ON (af.analysis_name,af.json_path) = (arc.analysis_name,arc.json_path) '
+	  . 'WHERE (af.analysis_name,af.field_name) = (?,?)),isolates_values AS '
+	  . '(SELECT i.value AS isolates_id, array_agg(mv.value) AS label FROM id_list i '
+	  . 'LEFT JOIN matching_values mv ON i.value=mv.isolate_id '
+	  . 'GROUP BY i.value) '
+	  . 'SELECT label, COUNT(*) AS value FROM isolates_values GROUP BY label';
+	my $order = $options->{'order'} ? $options->{'order'} : 'value DESC';
 	$qry .= " ORDER BY $order";
-    my $values =
-      $self->{'datastore'}->run_query( $qry, [ $analysis_name, $field_name ], { fetch => 'all_arrayref', slice => {} } );
-    my $new_values = [];
-    foreach my $value (@$values) {
-        my $label = $value->{'label'};
-        if (!@$label || !grep { defined $_ } @$label) {
-            $label = ['No value'];
-        }
-        local $" = q(; );
-        my $new_label = @$label ? "@$label" : 'No value';
-		push @$new_values, {
-            label => $new_label,
-            value => $value->{'value'}
-        };
-    }
-    return $new_values;
+	my $values =
+	  $self->{'datastore'}
+	  ->run_query( $qry, [ $analysis_name, $field_name ], { fetch => 'all_arrayref', slice => {} } );
+	my $new_values = [];
+	foreach my $value (@$values) {
+		my $label = $value->{'label'};
+		if ( !@$label || !grep { defined $_ } @$label ) {
+			$label = ['No value'];
+		}
+		local $" = q(; );
+		my $new_label = @$label ? "@$label" : 'No value';
+		push @$new_values,
+		  {
+			label => $new_label,
+			value => $value->{'value'}
+		  };
+	}
+	return $new_values;
 }
 
 sub _create_id_table {

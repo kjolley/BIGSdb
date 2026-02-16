@@ -29,1126 +29,1130 @@ var marker_colour;
 var marker_size;
 
 $(function() {
-	$.ajax({
-		url: prefs_ajax_url
-	})
-		.done(function(data) {
-			var prefObj = JSON.parse(data);
-			if (prefObj.height) { height = prefObj.height };
-			if (prefObj.segments) { segments = prefObj.segments };
-			if (prefObj.pie == 0) { pie = 0 }
-			theme = prefObj.theme ? prefObj.theme : 'theme_green';
-			marker_colour = prefObj.marker_colour ? prefObj.marker_colour : 'marker_red';
-			marker_size = prefObj.marker_size ? prefObj.marker_size : 2;
-			projection = prefObj.projection ? prefObj.projection : 'Natural Earth';
-			$("#projection").val(projection);
-			prefs_loaded = 1;
-		})
-		.fail(function(response) {
-			console.log(response);
-		});
+    $.ajax({
+        url: prefs_ajax_url
+    })
+        .done(function(data) {
+            var prefObj = JSON.parse(data);
+            if (prefObj.height) { height = prefObj.height };
+            if (prefObj.segments) { segments = prefObj.segments };
+            if (prefObj.pie == 0) { pie = 0 }
+            theme = prefObj.theme ? prefObj.theme : 'theme_green';
+            marker_colour = prefObj.marker_colour ? prefObj.marker_colour : 'marker_red';
+            marker_size = prefObj.marker_size ? prefObj.marker_size : 2;
+            projection = prefObj.projection ? prefObj.projection : 'Natural Earth';
+            $("#projection").val(projection);
+            prefs_loaded = 1;
+        })
+        .fail(function(response) {
+            console.log(response);
+        });
 
-	$('input[name="field_type"][value="fields"]').prop("checked", true);
-	var field = $("#field").val();
-	selected_field = field;
-	selected_type = field_types[field];
-	var initial_url = url + "&field=" + field;
-	var rotate = is_vertical();
+    $('input[name="field_type"][value="fields"]').prop("checked", true);
+    var field = $("#field").val();
+    selected_field = field;
+    selected_type = field_types[field];
+    var initial_url = url + "&field=" + field;
+    var rotate = is_vertical();
 
-	get_ajax_prefs();
+    get_ajax_prefs();
+    if (map_fields.includes(field)) {
+        load_map_after_prefs_loaded(initial_url, field);
+    } else if (field_types[field] == 'integer' || field_types[field] == 'float') {
+        load_bar(initial_url, field, rotate);
+    } else if (field_types[field] == 'date') {
+        load_line(initial_url, field, line);
+    } else if (field_types[field] == 'geography_point') {
+        load_geography_after_prefs_loaded(initial_url, field)
+    } else if (geography_point_lookup_fields.includes(field)) {
+        load_geography_after_prefs_loaded(initial_url + "&lookup_coordinates=1", field)
+    } else {
+        load_pie(initial_url, field, segments);
+    }
 
-	if (map_fields.includes(field)) {
-		load_map_after_prefs_loaded(initial_url, field);
-	} else if (field_types[field] == 'integer' || field_types[field] == 'float') {
-		load_bar(initial_url, field, rotate);
-	} else if (field_types[field] == 'date') {
-		load_line(initial_url, field, line);
-	} else if (field_types[field] == 'geography_point') {
-		load_geography_after_prefs_loaded(initial_url, field)
-	} else if (geography_point_lookup_fields.includes(field)) {
-		load_geography_after_prefs_loaded(initial_url + "&lookup_coordinates=1", field)
-	} else {
-		load_pie(initial_url, field, segments);
-	}
+    $("#field").on("change", function() {
 
-	$("#field").on("change", function() {
+        $("#bb_chart").css("min-height", "400px");
+        d3.selectAll('#map svg, #bb_charts svg').remove();
+        $("div#waiting").css("display", "block");
+        $(".bb_controls").css("display", "none");
+        $("#geography").css("height", 0);
+        $("#geography").html("");
+        var rotate = is_vertical();
+        var field = $('#field').val();
+        selected_field = field;
+        selected_type = field_types[field];
+        var new_url = url + "&field=" + field;
+        if (map_fields.includes(field)) {
+            load_map(new_url, field);
+        } else if (field_types[field] == 'integer' || field_types[field] == 'float') {
+            load_bar(new_url, field, rotate);
+        } else if (field_types[field] == 'date') {
+            load_line(new_url, field, line);
+        } else if (field_types[field] == 'geography_point') {
+            load_geography(new_url, field)
+        } else if (geography_point_lookup_fields.includes(field)) {
+            load_geography_after_prefs_loaded(new_url + "&lookup_coordinates=1", field)
+        } else {
+            load_pie(new_url, field, segments);
+        }
+    });
 
-		$("#bb_chart").css("min-height", "400px");
-		d3.selectAll('#map svg, #bb_charts svg').remove();
-		$("div#waiting").css("display", "block");
-		$(".bb_controls").css("display", "none");
-		$("#geography").css("height", 0);
-		$("#geography").html("");
-		var rotate = is_vertical();
-		var field = $('#field').val();
+    var field_type_radio = $('input[name="field_type"]');
+    field_type_radio.on("change", function() {
+        var field_type = get_field_type();
+        $("#field").empty();
+        var list = {
+            fields: field_list,
+            loci: locus_list,
+            schemes: scheme_list
+        };
+        if (field_type == 'fields') {
+            $("select#field").html(field_list);
+        } else {
+            $.each(list[field_type], function(index, item) {
+                var value;
+                var label;
+                if (field_type == 'schemes') {
+                    label = item.label;
+                    value = item.field;
+                } else if (field_type == 'loci') {
+                    value = item;
+                    if (typeof locus_labels !== 'undefined' && locus_labels[item] != undefined) {
+                        label = locus_labels[item];
+                    } else {
+                        label = item;
+                    }
+                }
+                jQuery('<option/>', {
+                    value: value,
+                    html: label
+                }).appendTo("#field");
+            });
+        }
+        $("#field").change();
+        fasta = field_type == 'loci' ? 1 : 0;
+    });
 
-		selected_field = field;
-		selected_type = field_types[field];
-		var new_url = url + "&field=" + field;
-		if (map_fields.includes(field)) {
-			load_map(new_url, field);
-		} else if (field_types[field] == 'integer' || field_types[field] == 'float') {
-			load_bar(new_url, field, rotate);
-		} else if (field_types[field] == 'date') {
-			load_line(new_url, field, line);
-		} else if (field_types[field] == 'geography_point') {
-			load_geography(new_url, field)
-		} else if (geography_point_lookup_fields.includes(field)) {
-			load_geography_after_prefs_loaded(new_url + "&lookup_coordinates=1", field)
-		} else {
-			load_pie(new_url, field, segments);
-		}
-	});
+    position_controls();
+    $(window).resize(function() {
+        position_controls();
+    });
 
-	var field_type_radio = $('input[name="field_type"]');
-	field_type_radio.on("change", function() {
-		var field_type = get_field_type();
-		$("#field").empty();
-		var list = {
-			fields: field_list,
-			loci: locus_list,
-			schemes: scheme_list
-		};
-		$.each(list[field_type], function(index, item) {
-			var value;
-			var label;
-			if (field_type == 'schemes') {
-				label = item.label;
-				value = item.field;
-			} else if (field_type == 'loci') {
-				value = item;
-				if (typeof locus_labels !== 'undefined' && locus_labels[item] != undefined) {
-					label = locus_labels[item];
-				} else {
-					label = item;
-				}
-			} else {
-				label = item.replace(/^.+\.\./, "");
-				value = item;
-			}
-			jQuery('<option/>', {
-				value: value,
-				html: label
-			}).appendTo("#field");
-		});
-		$("#field").change();
-		fasta = field_type == 'loci' ? 1 : 0;
-	});
+    $("#export_image").off("click").click(function() {
+        // fix back fill
+        d3.select("#bb_chart").selectAll("path").attr("fill", "none");
+        // fix no axes
+        d3.select("#bb_chart").selectAll("path.domain").attr("stroke", "black");
+        // fix no tick
+        d3.select("#bb_chart").selectAll(".tick line").attr("stroke", "black");
+        d3.select("#bb_chart").selectAll(".bb-axis-y2").attr("display", "none");
+        // Annoying 2nd x-axis
+        // Hide both, then selectively show the first one.
+        d3.select("#bb_chart").selectAll(".bb-axis-x").attr("display", "none");
+        d3.select("#bb_chart").select(".bb-axis-x").attr("display", "inline");
 
-	position_controls();
-	$(window).resize(function() {
-		position_controls();
-	});
+        // map
+        d3.select("#map").selectAll("path").attr("fill", "none");
+        d3.select("#map").selectAll("path").attr("stroke", "#444");
+        d3.select("#map").selectAll(".background").attr("fill", "none");
+        var svg = d3.select("#bb_chart svg, #map svg")
+            .attr("xmlns", "http://www.w3.org/2000/svg")
+            .node().parentNode.innerHTML;
+        svg = svg.replace(/<\/svg>.*$/, "</svg>");
+        var blob = new Blob([svg], { type: "image/svg+xml" });
+        var filename = $("#field").val().replace(/^.+\.\./, "").replace(/^af_/, "").replace(/___/g, "_") + ".svg";
+        saveAs(blob, filename);
+    });
 
-	$("#export_image").off("click").click(function() {
-		// fix back fill
-		d3.select("#bb_chart").selectAll("path").attr("fill", "none");
-		// fix no axes
-		d3.select("#bb_chart").selectAll("path.domain").attr("stroke", "black");
-		// fix no tick
-		d3.select("#bb_chart").selectAll(".tick line").attr("stroke", "black");
-		d3.select("#bb_chart").selectAll(".bb-axis-y2").attr("display", "none");
-		// Annoying 2nd x-axis
-		// Hide both, then selectively show the first one.
-		d3.select("#bb_chart").selectAll(".bb-axis-x").attr("display", "none");
-		d3.select("#bb_chart").select(".bb-axis-x").attr("display", "inline");
-
-		// map
-		d3.select("#map").selectAll("path").attr("fill", "none");
-		d3.select("#map").selectAll("path").attr("stroke", "#444");
-		d3.select("#map").selectAll(".background").attr("fill", "none");
-		var svg = d3.select("#bb_chart svg, #map svg")
-			.attr("xmlns", "http://www.w3.org/2000/svg")
-			.node().parentNode.innerHTML;
-		svg = svg.replace(/<\/svg>.*$/, "</svg>");
-		var blob = new Blob([svg], { type: "image/svg+xml" });
-		var filename = $("#field").val().replace(/^.+\.\./, "").replace(/^af_/, "").replace(/___/g, "_") + ".svg";
-		saveAs(blob, filename);
-	});
-
-	$("#expand_themes").click(function() {
-		$("#themes_shown").toggle();
-		$("#themes_hidden").toggle();
-		if ($("#themes_hidden").is(":visible")) {
-			$("#expanded_themes").hide(500);
-		} else {
-			$("#expanded_themes").show(500);
-		}
-	});
+    $("#expand_themes").click(function() {
+        $("#themes_shown").toggle();
+        $("#themes_hidden").toggle();
+        if ($("#themes_hidden").is(":visible")) {
+            $("#expanded_themes").hide(500);
+        } else {
+            $("#expanded_themes").show(500);
+        }
+    });
 });
 
 function load_map_after_prefs_loaded(initial_url, field) {
-	prefs_load_attempts++;
-	// Wait 50ms and check again.
-	// Give up waiting after 10s.
-	if (!prefs_loaded && prefs_load_attempts < 200) {
-		return setTimeout(function() {
-			load_map_after_prefs_loaded(initial_url, field)
-		}, 50);
-	}
-	load_map(initial_url, field);
+    prefs_load_attempts++;
+    // Wait 50ms and check again.
+    // Give up waiting after 10s.
+    if (!prefs_loaded && prefs_load_attempts < 200) {
+        return setTimeout(function() {
+            load_map_after_prefs_loaded(initial_url, field)
+        }, 50);
+    }
+    load_map(initial_url, field);
 }
 
 function load_geography_after_prefs_loaded(initial_url, field) {
-	prefs_load_attempts++;
-	// Wait 50ms and check again.
-	// Give up waiting after 10s.
-	if (!prefs_loaded && prefs_load_attempts < 200) {
-		return setTimeout(function() {
-			load_geography_after_prefs_loaded(initial_url, field)
-		}, 50);
-	}
-	load_geography(initial_url, field);
+    prefs_load_attempts++;
+    // Wait 50ms and check again.
+    // Give up waiting after 10s.
+    if (!prefs_loaded && prefs_load_attempts < 200) {
+        return setTimeout(function() {
+            load_geography_after_prefs_loaded(initial_url, field)
+        }, 50);
+    }
+    load_geography(initial_url, field);
 }
 
 function get_ajax_prefs() {
-	$.ajax({
-		url: prefs_ajax_url + "&loci=1"
-	}).done(function(data) {
-		loci = JSON.parse(data);
-	}).fail(function(response) {
-		console.log(response);
-	});
-	$.ajax({
-		url: prefs_ajax_url + "&scheme_fields=1"
-	}).done(function(data) {
-		schemes = JSON.parse(data);
-	}).fail(function(response) {
-		console.log(response);
-	});
+    $.ajax({
+        url: prefs_ajax_url + "&loci=1"
+    }).done(function(data) {
+        loci = JSON.parse(data);
+    }).fail(function(response) {
+        console.log(response);
+    });
+    $.ajax({
+        url: prefs_ajax_url + "&scheme_fields=1"
+    }).done(function(data) {
+        schemes = JSON.parse(data);
+    }).fail(function(response) {
+        console.log(response);
+    });
 }
 
 function position_controls() {
-	if ($(window).width() < 800) {
-		$(".bb_controls").css("position", "static");
-		$(".bb_controls").css("float", "left");
-	} else {
-		$(".bb_controls").css("position", "absolute");
-		$(".bb_controls").css("clear", "both");
-	}
+    if ($(window).width() < 800) {
+        $(".bb_controls").css("position", "static");
+        $(".bb_controls").css("float", "left");
+    } else {
+        $(".bb_controls").css("position", "absolute");
+        $(".bb_controls").css("clear", "both");
+    }
 }
 
 function is_vertical() {
-	var orientation_radio = $('input[name="orientation"]');
-	var checked = orientation_radio.filter(function() {
-		return $(this).prop('checked');
-	});
-	var orientation = checked.val();
-	return orientation == 'vertical' ? 1 : 0;
+    var orientation_radio = $('input[name="orientation"]');
+    var checked = orientation_radio.filter(function() {
+        return $(this).prop('checked');
+    });
+    var orientation = checked.val();
+    return orientation == 'vertical' ? 1 : 0;
 }
 
 function get_field_type() {
-	var field_type_radio = $('input[name="field_type"]');
-	var checked = field_type_radio.filter(function() {
-		return $(this).prop('checked');
-	});
-	var field_type = checked.val();
-	return field_type;
+    var field_type_radio = $('input[name="field_type"]');
+    var checked = field_type_radio.filter(function() {
+        return $(this).prop('checked');
+    });
+    var field_type = checked.val();
+    return field_type;
 }
 
 function load_map(url, field) {
-	$("#bar_height").off("slidechange");
-	var div_width = $("#map").width();
-	$("#bb_chart").html("");
-	var unit_id = field == 'country' ? 'iso3' : 'continent';
-	var units = field == 'country' ? 'units' : 'continents';
-	var geo_file = field == 'country' 
-		? (js_dir + '/topojson/countries.json') 
-		: (js_dir + '/topojson/continents.json');
-	var theme_colours = {
-		theme_grey: colorbrewer.Greys[5],
-		theme_blue: colorbrewer.Blues[5],
-		theme_green: colorbrewer.Greens[5],
-		theme_purple: colorbrewer.Purples[5],
-		theme_orange: colorbrewer.Oranges[5],
-		theme_red: colorbrewer.Reds[5],
-		theme_blue_green: colorbrewer.BuGn[5],
-		theme_blue_purple: colorbrewer.BuPu[5],
-		theme_green_blue: colorbrewer.GnBu[5],
-		theme_orange_red: colorbrewer.OrRd[5],
-		theme_purple_blue: colorbrewer.PuBu[5],
-		theme_purple_blue_green: colorbrewer.PuBuGn[5],
-		theme_purple_red: colorbrewer.PuRd[5],
-		theme_red_purple: colorbrewer.RdPu[5],
-		theme_yellow_green: colorbrewer.YlGn[5],
-		theme_yellow_green_blue: colorbrewer.YlGnBu[5],
-		theme_yellow_orange_brown: colorbrewer.YlOrBr[5],
-		theme_yellow_orange_red: colorbrewer.YlOrRd[5],
-	};
-	var projections = {
-		'Azimuthal Equal Area': d3.geoAzimuthalEqualArea,
-		'Conic Equal Area': d3.geoConicEqualArea,
-		'Equirectangular': d3.geoEquirectangular,
-		'Natural Earth': d3.geoNaturalEarth,
-		'Mercator': d3.geoMercator,
-		'Robinson': d3.geoRobinson,
-		'Stereographic': d3.geoStereographic,
-		'Times': d3.geoTimes,
-		'Transverse Mercator': d3.geoTransverseMercator,
-		'Winkel tripel': d3.geoWinkel3
-	};
-	var colours = theme_colours[theme];
+    $("#bar_height").off("slidechange");
+    var div_width = $("#map").width();
+    $("#bb_chart").html("");
+    var unit_id = field == 'f_country' ? 'iso3' : 'continent';
+    var units = field == 'f_country' ? 'units' : 'continents';
+    var geo_file = field == 'f_country'
+        ? (js_dir + '/topojson/countries.json')
+        : (js_dir + '/topojson/continents.json');
+    var theme_colours = {
+        theme_grey: colorbrewer.Greys[5],
+        theme_blue: colorbrewer.Blues[5],
+        theme_green: colorbrewer.Greens[5],
+        theme_purple: colorbrewer.Purples[5],
+        theme_orange: colorbrewer.Oranges[5],
+        theme_red: colorbrewer.Reds[5],
+        theme_blue_green: colorbrewer.BuGn[5],
+        theme_blue_purple: colorbrewer.BuPu[5],
+        theme_green_blue: colorbrewer.GnBu[5],
+        theme_orange_red: colorbrewer.OrRd[5],
+        theme_purple_blue: colorbrewer.PuBu[5],
+        theme_purple_blue_green: colorbrewer.PuBuGn[5],
+        theme_purple_red: colorbrewer.PuRd[5],
+        theme_red_purple: colorbrewer.RdPu[5],
+        theme_yellow_green: colorbrewer.YlGn[5],
+        theme_yellow_green_blue: colorbrewer.YlGnBu[5],
+        theme_yellow_orange_brown: colorbrewer.YlOrBr[5],
+        theme_yellow_orange_red: colorbrewer.YlOrRd[5],
+    };
+    var projections = {
+        'Azimuthal Equal Area': d3.geoAzimuthalEqualArea,
+        'Conic Equal Area': d3.geoConicEqualArea,
+        'Equirectangular': d3.geoEquirectangular,
+        'Natural Earth': d3.geoNaturalEarth,
+        'Mercator': d3.geoMercator,
+        'Robinson': d3.geoRobinson,
+        'Stereographic': d3.geoStereographic,
+        'Times': d3.geoTimes,
+        'Transverse Mercator': d3.geoTransverseMercator,
+        'Winkel tripel': d3.geoWinkel3
+    };
+    var colours = theme_colours[theme];
 
-	d3.json(url).then(function(data) {
-		if (field == 'country') {
-			data = merge_terms(data);
-		}
-		var range = get_range(data);
-		var map = d3.geomap.choropleth()
-			.geofile(geo_file)
-			.colors(colours)
-			.column('value')
-			.format(d3.format(",d"))
-			.legend({
-				width: 50,
-				height: 120
-			})
-			.projection(projections[projection])
-			.duration(1000)
-			.domain([0, range.recommended])
-			.valueScale(d3.scaleQuantize)
-			.unitId(unit_id)
-			.units(units)
-			.postUpdate(function() { finished_map(url, field) });
-		var selection = d3.select('#map').datum(data);
-		map.draw(selection);
-		$(window).resize(function() {
-			if (field === selected_field) {
-				delay(function() {
-					if (div_width != $("#map").width()) {
-						div_width = $("#map").width();
-						$("#map").html("");
-						load_map(url, field);
-					}
-				}, 500);
-			}
-		});
-		$("#colour_range").slider({
-			min: 0,
-			max: 4,
-			value: range.options.indexOf(range.recommended),
-			slide: function(event, ui) {
-				map.domain([0, range.options[ui.value]]).duration(0).update();
-			}
-		});
+    d3.json(url).then(function(data) {
+        if (field == 'f_country') {
+            data = merge_terms(data);
+        }
+        var range = get_range(data);
+        var map = d3.geomap.choropleth()
+            .geofile(geo_file)
+            .colors(colours)
+            .column('value')
+            .format(d3.format(",d"))
+            .legend({
+                width: 50,
+                height: 120
+            })
+            .projection(projections[projection])
+            .duration(1000)
+            .domain([0, range.recommended])
+            .valueScale(d3.scaleQuantize)
+            .unitId(unit_id)
+            .units(units)
+            .postUpdate(function() { finished_map(url, field) });
+        var selection = d3.select('#map').datum(data);
+        map.draw(selection);
+        $(window).resize(function() {
+            if (field === selected_field) {
+                delay(function() {
+                    if (div_width != $("#map").width()) {
+                        div_width = $("#map").width();
+                        $("#map").html("");
+                        load_map(url, field);
+                    }
+                }, 500);
+            }
+        });
+        $("#colour_range").slider({
+            min: 0,
+            max: 4,
+            value: range.options.indexOf(range.recommended),
+            slide: function(event, ui) {
+                map.domain([0, range.options[ui.value]]).duration(0).update();
+            }
+        });
 
-		$(".theme").off("click").click(function() {
-			map.colors(theme_colours[this.id]).duration(0).update();
-			set_prefs('theme', this.id);
-			theme = this.id;
-		});
+        $(".theme").off("click").click(function() {
+            map.colors(theme_colours[this.id]).duration(0).update();
+            set_prefs('theme', this.id);
+            theme = this.id;
+        });
 
-		$("#projection").off("change").change(function() {
-			d3.selectAll('#map svg, #bb_charts svg').remove();
-			projection = $("#projection").val()
-			map.projection(projections[projection]).draw(selection);
-			set_prefs('projection', projection);
-		});
-	});
+        $("#projection").off("change").change(function() {
+            d3.selectAll('#map svg, #bb_charts svg').remove();
+            projection = $("#projection").val()
+            map.projection(projections[projection]).draw(selection);
+            set_prefs('projection', projection);
+        });
+    });
 }
 
 function merge_terms(data) {
-	var iso3_counts = {};
-	for (var i = 0; i < data.length; i++) {
-		if (typeof iso3_counts[data[i].iso3] == 'undefined') {
-			iso3_counts[data[i].iso3] = data[i].value;
-		} else {
-			iso3_counts[data[i].iso3] += data[i].value;
-		}
-	}
-	var merged = [];
-	var iso3 = Object.keys(iso3_counts);
-	for (var i = 0; i < iso3.length; i++) {
-		merged.push({ iso3: iso3[i], value: iso3_counts[iso3[i]] });
-	}
-	return merged;
+    var iso3_counts = {};
+    for (var i = 0;i < data.length;i++) {
+        if (typeof iso3_counts[data[i].iso3] == 'undefined') {
+            iso3_counts[data[i].iso3] = data[i].value;
+        } else {
+            iso3_counts[data[i].iso3] += data[i].value;
+        }
+    }
+    var merged = [];
+    var iso3 = Object.keys(iso3_counts);
+    for (var i = 0;i < iso3.length;i++) {
+        merged.push({ iso3: iso3[i], value: iso3_counts[iso3[i]] });
+    }
+    return merged;
 }
 
 var delay = (function() {
-	var timer = 0;
-	return function(callback, ms) {
-		clearTimeout(timer);
-		timer = setTimeout(callback, ms);
-	};
+    var timer = 0;
+    return function(callback, ms) {
+        clearTimeout(timer);
+        timer = setTimeout(callback, ms);
+    };
 })();
 
 // Choose recommended value so that ~5% of records are in top fifth (25% if <= 10 records).
 function get_range(data) {
-	var records = data.length;
-	var percent_in_top_fifth = records > 10 ? 0.05 : 0.25;
-	var target = parseInt(percent_in_top_fifth * records);
-	var multiplier = 10;
-	var max;
-	var recommended;
-	var options = [];
-	var finish;
-	while (true) {
-		var test = [1, 2, 5];
-		for (var i = 0; i < test.length; i++) {
-			max = test[i] * multiplier;
-			options.push(max);
-			if (recommended && options.length >= 5) {
-				finish = 1;
-				break;
-			}
-			var top_division_start = max * 4 / 5;
-			var in_top_fifth = 0;
-			for (var j = 0; j < data.length; j++) {
-				if (data[j].value >= top_division_start) {
-					in_top_fifth++;
-				}
-			}
-			if (in_top_fifth <= target && !recommended) {
-				recommended = max;
-			}
-		}
-		if (finish) {
-			break;
-		}
-		multiplier = multiplier * 10;
-		if (max > 10000000) {
-			if (!recommended) {
-				recommended = max;
-			}
-			break;
-		}
-	}
-	return {
-		recommended: recommended,
-		options: options.slice(-5)
-	}
+    var records = data.length;
+    var percent_in_top_fifth = records > 10 ? 0.05 : 0.25;
+    var target = parseInt(percent_in_top_fifth * records);
+    var multiplier = 10;
+    var max;
+    var recommended;
+    var options = [];
+    var finish;
+    while (true) {
+        var test = [1, 2, 5];
+        for (var i = 0;i < test.length;i++) {
+            max = test[i] * multiplier;
+            options.push(max);
+            if (recommended && options.length >= 5) {
+                finish = 1;
+                break;
+            }
+            var top_division_start = max * 4 / 5;
+            var in_top_fifth = 0;
+            for (var j = 0;j < data.length;j++) {
+                if (data[j].value >= top_division_start) {
+                    in_top_fifth++;
+                }
+            }
+            if (in_top_fifth <= target && !recommended) {
+                recommended = max;
+            }
+        }
+        if (finish) {
+            break;
+        }
+        multiplier = multiplier * 10;
+        if (max > 10000000) {
+            if (!recommended) {
+                recommended = max;
+            }
+            break;
+        }
+    }
+    return {
+        recommended: recommended,
+        options: options.slice(-5)
+    }
 }
 
 
 function finished_map(url, field) {
-	if (field !== selected_field) {
-		return;
-	}
-	$("div#waiting").css("display", "block");
-	$("#bar_controls").css("display", "none");
-	$("#line_controls").css("display", "none");
-	$("#pie_controls").css("display", "none");
-	$(".transform_to_pie").css("display", "inline");
-	$(".transform_to_donut").css("display", "inline");
-	$(".transform_to_treemap").css("display", "inline");
-	$(".transform_to_bar").css("display", "none");
-	$(".transform_to_line").css("display", "none");
-	$("#map_controls").css("display", "block");
-	$(".transform_to_donut").off("click").click(function() {
-		$("div#waiting").css("display", "block");
-		d3.selectAll("#map svg, #bb_charts svg").remove();
-		load_pie(url, field, segments);
-		pie = 0;
-		$("#bb_chart").css("min-height", "400px");
-	});
-	$(".transform_to_pie").off("click").click(function() {
-		$("div#waiting").css("display", "block");
-		d3.selectAll("#map svg, #bb_charts svg").remove();
-		load_pie(url, field, segments);
-		pie = 1;
-		$("#bb_chart").css("min-height", "400px");
-	});
-	$(".transform_to_treemap").off("click").click(function() {
-		$("div#waiting").css("display", "block");
-		d3.selectAll("#map svg, #bb_charts svg").remove();
-		load_treemap(url, field, segments);
-		pie = 0;
-		$("#bb_chart").css("min-height", "400px");
-	});
-	show_export_options();
-	$("div#waiting").css("display", "none");
-	$("#bb_chart").css("min-height", 0);
-	$(".legend-bg").css("fill", "none");
+    if (field !== selected_field) {
+        return;
+    }
+    $("div#waiting").css("display", "block");
+    $("#bar_controls").css("display", "none");
+    $("#line_controls").css("display", "none");
+    $("#pie_controls").css("display", "none");
+    $(".transform_to_pie").css("display", "inline");
+    $(".transform_to_donut").css("display", "inline");
+    $(".transform_to_treemap").css("display", "inline");
+    $(".transform_to_bar").css("display", "none");
+    $(".transform_to_line").css("display", "none");
+    $("#map_controls").css("display", "block");
+    $(".transform_to_donut").off("click").click(function() {
+        $("div#waiting").css("display", "block");
+        d3.selectAll("#map svg, #bb_charts svg").remove();
+        load_pie(url, field, segments);
+        pie = 0;
+        $("#bb_chart").css("min-height", "400px");
+    });
+    $(".transform_to_pie").off("click").click(function() {
+        $("div#waiting").css("display", "block");
+        d3.selectAll("#map svg, #bb_charts svg").remove();
+        load_pie(url, field, segments);
+        pie = 1;
+        $("#bb_chart").css("min-height", "400px");
+    });
+    $(".transform_to_treemap").off("click").click(function() {
+        $("div#waiting").css("display", "block");
+        d3.selectAll("#map svg, #bb_charts svg").remove();
+        load_treemap(url, field, segments);
+        pie = 0;
+        $("#bb_chart").css("min-height", "400px");
+    });
+    show_export_options();
+    $("div#waiting").css("display", "none");
+    $("#bb_chart").css("min-height", 0);
+    $(".legend-bg").css("fill", "none");
 }
 
 function load_pie(url, field, max_segments) {
-	$("#bar_controls").css("display", "none");
-	$("#line_controls").css("display", "none");
-	$("#map_controls").css("display", "none");
-	$("#geography_controls").css("display", "none");
-	if (typeof field == 'undefined') {
-		return;
-	}
+    $("#bar_controls").css("display", "none");
+    $("#line_controls").css("display", "none");
+    $("#map_controls").css("display", "none");
+    $("#geography_controls").css("display", "none");
+    if (typeof field == 'undefined') {
+        return;
+    }
 
-	var title = field.replace(/^.+\.\./, "");
-	var field_type = get_field_type();
-	if (field_type == 'loci' && typeof locus_labels !== 'undefined' && locus_labels[field] != undefined) {
-		title = locus_labels[field];
-	}
+    var title = field.replace(/^.+\|\|/, "");
+    var field_type = get_field_type();
+    if (field_type == 'loci' && typeof locus_labels !== 'undefined' && locus_labels[field] != undefined) {
+        title = locus_labels[field];
+    }
 
-	title = title.replace(/^s_\d+_/, "");
+    title = title.replace(/^s_\d+_/, "");
     if (field.startsWith('af_')) {
-		let parts = field.split('___',2);
-		let field_name = parts[0].replace(/^af_/,"");
-		let analysis_name = parts[1]		
+        let parts = field.split('___', 2);
+        let analysis_name = parts[0].replace(/^af_/, "");
+        let field_name = parts[1]
         title = `${field_name} (${analysis_name})`;
     }
-	var f = d3.format(".1f");
-	d3.json(url).then(function(jsonData) {
-		var data = pie_json_to_cols(jsonData, max_segments);
+    title = title.replace(/^(?:f|eav)_/, "");
+    var f = d3.format(".1f");
+    d3.json(url).then(function(jsonData) {
+        var data = pie_json_to_cols(jsonData, max_segments);
 
-		// Load all data first otherwise a glitch causes one segment to be
-		// missing when increasing number of segments.
-		var all_data = pie_json_to_cols(jsonData, 50);
+        // Load all data first otherwise a glitch causes one segment to be
+        // missing when increasing number of segments.
+        var all_data = pie_json_to_cols(jsonData, 50);
 
-		// Need to create 'Others' segment otherwise it won't display properly
-		// if needed when reducing segment count.
-		var others_exist = 0;
-		for (var i = 0; i < all_data.columns.length; i++) {
-			if (all_data.columns[i][0] == 'Others') {
-				others_exist = 1;
-			}
-		}
-		if (!others_exist) {
-			all_data.columns.push(['Others', 0]);
-		}
-		var plural = data.count == 1 ? "" : "s";
-		title += " (" + data.count + " value" + plural + ")";
-		var chart = bb.generate({
-			bindto: '#bb_chart',
-			title: {
-				text: title
-			},
-			data: {
-				columns: all_data.columns,
-				names: all_data.names,
-				type: pie ? 'pie' : 'donut',
-				order: null,
-				colors: {
-					'Others': '#aaa'
-				}
-			},
-			pie: {
-				label: {
-					show: true
-				},
-				expand: false,
-			},
-			legend: {
-				show: true,
-				position: 'bottom'
-			},
-			size: {
-				height: 500
-			},
-			tooltip: {
-				format: {
-					value: function(value, ratio, id) {
-						return value + " (" + f(ratio * 100) + "%)";
-					}
-				}
-			}
-		});
-		chart.unload();
-		chart.load({
-			columns: data.columns,
-		});
+        // Need to create 'Others' segment otherwise it won't display properly
+        // if needed when reducing segment count.
+        var others_exist = 0;
+        for (var i = 0;i < all_data.columns.length;i++) {
+            if (all_data.columns[i][0] == 'Others') {
+                others_exist = 1;
+            }
+        }
+        if (!others_exist) {
+            all_data.columns.push(['Others', 0]);
+        }
+        var plural = data.count == 1 ? "" : "s";
+        title += " (" + data.count + " value" + plural + ")";
+        var chart = bb.generate({
+            bindto: '#bb_chart',
+            title: {
+                text: title
+            },
+            data: {
+                columns: all_data.columns,
+                names: all_data.names,
+                type: pie ? 'pie' : 'donut',
+                order: null,
+                colors: {
+                    'Others': '#aaa'
+                }
+            },
+            pie: {
+                label: {
+                    show: true
+                },
+                expand: false,
+            },
+            legend: {
+                show: true,
+                position: 'bottom'
+            },
+            size: {
+                height: 500
+            },
+            tooltip: {
+                format: {
+                    value: function(value, ratio, id) {
+                        return value + " (" + f(ratio * 100) + "%)";
+                    }
+                }
+            }
+        });
+        chart.unload();
+        chart.load({
+            columns: data.columns,
+        });
 
-		$("#segments").on("slidechange", function() {
-			var new_segments = $("#segments").slider('value');
-			$("#segments_display").text(new_segments);
-			if (segments != new_segments) {
-				set_prefs('segments', new_segments);
-			}
-			segments = new_segments;
-			var data = pie_json_to_cols(jsonData, segments);
-			chart.unload();
-			chart.load({
-				columns: data.columns,
-			});
+        $("#segments").on("slidechange", function() {
+            var new_segments = $("#segments").slider('value');
+            $("#segments_display").text(new_segments);
+            if (segments != new_segments) {
+                set_prefs('segments', new_segments);
+            }
+            segments = new_segments;
+            var data = pie_json_to_cols(jsonData, segments);
+            chart.unload();
+            chart.load({
+                columns: data.columns,
+            });
 
-		});
-		if (max_segments != segments) {
-			var data = pie_json_to_cols(jsonData, segments);
-			chart.unload();
-			chart.load({
-				columns: data.columns,
-			});
-		}
-		$(".transform_to_donut").off("click").click(function() {
-			$(".transform_to_donut").css("display", "none");
-			$(".transform_to_pie").css("display", "inline");
-			$(".transform_to_treemap").css("display", "inline");
-			pie = 0;
-			set_prefs('pie', 0);
-			chart.unload();
-			load_pie(url, field, max_segments)
-		});
-		$(".transform_to_pie").off("click").click(function() {
-			$(".transform_to_pie").css("display", "none");
-			$(".transform_to_donut").css("display", "inline");
-			$(".transform_to_treemap").css("display", "inline");
-			pie = 1;
-			set_prefs('pie', 1);
-			chart.unload();
-			load_pie(url, field, max_segments)
-		});
-		$(".transform_to_treemap").off("click").click(function() {
-			$(".transform_to_pie").css("display", "inline");
-			$(".transform_to_donut").css("display", "inline");
-			$(".transform_to_treemap").css("display", "none");
-			$("div#waiting").css("display", "block");
-			d3.selectAll("#map svg, #bb_charts svg").remove();
-			load_treemap(url, field);
-			pie = 0;
-		});
-		$(".transform_to_map").off("click").click(function() {
-			$(".transform_to_map").css("display", "none");
-			load_map(url, field);
-			$(".transform_to_pie").css("display", "inline");
-			$(".transform_to_donut").css("display", "inline");
-			$(".transform_to_treemap").css("display","inline");
-			pie = 1;
-			set_prefs('pie', 1);
-		});
-		$("#segment_control").css("display", "block");
-		$("#segments").slider({ min: 5, max: 50, value: segments });
-		$("#segments_display").text(segments);
-		$(".transform_to_map").css("display", map_fields.includes(field) ? "inline" : "none");
-		$(".transform_to_pie").css("display", pie ? "none" : "inline");
-		$(".transform_to_donut").css("display", pie ? "inline" : "none");
-		$(".transform_to_treemap").css("display","inline");
-		$(".transform_to_bar").css("display", "none");
-		$(".transform_to_line").css("display", "none");
-		$("#pie_controls").css("display", "block");
-		show_export_options();
-		$("div#waiting").css("display", "none");
-	}, function(error) {
-		console.log(error);
-		$("#bb_chart").html('<p style="text-align:center;margin-top:5em">'
-			+ '<span class="error_message">Error accessing data.</span></p>');
-	});
+        });
+        if (max_segments != segments) {
+            var data = pie_json_to_cols(jsonData, segments);
+            chart.unload();
+            chart.load({
+                columns: data.columns,
+            });
+        }
+        $(".transform_to_donut").off("click").click(function() {
+            $(".transform_to_donut").css("display", "none");
+            $(".transform_to_pie").css("display", "inline");
+            $(".transform_to_treemap").css("display", "inline");
+            pie = 0;
+            set_prefs('pie', 0);
+            chart.unload();
+            load_pie(url, field, max_segments)
+        });
+        $(".transform_to_pie").off("click").click(function() {
+            $(".transform_to_pie").css("display", "none");
+            $(".transform_to_donut").css("display", "inline");
+            $(".transform_to_treemap").css("display", "inline");
+            pie = 1;
+            set_prefs('pie', 1);
+            chart.unload();
+            load_pie(url, field, max_segments)
+        });
+        $(".transform_to_treemap").off("click").click(function() {
+            $(".transform_to_pie").css("display", "inline");
+            $(".transform_to_donut").css("display", "inline");
+            $(".transform_to_treemap").css("display", "none");
+            $("div#waiting").css("display", "block");
+            d3.selectAll("#map svg, #bb_charts svg").remove();
+            load_treemap(url, field);
+            pie = 0;
+        });
+        $(".transform_to_map").off("click").click(function() {
+            $(".transform_to_map").css("display", "none");
+            load_map(url, field);
+            $(".transform_to_pie").css("display", "inline");
+            $(".transform_to_donut").css("display", "inline");
+            $(".transform_to_treemap").css("display", "inline");
+            pie = 1;
+            set_prefs('pie', 1);
+        });
+        $("#segment_control").css("display", "block");
+        $("#segments").slider({ min: 5, max: 50, value: segments });
+        $("#segments_display").text(segments);
+        $(".transform_to_map").css("display", map_fields.includes(field) ? "inline" : "none");
+        $(".transform_to_pie").css("display", pie ? "none" : "inline");
+        $(".transform_to_donut").css("display", pie ? "inline" : "none");
+        $(".transform_to_treemap").css("display", "inline");
+        $(".transform_to_bar").css("display", "none");
+        $(".transform_to_line").css("display", "none");
+        $("#pie_controls").css("display", "block");
+        show_export_options();
+        $("div#waiting").css("display", "none");
+    }, function(error) {
+        console.log(error);
+        $("#bb_chart").html('<p style="text-align:center;margin-top:5em">'
+            + '<span class="error_message">Error accessing data.</span></p>');
+    });
 }
 
-function treemap_json_to_cols(jsonData){
-	let columns = [];
-	let count = 0;
-	jsonData.forEach(function(e) {
-		e.label = e.label.toString();
-		if (e.label == '') {
-			e.label = 'No value';
-		}
-		count++;
-		columns.push([e.label,e.value])
-	});
-	return { columns: columns,  count: count };
+function treemap_json_to_cols(jsonData) {
+    let columns = [];
+    let count = 0;
+    jsonData.forEach(function(e) {
+        e.label = e.label.toString();
+        if (e.label == '') {
+            e.label = 'No value';
+        }
+        count++;
+        columns.push([e.label, e.value])
+    });
+    return { columns: columns, count: count };
 }
 
 function pie_json_to_cols(jsonData, segments) {
-	var columns = [];
-	var names = {};
-	var first_other = [];
-	var count = 0;
-	var others = 0;
-	var other_fields = 0;
-	jsonData.forEach(function(e) {
-		e.label = e.label.toString();
-		if (e.label == '') {
-			e.label = 'No value';
-		}
-		count++;
-		var name = "Data" + count;
-		if (count >= segments) {
-			others += e.value;
-			other_fields++;
-			if (count == segments) {
-				first_other = [e.label, e.value];
-			}
-		} else {
-			columns.push([name, e.value]);
-		}
-		names[name] = e.label;
-	})
-	if (other_fields == 1) {
-		columns.push(first_other);
-	} else if (other_fields > 1) {
-		columns.push(['Others', others]);
-	}
-	return { columns: columns, names: names, count: count };
+    var columns = [];
+    var names = {};
+    var first_other = [];
+    var count = 0;
+    var others = 0;
+    var other_fields = 0;
+    jsonData.forEach(function(e) {
+        e.label = e.label.toString();
+        if (e.label == '') {
+            e.label = 'No value';
+        }
+        count++;
+        var name = "Data" + count;
+        if (count >= segments) {
+            others += e.value;
+            other_fields++;
+            if (count == segments) {
+                first_other = [e.label, e.value];
+            }
+        } else {
+            columns.push([name, e.value]);
+        }
+        names[name] = e.label;
+    })
+    if (other_fields == 1) {
+        columns.push(first_other);
+    } else if (other_fields > 1) {
+        columns.push(['Others', others]);
+    }
+    return { columns: columns, names: names, count: count };
 }
 
-function load_treemap(url, field){
-	$("#bar_controls").css("display", "none");
-	$("#line_controls").css("display", "none");
-	$("#map_controls").css("display", "none");
-	$("#geography_controls").css("display", "none");
-	if (typeof field == 'undefined') {
-		return;
-	}
+function load_treemap(url, field) {
+    $("#bar_controls").css("display", "none");
+    $("#line_controls").css("display", "none");
+    $("#map_controls").css("display", "none");
+    $("#geography_controls").css("display", "none");
+    if (typeof field == 'undefined') {
+        return;
+    }
 
-	var title = field.replace(/^.+\.\./, "");
-	var field_type = get_field_type();
-	if (field_type == 'loci' && typeof locus_labels !== 'undefined' && locus_labels[field] != undefined) {
-		title = locus_labels[field];
-	}
+    var title = field.replace(/^.+\.\./, "");
+    var field_type = get_field_type();
+    if (field_type == 'loci' && typeof locus_labels !== 'undefined' && locus_labels[field] != undefined) {
+        title = locus_labels[field];
+    }
 
-	title = title.replace(/^s_\d+_/, "");
-	if (field.startsWith('af_')) {
-		let parts = field.split('___',2);
-		let field_name = parts[0].replace(/^af_/,"");
-		let analysis_name = parts[1]		
-	    title = `${field_name} (${analysis_name})`;
-	}
-	var f = d3.format(".1f");
-	d3.json(url).then(function(jsonData) {
-		var data = treemap_json_to_cols(jsonData);
-		var plural = data.count == 1 ? "" : "s";
-		title += " (" + data.count + " value" + plural + ")";
-		var chart = bb.generate({
-			bindto: '#bb_chart',
-			title: {
-				text: title
-			},
-			padding: {
-				top: 10
-			},
-			data: {
-				columns: data.columns,
-				type: 'treemap',
-				labels: {
-					colors: '#fff'
-				}
-			},
-			size: {
-				height: 500
-			},
-			treemap: {
-				label: {
-					threshold: 0.02
-				}
-			},
-			tooltip: {
-				format: {
-					value: function(value, ratio, id) {
-						return value + " (" + f(ratio * 100) + "%)";
-					}
-				}
-			}
-		});
+    title = title.replace(/^s_\d+_/, "");
+    if (field.startsWith('af_')) {
+        let parts = field.split('___', 2);
+        let analysis_name = parts[0].replace(/^af_/, "");
+        let field_name = parts[1]
+        title = `${field_name} (${analysis_name})`;
+    }
+    var f = d3.format(".1f");
+    d3.json(url).then(function(jsonData) {
+        var data = treemap_json_to_cols(jsonData);
+        var plural = data.count == 1 ? "" : "s";
+        title += " (" + data.count + " value" + plural + ")";
+        var chart = bb.generate({
+            bindto: '#bb_chart',
+            title: {
+                text: title
+            },
+            padding: {
+                top: 10
+            },
+            data: {
+                columns: data.columns,
+                type: 'treemap',
+                labels: {
+                    colors: '#fff'
+                }
+            },
+            size: {
+                height: 500
+            },
+            treemap: {
+                label: {
+                    threshold: 0.02
+                }
+            },
+            tooltip: {
+                format: {
+                    value: function(value, ratio, id) {
+                        return value + " (" + f(ratio * 100) + "%)";
+                    }
+                }
+            }
+        });
 
-		$(".transform_to_donut").off("click").click(function() {
-			$(".transform_to_donut").css("display", "none");
-			$(".transform_to_pie").css("display", "inline");
-			$(".transform_to_treemap").css("display", "inline");
-			pie = 0;
-			set_prefs('pie', 0);
-			load_pie(url, field, 20)
-		});
-		$(".transform_to_pie").off("click").click(function() {
-			$(".transform_to_pie").css("display", "none");
-			$(".transform_to_donut").css("display", "inline");
-			$(".transform_to_treemap").css("display", "inline");
-			pie = 1;
-			set_prefs('pie', 1);
-			load_pie(url, field, 20)
-		});
+        $(".transform_to_donut").off("click").click(function() {
+            $(".transform_to_donut").css("display", "none");
+            $(".transform_to_pie").css("display", "inline");
+            $(".transform_to_treemap").css("display", "inline");
+            pie = 0;
+            set_prefs('pie', 0);
+            load_pie(url, field, 20)
+        });
+        $(".transform_to_pie").off("click").click(function() {
+            $(".transform_to_pie").css("display", "none");
+            $(".transform_to_donut").css("display", "inline");
+            $(".transform_to_treemap").css("display", "inline");
+            pie = 1;
+            set_prefs('pie', 1);
+            load_pie(url, field, 20)
+        });
 
-		$(".transform_to_map").off("click").click(function() {
-			$(".transform_to_map").css("display", "none");
-			load_map(url, field);
-			$(".transform_to_pie").css("display", "inline");
-			$(".transform_to_donut").css("display", "inline");
-			$(".transform_to_treemap").css("display","inline");
-			pie = 1;
-			set_prefs('pie', 1);
-		});
-		$("#segment_control").css("display", "block");
-		$("#segments").slider({ min: 5, max: 50, value: segments });
-		$("#segments_display").text(segments);
-		$(".transform_to_map").css("display", map_fields.includes(field) ? "inline" : "none");
-		$(".transform_to_pie").css("display", "inline");
-		$(".transform_to_donut").css("display", "inline");
-		$(".transform_to_treemap").css("display", "none");
-		$(".transform_to_bar").css("display", "none");
-		$(".transform_to_line").css("display", "none");
-		$("#pie_controls").css("display", "block");
-		show_export_options();
-		$("div#waiting").css("display", "none");
-	}, function(error) {
-		console.log(error);
-		$("#bb_chart").html('<p style="text-align:center;margin-top:5em">'
-			+ '<span class="error_message">Error accessing data.</span></p>');
-	});
+        $(".transform_to_map").off("click").click(function() {
+            $(".transform_to_map").css("display", "none");
+            load_map(url, field);
+            $(".transform_to_pie").css("display", "inline");
+            $(".transform_to_donut").css("display", "inline");
+            $(".transform_to_treemap").css("display", "inline");
+            pie = 1;
+            set_prefs('pie', 1);
+        });
+        $("#segment_control").css("display", "block");
+        $("#segments").slider({ min: 5, max: 50, value: segments });
+        $("#segments_display").text(segments);
+        $(".transform_to_map").css("display", map_fields.includes(field) ? "inline" : "none");
+        $(".transform_to_pie").css("display", "inline");
+        $(".transform_to_donut").css("display", "inline");
+        $(".transform_to_treemap").css("display", "none");
+        $(".transform_to_bar").css("display", "none");
+        $(".transform_to_line").css("display", "none");
+        $("#pie_controls").css("display", "block");
+        show_export_options();
+        $("div#waiting").css("display", "none");
+    }, function(error) {
+        console.log(error);
+        $("#bb_chart").html('<p style="text-align:center;margin-top:5em">'
+            + '<span class="error_message">Error accessing data.</span></p>');
+    });
 }
 
 function load_line(url, field, cumulative) {
-	$("#bar_controls").css("display", "none");
-	$("#pie_controls").css("display", "none");
-	$("#map_controls").css("display", "none");
-	$("#geography_controls").css("display", "none");
-	$(".transform_to_map").css("display", "none");
-	// Prevent multiple event firing after reloading
-	$("#line_height").off("slidechange");
-	var data = [];
-	var title = field.replace(/^.+\.\./, "");
+    console.log(cumulative);
+    console.log(field);
+    $("#bar_controls").css("display", "none");
+    $("#pie_controls").css("display", "none");
+    $("#map_controls").css("display", "none");
+    $("#geography_controls").css("display", "none");
+    $(".transform_to_map").css("display", "none");
+    // Prevent multiple event firing after reloading
+    $("#line_height").off("slidechange");
+    var data = [];
+    var title = field.replace(/^.+\|\|/, "");
+    title = title.replace(/^(?:f|eav)_/, "");
 
-	d3.json(url).then(function(jsonData) {
-		remove_null(jsonData);
-		var values = ['value'];
-		var fields = ['date'];
-		var count = 0;
-		var total = 0;
-		jsonData.forEach(function(e) {
-			count++;
+    d3.json(url).then(function(jsonData) {
+        remove_null(jsonData);
+        var values = ['value'];
+        var fields = ['date'];
+        var count = 0;
+        var total = 0;
+        jsonData.forEach(function(e) {
+            count++;
 
-			fields.push(e.label);
-			if (cumulative) {
-				total += e.value;
-				values.push(total);
-			} else {
-				values.push(e.value);
-			}
-		});
-		var plural = count == 1 ? "" : "s";
-		title += " (" + count + " value" + plural + ")";
+            fields.push(e.label);
+            if (cumulative) {
+                total += e.value;
+                values.push(total);
+            } else {
+                values.push(e.value);
+            }
+        });
+        var plural = count == 1 ? "" : "s";
+        title += " (" + count + " value" + plural + ")";
 
-		var chart = bb.generate({
-			bindto: '#bb_chart',
-			title: {
-				text: title
-			},
-			data: {
-				x: 'date',
-				columns: [
-					fields,
-					values
-				],
-				type: line ? 'line' : 'bar',
-				order: 'asc',
-			},
+        var chart = bb.generate({
+            bindto: '#bb_chart',
+            title: {
+                text: title
+            },
+            data: {
+                x: 'date',
+                columns: [
+                    fields,
+                    values
+                ],
+                type: line ? 'line' : 'bar',
+                order: 'asc',
+            },
 
-			axis: {
-				x: {
-					type: 'timeseries',
-					tick: {
-						format: '%Y-%m-%d',
-						count: 100,
-						rotate: 90,
-						fit: true
-					},
-					height: 100
-				}
-			},
-			legend: {
-				show: false
-			}
-		});
+            axis: {
+                x: {
+                    type: 'timeseries',
+                    tick: {
+                        format: '%Y-%m-%d',
+                        count: 100,
+                        rotate: 90,
+                        fit: true
+                    },
+                    height: 100
+                }
+            },
+            legend: {
+                show: false
+            }
+        });
 
-		chart.resize({
-			height: height
-		});
+        chart.resize({
+            height: height
+        });
 
-		$(".transform_to_bar").off("click").click(function() {
-			chart.unload();
-			load_line(url, field, 0);
-			$(".transform_to_bar").css("display", "none");
-			$(".transform_to_line").css("display", "inline");
-			line = 0;
-		});
-		$(".transform_to_line").off("click").click(function() {
-			chart.unload();
-			load_line(url, field, 1);
-			$(".transform_to_line").css("display", "none");
-			$(".transform_to_bar").css("display", "inline");
-			line = 1;
-		});
+        $(".transform_to_bar").off("click").click(function() {
+            chart.unload();
+            load_line(url, field, 0);
+            $(".transform_to_bar").css("display", "none");
+            $(".transform_to_line").css("display", "inline");
+            line = 0;
+        });
+        $(".transform_to_line").off("click").click(function() {
+            chart.unload();
+            load_line(url, field, 1);
+            $(".transform_to_line").css("display", "none");
+            $(".transform_to_bar").css("display", "inline");
+            line = 1;
+        });
 
-		$(".transform_to_line").css("display", line ? "none" : "inline");
-		$(".transform_to_bar").css("display", line ? "inline" : "none");
-		$(".transform_to_pie").css("display", "none");
-		$(".transform_to_donut").css("display", "none");
-		$(".transform_to_treemap").css("display","none");
+        $(".transform_to_line").css("display", line ? "none" : "inline");
+        $(".transform_to_bar").css("display", line ? "inline" : "none");
+        $(".transform_to_pie").css("display", "none");
+        $(".transform_to_donut").css("display", "none");
+        $(".transform_to_treemap").css("display", "none");
 
-		$("#line_controls").css("display", "block");
-		$("#line_height").slider({ min: 300, max: 800, value: height });
-		$("#line_height").on("slidechange", function() {
-			var new_height = $("#line_height").slider('value');
-			height = new_height;
-			chart.resize({
-				height: height
-			});
-			set_prefs('height', height);
-		});
-		show_export_options();
-		$("div#waiting").css("display", "none");
-	}, function(error) {
-		console.log(error);
-		$("#bb_chart").html('<p style="text-align:center;margin-top:5em">'
-			+ '<span class="error_message">Error accessing data.</span></p>');
-	});
+        $("#line_controls").css("display", "block");
+        $("#line_height").slider({ min: 300, max: 800, value: height });
+        $("#line_height").on("slidechange", function() {
+            var new_height = $("#line_height").slider('value');
+            height = new_height;
+            chart.resize({
+                height: height
+            });
+            set_prefs('height', height);
+        });
+        show_export_options();
+        $("div#waiting").css("display", "none");
+    }, function(error) {
+        console.log(error);
+        $("#bb_chart").html('<p style="text-align:center;margin-top:5em">'
+            + '<span class="error_message">Error accessing data.</span></p>');
+    });
 }
 
 function remove_null(jsonData) {
-	$.each(jsonData, function(index, value) {
-		if (value['label'] === 'No value') {
-			jsonData.splice(index, 1);
-		}
-	});
+    $.each(jsonData, function(index, value) {
+        if (value && value['label'] === 'No value') {
+            jsonData.splice(index, 1);
+        }
+    });
 }
 
 function load_bar_json(jsonData, field, rotate) {
-	remove_null(jsonData);
-	$("#line_controls").css("display", "none");
-	$("#pie_controls").css("display", "none");
-	$("#map_controls").css("display", "none");
-	$("#geography_controls").css("display", "none");
-	$("#bar_height").off("slidechange");
-	var title = field.replace(/^.+\.\./, "");
-	var count = Object.keys(jsonData).length;
-	var plural = count == 1 ? "" : "s";
-	title += " (" + count + " value" + plural + ")";
+    remove_null(jsonData);
+    $("#line_controls").css("display", "none");
+    $("#pie_controls").css("display", "none");
+    $("#map_controls").css("display", "none");
+    $("#geography_controls").css("display", "none");
+    $("#bar_height").off("slidechange");
+    var title = field.replace(/^.+\|\|/, "");
+    title = title.replace(/^(?:f|eav)_/, "");
+    var count = Object.keys(jsonData).length;
+    var plural = count == 1 ? "" : "s";
+    title += " (" + count + " value" + plural + ")";
 
-	var chart = bb.generate({
-		bindto: '#bb_chart',
-		title: {
-			text: title
-		},
-		data: {
-			json: jsonData,
-			keys: {
-				x: 'label',
-				value: ['value']
-			},
-			type: 'bar',
-		},
-		bar: {
-			width: {
-				ratio: 0.7
-			}
-		},
-		axis: {
-			rotated: rotate,
-			x: {
-				type: 'category',
-				tick: {
-					culling: true,
-				},
-				height: 100
-			}
-		},
-		legend: {
-			show: false
-		},
-		padding: {
-			right: 20
-		}
-	});
-	chart.resize({
-		height: height
-	});
+    var chart = bb.generate({
+        bindto: '#bb_chart',
+        title: {
+            text: title
+        },
+        data: {
+            json: jsonData,
+            keys: {
+                x: 'label',
+                value: ['value']
+            },
+            type: 'bar',
+        },
+        bar: {
+            width: {
+                ratio: 0.7
+            }
+        },
+        axis: {
+            rotated: rotate,
+            x: {
+                type: 'category',
+                tick: {
+                    culling: true,
+                },
+                height: 100
+            }
+        },
+        legend: {
+            show: false
+        },
+        padding: {
+            right: 20
+        }
+    });
+    chart.resize({
+        height: height
+    });
 
-	$("#bar_height").slider({ min: 300, max: 800, value: height });
-	$("#bar_controls").css("display", "block");
-	$("#bar_height").on("slidechange", function() {
-		var new_height = $("#bar_height").slider('value');
-		height = new_height;
-		chart.resize({
-			height: height
-		});
-		set_prefs('height', height);
-	});
-	show_export_options();
+    $("#bar_height").slider({ min: 300, max: 800, value: height });
+    $("#bar_controls").css("display", "block");
+    $("#bar_height").on("slidechange", function() {
+        var new_height = $("#bar_height").slider('value');
+        height = new_height;
+        chart.resize({
+            height: height
+        });
+        set_prefs('height', height);
+    });
+    show_export_options();
 }
 
 function load_bar(url, field, rotate) {
-	d3.json(url).then(function(jsonData) {
-		load_bar_json(jsonData, field, rotate);
-		$("div#waiting").css("display", "none");
-	}, function(error) {
-		console.log(error);
-		$("#bb_chart").html('<p style="text-align:center;margin-top:5em">'
-			+ '<span class="error_message">Error accessing data.</span></p>');
-	});
-	var orientation_radio = $('input[name="orientation"]');
-	orientation_radio.on("change", function() {
-		var field = $('#field').val();
-		rotate = is_vertical();
-		// Reload by URL rather than from already downloaded JSON data
-		// as it seems that the required unload() function currently has a
-		// memory leak.
-		load_bar(url, field, rotate);
-	});
+    d3.json(url).then(function(jsonData) {
+        load_bar_json(jsonData, field, rotate);
+        $("div#waiting").css("display", "none");
+    }, function(error) {
+        console.log(error);
+        $("#bb_chart").html('<p style="text-align:center;margin-top:5em">'
+            + '<span class="error_message">Error accessing data.</span></p>');
+    });
+    var orientation_radio = $('input[name="orientation"]');
+    orientation_radio.on("change", function() {
+        var field = $('#field').val();
+        rotate = is_vertical();
+        // Reload by URL rather than from already downloaded JSON data
+        // as it seems that the required unload() function currently has a
+        // memory leak.
+        load_bar(url, field, rotate);
+    });
 }
 
 
 
 function load_geography(url, field) {
-	$("#bb_chart").html("");
-	$("#geography").css("height", "400px");
-	let map_style = $("input[name='geography_view']:checked").val();
-	if (typeof map_style == 'undefined') {
-		map_style = 'Map';
-	}
-	let layers = get_ol_layers(mapping_option, map_style);
+    $("#bb_chart").html("");
+    $("#geography").css("height", "400px");
+    let map_style = $("input[name='geography_view']:checked").val();
+    if (typeof map_style == 'undefined') {
+        map_style = 'Map';
+    }
+    let layers = get_ol_layers(mapping_option, map_style);
 
-	d3.json(url).then(function(jsonData) {
-		let attribution = new ol.control.Attribution({ collapsible: mapping_option < 3 ? false : true });
-		let map = new ol.Map({
-			target: 'geography',
-			controls: ol.control.defaults({ attribution: false }).extend([attribution]),
-			layers: layers,
-			view: new ol.View({
-				center: ol.proj.fromLonLat([0, 20]),
-				zoom: 2,
-				minZoom: 1,
-				maxZoom: 16
-			})
-		});
+    d3.json(url).then(function(jsonData) {
+        let attribution = new ol.control.Attribution({ collapsible: mapping_option < 3 ? false : true });
+        let map = new ol.Map({
+            target: 'geography',
+            controls: ol.control.defaults({ attribution: false }).extend([attribution]),
+            layers: layers,
+            view: new ol.View({
+                center: ol.proj.fromLonLat([0, 20]),
+                zoom: 2,
+                minZoom: 1,
+                maxZoom: 16
+            })
+        });
 
-		let vectorLayer = get_marker_layer(jsonData);
-		map.addLayer(vectorLayer);
+        let vectorLayer = get_marker_layer(jsonData);
+        map.addLayer(vectorLayer);
 
-		let features = vectorLayer.getSource().getFeatures();
-		if (features.length) {
-			map.getView().fit(vectorLayer.getSource().getExtent(), {
-				size: map.getSize(),
-				padding: [10, 10, 10, 10],
-				minZoom: 2,
-				maxZoom: 12,
-				constrainResolution: false
-			});
-		}
-		map.on('postrender', function(e) {
-			if (field !== selected_field) {
-				return;
-			}
-			$("#map").html("");
-			$("div#waiting").css("display", "none");
-			$("#geography_controls").css("display", "block");
-			$("#bb_chart").css("min-height", 0);
-			show_export_options();
-			$("input[name='geography_view']").off("change").change(function() {
-				if ($("input[name='geography_view']:checked").val() == 'Aerial') {
-					layers[0].setVisible(false);
-					layers[1].setVisible(true);
-					if (typeof layers[2] !== 'undefined') {
-						layers[2].setVisible(true);
-					}
-					attribution.setCollapsible(true);
-					attribution.setCollapsed(true);
-				} else {
-					layers[0].setVisible(true);
-					layers[1].setVisible(false);
-					if (typeof layers[2] !== 'undefined') {
-						layers[2].setVisible(false);
-					}
-					if (mapping_option < 3) { //OSM
-						attribution.setCollapsible(false);
-						attribution.setCollapsed(false);
-					}
-				}
-				display_maptiler_logo();
-				set_prefs('map_style', $("input[name='geography_view']:checked").val());
-			});
-			display_maptiler_logo();
-			$(".marker_colour").off("click").click(function() {
-				set_prefs('marker_colour', this.id);
-				marker_colour = this.id;
-				map.removeLayer(vectorLayer);
-				vectorLayer = get_marker_layer(jsonData);
-				map.addLayer(vectorLayer);
-			});
-			$("#marker_size").off("slidechange").on("slidechange", function() {
-				marker_size = $("#marker_size").slider('value');
-				set_prefs('marker_size', marker_size);
-				map.removeLayer(vectorLayer);
-				vectorLayer = get_marker_layer(jsonData);
-				map.addLayer(vectorLayer);
-			});
-		});
-		$("#marker_size").slider({ min: 0, max: 10, value: marker_size });
-		if (mapping_option < 3) {
-			attribution.setCollapsible(map_style == 'Map' ? false : true);
-			attribution.setCollapsed(map_style == 'Map' ? false : true);
-		}
-	});
+        let features = vectorLayer.getSource().getFeatures();
+        if (features.length) {
+            map.getView().fit(vectorLayer.getSource().getExtent(), {
+                size: map.getSize(),
+                padding: [10, 10, 10, 10],
+                minZoom: 2,
+                maxZoom: 12,
+                constrainResolution: false
+            });
+        }
+        map.on('postrender', function(e) {
+            if (field !== selected_field) {
+                return;
+            }
+            $("#map").html("");
+            $("div#waiting").css("display", "none");
+            $("#geography_controls").css("display", "block");
+            $("#bb_chart").css("min-height", 0);
+            show_export_options();
+            $("input[name='geography_view']").off("change").change(function() {
+                if ($("input[name='geography_view']:checked").val() == 'Aerial') {
+                    layers[0].setVisible(false);
+                    layers[1].setVisible(true);
+                    if (typeof layers[2] !== 'undefined') {
+                        layers[2].setVisible(true);
+                    }
+                    attribution.setCollapsible(true);
+                    attribution.setCollapsed(true);
+                } else {
+                    layers[0].setVisible(true);
+                    layers[1].setVisible(false);
+                    if (typeof layers[2] !== 'undefined') {
+                        layers[2].setVisible(false);
+                    }
+                    if (mapping_option < 3) { //OSM
+                        attribution.setCollapsible(false);
+                        attribution.setCollapsed(false);
+                    }
+                }
+                display_maptiler_logo();
+                set_prefs('map_style', $("input[name='geography_view']:checked").val());
+            });
+            display_maptiler_logo();
+            $(".marker_colour").off("click").click(function() {
+                set_prefs('marker_colour', this.id);
+                marker_colour = this.id;
+                map.removeLayer(vectorLayer);
+                vectorLayer = get_marker_layer(jsonData);
+                map.addLayer(vectorLayer);
+            });
+            $("#marker_size").off("slidechange").on("slidechange", function() {
+                marker_size = $("#marker_size").slider('value');
+                set_prefs('marker_size', marker_size);
+                map.removeLayer(vectorLayer);
+                vectorLayer = get_marker_layer(jsonData);
+                map.addLayer(vectorLayer);
+            });
+        });
+        $("#marker_size").slider({ min: 0, max: 10, value: marker_size });
+        if (mapping_option < 3) {
+            attribution.setCollapsible(map_style == 'Map' ? false : true);
+            attribution.setCollapsed(map_style == 'Map' ? false : true);
+        }
+    });
 
 }
 
 function display_maptiler_logo() {
-	if (mapping_option == 1) {
-		let map_style = $("input[name='geography_view']:checked").val();
-		if (!$("a#maptiler_logo").length) {
-			console.log('Adding logo');
-			$("div#geography").append(
-				'<a href="https://www.maptiler.com" id="maptiler_logo" '
-				+ 'style="display:none;position:absolute;left:10px;bottom:10px;z-index:10">'
-				+ '<img src="https://api.maptiler.com/resources/logo.svg" alt="MapTiler logo"></a>');
-		}
-		if (map_style == 'Map') {
-			$("a#maptiler_logo").hide()
-		} else {
-			$("a#maptiler_logo").show();
-		}
-	}
+    if (mapping_option == 1) {
+        let map_style = $("input[name='geography_view']:checked").val();
+        if (!$("a#maptiler_logo").length) {
+            console.log('Adding logo');
+            $("div#geography").append(
+                '<a href="https://www.maptiler.com" id="maptiler_logo" '
+                + 'style="display:none;position:absolute;left:10px;bottom:10px;z-index:10">'
+                + '<img src="https://api.maptiler.com/resources/logo.svg" alt="MapTiler logo"></a>');
+        }
+        if (map_style == 'Map') {
+            $("a#maptiler_logo").hide()
+        } else {
+            $("a#maptiler_logo").show();
+        }
+    }
 }
 
 function get_marker_layer(jsonData) {
-	let colours = {
-		marker_red: 'rgb(255,0,0,0.7)',
-		marker_blue: 'rgb(0,0,255,0.7)',
-		marker_green: 'rgb(13,130,58,0.7)',
-		marker_purple: 'rgb(176,2,250,0.7)',
-		marker_orange: 'rgb(250,85,2,0.7)',
-		marker_yellow: 'rgb(252,207,3,0.7)',
-		marker_grey: 'rgb(48,48,48,0.7)'
-	};
-	let pstyles = [];
-	for (let i = 0; i < 10; ++i) {
-		let pstyle = new ol.style.Style({
-			image: new ol.style.Circle({
-				radius: parseInt(marker_size) + i,
-				fill: new ol.style.Fill({
-					color: colours[marker_colour]
-				})
-			})
-		});
-		pstyles.push(pstyle);
-	}
-	let thresholds = [1, 2, 5, 10, 25, 50, 100, 250, 500];
-	let features = [];
-	jsonData.forEach(function(e) {
-		let coordinates = (e.label.match(/(\-?\d+\.?\d*),\s*(\-?\d+\.?\d*)/));
-		if (coordinates != null) {
-			let latitude = parseFloat(coordinates[1]);
-			let longitude = parseFloat(coordinates[2]);
-			let threshold;
-			for (let i = 0; i < 9; ++i) {
-				if (parseInt(e.value) <= thresholds[i]) {
-					threshold = i;
-					break;
-				}
-			}
-			if (threshold == null) {
-				threshold = 9;
-			}
-			let feature = new ol.Feature({
-				geometry: new ol.geom.Point(ol.proj.fromLonLat([longitude, latitude])),
-			});
-			feature.setStyle(pstyles[threshold])
-			features.push(feature);
-		}
-	});
-	let vectorLayer = new ol.layer.Vector({
-		source: new ol.source.Vector({
-			features: features
-		})
-	})
-	return vectorLayer;
+    let colours = {
+        marker_red: 'rgb(255,0,0,0.7)',
+        marker_blue: 'rgb(0,0,255,0.7)',
+        marker_green: 'rgb(13,130,58,0.7)',
+        marker_purple: 'rgb(176,2,250,0.7)',
+        marker_orange: 'rgb(250,85,2,0.7)',
+        marker_yellow: 'rgb(252,207,3,0.7)',
+        marker_grey: 'rgb(48,48,48,0.7)'
+    };
+    let pstyles = [];
+    for (let i = 0;i < 10;++i) {
+        let pstyle = new ol.style.Style({
+            image: new ol.style.Circle({
+                radius: parseInt(marker_size) + i,
+                fill: new ol.style.Fill({
+                    color: colours[marker_colour]
+                })
+            })
+        });
+        pstyles.push(pstyle);
+    }
+    let thresholds = [1, 2, 5, 10, 25, 50, 100, 250, 500];
+    let features = [];
+    jsonData.forEach(function(e) {
+        let coordinates = (e.label.match(/(\-?\d+\.?\d*),\s*(\-?\d+\.?\d*)/));
+        if (coordinates != null) {
+            let latitude = parseFloat(coordinates[1]);
+            let longitude = parseFloat(coordinates[2]);
+            let threshold;
+            for (let i = 0;i < 9;++i) {
+                if (parseInt(e.value) <= thresholds[i]) {
+                    threshold = i;
+                    break;
+                }
+            }
+            if (threshold == null) {
+                threshold = 9;
+            }
+            let feature = new ol.Feature({
+                geometry: new ol.geom.Point(ol.proj.fromLonLat([longitude, latitude])),
+            });
+            feature.setStyle(pstyles[threshold])
+            features.push(feature);
+        }
+    });
+    let vectorLayer = new ol.layer.Vector({
+        source: new ol.source.Vector({
+            features: features
+        })
+    })
+    return vectorLayer;
 }
 
 
 function show_export_options() {
-	var field = $('#field').val();
-	$("a#export_table").attr("href", url + "&export=" + field + "&format=table");
-	$("a#export_excel").attr("href", url + "&export=" + field + "&format=xlsx");
-	$("a#export_text").attr("href", url + "&export=" + field + "&format=text");
-	$("a#export_fasta").attr("href", url + "&export=" + field + "&format=fasta");
-	$("a#export_fasta").css("display", fasta ? "inline" : "none");
-	$("a#export_image").css("display", selected_type == 'geography_point' || geography_point_lookup_fields.includes(selected_field) ? "none" : "inline");
-	$("#export").css("display", "block");
+    var field = $('#field').val();
+    $("a#export_table").attr("href", url + "&export=" + field + "&format=table");
+    $("a#export_excel").attr("href", url + "&export=" + field + "&format=xlsx");
+    $("a#export_text").attr("href", url + "&export=" + field + "&format=text");
+    $("a#export_fasta").attr("href", url + "&export=" + field + "&format=fasta");
+    $("a#export_fasta").css("display", fasta ? "inline" : "none");
+    $("a#export_image").css("display", selected_type == 'geography_point' || geography_point_lookup_fields.includes(selected_field) ? "none" : "inline");
+    $("#export").css("display", "block");
 }
 
 function set_prefs(attribute, value) {
-	$.ajax(prefs_ajax_url + "&update=1&attribute=" + attribute + "&value=" + value);
+    $.ajax(prefs_ajax_url + "&update=1&attribute=" + attribute + "&value=" + value);
 }
