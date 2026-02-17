@@ -161,7 +161,7 @@ $(function() {
             .node().parentNode.innerHTML;
         svg = svg.replace(/<\/svg>.*$/, "</svg>");
         var blob = new Blob([svg], { type: "image/svg+xml" });
-        var filename = $("#field").val().replace(/^.+\.\./, "").replace(/^af_/, "").replace(/___/g, "_") + ".svg";
+        var filename = $("#field").val().replace(/^.+\|\|/, "").replace(/^(?:af|f)_/, "").replace(/___/g, "_") + ".svg";
         saveAs(blob, filename);
     });
 
@@ -469,20 +469,10 @@ function load_pie(url, field, max_segments) {
         return;
     }
 
-    var title = field.replace(/^.+\|\|/, "");
-    var field_type = get_field_type();
-    if (field_type == 'loci' && typeof locus_labels !== 'undefined' && locus_labels[field] != undefined) {
-        title = locus_labels[field];
-    }
+    var title = clean_field(field);
 
-    title = title.replace(/^s_\d+_/, "");
-    if (field.startsWith('af_')) {
-        let parts = field.split('___', 2);
-        let analysis_name = parts[0].replace(/^af_/, "");
-        let field_name = parts[1]
-        title = `${field_name} (${analysis_name})`;
-    }
-    title = title.replace(/^(?:f|eav)_/, "");
+
+    
     var f = d3.format(".1f");
     d3.json(url).then(function(jsonData) {
         var data = pie_json_to_cols(jsonData, max_segments);
@@ -676,13 +666,7 @@ function load_treemap(url, field) {
         return;
     }
 
-    var title = field.replace(/^.+\.\./, "");
-    var field_type = get_field_type();
-    if (field_type == 'loci' && typeof locus_labels !== 'undefined' && locus_labels[field] != undefined) {
-        title = locus_labels[field];
-    }
-
-    title = title.replace(/^s_\d+_/, "");
+	var title = clean_field(field);
     if (field.startsWith('af_')) {
         let parts = field.split('___', 2);
         let analysis_name = parts[0].replace(/^af_/, "");
@@ -700,7 +684,9 @@ function load_treemap(url, field) {
                 text: title
             },
             padding: {
-                top: 10
+                top: 10,
+                left: 40,
+                right: 25
             },
             data: {
                 columns: data.columns,
@@ -771,9 +757,24 @@ function load_treemap(url, field) {
     });
 }
 
+function clean_field(field) {
+    let clean = field.replace(/^.+\|\|/, "");
+    clean = clean.replace(/^s_\d+_/, "");
+    if (field.startsWith('af_')) {
+        let parts = field.split('___', 2);
+        let analysis_name = parts[0].replace(/^af_/, "");
+        let field_name = parts[1]
+        clean = `${field_name} (${analysis_name})`;
+    }
+    clean = clean.replace(/^(?:f|eav)_/, "");
+	var field_type = get_field_type();
+	if (field_type == 'loci' && typeof locus_labels !== 'undefined' && locus_labels[field] != undefined) {
+	    title = locus_labels[field];
+	}
+	return clean;
+}
+
 function load_line(url, field, cumulative) {
-    console.log(cumulative);
-    console.log(field);
     $("#bar_controls").css("display", "none");
     $("#pie_controls").css("display", "none");
     $("#map_controls").css("display", "none");
@@ -782,8 +783,7 @@ function load_line(url, field, cumulative) {
     // Prevent multiple event firing after reloading
     $("#line_height").off("slidechange");
     var data = [];
-    var title = field.replace(/^.+\|\|/, "");
-    title = title.replace(/^(?:f|eav)_/, "");
+    var title = clean_field(field);
 
     d3.json(url).then(function(jsonData) {
         remove_null(jsonData);
