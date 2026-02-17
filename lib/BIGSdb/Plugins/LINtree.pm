@@ -1,4 +1,4 @@
-#Kaptive.pm - LINtree wrapper for BIGSdb
+#LINtree.pm - LINtree wrapper for BIGSdb
 #Written by Keith Jolley
 #Copyright (c) 2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
