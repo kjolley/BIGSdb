@@ -102,8 +102,8 @@ sub run {
 			local $" = ', ';
 			push @errors, qq(The following isolates in your pasted list are invalid: @$invalid_ids.);
 		}
-		if ( !@ids || @ids < 2 ) {
-			push @errors, q(You must select at least two valid isolate ids.);
+		if ( !@ids || @ids < 3 ) {
+			push @errors, q(You must select at least three valid isolate ids.);
 		}
 		my $max_records = $self->_get_max_records;
 		if ( @ids > $max_records ) {
