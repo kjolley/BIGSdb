@@ -316,8 +316,10 @@ function load_map(url, field) {
                 delay(function() {
                     if (div_width != $("#map").width()) {
                         div_width = $("#map").width();
-                        $("#map").html("");
-                        load_map(url, field);
+                        if ($("#map").html()) {
+                            $("#map").html("");
+                            load_map(url, field);
+                        }
                     }
                 }, 500);
             }
@@ -472,7 +474,7 @@ function load_pie(url, field, max_segments) {
     var title = clean_field(field);
 
 
-    
+
     var f = d3.format(".1f");
     d3.json(url).then(function(jsonData) {
         var data = pie_json_to_cols(jsonData, max_segments);
@@ -666,7 +668,7 @@ function load_treemap(url, field) {
         return;
     }
 
-	var title = clean_field(field);
+    var title = clean_field(field);
     if (field.startsWith('af_')) {
         let parts = field.split('___', 2);
         let analysis_name = parts[0].replace(/^af_/, "");
@@ -767,11 +769,11 @@ function clean_field(field) {
         clean = `${field_name} (${analysis_name})`;
     }
     clean = clean.replace(/^(?:f|eav)_/, "");
-	var field_type = get_field_type();
-	if (field_type == 'loci' && typeof locus_labels !== 'undefined' && locus_labels[field] != undefined) {
-	    title = locus_labels[field];
-	}
-	return clean;
+    var field_type = get_field_type();
+    if (field_type == 'loci' && typeof locus_labels !== 'undefined' && locus_labels[field] != undefined) {
+        title = locus_labels[field];
+    }
+    return clean;
 }
 
 function load_line(url, field, cumulative) {
