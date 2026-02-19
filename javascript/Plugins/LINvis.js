@@ -157,134 +157,134 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
         .attr("class", "node")
         .attr("transform", d => `translate(${d.x},${d.y})`)
         .each(function(d) { d.__node_group = this; });
-		
-		// -------- Robust persistent root tooltip (no global `root` dependency) --------
-		(function attachRootTooltipNoGlobals() {
-		  try {
-		    // create/reuse a fixed HTML tooltip
-		    let tip = document.getElementById("linvis_root_tooltip");
-		    if (!tip) {
-		      tip = document.createElement("div");
-		      tip.id = "linvis_root_tooltip";
-		      document.body.appendChild(tip);
-		    }
-		    Object.assign(tip.style, {
-		      position: "fixed",
-		      pointerEvents: "none",
-		      zIndex: "2147483647",
-		      background: "rgba(0,0,0,0.85)",
-		      color: "#fff",
-		      padding: "6px 8px",
-		      borderRadius: "4px",
-		      fontSize: "12px",
-		      lineHeight: "1.2",
-		      display: "none",
-		      transform: "none",
-		      whiteSpace: "pre-wrap",
-		      boxSizing: "border-box"
-		    });
 
-		    // find SVG and guard
-		    const svgNode = document.querySelector("#chart svg");
-		    if (!svgNode) return console.warn("LINvis: SVG not found for root tooltip fallback");
+    // -------- Robust persistent root tooltip (no global `root` dependency) --------
+    (function attachRootTooltipNoGlobals() {
+        try {
+            // create/reuse a fixed HTML tooltip
+            let tip = document.getElementById("linvis_root_tooltip");
+            if (!tip) {
+                tip = document.createElement("div");
+                tip.id = "linvis_root_tooltip";
+                document.body.appendChild(tip);
+            }
+            Object.assign(tip.style, {
+                position: "fixed",
+                pointerEvents: "none",
+                zIndex: "2147483647",
+                background: "rgba(0,0,0,0.85)",
+                color: "#fff",
+                padding: "6px 8px",
+                borderRadius: "4px",
+                fontSize: "12px",
+                lineHeight: "1.2",
+                display: "none",
+                transform: "none",
+                whiteSpace: "pre-wrap",
+                boxSizing: "border-box"
+            });
 
-		    // ensure decorative layers don't intercept pointer events and node groups accept them
-		    if (typeof ringLayer !== "undefined") ringLayer.style("pointer-events", "none");
-		    if (typeof labelLayer !== "undefined") labelLayer.style("pointer-events", "none");
-		    d3.selectAll("g.node").style("pointer-events", "all");
+            // find SVG and guard
+            const svgNode = document.querySelector("#chart svg");
+            if (!svgNode) return console.warn("LINvis: SVG not found for root tooltip fallback");
 
-		    // helper: compute root data/coords and view safely each pointermove
-		    function computeRootAndView() {
-		      const rootG = Array.from(document.querySelectorAll("g.node")).find(g => g && g.__data__ && g.__data__.depth === 0);
-		      if (!rootG) return null;
-		      const rootData = rootG.__data__;
-		      // prefer existing view if present in scope; otherwise fallback to root's own coords
-		      const viewNow = (typeof view !== "undefined" ? view : [rootData.x, rootData.y, rootData.r * 2]);
-		      return { rootData, viewNow, rootG };
-		    }
+            // ensure decorative layers don't intercept pointer events and node groups accept them
+            if (typeof ringLayer !== "undefined") ringLayer.style("pointer-events", "none");
+            if (typeof labelLayer !== "undefined") labelLayer.style("pointer-events", "none");
+            d3.selectAll("g.node").style("pointer-events", "all");
 
-		    // helper: show/hide tip
-		    function showTipAt(ev, text) {
-		      const pad = 8;
-		      const maxW = Math.min(360, window.innerWidth - 2 * pad);
-		      const maxH = 120;
-		      const x = Math.max(pad, Math.min(window.innerWidth - pad - maxW, ev.clientX + 12));
-		      const y = Math.max(pad, Math.min(window.innerHeight - pad - maxH, ev.clientY + 12));
-		      tip.textContent = text;
-		      tip.style.left = x + "px";
-		      tip.style.top = y + "px";
-		      tip.style.display = "block";
-		    }
-		    function hideTip(){ tip.style.display = "none"; }
+            // helper: compute root data/coords and view safely each pointermove
+            function computeRootAndView() {
+                const rootG = Array.from(document.querySelectorAll("g.node")).find(g => g && g.__data__ && g.__data__.depth === 0);
+                if (!rootG) return null;
+                const rootData = rootG.__data__;
+                // prefer existing view if present in scope; otherwise fallback to root's own coords
+                const viewNow = (typeof view !== "undefined" ? view : [rootData.x, rootData.y, rootData.r * 2]);
+                return { rootData, viewNow, rootG };
+            }
 
-			function onPointerMove(ev) {
-			  try {
-			    // Suppress root tooltip if another tooltip is visible
-			    const otherTip = document.getElementById('tooltip');
-			    if (otherTip && getComputedStyle(otherTip).display !== 'none') { hideTip(); return; }
+            // helper: show/hide tip
+            function showTipAt(ev, text) {
+                const pad = 8;
+                const maxW = Math.min(360, window.innerWidth - 2 * pad);
+                const maxH = 120;
+                const x = Math.max(pad, Math.min(window.innerWidth - pad - maxW, ev.clientX + 12));
+                const y = Math.max(pad, Math.min(window.innerHeight - pad - maxH, ev.clientY + 12));
+                tip.textContent = text;
+                tip.style.left = x + "px";
+                tip.style.top = y + "px";
+                tip.style.display = "block";
+            }
+            function hideTip() { tip.style.display = "none"; }
 
-			    // Suppress if pointer is over a non-root node (let inner node tooltips win)
-			    const topEl = document.elementFromPoint(ev.clientX, ev.clientY);
-			    if (topEl) {
-			      let anc = topEl;
-			      while (anc && anc !== document.documentElement) {
-			        if (anc.classList && anc.classList.contains && anc.classList.contains('node')) break;
-			        anc = anc.parentNode;
-			      }
-			      if (anc && anc !== document.documentElement && anc.__data__ && anc.__data__.depth !== 0) { hideTip(); return; }
-			    }
+            function onPointerMove(ev) {
+                try {
+                    // Suppress root tooltip if another tooltip is visible
+                    const otherTip = document.getElementById('tooltip');
+                    if (otherTip && getComputedStyle(otherTip).display !== 'none') { hideTip(); return; }
 
-			    // Prefer the visible persistent boundary circle (if present) for the hit test
-			    let visualCircle = document.querySelector('circle.boundary');
-			    // Fallback: the root group's own circle
-			    if (!visualCircle) {
-			      const rootG = Array.from(document.querySelectorAll('g.node')).find(g => g && g.__data__ && g.__data__.depth === 0);
-			      visualCircle = rootG ? (rootG.querySelector('circle') || rootG) : null;
-			    }
-			    if (!visualCircle) { hideTip(); return; }
+                    // Suppress if pointer is over a non-root node (let inner node tooltips win)
+                    const topEl = document.elementFromPoint(ev.clientX, ev.clientY);
+                    if (topEl) {
+                        let anc = topEl;
+                        while (anc && anc !== document.documentElement) {
+                            if (anc.classList && anc.classList.contains && anc.classList.contains('node')) break;
+                            anc = anc.parentNode;
+                        }
+                        if (anc && anc !== document.documentElement && anc.__data__ && anc.__data__.depth !== 0) { hideTip(); return; }
+                    }
 
-			    // Use the rendered bounding box of the chosen visual circle for hit testing
-			    const bbox = visualCircle.getBoundingClientRect();
-			    const cx = bbox.left + bbox.width / 2;
-			    const cy = bbox.top + bbox.height / 2;
-			    const r  = Math.max(bbox.width, bbox.height) / 2;
+                    // Prefer the visible persistent boundary circle (if present) for the hit test
+                    let visualCircle = document.querySelector('circle.boundary');
+                    // Fallback: the root group's own circle
+                    if (!visualCircle) {
+                        const rootG = Array.from(document.querySelectorAll('g.node')).find(g => g && g.__data__ && g.__data__.depth === 0);
+                        visualCircle = rootG ? (rootG.querySelector('circle') || rootG) : null;
+                    }
+                    if (!visualCircle) { hideTip(); return; }
 
-			    const dx = ev.clientX - cx;
-			    const dy = ev.clientY - cy;
-			    const dist = Math.hypot(dx, dy);
+                    // Use the rendered bounding box of the chosen visual circle for hit testing
+                    const bbox = visualCircle.getBoundingClientRect();
+                    const cx = bbox.left + bbox.width / 2;
+                    const cy = bbox.top + bbox.height / 2;
+                    const r = Math.max(bbox.width, bbox.height) / 2;
 
-			    if (dist <= r) {
-			      // inside the visible large circle -> show root tooltip
-			      // prefer reading the root data value from the root group's __data__
-			      const rootG = Array.from(document.querySelectorAll('g.node')).find(g => g && g.__data__ && g.__data__.depth === 0);
-			      const n = rootG && rootG.__data__ ? (rootG.__data__.value || 0) : 0;
-			      showTipAt(ev, n + (n === 1 ? ' isolate' : ' isolates'));
-			    } else {
-			      hideTip();
-			    }
-			  } catch (err) {
-			    console.warn('LINvis: onPointerMove error', err && err.message);
-			    hideTip();
-			  }
-			}
+                    const dx = ev.clientX - cx;
+                    const dy = ev.clientY - cy;
+                    const dist = Math.hypot(dx, dy);
+
+                    if (dist <= r) {
+                        // inside the visible large circle -> show root tooltip
+                        // prefer reading the root data value from the root group's __data__
+                        const rootG = Array.from(document.querySelectorAll('g.node')).find(g => g && g.__data__ && g.__data__.depth === 0);
+                        const n = rootG && rootG.__data__ ? (rootG.__data__.value || 0) : 0;
+                        showTipAt(ev, n + (n === 1 ? ' isolate' : ' isolates'));
+                    } else {
+                        hideTip();
+                    }
+                } catch (err) {
+                    console.warn('LINvis: onPointerMove error', err && err.message);
+                    hideTip();
+                }
+            }
 
 
 
-		    function onPointerLeave() { hideTip(); }
+            function onPointerLeave() { hideTip(); }
 
-		    // idempotent attach / replace previous handlers
-		    svgNode.removeEventListener("pointermove", svgNode._linvis_root_move || (() => {}));
-		    svgNode.removeEventListener("pointerleave", svgNode._linvis_root_leave || (() => {}));
-		    svgNode._linvis_root_move = onPointerMove;
-		    svgNode._linvis_root_leave = onPointerLeave;
-		    svgNode.addEventListener("pointermove", onPointerMove, { passive: true });
-		    svgNode.addEventListener("pointerleave", onPointerLeave);
+            // idempotent attach / replace previous handlers
+            svgNode.removeEventListener("pointermove", svgNode._linvis_root_move || (() => {}));
+            svgNode.removeEventListener("pointerleave", svgNode._linvis_root_leave || (() => {}));
+            svgNode._linvis_root_move = onPointerMove;
+            svgNode._linvis_root_leave = onPointerLeave;
+            svgNode.addEventListener("pointermove", onPointerMove, { passive: true });
+            svgNode.addEventListener("pointerleave", onPointerLeave);
 
-		    console.log("LINvis: root tooltip fallback attached (no global root/view dependency).");
-		  } catch (e) {
-		    console.warn("LINvis: attachRootTooltipNoGlobals failed", e);
-		  }
-		})();
+            console.log("LINvis: root tooltip fallback attached (no global root/view dependency).");
+        } catch (e) {
+            console.warn("LINvis: attachRootTooltipNoGlobals failed", e);
+        }
+    })();
 
 
 
@@ -509,6 +509,10 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
         const singletonDepths = new Set();
         nodesByDepth.forEach((arr, depth) => { if (arr && arr.length === 1) singletonDepths.add(depth); });
+        // --- Palette for top-level (depth===1) nodes (insert after nodesByDepth / maxDepth) ---
+        const top1Keys = (root.children || []).map(c => (c.data && c.data.name) ? c.data.name : String(c.index));
+        const top1Palette = d3.scaleOrdinal(d3.schemePastel1).domain(top1Keys);
+
 
         node.each(function(d) {
             // true screen radius
@@ -520,15 +524,54 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
                 displayR = Math.min(displayR, SINGLETON_DISPLAY_CAP);
             }
 
-            // stroke width and default fill
+            // stroke width
             let strokeW = Math.max(0.45, Math.min(1.0, displayR / DEFAULT_STROKE_FACTOR));
-            let fillColor = d.children ? "#e7eef8" : "#fff";
+
+            // determine top-level ancestor (depth 1). If none (e.g. root), topAncestor stays null
+            let topAncestor = null;
+            if (d.depth >= 1) {
+                let t = d;
+                while (t && t.depth > 1) t = t.parent;
+                if (t && t.depth === 1) topAncestor = t;
+            }
+
+            // base fill/stroke decision:
+            let fillColor;
+            let strokeColor = "#666"; // default stroke
+
+            if (topAncestor) {
+                // categorical base colour for this top-level group
+                const key = (topAncestor.data && topAncestor.data.name) ? topAncestor.data.name : String(topAncestor.index);
+                const base = top1Palette(key); // string like "#xxxxxx"
+
+                // how far below the top node are we?
+                const depthDelta = d.depth - 1; // 0 for top-level node, 1 for its children, etc.
+
+                // darkening factor per level (tune 0.45..0.9)
+                const darkPerLevel = 0.15;
+
+                // compute derived fill & stroke using d3.color
+                const c = d3.color(base);
+                // if depthDelta is 0 (top-level) use base; otherwise darken progressively
+                const fillC = (depthDelta === 0) ? c : c.darker(depthDelta * darkPerLevel);
+                // stroke slightly darker than fill for contrast
+                const strokeC = d3.color(fillC).darker(Math.max(0.2, depthDelta * darkPerLevel * 0.6));
+
+                fillColor = fillC.formatHex ? fillC.formatHex() : fillC.toString();
+                strokeColor = strokeC.formatHex ? strokeC.formatHex() : strokeC.toString();
+
+                // ensure top-level nodes get a stronger stroke
+                if (d.depth === 1) strokeW = Math.max(0.9, strokeW);
+            } else {
+                // fallback (root or weird case)
+                fillColor = d.children ? "#e7eef8" : "#fff";
+            }
 
             // exemptions: always show filled for root, deepest and explicitly selected depth
             const exempt = (d.depth === 0) || (d.depth === maxDepth) || (d.depth === labelDepth);
 
-            // make internal nodes hollow (less visual weight) unless exempt
-            if (!exempt && d.children && displayR <= HOLLOW_NODE_MAX_R) {
+            // make internal nodes hollow (less visual weight) unless exempt or part of top-level visual colouring
+            if (!exempt && d.children && displayR <= HOLLOW_NODE_MAX_R && !topAncestor) {
                 fillColor = "none";
                 strokeW = HOLLOW_STROKE;
             }
@@ -537,14 +580,9 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
             const circle = d3.select(this).select("circle");
             circle.attr("r", displayR)
                 .style("stroke-width", strokeW + "px")
-                .attr("fill", fillColor);
+                .attr("fill", fillColor)
+                .attr("stroke", strokeColor);
         });
-
-
-
-
-
-
 
 
         // ----------------- TUNED collapse & hide heuristics -----------------
