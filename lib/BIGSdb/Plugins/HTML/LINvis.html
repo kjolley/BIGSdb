@@ -1,26 +1,58 @@
 <style>
-  body { margin: 0; font-family: Arial, sans-serif; }
-  
-  #chart { 
-	width: 100%; 
-	height: 100vh; 
-	display: flex; 
-	align-items: center; 
-	justify-content: center; 
-	touch-action: none; }
-  .tooltip {
-    position: fixed; pointer-events: none;
-    background: rgba(0,0,0,0.85); color: #fff;
-    padding: 6px 8px; border-radius: 4px; font-size: 12px;
-    max-width: 36em; white-space: pre-wrap; display:none; z-index:10000;
-  }
-  .control {
-    position: relative; float:left; top: 10px;
-    background: rgba(255,255,255,0.95); border: 1px solid #ccc; padding: 6px 8px;
-    border-radius: 6px; font-size: 13px;
-  }
-  text { dominant-baseline: middle; text-anchor: middle; }
-  input[type="number"] { width: 56px; }
+	body {
+		margin: 0;
+		font-family: Arial, sans-serif;
+	}
+
+	#linvis_chart {
+		position: relative;
+		/* critical: makes children absolute position relative to this div */
+		width: 100%;
+		/* or set a fixed width */
+		min-height: 640px;
+		/* set desired area height (or use min-height) */
+		margin: 0 auto;
+		/* optional centering */
+		box-sizing: border-box;
+		overflow: hidden;
+		/* keep canvas/svg inside container */
+		border: 1px dashed #888;
+		background: #fff !important;
+	}
+
+	.tooltip {
+		position: fixed;
+		pointer-events: none;
+		background: rgba(0, 0, 0, 0.85);
+		color: #fff;
+		padding: 6px 8px;
+		border-radius: 4px;
+		font-size: 12px;
+		max-width: 36em;
+		white-space: pre-wrap;
+		display: none;
+		z-index: 10000;
+	}
+
+	.control {
+		position: relative;
+		float: left;
+		top: 10px;
+		background: rgba(255, 255, 255, 0.95);
+		border: 1px solid #ccc;
+		padding: 6px 8px;
+		border-radius: 6px;
+		font-size: 13px;
+	}
+
+	text {
+		dominant-baseline: middle;
+		text-anchor: middle;
+	}
+
+	input[type="number"] {
+		width: 56px;
+	}
 </style>
 <!--
 <script id="linvis-data" type="application/json">
@@ -31,18 +63,19 @@
 </script>
 -->
 <div style="position:relative">
-  <div class="control">
-    <p>
-    <input id="linvis-file" type="file" accept=".json">
-<button onclick="location.reload()">Load File</button></p>
-  Label depth:
-  <input id="depth" type="number" min="0" value="1" />
-  <label style="margin-left:8px"><input id="autozoom" type="checkbox" /> auto-zoom on change</label>
-  <span style="margin-left:8px; color:#666; font-size:12px;">(Shift while changing to force zoom)</span>
-</div>
+	<div class="control">
+		<p>
+			<input id="linvis-file" type="file" accept=".json">
+			<button onclick="location.reload()">Load File</button>
+		</p>
+		Label depth:
+		<input id="depth" type="number" min="0" value="1" />
+		<label style="margin-left:8px"><input id="autozoom" type="checkbox" /> auto-zoom on change</label>
+		<span style="margin-left:8px; color:#666; font-size:12px;">(Shift while changing to force zoom)</span>
+	</div>
 
-<div id="chart" tabindex="0"></div>
-<div id="tooltip" class="tooltip"></div>
+	<div id="linvis_chart" tabindex="0"></div>
+	<div id="tooltip" class="tooltip"></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>

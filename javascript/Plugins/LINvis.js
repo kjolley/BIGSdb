@@ -92,7 +92,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 	try {
 	  data = await loadData("./test.json");
 	} catch (err) {
-	  const el = document.getElementById("chart");
+	  const el = document.getElementById("linvis_chart");
 	  if (el) el.textContent = "Failed to load data: " + (err && err.message ? err.message : err);
 	  return;
 	}
@@ -109,9 +109,9 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
     d3.pack().size([diameter, diameter]).padding(2)(root);
 
     // Prepare container / SVG
-    const container = d3.select("#chart");
+    const container = d3.select("#linvis_chart");
     if (container.empty()) {
-        console.error("Container #chart not found.");
+        console.error("Container #linvis_chart not found.");
         return;
     }
     container.selectAll("*").remove();
