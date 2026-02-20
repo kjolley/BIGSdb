@@ -115,6 +115,30 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
         return;
     }
     container.selectAll("*").remove();
+    // ensure container positioned for absolute canvas
+    container.style("position", "relative");
+    // --- Canvas layer for fast circle rendering (minimal safe insertion) ---
+    (function() {
+        try {
+            const canvasEl = container.append("canvas")
+                .attr("class", "linvis-canvas")
+                .style("position", "absolute")
+                .style("left", "0")
+                .style("top", "0")
+                .style("width", "100%")
+                .style("height", "100%")
+                .style("pointer-events", "none");
+            const canvasNode = canvasEl.node();
+            if (canvasNode) {
+                canvasNode.width = width;
+                canvasNode.height = height;
+            }
+        } catch (e) {
+            // non-fatal
+            console.warn("LINvis: canvas insertion failed:", e);
+        }
+    })();
+
 
     const svg = container.append("svg")
         .attr("viewBox", [0, 0, width, height])
