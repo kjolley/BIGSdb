@@ -454,7 +454,8 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
         const delta = ev.deltaY;
         const zoomFactor = Math.pow(1.0015, delta);
         const [cx, cy] = clientToData(ev.clientX, ev.clientY, view);
-        const newW = view[2] * zoomFactor;
+		const MAX_VIEW_W = root.r * 4; // prevent zooming out beyond full root extent
+		const newW = Math.min(MAX_VIEW_W, view[2] * zoomFactor);
         const kNew = diameter / newW;
         const svgRect = svg.node().getBoundingClientRect();
         const newX = cx - (ev.clientX - svgRect.left - ((width - diameter) / 2) - diameter / 2) / kNew;
@@ -507,7 +508,8 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
             const centerX = (a.clientX + b.clientX) / 2;
             const centerY = (a.clientY + b.clientY) / 2;
             const [cx, cy] = clientToData(centerX, centerY, view);
-            const newW = view[2] * factor;
+			const MAX_VIEW_W = root.r * 2; // prevent zooming out beyond full root extent
+			const newW = Math.min(MAX_VIEW_W, view[2] * factor);
             const kNew = diameter / newW;
             const svgRect = svg.node().getBoundingClientRect();
             const newX = cx - (centerX - svgRect.left - ((width - diameter) / 2) - diameter / 2) / kNew;
