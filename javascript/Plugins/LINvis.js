@@ -735,33 +735,6 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
             }
         });
 
-
-        // choose aggregates to show (outer-first)
-        candidates.sort((a, b) => b.avgChildR - a.avgChildR);
-        const aggregates = candidates.slice(0, MAX_AGGREGATES_SHOWN);
-
-        // render aggregates (compact filled circles + label)
-        const aggSel = ringLayer.selectAll("g.aggregate").data(aggregates, d => d.depth);
-        aggSel.exit().remove();
-        const aggEnter = aggSel.enter().append("g").attr("class", d => `aggregate agg-depth-${d.depth}`);
-        aggEnter.append("circle").attr("class", "agg-circle").attr("fill", "#cfe3f7").attr("stroke", "#666").attr("stroke-width", 1);
-        aggEnter.append("text").attr("class", "agg-label").attr("text-anchor", "start").attr("dominant-baseline", "middle")
-            .style("pointer-events", "none").style("font-weight", "600").style("fill", "#111");
-        const aggMerge = aggSel.merge(aggEnter);
-        aggMerge.each(function(d, i) {
-            const g2 = d3.select(this);
-            let rpx = Math.round(d.avgChildR * 1.3);
-            rpx = Math.max(6, Math.min(28, rpx));
-            const scaleFromVal = Math.round(Math.sqrt(d.totalVal || 0) * 0.12);
-            if (scaleFromVal > rpx) rpx = Math.min(28, scaleFromVal);
-
-            g2.select("circle.agg-circle").attr("cx", d.parentPx).attr("cy", d.parentPy).attr("r", rpx);
-            g2.select("text.agg-label").attr("x", d.parentPx + rpx + 8)
-                .attr("y", d.parentPy + (i * 14) - (aggregates.length > 1 ? (aggregates.length - 1) * 7 : 0))
-                .text(`${d.label}  ${d.totalVal} isolates`)
-                .style("font-size", Math.max(10, Math.min(14, Math.floor(rpx / 1.8)))).style("opacity", 1);
-        });
-
         // update per-node label positions and visibility (single source of truth)
         labels.attr("transform", d => {
             const x = (d.x - v[0]) * k + diameter / 2;
