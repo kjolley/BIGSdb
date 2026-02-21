@@ -36,66 +36,66 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
     window.addEventListener("keydown", (e) => { if (e.key === "Shift") shiftPressed = true; });
     window.addEventListener("keyup", (e) => { if (e.key === "Shift") shiftPressed = false; });
 
-	// ---------- Flexible data loader ----------
-	async function loadData(defaultPath = "./test.json") {
-	  // 1) Inline JSON in page: <script id="linvis-data" type="application/json">...</script>
-	  const inlineEl = document.getElementById("linvis-data");
-	  if (inlineEl && inlineEl.textContent.trim().length) {
-	    try {
-	      return JSON.parse(inlineEl.textContent);
-	    } catch (err) {
-	      console.warn("LINvis: failed to parse inline JSON (#linvis-data):", err);
-	      // fall through to next source
-	    }
-	  }
+    // ---------- Flexible data loader ----------
+    async function loadData(defaultPath = "./test.json") {
+        // 1) Inline JSON in page: <script id="linvis-data" type="application/json">...</script>
+        const inlineEl = document.getElementById("linvis-data");
+        if (inlineEl && inlineEl.textContent.trim().length) {
+            try {
+                return JSON.parse(inlineEl.textContent);
+            } catch (err) {
+                console.warn("LINvis: failed to parse inline JSON (#linvis-data):", err);
+                // fall through to next source
+            }
+        }
 
-	  // 2) File input (if user has chosen a file and clicked the Load button)
-	  // We check an input element with id="linvis-file" for an already selected file.
-	  const fileInput = document.getElementById("linvis-file");
-	  if (fileInput && fileInput.files && fileInput.files[0]) {
-	    try {
-	      const txt = await fileInput.files[0].text();
-	      return JSON.parse(txt);
-	    } catch (err) {
-	      console.warn("LINvis: failed to read/parse selected file:", err);
-	      // fall through
-	    }
-	  }
+        // 2) File input (if user has chosen a file and clicked the Load button)
+        // We check an input element with id="linvis-file" for an already selected file.
+        const fileInput = document.getElementById("linvis-file");
+        if (fileInput && fileInput.files && fileInput.files[0]) {
+            try {
+                const txt = await fileInput.files[0].text();
+                return JSON.parse(txt);
+            } catch (err) {
+                console.warn("LINvis: failed to read/parse selected file:", err);
+                // fall through
+            }
+        }
 
-	  // 3) URL parameter: ?data=/path/to.json or ?file=/path/to.json
-	  try {
-	    const params = new URLSearchParams(window.location.search);
-	    const url = params.get("data") || params.get("file");
-	    if (url) {
-	      const resp = await fetch(url);
-	      if (!resp.ok) throw new Error("HTTP " + resp.status);
-	      return await resp.json();
-	    }
-	  } catch (err) {
-	    console.warn("LINvis: failed to fetch JSON from URL param:", err);
-	    // fall through
-	  }
+        // 3) URL parameter: ?data=/path/to.json or ?file=/path/to.json
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const url = params.get("data") || params.get("file");
+            if (url) {
+                const resp = await fetch(url);
+                if (!resp.ok) throw new Error("HTTP " + resp.status);
+                return await resp.json();
+            }
+        } catch (err) {
+            console.warn("LINvis: failed to fetch JSON from URL param:", err);
+            // fall through
+        }
 
-	  // 4) Fallback to default path (original behaviour)
-	  try {
-	    const resp = await fetch(defaultPath);
-	    if (!resp.ok) throw new Error("HTTP " + resp.status);
-	    return await resp.json();
-	  } catch (err) {
-	    console.error("LINvis: failed to load default JSON (" + defaultPath + "):", err);
-	    throw err; // caller will handle
-	  }
-	}
+        // 4) Fallback to default path (original behaviour)
+        try {
+            const resp = await fetch(defaultPath);
+            if (!resp.ok) throw new Error("HTTP " + resp.status);
+            return await resp.json();
+        } catch (err) {
+            console.error("LINvis: failed to load default JSON (" + defaultPath + "):", err);
+            throw err; // caller will handle
+        }
+    }
 
-	// Replace original fetch usage with:
-	let data;
-	try {
-	  data = await loadData("./test.json");
-	} catch (err) {
-	  const el = document.getElementById("linvis_chart");
-	  if (el) el.textContent = "Failed to load data: " + (err && err.message ? err.message : err);
-	  return;
-	}
+    // Replace original fetch usage with:
+    let data;
+    try {
+        data = await loadData("./test.json");
+    } catch (err) {
+        const el = document.getElementById("linvis_chart");
+        if (el) el.textContent = "Failed to load data: " + (err && err.message ? err.message : err);
+        return;
+    }
 
 
     // Build hierarchy, preserving explicit internal values (no double count)
@@ -709,33 +709,6 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
                 depthNodes.forEach(d => { d3.select(d.__node_group).select("circle").style("opacity", 0); });
                 collapsedDepths.add(depth);
             }
-        });
-
-
-        // choose aggregates to show (outer-first)
-        candidates.sort((a, b) => b.avgChildR - a.avgChildR);
-        const aggregates = candidates.slice(0, MAX_AGGREGATES_SHOWN);
-
-        // render aggregates (compact filled circles + label)
-        const aggSel = ringLayer.selectAll("g.aggregate").data(aggregates, d => d.depth);
-        aggSel.exit().remove();
-        const aggEnter = aggSel.enter().append("g").attr("class", d => `aggregate agg-depth-${d.depth}`);
-        aggEnter.append("circle").attr("class", "agg-circle").attr("fill", "#cfe3f7").attr("stroke", "#666").attr("stroke-width", 1);
-        aggEnter.append("text").attr("class", "agg-label").attr("text-anchor", "start").attr("dominant-baseline", "middle")
-            .style("pointer-events", "none").style("font-weight", "600").style("fill", "#111");
-        const aggMerge = aggSel.merge(aggEnter);
-        aggMerge.each(function(d, i) {
-            const g2 = d3.select(this);
-            let rpx = Math.round(d.avgChildR * 1.3);
-            rpx = Math.max(6, Math.min(28, rpx));
-            const scaleFromVal = Math.round(Math.sqrt(d.totalVal || 0) * 0.12);
-            if (scaleFromVal > rpx) rpx = Math.min(28, scaleFromVal);
-
-            g2.select("circle.agg-circle").attr("cx", d.parentPx).attr("cy", d.parentPy).attr("r", rpx);
-            g2.select("text.agg-label").attr("x", d.parentPx + rpx + 8)
-                .attr("y", d.parentPy + (i * 14) - (aggregates.length > 1 ? (aggregates.length - 1) * 7 : 0))
-                .text(`${d.label}  ${d.totalVal} isolates`)
-                .style("font-size", Math.max(10, Math.min(14, Math.floor(rpx / 1.8)))).style("opacity", 1);
         });
 
         // update per-node label positions and visibility (single source of truth)
