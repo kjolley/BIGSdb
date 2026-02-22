@@ -227,6 +227,20 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
                 return { rootData, viewNow, rootG };
             }
 
+            // helper: get bounding box of visible root circle (boundary preferred)
+            function getVisualCircleBBox() {
+                let visualCircle = document.querySelector('circle.boundary');
+
+                // Fallback to root group's own circle
+                if (!visualCircle) {
+                    const rootG = Array.from(document.querySelectorAll('g.node'))
+                        .find(g => g && g.__data__ && g.__data__.depth === 0);
+                    visualCircle = rootG ? (rootG.querySelector('circle') || rootG) : null;
+                }
+
+                return visualCircle ? visualCircle.getBoundingClientRect() : null;
+            }
+
             // helper: show/hide tip
             function showTipAt(ev, text) {
                 const pad = 8;
@@ -258,17 +272,9 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
                         if (anc && anc !== document.documentElement && anc.__data__ && anc.__data__.depth !== 0) { hideTip(); return; }
                     }
 
-                    // Prefer the visible persistent boundary circle (if present) for the hit test
-                    let visualCircle = document.querySelector('circle.boundary');
-                    // Fallback: the root group's own circle
-                    if (!visualCircle) {
-                        const rootG = Array.from(document.querySelectorAll('g.node')).find(g => g && g.__data__ && g.__data__.depth === 0);
-                        visualCircle = rootG ? (rootG.querySelector('circle') || rootG) : null;
-                    }
-                    if (!visualCircle) { hideTip(); return; }
+                    const bbox = getVisualCircleBBox();
+                    if (!bbox) { hideTip(); return; }
 
-                    // Use the rendered bounding box of the chosen visual circle for hit testing
-                    const bbox = visualCircle.getBoundingClientRect();
                     const cx = bbox.left + bbox.width / 2;
                     const cy = bbox.top + bbox.height / 2;
                     const r = Math.max(bbox.width, bbox.height) / 2;
@@ -279,9 +285,9 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
                     if (dist <= r) {
                         // inside the visible large circle -> show root tooltip
-                        // prefer reading the root data value from the root group's __data__
-                        const rootG = Array.from(document.querySelectorAll('g.node')).find(g => g && g.__data__ && g.__data__.depth === 0);
-                        const n = rootG && rootG.__data__ ? (rootG.__data__.value || 0) : 0;
+                        // use computeRootAndView() (already defined earlier in this IIFE) to avoid re-querying the DOM
+                        const cr = computeRootAndView();
+                        const n = cr && cr.rootData ? (cr.rootData.value || 0) : 0;
                         showTipAt(ev, n + (n === 1 ? ' isolate' : ' isolates'));
                     } else {
                         hideTip();
@@ -594,12 +600,12 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
             }
 
             // apply visual radius & style
-			const $g = d3.select(this);
-			const circle = $g.select("circle");
-			circle.attr("r", displayR)
-			      .style("stroke-width", strokeW + "px")
-			      .attr("fill", fillColor)
-			      .attr("stroke", strokeColor);
+            const $g = d3.select(this);
+            const circle = $g.select("circle");
+            circle.attr("r", displayR)
+                .style("stroke-width", strokeW + "px")
+                .attr("fill", fillColor)
+                .attr("stroke", strokeColor);
         });
 
 
@@ -616,29 +622,29 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
         nodesByDepth.forEach((depthNodes, depth) => {
             const n = depthNodes.length;
             if (n === 0 || depth === 0) {
-				depthNodes.forEach(d => {
-				    const $g = d3.select(d.__node_group);
-				    if ((d._scaledR || 0) <= HIDE_NODE_RADIUS_PX && d.depth !== maxDepth && d.depth !== labelDepth) {
-				        $g.select("circle").style("opacity", 0);
-				    } else {
-				        $g.select("circle").style("opacity", null);
-				    }
-				});
+                depthNodes.forEach(d => {
+                    const $g = d3.select(d.__node_group);
+                    if ((d._scaledR || 0) <= HIDE_NODE_RADIUS_PX && d.depth !== maxDepth && d.depth !== labelDepth) {
+                        $g.select("circle").style("opacity", 0);
+                    } else {
+                        $g.select("circle").style("opacity", null);
+                    }
+                });
                 return;
             }
 
             // If this depth has only a single node, do not collapse it  show it normally.
-			if (n === 1) {
-			    depthNodes.forEach(d => {
-			        const $g = d3.select(d.__node_group);
-			        $g.select("circle").style("opacity", null);
-			    });
-			    return;
-			}
+            if (n === 1) {
+                depthNodes.forEach(d => {
+                    const $g = d3.select(d.__node_group);
+                    $g.select("circle").style("opacity", null);
+                });
+                return;
+            }
 
             // For each node, hide if very small UNLESS it's on the deepest level or the selected labelDepth
             depthNodes.forEach(d => {
-				const $g = d3.select(d.__node_group);
+                const $g = d3.select(d.__node_group);
                 if ((d._scaledR || 0) <= HIDE_NODE_RADIUS_PX && d.depth !== maxDepth && d.depth !== labelDepth) {
                     $g.select("circle").style("opacity", 0);
                 } else {
@@ -674,11 +680,11 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
                 candidates.push({ depth, parent: p0, parentPx, parentPy, avgChildR, totalVal, label, n });
 
                 // hide all child circles (we'll either show an aggregate or remain hidden)
-				depthNodes.forEach(d => {
-				    const $g = d3.select(d.__node_group);
-				    $g.select("circle").style("opacity", 0);
-				});
-				collapsedDepths.add(depth);
+                depthNodes.forEach(d => {
+                    const $g = d3.select(d.__node_group);
+                    $g.select("circle").style("opacity", 0);
+                });
+                collapsedDepths.add(depth);
             }
         });
 
