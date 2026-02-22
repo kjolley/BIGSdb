@@ -107,6 +107,8 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
     });
 
     d3.pack().size([diameter, diameter]).padding(2)(root);
+    const top1Keys = (root.children || []).map(c => (c.data && c.data.name) ? c.data.name : String(c.index));
+    const top1Palette = d3.scaleOrdinal(d3.schemePastel1).domain(top1Keys);
 
     // Prepare container / SVG
     const container = d3.select("#linvis_chart");
@@ -522,9 +524,6 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
         const singletonDepths = new Set();
         nodesByDepth.forEach((arr, depth) => { if (arr && arr.length === 1) singletonDepths.add(depth); });
-        // --- Palette for top-level (depth===1) nodes (insert after nodesByDepth / maxDepth) ---
-        const top1Keys = (root.children || []).map(c => (c.data && c.data.name) ? c.data.name : String(c.index));
-        const top1Palette = d3.scaleOrdinal(d3.schemePastel1).domain(top1Keys);
 
 
         node.each(function(d) {
