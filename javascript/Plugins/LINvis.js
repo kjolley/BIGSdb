@@ -151,7 +151,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
     // Nodes + depth grouping
     const nodes = root.descendants();
-	const nodesByDepth = d3.group(nodes, d => d.depth);
+    const nodesByDepth = d3.group(nodes, d => d.depth);
     const maxDepth = d3.max(nodes, d => d.depth);
 
     // Depth input + autozoom checkbox
@@ -594,11 +594,12 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
             }
 
             // apply visual radius & style
-            const circle = d3.select(this).select("circle");
-            circle.attr("r", displayR)
-                .style("stroke-width", strokeW + "px")
-                .attr("fill", fillColor)
-                .attr("stroke", strokeColor);
+			const $g = d3.select(this);
+			const circle = $g.select("circle");
+			circle.attr("r", displayR)
+			      .style("stroke-width", strokeW + "px")
+			      .attr("fill", fillColor)
+			      .attr("stroke", strokeColor);
         });
 
 
@@ -615,31 +616,33 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
         nodesByDepth.forEach((depthNodes, depth) => {
             const n = depthNodes.length;
             if (n === 0 || depth === 0) {
-                depthNodes.forEach(d => {
-                    if ((d._scaledR || 0) <= HIDE_NODE_RADIUS_PX && d.depth !== maxDepth && d.depth !== labelDepth) {
-                        d3.select(d.__node_group).select("circle").style("opacity", 0);
-                    } else {
-                        d3.select(d.__node_group).select("circle").style("opacity", null);
-                    }
-                });
+				depthNodes.forEach(d => {
+				    const $g = d3.select(d.__node_group);
+				    if ((d._scaledR || 0) <= HIDE_NODE_RADIUS_PX && d.depth !== maxDepth && d.depth !== labelDepth) {
+				        $g.select("circle").style("opacity", 0);
+				    } else {
+				        $g.select("circle").style("opacity", null);
+				    }
+				});
                 return;
             }
 
             // If this depth has only a single node, do not collapse it  show it normally.
-            if (n === 1) {
-                depthNodes.forEach(d => {
-                    // ensure visible (unless intentionally tiny but still exempt singletons)
-                    d3.select(d.__node_group).select("circle").style("opacity", null);
-                });
-                return;
-            }
+			if (n === 1) {
+			    depthNodes.forEach(d => {
+			        const $g = d3.select(d.__node_group);
+			        $g.select("circle").style("opacity", null);
+			    });
+			    return;
+			}
 
             // For each node, hide if very small UNLESS it's on the deepest level or the selected labelDepth
             depthNodes.forEach(d => {
+				const $g = d3.select(d.__node_group);
                 if ((d._scaledR || 0) <= HIDE_NODE_RADIUS_PX && d.depth !== maxDepth && d.depth !== labelDepth) {
-                    d3.select(d.__node_group).select("circle").style("opacity", 0);
+                    $g.select("circle").style("opacity", 0);
                 } else {
-                    d3.select(d.__node_group).select("circle").style("opacity", null);
+                    $g.select("circle").style("opacity", null);
                 }
             });
 
@@ -671,8 +674,11 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
                 candidates.push({ depth, parent: p0, parentPx, parentPy, avgChildR, totalVal, label, n });
 
                 // hide all child circles (we'll either show an aggregate or remain hidden)
-                depthNodes.forEach(d => { d3.select(d.__node_group).select("circle").style("opacity", 0); });
-                collapsedDepths.add(depth);
+				depthNodes.forEach(d => {
+				    const $g = d3.select(d.__node_group);
+				    $g.select("circle").style("opacity", 0);
+				});
+				collapsedDepths.add(depth);
             }
         });
 
