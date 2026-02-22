@@ -502,15 +502,6 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
     svgNode.addEventListener('pointerup', ev => pointers.delete(ev.pointerId));
     svgNode.addEventListener('pointercancel', ev => pointers.delete(ev.pointerId));
 
-    // ---------- zoom & label update (aggregate-bubble approach) ----------
-    // Tunable thresholds
-    const COLLAPSE_NODE_RADIUS_PX = 6; // avg scaled child radius (px) threshold to consider collapse
-    const MIN_NODES_TO_COLLAPSE = 6;
-    const MAX_AGGREGATES_SHOWN = 3;
-    const AGGREGATE_RADIUS_MIN = 6;
-    const AGGREGATE_RADIUS_MAX = 26;
-    const AGGREGATE_FROM_AVG_MULT = 1.5;
-
     function zoomTo(v) {
         const k = diameter / v[2];
 
