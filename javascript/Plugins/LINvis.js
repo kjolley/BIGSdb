@@ -344,16 +344,6 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
         .style("-webkit-font-smoothing", "antialiased")
         .style("box-sizing", "border-box");
 
-    // small helper used when showing/moving tooltip
-    function moveTooltipEl(event) {
-        // clamp to viewport so tooltip doesn't go off-screen
-        const pad = 8;
-        const x = Math.max(pad, Math.min(window.innerWidth - pad - 300, event.clientX + 12));
-        const y = Math.max(pad, Math.min(window.innerHeight - pad - 60, event.clientY + 12));
-        tooltipEl.style("left", x + "px").style("top", y + "px");
-    }
-
-
     // Attach handlers directly to node groups
     node
         .on("mouseover", function(event, d) {
