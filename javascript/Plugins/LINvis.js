@@ -143,24 +143,6 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
     ringLayer.style("pointer-events", "none");
     labelLayer.style("pointer-events", "none");
 
-
-    // Tooltip
-    let tooltip = d3.select("#tooltip");
-    if (tooltip.empty()) {
-        tooltip = d3.select("body").append("div")
-            .attr("id", "tooltip")
-            .style("position", "fixed")
-            .style("pointer-events", "none")
-            .style("background", "rgba(0,0,0,0.85)")
-            .style("color", "white")
-            .style("padding", "6px 8px")
-            .style("border-radius", "4px")
-            .style("font", "12px sans-serif")
-            .style("display", "none")
-            .style("max-width", "36em")
-            .style("white-space", "pre-wrap");
-    }
-
     // Nodes + depth grouping
     const nodes = root.descendants();
     function groupByDepth(nodes) {
@@ -182,14 +164,6 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
         depthInput.value = Math.min(initialLabelDepth, maxDepth);
     }
     const autoZoomCheckbox = document.getElementById("autozoom");
-
-    // Helper: tooltip position
-    function moveTooltip(event) {
-        if (!tooltip.empty()) {
-            tooltip.style("left", (event.clientX + 12) + "px")
-                .style("top", (event.clientY + 12) + "px");
-        }
-    }
 
     // client -> data coordinates (for zoom-to-cursor)
     function clientToData(clientX, clientY, v = view) {
