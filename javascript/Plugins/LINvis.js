@@ -122,6 +122,12 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
         .style("height", "auto")
         .style("touch-action", "none");
 
+    const svgNode = svg.node();                // cached DOM node
+    let svgRectCache = null;                   // cached bounding rect (updated on demand)
+    function updateSvgRectCache() { svgRectCache = svgNode.getBoundingClientRect(); }
+    window.addEventListener('resize', updateSvgRectCache, { passive: true });
+    updateSvgRectCache();
+
     const tx = (width - diameter) / 2;
     const g = svg.append("g").attr("transform", `translate(${tx},${tx})`);
 
@@ -168,7 +174,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
     // client -> data coordinates (for zoom-to-cursor)
     function clientToData(clientX, clientY, v = view) {
         const k = diameter / v[2];
-        const svgRect = svg.node().getBoundingClientRect();
+        const svgRect = svgRectCache;
         const px = clientX - svgRect.left - ((width - diameter) / 2);
         const py = clientY - svgRect.top - ((height - diameter) / 2);
         const dataX = v[0] + (px - diameter / 2) / k;
@@ -423,15 +429,15 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
     }
 
     // Wheel zoom around cursor
-    svg.node().addEventListener('wheel', function(ev) {
+    svgNode.addEventListener('wheel', function(ev) {
         ev.preventDefault();
         const delta = ev.deltaY;
         const zoomFactor = Math.pow(1.0015, delta);
         const [cx, cy] = clientToData(ev.clientX, ev.clientY, view);
-		const MAX_VIEW_W = root.r * 4; // prevent zooming out beyond full root extent
-		const newW = Math.min(MAX_VIEW_W, view[2] * zoomFactor);
+        const MAX_VIEW_W = root.r * 4; // prevent zooming out beyond full root extent
+        const newW = Math.min(MAX_VIEW_W, view[2] * zoomFactor);
         const kNew = diameter / newW;
-        const svgRect = svg.node().getBoundingClientRect();
+        const svgRect = svgRectCache;
         const newX = cx - (ev.clientX - svgRect.left - ((width - diameter) / 2) - diameter / 2) / kNew;
         const newY = cy - (ev.clientY - svgRect.top - ((height - diameter) / 2) - diameter / 2) / kNew;
         view = [newX, newY, newW];
@@ -441,13 +447,13 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
     // Drag panning
     let dragging = false;
     let dragStart = null;
-    svg.node().addEventListener('pointerdown', function(ev) {
+    svgNode.addEventListener('pointerdown', function(ev) {
         if (ev.button !== 0 && ev.pointerType === 'mouse') return;
         dragging = true;
-        try { svg.node().setPointerCapture(ev.pointerId); } catch (e) {}
+        try { svgNode.setPointerCapture(ev.pointerId); } catch (e) {}
         dragStart = { clientX: ev.clientX, clientY: ev.clientY, view: view.slice() };
     });
-    svg.node().addEventListener('pointermove', function(ev) {
+    svgNode.addEventListener('pointermove', function(ev) {
         if (!dragging || !dragStart) return;
         ev.preventDefault();
         const dx = ev.clientX - dragStart.clientX;
@@ -458,20 +464,20 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
         view = [newX, newY, dragStart.view[2]];
         zoomTo(view);
     });
-    svg.node().addEventListener('pointerup', function(ev) {
+    svgNode.addEventListener('pointerup', function(ev) {
         if (!dragging) return;
         dragging = false;
-        try { svg.node().releasePointerCapture(ev.pointerId); } catch (e) {}
+        try { svgNode.releasePointerCapture(ev.pointerId); } catch (e) {}
         dragStart = null;
     });
-    svg.node().addEventListener('pointercancel', function(ev) {
+    svgNode.addEventListener('pointercancel', function(ev) {
         dragging = false; dragStart = null;
     });
 
     // Pinch support (rudimentary)
     const pointers = new Map();
-    svg.node().addEventListener('pointerdown', ev => pointers.set(ev.pointerId, ev));
-    svg.node().addEventListener('pointermove', ev => {
+    svgNode.addEventListener('pointerdown', ev => pointers.set(ev.pointerId, ev));
+    svgNode.addEventListener('pointermove', ev => {
         if (pointers.has(ev.pointerId)) pointers.set(ev.pointerId, ev);
         if (pointers.size === 2) {
             const it = pointers.values();
@@ -482,10 +488,10 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
             const centerX = (a.clientX + b.clientX) / 2;
             const centerY = (a.clientY + b.clientY) / 2;
             const [cx, cy] = clientToData(centerX, centerY, view);
-			const MAX_VIEW_W = root.r * 2; // prevent zooming out beyond full root extent
-			const newW = Math.min(MAX_VIEW_W, view[2] * factor);
+            const MAX_VIEW_W = root.r * 2; // prevent zooming out beyond full root extent
+            const newW = Math.min(MAX_VIEW_W, view[2] * factor);
             const kNew = diameter / newW;
-            const svgRect = svg.node().getBoundingClientRect();
+            const svgRect = svgRectCache;
             const newX = cx - (centerX - svgRect.left - ((width - diameter) / 2) - diameter / 2) / kNew;
             const newY = cy - (centerY - svgRect.top - ((height - diameter) / 2) - diameter / 2) / kNew;
             view = [newX, newY, newW];
@@ -493,8 +499,8 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
             svg._lastPinchDist = dist;
         }
     });
-    svg.node().addEventListener('pointerup', ev => pointers.delete(ev.pointerId));
-    svg.node().addEventListener('pointercancel', ev => pointers.delete(ev.pointerId));
+    svgNode.addEventListener('pointerup', ev => pointers.delete(ev.pointerId));
+    svgNode.addEventListener('pointercancel', ev => pointers.delete(ev.pointerId));
 
     // ---------- zoom & label update (aggregate-bubble approach) ----------
     // Tunable thresholds
