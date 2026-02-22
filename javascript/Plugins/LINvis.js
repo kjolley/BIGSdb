@@ -151,15 +151,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
     // Nodes + depth grouping
     const nodes = root.descendants();
-    function groupByDepth(nodes) {
-        const map = new Map();
-        nodes.forEach(n => {
-            const arr = map.get(n.depth);
-            if (arr) arr.push(n); else map.set(n.depth, [n]);
-        });
-        return map;
-    }
-    const nodesByDepth = groupByDepth(nodes);
+	const nodesByDepth = d3.group(nodes, d => d.depth);
     const maxDepth = d3.max(nodes, d => d.depth);
 
     // Depth input + autozoom checkbox
