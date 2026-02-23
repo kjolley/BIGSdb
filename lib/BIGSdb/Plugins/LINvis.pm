@@ -264,7 +264,15 @@ sub run_job {
 				description => 'Frequencies (JSON)',
 			}
 		);
-
+		$self->{'jobManager'}->update_job_status(
+			$job_id,
+			{
+					message_html => q(<p style="margin-top:2em;margin-bottom:2em">)
+				  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				  . qq(page=pluginViewer&amp;plugin=LINvis&data=/tmp/${job_id}.json" target="_blank" )
+				  . q(class="launchbutton">Launch LINvis</a></p>)
+			}
+		);
 	}
 	return;
 }
