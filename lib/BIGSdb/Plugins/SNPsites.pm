@@ -21,7 +21,7 @@ package BIGSdb::Plugins::SNPsites;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugins::GenomeComparator);
+use parent            qw(BIGSdb::Plugins::GenomeComparator);
 use BIGSdb::Constants qw(:limits);
 use BIGSdb::Exceptions;
 use List::MoreUtils qw(uniq);
@@ -57,7 +57,7 @@ sub get_attributes {
 		buttontext => 'SNPsites',
 		menutext   => 'SNPsites',
 		module     => 'SNPsites',
-		version    => '1.1.0',
+		version    => '1.1.1',
 		dbtype     => 'isolates',
 		section    => 'analysis,postquery',
 		input      => 'query',
@@ -70,6 +70,7 @@ sub get_attributes {
 		max        => $self->{'system'}->{'snpsites_record_limit'} // $self->{'config'}->{'snpsites_record_limit'}
 		  // MAX_RECORDS,
 		always_show_in_menu => 1,
+		system_flag         => 'SNPsites',
 		image               => '/images/plugins/SNPSites/screenshot.png'
 	);
 	return \%att;
@@ -567,7 +568,8 @@ sub _align_locus {
 			&& $self->{'config'}->{'muscle_path'} )
 		{
 			my $max_mb = $self->{'config'}->{'max_muscle_mb'} // MAX_MUSCLE_MB;
-			system( $self->{'config'}->{'muscle_path'},
+			system(
+				$self->{'config'}->{'muscle_path'},
 				-in    => $fasta_file,
 				-out   => $aligned_out,
 				-maxmb => $max_mb,
