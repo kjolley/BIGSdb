@@ -29,12 +29,6 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 	const diameter = Math.min(width, height) - 20;
 	let labelDepth = 1;              // which depth to label
 	const initialLabelDepth = 1;
-	const autoZoomByDefault = false;
-
-	// Track Shift (useful to force-zoom)
-	let shiftPressed = false;
-	window.addEventListener("keydown", (e) => { if (e.key === "Shift") shiftPressed = true; });
-	window.addEventListener("keyup", (e) => { if (e.key === "Shift") shiftPressed = false; });
 
 	// ---------- Flexible data loader ----------
 	async function loadData(defaultPath = "./test.json") {
@@ -190,14 +184,13 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 	const nodesByDepth = d3.group(nodes, d => d.depth);
 	const maxDepth = d3.max(nodes, d => d.depth);
 
-	// Depth input + autozoom checkbox
+	// Depth input
 	const depthInput = document.getElementById("depth");
 	if (depthInput) {
 		depthInput.min = 0;
 		depthInput.max = maxDepth;
 		depthInput.value = Math.min(initialLabelDepth, maxDepth);
 	}
-	const autoZoomCheckbox = document.getElementById("autozoom");
 
 	// client -> data coordinates (for zoom-to-cursor)
 	function clientToData(clientX, clientY, v = view) {
@@ -433,10 +426,6 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 	// initial view (root)
 	let view = [root.x, root.y, root.r * 2];
-	if (autoZoomByDefault && root.descendants().some(n => n.depth === labelDepth)) {
-		const rep = root.descendants().find(n => n.depth === labelDepth) || root;
-		view = [rep.x, rep.y, rep.r * 2];
-	}
 	labelDepth = Math.min(initialLabelDepth, maxDepth);
 
 	// Interpolator helper
@@ -774,16 +763,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 		if (isNaN(v)) return;
 		const bounded = Math.max(0, Math.min(v, maxDepth));
 		labelDepth = bounded;
-		const wantZoom = (autoZoomCheckbox && autoZoomCheckbox.checked) || Boolean(event && event.shiftKey) || shiftPressed;
-		if (wantZoom) {
-			if (labelDepth === 0) smoothZoomTo([root.x, root.y, root.r * 2]);
-			else {
-				const rep = root.descendants().find(n => n.depth === labelDepth) || root;
-				smoothZoomTo([rep.x, rep.y, rep.r * 2]);
-			}
-		} else {
-			zoomTo(view);
-		}
+		zoomTo(view);	
 	}
 	if (depthInput) {
 		depthInput.addEventListener('input', onDepthChange);
@@ -796,10 +776,10 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 		if (!depthInput) return;
 		if (e.key === '+' || e.key === '=') {
 			depthInput.value = Math.min(maxDepth, parseInt(depthInput.value || 0, 10) + 1);
-			onDepthChange({ shiftKey: e.shiftKey });
+			onDepthChange();
 		} else if (e.key === '-' || e.key === '_') {
 			depthInput.value = Math.max(0, parseInt(depthInput.value || 0, 10) - 1);
-			onDepthChange({ shiftKey: e.shiftKey });
+			onDepthChange();
 		}
 	});
 
