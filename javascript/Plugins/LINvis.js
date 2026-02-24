@@ -598,6 +598,14 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 				fillColor = "none";
 				strokeW = HOLLOW_STROKE;
 			}
+			
+			// ensure root group's own circle is always hidden (we use the persistent `boundary` circle instead)
+			if (d.depth === 0) {
+				displayR = 0;
+				fillColor = "none";
+				strokeColor = "none";
+				strokeW = 0;
+			}
 
 			// apply visual radius & style
 			const $g = d3.select(this);
@@ -606,6 +614,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 				.style("stroke-width", strokeW + "px")
 				.attr("fill", fillColor)
 				.attr("stroke", strokeColor);
+
 		});
 
 
