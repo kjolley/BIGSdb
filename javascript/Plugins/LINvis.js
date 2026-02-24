@@ -621,10 +621,13 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 		nodesByDepth.forEach((depthNodes, depth) => {
 			const n = depthNodes.length;
-			if (n === 0 || depth === 0) {
+			if (n === 0 || depth === 0 || depth === 1) {
 				depthNodes.forEach(d => {
 					const $g = d3.select(d.__node_group);
-					if ((d._scaledR || 0) <= HIDE_NODE_RADIUS_PX && d.depth !== maxDepth && d.depth !== labelDepth) {
+					// always show top-level groups (depth===1) and root; otherwise hide tiny items per HIDE_NODE_RADIUS_PX rule
+					if (depth === 1) {
+						$g.select("circle").style("opacity", null);
+					} else if ((d._scaledR || 0) <= HIDE_NODE_RADIUS_PX && d.depth !== maxDepth && d.depth !== labelDepth) {
 						$g.select("circle").style("opacity", 0);
 					} else {
 						$g.select("circle").style("opacity", null);
