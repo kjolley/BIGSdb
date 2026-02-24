@@ -191,6 +191,7 @@ sub run {
 			my $params = $q->Vars;
 			$params->{'set_id'} = $self->get_set_id;
 			$params->{'curate'} = 1 if $self->{'curate'};
+			$params->{'script_name'} = $self->{'system'}->{'script_name'};
 			$q->delete($_) foreach qw(list isolate_paste_list);
 			my @dataset = $q->multi_param('itol_dataset');
 			$q->delete('itol_dataset');
@@ -268,7 +269,7 @@ sub run_job {
 			$job_id,
 			{
 					message_html => q(<p style="margin-top:2em;margin-bottom:2em">)
-				  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+				  . qq(<a href="$params->{'script_name'}?db=$self->{'instance'}&amp;)
 				  . qq(page=pluginViewer&amp;plugin=LINvis&data=/tmp/${job_id}.json" target="_blank" )
 				  . q(class="launchbutton">Launch LINvis</a></p>)
 			}
