@@ -387,14 +387,14 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 			tooltipEl.style("display", "none");
 		});
 
+		node.append("circle")
+			.attr("r", d => d.r)
+			.attr("fill", d => d.children ? "#e7eef8" : "#fff")
+			.attr("stroke", "#666")
+			.style("stroke-width", "1px");
 
-	node.append("circle")
-		.attr("r", d => d.r)
-		.attr("fill", d => d.children ? "#e7eef8" : "#fff")
-		.attr("stroke", "#666")
-		.style("stroke-width", "1px")
-
-
+		// Cache circle DOM element for each node group to avoid repeated querySelector in zoomTo()
+		node.each(function(d) { d.__circle = this.querySelector('circle'); });
 
 	// Labels (per-node), start hidden
 	const labels = labelLayer.selectAll("text.lbl")
@@ -504,16 +504,18 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 	svgNode.addEventListener('pointercancel', ev => pointers.delete(ev.pointerId));
 
 	function zoomTo(v) {
+		const t0 = performance.now();
 		const k = diameter / v[2];
 
-		// Defensive cleanup  keep persistent boundary intact
+		// Defensive cleanup: scope removal to ringLayer (preserve persistent boundary)
 		try {
-			// remove only generated aggregates / rings but preserve the boundary circle
-			d3.selectAll("g.ring, circle.ring-circle, g.aggregate, circle.agg-circle, text.ring-label, text.agg-label").remove();
-			// clear ringLayer content but leave boundary (if boundary exists, re-append it below)
 			if (typeof ringLayer !== "undefined" && ringLayer) {
-				// remove everything except the .boundary element
+				ringLayer.selectAll("g.ring, circle.ring-circle, g.aggregate, circle.agg-circle, text.ring-label, text.agg-label").remove();
+				// as an extra safe-guard, also remove anything else except the boundary
 				ringLayer.selectAll("*:not(.boundary)").remove();
+			} else {
+				// fallback to scoped global removal if ringLayer missing
+				d3.selectAll("g.ring, circle.ring-circle, g.aggregate, circle.agg-circle, text.ring-label, text.agg-label").remove();
 			}
 		} catch (e) {
 			// ignore harmless errors
@@ -535,7 +537,6 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 		const singletonDepths = new Set();
 		nodesByDepth.forEach((arr, depth) => { if (arr && arr.length === 1) singletonDepths.add(depth); });
-
 
 		node.each(function(d) {
 			// true screen radius
@@ -563,43 +564,27 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 			let strokeColor = "#666"; // default stroke
 
 			if (topAncestor) {
-				// categorical base colour for this top-level group
 				const key = (topAncestor.data && topAncestor.data.name) ? topAncestor.data.name : String(topAncestor.index);
-				const base = top1Palette(key); // string like "#xxxxxx"
-
-				// how far below the top node are we?
-				const depthDelta = d.depth - 1; // 0 for top-level node, 1 for its children, etc.
-
-				// darkening factor per level (tune 0.45..0.9)
+				const base = top1Palette(key);
+				const depthDelta = d.depth - 1;
 				const darkPerLevel = 0.15;
-
-				// compute derived fill & stroke using d3.color
 				const c = d3.color(base);
-				// if depthDelta is 0 (top-level) use base; otherwise darken progressively
 				const fillC = (depthDelta === 0) ? c : c.darker(depthDelta * darkPerLevel);
-				// stroke slightly darker than fill for contrast
 				const strokeC = d3.color(fillC).darker(Math.max(0.2, depthDelta * darkPerLevel * 0.6));
-
 				fillColor = fillC.formatHex ? fillC.formatHex() : fillC.toString();
 				strokeColor = strokeC.formatHex ? strokeC.formatHex() : strokeC.toString();
-
-				// ensure top-level nodes get a stronger stroke
 				if (d.depth === 1) strokeW = Math.max(0.9, strokeW);
 			} else {
-				// fallback (root or weird case)
 				fillColor = d.children ? "#e7eef8" : "#fff";
 			}
 
-			// exemptions: always show filled for root, deepest and explicitly selected depth
 			const exempt = (d.depth === 0) || (d.depth === maxDepth) || (d.depth === labelDepth);
 
-			// make internal nodes hollow (less visual weight) unless exempt or part of top-level visual colouring
 			if (!exempt && d.children && displayR <= HOLLOW_NODE_MAX_R && !topAncestor) {
 				fillColor = "none";
 				strokeW = HOLLOW_STROKE;
 			}
-			
-			// ensure root group's own circle is always hidden (we use the persistent `boundary` circle instead)
+
 			if (d.depth === 0) {
 				displayR = 0;
 				fillColor = "none";
@@ -607,15 +592,17 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 				strokeW = 0;
 			}
 
-			// apply visual radius & style
-			const $g = d3.select(this);
-			const circle = $g.select("circle");
-			circle.attr("r", displayR)
-				.style("stroke-width", strokeW + "px")
-				.attr("fill", fillColor)
-				.attr("stroke", strokeColor);
-
+			// Use cached circle element and update DOM directly (faster than d3.select per node)
+			const circle = d.__circle;
+			if (circle) {
+				// r may be fractional; keep consistent with previous behaviour
+				circle.setAttribute("r", displayR);
+				circle.style.strokeWidth = strokeW + "px";
+				circle.setAttribute("fill", fillColor);
+				circle.setAttribute("stroke", strokeColor);
+			}
 		});
+
 
 
 		// ----------------- TUNED collapse & hide heuristics -----------------
@@ -632,14 +619,15 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 			const n = depthNodes.length;
 			if (n === 0 || depth === 0 || depth === 1) {
 				depthNodes.forEach(d => {
-					const $g = d3.select(d.__node_group);
+					// Use cached circle DOM element if available for faster style updates
+					const c = d.__circle;
 					// always show top-level groups (depth===1) and root; otherwise hide tiny items per HIDE_NODE_RADIUS_PX rule
 					if (depth === 1) {
-						$g.select("circle").style("opacity", null);
+						if (c) c.style.removeProperty('opacity');
 					} else if ((d._scaledR || 0) <= HIDE_NODE_RADIUS_PX && d.depth !== maxDepth && d.depth !== labelDepth) {
-						$g.select("circle").style("opacity", 0);
+						if (c) c.style.opacity = '0';
 					} else {
-						$g.select("circle").style("opacity", null);
+						if (c) c.style.removeProperty('opacity');
 					}
 				});
 				return;
@@ -648,19 +636,18 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 			// If this depth has only a single node, do not collapse it  show it normally.
 			if (n === 1) {
 				depthNodes.forEach(d => {
-					const $g = d3.select(d.__node_group);
-					$g.select("circle").style("opacity", null);
+					if (d.__circle) d.__circle.style.removeProperty('opacity');
 				});
 				return;
 			}
 
 			// For each node, hide if very small UNLESS it's on the deepest level or the selected labelDepth
 			depthNodes.forEach(d => {
-				const $g = d3.select(d.__node_group);
+				const c = d.__circle;
 				if ((d._scaledR || 0) <= HIDE_NODE_RADIUS_PX && d.depth !== maxDepth && d.depth !== labelDepth) {
-					$g.select("circle").style("opacity", 0);
+					if (c) c.style.opacity = '0';
 				} else {
-					$g.select("circle").style("opacity", null);
+					if (c) c.style.removeProperty('opacity');
 				}
 			});
 
@@ -693,8 +680,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 				// hide all child circles (we'll either show an aggregate or remain hidden)
 				depthNodes.forEach(d => {
-					const $g = d3.select(d.__node_group);
-					$g.select("circle").style("opacity", 0);
+					if (d.__circle) d.__circle.style.opacity = '0';
 				});
 				collapsedDepths.add(depth);
 			}
@@ -737,7 +723,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 					.attr("cx", rootCx).attr("cy", rootCy).attr("r", rootRpx).style("pointer-events", "none");
 			}
 		} catch (e) { /* ignore */ }
-
+		console.debug('zoomTo ms', performance.now() - t0);
 	}
 
 
