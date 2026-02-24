@@ -48,10 +48,10 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 			}
 		}
 
-		// 2) URL parameter: ?data=BIGSdb_...  (treat as basename -> /tmp/{basename}.json)
+		// 2) URL parameter: ?job=BIGSdb_...  (treat as basename -> /tmp/{basename}.json)
 		try {
 			const params = new URLSearchParams(window.location.search);
-			const key = params.get("data") || params.get("file");
+			const key = params.get("data") || params.get("job");
 			if (key) {
 				// sanitize to basename (strip any slashes) and escape
 				const basename = String(key).split('/').pop();

@@ -270,7 +270,7 @@ sub run_job {
 			{
 					message_html => q(<p style="margin-top:2em;margin-bottom:2em">)
 				  . qq(<a href="$params->{'script_name'}?db=$self->{'instance'}&amp;)
-				  . qq(page=pluginViewer&amp;plugin=LINvis&data=/tmp/${job_id}.json" target="_blank" )
+				  . qq(page=pluginViewer&amp;plugin=LINvis&job=$job_id" target="_blank" )
 				  . q(class="launchbutton">Launch LINvis</a></p>)
 			}
 		);
