@@ -31,60 +31,48 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 	const initialLabelDepth = 1;
 
 	// ---------- Flexible data loader ----------
-	async function loadData(defaultPath = "./test.json") {
-		// 1) Inline JSON in page: <script id="linvis-data" type="application/json">...</script>
-		const inlineEl = document.getElementById("linvis-data");
-		if (inlineEl && inlineEl.textContent.trim().length) {
-			try {
-				return JSON.parse(inlineEl.textContent);
-			} catch (err) {
-				console.warn("LINvis: failed to parse inline JSON (#linvis-data):", err);
-				// fall through to next source
-			}
-		}
-
-		// 2) File input (if user has chosen a file and clicked the Load button)
-		// We check an input element with id="linvis-file" for an already selected file.
+	// Minimal version: we do NOT allow inline JSON nor a fallback to ./test.json.
+	// Accepts an uploaded file (id="linvis-file") or a URL param ?data=NAME (or ?file=NAME)
+	// which is interpreted as a basename and loaded from /tmp/{basename}.json.
+	async function loadData() {
+		// 1) File input (if user has chosen a file)
 		const fileInput = document.getElementById("linvis-file");
 		if (fileInput && fileInput.files && fileInput.files[0]) {
 			try {
 				const txt = await fileInput.files[0].text();
 				return JSON.parse(txt);
 			} catch (err) {
+				// explicit failure so caller shows the error message
 				console.warn("LINvis: failed to read/parse selected file:", err);
-				// fall through
+				throw err;
 			}
 		}
 
-		// 3) URL parameter: ?data=/path/to.json or ?file=/path/to.json
+		// 2) URL parameter: ?data=BIGSdb_...  (treat as basename -> /tmp/{basename}.json)
 		try {
 			const params = new URLSearchParams(window.location.search);
-			const url = params.get("data") || params.get("file");
-			if (url) {
-				const resp = await fetch(url);
-				if (!resp.ok) throw new Error("HTTP " + resp.status);
+			const key = params.get("data") || params.get("file");
+			if (key) {
+				// sanitize to basename (strip any slashes) and escape
+				const basename = String(key).split('/').pop();
+				const path = "/tmp/" + encodeURIComponent(basename) + ".json";
+				const resp = await fetch(path);
+				if (!resp.ok) throw new Error("HTTP " + resp.status + " when fetching " + path);
 				return await resp.json();
 			}
 		} catch (err) {
 			console.warn("LINvis: failed to fetch JSON from URL param:", err);
-			// fall through
+			throw err;
 		}
 
-		// 4) Fallback to default path (original behaviour)
-		try {
-			const resp = await fetch(defaultPath);
-			if (!resp.ok) throw new Error("HTTP " + resp.status);
-			return await resp.json();
-		} catch (err) {
-			console.error("LINvis: failed to load default JSON (" + defaultPath + "):", err);
-			throw err; // caller will handle
-		}
+		// 3) No data provided
+		throw new Error("No data provided (no file selected and no ?data=... URL parameter).");
 	}
 
 	// Replace original fetch usage with:
 	let data;
 	try {
-		data = await loadData("./test.json");
+		data = await loadData();
 	} catch (err) {
 		const el = document.getElementById("linvis_chart");
 		if (el) el.textContent = "Failed to load data: " + (err && err.message ? err.message : err);
@@ -97,7 +85,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 		else if (node.children) node.value = node.children.reduce((s, c) => s + (c.value || 0), 0);
 		else node.value = 0;
 	});
-	
+
 	// --- Prune wrapper nodes that have exactly one child (but keep top-level groups) ---
 	(function pruneSingletonWrappers(rootNode) {
 		let pruned = 0;
@@ -763,7 +751,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 		if (isNaN(v)) return;
 		const bounded = Math.max(0, Math.min(v, maxDepth));
 		labelDepth = bounded;
-		zoomTo(view);	
+		zoomTo(view);
 	}
 	if (depthInput) {
 		depthInput.addEventListener('input', onDepthChange);
