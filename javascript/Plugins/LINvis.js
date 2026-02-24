@@ -843,6 +843,34 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 				else zoomTo(target);
 			});
 		}
+		
+		// ------- fit-to-page control: attach handler (minimal addition) -------
+		// create/ensure fit button exists (if HTML added above it will reuse that)
+		let fitBtn = document.getElementById('linvis-fit-btn');
+		if (!fitBtn && ctrl) {
+			const p = ctrl.querySelector('p') || ctrl;
+			const el = document.createElement('button');
+			el.id = 'linvis-fit-btn';
+			el.type = 'button';
+			el.style.marginLeft = '6px';
+			el.innerHTML = '<span class="fas fa-expand"></span> Fit';
+			p.appendChild(el);
+			fitBtn = document.getElementById('linvis-fit-btn');
+		}
+
+		if (fitBtn) {
+			// guard against duplicate listeners by replacing element then re-querying
+			fitBtn.replaceWith(fitBtn.cloneNode(true));
+			fitBtn = document.getElementById('linvis-fit-btn');
+
+			fitBtn.addEventListener('click', function() {
+				// target view that makes the root boundary fill the pack area:
+				// set width = root diameter so root circle maps to diameter/2 radius on screen
+				const target = [root.x, root.y, root.r * 2];
+				if (typeof smoothZoomTo === 'function') smoothZoomTo(target);
+				else zoomTo(target);
+			});
+		}
 	})();
 
 	// Initial render
