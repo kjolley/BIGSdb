@@ -44,6 +44,10 @@
 		border-radius: 6px;
 		font-size: 13px;
 	}
+	
+	.file-control {
+		margin-bottom: 10px
+	}
 
 	text {
 		dominant-baseline: middle;
@@ -54,19 +58,14 @@
 		width: 56px;
 	}
 </style>
-<!--
-<script id="linvis-data" type="application/json">
-{
-  "name": "root",
-  "children": []
-}
-</script>
--->
 <div style="position:relative">
 	<div class="control">
-		<p>
+		<div id="linvis-file-wrapper" class="file-control">
 			<input id="linvis-file" type="file" accept=".json">
 			<button onclick="location.reload()">Load File</button>
+		</div>
+		<p>
+			<button id="linvis-recenter-btn" type="button"><span class="fas fa-crosshairs"></span> Recentre</button>
 		</p>
 		Label depth:
 		<input id="depth" type="number" min="0" value="1" />

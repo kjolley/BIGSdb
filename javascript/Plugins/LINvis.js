@@ -4,7 +4,7 @@ Copyright (c) 2026, University of Oxford
 E-mail: keith.jolley@biology.ox.ac.uk
 */
 
-/*Inspired and modified from Zoomable Circle Packing 
+/*Inspired and extensively modified from Zoomable Circle Packing 
 (https://observablehq.com/@d3/zoomable-circle-packing).
 Written by Mike Bostock.
 Copyright 2018-2023 Observable, Inc.
@@ -31,7 +31,6 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 	const initialLabelDepth = 1;
 
 	// ---------- Flexible data loader ----------
-	// Minimal version: we do NOT allow inline JSON nor a fallback to ./test.json.
 	// Accepts an uploaded file (id="linvis-file") or a URL param ?data=NAME (or ?file=NAME)
 	// which is interpreted as a basename and loaded from /tmp/{basename}.json.
 	async function loadData() {
@@ -68,16 +67,72 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 		// 3) No data provided
 		throw new Error("No data provided (no file selected and no ?data=... URL parameter).");
 	}
+	
+	// --- Simple wrapper toggle approach (uses #linvis-file-wrapper) ---
+	const _linvis_params = new URLSearchParams(window.location.search);
+	const _linvis_key = _linvis_params.get("data") || _linvis_params.get("job");
+	const hasRemoteJob = Boolean(_linvis_key);
+
+	// Hide wrapper if remote job present (no file chooser)
+	(function toggleWrapperVisibility() {
+		const wrapper = document.getElementById("linvis-file-wrapper");
+		if (!wrapper) return;
+		wrapper.style.display = hasRemoteJob ? "none" : "";
+	})();
+	
 
 	// Replace original fetch usage with:
 	let data;
 	try {
 		data = await loadData();
-	} catch (err) {
-		const el = document.getElementById("linvis_chart");
-		if (el) el.textContent = "Failed to load data: " + (err && err.message ? err.message : err);
-		return;
-	}
+		} catch (err) {
+
+			// If NO remote job/data param was supplied,
+			// do not show an error — just show the file selector and stop.
+			if (!hasRemoteJob) {
+				const wrapper = document.getElementById("linvis-file-wrapper");
+				if (wrapper) wrapper.style.display = "";
+				return;
+			}
+
+			// If a remote job WAS requested and failed, show error + reveal selector.
+			const el = document.getElementById("linvis_chart");
+
+			let msg;
+			if (hasRemoteJob && _linvis_key) {
+				msg = "Failed to load data for job " + _linvis_key + ".";
+			} else {
+				msg = "Failed to load data.";
+			}
+
+			if (el) el.textContent = msg;
+
+			try {
+				const wrapper = document.getElementById("linvis-file-wrapper");
+				if (wrapper) {
+					wrapper.style.display = "";
+					const inp = wrapper.querySelector("#linvis-file");
+					if (inp && typeof inp.focus === "function") inp.focus();
+				}
+
+				const ctrl = document.querySelector('.control');
+				if (ctrl) {
+					let note = ctrl.querySelector('.linvis-error-note');
+					if (!note) {
+						note = document.createElement('div');
+						note.className = 'linvis-error-note';
+						note.style.color = '#800';
+						note.style.fontSize = '12px';
+						note.style.marginTop = '6px';
+						ctrl.appendChild(note);
+					}
+					note.textContent = 'Remote load failed — choose a local .json file to continue.';
+				}
+			} catch (e) { /* ignore DOM errors */ }
+
+			return;
+		}
+		
 	// Build hierarchy, preserving explicit internal values (no double count)
 	const root = d3.hierarchy(data);
 	root.eachAfter(node => {
@@ -387,14 +442,14 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 			tooltipEl.style("display", "none");
 		});
 
-		node.append("circle")
-			.attr("r", d => d.r)
-			.attr("fill", d => d.children ? "#e7eef8" : "#fff")
-			.attr("stroke", "#666")
-			.style("stroke-width", "1px");
+	node.append("circle")
+		.attr("r", d => d.r)
+		.attr("fill", d => d.children ? "#e7eef8" : "#fff")
+		.attr("stroke", "#666")
+		.style("stroke-width", "1px");
 
-		// Cache circle DOM element for each node group to avoid repeated querySelector in zoomTo()
-		node.each(function(d) { d.__circle = this.querySelector('circle'); });
+	// Cache circle DOM element for each node group to avoid repeated querySelector in zoomTo()
+	node.each(function(d) { d.__circle = this.querySelector('circle'); });
 
 	// Labels (per-node), start hidden
 	const labels = labelLayer.selectAll("text.lbl")
@@ -768,6 +823,27 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 			onDepthChange();
 		}
 	});
+
+	// --- Re-centre control: attach handler ---
+	(function addRecenterControl() {
+		const ctrl = document.querySelector('.control');
+		if (!ctrl) return;
+
+		// reuse existing button if present, otherwise create it
+		let btn = document.getElementById('linvis-recenter-btn');
+		if (btn) {
+			// ensure we don't attach duplicate listeners
+			btn.replaceWith(btn.cloneNode(true));
+			btn = document.getElementById('linvis-recenter-btn');
+
+			btn.addEventListener('click', function() {
+				// keep current width (view[2]) but centre on root coords
+				const target = [root.x, root.y, view[2]];
+				if (typeof smoothZoomTo === 'function') smoothZoomTo(target);
+				else zoomTo(target);
+			});
+		}
+	})();
 
 	// Initial render
 	zoomTo(view);

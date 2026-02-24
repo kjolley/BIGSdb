@@ -29,7 +29,7 @@ use JSON;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 
-use constant MAX_RECORDS => 50_000;
+use constant MAX_RECORDS => 60_000;
 
 sub get_attributes {
 	my ($self) = @_;
