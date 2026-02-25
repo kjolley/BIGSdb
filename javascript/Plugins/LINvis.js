@@ -29,6 +29,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 	const diameter = Math.min(width, height) - 20;
 	let labelDepth = 1;              // which depth to label
 	const initialLabelDepth = 1;
+	const SMOOTH_ZOOM_MAX_NODES = 5000; // changeable threshold for using smoothZoomTo()
 
 	// ---------- Flexible data loader ----------
 	// Accepts an uploaded file (id="linvis-file") or a URL param ?data=NAME (or ?file=NAME)
@@ -864,10 +865,16 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 					// => v0 = root.x - root.r + targetW/2  (+ padView)
 					const v0 = root.x - root.r + targetW / 2 + padView;
 					const v1 = root.y - root.r + targetW / 2 + padView;
-
 					const target = [v0, v1, targetW];
-					if (typeof smoothZoomTo === 'function') smoothZoomTo(target);
-					else zoomTo(target);
+					// Use smooth animation only for small-to-medium datasets
+					if (nodes.length < SMOOTH_ZOOM_MAX_NODES  && typeof smoothZoomTo === 'function') {
+					    smoothZoomTo(target);
+					} else {
+					    // for large datasets, jump directly to avoid heavy animation work
+					    view = target;
+					    zoomTo(view);
+					}
+
 				} catch (err) {
 					console.warn('LINvis: anchor-top-left handler error', err && err.message);
 				}
@@ -880,8 +887,12 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 			fitW = document.getElementById('linvis-fit-width-btn');
 			fitW.addEventListener('click', function() {
 				const target = [root.x, root.y, root.r * 2 * (diameter / width)];
-				if (typeof smoothZoomTo === 'function') smoothZoomTo(target);
-				else zoomTo(target);
+				if (nodes.length < SMOOTH_ZOOM_MAX_NODES  && typeof smoothZoomTo === 'function') {
+				    smoothZoomTo(target);
+				} else {
+				    view = target;
+				    zoomTo(view);
+				}
 			});
 		}
 
