@@ -67,7 +67,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 		// 3) No data provided
 		throw new Error("No data provided (no file selected and no ?data=... URL parameter).");
 	}
-	
+
 	// --- Simple wrapper toggle approach (uses #linvis-file-wrapper) ---
 	const _linvis_params = new URLSearchParams(window.location.search);
 	const _linvis_key = _linvis_params.get("data") || _linvis_params.get("job");
@@ -79,60 +79,60 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 		if (!wrapper) return;
 		wrapper.style.display = hasRemoteJob ? "none" : "";
 	})();
-	
+
 
 	// Replace original fetch usage with:
 	let data;
 	try {
 		data = await loadData();
-		} catch (err) {
+	} catch (err) {
 
-			// If NO remote job/data param was supplied,
-			// do not show an error — just show the file selector and stop.
-			if (!hasRemoteJob) {
-				const wrapper = document.getElementById("linvis-file-wrapper");
-				if (wrapper) wrapper.style.display = "";
-				return;
-			}
-
-			// If a remote job WAS requested and failed, show error + reveal selector.
-			const el = document.getElementById("linvis_chart");
-
-			let msg;
-			if (hasRemoteJob && _linvis_key) {
-				msg = "Failed to load data for job " + _linvis_key + ".";
-			} else {
-				msg = "Failed to load data.";
-			}
-
-			if (el) el.textContent = msg;
-
-			try {
-				const wrapper = document.getElementById("linvis-file-wrapper");
-				if (wrapper) {
-					wrapper.style.display = "";
-					const inp = wrapper.querySelector("#linvis-file");
-					if (inp && typeof inp.focus === "function") inp.focus();
-				}
-
-				const ctrl = document.querySelector('.control');
-				if (ctrl) {
-					let note = ctrl.querySelector('.linvis-error-note');
-					if (!note) {
-						note = document.createElement('div');
-						note.className = 'linvis-error-note';
-						note.style.color = '#800';
-						note.style.fontSize = '12px';
-						note.style.marginTop = '6px';
-						ctrl.appendChild(note);
-					}
-					note.textContent = 'Remote load failed — choose a local .json file to continue.';
-				}
-			} catch (e) { /* ignore DOM errors */ }
-
+		// If NO remote job/data param was supplied,
+		// do not show an error — just show the file selector and stop.
+		if (!hasRemoteJob) {
+			const wrapper = document.getElementById("linvis-file-wrapper");
+			if (wrapper) wrapper.style.display = "";
 			return;
 		}
-		
+
+		// If a remote job WAS requested and failed, show error + reveal selector.
+		const el = document.getElementById("linvis_chart");
+
+		let msg;
+		if (hasRemoteJob && _linvis_key) {
+			msg = "Failed to load data for job " + _linvis_key + ".";
+		} else {
+			msg = "Failed to load data.";
+		}
+
+		if (el) el.textContent = msg;
+
+		try {
+			const wrapper = document.getElementById("linvis-file-wrapper");
+			if (wrapper) {
+				wrapper.style.display = "";
+				const inp = wrapper.querySelector("#linvis-file");
+				if (inp && typeof inp.focus === "function") inp.focus();
+			}
+
+			const ctrl = document.querySelector('.control');
+			if (ctrl) {
+				let note = ctrl.querySelector('.linvis-error-note');
+				if (!note) {
+					note = document.createElement('div');
+					note.className = 'linvis-error-note';
+					note.style.color = '#800';
+					note.style.fontSize = '12px';
+					note.style.marginTop = '6px';
+					ctrl.appendChild(note);
+				}
+				note.textContent = 'Remote load failed — choose a local .json file to continue.';
+			}
+		} catch (e) { /* ignore DOM errors */ }
+
+		return;
+	}
+
 	// Build hierarchy, preserving explicit internal values (no double count)
 	const root = d3.hierarchy(data);
 	root.eachAfter(node => {
@@ -837,40 +837,54 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 			btn = document.getElementById('linvis-recenter-btn');
 
 			btn.addEventListener('click', function() {
-				// keep current width (view[2]) but centre on root coords
-				const target = [root.x, root.y, view[2]];
+				try {
+					// compute visible pixel height of container (same approach as fit-height)
+					const contNode = container && typeof container.node === 'function' ? container.node() : null;
+					let visiblePx = 0;
+					if (contNode) {
+						const crect = contNode.getBoundingClientRect();
+						const top = Math.max(crect.top, 0);
+						const bottom = Math.min(crect.bottom, window.innerHeight);
+						visiblePx = Math.max(0, bottom - top);
+					}
+					// fallback to svg rendered height or viewBox height
+					if (!visiblePx) {
+						updateSvgRectCache();
+						visiblePx = (svgRectCache && svgRectCache.height) ? svgRectCache.height : height;
+					}
+
+					// Keep current view width but compute v0/v1 so root's top-left aligns to pack top-left
+					const targetW = view[2];
+					// Convert visible pixels -> viewBox units using diameter (pack size)
+					const viewBoxPerPixel = diameter / visiblePx;
+					const padPx = 4;
+					const padView = viewBoxPerPixel * padPx;
+
+					// (root.x - v0) * k + diameter/2 - (root.r * k) = 0
+					// => v0 = root.x - root.r + targetW/2  (+ padView)
+					const v0 = root.x - root.r + targetW / 2 + padView;
+					const v1 = root.y - root.r + targetW / 2 + padView;
+
+					const target = [v0, v1, targetW];
+					if (typeof smoothZoomTo === 'function') smoothZoomTo(target);
+					else zoomTo(target);
+				} catch (err) {
+					console.warn('LINvis: anchor-top-left handler error', err && err.message);
+				}
+			});
+		}
+		// ------- Fit width (attach only if buttons exist) -------
+		let fitW = document.getElementById('linvis-fit-width-btn');
+		if (fitW) {
+			fitW.replaceWith(fitW.cloneNode(true));
+			fitW = document.getElementById('linvis-fit-width-btn');
+			fitW.addEventListener('click', function() {
+				const target = [root.x, root.y, root.r * 2 * (diameter / width)];
 				if (typeof smoothZoomTo === 'function') smoothZoomTo(target);
 				else zoomTo(target);
 			});
 		}
-		
-		// ------- fit-to-page control: attach handler (minimal addition) -------
-		// create/ensure fit button exists (if HTML added above it will reuse that)
-		let fitBtn = document.getElementById('linvis-fit-btn');
-		if (!fitBtn && ctrl) {
-			const p = ctrl.querySelector('p') || ctrl;
-			const el = document.createElement('button');
-			el.id = 'linvis-fit-btn';
-			el.type = 'button';
-			el.style.marginLeft = '6px';
-			el.innerHTML = '<span class="fas fa-expand"></span> Fit';
-			p.appendChild(el);
-			fitBtn = document.getElementById('linvis-fit-btn');
-		}
 
-		if (fitBtn) {
-			// guard against duplicate listeners by replacing element then re-querying
-			fitBtn.replaceWith(fitBtn.cloneNode(true));
-			fitBtn = document.getElementById('linvis-fit-btn');
-
-			fitBtn.addEventListener('click', function() {
-				// target view that makes the root boundary fill the pack area:
-				// set width = root diameter so root circle maps to diameter/2 radius on screen
-				const target = [root.x, root.y, root.r * 2];
-				if (typeof smoothZoomTo === 'function') smoothZoomTo(target);
-				else zoomTo(target);
-			});
-		}
 	})();
 
 	// Initial render

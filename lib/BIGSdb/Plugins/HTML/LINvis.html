@@ -8,8 +8,7 @@
 		position: relative;
 		/* critical: makes children absolute position relative to this div */
 		width: 100%;
-		/* or set a fixed width */
-		min-height: 640px;
+		aspect-ratio: 1/1;
 		/* set desired area height (or use min-height) */
 		margin: 0 auto;
 		/* optional centering */
@@ -65,12 +64,10 @@
 			<button onclick="location.reload()">Load File</button>
 		</div>
 		<p>
-			<button id="linvis-recenter-btn" type="button"><span class="fas fa-crosshairs"></span> Recentre</button>
-			<button id="linvis-fit-btn" type="button" style="margin-left:6px;"><span class="fas fa-expand">
-			</span> Fit width</button>
+			<button id="linvis-recenter-btn" type="button"><span class="fas fa-anchor"></span> Anchor top-left</button>
+			<button id="linvis-fit-width-btn" type="button" style="margin-left:6px;"><span class="fas fa-arrows-h"></span> Fit width</button>
 		</p>
-		Label depth:
-		<input id="depth" type="number" min="0" value="1" />
+		<p></p>Label depth: <input id="depth" type="number" min="0" value="1" /></p>
 	</div>
 
 	<div id="linvis_chart" tabindex="0"></div>
