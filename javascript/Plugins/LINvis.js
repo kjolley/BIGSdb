@@ -636,8 +636,6 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 		try {
 			if (typeof ringLayer !== "undefined" && ringLayer) {
 				ringLayer.selectAll("g.ring, circle.ring-circle, g.aggregate, circle.agg-circle, text.ring-label, text.agg-label").remove();
-				// as an extra safe-guard, also remove anything else except the boundary
-				ringLayer.selectAll("*:not(.boundary)").remove();
 			} else {
 				// fallback to scoped global removal if ringLayer missing
 				d3.selectAll("g.ring, circle.ring-circle, g.aggregate, circle.agg-circle, text.ring-label, text.agg-label").remove();
