@@ -246,6 +246,36 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 		const dataY = v[1] + (py - diameter / 2) / k;
 		return [dataX, dataY];
 	}
+	
+	// Consolidated helper: compute a new view (x,y,w) for a given client center and scale factor.
+	// clientX, clientY: DOM client coords (page)
+	// factor: multiply current view width by this factor (e.g. >1 => zoom out, <1 => zoom in)
+	// srcView: optional source view array [x,y,w] to base calculation on (defaults to current view)
+	function computeViewForClientCenter(clientX, clientY, factor, srcView = view) {
+		// avoid repeated lookups of svgRectCache/diameter/width/height in multiple handlers
+		const svgRect = svgRectCache;
+		if (!svgRect) {
+			// fallback: return unmodified view if bounding rect unavailable
+			return srcView.slice();
+		}
+		const targetW = Math.min(root.r * 4, srcView[2] * factor); // reuse previous zoom-out cap logic
+		const kNew = diameter / targetW;
+
+		// client px -> svg-local px (subtract left/top plus centring offset)
+		const px = clientX - svgRect.left - ((width - diameter) / 2);
+		const py = clientY - svgRect.top - ((height - diameter) / 2);
+
+		// convert client px to data coords centered around px/py
+		const cx = srcView[0] + (px - diameter / 2) / (diameter / srcView[2]);
+		const cy = srcView[1] + (py - diameter / 2) / (diameter / srcView[2]);
+
+		// compute new view origin so that data point (cx,cy) stays under clientX,clientY at new scale
+		const newX = cx - (px - diameter / 2) / kNew;
+		const newY = cy - (py - diameter / 2) / kNew;
+
+		return [newX, newY, targetW];
+	}
+	
 
 	// Create node groups and circles
 	const node = nodeLayer.selectAll("g.node")
@@ -290,10 +320,35 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 			if (typeof labelLayer !== "undefined") labelLayer.style("pointer-events", "none");
 			d3.selectAll("g.node").style("pointer-events", "all");
 
-			// helper: compute root data/coords and view safely each pointermove
+			const _rootCache = { rootG: null };
+
+			// observe node-layer for structural changes and clear cache when it does
+			try {
+				const nodeLayerEl = document.querySelector("#linvis_chart g.node-layer");
+				if (nodeLayerEl) {
+					const mo = new MutationObserver(() => { _rootCache.rootG = null; });
+					mo.observe(nodeLayerEl, { childList: true, subtree: true });
+				}
+			} catch (e) { /* ignore observer failures */ }
+
 			function computeRootAndView() {
-				const rootG = Array.from(document.querySelectorAll("g.node")).find(g => g && g.__data__ && g.__data__.depth === 0);
+				// return cached root if present
+				let rootG = _rootCache.rootG;
+				if (!rootG) {
+					// find root group (depth 0) once and cache it
+					const all = document.querySelectorAll("g.node");
+					for (let i = 0; i < all.length; i++) {
+						const g = all[i];
+						if (g && g.__data__ && g.__data__.depth === 0) {
+							rootG = g;
+							break;
+						}
+					}
+					_rootCache.rootG = rootG || null;
+				}
+
 				if (!rootG) return null;
+
 				const rootData = rootG.__data__;
 				// prefer existing view if present in scope; otherwise fallback to root's own coords
 				const viewNow = (typeof view !== "undefined" ? view : [rootData.x, rootData.y, rootData.r * 2]);
@@ -513,6 +568,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 	svgNode.addEventListener('pointermove', function(ev) {
 		if (!dragging || !dragStart) return;
 		ev.preventDefault();
+		// compute how many px pointer moved relative to dragStart and convert to scale move
 		const dx = ev.clientX - dragStart.clientX;
 		const dy = ev.clientY - dragStart.clientY;
 		const k = diameter / dragStart.view[2];
@@ -531,33 +587,46 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 		dragging = false; dragStart = null;
 	});
 
-	// Pinch support (rudimentary)
+	// Pinch support (consolidated)
 	const pointers = new Map();
 	svgNode.addEventListener('pointerdown', ev => pointers.set(ev.pointerId, ev));
 	svgNode.addEventListener('pointermove', ev => {
+		// update pointer record if present
 		if (pointers.has(ev.pointerId)) pointers.set(ev.pointerId, ev);
+
+		// if exactly two pointers, compute pinch factor and center then reuse helper
 		if (pointers.size === 2) {
 			const it = pointers.values();
 			const a = it.next().value, b = it.next().value;
 			const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-			if (!svg._lastPinchDist) svg._lastPinchDist = dist;
+
+			if (!svg._lastPinchDist) {
+				svg._lastPinchDist = dist;
+				return;
+			}
+			// factor >1 => zoom out; factor <1 => zoom in (match previous behaviour)
 			const factor = svg._lastPinchDist / dist;
+
+			// center of pinch in client coordinates
 			const centerX = (a.clientX + b.clientX) / 2;
 			const centerY = (a.clientY + b.clientY) / 2;
-			const [cx, cy] = clientToData(centerX, centerY, view);
-			const MAX_VIEW_W = root.r * 2; // prevent zooming out beyond full root extent
-			const newW = Math.min(MAX_VIEW_W, view[2] * factor);
-			const kNew = diameter / newW;
-			const svgRect = svgRectCache;
-			const newX = cx - (centerX - svgRect.left - ((width - diameter) / 2) - diameter / 2) / kNew;
-			const newY = cy - (centerY - svgRect.top - ((height - diameter) / 2) - diameter / 2) / kNew;
-			view = [newX, newY, newW];
+
+			// compute and apply new view using consolidated helper
+			const newView = computeViewForClientCenter(centerX, centerY, factor, view);
+			view = newView;
 			zoomTo(view);
+
 			svg._lastPinchDist = dist;
 		}
 	});
-	svgNode.addEventListener('pointerup', ev => pointers.delete(ev.pointerId));
-	svgNode.addEventListener('pointercancel', ev => pointers.delete(ev.pointerId));
+	svgNode.addEventListener('pointerup', ev => {
+		pointers.delete(ev.pointerId);
+		if (pointers.size < 2) delete svg._lastPinchDist;
+	});
+	svgNode.addEventListener('pointercancel', ev => {
+		pointers.delete(ev.pointerId);
+		if (pointers.size < 2) delete svg._lastPinchDist;
+	});
 
 	function zoomTo(v) {
 		const t0 = performance.now();
@@ -861,8 +930,6 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 					const padPx = 4;
 					const padView = viewBoxPerPixel * padPx;
 
-					// (root.x - v0) * k + diameter/2 - (root.r * k) = 0
-					// => v0 = root.x - root.r + targetW/2  (+ padView)
 					const v0 = root.x - root.r + targetW / 2 + padView;
 					const v1 = root.y - root.r + targetW / 2 + padView;
 					const target = [v0, v1, targetW];
