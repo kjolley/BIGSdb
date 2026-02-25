@@ -818,21 +818,33 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 			return `translate(${x},${y})`;
 		});
 
-		labels.each(function(d) {
-			const el = d3.select(this);
-			const scaledR = d._scaledR || d.r * k;
+		// ===== REPLACE labels.each(...) with this faster DOM loop =====
+		const labelsNodes = labels.nodes(); // cached node[] from d3 selection
+		for (let i = 0; i < labelsNodes.length; i++) {
+			const textEl = labelsNodes[i];           // DOM <text> element
+			const d = textEl.__data__ || nodes[i];  // fallback if needed
+			const scaledR = (d && d._scaledR) ? d._scaledR : (d ? d.r * k : 0);
 
-			if (labelDepth === 0) { el.style("opacity", 0).style("stroke", null).style("stroke-width", null); return; }
-			if (collapsedDepths.has(d.depth)) { el.style("opacity", 0).style("stroke", null).style("stroke-width", null); return; }
+			// default: hide
+			textEl.style.removeProperty('stroke');
+			textEl.style.removeProperty('stroke-width');
+
+			if (labelDepth === 0 || collapsedDepths.has(d.depth)) {
+				textEl.style.opacity = '0';
+				continue;
+			}
 
 			if (d.depth === labelDepth && scaledR > 8) {
 				const fontSize = Math.max(10, Math.min(14, Math.floor(scaledR / 3)));
-				el.style("font-size", fontSize + "px").style("opacity", 1).style("stroke", "rgba(255,255,255,0.95)")
-					.style("stroke-width", "3px").style("paint-order", "stroke");
+				textEl.style.fontSize = fontSize + 'px';
+				textEl.style.opacity = '1';
+				textEl.style.stroke = 'rgba(255,255,255,0.95)';
+				textEl.style.strokeWidth = '3px';
+				textEl.style.paintOrder = 'stroke';
 			} else {
-				el.style("opacity", 0).style("stroke", null).style("stroke-width", null);
+				textEl.style.opacity = '0';
 			}
-		});
+		}
 
 		// update the persistent boundary to match root on-screen
 		try {
