@@ -30,6 +30,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 	let labelDepth = 1;              // which depth to label
 	const initialLabelDepth = 1;
 	const SMOOTH_ZOOM_MAX_NODES = 5000; // changeable threshold for using smoothZoomTo()
+	const waiting = document.getElementById('waiting');
 
 	// ---------- Flexible data loader ----------
 	// Accepts an uploaded file (id="linvis-file") or a URL param ?data=NAME (or ?file=NAME)
@@ -37,7 +38,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 	async function loadData() {
 		// 1) File input (if user has chosen a file)
 		const fileInput = document.getElementById("linvis-file");
-		if (fileInput && fileInput.files && fileInput.files[0]) {
+		if (fileInput && fileInput.files && fileInput.files[0]) {			
 			try {
 				const txt = await fileInput.files[0].text();
 				return JSON.parse(txt);
@@ -50,9 +51,11 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 		// 2) URL parameter: ?job=BIGSdb_...  (treat as basename -> /tmp/{basename}.json)
 		try {
+
 			const params = new URLSearchParams(window.location.search);
 			const key = params.get("data") || params.get("job");
 			if (key) {
+				waiting.style.display = 'block';
 				// sanitize to basename (strip any slashes) and escape
 				const basename = String(key).split('/').pop();
 				const path = "/tmp/" + encodeURIComponent(basename) + ".json";
@@ -81,8 +84,6 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 		wrapper.style.display = hasRemoteJob ? "none" : "";
 	})();
 
-
-	// Replace original fetch usage with:
 	let data;
 	try {
 		data = await loadData();
@@ -133,6 +134,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 		return;
 	}
+
 
 	// Build hierarchy, preserving explicit internal values (no double count)
 	const root = d3.hierarchy(data);
@@ -859,6 +861,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 			}
 		} catch (e) { /* ignore */ }
 		console.debug('zoomTo ms', performance.now() - t0);
+		waiting.style.display = 'none';
 	}
 
 
@@ -977,6 +980,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 	// Initial render
 	zoomTo(view);
+	
 
 	// Diagnostics
 	console.log("LINvis: nodes:", nodes.length, "maxDepth:", maxDepth, "initial labelDepth:", labelDepth);
