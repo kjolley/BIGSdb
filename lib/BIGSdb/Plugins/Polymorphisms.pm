@@ -1,6 +1,6 @@
 #Polymorphisms.pm - Plugin for BIGSdb (requires LocusExplorer plugin)
 #Written by Keith Jolley
-#Copyright (c) 2011-2024, University of Oxford
+#Copyright (c) 2011-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -47,19 +47,20 @@ sub get_attributes {
 		full_description => 'This plugin generates a schematic of the selected locus showing all the polymorphic '
 		  . 'sites present in the selected dataset. These are also shown in a tabular form with precise frequencies '
 		  . 'for each nucleotide at every position.',
-		category => 'Breakdown',
-		menutext => 'Polymorphic sites',
-		module   => 'Polymorphisms',
-		version  => '1.2.1',
-		dbtype   => 'isolates',
-		url      => "$self->{'config'}->{'doclink'}/data_analysis/polymorphisms.html",
-		section  => 'breakdown,postquery',
-		requires => 'aligner,offline_jobs',
-		input    => 'query',
-		help     => 'tooltips',
-		order    => 16,
-		image    => '/images/plugins/Polymorphisms/screenshot.png',
-		max      => MAX_SEQUENCES
+		category    => 'Breakdown',
+		menutext    => 'Polymorphic sites',
+		module      => 'Polymorphisms',
+		version     => '1.2.2',
+		dbtype      => 'isolates',
+		url         => "$self->{'config'}->{'doclink'}/data_analysis/polymorphisms.html",
+		section     => 'breakdown,postquery',
+		requires    => 'aligner,offline_jobs',
+		input       => 'query',
+		help        => 'tooltips',
+		order       => 16,
+		image       => '/images/plugins/Polymorphisms/screenshot.png',
+		max         => MAX_SEQUENCES,
+		system_flag => 'Polymorphisms'
 	);
 	return \%att;
 }
