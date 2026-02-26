@@ -38,7 +38,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 	async function loadData() {
 		// 1) File input (if user has chosen a file)
 		const fileInput = document.getElementById("linvis-file");
-		if (fileInput && fileInput.files && fileInput.files[0]) {			
+		if (fileInput && fileInput.files && fileInput.files[0]) {
 			try {
 				const txt = await fileInput.files[0].text();
 				return JSON.parse(txt);
@@ -201,7 +201,15 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 	const svgNode = svg.node();                // cached DOM node
 	let svgRectCache = null;                   // cached bounding rect (updated on demand)
 	function updateSvgRectCache() { svgRectCache = svgNode.getBoundingClientRect(); }
-	window.addEventListener('resize', updateSvgRectCache, { passive: true });
+	let _linvis_resizeRaf = null;
+	function onLinvisResize() {
+		if (_linvis_resizeRaf) cancelAnimationFrame(_linvis_resizeRaf);
+		_linvis_resizeRaf = requestAnimationFrame(() => {
+			updateSvgRectCache();
+			_linvis_resizeRaf = null;
+		});
+	}
+	window.addEventListener('resize', onLinvisResize, { passive: true });
 	updateSvgRectCache();
 
 	const tx = (width - diameter) / 2;
@@ -248,7 +256,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 		const dataY = v[1] + (py - diameter / 2) / k;
 		return [dataX, dataY];
 	}
-	
+
 	// Consolidated helper: compute a new view (x,y,w) for a given client center and scale factor.
 	// clientX, clientY: DOM client coords (page)
 	// factor: multiply current view width by this factor (e.g. >1 => zoom out, <1 => zoom in)
@@ -277,7 +285,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 		return [newX, newY, targetW];
 	}
-	
+
 
 	// Create node groups and circles
 	const node = nodeLayer.selectAll("g.node")
@@ -947,12 +955,12 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 					const v1 = root.y - root.r + targetW / 2 + padView;
 					const target = [v0, v1, targetW];
 					// Use smooth animation only for small-to-medium datasets
-					if (nodes.length < SMOOTH_ZOOM_MAX_NODES  && typeof smoothZoomTo === 'function') {
-					    smoothZoomTo(target);
+					if (nodes.length < SMOOTH_ZOOM_MAX_NODES && typeof smoothZoomTo === 'function') {
+						smoothZoomTo(target);
 					} else {
-					    // for large datasets, jump directly to avoid heavy animation work
-					    view = target;
-					    zoomTo(view);
+						// for large datasets, jump directly to avoid heavy animation work
+						view = target;
+						zoomTo(view);
 					}
 
 				} catch (err) {
@@ -967,20 +975,55 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 			fitW = document.getElementById('linvis-fit-width-btn');
 			fitW.addEventListener('click', function() {
 				const target = [root.x, root.y, root.r * 2 * (diameter / width)];
-				if (nodes.length < SMOOTH_ZOOM_MAX_NODES  && typeof smoothZoomTo === 'function') {
-				    smoothZoomTo(target);
+				if (nodes.length < SMOOTH_ZOOM_MAX_NODES && typeof smoothZoomTo === 'function') {
+					smoothZoomTo(target);
 				} else {
-				    view = target;
-				    zoomTo(view);
+					view = target;
+					zoomTo(view);
 				}
 			});
 		}
+		// ------- Export SVG -------
+		let exportBtn = document.getElementById('linvis-export-svg-btn');
+		if (exportBtn) {
+			// avoid duplicate listeners by replacing node as done for other buttons
+			exportBtn.replaceWith(exportBtn.cloneNode(true));
+			exportBtn = document.getElementById('linvis-export-svg-btn');
 
+			exportBtn.addEventListener('click', function() {
+				try {
+					// ensure any cached bounding rect is up-to-date (not strictly required for export,
+					// but keeps behaviour consistent)
+					if (typeof updateSvgRectCache === 'function') updateSvgRectCache();
+
+					// Serialize the SVG DOM to a string and trigger download
+					const serializer = new XMLSerializer();
+					const svgString = serializer.serializeToString(svgNode);
+
+					// compute filename: use job/key if provided, fallback to 'linvis'
+					const jobKey = (typeof _linvis_key !== 'undefined' && _linvis_key) ? String(_linvis_key).split('/').pop() : null;
+					const filename = (jobKey ? jobKey : 'linvis') + '.svg';
+
+					const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+					const url = URL.createObjectURL(blob);
+					const a = document.createElement('a');
+					a.href = url;
+					a.download = filename;
+					document.body.appendChild(a);
+					a.click();
+					a.remove();
+					// revoke after a short time in case click hasn't started
+					setTimeout(() => URL.revokeObjectURL(url), 1000);
+				} catch (err) {
+					console.warn('LINvis: export SVG failed', err && err.message);
+				}
+			});
+		}
 	})();
 
 	// Initial render
 	zoomTo(view);
-	
+
 
 	// Diagnostics
 	console.log("LINvis: nodes:", nodes.length, "maxDepth:", maxDepth, "initial labelDepth:", labelDepth);
