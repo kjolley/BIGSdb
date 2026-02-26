@@ -42,26 +42,24 @@ sub get_attributes {
 				email       => 'keith.jolley@biology.ox.ac.uk',
 			}
 		],
-		description      => 'Dynamic hierarchical LIN code visualisation',
-		full_description => 'LINvis uses D3 hierarchical visualisations to summarise LIN code data',
-		category         => 'Analysis',
-		buttontext       => 'LINvis',
-		menutext         => 'LINvis',
-		module           => 'LINvis',
-		version          => '1.0.0',
-		dbtype           => 'isolates',
-		section          => 'third_party,postquery',
-		input            => 'query',
-		help             => 'tooltips',
-		requires         => 'offline_jobs,seqbin,lincode_scheme',
-
-		#		url                 => "$self->{'config'}->{'doclink'}/data_analysis/linvis.html",
-		order               => 20,
+		description         => 'Dynamic hierarchical LIN code visualisation',
+		full_description    => 'LINvis uses D3 circle-packing hierarchical visualisations to summarise LIN code data',
+		category            => 'Analysis',
+		buttontext          => 'LINvis',
+		menutext            => 'LINvis',
+		module              => 'LINvis',
+		version             => '1.0.0',
+		dbtype              => 'isolates',
+		section             => 'analysis,postquery',
+		input               => 'query',
+		help                => 'tooltips',
+		requires            => 'offline_jobs,seqbin,lincode_scheme',
+		url                 => "$self->{'config'}->{'doclink'}/data_analysis/linvis.html",
+		order               => 35,
 		min                 => 1,
 		max                 => $self->_get_max_records,
 		always_show_in_menu => 1,
-
-		#		image               => '/images/plugins/LINvis/screenshot.png'
+		image               => '/images/plugins/LINvis/screenshot.png'
 	};
 	return $att;
 }
@@ -72,7 +70,18 @@ sub _get_max_records {
 }
 
 sub _print_info_panel {
-
+	my ($self) = @_;
+	my $logo = '/images/plugins/LINvis/logo.png';
+	say q(<div class="box" id="resultspanel" style="min-height:180px">);
+	say q(<div style="float:left">);
+	say qq(<img src="$logo" style="height:150px;margin-right:50px;filter:drop-shadow(5px 5px 4px #888)" />);
+	say q(</div>);
+	say q(<p>LINvis displays a dataset of LIN&reg; code values as a hierarchical circle-packing visualisation.</p>);
+	say q(<p>Hovering over each node will display the partial or full LIN code associated with it and you can choose )
+	  . q(to set labels for any LIN code threshold.</p>);
+	say q(<p class="comment">LIN is a trademark registered by This Genomic Life, Inc, Floyd, VA, USA.</p>);
+	say q(</div>);
+	return;
 }
 
 sub _print_interface {
@@ -189,8 +198,8 @@ sub run {
 			my $attr = $self->get_attributes;
 			$self->set_scheme_param;
 			my $params = $q->Vars;
-			$params->{'set_id'} = $self->get_set_id;
-			$params->{'curate'} = 1 if $self->{'curate'};
+			$params->{'set_id'}      = $self->get_set_id;
+			$params->{'curate'}      = 1 if $self->{'curate'};
 			$params->{'script_name'} = $self->{'system'}->{'script_name'};
 			$q->delete($_) foreach qw(list isolate_paste_list);
 			my @dataset = $q->multi_param('itol_dataset');
@@ -251,6 +260,9 @@ sub run_job {
 			$self->{'jobManager'}->update_job_status( $job_id, { percent_complete => $progress } );
 			$last_progress = $progress;
 		}
+	}
+	if ( !$count ) {
+		BIGSdb::Exception::Plugin->throw('None of the isolates in the selected dataset have a LIN code assigned.');
 	}
 	$self->_aggregate($root);
 	$self->_cleanup($root);
