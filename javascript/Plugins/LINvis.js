@@ -88,12 +88,45 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 	try {
 		data = await loadData();
 	} catch (err) {
-
+		// ensure waiting message is hidden on failure so UI does not stay blocked
+		try { if (waiting) waiting.style.display = 'none'; } catch (e) { /* ignore */ }
 		// If NO remote job/data param was supplied,
-		// do not show an error — just show the file selector and stop.
+		// show the file selector — and if the failure was from a selected file, report the parse error to the user.
+		// If NO remote job/data param was supplied:
 		if (!hasRemoteJob) {
 			const wrapper = document.getElementById("linvis-file-wrapper");
-			if (wrapper) wrapper.style.display = "";
+			if (wrapper) {
+				wrapper.style.display = "";
+
+				const inp = wrapper.querySelector("#linvis-file");
+				const hadFile = inp && inp.files && inp.files[0];
+
+				// Only show an error if the user actually selected a file
+				if (hadFile) {
+					try {
+						const ctrl = document.querySelector('.control');
+						if (ctrl) {
+							let note = ctrl.querySelector('.linvis-error-note');
+							if (!note) {
+								note = document.createElement('div');
+								note.className = 'linvis-error-note';
+								note.style.color = '#800';
+								note.style.fontSize = '12px';
+								note.style.marginTop = '6px';
+								ctrl.appendChild(note);
+							}
+							const msgText = (err && err.message)
+								? ('Failed to parse selected JSON file: ' + err.message)
+								: 'Failed to parse selected JSON file (invalid JSON).';
+							note.textContent = msgText;
+						}
+					} catch (e) { /* ignore DOM errors */ }
+				}
+
+				// Focus file input so user can retry
+				if (inp && typeof inp.focus === "function") inp.focus();
+			}
+
 			return;
 		}
 
