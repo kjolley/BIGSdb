@@ -213,9 +213,25 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 	d3.pack().size([diameter, diameter]).padding(2)(root);
 
+	// Nodes + depth grouping
+	const nodes = root.descendants();
+	const nodesByDepth = d3.group(nodes, d => d.depth);
+	const maxDepth = d3.max(nodes, d => d.depth);
 
-	const top1Keys = (root.children || []).map(c => (c.data && c.data.name) ? c.data.name : String(c.index));
-	const top1Palette = d3.scaleOrdinal(d3.schemePastel1).domain(top1Keys);
+	// Determine which depth to use as the "colour anchor".
+	// Normally this is depth 1 (top-level groups). If root has only one child,
+	// find the first depth with more than one node and use that instead.
+	let colorAnchorDepth = 1;
+	if ((root.children || []).length <= 1) {
+		for (let d = 1; d <= Math.max(1, maxDepth); d++) {
+			const arr = nodesByDepth.get(d) || [];
+			if (arr.length > 1) { colorAnchorDepth = d; break; }
+		}
+	}
+
+	// Build palette keys for the chosen anchor depth (colorAnchorDepth).
+	const topKeys = (nodesByDepth.get(colorAnchorDepth) || []).map(c => (c.data && c.data.name) ? c.data.name : String(c.index));
+	const top1Palette = d3.scaleOrdinal(d3.schemePastel1).domain(topKeys);
 
 	// Prepare container / SVG
 	const container = d3.select("#linvis_chart");
@@ -266,10 +282,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 	ringLayer.style("pointer-events", "none");
 	labelLayer.style("pointer-events", "none");
 
-	// Nodes + depth grouping
-	const nodes = root.descendants();
-	const nodesByDepth = d3.group(nodes, d => d.depth);
-	const maxDepth = d3.max(nodes, d => d.depth);
+
 
 	// Depth input
 	const depthInput = document.getElementById("depth");
@@ -721,12 +734,12 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 			// stroke width
 			let strokeW = Math.max(0.45, Math.min(1.0, displayR / DEFAULT_STROKE_FACTOR));
 
-			// determine top-level ancestor (depth 1). If none (e.g. root), topAncestor stays null
+			// determine the ancestor at the colour anchor depth (colorAnchorDepth). If none (e.g. root), topAncestor stays null
 			let topAncestor = null;
-			if (d.depth >= 1) {
+			if (d.depth >= colorAnchorDepth) {
 				let t = d;
-				while (t && t.depth > 1) t = t.parent;
-				if (t && t.depth === 1) topAncestor = t;
+				while (t && t.depth > colorAnchorDepth) t = t.parent;
+				if (t && t.depth === colorAnchorDepth) topAncestor = t;
 			}
 
 			// base fill/stroke decision:
@@ -736,14 +749,14 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 			if (topAncestor) {
 				const key = (topAncestor.data && topAncestor.data.name) ? topAncestor.data.name : String(topAncestor.index);
 				const base = top1Palette(key);
-				const depthDelta = d.depth - 1;
+				const depthDelta = d.depth - colorAnchorDepth;
 				const darkPerLevel = 0.15;
 				const c = d3.color(base);
-				const fillC = (depthDelta === 0) ? c : c.darker(depthDelta * darkPerLevel);
-				const strokeC = d3.color(fillC).darker(Math.max(0.2, depthDelta * darkPerLevel * 0.6));
-				fillColor = fillC.formatHex ? fillC.formatHex() : fillC.toString();
-				strokeColor = strokeC.formatHex ? strokeC.formatHex() : strokeC.toString();
-				if (d.depth === 1) strokeW = Math.max(0.9, strokeW);
+				const fillC = (depthDelta === 0) ? c : c.darker(Math.max(0, depthDelta * darkPerLevel));
+				const strokeC = d3.color(fillC).darker(Math.max(0.2, Math.abs(depthDelta) * darkPerLevel * 0.6));
+				fillColor = fillC && (fillC.formatHex ? fillC.formatHex() : fillC.toString());
+				strokeColor = strokeC && (strokeC.formatHex ? strokeC.formatHex() : strokeC.toString());
+				if (d.depth === colorAnchorDepth) strokeW = Math.max(0.9, strokeW);
 			} else {
 				fillColor = d.children ? "#e7eef8" : "#fff";
 			}
