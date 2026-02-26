@@ -623,11 +623,20 @@ Version 1.0.0.
         // register pointer for multi-pointer gestures
         pointers.set(ev.pointerId, ev);
 
-        // handle mouse/pen/primary-button drag start
+        // ignore non-primary mouse buttons
         if (ev.button !== 0 && ev.pointerType === 'mouse') return;
-        dragging = true;
-        try { svgNode.setPointerCapture(ev.pointerId); } catch (e) { /* ignore */ }
-        dragStart = { clientX: ev.clientX, clientY: ev.clientY, view: view.slice() };
+
+        // Start a primary drag only when this is the first active pointer.
+        // If a second pointer is placed, cancel the primary drag (enables pinch).
+        if (pointers.size === 1) {
+            dragging = true;
+            try { svgNode.setPointerCapture(ev.pointerId); } catch (e) { /* ignore */ }
+            dragStart = { clientX: ev.clientX, clientY: ev.clientY, view: view.slice(), pointerId: ev.pointerId };
+        } else {
+            // multi-pointer gesture in progress — ensure no single-pointer drag is active
+            dragging = false;
+            dragStart = null;
+        }
     });
     svgNode.addEventListener('pointermove', function(ev) {
         if (!dragging || !dragStart) return;
