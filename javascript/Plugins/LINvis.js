@@ -569,10 +569,16 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 	// Drag panning
 	let dragging = false;
 	let dragStart = null;
+	// consolidated pointerdown: begin drag *and* register pointer for pinch gestures
+	let lastPinchDist = null; // local pinch state
 	svgNode.addEventListener('pointerdown', function(ev) {
+		// register pointer for multi-pointer gestures
+		pointers.set(ev.pointerId, ev);
+
+		// handle mouse/pen/primary-button drag start
 		if (ev.button !== 0 && ev.pointerType === 'mouse') return;
 		dragging = true;
-		try { svgNode.setPointerCapture(ev.pointerId); } catch (e) { }
+		try { svgNode.setPointerCapture(ev.pointerId); } catch (e) { /* ignore */ }
 		dragStart = { clientX: ev.clientX, clientY: ev.clientY, view: view.slice() };
 	});
 	svgNode.addEventListener('pointermove', function(ev) {
@@ -599,7 +605,6 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 	// Pinch support (consolidated)
 	const pointers = new Map();
-	svgNode.addEventListener('pointerdown', ev => pointers.set(ev.pointerId, ev));
 	svgNode.addEventListener('pointermove', ev => {
 		// update pointer record if present
 		if (pointers.has(ev.pointerId)) pointers.set(ev.pointerId, ev);
@@ -610,8 +615,8 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 			const a = it.next().value, b = it.next().value;
 			const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
 
-			if (!svg._lastPinchDist) {
-				svg._lastPinchDist = dist;
+			if (!lastPinchDist) {
+				lastPinchDist = dist;
 				return;
 			}
 			// factor >1 => zoom out; factor <1 => zoom in (match previous behaviour)
@@ -625,17 +630,16 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 			const newView = computeViewForClientCenter(centerX, centerY, factor, view);
 			view = newView;
 			zoomTo(view);
-
-			svg._lastPinchDist = dist;
+			lastPinchDist = dist;
 		}
 	});
 	svgNode.addEventListener('pointerup', ev => {
 		pointers.delete(ev.pointerId);
-		if (pointers.size < 2) delete svg._lastPinchDist;
+		if (pointers.size < 2) lastPinchDist = null;
 	});
 	svgNode.addEventListener('pointercancel', ev => {
 		pointers.delete(ev.pointerId);
-		if (pointers.size < 2) delete svg._lastPinchDist;
+		if (pointers.size < 2) lastPinchDist = null;
 	});
 
 	function zoomTo(v) {
