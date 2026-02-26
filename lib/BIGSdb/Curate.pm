@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -69,6 +69,7 @@ use BIGSdb::IDList;
 use BIGSdb::LocusInfoPage;
 use BIGSdb::JobViewerPage;
 use BIGSdb::PluginSummaryPage;
+use BIGSdb::PluginViewerPage;
 use BIGSdb::RefreshBlastCachePage;
 use BIGSdb::RefreshSchemeCachePage;
 use BIGSdb::SchemeInfoPage;
@@ -137,6 +138,7 @@ sub print_page {
 		options               => 'OptionsPage',
 		plugin                => 'Plugin',
 		pluginSummary         => 'PluginSummaryPage',
+		pluginViewer => 'PluginViewerPage',
 		profileAdd            => 'CurateProfileAddPage',
 		profileBatchAdd       => 'CurateProfileBatchAddPage',
 		profileInfo           => 'ProfileInfoPage',

@@ -60,6 +60,7 @@ use BIGSdb::LocusInfoPage;
 use BIGSdb::Login;
 use BIGSdb::OptionsPage;
 use BIGSdb::PluginSummaryPage;
+use BIGSdb::PluginViewerPage;
 use BIGSdb::PrivateRecordsPage;
 use BIGSdb::ProfileInfoPage;
 use BIGSdb::ProfileQueryPage;
@@ -490,6 +491,7 @@ sub print_page {
 		query              => $query_page,
 		resetPassword      => 'UserRegistrationPage',
 		plugin             => 'Plugin',
+		pluginViewer => 'PluginViewerPage',
 		privateRecords     => 'PrivateRecordsPage',
 		profileInfo        => 'ProfileInfoPage',
 		profiles           => 'CombinationQueryPage',
