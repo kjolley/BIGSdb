@@ -24,7 +24,7 @@ use 5.010;
 use parent qw(BIGSdb::Plugins::ITOL);
 use BIGSdb::Exceptions;
 use List::MoreUtils qw(uniq);
-use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
+use Archive::Zip    qw( :ERROR_CODES :CONSTANTS );
 
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -296,10 +296,11 @@ sub run_job {
 	my $isolate_ids      = $self->{'jobManager'}->get_job_isolates($job_id);
 	my $locus_thresholds = $self->{'datastore'}
 	  ->run_query( 'SELECT thresholds FROM lincode_schemes WHERE scheme_id=?', $params->{'scheme_id'} );
-	my @locus_thresholds = split /\s*;\s*/x, $locus_thresholds;
-	if ( !@locus_thresholds ) {
+	if ( !$locus_thresholds ) {
 		BIGSdb::Exception::Plugin->throw('No thresholds found for LIN code scheme.');
 	}
+	my @locus_thresholds = split /\s*;\s*/x, $locus_thresholds;
+
 	my $locus_count = $self->{'datastore'}
 	  ->run_query( 'SELECT COUNT(*) FROM scheme_members WHERE scheme_id=?', $params->{'scheme_id'} );
 	if ( !$locus_count ) {
