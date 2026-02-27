@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2024, University of Oxford
+#Copyright (c) 2017-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -30,7 +30,7 @@ use JSON;
 use Data::Random qw(rand_chars);
 use Digest::MD5;
 use Log::Log4perl qw(get_logger);
-my $logger = get_logger('BIGSdb.Application_Authentication');
+my $logger = get_logger('BIGSdb.ContigManager');
 
 sub new {
 	my ( $class, @atr ) = @_;
