@@ -307,8 +307,7 @@ Version 1.0.0.
 					// reuse existing depth change handler
 					onDepthChange();
 				}
-				// keep focus for keyboard users
-				try { depthInput.focus(); } catch (e) { }
+				// do NOT focus the input here — avoiding focus prevents the on-screen keyboard on mobile
 			}
 
 			if (decr) {
