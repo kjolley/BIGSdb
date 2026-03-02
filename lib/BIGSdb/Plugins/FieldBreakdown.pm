@@ -48,7 +48,7 @@ sub get_attributes {
 		buttontext => 'Fields',
 		menutext   => 'Field breakdown',
 		module     => 'FieldBreakdown',
-		version    => '2.10.0',
+		version    => '2.10.1',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
@@ -382,6 +382,7 @@ sub run {
 	$self->_print_map_controls;
 	$self->_print_geography_controls;
 	$self->_print_pie_controls;
+	$self->_print_treemap_controls;
 	$self->_print_bar_controls;
 	$self->_print_line_controls;
 	say q(<div style="clear:both"></div>);
@@ -527,6 +528,17 @@ sub _print_pie_controls {
 	say q(<li><label for="segments">Max segments:</label>);
 	say q(<div id="segments" style="display:inline-block;width:8em;margin-left:0.5em"></div>);
 	say q(<div id="segments_display" style="display:inline-block;width:3em;margin-left:1em"></div></li>);
+	$self->_print_chart_types;
+	say q(</ul></fieldset>);
+	return;
+}
+
+sub _print_treemap_controls {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	say q(<fieldset id="treemap_controls" class="bb_controls" )
+	  . q(style="position:absolute;top:1em;right:1em;display:none"><legend>Controls</legend>);
+	say q(<ul>);
 	$self->_print_chart_types;
 	say q(</ul></fieldset>);
 	return;

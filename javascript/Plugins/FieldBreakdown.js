@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 
-Version 2.10.0.
+Version 2.10.1.
 */
 
 var prefs_loaded;
@@ -429,6 +429,7 @@ function finished_map(url, field) {
     $("#bar_controls").css("display", "none");
     $("#line_controls").css("display", "none");
     $("#pie_controls").css("display", "none");
+	$("#treemap_controls").css("display", "none");
     $(".transform_to_pie").css("display", "inline");
     $(".transform_to_donut").css("display", "inline");
     $(".transform_to_treemap").css("display", "inline");
@@ -466,6 +467,7 @@ function load_pie(url, field, max_segments) {
     $("#bar_controls").css("display", "none");
     $("#line_controls").css("display", "none");
     $("#map_controls").css("display", "none");
+	$("#treemap_controls").css("display", "none");
     $("#geography_controls").css("display", "none");
     if (typeof field == 'undefined') {
         return;
@@ -661,6 +663,8 @@ function pie_json_to_cols(jsonData, segments) {
 
 function load_treemap(url, field) {
     $("#bar_controls").css("display", "none");
+	$("#pie_controls").css("display", "none");
+	$("#treemap_controls").css("display", "block");
     $("#line_controls").css("display", "none");
     $("#map_controls").css("display", "none");
     $("#geography_controls").css("display", "none");
@@ -749,7 +753,6 @@ function load_treemap(url, field) {
         $(".transform_to_treemap").css("display", "none");
         $(".transform_to_bar").css("display", "none");
         $(".transform_to_line").css("display", "none");
-        $("#pie_controls").css("display", "block");
         show_export_options();
         $("div#waiting").css("display", "none");
     }, function(error) {
@@ -779,6 +782,7 @@ function clean_field(field) {
 function load_line(url, field, cumulative) {
     $("#bar_controls").css("display", "none");
     $("#pie_controls").css("display", "none");
+	$("#treemap_controls").css("display", "none");
     $("#map_controls").css("display", "none");
     $("#geography_controls").css("display", "none");
     $(".transform_to_map").css("display", "none");
