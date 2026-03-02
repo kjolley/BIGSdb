@@ -56,6 +56,10 @@
 	input[type="number"] {
 		width: 56px;
 	}
+	/* hide native number input spinners (desktop) so explicit buttons are used */
+	input[type="number"]::-webkit-inner-spin-button,
+	input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+	input[type="number"] { -moz-appearance: textfield; }
 
 	div#waiting {
 		display: none;
@@ -76,7 +80,12 @@
 			<button id="linvis-fit-width-btn" type="button" style="margin-left:6px;"><span class="fas fa-arrows-h"></span> Fit width</button>
 			<button id="linvis-export-svg-btn" type="button" style="margin-left:6px;"><span class="fas fa-download"></span> Export SVG</button>
 		</p>
-		<p>Label depth: <input id="depth" type="number" min="0" value="1" /></p>
+		<p>
+		  Label depth:
+		  <button id="depth-decr" type="button" aria-label="Decrease depth" style="margin-left:8px;"><span class="fas fa-minus"></span></button>
+		  <input id="depth" type="number" min="0" value="1" style="width:56px; text-align:center; margin:0" />
+		  <button id="depth-incr" type="button" aria-label="Increase depth"><span class="fas fa-plus"></span></button>
+		</p>
 		<div id="waiting"><p>Rendering. Please wait...</p></div>
 	</div>
 	

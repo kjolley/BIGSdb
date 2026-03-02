@@ -1,3 +1,8 @@
+v1.52.1: *New LINtree plugin - generate trees from LIN code profiles.
+         *Add treemap visualisations to Field Breakdown plugin.
+         *New LINvis plugin - visualise LIN code datasets using a dynamic
+          circle packing algorithm.
+         *Option to use non-Docker installation of PlasmidFinder.
 v1.52.0: *Option to hide scheme curators on information page.
          *LIN code section added to database status page.
          *LIN code output now included in API isolate record.
