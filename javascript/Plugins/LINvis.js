@@ -94,7 +94,6 @@ Version 1.0.0.
 		try { if (waiting) waiting.style.display = 'none'; } catch (e) { /* ignore */ }
 		// If NO remote job/data param was supplied,
 		// show the file selector — and if the failure was from a selected file, report the parse error to the user.
-		// If NO remote job/data param was supplied:
 		if (!hasRemoteJob) {
 			const wrapper = document.getElementById("linvis-file-wrapper");
 			if (wrapper) {
