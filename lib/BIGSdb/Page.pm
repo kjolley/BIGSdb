@@ -681,15 +681,18 @@ sub print_page_content {
 			  );
 			$self->{'setOptions'} = 1;
 		}
-		if ( $self->{"$self->{'instance'}_no_cache_loci_schemes"} || ( ( scalar $q->param('page') // q() ) eq 'index' && $q->param('reset') ) ) {
+		if ( $self->{"$self->{'instance'}_no_cache_loci_schemes"}
+			|| ( ( scalar $q->param('page') // q() ) eq 'index' && $q->param('reset') ) )
+		{
 			my $guid = $self->get_guid;
-			push @{ $self->{'cookies'} }, $q->cookie(
+			push @{ $self->{'cookies'} },
+			  $q->cookie(
 				-name     => "$self->{'instance'}_no_cache_loci_schemes",
 				-value    => 1,
 				-expires  => '+1h',
 				-httponly => 1,
 				-secure   => $self->{'config'}->{'secure_cookies'} ? 1 : 0
-			);
+			  );
 		}
 	}
 	my %header_options;
@@ -718,8 +721,11 @@ sub print_page_content {
 		);
 		$header_options{'-type'}       = $mime_type{ $self->{'type'} }  // 'text/plain';
 		$header_options{'-attachment'} = $attachment{ $self->{'type'} } // $self->{'attachment'} // undef;
-		my %utf8_types = map { $_ => 1 } qw(no_header text json gff3);
-		binmode STDOUT, ':encoding(utf8)' if $utf8_types{ $self->{'type'} };
+		my %utf8_types = map { $_ => 1 } qw(no_header text json gff3 html);
+		if ( $utf8_types{ $self->{'type'} } ) {
+			$header_options{'-charset'} = 'utf-8';
+			binmode STDOUT, ':encoding(utf8)';
+		}
 		print $q->header( \%header_options );
 		$self->print_content;
 	} else {

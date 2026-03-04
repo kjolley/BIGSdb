@@ -35,6 +35,7 @@ use lib (LIB_DIR);
 use BIGSdb::Offline::Script;
 use BIGSdb::Constants qw(LOG_TO_SCREEN :limits);
 use JSON;
+use Encode qw(decode_utf8);
 use Term::Cap;
 use POSIX;
 use File::Path qw(rmtree);
@@ -214,7 +215,7 @@ sub check_db {
 
 sub extract_results {
 	my ($filename) = @_;
-	open( my $fh, '<', $filename ) || $logger->error("Cannot open $filename for reading");
+	open( my $fh, '<:encoding(utf8)', $filename ) || $logger->error("Cannot open $filename for reading");
 	my $header_line = <$fh>;
 	chomp $header_line;
 	my $results_line = <$fh>;
@@ -247,12 +248,14 @@ sub store_results {
 	}
 	my $version = get_kleborate_version($script);
 	chomp $version;
-	my $json = encode_json( { version => $version, fields => $cleaned_results } );
+
+	my $json      = encode_json( { version => $version, fields => $cleaned_results } );
+	my $json_text = decode_utf8($json);
 	eval {
 		$script->{'db'}
 		  ->do( 'DELETE FROM analysis_results WHERE (isolate_id,name)=(?,?)', undef, $isolate_id, MODULE_NAME );
 		$script->{'db'}->do( 'INSERT INTO analysis_results (name,isolate_id,results) VALUES (?,?,?)',
-			undef, MODULE_NAME, $isolate_id, $json );
+			undef, MODULE_NAME, $isolate_id, $json_text );
 	};
 	if ($@) {
 		$logger->error($@);

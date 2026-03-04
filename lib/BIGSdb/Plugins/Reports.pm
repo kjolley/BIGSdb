@@ -1,6 +1,6 @@
 #Reports.pm - Isolate report plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2023-2025, University of Oxford
+#Copyright (c) 2023-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -451,10 +451,14 @@ sub _get_analysis_results {
 	my ( $self, $isolate_id ) = @_;
 	my $data = $self->{'datastore'}->run_query( 'SELECT * FROM analysis_results WHERE isolate_id=?',
 		$isolate_id, { fetch => 'all_arrayref', slice => {} } );
+		
 	my $results = {};
+	my $json_char_decoder = JSON->new->utf8(0);   # operate in character (not byte) mode
 	foreach my $analysis (@$data) {
+		my $json_text = $analysis->{'results'};               # Perl character string
+        my $decoded  = $json_char_decoder->decode($json_text);
 		$results->{ $analysis->{'name'} } = {
-			results   => decode_json( $analysis->{'results'} ),
+			results   =>$decoded,
 			datestamp => $analysis->{'datestamp'}
 		};
 	}

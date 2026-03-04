@@ -24,6 +24,7 @@ use 5.010;
 use parent          qw(BIGSdb::Plugin);
 use List::MoreUtils qw(uniq);
 use JSON;
+use Encode qw(decode_utf8);
 use File::Path    qw(rmtree);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -435,11 +436,12 @@ sub _store_results {
 	my $version = $self->_get_kleborate_version;
 	chomp $version;
 	my $json = encode_json( { version => $version, fields => $cleaned_results } );
+	my $json_text = decode_utf8($json);
 	eval {
 		$self->{'db'}
 		  ->do( 'DELETE FROM analysis_results WHERE (isolate_id,name)=(?,?)', undef, $isolate_id, $att->{'module'} );
 		$self->{'db'}->do( 'INSERT INTO analysis_results (name,isolate_id,results) VALUES (?,?,?)',
-			undef, $att->{'module'}, $isolate_id, $json );
+			undef, $att->{'module'}, $isolate_id, $json_text );
 		$self->{'db'}->do(
 			'INSERT INTO last_run (name,isolate_id) VALUES (?,?) ON '
 			  . 'CONFLICT (name,isolate_id) DO UPDATE SET timestamp = now()',
