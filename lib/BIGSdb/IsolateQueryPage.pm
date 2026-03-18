@@ -3018,7 +3018,7 @@ sub _get_allele_designations_by_locus_attributes {
 			&& defined $q->param("designation_value$i")
 			&& $q->param("designation_value$i") ne q() )
 		{
-			if ( $q->param("designation_field$i") =~ /^lex_([\-_'\w]+)\|\|(.*)/x ) {
+			if ( $q->param("designation_field$i") =~ /^lex_([\-_'\w]+)\|_\|(.*)/x ) {
 				my ( $locus, $field ) = ( $1, $2 );
 				my $att_table =
 				  $self->{'datastore'}->create_temp_locus_extended_attribute_table( { set_id => $set_id } );

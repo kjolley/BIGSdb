@@ -1833,11 +1833,15 @@ sub create_temp_locus_extended_attribute_table {
 		my $db              = $locus_obj->{'db'};
 		next if !defined $db;
 		my $values;
+		my $loci = $self->run_query( 'SELECT id FROM loci WHERE dbase_name=?', $db_name, { fetch => 'col_arrayref' } );
+		my $temp_table = $self->create_temp_list_table_from_array( 'text', $loci, { db => $db } );
 		eval {
-			$values =
-			  $self->run_query(
-				'SELECT locus,field,value_format FROM locus_extended_attributes ORDER BY locus,field_order',
-				undef, { db => $db, fetch => 'all_arrayref', slice => {} } );
+			$values = $self->run_query(
+				"SELECT ea.locus,ea.field,ea.value_format FROM locus_extended_attributes ea JOIN $temp_table "
+				  . 't ON ea.locus=t.value ORDER BY ea.locus,ea.field_order',
+				undef,
+				{ db => $db, fetch => 'all_arrayref', slice => {} }
+			);
 		};
 		if ($@) {
 			$logger->error($@);
