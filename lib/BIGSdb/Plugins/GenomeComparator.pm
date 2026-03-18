@@ -1,6 +1,6 @@
 #GenomeComparator.pm - Genome comparison plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2025, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -78,7 +78,8 @@ int count_differences(SV* i_design_ref, SV* j_design_ref, SV* loci_ref, SV* igno
     int count = 0;
     int len = av_len(loci) + 1;
 
-    for (int i = 0; i < len; i++) {
+    int i; // Declare outside of loop to support older compilers.
+    for (i = 0; i < len; i++) {
         SV** sv = av_fetch(loci, i, 0);
         if (!sv) continue;
         char* locus = SvPV_nolen(*sv);
@@ -173,7 +174,7 @@ sub get_attributes {
 		buttontext  => 'Genome Comparator',
 		menutext    => 'Genome comparator',
 		module      => 'GenomeComparator',
-		version     => '2.10.1',
+		version     => '2.10.2',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/genome_comparator.html",
