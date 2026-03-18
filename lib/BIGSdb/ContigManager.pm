@@ -126,7 +126,7 @@ sub get_remote_contig {
 		return $self->{'cache'}->{'remote_contig'}->{$uri};
 	}
 	my $contig = $self->_get_remote_record( $base_uri, $uri );
-	if (!length $contig->{'sequence'}){
+	if (!defined $contig->{'sequence'} || !length $contig->{'sequence'}){
 		$logger->error("$self->{'instance'}: Contig from $uri has no sequence.");
 	}
 	my $length = length $contig->{'sequence'};
