@@ -1,6 +1,6 @@
 #BLAST.pm - BLAST plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2025, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -116,7 +116,7 @@ sub get_attributes {
 		buttontext  => 'BLAST',
 		menutext    => 'BLAST',
 		module      => 'BLAST',
-		version     => '1.7.0',
+		version     => '1.7.1',
 		dbtype      => 'isolates',
 		section     => 'analysis,postquery',
 		input       => 'query',
@@ -674,7 +674,7 @@ sub _print_interface {
 		$selected_ids = [];
 	}
 	say q(<div class="box" id="queryform">);
-	say q(<p>Please select the required isolate ids to BLAST against (use CTRL or SHIFT to make multiple selections) )
+	say q(<p>Please select the required isolate ids to BLAST against )
 	  . q(and paste in your query sequence.  Nucleotide or peptide sequences can be queried.</p>);
 	say $q->start_form;
 	say q(<div class="scrollable">);

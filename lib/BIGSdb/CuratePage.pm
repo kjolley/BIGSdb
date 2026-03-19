@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -22,7 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Page);
 use BIGSdb::Utils;
-use Log::Log4perl qw(get_logger);
+use Log::Log4perl   qw(get_logger);
 use List::MoreUtils qw(any);
 my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Constants qw(SEQ_FLAGS ALLELE_FLAGS DATABANKS SCHEME_FLAGS);
@@ -971,7 +971,7 @@ sub _create_extra_fields_for_schemes {    ## no critic (ProhibitUnusedPrivateSub
 		-multiple => 'multiple',
 		-default  => $current_flags,
 	);
-	$buffer .= q( <span class="comment">Use CTRL/SHIFT click to select or deselect values</span></li>);
+	$buffer .= q(</li>);
 	$buffer .= qq(<li><label for="pubmed" class="form" style="width:${width}em">PubMed ids:&nbsp;</label>);
 	local $" = qq(\n);
 	$buffer .=

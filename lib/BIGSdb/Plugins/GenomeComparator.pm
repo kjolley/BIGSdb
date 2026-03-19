@@ -31,7 +31,7 @@ use Bio::AlignIO;
 use Bio::DB::GenBank;
 use Bio::Seq;
 use Bio::SeqIO;
-use IO::Uncompress::Unzip qw(unzip $UnzipError);
+use IO::Uncompress::Unzip  qw(unzip $UnzipError);
 use IO::Uncompress::Gunzip qw(gunzip $GunzipError);
 use Archive::Tar;
 use IO::String;
@@ -349,9 +349,9 @@ sub _print_interface {
 	}
 	$self->print_scheme_selection_banner;
 	$self->print_set_section if $q->param('select_sets');
-	say q(<div class="box" id="queryform"><p>Please select the required isolate ids and loci for comparison - )
-	  . q(use CTRL or SHIFT to make multiple selections in list boxes. In addition to selecting individual loci, )
-	  . q(you can choose to include all loci defined in schemes by selecting the appropriate scheme description. )
+	say q(<div class="box" id="queryform"><p>Please select the required isolate ids and loci for comparison. )
+	  . q(In addition to selecting individual loci, you can choose to include all loci defined in schemes by )
+	  . q(selecting the appropriate scheme description. )
 	  . q(Alternatively, you can enter the accession number for an annotated reference genome and compare using )
 	  . q(the loci defined in that.</p>);
 	say $q->start_form;
@@ -759,7 +759,8 @@ sub process_uploaded_genomes {
 					my $seq = $seq_object->seq // '';
 					$seq =~ s/[\-\.\s]//gx;
 					push @{ $user_genomes->{$genome_name} }, { id => $seq_object->id, seq => $seq };
-#					$self->{'user_genomes'}->{$genome_name} = $seq_object->id;
+
+					#					$self->{'user_genomes'}->{$genome_name} = $seq_object->id;
 				}
 			} catch {
 				BIGSdb::Exception::Plugin->throw("File $fasta_file in uploaded zip is not valid FASTA format.");
@@ -809,7 +810,8 @@ sub process_uploaded_genomes {
 				my $seq = $seq_object->seq // '';
 				$seq =~ s/[\-\.\s]//gx;
 				push @{ $user_genomes->{$genome_name} }, { id => $seq_object->id, seq => $seq };
-#				$self->{'user_genomes'}->{$genome_name} = $seq_object->id;
+
+				#				$self->{'user_genomes'}->{$genome_name} = $seq_object->id;
 			}
 		} catch {
 			BIGSdb::Exception::Plugin->throw('User genome file is not valid FASTA format.');
@@ -2312,7 +2314,7 @@ sub assemble_data_for_reference_genome {
 	$params->{$_} = $self->{'params'}->{$_} foreach keys %{ $self->{'params'} };
 	$params->{'user_genomes'} = $user_genomes if $user_genomes;
 	my $data = $self->_run_helper($params);
-	$self->_touch_output_files("$job_id*");               #Prevents premature deletion by cleanup scripts
+	$self->_touch_output_files("$job_id*");    #Prevents premature deletion by cleanup scripts
 	unlink $isolate_list;
 	return $data;
 }
@@ -2328,7 +2330,7 @@ sub _run_helper {
 			job_id             => $params->{'job_id'},
 			logger             => $logger,
 			config             => $self->{'config'},
-			seq_type => $params->{'seq_type'},
+			seq_type           => $params->{'seq_type'},
 			job_manager_params => {
 				host     => $self->{'jobManager'}->{'host'},
 				port     => $self->{'jobManager'}->{'port'},

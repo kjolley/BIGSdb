@@ -1,6 +1,6 @@
 #GenePresence.pm - Gene presence/absence plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2025, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,9 +21,9 @@ package BIGSdb::Plugins::GenePresence;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugins::GenomeComparator);
+use parent          qw(BIGSdb::Plugins::GenomeComparator);
 use List::MoreUtils qw(uniq);
-use Log::Log4perl qw(get_logger);
+use Log::Log4perl   qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_RECORDS        => 500_000;
 use constant MAX_TAXA           => 10_000;
@@ -54,7 +54,7 @@ sub get_attributes {
 		menutext   => 'Gene presence',
 		module     => 'GenePresence',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/gene_presence.html",
-		version    => '2.3.0',
+		version    => '2.3.1',
 		dbtype     => 'isolates',
 		section    => 'analysis,postquery',
 		input      => 'query',
@@ -81,9 +81,9 @@ sub _print_interface {
 		$selected_ids = [];
 	}
 	$self->print_set_section if $q->param('select_sets');
-	say q(<div class="box" id="queryform"><p>Please select the required isolate ids and loci for comparison - )
-	  . q(use CTRL or SHIFT to make multiple selections in list boxes. In addition to selecting individual loci, )
-	  . q(you can choose to include all loci defined in schemes by selecting the appropriate scheme description.</p>);
+	say q(<div class="box" id="queryform"><p>Please select the required isolate ids and loci for comparison. )
+	  . q(In addition to selecting individual loci, you can choose to include all loci defined in schemes by )
+	  . q(selecting the appropriate scheme description.</p>);
 	my $max_records = $self->{'system'}->{'genepresence_record_limit'}
 	  // $self->{'config'}->{'genepresence_record_limit'} // MAX_RECORDS;
 	$max_records = MAX_RECORDS if !BIGSdb::Utils::is_int($max_records);
