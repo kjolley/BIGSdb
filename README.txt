@@ -1,3 +1,5 @@
+v1.52.2: *Fix utf-8 encoding in Kleborate data.
+         *Fix querying isolates by locus extended attributes.
 v1.52.1: *New LINtree plugin - generate trees from LIN code profiles.
          *Add treemap visualisations to Field Breakdown plugin.
          *New LINvis plugin - visualise LIN code datasets using a dynamic
