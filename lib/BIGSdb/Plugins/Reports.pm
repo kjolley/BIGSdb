@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext      => 'Reports',
 		menutext        => 'Reports',
 		module          => 'Reports',
-		version         => '1.1.0',
+		version         => '1.1.1',
 		dbtype          => 'isolates',
 		section         => 'isolate_info',
 		input           => '',
@@ -129,9 +129,10 @@ sub _encode_image_dir {
 	my $images = {};
 	opendir( my $dh, $dir ) or $logger->error("Cannot open $dir: $!");
 	while ( my $file = readdir $dh ) {
-		next if $file =~ /^\./x;    # skip . and ..
+		next if $file     =~ /^\./x;            # skip . and ..
+		next unless $file =~ /\.(png|jpg)$/x;
 		my $path = "$dir/$file";
-		next unless -f $path;       # only files
+		next unless -f $path;                   # only files
 		my $contents = BIGSdb::Utils::slurp($path);
 		my $b64      = encode_base64($$contents);
 		( my $key = $file ) =~ s/\s/_/gx;
@@ -451,14 +452,14 @@ sub _get_analysis_results {
 	my ( $self, $isolate_id ) = @_;
 	my $data = $self->{'datastore'}->run_query( 'SELECT * FROM analysis_results WHERE isolate_id=?',
 		$isolate_id, { fetch => 'all_arrayref', slice => {} } );
-		
-	my $results = {};
-	my $json_char_decoder = JSON->new->utf8(0);   # operate in character (not byte) mode
+
+	my $results           = {};
+	my $json_char_decoder = JSON->new->utf8(0);    # operate in character (not byte) mode
 	foreach my $analysis (@$data) {
-		my $json_text = $analysis->{'results'};               # Perl character string
-        my $decoded  = $json_char_decoder->decode($json_text);
+		my $json_text = $analysis->{'results'};                   # Perl character string
+		my $decoded   = $json_char_decoder->decode($json_text);
 		$results->{ $analysis->{'name'} } = {
-			results   =>$decoded,
+			results   => $decoded,
 			datestamp => $analysis->{'datestamp'}
 		};
 	}
