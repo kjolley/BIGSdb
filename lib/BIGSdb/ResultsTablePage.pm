@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2025, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -29,7 +29,7 @@ use Email::Sender::Transport::SMTP;
 use Email::Sender::Simple qw(try_to_sendmail);
 use Email::MIME;
 use BIGSdb::Constants qw(:interface DEFAULT_DOMAIN DATABANKS);
-use Log::Log4perl qw(get_logger);
+use Log::Log4perl     qw(get_logger);
 use constant LOCUS_LIMIT_TO_USE_CACHE => 100;
 my $logger = get_logger('BIGSdb.Page');
 
@@ -191,6 +191,24 @@ sub _print_results_header {
 		$self->print_additional_headerbar_functions($passed_qry_file);
 	} else {
 		say q(<p>No records found!</p>);
+		my $q = $self->{'cgi'};
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'temp_view' && !$q->param('include_old') ) {
+			my $hidden_attributes = $self->get_hidden_attributes;
+			say q(<p>Records may be hidden if there are newer versions. )
+			  . q(Try repeating the query including old record versions.</p>);
+
+			say $q->start_form;
+			say $q->hidden($_) foreach qw (db table page);
+			say $q->hidden( include_old => 'on' );
+
+			#Using print instead of say prevents blank line if attribute not set.
+			foreach my $att (@$hidden_attributes) {
+				next if $att eq 'include_old';
+				print $q->hidden($att);
+			}
+			say $q->submit( -name => 'submit', -label => 'Include old versions', -class => 'small_submit' );
+			say $q->end_form;
+		}
 	}
 	if ( $self->{'prefs'}->{'pagebar'} =~ /top/
 		&& ( $currentpage > 1 || $currentpage < $totalpages ) )
@@ -2425,8 +2443,7 @@ sub add_bookmark {
 		return;
 	}
 	my $params = { %{ $q->Vars } };    #Don't nobble original contents
-	delete $params->{$_}
-	  foreach (qw(add_bookmark records currentpage lastpage table query_file bookmark db page));
+	delete $params->{$_} foreach (qw(add_bookmark records currentpage lastpage table query_file bookmark db page));
 	foreach my $param ( keys %$params ) {
 		if ( $params->{$param} eq q() ) {
 			delete $params->{$param};
