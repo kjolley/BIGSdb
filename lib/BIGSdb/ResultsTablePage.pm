@@ -191,6 +191,11 @@ sub _print_results_header {
 		$self->print_additional_headerbar_functions($passed_qry_file);
 	} else {
 		say q(<p>No records found!</p>);
+		my $restrict_date = $self->{'datastore'}->get_date_restriction;
+		if ( !$self->{'username'} && $restrict_date ) {
+			say qq(<p>You need to <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=login" target="_blank">log in</a> to see records submitted after $restrict_date.</p>);
+		}
 		my $q = $self->{'cgi'};
 		if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'temp_view' && !$q->param('include_old') ) {
 			my $hidden_attributes = $self->get_hidden_attributes;
