@@ -58,7 +58,7 @@ sub get_attributes {
 		buttontext => 'iTOL',
 		menutext   => 'iTOL',
 		module     => 'ITOL',
-		version    => '1.9.2',
+		version    => '1.10.0',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
@@ -95,11 +95,18 @@ sub run {
 	}
 	my $attr = $self->get_attributes;
 	if ( $q->param('submit') ) {
+		my $guid = $self->get_guid;
 		if ( $q->param('tree_gen') ) {
-			my $guid = $self->get_guid;
+
 			eval {
 				$self->{'prefstore'}->set_plugin_attribute( $guid, $self->{'system'}->{'db'},
 					$attr->{'module'}, 'tree_gen', scalar $q->param('tree_gen') );
+			};
+		}
+		if ( $self->{'config'}->{'fasttree_path'} && $q->param('tree_algorithm') ) {
+			eval {
+				$self->{'prefstore'}->set_plugin_attribute( $guid, $self->{'system'}->{'db'},
+					$attr->{'module'}, 'tree_algorithm', scalar $q->param('tree_algorithm') );
 			};
 		}
 		my $loci_selected = $self->get_selected_loci;
@@ -246,24 +253,45 @@ sub print_tree_type_fieldset {
 	return if !$self->{'config'}->{'grapetree_path'};
 	my $q    = $self->{'cgi'};
 	my $guid = $self->get_guid;
-	my $default;
+
 	my $attr = $self->get_attributes;
+	my $algo_default;
 	eval {
-		$default =
-		  $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, $attr->{'module'}, 'tree_gen' );
+		$algo_default =
+		  $self->{'prefstore'}
+		  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, $attr->{'module'}, 'tree_algorithm' );
 	};
 
 	say q(<fieldset style="float:left"><legend>Tree generation</legend>);
-	say q(<p>Generate trees from:</p>);
+
+	my $treegen_default;
+	eval {
+		$treegen_default =
+		  $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, $attr->{'module'}, 'tree_gen' );
+	};
+	say q(Generate trees from:<br />);
 	say q(<ul><li>);
 	say $q->radio_group(
 		-id        => 'tree_gen',
 		-name      => 'tree_gen',
 		-values    => [ 'profiles', 'sequences' ],
-		-default   => $default // 'sequences',
+		-default   => $treegen_default // 'sequences',
 		-linebreak => 'true'
 	);
 	say q(</li></ul>);
+	if ( $self->{'config'}->{'fasttree_path'} ) {
+		say q(<span id="tree_algo_label">Tree algorithm (sequences):</span><br />);
+		say q(<ul><li>);
+		say $q->radio_group(
+			-id        => 'tree_algorithm',
+			-name      => 'tree_algorithm',
+			-values    => [ 'fasttree', 'clustal' ],
+			-default   => $algo_default // 'fasttree',
+			-labels    => { fasttree => 'FastTree (Approximate ML)', clustal => 'ClustalW (NJ)' },
+			-linebreak => 'true'
+		);
+		say q(</li></ul>);
+	}
 	say q(</fieldset>);
 	return;
 }
@@ -325,6 +353,20 @@ sub get_plugin_javascript {
   	\$("a#clear_user_upload").on("click", function(){
   		\$("input#user_upload").val("");
   	});
+  	
+  	function toggleTreeAlgorithm() {
+    const isProfiles = \$('input[name="tree_gen"]:checked').val() === 'profiles';
+
+	    // disable/enable radio buttons
+	    \$('input[name="tree_algorithm"]').prop('disabled', isProfiles);
+	    \$('span#tree_algo_label')
+	      .css('opacity', isProfiles ? 0.5 : 1);
+  	}
+
+    toggleTreeAlgorithm();
+
+	// run on change
+	\$('input[name="tree_gen"]').on('change', toggleTreeAlgorithm);
 });
 
 END
@@ -484,8 +526,7 @@ sub _generate_tree_files_from_sequences {
 			  . q(in the list - tree cannot be generated.</p>);
 			return { message_html => $message_html, failed => 1 };
 		}
-		$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Aligning sequences', percent_complete => 20 } )
-		  ;
+		$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Aligning sequences', percent_complete => 20 } );
 		$self->align(
 			{
 				job_id        => $job_id,
@@ -539,13 +580,26 @@ sub _generate_tree_files_from_sequences {
 			$self->{'jobManager'}
 			  ->update_job_output( $job_id, { filename => "$job_id.fas", description => '10_Concatenated FASTA' } );
 		}
-		$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Constructing NJ tree' } );
+
 		$newick_file = "$self->{'config'}->{'tmp_dir'}/$job_id.ph";
-		my $cmd = "$self->{'config'}->{'clustalw_path'} -tree -infile=$fasta_file > /dev/null";
-		system $cmd;
+		my $cmd;
+		my $fasttree = $params->{'tree_algorithm'} eq 'fasttree' && $self->{'config'}->{'fasttree_path'};
+		my $desc;
+		if ($fasttree) {
+			$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Constructing FastTree Approx ML tree' } );
+			$cmd = "$self->{'config'}->{'fasttree_path'} -nt $fasta_file > $newick_file 2> /dev/null";
+			system $cmd;
+			$desc = 'FastTree Approximate ML tree';
+		} else {
+			$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Constructing Clustal NJ tree' } );
+			$cmd = "$self->{'config'}->{'clustalw_path'} -tree -infile=$fasta_file > /dev/null";
+			system $cmd;
+			$desc = 'ClustalW NJ tree';
+		}
+
 		if ( -e $newick_file ) {
 			$self->{'jobManager'}
-			  ->update_job_output( $job_id, { filename => "$job_id.ph", description => '20_NJ tree (Newick format)' } );
+			  ->update_job_output( $job_id, { filename => "$job_id.ph", description => "20_$desc (Newick format)" } );
 		} else {
 			$logger->error('Tree file has not been generated.');
 			if ( !-e $self->{'config'}->{'clustalw_path'} ) {
