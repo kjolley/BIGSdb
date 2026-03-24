@@ -58,7 +58,7 @@ sub get_attributes {
 		buttontext => 'iTOL',
 		menutext   => 'iTOL',
 		module     => 'ITOL',
-		version    => '1.9.1',
+		version    => '1.9.2',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
@@ -484,6 +484,8 @@ sub _generate_tree_files_from_sequences {
 			  . q(in the list - tree cannot be generated.</p>);
 			return { message_html => $message_html, failed => 1 };
 		}
+		$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Aligning sequences', percent_complete => 20 } )
+		  ;
 		$self->align(
 			{
 				job_id        => $job_id,
