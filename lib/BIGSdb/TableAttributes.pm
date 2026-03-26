@@ -3083,7 +3083,7 @@ sub get_analysis_fields_table_attributes {
 			length   => 100,
 			tooltip  => 'This is a value in the format $.fields.species. '
 			  . 'See https://en.wikipedia.org/wiki/JSONPath for more details.',
-			regex => '^\$((\.[a-zA-Z_][a-zA-Z0-9_]*)|(\[\d+\])|(\[\*\])|(\[\?\(.*?\)\]))*$'
+			regex => '^\$((?:\.[A-Za-z_][A-Za-z0-9_]*)|(?:\."(?:[^"\\\\]|\\\\.)*")|(?:\[\d+\])|(?:\[\*\])|(?:\[\?\(.*?\)\]))*$'
 		},
 		{
 			name     => 'data_type',
