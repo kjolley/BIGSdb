@@ -30,11 +30,12 @@ use List::MoreUtils qw(uniq);
 use File::Copy;
 use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
 use LWP::UserAgent;
-use constant MAX_RECORDS     => 2000;
-use constant MAX_SEQS        => 100_000;
-use constant ITOL_UPLOAD_URL => 'https://itol.embl.de/batch_uploader.cgi';
-use constant ITOL_DOMAIN     => 'itol.embl.de';
-use constant ITOL_TREE_URL   => 'https://itol.embl.de/tree';
+use constant MAX_RECORDS         => 5000;
+use constant MAX_CLUSTAL_RECORDS => 2000;
+use constant MAX_SEQS            => 100_000;
+use constant ITOL_UPLOAD_URL     => 'https://itol.embl.de/batch_uploader.cgi';
+use constant ITOL_DOMAIN         => 'itol.embl.de';
+use constant ITOL_TREE_URL       => 'https://itol.embl.de/tree';
 
 sub get_attributes {
 	my ($self) = @_;
@@ -58,7 +59,7 @@ sub get_attributes {
 		buttontext => 'iTOL',
 		menutext   => 'iTOL',
 		module     => 'ITOL',
-		version    => '1.9.2',
+		version    => '1.10.0',
 		dbtype     => 'isolates',
 		section    => 'third_party,postquery',
 		input      => 'query',
@@ -95,11 +96,18 @@ sub run {
 	}
 	my $attr = $self->get_attributes;
 	if ( $q->param('submit') ) {
+		my $guid = $self->get_guid;
 		if ( $q->param('tree_gen') ) {
-			my $guid = $self->get_guid;
+
 			eval {
 				$self->{'prefstore'}->set_plugin_attribute( $guid, $self->{'system'}->{'db'},
 					$attr->{'module'}, 'tree_gen', scalar $q->param('tree_gen') );
+			};
+		}
+		if ( $self->{'config'}->{'fasttree_path'} && $q->param('tree_algorithm') ) {
+			eval {
+				$self->{'prefstore'}->set_plugin_attribute( $guid, $self->{'system'}->{'db'},
+					$attr->{'module'}, 'tree_algorithm', scalar $q->param('tree_algorithm') );
 			};
 		}
 		my $loci_selected = $self->get_selected_loci;
@@ -151,6 +159,17 @@ sub run {
 			my $commify_total_records = BIGSdb::Utils::commify( scalar @ids );
 			push @errors, qq(Output is limited to a total of $commify_max_records records. )
 			  . qq(You have selected $commify_total_records.);
+		}
+		if (
+			( scalar $q->param('tree_gen') // q() ) eq 'sequences'
+			&& (   ( scalar $q->param('tree_algorithm') // q() ) eq 'clustal'
+				&& @ids > MAX_CLUSTAL_RECORDS
+				&& MAX_CLUSTAL_RECORDS <= $max_records )
+		  )
+		{
+			my $commify_clustal_records = BIGSdb::Utils::commify(MAX_CLUSTAL_RECORDS);
+			push @errors, qq(Output for ClustalW trees is limited to $commify_clustal_records records. )
+			  . qq(You have selected $commify_max_records.);
 		}
 		if (@errors) {
 			if ( @errors == 1 ) {
@@ -218,7 +237,10 @@ sub _print_interface {
 	  . q(or DNA and peptide loci with genome sequences, can be included. Please check the loci that you )
 	  . q(would like to include. Alternatively select one or more schemes to include all loci that are members )
 	  . q(of the scheme.</p>);
-	say qq(<p>Analysis is limited to $commify_max_records records.</p>);
+	my $commify_clustal_records = BIGSdb::Utils::commify(MAX_CLUSTAL_RECORDS);
+	my $fasttree                = $self->{'config'}->{'fasttree_path'}
+	  && MAX_CLUSTAL_RECORDS < $max_records ? qq( ($commify_clustal_records records for ClustalW)) : q();
+	say qq(<p>Analysis is limited to $commify_max_records records$fasttree.</p>);
 	say qq(<p>If generating a tree by aligning sequences then it is also limited to $commify_max_seqs sequences )
 	  . q((records x loci).</p>);
 	my $list = $self->get_id_list( 'id', $query_file );
@@ -246,24 +268,45 @@ sub print_tree_type_fieldset {
 	return if !$self->{'config'}->{'grapetree_path'};
 	my $q    = $self->{'cgi'};
 	my $guid = $self->get_guid;
-	my $default;
+
 	my $attr = $self->get_attributes;
+	my $algo_default;
 	eval {
-		$default =
-		  $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, $attr->{'module'}, 'tree_gen' );
+		$algo_default =
+		  $self->{'prefstore'}
+		  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, $attr->{'module'}, 'tree_algorithm' );
 	};
 
 	say q(<fieldset style="float:left"><legend>Tree generation</legend>);
-	say q(<p>Generate trees from:</p>);
+
+	my $treegen_default;
+	eval {
+		$treegen_default =
+		  $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, $attr->{'module'}, 'tree_gen' );
+	};
+	say q(Generate trees from:<br />);
 	say q(<ul><li>);
 	say $q->radio_group(
 		-id        => 'tree_gen',
 		-name      => 'tree_gen',
 		-values    => [ 'profiles', 'sequences' ],
-		-default   => $default // 'sequences',
+		-default   => $treegen_default // 'sequences',
 		-linebreak => 'true'
 	);
 	say q(</li></ul>);
+	if ( $self->{'config'}->{'fasttree_path'} ) {
+		say q(<span id="tree_algo_label">Tree algorithm (sequences):</span><br />);
+		say q(<ul><li>);
+		say $q->radio_group(
+			-id        => 'tree_algorithm',
+			-name      => 'tree_algorithm',
+			-values    => [ 'fasttree', 'clustal' ],
+			-default   => $algo_default // 'fasttree',
+			-labels    => { fasttree => 'FastTree (Approximate ML)', clustal => 'ClustalW (NJ)' },
+			-linebreak => 'true'
+		);
+		say q(</li></ul>);
+	}
 	say q(</fieldset>);
 	return;
 }
@@ -325,6 +368,20 @@ sub get_plugin_javascript {
   	\$("a#clear_user_upload").on("click", function(){
   		\$("input#user_upload").val("");
   	});
+  	
+  	function toggleTreeAlgorithm() {
+    const isProfiles = \$('input[name="tree_gen"]:checked').val() === 'profiles';
+
+	    // disable/enable radio buttons
+	    \$('input[name="tree_algorithm"]').prop('disabled', isProfiles);
+	    \$('span#tree_algo_label')
+	      .css('opacity', isProfiles ? 0.5 : 1);
+  	}
+
+    toggleTreeAlgorithm();
+
+	// run on change
+	\$('input[name="tree_gen"]').on('change', toggleTreeAlgorithm);
 });
 
 END
@@ -484,8 +541,7 @@ sub _generate_tree_files_from_sequences {
 			  . q(in the list - tree cannot be generated.</p>);
 			return { message_html => $message_html, failed => 1 };
 		}
-		$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Aligning sequences', percent_complete => 20 } )
-		  ;
+		$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Aligning sequences', percent_complete => 20 } );
 		$self->align(
 			{
 				job_id        => $job_id,
@@ -539,13 +595,26 @@ sub _generate_tree_files_from_sequences {
 			$self->{'jobManager'}
 			  ->update_job_output( $job_id, { filename => "$job_id.fas", description => '10_Concatenated FASTA' } );
 		}
-		$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Constructing NJ tree' } );
+
 		$newick_file = "$self->{'config'}->{'tmp_dir'}/$job_id.ph";
-		my $cmd = "$self->{'config'}->{'clustalw_path'} -tree -infile=$fasta_file > /dev/null";
-		system $cmd;
+		my $cmd;
+		my $fasttree = $params->{'tree_algorithm'} eq 'fasttree' && $self->{'config'}->{'fasttree_path'};
+		my $desc;
+		if ($fasttree) {
+			$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Constructing FastTree Approx ML tree' } );
+			$cmd = "$self->{'config'}->{'fasttree_path'} -nt $fasta_file > $newick_file 2> /dev/null";
+			system $cmd;
+			$desc = 'FastTree Approximate ML tree';
+		} else {
+			$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Constructing Clustal NJ tree' } );
+			$cmd = "$self->{'config'}->{'clustalw_path'} -tree -infile=$fasta_file > /dev/null";
+			system $cmd;
+			$desc = 'ClustalW NJ tree';
+		}
+
 		if ( -e $newick_file ) {
 			$self->{'jobManager'}
-			  ->update_job_output( $job_id, { filename => "$job_id.ph", description => '20_NJ tree (Newick format)' } );
+			  ->update_job_output( $job_id, { filename => "$job_id.ph", description => "20_$desc (Newick format)" } );
 		} else {
 			$logger->error('Tree file has not been generated.');
 			if ( !-e $self->{'config'}->{'clustalw_path'} ) {
