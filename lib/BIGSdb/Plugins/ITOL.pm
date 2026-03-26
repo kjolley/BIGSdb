@@ -30,11 +30,12 @@ use List::MoreUtils qw(uniq);
 use File::Copy;
 use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
 use LWP::UserAgent;
-use constant MAX_RECORDS     => 2000;
-use constant MAX_SEQS        => 100_000;
-use constant ITOL_UPLOAD_URL => 'https://itol.embl.de/batch_uploader.cgi';
-use constant ITOL_DOMAIN     => 'itol.embl.de';
-use constant ITOL_TREE_URL   => 'https://itol.embl.de/tree';
+use constant MAX_RECORDS         => 5000;
+use constant MAX_CLUSTAL_RECORDS => 2000;
+use constant MAX_SEQS            => 100_000;
+use constant ITOL_UPLOAD_URL     => 'https://itol.embl.de/batch_uploader.cgi';
+use constant ITOL_DOMAIN         => 'itol.embl.de';
+use constant ITOL_TREE_URL       => 'https://itol.embl.de/tree';
 
 sub get_attributes {
 	my ($self) = @_;
@@ -159,6 +160,17 @@ sub run {
 			push @errors, qq(Output is limited to a total of $commify_max_records records. )
 			  . qq(You have selected $commify_total_records.);
 		}
+		if (
+			( scalar $q->param('tree_gen') // q() ) eq 'sequences'
+			&& (   ( scalar $q->param('tree_algorithm') // q() ) eq 'clustal'
+				&& @ids > MAX_CLUSTAL_RECORDS
+				&& MAX_CLUSTAL_RECORDS <= $max_records )
+		  )
+		{
+			my $commify_clustal_records = BIGSdb::Utils::commify(MAX_CLUSTAL_RECORDS);
+			push @errors, qq(Output for ClustalW trees is limited to $commify_clustal_records records. )
+			  . qq(You have selected $commify_max_records.);
+		}
 		if (@errors) {
 			if ( @errors == 1 ) {
 				$self->print_bad_status( { message => qq(@errors) } );
@@ -225,7 +237,10 @@ sub _print_interface {
 	  . q(or DNA and peptide loci with genome sequences, can be included. Please check the loci that you )
 	  . q(would like to include. Alternatively select one or more schemes to include all loci that are members )
 	  . q(of the scheme.</p>);
-	say qq(<p>Analysis is limited to $commify_max_records records.</p>);
+	my $commify_clustal_records = BIGSdb::Utils::commify(MAX_CLUSTAL_RECORDS);
+	my $fasttree                = $self->{'config'}->{'fasttree_path'}
+	  && MAX_CLUSTAL_RECORDS < $max_records ? qq( ($commify_clustal_records records for ClustalW)) : q();
+	say qq(<p>Analysis is limited to $commify_max_records records$fasttree.</p>);
 	say qq(<p>If generating a tree by aligning sequences then it is also limited to $commify_max_seqs sequences )
 	  . q((records x loci).</p>);
 	my $list = $self->get_id_list( 'id', $query_file );
