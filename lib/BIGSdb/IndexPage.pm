@@ -20,7 +20,7 @@ package BIGSdb::IndexPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::StatusPage);
+use parent            qw(BIGSdb::StatusPage);
 use BIGSdb::Constants qw(:interface :design :login_requirements);
 use BIGSdb::Utils;
 use Log::Log4perl qw(get_logger);
@@ -149,7 +149,18 @@ sub print_query_menu_item {
 	my $interfaces =
 	  $self->{'datastore'}->run_query( 'SELECT id,name,display_order FROM query_interfaces ORDER BY display_order,name',
 		undef, { fetch => 'all_arrayref', slice => {} } );
-	foreach my $interface (@$interfaces) {
+  INTERFACE: foreach my $interface (@$interfaces) {
+		my $set_id = $self->get_set_id;
+		if ($set_id) {
+			my $fields = $self->{'datastore'}->run_query( 'SELECT field FROM query_interface_fields WHERE id=?',
+				$interface->{'id'}, { fetch => 'col_arrayref' } );
+			foreach my $field (@$fields) {
+				if ( $field =~ /^lin_(\d+)/x or $field =~ /s_(\d+)_/x ) {
+					my $scheme_id = $1;
+					next INTERFACE if !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id );
+				}
+			}
+		}
 		push @$links,
 		  {
 			href => "${url_root}page=query&amp;interface=$interface->{'id'}$project_clause",
