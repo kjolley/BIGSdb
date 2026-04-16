@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -26,6 +26,13 @@ use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Constants qw(SEQ_FLAGS);
 use List::MoreUtils qw(none);
+
+sub initiate {
+	my ($self) = @_;
+	$self->{$_} = 1 foreach qw(jQuery noCache jQuery.multiselect);
+	$self->set_level1_breadcrumbs;
+	return;
+}
 
 sub print_content {
 	my ($self) = @_;
@@ -170,9 +177,6 @@ sub print_content {
 		-size     => 5,
 		-multiple => 'true'
 	);
-	say q(<p class="comment">Select/deselect multiple flags<br />)
-	  . q(by holding down Shift or Ctrl<br />)
-	  . q(while clicking with the mouse.</p>);
 	say q(</fieldset>);
 	say q(<fieldset style="float:left"><legend>Display</legend>);
 	say $q->submit( -name => 'update', -label => 'Update display', -class => 'small_submit' );
@@ -216,6 +220,20 @@ sub print_content {
 	}
 	say q(</div>);
 	return;
+}
+
+sub get_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+\$(function () {
+	\$('#flags').multiselect({
+		classes: 'filter',
+		noneSelectedText: 'Select flags',
+		selectedList: 3
+	});
+});
+END
+	return $buffer;
 }
 
 sub _check_values {
