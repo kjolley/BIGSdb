@@ -20,9 +20,9 @@ package BIGSdb::ChangePasswordPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Login);
+use parent                     qw(BIGSdb::Login);
 use Crypt::Eksblowfish::Bcrypt qw(bcrypt_hash en_base64);
-use Log::Log4perl qw(get_logger);
+use Log::Log4perl              qw(get_logger);
 my $logger = get_logger('BIGSdb.User');
 use constant MIN_PASSWORD_LENGTH => 8;
 use BIGSdb::Login qw(BCRYPT_COST UNIQUE_STRING);
@@ -82,7 +82,7 @@ sub _can_continue {
 		if ( $user_info && $user_info->{'user_db'} && !$self->{'permissions'}->{'set_site_user_passwords'} ) {
 			$self->print_bad_status(
 				{
-					    message => q(The account details for this )
+						message => q(The account details for this )
 					  . q(user are set in a site-wide user database. Your account does not have )
 					  . q(permission to update passwords for such user accounts.)
 				}
@@ -191,11 +191,18 @@ sub print_content {
 	return;
 }
 
+sub _get_min_password_length {
+	my ($self) = @_;
+	return BIGSdb::Utils::is_int( $self->{'config'}->{'min_password_length'} )
+	  ? $self->{'config'}->{'min_password_length'}
+	  : MIN_PASSWORD_LENGTH;
+}
+
 sub _fails_password_check {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
-	my $min_length = MIN_PASSWORD_LENGTH;
-	if ( $q->param('new_length') < MIN_PASSWORD_LENGTH ) {
+	my $min_length = $self->_get_min_password_length;
+	if ( $q->param('new_length') < $min_length ) {
 		$self->print_bad_status(
 			{
 				message => q(The password is too short and has not been updated. )
@@ -217,7 +224,7 @@ sub _fails_retype_check {    ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 	return;
 }
 
-sub _fails_new_check {       ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _fails_new_check {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	if ( $q->param('existing_password') eq $q->param('new_password1') ) {
@@ -264,11 +271,11 @@ sub _print_interface {
 		say q(<p>You are required to update your password.</p>);
 	}
 	say q(<p>Please enter your existing and new passwords.</p>) if $q->param('page') eq 'changePassword';
-	say q(<p>Passwords must be at least ) . MIN_PASSWORD_LENGTH . q( characters long.</p>);
+	my $min_length = $self->_get_min_password_length;
+	say qq(<p>Passwords must be at least $min_length characters long.</p>);
 	say q(<noscript><p class="highlight">Please note that Javascript must be enabled in order to login. )
 	  . q(Passwords are encrypted using Javascript prior to transmitting to the server.</p></noscript>);
-	say $q->start_form(
-		-onSubmit => q[existing_password.value=existing.value.trim();existing.value='';]
+	say $q->start_form( -onSubmit => q[existing_password.value=existing.value.trim();existing.value='';]
 		  . q[new_length.value=new1.value.trim().length;var username;]
 		  . q[if ($('#user').length){username=document.getElementById('user').value} else {username=user.value}]
 		  . q[new_password1.value=new1.value.trim();new1.value='';new_password2.value=new2.value.trim();new2.value='';]
@@ -276,10 +283,10 @@ sub _print_interface {
 		  . q[new_password1.value=CryptoJS.MD5(new_password1.value+username);]
 		  . q[new_password2.value=CryptoJS.MD5(new_password2.value+username);]
 		  . q[username_as_password.value=CryptoJS.MD5(username+username);]
-		  . q[return true]
-	);
+		  . q[return true] );
 	say q(<fieldset style="border-top:0">);
 	say q(<ul>);
+
 	if ( $q->param('page') eq 'changePassword' || $self->{'system'}->{'password_update_required'} ) {
 		say q(<li><label for="existing" class="aligned width8">Existing password:</label>);
 		say $q->password_field( -name => 'existing', -id => 'existing' );
@@ -317,7 +324,7 @@ sub _print_interface {
 	say $q->password_field( -name => 'new2', -id => 'new2' );
 	say q(</li></ul></fieldset>);
 	say $q->submit( -name => 'submit', -label => 'Set password', -class => 'submit', -style => 'margin-top:1em' );
-	$q->param( $_ => '' ) foreach qw (existing_password new_password1 new_password2 new_length username_as_password);
+	$q->param( $_   => '' ) foreach qw (existing_password new_password1 new_password2 new_length username_as_password);
 	$q->param( user => $self->{'username'} )
 	  if $q->param('page') eq 'changePassword' || $self->{'system'}->{'password_update_required'};
 	$q->param( sent => 1 );
@@ -327,7 +334,7 @@ sub _print_interface {
 
 	if ( $q->param('page') eq 'changePassword' ) {
 		say q(<p style="margin-top:1em">You will be required to log in again with the new password )
-		. q(once you have changed it.</p>);
+		  . q(once you have changed it.</p>);
 	}
 	say q(</div>);
 	return;
@@ -338,8 +345,8 @@ sub set_password_hash {
 	return if !$name;
 	my $bcrypt_cost =
 	  BIGSdb::Utils::is_int( $self->{'config'}->{'bcrypt_cost'} ) ? $self->{'config'}->{'bcrypt_cost'} : BCRYPT_COST;
-	my $salt = BIGSdb::Utils::random_string( 16, { extended_chars => 1 } );
-	my $bcrypt_hash = en_base64( bcrypt_hash( { key_nul => 1, cost => $bcrypt_cost, salt => $salt }, $hash ) );
+	my $salt           = BIGSdb::Utils::random_string( 16, { extended_chars => 1 } );
+	my $bcrypt_hash    = en_base64( bcrypt_hash( { key_nul => 1, cost => $bcrypt_cost, salt => $salt }, $hash ) );
 	my $reset_password = $options->{'reset_password'} ? 1 : 0;
 	my $db_name        = $self->get_user_db_name($name);
 	my $exists         = $self->{'datastore'}->run_query(
