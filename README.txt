@@ -1,3 +1,6 @@
+v1.52.3: *Added settings for enforce password length and inclusion of special
+          characters.
+         *Add support for using FastTree in iTOL plugin.
 v1.52.2: *Fix utf-8 encoding in Kleborate data.
          *Fix querying isolates by locus extended attributes.
 v1.52.1: *New LINtree plugin - generate trees from LIN code profiles.
