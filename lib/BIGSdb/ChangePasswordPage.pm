@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -211,6 +211,15 @@ sub _fails_password_check {    ## no critic (ProhibitUnusedPrivateSubroutines) #
 		);
 		return 1;
 	}
+	if ( !$q->param('special_char') && $self->{'config'}->{'require_special_chars'} ) {
+		$self->print_bad_status(
+			{
+				message => q(The password does not contain any special characters: $!@#%^&*. )
+				  . q(It must contain at least one of these.)
+			}
+		);
+		return 1;
+	}
 	return;
 }
 
@@ -272,13 +281,18 @@ sub _print_interface {
 	}
 	say q(<p>Please enter your existing and new passwords.</p>) if $q->param('page') eq 'changePassword';
 	my $min_length = $self->_get_min_password_length;
-	say qq(<p>Passwords must be at least $min_length characters long.</p>);
+	my $special =
+	  $self->{'config'}->{'require_special_chars'}
+	  ? q( and contain at least one special character ($!@#%^&*))
+	  : q();
+	say qq(<p>Passwords must be at least $min_length characters long$special.</p>);
 	say q(<noscript><p class="highlight">Please note that Javascript must be enabled in order to login. )
 	  . q(Passwords are encrypted using Javascript prior to transmitting to the server.</p></noscript>);
 	say $q->start_form( -onSubmit => q[existing_password.value=existing.value.trim();existing.value='';]
 		  . q[new_length.value=new1.value.trim().length;var username;]
 		  . q[if ($('#user').length){username=document.getElementById('user').value} else {username=user.value}]
 		  . q[new_password1.value=new1.value.trim();new1.value='';new_password2.value=new2.value.trim();new2.value='';]
+		  . q[special_char.value=hasRequiredSpecialChar(new_password1.value);]
 		  . q[existing_password.value=CryptoJS.MD5(existing_password.value+username);]
 		  . q[new_password1.value=CryptoJS.MD5(new_password1.value+username);]
 		  . q[new_password2.value=CryptoJS.MD5(new_password2.value+username);]
@@ -324,12 +338,13 @@ sub _print_interface {
 	say $q->password_field( -name => 'new2', -id => 'new2' );
 	say q(</li></ul></fieldset>);
 	say $q->submit( -name => 'submit', -label => 'Set password', -class => 'submit', -style => 'margin-top:1em' );
-	$q->param( $_   => '' ) foreach qw (existing_password new_password1 new_password2 new_length username_as_password);
+	$q->param( $_ => '' )
+	  foreach qw (existing_password new_password1 new_password2 new_length special_char username_as_password);
 	$q->param( user => $self->{'username'} )
 	  if $q->param('page') eq 'changePassword' || $self->{'system'}->{'password_update_required'};
 	$q->param( sent => 1 );
 	say $q->hidden($_) foreach qw (db page session existing_password new_password1 new_password2
-	  new_length user sent username_as_password);
+	  new_length special_char user sent username_as_password);
 	say $q->end_form;
 
 	if ( $q->param('page') eq 'changePassword' ) {
@@ -392,7 +407,9 @@ sub get_javascript {
 	});	
  
 });	
-
+function hasRequiredSpecialChar(new_password1) {
+  return /[!@#\$%^&*]/.test(new_password1) ? 1 : 0;
+}
 
 END
 	return $buffer;
