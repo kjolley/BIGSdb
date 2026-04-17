@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -23,8 +23,8 @@ use 5.010;
 use parent qw(BIGSdb::CuratePage);
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(:interface);
-use List::MoreUtils qw(any uniq);
-use Log::Log4perl qw(get_logger);
+use List::MoreUtils   qw(any uniq);
+use Log::Log4perl     qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
 sub get_help_url {
@@ -142,8 +142,21 @@ sub _get_match_criteria {
 	my ($self) = @_;
 	my $id     = $self->_get_id_fields;
 	my $view   = $self->{'system'}->{'view'};
-	my $match  = "$view.$id->{'field1'}=?";
-	$match .= " AND $view.$id->{'field2'}=?" if $id->{'field2'} ne '<none>';
+	my $att    = $self->{'xmlHandler'}->get_field_attributes( $id->{'field1'} );
+	my $match;
+	if ( ( $att->{'multiple'} // q() ) eq 'yes' ) {
+		$match = "? = ANY($id->{'field1'})";
+	} else {
+		$match = "$view.$id->{'field1'}=?";
+	}
+	if ( $id->{'field2'} ne '<none>' ) {
+		$att = $self->{'xmlHandler'}->get_field_attributes( $id->{'field2'} );
+		if ( ( $att->{'multiple'} // q() ) eq 'yes' ) {
+			$match .= " AND ? = ANY($id->{'field2'})";
+		} else {
+			$match .= " AND $view.$id->{'field2'}=?";
+		}
+	}
 	return $match;
 }
 
@@ -212,11 +225,11 @@ sub _check_field_status {
 }
 
 sub _get_table_header {
-	my ($self) = @_;
-	my $id_fields = $self->_get_id_fields;
+	my ($self)      = @_;
+	my $id_fields   = $self->_get_id_fields;
 	my $extraheader = $id_fields->{'field2'} ne '<none>' ? "<th>$id_fields->{'field2'}</th>" : '';
 	return
-	    q(<table class="resultstable" style="margin-bottom:1em">)
+		q(<table class="resultstable" style="margin-bottom:1em">)
 	  . qq(<tr><th>Transaction</th><th>$id_fields->{'field1'}</th>$extraheader)
 	  . qq(<th>Field</th><th>New value</th><th>Value(s) currently in database</th><th>Action</th></tr>\n);
 }
@@ -250,7 +263,7 @@ sub _check {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $data   = $q->param('data');
-	my @rows = split /\n/x, $data;
+	my @rows   = split /\n/x, $data;
 	return if $self->_failed_basic_checks( \@rows );
 	my $id_fields = $self->_get_id_fields;
 	my $i         = 0;
@@ -273,8 +286,8 @@ sub _check {
 		$id[$i] =~ s/%20/ /gx;
 		$id[$i] =~ s/^\s*|\s*$//gx;
 		$id2[$i] //= q();
-		$id2[$i] =~ s/^\s*|\s*$//gx;
-		$id2[$i] =~ s/%20/ /gx;
+		$id2[$i]   =~ s/^\s*|\s*$//gx;
+		$id2[$i]   =~ s/%20/ /gx;
 		$value[$i] =~ s/^\s*|\s*$//gx if defined $value[$i];
 		my $display_new_value = $value[$i];
 		my $display_field     = $field[$i];
@@ -332,11 +345,11 @@ sub _check {
 			$display_new_value =~ s/<blank>/&lt;blank&gt;/x;
 			if ( $id_fields->{'field2'} ne '<none>' ) {
 				$table_buffer .=
-				    qq(<tr class="td$td"><td>$i</td><td>$id[$i]</td><td>$id2[$i]</td><td>$display_field</td>)
+					qq(<tr class="td$td"><td>$i</td><td>$id[$i]</td><td>$id2[$i]</td><td>$display_field</td>)
 				  . qq(<td>$display_new_value</td><td>$old_value</td><td>$action</td></tr>\n);
 			} else {
 				$table_buffer .=
-				    qq(<tr class="td$td"><td>$i</td><td>$id[$i]</td><td>$display_field</td><td>$display_new_value</td>)
+					qq(<tr class="td$td"><td>$i</td><td>$id[$i]</td><td>$display_field</td><td>$display_new_value</td>)
 				  . qq(<td>$old_value</td><td>$action</td></tr>);
 			}
 			$table_rows++;
@@ -406,7 +419,7 @@ sub _get_old_values {
 	} elsif ($is_eav_field) {
 		my $eav_table = $self->{'datastore'}->get_eav_field_table( $field->[$i] );
 		$qry =
-		    "SELECT value FROM $eav_table JOIN $self->{'system'}->{'view'} ON "
+			"SELECT value FROM $eav_table JOIN $self->{'system'}->{'view'} ON "
 		  . "$eav_table.isolate_id=$self->{'system'}->{'view'}.id "
 		  . "WHERE field=? AND $match";
 		push @$qry_args, $field->[$i];
@@ -652,14 +665,14 @@ sub _update {
 				}
 				local $" = q(<br />);
 				$tablebuffer .=
-				    qq(<td>$bad</td><td class="statusbad" style="text-align:left">)
+					qq(<td>$bad</td><td class="statusbad" style="text-align:left">)
 				  . qq(Failed validation - cannot update: @this_failure</td></tr>\n);
 				$error = 1;
 			} else {
 				$tablebuffer .= qq(<td class="statusgood">$good</td><td></td></tr>\n);
 				$old_value //= '';
 				$old_value = $self->_list_to_string($old_value);
-				$value = '' if $value eq '&lt;blank&gt;';
+				$value     = '' if $value eq '&lt;blank&gt;';
 				if ($is_locus) {
 					if ( $q->param('designations') eq 'replace' ) {
 						my $plural = @$deleted_designations == 1 ? '' : 's';
@@ -772,14 +785,14 @@ sub _prepare_allele_designation_update {
 	my $sender     = $self->{'datastore'}->run_query( "SELECT sender FROM $view WHERE id=?", $isolate_id );
 	my $qry        = 'INSERT INTO allele_designations (isolate_id,locus,allele_id,sender,status,method,curator,'
 	  . 'date_entered,datestamp) VALUES (?,?,?,?,?,?,?,?,?)';
-	my $args = [ $isolate_id, $field, $value, $sender, 'confirmed', 'manual', $curator_id, 'now', 'now' ];
+	my $args        = [ $isolate_id, $field, $value, $sender, 'confirmed', 'manual', $curator_id, 'now', 'now' ];
 	my $delete_args = [];
 	my $delete_qry;
 
 	if ( $q->param('designations') eq 'replace' ) {
 
 		#Prepare allele deletion query
-		$delete_qry = 'DELETE FROM allele_designations WHERE (isolate_id,locus)=(?,?)';
+		$delete_qry  = 'DELETE FROM allele_designations WHERE (isolate_id,locus)=(?,?)';
 		$delete_args = [ $isolate_id, $field ];
 
 		#Determine which alleles will be deleted for reporting in history
@@ -814,11 +827,11 @@ sub _prepare_provenance_field_update {
 	push @$args, ( ( $value // q() ) eq q() || ( ref $value && !@$value ) ? undef : $value );
 	if ( $multivalue_fields->{$field} && scalar $q->param('multi_value') eq 'add' ) {
 		$qry =
-		    "UPDATE isolates SET ($field,datestamp,curator)=(ARRAY_APPEND($field,?),?,?) WHERE id IN "
+			"UPDATE isolates SET ($field,datestamp,curator)=(ARRAY_APPEND($field,?),?,?) WHERE id IN "
 		  . "(SELECT $view.id FROM $view WHERE $match)";
 	} else {
 		$qry =
-		    "UPDATE isolates SET ($field,datestamp,curator)=(?,?,?) WHERE id IN "
+			"UPDATE isolates SET ($field,datestamp,curator)=(?,?,?) WHERE id IN "
 		  . "(SELECT $view.id FROM $view WHERE $match)";
 	}
 	push @$args, ( 'now', $curator_id, @$id_args );
@@ -845,14 +858,14 @@ sub _prepare_eav_update {
 	  ->run_query( "SELECT EXISTS(SELECT * FROM $eav_table WHERE (isolate_id,field)=(?,?))", [ $isolate_id, $field ] );
 	if ($record_exists) {
 		if ( $value eq q() ) {
-			$qry = "DELETE FROM $eav_table WHERE (isolate_id,field)=(?,?)";
+			$qry   = "DELETE FROM $eav_table WHERE (isolate_id,field)=(?,?)";
 			@$args = ( $isolate_id, $field );
 		} else {
-			$qry = "UPDATE $eav_table SET value=? WHERE (isolate_id,field)=(?,?)";
+			$qry   = "UPDATE $eav_table SET value=? WHERE (isolate_id,field)=(?,?)";
 			@$args = ( $value, $isolate_id, $field );
 		}
 	} else {
-		$qry = "INSERT INTO $eav_table (isolate_id,field,value) VALUES (?,?,?)";
+		$qry   = "INSERT INTO $eav_table (isolate_id,field,value) VALUES (?,?,?)";
 		@$args = ( $isolate_id, $field, $value );
 	}
 	$old_value =
