@@ -1535,7 +1535,7 @@ sub get_scheme_fields_table_attributes {
 				type     => 'bool',
 				required => 1,
 				default  => 'true',
-				tooltip  => 'isolate display - Sets how to display the locus in the isolate info page '
+				tooltip  => 'isolate display - Sets whether to display field in the isolate info page '
 				  . '(can be overridden by user preference).'
 			},
 			{
@@ -1543,7 +1543,7 @@ sub get_scheme_fields_table_attributes {
 				type     => 'bool',
 				required => 1,
 				default  => 'false',
-				tooltip  => 'main display - Sets whether to display locus in isolate query results table '
+				tooltip  => 'main display - Sets whether to display field in isolate query results table '
 				  . '(can be overridden by user preference).'
 			},
 			{
@@ -1551,7 +1551,7 @@ sub get_scheme_fields_table_attributes {
 				type     => 'bool',
 				required => 1,
 				default  => 'true',
-				tooltip  => 'query field - Sets whether this locus can be used in isolate queries '
+				tooltip  => 'query field - Sets whether this field can be used in isolate queries '
 				  . '(can be overridden by user preference).'
 			},
 			{
