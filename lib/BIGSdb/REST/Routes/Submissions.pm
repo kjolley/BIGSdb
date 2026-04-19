@@ -123,6 +123,13 @@ sub _check_submission_owner {
 	return;
 }
 
+sub _check_submission_filename {
+	my ($filename) = @_;
+	send_error( 'Filename contains invalid characters.', 400 )
+	  if $filename =~ m{[/\\]}x || $filename =~ /\.\./x;
+	return;
+}
+
 sub _get_submission {
 	my $self = setting('self');
 	my ( $db, $submission_id ) = ( params->{'db'}, params->{'submission'} );
@@ -574,6 +581,7 @@ sub _upload_file {
 	send_error( 'Submission does not exist.', 404 ) if !$submission;
 	_check_submission_owner( $self, $submission );
 	send_error( 'Filename is required.',      400 ) if !$filename;
+	_check_submission_filename($filename);
 	my $dir = $self->{'submissionHandler'}->get_submission_dir($submission_id) . '/supporting_files';
 	$self->{'submissionHandler'}->mkpath($dir);
 	my $full_path = "$dir/$filename";
@@ -623,6 +631,7 @@ sub _get_file {
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	send_error( 'Submission does not exist.', 404 ) if !$submission;
 	_check_submission_owner( $self, $submission );
+	_check_submission_filename($filename);
 	my $dir       = $self->{'submissionHandler'}->get_submission_dir($submission_id) . '/supporting_files';
 	my $full_path = "$dir/$filename";
 	if ( !-e $full_path ) {
@@ -639,14 +648,12 @@ sub _delete_file {
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	send_error( 'Submission does not exist.', 404 ) if !$submission;
 	_check_submission_owner( $self, $submission );
+	_check_submission_filename($filename);
 	my $dir       = $self->{'submissionHandler'}->get_submission_dir($submission_id) . '/supporting_files';
 	my $full_path = "$dir/$filename";
 
 	if ( !-e $full_path ) {
 		send_error( 'File does not exist.', 404 );
-	}
-	if ( $filename =~ /\//x || $filename =~ /\.\./x ) {
-		send_error( 'Filename contains invalid characters.', 400 );
 	}
 	unlink $full_path || $self->{'logger'}->error("Cannot delete $full_path.");
 	status(200);
