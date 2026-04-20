@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2019, University of Oxford
+#Copyright (c) 2015-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -29,14 +29,14 @@ use BIGSdb::Constants qw(SEQ_METHODS :submissions);
 sub setup_routes {
 	my $self = setting('self');
 	foreach my $dir ( @{ setting('api_dirs') } ) {
-		get "$dir/db/:db/submissions"                         => sub { _get_submissions() };
-		post "$dir/db/:db/submissions"                        => sub { _create_submission() };
-		get "$dir/db/:db/submissions/:submission"             => sub { _get_submission() };
-		del "$dir/db/:db/submissions/:submission"             => sub { _delete_submission() };
-		get "$dir/db/:db/submissions/:submission/messages"    => sub { _get_messages() };
-		post "$dir/db/:db/submissions/:submission/messages"   => sub { _add_message() };
-		get "$dir/db/:db/submissions/:submission/files"       => sub { _get_files() };
-		post "$dir/db/:db/submissions/:submission/files"      => sub { _upload_file() };
+		get "$dir/db/:db/submissions" => sub { _get_submissions() };
+		post "$dir/db/:db/submissions" => sub { _create_submission() };
+		get "$dir/db/:db/submissions/:submission" => sub { _get_submission() };
+		del "$dir/db/:db/submissions/:submission" => sub { _delete_submission() };
+		get "$dir/db/:db/submissions/:submission/messages" => sub { _get_messages() };
+		post "$dir/db/:db/submissions/:submission/messages" => sub { _add_message() };
+		get "$dir/db/:db/submissions/:submission/files" => sub { _get_files() };
+		post "$dir/db/:db/submissions/:submission/files" => sub { _upload_file() };
 		get "$dir/db/:db/submissions/:submission/files/:file" => sub { _get_file() };
 		del "$dir/db/:db/submissions/:submission/files/:file" => sub { _delete_file() };
 	}
@@ -99,7 +99,7 @@ sub _get_submissions {
 		$paging_uri .= "status=$status";
 	}
 	my $submission_count = $self->{'datastore'}->run_query( "SELECT COUNT(*) $part_qry", $args );
-	my $page_values = $self->get_page_values($submission_count);
+	my $page_values      = $self->get_page_values($submission_count);
 	my ( $page, $pages, $offset ) = @{$page_values}{qw(page total_pages offset)};
 	my $qry = qq(SELECT id $part_qry ORDER BY id);
 	$qry .= qq( LIMIT $self->{'page_size'} OFFSET $offset) if !param('return_all');
@@ -117,8 +117,9 @@ sub _get_submissions {
 }
 
 sub _check_submission_owner {
-	my ( $self, $submission ) = @_;
-	my $user_id = $self->get_user_id;
+	my ($submission) = @_;
+	my $self         = setting('self');
+	my $user_id      = $self->get_user_id;
 	send_error( 'You are not the owner of this submission.', 403 ) if $user_id != $submission->{'submitter'};
 	return;
 }
@@ -135,7 +136,7 @@ sub _get_submission {
 	my ( $db, $submission_id ) = ( params->{'db'}, params->{'submission'} );
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	send_error( 'Submission does not exist.', 404 ) if !$submission;
-	_check_submission_owner( $self, $submission );
+	_check_submission_owner($submission);
 	my $subdir = setting('subdir');
 	my $values = {};
 	foreach my $field (qw (id type date_submitted datestamp status outcome)) {
@@ -216,7 +217,7 @@ sub _delete_submission {
 	my ( $db, $submission_id ) = ( params->{'db'}, params->{'submission'} );
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	send_error( 'Submission does not exist.', 404 ) if !$submission;
-	_check_submission_owner( $self, $submission );
+	_check_submission_owner($submission);
 	send_error( 'You cannot delete a pending submission.', 403 ) if $submission->{'status'} eq 'pending';
 	$self->{'submissionHandler'}->delete_submission($submission_id);
 	status(200);
@@ -261,7 +262,7 @@ sub _create_submission {
 	my $subdir    = setting('subdir');
 	my $submitter = $self->get_user_id;
 	my $submission_id =
-	    'BIGSdb_'
+		'BIGSdb_'
 	  . strftime( '%Y%m%d%H%M%S', localtime ) . '_'
 	  . sprintf( '%06d', $$ ) . '_'
 	  . sprintf( '%05d', int( rand(99999) ) );
@@ -278,8 +279,7 @@ sub _create_submission {
 		$self->{'db'}->do(
 			'INSERT INTO submissions (id,type,submitter,date_submitted,datestamp,status,email,dataset) '
 			  . 'VALUES (?,?,?,?,?,?,?,?)',
-			undef, $submission_id, $type, $submitter, 'now', 'now', 'pending', $email ? 'true' : 'false',
-			$dataset
+			undef, $submission_id, $type, $submitter, 'now', 'now', 'pending', $email ? 'true' : 'false', $dataset
 		);
 		foreach my $sql (@$sql) {
 			$self->{'db'}->do( $sql->{'statement'}, undef, @{ $sql->{'arguments'} } );
@@ -490,7 +490,7 @@ sub _prepare_isolate_submission {
 	my ( $db, $isolates ) = @{$params}{qw(db isolates)};
 	send_error( 'Required field(s) missing: isolates', 400 ) if !defined $isolates;
 	my $set_id = $self->get_set_id;
-	my $check = $self->{'submissionHandler'}->check_new_isolates( $set_id, \$isolates, $options );
+	my $check  = $self->{'submissionHandler'}->check_new_isolates( $set_id, \$isolates, $options );
 	if ( $check->{'err'} ) {
 		local $" = q( );
 		my $err = "@{ $check->{'err'} }";
@@ -526,7 +526,7 @@ sub _get_messages {
 	my $submission = $self->{'datastore'}->run_query( 'SELECT * FROM submissions WHERE id=?',
 		$submission_id, { fetch => 'row_hashref', cache => 'REST::Submissions::get_submission' } );
 	send_error( 'Submission does not exist.', 404 ) if !$submission;
-	_check_submission_owner( $self, $submission );
+	_check_submission_owner($submission);
 	my $subdir   = setting('subdir');
 	my $messages = $self->{'datastore'}->run_query(
 		q(SELECT date_trunc('second',timestamp) AS timestamp,user_id,)
@@ -535,6 +535,7 @@ sub _get_messages {
 		{ fetch => 'all_arrayref', slice => {}, cache => 'REST::Submissions::get_messages' }
 	);
 	my $values = [];
+
 	foreach my $message (@$messages) {
 		push @$values,
 		  {
@@ -553,8 +554,8 @@ sub _add_message {
 	my ( $db, $submission_id, $message ) = @{$params}{qw(db submission message)};
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	send_error( 'Submission does not exist.', 404 ) if !$submission;
-	_check_submission_owner( $self, $submission );
-	send_error( 'No message included.',       400 ) if !$message;
+	_check_submission_owner($submission);
+	send_error( 'No message included.', 400 ) if !$message;
 	my $user_id = $self->get_user_id;
 	eval {
 		$self->{'db'}->do( 'INSERT INTO messages (submission_id,timestamp,user_id,message) VALUES (?,?,?,?)',
@@ -579,8 +580,8 @@ sub _upload_file {
 	my ( $db, $submission_id, $filename, $upload ) = @{$params}{qw(db submission filename upload)};
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	send_error( 'Submission does not exist.', 404 ) if !$submission;
-	_check_submission_owner( $self, $submission );
-	send_error( 'Filename is required.',      400 ) if !$filename;
+	_check_submission_owner($submission);
+	send_error( 'Filename is required.', 400 ) if !$filename;
 	_check_submission_filename($filename);
 	my $dir = $self->{'submissionHandler'}->get_submission_dir($submission_id) . '/supporting_files';
 	$self->{'submissionHandler'}->mkpath($dir);
@@ -606,7 +607,7 @@ sub _get_files {
 	my ( $db, $submission_id ) = @{$params}{qw(db submission)};
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	send_error( 'Submission does not exist.', 404 ) if !$submission;
-	_check_submission_owner( $self, $submission );
+	_check_submission_owner($submission);
 	my $subdir = setting('subdir');
 	my $dir    = $self->{'submissionHandler'}->get_submission_dir($submission_id) . '/supporting_files';
 	my @files;
@@ -630,10 +631,11 @@ sub _get_file {
 	my ( $db, $submission_id, $filename ) = @{$params}{qw(db submission file)};
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	send_error( 'Submission does not exist.', 404 ) if !$submission;
-	_check_submission_owner( $self, $submission );
+	_check_submission_owner($submission);
 	_check_submission_filename($filename);
 	my $dir       = $self->{'submissionHandler'}->get_submission_dir($submission_id) . '/supporting_files';
 	my $full_path = "$dir/$filename";
+
 	if ( !-e $full_path ) {
 		send_error( 'File does not exist.', 404 );
 	}
@@ -647,7 +649,7 @@ sub _delete_file {
 	my ( $db, $submission_id, $filename ) = @{$params}{qw(db submission file)};
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	send_error( 'Submission does not exist.', 404 ) if !$submission;
-	_check_submission_owner( $self, $submission );
+	_check_submission_owner($submission);
 	_check_submission_filename($filename);
 	my $dir       = $self->{'submissionHandler'}->get_submission_dir($submission_id) . '/supporting_files';
 	my $full_path = "$dir/$filename";
