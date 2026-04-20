@@ -163,6 +163,8 @@ sub _before {
 		$self->{'system'} = $self->{'xmlHandler'}->get_system_hash;
 	}
 	$self->set_system_overrides;
+	$self->{'system'}->{'privacy'} //= 'yes';
+	$self->{'system'}->{'privacy'} = $self->{'system'}->{'privacy'} eq 'no' ? 0 : 1;
 	$ENV{'PATH'} = '/bin:/usr/bin';    ## no critic (RequireLocalizedPunctuationVars) #so we don't foul taint check
 	delete @ENV{qw(IFS CDPATH ENV BASH_ENV)};           # Make %ENV safer
 	$self->{'system'}->{'read_access'} ||= 'public';    #everyone can view by default
