@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2025, University of Oxford
+#Copyright (c) 2011-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,9 +20,9 @@ package BIGSdb::JobViewerPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Page);
+use parent            qw(BIGSdb::Page);
 use BIGSdb::Constants qw(:interface);
-use List::MoreUtils qw(any);
+use List::MoreUtils   qw(any);
 use Time::Duration;
 use JSON;
 use Log::Log4perl qw(get_logger);
@@ -286,10 +286,17 @@ sub _print_notification_form {
 	my ( $self, $job ) = @_;
 	return if !$self->{'config'}->{'smtp_server'};
 	return if $job->{'stop_time'};
+	my $can_modify = $self->_can_user_cancel_job($job);
+
 	my $q = $self->{'cgi'};
 	if ( $q->param('Update') ) {
-		$self->_update_notifications( $job->{'id'} );
+		if ($can_modify) {
+			$self->_update_notifications( $job->{'id'} );
+		} else {
+			say q(<p class="statusbad">You are not allowed to update job notifications.</p>  );
+		}
 	}
+	return if !$can_modify;
 	say q(<div style="float:left">);
 	say q(<span class="main_icon fas fa-envelope fa-3x fa-pull-left"></span>);
 	say q(<h2>Notification</h2>);
