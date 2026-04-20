@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2021, University of Oxford
+#Copyright (c) 2021-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -47,6 +47,10 @@ sub print_content {
 	}
 	if ( !defined $name ) {
 		say encode_json( { error => 'Analysis name must be provided.' } );
+		return;
+	}
+	if ( !$self->is_allowed_to_view_isolate($isolate_id) ) {
+		say encode_json( {} );
 		return;
 	}
 	my $data = $self->{'datastore'}
