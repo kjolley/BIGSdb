@@ -20,7 +20,7 @@ package BIGSdb::UserPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::VersionPage);
+use parent        qw(BIGSdb::VersionPage);
 use Log::Log4perl qw(get_logger);
 use XML::Parser::PerlSAX;
 use Email::Sender::Transport::SMTP;
@@ -655,18 +655,179 @@ sub _registrations {
 	return $buffer;
 }
 
+sub _make_new_api_key {
+	my ($self) = @_;
+	my $buffer = qq(<script>var active_panel=$self->{'panel'};</script>);
+	my $key    = BIGSdb::Utils::random_string(64);
+	eval {
+		$self->{'auth_db'}->do(
+			'INSERT INTO api_keys (dbase,username,key,datestamp,ban) VALUES (?,?,?,?,?)',
+			undef, $self->{'system'}->{'db'},
+			$self->{'username'}, $key, 'now', 'false'
+		);
+	};
+	if ($@) {
+		$logger->error($@);
+		$buffer .=
+		  q(<div class="box statusbad_no_resize"><span class="statusbad">Error creating new API key.</span></div>);
+		$self->{'auth_db'}->rollback;
+	} else {
+		$logger->info("User $self->{'username'} created a new API key.");
+		$buffer .= q(<div class="box statusgood_no_resize"><span class="statusgood">New API key created.</span></div>);
+		$self->{'auth_db'}->commit;
+	}
+	return $buffer;
+}
+
+sub _change_api_key {
+	my ($self) = @_;
+	my $buffer = qq(<script>var active_panel=$self->{'panel'};</script>);
+	my $key    = BIGSdb::Utils::random_string(64);
+	eval {
+		$self->{'auth_db'}->do(
+			'UPDATE api_keys SET (key,datestamp)=(?,?) WHERE (dbase,username)=(?,?)',
+			undef, $key, 'now', $self->{'system'}->{'db'},
+			$self->{'username'}
+		);
+	};
+	if ($@) {
+		$logger->error($@);
+		$buffer .= q(<div class="box statusbad_no_resize"><span class="statusbad">Error changing API key.</span></div>);
+		$self->{'auth_db'}->rollback;
+	} else {
+		$logger->info("User $self->{'username'} changed API key.");
+		$buffer .= q(<div class="box statusgood_no_resize"><span class="statusgood">API key changed.</span></div>);
+		$self->{'auth_db'}->commit;
+	}
+	return $buffer;
+}
+
+sub _make_new_oauth_key {
+	my ($self)     = @_;
+	my $q          = $self->{'cgi'};
+	my $buffer     = qq(<script>var active_panel=$self->{'panel'};</script>);
+	my $key_exists = $self->{'datastore'}->run_query(
+		'SELECT EXISTS(SELECT * FROM clients WHERE (dbase,username,application)=(?,?,?))',
+		[ $self->{'system'}->{'db'}, $self->{'username'}, scalar $q->param('key_name') ],
+		{ db => $self->{'auth_db'} }
+	);
+	if ($key_exists) {
+		$buffer .= q(<div class="box statusbad"><span class="statusbad">You already have )
+		  . q(a key with that name. Use a different name.</span></div>);
+	} else {
+		my $client_id     = BIGSdb::Utils::random_string(24);
+		my $client_secret = BIGSdb::Utils::random_string(42);
+		my $key_name      = $q->param('key_name');
+		eval {
+			$self->{'auth_db'}->do(
+				'INSERT INTO clients (application,version,client_id,client_secret,'
+				  . 'default_permission,datestamp,default_submission,default_curation,dbase,username) VALUES '
+				  . '(?,?,?,?,?,?,?,?,?,?)',
+				undef,
+				$key_name,
+				'',
+				$client_id,
+				$client_secret,
+				'allow',
+				'now',
+				'true',
+				'false',
+				$self->{'system'}->{'db'},
+				$self->{'username'}
+			);
+		};
+		if ($@) {
+			$logger->error($@);
+			$buffer .=
+			  q(<div class="box statusbad_no_resize"><span class="statusbad">Error creating new key.</span></div>);
+			$self->{'auth_db'}->rollback;
+		} else {
+			$logger->info("User $self->{'username'} created a new OAuth application key - $key_name.");
+			$buffer .=
+			  q(<div class="box statusgood_no_resize"><span class="statusgood">New API key created.</span></div>);
+			$self->{'auth_db'}->commit;
+		}
+	}
+	return $buffer;
+}
+
+sub _revoke_key {
+	my ($self)    = @_;
+	my $q         = $self->{'cgi'};
+	my $client_id = $q->param('revoke');
+	eval {
+		$self->{'auth_db'}
+		  ->do( 'DELETE FROM clients WHERE (client_id,username)=(?,?)', undef, $client_id, $self->{'username'} );
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'auth_db'}->rollback;
+	} else {
+		$logger->info("User $self->{'username'} deleted API key.");
+		$self->{'auth_db'}->commit;
+	}
+	return;
+}
+
 sub _api_keys {
 	my ($self) = @_;
 	return q() if !( $self->{'config'}->{'automated_api_keys'} && $self->{'config'}->{'site_user_dbs'} );
 	$self->{'panel'}++;
-	my $q = $self->{'cgi'};
-	my $buffer =
-		q(<h2>API keys</h2>)
-	  . q(<div><span class="main_icon fas fa-key fa-3x fa-pull-left"></span>)
-	  . q(<p>Here you can create keys that enable you to delegate your account access to scripts or third-party )
-	  . q(applications using the API without the need to share credentials. More details can be found at )
-	  . q(<a href="https://bigsdb.readthedocs.io/en/latest/rest.html" target="_blank">)
-	  . q(https://bigsdb.readthedocs.io/en/latest/rest.html</a>.</p>);
+	my $q      = $self->{'cgi'};
+	my $buffer = q(<h2>API keys</h2><div><span class="main_icon fas fa-key fa-3x fa-pull-left"></span>);
+	if ( $self->{'config'}->{'data_access_api_keys'} ) {
+		$buffer .=
+			q(<h2>API keys (Public data access)</h2>)
+		  . q(<p>You can create a data access key for your account that can be used to download unprivileged data, )
+		  . q(such as typing nomenclature, from the API. Embed this key as the X-API-Key attribute of the request )
+		  . q(header to use. To access private data or to make automated submissions you must use OAuth keys as )
+		  . q(these are more secure. Data access keys are considerably easier to implement than OAuth application )
+		  . q(keys.</p>);
+		my $create_buffer = q();
+		if ( $q->param('create_api_key') ) {
+			$buffer .= $self->_make_new_api_key;
+		}
+		my $key = $self->{'datastore'}->run_query(
+			'SELECT key FROM api_keys WHERE (dbase,username)=(?,?)',
+			[ $self->{'system'}->{'db'}, $self->{'username'} ],
+			{ db => $self->{'auth_db'} }
+		);
+		$buffer .= $q->start_form;
+		if ( !defined $key ) {
+			$buffer .= $self->print_action_fieldset(
+				{ submit_label => 'Create key', no_reset => 1, get_only => 1, submit_name => 'create_api_key' } );
+		} else {
+			if ( $q->param('change_api_key') ) {
+				$buffer .= $self->_change_api_key;
+				$key = $self->{'datastore'}->run_query(
+					'SELECT key FROM api_keys WHERE (dbase,username)=(?,?)',
+					[ $self->{'system'}->{'db'}, $self->{'username'} ],
+					{ db => $self->{'auth_db'} }
+				);
+			}
+			$buffer .= q(<div class="scrollable">);
+			$buffer .= q(<p><span style="font-weight:600">Key: </span>)
+			  . qq(<span style="font-family:monospace">$key</span></p></div>);
+			$buffer .= q(<p>Note that changing this key will revoke access for any scripts currently using it.</p>);
+
+			$buffer .= $self->print_action_fieldset(
+				{ submit_label => 'Change API key', no_reset => 1, get_only => 1, submit_name => 'change_api_key' } );
+		}
+
+		$buffer .= q(<div style="clear:both"></div>);
+		$buffer .= $q->end_form;
+	}
+	$buffer .=
+		q(<h2>OAuth applications (Authenticated access)</h2>)
+	  . q(<p>These keys enable you to delegate your account access to scripts or third-party )
+	  . q(applications using the API without the need to share credentials. They are required for API )
+	  . q(routes that need higher security, such as those making submissions or accessing private records, or for )
+	  . q(use by commercial software. More details can be found at )
+	  . q(<a href="https://bigsdb.readthedocs.io/en/latest/rest.html" target="_blank" style="color:#00b">)
+	  . q(https://bigsdb.readthedocs.io/en/latest/rest.html</a>.</p>)
+	  . q(<p>You can use the <a href="https://github.com/kjolley/BIGSdb_downloader" )
+	  . q(target="_blank" style="color:#00b">)
+	  . q(BIGSdb_downloader</a> tool to handle OAuth authentication in download scripts.<p>);
 	my $email = $self->{'config'}->{'site_admin_email'};
 	my $admins =
 	  $email
@@ -676,64 +837,12 @@ sub _api_keys {
 	  . qq(beyond for testing purposes, then please contact the $admins.</p>);
 
 	if ( $q->param('new_key') ) {
-		$buffer .= qq(<script>var active_panel=$self->{'panel'};</script>);
-		my $key_exists = $self->{'datastore'}->run_query(
-			'SELECT EXISTS(SELECT * FROM clients WHERE (dbase,username,application)=(?,?,?))',
-			[ $self->{'system'}->{'db'}, $self->{'username'}, scalar $q->param('key_name') ],
-			{ db => $self->{'auth_db'} }
-		);
-		if ($key_exists) {
-			$buffer .= q(<div class="box statusbad"><span class="statusbad">You already have )
-			  . q(a key with that name. Use a different name.</span></div>);
-		} else {
-			my $client_id     = BIGSdb::Utils::random_string(24);
-			my $client_secret = BIGSdb::Utils::random_string(42);
-			my $key_name      = $q->param('key_name');
-			eval {
-				$self->{'auth_db'}->do(
-					'INSERT INTO clients (application,version,client_id,client_secret,'
-					  . 'default_permission,datestamp,default_submission,default_curation,dbase,username) VALUES '
-					  . '(?,?,?,?,?,?,?,?,?,?)',
-					undef,
-					$key_name,
-					'',
-					$client_id,
-					$client_secret,
-					'allow',
-					'now',
-					'true',
-					'false',
-					$self->{'system'}->{'db'},
-					$self->{'username'}
-				);
-			};
-			if ($@) {
-				$logger->error($@);
-				$buffer .=
-				  q(<div class="box statusbad_no_resize"><span class="statusbad">Error creating new key.</span></div>);
-				$self->{'auth_db'}->rollback;
-			} else {
-				$logger->info("User $self->{'username'} created a new API key - $key_name.");
-				$buffer .=
-				  q(<div class="box statusgood_no_resize"><span class="statusgood">New API key created.</span></div>);
-				$self->{'auth_db'}->commit;
-			}
-		}
+		$buffer .= $self->_make_new_oauth_key;
 	}
 	if ( $q->param('revoke') ) {
 		$buffer .= qq(<script>var active_panel=$self->{'panel'};</script>);
-		my $client_id = $q->param('revoke');
-		eval {
-			$self->{'auth_db'}
-			  ->do( 'DELETE FROM clients WHERE (client_id,username)=(?,?)', undef, $client_id, $self->{'username'} );
-		};
-		if ($@) {
-			$logger->error($@);
-			$self->{'auth_db'}->rollback;
-		} else {
-			$logger->info("User $self->{'username'} deleted API key.");
-			$self->{'auth_db'}->commit;
-		}
+		$self->_revoke_key;
+
 	}
 	my $keys = $self->{'datastore'}->run_query(
 		'SELECT * FROM clients WHERE (dbase,username)=(?,?) ORDER BY application',
@@ -759,7 +868,7 @@ sub _api_keys {
 	}
 	$buffer .= $q->start_form;
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	$buffer .= q(<fieldset style="float:left"><legend>Create new API key</legend>);
+	$buffer .= q(<fieldset style="float:left"><legend>Create new OAuth application key</legend>);
 	$buffer .= q(<ul><li>);
 	$buffer .= q(<label for="key_name">Key name: </label>);
 	$buffer .= $q->textfield(
