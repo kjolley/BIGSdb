@@ -24,7 +24,7 @@ use POSIX qw(strftime);
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 use MIME::Base64;
 use BIGSdb::Utils;
-use BIGSdb::Constants qw(SEQ_METHODS :submissions);
+use BIGSdb::Constants qw(SEQ_METHODS MAX_EMBARGO :submissions);
 
 sub setup_routes {
 	my $self = setting('self');
@@ -489,6 +489,18 @@ sub _prepare_isolate_submission {
 	my $params = params;
 	my ( $db, $isolates ) = @{$params}{qw(db isolates)};
 	send_error( 'Required field(s) missing: isolates', 400 ) if !defined $isolates;
+	if ( defined $params->{'embargo'} ) {
+		if ( !BIGSdb::Utils::is_int( $params->{'embargo'} ) ) {
+			send_error( 'Embargo must be an integer (unit is months)', 400 );
+		}
+		my $max_embargo = $self->{'system'}->{'max_embargo'} // $self->{'config'}->{'max_embargo'} // MAX_EMBARGO;
+		if ( $params->{'embargo'} < 1 ) {
+			send_error( 'Embargo must be a positive integer (unit is months)', 400 );
+		}
+		if ( $params->{'embargo'} > $max_embargo ) {
+			send_error( "The maximum embargo that can be requested is $max_embargo months.", 400 );
+		}
+	}
 	my $set_id = $self->get_set_id;
 	my $check  = $self->{'submissionHandler'}->check_new_isolates( $set_id, \$isolates, $options );
 	if ( $check->{'err'} ) {
@@ -497,6 +509,13 @@ sub _prepare_isolate_submission {
 		send_error( $err, 400 );
 	}
 	my $sql = [];
+	if ( defined $params->{'embargo'} ) {
+		push @$sql,
+		  {
+			statement => 'UPDATE submissions SET embargo=? WHERE id=?',
+			arguments => [ $params->{'embargo'}, $submission_id ]
+		  };
+	}
 	foreach my $field ( keys %{ $check->{'positions'} } ) {
 		push @$sql,
 		  {
@@ -517,6 +536,7 @@ sub _prepare_isolate_submission {
 		}
 		$i++;
 	}
+
 	return $sql;
 }
 
