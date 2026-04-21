@@ -24,7 +24,7 @@ use POSIX qw(strftime);
 use Dancer2 appname => 'BIGSdb::REST::Interface';
 use MIME::Base64;
 use BIGSdb::Utils;
-use BIGSdb::Constants qw(SEQ_METHODS MAX_EMBARGO :submissions);
+use BIGSdb::Constants qw(SEQ_METHODS MAX_INITIAL_EMBARGO :submissions);
 
 sub setup_routes {
 	my $self = setting('self');
@@ -493,7 +493,8 @@ sub _prepare_isolate_submission {
 		if ( !BIGSdb::Utils::is_int( $params->{'embargo'} ) ) {
 			send_error( 'Embargo must be an integer (unit is months)', 400 );
 		}
-		my $max_embargo = $self->{'system'}->{'max_embargo'} // $self->{'config'}->{'max_embargo'} // MAX_EMBARGO;
+		my $max_embargo = $self->{'system'}->{'max_initial_embargo'} // $self->{'config'}->{'max_initial_embargo'}
+		  // MAX_INITIAL_EMBARGO;
 		if ( $params->{'embargo'} < 1 ) {
 			send_error( 'Embargo must be a positive integer (unit is months)', 400 );
 		}
