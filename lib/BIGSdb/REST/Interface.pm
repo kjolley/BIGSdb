@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2014-2025, University of Oxford
+#Copyright (c) 2014-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -28,7 +28,7 @@ use Time::Piece;
 use Time::Seconds;
 use Net::OAuth;
 $Net::OAuth::PROTOCOL_VERSION = Net::OAuth::PROTOCOL_VERSION_1_0A;
-use POSIX qw(ceil);
+use POSIX         qw(ceil);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Application_Initiate');
 use BIGSdb::Exceptions;
@@ -169,6 +169,7 @@ sub _before {
 	delete @ENV{qw(IFS CDPATH ENV BASH_ENV)};           # Make %ENV safer
 	$self->{'system'}->{'read_access'} ||= 'public';    #everyone can view by default
 	$self->_set_db_params;
+
 	if ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ) {
 		$self->{'system'}->{'view'}       ||= 'isolates';
 		$self->{'system'}->{'labelfield'} ||= 'isolate';
@@ -275,6 +276,28 @@ sub _get_ip_address {
 	return request->address;
 }
 
+sub _check_api_key {
+	my ($self) = @_;
+	$self->{'api_key'} = 0;
+	my $api_key = request->header('X-API-Key');
+	return if !defined $api_key;
+	my ( $db, $username, $banned ) =
+	  $self->{'datastore'}->run_query( 'SELECT dbase,username,ban FROM api_keys WHERE key=?',
+		$api_key, { db => $self->{'auth_db'}, cache => 'check_api_key' } );
+	send_error( 'The API key used is banned', 401 ) if $banned;
+	my $user_exists = $self->{'datastore'}->run_query(
+		'SELECT EXISTS(SELECT * FROM users u JOIN user_dbases ud ON u.user_db=ud.id WHERE '
+		  . '(u.user_name,ud.dbase_name)=(?,?))',
+		[ $username, $db ],
+		{ cache => 'check_user_exists' }
+	);
+	send_error( 'The API key used cannot access this resource', 401 ) if !$user_exists;
+	$self->{'username'} = $username;
+	$self->{'api_key'}  = 1;
+	$self->_check_user_authorization($username);
+	return 1;
+}
+
 sub _check_authorization {
 	my $self             = setting('self');
 	my $request_path     = request->path;
@@ -285,14 +308,26 @@ sub _check_authorization {
 	if ( $request_path =~ /$submission_route/x ) {
 		$self->setup_submission_handler;
 	}
-	if ( ( $authenticated_db && $request_path !~ /^$oauth_route/x ) || $request_path =~ /^$submission_route/x ) {
-		send_error( 'Unauthorized', 401 ) if !$self->_is_authorized;
-	}
 	my $login_requirement = $self->{'datastore'}->get_login_requirement;
-	my $oauth_params      = $self->get_oauth_params();
+	if ( $self->_check_api_key ) {
+		if ( $request_path =~ /^$submission_route/x && !$self->{'config'}->{'data_access_api_keys_submissions'} ) {
+			send_error( 'API keys cannot be used for submissions - you must use OAuth for this', 401 );
+		}
+		my $method = uc( request->method );
+		if ( $method ne 'GET' && !$self->{'config'}->{'data_access_api_keys_post'} ) {
+			send_error( "API keys cannot be used for $method requests - you must use OAuth for these", 401 );
+		}
+		return if $login_requirement ne NOT_ALLOWED;
+	}
+
+	if ( ( $authenticated_db && $request_path !~ /^$oauth_route/x ) || $request_path =~ /^$submission_route/x ) {
+		send_error( 'Unauthorized', 401 ) if !$self->_is_oauth_authorized;
+	}
+
+	my $oauth_params = $self->get_oauth_params;
 	if ( $login_requirement == OPTIONAL && $oauth_params->{'oauth_consumer_key'} && $request_path !~ /^$oauth_route/x )
 	{
-		$self->_is_authorized;
+		$self->_is_oauth_authorized;
 	}
 	return;
 }
@@ -432,7 +467,7 @@ sub get_oauth_params {
 	return $oauth_params;
 }
 
-sub _is_authorized {
+sub _is_oauth_authorized {
 	my ($self)       = @_;
 	my $db           = param('db');
 	my $oauth_params = $self->get_oauth_params( { oauth_token => 1 } );
@@ -578,7 +613,8 @@ sub _initiate_view {
 	my $args = {};
 	$args->{'username'} = $self->{'username'} if $self->{'username'};
 	my $set_id = $self->get_set_id;
-	$args->{'set_id'} = $set_id if $set_id;
+	$args->{'set_id'}     = $set_id if $set_id;
+	$args->{'no_private'} = 1 if $self->{'api_key'} && !$self->{'config'}->{'data_access_api_keys_private'};
 	$self->{'datastore'}->initiate_view($args);
 	return;
 }

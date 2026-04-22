@@ -313,6 +313,11 @@ span.action {
 	text-shadow: 1px 1px 1px #999
 }
 
+span.attribute {
+	padding: 0.2em;
+	border:1px solid red
+}
+
 a.action:hover,
 span.action:hover {
 	border: 1px solid red;

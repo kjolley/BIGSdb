@@ -785,13 +785,26 @@ sub _api_keys {
 	my $q      = $self->{'cgi'};
 	my $buffer = q(<h2>API keys</h2><div><span class="main_icon fas fa-key fa-3x fa-pull-left"></span>);
 	if ( $self->{'config'}->{'data_access_api_keys'} ) {
+		$buffer .= q(<h2>API keys (Public data access)</h2><p>You can create a data access key for your account );
+		if ( $self->{'config'}->{'data_access_api_keys_private'} ) {
+			$buffer .= q(that can be used to download data );
+		} else {
+			$buffer .= q(that can be used to download unprivileged data, such as typing nomenclature, );
+		}
+		$buffer .= q(from the API. Embed this key as the <span class="attribute">X-API-Key</span> attribute )
+		. q(of the request header to use. );
+		my @restrictions;
+		push @restrictions, 'access private data'        if !$self->{'config'}->{'data_access_api_keys_private'};
+		push @restrictions, 'make automated submissions' if !$self->{'config'}->{'data_access_api_keys_submissions'};
+		if (@restrictions) {
+			local $" = q( or );
+			$buffer .= qq(To @restrictions you must use OAuth keys as these are more secure. );
+		}
 		$buffer .=
-			q(<h2>API keys (Public data access)</h2>)
-		  . q(<p>You can create a data access key for your account that can be used to download unprivileged data, )
-		  . q(such as typing nomenclature, from the API. Embed this key as the X-API-Key attribute of the request )
-		  . q(header to use. To access private data or to make automated submissions you must use OAuth keys as )
-		  . q(these are more secure. Data access keys are considerably easier to implement than OAuth application )
-		  . q(keys.</p>);
+			q[These keys should not be used with commercial software (commercial developers should obtain OAuth ]
+		  . q[application keys for this). ]
+		  if !$self->{'config'}->{'data_access_api_keys_commercial'};
+		$buffer .= q(Data access keys are considerably easier to implement than OAuth application keys.</p>);
 		my $create_buffer = q();
 		if ( $q->param('create_api_key') ) {
 			$buffer .= $self->_make_new_api_key;

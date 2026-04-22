@@ -3684,7 +3684,8 @@ sub get_username {
 
 sub initiate_view {
 	my ( $self, $args ) = @_;
-	my ( $username, $curate, $set_id, $original_view ) = @{$args}{qw(username curate set_id original_view)};
+	my ( $username, $curate, $set_id, $original_view, $no_private ) =
+	  @{$args}{qw(username curate set_id original_view no_private)};
 	$self->{'username'} = $username;    #Store in datastore for delayed REST calls.
 	my $user_info = $self->get_user_info_from_username($username);
 	if ( ( $self->{'system'}->{'dbtype'} // '' ) eq 'sequences' ) {
@@ -3778,17 +3779,20 @@ sub initiate_view {
 			}
 		} else {
 			@user_terms = (PUBLIC_ISOLATES);
+			if ( !$no_private ) {
 
-			#Simplify view definition by only looking for private/project isolates if the user has any.
-			my $has_private_isolates =
-			  $self->run_query( 'SELECT EXISTS(SELECT * FROM private_isolates WHERE user_id=?)', $user_info->{'id'} );
-			if ($has_private_isolates) {
-				push @user_terms, OWN_PRIVATE_ISOLATES;
-				$self->{'ajax_load_counts'} = 1;
-			}
-			if ($has_user_project) {
-				push @user_terms, ISOLATES_FROM_USER_PROJECT;
-				$self->{'ajax_load_counts'} = 1;
+				#Simplify view definition by only looking for private/project isolates if the user has any.
+				my $has_private_isolates =
+				  $self->run_query( 'SELECT EXISTS(SELECT * FROM private_isolates WHERE user_id=?)',
+					$user_info->{'id'} );
+				if ($has_private_isolates) {
+					push @user_terms, OWN_PRIVATE_ISOLATES;
+					$self->{'ajax_load_counts'} = 1;
+				}
+				if ($has_user_project) {
+					push @user_terms, ISOLATES_FROM_USER_PROJECT;
+					$self->{'ajax_load_counts'} = 1;
+				}
 			}
 		}
 		local $" = q( OR );
