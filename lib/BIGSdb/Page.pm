@@ -681,7 +681,7 @@ sub print_page_content {
 			  );
 			$self->{'setOptions'} = 1;
 		}
-		if ( $self->{"$self->{'instance'}_no_cache_loci_schemes"}
+		if ( defined $self->{'instance'} && $self->{"$self->{'instance'}_no_cache_loci_schemes"}
 			|| ( ( scalar $q->param('page') // q() ) eq 'index' && $q->param('reset') ) )
 		{
 			my $guid = $self->get_guid;
@@ -850,7 +850,7 @@ sub _get_meta_data {
 sub _get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20260213';
+	my $version = '20260422';
 	my @filenames;
 	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
 	push @filenames, q(billboard.min.css)                                     if $self->{'billboard'};

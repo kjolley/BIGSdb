@@ -1,4 +1,4 @@
-/*Version: 20260213*/
+/*Version: 20260422*/
 @font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
@@ -429,6 +429,12 @@ p.note {
 	background: #edd;
 	box-shadow: 1px 1px 1px #666;
 	border-radius: 3px;
+}
+
+p.key {
+	display: inline-block;
+	padding: 5px 20px;
+	background: #eee
 }
 
 p.progress {

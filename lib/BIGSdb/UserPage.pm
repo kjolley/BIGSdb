@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2016-2025, University of Oxford
+#Copyright (c) 2016-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -769,6 +769,15 @@ sub _revoke_key {
 	return;
 }
 
+sub _get_api_key {
+	my ($self) = @_;
+	return $self->{'datastore'}->run_query(
+		'SELECT key FROM api_keys WHERE (dbase,username)=(?,?)',
+		[ $self->{'system'}->{'db'}, $self->{'username'} ],
+		{ db => $self->{'auth_db'} }
+	);
+}
+
 sub _api_keys {
 	my ($self) = @_;
 	return q() if !( $self->{'config'}->{'automated_api_keys'} && $self->{'config'}->{'site_user_dbs'} );
@@ -787,11 +796,7 @@ sub _api_keys {
 		if ( $q->param('create_api_key') ) {
 			$buffer .= $self->_make_new_api_key;
 		}
-		my $key = $self->{'datastore'}->run_query(
-			'SELECT key FROM api_keys WHERE (dbase,username)=(?,?)',
-			[ $self->{'system'}->{'db'}, $self->{'username'} ],
-			{ db => $self->{'auth_db'} }
-		);
+		my $key = $self->_get_api_key;
 		$buffer .= $q->start_form;
 		if ( !defined $key ) {
 			$buffer .= $self->print_action_fieldset(
@@ -799,21 +804,15 @@ sub _api_keys {
 		} else {
 			if ( $q->param('change_api_key') ) {
 				$buffer .= $self->_change_api_key;
-				$key = $self->{'datastore'}->run_query(
-					'SELECT key FROM api_keys WHERE (dbase,username)=(?,?)',
-					[ $self->{'system'}->{'db'}, $self->{'username'} ],
-					{ db => $self->{'auth_db'} }
-				);
+				$key = $self->_get_api_key;
 			}
 			$buffer .= q(<div class="scrollable">);
-			$buffer .= q(<p><span style="font-weight:600">Key: </span>)
+			$buffer .= q(<p class="key"><span style="font-weight:600">Key: </span>)
 			  . qq(<span style="font-family:monospace">$key</span></p></div>);
 			$buffer .= q(<p>Note that changing this key will revoke access for any scripts currently using it.</p>);
-
 			$buffer .= $self->print_action_fieldset(
 				{ submit_label => 'Change API key', no_reset => 1, get_only => 1, submit_name => 'change_api_key' } );
 		}
-
 		$buffer .= q(<div style="clear:both"></div>);
 		$buffer .= $q->end_form;
 	}
