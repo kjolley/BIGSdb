@@ -442,6 +442,19 @@ p.key {
 	background: #eee
 }
 
+span.key {
+	font-family:monospace;
+	margin-right:20px
+}
+
+span.key.banned {
+	color: #aaa
+}
+
+p.key.banned {
+	color:#ccc
+}
+
 p.progress {
 	font-size: 1.5em;
 	color: #404080;

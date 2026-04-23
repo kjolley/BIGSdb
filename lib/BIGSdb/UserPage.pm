@@ -661,9 +661,9 @@ sub _make_new_api_key {
 	my $key    = BIGSdb::Utils::random_string(64);
 	eval {
 		$self->{'auth_db'}->do(
-			'INSERT INTO api_keys (dbase,username,key,datestamp,ban) VALUES (?,?,?,?,?)',
-			undef, $self->{'system'}->{'db'},
-			$self->{'username'}, $key, 'now', 'false'
+			'INSERT INTO api_keys (dbase,username,key,datestamp,ban) VALUES (?,?,?,?,?) '
+			  . 'ON CONFLICT(dbase,username) DO NOTHING',
+			undef, $self->{'system'}->{'db'}, $self->{'username'}, $key, 'now', 'false'
 		);
 	};
 	if ($@) {
@@ -772,9 +772,9 @@ sub _revoke_key {
 sub _get_api_key {
 	my ($self) = @_;
 	return $self->{'datastore'}->run_query(
-		'SELECT key FROM api_keys WHERE (dbase,username)=(?,?)',
+		'SELECT key,datestamp,ban FROM api_keys WHERE (dbase,username)=(?,?)',
 		[ $self->{'system'}->{'db'}, $self->{'username'} ],
-		{ db => $self->{'auth_db'} }
+		{ db => $self->{'auth_db'}, fetch => 'row_hashref' }
 	);
 }
 
@@ -792,7 +792,7 @@ sub _api_keys {
 			$buffer .= q(that can be used to download unprivileged data, such as typing nomenclature, );
 		}
 		$buffer .= q(from the API. Embed this key as the <span class="attribute">X-API-Key</span> attribute )
-		. q(of the request header to use. );
+		  . q(of the request header to use. );
 		my @restrictions;
 		push @restrictions, 'access private data'        if !$self->{'config'}->{'data_access_api_keys_private'};
 		push @restrictions, 'make automated submissions' if !$self->{'config'}->{'data_access_api_keys_submissions'};
@@ -815,16 +815,28 @@ sub _api_keys {
 			$buffer .= $self->print_action_fieldset(
 				{ submit_label => 'Create key', no_reset => 1, get_only => 1, submit_name => 'create_api_key' } );
 		} else {
-			if ( $q->param('change_api_key') ) {
+			if ( !$key->{'ban'} && $q->param('change_api_key') ) {
 				$buffer .= $self->_change_api_key;
 				$key = $self->_get_api_key;
 			}
 			$buffer .= q(<div class="scrollable">);
-			$buffer .= q(<p class="key"><span style="font-weight:600">Key: </span>)
-			  . qq(<span style="font-family:monospace">$key</span></p></div>);
-			$buffer .= q(<p>Note that changing this key will revoke access for any scripts currently using it.</p>);
-			$buffer .= $self->print_action_fieldset(
-				{ submit_label => 'Change API key', no_reset => 1, get_only => 1, submit_name => 'change_api_key' } );
+			if ( $key->{'ban'} ) {
+				$buffer .=
+					q(<p class="key"><span style="font-weight:600">Key: </span>)
+				  . qq(<span class="key banned">$key->{'key'}</span> )
+				  . q(<span class="flag" style="color:#992222;background:#99222215">BANNED</span>)
+				  . q(</p></div>);
+			} else {
+				$buffer .=
+					q(<p class="key"><span style="font-weight:600">Key: </span>)
+				  . qq(<span class="key">$key->{'key'}</span> )
+				  . qq(<span class="minor">[created: $key->{'datestamp'}]</span></p></div>);
+
+				$buffer .= q(<p>Note that changing this key will revoke access for any scripts currently using it.</p>);
+				$buffer .= $self->print_action_fieldset(
+					{ submit_label => 'Change API key', no_reset => 1, get_only => 1, submit_name => 'change_api_key' }
+				);
+			}
 		}
 		$buffer .= q(<div style="clear:both"></div>);
 		$buffer .= $q->end_form;
