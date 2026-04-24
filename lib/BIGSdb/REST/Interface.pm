@@ -329,6 +329,9 @@ sub _check_authorization {
 	{
 		$self->_is_oauth_authorized;
 	}
+	if ($self->{'config'}->{'api_requires_authentication'} && $request_path !~ /^$oauth_route/x && !$self->{'username'}){
+		send_error( 'API requires authentication', 401 )
+	}
 	return;
 }
 
@@ -411,6 +414,7 @@ sub _after {
 	$self->_log_call;
 	undef $self->{'username'};
 	undef $self->{'client_name'};
+	undef $self->{'api_key'};
 	if ( $self->{'time_since_last_call_ms'} > IDLE_DROP_CONNECTION_MS ) {
 		$self->{'dataConnector'}->drop_all_connections;
 		undef $self->{'log_db'};
@@ -424,6 +428,7 @@ sub _after_error {
 	my $self = setting('self');
 	undef $self->{'username'};
 	undef $self->{'client_name'};
+	undef $self->{'api_key'};
 	$self->{'dataConnector'}->drop_all_connections( $self->{'do_not_drop'} );
 	return;
 }
@@ -614,7 +619,7 @@ sub _initiate_view {
 	$args->{'username'} = $self->{'username'} if $self->{'username'};
 	my $set_id = $self->get_set_id;
 	$args->{'set_id'}     = $set_id if $set_id;
-	$args->{'no_private'} = 1 if $self->{'api_key'} && !$self->{'config'}->{'data_access_api_keys_private'};
+	$args->{'no_private'} = 1       if $self->{'api_key'} && !$self->{'config'}->{'data_access_api_keys_private'};
 	$self->{'datastore'}->initiate_view($args);
 	return;
 }
