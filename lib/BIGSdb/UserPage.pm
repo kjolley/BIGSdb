@@ -392,6 +392,41 @@ sub _edit_user {
 	$q->param( update => 1 );
 	say $q->hidden($_) foreach qw(edit update user update_user);
 	say $q->end_form;
+	if ( $username ne $self->{'username'} ) {
+		my $api_key = $self->_get_api_key( { username => $username } );
+		if ($q->param('toggle_ban')){
+			eval {
+			$self->{'auth_db'}->do('UPDATE api_keys SET ban=? WHERE (dbase,username)=(?,?)',undef,
+			$api_key->{'ban'} ? 'false': 'true',$self->{'system'}->{'db'}, $username);
+			};
+			if ($@){
+				$logger->error($@);
+				$self->{'auth_db'}->rollback;
+			} else {
+				$self->{'auth_db'}->commit;
+			}
+			$api_key = $self->_get_api_key( { username => $username } );
+		}
+		if ( defined $api_key ) {
+			say $q->start_form;
+			say q(<fieldset style="float:left"><legend>API access</legend>);
+			my $status = $api_key->{'ban'} ? 'banned' : 'active';
+			say qq(<p>This user has an API key which is currently $status.<p>);
+			if ($api_key->{'ban'}){
+				say q(<p><span class="flag" style="color:#992222;background:#99222215">BANNED</span></p>);
+			}
+			my $action = $api_key->{'ban'} ? 'Unban' : 'Ban';
+			say $q->submit(
+			-name  => 'toggle_ban',
+			-label => "$action API key",
+			-class => 'small_submit',
+			-style => 'margin-left:0.2em'
+		);
+			say q(</fieldset>);
+			say $q->hidden($_) foreach qw(edit user update_user);
+			say $q->end_form;
+		}
+	}
 	say q(</div></div>);
 	return;
 }
@@ -770,10 +805,11 @@ sub _revoke_key {
 }
 
 sub _get_api_key {
-	my ($self) = @_;
+	my ( $self, $options ) = @_;
+	my $username = $options->{'username'} // $self->{'username'};
 	return $self->{'datastore'}->run_query(
 		'SELECT key,datestamp,ban FROM api_keys WHERE (dbase,username)=(?,?)',
-		[ $self->{'system'}->{'db'}, $self->{'username'} ],
+		[ $self->{'system'}->{'db'}, $username ],
 		{ db => $self->{'auth_db'}, fetch => 'row_hashref' }
 	);
 }
@@ -829,7 +865,7 @@ sub _api_keys {
 			} else {
 				$buffer .=
 					q(<p class="key"><span style="font-weight:600">Key: </span>)
-				  . qq(<span class="key">$key->{'key'}</span> )
+				  . qq(<span class="key">$key->{'key'}</span>)
 				  . qq(<span class="minor">[created: $key->{'datestamp'}]</span></p></div>);
 
 				$buffer .= q(<p>Note that changing this key will revoke access for any scripts currently using it.</p>);
