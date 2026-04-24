@@ -279,6 +279,7 @@ sub _get_ip_address {
 sub _check_api_key {
 	my ($self) = @_;
 	$self->{'api_key'} = 0;
+	return if !$self->{'config'}->{'data_access_api_keys'};
 	my $api_key = request->header('X-API-Key');
 	return if !defined $api_key;
 	my ( $db, $username, $banned ) =
