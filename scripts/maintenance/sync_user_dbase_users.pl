@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Synchronize user database users with details from client databases
 #Written by Keith Jolley
-#Copyright (c) 2016-2025, University of Oxford
+#Copyright (c) 2016-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20241021
+#Version: 20260427
 use strict;
 use warnings;
 use 5.010;
@@ -31,7 +31,8 @@ use constant {
 	HOST             => undef,
 	PORT             => undef,
 	USER             => undef,
-	PASSWORD         => undef
+	PASSWORD         => undef,
+	LOCK_DIR         => '/var/run/lock'         #Override in bigsdb.conf
 };
 #######End Local configuration#############################################
 use lib (LIB_DIR);
@@ -58,6 +59,7 @@ if ( !$opts{'user_database'} ) {
 	say 'Help: sync_user_dbase_users.pl --help';
 	exit;
 }
+check_if_script_already_running();
 my $script = BIGSdb::Offline::Script->new(
 	{
 		config_dir       => CONFIG_DIR,
@@ -77,6 +79,7 @@ my $is_user_db =
 die "This script can only be run against a user database.\n"
   if !$is_user_db;
 main();
+remove_lock_file();
 undef $script;
 
 sub main {
@@ -777,6 +780,46 @@ sub get_all_configs_using_same_database {
 	my $system  = read_config_xml($config);
 	my $db_name = $system->{'db'};
 	return $configs_using_db->{$db_name} // [];
+}
+
+sub get_lock_file {
+	my $config_dir = CONFIG_DIR;
+	my $config     = Config::Tiny->read("$config_dir/bigsdb.conf");
+	if ( !defined $config ) {
+		$logger->fatal( 'Unable to read or parse bigsdb.conf file. Reason: ' . Config::Tiny->errstr );
+		$config = Config::Tiny->new();
+	}
+	my $lock_dir  = $config->{_}->{'lock_dir'} // LOCK_DIR;
+	my $lock_file = "$lock_dir/sync_user_dbase_users";
+	return $lock_file;
+}
+
+sub remove_lock_file {
+	my $lock_file = get_lock_file();
+	unlink $lock_file;
+	return;
+}
+
+sub check_if_script_already_running {
+	my $lock_file = get_lock_file();
+	if ( -e $lock_file ) {
+		open( my $fh, '<', $lock_file ) || $logger->error("Cannot open lock file $lock_file for reading");
+		my $pid = <$fh>;
+		close $fh;
+		my $pid_exists = kill( 0, $pid );
+		if ( !$pid_exists ) {
+			say 'Lock file exists but process is no longer running - deleting lock.'
+			  if !$opts{'quiet'};
+			unlink $lock_file;
+		} else {
+			say 'Script already running with these parameters - terminating.' if !$opts{'quiet'};
+			exit(1);
+		}
+	}
+	open( my $fh, '>', $lock_file ) || $logger->error("Cannot open lock file $lock_file for writing");
+	say $fh $$;
+	close $fh;
+	return;
 }
 
 sub show_help {
