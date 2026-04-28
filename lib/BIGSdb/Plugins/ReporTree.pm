@@ -1,6 +1,6 @@
 #ReporTree.pm - Wrapper for ReporTree pipeline
 #Written by Keith Jolley
-#Copyright (c) 2023-2024, University of Oxford
+#Copyright (c) 2023-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -22,9 +22,9 @@ package BIGSdb::Plugins::ReporTree;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugins::GrapeTree);
+use parent          qw(BIGSdb::Plugins::GrapeTree);
 use List::MoreUtils qw(uniq);
-use Log::Log4perl qw(get_logger);
+use Log::Log4perl   qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_RECORDS => 10_000;
 
@@ -53,7 +53,7 @@ sub get_attributes {
 		buttontext          => 'ReporTree',
 		menutext            => 'ReporTree',
 		module              => 'ReporTree',
-		version             => '1.2.0',
+		version             => '1.2.1',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -64,6 +64,7 @@ sub get_attributes {
 		min                 => 2,
 		max                 => $self->_get_limit,
 		always_show_in_menu => 1,
+		system_flag         => 'ReporTree',
 		image               => '/images/plugins/ReporTree/screenshot.png'
 	);
 	return \%att;

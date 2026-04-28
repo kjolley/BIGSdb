@@ -1,6 +1,6 @@
 #GrapeTree.pm - MST visualization plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2017-2025, University of Oxford
+#Copyright (c) 2017-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -53,7 +53,7 @@ sub get_attributes {
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.9.0',
+		version             => '1.9.1',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -64,6 +64,7 @@ sub get_attributes {
 		min                 => 2,
 		max                 => $self->_get_limit,
 		always_show_in_menu => 1,
+		system_flag         => 'GrapeTree',
 		image               => '/images/plugins/GrapeTree/screenshot.png'
 	);
 	return \%att;

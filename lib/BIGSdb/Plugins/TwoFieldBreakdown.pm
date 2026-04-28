@@ -1,6 +1,6 @@
 #FieldBreakdown.pm - TwoFieldBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2025, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -47,18 +47,20 @@ sub get_attributes {
 		full_description => 'The two field breakdown plugin generates a table breaking down the frequencies of one '
 		  . 'field against another. This is analagous to a spreadsheet pivot table. Any primary metadata field, locus, '
 		  . 'or scheme field can be used and the output can be exported as an Excel spreadsheet.',
-		category   => 'Breakdown',
-		buttontext => 'Two Field',
-		menutext   => 'Two field breakdown',
-		module     => 'TwoFieldBreakdown',
-		version    => '1.9.0',
-		dbtype     => 'isolates',
-		section    => 'breakdown,postquery',
-		url        => "$self->{'config'}->{'doclink'}/data_analysis/two_field_breakdown.html",
-		input      => 'query',
-		order      => 12,
-		requires   => 'offline_jobs',
-		image      => '/images/plugins/TwoFieldBreakdown/screenshot.png'
+		category           => 'Breakdown',
+		buttontext         => 'Two Field',
+		menutext           => 'Two field breakdown',
+		module             => 'TwoFieldBreakdown',
+		version            => '1.9.1',
+		dbtype             => 'isolates',
+		section            => 'breakdown,postquery',
+		url                => "$self->{'config'}->{'doclink'}/data_analysis/two_field_breakdown.html",
+		input              => 'query',
+		order              => 12,
+		requires           => 'offline_jobs',
+		system_flag        => 'TwoFieldBreakdown',
+		enabled_by_default => 1,
+		image              => '/images/plugins/TwoFieldBreakdown/screenshot.png'
 	);
 	return \%att;
 }

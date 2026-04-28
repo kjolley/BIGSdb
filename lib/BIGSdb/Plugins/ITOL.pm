@@ -55,23 +55,26 @@ sub get_attributes {
 		  . 'in the resultant tree to be coloured. Datasets are uploaded to the <a href="https://itol.embl.de/">'
 		  . 'Interactive Tree of Life website</a> (<a href="https://www.ncbi.nlm.nih.gov/pubmed/27095192">'
 		  . 'Letunic &amp; Bork 2016 <i>Nucleic Acids Res</i> 44(W1):W242-5</a>) for visualisation.',
-		category   => 'Third party',
-		buttontext => 'iTOL',
-		menutext   => 'iTOL',
-		module     => 'ITOL',
-		version    => '1.10.0',
-		dbtype     => 'isolates',
-		section    => 'third_party,postquery',
-		input      => 'query',
-		help       => 'tooltips',
-		requires   => 'aligner,offline_jobs,js_tree,clustalw,itol_api_key,itol_project_name',
-		supports   => 'user_genomes',
-		url        => "$self->{'config'}->{'doclink'}/data_analysis/itol.html",
-		order      => 35,
-		min        => 2,
-		max => $self->{'system'}->{'itol_record_limit'} // $self->{'config'}->{'itol_record_limit'} // MAX_RECORDS,
+		category            => 'Third party',
+		buttontext          => 'iTOL',
+		menutext            => 'iTOL',
+		module              => 'ITOL',
+		version             => '1.10.1',
+		dbtype              => 'isolates',
+		section             => 'third_party,postquery',
+		input               => 'query',
+		help                => 'tooltips',
+		requires            => 'aligner,offline_jobs,js_tree,clustalw,itol_api_key,itol_project_name',
+		supports            => 'user_genomes',
+		url                 => "$self->{'config'}->{'doclink'}/data_analysis/itol.html",
+		order               => 35,
+		min                 => 2,
+		system_flag         => 'iTOL',
 		always_show_in_menu => 1,
-		image               => '/images/plugins/ITOL/screenshot.png'
+		image               => '/images/plugins/ITOL/screenshot.png',
+		max                 => $self->{'system'}->{'itol_record_limit'} // $self->{'config'}->{'itol_record_limit'}
+		  // MAX_RECORDS
+
 	);
 	return \%att;
 }

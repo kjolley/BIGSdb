@@ -1,6 +1,6 @@
 #PublicationBreakdown.pm - PublicationBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,15 +21,15 @@ package BIGSdb::Plugins::PublicationBreakdown;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugin BIGSdb::ResultsTablePage);
+use parent          qw(BIGSdb::Plugin BIGSdb::ResultsTablePage);
 use List::MoreUtils qw(any uniq);
-use Log::Log4perl qw(get_logger);
+use Log::Log4perl   qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 
 sub get_attributes {
 	my ($self) = @_;
 	my %att = (
-		name             => 'Publication Breakdown',
+		name    => 'Publication Breakdown',
 		authors => [
 			{
 				name        => 'Keith Jolley',
@@ -41,18 +41,20 @@ sub get_attributes {
 		full_description => 'This plugin shows all publications linked to isolates in a query dataset or '
 		  . 'within the whole database. The results can be filtered by author or year. The output includes '
 		  . 'full citation details and a link to display all isolates linked to any listed publication.',
-		category   => 'Breakdown',
-		buttontext => 'Publications',
-		menutext   => 'Publications',
-		module     => 'PublicationBreakdown',
-		version    => '1.1.11',
-		dbtype     => 'isolates',
-		section    => 'breakdown,postquery',
-		url        => "$self->{'config'}->{'doclink'}/data_query/0090_linked_publications.html",
-		input      => 'query',
-		requires   => 'ref_db',
-		order      => 30,
-		image => '/images/plugins/Publications/screenshot.png'
+		category           => 'Breakdown',
+		buttontext         => 'Publications',
+		menutext           => 'Publications',
+		module             => 'PublicationBreakdown',
+		version            => '1.1.12',
+		dbtype             => 'isolates',
+		section            => 'breakdown,postquery',
+		url                => "$self->{'config'}->{'doclink'}/data_query/0090_linked_publications.html",
+		input              => 'query',
+		requires           => 'ref_db',
+		order              => 30,
+		system_flag        => 'Publications',
+		enabled_by_default => 1,
+		image              => '/images/plugins/Publications/screenshot.png'
 	);
 	return \%att;
 }
@@ -108,7 +110,7 @@ sub run {
 		say q(</li></ul></fieldset>);
 		say q(<fieldset style="float:left"><legend>Display</legend>);
 		say q(<ul><li><label for="order" class="display">Order by: </label>);
-		my %labels = ( pmid => 'Pubmed id', first_author => 'first author', isolates => 'number of isolates' );
+		my %labels     = ( pmid => 'Pubmed id', first_author => 'first author', isolates => 'number of isolates' );
 		my @order_list = qw(pmid authors year title isolates);
 		say $q->popup_menu(
 			-name    => 'order',
@@ -158,8 +160,9 @@ sub run {
 
 		#Make sure the following SQL ends with a ;
 		#Paging will break otherwise!
-		my $refquery          = "SELECT * FROM temp_refs$filter_string ORDER BY $order $dir;";
-		my @hidden_attributes = qw (name all_records author_list year_list list_file temp_table_file datatype calling_page);
+		my $refquery = "SELECT * FROM temp_refs$filter_string ORDER BY $order $dir;";
+		my @hidden_attributes =
+		  qw (name all_records author_list year_list list_file temp_table_file datatype calling_page);
 		$self->paged_display(
 			{
 				table             => 'refs',
