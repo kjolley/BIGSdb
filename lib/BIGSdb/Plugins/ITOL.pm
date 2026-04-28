@@ -69,7 +69,7 @@ sub get_attributes {
 		url                 => "$self->{'config'}->{'doclink'}/data_analysis/itol.html",
 		order               => 35,
 		min                 => 2,
-		system_flag         => 'iTOL',
+		system_flag         => 'ITOL',
 		always_show_in_menu => 1,
 		image               => '/images/plugins/ITOL/screenshot.png',
 		max                 => $self->{'system'}->{'itol_record_limit'} // $self->{'config'}->{'itol_record_limit'}
