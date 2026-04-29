@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2025, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -105,7 +105,7 @@ sub is_complete_cds {
 sub sequence_type {
 	my ($sequence) = @_;
 	my $seq = ref $sequence ? $$sequence : $sequence;
-	$seq =~ s/^>.*?\n//gx;    #Remove any FASTA header lines
+	$seq =~ s/^>.*(?:\n|$)//gmx;                                #Remove any FASTA header lines
 	$seq =~ tr/ //;
 	return 'DNA' if !$seq;
 	my $AGTC_count = $seq =~ tr/[G|A|T|C|U|g|a|t|c|u|N|n]//;
@@ -994,7 +994,7 @@ sub get_future_date {
 
 	$dt->add( months => $months_to_add );
 
-	return $dt->ymd;                                          # returns 'YYYY-MM-DD'
+	return $dt->ymd;    # returns 'YYYY-MM-DD'
 }
 
 sub get_timestamp {
