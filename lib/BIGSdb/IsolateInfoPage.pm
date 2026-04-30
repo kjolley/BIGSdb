@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2025, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -1196,12 +1196,13 @@ sub _get_analysis {
 	my $buffer =
 	  q(<div><span class="info_icon fas fa-2x fa-fw fa-chart-line fa-pull-left" style="margin-top:-0.2em"></span>);
 	$buffer .= qq(<h2>Analysis</h2>\n);
-	my $data = {};
+	my $data              = {};
+	my $json_char_decoder = JSON->new->utf8(0);    # operate in character (not byte) mode
 
 	foreach my $module (@$analysis) {
 		$data->{ $module->{'name'} } = {
 			datestamp => $module->{'datestamp'},
-			results   => decode_json( $module->{'results'} )
+			results   => $json_char_decoder->decode( $module->{'results'} )
 		};
 	}
 	$data->{'variables'} = {
@@ -2214,10 +2215,11 @@ sub _get_lincode_values {
 		my $lincode_fields = $self->{'datastore'}->get_lincode_field_values( $scheme_id, $lincode_string );
 		foreach my $lf (@$lincode_fields) {
 			local $" = q(; );
-			push @$values, {
+			push @$values,
+			  {
 				title => $lf->{'title'},
 				data  => ref $lf->{'data'} eq 'ARRAY' ? qq(@{$lf->{'data'}}) : $lf->{'data'}
-			};
+			  };
 		}
 	}
 	if ( $args->{'listblock_values'} ) {
