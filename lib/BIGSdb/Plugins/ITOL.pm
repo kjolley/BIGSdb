@@ -59,7 +59,7 @@ sub get_attributes {
 		buttontext          => 'iTOL',
 		menutext            => 'iTOL',
 		module              => 'ITOL',
-		version             => '1.10.1',
+		version             => '1.10.2',
 		dbtype              => 'isolates',
 		section             => 'third_party,postquery',
 		input               => 'query',
@@ -72,8 +72,7 @@ sub get_attributes {
 		system_flag         => 'ITOL',
 		always_show_in_menu => 1,
 		image               => '/images/plugins/ITOL/screenshot.png',
-		max                 => $self->{'system'}->{'itol_record_limit'} // $self->{'config'}->{'itol_record_limit'}
-		  // MAX_RECORDS
+		max => $self->{'system'}->{'itol_record_limit'} // $self->{'config'}->{'itol_record_limit'} // MAX_RECORDS
 
 	);
 	return \%att;
@@ -601,7 +600,8 @@ sub _generate_tree_files_from_sequences {
 
 		$newick_file = "$self->{'config'}->{'tmp_dir'}/$job_id.ph";
 		my $cmd;
-		my $fasttree = $params->{'tree_algorithm'} eq 'fasttree' && $self->{'config'}->{'fasttree_path'};
+		my $fasttree =
+		  ( $params->{'tree_algorithm'} // q() ) eq 'fasttree' && $self->{'config'}->{'fasttree_path'};
 		my $desc;
 		if ($fasttree) {
 			$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Constructing FastTree Approx ML tree' } );
