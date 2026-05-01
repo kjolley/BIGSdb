@@ -440,6 +440,7 @@ sub _register {
 	$self->format_data( 'users', $data );
 	$data->{'password'} = $self->_create_password;
 	eval {
+
 		$self->{'db'}->do(
 			'INSERT INTO users (user_name,first_name,surname,email,affiliation,country,sector,date_entered,'
 			  . 'datestamp,status,validate_start) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
@@ -503,7 +504,8 @@ sub _register {
 	#These also use a long random string without spaces for the affiliation so we can check for this.
 	if (   $data->{'first_name'} =~ /\d/x
 		|| $data->{'surname'} =~ /\d/x
-		|| ( length $data->{'affiliation'} > 30 && $data->{'affiliation'} !~ /\s/x ) )
+		|| ( length $data->{'affiliation'} > 30 && $data->{'affiliation'} !~ /\s/x )
+		|| !$self->_is_valid_country( $data->{'country'} ) )
 	{
 		$logger->error(
 			"Attempted form spam blocked - User $data->{'user_name'} ($data->{'first_name'} $data->{'surname'})");
@@ -512,6 +514,14 @@ sub _register {
 		$logger->info(
 			"User $data->{'user_name'} ($data->{'first_name'} $data->{'surname'}) has registered for the site.");
 	}
+	return;
+}
+
+sub _is_valid_country {
+	my ( $self, $country ) = @_;
+	my $countries = COUNTRIES;
+	my %valid     = map { $_ => 1 } keys %$countries;
+	return 1 if $valid{$country};
 	return;
 }
 
