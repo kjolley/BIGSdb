@@ -257,6 +257,10 @@ sub _fails_username_check {    ## no critic (ProhibitUnusedPrivateSubroutines) #
 sub _set_validated_status {
 	my ($self) = @_;
 	return if $self->{'system'}->{'dbtype'} ne 'user';
+	my $prior_status =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT status FROM users WHERE user_name=?', $self->{'username'}, { db => $self->{'db'} } );
+
 	eval {
 		$self->{'db'}->do( 'UPDATE users SET (status,validate_start)=(?,?) WHERE user_name=?',
 			undef, 'validated', undef, $self->{'username'} );
@@ -267,6 +271,87 @@ sub _set_validated_status {
 		$self->{'db'}->rollback;
 	} else {
 		$self->{'db'}->commit;
+	}
+	if ( $prior_status eq 'pending' && $self->{'config'}->{'auto_registration_auto_select'} ) {
+		my $user_db_name = $self->get_user_db_name( $self->{'username'} );
+		my $configs      = $self->{'datastore'}->run_query(
+			'SELECT dbase_config FROM registered_resources WHERE auto_registration AND dbase_config NOT IN '
+			  . '(SELECT dbase_config FROM registered_users WHERE user_name=?)',
+			$self->{'username'},
+			{ fetch => 'col_arrayref' }
+		);
+
+		#Use double fork to prevent zombie processes on apache2-mpm-worker
+		defined( my $kid = fork ) or $logger->error('cannot fork');
+		if ($kid) {
+			waitpid( $kid, 0 );
+		} else {
+			defined( my $grandkid = fork ) or $logger->error('Kid cannot fork');
+			if ($grandkid) {
+				CORE::exit(0);
+			} else {
+				open STDIN,  '<',  '/dev/null' or $logger->error("Cannot detach STDIN: $!");
+				open STDOUT, '>',  '/dev/null' or $logger->error("Cannot detach STDOUT: $!");
+				open STDERR, '>&', \*STDOUT    or $logger->error("Cannot detach STDERR: $!");
+				$self->_run_autoreg( $self->{'username'}, $user_db_name, $configs );
+			}
+			CORE::exit(0);
+		}
+	}
+	return;
+}
+
+sub _run_autoreg {
+	my ( $self, $user_name, $user_db_name, $configs ) = @_;
+	foreach my $config (@$configs) {
+		my $script = BIGSdb::Offline::Script->new(
+			{
+				config_dir       => $self->{'config_dir'},
+				lib_dir          => $self->{'lib_dir'},
+				dbase_config_dir => $self->{'dbase_config_dir'},
+				host             => $self->{'system'}->{'host'},
+				port             => $self->{'system'}->{'port'},
+				user             => $self->{'system'}->{'user'},
+				password         => $self->{'system'}->{'password'},
+				instance         => $config,
+				logger           => $logger,
+			}
+		);
+		my $user_db_id =
+		  $script->{'datastore'}->run_query( 'SELECT id FROM user_dbases WHERE dbase_name=?', $user_db_name );
+		if ( defined $user_db_id ) {
+			my $next_id =
+			  $script->{'datastore'}
+			  ->run_query( 'SELECT l.id + 1 AS start FROM users AS l LEFT OUTER JOIN users AS r ON l.id+1=r.id '
+				  . 'WHERE r.id is null AND l.id > 0 ORDER BY l.id LIMIT 1' );
+			$next_id = 1 if !$next_id;
+			eval {
+				$script->{'db'}->do(
+					'INSERT INTO users (id,user_name,status,date_entered,datestamp,curator,user_db) '
+					  . 'VALUES (?,?,?,?,?,?,?)',
+					undef, $next_id, $user_name, 'user', 'now', 'now', 0, $user_db_id
+				);
+			};
+			if ($@) {
+				$logger->error($@);
+				$script->{'db'}->rollback;
+			} else {
+				$script->{'db'}->commit;
+				my $user_db = $script->{'datastore'}->get_user_db($user_db_id);
+				eval {
+					$user_db->do( 'INSERT INTO registered_users (dbase_config,user_name,datestamp) VALUES (?,?,?)',
+						undef, $config, $user_name, 'now' );
+				};
+				if ($@) {
+					$logger->error($@);
+					$user_db->rollback;
+				} else {
+					$user_db->commit;
+				}
+				$logger->info("User $user_name registered for $config.");
+			}
+		}
+
 	}
 	return;
 }

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2016-2025, University of Oxford
+#Copyright (c) 2016-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -487,7 +487,14 @@ sub _register {
 	say q(</dl>);
 	say qq(<p>Please note that your account may be removed if you do not log in for $self->{'inactive_time'} days. )
 	  . q(This does not apply to accounts that have submitted data linked to them within the database.</p>);
-	say q(<p>Once you log in you will be able to register for specific resources on the site.</p>);
+
+	if ( $self->{'config'}->{'auto_registration_auto_select'} ) {
+		say q(<p>Once you log in and change your password, your account will be automatically registered for )
+		  . q(all publicly-accessible databases.</p>);
+	} else {
+		say q(<p>Once you log in and change your password, you will be able to register for specific resources )
+		  . q(on the site.</p>);
+	}
 	say qq(<p><a href="$self->{'system'}->{'script_name'}" class="submit">Log in</a></p>);
 	say q(</div>);
 
