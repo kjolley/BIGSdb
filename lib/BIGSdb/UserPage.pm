@@ -899,7 +899,7 @@ sub _api_keys {
 	if ( $q->param('new_key') ) {
 		$buffer .= $self->_make_new_oauth_key;
 	}
-	if ( $q->param('revoke') ) {
+	if ( $q->request_method eq 'POST' && $q->param('revoke') ) {
 		$buffer .= qq(<script>var active_panel=$self->{'panel'};</script>);
 		$self->_revoke_key;
 
@@ -916,9 +916,16 @@ sub _api_keys {
 		my $td = 1;
 		foreach my $key (@$keys) {
 			my $revoke = DELETE;
+			my $revoke_form = $q->start_form( -method => 'POST', -style => 'display:inline' )
+			  . $q->hidden( revoke => $key->{'client_id'} )
+			  . $q->submit(
+				-name  => 'submit_revoke',
+				-value => $revoke,
+				-class => 'action'
+			  )
+			  . $q->end_form;
 			$buffer .=
-				qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?revoke=$key->{'client_id'}" )
-			  . qq(class="action">$revoke</a></td><td>$key->{'application'}</td>)
+				qq(<tr class="td$td"><td>$revoke_form</td><td>$key->{'application'}</td>)
 			  . qq(<td style="font-family:monospace">$key->{'client_id'}</td>)
 			  . qq(<td style="font-family:monospace">$key->{'client_secret'}</td>)
 			  . qq(<td>$key->{'datestamp'}</tr>);
