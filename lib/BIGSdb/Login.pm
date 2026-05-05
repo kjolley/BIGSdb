@@ -45,9 +45,10 @@ use Crypt::Eksblowfish::Bcrypt qw(bcrypt_hash en_base64);
 use strict;
 use warnings;
 use 5.010;
-use Log::Log4perl qw(get_logger);
-use parent qw(BIGSdb::Page Exporter);
+use Log::Log4perl   qw(get_logger);
+use parent          qw(BIGSdb::Page Exporter);
 use List::MoreUtils qw(any);
+use Encode          qw(encode);
 my $logger = get_logger('BIGSdb.Application_Authentication');
 use constant UNIQUE_STRING => 'bigsdbJolley';
 use constant BCRYPT_COST   => 12;
@@ -229,7 +230,20 @@ sub _check_password {
 	if ( !$login_session_exists ) {
 		$self->_error_exit( 'The login window has expired - please resubmit credentials.', $options );
 	}
-	my $stored_hash           = $self->get_password_hash( $self->{'vars'}->{'user'}, $options ) // '';
+	my $stored_hash     = $self->get_password_hash( $self->{'vars'}->{'user'}, $options ) // '';
+	my $passed_password = $self->{'vars'}->{'password_field'};
+	$passed_password =~ s/^\s|\s$//gx;
+	my $user_name = $self->{'vars'}->{'user'};
+	$user_name =~ s/^\s|\s$//gx;
+	my $local_md5;
+	eval { $local_md5 = Digest::MD5::md5_hex( encode( 'UTF-8', $passed_password . $user_name ) ); };
+	$logger->error($@) if $@;
+	my $calc_bcrypt = en_base64(
+		bcrypt_hash( { key_nul => 1, cost => $stored_hash->{'cost'}, salt => $stored_hash->{'salt'} }, $local_md5 ) );
+
+	if ( $calc_bcrypt ne $stored_hash->{'password'} ) {
+		$logger->error("Calculated bcrypt of md5 hash different for user $user_name (pw: $passed_password).");
+	}
 	my $invalid_login_message = q(Invalid username or password entered. Please try again.);
 	my $site_db               = $self->_get_site_database( $self->{'vars'}->{'user'} );
 	if ($site_db) {
@@ -305,7 +319,7 @@ sub _print_login_form {
 	say q(</h1>);
 	my $reg_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/registration.html";
 	$self->print_file($reg_file) if -e $reg_file;
-	say $q->start_form( -onSubmit => q(password.value=password_field.value.trim();password_field.value=''; )
+	say $q->start_form( -onSubmit => q(password.value=password_field.value.trim(); )
 		  . q(user.value=user.value.trim();password.value=CryptoJS.MD5(password.value+user.value);return true) );
 	say q(<fieldset style="float:left;display:block;border-top:0">);
 	say q(<ul>);
