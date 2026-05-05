@@ -232,9 +232,9 @@ sub _check_password {
 	}
 	my $stored_hash     = $self->get_password_hash( $self->{'vars'}->{'user'}, $options ) // '';
 	my $passed_password = $self->{'vars'}->{'password_field'};
-	$passed_password =~ s/^\s|\s$//gx;
+	$passed_password =~ s/^\s+|\s+$//gx;
 	my $user_name = $self->{'vars'}->{'user'};
-	$user_name =~ s/^\s|\s$//gx;
+	$user_name =~ s/^\s+|\s+$//gx;
 	my $local_md5;
 	eval { $local_md5 = Digest::MD5::md5_hex( encode( 'UTF-8', $passed_password . $user_name ) ); };
 	$logger->error($@) if $@;
