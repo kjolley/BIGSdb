@@ -924,7 +924,7 @@ sub _api_keys {
 				$q->start_form( -method => 'POST', -style => 'display:inline' )
 			  . $q->hidden( revoke => $key->{'client_id'} )
 			  . q(<button type="submit" name="submit_revoke" style="border:0;padding:0;background:transparent">)
-			  . qq(<span class="action">$revoke</span></button>)
+			  . qq(<span class="action" style="cursor:pointer">$revoke</span></button>)
 			  . $q->end_form;
 			$buffer .=
 				qq(<tr class="td$td"><td>$revoke_form</td><td>$key->{'application'}</td>)
