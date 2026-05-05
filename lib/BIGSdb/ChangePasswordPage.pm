@@ -147,6 +147,8 @@ sub print_content {
 				}
 			}
 		}
+		my $new_password = $q->param('new1');
+
 		if ($further_checks) {
 			my %checks = (
 				length   => '_fails_password_check',
@@ -157,7 +159,7 @@ sub print_content {
 			my $failed;
 			foreach my $check (qw(length retype new username)) {
 				my $method = $checks{$check};
-				if ( $self->$method ) {
+				if ( $self->$method($new_password) ) {
 					$failed = 1;
 					last;
 				}
@@ -199,10 +201,10 @@ sub _get_min_password_length {
 }
 
 sub _fails_password_check {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ($self)     = @_;
+	my ( $self, $new_password ) = @_;
 	my $q          = $self->{'cgi'};
 	my $min_length = $self->_get_min_password_length;
-	if ( $q->param('new_length') < $min_length ) {
+	if ( length($new_password) < $min_length ) {
 		$self->print_bad_status(
 			{
 				message => q(The password is too short and has not been updated. )
@@ -211,16 +213,96 @@ sub _fails_password_check {    ## no critic (ProhibitUnusedPrivateSubroutines) #
 		);
 		return 1;
 	}
-	if ( !$q->param('special_char') && $self->{'config'}->{'require_special_chars'} ) {
+	if ( $self->{'config'}->{'require_special_chars'} && !$self->_contains_special_chars($new_password) ) {
+		my $plural = $self->{'config'}->{'require_special_chars'} == 1 ? q() : q(s);
 		$self->print_bad_status(
 			{
-				message => q(The password does not contain any special characters: $!@#%^&*. )
-				  . q(It must contain at least one of these.)
+				message => qq(The password must contain at least $self->{'config'}->{'require_special_chars'} )
+				  . qq(special character$plural: $!@#%^&*. )
 			}
 		);
 		return 1;
 	}
+	if ( $self->{'config'}->{'require_lower_case'} && !$self->_contains_lower_case_letters($new_password) ) {
+		my $plural = $self->{'config'}->{'require_lower_case'} == 1 ? q() : q(s);
+		$self->print_bad_status(
+			{
+				message => qq(The password must contain at least $self->{'config'}->{'require_lower_case'} )
+				  . qq(lower-case letter$plural (a-z).)
+			}
+		);
+		return 1;
+	}
+	if ( $self->{'config'}->{'require_capitals'} && !$self->_contains_capitals($new_password) ) {
+		my $plural = $self->{'config'}->{'require_capitals'} == 1 ? q() : q(s);
+		$self->print_bad_status(
+			{
+				message => qq(The password must contain at least $self->{'config'}->{'require_capitals'} )
+				  . qq(capital letter$plural (A-Z). )
+			}
+		);
+		return 1;
+	}
+	if ( $self->{'config'}->{'require_digits'} && !$self->_contains_digits($new_password) ) {
+		my $plural = $self->{'config'}->{'require_digits'} == 1 ? q() : q(s);
+		$self->print_bad_status(
+			{
+				message => qq(The password must contain at least $self->{'config'}->{'require_digits'} )
+				  . qq(digit$plural (A-Z). )
+			}
+		);
+		return 1;
+	}
+	if ($new_password eq $self->{'username'}){
+		
+	}
 	return;
+}
+
+sub _contains_special_chars {
+	my ( $self, $password ) = @_;
+	my $required =
+	 ( BIGSdb::Utils::is_int( $self->{'config'}->{'require_special_chars'})
+		  && $self->{'config'}->{'require_special_chars'} > 0) 
+	  ? $self->{'config'}->{'require_special_chars'}
+	  : 0;
+	my $count = () = $password =~ /[\$\!\@\#\%\^\&\*\(\)]/gx;
+	return if $count < $required;
+	return 1;
+}
+
+sub _contains_lower_case_letters {
+	my ( $self, $password ) = @_;
+	my $required =
+	  (BIGSdb::Utils::is_int( $self->{'config'}->{'require_lower_case'})
+		  && $self->{'config'}->{'require_lower_case'} > 0) 
+	  ? $self->{'config'}->{'require_lower_case'}
+	  : 0;
+	my $count = () = $password =~ /[a-z]/gx;
+	return if $count < $required;
+	return 1;
+}
+
+sub _contains_capitals {
+	my ( $self, $password ) = @_;
+	my $required =
+	  (BIGSdb::Utils::is_int( $self->{'config'}->{'require_capitals'}) && $self->{'config'}->{'require_capitals'} > 0) 
+	  ? $self->{'config'}->{'require_capitals'}
+	  : 0;
+	my $count = () = $password =~ /[A-Z]/gx;
+	return if $count < $required;
+	return 1;
+}
+
+sub _contains_digits {
+	my ( $self, $password ) = @_;
+	my $required =
+	  (BIGSdb::Utils::is_int( $self->{'config'}->{'require_digits'}) && $self->{'config'}->{'require_digits'} > 0) 
+	  ? $self->{'config'}->{'require_digits'}
+	  : 0;
+	my $count = () = $password =~ /[0-9]/gx;
+	return if $count < $required;
+	return 1;
 }
 
 sub _fails_retype_check {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
@@ -244,10 +326,9 @@ sub _fails_new_check {    ## no critic (ProhibitUnusedPrivateSubroutines) #Calle
 }
 
 sub _fails_username_check {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	if ( $q->param('username_as_password') eq $q->param('new_password1') ) {
-		$self->print_bad_status( { message => q(You can't use your username as your password!) } );
+	my ($self, $password) = @_;
+	if ( $self->{'username'} eq $password ) {
+		$self->print_bad_status( { message => q(You cannot use your username as your password!) } );
 		return 1;
 	}
 	return;
@@ -366,22 +447,50 @@ sub _print_interface {
 	}
 	say q(<p>Please enter your existing and new passwords.</p>) if $q->param('page') eq 'changePassword';
 	my $min_length = $self->_get_min_password_length;
-	my $special =
-	  $self->{'config'}->{'require_special_chars'}
-	  ? q( and contain at least one special character ($!@#%^&*))
-	  : q();
-	say qq(<p>Passwords must be at least $min_length characters long$special.</p>);
+	my @requirements;
+
+	if ( BIGSdb::Utils::is_int( $self->{'config'}->{'require_special_chars'} )
+		&& $self->{'config'}->{'require_special_chars'} > 0 )
+	{
+		my $plural = $self->{'config'}->{'require_special_chars'} == 1 ? q() : q(s);
+		push @requirements,
+		  qq(at least $self->{'config'}->{'require_special_chars'} special character$plural ($!@#%^&*));
+	}
+	if ( BIGSdb::Utils::is_int( $self->{'config'}->{'require_lower_case'} )
+		&& $self->{'config'}->{'require_lower_case'} > 0 )
+	{
+		my $plural = $self->{'config'}->{'require_lower_case'} == 1 ? q() : q(s);
+		push @requirements, qq(at least $self->{'config'}->{'require_lower_case'} lower case letter$plural (a-z));
+	}
+	if ( BIGSdb::Utils::is_int( $self->{'config'}->{'require_capitals'} )
+		&& $self->{'config'}->{'require_capitals'} > 0 )
+	{
+		my $plural = $self->{'config'}->{'require_capitals'} == 1 ? q() : q(s);
+		push @requirements, qq(at least $self->{'config'}->{'require_capitals'} capital letter$plural (A-Z));
+	}
+	if ( BIGSdb::Utils::is_int( $self->{'config'}->{'require_digits'} )
+		&& $self->{'config'}->{'require_digits'} > 0 )
+	{
+		my $plural = $self->{'config'}->{'require_digits'} == 1 ? q() : q(s);
+		push @requirements, qq(at least $self->{'config'}->{'require_digits'} digit$plural (0-9));
+	}
+
+	print qq(<p>Passwords must be at least $min_length characters long);
+	if (@requirements) {
+		local $" = q(</li><li>);
+		say qq( and contain:</p><ul><li>@requirements</li></ul>);
+	} else {
+		say q(.</p>);
+	}
 	say q(<noscript><p class="highlight">Please note that Javascript must be enabled in order to login. )
 	  . q(Passwords are encrypted using Javascript prior to transmitting to the server.</p></noscript>);
 	say $q->start_form( -onSubmit => q[existing_password.value=existing.value.trim();existing.value='';]
-		  . q[new_length.value=new1.value.trim().length;var username;]
+		  . q[var username;]
 		  . q[if ($('#user').length){username=document.getElementById('user').value} else {username=user.value}]
-		  . q[new_password1.value=new1.value.trim();new1.value='';new_password2.value=new2.value.trim();new2.value='';]
-		  . q[special_char.value=hasRequiredSpecialChar(new_password1.value);]
+		  . q[new_password1.value=new1.value.trim();new_password2.value=new2.value.trim()]
 		  . q[existing_password.value=CryptoJS.MD5(existing_password.value+username);]
 		  . q[new_password1.value=CryptoJS.MD5(new_password1.value+username);]
 		  . q[new_password2.value=CryptoJS.MD5(new_password2.value+username);]
-		  . q[username_as_password.value=CryptoJS.MD5(username+username);]
 		  . q[return true] );
 	say q(<fieldset style="border-top:0">);
 	say q(<ul>);
@@ -423,13 +532,12 @@ sub _print_interface {
 	say $q->password_field( -name => 'new2', -id => 'new2' );
 	say q(</li></ul></fieldset>);
 	say $q->submit( -name => 'submit', -label => 'Set password', -class => 'submit', -style => 'margin-top:1em' );
-	$q->param( $_ => '' )
-	  foreach qw (existing_password new_password1 new_password2 new_length special_char username_as_password);
+	$q->param( $_   => '' ) foreach qw (existing_password new_password1 new_password2 username_as_password);
 	$q->param( user => $self->{'username'} )
 	  if $q->param('page') eq 'changePassword' || $self->{'system'}->{'password_update_required'};
 	$q->param( sent => 1 );
 	say $q->hidden($_) foreach qw (db page session existing_password new_password1 new_password2
-	  new_length special_char user sent username_as_password);
+	  user sent username_as_password);
 	say $q->end_form;
 
 	if ( $q->param('page') eq 'changePassword' ) {
@@ -492,9 +600,6 @@ sub get_javascript {
 	});	
  
 });	
-function hasRequiredSpecialChar(new_password1) {
-  return /[!@#\$%^&*]/.test(new_password1) ? 1 : 0;
-}
 
 END
 	return $buffer;
