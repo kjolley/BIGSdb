@@ -394,12 +394,16 @@ sub _edit_user {
 	say $q->end_form;
 	if ( $username ne $self->{'username'} ) {
 		my $api_key = $self->_get_api_key( { username => $username } );
-		if ($q->param('toggle_ban')){
+		if ( $q->param('toggle_ban') ) {
 			eval {
-			$self->{'auth_db'}->do('UPDATE api_keys SET ban=? WHERE (dbase,username)=(?,?)',undef,
-			$api_key->{'ban'} ? 'false': 'true',$self->{'system'}->{'db'}, $username);
+				$self->{'auth_db'}->do(
+					'UPDATE api_keys SET ban=? WHERE (dbase,username)=(?,?)',
+					undef,
+					$api_key->{'ban'} ? 'false' : 'true',
+					$self->{'system'}->{'db'}, $username
+				);
 			};
-			if ($@){
+			if ($@) {
 				$logger->error($@);
 				$self->{'auth_db'}->rollback;
 			} else {
@@ -412,16 +416,16 @@ sub _edit_user {
 			say q(<fieldset style="float:left"><legend>API access</legend>);
 			my $status = $api_key->{'ban'} ? 'banned' : 'active';
 			say qq(<p>This user has an API key which is currently $status.<p>);
-			if ($api_key->{'ban'}){
+			if ( $api_key->{'ban'} ) {
 				say q(<p><span class="flag" style="color:#992222;background:#99222215">BANNED</span></p>);
 			}
 			my $action = $api_key->{'ban'} ? 'Unban' : 'Ban';
 			say $q->submit(
-			-name  => 'toggle_ban',
-			-label => "$action API key",
-			-class => 'small_submit',
-			-style => 'margin-left:0.2em'
-		);
+				-name  => 'toggle_ban',
+				-label => "$action API key",
+				-class => 'small_submit',
+				-style => 'margin-left:0.2em'
+			);
 			say q(</fieldset>);
 			say $q->hidden($_) foreach qw(edit user update_user);
 			say $q->end_form;
@@ -916,13 +920,11 @@ sub _api_keys {
 		my $td = 1;
 		foreach my $key (@$keys) {
 			my $revoke = DELETE;
-			my $revoke_form = $q->start_form( -method => 'POST', -style => 'display:inline' )
+			my $revoke_form =
+				$q->start_form( -method => 'POST', -style => 'display:inline' )
 			  . $q->hidden( revoke => $key->{'client_id'} )
-			  . $q->submit(
-				-name  => 'submit_revoke',
-				-value => $revoke,
-				-class => 'action'
-			  )
+			  . q(<button type="submit" name="submit_revoke" style="border:0;padding:0;background:transparent">)
+			  . qq(<span class="action">$revoke</span></button>)
 			  . $q->end_form;
 			$buffer .=
 				qq(<tr class="td$td"><td>$revoke_form</td><td>$key->{'application'}</td>)
