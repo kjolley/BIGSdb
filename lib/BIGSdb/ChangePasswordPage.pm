@@ -157,6 +157,7 @@ sub print_content {
 						}
 					);
 					$further_checks = 0;
+					$q->param( $_ => '' ) foreach qw(existing new1 new2);
 				}
 			}
 		}
