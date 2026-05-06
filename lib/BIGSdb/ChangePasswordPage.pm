@@ -20,8 +20,10 @@ package BIGSdb::ChangePasswordPage;
 use strict;
 use warnings;
 use 5.010;
-use parent                     qw(BIGSdb::Login);
+use parent qw(BIGSdb::Login);
+use Digest::MD5;
 use Crypt::Eksblowfish::Bcrypt qw(bcrypt_hash en_base64);
+use Encode                     qw(encode);
 use Log::Log4perl              qw(get_logger);
 my $logger = get_logger('BIGSdb.User');
 use constant MIN_PASSWORD_LENGTH => 8;
@@ -37,6 +39,10 @@ sub initiate {
 	$self->{'jQuery.multiselect'} = 1;
 	return if !$self->{'config'}->{'site_user_dbs'};
 	$self->use_correct_user_database;
+	foreach my $param (qw(user existing new1 new2)) {
+		next if !defined $self->{'vars'}->{$param};
+		$self->{'vars'}->{$param} =~ s/^\s+|\s+$//gx;
+	}
 	return;
 }
 
@@ -102,7 +108,7 @@ sub print_content {
 		say q(</div>);
 		return;
 	}
-	if ( $q->param('sent') && $q->param('existing_password') ) {
+	if ( $q->param('sent') ) {
 		my $further_checks = 1;
 		if ( $q->param('page') eq 'changePassword' || $self->{'system'}->{'password_update_required'} ) {
 
@@ -119,17 +125,18 @@ sub print_content {
 			} else {
 
 				#existing password not set when admin setting user passwords
-				my $stored_hash      = $self->get_password_hash( $self->{'username'} );
+				my $stored_hash     = $self->get_password_hash( $self->{'username'} );
+				my $passed_password = $self->{'vars'}->{'existing'};
+				my $user_name       = $self->{'vars'}->{'user'};
+				my $local_md5;
+				eval { $local_md5 = Digest::MD5::md5_hex( encode( 'UTF-8', $passed_password . $user_name ) ); };
+				$logger->error($@) if $@;
 				my $password_matches = 1;
-				if ( !$stored_hash->{'algorithm'} || $stored_hash->{'algorithm'} eq 'md5' ) {
-					if ( $stored_hash->{'password'} ne $q->param('existing_password') ) {
-						$password_matches = 0;
-					}
-				} elsif ( $stored_hash->{'algorithm'} eq 'bcrypt' ) {
+				if ( $stored_hash->{'algorithm'} eq 'bcrypt' ) {
 					my $hashed_submitted_password = en_base64(
 						bcrypt_hash(
 							{ key_nul => 1, cost => $stored_hash->{'cost'}, salt => $stored_hash->{'salt'} },
-							$q->param('existing_password')
+							$local_md5
 						)
 					);
 					if ( $stored_hash->{'password'} ne $hashed_submitted_password ) {
@@ -170,7 +177,10 @@ sub print_content {
 				  ? $self->{'username'}
 				  : $q->param('user');
 				my $instance_clause = $self->{'instance'} ? qq(?db=$self->{'instance'}) : q();
-				if ( $self->set_password_hash( $username, scalar $q->param('new_password1') ) ) {
+				my $new_hash;
+				eval { $new_hash = Digest::MD5::md5_hex( encode( 'UTF-8', $new_password . $username ) ); };
+				$logger->error($@) if $@;
+				if ( $self->set_password_hash( $username, $new_hash ) ) {
 					my $message =
 					  $q->param('page') eq 'changePassword'
 					  ? q(Password updated ok.)
@@ -253,8 +263,8 @@ sub _fails_password_check {    ## no critic (ProhibitUnusedPrivateSubroutines) #
 		);
 		return 1;
 	}
-	if ($new_password eq $self->{'username'}){
-		
+	if ( $new_password eq $self->{'username'} ) {
+
 	}
 	return;
 }
@@ -262,8 +272,8 @@ sub _fails_password_check {    ## no critic (ProhibitUnusedPrivateSubroutines) #
 sub _contains_special_chars {
 	my ( $self, $password ) = @_;
 	my $required =
-	 ( BIGSdb::Utils::is_int( $self->{'config'}->{'require_special_chars'})
-		  && $self->{'config'}->{'require_special_chars'} > 0) 
+	  ( BIGSdb::Utils::is_int( $self->{'config'}->{'require_special_chars'} )
+		  && $self->{'config'}->{'require_special_chars'} > 0 )
 	  ? $self->{'config'}->{'require_special_chars'}
 	  : 0;
 	my $count = () = $password =~ /[\$\!\@\#\%\^\&\*\(\)]/gx;
@@ -274,8 +284,8 @@ sub _contains_special_chars {
 sub _contains_lower_case_letters {
 	my ( $self, $password ) = @_;
 	my $required =
-	  (BIGSdb::Utils::is_int( $self->{'config'}->{'require_lower_case'})
-		  && $self->{'config'}->{'require_lower_case'} > 0) 
+	  ( BIGSdb::Utils::is_int( $self->{'config'}->{'require_lower_case'} )
+		  && $self->{'config'}->{'require_lower_case'} > 0 )
 	  ? $self->{'config'}->{'require_lower_case'}
 	  : 0;
 	my $count = () = $password =~ /[a-z]/gx;
@@ -286,7 +296,8 @@ sub _contains_lower_case_letters {
 sub _contains_capitals {
 	my ( $self, $password ) = @_;
 	my $required =
-	  (BIGSdb::Utils::is_int( $self->{'config'}->{'require_capitals'}) && $self->{'config'}->{'require_capitals'} > 0) 
+	  ( BIGSdb::Utils::is_int( $self->{'config'}->{'require_capitals'} )
+		  && $self->{'config'}->{'require_capitals'} > 0 )
 	  ? $self->{'config'}->{'require_capitals'}
 	  : 0;
 	my $count = () = $password =~ /[A-Z]/gx;
@@ -297,7 +308,7 @@ sub _contains_capitals {
 sub _contains_digits {
 	my ( $self, $password ) = @_;
 	my $required =
-	  (BIGSdb::Utils::is_int( $self->{'config'}->{'require_digits'}) && $self->{'config'}->{'require_digits'} > 0) 
+	  ( BIGSdb::Utils::is_int( $self->{'config'}->{'require_digits'} ) && $self->{'config'}->{'require_digits'} > 0 )
 	  ? $self->{'config'}->{'require_digits'}
 	  : 0;
 	my $count = () = $password =~ /[0-9]/gx;
@@ -308,7 +319,7 @@ sub _contains_digits {
 sub _fails_retype_check {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	if ( $q->param('new_password1') ne $q->param('new_password2') ) {
+	if ( $q->param('new1') ne $q->param('new2') ) {
 		$self->print_bad_status( { message => q(The password was not re-typed the same as the first time.) } );
 		return 1;
 	}
@@ -318,7 +329,7 @@ sub _fails_retype_check {    ## no critic (ProhibitUnusedPrivateSubroutines) #Ca
 sub _fails_new_check {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	if ( $q->param('existing_password') eq $q->param('new_password1') ) {
+	if ( $q->param('existing') eq $q->param('new1') ) {
 		$self->print_bad_status( { message => q(You must use a new password!) } );
 		return 1;
 	}
@@ -326,8 +337,13 @@ sub _fails_new_check {    ## no critic (ProhibitUnusedPrivateSubroutines) #Calle
 }
 
 sub _fails_username_check {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ($self, $password) = @_;
-	if ( $self->{'username'} eq $password ) {
+	my ( $self, $password ) = @_;
+	my $q = $self->{'cgi'};
+	my $username =
+	  ( $q->param('page') eq 'changePassword' || $self->{'system'}->{'password_update_required'} )
+	  ? $self->{'username'}
+	  : $q->param('user');
+	if ( $username eq $password ) {
 		$self->print_bad_status( { message => q(You cannot use your username as your password!) } );
 		return 1;
 	}
@@ -357,7 +373,7 @@ sub _set_validated_status {
 		my $user_db_name = $self->get_user_db_name( $self->{'username'} );
 		my $configs      = $self->{'datastore'}->run_query(
 			'SELECT dbase_config FROM registered_resources WHERE auto_registration AND dbase_config NOT IN '
-			  . '(SELECT dbase_config FROM registered_users WHERE user_name=?)',
+			  . '(SELECT dbase_config FROM registered_users WHERE user_name=?) ORDER BY dbase_config',
 			$self->{'username'},
 			{ fetch => 'col_arrayref' }
 		);
@@ -482,16 +498,7 @@ sub _print_interface {
 	} else {
 		say q(.</p>);
 	}
-	say q(<noscript><p class="highlight">Please note that Javascript must be enabled in order to login. )
-	  . q(Passwords are encrypted using Javascript prior to transmitting to the server.</p></noscript>);
-	say $q->start_form( -onSubmit => q[existing_password.value=existing.value.trim();existing.value='';]
-		  . q[var username;]
-		  . q[if ($('#user').length){username=document.getElementById('user').value} else {username=user.value}]
-		  . q[new_password1.value=new1.value.trim();new_password2.value=new2.value.trim()]
-		  . q[existing_password.value=CryptoJS.MD5(existing_password.value+username);]
-		  . q[new_password1.value=CryptoJS.MD5(new_password1.value+username);]
-		  . q[new_password2.value=CryptoJS.MD5(new_password2.value+username);]
-		  . q[return true] );
+	say $q->start_form;
 	say q(<fieldset style="border-top:0">);
 	say q(<ul>);
 
@@ -532,12 +539,10 @@ sub _print_interface {
 	say $q->password_field( -name => 'new2', -id => 'new2' );
 	say q(</li></ul></fieldset>);
 	say $q->submit( -name => 'submit', -label => 'Set password', -class => 'submit', -style => 'margin-top:1em' );
-	$q->param( $_   => '' ) foreach qw (existing_password new_password1 new_password2 username_as_password);
 	$q->param( user => $self->{'username'} )
 	  if $q->param('page') eq 'changePassword' || $self->{'system'}->{'password_update_required'};
 	$q->param( sent => 1 );
-	say $q->hidden($_) foreach qw (db page session existing_password new_password1 new_password2
-	  user sent username_as_password);
+	say $q->hidden($_) foreach qw (db page session  user sent);
 	say $q->end_form;
 
 	if ( $q->param('page') eq 'changePassword' ) {

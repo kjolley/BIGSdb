@@ -18,8 +18,9 @@
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
 #perl-md5-login used as basis.  Extensively modified for BIGSdb.
-#Javascript md5 now provided by CryptoJS (code.google.com/p/crypto-js)
-#as a separate file.
+#Passwords are no longer MD5 hashed before transmission as HTTPS
+#now used and this allows server-side password complexity checks
+#to be performed. Passwords are stored as bcrypt hashes.
 #
 #Copyright for perl-md5-login is below.
 ########################################################################
@@ -94,7 +95,7 @@ sub get_title {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_}           = 1 foreach qw(jQuery noCache CryptoJS.MD5 login);
+	$self->{$_}           = 1 foreach qw(jQuery noCache login);
 	$self->{'ip_addr'}    = $ENV{'REMOTE_ADDR'};
 	$self->{'user_agent'} = $ENV{'HTTP_USER_AGENT'};
 	my $unvalidated_user = $self->_get_unvalidated_username;
@@ -120,6 +121,10 @@ sub initiate {
 				href  => $self->{'system'}->{'script_name'}
 			}
 		];
+	}
+	foreach my $param (qw(user password_field)){
+		next if !defined $self->{'vars'}->{$param};
+		$self->{'vars'}->{$param} =~ s/^\s+|\s+$//gx;
 	}
 	return;
 }
@@ -225,25 +230,17 @@ sub _MD5_login {
 sub _check_password {
 	my ( $self, $options ) = @_;
 	if ( !$self->{'vars'}->{'user'} )     { $self->_error_exit( 'Please enter username.', $options ) }
-	if ( !$self->{'vars'}->{'password'} ) { $self->_error_exit( 'Please enter password.', $options ) }
+	if ( !$self->{'vars'}->{'password_field'} ) { $self->_error_exit( 'Please enter password.', $options ) }
 	my $login_session_exists = $self->_login_session_exists( $self->{'vars'}->{'session'} );
 	if ( !$login_session_exists ) {
 		$self->_error_exit( 'The login window has expired - please resubmit credentials.', $options );
 	}
 	my $stored_hash     = $self->get_password_hash( $self->{'vars'}->{'user'}, $options ) // '';
 	my $passed_password = $self->{'vars'}->{'password_field'};
-	$passed_password =~ s/^\s+|\s+$//gx;
 	my $user_name = $self->{'vars'}->{'user'};
-	$user_name =~ s/^\s+|\s+$//gx;
 	my $local_md5;
 	eval { $local_md5 = Digest::MD5::md5_hex( encode( 'UTF-8', $passed_password . $user_name ) ); };
 	$logger->error($@) if $@;
-	my $calc_bcrypt = en_base64(
-		bcrypt_hash( { key_nul => 1, cost => $stored_hash->{'cost'}, salt => $stored_hash->{'salt'} }, $local_md5 ) );
-
-	if ( $calc_bcrypt ne $stored_hash->{'password'} ) {
-		$logger->error("Calculated bcrypt of md5 hash different for user $user_name (pw: $passed_password).");
-	}
 	my $invalid_login_message = q(Invalid username or password entered. Please try again.);
 	my $site_db               = $self->_get_site_database( $self->{'vars'}->{'user'} );
 	if ($site_db) {
@@ -260,21 +257,15 @@ sub _check_password {
 	}
 	$logger->debug("using session ID = $self->{'vars'}->{'session'}");
 	$logger->debug("Saved password hash for $self->{'vars'}->{'user'} = $stored_hash->{'password'}");
-	$logger->debug("Submitted password hash for $self->{'vars'}->{'user'} = $self->{'vars'}->{'password'}");
-	$logger->debug("hashed submitted pass + session string = $self->{'vars'}->{'hash'}");
 
-	# Compare the calculated hash based on the saved password to
-	# the hash returned by the CGI form submission: they must match
+	# Compare the saved password hash to the hash calculated using the password from the
+	# CGI form submission: they must match
 	my $password_matches = 1;
-	if ( !$stored_hash->{'algorithm'} || $stored_hash->{'algorithm'} eq 'md5' ) {
-		if ( $stored_hash->{'password'} ne $self->{'vars'}->{'password'} ) {
-			$password_matches = 0;
-		}
-	} elsif ( $stored_hash->{'algorithm'} eq 'bcrypt' ) {
+	if ( $stored_hash->{'algorithm'} eq 'bcrypt' ) {
 		my $hashed_submitted_password = en_base64(
 			bcrypt_hash(
 				{ key_nul => 1, cost => $stored_hash->{'cost'}, salt => $stored_hash->{'salt'} },
-				$self->{'vars'}->{'password'}
+				$local_md5
 			)
 		);
 		if ( $stored_hash->{'password'} ne $hashed_submitted_password ) {
@@ -319,8 +310,7 @@ sub _print_login_form {
 	say q(</h1>);
 	my $reg_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/registration.html";
 	$self->print_file($reg_file) if -e $reg_file;
-	say $q->start_form( -onSubmit => q(password.value=password_field.value.trim(); )
-		  . q(user.value=user.value.trim();password.value=CryptoJS.MD5(password.value+user.value);return true) );
+	say $q->start_form;
 	say q(<fieldset style="float:left;display:block;border-top:0">);
 	say q(<ul>);
 

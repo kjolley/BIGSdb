@@ -194,7 +194,6 @@ sub _get_javascript_paths {
 				version => '20240303'
 			},
 			'select2'      => { src => [qw(select2.min.js)], defer => 1, version => '4.1.0-rc.0' },
-			'CryptoJS.MD5' => { src => [qw(md5.js)],         defer => 1, version => '20200308' },
 			'packery'      => { src => [qw(packery.min.js)], defer => 1, version => '20210620' },
 			'muuri'        => { src => [qw(muuri.min.js)],   defer => 1, version => '20210620' },
 			'dropzone'     => { src => [qw(dropzone.js)],    defer => 0, version => '20200308' },
