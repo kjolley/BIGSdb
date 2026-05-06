@@ -122,7 +122,7 @@ sub initiate {
 			}
 		];
 	}
-	foreach my $param (qw(user password_field)){
+	foreach my $param (qw(user password_field)) {
 		next if !defined $self->{'vars'}->{$param};
 		$self->{'vars'}->{$param} =~ s/^\s+|\s+$//gx;
 	}
@@ -229,7 +229,7 @@ sub _MD5_login {
 ####################  END OF MAIN PROGRAM  #######################
 sub _check_password {
 	my ( $self, $options ) = @_;
-	if ( !$self->{'vars'}->{'user'} )     { $self->_error_exit( 'Please enter username.', $options ) }
+	if ( !$self->{'vars'}->{'user'} )           { $self->_error_exit( 'Please enter username.', $options ) }
 	if ( !$self->{'vars'}->{'password_field'} ) { $self->_error_exit( 'Please enter password.', $options ) }
 	my $login_session_exists = $self->_login_session_exists( $self->{'vars'}->{'session'} );
 	if ( !$login_session_exists ) {
@@ -237,12 +237,13 @@ sub _check_password {
 	}
 	my $stored_hash     = $self->get_password_hash( $self->{'vars'}->{'user'}, $options ) // '';
 	my $passed_password = $self->{'vars'}->{'password_field'};
-	my $user_name = $self->{'vars'}->{'user'};
+	my $user_name       = $self->{'vars'}->{'user'};
 	my $local_md5;
 	eval { $local_md5 = Digest::MD5::md5_hex( encode( 'UTF-8', $passed_password . $user_name ) ); };
 	$logger->error($@) if $@;
 	my $invalid_login_message = q(Invalid username or password entered. Please try again.);
 	my $site_db               = $self->_get_site_database( $self->{'vars'}->{'user'} );
+
 	if ($site_db) {
 		$invalid_login_message .=
 		  q( Note that you need to register your account with each database that you wish to log in to.);
@@ -263,10 +264,7 @@ sub _check_password {
 	my $password_matches = 1;
 	if ( $stored_hash->{'algorithm'} eq 'bcrypt' ) {
 		my $hashed_submitted_password = en_base64(
-			bcrypt_hash(
-				{ key_nul => 1, cost => $stored_hash->{'cost'}, salt => $stored_hash->{'salt'} },
-				$local_md5
-			)
+			bcrypt_hash( { key_nul => 1, cost => $stored_hash->{'cost'}, salt => $stored_hash->{'salt'} }, $local_md5 )
 		);
 		if ( $stored_hash->{'password'} ne $hashed_submitted_password ) {
 			$password_matches = 0;
@@ -310,6 +308,12 @@ sub _print_login_form {
 	say q(</h1>);
 	my $reg_file = "$self->{'dbase_config_dir'}/$self->{'instance'}/registration.html";
 	$self->print_file($reg_file) if -e $reg_file;
+
+	if ( !$self->is_https && !$self->{'config'}->{'allow_http'} ) {
+		say q(<div class="box statusbad"><p>Authentication is disabled when accessed via HTTP. )
+		  . q(Please use HTTPS to continue.</p></div><div style="clear:both"></div></div>);
+		return;
+	}
 	say $q->start_form;
 	say q(<fieldset style="float:left;display:block;border-top:0">);
 	say q(<ul>);
@@ -462,7 +466,7 @@ sub _print_registration_links {
 
 sub _error_exit {
 	my ( $self, $msg, $options ) = @_;
-	$self->{'cgi'}->param( password => '' );
+	$self->{'cgi'}->param( password_field => '' );
 	$self->{'authenticate_error'} = $msg;
 	$self->print_page_content if !$options->{'no_output'};
 	BIGSdb::Exception::Authentication->throw($msg);

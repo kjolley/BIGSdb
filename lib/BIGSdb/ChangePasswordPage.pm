@@ -108,6 +108,11 @@ sub print_content {
 		say q(</div>);
 		return;
 	}
+	if ( !$self->is_https && !$self->{'config'}->{'allow_http'} ) {
+		say q(<div class="box statusbad"><p>Authentication is disabled when accessed via HTTP. )
+		  . q(Please use HTTPS to continue.</p></div><div style="clear:both"></div></div>);
+		return;
+	}
 	if ( $q->param('sent') ) {
 		my $further_checks = 1;
 		if ( $q->param('page') eq 'changePassword' || $self->{'system'}->{'password_update_required'} ) {
@@ -132,6 +137,7 @@ sub print_content {
 				eval { $local_md5 = Digest::MD5::md5_hex( encode( 'UTF-8', $passed_password . $user_name ) ); };
 				$logger->error($@) if $@;
 				my $password_matches = 1;
+
 				if ( $stored_hash->{'algorithm'} eq 'bcrypt' ) {
 					my $hashed_submitted_password = en_base64(
 						bcrypt_hash(
@@ -195,6 +201,8 @@ sub print_content {
 					);
 				}
 				return;
+			} else {
+				$q->param( $_ => '' ) foreach qw(existing new1 new2);
 			}
 		}
 	}

@@ -193,10 +193,10 @@ sub _get_javascript_paths {
 				defer   => 1,
 				version => '20240303'
 			},
-			'select2'      => { src => [qw(select2.min.js)], defer => 1, version => '4.1.0-rc.0' },
-			'packery'      => { src => [qw(packery.min.js)], defer => 1, version => '20210620' },
-			'muuri'        => { src => [qw(muuri.min.js)],   defer => 1, version => '20210620' },
-			'dropzone'     => { src => [qw(dropzone.js)],    defer => 0, version => '20200308' },
+			'select2'  => { src => [qw(select2.min.js)], defer => 1, version => '4.1.0-rc.0' },
+			'packery'  => { src => [qw(packery.min.js)], defer => 1, version => '20210620' },
+			'muuri'    => { src => [qw(muuri.min.js)],   defer => 1, version => '20210620' },
+			'dropzone' => { src => [qw(dropzone.js)],    defer => 0, version => '20200308' },
 
 			#See https://dolmenweb.it/viewers/openlayer/doc/tutorials/custom-builds.html
 			'ol' => { src => [qw(ol-custom.js bigsdb.openlayers.min.js)], defer => 0, version => '9.2.4#20240530' },
@@ -4042,5 +4042,11 @@ sub get_analysis_field_values_and_labels {
 		}
 	}
 	return ( $values, $labels );
+}
+
+sub is_https {
+	return ( $ENV{'HTTPS'} && $ENV{'HTTPS'} =~ /^(on|1)$/ix )
+	  || ( $ENV{'HTTP_X_FORWARDED_PROTO'}
+		&& $ENV{'HTTP_X_FORWARDED_PROTO'} eq 'https' );
 }
 1;
