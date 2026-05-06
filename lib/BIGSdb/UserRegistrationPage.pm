@@ -505,7 +505,7 @@ sub _register {
 	if (   $data->{'first_name'} =~ /\d/x
 		|| $data->{'surname'} =~ /\d/x
 		|| ( length $data->{'affiliation'} > 30 && $data->{'affiliation'} !~ /\s/x )
-		|| !$self->_is_valid_country( $data->{'country'} ) )
+		|| ( $self->{'config'}->{'site_user_country'} && !$self->_is_valid_country( $data->{'country'} ) ) )
 	{
 		$logger->error(
 			"Attempted form spam blocked - User $data->{'user_name'} ($data->{'first_name'} $data->{'surname'})");
@@ -519,6 +519,7 @@ sub _register {
 
 sub _is_valid_country {
 	my ( $self, $country ) = @_;
+	return if !defined $country;
 	my $countries = COUNTRIES;
 	my %valid     = map { $_ => 1 } keys %$countries;
 	return 1 if $valid{$country};

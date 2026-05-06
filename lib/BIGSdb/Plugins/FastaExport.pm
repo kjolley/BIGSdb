@@ -1,6 +1,6 @@
 #FastaExport.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2012-2025, University of Oxford
+#Copyright (c) 2012-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,7 +21,7 @@ package BIGSdb::Plugins::FastaExport;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugin);
+use parent            qw(BIGSdb::Plugin);
 use BIGSdb::Constants qw(:interface DATABANKS);
 use JSON;
 use Log::Log4perl qw(get_logger);
@@ -43,7 +43,7 @@ sub get_attributes {
 		menutext           => 'Locus sequences',
 		buttontext         => 'FASTA',
 		module             => 'FastaExport',
-		version            => '2.2.2',
+		version            => '2.2.3',
 		dbtype             => 'sequences',
 		seqdb_type         => 'sequences',
 		input              => 'query',
@@ -158,6 +158,7 @@ sub _create_fasta_file {
 	}
 	return ( $filename, $invalid );
 }
+
 sub run {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
@@ -318,6 +319,15 @@ sub get_plugin_javascript {
  		menuWidth: 400,
  		selectedList: 8
   	});
+  	\$("select#locus").select2({
+		width: '240px',
+		dropdownAutoWidth: true,
+		minimumResultsForSearch: 20
+	});
+	// hack to fix jquery 3.6 focus security patch that bugs auto search in select-2
+	\$(document).on('select2:open', () => {
+   	   document.querySelector('.select2-search__field').focus();
+	});
 });
 
 function populate_extended(){
@@ -373,7 +383,7 @@ sub get_initiation_values {
 	if ( $q->param('defined') && $q->param('locus') ) {
 		return { 'jQuery.multiselect' => 1, type => 'text' };
 	}
-	return { 'jQuery.multiselect' => 1 };
+	return { 'jQuery.multiselect' => 1, select2 => 1 };
 }
 
 sub _get_extended {
