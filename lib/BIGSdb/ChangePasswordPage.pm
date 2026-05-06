@@ -111,6 +111,9 @@ sub print_content {
 	if ( !$self->is_https && !$self->{'config'}->{'allow_http'} ) {
 		say q(<div class="box statusbad"><p>Authentication is disabled when accessed via HTTP. )
 		  . q(Please use HTTPS to continue.</p></div><div style="clear:both"></div></div>);
+		$logger->error( q(Password change disabled as running under HTTP. Review setup - you can set 'allow_http=1' in )
+			  . q(bigsdb.conf for testing. If running behind proxy then set X-Forwarded-Proto to https in proxy header.)
+		);
 		return;
 	}
 	if ( $q->param('sent') ) {
