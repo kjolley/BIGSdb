@@ -26,7 +26,7 @@ use Crypt::Eksblowfish::Bcrypt qw(bcrypt_hash en_base64);
 use Encode                     qw(encode);
 use Log::Log4perl              qw(get_logger);
 my $logger = get_logger('BIGSdb.User');
-use constant MIN_PASSWORD_LENGTH => 8;
+use constant MIN_PASSWORD_LENGTH => 12;
 use BIGSdb::Login qw(BCRYPT_COST UNIQUE_STRING);
 
 sub get_title {
