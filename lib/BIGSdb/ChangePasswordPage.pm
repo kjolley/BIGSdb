@@ -355,8 +355,8 @@ sub _fails_username_check {    ## no critic (ProhibitUnusedPrivateSubroutines) #
 	  ( $q->param('page') eq 'changePassword' || $self->{'system'}->{'password_update_required'} )
 	  ? $self->{'username'}
 	  : $q->param('user');
-	if ( $username eq $password ) {
-		$self->print_bad_status( { message => q(You cannot use your username as your password!) } );
+	if ( length($username) > 3 && index( $password, $username ) != -1 ) {
+		$self->print_bad_status( { message => q(You cannot use your username as part of your password!) } );
 		return 1;
 	}
 	return;
