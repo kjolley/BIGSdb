@@ -1,3 +1,7 @@
+v1.53.1: *Added new password complexity checks.
+         *Added option to automatically register new users for all available
+          databases.
+         *Fix for determining if FASTA file is protein or DNA.
 v1.53.0: *Added settings to enforce password length and inclusion of special
           characters.
          *Add support for using FastTree in iTOL plugin.
