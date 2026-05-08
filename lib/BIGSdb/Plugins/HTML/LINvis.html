@@ -43,7 +43,7 @@
 		border-radius: 6px;
 		font-size: 13px;
 	}
-	
+
 	.file-control {
 		margin-bottom: 10px
 	}
@@ -56,14 +56,22 @@
 	input[type="number"] {
 		width: 56px;
 	}
+
 	/* hide native number input spinners (desktop) so explicit buttons are used */
 	input[type="number"]::-webkit-inner-spin-button,
-	input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-	input[type="number"] { -moz-appearance: textfield; }
+	input[type="number"]::-webkit-outer-spin-button {
+		-webkit-appearance: none;
+		margin: 0;
+	}
+
+	input[type="number"] {
+		-moz-appearance: textfield;
+	}
 
 	div#waiting {
 		display: none;
-	}	
+	}
+
 	div#waiting p {
 		font-size: 1.5em;
 		color: crimson;
@@ -77,18 +85,44 @@
 		</div>
 		<p>
 			<button id="linvis-recenter-btn" type="button"><span class="fas fa-anchor"></span> Anchor top-left</button>
-			<button id="linvis-fit-width-btn" type="button" style="margin-left:6px;"><span class="fas fa-arrows-h"></span> Fit width</button>
-			<button id="linvis-export-svg-btn" type="button" style="margin-left:6px;"><span class="fas fa-download"></span> Export SVG</button>
+			<button id="linvis-fit-width-btn" type="button" style="margin-left:6px;"><span
+					class="fas fa-arrows-h"></span> Fit width</button>
+			<button id="linvis-export-svg-btn" type="button" style="margin-left:6px;"><span
+					class="fas fa-download"></span> Export SVG</button>
 		</p>
-		<p>
-		  Label depth:
-		  <button id="depth-decr" type="button" aria-label="Decrease depth" style="margin-left:8px;"><span class="fas fa-minus"></span></button>
-		  <input id="depth" type="number" min="0" value="1" style="width:56px; text-align:center; margin:0" />
-		  <button id="depth-incr" type="button" aria-label="Increase depth"><span class="fas fa-plus"></span></button>
-		</p>
-		<div id="waiting"><p>Rendering. Please wait...</p></div>
+		<div id="label-controls" style="display:flex;flex-wrap:wrap;align-items:flex-start;gap:18px;margin-top:8px;">
+
+			<div>
+				<p style="margin-top:0;">
+					Label depth:
+					<button id="depth-decr" type="button" aria-label="Decrease depth" style="margin-left:8px;"><span
+							class="fas fa-minus"></span></button>
+					<input id="depth" type="number" min="0" value="1" style="width:56px; text-align:center; margin:0" />
+					<button id="depth-incr" type="button" aria-label="Increase depth"><span
+							class="fas fa-plus"></span></button>
+				</p>
+			</div>
+
+			<div style="min-width:240px;">
+				<div>
+					Show specific labels:<br>
+					<span style="font-size:11px;color:#666;">
+						Enter one LIN prefix per line.
+						When populated, label depth is ignored.
+					</span>
+				</div>
+
+				<textarea id="selected-labels" rows="4" style="width:240px;max-width:100%;margin-top:4px;" placeholder="Example:
+34_0_0_0_0
+6_0_1_19"></textarea>
+			</div>
+
+		</div>
+		<div id="waiting">
+			<p>Rendering. Please wait...</p>
+		</div>
 	</div>
-	
+
 	<div id="linvis_chart" tabindex="0"></div>
 	<div id="tooltip" class="tooltip"></div>
 </div>

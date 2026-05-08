@@ -48,7 +48,7 @@ sub get_attributes {
 		buttontext          => 'LINvis',
 		menutext            => 'LINvis',
 		module              => 'LINvis',
-		version             => '1.0.0',
+		version             => '1.1.0',
 		dbtype              => 'isolates',
 		section             => 'analysis,postquery',
 		input               => 'query',
