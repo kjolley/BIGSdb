@@ -90,10 +90,10 @@
 			<button id="linvis-export-svg-btn" type="button" style="margin-left:6px;"><span
 					class="fas fa-download"></span> Export SVG</button>
 		</p>
-		<div id="label-controls" style="display:flex;flex-wrap:wrap;align-items:flex-start;gap:18px;margin-top:8px;">
+		<div id="label-controls" style="display:flex;flex-wrap:wrap;align-items:center;column-gap:18px;row-gap:4px;margin-top:4px;margin-bottom:8px">
 
 			<div>
-				<p style="margin-top:0;">
+				<p style="margin:0;">
 					Label depth:
 					<button id="depth-decr" type="button" aria-label="Decrease depth" style="margin-left:8px;"><span
 							class="fas fa-minus"></span></button>
@@ -103,20 +103,36 @@
 				</p>
 			</div>
 
-			<div style="min-width:240px;">
-				<div>
-					Show specific labels:<br>
-					<span style="font-size:11px;color:#666;">
-						Enter one LIN prefix per line.
-						When populated, label depth is ignored.
-					</span>
-				</div>
+			<div style="min-width:240px;max-width:100%;">
 
-				<textarea id="selected-labels" rows="4" style="width:240px;max-width:100%;margin-top:4px;" placeholder="Example:
+				<details id="selected-labels-details" style="position:relative;display:inline-block;">
+					<summary style="cursor:pointer;white-space:nowrap;">
+						Show specific labels
+					</summary>
+
+					<div style="position:absolute;top:100%;left:0;z-index:1000;	background:rgba(255,255,255,0.98);
+						border:1px solid #ccc;border-radius:6px;padding:8px;margin-top:4px;
+						box-shadow:0 2px 6px rgba(0,0,0,0.15);width:260px;box-sizing:border-box;">
+						<div style="text-align:right;margin-bottom:4px;">
+							<button id="selected-labels-popout"
+								type="button"
+								style="font-size:11px;padding:2px 6px;">
+								Pop out
+							</button>
+						</div>
+						<div style="font-size:11px;color:#666;margin-bottom:4px;line-height:1.35;">
+							Enter one exact LIN prefix per line.<br>
+							When populated, label depth is ignored.
+						</div>
+
+						<textarea id="selected-labels" rows="5" style="width:100%;
+						box-sizing:border-box;resize:vertical;max-width:100%;min-width:100%;font-family:monospace;" 
+						placeholder="Example:
 34_0_0_0_0
 6_0_1_19"></textarea>
+					</div>
+				</details>
 			</div>
-
 		</div>
 		<div id="waiting">
 			<p>Rendering. Please wait...</p>

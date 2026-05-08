@@ -292,6 +292,10 @@ Version 1.1.0.
     }
 
     const selectedLabelsInput = document.getElementById("selected-labels");
+    const selectedLabelsPopoutBtn = document.getElementById("selected-labels-popout");
+    const selectedLabelsDetails = document.getElementById("selected-labels-details");
+
+    let selectedLabelsDetached = false;
 
     // Add explicit up/down buttons for depth control (mobile-friendly + disable native spinner)
     (function attachDepthButtons() {
@@ -733,6 +737,81 @@ Version 1.1.0.
         pointers.delete(ev.pointerId);
         if (pointers.size < 2) lastPinchDist = null;
     });
+
+    (function attachSelectedLabelsPopout() {
+        if (!selectedLabelsPopoutBtn || !selectedLabelsDetails) return;
+
+        let dragState = null;
+
+        selectedLabelsPopoutBtn.addEventListener('click', function() {
+
+            const panel = selectedLabelsInput
+                ? selectedLabelsInput.parentElement
+                : null;
+
+            if (!panel) return;
+
+            selectedLabelsDetached = !selectedLabelsDetached;
+
+            if (selectedLabelsDetached) {
+
+                panel.style.position = 'fixed';
+                panel.style.top = '80px';
+                panel.style.left = '80px';
+                panel.style.zIndex = '100000';
+                panel.style.resize = 'none';
+                panel.style.overflow = 'auto';
+                panel.style.cursor = 'move';
+
+                selectedLabelsPopoutBtn.textContent = 'Dock';
+
+                panel.addEventListener('pointerdown', function(ev) {
+
+                    // avoid dragging while interacting with textarea/buttons
+                    if (
+                        ev.target.tagName === 'TEXTAREA' ||
+                        ev.target.tagName === 'BUTTON'
+                    ) {
+                        return;
+                    }
+
+                    dragState = {
+                        x: ev.clientX,
+                        y: ev.clientY,
+                        left: parseInt(panel.style.left || 0, 10),
+                        top: parseInt(panel.style.top || 0, 10)
+                    };
+
+                    ev.preventDefault();
+                });
+
+                window.addEventListener('pointermove', function(ev) {
+                    if (!dragState) return;
+
+                    panel.style.left =
+                        (dragState.left + (ev.clientX - dragState.x)) + 'px';
+
+                    panel.style.top =
+                        (dragState.top + (ev.clientY - dragState.y)) + 'px';
+                });
+
+                window.addEventListener('pointerup', function() {
+                    dragState = null;
+                });
+
+            } else {
+
+                panel.style.position = 'absolute';
+                panel.style.top = '100%';
+                panel.style.left = '0';
+                panel.style.zIndex = '1000';
+                panel.style.resize = '';
+                panel.style.cursor = '';
+
+                selectedLabelsPopoutBtn.textContent = 'Pop out';
+            }
+        });
+    })();
 
     function getSelectedLabels() {
         if (!selectedLabelsInput) return null;
