@@ -176,8 +176,11 @@ sub _show_registration_details {
 		say qq(<dt>Sector</dt><dd>$user_info->{'sector'}</dd>);
 	}
 	say q(</dl>);
-	say qq(<div class="registration_buttons"><a href="$self->{'system'}->{'script_name'}?edit=1" class="small_submit">)
+	say q(<div class="registration_buttons"><div>)
+	  . qq(<a href="$self->{'system'}->{'script_name'}?edit=1" class="small_submit" style="margin-right:20px">)
 	  . q(<span><span class="fas fa-pencil-alt"></span> Edit details</span></a>)
+	  . qq(<a href="$self->{'system'}->{'script_name'}?page=changePassword" class="small_submit">)
+	  . q(<span><span class="fas fa-key"></span> Change password</span></a></div>)
 	  . qq(<a class="small_reset" style="margin-left:1em" href="$self->{'system'}->{'script_name'}?page=logout"><span>)
 	  . q(<span class="fas fa-sign-out-alt"></span> Log out</span></a></div>);
 	say q(</div></div>);
