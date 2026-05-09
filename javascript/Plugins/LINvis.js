@@ -192,6 +192,15 @@ Version 1.1.0.
                 if (parent.children[i] === node) {
                     parent.children[i] = child;
                     child.parent = parent;
+
+                    // preserve collapsed wrapper names
+                    if (!child._collapsedWrapperNames) {
+                        child._collapsedWrapperNames = [];
+                    }
+                    child._collapsedWrapperNames.push(
+                        node.data && node.data.name
+                    );
+
                     pruned++;
                     break;
                 }
@@ -825,6 +834,7 @@ Version 1.1.0.
     function zoomTo(v) {
         const t0 = performance.now();
         const k = diameter / v[2];
+        const selectedLabels = getSelectedLabels();
 
         // Defensive cleanup: scope removal to ringLayer (preserve persistent boundary)
         try {
@@ -1026,8 +1036,6 @@ Version 1.1.0.
                 continue;
             }
 
-            const selectedLabels = getSelectedLabels();
-
             let showLabel = false;
 
             if (selectedLabels) {
@@ -1042,8 +1050,42 @@ Version 1.1.0.
                 showLabel = true;
             }
 
-            if (showLabel) {
-                const fontSize = Math.max(10, Math.min(14, Math.floor(scaledR / 3)));
+            let forceSelectedLabel = false;
+
+            if (selectedLabels) {
+
+                if (
+                    d.data &&
+                    d.data.name &&
+                    selectedLabels.has(d.data.name)
+                ) {
+                    forceSelectedLabel = true;
+                }
+
+                // allow labels for pruned wrapper nodes
+                if (
+                    !forceSelectedLabel &&
+                    d._collapsedWrapperNames &&
+                    d._collapsedWrapperNames.some(n => selectedLabels.has(n))
+                ) {
+                    forceSelectedLabel = true;
+
+                    const matched = d._collapsedWrapperNames.find(
+                        n => selectedLabels.has(n)
+                    );
+
+                    if (matched) {
+                        textEl.textContent = matched;
+                    }
+                }
+            }
+
+            if (showLabel || forceSelectedLabel) {
+
+                const fontSize = showLabel
+                    ? Math.max(10, Math.min(14, Math.floor(scaledR / 3)))
+                    : 12;
+
                 textEl.style.fontSize = fontSize + 'px';
                 textEl.style.opacity = '1';
                 textEl.style.stroke = 'rgba(255,255,255,0.95)';
