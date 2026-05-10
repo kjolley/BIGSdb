@@ -1058,14 +1058,22 @@ Version 1.1.0.
 
 			if (exactSelectedLabel) {
 			    textEl.textContent = exactSelectedLabel;
-			    textEl.style.fontSize = '12px';
+				textEl.style.fontSize =
+				    (window.matchMedia("(pointer: coarse)").matches ? 15 : 12) + 'px';
 			    textEl.style.opacity = '1';
 			    textEl.style.stroke = 'rgba(255,255,255,0.95)';
 			    textEl.style.strokeWidth = '3px';
 			    textEl.style.paintOrder = 'stroke';
 			} else if (!selectedLabels && d.depth === labelDepth && scaledR > 8) {
 			    textEl.textContent = d.data && d.data.name ? d.data.name : "";
-			    const fontSize = Math.max(10, Math.min(14, Math.floor(scaledR / 3)));
+				const isTouchDevice =
+				    window.matchMedia("(pointer: coarse)").matches;
+
+				const minFont = isTouchDevice ? 13 : 10;
+				const maxFont = isTouchDevice ? 18 : 14;
+
+				const fontSize =
+				    Math.max(minFont, Math.min(maxFont, Math.floor(scaledR / 3)));
 			    textEl.style.fontSize = fontSize + 'px';
 			    textEl.style.opacity = '1';
 			    textEl.style.stroke = 'rgba(255,255,255,0.95)';
