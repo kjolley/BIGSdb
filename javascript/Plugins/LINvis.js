@@ -830,6 +830,24 @@ Version 1.1.0.
             .filter(v => v.length);
         return vals.length ? new Set(vals) : null;
     }
+	
+	function getExactSelectedLabelForNode(d, selectedLabels) {
+	    if (!selectedLabels) return null;
+
+	    const names = [];
+	    if (d.data && d.data.name) names.push(d.data.name);
+	    if (d._collapsedWrapperNames && d._collapsedWrapperNames.length) {
+	        names.push(...d._collapsedWrapperNames);
+	    }
+
+	    let best = null;
+	    for (const name of names) {
+	        if (selectedLabels.has(name) && (!best || name.length > best.length)) {
+	            best = name;
+	        }
+	    }
+	    return best;
+	}
 
     function zoomTo(v) {
         const t0 = performance.now();
@@ -1036,64 +1054,26 @@ Version 1.1.0.
                 continue;
             }
 
-            let showLabel = false;
+			const exactSelectedLabel = getExactSelectedLabelForNode(d, selectedLabels);
 
-            if (selectedLabels) {
-                if (
-                    d.data &&
-                    d.data.name &&
-                    selectedLabels.has(d.data.name)
-                ) {
-                    showLabel = true;
-                }
-            } else if (d.depth === labelDepth && scaledR > 8) {
-                showLabel = true;
-            }
-
-            let forceSelectedLabel = false;
-
-            if (selectedLabels) {
-
-                if (
-                    d.data &&
-                    d.data.name &&
-                    selectedLabels.has(d.data.name)
-                ) {
-                    forceSelectedLabel = true;
-                }
-
-                // allow labels for pruned wrapper nodes
-                if (
-                    !forceSelectedLabel &&
-                    d._collapsedWrapperNames &&
-                    d._collapsedWrapperNames.some(n => selectedLabels.has(n))
-                ) {
-                    forceSelectedLabel = true;
-
-                    const matched = d._collapsedWrapperNames.find(
-                        n => selectedLabels.has(n)
-                    );
-
-                    if (matched) {
-                        textEl.textContent = matched;
-                    }
-                }
-            }
-
-            if (showLabel || forceSelectedLabel) {
-
-                const fontSize = showLabel
-                    ? Math.max(10, Math.min(14, Math.floor(scaledR / 3)))
-                    : 12;
-
-                textEl.style.fontSize = fontSize + 'px';
-                textEl.style.opacity = '1';
-                textEl.style.stroke = 'rgba(255,255,255,0.95)';
-                textEl.style.strokeWidth = '3px';
-                textEl.style.paintOrder = 'stroke';
-            } else {
-                textEl.style.opacity = '0';
-            }
+			if (exactSelectedLabel) {
+			    textEl.textContent = exactSelectedLabel;
+			    textEl.style.fontSize = '12px';
+			    textEl.style.opacity = '1';
+			    textEl.style.stroke = 'rgba(255,255,255,0.95)';
+			    textEl.style.strokeWidth = '3px';
+			    textEl.style.paintOrder = 'stroke';
+			} else if (!selectedLabels && d.depth === labelDepth && scaledR > 8) {
+			    textEl.textContent = d.data && d.data.name ? d.data.name : "";
+			    const fontSize = Math.max(10, Math.min(14, Math.floor(scaledR / 3)));
+			    textEl.style.fontSize = fontSize + 'px';
+			    textEl.style.opacity = '1';
+			    textEl.style.stroke = 'rgba(255,255,255,0.95)';
+			    textEl.style.strokeWidth = '3px';
+			    textEl.style.paintOrder = 'stroke';
+			} else {
+			    textEl.style.opacity = '0';
+			}
         }
 
         // update the persistent boundary to match root on-screen
