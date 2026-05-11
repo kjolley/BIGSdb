@@ -135,6 +135,9 @@ sub new {
 	foreach my $page (qw(downloadAlleles downloadProfiles downloadSeqbin embl gff)) {
 		$self->{'pages_needing_authentication'}->{$page} = 1 if $self->_download_requires_authentication($page);
 	}
+	foreach my $page (qw(sequenceQuery batchSequenceQuery)){
+		$self->{'pages_needing_authentication'}->{$page} = 1 if $self->_seq_query_requires_authentication;
+	}
 	my $q = $self->{'cgi'};
 	$self->initiate_authdb
 	  if $self->{'config'}->{'site_user_dbs'} || ( $self->{'system'}->{'authentication'} // q() ) eq 'builtin';
@@ -726,6 +729,15 @@ sub _plugin_requires_authentication {
 	return 1
 	  if ( $self->{'pluginManager'}->{'attributes'}->{$plugin_name}->{'requires'} // q() ) =~ /offline_jobs/x;
 	return;
+}
+
+sub _seq_query_requires_authentication {
+	my ($self) = @_;
+	return if ( $self->{'system'}->{ 'seq_queries_require_login' } // q() ) eq 'no';
+	return
+	  if !( $self->{'config'}->{ 'seq_queries_require_login' }
+		|| ( $self->{'system'}->{'seq_queries_require_login' } // q() ) eq 'yes' );
+	return 1;
 }
 
 sub _download_requires_authentication {
