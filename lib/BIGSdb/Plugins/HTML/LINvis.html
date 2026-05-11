@@ -144,6 +144,17 @@
 				</details>
 			</div>
 		</div>
+		<div id="search-controls" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:4px;margin-bottom:8px;">
+			<label for="search-mode" style="white-space:nowrap;">Search by:</label>
+			<select id="search-mode">
+				<option value="id">ID</option>
+				<option value="name">Name</option>
+			</select>
+			<input id="search-query" type="text" placeholder="Enter exact id or name" style="min-width:180px;max-width:100%;">
+			<button id="search-run" type="button">Search</button>
+			<button id="search-clear" type="button">Clear</button>
+		</div>
+		<div id="search-results" style="font-size:11px;color:#666;line-height:1.35;margin-bottom:6px"></div>
 		<div id="waiting">
 			<p>Rendering. Please wait...</p>
 		</div>

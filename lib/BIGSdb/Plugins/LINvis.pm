@@ -253,6 +253,11 @@ sub run_job {
 
 		}
 		$node->{'value'} = ( $node->{'value'} || 0 ) + 1;
+		$node->{'records'} //=[];
+		push @{$node->{'records'}}, {
+			id => $isolate_id,
+			name => $self->get_isolate_name_from_id($isolate_id)
+		};
 
 		$count++;
 		$progress = int( 100 * ( $count / @$isolate_ids ) );

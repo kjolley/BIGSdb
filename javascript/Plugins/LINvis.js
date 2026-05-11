@@ -33,6 +33,19 @@ Version 1.1.0.
 	let labelScale = 1;              // label font-size multiplier
 	const initialLabelDepth = 1;
 	const SMOOTH_ZOOM_MAX_NODES = 5000; // changeable threshold for using smoothZoomTo()
+	
+	let searchState = {
+		mode: "id",
+		query: "",
+		matchedLeaves: new Set(),
+		matchedAncestors: new Set(),
+		activeNode: null
+	};
+
+	const recordIndex = {
+		byId: new Map(),
+		byName: new Map()
+	};
 	const waiting = document.getElementById('waiting');
 
 	// ---------- Flexible data loader ----------
@@ -178,6 +191,7 @@ Version 1.1.0.
 		else if (node.children) node.value = node.children.reduce((s, c) => s + (c.value || 0), 0);
 		else node.value = 0;
 	});
+	
 
 	// --- Prune wrapper nodes that have exactly one child (but keep top-level groups) ---
 	(function pruneSingletonWrappers(rootNode) {
@@ -226,6 +240,23 @@ Version 1.1.0.
 
 	// Nodes + depth grouping
 	const nodes = root.descendants();
+	
+	
+	nodes.forEach(node => {
+		if (node.children) return; // only terminal nodes carry records
+		const records = node.data && Array.isArray(node.data.records) ? node.data.records : [];
+		for (const rec of records) {
+			if (rec && rec.id != null) addToIndex(recordIndex.byId, String(rec.id), node);
+			if (rec && rec.name) addToIndex(recordIndex.byName, String(rec.name).trim(), node);
+		}
+	});
+	function addToIndex(map, key, node) {
+		if (!key) return;
+		const arr = map.get(key);
+		if (arr) arr.push(node);
+		else map.set(key, [node]);
+	}
+
 	const nodesByDepth = d3.group(nodes, d => d.depth);
 	const maxDepth = d3.max(nodes, d => d.depth);
 
@@ -306,6 +337,12 @@ Version 1.1.0.
 	const selectedLabelsDetails = document.getElementById("selected-labels-details");
 
 	let selectedLabelsDetached = false;
+	
+	const searchModeInput = document.getElementById("search-mode");
+	const searchQueryInput = document.getElementById("search-query");
+	const searchRunBtn = document.getElementById("search-run");
+	const searchClearBtn = document.getElementById("search-clear");
+	const searchResultsEl = document.getElementById("search-results");
 
 	// Add explicit up/down buttons for depth control (mobile-friendly + disable native spinner)
 	(function attachDepthButtons() {
@@ -1005,6 +1042,25 @@ Version 1.1.0.
 				circle.setAttribute("fill", fillColor);
 				circle.setAttribute("stroke", strokeColor);
 			}
+			
+			const isMatch = searchState.matchedLeaves.has(d);
+			const isPath = !isMatch && searchState.matchedAncestors.has(d);
+
+			if (circle) {
+				if (isMatch) {
+					circle.style.stroke = "#d11";
+					circle.style.strokeWidth = "3px";
+					circle.style.strokeDasharray = "";
+				} else if (isPath) {
+					circle.style.stroke = "#d11";
+					circle.style.strokeWidth = "1.8px";
+					circle.style.strokeDasharray = "3 2";
+				} else {
+					circle.style.stroke = "";
+					circle.style.strokeWidth = "";
+					circle.style.strokeDasharray = "";
+				}
+			}
 		});
 
 
@@ -1321,6 +1377,93 @@ Version 1.1.0.
 			});
 		}
 	})();
+	
+
+	function clearSearchState() {
+		searchState.query = "";
+		searchState.matchedLeaves.clear();
+		searchState.matchedAncestors.clear();
+		searchState.activeNode = null;
+		if (searchResultsEl) {
+			searchResultsEl.textContent = "";
+		}
+	}
+
+	function renderSearchResults(nodes) {
+		if (!searchResultsEl) return;
+
+		if (!nodes || !nodes.length) {
+			searchResultsEl.textContent = "No match.";
+			return;
+		}
+
+		if (nodes.length === 1) {
+			const d = nodes[0];
+			const recs = (d.data && Array.isArray(d.data.records)) ? d.data.records : [];
+			const found = recs.length ? recs[0] : null;
+
+			if (searchState.mode === "id") {
+				searchResultsEl.textContent = found && found.id != null
+					? ("Isolate " + found.id + " found.")
+					: "Isolate found.";
+			} else {
+				searchResultsEl.textContent = found && found.name
+					? ("Isolate " + found.name + " found.")
+					: "Isolate found.";
+			}
+			return;
+		}
+
+		if (searchState.mode === "name") {
+			searchResultsEl.textContent =
+				nodes.length + (nodes.length === 1
+					? " isolate found with this name."
+					: " isolates found with this name.");
+		} else {
+			searchResultsEl.textContent =
+				nodes.length + (nodes.length === 1
+					? " isolate found."
+					: " isolates found.");
+		}
+	}
+
+	function runSearch() {
+		const mode = searchModeInput ? searchModeInput.value : "id";
+		const q = searchQueryInput ? searchQueryInput.value.trim() : "";
+
+		clearSearchState();
+		searchState.mode = mode;
+		searchState.query = q;
+
+		if (!q) {
+			renderSearchResults([]);
+			zoomTo(view);
+			return;
+		}
+
+		const hits = (mode === "name" ? recordIndex.byName : recordIndex.byId).get(q) || [];
+
+		for (const leaf of hits) {
+			searchState.matchedLeaves.add(leaf);
+			for (let n = leaf.parent; n; n = n.parent) {
+				searchState.matchedAncestors.add(n);
+			}
+		}
+
+		searchState.activeNode = hits[0] || null;
+		renderSearchResults(hits);
+		zoomTo(view);
+	}
+	
+	if (searchRunBtn) searchRunBtn.addEventListener("click", runSearch);
+	if (searchQueryInput) searchQueryInput.addEventListener("keydown", function(ev) {
+		if (ev.key === "Enter") runSearch();
+	});
+	if (searchClearBtn) searchClearBtn.addEventListener("click", function() {
+		if (searchQueryInput) searchQueryInput.value = "";
+		clearSearchState();
+		zoomTo(view);
+	});
 
 	// Initial render
 	zoomTo(view);
