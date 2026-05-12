@@ -33,7 +33,7 @@ Version 1.1.0.
 	let labelScale = 1;              // label font-size multiplier
 	const initialLabelDepth = 1;
 	const SMOOTH_ZOOM_MAX_NODES = 5000; // changeable threshold for using smoothZoomTo()
-	
+
 	let searchState = {
 		mode: "id",
 		matchedLeaves: new Set(),
@@ -189,7 +189,7 @@ Version 1.1.0.
 		else if (node.children) node.value = node.children.reduce((s, c) => s + (c.value || 0), 0);
 		else node.value = 0;
 	});
-	
+
 
 	// --- Prune wrapper nodes that have exactly one child (but keep top-level groups) ---
 	(function pruneSingletonWrappers(rootNode) {
@@ -238,8 +238,8 @@ Version 1.1.0.
 
 	// Nodes + depth grouping
 	const nodes = root.descendants();
-	
-	
+
+
 	nodes.forEach(node => {
 		if (node.children) return; // only terminal nodes carry records
 		const records = node.data && Array.isArray(node.data.records) ? node.data.records : [];
@@ -335,7 +335,7 @@ Version 1.1.0.
 	const selectedLabelsDetails = document.getElementById("selected-labels-details");
 
 	let selectedLabelsDetached = false;
-	
+
 	const searchModeInput = document.getElementById("search-mode");
 	const searchQueryInput = document.getElementById("search-query");
 	const searchRunBtn = document.getElementById("search-run");
@@ -1039,7 +1039,7 @@ Version 1.1.0.
 				circle.setAttribute("fill", fillColor);
 				circle.setAttribute("stroke", strokeColor);
 			}
-			
+
 			const isMatch = searchState.matchedLeaves.has(d);
 			const isPath = !isMatch && searchState.matchedAncestors.has(d);
 
@@ -1328,7 +1328,43 @@ Version 1.1.0.
 			fitW.replaceWith(fitW.cloneNode(true));
 			fitW = document.getElementById('linvis-fit-width-btn');
 			fitW.addEventListener('click', function() {
-				const target = [root.x, root.y, root.r * 2 * (diameter / width)];
+				const target = [root.x, root.y, root.r * 2 * (diameter / Math.max(1, width - 4))];
+				if (nodes.length < SMOOTH_ZOOM_MAX_NODES && typeof smoothZoomTo === 'function') {
+					smoothZoomTo(target);
+				} else {
+					view = target;
+					zoomTo(view);
+				}
+			});
+		}
+		// ------- Fit height (attach only if buttons exist) -------
+		let fitH = document.getElementById('linvis-fit-height-btn');
+		if (fitH) {
+			fitH.replaceWith(fitH.cloneNode(true));
+			fitH = document.getElementById('linvis-fit-height-btn');
+			fitH.addEventListener('click', function() {
+				const svgRect = svgNode ? svgNode.getBoundingClientRect() : null;
+				const vpTop = window.visualViewport ? window.visualViewport.offsetTop : 0;
+				const vpBottom = window.visualViewport
+					? (window.visualViewport.offsetTop + window.visualViewport.height)
+					: window.innerHeight;
+				let visiblePx = 0;
+				let clipTopPx = 0;
+				if (svgRect) {
+					const visibleTop = Math.max(svgRect.top, vpTop);
+					const visibleBottom = Math.min(svgRect.bottom, vpBottom);
+					visiblePx = Math.max(0, visibleBottom - visibleTop);
+					clipTopPx = Math.max(0, visibleTop - svgRect.top);
+				}
+				if (!visiblePx) visiblePx = svgRect && svgRect.height ? svgRect.height : height;
+				const renderW = svgRect && svgRect.width ? svgRect.width : width;
+				const targetW = root.r * 2 * (diameter / width) * (renderW / Math.max(1, visiblePx - 4));
+				const padView = (1.2 * targetW) / visiblePx;
+				const target = [
+					root.x - root.r + (targetW / 2) + (tx * targetW / diameter) - padView,
+					root.y - root.r + (targetW / 2) + (clipTopPx * targetW / visiblePx) + (tx * targetW / diameter) - padView,
+					targetW
+				];
 				if (nodes.length < SMOOTH_ZOOM_MAX_NODES && typeof smoothZoomTo === 'function') {
 					smoothZoomTo(target);
 				} else {
@@ -1374,7 +1410,7 @@ Version 1.1.0.
 			});
 		}
 	})();
-	
+
 
 	function clearSearchState() {
 		searchState.matchedLeaves.clear();
@@ -1448,7 +1484,7 @@ Version 1.1.0.
 		renderSearchResults(hits);
 		zoomTo(view);
 	}
-	
+
 	if (searchRunBtn) searchRunBtn.addEventListener("click", runSearch);
 	if (searchQueryInput) searchQueryInput.addEventListener("keydown", function(ev) {
 		if (ev.key === "Enter") runSearch();
