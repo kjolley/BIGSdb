@@ -509,7 +509,6 @@ Version 1.1.0.
 			});
 
 			// find SVG and guard
-			const svgNode = document.querySelector("#linvis_chart svg");
 			if (!svgNode) return console.warn("LINvis: SVG not found for root tooltip fallback");
 
 			// ensure decorative layers don't intercept pointer events and node groups accept them
