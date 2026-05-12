@@ -138,6 +138,13 @@ END
 	 	noneSelectedText: '',
 	 	selectedList: 1,
 	  }).multiselectfilter();
+	\$("form").on("keydown", function(e) {
+	    if ((e.key === "Enter" || e.which === 13) &&
+	        !\$(e.target).is("textarea, input[type=submit], button")) {
+	        e.preventDefault();
+	        return false;
+	    }
+	});
 });
 
 function resize_rmlst_cell(){
@@ -1795,7 +1802,7 @@ sub _start_profile_submission {
 		$self->{'db'}->rollback;
 		return;
 	}
-	my $loci = $self->{'datastore'}->get_scheme_loci($scheme_id);
+	my $loci   = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	if (@$profiles) {
 		my $index = 1;
@@ -1812,7 +1819,7 @@ sub _start_profile_submission {
 						undef, $submission_id, $profile->{'id'}, $locus, $profile->{$locus}
 					);
 				}
-				foreach my $field(@$fields){
+				foreach my $field (@$fields) {
 					next if !defined $profile->{$field};
 					$self->{'db'}->do(
 						'INSERT INTO profile_submission_fields (submission_id,profile_id,field,'
@@ -2059,6 +2066,7 @@ sub _presubmit_isolates {
 	say $q->start_form;
 	$self->_print_email_fieldset($submission_id);
 	$self->_print_embargo_fieldset($submission_id);
+	my @hidden = qw(db page submit submission_id);
 
 	if ( $self->{'failed_validation'} ) {
 		say q(<div style="clear:both"></div><div><p>One or more of your assemblies has <span class="fail">)
@@ -2067,10 +2075,12 @@ sub _presubmit_isolates {
 		  . qq(submission_id=$submission_id&amp;abort=1&amp;confirm=1">abort this submission</a>.</p></div>);
 	} elsif ( !$self->{'contigs_missing'} ) {
 		$self->print_action_fieldset( { no_reset => 1, submit_label => 'Finalize submission!' } );
+		$q->param( finalize => 1 );
+		push @hidden, 'finalize';
 	}
-	$q->param( finalize      => 1 );
+
 	$q->param( submission_id => $submission_id );
-	say $q->hidden($_) foreach qw(db page submit finalize submission_id);
+	say $q->hidden($_) foreach @hidden;
 	say $q->end_form;
 	say q(</div></div>);
 	return;
@@ -2118,6 +2128,7 @@ sub _presubmit_assemblies {
 	$self->_print_message_fieldset($submission_id);
 	say $q->start_form;
 	$self->_print_email_fieldset($submission_id);
+	my @hidden = qw(db page submit submission_id);
 
 	if ( $self->{'failed_validation'} ) {
 		say q(<div style="clear:both"></div><div><p>One or more of your assemblies has <span class="fail">)
@@ -2126,10 +2137,12 @@ sub _presubmit_assemblies {
 		  . qq(submission_id=$submission_id&amp;abort=1&amp;confirm=1">abort this submission</a>.</p></div>);
 	} elsif ( !$self->{'contigs_missing'} ) {
 		$self->print_action_fieldset( { no_reset => 1, submit_label => 'Finalize submission!' } );
+		$q->param( finalize => 1 );
+		push @hidden, 'finalize';
 	}
-	$q->param( finalize      => 1 );
+
 	$q->param( submission_id => $submission_id );
-	say $q->hidden($_) foreach qw(db page submit finalize submission_id);
+	say $q->hidden($_) foreach @hidden;
 	say $q->end_form;
 	say q(</div></div>);
 	return;
@@ -2443,7 +2456,7 @@ sub _print_profile_table {
 	my ( $all_assigned, $all_rejected, $all_assigned_or_rejected ) = ( 1, 1, 1 );
 	my $pending_profiles = [];
 	my $loci             = $self->{'datastore'}->get_scheme_loci($scheme_id);
-	my $fields = $self->{'datastore'}->get_scheme_fields($scheme_id);
+	my $fields           = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $max_width        = $self->{'config'}->{'page_max_width'} // PAGE_MAX_WIDTH;
 	my $main_max_width   = $max_width - 100;
 	my $max_width_style =
@@ -2452,8 +2465,9 @@ sub _print_profile_table {
 	  . q(<table class="resultstable" style="margin-bottom:0">);
 	say q(<tr><th>Identifier</th>);
 	my $field_info = {};
-	foreach my $field (@$fields){
-		$field_info->{$field} = $self->{'datastore'}->get_scheme_field_info($scheme_id,$field);
+
+	foreach my $field (@$fields) {
+		$field_info->{$field} = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 		next if !$field_info->{$field}->{'submissions'};
 		print qq(<th>$field</th>);
 	}
@@ -2466,7 +2480,7 @@ sub _print_profile_table {
 	my $index = 1;
 	foreach my $profile ( @{ $profile_submission->{'profiles'} } ) {
 		say qq(<tr class="td$td"><td>$profile->{'profile_id'}</td>);
-		foreach my $field (@$fields){
+		foreach my $field (@$fields) {
 			next if !$field_info->{$field}->{'submissions'};
 			my $field_value = $profile->{'fields'}->{$field} // q();
 			say qq(<td>$field_value</td>);
@@ -3464,9 +3478,15 @@ sub _view_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Calle
 
 	if ( $submission->{'status'} eq 'started' ) {
 		say $q->start_form;
-		$self->print_action_fieldset( { no_reset => 1, submit_label => 'Finalize submission!' } );
-		say $q->hidden( finalize => 1 );
-		say $q->hidden($_) foreach qw(db page locus submit finalize submission_id);
+
+		my @hidden = qw(db page locus submit submission_id);
+		if ( !$self->{'contigs_missing'} ) {
+			$self->print_action_fieldset( { no_reset => 1, submit_label => 'Finalize submission!' } );
+			$q->param( finalize => 1 );
+			push @hidden, 'finalize';
+		}
+
+		say $q->hidden($_) foreach @hidden;
 		say $q->end_form;
 	}
 	say q(</div></div>);
