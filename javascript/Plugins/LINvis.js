@@ -36,10 +36,8 @@ Version 1.1.0.
 	
 	let searchState = {
 		mode: "id",
-		query: "",
 		matchedLeaves: new Set(),
 		matchedAncestors: new Set(),
-		activeNode: null
 	};
 
 	const recordIndex = {
@@ -1379,10 +1377,8 @@ Version 1.1.0.
 	
 
 	function clearSearchState() {
-		searchState.query = "";
 		searchState.matchedLeaves.clear();
 		searchState.matchedAncestors.clear();
-		searchState.activeNode = null;
 		if (searchResultsEl) {
 			searchResultsEl.textContent = "";
 		}
@@ -1449,7 +1445,6 @@ Version 1.1.0.
 			}
 		}
 
-		searchState.activeNode = hits[0] || null;
 		renderSearchResults(hits);
 		zoomTo(view);
 	}
