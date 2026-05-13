@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20260427
+#Version: 20260513
 use strict;
 use warnings;
 use 5.010;
@@ -834,7 +834,7 @@ ${bold}NAME$norm
     details from client databases
 
 ${bold}SYNOPSIS$norm
-    ${bold}sync_user_dbase_users.p --database ${under}NAME$norm [${under}options$norm]
+    ${bold}sync_user_dbase_users.pl --database ${under}NAME$norm [${under}options$norm]
 
 ${bold}OPTIONS$norm
 
