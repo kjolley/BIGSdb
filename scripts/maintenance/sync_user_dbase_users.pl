@@ -289,6 +289,13 @@ sub get_dbase_configs {
 	opendir( my $dh, $script->{'dbase_config_dir'} )
 	  || $logger->logdie("Cannot open $script->{'dbase_config_dir'} for reading");
 	my @items = sort readdir $dh;
+	if (@items){
+		$logger->error("No configs found in $script->{'dbase_config_dir'}.");
+		undef $script;
+		remove_lock_file();
+		exit;
+	}
+	
 	foreach my $item (@items) {
 		next if $item =~ /^\./x;
 		next if !-d "$script->{'dbase_config_dir'}/$item";
