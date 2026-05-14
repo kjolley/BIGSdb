@@ -61,7 +61,7 @@ if ( $opts{'h'} ) {
 	show_help();
 	exit;
 }
-$opts{'last_rel_login'} //= 90;
+$opts{'last_rel_login'} //= 30;
 if ( !$opts{'user_database'} ) {
 	say "\nUsage: auto_reg.pl --user_database <NAME>\n";
 	say 'Help: auto_reg.pl --help';
@@ -299,7 +299,7 @@ ${bold}--include_inactive$norm
     
 ${bold}--last_rel_login$norm ${under}DAYS$norm
     Only target active users by only including those that have logged in within
-    this many days. Default is 90.
+    this many days. Default is 30.
 
 ${bold}--quiet$norm
     Only display error messages.
