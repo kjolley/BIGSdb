@@ -50,6 +50,7 @@ Log::Log4perl->init( \$log_conf );
 my $logger = Log::Log4perl::get_logger('BIGSdb.Script');
 my %opts;
 GetOptions(
+	'dry_run'          => \$opts{'dry_run'},
 	'quiet'            => \$opts{'quiet'},
 	'help'             => \$opts{'h'},
 	'include_inactive' => \$opts{'include_inactive'},
@@ -123,7 +124,7 @@ sub main {
 			next USER                              if !$is_active{$site_user} && !$opts{'include_inactive'};
 			say "$config: Registering $site_user." if !$opts{'quiet'};
 			my $id = next_user_id($db);
-
+			next USER if $opts{'dry_run'};
 			eval {
 				$db->do(
 					'INSERT INTO users (id,user_name,status,date_entered,datestamp,curator,user_db) '
@@ -284,6 +285,10 @@ ${bold}SYNOPSIS$norm
     ${bold}auto_reg.pl --user_database ${under}NAME$norm [${under}options$norm]
 
 ${bold}OPTIONS$norm
+
+${bold}--dry_run$norm
+    Use for testing - just displays what would be done, without actually 
+    registering users.
 
 ${bold}--help$norm
     This help page.
