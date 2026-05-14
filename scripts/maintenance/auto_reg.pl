@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20260513
+#Version: 20260514
 use strict;
 use warnings;
 use 5.010;
@@ -49,12 +49,18 @@ my $log_conf = LOG_TO_SCREEN;
 Log::Log4perl->init( \$log_conf );
 my $logger = Log::Log4perl::get_logger('BIGSdb.Script');
 my %opts;
-GetOptions( 'quiet' => \$opts{'quiet'}, 'user_database=s' => \$opts{'user_database'}, 'help' => \$opts{'h'} )
-  or die("Error in command line arguments\n");
+GetOptions(
+	'quiet'            => \$opts{'quiet'},
+	'help'             => \$opts{'h'},
+	'include_inactive' => \$opts{'include_inactive'},
+	'last_rel_login=i' => \$opts{'last_rel_login'},
+	'user_database=s'  => \$opts{'user_database'}
+) or die("Error in command line arguments\n");
 if ( $opts{'h'} ) {
 	show_help();
 	exit;
 }
+$opts{'last_rel_login'} //= 90;
 if ( !$opts{'user_database'} ) {
 	say "\nUsage: auto_reg.pl --user_database <NAME>\n";
 	say 'Help: auto_reg.pl --help';
@@ -87,12 +93,17 @@ sub main {
 	my $configs    = get_registered_configs();
 	my $site_users = $script->{'datastore'}
 	  ->run_query( 'SELECT user_name FROM users ORDER BY user_name', undef, { fetch => 'col_arrayref' } );
+	$script->initiate_authdb;
 
-	#TODO Optionally filter to only active users.
-	#Check auth database and exclude users that did not register today, but where last_login=date_entered.
+	my $active_users = $script->{'datastore'}->run_query(
+		'SELECT name FROM users WHERE dbase=? AND date_entered != last_login AND '
+		  . "last_login >= now()-interval '$opts{'last_rel_login'} days'",
+		$opts{'user_database'},
+		{ fetch => 'col_arrayref', db => $script->{'auth_db'} }
+	);
+	my %is_active = map { $_ => 1 } @$active_users;
 
   CONFIG: foreach my $config (@$configs) {
-		say $config;
 		my $system = read_config_xml($config);
 		my $db     = get_db($system);
 		my $user_db_id =
@@ -109,6 +120,7 @@ sub main {
 		my %is_db_user = map { $_ => 1 } @$db_users;
 	  USER: foreach my $site_user (@$site_users) {
 			next USER                              if $is_db_user{$site_user};
+			next USER                              if !$is_active{$site_user} && !$opts{'include_inactive'};
 			say "$config: Registering $site_user." if !$opts{'quiet'};
 			my $id = next_user_id($db);
 
@@ -132,11 +144,8 @@ sub main {
 				$db->commit;
 				$script->{'db'}->commit;
 			}
-
 		}
-
 		drop_connection($system);
-
 	}
 	return;
 }
@@ -272,12 +281,20 @@ ${bold}NAME$norm
     databases that allow self-registration.
 
 ${bold}SYNOPSIS$norm
-    ${bold}auto_reg.pl --database ${under}NAME$norm [${under}options$norm]
+    ${bold}auto_reg.pl --user_database ${under}NAME$norm [${under}options$norm]
 
 ${bold}OPTIONS$norm
 
 ${bold}--help$norm
     This help page.
+    
+${bold}--include_inactive$norm
+    Include all registered users, even those that have not logged in recently.
+    If this option is set then --last_rel_login is ignored.
+    
+${bold}--last_rel_login$norm ${under}DAYS$norm
+    Only target active users by only including those that have logged in within
+    this many days. Default is 90.
 
 ${bold}--quiet$norm
     Only display error messages.
