@@ -1,3 +1,11 @@
+v1.53.2: *New LINvis functionality:
+           - Support for labelling list of specific LIN prefixes.
+           - Label resizing controls.
+           - Search visualisation for isolate by id or name.
+           - Fit to visible vertical height.
+         *New auto-registration script to register existing users to all
+          available databases.
+         *Added setting to require log-in for sequence queries.
 v1.53.1: *Added new password complexity checks.
          *Added option to automatically register new users for all available
           databases.
