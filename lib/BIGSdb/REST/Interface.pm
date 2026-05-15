@@ -282,9 +282,12 @@ sub _check_api_key {
 	return if !$self->{'config'}->{'data_access_api_keys'};
 	my $api_key = request->header('X-API-Key');
 	return if !defined $api_key;
-	my ( $db, $username, $banned ) =
-	  $self->{'datastore'}->run_query( 'SELECT dbase,username,ban FROM api_keys WHERE key=?',
-		$api_key, { db => $self->{'auth_db'}, cache => 'check_api_key' } );
+	my ( $db, $username, $banned, $last_login, $interface ) = $self->{'datastore'}->run_query(
+		'SELECT a.dbase,a.username,a.ban,u.last_login,u.interface FROM api_keys a '
+		  . 'JOIN users u ON (a.username,a.dbase)=(u.name,u.dbase) WHERE key=?',
+		$api_key,
+		{ db => $self->{'auth_db'}, cache => 'check_api_key' }
+	);
 	send_error( 'The API key used is banned', 401 ) if $banned;
 	my $user_exists = $self->{'datastore'}->run_query(
 		'SELECT EXISTS(SELECT * FROM users u JOIN user_dbases ud ON u.user_db=ud.id WHERE '
@@ -295,6 +298,22 @@ sub _check_api_key {
 	send_error( 'The API key used cannot access this resource', 401 ) if !$user_exists;
 	$self->{'username'} = $username;
 	$self->{'api_key'}  = 1;
+
+	my $datestamp = BIGSdb::Utils::get_datestamp();
+	if ( !defined $last_login || $last_login ne $datestamp || !defined $interface || $interface ne 'REST API' ) {
+		my $ip_address = _get_ip_address();
+		eval {
+			$self->{'auth_db'}
+			  ->do( 'UPDATE users SET (ip_address,last_login,interface,user_agent)=(?,?,?,?) WHERE (dbase,name)=(?,?)',
+				undef, $ip_address, 'now', 'REST API', undef, $db, $self->{'username'} );
+		};
+		if ($@) {
+			$logger->error($@);
+			$self->{'auth_db'}->rollback;
+		} else {
+			$self->{'auth_db'}->commit;
+		}
+	}
 	$self->_check_user_authorization($username);
 	return 1;
 }
@@ -330,8 +349,11 @@ sub _check_authorization {
 	{
 		$self->_is_oauth_authorized;
 	}
-	if ($self->{'config'}->{'api_requires_authentication'} && $request_path !~ /^$oauth_route/x && !$self->{'username'}){
-		send_error( 'API requires authentication', 401 )
+	if (   $self->{'config'}->{'api_requires_authentication'}
+		&& $request_path !~ /^$oauth_route/x
+		&& !$self->{'username'} )
+	{
+		send_error( 'API requires authentication', 401 );
 	}
 	return;
 }
