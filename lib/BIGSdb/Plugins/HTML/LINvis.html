@@ -15,8 +15,10 @@
 		box-sizing: border-box;
 		overflow: hidden;
 		/* keep canvas/svg inside container */
-		border: 1px dashed #888;
-		background: #fff !important;
+		border: 1px solid rgba(130, 145, 165, 0.28);
+		border-radius: 12px;
+		background: radial-gradient(circle at top left, #ffffff 0%, #f6f8fc 55%, #eef3f8 100%) !important;
+		box-shadow: 0 10px 30px rgba(17, 24, 39, 0.08), inset 0 1px 0 rgba(255,255,255,0.75);
 	}
 
 	.tooltip {
@@ -42,6 +44,11 @@
 		padding: 6px 8px;
 		border-radius: 6px;
 		font-size: 13px;
+		box-shadow: 0 8px 24px rgba(17, 24, 39, 0.10);
+	}
+	
+	#linvis_chart svg {
+		display: block;
 	}
 
 	.file-control {
@@ -77,6 +84,7 @@
 		color: crimson;
 	}
 </style>
+
 <div style="position:relative">
 	<div class="control">
 		<div id="linvis-file-wrapper" class="file-control">

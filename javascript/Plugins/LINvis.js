@@ -21,7 +21,7 @@ WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
 ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-Version 1.1.0.
+Version 1.1.1.
 */
 
 
@@ -311,8 +311,8 @@ Version 1.1.0.
 	const boundary = ringLayer.append("circle")
 		.attr("class", "boundary")
 		.attr("fill", "none")
-		.attr("stroke", "#333")
-		.style("stroke-width", "1.5px")
+		.attr("stroke", "rgba(55, 65, 81, 0.28)")
+		.style("stroke-width", "1.25px")
 		.style("pointer-events", "none");
 
 
@@ -1206,7 +1206,7 @@ Version 1.1.0.
 			} else if (typeof ringLayer !== "undefined" && ringLayer) {
 				// defensive: recreate if missing
 				ringLayer.append("circle").attr("class", "boundary")
-					.attr("fill", "none").attr("stroke", "#333").style("stroke-width", "1.5px")
+					.attr("fill", "none").attr("stroke", "rgba(55, 65, 81, 0.28)").style("stroke-width", "1.25px")
 					.attr("cx", rootCx).attr("cy", rootCy).attr("r", rootRpx).style("pointer-events", "none");
 			}
 		} catch (e) { /* ignore */ }
