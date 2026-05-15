@@ -282,8 +282,8 @@ sub _check_api_key {
 	return if !$self->{'config'}->{'data_access_api_keys'};
 	my $api_key = request->header('X-API-Key');
 	return if !defined $api_key;
-	my ( $db, $username, $banned, $last_login, $interface ) = $self->{'datastore'}->run_query(
-		'SELECT a.dbase,a.username,a.ban,u.last_login,u.interface FROM api_keys a '
+	my ( $db, $username, $banned, $ip_address, $last_login, $interface ) = $self->{'datastore'}->run_query(
+		'SELECT a.dbase,a.username,a.ban,u.ip_address,u.last_login,u.interface FROM api_keys a '
 		  . 'JOIN users u ON (a.username,a.dbase)=(u.name,u.dbase) WHERE key=?',
 		$api_key,
 		{ db => $self->{'auth_db'}, cache => 'check_api_key' }
@@ -299,13 +299,19 @@ sub _check_api_key {
 	$self->{'username'} = $username;
 	$self->{'api_key'}  = 1;
 
-	my $datestamp = BIGSdb::Utils::get_datestamp();
-	if ( !defined $last_login || $last_login ne $datestamp || !defined $interface || $interface ne 'REST API' ) {
-		my $ip_address = _get_ip_address();
+	my $datestamp      = BIGSdb::Utils::get_datestamp();
+	my $new_ip_address = _get_ip_address();
+	if (   !defined $last_login
+		|| $last_login ne $datestamp
+		|| !defined $interface
+		|| $interface ne 'REST API'
+		|| !defined $ip_address
+		|| $ip_address ne $new_ip_address )
+	{
 		eval {
 			$self->{'auth_db'}
 			  ->do( 'UPDATE users SET (ip_address,last_login,interface,user_agent)=(?,?,?,?) WHERE (dbase,name)=(?,?)',
-				undef, $ip_address, 'now', 'REST API', undef, $db, $self->{'username'} );
+				undef, $new_ip_address, 'now', 'REST API', undef, $db, $self->{'username'} );
 		};
 		if ($@) {
 			$logger->error($@);
