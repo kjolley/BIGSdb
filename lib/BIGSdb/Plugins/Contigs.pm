@@ -1,6 +1,6 @@
 #Contigs.pm - Contig export and analysis plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2013-2025, University of Oxford
+#Copyright (c) 2013-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,16 +21,19 @@ package BIGSdb::Plugins::Contigs;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugin);
+use parent        qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
+use BIGSdb::SeqbinToEMBL;
 use List::MoreUtils qw(any none);
 use Archive::Tar;
 use Archive::Tar::Constant;
 use IO::Compress::Gzip qw(gzip $GzipError);
-use constant MAX_ISOLATES => 1000;
-use List::MoreUtils qw(uniq);
+
+use List::MoreUtils   qw(uniq);
 use BIGSdb::Constants qw(:interface SEQ_METHODS);
+use constant MAX_ISOLATES => 1000;
+use constant FORMATS      => qw(fasta embl gbk);
 
 sub get_attributes {
 	my ($self) = @_;
@@ -53,7 +56,7 @@ sub get_attributes {
 		menutext           => 'Contigs',
 		module             => 'Contigs',
 		url                => "$self->{'config'}->{'doclink'}/data_export/contig_export.html",
-		version            => '2.0.0',
+		version            => '2.1.0',
 		dbtype             => 'isolates',
 		section            => 'export,postquery',
 		input              => 'query',
@@ -61,15 +64,25 @@ sub get_attributes {
 		order              => 20,
 		system_flag        => 'ContigExport',
 		enabled_by_default => 1,
-		tar_gz_filename    => 'contigs.tar.gz',
-		requires => 'seqbin,offline_jobs',                   #Offline jobs set to force log in if required for downloads
+		requires => 'seqbin,offline_jobs',    #Offline jobs set to force log in if required for downloads
 		image    => '/images/plugins/Contigs/screenshot.png'
 	);
 	return \%att;
 }
 
 sub get_initiation_values {
-	return { 'jQuery.tablesort' => 1 };
+	my ($self) = @_;
+	my $values = { 'jQuery.tablesort' => 1 };
+
+	my %allowed_formats = map { $_ => 1 } FORMATS;
+	my $q               = $self->{'cgi'};
+	my $output          = $q->param('output');
+	my $format          = $q->param('format');
+
+	if ( defined $output && $allowed_formats{$output} ) {
+		$values->{'type'} = 'text';
+	}
+	return $values;
 }
 
 sub set_pref_requirements {
@@ -79,7 +92,7 @@ sub set_pref_requirements {
 	return;
 }
 
-sub _get_contigs {
+sub _get_contigs_fasta {
 	my ( $self,       $args )   = @_;
 	my ( $isolate_id, $single ) = @{$args}{qw (isolate_id single)};
 	my $buffer = q();
@@ -112,14 +125,37 @@ sub _get_contigs {
 }
 
 sub run {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
-	if ( $q->param('format') eq 'text' ) {
-		my $contigs = $self->_get_contigs( { $q->Vars, single => 1 } );
-		say $$contigs;
-		return;
-	} elsif ( $q->param('batchDownload') && ( $q->param('format') // '' ) eq 'tar_gz' && !$self->{'no_archive'} ) {
+	my ($self)          = @_;
+	my $q               = $self->{'cgi'};
+	my %allowed_formats = map { $_ => 1 } FORMATS;
+	my $output          = $q->param('output');
+	my $batch           = $q->param('batchDownload');
+	if ( $batch && ( $q->param('format') // '' ) eq 'tar_gz' && !$self->{'no_archive'} ) {
 		$self->_batch_download;
+		return;
+	} elsif ( defined $output && $allowed_formats{$output} ) {
+		my $methods = {
+			fasta => sub {
+				my $contigs = $self->_get_contigs_fasta( { $q->Vars, single => 1 } );
+				say $$contigs;
+			},
+			embl => sub {
+				my $converter = $self->_get_converter;
+				$q->param( format => 'embl' );
+				$converter->print_content;
+			},
+			gbk => sub {
+				my $converter = $self->_get_converter;
+				$q->param( format => 'genbank' );
+				$converter->print_content;
+			}
+		};
+
+		if ( $methods->{$output} ) {
+			$methods->{$output}->();
+		} else {
+			$logger->error("No method defined for $output format.");
+		}
 		return;
 	}
 	say q(<h1>Contig analysis and export</h1>);
@@ -191,8 +227,14 @@ sub _run_analysis {
 	say q(<div class="box" id="resultstable">);
 	my $title = q(Sequence bin attributes for selected isolates);
 	say qq(<h2>$title</h2><table class="tablesorter" id="sortTable"><thead>)
-	  . qq(<tr><th>id</th><th>$self->{'system'}->{'labelfield'}</th><th>contigs</th><th>total length</th>)
-	  . q(<th>N50</th><th>L50</th><th class="sorter-false">download</th></tr></thead><tbody>);
+	  . qq(<tr><th rowspan="2">id</th><th rowspan="2">$self->{'system'}->{'labelfield'}</th>)
+	  . q(<th rowspan="2">contigs</th><th rowspan="2">total length</th><th rowspan="2">N50</th>)
+	  . q(<th rowspan="2">L50</th><th colspan="3" class="sorter-false">)
+	  . q(<a title="Download"><span class="file_icon fas fa-download" style="color:white"></span></a></th></tr>)
+	  . q(<tr><th class="sorter-false" style="min-width:4em">FASTA</th>)
+	  . q(<th class="sorter-false" style="min-width:4em">EMBL</th>)
+	  . q(<th class="sorter-false" style="min-width:4em">Genbank</th>)
+	  . q(</tr></thead><tbody>);
 	my $filebuffer  = qq(id\t$self->{'system'}->{'labelfield'}\tcontigs\ttotal length\tN50\tL50\n);
 	my $label_field = $self->{'system'}->{'labelfield'};
 	my $isolate_sql = $self->{'db'}->prepare("SELECT $label_field FROM $self->{'system'}->{'view'} WHERE id=?");
@@ -206,6 +248,7 @@ sub _run_analysis {
 	my $show_archive_link;
 
 	foreach my $isolate_id (@$ids) {
+
 		my $isolate_values = $self->{'datastore'}->get_isolate_field_values($isolate_id);
 		my $isolate_name   = $isolate_values->{ lc($label_field) };
 		say qq(<tr class="td$td"><td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
@@ -223,12 +266,15 @@ sub _run_analysis {
 		say qq(<td>$nice_contigs</td><td>$nice_length</td><td>$nice_n50</td><td>$nice_l50</td>);
 
 		if ($length) {
-			say qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;)
-			  . qq(name=Contigs&amp;format=text&amp;isolate_id=$isolate_id&amp;header=$header">)
-			  . q(<span class="file_icon fas fa-download"></span></a></td>);
+			foreach my $format (FORMATS) {
+				say qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;)
+				  . qq(name=Contigs&amp;output=$format&amp;isolate_id=$isolate_id&amp;header=$header" )
+				  . qq(download="id-${isolate_id}.$format">)
+				  . q(<span class="action file_icon fas fa-download"></span></a></td>);
+			}
 			$show_archive_link = 1;
 		} else {
-			say q(<td></td>);
+			say q(<td></td><td></td>);
 		}
 		$filebuffer .= qq($isolate_id\t$isolate_name\t$contigs\t$length\t$n50\t$l50\n);
 		$td = $td == 1 ? 2 : 1;
@@ -243,7 +289,7 @@ sub _run_analysis {
 	open( my $fh, '>', $filename ) || $logger->error("Can't open $filename for writing");
 	say $fh $filebuffer;
 	close $fh;
-	my ( $text, $excel, $archive ) = ( TEXT_FILE, EXCEL_FILE, ARCHIVE_FILE );
+	my ( $text, $excel ) = ( TEXT_FILE, EXCEL_FILE, );
 	print q(<p style="margin-top:1em">)
 	  . qq(<a href="/tmp/$prefix.txt" title="Download table in tab-delimited text format">$text</a>);
 	my $excel_file = BIGSdb::Utils::text2excel($filename);
@@ -251,11 +297,28 @@ sub _run_analysis {
 	if ( -e $excel_file ) {
 		print qq(<a href="/tmp/$prefix.xlsx" title="Download table in Excel format">$excel</a>);
 	}
+	my $output = $q->param('output');
 	if ( !$self->{'no_archive'} && $show_archive_link ) {
-		my $header = $q->param('header_list') // 1;
-		say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;)
-		  . qq(name=Contigs&amp;batchDownload=$list_file&amp;format=tar_gz&amp;header=$header" )
-		  . qq(title="Batch download all contigs from selected isolates (tar.gz format)">$archive</a>);
+		my %icons;
+		$icons{'fasta'} = ARCHIVE_FILE;
+		$icons{'fasta'} =~ s/Archive/FASTA/x;
+		$icons{'embl'} = ARCHIVE_FILE;
+		$icons{'embl'} =~ s/Archive/EMBL/x;
+		$icons{'gbk'} = ARCHIVE_FILE;
+		$icons{'gbk'} =~ s/Archive/GBK/x;
+		my $header      = $q->param('header_list') // 1;
+		my %nice_format = (
+			fasta => 'Fasta',
+			embl  => 'EMBL',
+			gbk   => 'Genbank'
+		);
+
+		foreach my $format (FORMATS) {
+			say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;)
+			  . qq(name=Contigs&amp;batchDownload=$list_file&amp;format=tar_gz&amp;output=$format&amp;header=$header" )
+			  . qq(title="Batch download all contigs from selected isolates in $nice_format{$format} format )
+			  . qq((tar.gz format)" download="contigs_$format.tar.gz">$icons{$format}</a>);
+		}
 	}
 	say q(</p></div>);
 	return;
@@ -302,15 +365,15 @@ sub _print_options_fieldset {
 	my $q         = $self->{'cgi'};
 	my @pc_values = ( 0 .. 100 );
 	say q(<fieldset style="float:left"><legend>Options</legend>);
-	say q(<ul><li><label for="header_list">FASTA header line: </label>);
+	say q(<ul><li><label for="header_list" class="aligned width6">Header line: </label>);
 	say $q->popup_menu(
 		-name   => 'header_list',
 		-id     => 'header_list',
 		-values => [qw (1 2)],
 		-labels => { 1 => 'original designation', 2 => 'seqbin id' }
 	);
-	say $self->get_tooltip(
-		q(FASTA header line - Seqbin id will be used if the original designation ) . q(has not been stored.) );
+	say $self->get_tooltip( q(Header line - Seqbin id will be used if the original designation has not been stored. )
+		  . q(This is used for FASTA output only.) );
 	say q(</li></ul></fieldset>);
 	return;
 }
@@ -322,6 +385,10 @@ sub _batch_download {
 	my $list     = [];
 	my $filename = "$self->{'config'}->{'secure_tmp_dir'}/" . $q->param('batchDownload');
 	local $| = 1;
+	my %allowed_formats = map { $_ => 1 } FORMATS;
+	my $format          = $q->param('output');
+	$format = 'fasta' if !$allowed_formats{$format};
+
 	if ( !-e $filename ) {
 		$logger->error("File $filename does not exist");
 		my $error_file = 'error.txt';
@@ -349,15 +416,33 @@ sub _batch_download {
 			} else {
 				next;
 			}
-			my $data = $self->_get_contigs( { isolate_id => $id } );
-			next if !$$data;
+			my $data;
+
+			my $methods = {
+				fasta => sub {
+					my $data_ref = $self->_get_contigs_fasta( { isolate_id => $id } );
+					$data = $$data_ref if scalar $data_ref;
+				},
+				embl => sub {
+					$data = $self->_convert( $id, 'embl' );
+				},
+				gbk => sub {
+					$data = $self->_convert( $id, 'genbank' );
+				}
+			};
+			if ( $methods->{$format} ) {
+				$methods->{$format}->();
+			} else {
+				$logger->error("No method defined for $format format.");
+			}
+			next if !$data;
 			my $isolate_name = $names{$id} // 'unknown';
 			$isolate_name =~ s/\W/_/gx;
-			my $contig_file = "${id}_$isolate_name.fas";
+			my $contig_file = "${id}_$isolate_name.$format";
 
 			#Modified from Archive::Tar::Streamed to allow mod_perl support.
 			my $tar = Archive::Tar->new;
-			$tar->add_data( $contig_file, $$data );
+			$tar->add_data( $contig_file, $data );
 
 			#Write out tar file except EOF block so that we can add additional files.
 			my $tf = $tar->write;
@@ -372,5 +457,35 @@ sub _batch_download {
 		$gz->close;
 	}
 	return;
+}
+
+sub _get_converter {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if ( !$self->{'cache'}->{'converter'} ) {
+		$self->{'cache'}->{'converter'} = BIGSdb::SeqbinToEMBL->new(
+			cgi           => $q,
+			system        => $self->{'system'},
+			datastore     => $self->{'datastore'},
+			contigManager => $self->{'contigManager'}
+		);
+	}
+	return $self->{'cache'}->{'converter'};
+}
+
+sub _convert {
+	my ( $self, $isolate_id, $format ) = @_;
+	my $q         = $self->{'cgi'};
+	my $converter = $self->_get_converter;
+	my $output    = '';
+	{
+		local *STDOUT;    ## no critic (Variables::RequireInitializationForLocalVars)
+		open STDOUT, '>:encoding(UTF-8)', \$output
+		  or $logger->error("Cannot open scalar handle: $!");
+		$q->param( isolate_id => $isolate_id );
+		$q->param( format     => $format );
+		$converter->print_content;
+	}
+	return $output;
 }
 1;

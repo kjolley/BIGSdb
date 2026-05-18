@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2025, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -23,7 +23,7 @@ use 5.010;
 use IO::Handle;
 use Bio::SeqIO;
 use Bio::SeqFeature::Generic;
-use parent qw(BIGSdb::Page);
+use parent        qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -74,9 +74,15 @@ sub print_content {
 
 sub _write_embl {
 	my ( $self, $seqbin_ids, $options ) = @_;
+	my $set_id = $self->get_set_id;
+	my $set_clause =
+	  $set_id
+	  ? 'AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes '
+	  . "WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
+	  : '';
+
 	foreach my $seqbin_id (@$seqbin_ids) {
-		my $seq_ref = $self->{'contigManager'}->get_contig($seqbin_id);
-		my $seq     = $self->{'datastore'}->run_query(
+		my $seq = $self->{'datastore'}->run_query(
 			'SELECT s.sequence,s.comments,r.uri FROM sequence_bin s LEFT JOIN remote_contigs r '
 			  . 'ON s.id=r.seqbin_id WHERE s.id=?',
 			$seqbin_id,
@@ -86,25 +92,23 @@ sub _write_embl {
 			my $contig_record = $self->{'contigManager'}->get_remote_contig( $seq->{'uri'} );
 			$seq->{'sequence'} = $contig_record->{'sequence'};
 		}
-		my $seq_length   = length $seq->{'sequence'};
-		my $fasta_string = ">$seqbin_id\n$seq->{'sequence'}\n";
-		open( my $stringfh_in, '<:encoding(utf8)', \$fasta_string )
-		  || $logger->error("Could not open string for reading: $!");
-		$stringfh_in->untaint;
-		my $seqin      = Bio::SeqIO->new( -fh => $stringfh_in, -format => 'fasta' );
-		my $seq_object = $seqin->next_seq;
+
+		my $sequence   = $seq->{'sequence'} // q();
+		my $seq_length = length $sequence;
+
+		my $seq_object = Bio::Seq->new(
+			-display_id => $seqbin_id,
+			-seq        => $sequence,
+			-alphabet   => 'dna',
+			-desc       => $seq->{'comments'} // q(),
+		);
+
 		my $accessions = $self->{'datastore'}->run_query( 'SELECT databank_id FROM accession WHERE seqbin_id=?',
 			$seqbin_id, { fetch => 'col_arrayref', cache => 'SeqbinToEMBL::write_embl::databank' } );
 		unshift @$accessions, $seqbin_id;
 		local $" = '; ';
 		$seq_object->accession_number("@$accessions") if @$accessions;
-		$seq_object->desc( $seq->{'comments'} );
-		my $set_id = $self->get_set_id;
-		my $set_clause =
-		  $set_id
-		  ? 'AND (locus IN (SELECT locus FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM set_schemes '
-		  . "WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
-		  : '';
+
 		my $qry = "SELECT * FROM allele_sequences WHERE seqbin_id=? $set_clause ORDER BY start_pos";
 		my $allele_sequences =
 		  $self->{'datastore'}->run_query( $qry, $seqbin_id,
@@ -124,25 +128,38 @@ sub _write_embl {
 			my ( $product, $desc );
 
 			if ( $locus_info->{'dbase_name'} ) {
-				my $locus_desc = $self->{'datastore'}->get_locus( $allele_sequence->{'locus'} )->get_description;
+				if ( !defined $self->{'cache'}->{'locus_description'}->{ $allele_sequence->{'locus'} } ) {
+					my $locus_desc = $self->{'datastore'}->get_locus( $allele_sequence->{'locus'} )->get_description;
+
+					$self->{'cache'}->{'locus_description'}->{ $allele_sequence->{'locus'} } = $locus_desc;
+				}
+				my $locus_desc = $self->{'cache'}->{'locus_description'}->{ $allele_sequence->{'locus'} };
 				$product = $locus_desc->{'product'};
 				$desc    = $locus_desc->{'full_name'};
 				$desc .= ' - ' if $desc && $locus_desc->{'description'};
 				$desc .= $locus_desc->{'description'} // '';
+
 			}
-			my @alternatives;
-			push @alternatives, $locus_info->{'common_name'} if $locus_info->{'common_name'};
-			my $aliases = $self->{'datastore'}->run_query(
-				'SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias',
-				$allele_sequence->{'locus'},
-				{ fetch => 'col_arrayref', cache => 'SeqbinToEMBL::write_embl::locus_aliases' }
-			);
-			push @alternatives, @$aliases;
-			if (@alternatives) {
+
+			#Cache alternative names because we now call this module from the Contigs batch downloader.
+			#Previously it was only used for one isolate at a time so caching was not necessary.
+			if ( !defined $self->{'cache'}->{'alternatives'}->{ $allele_sequence->{'locus'} } ) {
+				my $alternatives = [];
+				push @$alternatives, $locus_info->{'common_name'} if $locus_info->{'common_name'};
+				my $aliases = $self->{'datastore'}->run_query(
+					'SELECT alias FROM locus_aliases WHERE locus=? ORDER BY alias',
+					$allele_sequence->{'locus'},
+					{ fetch => 'col_arrayref', cache => 'SeqbinToEMBL::write_embl::locus_aliases' }
+				);
+				push @$alternatives, @$aliases;
+				$self->{'cache'}->{'alternatives'}->{ $allele_sequence->{'locus'} } = $alternatives;
+			}
+			my $alternatives = $self->{'cache'}->{'alternatives'}->{ $allele_sequence->{'locus'} };
+			if (@$alternatives) {
 				$desc .= '; ' if $desc;
 				local $" = q(, );
-				my $plural = @alternatives == 1 ? q() : q(s);
-				$desc .= "Alternative name$plural: @alternatives";
+				my $plural = @$alternatives == 1 ? q() : q(s);
+				$desc .= "Alternative name$plural: @$alternatives";
 			}
 			my $feature = Bio::SeqFeature::Generic->new(
 				-start       => $allele_sequence->{'start_pos'},
@@ -154,7 +171,6 @@ sub _write_embl {
 			);
 			$seq_object->add_SeqFeature($feature);
 		}
-		close $stringfh_in;
 		my $str;
 		open( my $stringfh_out, '>:encoding(utf8)', \$str ) or $logger->error("Could not open string for writing: $!");
 		my %allowed_format = map { $_ => 1 } qw(genbank embl);
