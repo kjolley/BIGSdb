@@ -81,13 +81,32 @@ sub _write_embl {
 	  . "WHERE set_id=$set_id)) OR locus IN (SELECT locus FROM set_loci WHERE set_id=$set_id))"
 	  : '';
 
-	foreach my $seqbin_id (@$seqbin_ids) {
-		my $seq = $self->{'datastore'}->run_query(
-			'SELECT s.sequence,s.comments,r.uri FROM sequence_bin s LEFT JOIN remote_contigs r '
-			  . 'ON s.id=r.seqbin_id WHERE s.id=?',
-			$seqbin_id,
-			{ fetch => 'row_hashref', cache => 'SeqbinToEMBL::write_embl::seq' }
-		);
+	my $temp_table     = $self->{'datastore'}->create_temp_list_table_from_array( 'int', $seqbin_ids );
+	my $seqbin_records = $self->{'datastore'}->run_query(
+		"SELECT s.id, s.sequence,s.comments,r.uri FROM sequence_bin s JOIN $temp_table t ON s.id=t.value "
+		  . 'LEFT JOIN remote_contigs r ON s.id=r.seqbin_id ORDER BY s.id',
+		undef,
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	my $accession_list =
+	  $self->{'datastore'}
+	  ->run_query( "SELECT seqbin_id,databank_id FROM accession a JOIN $temp_table t ON a.seqbin_id=t.value",
+		undef, { fetch => 'all_arrayref', slice => {} } );
+	my $accessions = {};
+	foreach my $accession (@$accession_list) {
+		push @{ $accessions->{ $accession->{'seqbin_id'} } }, $accession->{'databank_id'};
+	}
+	my $allele_sequences = $self->{'datastore'}->run_query(
+		"SELECT a.* FROM allele_sequences a JOIN $temp_table t ON "
+		  . "a.seqbin_id=t.value $set_clause ORDER BY a.seqbin_id,start_pos,locus",
+		undef,
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+	my $allele_seqs_seqbin_id = {};
+	foreach my $as (@$allele_sequences) {
+		push @{ $allele_seqs_seqbin_id->{ $as->{'seqbin_id'} } }, $as;
+	}
+	foreach my $seq (@$seqbin_records) {
 		if ( !$seq->{'sequence'} && $seq->{'uri'} ) {
 			my $contig_record = $self->{'contigManager'}->get_remote_contig( $seq->{'uri'} );
 			$seq->{'sequence'} = $contig_record->{'sequence'};
@@ -97,24 +116,16 @@ sub _write_embl {
 		my $seq_length = length $sequence;
 
 		my $seq_object = Bio::Seq->new(
-			-display_id => $seqbin_id,
+			-display_id => $seq->{'id'},
 			-seq        => $sequence,
 			-alphabet   => 'dna',
 			-desc       => $seq->{'comments'} // q(),
 		);
-
-		my $accessions = $self->{'datastore'}->run_query( 'SELECT databank_id FROM accession WHERE seqbin_id=?',
-			$seqbin_id, { fetch => 'col_arrayref', cache => 'SeqbinToEMBL::write_embl::databank' } );
-		unshift @$accessions, $seqbin_id;
+		unshift @{ $accessions->{ $seq->{'id'} } }, $seq->{'id'};
 		local $" = '; ';
-		$seq_object->accession_number("@$accessions") if @$accessions;
+		$seq_object->accession_number("@{$accessions->{$seq->{'id'}}}");
 
-		my $qry = "SELECT * FROM allele_sequences WHERE seqbin_id=? $set_clause ORDER BY start_pos";
-		my $allele_sequences =
-		  $self->{'datastore'}->run_query( $qry, $seqbin_id,
-			{ fetch => 'all_arrayref', slice => {}, cache => 'SeqbinToEMBL::write_embl::allele_sequences' } );
-
-		foreach my $allele_sequence (@$allele_sequences) {
+		foreach my $allele_sequence ( @{ $allele_seqs_seqbin_id->{ $seq->{'id'} } } ) {
 			my $locus_info = $self->{'datastore'}->get_locus_info( $allele_sequence->{'locus'} );
 			my $frame;
 
