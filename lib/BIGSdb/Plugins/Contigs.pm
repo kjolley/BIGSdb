@@ -274,8 +274,9 @@ sub _run_analysis {
 			}
 			$show_archive_link = 1;
 		} else {
-			say q(<td></td><td></td>);
+			say q(<td></td><td></td><td></td>);
 		}
+		say q(</tr>);
 		$filebuffer .= qq($isolate_id\t$isolate_name\t$contigs\t$length\t$n50\t$l50\n);
 		$td = $td == 1 ? 2 : 1;
 		if ( $ENV{'MOD_PERL'} ) {
