@@ -1,17 +1,47 @@
 /*Version: 20260422*/
-@font-face {
+/*@font-face {
 	font-family: 'tinosregular';
-	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2'),
-		url('/webfonts/tinos-regular-webfont.woff') format('woff');
+	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2');
 	font-weight: normal;
+	font-style: normal;
+	font-display: swap;
+}*/
+
+@font-face {
+	font-family: 'ibm_plex_sans';
+	src: url('/webfonts/ibm-plex-sans-v23-latin-regular.woff2') format('woff2');
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'ibm_plex_sans';
+	src: url('/webfonts/ibm-plex-sans-v23-latin-500.woff2') format('woff2');
+	font-weight: 500;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'ibm_plex_sans';
+	src: url('/webfonts/ibm-plex-sans-v23-latin-600.woff2') format('woff2');
+	font-weight: 600;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'ibm_plex_mono';
+	src: url('/webfonts/ibm-plex-mono-v20-latin-regular.woff2') format('woff2');
+	font-weight: 400;
 	font-style: normal;
 	font-display: swap;
 }
 
 @font-face {
 	font-family: 'pt_sansregular';
-	src: url('/webfonts/pts55f-webfont.woff2') format('woff2'),
-		url('/webfonts/pts55f-webfont.woff') format('woff');
+	src: url('/webfonts/pts55f-webfont.woff2') format('woff2');
 	font-weight: normal;
 	font-style: normal;
 	font-display: swap;
@@ -19,8 +49,7 @@
 
 @font-face {
 	font-family: 'pt_sansbold';
-	src: url('/webfonts/pts75f-webfont.woff2') format('woff2'),
-		url('/webfonts/pts75f-webfont.woff') format('woff');
+	src: url('/webfonts/pts75f-webfont.woff2') format('woff2');
 	font-weight: normal;
 	font-style: normal;
 	font-display: swap;
@@ -51,7 +80,7 @@ p {
 }
 
 body {
-	font: 1em/120% pt_sansregular, sans-serif;
+	font: 16px/120% pt_sansregular, sans-serif;
 	background: #fffeff;
 	color: #000;
 	margin-left: 3px;
@@ -59,17 +88,17 @@ body {
 }
 
 h1 {
-	font-family: tinosregular, serif;
-	font-weight: 400;
-	font-size: 2.3em;
+	font-family: ibm_plex_sans, sans-serif;
+	font-weight: 500;
+	font-size: 36px;
 	color: #435973;
 	line-height: 110%;
 }
 
 h2 {
-	font-family: tinosregular, serif;
-	font-weight: 400;
-	font-size: 1.6em;
+	font-family: ibm_plex_sans, sans-serif;
+	font-weight: 500;
+	font-size: 24px;
 	color: #435973;
 }
 
@@ -84,19 +113,19 @@ h2 a:hover {
 }
 
 h3 {
-	font: 400 1.3em tinosregular, serif;
+	font: 500 18px ibm_plex_sans, sans-serif;
 	color: #585874;
 }
 
 h4,
 h5,
 h6 {
-	font: 400 1.2em tinosregular, serif;
+	font: 400 16px ibm_plex_sans, sans-serif;
 	color: #585858;
 }
 
 textarea {
-	font-family: Monaco, monospace;
+	font-family: ibm_plex_mono, monospace;
 	font-size: 1em;
 	border: 1px solid #ccc
 }
@@ -131,7 +160,7 @@ a:hover {
 }
 
 th {
-	background: #002147;
+	background: #49709e;
 }
 
 th,
@@ -354,12 +383,12 @@ a.update:hover {
 }
 
 pre {
-	font-family: "Lucida Console", Monaco, monospace;
+	font-family: ibm_plex_mono, monospace;
 }
 
 .resize_seq,
 .seq {
-	font-family: "Lucida Console", Monaco, monospace;
+	font-family: ibm_plex_mono, monospace;
 }
 
 .flanking {
@@ -387,7 +416,7 @@ pre {
 }
 
 .code {
-	font-family: Courier New, monospace
+	font-family: ibm_plex_mono, monospace
 }
 
 .highlight {
@@ -443,7 +472,7 @@ p.key {
 }
 
 span.key {
-	font-family:monospace;
+	font-family:ibm_plex_mono, monospace;
 	margin-right:20px
 }
 
@@ -718,12 +747,12 @@ input.pagebar:hover {
 }
 
 .td1 {
-	background: #efefff;
+	background: #f6f6ff;
 	vertical-align: top
 }
 
 .td2 {
-	background: #efefef;
+	background:transparent;
 	vertical-align: top
 }
 
@@ -1325,7 +1354,7 @@ span.highlightvalue {
 }
 
 div.seqmap {
-	font-family: Courier New, monospace
+	font-family: ibm_plex_mono, monospace
 }
 
 .pc10,
@@ -1980,7 +2009,7 @@ div.large_resultstable {
 
 div#large_resultstable table,
 div.large_resultstable table {
-	border: 2px solid #ccc;
+	border: 1px solid #ccc;
 	padding: 0
 }
 
@@ -2269,8 +2298,11 @@ table.resultstable {
 	margin-bottom: 1em
 }
 
-table.resultstable td,
+table.resultstable td {
+	padding: 0.2em 0.2em
+}
 table.resultstable th {
+	font: 500 16px ibm_plex_sans, sans-serif;
 	padding: 0 0.2em
 }
 
