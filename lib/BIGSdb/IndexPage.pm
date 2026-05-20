@@ -106,7 +106,7 @@ sub print_panel_buttons {
 	my ($self) = @_;
 	return if !$self->{'config'}->{'enable_dashboard'} && ( $self->{'system'}->{'enable_dashboard'} // q() ) ne 'yes';
 	return if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
-	say q(<span class="icon_button"><a class="trigger_button" id="dashboard_toggle">)
+	say q(<span class="icon_button"><a class="trigger_button primary_trigger" id="dashboard_toggle">)
 	  . q(<span class="fas fa-lg fa-th"></span><span class="icon_label">Dashboard</span></a></span>);
 	return;
 }

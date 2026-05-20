@@ -4267,7 +4267,7 @@ sub initiate {
 	$self->{'dashboard_type'} = 'primary';
 	$self->{$_} = 1
 	  foreach
-	  qw (jQuery noCache muuri modal fitty bigsdb.dashboard tooltips jQuery.fonticonpicker billboard d3.layout.cloud
+	  qw (jQuery noCache muuri modal fitty bigsdb.dashboard jQuery.fonticonpicker billboard d3.layout.cloud
 	  allowExpand);
 	$self->{'geomap'} = 1 if $self->has_country_optlist;
 	$self->{'ol'}     = 1 if $self->need_openlayers;
@@ -4492,13 +4492,14 @@ sub print_panel_buttons {
 }
 
 sub _print_modify_dashboard_trigger {
-	say q(<span class="icon_button"><a class="trigger_button" id="dashboard_panel_trigger" style="display:none">)
+	say q(<span class="icon_button"><a class="trigger_button primary_trigger" id="dashboard_panel_trigger" )
+	  . q(style="display:none">)
 	  . q(<span class="fas fa-lg fa-tools"></span><span class="icon_label">Modify dashboard</span></a></span>);
 	return;
 }
 
 sub _print_dashboard_toggle {
-	say q(<span class="icon_button"><a class="trigger_button" id="dashboard_toggle">)
+	say q(<span class="icon_button"><a class="trigger_button primary_trigger" id="dashboard_toggle">)
 	  . q(<span class="fas fa-lg fa-th-list"></span><span class="icon_label">Index page</span></a></span>);
 	return;
 }

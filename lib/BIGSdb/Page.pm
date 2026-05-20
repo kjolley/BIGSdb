@@ -1134,21 +1134,19 @@ sub _print_login_details {
 	if ($user_info) {
 		if ( $self->{'curate'} ) {
 			if ( $self->{'config'}->{'query_script'} ) {
-				say q(<div id="login_details">);
 				say q(<span class="icon_button">)
-				  . qq(<a href="$self->{'config'}->{'query_script'}?db=$self->{'instance'}">)
+				  . qq(<a href="$self->{'config'}->{'query_script'}?db=$self->{'instance'}" )
+				  . q(class="trigger_button primary_trigger">)
 				  . q(<span class="fas fa-lg fa-user" )
 				  . qq(title="Logged in: $user_info->{'first_name'} $user_info->{'surname'} ($self->{'username'}) - )
 				  . q(Click to access public interface"></span>)
 				  . q(<span class="icon_label">User interface</span></a></span>);
-				say q(</div>);
 			} else {
 				$logger->error('query_script attribute is not set in bigsdb.conf');
-				say q(<div id="login_details"><span class="icon_button">);
+				say q(<span class="icon_button"><a class="trigger_button primary_trigger">);
 				say q(<span class="fas fa-lg fa-user" )
 				  . qq(title="Logged in: $user_info->{'first_name'} $user_info->{'surname'} ($self->{'username'})">)
-				  . q(</span><span class="icon_label">Logged in</span></span>);
-				say q(</div>);
+				  . q(</span><span class="icon_label">Logged in</span></a></span>);
 			}
 		} else {
 			my $curate_config = $self->{'system'}->{'curate_config'} // $self->{'instance'};
@@ -1158,24 +1156,23 @@ sub _print_login_details {
 						qq(Logged in: $user_info->{'first_name'} $user_info->{'surname'} ($self->{'username'}) )
 					  . q( - Click to access curator interface);
 					$title =~ s/&lt;\s*script|script\s*&gt;//gx;
-					say q(<span class="icon_button"><a id="curator_link" )
-					  . qq(class="trigger_button" href="$self->{'config'}->{'curate_script'}?db=$curate_config" )
+					say q(<span class="icon_button"><a id="curator_link" class="trigger_button primary_trigger" )
+					  . qq(href="$self->{'config'}->{'curate_script'}?db=$curate_config" )
 					  . qq(title="$title"><span class="fas fa-lg fa-user-tie"></span>)
 					  . q(<span class="icon_label">Curator interface</span></a></span>);
 				} else {
 					$logger->error('curate_script attribute is not set in bigsdb.conf');
-					say q(<div id="login_details"><span class="icon_button">);
+					say q(<span class="icon_button">);
 					say q(<span class="fas fa-lg fa-user" )
 					  . qq(title="Logged in: $user_info->{'first_name'} $user_info->{'surname'} ($self->{'username'})">)
 					  . q(</span><span class="icon_label">Logged in</span></span>);
-					say q(</div>);
 				}
 			} else {
-				say q(<div id="login_details"><span class="icon_button">);
-				say qq(<a href="$self->{'system'}->{'script_name'}"><span class="fas fa-lg fa-user" )
+				say q(<span class="icon_button">);
+				say qq(<a href="$self->{'system'}->{'script_name'}" class="trigger_button primary_trigger">)
+				  . q(<span class="fas fa-lg fa-user" )
 				  . qq(title="Logged in: $user_info->{'first_name'} $user_info->{'surname'} ($self->{'username'})">)
 				  . q(</span><span class="icon_label">Logged in</span></a></span>);
-				say q(</div>);
 			}
 		}
 	} elsif ( $self->{'username'} ) {
@@ -1207,10 +1204,10 @@ sub _print_button_panel {
 	my ($self) = @_;
 	say q(<div class="button_panel">);
 	$self->_print_login_details;
+	$self->print_panel_buttons;
 	$self->_print_help_button;
 	$self->_print_tooltip_toggle;
 	$self->_print_expand_trigger;
-	$self->print_panel_buttons;
 	say q(</div>);
 	return;
 }
@@ -1220,7 +1217,7 @@ sub _print_tooltip_toggle {
 	if ( $self->{'tooltips'} ) {
 		my $enabled = $self->{'prefs'}->{'tooltips'} ? 'tooltips_enabled' : 'tooltips_disabled';
 		my $title   = $self->{'prefs'}->{'tooltips'} ? 'Disable tooltips' : 'Enable tooltips';
-		say qq(<span class="icon_button"><a id="toggle_tooltips" class="trigger_button $enabled" style="display:none" )
+		say qq(<span class="icon_button"><a id="toggle_tooltips" class="trigger_button secondary_trigger $enabled" style="display:none" )
 		  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=options&amp;)
 		  . q(toggle_tooltips=1">)
 		  . q(<span class="fas fa-lg fa-info-circle"></span><span class="icon_label">Tooltips</span></a></span>);
@@ -1236,7 +1233,7 @@ sub _print_help_button {
 		if ( ref $plugin_att eq 'HASH' ) {
 			if ( $plugin_att->{'url'} && !$self->{'config'}->{'intranet'} ) {
 				say q(<span class="icon_button">)
-				  . qq(<a id="help_link" class="trigger_button" href="$plugin_att->{'url'}" target="_blank" )
+				  . qq(<a id="help_link" class="trigger_button secondary_trigger" href="$plugin_att->{'url'}" target="_blank" )
 				  . q(title="Open context-sensitive help in new window">)
 				  . q(<span style="margin-left:0.5em" class="fas fa-lg fa-external-link-alt"></span>)
 				  . q(<span class="icon_label">Help</span></a></span>);
@@ -1249,7 +1246,7 @@ sub _print_help_button {
 		my $url = $self->get_help_url;
 		if ( $url && !$self->{'config'}->{'intranet'} ) {
 			say q(<span class="icon_button">)
-			  . qq(<a id="help_link" class="trigger_button" href="$url" target="_blank" )
+			  . qq(<a id="help_link" class="trigger_button secondary_trigger" href="$url" target="_blank" )
 			  . q(title="Open context-sensitive help in new window">)
 			  . q(<span style="margin-left:0.5em" class="fas fa-lg fa-external-link-alt"></span>)
 			  . q(<span class="icon_label">Help</span></a></span>);
@@ -1263,7 +1260,8 @@ sub _print_expand_trigger {
 	return if !$self->{'allowExpand'};
 	my $page_expand   = $self->{'prefs'}->{'expandPage'} ? 'none'   : 'inline';
 	my $page_contract = $self->{'prefs'}->{'expandPage'} ? 'inline' : 'none';
-	say q(<span class="icon_button"><a id="expand_trigger" class="trigger_button" style="display:none" )
+	say q(<span class="icon_button"><a id="expand_trigger" class="trigger_button secondary_trigger" )
+	  . q(style="display:none" )
 	  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=ajaxPrefs">)
 	  . qq(<span id="expand" class="fas fa-lg fa-expand" style="display:$page_expand" title="Expand width"></span>)
 	  . qq(<span id="contract" class="fas fa-lg fa-compress" style="display:$page_contract" title="Contract width">)
@@ -3949,11 +3947,11 @@ sub print_related_dbases_button {
 	return if !@$links;
 	say q(<span class="icon_button">);
 	if ( @$links > 1 ) {
-		say q(<a id="related_db_trigger" class="trigger_button">)
+		say q(<a id="related_db_trigger" class="trigger_button primary_trigger">)
 		  . q(<span id="related_db" class="fas fa-lg fa-database"></span>)
 		  . q(<span class="icon_label">Related databases</span></a>);
 	} else {
-		say qq(<a id="related_db_trigger" class="trigger_button" href="$links->[0]->{'href'}">)
+		say qq(<a id="related_db_trigger" class="trigger_button primary_trigger" href="$links->[0]->{'href'}">)
 		  . q(<span id="related_db" class="fas fa-lg fa-database"></span>)
 		  . qq(<span class="icon_label">$links->[0]->{'text'} database</span></a>);
 	}

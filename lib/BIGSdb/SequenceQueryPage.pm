@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -717,8 +717,8 @@ sub print_panel_buttons {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	return if ( $self->{'system'}->{'kiosk_simple'} // q() ) eq 'yes' || $q->param('simple');
-	say q(<span class="icon_button"><a class="trigger_button" id="options_trigger" title="Toggle options">)
-	  . q(<span id="options_off" class="fas fa-lg fa-toggle-off"></span>)
+	say q(<span class="icon_button"><a class="trigger_button primary_trigger" id="options_trigger" )
+	  . q(title="Toggle options"><span id="options_off" class="fas fa-lg fa-toggle-off"></span>)
 	  . q(<span id="options_on" class="fas fa-lg fa-toggle-on" style="display:none"></span>)
 	  . q(<span class="icon_label">Options</span></a></span>);
 	return;
