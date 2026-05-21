@@ -137,6 +137,7 @@ sub _lincodes {
 	return if !@$lincode_schemes;
 	say q(<h2>LIN codes</h2>);
 	say q(<p>LIN codes are defined for the following schemes:</p>);
+	say q(<div class="scrollable">);
 	say q(<table class="resultstable"><tr><th>Scheme</th><th>thresholds</th><th>Nickname fields</th></tr>);
 	my $td = 1;
 
@@ -155,7 +156,7 @@ sub _lincodes {
 		  . qq(<td>$ls->{'thresholds'}</td><td>@$fields</td></tr>);
 		$td = $td == 1 ? 2 : 1;
 	}
-	say q(</table>);
+	say q(</table></div>);
 }
 
 sub _loci {
@@ -281,8 +282,8 @@ sub set_pref_requirements {
 sub get_javascript {
 	my ($self) = @_;
 	return if $self->{'system'}->{'dbtype'} ne 'sequences';
-	my $url    = $self->{'ajax_url'} // "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=status&ajax=1";
-	my $js     = << "JS";
+	my $url = $self->{'ajax_url'} // "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=status&ajax=1";
+	my $js  = << "JS";
 var values;
 var fields;
 var date_chart;
