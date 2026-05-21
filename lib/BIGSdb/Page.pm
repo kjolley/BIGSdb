@@ -3980,8 +3980,8 @@ sub print_related_database_panel {
 	my ($self) = @_;
 	my $links = $self->get_related_databases;
 	return if @$links < 2;
-	say q(<div id="related_db_panel" style="display:none">);
-	say q(<a class="close_trigger" id="close_related_db"><span class="fas fa-lg fa-times"></span></a>);
+	say q(<div id="related_db_panel" class="panel" style="display:none">);
+	say q(<a class="close_trigger" id="close_related_db"><span class="fas fa-times"></span></a>);
 	say q(<h2>Related databases</h2>);
 	say q(<div><div style="max-height:12em;overflow-y:auto;padding-right:2em"><ul style="margin-left:-1em">);
 	foreach my $link (@$links) {

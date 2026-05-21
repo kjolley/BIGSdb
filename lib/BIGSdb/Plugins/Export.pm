@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext         => 'Dataset',
 		menutext           => 'Dataset',
 		module             => 'Export',
-		version            => '1.16.1',
+		version            => '1.17.0',
 		dbtype             => 'isolates',
 		section            => 'export,postquery',
 		url                => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
@@ -71,7 +71,7 @@ sub get_initiation_values {
 }
 
 sub get_plugin_javascript {
-	my ( $show, $hide, $save, $saving ) = ( SHOW, HIDE, SAVE, SAVING );
+	my ( $on, $off, $save ) = ( ON, OFF, SAVE);
 	my $js = << "END";
 function enable_ref_controls(){
 	if (\$("#m_references").prop("checked")){
@@ -136,30 +136,37 @@ function enable_tag_controls(){
 		}
 	});
 	\$(".fieldset_trigger").click(function(event) {
-		let show = '$show';
-		let hide = '$hide';
+		let show = '$on';
+		let hide = '$off';
 		let fieldset = this.id.replace('show_','');
 		event.preventDefault();
 		if(\$(this).html() == hide){
 			clear_form(fieldset);
 		}
 		\$("#" + fieldset + "_fieldset").toggle(100);
-		\$(this).html(\$(this).html() == show ? hide : show);
+		let value = \$(this).html();
+		if (value.includes(hide)){
+			\$(this).html(value.replace(hide,show));
+		} else if (value.includes(show)){
+			\$(this).html(value.replace(show,hide));
+		}	
 		\$("a#save_options").fadeIn();
 		return false;
 	});
 	\$("a#save_options").click(function(event){		
 		event.preventDefault();
-		let show = '$show';
+		let show = '$off';
 		let save_url = this.href;
 		let fieldsets = ['eav','composite','refs','private','classification','analysis','lincode','molwt','options'];
 		for (let i = 0; i < fieldsets.length; ++i) {			
-			let value = \$("#show_" + fieldsets[i]).html() == show ? 0 : 1;
-			save_url += "&" + fieldsets[i] + "=" + value;
+			let value;
+			if (\$("#show_" + fieldsets[i]).length){
+				value = \$("#show_" + fieldsets[i]).html().includes(show) ? 0 : 1;
+				save_url += "&" + fieldsets[i] + "=" + value;
+			}
 		}
-	  	\$(this).attr('href', function(){  	
-	  		\$("a#save_options").html('$saving').animate({backgroundColor: "#99d"},100)
-	  		.animate({backgroundColor: "#f0f0f0"},100);
+		
+	  	\$(this).attr('href', function(){  	  		
 	  		\$("span#saving").text('Saving...');
 		  	\$.ajax({
 	  			url : save_url,
@@ -1561,53 +1568,59 @@ sub _print_modify_search_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<div id="modify_panel" class="panel">);
-	say q(<a class="close_trigger" id="close_trigger"><span class="fas fa-lg fa-times"></span></a>);
+	say q(<a class="close_trigger" id="close_trigger"><span class="fas fa-times"></span></a>);
 	say q(<h2>Modify form parameters</h2>);
-	say q(<p>Click to add or remove additional<br />export category selections:</p>)
-	  . q(<ul style="list-style:none;margin-left:-2em">);
+	say q(<p class="modal_description">Click to add or remove additional export category selections:</p>)
+	  . q(<h3>General</h3><ul class="toggle">);
+	  my $options_display = $self->{'plugin_prefs'}->{'options_fieldset'} ? ON : OFF;
+	say qq(<li class="fieldset_trigger" id="show_options">$options_display);
+	say q(General options</li>);
+	say q(</ul><h3>Metadata</h3><ul class="toggle">);
 	if ( $self->{'eav_fieldset'} ) {
-		my $eav_fieldset_display = $self->{'plugin_prefs'}->{'eav_fieldset'} ? HIDE : SHOW;
-		say qq(<li><a href="" class="button fieldset_trigger" id="show_eav">$eav_fieldset_display</a>);
+		my $eav_fieldset_display = $self->{'plugin_prefs'}->{'eav_fieldset'} ? ON : OFF;
+		say qq(<li class="fieldset_trigger" id="show_eav">$eav_fieldset_display);
 		say q(Secondary metadata</li>);
 	}
 	if ( $self->{'composite_fieldset'} ) {
-		my $composite_fieldset_display = $self->{'plugin_prefs'}->{'composite_fieldset'} ? HIDE : SHOW;
-		say qq(<li><a href="" class="button fieldset_trigger" id="show_composite">$composite_fieldset_display</a>);
+		my $composite_fieldset_display = $self->{'plugin_prefs'}->{'composite_fieldset'} ? ON : OFF;
+		say qq(<li class="fieldset_trigger" id="show_composite">$composite_fieldset_display);
 		say q(Composite fields</li>);
 	}
-	my $refs_display = $self->{'plugin_prefs'}->{'refs_fieldset'} ? HIDE : SHOW;
-	say qq(<li><a href="" class="button fieldset_trigger" id="show_refs">$refs_display</a>);
+	my $refs_display = $self->{'plugin_prefs'}->{'refs_fieldset'} ? ON : OFF;
+	say qq(<li class="fieldset_trigger" id="show_refs">$refs_display);
 	say q(References</li>);
-	if ( $self->{'private_fieldset'} ) {
-		my $private_display = $self->{'plugin_prefs'}->{'private_fieldset'} ? HIDE : SHOW;
-		say qq(<li><a href="" class="button fieldset_trigger" id="show_private">$private_display</a>);
-		say q(Private records</li>);
-	}
+	say q(</ul><h3>Schemes</h3><ul class="toggle">);
 	if ( $self->{'classification_fieldset'} ) {
-		my $classification_display = $self->{'plugin_prefs'}->{'classification_fieldset'} ? HIDE : SHOW;
-		say qq(<li><a href="" class="button fieldset_trigger" id="show_classification">$classification_display</a>);
+		my $classification_display = $self->{'plugin_prefs'}->{'classification_fieldset'} ? ON : OFF;
+		say qq(<li class="fieldset_trigger" id="show_classification">$classification_display);
 		say q(Classification schemes</li>);
 	}
 	if ( $self->{'lincode_fieldset'} ) {
-		my $lincode_display = $self->{'plugin_prefs'}->{'lincode_fieldset'} ? HIDE : SHOW;
-		say qq(<li><a href="" class="button fieldset_trigger" id="show_lincode">$lincode_display</a>);
+		my $lincode_display = $self->{'plugin_prefs'}->{'lincode_fieldset'} ? ON : OFF;
+		say qq(<li class="fieldset_trigger" id="show_lincode">$lincode_display);
 		say q(LIN code prefixes</li>);
 	}
+	say q(</ul><h3>Private data</h3><ul class="toggle">);
+	if ( $self->{'private_fieldset'} ) {
+		my $private_display = $self->{'plugin_prefs'}->{'private_fieldset'} ? ON : OFF;
+		say qq(<li class="fieldset_trigger" id="show_private">$private_display);
+		say q(Private records</li>);
+	}
+	say q(</ul><h3>Analysis</h3><ul class="toggle">);
 	if ( $self->{'analysis_fieldset'} ) {
-		my $analysis_display = $self->{'plugin_prefs'}->{'analysis_fieldset'} ? HIDE : SHOW;
-		say qq(<li><a href="" class="button fieldset_trigger" id="show_analysis">$analysis_display</a>);
+		my $analysis_display = $self->{'plugin_prefs'}->{'analysis_fieldset'} ? ON : OFF;
+		say qq(<li class="fieldset_trigger" id="show_analysis">$analysis_display);
 		say q(Analysis fields</li>);
 	}
-	my $molwt_display = $self->{'plugin_prefs'}->{'molwt_fieldset'} ? HIDE : SHOW;
-	say qq(<li><a href="" class="button fieldset_trigger" id="show_molwt">$molwt_display</a>);
+	my $molwt_display = $self->{'plugin_prefs'}->{'molwt_fieldset'} ? ON : OFF;
+	say qq(<li class="fieldset_trigger" id="show_molwt">$molwt_display);
 	say q(Molecular weights</li>);
-	my $options_display = $self->{'plugin_prefs'}->{'options_fieldset'} ? HIDE : SHOW;
-	say qq(<li><a href="" class="button fieldset_trigger" id="show_options">$options_display</a>);
-	say q(General options</li>);
+	
 	say q(</ul>);
 	my $save = SAVE;
 	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . qq(page=plugin&amp;name=Export&amp;save_options=1" style="display:none">$save</a> <span id="saving"></span><br />);
+	  . qq(page=plugin&amp;name=Export&amp;save_options=1" style="display:none">$save Save options</a> )
+	  . q(<span id="saving"></span><br />);
 	say q(</div>);
 	return;
 }

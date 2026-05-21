@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2021-2025, University of Oxford
+#Copyright (c) 2021-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -4516,7 +4516,7 @@ sub print_modify_dashboard_fieldset {
 	my $palette   = $self->{'prefs'}->{'palette'}   // $default_attributes->{'palette'}   // PALETTE;
 	my $q         = $self->{'cgi'};
 	say q(<div id="modify_dashboard_panel" class="panel">);
-	say q(<a class="trigger" id="close_dashboard_trigger" href="#"><span class="fas fa-lg fa-times"></span></a>);
+	say q(<a class="trigger" id="close_dashboard_trigger" href="#"><span class="fas fa-times"></span></a>);
 	say q(<h2>Dashboard settings</h2>);
 	say q(<fieldset><legend>Layout</legend>);
 	say q(<form autocomplete="off">);    #Needed because Firefox autocomplete can override the values we set.

@@ -206,6 +206,18 @@ END
 	\$(".curate_icon_link").on("mouseleave", function(){
 		\$(".curate_icon_highlight", this).removeClass("fa-beat");
 	});
+	
+	//Close panel
+	\$(document).mouseup(function(e) {
+		// if the target of the click isn't the container nor a
+		// descendant of the container
+		var trigger = \$("#panel_trigger");
+ 		var container = \$("#related_db_panel");
+		if (!container.is(e.target) && container.has(e.target).length === 0 && 
+		!trigger.is(e.target) && trigger.has(e.target).length === 0) {
+			container.hide();
+		}
+	});
 });
 
 function bind_toggle (cat){

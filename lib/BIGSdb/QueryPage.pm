@@ -91,14 +91,17 @@ sub get_javascript_panel {
 	}
 	local $" = qq(,\n);
 	my $clear_form_values = qq(@clear_form_directives);
-	my ( $show, $hide, $save, $saving ) = ( SHOW, HIDE, SAVE, SAVING );
+	my ( $on, $off, $save ) = ( ON, OFF, SAVE );
 	foreach my $fieldset (@fieldsets) {
-		$button_text_js .= qq(        var $fieldset = \$("#show_$fieldset").html() == show ? 0 : 1;\n);
-		$new_url        .= qq( + "\&$fieldset=" + $fieldset);
+		$button_text_js .=
+			qq(        let $fieldset; if (\$("#show_$fieldset").length){$fieldset = )
+		  . qq(\$("#show_$fieldset").html().includes(show) ? 0 : 1;}\n)
+		  ;
+		$new_url .= qq( + "\&$fieldset=" + $fieldset);
 	}
 	my $buffer = <<"END";
-	var show = '$show';
-	var hide = '$hide';
+	var show = '$off';
+	var hide = '$on';
 	var fieldsets = [$fieldset_string];
 	var clear_form = {
 $clear_form_values
@@ -110,7 +113,12 @@ $clear_form_values
 			clear_form[fieldset]();
 		}
 		\$("#" + fieldset + "_fieldset").toggle(100);
-		\$(this).html(\$(this).html() == show ? hide : show);
+		let value = \$(this).html();
+		if (value.includes(hide)){
+			\$(this).html(value.replace(hide,show));
+		} else if (value.includes(show)){
+			\$(this).html(value.replace(show,hide));
+		}		
 		\$("a#save_options").fadeIn();
 		return false;
 	});
@@ -124,7 +132,6 @@ $clear_form_values
 		event.preventDefault();
 $button_text_js
 	  	\$(this).attr('href', function(){  	
-	  		\$("a#save_options").html('$saving').animate({backgroundColor: "#99d"},100).animate({backgroundColor: "#f0f0f0"},100);
 	  		\$("span#saving").text('Saving...');
 	  		var new_url = $new_url;
 		  	\$.ajax({

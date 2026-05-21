@@ -333,7 +333,8 @@ sub print_panel_buttons {
 		}
 		my $bookmarks = $self->_get_bookmarks;
 		if (@$bookmarks) {
-			say q(<span class="icon_button"><a class="trigger_button primary_trigger" id="bookmark_trigger" style="display:none">)
+			say
+q(<span class="icon_button"><a class="trigger_button primary_trigger" id="bookmark_trigger" style="display:none">)
 			  . q(<span class="far fa-lg fa-bookmark"></span><span class="icon_label">Bookmarks</span></a></span>);
 		}
 	}
@@ -1208,77 +1209,83 @@ sub _print_modify_search_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<div id="modify_panel" class="panel">);
-	say q(<a class="close_trigger" id="close_trigger"><span class="fas fa-lg fa-times"></span></a>);
+	say q(<a class="close_trigger" id="close_trigger"><span class="fas fa-times"></span></a>);
 	say q(<h2>Modify form parameters</h2>);
-	say q(<p>Click to add or remove additional query terms:</p><ul style="list-style:none;margin-left:-2em">);
-	my $provenance_fieldset_display = $self->_should_display_fieldset('provenance') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button fieldset_trigger" id="show_provenance">$provenance_fieldset_display</a>);
-	say q(Provenance fields</li>);
+	say q(<p class="modal_description">Click to add or remove additional query terms:</p>);
+
+	say q(<h3>Metadata</h3><ul class="toggle">);
+	my $provenance_fieldset_display = $self->_should_display_fieldset('provenance') ? ON : OFF;
+	say qq(<li class="fieldset_trigger" id="show_provenance">$provenance_fieldset_display);
+	say q(Provenance field</li>);
 
 	if ( $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM eav_fields)') ) {
-		my $phenotypic_fieldset_display = $self->_should_display_fieldset('phenotypic') ? HIDE : SHOW;
+		my $phenotypic_fieldset_display = $self->_should_display_fieldset('phenotypic') ? ON : OFF;
 		my $field_name                  = ucfirst( $self->{'system'}->{'eav_fields'} // 'secondary metadata' );
-		say qq(<li><a href="" class="button fieldset_trigger" id="show_phenotypic">$phenotypic_fieldset_display</a>);
+		say qq(<li class="fieldset_trigger" id="show_phenotypic">$phenotypic_fieldset_display);
 		say qq($field_name</li>);
 	}
-	my $allele_designations_fieldset_display = $self->_should_display_fieldset('allele_designations') ? HIDE : SHOW;
-	say q(<li><a href="" class="button fieldset_trigger" id="show_allele_designations">)
-	  . qq($allele_designations_fieldset_display</a>);
-	say q(Allele designations/scheme field values</li>);
-	if ( $self->{'sequence_variation_fieldset_exists'} ) {
-		my $sequence_variation_fieldset_display = $self->_should_display_fieldset('sequence_variation') ? HIDE : SHOW;
-		say q(<li><a href="" class="button fieldset_trigger" id="show_sequence_variation">)
-		  . qq($sequence_variation_fieldset_display</a>);
-		say q(Sequence variation</li>);
-	}
-	my $allele_count_fieldset_display = $self->_should_display_fieldset('allele_count') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button fieldset_trigger" id="show_allele_count">$allele_count_fieldset_display</a>);
-	say q(Allele designation counts</li>);
-	my $allele_status_fieldset_display = $self->_should_display_fieldset('allele_status') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button fieldset_trigger" id="show_allele_status">$allele_status_fieldset_display</a>);
-	say q(Allele designation status</li>);
-	if ( $self->{'annotation_status_fieldset_exists'} ) {
-		my $annotation_status_fieldset_display = $self->_should_display_fieldset('annotation_status') ? HIDE : SHOW;
-		say q(<li><a href="" class="button fieldset_trigger" id="show_annotation_status">)
-		  . qq($annotation_status_fieldset_display</a>);
-		say q(Annotation status</li>);
-	}
-	if ( $self->{'seqbin_fieldset_exists'} ) {
-		my $seqbin_fieldset_display = $self->_should_display_fieldset('seqbin') ? HIDE : SHOW;
-		say qq(<li><a href="" class="button fieldset_trigger" id="show_seqbin">$seqbin_fieldset_display</a>);
-		say q(Sequence bin</li>);
-	}
-	if ( $self->{'assembly_checks_fieldset_exists'} ) {
-		my $assembly_checks_fieldset_display = $self->_should_display_fieldset('assembly_checks') ? HIDE : SHOW;
-		say q(<li><a href="" class="button fieldset_trigger" id="show_assembly_checks">)
-		  . qq($assembly_checks_fieldset_display</a>);
-		say q(Assembly checks</li>);
-	}
-	if ( $self->{'tags_fieldset_exists'} ) {
-		my $tag_count_fieldset_display = $self->_should_display_fieldset('tag_count') ? HIDE : SHOW;
-		say qq(<li><a href="" class="button fieldset_trigger" id="show_tag_count">$tag_count_fieldset_display</a>);
-		say q(Tagged sequence counts</li>);
-		my $tags_fieldset_display = $self->_should_display_fieldset('tags') ? HIDE : SHOW;
-		say qq(<li><a href="" class="button fieldset_trigger" id="show_tags">$tags_fieldset_display</a>);
-		say q(Tagged sequence status</li>);
-	}
-	if ( $self->{'analysis_fieldset_exists'} ) {
-		my $analysis_fieldset_display = $self->_should_display_fieldset('analysis') ? HIDE : SHOW;
-		say qq(<li><a href="" class="button fieldset_trigger" id="show_analysis">$analysis_fieldset_display</a>);
-		say q(Analysis results</li>);
-	}
 	my $list_fieldset_display = $self->{'prefs'}->{'list_fieldset'}
-	  || $q->param('list') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button fieldset_trigger" id="show_list">$list_fieldset_display</a>);
+	  || $q->param('list') ? ON : OFF;
+	say qq(<li class="fieldset_trigger" id="show_list">$list_fieldset_display);
 	say q(Attribute values list</li>);
 	my $filters_fieldset_display = $self->{'prefs'}->{'filters_fieldset'}
-	  || $self->filters_selected ? HIDE : SHOW;
-	say qq(<li><a href="" class="button fieldset_trigger" id="show_filters">$filters_fieldset_display</a>);
+	  || $self->filters_selected ? ON : OFF;
+	say qq(<li class="fieldset_trigger" id="show_filters">$filters_fieldset_display);
 	say q(Filters</li>);
+	say q(</ul>);
+	if ( $self->{'seqbin_fieldset_exists'} ) {
+		say q(<h3>Assembly</h3><ul class="toggle">);
+		my $seqbin_fieldset_display = $self->_should_display_fieldset('seqbin') ? ON : OFF;
+		say qq(<li class="fieldset_trigger" id="show_seqbin">$seqbin_fieldset_display);
+		say q(Sequence bin properties</li></ul>);
+	}
+	say q(<h3>Schemes/Loci</h3><ul class="toggle">);
+	my $allele_designations_fieldset_display = $self->_should_display_fieldset('allele_designations') ? ON : OFF;
+	say qq(<li class="fieldset_trigger" id="show_allele_designations">$allele_designations_fieldset_display);
+	say q(Allele designations/scheme field values</li>);
+	if ( $self->{'sequence_variation_fieldset_exists'} ) {
+		my $sequence_variation_fieldset_display = $self->_should_display_fieldset('sequence_variation') ? ON : OFF;
+		say qq(<li class="fieldset_trigger" id="show_sequence_variation">$sequence_variation_fieldset_display);
+		say q(Sequence variation</li>);
+	}
+	my $allele_count_fieldset_display = $self->_should_display_fieldset('allele_count') ? ON : OFF;
+	say qq(<li class="fieldset_trigger" id="show_allele_count">$allele_count_fieldset_display);
+	say q(Allele designation counts</li>);
+	my $allele_status_fieldset_display = $self->_should_display_fieldset('allele_status') ? ON : OFF;
+	say qq(<li class="fieldset_trigger" id="show_allele_status">$allele_status_fieldset_display);
+	say q(Allele designation status</li>);
+
+	if ( $self->{'tags_fieldset_exists'} ) {
+		my $tag_count_fieldset_display = $self->_should_display_fieldset('tag_count') ? ON : OFF;
+		say qq(<li class="fieldset_trigger" id="show_tag_count">$tag_count_fieldset_display);
+		say q(Tagged sequence counts</li>);
+		my $tags_fieldset_display = $self->_should_display_fieldset('tags') ? ON : OFF;
+		say qq(<li class="fieldset_trigger" id="show_tags">$tags_fieldset_display);
+		say q(Tagged sequence status</li>);
+	}
+	if ( $self->{'annotation_status_fieldset_exists'} ) {
+		my $annotation_status_fieldset_display = $self->_should_display_fieldset('annotation_status') ? ON : OFF;
+		say qq(<li class="fieldset_trigger" id="show_annotation_status">$annotation_status_fieldset_display);
+		say q(Annotation status</li>);
+	}
+
+	if ( $self->{'assembly_checks_fieldset_exists'} ) {
+		my $assembly_checks_fieldset_display = $self->_should_display_fieldset('assembly_checks') ? ON : OFF;
+		say qq(<li class="fieldset_trigger" id="show_assembly_checks">$assembly_checks_fieldset_display);
+		say q(Assembly checks</li>);
+	}
+	say q(</ul>);
+	if ( $self->{'analysis_fieldset_exists'} ) {
+		say q(<h3>Analysis</h3><ul class="toggle">);
+		my $analysis_fieldset_display = $self->_should_display_fieldset('analysis') ? ON : OFF;
+		say qq(<li class="fieldset_trigger" id="show_analysis">$analysis_fieldset_display);
+		say q(Analysis results</li></ul>);
+	}
+
 	say q(</ul>);
 	my $save = SAVE;
 	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . qq(page=query&amp;save_options=1" style="display:none">$save</a> <span id="saving"></span><br />);
+	  . qq(page=query&amp;save_options=1" style="display:none">$save Save options</a> <span id="saving"></span><br />);
 	say q(</div>);
 	return;
 }
@@ -1299,10 +1306,11 @@ sub _print_bookmark_fieldset {
 	my ($self) = @_;
 	my $bookmarks = $self->_get_bookmarks;
 	return if !@$bookmarks;
-	say q(<div id="bookmark_panel" style="display:none">);
-	say q(<a class="close_trigger" id="close_bookmark"><span class="fas fa-lg fa-times"></span></a>);
+	say q(<div id="bookmark_panel" class="panel" style="display:none">);
+	say q(<a class="close_trigger" id="close_bookmark"><span class="fas fa-times"></span></a>);
 	say q(<h2>Bookmarks</h2>);
-	say q(<div><div style="max-height:12em;overflow-y:auto;padding-right:2em"><ul style="margin-left:-1em">);
+	say q(<div><div style="max-height:12em;overflow-y:auto;padding-right:2em;border:1px solid #dde4ec">)
+	  . q(<ul style="margin-left:-1em">);
 	foreach my $bookmark (@$bookmarks) {
 		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$bookmark->{'dbase_config'}&amp;)
 		  . qq(page=query&amp;bookmark=$bookmark->{'id'}">$bookmark->{'name'}</a></li>);

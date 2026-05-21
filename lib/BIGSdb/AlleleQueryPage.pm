@@ -423,13 +423,13 @@ sub _print_modify_search_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<div id="modify_panel" class="panel">);
-	say q(<a class="trigger" id="close_trigger" href="#"><span class="fas fa-lg fa-times"></span></a>);
+	say q(<a class="trigger" id="close_trigger" href="#"><span class="fas fa-times"></span></a>);
 	say q(<h2>Modify form parameters</h2>);
-	say q(<p style="white-space:nowrap">Click to add or remove additional query terms:</p>)
-	  . q(<ul style="list-style:none;margin-left:-2em">);
+	say q(<p class="modal_description">Click to add or remove additional query terms:</p>)
+	  . q(<ul class="toggle">);
 	my $allele_fieldset_display = $self->{'prefs'}->{'aq_allele_fieldset'}
-	  || $self->_highest_entered_fields('alleles') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button fieldset_trigger" id="show_allele">$allele_fieldset_display</a>);
+	  || $self->_highest_entered_fields('alleles') ? ON : OFF;
+	say qq(<li class="fieldset_trigger" id="show_allele">$allele_fieldset_display);
 	say q(Allele fields</li>);
 	my $locus = $q->param('locus');
 
@@ -441,23 +441,23 @@ sub _print_modify_search_fieldset {
 		);
 		if ($mutations) {
 			my $mutation_fieldset_display = $self->{'prefs'}->{'aq_mutations_fieldset'}
-			  || $self->_highest_entered_fields('mutations') ? HIDE : SHOW;
-			say qq(<li><a href="" class="button fieldset_trigger" id="show_mutations">$mutation_fieldset_display</a>);
+			  || $self->_highest_entered_fields('mutations') ? ON : OFF;
+			say qq(<li class="fieldset_trigger" id="show_mutations">$mutation_fieldset_display);
 			say q(Sequence variation</li>);
 		}
 	}
 	my $list_fieldset_display = $self->{'prefs'}->{'aq_list_fieldset'}
-	  || $q->param('list') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button fieldset_trigger" id="show_list">$list_fieldset_display</a>);
+	  || $q->param('list') ? ON : OFF;
+	say qq(<li class="fieldset_trigger" id="show_list">$list_fieldset_display);
 	say q(Allele id list box</li>);
 	my $filters_fieldset_display = $self->{'prefs'}->{'aq_filters_fieldset'}
-	  || $self->filters_selected ? HIDE : SHOW;
-	say qq(<li><a href="" class="button fieldset_trigger" id="show_filters">$filters_fieldset_display</a>);
+	  || $self->filters_selected ? ON : OFF;
+	say qq(<li class="fieldset_trigger" id="show_filters">$filters_fieldset_display);
 	say q(Filters</li>);
 	say q(</ul>);
 	my $save = SAVE;
 	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . qq(page=alleleQuery&amp;save_options=1" style="display:none">$save</a> <span id="saving"></span><br />);
+	  . qq(page=alleleQuery&amp;save_options=1" style="display:none">$save Save options</a> <span id="saving"></span><br />);
 	say q(</div>);
 	return;
 }

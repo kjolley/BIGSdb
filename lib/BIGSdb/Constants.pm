@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2025, University of Oxford
+#Copyright (c) 2015-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -76,8 +76,9 @@ use constant FACE_STYLE => (
 );
 use constant SHOW                 => q(<span class="fas fa-plus-circle" style="color:green"></span>);
 use constant HIDE                 => q(<span class="fas fa-minus-circle" style="color:red"></span>);
-use constant SAVE                 => q(<span class="fas fa-save" style="color:green"></span>);
-use constant SAVING               => q(<span class="fas fa-save" style="color:blue"></span>);
+use constant ON                   => q(<span class="fas fa-toggle-on fa-xl"></span>);
+use constant OFF                  => q(<span class="fas fa-toggle-off fa-xl"></span>);
+use constant SAVE                 => q(<span class="fas fa-save"></span>);
 use constant UP                   => q(<span class="fas fa-arrow-up" style="color:blue"></span>);
 use constant DOWN                 => q(<span class="fas fa-arrow-down" style="color:blue"></span>);
 use constant LEFT                 => q(<span class="fas fa-lg fa-arrow-left" style="color:blue"></span>);
@@ -112,7 +113,7 @@ use constant KEY                  => q(<span class="nav_icon fas fa-2x fa-key"><
 use constant EYE_SHOW             => q(<span class="nav_icon fas fa-2x fa-eye"></span>);
 use constant EYE_HIDE             => q(<span class="nav_icon fas fa-2x fa-eye-slash"></span>);
 use constant CURATE               => q(<span class="nav_icon fas fa-2x fa-user-tie"></span>);
-use constant EXPORT_TABLE         => q(<span class="fa-stack fa-2x export">)
+use constant EXPORT_TABLE => q(<span class="fa-stack fa-2x export">)
   . q(<span class="fas fa-square fa-stack-2x export_button"></span>)
   . q(<span class="fas fa-table fa-stack-1x fa-inverse" style="margin-top:-0.2em"></span>)
   . q(<span class="fas fa-stack-text fa-stack-1x" style="font-size:0.4em;)
@@ -224,7 +225,7 @@ use constant TREEMAP_ICON => q(<svg xmlns="http://www.w3.org/2000/svg" viewBox="
   . q(<rect x="422" y="368" width="56" height="128" rx="16" ry="16"/></g></svg>);
 use constant FLANKING => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
 use constant MAX_ROWS => 20;
-@values = qw(FACE_STYLE SHOW HIDE SAVE SAVING UP DOWN LEFT RIGHT
+@values = qw(FACE_STYLE SHOW HIDE ON OFF SAVE UP DOWN LEFT RIGHT
   EDIT DELETE ADD COMPARE UPLOAD UPLOAD_CHANGE_CONFIG QUERY USERS PENDING GOOD BAD MEH TRUE FALSE BAN DOWNLOAD
   BACK QUERY_MORE EDIT_MORE UPLOAD_CONTIGS LINK_CONTIGS MORE HOME RELOAD KEY EYE_SHOW EYE_HIDE
   CURATE EXPORT_TABLE EXCEL_FILE TEXT_FILE FASTA_FILE FASTA_FLANKING_FILE PDF_FILE HTML_FILE
@@ -321,7 +322,7 @@ use constant MAX_CONTIGS              => 1000;
 use constant MIN_N50                  => 10_000;
 use constant MIN_TOTAL_LENGTH         => 1_000_000;
 use constant MAX_TOTAL_LENGTH         => 15_000_000;
-use constant NULL_TERMS               =>
+use constant NULL_TERMS =>
   ( 'none', 'N/A', 'NA', '-', '.', 'not applicable', 'no value', 'unknown', 'unk', 'not known', 'null' );
 @values = qw (SUBMISSIONS_DELETED_DAYS COVERAGE READ_LENGTH ASSEMBLY REQUIRES_READ_LENGTH
   REQUIRES_COVERAGE REQUIRED_GENOME_FIELDS DAILY_REST_LIMIT TOTAL_PENDING_LIMIT DAILY_PENDING_LIMIT NULL_TERMS
@@ -332,7 +333,7 @@ push @EXPORT_OK, @values;
 $EXPORT_TAGS{'submissions'} = [@values];
 
 #Schemes
-use constant SCHEME_FLAGS        => ( 'experimental', 'in development', 'please cite', 'unpublished' );
+use constant SCHEME_FLAGS => ( 'experimental', 'in development', 'please cite', 'unpublished' );
 use constant SCHEME_FLAG_COLOURS => {
 	'please cite'    => '#990000',
 	'experimental'   => '#4c9900',
@@ -352,7 +353,7 @@ $EXPORT_TAGS{'login_requirements'} = [qw(NOT_ALLOWED OPTIONAL REQUIRED)];
 #Account management
 use constant NEW_ACCOUNT_VALIDATION_TIMEOUT_MINS => 60;
 use constant INACTIVE_ACCOUNT_REMOVAL_DAYS       => 180;
-use constant SECTORS                             =>
+use constant SECTORS =>
   ( 'academic/non-profit', 'commercial', 'private healthcare', 'public healthcare', 'public health' );
 push @EXPORT_OK, qw (NEW_ACCOUNT_VALIDATION_TIMEOUT_MINS INACTIVE_ACCOUNT_REMOVAL_DAYS SECTORS);
 $EXPORT_TAGS{'accounts'} = [qw(NEW_ACCOUNT_VALIDATION_TIMEOUT_MINS INACTIVE_ACCOUNT_REMOVAL_DAYS SECTORS)];

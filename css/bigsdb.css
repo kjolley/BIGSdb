@@ -810,7 +810,8 @@ table.tablesorter tr.odd td {
 	text-align: center
 }
 
-div#large_resultstable table.tablesorter tr.odd td, div.large_resultstable table.tablesorter tr.odd td {
+div#large_resultstable table.tablesorter tr.odd td,
+div.large_resultstable table.tablesorter tr.odd td {
 	background: #f6f6ff;
 }
 
@@ -1135,17 +1136,38 @@ div.panel {
 	top: 0;
 	right: 0;
 	display: none;
+	width: 500px;
+	max-width: 80vw;
 	padding: 1em 3em 1em 1em;
-	border: 1px solid #999;
-	border-radius: 10px 0 0 10px;
-	background: #d5d5e0;
-	background-image: linear-gradient(#d5d5e0, #f0f0f0 5em);
-	box-shadow: 3px 3px 3px #aaa;
+	border: 1px solid #dde4ec;
+	border-radius: 12px;
+	background: #fbfcfd;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10),
+		0 2px 8px rgba(0, 0, 0, 0.05);
 	z-index: 9
 }
 
-div.panel li {
+div.panel h3 {
+	color: #525b7b;
+	font-weight: 600;
+}
+
+div.panel ul.toggle {
+	list-style: none;
+}
+
+div.panel ul.toggle li {
 	padding-bottom: 0.5em
+}
+
+div.panel ul.toggle li:hover {
+	cursor: pointer;
+	background: rgba(0, 0, 0, 0.025);
+}
+
+p.modal_description {
+	color: #5f6f84;
+	font-size: 0.95rem;
 }
 
 div.button_panel {
@@ -1201,11 +1223,16 @@ div.ol-rotate {
 	z-index: 10
 }
 
+li.fieldset_trigger span:first-child,
+a#save_options {
+	color: #6c7a92;
+}
+
 a.close_trigger {
 	cursor: pointer;
 }
 
-a.primary_trigger{
+a.primary_trigger {
 	background: #4f7db8;
 	color: white;
 }
@@ -1234,32 +1261,20 @@ a.tooltips_disabled {
 }
 
 a#close_trigger,
-a#close_dashboard_trigger {
-	color: black;
-	font-weight: 600;
-	text-decoration: none;
-}
-
-div#bookmark_panel,
-#related_db_panel {
-	position: absolute;
-	top: 0;
-	right: 0;
-	display: none;
-	padding: 1em 2em 1em 1em;
-	border: 1px solid #999;
-	border-radius: 10px;
-	background: #e0d5e0;
-	background-image: linear-gradient(#e0d5e0, #f0f0f0 5em);
-	box-shadow: 3px 3px 3px #aaa;
-	z-index: 9
-}
-
+a#close_related_db,
 a#close_bookmark,
-a#close_related_db {
-	color: black;
+a#close_dashboard_trigger {
+	color: #aaa;
 	font-weight: 600;
 	text-decoration: none;
+	float: right;
+}
+
+a#close_trigger:hover,
+a#close_related_db:hover,
+a#close_bookmark:hover,
+a#close_dashboard_trigger:hover {
+	color: #6b7280;
 }
 
 .statusgood {

@@ -1501,26 +1501,24 @@ sub _print_modify_search_fieldset {
 	my $q      = $self->{'cgi'};
 	my $table  = $q->param('table');
 	say q(<div id="modify_panel" class="panel">);
-	say q(<a class="trigger" id="close_trigger" href="#"><span class="fas fa-lg fa-times"></span></a>);
+	say q(<a class="trigger" id="close_trigger" href="#"><span class="fas fa-times"></span></a>);
 	say q(<h2>Modify form parameters</h2>);
-	say q(<p style="white-space:nowrap">Click to add or remove additional query terms:</p>)
-	  . q(<ul style="list-style:none;margin-left:-2em">);
+	say q(<p class="modal_description">Click to add or remove additional query terms:</p>) . q(<ul class="toggle">);
 	my $list_fieldset_display = $self->{'prefs'}->{"${table}_list_fieldset"}
-	  || $q->param('list') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button fieldset_trigger" id="show_list">$list_fieldset_display</a>);
+	  || $q->param('list') ? ON : OFF;
+	say qq(<li class="fieldset_trigger" id="show_list">$list_fieldset_display);
 	say q(Attribute values list</li>);
 
 	if ( $table eq 'loci' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $allele_properties_fieldset_display = $self->{'prefs'}->{'allele_properties_fieldset'}
-		  || $self->_highest_entered_fields('allele_properties') ? HIDE : SHOW;
-		say q(<li><a href="" class="button fieldset_trigger" id="show_allele_properties">)
-		  . qq($allele_properties_fieldset_display</a>);
+		  || $self->_highest_entered_fields('allele_properties') ? ON : OFF;
+		say qq(<li class="fieldset_trigger" id="show_allele_properties">$allele_properties_fieldset_display);
 		say q(Allele properties</li>);
 	}
 	say q(</ul>);
 	my $save = SAVE;
 	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . qq(page=tableQuery&amp;table=$table&amp;save_options=1" style="display:none">$save</a> <span id="saving">)
+	  . qq(page=tableQuery&amp;table=$table&amp;save_options=1" style="display:none">$save Save options</a> <span id="saving">)
 	  . q(</span><br />);
 	say q(</div>);
 	return;
