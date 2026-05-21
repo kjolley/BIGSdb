@@ -315,7 +315,7 @@ sub _print_private_fieldset {
 	say q(</li><li>);
 	say qq(<input type="color" name="private_bg" id="private_bg" value="$bg" )
 	  . q(style="width:30px;height:15px"> Background colour);
-	say q(</li></li>);
+	say q(</li><li>);
 	say q(<span id="example_private" style="border:1px solid #aaa;)
 	  . qq(background:$bg;color:$fg;padding:0 0.2em">example private record</span>);
 	say q(</li></ul></fieldset>);
@@ -327,7 +327,7 @@ sub _print_options {
 	my ($self)  = @_;
 	my $q       = $self->{'cgi'};
 	my $display = $self->{'plugin_prefs'}->{'options_fieldset'} ? 'block' : 'none';
-	say qq(<fieldset id="options_fieldset" style="float:left;display:$display">) . q(<legend>Options</legend><ul></li>);
+	say qq(<fieldset id="options_fieldset" style="float:left;display:$display"><legend>Options</legend><ul><li>);
 	say $q->checkbox(
 		-name     => 'indicate_tags',
 		-id       => 'indicate_tags',
@@ -427,7 +427,7 @@ sub _print_lincode_fieldset {
 	say qq(<fieldset id="lincode_fieldset" style="float:left;display:$display;max-width:400px">)
 	  . q(<legend>LIN code prefixes</legend><p>Selecting a scheme and all fields for it will include )
 	  . q(the full LIN code and prefix-linked fields. The following list just allows you to select )
-	  . q(LIN code prefixes of a specific length.</p><ul></li>);
+	  . q(LIN code prefixes of a specific length.</p><ul><li>);
 	say $self->popup_menu(
 		-name     => 'lincode_prefixes',
 		-id       => 'lincode_prefixes',
@@ -471,7 +471,7 @@ sub _print_molwt_options {
 	my $display = $self->{'plugin_prefs'}->{'molwt_fieldset'} ? 'block' : 'none';
 	my $q       = $self->{'cgi'};
 	say qq(<fieldset id="molwt_fieldset" style="float:left;display:$display">)
-	  . q(<legend>Molecular weights</legend><ul></li>);
+	  . q(<legend>Molecular weights</legend><ul><li>);
 	say $q->checkbox( -name => 'molwt', -id => 'molwt', -label => 'Export protein molecular weights' );
 	say q(</li><li>);
 	say $q->checkbox(
