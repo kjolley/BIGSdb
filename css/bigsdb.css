@@ -1971,14 +1971,32 @@ div#restricted {
 
 div#statuswarn,
 div.statuswarn {
-	background: #e0d5d5;
-	color: #800000
+	min-height:5em;
+	background: #f4f6f8;
+	border: 1px solid #d6e3f3;
+	color: #1d3557;
+	padding: 10px 10px 1px 20px;
+	border-left: 4px solid #ff9944;
+}
+
+div#statusgood,
+div.statusgood {
+	min-height:5em;
+	background: #f4f6f8;
+	border: 1px solid #d6e3f3;
+	color: #1d3557;
+	padding: 10px 10px 1px 20px;
+	border-left: 4px solid #008000;
 }
 
 div#statusbad,
 div.statusbad {
-	background: #e0d5d5;
-	color: #800000
+	min-height:5em;
+	background: #f4f6f8;
+	border: 1px solid #d6e3f3;
+	color: #1d3557;
+	padding: 10px 10px 1px 20px;
+	border-left: 4px solid #800000;
 }
 
 div.statusbad_no_resize {
@@ -2401,11 +2419,11 @@ span.flag {
 }
 
 p.outcome_message {
-	font-size: 1.2em
+	font-size: 1em
 }
 
 p.outcome_detail {
-	font-size: 1em
+	font-size: 0.9em
 }
 
 .flash_message {
@@ -2729,8 +2747,7 @@ span.info_plugin_icon {
 }
 
 span.nav_icon {
-	color: #66a;
-	text-shadow: 2px 2px 2px #aaa
+	color: #607089;
 }
 
 span.nav_icon:hover {

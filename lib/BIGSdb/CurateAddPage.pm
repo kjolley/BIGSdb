@@ -317,7 +317,7 @@ sub _insert {
 				);
 				$self->update_blast_caches;
 			} else {
-				my $record_name = $self->get_record_name($table);
+				my $record_name = ucfirst($self->get_record_name($table));
 				$self->print_good_status(
 					{ message => qq($record_name added.), detail => $detail, navbar => 1, %$navlinks } );
 			}

@@ -746,6 +746,7 @@ sub _get_profile_submissions_for_curation {
 		next if $submission->{'type'} ne 'profiles';
 		my $profile_submission =
 		  $self->{'submissionHandler'}->get_profile_submission( $submission->{'id'}, { count_only => 1 } );
+		next if !defined $profile_submission;
 		next
 		  if !($self->is_admin
 			|| $self->{'datastore'}->is_scheme_curator( $profile_submission->{'scheme_id'}, $user_info->{'id'} ) );

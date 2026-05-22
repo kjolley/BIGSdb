@@ -35,7 +35,7 @@ sub initiate {
 	}
 	$self->set_level1_breadcrumbs;
 	my $table = $q->param('table');
-	$self->{$_} = 1 foreach (qw (noCache tooltips jQuery jQuery.coolfieldset jQuery.multiselect));
+	$self->{$_} = 1 foreach (qw (noCache tooltips jQuery jQuery.coolfieldset jQuery.multiselect allowExpand));
 	if ( !$q->param('save_options') ) {
 		my $guid = $self->get_guid;
 		return if !$guid;

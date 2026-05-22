@@ -105,9 +105,14 @@ sub print_seqbin_warnings {
 		  . q(not yet been validated.)
 		  : q();
 		if ($seqbin) {
-			say q(<div class="box" id="warning"><p>Sequences have already been uploaded for this isolate.</p>)
-			  . qq(<ul><li>Contigs: $seqbin->{'contigs'}</li><li>Total length: $seqbin->{'total_length'} bp</li></ul>)
-			  . qq(<p>Please make sure that you intend to add new sequences for this isolate.$remote_clause</p></div>);
+			$self->print_warning(
+				{
+					message => q(Sequences have already been uploaded for this isolate.),
+					detail  => qq(<ul><li>Contigs: $seqbin->{'contigs'}</li>)
+					  . qq(<li>Total length: $seqbin->{'total_length'} bp</li></ul>)
+					  . qq(<p>Please make sure that you intend to add new sequences for this isolate.$remote_clause)
+				}
+			);
 		}
 	}
 	return;

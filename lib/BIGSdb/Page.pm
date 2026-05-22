@@ -761,7 +761,7 @@ sub print_page_content {
 			  . qq(style="max-width:${main_max_width_style}">);
 			$self->_print_button_panel;
 			say qq(<script>var max_width=${main_max_width}</script>);
-			
+
 			$self->print_content;
 			say q(<div id="modal_overlay"></div>);
 			say q(</div></div>);
@@ -1219,7 +1219,8 @@ sub _print_tooltip_toggle {
 	if ( $self->{'tooltips'} ) {
 		my $enabled = $self->{'prefs'}->{'tooltips'} ? 'tooltips_enabled' : 'tooltips_disabled';
 		my $title   = $self->{'prefs'}->{'tooltips'} ? 'Disable tooltips' : 'Enable tooltips';
-		say qq(<span class="icon_button"><a id="toggle_tooltips" class="trigger_button secondary_trigger $enabled" style="display:none" )
+		say
+qq(<span class="icon_button"><a id="toggle_tooltips" class="trigger_button secondary_trigger $enabled" style="display:none" )
 		  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=options&amp;)
 		  . q(toggle_tooltips=1">)
 		  . q(<span class="fas fa-lg fa-info-circle"></span><span class="icon_label">Tooltips</span></a></span>);
@@ -3716,8 +3717,8 @@ sub get_warning_tooltip {
 sub print_navigation_bar {
 	my ( $self, $options ) = @_;
 	my $script = $options->{'script'} // $self->{'system'}->{'script_name'};
-	my ( $back, $home, $key, $more, $query_more, $upload_contigs, $link_contigs, $reload, $edit, $curate ) =
-	  ( BACK, HOME, KEY, MORE, QUERY_MORE, UPLOAD_CONTIGS, LINK_CONTIGS, RELOAD, EDIT_MORE, CURATE );
+	my ( $back, $home, $key, $more, $query_more, $upload_contigs, $link_contigs, $reload, $edit ) =
+	  ( BACK, HOME, KEY, MORE, QUERY_MORE, UPLOAD_CONTIGS, LINK_CONTIGS, RELOAD, EDIT_MORE );
 	my $buffer = q();
 	if ( $options->{'submission_id'} ) {
 		$buffer .=
@@ -3727,14 +3728,11 @@ sub print_navigation_bar {
 	} elsif ( $options->{'back_url'} || $options->{'back_page'} ) {
 		my $page = $options->{'back_page'} // 'index';
 		my $url  = $options->{'back_url'}  // "$script?db=$self->{'instance'}&amp;page=$page";
-		$buffer .= qq(<a href="$url" title="Back" style="margin-right:1em">$back</a>);
-	}
-	if ( $options->{'curator_interface'} && $self->{'config'}->{'curate_script'} ) {
-		$buffer .= qq(<a href="$self->{'config'}->{'curate_script'}?db=$self->{'instance'}" )
-		  . qq(title="Curators' interface" style="margin-right:1em">$curate</a>);
+		$buffer .= qq(<a href="$url" class="button">$back Back</a>);
 	}
 	if ( $options->{'change_password'} ) {
-		$buffer .= qq(<a href="$options->{'change_password'}" title="Set password" style="margin-right:1em">$key</a>);
+		$buffer .= qq(<a href="$options->{'change_password'}" class="button" )
+		  . qq(style="margin-right:1em">$key Set password</a>);
 	}
 	if ( $options->{'closed_submissions'} ) {
 		$buffer .=
@@ -3746,31 +3744,26 @@ sub print_navigation_bar {
 	}
 	if ( $options->{'more_url'} ) {
 		$options->{'more_text'} //= 'Add another';
-		$buffer .=
-		  qq(<a href="$options->{'more_url'}" title="$options->{'more_text'}" style="margin-right:1em">$more</a>);
+		$buffer .= qq(<a href="$options->{'more_url'}" class="button">$more $options->{'more_text'}</a>);
 	}
 	if ( $options->{'query_more_url'} ) {
-		$buffer .=
-			qq(<a href="$options->{'query_more_url'}" title="Query another" style="margin-right:1em">)
-		  . qq($query_more</a>);
+		$buffer .= qq(<a href="$options->{'query_more_url'}" class="button">) . qq($query_more Query another</a>);
 	}
 	if ( $options->{'upload_contigs_url'} ) {
 		$buffer .=
-			qq(<a href="$options->{'upload_contigs_url'}" title="Upload contigs" style="margin-right:1em">)
-		  . qq($upload_contigs</a>);
+		  qq(<a href="$options->{'upload_contigs_url'}" class="button">) . qq($upload_contigs Upload contigs</a>);
 	}
 	if ( $options->{'link_contigs_url'} ) {
 		$buffer .=
-			qq(<a href="$options->{'link_contigs_url'}" title="Link remote contigs" style="margin-right:1em">)
-		  . qq($link_contigs</a>);
+		  qq(<a href="$options->{'link_contigs_url'}" class="button">$link_contigs Link remote contigs</a>);
 	}
 	if ( $options->{'reload_url'} ) {
 		$options->{'reload_text'} //= 'Reload scan form';
-		$buffer .= qq(<a href="$options->{'reload_url'}" title="$options->{'reload_text'}" )
-		  . qq(style="margin-right:1em">$reload</a>);
+		$buffer .=
+		  qq(<a href="$options->{'reload_url'}" class="button">$reload $options->{'reload_text'}</a>);
 	}
 	if ( $options->{'update_url'} ) {
-		$buffer .= qq(<a href="$options->{'update_url'}" title="Update record" style="margin-right:1em">$edit</a>);
+		$buffer .= qq(<a href="$options->{'update_url'}" class="button">$edit Update record</a>);
 	}
 	if ($buffer) {
 		$buffer = qq(<div class="navigation">$buffer</div><div style="clear:both"></div>);
@@ -3784,7 +3777,7 @@ sub print_bad_status {
 	my ( $self, $options ) = @_;
 	$options->{'message'} //= 'Failed!';
 	my $buffer = q();
-	$buffer .= q(<div class="box statusbad" style="min-height:5em">);
+	$buffer .= q(<div class="box statusbad">);
 	$buffer .= q(<p><span class="failure fas fa-times fa-5x fa-pull-left"></span></p>);
 	$buffer .= qq(<p class="outcome_message">$options->{'message'}</p>);
 	if ( $options->{'detail'} ) {
@@ -3802,7 +3795,7 @@ sub print_good_status {
 	my ( $self, $options ) = @_;
 	$options->{'message'} //= 'Success!';
 	my $buffer = q();
-	$buffer .= q(<div class="box resultsheader" style="min-height:5em">);
+	$buffer .= q(<div class="box statusgood">);
 	$buffer .= q(<p><span class="success fas fa-check fa-5x fa-pull-left"></span></p>);
 	$buffer .= qq(<p class="outcome_message">$options->{'message'}</p>);
 	if ( $options->{'detail'} ) {
@@ -3828,13 +3821,14 @@ sub print_loading_message {
 sub print_warning {
 	my ( $self, $options ) = @_;
 	$options->{'message'} //= 'Warning!';
-	say q(<div class="box statuswarn" style="min-height:5em");
+	say q(<div class="box statuswarn");
 	say q(<p><a><span class="warn fas fa-exclamation fa-5x fa-pull-left"></span></a></p>);
-	say qq(<p class="outcome_message">$options->{'message'}</p>);
+	say qq(<div style="padding-left:20px"><p class="outcome_message">$options->{'message'}</p>);
 	if ( $options->{'detail'} ) {
 		say qq(<p class="outcome_detail">$options->{'detail'}</p>);
 	}
-	say q(</div>);
+
+	say q(</div></div>);
 	return;
 }
 
