@@ -137,13 +137,14 @@ function enable_tag_controls(){
 		var trigger = \$("#panel_trigger");
  		var container = \$("#modify_panel");
 		if (!container.is(e.target) && container.has(e.target).length === 0 && 
-		!trigger.is(e.target) && trigger.has(e.target).length === 0) {
+		!trigger.is(e.target) && trigger.has(e.target).length === 0 && container.is(':visible')) {
 			container.hide();
 			\$("#modal_overlay").removeClass("open");			
 		}
+		trigger = \$("#close_onboarding");
 		container = \$("#onboarding");
 		if (!container.is(e.target) && container.has(e.target).length === 0 && 
-		!trigger.is(e.target) && trigger.has(e.target).length === 0) {
+		!trigger.is(e.target) && trigger.has(e.target).length === 0 && container.is(':visible')) {
 			container.hide();
 			\$("#modal_overlay").removeClass("open");			
 		}
