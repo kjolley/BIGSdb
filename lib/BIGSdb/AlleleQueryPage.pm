@@ -135,6 +135,7 @@ sub print_content {
 		$cleaned_locus = q();
 	}
 	$cleaned_locus = qq( - $cleaned_locus) if $cleaned_locus;
+	$self->_print_modify_search_fieldset;
 	say qq(<h1>Sequence attribute search$cleaned_locus</h1>);
 	my $qry;
 	if (   !defined $q->param('currentpage')
@@ -281,7 +282,6 @@ sub _print_interface {
 	say $self->get_number_records_control;
 	say q(</li></ul></fieldset>);
 	$self->print_action_fieldset( { locus => $locus, submit_label => 'Search' } );
-	$self->_print_modify_search_fieldset;
 	say $q->end_form;
 	say q(</div></div>);
 	return;

@@ -109,6 +109,7 @@ sub print_content {
 	$cleaned =~ tr/_/ /;
 	my $title = $self->get_title;
 	say qq(<h1>$title</h1>);
+	$self->_print_modify_search_fieldset;
 	my $qry;
 	if (   !defined $q->param('currentpage')
 		|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
@@ -326,7 +327,6 @@ sub _print_interface {
 	$self->_print_list_fieldset( $table, $attributes );
 	$self->_print_table_specific_fieldset( $table, $attributes );
 	$self->print_action_fieldset( { page => 'tableQuery', table => $table, submit_label => 'Search' } );
-	$self->_print_modify_search_fieldset;
 	say $q->end_form;
 	say q(</div></div>);
 	return;

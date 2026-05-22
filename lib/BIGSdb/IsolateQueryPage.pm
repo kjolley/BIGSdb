@@ -254,6 +254,8 @@ sub print_content {
 		return if $self->embargo;
 	}
 	my $title = $self->get_title;
+	$self->_print_modify_search_fieldset;
+	$self->_print_bookmark_fieldset;
 	say qq(<h1>$title</h1>);
 	my $qry;
 	if (   !defined $q->param('currentpage')
@@ -303,8 +305,6 @@ sub _print_interface {
 	$self->_print_display_fieldset;
 	$self->print_action_fieldset(
 		{ id => 'search', submit_label => 'Search', interface => scalar $q->param('interface') } );
-	$self->_print_modify_search_fieldset;
-	$self->_print_bookmark_fieldset;
 	say q(</div>);
 	say $q->end_form;
 	say q(</div></div>);

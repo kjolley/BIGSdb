@@ -76,6 +76,7 @@ sub print_content {
 	if    ( $q->param('no_header') )    { $self->_ajax_content; return }
 	elsif ( $q->param('save_options') ) { $self->_save_options; return }
 	my $title = $self->get_title;
+	$self->_print_modify_search_fieldset;
 	say qq(<h1>$title</h1>);
 	my $qry;
 	my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1 } );
@@ -156,7 +157,6 @@ sub _print_interface {
 	$self->_print_filter_fieldset($scheme_id);
 	$self->_print_order_fieldset($scheme_id);
 	$self->print_action_fieldset( { page => 'query', scheme_id => $scheme_id, submit_label => 'Search' } );
-	$self->_print_modify_search_fieldset;
 	say q(</div>);
 	say $q->end_form;
 	say q(</div></div>);

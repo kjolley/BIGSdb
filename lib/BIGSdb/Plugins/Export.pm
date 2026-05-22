@@ -534,6 +534,7 @@ sub run {
 		$self->_save_options;
 		return;
 	}
+	$self->_print_modify_search_fieldset;
 	say q(<h1>Export dataset</h1>);
 	if ( ( $self->{'system'}->{'DatasetExport'} // q() ) eq 'no' ) {
 		$self->print_bad_status( { message => q(Dataset exports are disabled.) } );
@@ -726,7 +727,6 @@ sub _print_interface {
 	$self->_print_molwt_options;
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say q(<div style="clear:both"></div>);
-	$self->_print_modify_search_fieldset;
 	$q->param( set_id => $set_id );
 	say $q->hidden($_) foreach qw (db page name set_id);
 	say $q->end_form;
