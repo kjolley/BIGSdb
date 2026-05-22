@@ -1,6 +1,6 @@
 /**
  * Written by Keith Jolley 
- * Copyright (c) 2021-2024, University of Oxford 
+ * Copyright (c) 2021-2026, University of Oxford 
  * E-mail: keith.jolley@biology.ox.ac.uk
  * 
  * This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -74,7 +74,13 @@ $(function() {
 		}
 	});
 	$("#dashboard_panel_trigger,#close_dashboard_trigger").click(function() {
-		$("#modify_dashboard_panel").toggle("slide", { direction: "right" }, "fast");
+		$("#modify_dashboard_panel").toggle("slide", { direction: "right" }, "fast", function(){
+			if ($("#modify_dashboard_panel").is(":visible")){
+				$("#modal_overlay").addClass("open");
+			} else {
+				$("#modal_overlay").removeClass("open");
+			}
+		});
 		$("#dashboard_panel_trigger").show();
 		return false;
 	});
@@ -86,6 +92,7 @@ $(function() {
 		// descendant of the container
 		if (!container.is(e.target) && container.has(e.target).length === 0) {
 			container.hide();
+			$("#modal_overlay").removeClass("open");
 		}
 	});
 	$("#fill_gaps").change(function() {
@@ -859,7 +866,9 @@ function saveLayout(grid) {
 }
 
 function resetDefaults() {
-	$("#modify_dashboard_panel").toggle("slide", { direction: "right" }, "fast");
+	$("#modify_dashboard_panel").toggle("slide", { direction: "right" }, "fast", function(){
+		$("#modal_overlay").removeClass("open");
+	});
 	var reset_url = url + "&resetDefaults=1&type=" + dashboard_type;
 	if (typeof projectId !== 'undefined') {
 		reset_url += "&project_id=" + projectId;
