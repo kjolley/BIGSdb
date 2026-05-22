@@ -135,7 +135,6 @@ sub print_content {
 		$cleaned_locus = q();
 	}
 	$cleaned_locus = qq( - $cleaned_locus) if $cleaned_locus;
-	$self->_print_modify_search_fieldset;
 	say qq(<h1>Sequence attribute search$cleaned_locus</h1>);
 	my $qry;
 	if (   !defined $q->param('currentpage')
@@ -148,6 +147,7 @@ sub print_content {
 			{ message => q(This interface requires that you enable Javascript in your browser.) } );
 		say q(</noscript>);
 		$self->_print_interface;
+		$self->_print_modify_search_fieldset;
 	}
 	if ( defined $q->param('submit') || defined $q->param('query_file') || defined $q->param('t1') ) {
 		if ( $locus eq q() ) {

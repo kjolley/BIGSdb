@@ -76,7 +76,6 @@ sub print_content {
 	if    ( $q->param('no_header') )    { $self->_ajax_content; return }
 	elsif ( $q->param('save_options') ) { $self->_save_options; return }
 	my $title = $self->get_title;
-	$self->_print_modify_search_fieldset;
 	say qq(<h1>$title</h1>);
 	my $qry;
 	my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1 } );
@@ -92,6 +91,7 @@ sub print_content {
 		say q(<noscript><div class="box statusbad"><p>This interface requires )
 		  . q(that you enable Javascript in your browser.</p></div></noscript>);
 		return if $self->_print_interface;    #Returns 1 if scheme is invalid
+		$self->_print_modify_search_fieldset;
 	}
 	$self->_run_query if $q->param('submit') || defined $q->param('query_file');
 	return;

@@ -109,7 +109,6 @@ sub print_content {
 	$cleaned =~ tr/_/ /;
 	my $title = $self->get_title;
 	say qq(<h1>$title</h1>);
-	$self->_print_modify_search_fieldset;
 	my $qry;
 	if (   !defined $q->param('currentpage')
 		|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
@@ -121,6 +120,7 @@ sub print_content {
 			{ message => q(This interface requires that you enable Javascript in your browser.) } );
 		say q(</noscript>);
 		$self->_print_interface;
+		$self->_print_modify_search_fieldset;
 	}
 	if ( $q->param('submit') || defined $q->param('query_file') || defined $q->param('t1') ) {
 		$self->_run_query;

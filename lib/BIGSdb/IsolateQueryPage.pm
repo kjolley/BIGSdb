@@ -254,7 +254,7 @@ sub print_content {
 		return if $self->embargo;
 	}
 	my $title = $self->get_title;
-	
+
 	$self->_print_bookmark_fieldset;
 	say qq(<h1>$title</h1>);
 	my $qry;
@@ -265,9 +265,9 @@ sub print_content {
 		say q(<noscript><div class="box statusbad"><p>This interface requires that you enable Javascript )
 		  . q(in your browser.</p></div></noscript>);
 		$self->_print_interface;
+		$self->_print_modify_search_fieldset;
 	}
 	$self->_run_query if $q->param('submit') || defined $q->param('query_file');
-	$self->_print_modify_search_fieldset;
 	$self->print_modify_dashboard_fieldset( { no_filters => 1 } )
 	  if $self->dashboard_enabled( { query_dashboard => 1 } ) && !$self->{'no_dashboard'};
 	return;
@@ -1234,6 +1234,7 @@ sub _print_modify_search_fieldset {
 	say qq(<li class="fieldset_trigger" id="show_filters">$filters_fieldset_display);
 	say q(Filters</li>);
 	say q(</ul>);
+
 	if ( $self->{'seqbin_fieldset_exists'} ) {
 		say q(<h3>Assembly</h3><ul class="toggle">);
 		my $seqbin_fieldset_display = $self->_should_display_fieldset('seqbin') ? ON : OFF;
