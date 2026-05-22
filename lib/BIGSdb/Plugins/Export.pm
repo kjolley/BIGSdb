@@ -21,7 +21,7 @@ package BIGSdb::Plugins::Export;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugin);
+use parent        qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use BIGSdb::Constants qw(:interface);
@@ -71,7 +71,7 @@ sub get_initiation_values {
 }
 
 sub get_plugin_javascript {
-	my ( $on, $off, $save ) = ( ON, OFF, SAVE);
+	my ( $on, $off, $save ) = ( ON, OFF, SAVE );
 	my $js = << "END";
 function enable_ref_controls(){
 	if (\$("#m_references").prop("checked")){
@@ -534,7 +534,7 @@ sub run {
 		$self->_save_options;
 		return;
 	}
-	$self->_print_modify_search_fieldset;
+
 	say q(<h1>Export dataset</h1>);
 	if ( ( $self->{'system'}->{'DatasetExport'} // q() ) eq 'no' ) {
 		$self->print_bad_status( { message => q(Dataset exports are disabled.) } );
@@ -650,6 +650,7 @@ sub run {
 		return;
 	}
 	$self->_print_interface;
+	$self->_print_modify_search_fieldset;
 	return;
 }
 
@@ -1579,10 +1580,11 @@ sub _print_modify_search_fieldset {
 	say q(<h2>Modify form parameters</h2>);
 	say q(<p class="modal_description">Click to add or remove additional export category selections:</p>)
 	  . q(<h3>General</h3><ul class="toggle">);
-	  my $options_display = $self->{'plugin_prefs'}->{'options_fieldset'} ? ON : OFF;
+	my $options_display = $self->{'plugin_prefs'}->{'options_fieldset'} ? ON : OFF;
 	say qq(<li class="fieldset_trigger" id="show_options">$options_display);
 	say q(General options</li>);
 	say q(</ul><h3>Metadata</h3><ul class="toggle">);
+
 	if ( $self->{'eav_fieldset'} ) {
 		my $eav_fieldset_display = $self->{'plugin_prefs'}->{'eav_fieldset'} ? ON : OFF;
 		say qq(<li class="fieldset_trigger" id="show_eav">$eav_fieldset_display);
@@ -1596,19 +1598,21 @@ sub _print_modify_search_fieldset {
 	my $refs_display = $self->{'plugin_prefs'}->{'refs_fieldset'} ? ON : OFF;
 	say qq(<li class="fieldset_trigger" id="show_refs">$refs_display);
 	say q(References</li>);
-	say q(</ul><h3>Schemes</h3><ul class="toggle">);
-	if ( $self->{'classification_fieldset'} ) {
-		my $classification_display = $self->{'plugin_prefs'}->{'classification_fieldset'} ? ON : OFF;
-		say qq(<li class="fieldset_trigger" id="show_classification">$classification_display);
-		say q(Classification schemes</li>);
+	if ( $self->{'classification_fieldset'} || $self->{'lincode_fieldset'} ) {
+		say q(</ul><h3>Schemes</h3><ul class="toggle">);
+		if ( $self->{'classification_fieldset'} ) {
+			my $classification_display = $self->{'plugin_prefs'}->{'classification_fieldset'} ? ON : OFF;
+			say qq(<li class="fieldset_trigger" id="show_classification">$classification_display);
+			say q(Classification schemes</li>);
+		}
+		if ( $self->{'lincode_fieldset'} ) {
+			my $lincode_display = $self->{'plugin_prefs'}->{'lincode_fieldset'} ? ON : OFF;
+			say qq(<li class="fieldset_trigger" id="show_lincode">$lincode_display);
+			say q(LIN code prefixes</li>);
+		}
 	}
-	if ( $self->{'lincode_fieldset'} ) {
-		my $lincode_display = $self->{'plugin_prefs'}->{'lincode_fieldset'} ? ON : OFF;
-		say qq(<li class="fieldset_trigger" id="show_lincode">$lincode_display);
-		say q(LIN code prefixes</li>);
-	}
-	say q(</ul><h3>Private data</h3><ul class="toggle">);
 	if ( $self->{'private_fieldset'} ) {
+		say q(</ul><h3>Private data</h3><ul class="toggle">);
 		my $private_display = $self->{'plugin_prefs'}->{'private_fieldset'} ? ON : OFF;
 		say qq(<li class="fieldset_trigger" id="show_private">$private_display);
 		say q(Private records</li>);
@@ -1622,7 +1626,7 @@ sub _print_modify_search_fieldset {
 	my $molwt_display = $self->{'plugin_prefs'}->{'molwt_fieldset'} ? ON : OFF;
 	say qq(<li class="fieldset_trigger" id="show_molwt">$molwt_display);
 	say q(Molecular weights</li>);
-	
+
 	say q(</ul>);
 	my $save = SAVE;
 	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)

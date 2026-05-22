@@ -254,7 +254,7 @@ sub print_content {
 		return if $self->embargo;
 	}
 	my $title = $self->get_title;
-	$self->_print_modify_search_fieldset;
+	
 	$self->_print_bookmark_fieldset;
 	say qq(<h1>$title</h1>);
 	my $qry;
@@ -267,6 +267,7 @@ sub print_content {
 		$self->_print_interface;
 	}
 	$self->_run_query if $q->param('submit') || defined $q->param('query_file');
+	$self->_print_modify_search_fieldset;
 	$self->print_modify_dashboard_fieldset( { no_filters => 1 } )
 	  if $self->dashboard_enabled( { query_dashboard => 1 } ) && !$self->{'no_dashboard'};
 	return;
