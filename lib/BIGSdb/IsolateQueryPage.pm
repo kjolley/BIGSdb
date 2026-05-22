@@ -4482,7 +4482,13 @@ $panel_js
 	});
 	setFilterTriggers();
 	\$("#bookmark_trigger,#close_bookmark").click(function(){		
-		\$("#bookmark_panel").toggle("slide",{direction:"right"},"fast");
+		\$("#bookmark_panel").toggle("slide",{direction:"right"},"fast",function(){
+			if (\$("#bookmark_panel").is(":visible")){
+				\$("#modal_overlay").addClass("open");
+			} else {
+				\$("#modal_overlay").removeClass("open");
+			}
+		});		
 		return false;
 	});
 	\$("#bookmark_trigger").show();

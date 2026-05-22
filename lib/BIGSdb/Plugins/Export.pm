@@ -120,7 +120,13 @@ function enable_tag_controls(){
  		\$("span#example_private").css("color",\$('#private_fg').val());
  	});
  	\$("#panel_trigger,#close_trigger").click(function(){			
-		\$("#modify_panel").toggle("slide",{direction:"right"},"fast");
+		\$("#modify_panel").toggle("slide",{direction:"right"},"fast", function(){
+			if (\$("#modify_panel").is(":visible")){
+				\$("#modal_overlay").addClass("open");
+			} else {
+				\$("#modal_overlay").removeClass("open");
+			}
+		});
 		return false;
 	});
  	\$("#panel_trigger").show();
@@ -133,6 +139,7 @@ function enable_tag_controls(){
 		if (!container.is(e.target) && container.has(e.target).length === 0 && 
 		!trigger.is(e.target) && trigger.has(e.target).length === 0) {
 			container.hide();
+			\$("#modal_overlay").removeClass("open");
 		}
 	});
 	\$(".fieldset_trigger").click(function(event) {
