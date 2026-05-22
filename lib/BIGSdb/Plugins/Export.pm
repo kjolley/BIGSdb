@@ -1,6 +1,6 @@
 #Export.pm - Export plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2025, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -139,7 +139,13 @@ function enable_tag_controls(){
 		if (!container.is(e.target) && container.has(e.target).length === 0 && 
 		!trigger.is(e.target) && trigger.has(e.target).length === 0) {
 			container.hide();
-			\$("#modal_overlay").removeClass("open");
+			\$("#modal_overlay").removeClass("open");			
+		}
+		container = \$("#onboarding");
+		if (!container.is(e.target) && container.has(e.target).length === 0 && 
+		!trigger.is(e.target) && trigger.has(e.target).length === 0) {
+			container.hide();
+			\$("#modal_overlay").removeClass("open");			
 		}
 	});
 	\$(".fieldset_trigger").click(function(event) {
@@ -188,10 +194,12 @@ function enable_tag_controls(){
 	});
 	if (!localStorage.getItem('export_onboarding_202411')) {
         \$('#onboarding').show();
+        \$("#modal_overlay").addClass("open");
         localStorage.setItem('export_onboarding_202411', 'true');
     }
     \$('#close_onboarding').click(function() {
         \$('#onboarding').hide();
+        \$("#modal_overlay").removeClass("open");
     });
     //Reset form if not visible, e.g. after reloading.
 	let fieldsets = ['eav','composite','refs','private','classification','analysis','lincode','molwt','options'];
@@ -650,7 +658,6 @@ sub run {
 		return;
 	}
 	$self->_print_interface;
-	$self->_print_modify_search_fieldset;
 	return;
 }
 
@@ -674,10 +681,11 @@ sub _get_excel_formatting {
 
 sub _print_onboarding {
 	my ($self) = @_;
-	say q(<div id="onboarding" style="max-width:300px"><h2 style="color:white">More options</h2>)
+	say q(<div id="onboarding" style="max-width:300px">)
+	  . q(<a class="close_trigger" id="close_onboarding"><span class="fas fa-times"></span></a>)
+	  . q(<h2>More options</h2>)
 	  . q(<p>Please note that some export options are now hidden by default but are available for )
-	  . q(selection by clicking the 'Modify Form' tab at the top-right of the page.</p>)
-	  . q(<button id="close_onboarding">Close</button></div>);
+	  . q(selection by clicking the 'Modify Form' tab at the top-right of the page.</p></div>);
 	return;
 }
 
@@ -732,6 +740,7 @@ sub _print_interface {
 	say $q->hidden($_) foreach qw (db page name set_id);
 	say $q->end_form;
 	say q(</div></div>);
+	$self->_print_modify_search_fieldset;
 	return;
 }
 

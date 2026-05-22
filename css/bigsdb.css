@@ -1278,7 +1278,8 @@ a.tooltips_disabled {
 a#close_trigger,
 a#close_related_db,
 a#close_bookmark,
-a#close_dashboard_trigger {
+a#close_dashboard_trigger,
+a#close_onboarding {
 	color: #aaa;
 	font-weight: 600;
 	text-decoration: none;
@@ -1288,7 +1289,8 @@ a#close_dashboard_trigger {
 a#close_trigger:hover,
 a#close_related_db:hover,
 a#close_bookmark:hover,
-a#close_dashboard_trigger:hover {
+a#close_dashboard_trigger:hover,
+a#close_onboarding_trigger:hover {
 	color: #6b7280;
 }
 
@@ -2159,11 +2161,11 @@ div#onboarding {
 	left: 50%;
 	transform: translate(-50%, -50%);
 	padding: 20px;
-	color: #ffffff;
-	background-color: #7879bf;
-	border: 2px solid #ccc;
-	border-radius: 15px;
-	box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+	background: #fbfcfd;
+	border: 1px solid #dde4ec;
+	border-radius: 12px;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10),
+			0 2px 8px rgba(0, 0, 0, 0.05);
 	z-index: 10
 }
 
