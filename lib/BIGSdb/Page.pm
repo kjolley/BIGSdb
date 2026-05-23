@@ -3731,8 +3731,7 @@ sub print_navigation_bar {
 		$buffer .= qq(<a href="$url" class="button">$back Back</a>);
 	}
 	if ( $options->{'change_password'} ) {
-		$buffer .= qq(<a href="$options->{'change_password'}" class="button" )
-		  . qq(style="margin-right:1em">$key Set password</a>);
+		$buffer .= qq(<a href="$options->{'change_password'}" class="button">$key Set password</a>);
 	}
 	if ( $options->{'closed_submissions'} ) {
 		$buffer .=

@@ -141,13 +141,6 @@ function enable_tag_controls(){
 			container.hide();
 			\$("#modal_overlay").removeClass("open");			
 		}
-		trigger = \$("#close_onboarding");
-		container = \$("#onboarding");
-		if (!container.is(e.target) && container.has(e.target).length === 0 && 
-		!trigger.is(e.target) && trigger.has(e.target).length === 0 && container.is(':visible')) {
-			container.hide();
-			\$("#modal_overlay").removeClass("open");			
-		}
 	});
 	\$(".fieldset_trigger").click(function(event) {
 		let show = '$on';
@@ -682,11 +675,12 @@ sub _get_excel_formatting {
 
 sub _print_onboarding {
 	my ($self) = @_;
+	my $ok = OKAY;
 	say q(<div id="onboarding" style="max-width:300px">)
-	  . q(<a class="close_trigger" id="close_onboarding"><span class="fas fa-times"></span></a>)
 	  . q(<h2>More options</h2>)
 	  . q(<p>Please note that some export options are now hidden by default but are available for )
-	  . q(selection by clicking the 'Modify Form' tab at the top-right of the page.</p></div>);
+	  . q(selection by clicking the 'Modify Form' tab at the top-right of the page.</p>)
+	  . qq(<p style="text-align:center"><a class="button" id="close_onboarding">$ok OK</a></p></div>);
 	return;
 }
 

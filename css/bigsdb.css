@@ -841,10 +841,10 @@ div.main_content {
 }
 
 div#modal_overlay {
-    position: fixed;
-    inset: 0;
+	position: fixed;
+	inset: 0;
 	background: rgba(30, 40, 55, 0.12);
-	z-index:8;
+	z-index: 8;
 	opacity: 0;
 	visibility: hidden;
 	transition: opacity 0.15s ease;
@@ -1278,8 +1278,7 @@ a.tooltips_disabled {
 a#close_trigger,
 a#close_related_db,
 a#close_bookmark,
-a#close_dashboard_trigger,
-a#close_onboarding {
+a#close_dashboard_trigger {
 	color: #aaa;
 	font-weight: 600;
 	text-decoration: none;
@@ -1289,8 +1288,7 @@ a#close_onboarding {
 a#close_trigger:hover,
 a#close_related_db:hover,
 a#close_bookmark:hover,
-a#close_dashboard_trigger:hover,
-a#close_onboarding_trigger:hover {
+a#close_dashboard_trigger:hover {
 	color: #6b7280;
 }
 
@@ -1973,7 +1971,7 @@ div#restricted {
 
 div#statuswarn,
 div.statuswarn {
-	min-height:5em;
+	min-height: 5em;
 	background: #f4f6f8;
 	border: 1px solid #d6e3f3;
 	color: #1d3557;
@@ -1983,7 +1981,7 @@ div.statuswarn {
 
 div#statusgood,
 div.statusgood {
-	min-height:5em;
+	min-height: 5em;
 	background: #f4f6f8;
 	border: 1px solid #d6e3f3;
 	color: #1d3557;
@@ -1993,7 +1991,7 @@ div.statusgood {
 
 div#statusbad,
 div.statusbad {
-	min-height:5em;
+	min-height: 5em;
 	background: #f4f6f8;
 	border: 1px solid #d6e3f3;
 	color: #1d3557;
@@ -2165,7 +2163,7 @@ div#onboarding {
 	border: 1px solid #dde4ec;
 	border-radius: 12px;
 	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10),
-			0 2px 8px rgba(0, 0, 0, 0.05);
+		0 2px 8px rgba(0, 0, 0, 0.05);
 	z-index: 10
 }
 
