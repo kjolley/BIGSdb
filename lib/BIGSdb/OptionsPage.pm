@@ -20,7 +20,7 @@ package BIGSdb::OptionsPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Page);
+use parent        qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Constants qw(:interface);
@@ -213,7 +213,10 @@ sub get_javascript {
 	\$("#provenance_field_display").columnize({width:300,buildOnce:true});
 	\$("#sparse_field_display").columnize({width:300,buildOnce:true});
 	\$("#dropdown_query_filters").columnize({width:400,buildOnce:true});
-	\$("#accordion").accordion({heightStyle:"content"});
+	\$("#accordion").accordion({
+		  heightStyle:"content",
+		  icons: false
+	});
 	\$(".batch").css("display","inline");
 	\$("div.box").css("visibility","visible");
 });
@@ -225,7 +228,8 @@ sub _print_general_options {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $prefs  = $self->{'prefs'};
-	say q(<h2>General options</h2><div class="options"><div class="scrollable">);
+	say q(<h2><span class="fas fa-chevron-right" style="margin-right:1em"></span>General options</h2>)
+	  . q(<div class="options"><div class="scrollable">);
 	say q(<ul id="general">);
 	say q(<li><span style="white-space:nowrap"><label for="displayrecs">Display </label>);
 	say $q->popup_menu(
@@ -278,7 +282,7 @@ sub _print_general_options {
 			);
 			say q(</li>);
 		} else {
-			say $q->hidden(query_dashboard => 'on');
+			say $q->hidden( query_dashboard => 'on' );
 		}
 	}
 	say q(<li>);
@@ -297,7 +301,8 @@ sub _print_main_results_options {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $prefs  = $self->{'prefs'};
-	say q(<h2>Main results table - display options</h2>);
+	say
+q(<h2><span class="fas fa-chevron-right" style="margin-right:1em"></span>Main results table - display options</h2>);
 	say q(<div class="options">);
 	my $options = [
 		{
@@ -352,7 +357,7 @@ sub _print_isolate_record_options {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $prefs  = $self->{'prefs'};
-	say q(<h2>Isolate record display</h2>);
+	say q(<h2><span class="fas fa-chevron-right" style="margin-right:1em"></span>Isolate record display</h2>);
 	say q(<div class="options">);
 	say q(<ul id="isolate_record">);
 	say q(<li>);
@@ -390,7 +395,8 @@ sub _print_main_results_field_options {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $prefs  = $self->{'prefs'};
-	say q(<h2>Main results table - provenance field selection</h2>);
+	say q(<h2><span class="fas fa-chevron-right" style="margin-right:1em"></span>)
+	  . q(Main results table - provenance field selection</h2>);
 	say q(<div><p>Select the isolate provenance fields that you wish to be displayed in the main results )
 	  . q(table following a query. Settings for displaying locus and scheme data can be made by performing a )
 	  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=loci">)
@@ -429,7 +435,7 @@ sub _print_main_results_field_options {
 			say q(</li>);
 			push @js,  qq(\$("#$id").prop("checked",true));
 			push @js2, qq(\$("#$id").prop("checked",false));
-			my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+			my $thisfield         = $self->{'xmlHandler'}->get_field_attributes($field);
 			my $maindisplay_value = ( $thisfield->{'maindisplay'} // '' ) eq 'no' ? 'false' : 'true';
 			push @js3, qq(\$("#$id").prop("checked",$maindisplay_value));
 			my $extatt = $self->{'extended'}->{$field};
@@ -503,7 +509,8 @@ sub _print_main_results_sparse_field_options {
 	my $prefs      = $self->{'prefs'};
 	my $eav_fields = $self->{'datastore'}->get_eav_fields;
 	return if !@$eav_fields;
-	say q(<h2>Main results table - secondary metadata selection</h2>);
+	say q(<h2><span class="fas fa-chevron-right" style="margin-right:1em"></span>)
+	  . q(Main results table - secondary metadata selection</h2>);
 	say q(<div><p>Select the isolate fields that you wish to be displayed in the main results table )
 	  . q(following a query.</p>);
 	my ( @js, @js2 );
@@ -525,7 +532,7 @@ sub _print_main_results_sparse_field_options {
 		say q(</li>);
 		push @js,  qq(\$("#$id").prop("checked",true));
 		push @js2, qq(\$("#$id").prop("checked",false));
-		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($field);
+		my $thisfield         = $self->{'xmlHandler'}->get_field_attributes($field);
 		my $maindisplay_value = ( $thisfield->{'maindisplay'} // '' ) eq 'no' ? 'false' : 'true';
 	}
 	say q(</ul>);
@@ -543,7 +550,7 @@ sub _print_isolate_query_fields_options {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $prefs  = $self->{'prefs'};
-	say q(<h2>Query filters</h2>);
+	say q(<h2><span class="fas fa-chevron-right" style="margin-right:1em"></span>Query filters</h2>);
 	say q(<div><p>Select the fields for which you would like dropdown lists containing known values )
 	  . q(on which to filter query results. These will be available in the filters section of the query )
 	  . q(interface.</p>);

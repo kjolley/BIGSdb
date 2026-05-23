@@ -569,13 +569,13 @@ input.submit {
 	cursor: pointer;
 	padding: 10px 20px;
 	border: 0;
-	background: #2F9FDB;
+	background: #4f7db8;
 	border-radius: 4px;
 	font-family: 'pt_sansbold';
 	font-size: 20px;
 	line-height: 130%;
 	letter-spacing: 0.06em;
-	text-transform: uppercase;
+	text-transform: capitalize;
 	color: #FFFFFF;
 }
 
@@ -587,7 +587,7 @@ button.small_submit {
 	border: 0;
 	cursor: pointer;
 	padding: 1px 10px;
-	background: #2F9FDB;
+	background: #4f7db8;
 	color: #FFFFFF;
 	cursor: pointer;
 	white-space: nowrap;
@@ -613,15 +613,15 @@ input.submit_disabled:hover {
 a.reset,
 input.reset {
 	padding: 8px 20px;
-	border: 2px solid #2F9FDB;
+	border: 2px solid #4f7db8;
 	background: #FFFFFF;
 	border-radius: 4px;
 	font-family: 'pt_sansbold';
 	font-size: 20px;
 	line-height: 130%;
 	letter-spacing: 0.06em;
-	text-transform: uppercase;
-	color: #2F9FDB;
+	text-transform: capitalize;
+	color: #4f7db8;
 }
 
 a.small_reset,
@@ -1137,7 +1137,18 @@ div.smooth_enlarge {
 }
 
 div.reset {
-	background: #d5d5e0;
+	background: #faf7f7;
+	border: 1px solid #eadede;
+}
+
+div.reset h2 {
+	color: #334356
+}
+
+div.reset input.reset:hover {
+	color: #880000;
+	border: 2px solid #880000;
+	cursor: pointer;
 }
 
 div.pagebar {
@@ -2016,8 +2027,10 @@ div#warning {
 
 div#resultsheader,
 div.resultsheader {
-	background: #d5e0d5;
-	padding: 1em
+	background: #f5f8fc;
+	border: 1px solid #dce7f2;
+	border-left: 4px solid #6f96c8;
+	padding: 0.5em 1em
 }
 
 div.largetable_resultsheader {
@@ -2439,11 +2452,6 @@ fieldset {
 	vertical-align: top;
 	border: 0;
 	border-top: 2px solid #ccc
-}
-
-div#accordion ul {
-	padding: 0 0 0 0.5em;
-	list-style: none
 }
 
 fieldset ul {
@@ -3320,6 +3328,39 @@ a.slide_trigger {
 	background: #ccc;
 	background-image: linear-gradient(to right, #f0f2f0 0em, #000c40 18em);
 }
+
+.ui-accordion-header.ui-state-active {
+	background: #edf4fb;
+	border-color: #d3e1f1;
+	color: #355274;
+}
+
+.ui-accordion-header.ui-accordion-header-collapsed {
+	background: #f7f8fa;
+	border: 1px solid #e2e7ee;
+	color: #475569;
+}
+
+.ui-accordion-header.ui-accordion-header-collapsed:hover {
+	background: #fafbfd;
+}
+
+.ui-accordion .ui-accordion-header { margin-bottom: 8px; }
+
+.ui-accordion h2.ui-accordion-header.ui-state-active span.fa-chevron-right  {
+	transform: rotate(90deg);
+	transition: transform 0.5s;
+}
+
+div#accordion ul {
+	padding: 0 0 0 0.5em;
+	list-style: none
+}
+
+div#accordion li {
+	margin-bottom: 6px
+}
+
 
 select {
 	appearance: none;
