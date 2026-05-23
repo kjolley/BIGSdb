@@ -1230,6 +1230,7 @@ qq(<span class="icon_button"><a id="toggle_tooltips" class="trigger_button secon
 
 sub _print_help_button {
 	my ($self) = @_;
+	return if $self->{'login'};
 	my $q = $self->{'cgi'};
 	if ( $q->param('page') && $q->param('page') eq 'plugin' && defined $self->{'pluginManager'} ) {
 		my $plugin_att = $self->{'pluginManager'}->get_plugin_attributes( scalar $q->param('name') );
