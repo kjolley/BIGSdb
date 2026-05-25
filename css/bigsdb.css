@@ -590,14 +590,13 @@ div.plugin_category_menu span.plugin_heading {
 span.plugin_icon {
 	color: #6c758b;
 	opacity: 0.8;
+	margin-right:0.2em
 }
 
 div.plugin_category_buttons {
 	margin-left: 8.5em;
 	margin-bottom: 0.2em
 }
-
-
 
 a.submit,
 input.submit {

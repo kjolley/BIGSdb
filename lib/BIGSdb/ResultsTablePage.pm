@@ -1617,7 +1617,7 @@ sub _print_plugin_buttons {
 				$category = 'Miscellaneous' if !$category;
 				$cat_buffer .=
 					q(<div class="plugin_category"><div class="plugin_category_menu">)
-				  . qq(<span class="fa-fw $icon{$category} plugin_icon" style="margin-right:0.2em"></span>)
+				  . qq(<span class="fa-fw $icon{$category} plugin_icon"></span>)
 				  . qq(<span class="plugin_heading">$category:</span></div>)
 				  . qq(<div class="plugin_category_buttons">$plugin_buffer</div></div>);
 			}

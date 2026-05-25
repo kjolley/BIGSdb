@@ -1283,8 +1283,6 @@ sub _print_modify_search_fieldset {
 		say qq(<li class="fieldset_trigger" id="show_analysis">$analysis_fieldset_display);
 		say q(Analysis results</li></ul>);
 	}
-
-	say q(</ul>);
 	my $save = SAVE;
 	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . qq(page=query&amp;save_options=1" style="display:none">$save Save options</a> <span id="saving"></span><br />);
