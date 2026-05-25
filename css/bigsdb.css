@@ -552,17 +552,52 @@ button.pagebar_selected:disabled {
 input.plugin_button {
 	border-radius: 3px;
 	font-family: 'pt_sansbold';
-	border: 0;
+	font-weight: 500;
 	cursor: pointer;
 	padding: 1px 10px;
-	background: #FADEA8;
-	color: #435973;
+	background: #eef3f8;
+	border: 1px solid #d4dde8;
+	color: #48617f;
 	cursor: pointer;
 }
 
 input.plugin_button:hover {
-	background: #F3AC26
+	background: #e2ebf5;
+	border-color: #bfd0e2;
+	color: #304a68;
 }
+
+div.plugin_category {
+	clear: both;
+	margin-bottom: 16px;
+	display: flow-root;
+}
+
+div.plugin_category_menu {
+	float: left;
+	text-align: right;
+	width: 8em;
+	white-space: nowrap;
+	margin-right: 0.5em
+}
+
+div.plugin_category_menu span.plugin_heading {
+	font: 600 18px ibm_plex_sans, sans-serif;
+	color: #585874;
+
+}
+
+span.plugin_icon {
+	color: #6c758b;
+	opacity: 0.8;
+}
+
+div.plugin_category_buttons {
+	margin-left: 8.5em;
+	margin-bottom: 0.2em
+}
+
+
 
 a.submit,
 input.submit {
@@ -2721,10 +2756,6 @@ span.main_icon {
 	text-shadow: 3px 3px 3px #999
 }
 
-span.plugin_icon {
-	color: #435973;
-}
-
 span.curate_icon_span {
 	position: absolute;
 	text-align: center;
@@ -3345,9 +3376,11 @@ a.slide_trigger {
 	background: #fafbfd;
 }
 
-.ui-accordion .ui-accordion-header { margin-bottom: 8px; }
+.ui-accordion .ui-accordion-header {
+	margin-bottom: 8px;
+}
 
-.ui-accordion h2.ui-accordion-header.ui-state-active span.fa-chevron-right  {
+.ui-accordion h2.ui-accordion-header.ui-state-active span.fa-chevron-right {
 	transform: rotate(90deg);
 	transition: transform 0.5s;
 }

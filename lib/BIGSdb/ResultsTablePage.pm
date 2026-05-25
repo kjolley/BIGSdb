@@ -1616,16 +1616,13 @@ sub _print_plugin_buttons {
 			if ($plugin_buffer) {
 				$category = 'Miscellaneous' if !$category;
 				$cat_buffer .=
-					q(<div><span style="float:left;text-align:right;width:8em;)
-				  . q(white-space:nowrap;margin-right:0.5em">)
-				  . qq(<span class="fa-fw fa-lg $icon{$category} plugin_icon" style="margin-right:0.2em">)
-				  . qq(</span>$category:</span>)
-				  . q(<div style="margin-left:8.5em;margin-bottom:0.2em">);
-				$cat_buffer .= $plugin_buffer;
-				$cat_buffer .= q(</div></div>);
+					q(<div class="plugin_category"><div class="plugin_category_menu">)
+				  . qq(<span class="fa-fw $icon{$category} plugin_icon" style="margin-right:0.2em"></span>)
+				  . qq(<span class="plugin_heading">$category:</span></div>)
+				  . qq(<div class="plugin_category_buttons">$plugin_buffer</div></div>);
 			}
 		}
-		say qq($cat_buffer<div style="clear:both"></div>) if $cat_buffer;
+		say $cat_buffer if $cat_buffer;
 	}
 	say q(</div>);
 	return;
