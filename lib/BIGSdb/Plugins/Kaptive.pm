@@ -1,6 +1,6 @@
 #Kaptive.pm - Kaptive wrapper for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2025, University of Oxford
+#Copyright (c) 2025-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -54,20 +54,20 @@ sub get_attributes {
 		description      => 'Wrapper for Kaptive',
 		full_description => 'Kaptive reports information about surface polysaccharide loci for <i>Klebsiella '
 		  . 'pneumoniae</i> species complex and <i>Acinetobacter baumannii</i> genome assemblies.',
-		category            => 'Third party',
+		category            => 'Analysis',
 		buttontext          => 'Kaptive',
 		menutext            => 'Kaptive',
 		module              => 'Kaptive',
-		version             => '1.0.1',
+		version             => '1.0.2',
 		dbtype              => 'isolates',
-		section             => 'third_party,isolate_info,postquery',
+		section             => 'analysis,isolate_info,postquery',
 		input               => 'query',
 		help                => 'tooltips',
 		requires            => 'offline_jobs,Kaptive,seqbin',
 		system_flag         => 'Kaptive',
 		explicit_enable     => 1,
 		url                 => "$self->{'config'}->{'doclink'}/data_analysis/kaptive.html",
-		order               => 37,
+		order               => 50,
 		min                 => 1,
 		max                 => $self->_get_max_records,
 		always_show_in_menu => 1,

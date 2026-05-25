@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2025, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -172,7 +172,9 @@ sub get_plugin_categories {
 	my ( $self, $section, $dbtype, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	return if $section !~ /postquery|info/x;
-	my ( @categories, %done );
+	my @preferred_order = qw(Breakdown Analysis Export External);
+	my ( @categories, %have );
+	my @possible = qw(Breakdown Analysis External Export);
 	foreach (
 		sort { ( $self->{'attributes'}->{$a}->{'order'} // 100 ) <=> ( $self->{'attributes'}->{$b}->{'order'} // 100 ) }
 		keys %{ $self->{'attributes'} }
@@ -186,18 +188,23 @@ sub get_plugin_categories {
 		  && $options->{'seqdb_type'}
 		  && ( $attr->{'seqdb_type'} // q() ) !~ /$options->{'seqdb_type'}/x;
 		if ( $attr->{'category'} ) {
-			if ( !$done{ $attr->{'category'} } ) {
+			if ( !$have{ $attr->{'category'} } ) {
 				push @categories, $attr->{'category'};
-				$done{ $attr->{'category'} } = 1;
+				$have{ $attr->{'category'} } = 1;
 			}
 		} else {
-			if ( !$done{''} ) {
+			if ( !$have{''} ) {
 				push @categories, '';
-				$done{''} = 1;
+				$have{''} = 1;
 			}
 		}
 	}
-	return \@categories;
+	my @ordered = grep { $have{$_} } @preferred_order;
+	my %in_pref = map { $_ => 1 } @preferred_order;
+	my @remaining = grep { $have{$_} && !$in_pref{$_} } @categories;
+	@remaining = sort { lc $a cmp lc $b } @remaining;
+	push @ordered, @remaining;
+	return \@ordered;
 }
 
 sub _valid_section {
@@ -256,8 +263,11 @@ sub get_appropriate_plugin_names {
 
 	foreach my $plugin (
 		sort {
-			( $self->{'attributes'}->{$a}->{$order} // 100 ) <=> ( $self->{'attributes'}->{$b}->{$order} // 100 )
-			  || lc( $self->{'attributes'}->{$a}->{$order} ) cmp lc( $self->{'attributes'}->{$b}->{$order} )
+				 ( $self->{'attributes'}->{$a}->{$order} // 100 ) <=> ( $self->{'attributes'}->{$b}->{$order} // 100 )
+			  || ( lc( $self->{'attributes'}->{$a}->{$order} // q() ) )
+			  cmp( lc( $self->{'attributes'}->{$b}->{$order} // q() ) )
+			  || ( lc( $self->{'attributes'}->{$a}->{'buttontext'} // q() ) )
+			  cmp( lc( $self->{'attributes'}->{$b}->{'buttontext'} // q() ) )
 		}
 		keys %{ $self->{'attributes'} }
 	  )

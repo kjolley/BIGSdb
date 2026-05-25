@@ -1,6 +1,6 @@
 #Microreact.pm - Phylogenetic tree/data visualization plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2017-2025, University of Oxford
+#Copyright (c) 2017-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -61,17 +61,17 @@ sub get_attributes {
 		  . 'generates Neighbour-joining trees from concatenated sequences for any selection of loci or schemes '
 		  . 'and uploads these, together with country and year field values, to the '
 		  . '<a href="https://microreact.org/">Microreact website</a> for display.',
-		category   => 'Third party',
+		category   => 'External',
 		buttontext => 'Microreact',
 		menutext   => 'Microreact',
 		module     => 'Microreact',
-		version    => '1.8.0',
+		version    => '1.8.1',
 		dbtype     => 'isolates',
-		section    => 'third_party,postquery',
+		section    => 'external,postquery',
 		input      => 'query',
 		help       => 'tooltips',
 		requires   => 'aligner,offline_jobs,js_tree,clustalw,microreact_token',
-		order      => 40,
+		order      => 50,
 		min        => 2,
 		max        => $self->{'system'}->{'microreact_record_limit'} // $self->{'config'}->{'microreact_record_limit'}
 		  // MAX_RECORDS,

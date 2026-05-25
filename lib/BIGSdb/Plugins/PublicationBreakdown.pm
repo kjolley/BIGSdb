@@ -51,7 +51,7 @@ sub get_attributes {
 		url                => "$self->{'config'}->{'doclink'}/data_query/0090_linked_publications.html",
 		input              => 'query',
 		requires           => 'ref_db',
-		order              => 30,
+		order              => 50,
 		system_flag        => 'Publications',
 		enabled_by_default => 1,
 		image              => '/images/plugins/Publications/screenshot.png'

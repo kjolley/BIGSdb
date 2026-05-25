@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,9 +20,9 @@ package BIGSdb::ProfileInfoPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::IsolateInfoPage);
+use parent            qw(BIGSdb::IsolateInfoPage);
 use BIGSdb::Constants qw(:interface);
-use Log::Log4perl qw(get_logger);
+use Log::Log4perl     qw(get_logger);
 use Try::Tiny;
 my $logger = get_logger('BIGSdb.Page');
 use constant MAX_LOCI_SHOW => 100;
@@ -129,7 +129,7 @@ sub _print_plugin_buttons {
 		Breakdown     => 'fas fa-chart-pie',
 		Export        => 'far fa-save',
 		Analysis      => 'fas fa-chart-line',
-		'Third party' => 'fas fa-external-link-alt',
+		External      => 'fas fa-external-link-alt',
 		Miscellaneous => 'far fa-file-alt'
 	);
 	my $set_id = $self->get_set_id;

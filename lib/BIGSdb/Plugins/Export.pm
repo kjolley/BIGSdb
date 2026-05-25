@@ -59,7 +59,7 @@ sub get_attributes {
 		requires           => 'ref_db,js_tree,offline_jobs',
 		help               => 'tooltips',
 		image              => '/images/plugins/Export/screenshot.png',
-		order              => 15,
+		order              => 20,
 		system_flag        => 'DatasetExport',
 		enabled_by_default => 1
 	);

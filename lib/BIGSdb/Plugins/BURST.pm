@@ -1,6 +1,6 @@
 #BURST.pm - BURST plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -58,11 +58,11 @@ sub get_attributes {
 		buttontext          => 'BURST',
 		menutext            => 'BURST',
 		module              => 'BURST',
-		version             => '1.2.4',
+		version             => '1.2.5',
 		dbtype              => 'isolates,sequences',
 		seqdb_type          => 'schemes',
 		section             => 'postquery,analysis',
-		order               => 12,
+		order               => 50,
 		system_flag         => 'BURST',
 		input               => 'query',
 		requires            => 'pk_scheme',

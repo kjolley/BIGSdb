@@ -1,6 +1,6 @@
 #SeqbinBreakdown.pm - SeqbinBreakdown plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -53,11 +53,11 @@ sub get_attributes {
 		menutext    => 'Sequence bin breakdown',
 		module      => 'SeqbinBreakdown',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/seqbin_breakdown.html",
-		version     => '1.9.0',
+		version     => '1.9.1',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
-		order       => 80,
+		order       => 50,
 		requires    => 'offline_jobs,js_tree,seqbin',
 		system_flag => 'SeqbinBreakdown',
 		image       => '/images/plugins/SeqbinBreakdown/screenshot.png'

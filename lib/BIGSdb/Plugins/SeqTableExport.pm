@@ -1,6 +1,6 @@
 #SeqTableExport.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2014-2024, University of Oxford
+#Copyright (c) 2014-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -41,12 +41,12 @@ sub get_attributes {
 		menutext    => 'Export table',
 		buttontext  => 'Table',
 		module      => 'SeqTableExport',
-		version     => '1.2.1',
+		version     => '1.2.2',
 		dbtype      => 'sequences',
 		seqdb_type  => 'sequences',
 		input       => 'query',
 		section     => 'postquery',
-		order       => 20
+		order       => 50
 	);
 	return \%att;
 }

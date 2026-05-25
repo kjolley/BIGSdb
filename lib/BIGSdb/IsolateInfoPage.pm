@@ -647,7 +647,7 @@ sub _print_plugin_buttons {
 		Breakdown     => 'fas fa-chart-pie',
 		Export        => 'far fa-save',
 		Analysis      => 'fas fa-chart-line',
-		'Third party' => 'fas fa-external-link-alt',
+		External      => 'fas fa-external-link-alt',
 		Miscellaneous => 'far fa-file-alt'
 	);
 	my $set_id = $self->get_set_id;

@@ -1,6 +1,6 @@
 #SequenceComparison.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2025, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -43,12 +43,12 @@ sub get_attributes {
 		module           => 'SequenceComparison',
 		url              =>
 		  "$self->{'config'}->{'doclink'}/data_query/0050_investigating_allele_differences.html#sequence-comparison",
-		version    => '1.1.1',
+		version    => '1.1.2',
 		dbtype     => 'sequences',
 		seqdb_type => 'sequences',
 		section    => 'analysis',
 		requires   => 'emboss',
-		order      => 11,
+		order      => 50,
 		image      => '/images/plugins/SequenceComparison/screenshot.png'
 	);
 	return \%att;

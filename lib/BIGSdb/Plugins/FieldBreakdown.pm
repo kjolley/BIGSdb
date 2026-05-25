@@ -21,10 +21,10 @@ package BIGSdb::Plugins::FieldBreakdown;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugin);
+use parent            qw(BIGSdb::Plugin);
 use BIGSdb::Constants qw(COUNTRIES TREEMAP_ICON);
-use Storable qw(dclone);
-use Log::Log4perl qw(get_logger);
+use Storable          qw(dclone);
+use Log::Log4perl     qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use JSON;
 
@@ -48,12 +48,12 @@ sub get_attributes {
 		buttontext => 'Fields',
 		menutext   => 'Field breakdown',
 		module     => 'FieldBreakdown',
-		version    => '2.10.1',
+		version    => '2.10.2',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
 		input      => 'query',
-		order      => 10,
+		order      => 20,
 		image      => '/images/plugins/FieldBreakdown/screenshot.png'
 	);
 	return \%att;

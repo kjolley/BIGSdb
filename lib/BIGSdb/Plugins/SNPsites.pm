@@ -53,11 +53,11 @@ sub get_attributes {
 		  . 'table including the number of alleles and polymorphic sites found for each locus, an interactive '
 		  . 'D3 chart that displays the summary, and ZIP files containing alignment FASTAs and VCF files for '
 		  . 'each locus.',
-		category   => 'Third party',
+		category   => 'Analysis',
 		buttontext => 'SNPsites',
 		menutext   => 'SNPsites',
 		module     => 'SNPsites',
-		version    => '1.1.1',
+		version    => '1.1.2',
 		dbtype     => 'isolates',
 		section    => 'analysis,postquery',
 		input      => 'query',
@@ -65,7 +65,7 @@ sub get_attributes {
 		requires   => 'aligner,offline_jobs,js_tree,snp_sites',
 		supports   => 'user_genomes',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/snp_sites.html",
-		order      => 80,
+		order      => 50,
 		min        => 2,
 		max        => $self->{'system'}->{'snpsites_record_limit'} // $self->{'config'}->{'snpsites_record_limit'}
 		  // MAX_RECORDS,

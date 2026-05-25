@@ -1,6 +1,6 @@
 #GeneScanner.pm - GeneScanner plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2024-2025, University of Oxford
+#Copyright (c) 2024-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -85,7 +85,7 @@ sub get_attributes {
 		help                => 'tooltips',
 		requires            => 'aligner,mafft,offline_jobs,genescanner,seqbin',
 		url                 => "$self->{'config'}->{'doclink'}/data_analysis/genescanner.html",
-		order               => 19,
+		order               => 50,
 		min                 => 2,
 		max                 => $self->_get_max_records,
 		always_show_in_menu => 1,
