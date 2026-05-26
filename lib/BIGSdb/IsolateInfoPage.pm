@@ -34,6 +34,7 @@ my $logger = get_logger('BIGSdb.Page');
 use constant ISOLATE_SUMMARY     => 1;
 use constant LOCUS_SUMMARY       => 2;
 use constant MAX_DISPLAY         => 1000;
+use constant HIDE_PROJECTS       => 3;
 use constant HIDE_PMIDS          => 4;
 use constant HIDE_PROJECT_LENGTH => 50;
 
@@ -95,19 +96,32 @@ sub get_javascript {
 		}
 		set_profile_widths();
 	});
-
-	\$('.expand_link').on('click', function(){	
-		var field = this.id.replace('expand_','');
-	  	if (\$('#' + field).hasClass('expandable_expanded')) {
-		  	\$('#' + field).switchClass('expandable_expanded','expandable_retracted',1000, "easeInOutQuad", function(){
-		  		\$('#expand_' + field).html('<span class="fas fa-chevron-down"></span>');
-		  	});	    
-	    } else {
-		  	\$('#' + field).switchClass('expandable_retracted','expandable_expanded',1000, "easeInOutQuad", function(){
-		  		\$('#expand_' + field).html('<span class="fas fa-chevron-up"></span>');
-		  	});	    
-	  }
-	});	
+	
+	\$("#show_projects").on("click", function(){
+		\$("div.hide_project").slideDown("fast");
+		\$("div.projects").removeClass("bottom_fade");
+		\$("p#show_projects").hide();
+		\$("p#hide_projects").show();
+	});
+	\$("#hide_projects").on("click", function(){
+		\$("div.hide_project").slideUp("fast");
+		\$("div.projects").addClass("bottom_fade");
+		\$("p#show_projects").show();
+		\$("p#hide_projects").hide();
+	});
+	\$("#show_refs").on("click", function(){
+		\$("li.hide_ref").slideDown("fast");
+		\$("div.references").removeClass("bottom_fade");
+		\$("p#show_refs").hide();
+		\$("p#hide_refs").show();
+	});
+	\$("#hide_refs").on("click", function(){
+		\$("li.hide_ref").slideUp("fast");
+		\$("div.references").addClass("bottom_fade");
+		\$("p#show_refs").show();
+		\$("p#hide_refs").hide();
+	});
+	
 	\$( "#show_common_names" ).click(function() {
 		if (\$("span#show_common_names_text").css('display') == 'none'){
 			\$("span#show_common_names_text").css('display', 'inline');
@@ -549,14 +563,17 @@ sub print_content {
 	say qq(<h1>Full information on $identifier</h1>);
 	$self->_print_action_panel($isolate_id) if $self->{'curate'};
 	$self->_print_projects($isolate_id);
+	$self->_show_private_owner($isolate_id);
 	say q(<div class="box" id="resultspanel">);
 	my $default_codon_table = $self->{'system'}->{'codon_table'} // DEFAULT_CODON_TABLE;
 	my $codon_table         = $self->{'datastore'}->get_codon_table($isolate_id);
+
 	if ( $codon_table != $default_codon_table ) {
 		my $tables = Bio::Tools::CodonTable->tables;
 		say q(<p>This isolate uses a different codon table than normal: )
 		  . qq(<span class="highlightvalue">$tables->{$codon_table}</span>.</p>);
 	}
+
 	say $self->get_isolate_record($isolate_id);
 	my $tree_button =
 		q( <span id="tree_button" style="margin-left:1em;display:none">)
@@ -1237,18 +1254,18 @@ sub _show_private_owner {
 		my $user_string    = $self->{'datastore'}->get_user_string($private_owner);
 		my $request_string = $request_publish ? q( - publication requested.) : q(.);
 		my $message =
-			q(<div class="private_record">)
-		  . q(<div style="display:inline-block;vertical-align:top">)
-		  . q(<span class="main_icon fas fa-2x fa-user-secret"></span></div>)
-		  . q(<div style="display:inline-block;margin-left:0.5em">Private record owned )
-		  . qq(by $user_string$request_string);
+			q(<div class="box private_record">)
+		  . q(<p><span class="fas fa-lock fa-3x fa-pull-left"></span></p>)
+		  . qq(<p><strong>Private record</strong> owned by $user_string$request_string);
 		if ( defined $embargo ) {
 			$message .= qq(<br /><strong>Embargoed until $embargo.</strong>);
 			$self->{'embargo'} = $embargo;
 		}
-		$message .= q(</div></div>);
-		return $message;
+		$message .= q(</p></div>);
+		say $message;
 	}
+	return;
+
 }
 
 sub _get_provenance_fields {
@@ -1260,7 +1277,7 @@ sub _get_provenance_fields {
 		$heading = $group;
 		$div_id  = $group;
 	} else {
-		$buffer .= $self->_show_private_owner($isolate_id);
+
 		$icon    = 'fas fa-globe';
 		$heading = 'Provenance/primary metadata';
 		$div_id  = 'provenance';
@@ -2450,9 +2467,13 @@ sub get_refs {
 		my $count  = @$pmids;
 		my $plural = $count > 1 ? 's' : '';
 		$buffer .= qq(<h2 style="display:inline">Publication$plural ($count)</h2>);
-		my $hide  = @$pmids > HIDE_PMIDS;
-		my $class = $hide ? q(expandable_retracted) : q();
-		$buffer .= qq(<div id="references" style="overflow:hidden" class="$class"><ul>);
+
+		$buffer .=
+		  @$pmids > HIDE_PMIDS
+		  ? q(<div class="references bottom_fade">)
+		  : q(<div class="references">);
+		my $i = 0;
+		$buffer .= q(<ul>);
 		my $citations = $self->{'datastore'}->get_citation_hash(
 			$pmids,
 			{
@@ -2464,17 +2485,25 @@ sub get_refs {
 		);
 
 		foreach my $pmid ( sort { $citations->{$a} cmp $citations->{$b} } @$pmids ) {
-			$buffer .= qq(<li style="padding-bottom:1em">$citations->{$pmid});
+			$i++;
+			my $class = $i > HIDE_PMIDS
+			  ? q( class="hide_ref" style="display:none")
+			  : q();
+			$buffer .= qq(<li$class>$citations->{$pmid} );
 			$buffer .= $self->get_link_button_to_ref($pmid);
 			$buffer .= qq(</li>\n);
 		}
 		$buffer .= qq(</ul></div>\n);
-		if ($hide) {
-			$buffer .=
-			  q(<div class="expand_link" id="expand_references"><span class="fas fa-chevron-down"></span></div>);
+		if ( $i > HIDE_PMIDS ) {
+			my $missing = $i - HIDE_PMIDS;
+			my ( $eye_show, $eye_hide ) = ( EYE_SHOW, EYE_HIDE );
+			$plural = $missing == 1 ? q() : q(s);
+			$buffer .= qq(<p id="show_refs">$eye_show Show $missing more publication$plural<p>);
+			$buffer .= qq(<p id="hide_refs" style="display:none">$eye_hide Hide extra publication$plural</p>);
 		}
 		$buffer .= q(</div>);
 	}
+
 	return $buffer;
 }
 
@@ -2896,7 +2925,8 @@ sub _get_scheme_annotation_metrics {
 sub _print_projects {
 	my ( $self, $isolate_id ) = @_;
 	my $projects = $self->{'datastore'}->run_query(
-		q[SELECT short_description,full_description FROM projects WHERE full_description IS NOT NULL AND ]
+		q[SELECT short_description || ' <span class="public">public</span>' AS short_description,]
+		  . q[full_description FROM projects WHERE full_description IS NOT NULL AND ]
 		  . q[isolate_display AND NOT private AND id IN (SELECT project_id FROM project_members WHERE isolate_id=?) ]
 		  . q[ORDER BY id],
 		$isolate_id,
@@ -2905,7 +2935,8 @@ sub _print_projects {
 	if ( $self->{'username'} ) {
 		my $user_info        = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 		my $private_projects = $self->{'datastore'}->run_query(
-			q[SELECT short_description||' (private)' AS short_description,full_description FROM projects WHERE ]
+			q[SELECT short_description||' <span class="private">private</span>' AS short_description,]
+			  . q[full_description FROM projects WHERE ]
 			  . q[length(full_description)>0 AND private AND id IN (SELECT project_id FROM project_members WHERE ]
 			  . q[isolate_id=?) AND id IN (SELECT project_id FROM merged_project_users WHERE user_id=?) ORDER BY id],
 			[ $isolate_id, $user_info->{'id'} ],
@@ -2916,22 +2947,36 @@ sub _print_projects {
 	if (@$projects) {
 		say q(<div class="box" id="projects">);
 		say q(<span class="info_icon fas fa-2x fa-fw fa-list-alt fa-pull-left" style="margin-top:0.3em"></span>);
-		say q(<h2>Projects</h2>);
-		my $hide  = @$projects > 1;
-		my $class = $hide ? q(expandable_retracted) : q();
-		say qq(<div id="project_list" style="overflow:hidden" class="$class">);
+		my $project_count = @$projects;
+		say qq(<h2>Projects ($project_count)</h2>);
+		my $hide = @$projects > 3;
+
 		my $plural = @$projects == 1 ? '' : 's';
 		say qq(<p>This isolate is a member of the following project$plural:</p>);
-		say q(<dl class="projects">);
+		say @$projects > HIDE_PROJECTS
+		  ? q(<div class="projects bottom_fade">)
+		  : q(<div class="projects">);
+		my $i = 0;
 
 		foreach my $project (@$projects) {
-			say qq(<dt>$project->{'short_description'}</dt>);
-			say qq(<dd>$project->{'full_description'}</dd>);
+			$i++;
+			my $class =
+			  $i > HIDE_PROJECTS
+			  ? q(class="project hide_project" style="display:none")
+			  : q(class="project");
+
+			say qq(<div $class>);
+			say qq(<h3>$project->{'short_description'}</h3>);
+			say qq(<p>$project->{'full_description'}</p>);
+			say q(</div>);
 		}
-		say q(</dl>);
 		say q(</div>);
-		if ($hide) {
-			say q(<div class="expand_link" id="expand_project_list"><span class="fas fa-chevron-down"></span></div>);
+		if ( $i > HIDE_PROJECTS ) {
+			my $missing = $i - HIDE_PROJECTS;
+			my ( $eye_show, $eye_hide ) = ( EYE_SHOW, EYE_HIDE );
+			$plural = $missing == 1 ? q() : q(s);
+			say qq(<p id="show_projects">$eye_show Show $missing more project$plural<p>);
+			say qq(<p id="hide_projects" style="display:none">$eye_hide Hide extra project$plural</p>);
 		}
 		say q(</div>);
 	}

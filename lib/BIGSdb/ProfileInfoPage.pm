@@ -684,6 +684,20 @@ sub get_javascript {
 	my ($self) = @_;
 	my $buffer = << "END";
 \$(function () {
+	\$("#show_refs").on("click", function(){
+		\$("li.hide_ref").slideDown("fast");
+		\$("div.references").removeClass("bottom_fade");
+		\$("p#show_refs").hide();
+		\$("p#hide_refs").show();
+	});
+	\$("#hide_refs").on("click", function(){
+		\$("li.hide_ref").slideUp("fast");
+		\$("div.references").addClass("bottom_fade");
+		\$("p#show_refs").show();
+		\$("p#hide_refs").hide();
+	});
+	
+	
 	\$('#expand_profile').on('click', function(){	  
 	  if (\$('#profile').hasClass('expandable_expanded')) {
 	  	\$('#profile').switchClass('expandable_expanded','expandable_retracted',1000, "easeInOutQuad", function(){

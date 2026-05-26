@@ -2291,7 +2291,6 @@ sub get_db_description {
 
 sub get_link_button_to_ref {
 	my ( $self, $ref, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
 	my $buffer;
 	my $qry = "SELECT COUNT(refs.isolate_id) FROM $self->{'system'}->{'view'} LEFT JOIN refs on refs.isolate_id="
 	  . "$self->{'system'}->{'view'}.id WHERE pubmed_id=? AND new_version IS NULL";

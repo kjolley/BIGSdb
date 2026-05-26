@@ -112,8 +112,8 @@ use constant RELOAD               => q(<span class="nav_icon fas fa-sync"></span
 use constant KEY                  => q(<span class="nav_icon fas fa-key"></span>);
 use constant OKAY                 => q(<span class="nav_icon fas fa-check"></span>);
 use constant BOOKMARK             => q(<span class="nav_icon far fa-bookmark"></span>);
-use constant EYE_SHOW             => q(<span class="nav_icon fas fa-2x fa-eye"></span>);
-use constant EYE_HIDE             => q(<span class="nav_icon fas fa-2x fa-eye-slash"></span>);
+use constant EYE_SHOW             => q(<span class="nav_icon fas fa-eye"></span>);
+use constant EYE_HIDE             => q(<span class="nav_icon fas fa-eye-slash"></span>);
 
 use constant EXPORT_TABLE => q(<span class="fa-stack fa-2x export">)
   . q(<span class="fas fa-square fa-stack-2x export_button"></span>)

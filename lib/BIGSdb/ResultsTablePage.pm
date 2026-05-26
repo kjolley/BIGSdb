@@ -1580,7 +1580,7 @@ sub _print_plugin_buttons {
 		External      => 'fas fa-external-link-alt',
 		Miscellaneous => 'far fa-file-alt'
 	);
-	say q(<h2>Analysis tools</h2>);
+	say q(<h2>Tools</h2>);
 	my $set_id = $self->get_set_id;
 
 	foreach my $category (@$plugin_categories) {

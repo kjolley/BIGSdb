@@ -451,9 +451,17 @@ div.field_warning {
 }
 
 div.private_record {
-	float: right;
-	padding: 0.5em 1em;
-	background: linear-gradient(to right, rgba(255, 255, 255, 0) 0%, rgba(255, 204, 204, 1) 15%, rgba(255, 204, 204, 1) 85%, rgba(255, 255, 255, 0) 100%)
+	min-height: 2em;
+	background: #f4f6f8;
+	border: 1px solid #d6e3f3;
+	color: #1d3557;
+	padding: 10px 10px 1px 20px;
+	border-left: 4px solid #b45c5c;
+}
+
+div.private_record span.fa-lock {
+	color: #b96a6a;
+	text-shadow: 1px 1px 1px #aaa
 }
 
 p.note {
@@ -596,6 +604,40 @@ span.plugin_icon {
 div.plugin_category_buttons {
 	margin-left: 8.5em;
 	margin-bottom: 0.2em
+}
+
+div.projects {
+	display: flex;
+	flex-flow: wrap;
+	gap: 15px
+}
+
+div.bottom_fade {
+	mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+}
+
+div.project {
+	padding: 10px;
+	max-width: 400px;
+	background: #fffeff;
+	border: 1px solid #aaa;
+	border-radius: 10px
+}
+
+div.references li {
+	padding-bottom: 1em;
+}
+
+p#show_projects,p#show_refs {
+	color: #6c758b;
+	margin: 12px 0 24px 24px;
+	cursor: pointer;
+}
+
+p#hide_projects,p#hide_refs {
+	color: #6c758b;
+	margin: 12px 0 24px 24px;
+	cursor: pointer;
 }
 
 a.submit,
@@ -1256,21 +1298,21 @@ div.bookmark_panel li span.created {
 	color: #000;
 }
 
-div.bookmark_panel li span.public {
+span.public {
 	display: inline-block;
 	font-size: 0.8em;
 	background: #e7f4ea;
 	color: #2d6b3f;
-	padding: 0 12px;
+	padding: 0 8px;
 	border-radius: 4px;
 }
 
-div.bookmark_panel li span.private {
+span.private {
 	display: inline-block;
 	font-size: 0.8em;
 	background: #f7e8e8;
 	color: #8c2f2f;
-	padding: 0 12px;
+	padding: 0 8px;
 	border-radius: 4px;
 }
 
@@ -2712,21 +2754,6 @@ span.data_title {
 	font-weight: bold;
 	color: #404080;
 	padding-right: 1em
-}
-
-.projects dt {
-	background-color: #666;
-	color: white;
-	padding: 0.1em;
-	font-weight: bold;
-	text-align: center;
-	border-radius: 4px
-}
-
-.projects dd {
-	margin: 0 0 1em 0;
-	text-align: left;
-	padding: 0.5em;
 }
 
 h3.scheme {
