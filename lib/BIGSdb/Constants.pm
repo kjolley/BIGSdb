@@ -98,9 +98,9 @@ use constant MEH                  => q(<span class="statusmeh fas fa-minus"></sp
 use constant TRUE                 => q(<span class="far fa-lg fa-check-square" style="font-size:0.95em"></span>);
 use constant FALSE                => q(<span class="far fa-lg fa-square" style="font-size:0.95em"></span>);
 use constant BAN                  => q(<span class="fas fa-ban" style="color:#a44"></span>);
-use constant DOWNLOAD             => q(<span class="fas fa-download" style="color:#44a"></span>);
-use constant LOCK                 => q(<span class="fas fa-lock" style="color:#a44"></span>);
-use constant UNLOCK               => q(<span class="fas fa-lock-open" style="color:#4a4"></span>);
+use constant DOWNLOAD             => q(<span class="fas fa-download" style="color:#44a;opacity:0.8"></span>);
+use constant LOCK                 => q(<span class="fas fa-lock" style="color:#8c2f2f;opacity:0.8"></span>);
+use constant UNLOCK               => q(<span class="fas fa-lock-open" style="color:#2d6b3f"></span>);
 use constant BACK                 => q(<span class="nav_icon fas fa-arrow-circle-left"></span>);
 use constant QUERY_MORE           => q(<span class="nav_icon fas fa-search"></span>);
 use constant EDIT_MORE            => q(<span class="nav_icon fas fa-pencil-alt"></span>);

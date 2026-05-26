@@ -1324,9 +1324,8 @@ sub _print_bookmark_fieldset {
 		  . qq($public</div></a></li>);
 	}
 	say q(</ul></div>);
-	my $icon = BOOKMARK;
 	say qq(<p style="margin-top:1em"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . qq(page=bookmarks" class="button">$icon Manage bookmarks</a></p>);
+	  . q(page=bookmarks" class="small_submit"><span class="far fa-bookmark"></span> Manage bookmarks</a></p>);
 	say q(</div>);
 	return;
 }

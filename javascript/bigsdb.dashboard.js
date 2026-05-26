@@ -74,8 +74,8 @@ $(function() {
 		}
 	});
 	$("#dashboard_panel_trigger,#close_dashboard_trigger").click(function() {
-		$("#modify_dashboard_panel").toggle("slide", { direction: "right" }, "fast", function(){
-			if ($("#modify_dashboard_panel").is(":visible")){
+		$("#modify_dashboard_panel").toggle("slide", { direction: "right" }, "fast", function() {
+			if ($("#modify_dashboard_panel").is(":visible")) {
 				$("#modal_overlay").addClass("open");
 			} else {
 				$("#modal_overlay").removeClass("open");
@@ -90,7 +90,7 @@ $(function() {
 
 		// if the target of the click isn't the container nor a
 		// descendant of the container
-		if (!container.is(e.target) && container.has(e.target).length === 0) {
+		if (!container.is(e.target) && container.has(e.target).length === 0 && container.is(':visible')) {
 			container.hide();
 			$("#modal_overlay").removeClass("open");
 		}
@@ -866,7 +866,7 @@ function saveLayout(grid) {
 }
 
 function resetDefaults() {
-	$("#modify_dashboard_panel").toggle("slide", { direction: "right" }, "fast", function(){
+	$("#modify_dashboard_panel").toggle("slide", { direction: "right" }, "fast", function() {
 		$("#modal_overlay").removeClass("open");
 	});
 	var reset_url = url + "&resetDefaults=1&type=" + dashboard_type;
