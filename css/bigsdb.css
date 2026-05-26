@@ -457,12 +457,17 @@ div.private_record {
 }
 
 p.note {
-	margin-top: 0.5em;
 	display: inline-block;
-	padding: 0.2em;
-	background: #edd;
-	box-shadow: 1px 1px 1px #666;
-	border-radius: 3px;
+	min-height: 3em;
+	background: transparent;	
+	color: #1d3557;
+	padding: 10px 10px 1px 20px;
+	border-left: 4px solid #ff9944;
+}
+
+span.note {
+	font-weight: 600;
+	color: #880000
 }
 
 p.key {
@@ -488,11 +493,6 @@ p.progress {
 	font-size: 1.5em;
 	color: #404080;
 	line-height: 130%;
-}
-
-span.note {
-	font-weight: 600;
-	color: #e00
 }
 
 .button,
@@ -665,8 +665,8 @@ input.small_reset {
 	font-family: 'pt_sansbold';
 	cursor: pointer;
 	padding: 0 10px;
-	color: #2F9FDB;
-	border: 1px solid #2F9FDB;
+	color: #4f7db8;
+	border: 1px solid #4f7db8;
 	font-family: 'pt_sansbold';
 }
 
@@ -2485,7 +2485,7 @@ fieldset {
 	display: inline;
 	vertical-align: top;
 	border: 0;
-	border-top: 2px solid #ccc
+	border-top: 2px solid #e0e0e0
 }
 
 fieldset ul {
@@ -2571,9 +2571,11 @@ fieldset label.display {
 
 legend {
 	font-size: 1.1em;
-	padding-bottom: 0.3em;
+	padding: 0 8px 0.3em 8px;
+	font-family:ibm_plex_sans;
+	font-weight:500;
 	margin-left: 1em;
-	color: navy
+	color: #58657a
 }
 
 div.tree {

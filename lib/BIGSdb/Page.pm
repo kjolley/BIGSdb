@@ -3724,8 +3724,8 @@ sub print_navigation_bar {
 	if ( $options->{'submission_id'} ) {
 		$buffer .=
 			qq(<a href="$script?db=$self->{'instance'}&amp;page=submit&amp;)
-		  . qq(submission_id=$options->{'submission_id'}&amp;curate=1" title="Return to submission" )
-		  . qq(style="margin-right:1em">$back</a>);
+		  . qq(submission_id=$options->{'submission_id'}&amp;curate=1" class="button">)
+		  . qq($back Return to submission</a>);
 	} elsif ( $options->{'back_url'} || $options->{'back_page'} ) {
 		my $page = $options->{'back_page'} // 'index';
 		my $url  = $options->{'back_url'}  // "$script?db=$self->{'instance'}&amp;page=$page";
@@ -3754,13 +3754,11 @@ sub print_navigation_bar {
 		  qq(<a href="$options->{'upload_contigs_url'}" class="button">) . qq($upload_contigs Upload contigs</a>);
 	}
 	if ( $options->{'link_contigs_url'} ) {
-		$buffer .=
-		  qq(<a href="$options->{'link_contigs_url'}" class="button">$link_contigs Link remote contigs</a>);
+		$buffer .= qq(<a href="$options->{'link_contigs_url'}" class="button">$link_contigs Link remote contigs</a>);
 	}
 	if ( $options->{'reload_url'} ) {
 		$options->{'reload_text'} //= 'Reload scan form';
-		$buffer .=
-		  qq(<a href="$options->{'reload_url'}" class="button">$reload $options->{'reload_text'}</a>);
+		$buffer .= qq(<a href="$options->{'reload_url'}" class="button">$reload $options->{'reload_text'}</a>);
 	}
 	if ( $options->{'update_url'} ) {
 		$buffer .= qq(<a href="$options->{'update_url'}" class="button">$edit Update record</a>);
