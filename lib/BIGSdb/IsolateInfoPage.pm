@@ -680,7 +680,7 @@ sub _print_plugin_buttons {
 				$cat_buffer .=
 					q(<div><span style="float:left;text-align:right;width:8em;)
 				  . q(white-space:nowrap;margin-right:0.5em">)
-				  . qq(<span class="fa-fw fa-lg $icon{$category} info_plugin_icon" style="margin-right:0.2em">)
+				  . qq(<span class="fa-fw fa-lg $icon{$category} plugin_icon" style="margin-right:0.2em">)
 				  . qq(</span>$category:</span>)
 				  . q(<div style="margin-left:8.5em;margin-bottom:0.2em">);
 				$cat_buffer .= $plugin_buffer;

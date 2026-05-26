@@ -2826,17 +2826,10 @@ span.curate_icon {
 
 span.info_icon {
 	color: #477;
-	text-shadow: 2px 2px 2px #999
 }
 
 span.subinfo_icon {
 	color: #66a;
-	text-shadow: 2px 2px 2px #999
-}
-
-span.info_plugin_icon {
-	color: #66a;
-	text-shadow: 2px 2px 2px #999
 }
 
 span.nav_icon {
