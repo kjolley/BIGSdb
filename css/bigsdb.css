@@ -459,7 +459,7 @@ div.private_record {
 p.note {
 	display: inline-block;
 	min-height: 3em;
-	background: transparent;	
+	background: transparent;
 	color: #1d3557;
 	padding: 10px 10px 1px 20px;
 	border-left: 4px solid #ff9944;
@@ -590,7 +590,7 @@ div.plugin_category_menu span.plugin_heading {
 span.plugin_icon {
 	color: #6c758b;
 	opacity: 0.8;
-	margin-right:0.2em
+	margin-right: 0.2em
 }
 
 div.plugin_category_buttons {
@@ -1223,6 +1223,59 @@ div.panel ul.toggle li {
 div.panel ul.toggle li:hover {
 	cursor: pointer;
 	background: rgba(0, 0, 0, 0.025);
+}
+
+div.bookmark_panel {
+	max-height: 400px;
+	overflow-y: auto;
+	padding-right: 2em;
+	border: 1px solid #dde4ec
+}
+
+div.bookmark_panel ul {
+	list-style: none;
+}
+
+div.bookmark_panel li {
+	padding: 14px 16px;
+	border-bottom: 1px solid #e7ebef;
+}
+
+div.bookmark_panel li:hover {
+	background: #f7f9fc;
+}
+
+div.bookmark_panel li span.name {
+	color: #58657a;
+	font-weight: 600;
+}
+
+div.bookmark_panel li span.created {
+	display: block;
+	font-size: 0.8em;
+	color: #000;
+}
+
+div.bookmark_panel li span.public {
+	display: inline-block;
+	font-size: 0.8em;
+	background: #e7f4ea;
+	color: #2d6b3f;
+	padding: 0 12px;
+	border-radius: 4px;
+}
+
+div.bookmark_panel li span.private {
+	display: inline-block;
+	font-size: 0.8em;
+	background: #f7e8e8;
+	color: #8c2f2f;
+	padding: 0 12px;
+	border-radius: 4px;
+}
+
+div.bookmark_panel li a {
+	text-decoration: none;
 }
 
 p.modal_description {
@@ -2572,8 +2625,8 @@ fieldset label.display {
 legend {
 	font-size: 1.1em;
 	padding: 0 8px 0.3em 8px;
-	font-family:ibm_plex_sans;
-	font-weight:500;
+	font-family: ibm_plex_sans;
+	font-weight: 500;
 	margin-left: 1em;
 	color: #58657a
 }

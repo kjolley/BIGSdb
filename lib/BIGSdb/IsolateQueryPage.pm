@@ -334,9 +334,9 @@ sub print_panel_buttons {
 		}
 		my $bookmarks = $self->_get_bookmarks;
 		if (@$bookmarks) {
-			say
-q(<span class="icon_button"><a class="trigger_button primary_trigger" id="bookmark_trigger" style="display:none">)
-			  . q(<span class="far fa-lg fa-bookmark"></span><span class="icon_label">Bookmarks</span></a></span>);
+			say q(<span class="icon_button"><a class="trigger_button primary_trigger" id="bookmark_trigger" )
+			  . q(style="display:none"><span class="far fa-lg fa-bookmark"></span>)
+			  . q(<span class="icon_label">Bookmarks</span></a></span>);
 		}
 	}
 	return;
@@ -1297,7 +1297,8 @@ sub _get_bookmarks {
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	return [] if !$user_info;
 	my $bookmarks =
-	  $self->{'datastore'}->run_query( 'SELECT id,name,dbase_config FROM bookmarks WHERE user_id=? ORDER BY name',
+	  $self->{'datastore'}->run_query(
+		'SELECT id,name,dbase_config,date_entered,last_accessed,public FROM bookmarks WHERE user_id=? ORDER BY name',
 		$user_info->{'id'}, { fetch => 'all_arrayref', slice => {} } );
 	return $bookmarks;
 }
@@ -1309,16 +1310,24 @@ sub _print_bookmark_fieldset {
 	say q(<div id="bookmark_panel" class="panel" style="display:none">);
 	say q(<a class="close_trigger" id="close_bookmark"><span class="fas fa-times"></span></a>);
 	say q(<h2>Bookmarks</h2>);
-	say q(<div><div style="max-height:12em;overflow-y:auto;padding-right:2em;border:1px solid #dde4ec">)
-	  . q(<ul style="margin-left:-1em">);
+	say q(<div class="bookmark_panel"><ul>);
+
 	foreach my $bookmark (@$bookmarks) {
-		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$bookmark->{'dbase_config'}&amp;)
-		  . qq(page=query&amp;bookmark=$bookmark->{'id'}">$bookmark->{'name'}</a></li>);
+		my $public =
+		  $bookmark->{'public'}
+		  ? '<span class="public">public</span>'
+		  : '<span class="private">private</span>';
+		  say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$bookmark->{'dbase_config'}&amp;)
+		  . qq(page=query&amp;bookmark=$bookmark->{'id'}"><div>)
+		  . qq(<span class="name">$bookmark->{'name'}</span>)
+		  . qq(<span class="created"><strong>Created: </strong>$bookmark->{'date_entered'}</span>)
+		  . qq($public</div></a></li>);
 	}
 	say q(</ul></div>);
+	my $icon = BOOKMARK;
 	say qq(<p style="margin-top:1em"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . q(page=bookmarks">Manage bookmarks</a></p>);
-	say q(</div></div>);
+	  . qq(page=bookmarks" class="button">$icon Manage bookmarks</a></p>);
+	say q(</div>);
 	return;
 }
 

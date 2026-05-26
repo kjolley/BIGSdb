@@ -111,6 +111,7 @@ use constant HOME                 => q(<span class="nav_icon fas fa-2x fa-home">
 use constant RELOAD               => q(<span class="nav_icon fas fa-sync"></span>);
 use constant KEY                  => q(<span class="nav_icon fas fa-key"></span>);
 use constant OKAY                 => q(<span class="nav_icon fas fa-check"></span>);
+use constant BOOKMARK             => q(<span class="nav_icon far fa-bookmark"></span>);
 use constant EYE_SHOW             => q(<span class="nav_icon fas fa-2x fa-eye"></span>);
 use constant EYE_HIDE             => q(<span class="nav_icon fas fa-2x fa-eye-slash"></span>);
 
@@ -228,7 +229,7 @@ use constant FLANKING => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000
 use constant MAX_ROWS => 20;
 @values = qw(FACE_STYLE SHOW HIDE ON OFF SAVE UP DOWN LEFT RIGHT
   EDIT DELETE ADD COMPARE UPLOAD UPLOAD_CHANGE_CONFIG QUERY USERS PENDING GOOD BAD MEH TRUE FALSE BAN DOWNLOAD
-  BACK QUERY_MORE EDIT_MORE UPLOAD_CONTIGS LINK_CONTIGS MORE HOME RELOAD KEY OKAY EYE_SHOW EYE_HIDE
+  BACK QUERY_MORE EDIT_MORE UPLOAD_CONTIGS LINK_CONTIGS MORE HOME RELOAD KEY OKAY BOOKMARK EYE_SHOW EYE_HIDE
   EXPORT_TABLE EXCEL_FILE TEXT_FILE FASTA_FILE FASTA_FLANKING_FILE PDF_FILE HTML_FILE
   EMBL_FILE GBK_FILE GFF3_FILE MISC_FILE ARCHIVE_FILE IMAGE_FILE ALIGN_FILE CODE_FILE FLANKING
   SUBMIT_BUTTON MAX_ROWS LOCK UNLOCK FIRST PREVIOUS NEXT LAST TOOLTIP WARNING_TOOLTIP TREEMAP_ICON);
