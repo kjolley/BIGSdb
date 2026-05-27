@@ -451,17 +451,21 @@ div.field_warning {
 }
 
 div.private_record {
-	min-height: 2em;
+	display: flex;
+	gap: 20px;
 	background: #f4f6f8;
 	border: 1px solid #d6e3f3;
 	color: #1d3557;
-	padding: 10px 10px 1px 20px;
 	border-left: 4px solid #b45c5c;
 }
 
 div.private_record span.fa-lock {
 	color: #b96a6a;
 	text-shadow: 1px 1px 1px #aaa
+}
+
+div.private_record p {
+	margin-bottom: 0
 }
 
 p.note {
@@ -1454,7 +1458,7 @@ td.header {
 }
 
 td.private_record {
-	background: #ebb
+	border-left: 4px solid #b96a6a;
 }
 
 tr.total {

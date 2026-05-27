@@ -1255,7 +1255,7 @@ sub _show_private_owner {
 		my $request_string = $request_publish ? q( - publication requested.) : q(.);
 		my $message =
 			q(<div class="box private_record">)
-		  . q(<p><span class="fas fa-lock fa-3x fa-pull-left"></span></p>)
+		  . q(<p><span class="fas fa-lock fa-2x fa-pull-left"></span></p>)
 		  . qq(<p><strong>Private record</strong> owned by $user_string$request_string);
 		if ( defined $embargo ) {
 			$message .= qq(<br /><strong>Embargoed until $embargo.</strong>);

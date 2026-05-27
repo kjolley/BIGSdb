@@ -155,7 +155,7 @@ sub _site_account {
 
 sub _show_registration_details {
 	my ($self) = @_;
-	say q(<h2>User details</h2>);
+	say q(<h2><span class="fas fa-chevron-right" style="margin-right:1em"></span>User details</h2>);
 	say q(<div><div class="scrollable">);
 	say q(<span class="main_icon fas fa-address-card fa-3x fa-pull-left"></span>);
 	say q(<p>You are registered with the following details. Please ensure that these are correct and use )
@@ -195,7 +195,7 @@ sub _show_submission_options {
 	my $prefs =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT * FROM curator_prefs WHERE user_name=?', $self->{'username'}, { fetch => 'row_hashref' } );
-	say q(<h2>Submission notifications</h2>);
+	say q(<h2><span class="fas fa-chevron-right" style="margin-right:1em"></span>Submission notifications</h2>);
 	say q(<div><div class="scrollable">);
 	$self->_update_submission_options;
 
@@ -576,7 +576,7 @@ sub _registrations {
 		undef, { fetch => 'col_arrayref' } );
 	return $buffer if !@$configs;
 	$self->{'panel'}++;
-	$buffer .= q(<h2>Database registrations</h2>);
+	$buffer .= q(<h2><span class="fas fa-chevron-right" style="margin-right:1em"></span>Database registrations</h2>);
 	$buffer .= q(<div>);
 	$buffer .= q(<span class="main_icon fas fa-list-alt fa-3x fa-pull-left"></span>);
 	$buffer .=
@@ -826,7 +826,8 @@ sub _api_keys {
 	return q() if !( $self->{'config'}->{'automated_api_keys'} && $self->{'config'}->{'site_user_dbs'} );
 	$self->{'panel'}++;
 	my $q      = $self->{'cgi'};
-	my $buffer = q(<h2>API keys</h2><div><span class="main_icon fas fa-key fa-3x fa-pull-left"></span>);
+	my $buffer = q(<h2><span class="fas fa-chevron-right" style="margin-right:1em"></span>)
+	  . q(API keys</h2><div><span class="main_icon fas fa-key fa-3x fa-pull-left"></span>);
 	if ( $self->{'config'}->{'data_access_api_keys'} ) {
 		$buffer .= q(<h2>API keys (Public data access)</h2><p>You can create a data access key for your account );
 		if ( $self->{'config'}->{'data_access_api_keys_private'} ) {
@@ -1154,7 +1155,8 @@ sub _import_dbase_config {
 	foreach my $config (@$dbase_configs) {
 		push @$available_configs, $config if !$registered{$config};
 	}
-	$buffer .= q(<h2>Enable database configurations for user registration</h2><div>);
+	$buffer .= q(<h2><span class="fas fa-chevron-right" style="margin-right:1em"></span>)
+	  . q(Enable database configurations for user registration</h2><div>);
 	$buffer .= q(<span class="config_icon fas fa-wrench fa-3x fa-pull-left"></span>);
 	if ( !@$registered_configs && !@$available_configs ) {
 		$buffer .=
@@ -1229,7 +1231,8 @@ sub _show_merge_user_accounts {
 	my ( $usernames, $labels ) = $self->_get_users;
 	return q() if !@$usernames;
 	$self->{'panel'}++;
-	my $buffer = q(<h2>Merge user accounts</h2><div>);
+	my $buffer =
+	  q(<h2><span class="fas fa-chevron-right" style="margin-right:1em"></span>) . q(Merge user accounts</h2><div>);
 	$buffer .= q(<span class="config_icon fas fa-wrench fa-3x fa-pull-left"></span>);
 	my $q = $self->{'cgi'};
 	$buffer .= $q->start_form;
@@ -1249,7 +1252,8 @@ sub _show_modify_users {
 	my ( $usernames, $labels ) = $self->_get_users;
 	return q() if !@$usernames;
 	$self->{'panel'}++;
-	my $buffer = q(<h2>Update user details</h2><div>);
+	my $buffer = q(<h2><span class="fas fa-chevron-right" style="margin-right:1em"></span>)
+	  . q(Update user details</h2><div>);
 	$buffer .= q(<span class="config_icon fas fa-wrench fa-3x fa-pull-left"></span>);
 	my $q = $self->{'cgi'};
 	$buffer .= $q->start_form;
@@ -1592,10 +1596,12 @@ JS
 	if (typeof active_panel !== 'undefined'){
  		\$("#accordion").accordion({
  			heightStyle: "content",
+ 			icons: false,
  			active: active_panel
  		});
  	} else {
  		\$("#accordion").accordion({
+ 			icons: false,
 	 		heightStyle: "content",
 	 	});
  	}
