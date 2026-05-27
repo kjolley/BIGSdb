@@ -2273,7 +2273,11 @@ div#resultstable p.comment {
 }
 
 div#abstract {
-	background: #d5d5e0
+	background: #f3f7fc;
+	border: 1px solid #d6e3f3;
+	color: #1d3557;
+	padding: 10px 10px 1px 10px;
+	border-left: 4px solid #d5d5e0;
 }
 
 div.banner {
