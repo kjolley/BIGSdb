@@ -97,7 +97,8 @@ sub blast_multiple_loci {
 		next DATATYPE if !@locus_list;
 		my $program        = $self->_get_program( $data_type, $params );
 		my $temp_fastafile = "$self->{'config'}->{'secure_tmp_dir'}/${locus_prefix}_fastafile_$data_type.txt";
-		return if $self->_create_fasta_index( \@locus_list, $temp_fastafile,
+		return
+		  if $self->_create_fasta_index( \@locus_list, $temp_fastafile,
 			{ exemplar => $params->{'exemplar'}, type_alleles => $params->{'type_alleles'}, multiple_loci => 1 } );
 		return if !-e $temp_fastafile || -z $temp_fastafile;
 		$self->{'db'}->commit;    #prevent idle in transaction table locks
@@ -183,7 +184,8 @@ sub blast {
 	$temp_fastafile =~ s/\\/\\\\/gx;
 	$temp_fastafile =~ s/'/__prime__/gx;
 	my $outfile_url = "${file_prefix}_${$}_outfile.txt";
-	return if $self->_create_fasta_index( [$locus], $temp_fastafile,
+	return
+	  if $self->_create_fasta_index( [$locus], $temp_fastafile,
 		{ exemplar => $params->{'exemplar'}, type_alleles => $params->{'type_alleles'} } );
 	$self->_create_query_fasta_file( $isolate_id, $temp_infile, $params );
 	my ( $probe_matches, $pcr_products );
@@ -2070,14 +2072,19 @@ sub _simulate_hybridization {
 
 sub _probe_filter_match {
 	my ( $self, $locus, $blast_match, $probe_matches ) = @_;
+
+	#TODO Requires matches to all probes. Add option to loci table to allow match to ANY.
+	use constant MATCH_ALL => 1;
 	my $good_match = 0;
+	my %matched_probe;
 	foreach my $match (@$probe_matches) {
-		if ( !$self->{'probe_locus'}->{$locus}->{ $match->{'probe_id'} } ) {
-			$self->{'probe_locus'}->{$locus}->{ $match->{'probe_id'} } = $self->{'datastore'}->run_query(
-				'SELECT * FROM probe_locus WHERE locus=? AND probe_id=?',
-				[ $locus, $match->{'probe_id'} ],
-				{ fetch => 'row_hashref' }
-			);
+		if ( !defined $self->{'probe_locus'}->{$locus} ) {
+			my $probe_locus =
+			  $self->{'datastore'}->run_query( 'SELECT * FROM probe_locus WHERE locus=?', $locus,
+				{ fetch => 'all_arrayref', slice => {} } );
+			foreach my $probe (@$probe_locus) {
+				$self->{'probe_locus'}->{$locus}->{ $probe->{'probe_id'} } = $probe;
+			}
 		}
 		next if $blast_match->{'seqbin_id'} != $match->{'seqbin_id'};
 		my $probe_distance = -1;
@@ -2093,6 +2100,10 @@ sub _probe_filter_match {
 		next
 		  if ( $probe_distance > $self->{'probe_locus'}->{$locus}->{ $match->{'probe_id'} }->{'max_distance'} )
 		  || $probe_distance == -1;
+		return 1 if !MATCH_ALL;
+		$matched_probe{ $match->{'probe_id'} } = 1;
+	}
+	if ( keys %matched_probe == keys %{ $self->{'probe_locus'}->{$locus} } ) {
 		return 1;
 	}
 	return 0;
