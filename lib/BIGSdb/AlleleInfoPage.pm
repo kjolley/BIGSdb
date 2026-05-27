@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2023, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,10 +20,11 @@ package BIGSdb::AlleleInfoPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Page);
-use List::MoreUtils qw(any uniq);
-use Log::Log4perl qw(get_logger);
+use parent            qw(BIGSdb::Page);
+use List::MoreUtils   qw(any uniq);
+use Log::Log4perl     qw(get_logger);
 use BIGSdb::Constants qw(:interface);
+use constant HIDE_PMIDS => 4;
 my $logger = get_logger('BIGSdb.Page');
 
 sub get_help_url {
@@ -320,7 +321,6 @@ sub _print_accessions {
 	my $qry = 'SELECT databank,databank_id FROM accession WHERE (locus,allele_id)=(?,?) ORDER BY databank,databank_id';
 	my $accession_list =
 	  $self->{'datastore'}->run_query( $qry, [ $locus, $allele_id ], { fetch => 'all_arrayref', slice => {} } );
-	my $hide = @$accession_list > 15;
 	if (@$accession_list) {
 		my $plural = @$accession_list > 1 ? q(s) : q();
 		my $count  = @$accession_list;
@@ -345,14 +345,10 @@ sub _print_accessions {
 			}
 			push @$accessions,
 			  { title => $accession->{'databank'}, data => $accession->{'databank_id'}, href => $href };
-		}
-		my $class = $hide ? q(expandable_retracted) : q();
-		say qq(<div id="accessions" style="overflow:hidden" class="$class">);
+		}		
+		say q(<div id="accessions">);
 		say $self->get_list_block( $accessions, { width => 6, columnize => 1 } );
 		say q(</div>);
-		if ($hide) {
-			say q(<div class="expand_link" id="expand_accessions"><span class="fas fa-chevron-down"></span></div>);
-		}
 	}
 	return;
 }
@@ -459,24 +455,38 @@ sub _print_ref_links {
 		[ $locus, $allele_id ],
 		{ fetch => 'col_arrayref' }
 	);
-	my $hide = @$pmids > 4;
+
 	if (@$pmids) {
 		my $count  = @$pmids;
 		my $plural = $count > 1 ? q(s) : q();
 		say q(<div><span class="info_icon far fa-2x fa-fw fa-newspaper fa-pull-left" )
 		  . q(style="margin-top:-0.2em"></span>);
 		say qq(<h2 style="display:inline">Publication$plural ($count)</h2>);
-		my $class = $hide ? q(expandable_retracted) : q();
-		say qq(<div id="references" style="overflow:hidden" class="$class"><ul>);
+
+		say @$pmids > HIDE_PMIDS
+		  ? q(<div class="references bottom_fade">)
+		  : q(<div class="references">);
+
+		my $i = 0;
+		say q(<ul>);
 		my $citations =
 		  $self->{'datastore'}->get_citation_hash( $pmids,
 			{ formatted => 1, all_authors => 1, state_if_unavailable => 1, link_pubmed => 1 } );
 		foreach my $pmid ( sort { $citations->{$a} cmp $citations->{$b} } @$pmids ) {
-			say qq(<li style="padding-bottom:1em">$citations->{$pmid}</li>);
+			$i++;
+			my $class =
+			  $i > HIDE_PMIDS
+			  ? q( class="hide_ref" style="display:none")
+			  : q();
+			say qq(<li$class>$citations->{$pmid}</li> );
 		}
 		say q(</ul></div>);
-		if ($hide) {
-			say q(<div class="expand_link" id="expand_references"><span class="fas fa-chevron-down"></span></div>);
+		if ( $i > HIDE_PMIDS ) {
+			my $missing = $i - HIDE_PMIDS;
+			my ( $eye_show, $eye_hide ) = ( EYE_SHOW, EYE_HIDE );
+			$plural = $missing == 1 ? q() : q(s);
+			say qq(<p id="show_refs">$eye_show Show $missing more publication$plural<p>);
+			say qq(<p id="hide_refs" style="display:none">$eye_hide Hide extra publication$plural</p>);
 		}
 	}
 	return;
@@ -486,30 +496,17 @@ sub get_javascript {
 	my ($self) = @_;
 	my $buffer = << "END";
 \$(function () {
-	\$('#expand_accessions').on('click', function(){	  
-	  if (\$('#accessions').hasClass('expandable_expanded')) {
-	  	\$('#accessions').switchClass('expandable_expanded','expandable_retracted',1000, "easeInOutQuad", function(){
-	  		\$('#expand_accessions').html('<span class="fas fa-chevron-down"></span>');
-	  	});
-	    
-	  } else {
-	  	\$('#accessions').switchClass('expandable_retracted','expandable_expanded',1000, "easeInOutQuad", function(){
-	  		\$('#expand_accessions').html('<span class="fas fa-chevron-up"></span>');
-	  	});
-	    
-	  }
+	\$("#show_refs").on("click", function(){
+		\$("li.hide_ref").slideDown("fast");
+		\$("div.references").removeClass("bottom_fade");
+		\$("p#show_refs").hide();
+		\$("p#hide_refs").show();
 	});
-	\$('#expand_references').on('click', function(){
-	  if (\$('#references').hasClass('expandable_expanded')) {
-	  	\$('#references').switchClass('expandable_expanded','expandable_retracted',1000, "easeInOutQuad", function(){
-	  		\$('#expand_references').html('<span class="fas fa-chevron-down"></span>');
-	  	});	    
-	  } else {
-	  	\$('#references').switchClass('expandable_retracted','expandable_expanded',1000, "easeInOutQuad", function(){
-	  		\$('#expand_references').html('<span class="fas fa-chevron-up"></span>');
-	  	});
-	    
-	  }
+	\$("#hide_refs").on("click", function(){
+		\$("li.hide_ref").slideUp("fast");
+		\$("div.references").addClass("bottom_fade");
+		\$("p#show_refs").show();
+		\$("p#hide_refs").hide();
 	});
 	\$("#accessions").columnize({width:300});
 });
