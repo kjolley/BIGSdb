@@ -1070,7 +1070,7 @@ sub check_record {
 	my @primary_key_query;
   ATT: foreach my $att (@$attributes) {
 		next if $update && $att->{'no_user_update'};
-		if ( $att->{'name'} =~ /sequence$/x ) {
+		if ( $att->{'name'} =~ /sequence$/x || $att->{'name'} =~ /^primer\d/x) {
 			$newdata->{ $att->{'name'} } = uc( $newdata->{ $att->{'name'} } // '' );
 			$newdata->{ $att->{'name'} } =~ s/\s//gx;
 		}
