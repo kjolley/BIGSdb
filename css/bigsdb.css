@@ -153,6 +153,7 @@ select.filter {
 	color: #000;
 	background: #fff;
 	vertical-align: bottom;
+	word-break: break-all;
 }
 
 select.fieldlist {
