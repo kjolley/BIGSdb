@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2025, University of Oxford
+#Copyright (c) 2017-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,7 +20,7 @@ package BIGSdb::Offline::SequenceQuery;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Offline::Blast BIGSdb::Page);
+use parent          qw(BIGSdb::Offline::Blast BIGSdb::Page);
 use List::MoreUtils qw(any uniq none);
 use BIGSdb::Exceptions;
 use BIGSdb::Utils;
@@ -1397,8 +1397,12 @@ sub get_alignment {
 	if ( -e $outfile ) {
 		my $cleaned_file = "$self->{'config'}->{'tmp_dir'}/${outfile_prefix}_cleaned.txt";
 		$self->_cleanup_alignment( $outfile, $cleaned_file );
-		$buffer .= qq(<p><a href="/tmp/${outfile_prefix}_cleaned.txt" id="alignment_link" data-rel="ajax">)
-		  . qq(Show alignment</a></p>\n);
+		my ( $show, $hide ) = ( EYE_SHOW, EYE_HIDE );
+		$buffer .=
+			qq(<p><a href="/tmp/${outfile_prefix}_cleaned.txt" id="alignment_link" data-rel="ajax" )
+		  . qq(class="button">$show Show alignment</a>)
+		  . qq(<a id="hide_alignment_link" class="button" style="display:none">$hide Hide alignment</a></p>\n)
+		  ;
 		$buffer .= q(<div class="scrollable">);
 		$buffer .= qq(<pre class="alignment"><span id="alignment"></span></pre></div>\n);
 	}

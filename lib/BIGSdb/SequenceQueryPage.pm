@@ -101,6 +101,11 @@ sub get_javascript {
 		\$("#options_off").toggle();
 		\$("#options_on").toggle();
 	});
+	\$("#hide_alignment_link").click(function(){
+		\$("#alignment").html("");
+		\$("#alignment_link").show();
+		\$("#hide_alignment_link").hide();
+	})
 	// hack to fix jquery 3.6 focus security patch that bugs auto search in select-2
 	\$(document).on('select2:open', () => {
    	   document.querySelector('.select2-search__field').focus();
@@ -162,6 +167,7 @@ function initiate() {
 function loadContent(url) {
 	\$("#alignment").html('<img src=\"/javascript/themes/default/throbber.gif\" /> Loading ...').load(url);
 	\$("#alignment_link").hide();
+	\$("#hide_alignment_link").show();
 }
 
 END
