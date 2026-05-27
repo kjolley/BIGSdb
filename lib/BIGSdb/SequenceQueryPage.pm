@@ -102,7 +102,9 @@ sub get_javascript {
 		\$("#options_on").toggle();
 	});
 	\$("#hide_alignment_link").click(function(){
-		\$("#alignment").html("");
+		\$("#alignment").slideUp("fast", function(){
+			\$("#alignment").empty();
+		});
 		\$("#alignment_link").show();
 		\$("#hide_alignment_link").hide();
 	})
@@ -165,6 +167,7 @@ function initiate() {
 }
 
 function loadContent(url) {
+	\$("#alignment").show();
 	\$("#alignment").html('<img src=\"/javascript/themes/default/throbber.gif\" /> Loading ...').load(url);
 	\$("#alignment_link").hide();
 	\$("#hide_alignment_link").show();
