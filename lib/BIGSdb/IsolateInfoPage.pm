@@ -91,6 +91,18 @@ sub get_javascript {
 	  	\$("a#retract_profile").hide();
 		});
 	});	
+	\$("a#expand_eav").on('click', function(){	
+		\$("#sparse").switchClass('expandable_retracted','expandable_expanded',250, "easeInOutQuad", function(){
+	  	\$("a#expand_eav").hide();
+	  	\$("a#retract_eav").show();
+		});
+	});	
+	\$("a#retract_eav").on('click', function(){	
+		\$("#sparse").switchClass('expandable_expanded','expandable_retracted',250, "easeInOutQuad", function(){
+	  	\$("a#expand_eav").show();
+	  	\$("a#retract_eav").hide();
+		});
+	});	
 	
 	\$(document).ajaxComplete(function(event, xhr, settings) {
 		// Ignore expand page preference update AJAX call
@@ -617,8 +629,8 @@ sub print_content {
 	say $self->get_isolate_record($isolate_id);
 	my ( $show, $hide ) = ( EYE_SHOW, EYE_HIDE );
 	my $tree_button =
-		qq(<a id="show_tree" class="button" style="margin-left:1em;display:none">$show Show tree</span></a>)
-	  . qq(<a id="hide_tree" class="button" style="margin-left:1em;display:none">$hide Hide tree</a></span>);
+		qq(<a id="show_tree" class="button" style="margin-left:1em;display:none">$show Show schemes</a>)
+	  . qq(<a id="hide_tree" class="button" style="margin-left:1em;display:none">$hide Hide schemes</a>);
 	my $common_names_button = $self->get_show_common_names_button;
 	my $aliases_button      = $self->get_show_aliases_button;
 	my $loci                = $self->{'datastore'}->get_loci( { set_id => $set_id } );
@@ -1853,8 +1865,11 @@ sub _get_secondary_metadata_fields {
 		$buffer .= q(<p class="feint">Click to close</p>);
 		$buffer .= qq(</div>\n);
 	}
+
 	if ($hide) {
-		$buffer .= q(<div class="expand_link" id="expand_sparse"><span class="fas fa-chevron-down"></span></div>);
+		my ( $eye_show, $eye_hide ) = ( EYE_SHOW, EYE_HIDE );
+		$buffer .= qq(<div style="margin-bottom:24px"><a class="button" id="expand_eav">$eye_show Show more fields</a>)
+		  . qq(<a class="button" id="retract_eav" style="display:none">$eye_hide Show fewer fields</a></div>);
 	}
 	return $buffer;
 }
@@ -2529,7 +2544,7 @@ sub get_refs {
 			my $missing = $i - HIDE_PMIDS;
 			my ( $eye_show, $eye_hide ) = ( EYE_SHOW, EYE_HIDE );
 			$plural = $missing == 1 ? q() : q(s);
-			$buffer .= qq(<a id="show_refs" class="button">$eye_show Show $missing more publication$plural<a>);
+			$buffer .= qq(<a id="show_refs" class="button">$eye_show Show $missing more publication$plural</a>);
 			$buffer .= q(<a id="hide_refs" class="button" style="display:none">)
 			  . qq($eye_hide Hide extra publication$plural</a>);
 		}
@@ -2813,7 +2828,7 @@ sub _get_annotation_metrics {
 		  . q(class="fa-regular fa-eye-slash"></span></a>)
 		  . qq(<ul id="metric_fields" style="display:none;text-align:left"><li>@field_list</li></ul></td>);
 		$prov_buffer .=
-			qq(<td>$prov_metrics->{'annotated'}</td></td>)
+			qq(<td>$prov_metrics->{'annotated'}</td>)
 		  . q(<td style="position:relative"><span )
 		  . qq(style="position:absolute;font-size:0.8em;margin-left:-0.5em">$score</span>)
 		  . qq(<div style="margin-top:0.2em;background-color:\#$colour;)
@@ -2998,7 +3013,7 @@ sub _print_projects {
 			  : q(class="project");
 
 			say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-			. qq(page=query&amp;project_list=$project->{'id'}&amp;submit=1"><div $class>);
+			  . qq(page=query&amp;project_list=$project->{'id'}&amp;submit=1"><div $class>);
 			say qq(<h3>$project->{'short_description'}</h3>);
 			say qq(<p class="description">$project->{'full_description'}</p>);
 			my $count = $self->{'datastore'}->run_query(
