@@ -629,8 +629,8 @@ sub print_content {
 	say $self->get_isolate_record($isolate_id);
 	my ( $show, $hide ) = ( EYE_SHOW, EYE_HIDE );
 	my $tree_button =
-		qq(<a id="show_tree" class="button" style="margin-left:1em;display:none">$show Show schemes</a>)
-	  . qq(<a id="hide_tree" class="button" style="margin-left:1em;display:none">$hide Hide schemes</a>);
+		qq(<a id="show_tree" class="button" style="margin-left:1em;display:none">$show Show scheme tree</a>)
+	  . qq(<a id="hide_tree" class="button" style="margin-left:1em;display:none">$hide Hide scheme tree</a>);
 	my $common_names_button = $self->get_show_common_names_button;
 	my $aliases_button      = $self->get_show_aliases_button;
 	my $loci                = $self->{'datastore'}->get_loci( { set_id => $set_id } );
@@ -852,11 +852,12 @@ sub _show_lincode_matches {
 		my $hide_table_class = @filtered ? ''      : "lc_table_$scheme->{'id'}";
 		local $" = q( );
 		if ( @unfiltered > @filtered ) {
+			my ( $eye_show, $eye_hide ) = ( EYE_SHOW, EYE_HIDE );
 			$buffer .=
-				qq(<p><a id="show_lcgroups_$scheme->{'id'}" class="show_lincode small_submit" )
-			  . q(style="display:inline"><span class="fa fas fa-eye"></span> Show all thresholds</a>)
-			  . qq(<a id="hide_lcgroups_$scheme->{'id'}" class="hide_lincode small_submit" style="display:none">)
-			  . q(<span class="fa fas fa-eye-slash"></span> Hide larger thresholds</a></p>);
+				qq(<p><a id="show_lcgroups_$scheme->{'id'}" class="show_lincode button" )
+			  . qq(style="display:inline">$eye_show Show all thresholds</a>)
+			  . qq(<a id="hide_lcgroups_$scheme->{'id'}" class="hide_lincode button" style="display:none">)
+			  . qq($eye_hide Hide larger thresholds</a></p>);
 		}
 		$buffer .=
 			q(<div class="scrollable">)
@@ -1000,12 +1001,13 @@ sub _format_classification_data {
 		  . q(<a id="hide_csgroups" class="small_submit" style="display:none">)
 		  . q(<span class="fa fas fa-eye-slash"></span> Hide groups</a></p>);
 	} elsif ( @unfiltered > @filtered ) {
+		my ( $eye_show, $eye_hide ) = ( EYE_SHOW, EYE_HIDE );
 		$buffer .=
 			q(<p>Some groups only contain this isolate. )
-		  . q(<a id="show_csgroups" class="small_submit" style="display:inline">)
-		  . q(<span class="fa fas fa-eye"></span> Show single groups</a>)
-		  . q(<a id="hide_csgroups" class="small_submit" style="display:none">)
-		  . q(<span class="fa fas fa-eye-slash"></span> Hide single groups</a></p>);
+		  . q(<a id="show_csgroups" class="button">)
+		  . qq($eye_show Show single groups</a>)
+		  . q(<a id="hide_csgroups" class="button" style="display:none">)
+		  . qq($eye_hide Hide single groups</a></p>);
 	}
 	$buffer .=
 	  qq(<p class="$hide_table_class" style="display:$filtered_display">Experimental schemes are subject to change and )
