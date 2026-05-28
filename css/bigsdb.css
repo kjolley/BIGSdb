@@ -627,12 +627,33 @@ div.bottom_fade {
 	mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
 }
 
+div.projects a, div.projects a:hover {
+	text-decoration: none;
+}
+
 div.project {
 	padding: 10px;
 	max-width: 400px;
 	background: #fffeff;
 	border: 1px solid #aaa;
-	border-radius: 10px
+	border-radius: 10px;
+	cursor: pointer
+}
+
+div.project:hover {
+	background: #fcfbfc;
+	border: 1px solid #a6a6a6;
+	}
+
+div.project p.description {
+	color: black;
+	opacity: 0.6
+}
+
+div.project p.count {
+	font-size: 1.2em;
+	color: #6c758b;
+	opacity: 0.8
 }
 
 div.references li {

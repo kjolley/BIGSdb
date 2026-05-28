@@ -2952,7 +2952,7 @@ sub _get_scheme_annotation_metrics {
 sub _print_projects {
 	my ( $self, $isolate_id ) = @_;
 	my $projects = $self->{'datastore'}->run_query(
-		q[SELECT short_description || ' <span class="public">public</span>' AS short_description,]
+		q[SELECT id,short_description || ' <span class="public">public</span>' AS short_description,]
 		  . q[full_description FROM projects WHERE full_description IS NOT NULL AND ]
 		  . q[isolate_display AND NOT private AND id IN (SELECT project_id FROM project_members WHERE isolate_id=?) ]
 		  . q[ORDER BY id],
@@ -2962,7 +2962,7 @@ sub _print_projects {
 	if ( $self->{'username'} ) {
 		my $user_info        = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 		my $private_projects = $self->{'datastore'}->run_query(
-			q[SELECT short_description||' <span class="private">private</span>' AS short_description,]
+			q[SELECT id,short_description||' <span class="private">private</span>' AS short_description,]
 			  . q[full_description FROM projects WHERE ]
 			  . q[length(full_description)>0 AND private AND id IN (SELECT project_id FROM project_members WHERE ]
 			  . q[isolate_id=?) AND id IN (SELECT project_id FROM merged_project_users WHERE user_id=?) ORDER BY id],
@@ -2992,10 +2992,20 @@ sub _print_projects {
 			  ? q(class="project hide_project" style="display:none")
 			  : q(class="project");
 
-			say qq(<div $class>);
+			say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			. qq(page=query&amp;project_list=$project->{'id'}&amp;submit=1"><div $class>);
 			say qq(<h3>$project->{'short_description'}</h3>);
-			say qq(<p>$project->{'full_description'}</p>);
-			say q(</div>);
+			say qq(<p class="description">$project->{'full_description'}</p>);
+			my $count = $self->{'datastore'}->run_query(
+				"SELECT COUNT(*) FROM project_members pm JOIN $self->{'system'}->{'view'} v "
+				  . 'ON pm.isolate_id=v.id WHERE project_id=? AND new_version IS NULL',
+				$project->{'id'},
+				{ cache => 'IsolateInfoPage::get_project_isolate_count' }
+			);
+			$plural = $count == 1 ? q() : q(s);
+			my $nice_count = BIGSdb::Utils::commify($count);
+			say qq(<p class="count">$nice_count isolate$plural</p>);
+			say q(</div></a>);
 		}
 		say q(</div>);
 		if ( $i > HIDE_PROJECTS ) {

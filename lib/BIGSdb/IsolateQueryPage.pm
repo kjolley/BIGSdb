@@ -1185,7 +1185,7 @@ sub _print_filters_fieldset_contents {
 	push @filters, $private_data_filter if $private_data_filter;
 	push @filters, $self->get_old_version_filter;
 	say q(<ul>);
-	say qq(<li><span style="white-space:nowrap">$_</span></li>) foreach @filters;
+	say qq(<li><span style="white-space:normal">$_</span></li>) foreach @filters;
 	say q(</ul>);
 	my ( $list, $labels ) = $self->_get_inactive_filters;
 
@@ -4388,7 +4388,8 @@ sub get_javascript {
  	\$('.multiselect').multiselect({
  		classes: 'filter',
  		menuHeight: 250,
- 		menuWidth: 400
+ 		menuWidth: 400,
+ 		selectedList: 1
  	}).multiselectfilter();
  	render_loaded_locuslists();
 $panel_js
@@ -4464,7 +4465,8 @@ $panel_js
          				\$('.multiselect').multiselect({
 					 		classes: 'filter',
 					 		menuHeight: 250,
-					 		menuWidth: 400
+					 		menuWidth: 400,
+					 		selectedList: 1
 					 	}).multiselectfilter();
 					 	setFilterTriggers();
          			} else {
@@ -4610,7 +4612,10 @@ function refresh_filters(){
 			\$("#" + key).val(list_values[key]);				
 		}
 		\$('.multiselect').multiselect({
-			classes: 'filter'
+			classes: 'filter',
+			menuHeight: 250,
+			menuWidth: 400,
+			selectedList: 1,
 		}).multiselectfilter();
 	});
 }
