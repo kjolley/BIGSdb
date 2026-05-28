@@ -92,7 +92,12 @@ sub get_javascript {
 		});
 	});	
 	
-	\$(document).ajaxComplete(function() {
+	\$(document).ajaxComplete(function(event, xhr, settings) {
+		// Ignore expand page preference update AJAX call
+	    if (settings.url.includes('expandPage')) {
+	        return;
+	    }
+	    console.log ('ajaxComplete');
 		reloadTooltips();
 		\$("a#hide_tree").css('display', 'inline');
 		if (\$("span").hasClass('aliases')){
