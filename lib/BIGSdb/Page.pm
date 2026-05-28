@@ -3080,7 +3080,7 @@ sub _initiate_isolatedb_general_prefs {
 	}
 
 	#Default off with options in config.xml
-	foreach my $att (qw(locus_aliases display_seqbin_size display_contig_count display_assembly_checks)) {
+	foreach my $att (qw(locus_alias display_seqbin_size display_contig_count display_assembly_checks)) {
 		my $default = ( $self->{'system'}->{$att} // '' ) eq 'yes' ? 'on' : 'off';
 		$general_prefs->{$att} //= $default // 'off';
 		$self->{'prefs'}->{$att} = $general_prefs->{$att} eq 'on' ? 1 : 0;

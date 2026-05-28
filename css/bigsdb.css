@@ -639,20 +639,6 @@ div.references li {
 	padding-bottom: 1em;
 }
 
-p#show_projects,
-p#show_refs {
-	color: #6c758b;
-	margin: 12px 0 24px 24px;
-	cursor: pointer;
-}
-
-p#hide_projects,
-p#hide_refs {
-	color: #6c758b;
-	margin: 12px 0 24px 24px;
-	cursor: pointer;
-}
-
 a.submit,
 input.submit {
 	cursor: pointer;
@@ -671,8 +657,9 @@ input.submit {
 a.small_submit,
 input.small_submit,
 button.small_submit {
-	display: flex;
+	display: inline-flex;
 	align-items: center;
+	gap: 6px;
 	border-radius: 3px;
 	font-family: 'pt_sansbold';
 	border: 0;
