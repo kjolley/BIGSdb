@@ -146,6 +146,7 @@ $button_text_js
 	  				\$("a#save_options").hide();
 	  				\$("span#saving").text('');
 	  				\$("a#save_options").html('$save');
+	  				\$("#modal_overlay").removeClass("open");
 	  				\$("#modify_panel").toggle("slide",{direction:"right"},"fast");
 	  			}
 	  		});
