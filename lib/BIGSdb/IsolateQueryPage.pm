@@ -4600,23 +4600,17 @@ function render_locuslists(selector){
 }
 
 function refresh_filters(){
-	var list_values = [];
-	var url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query&no_header=1&fieldset=filters";
+	const list_values = [];
+	const url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query&no_header=1&fieldset=filters";
 	\$("fieldset#filters_fieldset select[id\$='_list']").each(function (index){
 		list_values[\$(this).attr('id')] =  \$(this).val();
 	});
 	\$("fieldset#filters_fieldset div")
 	.load(url, function(){			
 		reloadTooltips();
-		for (key in list_values){
+		for (const key in list_values){
 			\$("#" + key).val(list_values[key]);				
 		}
-		\$('.multiselect').multiselect({
-			classes: 'filter',
-			menuHeight: 250,
-			menuWidth: 400,
-			selectedList: 1,
-		}).multiselectfilter();
 	});
 }
 END
