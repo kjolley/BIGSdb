@@ -433,7 +433,7 @@ pre {
 }
 
 .warning {
-	background: #fcc
+	background:#fcebeb
 }
 
 .fail {
@@ -1486,9 +1486,14 @@ tr.total {
 	color: white
 }
 
-tr.warning {
-	background: #e0a0a0;
-	color: black
+tr.restrict th {
+	color: #ffe08a;
+	box-shadow: inset 8px 0 0 #d4a017;
+}
+
+tr.restrict td, span.restrict {
+    border-top: 1px solid #e0c15a;
+    border-bottom: 1px solid #e0c15a;
 }
 
 span.link {
@@ -2300,7 +2305,7 @@ div#abstract {
 	border-left: 4px solid #d5d5e0;
 }
 
-div.banner {
+div.banner, div.message {
 	background: #f3f7fc;
 	border: 1px solid #d6e3f3;
 	color: #1d3557;
@@ -2335,10 +2340,6 @@ div#onboarding {
 	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10),
 		0 2px 8px rgba(0, 0, 0, 0.05);
 	z-index: 10
-}
-
-div#message {
-	background: #e0d5d5
 }
 
 div.file_output {

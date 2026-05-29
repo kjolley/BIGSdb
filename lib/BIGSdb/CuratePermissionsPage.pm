@@ -105,8 +105,8 @@ sub print_content {
 		);
 		say q(<div class="box" id="resultstable">);
 		say q(<p>Check the boxes for the required permissions.  Users with a status of 'submitter' )
-		  . q(have a restricted list of allowed permissions that can be selected. Attributes with a )
-		  . q(<span class="warning">red background</span> add restrictions.</p>);
+		  . q(have a restricted list of allowed permissions that can be selected. <span class="restrict">)
+		  . q(Highlighted attributes</span> add restrictions.</p>);
 		say $q->start_form;
 		say q(<div class="scrollable">);
 		say q(<fieldset style="float:left"><legend>Update permissions</legend>);
@@ -127,7 +127,7 @@ sub print_content {
 		my %prohibit = map { $_ => 1 } qw(disable_access only_private);
 		foreach my $permission (@$permission_list) {
 			( my $cleaned_permission = $permission ) =~ tr/_/ /;
-			say $prohibit{$permission} ? q(<tr class="warning">) : qq(<tr class="td$td">);
+			say $prohibit{$permission} ? qq(<tr class="td$td restrict">) : qq(<tr class="td$td">);
 			say qq(<th>$cleaned_permission</th><td style="text-align:left">$description{$permission}</td>);
 			foreach my $user_id (@$curators) {
 				next if !$selected{$user_id};
