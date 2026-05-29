@@ -113,15 +113,16 @@ END
 	}
 	my $buffer = << "END";
 \$(function () {
-	\$( "#show_closed" ).click(function() {
-		if (\$("span#show_closed_text").css('display') == 'none'){
-			\$("span#show_closed_text").css('display', 'inline');
-			\$("span#hide_closed_text").css('display', 'none');
-		} else {
-			\$("span#show_closed_text").css('display', 'none');
-			\$("span#hide_closed_text").css('display', 'inline');
-		}
-		\$( "#closed" ).toggle( 'blind', {} , 500 );
+	\$( "#show_closed").click(function() {
+		\$("a#show_closed").hide();
+		\$("a#hide_closed").show();
+		\$("#closed").slideDown(500,"easeInOutQuad");
+		return false;
+	});
+	\$( "#hide_closed").click(function()  {
+		\$("a#show_closed").show();
+		\$("a#hide_closed").hide();
+		\$("#closed").slideUp(500,"easeInOutQuad");
 		return false;
 	});
 	\$('a#toggle_notifications').click(function(event){		

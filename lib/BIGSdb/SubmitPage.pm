@@ -88,17 +88,19 @@ END
 		check_technology();
 	});
 	check_technology();
-	\$( "#show_closed" ).click(function() {
-		if (\$("span#show_closed_text").css('display') == 'none'){
-			\$("span#show_closed_text").css('display', 'inline');
-			\$("span#hide_closed_text").css('display', 'none');
-		} else {
-			\$("span#show_closed_text").css('display', 'none');
-			\$("span#hide_closed_text").css('display', 'inline');
-		}
-		\$( "#closed" ).toggle( 'blind', {} , 500 );
+	\$( "#show_closed").click(function() {
+		\$("a#show_closed").hide();
+		\$("a#hide_closed").show();
+		\$("#closed").slideDown(500,"easeInOutQuad");
 		return false;
 	});
+	\$( "#hide_closed").click(function()  {
+		\$("a#show_closed").show();
+		\$("a#hide_closed").hide();
+		\$("#closed").slideUp(500,"easeInOutQuad");
+		return false;
+	});
+	
 	\$("form#file_upload_form").dropzone({ 
 		paramName: function() { return 'file_upload'; },
 		parallelUploads: 6,
@@ -276,22 +278,27 @@ sub print_content {
 		$self->print_related_database_panel;
 		say q(</div>);
 	}
-	if ($submissions_to_show) {
+	if ( $submissions_to_show || $closed_buffer ) {
 		say q(<div class="box resultstable">);
-		$self->_print_pending_submissions;
-		$self->print_submissions_for_curation;
-		$self->_print_closed_submissions;
-		$self->print_navigation_bar( { closed_submissions => $closed_buffer ? 1 : 0 } );
+		if ($submissions_to_show) {
+
+			$self->_print_pending_submissions;
+			$self->print_submissions_for_curation;
+			$self->_print_closed_submissions;
+			$self->print_navigation_bar( { closed_submissions => $closed_buffer ? 1 : 0 } );
+			
+		}
+		if ($closed_buffer) {
+			say q(<div id="closed" style="display:none"><div class="scrollable">);
+			say q(<h2>Closed submissions for which you had curator rights</h2>);
+			my $days = $self->get_submission_days;
+			say
+			  q(<p>The following submissions are now closed - they will remain here until removed by the submitter or )
+			  . qq(for $days days.);
+			say $closed_buffer;
+			say q(</div>);
+		}
 		say q(</div>);
-	}
-	if ($closed_buffer) {
-		say q(<div class="box resultstable" id="closed" style="display:none"><div class="scrollable">);
-		say q(<h2>Closed submissions for which you had curator rights</h2>);
-		my $days = $self->get_submission_days;
-		say q(<p>The following submissions are now closed - they will remain here until removed by the submitter or )
-		  . qq(for $days days.);
-		say $closed_buffer;
-		say q(</div></div>);
 	}
 	return;
 }

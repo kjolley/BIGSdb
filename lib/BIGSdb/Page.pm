@@ -3734,23 +3734,22 @@ sub print_navigation_bar {
 		$buffer .= qq(<a href="$options->{'change_password'}" class="button">$key Set password</a>);
 	}
 	if ( $options->{'closed_submissions'} ) {
+		my ( $eye_show, $eye_hide ) = ( EYE_SHOW, EYE_HIDE );
 		$buffer .=
-			q(<a id="show_closed" style="cursor:pointer;margin-right:1em" class="small_submit">)
-		  . q(<span id="show_closed_text" style="display:inline">)
-		  . q(<span class="fas fa fa-eye"></span> Show closed submissions</span>)
-		  . q(<span id="hide_closed_text" style="display:none">)
-		  . q(<span class="fas fa fa-eye-slash"></span> Hide closed submissions</span></a>);
+			qq(<a id="show_closed" class="button">$eye_show Show closed submissions</a>)
+		  . qq(<a id="hide_closed" class="button" style="display:none">$eye_hide Hide closed submissions</span></a>)
+		  ;
 	}
 	if ( $options->{'more_url'} ) {
 		$options->{'more_text'} //= 'Add another';
 		$buffer .= qq(<a href="$options->{'more_url'}" class="button">$more $options->{'more_text'}</a>);
 	}
 	if ( $options->{'query_more_url'} ) {
-		$buffer .= qq(<a href="$options->{'query_more_url'}" class="button">) . qq($query_more Query another</a>);
+		$buffer .= qq(<a href="$options->{'query_more_url'}" class="button">$query_more Query another</a>);
 	}
 	if ( $options->{'upload_contigs_url'} ) {
 		$buffer .=
-		  qq(<a href="$options->{'upload_contigs_url'}" class="button">) . qq($upload_contigs Upload contigs</a>);
+		  qq(<a href="$options->{'upload_contigs_url'}" class="button">$upload_contigs Upload contigs</a>);
 	}
 	if ( $options->{'link_contigs_url'} ) {
 		$buffer .= qq(<a href="$options->{'link_contigs_url'}" class="button">$link_contigs Link remote contigs</a>);
