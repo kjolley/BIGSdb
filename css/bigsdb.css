@@ -1633,87 +1633,88 @@ div.navigation {
 
 div.curategroup {
 	text-align: center;
-	padding: 1em;
+	padding: 12px;
 	border: 1px solid #ccc;
 	border-radius: 10px;
 	float: left;
-	width: 9em;
-	height: 9em;
+	width: 300px;
+	height: 120px;
 	position: relative;
+	background: #fffeff
 }
 
 div.curategroup h2 {
 	font-family: pt_sans, sans-serif;
-	font-size: 1em;
+	font-size: 1.2em;
+	font-weight:600;
 	color: #393976;
-	margin: 0;
-	width: 80%;
-	position: absolute;
+	margin: 0 0 6px 0;
+	width: 100%;
 	z-index: 2
 }
 
-span.curate_buttonbar {
+p.curate_info {
+	text-align: left;
+	font-size: 0.8em;
+	opacity: 0.8
+}
+
+div.curate_toggle {
+	float:right;
+	
+}
+
+div.curate_toggle a {
+	text-decoration: none;
+}
+
+div.curate_toggle span.label {
+	color: #4c6179;
+	font-size: 1.2em;
+	text-decoration: none;
+	vertical-align:0.3em
+}
+
+.toggle_icon {
+	color:#7b879d
+}
+
+div.curate_buttonbar {
 	position: absolute;
-	bottom: 2em;
+	bottom: 1em;
 	left: 0;
 	opacity: 0.9;
 	width: 100%;
 }
 
-div.curategroup_users {
-	background-image: linear-gradient(#fff, #eee)
+a.curate_link {
+	display: inline-block;
+	font-size: 0.8em;	
+	padding: 0 8px;
+	border-radius: 4px;
+	text-decoration: none;
+	margin-right:3px;
+	border: 1px solid #888
 }
 
-div.curategroup_locus_descriptions {
-	background-image: linear-gradient(#fff, #ede)
+a.curate_link.add {
+	background: #e7f4ea;
+	color: #2d6b3f;
 }
 
-div.curategroup_sequences {
-	background-image: linear-gradient(#fff, #dde)
+a.curate_link.edit {
+	background: #e7eaf4;
+	color: #2d3a6b;
 }
 
-div.curategroup_profiles {
-	background-image: linear-gradient(#fff, #dee)
+a.curate_link.import {
+	background: #f4f0e7;
+	color: #6b5e2d;
 }
 
-div.curategroup_isolates {
-	background-image: linear-gradient(#fff, #dde)
-}
-
-div.curategroup_projects {
-	background-image: linear-gradient(#fff, #cce)
-}
-
-div.curategroup_designations {
-	background-image: linear-gradient(#fff, #edd)
-}
-
-div.curategroup_permissions {
-	background-image: linear-gradient(#fff, #eee)
-}
-
-div.curategroup_remote_dbases {
-	background-image: linear-gradient(#fff, #dde)
-}
-
-div.curategroup_maintenance {
-	background-image: linear-gradient(#fff, #eed)
-}
-
-div.curategroup_loci {
-	background-image: linear-gradient(#fff, #ecc)
-}
-
-div.curategroup_schemes {
-	background-image: linear-gradient(#fff, #cbe)
-}
-
-div.curategroup_sets {
-	background-image: linear-gradient(#fff, #bce)
-}
-
-div.curategroup_geocoding {
-	background-image: linear-gradient(#fff, #cce)
+a.curate_link.curate_action {
+	background: #f4e7f1;
+	color: #6b2d59;
 }
 
 div #admin_grid {
@@ -2863,7 +2864,6 @@ span.wait_icon {
 
 span.main_icon {
 	color: #66a;
-	text-shadow: 3px 3px 3px #999
 }
 
 span.curate_icon_span {
@@ -2872,12 +2872,6 @@ span.curate_icon_span {
 	width: 100%;
 	left: 0;
 	top: 3em;
-}
-
-span.curate_icon {
-	color: #aaa;
-	opacity: 0.4;
-	text-shadow: 3px 3px 3px #999;
 }
 
 span.info_icon {
@@ -3235,10 +3229,6 @@ button.plugin:hover {
 	color: #f54
 }
 
-.curate_icon_scan_barcode {
-	color: #000
-}
-
 .curate_icon_scan_query {
 	color: #a22
 }
@@ -3251,9 +3241,7 @@ button.plugin:hover {
 	color: #484
 }
 
-.toggle_icon {
-	color: #66a
-}
+
 
 .dropzone {
 	border: dashed 3px #666;
