@@ -290,7 +290,7 @@ sub print_content {
 		}
 		if ($closed_buffer) {
 			my $class = $submissions_to_show ? q() : q( class="box resultstable");
-			say q(<div id="closed"$class style="display:none"><div class="scrollable">);
+			say qq(<div id="closed"$class style="display:none"><div class="scrollable">);
 			say q(<h2>Closed submissions for which you had curator rights</h2>);
 			my $days = $self->get_submission_days;
 			say
