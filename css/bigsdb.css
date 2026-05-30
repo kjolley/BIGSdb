@@ -433,7 +433,7 @@ pre {
 }
 
 .warning {
-	background:#fcebeb
+	background: #fcebeb
 }
 
 .fail {
@@ -627,7 +627,8 @@ div.bottom_fade {
 	mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
 }
 
-div.projects a, div.projects a:hover {
+div.projects a,
+div.projects a:hover {
 	text-decoration: none;
 }
 
@@ -643,7 +644,7 @@ div.project {
 div.project:hover {
 	background: #fcfbfc;
 	border: 1px solid #a6a6a6;
-	}
+}
 
 div.project p.description {
 	color: black;
@@ -1491,9 +1492,10 @@ tr.restrict th {
 	box-shadow: inset 8px 0 0 #d4a017;
 }
 
-tr.restrict td, span.restrict {
-    border-top: 1px solid #e0c15a;
-    border-bottom: 1px solid #e0c15a;
+tr.restrict td,
+span.restrict {
+	border-top: 1px solid #e0c15a;
+	border-bottom: 1px solid #e0c15a;
 }
 
 span.link {
@@ -1636,32 +1638,45 @@ div.curategroup {
 	padding: 12px;
 	border: 1px solid #ccc;
 	border-radius: 10px;
-	float: left;
-	width: 300px;
+	width: 180px;
 	height: 120px;
 	position: relative;
-	background: #fffeff
+	background: #fffeff;
+	float: none;
 }
 
 div.curategroup h2 {
 	font-family: pt_sans, sans-serif;
-	font-size: 1.2em;
-	font-weight:600;
+	font-size: 15px;
+	font-weight: 600;
 	color: #393976;
 	margin: 0 0 6px 0;
 	width: 100%;
 	z-index: 2
 }
 
+div.curategroup a.tooltip {
+	font-size: 0.5rem;
+	position:absolute;
+	top:1px;
+	right:1px;
+	opacity:0.5;
+}
+
 p.curate_info {
 	text-align: left;
 	font-size: 0.8em;
-	opacity: 0.8
+	opacity: 0.7
+}
+
+h3.curator_heading {
+	margin: 12px 0 6px 0;
+	color: #435973;
+	font-weight: 600
 }
 
 div.curate_toggle {
-	float:right;
-	
+	float: right;
 }
 
 div.curate_toggle a {
@@ -1672,14 +1687,17 @@ div.curate_toggle span.label {
 	color: #4c6179;
 	font-size: 1.2em;
 	text-decoration: none;
-	vertical-align:0.3em
+	vertical-align: 0.3em
 }
 
 .toggle_icon {
-	color:#7b879d
+	color: #7b879d
 }
 
 div.curate_buttonbar {
+	display: flex;
+	justify-content: center;
+	gap: 2px;
 	position: absolute;
 	bottom: 1em;
 	left: 0;
@@ -1689,32 +1707,47 @@ div.curate_buttonbar {
 
 a.curate_link {
 	display: inline-block;
-	font-size: 0.8em;	
-	padding: 0 8px;
+	font-size: 10px;
+	padding: 0 4px;
 	border-radius: 4px;
 	text-decoration: none;
-	margin-right:3px;
-	border: 1px solid #888
+	border: 1px solid #888;
 }
 
 a.curate_link.add {
-	background: #e7f4ea;
+	background: #ecf6ee;
 	color: #2d6b3f;
 }
 
+a.curate_link.add:hover {
+	background: #cdd6cf;
+}
+
 a.curate_link.edit {
-	background: #e7eaf4;
+	background: #eceff6;
 	color: #2d3a6b;
 }
 
+a.curate_link.edit:hover {
+	background: #cdd0d6;
+}
+
 a.curate_link.import {
-	background: #f4f0e7;
+	background: #f6f3ec;
 	color: #6b5e2d;
 }
 
+a.curate_link.import:hover {
+	background: #d6d3cd;
+}
+
 a.curate_link.curate_action {
-	background: #f4e7f1;
+	background: #f6ecf4;
 	color: #6b2d59;
+}
+
+a.curate_link.curate_action:hover {
+	background: #d6cdd4;
 }
 
 div #admin_grid {
@@ -2306,7 +2339,8 @@ div#abstract {
 	border-left: 4px solid #d5d5e0;
 }
 
-div.banner, div.message {
+div.banner,
+div.message {
 	background: #f3f7fc;
 	border: 1px solid #d6e3f3;
 	color: #1d3557;

@@ -223,7 +223,12 @@ sub _get_javascript_paths {
 			'igv'                 => { src => [qw(igv.min.js)],              defer => 1, version => '20200308' },
 			'bigsdb.dashboard'    => { src => [qw(bigsdb.dashboard.min.js)], defer => 1, version => '20260522' },
 			'bigsdb.dataexplorer' =>
-			  { src => [qw(bigsdb.dataexplorer.min.js d3.v6.min.js)], defer => 1, version => '20230310' }
+			  { src => [qw(bigsdb.dataexplorer.min.js d3.v6.min.js)], defer => 1, version => '20230310' },
+			'bigsdb.curateindex' => {
+				src     => [qw(bigsdb.curateindex.min.js)],
+				defer   => 1,
+				version => '20260529'
+			}
 		};
 		if ( $self->{'pluginJS'} ) {
 			$features->{'pluginJS'} = { src => ["Plugins/$self->{'pluginJS'}"], defer => 1, version => '20260515' };
@@ -3737,8 +3742,7 @@ sub print_navigation_bar {
 		my ( $eye_show, $eye_hide ) = ( EYE_SHOW, EYE_HIDE );
 		$buffer .=
 			qq(<a id="show_closed" class="button">$eye_show Show closed submissions</a>)
-		  . qq(<a id="hide_closed" class="button" style="display:none">$eye_hide Hide closed submissions</span></a>)
-		  ;
+		  . qq(<a id="hide_closed" class="button" style="display:none">$eye_hide Hide closed submissions</a>);
 	}
 	if ( $options->{'more_url'} ) {
 		$options->{'more_text'} //= 'Add another';
@@ -3748,8 +3752,7 @@ sub print_navigation_bar {
 		$buffer .= qq(<a href="$options->{'query_more_url'}" class="button">$query_more Query another</a>);
 	}
 	if ( $options->{'upload_contigs_url'} ) {
-		$buffer .=
-		  qq(<a href="$options->{'upload_contigs_url'}" class="button">$upload_contigs Upload contigs</a>);
+		$buffer .= qq(<a href="$options->{'upload_contigs_url'}" class="button">$upload_contigs Upload contigs</a>);
 	}
 	if ( $options->{'link_contigs_url'} ) {
 		$buffer .= qq(<a href="$options->{'link_contigs_url'}" class="button">$link_contigs Link remote contigs</a>);
