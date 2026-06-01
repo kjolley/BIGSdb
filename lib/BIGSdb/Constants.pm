@@ -114,6 +114,8 @@ use constant OKAY                 => q(<span class="nav_icon fas fa-check"></spa
 use constant BOOKMARK             => q(<span class="nav_icon far fa-bookmark"></span>);
 use constant EYE_SHOW             => q(<span class="nav_icon fas fa-eye"></span>);
 use constant EYE_HIDE             => q(<span class="nav_icon fas fa-eye-slash"></span>);
+use constant TOGGLE_ON            => q(<span class="nav_icon fas fa-toggle-on"></span>);
+use constant TOGGLE_OFF           => q(<span class="nav_icon fas fa-toggle-off"></span>);
 
 use constant EXPORT_TABLE => q(<span class="fa-stack fa-2x export">)
   . q(<span class="fas fa-square fa-stack-2x export_button"></span>)
@@ -230,7 +232,7 @@ use constant MAX_ROWS => 20;
 @values = qw(FACE_STYLE SHOW HIDE ON OFF SAVE UP DOWN LEFT RIGHT
   EDIT DELETE ADD COMPARE UPLOAD UPLOAD_CHANGE_CONFIG QUERY USERS PENDING GOOD BAD MEH TRUE FALSE BAN DOWNLOAD
   BACK QUERY_MORE EDIT_MORE UPLOAD_CONTIGS LINK_CONTIGS MORE HOME RELOAD KEY OKAY BOOKMARK EYE_SHOW EYE_HIDE
-  EXPORT_TABLE EXCEL_FILE TEXT_FILE FASTA_FILE FASTA_FLANKING_FILE PDF_FILE HTML_FILE
+  TOGGLE_ON TOGGLE_OFF EXPORT_TABLE EXCEL_FILE TEXT_FILE FASTA_FILE FASTA_FLANKING_FILE PDF_FILE HTML_FILE
   EMBL_FILE GBK_FILE GFF3_FILE MISC_FILE ARCHIVE_FILE IMAGE_FILE ALIGN_FILE CODE_FILE FLANKING
   SUBMIT_BUTTON MAX_ROWS LOCK UNLOCK FIRST PREVIOUS NEXT LAST TOOLTIP WARNING_TOOLTIP TREEMAP_ICON);
 push @EXPORT_OK, @values;

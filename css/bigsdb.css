@@ -1649,10 +1649,45 @@ div.curategroup h2 {
 	font-family: pt_sans, sans-serif;
 	font-size: 15px;
 	font-weight: 600;
-	color: #393976;
-	margin: 0 0 6px 0;
+	color: #393976;	
 	width: 100%;
+	margin: 0 0 6px 0;
 	z-index: 2
+}
+
+div.curategroup h2 span.title {
+	display: inline-block;
+	text-align: left;
+}
+
+div.curategroup.contracted{
+	height:120px;
+}
+
+div.curategroup.contracted h2 {
+	
+}
+
+div.curategroup.sequences.contracted div.curate_buttonbar {
+	bottom:12px;
+}
+
+div.curategroup.expanded{
+	height:50px;
+}
+
+div.curategroup.sequences.schemes.expanded h2{
+	margin:-6px 0 3px 0;
+	max-height:40px;
+	overflow: hidden;
+}
+
+div.curategroup.sequences.schemes.expanded h2 span.title{
+	margin-right:5px
+}
+
+div.curategroup.expanded div.curate_buttonbar {
+	bottom:6px;
 }
 
 div.curategroup a.tooltip {
@@ -1675,19 +1710,19 @@ h3.curator_heading {
 	font-weight: 600
 }
 
-div.curate_toggle {
-	float: right;
+div.title_toggle {
+	display: flex;
+	flex-wrap: wrap;
+	column-gap: 50px
 }
 
-div.curate_toggle a {
-	text-decoration: none;
+a.toggle_on {
+	background: #ecf6ee;
+	color: #2d6b3f;
 }
 
-div.curate_toggle span.label {
-	color: #4c6179;
-	font-size: 1.2em;
-	text-decoration: none;
-	vertical-align: 0.3em
+a.toggle_on:hover {
+	background: #cdd6cf;
 }
 
 .toggle_icon {
@@ -1699,7 +1734,7 @@ div.curate_buttonbar {
 	justify-content: center;
 	gap: 2px;
 	position: absolute;
-	bottom: 1em;
+	bottom: 12px;
 	left: 0;
 	opacity: 0.9;
 	width: 100%;

@@ -62,7 +62,8 @@ sub initiate {
 			}
 		};
 	}
-	$self->{'optional_curator_display'} = $self->{'prefs'}->{'all_curator_methods'} ? 'inline' : 'none';
+
+	#	$self->{'optional_curator_display'} = $self->{'prefs'}->{'all_curator_methods'} ? 'inline' : 'none';
 
 	#Check admin links to see what potentially can be displayed.
 	my @methods = qw(misc_admin locus_admin scheme_admin set_admin client_admin field_admin);
@@ -503,28 +504,30 @@ sub _get_profile_fields {
 			{ fetch => 'col_arrayref' }
 		);
 	}
-	my $buffer = q();
+	my $cards = [];
 	my %desc;
+	my $scheme_info = {};
 	foreach my $scheme_id (@$schemes)
 	{    #Can only order schemes after retrieval since some can be renamed by set membership
-		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-		$desc{$scheme_id} = $scheme_info->{'name'};
+		$scheme_info->{$scheme_id} =
+		  $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
+		$desc{$scheme_id} = $scheme_info->{$scheme_id}->{'name'};
 	}
 	my $curator_id = $self->get_curator_id;
 	foreach my $scheme_id ( sort { $desc{$a} cmp $desc{$b} } @$schemes ) {
 		next if $set_id && !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id );
 		next if $self->{'prefs'}->{'disable_schemes'}->{$scheme_id};
-		my $class   = q(default_show_curator);
-		my $display = q();
-		if ( !$self->{'datastore'}->is_scheme_curator( $scheme_id, $curator_id ) ) {
-			$class   = q(default_hide_curator);
-			$display = qq(style="display:$self->{'optional_curator_display'}");
-		}
+		my $default = $self->{'datastore'}->is_scheme_curator( $scheme_id, $curator_id ) ? q(show) : q(hide);
+
 		$desc{$scheme_id} =~ s/\&/\&amp;/gx;
-		$buffer .= qq(<div class="curategroup grid-item $class" ) . qq($display><h2>$desc{$scheme_id} profiles</h2>);
-		$buffer .= $self->_get_icon_group(
-			undef, 'table',
-			{
+
+		push @$cards, {
+			title   => "$desc{$scheme_id} profiles",
+			table   => undef,
+			type    => 'curator',
+			default => $default,
+			section => 'schemes',
+			data    => {
 				add     => 1,
 				add_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 				  . qq(page=profileAdd&amp;scheme_id=$scheme_id),
@@ -536,40 +539,43 @@ sub _get_profile_fields {
 				  . qq(page=query&amp;scheme_id=$scheme_id),
 				batch_update     => 1,
 				batch_update_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-				  . qq(page=batchProfileUpdate&amp;scheme_id=$scheme_id)
+				  . qq(page=batchProfileUpdate&amp;scheme_id=$scheme_id),
+				info => "$scheme_info->{$scheme_id}->{'primary_key'} identifiers linked to allelic profiles",
 			}
-		);
-		$buffer .= qq(</div>\n);
+		};
 	}
-	if ($buffer) {
-		$buffer .= q(<div class="curategroup grid-item default_hide_curator" )
-		  . qq(style="display:$self->{'optional_curator_display'}"><h2>Profile publications</h2>);
-		$buffer .= $self->_get_icon_group(
-			'profile_refs',
-			'book-open',
-			{
-				add       => 1,
-				batch_add => 1,
-				query     => 1,
-				info      => 'Profile references - Associate allelic profiles with publications using PubMed id.'
-			}
-		);
-		$buffer .= qq(</div>\n);
-		$buffer .= q(<div class="curategroup grid-item default_hide_curator" )
-		  . qq(style="display:$self->{'optional_curator_display'}"><h2>Retired profiles</h2>);
-		$buffer .= $self->_get_icon_group(
-			'retired_profiles',
-			'trash-alt',
-			{
-				add       => 1,
-				batch_add => 1,
-				query     => 1,
-				info      => 'Retired profiles - Profile ids defined here will be prevented from being reused.'
-			}
-		);
-		$buffer .= qq(</div>\n);
-	}
-	return $buffer;
+
+	push @$cards,
+	  {
+		title   => 'Profile publications',
+		table   => 'profile_refs',
+		type    => 'curator',
+		default => 'hide',
+		section => 'schemes',
+		data    => {
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Associate allelic profiles with publications using PubMed id.'
+		}
+	  };
+
+	push @$cards,
+	  {
+		title   => 'Retired profiles',
+		table   => 'retired_profiles',
+		type    => 'curator',
+		default => 'hide',
+		section => 'schemes',
+		data    => {
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Profile ids defined here will be prevented from being reused.'
+		}
+	  };
+
+	return $cards;
 }
 
 sub _get_mutation_fields {
@@ -1630,43 +1636,43 @@ sub _get_classification_schemes {
 
 sub _get_classification_field_values {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM classification_group_fields)');
-	$buffer .= q(<div class="curategroup grid-item default_hide_curator" )
-	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Classification group field values</h2>);
-	$buffer .= $self->_get_icon_group(
-		'classification_group_field_values',
-		'object-group',
-		{
+	my $cards = [];
+	return $cards if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM classification_group_fields)');
+	push @$cards, {
+		title => 'Classification group field values',
+		table => 'classification_group_field_values',
+		type => 'curator',
+		default => 'hide',
+		section => 'schemes',
+		data => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
-			info      => 'Classification group field values - Associate values with particular classification groups.'
+			info      => 'Associate values with particular classification groups.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	};
+	return $cards;
 }
 
 sub _get_lincode_prefix_values {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->{'system'}->{'dbtype'} eq 'sequences';
-	return $buffer if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM lincode_fields)');
-	$buffer .= q(<div class="curategroup grid-item default_hide_curator" )
-	  . qq(style="display:$self->{'optional_curator_display'}"><h2>LINcode prefix nomenclature</h2>);
-	$buffer .= $self->_get_icon_group(
-		'lincode_prefixes',
-		'grip-horizontal',
-		{
+	my $cards = [];
+	return $cards if !$self->{'system'}->{'dbtype'} eq 'sequences';
+	return $cards if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM lincode_fields)');
+	push @$cards, {
+		title => 'LINcode prefix nomenclature',
+		table => 'lincode_prefixes',
+		type => 'curator',
+		default=> 'hide',
+		section => 'schemes',
+		data => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
 			info      => 'LINcode prefix values - Link LINcode prefixes to nomenclature values.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	};
+	return $cards;
 }
 
 sub _get_lincode_schemes {
@@ -1833,12 +1839,13 @@ sub _print_card {
 	my $table       = $card->{'table'};
 	my $check_table = $table;
 	$check_table = 'locus_stats' if $table eq 'sequences';
+	my $db_type = $self->{'system'}->{'dbtype'} // q();
 	my $records_exist =
 	  $card->{'table'} ? $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM $check_table)") : 1;
 	my $tooltip = $card->{'data'}->{'info'} ? $self->get_tooltip("$card->{'title'} - $card->{'data'}->{'info'}") : q();
-	say qq(<div class="curategroup grid-item" data-order="$order" data-type="$card->{'type'}" )
+	say qq(<div class="curategroup grid-item $db_type $card->{'section'}" data-order="$order" data-type="$card->{'type'}" )
 	  . qq(data-section="$card->{'section'}" data-default="$card->{'default'}" style="display:none">)
-	  . qq(<h2>$card->{'title'}</h2>$tooltip);
+	  . qq(<h2><span class="title">$card->{'title'}</span></h2>$tooltip);
 	if ( $card->{'data'}->{'info'} ) {
 		say qq(<p class="curate_info">$card->{'data'}->{'info'}</p>);
 	}
@@ -1854,7 +1861,7 @@ sub _print_card {
 		say qq(<a href="$url$set_string" class="curate_link add"><span class="fas fa-add"></span>)
 		  . q(<span class="fas fa-add"></span> Batch</a>);
 	}
-		if ( $card->{'data'}->{'fasta'} ) {
+	if ( $card->{'data'}->{'fasta'} ) {
 		my $url = $card->{'data'}->{'fasta_url'};
 		say qq(<a href="$url" class="curate_link add"><span class="fas fa-add"></span>)
 		  . q(<span class="fas fa-add"></span> FASTA</a>);
@@ -2085,12 +2092,15 @@ sub print_content {
 		my $seqs = $self->_get_sequence_fields;
 		push @$all_fields, @$seqs;
 		$count{'loci'} += @$seqs;
-
-		#	$buffer .= $self->_get_sequence_fields;
-		#	$buffer .= $self->_get_profile_fields;
-		#	$buffer .= $self->_get_classification_field_values;
-		#	$buffer .= $self->_get_lincode_prefix_values;
-
+		my $schemes = $self->_get_profile_fields;
+		push @$all_fields, @$schemes;
+		$count{'schemes'} += @$schemes;
+		my $cs = $self->_get_classification_field_values;
+		push @$all_fields, @$cs;
+		$count{'schemes'} +=@$cs;
+		my $lincode = $self->_get_lincode_prefix_values;
+		push @$all_fields, @$lincode;
+		$count{'schemes'} +=@$lincode;
 	}
 	my $order = 0;
 	foreach my $card (@$all_fields) {
@@ -2105,10 +2115,23 @@ sub print_content {
 
 		say q(<div class="box" id="curator">);
 
+
+		say q(<span class="main_icon fas fa-user-tie fa-3x fa-pull-left"></span>);
+		my %title = (
+			user     => 'User management',
+			isolate  => 'Isolates',
+			seqbin   => 'Sequences',
+			loci     => 'Loci/alleles',
+			schemes  => 'Schemes',
+			metadata => 'Metadata'
+		);
+		say q(<div class="title_toggle">);
+		say q(<h2>Curator functions</h2>);
 		my $toggle_status = $self->_get_curator_toggle_status($all_fields);
 		if ( $toggle_status->{'show_toggle'} ) {
 			say q(<div class="curate_toggle">);
-			say q(<a id="toggle_all_curator_methods" )
+			my $class = $self->{'prefs'}->{'all_curator_methods'} ? ' toggle_on' : '';
+			say qq(Show: <a id="toggle_all_curator_methods" class="button$class" )
 			  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=index&amp;)
 			  . q(toggle_all_curator_methods=1">);
 			my $off = $self->{'prefs'}->{'all_curator_methods'} ? 'none'   : 'inline';
@@ -2117,45 +2140,24 @@ sub print_content {
 			  . qq(style="display:$off" title="Showing common functions"></span>);
 			say q(<span id="all_curator_methods_on" class="toggle_icon fas fa-toggle-on fa-2x" )
 			  . qq(style="display:$on" title="Showing all authorized functions"></span>);
-			say q(<span class="label">Show all</span></a>);
+			say q(<span class="label">All functions</span></a>);
 			say q(</div>);
 		}
-		say q(<span class="main_icon fas fa-user-tie fa-3x fa-pull-left"></span>);
-		my %title = (
-			user     => 'User management',
-			isolate  => 'Isolates',
-			seqbin   => 'Sequence bin',
-			loci     => 'Loci/alleles',
-			metadata => 'Metadata'
-		);
-
-		say q(<h2>Curator functions</h2>);
+		say q(</div>);
 		say q(<div id="curator_collapsed" class="grid"></div>);
 		say q(<div id="curator_expanded">);
-		foreach my $section (qw(user isolate seqbin loci metadata)) {
+		foreach my $section (qw(user isolate seqbin loci schemes metadata)) {
 			next if !$count{$section};
 			say q(<h3 class="curator_heading" id="curate_heading_user" style="display:none">)
 			  . qq($title{$section} ($count{$section})</h3>);
 
 			say qq(<div id="curator_$section" class="grid"></div>);
 		}
-
-		#		say q(<h3 class="curator_heading" id="curate_heading_isolate" style="display:none">)
-		#		  . qq(Isolates ($count{'isolate'})</h3>);
-		#		say q(<div id="curator_isolate" class="grid"></div>);
-		#		say q(<h3 class="curator_heading" id="curate_heading_seqbin" style="display:none">)
-		#		  . qq(Sequence bin ($count{'seqbin'})</h3>);
-		#		say q(<div id="curator_seqbin" class="grid"></div>);
-		#		say q(<h3 class="curator_heading" id="curate_heading_loci" style="display:none">)
-		#		  . qq(Loci/alleles ($count{'loci'})</h3>);
-		#		say q(<div id="curator_loci" class="grid"></div>);
-		#		say q(<h3 class="curator_heading" id="curate_heading_metadata" style="display:none">)
-		#		  . qq(Metadata ($count{'metadata'})</h3>);
-		#		say q(<div id="curator_metadata" class="grid"></div>);
 		say q(</div>);
 		say q(<div style="clear:both"></div>);
-		$self->print_related_database_panel;
+
 		say q(</div>);
+		$self->print_related_database_panel;
 
 		if ( $toggle_status->{'always_show_hidden'} ) {
 			say q[<script>$(function() {$(".default_hide_curator").css("display","inline");]
