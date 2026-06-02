@@ -957,7 +957,7 @@ sub _get_oauth_credentials {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
-			info => 'OAuth credentials - OAuth credentials for accessing contigs stored in remote BIGSdb databases.'
+			info => 'OAuth credentials for accessing contigs stored in remote BIGSdb databases.'
 		}
 	};
 	return $cards;
