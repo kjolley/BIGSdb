@@ -1715,6 +1715,13 @@ div.title_toggle {
 	column-gap: 50px
 }
 
+div.curate_toggle {
+	display:flex;	
+	flex-wrap:wrap;
+	gap:2px;
+	align-items: center;
+}
+
 div.curate_toggle a.button {
 	margin: 0 !important;
 }

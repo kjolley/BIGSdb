@@ -2314,7 +2314,7 @@ sub _print_curator_toggle {
 	my ($self) = @_;
 	say q(<div class="curate_toggle">);
 	my $class = $self->{'prefs'}->{'all_curator_methods'} ? ' toggle_on' : '';
-	say qq(Show: <a id="toggle_all_curator_methods" class="button$class" )
+	say qq(<span style="margin-right:5px">Show: </span><a id="toggle_all_curator_methods" class="button$class" )
 	  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=index&amp;)
 	  . q(toggle_all_curator_methods=1">);
 	my $off = $self->{'prefs'}->{'all_curator_methods'} ? 'none'   : 'inline';
@@ -2331,7 +2331,7 @@ sub _print_curator_toggle {
 sub _print_admin_toggles {
 	my ( $self, $counts ) = @_;
 	say q(<div class="curate_toggle">);
-	say q(Show: );
+	say q(<span style="margin-right:5px">Show: </span>);
 	my %label = (
 		locus  => 'Loci',
 		scheme => 'Schemes',
