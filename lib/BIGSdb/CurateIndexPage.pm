@@ -810,6 +810,8 @@ sub _get_sequence_bin {
 	my $cards = [];
 	return $cards if !$self->can_modify_table('sequence_bin');
 	return $cards if !$self->_isolates_exist;
+	my $linked_contigs = ( $self->{'system'}->{'remote_contigs'} // q() ) eq 'yes';
+	my $linked_info    = $linked_contigs ? ' Contigs can also be linked from another database.' : q();
 	push @$cards,
 	  {
 		title   => 'Sequence bin',
@@ -823,10 +825,10 @@ sub _get_sequence_bin {
 			batch_add     => 1,
 			batch_add_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin),
 			query         => 1,
-			link          => ( $self->{'system'}->{'remote_contigs'} // q() ) eq 'yes' ? 1 : 0,
+			link          => $linked_contigs ? 1 : 0,
 			link_url   => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddRemoteContigs),
-			link_label => 'Link contigs stored in remote isolate database',
-			info       => 'The sequence bin contains DNA sequences linked to an isolate, ' . 'usually assembly contigs.'
+			link_label => 'Link',
+			info       => "DNA sequences (contigs) linked to an isolate.$linked_info"
 		}
 	  };
 	my $seqbin = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM sequence_bin)');
@@ -942,23 +944,23 @@ sub _get_curator_configs {
 
 sub _get_oauth_credentials {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if ( $self->{'system'}->{'remote_contigs'} // q() ) ne 'yes';
-	return $buffer if !$self->can_modify_table('oauth_credentials');
-	$buffer .= q(<div class="curategroup grid-item misc_admin" )
-	  . qq(style="display:$self->{'optional_misc_admin_display'}"><h2>OAuth credentials</h2>);
-	$buffer .= $self->_get_icon_group(
-		'oauth_credentials',
-		'unlock-alt',
-		{
+	my $cards = [];
+	return $cards if ( $self->{'system'}->{'remote_contigs'} // q() ) ne 'yes';
+	return $cards if !$self->can_modify_table('oauth_credentials');
+	push @$cards, {
+		title => 'OAuth credentials',
+		table => 'oauth_credentials',
+		type => 'admin',
+		default => 'hide',
+		section => 'misc',
+		data => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
 			info => 'OAuth credentials - OAuth credentials for accessing contigs stored in remote BIGSdb databases.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	};
+	return $cards;
 }
 
 sub _get_genome_filtering {
@@ -1419,22 +1421,23 @@ sub _get_analysis_fields {
 
 sub _get_composite_fields {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->can_modify_table('composite_fields');
-	$buffer .= q(<div class="curategroup grid-item field_admin" )
-	  . qq(style="display:$self->{'optional_field_admin_display'}"><h2>Composite fields</h2>);
-	$buffer .= $self->_get_icon_group(
-		'composite_fields',
-		'cubes',
-		{
+	my $cards = [];
+	return $cards if !$self->can_modify_table('composite_fields');
+	push @$cards, {
+		title   => 'Composite fields',
+		table   => 'composite_fields',
+		type    => 'admin',
+		default => 'hide',
+		section => 'field',
+		data    => {
 			add       => 1,
 			query     => 1,
 			query_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=compositeQuery),
 			info      => 'Composite fields - Consist of a combination of different isolate, loci or scheme fields.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+
+	};
+	return $cards;
 }
 
 sub _get_query_interfaces {
@@ -1471,53 +1474,56 @@ sub _get_query_interfaces {
 
 sub _get_validation_rules {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->can_modify_table('validation_rules');
-	$buffer .= q(<div class="curategroup grid-item field_admin" )
-	  . qq(style="display:$self->{'optional_field_admin_display'}"><h2>Validation conditions</h2>);
-	$buffer .= $self->_get_icon_group(
-		'validation_conditions',
-		'check-circle',
-		{
+	my $cards = [];
+	return $cards if !$self->can_modify_table('validation_rules');
+	push @$cards,
+	  {
+		title   => 'Validation conditions',
+		table   => 'validation_conditions',
+		type    => 'admin',
+		default => 'hide',
+		section => 'field',
+		data    => {
 			add       => 1,
 			query     => 1,
 			batch_add => 1,
-			info      => 'Validation conditions - Conditions that must be matched for a validation to fail. '
+			info      => 'Conditions that must be matched for a validation to fail. '
 			  . 'Multiple conditions can be combined to create a rule.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	$buffer .= q(<div class="curategroup grid-item field_admin" )
-	  . qq(style="display:$self->{'optional_field_admin_display'}"><h2>Validation rules</h2>);
-	$buffer .= $self->_get_icon_group(
-		'validation_rules',
-		'ban',
-		{
+	  };
+	push @$cards,
+	  {
+		title   => 'Validation rules',
+		table   => 'validation_rules',
+		type    => 'admin',
+		default => 'hide',
+		section => 'field',
+		data    => {
 			add       => 1,
 			query     => 1,
 			batch_add => 1,
-			info      => 'Validation rules - Advanced rules restricting values in provenance '
+			info      => 'Advanced rules restricting values in provenance '
 			  . 'metadata fields depending on values in other fields.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer
+	  };
+	return $cards
 	  if !$self->{'datastore'}
 	  ->run_query('SELECT EXISTS(SELECT * FROM validation_rules) AND EXISTS(SELECT * FROM validation_conditions)');
-	$buffer .= q(<div class="curategroup grid-item field_admin" )
-	  . qq(style="display:$self->{'optional_field_admin_display'}"><h2>Rule conditions</h2>);
-	$buffer .= $self->_get_icon_group(
-		'validation_rule_conditions',
-		'tasks',
-		{
+	push @$cards,
+	  {
+		title   => 'Rule conditions',
+		table   => 'validation_rule_conditions',
+		type    => 'admin',
+		default => 'hide',
+		section => 'field',
+		data    => {
 			add       => 1,
 			query     => 1,
 			batch_add => 1,
-			info      => 'Rule conditions - Conditions that must be fulfilled to fail a validation rule.'
+			info      => 'Conditions that must be fulfilled to fail a validation rule.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	  };
+	return $cards;
 }
 
 sub _get_schemes {
@@ -1944,24 +1950,16 @@ sub _print_card {
 	if ( $card->{'data'}->{'action'} ) {
 		my $text = $card->{'data'}->{'action_label'} // 'Action';
 		my $url  = $card->{'data'}->{'action_url'};
-		say
-qq(<a href="$url$set_string" class="curate_link curate_action"><span class="fas fa-chevron-circle-right"></span> $text</a>);
+		say qq(<a href="$url$set_string" class="curate_link curate_action">)
+		  . qq(<span class="fas fa-chevron-circle-right"></span> $text</a>);
 	}
-
+	if ( $card->{'data'}->{'link'} ) {
+		my $text = $card->{'data'}->{'link_label'} // 'Link';
+		my $url  = $card->{'data'}->{'link_url'};
+		say qq(<a href="$url$set_string" class="curate_link curate_action"><span class="fas fa-link"></span> $text</a>);
+	}
 	say q(</div>);
 	say q(</div>);
-
-	#	if ( $options->{'link'} ) {
-	#		my $text = $options->{'link_label'} // 'Link';
-	#		$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:1em">);
-	#		$buffer .= qq(<a href="$options->{'link_url'}$set_string" title="$text" class="curate_icon_link">);
-	#		$buffer .= q(<span class="curate_icon_highlight curate_icon_link_remote fas fa-link"></span>);
-	#		$buffer .= qq(</a></span>\n);
-	#		$pos += 2.2;
-	#	}
-
-	#	$buffer .= q(</div>);
-	#	return $buffer;
 	return;
 }
 
@@ -2214,11 +2212,15 @@ sub print_content {
 		my $ext_att = $self->_get_isolate_field_extended_attributes;
 		push @$admin_fields, @$ext_att;
 		$count{'field_admin'} += @$ext_att;
-
-		#		$buffer .= $self->_get_isolate_field_extended_attributes;
-		#		$buffer .= $self->_get_composite_fields;
-		#		$buffer .= $self->_get_validation_rules;
-		#		$buffer .= $self->_get_oauth_credentials;
+		my $composites = $self->_get_composite_fields;
+		push @$admin_fields, @$composites;
+		$count{'field_admin'} += @$composites;
+		my $rules = $self->_get_validation_rules;
+		push @$admin_fields, @$rules;
+		$count{'field_admin'} += @$rules;
+		my $oauth = $self->_get_oauth_credentials;
+		push @$admin_fields, @$oauth;
+		$count{'misc_admin'} += @$oauth;
 		#		$buffer .= $self->_get_query_interfaces;
 	}
 	#
