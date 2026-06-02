@@ -58,8 +58,8 @@ $(function() {
 		$(this).attr('href', function() {
 			$('#all_curator_methods_off').toggle();
 			$('#all_curator_methods_on').toggle();
-			$("div.curategroup").hide();
-			$("div.grid").each(function(index, element) {
+			$("div.curategroup[data-type='curator']").hide();
+			$("div.grid[data-type='curator']").each(function(index, element) {
 
 				let packery = Packery.data(element);
 				if (packery) {
@@ -67,11 +67,9 @@ $(function() {
 				}
 			});
 			if ($('#all_curator_methods_on').is(":visible")) {
-				console.log('show all curator methods');
 				$("#toggle_all_curator_methods").addClass("toggle_on");
 				render_expanded_curator_grid();
 			} else {
-				console.log('show contracted curator methods');
 				$("h3.curator_heading").hide();
 				$("#toggle_all_curator_methods").removeClass("toggle_on");
 				render_contracted_curator_grid();
@@ -95,18 +93,21 @@ $(function() {
 					$('#toggle_' + categories[i] + '_admin_methods').click();
 				}
 			}
+			$('a#toggle_all_admin_methods').addClass("toggle_on");
 		} else {
 			for (var i = 0; i < categories.length; i++) {
 				if ($('#' + categories[i] + '_admin_methods_on').is(':visible')) {
 					$('#toggle_' + categories[i] + '_admin_methods').click();
 				}
 			}
+			$('a#toggle_all_admin_methods').removeClass("toggle_on");
 		}
 	});
-	var categories = ["misc_admin", "locus_admin", "scheme_admin", "set_admin", "client_admin", "field_admin"];
+	var categories = ["general_admin", "misc_admin", "locus_admin", "scheme_admin", "set_admin", "client_admin", "field_admin"];
 	for (var i = 0; i < categories.length; i++) {
 		var cat = categories[i]
 		bind_toggle(cat);
+		render_admin_grid(categories[i])
 	}
 
 	if (related_dbs > 1) {
@@ -136,34 +137,66 @@ $(function() {
 	});
 });
 
+function render_admin_grid(category) {
+
+	let cat = category.replace("_admin", "");
+	let $cards = $("div.curategroup[data-type='admin'][data-section='" + cat + "']");
+	if ($cards.length > 0) {
+		$("h3#admin_heading_" + cat).show();
+	}
+	let $grid = $("#" + category);
+	$grid.append($cards);
+	$("div.curategroup[data-type='admin'][data-section='" + cat + "'] p.curate_info").hide();
+	if ($("a#toggle_tooltips").hasClass('tooltips_enabled')) {
+		$("div.curategroup[data-type='admin'][data-section='" + cat + "'] a.tooltip").show();
+	}
+	$("div.curategroup[data-type='admin'][data-section='" + cat + "']").addClass("expanded").removeClass("contracted");
+	$cards.show();
+	$grid.packery({
+		itemSelector: ".curategroup",
+		gutter: 5,
+	});
+	if ($("#" + category + "_methods_on").is(':visible') || category === 'general_admin') {
+
+		$("h3#admin_heading_" + cat).show();
+		$grid.show();
+	} else {
+		$("h3#admin_heading_" + cat).hide();
+		$grid.hide();
+	}
+}
+
 function render_contracted_curator_grid() {
 	const $cards = $("div.curategroup[data-type='curator'][data-default='show']");
 	const $grid = $("#curator_collapsed")
 	$grid.append($cards);
-	$("p.curate_info").show();
-	$("a.tooltip").hide();
-	$("div.curategroup").addClass("contracted").removeClass("expanded");
+	$("div.curategroup[data-type='curator'] p.curate_info").show();
+	$("div.curategroup[data-type='curator'] a.curator_tooltip").hide();
+	$("div.curategroup[data-type='curator'] a.curator_tooltip").removeClass("tooltip");
+	$("div.curategroup[data-type='curator']").addClass("contracted").removeClass("expanded");
 	$cards.show();
 	$grid.packery({
 		itemSelector: ".curategroup",
 		gutter: 10,
 	});
-	console.log($cards);
 }
 
 function render_expanded_curator_grid() {
 	const sections = ['user', 'isolate', 'seqbin', 'loci', 'schemes', 'metadata'];
-	$("p.curate_info").hide();
-	$("a.tooltip").show();
-	$("div.curategroup").addClass("expanded").removeClass("contracted");
-	
-	
+	$("div.curategroup[data-type='curator'] p.curate_info").hide();
+	$("div.curategroup[data-type='curator'] a.curator_tooltip").addClass("tooltip");
+	if ($("a#toggle_tooltips").hasClass("tooltips_enabled")) { //THIS IS NOT WORKING!
+		$("div.curategroup[data-type='curator'] a.curator_tooltip").show();
+	} else if ($("a#toggle_tooltips").hasClass("tooltips_disabled")) {
+		$("div.curategroup[data-type='curator'] a.curator_tooltip").hide();
+	}
+	$("div.curategroup[data-type='curator']").addClass("expanded").removeClass("contracted");
+
 	sections.forEach(function(section) {
 		let $section_cards = $("div.curategroup[data-type='curator'][data-section='" + section + "']").sort(function(a, b) {
 			return $(a).data('order') - $(b).data('order');
 		});
 
-		console.log($section_cards);
 		if ($section_cards.length > 0) {
 			$("h3#curate_heading_" + section).show();
 
@@ -183,41 +216,56 @@ function bind_toggle(cat) {
 	$('a#toggle_' + cat + '_methods').click(function(event) {
 		event.preventDefault();
 		$(this).attr('href', function() {
-			$('#' + cat + '_methods_off').toggle();
-			$('#' + cat + '_methods_on').toggle();
-			$('.' + cat).fadeToggle(200, '', function() {
-				$('#admin_grid').packery();
+			$('#' + cat + '_methods_off').toggle(0);
+			$('#' + cat + '_methods_on').toggle(0, function() {
+				admin_cat = cat.replace("_admin", "");
+				console.log(admin_cat)
+				if ($('#' + cat + '_methods_on').is(":visible")) {
+					$("h3#admin_heading_" + admin_cat).show();
+					$('#toggle_' + cat + '_methods').addClass("toggle_on");
+					$("div#" + cat).show();
+					$("div#" + cat).packery("layout");
+				} else {
+					$("h3#admin_heading_" + admin_cat).hide();
+					$('#toggle_' + cat + '_methods').removeClass("toggle_on");
+					$("div#" + cat).hide();
+				}
+				var categories = ["locus", "scheme", "set", "client", "field", "misc"];
+				var all_hidden = 1;
+				var all_shown = 1;
+				for (var i = 0; i < categories.length; i++) {
+					if ($('#' + categories[i] + '_admin_methods_on').is(':visible')) {
+						all_hidden = 0;
+					}
+					if ($('#' + categories[i] + '_admin_methods_off').is(':visible')) {
+						all_shown = 0;
+					}
+				}
+				if (all_hidden) {
+					$('#all_admin_methods_off').css('display', 'inline');
+					$('#all_admin_methods_on').css('display', 'none');
+					$('a#toggle_all_admin_methods').removeClass("toggle_on");
+				} else {
+					$('#all_admin_methods_on').css('display', 'inline');
+					$('#all_admin_methods_off').css('display', 'none');
+					$('a#toggle_all_admin_methods').addClass("toggle_on");
+				}
+				if (all_shown) {
+					$('#all_admin_methods_on').css('display', 'inline');
+					$('#all_admin_methods_off').css('display', 'none');
+					$('a#toggle_all_admin_methods').addClass("toggle_on");
+				} else {
+					$('#all_admin_methods_off').css('display', 'inline');
+					$('#all_admin_methods_on').css('display', 'none');
+					$('a#toggle_all_admin_methods').removeClass("toggle_on");
+				}
 			});
 			$.ajax({
 				url: this.href,
 				cache: false,
 			});
 		});
-		var categories = ["locus", "scheme", "set", "client", "field", "misc"];
-		var all_hidden = 1;
-		var all_shown = 1;
-		for (var i = 0; i < categories.length; i++) {
-			if ($('#' + categories[i] + '_admin_methods_on').is(':visible')) {
-				all_hidden = 0;
-			}
-			if ($('#' + categories[i] + '_admin_methods_off').is(':visible')) {
-				all_shown = 0;
-			}
-		}
-		if (all_hidden) {
-			$('#all_admin_methods_off').css('display', 'inline');
-			$('#all_admin_methods_on').css('display', 'none');
-		} else {
-			$('#all_admin_methods_on').css('display', 'inline');
-			$('#all_admin_methods_off').css('display', 'none');
-		}
-		if (all_shown) {
-			$('#all_admin_methods_on').css('display', 'inline');
-			$('#all_admin_methods_off').css('display', 'none');
-		} else {
-			$('#all_admin_methods_off').css('display', 'inline');
-			$('#all_admin_methods_on').css('display', 'none');
-		}
+
 	});
 }
 

@@ -1649,7 +1649,7 @@ div.curategroup h2 {
 	font-family: pt_sans, sans-serif;
 	font-size: 15px;
 	font-weight: 600;
-	color: #393976;	
+	color: #393976;
 	width: 100%;
 	margin: 0 0 6px 0;
 	z-index: 2
@@ -1660,42 +1660,40 @@ div.curategroup h2 span.title {
 	text-align: left;
 }
 
-div.curategroup.contracted{
-	height:120px;
+div.curategroup.contracted {
+	height: 120px;
 }
 
-div.curategroup.contracted h2 {
-	
-}
+div.curategroup.contracted h2 {}
 
 div.curategroup.sequences.contracted div.curate_buttonbar {
-	bottom:12px;
+	bottom: 12px;
 }
 
-div.curategroup.expanded{
-	height:50px;
+div.curategroup.expanded {
+	height: 50px;
 }
 
-div.curategroup.sequences.schemes.expanded h2{
-	margin:-6px 0 3px 0;
-	max-height:40px;
+div.curategroup.sequences.schemes.expanded h2 {
+	margin: -6px 0 3px 0;
+	max-height: 40px;
 	overflow: hidden;
 }
 
-div.curategroup.sequences.schemes.expanded h2 span.title{
-	margin-right:5px
+div.curategroup.sequences.schemes.expanded h2 span.title {
+	margin-right: 5px
 }
 
 div.curategroup.expanded div.curate_buttonbar {
-	bottom:6px;
+	bottom: 6px;
 }
 
 div.curategroup a.tooltip {
 	font-size: 0.5rem;
-	position:absolute;
-	top:1px;
-	right:1px;
-	opacity:0.5;
+	position: absolute;
+	top: 1px;
+	right: 1px;
+	opacity: 0.5;
 }
 
 p.curate_info {
@@ -1704,7 +1702,8 @@ p.curate_info {
 	opacity: 0.7
 }
 
-h3.curator_heading {
+h3.curator_heading,
+h3.admin_heading {
 	margin: 12px 0 6px 0;
 	color: #435973;
 	font-weight: 600
@@ -1716,13 +1715,8 @@ div.title_toggle {
 	column-gap: 50px
 }
 
-a.toggle_on {
-	background: #ecf6ee;
-	color: #2d6b3f;
-}
-
-a.toggle_on:hover {
-	background: #cdd6cf;
+div.curate_toggle a.button {
+	margin: 0 !important;
 }
 
 .toggle_icon {
@@ -1758,12 +1752,14 @@ a.curate_link.add:hover {
 	background: #cdd6cf;
 }
 
-a.curate_link.edit {
+a.curate_link.edit,
+a.curate_link.query {
 	background: #eceff6;
 	color: #2d3a6b;
 }
 
-a.curate_link.edit:hover {
+a.curate_link.edit:hover,
+a.curate_link.query:hover {
 	background: #cdd0d6;
 }
 
@@ -2971,7 +2967,6 @@ span.dataset_icon {
 
 span.config_icon {
 	color: #a66;
-	text-shadow: 3px 3px 3px #999
 }
 
 span.warning_icon {
