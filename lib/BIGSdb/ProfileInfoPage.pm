@@ -267,11 +267,11 @@ sub _print_client_db_links {
 	}
 	if ($buffer) {
 		my $plural = @$clients > 1 ? q(s) : q();
-		say q(<span class="info_icon fas fa-2x fa-fw fa-database fa-pull-left" style="margin-top:-0.2em"></span>);
+		say q(<div><span class="info_icon fas fa-2x fa-fw fa-database fa-pull-left" style="margin-top:-5px"></span>);
 		say qq(<h2>Client database$plural</h2>);
 		say q(<dl class="data">);
 		say $buffer;
-		say q(</dl>);
+		say q(</dl></div>);
 	}
 	return;
 }
@@ -687,14 +687,14 @@ sub get_javascript {
 	\$("#show_refs").on("click", function(){
 		\$("li.hide_ref").slideDown("fast");
 		\$("div.references").removeClass("bottom_fade");
-		\$("p#show_refs").hide();
-		\$("p#hide_refs").show();
+		\$("a#show_refs").hide();
+		\$("a#hide_refs").show();
 	});
 	\$("#hide_refs").on("click", function(){
 		\$("li.hide_ref").slideUp("fast");
 		\$("div.references").addClass("bottom_fade");
-		\$("p#show_refs").show();
-		\$("p#hide_refs").hide();
+		\$("a#show_refs").show();
+		\$("a#hide_refs").hide();
 	});
 	
 	

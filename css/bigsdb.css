@@ -2825,7 +2825,7 @@ dl.profile,
 dl.locus_combinations {
 	margin: 0;
 	display: inline-block;
-	border: 1px solid #ccc;
+	border: 1px solid transparent;
 	text-align: center;
 }
 
@@ -2834,14 +2834,12 @@ dl.locus_combinations {
 	margin: 0;
 	padding: 0 0.5em;
 	height: 1.2em;
-	background-color: #a3a3cc;
-	color: black;
-	font-weight: bold;
+	background-color: #49709e;
+	color: white;
 }
 
 .profile dt a {
-	color: #333
-}
+	color: white}
 
 .profile dt a:hover {
 	color: yellow;
@@ -2853,7 +2851,7 @@ dl.locus_combinations {
 	min-height: 1.7em;
 	padding: 0;
 	margin: 0;
-	background: white;
+	background: #fffeff;
 }
 
 span.data_title {
@@ -2864,7 +2862,7 @@ span.data_title {
 
 h3.scheme {
 	font-family: pt_sansregular, sans-serif;
-	font-size: 1.2em;
+	font-size: 1em;
 	clear: both;
 	margin-bottom: 0.2em;
 	text-align: center;
@@ -2872,6 +2870,7 @@ h3.scheme {
 	color: white;
 	border-radius: 4px;
 	padding: 0 0.2em;
+	opacity: 0.5;
 }
 
 h3.scheme a {
@@ -2880,7 +2879,7 @@ h3.scheme a {
 
 h3.group {
 	font-family: pt_sansregular, sans-serif;
-	font-size: 1.2em;
+	font-size: 1em;
 	clear: both;
 	margin-bottom: -0.8em;
 	text-align: center;
@@ -2892,17 +2891,20 @@ h3.group {
 
 h3.group0 {
 	color: white;
-	background: #002000
+	background: #002000;
+	opacity: 0.5;
 }
 
 h3.group1 {
 	color: white;
-	background: #004000
+	background: #004000;
+	opacity: 0.5;
 }
 
 h3.group2 {
 	color: white;
-	background: #206000
+	background: #206000;
+	opacity: 0.5;
 }
 
 h3.group3 {
@@ -2912,15 +2914,18 @@ h3.group3 {
 
 h3.group4 {
 	color: white;
-	background: #60A060
+	background: #60A060;
+	opacity: 0.5;
 }
 
 h3.group5 {
-	background: #80C080
+	background: #80C080;
+	opacity: 0.5;
 }
 
 h3.group6 {
-	background: #A0E0A0
+	background: #A0E0A0;
+	opacity: 0.5;
 }
 
 span.fa-stack-text {
