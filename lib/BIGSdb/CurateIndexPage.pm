@@ -2275,9 +2275,10 @@ sub print_panel_buttons {
 
 sub _print_curator_toggle {
 	my ($self) = @_;
+	say q(<div class="toggle_group" style="margin-bottom:10px"><div style="margin-right: 5px">Show:</div>);
 	say q(<div class="curate_toggle">);
 	my $class = $self->{'prefs'}->{'all_curator_methods'} ? ' toggle_on' : '';
-	say qq(<span style="margin-right:5px">Show: </span><a id="toggle_all_curator_methods" class="button$class" )
+	say qq(<a id="toggle_all_curator_methods" class="button$class" )
 	  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=index&amp;)
 	  . q(toggle_all_curator_methods=1">);
 	my $off = $self->{'prefs'}->{'all_curator_methods'} ? 'none'   : 'inline';
@@ -2287,14 +2288,15 @@ sub _print_curator_toggle {
 	say q(<span id="all_curator_methods_on" class="toggle_icon fas fa-toggle-on fa-2x" )
 	  . qq(style="display:$on" title="Showing all authorized functions"></span>);
 	say q(<span class="label">All functions</span></a>);
-	say q(</div>);
+	say q(</div></div>);
 	return;
 }
 
 sub _print_admin_toggles {
 	my ( $self, $counts ) = @_;
+	say q(<div class="toggle_group"><div style="margin-right: 5px">Show:</div>);
 	say q(<div class="curate_toggle">);
-	say q(<span style="margin-right:5px">Show: </span>);
+	
 	my %label = (
 		locus  => 'Loci',
 		scheme => 'Schemes',
@@ -2339,7 +2341,7 @@ sub _print_admin_toggles {
 		  . qq(style="display:$on" title="Showing all admin and configuration functions"></span> )
 		  . q(<span class="label">Show all</span></a>);
 	}
-	say q(</div>);
+	say q(</div></div>);
 	return;
 }
 

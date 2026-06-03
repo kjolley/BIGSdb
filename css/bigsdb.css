@@ -1722,11 +1722,17 @@ div.title_toggle {
 	column-gap: 50px
 }
 
+div.toggle_group {
+	display: flex;
+	align-items: center;
+}
+
 div.curate_toggle {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 2px;
 	align-items: center;
+	
 }
 
 div.curate_toggle a.button {
@@ -3797,11 +3803,12 @@ select {
 	}
 }
 
-@media only screen and (max-width:450px) {
-	/*	div.curategroup {
-		min-width: 85%
+@media only screen and (max-width:500px) {
+	div.curategroup {
+		min-width: 180px;
+		width: 95%
 	}
-	div#admin_grid {
+	/*div#admin_grid {
 		margin-right: initial;
 		margin-top: 150px
 	}*/
