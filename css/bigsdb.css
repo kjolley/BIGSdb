@@ -295,14 +295,18 @@ a.existing_tooltip {
 	background: #d2fad2;
 	color: black;
 	border: 1px solid #c0c0c0;
-	font-size: 0.8em
+	font-size: 0.8em;
+	padding: 0 4px;
+	border-radius: 4px;
 }
 
 a.extract_tooltip {
 	background: #d2fafa;
 	color: black;
 	border: 1px solid #c0c0c0;
-	font-size: 0.8em
+	font-size: 0.8em;
+	padding: 0 4px;
+	border-radius: 4px;
 }
 
 a.info_tooltip {
@@ -315,25 +319,28 @@ span.seqflag {
 	border: 1px solid #c0c0c0;
 }
 
-a.seqflag_tooltip {
+a.seqflag_tooltip, a.clashing_tooltip {
 	background: #fad2d2;
 	color: black;
 	border: 1px solid #c0c0c0;
-	font-size: 0.8em
+	font-size: 0.8em;
+	padding: 0 4px;
+	border-radius: 4px;
 }
 
-a.clashing_tooltip {
-	background: #fad2d2;
-	color: black;
-	border: 1px solid #c0c0c0;
-	font-size: 0.8em
+span.first_start_codon {
+	border:1px solid #ccc;
+	padding: 0 4px;
+	border-radius: 4px;
 }
 
 a.cds {
 	background: #d2fad2;
 	color: black;
 	border: 1px solid #c0c0c0;
-	font-size: 0.8em
+	font-size: 0.8em;
+	padding: 0 4px;
+	border-radius: 4px;
 }
 
 a.action,

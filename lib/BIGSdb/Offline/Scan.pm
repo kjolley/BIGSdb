@@ -1111,7 +1111,7 @@ sub _get_row {
 		my $colour =
 		  BIGSdb::Utils::get_percent_colour( $match->{'first_stop'}, { min => $min, max => $max, middle => $middle } );
 		$buffer .=
-		  qq(<td><span style="background:#${colour}40;border:1px solid #ccc">$match->{'first_stop'}</span></td>);
+		  qq(<td><span class="first_start_codon" style="background:#${colour}40">$match->{'first_stop'}</span></td>);
 	} else {
 		$buffer .= $locus_info->{'complete_cds'} ? q(<td>-</td>) : q(<td>N/A</td>);
 	}
