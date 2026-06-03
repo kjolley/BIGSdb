@@ -21,8 +21,9 @@ package BIGSdb::Plugins::SequenceComparison;
 use strict;
 use warnings;
 use 5.010;
-use parent        qw(BIGSdb::Plugin);
-use Log::Log4perl qw(get_logger);
+use parent            qw(BIGSdb::Plugin);
+use BIGSdb::Constants qw(:interface);
+use Log::Log4perl     qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 
 sub get_attributes {
@@ -99,6 +100,7 @@ sub run {
 	my $displaylocus = $self->clean_locus($locus);
 	my $allele1      = $q->param('allele1');
 	my $allele2      = $q->param('allele2');
+
 	foreach ( $allele1, $allele2 ) {
 		s/^\s+//x;
 		s/\s+$//x;
@@ -200,8 +202,11 @@ sub get_alignment {
 	if ( -e $outfile ) {
 		my $cleaned_file = "$self->{'config'}->{'tmp_dir'}/${outfile_prefix}_cleaned.txt";
 		$self->_cleanup_alignment( $outfile, $cleaned_file );
-		$buffer .= qq(<p><a href="/tmp/${outfile_prefix}_cleaned.txt" id="alignment_link" data-rel="ajax">)
-		  . qq(Show alignment</a></p>\n);
+		my ( $show, $hide ) = ( EYE_SHOW, EYE_HIDE );
+		$buffer .=
+			qq(<p><a href="/tmp/${outfile_prefix}_cleaned.txt" id="alignment_link" data-rel="ajax" class="button">)
+		  . qq($show Show alignment</a>)
+		  . qq(<a id="hide_alignment_link" class="button" style="display:none">$hide Hide alignment</a></p>\n);
 		$buffer .= qq(<pre><span id="alignment"></span></pre>\n);
 	}
 	return $buffer;
@@ -224,6 +229,7 @@ sub get_plugin_javascript {
 	my $buffer = << "END";
 \$(function () {
 	\$('a[data-rel=ajax]').click(function(){
+		\$("#alignment").show();
   		\$(this).attr('href', function(){
   			if (this.href.match(/javascript.loadContent/)){
   				return;
@@ -231,6 +237,13 @@ sub get_plugin_javascript {
     		return(this.href.replace(/(.*)/, "javascript:loadContent\('\$1\'\)"));
     	});
   	});
+  	\$("#hide_alignment_link").click(function(){
+		\$("#alignment").slideUp("fast", function(){
+			\$("#alignment").empty();
+		});
+		\$("#alignment_link").show();
+		\$("#hide_alignment_link").hide();
+	})
   	\$('#locus').multiselect({
  		classes: 'filter',
  		menuHeight: 350,
@@ -242,6 +255,7 @@ sub get_plugin_javascript {
 function loadContent(url) {
 	\$("#alignment").html('<img src=\"/javascript/themes/default/throbber.gif\" /> Loading ...').load(url);
 	\$("#alignment_link").hide();
+	\$("#hide_alignment_link").show();
 }
 
 END
