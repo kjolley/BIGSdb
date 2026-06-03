@@ -1,4 +1,4 @@
-/*Version: 20260422*/
+/*Version: 20260603*/
 /*@font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2');
@@ -1674,7 +1674,7 @@ div.curategroup.expanded {
 	height: 50px;
 }
 
-div.curategroup.sequences.schemes.expanded h2 {
+div.curategroup.sequences.schemes.expanded h2,div.curategroup.sequences.scheme.expanded h2 {
 	margin: -6px 0 3px 0;
 	max-height: 40px;
 	overflow: hidden;
@@ -1716,9 +1716,9 @@ div.title_toggle {
 }
 
 div.curate_toggle {
-	display:flex;	
-	flex-wrap:wrap;
-	gap:2px;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 2px;
 	align-items: center;
 }
 
@@ -2211,7 +2211,9 @@ div#restricted {
 }
 
 div#statuswarn,
-div.statuswarn {
+div.statuswarn,
+div#warning,
+div.warning {
 	min-height: 5em;
 	background: #f4f6f8;
 	border: 1px solid #d6e3f3;
@@ -2248,11 +2250,6 @@ div.statusbad_no_resize {
 div.statusgood_no_resize {
 	background: #d5e0d5;
 	color: #008000
-}
-
-div#warning {
-	background: #e0a0a0;
-	color: #000000
 }
 
 div#resultsheader,
@@ -2962,14 +2959,8 @@ span.nav_icon:hover {
 	color: #88c
 }
 
-span.job_icon {
-	color: #a66;
-	text-shadow: 3px 3px 3px #999
-}
-
 span.dataset_icon {
 	color: #6a6;
-	text-shadow: 3px 3px 3px #999
 }
 
 span.config_icon {
