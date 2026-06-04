@@ -76,10 +76,9 @@ sub _print_info_panel {
 	say q(<div style="float:left">);
 	say qq(<img src="$logo" style="height:150px;margin-right:50px;filter:drop-shadow(5px 5px 4px #888)" />);
 	say q(</div>);
-	say q(<p>LINvis displays a dataset of LIN&reg; code values as a hierarchical circle-packing visualisation.</p>);
+	say q(<p>LINvis displays a dataset of LIN code values as a hierarchical circle-packing visualisation.</p>);
 	say q(<p>Hovering over each node will display the partial or full LIN code associated with it and you can choose )
 	  . q(to set labels for any LIN code threshold.</p>);
-	say q(<p class="comment">LIN is a trademark registered by This Genomic Life, Inc, Floyd, VA, USA.</p>);
 	say q(</div>);
 	return;
 }

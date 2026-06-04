@@ -48,7 +48,7 @@ $EXPORT_TAGS{'limits'} = [@values];
 
 #Methods
 use constant SEQ_METHODS => (
-	'454', 'Illumina',
+	'454', 'DNBSEQ', 'Illumina',
 	'Illumina + ONT hybrid',
 	'Illumina + PacBio hybrid',
 	'Ion Torrent', 'Oxford Nanopore',
@@ -116,7 +116,6 @@ use constant EYE_SHOW             => q(<span class="nav_icon fas fa-eye"></span>
 use constant EYE_HIDE             => q(<span class="nav_icon fas fa-eye-slash"></span>);
 use constant TOGGLE_ON            => q(<span class="nav_icon fas fa-toggle-on"></span>);
 use constant TOGGLE_OFF           => q(<span class="nav_icon fas fa-toggle-off"></span>);
-
 use constant EXPORT_TABLE => q(<span class="fa-stack fa-2x export">)
   . q(<span class="fas fa-square fa-stack-2x export_button"></span>)
   . q(<span class="fas fa-table fa-stack-1x fa-inverse" style="margin-top:-0.2em"></span>)
