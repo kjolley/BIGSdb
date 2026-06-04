@@ -1822,7 +1822,9 @@ sub _get_field_extended_attributes {
 		$field, { fetch => 'all_arrayref', slice => {} } );
 	my %order          = map { $_->{'attribute'} => $_->{'field_order'} } @$attribute_order;
 	my $attribute_list = $self->{'datastore'}->run_query(
-		'SELECT attribute,value FROM isolate_value_extended_attributes WHERE (isolate_field,field_value)=(?,?)',
+		'SELECT iv.attribute,iv.value FROM isolate_value_extended_attributes iv JOIN '
+		  . 'isolate_field_extended_attributes ife ON iv.attribute=ife.attribute WHERE '
+		  . '(iv.isolate_field,iv.field_value)=(?,?)',
 		[ $field, $value ],
 		{ fetch => 'all_arrayref', slice => {} }
 	);
