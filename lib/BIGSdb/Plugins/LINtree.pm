@@ -160,8 +160,7 @@ sub _print_info_panel {
 	my ($self) = @_;
 	say q(<div class="box" id="resultspanel">);
 	say q(<p>This plugin is a wrapper for LINtree, a tool to infer prefix trees with branch lengths from sets )
-	  . q(of Life Identification Number (LIN) &reg; (trademark registered by This Genomic Life, Inc, Floyd, VA, USA) )
-	  . q(codes. Such LIN-based prefix trees are very useful to reflect the )
+	  . q(of Life Identification Number (LIN) codes. Such LIN-based prefix trees are very useful to reflect the )
 	  . q(phylogenetic relationships among genomes typed by cgMLST where LIN codes have been assigned. Only isolates )
 	  . q(with an assigned LIN code can be included in the tree.</p>);
 	if ( $self->{'config'}->{'itol_api_key'} ) {
