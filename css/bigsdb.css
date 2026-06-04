@@ -2227,7 +2227,7 @@ div#statuswarn,
 div.statuswarn,
 div#warning,
 div.warning {
-	min-height: 5em;
+	min-height: 2em;
 	background: #f4f6f8;
 	border: 1px solid #d6e3f3;
 	color: #1d3557;
