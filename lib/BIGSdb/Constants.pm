@@ -48,7 +48,7 @@ $EXPORT_TAGS{'limits'} = [@values];
 
 #Methods
 use constant SEQ_METHODS => (
-	'454', 'Illumina',
+	'454', 'DNBSEQ', 'Illumina',
 	'Illumina + ONT hybrid',
 	'Illumina + PacBio hybrid',
 	'Ion Torrent', 'Oxford Nanopore',
@@ -112,7 +112,7 @@ use constant KEY                  => q(<span class="nav_icon fas fa-2x fa-key"><
 use constant EYE_SHOW             => q(<span class="nav_icon fas fa-2x fa-eye"></span>);
 use constant EYE_HIDE             => q(<span class="nav_icon fas fa-2x fa-eye-slash"></span>);
 use constant CURATE               => q(<span class="nav_icon fas fa-2x fa-user-tie"></span>);
-use constant EXPORT_TABLE         => q(<span class="fa-stack fa-2x export">)
+use constant EXPORT_TABLE => q(<span class="fa-stack fa-2x export">)
   . q(<span class="fas fa-square fa-stack-2x export_button"></span>)
   . q(<span class="fas fa-table fa-stack-1x fa-inverse" style="margin-top:-0.2em"></span>)
   . q(<span class="fas fa-stack-text fa-stack-1x" style="font-size:0.4em;)
@@ -321,7 +321,7 @@ use constant MAX_CONTIGS              => 1000;
 use constant MIN_N50                  => 10_000;
 use constant MIN_TOTAL_LENGTH         => 1_000_000;
 use constant MAX_TOTAL_LENGTH         => 15_000_000;
-use constant NULL_TERMS               =>
+use constant NULL_TERMS =>
   ( 'none', 'N/A', 'NA', '-', '.', 'not applicable', 'no value', 'unknown', 'unk', 'not known', 'null' );
 @values = qw (SUBMISSIONS_DELETED_DAYS COVERAGE READ_LENGTH ASSEMBLY REQUIRES_READ_LENGTH
   REQUIRES_COVERAGE REQUIRED_GENOME_FIELDS DAILY_REST_LIMIT TOTAL_PENDING_LIMIT DAILY_PENDING_LIMIT NULL_TERMS
@@ -332,7 +332,7 @@ push @EXPORT_OK, @values;
 $EXPORT_TAGS{'submissions'} = [@values];
 
 #Schemes
-use constant SCHEME_FLAGS        => ( 'experimental', 'in development', 'please cite', 'unpublished' );
+use constant SCHEME_FLAGS => ( 'experimental', 'in development', 'please cite', 'unpublished' );
 use constant SCHEME_FLAG_COLOURS => {
 	'please cite'    => '#990000',
 	'experimental'   => '#4c9900',
@@ -352,7 +352,7 @@ $EXPORT_TAGS{'login_requirements'} = [qw(NOT_ALLOWED OPTIONAL REQUIRED)];
 #Account management
 use constant NEW_ACCOUNT_VALIDATION_TIMEOUT_MINS => 60;
 use constant INACTIVE_ACCOUNT_REMOVAL_DAYS       => 180;
-use constant SECTORS                             =>
+use constant SECTORS =>
   ( 'academic/non-profit', 'commercial', 'private healthcare', 'public healthcare', 'public health' );
 push @EXPORT_OK, qw (NEW_ACCOUNT_VALIDATION_TIMEOUT_MINS INACTIVE_ACCOUNT_REMOVAL_DAYS SECTORS);
 $EXPORT_TAGS{'accounts'} = [qw(NEW_ACCOUNT_VALIDATION_TIMEOUT_MINS INACTIVE_ACCOUNT_REMOVAL_DAYS SECTORS)];
