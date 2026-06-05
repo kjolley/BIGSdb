@@ -517,7 +517,6 @@ sub _get_optlist_field {
 		}
 	}
 	unshift @optlist, '';
-
 	my $labels = $att->{'labels'} // {};
 	$labels->{''} = ' ';    #Required for HTML5 validation
 	my %disabled = $disabled ? ( disabled => 'disabled' ) : ();
@@ -529,8 +528,10 @@ sub _get_optlist_field {
 		-name    => $name,
 		-id      => $name,
 		-values  => [@optlist],
-		-default => $options->{'update'} ? $newdata->{ $att->{'name'} } : $default,
-		-labels  => $labels,
+		-default => ( $options->{'update'} || $options->{'copy_config'} )
+		? $newdata->{ $att->{'name'} }
+		: $default,
+		-labels => $labels,
 		%disabled,
 		%class,
 		%$html5_args
@@ -1070,7 +1071,7 @@ sub check_record {
 	my @primary_key_query;
   ATT: foreach my $att (@$attributes) {
 		next if $update && $att->{'no_user_update'};
-		if ( $att->{'name'} =~ /sequence$/x || $att->{'name'} =~ /^primer\d/x) {
+		if ( $att->{'name'} =~ /sequence$/x || $att->{'name'} =~ /^primer\d/x ) {
 			$newdata->{ $att->{'name'} } = uc( $newdata->{ $att->{'name'} } // '' );
 			$newdata->{ $att->{'name'} } =~ s/\s//gx;
 		}

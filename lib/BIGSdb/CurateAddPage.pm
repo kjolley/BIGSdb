@@ -127,10 +127,12 @@ sub print_content {
 	$self->_warn_about_scheme_modification($table);
 	my $icon     = $self->get_form_icon( $table, 'plus' );
 	my $new_data = $self->_populate_newdata($table);
+	my $copy_config;
 	if ( $table eq 'loci' && $q->param('Copy') ) {
 		$self->_copy_locus_config($new_data);
+		$copy_config = 1;
 	}
-	my $buffer = $self->create_record_table( $table, $new_data, { icon => $icon } );
+	my $buffer = $self->create_record_table( $table, $new_data, { icon => $icon, copy_config => $copy_config } );
 	$new_data->{'datestamp'} = $new_data->{'date_entered'} = BIGSdb::Utils::get_datestamp();
 	$new_data->{'curator'}   = $self->get_curator_id;
 	my $retval;
@@ -1188,7 +1190,12 @@ sub _copy_locus_config {
 		my $value = $locus_info->{$field} || '';
 		$value =~ s/$locus/PUT_LOCUS_NAME_HERE/x
 		  if any { $field eq $_ } qw(dbase_id description_url url);
-		if ( any { $field eq $_ } qw (length_varies coding_sequence main_display query_field analysis) ) {
+		if (
+			any { $field eq $_ }
+			qw (length_varies coding_sequence main_display query_field analysis complete_cds
+			match_longest pcr_filter probe_filter introns)
+		  )
+		{
 			$value = $locus_info->{$field} ? 'true' : 'false';
 		}
 		$newdata_ref->{$field} = $value;
