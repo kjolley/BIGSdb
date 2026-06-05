@@ -1039,7 +1039,7 @@ sub get_javascript {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	my %allowed_tables =
-	  map { $_ => 1 } qw(sequences query_interface_fields user_group_members users schemes curator_configs);
+	  map { $_ => 1 } qw(sequences query_interface_fields user_group_members users schemes curator_configs loci);
 	return if !defined $q->param('table') || !$allowed_tables{ $q->param('table') };
 	my $buffer = << "END";
 \$(function () {
@@ -1064,6 +1064,12 @@ sub get_javascript {
   });
   \$('.dynamic').select2({
   	tags: true
+  });
+  \$("a#toggle1").click(function(event){
+  	\$("#modal_overlay").addClass("open");
+  });
+  \$("a#toggle2").click(function(event){
+  	\$("#modal_overlay").removeClass("open");
   });
 });
 END
@@ -1159,8 +1165,8 @@ sub _print_copy_locus_record_form {
 	my $q = $self->{'cgi'};
 	my ( $locus_list, $locus_labels ) = $self->get_field_selection_list( { loci => 1, sort_labels => 1 } );
 	return if !@$locus_list;
-	say q(<div class="floatmenu"><a id="toggle1" class="showhide" style="display:none">Show tools</a>);
-	say q(<a id="toggle2" class="hideshow" style="display:none">Hide tools</a></div>);
+	say q(<div class="floatmenu" style="z-index:9"><a id="toggle1" class="showhide button" style="display:none">Show tools</a>);
+	say q(<a id="toggle2" class="hideshow button" style="display:none">Hide tools</a></div>);
 	say q(<div class="hideshow" style="display:none">);
 	say q(<div id="curatetools">);
 	print $q->start_form;

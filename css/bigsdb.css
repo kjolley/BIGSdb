@@ -319,7 +319,8 @@ span.seqflag {
 	border: 1px solid #c0c0c0;
 }
 
-a.seqflag_tooltip, a.clashing_tooltip {
+a.seqflag_tooltip,
+a.clashing_tooltip {
 	background: #fad2d2;
 	color: black;
 	border: 1px solid #c0c0c0;
@@ -329,7 +330,7 @@ a.seqflag_tooltip, a.clashing_tooltip {
 }
 
 span.first_start_codon {
-	border:1px solid #ccc;
+	border: 1px solid #ccc;
 	padding: 0 4px;
 	border-radius: 4px;
 }
@@ -1681,7 +1682,8 @@ div.curategroup.expanded {
 	height: 50px;
 }
 
-div.curategroup.sequences.schemes.expanded h2,div.curategroup.sequences.scheme.expanded h2 {
+div.curategroup.sequences.schemes.expanded h2,
+div.curategroup.sequences.scheme.expanded h2 {
 	margin: -6px 0 3px 0;
 	max-height: 40px;
 	overflow: hidden;
@@ -1732,7 +1734,7 @@ div.curate_toggle {
 	flex-wrap: wrap;
 	gap: 2px;
 	align-items: center;
-	
+
 }
 
 div.curate_toggle a.button {
@@ -2446,7 +2448,7 @@ div.disabled {
 }
 
 div#curatetools {
-	background: #e5e5f0;
+	background: #fbfcfd;
 	float: right;
 	position: absolute;
 	top: 6em;
@@ -2454,9 +2456,11 @@ div#curatetools {
 	padding: 10px;
 	font-size: 1em;
 	margin-bottom: 0.5em;
-	border: 1px solid #999;
-	border-radius: 10px;
-	box-shadow: 3px 3px 3px #dfdfdf;
+	border: 1px solid #dde4ec;
+	border-radius: 12px;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10),
+		0 2px 8px rgba(0, 0, 0, 0.05);
+	z-index: 9
 }
 
 div.floatmenu {
@@ -2464,16 +2468,6 @@ div.floatmenu {
 	position: absolute;
 	top: 3.5em;
 	right: 10px;
-	font-size: 1.2em;
-	border: 1px solid #d0d0d0;
-	background: #c0c0c0;
-	color: white;
-}
-
-div.floatmenu a {
-	text-decoration: none;
-	color: white;
-	cursor: pointer;
 }
 
 div.dashboard_number {
@@ -2845,7 +2839,8 @@ dl.locus_combinations {
 }
 
 .profile dt a {
-	color: white}
+	color: white
+}
 
 .profile dt a:hover {
 	color: yellow;
@@ -3808,6 +3803,7 @@ select {
 		min-width: 180px;
 		width: 95%
 	}
+
 	/*div#admin_grid {
 		margin-right: initial;
 		margin-top: 150px
