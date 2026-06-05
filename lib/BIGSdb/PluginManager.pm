@@ -210,7 +210,7 @@ sub get_plugin_categories {
 sub _valid_section {
 	my ( $self, $sections ) = @_;
 	my %allowed_sections =
-	  map { $_ => 1 } qw (isolate_info profile_info info postquery breakdown analysis third_party export miscellaneous);
+	  map { $_ => 1 } qw (isolate_info profile_info info postquery breakdown analysis external export miscellaneous);
 	foreach my $section (@$sections) {
 		return 1 if $allowed_sections{$section};
 	}

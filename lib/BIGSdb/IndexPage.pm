@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -125,7 +125,7 @@ sub _print_plugin_menu_items {
 	);
 	$self->_print_plugin_menu_item(
 		{
-			sections => [qw(breakdown analysis third_party)],
+			sections => [qw(breakdown analysis external)],
 			label    => 'ANALYSIS',
 			icon     => 'fas fa-chart-line',
 			href     => "${url_root}page=pluginSummary&amp;category=analysis"
