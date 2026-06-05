@@ -1675,8 +1675,9 @@ sub _get_rounded_width {
 sub _get_colour_swatch {
 	my ( $self, $element ) = @_;
 	if ( $element->{'background_colour'} ) {
-		return qq[<div style="background-image:linear-gradient(#fff,#fff 10%,$element->{'background_colour'},]
-		  . q[#fff 90%,#fff);height:calc(100% - 10px);margin-top:5px;width:100%;position:absolute;z-index:-1"></div>];
+		return qq[<div style="background-image:linear-gradient(#fff,#fff 10%,$element->{'background_colour'} 40%,]
+		  . qq[$element->{'background_colour'} 60%,#fff 90%,#fff);height:calc(100% - 10px);margin-top:5px;]
+		  . q[width:100%;position:absolute;z-index:-1"></div>];
 	}
 	return q();
 }
@@ -1690,9 +1691,11 @@ sub _get_big_number_content {
 	  . qq(<span class="dashboard_big_number" style="color:$text_colour">$nice_count</span></p>);
 	if ( $change_duration && defined $increase ) {
 		my $nice_increase = BIGSdb::Utils::commify($increase);
-		my $class         = $increase ? 'increase' : 'no_change';
-		$buffer .= qq(<p class="dashboard_comment $class"><span class="fas fa-caret-up"></span> )
-		  . qq($nice_increase [$change_duration]</p>);
+		if ($increase) {
+			$buffer .= qq(<p class="dashboard_comment increase">+$nice_increase this $change_duration</p>);
+		} else {
+			$buffer .= qq(<p class="dashboard_comment no_change">no change this $change_duration</p>);
+		}
 	}
 	return $buffer;
 }
@@ -4266,8 +4269,7 @@ sub initiate {
 	return if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
 	$self->{'dashboard_type'} = 'primary';
 	$self->{$_} = 1
-	  foreach
-	  qw (jQuery noCache muuri modal fitty bigsdb.dashboard jQuery.fonticonpicker billboard d3.layout.cloud
+	  foreach qw (jQuery noCache muuri modal fitty bigsdb.dashboard jQuery.fonticonpicker billboard d3.layout.cloud
 	  allowExpand);
 	$self->{'geomap'} = 1 if $self->has_country_optlist;
 	$self->{'ol'}     = 1 if $self->need_openlayers;
