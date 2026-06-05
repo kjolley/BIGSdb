@@ -23,6 +23,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Plugins::GrapeTree);
 use BIGSdb::Utils;
+use BIGSdb::Exceptions;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Try::Tiny;
@@ -278,36 +279,43 @@ sub print_tree_type_fieldset {
 		  $self->{'prefstore'}
 		  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, $attr->{'module'}, 'tree_algorithm' );
 	};
-
-	say q(<fieldset style="float:left"><legend>Tree generation</legend>);
-
-	my $treegen_default;
-	eval {
-		$treegen_default =
-		  $self->{'prefstore'}->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, $attr->{'module'}, 'tree_gen' );
-	};
-	say q(Generate trees from:<br />);
-	say q(<ul><li>);
-	say $q->radio_group(
-		-id        => 'tree_gen',
-		-name      => 'tree_gen',
-		-values    => [ 'profiles', 'sequences' ],
-		-default   => $treegen_default // 'sequences',
-		-linebreak => 'true'
-	);
-	say q(</li></ul>);
-	if ( $self->{'config'}->{'fasttree_path'} ) {
-		say q(<span id="tree_algo_label">Tree algorithm (sequences):</span><br />);
+	my $seqbin =
+	  $self->{'datastore'}->run_query(
+		"SELECT EXISTS(SELECT * FROM seqbin_stats s JOIN $self->{'system'}->{'view'} " . 'v ON s.isolate_id=v.id)' );
+	say q(<fieldset style="float:left;max-width:300px"><legend>Tree generation</legend>);
+	if (!$seqbin) {
+		say q(<p>Records do not have sequences. Trees will be generated from allelic profiles.</p>);
+		say $q->hidden( tree_gen => 'profiles' );
+	} else {
+		my $treegen_default;
+		eval {
+			$treegen_default =
+			  $self->{'prefstore'}
+			  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, $attr->{'module'}, 'tree_gen' );
+		};
+		say q(Generate trees from:<br />);
 		say q(<ul><li>);
 		say $q->radio_group(
-			-id        => 'tree_algorithm',
-			-name      => 'tree_algorithm',
-			-values    => [ 'fasttree', 'clustal' ],
-			-default   => $algo_default // 'fasttree',
-			-labels    => { fasttree => 'FastTree (Approximate ML)', clustal => 'ClustalW (NJ)' },
+			-id        => 'tree_gen',
+			-name      => 'tree_gen',
+			-values    => [ 'profiles', 'sequences' ],
+			-default   => $treegen_default // 'sequences',
 			-linebreak => 'true'
 		);
 		say q(</li></ul>);
+		if ( $self->{'config'}->{'fasttree_path'} ) {
+			say q(<span id="tree_algo_label">Tree algorithm (sequences):</span><br />);
+			say q(<ul><li>);
+			say $q->radio_group(
+				-id        => 'tree_algorithm',
+				-name      => 'tree_algorithm',
+				-values    => [ 'fasttree', 'clustal' ],
+				-default   => $algo_default // 'fasttree',
+				-labels    => { fasttree => 'FastTree (Approximate ML)', clustal => 'ClustalW (NJ)' },
+				-linebreak => 'true'
+			);
+			say q(</li></ul>);
+		}
 	}
 	say q(</fieldset>);
 	return;
@@ -394,7 +402,9 @@ sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	my $ret_val = $self->generate_tree_files( $job_id, $params );
 	my ( $message_html, $fasta_file, $failed ) = @{$ret_val}{qw(message_html fasta_file failed )};
-	if ( !$failed ) {
+	if ( $failed ) {
+		BIGSdb::Exception::Plugin->throw('Tree generation failed.');
+	} else {
 		$self->check_connection($job_id);
 		my $identifiers = $self->{'jobManager'}->get_job_isolates($job_id);
 		push @$identifiers, keys %{ $self->{'reverse_name_map'} }
@@ -458,13 +468,13 @@ sub _generate_tree_files_from_profiles {
 	if ( !defined $self->{'config'}->{'python3_path'} && $self->{'config'}->{'grapetree_path'} =~ /python/x ) {
 
 		#Path includes full command for running GrapeTree (recommended)
-		$cmd = "$self->{'config'}->{'grapetree_path'} --profile $profiles_file --method NJ 2>$error_file > $tree_file ";
+		$cmd = "$self->{'config'}->{'grapetree_path'} --profile $profiles_file --method RapidNJ 2>$error_file > $tree_file ";
 	} else {
 
 		#Separate variables for GrapeTree directory and Python path (legacy)
 		my $python = $self->{'config'}->{'python3_path'} // '/usr/bin/python3';
 		$cmd = "$python $self->{'config'}->{'grapetree_path'}/grapetree.py --profile "
-		  . "$profiles_file --method NJ 2>$error_file > $tree_file ";
+		  . "$profiles_file --method RapidNJ 2>$error_file > $tree_file ";
 	}
 	eval { system($cmd); };
 	if ( $? || -e $error_file ) {
@@ -482,7 +492,6 @@ sub _generate_tree_files_from_profiles {
 			}
 		);
 	}
-
 	return {
 		message_html => $message_html,
 		newick_file  => $tree_file,
