@@ -620,7 +620,7 @@ sub _print_interface {
 	$self->print_user_genome_upload_fieldset;
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1, no_all_none => 1 } );
 	$self->print_scheme_fieldset;
-	$self->print_recommended_scheme_fieldset( { no_clear => 1 } );
+	$self->print_recommended_scheme_fieldset;
 	$self->print_reference_genome_fieldset;
 	$self->_print_options_fieldset;
 	$self->print_action_fieldset;

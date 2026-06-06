@@ -3415,13 +3415,13 @@ sub print_seqbin_isolate_fieldset {
 			$args{'-required'} = 'required' if !$options->{'allow_empty_list'};
 			say $q->textarea(%args);
 			say q(<div style="text-align:center"><input type="button" onclick='listbox_clear("isolate_paste_list")' )
-			  . q(value="Clear" style="margin-top:1em" class="small_submit" />);
+			  . q(value="Clear" style="margin:0.5em 0 0 0" class="button" />);
 			if ( $options->{'only_genomes'} ) {
 				say q(<input type="button" onclick='listbox_listgenomes("isolate_paste_list")' value="List all" )
-				  . q(style="margin-top:1em" class="small_submit" /></div></div>);
+				  . q(style="margin:0.5em 0 0 0" class="button" /></div></div>);
 			} else {
 				say q(<input type="button" onclick='listbox_listall("isolate_paste_list")' value="List all" )
-				  . q(style="margin-top:1em" class="small_submit" /></div></div>);
+				  . q(style="margin:0.5em 0 0 0" class="button" /></div></div>);
 			}
 		}
 	} else {
@@ -3504,16 +3504,16 @@ sub print_isolates_locus_fieldset {
 		say q(<div style="text-align:center">);
 		if ( !$options->{'no_all_none'} ) {
 			say q(<input type="button" onclick='listbox_selectall("locus",true)' )
-			  . q(value="All" style="margin-top:1em" class="small_submit" /><input type="button" )
-			  . q(onclick='listbox_selectall("locus",false)' value="None" style="margin:1em 0 0 0.2em" class="small_submit" />);
+			  . q(value="All" style="margin:0.5em 0.2em 0 0" class="button" /><input type="button" )
+			  . q(onclick='listbox_selectall("locus",false)' value="None" style="margin:0.5em 0 0 0" class="button" />);
 		}
 		if ( $options->{'locus_paste_list'} ) {
 			my $show_button_display = $q->param('locus_paste_list') ? 'none'    : 'display';
 			my $hide_button_display = $q->param('locus_paste_list') ? 'display' : 'none';
 			say q(<input type="button" id="locus_list_show_button" onclick='locus_list_show()' value="Paste list" )
-			  . qq(style="margin:1em 0 0 0.2em;display:$show_button_display" class="small_submit" />)
+			  . qq(style="margin:0.5em 0 0 0;float:right;display:$show_button_display" class="button" />)
 			  . q(<input type="button" id="locus_list_hide_button" onclick='locus_list_hide()' value="Hide list" )
-			  . qq(style="margin:1em 0 0 0.2em;display:$hide_button_display" class="small_submit" />);
+			  . qq(style="margin:0.5em 0 0 0;float:right;display:$hide_button_display" class="button" />);
 		}
 		say q(</div>);
 	} else {

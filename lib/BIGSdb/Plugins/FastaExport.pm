@@ -246,8 +246,8 @@ sub _print_interface {
 	local $" = qq(\n);
 	say $q->textarea( -id => 'allele_ids', -name => 'allele_ids', -default => qq(@$allele_ids), -rows => 10 );
 	say q(<div style="text-align:center"><input type="button" onclick='alleles_list_all()' )
-	  . q(value="List all" style="margin-top:1em" class="small_submit" /><input type="button" )
-	  . q(onclick='alleles_clear_all()' value="Clear" style="margin:1em 0 0 0.2em" class="small_submit" />)
+	  . q(value="List all" style="margin-top:1em" class="button" /><input type="button" )
+	  . q(onclick='alleles_clear_all()' value="Clear" style="margin:1em 0 0 0.2em" class="button" />)
 	  . q(</div>);
 	say q(</fieldset>);
 	say q(<fieldset style="float:left"><legend>Include in headers</legend>);

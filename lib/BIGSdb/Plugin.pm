@@ -328,13 +328,6 @@ sub print_isolate_fields_fieldset {
 		-size     => $options->{'size'} // 8,
 		-default  => $options->{'default'}
 	);
-	if ( !$options->{'no_all_none'} ) {
-		say q(<div style="text-align:center">);
-		say q(<input type="button" onclick='listbox_selectall("fields",true)' )
-		  . q(value="All" style="margin-top:1em" class="small_submit" /><input type="button" )
-		  . q(onclick='listbox_selectall("fields",false)' value="None" style="margin:1em 0 0 0.2em" class="small_submit" />);
-		say q(</div>);
-	}
 	say q(</fieldset>);
 	return;
 }
@@ -411,9 +404,9 @@ sub print_analysis_fields_fieldset {
 	);
     if ( !$options->{'no_all_none'} ) {
         say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("analysis_fields",true)' )
-          . q(value="All" style="margin-top:1em" class="small_submit" /><input type="button" )
+          . q(value="All" style="margin-top:1em" class="button" /><input type="button" )
           . q(onclick='listbox_selectall("analysis_fields",false)' value="None" style="margin:1em 0 0 0.2em" )
-          . q(class="small_submit" /></div>);
+          . q(class="button" /></div>);
 	}
 	say q(</fieldset>);
 	$self->{'analysis_fieldset'} = 1;
@@ -1181,7 +1174,7 @@ sub get_export_buttons {
 }
 
 sub print_recommended_scheme_fieldset {
-	my ( $self, $options ) = @_;
+	my ( $self ) = @_;
 	my $schemes =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT id FROM schemes WHERE recommended ORDER BY name', undef, { fetch => 'col_arrayref' } );
@@ -1202,11 +1195,6 @@ sub print_recommended_scheme_fieldset {
 		-size     => 5,
 		-multiple => 'true'
 	);
-	if ( !$options->{'no_clear'} ) {
-		say q(<div style="text-align:center"><input type="button" )
-		  . q(onclick='listbox_selectall("recommended_schemes",false)' )
-		  . q(value="Clear" style="margin-top:1em" class="small_submit" /></div>);
-	}
 	say q(</fieldset>);
 	return;
 }

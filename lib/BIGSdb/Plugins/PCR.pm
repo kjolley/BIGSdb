@@ -74,7 +74,7 @@ sub get_attributes {
 
 sub run {
 	my ($self) = @_;
-	say q(<h1>In silico PCR</h1>);
+	say q(<h1><em>In silico</em> PCR</h1>);
 	my $q          = $self->{'cgi'};
 	my $query_file = $q->param('query_file');
 	my $qry_ref    = $self->get_query($query_file);
