@@ -136,13 +136,13 @@ sub _print_interface {
 		);
 		say q(</td></tr>);
 		say q(<tr><td style="text-align:center"><input type="button" onclick='listbox_selectall("available",true)' )
-		  . q(value="All" style="margin-top:1em" class="small_submit" />);
+		  . q(value="All" style="margin:0.5em 0 0 0" class="button" />);
 		say q(<input type="button" onclick='listbox_selectall("available",false)' value="None" )
-		  . q(style="margin-top:1em" class="small_submit" /></td><td></td>);
+		  . q(style="margin:0.5em 0 0 0" class="button" /></td><td></td>);
 		say q(<td style="text-align:center"><input type="button" onclick='listbox_selectall("selected",true)' )
-		  . q(value="All" style="margin-top:1em" class="small_submit" />);
+		  . q(value="All" style="margin:0.5em 0 0 0" class="button" />);
 		say q(<input type="button" onclick='listbox_selectall("selected",false)' value="None" )
-		  . q(style="margin-top:1em" class="small_submit" />);
+		  . q(style="margin:0.5em 0 0 0" class="button" />);
 		say q(</td></tr>);
 
 		if ( $table eq 'locus_curators' ) {
