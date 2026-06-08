@@ -193,8 +193,10 @@ sub print_content {
 	$self->_print_client_database_data( $locus, $allele_id );
 	my $client_buffer = $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $allele_id );
 	if ( $client_buffer->{'formatted'} ) {
+		say q(<div>);
 		say q(<span class="info_icon fas fa-2x fa-fw fa-link fa-pull-left" style="margin-top:-0.2em"></span>);
 		say qq(<h2>Linked data</h2>\n$client_buffer->{'formatted'});
+		say q(</div>);
 	}
 	say q(</div></div>);
 	return;
@@ -270,7 +272,6 @@ sub _print_client_database_data {
 				$buffer .= $q->submit( -label => "$isolate_count isolate$plural", -class => 'small_submit' );
 				$buffer .= $q->end_form;
 			}
-			$buffer .= q(</dd>);
 			push @$clients, { title => $client->{'name'}, data => $buffer };
 		}
 		if (@$clients) {
@@ -488,6 +489,7 @@ sub _print_ref_links {
 			say qq(<p id="show_refs">$eye_show Show $missing more publication$plural<p>);
 			say qq(<p id="hide_refs" style="display:none">$eye_hide Hide extra publication$plural</p>);
 		}
+		say q(</div>);
 	}
 	return;
 }
