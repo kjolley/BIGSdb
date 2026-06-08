@@ -369,7 +369,7 @@ sub _print_interface {
 			scheme_fields            => 1,
 		}
 	);
-	$self->print_recommended_scheme_fieldset( { no_clear => 1 } );
+	$self->print_recommended_scheme_fieldset;
 	$self->print_scheme_fieldset;
 	say q(<div style="clear:both"></div>);
 	$self->print_reference_genome_fieldset;

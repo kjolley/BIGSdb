@@ -310,7 +310,7 @@ sub _print_interface {
 	say q(<div class="flex_container" style="justify-content:left">);
 	$self->print_seqbin_isolate_fieldset( { selected_ids => $selected_ids, isolate_paste_list => 1 } );
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1, no_all_none => 1 } );
-	$self->print_recommended_scheme_fieldset( { no_clear => 1 } );
+	$self->print_recommended_scheme_fieldset;
 	$self->print_scheme_fieldset;
 	$self->_print_options_fieldset;
 	$self->print_action_fieldset( { name => 'SeqbinBreakdown' } );

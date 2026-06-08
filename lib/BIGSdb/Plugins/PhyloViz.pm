@@ -25,8 +25,8 @@ package BIGSdb::Plugins::PhyloViz;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugin);
-use List::MoreUtils qw(uniq all);
+use parent            qw(BIGSdb::Plugin);
+use List::MoreUtils   qw(uniq all);
 use BIGSdb::Constants qw(GOOD BAD);
 use BIGSdb::Exceptions;
 use LWP::UserAgent;
@@ -245,8 +245,7 @@ sub _print_interface {
 	say $q->start_form;
 	say q(<div class="flex_container" style="justify-content:left">);
 	$self->print_id_fieldset( { list => $isolate_ids } );
-	$self->print_isolate_fields_fieldset(
-		{ extended_attributes => 1, no_aliases => 1, default => ['id'], no_all_none => 1 } );
+	$self->print_isolate_fields_fieldset( { extended_attributes => 1, no_aliases => 1, default => ['id'] } );
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1, no_all_none => 1 } );
 	$self->print_scheme_fieldset( { fields_or_loci => 0 } );
 	$self->print_action_fieldset( { no_reset       => 1 } );

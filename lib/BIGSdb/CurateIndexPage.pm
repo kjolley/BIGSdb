@@ -1373,7 +1373,7 @@ sub _get_isolate_field_extended_attributes {
 	return $cards if !$self->can_modify_table('isolate_field_extended_attributes');
 	push @$cards,
 	  {
-		title   => 'Extended attribute fields',
+		title   => 'Extended attributes',
 		table   => 'isolate_field_extended_attributes',
 		type    => 'admin',
 		default => 'hide',

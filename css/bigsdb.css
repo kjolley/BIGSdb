@@ -2058,7 +2058,7 @@ span.dashboard_remove_element {
 }
 
 p.dashboard_comment {
-	font-size: 0.9em;
+	font-size: 0.85em;
 	margin: 10px 10px 0 10px;
 }
 
@@ -3560,7 +3560,7 @@ div#accordion li {
 }
 
 
-select {
+select:not([multiple]) {
 	appearance: none;
 	-webkit-appearance: none;
 	/* Safari and Chrome */

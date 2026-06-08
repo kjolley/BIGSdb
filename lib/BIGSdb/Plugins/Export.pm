@@ -718,7 +718,8 @@ sub _print_interface {
 	say $q->start_form;
 	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $selected_ids, isolate_paste_list => 1 } );
 	$self->print_isolate_fields_fieldset(
-		{ extended_attributes => 1, default => [ 'id', $self->{'system'}->{'labelfield'} ], no_all_none => 1 } );
+		{ extended_attributes => 1, default => [ 'id', $self->{'system'}->{'labelfield'} ] }
+	);
 	$self->print_eav_fields_fieldset( { no_all_none => 1, hide => $self->{'plugin_prefs'}->{'eav_fieldset'} ? 0 : 1 } );
 	$self->print_composite_fields_fieldset( { hide => $self->{'plugin_prefs'}->{'composite_fieldset'} ? 0 : 1 } );
 	$self->_print_ref_fields;

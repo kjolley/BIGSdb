@@ -60,7 +60,7 @@ sub get_attributes {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.tablesort' => 1, 'jQuery.multiselect' => 1 };
+	return { 'jQuery.tablesort' => 1 };
 }
 
 sub get_plugin_javascript {
@@ -245,9 +245,8 @@ sub _print_interface {
 		-default  => $list_ref
 	);
 	say q(<input type="button" onclick='listbox_selectall("allele_ids",true)' value="All" style="margin-top:1em" )
-	  . q(class="small_submit" />);
-	say q(<input type="button" onclick='listbox_selectall("allele_ids",false)' value="None" style="margin-top:1em" )
-	  . q(class="small_submit" />);
+	  . q(class="button" /><input type="button" onclick='listbox_selectall("allele_ids",false)' value="None" )
+	  . q(style="margin:1em 0 0 0" class="button" />);
 	say q(</fieldset>);
 	say q(<fieldset style="float:left"><legend>Select analysis</legend>);
 	my $aligner_available = ( $self->{'config'}->{'muscle_path'} || $self->{'config'}->{'mafft_path'} ) ? 1 : 0;
