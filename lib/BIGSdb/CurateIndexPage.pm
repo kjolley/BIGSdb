@@ -1681,7 +1681,7 @@ sub _get_classification_schemes {
 
 	push @$cards,
 	  {
-		title   => 'Classification group fields',
+		title   => 'Classification fields',
 		table   => 'classification_group_fields',
 		type    => 'admin',
 		default => 'hide',
@@ -1747,7 +1747,7 @@ sub _get_lincode_schemes {
 
 	push @$cards,
 	  {
-		title   => 'LINcode schemes',
+		title   => 'LIN code schemes',
 		table   => 'lincode_schemes',
 		type    => 'admin',
 		default => 'hide',
@@ -1761,7 +1761,7 @@ sub _get_lincode_schemes {
 	  };
 	return $cards if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM lincode_schemes)');
 	push @$cards, {
-		title   => 'LINcode nickname fields',
+		title   => 'LIN code fields',
 		table   => 'lincode_fields',
 		type    => 'admin',
 		default => 'hide',
