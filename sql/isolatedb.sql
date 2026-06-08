@@ -304,7 +304,7 @@ CREATE TABLE private_isolates (
 isolate_id integer NOT NULL,
 user_id integer NOT NULL,
 request_publish boolean NOT NULL DEFAULT FALSE,
-embargo date NOT NULL,
+embargo date,
 datestamp date NOT NULL,
 PRIMARY KEY (isolate_id),
 CONSTRAINT pi_isolate_id FOREIGN KEY (isolate_id) REFERENCES isolates
