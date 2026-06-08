@@ -2431,13 +2431,13 @@ div.file_output {
 	padding: 10px;
 	border: 1px solid #ccc;
 	border-radius: 10px;
-	box-shadow: 3px 3px 3px #dfdfdf;
+	box-shadow: 1px 1px 1px #dfdfdf;
 	min-width: 20em;
 	max-width: 50em;
 	float: left;
 	margin-right: 1em;
 	margin-bottom: 1em;
-	background-image: linear-gradient(#eee, #bce)
+	background: #fcfcfc;
 }
 
 div.disabled {

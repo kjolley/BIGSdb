@@ -1744,7 +1744,7 @@ sub _print_loci_fields {
 	$locus_labels->{''} = q( );    #Required for HTML5 validation.
 	my $q     = $self->{'cgi'};
 	my $class = @$locus_list > MAX_LIST_RENDER_SIZE ? q() : 'locuslist';
-	say q(<span style="display:flex">);
+	say q(<span style="display:flex;align-items:stretch">);
 	say $self->popup_menu(
 		-name   => "designation_field$row",
 		-id     => "designation_field$row",
