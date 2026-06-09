@@ -3627,11 +3627,12 @@ span.query_block .select2-selection {
 
 /* The visible Select2 control */
 span.query_block .select2-selection--single {
+	border-color: #ccc;
 	border-radius: 0 !important;
 	display: flex !important;
 	align-items: stretch;
 	height: auto !important;
-	min-height: 2rem;
+	min-height: calc (2rem + 1px);
 	padding-top: 5px;
 }
 
