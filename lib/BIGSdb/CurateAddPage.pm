@@ -1042,14 +1042,21 @@ sub get_javascript {
 	  map { $_ => 1 }
 	  qw(sequences query_interface_fields user_group_members users schemes curator_configs loci
 	  retired_allele_ids);
-	return if !defined $q->param('table') || !$allowed_tables{ $q->param('table') };
-	my $buffer = << "END";
-\$(function () {
- \$("#locus").change(function(){
+	my $table = $q->param('table');
+	return if !defined $table || !$allowed_tables{$table};
+	my $reload_locus = q();
+	if ($table eq 'sequences'){
+		$reload_locus = <<"END";
+  \$("#locus").change(function(){
  	var locus_name = \$("#locus").val();
  	var url = '$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=add&table=sequences&locus=' + locus_name;
  	location.href=url;
-  });
+  });		
+END
+	}
+	my $buffer = << "END";
+\$(function () {
+  $reload_locus
   \$('#locus,#field,#sender,#user_id,#country').multiselect({
   	classes: 'filter',
  	menuHeight: 250,
