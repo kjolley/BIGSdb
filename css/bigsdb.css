@@ -3579,12 +3579,8 @@ select:not([multiple]) {
 	background-size: 8px 8px;
 }
 
-.select2-selection--single {
-	border-radius: 0 !important;
-}
-
 /* When dropdown is open */
-.select2-results__option {
+span.query_block .select2-results__option {
 	white-space: normal !important;
 	/* allow wrapping in the dropdown list */
 	word-break: break-word;
@@ -3592,7 +3588,7 @@ select:not([multiple]) {
 }
 
 /* In the closed (selected) state */
-.select2-selection__rendered {
+span.query_block .select2-selection__rendered {
 	display: block !important;
 	white-space: normal !important;
 	word-break: break-word;
@@ -3602,27 +3598,51 @@ select:not([multiple]) {
 	color: #000 !important;
 }
 
-.select2-container .select2-selection__arrow {
+span.query_block .select2-container .select2-selection__arrow {
 	height: 100% !important;
 	align-self: center;
 }
 
-.select2-container .select2-selection__clear {
-
+span.query_block .select2-container .select2-selection__clear {
+	order:2;
+	margin-top: -3px;
 	height: 100% !important;
 	align-self: center;
+	opacity:0.5;
 }
 
 span.query_block {
-	display:flex;align-items:stretch;height:2rem
+	display: flex;
+	align-items: stretch;
+	min-height: 2rem
 }
 
-.query_block .label {	
+span.query_block .label {
 	align-self: center;
 }
 
-.query_block .select2-selection {
+span.query_block .select2-selection {
 	min-height: 100%;
+}
+
+/* The visible Select2 control */
+span.query_block .select2-selection--single {
+	border-radius: 0 !important;
+	display: flex !important;
+	align-items: stretch;
+	height: auto !important;
+	min-height: 2rem;
+	padding-top: 5px;
+}
+
+/* The text inside Select2 */
+.query_block .select2-selection__rendered {
+	white-space: normal !important;
+	overflow: visible !important;
+	text-overflow: clip !important;
+	line-height: 1.2;
+	min-width: 0;
+	flex: 1 1 auto;
 }
 
 /* Responsive design */
