@@ -3613,12 +3613,16 @@ select:not([multiple]) {
 	align-self: center;
 }
 
-.select2-selection {
-	height: auto !important;
-	min-height: 29px;
-	/* keep a reasonable default height */
-	align-items: flex-start;
-	/* if selection uses flexbox inside */
+span.query_block {
+	display:flex;align-items:stretch;height:2rem
+}
+
+.query_block .label {	
+	align-self: center;
+}
+
+.query_block .select2-selection {
+	min-height: 100%;
 }
 
 /* Responsive design */

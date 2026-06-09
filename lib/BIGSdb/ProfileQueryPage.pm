@@ -259,7 +259,7 @@ sub _print_order_fieldset {
 sub _print_scheme_fields {
 	my ( $self, $row, $max_rows, $scheme_id, $selectitems, $labels ) = @_;
 	my $q = $self->{'cgi'};
-	say q(<span style="display:flex">);
+	say q(<span class="query_block">);
 	say $q->popup_menu(
 		-name   => "s$row",
 		-id     => "s$row",

@@ -470,7 +470,7 @@ sub _print_display_fieldset {
 			push @$values, $q->optgroup( -name => $name, -values => $group_members->{$name}, -labels => $labels );
 		}
 	}
-	say q(<ul><li><span style="display:flex"><label for="order" class="display">Order by: </label>);
+	say q(<ul><li><span class="query_block"><label for="order" class="display label">Order by: </label>);
 	say $q->popup_menu(
 		-name   => 'order',
 		-id     => 'order',
@@ -627,7 +627,7 @@ sub _print_sequence_variation_fields {
 			}
 		}
 	}
-	say q(<span style="display:flex">);
+	say q(<span class="query_block">);
 	say $self->popup_menu(
 		-name   => "sequence_variation$row",
 		-id     => "sequence_variation$row",
@@ -940,7 +940,7 @@ sub _print_analysis_fields {
 	my ( $self, $row, $max_rows ) = @_;
 	my $q = $self->{'cgi'};
 	my ( $values, $labels ) = $self->get_analysis_field_values_and_labels;
-	say q(<span style="display:flex">);
+	say q(<span class="query_block">);
 	say $q->popup_menu(
 		-name   => "analysis_field$row",
 		-id     => "analysis_field$row",
@@ -1185,14 +1185,14 @@ sub _print_filters_fieldset_contents {
 	push @filters, $private_data_filter if $private_data_filter;
 	push @filters, $self->get_old_version_filter;
 	say q(<ul>);
-	say qq(<li><span style="white-space:normal">$_</span></li>) foreach @filters;
+	say qq(<li><span class="query_block">$_</span></li>) foreach @filters;
 	say q(</ul>);
 	my ( $list, $labels ) = $self->_get_inactive_filters;
 
 	if (@$list) {
 		unshift @$list, q();
-		say q(<span style="display:flex">);
-		say q(Add filter:&nbsp;);
+		say q(<span class="query_block">);
+		say q(<span class="label">Add filter:&nbsp;</span>);
 		say $self->popup_menu(
 			-name   => 'new_filter',
 			-id     => 'new_filter',
@@ -1550,7 +1550,7 @@ sub _print_provenance_fields {
 	} else {
 		$values = $select_items;
 	}
-	say q(<span style="display:flex">);
+	say q(<span class="query_block">);
 	say $q->popup_menu(
 		-name   => "prov_field$row",
 		-id     => "prov_field$row",
@@ -1602,7 +1602,7 @@ sub _print_phenotypic_fields {
 	} else {
 		$values = $select_items;
 	}
-	say q(<span style="display:flex">);
+	say q(<span class="query_block">);
 	unshift @$values, q();
 	say $q->popup_menu(
 		-name   => "phenotypic_field$row",
@@ -1667,7 +1667,7 @@ sub _print_allele_status_fields {
 	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
 	my $q     = $self->{'cgi'};
 	my $class = @$list > MAX_LIST_RENDER_SIZE ? q() : 'locuslist';
-	say q(<span style="display:flex">);
+	say q(<span class="query_block">);
 	say $self->popup_menu(
 		-name   => "allele_status_field$row",
 		-id     => "allele_status_field$row",
@@ -1675,7 +1675,7 @@ sub _print_allele_status_fields {
 		-labels => $locus_labels,
 		-class  => $class
 	);
-	print '&nbsp;is&nbsp;';
+	print '<span class="label">&nbsp;is&nbsp;</span>';
 	my $values = [ '', 'provisional', 'confirmed' ];
 	my %labels = ( '' => ' ' );                        #Required for HTML5 validation.
 	say $q->popup_menu(
@@ -1705,8 +1705,8 @@ sub _print_allele_count_fields {
 	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
 	my $q     = $self->{'cgi'};
 	my $class = @$list > MAX_LIST_RENDER_SIZE ? q() : 'locuslist';
-	say q(<span style="display:flex">);
-	say q(Count of&nbsp;);
+	say q(<span class="query_block">);
+	say q(<span class="label">Count of&nbsp;</span>);
 	say $self->popup_menu(
 		-name   => "allele_count_field$row",
 		-id     => "allele_count_field$row",
@@ -1744,7 +1744,7 @@ sub _print_loci_fields {
 	$locus_labels->{''} = q( );    #Required for HTML5 validation.
 	my $q     = $self->{'cgi'};
 	my $class = @$locus_list > MAX_LIST_RENDER_SIZE ? q() : 'locuslist';
-	say q(<span style="display:flex;align-items:stretch">);
+	say q(<span class="query_block">);
 	say $self->popup_menu(
 		-name   => "designation_field$row",
 		-id     => "designation_field$row",
@@ -1781,7 +1781,7 @@ sub _print_locus_tag_fields {
 	unshift @$list, '';
 	my $q     = $self->{'cgi'};
 	my $class = @$list > MAX_LIST_RENDER_SIZE ? q() : 'locuslist';
-	say q(<span style="display:flex">);
+	say q(<span class="query_block">);
 	say $self->popup_menu(
 		-name   => "tag_field$row",
 		-id     => "tag_field$row",
@@ -1789,7 +1789,7 @@ sub _print_locus_tag_fields {
 		-labels => $locus_labels,
 		-class  => $class
 	);
-	print '&nbsp;is&nbsp;';
+	print '<span class="label">&nbsp;is&nbsp;</span>';
 	my @values = qw(untagged tagged complete incomplete);
 	push @values, "flagged: $_" foreach ( 'any', 'none', SEQ_FLAGS );
 	unshift @values, '';
@@ -1816,8 +1816,8 @@ sub _print_tag_count_fields {
 	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
 	my $q     = $self->{'cgi'};
 	my $class = @$list > MAX_LIST_RENDER_SIZE ? q() : 'locuslist';
-	say q(<span style="display:flex">);
-	say q(Count of&nbsp;);
+	say q(<span class="query_block">);
+	say q(<span class="label">Count of&nbsp;</span>);
 	say $self->popup_menu(
 		-name   => "tag_count_field$row",
 		-id     => "tag_count_field$row",
@@ -1868,7 +1868,7 @@ sub _print_annotation_status_fields {
 		push @$fields, "s_$scheme->{'id'}";
 		$labels->{"s_$scheme->{'id'}"} = $scheme->{'name'};
 	}
-	say q(<span style="display:flex">);
+	say q(<span class="query_block">);
 	say $self->popup_menu(
 		-name   => "annotation_status_field$row",
 		-id     => "annotation_status_field$row",
@@ -1896,7 +1896,7 @@ sub _print_annotation_status_fields {
 sub _print_seqbin_fields {
 	my ( $self, $row, $max_rows ) = @_;
 	my $q = $self->{'cgi'};
-	say q(<span style="display:flex">);
+	say q(<span class="query_block">);
 	my @values = qw(size contigs N50 L50);
 	if (
 		$self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM analysis_results WHERE name=?)', 'AssemblyStats' )
