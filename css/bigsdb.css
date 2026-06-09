@@ -2365,7 +2365,8 @@ div#account_requests table {
 }
 
 div#alleles {
-	background: #e0e0f0
+	background: #f7f8fa;
+	border: 1px solid #e7ebf0;
 }
 
 div#alleles table {
