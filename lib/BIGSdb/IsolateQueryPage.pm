@@ -27,8 +27,8 @@ use List::MoreUtils qw(any none uniq);
 use JSON;
 use BIGSdb::Constants qw(:interface :limits SEQ_FLAGS LOCUS_PATTERN OPERATORS MIN_GENOME_SIZE);
 use constant WARN_IF_TAKES_LONGER_THAN_X_SECONDS => 5;
-use constant MAX_LOCI_DROPDOWN                   => 200;
 use constant MAX_LIST_RENDER_SIZE                => 10000;
+use constant MAX_OPTION_RENDER_LENGTH            => 22;
 
 sub _ajax_content {
 	my ($self) = @_;
@@ -1523,6 +1523,8 @@ sub _print_provenance_fields {
 	my @group_list    = split /,/x, ( $self->{'system'}->{'field_groups'} // q() );
 	my $group_members = {};
 	my $is_curator    = $self->is_curator;
+	
+	
 	if (@group_list) {
 		my $attributes = $self->{'xmlHandler'}->get_all_field_attributes;
 		foreach my $field (@$select_items) {
@@ -1550,13 +1552,19 @@ sub _print_provenance_fields {
 	} else {
 		$values = $select_items;
 	}
+	my $longest_length = 0;
+	foreach my $value (values %$labels){
+		my $length = length ($value);
+		$longest_length = $length if $length > $longest_length;
+	}
 	say q(<span class="query_block">);
+	my $class= $longest_length > MAX_OPTION_RENDER_LENGTH ? ' widelist' :q();
 	say $q->popup_menu(
 		-name   => "prov_field$row",
 		-id     => "prov_field$row",
 		-values => $values,
 		-labels => $labels,
-		-class  => 'fieldlist'
+		-class  => "fieldlist$class",
 	);
 	say $q->popup_menu( -name => "prov_operator$row", -values => [OPERATORS] );
 	say $q->textfield(
@@ -1602,14 +1610,20 @@ sub _print_phenotypic_fields {
 	} else {
 		$values = $select_items;
 	}
+	my $longest_length = 0;
+	foreach my $value (values %$labels){
+		my $length = length ($value);
+		$longest_length = $length if $length > $longest_length;
+	}
 	say q(<span class="query_block">);
+	my $class= $longest_length > MAX_OPTION_RENDER_LENGTH ? ' widelist' :q();
 	unshift @$values, q();
 	say $q->popup_menu(
 		-name   => "phenotypic_field$row",
 		-id     => "phenotypic_field$row",
 		-values => $values,
 		-labels => $labels,
-		-class  => 'fieldlist'
+		-class  => "fieldlist$class"
 	);
 	say $q->popup_menu( -name => "phenotypic_operator$row", -values => [OPERATORS] );
 	say $q->textfield(
@@ -4392,6 +4406,7 @@ sub get_javascript {
  		selectedList: 1
  	}).multiselectfilter();
  	render_loaded_locuslists();
+ 	render_loaded_widelists();
 $panel_js
 	//Render multiselect lists when fieldset first triggered.
 	\$('.fieldset_trigger').on('click', function(){
@@ -4401,13 +4416,22 @@ $panel_js
 			show_allele_status: 'allele_status_field1',
 			show_tag_count: 'tag_count_field1',
 			show_tags: 'tag_field1',
-			analysis: 'analysis_field1',
 			show_list: 'attribute'
 		};
+
 		if (query_fields[this.id]){
 			if (\$('#' + query_fields[this.id] + ' > option').length <= $max_list_render_size){
 				render_locuslists('#' + query_fields[this.id]);
 			}	
+		} else {
+			query_fields = {
+				show_provenance: 'prov_field1',
+				show_phenotypic: 'phenotypic_field1',
+				show_analysis: 'analysis_field1'
+			}
+			if (\$('#' + query_fields[this.id]).hasClass('widelist')){
+				render_widelists('#' + query_fields[this.id]);
+			}
 		}
 	});
 	
@@ -4444,7 +4468,6 @@ $panel_js
 	       	if (row == null){
 	       		row = 1;
 	        }
-	        
          	if (fieldset != null){
          		let element_names = {
          			allele_designations: "designation_field",
@@ -4453,10 +4476,10 @@ $panel_js
          			tags: "tag_field",
          			tag_count: "tag_count_field",
           			list: "attribute",
-         			filters: "filters"
+         			filters: "filters",
+         			phenotypic: "phenotypic_field"
          		};
-         		if (element_names[fieldset]){
-         			
+         		if (element_names[fieldset]){        			
          			if (fieldset === 'list'){
          				if (\$('#attribute > option').length <= $max_list_render_size){
           					render_locuslists("#attribute");
@@ -4470,7 +4493,9 @@ $panel_js
 					 	}).multiselectfilter();
 					 	setFilterTriggers();
          			} else {
-         				if (\$('#' + element_names[fieldset] + row + ' > option').length <= $max_list_render_size){
+         				if (\$("#" + element_names[fields] + row).hasClass('widelist')){
+         					render_widelists(\$("#" + element_names[fields] + row));
+         				} else if (\$('#' + element_names[fieldset] + row + ' > option').length <= $max_list_render_size){
 			        		render_locuslists("#" + element_names[fieldset] + row);
          				}
          			}
@@ -4484,8 +4509,17 @@ $panel_js
          			tag_count: "tag_count_field"
          		};
          		if (element_names[fields]){
-		        	render_locuslists("#" + element_names[fields] + row);
+ 		        	render_locuslists("#" + element_names[fields] + row);
+         		} else {
+         			element_names = {
+         				provenance: "prov_field",
+         				phenotypic: "phenotypic_field"
+         			}
+          			if (\$("#" + element_names[fields] + row).hasClass('widelist')){
+         				render_widelists(\$("#" + element_names[fields] + row));
+         			}
          		}
+         		
          	} 
         	
         }
@@ -4589,6 +4623,10 @@ function render_loaded_locuslists() {
 	render_locuslists("select.locuslist");
 }
 
+function render_loaded_widelists() {
+	render_widelists("select.widelist");
+}
+
 function render_locuslists(selector){
 	\$(selector).filter(':visible').select2({
 		width: '240px',
@@ -4597,6 +4635,18 @@ function render_locuslists(selector){
 		placeholder: '',
 		allowClear: true
 	});
+}
+
+function render_widelists(selector){
+	\$(selector).filter(':visible').select2({
+		width: '240px',
+		dropdownAutoWidth: true,
+		minimumResultsForSearch: 50,
+		placeholder: '',
+		allowClear: false
+	});
+	\$('.select2-selection__choice').removeAttr('title');
+	\$('.select2-selection__rendered').removeAttr('title');
 }
 
 function refresh_filters(){
