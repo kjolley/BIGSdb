@@ -315,7 +315,7 @@ sub _print_interface {
 	}
 	say q(</ul></fieldset>);
 	say q(<fieldset style="float:left"><legend>Display</legend>);
-	say q(<ul><li><span style="white-space:nowrap"><label for="order" class="display">Order by: </label>);
+	say q(<ul><li><span class="query_block"><label for="order" class="display label">Order by: </label>);
 	say $q->popup_menu( -name => 'order', -id => 'order', -values => $order_by, -labels => $labels );
 	say $q->popup_menu( -name => 'direction', -values => [qw(ascending descending)], -default => 'ascending' );
 	say q(</span></li><li>);

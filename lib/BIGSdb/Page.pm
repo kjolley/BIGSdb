@@ -1995,7 +1995,7 @@ sub get_number_records_control {
 		-values  => [ '10', '25', '50', '100', '200', '500', 'all' ],
 		-default => $self->{'cgi'}->param('displayrecs') || $self->{'prefs'}->{'displayrecs'}
 	);
-	$buffer .= q(<span class="label">&nbsprecords per page</span>);
+	$buffer .= q(<span class="label">&nbsp;records per page</span>);
 	$buffer .=
 	  $self->get_tooltip(q(Records per page - Analyses use the full query dataset, rather than just the page shown.));
 	$buffer .= q(</span>);
