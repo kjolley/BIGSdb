@@ -212,18 +212,18 @@ sub _validate {
 		my ( $good, $bad ) = ( GOOD, BAD );
 		try {
 			$seq_ref = $self->_get_seqref_from_fasta($filename);
-			say qq(<td><span class="statusbad">$good</td>);
+			say qq(<td>$good</td>);
 			$success++;
 		} catch {
 			if ( $_->isa('BIGSdb::Exception::File::CannotOpen') ) {
-				say q(<td><span class="statusbad">Cannot open file</td>);
+				say q(<td><span class="statusbad">Cannot open file</span></td>);
 				$failure++;
 			} elsif ( $_->isa('BIGSdb::Exception::Data') ) {
 				my $msg =
 				  $_ =~ /format/x
 				  ? 'Invalid format'
 				  : 'Invalid DNA sequence';
-				say qq(<td><span class="statusbad">$bad ($msg)</td>);
+				say qq(<td><span class="statusbad">$bad ($msg)</span></td>);
 				$failure++;
 			} else {
 				$logger->logdie($_);
@@ -302,7 +302,7 @@ sub _print_validated_upload_form {
 	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Attributes</legend><ul>);
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	say q(<li><label for="sender" class="parameter">sender: !</label>);
+	say q(<li><span class="query_block"><label for="sender" class="parameter label">sender: !</label>);
 	if ( $user_info->{'status'} eq 'submitter' ) {
 		say qq(<span id="sender" style="font-weight:600">$user_info->{'first_name'} $user_info->{'surname'}</span>);
 		say $q->hidden( sender => $user_info->{'id'} );
@@ -319,9 +319,9 @@ sub _print_validated_upload_form {
 			-default  => $sender
 		);
 	}
-	say q(</li>);
+	say q(</span></li>);
 	if ( !$q->param('submission_id') ) {
-		say q(<li><label for="method" class="parameter">method: </label>);
+		say q(<li><span class="query_block"><label for="method" class="parameter label">method: </label>);
 		my $method_labels = { '' => ' ' };
 		say $q->popup_menu(
 			-name   => 'method',
@@ -343,7 +343,7 @@ sub _print_validated_upload_form {
 			}
 		}
 	}
-	say q(</li></ul></fieldset><fieldset style="float:left"><legend>Options</legend>);
+	say q(</span></li></ul></fieldset><fieldset style="float:left"><legend>Options</legend>);
 	say q(<ul><li>);
 	say $q->checkbox(
 		-name    => 'size_filter',
