@@ -126,7 +126,7 @@ sub get_remote_contig {
 		return $self->{'cache'}->{'remote_contig'}->{$uri};
 	}
 	my $contig = $self->_get_remote_record( $base_uri, $uri );
-	if (!defined $contig->{'sequence'} || !length $contig->{'sequence'}){
+	if ( !defined $contig->{'sequence'} || !length $contig->{'sequence'} ) {
 		$logger->error("$self->{'instance'}: Contig from $uri has no sequence.");
 	}
 	my $length = length $contig->{'sequence'};
@@ -248,7 +248,7 @@ sub _get_protected_route {
 	BIGSdb::Exception::Authentication->throw('Cannot verify signature') unless $request->verify;
 	my $res = $self->{'ua'}->get( $request->to_url );
 	if ( $res->code == 429 ) {
-		BIGSdb::Exception::Server->throw('Server 429 error - Too many requests to API!')
+		BIGSdb::Exception::Server->throw('Server 429 error - Too many requests to API!');
 	}
 	if ( $options->{'non_json'} ) {
 		return $res->content;
@@ -302,8 +302,16 @@ sub _get_session_token {
 	);
 	$request->sign;
 	BIGSdb::Exception::Authentication->throw('Cannot verify signature') unless $request->verify;
-	my $res          = $self->{'ua'}->request( GET $request->to_url, Content_Type => 'application/json' );
-	my $decoded_json = decode_json( $res->content );
+	my $res = $self->{'ua'}->request( GET $request->to_url, Content_Type => 'application/json' );
+	my $decoded_json;
+	eval { $decoded_json = decode_json( $res->content ); };
+	if ($@) {
+		if ( $@ =~ /malformed\sJSON/x ) {
+			$logger->error( 'Session token retrieval failed. ' . $res->content );
+			BIGSdb::Exception::Data->throw('Invalid JSON');
+		}
+		$logger->error($@);
+	}
 	if ( $res->is_success ) {
 		my $session_response = Net::OAuth->response('access token')->from_hash($decoded_json);
 		eval {
@@ -367,7 +375,7 @@ sub _get_remote_contig_fragment {
 		$logger->error($@);
 		return {};
 	}
-	if (!$contig->{'sequence'}){
+	if ( !$contig->{'sequence'} ) {
 		$logger->error("$self->{'instance'}: $uri remote contig has no sequence");
 		return {};
 	}

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2025, University of Oxford
+#Copyright (c) 2017-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -315,17 +315,15 @@ sub _check {
 		$isolate_data = $self->{'contigManager'}->get_remote_isolate($isolate_uri);
 	}
 	catch {
+		$error = 1;
 		if ( $_->isa('BIGSdb::Exception::Authentication') ) {
 			say q(failed! - check OAuth authentication settings</p>);
-			$error = 1;
-		}
-		if ( $_->isa('BIGSdb::Exception::File') ) {
+		} elsif ( $_->isa('BIGSdb::Exception::File') ) {
 			say q(failed! - URI is inaccesible</p>);
-			$error = 1;
-		}
-		if ( $_->isa('BIGSdb::Exception::Data') ) {
+		} elsif ( $_->isa('BIGSdb::Exception::Data') ) {
 			say q(failed! - Returned data is not in valid format</p>);
-			$error = 1;
+		} else {
+			$logger->error($_);			
 		}
 	};
 	if (!$error) {
