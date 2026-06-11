@@ -3656,6 +3656,10 @@ span.query_block .select2-selection__rendered {
 	flex: 1 1 auto;
 }
 
+.select2-selection__rendered {
+	color: #000 !important;	
+}
+
 /* Responsive design */
 @media only screen and (max-width:1450px) {
 	.form_icon {

@@ -133,13 +133,6 @@ END
 	\$("form#file_upload_form").addClass("dropzone");
 	$db_trigger
 	resize_rmlst_cell();
-	\$('#locus').multiselect({
-	  	classes: 'filter',
-	 	menuHeight: 250,
-	 	menuWidth: 400,
-	 	noneSelectedText: '',
-	 	selectedList: 1,
-	  }).multiselectfilter();
 	\$("form").on("keydown", function(e) {
 	    if ((e.key === "Enter" || e.which === 13) &&
 	        !\$(e.target).is("textarea, input[type=submit], button")) {
@@ -190,7 +183,7 @@ sub initiate {
 		$self->{'noCache'}    = 1;
 		return;
 	}
-	$self->{$_} = 1 foreach qw (jQuery jQuery.jstree noCache tooltips dropzone allowExpand jQuery.multiselect);
+	$self->{$_} = 1 foreach qw (jQuery jQuery.jstree noCache tooltips dropzone allowExpand select2);
 	if ( $q->param('curate') ) {
 		$self->set_level2_breadcrumbs('Curate submission');
 	} elsif ( $q->param('alleles') || $q->param('profiles') || $q->param('isolate') || $q->param('genomes') ) {
@@ -1080,7 +1073,7 @@ sub _submit_alleles {
 		-id       => 'locus',
 		-values   => $loci,
 		-labels   => $labels,
-		-size     => 7,
+		-style    => 'width: 12em',
 		-required => 'required'
 	);
 	say q(</fieldset>);
@@ -1088,7 +1081,7 @@ sub _submit_alleles {
 	say q(<fieldset style="float:left"><legend>FASTA or single sequence</legend>);
 	if ( $q->param('sequence_file') ) {
 		my $filename = $q->param('sequence_file');
-		$filename =~ s/[\.\/]//gx;    #Prevent directory traversal
+		$filename =~ s/[\.\/]//gx;     #Prevent directory traversal
 		my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$filename";
 		if ( -e $full_path ) {
 			my $seq_ref = BIGSdb::Utils::slurp($full_path);

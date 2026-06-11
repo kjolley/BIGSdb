@@ -20,7 +20,7 @@ package BIGSdb::CuratePermissionsPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::CuratePage);
+use parent        qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Constants qw(SUBMITTER_ALLOWED_PERMISSIONS);
@@ -91,17 +91,17 @@ sub print_content {
 			modify_field_attributes => 'Define extended provenance field attributes, e.g. continent linked to country',
 			modify_value_attributes => 'Define lookup values for extended provenance fields',
 			modify_sparse_fields    => 'Define sparsely-populated fields',
-			modify_probes           => 'Define <i>in silico</i> PCR/hybridization reactions to constrain locus definitions',
-			delete_all              => 'Allow batch deletion of records returned from a query',
-			import_site_users       => 'Importation of new users from site-wide database',
-			modify_site_users       => 'Modification of user details in site-wide database',
-			modify_geopoints        => 'Add or update GPS coordinates for geographic point fields',
-			refresh_scheme_caches   => 'Allow refresh of scheme caches if necessary',
-			query_interfaces        => 'Define new pre-populated query interfaces',
-			set_embargo    => 'Embargo isolates or increase time limits on currently embargoed isolates',
-			only_private   => 'Can only modify own private data',
-			disable_access => 'Remove all access to database',
-			modify_locus_descriptions => 'Update locus descriptionf fields',
+			modify_probes     => 'Define <i>in silico</i> PCR/hybridization reactions to constrain locus definitions',
+			delete_all        => 'Allow batch deletion of records returned from a query',
+			import_site_users => 'Importation of new users from site-wide database',
+			modify_site_users => 'Modification of user details in site-wide database',
+			modify_geopoints  => 'Add or update GPS coordinates for geographic point fields',
+			refresh_scheme_caches     => 'Allow refresh of scheme caches if necessary',
+			query_interfaces          => 'Define new pre-populated query interfaces',
+			set_embargo               => 'Embargo isolates or increase time limits on currently embargoed isolates',
+			only_private              => 'Can only modify own private data',
+			disable_access            => 'Remove all access to database',
+			modify_locus_descriptions => 'Update locus description fields',
 		);
 		say q(<div class="box" id="resultstable">);
 		say q(<p>Check the boxes for the required permissions.  Users with a status of 'submitter' )

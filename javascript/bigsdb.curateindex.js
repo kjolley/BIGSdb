@@ -47,7 +47,7 @@ $(function() {
 			});
 		});
 	});
-	if ($('#all_curator_methods_on').is(":visible")) {
+	if ($('#all_curator_methods_on').is(":visible") || always_show_hidden == 1) {
 		render_expanded_curator_grid()
 	} else {
 		render_contracted_curator_grid()

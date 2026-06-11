@@ -537,37 +537,38 @@ sub _get_profile_fields {
 			}
 		  };
 	}
-
-	push @$cards,
-	  {
-		title   => 'Profile publications',
-		table   => 'profile_refs',
-		type    => 'curator',
-		default => 'hide',
-		section => 'schemes',
-		data    => {
-			add       => 1,
-			batch_add => 1,
-			query     => 1,
-			info      => 'Associate allelic profiles with publications using PubMed id.'
-		}
-	  };
-
-	push @$cards,
-	  {
-		title   => 'Retired profiles',
-		table   => 'retired_profiles',
-		type    => 'curator',
-		default => 'hide',
-		section => 'schemes',
-		data    => {
-			add       => 1,
-			batch_add => 1,
-			query     => 1,
-			info      => 'Profile ids defined here will be prevented from being reused.'
-		}
-	  };
-
+	if ( $self->can_modify_table('profile_refs') ) {
+		push @$cards,
+		  {
+			title   => 'Profile publications',
+			table   => 'profile_refs',
+			type    => 'curator',
+			default => 'hide',
+			section => 'schemes',
+			data    => {
+				add       => 1,
+				batch_add => 1,
+				query     => 1,
+				info      => 'Associate allelic profiles with publications using PubMed id.'
+			}
+		  };
+	}
+	if ( $self->can_modify_table('retired_profiles') ) {
+		push @$cards,
+		  {
+			title   => 'Retired profiles',
+			table   => 'retired_profiles',
+			type    => 'curator',
+			default => 'hide',
+			section => 'schemes',
+			data    => {
+				add       => 1,
+				batch_add => 1,
+				query     => 1,
+				info      => 'Profile ids defined here will be prevented from being reused.'
+			}
+		  };
+	}
 	return $cards;
 }
 
@@ -1722,6 +1723,7 @@ sub _get_lincode_prefix_values {
 	my $cards = [];
 	return $cards if !$self->{'system'}->{'dbtype'} eq 'sequences';
 	return $cards if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM lincode_fields)');
+	return $cards if !$self->can_modify_table('profiles');
 	push @$cards,
 	  {
 		title   => 'LINcode prefix nomenclature',
@@ -2066,7 +2068,6 @@ sub print_content {
 		$self->_print_card( $card, $order );
 		$order++;
 	}
-
 	my $can_do_something = @$all_fields;
 
 	if (@$all_fields) {
@@ -2085,7 +2086,6 @@ sub print_content {
 		my $toggle_status = $self->_get_curator_toggle_status($all_fields);
 		if ( $toggle_status->{'show_toggle'} ) {
 			$self->_print_curator_toggle;
-
 		}
 		say q(</div>);
 		say q(<div id="curator_collapsed" class="grid" data-type="curator"></div>);
@@ -2100,6 +2100,9 @@ sub print_content {
 		say q(</div>);
 		say q(<div style="clear:both"></div>);
 		say q(</div>);
+		say qq(<script>const always_show_hidden=$toggle_status->{'always_show_hidden'};</script>);
+	} else {
+		say q(<script>const always_show_hidden=0;</script>);
 	}
 
 	my $admin_fields = [];
@@ -2204,10 +2207,6 @@ sub print_content {
 		my $sets = $self->_get_sets;
 		push @$admin_fields, @$sets;
 		$count{'set_admin'} += @$sets;
-
-		#	$buffer .= $self->_get_sets;
-		#	return $buffer;
-
 	}
 
 	$order = 0;
@@ -2296,7 +2295,7 @@ sub _print_admin_toggles {
 	my ( $self, $counts ) = @_;
 	say q(<div class="toggle_group"><div style="margin-right: 5px">Show:</div>);
 	say q(<div class="curate_toggle">);
-	
+
 	my %label = (
 		locus  => 'Loci',
 		scheme => 'Schemes',
@@ -2353,7 +2352,7 @@ sub _get_curator_toggle_status {
 		$default = 1 if $field->{'default'} eq 'show';
 	}
 	my $show_toggle = ( $hidden && $default ) ? 1 : 0;
-	my $always_show_hidden;
+	my $always_show_hidden = 0;
 	if ( $hidden && !$default ) {
 		$always_show_hidden = 1;
 	}

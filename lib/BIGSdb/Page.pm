@@ -227,7 +227,7 @@ sub _get_javascript_paths {
 			'bigsdb.curateindex' => {
 				src     => [qw(bigsdb.curateindex.min.js)],
 				defer   => 1,
-				version => '20260529'
+				version => '20260611'
 			}
 		};
 		if ( $self->{'pluginJS'} ) {
@@ -1963,7 +1963,7 @@ sub get_filter {
 		$options->{'tooltip'} =~ tr/_/ /;
 		$buffer .= $self->get_tooltip( $options->{'tooltip'} );
 	}
-	$buffer.=q(</span>);
+	$buffer .= q(</span>);
 	return $buffer;
 }
 
@@ -2744,8 +2744,7 @@ sub can_modify_table {
 		user_group_members => $self->{'permissions'}->{'modify_usergroups'},
 	);
 	$general_permissions{$_} = $self->{'permissions'}->{'modify_loci'}
-	  foreach qw(loci locus_aliases client_dbases client_dbase_loci client_dbase_schemes
-	  locus_client_display_fields locus_extended_attributes locus_curators peptide_mutations dna_mutations);
+	  foreach qw(loci locus_aliases locus_extended_attributes locus_curators peptide_mutations dna_mutations);
 	$general_permissions{$_} = $self->{'permissions'}->{'modify_schemes'}
 	  foreach qw(schemes scheme_members scheme_fields scheme_curators classification_schemes
 	  classification_group_fields scheme_groups scheme_group_group_members scheme_group_scheme_members
@@ -2791,8 +2790,12 @@ sub can_modify_table {
 		my %seq_tables =
 		  map { $_ => 1 } qw (sequences locus_descriptions locus_links retired_allele_ids sequence_extended_attributes);
 		if ( $seq_tables{$table} ) {
-			return 1 if !$locus;
-			return $self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $self->get_curator_id );
+			if ( !$locus ) {
+				return $self->{'datastore'}
+				  ->run_query( 'SELECT EXISTS(SELECT * FROM locus_curators WHERE curator_id=?)', $self->get_curator_id );
+			} else {
+				return $self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $self->get_curator_id );
+			}
 		}
 
 		#Profile refs and retired profiles
