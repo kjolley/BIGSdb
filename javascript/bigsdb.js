@@ -61,7 +61,7 @@ $(function() {
 	$('a#expand_trigger').click(function(event) {
 		event.preventDefault();
 		let expand = $('span#expand').is(":visible") ? 'on' : 'off';
-		
+
 		if ($('span#expand').is(":visible")) {
 			$('span#expand, span#expand_label_expand').hide();
 			$('span#contract, span#expand_label_contract').show();
@@ -69,7 +69,7 @@ $(function() {
 			$('span#expand, span#expand_label_expand').show();
 			$('span#contract, span#expand_label_contract').hide();
 		}
-		set_page_width();	
+		set_page_width();
 
 		$.ajax({
 			url: this.href + "&update=1&attribute=expandPage&value=" + expand,
@@ -94,7 +94,28 @@ $(function() {
 	$(window).resize(function() {
 		show_expand_trigger();
 	});
+	// hack to fix jquery 3.6 focus security patch that bugs auto search in select-2
+	$(document).on('select2:open', () => {
+		document.querySelector('.select2-search__field').focus();
+	});
+	$(document).on('keydown', '.select2-selection', function(e) {
+		if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+			const select = $(this)
+				.closest('.select2-container')
+				.prev('select');
 
+			select.one('select2:open', function() {
+				const search = document.querySelector(
+					'.select2-container--open .select2-search__field'
+				);
+				search.value = e.key;
+				$(search).trigger('input');
+			});
+
+			select.select2('open');
+			e.preventDefault();
+		}
+	});
 });
 
 $.urlParam = function(name) {
@@ -109,11 +130,11 @@ $.urlParam = function(name) {
 
 function set_page_width() {
 	if ($('span#expand').is(":visible")) {
-		$('div.main_content').css({ "max-width": max_width + 'px' });		
-		$('div#title_container').css({"max-width": (max_width-15) + 'px'})
+		$('div.main_content').css({ "max-width": max_width + 'px' });
+		$('div#title_container').css({ "max-width": (max_width - 15) + 'px' })
 	} else {
 		$('div.main_content').css({ "max-width": "calc(100vw - 40px)" });
-		$('div#title_container').css({"max-width": "calc(100vw - 15px)"})
+		$('div#title_container').css({ "max-width": "calc(100vw - 15px)" })
 	}
 }
 

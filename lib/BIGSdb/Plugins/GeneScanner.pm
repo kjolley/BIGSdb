@@ -792,10 +792,6 @@ sub get_plugin_javascript {
 	\$("a#clear_group_csv_upload").on("click", function(){
   		\$("input#group_csv_upload").val("");
   	});
-  	// hack to fix jquery 3.6 focus security patch that bugs auto search in select-2
-	\$(document).on('select2:open', () => {
-   	   document.querySelector('.select2-search__field').focus();
-	});
 });	
 
 END
