@@ -35,7 +35,7 @@ sub initiate {
 	}
 	$self->set_level1_breadcrumbs;
 	my $table = $q->param('table');
-	$self->{$_} = 1 foreach (qw (noCache tooltips jQuery jQuery.coolfieldset jQuery.multiselect allowExpand));
+	$self->{$_} = 1 foreach (qw (noCache tooltips jQuery jQuery.coolfieldset allowExpand select2));
 	if ( !$q->param('save_options') ) {
 		my $guid = $self->get_guid;
 		return if !$guid;
@@ -154,17 +154,6 @@ sub get_javascript {
   		+ "</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms."
   		+ "</p>" );
   	$panel_js
-  	\$("select.filter").multiselect({
-		header: "Please select...",
-		noneSelectedText: "Please select...",
-		selectedList: 1,
-		menuHeight: 250,
-		menuWidth: 300,
-		classes: 'filter'
-	});
-	\$("select.filter.search").multiselectfilter({
-		placeholder: 'Search'
-	});
 });
   	
 function loadContent(url) {
