@@ -1192,7 +1192,7 @@ sub _print_filters_fieldset_contents {
 	if (@$list) {
 		unshift @$list, q();
 		say q(<span class="query_block">);
-		say q(<span class="label">Add filter:&nbsp;</span>);
+		say q(<span class="label">Add filter:</span>);
 		say $self->popup_menu(
 			-name   => 'new_filter',
 			-id     => 'new_filter',
@@ -1689,7 +1689,7 @@ sub _print_allele_status_fields {
 		-labels => $locus_labels,
 		-class  => $class
 	);
-	print '<span class="label">&nbsp;is&nbsp;</span>';
+	print '<span class="label">is</span>';
 	my $values = [ '', 'provisional', 'confirmed' ];
 	my %labels = ( '' => ' ' );                        #Required for HTML5 validation.
 	say $q->popup_menu(
@@ -1720,7 +1720,7 @@ sub _print_allele_count_fields {
 	my $q     = $self->{'cgi'};
 	my $class = @$list > MAX_LIST_RENDER_SIZE ? q() : 'locuslist';
 	say q(<span class="query_block">);
-	say q(<span class="label">Count of&nbsp;</span>);
+	say q(<span class="label">Count of</span>);
 	say $self->popup_menu(
 		-name   => "allele_count_field$row",
 		-id     => "allele_count_field$row",
@@ -1803,7 +1803,7 @@ sub _print_locus_tag_fields {
 		-labels => $locus_labels,
 		-class  => $class
 	);
-	print '<span class="label">&nbsp;is&nbsp;</span>';
+	print '<span class="label">is</span>';
 	my @values = qw(untagged tagged complete incomplete);
 	push @values, "flagged: $_" foreach ( 'any', 'none', SEQ_FLAGS );
 	unshift @values, '';
@@ -1831,7 +1831,7 @@ sub _print_tag_count_fields {
 	my $q     = $self->{'cgi'};
 	my $class = @$list > MAX_LIST_RENDER_SIZE ? q() : 'locuslist';
 	say q(<span class="query_block">);
-	say q(<span class="label">Count of&nbsp;</span>);
+	say q(<span class="label">Count of</span>);
 	say $self->popup_menu(
 		-name   => "tag_count_field$row",
 		-id     => "tag_count_field$row",

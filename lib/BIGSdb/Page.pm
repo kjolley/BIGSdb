@@ -1935,6 +1935,7 @@ sub get_filter {
 			qq(<a id="$options->{'remove_id'}" class="remove_filter" style="cursor:pointer" title="Remove filter">)
 		  . qq($delete</a> $label);
 	}
+	$label = ucfirst($label) if $options->{'ucfirst'};
 	my $buffer = qq(<label for="$id" class="$class label" $title_attribute>$label</label>\n);
 	unshift @$values, '' if !$options->{'noblank'};
 	$options->{'labels'}->{''} = '&nbsp;';    #Required for HTML5 validation.
@@ -1995,7 +1996,7 @@ sub get_number_records_control {
 		-values  => [ '10', '25', '50', '100', '200', '500', 'all' ],
 		-default => $self->{'cgi'}->param('displayrecs') || $self->{'prefs'}->{'displayrecs'}
 	);
-	$buffer .= q(<span class="label">&nbsp;records per page</span>);
+	$buffer .= q(<span class="label">records per page</span>);
 	$buffer .=
 	  $self->get_tooltip(q(Records per page - Analyses use the full query dataset, rather than just the page shown.));
 	$buffer .= q(</span>);
