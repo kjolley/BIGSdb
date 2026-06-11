@@ -3623,6 +3623,7 @@ span.query_block {
 
 span.query_block .label {
 	align-self: center;
+	margin: 0 5px;
 }
 
 span.query_block .select2-selection {

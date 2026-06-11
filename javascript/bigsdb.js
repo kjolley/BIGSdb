@@ -95,10 +95,11 @@ $(function() {
 		show_expand_trigger();
 	});
 	if (window.jQuery && $.fn.select2) {
-		$('select:not(.locuslist):not(.widelist)')
+		$('select:not(.locuslist):not(.widelist):not([multiple])')
 			.not('.select2-hidden-accessible')
 			.select2({
-				minimumResultsForSearch: 0
+				minimumResultsForSearch: 0,
+				dropdownAutoWidth: true,
 			});
 	}
 	// hack to fix jquery 3.6 focus security patch that bugs auto search in select-2

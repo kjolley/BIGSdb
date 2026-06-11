@@ -67,11 +67,6 @@ sub get_javascript {
   	  var url = '$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=alleleQuery&locus=' + locus_name;
  	  location.href=url;
     });
-    \$("select#locus").select2({
-		width: '240px',
-		dropdownAutoWidth: true,
-		minimumResultsForSearch: 20
-	});
     $panel_js
  });
 
@@ -239,12 +234,12 @@ sub _print_interface {
 	my ( $display_loci, $cleaned ) =
 	  $self->{'datastore'}->get_locus_list( { set_id => $set_id, no_list_by_common_name => 1 } );
 	print $q->start_form;
-	say q(<p><b>Locus: </b>);
+	say q(<span class="query_block"><span class="label"><b>Locus:</b></span>);
 
 	#Following is eval'd because it may take a while to populate when a very large number of loci are defined.
 	#If the user closes the connection while the page is loading it would otherwise lead to a 500 error.
 	eval { say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $display_loci, -labels => $cleaned ) };
-	say q( <span class="comment">Page will reload when changed</span></p>);
+	say q( <span class="comment label">Page will reload when changed</span></span>);
 	say $q->hidden($_) foreach qw (db page);
 	if ( $q->param('locus') ) {
 		say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;)
@@ -271,7 +266,7 @@ sub _print_interface {
 	$self->_print_list_fieldset;
 	$self->_print_filters_fieldset;
 	say q(<fieldset style="float:left"><legend>Display</legend>);
-	say q(<ul><li><span style="white-space:nowrap"><label for="order" class="display">Order by: </label>);
+	say q(<ul><li><span class="query_block"><label for="order" class="display label">Order by:</label>);
 	say $q->popup_menu( -name => 'order', -id => 'order', -values => $order_by, -labels => $labels );
 	say $q->popup_menu( -name => 'direction', -values => [qw(ascending descending)], -default => 'ascending' );
 	say q(</span></li><li>);
