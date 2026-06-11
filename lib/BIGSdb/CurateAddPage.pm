@@ -1057,13 +1057,6 @@ END
 	my $buffer = << "END";
 \$(function () {
   $reload_locus
-  \$('#locus,#field,#sender,#user_id,#country').multiselect({
-  	classes: 'filter',
- 	menuHeight: 250,
- 	menuWidth: 400,
- 	noneSelectedText: '',
- 	selectedList: 1,
-  }).multiselectfilter();
   \$('#flags').multiselect({
   	classes: 'filter',
  	menuHeight: 250,
