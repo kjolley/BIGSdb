@@ -4523,6 +4523,7 @@ $panel_js
          	} 
         	
         }
+        apply_select2();
 	});
 	setFilterTriggers();
 	\$("#bookmark_trigger,#close_bookmark").click(function(){		

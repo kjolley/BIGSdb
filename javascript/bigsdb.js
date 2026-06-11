@@ -94,14 +94,8 @@ $(function() {
 	$(window).resize(function() {
 		show_expand_trigger();
 	});
-	if (window.jQuery && $.fn.select2) {
-		$('select:not(.locuslist):not(.widelist):not([multiple])')
-			.not('.select2-hidden-accessible')
-			.select2({
-				minimumResultsForSearch: 0,
-				dropdownAutoWidth: true,
-			});
-	}
+	apply_select2();
+
 	// hack to fix jquery 3.6 focus security patch that bugs auto search in select-2
 	$(document).on('select2:open', () => {
 		document.querySelector('.select2-search__field').focus();
@@ -135,6 +129,17 @@ $.urlParam = function(name) {
 	}
 	else {
 		return results[1] || 0;
+	}
+}
+
+function apply_select2() {
+	if (window.jQuery && $.fn.select2) {
+		$('select:not(.locuslist):not(.widelist):not([multiple])')
+			.not('.select2-hidden-accessible')
+			.select2({
+				minimumResultsForSearch: 0,
+				dropdownAutoWidth: true,
+			});
 	}
 }
 
