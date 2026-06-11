@@ -174,15 +174,25 @@ th a:hover {
 }
 
 select.filter {
-	width: 20em;
+	width: 14em;
 	border: 1px solid #999;
 }
 
 .ui-multiselect.filter {
 	color: #000;
 	background: #fff;
-	vertical-align: bottom;
-	word-break: break-all;
+	display: block !important;
+	white-space: normal !important;
+	overflow: visible !important;
+	text-overflow: clip !important;
+	word-break: break-word;
+	line-height: 1.2em !important;
+	height: auto;
+	padding-top: 2px;
+	color: #000 !important;
+	line-height: 1.2;
+	min-width: 0;
+	flex: 1 1 auto;
 }
 
 select.fieldlist {
@@ -3588,28 +3598,17 @@ span.query_block .select2-results__option {
 	/* split long tokens if needed */
 }
 
-/* In the closed (selected) state */
-span.query_block .select2-selection__rendered {
-	display: block !important;
-	white-space: normal !important;
-	word-break: break-word;
-	line-height: 1.2em !important;
-	height: auto;
-	padding-top: 2px;
-	color: #000 !important;
-}
-
 span.query_block .select2-container .select2-selection__arrow {
 	height: 100% !important;
 	align-self: center;
 }
 
 .select2-container .select2-selection__clear {
-	opacity: 0.5	
+	opacity: 0.5
 }
 
 span.query_block .select2-container .select2-selection__clear {
-	order:2;
+	order: 2;
 	margin-top: -3px;
 	height: 100% !important;
 	align-self: center;
@@ -3641,11 +3640,17 @@ span.query_block .select2-selection--single {
 	padding-top: 5px;
 }
 
-/* The text inside Select2 */
-.query_block .select2-selection__rendered {
+/* In the closed (selected) state */
+span.query_block .select2-selection__rendered {
+	display: block !important;
 	white-space: normal !important;
 	overflow: visible !important;
 	text-overflow: clip !important;
+	word-break: break-word;
+	line-height: 1.2em !important;
+	height: auto;
+	padding-top: 2px;
+	color: #000 !important;
 	line-height: 1.2;
 	min-width: 0;
 	flex: 1 1 auto;

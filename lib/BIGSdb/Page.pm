@@ -1936,7 +1936,7 @@ sub get_filter {
 		  . qq($delete</a> $label);
 	}
 	$label = ucfirst($label) if $options->{'ucfirst'};
-	my $buffer = qq(<label for="$id" class="$class label" $title_attribute>$label</label>\n);
+	my $buffer = qq(<span class="query_block"><label for="$id" class="$class label" $title_attribute>$label</label>\n);
 	unshift @$values, '' if !$options->{'noblank'};
 	$options->{'labels'}->{''} = '&nbsp;';    #Required for HTML5 validation.
 	my %args = (
@@ -1963,6 +1963,7 @@ sub get_filter {
 		$options->{'tooltip'} =~ tr/_/ /;
 		$buffer .= $self->get_tooltip( $options->{'tooltip'} );
 	}
+	$buffer.=q(</span>);
 	return $buffer;
 }
 
