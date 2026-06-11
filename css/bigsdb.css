@@ -185,7 +185,7 @@ select.filter {
 	white-space: normal !important;
 	overflow: visible !important;
 	text-overflow: clip !important;
-	word-break: break-word;
+	word-break: break-all;
 	line-height: 1.2em !important;
 	height: auto;
 	padding-top: 2px;
