@@ -190,7 +190,6 @@ select.filter {
 	height: auto;
 	padding-top: 2px;
 	color: #000 !important;
-	line-height: 1.2;
 	min-width: 0;
 	flex: 1 1 auto;
 }

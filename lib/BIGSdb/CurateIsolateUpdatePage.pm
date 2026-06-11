@@ -39,14 +39,6 @@ sub get_javascript {
     }
     \$("#aliases").on('keyup paste',alias_change); 
     \$(".allow_null").on('change',allow_null_change);
-    \$('.single').multiselect({
- 		classes: 'filter',
- 		menuHeight: 250,
- 		menuWidth: 400,
- 		selectedList: 1,
- 	}).multiselectfilter({
-		placeholder: 'Search'
-	});
 	\$('.multi').multiselect({
 		noneSelectedText: "",
  		classes: 'filter',
@@ -78,7 +70,7 @@ sub initiate {
 		$self->{'type'} = 'no_header';
 		return;
 	}
-	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree jQuery.columnizer modernizr jQuery.multiselect tooltips noCache);
+	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree jQuery.columnizer modernizr jQuery.multiselect select2 tooltips noCache);
 	$self->set_level1_breadcrumbs;
 	return;
 }

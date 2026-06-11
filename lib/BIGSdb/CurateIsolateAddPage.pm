@@ -44,14 +44,7 @@ sub get_javascript {
   }
   \$("#aliases").on('keyup paste',alias_change);
   \$(".allow_null").on('change',allow_null_change);
-  \$('.single').multiselect({
- 		classes: 'filter',
- 		menuHeight: 250,
- 		menuWidth: 400,
- 		selectedList: 1,
- 	}).multiselectfilter({
-		placeholder: 'Search'
-	});
+
 	\$('.multi').multiselect({
 		noneSelectedText: "",
  		classes: 'filter',
@@ -900,7 +893,7 @@ sub _print_optlist {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called 
 			say $q->popup_menu( %args, %$html5_args, -class => $class );
 		}
 		if ($multiple) {
-			say q(<br /><span class="comment" style="color:#008">Supports multiple values</span>);
+			say q(<span class="comment" style="color:#008">Supports multiple values</span>);
 		}
 		say q(</div>);
 		return 1;
@@ -1236,7 +1229,7 @@ sub get_title {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (tooltips jQuery jQuery.multiselect modernizr noCache);
+	$self->{$_} = 1 foreach qw (tooltips jQuery jQuery.multiselect select2 modernizr noCache);
 	$self->set_level1_breadcrumbs;
 	return;
 }
