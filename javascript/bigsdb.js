@@ -98,6 +98,8 @@ $(function() {
 	$(document).on('select2:open', () => {
 		document.querySelector('.select2-search__field').focus();
 	});
+	$('.select2-selection__choice').removeAttr('title');
+	$('.select2-selection__rendered').removeAttr('title');
 	$(document).on('keydown', '.select2-selection', function(e) {
 		if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
 			const select = $(this)
