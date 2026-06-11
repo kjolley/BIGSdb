@@ -94,6 +94,13 @@ $(function() {
 	$(window).resize(function() {
 		show_expand_trigger();
 	});
+	if (window.jQuery && $.fn.select2) {
+		$('select:not(.locuslist):not(.widelist)')
+			.not('.select2-hidden-accessible')
+			.select2({
+				minimumResultsForSearch: 0
+			});
+	}
 	// hack to fix jquery 3.6 focus security patch that bugs auto search in select-2
 	$(document).on('select2:open', () => {
 		document.querySelector('.select2-search__field').focus();
@@ -113,11 +120,11 @@ $(function() {
 				search.value = e.key;
 				$(search).trigger('input');
 			});
-
 			select.select2('open');
 			e.preventDefault();
 		}
 	});
+
 });
 
 $.urlParam = function(name) {
