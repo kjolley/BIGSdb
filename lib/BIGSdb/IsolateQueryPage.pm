@@ -4631,7 +4631,6 @@ function render_locuslists(selector){
 	\$(selector).filter(':visible').select2({
 		width: '240px',
 		dropdownAutoWidth: true,
-		minimumResultsForSearch: 20,
 		placeholder: '',
 		allowClear: true
 	});
@@ -4641,7 +4640,6 @@ function render_widelists(selector){
 	\$(selector).filter(':visible').select2({
 		width: '240px',
 		dropdownAutoWidth: true,
-		minimumResultsForSearch: 50,
 		placeholder: '',
 		allowClear: false
 	});
