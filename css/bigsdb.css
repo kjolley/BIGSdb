@@ -2157,6 +2157,37 @@ span.dashboard_wait_ajax {
 	/* keep dragged item on top */
 }
 
+div.form_container {
+	display: grid;
+	grid-template-columns: max-content 1fr;
+	justify-content: start;
+	column-gap: 0;
+}
+
+div.form_container div.form_label {
+	text-align: right;
+	max-width: 200px;
+	padding: 0 10px 5px 0;
+	/*	border:1px solid red;*/
+}
+
+label.required {
+	font-weight: 600
+}
+
+div.form_container div.form_value {
+	/*		border:1px solid blue;*/
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	padding-bottom: 3px;
+	gap: 2px;
+}
+
+div.form_container div.form_value input:not([type=checkbox]):not([type=radio]) {
+	height: 28px
+}
+
 div.queryform,
 div#queryform {
 	position: relative;
@@ -3650,13 +3681,12 @@ span.query_block .select2-selection__rendered {
 	height: auto;
 	padding-top: 2px;
 	color: #000 !important;
-	line-height: 1.2;
 	min-width: 0;
 	flex: 1 1 auto;
 }
 
 .select2-selection__rendered {
-	color: #000 !important;	
+	color: #000 !important;
 }
 
 /* Responsive design */

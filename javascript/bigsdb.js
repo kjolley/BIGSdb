@@ -139,6 +139,7 @@ function apply_select2() {
 			.select2({
 				minimumResultsForSearch: 0,
 				dropdownAutoWidth: true,
+				width:"resolve"
 			});
 	}
 }

@@ -24,8 +24,8 @@ use parent qw(BIGSdb::CurateAddPage);
 use Bio::Tools::CodonTable;
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(:interface :submissions);
-use List::MoreUtils qw(any uniq);
-use Log::Log4perl qw(get_logger);
+use List::MoreUtils   qw(any uniq);
+use Log::Log4perl     qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant SUCCESS => 1;
 
@@ -585,7 +585,7 @@ sub _print_interface {
 	my ( $self, $newdata ) = @_;
 	my $q = $self->{'cgi'};
 	say q(<div class="box" id="queryform"><p>Please fill in the fields below - )
-	  . q(required fields are marked with an exclamation mark (!).</p>);
+	  . q(required fields are shown <label class="required">in bold</label>.</p>);
 	say q(<div class="scrollable">);
 	say $q->start_form;
 	$q->param( sent => 1 );
@@ -669,9 +669,8 @@ sub print_provenance_form_elements {
 	my $set_id     = $self->get_set_id;
 	my $field_list = $self->{'xmlHandler'}->get_field_list;
 	say q(<fieldset style="float:left"><legend>Primary metadata</legend>);
-	say q(<div>);
+	say q(<div class="form_container">);
 	my $width = $self->_get_field_width($field_list);
-	say q(<ul>);
 
 	#Display required fields first
 	foreach my $required ( 1, 0 ) {
@@ -720,7 +719,8 @@ sub print_provenance_form_elements {
 	} else {
 		$aliases = [];
 	}
-	say qq(<li><label for="aliases" class="form" style="width:${width}em">aliases:&nbsp;</label>);
+	say q(<div class="form_label"><label for="aliases">aliases:</label></div>);
+	say q(<div class="form_value">);
 	local $" = "\n";
 	say $q->textarea(
 		-name        => 'aliases',
@@ -733,7 +733,7 @@ sub print_provenance_form_elements {
 	);
 	say $self->get_tooltip(q(List of alternative names for this isolate. Put each alias on a separate line.));
 	say q(<span id="alias_warning" class="form_warning"></span>);
-	say q(</li>);
+	say q(</div>);
 	my $pubmed;
 
 	if ( $options->{'update'} ) {
@@ -741,7 +741,7 @@ sub print_provenance_form_elements {
 	} else {
 		$pubmed = [];
 	}
-	say qq(<li><label for="pubmed" class="form" style="width:${width}em">PubMed ids:&nbsp;</label>);
+	say q(<div class="form_label"><label for="pubmed">PubMed ids:</label></div><div class="form_value">);
 	say $q->textarea(
 		-name        => 'pubmed',
 		-id          => 'pubmed',
@@ -753,7 +753,7 @@ sub print_provenance_form_elements {
 	);
 	say $self->get_tooltip( q(List of PubMed ids of publications associated with this isolate. )
 		  . q(Put each identifier on a separate line.) );
-	say q(</li></ul>);
+	say q(</div>);
 	say q(</div></fieldset>);
 	return;
 }
@@ -783,20 +783,24 @@ sub _print_field {
 	}
 	$thisfield->{'length'} //= ( $thisfield->{'type'} eq 'int' ? 15 : 50 );
 	( my $cleaned_name = $display_name ) =~ tr/_/ /;
-	my ( $label, $title ) = $self->get_truncated_label( $cleaned_name, 25 );
-	my $title_attribute = $title ? qq( title="$title") : q();
-	my %no_label_field  = map { $_ => 1 } qw (curator date_entered datestamp);
-	my $for             = $no_label_field{$field} ? q() : qq( for="field_$field");
-	print q(<li>) if !$postfix;
+
+	#	my ( $label, $title ) = $self->get_truncated_label( $cleaned_name, 25 );
+	#	my $title_attribute = $title ? qq( title="$title") : q();
+	my %no_label_field = map { $_ => 1 } qw (curator date_entered datestamp);
+	my $for            = $no_label_field{$field} ? q() : qq( for="field_$field");
+	print q(<div class="form_label">) if !$postfix;
 
 	if ( defined $display_name && $display_name ne q() ) {
-		print qq(<label$for class="form" style="width:${width}em"$title_attribute>);
-		print $label;
+		my $class = $required ? q( class="required") : q();
+
+		print qq(<label$for$class>);
+		print $cleaned_name;
 		print ':';
-		print '!' if $required;
-		say q(</label>);
+		print q(</label>);
 	}
-	print q(<div style="display:inline-block" class="field_warning">) if $thisfield->{'warning'};
+	say q(</div>) if !$postfix;
+
+	#	print q(<div style="display:inline-block" class="field_warning">) if $thisfield->{'warning'};
 	my $methods = {
 		update_id        => '_print_id_no_update',
 		optlist          => '_print_optlist',
@@ -810,6 +814,7 @@ sub _print_field {
 		long_text_field  => '_print_long_text_field',
 		default_field    => '_print_default_field'
 	};
+	print q(<div class="form_value">) if !$postfix;
 	foreach my $condition (
 		qw(update_id optlist bool datestamp date_entered curator sender_submitter
 		user_field geography_point long_text_field default_field)
@@ -832,7 +837,6 @@ sub _print_field {
 		say $thisfield->{'suffix'};
 	}
 	if ( $thisfield->{'warning'} ) {
-		say q(</div>);
 		say $self->get_warning_tooltip( $thisfield->{'warning'} );
 	}
 	if ( $thisfield->{'comments'} ) {
@@ -853,7 +857,7 @@ sub _print_field {
 	if ( !$special_date_field{$field} && lc( $thisfield->{'type'} ) eq 'date' ) {
 		say q( <span class="no_date_picker" style="display:none">format: yyyy-mm-dd</span>);
 	}
-	say q(</li>) if !$prefix;
+	say q(</div>) if !$prefix;
 	return;
 }
 
@@ -1087,15 +1091,14 @@ sub print_sparse_field_form_elements {
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT DISTINCT category FROM eav_fields WHERE NOT no_curate ORDER BY category NULLS LAST',
 		undef, { fetch => 'col_arrayref' } );
-	say q(<div style="white-space:nowrap">);
-	say q(<p class="comment">These fields are listed and stored separately<br />)
+	say q(<p class="comment">These fields are listed and stored separately )
 	  . q(as they may be infrequently populated.</p>);
 
 	foreach my $cat (@$categories) {
 		if ( @$categories > 1 && $categories->[0] ) {
 			say $cat ? qq(<h3>$cat</h3>) : q(<h3>Other</h3>);
 		}
-		say q(<ul>);
+		say q(<div class="form_container">);
 		foreach my $field (@$fields) {
 			if ( $field->{'category'} ) {
 				next if !$cat || $cat ne $field->{'category'};
@@ -1121,20 +1124,15 @@ sub print_sparse_field_form_elements {
 			);
 			$field->{'length'} //= ( $field->{'value_format'} eq 'integer' ? 15 : 50 );
 			( my $cleaned_name = $field->{'field'} ) =~ tr/_/ /;
-			my ( $label, $title ) = $self->get_truncated_label( $cleaned_name, 25 );
-			my $title_attribute = $title ? qq( title="$title") : q();
 			my $for             = qq( for="field_$field->{'field'}");
-			print qq(<li><label$for class="form" style="width:${width}em"$title_attribute>);
-			print $label;
-			print ':';
-			say q(</label>);
+			say qq(<div class="form_label"><label$for>$cleaned_name:</label></div>);
 			my $methods = {
 				optlist         => '_print_optlist',
 				bool            => '_print_bool',
 				long_text_field => '_print_long_text_field',
 				default_field   => '_print_default_field'
 			};
-
+			print q(<div class="form_value">);
 			foreach my $condition (qw( optlist bool long_text_field default_field)) {
 				my $method = $methods->{$condition};
 				my $args   = {
@@ -1150,10 +1148,11 @@ sub print_sparse_field_form_elements {
 			say $self->get_tooltip( $field->{'description'} ) if $field->{'description'};
 			say q( <span class="no_date_picker" style="display:none">format: yyyy-mm-dd</span>)
 			  if $field->{'value_format'} eq 'date';
+			say q(</div>);
 		}
-		say q(</ul>);
+		say q(</div>);
 	}
-	say q(</div></fieldset>);
+	say q(</fieldset>);
 	return;
 }
 
