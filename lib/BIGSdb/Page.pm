@@ -1927,18 +1927,20 @@ sub get_filter {
 	my ( $label, $title ) =
 	  $self->get_truncated_label( "$text: ", $length, { capitalize_first => $options->{'capitalize_first'} } );
 	my $title_attribute = $title ? qq(title="$title") : q();
-	( my $id = "$name\_list" ) =~ tr/:/_/;
+	( my $id = "${name}_list" ) =~ tr/:/_/;
+	my $remove_link = q();
 
 	if ( $options->{'remove_id'} ) {
 		my $delete = DELETE;
-		$label =
-			qq(<a id="$options->{'remove_id'}" class="remove_filter" style="cursor:pointer" title="Remove filter">)
-		  . qq($delete</a> $label);
+		$remove_link = qq(<a id="$options->{'remove_id'}" class="remove_filter" style="cursor:pointer" )
+		  . qq(title="Remove filter">$delete</a>);
+		$label = q($remove_link $label);
 	}
 	$label = ucfirst($label) if $options->{'ucfirst'};
 	my $buffer;
 	if ( $options->{'grid'} ) {
-		$buffer = qq(<div class="form_label"><label for="$id">$label</label></div><div class="form_value">);
+		$buffer = qq(<div class="form_label"><label for="$id">$remove_link $text:</label></div>)
+		  . q(<div class="form_value">);
 	} else {
 		$buffer = qq(<span class="query_block"><label for="$id" class="$class label" $title_attribute>$label</label>\n);
 	}
@@ -1989,6 +1991,7 @@ sub get_user_filter {
 			class   => 'filter search',
 			tooltip => qq($field filter - Select $a_or_an $field to filter your search to only )
 			  . qq(those records that match the selected $field.),
+			grid => $args->{'grid'} ? 1 : 0,
 			%$args
 		}
 	);
@@ -2057,10 +2060,18 @@ sub get_locus_filter {
 }
 
 sub get_old_version_filter {
-	my ($self) = @_;
-	my $buffer =
-	  $self->{'cgi'}->checkbox( -name => 'include_old', -id => 'include_old', -label => 'Include old record versions' );
-	return $buffer;
+	my ( $self, $options ) = @_;
+	my $q = $self->{'cgi'};
+	if ( $options->{'grid'} ) {
+		my $buffer =
+			q(<div class="form_label">Include old record versions:</div><div class="form_value">)
+		  . $self->{'cgi'}->checkbox( -name => 'include_old', -id => 'include_old', -label => '' )
+		  . q(</div>);
+		return $buffer;
+	}
+	return $self->{'cgi'}
+	  ->checkbox( -name => 'include_old', -id => 'include_old', -label => 'Include old record versions' );
+
 }
 
 sub get_isolate_publication_filter {
@@ -2090,7 +2101,8 @@ sub get_isolate_publication_filter {
 					multiple => 1,
 					noblank  => 1,
 					tooltip  => q(publication filter - Select publications to filter your )
-					  . q(search to only those isolates referred by them.)
+					  . q(search to only those isolates referred by them.),
+					grid => $options->{'grid'}
 				}
 			);
 		}
@@ -2128,8 +2140,13 @@ sub get_project_filter {
 	if (@project_ids) {
 		my $class   = $options->{'class'} || 'filter';
 		my $tooltip = 'project filter - Select projects to filter your query to only those isolates belonging to them.';
-		$args = { labels => \%labels, text => 'Project', tooltip => $tooltip, class => $class,
-			grid => $options->{'grid'} };
+		$args = {
+			labels  => \%labels,
+			text    => 'Project',
+			tooltip => $tooltip,
+			class   => $class,
+			grid    => $options->{'grid'}
+		};
 		if ( $options->{'multiple'} ) {
 			$args->{'multiple'} = 1;
 			$args->{'noblank'}  = 1;

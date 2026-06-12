@@ -1164,9 +1164,9 @@ sub _print_filters_fieldset_contents {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	my @filters;
-	my $buffer = $self->get_isolate_publication_filter( { any => 1, multiple => 1 } );
+	my $buffer = $self->get_isolate_publication_filter( { any => 1, multiple => 1, grid => 1 } );
 	push @filters, $buffer if $buffer;
-	$buffer = $self->get_project_filter( { any => 1, multiple => 1 } );
+	$buffer = $self->get_project_filter( { any => 1, multiple => 1, grid => 1 } );
 	push @filters, $buffer if $buffer;
 
 	#Enable filters if used in bookmark.
@@ -1183,10 +1183,10 @@ sub _print_filters_fieldset_contents {
 	push @filters, @$profile_filters;
 	my $private_data_filter = $self->_get_private_data_filter;
 	push @filters, $private_data_filter if $private_data_filter;
-	push @filters, $self->get_old_version_filter;
-	say q(<ul>);
-	say qq(<li>$_</li>) foreach @filters;
-	say q(</ul>);
+	push @filters, $self->get_old_version_filter({grid=>1});
+	say q(<div class="form_container">);
+	say qq($_) foreach @filters;
+	say q(</div>);
 	my ( $list, $labels ) = $self->_get_inactive_filters;
 
 	if (@$list) {
@@ -1317,7 +1317,7 @@ sub _print_bookmark_fieldset {
 		  $bookmark->{'public'}
 		  ? '<span class="public">public</span>'
 		  : '<span class="private">private</span>';
-		  say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$bookmark->{'dbase_config'}&amp;)
+		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$bookmark->{'dbase_config'}&amp;)
 		  . qq(page=query&amp;bookmark=$bookmark->{'id'}"><div>)
 		  . qq(<span class="name">$bookmark->{'name'}</span>)
 		  . qq(<span class="created"><strong>Created: </strong>$bookmark->{'date_entered'}</span>)
@@ -1338,8 +1338,7 @@ sub _get_profile_filters {
 	foreach my $scheme (@$schemes) {
 		my $field = "scheme_$scheme->{'id'}_profile_status";
 		if ( $self->{'prefs'}->{'dropdownfields'}->{$field} ) {
-			push @filters,
-			  $self->get_filter(
+			push @filters, $self->get_filter(
 				$field,
 				[ 'complete', 'incomplete', 'partial', 'started', 'not started' ],
 				{
@@ -1347,9 +1346,10 @@ sub _get_profile_filters {
 					tooltip => "$scheme->{'name'} profile completion filter - Select whether the isolates should "
 					  . 'have complete, partial, or unstarted profiles.',
 					capitalize_first => 1,
-					remove_id        => "remove_scheme_$scheme->{'id'}_profile_status"
+					remove_id        => "remove_scheme_$scheme->{'id'}_profile_status",
+					grid             => 1
 				}
-			  );
+			);
 		}
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $scheme->{'id'} );
 		foreach my $field (@$scheme_fields) {
@@ -1414,7 +1414,8 @@ sub _get_private_data_filter {
 			labels  => $labels,
 			text    => 'Private records',
 			tooltip => 'private records filter - Filter by whether the isolate record is private. '
-			  . 'The default is to include both your private and public records.'
+			  . 'The default is to include both your private and public records.',
+			grid => 1
 		}
 	);
 }
@@ -1436,7 +1437,7 @@ sub _get_field_filters {
 				|| ( ( $thisfield->{'userfield'} // q() ) eq 'yes' ) )
 			{
 				push @$filters,
-				  $self->get_user_filter( $field, { capitalize_first => 1, remove_id => "remove_$field" } );
+				  $self->get_user_filter( $field, { capitalize_first => 1, remove_id => "remove_$field", grid => 1 } );
 			} else {
 				if ( ( $thisfield->{'optlist'} // q() ) eq 'yes' ) {
 					$dropdownlist = $self->{'xmlHandler'}->get_field_option_list($field);
@@ -1478,7 +1479,8 @@ sub _get_field_filters {
 						  "$display_field filter - Select $a_or_an $display_field to filter your search to only those "
 						  . "isolates that match the selected $display_field.",
 						capitalize_first => 1,
-						remove_id        => "remove_$field"
+						remove_id        => "remove_$field",
+						grid             => 1
 					}
 				  ) if @$dropdownlist;
 			}
@@ -1506,7 +1508,8 @@ sub _get_field_filters {
 							  "$extended_attribute filter - Select $a_or_an $extended_attribute to filter your "
 							  . "search to only those isolates that match the selected $field.",
 							capitalize_first => 1,
-							remove_id        => "remove_${field}___$extended_attribute"
+							remove_id        => "remove_${field}___$extended_attribute",
+							grid             => 1
 						}
 					  );
 				}
@@ -1523,8 +1526,7 @@ sub _print_provenance_fields {
 	my @group_list    = split /,/x, ( $self->{'system'}->{'field_groups'} // q() );
 	my $group_members = {};
 	my $is_curator    = $self->is_curator;
-	
-	
+
 	if (@group_list) {
 		my $attributes = $self->{'xmlHandler'}->get_all_field_attributes;
 		foreach my $field (@$select_items) {
@@ -1553,12 +1555,12 @@ sub _print_provenance_fields {
 		$values = $select_items;
 	}
 	my $longest_length = 0;
-	foreach my $value (values %$labels){
-		my $length = length ($value);
+	foreach my $value ( values %$labels ) {
+		my $length = length($value);
 		$longest_length = $length if $length > $longest_length;
 	}
 	say q(<span class="query_block">);
-	my $class= $longest_length > MAX_OPTION_RENDER_LENGTH ? ' widelist' :q();
+	my $class = $longest_length > MAX_OPTION_RENDER_LENGTH ? ' widelist' : q();
 	say $q->popup_menu(
 		-name   => "prov_field$row",
 		-id     => "prov_field$row",
@@ -1611,12 +1613,12 @@ sub _print_phenotypic_fields {
 		$values = $select_items;
 	}
 	my $longest_length = 0;
-	foreach my $value (values %$labels){
-		my $length = length ($value);
+	foreach my $value ( values %$labels ) {
+		my $length = length($value);
 		$longest_length = $length if $length > $longest_length;
 	}
 	say q(<span class="query_block">);
-	my $class= $longest_length > MAX_OPTION_RENDER_LENGTH ? ' widelist' :q();
+	my $class = $longest_length > MAX_OPTION_RENDER_LENGTH ? ' widelist' : q();
 	unshift @$values, q();
 	say $q->popup_menu(
 		-name   => "phenotypic_field$row",
