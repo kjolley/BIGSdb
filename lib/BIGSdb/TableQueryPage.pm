@@ -326,9 +326,9 @@ sub _get_sequence_filters {
 	my $filters = [];
 	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
 		my @flag_values = ( 'any flag', 'no flag', ALLELE_FLAGS );
-		push @$filters, $self->get_filter( 'allele_flag', \@flag_values );
+		push @$filters, $self->get_filter( 'allele_flag', \@flag_values, { grid => 1 } );
 	}
-	push @$filters, $self->get_scheme_filter;
+	push @$filters, $self->get_scheme_filter( { grid => 1 } );
 	return $filters;
 }
 
@@ -343,7 +343,8 @@ sub _get_locus_description_filter {
 		$common_names,
 		{
 			tooltip => 'common names filter - Select a name to filter your search '
-			  . 'to only those loci with the selected common name.'
+			  . 'to only those loci with the selected common name.',
+			grid => 1
 		}
 	);
 }
@@ -351,18 +352,18 @@ sub _get_locus_description_filter {
 sub _get_allele_sequences_filters {
 	my ($self) = @_;
 	my $filters = [];
-	push @$filters, $self->get_scheme_filter;
+	push @$filters, $self->get_scheme_filter( { grid => 1 } );
 	push @$filters,
 	  $self->get_filter(
 		'sequence_flag',
 		[ 'any flag', 'no flag', SEQ_FLAGS ],
 		{
 			tooltip => 'sequence flag filter - Select the appropriate value to '
-			  . 'filter tags to only those flagged accordingly.'
+			  . 'filter tags to only those flagged accordingly.',
+			grid => 1
 		}
 	  );
-	push @$filters,
-	  $self->get_filter(
+	push @$filters, $self->get_filter(
 		'duplicates',
 		[qw (1 2 5 10 25 50)],
 		{
@@ -376,9 +377,10 @@ sub _get_allele_sequences_filters {
 				50 => '50 or more'
 			},
 			tooltip => 'Duplicates filter - Filter search to only those loci that have '
-			  . 'been tagged a specified number of times per isolate.'
+			  . 'been tagged a specified number of times per isolate.',
+			grid => 1
 		}
-	  );
+	);
 	return $filters;
 }
 
@@ -388,13 +390,13 @@ sub _get_dropdown_filter {
 		|| $att->{'name'} eq 'curator'
 		|| ( $att->{'foreign_key'} // '' ) eq 'users' )
 	{
-		return $self->get_user_filter( $att->{'name'} );
+		return $self->get_user_filter( $att->{'name'}, { grid => 1 } );
 	}
 	if ( $att->{'name'} eq 'scheme_id' ) {
-		return $self->get_scheme_filter( { with_pk => $att->{'with_pk'} } );
+		return $self->get_scheme_filter( { with_pk => $att->{'with_pk'}, grid => 1 } );
 	}
 	if ( $att->{'name'} eq 'locus' ) {
-		return $self->get_locus_filter;
+		return $self->get_locus_filter( { grid => 1 } );
 	}
 	my $desc;
 	my $values;
@@ -1539,16 +1541,16 @@ sub _print_filter_fieldset {
 			push @filters, $dropdown_filter if $dropdown_filter;
 		} elsif ( $att->{'optlist'} ) {
 			my @options = split /;/x, $att->{'optlist'};
-			push @filters, $self->get_filter( $att->{'name'}, \@options );
+			push @filters, $self->get_filter( $att->{'name'}, \@options, { grid => 1 } );
 		} elsif ( $att->{'type'} eq 'bool' ) {
-			push @filters, $self->get_filter( $att->{'name'}, [qw(true false)], { tooltip => $tooltip } );
+			push @filters, $self->get_filter( $att->{'name'}, [qw(true false)], { tooltip => $tooltip, grid => 1 } );
 		}
 	}
 	my $filter_method = {
-		loci                => sub { return $self->get_scheme_filter },
-		allele_designations => sub { return $self->get_scheme_filter },
-		schemes             => sub { return $self->get_scheme_filter },
-		isolate_aliases     => sub { return $self->get_project_filter },
+		loci                => sub { return $self->get_scheme_filter( { grid => 1 } ) },
+		allele_designations => sub { return $self->get_scheme_filter( { grid => 1 } ) },
+		schemes             => sub { return $self->get_scheme_filter( { grid => 1 } ) },
+		isolate_aliases     => sub { return $self->get_project_filter( { grid => 1 } ) },
 		sequences           => sub { return $self->_get_sequence_filters },
 		locus_descriptions  => sub { return $self->_get_locus_description_filter },
 		allele_sequences    => sub { return $self->_get_allele_sequences_filters }
@@ -1566,9 +1568,9 @@ sub _print_filter_fieldset {
 		} else {
 			say q(<fieldset style="float:left"><legend>Filter query by</legend>);
 		}
-		say q(<div><ul>);
-		say qq(<li>$_</li>) foreach @filters;
-		say q(</ul></div></fieldset>);
+		say q(<div class="form_container">);
+		say $_ foreach @filters;
+		say q(</div></fieldset>);
 	}
 	return;
 }

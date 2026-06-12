@@ -1936,11 +1936,16 @@ sub get_filter {
 		  . qq($delete</a> $label);
 	}
 	$label = ucfirst($label) if $options->{'ucfirst'};
-	my $buffer = qq(<span class="query_block"><label for="$id" class="$class label" $title_attribute>$label</label>\n);
+	my $buffer;
+	if ( $options->{'grid'} ) {
+		$buffer = qq(<div class="form_label"><label for="$id">$label</label></div><div class="form_value">);
+	} else {
+		$buffer = qq(<span class="query_block"><label for="$id" class="$class label" $title_attribute>$label</label>\n);
+	}
 	unshift @$values, '' if !$options->{'noblank'};
 	$options->{'labels'}->{''} = '&nbsp;';    #Required for HTML5 validation.
 	my %args = (
-		-name   => "$name\_list",
+		-name   => "${name}_list",
 		-id     => $id,
 		-values => $values,
 		-labels => $options->{'labels'},
@@ -1963,7 +1968,11 @@ sub get_filter {
 		$options->{'tooltip'} =~ tr/_/ /;
 		$buffer .= $self->get_tooltip( $options->{'tooltip'} );
 	}
-	$buffer .= q(</span>);
+	if ( $options->{'grid'} ) {
+		$buffer .= q(</div>);
+	} else {
+		$buffer .= q(</span>);
+	}
 	return $buffer;
 }
 
@@ -2024,14 +2033,15 @@ sub get_scheme_filter {
 			class   => 'filter search',
 			labels  => $self->{'cache'}->{'scheme_labels'},
 			tooltip => 'scheme filter - Select a scheme to filter your search to '
-			  . 'only those belonging to the selected scheme.'
+			  . 'only those belonging to the selected scheme.',
+			grid => $options->{'grid'}
 		}
 	);
 	return $buffer;
 }
 
 sub get_locus_filter {
-	my ($self) = @_;
+	my ( $self, $options ) = @_;
 	my $set_id = $self->get_set_id;
 	my ( $loci, $labels ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id, no_list_by_common_name => 1 } );
 	my $buffer = $self->get_filter(
@@ -2039,7 +2049,8 @@ sub get_locus_filter {
 		{
 			labels  => $labels,
 			class   => 'filter search',
-			tooltip => 'locus filter - Select a locus to filter your search by.'
+			tooltip => 'locus filter - Select a locus to filter your search by.',
+			grid    => $options->{'grid'}
 		}
 	);
 	return $buffer;
@@ -2117,7 +2128,8 @@ sub get_project_filter {
 	if (@project_ids) {
 		my $class   = $options->{'class'} || 'filter';
 		my $tooltip = 'project filter - Select projects to filter your query to only those isolates belonging to them.';
-		$args = { labels => \%labels, text => 'Project', tooltip => $tooltip, class => $class };
+		$args = { labels => \%labels, text => 'Project', tooltip => $tooltip, class => $class,
+			grid => $options->{'grid'} };
 		if ( $options->{'multiple'} ) {
 			$args->{'multiple'} = 1;
 			$args->{'noblank'}  = 1;
@@ -2792,7 +2804,8 @@ sub can_modify_table {
 		if ( $seq_tables{$table} ) {
 			if ( !$locus ) {
 				return $self->{'datastore'}
-				  ->run_query( 'SELECT EXISTS(SELECT * FROM locus_curators WHERE curator_id=?)', $self->get_curator_id );
+				  ->run_query( 'SELECT EXISTS(SELECT * FROM locus_curators WHERE curator_id=?)',
+					$self->get_curator_id );
 			} else {
 				return $self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $self->get_curator_id );
 			}
