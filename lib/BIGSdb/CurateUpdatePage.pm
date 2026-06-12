@@ -196,13 +196,6 @@ sub get_javascript {
 	return if !defined $q->param('table') || !$allowed_tables{ $q->param('table') };
 	my $buffer = << "END";
 \$(function () {
-  \$('#locus,#field,#sender,#country').multiselect({
-  	classes: 'filter',
- 	menuHeight: 250,
- 	menuWidth: 400,
- 	noneSelectedText: '',
- 	selectedList: 1,
-  }).multiselectfilter();
   \$('#flags').multiselect({
   	classes: 'filter',
  	menuHeight: 250,

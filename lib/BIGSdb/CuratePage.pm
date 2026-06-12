@@ -81,17 +81,13 @@ sub create_record_table {
 	$buffer .= $q->hidden( sent => 1 );
 	$buffer .= q(<div class="box" id="queryform">) if !$options->{'nodiv'};
 	$buffer .= $options->{'icon'}                  if $options->{'icon'};
-	$buffer .= qq(<p>Please fill in the fields below - required fields are marked with an exclamation mark (!).</p>\n);
+	$buffer .= q(<p>Please fill in the fields below - required fields are marked )
+	  . qq(<label class="required">in bold</label>.</p>\n);
 	$buffer .= q(<div class="scrollable">) if !$options->{'nodiv'};
-	$buffer .= q(<fieldset class="form" style="float:left"><legend>Record</legend><ul>);
-	my @field_names  = map { $_->{'name'} } @$attributes;
-	my $longest_name = BIGSdb::Utils::get_largest_string_length( \@field_names );
-	my $width        = int( 0.5 * $longest_name ) + 2;
-	$width = 15 if $width > 15;
-	$width = 6  if $width < 6;
-	my %width_override = ( loci => 14, pcr => 12, sequences => 10, locus_descriptions => 11 );
-	$width = $width_override{$table} // $width;
-	$buffer .= $self->_get_form_fields( $attributes, $table, $newdata, $options, $width );
+	$buffer .= q(<fieldset class="form" style="float:left"><legend>Record</legend>);
+	my @field_names = map { $_->{'name'} } @$attributes;
+	$buffer .= q(<div class="form_container">);
+	$buffer .= $self->_get_form_fields( $attributes, $table, $newdata, $options );
 	my %methods = (
 		sequences    => '_create_extra_fields_for_sequences',
 		sequence_bin => '_create_extra_fields_for_seqbin',
@@ -102,11 +98,11 @@ sub create_record_table {
 
 	if ( $methods{$table} ) {
 		my $method = $methods{$table};
-		$buffer .= $self->$method( $newdata, $width, $options );
+		$buffer .= $self->$method( $newdata, $options );
 	} elsif ( $table eq 'locus_descriptions' ) {
-		$buffer .= $self->_create_extra_fields_for_locus_descriptions( scalar $q->param('locus') // '', $width );
+		$buffer .= $self->_create_extra_fields_for_locus_descriptions( scalar $q->param('locus') // '' );
 	}
-	$buffer .= qq(</ul></fieldset>\n);
+	$buffer .= qq(</div></fieldset>\n);
 	my $page = $q->param('page');
 	my @extra;
 	if ( $options->{'update'} || $options->{'reset_params'} ) {
@@ -122,7 +118,7 @@ sub create_record_table {
 }
 
 sub _get_form_fields {
-	my ( $self, $attributes, $table, $newdata_ref, $options, $width ) = @_;
+	my ( $self, $attributes, $table, $newdata_ref, $options ) = @_;
 	my $q        = $self->{'cgi'};
 	my %disabled = $options->{'disabled'} ? map { $_ => 1 } @{ $options->{'disabled'} } : ();
 	$self->populate_submission_params;
@@ -133,22 +129,23 @@ sub _get_form_fields {
 			next FIELD if ( any { $att->{'name'} eq $_ } @{ $options->{'noshow'} } );
 			my $html5_args = $self->_get_html5_args($att);
 			next FIELD if !$self->_show_field( $required, $att );
-			my $name   = $options->{'prepend_table_name'} ? "$table\_$att->{'name'}" : $att->{'name'};
+			my $name   = $options->{'prepend_table_name'} ? "${table}_$att->{'name'}" : $att->{'name'};
 			my $length = $att->{'length'} || ( $att->{'type'} eq 'int' ? 15 : 50 );
 			my $args   = {
-				table       => $table,
-				newdata     => $newdata_ref,
-				name        => $name,
-				att         => $att,
-				options     => $options,
-				width       => $width,
+				table   => $table,
+				newdata => $newdata_ref,
+				name    => $name,
+				att     => $att,
+				options => $options,
+
+				#				width       => $width,
 				length      => $length,
 				html5_args  => $html5_args,
 				placeholder => $att->{'placeholder'},
 				disabled    => $disabled{ $att->{'name'} }
 			};
 			my $label = $self->_get_label($args);
-			$buffer .= qq(<li>$label);
+			$buffer .= qq(<div class="form_label">$label</div>);
 			my %field_checks = (
 				primary_key    => sub { $self->_get_primary_key_field($args) },
 				no_user_update => sub { $self->_get_no_update_field($args) },
@@ -164,6 +161,7 @@ sub _get_form_fields {
 				coded_field    => sub { $self->_get_coded_field($args) },
 				text_field     => sub { $self->_get_text_field($args) },
 			);
+			$buffer .= q(<div class="form_value">);
 		  FIELD_CHECK: foreach my $check (
 				qw(primary_key no_user_update sender allele_id non_admin_loci
 				foreign_key datestamp date_entered curator boolean optlist coded_field text_field)
@@ -173,10 +171,11 @@ sub _get_form_fields {
 				$buffer .= $check_buffer;
 				if ($check_buffer) {
 					$buffer .= $self->_show_tooltip($args);
+					$buffer .= qq(</div>\n);
 					next FIELD;
 				}
 			}
-			$buffer .= qq(</li>\n);
+
 		}
 	}
 	return $buffer;
@@ -196,10 +195,6 @@ sub _get_label {
 	my ( $self, $args ) = @_;
 	my ( $newdata, $name, $att, $options, $width ) = @$args{qw(newdata name att options width)};
 	( my $cleaned_name = $att->{name} ) =~ tr/_/ /;
-	my ( $label, $title ) = $self->get_truncated_label( $cleaned_name, 24 );
-	my $title_attribute = $title ? qq( title="$title") : q();
-
-	#Associate label with form element (element has to exist)
 	my %auto_field = map { $_ => 1 } qw (curator date_entered datestamp);
 	my $for =
 		!$auto_field{ $att->{'name'} }
@@ -208,9 +203,9 @@ sub _get_label {
 		|| ( $options->{'newdata_readonly'} && $newdata->{ $att->{'name'} } ) )
 	  ? qq( for="$name")
 	  : q();
-	my $buffer = qq(<label$for class="form" style="width:${width}em"$title_attribute>);
-	$buffer .= qq($label:);
-	$buffer .= q(!) if $att->{'required'};
+	my $class  = $att->{'required'} ? q( class="required") : q();
+	my $buffer = qq(<label$for$class>);
+	$buffer .= qq($cleaned_name:);
 	$buffer .= q(</label>);
 	return $buffer;
 }
@@ -650,7 +645,7 @@ sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateS
 	my $buffer;
 	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
 		my $list = $self->{'datastore'}->get_allele_flags( scalar $q->param('locus'), scalar $q->param('allele_id') );
-		$buffer .= qq(<li><label for="flags" class="form" style="width:${width}em">Flags:</label>\n);
+		$buffer .= qq(<div class="form_label"><label for="flags">Flags:</label></div><div class="form_value">\n);
 		$buffer .= $q->scrolling_list(
 			-name     => 'flags',
 			-id       => 'flags',
@@ -659,7 +654,7 @@ sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateS
 			-multiple => 'true',
 			-default  => $list
 		);
-		$buffer .= qq(</li>\n);
+		$buffer .= qq(</div>\n);
 	}
 	my @databanks = DATABANKS;
 	my @default_pubmed;
@@ -680,7 +675,7 @@ sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateS
 			$default_databanks->{$databank} = $list;
 		}
 	}
-	$buffer .= qq(<li><label for="pubmed" class="form" style="width:${width}em">PubMed ids:</label>);
+	$buffer .= q(<div class="form_label"><label for="pubmed">PubMed ids:</label></div><div class="form_value">);
 	local $" = "\n";
 	$buffer .= $q->textarea(
 		-name    => 'pubmed',
@@ -692,9 +687,10 @@ sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateS
 	);
 	$buffer .= $self->get_tooltip( q(List of PubMed ids of publications associated with this sequence. )
 		  . q(Put each identifier on a separate line.) );
-	$buffer .= qq(</li>\n);
+	$buffer .= qq(</div>\n);
 	foreach my $databank (@databanks) {
-		$buffer .= qq(<li><label for="databank_$databank" class="form" style="width:${width}em">$databank ids:</label>);
+		$buffer .= qq(<div class="form_label"><label for="databank_$databank">$databank ids:</label></div>)
+		  . q(<div class="form_value">);
 		my @default;
 		if ( ref $default_databanks->{$databank} eq 'ARRAY' ) {
 			@default = @{ $default_databanks->{$databank} };
@@ -709,7 +705,7 @@ sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateS
 		);
 		$buffer .= $self->get_tooltip( qq(List of $databank accessions associated with this sequence. )
 			  . q(Put each identifier on a separate line.) );
-		$buffer .= qq(</li>\n);
+		$buffer .= qq(</div>\n);
 	}
 	if ( $q->param('locus') ) {
 		my $locus   = $q->param('locus');
@@ -722,9 +718,9 @@ sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateS
 		foreach my $att (@$ext_att) {
 			my ( $field, $desc, $format, $required, $length, $optlist ) = @$att;
 			$buffer .=
-				qq(<li><label for="$field" class="form" style="width:${width}em">$field:)
+				qq(<div class="form_label"><label for="$field">$field:)
 			  . ( $required ? '!' : '' )
-			  . qq(</label>\n);
+			  . qq(</label></div><div class="form_value">\n);
 			$length = 12 if !$length;
 			my %html5_args;
 			$html5_args{'required'} = 'required' if $required;
@@ -750,20 +746,20 @@ sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateS
 				last FIELD_CHECK if $check_buffer;
 			}
 			$buffer .= qq(<span class="comment"> $desc</span>\n) if $desc;
-			$buffer .= qq(</li>\n);
+			$buffer .= qq(</div>\n);
 		}
 		my $locus_info = $self->{'datastore'}->get_locus_info( scalar $q->param('locus') );
 		if ( ( !$q->param('locus') || ( ref $locus_info eq 'HASH' && $locus_info->{'data_type'} ne 'peptide' ) )
 			&& $q->param('page') ne 'update' )
 		{
-			$buffer .= q(<li>);
-			$buffer .= $q->checkbox( -name => 'ignore_similarity', -label => 'Override sequence similarity check' );
-			$buffer .= qq(</li>\n);
+			$buffer .= q(<div class="form_label">Override sequence similarity check:</div><div class="form_value">);
+			$buffer .= $q->checkbox( -name => 'ignore_similarity', -label => '' );
+			$buffer .= qq(</div>\n);
 		}
 	}
-	$buffer .= q(<li>);
-	$buffer .= $q->checkbox( -name => 'ignore_length', -label => 'Override sequence length check' );
-	$buffer .= qq(</li>\n);
+	$buffer .= q(<div class="form_label">Override sequence length check</div><div class="form_value">);
+	$buffer .= $q->checkbox( -name => 'ignore_length', -label => '' );
+	$buffer .= qq(</div>\n);
 	return $buffer;
 }
 
@@ -841,12 +837,12 @@ sub _create_extra_fields_for_locus_descriptions {
 			$locus, { fetch => 'col_arrayref' } );
 		@default_aliases = @$alias_list;
 	}
-	$buffer .= qq(<li><label for="aliases" class="form" style="width:${width}em">aliases:&nbsp;</label>);
+	$buffer .= q(<div class="form_label"><label for="aliases">aliases:</label></div>) . q(<div class="form_value">);
 	local $" = "\n";
 	$buffer .=
 	  $q->textarea( -name => 'aliases', -id => 'aliases', -rows => 2, -cols => 12, -default => "@default_aliases" );
 	$buffer .= $self->get_tooltip(q(List of alternative names for this locus. Put each alias on a separate line.));
-	$buffer .= qq(</li>\n);
+	$buffer .= qq(</div>\n);
 	return $buffer if $self->{'system'}->{'dbtype'} eq 'isolates';
 	my @default_pubmed;
 
@@ -856,12 +852,12 @@ sub _create_extra_fields_for_locus_descriptions {
 			$locus, { fetch => 'col_arrayref' } );
 		@default_pubmed = @$pubmed_list;
 	}
-	$buffer .= qq(<li><label for="pubmed" class="form" style="width:${width}em">PubMed ids:&nbsp;</label>);
+	$buffer .= qq(<div class="form_label"><label for="pubmed">PubMed ids:</label></div>) . q(<div class="form_value">);
 	$buffer .=
 	  $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -default => "@default_pubmed" );
 	$buffer .= $self->get_tooltip( q(List of PubMed ids of publications associated with this locus. )
 		  . q(Put each identifier on a separate line.) );
-	$buffer .= qq(</li>\n);
+	$buffer .= qq(</div>\n);
 	my @default_links;
 	if ( $q->param('page') eq 'update' && $locus ) {
 		my $desc_data =
@@ -871,10 +867,10 @@ sub _create_extra_fields_for_locus_descriptions {
 			push @default_links, "$data->{'url'}|$data->{'description'}";
 		}
 	}
-	$buffer .= qq[<li><label for="links" class="form" style="width:${width}em">links: <br /><span class="comment">]
-	  . q[(Format: URL|description)</span></label>];
+	$buffer .= qq[<div class="form_label"><label for="links">links: <br /><span class="comment">]
+	  . q[(Format: URL|description)</span></label></div><div class="form_value">];
 	$buffer .= $q->textarea( -name => 'links', -id => 'links', -rows => 3, -cols => 40, -default => "@default_links" );
-	$buffer .= q(</li>);
+	$buffer .= q(</div>);
 	return $buffer;
 }
 
@@ -886,8 +882,8 @@ sub _create_extra_fields_for_seqbin {    ## no critic (ProhibitUnusedPrivateSubr
 		if ( $newdata_ref->{'remote_contig'} ) {
 			my $uri = $self->{'datastore'}
 			  ->run_query( 'SELECT uri FROM remote_contigs WHERE seqbin_id=?', $newdata_ref->{'id'} );
-			$buffer .=
-			  qq(<li><label for="remote_contig" class="form" style="width:${width}em">remote contig:</label>\n);
+			$buffer .= qq(<div class="form_label"><label for="remote_contig">remote contig:</label></div>\n)
+			  . q(<div class="form_value">);
 			$buffer .= $q->textfield(
 				-name     => 'remote_contig',
 				-id       => 'remote_contig',
@@ -895,6 +891,7 @@ sub _create_extra_fields_for_seqbin {    ## no critic (ProhibitUnusedPrivateSubr
 				-size     => 75,
 				-disabled => 1
 			);
+			$buffer .= q(</div>);
 		}
 	}
 	my $seq_attributes =
@@ -911,7 +908,8 @@ sub _create_extra_fields_for_seqbin {    ## no critic (ProhibitUnusedPrivateSubr
 	if (@$seq_attributes) {
 		foreach my $attribute (@$seq_attributes) {
 			( my $label = $attribute->{'key'} ) =~ s/_/ /;
-			$buffer .= qq(<li><label for="$attribute->{'key'}" class="form" style="width:${width}em">$label:</label>\n);
+			$buffer .= qq(<div class="form_label"><label for="$attribute->{'key'}">$label:</label></div>\n)
+			  . q(<div class="form_value">);
 			$buffer .= $q->textfield(
 				-name  => $attribute->{'key'},
 				-id    => $attribute->{'key'},
@@ -920,13 +918,14 @@ sub _create_extra_fields_for_seqbin {    ## no critic (ProhibitUnusedPrivateSubr
 			if ( $attribute->{'description'} ) {
 				$buffer .= $self->get_tooltip(qq($attribute->{'key'} - $attribute->{'description'}));
 			}
+			$buffer .= q(</div>);
 		}
 	}
 	return $buffer;
 }
 
 sub _create_extra_fields_for_loci {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $newdata_ref, $width ) = @_;
+	my ( $self, $newdata_ref ) = @_;
 	my $q      = $self->{'cgi'};
 	my $buffer = '';
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
@@ -938,9 +937,9 @@ sub _create_extra_fields_for_loci {    ## no critic (ProhibitUnusedPrivateSubrou
 		}
 		$buffer .=
 		  $self->_get_form_fields( $attributes, 'locus_descriptions', $newdata_ref,
-			{ noshow => [qw(locus curator datestamp)] }, $width );
+			{ noshow => [qw(locus curator datestamp)] } );
 	}
-	$buffer .= $self->_create_extra_fields_for_locus_descriptions( scalar $q->param('id') // '', $width );
+	$buffer .= $self->_create_extra_fields_for_locus_descriptions( scalar $q->param('id') // '' );
 	return $buffer;
 }
 
@@ -964,7 +963,7 @@ sub _create_extra_fields_for_schemes {    ## no critic (ProhibitUnusedPrivateSub
 			push @$current_links, "$link_data->{'url'}|$link_data->{'description'}";
 		}
 	}
-	my $buffer = qq(<li><label for="flags" class="form" style="width:${width}em">flags:</label>\n);
+	my $buffer = qq(<div class="form_label"><label for="flags">flags:</label></div>\n) . q(<div class="form_value">);
 	$buffer .= $q->scrolling_list(
 		-name     => 'flags',
 		-id       => 'flags',
@@ -972,16 +971,16 @@ sub _create_extra_fields_for_schemes {    ## no critic (ProhibitUnusedPrivateSub
 		-multiple => 'multiple',
 		-default  => $current_flags,
 	);
-	$buffer .= q(</li>);
-	$buffer .= qq(<li><label for="pubmed" class="form" style="width:${width}em">PubMed ids:&nbsp;</label>);
+	$buffer .= q(</div>);
+	$buffer .= q(<div class="form_label"><label for="pubmed">PubMed ids:</label></div><div class="form_value">);
 	local $" = qq(\n);
 	$buffer .=
 	  $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -default => "@$current_refs" );
-	$buffer .= qq(</li>\n);
-	$buffer .= qq[<li><label for="links" class="form" style="width:${width}em">links: <br /><span class="comment">]
-	  . q[(Format: URL|description)</span></label>];
+	$buffer .= qq(</div>\n);
+	$buffer .= q[<div class="form_label"><label for="links">links: <br /><span class="comment">]
+	  . q[(Format: URL|description)</span></label></div><div class="form_value">];
 	$buffer .= $q->textarea( -name => 'links', -id => 'links', -rows => 3, -cols => 40, -default => "@$current_links" );
-	$buffer .= qq(</li>\n);
+	$buffer .= qq(</div>\n);
 	return $buffer;
 }
 
@@ -1017,7 +1016,8 @@ sub _get_user_site_db_field {
 		$newdata->{'user_db'} //= 0;
 	}
 	my $default = $newdata->{'user_db'} // $default_db;
-	my $buffer  = qq(<li><label for="user_db" class="form" style="width:${width}em">site/domain:</label>\n);
+	my $buffer =
+	  qq(<div class="form_label"><label for="user_db">site/domain:</label></div>\n) . q(<div class="form_value">);
 	$buffer .= $q->popup_menu(
 		-name    => 'user_db',
 		-id      => 'user_db',
@@ -1026,7 +1026,7 @@ sub _get_user_site_db_field {
 		-default => $default,
 		%disabled
 	);
-	$buffer .= qq(</li>\n);
+	$buffer .= qq(</div>\n);
 	return $buffer;
 }
 
@@ -1046,7 +1046,8 @@ sub _get_user_quota_field {
 	} else {
 		$newdata->{'quota'} = $q->param('quota') // $self->{'system'}->{'default_private_records'} // 0;
 	}
-	my $buffer = qq(<li><label for="quota" class="form" style="width:${width}em">private quota:</label>\n);
+	my $buffer = qq(<div class="form_label"><label for="quota">private quota:</label></div>\n)
+	. q(<div class="form_value">);
 	$buffer .= $self->textfield(
 		-name  => 'quota',
 		-id    => 'quota',
@@ -1057,6 +1058,7 @@ sub _get_user_quota_field {
 	);
 	$buffer .= q( <span class="comment">User must be either a submitter, curator, )
 	  . q(or admin to upload private records</span>);
+	$buffer.=q(</div>);
 	return $buffer;
 }
 

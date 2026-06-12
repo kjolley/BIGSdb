@@ -2168,7 +2168,7 @@ div.form_container div.form_label {
 	text-align: right;
 	max-width: 200px;
 	padding: 0 10px 5px 0;
-	/*	border:1px solid red;*/
+		border:1px solid red;
 }
 
 label.required {
@@ -2176,7 +2176,7 @@ label.required {
 }
 
 div.form_container div.form_value {
-	/*		border:1px solid blue;*/
+			border:1px solid blue;
 	display: flex;
 	align-items: center;
 	flex-wrap: wrap;
