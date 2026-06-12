@@ -1934,7 +1934,7 @@ sub get_filter {
 		my $delete = DELETE;
 		$remove_link = qq(<a id="$options->{'remove_id'}" class="remove_filter" style="cursor:pointer" )
 		  . qq(title="Remove filter">$delete</a>);
-		$label = q($remove_link $label);
+		$label = qq($remove_link $label);
 	}
 	$label = ucfirst($label) if $options->{'ucfirst'};
 	my $buffer;
