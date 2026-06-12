@@ -1183,7 +1183,7 @@ sub _print_filters_fieldset_contents {
 	push @filters, @$profile_filters;
 	my $private_data_filter = $self->_get_private_data_filter;
 	push @filters, $private_data_filter if $private_data_filter;
-	push @filters, $self->get_old_version_filter({grid=>1});
+	push @filters, $self->get_old_version_filter( { grid => 1 } );
 	say q(<div class="form_container">);
 	say qq($_) foreach @filters;
 	say q(</div>);
@@ -1338,7 +1338,8 @@ sub _get_profile_filters {
 	foreach my $scheme (@$schemes) {
 		my $field = "scheme_$scheme->{'id'}_profile_status";
 		if ( $self->{'prefs'}->{'dropdownfields'}->{$field} ) {
-			push @filters, $self->get_filter(
+			push @filters,
+			  $self->get_filter(
 				$field,
 				[ 'complete', 'incomplete', 'partial', 'started', 'not started' ],
 				{
@@ -1349,7 +1350,7 @@ sub _get_profile_filters {
 					remove_id        => "remove_scheme_$scheme->{'id'}_profile_status",
 					grid             => 1
 				}
-			);
+			  );
 		}
 		my $scheme_fields = $self->{'datastore'}->get_scheme_fields( $scheme->{'id'} );
 		foreach my $field (@$scheme_fields) {
@@ -1361,8 +1362,7 @@ sub _get_profile_filters {
 						@$values = sort { $a <=> $b } @$values;
 					}
 					my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/x ? 'an' : 'a';
-					push @filters,
-					  $self->get_filter(
+					push @filters, $self->get_filter(
 						"scheme_$scheme->{'id'}_$field",
 						$values,
 						{
@@ -1371,9 +1371,10 @@ sub _get_profile_filters {
 							  "$field ($scheme->{'name'}) filter - Select $a_or_an $field to filter your search "
 							  . "to only those isolates that match the selected $field.",
 							capitalize_first => 1,
-							remove_id        => "remove_scheme_$scheme->{'id'}_$field"
+							remove_id        => "remove_scheme_$scheme->{'id'}_$field",
+							grid             => 1
 						}
-					  );
+					);
 				}
 			}
 		}
