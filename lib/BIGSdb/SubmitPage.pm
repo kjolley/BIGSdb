@@ -161,10 +161,10 @@ function check_technology() {
 	for (i=0; i<fields.length; i++){
 		if (\$("#technology").val() == 'Illumina'){			
 			\$("#" + fields[i]).prop("required",true);
-			\$("#" + fields[i] + "_label").text((fields[i]+":!").replace("_", " "));	
+			\$("#" + fields[i] + "_label").addClass("required");	
 		} else {
 			\$("#" + fields[i]).prop("required",false);
-			\$("#" + fields[i] + "_label").text((fields[i]+":").replace("_", " "));
+			\$("#" + fields[i] + "_label").removeClass("required");
 		}
 	}	
 }
@@ -1465,10 +1465,12 @@ sub _print_sequence_details_fieldset {
 	my ( $self, $submission_id ) = @_;
 	my $q = $self->{'cgi'};
 	say q(<fieldset style="float:left;min-height:12em"><legend>Sequence details</legend>);
-	say q(<ul><li><label for="technology" class="parameter">technology:!</label>);
+	say q(<div class="form_container"><div class="form_label">)
+	. q(<label for="technology" class="required">technology:</label></div>);
 	my $allele_submission =
 	  $submission_id ? $self->{'submissionHandler'}->get_allele_submission($submission_id) : undef;
 	my $att_labels = { '' => ' ' };    #Required for HTML5 validation
+	say q(<div class="form_value">);
 	say $q->popup_menu(
 		-name     => 'technology',
 		-id       => 'technology',
@@ -1477,7 +1479,9 @@ sub _print_sequence_details_fieldset {
 		-required => 'required',
 		-default  => $allele_submission->{'technology'} // $self->{'prefs'}->{'submit_allele_technology'}
 	);
-	say q(<li><label for="read_length" id="read_length_label" class="parameter">read length:</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="read_length" id="read_length_label">read length:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu(
 		-name    => 'read_length',
 		-id      => 'read_length',
@@ -1485,7 +1489,9 @@ sub _print_sequence_details_fieldset {
 		-labels  => $att_labels,
 		-default => $allele_submission->{'read_length'} // $self->{'prefs'}->{'submit_allele_read_length'}
 	);
-	say q(</li><li><label for="coverage" id="coverage_label" class="parameter">coverage:</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="coverage" id="coverage_label">coverage:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu(
 		-name    => 'coverage',
 		-id      => 'coverage',
@@ -1493,7 +1499,9 @@ sub _print_sequence_details_fieldset {
 		-labels  => $att_labels,
 		-default => $allele_submission->{'coverage'} // $self->{'prefs'}->{'submit_allele_coverage'}
 	);
-	say q(</li><li><label for="assembly" class="parameter">assembly:!</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="assembly" class="required">assembly:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu(
 		-name     => 'assembly',
 		-id       => 'assembly',
@@ -1502,7 +1510,9 @@ sub _print_sequence_details_fieldset {
 		-required => 'required',
 		-default  => $allele_submission->{'assembly'} // $self->{'prefs'}->{'submit_allele_assembly'}
 	);
-	say q(</li><li><label for="software" class="parameter">assembly software:!</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="software" class="required">assembly software:</label></div>);
+	say q(<div class="form_value">);
 	say $q->textfield(
 		-name      => 'software',
 		-id        => 'software',
@@ -1510,11 +1520,13 @@ sub _print_sequence_details_fieldset {
 		-maxlength => 50,
 		-default   => $allele_submission->{'software'} // $self->{'prefs'}->{'submit_allele_software'}
 	);
-	say q(</li><li>);
-	say $q->checkbox( -name => 'ignore_length', -label => 'Sequence length outside usual range' );
+	say q(</div>);
+	say q(<div class="form_label"><label for="ignore_length">Sequence length outside usual range:</label></div>);
+	say q(<div class="form_value">);
+	say $q->checkbox( -name => 'ignore_length', -label => '' );
 	say $self->get_tooltip( q(Length check - If you select this checkbox your sequence must still be )
 		  . q(trimmed to the standard start and end sites or it will be rejected by the curator.) );
-	say q(</li></ul>);
+	say q(</div></div>);
 	say q(</fieldset>);
 	return;
 }
