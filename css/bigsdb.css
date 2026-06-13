@@ -2168,8 +2168,12 @@ div.form_container div.form_label {
 	text-align: right;
 	max-width: 200px;
 	white-space: normal;
-	padding: 0 10px 5px 0;
+	padding: 2px 10px 5px 0;
 /*	border:1px solid red;*/
+}
+
+div.form_container div.form_value input[type=checkbox]{
+	transform: scale(1.2);
 }
 
 label.required {

@@ -757,7 +757,7 @@ sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateS
 			$buffer .= qq(</div>\n);
 		}
 	}
-	$buffer .= q(<div class="form_label">Override sequence length check</div><div class="form_value">);
+	$buffer .= q(<div class="form_label">Override sequence length check:</div><div class="form_value">);
 	$buffer .= $q->checkbox( -name => 'ignore_length', -label => '' );
 	$buffer .= qq(</div>\n);
 	return $buffer;
