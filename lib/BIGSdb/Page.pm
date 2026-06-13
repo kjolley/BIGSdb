@@ -1017,8 +1017,10 @@ sub print_scheme_section {
 	}
 	my $default = $q->param('scheme_id');
 	say $q->start_form;
+	say q(<span class="query_block">);
 	say $q->popup_menu( -name => 'scheme_id', -values => \@ids, -labels => \%desc, -default => $default );
 	say $q->submit( -class => 'small_submit', -name => 'Select' );
+	say q(</span>);
 	say $q->hidden($_) foreach qw(db page name);
 	say $q->end_form;
 	say q(</div></div>);
@@ -1939,8 +1941,8 @@ sub get_filter {
 	$label = ucfirst($label) if $options->{'ucfirst'};
 	my $buffer;
 	if ( $options->{'grid'} ) {
-		$buffer = qq(<div class="form_label"><label for="$id">$remove_link $text:</label></div>)
-		  . q(<div class="form_value">);
+		$buffer =
+		  qq(<div class="form_label"><label for="$id">$remove_link $text:</label></div>) . q(<div class="form_value">);
 	} else {
 		$buffer = qq(<span class="query_block"><label for="$id" class="$class label" $title_attribute>$label</label>\n);
 	}
