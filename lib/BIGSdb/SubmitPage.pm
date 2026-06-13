@@ -153,7 +153,7 @@ function resize_rmlst_cell(){
 }
 
 function status_markall(status){
-	\$("select[name^='status_']").val(status);
+	\$("select[name^='status_']").val(status).trigger("change");
 }
 
 function check_technology() {
