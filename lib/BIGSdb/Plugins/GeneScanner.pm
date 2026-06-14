@@ -580,8 +580,8 @@ sub _print_info_panel {
 	  . q(performed.</p>);
 	say q(<p>GeneScanner was developed by Carolin Kobras, Seungwon Ko, Priyanshu Singh Raikwar, )
 	  . q(Broncio Aguilar-Sanjuan, Keith Jolley, and Samuel Sheppard at the University of Oxford, UK. )
-	  . q(It is described in <a href="https://www.biorxiv.org/content/10.1101/2025.11.02.685864v1" target="_blank">)
-	  . q(Kobras <i>et al.</i> 2025 bioRxiv 2025.11.02.685864</a>.</p> )
+	  . q(It is described in <a href="https://pubmed.ncbi.nlm.nih.gov/42228609/" target="_blank">)
+	  . q(Kobras <i>et al.</i> 2026 Microb Gen. 12(6):001714</a>.</p> )
 	  . q(<p>The mutation analysis code can be found at )
 	  . q(<a href="https://github.com/jeju2486/GeneScanner" target="_blank">)
 	  . q(https://github.com/jeju2486/GeneScanner</a>.</p>);
