@@ -190,7 +190,7 @@ sub get_attributes {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1, billboard => 1 };
+	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1, select2=>1,billboard => 1 };
 }
 
 sub run {
@@ -390,28 +390,36 @@ sub _print_parameters_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<fieldset style="float:left;height:12em"><legend>Parameters / options</legend>);
-	say q(<ul><li><label for ="identity" class="parameter">Min % identity:</label>);
+	say q(<div class="form_container">);
+	say q(<div class="form_label"><label for ="identity">Min % identity:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu( -name => 'identity', -id => 'identity', -values => [ 30 .. 100 ], -default => 70 );
 	say $self->get_tooltip(q(Minimum % identity - Match required for partial matching.));
-	say q(</li><li><label for="alignment" class="parameter">Min % alignment:</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="alignment">Min % alignment:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu( -name => 'alignment', -id => 'alignment', -values => [ 10 .. 100 ], -default => 50 );
 	say $self->get_tooltip( q(Minimum % alignment - Percentage of allele sequence length required to be )
 		  . q(aligned for partial matching.) );
-	say q(</li><li><label for="word_size" class="parameter">BLASTN word size:</label>);
+		  say q(</div>);
+	say q(<div class="form_label"><label for="word_size">BLASTN word size:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu( -name => 'word_size', -id => 'word_size', -values => [ 7 .. 30 ], -default => 20 );
 	say $self->get_tooltip( q(BLASTN word size - This is the length of an exact match required to )
 		  . q(initiate an extension. Larger values increase speed at the expense of sensitivity.) );
-	say q(</li><li>);
+	say q(</div>);
+	say q(<div class="form_label"><label>Rescan undesignated loci:</label></div>);
+	say q(<div class="form_value">);
 	say $q->checkbox(
 		-name  => 'rescan_missing',
 		-id    => 'rescan_missing',
-		-label => 'Rescan undesignated loci',
+		-label => '',
 	);
 	say $self->get_tooltip(
 			q(Rescan undesignated - By default, if a genome has >= 50% of the selected loci designated, it will not )
 		  . q(be rescanned. Selecting this option will perform a BLAST query for each genome to attempt to fill in )
 		  . q(any missing annotations. Please note that this will take <b>much longer</b> to run.) );
-	say q(</li></ul></fieldset>);
+	say q(</div></div></fieldset>);
 	return;
 }
 
@@ -567,21 +575,25 @@ sub _print_distance_matrix_fieldset {
 sub _print_core_genome_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say q(<fieldset style="float:left;height:12em"><legend>Core genome analysis</legend><ul>);
-	say q(<li><label for="core_threshold">Core threshold (%):</label>);
+	say q(<fieldset style="float:left;height:12em"><legend>Core genome analysis</legend>);
+	say q(<div class="form_container">);
+	say q(<div class="form_label"><label for="core_threshold">Core threshold (%):</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu( -name => 'core_threshold', -id => 'core_threshold', -values => [ 80 .. 100 ], -default => 90 );
 	say $self->get_tooltip( q(Core threshold - Percentage of isolates that locus must be present )
 		  . q(in to be considered part of the core genome.) );
-	say q(</li><li>);
+	say q(</div>);
+	say q(<div class="form_label"><label>Calculate mean distances:</label></div>);
+	say q(<div class="form_value">);
 	say $q->checkbox(
 		-name     => 'calc_distances',
 		-id       => 'calc_distances',
-		-label    => 'Calculate mean distances',
+		-label    => '',
 		-onChange => 'enable_seqs()'
 	);
 	say $self->get_tooltip(
 		q(Mean distance - This requires performing alignments of sequences so will take longer to perform.));
-	say q(</li></ul></fieldset>);
+	say q(</div></div></fieldset>);
 	return;
 }
 

@@ -22,9 +22,9 @@ package BIGSdb::Plugins::SequenceSimilarity;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugin);
+use parent            qw(BIGSdb::Plugin);
 use BIGSdb::Constants qw(:interface);
-use Log::Log4perl qw(get_logger);
+use Log::Log4perl     qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 
 sub get_attributes {
@@ -59,7 +59,7 @@ sub get_attributes {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.tablesort' => 1, 'jQuery.multiselect' => 1 };
+	return { 'jQuery.tablesort' => 1, select2 => 1 };
 }
 
 sub run {
@@ -88,18 +88,24 @@ sub run {
 	say $q->start_form;
 	say $q->hidden($_) foreach qw (db page name);
 	say q(<fieldset style="float:left"><legend>Select parameters</legend>);
-	say q(<ul><li><label for="locus" class="parameter">Locus: </label>);
+	say q(<div class="form_container">);
+	say q(<div class="form_label"><label for="locus">Locus:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $display_loci, -labels => $cleaned );
-	say q(</li><li><label for="allele" class="parameter">Allele: </label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="allele">Allele:</label></div>);
+	say q(<div class="form_value">);
 	say $q->textfield( -name => 'allele', -id => 'allele', -size => 4 );
-	say q(</li><li><label for="num_results" class="parameter">Number of results:</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="num_results">Number of results:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu(
 		-name    => 'num_results',
 		-id      => 'num_results',
 		-values  => [ 5, 10, 25, 50, 100, 200 ],
 		-default => $num_results
 	);
-	say q(</li></ul></fieldset>);
+	say q(</div></div></fieldset>);
 	$self->print_action_fieldset( { name => 'SequenceSimilarity' } );
 	say $q->end_form;
 	say q(</div>);
@@ -193,17 +199,4 @@ sub _get_blast_obj {
 	return $blast_obj;
 }
 
-sub get_plugin_javascript {
-	my $buffer = << "END";
-\$(function () {
-  	\$('#locus').multiselect({
- 		classes: 'filter',
- 		menuHeight: 350,
- 		menuWidth: 400,
- 		selectedList: 1,
-  	}).multiselectfilter();
-});
-END
-	return $buffer;
-}
 1;

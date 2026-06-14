@@ -93,14 +93,20 @@ HTML
 	say $q->textarea( -name => 'data', -rows => 15, -columns => 40 );
 	say q(</fieldset>);
 	say q(<fieldset style="float:left"><legend>Options</legend>);
-	say q(<ul><li><label for="idfield1" class="filter">Primary selection field: </label>);
+	say q(<div class="form_container">);
+	say q(<div class="form_label"><label for="idfield1">Primary selection field:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu( -name => 'idfield1', -id => 'idfield1', -values => $fields );
-	say q(</li><li><label for="idfield2" class="filter">Optional selection field: </label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="idfield2">Optional selection field:</label></div>);
 	unshift @$fields, '<none>';
+	say q(<div class="form_value">);
 	say $q->popup_menu( -name => 'idfield2', -id => 'idfield2', -values => $fields );
-	say q(</li><li>);
-	say $q->checkbox( -name => 'overwrite', -label => 'Update existing values', -checked => 0 );
-	say q(</li></ul></fieldset>);
+	say q(</div>);
+	say q(<div class="form_label"><label>Update existing values</label></div>);
+	say q(<div class="form_value">);
+	say $q->checkbox( -name => 'overwrite', -label => '', -checked => 0 );
+	say q(</div></div></fieldset>);
 	say q(<fieldset style="float:left"><legend>Allele designations</legend>);
 	say $q->radio_group(
 		-name      => 'designations',

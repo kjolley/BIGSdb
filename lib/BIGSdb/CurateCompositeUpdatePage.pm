@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2020, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -147,7 +147,7 @@ sub _update_position {
 	my $q              = $self->{'cgi'};
 	my $position_after = $q->param('position_after');
 	if ( !$self->{'xmlHandler'}->is_field($position_after) ) {
-		say q(<p><span class="statusbad">'Position after' field '$position_after' is invalid.</span></p>);
+		say qq(<p><span class="statusbad">Position after field '$position_after' is invalid.</span></p>);
 		$q->param( 'position_after', '' );
 	} else {
 		my $main_display = $q->param('main_display');
@@ -170,15 +170,17 @@ sub _update_position {
 sub _print_position_form {
 	my ( $self, $id ) = @_;
 	my $q = $self->{'cgi'};
-	say $q->start_form;
+	
 	my $field_info =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT position_after,main_display,curator,datestamp FROM composite_fields WHERE id=?',
 		$id, { fetch => 'row_arrayref' } );
 	say q(<fieldset><legend>Position/display</legend>);
-	say q(<ul><li>);
-	say q(<label for="position_after">position after: <label>);
+	say $q->start_form;
+	say q(<div class="form_container">);
+	say q(<div class="form_label"><label for="position_after">position after:</label></div>);
 	my $field_list = $self->{'xmlHandler'}->get_field_list;
+	say q(<div class="form_value">);
 	print $q->popup_menu(
 		-name    => 'position_after',
 		-id      => 'position_after',
@@ -186,18 +188,17 @@ sub _print_position_form {
 		-default => $field_info->[0]
 	);
 
-	if ( !$self->{'xmlHandler'}->is_field( $field_info->[0] ) ) {
-		say qq(</td><td class="statusbad">Current value '$field_info->[0]' is INVALID!</td></tr>);
-	}
-	say q(</li><li>);
-	say q(<label for="main_display">main display: </label>);
+
+	say q(</div>);
+	say q(<div class="form_label"><label for="main_display">main display:</label></div>);
+	say q(<div class="form_value">);
 	say $q->radio_group(
 		-name    => 'main_display',
 		-id      => 'main_display',
 		-values  => [qw (true false)],
 		-default => $field_info->[1] ? 'true' : 'false'
 	);
-	say q(</li></ul>);
+	say q(</div></div>);
 	say $q->submit( -name => 'update', -label => 'Update', -class => 'submit', -style => 'margin-top:0.5em' );
 	say $q->hidden($_) foreach qw (db page id);
 	say $q->end_form;
@@ -215,24 +216,27 @@ sub _print_add_field_form {
 	$q->param( new_locus_value         => q() );
 	$q->param( new_scheme_field_value  => q() );
 	my $ADD = ADD;
-	$buffer .= q(<ul><li>);
-	$buffer .= q(<label for="new_text_value" class="parameter">text field: </label>);
+	$buffer .= q(<div class="form_container">);
+	$buffer .= q(<div class="form_label"><label for="new_text_value">text field:</label></div>);
+	$buffer .= q(<div class="form_value">);
 	$buffer .= $q->textfield( -name => 'new_text_value', -id => 'new_text_value' );
 	$buffer .= qq(<button type="submit" name="new_text" value="add" class="smallbutton">$ADD</button>);
-	$buffer .= q(</li><li>);
+	$buffer .= q(</div>);
 	my $field_list = $self->{'xmlHandler'}->get_field_list;
-	$buffer .= q(<label for="new_isolate_field_value" class="parameter">isolate field: </label>);
+	$buffer .= q(<div class="form_label"><label for="new_isolate_field_value">isolate field:</label></div>);
 	unshift @$field_list, '';
+	$buffer .= q(<div class="form_value">);
 	$buffer .=
 	  $q->popup_menu( -name => 'new_isolate_field_value', -id => 'new_isolate_field_value', -values => $field_list );
 	$buffer .= qq(<button type="submit" name="new_isolate_field" value="add" class="smallbutton">$ADD</button>);
-	$buffer .= q(</li><li>);
+	$buffer .= q(</div>);
 	my $locus_list = $self->{'datastore'}->get_loci;
 	unshift @$locus_list, '';
-	$buffer .= q(<label for="new_locus_value" class="parameter">locus field: </label>);
+	$buffer .= q(<div class="form_label"><label for="new_locus_value">locus field:</label></div>);
+	$buffer .= q(<div class="form_value">);
 	$buffer .= $q->popup_menu( -name => 'new_locus_value', -id => 'new_locus_value', -values => $locus_list );
 	$buffer .= qq(<button type="submit" name="new_locus" value="add" class="smallbutton">$ADD</button>);
-	$buffer .= q(</li><li>);
+	$buffer .= q(</div>);
 	my @scheme_field_list = '';
 	my %cleaned;
 	my $scheme_list =
@@ -249,7 +253,8 @@ sub _print_add_field_form {
 			$cleaned{"$scheme_id\_$field"} = "$cleaned_field ($scheme_info->{'name'})";
 		}
 	}
-	$buffer .= q(<label for="new_scheme_field_value" class="parameter">scheme field: </label>);
+	$buffer .= q(<div class="form_label"><label for="new_scheme_field_value">scheme field: </label></div>);
+	$buffer .= q(<div class="form_value">);
 	$buffer .= $q->popup_menu(
 		-name   => 'new_scheme_field_value',
 		-id     => 'new_scheme_field_value',
@@ -257,7 +262,7 @@ sub _print_add_field_form {
 		-labels => \%cleaned
 	);
 	$buffer .= qq(<button type="submit" name="new_scheme_field" value="add" class="smallbutton">$ADD</button>);
-	$buffer .= qq(</li></ul>\n);
+	$buffer .= qq(</div></div>\n);
 	$buffer .= $q->hidden($_) foreach qw (db page id);
 	$buffer .= $q->end_form;
 	$buffer .= qq(</fieldset>\n);
@@ -362,9 +367,9 @@ sub _edit_field {
 	$buffer .= qq(<fieldset><legend>Edit field</legend>\n);
 	$buffer .= $q->start_form;
 	my $text_field;
-	$buffer .= q(<ul><li>);
-	$buffer .= q(<label for="field_value" class="parameter">Field: </label>);
-
+	$buffer .= q(<div class="form_container">);
+	$buffer .= q(<div class="form_label"><label for="field_value">Field:</label></div>);
+	$buffer.=q(<div class="form_value">);
 	if ( $field =~ /^f_(.+)/x ) {
 		my $field_value      = $1;
 		my $is_isolate_field = 0;
@@ -449,9 +454,10 @@ sub _edit_field {
 			$invalid = 1;
 		}
 	}
+	$buffer.=q(</div>);
 	if ( !$invalid ) {
-		$buffer .= q(</li><li>);
-		$buffer .= q(<label for="empty_value" class="parameter">Empty value: </label>);
+		$buffer .= q(<div class="form_label"><label for="empty_value">Empty value:</label></div>);
+		$buffer.=q(<div class="form_value">);
 		if ($text_field) {
 			$buffer .= $q->textfield(
 				-name     => 'empty_value',
@@ -463,8 +469,9 @@ sub _edit_field {
 			$buffer .=
 			  $q->textfield( -name => 'empty_value', -id => 'empty_value', -default => $data->{'empty_value'}, );
 		}
-		$buffer .= q(</li><li>);
-		$buffer .= q(<label for="regex" class="parameter">Regex: </label>);
+		$buffer .= q(</div>);
+		$buffer .= q(<div class="form_label"><label for="regex">Regex:</label></div>);
+		$buffer.=q(<div class="form_value">);
 		if ($text_field) {
 			$buffer .= $q->textfield( -name => 'regex', -id => 'regex', -size => 50, -disabled => 'disabled' );
 		} else {
@@ -476,10 +483,12 @@ sub _edit_field {
 				-class   => 'code'
 			);
 		}
-		$buffer .= q(</li>);
+		$buffer .= q(</div>);
 	}
-	$buffer .= q(</ul>);
+	$buffer .= q(</div>);
+	$buffer .= q(<div style="margin-top:1em">);
 	$buffer .= $q->submit( -name => 'update_field', -label => 'Update', -class => 'submit' );
+	$buffer .= q(</div>);
 	$buffer .= $q->hidden($_) foreach qw (db page id);
 	$buffer .= $q->hidden( field_order => $field_order );
 	$buffer .= $q->end_form;

@@ -1186,23 +1186,24 @@ sub _print_filters_fieldset_contents {
 	push @filters, $self->get_old_version_filter( { grid => 1 } );
 	say q(<div class="form_container">);
 	say qq($_) foreach @filters;
-	say q(</div>);
+
 	my ( $list, $labels ) = $self->_get_inactive_filters;
 
 	if (@$list) {
 		unshift @$list, q();
-		say q(<span class="query_block">);
-		say q(<span class="label">Add filter:</span>);
+		say q(<div class="form_label"><label>Add filter:</label></div>);
+		say q(<div class="form_value"><span class="query_block">);
 		say $self->popup_menu(
 			-name   => 'new_filter',
 			-id     => 'new_filter',
 			-values => $list,
 			-labels => $labels,
-			-style  => 'max-width:25em'
+			-style  => 'max-width:240px'
 		);
 		say q( <a id="add_filter" class="small_submit">Add</a>);
-		say q(</span>);
+		say q(</span></div>);
 	}
+	say q(</div>);
 	return;
 }
 
@@ -1362,7 +1363,8 @@ sub _get_profile_filters {
 						@$values = sort { $a <=> $b } @$values;
 					}
 					my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/x ? 'an' : 'a';
-					push @filters, $self->get_filter(
+					push @filters,
+					  $self->get_filter(
 						"scheme_$scheme->{'id'}_$field",
 						$values,
 						{
@@ -1374,7 +1376,7 @@ sub _get_profile_filters {
 							remove_id        => "remove_scheme_$scheme->{'id'}_$field",
 							grid             => 1
 						}
-					);
+					  );
 				}
 			}
 		}

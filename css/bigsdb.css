@@ -174,7 +174,7 @@ th a:hover {
 }
 
 select.filter {
-	width: 14em;
+	width: 240px;
 	border: 1px solid #999;
 }
 
@@ -185,7 +185,7 @@ select.filter {
 	white-space: normal !important;
 	overflow: visible !important;
 	text-overflow: clip !important;
-	word-break: break-all;
+	word-break: break-word;
 	line-height: 1.2em !important;
 	height: auto;
 	padding-top: 2px;
@@ -2169,11 +2169,20 @@ div.form_container div.form_label {
 	max-width: 200px;
 	white-space: normal;
 	padding: 2px 10px 5px 0;
-/*	border:1px solid red;*/
+	/*	border:1px solid red;*/
 }
 
-div.form_container div.form_value input[type=checkbox]{
+div.form_container.full_width div.form_label {
+	max-width:initial;
+}
+
+div.form_container div.form_value input[type=checkbox] {
 	transform: scale(1.2);
+}
+
+fieldset li input[type=checkbox] {
+	transform: scale(1.2);
+	margin-right: 10px;
 }
 
 label.required {
@@ -2181,7 +2190,7 @@ label.required {
 }
 
 div.form_container div.form_value {
-/*	border:1px solid blue;*/
+	/*	border:1px solid blue;*/
 	display: flex;
 	align-items: center;
 	flex-wrap: wrap;
@@ -2190,7 +2199,8 @@ div.form_container div.form_value {
 }
 
 div.form_container div.form_value input:not([type=checkbox]):not([type=radio]) {
-	height: 28px
+	box-sizing: border-box;
+	height: 28px;
 }
 
 div.queryform,
@@ -2735,6 +2745,10 @@ fieldset {
 	border-top: 2px solid #e0e0e0
 }
 
+fieldset#filters_fieldset div.form_value {
+	max-width:300px
+}
+
 fieldset ul {
 	margin: 0;
 	padding: 0 0 0 0.5em;
@@ -2743,65 +2757,6 @@ fieldset ul {
 
 fieldset li {
 	padding-bottom: 0.2em
-}
-
-fieldset label.aligned {
-	float: left;
-	margin-right: 0.5em;
-	text-align: right;
-}
-
-fieldset label.width12 {
-	width: 12em;
-}
-
-fieldset label.width11 {
-	width: 11em;
-}
-
-fieldset label.width10 {
-	width: 10em;
-}
-
-fieldset label.width9 {
-	width: 9em;
-}
-
-fieldset label.width8 {
-	width: 8em;
-}
-
-fieldset label.width7 {
-	width: 7em;
-}
-
-fieldset label.width6 {
-	width: 6em;
-}
-
-fieldset label.width5 {
-	width: 5em;
-}
-
-fieldset label.filter {
-	float: left;
-	width: 12em;
-	margin-right: 0.5em;
-	text-align: right;
-}
-
-fieldset label.form {
-	float: left;
-	width: 12em;
-	margin-right: 0.5em;
-	text-align: right;
-}
-
-fieldset label.parameter {
-	float: left;
-	width: 10em;
-	margin-right: 0.5em;
-	text-align: right;
 }
 
 fieldset.display {
@@ -3535,7 +3490,7 @@ a.slide_trigger {
 }
 
 .ui-multiselect {
-	max-width: 20em
+	max-width: 240px
 }
 
 .ui-multiselect-all {
@@ -3652,7 +3607,7 @@ span.query_block .select2-container .select2-selection__clear {
 span.query_block {
 	display: flex;
 	align-items: stretch;
-	min-height: 2rem
+	min-height: 1.8rem
 }
 
 span.query_block .label {
@@ -3665,18 +3620,18 @@ span.query_block .select2-selection {
 }
 
 /* The visible Select2 control */
-span.query_block .select2-selection--single {
+span.query_block .select2-selection--single, div.form_value .select2-selection--single{
 	border-color: #ccc;
 	border-radius: 0 !important;
 	display: flex !important;
-	align-items: stretch;
+	align-items: center;
 	height: auto !important;
-	min-height: calc (2rem + 1px);
-	padding-top: 5px;
+	min-height: 28px;
+	padding: 1px 0;
 }
 
 /* In the closed (selected) state */
-span.query_block .select2-selection__rendered {
+span.query_block .select2-selection__rendered, div.form_value .select2-selection__rendered {
 	display: block !important;
 	white-space: normal !important;
 	overflow: visible !important;
@@ -3684,10 +3639,10 @@ span.query_block .select2-selection__rendered {
 	word-break: break-word;
 	line-height: 1.2em !important;
 	height: auto;
-	padding-top: 2px;
 	color: #000 !important;
 	min-width: 0;
 	flex: 1 1 auto;
+	padding: 2px 0;
 }
 
 .select2-selection__rendered {

@@ -109,18 +109,24 @@ sub _print_parameters_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<fieldset style="float:left"><legend>Parameters / options</legend>);
-	say q(<ul><li><label for ="identity" class="parameter">Min % identity:</label>);
+	say q(<div class="form_container">);
+	say q(<div class="form_label"><label for="identity">Min % identity:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu( -name => 'identity', -id => 'identity', -values => [ 30 .. 100 ], -default => 70 );
 	say $self->get_tooltip(q(Minimum % identity - Match required for partial matching.));
-	say q(</li><li><label for="alignment" class="parameter">Min % alignment:</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="alignment">Min % alignment:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu( -name => 'alignment', -id => 'alignment', -values => [ 10 .. 100 ], -default => 50 );
 	say $self->get_tooltip( q(Minimum % alignment - Percentage of allele sequence length required to be )
 		  . q(aligned for partial matching.) );
-	say q(</li><li><label for="word_size" class="parameter">BLASTN word size:</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="word_size">BLASTN word size:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu( -name => 'word_size', -id => 'word_size', -values => [ 7 .. 30 ], -default => 20 );
 	say $self->get_tooltip( q(BLASTN word size - This is the length of an exact match required to )
 		  . q(initiate an extension. Larger values increase speed at the expense of sensitivity.) );
-	say q(</li></ul></fieldset>);
+	say q(</div></div></fieldset>);
 	return;
 }
 
@@ -133,7 +139,7 @@ sub get_initiation_values {
 	if ( $q->param('heatmap') ) {
 		return { heatmap => 1, papaparse => 1, noCache => 1 };
 	}
-	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1 };
+	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1, select2 => 1 };
 }
 
 sub _pivot_table {

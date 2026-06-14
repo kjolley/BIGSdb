@@ -512,17 +512,19 @@ sub _print_interface {
 	}
 	say $q->start_form;
 	say q(<fieldset style="border-top:0">);
-	say q(<ul>);
+	say q(<div class="form_container">);
 
 	if ( $q->param('page') eq 'changePassword' || $self->{'system'}->{'password_update_required'} ) {
-		say q(<li><label for="existing" class="aligned width8">Existing password:</label>);
+		say q(<div class="form_label"><label for="existing">Existing password:</label></div>);
+		say q(<div class="form_value">);
 		say $q->password_field( -name => 'existing', -id => 'existing' );
-		say q(</li>);
+		say q(</div>);
 	} elsif ( $q->param('user') && $self->{'datastore'}->user_name_exists( scalar $q->param('user') ) ) {
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( scalar $q->param('user') );
-		say q(<li><label class="aligned width8">Name:</label>);
+		say q(<div class="form_label"><label>Name:</label></div>);
+		say q(<div class="form_value">);
 		say qq(<span><strong>$user_info->{'surname'}, $user_info->{'first_name'} )
-		  . qq(($user_info->{'user_name'})</strong></span></li>);
+		  . qq(($user_info->{'user_name'})</strong></span></div>);
 		if ( $self->{'datastore'}->user_dbs_defined ) {
 			my $domain;
 			if ( BIGSdb::Utils::is_int( $user_info->{'user_db'} ) ) {
@@ -531,25 +533,28 @@ sub _print_interface {
 			} else {
 				$domain = 'this database only';
 			}
-			say q(<li><label class="aligned width8">Domain:</label>);
-			say qq(<span><strong>$domain</strong></span></li>);
+			say q(<div class="form_label"><label>Domain:</label></div>);
+			say qq(<div class="form_value"><strong>$domain</strong></div>);
 			say $q->hidden('user_db');
 		}
 		say $q->hidden( existing => '' );
 	} else {
 		my ( $user_names, $labels ) = $self->{'datastore'}->get_users( { identifier => 'user_name', format => 'sfu' } );
 		unshift @$user_names, '';
-		say q(<li><label for="user" class="aligned width8">User:</label>);
+		say q(<div class="form_label"><label for="user">User:</label></div>);
+		say q(<div class="form_value">);
 		say $q->popup_menu( -name => 'user', -id => 'user', -values => $user_names, -labels => $labels );
 		say $q->hidden( existing => '' );
-		say q(</li>);
+		say q(</div>);
 	}
-	say q(<li><label for="new1" class="aligned width8">New password:</label>);
+	say q(<div class="form_label"><label for="new1">New password:</label></div>);
+	say q(<div class="form_value">);
 	say $q->password_field( -name => 'new1', -id => 'new1' );
-	say q(</li>);
-	say q(<li><label for="new2" class="aligned width8">Retype password:</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="new2">Retype password:</label></div>);
+	say q(<div class="form_value">);
 	say $q->password_field( -name => 'new2', -id => 'new2' );
-	say q(</li></ul></fieldset>);
+	say q(</div></div></fieldset>);
 	say $q->submit( -name => 'submit', -label => 'Set password', -class => 'submit', -style => 'margin-top:1em' );
 	$q->param( user => $self->{'username'} )
 	  if $q->param('page') eq 'changePassword' || $self->{'system'}->{'password_update_required'};

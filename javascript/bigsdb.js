@@ -136,12 +136,52 @@ function apply_select2() {
 	if (window.jQuery && $.fn.select2) {
 		$('select:not(.locuslist):not(.widelist):not([multiple])')
 			.not('.select2-hidden-accessible')
-			.select2({
-				minimumResultsForSearch: 0,
-				dropdownAutoWidth: true,
-				width:"resolve"
+			.each(function () {
+				const $select = $(this);
+				if (!$select.is(':visible')) {
+					$select.css('width', calcSelectWidth($select) + 'px');
+				}
+				$select.select2({
+					minimumResultsForSearch: 0,
+					dropdownAutoWidth: true,
+				});
 			});
 	}
+}
+
+function measureTextWidth(text, font) {
+	const canvas = measureTextWidth.canvas || (measureTextWidth.canvas = document.createElement('canvas'));
+	const ctx = canvas.getContext('2d');
+	ctx.font = font;
+	return ctx.measureText(text).width;
+}
+
+function calcSelectWidth($select) {
+	const el = $select[0];
+	const style = window.getComputedStyle(el);
+
+	const font = style.font || [
+		style.fontStyle,
+		style.fontVariant,
+		style.fontWeight,
+		style.fontSize + '/' + style.lineHeight,
+		style.fontFamily
+	].join(' ');
+
+	let max = 0;
+
+	$select.find('option').each(function () {
+		const text = (this.textContent || this.innerText || '').trim();
+		max = Math.max(max, measureTextWidth(text, font));
+	});
+
+	const padding =
+		(parseFloat(style.paddingLeft) || 0) +
+		(parseFloat(style.paddingRight) || 0);
+
+	const arrowAllowance = 32; // room for Select2 arrow + small buffer
+
+	return Math.ceil(max + padding + arrowAllowance);
 }
 
 function set_page_width() {

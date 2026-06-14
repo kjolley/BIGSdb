@@ -657,7 +657,7 @@ sub print_includes_fieldset {
 	my $set_id = $self->get_set_id;
 	my $q      = $self->{'cgi'};
 	my $title  = $options->{'title'} // 'Include fields';
-	say qq(<div class="scrollable"><fieldset><legend>$title</legend>);
+	say qq(<fieldset><legend>$title</legend>);
 	say qq(<p>$options->{'description'}</p>) if $options->{'description'};
 	my ( $fields, $labels ) = $self->get_field_selection_list(
 		{
@@ -739,7 +739,7 @@ sub print_includes_fieldset {
 		-default  => $options->{'preselect'},
 		-style    => 'min-width:10em;width:20em;resize:both'
 	);
-	say q(</fieldset></div>);
+	say q(</fieldset>);
 	return;
 }
 

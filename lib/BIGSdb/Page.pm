@@ -2131,6 +2131,7 @@ sub get_project_filter {
 	foreach my $project (@$projects) {
 		push @project_ids, $project->{'id'};
 		my $label = BIGSdb::Utils::unescape_html( $project->{'short_description'} );
+		$label =~ s/_/ /gx;
 		$labels{ $project->{'id'} } = $label;
 	}
 	if ( @project_ids && $options->{'any'} ) {
@@ -2166,9 +2167,10 @@ sub get_sequence_method_filter {
 		'seq_method',
 		[SEQ_METHODS],
 		{
-			'text'    => 'Sequence method',
-			'tooltip' => 'sequence method filter - Only include sequences generated from the selected method.',
-			'class'   => $class
+			text    => 'Sequence method',
+			tooltip => 'sequence method filter - Only include sequences generated from the selected method.',
+			class   => $class,
+			grid    => $options->{'grid'}
 		}
 	);
 }

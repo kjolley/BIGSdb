@@ -21,14 +21,14 @@ use strict;
 use warnings;
 use 5.010;
 use JSON;
-use parent qw(BIGSdb::CuratePage);
+use parent        qw(BIGSdb::CuratePage);
 use Log::Log4perl qw(get_logger);
 use Try::Tiny;
 use File::Path qw(make_path remove_tree);
 use File::Type;
 use IO::Uncompress::Gunzip qw(gunzip $GunzipError);
-use IO::Uncompress::Unzip qw(unzip $UnzipError);
-use BIGSdb::Constants qw(:interface :limits SEQ_METHODS);
+use IO::Uncompress::Unzip  qw(unzip $UnzipError);
+use BIGSdb::Constants      qw(:interface :limits SEQ_METHODS);
 my $logger = get_logger('BIGSdb.Page');
 use constant LIMIT => 500;
 
@@ -124,7 +124,8 @@ sub _check {
 			  { id => $id, problem => "$id_field is an integer field - you provided a non-integer value" };
 			next;
 		}
-		my $check_qry = ( $field_atts->{'multiple'} // q() ) eq 'yes'
+		my $check_qry =
+		  ( $field_atts->{'multiple'} // q() ) eq 'yes'
 		  ? "SELECT id FROM $self->{'system'}->{'view'} WHERE ? = ANY($id_field)"
 		  : "SELECT id FROM $self->{'system'}->{'view'} WHERE $id_field=?";
 		my $ids = $self->{'datastore'}
@@ -300,9 +301,12 @@ sub _print_validated_upload_form {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say $q->start_form;
-	say q(<fieldset style="float:left"><legend>Attributes</legend><ul>);
+	say q(<fieldset style="float:left"><legend>Attributes</legend>);
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
-	say q(<li><span class="query_block"><label for="sender" class="parameter label">sender: !</label>);
+	say q(<div class="form_container">);
+	say q(<div class="form_label"><label for="sender" class="required">sender:</label></div>);
+	say q(<div class="form_value">);
+
 	if ( $user_info->{'status'} eq 'submitter' ) {
 		say qq(<span id="sender" style="font-weight:600">$user_info->{'first_name'} $user_info->{'surname'}</span>);
 		say $q->hidden( sender => $user_info->{'id'} );
@@ -319,16 +323,18 @@ sub _print_validated_upload_form {
 			-default  => $sender
 		);
 	}
-	say q(</span></li>);
+	say q(</div>);
 	if ( !$q->param('submission_id') ) {
-		say q(<li><span class="query_block"><label for="method" class="parameter label">method: </label>);
+		say q(<div class="form_label"><label for="method">method:</label></div>);
 		my $method_labels = { '' => ' ' };
+		say q(<div class="form_value">);
 		say $q->popup_menu(
 			-name   => 'method',
 			-id     => 'method',
 			-values => [ '', SEQ_METHODS ],
 			-labels => $method_labels
 		);
+		say q(</div>);
 	}
 	my $seq_attributes =
 	  $self->{'datastore'}->run_query( 'SELECT key,type,description FROM sequence_attributes ORDER BY key',
@@ -336,14 +342,16 @@ sub _print_validated_upload_form {
 	if (@$seq_attributes) {
 		foreach my $attribute (@$seq_attributes) {
 			( my $label = $attribute->{'key'} ) =~ s/_/ /;
-			say qq(<li><label for="$attribute->{'key'}" class="parameter">$label:</label>\n);
+			say qq(<div class="form_label"><label for="$attribute->{'key'}">$label:</label></div>);
+			say q(<div class="form_value">);
 			say $q->textfield( -name => $attribute->{'key'}, -id => $attribute->{'key'} );
 			if ( $attribute->{'description'} ) {
 				say $self->get_tooltip(qq($attribute->{'key'} - $attribute->{'description'}.));
 			}
+			say q(</div>);
 		}
 	}
-	say q(</span></li></ul></fieldset><fieldset style="float:left"><legend>Options</legend>);
+	say q(</div></fieldset><fieldset style="float:left"><legend>Options</legend>);
 	say q(<ul><li>);
 	say $q->checkbox(
 		-name    => 'size_filter',
@@ -922,9 +930,12 @@ sub _print_interface {
 	say qq(<p>You can upload up to $limit genomes at a time.</p>);
 	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Identifying field name</legend>);
-	say q(<label for="field">Field:</label>);
+	say q(<div class="form_container">);
+	say q(<div class="form_label"><label for="field">Field:</label></div>);
+	say q(<div class="form_value">);
 	my $fields = $self->{'xmlHandler'}->get_field_list;
 	say $q->popup_menu( -id => 'field', -name => 'field', -values => $fields );
+	say q(</div></div>);
 	say q(</fieldset>);
 	say q(<fieldset style="float:left"><legend>Filenames</legend>);
 	say q(<p>Paste in tab-delimited text, e.g. copied from a spreadsheet, consisting of two columns. The first column )

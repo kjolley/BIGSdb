@@ -599,7 +599,7 @@ sub _print_embargo_function {
 	my $hidden_attributes = $self->get_hidden_attributes;
 	say $q->start_form;
 	say q(<button type="submit" name="embargo" value="embargo" class="small_submit">)
-	  . q(<span class="fas fa-user-secret"></span> Set/update embargo </button>);
+	  . q(<span class="fas fa-lock"></span> Set/update embargo </button>);
 	say $q->hidden($_) foreach qw (db query_file temp_table_file table page);
 	say $q->hidden($_) foreach @$hidden_attributes;
 	say $q->end_form;

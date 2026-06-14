@@ -153,7 +153,7 @@ END
 }
 
 sub get_initiation_values {
-	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1 };
+	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1, select2=>1 };
 }
 
 sub _get_max_records {
@@ -693,17 +693,21 @@ sub _print_interface {
 		}
 	);
 	say q(<fieldset style="float:left"><legend>Parameters</legend>);
-	say q(<ul><li><label for="word_size" class="parameter">BLASTN word size:</label>);
+	say q(<div class="form_container">);
+	say q(<div class="form_label"><label for="word_size">BLASTN word size:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu( -name => 'word_size', -id => 'word_size', -values => [ 7 .. 28 ], -default => 11 );
 	say $self->get_tooltip( q(BLASTN word size - This is the length of an exact match required to initiate an )
 		  . q(extension. Larger values increase speed at the expense of sensitivity.) );
-	say q(</li><li><label for="scores" class="parameter">BLASTN scoring:</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="scores">BLASTN scoring:</label></div>);
 	my %labels;
 
 	foreach (BLASTN_SCORES) {
 		my @values = split /,/x, $_;
 		$labels{$_} = "reward:$values[0]; penalty:$values[1]; gap open:$values[2]; gap extend:$values[3]";
 	}
+	say q(<div class="form_value">);
 	say $q->popup_menu(
 		-name    => 'scores',
 		-id      => 'scores',
@@ -714,14 +718,18 @@ sub _print_interface {
 	say $self->get_tooltip( q(BLASTN scoring - This is a combination of rewards for identically )
 		  . q(matched nucleotides, penalties for mismatching nucleotides, gap opening costs and gap extension )
 		  . q(costs. Only the listed combinations are supported by the BLASTN algorithm.) );
-	say q(</li><li><label for="hits" class="parameter">Hits per isolate:</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="hits">Hits per isolate:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu(
 		-name    => 'hits',
 		-id      => 'hits',
 		-values  => [qw(1 2 3 4 5 6 7 8 9 10 20 30 40 50)],
 		-default => 1
 	);
-	say q(</li><li><label for="flanking" class="parameter">Flanking length (bp):</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="flanking">Flanking length (bp):</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu(
 		-name    => 'flanking',
 		-id      => 'flanking',
@@ -731,11 +739,13 @@ sub _print_interface {
 	say $self->get_tooltip( q(Flanking length - This is the length of flanking sequence (if present) )
 		  . q(that will be output in the secondary FASTA file.  The default value can be changed in the options page.)
 	);
-	say q(</li><li>);
-	say $q->checkbox( -name => 'tblastx', label => 'Use TBLASTX' );
+	say q(</div>);
+	say q(<div class="form_label"><label>Use TBLASTX:</label></div>);
+	say q(<div class="form_value">);
+	say $q->checkbox( -name => 'tblastx', label => '' );
 	say $self->get_tooltip( q(TBLASTX - Compares the six-frame translation of your nucleotide query )
 		  . q(against the six-frame translation of the sequences in the sequence bin.) );
-	say q(</li></ul></fieldset>);
+	say q(</div></div></fieldset>);
 	say q(<fieldset style="float:left"><legend>Options</legend>);
 	say q(<ul><li>);
 	say $q->checkbox( -name => 'show_no_match', label => 'Show isolates with no matches' );
@@ -743,12 +753,12 @@ sub _print_interface {
 	say $q->checkbox( -name => 'include_seqbin', label => 'Include seqbin id and start position in FASTA' );
 	say q(</li></ul></fieldset>);
 	say q(<fieldset style="float:left"><legend>Restrict included sequences by</legend>);
-	say q(<ul>);
-	my $buffer = $self->get_sequence_method_filter( { 'class' => 'parameter' } );
-	say qq(<li>$buffer</li>) if $buffer;
-	$buffer = $self->get_project_filter( { 'class' => 'parameter' } );
-	say qq(<li>$buffer</li>) if $buffer;
-	say q(</ul></fieldset>);
+	say q(<div class="form_container">);
+	my $buffer = $self->get_sequence_method_filter({grid=>1} );
+	say $buffer if $buffer;
+	$buffer = $self->get_project_filter( { grid=>1 } );
+	say $buffer if $buffer;
+	say q(</div></fieldset>);
 	$self->print_action_fieldset( { name => 'BLAST' } );
 	say $q->hidden($_) foreach qw (db page name);
 	say q(</div>);

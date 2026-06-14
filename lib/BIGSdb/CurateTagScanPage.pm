@@ -94,12 +94,12 @@ END
 	$buffer .= $self->get_list_javascript;
 	$buffer .= << "END";
 function use_defaults() {
-	\$("#identity").val($MIN_IDENTITY);
-	\$("#alignment").val($MIN_ALIGNMENT);
-	\$("#word_size").val($WORD_SIZE);
-	\$("#partial_matches").val($PARTIAL_MATCHES);
-	\$("#limit_matches").val($LIMIT_MATCHES);
-	\$("#limit_time").val($LIMIT_TIME);
+	\$("#identity").val($MIN_IDENTITY).trigger("change");
+	\$("#alignment").val($MIN_ALIGNMENT).trigger("change");
+	\$("#word_size").val($WORD_SIZE).trigger("change");
+	\$("#partial_matches").val($PARTIAL_MATCHES).trigger("change");
+	\$("#limit_matches").val($LIMIT_MATCHES).trigger("change");
+	\$("#limit_time").val($LIMIT_TIME).trigger("change");
 	\$("#loci_together").prop(\"checked\",$check_values{$LOCI_TOGETHER});
 	\$("#tblastx").prop(\"checked\",$check_values{$TBLASTX});
 	\$("#hunt_start").prop(\"checked\",$check_values{$HUNT_START});
@@ -142,7 +142,7 @@ sub _get_refresh_time {
 sub initiate {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	$self->{$_} = 1 foreach qw (tooltips jQuery jQuery.multiselect noCache allowExpand);
+	$self->{$_} = 1 foreach qw (tooltips jQuery jQuery.multiselect noCache allowExpand select2);
 	if ( !$q->param('results') ) {
 		$self->{$_} = 1 foreach qw (jQuery.jstree);
 	}
@@ -265,10 +265,11 @@ sub _print_interface {
 	my $probe_links = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM probe_locus)');
 	if ( $pcr_links + $probe_links ) {
 		say q(<fieldset><legend>Repetitive loci</legend>);
-		say q(<ul>);
+		say q(<div class="form_container">);
 		if ($pcr_links) {
-			say q(<li>);
-			say $q->checkbox( -name => 'pcr_filter', -label => 'Filter by PCR', -checked => 'checked' );
+			say q(<div class="form_label"><label>Filter by PCR:</label></div>);
+			say q(<div class="form_value">);
+			say $q->checkbox( -name => 'pcr_filter', -label => '', -checked => 'checked' );
 			say $self->get_tooltip( q(Filter by PCR - Loci can be defined by a simulated PCR reaction(s) )
 				  . q(so that only regions of the genome predicted to be amplified will be recognised in the scan. )
 				  . q(De-selecting this option will ignore this filter and the whole sequence bin will be scanned )
@@ -276,7 +277,9 @@ sub _print_interface {
 				  . q(if exact matches are found.  De-selecting this option will be necessary if the gene in question )
 				  . q(is incomplete due to being located at the end of a contig since it cannot then be bounded by )
 				  . q(PCR primers.) );
-			say q(</li><li><label for="alter_pcr_mismatches" class="parameter">&Delta; PCR mismatch:</label>);
+			say q(</div>);
+			say q(<div class="form_label"><label for="alter_pcr_mismatches">&Delta; PCR mismatch:</label></div>);
+			say q(<div class="form_value">);
 			say $q->popup_menu(
 				-name    => 'alter_pcr_mismatches',
 				-id      => 'alter_pcr_mismatches',
@@ -286,17 +289,20 @@ sub _print_interface {
 			say $self->get_tooltip( q(Change primer mismatch - Each defined PCR reaction will have a )
 				  . q(parameter specifying the allowed number of mismatches per primer. You can increase or decrease )
 				  . q(this value here, altering the stringency of the reaction.) );
-			say q(</li>);
+			say q(</div>);
 		}
 		if ($probe_links) {
-			say q(<li>);
-			say $q->checkbox( -name => 'probe_filter', -label => 'Filter by probe', -checked => 'checked' );
+			say q(<div class="form_label"><label>Filter by probe:</label></div>);
+			say q(<div class="form_value">);
+			say $q->checkbox( -name => 'probe_filter', -label => '', -checked => 'checked' );
 			say $self->get_tooltip( q(Filter by probe - Loci can be defined by a simulated hybridization )
 				  . q(reaction(s) so that only regions of the genome predicted to be within a set distance of a )
 				  . q(hybridization sequence will be recognised in the scan. De-selecting this option will ignore this )
 				  . q(filter and the whole sequence bin will be scanned instead.  Partial matches will also be returned )
 				  . q((up to the number set in the parameters) even if exact matches are found.) );
-			say q(</li><li><label for="alter_probe_mismatches" class="parameter">&Delta; Probe mismatch:</label>);
+			say q(</div>);
+			say q(<div class="form_label"><label for="alter_probe_mismatches">&Delta; Probe mismatch:</label></div>);
+			say q(<div class="form_value">);
 			say $q->popup_menu(
 				-name    => 'alter_probe_mismatches',
 				-id      => 'alter_probe_mismatches',
@@ -306,17 +312,17 @@ sub _print_interface {
 			say $self->get_tooltip( q(Change probe mismatch - Each hybridization reaction will have a )
 				  . q(parameter specifying the allowed number of mismatches. You can increase or decrease this value )
 				  . q(here, altering the stringency of the reaction.) );
-			say q(</li>);
+			say q(</div>);
 		}
-		say q(</ul></fieldset>);
+		say q(</div></fieldset>);
 	}
 	say q(<fieldset><legend>Restrict included sequences by</legend>);
-	say q(<ul>);
-	my $buffer = $self->get_sequence_method_filter( { class => 'parameter' } );
-	say qq(<li>$buffer</li>) if $buffer;
-	$buffer = $self->get_project_filter( { class => 'parameter' } );
-	say qq(<li>$buffer</li>) if $buffer;
-	say q(</ul></fieldset>);
+	say q(<div class="form_container">);
+	my $buffer = $self->get_sequence_method_filter( { grid => 1 } );
+	say $buffer if $buffer;
+	$buffer = $self->get_project_filter( { grid => 1 } );
+	say $buffer if $buffer;
+	say q(</div></fieldset>);
 	say q(</div>);
 	$self->print_action_fieldset( { submit_label => 'Scan' } );
 	say q(</div>);
@@ -330,9 +336,11 @@ sub _print_parameter_fieldset {
 	my ( $self, $general_prefs ) = @_;
 	my $q = $self->{'cgi'};
 	say q(<fieldset style="position:relative"><legend>Parameters</legend>)
-	  . q(<input type="button" class="small_submit" style="position:absolute;right:6em;z-index:1" )
+	  . q(<input type="button" class="button" style="position:absolute;right:6em;z-index:1" )
 	  . q(value="Defaults" onclick="use_defaults()" />)
-	  . q(<ul><li><label for="identity" class="parameter">Min % identity:</label>);
+	  . q(<div class="form_container">);
+	say q(<div class="form_label"><label for="identity">Min % identity:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu(
 		-name    => 'identity',
 		-id      => 'identity',
@@ -340,7 +348,9 @@ sub _print_parameter_fieldset {
 		-default => $general_prefs->{'scan_identity'} // $MIN_IDENTITY
 	);
 	say $self->get_tooltip(q(Minimum % identity - Match required for partial matching.));
-	say q(</li><li><label for="alignment" class="parameter">Min % alignment:</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="alignment">Min % alignment:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu(
 		-name    => 'alignment',
 		-id      => 'alignment',
@@ -349,7 +359,9 @@ sub _print_parameter_fieldset {
 	);
 	say $self->get_tooltip( q(Minimum % alignment - Percentage of allele sequence length )
 		  . q(required to be aligned for partial matching.) );
-	say q(</li><li><label for="word_size" class="parameter">BLASTN word size:</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="word_size">BLASTN word size:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu(
 		-name    => 'word_size',
 		-id      => 'word_size',
@@ -358,40 +370,49 @@ sub _print_parameter_fieldset {
 	);
 	say $self->get_tooltip( q(BLASTN word size - This is the length of an exact match required )
 		  . q(to initiate an extension. Larger values increase speed at the expense of sensitivity.) );
-	say q(</li><li><label for="partial_matches" class="parameter">Return up to:</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="partial_matches">Return up to:</label></div>);
+	say q(<div class="form_value"><span class="query_block">);
 	say $q->popup_menu(
 		-name    => 'partial_matches',
 		-id      => 'partial_matches',
 		-values  => [ 1 .. 10 ],
 		-default => $general_prefs->{'scan_partial_matches'} // $PARTIAL_MATCHES
 	);
-	say q( partial match(es)</li><li><label for="limit_matches" class="parameter">Stop after:</label>);
+	
+	say q(<span class="label">partial match(es)</span></span></div>);
+	say q(<div class="form_label"><label for="limit_matches">Stop after:</label></div>);
+	say q(<div class="form_value"><span class="query_block">);
 	say $q->popup_menu(
 		-name    => 'limit_matches',
 		-id      => 'limit_matches',
 		-values  => [qw(10 20 30 40 50 100 200 500 1000 2000 5000 10000 20000)],
 		-default => $general_prefs->{'scan_limit_matches'} // $LIMIT_MATCHES
 	);
-	say q( new matches);
+	say q(<span class="label">new matches);
 	say $self->get_tooltip( q(Stop after matching - Limit the number of previously )
 		  . q(undesignated matches. You may wish to terminate the search after finding a set number of new )
 		  . q(matches.  You will be able to tag any sequences found and next time these won't be searched )
 		  . q((by default) so this enables you to tag in batches. If scanning all loci together you may get )
 		  . q(more results than this as it will complete the scan for an isolate and return all results found )
 		  . q(so far.) );
-	say q(</li><li><label for="limit_time" class="parameter">Stop after:</label>);
+	say q(</span></span></div>);
+	say q(<div class="form_label"><label for="limit_time">Stop after:</label></div>);
+	say q(<div class="form_value"><span class="query_block">);
 	say $q->popup_menu(
 		-name    => 'limit_time',
 		-id      => 'limit_time',
 		-values  => [qw(1 2 5 10 15 30 60 120 180 240 300)],
 		-default => $general_prefs->{'scan_limit_time'} // $LIMIT_TIME
 	);
-	say q( minute(s));
+	say q(<span class="label">minute(s));
 	say $self->get_tooltip( q(Stop after time - Searches against lots of loci or for )
 		  . q(multiple isolates may take a long time. You may wish to terminate the search after a set time.  )
 		  . q(You will be able to tag any sequences found and next time these won't be searched (by default) so )
 		  . q(this enables you to tag in batches.) );
-	say q(</li><li>);
+	say q(</span></span></div>);
+	say q(</div>);
+	say q(<ul><li>);
 
 	if ( ( $self->{'system'}->{'fast_scan'} // q() ) eq 'yes' ) {
 		say $q->checkbox(
@@ -424,7 +445,7 @@ sub _print_parameter_fieldset {
 			  . q(codon at one of the ends.  Identical matches will be indicated if the translated sequences )
 			  . q(match even if the nucleotide sequences don't. For this reason, allele designation tagging is )
 			  . q(disabled for TBLASTX matching.) );
-		say q(</li>);
+		say q(</span></li>);
 	}
 	say q(<li>);
 	say $q->checkbox(
