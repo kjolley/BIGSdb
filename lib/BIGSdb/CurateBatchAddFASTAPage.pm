@@ -136,7 +136,8 @@ sub _print_interface {
 	  . q(extended attributes.</p>)
 	  if $extended_attributes;
 	say $q->start_form;
-	say q(<fieldset style="float:left"><legend>Enter parameters</legend><ul>);
+	say q(<fieldset style="float:left"><legend>Enter parameters</legend>);
+	say q(<div class="form_container">);
 	my ( $values, $desc ) = $self->{'datastore'}->get_locus_list(
 		{
 			set_id                          => $set_id,
@@ -145,7 +146,8 @@ sub _print_interface {
 			locus_curator                   => ( $self->is_admin ? undef : $self->get_curator_id )
 		}
 	);
-	say q(<li><label for="locus" class="form" style="width:5em">locus:!</label>);
+	say q(<div class="form_label"><label for="locus" class="required">locus:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu(
 		-name     => 'locus',
 		-id       => 'locus',
@@ -153,10 +155,15 @@ sub _print_interface {
 		-labels   => $desc,
 		-required => 'required'
 	);
-	say q(</li><li><label for="status" class="form" style="width:5em">status:!</label>);
+	say q(</div>);
+	
+	say q(<div class="form_label"><label for="status" class="required">status:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu( -name => 'status', -id => 'status', -values => [ '', SEQ_STATUS ], -required => 'required' );
+	say q(</div>);
 	my ( $users, $user_names ) = $self->{'datastore'}->get_users( { blank_message => 'Select sender ...' } );
-	say q(<li><label for="sender" class="form" style="width:5em">sender:!</label>);
+	say q(<div class="form_label"><label for="sender" class="required">sender:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu(
 		-name     => 'sender',
 		-id       => 'sender',
@@ -164,7 +171,8 @@ sub _print_interface {
 		-labels   => $user_names,
 		-required => 'required'
 	);
-	say q(</li><li>);
+	say q(</div></div>);
+	say q(<ul><li>);
 	say $q->checkbox(
 		-name  => 'complete_CDS',
 		-label => 'Reject all sequences that are not complete reading frames - these must have a start and '

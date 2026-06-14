@@ -84,7 +84,7 @@ sub create_record_table {
 	$buffer .= q(<p>Please fill in the fields below - required fields are marked )
 	  . qq(<label class="required">in bold</label>.</p>\n);
 	$buffer .= q(<div class="scrollable">) if !$options->{'nodiv'};
-	$buffer .= q(<fieldset class="form" style="float:left"><legend>Record</legend>);
+	$buffer .= q(<fieldset style="float:left"><legend>Record</legend>);
 	my @field_names = map { $_->{'name'} } @$attributes;
 	$buffer .= q(<div class="form_container">);
 	$buffer .= $self->_get_form_fields( $attributes, $table, $newdata, $options );

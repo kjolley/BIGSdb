@@ -366,7 +366,9 @@ sub _print_options_fieldset {
 	my $q         = $self->{'cgi'};
 	my @pc_values = ( 0 .. 100 );
 	say q(<fieldset style="float:left"><legend>Options</legend>);
-	say q(<ul><li><label for="header_list" class="aligned width6">Header line: </label>);
+	say q(<div class="form_container">);
+	say q(<div class="form_label"><label for="header_list">Header line:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu(
 		-name   => 'header_list',
 		-id     => 'header_list',
@@ -375,7 +377,7 @@ sub _print_options_fieldset {
 	);
 	say $self->get_tooltip( q(Header line - Seqbin id will be used if the original designation has not been stored. )
 		  . q(This is used for FASTA output only.) );
-	say q(</li></ul></fieldset>);
+	say q(</div></div></fieldset>);
 	return;
 }
 

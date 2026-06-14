@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2024, University of Oxford
+#Copyright (c) 2017-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,10 +20,10 @@ package BIGSdb::UserProjectsPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::CurateAddPage);
+use parent            qw(BIGSdb::CurateAddPage);
 use BIGSdb::Constants qw(:interface);
-use Log::Log4perl qw(get_logger);
-use List::MoreUtils qw(uniq);
+use Log::Log4perl     qw(get_logger);
+use List::MoreUtils   qw(uniq);
 use Email::Valid;
 my $logger = get_logger('BIGSdb.User');
 
@@ -773,8 +773,9 @@ sub _print_user_projects {
 	my $q = $self->{'cgi'};
 	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>New project</legend>);
-	say q(<ul>);
-	say q(<li><label for="short_description" class="form" style="width:6em">Name:</label>);
+	say q(<div class="form_container">);
+	say q(<div class="form_label"><label for="short_description">Name:</label></div>);
+	say q(<div class="form_value">);
 	say $q->textfield(
 		-name      => 'short_description',
 		-id        => 'short_description',
@@ -782,10 +783,11 @@ sub _print_user_projects {
 		-maxlength => 40,
 		-required  => 'required'
 	);
-	say q(</li><li>);
-	say q(<li><label for="full_description" class="form" style="width:6em">Description:</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="full_description">Description:</label></div>);
+	say q(<div class="form_value">);
 	say $q->textarea( -name => 'full_description', -id => 'full_description', -cols => 40 );
-	say q(</li></ul>);
+	say q(</div></div>);
 	say q(</fieldset>);
 	$self->print_action_fieldset( { submit_label => 'Create', no_reset => 1 } );
 	$q->param( new_project => 1 );
@@ -920,18 +922,20 @@ sub _project_info {
 	if ( $self->_is_project_admin($project_id) ) {
 		say $q->start_form;
 		say q(<fieldset style="float:left"><legend>Update project details</legend>);
-		say q(<ul><li>);
-		say q(<label for="short_description" class="form" style="width:6em">Name:</label>);
+		say q(<div class="form_container">);
+		say q(<div class="form_label"><label for="short_description">Name:</label></div>);
+		say q(<div class="form_value">);
 		say $q->textfield( -name => 'short_description', default => $project->{'short_description'} );
-		say q(</li><li>);
-		say q(<li><label for="full_description" class="form" style="width:6em">Description:</label>);
+		say q(</div>);
+		say q(<div class="form_label"><label for="full_description">Description:</label></div>);
+		say q(<div class="form_value">);
 		say $q->textarea(
 			-name   => 'full_description',
 			-id     => 'full_description',
 			-cols   => 40,
 			default => BIGSdb::Utils::unescape_html( $project->{'full_description'} )
 		);
-		say q(</li></ul>);
+		say q(</div></div>);
 		say q(</fieldset>);
 		$self->print_action_fieldset( { submit_label => 'Update', no_reset => 1 } );
 		$q->param( update_details => 1 );

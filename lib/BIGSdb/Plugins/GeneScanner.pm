@@ -733,20 +733,24 @@ TOOLTIP
 sub _print_options_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say q(<fieldset style="float:left;height:12em"><legend>Options</legend><ul>);
+	say q(<fieldset style="float:left;height:12em"><legend>Options</legend>);
+	say q(<div class="form_container">);
 	my $aligners = [];
 	foreach my $aligner (qw(mafft muscle)) {
 		push @$aligners, uc($aligner) if $self->{'config'}->{"${aligner}_path"};
 	}
 	if (@$aligners) {
-		say q(<li><label for="aligner" class="aligned width7">Aligner: </label>);
+		say q(<div class="form_label"><label for="aligner">Aligner:</label></div>);
+		say q(<div class="form_value">);
 		say $q->popup_menu( -name => 'aligner', -id => 'aligner', -values => $aligners );
-		say q(</li>);
+		say q(</div>);
 	}
-	say q(<li><label for="aligner" class="aligned width7">Reading frame: </label>);
+	say q(<div class="form_label"><label for="aligner">Reading frame:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu( -name => 'frame', -id => 'frame', -values => [ 1 .. 3 ] );
-	say q(</li></li>);
-	say q(<li><label for="reference" class="aligned width7">Reference id: </label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="reference">Reference id:</label></div>);
+	say q(<div class="form_value">);
 	my $max = $self->{'datastore'}->run_query("SELECT MAX(id) FROM $self->{'system'}->{'view'}");
 	say $self->textfield(
 		-name  => 'reference',
@@ -761,13 +765,16 @@ sub _print_options_fieldset {
 	  $self->get_tooltip( 'Reference id - Id of sequence to treat as the reference (otherwise the first '
 		  . 'sequence in the alignment is used by default)' );
 	say $tooltip;
+	say q(</div>);
 
 	if ( $self->{'config'}->{'snp_sites_path'} ) {
-		say q(</li><li>);
-		say $q->checkbox( -name => 'snp_sites', -id => 'snp_sites', -label => 'Run SNP-sites' );
+		say q(<div class="form_label"><label for="snp_sites">Run SNP-sites</label></div>);
+		say q(<div class="form_value">);
+		say $q->checkbox( -name => 'snp_sites', -id => 'snp_sites', -label => '' );
+		say q(</div>);
 	}
-	say q(</li>);
-	say q(</ul></fieldset>);
+	
+	say q(</div></fieldset>);
 	return;
 }
 

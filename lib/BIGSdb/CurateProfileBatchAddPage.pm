@@ -672,7 +672,9 @@ sub _print_interface {
 	);
 	say q(</fieldset>);
 	say q(<fieldset style="float:left"><legend>Parameters</legend>);
-	say q(<label for="sender" class="form" style="width:5em">Sender:</label>);
+	say q(<div class="form_container">);
+	say q(<div class="form_label"><label for="sender">Sender:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu(
 		-name     => 'sender',
 		-id       => 'sender',
@@ -680,6 +682,7 @@ sub _print_interface {
 		-labels   => $user_names,
 		-required => 'required'
 	);
+	say q(</div></div>);
 	say q(<p class="comment">Value will be overridden if you include a sender field in your pasted data.</p>);
 	say q(<ul><li>);
 	say $q->checkbox(
@@ -755,19 +758,4 @@ sub get_help_url {
 	return "$self->{'config'}->{'doclink'}/curator_guide/0060_adding_new_profiles.html#batch-profile-upload";
 }
 
-sub get_javascript {
-	my ($self) = @_;
-	my $buffer = << "END";
-\$(function () {
-   \$('#sender').multiselect({
-  	classes: 'filter',
- 	menuHeight: 250,
- 	menuWidth: 400,
- 	noneSelectedText: '',
- 	selectedList: 1,
-  }).multiselectfilter();
-});
-END
-	return $buffer;
-}
 1;

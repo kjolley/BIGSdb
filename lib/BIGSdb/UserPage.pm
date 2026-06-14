@@ -354,42 +354,51 @@ sub _edit_user {
 	}
 	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Edit details</legend>);
-	say q(<ul><li>);
-	say q(<label for="first_name" class="form">First name:</label>);
+	say q(<div class="form_container">);
+	say q(<div class="form_label"><label for="first_name">First name:</label></div>);
+	say q(<div class="form_value">);
 	say $q->textfield( -name => 'first_name', -id => 'first_name', -required => 'required', size => 25 );
-	say q(</li><li>);
-	say q(<label for="surname" class="form">Last name/surname:</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="surname">Last name/surname:</label></div>);
+	say q(<div class="form_value">);
 	say $q->textfield( -name => 'surname', -id => 'surname', -required => 'required', size => 25 );
-	say q(</li><li>);
-	say q(<label for="email" class="form">E-mail:</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="email">E-mail:</label></div>);
+	say q(<div class="form_value">);
 	say $q->textfield( -name => 'email', -id => 'email', -required => 'required', size => 30 );
-	say q(</li><li>);
-	say q(<label for="affiliation" class="form">Affiliation/institute:</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="affiliation">Affiliation/institute:</label></div>);
+	say q(<div class="form_value">);
 	say $q->textarea( -name => 'affiliation', -id => 'affiliation', -required => 'required', -cols => 30 );
+	say q(</div>);
 
 	if ( $self->{'config'}->{'site_user_sector'} ) {
-		say q(</li><li>);
-		say q(<label for="sector" class="form">Sector:</label>);
+		say q(<div class="form_label"><label for="sector">Sector:</label></div>);
+		say q(<div class="form_value">);
 		my $values = [ '', SECTORS, 'other' ];
 		say $q->popup_menu( -name => 'sector', -id => 'sector', -values => $values, -required => 'required' );
-		say q(</li><li id="other" style="display:none">);
-		say q(<label for="other_sector" class="form">Other sector:</label>);
+		say q(</div>);
+		say q(<div id="other_label" class="form_label" style="display:none">);
+		say q(<label for="other_sector">Other sector:</label></div>);
+		say q(<div id="other_value" class="form_value" style="display:none">);
 		say $q->textfield(
 			-name        => 'other_sector',
 			-id          => 'other_sector',
 			-size        => 30,
 			-placeholder => 'Enter other sector...'
 		);
+		say q(</div>);
 	}
 	if ( $self->{'config'}->{'site_user_country'} ) {
-		say q(</li><li>);
-		say q(<label for="country" class="form">Country:</label>);
+		say q(<div class="form_label"><label for="country">Country:</label></div>);
 		my $countries = COUNTRIES;
 		my $sorted    = BIGSdb::Utils::unicode_dictionary_sort( [ keys %$countries ] );
 		my $values    = [ '', @$sorted ];
+		say q(<div class="form_value">);
 		say $q->popup_menu( -name => 'country', -id => 'country', -values => $values, -required => 'required' );
+		say q(</div>);
 	}
-	say q(</li></ul>);
+	say q(</li></div>);
 	say q(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Update' } );
 	$q->param( update => 1 );
@@ -1179,9 +1188,9 @@ sub _import_dbase_config {
 	);
 	$buffer .= q(</td><td>);
 	my ( $add, $remove ) = ( RIGHT, LEFT );
-	$buffer .= qq(<button type="submit" name="add" value="add" class="smallbutton">$add</button>);
+	$buffer .= qq(<button type="submit" name="add" value="add" class="button">$add</button>);
 	$buffer .= q(<br />);
-	$buffer .= qq(<button type="submit" name="remove" value="remove" class="smallbutton">$remove</button>);
+	$buffer .= qq(<button type="submit" name="remove" value="remove" class="button">$remove</button>);
 	$buffer .= q(</td><td>);
 	$buffer .= $self->popup_menu(
 		-name     => 'registered',
@@ -1193,13 +1202,13 @@ sub _import_dbase_config {
 	$buffer .= q(</td></tr>);
 	$buffer .=
 		q(<tr><td style="text-align:center"><input type="button" onclick='listbox_selectall("available",true)' )
-	  . qq(value="All" style="margin-top:1em" class="small_submit" />\n);
+	  . qq(value="All" style="margin:0.5em 0 0 0" class="button" />\n);
 	$buffer .= q(<input type="button" onclick='listbox_selectall("available",false)' value="None" )
-	  . q(style="margin-top:1em" class="small_submit" /></td><td></td>);
+	  . q(style="margin:0.5em 0 0 0" class="button" /></td><td></td>);
 	$buffer .= q(<td style="text-align:center"><input type="button" onclick='listbox_selectall("registered",true)' )
-	  . qq(value="All" style="margin-top:1em" class="small_submit" />\n);
+	  . qq(value="All" style="margin:0.5em 0 0 0" class="button" />\n);
 	$buffer .= q(<input type="button" onclick='listbox_selectall("registered",false)' value="None" )
-	  . q(style="margin-top:1em" class="small_submit" />);
+	  . q(style="margin:0.5em 0 0 0" class="button" />);
 	$buffer .= q(</td></tr></table>);
 	$buffer .= $q->end_form;
 	$buffer .= q(</div></div>);
@@ -1237,8 +1246,10 @@ sub _show_merge_user_accounts {
 	my $q = $self->{'cgi'};
 	$buffer .= $q->start_form;
 	$buffer .= q(<fieldset style="float:left"><legend>Select site account</legend>);
+	$buffer .= q(<span class="query_block">);
 	$buffer .= $self->popup_menu( -name => 'user', -id => 'merge_user', -values => $usernames, -labels => $labels );
 	$buffer .= $q->submit( -label => 'Select user', -class => 'small_submit' );
+	$buffer .= q(</span>);
 	$buffer .= q(</fieldset>);
 	$buffer .= $q->hidden( merge_user => 1 );
 	$buffer .= $q->end_form;
@@ -1252,14 +1263,16 @@ sub _show_modify_users {
 	my ( $usernames, $labels ) = $self->_get_users;
 	return q() if !@$usernames;
 	$self->{'panel'}++;
-	my $buffer = q(<h2><span class="fas fa-chevron-right" style="margin-right:1em"></span>)
-	  . q(Update user details</h2><div>);
+	my $buffer =
+	  q(<h2><span class="fas fa-chevron-right" style="margin-right:1em"></span>) . q(Update user details</h2><div>);
 	$buffer .= q(<span class="config_icon fas fa-wrench fa-3x fa-pull-left"></span>);
 	my $q = $self->{'cgi'};
 	$buffer .= $q->start_form;
 	$buffer .= q(<fieldset><legend>Select site account</legend>);
+	$buffer .= q(<span class="query_block">);
 	$buffer .= $self->popup_menu( -name => 'user', -id => 'modify_user', -values => $usernames, -labels => $labels );
 	$buffer .= $q->submit( -label => 'Update user', -class => 'small_submit' );
+	$buffer .= q(</span>);
 	$buffer .= q(</fieldset>);
 	$buffer .= $q->hidden( update_user  => 1 );
 	$buffer .= $q->hidden( modify_other => 1 );
@@ -1336,6 +1349,7 @@ sub _select_merge_users {
 	} else {
 		say q(<p>No matching database-specific accounts found based on )
 		  . q(matching first+last name or E-mail address.</p>);
+		say q(</fieldset>);  
 	}
 	say $q->end_form;
 	say $q->start_form;
@@ -1345,18 +1359,20 @@ sub _select_merge_users {
 	  $self->{'datastore'}->run_query( 'SELECT dbase_config FROM registered_resources ORDER BY dbase_config',
 		undef, { fetch => 'col_arrayref' } );
 	unshift @$registered_configs, q();
-	say q(<ul><li>);
-	say q(<label for="dbase_config" class="form">Database configuration:</label>);
+	say q(<div class="form_container">);
+	say q(<div class="form_label"><label for="dbase_config">Database configuration:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu(
 		-name   => 'dbase_config',
 		-id     => 'dbase_config',
 		values  => $registered_configs,
 		-labels => { '' => 'Select database...' }
 	);
-	say q(</li><li>);
-	say q(<label for="username" class="form">Username:</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="username">Username:</label></div>);
+	say q(<div class="form_value">);
 	say $q->textfield( -name => 'username', id => 'username', -default => scalar $q->param('user') );
-	say q(</li></ul>);
+	say q(</div></div>);
 	say q(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1, submit_label => 'Merge' } );
 	$q->param( merge => 1 );
@@ -1606,28 +1622,11 @@ JS
 	 	});
  	}
  	$admin_js
- 	\$('li#other').css('display',\$('select#sector').val() == 'other' ? 'block' : 'none');
+ 	\$('div#other_label,div#other_value').css('display',\$('select#sector').val() == 'other' ? 'block' : 'none');
  	\$('select#sector').change(function() {
  		console.log(this.value);
- 		\$('li#other').css('display',this.value == 'other' ? 'block' : 'none');
+ 		\$('div#other_label,div#other_value').css('display',this.value == 'other' ? 'block' : 'none');
  	});
- 	\$("#country").multiselect({
-		noneSelectedText: "Please select...",
-		selectedList: 1,
-		menuHeight: 250,
-		menuWidth: 300,
-		classes: 'filter',
-	}).multiselectfilter({
-		placeholder: 'Search'
-	});
- 	
- 	\$("#sector").multiselect({
-		selectedList: 1,
-		menuHeight: 250,
-		menuWidth: 300,
-		classes: 'filter',
-	});
-	
 	\$(window).resize(function() {
     	delay(function(){
     		\$("#auto_reg,#request_reg").multiselectfilter('destroy')
