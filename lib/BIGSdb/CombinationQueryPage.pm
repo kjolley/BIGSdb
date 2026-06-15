@@ -28,7 +28,7 @@ use BIGSdb::Constants qw(LOCUS_PATTERN);
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (tooltips jQuery addProjects allowExpand);
+	$self->{$_} = 1 foreach qw (tooltips jQuery addProjects allowExpand select2);
 	$self->{'noCache'} = 1 if ( $self->{'system'}->{'sets'} // '' ) eq 'yes';
 	$self->set_level1_breadcrumbs;
 	return;
@@ -64,9 +64,6 @@ sub print_content {
 		if ( $q->param('confirm_publish') ) {
 			$self->publish;
 		}
-#		if ( $q->param('publish') ) {
-#			$self->publish;
-#		}
 	}
 	my $title = $self->get_title;
 	say qq(<h1>$title</h1>);
@@ -258,7 +255,7 @@ sub _print_interface {
 	say q(<div style="clear:both">);
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		say q(<fieldset style="float:left"><legend>Filters</legend><ul>);
-		my $buffer = $self->get_project_filter( { class => 'display' } );
+		my $buffer = $self->get_project_filter( { class => '' } );
 		say qq(<li>$buffer</li>) if $buffer;
 		say q(<li>);
 		say $self->get_old_version_filter;
@@ -273,11 +270,12 @@ sub _print_interface {
 	}
 	$labels{0} = q(Exact or nearest match);
 	$labels{ scalar @$loci } = q(Exact match only);
+	say q(<div class="form_container">);
 	say $self->get_filter( 'matches', \@values,
-		{ labels => \%labels, text => 'Search', noblank => 1, class => 'display' } );
-	say q(</fieldset>);
+		{ labels => \%labels, text => 'Search', noblank => 1, grid=>1, class => '' } );
+	say q(</div></fieldset>);
 	say q(<fieldset id="display_fieldset" style="float:left"><legend>Display/sort options</legend>);
-	say q(<ul><li><span style="white-space:nowrap"><label for="order" class="display">Order by: </label>);
+	say q(<ul><li><span class="query_block"><label for="order" class="display label">Order by: </label>);
 	my ( $order_by, $dropdown_labels );
 
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
