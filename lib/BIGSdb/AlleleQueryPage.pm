@@ -67,9 +67,17 @@ sub get_javascript {
   	  var url = '$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=alleleQuery&locus=' + locus_name;
  	  location.href=url;
     });
+    render_filters();
     $panel_js
  });
 
+function render_filters(){
+	\$("select.filter").select2({
+		width: '240px',
+		dropdownAutoWidth: true,
+		placeholder: '',
+	});
+}
 
 function loadContent(url) {
 	var row = parseInt(url.match(/row=(\\d+)/)[1]);
@@ -399,14 +407,13 @@ sub _print_filters_fieldset {
 	my $display = $self->{'prefs'}->{'aq_filters_fieldset'}
 	  || $self->filters_selected ? 'inline' : 'none';
 	say qq(<fieldset id="filters_fieldset" style="float:left;display:$display"><legend>Filters</legend>);
-	say q(<ul><li>);
-	say $self->get_filter( 'status', [SEQ_STATUS], { class => 'display' } );
-	say q(</li><li>);
+	say q(<div class="form_container">);
+	say $self->get_filter( 'status', [SEQ_STATUS], { class => 'filter', grid => 1 } );
 	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
 		my @flag_values = ( 'any flag', 'no flag', ALLELE_FLAGS );
-		say $self->get_filter( 'allele_flag', \@flag_values, { class => 'display' } );
+		say $self->get_filter( 'allele_flag', \@flag_values, { class => 'filter', grid => 1 } );
 	}
-	say q(</li></ul></fieldset>);
+	say q(</div></fieldset>);
 	return;
 }
 
@@ -416,8 +423,7 @@ sub _print_modify_search_fieldset {
 	say q(<div id="modify_panel" class="panel">);
 	say q(<a class="trigger" id="close_trigger" href="#"><span class="fas fa-times"></span></a>);
 	say q(<h2>Modify form parameters</h2>);
-	say q(<p class="modal_description">Click to add or remove additional query terms:</p>)
-	  . q(<ul class="toggle">);
+	say q(<p class="modal_description">Click to add or remove additional query terms:</p>) . q(<ul class="toggle">);
 	my $allele_fieldset_display = $self->{'prefs'}->{'aq_allele_fieldset'}
 	  || $self->_highest_entered_fields('alleles') ? ON : OFF;
 	say qq(<li class="fieldset_trigger" id="show_allele">$allele_fieldset_display);
