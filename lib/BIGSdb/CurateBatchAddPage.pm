@@ -321,7 +321,8 @@ sub print_interface_sender_field {
 		return;
 	}
 	my ( $users, $user_names ) = $self->{'datastore'}->get_users( { blank_message => 'Select sender ...' } );
-	say q(<div style="margin-bottom:1em"><p>Please select the sender from the list below:</p>);
+	say q(<fieldset><legend>Sender</legend>);
+	say q(<p>Please select the sender from the list below:</p>);
 	$user_names->{-1} = 'Override with sender field';
 	say $q->popup_menu(
 		-name     => 'sender',
@@ -330,8 +331,8 @@ sub print_interface_sender_field {
 		-labels   => $user_names,
 		-required => 'required'
 	);
-	say q(<span class="comment"> Value will be overridden if you include a sender field in your pasted data.</span>);
-	say q(</div>);
+	say q(<p class="comment"> Value will be overridden if you include a sender field in your pasted data.</p>);
+	say q(</fieldset>);
 	return;
 }
 

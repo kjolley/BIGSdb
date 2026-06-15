@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2025, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -200,13 +200,15 @@ sub _print_interface_locus_selection {
 		if ( @$loci_with_extended > 10 ) {
 			say $q->start_form;
 			say $q->hidden($_) foreach qw (page db table);
-			say 'Reload page specific for locus: ';
+			say q(<span class="query_block" style="padding-top:0.5em">)
+			  . q(<span class="label">Reload page specific for locus:</span>);
 			my @values = @$loci_with_extended;
 			my %labels;
 			unshift @values, '';
 			$labels{''} = 'Select ...';
 			say $q->popup_menu( -name => 'locus', -values => \@values, -labels => \%labels );
 			say $q->submit( -name => 'Reload', -class => 'small_submit' );
+			say q(</span>);
 			say $q->end_form;
 		} else {
 			my $first = 1;
@@ -226,6 +228,7 @@ sub _print_interface_locus_selection {
 sub _print_interface_sequence_switches {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
+	say q(<fieldset><legend>Options</legend>);
 	say q(<ul style="list-style-type:none"><li>);
 	my $ignore_existing = $q->param('ignore_existing') // 'checked';
 	say $q->checkbox(
@@ -284,6 +287,7 @@ sub _print_interface_sequence_switches {
 		);
 	}
 	say q(</li></ul>);
+	say q(</fieldset>);
 	return;
 }
 
@@ -643,7 +647,7 @@ sub _get_nav_data {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (jQuery jQuery.tablesort jQuery.multiselect noCache);
+	$self->{$_} = 1 foreach qw (jQuery jQuery.tablesort select2 noCache);
 	$self->set_level1_breadcrumbs;
 	return;
 }
@@ -656,13 +660,6 @@ sub get_javascript {
 		enable_options();
 	});
 	enable_options();
-	\$('#sender').multiselect({
-	  	classes: 'filter',
-	 	menuHeight: 250,
-	 	menuWidth: 400,
-	 	noneSelectedText: '',
-	 	selectedList: 1,
-	}).multiselectfilter();
 });
 function enable_options(){
 	\$("#reject_dissimilar").prop("disabled",\$("#ignore_similarity").prop("checked") ? true : false); 
