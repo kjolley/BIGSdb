@@ -153,6 +153,7 @@ sub get_javascript {
   		+ "values can be searched using the term 'null'. </p><h3>Number of fields</h3><p>Add more fields by clicking the '+' button."
   		+ "</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms."
   		+ "</p>" );
+  	render_filters();
   	$panel_js
 });
   	
@@ -164,6 +165,14 @@ function loadContent(url) {
 	} else if (fields == 'allele_properties'){
 		add_rows(url,fields,'ap_field',row,'ap_heading','add_allele_properties');
 	}
+}
+
+function render_filters(){
+	\$("select.filter").select2({
+		width: '240px',
+		dropdownAutoWidth: true,
+		placeholder: '',
+	});
 }
  
 END
