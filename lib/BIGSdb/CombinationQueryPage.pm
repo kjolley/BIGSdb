@@ -248,11 +248,11 @@ sub _print_interface {
 		my $remote = $self->{'system'}->{'dbtype'} eq 'isolates' ? ' by searching remote database' : '';
 		say qq(<fieldset id="autofill_fieldset" style="float:left"><legend>Autofill profile$remote</legend><ul>);
 		my $first = 1;
-		say qq(<li><label for="$primary_key" class="display">$primary_key: </label>);
+		say qq(<li><span class="query_block"><label for="$primary_key" class="label">$primary_key:</label>);
 		say $q->textfield( -name => $primary_key, -id => $primary_key, -class => 'allele_entry' );
 		say $q->submit( -name => 'Autofill', -class => 'small_submit' ) if $first;
 		$first = 0;
-		say q(</li>);
+		say q(</span></li>);
 		say q(</ul></fieldset>);
 	}
 	say q(<div style="clear:both">);
