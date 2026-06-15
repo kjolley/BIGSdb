@@ -1081,7 +1081,7 @@ sub _submit_alleles {
 	say q(<fieldset style="float:left"><legend>FASTA or single sequence</legend>);
 	if ( $q->param('sequence_file') ) {
 		my $filename = $q->param('sequence_file');
-		$filename =~ s/[\.\/]//gx;     #Prevent directory traversal
+		$filename =~ s/[\.\/]//gx;    #Prevent directory traversal
 		my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$filename";
 		if ( -e $full_path ) {
 			my $seq_ref = BIGSdb::Utils::slurp($full_path);
@@ -1466,7 +1466,7 @@ sub _print_sequence_details_fieldset {
 	my $q = $self->{'cgi'};
 	say q(<fieldset style="float:left;min-height:12em"><legend>Sequence details</legend>);
 	say q(<div class="form_container"><div class="form_label">)
-	. q(<label for="technology" class="required">technology:</label></div>);
+	  . q(<label for="technology" class="required">technology:</label></div>);
 	my $allele_submission =
 	  $submission_id ? $self->{'submissionHandler'}->get_allele_submission($submission_id) : undef;
 	my $att_labels = { '' => ' ' };    #Required for HTML5 validation
@@ -2921,8 +2921,9 @@ sub _print_update_button {
 		  . q(</span>);
 	}
 	my $values = $options->{'no_accepted'} ? [qw(pending rejected)] : [qw(pending accepted rejected)];
+	say q(<span class="query_block">);
 	if ( $options->{'record_status'} ) {
-		say q(<label for="record_status">Record status:</label>);
+		say q(<label for="record_status" class="label">Record status:</label>);
 		say $q->popup_menu(
 			-name  => 'record_status',
 			id     => 'record_status',
@@ -2930,6 +2931,7 @@ sub _print_update_button {
 		);
 	}
 	say $q->submit( -name => 'update', -label => 'Update', -class => 'small_submit' );
+	say q(</span>);
 	say q(</div>);
 	return;
 }
