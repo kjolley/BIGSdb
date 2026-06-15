@@ -187,6 +187,10 @@ sub get_javascript {
 			\$("#modal_overlay").removeClass("open");
 		}
 	});
+	
+	\$(document).on("ajaxComplete", function(event, xhr, settings) {
+		apply_select2();	
+	});
  });
  
 function add_rows(url,list_name,row_name,row,field_heading,button_id){

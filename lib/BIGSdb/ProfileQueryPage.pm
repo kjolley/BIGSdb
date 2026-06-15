@@ -197,7 +197,10 @@ sub _print_filter_fieldset {
 					labels  => $labels,
 					text    => 'Publication',
 					tooltip => 'publication filter - Select a publication to filter your search '
-					  . 'to only those isolates that match the selected publication.'
+					  . 'to only those isolates that match the selected publication.',
+					grid  => 1,
+					class => 'do_not_calc_width',
+					style => 'width:240px'
 				}
 			  );
 		}
@@ -215,22 +218,24 @@ sub _print_filter_fieldset {
 			);
 			next if !@$values;
 			my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/x ? 'an' : 'a';
-			push @filters,
-			  $self->get_filter(
+			push @filters, $self->get_filter(
 				$field, $values,
 				{
 					text    => $field,
 					tooltip => "$field ($scheme_info->{'name'}) filter - Select $a_or_an $field to "
-					  . "filter your search to only those profiles that match the selected $field."
+					  . "filter your search to only those profiles that match the selected $field.",
+					grid  => 1,
+					class => 'do_not_calc_width',
+					style => 'width:240px'
 				}
-			  );
+			);
 		}
 	}
 	if (@filters) {
 		say q(<fieldset id="filters_fieldset" style="float:left;display:none"><legend>Filters</legend>);
-		say q(<ul>);
-		say qq(<li><span style="white-space:nowrap">$_</span></li>) foreach @filters;
-		say q(</ul></fieldset>);
+		say q(<div class="form_container">);
+		say $_ foreach @filters;
+		say q(</div></fieldset>);
 		$self->{'filters_present'} = 1;
 	}
 	return;
@@ -926,14 +931,16 @@ sub _print_list_fieldset {
 		-labels => $labels,
 		-class  => 'locuslist'
 	);
-	say q(<br />);
+	say q(<div>);
 	say $q->textarea(
 		-name        => 'list',
 		-id          => 'list',
 		-rows        => 6,
 		-style       => 'width:100%',
-		-placeholder => 'Enter list of values (one per line)...'
+		-placeholder => 'Enter list of values (one per line)...',
+		-style       => 'width:100%; margin-top:2px'
 	);
+	say q(</div>);
 	say q(</fieldset>);
 	return;
 }
@@ -995,14 +1002,10 @@ function render_loaded_locuslists() {
 }
 
 function render_locuslists(selector){
-	\$(selector).filter(':visible').multiselect({
-		noneSelectedText: "Please select...",
-		selectedList: 1,
-		menuHeight: 250,
-		menuWidth: 300,
-		classes: 'filter',
-	}).multiselectfilter({
-		placeholder: 'Search'
+	\$(selector).filter(':visible').select2({
+		width: '240px',
+		dropdownAutoWidth: true,
+		placeholder: '',
 	});
 }
 END
@@ -1025,8 +1028,7 @@ sub _print_modify_search_fieldset {
 	say q(<div id="modify_panel" class="panel">);
 	say q(<a class="trigger" id="close_trigger" href="#"><span class="fas fa-times"></span></a>);
 	say q(<h2>Modify form parameters</h2>);
-	say q(<p class="modal_description">Click to add or remove additional query terms:</p>)
-	  . q(<ul class="toggle">);
+	say q(<p class="modal_description">Click to add or remove additional query terms:</p>) . q(<ul class="toggle">);
 	my $scheme_fieldset_display = $self->{'prefs'}->{'scheme_fieldset'}
 	  || $self->_highest_entered_fields ? ON : OFF;
 	say qq(<li class="fieldset_trigger" id="show_scheme">$scheme_fieldset_display);

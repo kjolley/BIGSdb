@@ -2746,7 +2746,7 @@ fieldset {
 }
 
 fieldset#filters_fieldset div.form_value {
-	max-width:300px
+	max-width:300px;
 }
 
 fieldset ul {
@@ -3626,7 +3626,7 @@ span.query_block .select2-selection--single, div.form_value .select2-selection--
 	display: flex !important;
 	align-items: center;
 	height: auto !important;
-	min-height: 28px;
+	min-height: 29px;
 	padding: 1px 0;
 }
 

@@ -136,9 +136,9 @@ function apply_select2() {
 	if (window.jQuery && $.fn.select2) {
 		$('select:not(.locuslist):not(.widelist):not([multiple])')
 			.not('.select2-hidden-accessible')
-			.each(function () {
+			.each(function() {
 				const $select = $(this);
-				if (!$select.is(':visible')) {
+				if (!$select.is(':visible') && !$select.hasClass('do_not_calc_width')) {
 					$select.css('width', calcSelectWidth($select) + 'px');
 				}
 				$select.select2({
@@ -170,7 +170,7 @@ function calcSelectWidth($select) {
 
 	let max = 0;
 
-	$select.find('option').each(function () {
+	$select.find('option').each(function() {
 		const text = (this.textContent || this.innerText || '').trim();
 		max = Math.max(max, measureTextWidth(text, font));
 	});

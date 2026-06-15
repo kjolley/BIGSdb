@@ -175,7 +175,7 @@ sub _get_javascript_paths {
 	if ( $self->{'jQuery'} ) {
 		push @$js, { src => "$relative_js_path/jquery.min.js",    version => '3.6.0' };
 		push @$js, { src => "$relative_js_path/jquery-ui.min.js", defer   => 1, version => '1.12.1' };
-		push @$js, { src => "$relative_js_path/bigsdb.min.js",    defer   => 1, version => '20231205' };
+		push @$js, { src => "$relative_js_path/bigsdb.min.js",    defer   => 1, version => '20260615' };
 		if ( !$self->{'config'}->{'no_cookie_consent'} && !$self->{'curate'} && $self->{'instance'} ) {
 			push @$js, { src => "$relative_js_path/cookieconsent.min.js", defer => 1 };
 		}
@@ -1942,7 +1942,7 @@ sub get_filter {
 	my $buffer;
 	if ( $options->{'grid'} ) {
 		$buffer =
-		  qq(<div class="form_label"><label for="$id">$remove_link $text:</label></div>) . q(<div class="form_value">);
+		  qq(<div class="form_label"><label for="$id">$remove_link $text:</label></div><div class="form_value">);
 	} else {
 		$buffer = qq(<span class="query_block"><label for="$id" class="$class label" $title_attribute>$label</label>\n);
 	}
@@ -1953,8 +1953,8 @@ sub get_filter {
 		-id     => $id,
 		-values => $values,
 		-labels => $options->{'labels'},
+		-style => $options->{'style'},
 		-class  => $class,
-		-style  => 'max-width:20em'
 	);
 	if ( $options->{'multiple'} ) {
 		$args{'-multiple'} = 'multiple';
