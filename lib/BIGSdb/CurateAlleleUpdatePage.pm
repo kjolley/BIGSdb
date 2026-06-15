@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2025, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -34,7 +34,7 @@ sub initiate {
 		return;
 	}
 	$self->{'ol'} = 1 if $self->need_openlayers;
-	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree jQuery.multiselect noCache);
+	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree select2 noCache);
 	$self->set_level1_breadcrumbs;
 	return;
 }
@@ -130,7 +130,7 @@ sub print_content {
 	print $q->start_form;
 	my $set_id = $self->get_set_id;
 	my ( $loci, $labels ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id } );
-	say q(<label for="locus">Locus: </label>);
+	say q(<span class="query_block"><label for="locus" class="label">Locus:</label>);
 	say $q->popup_menu(
 		-name   => 'locus',
 		-id     => 'locus',
@@ -139,6 +139,7 @@ sub print_content {
 		-style  => 'max-width:15em'
 	);
 	say $q->submit( -label => 'Add/update', -class => 'small_submit' );
+	say q(</span>);
 	$q->param( update_id => $data->{'update_id'} );
 
 	if ( !defined $q->param('isolate_id') && defined $q->param('allele_designations_isolate_id') ) {
@@ -215,22 +216,6 @@ sub _delete {
 		}
 	}
 	my $buffer = '';
-	return $buffer;
-}
-
-sub get_javascript {
-	my ($self) = @_;
-	my $buffer = << "END";
-\$(function () {
-  \$('#allele_designations_sender,#locus').multiselect({
-  	classes: 'filter',
- 	menuHeight: 250,
- 	menuWidth: 400,
- 	noneSelectedText: '',
- 	selectedList: 1,
-  }).multiselectfilter();
-});
-END
 	return $buffer;
 }
 
