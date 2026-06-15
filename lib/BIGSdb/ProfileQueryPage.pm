@@ -245,7 +245,7 @@ sub _print_order_fieldset {
 	my ( $self, $scheme_id ) = @_;
 	my $q = $self->{'cgi'};
 	say q(<fieldset id="display_fieldset" style="float:left"><legend>Display/sort options</legend>);
-	say q(<ul><li><span style="white-space:nowrap"><label for="order" class="display">Order by: </label>);
+	say q(<ul><li><span class="query_block"><label for="order" class="display label">Order by: </label>);
 	my ( $primary_key, $selectitems, $orderitems, $cleaned ) = $self->_get_select_items($scheme_id);
 	say $q->popup_menu(
 		-name   => 'order',
