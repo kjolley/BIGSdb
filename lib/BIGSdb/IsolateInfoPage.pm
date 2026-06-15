@@ -752,8 +752,9 @@ sub _print_plugin_buttons {
 		say q(<div><span class="info_icon fas fa-2x fa-fw fa-chart-column fa-pull-left" style="margin-top:-0.2em">)
 		  . q(</span>);
 		say q(<h2>Tools</h2>);
+		say q(<div class="scrollable">);
 		say $buffer;
-		say q(</div>);
+		say q(</div></div>);
 	}
 	return;
 }
