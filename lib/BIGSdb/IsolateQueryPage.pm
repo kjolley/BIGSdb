@@ -1012,14 +1012,15 @@ sub _print_list_fieldset_contents {
 		-labels => $labels,
 		-class  => $class
 	);
-	say q(<br />);
+	say q(<div>);
 	say $q->textarea(
 		-name        => 'list',
 		-id          => 'list',
 		-rows        => 6,
-		-style       => 'width:100%',
+		-style       => 'width:100%;margin-top:2px',
 		-placeholder => 'Enter list of values (one per line)...'
 	);
+	say q(</div>);
 	return;
 }
 
