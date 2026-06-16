@@ -2172,7 +2172,7 @@ div.form_container div.form_label {
 }
 
 div.form_container.full_width div.form_label {
-	max-width:initial;
+	max-width: initial;
 }
 
 div.form_container div.form_value input[type=checkbox] {
@@ -2745,7 +2745,7 @@ fieldset {
 }
 
 fieldset#filters_fieldset div.form_value {
-	max-width:300px;
+	max-width: 300px;
 }
 
 fieldset ul {
@@ -3619,18 +3619,29 @@ span.query_block .select2-selection {
 }
 
 /* The visible Select2 control */
-span.query_block .select2-selection--single, div.form_value .select2-selection--single{
+
+span.query_block .select2-selection--single,
+div.form_value .select2-selection--single {
 	border-color: #ccc;
 	border-radius: 0 !important;
 	display: flex !important;
 	align-items: center;
-	height: 100% !important;
-	min-height:100%;
 	padding: 1px 0;
 }
 
+span.query_block .select2-selection--single {
+	height: 100% !important;
+	min-height: 100%;
+}
+
+div.form_value .select2-selection--single {
+	height: auto !important;
+	min-height: 29px;
+}
+
 /* In the closed (selected) state */
-span.query_block .select2-selection__rendered, div.form_value .select2-selection__rendered {
+span.query_block .select2-selection__rendered,
+div.form_value .select2-selection__rendered {
 	display: block !important;
 	white-space: normal !important;
 	overflow: visible !important;

@@ -4498,6 +4498,12 @@ $panel_js
 					 		menuWidth: 400,
 					 		selectedList: 1
 					 	}).multiselectfilter();
+					 	\$("select.filter:not(.multiselect)").select2({
+							width: '240px',
+							dropdownAutoWidth: true,
+							placeholder: '',
+							allowClear: false
+						});
 					 	setFilterTriggers();
          			} else {
          				if (\$("#" + element_names[fields] + row).hasClass('widelist')){
