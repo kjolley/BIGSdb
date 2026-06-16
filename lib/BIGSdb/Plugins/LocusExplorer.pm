@@ -60,7 +60,7 @@ sub get_attributes {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.tablesort' => 1 };
+	return { 'jQuery.tablesort' => 1, select2=>1 };
 }
 
 sub get_plugin_javascript {
@@ -212,9 +212,9 @@ sub _print_interface {
 	$q->param( function => 'snp' );
 	say $q->hidden($_) foreach qw (db page function name);
 	say q(<p>Please select locus for analysis:</p>);
-	say q(<p><b>Locus: </b>);
+	say q(<p><span class="query_block"><span class="label"><b>Locus:</b></span>);
 	say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $display_loci, -labels => $cleaned );
-	say q( <span class="comment">Page will reload when changed</span></p>);
+	say q( <span class="comment label">Page will reload when changed</span></span></p>);
 	my $desc_exists =
 	  $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM locus_descriptions WHERE locus=?)', $locus );
 

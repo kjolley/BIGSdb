@@ -85,17 +85,6 @@ sub get_javascript {
 		initiate();
 	});
 	initiate();
-	
-	\$("select#locus").select2({
-		width: '240px',
-		dropdownAutoWidth: true,
-		minimumResultsForSearch: 20
-	});
-	\$("select#order").select2({
-		minimumResultsForSearch: -1
-	});
-	
-
 	\$("#options_trigger").click(function(){
 		\$("fieldset#options").css("display", \$("#options_off").is(":visible") ? "block" : "none");
 		\$("#options_off").toggle();

@@ -21,9 +21,9 @@ package BIGSdb::Plugins::ProfileExport;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugin);
+use parent          qw(BIGSdb::Plugin);
 use List::MoreUtils qw(uniq);
-use Log::Log4perl qw(get_logger);
+use Log::Log4perl   qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 
 sub get_attributes {
@@ -56,6 +56,10 @@ sub get_attributes {
 		enabled_by_default => 1
 	);
 	return \%att;
+}
+
+sub get_initiation_values {
+	return { jQuery => 1, select2 => 1 };
 }
 
 sub run {

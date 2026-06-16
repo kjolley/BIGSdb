@@ -81,7 +81,11 @@ sub set_pref_requirements {
 
 sub get_initiation_values {
 	my ($self) = @_;
-	return { 'jQuery.jstree' => ( $self->{'system'}->{'dbtype'} eq 'isolates' ? 1 : 0 ), 'jQuery.multiselect' => 1 };
+	return {
+		'jQuery.jstree'      => ( $self->{'system'}->{'dbtype'} eq 'isolates' ? 1 : 0 ),
+		'jQuery.multiselect' => 1,
+		select2              => 1
+	};
 }
 
 sub run {
@@ -772,7 +776,7 @@ sub _output {
 		local $" = ', ';
 		$message_html = qq(<p>The following ids could not be processed (they do not exist): @$problem_ids.</p>\n);
 	}
-	if (ref $restricted_ids && @$restricted_ids) {
+	if ( ref $restricted_ids && @$restricted_ids ) {
 		local $" = ', ';
 		$message_html .= q(<p>The following profiles are restricted and have been excluded - )
 		  . qq(you need to log in to include these: @$restricted_ids.</p>\n);
@@ -838,7 +842,8 @@ sub _append_sequences {
 		$output_file = $aligned_file;
 	} elsif ( $params->{'align'} && $aligner eq 'MUSCLE' && -e $temp_file && -s $temp_file ) {
 		my $max_mb = $self->{'config'}->{'max_muscle_mb'} // MAX_MUSCLE_MB;
-		system( $self->{'config'}->{'muscle_path'},
+		system(
+			$self->{'config'}->{'muscle_path'},
 			-in    => $temp_file,
 			-out   => $aligned_file,
 			-maxmb => $max_mb,

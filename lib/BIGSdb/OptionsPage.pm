@@ -228,8 +228,11 @@ sub _print_general_options {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
 	my $prefs  = $self->{'prefs'};
-	say q(<h2><span class="fas fa-chevron-right" style="margin-right:1em"></span>General options</h2>)
-	  . q(<div class="options"><div class="scrollable">);
+	say q(<h2>);
+	if ( ( $self->{'system'}->{'dbtype'} // q() ) eq 'isolates' ) {
+		say q(<span class="fas fa-chevron-right" style="margin-right:1em"></span>);
+	}
+	say q(General options</h2><div class="options"><div class="scrollable">);
 	say q(<ul id="general">);
 	say q(<li><span style="white-space:nowrap"><label for="displayrecs">Display </label>);
 	say $q->popup_menu(
