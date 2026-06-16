@@ -2913,16 +2913,15 @@ sub _print_update_button {
 	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
 	say q(<div style="float:right">);
-	if ( $options->{'mark_all'} ) {
-		say q(<span style="margin-right:1em">)
-		  . q(Mark all: <input type="button" onclick='status_markall("pending")' )
-		  . q(value="Pending" class="small_reset" /><input type="button" )
-		  . q(onclick='status_markall("rejected")' value="Rejected" class="small_reset" />)
-		  . q(</span>);
-	}
-	my $values = $options->{'no_accepted'} ? [qw(pending rejected)] : [qw(pending accepted rejected)];
 	say q(<span class="query_block">);
+	if ( $options->{'mark_all'} ) {
+		say q(<span class="label">Mark all:</span><input type="button" onclick='status_markall("pending")' )
+		  . q(value="Pending" class="small_reset" /><input type="button" )
+		  . q(onclick='status_markall("rejected")' value="Rejected" class="small_reset" />);
+	}
+
 	if ( $options->{'record_status'} ) {
+		my $values = $options->{'no_accepted'} ? [qw(pending rejected)] : [qw(pending accepted rejected)];
 		say q(<label for="record_status" class="label">Record status:</label>);
 		say $q->popup_menu(
 			-name  => 'record_status',
