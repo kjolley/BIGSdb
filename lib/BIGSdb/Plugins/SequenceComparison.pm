@@ -56,7 +56,7 @@ sub get_attributes {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.tablesort' => 1, 'jQuery.multiselect' => 1 };
+	return { 'jQuery.tablesort' => 1, select2 => 1 };
 }
 
 sub run {
@@ -244,12 +244,6 @@ sub get_plugin_javascript {
 		\$("#alignment_link").show();
 		\$("#hide_alignment_link").hide();
 	})
-  	\$('#locus').multiselect({
- 		classes: 'filter',
- 		menuHeight: 350,
- 		menuWidth: 400,
- 		selectedList: 1,
-  	}).multiselectfilter();
 });
 
 function loadContent(url) {
