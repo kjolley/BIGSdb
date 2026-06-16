@@ -1894,7 +1894,8 @@ sub _print_annotation_status_fields {
 		-id     => "annotation_status_field$row",
 		-values => [ q(), @$fields ],
 		-labels => $labels,
-		-class  => 'fieldlist'
+		-class  => 'fieldlist',
+		-style  => 'width:240px'
 	);
 	my $values = [ q(), qw(good bad intermediate) ];
 	say $q->popup_menu(
