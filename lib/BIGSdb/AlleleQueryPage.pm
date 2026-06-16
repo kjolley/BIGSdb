@@ -373,13 +373,12 @@ sub _print_mutation_fields {
 			}
 		}
 	}
-	say q(<span style="white-space:nowrap">);
-	say $self->popup_menu(
+	say q(<span class="query_block">);
+	say $q->popup_menu(
 		-name   => "mutation$row",
 		-id     => "mutation$row",
 		-values => [ q(), @values ],
 		-labels => $labels,
-		-class  => 'fieldlist'
 	);
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
