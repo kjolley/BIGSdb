@@ -51,7 +51,7 @@ sub get_javascript_panel {
 	my $button_text_js;
 	my $new_url    = 'this.href';
 	my %clear_form = (
-		list       => q[$("#list").val('')],
+		list       => q[$("#list").val('').trigger],
 		filters    => qq[\$('.multiselect').multiselect("uncheckAll")\n] . q[          $('[id$="_list"]').val('')],
 		provenance => q[$('[id^="prov_value"]').val('')],
 		phenotypic => q[$('[id^="phenotypic_value"]').val('')],
@@ -109,11 +109,12 @@ $clear_form_values
 	\$(".fieldset_trigger").click(function(event) {
 		let fieldset = this.id.replace('show_','');
 		event.preventDefault();
-		if(\$(this).html() == hide){
+		let value = \$(this).html();
+		if(value.includes(show)){
 			clear_form[fieldset]();
 		}
 		\$("#" + fieldset + "_fieldset").toggle(100);
-		let value = \$(this).html();
+		
 		if (value.includes(hide)){
 			\$(this).html(value.replace(hide,show));
 		} else if (value.includes(show)){
