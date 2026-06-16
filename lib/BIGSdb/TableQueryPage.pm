@@ -1598,15 +1598,15 @@ sub _print_list_fieldset {
 	say qq(<fieldset id="list_fieldset" style="float:left;display:$display"><legend>Attribute values list</legend>);
 	say q(Field:);
 	say $q->popup_menu( -name => 'attribute', -values => $field_list );
-	say q(<br />);
+	say q(<div>);
 	say $q->textarea(
 		-name        => 'list',
 		-id          => 'list',
 		-rows        => 6,
-		-style       => 'width:100%',
+		-style       => 'width:100%; margin-top:2px',
 		-placeholder => 'Enter list of values (one per line)...'
 	);
-	say q(</fieldset>);
+	say q(</div></fieldset>);
 	return;
 }
 

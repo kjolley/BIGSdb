@@ -1894,7 +1894,7 @@ sub _print_annotation_status_fields {
 		-id     => "annotation_status_field$row",
 		-values => [ q(), @$fields ],
 		-labels => $labels,
-		-class  => 'fieldlist',
+		-class  => 'widelist',
 		-style  => 'width:240px'
 	);
 	my $values = [ q(), qw(good bad intermediate) ];
@@ -4434,7 +4434,8 @@ $panel_js
 			query_fields = {
 				show_provenance: 'prov_field1',
 				show_phenotypic: 'phenotypic_field1',
-				show_analysis: 'analysis_field1'
+				show_analysis: 'analysis_field1',
+				show_annotation_status: 'annotation_status_field1'
 			}
 			if (\$('#' + query_fields[this.id]).hasClass('widelist')){
 				render_widelists('#' + query_fields[this.id]);
@@ -4475,6 +4476,7 @@ $panel_js
 	       	if (row == null){
 	       		row = 1;
 	        }
+	        console.log(fieldset);
          	if (fieldset != null){
          		let element_names = {
          			allele_designations: "designation_field",
@@ -4484,7 +4486,8 @@ $panel_js
          			tag_count: "tag_count_field",
           			list: "attribute",
          			filters: "filters",
-         			phenotypic: "phenotypic_field"
+         			phenotypic: "phenotypic_field",
+         			annotation_status: "annotation_status_field"
          		};
          		if (element_names[fieldset]){        			
          			if (fieldset === 'list'){
@@ -4506,8 +4509,8 @@ $panel_js
 						});
 					 	setFilterTriggers();
          			} else {
-         				if (\$("#" + element_names[fields] + row).hasClass('widelist')){
-         					render_widelists(\$("#" + element_names[fields] + row));
+         				if (\$("#" + element_names[fieldset] + row).hasClass('widelist')){
+          					render_widelists(\$("#" + element_names[fieldset] + row));
          				} else if (\$('#' + element_names[fieldset] + row + ' > option').length <= $max_list_render_size){
 			        		render_locuslists("#" + element_names[fieldset] + row);
          				}
@@ -4646,7 +4649,7 @@ function render_locuslists(selector){
 }
 
 function render_widelists(selector){
-	\$(selector).filter(':visible').select2({
+	\$(selector).not('.select2-hidden-accessible').filter(':visible').select2({
 		width: '240px',
 		dropdownAutoWidth: true,
 		placeholder: '',
