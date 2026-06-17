@@ -948,7 +948,8 @@ sub _print_analysis_fields {
 		-labels => $labels,
 		-class  => 'fieldlist'
 	);
-	say $q->popup_menu( -name => "analysis_operator$row", -values => [OPERATORS] );
+	say $q->popup_menu( -name => "analysis_operator$row", -id => "analysis_operator$row", -values => [OPERATORS] )
+	  ;
 	say $q->textfield(
 		-name        => "analysis_value$row",
 		-id          => "analysis_value$row",
@@ -1970,7 +1971,7 @@ sub _get_assembly_check_values {
 sub _print_assembly_checks_fields {
 	my ( $self, $row, $max_rows ) = @_;
 	my $q = $self->{'cgi'};
-	say q(<span style="white-space:nowrap">);
+	say q(<span class="query_block">);
 	my @values = ( 'any', 'all' );
 	my $checks = $self->_get_assembly_check_values;
 	foreach my $value (qw(contigs size n50 gc ns gaps)) {

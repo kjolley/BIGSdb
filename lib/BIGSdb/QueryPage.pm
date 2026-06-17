@@ -51,37 +51,40 @@ sub get_javascript_panel {
 	my $button_text_js;
 	my $new_url    = 'this.href';
 	my %clear_form = (
-		list       => q[$("#list").val('').trigger],
-		filters    => qq[\$('.multiselect').multiselect("uncheckAll")\n] . q[          $('[id$="_list"]').val('')],
-		provenance => q[$('[id^="prov_value"]').val('')],
-		phenotypic => q[$('[id^="phenotypic_value"]').val('')],
-		allele     => q[$('[id^="value"]').val('')],
-		mutations  => q[$('[id^="mutation_value"]').val('')],
-		scheme     => q[$('[id^="value"]').val('')],
+		list    => q[$("#list").val('').trigger],
+		filters => qq[\$('.multiselect').multiselect("uncheckAll")\n]
+		  . q[          $('[id$="_list"]').val('').change()],
+		provenance          => q[$('[id^="prov_value"]').val('')],
+		phenotypic          => q[$('[id^="phenotypic_value"]').val('')],
+		allele              => q[$('[id^="value"]').val('')],
+		mutations           => q[$('[id^="mutation_value"]').val('')],
+		scheme              => q[$('[id^="value"]').val('')],
 		allele_designations => q[$('select[id^="designation_field"]').val('').change(),]
-		  . q[$('[id^="designation_operator"]').val(''),]
+		  . q[$('[id^="designation_operator"]').val('=').change(),]
 		  . q[$('[id^="designation_value"]').val('')],
-		sequence_variation => q[$('[id^="sequence_variation"]').val('')],
+		sequence_variation => q[$('[id^="sequence_variation"]').val('').change()],
 		allele_count       => q[$('select[id^="allele_count_field"]').val('').change(),]
-		  . q[$('[id^="allele_count_operator"]').val(''),]
+		  . q[$('[id^="allele_count_operator"]').val('>').change(),]
 		  . q[$('[id^="allele_count_value"]').val('')],
 		allele_status => q[$('select[id^="allele_status_field"]').val('').change(),]
-		  . q[$('[id^="allele_status_value"]').val('')],
-		tags      => q[$('select[id^="tag_field"]').val('').change(),] . q[$('[id^="tag_value"]').val('')],
+		  . q[$('[id^="allele_status_value"]').val('').change()],
+		tags      => q[$('select[id^="tag_field"]').val('').change(),] . q[$('[id^="tag_value"]').val('').change()],
 		tag_count => q[$('select[id^="tag_count_field"]').val('').change(),]
-		  . q[$('[id^="tag_count_operator"]').val(''),]
+		  . q[$('[id^="tag_count_operator"]').val('>').change(),]
 		  . q[$('[id^="tag_count_value"]').val('')],
 		,
-		analysis => q[$('select[id^="analysis_field"]').val(''),]
-		  . q[$('[id^="analysis_operator"]').val(''),]
+		analysis => q[$('select[id^="analysis_field"]').val('').change(),]
+		  . q[$('select[id^="analysis_operator"]').val('=').change(),]
 		  . q[$('[id^="analysis_value"]').val('')],
-		seqbin            => q[$('[id^="seqbin_value"]').val('');$('[id^="seqbin_field"]').val('')],
-		assembly_checks   => q[$('[id^="assembly_checks_value"]').val('');$('[id^="assembly_checks_field"]').val('')],
-		annotation_status =>
-		  q[$('[id^="annotation_status_value"]').val('');$('[id^="annotation_status_field"]').val('')],
-		scheme            => q[$('[id^="t"]').val('')],
-		allele_properties => q[$('select[id^="ap_field"]').val('').change(),]
-		  . q[$('[id^="ap_operator"]').val(''),]
+		seqbin => q[$('[id^="seqbin_value"]').val('');$('[id^="seqbin_field"]').val('').change();]
+		  . q[$('[id^="seqbin_operator"]').val('>').change()],
+		assembly_checks => q[$('[id^="assembly_checks_value"]').val('').change();]
+		  . q[$('[id^="assembly_checks_field"]').val('').change()],
+		annotation_status => q[$('[id^="annotation_status_value"]').val('').change();]
+		  . q[$('[id^="annotation_status_field"]').val('').change()],
+		scheme                => q[$('[id^="t"]').val('')],
+			allele_properties => q[$('select[id^="ap_field"]').val('').change(),]
+		  . q[$('[id^="ap_operator"]').val('='.change(),]
 		  . q[$('[id^="ap_value"]').val('')],
 	);
 	my @clear_form_directives;
@@ -95,8 +98,7 @@ sub get_javascript_panel {
 	foreach my $fieldset (@fieldsets) {
 		$button_text_js .=
 			qq(        let $fieldset; if (\$("#show_$fieldset").length){$fieldset = )
-		  . qq(\$("#show_$fieldset").html().includes(show) ? 0 : 1;}\n)
-		  ;
+		  . qq(\$("#show_$fieldset").html().includes(show) ? 0 : 1;}\n);
 		$new_url .= qq( + "\&$fieldset=" + $fieldset);
 	}
 	my $buffer = <<"END";
