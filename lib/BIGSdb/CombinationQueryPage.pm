@@ -20,7 +20,7 @@ package BIGSdb::CombinationQueryPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::QueryPage);
+use parent        qw(BIGSdb::QueryPage);
 use Log::Log4perl qw(get_logger);
 use Try::Tiny;
 my $logger = get_logger('BIGSdb.Page');
@@ -133,7 +133,7 @@ sub _get_show_common_names_button {
 
 sub get_javascript {
 	my ($self) = @_;
-	my $buffer   = $self->SUPER::get_javascript;
+	my $buffer = $self->SUPER::get_javascript;
 	$buffer .= << "END";
 \$(function () {
 	\$( "#show_common_names" ).click(function() {
@@ -148,6 +148,12 @@ sub get_javascript {
 		set_profile_widths();
 	});
 	\$("dl.profile input").css("border","0");
+	\$("select#project_list").select2({
+		minimumResultsForSearch: 0,
+		dropdownAutoWidth: true,
+	});
+	\$('.select2-selection__choice').removeAttr('title');
+	\$('.select2-selection__rendered').removeAttr('title');
 });
 function set_profile_widths(){
 	\$("dl.profile dt").css("width","auto").css("max-width","none");
@@ -246,7 +252,7 @@ sub _print_interface {
 		say qq(<fieldset id="autofill_fieldset" style="float:left"><legend>Autofill profile$remote</legend><ul>);
 		my $first = 1;
 		say qq(<li><span class="query_block"><label for="$primary_key" class="label">$primary_key:</label>);
-		say $q->textfield( -name => $primary_key, -id => $primary_key, -class => 'allele_entry' );
+		say $q->textfield( -name => $primary_key, -id => $primary_key, -style => 'width:100px' );
 		say $q->submit( -name => 'Autofill', -class => 'small_submit' ) if $first;
 		$first = 0;
 		say q(</span></li>);
@@ -272,7 +278,7 @@ sub _print_interface {
 	$labels{ scalar @$loci } = q(Exact match only);
 	say q(<div class="form_container">);
 	say $self->get_filter( 'matches', \@values,
-		{ labels => \%labels, text => 'Search', noblank => 1, grid=>1, class => '' } );
+		{ labels => \%labels, text => 'Search', noblank => 1, grid => 1, class => '' } );
 	say q(</div></fieldset>);
 	say q(<fieldset id="display_fieldset" style="float:left"><legend>Display/sort options</legend>);
 	say q(<ul><li><span class="query_block"><label for="order" class="display label">Order by: </label>);
