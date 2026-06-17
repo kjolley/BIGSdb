@@ -1207,7 +1207,8 @@ sub _print_filters_fieldset_contents {
 			-id     => 'new_filter',
 			-values => $list,
 			-labels => $labels,
-			-style  => 'max-width:240px'
+			-class  => 'do_not_calc_width',
+			-style  => 'width:240px'
 		);
 		say q( <a id="add_filter" class="small_submit">Add</a>);
 		say q(</span></div>);
