@@ -218,7 +218,8 @@ sub _print_filter_fieldset {
 			);
 			next if !@$values;
 			my $a_or_an = substr( $field, 0, 1 ) =~ /[aeiouAEIOU]/x ? 'an' : 'a';
-			push @filters, $self->get_filter(
+			push @filters,
+			  $self->get_filter(
 				$field, $values,
 				{
 					text    => $field,
@@ -228,7 +229,7 @@ sub _print_filter_fieldset {
 					class => 'do_not_calc_width',
 					style => 'width:240px'
 				}
-			);
+			  );
 		}
 	}
 	if (@filters) {
@@ -272,7 +273,13 @@ sub _print_scheme_fields {
 		-labels => $labels,
 		-class  => 'locuslist'
 	);
-	say $q->popup_menu( -name => "y$row", -values => [OPERATORS] );
+	say $q->popup_menu(
+		-name   => "y$row",
+		-id => "y$row",
+		-values => [OPERATORS],
+		-style  => 'width:120px',
+		-class  => 'do_not_calc_width'
+	);
 	say $q->textfield( -name => "t$row", -id => "t$row", -class => 'value_entry' );
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;

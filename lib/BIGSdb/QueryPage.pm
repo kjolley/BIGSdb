@@ -68,7 +68,7 @@ sub get_javascript_panel {
 		  . q[$('[id^="allele_count_value"]').val('')],
 		allele_status => q[$('select[id^="allele_status_field"]').val('').change(),]
 		  . q[$('[id^="allele_status_value"]').val('').change()],
-		tags      => q[$('select[id^="tag_field"]').val('').change(),] . q[$('[id^="tag_value"]').val('').change()],
+		tags      => q[$('select[id^="tag_field"]').val('').change(),$('[id^="tag_value"]').val('').change()],
 		tag_count => q[$('select[id^="tag_count_field"]').val('').change(),]
 		  . q[$('[id^="tag_count_operator"]').val('>').change(),]
 		  . q[$('[id^="tag_count_value"]').val('')],
@@ -82,9 +82,9 @@ sub get_javascript_panel {
 		  . q[$('[id^="assembly_checks_field"]').val('').change()],
 		annotation_status => q[$('[id^="annotation_status_value"]').val('').change();]
 		  . q[$('[id^="annotation_status_field"]').val('').change()],
-		scheme                => q[$('[id^="t"]').val('')],
-			allele_properties => q[$('select[id^="ap_field"]').val('').change(),]
-		  . q[$('[id^="ap_operator"]').val('='.change(),]
+		scheme            => q[$('[id^="t"]').val('');$('[id^="y"]').val('=').change()],
+		allele_properties => q[$('select[id^="ap_field"]').val('').change(),]
+		  . q[$('[id^="ap_operator"]').val('=').change(),]
 		  . q[$('[id^="ap_value"]').val('')],
 	);
 	my @clear_form_directives;

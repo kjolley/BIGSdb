@@ -212,8 +212,19 @@ sub _print_allele_fields {
 	my ( $self, $locus, $row, $max_rows, $select_items, $labels ) = @_;
 	my $q = $self->{'cgi'};
 	say q(<span class="query_block">);
-	say $q->popup_menu( -name => "field$row", -values => $select_items, -labels => $labels, -class => 'fieldlist' );
-	say $q->popup_menu( -name => "operator$row", -values => [OPERATORS] );
+	say $q->popup_menu(
+		-name   => "field$row",
+		-values => $select_items,
+		-labels => $labels,
+		-style  => 'width:180px',
+		-class  => 'do_not_calc_width'
+	);
+	say $q->popup_menu(
+		-name   => "operator$row",
+		-values => [OPERATORS],
+		-style  => 'width:120px',
+		-class  => 'do_not_calc_width'
+	);
 	say $q->textfield( -name => "value$row", -id => "value$row", -class => 'value_entry' );
 	if ( $row == 1 ) {
 		$locus //= '';
