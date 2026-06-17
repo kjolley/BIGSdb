@@ -633,7 +633,8 @@ sub _print_sequence_variation_fields {
 		-id     => "sequence_variation$row",
 		-values => [ q(), @values ],
 		-labels => $labels,
-		-class  => 'fieldlist'
+		-style  => 'width:240px',
+		-class  => 'do_not_calc_width'
 	);
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
@@ -946,9 +947,16 @@ sub _print_analysis_fields {
 		-id     => "analysis_field$row",
 		-values => $values,
 		-labels => $labels,
-		-class  => 'fieldlist'
+		-style  => 'width:200px',
+		-class  => 'do_not_calc_width'
 	);
-	say $q->popup_menu( -name => "analysis_operator$row", -id => "analysis_operator$row", -values => [OPERATORS] );
+	say $q->popup_menu(
+		-name   => "analysis_operator$row",
+		-id     => "analysis_operator$row",
+		-values => [OPERATORS],
+		-style  => 'width:120px',
+		-class  => 'do_not_calc_width'
+	);
 	say $q->textfield(
 		-name        => "analysis_value$row",
 		-id          => "analysis_value$row",
@@ -1574,7 +1582,12 @@ sub _print_provenance_fields {
 		-labels => $labels,
 		-class  => "fieldlist$class",
 	);
-	say $q->popup_menu( -name => "prov_operator$row", -values => [OPERATORS] );
+	say $q->popup_menu(
+		-name   => "prov_operator$row",
+		-values => [OPERATORS],
+		-style  => 'width:120px',
+		-class  => 'do_not_calc_width'
+	);
 	say $q->textfield(
 		-name        => "prov_value$row",
 		-id          => "prov_value$row",
@@ -1633,7 +1646,13 @@ sub _print_phenotypic_fields {
 		-labels => $labels,
 		-class  => "fieldlist$class"
 	);
-	say $q->popup_menu( -name => "phenotypic_operator$row", -values => [OPERATORS] );
+	say $q->popup_menu(
+		-name   => "phenotypic_operator$row",
+		-id     => "phenotypic_operator$row",
+		-values => [OPERATORS],
+		-style  => 'width:120px',
+		-class  => 'do_not_calc_width'
+	);
 	say $q->textfield(
 		-name        => "phenotypic_value$row",
 		-id          => "phenotypic_value$row",
@@ -1704,7 +1723,9 @@ sub _print_allele_status_fields {
 		-name   => "allele_status_value$row",
 		-id     => "allele_status_value$row",
 		-values => $values,
-		-labels => \%labels
+		-labels => \%labels,
+		-style  => 'width:120px',
+		-class  => 'do_not_calc_width'
 	);
 
 	if ( $row == 1 ) {
@@ -1737,7 +1758,13 @@ sub _print_allele_count_fields {
 		-class  => $class
 	);
 	my $values = [ '>', '<', '=' ];
-	say $q->popup_menu( -name => "allele_count_operator$row", -id => "allele_count_operator$row", -values => $values );
+	say $q->popup_menu(
+		-name   => "allele_count_operator$row",
+		-id     => "allele_count_operator$row",
+		-values => $values,
+		-style  => 'width:60px',
+		-class  => 'do_not_calc_width'
+	);
 	my %args = (
 		-name        => "allele_count_value$row",
 		-id          => "allele_count_value$row",
@@ -1778,6 +1805,8 @@ sub _print_loci_fields {
 		-name   => "designation_operator$row",
 		-id     => "designation_operator$row",
 		-values => [OPERATORS],
+		-style  => 'width:120px',
+		-class  => 'do_not_calc_width'
 	);
 	say $q->textfield(
 		-name        => "designation_value$row",
@@ -1816,7 +1845,14 @@ sub _print_locus_tag_fields {
 	push @values, "flagged: $_" foreach ( 'any', 'none', SEQ_FLAGS );
 	unshift @values, '';
 	my %labels = ( '' => ' ' );    #Required for HTML5 validation.
-	say $q->popup_menu( -name => "tag_value$row", -id => "tag_value$row", values => \@values, -labels => \%labels );
+	say $q->popup_menu(
+		-name   => "tag_value$row",
+		-id     => "tag_value$row",
+		values  => \@values,
+		-labels => \%labels,
+		-style  => 'width:240px',
+		-class  => 'do_not_calc_width'
+	);
 
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
@@ -1848,7 +1884,13 @@ sub _print_tag_count_fields {
 		-class  => $class
 	);
 	my $values = [ '>', '<', '=' ];
-	say $q->popup_menu( -name => "tag_count_operator$row", -id => "tag_count_operator$row", -values => $values );
+	say $q->popup_menu(
+		-name   => "tag_count_operator$row",
+		-id     => "tag_count_operator$row",
+		-values => $values,
+		-style  => 'width:60px',
+		-class  => 'do_not_calc_width'
+	);
 	my %args = (
 		-name        => "tag_count_value$row",
 		-id          => "tag_count_value$row",
@@ -1903,7 +1945,9 @@ sub _print_annotation_status_fields {
 	say $q->popup_menu(
 		-name   => "annotation_status_value$row",
 		-id     => "annotation_status_value$row",
-		-values => $values
+		-values => $values,
+		-style  => 'width:120px',
+		-class  => 'do_not_calc_width'
 	);
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
@@ -1932,10 +1976,18 @@ sub _print_seqbin_fields {
 		-id     => "seqbin_field$row",
 		-values => [ q(), @values ],
 		-labels => { size => 'total length (Mbp)', contigs => 'number of contigs', percent_GC => '%GC', N => 'Ns' },
-		-class  => 'fieldlist'
+		-class  => 'fieldlist',
+		-style  => 'width:160px',
+		-class  => 'do_not_calc_width'
 	);
 	my $values = [ '>', '>=', '<', '<=', '=' ];
-	say $q->popup_menu( -name => "seqbin_operator$row", -id => "seqbin_operator$row", -values => $values );
+	say $q->popup_menu(
+		-name   => "seqbin_operator$row",
+		-id     => "seqbin_operator$row",
+		-values => $values,
+		-style  => 'width:60px',
+		-class  => 'do_not_calc_width'
+	);
 	my %args = (
 		-name        => "seqbin_value$row",
 		-id          => "seqbin_value$row",
@@ -2000,7 +2052,8 @@ sub _print_assembly_checks_fields {
 		-id     => "assembly_checks_field$row",
 		-values => [ q(), @values ],
 		-labels => $labels,
-		-class  => 'fieldlist'
+		-style  => 'width:170px',
+		-class  => 'do_not_calc_width'
 	);
 	my $values = [ q(), qw(pass warn pass/warn warn/fail fail) ];
 	$labels = {
@@ -2013,7 +2066,9 @@ sub _print_assembly_checks_fields {
 		-name   => "assembly_checks_value$row",
 		-id     => "assembly_checks_value$row",
 		-values => $values,
-		-labels => $labels
+		-labels => $labels,
+		-style  => 'width:250px',
+		-class  => 'do_not_calc_width'
 	);
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
@@ -4494,7 +4549,7 @@ $panel_js
          		if (element_names[fieldset]){        			
          			if (fieldset === 'list'){
          				if (\$('#attribute > option').length <= $max_list_render_size){
-          					render_locuslists("#attribute");
+          					render_locuslists("#attribute",false);
          				}
          			} else if (fieldset === 'filters'){
          				\$('.multiselect').multiselect({
@@ -4531,7 +4586,8 @@ $panel_js
          		} else {
          			element_names = {
          				provenance: "prov_field",
-         				phenotypic: "phenotypic_field"
+         				phenotypic: "phenotypic_field",
+         				annotation_status: "annotation_status_field"
          			}
           			if (\$("#" + element_names[fields] + row).hasClass('widelist')){
          				render_widelists(\$("#" + element_names[fields] + row));
@@ -4641,12 +4697,12 @@ function render_loaded_widelists() {
 	render_widelists("select.widelist");
 }
 
-function render_locuslists(selector){
+function render_locuslists(selector, allowClear=true){
 	\$(selector).filter(':visible').select2({
 		width: '240px',
 		dropdownAutoWidth: true,
 		placeholder: '',
-		allowClear: true
+		allowClear: allowClear
 	});
 }
 
