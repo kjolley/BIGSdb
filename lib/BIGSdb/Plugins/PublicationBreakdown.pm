@@ -59,6 +59,10 @@ sub get_attributes {
 	return \%att;
 }
 
+sub get_initiation_values {
+	return { jQuery => 1, select2 => 1 };
+}
+
 sub set_pref_requirements {
 	my ($self) = @_;
 	$self->{'pref_requirements'} =
@@ -99,19 +103,26 @@ sub run {
 		say $q->hidden($_) foreach qw (db name page all_records query_file list_file datatype temp_table_file);
 		say q(<fieldset style="float:left"><legend>Filter query by</legend>);
 		my $author_list = $self->_get_author_list;
-		say q(<ul><li><label for="author_list" class="display">Author:</label>);
+		say q(<div class="form_container">);
+		say q(<div class="form_label"><label for="author_list">Author:</label></div>);
+		say q(<div class="form_value">);
 		say $q->popup_menu( -name => 'author_list', -id => 'author_list', -values => $author_list );
-		say q(</li><li><label for="year_list" class="display">Year:</label>);
+		say q(</div>);
+		say q(<div class="form_label"><label for="year_list">Year:</label></div>);
+
 		my $year_list =
 		  $self->{'datastore'}
 		  ->run_query( 'SELECT DISTINCT year FROM temp_refs ORDER BY year', undef, { fetch => 'col_arrayref' } );
 		unshift @$year_list, 'All years';
+		say q(<div class="form_value">);
 		say $q->popup_menu( -name => 'year_list', -id => 'year_list', -values => $year_list );
-		say q(</li></ul></fieldset>);
+		say q(</div></div></fieldset>);
 		say q(<fieldset style="float:left"><legend>Display</legend>);
-		say q(<ul><li><label for="order" class="display">Order by: </label>);
+		say q(<div class="form_container">);
+		say q(<div class="form_label"><label for="order">Order by:</label></div>);
 		my %labels     = ( pmid => 'Pubmed id', first_author => 'first author', isolates => 'number of isolates' );
 		my @order_list = qw(pmid authors year title isolates);
+		say q(<div class="form_value">);
 		say $q->popup_menu(
 			-name    => 'order',
 			-id      => 'order',
@@ -125,15 +136,17 @@ sub run {
 			-labels  => { asc => 'ascending', desc => 'descending' },
 			-default => 'desc'
 		);
-		say q(</li><li><label for="displayrecs" class="display">Display: </label>);
+		say q(</div>);
+		say q(<div class="form_label"><label for="displayrecs">Display:</label></div>);
 		$self->{'prefs'}->{'displayrecs'} = $q->param('displayrecs') if $q->param('displayrecs');
+		say q(<div class="form_value">);
 		say $q->popup_menu(
 			-name    => 'displayrecs',
 			-id      => 'displayrecs',
 			-values  => [qw (10 25 50 100 200 500 all)],
 			-default => $self->{'prefs'}->{'displayrecs'}
 		);
-		say q( records per page</li></ul></fieldset>);
+		say q(<span class="label">records per page</span></div></div></fieldset>);
 		$self->print_action_fieldset( { no_reset => 1 } );
 		say $q->end_form;
 		say q(</div>);
