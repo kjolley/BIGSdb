@@ -357,8 +357,17 @@ sub _print_project_add_function {
 	say q(<div id="project_section" style="margin-top:1em;display:none">);
 	my $hidden_attributes = $self->get_hidden_attributes;
 	say $q->start_form;
-	say $q->popup_menu( -id => 'project', -name => 'project', -values => $project_ids, -labels => $labels );
+	say q(<span class="query_block">);
+	say $q->popup_menu(
+		-id     => 'project',
+		-name   => 'project',
+		-values => $project_ids,
+		-labels => $labels,
+		-style  => 'width:240px',
+		-class  => 'do_not_calc_width'
+	);
 	say $q->submit( -name => 'add_to_project', -label => 'Add these records', -class => 'small_submit' );
+	say q(</span>);
 	say $q->hidden($_) foreach qw (db query_file temp_table_file table page);
 
 	#Using print instead of say prevents blank line if attribute not set.
@@ -408,6 +417,7 @@ sub _print_add_bookmark_function {
 	#Using print instead of say prevents blank line if attribute not set.
 	print $q->hidden($_) foreach @$hidden_attributes;
 	say q(Bookmark name:<br />);
+	say q(<span class="query_block">);
 	say $q->textfield(
 		-id          => 'bookmark',
 		-name        => 'bookmark',
@@ -419,6 +429,7 @@ sub _print_add_bookmark_function {
 	say $q->submit( -name => 'add_bookmark', -label => 'Add bookmark', -class => 'small_submit' );
 	say qq(<span class="flash_message" style="margin-left:2em">$self->{'bookmark_add_message'}</span>)
 	  if $self->{'bookmark_add_message'};
+	say q(</span>);
 	say $q->end_form;
 	say q(</div>);
 	say q(</fieldset>);
