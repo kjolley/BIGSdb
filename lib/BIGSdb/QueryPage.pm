@@ -53,7 +53,7 @@ sub get_javascript_panel {
 	my %clear_form = (
 		list    => q[$("#list").val('').trigger],
 		filters => qq[\$('.multiselect').multiselect("uncheckAll")\n]
-		  . q[          $('[id$="_list"]').val('').change()],
+		  . q[          $('[id$="_list"]').val('').change(),$('[id$="new_filter"]').val('').change()],
 		provenance          => q[$('[id^="prov_value"]').val('')],
 		phenotypic          => q[$('[id^="phenotypic_value"]').val('')],
 		allele              => q[$('[id^="value"]').val('')],
