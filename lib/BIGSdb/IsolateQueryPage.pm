@@ -948,8 +948,7 @@ sub _print_analysis_fields {
 		-labels => $labels,
 		-class  => 'fieldlist'
 	);
-	say $q->popup_menu( -name => "analysis_operator$row", -id => "analysis_operator$row", -values => [OPERATORS] )
-	  ;
+	say $q->popup_menu( -name => "analysis_operator$row", -id => "analysis_operator$row", -values => [OPERATORS] );
 	say $q->textfield(
 		-name        => "analysis_value$row",
 		-id          => "analysis_value$row",
@@ -1242,8 +1241,15 @@ sub _print_modify_search_fieldset {
 		say q(<h3>Assembly</h3><ul class="toggle">);
 		my $seqbin_fieldset_display = $self->_should_display_fieldset('seqbin') ? ON : OFF;
 		say qq(<li class="fieldset_trigger" id="show_seqbin">$seqbin_fieldset_display);
-		say q(Sequence bin properties</li></ul>);
+		say q(Sequence bin properties</li>);
+		if ( $self->{'assembly_checks_fieldset_exists'} ) {
+			my $assembly_checks_fieldset_display = $self->_should_display_fieldset('assembly_checks') ? ON : OFF;
+			say qq(<li class="fieldset_trigger" id="show_assembly_checks">$assembly_checks_fieldset_display);
+			say q(Assembly checks</li>);
+		}
+		say q(</ul>);
 	}
+
 	say q(<h3>Schemes/Loci</h3><ul class="toggle">);
 	my $allele_designations_fieldset_display = $self->_should_display_fieldset('allele_designations') ? ON : OFF;
 	say qq(<li class="fieldset_trigger" id="show_allele_designations">$allele_designations_fieldset_display);
@@ -1274,11 +1280,6 @@ sub _print_modify_search_fieldset {
 		say q(Annotation status</li>);
 	}
 
-	if ( $self->{'assembly_checks_fieldset_exists'} ) {
-		my $assembly_checks_fieldset_display = $self->_should_display_fieldset('assembly_checks') ? ON : OFF;
-		say qq(<li class="fieldset_trigger" id="show_assembly_checks">$assembly_checks_fieldset_display);
-		say q(Assembly checks</li>);
-	}
 	say q(</ul>);
 	if ( $self->{'analysis_fieldset_exists'} ) {
 		say q(<h3>Analysis</h3><ul class="toggle">);

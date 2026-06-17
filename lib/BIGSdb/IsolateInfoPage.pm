@@ -2776,6 +2776,8 @@ sub _get_min_max_check_results {
 					status  => $results->{$check}->{'status'} // 'passed'
 				};
 			}
+		} else {
+			return;
 		}
 	}
 	return {
