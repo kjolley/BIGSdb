@@ -320,6 +320,15 @@ sub _field_has_optlist {
 	return;
 }
 
+sub _is_country_field {
+	my ( $self, $field ) = @_;
+	if ( $field =~ /^f_(.*)/x ) {
+		my $attributes = $self->{'xmlHandler'}->get_field_attributes($1);
+		return 1 if ($attributes->{'country_field'} // q()) eq 'yes';
+	}
+	return;
+}
+
 sub _field_linked_to_gps {
 	my ( $self, $field ) = @_;
 	if ( $field =~ /^f_(.*)/x ) {
@@ -396,8 +405,14 @@ sub _print_chart_type_controls {
 	if ( $self->_field_linked_to_gps( $element->{'field'} ) ) {
 		push @$breakdown_charts, 'gps_map';
 	}
-	if ( ( $element->{'field'} eq 'f_country' || $element->{'field'} eq 'e_country||continent' )
-		&& $self->has_country_optlist )
+	if (
+		(
+			   $element->{'field'} eq 'f_country'
+			|| $element->{'field'} eq 'e_country||continent'
+			|| $self->_is_country_field( $element->{'field'} )
+		)
+		&& $self->has_country_optlist
+	  )
 	{
 		push @$breakdown_charts, 'map';
 	}
@@ -3821,8 +3836,9 @@ sub _get_field_breakdown_map_content {
 		return $self->_print_no_value_content($element);
 	}
 	my $countries = dclone(COUNTRIES);
+	my $is_country_field = $element->{'field'} eq 'f_country' || $self->_is_country_field($element->{'field'});
 	foreach my $value (@$data) {
-		if ( $element->{'field'} eq 'f_country' ) {
+		if ( $is_country_field ) {
 			$value->{'iso3'} =
 			  defined $value->{'label'}
 			  ? $countries->{ $value->{'label'} }->{'iso3'} // q(XXX)
@@ -3841,9 +3857,9 @@ sub _get_field_breakdown_map_content {
 	  . qq(<span id="chart_$element->{'id'}_percent" style="width:initial"></span></td>)
 	  . q(</tr></tbody></table></div>);
 	$buffer .= $self->_get_title($element);
-	my $unit_id   = $element->{'field'} eq 'f_country' ? 'iso3'                       : 'continent';
-	my $units     = $element->{'field'} eq 'f_country' ? 'units'                      : 'continents';
-	my $merge     = $element->{'field'} eq 'f_country' ? q(data = merge_terms(data);) : q();
+	my $unit_id   = $is_country_field ? 'iso3'                       : 'continent';
+	my $units     = $is_country_field ? 'units'                      : 'continents';
+	my $merge     = $is_country_field ? q(data = merge_terms(data);) : q();
 	my %max_width = (
 		1 => 200,
 		2 => 500,
@@ -3855,7 +3871,7 @@ sub _get_field_breakdown_map_content {
 	my $dataset    = $json->encode($data);
 	my $js_dir     = $self->{'config'}->{'relative_js_dir'} // '/javascript';
 	my $geo_file =
-	  $element->{'field'} eq 'f_country'
+	  $is_country_field
 	  ? "$js_dir/topojson/countries.json"
 	  : "$js_dir/topojson/continents.json";
 	my $freq_key          = $element->{'field'} eq 'f_country' ? 'iso3' : 'name';
