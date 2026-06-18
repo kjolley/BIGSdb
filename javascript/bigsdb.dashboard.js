@@ -85,15 +85,9 @@ $(function() {
 		return false;
 	});
 	$("#dashboard_panel_trigger").show();
-	$(document).mouseup(function(e) {
-		var container = $("#modify_dashboard_panel");
-
-		// if the target of the click isn't the container nor a
-		// descendant of the container
-		if (!container.is(e.target) && container.has(e.target).length === 0 && container.is(':visible')) {
-			container.hide();
-			$("#modal_overlay").removeClass("open");
-		}
+	$('#modal_overlay').on('click', function () {
+	  $('#modify_dashboard_panel').hide();
+	  $(this).removeClass('open');
 	});
 	$("#fill_gaps").change(function() {
 		fill_gaps = $("#fill_gaps").prop('checked');
