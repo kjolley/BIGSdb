@@ -331,7 +331,7 @@ sub _is_country_field {
 
 sub _is_continent_field {
 	my ( $self, $field ) = @_;
-	if ( $field =~ /^e_(.*)\|\|.*continent$/x ) {
+	if ( $field =~ /^e_(.*)\|\|.*continent.*$/x ) {
 		my $linked_field  = $1;
 		my $country_field = $self->{'system'}->{'country_field'} // 'country';
 		return 1 if $linked_field eq $country_field || $self->_is_country_field("f_$linked_field");
