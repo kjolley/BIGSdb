@@ -442,8 +442,9 @@ sub _print_chart_type_controls {
 
 sub has_country_optlist {
 	my ($self) = @_;
-	if ($self->{'xmlHandler'}->is_field('country')){
-		my $thisfield = $self->{'xmlHandler'}->get_field_attributes('country');
+	my $country_field = $self->{'system'}->{'country_field'} // 'country';
+	if ($self->{'xmlHandler'}->is_field($country_field)){
+		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($country_field);
 		return 1 if ($thisfield->{'optlist'} // q()) eq 'yes';
 	}
 	my $atts = $self->{'xmlHandler'}->get_all_field_attributes;

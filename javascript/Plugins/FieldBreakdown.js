@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 
-Version 2.10.1.
+Version 2.11.0.
 */
 
 var prefs_loaded;
@@ -249,9 +249,9 @@ function load_map(url, field) {
     $("#bar_height").off("slidechange");
     var div_width = $("#map").width();
     $("#bb_chart").html("");
-    var unit_id = field == 'f_country' ? 'iso3' : 'continent';
-    var units = field == 'f_country' ? 'units' : 'continents';
-    var geo_file = field == 'f_country'
+    var unit_id = map_fields.includes(field) ? 'iso3' : 'continent';
+    var units = map_fields.includes(field) ? 'units' : 'continents';
+    var geo_file = map_fields.includes(field) 
         ? (js_dir + '/topojson/countries.json')
         : (js_dir + '/topojson/continents.json');
     var theme_colours = {
@@ -289,7 +289,7 @@ function load_map(url, field) {
     var colours = theme_colours[theme];
 
     d3.json(url).then(function(data) {
-        if (field == 'f_country') {
+        if (map_fields.includes(field) ) {
             data = merge_terms(data);
         }
         var range = get_range(data);
