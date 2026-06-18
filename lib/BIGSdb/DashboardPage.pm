@@ -3880,7 +3880,7 @@ sub _get_field_breakdown_map_content {
 	  $is_country_field
 	  ? "$js_dir/topojson/countries.json"
 	  : "$js_dir/topojson/continents.json";
-	my $freq_key          = $element->{'field'} eq 'f_country' ? 'iso3' : 'name';
+	my $freq_key          = $is_country_field ? 'iso3' : 'name';
 	my $palettes          = $self->_get_map_palettes;
 	my $dashboard_palette = $self->_get_palette_name;
 	my $map_palette_name  = $element->{'palette'} // $self->_get_default_colour( $dashboard_palette, 'map' );
