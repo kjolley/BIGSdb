@@ -1253,7 +1253,7 @@ div.smooth_enlarge {
 	transition: width 0.5s
 }
 
-div.reset {
+div.reset, div.restricted {
 	background: #faf7f7;
 	border: 1px solid #eadede;
 }
@@ -2273,10 +2273,6 @@ div#schemes {
 div#projects {
 	background: #f7f8fa;
 	border: 1px solid #e7ebf0;
-}
-
-div#restricted {
-	background: #e0d5d5
 }
 
 div#statuswarn,

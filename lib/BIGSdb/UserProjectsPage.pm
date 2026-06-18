@@ -84,7 +84,7 @@ sub _delete_project {
 			my $plural = $isolates > 1 ? q(s) : q();
 			my $project_name =
 			  $self->{'datastore'}->run_query( 'SELECT short_description FROM projects WHERE id=?', $project_id );
-			say qq(<div class="box" id="restricted"><h2>$project_name</h2>)
+			say qq(<div class="box restricted"><h2>$project_name</h2>)
 			  . qq(<p>This project contains $isolates isolate$plural. Please )
 			  . q(confirm that you wish to remove the project (the isolates in the project will not be deleted).</p>)
 			  . qq(<p><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
