@@ -48,7 +48,7 @@ sub get_attributes {
 		buttontext => 'Fields',
 		menutext   => 'Field breakdown',
 		module     => 'FieldBreakdown',
-		version    => '2.10.2',
+		version    => '2.11.0',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
@@ -100,9 +100,23 @@ sub set_pref_requirements {
 
 sub _has_country_optlist {
 	my ($self) = @_;
-	return if !$self->{'xmlHandler'}->is_field('country');
-	my $thisfield = $self->{'xmlHandler'}->get_field_attributes('country');
-	return $thisfield->{'optlist'} ? 1 : 0;
+	my $country_field = $self->{'system'}->{'country_field'} // 'country';
+	if ( $self->{'xmlHandler'}->is_field($country_field) ) {
+		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($country_field);
+		return 1 if ( $thisfield->{'optlist'} // q() ) eq 'yes';
+	}
+	my $atts = $self->{'xmlHandler'}->get_all_field_attributes;
+	foreach my $field ( keys %$atts ) {
+		return 1 if ( $atts->{$field}->{'country_field'} // q() ) eq 'yes';
+	}
+	return;
+}
+
+sub _is_country_field {
+	my ( $self, $field ) = @_;
+	my $attributes = $self->{'xmlHandler'}->get_field_attributes($field);
+	return 1 if ( $attributes->{'country_field'} // q() ) eq 'yes';
+	return;
 }
 
 sub _export {
@@ -699,7 +713,17 @@ sub _get_fields_js {
 	my $buffer = q(var field_list=) . encode_json($fields) . qq(;\n);
 	$buffer .= qq(\tvar field_types = {@type_values};\n);
 	if ( $self->_has_country_optlist ) {
-		my @map_fields = qw(f_country e_country||continent);
+
+		my @map_fields;
+		my $atts          = $self->{'xmlHandler'}->get_all_field_attributes;
+		my $country_field = $self->{'system'}->{'country_field'} // 'country';
+		foreach my $field ( keys %$atts ) {
+			if ( $field eq $country_field || ( $atts->{$field}->{'country_field'} // q() ) eq 'yes' ) {
+				push @map_fields, qq(f_$field);
+				push @map_fields, qq(e_$field||continent);
+			}
+		}
+
 		local $" = q(',');
 		$buffer .= qq(var map_fields = ['@map_fields'];\n);
 	} else {
@@ -756,9 +780,8 @@ sub _get_schemes_js {
 }
 
 sub get_plugin_javascript {
-	my ($self)              = @_;
-	my $has_valid_countries = $self->_has_country_optlist;
-	my $query_params        = $self->_get_query_params;
+	my ($self) = @_;
+	my $query_params = $self->_get_query_params;
 	local $" = q(&);
 	my $url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=plugin&name=FieldBreakdown);
 	my $plugin_prefs_ajax_url =
@@ -806,7 +829,8 @@ sub _ajax {
 sub _get_field_freqs {
 	my ( $self, $field, $options ) = @_;
 	my ( $needs_conversion, $qry );
-	my $country_field = $self->{'system'}->{'country_field'} // 'country';
+	my $country_field    = $self->{'system'}->{'country_field'} // 'country';
+	my $is_country_field = $field eq $country_field || $self->_is_country_field($field);
 	if ( $options->{'geography_point_lookup'} ) {
 		$qry = "SELECT $country_field,$field AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
 		  . "JOIN id_list i ON v.id=i.value GROUP BY $country_field,label";
@@ -819,7 +843,7 @@ sub _get_field_freqs {
 	my $order = $options->{'order'} ? $options->{'order'} : 'value DESC';
 	$qry .= " ORDER BY $order";
 	my $values = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
-	if ( $field eq $country_field ) {
+	if ($is_country_field) {
 		my $countries = dclone(COUNTRIES);
 		foreach my $value (@$values) {
 			$value->{'iso3'} = $countries->{ $value->{'label'} }->{'iso3'} // q(XXX);

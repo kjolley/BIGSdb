@@ -231,7 +231,7 @@ sub _get_javascript_paths {
 			}
 		};
 		if ( $self->{'pluginJS'} ) {
-			$features->{'pluginJS'} = { src => ["Plugins/$self->{'pluginJS'}"], defer => 1, version => '20260515' };
+			$features->{'pluginJS'} = { src => ["Plugins/$self->{'pluginJS'}"], defer => 1, version => '20260618' };
 		}
 		my %used;
 		foreach my $feature ( keys %$features ) {
