@@ -324,7 +324,17 @@ sub _is_country_field {
 	my ( $self, $field ) = @_;
 	if ( $field =~ /^f_(.*)/x ) {
 		my $attributes = $self->{'xmlHandler'}->get_field_attributes($1);
-		return 1 if ($attributes->{'country_field'} // q()) eq 'yes';
+		return 1 if ( $attributes->{'country_field'} // q() ) eq 'yes';
+	}
+	return;
+}
+
+sub _is_continent_field {
+	my ( $self, $field ) = @_;
+	if ( $field =~ /^e_(.*)\|\|.*continent$/x ) {
+		my $linked_field  = $1;
+		my $country_field = $self->{'system'}->{'country_field'} // 'country';
+		return 1 if $linked_field eq $country_field || $self->_is_country_field("f_$linked_field");
 	}
 	return;
 }
@@ -410,6 +420,7 @@ sub _print_chart_type_controls {
 			   $element->{'field'} eq 'f_country'
 			|| $element->{'field'} eq 'e_country||continent'
 			|| $self->_is_country_field( $element->{'field'} )
+			|| $self->_is_continent_field( $element->{'field'} )
 		)
 		&& $self->has_country_optlist
 	  )
@@ -443,13 +454,13 @@ sub _print_chart_type_controls {
 sub has_country_optlist {
 	my ($self) = @_;
 	my $country_field = $self->{'system'}->{'country_field'} // 'country';
-	if ($self->{'xmlHandler'}->is_field($country_field)){
+	if ( $self->{'xmlHandler'}->is_field($country_field) ) {
 		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($country_field);
-		return 1 if ($thisfield->{'optlist'} // q()) eq 'yes';
+		return 1 if ( $thisfield->{'optlist'} // q() ) eq 'yes';
 	}
 	my $atts = $self->{'xmlHandler'}->get_all_field_attributes;
-	foreach my $field (keys %$atts){
-		return 1 if ($atts->{$field}->{'country_field'} // q()) eq 'yes';
+	foreach my $field ( keys %$atts ) {
+		return 1 if ( $atts->{$field}->{'country_field'} // q() ) eq 'yes';
 	}
 	return;
 }
@@ -3839,10 +3850,10 @@ sub _get_field_breakdown_map_content {
 	if ( !@$data ) {
 		return $self->_print_no_value_content($element);
 	}
-	my $countries = dclone(COUNTRIES);
-	my $is_country_field = $element->{'field'} eq 'f_country' || $self->_is_country_field($element->{'field'});
+	my $countries        = dclone(COUNTRIES);
+	my $is_country_field = $element->{'field'} eq 'f_country' || $self->_is_country_field( $element->{'field'} );
 	foreach my $value (@$data) {
-		if ( $is_country_field ) {
+		if ($is_country_field) {
 			$value->{'iso3'} =
 			  defined $value->{'label'}
 			  ? $countries->{ $value->{'label'} }->{'iso3'} // q(XXX)
