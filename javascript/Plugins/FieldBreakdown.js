@@ -249,9 +249,9 @@ function load_map(url, field) {
     $("#bar_height").off("slidechange");
     var div_width = $("#map").width();
     $("#bb_chart").html("");
-    var unit_id = map_fields.includes(field) ? 'iso3' : 'continent';
-    var units = map_fields.includes(field) ? 'units' : 'continents';
-    var geo_file = map_fields.includes(field) 
+    var unit_id = country_fields.includes(field) ? 'iso3' : 'continent';
+    var units = country_fields.includes(field) ? 'units' : 'continents';
+    var geo_file = country_fields.includes(field) 
         ? (js_dir + '/topojson/countries.json')
         : (js_dir + '/topojson/continents.json');
     var theme_colours = {
@@ -289,7 +289,7 @@ function load_map(url, field) {
     var colours = theme_colours[theme];
 
     d3.json(url).then(function(data) {
-        if (map_fields.includes(field) ) {
+        if (country_fields.includes(field) ) {
             data = merge_terms(data);
         }
         var range = get_range(data);
