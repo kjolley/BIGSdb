@@ -715,25 +715,28 @@ sub _get_fields_js {
 	if ( $self->_has_country_optlist ) {
 
 		my @map_fields;
+		my @country_fields;
 		my $atts          = $self->{'xmlHandler'}->get_all_field_attributes;
 		my $country_field = $self->{'system'}->{'country_field'} // 'country';
 		foreach my $field ( keys %$atts ) {
 			if ( $field eq $country_field || ( $atts->{$field}->{'country_field'} // q() ) eq 'yes' ) {
 				push @map_fields, qq(f_$field);
 				push @map_fields, qq(e_$field||continent);
+				push @country_fields, qq(f_$field);
 			}
 		}
 
 		local $" = q(',');
-		$buffer .= qq(var map_fields = ['@map_fields'];\n);
+		$buffer .= qq(const map_fields = ['@map_fields'];\n);
+		$buffer .= qq(const country_fields = ['@country_fields'];\n);
 	} else {
-		$buffer .= qq(var map_fields = [];\n);
+		$buffer .= qq(const map_fields = [];\n);
 	}
 	if (@geography_lookup_values) {
 		local $" = q(',');
-		$buffer .= qq(var geography_point_lookup_fields = ['@geography_lookup_values'];\n);
+		$buffer .= qq(const geography_point_lookup_fields = ['@geography_lookup_values'];\n);
 	} else {
-		$buffer .= qq(var geography_point_lookup_fields = [];\n);
+		$buffer .= qq(const geography_point_lookup_fields = [];\n);
 	}
 	return $buffer;
 }
