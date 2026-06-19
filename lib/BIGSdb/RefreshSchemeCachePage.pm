@@ -80,7 +80,7 @@ sub _print_interface {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (tooltips jQuery noCache);
+	$self->{$_} = 1 foreach qw (tooltips jQuery noCache select2);
 	$self->set_level1_breadcrumbs;
 	my $q = $self->{'cgi'};
 	$self->{'job_id'} = $q->param('job_id') // BIGSdb::Utils::get_random();
