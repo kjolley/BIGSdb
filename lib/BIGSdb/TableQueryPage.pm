@@ -372,7 +372,8 @@ sub _get_allele_sequences_filters {
 			grid => 1
 		}
 	  );
-	push @$filters, $self->get_filter(
+	push @$filters,
+	  $self->get_filter(
 		'duplicates',
 		[qw (1 2 5 10 25 50)],
 		{
@@ -389,7 +390,7 @@ sub _get_allele_sequences_filters {
 			  . 'been tagged a specified number of times per isolate.',
 			grid => 1
 		}
-	);
+	  );
 	return $filters;
 }
 
@@ -432,9 +433,7 @@ sub _get_dropdown_filter {
 			undef, { fetch => 'col_arrayref' } );
 		@$values = uniq @$values;
 	}
-	my $class = 'filter';
-	$class .= ' search' if @$values >= 10;
-	return $self->get_filter( $att->{'name'}, $values, { labels => $desc, class => $class } );
+	return $self->get_filter( $att->{'name'}, $values, { labels => $desc, grid => 1 } );
 }
 
 sub _get_user_table_values {
