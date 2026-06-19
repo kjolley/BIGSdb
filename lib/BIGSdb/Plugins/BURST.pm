@@ -205,13 +205,15 @@ sub run {
 	say $q->popup_menu( -name => 'grpdef', -value => [@values], -default => 'n-2' );
 	say q(<span class="label">loci to any other member of the group <span class="comment">)
 	  . q([n = number of loci in scheme]</span>.</span></p><p>);
+	say q(<ul><li>);
 	say $q->checkbox( -name => 'shade', -label => 'Shade variant rings', -checked => 1 );
-	say q(<br />);
+	say q(</li><li>);
 	say $q->checkbox(
 		-name    => 'hide',
 		-label   => 'Hide variant names (useful for overview if names start to overlap)',
 		-checked => 0
 	);
+	say q(</li></ul>);
 	say q(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say $q->end_form;
