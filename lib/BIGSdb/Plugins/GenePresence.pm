@@ -700,7 +700,7 @@ function get_config(attribute){
 	var config = {
 		container: document.getElementById('heatmap'),
   		radius: radius,
- 		opacity: 1,
+ 		opacity: 0.6,
   		blur: blur
 	};
 	if (attribute == 'completion'){
