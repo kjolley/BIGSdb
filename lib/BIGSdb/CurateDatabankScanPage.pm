@@ -20,9 +20,9 @@ package BIGSdb::CurateDatabankScanPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::CuratePage);
+use parent            qw(BIGSdb::CuratePage);
 use BIGSdb::Constants qw(:interface);
-use Log::Log4perl qw(get_logger);
+use Log::Log4perl     qw(get_logger);
 use Try::Tiny;
 my $logger = get_logger('BIGSdb.Page');
 
@@ -103,12 +103,14 @@ sub _print_results {
 	my $allele_file = "$self->{'config'}->{'tmp_dir'}/def_$prefix.txt";
 	say q(<div class="box" id="resultspanel" style="display:none"><div class="scrollable">);
 	my ( $text, $excel ) = ( TEXT_FILE, EXCEL_FILE );
-	say qq(<div class="file_output" style="height:150px"><h2>Download table</h2><a href="/tmp/$prefix.txt">)
+	say q(<div class="file_output_with_heading" style="height:150px">) .
+	  qq(<h2>Download table</h2><a href="/tmp/$prefix.txt">)
 	  . qq(<span style="float:left" title="Tab-delimited text format.">$text</span></a>)
 	  . qq(<a href="/tmp/$prefix.xlsx">)
 	  . qq(<span style="float:left;margin-right:1em" title="Excel format.">$excel<span></a>)
 	  . q(<div style="width:90%;margin-top:1em">Suitable for batch upload of loci.</div></div>);
-	say qq(<div class="file_output" style="height:150px"><h2>Download alleles</h2><a href="/tmp/def_$prefix.txt">)
+	say q(<div class="file_output_with_heading" style="height:150px">)
+	  . qq(<h2>Download alleles</h2><a href="/tmp/def_$prefix.txt">)
 	  . qq(<span style="float:left" title="Tab-delimited text format.">$text</span></a>)
 	  . qq(<a href="/tmp/def_$prefix.xlsx">)
 	  . qq(<span style="float:left;margin-right:1em" title="Excel format.">$excel<span></a>)
@@ -203,7 +205,7 @@ sub _print_results {
 			return if $self->{'mod_perl_request'}->connection->aborted;
 		}
 	}
-	print $fh_allele "\n";                                   #Seems to be needed for Excel conversion.
+	print $fh_allele "\n";    #Seems to be needed for Excel conversion.
 	close $fh;
 	close $fh_allele;
 	$table_buffer .= q(</table></div>);

@@ -2479,6 +2479,21 @@ div#onboarding {
 }
 
 div.file_output {
+	display: flex;
+	align-items: center;
+	padding: 10px;
+	border: 1px solid #ccc;
+	border-radius: 10px;
+	box-shadow: 1px 1px 1px #dfdfdf;
+	width: 300px;
+	height: 80px;
+	float: left;
+	margin-right: 1em;
+	margin-bottom: 1em;
+	background: #fcfcfc;
+}
+
+div.file_output_with_heading {
 	padding: 10px;
 	border: 1px solid #ccc;
 	border-radius: 10px;

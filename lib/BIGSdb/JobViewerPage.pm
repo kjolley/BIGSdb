@@ -466,8 +466,8 @@ sub _print_output {
 	my $url  = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . qq(page=job&amp;id=$job->{'id'}&amp;output=archive);
 	push @buffer,
-		qq(<div class="file_output"><a href="$url"><span style="float:left;margin-right:1em">$icon</span></a>)
-	  . q(<div style="width:90%;margin-top:1em">)
+		qq(<div class="file_output"><a href="$url"><span style="margin-right:1em">$icon</span></a>)
+	  . q(<div>)
 	  . qq(<a href="$url">Tar file containing all output files</a>$tar_msg</div></div>)
 	  if $job->{'status'} eq 'finished' && $include_in_tar > 1;
 	if (@buffer) {
