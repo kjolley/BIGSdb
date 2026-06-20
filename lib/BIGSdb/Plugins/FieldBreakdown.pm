@@ -613,11 +613,12 @@ sub _print_line_controls {
 	my $q = $self->{'cgi'};
 	say q(<fieldset id="line_controls" class="bb_controls" )
 	  . q(style="position:absolute;top:1em;right:1em;display:none"><legend>Controls</legend>);
-	say q(<ul>);
-	say q(<li><label for="height">Height:</label>);
-	say q(<div id="line_height" style="display:inline-block;width:8em;margin-left:0.5em"></div></li>);
+	say q(<div class="form_container">);
+	say q(<div class="form_label"><label for="height" class="label">Height:</label></div>);
+	say q(<div class="form_value">);
+	say q(<div id="line_height" style="display:inline-block;width:200px"></div></div>);
 	$self->_print_chart_types;
-	say q(</ul></fieldset>);
+	say q(</div></fieldset>);
 	return;
 }
 
