@@ -134,7 +134,7 @@ $.urlParam = function(name) {
 
 function apply_select2() {
 	if (window.jQuery && $.fn.select2) {
-		$('select:not(.locuslist):not(.widelist):not(.filter):not([multiple])')
+		$('select:not(.locuslist):not(.widelist):not(.filter):not(.no_init_select2):not([multiple])')
 			.not('.select2-hidden-accessible')
 			.each(function() {
 				const $select = $(this);

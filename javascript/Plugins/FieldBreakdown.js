@@ -41,7 +41,7 @@ $(function() {
             marker_colour = prefObj.marker_colour ? prefObj.marker_colour : 'marker_red';
             marker_size = prefObj.marker_size ? prefObj.marker_size : 2;
             projection = prefObj.projection ? prefObj.projection : 'Natural Earth';
-            $("#projection").val(projection);
+            $("#projection").val(projection).trigger("change.select2");
             prefs_loaded = 1;
         })
         .fail(function(response) {
@@ -339,7 +339,7 @@ function load_map(url, field) {
             theme = this.id;
         });
 
-        $("#projection").off("change").change(function() {
+        $("#projection").off("change").on("change", function() {
             d3.selectAll('#map svg, #bb_charts svg').remove();
             projection = $("#projection").val()
             map.projection(projections[projection]).draw(selection);
