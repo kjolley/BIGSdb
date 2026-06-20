@@ -233,6 +233,10 @@ sub _get_field_values {
 sub _get_display_field {
 	my ( $self, $field ) = @_;
 	my $display_field = $field;
+	$display_field =~ s/^f_//x;
+	if ( $display_field =~ /^e.+\|\|(.+)$/x ) {
+		$display_field = $1;
+	}
 	$display_field =~ s/^s_\d+_//x;
 	$display_field =~ s/^.*\.\.//x;
 	$display_field =~ tr/_/ /;
