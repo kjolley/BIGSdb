@@ -440,7 +440,7 @@ sub _print_output {
 		my $text =
 			qq(<div class="file_output"><a href="$url">)
 		  . qq(<span style="float:left;margin-right:1em">$icon</span></a>)
-		  . qq(<div style="width:90%;margin-top:1em"><a href="$url">$link_text</a>);
+		  . qq(<div style="width:90%;margin:5px 0;vertical-align:middle"><a href="$url">$link_text</a>);
 		$text .= qq( - $comments) if $comments;
 		my $size = -s qq($self->{'config'}->{'tmp_dir'}/$output->{$description}) // 0;
 		if ( $size > ( 1024 * 1024 ) ) {    #1Mb

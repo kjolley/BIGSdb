@@ -2483,8 +2483,8 @@ div.file_output {
 	border: 1px solid #ccc;
 	border-radius: 10px;
 	box-shadow: 1px 1px 1px #dfdfdf;
-	min-width: 20em;
-	max-width: 50em;
+	width: 300px;
+	height: 80px;
 	float: left;
 	margin-right: 1em;
 	margin-bottom: 1em;

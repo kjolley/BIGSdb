@@ -103,12 +103,12 @@ sub _print_results {
 	my $allele_file = "$self->{'config'}->{'tmp_dir'}/def_$prefix.txt";
 	say q(<div class="box" id="resultspanel" style="display:none"><div class="scrollable">);
 	my ( $text, $excel ) = ( TEXT_FILE, EXCEL_FILE );
-	say qq(<div class="file_output"><h2>Download table</h2><a href="/tmp/$prefix.txt">)
+	say qq(<div class="file_output" style="height:150px"><h2>Download table</h2><a href="/tmp/$prefix.txt">)
 	  . qq(<span style="float:left" title="Tab-delimited text format.">$text</span></a>)
 	  . qq(<a href="/tmp/$prefix.xlsx">)
 	  . qq(<span style="float:left;margin-right:1em" title="Excel format.">$excel<span></a>)
 	  . q(<div style="width:90%;margin-top:1em">Suitable for batch upload of loci.</div></div>);
-	say qq(<div class="file_output"><h2>Download alleles</h2><a href="/tmp/def_$prefix.txt">)
+	say qq(<div class="file_output" style="height:150px"><h2>Download alleles</h2><a href="/tmp/def_$prefix.txt">)
 	  . qq(<span style="float:left" title="Tab-delimited text format.">$text</span></a>)
 	  . qq(<a href="/tmp/def_$prefix.xlsx">)
 	  . qq(<span style="float:left;margin-right:1em" title="Excel format.">$excel<span></a>)
