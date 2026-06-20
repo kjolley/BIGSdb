@@ -480,7 +480,6 @@ sub _print_map_controls {
 	say q(<div class="form_value">);
 	say $q->popup_menu(
 		-id     => 'projection',
-		-class  => 'no_init_select2',
 		-values => [
 			'Azimuthal Equal Area', 'Conic Equal Area', 'Equirectangular', 'Mercator',
 			'Natural Earth',        'Robinson',         'Stereographic',   'Times',

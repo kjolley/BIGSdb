@@ -339,12 +339,13 @@ function load_map(url, field) {
             theme = this.id;
         });
 
-        $("#projection").off("change").on("change", function() {
+        $("#projection").on("change", function() {
             d3.selectAll('#map svg, #bb_charts svg').remove();
             projection = $("#projection").val()
             map.projection(projections[projection]).draw(selection);
             set_prefs('projection', projection);
-        });
+			$("#projection").val(projection).trigger("change.select2");
+       });
     });
 }
 
