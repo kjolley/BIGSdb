@@ -1077,7 +1077,7 @@ sub _output_file_buffer {
 	say $job_fh $buffer;
 	close $job_fh;
 	$self->{'jobManager'}
-	  ->update_job_output( $job_id, { filename => "$job_id.txt", description => '01_Text output file' } );
+	  ->update_job_output( $job_id, { filename => "$job_id.txt", description => '04_Text output file' } );
 	return;
 }
 
@@ -1436,7 +1436,7 @@ sub _generate_splits {
 			$job_id,
 			{
 				filename    => $splits_img,
-				description => '26_Splits graph (Neighbour-net; SVG format)'
+				description => '01_Splits graph (Neighbour-net; SVG format)'
 			}
 		);
 	}
@@ -1803,7 +1803,7 @@ sub _generate_excel_file {
 
 	if ( -e $excel_file ) {
 		$self->{'jobManager'}
-		  ->update_job_output( $job_id, { filename => "$job_id.xlsx", description => '02_Excel format output' } );
+		  ->update_job_output( $job_id, { filename => "$job_id.xlsx", description => '05_Excel format output' } );
 	}
 	return;
 }

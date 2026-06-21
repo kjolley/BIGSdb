@@ -437,9 +437,10 @@ sub _print_output {
 			$file_type = $1;
 		}
 		my $icon = $icons{$file_type} // MISC_FILE;
+		my $is_image_file = $output->{$description} =~ /\.png$/x || $output->{$description} =~ /\.svg$/x;
+		my $class = $is_image_file ? 'image_file_output' : 'file_output';
 		my $text =
-			qq(<div class="file_output"><a href="$url">)
-		  . qq(<span style="float:left;margin-right:1em">$icon</span></a>)
+			qq(<div class="$class"><a href="$url">$icon</a>)
 		  . qq(<div style="width:90%;margin:5px 0;vertical-align:middle"><a href="$url">$link_text</a>);
 		$text .= qq( - $comments) if $comments;
 		my $size = -s qq($self->{'config'}->{'tmp_dir'}/$output->{$description}) // 0;
@@ -448,9 +449,9 @@ sub _print_output {
 			$text .= qq( ($size_in_MB MB));
 		}
 		$include_in_tar++ if $size < ( 10 * 1024 * 1024 );    #10MB
-		if ( $output->{$description} =~ /\.png$/x || $output->{$description} =~ /\.svg$/x ) {
+		if ( $is_image_file ) {
 			$text .=
-				q(<div style="margin-top:1em;text-align:center">)
+				q(<div>)
 			  . qq(<a href="/tmp/$output->{$description}" data-rel="lightbox-1" class="lightbox" )
 			  . qq(title="$link_text"><img src="/tmp/$output->{$description}" alt="" )
 			  . q(style="max-width:200px;border:1px dashed black" /></a><p>(click to enlarge)</p></div>);
