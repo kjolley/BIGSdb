@@ -23,9 +23,9 @@ use 5.010;
 use parent qw(BIGSdb::TreeViewPage Exporter);
 use BIGSdb::Exceptions;
 use Try::Tiny;
-use Log::Log4perl qw(get_logger);
+use Log::Log4perl   qw(get_logger);
 use List::MoreUtils qw(any uniq);
-use File::Path qw(make_path);
+use File::Path      qw(make_path);
 use JSON;
 use Encode;
 use BIGSdb::Constants qw(LOCUS_PATTERN :interface);
@@ -388,10 +388,10 @@ sub print_analysis_fields_fieldset {
 	my ( $self, $options ) = @_;
 	my $analysis_fields = $self->{'datastore'}->get_analysis_fields;
 	return if !@$analysis_fields;
-    my $q = $self->{'cgi'};
+	my $q = $self->{'cgi'};
 	my ( $values, $labels ) =
 	  $self->get_analysis_field_values_and_labels( { prefix => 'af_', no_blank_value => 1 } );
-	my $legend = 'Analysis fields';
+	my $legend  = 'Analysis fields';
 	my $display = $options->{'hide'} ? 'none' : 'block';
 	say qq(<fieldset id="analysis_fieldset" style="float:left;display:$display"><legend>$legend</legend>);
 	say $q->scrolling_list(
@@ -402,11 +402,12 @@ sub print_analysis_fields_fieldset {
 		-multiple => 'true',
 		-size     => $options->{'size'} // 8
 	);
-    if ( !$options->{'no_all_none'} ) {
-        say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("analysis_fields",true)' )
-          . q(value="All" style="margin-top:1em" class="button" /><input type="button" )
-          . q(onclick='listbox_selectall("analysis_fields",false)' value="None" style="margin:1em 0 0 0.2em" )
-          . q(class="button" /></div>);
+
+	if ( !$options->{'no_all_none'} ) {
+		say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("analysis_fields",true)' )
+		  . q(value="All" style="margin-top:1em" class="button" /><input type="button" )
+		  . q(onclick='listbox_selectall("analysis_fields",false)' value="None" style="margin:1em 0 0 0.2em" )
+		  . q(class="button" /></div>);
 	}
 	say q(</fieldset>);
 	$self->{'analysis_fieldset'} = 1;
@@ -804,25 +805,26 @@ sub print_scheme_fieldset {
 sub print_sequence_filter_fieldset {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	say q(<fieldset style="float:left"><legend>Filter by</legend><ul>);
-	my $buffer = $self->get_sequence_method_filter( { class => 'parameter' } );
-	say qq(<li>$buffer</li>) if $buffer;
-	$buffer = $self->get_project_filter( { class => 'parameter' } );
-	say qq(<li>$buffer</li>) if $buffer;
+	say q(<fieldset style="float:left"><legend>Filter by</legend>);
+	say q(<div class="form_container">);
+	my $buffer = $self->get_sequence_method_filter( { grid => 1 } );
+	say $buffer if $buffer;
+	$buffer = $self->get_project_filter( { grid => 1 } );
+	say $buffer if $buffer;
+
 	if ( $options->{'min_length'} ) {
-		$buffer = $self->get_filter(
+		say $self->get_filter(
 			'min_length',
 			[qw (100 200 500 1000 2000 5000 10000 20000 50000 100000)],
 			{
 				text    => 'Minimum length',
 				tooltip => 'minimum length filter - Only include sequences that are '
 				  . 'longer or equal to the specified length.',
-				class => 'parameter'
+				grid => 1
 			}
 		);
-		say qq(<li>$buffer</li>);
 	}
-	say q(</ul></fieldset>);
+	say q(</div></fieldset>);
 	return;
 }
 
@@ -1174,7 +1176,7 @@ sub get_export_buttons {
 }
 
 sub print_recommended_scheme_fieldset {
-	my ( $self ) = @_;
+	my ($self) = @_;
 	my $schemes =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT id FROM schemes WHERE recommended ORDER BY name', undef, { fetch => 'col_arrayref' } );

@@ -2863,6 +2863,10 @@ function enable_seqs(){
   	\$("a#clear_user_upload").on("click", function(){
   		\$("input#user_upload").val("");
   	});
+  	\$("select.filter").select2({
+		width: '240px',
+		dropdownAutoWidth: true,
+	});
 }
 
 function disable_dismat(){
