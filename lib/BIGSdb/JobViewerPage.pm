@@ -439,8 +439,9 @@ sub _print_output {
 		my $icon = $icons{$file_type} // MISC_FILE;
 		my $is_image_file = $output->{$description} =~ /\.png$/x || $output->{$description} =~ /\.svg$/x;
 		my $class = $is_image_file ? 'image_file_output' : 'file_output';
-		my $text =
-			qq(<div class="$class"><a href="$url">$icon</a>)
+		my $text = qq(<div class="$class"><a href="$url">);
+		$text.= q(<div>) if $is_image_file;
+		$text  .= qq(<span style="float:left;margin-right:1em">$icon</span></a>)
 		  . qq(<div style="width:90%;margin:5px 0;vertical-align:middle"><a href="$url">$link_text</a>);
 		$text .= qq( - $comments) if $comments;
 		my $size = -s qq($self->{'config'}->{'tmp_dir'}/$output->{$description}) // 0;
@@ -448,15 +449,17 @@ sub _print_output {
 			my $size_in_MB = BIGSdb::Utils::decimal_place( $size / ( 1024 * 1024 ), 1 );
 			$text .= qq( ($size_in_MB MB));
 		}
+		$text .= q(</div>);
 		$include_in_tar++ if $size < ( 10 * 1024 * 1024 );    #10MB
 		if ( $is_image_file ) {
 			$text .=
-				q(<div>)
+				q(</div><div style="margin-top:1em;text-align:center">)
 			  . qq(<a href="/tmp/$output->{$description}" data-rel="lightbox-1" class="lightbox" )
 			  . qq(title="$link_text"><img src="/tmp/$output->{$description}" alt="" )
-			  . q(style="max-width:200px;border:1px dashed black" /></a><p>(click to enlarge)</p></div>);
+			  . q(style="max-width:280px;max-height:200px;border:1px dashed black" /></a>)
+			  .q(<p><span class="comment">(click to enlarge)</span></p></div>);
 		}
-		$text .= q(</div></div>);
+		$text .= q(</div>);
 		push @buffer, $text;
 	}
 	my $tar_msg =
