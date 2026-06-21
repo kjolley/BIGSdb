@@ -24,8 +24,8 @@ use 5.010;
 use parent qw(BIGSdb::Plugin);
 use BIGSdb::Exceptions;
 use BIGSdb::Constants qw(:interface);
-use List::MoreUtils qw(uniq);
-use Log::Log4perl qw(get_logger);
+use List::MoreUtils   qw(uniq);
+use Log::Log4perl     qw(get_logger);
 use Try::Tiny;
 use Scalar::Util qw(weaken);
 use constant MAX_DISPLAY_TAXA     => 1000;
@@ -70,6 +70,10 @@ sub get_attributes {
 		image       => '/images/plugins/PCR/screenshot.png'
 	);
 	return \%att;
+}
+
+sub get_initiation_values {
+	return { 'jQuery.jstree' => 1, select2 => 1 };
 }
 
 sub run {
@@ -155,14 +159,14 @@ sub _print_interface {
 		-required    => 'required'
 	);
 	say q(</li><li>);
-	say q(<label for="mismatch1">Allowed mismatches:</label>);
+	say q(<span class="query_block"><label for="mismatch1" class="label">Allowed mismatches:</label>);
 	say $q->popup_menu(
 		-id      => 'mismatch1',
 		-name    => 'mismatch1',
 		-values  => [ 0 .. 20 ],
 		-default => 0
 	);
-	say q(</li></ul>);
+	say q(</span></li></ul>);
 	say q(</fieldset>);
 	say q(<fieldset style="float:left"><legend>Primer 2</legend>);
 	say q(<ul><li>);
@@ -174,18 +178,19 @@ sub _print_interface {
 		-required    => 'required'
 	);
 	say q(</li><li>);
-	say q(<label for="mismatch2">Allowed mismatches:</label>);
+	say q(<span class="query_block"><label for="mismatch2" class="label">Allowed mismatches:</label>);
 	say $q->popup_menu(
 		-id      => 'mismatch2',
 		-name    => 'mismatch2',
 		-values  => [ 0 .. 20 ],
 		-default => 0
 	);
-	say q(</li></ul>);
+	say q(</span></li></ul>);
 	say q(</fieldset>);
 	say q(<fieldset style="float:left"><legend>Reported products</legend>);
-	say q(<ul><li>);
-	say q(<label for="min_length" class="display">Min length:</label>);
+	say q(<div class="form_container">);
+	say q(<div class="form_label"><label for="min_length" class="label">Min length:</label></div>);
+	say q(<div class="form_value">);
 	say $self->textfield(
 		-id    => 'min_length',
 		-name  => 'min_length',
@@ -193,8 +198,9 @@ sub _print_interface {
 		-type  => 'number',
 		-style => 'width:8em'
 	);
-	say q(</li><li>);
-	say q(<label for="max_length" class="display">Max length:</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="max_length" class="label">Max length:</label></div>);
+	say q(<div class="form_value">);
 	say $self->textfield(
 		-id    => 'max_length',
 		-name  => 'max_length',
@@ -202,9 +208,11 @@ sub _print_interface {
 		-type  => 'number',
 		-style => 'width:8em'
 	);
-	say q(</li><li>);
-	say $q->checkbox( -id => 'export', -name => 'export', -label => 'Export sequences' );
-	say q(</li></ul>);
+	say q(</div>);
+	say q(<div class="form_label"><label>Export sequences</label></div>);
+	say q(<div class="form_value">);
+	say $q->checkbox( -id => 'export', -name => 'export', -label => '' );
+	say q(</div></div>);
 	say q(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say $q->hidden($_) foreach qw (page name db);
@@ -250,7 +258,7 @@ sub _validate {
 		my $mismatch1 = BIGSdb::Utils::is_int( scalar $q->param('mismatch1') ) ? $q->param('mismatch1') : 0;
 		if ( 100 * ( $mismatch1 + $primer1_wobble ) / length($primer1) > MAX_MISMATCH_PERCENT ) {
 			push @errors,
-			    'The mismatch setting for primer 1 is too high. This, combined with the number of wobble bases, '
+				'The mismatch setting for primer 1 is too high. This, combined with the number of wobble bases, '
 			  . 'can be no more than '
 			  . MAX_MISMATCH_PERCENT
 			  . '% of the length of the primer.';
@@ -273,7 +281,7 @@ sub _validate {
 		  BIGSdb::Utils::is_int( scalar $q->param('mismatch2') ) ? $q->param('mismatch2') : 0;
 		if ( 100 * ( $mismatch2 + $primer2_wobble ) / length($primer2) > MAX_MISMATCH_PERCENT ) {
 			push @errors,
-			    'The mismatch setting for primer 2 is too high. This, combined with the number of wobble bases, '
+				'The mismatch setting for primer 2 is too high. This, combined with the number of wobble bases, '
 			  . 'can be no more than '
 			  . MAX_MISMATCH_PERCENT
 			  . '% of the length of the primer.';
@@ -402,7 +410,7 @@ sub run_job {
 		} else {
 			my @values = @{ $results->[0] }{qw(seqbin_id length start end direction)};
 			$row_buffer .=
-			    qq(<tr class="td$td"><td rowspan="$num_results">$id</td>)
+				qq(<tr class="td$td"><td rowspan="$num_results">$id</td>)
 			  . qq(<td rowspan="$num_results">$label</td><td rowspan="$num_results">$good</td>)
 			  . qq(<td rowspan="$num_results">$num_results</td><td>@values</td></tr>);
 			for my $i ( 1 .. $num_results - 1 ) {
@@ -493,7 +501,7 @@ sub _parse_results {
 	open( my $fh, '<', $results_file ) || $logger->error("Cannot open $results_file for reading");
 	while ( my $line = <$fh> ) {
 		next if $line !~ /^ipcress:/x;
-		my @values = split /\s/x, $line;
+		my @values  = split /\s/x, $line;
 		my $product = {
 			seqbin_id => $values[1],
 			length    => $values[3],
