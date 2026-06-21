@@ -768,7 +768,7 @@ sub _print_options_fieldset {
 	say q(</div>);
 
 	if ( $self->{'config'}->{'snp_sites_path'} ) {
-		say q(<div class="form_label"><label for="snp_sites">Run SNP-sites</label></div>);
+		say q(<div class="form_label"><label for="snp_sites">Run SNP-sites:</label></div>);
 		say q(<div class="form_value">);
 		say $q->checkbox( -name => 'snp_sites', -id => 'snp_sites', -label => '' );
 		say q(</div>);

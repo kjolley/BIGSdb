@@ -1421,8 +1421,7 @@ sub _generate_splits {
 		{
 			filename    => $nexus_file,
 			description => '20_Distance matrix (Nexus format)|Suitable for loading in to '
-			  . 'SplitsTree. Distances between taxa are calculated as the number of loci '
-			  . 'with different allele sequences.'
+			  . 'SplitsTree.'
 		}
 	);
 	return $dismat if ( keys %{ $data->{'isolate_data'} } ) > MAX_SPLITS_TAXA;
