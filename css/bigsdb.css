@@ -1238,13 +1238,15 @@ img.plugin_image {
 	max-width: 100%;
 	margin-bottom: 1em;
 	border: 1px solid #ccc;
-	box-shadow: 3px 3px 3px #aaa;
+	box-shadow: 1px 1px 1px #dfdfdf;
 }
 
 div.embed_bb_chart {
 	float: left;
 	background: white;
-	box-shadow: 3px 3px 3px #aaa;
+	border: 1px solid #ccc;
+	border-radius: 10px;
+	box-shadow: 1px 1px 1px #dfdfdf;
 	margin-left: 1em;
 	margin-top: 1em;
 }
