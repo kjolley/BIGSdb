@@ -2867,6 +2867,8 @@ function enable_seqs(){
 		width: '240px',
 		dropdownAutoWidth: true,
 	});
+	\$('.select2-selection__choice').removeAttr('title');
+	\$('.select2-selection__rendered').removeAttr('title');
 }
 
 function disable_dismat(){
