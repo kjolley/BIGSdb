@@ -1068,6 +1068,7 @@ sub _submit_alleles {
 		( $loci, $labels ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id, submissions => 1 } );
 	}
 	say q(<fieldset style="float:left;"><legend>Select locus</legend>);
+	unshift @$loci, q();
 	say $q->popup_menu(
 		-name     => 'locus',
 		-id       => 'locus',
