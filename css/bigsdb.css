@@ -1560,8 +1560,9 @@ span.highlightvalue {
 	color: blue
 }
 
+/*Using Courier here because IBM Mono doesn't size &nbsp; correctly!*/
 div.seqmap {
-	font-family: ibm_plex_mono, monospace
+	font-family: 'Courier New', Courier, monospace
 }
 
 .pc10,

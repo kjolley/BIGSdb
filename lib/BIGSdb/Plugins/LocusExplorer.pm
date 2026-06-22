@@ -73,12 +73,6 @@ sub get_plugin_javascript {
  	var url = '$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=plugin&name=LocusExplorer&locus=' + locus_name;
  	location.href=url;
   });
-  \$('#locus').multiselect({
- 		classes: 'filter',
- 		menuHeight: 350,
- 		menuWidth: 400,
- 		selectedList: 1,
-  	}).multiselectfilter();
 });
 function listbox_selectall(listID, isSelect) {
 	var listbox = document.getElementById(listID);
@@ -340,7 +334,7 @@ sub _get_seqs {
 sub _snp {
 	my ( $self, $locus, $allele_ids ) = @_;
 	my $q = $self->{'cgi'};
-	say '<h2>Polymorphic site analysis</h2>';
+	say q(<h2>Polymorphic site analysis</h2>);
 	my $locus_info    = $self->{'datastore'}->get_locus_info($locus);
 	my $seq_count     = $self->_get_seqs( $locus, $allele_ids, { count_only => 1 } );
 	my $max_sequences = MAX_SEQUENCES;
@@ -350,7 +344,7 @@ sub _snp {
 	if ( $seq_count <= MAX_INSTANT_RUN || !$length_varies ) {
 		say q(<div class="box" id="resultspanel">);
 		my $cleaned = $self->clean_locus($locus);
-		say qq(<h2>$cleaned</h2>);
+		say qq(<h3>$cleaned</h3>);
 		my ( $seqs, $seq_file, $prefix ) = $self->_get_seqs( $locus, $allele_ids, { print_status => 1 } );
 		my ( $buffer, $freqs ) = $self->get_snp_schematic( $locus, $seqs, $seq_file, $self->{'prefs'}->{'alignwidth'} );
 		say $buffer;
@@ -539,7 +533,7 @@ sub _get_prop_class {
 sub _site_explorer {
 	my ( $self, $locus ) = @_;
 	my $q = $self->{'cgi'};
-	say q(<h1>Site Explorer</h1>);
+	say q(<h2>Site Explorer</h2>);
 	my $pos       = $q->param('pos');
 	my $temp_file = $q->param('file');
 	if ( !$temp_file || !-e "$self->{'config'}->{'secure_tmp_dir'}/$temp_file" ) {
@@ -549,7 +543,7 @@ sub _site_explorer {
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	say q(<div class="box" id="resultstable">);
 	my $cleaned = $self->clean_locus($locus);
-	say qq(<h2>$cleaned position $pos</h2>);
+	say qq(<h3>$cleaned position $pos</h3>);
 	my %seq;
 	my $seqio_object =
 	  Bio::SeqIO->new( -file => "$self->{'config'}->{'secure_tmp_dir'}/$temp_file", -format => 'fasta' );
@@ -701,7 +695,7 @@ sub _codon {
 sub _translate {
 	my ( $self, $locus, $allele_ids ) = @_;
 	my $q = $self->{'cgi'};
-	say q(<h1>Translate - aligned protein sequences</h1>);
+	say q(<h2>Translate - aligned protein sequences</h2>);
 	if ( !$self->{'config'}->{'emboss_path'} ) {
 		$self->print_bad_status( { message => q(EMBOSS is not installed - function unavailable.), navbar => 1 } );
 		return;
@@ -721,7 +715,7 @@ sub _translate {
 		my $orf = $locus_info->{'orf'} // 1;
 		say q(<div class="box" id="resultspanel"><div class="scrollable">);
 		my $cleaned = $self->clean_locus($locus);
-		say qq(<h2>$cleaned</h2>);
+		say qq(<h3>$cleaned</h3>);
 		say qq(<p>ORF used: $orf</p>);
 		my $plural = $allele_count != 1 ? 's' : '';
 		say q(<p>The width of the alignment can be varied by going to the options page.</p>) if $allele_count > 1;
