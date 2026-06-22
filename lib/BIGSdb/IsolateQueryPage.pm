@@ -4708,14 +4708,19 @@ function render_locuslists(selector, allowClear=true){
 }
 
 function render_widelists(selector){
-	\$(selector).not('.select2-hidden-accessible').filter(':visible').select2({
-		width: '240px',
-		dropdownAutoWidth: true,
-		placeholder: '',
-		allowClear: false
+	\$(selector).not('.select2-hidden-accessible').filter(':visible')
+	.each(function() {
+		const \$select = \$(this);
+		const hasEmptyOption = \$select.find('option[value=""]').length > 0;	
+		\$select.select2({
+			width: '240px',
+			dropdownAutoWidth: true,
+			placeholder: hasEmptyOption ? "" : undefined,
+			allowClear: hasEmptyOption
+		});
+		\$('.select2-selection__choice').removeAttr('title');
+		\$('.select2-selection__rendered').removeAttr('title');
 	});
-	\$('.select2-selection__choice').removeAttr('title');
-	\$('.select2-selection__rendered').removeAttr('title');
 }
 
 function refresh_filters(){

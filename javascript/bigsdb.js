@@ -138,12 +138,15 @@ function apply_select2() {
 			.not('.select2-hidden-accessible')
 			.each(function() {
 				const $select = $(this);
+				const hasEmptyOption = $select.find('option[value=""]').length > 0;	
 				if (!$select.is(':visible') && !$select.hasClass('do_not_calc_width')) {
 					$select.css('width', calcSelectWidth($select) + 'px');
 				}
 				$select.select2({
 					minimumResultsForSearch: 0,
 					dropdownAutoWidth: true,
+					placeholder: hasEmptyOption ? "" : undefined,
+					allowClear: hasEmptyOption
 				});
 			});
 	}

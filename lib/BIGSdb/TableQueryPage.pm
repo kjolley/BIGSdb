@@ -168,10 +168,14 @@ function loadContent(url) {
 }
 
 function render_filters(){
-	\$("select.filter").select2({
-		width: '240px',
-		dropdownAutoWidth: true,
-		placeholder: '',
+	\$("select.filter").each(function () {
+	    const hasEmptyOption = \$(this).find('option[value=""]').length > 0;	
+	    \$(this).select2({
+	    	width: '240px',
+	    	dropdownAutoWidth: true,
+	        placeholder: hasEmptyOption ? "" : undefined,
+	        allowClear: hasEmptyOption
+	    });
 	});
 }
  
