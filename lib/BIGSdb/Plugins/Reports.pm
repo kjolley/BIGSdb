@@ -503,7 +503,7 @@ sub _print_interface {
 			local $" = q(</li><li>);
 			my @reasons;
 			push @reasons, ( $reasons->{$_} // $_ ) foreach @{ $status->{'reasons'} };
-			say q(<div class="file_output disabled">)
+			say q(<div class="report_file_output disabled">)
 			  . qq(<span style="float:left;margin-right:0.2em">$html</span>)
 			  . qq(<span style="float:left;margin-right:1em">$pdf</span>)
 			  . qq(<div style="width:90%;margin-top:0.2em">$desc</div>)
@@ -515,7 +515,7 @@ sub _print_interface {
 		my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;"
 		  . "name=Reports&amp;isolate_id=$isolate_id&amp;report=$template->{'index'}";
 
-		say qq(<div class="file_output"><a href="$url&amp;format=html" target="_blank">)
+		say qq(<div class="report_file_output"><a href="$url&amp;format=html" target="_blank">)
 		  . qq(<span style="float:left;margin-right:0.2em">$html</span></a>)
 		  . qq(<a href="$url&amp;format=pdf"><span style="float:left;margin-right:1em">$pdf</span></a>)
 		  . qq(<div style="width:90%;margin-top:0.2em">$desc);
