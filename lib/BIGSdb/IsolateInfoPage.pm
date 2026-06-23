@@ -131,14 +131,14 @@ sub get_javascript {
 	\$("#show_projects").on("click", function(){
 		\$("div.hide_project").slideDown("fast");
 		\$("div.projects").removeClass("bottom_fade");
-		\$("p#show_projects").hide();
-		\$("p#hide_projects").show();
+		\$("a#show_projects").hide();
+		\$("a#hide_projects").show();
 	});
 	\$("#hide_projects").on("click", function(){
 		\$("div.hide_project").slideUp("fast");
 		\$("div.projects").addClass("bottom_fade");
-		\$("p#show_projects").show();
-		\$("p#hide_projects").hide();
+		\$("a#show_projects").show();
+		\$("a#hide_projects").hide();
 	});
 	\$("#show_refs").on("click", function(){
 		\$("li.hide_ref").slideDown("fast");
@@ -3039,8 +3039,10 @@ sub _print_projects {
 			my $missing = $i - HIDE_PROJECTS;
 			my ( $eye_show, $eye_hide ) = ( EYE_SHOW, EYE_HIDE );
 			$plural = $missing == 1 ? q() : q(s);
-			say qq(<p id="show_projects">$eye_show Show $missing more project$plural<p>);
-			say qq(<p id="hide_projects" style="display:none">$eye_hide Hide extra project$plural</p>);
+			say q(<div style="margin-top:1em"><a id="show_projects" class="button">)
+			  . qq($eye_show Show $missing more project$plural</a>);
+			say q(<a id="hide_projects" class="button" style="display:none">)
+			  . qq($eye_hide Hide extra project$plural</a></div>);
 		}
 		say q(</div>);
 	}
