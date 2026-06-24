@@ -3861,7 +3861,7 @@ sub print_loading_message {
 sub print_warning {
 	my ( $self, $options ) = @_;
 	$options->{'message'} //= 'Warning!';
-	say q(<div class="box statuswarn");
+	say q(<div class="box statuswarn" style="min-height:6em");
 	say q(<p><a><span class="warn fas fa-exclamation fa-5x fa-pull-left"></span></a></p>);
 	say qq(<div style="padding-left:20px"><p class="outcome_message">$options->{'message'}</p>);
 	if ( $options->{'detail'} ) {

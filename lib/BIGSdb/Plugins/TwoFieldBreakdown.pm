@@ -66,7 +66,7 @@ sub get_attributes {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.slimbox' => 1, 'jQuery.tablesort' => 1, 'jQuery.multiselect' => 1, billboard => 1 };
+	return { 'jQuery.slimbox' => 1, 'jQuery.tablesort' => 1, select2 => 1, billboard => 1 };
 }
 
 sub get_hidden_attributes {
@@ -79,13 +79,12 @@ sub get_plugin_javascript {
 	my $buffer = << "END";
 
 \$(function () {
-	\$('#field1,#field2').multiselect({
- 		classes: 'filter',
- 		menuHeight: 350,
- 		menuWidth: 400,
- 		selectedList: 1,
- 		groupsSelectable: false
-  	}).multiselectfilter();
+	\$('#field1,#field2').select2({
+		width: '240px',
+		dropdownAutoWidth: true,
+		placeholder: 'Select field...',
+		allowClear: true
+	});
 });
 
 END
@@ -136,11 +135,22 @@ sub run {
 		push @errors, q(You must select two <em>different</em> fields.);
 	}
 	if ( @errors || @info ) {
-		say q(<div class="box" id="statusbad">);
-		foreach my $msg ( @errors, @info ) {
-			say qq(<p>$msg</p>);
+
+		if (@errors) {
+			$self->print_bad_status(
+				{
+					message => qq(<p>@errors</p>)
+
+				}
+			);
+		} elsif (@info) {
+			$self->print_warning(
+				{
+					message => qq(<p>@info</p>)
+				}
+			);
 		}
-		say q(</div>);
+
 		if (@errors) {
 			$self->_print_interface;
 			return;
@@ -356,7 +366,7 @@ sub _print_interface {
 	unshift @$valid_fields, '';
 	$labels->{''} = 'Select field...';
 	say q(<fieldset style="float:left"><legend>Select fields</legend><ul><li>);
-	say q(<label for="field1">Field 1:</label>);
+	say q(<span class="query_block"><label for="field1" class="label">Field 1:</label>);
 	say $q->popup_menu(
 		-name     => 'field1',
 		-id       => 'field1',
@@ -364,8 +374,8 @@ sub _print_interface {
 		-labels   => $labels,
 		-required => 'required'
 	);
-	say q(</li><li>);
-	say q(<label for="field2">Field 2:</label>);
+	say q(</span></li><li>);
+	say q(<span class="query_block"><label for="field2" class="label">Field 2:</label>);
 	say $q->popup_menu(
 		-name     => 'field2',
 		-id       => 'field2',
@@ -373,7 +383,7 @@ sub _print_interface {
 		-labels   => $labels,
 		-required => 'required'
 	);
-	say q(</li></ul></fieldset>);
+	say q(</span></li></ul></fieldset>);
 	say q(<fieldset style="float:left"><legend>Display</legend>);
 	say $q->radio_group(
 		-name      => 'display',
