@@ -64,7 +64,7 @@ sub get_attributes {
 		order              => 50,
 		system_flag        => 'ContigExport',
 		enabled_by_default => 1,
-		requires => 'seqbin,offline_jobs',    #Offline jobs set to force log in if required for downloads
+		requires => 'seqbin,offline_jobs',                   #Offline jobs set to force log in if required for downloads
 		image    => '/images/plugins/Contigs/screenshot.png'
 	);
 	return \%att;
@@ -72,7 +72,7 @@ sub get_attributes {
 
 sub get_initiation_values {
 	my ($self) = @_;
-	my $values = { 'jQuery.tablesort' => 1 };
+	my $values = { 'jQuery.tablesort' => 1, select2 => 1 };
 
 	my %allowed_formats = map { $_ => 1 } FORMATS;
 	my $q               = $self->{'cgi'};
@@ -367,7 +367,7 @@ sub _print_options_fieldset {
 	my @pc_values = ( 0 .. 100 );
 	say q(<fieldset style="float:left"><legend>Options</legend>);
 	say q(<div class="form_container">);
-	say q(<div class="form_label"><label for="header_list">Header line:</label></div>);
+	say q(<div class="form_label"><label for="header_list" class="label">Header line:</label></div>);
 	say q(<div class="form_value">);
 	say $q->popup_menu(
 		-name   => 'header_list',
