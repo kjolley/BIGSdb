@@ -3632,11 +3632,8 @@ span.query_block .select2-container .select2-selection__arrow {
 }
 
 .select2-container .select2-selection__clear {
-	opacity: 0.5
-}
-
-span.query_block .select2-container .select2-selection__clear {
 	order: 2;
+	opacity: 0.5;
 	margin-top: -3px;
 	height: 100% !important;
 	align-self: center;
