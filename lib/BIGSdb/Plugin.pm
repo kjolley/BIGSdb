@@ -425,8 +425,11 @@ sub print_composite_fields_fieldset {
 		( $labels->{$field} = $field ) =~ tr/_/ /;
 	}
 	my $display = $options->{'hide'} ? 'none' : 'block';
+	my $tooltip = $self->get_tooltip( q(Composite fields - These are constructed from combinations of )
+		  . q(other fields (some of which may come from external databases). Including composite fields )
+		  . q(will slow down the processing.) );
 	say qq(<fieldset id="composite_fieldset" style="float:left;display:$display">)
-	  . q(<legend>Composite fields</legend>);
+	  . qq(<legend>Composite fields$tooltip</legend>);
 	say $self->popup_menu(
 		-name     => 'composite_fields',
 		-id       => 'composite_fields',
@@ -435,9 +438,7 @@ sub print_composite_fields_fieldset {
 		-multiple => 'true',
 		-class    => 'multiselect'
 	);
-	say $self->get_tooltip( q(Composite fields - These are constructed from combinations of )
-		  . q(other fields (some of which may come from external databases). Including composite fields )
-		  . q(will slow down the processing.) );
+	
 	say q(</fieldset>);
 	$self->{'composite_fieldset'} = 1;
 	return;

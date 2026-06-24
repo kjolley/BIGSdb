@@ -405,8 +405,8 @@ sub get_plugin_javascript {
  		menuHeight: 250,
  		menuWidth: 400,
  		selectedList: 8
-  	});
- 	\$('#locus').multiselectfilter();
+  	}).multiselectfilter(
+ 	);
 }); 
 END
 	return $js;
