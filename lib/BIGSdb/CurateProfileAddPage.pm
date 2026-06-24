@@ -561,7 +561,6 @@ sub get_javascript {
   \$("select#field_sender").select2({
 		width: '240px',
 		dropdownAutoWidth: true,
-		minimumResultsForSearch: 20
 	});
 });
 END

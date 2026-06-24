@@ -659,6 +659,10 @@ sub get_javascript {
 	\$('#ignore_similarity,#ignore_length').change(function(){
 		enable_options();
 	});
+	\$("select#sender").select2({
+		width: '240px',
+		dropdownAutoWidth: true,
+	});
 	enable_options();
 });
 function enable_options(){

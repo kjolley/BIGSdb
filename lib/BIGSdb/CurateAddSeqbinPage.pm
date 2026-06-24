@@ -43,7 +43,6 @@ sub get_javascript {
   \$("select#sender").select2({
 		width: '240px',
 		dropdownAutoWidth: true,
-		minimumResultsForSearch: 20
 	});
 });
 END
