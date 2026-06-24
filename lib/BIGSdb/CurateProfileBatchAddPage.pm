@@ -668,7 +668,7 @@ sub _print_interface {
 		-rows     => 20,
 		-columns  => 80,
 		-required => 'required',
-		-style    => 'max-width:85vw'
+		-style    => 'max-width:calc(85vw - 25px)'
 	);
 	say q(</fieldset>);
 	say q(<fieldset style="float:left"><legend>Parameters</legend>);
@@ -715,6 +715,19 @@ sub _is_integer_primary_key {
 	  ->run_query( 'SELECT EXISTS(SELECT * FROM scheme_fields WHERE (scheme_id,type)=(?,?) AND primary_key)',
 		[ $scheme_id, 'integer' ] );
 	return $integer_pk;
+}
+
+sub get_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+\$(function () {
+  \$("select#sender").select2({
+		width: '240px',
+		dropdownAutoWidth: true,
+	});
+});
+END
+	return $buffer;
 }
 
 sub _set_submission_params {
