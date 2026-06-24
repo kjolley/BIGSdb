@@ -2863,16 +2863,14 @@ div.scheme_tree {
 	word-break: break-word
 }
 
-dl.profile,
-dl.locus_combinations {
+dl.profile {
 	margin: 0;
 	display: inline-block;
 	border: 1px solid transparent;
 	text-align: center;
 }
 
-.profile dt,
-.locus_combinations dt {
+.profile dt {
 	margin: 0;
 	padding: 0 0.5em;
 	height: 1.2em;
@@ -2889,8 +2887,7 @@ dl.locus_combinations {
 	text-decoration: none
 }
 
-.profile dd,
-.locus_combinations dd {
+.profile dd {
 	min-height: 1.7em;
 	padding: 0;
 	margin: 0;
