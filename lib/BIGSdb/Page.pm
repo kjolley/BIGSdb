@@ -3422,14 +3422,14 @@ sub print_seqbin_isolate_fieldset {
 				$list_button =
 					q(<input type="button" id="isolate_list_show_button" )
 				  . q(onclick='isolate_list_show()' value="Paste list" )
-				  . qq(style="margin:1em 0 0 0.2em; display:$show_button_display" class="small_submit" />)
+				  . qq(style="margin:1em 0 0 0.2em; display:$show_button_display" class="button" />)
 				  . q(<input type="button" id="isolate_list_hide_button" onclick='isolate_list_hide()' value="Hide list" )
-				  . qq(style="margin:1em 0 0 0.2em; display:$hide_button_display" class="small_submit" />);
+				  . qq(style="margin:1em 0 0 0.2em; display:$hide_button_display" class="button" />);
 			}
 			say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("isolate_id",true)' )
-			  . q(value="All" style="margin-top:1em" class="small_submit" />)
+			  . q(value="All" style="margin-top:1em" class="button" />)
 			  . q(<input type="button" onclick='listbox_selectall("isolate_id",false)' value="None" )
-			  . qq(style="margin:1em 0 0 0.2em" class="small_submit" />$list_button</div></div>);
+			  . qq(style="margin:1em 0 0 0.2em" class="button" />$list_button</div></div>);
 			if ( $options->{'isolate_paste_list'} ) {
 				my $display = $q->param('isolate_paste_list') ? 'block' : 'none';
 				say qq(<div id="isolate_paste_list_div" style="float:left; display:$display">);
