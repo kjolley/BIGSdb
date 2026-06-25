@@ -3427,7 +3427,7 @@ sub print_seqbin_isolate_fieldset {
 				  . qq(style="margin:1em 0 0 0.2em; display:$hide_button_display" class="button" />);
 			}
 			say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("isolate_id",true)' )
-			  . q(value="All" style="margin-top:1em" class="button" />)
+			  . q(value="All" style="margin:1em 0 0 0.2em" class="button" />)
 			  . q(<input type="button" onclick='listbox_selectall("isolate_id",false)' value="None" )
 			  . qq(style="margin:1em 0 0 0.2em" class="button" />$list_button</div></div>);
 			if ( $options->{'isolate_paste_list'} ) {
