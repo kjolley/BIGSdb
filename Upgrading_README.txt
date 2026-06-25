@@ -58,6 +58,7 @@ Version 1.49: Change of authentication database structure.
 Version 1.50: Change of isolate database structure.
 Version 1.51: Change of seqdef, isolate, auth, and users database structures.
 Version 1.52: Change of seqdef database structure.
+Version 1.53: Change of auth database structure.
 
 Details can be found below.
 
@@ -711,3 +712,9 @@ in submissions, optionally hiding scheme curators, and to add missing foreign
 keys to the dna_mutations and peptide_mutations tables.
 
 Please run the seqdefdb_v1.52.sql against seqdef databases.
+
+Version 1.53
+------------
+There are changes to the auth database to support personal API keys.
+
+Please run the auth_v1.53.sql script against the auth database.
