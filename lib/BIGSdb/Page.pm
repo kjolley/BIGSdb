@@ -180,10 +180,9 @@ sub _get_javascript_paths {
 			push @$js, { src => "$relative_js_path/cookieconsent.min.js", defer => 1 };
 		}
 		my $features = {
-			'jQuery.tablesort'      => { src => [qw(jquery.tablesorter.js)],        defer => 1, version => '20200308' },
-			'jQuery.jstree'         => { src => [qw(jquery.jstree.js)],             defer => 1, version => '20200308' },
-			'jQuery.coolfieldset'   => { src => [qw(jquery.coolfieldset.js)],       defer => 1, version => '20200308' },
-			'jQuery.slimbox'        => { src => [qw(jquery.slimbox2.js)],           defer => 1, version => '20200308' },
+			'jQuery.tablesort'    => { src => [qw(jquery.tablesorter.js)],  defer => 1, version => '20200308' },
+			'jQuery.jstree'       => { src => [qw(jquery.jstree.js)],       defer => 1, version => '20200308' },
+			'jQuery.coolfieldset' => { src => [qw(jquery.coolfieldset.js)], defer => 1, version => '20200308' },
 			'jQuery.columnizer'     => { src => [qw(jquery.columnizer.js)],         defer => 1, version => '20200308' },
 			'jQuery.fonticonpicker' => { src => [qw(jquery.fonticonpicker.min.js)], defer => 1, version => '20210719' },
 			'modal'                 => { src => [qw(jquery.modal.min.js)],          defer => 1, version => '20210624' },
@@ -193,10 +192,11 @@ sub _get_javascript_paths {
 				defer   => 1,
 				version => '20240303'
 			},
-			'select2'  => { src => [qw(select2.min.js)], defer => 1, version => '4.1.0-rc.0' },
-			'packery'  => { src => [qw(packery.min.js)], defer => 1, version => '20210620' },
-			'muuri'    => { src => [qw(muuri.min.js)],   defer => 1, version => '20210620' },
-			'dropzone' => { src => [qw(dropzone.js)],    defer => 0, version => '20200308' },
+			'lightbox' => { src => [qw(lightbox.min.js)], defer => 1, version => '2.12.0' },
+			'select2'  => { src => [qw(select2.min.js)],  defer => 1, version => '4.1.0-rc.0' },
+			'packery'  => { src => [qw(packery.min.js)],  defer => 1, version => '20210620' },
+			'muuri'    => { src => [qw(muuri.min.js)],    defer => 1, version => '20210620' },
+			'dropzone' => { src => [qw(dropzone.js)],     defer => 0, version => '20200308' },
 
 			#See https://dolmenweb.it/viewers/openlayer/doc/tutorials/custom-builds.html
 			'ol' => { src => [qw(ol-custom.js bigsdb.openlayers.min.js)], defer => 0, version => '9.2.4#20240530' },
@@ -866,6 +866,7 @@ sub _get_stylesheets {
 	push @filenames, qw(d3.geomap.css)                                        if $self->{'geomap'};
 	push @filenames, qw(jquery.modal.min.css)                                 if $self->{'modal'};
 	push @filenames, qw(ol.css)                                               if $self->{'ol'};
+	push @filenames, qw(lightbox.min.css)                                     if $self->{'lightbox'};
 	push @filenames, qw(jquery.fonticonpicker.min.css jquery.fonticonpicker.darkgrey.min.css)
 	  if $self->{'jQuery.fonticonpicker'};
 
@@ -1953,7 +1954,7 @@ sub get_filter {
 		-id     => $id,
 		-values => $values,
 		-labels => $options->{'labels'},
-		-style => $options->{'style'},
+		-style  => $options->{'style'},
 		-class  => $class,
 	);
 	if ( $options->{'multiple'} ) {
