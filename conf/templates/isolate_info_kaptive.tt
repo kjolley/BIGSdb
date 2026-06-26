@@ -34,9 +34,9 @@ svg {max-width:100%;min-width:800px;height:auto}
 [% FOREACH db IN Kaptive.results.data.keys.sort %]
 	[% IF Kaptive.results.data.$db.svg %]
 		<h4>[% db_names.$db %]</h4>
-		<div style="min-width:400px;overflow-x:auto">
+		<div style="max-width:800px;"><img>
 		[% Kaptive.results.data.$db.svg %]
-		</div>
+		</img></div>
 	[% END %]
 [% END %]
 

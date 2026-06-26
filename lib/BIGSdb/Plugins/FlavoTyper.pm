@@ -24,10 +24,13 @@ use 5.010;
 use parent qw(BIGSdb::Plugin);
 use BIGSdb::Exceptions;
 use List::MoreUtils qw(uniq);
+use MIME::Base64    qw(encode_base64);
+use Encode qw(decode_utf8);
 use IPC::Open3;
-use Symbol        qw(gensym);
-use File::Path    qw(rmtree);
+use Symbol     qw(gensym);
+use File::Path qw(rmtree);
 use File::Copy;
+use JSON;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant MAX_RECORDS    => 1000;
@@ -233,13 +236,14 @@ sub run_job {
 		}
 		last if $self->{'exit'};
 		my $png_file =
-		  "$self->{'config'}->{'secure_tmp_dir'}/${job_id}/id-${isolate_id}_locus_analysis/id-${isolate_id}_locus_map.png";
-		  $logger->error($png_file);
+			"$self->{'config'}->{'secure_tmp_dir'}/${job_id}/id-${isolate_id}_locus_analysis/"
+		  . "id-${isolate_id}_locus_map.png";
 		if ( @$isolate_ids == 1 && -e $png_file ) {
-			copy($png_file, $self->{'config'}->{'tmp_dir'});
-			$self->{'jobManager'}
-	  ->update_job_output( $job_id, { filename => "id-${isolate_id}_locus_map.png", description => '30_Locus map (png format)' } );
+			copy( $png_file, $self->{'config'}->{'tmp_dir'} );
+			$self->{'jobManager'}->update_job_output( $job_id,
+				{ filename => "id-${isolate_id}_locus_map.png", description => '01_Locus map (png format)' } );
 		}
+		$self->_store_results( $isolate_id, $out_dir );
 	}
 	$self->{'jobManager'}
 	  ->update_job_output( $job_id, { filename => "$job_id.txt", description => '10_Results (Text format)' } );
@@ -256,6 +260,46 @@ sub run_job {
 	}
 
 	#rmtree($out_dir);
+}
+
+sub _store_results {
+	my ( $self, $isolate_id, $out_dir ) = @_;
+	
+	my $results = {};
+	my $output_file = qq(${out_dir}typing_results.jsonl);
+	if ( -e $output_file ) {
+		my $contents_ref = BIGSdb::Utils::slurp($output_file);
+		eval { $results = decode_json($$contents_ref); };
+		$logger->error($@) if $@;
+	}
+	my $version     = $self->_get_flavotyper_version;
+	$results->{'version'} = $version;
+	my $img_file = qq(${out_dir}id-${isolate_id}_locus_analysis/id-${isolate_id}_locus_map.png);
+	if ( -e $img_file ) {
+		my $file_contents = BIGSdb::Utils::slurp($img_file);
+		my $b64           = encode_base64($$file_contents);
+		$results->{'image'} = $b64;
+	}
+	my $json      = encode_json($results);
+	my $json_text = decode_utf8($json);
+	$logger->error($json_text);
+	eval {
+		$self->{'db'}
+		  ->do( 'DELETE FROM analysis_results WHERE (isolate_id,name)=(?,?)', undef, $isolate_id, 'FlavoTyper' );
+		$self->{'db'}->do( 'INSERT INTO analysis_results (name,isolate_id,results) VALUES (?,?,?)',
+			undef, 'FlavoTyper', $isolate_id, $json_text );
+		$self->{'db'}->do(
+			'INSERT INTO last_run (name,isolate_id) VALUES (?,?) ON '
+			  . 'CONFLICT (name,isolate_id) DO UPDATE SET timestamp = now()',
+			undef, 'FlavoTyper', $isolate_id
+		);
+	};
+	if ($@) {
+		$logger->error($@);
+		$self->{'db'}->rollback;
+	} else {
+		$self->{'db'}->commit;
+	}
 }
 
 sub _append_text_output {
@@ -399,7 +443,7 @@ sub _get_flavotyper_version {
 		}
 		$version = $out;
 	};
-	$logger->error($@) if $@;
+	chomp $version;
 	return $version;
 }
 

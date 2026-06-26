@@ -1,0 +1,8 @@
+[% # Template file for outputting formatted FlavoTyper analysis in the isolate information page. %]
+[% IF FlavoTyper %]
+<h3>FlavoTyper</h3>
+<div class="scrollable">
+
+<p style="font-size:0.8em"><em>Analysis performed: [% FlavoTyper.datestamp %]</em>; [% FlavoTyper.results.version %]</p>
+</div>
+[% END %]

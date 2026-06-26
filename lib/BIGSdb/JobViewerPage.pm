@@ -68,7 +68,7 @@ sub initiate {
 		$self->{'noCache'}    = 1;
 		return;
 	} else {
-		$self->{$_} = 1 foreach qw(jQuery jQuery.slimbox jQuery.tablesort packery noCache allowExpand);
+		$self->{$_} = 1 foreach qw(jQuery jQuery.tablesort packery lightbox noCache allowExpand);
 	}
 	$self->set_level1_breadcrumbs;
 	return if !defined $id;
@@ -454,8 +454,8 @@ sub _print_output {
 		if ( $is_image_file ) {
 			$text .=
 				q(</div><div style="margin-top:1em;text-align:center">)
-			  . qq(<a href="/tmp/$output->{$description}" data-rel="lightbox-1" class="lightbox" )
-			  . qq(title="$link_text"><img src="/tmp/$output->{$description}" alt="" )
+			  . qq(<a href="/tmp/$output->{$description}" data-lightbox="lightbox-1"  )
+			  . qq(data-title="$link_text"><img src="/tmp/$output->{$description}" alt="" )
 			  . q(style="max-width:280px;max-height:200px;border:1px dashed black" /></a>)
 			  .q(<p><span class="comment">(click to enlarge)</span></p></div>);
 		}
