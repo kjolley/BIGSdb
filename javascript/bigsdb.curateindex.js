@@ -55,37 +55,33 @@ $(function() {
 
 	$('a#toggle_all_curator_methods').click(function(event) {
 		event.preventDefault();
-		$(this).attr('href', function() {
-			$('#all_curator_methods_off').toggle();
-			$('#all_curator_methods_on').toggle();
-			$("div.curategroup[data-type='curator']").hide();
-			$("div.grid[data-type='curator']").each(function(index, element) {
+		$('#all_curator_methods_off').toggle();
+		$('#all_curator_methods_on').toggle();
+		$("div.curategroup[data-type='curator']").hide();
+		$("div.grid[data-type='curator']").each(function(index, element) {
 
-				let packery = Packery.data(element);
-				if (packery) {
-					packery.destroy();
-				}
-			});
-			if ($('#all_curator_methods_on').is(":visible")) {
-				$("#toggle_all_curator_methods").addClass("toggle_on");
-				render_expanded_curator_grid();
-			} else {
-				$("h3.curator_heading").hide();
-				$("#toggle_all_curator_methods").removeClass("toggle_on");
-				render_contracted_curator_grid();
+			let packery = Packery.data(element);
+			if (packery) {
+				packery.destroy();
 			}
-			$.ajax({
-				url: this.href,
-				cache: false,
-			});
+		});
+		if ($('#all_curator_methods_on').is(":visible")) {
+			$("#toggle_all_curator_methods").addClass("toggle_on");
+			render_expanded_curator_grid();
+		} else {
+			$("h3.curator_heading").hide();
+			$("#toggle_all_curator_methods").removeClass("toggle_on");
+			render_contracted_curator_grid();
+		}
+		$.ajax({
+			url: this.href,
+			cache: false,
 		});
 	});
 	$('a#toggle_all_admin_methods').click(function(event) {
 		event.preventDefault();
-		$(this).attr('href', function() {
-			$('#all_admin_methods_off').toggle();
-			$('#all_admin_methods_on').toggle();
-		});
+		$('#all_admin_methods_off').toggle();
+		$('#all_admin_methods_on').toggle();
 		var categories = ["locus", "scheme", "set", "client", "field", "misc"];
 		if ($('#all_admin_methods_on').is(':visible')) {
 			for (var i = 0; i < categories.length; i++) {
@@ -215,55 +211,53 @@ function render_expanded_curator_grid() {
 function bind_toggle(cat) {
 	$('a#toggle_' + cat + '_methods').click(function(event) {
 		event.preventDefault();
-		$(this).attr('href', function() {
-			$('#' + cat + '_methods_off').toggle(0);
-			$('#' + cat + '_methods_on').toggle(0, function() {
-				admin_cat = cat.replace("_admin", "");
-				console.log(admin_cat)
-				if ($('#' + cat + '_methods_on').is(":visible")) {
-					$("h3#admin_heading_" + admin_cat).show();
-					$('#toggle_' + cat + '_methods').addClass("toggle_on");
-					$("div#" + cat).show();
-					$("div#" + cat).packery("layout");
-				} else {
-					$("h3#admin_heading_" + admin_cat).hide();
-					$('#toggle_' + cat + '_methods').removeClass("toggle_on");
-					$("div#" + cat).hide();
+		$('#' + cat + '_methods_off').toggle(0);
+		$('#' + cat + '_methods_on').toggle(0, function() {
+			admin_cat = cat.replace("_admin", "");
+			console.log(admin_cat)
+			if ($('#' + cat + '_methods_on').is(":visible")) {
+				$("h3#admin_heading_" + admin_cat).show();
+				$('#toggle_' + cat + '_methods').addClass("toggle_on");
+				$("div#" + cat).show();
+				$("div#" + cat).packery("layout");
+			} else {
+				$("h3#admin_heading_" + admin_cat).hide();
+				$('#toggle_' + cat + '_methods').removeClass("toggle_on");
+				$("div#" + cat).hide();
+			}
+			var categories = ["locus", "scheme", "set", "client", "field", "misc"];
+			var all_hidden = 1;
+			var all_shown = 1;
+			for (var i = 0; i < categories.length; i++) {
+				if ($('#' + categories[i] + '_admin_methods_on').is(':visible')) {
+					all_hidden = 0;
 				}
-				var categories = ["locus", "scheme", "set", "client", "field", "misc"];
-				var all_hidden = 1;
-				var all_shown = 1;
-				for (var i = 0; i < categories.length; i++) {
-					if ($('#' + categories[i] + '_admin_methods_on').is(':visible')) {
-						all_hidden = 0;
-					}
-					if ($('#' + categories[i] + '_admin_methods_off').is(':visible')) {
-						all_shown = 0;
-					}
+				if ($('#' + categories[i] + '_admin_methods_off').is(':visible')) {
+					all_shown = 0;
 				}
-				if (all_hidden) {
-					$('#all_admin_methods_off').css('display', 'inline');
-					$('#all_admin_methods_on').css('display', 'none');
-					$('a#toggle_all_admin_methods').removeClass("toggle_on");
-				} else {
-					$('#all_admin_methods_on').css('display', 'inline');
-					$('#all_admin_methods_off').css('display', 'none');
-					$('a#toggle_all_admin_methods').addClass("toggle_on");
-				}
-				if (all_shown) {
-					$('#all_admin_methods_on').css('display', 'inline');
-					$('#all_admin_methods_off').css('display', 'none');
-					$('a#toggle_all_admin_methods').addClass("toggle_on");
-				} else {
-					$('#all_admin_methods_off').css('display', 'inline');
-					$('#all_admin_methods_on').css('display', 'none');
-					$('a#toggle_all_admin_methods').removeClass("toggle_on");
-				}
-			});
-			$.ajax({
-				url: this.href,
-				cache: false,
-			});
+			}
+			if (all_hidden) {
+				$('#all_admin_methods_off').css('display', 'inline');
+				$('#all_admin_methods_on').css('display', 'none');
+				$('a#toggle_all_admin_methods').removeClass("toggle_on");
+			} else {
+				$('#all_admin_methods_on').css('display', 'inline');
+				$('#all_admin_methods_off').css('display', 'none');
+				$('a#toggle_all_admin_methods').addClass("toggle_on");
+			}
+			if (all_shown) {
+				$('#all_admin_methods_on').css('display', 'inline');
+				$('#all_admin_methods_off').css('display', 'none');
+				$('a#toggle_all_admin_methods').addClass("toggle_on");
+			} else {
+				$('#all_admin_methods_off').css('display', 'inline');
+				$('#all_admin_methods_on').css('display', 'none');
+				$('a#toggle_all_admin_methods').removeClass("toggle_on");
+			}
+		});
+		$.ajax({
+			url: this.href,
+			cache: false,
 		});
 
 	});
